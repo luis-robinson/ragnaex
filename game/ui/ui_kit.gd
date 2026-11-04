@@ -11,6 +11,11 @@ const GOLD := Color(1.0, 0.85, 0.4)
 const QUEST_GOLD := Color(1.0, 0.82, 0.15)
 const QUEST_LOCKED := Color(0.62, 0.62, 0.66)
 const QUEST_REPEAT := Color(0.35, 0.75, 1.0)        # repetível: azul
+const SLOT_BG := Color(0.05, 0.045, 0.07, 0.9)     # quadrado vazio de bolsa/loja/depósito
+const SLOT_EDGE := Color(0.22, 0.2, 0.27)
+const DIM := Color(0.55, 0.55, 0.6)                 # item que não dá para pegar/trocar agora
+const HINT_OK := "#9f9"                             # dica de ação nas tooltips (bbcode)
+const HINT_BAD := "#f99"
 
 ## Símbolo e cor de um marcador de QuestSystem.npc_marker (mesma aparência na cabeça e no minimapa).
 static func quest_mark_text(mark: String) -> String:
@@ -191,6 +196,83 @@ static func _icon_or_square(file: String, color: Color, size: int) -> Control:
 	t.custom_minimum_size = Vector2(size, size)
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return t
+
+## Célula de item (ícone com a moldura da raridade) que recebe o mouse; `tint` apaga quando não dá.
+static func icon_cell(it: ItemDef, px: int, tint: Color = Color.WHITE) -> Control:
+	var cell := Control.new()
+	cell.custom_minimum_size = Vector2(px, px)
+	cell.mouse_filter = Control.MOUSE_FILTER_STOP
+	var ic := item_icon(it, px)
+	ic.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ic.modulate = tint
+	cell.add_child(ic)
+	return cell
+
+## Texto pequeno alinhado à direita num canto da célula (quantidade em cima/embaixo, preço embaixo).
+static func corner_label(cell: Control, text: String, px: int, top: bool, color: Color = TEXT) -> Label:
+	var c := label(text, 11, color)
+	c.position = Vector2(2, 1 if top else px - 16)
+	c.size = Vector2(px - 4, 14)
+	c.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cell.add_child(c)
+	return c
+
+## Quadrado vazio (completa a grade).
+static func empty_slot(px: int) -> Panel:
+	var empty := Panel.new()
+	empty.custom_minimum_size = Vector2(px, px)
+	empty.add_theme_stylebox_override("panel", panel_style(SLOT_BG, SLOT_EDGE, 4, 1))
+	return empty
+
+## Grade de células com o mesmo espaço nas duas direções.
+static func grid(cols: int, sep: int) -> GridContainer:
+	var g := GridContainer.new()
+	g.columns = cols
+	g.add_theme_constant_override("h_separation", sep)
+	g.add_theme_constant_override("v_separation", sep)
+	return g
+
+## Palco 3D de prévia de personagem (ficha e criação): SubViewport com mundo próprio, luz principal + contraluz,
+## fundo transparente. O SubViewport é o filho 0 do container; o boneco entra nele.
+static func preview_stage(size: Vector2, cam_from: Vector3, cam_to: Vector3, glow: bool) -> SubViewportContainer:
+	var cont := SubViewportContainer.new()
+	cont.stretch = true
+	cont.custom_minimum_size = size
+	var vp := SubViewport.new()
+	vp.own_world_3d = true
+	vp.transparent_bg = true
+	vp.msaa_3d = Viewport.MSAA_4X
+	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	cont.add_child(vp)
+	var env := WorldEnvironment.new()
+	var e := Environment.new()
+	e.background_mode = Environment.BG_CLEAR_COLOR
+	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	e.ambient_light_color = Color(0.85, 0.85, 1.0)
+	e.ambient_light_energy = 0.35
+	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	if glow:
+		e.glow_enabled = true
+		e.glow_intensity = 0.15
+	e.tonemap_exposure = 0.9
+	env.environment = e
+	vp.add_child(env)
+	var sun := DirectionalLight3D.new()
+	sun.rotation_degrees = Vector3(-35, 35, 0)
+	sun.light_energy = 0.75
+	vp.add_child(sun)
+	var rim := DirectionalLight3D.new()
+	rim.rotation_degrees = Vector3(-20, 200, 0)
+	rim.light_energy = 0.3
+	rim.light_color = Color(0.7, 0.8, 1.0)
+	vp.add_child(rim)
+	var cam := Camera3D.new()
+	cam.fov = 30.0
+	vp.add_child(cam)
+	cam.look_at_from_position(cam_from, cam_to, Vector3.UP)
+	return cont
 
 static func color_square(color: Color, size: int = 40) -> ColorRect:
 	var c := ColorRect.new()

@@ -113,27 +113,22 @@ func _relic(body: VBoxContainer) -> void:
 		var cost: int = Sim.relic_cost(by_lv[lv][0])
 		var head := UiKit.label("Nível %d — %d moeda%s" % [lv, cost, "s" if cost > 1 else ""], 13, UiKit.GOLD if p.level >= lv else Color(1.0, 0.62, 0.5))
 		body.add_child(head)
-		var grid := GridContainer.new()
-		grid.columns = 12
-		grid.add_theme_constant_override("h_separation", 4)
-		grid.add_theme_constant_override("v_separation", 4)
+		var grid := UiKit.grid(12, 4)
 		body.add_child(grid)
 		var items: Array = by_lv[lv]
 		items.sort_custom(func(a, b): return a.name < b.name)
 		for it in items:
 			var why := Sim.relic_block_reason(p, it.id)
-			var cell := Control.new()
-			cell.custom_minimum_size = Vector2(46, 46)
-			cell.mouse_filter = Control.MOUSE_FILTER_STOP
-			var ic := UiKit.item_icon(it, 46)
-			ic.set_anchors_preset(Control.PRESET_FULL_RECT)
-			ic.modulate = Color.WHITE if why == "" else Color(0.55, 0.55, 0.6)
-			cell.add_child(ic)
+			var cell := UiKit.icon_cell(it, 46, Color.WHITE if why == "" else UiKit.DIM)
 			var hint: String = ("[color=#9f9]Clique: trocar por %d moeda%s[/color]" % [cost, "s" if cost > 1 else ""]) if why == "" else ("[color=#f99]%s[/color]" % why.capitalize())
-			cell.mouse_entered.connect(func(): hud.windows_script._show_tip(UiKit.item_tooltip(it) + "\n" + hint))
-			cell.mouse_exited.connect(hud.windows_script._hide_tip)
+			_tip(cell, func(): return UiKit.item_tooltip(it) + "\n" + hint)
 			cell.gui_input.connect(_on_relic_click.bind(it.id))
 			grid.add_child(cell)
+
+## Dica ao passar o mouse: texto pronto ou Callable que monta o texto na hora.
+func _tip(c: Control, tip: Variant) -> void:
+	c.mouse_entered.connect(func(): hud.windows_script.show_tip(tip.call() if tip is Callable else str(tip)))
+	c.mouse_exited.connect(hud.windows_script.hide_tip)
 
 func _on_relic_click(ev: InputEvent, item_id: String) -> void:
 	if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
@@ -153,10 +148,7 @@ func _storage(body: VBoxContainer) -> void:
 func _store_side(title: String, items: Dictionary, from_bag: bool) -> Control:
 	var v := VBoxContainer.new()
 	v.add_child(UiKit.label(title, 14, UiKit.GOLD))
-	var grid := GridContainer.new()
-	grid.columns = 7
-	grid.add_theme_constant_override("h_separation", 4)
-	grid.add_theme_constant_override("v_separation", 4)
+	var grid := UiKit.grid(7, 4)
 	v.add_child(grid)
 	var ids := items.keys()
 	ids.sort_custom(func(a, b): return GameData.items[a].name < GameData.items[b].name)
@@ -164,29 +156,15 @@ func _store_side(title: String, items: Dictionary, from_bag: bool) -> Control:
 		var it: ItemDef = GameData.items.get(iid)
 		if it == null:
 			continue
-		var cell := Control.new()
-		cell.custom_minimum_size = Vector2(40, 40)
-		cell.mouse_filter = Control.MOUSE_FILTER_STOP
-		var ic := UiKit.item_icon(it, 40)
-		ic.set_anchors_preset(Control.PRESET_FULL_RECT)
-		cell.add_child(ic)
+		var cell := UiKit.icon_cell(it, 40)
 		var n := int(items[iid])
 		if n > 1:
-			var c := UiKit.label(str(n), 11, UiKit.TEXT)
-			c.position = Vector2(2, 24)
-			c.size = Vector2(36, 14)
-			c.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-			c.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			cell.add_child(c)
-		cell.mouse_entered.connect(func(): hud.windows_script._show_tip(UiKit.item_tooltip(it) + "\n[color=#9f9]x%d · clique: leva tudo · Shift: leva 1[/color]" % n))
-		cell.mouse_exited.connect(hud.windows_script._hide_tip)
+			UiKit.corner_label(cell, str(n), 40, false)
+		_tip(cell, func(): return UiKit.item_tooltip(it) + "\n[color=#9f9]x%d · clique: leva tudo · Shift: leva 1[/color]" % n)
 		cell.gui_input.connect(_on_store_click.bind(str(iid), from_bag))
 		grid.add_child(cell)
 	for i in range(maxi(0, 21 - ids.size())):
-		var empty := Panel.new()
-		empty.custom_minimum_size = Vector2(40, 40)
-		empty.add_theme_stylebox_override("panel", UiKit.panel_style(Color(0.05, 0.045, 0.07, 0.9), Color(0.22, 0.2, 0.27), 4, 1))
-		grid.add_child(empty)
+		grid.add_child(UiKit.empty_slot(40))
 	return v
 
 func _on_store_click(ev: InputEvent, item_id: String, from_bag: bool) -> void:
@@ -302,8 +280,7 @@ func _shop(body: VBoxContainer) -> void:
 		var tip := UiKit.item_tooltip(it) + "\n[color=#ffd966]Preço: %d ouro[/color]\n[color=#9f9]clique: compra 1 · Shift: compra 5[/color]" % it.price
 		if err != "":
 			tip += "\n[color=#f88]%s[/color]" % err
-		cell.mouse_entered.connect(hud.windows_script._show_tip.bind(tip))
-		cell.mouse_exited.connect(hud.windows_script._hide_tip)
+		_tip(cell, tip)
 		cell.gui_input.connect(_on_shop_buy.bind(it.id))
 		g1.add_child(cell)
 	_pad_grid(g1, stock.size(), 24)
@@ -320,8 +297,7 @@ func _shop(body: VBoxContainer) -> void:
 		var each := int(it.price * 0.5)
 		var cell := _shop_cell(it, str(n) if n > 1 else "", "+%d" % each, false)
 		var tip := UiKit.item_tooltip(it) + "\n[color=#ffd966]Paga %d ouro (x%d = %d)[/color]\n[color=#9f9]clique: vende 1 · Shift: vende a pilha[/color]" % [each, n, each * n]
-		cell.mouse_entered.connect(hud.windows_script._show_tip.bind(tip))
-		cell.mouse_exited.connect(hud.windows_script._hide_tip)
+		_tip(cell, tip)
 		cell.gui_input.connect(_on_shop_sell.bind(str(iid)))
 		g2.add_child(cell)
 	_pad_grid(g2, ids.size(), 24)
@@ -399,49 +375,25 @@ func _on_shop_sell(ev: InputEvent, item_id: String) -> void:
 		return
 	var have := int(Sim.player.inventory.get(item_id, 0))
 	if CraftSystem.sell(Sim.player, item_id, have if Input.is_key_pressed(KEY_SHIFT) else 1):
-		hud.windows_script._hide_tip()
+		hud.windows_script.hide_tip()
 		_rebuild()
 
 func _shop_grid(parent: Control) -> GridContainer:
-	var g := GridContainer.new()
-	g.columns = SHOP_COLS
-	g.add_theme_constant_override("h_separation", 4)
-	g.add_theme_constant_override("v_separation", 4)
+	var g := UiKit.grid(SHOP_COLS, 4)
 	parent.add_child(g)
 	return g
 
 func _pad_grid(g: GridContainer, used: int, minimum: int) -> void:
 	var want := maxi(minimum, ceili(used / float(SHOP_COLS)) * SHOP_COLS)
 	for i in range(want - used):
-		var empty := Panel.new()
-		empty.custom_minimum_size = Vector2(SHOP_CELL, SHOP_CELL)
-		empty.add_theme_stylebox_override("panel", UiKit.panel_style(Color(0.05, 0.045, 0.07, 0.9), Color(0.22, 0.2, 0.27), 4, 1))
-		g.add_child(empty)
+		g.add_child(UiKit.empty_slot(SHOP_CELL))
 
 ## Célula: ícone com a moldura da raridade, quantidade em cima, preço embaixo (dourado; vermelho se não dá).
 func _shop_cell(it: ItemDef, count_text: String, price_text: String, dim: bool) -> Control:
-	var cell := Control.new()
-	cell.custom_minimum_size = Vector2(SHOP_CELL, SHOP_CELL)
-	cell.mouse_filter = Control.MOUSE_FILTER_STOP
-	var ic := UiKit.item_icon(it, SHOP_CELL)
-	ic.set_anchors_preset(Control.PRESET_FULL_RECT)
-	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if dim:
-		ic.modulate = Color(0.55, 0.5, 0.5, 0.85)
-	cell.add_child(ic)
+	var cell := UiKit.icon_cell(it, SHOP_CELL, Color(0.55, 0.5, 0.5, 0.85) if dim else Color.WHITE)
 	if count_text != "":
-		var c := UiKit.label(count_text, 11, UiKit.TEXT)
-		c.position = Vector2(2, 1)
-		c.size = Vector2(SHOP_CELL - 5, 14)
-		c.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		cell.add_child(c)
-	var pr := UiKit.label(price_text, 11, Color(1.0, 0.45, 0.4) if dim else UiKit.GOLD)
-	pr.position = Vector2(1, SHOP_CELL - 16)
-	pr.size = Vector2(SHOP_CELL - 3, 14)
-	pr.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	pr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	cell.add_child(pr)
+		UiKit.corner_label(cell, count_text, SHOP_CELL, true)
+	UiKit.corner_label(cell, price_text, SHOP_CELL, false, Color(1.0, 0.45, 0.4) if dim else UiKit.GOLD)
 	return cell
 
 ## Ferreiro: aprimora o que está vestido e o equipamento da bolsa. Nunca quebra; +5 brilha leve, +9 brilha forte.
@@ -467,9 +419,8 @@ func _enhance(body: VBoxContainer) -> void:
 		var h := HBoxContainer.new()
 		h.add_theme_constant_override("separation", 10)
 		body.add_child(h)
-		var ic := UiKit.item_icon(it, 36)
-		ic.mouse_entered.connect(hud.windows_script._show_tip.bind(UiKit.item_tooltip(it)))
-		ic.mouse_exited.connect(hud.windows_script._hide_tip)
+		var ic := UiKit.icon_cell(it, 36)
+		_tip(ic, UiKit.item_tooltip(it))
 		h.add_child(ic)
 		var nm := UiKit.label("%s  [%s]" % [UiKit.plus_name(it, cur), row[1]], 13, UiKit.rarity_color(it.rarity) if cur < Balance.PLUS_GLOW_LOW else Color(0.6, 0.85, 1.0))
 		nm.custom_minimum_size.x = 300
@@ -489,7 +440,7 @@ func _enhance(body: VBoxContainer) -> void:
 
 func _do_enhance(item_id: String, slot: int) -> void:
 	if Sim.enhance(Sim.player, item_id, slot) != null:
-		hud.windows_script._hide_tip()
+		hud.windows_script.hide_tip()
 		_rebuild()
 
 func _craft(body: VBoxContainer) -> void:
@@ -525,8 +476,7 @@ func _craft(body: VBoxContainer) -> void:
 		v.add_child(lbl)
 		var b := UiKit.button("Criar", func(): CraftSystem.craft(p, r), 90)
 		b.disabled = not can
-		b.mouse_entered.connect(func(): hud.windows_script._show_tip(UiKit.item_tooltip(it)))
-		b.mouse_exited.connect(hud.windows_script._hide_tip)
+		_tip(b, func(): return UiKit.item_tooltip(it))
 		h.add_child(b)
 	body.add_child(UiKit.hsep())
 	body.add_child(UiKit.button("← Voltar", func(): mode = "dialog"; _rebuild(), 100))

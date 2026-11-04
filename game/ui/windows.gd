@@ -174,12 +174,13 @@ func _on_title_input(ev: InputEvent, name: String) -> void:
 		panel.position = _clamp_pos(panel.position + ev.relative, panel.size)
 		_pos[name] = panel.position
 
-func _show_tip(text: String) -> void:
+## Dica flutuante compartilhada (janelas, NPCs): segue o mouse por cima de tudo.
+func show_tip(text: String) -> void:
 	tip_rtl.text = text
 	tooltip.visible = true
 	tooltip.reset_size()
 
-func _hide_tip() -> void:
+func hide_tip() -> void:
 	tooltip.visible = false
 
 # ---------------------------------------------------------------------------
@@ -255,8 +256,8 @@ func _bag_slot(it: ItemDef, count: int) -> Control:
 		c.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		holder.add_child(c)
 	box.mouse_filter = Control.MOUSE_FILTER_STOP
-	box.mouse_entered.connect(func(): _show_tip(UiKit.item_tooltip(it) + "\n[color=#9f9]%s[/color]" % _bag_hint(it)))
-	box.mouse_exited.connect(_hide_tip)
+	box.mouse_entered.connect(func(): show_tip(UiKit.item_tooltip(it) + "\n[color=#9f9]%s[/color]" % _bag_hint(it)))
+	box.mouse_exited.connect(hide_tip)
 	box.gui_input.connect(_on_bag_input.bind(it))
 	box.set_drag_forwarding(_drag_from_bag.bind(it), _can_drop_on_bag, _drop_on_bag)
 	return box
@@ -284,7 +285,7 @@ func _drag_from_bag(_at: Vector2, it: ItemDef) -> Variant:
 	if not it.is_equipment():
 		return null
 	_dragging = true
-	_hide_tip()
+	hide_tip()
 	set_drag_preview(_drag_preview(it))
 	return {"rx_drag": "bag", "item": it.id}
 
@@ -293,7 +294,7 @@ func _drag_from_slot(_at: Vector2, slot: int) -> Variant:
 	if it == null:
 		return null
 	_dragging = true
-	_hide_tip()
+	hide_tip()
 	set_drag_preview(_drag_preview(it))
 	return {"rx_drag": "slot", "slot": slot}
 
@@ -455,8 +456,8 @@ func _slot_column(p: SimEntity, slots: Array, horizontal: bool = false) -> BoxCo
 				tag.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 				tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
 				box.add_child(tag)
-			box.mouse_entered.connect(func(): _show_tip(UiKit.item_tooltip(it) + "\n[color=#9f9]Clique ou arraste para a bolsa: desequipar[/color]"))
-			box.mouse_exited.connect(_hide_tip)
+			box.mouse_entered.connect(func(): show_tip(UiKit.item_tooltip(it) + "\n[color=#9f9]Clique ou arraste para a bolsa: desequipar[/color]"))
+			box.mouse_exited.connect(hide_tip)
 			box.gui_input.connect(_on_slot_input.bind(slot))
 		box.mouse_filter = Control.MOUSE_FILTER_STOP
 		box.set_drag_forwarding(_drag_from_slot.bind(slot) if it else Callable(), _can_drop_on_slot.bind(slot), _drop_on_slot.bind(slot))
@@ -482,40 +483,8 @@ func _slot_glyph(it: ItemDef) -> String:
 ## Prévia 3D do personagem com o equipamento atual (SubViewport com mundo próprio).
 ## Gira devagar sozinho; arrastar com o mouse gira na mão.
 func _preview(p: SimEntity) -> Control:
-	var cont := SubViewportContainer.new()
-	cont.stretch = true
-	cont.custom_minimum_size = Vector2(250, 360)
-	var vp := SubViewport.new()
-	vp.own_world_3d = true
-	vp.transparent_bg = true
-	vp.msaa_3d = Viewport.MSAA_4X
-	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	cont.add_child(vp)
-	var env := WorldEnvironment.new()
-	var e := Environment.new()
-	e.background_mode = Environment.BG_CLEAR_COLOR
-	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	e.ambient_light_color = Color(0.85, 0.85, 1.0)
-	e.ambient_light_energy = 0.35
-	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	e.glow_enabled = true
-	e.glow_intensity = 0.15
-	e.tonemap_exposure = 0.9
-	env.environment = e
-	vp.add_child(env)
-	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-35, 35, 0)
-	sun.light_energy = 0.75
-	vp.add_child(sun)
-	var rim := DirectionalLight3D.new()
-	rim.rotation_degrees = Vector3(-20, 200, 0)
-	rim.light_energy = 0.3
-	rim.light_color = Color(0.7, 0.8, 1.0)
-	vp.add_child(rim)
-	var cam := Camera3D.new()
-	cam.fov = 30.0
-	vp.add_child(cam)
-	cam.look_at_from_position(Vector3(0, 1.25, 4.9), Vector3(0, 0.86, 0), Vector3.UP)
+	var cont := UiKit.preview_stage(Vector2(250, 360), Vector3(0, 1.25, 4.9), Vector3(0, 0.86, 0), true)
+	var vp: SubViewport = cont.get_child(0)
 	# chão: disco escuro suave sob os pés
 	var disc := MeshInstance3D.new()
 	var cm := CylinderMesh.new()
@@ -684,8 +653,8 @@ func _pick_card(p: SimEntity, n: Dictionary) -> Control:
 		C_OWNED if owned else (C_CAN if why == "" else UiKit.MUTED), false)
 	small.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tv.add_child(small)
-	b.mouse_entered.connect(func(): _show_tip("[b]%s[/b]\n[color=#aaa]Nível %d · grátis · um por linha (trocar: na cidade)[/color]" % [n["name"], int(n["level"])]))
-	b.mouse_exited.connect(_hide_tip)
+	b.mouse_entered.connect(func(): show_tip("[b]%s[/b]\n[color=#aaa]Nível %d · grátis · um por linha (trocar: na cidade)[/color]" % [n["name"], int(n["level"])]))
+	b.mouse_exited.connect(hide_tip)
 	b.pressed.connect(func(): if not owned and Sim.tree_allocate(p, n["id"]): _rebuild("skills"))
 	return b
 
@@ -902,8 +871,8 @@ func _tree_node(p: SimEntity, n: Dictionary, at: Vector2, lim: Vector2 = Vector2
 		lv.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		lv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(lv)
-	b.mouse_entered.connect(func(): _show_tip(_tree_tip(p, n, owned, why)))
-	b.mouse_exited.connect(_hide_tip)
+	b.mouse_entered.connect(func(): show_tip(_tree_tip(p, n, owned, why)))
+	b.mouse_exited.connect(hide_tip)
 	b.pressed.connect(func(): if Sim.tree_allocate(p, n["id"]): _rebuild("skills"))
 	return holder
 
@@ -963,8 +932,8 @@ func _known_skills(p: SimEntity) -> Control:
 		var sk: SkillDef = GameData.skills[sid]
 		var card := PanelContainer.new()
 		card.add_theme_stylebox_override("panel", UiKit.panel_style(UiKit.BG_LIGHT, Color(0.3, 0.28, 0.35), 5, 1))
-		card.mouse_entered.connect(func(): _show_tip(UiKit.skill_tooltip(p, sk)))
-		card.mouse_exited.connect(_hide_tip)
+		card.mouse_entered.connect(func(): show_tip(UiKit.skill_tooltip(p, sk)))
+		card.mouse_exited.connect(hide_tip)
 		col.add_child(card)
 		var v := VBoxContainer.new()
 		card.add_child(v)

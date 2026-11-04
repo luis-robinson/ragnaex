@@ -422,38 +422,8 @@ func _update_desc() -> void:
 # ---------------------------------------------------------------------------
 # prévia 3D
 func _preview() -> Control:
-	var cont := SubViewportContainer.new()
-	cont.stretch = true
-	cont.custom_minimum_size = Vector2(300, 400)
-	_vp = SubViewport.new()
-	_vp.own_world_3d = true
-	_vp.transparent_bg = true
-	_vp.msaa_3d = Viewport.MSAA_4X
-	_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	cont.add_child(_vp)
-	var env := WorldEnvironment.new()
-	var e := Environment.new()
-	e.background_mode = Environment.BG_CLEAR_COLOR
-	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	e.ambient_light_color = Color(0.85, 0.85, 1.0)
-	e.ambient_light_energy = 0.35
-	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	e.tonemap_exposure = 0.9
-	env.environment = e
-	_vp.add_child(env)
-	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-35, 35, 0)
-	sun.light_energy = 0.75
-	_vp.add_child(sun)
-	var rim := DirectionalLight3D.new()
-	rim.rotation_degrees = Vector3(-20, 200, 0)
-	rim.light_energy = 0.3
-	rim.light_color = Color(0.7, 0.8, 1.0)
-	_vp.add_child(rim)
-	var cam := Camera3D.new()
-	cam.fov = 30.0
-	_vp.add_child(cam)
-	cam.look_at_from_position(Vector3(0, 1.15, 3.6), Vector3(0, 0.85, 0), Vector3.UP)      # corpo inteiro, rosto em destaque
+	var cont := UiKit.preview_stage(Vector2(300, 400), Vector3(0, 1.15, 3.6), Vector3(0, 0.85, 0), false)      # corpo inteiro, rosto em destaque
+	_vp = cont.get_child(0)
 	cont.gui_input.connect(_on_preview_input)
 	cont.mouse_filter = Control.MOUSE_FILTER_STOP
 	return cont
