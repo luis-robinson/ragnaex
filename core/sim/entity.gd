@@ -87,7 +87,6 @@ var boss_id: int = -1                # lacaio: chefe que o chamou
 var adds_epoch: int = 0              # chefe: sobe ao resetar; lacaios de época antiga somem
 var dead_time: float = 0.0
 var home_position: Vector3 = Vector3.ZERO
-var corpse_timer: float = 0.0
 var hit_flash: float = 0.0
 
 # progressão / itens (jogadores e bots)

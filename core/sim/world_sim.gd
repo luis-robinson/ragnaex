@@ -652,12 +652,11 @@ func _interact(e: SimEntity, m: Dictionary) -> void:
 	if best == null:
 		GatherSystem.start_gather(self, e, m)
 		return
-	if best:
-		e.face_towards(best.position)
-		best.npc_hold = Balance.NPC_TALK_HOLD
-		best.face_towards(e.position)
-		NpcSystem.npc_stop(self, best)
-		Events.dialog_requested.emit(best.npc_data.get("id", ""))
+	e.face_towards(best.position)
+	best.npc_hold = Balance.NPC_TALK_HOLD
+	best.face_towards(e.position)
+	NpcSystem.npc_stop(self, best)
+	Events.dialog_requested.emit(best.npc_data.get("id", ""))
 
 # ----------------------------------------------------------------------------
 # SKILLS

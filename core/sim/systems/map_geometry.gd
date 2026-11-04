@@ -92,14 +92,6 @@ static func water_crossings(def: MapDef) -> Array:
 						out.append({"pos": hit, "dir": (rp[i + 1] - rp[i]).normalized(), "w": float(w["w"])})
 	return out
 
-## Próximo ponto do caminho de `from` a `to` desviando dos rios pelas pontes (ou `to`, se a linha está livre).
-static func water_waypoint(sim: WorldSim, map_id: String, from: Vector3, to: Vector3) -> Vector3:
-	var path := water_path(sim, map_id, from, to)
-	if path.is_empty():
-		return to
-	var p: Vector2 = path[0]
-	return Vector3(p.x, 0.0, p.y)
-
 ## Caminho (pontos no chão) de `from` até `to` sem atravessar rio fora das pontes; vazio = linha reta serve.
 ## Grafo de visibilidade: cabeceiras das pontes + pontos nas duas margens (montado em _build_water_graph).
 static func water_path(sim: WorldSim, map_id: String, from: Vector3, to: Vector3) -> Array:

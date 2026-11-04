@@ -233,10 +233,9 @@ static func update_loot(sim: WorldSim, m: Dictionary, dt: float) -> void:
 					e.portal_notice_at = sim.time + Balance.NOTICE_CD
 					Events.notification.emit("Bolsa cheia (%d/%d): libere espaço ou amplie a bolsa" % [e.inventory.size(), e.bag_capacity()])
 				continue
-			if true:
-				pickup(sim, e, l)
-				loot.erase(l)
-				break
+			pickup(sim, e, l)
+			loot.erase(l)
+			break
 
 static func can_loot(sim: WorldSim, e: SimEntity, l: Dictionary) -> bool:
 	return e.id == int(l.get("owner", -1)) or sim.time >= float(l.get("free_at", 0.0))

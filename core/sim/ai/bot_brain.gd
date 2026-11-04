@@ -141,7 +141,7 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 				state = S.TOWN_IDLE if in_town else S.RETURN
 				timer = 2.0
 			elif e.hp < e.stats.max_hp * 0.3 or e.inventory_weight() > 60 or timer <= 0.0:
-				_go_home(e, sim, def)
+				_go_home()
 			else:
 				var mob := _sticky(e, m, Balance.BOT_STICKY_RANGE)
 				if mob == null:
@@ -218,7 +218,7 @@ func _fight(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCommand)
 	if e.hp < e.stats.max_hp * 0.5:
 		for i in range(e.skills.size()):
 			var s := e.skills[i]
-			if s and s.kind == SkillDef.Kind.HEAL and e.level >= s.unlock_level and e.stats.meets(s.requires) and e.cooldowns.get(s.id, 0.0) <= 0.0 and e.mp >= s.mp_cost_at(e.mastery_of(s.id)):
+			if s and s.kind == SkillDef.Kind.HEAL and e.level >= s.unlock_level and e.stats.meets(s.requires) and _ready_to_cast(e, s):
 				cmd.skill_slot = i
 				cmd.aim = e.position
 				return cmd
@@ -290,7 +290,7 @@ func _best_skill(e: SimEntity, sim, m: Dictionary, mob: SimEntity, dist: float) 
 		var s := e.skills[i]
 		if s == null or e.level < s.unlock_level or s.kind == SkillDef.Kind.HEAL or not e.stats.meets(s.requires):
 			continue
-		if e.cooldowns.get(s.id, 0.0) > 0.0 or e.mp < s.mp_cost_at(e.mastery_of(s.id)):
+		if not _ready_to_cast(e, s):
 			continue
 		var score := 0.0
 		if s.kind == SkillDef.Kind.BUFF:
@@ -401,7 +401,7 @@ func _plan_trip(e: SimEntity, sim) -> void:
 		Events.chat_message.emit(e.name, GameData.random_bot_line("leaving") % GameData.maps[dest_map].name, "global")
 	_gather_party(e, sim)
 
-func _go_home(e: SimEntity, sim, def: MapDef) -> void:
+func _go_home() -> void:
 	state = S.RETURN
 	dest_map = GameData.town_map_id()
 	timer = 90.0
@@ -412,6 +412,10 @@ func _find_portal(def: MapDef, target_map: String) -> Dictionary:
 			return p
 	# fallback: qualquer portal
 	return def.portals[0] if def.portals.size() > 0 else {}
+
+## Sem recarga e com mana para a skill (no nível de maestria atual).
+func _ready_to_cast(e: SimEntity, s: SkillDef) -> bool:
+	return e.cooldowns.get(s.id, 0.0) <= 0.0 and e.mp >= s.mp_cost_at(e.mastery_of(s.id))
 
 func _find_npc(def: MapDef, role: String) -> Dictionary:
 	for n in def.npcs:
@@ -597,7 +601,7 @@ func _taunt_party(e: SimEntity, m: Dictionary, members: Array, cmd: InputCommand
 		var s := e.skills[i]
 		if s == null or not s.effects.has("taunt") or e.level < s.unlock_level or not e.stats.meets(s.requires):
 			continue
-		if e.cooldowns.get(s.id, 0.0) > 0.0 or e.mp < s.mp_cost_at(e.mastery_of(s.id)):
+		if not _ready_to_cast(e, s):
 			continue
 		for o in m["entities"]:
 			if o.kind != SimEntity.Kind.MONSTER or not o.is_alive() or o.aggro_target < 0 or o.aggro_target == e.id:
@@ -627,7 +631,7 @@ func _heal_party(e: SimEntity, sim, members: Array, cmd: InputCommand, dt: float
 		var base := e.skills[i]
 		if base == null or base.kind != SkillDef.Kind.HEAL or e.level < base.unlock_level or not e.stats.meets(base.requires):
 			continue
-		if e.cooldowns.get(base.id, 0.0) > 0.0 or e.mp < base.mp_cost_at(e.mastery_of(base.id)):
+		if not _ready_to_cast(e, base):
 			continue
 		var s: SkillDef = sim.resolve_skill(e, base)
 		var d := e.position.distance_to(hurt.position)

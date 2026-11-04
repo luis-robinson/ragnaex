@@ -29,7 +29,6 @@ signal mastery_changed(entity_id: int, skill_id: String, level: int)
 signal chat_message(sender_name: String, text: String, channel: String)
 signal notification(text: String)          # texto de sistema (ex.: "Nível 5!")
 signal dialog_requested(npc_id: String)
-signal station_requested(station: String)  # "smith" | "alchemy" | "merchant" | "board"
 signal potion_used(entity_id: int, slot: int)
 signal blocked_hit(target_id: int)
 signal guard_flanked(target_id: int)        # golpe por fora do arco enquanto segurava a guarda
