@@ -82,7 +82,7 @@ Visual: `form_<wolf|bear>.glb` (`druid_sets.build_forms`) com a armadura de anim
 **Ranger** (sem corpo a corpo, isso é do Assassino): **Caçador** (arco) com **companheiro** permanente (lince; `ran_companion` invoca
 uma vez, fica até cair; vida/ataque/defesa são parte das do dono, `Balance.PET_*`, mais `pet_pct`), Ataque da Fera (o lince salta no
 alvo e atordoa) e Instinto da Matilha (buff em você e nele). **Atirador**: **mosquete** de duas mãos (`rifle`: básico 1,8x mais lento e
-1,9x mais forte, alcance maior, clipe `atk_rifle`) e **armadilhas no chão** (`trap` em `WorldSim._place_trap/_update_traps`: armam em
+1,9x mais forte, alcance maior, clipe `atk_rifle`) e **armadilhas no chão** (`trap` em `TrapSystem.place_trap/update_traps`: armam em
 0,6 s, disparam quando um inimigo pisa, no máximo 3 por ranger, somem em 30 s; mandíbula prende, mina explode, gelo retarda).
 
 **Assassino**: **Lâminas** (duas adagas, `aspd_pct`): Lâmina Pestilenta envenena as lâminas (`hit_poison`: todo golpe físico aplica
@@ -198,7 +198,7 @@ por estradas curvas, rio/lago com pontes e um landmark; layout feito no Blender 
 As três zonas usam `tools/blender/zones/zone_lib.py` (estradas catmull, rio/lago, pontes, penhascos com gargantas,
 paliçadas/muros em anel, morros em patamares, dispersão de vegetação) e `nature.py` (pinheiros, arbustos, juncos na margem,
 chão de bosque, anel de montanhas com neve) e são lidas por `MapsCatalog.load_zone`.
-Rios, lagos e morros colidem na sim (`WorldSim._build_collider_grid`; rio tem vão só nas pontes, com 0,5 m de beirada rasa andável).
+Rios, lagos e morros colidem na sim (`MapGeometry.build_collider_grid`; rio tem vão só nas pontes, com 0,5 m de beirada rasa andável).
 Margens têm corredor livre de 2 m (`nature.clear_banks`).
 
 **Lugares** (`places.py`, lista `PLACES` de cada zona): cabanas com NPC de quest lateral, acampamentos de monstros, santuários (a pedra
@@ -281,7 +281,7 @@ Usam skills, poções e bloqueio reativo; falam no chat (contexto cidade/caça/m
 Movimento: atravessam água só pelas pontes (`WorldSim.water_path`, grafo de cabeceiras + margens + anel dos lagos, seguido por
 `BotBrain._water_step`); preso, o bot desvia a 90° e abre para 135°/180° se prender de novo (`BotBrain._steer`).
 
-## Grupo (party) — `WorldSim.party_*`, constantes `Balance.PARTY_*`
+## Grupo (party) — `PartySystem` (`Sim.party_*`), constantes `Balance.PARTY_*`
 - Até 5 membros. Convite → aceitar (expira em 30 s); quem convidou vira líder. Líder convida, expulsa e passa a liderança;
   quem sai do grupo de 2 desfaz o grupo; líder que sai passa a liderança ao próximo.
 - **XP**: abate dividido entre os membros vivos no mesmo mapa a até 45 m e com até 15 níveis de diferença;

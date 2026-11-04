@@ -62,7 +62,9 @@ cursor (limitado ao alcance), `CONE` à frente, `TARGET` no inimigo sob o cursor
 
 ```
 core/            SIMULAÇÃO (sem nós 3D) — o futuro "servidor"
-  sim/world_sim.gd   tick fixo 60 Hz, todos os mapas/entidades, combate, loot, portais, spawners
+  sim/world_sim.gd   tick fixo 60 Hz, todos os mapas/entidades, comandos, skills, dano/cura/morte, movimento
+  sim/systems/       regras por assunto (funções estáticas sobre o WorldSim): map_geometry (colisão/água),
+                     party, loot, legend_effects, shield, item, portal, progression, gather, npc, trap, mob
   sim/entity.gd      SimEntity (jogador, bot, monstro, NPC, invocação)
   sim/input_command.gd  pacote de input por tick (jogador e bots produzem isso)
   sim/combat.gd      dano/cura/bloqueio/crit + seleção de alvos (SELF/DIRECTION/GROUND/CONE/TARGET)
@@ -70,17 +72,24 @@ core/            SIMULAÇÃO (sem nós 3D) — o futuro "servidor"
   sim/ai/            bot_brain.gd (FSM de "jogador"), monster_brain.gd
   systems/           quest_system.gd, craft_system.gd (também loja)
   events.gd          EventBus: a sim emite, a apresentação escuta
+  save_system.gd     espaços de save (user://save_<n>.json)
 data/            dados do jogo (Resources construídos em data/catalog/*.gd; schemas em data/schemas/)
 game/            APRESENTAÇÃO — só lê a sim e manda InputCommand
   main.gd            liga tudo, troca de mapa, fade de obstáculos
+  dev/               modos de revisão/medição da linha de comando: dev_args.gd (DevArgs), dev_runner.gd
+                     (smoke, --bag_shot, --tour, --soak, --perf...), perf_watch.gd, showcase.gd (bancada de skills)
+  visual/            materials.gd (toon/outline em cache)
   player/            camera_rig.gd (pitch 52°, yaw em 45°), player_controller.gd
   entities/entity_view.gd  placeholder chibi procedural OU GLB de assets/models com animações
   world/map_builder.gd     blockout a partir do MapDef (ou props GLB quando existirem)
   fx/fx_manager.gd   dano flutuante, hit-stop, retículo de mira, projéteis, loot
   ui/                HUD, janelas, NPC/loja/craft, seleção de classe
-shaders/         toon.gdshader (2 bandas), outline.gdshader (inverted hull), ground_reticle.gdshader
-tools/blender/   scripts que geram os modelos low-poly e exportam GLB
-tools/tests/     testes headless
+shaders/         toon.gdshader (2 bandas) + toon_light.gdshaderinc, outline.gdshader (inverted hull), ground_reticle,
+                 ground.gdshader, grass.gdshader
+tools/blender/   scripts que geram os modelos low-poly e exportam GLB (zones/: layout das zonas)
+tools/icons/     geradores de ícones (skills, itens, conjuntos, escudos)
+tools/lineup/    filmes/fotos de bonecos e clipes para revisão
+tools/tests/     testes headless (`-- --only=<pedaço>` roda só parte)
 ```
 
 Para virar online: `WorldSim` roda headless no servidor; clientes enviam `InputCommand` por RPC e recebem
@@ -125,7 +134,7 @@ Abra um terminal na pasta e rode `claude`. O projeto já traz:
 * Agentes (`.claude/agents/`): **blender-modeler** (modelos/animações via MCP), **class-designer** (classes, skills,
   atributos, bonecos, feel de combate), **world-builder** (monstros, mapas, cidades, quests, craft, bots),
   **qa-tester** (roda os testes) e **reviewer** (confere o trabalho e dá veredito).
-* Skills: `/test`, `/build-models`, `/new-content <tipo> <descrição>`, `/review`.
+* Skills: `/test`, `/build-models`, `/new-content <tipo> <descrição>`, `/review`, `/layout-zone`, `/layout-check`, `blender-layout`.
 
 Exemplo: `/new-content skill nova ultimate do Ranger que marca o chão e dispara uma rajada` → o `class-designer`
 implementa com testes → `/review` confere.

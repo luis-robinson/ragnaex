@@ -11,7 +11,8 @@ skills com mira MOBA). Leia `README.md` e `docs/DESIGN.md`.
 ```powershell
 # Windows (use o wrapper; ele acha o Godot em Program Files / Downloads / $env:GODOT)
 .\tools\godot.ps1 --headless --path . --import                    # (re)gera cache de classes — rode após criar scripts com class_name
-.\tools\godot.ps1 --headless --path . tools/tests/tests.tscn      # testes (8000+ checks) — OBRIGATÓRIO antes de terminar uma tarefa
+.\tools\godot.ps1 --headless --path . tools/tests/tests.tscn      # testes (14000+ checks) — OBRIGATÓRIO antes de terminar uma tarefa
+.\tools\godot.ps1 --headless --path . tools/tests/tests.tscn -- --only=party,shield   # só os _check_* com esses nomes (iterar rápido)
 .\tools\godot.ps1 --headless --path . -- --autostart=berserker    # smoke test: joga sozinho e sai; 0 "SCRIPT ERROR" é o critério
 .\tools\godot.ps1 --path .                                        # abre o jogo com janela
 ```
@@ -30,6 +31,14 @@ Scripts novos com `class_name` só são vistos pelos outros scripts depois de `-
 - `data/` = conteúdo. Schemas (Resources) em `data/schemas/`, dados em `data/catalog/*_catalog.gd`
   (dicionários → Resources em `GameData._ready`). Constantes de balanceamento SÓ em `data/balance.gd`.
 - Autoloads (ordem): `Events`, `Balance`, `GameData`, `Sim`, `SaveSystem`.
+- `WorldSim` (`class_name`, autoload `Sim`) guarda o estado e roda o tick, spawn, comandos, pipeline de skill, dano/cura/morte,
+  movimento. O resto mora em `core/sim/systems/` como funções estáticas `f(sim: WorldSim, ...)`, sem estado próprio:
+  `MapGeometry` (colisão, água/pontes, `water_path`, chão andável), `PartySystem`, `LootSystem` (abate, divisão, elites, baú),
+  `LegendEffects`, `ShieldSystem`, `ItemSystem` (equipar, poção, aprimorar, relíquia, depósito), `PortalSystem` (portais, portões,
+  troca de mapa, recall), `ProgressionSystem` (XP, árvore, talentos, loadout, `resolve_skill`), `GatherSystem`, `NpcSystem`,
+  `TrapSystem`, `MobSystem` (aggro, chefe, spawners). Regra nova vai no sistema dela; dentro da sim chame `Sistema.f(self, ...)`.
+  O fim do `world_sim.gd` repassa (`Sim.equip`, `Sim.party_invite`...) o que jogo/testes/brains usam: API nova pública = um repasse lá.
+- Buff/debuff por id: `SimEntity.put_buff/put_debuff/drop_buff/buff_stacks` (renova, não acumula).
 
 ## Como adicionar conteúdo
 
@@ -83,16 +92,16 @@ Scripts novos com `class_name` só são vistos pelos outros scripts depois de `-
   É mapa compartilhado (`MapDef.parent_map`), não instância; bots não caçam lá sozinhos.
   Dungeon ramificada: `layout` em `places.DUNGEONS` (salões + ligações, `build_dungeons.build_graph`; rocha sólida sela as alas). `door` = selo para outro mapa
   (`parent_map` em cadeia, que bots seguem). `bosses` no `DUNGEON_DEFS` se houver mais de um; NPCs de dentro em `PLACE_NPCS[<dungeon>]`.
-- **Chefe com mecânica**: `MonsterDef.phases` (`hp`, `say`, `skills`, `summon`, `enrage`) em `_update_boss`; lacaios com 0 XP via `summon` ou efeito `boss_summon` (nunca o `summon` de jogador).
+- **Chefe com mecânica**: `MonsterDef.phases` (`hp`, `say`, `skills`, `summon`, `enrage`) em `MobSystem.update_boss`; lacaios com 0 XP via `summon` ou efeito `boss_summon` (nunca o `summon` de jogador).
   Chefe sem alvo reseta (`reset_boss`). Calibre rodando a luta com bots: eles têm ATK de equipamento do nível, bem acima do inicial.
   Sonda: `--headless --path . tools/tests/boss_probe.tscn -- [--party=1,3] [--trials=20] [--boss=<id>,...]` (vitórias, tempo, mortes).
   Use 20+ lutas: com 14 a variação passa de ±2 vitórias.
 - **Colheita**: ponto em `MapsCatalog.GATHER[<mapa>]` (item, forma `herb|herb_blue|ore|star|shell|mushroom|relic|crate`, centro, raio, quantos); a sim espalha
-  (`WorldSim._spread_gather`), F colhe (`_start_gather/_update_gather`), visual em `game/world/gather_view.gd`. Item novo precisa de arte (`item_icons`).
+  (`GatherSystem.spread_gather`), F colhe (`GatherSystem.start_gather/update_gather`), visual em `game/world/gather_view.gd`. Item novo precisa de arte (`item_icons`).
 - **Entrega**: quest COLLECT com `give_items` (o pacote) e `turnin_npc` diferente do `giver_npc`. XP de quest é escalada por faixa (`QuestsCatalog.scale_xp`):
   o número escrito vale como peso; o teste confere 40-50% da faixa e 10+ quests por faixa.
 - **Portão de progressão**: `MapsCatalog.PORTAL_GATES` (id do portal → `level`, `quest`, `bosses`, `text`); vale só para o jogador. Save sem `save_version` passa por `grandfather_gates`.
-- **Grupo (party)**: regras na sim (`WorldSim.party_*`, `kill_sharers`; aliado = `SimEntity.is_friend`), números em `Balance.PARTY_*`,
+- **Grupo (party)**: regras na sim (`PartySystem`, via `Sim.party_*`, `kill_sharers`; aliado = `SimEntity.is_friend`), números em `Balance.PARTY_*`,
   bots em `BotBrain._follow/_gather_party/wants_party`; UI em `hud.gd` (quadros/convite/comandos de chat) e janela `party` (P).
 - **Quest**: `quests_catalog.gd` (KILL/COLLECT/TALK/CRAFT/REACH; NPC giver precisa existir em algum `MapDef.npcs`). `prereq_all` junta ramos, `reward_gear_tier` dá peça vestível, `repeatable` é recompensa de quadro.
 - **Mapa/zona**: siga "Layout de zonas" abaixo (`/layout-zone`). O `MapDef` continua sendo a verdade da sim
@@ -128,7 +137,7 @@ Referência: `C:\Users\luisf\Desktop\projects\erenpg` (`blender/scripts/build_va
   loops (nada objeto a objeto) dentro da Collection `Z_<zona>` e exporta o visual para `assets/models/map_<zona>.glb`
   (`MapDef.model = "map_<zona>"`). Sem janela: `blender -b --factory-startup --python <script>` chamando `build(export=True)`.
 - A dispersão de uma zona muda quando lugares/trilhas mudam: chegadas de portal precisam estar reservadas (`block`/`spots`).
-- Água e morros colidem na sim (`WorldSim._build_collider_grid`): o rio só tem vão nas pontes, que nascem onde uma estrada
+- Água e morros colidem na sim (`MapGeometry.build_collider_grid`): o rio só tem vão nas pontes, que nascem onde uma estrada
   (`kind: "road"`) cruza o rio. Bots usam `water_path`; mudou rio/ponte, rode os testes de travessia (`_cross_river`).
   Toda zona chama `nature.clear_banks` depois de espalhar a vegetação: corredor de 2 m livre nas margens (sem bolsões; há check).
 - Marcadores no Blender viram dados da sim (exportados para `data/zones/<zona>.json` e lidos pelo `maps_catalog.gd`):
@@ -155,7 +164,7 @@ testes + smoke (tour: `-- --tour=<pasta> [--tour_map=<zona>]` salva screenshots 
 - Draw calls: peças ligadas do kit viram 1 malha (`KitModel._remerge`) e monstros/cavalo de peças rígidas também (`RigidMerge`, malha guardada por modelo);
   bonecos a mais de 58 m somem e param de processar (`main._cull_views`), props têm distância de desenho (`MapBuilder.set_vis_range`).
   Ação de 1 vez no `InputCommand` (montar, voltar) precisa ser zerada no comando repetido entre pensamentos (`WorldSim.tick`).
-- Lentidão que só aparece jogando: `main._perf_watch` grava em `user://perf_log.txt` (AppData/Roaming/Godot/app_userdata/RagnaEx) cada trecho < 25 FPS com
+- Lentidão que só aparece jogando: `PerfWatch` (game/dev/perf_watch.gd) grava em `user://perf_log.txt` (AppData/Roaming/Godot/app_userdata/RagnaEx) cada trecho < 25 FPS com
   mapa, monstros acordados, draws, GPU e as fases da sim; reproduzir com `-- --soak=<s> [--soak_map=<dungeon>]` (joga sozinho e imprime FPS a cada 5 s).
 - Medir: `.\tools\godot.ps1 --path . -- --perf [--perf_at=x,z] [--no_merge] [--cull_test=hide|noproc] [--no_prune] [--no_away]` (cidade cheia ~8 s: FPS, draw calls, nós, memória, custo do tick).
 
@@ -208,7 +217,7 @@ ombreiras em camadas, tabardo, emblema, elmos fechados `closed` com fenda/grade/
 Arma própria de conjunto: linha em `paladin_sets.PAL_WEAPONS` (lâmina em losango, guarda cross/down/sun/horn/wing, pomo, gema, halo,
 filete brilhante) → malha `wpn_main_<tipo>_<estilo>`; a arma do conjunto ganha `ItemDef.weapon_style` e `KitModel.main_node` escolhe a malha.
 Conjunto lendário = 5 peças de armadura (`SetDef.armor`: cabeça, peito, calça, luvas, botas; bônus 2-5); arma/mão secundária não contam e a arma tem
-`ItemDef.legend_effect` próprio da build (`GearCatalog.LEGEND_EFFECTS`, tipos em `WorldSim._legend_on_hit/_legend_weapon/_legend_on_kill`; build nova precisa de entrada lá). Atributos das peças, da arma, da mão secundária
+`ItemDef.legend_effect` próprio da build (`GearCatalog.LEGEND_EFFECTS`, tipos em `LegendEffects.legend_on_hit/legend_weapon/legend_on_kill`; build nova precisa de entrada lá). Atributos das peças, da arma, da mão secundária
 e dos escudos nomeados (por `SHIELD_AFFINITY`) vêm da build/classe (há check de coerência).
 Maça de conjunto: build com 2 armas principais ganha a 2ª como `SetDef.alt_pieces` (mesmo efeito lendário da arma, não conta nas peças, cai como
 lendário); modelo em `paladin_sets.PAL_MACES`. Revisar: `-- --autostart=paladin --gear=<set_id> --mace`.
