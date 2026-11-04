@@ -118,12 +118,12 @@ static func elite_def(sim: WorldSim, base: MonsterDef) -> MonsterDef:
 	d.def = base.def * Balance.ELITE_DEF_MULT
 	d.mdef = base.mdef * Balance.ELITE_DEF_MULT
 	d.scale = base.scale * Balance.ELITE_SCALE
-	d.radius = base.radius * 1.3
+	d.radius = base.radius * Balance.ELITE_RADIUS_MULT
 	d.xp = base.xp * Balance.ELITE_XP_MULT
 	d.gold_min = base.gold_min * Balance.ELITE_GOLD_MULT
 	d.gold_max = base.gold_max * Balance.ELITE_GOLD_MULT
 	d.is_boss = true
-	d.leash_range = maxf(base.leash_range, 25.0)
+	d.leash_range = maxf(base.leash_range, Balance.ELITE_LEASH_MIN)
 	sim._elite_defs[base.id] = d
 	return d
 
@@ -230,7 +230,7 @@ static func update_loot(sim: WorldSim, m: Dictionary, dt: float) -> void:
 				continue
 			if e == sim.player and l["item"] != "gold" and e.bag_full_for(l["item"]):
 				if sim.time >= e.portal_notice_at:
-					e.portal_notice_at = sim.time + 3.0
+					e.portal_notice_at = sim.time + Balance.NOTICE_CD
 					Events.notification.emit("Bolsa cheia (%d/%d): libere espaço ou amplie a bolsa" % [e.inventory.size(), e.bag_capacity()])
 				continue
 			if true:

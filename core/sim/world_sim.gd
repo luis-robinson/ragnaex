@@ -75,6 +75,13 @@ func map_entities(map_id: String) -> Array:
 func map_def(map_id: String) -> MapDef:
 	return maps[map_id]["def"] if maps.has(map_id) else null
 
+## Personagem carregado do save: vai para o mapa/posição salvos (troca de mapa se for outro).
+func place_loaded(e: SimEntity, map_id: String, pos: Vector3) -> void:
+	if map_id != e.map_id:
+		PortalSystem.change_map(self, e, map_id, pos)
+	else:
+		e.position = pos
+
 func get_entity(id: int) -> SimEntity:
 	return entities.get(id)
 
@@ -180,7 +187,7 @@ func spawn_summon(owner: SimEntity, mdef: MonsterDef, pos: Vector3, duration: fl
 		e.summon_hp = owner.stats.max_hp * Balance.PET_HP_SHARE * k
 		e.summon_patk = owner.stats.patk * Balance.PET_ATK_SHARE * k
 	else:
-		e.summon_patk = owner.stats.matk * 0.6 * clampf(mdef.atk / 12.0, 0.6, 2.5) * pk     # monstro mais forte (rei esqueleto) bate mais
+		e.summon_patk = owner.stats.matk * Balance.SUMMON_MATK_SHARE * clampf(mdef.atk / Balance.SUMMON_ATK_REF, Balance.SUMMON_ATK_MIN, Balance.SUMMON_ATK_MAX) * pk     # monstro mais forte (rei esqueleto) bate mais
 	e.recompute_stats()
 	if owner_stats:
 		e.stats.pdef = owner.stats.pdef * Balance.PET_DEF_SHARE
@@ -1002,7 +1009,7 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 		amount = maxi(1, int(round(amount * (1.0 + taken / 100.0) * (1.0 - minf(weak, Balance.CURSE_WEAKEN_CAP) / 100.0))))
 	# esquiva (Assassino): o golpe direto não pega
 	if not kind.begins_with("dot") and attacker != target and target.is_character() and target.stats.evasion > 0.0 and rng.randf() * 100.0 < target.stats.evasion:
-		if kind != "riposte" and str(target.stats.legend.get("kind", "")) == "riposte" and attacker.is_alive() and attacker.position.distance_to(target.position) <= 4.0:
+		if kind != "riposte" and str(target.stats.legend.get("kind", "")) == "riposte" and attacker.is_alive() and attacker.position.distance_to(target.position) <= Balance.LEG_RIPOSTE_RANGE:
 			_deal_damage(target, attacker, maxi(1, int(target.stats.patk * float(target.stats.legend["pct"]) / 100.0)), false, false, "riposte")     # Duelista: esquivou, contra-ataca
 		Events.dodged.emit(target.id)
 		return
@@ -1020,7 +1027,7 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 		attacker.hp = minf(attacker.stats.max_hp, attacker.hp + amount * attacker.stats.lifesteal / 100.0)     # roubo de vida
 	if amount > 0 and kind in ["magical", "shatter"] and attacker != target and attacker.is_character() and attacker.is_alive() and attacker.stats.radiance > 0.0:
 		_radiance(attacker, amount)
-	target.hit_flash = 0.12
+	target.hit_flash = Balance.HIT_FLASH_TIME
 	target.combat_timer = Balance.AGGRO_LOSE_TIME
 	target.last_damage_from = attacker.id
 	target.threat[attacker.id] = float(target.threat.get(attacker.id, 0.0)) + amount
@@ -1152,9 +1159,9 @@ func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 		e.recompute_stats()
 	# regen
 	if e.combat_timer <= 0.0 and e.is_character():
-		e.hp = minf(e.stats.max_hp, e.hp + e.stats.max_hp * 0.02 * dt)
+		e.hp = minf(e.stats.max_hp, e.hp + e.stats.max_hp * Balance.REGEN_HP_PCT * dt)
 	if not e.is_blocking:
-		e.mp = minf(e.stats.max_mp, e.mp + (e.stats.max_mp * 0.015 + 1.0) * dt)
+		e.mp = minf(e.stats.max_mp, e.mp + (e.stats.max_mp * Balance.REGEN_MP_PCT + Balance.REGEN_MP_FLAT) * dt)
 	# estados
 	match e.state:
 		SimEntity.State.CASTING:

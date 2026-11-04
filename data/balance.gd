@@ -103,6 +103,11 @@ const TRAP_MAX := 3
 const PET_HP_SHARE := 0.7
 const PET_ATK_SHARE := 0.5
 const PET_DEF_SHARE := 0.8
+## invocação com status do dono: ataque = MATK x share x (ATK do monstro / ref), limitado
+const SUMMON_MATK_SHARE := 0.6
+const SUMMON_ATK_REF := 12.0
+const SUMMON_ATK_MIN := 0.6
+const SUMMON_ATK_MAX := 2.5
 ## Montaria (H): só fora de combate; atacar, usar skill, dash, bloquear ou levar dano desmonta
 const MOUNT_SPEED_MULT := 1.7
 const MOUNT_COMBAT_LOCK := 3.0            # s depois do último golpe/dano antes de poder montar de novo
@@ -141,6 +146,8 @@ const ELITE_DEF_MULT := 1.5
 const ELITE_SCALE := 1.6
 const ELITE_XP_MULT := 6
 const ELITE_GOLD_MULT := 5
+const ELITE_RADIUS_MULT := 1.3
+const ELITE_LEASH_MIN := 25.0
 const RECALL_TIME := 3.0                   # s parado (fora de combate) para voltar à cidade com G
 ## IA dos bots no combate
 const BOT_POTION_HP_MELEE := 0.45          # corpo a corpo bebe poção de vida abaixo disto (os outros: 0.35)
@@ -187,9 +194,16 @@ const DASH_CHARGE_WINDOW := 0.9       # com 2+ cargas: tempo entre um dash e o p
 const POTION_COOLDOWN := 4.0
 const AGGRO_LOSE_TIME := 6.0
 const CORPSE_TIME := 1.6
-const PACK_AGGRO_RADIUS := 6.0
-const DORMANT_RANGE := 40.0                # monstro sem alvo e sem personagem a até isto dorme (não pensa/anda; custo da sim)             # puxou um monstro: os iguais parados a até isto vêm junto (bando)
+const PACK_AGGRO_RADIUS := 6.0             # puxou um monstro: os iguais parados a até isto vêm junto (bando)
+const DORMANT_RANGE := 40.0                # monstro sem alvo e sem personagem a até isto dorme (não pensa/anda; custo da sim)
 const PLAYER_RESPAWN_TIME := 3.0
+const RESPAWN_HP_SHARE := 0.5              # renasce com metade da vida e da mana
+const LEVEL_UP_RESTORE := 0.3              # subir de nível devolve 30% da vida e da mana
+const REGEN_HP_PCT := 0.02                 # fora de combate: % da vida por segundo
+const REGEN_MP_PCT := 0.015                # fora de combate: % da mana por segundo (+ REGEN_MP_FLAT)
+const REGEN_MP_FLAT := 1.0
+const HIT_FLASH_TIME := 0.12               # piscada branca de quem apanha
+const NOTICE_CD := 3.0                     # aviso repetido (bolsa cheia ao pisar no baú) espera isto
 const ENTITY_RADIUS := 0.45
 
 # --- equipamento gerado (data/catalog/gear_catalog.gd) ---
@@ -211,6 +225,8 @@ const LEGENDARY_DROP_CHANCE := 0.01           # por monstro morto (1 em 100); ca
 const LEGENDARY_DROP_CHANCE_BOSS := 0.4
 ## Arma lendária: efeito próprio da build (GearCatalog.LEGEND_EFFECTS); aqui só os limites comuns
 const LEG_THORNS_RANGE := 4.0
+const LEG_RIPOSTE_RANGE := 4.0             # contra-ataque só em quem bate de perto
+const LEG_CHAIN_RANGE := 6.0               # salto do básico (corrente) até o próximo inimigo
 const LEG_WARD_TIME := 6.0
 const LEGENDARY_COINS_BOSS := 2              # chefe (e Rei) solta 2 moedas lendárias; monstro comum, 1
 ## O lendário cai como Moeda Lendária; a Relicária troca: peça do tier i (LEGENDARY_LEVELS) custa i+1 moedas

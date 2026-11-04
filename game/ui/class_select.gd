@@ -56,17 +56,16 @@ func _ready() -> void:
 	look = {}
 	_page = "slots" if has_save else "create"
 	_build_page()
-	for a in OS.get_cmdline_user_args():     # --look=<classe>:<sexo>:<cabelo>:<barba>:<olhos>:<cor cabelo>:<cor olhos> (revisar a prévia)
-		if a.begins_with("--look="):
-			var f := a.get_slice("=", 1).split(":")
-			if f.size() >= 7 and GameData.classes.has(f[0]):
-				_go_create()
-				_select(GameData.classes[f[0]])
-				for i in range(5):
-					look[["sex", "hair", "beard", "eyes", "hair_color"][i]] = f[i + 1]
-				look["beard_color"] = f[5]
-				look["eye_color"] = f[6]
-				_refresh()
+	if DevArgs.flag("--look"):     # --look=<classe>:<sexo>:<cabelo>:<barba>:<olhos>:<cor cabelo>:<cor olhos> (revisar a prévia)
+		var f := DevArgs.value("--look").split(":")
+		if f.size() >= 7 and GameData.classes.has(f[0]):
+			_go_create()
+			_select(GameData.classes[f[0]])
+			for i in range(5):
+				look[["sex", "hair", "beard", "eyes", "hair_color"][i]] = f[i + 1]
+			look["beard_color"] = f[5]
+			look["eye_color"] = f[6]
+			_refresh()
 
 func _clear(c: Node) -> void:
 	for ch in c.get_children():

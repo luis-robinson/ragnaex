@@ -35,7 +35,7 @@ static func legend_on_hit(sim: WorldSim, e: SimEntity, t: SimEntity, s: SkillDef
 				for o in sim.maps[e.map_id]["entities"]:
 					if left <= 0:
 						break
-					if o != t and o.is_alive() and e.is_hostile_to(o) and o.position.distance_to(t.position) <= 6.0:
+					if o != t and o.is_alive() and e.is_hostile_to(o) and o.position.distance_to(t.position) <= Balance.LEG_CHAIN_RANGE:
 						sim._deal_damage(e, o, maxi(1, int(amount * float(le["pct"]) / 100.0)), false, false, "chain")
 						left -= 1
 		"splash":

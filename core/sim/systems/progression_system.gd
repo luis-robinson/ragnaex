@@ -12,8 +12,8 @@ static func gain_xp(sim: WorldSim, e: SimEntity, amount: int) -> void:
 		e.level += 1
 		e.mastery_points += Balance.MASTERY_POINTS_PER_LEVEL + (1 if e.level in Balance.MASTERY_BONUS_LEVELS else 0)
 		e.recompute_stats()
-		e.hp = minf(e.stats.max_hp, e.hp + e.stats.max_hp * 0.3)
-		e.mp = minf(e.stats.max_mp, e.mp + e.stats.max_mp * 0.3)
+		e.hp = minf(e.stats.max_hp, e.hp + e.stats.max_hp * Balance.LEVEL_UP_RESTORE)
+		e.mp = minf(e.stats.max_mp, e.mp + e.stats.max_mp * Balance.LEVEL_UP_RESTORE)
 		Events.level_up.emit(e.id, e.level)
 		if e == sim.player:
 			Events.notification.emit("Nível %d! +%d ponto(s) de skill (tecla K)" % [e.level, Balance.MASTERY_POINTS_PER_LEVEL + (1 if e.level in Balance.MASTERY_BONUS_LEVELS else 0)])
@@ -24,8 +24,8 @@ static func gain_xp(sim: WorldSim, e: SimEntity, amount: int) -> void:
 
 static func respawn_character(sim: WorldSim, e: SimEntity) -> void:
 	var town := GameData.town_map_id()
-	e.hp = e.stats.max_hp * 0.5
-	e.mp = e.stats.max_mp * 0.5
+	e.hp = e.stats.max_hp * Balance.RESPAWN_HP_SHARE
+	e.mp = e.stats.max_mp * Balance.RESPAWN_HP_SHARE
 	e.set_state(SimEntity.State.IDLE)
 	e.threat.clear()
 	var def := sim.map_def(town)

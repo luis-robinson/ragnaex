@@ -238,7 +238,7 @@ func _prepare(mi: MeshInstance3D) -> void:
 			mi.set_surface_override_material(i, Materials.flat(Color(0.12, 0.1, 0.16)))     # mesma cor do outline.gdshader
 			continue
 		var tm := Materials.toon_unique(col, outline_width)
-		if mi.name.begins_with("wpn_off_shield") or mi.name == "wpn_off_grip" or "--no_char_outline" in OS.get_cmdline_user_args():
+		if mi.name.begins_with("wpn_off_shield") or mi.name == "wpn_off_grip" or DevArgs.has("--no_char_outline"):
 			tm.next_pass = null
 		tm.set_shader_parameter("paint", 1.0)
 		tm.set_shader_parameter("shadow_strength", 0.58)
