@@ -1,0 +1,6 @@
+.godot/
+*.import
+!icon.svg.import
+assets/models/*.blend1
+__pycache__/
+.claude/settings.local.json
