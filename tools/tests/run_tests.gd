@@ -2,6 +2,8 @@ extends Node
 ## Testes headless da simulação:
 ##   godot --headless --path . tools/tests/tests.tscn
 ## Cobre catálogo, fórmulas, bloqueio, XP, loot, quests, crafting, mira de skills e 3000 ticks de mundo com bots.
+## Só uma parte (iterar rápido):  ... tools/tests/tests.tscn -- --only=party,shield
+##   roda cada `_check_*` cujo nome contém um dos pedaços (com o que ele chama dentro); o run completo continua obrigatório.
 
 var fails := 0
 var passes := 0
@@ -18,9 +20,42 @@ func check(cond: bool, msg: String) -> void:
 
 func _ready() -> void:
 	Sim.running = false
-	run_all(GameData, Sim, Balance, SaveSystem)
+	var only := DevArgs.value("--only")
+	if only != "":
+		run_only(Array(only.split(",")), GameData, Sim, SaveSystem)
+	else:
+		run_all(GameData, Sim, Balance, SaveSystem)
 	print("\n=== %d passed, %d failed ===" % [passes, fails])
 	get_tree().quit(1 if fails > 0 else 0)
+
+## `--only`: chama direto os `_check_*` que batem com algum pedaço, montando os argumentos pelo nome (gd, sim, save).
+func run_only(tokens: Array, gd, sim, save) -> void:
+	gd_ref = gd
+	save_ref = save
+	save.slot = TEST_SLOT
+	for mid in gd.maps:            # o mesmo mundo do run_all: todos os mapas e um jogador na cidade
+		sim.load_map(gd.maps[mid])
+	sim.spawn_player(gd.classes["berserker"], "Tester", "city_aldara")
+	var by_name := {"gd": gd, "sim": sim, "save": save}
+	var ran := 0
+	for m in get_method_list():
+		var mname: String = m["name"]
+		if not mname.begins_with("_check_") or not tokens.any(func(t): return t != "" and mname.contains(t)):
+			continue
+		var args: Array = []
+		var ok := true
+		for a in m["args"]:
+			if not by_name.has(a["name"]):
+				ok = false          # pede algo que só o chamador sabe (ex.: um monstro): roda junto do pai
+				break
+			args.append(by_name[a["name"]])
+		if not ok:
+			continue
+		print("--- %s" % mname)
+		callv(mname, args)
+		ran += 1
+	save.delete_slot(TEST_SLOT)
+	print("--only: %d grupos" % ran)
 
 const TEST_SLOT := 90       # espaço só dos testes (fora dos SLOTS da tela inicial): nunca toca nos personagens do jogador
 
