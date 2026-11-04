@@ -34,10 +34,7 @@ func _input(event: InputEvent) -> void:
 
 func _ready() -> void:
 	Engine.max_physics_steps_per_frame = 3     # quadro lento não vira bola de neve de ticks (a sim desacelera um pouco)
-	# tela grande (ultrawide, 1440p+): já tem pixel de sobra; render acima de 100% só custa GPU
-	var scr := DisplayServer.screen_get_size()
-	if scr.x * scr.y >= 2560 * 1300:
-		get_viewport().scaling_3d_scale = 1.0
+	GraphicsSettings.load_and_apply(get_viewport())     # Nítido (125%, 100% em tela grande) ou FSR 2 (menu Esc → Gráficos)
 	world_root = Node3D.new()
 	world_root.name = "World"
 	add_child(world_root)

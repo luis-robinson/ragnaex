@@ -28,6 +28,14 @@ func _ready() -> void:
 	print("\n=== %d passed, %d failed ===" % [passes, fails])
 	get_tree().quit(1 if fails > 0 else 0)
 
+## Menu Esc → Gráficos: o 1º preset é o padrão de sempre (bilinear, escala automática); os FSR 2 renderizam abaixo de 100%.
+func _check_graphics_settings() -> void:
+	var ps: Array = GraphicsSettings.PRESETS
+	check(ps.size() >= 2 and ps[0][1] == Viewport.SCALING_3D_MODE_BILINEAR and float(ps[0][2]) < 0.0, "gráficos: padrão = Nítido automático")
+	for p in ps.slice(1):
+		check(p[1] == Viewport.SCALING_3D_MODE_FSR2 and float(p[2]) > 0.3 and float(p[2]) < 1.0, "gráficos: %s renderiza abaixo da tela" % p[0])
+	check(GraphicsSettings.preset == 0 or FileAccess.file_exists(GraphicsSettings.PATH), "gráficos: sem arquivo salvo começa no padrão")
+
 ## `--only`: chama direto os `_check_*` que batem com algum pedaço, montando os argumentos pelo nome (gd, sim, save).
 func run_only(tokens: Array, gd, sim, save) -> void:
 	gd_ref = gd
@@ -282,6 +290,7 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_build_depth(gd, sim)
 	_check_water(gd, sim)
 	_check_outdoor(gd)
+	_check_graphics_settings()
 	# builds: paladino = tanque (escudo) ou 2 mãos; berserker = 2 mãos ou duas armas de 1 mão (machado/espada misturados)
 	var pb: Array = gd.classes["paladin"].builds.map(func(b): return b["id"])
 	check(pb == ["guardiao", "cruzado"], "paladino tem só Guardião e Cruzado (%s)" % [pb])

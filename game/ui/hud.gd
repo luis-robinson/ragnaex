@@ -697,6 +697,13 @@ func open_game_menu() -> void:
 		var btn := UiKit.button(b[0], b[1], 240)
 		btn.add_theme_font_size_override("font_size", 15)
 		v.add_child(btn)
+	var gfx := UiKit.button("", Callable(), 240)
+	gfx.text = "Gráficos: " + GraphicsSettings.name()
+	gfx.tooltip_text = "Nítido: imagem mais limpa (padrão).
+FSR 2: renderiza menor e reconstrói — mais FPS em PC fraco, contorno pode tremular."
+	gfx.pressed.connect(func(): gfx.text = "Gráficos: " + GraphicsSettings.cycle(get_viewport()))
+	gfx.add_theme_font_size_override("font_size", 13)
+	v.add_child(gfx)
 	var hint := UiKit.label("O jogo também salva sozinho a cada minuto e ao fechar a janela.", 10, UiKit.MUTED)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(hint)

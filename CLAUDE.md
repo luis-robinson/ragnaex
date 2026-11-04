@@ -166,6 +166,8 @@ testes + smoke (tour: `-- --tour=<pasta> [--tour_map=<zona>]` salva screenshots 
   Ação de 1 vez no `InputCommand` (montar, voltar) precisa ser zerada no comando repetido entre pensamentos (`WorldSim.tick`).
 - Lentidão que só aparece jogando: `PerfWatch` (game/dev/perf_watch.gd) grava em `user://perf_log.txt` (AppData/Roaming/Godot/app_userdata/RagnaEx) cada trecho < 25 FPS com
   mapa, monstros acordados, draws, GPU e as fases da sim; reproduzir com `-- --soak=<s> [--soak_map=<dungeon>]` (joga sozinho e imprime FPS a cada 5 s).
+- Qualidade de imagem: `GraphicsSettings` (game/visual/graphics_settings.gd, menu Esc → Gráficos, salvo em `user://settings.cfg`): Nítido (125%, 100% em tela grande)
+  ou FSR 2 Qualidade/Equilibrado/Desempenho. Comparar sem mexer no salvo: `-- --perf --gfx=<n>`.
 - Medir: `.\tools\godot.ps1 --path . -- --perf [--perf_at=x,z] [--no_merge] [--cull_test=hide|noproc] [--no_prune] [--no_away]` (cidade cheia ~8 s: FPS, draw calls, nós, memória, custo do tick).
 
 ## Estilo GDScript

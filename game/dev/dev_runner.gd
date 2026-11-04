@@ -57,13 +57,16 @@ func before_start(returning: bool) -> String:
 	if DevArgs.flag("--tour"):
 		_tour_dir = DevArgs.value("--tour")
 		autostart = "paladin"
-	if DevArgs.flag("--autostart"):
+	if DevArgs.has("--autostart") or DevArgs.flag("--autostart"):
 		autostart = DevArgs.value("--autostart", "paladin")
 	if DevArgs.flag("--showcase"):
 		var sc_cls := DevArgs.value("--showcase")
 		autostart = sc_cls if GameData.classes.has(sc_cls) else "paladin"
 		showcase = Showcase.new()
 		showcase.setup(main, sc_cls, DevArgs.value("--skill"), DevArgs.value("--out"), DevArgs.has("--check"))
+	if DevArgs.flag("--gfx"):        # --gfx=<n>: preset de GraphicsSettings só nesta partida (não salva); comparar FPS/imagem
+		GraphicsSettings.preset = clampi(int(DevArgs.value("--gfx")), 0, GraphicsSettings.PRESETS.size() - 1)
+		GraphicsSettings.apply(main.get_viewport())
 	if DevArgs.has("--no_prune"):
 		KitModel.prune = false
 	if DevArgs.has("--no_away"):

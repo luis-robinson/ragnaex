@@ -24,8 +24,8 @@ static func gain_xp(sim: WorldSim, e: SimEntity, amount: int) -> void:
 
 static func respawn_character(sim: WorldSim, e: SimEntity) -> void:
 	var town := GameData.town_map_id()
-	e.hp = e.stats.max_hp * Balance.RESPAWN_HP_SHARE
-	e.mp = e.stats.max_mp * Balance.RESPAWN_HP_SHARE
+	e.hp = e.stats.max_hp * Balance.RESPAWN_SHARE
+	e.mp = e.stats.max_mp * Balance.RESPAWN_SHARE
 	e.set_state(SimEntity.State.IDLE)
 	e.threat.clear()
 	var def := sim.map_def(town)

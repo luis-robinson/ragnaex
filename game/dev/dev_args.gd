@@ -1,7 +1,7 @@
 class_name DevArgs
 extends RefCounted
 ## Argumentos de linha de comando depois de `--` (modos de revisão/medição), lidos uma vez só.
-## `has("--perf")`, `value("--shot", "")` para `--shot=<x>`, `flag("--autostart")` vale para `--autostart` e `--autostart=<x>`.
+## `has("--perf")` = argumento exato; `flag("--shot")` = veio `--shot=<algo>` (mesmo vazio); `value("--shot", "")` = o <algo>.
 
 static var _args: PackedStringArray = []
 static var _read := false
@@ -19,10 +19,10 @@ static func any() -> bool:
 static func has(arg: String) -> bool:
 	return arg in all()
 
-## `--x` ou `--x=<valor>` existe.
+## `--x=<valor>` existe (o valor pode ser vazio: `--wins=`). `--x` sozinho não conta: use `has`.
 static func flag(name: String) -> bool:
 	for a in all():
-		if a == name or a.begins_with(name + "="):
+		if a.begins_with(name + "="):
 			return true
 	return false
 

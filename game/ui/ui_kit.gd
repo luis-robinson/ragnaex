@@ -14,8 +14,6 @@ const QUEST_REPEAT := Color(0.35, 0.75, 1.0)        # repetível: azul
 const SLOT_BG := Color(0.05, 0.045, 0.07, 0.9)     # quadrado vazio de bolsa/loja/depósito
 const SLOT_EDGE := Color(0.22, 0.2, 0.27)
 const DIM := Color(0.55, 0.55, 0.6)                 # item que não dá para pegar/trocar agora
-const HINT_OK := "#9f9"                             # dica de ação nas tooltips (bbcode)
-const HINT_BAD := "#f99"
 
 ## Símbolo e cor de um marcador de QuestSystem.npc_marker (mesma aparência na cabeça e no minimapa).
 static func quest_mark_text(mark: String) -> String:
