@@ -3,7 +3,7 @@ extends RefCounted
 ## Monstros: provocação/troca de alvo, chamar a matilha, fases de chefe (lacaios, enrage, reset) e spawners.
 
 ## Provocar: quem provoca vira o topo da ameaça e o monstro fica preso nele por um tempo.
-static func _taunt(sim: WorldSim, mob: SimEntity, src: SimEntity, duration: float) -> void:
+static func taunt(sim: WorldSim, mob: SimEntity, src: SimEntity, duration: float) -> void:
 	var top := 0.0
 	for id in mob.threat:
 		top = maxf(top, float(mob.threat[id]))
@@ -13,16 +13,16 @@ static func _taunt(sim: WorldSim, mob: SimEntity, src: SimEntity, duration: floa
 	mob.taunt_left = duration * (0.5 if mob.monster_def.is_boss else 1.0)
 
 ## Troca de alvo por ameaça: o primeiro golpe puxa; depois só quem passa o alvo atual com folga.
-static func _retarget(sim: WorldSim, mob: SimEntity, attacker: SimEntity) -> void:
+static func retarget(sim: WorldSim, mob: SimEntity, attacker: SimEntity) -> void:
 	mob.aggro_timer = Balance.AGGRO_LOSE_TIME
 	if mob.aggro_target < 0:
 		mob.aggro_target = attacker.id
-		_pack_call(sim, mob, attacker)
+		pack_call(sim, mob, attacker)
 	elif mob.taunt_left <= 0.0 and float(mob.threat.get(attacker.id, 0.0)) > float(mob.threat.get(mob.aggro_target, 0.0)) * Balance.THREAT_SWITCH:
 		mob.aggro_target = attacker.id
 
 ## Bando: o primeiro golpe num monstro chama os iguais que estão parados por perto (chefes e lacaios não).
-static func _pack_call(sim: WorldSim, mob: SimEntity, attacker: SimEntity) -> void:
+static func pack_call(sim: WorldSim, mob: SimEntity, attacker: SimEntity) -> void:
 	if mob.monster_def == null or mob.monster_def.is_boss or not sim.maps.has(mob.map_id):
 		return
 	var r2 := Balance.PACK_AGGRO_RADIUS * Balance.PACK_AGGRO_RADIUS
@@ -34,7 +34,7 @@ static func _pack_call(sim: WorldSim, mob: SimEntity, attacker: SimEntity) -> vo
 			o.aggro_timer = Balance.AGGRO_LOSE_TIME
 
 ## Lacaios de chefe: monstros de verdade sem spawner; somem quando o chefe morre ou reseta.
-static func _spawn_adds(sim: WorldSim, boss: SimEntity, sm: Dictionary) -> void:
+static func spawn_adds(sim: WorldSim, boss: SimEntity, sm: Dictionary) -> void:
 	var mdef: MonsterDef = GameData.monsters.get(sm.get("id", ""))
 	if mdef == null:
 		return
@@ -54,7 +54,7 @@ static func _spawn_adds(sim: WorldSim, boss: SimEntity, sm: Dictionary) -> void:
 		alive += 1
 
 ## Avança as fases pelo HP; uma queda grande de HP pode entrar em mais de uma de uma vez.
-static func _update_boss(sim: WorldSim, e: SimEntity) -> void:
+static func update_boss(sim: WorldSim, e: SimEntity) -> void:
 	var phases: Array = e.monster_def.phases
 	while e.phase < phases.size() and e.hp / e.stats.max_hp <= float(phases[e.phase]["hp"]):
 		var ph: Dictionary = phases[e.phase]
@@ -63,7 +63,7 @@ static func _update_boss(sim: WorldSim, e: SimEntity) -> void:
 			Events.notification.emit("%s: %s" % [e.name, ph["say"]])
 		sim._add_skills(e, ph.get("skills", []))
 		if ph.has("summon"):
-			_spawn_adds(sim, e, ph["summon"])
+			spawn_adds(sim, e, ph["summon"])
 		if ph.has("enrage"):
 			e.dmg_mult = float(ph["enrage"])
 			e.recompute_stats()
@@ -84,7 +84,7 @@ static func reset_boss(sim: WorldSim, e: SimEntity) -> void:
 	e.recompute_stats()
 	e.heal_full()
 
-static func _update_spawners(sim: WorldSim, m: Dictionary, dt: float) -> void:
+static func update_spawners(sim: WorldSim, m: Dictionary, dt: float) -> void:
 	var def: MapDef = m["def"]
 	for sp in m["spawners"]:
 		var sdef: Dictionary = sp["def"]

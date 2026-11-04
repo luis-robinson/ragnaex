@@ -136,7 +136,7 @@ static func legendary_chance(sim: WorldSim, mob: SimEntity) -> float:
 	return Balance.LEGENDARY_DROP_CHANCE
 
 ## Só oferece escudo a quem pode usar um com a arma atual (Inquisidor e Cruzado de duas mãos, não).
-static func _uses_shield(sim: WorldSim, e: SimEntity) -> bool:
+static func uses_shield(sim: WorldSim, e: SimEntity) -> bool:
 	var w: ItemDef = e.equipment.get(ItemDef.Slot.WEAPON)
 	if w == null or w.is_two_handed():
 		return false
@@ -149,7 +149,7 @@ static func pick_legendary(sim: WorldSim, killer: SimEntity, mob_level: int) -> 
 			tier_level = lv
 	if tier_level == 0:
 		return ""
-	if _uses_shield(sim, killer) and sim.rng.randf() < Balance.SHIELD_LEGENDARY_SHARE:
+	if uses_shield(sim, killer) and sim.rng.randf() < Balance.SHIELD_LEGENDARY_SHARE:
 		var shields: Array = GearCatalog.SHIELDS.filter(func(d): return d[2] <= tier_level and GearCatalog.shield_fits("shield_" + d[0], killer.class_def.id))
 		if shields.is_empty():
 			shields = GearCatalog.SHIELDS.filter(func(d): return d[2] <= tier_level)
@@ -244,7 +244,7 @@ static func unequip(sim: WorldSim, e: SimEntity, slot: int) -> void:
 		e.recompute_stats()
 		Events.equipment_changed.emit(e.id)
 
-static func _first_free_slot(sim: WorldSim, e: SimEntity) -> int:
+static func first_free_slot(sim: WorldSim, e: SimEntity) -> int:
 	for i in range(e.skills.size()):
 		if e.skills[i] == null:
 			return i

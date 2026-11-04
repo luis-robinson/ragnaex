@@ -3,7 +3,7 @@ extends RefCounted
 ## Escudos: reação ao bloquear/aparar (shield_effect), bônus por classe (Juramento/Graça), poder do escudo nas skills.
 
 ## O escudo responde ao bloqueio: cada escudo nomeado tem a sua reação; aparar dobra e atordoa quem bateu de perto.
-static func _shield_reaction(sim: WorldSim, target: SimEntity, attacker: SimEntity, amount: int, parried: bool, from: Variant = null) -> void:
+static func shield_reaction(sim: WorldSim, target: SimEntity, attacker: SimEntity, amount: int, parried: bool, from: Variant = null) -> void:
 	var origin: Vector3 = attacker.position if from == null else from
 	var off: ItemDef = target.equipment.get(ItemDef.Slot.OFFHAND)
 	var fx: Dictionary = off.shield_effect if off else {}
@@ -14,7 +14,7 @@ static func _shield_reaction(sim: WorldSim, target: SimEntity, attacker: SimEnti
 		Events.shield_block.emit(target.id, attacker.id, theme, parried, origin)
 		return
 	target.shield_react_cd = Balance.SHIELD_REACT_CD
-	_shield_class_bonus(sim, target, off, parried)
+	shield_class_bonus(sim, target, off, parried)
 	var k: float = Balance.PARRY_EFFECT_MULT if parried else 1.0
 	var max_hp: float = target.stats.max_hp
 	if fx.has("heal_pct"):
@@ -37,7 +37,7 @@ static func _shield_reaction(sim: WorldSim, target: SimEntity, attacker: SimEnti
 	Events.shield_block.emit(target.id, attacker.id, theme, parried, origin)
 
 ## Escudo da afinidade certa: paladino junta Juramento; bispo cura o aliado mais ferido e, ao aparar, protege o grupo.
-static func _shield_class_bonus(sim: WorldSim, e: SimEntity, off: ItemDef, parried: bool) -> void:
+static func shield_class_bonus(sim: WorldSim, e: SimEntity, off: ItemDef, parried: bool) -> void:
 	if off == null or e.class_def == null:
 		return
 	var aff: String = GearCatalog.SHIELD_AFFINITY.get(off.shield_style if off.shield_style != "" else "juramento", "")     # sem estilo = escudo de conjunto
@@ -45,16 +45,11 @@ static func _shield_class_bonus(sim: WorldSim, e: SimEntity, off: ItemDef, parri
 		return
 	if e.class_def.id == "paladin":
 		var stacks := mini(oath_stacks(sim, e) + (2 if parried else 1), Balance.SHIELD_OATH_MAX)
-		e.buffs = e.buffs.filter(func(x): return x.get("id") != "juramento")
-		e.buffs.append({"id": "juramento", "remaining": Balance.SHIELD_OATH_TIME, "stacks": stacks})
+		e.put_buff({"id": "juramento", "remaining": Balance.SHIELD_OATH_TIME, "stacks": stacks})
 		Events.buff_applied.emit(e.id, "juramento", Balance.SHIELD_OATH_TIME)
 		return
-	var hurt: SimEntity = e
+	var hurt := sim.most_hurt_friend(e, Balance.SHIELD_GRACE_RANGE)
 	var ents: Array = sim.maps[e.map_id]["entities"]
-	for o in ents:
-		if o.is_character() and o.is_alive() and e.is_friend(o) and o.position.distance_to(e.position) <= Balance.SHIELD_GRACE_RANGE:
-			if o.hp / o.stats.max_hp < hurt.hp / hurt.stats.max_hp:
-				hurt = o
 	if e.grace_cd <= 0.0:
 		e.grace_cd = Balance.SHIELD_GRACE_CD
 		sim._heal(e, hurt, int(hurt.stats.max_hp * Balance.SHIELD_GRACE_PCT / 100.0))
@@ -65,13 +60,10 @@ static func _shield_class_bonus(sim: WorldSim, e: SimEntity, off: ItemDef, parri
 				sim._apply_effects(e, o, {"shield": {"amount_pct_hp": Balance.SHIELD_WARD_PCT, "duration": Balance.SHIELD_WARD_TIME}}, 1.0)     # não encurta escudo maior
 
 static func oath_stacks(sim: WorldSim, e: SimEntity) -> int:
-	for b in e.buffs:
-		if b.get("id") == "juramento":
-			return int(b.get("stacks", 0))
-	return 0
+	return e.buff_stacks("juramento")
 
 ## Skill de escudo escala com a DEF do escudo; skill sagrada ou de escudo do paladino gasta o Juramento.
-static func _shield_power(sim: WorldSim, e: SimEntity, s: SkillDef) -> float:
+static func shield_power(sim: WorldSim, e: SimEntity, s: SkillDef) -> float:
 	var off: ItemDef = e.equipment.get(ItemDef.Slot.OFFHAND)
 	if off == null or off.weapon_type != "shield" or e.class_def == null or s.kind == SkillDef.Kind.BUFF:
 		return 1.0
@@ -82,5 +74,5 @@ static func _shield_power(sim: WorldSim, e: SimEntity, s: SkillDef) -> float:
 	var stacks := oath_stacks(sim, e)
 	if stacks > 0 and (shield_skill or s.vfx == "holy"):
 		mult += stacks * Balance.SHIELD_OATH_POWER
-		e.buffs = e.buffs.filter(func(x): return x.get("id") != "juramento")
+		e.drop_buff("juramento")
 	return mult

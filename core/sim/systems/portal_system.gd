@@ -2,7 +2,7 @@ class_name PortalSystem
 extends RefCounted
 ## Portais, portões de progressão, troca de mapa (com invocações e grupo) e recall.
 
-static func _check_portals(sim: WorldSim, e: SimEntity, m: Dictionary) -> void:
+static func check_portals(sim: WorldSim, e: SimEntity, m: Dictionary) -> void:
 	var def: MapDef = m["def"]
 	for pt in def.portals:
 		if pt.get("player_only", false) and e != sim.player:
@@ -41,11 +41,11 @@ static func grandfather_gates(sim: WorldSim, e: SimEntity, map_id: String) -> vo
 			var g: Dictionary = pt.get("gate", {})
 			if g.is_empty() or g.has("bosses"):
 				continue
-			if e.level >= int(g.get("level", 1)) or _map_within(sim, map_id, pt["target_map"]):
+			if e.level >= int(g.get("level", 1)) or map_within(sim, map_id, pt["target_map"]):
 				e.gates_open[pt["id"]] = true
 
 ## `map_id` é `area` ou fica dentro dela (dungeon da zona).
-static func _map_within(sim: WorldSim, map_id: String, area: String) -> bool:
+static func map_within(sim: WorldSim, map_id: String, area: String) -> bool:
 	var cur := map_id
 	while cur != "":
 		if cur == area:
@@ -54,7 +54,7 @@ static func _map_within(sim: WorldSim, map_id: String, area: String) -> bool:
 		cur = def.parent_map if def else ""
 	return false
 
-static func _process_map_changes(sim: WorldSim) -> void:
+static func process_map_changes(sim: WorldSim) -> void:
 	var moving := {}
 	for ch in sim._pending_map_changes:
 		moving[ch["e"].id] = true
@@ -74,12 +74,12 @@ static func _process_map_changes(sim: WorldSim) -> void:
 			var pos: Vector3 = ch["pos"]
 			extra.append({"e": o, "map": ch["map"], "pos": pos + Vector3(cos(k * 2.1), 0, sin(k * 2.1)) * 1.6})
 	for ch in sim._pending_map_changes + extra:
-		_change_map(sim, ch["e"], ch["map"], ch["pos"])
+		change_map(sim, ch["e"], ch["map"], ch["pos"])
 	sim._pending_map_changes.clear()
 
 ## Voltar à cidade (G): RECALL_TIME s parado e fora de combate; andar, agir, levar dano ou apertar G de novo cancela.
 ## Chega no ponto de entrada da vila; os bots do grupo por perto vêm junto (mesma regra do portal).
-static func _update_recall(sim: WorldSim, e: SimEntity, cmd: InputCommand, action_cmd: InputCommand, dt: float) -> void:
+static func update_recall(sim: WorldSim, e: SimEntity, cmd: InputCommand, action_cmd: InputCommand, dt: float) -> void:
 	if not e.is_character():
 		return
 	var town := GameData.town_map_id()
@@ -118,7 +118,7 @@ static func _update_recall(sim: WorldSim, e: SimEntity, cmd: InputCommand, actio
 		e.mounted = false
 		sim._pending_map_changes.append({"e": e, "map": town, "pos": GameData.maps[town].spawn_point})
 
-static func _change_map(sim: WorldSim, e: SimEntity, map_id: String, pos: Vector3) -> void:
+static func change_map(sim: WorldSim, e: SimEntity, map_id: String, pos: Vector3) -> void:
 	if e.mounted and GameData.maps.has(map_id) and GameData.maps[map_id].parent_map != "":
 		sim.dismount(e)                    # dungeon: entra a pé
 	if not sim.maps.has(map_id):

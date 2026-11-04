@@ -29,13 +29,13 @@ static func respawn_character(sim: WorldSim, e: SimEntity) -> void:
 	e.set_state(SimEntity.State.IDLE)
 	e.threat.clear()
 	var def := sim.map_def(town)
-	PortalSystem._change_map(sim, e, town, def.spawn_point)
+	PortalSystem.change_map(sim, e, town, def.spawn_point)
 	Events.entity_respawned.emit(e.id)
 
 ## Cópia da skill com as evoluções do personagem aplicadas (só as cuja arma exigida ele empunha).
 ## Sem evolução ativa devolve a própria skill (sem alocação).
 static func resolve_skill(sim: WorldSim, e: SimEntity, s: SkillDef) -> SkillDef:
-	var out := _resolve_talents(sim, e, s)
+	var out := resolve_talents(sim, e, s)
 	var fm: Dictionary = SkillsCatalog.FORM_MODS.get(s.id, {}).get(e.form, {}) if e.form != "" else {}
 	if fm.is_empty():
 		return out
@@ -51,7 +51,7 @@ static func resolve_skill(sim: WorldSim, e: SimEntity, s: SkillDef) -> SkillDef:
 		out.talent_effects[k] = fm["effects"][k]
 	return out
 
-static func _resolve_talents(sim: WorldSim, e: SimEntity, s: SkillDef) -> SkillDef:
+static func resolve_talents(sim: WorldSim, e: SimEntity, s: SkillDef) -> SkillDef:
 	if not e.is_character() or e.talents.is_empty():
 		return s
 	var out: SkillDef = null
@@ -154,7 +154,7 @@ static func tree_allocate(sim: WorldSim, e: SimEntity, node_id: String) -> bool:
 		"skill":
 			e.learned[ref] = true
 			e.mastery[ref] = e.mastery_of(ref)
-			var free := ItemSystem._first_free_slot(sim, e)
+			var free := ItemSystem.first_free_slot(sim, e)
 			if free >= 0 and e.slot_of(ref) < 0:
 				e.skills[free] = GameData.skills[ref]
 		"talent":

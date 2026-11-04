@@ -8,7 +8,7 @@ const GRID_CELL := 12.0
 ## Pré-computa colisores (círculo ou caixa rotacionada) e os indexa numa grade espacial.
 ## Água também é sólida: rio vira uma corrente de caixas curtas (com vão onde uma estrada cruza = ponte)
 ## e lago vira círculo; nada disso é "alto" (projéteis passam por cima).
-static func _build_collider_grid(sim: WorldSim, m: Dictionary) -> void:
+static func build_collider_grid(sim: WorldSim, m: Dictionary) -> void:
 	var def: MapDef = m["def"]
 	var cols: Array = []
 	var grid: Dictionary = {}
@@ -21,14 +21,14 @@ static func _build_collider_grid(sim: WorldSim, m: Dictionary) -> void:
 		var pos: Vector3 = ob["pos"]
 		var size: Vector3 = ob.get("size", Vector3.ONE)
 		var circle: bool = kind in ["tree", "rock", "pillar", "well", "fountain", "lamp", "statue", "pine", "dead_tree", "stump", "hill"]
-		_add_collider(sim, cols, grid, {"circle": circle, "x": pos.x, "z": pos.z, "cr": maxf(size.x, size.z) * 0.5,
+		add_collider(sim, cols, grid, {"circle": circle, "x": pos.x, "z": pos.z, "cr": maxf(size.x, size.z) * 0.5,
 			"hx": size.x * 0.5, "hz": size.z * 0.5, "rot": deg_to_rad(float(ob.get("rot", 0.0))), "tall": size.y > 1.2})
 	var bridges := water_crossings(def)
 	m["bridges"] = bridges
 	for w in def.water:
 		if w["kind"] == "lake":
 			var c: Vector2 = w["pos"]
-			_add_collider(sim, cols, grid, {"circle": true, "x": c.x, "z": c.y, "cr": float(w["r"]) - WATER_SHORE, "hx": 0.0, "hz": 0.0, "rot": 0.0, "tall": false})
+			add_collider(sim, cols, grid, {"circle": true, "x": c.x, "z": c.y, "cr": float(w["r"]) - WATER_SHORE, "hx": 0.0, "hz": 0.0, "rot": 0.0, "tall": false})
 			continue
 		var pts: PackedVector2Array = w["pts"]
 		var half_w: float = float(w["w"]) * 0.5 - WATER_SHORE
@@ -48,11 +48,11 @@ static func _build_collider_grid(sim: WorldSim, m: Dictionary) -> void:
 				if on_bridge:
 					continue
 				# caixa alinhada ao trecho (um pouco mais longa para não deixar fresta entre peças)
-				_add_collider(sim, cols, grid, {"circle": false, "x": c.x, "z": c.y, "cr": 0.0, "hx": seg_len / n * 0.5 + 0.35, "hz": half_w,
+				add_collider(sim, cols, grid, {"circle": false, "x": c.x, "z": c.y, "cr": 0.0, "hx": seg_len / n * 0.5 + 0.35, "hz": half_w,
 					"rot": -dir.angle(), "tall": false})
 	m["colliders"] = cols
 	m["grid"] = grid
-	_build_water_graph(sim, m)
+	build_water_graph(sim, m)
 
 const WATER_SHORE := 0.5      # m de água rasa andável na beirada
 
@@ -60,7 +60,7 @@ const RIVER_PIECE := 1.5      # comprimento de cada caixa do rio
 
 const BRIDGE_HALF := 2.7      # meia-largura do vão da ponte (tabuleiro = estrada + 0,6 m)
 
-static func _add_collider(sim: WorldSim, cols: Array, grid: Dictionary, c: Dictionary) -> void:
+static func add_collider(sim: WorldSim, cols: Array, grid: Dictionary, c: Dictionary) -> void:
 	var idx := cols.size()
 	cols.append(c)
 	var reach: float = c["cr"] if c["circle"] else Vector2(c["hx"], c["hz"]).length()
@@ -108,7 +108,7 @@ static func water_path(sim: WorldSim, map_id: String, from: Vector3, to: Vector3
 	var m: Dictionary = sim.maps[map_id]
 	var a := Vector2(from.x, from.z)
 	var b := Vector2(to.x, to.z)
-	if m.get("bridges", []).is_empty() or not _crosses_river(sim, m, a, b):
+	if m.get("bridges", []).is_empty() or not crosses_river(sim, m, a, b):
 		return []
 	var nodes: PackedVector2Array = m["water_nodes"]
 	var adj: Array = m["water_adj"]
@@ -122,7 +122,7 @@ static func water_path(sim: WorldSim, map_id: String, from: Vector3, to: Vector3
 	var done := PackedByteArray()
 	done.resize(n)
 	for i in range(n):
-		if not _crosses_river(sim, m, a, nodes[i]):
+		if not crosses_river(sim, m, a, nodes[i]):
 			dist[i] = a.distance_to(nodes[i])
 	var best_end := -1
 	var best_total := INF
@@ -136,7 +136,7 @@ static func water_path(sim: WorldSim, map_id: String, from: Vector3, to: Vector3
 		if u < 0 or du >= best_total:
 			break
 		done[u] = 1
-		if not _crosses_river(sim, m, nodes[u], b):
+		if not crosses_river(sim, m, nodes[u], b):
 			var total := du + nodes[u].distance_to(b)
 			if total < best_total:
 				best_total = total
@@ -157,12 +157,12 @@ static func water_path(sim: WorldSim, map_id: String, from: Vector3, to: Vector3
 	return out
 
 ## Nós do desvio: as duas cabeceiras de cada ponte (ligadas entre si) e pontos andáveis nas margens.
-static func _build_water_graph(sim: WorldSim, m: Dictionary) -> void:
+static func build_water_graph(sim: WorldSim, m: Dictionary) -> void:
 	var def: MapDef = m["def"]
 	var nodes := PackedVector2Array()
 	var pairs: Array = []
 	for br in m["bridges"]:
-		var ends := _bridge_ends(sim, br)
+		var ends := bridge_ends(sim, br)
 		pairs.append([nodes.size(), nodes.size() + 1])
 		nodes.append(ends[0])
 		nodes.append(ends[1])
@@ -198,7 +198,7 @@ static func _build_water_graph(sim: WorldSim, m: Dictionary) -> void:
 	for i in range(nodes.size()):
 		for j in range(i + 1, nodes.size()):
 			var d := nodes[i].distance_to(nodes[j])
-			if d > 90.0 or _crosses_river(sim, m, nodes[i], nodes[j]):
+			if d > 90.0 or crosses_river(sim, m, nodes[i], nodes[j]):
 				continue
 			adj[i].append([j, d])
 			adj[j].append([i, d])
@@ -211,13 +211,13 @@ static func _build_water_graph(sim: WorldSim, m: Dictionary) -> void:
 	m["water_adj"] = adj
 
 ## Cabeceiras da ponte (um pouco além da margem, dos dois lados).
-static func _bridge_ends(sim: WorldSim, br: Dictionary) -> Array:
+static func bridge_ends(sim: WorldSim, br: Dictionary) -> Array:
 	var across := Vector2(-br["dir"].y, br["dir"].x)
 	var reach: float = br["w"] * 0.5 + 2.5
 	return [br["pos"] + across * reach, br["pos"] - across * reach]
 
 ## A linha a→b corta água (rio fora do vão de uma ponte, ou lago)?
-static func _crosses_river(sim: WorldSim, m: Dictionary, a: Vector2, b: Vector2) -> bool:
+static func crosses_river(sim: WorldSim, m: Dictionary, a: Vector2, b: Vector2) -> bool:
 	for w in m["def"].water:
 		if w["kind"] == "lake":
 			var c: Vector2 = w["pos"]
@@ -238,13 +238,13 @@ static func _crosses_river(sim: WorldSim, m: Dictionary, a: Vector2, b: Vector2)
 				return true
 	return false
 
-static func _nearby_colliders(sim: WorldSim, m: Dictionary, p: Vector3) -> Array:
+static func nearby_colliders(sim: WorldSim, m: Dictionary, p: Vector3) -> Array:
 	var key := Vector2i(floori(p.x / GRID_CELL), floori(p.z / GRID_CELL))
 	return m["grid"].get(key, [])
 
-static func _resolve_obstacles(sim: WorldSim, p: Vector3, r: float, m: Dictionary) -> Vector3:
+static func resolve_obstacles(sim: WorldSim, p: Vector3, r: float, m: Dictionary) -> Vector3:
 	var cols: Array = m["colliders"]
-	for idx in _nearby_colliders(sim, m, p):
+	for idx in nearby_colliders(sim, m, p):
 		var c: Dictionary = cols[idx]
 		if c["circle"]:
 			var cr: float = c["cr"]
@@ -271,9 +271,9 @@ static func _resolve_obstacles(sim: WorldSim, p: Vector3, r: float, m: Dictionar
 				p.z = c["z"] + rel.y
 	return p
 
-static func _point_in_solid(sim: WorldSim, p: Vector3, m: Dictionary) -> bool:
+static func point_in_solid(sim: WorldSim, p: Vector3, m: Dictionary) -> bool:
 	var cols: Array = m["colliders"]
-	for idx in _nearby_colliders(sim, m, p):
+	for idx in nearby_colliders(sim, m, p):
 		var c: Dictionary = cols[idx]
 		if not c["tall"]:
 			continue
@@ -292,7 +292,7 @@ static func is_walkable(sim: WorldSim, p: Vector3, def: MapDef, r: float = 0.45)
 		return false
 	if not sim.maps.has(def.id):
 		return true
-	return _resolve_obstacles(sim, p, r, sim.maps[def.id]).distance_to(p) < 0.01
+	return resolve_obstacles(sim, p, r, sim.maps[def.id]).distance_to(p) < 0.01
 
 static func random_walkable(sim: WorldSim, def: MapDef, center: Vector3, radius: float) -> Vector3:
 	for i in range(12):

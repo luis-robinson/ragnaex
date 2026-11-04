@@ -61,8 +61,8 @@ func load_map(def: MapDef) -> Dictionary:
 	var m := {"def": def, "entities": [], "projectiles": [], "loot": [], "spawners": [], "grid": {}, "colliders": [], "traps": [],
 		"kills": {}, "elites": {}}         # abates por monstro e o Rei vivo de cada um (Balance.ELITE_*)
 	maps[def.id] = m
-	MapGeometry._build_collider_grid(self, m)
-	m["gather"] = GatherSystem._spread_gather(self, def)          # pontos de colheita (depois da colisão: só em chão livre)
+	MapGeometry.build_collider_grid(self, m)
+	m["gather"] = GatherSystem.spread_gather(self, def)          # pontos de colheita (depois da colisão: só em chão livre)
 	for sp in def.spawners:
 		m["spawners"].append({"def": sp, "alive": [], "timer": 0.0, "primed": false})     # primed: já encheu a 1ª vez
 	for n in def.npcs:
@@ -107,7 +107,7 @@ func spawn_character(kind: SimEntity.Kind, cls: ClassDef, char_name: String, map
 		if s:
 			e.learned[sid] = true
 			e.mastery[sid] = 0
-			var free := ItemSystem._first_free_slot(self, e)
+			var free := ItemSystem.first_free_slot(self, e)
 			if free >= 0:
 				e.skills[free] = s
 	var tr: Dictionary = GameData.trees.get(cls.id, {})
@@ -373,11 +373,11 @@ func tick(dt: float) -> void:
 		_update_projectiles(m, mdt)
 		if profile:
 			_prof("r_projectiles", pt); pt = Time.get_ticks_usec()
-		MobSystem._update_spawners(self, m, mdt)
+		MobSystem.update_spawners(self, m, mdt)
 		if profile:
 			_prof("r_spawners", pt); pt = Time.get_ticks_usec()
-		TrapSystem._update_traps(self, m)
-		LootSystem._update_loot(self, m, mdt)
+		TrapSystem.update_traps(self, m)
+		LootSystem.update_loot(self, m, mdt)
 		if profile:
 			_prof("r_loot", pt); pt = Time.get_ticks_usec()
 		if profile:
@@ -388,10 +388,10 @@ func tick(dt: float) -> void:
 	player_cmd.attack = false; player_cmd.skill_slot = -1; player_cmd.potion_slot = -1
 	player_cmd.interact = false; player_cmd.dash = false; player_cmd.jump = false
 	player_cmd.mount = false; player_cmd.recall = false
-	PortalSystem._process_map_changes(self)
-	PartySystem._party_catchup(self, dt)
+	PortalSystem.process_map_changes(self)
+	PartySystem.party_catchup(self, dt)
 	if not invites.is_empty():
-		PartySystem._update_invites(self)
+		PartySystem.update_invites(self)
 	tick_usec = tick_usec * 0.95 + float(Time.get_ticks_usec() - t_start) * 0.05     # média móvel (overlay/medição)
 
 # ----------------------------------------------------------------------------
@@ -444,8 +444,8 @@ func _apply_command(e: SimEntity, cmd: InputCommand, m: Dictionary, dt: float) -
 			e.mounted = true
 			e.is_blocking = false
 			Events.mount_changed.emit(e.id, true)
-	PortalSystem._update_recall(self, e, cmd, action_cmd, dt)
-	GatherSystem._update_gather(self, e, cmd, action_cmd, dt)
+	PortalSystem.update_recall(self, e, cmd, action_cmd, dt)
+	GatherSystem.update_gather(self, e, cmd, action_cmd, dt)
 	# atacar, usar skill, dash ou bloquear: desce do cavalo e a ação acontece
 	if e.mounted and (action_cmd.attack or action_cmd.skill_slot >= 0 or action_cmd.dash or cmd.block):
 		dismount(e)
@@ -591,13 +591,18 @@ var _next_trap_id := 1
 
 ## Radiância (Bispo da luz): parte do dano mágico cura o aliado mais ferido por perto (você incluso).
 func _radiance(e: SimEntity, amount: int) -> void:
-	var best: SimEntity = e
-	for o in maps[e.map_id]["entities"]:
-		if o.is_character() and o.is_alive() and e.is_friend(o) and o.position.distance_to(e.position) <= Balance.RADIANCE_RANGE:
-			if o.hp / o.stats.max_hp < best.hp / best.stats.max_hp:
-				best = o
+	var best := most_hurt_friend(e, Balance.RADIANCE_RANGE)
 	if best.hp < best.stats.max_hp:
 		_heal(e, best, maxi(1, int(round(amount * e.stats.radiance / 100.0))))
+
+## Personagem aliado vivo mais ferido (em % de vida) a até `range_m` de `e` (o próprio `e` se ninguém estiver pior).
+func most_hurt_friend(e: SimEntity, range_m: float) -> SimEntity:
+	var best: SimEntity = e
+	for o in maps[e.map_id]["entities"]:
+		if o.is_character() and o.is_alive() and e.is_friend(o) and o.position.distance_to(e.position) <= range_m:
+			if o.hp / o.stats.max_hp < best.hp / best.stats.max_hp:
+				best = o
+	return best
 
 ## Encadear (estilo Diablo): depois do impacto, outra skill ou o ataque básico já pode sair, sem esperar a recuperação.
 ## O golpe atual sempre acontece (tudo dele é aplicado no impacto). Só personagens: monstros mantêm o ritmo deles.
@@ -638,13 +643,13 @@ func _interact(e: SimEntity, m: Dictionary) -> void:
 				best_d = d
 				best = o
 	if best == null:
-		GatherSystem._start_gather(self, e, m)
+		GatherSystem.start_gather(self, e, m)
 		return
 	if best:
 		e.face_towards(best.position)
 		best.npc_hold = Balance.NPC_TALK_HOLD
 		best.face_towards(e.position)
-		NpcSystem._npc_stop(self, best)
+		NpcSystem.npc_stop(self, best)
 		Events.dialog_requested.emit(best.npc_data.get("id", ""))
 
 # ----------------------------------------------------------------------------
@@ -738,7 +743,7 @@ func _update_skill(e: SimEntity, m: Dictionary, dt: float) -> void:
 
 func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 	var lv := e.mastery_of(s.id) if s.id in e.mastery else 0
-	var power := s.power_at(lv) * e.stats.skill_power_mult(s.id) * e.stats.element_mult(s.elements) * ShieldSystem._shield_power(self, e, s)
+	var power := s.power_at(lv) * e.stats.skill_power_mult(s.id) * e.stats.element_mult(s.elements) * ShieldSystem.shield_power(self, e, s)
 	if e.ambush:
 		power *= Balance.AMBUSH_MULT
 		e.ambush = false
@@ -791,7 +796,7 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 				alive += 1
 
 	if effects.has("trap"):         # armadilha: fica no chão; o efeito sai quando alguém pisa
-		TrapSystem._place_trap(self, e, s, aim, power, effects)
+		TrapSystem.place_trap(self, e, s, aim, power, effects)
 		Events.skill_effect.emit(s.id, e.position, aim, 0.0)
 		return
 	if effects.has("pet_command"):  # companheiro salta no alvo e morde
@@ -802,11 +807,11 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 		if pet:
 			_apply_effects(e, pet, {"buff": effects["buff"]}, power)
 	if effects.has("boss_summon"):
-		MobSystem._spawn_adds(self, e, effects["boss_summon"])
+		MobSystem.spawn_adds(self, e, effects["boss_summon"])
 	if effects.get("taunt") != null:
 		for o in m["entities"]:
 			if o.kind == SimEntity.Kind.MONSTER and o.is_alive() and o.position.distance_to(e.position) <= s.radius + o.radius:
-				MobSystem._taunt(self, o, e, float(effects["taunt"].get("duration", Balance.TAUNT_DURATION)))
+				MobSystem.taunt(self, o, e, float(effects["taunt"].get("duration", Balance.TAUNT_DURATION)))
 
 	# projétil (DIRECTION com velocidade)
 	if s.projectile_speed > 0.0 and s.target == SkillDef.Target.DIRECTION:
@@ -837,11 +842,7 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 				pass
 			_:
 				var from: Vector3 = aim if s.target == SkillDef.Target.GROUND else origin     # área no chão vem do ponto de impacto
-				var fm := Combat.frost_mult(s, t) * LegendEffects._legend_power(self, e, t)          # gelo em alvo retardado/preso: estilhaço
-				var r := Combat.calc_damage(e, t, power * fm, s.kind if s.kind != SkillDef.Kind.SUMMON else SkillDef.Kind.MAGICAL, rng, from)
-				var dk := "magical" if s.kind == SkillDef.Kind.MAGICAL else "physical"
-				_deal_damage(e, t, r["amount"], r["crit"], r["blocked"], "shatter" if Combat.frost_mult(s, t) > 1.0 and dk == "magical" else dk, from)
-				LegendEffects._legend_on_hit(self, e, t, s, int(r["amount"]))
+				var r := _strike(e, t, s, power, s.kind if s.kind != SkillDef.Kind.SUMMON else SkillDef.Kind.MAGICAL, from)
 				any_hit = true
 				if effects.has("heal_pct_of_dmg"):
 					_heal(e, e, int(r["amount"] * float(effects["heal_pct_of_dmg"])))
@@ -853,6 +854,16 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 		Events.hit_stop.emit(s.hit_stop_frames)
 
 ## Raio: chance de atordoar no golpe direto (Balance.STORM_STUN_*).
+## Golpe direto (skill ou projétil) em um alvo: gelo estilhaça alvo retardado/preso, a arma lendária multiplica e reage.
+## Devolve o resultado de Combat.calc_damage.
+func _strike(e: SimEntity, t: SimEntity, s: SkillDef, power: float, kind: SkillDef.Kind, from: Vector3) -> Dictionary:
+	var frost := Combat.frost_mult(s, t)
+	var r := Combat.calc_damage(e, t, power * (frost * LegendEffects.legend_power(self, e, t)), kind, rng, from)
+	var dk := "magical" if s.kind == SkillDef.Kind.MAGICAL else "physical"
+	_deal_damage(e, t, r["amount"], r["crit"], r["blocked"], "shatter" if frost > 1.0 and dk == "magical" else dk, from)
+	LegendEffects.legend_on_hit(self, e, t, s, int(r["amount"]))
+	return r
+
 func _storm_proc(src: SimEntity, s: SkillDef, t: SimEntity) -> void:
 	if t.is_alive() and src.is_hostile_to(t) and Combat.storm_can_stun(s) and rng.randf() * 100.0 < Balance.STORM_STUN_CHANCE:
 		_apply_effects(src, t, {"stun": {"duration": Balance.STORM_STUN_TIME}}, 0.0)
@@ -898,8 +909,7 @@ func _apply_effects(src: SimEntity, t: SimEntity, effects: Dictionary, power: fl
 	if effects.get("buff") != null:
 		var b: Dictionary = effects["buff"].duplicate()
 		b["remaining"] = float(b.get("duration", 10)) * longer
-		t.buffs = t.buffs.filter(func(x): return x.get("id") != b.get("id"))
-		t.buffs.append(b)
+		t.put_buff(b)
 		t.recompute_stats()
 		Events.buff_applied.emit(t.id, b.get("id", "buff"), b["remaining"])
 	if effects.get("shield") != null:
@@ -909,8 +919,7 @@ func _apply_effects(src: SimEntity, t: SimEntity, effects: Dictionary, power: fl
 		for x in t.buffs:
 			if x.get("id") == "shield":
 				left = maxf(left, float(x.get("remaining", 0.0)))     # escudo novo não encurta o que já existe
-		t.buffs = t.buffs.filter(func(x): return x.get("id") != "shield")
-		t.buffs.append({"id": "shield", "remaining": left})
+		t.put_buff({"id": "shield", "remaining": left})
 		Events.buff_applied.emit(t.id, "shield", left)
 
 func _spawn_projectile(e: SimEntity, s: SkillDef, power: float, m: Dictionary, is_basic: bool, effects: Dictionary = {}) -> void:
@@ -944,7 +953,7 @@ func _update_projectiles(m: Dictionary, dt: float) -> void:
 		if not remove:
 			var def: MapDef = m["def"]
 			var h := def.half()
-			if absf(p.position.x) > h.x or absf(p.position.z) > h.y or MapGeometry._point_in_solid(self, p.position, m):
+			if absf(p.position.x) > h.x or absf(p.position.z) > h.y or MapGeometry.point_in_solid(self, p.position, m):
 				remove = true
 		if not remove:
 			for t in m["entities"]:
@@ -954,11 +963,7 @@ func _update_projectiles(m: Dictionary, dt: float) -> void:
 				if d <= t.radius + p.radius:
 					p.hit_ids.append(t.id)
 					var from: Vector3 = t.position - p.direction        # projétil vem de onde voa, não de quem atirou
-					var fm := Combat.frost_mult(p.skill, t) * LegendEffects._legend_power(self, owner, t)
-					var r := Combat.calc_damage(owner, t, p.power * fm, p.skill.kind, rng, from)
-					var dk := "magical" if p.skill.kind == SkillDef.Kind.MAGICAL else "physical"
-					_deal_damage(owner, t, r["amount"], r["crit"], r["blocked"], "shatter" if Combat.frost_mult(p.skill, t) > 1.0 and dk == "magical" else dk, from)
-					LegendEffects._legend_on_hit(self, owner, t, p.skill, int(r["amount"]))
+					_strike(owner, t, p.skill, p.power, p.skill.kind, from)
 					owner.combat_timer = Balance.AGGRO_LOSE_TIME
 					_apply_effects(owner, t, p.effects, p.power)
 					_storm_proc(owner, p.skill, t)
@@ -1022,7 +1027,7 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 	if target.kind == SimEntity.Kind.MONSTER:
 		var who: int = attacker.owner_id if attacker.kind == SimEntity.Kind.SUMMON else attacker.id   # invocação conta para o dono, mesmo depois de expirar
 		target.damage_by[who] = float(target.damage_by.get(who, 0.0)) + amount
-		MobSystem._retarget(self, target, attacker)
+		MobSystem.retarget(self, target, attacker)
 	Events.damage_dealt.emit(attacker.id, target.id, amount, crit, blocked, kind)
 	if blocked:
 		Events.blocked_hit.emit(target.id)
@@ -1030,8 +1035,8 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 		target.hp = 0.0
 		_kill(target, attacker)
 	elif blocked and target.stats.has_shield:
-		ShieldSystem._shield_reaction(self, target, attacker, amount, parried, from)
-	LegendEffects._legend_weapon(self, attacker, target, amount, kind)
+		ShieldSystem.shield_reaction(self, target, attacker, amount, parried, from)
+	LegendEffects.legend_weapon(self, attacker, target, amount, kind)
 
 func _heal(src: SimEntity, target: SimEntity, amount: int) -> void:
 	if not target.is_alive() or amount <= 0:
@@ -1061,7 +1066,7 @@ func _kill(e: SimEntity, killer: SimEntity) -> void:
 	e.dead_time = 0.0
 	Events.entity_died.emit(e.id, killer.id if killer else -1)
 	if e.kind == SimEntity.Kind.MONSTER:
-		LootSystem._on_monster_killed(self, e, killer)
+		LootSystem.on_monster_killed(self, e, killer)
 	elif e.kind == SimEntity.Kind.PLAYER:
 		Events.notification.emit("Você morreu. Renascendo em %s..." % map_def(GameData.town_map_id()).name)
 		var loss := int(e.xp * Balance.DEATH_XP_PENALTY)
@@ -1081,7 +1086,7 @@ func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 	e.state_time += dt
 	e.hit_flash = maxf(0.0, e.hit_flash - dt)
 	if e.kind == SimEntity.Kind.NPC:
-		NpcSystem._update_npc(self, e, m, dt)
+		NpcSystem.update_npc(self, e, m, dt)
 		return
 	# cooldowns
 	e.basic_cd = maxf(0.0, e.basic_cd - dt)
@@ -1170,7 +1175,7 @@ func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 		_:
 			pass
 	if e.kind == SimEntity.Kind.MONSTER and not e.monster_def.phases.is_empty():
-		MobSystem._update_boss(self, e)
+		MobSystem.update_boss(self, e)
 	# aggro
 	if e.kind == SimEntity.Kind.MONSTER and (e.aggro_target >= 0 or not e.damage_by.is_empty()):
 		e.aggro_timer -= dt
@@ -1184,7 +1189,7 @@ func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 			e.damage_by.clear()
 	# portais (personagens vivos)
 	if e.is_character():
-		PortalSystem._check_portals(self, e, m)
+		PortalSystem.check_portals(self, e, m)
 	if e.kind == SimEntity.Kind.PLAYER and (tick_count + e.id) % 10 == 0:
 		QuestSystem.on_position(e)
 	# separação entre entidades (empurrão suave), em ticks alternados
@@ -1199,7 +1204,7 @@ func _move(e: SimEntity, delta: Vector3, m: Dictionary) -> void:
 	var p := e.position + delta
 	p.y = 0.0
 	p = def.clamp_inside(p, e.radius)
-	p = MapGeometry._resolve_obstacles(self, p, e.radius, m)
+	p = MapGeometry.resolve_obstacles(self, p, e.radius, m)
 	e.position = p
 
 ## Investida: anda reto em passos curtos e para no primeiro obstáculo, sem deslizar (a faixa do golpe é reta).
@@ -1238,7 +1243,7 @@ func _move_ghost(e: SimEntity, delta: Vector3, m: Dictionary) -> void:
 	p.y = 0.0
 	e.position = def.clamp_inside(p, e.radius)
 	if e.state_time + 1.0 / 60.0 >= e.state_duration:
-		e.position = MapGeometry._resolve_obstacles(self, e.position, e.radius, m)
+		e.position = MapGeometry.resolve_obstacles(self, e.position, e.radius, m)
 
 # ----------------------------------------------------------------------------
 # DASH + EVOLUÇÕES
@@ -1365,16 +1370,16 @@ func _separate(e: SimEntity, m: Dictionary) -> void:
 func water_path(map_id: String, from: Vector3, to: Vector3) -> Array:
 	return MapGeometry.water_path(self, map_id, from, to)
 func _resolve_obstacles(p: Vector3, r: float, m: Dictionary) -> Vector3:
-	return MapGeometry._resolve_obstacles(self, p, r, m)
+	return MapGeometry.resolve_obstacles(self, p, r, m)
 func _point_in_solid(p: Vector3, m: Dictionary) -> bool:
-	return MapGeometry._point_in_solid(self, p, m)
+	return MapGeometry.point_in_solid(self, p, m)
 func is_walkable(p: Vector3, def: MapDef, r: float = 0.45) -> bool:
 	return MapGeometry.is_walkable(self, p, def, r)
 func random_walkable(def: MapDef, center: Vector3, radius: float) -> Vector3:
 	return MapGeometry.random_walkable(self, def, center, radius)
 # PartySystem
 func _party_catchup(dt: float) -> void:
-	PartySystem._party_catchup(self, dt)
+	PartySystem.party_catchup(self, dt)
 func party_members(e: SimEntity) -> Array:
 	return PartySystem.party_members(self, e)
 func party_leader(e: SimEntity) -> SimEntity:
@@ -1400,42 +1405,42 @@ func party_promote(leader: SimEntity, target: SimEntity) -> bool:
 func party_seek_start(e: SimEntity) -> int:
 	return PartySystem.party_seek_start(self, e)
 func _update_invites() -> void:
-	PartySystem._update_invites(self)
+	PartySystem.update_invites(self)
 # LootSystem
 func _on_monster_killed(mob: SimEntity, killer: SimEntity) -> void:
-	LootSystem._on_monster_killed(self, mob, killer)
+	LootSystem.on_monster_killed(self, mob, killer)
 func elite_def(base: MonsterDef) -> MonsterDef:
 	return LootSystem.elite_def(self, base)
 func top_damager(mob: SimEntity, killer: SimEntity) -> SimEntity:
 	return LootSystem.top_damager(self, mob, killer)
 func _next_looter(credit: SimEntity, sharers: Array) -> SimEntity:
-	return LootSystem._next_looter(self, credit, sharers)
+	return LootSystem.next_looter(self, credit, sharers)
 func loot_visible_to(e: SimEntity, l: Dictionary) -> bool:
 	return LootSystem.loot_visible_to(self, e, l)
 func _split_gold(sharers: Array, gold: int) -> void:
-	LootSystem._split_gold(self, sharers, gold)
+	LootSystem.split_gold(self, sharers, gold)
 func gear_pool(tier: int) -> Array:
 	return LootSystem.gear_pool(self, tier)
 func fits_class(e: SimEntity, it: ItemDef) -> bool:
 	return LootSystem.fits_class(self, e, it)
 func _update_loot(m: Dictionary, dt: float) -> void:
-	LootSystem._update_loot(self, m, dt)
+	LootSystem.update_loot(self, m, dt)
 func can_loot(e: SimEntity, l: Dictionary) -> bool:
 	return LootSystem.can_loot(self, e, l)
 # LegendEffects
 func _legend_on_hit(e: SimEntity, t: SimEntity, s: SkillDef, amount: int) -> void:
-	LegendEffects._legend_on_hit(self, e, t, s, amount)
+	LegendEffects.legend_on_hit(self, e, t, s, amount)
 func _legend_weapon(attacker: SimEntity, target: SimEntity, amount: int, kind: String) -> void:
-	LegendEffects._legend_weapon(self, attacker, target, amount, kind)
+	LegendEffects.legend_weapon(self, attacker, target, amount, kind)
 # ShieldSystem
 func _shield_reaction(target: SimEntity, attacker: SimEntity, amount: int, parried: bool, from: Variant = null) -> void:
-	ShieldSystem._shield_reaction(self, target, attacker, amount, parried, from)
+	ShieldSystem.shield_reaction(self, target, attacker, amount, parried, from)
 func _shield_class_bonus(e: SimEntity, off: ItemDef, parried: bool) -> void:
-	ShieldSystem._shield_class_bonus(self, e, off, parried)
+	ShieldSystem.shield_class_bonus(self, e, off, parried)
 func oath_stacks(e: SimEntity) -> int:
 	return ShieldSystem.oath_stacks(self, e)
 func _shield_power(e: SimEntity, s: SkillDef) -> float:
-	return ShieldSystem._shield_power(self, e, s)
+	return ShieldSystem.shield_power(self, e, s)
 # ItemSystem
 func enhance_cost(it: ItemDef, current: int) -> Dictionary:
 	return ItemSystem.enhance_cost(self, it, current)
@@ -1458,7 +1463,7 @@ func relic_exchange(e: SimEntity, item_id: String) -> bool:
 func legendary_chance(mob: SimEntity) -> float:
 	return ItemSystem.legendary_chance(self, mob)
 func _uses_shield(e: SimEntity) -> bool:
-	return ItemSystem._uses_shield(self, e)
+	return ItemSystem.uses_shield(self, e)
 func pick_legendary(killer: SimEntity, mob_level: int) -> String:
 	return ItemSystem.pick_legendary(self, killer, mob_level)
 func use_potion(e: SimEntity, slot: int) -> bool:
@@ -1475,17 +1480,17 @@ func storage_withdraw(e: SimEntity, item_id: String, count: int = 1) -> bool:
 	return ItemSystem.storage_withdraw(self, e, item_id, count)
 # PortalSystem
 func _check_portals(e: SimEntity, m: Dictionary) -> void:
-	PortalSystem._check_portals(self, e, m)
+	PortalSystem.check_portals(self, e, m)
 func portal_block_reason(e: SimEntity, pt: Dictionary) -> String:
 	return PortalSystem.portal_block_reason(self, e, pt)
 func grandfather_gates(e: SimEntity, map_id: String) -> void:
 	PortalSystem.grandfather_gates(self, e, map_id)
 func _process_map_changes() -> void:
-	PortalSystem._process_map_changes(self)
+	PortalSystem.process_map_changes(self)
 func _update_recall(e: SimEntity, cmd: InputCommand, action_cmd: InputCommand, dt: float) -> void:
-	PortalSystem._update_recall(self, e, cmd, action_cmd, dt)
+	PortalSystem.update_recall(self, e, cmd, action_cmd, dt)
 func _change_map(e: SimEntity, map_id: String, pos: Vector3) -> void:
-	PortalSystem._change_map(self, e, map_id, pos)
+	PortalSystem.change_map(self, e, map_id, pos)
 # ProgressionSystem
 func gain_xp(e: SimEntity, amount: int) -> void:
 	ProgressionSystem.gain_xp(self, e, amount)
@@ -1515,19 +1520,19 @@ func set_potion_slot(e: SimEntity, slot: int, item_id: String) -> void:
 func nearest_gather(e: SimEntity) -> Dictionary:
 	return GatherSystem.nearest_gather(self, e)
 func _update_gather(e: SimEntity, cmd: InputCommand, action_cmd: InputCommand, dt: float) -> void:
-	GatherSystem._update_gather(self, e, cmd, action_cmd, dt)
+	GatherSystem.update_gather(self, e, cmd, action_cmd, dt)
 # NpcSystem
 func hold_npc(npc_id: String) -> void:
 	NpcSystem.hold_npc(self, npc_id)
 func _update_npc(e: SimEntity, m: Dictionary, dt: float) -> void:
-	NpcSystem._update_npc(self, e, m, dt)
+	NpcSystem.update_npc(self, e, m, dt)
 # TrapSystem
 func _update_traps(m: Dictionary) -> void:
-	TrapSystem._update_traps(self, m)
+	TrapSystem.update_traps(self, m)
 # MobSystem
 func _retarget(mob: SimEntity, attacker: SimEntity) -> void:
-	MobSystem._retarget(self, mob, attacker)
+	MobSystem.retarget(self, mob, attacker)
 func _update_boss(e: SimEntity) -> void:
-	MobSystem._update_boss(self, e)
+	MobSystem.update_boss(self, e)
 func reset_boss(e: SimEntity) -> void:
 	MobSystem.reset_boss(self, e)

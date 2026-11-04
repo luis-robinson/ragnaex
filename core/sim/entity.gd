@@ -146,6 +146,28 @@ func group_key() -> int:
 		return party_id
 	return -10 - (owner_id if kind == Kind.SUMMON else id)
 
+## Põe o buff trocando o de mesmo id (renova, não acumula).
+func put_buff(b: Dictionary) -> void:
+	var id: Variant = b.get("id")
+	buffs = buffs.filter(func(x): return x.get("id") != id)
+	buffs.append(b)
+
+## Põe o debuff trocando o de mesmo id (renova, não acumula).
+func put_debuff(d: Dictionary) -> void:
+	var id: Variant = d.get("id")
+	debuffs = debuffs.filter(func(x): return x.get("id") != id)
+	debuffs.append(d)
+
+func drop_buff(id: String) -> void:
+	buffs = buffs.filter(func(x): return x.get("id") != id)
+
+## Acúmulos do buff `id` (0 se não tem).
+func buff_stacks(id: String) -> int:
+	for b in buffs:
+		if b.get("id") == id:
+			return int(b.get("stacks", 0))
+	return 0
+
 ## Aliado para cura/buff: si mesmo, o grupo e as invocações deles (monstros entre si).
 func is_friend(other: SimEntity) -> bool:
 	if other == null:

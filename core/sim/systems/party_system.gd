@@ -5,7 +5,7 @@ extends RefCounted
 
 ## Bot do grupo em outro mapa que o líder por mais de PARTY_CATCHUP_TIME (preso no caminho, renasceu na vila):
 ## reaparece ao lado do líder. Assim o grupo segue o jogador para dentro das dungeons e ajuda lá.
-static func _party_catchup(sim: WorldSim, dt: float) -> void:
+static func party_catchup(sim: WorldSim, dt: float) -> void:
 	for p in sim.parties.values():
 		var leader: SimEntity = sim.entities.get(p["leader"])
 		if leader == null or not leader.is_alive():
@@ -101,16 +101,16 @@ static func party_accept(sim: WorldSim, e: SimEntity) -> bool:
 		p = {"id": sim._next_party_id, "leader": from.id, "members": [from.id]}
 		sim._next_party_id += 1
 		sim.parties[p["id"]] = p
-		_set_party(sim, from, p["id"])
+		set_party(sim, from, p["id"])
 	if p["members"].size() >= Balance.PARTY_MAX:
 		return false
 	p["members"].append(e.id)
-	_set_party(sim, e, p["id"])
-	_party_say(sim, p, "%s entrou no grupo." % e.name)
+	set_party(sim, e, p["id"])
+	party_say(sim, p, "%s entrou no grupo." % e.name)
 	var lead: SimEntity = sim.entities.get(p["leader"])
 	if e.kind == SimEntity.Kind.PLAYER and lead and lead.kind == SimEntity.Kind.BOT:
 		p["leader"] = e.id                       # grupo com o jogador: os bots seguem e ajudam o jogador
-		_party_say(sim, p, "%s agora lidera o grupo." % e.name)
+		party_say(sim, p, "%s agora lidera o grupo." % e.name)
 	Events.party_changed.emit(p["id"])
 	return true
 
@@ -124,9 +124,9 @@ static func party_leave(sim: WorldSim, e: SimEntity) -> void:
 	var p := party_of(sim, e)
 	if p.is_empty():
 		return
-	_party_say(sim, p, "%s saiu do grupo." % e.name)
+	party_say(sim, p, "%s saiu do grupo." % e.name)
 	p["members"].erase(e.id)
-	_set_party(sim, e, -1)
+	set_party(sim, e, -1)
 	if e == sim.player:
 		Events.notification.emit("Você saiu do grupo.")
 	if p["members"].size() < 2:
@@ -134,11 +134,11 @@ static func party_leave(sim: WorldSim, e: SimEntity) -> void:
 			Events.notification.emit("O grupo foi desfeito.")
 		for id in p["members"]:
 			if sim.entities.has(id):
-				_set_party(sim, sim.entities[id], -1)
+				set_party(sim, sim.entities[id], -1)
 		sim.parties.erase(p["id"])
 	elif p["leader"] == e.id:
 		p["leader"] = p["members"][0]
-		_party_say(sim, p, "%s agora é o líder." % sim.entities[p["leader"]].name)
+		party_say(sim, p, "%s agora é o líder." % sim.entities[p["leader"]].name)
 	Events.party_changed.emit(p["id"])
 
 static func party_kick(sim: WorldSim, leader: SimEntity, target: SimEntity) -> bool:
@@ -154,18 +154,18 @@ static func party_promote(sim: WorldSim, leader: SimEntity, target: SimEntity) -
 		return false
 	var p := party_of(sim, leader)
 	p["leader"] = target.id
-	_party_say(sim, p, "%s agora é o líder." % target.name)
+	party_say(sim, p, "%s agora é o líder." % target.name)
 	Events.party_changed.emit(p["id"])
 	return true
 
-static func _set_party(sim: WorldSim, e: SimEntity, party_id: int) -> void:
+static func set_party(sim: WorldSim, e: SimEntity, party_id: int) -> void:
 	e.party_id = party_id
 	for o in sim.entities.values():
 		if o.kind == SimEntity.Kind.SUMMON and o.owner_id == e.id:
 			o.party_id = party_id
 
 ## Mensagem de sistema no canal do grupo (só aparece se o jogador está nele).
-static func _party_say(sim: WorldSim, p: Dictionary, text: String) -> void:
+static func party_say(sim: WorldSim, p: Dictionary, text: String) -> void:
 	if sim.player and p["members"].has(sim.player.id):
 		Events.chat_message.emit("Grupo", text, "party")
 
@@ -198,7 +198,7 @@ static func party_seek_start(sim: WorldSim, e: SimEntity) -> int:
 	sim.party_seek[e.id] = {"queue": q, "next_at": sim.time + 1.0, "until": sim.time + Balance.PARTY_SEEK_COOLDOWN}
 	return q.size()
 
-static func _update_party_seek(sim: WorldSim) -> void:
+static func update_party_seek(sim: WorldSim) -> void:
 	for id in sim.party_seek.keys():
 		var s: Dictionary = sim.party_seek[id]
 		var e: SimEntity = sim.entities.get(id)
@@ -212,8 +212,8 @@ static func _update_party_seek(sim: WorldSim) -> void:
 		s["next_at"] = sim.time + 0.8
 
 ## Convites: expiram; bots decidem depois de 1-3 s (o jogador decide pela UI).
-static func _update_invites(sim: WorldSim) -> void:
-	_update_party_seek(sim)
+static func update_invites(sim: WorldSim) -> void:
+	update_party_seek(sim)
 	for to_id in sim.invites.keys():
 		var inv: Dictionary = sim.invites[to_id]
 		var to: SimEntity = sim.entities.get(to_id)

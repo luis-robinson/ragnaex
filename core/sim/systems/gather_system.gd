@@ -3,7 +3,7 @@ extends RefCounted
 ## Colheita: pontos espalhados pelo mapa (ervas, minério...), F perto para colher, voltam depois.
 
 ## Espalha os pontos de `def.gather` em chão livre (semente do mapa: sempre nos mesmos lugares).
-static func _spread_gather(sim: WorldSim, def: MapDef) -> Array:
+static func spread_gather(sim: WorldSim, def: MapDef) -> Array:
 	var out: Array = []
 	var gr := RandomNumberGenerator.new()
 	gr.seed = absi(def.id.hash())
@@ -36,7 +36,7 @@ static func nearest_gather(sim: WorldSim, e: SimEntity) -> Dictionary:
 			best = node
 	return best
 
-static func _start_gather(sim: WorldSim, e: SimEntity, m: Dictionary) -> void:
+static func start_gather(sim: WorldSim, e: SimEntity, m: Dictionary) -> void:
 	if not e.is_character() or e.gather_left > 0.0 or e.mounted:
 		return
 	var node := nearest_gather(sim, e)
@@ -55,7 +55,7 @@ static func _start_gather(sim: WorldSim, e: SimEntity, m: Dictionary) -> void:
 	e.gather_node = node
 	e.gather_hp = e.hp
 
-static func _update_gather(sim: WorldSim, e: SimEntity, cmd: InputCommand, action_cmd: InputCommand, dt: float) -> void:
+static func update_gather(sim: WorldSim, e: SimEntity, cmd: InputCommand, action_cmd: InputCommand, dt: float) -> void:
 	if e.gather_left <= 0.0:
 		return
 	var node := e.gather_node

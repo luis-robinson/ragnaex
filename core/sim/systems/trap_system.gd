@@ -2,7 +2,7 @@ class_name TrapSystem
 extends RefCounted
 ## Armadilhas (Ranger Atirador): ficam no mapa, armam, disparam quando um inimigo pisa, somem com o tempo.
 
-static func _place_trap(sim: WorldSim, e: SimEntity, s: SkillDef, aim: Vector3, power: float, effects: Dictionary) -> void:
+static func place_trap(sim: WorldSim, e: SimEntity, s: SkillDef, aim: Vector3, power: float, effects: Dictionary) -> void:
 	var m: Dictionary = sim.maps[e.map_id]
 	var traps: Array = m["traps"]
 	var mine: Array = traps.filter(func(t): return t["owner"] == e.id)
@@ -23,7 +23,7 @@ static func _place_trap(sim: WorldSim, e: SimEntity, s: SkillDef, aim: Vector3, 
 	traps.append(t)
 	Events.trap_placed.emit(t["id"], t["kind"], pos, t["radius"], e.map_id)
 
-static func _update_traps(sim: WorldSim, m: Dictionary) -> void:
+static func update_traps(sim: WorldSim, m: Dictionary) -> void:
 	var traps: Array = m["traps"]
 	for t in traps.duplicate():
 		var owner: SimEntity = sim.entities.get(t["owner"])

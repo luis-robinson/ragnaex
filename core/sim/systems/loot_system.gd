@@ -2,7 +2,7 @@ class_name LootSystem
 extends RefCounted
 ## Abate de monstro: XP/ouro/loot dividido, quem saqueia, elites, sorteio de equipamento por tier, coleta do baú no chão.
 
-static func _on_monster_killed(sim: WorldSim, mob: SimEntity, killer: SimEntity) -> void:
+static func on_monster_killed(sim: WorldSim, mob: SimEntity, killer: SimEntity) -> void:
 	var m: Dictionary = sim.maps[mob.map_id]
 	# XP para quem mais bateu (grupo soma) + dono da invocação
 	var credit := top_damager(sim, mob, killer)
@@ -23,7 +23,7 @@ static func _on_monster_killed(sim: WorldSim, mob: SimEntity, killer: SimEntity)
 		if lt:
 			drops = lt.roll(sim.rng)
 		if gold > 0 and sharers.size() > 1:
-			_split_gold(sim, sharers, gold)
+			split_gold(sim, sharers, gold)
 		elif gold > 0:
 			drops["gold"] = gold
 		# jogador no grupo: o saque dele é pessoal (rola a tabela só para ele a cada abate dividido, mesmo sem ter batido:
@@ -37,7 +37,7 @@ static func _on_monster_killed(sim: WorldSim, mob: SimEntity, killer: SimEntity)
 			var my_worn := roll_gear(sim, sim.player, mob)
 			if my_worn != "":
 				mine[my_worn] = 1
-		var looter := _next_looter(sim, credit, bots_share if with_player and not bots_share.is_empty() else sharers)
+		var looter := next_looter(sim, credit, bots_share if with_player and not bots_share.is_empty() else sharers)
 		if with_player and looter == sim.player:
 			drops.clear()                       # o jogador já recebeu o seu
 		var worn := roll_gear(sim, looter, mob) if mob.boss_id < 0 and looter != sim.player else ""      # lacaio de chefe não é fonte de saque
@@ -57,29 +57,29 @@ static func _on_monster_killed(sim: WorldSim, mob: SimEntity, killer: SimEntity)
 					Events.chat_message.emit(c.name, "DROPOU MOEDA LENDÁRIA!!!", "global")
 		var i := 0
 		for item_id in drops:
-			var off := Vector3(cos(i * 1.7) * 0.5, 0.0, sin(i * 1.7) * 0.5)
-			m["loot"].append({"pos": mob.position + off, "item": item_id, "count": int(drops[item_id]), "timer": 45.0, "owner": looter.id, "free_at": sim.time + Balance.LOOT_LOCK_TIME})
-			Events.loot_dropped.emit(mob.map_id, mob.position + off, item_id, int(drops[item_id]))
+			drop(m, mob, i, 0.5, item_id, int(drops[item_id]), 45.0, looter.id, sim.time + Balance.LOOT_LOCK_TIME)
 			i += 1
 		for item_id in mine:                   # saque pessoal do jogador no grupo
-			var off := Vector3(cos(i * 1.7) * 0.6, 0.0, sin(i * 1.7) * 0.6)
-			m["loot"].append({"pos": mob.position + off, "item": item_id, "count": int(mine[item_id]), "timer": 60.0, "owner": sim.player.id, "free_at": sim.time + Balance.LOOT_LOCK_TIME * 2.0})
-			Events.loot_dropped.emit(mob.map_id, mob.position + off, item_id, int(mine[item_id]))
+			drop(m, mob, i, 0.6, item_id, int(mine[item_id]), 60.0, sim.player.id, sim.time + Balance.LOOT_LOCK_TIME * 2.0)
 			i += 1
 		for pl in personal:                     # lendário fica preso ao dono por mais tempo (ninguém pega o seu)
-			var off := Vector3(cos(i * 1.7) * 0.6, 0.0, sin(i * 1.7) * 0.6)
-			m["loot"].append({"pos": mob.position + off, "item": pl[0], "count": int(pl[2]), "timer": 120.0, "owner": pl[1].id, "free_at": sim.time + 110.0})
-			Events.loot_dropped.emit(mob.map_id, mob.position + off, pl[0], int(pl[2]))
+			drop(m, mob, i, 0.6, pl[0], int(pl[2]), 120.0, pl[1].id, sim.time + 110.0)
 			i += 1
 	# remove do spawner
 	for sp in m["spawners"]:
 		sp["alive"].erase(mob.id)
 	if credit and credit.is_character():
-		_count_kill(sim, m, mob)
-		LegendEffects._legend_on_kill(sim, credit, mob)
+		count_kill(sim, m, mob)
+		LegendEffects.legend_on_kill(sim, credit, mob)
 
 ## Muitos abates do mesmo monstro comum num mapa: surge o Rei dele (5x mais forte, lendário garantido).
-static func _count_kill(sim: WorldSim, m: Dictionary, mob: SimEntity) -> void:
+## Baú no chão em volta do monstro (`i` = posição na roda; `free_at` = quando qualquer um pode pegar).
+static func drop(m: Dictionary, mob: SimEntity, i: int, ring: float, item_id: String, count: int, timer: float, owner_id: int, free_at: float) -> void:
+	var off := Vector3(cos(i * 1.7) * ring, 0.0, sin(i * 1.7) * ring)
+	m["loot"].append({"pos": mob.position + off, "item": item_id, "count": count, "timer": timer, "owner": owner_id, "free_at": free_at})
+	Events.loot_dropped.emit(mob.map_id, mob.position + off, item_id, count)
+
+static func count_kill(sim: WorldSim, m: Dictionary, mob: SimEntity) -> void:
 	var md: MonsterDef = mob.monster_def
 	if md.is_boss or md.elite_of != "" or md.xp <= 0 or mob.boss_id >= 0 or mob.kind != SimEntity.Kind.MONSTER:
 		return
@@ -152,7 +152,7 @@ static func top_damager(sim: WorldSim, mob: SimEntity, killer: SimEntity) -> Sim
 	return sim.entities.get(killer.owner_id) if killer and killer.kind == SimEntity.Kind.SUMMON else killer
 
 ## Saque do grupo gira entre quem dividiu o abate; sozinho, fica com quem matou.
-static func _next_looter(sim: WorldSim, credit: SimEntity, sharers: Array) -> SimEntity:
+static func next_looter(sim: WorldSim, credit: SimEntity, sharers: Array) -> SimEntity:
 	if sharers.size() < 2:
 		return credit
 	var p := PartySystem.party_of(sim, credit)
@@ -166,7 +166,7 @@ static func loot_visible_to(sim: WorldSim, e: SimEntity, l: Dictionary) -> bool:
 	return e == null or int(l.get("owner", -1)) == e.id or int(l.get("owner", -1)) < 0 or sim.time >= float(l.get("free_at", 0.0))
 
 ## Ouro do grupo vai direto para cada um, sem pilha no chão para disputar.
-static func _split_gold(sim: WorldSim, sharers: Array, gold: int) -> void:
+static func split_gold(sim: WorldSim, sharers: Array, gold: int) -> void:
 	var each := gold / sharers.size()
 	var extra := gold % sharers.size()     # o resto vai um por um: nada some, nada é criado
 	for i in range(sharers.size()):
@@ -215,7 +215,7 @@ static func fits_class(sim: WorldSim, e: SimEntity, it: ItemDef) -> bool:
 		return it.weapon_type in e.class_def.offhand_types
 	return true
 
-static func _update_loot(sim: WorldSim, m: Dictionary, dt: float) -> void:
+static func update_loot(sim: WorldSim, m: Dictionary, dt: float) -> void:
 	var loot: Array = m["loot"]
 	for l in loot.duplicate():
 		l["timer"] -= dt
@@ -234,14 +234,14 @@ static func _update_loot(sim: WorldSim, m: Dictionary, dt: float) -> void:
 					Events.notification.emit("Bolsa cheia (%d/%d): libere espaço ou amplie a bolsa" % [e.inventory.size(), e.bag_capacity()])
 				continue
 			if true:
-				_pickup(sim, e, l)
+				pickup(sim, e, l)
 				loot.erase(l)
 				break
 
 static func can_loot(sim: WorldSim, e: SimEntity, l: Dictionary) -> bool:
 	return e.id == int(l.get("owner", -1)) or sim.time >= float(l.get("free_at", 0.0))
 
-static func _pickup(sim: WorldSim, e: SimEntity, l: Dictionary) -> void:
+static func pickup(sim: WorldSim, e: SimEntity, l: Dictionary) -> void:
 	if l["item"] == "gold":
 		e.gold += int(l["count"])
 		if e == sim.player:
