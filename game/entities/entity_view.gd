@@ -957,6 +957,13 @@ var _retimed := false                 # depois do impacto o resto do clipe cabe 
 
 ## Clip de golpe/magia para a skill: primeiro pela FORMA da skill (salto, investida, arremesso, magia no chão,
 ## canalizada, no alvo, invocação, leque de flechas), depois pela família da arma empunhada.
+## Gestos de fase ativa longa (giro, canalização, pisão): repetem até a fase ativa acabar em vez de parar na pose final.
+const ACTIVE_LOOP := ["atk_spin", "cast_channel", "cast_shadow", "slam"]
+## Velocidade do clipe para o impacto do desenho cair no tick do dano (preparo longo = clipe mais lento).
+const LOOP_MIN_ACTIVE := 0.5        # s de fase ativa para o gesto repetir (curta: acaba junto com a skill, como os outros)
+const ANIM_MIN_SPEED := 0.4
+const HELD_BASIC_MIN_SPEED := 0.35   # ataque segurado: a volta do golpe pode ir até 0,35x para emendar no próximo
+const ANIM_MAX_SPEED := 3.2
 const LEAP_IDS := ["leap", "pounce", "shadowstep", "stampede"]
 const SHOUT_IDS := ["warcry", "taunt"]
 const FINISHER_IDS := ["execute", "decapitate", "assassinate", "overhead", "butcher", "grim", "headshot"]
@@ -999,7 +1006,9 @@ func _action_clip(s: SkillDef) -> String:
 			return "atk_thrust"
 		for k in LEAP_IDS:
 			if k in s.id:
-				return "atk_leap"
+				return "atk_charge" if s.startup < 0.15 else "atk_leap"      # salto instantâneo (sombra): avanço curto
+		if s.effects.has("channel"):
+			return "cast_channel"
 		for k in THROW_IDS:
 			if k in s.id:
 				return "atk_throw"
@@ -1110,12 +1119,22 @@ func _animate_glb(st: int) -> void:
 		var fresh := s != _act_skill or entity.state_time < _act_time
 		_act_skill = s
 		_act_time = entity.state_time
+		var looping: bool = s != null and s.active >= LOOP_MIN_ACTIVE and anim.assigned_animation in ACTIVE_LOOP
 		if s and not fresh and not _retimed and entity.state_time >= s.startup and anim.is_playing():
-			# impacto: o que resta do clipe acaba junto com a skill (sem pose congelada nem corte)
+			# impacto: o que resta do clipe acaba junto com a skill (sem pose congelada nem corte);
+			# giro/canalização acaba junto com a fase ativa (e repete enquanto ela durar)
 			_retimed = true
 			var left: float = anim.current_animation_length - anim.current_animation_position
-			var time_left := maxf(entity.state_duration - entity.state_time, 0.05)
-			anim.speed_scale = clampf(left / time_left / maxf(_act_speed, 0.01), 0.5, 2.5)
+			var end_t: float = minf(entity.state_duration, s.startup + s.active) if looping else entity.state_duration
+			var time_left := maxf(end_t - entity.state_time, 0.05)
+			var slowest := 0.5
+			if s == entity.basic_skill and entity.last_cmd and entity.last_cmd.attack:
+				time_left = maxf(time_left, entity.basic_cd)     # segurando o ataque: o golpe emenda no próximo, sem parar na guarda
+				slowest = HELD_BASIC_MIN_SPEED                     # arma pesada: a volta do golpe fica mais lenta (peso)
+			anim.speed_scale = clampf(left / time_left / maxf(_act_speed, 0.01), slowest, 2.5)
+		elif s and not fresh and looping and not anim.is_playing() and entity.state_time < s.startup + s.active - 0.1:
+			anim.play(anim.assigned_animation, 0.05, _act_speed)       # fase ativa longa: o gesto repete
+			anim.seek(0.0, true)
 		if fresh:
 			var want_clip := _action_clip(s)
 			var clip := _clip(want_clip)
@@ -1126,7 +1145,7 @@ func _animate_glb(st: int) -> void:
 			if clip != "":
 				var impact := float(IMPACT_FRAME.get(clip, 5) - 1) / 24.0
 				var startup := maxf(s.startup if s else 0.15, 0.06)
-				var speed := clampf(impact / startup, 0.6, 3.2)
+				var speed := clampf(impact / startup, ANIM_MIN_SPEED, ANIM_MAX_SPEED)
 				anim.speed_scale = 1.0
 				_act_speed = speed
 				_retimed = false

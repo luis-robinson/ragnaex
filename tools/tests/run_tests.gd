@@ -1100,7 +1100,7 @@ func _check_skill_clips() -> void:
 	for body in ["male", "female"]:
 		var k := KitModel.create(body, Color.WHITE)
 		for clip in EntityView.IMPACT_FRAME:
-			if clip != "attack":
+			if clip != "attack" and not (clip in EntityView.FORM_CLIP.values()):     # gestos de bicho ficam nas formas (_check_form_clips)
 				check(k.resolve(clip) != "", "kit_%s: clipe %s" % [body, clip])
 				if k.anim.has_animation(clip):
 					check(float(EntityView.IMPACT_FRAME[clip] - 1) / 24.0 < k.anim.get_animation(clip).length, "%s: impacto dentro do clipe" % clip)
@@ -3627,6 +3627,8 @@ func _check_skill_visuals(gd) -> void:
 	check(themes_used.size() >= 10, "skills usam temas variados (%d)" % themes_used.size())
 	# cada clipe que a EntityView pode escolher existe nos dois kits e o impacto cabe nele
 	for clip in impacts:
+		if clip in EntityView.FORM_CLIP.values():
+			continue                     # gesto de bicho: só nas formas (_check_form_clips)
 		for k in kits:
 			var name: String = k.resolve(clip)
 			check(name != "", "clipe %s existe no kit" % clip)

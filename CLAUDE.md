@@ -96,6 +96,11 @@ Scripts novos com `class_name` só são vistos pelos outros scripts depois de `-
   Chefe sem alvo reseta (`reset_boss`). Calibre rodando a luta com bots: eles têm ATK de equipamento do nível, bem acima do inicial.
   Sonda: `--headless --path . tools/tests/boss_probe.tscn -- [--party=1,3] [--trials=20] [--boss=<id>,...]` (vitórias, tempo, mortes).
   Use 20+ lutas: com 14 a variação passa de ±2 vitórias.
+- **Resposta/fluidez do combate**: `--headless --path . tools/tests/combat_probe.tscn -- [--class=<id>,...] [--verbose]` (nível 30, cada build, bonecos parados):
+  latência do comando, trava, encadear no básico, buffer, dash cancela, impacto do clipe no tick do dano, golpe que para antes da fase ativa
+  e quanto o boneco fica parado entre básicos segurados. `FLAG` = problema; mexeu em timing de skill ou clipe, rode e deixe em 0 (o Cruzado tem 0,16 s de ritmo de arma pesada, aceito).
+  Formas de bicho: `EntityView.FORM_CLIP` manda o gesto humano para `maul/pounce/slam/roar/brace` (`druid_sets.form_clips`); gesto longo repete na fase ativa (`ACTIVE_LOOP`).
+  Filme de clipe de monstro/forma: `lineup.tscn -- --mob_strip=<modelo> --anim=<clipe>`.
 - **Colheita**: ponto em `MapsCatalog.GATHER[<mapa>]` (item, forma `herb|herb_blue|ore|star|shell|mushroom|relic|crate`, centro, raio, quantos); a sim espalha
   (`GatherSystem.spread_gather`), F colhe (`GatherSystem.start_gather/update_gather`), visual em `game/world/gather_view.gd`. Item novo precisa de arte (`item_icons`).
 - **Entrega**: quest COLLECT com `give_items` (o pacote) e `turnin_npc` diferente do `giver_npc`. XP de quest é escalada por faixa (`QuestsCatalog.scale_xp`):
