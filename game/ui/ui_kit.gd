@@ -491,9 +491,11 @@ static func legend_effect_text(le: Dictionary) -> String:
 static func skill_tooltip(p: SimEntity, sk: SkillDef) -> String:
 	var lv := p.mastery_of(sk.id)
 	var t := "[b]%s[/b]  [color=#aaa]Lv %d[/color]\n%s" % [sk.name, sk.unlock_level, sk.description]
-	t += "\n[color=#aaa]Mira: %s · Poder %.0f%% · MP %.0f · CD %.1fs · Alcance %.1f[/color]" % [target_name(sk.target), sk.power_at(lv) * 100.0, sk.mp_cost_at(lv), sk.cooldown_at(lv), sk.range if sk.target != SkillDef.Target.CONE else sk.radius]
+	var pw := ("Poder %.0f%% · " % (sk.power_at(lv) * 100.0)) if sk.power > 0.0 else ""      # forma/bônus: sem poder
+	t += "\n[color=#aaa]Mira: %s · %sMP %.0f · CD %.1fs · Alcance %.1f[/color]" % [target_name(sk.target), pw, sk.mp_cost_at(lv), sk.cooldown_at(lv), sk.range if sk.target != SkillDef.Target.CONE else sk.radius]
 	if p.knows(sk.id) and lv < Balance.MASTERY_MAX:
-		t += "\n[color=#888]Maestria %d: Poder %.0f%% · MP %.0f · CD %.1fs[/color]" % [lv + 1, sk.power_at(lv + 1) * 100.0, sk.mp_cost_at(lv + 1), sk.cooldown_at(lv + 1)]
+		var nxt := ("Poder %.0f%% · " % (sk.power_at(lv + 1) * 100.0)) if sk.power > 0.0 else ""
+		t += "\n[color=#888]Maestria %d: %sMP %.0f · CD %.1fs[/color]" % [lv + 1, nxt, sk.mp_cost_at(lv + 1), sk.cooldown_at(lv + 1)]
 	if sk.requires.size() > 0:
 		t += "\n[color=%s]Exige: %s[/color]" % ["#9f9" if p.stats.meets(sk.requires) else "#f88", Sim.requires_text(sk.requires)]
 	var bonus := float(p.stats.skill_dmg_pct.get(sk.id, 0.0))

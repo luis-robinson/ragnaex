@@ -196,7 +196,7 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 			nodes[nid]["branch"] = br["id"]
 			_link(nodes, prev, nid)
 			var mid := "%s_m_%s" % [cls.id, s.id]
-			nodes[mid] = _node(mid, "mastery", s.id, "Maestria: " + s.name, "+1 nível de maestria em %s." % s.name, s.unlock_level, 1, Vector2(cx - SIDE, y))
+			nodes[mid] = _node(mid, "mastery", s.id, "Maestria: " + s.name, mastery_desc(s), s.unlock_level, 1, Vector2(cx - SIDE, y))
 			nodes[mid]["branch"] = br["id"]
 			_link(nodes, nid, mid)
 			var k := 0
@@ -217,6 +217,47 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 		_link(nodes, start if i == 0 else "%s_t_%s" % [cls.id, dash_talents[i - 1].id], tnid)
 	_picks(cls, nodes)
 	return {"start": start, "nodes": nodes, "panes": panes}
+
+## Texto da maestria tirado dos dados da skill: o que cada nível melhora (poder só se a skill tem poder; forma e
+## bônus têm valores fixos) e os efeitos extras de certos níveis (SkillDef.mastery[n].extra).
+static func mastery_desc(s: SkillDef) -> String:
+	var e1 := s.mastery_entry(1)
+	var pw := roundi((float(e1.get("power_mult", 1.0)) - 1.0) * 100.0)
+	var mp := roundi((1.0 - float(e1.get("mp_mult", 1.0))) * 100.0)
+	var cd := roundi((1.0 - float(e1.get("cd_mult", 1.0))) * 100.0)
+	var parts: Array = []
+	if s.power > 0.0 and pw != 0:
+		parts.append("+%d%% de poder (%s)" % [pw, "cura" if s.kind == SkillDef.Kind.HEAL else "dano"])
+	if mp != 0:
+		parts.append("-%d%% de MP" % mp)
+	if cd != 0:
+		parts.append("-%d%% de recarga" % cd)
+	var t := "Cada nível (até %d): %s." % [Balance.MASTERY_MAX, ", ".join(parts)]
+	if s.effects.has("form"):
+		t += " Os bônus da forma não mudam com a maestria."
+	elif s.power <= 0.0 and (s.effects.has("buff") or s.effects.has("stealth")):
+		t += " Os bônus do efeito não mudam com a maestria."
+	for lv in range(1, Balance.MASTERY_MAX + 1):
+		var ex: Dictionary = s.mastery_entry(lv).get("extra", {})
+		var lines: Array = []
+		for k in ex:
+			lines.append(_extra_text(k, ex[k]))
+		if not lines.is_empty():
+			t += "\nNível %d: %s." % [lv, ", ".join(lines)]
+	return t
+
+static func _extra_text(key: String, v: Variant) -> String:
+	match key:
+		"heal_pct_of_dmg":
+			return "cura %d%% do dano causado" % roundi(float(v) * 100.0)
+		"stun":
+			return "atordoa por %.1f s" % float((v as Dictionary).get("duration", 0.0))
+		"shield":
+			return "escudo de %d%% do HP por %d s" % [int((v as Dictionary).get("amount_pct_hp", 0)), int((v as Dictionary).get("duration", 0))]
+		"summon":
+			var d: Dictionary = v
+			return "invoca %d (até %d) por %d s" % [int(d.get("count", 1)), int(d.get("max", d.get("count", 1))), int(d.get("duration", 0))]
+	return key
 
 static func _order(cls: ClassDef, s: SkillDef) -> int:
 	return (0 if s.id in cls.starting_skills else 1000) + s.unlock_level * 10

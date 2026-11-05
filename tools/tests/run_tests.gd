@@ -42,6 +42,20 @@ func _check_form_clips() -> void:
 			check(EntityView.IMPACT_FRAME[want] * 1.0 / 24.0 < fm.anim.get_animation(want).length, "forma %s: impacto de '%s' dentro do clipe" % [form, want])
 		# golpe andando: as patas correm por cima do clipe (LegOverlay), senão o bicho desliza
 		check(fm.legs != null and fm.legs._tracks.size() >= 4, "forma %s: patas correm por cima do golpe" % form)
+		# rabo com osso próprio: balança no idle e ondula na corrida (mob_kit.quad_motion)
+		check(fm.skeleton.find_bone("tail") >= 0, "forma %s tem osso de rabo" % form)
+		for clip in ["idle", "run"]:
+			var an := fm.anim.get_animation(clip)
+			var tt := -1
+			for t in range(an.get_track_count()):
+				if an.track_get_type(t) == Animation.TYPE_ROTATION_3D and String(an.track_get_path(t).get_subname(0)) == "tail":
+					tt = t
+			var swing := 0.0
+			if tt >= 0:
+				var q0 := an.rotation_track_interpolate(tt, 0.0)
+				for i in range(12):
+					swing = maxf(swing, rad_to_deg(q0.angle_to(an.rotation_track_interpolate(tt, an.length * i / 12.0))))
+			check(swing > 5.0, "forma %s: rabo mexe no '%s' (%.0f°)" % [form, clip, swing])
 		fm.free()
 	var dm := FormModel.create("demon")
 	if dm:
@@ -116,6 +130,26 @@ func _check_hand_twist() -> void:
 	check(worst < 45.0, "mão: no máximo 45°/quadro a 60 Hz (pior %.0f° em %s)" % [worst, where])
 	check(flurry > 0.0 and flurry < 1000.0, "mão: atk_flurry não dá voltas (%.0f° no clipe)" % flurry)
 	inst.free()
+
+## Maestria: a descrição diz o que cada nível melhora naquela skill (tirada dos dados), não um "+1 nível" genérico.
+func _check_mastery_desc() -> void:
+	var bad: Array = []
+	var extras := 0
+	for sid in GameData.skills:
+		var sk: SkillDef = GameData.skills[sid]
+		var d := TreeCatalog.mastery_desc(sk)
+		if not ("MP" in d and "recarga" in d) or (("poder" in d) != (sk.power > 0.0)):
+			bad.append(sid)
+		if sk.effects.has("form") and not ("forma não mudam" in d):
+			bad.append(sid + "(forma)")
+		if "Nível " in d:
+			extras += 1
+	check(bad.is_empty(), "maestria: descrição certa em todas as skills (%s)" % [bad.slice(0, 5)])
+	check(extras >= 4, "maestria: efeitos extras por nível aparecem na descrição (%d)" % extras)
+	if DevArgs.has("--verbose"):
+		for sid in ["nec_phantom", "nec_reap", "dru_bear_form"]:
+			if GameData.skills.has(sid):
+				print("  MAESTRIA %s: %s" % [sid, TreeCatalog.mastery_desc(GameData.skills[sid])])
 
 ## Menu Esc → Gráficos: o 1º preset é o padrão de sempre (bilinear, escala automática); os FSR 2 renderizam abaixo de 100%.
 func _check_graphics_settings() -> void:
@@ -384,6 +418,7 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_windup_timing()
 	_check_pose_fade()
 	_check_hand_twist()
+	_check_mastery_desc()
 	# builds: paladino = tanque (escudo) ou 2 mãos; berserker = 2 mãos ou duas armas de 1 mão (machado/espada misturados)
 	var pb: Array = gd.classes["paladin"].builds.map(func(b): return b["id"])
 	check(pb == ["guardiao", "cruzado"], "paladino tem só Guardião e Cruzado (%s)" % [pb])
