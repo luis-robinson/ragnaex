@@ -526,6 +526,84 @@ func _ride_saddle() -> void:
 	kit.scale = Vector3.ONE
 
 ## Druida: entra/sai da forma de animal (esconde o kit e anima o bicho, com a armadura de animal do conjunto).
+## Transformação: o boneco encolhe, estoura um pouco maior e assenta (o modelo troca no meio do aperto, escondido
+## pelo clarão); o fantasma se materializa (appear 0 -> 1). O estouro de partículas é do FxManager (form_*).
+const MORPH_TIME := 0.45
+var _morph_t := 1.0
+var _ghost_on := false
+var _ghost_mats: Dictionary = {}              # material toon da peça -> material fantasma com a cor dela
+
+func _morph(delta: float) -> void:
+	if _morph_t >= 1.0 or anim == null:
+		return
+	_morph_t = minf(1.0, _morph_t + delta / MORPH_TIME)
+	var t := _morph_t
+	# aperto (0-0,25), estouro (0,25-0,55), assenta com uma oscilação pequena
+	var k: float
+	if t < 0.25:
+		k = lerpf(1.0, 0.72, t / 0.25)
+	elif t < 0.55:
+		k = lerpf(0.72, 1.14, ease((t - 0.25) / 0.3, 0.5))
+	else:
+		var u := (t - 0.55) / 0.45
+		k = 1.0 + 0.14 * cos(u * PI * 1.5) * (1.0 - u)
+	var wide := 1.0 + (1.0 - k) * 0.5                  # espreme na altura, abre na largura (e vice-versa)
+	model_root.scale = Vector3(wide, k, wide) * _base_scale
+	var glow := clampf(1.0 - absf(t - 0.25) / 0.25, 0.0, 1.0)
+	for m in _mats:
+		m.set_shader_parameter("flash", maxf(glow * 0.55, 1.0 if entity.hit_flash > 0.0 else 0.0))
+	if _ghost_on:
+		_ghost_set("appear", smoothstep(0.2, 0.75, t))
+		_ghost_set("flash", glow * 0.6)
+	if _morph_t >= 1.0:
+		model_root.scale = Vector3.ONE * _base_scale
+		_last_flash = -1.0                            # o hit flash volta a mandar no próximo quadro
+
+func _ghost_set(param: String, v: float) -> void:
+	for gm in _ghost_mats.values():
+		(gm as ShaderMaterial).set_shader_parameter(param, v)
+
+## Forma Fantasma: cada superfície do kit (menos o rastro da arma) troca para o ghost.gdshader com a cor dela
+## (o toon fica guardado no meta "toon" da superfície); desligar devolve o toon.
+const GHOST_SHADER := preload("res://shaders/ghost.gdshader")
+
+func _set_ghost(on: bool) -> void:
+	_ghost_on = on
+	if kit == null:
+		return
+	var appear := 1.0 if _morph_t >= 1.0 else 0.0
+	for node in kit.find_children("*", "MeshInstance3D", true, false):
+		var mi := node as MeshInstance3D
+		if mi.name == "WeaponTrail" or mi.mesh == null:
+			continue
+		for i in range(mi.mesh.get_surface_count()):
+			var key := "toon_%d" % i
+			if on:
+				var cur := mi.get_surface_override_material(i)
+				if cur and cur.get_meta("ghost", false):
+					continue
+				mi.set_meta(key, cur)
+				mi.set_surface_override_material(i, _ghost_for(cur if cur else mi.mesh.surface_get_material(i), appear))
+			elif mi.has_meta(key):
+				mi.set_surface_override_material(i, mi.get_meta(key) as Material)
+				mi.remove_meta(key)
+
+func _ghost_for(toon: Material, appear: float) -> ShaderMaterial:
+	if _ghost_mats.has(toon):
+		return _ghost_mats[toon]
+	var gm := ShaderMaterial.new()
+	gm.shader = GHOST_SHADER
+	gm.set_meta("ghost", true)
+	var col := Color(0.8, 0.8, 0.8)
+	if toon is ShaderMaterial and (toon as ShaderMaterial).get_shader_parameter("albedo") != null:
+		col = (toon as ShaderMaterial).get_shader_parameter("albedo")
+	elif toon is BaseMaterial3D:
+		col = (toon as BaseMaterial3D).albedo_color
+	gm.set_shader_parameter("base", col)
+	gm.set_shader_parameter("appear", appear)
+	_ghost_mats[toon] = gm
+	return gm
+
 func _swap_form() -> void:
 	_shown_form = entity.form
 	if form_view:
@@ -549,7 +627,9 @@ func _swap_form() -> void:
 	_alpha_shown = -1.0
 
 func refresh_equipment() -> void:
-	_alpha_shown = -1.0            # peças novas do kit entram na árvore agora: reaplica a transparência (furtivo/fantasma)
+	_alpha_shown = -1.0            # peças novas do kit entram na árvore agora: reaplica a transparência (furtivo)
+	if kit:
+		_ghost_on = not _ghost_on  # ... e o material de fantasma (o próximo quadro reaplica nas peças novas)
 	if form_view:
 		form_view.apply_equipment(entity.equipment)
 	if kit:
@@ -644,16 +724,21 @@ func _process_view(delta: float) -> void:
 		target_rot = entity.facing
 	model_root.rotation.y = lerp_angle(model_root.rotation.y, target_rot, minf(1.0, delta * 18.0))
 	if kit and entity.form != _shown_form:
+		_morph_t = 0.0 if _shown_form != "" or entity.form != "" else 1.0
 		_swap_form()
 	if kit and entity.mounted != _shown_mount:
 		_swap_mount()
-	var want_alpha := 0.7 if entity.stealth_left > 0.0 else (0.45 if entity.form == "phantom" else 0.0)     # furtivo quase some; fantasma translúcido
+	var want_alpha := 0.7 if entity.stealth_left > 0.0 else 0.0     # furtivo quase some
 	if (entity.stealth_left > 0.0) != _stealth_shown or not is_equal_approx(want_alpha, _alpha_shown):
 		_stealth_shown = entity.stealth_left > 0.0
 		_alpha_shown = want_alpha
 		for mi in model_root.find_children("*", "MeshInstance3D", true, false):
 			(mi as MeshInstance3D).transparency = want_alpha
+	var ghost := kit != null and entity.form == "phantom" and entity.is_alive()
+	if ghost != _ghost_on:
+		_set_ghost(ghost)
 	_animate(delta)
+	_morph(delta)
 	_anim_lod(delta)
 	_update_bars()
 	var flash := 1.0 if entity.hit_flash > 0.0 else 0.0
@@ -667,6 +752,8 @@ func _process_view(delta: float) -> void:
 			_last_flash = flash
 			for m in _mats:
 				m.set_shader_parameter("flash", flash)
+			if _ghost_on:
+				_ghost_set("flash", flash)
 	elif mat:
 		mat.set_shader_parameter("flash", flash)
 	_update_status()

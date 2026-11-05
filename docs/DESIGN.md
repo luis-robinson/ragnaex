@@ -109,7 +109,7 @@ anel de gelo nos pés e tom azul, queimando = brasas e tom laranja (`EntityView.
 (esqueletos, 2 cães de ossos, 1 lich de gelo, 1 Rei Esqueleto); o ataque delas sai do MATK do dono × força do monstro × `pet_pct`.
 **Maldições** (efeito `curse`: `taken_pct` = recebe mais dano, `weaken_pct` = causa menos, teto `CURSE_WEAKEN_CAP`; a mesma maldição renova).
 **Canalização** (efeito `channel: {ticks}`, fase ativa = duração): o efeito pulsa N vezes mirando o cursor; outra skill ou o dash cortam (bots seguram até o fim).
-**Formas** do Ceifador: Fantasma (translúcido, rápido, esquiva) e Demônio (`form_demon.glb`, maior, HP/DEF/roubo de vida); golpes de foice mudam
+**Formas** do Ceifador: Fantasma (10 s, `Balance.FORM_DURATION`; `shaders/ghost.gdshader`: casca espectral com a cor das peças, rápido, esquiva) e Demônio (`form_demon.glb`, maior, HP/DEF/roubo de vida); golpes de foice mudam
 (`FORM_MODS`). Save com cajado/varinha/orbe: voltam para a bolsa e a foice inicial entra.
 
 **Mundo mais cheio**: os spawners exportados do Blender são multiplicados na carga (`Balance.SPAWN_COUNT_MULT` 1,6 nos campos,

@@ -35,6 +35,7 @@ var hp: float = 100.0
 var mp: float = 50.0
 var shield_hp: float = 0.0           # escudo temporário
 var form: String = ""                 # forma de animal do Druida: "" | "wolf" | "bear" (skill de forma liga/desliga)
+var form_left: float = 0.0             # s até a forma acabar sozinha (0 = até desligar; Balance.FORM_DURATION)
 var stealth_left: float = 0.0         # s de furtividade (monstros não enxergam); qualquer golpe quebra
 var ambush: bool = false              # o golpe que quebrou a furtividade ganha bônus
 var summon_hp: float = 0.0            # invocação que herda a vida do dono (companheiro); 0 = do monstro

@@ -416,7 +416,7 @@ static func _more() -> Dictionary:
 		_s("nec_skeleton_king", "Rei Esqueleto", 26, "invocador", ["scythe"], T_SELF, K_SUMMON, 0.0, 45, 50, "Ergue o Rei Esqueleto por 30s: grande, provoca e gira a espada (máx. 1).",
 			{"summon": {"monster_id": "skeleton_king", "count": 1, "duration": 30, "max": 1}, "startup": 0.6}),
 		# Ceifador: formas (ligam/desligam) e golpes de foice
-		_s("nec_phantom", "Forma Fantasma", 6, "ceifador", ["scythe"], T_SELF, K_BUFF, 0.0, 16, 4, "Vira um fantasma (liga/desliga): +25% velocidade, +20% esquiva, +10% MATK. Golpes de foice mudam.",
+		_s("nec_phantom", "Forma Fantasma", 6, "ceifador", ["scythe"], T_SELF, K_BUFF, 0.0, 16, 4, "Vira um fantasma por 10 s (usar de novo desfaz): +25% velocidade, +20% esquiva, +10% MATK. Golpes de foice mudam.",
 			{"form": "phantom", "startup": 0.2}),
 		_s("nec_demon_form", "Forma Demoníaca", 22, "ceifador", ["scythe"], T_SELF, K_BUFF, 0.0, 30, 6, "Vira um demônio (liga/desliga): grande, +25% HP, +20% DEF e MATK, roubo de vida. Golpes de foice mudam.",
 			{"form": "demon", "startup": 0.45}),

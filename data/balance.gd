@@ -90,6 +90,7 @@ const FORM_STATS := {"wolf": {"aspd_pct": 25, "speed_pct": 20, "atk_pct": 10, "c
 	"phantom": {"speed_pct": 25, "evasion": 20, "matk_pct": 10},          # Necromancer: forma fantasma (rápida, difícil de acertar)
 	"demon": {"matk_pct": 20, "hp_pct": 25, "def_pct": 20, "lifesteal": 6}}   # Necromancer: demônio (grande, aguenta e drena)
 const FORM_REQUIRES := {"wolf": "dual_mace", "bear": "mace2h", "phantom": "scythe", "demon": "scythe"}
+const FORM_DURATION := {"phantom": 10.0}     # s; forma fora daqui fica até desligar (lobo, urso, demônio)
 const AMBUSH_MULT := 1.6                  # golpe que sai da furtividade
 ## Ranger Atirador: o mosquete atira mais devagar e bate muito mais forte que o arco
 const RIFLE_COOLDOWN_MULT := 1.8

@@ -405,6 +405,9 @@ func _on_buff(entity_id: int, buff_id: String, duration: float) -> void:
 	var e: SimEntity = Sim.get_entity(entity_id)
 	if e == null or e.map_id != main.current_map_id or not main.views.has(entity_id):
 		return
+	if buff_id.begins_with("form_"):
+		_transform_fx(e, buff_id.substr(5))
+		return
 	var th := "holy"
 	for sid in GameData.skills:
 		var s: SkillDef = GameData.skills[sid]
@@ -415,6 +418,25 @@ func _on_buff(entity_id: int, buff_id: String, duration: float) -> void:
 		th = "holy" if e.class_def == null or e.class_def.id != "necromancer" else "bone"
 	if buff_id != "juramento":         # acumula a cada bloqueio: o HUD já mostra as cargas
 		SkillFx.aura(self, main.views[entity_id], th, duration, 0.75 * e.scale)
+
+## Transformação (liga ou desliga uma forma): estouro de partículas, coluna de luz e clarão no tema da forma
+## (fantasma = névoa lunar, demônio = fogo, lobo/urso = natureza). O aperto/estouro do boneco é da EntityView._morph.
+const FORM_FX_THEME := {"phantom": "lunar", "demon": "fire", "wolf": "nature", "bear": "nature"}
+
+var _last_form: Dictionary = {}       # id -> forma de onde está saindo (o desligar usa o tema dela)
+
+func _transform_fx(e: SimEntity, form: String) -> void:
+	var leaving := form == "human"
+	var was: String = _last_form.get(e.id, "")
+	_last_form[e.id] = "" if leaving else form
+	var th: String = FORM_FX_THEME.get(was if leaving else form, "lunar")
+	var s := e.scale
+	var mid := e.position + Vector3(0, 0.9 * s, 0)
+	SkillFx.burst(self, mid, th, 20 if leaving else 34, Vector3.UP, 0.35 * s, s)
+	if not leaving and form != "phantom":         # troca de modelo (bicho/demônio): a coluna esconde o estalo
+		SkillFx.column(self, e.position, 0.55 * s, th, 0.35)
+	SkillFx.flash(self, mid, th, 1.6, 4.0)
+	_ring(e.position, 1.1 * s, SkillFx.col(th, 0), 0.45, false, false)
 
 func _on_died(entity_id: int, _killer: int) -> void:
 	var e: SimEntity = Sim.get_entity(entity_id)

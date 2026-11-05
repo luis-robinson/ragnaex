@@ -120,6 +120,9 @@ func after_start() -> void:
 	if DevArgs.flag("--bag_shot"):      # foto da bolsa e da ficha com uma amostra de cada tipo de item
 		_smoke_test = false
 		_bag_shot(DevArgs.value("--bag_shot"))
+	if DevArgs.flag("--morph_film"):    # --morph_film=<png> [--morph=phantom|demon|wolf|bear]: quadros da transformação de perto
+		_smoke_test = false
+		_morph_film(DevArgs.value("--morph_film"), DevArgs.value("--morph", "phantom"))
 
 ## Tela inicial (sem partida automática): fotos da tela de classes.
 func at_title(returning: bool) -> void:
@@ -143,6 +146,40 @@ func tick(delta: float) -> void:
 		_tour(delta)
 	elif _smoke_test:
 		_smoke(delta)
+
+## Filme da transformação: câmera perto, liga a forma e fotografa os instantes (linha de cima), segura a forma
+## (último quadro da linha) e desliga (linha de baixo). Uma folha só, recortada em volta do jogador.
+const MORPH_SHOTS := [0.0, 0.06, 0.12, 0.18, 0.26, 0.36, 0.5, 1.2]
+
+func _morph_film(path: String, form: String) -> void:
+	main.camera.distance = 7.0
+	Sim.player.brain = null
+	await get_tree().create_timer(1.5).timeout
+	var rows: Array = []
+	for row in range(2):
+		var frames: Array = []
+		Sim._apply_effects(Sim.player, Sim.player, {"form": form}, 1.0)      # liga, depois desliga (alterna)
+		var t0 := Time.get_ticks_msec()
+		for at in MORPH_SHOTS:
+			while (Time.get_ticks_msec() - t0) / 1000.0 < float(at):
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			frames.append(get_viewport().get_texture().get_image())
+		rows.append(frames)
+		await get_tree().create_timer(0.8).timeout
+	var full: Image = rows[0][0]
+	var ch := int(full.get_height() * 0.62)
+	var cw := int(ch * 0.62)
+	var cx := (full.get_width() - cw) / 2
+	var cy := (full.get_height() - ch) / 2 - int(ch * 0.08)
+	var sheet := Image.create(cw * MORPH_SHOTS.size(), ch * 2, false, full.get_format())
+	for r in range(2):
+		for i in range(MORPH_SHOTS.size()):
+			var img: Image = rows[r][i]
+			sheet.blit_rect(img, Rect2i(cx, cy, cw, ch), Vector2i(i * cw, r * ch))
+	sheet.save_png(path)
+	print("MORPH_FILM ok %s" % path)
+	get_tree().quit()
 
 func _loot_demo() -> void:
 	var lm: Dictionary = Sim.maps[Sim.player.map_id]

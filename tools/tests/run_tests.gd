@@ -2027,6 +2027,26 @@ func _check_necromancer_builds(gd, sim) -> void:
 	check(sim.resolve_skill(n, gd.skills["nec_reap"]).name == "Garra Infernal", "golpe de foice muda na forma demoníaca")
 	sim._apply_effects(n, n, gd.skills["nec_demon_form"].effects, 0.0)
 	check(n.form == "", "Forma Demoníaca desliga")
+	# fantasma acaba sozinha (Balance.FORM_DURATION); demônio fica até desligar; usar de novo desfaz e zera o tempo
+	var fdur: float = Balance.FORM_DURATION.get("phantom", 0.0)
+	check(fdur > 0.0 and not Balance.FORM_DURATION.has("demon") and not Balance.FORM_DURATION.has("wolf"), "só a fantasma tem tempo")
+	sim._apply_effects(n, n, gd.skills["nec_phantom"].effects, 0.0)
+	check(n.form == "phantom" and is_equal_approx(n.form_left, fdur), "fantasma começa com %.0f s" % fdur)
+	var nm: Dictionary = sim.maps[n.map_id]
+	for i in range(int((fdur - 0.5) / 0.1)):
+		sim._update_entity(n, nm, 0.1)
+	check(n.form == "phantom", "fantasma ainda ativa antes do fim")
+	for i in range(10):
+		sim._update_entity(n, nm, 0.1)
+	check(n.form == "" and n.form_left == 0.0 and n.stats.evasion == 0.0, "fantasma acaba sozinha e devolve os atributos")
+	sim._apply_effects(n, n, gd.skills["nec_phantom"].effects, 0.0)
+	sim._apply_effects(n, n, gd.skills["nec_phantom"].effects, 0.0)
+	check(n.form == "" and n.form_left == 0.0, "usar de novo desfaz a fantasma")
+	sim._apply_effects(n, n, gd.skills["nec_demon_form"].effects, 0.0)
+	for i in range(int((fdur + 2.0) / 0.1)):
+		sim._update_entity(n, nm, 0.1)
+	check(n.form == "demon", "forma demoníaca não acaba sozinha")
+	sim._apply_effects(n, n, gd.skills["nec_demon_form"].effects, 0.0)
 	sim.despawn(mob)
 	sim.despawn(n)
 

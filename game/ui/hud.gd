@@ -389,6 +389,10 @@ func _update_status_bar(p: SimEntity) -> void:
 		var id: String = str(b.get("id", "buff"))
 		var src := _buff_source(id)
 		want.append(["b_" + id, true, float(b.get("remaining", 0)), int(b.get("stacks", 0)), src["tex"], src["name"], src["desc"]])
+	if p.form_left > 0.0 and p.form != "":           # forma com tempo (fantasma): ícone da skill que transformou
+		var fs := _form_skill(p.form)
+		if fs:
+			want.append(["f_" + p.form, true, p.form_left, 0, UiKit.icon_texture("skill_" + fs.id), fs.name, fs.description])
 	var deb := {}                          # debuffs do mesmo tipo viram um ícone só (maior tempo, quantos)
 	for d in p.debuffs:
 		var k: String = str(d.get("kind", ""))
@@ -458,6 +462,13 @@ func _make_status_chip(w: Array) -> Dictionary:
 	return {"root": root, "time": time, "stacks": stacks}
 
 ## De onde vem o buff: a skill (ícone dela) ou o item (arte dele) que tem esse id; senão um estado conhecido ou o genérico.
+func _form_skill(form: String) -> SkillDef:
+	for sid in GameData.skills:
+		var sk: SkillDef = GameData.skills[sid]
+		if sk.effects.get("form", "") == form:
+			return sk
+	return null
+
 func _buff_source(id: String) -> Dictionary:
 	if _buff_src.is_empty():
 		for sid in GameData.skills:

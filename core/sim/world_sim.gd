@@ -902,9 +902,10 @@ func _apply_effects(src: SimEntity, t: SimEntity, effects: Dictionary, power: fl
 		t.debuffs.append({"kind": "wither", "remaining": float(w.get("duration", 5)), "pct": float(w.get("pct", 50))})
 	var longer: float = 1.0 + (src.stats.buff_duration / 100.0 if src.is_character() and src.stats else 0.0)     # bênçãos do Sacerdote duram mais
 	if effects.get("form") != null and t == src:
-		t.form = "" if t.form == effects["form"] else effects["form"]     # forma de animal liga/desliga
+		t.form = "" if t.form == effects["form"] else effects["form"]     # forma liga/desliga (a fantasma também acaba sozinha)
+		t.form_left = float(Balance.FORM_DURATION.get(t.form, 0.0))
 		t.recompute_stats()
-		Events.buff_applied.emit(t.id, "form_" + (t.form if t.form != "" else "human"), 0.0)
+		Events.buff_applied.emit(t.id, "form_" + (t.form if t.form != "" else "human"), t.form_left)
 	if effects.get("stealth") != null and t == src:
 		t.stealth_left = float(effects["stealth"])
 		t.ambush = false
@@ -1058,10 +1059,20 @@ func _heal(src: SimEntity, target: SimEntity, amount: int) -> void:
 		else:
 			sb[0]["remaining"] = maxf(float(sb[0]["remaining"]), Balance.LEG_WARD_TIME)
 
+## Forma com tempo acabou: volta ao normal (mesmo aviso de quando desliga).
+func end_form(e: SimEntity) -> void:
+	e.form_left = 0.0
+	if e.form == "":
+		return
+	e.form = ""
+	e.recompute_stats()
+	Events.buff_applied.emit(e.id, "form_human", 0.0)
+
 func _kill(e: SimEntity, killer: SimEntity) -> void:
 	e.mounted = false
 	e.is_blocking = false
 	e.form = ""
+	e.form_left = 0.0
 	e.stealth_left = 0.0
 	e.ambush = false
 	e.current_skill = null
@@ -1104,6 +1115,10 @@ func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 	e.dash_cd = maxf(0.0, e.dash_cd - dt)
 	e.combat_timer = maxf(0.0, e.combat_timer - dt)
 	e.stealth_left = maxf(0.0, e.stealth_left - dt)
+	if e.form_left > 0.0:
+		e.form_left -= dt
+		if e.form_left <= 0.0:
+			end_form(e)
 	# pulo: gravidade até voltar ao chão
 	if e.airborne():
 		e.jump_v -= Balance.JUMP_GRAVITY * dt
