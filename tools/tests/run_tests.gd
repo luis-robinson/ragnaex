@@ -4849,6 +4849,16 @@ func _check_start_presets(gd, sim) -> void:
 	check(e.level == 10 and e.mastery_points == want, "começo 10: nível 10 com os pontos de skill de cada nível (%d/%d)" % [e.mastery_points, want])
 	check(int(e.inventory.get("legend_coin", 0)) == 100, "começo 10: 100 Moedas Lendárias")
 	check(e.quests_active.has("q08_forest") and "c5_report" in e.quests_completed and "q01_welcome" in e.quests_completed if gd.quests.has("q01_welcome") else e.quests_active.has("q08_forest"), "começo 10: quest da Floresta ativa, cadeia anterior concluída")
+	for qid in gd.quests:
+		var q: QuestDef = gd.quests[qid]
+		if not q.repeatable and q.level_req < 10:
+			check(qid in e.quests_completed, "começo 10: quest anterior %s concluída" % qid)
+	var avail: Array = []
+	for qid in gd.quests:
+		var q: QuestDef = gd.quests[qid]
+		if not q.repeatable and q.level_req <= 10 and QuestSystem.can_accept(e, q) and gd.maps["field_forest"].npcs.any(func(n): return n["id"] == q.giver_npc):
+			avail.append(qid)
+	check(avail.size() >= 2, "começo 10: Floresta já oferece laterais no nível 10 (%s)" % str(avail))
 	var w: ItemDef = e.equipment.get(ItemDef.Slot.WEAPON)
 	check(w != null and w.rarity >= 1 and e.class_def.weapon_types.has(w.weapon_type), "começo 10: arma de Ferro da classe")
 	var to_forest := {}

@@ -42,7 +42,13 @@ static func apply_start_preset(sim: WorldSim, e: SimEntity, preset_id: int) -> v
 		e.build_id = keep
 	var qid: String = pr.get("quest", "")
 	if GameData.quests.has(qid):
-		for done in _chain_before(qid):
+		var lv := int(pr["level"])
+		var done_ids: Array = _chain_before(qid)
+		for oid in GameData.quests:             # tudo da faixa anterior (laterais incluídas) já feito
+			var oq: QuestDef = GameData.quests[oid]
+			if not oq.repeatable and oq.level_req < lv and oid != qid:
+				done_ids.append(oid)
+		for done in done_ids:
 			if not (done in e.quests_completed):
 				e.quests_completed.append(done)
 		QuestSystem.accept(e, GameData.quests[qid])

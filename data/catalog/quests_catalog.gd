@@ -237,7 +237,7 @@ static func build() -> Array:
 		 "description": "Derrube o Javali Presa-Rachada no bosque a leste.", "dialog_offer": "Eu vi! Um javali com a presa rachada, ENORME, no bosque. Se você derrubar ele eu conto para todo mundo!",
 		 "dialog_progress": "Ele anda no meio do bosque a leste, com os outros javalis.", "dialog_complete": "VOCÊ DERRUBOU?! Toma, é minha moeda da sorte. Achei no lago."},
 		# ======== Floresta (10-20): os bandidos, a herborista, entregas ========
-		{"id": "b1_trilhas", "title": "Trilhas Perigosas", "giver_npc": "hunter_dario", "type": KILL, "target_id": "bandit", "count": 12, "level_req": 11,
+		{"id": "b1_trilhas", "title": "Trilhas Perigosas", "giver_npc": "hunter_dario", "type": KILL, "target_id": "bandit", "count": 12, "level_req": 10,
 		 "reward_xp": 1200, "reward_gold": 150, "map_hint": "Floresta: estrada e paliçada (leste)",
 		 "description": "Derrube 12 Bandidos nas trilhas a leste.", "dialog_offer": "Bandidos nas minhas trilhas de caça. Doze a menos e eu volto a caçar em paz.",
 		 "dialog_progress": "Eles patrulham a estrada e a paliçada a leste.", "dialog_complete": "As trilhas respiram."},
@@ -340,7 +340,7 @@ static func build() -> Array:
 		 "description": "Derrote o Rei Slime no fundo da Gruta Gotejante.",
 		 "dialog_offer": "A gruta a nordeste tem um dono. Vá até o fundo e acabe com ele.",
 		 "dialog_progress": "Siga o corredor até o último salão da gruta.", "dialog_complete": "Enfim, silêncio. Era isso que eu queria."},
-		{"id": "s_silk", "title": "Linha de Sutura", "giver_npc": "herbalist_maren", "type": COLLECT, "target_id": "spider_silk", "count": 5, "level_req": 11,
+		{"id": "s_silk", "title": "Linha de Sutura", "giver_npc": "herbalist_maren", "type": COLLECT, "target_id": "spider_silk", "count": 5, "level_req": 10,
 		 "reward_xp": 700, "reward_gold": 130, "reward_items": {"potion_hp_s": 4}, "map_hint": "Floresta: ninhos de aranha",
 		 "description": "Traga 5 Sedas de Aranha para Maren.",
 		 "dialog_offer": "Traga seda de aranha. Os ninhos ficam a noroeste e aqui no sudoeste.",
