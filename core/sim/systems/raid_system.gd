@@ -55,6 +55,7 @@ static func start_raid(sim: WorldSim, m: Dictionary) -> Array:
 				e.raid_leg = 0
 				spawned.append(e.id)
 	st["ids"] = spawned
+	st["total"] = spawned.size()
 	Events.chat_message.emit("Sistema", str(r.get("say_start", "Uma investida inimiga se aproxima!")), "system")
 	Events.raid_event.emit(def.id, "start")
 	return spawned
@@ -92,6 +93,26 @@ static func _update_wave(sim: WorldSim, m: Dictionary, st: Dictionary, dt: float
 		st["retreat"] = true
 		Events.chat_message.emit("Sistema", str(r.get("say_retreat", "Os inimigos recuam.")), "system")
 		Events.raid_event.emit(def.id, "retreat")
+
+## Leitura para a apresentação (faixa do HUD, minimapa): {} sem investida no mapa.
+##   {active, alive, total, phase ("march" | "walls" | "retreat"), next_in (s até a próxima, só sem leva), target, radius}
+static func status(sim: WorldSim, map_id: String) -> Dictionary:
+	var m: Dictionary = sim.maps.get(map_id, {})
+	if m.is_empty():
+		return {}
+	var def: MapDef = m["def"]
+	if def.raid.is_empty():
+		return {}
+	var st := state(m)
+	var alive := 0
+	for id in st["ids"]:
+		var e: SimEntity = sim.entities.get(id)
+		if e != null and e.is_alive():
+			alive += 1
+	var active := not (st["ids"] as Array).is_empty()
+	var phase := "retreat" if st["retreat"] else ("walls" if st["arrived"] else "march")
+	return {"active": active, "alive": alive, "total": int(st.get("total", alive)), "phase": phase,
+		"next_in": 0.0 if active else maxf(0.0, float(st["timer"])), "target": def.raid["target"], "radius": float(def.raid.get("radius", 25.0))}
 
 ## Rota da marcha (ida ou volta) e o ponto atual para a entidade.
 static func march_point(sim: WorldSim, e: SimEntity) -> Vector3:

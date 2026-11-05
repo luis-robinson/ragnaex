@@ -145,6 +145,10 @@ const GATHER := {
 		["herb_blue", "herb_blue", [-28.0, -90.0], 14.0, 4], ["stolen_goods", "crate", [50.0, -36.0], 13.0, 6]],
 	"field_ruins": [["ancient_relic", "relic", [66.0, 84.0], 16.0, 7], ["ancient_relic", "relic", [20.0, -88.0], 12.0, 3],
 		["star_ore", "star", [-57.0, 53.0], 14.0, 5], ["iron_ore", "ore", [-80.0, -42.0], 14.0, 4]],
+	# Cidade Élfica: ervas na margem do lago, cogumelos sob o bosque dos trents, pedra-estrela no Altar da Lua
+	# e caixotes de Aço Élfico no acampamento da patrulha (guardados pelos guerreiros)
+	"elf_city": [["herb_blue", "herb_blue", [-70.0, 30.0], 12.0, 5], ["forest_mushroom", "mushroom", [58.0, -40.0], 14.0, 5],
+		["star_ore", "star", [-40.0, -92.0], 12.0, 5], ["elf_steel", "crate", [70.0, 64.0], 10.0, 4]],
 }
 
 static func gather_rules(map_id: String) -> Array:

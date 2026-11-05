@@ -239,6 +239,10 @@ Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MS
   ataca ou chega perto (jogador, bot, invocação, sentinela), largam quem foge (`calm`) e retomam a rota; no Posto atacam as sentinelas;
   depois de `lifetime` recuam e somem. Calibrado com `tools/tests/raid_probe.tscn`: sentinelas sozinhas seguram ~2/3 das levas
   (perdendo ~4), com um grupo de 3, todas; chegada em ~43 s.
+  Na tela: faixa no topo (`hud._update_raid_banner`, lendo `Sim.raid_status`) com "N de M inimigos marchando / nas muralhas / recuando"
+  e, nos últimos 30 s antes da leva, a contagem; no minimapa os invasores são losangos laranja e o povoado atacado pulsa.
+- **Colheita na Cidade Élfica**: Erva Azul no lago, cogumelos sob os trents, Pedra Estelar no Altar da Lua e caixotes de Aço Élfico
+  no acampamento da patrulha (guardado).
 - **Cidade Élfica (17-21)** (`build_elf_city.py`): anel élfico (muralha clara r 44, 6 portões) em volta da **Árvore-Mãe Ancestral**
   (copa alta, acima da câmera), guarnição de guerreiros/arqueiros dentro do muro (hub hostil: `HOSTILE_HUBS` nos testes), ninho dos
   grifos (NO), bosque dos trents (NE, chão escuro), campo de treino (L), poço da lua (O), riacho com pontes, cerco humano na entrada sul

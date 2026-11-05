@@ -1311,6 +1311,8 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_start_presets(gd, sim)
 	_check_start_party(gd, sim)
 	_check_start_elf(gd, sim)
+	_check_start_ruins(gd, sim)
+	_check_raid_status(gd, sim)
 	_check_interiors(gd, sim)
 	_check_druid_start(gd, sim)
 	_check_xp_budget(gd)
@@ -2982,7 +2984,7 @@ func _check_xp_budget(gd) -> void:
 
 ## Colheita: pontos em chão livre, F colhe em ~1 s, andar cancela, volta depois; COLLECT conta.
 func _check_gather(gd, sim) -> void:
-	for mid in ["city_aldara", "field_forest", "field_ruins"]:
+	for mid in ["city_aldara", "field_forest", "field_ruins", "elf_city"]:
 		var list: Array = sim.maps[mid].get("gather", [])
 		check(list.size() >= 15, "%s: pontos de colheita (%d)" % [mid, list.size()])
 		var bad := list.filter(func(g): return not sim.is_walkable(g["pos"], gd.maps[mid], 0.5))
@@ -4888,6 +4890,48 @@ func _check_start_party(gd, sim) -> void:
 		if m != e:
 			sim.despawn(m)
 	sim.despawn(e)
+
+## Começo rápido nível 20: Ruínas, Rei Élfico vencido (portão das Ruínas aberto), q12 ativa, material de aprimorar a Glória.
+func _check_start_ruins(gd, sim) -> void:
+	var e: SimEntity = sim.spawn_character(SimEntity.Kind.PLAYER, gd.classes["assassin"], "Ruinas", "city_aldara", Vector3(2, 0, 8))
+	sim.apply_start_preset(e, 20)
+	check(e.level == 20 and e.map_id == "field_ruins", "começo 20: nível 20 nas Ruínas (%d, %s)" % [e.level, e.map_id])
+	check(sim.is_walkable(e.position, gd.maps["field_ruins"], 0.45), "começo 20: nasce em chão livre")
+	check(e.quests_active.has("q12_ruins") and "el6_king" in e.quests_completed and "els_heart" in e.quests_completed, "começo 20: q12 ativa, cadeia élfica e laterais concluídas")
+	var gate := {}
+	for pt in gd.maps["city_aldara"].portals:
+		if pt["id"] == "to_ruins":
+			gate = pt
+	check(not gate.is_empty() and sim.portal_block_reason(e, gate) == "", "começo 20: passagem das Ruínas liberada")
+	check(int(e.inventory.get("elf_steel", 0)) >= 10 and int(e.inventory.get("mother_sap", 0)) >= 2, "começo 20: Aço Élfico e Seiva para a Glória")
+	var members: Array = sim.party_members(e)
+	check(members.size() == 5 and members.all(func(m): return m.map_id == "field_ruins" and m.level == 20), "começo 20: grupo de 5 nas Ruínas, nível 20")
+	for m in members:
+		if m != e:
+			sim.despawn(m)
+	sim.despawn(e)
+
+## Investida: a leitura da apresentação (faixa do HUD e minimapa) acompanha a leva.
+func _check_raid_status(gd, sim) -> void:
+	check(sim.raid_status("city_aldara").is_empty(), "investida: mapa sem investida não tem estado")
+	var m: Dictionary = sim.maps["field_forest"]
+	var before: Dictionary = sim.raid_status("field_forest")
+	check(not before.is_empty() and before.has("next_in") and before.has("target"), "investida: estado com contagem e alvo")
+	if not (m.get("raid", {}).get("ids", []) as Array).is_empty():
+		return                              # outro check deixou uma leva viva: não mexe
+	var ids: Array = RaidSystem.start_raid(sim, m)
+	var rs: Dictionary = sim.raid_status("field_forest")
+	check(rs["active"] and rs["total"] == ids.size() and rs["alive"] == ids.size() and rs["phase"] == "march", "investida: leva ativa marchando (%d/%d)" % [rs["alive"], rs["total"]])
+	var first: SimEntity = sim.entities.get(ids[0])
+	first.hp = 0.0
+	first.set_state(SimEntity.State.DEAD)
+	check(sim.raid_status("field_forest")["alive"] == ids.size() - 1, "investida: abate desconta da faixa")
+	for id in ids:
+		var x: SimEntity = sim.entities.get(id)
+		if x != null:
+			sim.despawn(x)
+	RaidSystem.update_raids(sim, m, 0.1)
+	check(not sim.raid_status("field_forest")["active"], "investida: leva desfeita volta à contagem")
 
 ## Começo rápido nível 16: Posto dos Caçadores, cadeia élfica até a garganta, garganta liberada, grupo do nível.
 func _check_start_elf(gd, sim) -> void:

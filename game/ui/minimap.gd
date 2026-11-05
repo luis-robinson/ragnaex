@@ -181,6 +181,13 @@ func _draw_dynamic() -> void:
 	var origin := Vector2(p.position.x, p.position.z)
 	var d := _dynamic
 	var quest_marks: Array = []
+	# investida: anel pulsante no povoado atacado (o alvo da marcha)
+	var rs: Dictionary = Sim.raid_status(p.map_id)
+	if not rs.is_empty() and rs["active"]:
+		var at := (Vector2(rs["target"].x, rs["target"].z) - origin) * zoom
+		if at.length() < SIZE * 0.5 + float(rs["radius"]) * zoom:
+			var pulse := 0.55 + 0.45 * sin(Time.get_ticks_msec() * 0.006)
+			d.draw_arc(at, float(rs["radius"]) * zoom, 0.0, TAU, 48, Color(1.0, 0.45, 0.2, 0.35 + 0.4 * pulse), 2.5, true)
 	for e in Sim.map_entities(p.map_id):
 		if e == p or not e.is_alive():
 			continue
@@ -192,7 +199,13 @@ func _draw_dynamic() -> void:
 			continue
 		match e.kind:
 			SimEntity.Kind.MONSTER:
-				d.draw_circle(rel, 4.0 if e.monster_def and e.monster_def.is_boss else 2.6, Color(0.95, 0.3, 0.3))
+				if e.raid_id >= 0:              # investida: losango laranja com borda, maior que o monstro comum
+					var dm := PackedVector2Array([rel + Vector2(0, -4.5), rel + Vector2(4.5, 0), rel + Vector2(0, 4.5), rel + Vector2(-4.5, 0)])
+					d.draw_colored_polygon(dm, Color(1.0, 0.55, 0.15))
+					dm.append(dm[0])
+					d.draw_polyline(dm, Color(0.2, 0.05, 0.0), 1.2, true)
+				else:
+					d.draw_circle(rel, 4.0 if e.monster_def and e.monster_def.is_boss else 2.6, Color(0.95, 0.3, 0.3))
 			SimEntity.Kind.BOT:
 				if Sim.same_party(e, p):
 					d.draw_circle(rel, 4.0, Color(0.1, 0.25, 0.1))

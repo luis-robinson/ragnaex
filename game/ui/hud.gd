@@ -54,6 +54,9 @@ const BOTTOM_H := 190    # altura da faixa de baixo (chat)
 var minimap: Minimap
 var fps_label: Label                 # contador de FPS (canto direito, embaixo do nome do mapa)
 var gather_label: Label              # "[F] Colher ..." perto de um ponto; "Colhendo..." durante
+var raid_banner: PanelContainer      # faixa no topo durante uma investida no mapa do jogador (Sim.raid_status)
+var raid_label: Label
+var _raid_t := 0.0
 var _fps_t := 0.0
 
 func _ready() -> void:
@@ -270,6 +273,15 @@ func _build_notifications() -> void:
 	gather_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	gather_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(gather_label)
+	raid_banner = UiKit.panel(Color(0.22, 0.07, 0.05, 0.88), Color(0.95, 0.5, 0.25))
+	raid_banner.anchor_left = 0.5; raid_banner.anchor_right = 0.5
+	raid_banner.offset_left = -230; raid_banner.offset_right = 230; raid_banner.offset_top = 42; raid_banner.offset_bottom = 78
+	raid_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	raid_banner.visible = false
+	raid_label = UiKit.label("", 17, Color(1.0, 0.82, 0.55))
+	raid_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	raid_banner.add_child(raid_label)
+	root.add_child(raid_banner)
 	notif_box = VBoxContainer.new()
 	notif_box.anchor_left = 0.5; notif_box.anchor_right = 0.5
 	notif_box.offset_left = -300; notif_box.offset_right = 300; notif_box.offset_top = 90
@@ -327,6 +339,10 @@ func _process(_delta: float) -> void:
 	if p == null or not root.visible:
 		return
 	_update_gather_prompt(p)
+	_raid_t -= _delta
+	if _raid_t <= 0.0:
+		_raid_t = 0.2
+		_update_raid_banner(p)
 	name_label.text = "%s — %s Lv.%d" % [p.name, p.class_def.name, p.level]
 	hp_bar.max_value = p.stats.max_hp
 	hp_bar.value = p.hp
@@ -647,6 +663,24 @@ func refresh_quest_tracker() -> void:
 
 # ---------------------------------------------------------------------------
 ## Perto de um ponto de colheita: mostra a tecla; colhendo: mostra o progresso.
+## Faixa da investida: quantos ainda de pé e onde estão; antes dela, a contagem dos últimos RAID_WARN s.
+const RAID_WARN := 30.0
+const RAID_PHASE := {"march": "marchando para o povoado", "walls": "nas muralhas!", "retreat": "recuando"}
+
+func _update_raid_banner(p: SimEntity) -> void:
+	raid_banner.visible = false
+	var rs: Dictionary = Sim.raid_status(p.map_id)
+	if rs.is_empty():
+		return
+	if rs["active"]:
+		raid_label.text = "Investida: %d de %d inimigos %s" % [rs["alive"], rs["total"], RAID_PHASE.get(rs["phase"], "")]
+		raid_label.add_theme_color_override("font_color", Color(1.0, 0.5, 0.4) if rs["phase"] == "walls" else Color(1.0, 0.82, 0.55))
+		raid_banner.visible = true
+	elif float(rs["next_in"]) <= RAID_WARN:
+		raid_label.text = "Trompas ao longe: investida em %d s" % ceili(float(rs["next_in"]))
+		raid_label.add_theme_color_override("font_color", Color(0.95, 0.9, 0.7))
+		raid_banner.visible = true
+
 func _update_gather_prompt(p: SimEntity) -> void:
 	if gather_label == null:
 		return

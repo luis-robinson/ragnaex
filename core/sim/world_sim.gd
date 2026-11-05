@@ -1596,3 +1596,6 @@ func _update_boss(e: SimEntity) -> void:
 	MobSystem.update_boss(self, e)
 func reset_boss(e: SimEntity) -> void:
 	MobSystem.reset_boss(self, e)
+# RaidSystem
+func raid_status(map_id: String) -> Dictionary:
+	return RaidSystem.status(self, map_id)

@@ -19,4 +19,9 @@ const PRESETS := {
 		"items": {"legend_coin": 100, "potion_hp_m": 15, "potion_mp_m": 15, "elixir_might": 3},
 		"party": [["ranger", "cacador"], ["elementalist", "fogo"], ["druid", "xama"], ["paladin", "guardiao"]],
 		"welcome": "Começo rápido (nível 16): Posto dos Caçadores. Saia pelo portão norte, passe a Árvore-Mãe e a garganta élfica: a Batedora Yara espera no cerco."},
+	20: {"label": "Nível 20", "hint": "Teste das Ruínas: nível 20, Rei Élfico derrotado, equipamento de Mitril, Aço Élfico e Seiva para aprimorar, grupo pronto, na entrada das Ruínas.",
+		"level": 20, "gold": 6000, "gear_tier": 2, "quest": "q12_ruins", "map": "field_ruins",
+		"items": {"legend_coin": 100, "potion_hp_m": 20, "potion_mp_m": 20, "elixir_might": 3, "elf_steel": 10, "mother_sap": 2},
+		"party": [["ranger", "cacador"], ["elementalist", "fogo"], ["druid", "xama"], ["paladin", "guardiao"]],
+		"welcome": "Começo rápido (nível 20): o Rei Élfico caiu e a passagem abriu. Ruínas de Vel'Thar: os esqueletos rondam, e a Erudita Senna espera no acampamento."},
 }
