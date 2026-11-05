@@ -31,4 +31,6 @@ extends Resource
 @export var coin_chance: float = 0.0       ## > 0: chance própria de Moedas Lendárias (no lugar da regra comum/chefe)
 @export var coin_min: int = 0
 @export var coin_max: int = 0
+@export var intro: String = ""             ## chefe: fala ao entrar em combate (uma vez por luta)
+@export var last_words: String = ""        ## chefe: fala ao cair
 @export var phases: Array = []            ## chefe, em ordem de HP: {hp (0-1), say, skills, summon: {id, count, max}, enrage}

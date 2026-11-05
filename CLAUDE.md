@@ -92,7 +92,9 @@ Scripts novos com `class_name` só são vistos pelos outros scripts depois de `-
   É mapa compartilhado (`MapDef.parent_map`), não instância; bots não caçam lá sozinhos.
   Dungeon ramificada: `layout` em `places.DUNGEONS` (salões + ligações, `build_dungeons.build_graph`; rocha sólida sela as alas). `door` = selo para outro mapa
   (`parent_map` em cadeia, que bots seguem). `bosses` no `DUNGEON_DEFS` se houver mais de um; NPCs de dentro em `PLACE_NPCS[<dungeon>]`.
-- **Chefe com mecânica**: `MonsterDef.phases` (`hp`, `say`, `skills`, `summon`, `enrage`) em `MobSystem.update_boss`; lacaios com 0 XP via `summon` ou efeito `boss_summon` (nunca o `summon` de jogador).
+- **Faixa de nível (teste de jogo)**: `--headless --path . tools/tests/band_probe.tscn -- [--from=10] [--to=20] [--trials=16] [--only=audit|duel] [--mob=<id>] [--why]`
+  (auditoria das quests + caçada de 4 monstros seguidos por bot do nível; `travou` com `--why` mostra por quê). Mexeu em monstro da faixa: rode.
+- **Chefe com mecânica**: `MonsterDef.phases` (`hp`, `say`, `skills`, `summon`, `enrage`) em `MobSystem.update_boss`; `intro`/`last_words` = falas de abertura/queda; lacaios com 0 XP via `summon` ou efeito `boss_summon` (nunca o `summon` de jogador).
   Chefe sem alvo reseta (`reset_boss`). Calibre rodando a luta com bots: eles têm ATK de equipamento do nível, bem acima do inicial.
   Sonda: `--headless --path . tools/tests/boss_probe.tscn -- [--party=1,3] [--trials=20] [--boss=<id>,...]` (vitórias, tempo, mortes).
   Use 20+ lutas: com 14 a variação passa de ±2 vitórias.

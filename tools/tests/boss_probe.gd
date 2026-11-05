@@ -4,7 +4,7 @@ extends Node
 ##     [--class=berserker] [--build=carniceiro]   (grupo só dessa classe/build; sem isso as classes se revezam)
 ## Saída: "PROBE <chefe> grupo=N vitorias=V/T tempo_medio=Ss mortes=M" (mortes = bots mortos por luta, média).
 
-const BOSSES := {"crab_king": "city_aldara", "slime_king": "dg_gruta", "spider_queen": "dg_ninho", "crypt_lord": "dg_cripta",
+const BOSSES := {"bandit_chief": "field_forest", "crab_king": "city_aldara", "slime_king": "dg_gruta", "spider_queen": "dg_ninho", "crypt_lord": "dg_cripta",
 	"bone_captain": "dg_catacumbas", "wailing_widow": "dg_catacumbas", "count_vargo": "dg_catacumbas_trono",
 	"boar_brute": "city_aldara", "boar_king": "city_aldara", "elf_king": "dg_coracao", "elf_warden": "elf_city", "trent": "elf_city"}
 const LIMIT := 240.0          # s por luta

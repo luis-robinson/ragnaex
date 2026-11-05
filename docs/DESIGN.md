@@ -251,6 +251,17 @@ Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MS
   reforço na leva em `RAIDS["scale_extra"]` (passo 3: +1 batedor; passo 5: +1 arqueiro). A faixa mostra o nível da leva.
   raid_probe (`--raid_level=N`, bots do mesmo nível): sentinelas sozinhas repelem 85% na base, 40% no 16, 15% no 17 e nada do 18
   em diante; com 1 ajudante ~90% em todos, perdendo 0,5 sentinela na base e 1,3 no 20.
+- **Faixa 10-20, teste de jogo** (`tools/tests/band_probe.tscn`, 2026-11-05): auditoria das quests (todo alvo nasce, todo item tem
+  fonte) e caçada de bot do nível contra 4 monstros seguidos sem poção. Alvo: 3-5 s por monstro e 20-45% de vida no ponto mais baixo
+  (elites sozinhos: 10-15 s). Antes os comuns morriam em 1-3 s quase sem bater; vida e ataque foram ajustados em voltas (XP sobe junto
+  com a vida, ^0,6). Ent e Trent ganharam Chicote de Cipó (prende à distância; antes todo mundo os kitava).
+  Monstro que persegue contorna obstáculo (`MonsterBrain._steer`); atirador cujo tiro não tira vida há 3 s chega mais perto
+  (`_shots_blocked`): antes ficavam travados atrás de árvore/muro.
+  Chefes com repertório (boss_probe, 20 lutas): Chefe dos Bandidos (facas envenenadas, bomba de fumaça, capangas, investida no fim;
+  sozinho 75% em ~58 s, trio 95%), Rainha Aranha (poça de veneno, salto da rainha; sozinho 75% em ~44 s, trio 100%), Rei Élfico
+  (lâmina da coroa, chuva de flechas, julgamento de espinhos; trio 85% em ~45 s), Conde Vargo (marca de sangue, revoada; trio 75% em
+  ~56 s). Todo chefe da faixa tem `intro` (fala ao entrar em combate, de novo depois de um reset) e `last_words`.
+  Sabor: moradores refugiados no Posto (`MapsCatalog.POST_VILLAGERS`) e falas de bot por mapa (`BotsCatalog.LINES["hunt_<mapa>"]`).
 - **Colheita na Cidade Élfica**: Erva Azul no lago, cogumelos sob os trents, Pedra Estelar no Altar da Lua e caixotes de Aço Élfico
   no acampamento da patrulha (guardado).
 - **Cidade Élfica (17-21)** (`build_elf_city.py`): anel élfico (muralha clara r 44, 6 portões) em volta da **Árvore-Mãe Ancestral**

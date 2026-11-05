@@ -1315,6 +1315,10 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_raid_status(gd, sim)
 	_check_raid_defense(gd, sim)
 	_check_raid_scaling(gd, sim)
+	_check_band_bosses(gd, sim)
+	_check_monster_unstick(gd, sim)
+	_check_post_life(gd, sim)
+	_check_band_consistency(gd, sim)
 	_check_interiors(gd, sim)
 	_check_druid_start(gd, sim)
 	_check_xp_budget(gd)
@@ -4067,7 +4071,8 @@ func _check_review_fixes(gd, sim) -> void:
 	var near = sim.spawn_bot(gd.classes["paladin"], "RF6", "city_aldara", at + Vector3(35.5, 0, 0), 20)
 	chief.aggro_target = near.id
 	chief.aggro_timer = 5.0
-	check(chief.brain.think(chief, sim, m, 0.05).skill_slot < 0, "skill em volta do chefe não sai fora do raio")
+	var slot: int = chief.brain.think(chief, sim, m, 0.05).skill_slot
+	check(slot < 0 or chief.skills[slot].target != SkillDef.Target.SELF, "skill em volta do chefe não sai fora do raio")
 	chief.mastery["mob_whirl"] = 3
 	sim.reset_boss(chief)
 	check(chief.mastery.is_empty(), "reset limpa a maestria do chefe")
@@ -5045,6 +5050,126 @@ func _check_raid_scaling(gd, sim) -> void:
 		ws.despawn(ws.entities[id])
 	ws.despawn(ws.player)
 	ws.player = null
+
+## Faixa 10-20: chefes com repertório (3+ golpes somando as fases), fala de abertura uma vez por luta e fala ao cair;
+## capanga do Chefe dos Bandidos sem XP; skills novas existem e estão no tema certo.
+func _check_band_bosses(gd, sim) -> void:
+	for bid in ["bandit_chief", "spider_queen", "elf_king", "count_vargo", "bone_captain", "wailing_widow"]:
+		var md: MonsterDef = gd.monsters[bid]
+		var kit := {}
+		for sid in md.skill_ids:
+			kit[sid] = true
+		for ph in md.phases:
+			for sid in ph.get("skills", []):
+				kit[sid] = true
+		for sid in kit:
+			check(gd.skills.has(sid), "%s: skill %s existe" % [bid, sid])
+		if bid in ["bandit_chief", "spider_queen", "elf_king", "count_vargo"]:
+			check(kit.size() >= 4 and md.phases.size() >= 2, "%s: repertório de chefe (%d golpes, %d fases)" % [bid, kit.size(), md.phases.size()])
+		check(md.intro != "" and md.last_words != "", "%s: fala de abertura e de queda" % bid)
+	check(gd.monsters["bandit_thug"].xp == 0 and gd.monsters["bandit_thug"].loot_table == "", "Capanga: lacaio sem XP nem saque")
+	check(gd.skills["mob_venom_pool"].vfx == "poison" and gd.skills["mob_shadow_bats"].vfx == "shadow"
+		and gd.skills["mob_thorn_lash"].vfx == "nature", "skills novas de monstro no tema certo")
+	# falas: abertura uma vez por luta (volta no reset), queda ao morrer
+	var said: Array = []
+	var on_note := func(t: String): said.append(t)
+	Events.notification.connect(on_note)
+	var ws := WorldSim.new()
+	ws.load_map(gd.maps[GameData.town_map_id()])
+	var m: Dictionary = ws.load_map(gd.maps["dg_ninho"])
+	m["spawners"].clear()
+	ws.player = ws.spawn_player(gd.classes["berserker"], "Falas", "dg_ninho")
+	var q: SimEntity = ws.spawn_monster(gd.monsters["spider_queen"], "dg_ninho", ws.player.position + Vector3(6, 0, 0))
+	q.aggro_target = ws.player.id
+	MobSystem.update_boss(ws, q)
+	MobSystem.update_boss(ws, q)
+	var intro := said.filter(func(t): return t.ends_with(gd.monsters["spider_queen"].intro))
+	check(intro.size() == 1, "chefe diz a abertura uma vez (%d)" % intro.size())
+	ws.reset_boss(q)
+	q.aggro_target = ws.player.id
+	MobSystem.update_boss(ws, q)
+	check(said.filter(func(t): return t.ends_with(gd.monsters["spider_queen"].intro)).size() == 2, "reset: a abertura volta na próxima luta")
+	LootSystem.on_monster_killed(ws, q, ws.player)
+	check(said.any(func(t): return t.ends_with(gd.monsters["spider_queen"].last_words)), "chefe fala ao cair")
+	Events.notification.disconnect(on_note)
+
+## Monstro atirador cujo tiro não tira vida (obstáculo no meio) chega mais perto; corpo a corpo contorna obstáculo (MonsterBrain._steer).
+func _check_monster_unstick(gd, sim) -> void:
+	var ws := WorldSim.new()
+	ws.load_map(gd.maps[GameData.town_map_id()])
+	var m: Dictionary = ws.load_map(gd.maps["field_forest"])
+	m["spawners"].clear()
+	var a: SimEntity = ws.spawn_monster(gd.monsters["bandit_archer"], "field_forest", Vector3(40, 0, 40))
+	var t: SimEntity = ws.spawn_bot(gd.classes["paladin"], "Alvo", "field_forest", Vector3(46, 0, 40), 15)
+	var br: MonsterBrain = a.brain
+	var blocked := false
+	for i in range(int(MonsterBrain.NO_HIT_LIMIT * 20) + 2):
+		blocked = br._shots_blocked(a, t, 0.05)
+		if blocked:
+			break
+	check(blocked, "atirador sem acertar por %.0f s vai chegar mais perto" % MonsterBrain.NO_HIT_LIMIT)
+	br.close_in = 0.0
+	br.no_hit = 0.0
+	t.hp -= 10.0
+	check(not br._shots_blocked(a, t, 0.05), "tiro que acerta zera a espera")
+
+## Posto dos Caçadores: moradores (refugiados) nascem em chão livre dentro das muralhas e passeiam;
+## os bots falam do lugar onde estão (falas por mapa existem só para mapas que existem).
+func _check_post_life(gd, sim) -> void:
+	var def: MapDef = gd.maps["field_forest"]
+	var vil: Array = def.npcs.filter(func(n): return n["id"] in MapsCatalog.POST_VILLAGERS)
+	check(vil.size() == MapsCatalog.POST_VILLAGERS.size() and vil.size() >= 5, "Posto: moradores no mapa (%d)" % vil.size())
+	for n in vil:
+		var pos: Vector3 = n["pos"]
+		check(sim.is_walkable(pos, def, 0.4), "Posto: %s em chão livre" % n["id"])
+		check(Vector2(pos.x - def.town_center.x, pos.z - def.town_center.z).length() + float(n.get("wander", 0.0)) < def.town_radius - 1.0,
+			"Posto: %s passeia dentro das muralhas" % n["id"])
+	for ctx in BotsCatalog.LINES:
+		for pre in ["hunt_", "town_"]:
+			if str(ctx).begins_with(pre):
+				check(gd.maps.has(str(ctx).trim_prefix(pre)), "falas de bot: mapa %s existe" % ctx)
+	for mid in ["field_forest", "dg_ninho", "elf_city", "dg_coracao"]:
+		check(BotsCatalog.LINES.has("hunt_" + mid) and (BotsCatalog.LINES["hunt_" + mid] as Array).size() >= 5, "falas de bot na faixa 10-20: %s" % mid)
+
+## Faixa 10-20: toda quest tem alvo que nasce (spawner ou investida), item com fonte; monstros comuns sobem de vida com o nível
+## dentro de cada mapa (sem aranha nível 13 mais dura que bandido nível 15).
+func _check_band_consistency(gd, sim) -> void:
+	var spawns := {}
+	for mid in gd.maps:
+		for sp in gd.maps[mid].spawners:
+			spawns[sp["monster_id"]] = true
+	for mid in MapsCatalog.RAIDS:
+		for w in MapsCatalog.RAIDS[mid]["waves"]:
+			for mon in w["mobs"]:
+				spawns[mon] = true
+	var drops := {}
+	for mon in spawns:
+		var md: MonsterDef = gd.monsters.get(mon)
+		if md and gd.loot_tables.has(md.loot_table):
+			for en in gd.loot_tables[md.loot_table].entries:
+				drops[en["item"]] = true
+	var gather := {}
+	for mid in MapsCatalog.GATHER:
+		for g in MapsCatalog.GATHER[mid]:
+			gather[g[0]] = true
+	for qid in gd.quests:
+		var q: QuestDef = gd.quests[qid]
+		if q.level_req < 10 or q.level_req > 20:
+			continue
+		if q.type == QuestDef.Type.KILL:
+			check(spawns.has(q.target_id), "%s: %s nasce em algum lugar" % [qid, q.target_id])
+		elif q.type == QuestDef.Type.COLLECT:
+			check(not q.give_items.is_empty() or gather.has(q.target_id) or drops.has(q.target_id), "%s: %s tem fonte" % [qid, q.target_id])
+	for mid in ["field_forest", "elf_city"]:
+		var mons: Array = []
+		for sp in gd.maps[mid].spawners:
+			var md: MonsterDef = gd.monsters[sp["monster_id"]]
+			if not md.is_boss and md.hp < 1500 and not mons.has(md):
+				mons.append(md)
+		for x in mons:
+			for y in mons:
+				if x.level + 2 <= y.level:
+					check(x.hp * (1.0 if x.ranged == y.ranged else 0.8) <= y.hp * 1.15, "%s: %s (nv %d) não mais duro que %s (nv %d)" % [mid, x.id, x.level, y.id, y.level])
 
 ## Começo rápido nível 16: Posto dos Caçadores, cadeia élfica até a garganta, garganta liberada, grupo do nível.
 func _check_start_elf(gd, sim) -> void:

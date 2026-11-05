@@ -67,11 +67,11 @@ static func _place_npcs(id: String, npc_pos: Dictionary) -> Array:
 	return out
 
 ## Moradores que passeiam (VILLAGERS) prontos para o MapDef.
-static func villagers() -> Array:
+static func villagers(table: Dictionary = VILLAGERS) -> Array:
 	var out: Array = []
-	var seed := 11
-	for vid in VILLAGERS:
-		var v: Array = VILLAGERS[vid]
+	var seed := 11 if table == VILLAGERS else 29
+	for vid in table:
+		var v: Array = table[vid]
 		var d := _npc(vid, v[0], float(v[3][0]), float(v[3][1]), "villager", v[1], v[2], float((seed * 47) % 360))
 		if v[4] is Array:
 			d["route"] = v[4]
@@ -280,6 +280,16 @@ const VILLAGERS := {
 	"vil_porter": ["Carregador Juca", Color(0.6, 0.45, 0.35), ["Caixas para o mercador, caixas para o ferreiro... minhas costas!", "Se vir o Tobias, diga que a carga atrasou."], [3.0, 13.0], [[3.0, 13.0], [-8.0, 13.0], [-14.0, -12.0], [14.0, -14.0]]],
 	"vil_patrol": ["Guarda de Ronda", Color(0.6, 0.6, 0.75), ["Ronda tranquila. Os monstros não passam do muro.", "Mantenha a arma na bainha dentro da vila."], [0.0, -19.0], [[0.0, -19.0], [19.0, 2.0], [2.0, 19.0], [-19.0, -2.0]]],
 }
+## Moradores do Posto dos Caçadores (refugiados da Floresta sob cerco), mesmo formato de VILLAGERS.
+const POST_VILLAGERS := {
+	"post_refugee_a": ["Refugiada Dalva", Color(0.7, 0.55, 0.5), ["Morávamos perto da Árvore-Mãe. Os elfos deram um dia para sairmos. Saímos em meio.", "Meu marido ficou para soltar as cabras. Ainda espero ele no portão norte."], [-14.0, 8.0], 4.0],
+	"post_refugee_kid": ["Tito", Color(0.95, 0.7, 0.4), ["Eu vi um grifo de perto! Ele era maior que a casa!", "A Caçadora Lis prometeu me ensinar a atirar quando os elfos forem embora."], [-2.0, 10.0], 7.0],
+	"post_trapper": ["Armadilheiro Joca", Color(0.55, 0.45, 0.3), ["Armadilha de urso não segura lince élfico. Já tentei. Perdi a armadilha.", "Os bandidos da paliçada pagam bem por pele. Eu não vendo pra bandido. Quase nunca."], [4.0, -4.0], 5.0],
+	"post_wounded": ["Batedor Sílvio", Color(0.6, 0.6, 0.7), ["Flecha élfica no ombro. O Boticário diz que eu tive sorte: era das que só prendem.", "Se for ao Ninho, leve fogo. A Rainha odeia fogo. E leve gente."], [-12.0, -2.0], 2.0],
+	"post_bard": ["Menestrel Aurélio", Color(0.75, 0.5, 0.75), ["♪ Ó Posto de madeira, que a trompa não derrube... ♪", "Estou compondo a balada do cerco. Falta um herói. E um final feliz."], [-4.0, -8.0], 5.0],
+	"post_cook": ["Cozinheira Bia", Color(0.9, 0.75, 0.55), ["Ensopado de cogumelo da floresta! Os escuros não, esses dão sonho estranho.", "Quem segura o portão come primeiro. Regra da casa."], [2.0, 4.0], 3.0],
+}
+
 ## Posto dos Caçadores (hub da Floresta): serviços e sentinelas. id -> [nome, papel, cor, falas, extras].
 ## Extras: `fighter` = monstro de onde vêm atributos/alcance (NPC que luta, GuardBrain), `gear` = peças do kit, `route` = ronda.
 const FOREST_NPCS := {
@@ -478,7 +488,7 @@ static func _aldara() -> MapDef:
 static func _forest() -> MapDef:
 	var z := load_zone("field_forest")
 	var p: Array = z["npc_pos"].get("ranger_post", [0.0, 0.0, 180.0])
-	var extra := _place_npcs("field_forest", z["npc_pos"]) + forest_npcs(z["npc_pos"])
+	var extra := _place_npcs("field_forest", z["npc_pos"]) + forest_npcs(z["npc_pos"]) + villagers(POST_VILLAGERS)
 	z.erase("npc_pos")
 	z.merge({
 		"id": "field_forest", "name": "Floresta Sombria", "is_town": false, "level_range": Vector2i(10, 20),

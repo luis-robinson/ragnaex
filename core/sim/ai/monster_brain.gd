@@ -23,6 +23,13 @@ var last_pos := Vector3.ZERO
 var stuck: float = 0.0
 var detour := Vector2.ZERO
 var detour_left: float = 0.0
+# atirador cujo tiro não chega (obstáculo no meio): chega mais perto um tempo
+var shot_target := -1
+var shot_hp := 0.0
+var no_hit: float = 0.0
+var close_in: float = 0.0
+const NO_HIT_LIMIT := 3.0
+const CLOSE_IN_TIME := 2.0
 
 func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 	var cmd := InputCommand.new()
@@ -89,13 +96,16 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 					skill_timer = minf(s.cooldown + 1.0, SKILL_GAP)
 					return cmd
 		var reach := mdef.attack_range if not is_summon or mdef.ranged else 1.5
+		if mdef.ranged and _shots_blocked(e, target, dt) and dist > 1.5:
+			cmd.move = _steer(e, sim, target.position, dt)
+			return cmd
 		if dist <= reach * 0.85:
 			if e.basic_cd <= 0.0 and e.can_act():
 				cmd.attack = true
 			elif mdef.ranged and dist < reach * 0.5 and e.position.distance_to(e.home_position) < mdef.leash_range * 0.7:
 				cmd.move = -_dir_to(e, target.position)      # recua entre os tiros
 		else:
-			cmd.move = _dir_to(e, target.position)
+			cmd.move = _steer(e, sim, target.position, dt)     # contorna árvore/muro/água em vez de empurrar parado
 		return cmd
 
 	if raider:
@@ -169,6 +179,24 @@ func _march(e: SimEntity, sim, cmd: InputCommand, dt: float) -> InputCommand:
 	cmd.move = _steer(e, sim, goal, dt) * (Balance.RAID_MARCH_PACE if not retreat else 1.0)     # marcha cautelosa; na luta, velocidade cheia
 	cmd.aim = e.position + Vector3(cmd.move.x, 0.0, cmd.move.y)
 	return cmd
+
+## Atirando e o alvo não perde vida há NO_HIT_LIMIT s (árvore/muro no caminho do tiro): CLOSE_IN_TIME s andando até ele.
+func _shots_blocked(e: SimEntity, target: SimEntity, dt: float) -> bool:
+	close_in -= dt
+	if close_in > 0.0:
+		return true
+	var hp := target.hp + target.shield_hp
+	if target.id != shot_target or hp < shot_hp - 0.01:
+		no_hit = 0.0
+	else:
+		no_hit += dt
+	shot_target = target.id
+	shot_hp = hp
+	if no_hit >= NO_HIT_LIMIT:
+		no_hit = 0.0
+		close_in = CLOSE_IN_TIME
+		return true
+	return false
 
 func _steer(e: SimEntity, sim, p: Vector3, dt: float) -> Vector2:
 	water_timer -= dt

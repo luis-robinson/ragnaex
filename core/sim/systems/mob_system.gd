@@ -53,14 +53,22 @@ static func spawn_adds(sim: WorldSim, boss: SimEntity, sm: Dictionary) -> void:
 		add.aggro_timer = Balance.AGGRO_LOSE_TIME
 		alive += 1
 
+## Fala de chefe (abertura, fase, queda): aviso na tela só para quem está no mapa.
+static func boss_say(sim: WorldSim, e: SimEntity, text: String) -> void:
+	if sim.player and sim.player.map_id == e.map_id:
+		Events.notification.emit("%s: %s" % [e.name, text])
+
 ## Avança as fases pelo HP; uma queda grande de HP pode entrar em mais de uma de uma vez.
 static func update_boss(sim: WorldSim, e: SimEntity) -> void:
+	if not e.boss_spoke and e.aggro_target >= 0 and e.monster_def.intro != "":
+		e.boss_spoke = true
+		boss_say(sim, e, e.monster_def.intro)
 	var phases: Array = e.monster_def.phases
 	while e.phase < phases.size() and e.hp / e.stats.max_hp <= float(phases[e.phase]["hp"]):
 		var ph: Dictionary = phases[e.phase]
 		e.phase += 1
-		if ph.has("say") and sim.player and sim.player.map_id == e.map_id:
-			Events.notification.emit("%s: %s" % [e.name, ph["say"]])
+		if ph.has("say"):
+			boss_say(sim, e, str(ph["say"]))
 		sim._add_skills(e, ph.get("skills", []))
 		if ph.has("summon"):
 			spawn_adds(sim, e, ph["summon"])
@@ -71,6 +79,7 @@ static func update_boss(sim: WorldSim, e: SimEntity) -> void:
 ## Chefe volta ao estado inicial depois de um wipe ou de ser puxado longe demais.
 static func reset_boss(sim: WorldSim, e: SimEntity) -> void:
 	e.phase = 0
+	e.boss_spoke = false
 	e.dmg_mult = 1.0
 	e.adds_epoch += 1
 	e.skills.clear()

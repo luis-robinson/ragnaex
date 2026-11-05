@@ -4,6 +4,8 @@ extends RefCounted
 
 static func on_monster_killed(sim: WorldSim, mob: SimEntity, killer: SimEntity) -> void:
 	var m: Dictionary = sim.maps[mob.map_id]
+	if mob.monster_def.last_words != "":
+		MobSystem.boss_say(sim, mob, mob.monster_def.last_words)
 	# XP para quem mais bateu (grupo soma) + dono da invocação
 	var credit := top_damager(sim, mob, killer)
 	if credit and credit.is_character():

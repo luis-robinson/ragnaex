@@ -76,7 +76,10 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 	# --- chat ---
 	if chat_timer <= 0.0:
 		chat_timer = rng.randf_range(Balance.BOT_CHAT_MIN, Balance.BOT_CHAT_MAX)
-		var ctx := "town" if in_town else "hunt"
+		var walls := def.town_radius > 0.0 and Vector2(e.position.x - def.town_center.x, e.position.z - def.town_center.z).length() < def.town_radius
+		var ctx := "town" if in_town or walls else "hunt"        # dentro de um povoado (Posto) também é "vila" para a conversa
+		if GameData.bot_lines.has(ctx + "_" + def.id) and rng.randf() < 0.6:
+			ctx += "_" + def.id                        # fala do lugar: bandidos, teias, elfos...
 		Events.chat_message.emit(e.name, GameData.random_bot_line(ctx), "global")
 
 	# --- sobrevivência: poção ---

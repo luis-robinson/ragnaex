@@ -86,6 +86,7 @@ var taunt_left: float = 0.0          # s preso no alvo atual
 var phase: int = 0                   # fases de chefe já iniciadas
 var dmg_mult: float = 1.0            # fúria de chefe
 var boss_id: int = -1                # lacaio: chefe que o chamou
+var boss_spoke := false             # chefe já disse a fala de abertura nesta luta (MonsterDef.intro)
 var adds_epoch: int = 0              # chefe: sobe ao resetar; lacaios de época antiga somem
 var dead_time: float = 0.0
 var home_position: Vector3 = Vector3.ZERO
