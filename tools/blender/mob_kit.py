@@ -109,7 +109,9 @@ def slime(cid="mob_slime", color=(0.42, 0.88, 0.48)):
 # quadrúpedes: lobo, javali, dragão
 # ---------------------------------------------------------------------------
 def quadruped(cid, fur, dark, light, kind="wolf"):
-    arm = lp.make_armature("rig_" + cid, bm.MOB_BONES)
+    hip0 = 0.4 if kind == "boar" else (0.5 if kind == "bear" else 0.45)
+    # rabo com osso próprio (balança no idle e ondula na corrida); só os quadrúpedes têm
+    arm = lp.make_armature("rig_" + cid, dict(bm.MOB_BONES, tail=((0, 0.52, hip0 + 0.14), (0, 0.9, hip0 + 0.2), "body")))
     m = ck.mat("m_%s_fur" % cid, fur, 0.8)
     md = ck.mat("m_%s_dark" % cid, dark, 0.8)
     ml = ck.mat("m_%s_light" % cid, light, 0.8)
@@ -192,17 +194,74 @@ def quadruped(cid, fur, dark, light, kind="wolf"):
     elif bear:
         parts.append((blob("tail", 0.07 * bulk, (0, 0.6, hip + 0.16), m, (1, 1, 1)), "body"))
     elif kind == "lynx":         # rabo curto de ponta escura e manchas no dorso
-        parts.append((blob("tail", 0.07, (0, 0.6, hip + 0.16), m, (0.8, 1.4, 0.8)), "body"))
-        parts.append((blob("tail_tip", 0.05, (0, 0.7, hip + 0.18), md, (0.8, 1.0, 0.8)), "body"))
+        parts.append((blob("tail", 0.075, (0, 0.47, hip + 0.17), m, (0.85, 1.7, 0.85)), "body"))        # sai de dentro da anca (o tronco acaba em y≈0,45)
+        parts.append((blob("tail_tip", 0.055, (0, 0.6, hip + 0.19), md, (0.85, 1.1, 0.85)), "body"))
         for i, (x, y) in enumerate(((0.1, -0.25), (-0.12, -0.05), (0.08, 0.15), (-0.06, 0.3), (0.13, 0.35))):
             parts.append((blob("spot%d" % i, 0.04, (x, y, hip + 0.22), md, (1, 1, 0.4)), "body"))
         parts.append((blob("hump", 0.2 * bulk, (0, -0.3, hip + 0.3 * bulk), m, (1.1, 1.0, 0.7)), "body"))
     else:
-        parts.append((blob("tail", 0.1, (0, 0.62, hip + 0.14), m, (0.8, 2.4, 0.8)), "body"))
-        parts.append((blob("tail_tip", 0.08, (0, 0.86, hip + 0.2), ml, (0.8, 1.3, 0.8)), "body"))
+        # rabo de lobo: cheio e afinando, sobe um pouco e cai na ponta clara (não um disco achatado)
+        tpts = [((0, 0.4, hip + 0.12), 0.1), ((0, 0.6, hip + 0.17), 0.095), ((0, 0.74, hip + 0.15), 0.1), ((0, 0.86, hip + 0.08), 0.08), ((0, 0.94, hip + 0.02), 0.045)]
+        parts.append((skin_body("tail", tpts, [(0, 1), (1, 2), (2, 3), (3, 4)], m), "body"))
+        parts.append((blob("tail_tip", 0.055, (0, 0.93, hip + 0.03), ml, (0.95, 1.2, 0.95)), "body"))
+    for i, (o, bone) in enumerate(parts):          # tudo que é rabo vai para o osso do rabo
+        if bone == "body" and o.name.startswith("tail"):
+            o.name = "fur_" + o.name                  # nome igual ao osso "tail" faz o import do Godot renomear o osso
+            parts[i] = (o, "tail")
     finish(arm, parts)
     bm.mob_actions(arm, quadruped=True)
+    quad_motion(arm, kind)
     return arm
+
+
+def _drop_clips(arm, names):
+    ad = arm.animation_data
+    for t in list(ad.nla_tracks if ad else []):
+        if t.name in names:
+            ad.nla_tracks.remove(t)
+
+
+def quad_motion(arm, kind):
+    """idle e corrida dos quadrúpedes (troca os do build_monsters): idle respira, olha em volta e abana o rabo;
+    corrida em galope (patas da frente e de trás em pares opostos, corpo balança, cabeça compensa, rabo ondula).
+    Urso: passo pesado, mais lento, rola de lado. Rig: corpo loc Y = cima, X- = empina; pernas X- = para a frente;
+    cabeça Z = olha para o lado; rabo X = sobe/desce, Z = balança."""
+    _drop_clips(arm, ("idle", "run"))
+    heavy = kind in ("bear", "boar")
+    tau = math.tau
+    # idle: 48 quadros (2 s)
+    n = 48
+    k_idle = {b: [] for b in ("body", "head", "tail", "leg_fr", "leg_fl")}
+    for f in range(1, n + 1, 3):
+        p = (f - 1) / (n - 1) * tau
+        k_idle["body"].append((f, (1.5 * math.sin(p), 0, 0), (0, 0.018 * (0.5 - 0.5 * math.cos(p)), 0)))
+        look = math.sin(p) * (8 if heavy else 14)
+        k_idle["head"].append((f, (3 + 3 * math.sin(2 * p), 0, look), (0, 0, 0)))
+        wag = math.sin(2 * p) * (6 if heavy else 16)
+        k_idle["tail"].append((f, (10 if not heavy else 4, 0, wag), (0, 0, 0)))
+        k_idle["leg_fr"].append((f, (2 * math.sin(p), 0, 0), (0, 0, 0)))
+        k_idle["leg_fl"].append((f, (-2 * math.sin(p), 0, 0), (0, 0, 0)))
+    for b in k_idle:
+        k_idle[b].append((n, k_idle[b][0][1], k_idle[b][0][2]))
+    lp.add_action(arm, "idle", k_idle, n)
+    # corrida: galope (lobo/lince/cão) ou passo pesado (urso/javali)
+    n = 14 if heavy else 10
+    legs_a = 34 if heavy else 50
+    back_a = 30 if heavy else 42
+    lift = 0.06 if heavy else 0.11
+    pitch = 4 if heavy else 8
+    roll = 5 if heavy else 1.5
+    k_run = {b: [] for b in ("body", "head", "tail", "leg_fr", "leg_fl", "leg_br", "leg_bl")}
+    for f in range(1, n + 1):
+        p = (f - 1) / (n - 1) * tau
+        k_run["body"].append((f, (-pitch * math.cos(p), 0, roll * math.sin(p)), (0, lift * (0.5 + 0.5 * math.sin(p)), 0)))
+        k_run["head"].append((f, (0.6 * pitch * math.cos(p) + 4, 0, -0.5 * roll * math.sin(p)), (0, 0, 0)))
+        k_run["leg_fr"].append((f, (-legs_a * math.sin(p), 0, 0), (0, 0, 0)))
+        k_run["leg_fl"].append((f, (-legs_a * math.sin(p - 0.45), 0, 0), (0, 0, 0)))
+        k_run["leg_br"].append((f, (back_a * math.sin(p + 0.25), 0, 0), (0, 0, 0)))
+        k_run["leg_bl"].append((f, (back_a * math.sin(p - 0.2), 0, 0), (0, 0, 0)))
+        k_run["tail"].append((f, (-8 + 10 * math.sin(p - 1.2), 0, (4 if heavy else 9) * math.sin(p + 0.6)), (0, 0, 0)))
+    lp.add_action(arm, "run", k_run, n)
 
 
 HIP = 0.58
