@@ -52,6 +52,10 @@ static func apply_start_preset(sim: WorldSim, e: SimEntity, preset_id: int) -> v
 			if not (done in e.quests_completed):
 				e.quests_completed.append(done)
 		QuestSystem.accept(e, GameData.quests[qid])
+	if pr.has("map") and GameData.maps.has(pr["map"]):
+		var at: Array = pr.get("at", [])
+		var pos: Vector3 = Vector3(float(at[0]), 0, float(at[1])) if at.size() == 2 else GameData.maps[pr["map"]].spawn_point
+		sim.place_loaded(e, pr["map"], pos)       # começa longe de Aldara (o grupo nasce ao lado)
 	PortalSystem.grandfather_gates(sim, e, e.map_id)
 	e.recompute_stats()
 	e.heal_full()

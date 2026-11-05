@@ -1310,6 +1310,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_hunter_post(gd, sim)
 	_check_start_presets(gd, sim)
 	_check_start_party(gd, sim)
+	_check_start_elf(gd, sim)
 	_check_interiors(gd, sim)
 	_check_druid_start(gd, sim)
 	_check_xp_budget(gd)
@@ -4883,6 +4884,27 @@ func _check_start_party(gd, sim) -> void:
 		check(m.kind == SimEntity.Kind.BOT and m.level == 10 and want.get(m.class_def.id, "") == m.build_id, "começo 10: %s %s nível 10 (%s)" % [m.class_def.id, m.build_id, m.name])
 		want.erase(m.class_def.id)
 	check(want.is_empty(), "começo 10: as 4 classes pedidas (faltou %s)" % str(want.keys()))
+	for m in members:
+		if m != e:
+			sim.despawn(m)
+	sim.despawn(e)
+
+## Começo rápido nível 16: Posto dos Caçadores, cadeia élfica até a garganta, garganta liberada, grupo do nível.
+func _check_start_elf(gd, sim) -> void:
+	var e: SimEntity = sim.spawn_character(SimEntity.Kind.PLAYER, gd.classes["paladin"], "Elfico", "city_aldara", Vector3(2, 0, 8))
+	sim.apply_start_preset(e, 16)
+	check(e.level == 16 and e.map_id == "field_forest", "começo 16: nível 16 na Floresta (%d, %s)" % [e.level, e.map_id])
+	check(sim.is_walkable(e.position, gd.maps["field_forest"], 0.45), "começo 16: nasce em chão livre")
+	check(e.quests_active.has("el3_scout") and "el2_defense" in e.quests_completed and "q09_spiders" in e.quests_completed, "começo 16: quest da Cidade Élfica ativa")
+	var gate := {}
+	for pt in gd.maps["field_forest"].portals:
+		if pt["id"] == "to_elf_city":
+			gate = pt
+	check(not gate.is_empty() and sim.portal_block_reason(e, gate) == "", "começo 16: garganta élfica liberada")
+	var w: ItemDef = e.equipment.get(ItemDef.Slot.WEAPON)
+	check(w != null and w.rarity >= 2, "começo 16: arma de Mitril")
+	var members: Array = sim.party_members(e)
+	check(members.size() == 5 and members.all(func(m): return m.map_id == "field_forest" and m.level == 16), "começo 16: grupo de 5 no Posto, nível 16")
 	for m in members:
 		if m != e:
 			sim.despawn(m)

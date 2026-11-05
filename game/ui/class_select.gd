@@ -181,7 +181,7 @@ func _build_create() -> void:
 	left.add_child(ph)
 	_preset_btns.clear()
 	for pid in StartCatalog.PRESETS:
-		var b := UiKit.button(StartCatalog.PRESETS[pid]["label"], _set_preset.bind(pid), 147)
+		var b := UiKit.button(StartCatalog.PRESETS[pid]["label"], _set_preset.bind(pid), 96)
 		b.tooltip_text = StartCatalog.PRESETS[pid]["hint"]
 		_preset_btns[pid] = b
 		ph.add_child(b)

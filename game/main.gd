@@ -126,7 +126,7 @@ func start_game(cls: ClassDef, char_name: String, load_save: bool, look: Diction
 	started = true
 	hud.on_game_started()
 	if preset > 1 and not load_save:
-		Events.notification.emit("Começo rápido (nível %d): a Capitã Mira manda você à Floresta. Portão leste do vale, depois o Ranger Teo." % p.level)
+		Events.notification.emit(str(StartCatalog.PRESETS.get(preset, {}).get("welcome", "Começo rápido (nível %d)." % p.level)))
 	else:
 		Events.notification.emit("Bem-vindo a Aldara, %s! Fale com o Ancião Ravi (F) para começar." % char_name)
 	Events.chat_message.emit("Sistema", "%s entrou no jogo." % char_name, "system")
