@@ -171,11 +171,16 @@ func _basic_anim_gap() -> float:
 	var length := view.anim.get_animation(clip).length
 	var impact := float(EntityView.IMPACT_FRAME.get(clip, 5) - 1) / 24.0
 	var startup := maxf(s.startup, 0.06)
-	var s1 := clampf(impact / startup, EntityView.ANIM_MIN_SPEED, EntityView.ANIM_MAX_SPEED)
+	var wt := EntityView.windup_timing(impact, startup)
+	var s1 := wt.y
 	var cd := p.stats.basic_cooldown(s.cooldown)
 	var time_left := maxf(s.active + s.recovery, cd - s.startup)
-	var s2 := clampf((length - startup * s1) / time_left / s1, EntityView.HELD_BASIC_MIN_SPEED, 2.5)
-	var anim_end := s.startup + (length - startup * s1) / (s1 * s2)
+	var left := length - (wt.x + startup * s1)
+	var s2 := clampf(left / time_left / s1, EntityView.HELD_BASIC_MIN_SPEED, 2.5)
+	var anim_end := s.startup + left / (s1 * s2)
+	if verbose:
+		print("  basico %s: clipe %.2fs startup %.2f cd %.2f s1 %.2f s2 %.2f (pedia %.2f) fim do desenho %.2f" % [clip, length, s.startup, cd, s1, s2,
+			left / time_left / s1, anim_end])
 	return maxf(0.0, maxf(cd, s.startup + s.active + s.recovery) - anim_end)
 
 ## Uma skill no slot 0: mede e confere o clipe. {} = não saiu.
@@ -261,14 +266,15 @@ func _anim_check(tag: String, s: SkillDef) -> void:
 	var length := view.anim.get_animation(clip).length
 	var impact := float(EntityView.IMPACT_FRAME.get(clip, 5) - 1) / 24.0
 	var startup := maxf(s.startup, 0.06)
-	var raw1 := impact / startup
-	var s1 := clampf(raw1, EntityView.ANIM_MIN_SPEED, EntityView.ANIM_MAX_SPEED)
-	var off := impact / s1 - startup
+	var wt := EntityView.windup_timing(impact, startup)
+	var raw1 := (impact - wt.x) / startup
+	var s1 := wt.y
+	var off := (impact - wt.x) / s1 - startup
 	if absf(off) > 0.08:
 		# o desenho chega no golpe antes/depois do dano
 		_flag("%s clipe '%s' bate %.2fs %s do dano (precisa %.1fx)" % [tag, clip, absf(off), "antes" if off < 0 else "depois", raw1])
 	var looping: bool = clip in EntityView.ACTIVE_LOOP and s.active >= EntityView.LOOP_MIN_ACTIVE
-	var left := length - startup * s1
+	var left := length - (wt.x + startup * s1)
 	var end_t := s.startup + s.active if looping else s.startup + s.active + s.recovery
 	var time_left := maxf(end_t - s.startup, 0.05)
 	var raw2 := left / time_left / maxf(s1, 0.01)

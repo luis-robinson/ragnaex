@@ -3,7 +3,7 @@ extends SkeletonModifier3D
 ## Pernas correndo por cima do clipe de golpe: quem ataca andando mexe os pés em vez de deslizar.
 ## Amostra as trilhas de perna do clipe "run" depois da animação; só trabalha enquanto `_weight` > 0.
 
-const LEG_BONES := ["thigh", "shin", "foot"]
+const LEG_BONES := ["thigh", "shin", "foot", "leg_"]     # leg_* = patas dos bichos (formas do Druida)
 
 var _run: Animation = null
 var _tracks: Array = []         # [índice da trilha, índice do osso]

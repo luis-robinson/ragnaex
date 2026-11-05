@@ -40,12 +40,22 @@ func _check_form_clips() -> void:
 			check(fm.anim.has_animation(want), "forma %s tem o clipe '%s'" % [form, want])
 		for want in EntityView.IMPACT_FRAME.keys().filter(func(k): return k in EntityView.FORM_CLIP.values()):
 			check(EntityView.IMPACT_FRAME[want] * 1.0 / 24.0 < fm.anim.get_animation(want).length, "forma %s: impacto de '%s' dentro do clipe" % [form, want])
+		# golpe andando: as patas correm por cima do clipe (LegOverlay), senão o bicho desliza
+		check(fm.legs != null and fm.legs._tracks.size() >= 4, "forma %s: patas correm por cima do golpe" % form)
 		fm.free()
 	var dm := FormModel.create("demon")
 	if dm:
 		for want in ["cast_shadow", "atk_spin", "buff_power", "atk_sweep", "cast"]:
 			check(dm.anim.has_animation(want), "forma demoníaca tem '%s'" % want)
 		dm.free()
+
+## Preparo curto: o clipe começa no meio da preparação (não corre mais que WINDUP_MAX_SPEED) e o impacto cai no fim do preparo.
+func _check_windup_timing() -> void:
+	for pair in [[0.375, 0.12], [0.29, 0.12], [0.33, 0.5], [0.2, 0.06]]:
+		var wt := EntityView.windup_timing(pair[0], pair[1])
+		check(wt.x >= 0.0 and wt.y <= EntityView.WINDUP_MAX_SPEED + 0.001, "preparo %.2f/%.2f: velocidade %.2f limitada" % [pair[0], pair[1], wt.y])
+		if wt.y > EntityView.ANIM_MIN_SPEED + 0.001:
+			check(absf((pair[0] - wt.x) / wt.y - pair[1]) < 0.01, "preparo %.2f/%.2f: impacto no fim do preparo" % pair)
 
 ## Menu Esc → Gráficos: o 1º preset é o padrão de sempre (bilinear, escala automática); os FSR 2 renderizam abaixo de 100%.
 func _check_graphics_settings() -> void:
@@ -311,6 +321,7 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_outdoor(gd)
 	_check_graphics_settings()
 	_check_form_clips()
+	_check_windup_timing()
 	# builds: paladino = tanque (escudo) ou 2 mãos; berserker = 2 mãos ou duas armas de 1 mão (machado/espada misturados)
 	var pb: Array = gd.classes["paladin"].builds.map(func(b): return b["id"])
 	check(pb == ["guardiao", "cruzado"], "paladino tem só Guardião e Cruzado (%s)" % [pb])

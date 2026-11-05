@@ -964,6 +964,12 @@ const LOOP_MIN_ACTIVE := 0.5        # s de fase ativa para o gesto repetir (curt
 const ANIM_MIN_SPEED := 0.4
 const HELD_BASIC_MIN_SPEED := 0.35   # ataque segurado: a volta do golpe pode ir até 0,35x para emendar no próximo
 const ANIM_MAX_SPEED := 3.2
+const WINDUP_MAX_SPEED := 2.2        # preparo mais curto que isso: o clipe começa no meio da preparação em vez de correr 3x
+
+## Onde começar o clipe e a que velocidade, para o impacto cair no fim do preparo da skill: Vector2(início_s, velocidade).
+static func windup_timing(impact: float, startup: float) -> Vector2:
+	var t0 := maxf(0.0, impact - startup * WINDUP_MAX_SPEED)
+	return Vector2(t0, clampf((impact - t0) / startup, ANIM_MIN_SPEED, ANIM_MAX_SPEED))
 const LEAP_IDS := ["leap", "pounce", "shadowstep", "stampede"]
 const SHOUT_IDS := ["warcry", "taunt"]
 const FINISHER_IDS := ["execute", "decapitate", "assassinate", "overhead", "butcher", "grim", "headshot"]
@@ -1111,9 +1117,10 @@ func _animate_glb(st: int) -> void:
 		_update_trail(st)
 	# golpe/magia: escolhe o clip pela arma, reinicia a cada ação e acelera o clip para o impacto
 	# cair exatamente no momento do dano (fim do startup da skill)
-	if kit and kit.legs and form_view == null:
+	var legs: LegOverlay = form_view.legs if form_view else (kit.legs if kit else null)
+	if legs:
 		var going: bool = st in [SimEntity.State.CASTING, SimEntity.State.BLOCKING] and entity.velocity.length() > 0.2
-		kit.legs.drive(get_process_delta_time(), going, entity.velocity.length(), RUN_REF_SPEED)
+		legs.drive(get_process_delta_time(), going, entity.velocity.length(), RUN_REF_SPEED)
 	if st == SimEntity.State.CASTING:
 		var s := entity.current_skill
 		var fresh := s != _act_skill or entity.state_time < _act_time
@@ -1145,12 +1152,12 @@ func _animate_glb(st: int) -> void:
 			if clip != "":
 				var impact := float(IMPACT_FRAME.get(clip, 5) - 1) / 24.0
 				var startup := maxf(s.startup if s else 0.15, 0.06)
-				var speed := clampf(impact / startup, ANIM_MIN_SPEED, ANIM_MAX_SPEED)
+				var wt := windup_timing(impact, startup)
 				anim.speed_scale = 1.0
-				_act_speed = speed
+				_act_speed = wt.y
 				_retimed = false
-				anim.play(clip, 0.06, speed)
-				anim.seek(0.0, true)
+				anim.play(clip, 0.06, wt.y)
+				anim.seek(wt.x, true)
 				_combo += 1
 		return
 	_act_skill = null
