@@ -697,20 +697,57 @@ def equip(base, set_name, tint=None):
 # Convenções medidas no rig: membros (apontam pra baixo) -X = balança pra FRENTE;
 # coluna/cabeça +X = inclina pra frente; .R +Z = abre pra fora (.L usa -Z); Y = torção.
 # ---------------------------------------------------------------------------
+## Mãos chaveadas em quaternião: o Euler XYZ por canal passava perto de Y=±90° e a mão dava voltas inteiras entre
+## duas poses (600-1900° num clipe de 1 s). Em quaternião (mesmo hemisfério da chave anterior) o caminho é o giro
+## mais curto entre as MESMAS poses. O modo vale para todas as actions do osso (o export amostra com ele).
+QUAT_BONES = ("hand.R", "hand.L")
+HAND_MAX_TURN = 75.0      # graus por quadro (24 fps) entre chaves da mão; acima disso a arma "vira" num piscar (154-176° em 1-2 quadros)
+
+
+def _reset_pose(rig):
+    for pb in rig.pose.bones:
+        pb.rotation_mode = "QUATERNION" if pb.name in QUAT_BONES else "XYZ"
+        pb.rotation_euler = (0, 0, 0)
+        pb.rotation_quaternion = (1, 0, 0, 0)
+        pb.location = (0, 0, 0)
+
+
+def _key_rot(pb, rot, frame, prev):
+    """Chave de rotação (graus XYZ); mãos viram quaternião contínuo (prev: osso -> (quadro, quaternião) da chave anterior),
+    girando no máximo HAND_MAX_TURN por quadro: a chave seguinte volta a mirar a pose escrita."""
+    e = [math.radians(a) for a in rot]
+    if pb.name not in QUAT_BONES:
+        pb.rotation_mode = "XYZ"
+        pb.rotation_euler = e
+        pb.keyframe_insert("rotation_euler", frame=frame)
+        return
+    q = Euler(e, "XYZ").to_quaternion()
+    last = prev.get(pb.name)
+    if last is not None:
+        f0, p = last
+        if p.dot(q) < 0.0:
+            q.negate()
+        ang = math.degrees(p.rotation_difference(q).angle)
+        cap = HAND_MAX_TURN * max(1, frame - f0)
+        if ang > cap:
+            q = p.slerp(q, cap / ang)
+    prev[pb.name] = (frame, q.copy())
+    pb.rotation_mode = "QUATERNION"
+    pb.rotation_quaternion = q
+    pb.keyframe_insert("rotation_quaternion", frame=frame)
+
+
 def _action(rig, name, keys, frame_end):
     """keys = {bone: [(frame, (rx, ry, rz) graus, (lx, ly, lz) | None), ...]} -> Action numa NLA track."""
     ad = rig.animation_data or rig.animation_data_create()
-    for pb in rig.pose.bones:
-        pb.rotation_mode = "XYZ"
-        pb.rotation_euler = (0, 0, 0)
-        pb.location = (0, 0, 0)
+    _reset_pose(rig)
     act = bpy.data.actions.new(name)
     ad.action = act
+    prev = {}
     for bone, frames in keys.items():
         pb = rig.pose.bones[bone]
-        for frame, rot, loc in frames:
-            pb.rotation_euler = [math.radians(a) for a in rot]
-            pb.keyframe_insert("rotation_euler", frame=frame)
+        for frame, rot, loc in sorted(frames, key=lambda k: k[0]):
+            _key_rot(pb, rot, frame, prev)
             if loc is not None:
                 pb.location = loc
                 pb.keyframe_insert("location", frame=frame)
@@ -721,9 +758,7 @@ def _action(rig, name, keys, frame_end):
     strip = track.strips.new(name, 1, act)
     strip.name = name
     ad.action = None
-    for pb in rig.pose.bones:
-        pb.rotation_euler = (0, 0, 0)
-        pb.location = (0, 0, 0)
+    _reset_pose(rig)
     return act
 
 
@@ -868,17 +903,15 @@ def _pose_action(rig, name, keys, frame_end, base=None):
             ad.nla_tracks.remove(t)
     act = bpy.data.actions.new(name)
     ad.action = act
-    for frame, pose, hips_loc in keys:
+    prev = {}
+    for frame, pose, hips_loc in sorted(keys, key=lambda k: k[0]):
         if name.startswith(TAMED_CLIPS):
             pose = _tame(pose, base)
         for bn in POSE_BONES:
             pb = rig.pose.bones.get(bn)
             if pb is None:
                 continue
-            pb.rotation_mode = "XYZ"
-            rot = pose.get(bn, base.get(bn, (0, 0, 0)))
-            pb.rotation_euler = [math.radians(a) for a in rot]
-            pb.keyframe_insert("rotation_euler", frame=frame)
+            _key_rot(pb, pose.get(bn, base.get(bn, (0, 0, 0))), frame, prev)
         hp = rig.pose.bones["hips"]
         hp.location = hips_loc if hips_loc is not None else (0, 0, 0)
         hp.keyframe_insert("location", frame=frame)
@@ -889,9 +922,7 @@ def _pose_action(rig, name, keys, frame_end, base=None):
     strip = track.strips.new(name, 1, act)
     strip.name = name
     ad.action = None
-    for pb in rig.pose.bones:
-        pb.rotation_euler = (0, 0, 0)
-        pb.location = (0, 0, 0)
+    _reset_pose(rig)
     return act
 
 

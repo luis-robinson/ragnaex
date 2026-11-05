@@ -91,19 +91,26 @@ def _body():
 
 
 def check():
-    base = ck.build_kit("male")
-    rig = base["rig"]
-    act = _actions(rig)
-    body = _body()
-    for anim, frames in (("idle", (1, 25)), ("run", (1, 5, 9, 13)), ("block_shield", (1, 9, 17))):
-        rig.animation_data.action = act[anim]
-        per = {}
-        for fr in frames:
-            bpy.context.scene.frame_set(fr)
-            for st in shield_kit.FAMILIES:
-                per[st] = max(per.get(st, 0), contacts(rig, body, bpy.data.objects["wpn_off_shield_" + st]))
-        print("CHECK %-12s pior=%d %s onde=%s" % (anim, max(per.values()), {k: v for k, v in per.items() if v}, dict(WHERE)))
-        WHERE.clear()
+    """Escudos moram nos kits das classes que os empunham (ck.SHIELD_CLASSES): confere cada um no kit dele."""
+    seen = set()
+    for cid in ck.SHIELD_CLASSES:
+        base = ck.build_kit("male", None, cid)
+        rig = base["rig"]
+        act = _actions(rig)
+        body = _body()
+        styles = [st for st in shield_kit.FAMILIES if st not in seen and bpy.data.objects.get("wpn_off_shield_" + st)]
+        seen.update(styles)
+        for anim, frames in (("idle", (1, 25)), ("run", (1, 5, 9, 13)), ("block_shield", (1, 9, 17))):
+            rig.animation_data.action = act[anim]
+            per = {}
+            for fr in frames:
+                bpy.context.scene.frame_set(fr)
+                for st in styles:
+                    per[st] = max(per.get(st, 0), contacts(rig, body, bpy.data.objects["wpn_off_shield_" + st]))
+            print("CHECK %-9s %-12s pior=%d %s onde=%s" % (cid, anim, max(per.values() or [0]), {k: v for k, v in per.items() if v}, dict(WHERE)))
+            WHERE.clear()
+    missing = [st for st in shield_kit.FAMILIES if st not in seen]
+    print("CHECK escudos sem kit: %s" % (missing or "nenhum"))
 
 
 def guard():

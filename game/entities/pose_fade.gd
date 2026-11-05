@@ -7,6 +7,7 @@ extends SkeletonModifier3D
 
 var _from_rot: Array = []       # Quaternion por osso (pose congelada)
 var _from_pos: Array = []       # Vector3 por osso
+var _to: Array = []             # último alvo por osso, no hemisfério escolhido (o caminho não troca de lado no meio)
 var _t := 1.0
 var _dur := 0.0
 
@@ -26,6 +27,8 @@ func start(dur: float) -> void:
 		poss[i] = shown_position(sk, i) if mid else sk.get_bone_pose_position(i)
 	_from_rot = rots
 	_from_pos = poss
+	_to = []
+	_to.resize(n)
 	_t = 0.0
 	_dur = dur
 	active = true
@@ -40,12 +43,24 @@ func tick(delta: float) -> void:
 func _w() -> float:
 	return smoothstep(0.0, 1.0, _t)
 
+## Alvo do deslize sem trocar de lado: o 1º quadro escolhe o caminho curto; depois segue o sinal do quadro anterior.
+## (slerp comum troca de caminho quando o clipe passa pelo oposto da pose congelada: a mão vira 130° num quadro.)
+func _target(i: int, q: Quaternion) -> Quaternion:
+	var prev: Variant = _to[i]
+	if prev == null:
+		if (_from_rot[i] as Quaternion).dot(q) < 0.0:
+			q = -q
+	elif (prev as Quaternion).dot(q) < 0.0:
+		q = -q
+	_to[i] = q
+	return q
+
 ## Pose que a tela mostra para o osso (a do clipe se não está deslizando).
 func shown_rotation(sk: Skeleton3D, i: int) -> Quaternion:
 	var q := sk.get_bone_pose_rotation(i)
 	if not active or i >= _from_rot.size():
 		return q
-	return (_from_rot[i] as Quaternion).slerp(q, _w())
+	return (_from_rot[i] as Quaternion).slerpni(_target(i, q), _w())
 
 func shown_position(sk: Skeleton3D, i: int) -> Vector3:
 	var p := sk.get_bone_pose_position(i)
@@ -59,5 +74,5 @@ func _process_modification() -> void:
 		return
 	var w := _w()
 	for i in range(_from_rot.size()):
-		sk.set_bone_pose_rotation(i, (_from_rot[i] as Quaternion).slerp(sk.get_bone_pose_rotation(i), w))
+		sk.set_bone_pose_rotation(i, (_from_rot[i] as Quaternion).slerpni(_target(i, sk.get_bone_pose_rotation(i)), w))
 		sk.set_bone_pose_position(i, (_from_pos[i] as Vector3).lerp(sk.get_bone_pose_position(i), w))

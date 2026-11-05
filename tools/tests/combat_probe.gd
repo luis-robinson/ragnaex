@@ -6,6 +6,7 @@ extends Node
 ## buffer (apertar o básico no meio da skill não se perde), dash cancela, e se o clipe acerta o impacto no tick do dano.
 ## Por build: cadência do básico segurando o botão (golpes/s, maior buraco parado entre golpes).
 ## Saída: "PROBE <classe>/<build> ..." e "FLAG <classe> <skill> <motivo>"; no fim "PROBE_END flags=N".
+## Trancos: --verbose lista os 3 piores giros de osso num quadro por build; --trace imprime cada quadro > 90° (clipe, posição, deslize).
 
 const DT := 1.0 / 60.0
 const SPOT := Vector3(40, 0, 40)
@@ -123,6 +124,8 @@ func _step(c: InputCommand) -> void:
 		else:
 			_prev_rot.append(q)
 	var now: String = view.anim.current_animation if view.anim else ""
+	if DevArgs.has("--trace") and worst > 90.0:
+		print("  TRACE %.0f° %s pos=%.3f/%s speed=%.2f fade=%s t=%.3f state=%d" % [worst, wb, view.anim.current_animation_position, now, view.anim.speed_scale * view.anim.get_playing_speed() / maxf(view.anim.speed_scale, 0.001), str(pf.active) if pf else "-", p.state_time, p.state])
 	_hist.append([worst, "%s %s->%s" % [wb, before, now] if before != now else "%s %s" % [wb, now]])
 	if _hist.size() >= 3:
 		var mid: Array = _hist[_hist.size() - 2]

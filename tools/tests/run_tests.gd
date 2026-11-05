@@ -86,6 +86,37 @@ func _check_pose_fade() -> void:
 		check(fm.fade != null, "forma de bicho tem PoseFade")
 		fm.free()
 
+## Mão sem voltas: chaves em quaternião com giro limitado (chibi_kit.QUAT_BONES/HAND_MAX_TURN). Em Euler a mão girava
+## 600-1900° por clipe e virava a arma 155-176° em 1 quadro. Medido a 60 Hz, velocidade 1.
+func _check_hand_twist() -> void:
+	var inst: Node = (load("res://assets/models/kit_paladin_male.glb") as PackedScene).instantiate()
+	var ap: AnimationPlayer = inst.find_children("*", "AnimationPlayer", true, false)[0]
+	var worst := 0.0
+	var where := ""
+	var flurry := 0.0
+	for clip in ap.get_animation_list():
+		var an := ap.get_animation(clip)
+		for t in range(an.get_track_count()):
+			if an.track_get_type(t) != Animation.TYPE_ROTATION_3D or not String(an.track_get_path(t).get_subname(0)).begins_with("hand"):
+				continue
+			var prev := an.rotation_track_interpolate(t, 0.0)
+			var tt := 1.0 / 60.0
+			var total := 0.0
+			while tt <= an.length + 0.0001:
+				var q := an.rotation_track_interpolate(t, tt)
+				var d := rad_to_deg(prev.angle_to(q))
+				total += d
+				if d > worst:
+					worst = d
+					where = "%s %s" % [clip, an.track_get_path(t).get_subname(0)]
+				prev = q
+				tt += 1.0 / 60.0
+			if clip == "atk_flurry":
+				flurry = maxf(flurry, total)
+	check(worst < 45.0, "mão: no máximo 45°/quadro a 60 Hz (pior %.0f° em %s)" % [worst, where])
+	check(flurry > 0.0 and flurry < 1000.0, "mão: atk_flurry não dá voltas (%.0f° no clipe)" % flurry)
+	inst.free()
+
 ## Menu Esc → Gráficos: o 1º preset é o padrão de sempre (bilinear, escala automática); os FSR 2 renderizam abaixo de 100%.
 func _check_graphics_settings() -> void:
 	var ps: Array = GraphicsSettings.PRESETS
@@ -352,6 +383,7 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_form_clips()
 	_check_windup_timing()
 	_check_pose_fade()
+	_check_hand_twist()
 	# builds: paladino = tanque (escudo) ou 2 mãos; berserker = 2 mãos ou duas armas de 1 mão (machado/espada misturados)
 	var pb: Array = gd.classes["paladin"].builds.map(func(b): return b["id"])
 	check(pb == ["guardiao", "cruzado"], "paladino tem só Guardião e Cruzado (%s)" % [pb])
