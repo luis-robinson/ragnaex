@@ -555,6 +555,9 @@ static func _prop_model(kind: String, size: Vector3, ob: Dictionary = {}) -> Nod
 		var h := absi(hash(ob.get("pos", Vector3.ZERO)))
 		inst.rotation.y = float(h % 360) * PI / 180.0
 		inst.scale *= 0.9 + float(h % 21) / 100.0
+	elif kind.begins_with("elf_"):
+		# arquitetura élfica: proporção do modelo, escala pela altura (copa e raízes passam da colisão, que é o tronco/casa)
+		inst.scale = Vector3.ONE * (sz.y / aabb.size.y)
 	elif kind in ["rock", "pillar", "well", "fountain", "bush", "stump", "flowers", "reeds"]:
 		var u := maxf(sz.x, sz.z) / maxf(aabb.size.x, aabb.size.z)
 		inst.scale = Vector3(u, sz.y / aabb.size.y, u)

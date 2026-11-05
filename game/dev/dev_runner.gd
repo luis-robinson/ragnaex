@@ -22,6 +22,10 @@ const TOURS := {
 		["cemiterio", Vector3(52, 0, -42)], ["bairro", Vector3(4, 0, 60)], ["pantano", Vector3(-6, 0, -62)],
 		["pedreira", Vector3(-56, 0, 48)], ["zigurate", Vector3(40, 0, -76)], ["ponte", Vector3(-38, 0, -6)],
 		["borda_sul", Vector3(-10, 0, 112)], ["borda_oeste", Vector3(-107, 0, -39)]],
+	"elf_city": [["chegada", Vector3(0, 0, 92)], ["portao_sul", Vector3(0, 0, 50)], ["praca_sul", Vector3(0, 0, 28)],
+		["casas_sudeste", Vector3(20, 0, 22)], ["casas_sudoeste", Vector3(-22, 0, 20)], ["casas_nordeste", Vector3(22, 0, -18)],
+		["casas_noroeste", Vector3(-20, 0, -22)], ["raiz_norte", Vector3(2, 0, -54)], ["ninho", Vector3(-58, 0, -56)],
+		["bosque", Vector3(60, 0, -50)], ["treino", Vector3(76, 0, 18)], ["poco", Vector3(-68, 0, 22)], ["cerco", Vector3(30, 0, 74)]],
 }
 const TOUR := [["anciao", Vector3(2, 0, -8)], ["lenhador", Vector3(-92, 0, -46)], ["eremita", Vector3(47, 0, 96)], ["covil", Vector3(-20, 0, -48)], ["marco", Vector3(-54, 0, 78)], ["gruta", Vector3(84, 0, -29)],
 	["hub", Vector3(0, 0, 4)], ["portao_sul", Vector3(0, 0, 38)], ["lago", Vector3(6, 0, 58)],

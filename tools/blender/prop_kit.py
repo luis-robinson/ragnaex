@@ -805,6 +805,9 @@ BUILDERS = {"house": house, "tree": tree, "rock": rock, "pillar": pillar, "wall"
             "log": log, "stump": stump, "flowers": flowers, "reeds": reeds,
             "iwall": iwall, "table": table, "stool": stool, "bed": bed, "counter": counter, "shelf": shelf,
             "fireplace": fireplace, "barrel": barrel, "rug": rug, "anvil": anvil, "cauldron": cauldron, "door": door}
+import elf_props                       # arquitetura élfica (Cidade Élfica): casa-árvore, casulo, lanterna, portal
+importlib.reload(elf_props)
+BUILDERS.update(elf_props.BUILDERS)
 
 
 def build(kind):
