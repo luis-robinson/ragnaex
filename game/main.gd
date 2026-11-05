@@ -80,7 +80,7 @@ func _ready() -> void:
 	var autostart := dev.before_start(returning) if dev else ""
 	if autostart != "":
 		SaveSystem.slot = -1                 # partida de teste/revisão nunca grava por cima de um personagem
-		start_game(GameData.classes.get(autostart, GameData.classes["paladin"]), "Smoke", false)
+		start_game(GameData.classes.get(autostart, GameData.classes["paladin"]), "Smoke", false, {}, int(DevArgs.value("--preset", "1")))     # --preset=10: começo rápido
 		dev.after_start()
 		return
 	hud.show_class_select(SaveSystem.has_save())

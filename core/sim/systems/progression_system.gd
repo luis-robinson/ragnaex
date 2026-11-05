@@ -50,6 +50,25 @@ static func apply_start_preset(sim: WorldSim, e: SimEntity, preset_id: int) -> v
 	e.recompute_stats()
 	e.heal_full()
 	Events.equipment_changed.emit(e.id)
+	_start_party(sim, e, pr.get("party", []))
+
+## Grupo pronto do começo rápido: bots do nível do jogador, na build pedida, entram já no grupo dele (líder).
+static func _start_party(sim: WorldSim, e: SimEntity, members: Array) -> void:
+	var names: Array = GameData.bot_names.duplicate()
+	for i in range(members.size()):
+		var cls: ClassDef = GameData.classes.get(members[i][0])
+		if cls == null or PartySystem.party_members(sim, e).size() >= Balance.PARTY_MAX:
+			continue
+		var nm: String = names[sim.rng.randi() % names.size()] if not names.is_empty() else "Aliado%d" % i
+		names.erase(nm)
+		var a := TAU * i / maxf(1.0, members.size())
+		var b := sim.spawn_bot(cls, nm, e.map_id, sim.random_walkable(sim.map_def(e.map_id), e.position + Vector3(cos(a) * 2.0, 0, sin(a) * 2.0), 1.5), e.level)
+		if cls.build_by_id(str(members[i][1])).size() > 0 and b.build_id != members[i][1]:
+			b.build_id = members[i][1]
+			sim._gear_bot(b)
+			sim._skill_bot(b)
+		if PartySystem.party_invite(sim, e, b):
+			PartySystem.party_accept(sim, b)
 
 ## Todos os pré-requisitos (diretos e de ramos) de uma quest, em qualquer profundidade.
 static func _chain_before(qid: String) -> Array:

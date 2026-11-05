@@ -1309,6 +1309,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_elf_loot(gd, sim)
 	_check_hunter_post(gd, sim)
 	_check_start_presets(gd, sim)
+	_check_start_party(gd, sim)
 	_check_interiors(gd, sim)
 	_check_druid_start(gd, sim)
 	_check_xp_budget(gd)
@@ -4855,4 +4856,23 @@ func _check_start_presets(gd, sim) -> void:
 		if pt["id"] == "to_forest":
 			to_forest = pt
 	check(not to_forest.is_empty() and sim.portal_block_reason(e, to_forest) == "", "começo 10: desfiladeiro da Floresta liberado")
+	sim.despawn(e)
+
+## Começo rápido nível 10: grupo pronto (caçadora, elementalista, druida, paladino) com o jogador de líder.
+func _check_start_party(gd, sim) -> void:
+	var e: SimEntity = sim.spawn_character(SimEntity.Kind.PLAYER, gd.classes["berserker"], "Lider", "city_aldara", Vector3(2, 0, 8))
+	sim.apply_start_preset(e, 10)
+	var members: Array = sim.party_members(e)
+	check(members.size() == 5, "começo 10: grupo cheio (%d)" % members.size())
+	check(sim.party_leader(e) == e, "começo 10: jogador lidera o grupo")
+	var want := {"ranger": "cacador", "elementalist": "fogo", "druid": "xama", "paladin": "guardiao"}
+	for m in members:
+		if m == e:
+			continue
+		check(m.kind == SimEntity.Kind.BOT and m.level == 10 and want.get(m.class_def.id, "") == m.build_id, "começo 10: %s %s nível 10 (%s)" % [m.class_def.id, m.build_id, m.name])
+		want.erase(m.class_def.id)
+	check(want.is_empty(), "começo 10: as 4 classes pedidas (faltou %s)" % str(want.keys()))
+	for m in members:
+		if m != e:
+			sim.despawn(m)
 	sim.despawn(e)
