@@ -662,7 +662,12 @@ def humanoid(cid, style, cloth, weapon, skin=None, eye=None, offhand=None, hide_
     ck.kit_weapon(base, weapon, "main", mats)
     if offhand:
         ck.kit_weapon(base, offhand, "off", mats)
-    ck.animate(base["rig"], "melee")
+    if cid.startswith("form_"):
+        ck.animate(base["rig"], "all")    # forma do jogador (demônio): o mesmo jogo de clipes do kit, não só os do monstro
+        ck.animate_combat(base["rig"])
+        ck.animate_v3(base["rig"])
+    else:
+        ck.animate(base["rig"], "melee")
     return base["rig"]
 
 

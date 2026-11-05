@@ -28,6 +28,25 @@ func _ready() -> void:
 	print("\n=== %d passed, %d failed ===" % [passes, fails])
 	get_tree().quit(1 if fails > 0 else 0)
 
+## Formas de bicho: todo gesto que EntityView.FORM_CLIP manda para o animal existe no modelo (senão toda skill vira a mesma mordida);
+## a forma demoníaca tem os clipes do kit (sombra, buffs, giro...).
+func _check_form_clips() -> void:
+	for form in ["wolf", "bear"]:
+		var fm := FormModel.create(form)
+		check(fm != null and fm.anim != null, "forma %s carrega" % form)
+		if fm == null:
+			continue
+		for want in EntityView.FORM_CLIP.values():
+			check(fm.anim.has_animation(want), "forma %s tem o clipe '%s'" % [form, want])
+		for want in EntityView.IMPACT_FRAME.keys().filter(func(k): return k in EntityView.FORM_CLIP.values()):
+			check(EntityView.IMPACT_FRAME[want] * 1.0 / 24.0 < fm.anim.get_animation(want).length, "forma %s: impacto de '%s' dentro do clipe" % [form, want])
+		fm.free()
+	var dm := FormModel.create("demon")
+	if dm:
+		for want in ["cast_shadow", "atk_spin", "buff_power", "atk_sweep", "cast"]:
+			check(dm.anim.has_animation(want), "forma demoníaca tem '%s'" % want)
+		dm.free()
+
 ## Menu Esc → Gráficos: o 1º preset é o padrão de sempre (bilinear, escala automática); os FSR 2 renderizam abaixo de 100%.
 func _check_graphics_settings() -> void:
 	var ps: Array = GraphicsSettings.PRESETS
@@ -291,6 +310,7 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_water(gd, sim)
 	_check_outdoor(gd)
 	_check_graphics_settings()
+	_check_form_clips()
 	# builds: paladino = tanque (escudo) ou 2 mãos; berserker = 2 mãos ou duas armas de 1 mão (machado/espada misturados)
 	var pb: Array = gd.classes["paladin"].builds.map(func(b): return b["id"])
 	check(pb == ["guardiao", "cruzado"], "paladino tem só Guardião e Cruzado (%s)" % [pb])

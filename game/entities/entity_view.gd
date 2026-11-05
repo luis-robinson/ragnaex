@@ -941,7 +941,7 @@ func _animate(delta: float) -> void:
 		fr.position.z = -sin(_bob) * 0.18 if moving else lerpf(fr.position.z, 0.05, minf(1.0, delta * 10.0))
 
 ## frame (24 fps, base 1) do impacto de cada golpe do kit (tools/blender/chibi_kit.py: IMPACT)
-const IMPACT_FRAME := {"atk_rifle": 6, "atk_1h_a": 7, "atk_1h_b": 7, "atk_2h": 10, "atk_dual_a": 5, "atk_dual_b": 5, "atk_dagger": 5,
+const IMPACT_FRAME := {"maul": 7, "pounce": 9, "slam": 8, "roar": 7, "brace": 6, "atk_rifle": 6, "atk_1h_a": 7, "atk_1h_b": 7, "atk_2h": 10, "atk_dual_a": 5, "atk_dual_b": 5, "atk_dagger": 5,
 	"atk_bow": 8, "atk_staff": 7, "atk_spin": 8, "atk_thrust": 6, "cast": 10, "cast_buff": 8, "attack": 5,
 	"cast_ground": 10, "cast_channel": 14, "cast_target": 8, "atk_leap": 12, "atk_charge": 5, "atk_throw": 7,
 	"atk_shoot_multi": 8, "summon": 11, "atk_sweep": 8, "atk_finisher": 10, "atk_flurry": 5, "atk_claw": 6, "shout": 7,
@@ -986,6 +986,8 @@ func _action_clip(s: SkillDef) -> String:
 	if s == null:
 		return "attack"
 	var basic := s.id.begins_with("basic_")
+	if basic and form_view and not anim.has_animation("atk_1h_a"):
+		return "attack"                   # bicho: o básico é a mordida dele
 	var w := entity.stats.weapon_type if entity.stats else ""
 	var off := entity.stats.offhand_type if entity.stats else ""
 	if not basic:
@@ -1060,10 +1062,20 @@ func _action_clip(s: SkillDef) -> String:
 	return "atk_1h_a" if _combo % 2 == 0 else "atk_1h_b"
 
 ## Nome real do clip ("" se o modelo não tiver).
+## Forma de bicho (lobo/urso): o gesto humano pedido vira o do animal (tools/blender/druid_sets.form_clips).
+const FORM_CLIP := {"atk_claw": "maul", "atk_flurry": "maul", "atk_finisher": "maul", "atk_sweep": "maul", "atk_dual_a": "maul",
+	"atk_dual_b": "maul", "atk_1h_a": "maul", "atk_1h_b": "maul", "atk_2h": "maul", "atk_thrust": "maul",
+	"atk_leap": "pounce", "atk_charge": "pounce", "atk_spin": "slam", "cast_ground": "slam",
+	"shout": "roar", "cast": "roar", "cast_nature": "roar", "cast_buff": "roar", "cast_target": "roar", "cast_channel": "roar",
+	"buff_power": "roar", "buff_focus": "roar", "summon": "roar", "buff_guard": "brace"}
+
 func _clip(name: String) -> String:
 	if kit and form_view == null:
 		return kit.resolve(name)
-	return name if anim.has_animation(name) else ""
+	if anim.has_animation(name):
+		return name
+	var alt: String = FORM_CLIP.get(name, "")
+	return alt if alt != "" and anim.has_animation(alt) else ""
 
 ## Rastro da arma só na parte "rápida" do golpe/magia (fim da preparação até logo depois do impacto).
 func _update_trail(st: int) -> void:

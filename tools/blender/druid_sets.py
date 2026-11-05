@@ -363,6 +363,50 @@ def form_armor(ck, lp, arm, kind, style, cfg, tint, tint2):
         lp.attach(obj, arm, bone)
 
 
+## Golpes do bicho (EntityView.FORM_CLIP manda cada família de skill para um destes); impacto em EntityView.IMPACT_FRAME.
+## Rig de monstro (build_monsters.MOB_BONES): body/head/leg_* ; X do corpo + = mergulha o focinho, - = empina.
+FORM_CLIPS = ("maul", "pounce", "slam", "roar", "brace")
+
+
+def form_clips(lp, arm, kind):
+    z = (0, 0, 0)
+    f = lambda n: n          # mesmo tempo no lobo e no urso: o quadro do impacto é um só (EntityView.IMPACT_FRAME)
+    legs_f = lambda a, b: {"leg_fr": [(1, z, z)] + a, "leg_fl": [(1, z, z)] + b}
+    # patada: empina, rasga com a pata direita e depois a esquerda (impacto no 7)
+    lp.add_action(arm, "maul", dict({
+        "body": [(1, z, z), (f(4), (-26, 0, 6), (0, 0.12, 0)), (f(7), (20, 0, -12), (0, -0.12, 0)), (f(10), (16, 0, 12), (0, -0.1, 0)), (f(16), z, z)],
+        "head": [(1, z, z), (f(4), (-16, 0, 0), z), (f(7), (22, 0, 0), z), (f(10), (18, 0, 0), z), (f(16), z, z)]},
+        **legs_f([(f(4), (-70, 0, 0), z), (f(7), (40, 0, 0), z), (f(10), (10, 0, 0), z), (f(16), z, z)],
+                 [(f(4), (-30, 0, 0), z), (f(7), (-20, 0, 0), z), (f(10), (45, 0, 0), z), (f(16), z, z)])), f(16), loop=False)
+    # bote: agacha, salta para a frente com as patas esticadas e cai no alvo (impacto no 9)
+    lp.add_action(arm, "pounce", {
+        "body": [(1, z, z), (f(5), (10, 0, 0), (0, -0.14, -0.08)), (f(7), (-24, 0, 0), (0, 0.62, 0.3)), (f(8), (-6, 0, 0), (0, 0.5, 0.42)), (f(9), (18, 0, 0), (0, -0.06, 0.45)),
+                 (f(13), (8, 0, 0), (0, -0.08, 0.2)), (f(18), z, z)],
+        "head": [(1, z, z), (f(5), (12, 0, 0), z), (f(7), (-14, 0, 0), z), (f(9), (20, 0, 0), z), (f(18), z, z)],
+        "leg_fr": [(1, z, z), (f(5), (30, 0, 0), z), (f(7), (-70, 0, 0), z), (f(9), (20, 0, 0), z), (f(18), z, z)],
+        "leg_fl": [(1, z, z), (f(5), (30, 0, 0), z), (f(7), (-70, 0, 0), z), (f(9), (20, 0, 0), z), (f(18), z, z)],
+        "leg_br": [(1, z, z), (f(5), (-30, 0, 0), z), (f(7), (55, 0, 0), z), (f(9), (-10, 0, 0), z), (f(18), z, z)],
+        "leg_bl": [(1, z, z), (f(5), (-30, 0, 0), z), (f(7), (55, 0, 0), z), (f(9), (-10, 0, 0), z), (f(18), z, z)]}, f(18), loop=False)
+    # pisão: empina bem alto e desaba com as duas patas no chão (impacto no 8; área em volta)
+    lp.add_action(arm, "slam", dict({
+        "body": [(1, z, z), (f(5), (-42, 0, 0), (0, 0.32, -0.05)), (f(8), (22, 0, 0), (0, -0.16, 0.08)), (f(12), (16, 0, 0), (0, -0.14, 0.06)), (f(18), z, z)],
+        "head": [(1, z, z), (f(5), (-22, 0, 0), z), (f(8), (16, 0, 0), z), (f(18), z, z)]},
+        **legs_f([(f(5), (-85, 0, 0), z), (f(8), (25, 0, 0), z), (f(12), (20, 0, 0), z), (f(18), z, z)],
+                 [(f(5), (-85, 0, 0), z), (f(8), (25, 0, 0), z), (f(12), (20, 0, 0), z), (f(18), z, z)])), f(18), loop=False)
+    # rugido: recolhe, ergue a cabeça e sacode (impacto no 7; magias, gritos e buffs de força)
+    lp.add_action(arm, "roar", {
+        "body": [(1, z, z), (f(4), (10, 0, 0), (0, -0.06, 0)), (f(7), (-16, 0, 0), (0, 0.06, 0)), (f(13), (-14, 0, 0), (0, 0.05, 0)), (f(18), z, z)],
+        "head": [(1, z, z), (f(4), (18, 0, 0), z), (f(7), (-38, 0, 8), z), (f(9), (-36, 0, -8), z), (f(11), (-38, 0, 8), z), (f(13), (-34, 0, 0), z), (f(18), z, z)]}, f(18), loop=False)
+    # guarda: crava as patas abertas e abaixa o corpo (impacto no 6; buffs de defesa)
+    lp.add_action(arm, "brace", {
+        "body": [(1, z, z), (f(6), (6, 0, 0), (0, -0.16, 0)), (f(12), (6, 0, 0), (0, -0.15, 0)), (f(16), z, z)],
+        "head": [(1, z, z), (f(6), (14, 0, 0), z), (f(12), (12, 0, 0), z), (f(16), z, z)],
+        "leg_fr": [(1, z, z), (f(6), (-12, 0, 18), z), (f(12), (-12, 0, 18), z), (f(16), z, z)],
+        "leg_fl": [(1, z, z), (f(6), (-12, 0, -18), z), (f(12), (-12, 0, -18), z), (f(16), z, z)],
+        "leg_br": [(1, z, z), (f(6), (12, 0, 14), z), (f(12), (12, 0, 14), z), (f(16), z, z)],
+        "leg_bl": [(1, z, z), (f(6), (12, 0, -14), z), (f(12), (12, 0, -14), z), (f(16), z, z)]}, f(16), loop=False)
+
+
 def build_forms(out_dir):
     """form_wolf.glb e form_bear.glb: o bicho do druida + armadura de animal de cada conjunto do Lobo/Urso."""
     import os
@@ -382,6 +426,8 @@ def build_forms(out_dir):
         for style, cfg in DRU_SETS.items():
             if style.startswith("dru_" + prefix):
                 form_armor(ck, lp, arm, kind, style, cfg, tint, tint2)
+        form_clips(lp, arm, kind)
+        bpy.ops.object.mode_set(mode="OBJECT")
         for o in bpy.context.scene.objects:
             if "." in o.name:
                 o.name = o.name.replace(".", "_")

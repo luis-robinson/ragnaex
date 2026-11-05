@@ -70,6 +70,9 @@ func _ready() -> void:
 	if _looks != "":
 		_build_looks()
 		return
+	if DevArgs.flag("--mob_strip"):
+		_build_mob_strip(DevArgs.value("--mob_strip"))
+		return
 	if _mobs != "":
 		_build_mobs()
 		return
@@ -283,6 +286,28 @@ func _build_mobs() -> void:
 	cam.fov = 30.0
 	add_child(cam)
 	cam.look_at_from_position(Vector3(0, 3.0, 9.0), Vector3(0, 0.9, 0), Vector3.UP)
+	_side = true
+
+## --mob_strip=<modelo> --anim=<clipe>: filme de um clipe de monstro/forma — 8 cópias, cada uma num instante, de perfil.
+func _build_mob_strip(model: String) -> void:
+	var ps: PackedScene = load("res://assets/models/%s.glb" % model)
+	if ps == null:
+		printerr("mob_strip: sem modelo ", model)
+		return
+	for i in range(8):
+		var n: Node3D = ps.instantiate()
+		add_child(n)
+		n.position = Vector3((i - 3.5) * 2.0, 0, 0)
+		n.rotation.y = PI * 0.5
+		var ap: AnimationPlayer = n.find_child("AnimationPlayer", true, false)
+		if ap and ap.has_animation(_anim):
+			ap.play(_anim)
+			ap.seek(ap.current_animation_length * i / 7.0, true)
+			ap.pause()
+	var cam := Camera3D.new()
+	cam.fov = 30.0
+	add_child(cam)
+	cam.look_at_from_position(Vector3(0, 2.2, 16.0), Vector3(0, 0.6, 0), Vector3.UP)
 	_side = true
 
 ## Aprimoramento: a classe (--strip, padrão paladino) com o equipamento inicial em +0, +5 e +9, de 3/4.
