@@ -750,11 +750,11 @@ func show_class_select(has_save: bool) -> void:
 	class_select.has_save = has_save
 	add_child(class_select)
 
-func on_class_chosen(cls: ClassDef, char_name: String, load_save: bool, look: Dictionary = {}) -> void:
+func on_class_chosen(cls: ClassDef, char_name: String, load_save: bool, look: Dictionary = {}, preset: int = 1) -> void:
 	if class_select:
 		class_select.queue_free()
 		class_select = null
-	main.start_game(cls, char_name, load_save, look)
+	main.start_game(cls, char_name, load_save, look, preset)
 	_update_blocking()
 
 # ---------------------------------------------------------------------------

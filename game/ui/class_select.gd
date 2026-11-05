@@ -174,6 +174,21 @@ func _build_create() -> void:
 	nh.add_child(name_edit)
 	nh.add_child(UiKit.button("🎲", _random_name, 36))
 	left.add_child(UiKit.button("🎲  Visual aleatório", _random_look, 300))
+	# começo: nível 1 normal ou começos rápidos de teste (StartCatalog)
+	left.add_child(UiKit.label("Começo", 13, UiKit.MUTED))
+	var ph := HBoxContainer.new()
+	ph.add_theme_constant_override("separation", 6)
+	left.add_child(ph)
+	_preset_btns.clear()
+	for pid in StartCatalog.PRESETS:
+		var b := UiKit.button(StartCatalog.PRESETS[pid]["label"], _set_preset.bind(pid), 147)
+		b.tooltip_text = StartCatalog.PRESETS[pid]["hint"]
+		_preset_btns[pid] = b
+		ph.add_child(b)
+	_preset_hint = UiKit.para("", 10, UiKit.MUTED)
+	_preset_hint.custom_minimum_size.x = 300
+	left.add_child(_preset_hint)
+	_set_preset(_preset)
 	# direita: passos
 	var right := VBoxContainer.new()
 	right.add_theme_constant_override("separation", 8)
@@ -460,6 +475,17 @@ func _process(delta: float) -> void:
 	if _model and is_instance_valid(_model):
 		_model.rotation.y = lerp_angle(_model.rotation.y, _yaw, minf(1.0, delta * 10.0))
 
+var _preset := 1
+var _preset_btns: Dictionary = {}
+var _preset_hint: Label = null
+
+func _set_preset(pid: int) -> void:
+	_preset = pid
+	for k in _preset_btns:
+		_preset_btns[k].modulate = Color(1, 1, 1) if k == pid else Color(0.6, 0.6, 0.6)
+	if _preset_hint:
+		_preset_hint.text = StartCatalog.PRESETS[pid]["hint"]
+
 func _start() -> void:
 	if selected == null:
 		return
@@ -470,7 +496,7 @@ func _start() -> void:
 	if n == "":
 		n = "Herói"
 	SaveSystem.slot = free                # personagem novo vai para um espaço livre (os outros ficam)
-	hud.on_class_chosen(selected, n, false, look.duplicate())
+	hud.on_class_chosen(selected, n, false, look.duplicate(), _preset)
 
 func _play_slot(i: int, cls: ClassDef, char_name: String) -> void:
 	SaveSystem.slot = i

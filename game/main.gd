@@ -105,7 +105,7 @@ func _populate_bots() -> void:
 
 
 ## Chamado pela UI de seleção de classe
-func start_game(cls: ClassDef, char_name: String, load_save: bool, look: Dictionary = {}) -> void:
+func start_game(cls: ClassDef, char_name: String, load_save: bool, look: Dictionary = {}, preset: int = 1) -> void:
 	var data := SaveSystem.load_data() if load_save else {}
 	var map_id := GameData.town_map_id()
 	if load_save and data.has("class"):
@@ -118,12 +118,17 @@ func start_game(cls: ClassDef, char_name: String, load_save: bool, look: Diction
 		SaveSystem.apply_to(p, data)
 		var pos: Array = data.get("pos", [0, 0] if map_id != p.map_id else [0, 8])
 		Sim.place_loaded(p, map_id, Vector3(float(pos[0]), 0, float(pos[1])))
+	elif preset > 1:
+		Sim.apply_start_preset(p, preset)        # começo rápido (criação de personagem, MVP)
 	_show_map(p.map_id)
 	controller.set_physics_process(true)
 	Sim.running = true
 	started = true
 	hud.on_game_started()
-	Events.notification.emit("Bem-vindo a Aldara, %s! Fale com o Ancião Ravi (F) para começar." % char_name)
+	if preset > 1 and not load_save:
+		Events.notification.emit("Começo rápido (nível %d): a Capitã Mira manda você à Floresta. Portão leste do vale, depois o Ranger Teo." % p.level)
+	else:
+		Events.notification.emit("Bem-vindo a Aldara, %s! Fale com o Ancião Ravi (F) para começar." % char_name)
 	Events.chat_message.emit("Sistema", "%s entrou no jogo." % char_name, "system")
 
 func _process(delta: float) -> void:

@@ -1550,6 +1550,8 @@ func _update_recall(e: SimEntity, cmd: InputCommand, action_cmd: InputCommand, d
 func _change_map(e: SimEntity, map_id: String, pos: Vector3) -> void:
 	PortalSystem.change_map(self, e, map_id, pos)
 # ProgressionSystem
+func apply_start_preset(e: SimEntity, preset_id: int) -> void:
+	ProgressionSystem.apply_start_preset(self, e, preset_id)
 func gain_xp(e: SimEntity, amount: int) -> void:
 	ProgressionSystem.gain_xp(self, e, amount)
 func resolve_skill(e: SimEntity, s: SkillDef) -> SkillDef:

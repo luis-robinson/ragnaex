@@ -1308,6 +1308,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_raids(gd, sim)
 	_check_elf_loot(gd, sim)
 	_check_hunter_post(gd, sim)
+	_check_start_presets(gd, sim)
 	_check_interiors(gd, sim)
 	_check_druid_start(gd, sim)
 	_check_xp_budget(gd)
@@ -4832,3 +4833,26 @@ func _check_hunter_post(gd, sim) -> void:
 	check(gates.get("to_ruins", {}).get("quest", "") == "el6_king", "Ruínas: abrem com o Rei Élfico")
 	check(gates.get("to_elf_city", {}).get("quest", "") == "el2_defense", "Cidade Élfica: abre depois de segurar uma investida")
 	check(gd.quests["q12_ruins"].prereq_quest == "el6_king", "cadeia: Ruínas depois do Rei Élfico")
+
+## Criação de personagem: começo rápido nível 10 (teste do MVP) chega pronto para a Floresta.
+func _check_start_presets(gd, sim) -> void:
+	check(StartCatalog.PRESETS.has(1) and StartCatalog.PRESETS.has(10), "começos: nível 1 e nível 10")
+	var e: SimEntity = sim.spawn_character(SimEntity.Kind.PLAYER, gd.classes["ranger"], "Rapido", "city_aldara", Vector3(0, 0, 8))
+	var pts0: int = e.mastery_points
+	sim.apply_start_preset(e, 1)
+	check(e.level == 1 and e.mastery_points == pts0, "começo nível 1 não muda nada")
+	sim.apply_start_preset(e, 10)
+	var want := pts0
+	for lv in range(2, 11):
+		want += Balance.MASTERY_POINTS_PER_LEVEL + (1 if lv in Balance.MASTERY_BONUS_LEVELS else 0)
+	check(e.level == 10 and e.mastery_points == want, "começo 10: nível 10 com os pontos de skill de cada nível (%d/%d)" % [e.mastery_points, want])
+	check(int(e.inventory.get("legend_coin", 0)) == 100, "começo 10: 100 Moedas Lendárias")
+	check(e.quests_active.has("q08_forest") and "c5_report" in e.quests_completed and "q01_welcome" in e.quests_completed if gd.quests.has("q01_welcome") else e.quests_active.has("q08_forest"), "começo 10: quest da Floresta ativa, cadeia anterior concluída")
+	var w: ItemDef = e.equipment.get(ItemDef.Slot.WEAPON)
+	check(w != null and w.rarity >= 1 and e.class_def.weapon_types.has(w.weapon_type), "começo 10: arma de Ferro da classe")
+	var to_forest := {}
+	for pt in gd.maps["city_aldara"].portals:
+		if pt["id"] == "to_forest":
+			to_forest = pt
+	check(not to_forest.is_empty() and sim.portal_block_reason(e, to_forest) == "", "começo 10: desfiladeiro da Floresta liberado")
+	sim.despawn(e)

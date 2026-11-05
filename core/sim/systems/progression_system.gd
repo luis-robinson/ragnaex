@@ -22,6 +22,49 @@ static func gain_xp(sim: WorldSim, e: SimEntity, amount: int) -> void:
 		if e.level == Balance.MAX_LEVEL:
 			e.xp = 0
 
+## Começo rápido (StartCatalog.PRESETS): nível com os pontos de skill de cada nível, equipamento comum do tier,
+## itens, ouro e a cadeia de história até `quest` (concluída, sem recompensas) com `quest` ativa. Portões abrem pelo nível.
+static func apply_start_preset(sim: WorldSim, e: SimEntity, preset_id: int) -> void:
+	var pr: Dictionary = StartCatalog.PRESETS.get(preset_id, {})
+	if pr.is_empty() or int(pr.get("level", 1)) <= 1:
+		return
+	while e.level < mini(int(pr["level"]), Balance.MAX_LEVEL):
+		e.level += 1
+		e.mastery_points += Balance.MASTERY_POINTS_PER_LEVEL + (1 if e.level in Balance.MASTERY_BONUS_LEVELS else 0)
+	e.xp = 0
+	e.gold += int(pr.get("gold", 0))
+	for iid in pr.get("items", {}):
+		e.add_item(iid, int(pr["items"][iid]))
+	if pr.has("gear_tier") and not e.class_def.builds.is_empty():
+		var keep := e.build_id
+		e.build_id = e.class_def.builds[0]["id"]
+		sim._gear_bot(e)                   # mesmo critério dos bots: tier pelo nível, armas da build
+		e.build_id = keep
+	var qid: String = pr.get("quest", "")
+	if GameData.quests.has(qid):
+		for done in _chain_before(qid):
+			if not (done in e.quests_completed):
+				e.quests_completed.append(done)
+		QuestSystem.accept(e, GameData.quests[qid])
+	PortalSystem.grandfather_gates(sim, e, e.map_id)
+	e.recompute_stats()
+	e.heal_full()
+	Events.equipment_changed.emit(e.id)
+
+## Todos os pré-requisitos (diretos e de ramos) de uma quest, em qualquer profundidade.
+static func _chain_before(qid: String) -> Array:
+	var out: Array = []
+	var todo: Array = [qid]
+	while not todo.is_empty():
+		var q: QuestDef = GameData.quests.get(todo.pop_back())
+		if q == null:
+			continue
+		for pid in [q.prereq_quest] + Array(q.prereq_all):
+			if pid != "" and not (pid in out):
+				out.append(pid)
+				todo.append(pid)
+	return out
+
 static func respawn_character(sim: WorldSim, e: SimEntity) -> void:
 	var town := GameData.town_map_id()
 	e.hp = e.stats.max_hp * Balance.RESPAWN_SHARE
