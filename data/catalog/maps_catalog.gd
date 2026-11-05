@@ -43,7 +43,7 @@ static func _sp(monster: String, x: float, z: float, radius: float, count: int, 
 	return {"monster_id": monster, "pos": Vector3(x, 0, z), "radius": radius, "count": count, "respawn": respawn}
 
 static func build() -> Array:
-	var out: Array = [_aldara(), _forest(), _ruins()]
+	var out: Array = [_aldara(), _forest(), _ruins(), _elf_city()]
 	for did in DUNGEON_DEFS:
 		out.append(_dungeon(did))
 	var doors := _interior_doors(load_zone("city_aldara"))
@@ -276,6 +276,54 @@ const VILLAGERS := {
 	"vil_porter": ["Carregador Juca", Color(0.6, 0.45, 0.35), ["Caixas para o mercador, caixas para o ferreiro... minhas costas!", "Se vir o Tobias, diga que a carga atrasou."], [3.0, 13.0], [[3.0, 13.0], [-8.0, 13.0], [-14.0, -12.0], [14.0, -14.0]]],
 	"vil_patrol": ["Guarda de Ronda", Color(0.6, 0.6, 0.75), ["Ronda tranquila. Os monstros não passam do muro.", "Mantenha a arma na bainha dentro da vila."], [0.0, -19.0], [[0.0, -19.0], [19.0, 2.0], [2.0, 19.0], [-19.0, -2.0]]],
 }
+## Posto dos Caçadores (hub da Floresta): serviços e sentinelas. id -> [nome, papel, cor, falas, extras].
+## Extras: `fighter` = monstro de onde vêm atributos/alcance (NPC que luta, GuardBrain), `gear` = peças do kit, `route` = ronda.
+const FOREST_NPCS := {
+	"forest_commander": ["Comandante Hela", "quest", Color(0.75, 0.55, 0.4), ["Os elfos descem pela garganta norte toda semana. Agora, todo dia.", "Segure o portão norte e eu te dou trabalho de verdade."], {}],
+	"forest_smith": ["Gunnar, o Armeiro", "smith", Color(0.7, 0.45, 0.3), ["Aço élfico... leve feito pena e duro feito pedra. Com ele eu levo uma peça da Glória mais longe que qualquer minério.", "Do +6 em diante só a seiva da Árvore-Mãe segura o encanto."], {}],
+	"forest_merchant": ["Mercadora Ilsa", "merchant", Color(0.85, 0.7, 0.45), ["Flechas, poções e ataduras. Com elfos na porta, o estoque vai rápido."], {"shop": "merchant"}],
+	"forest_alchemist": ["Boticário Fen", "alchemy", Color(0.5, 0.75, 0.6), ["Seiva élfica fecha ferida em minutos. Pena que custa uma batalha pra conseguir."], {}],
+	"guard_w_0_0": ["Soldado Bram", "guard", Color(0.55, 0.55, 0.65), ["Portão norte. Se ouvir a trompa élfica, corra pra cá."], {"fighter": "guard_warrior", "gear": ["sword_iron", "shield_iron", "helm_iron"]}],
+	"guard_w_0_1": ["Soldada Kira", "guard", Color(0.55, 0.55, 0.65), ["Eles são rápidos. Não deixe os arqueiros ficarem atrás de você."], {"fighter": "guard_warrior", "gear": ["sword_iron", "shield_iron", "helm_iron"]}],
+	"guard_w_1_0": ["Soldado Otto", "guard", Color(0.55, 0.55, 0.65), ["Portão oeste: a estrada de Aldara. Tranquilo, por enquanto."], {"fighter": "guard_warrior", "gear": ["sword_iron", "shield_iron"]}],
+	"guard_w_2_0": ["Soldado Ivo", "guard", Color(0.55, 0.55, 0.65), ["Portão leste. A ponte é nossa; os bandidos que tentem."], {"fighter": "guard_warrior", "gear": ["sword_iron", "shield_iron"],
+		"route": [[15.0, 0.0], [3.0, 0.0]]}],
+	"guard_w_3_0": ["Soldada Meri", "guard", Color(0.55, 0.55, 0.65), ["Portão sul. Do pântano só vem mosquito e aranha."], {"fighter": "guard_warrior", "gear": ["sword_iron", "shield_iron"],
+		"route": [[-5.0, 20.0], [-5.0, 8.0]]}],
+	"guard_a_0": ["Caçadora Lis", "guard", Color(0.45, 0.6, 0.4), ["Da torre eu vejo a Árvore-Mãe. E os elfos que saem de baixo dela."], {"fighter": "guard_archer", "gear": ["bow_ent"]}],
+	"guard_a_1": ["Caçador Rui", "guard", Color(0.45, 0.6, 0.4), ["Flecha élfica prende o pé no chão. Pule pro lado antes que ela chegue."], {"fighter": "guard_archer", "gear": ["bow_ent"]}],
+	"guard_a_2": ["Caçadora Nea", "guard", Color(0.45, 0.6, 0.4), ["Os linces vêm na frente. Derrube eles e o resto perde o faro."], {"fighter": "guard_archer", "gear": ["bow_hunter"]}],
+	"guard_a_3": ["Caçador Teodoro", "guard", Color(0.45, 0.6, 0.4), ["Grifo? Mire nas asas. Ou corra. Eu corro."], {"fighter": "guard_archer", "gear": ["bow_hunter"]}],
+}
+## Investidas por zona: levas (`every_nth` = só a cada N levas), ritmo e falas. A rota vem do JSON (Blender).
+const RAIDS := {
+	"field_forest": {"every": 210.0, "first": 75.0, "jitter": 45.0, "lifetime": 150.0,
+		"waves": [{"mobs": {"elf_raider": 3, "elf_raider_archer": 2, "elf_lynx": 1}}, {"mobs": {"elf_lynx": 1, "elf_raider_archer": 1}, "every_nth": 2}, {"mobs": {"griffin_young": 1}, "every_nth": 3}],
+		"say_start": "Trompas élficas na garganta norte! Uma investida desce rumo ao Posto dos Caçadores!",
+		"say_arrived": "Os elfos chegaram ao portão norte do Posto!",
+		"say_repelled": "A investida élfica foi repelida. O Posto resiste!",
+		"say_retreat": "Os elfos sobreviventes recuam para a garganta."},
+}
+
+## NPCs do Posto dos Caçadores prontos para o MapDef (posições do JSON).
+static func forest_npcs(npc_pos: Dictionary) -> Array:
+	var out: Array = []
+	var seed := 101
+	for nid in FOREST_NPCS:
+		var n: Array = FOREST_NPCS[nid]
+		var p: Array = npc_pos.get(nid, [0.0, 0.0, 180.0])
+		var ex: Dictionary = n[4]
+		var d := _npc(nid, n[0], float(p[0]), float(p[1]), n[1], n[2], n[3], float(p[2]),
+			MERCHANT_SHOP + GearCatalog.shop_ids() + GearCatalog.starter_weapon_ids(GameData.items) if ex.get("shop", "") == "merchant" else [])
+		for k in ["fighter", "gear", "route"]:
+			if ex.has(k):
+				d[k] = ex[k]
+		if ex.has("fighter"):
+			d["look_seed"] = seed
+			seed += 13
+		out.append(d)
+	return out
+
 ## NPCs dos lugares (places.py), por zona: nome, papel, cor, falas. A posição vem do JSON.
 const PLACE_NPCS := {
 	"city_aldara": {
@@ -287,6 +335,11 @@ const PLACE_NPCS := {
 		"herbalist_maren": ["Maren, a Herborista", "quest", Color(0.55, 0.75, 0.5), ["Seda de aranha fecha ferida melhor que linha. Pena que vem com a aranha.", "No sudoeste há um buraco na terra. As teias saem de lá."]],
 		"hunter_dario": ["Dario, o Caçador", "quest", Color(0.6, 0.55, 0.4), ["Os ents andam. Devagar, mas andam. E o bosque deles cresce.", "Do meu posto vejo a paliçada dos bandidos e não gosto do que vejo."]],
 		"stone_druid": ["Círculo Druídico", "board", Color(0.6, 0.75, 0.6), ["Pedras frias, musgo novo. Os druidas se foram; a Árvore-Mãe ainda escuta.", "Gravado: 'Quem corta a raiz perde o caminho'."], "prop_ruin"],
+	},
+	"elf_city": {
+		"siege_scout": ["Batedora Yara", "quest", Color(0.6, 0.5, 0.38), ["O cerco começa aqui. Daqui eu conto cada elfo que sai daquele anel.", "A raiz norte da Árvore desce até o salão do rei. Ninguém voltou de lá ainda."]],
+		"elf_deserter": ["Caelir, o Exilado", "quest", Color(0.55, 0.8, 0.65), ["Aelthar não era assim. A seiva da Árvore subiu à cabeça dele.", "Os trents obedecem a quem tem a seiva. Corte a raiz e eles dormem."]],
+		"moon_altar": ["Altar da Lua", "board", Color(0.8, 0.85, 0.95), ["Pedra branca, fria como luar. Pedidos de caça presos com fios de prata.", "Gravado em élfico: 'A Árvore não pertence ao rei'."], "prop_statue"],
 	},
 	"field_ruins": {
 		"gravedigger_osric": ["Osric, o Coveiro", "quest", Color(0.55, 0.55, 0.65), ["Enterro os mesmos mortos toda semana. Eles é que não colaboram.", "Os espectros vêm do norte. Os esqueletos, de qualquer lugar."]],
@@ -304,6 +357,7 @@ const DUNGEON_DEFS := {
 	"dg_catacumbas": {"name": "Catacumbas do Conde", "parent": "city_aldara", "levels": Vector2i(8, 13), "bosses": 2, "ground": Color(0.28, 0.27, 0.3), "ambient": Color(0.62, 0.6, 0.78), "sun": 0.6},
 	"dg_catacumbas_trono": {"name": "Trono do Conde", "parent": "dg_catacumbas", "levels": Vector2i(11, 13), "ground": Color(0.26, 0.22, 0.3), "ambient": Color(0.68, 0.5, 0.8), "sun": 0.55},
 	"dg_ninho": {"name": "Ninho Profundo", "parent": "field_forest", "levels": Vector2i(15, 20), "ground": Color(0.26, 0.3, 0.24), "ambient": Color(0.6, 0.78, 0.62), "sun": 0.65},
+	"dg_coracao": {"name": "Coração da Árvore", "parent": "elf_city", "levels": Vector2i(19, 22), "ground": Color(0.4, 0.34, 0.26), "ambient": Color(0.7, 0.92, 0.7), "sun": 0.65},
 	"dg_cripta": {"name": "Cripta de Vel'Thar", "parent": "field_ruins", "levels": Vector2i(25, 30), "ground": Color(0.3, 0.28, 0.32), "ambient": Color(0.66, 0.58, 0.82), "sun": 0.6},
 }
 ## Portões de progressão por id de portal (só o jogador; ver WorldSim.portal_block_reason). `bosses` = selo: save antigo não abre.
@@ -311,7 +365,8 @@ const PORTAL_GATES := {
 	"to_dg_catacumbas": {"level": 8, "quest": "c1_digging", "text": "Catacumbas: a entrada ainda está soterrada. Fale com o Ancião Ravi."},
 	"to_dg_catacumbas_trono": {"bosses": ["bone_captain", "wailing_widow"], "text": "O selo só cede quando o Capitão de Ossos e a Viúva Lamentosa caírem."},
 	"to_forest": {"level": 10, "quest": "c5_report", "text": "O desfiladeiro está fechado por ordem da Capitã Mira até resolverem as Catacumbas."},
-	"to_ruins": {"level": 20, "quest": "q11_chief", "text": "A passagem está vigiada: sem acabar com o Chefe dos Bandidos, a guarda não libera as Ruínas."},
+	"to_ruins": {"level": 20, "quest": "el6_king", "text": "A passagem está vigiada: enquanto o Rei Élfico atacar a Floresta, a guarda não libera as Ruínas."},
+	"to_elf_city": {"level": 16, "quest": "el2_defense", "text": "A garganta élfica: a Comandante Hela só deixa passar quem já segurou uma investida."},
 }
 const MERCHANT_SHOP := ["potion_hp_s", "potion_mp_s", "potion_hp_m", "potion_mp_m", "elixir_might", "elixir_stone", "cap_leather", "boots_leather"]
 const ZONE_PATH := "res://data/zones/%s.json"
@@ -379,7 +434,15 @@ static func load_zone(id: String) -> Dictionary:
 			water.append({"kind": "lake", "pos": Vector2(float(w["pos"][0]), float(w["pos"][1])), "r": float(w["r"])})
 		else:
 			water.append({"kind": w["kind"], "w": float(w["w"]), "pts": _pts(w["pts"])})
-	return {"size": Vector2(float(z["size"][0]), float(z["size"][1])), "spawn_point": _v3(z["spawn"]), "obstacles": obs,
+	var raid := {}
+	if z.has("raid"):                  # investida: rota do JSON (Blender) + levas e falas daqui (RAIDS)
+		var r: Dictionary = z["raid"]
+		raid = RAIDS.get(id, {}).duplicate(true)
+		raid["from"] = _v3(r["from"])
+		raid["target"] = _v3(r["target"])
+		raid["radius"] = float(r["radius"])
+		raid["route"] = (r["route"] as Array).map(func(q): return _v3(q))
+	return {"size": Vector2(float(z["size"][0]), float(z["size"][1])), "spawn_point": _v3(z["spawn"]), "obstacles": obs, "raid": raid,
 		"portals": portals, "spawners": spawners, "bot_hangouts": hangouts, "npc_pos": z["npcs"],
 		"town_center": _v3(z["town"]["center"]), "town_radius": float(z["town"]["radius"]), "town_gates": gates,
 		"roads": roads, "water": water, "model": "map_" + id, "places": places}
@@ -404,11 +467,11 @@ static func _aldara() -> MapDef:
 	return _mk(z)
 
 # ---------------------------------------------------------------------------
-## Floresta Sombria: tools/blender/zones/build_field_forest.py (acampamento dos rangers no hub).
+## Floresta Sombria: tools/blender/zones/build_field_forest.py (Posto dos Caçadores murado no hub, sob cerco élfico).
 static func _forest() -> MapDef:
 	var z := load_zone("field_forest")
 	var p: Array = z["npc_pos"].get("ranger_post", [0.0, 0.0, 180.0])
-	var extra := _place_npcs("field_forest", z["npc_pos"])
+	var extra := _place_npcs("field_forest", z["npc_pos"]) + forest_npcs(z["npc_pos"])
 	z.erase("npc_pos")
 	z.merge({
 		"id": "field_forest", "name": "Floresta Sombria", "is_town": false, "level_range": Vector2i(10, 20),
@@ -416,7 +479,20 @@ static func _forest() -> MapDef:
 		"bot_population": 6,
 		"npcs": [_npc("ranger_post", "Ranger Teo", float(p[0]), float(p[1]), "quest", Color(0.5, 0.75, 0.55),
 			["Ninhos de aranha a noroeste e no sudoeste, perto do pântano. Os bandidos se fecharam na paliçada a nordeste; ents no bosque a sudeste.",
-			"A Árvore-Mãe ao norte se vê de qualquer lugar: use ela pra se orientar.", "Não lute com o Chefe sozinho abaixo do nível 17."], float(p[2]))] + extra,
+			"A Árvore-Mãe ao norte se vê de qualquer lugar. Atrás dela, a garganta dos elfos: é de lá que vêm as investidas.", "Não lute com o Chefe sozinho abaixo do nível 17."], float(p[2]))] + extra,
+	})
+	return _mk(z)
+
+# ---------------------------------------------------------------------------
+## Cidade Élfica: tools/blender/zones/build_elf_city.py (anel élfico em volta da Árvore-Mãe Ancestral; cerco humano na entrada sul).
+static func _elf_city() -> MapDef:
+	var z := load_zone("elf_city")
+	var extra := _place_npcs("elf_city", z["npc_pos"])
+	z.erase("npc_pos")
+	z.merge({
+		"id": "elf_city", "name": "Cidade Élfica", "is_town": false, "level_range": Vector2i(17, 21),
+		"ground_color": Color(0.42, 0.6, 0.44), "ground_color_alt": Color(0.38, 0.56, 0.41), "ambient": Color(0.82, 0.95, 0.86), "sun_energy": 1.05,
+		"bot_population": 4, "npcs": extra,
 	})
 	return _mk(z)
 

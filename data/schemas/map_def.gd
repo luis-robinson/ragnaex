@@ -41,6 +41,9 @@ extends Resource
 ## estradas/água só para o visual (grama evita): {"kind":"road|street","w":4.2,"pts":PackedVector2Array,"r":float}
 @export var roads: Array = []
 @export var water: Array = []                      ## {"kind":"river","w":7,"pts":...} | {"kind":"lake","pos":Vector2,"r":13}
+## investida periódica (RaidSystem): {"from":Vector3, "route":[Vector3...], "target":Vector3, "radius":float,
+##   "every":s, "first":s, "jitter":s, "lifetime":s, "waves":[{"mobs":{"id":n}, "every_nth":int}], "name":"..."}
+@export var raid: Dictionary = {}
 @export var decor: Array = []                       ## {"kind":"grass|flower|lamp|banner|path","pos":Vector3,"size":Vector3,"color":Color}
 
 ## Dentro da cidade (sem combate de bots, troca de skills, chat de cidade)?

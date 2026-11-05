@@ -228,9 +228,24 @@ Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MS
   o spawner tem `emerge: [x, z, raio]`, então ele nasce na beira d'água (respingo `Events.monster_emerged` + aviso no chat), chama
   3 Caranguejinhos (0 XP) aos 60% e enfurece aos 30%. Trilhas (`places._trail`) desviam de lago, fazenda, castelo e morros
   (`avoid`); props e spawners em cima de estrada são tirados/empurrados no fim do build; `_check_layout_conflicts` garante isso.
-- **Floresta Sombria (10-20)** (`build_field_forest.py`): acampamento dos rangers com paliçada no hub (Ranger Teo),
-  ninhos de aranha (NO e SO, perto do pântano), paliçada dos bandidos (NE: bandidos, arqueiros e o Chefe dos Bandidos no centro),
-  bosque dos ents (SE), rio com 2 pontes, Árvore-Mãe colossal ao norte (landmark). Garganta oeste → Aldara.
+- **Floresta Sombria (10-20)** (`build_field_forest.py`): **Posto dos Caçadores** no hub (povoado humano murado, r 24, um pouco a oeste
+  por causa do rio): quartel, forja (Gunnar, aprimora a Glória), mercado (Ilsa), boticário (Fen), Comandante Hela (cadeia élfica), Ranger Teo e
+  **8 sentinelas que lutam** (4 caçadoras com arco junto às torres, 4 soldados nos portões; NPC com `fighter` = atributos de `guard_*`,
+  `GuardBrain`, renascem no posto em `GUARD_RESPAWN`, não roubam XP/loot). Ninhos de aranha (NO e SO), paliçada dos bandidos (NE),
+  bosque dos ents (SE), rio com pontes, Árvore-Mãe ao norte. Gargantas: oeste → Aldara, **norte → Cidade Élfica** (rota das investidas).
+- **Investidas élficas** (`RaidSystem`, `MapDef.raid`: rota no JSON do Blender, levas/ritmo/falas em `MapsCatalog.RAIDS`): a cada ~3,5 min
+  (só com o jogador no mapa) uma leva (batedores, arqueiros, linces; a cada 3ª um grifo jovem) nasce na garganta, espera as trompas
+  (`RAID_MUSTER`) e marcha pela estrada norte em passo cauteloso (`RAID_MARCH_PACE`; luta em velocidade cheia). Lutam com quem os
+  ataca ou chega perto (jogador, bot, invocação, sentinela), largam quem foge (`calm`) e retomam a rota; no Posto atacam as sentinelas;
+  depois de `lifetime` recuam e somem. Calibrado com `tools/tests/raid_probe.tscn`: sentinelas sozinhas seguram ~2/3 das levas
+  (perdendo ~4), com um grupo de 3, todas; chegada em ~43 s.
+- **Cidade Élfica (17-21)** (`build_elf_city.py`): anel élfico (muralha clara r 44, 6 portões) em volta da **Árvore-Mãe Ancestral**
+  (copa alta, acima da câmera), guarnição de guerreiros/arqueiros dentro do muro (hub hostil: `HOSTILE_HUBS` nos testes), ninho dos
+  grifos (NO), bosque dos trents (NE, chão escuro), campo de treino (L), poço da lua (O), riacho com pontes, cerco humano na entrada sul
+  (Batedora Yara), Caelir o exilado, Altar da Lua (caçadas). A raiz norte abre o **Coração da Árvore** (`dg_coracao`): raízes, seiva,
+  trono do **Rei Élfico Aelthar** (Guarda Real aos 70%, raízes + grifos aos 45%, fúria aos 20%; grupo de 3 vence ~80% em ~50 s).
+  **Moedas**: Rei solta 4-6 sempre, Guardião 5% de 4 (`MonsterDef.coin_*`). **Glória** (lendário nível 20) aprimora no ferreiro com
+  Aço Élfico (+1..+5) e Seiva da Árvore-Mãe (+6..+9), ouro a 60% (`PLUS_ELF_*`).
 - **Ruínas de Vel'Thar (20-30)** (`build_field_ruins.py`): praça antiga com colunas no hub (Erudita Senna), cemitério (NE, esqueletos),
   bairro em ruínas (S, esqueletos e espectros), pântano escuro (N, espectros), pedreira (SO, golens), altar do Dragonete Ancestral (O),
   zigurate partido (NE, landmark), riacho escuro com pontes. Garganta leste → Aldara.
@@ -239,12 +254,12 @@ Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MS
 ## Quests (cadeia)
 q01 bem-vindo (TALK) → q02 slimes → q03 gel → q04 primeira poção (CRAFT) → q05 presas → q06 lobos → q07 rei javali →
 c1 terra revirada (TALK) → c2 descida (REACH) → c3 Capitão + c4 Viúva (ramos) → c5 aviso à Capitã → q08 floresta (TALK) → q09 seda → q10 bandidos →
-q10b Rainha Aranha → q11 chefe → q12 ruínas → q13 núcleos → q13b Senhor da Cripta → q14 dragonete. c6 (Conde Vargo) é opcional e pede grupo.
+q10b Rainha Aranha → el1 trompas → el2 segurar o portão (investidas) → el3 além da garganta → el4 trents → el5 Guardiões → el6 Rei Élfico → q12 ruínas → q13 núcleos → q13b Senhor da Cripta → q14 dragonete. c6 (Conde Vargo) é opcional e pede grupo; q11 (Chefe dos Bandidos) e a linha do Dario viraram laterais.
 
 Laterais vêm das cabanas e de Bento, o Coveiro; recompensas repetíveis (`b_*`) ficam nos quadros e não acendem marcador. O jogador pode desistir de uma quest ativa.
 
 **Portões** (`MapsCatalog.PORTAL_GATES`, só o jogador; bots passam): Catacumbas = nível 8 + c1; selo do Trono = Capitão e Viúva abatidos; Floresta = nível 10 + c5;
-Ruínas = nível 20 + q11. O chefe final nunca fecha um portal de zona, para precisar de grupo não travar quem joga sozinho. Portão aberto continua aberto.
+Cidade Élfica = nível 16 + el2; Ruínas = nível 20 + el6 (Rei Élfico; saves v<3 que já mataram o Chefe dos Bandidos ficam com o portão aberto). O chefe final nunca fecha um portal de zona, para precisar de grupo não travar quem joga sozinho. Portão aberto continua aberto.
 Save sem `save_version` abre os portões de história que o nível alcança e o mapa onde já está; selos de chefe continuam valendo.
 
 **Catacumbas do Conde (8-13)**: vestíbulo com a Irmã Odete, ala oeste (mortos, recrutas, Capitão de Ossos), ala leste (carniçais, aparições, alcova do Coveiro, Viúva Lamentosa),

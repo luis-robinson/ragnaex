@@ -5,7 +5,7 @@ extends Node
 const PATH := "user://save.json"          # save antigo (um só); migra para o espaço 0
 const SLOTS := 5
 var slot := 0
-const VERSION := 2      # 2 = portões de progressão e chefes abatidos
+const VERSION := 3      # 2 = portões de progressão e chefes abatidos; 3 = Rei Élfico guarda as Ruínas
 
 ## Pontos de skill ganhos até um nível (o que a árvore devolve quando é refeita).
 ## Arma que a classe não usa mais (ex.: Elementalista só de cajado): volta para a bolsa e a inicial da classe entra no lugar.
@@ -204,6 +204,8 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 		p.gates_open[str(g)] = true
 	if not d.has("save_version"):
 		Sim.grandfather_gates(p, str(d.get("map", "")))
+	if int(d.get("save_version", 0)) < 3 and "q11_chief" in p.quests_completed:
+		p.gates_open["to_ruins"] = true          # já liberou as Ruínas pelo Chefe dos Bandidos (antes do cerco élfico)
 	p.recompute_stats()
 	p.hp = clampf(float(d.get("hp", p.stats.max_hp)), 1.0, p.stats.max_hp)
 	p.mp = clampf(float(d.get("mp", p.stats.max_mp)), 0.0, p.stats.max_mp)

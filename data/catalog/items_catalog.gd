@@ -127,6 +127,11 @@ static func build() -> Array:
 		_mat("bone_shard", "Fragmento de Osso", 16, "Ainda sussurra.", Color(0.9, 0.9, 0.8)),
 		_mat("grave_dust", "Pó de Cova", 9, "Frio mesmo no sol.", Color(0.55, 0.52, 0.58)),
 		_mat("ghost_essence", "Essência Espectral", 25, "Fria ao toque.", Color(0.6, 0.9, 1.0)),
+		# Cerco élfico: aprimoram o conjunto lendário da Glória (nível 20) no ferreiro
+		_mat("elf_steel", "Aço Élfico", 28, "Leve como pena. Aprimora peças da Glória (+1 a +5) no ferreiro.", Color(0.7, 0.9, 0.75)),
+		_mat("mother_sap", "Seiva da Árvore-Mãe", 70, "Dourada e morna. Aprimora peças da Glória (+6 a +9) no ferreiro.", Color(0.95, 0.8, 0.3)),
+		_mat("heartwood", "Cerne de Trent", 24, "O coração de madeira de um Trent Ancião.", Color(0.5, 0.36, 0.2)),
+		_mat("griffin_feather", "Pena de Grifo", 18, "Dourada na ponta. Flecheiros pagam bem.", Color(0.95, 0.85, 0.55)),
 		_mat("golem_core", "Núcleo de Golem", 60, "Pulsa com magia antiga.", Color(0.9, 0.6, 0.2)),
 		_mat("dragon_scale", "Escama de Dragonete", 80, "Rara. Quase indestrutível.", Color(0.8, 0.2, 0.3)),
 		{"id": "letter_sealed", "name": "Carta Lacrada", "type": QST, "price": 0, "icon_color": Color(0.9, 0.85, 0.6), "description": "Carta do Ancião para a Capitã da guarda."},

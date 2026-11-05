@@ -208,7 +208,28 @@ func _spawn_npc(n: Dictionary, map_id: String) -> SimEntity:
 		e.look = LooksCatalog.random_look(lr)
 	e.radius = 0.45
 	e.hp = 1.0
+	if n.has("fighter"):                    # sentinela: luta com o monstro de `fighter` (atributos, ataque, alcance)
+		_arm_guard(e, n)
 	return _register(e, map_id)
+
+## Sentinela do povoado: NPC com atributos de monstro (MonstersCatalog, `guard_*`), armas do kit e GuardBrain.
+func _arm_guard(e: SimEntity, n: Dictionary) -> void:
+	var mdef: MonsterDef = GameData.monsters.get(str(n["fighter"]))
+	if mdef == null:
+		return
+	e.guard = true
+	e.monster_def = mdef
+	e.level = mdef.level
+	e.home_position = e.position
+	e.basic_skill = GameData.basic_skill_for_monster(mdef)
+	_add_skills(e, mdef.skill_ids)
+	for item_id in n.get("gear", []):
+		var it: ItemDef = GameData.items.get(item_id)
+		if it:
+			e.equipment[it.slot if not (it.slot == ItemDef.Slot.WEAPON and e.equipment.has(ItemDef.Slot.WEAPON)) else ItemDef.Slot.OFFHAND] = it
+	e.brain = GuardBrain.new()
+	e.recompute_stats()
+	e.heal_full()
 
 func spawn_player(cls: ClassDef, char_name: String, map_id: String, look: Dictionary = {}) -> SimEntity:
 	var def := map_def(map_id)
@@ -381,6 +402,7 @@ func tick(dt: float) -> void:
 		if profile:
 			_prof("r_projectiles", pt); pt = Time.get_ticks_usec()
 		MobSystem.update_spawners(self, m, mdt)
+		RaidSystem.update_raids(self, m, mdt)
 		if profile:
 			_prof("r_spawners", pt); pt = Time.get_ticks_usec()
 		TrapSystem.update_traps(self, m)
@@ -891,7 +913,7 @@ func _apply_effects(src: SimEntity, t: SimEntity, effects: Dictionary, power: fl
 		t.debuffs.append({"kind": "slow", "remaining": float(d.get("duration", 2)), "pct": float(d.get("pct", 30))})
 	if effects.get("root") != null:
 		t.debuffs.append({"kind": "root", "remaining": float(effects["root"].get("duration", 2))})
-	if effects.get("stun") != null and t.kind != SimEntity.Kind.NPC:
+	if effects.get("stun") != null and (t.kind != SimEntity.Kind.NPC or t.guard):
 		var dur := float(effects["stun"].get("duration", 1))
 		if t.monster_def and t.monster_def.is_boss:
 			dur *= 0.4
@@ -1040,7 +1062,8 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 	target.threat[attacker.id] = float(target.threat.get(attacker.id, 0.0)) + amount
 	if target.kind == SimEntity.Kind.MONSTER:
 		var who: int = attacker.owner_id if attacker.kind == SimEntity.Kind.SUMMON else attacker.id   # invocação conta para o dono, mesmo depois de expirar
-		target.damage_by[who] = float(target.damage_by.get(who, 0.0)) + amount
+		if not attacker.guard:              # sentinela não rouba o abate: XP e saque ficam com quem lutou junto
+			target.damage_by[who] = float(target.damage_by.get(who, 0.0)) + amount
 		MobSystem.retarget(self, target, attacker)
 	Events.damage_dealt.emit(attacker.id, target.id, amount, crit, blocked, kind)
 	if blocked:
@@ -1109,7 +1132,7 @@ var _gear_pools: Dictionary = {}
 func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 	e.state_time += dt
 	e.hit_flash = maxf(0.0, e.hit_flash - dt)
-	if e.kind == SimEntity.Kind.NPC:
+	if e.kind == SimEntity.Kind.NPC and not e.guard:
 		NpcSystem.update_npc(self, e, m, dt)
 		return
 	# cooldowns
@@ -1140,6 +1163,13 @@ func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 		if e.kind == SimEntity.Kind.MONSTER or e.kind == SimEntity.Kind.SUMMON:
 			if e.dead_time >= Balance.CORPSE_TIME:
 				despawn(e)
+		elif e.guard:
+			if e.dead_time >= Balance.GUARD_RESPAWN:     # sentinela volta ao posto
+				e.position = e.home_position
+				e.set_state(SimEntity.State.IDLE)
+				e.threat.clear()
+				e.heal_full()
+				Events.entity_respawned.emit(e.id)
 		elif e.dead_time >= Balance.PLAYER_RESPAWN_TIME + (2.0 if e.kind == SimEntity.Kind.BOT else 0.0):
 			ProgressionSystem.respawn_character(self, e)
 		return
@@ -1179,8 +1209,8 @@ func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 	if recompute:
 		e.recompute_stats()
 	# regen
-	if e.combat_timer <= 0.0 and e.is_character():
-		e.hp = minf(e.stats.max_hp, e.hp + e.stats.max_hp * Balance.REGEN_HP_PCT * dt)
+	if e.combat_timer <= 0.0 and (e.is_character() or e.guard):
+		e.hp = minf(e.stats.max_hp, e.hp + e.stats.max_hp * Balance.REGEN_HP_PCT * (Balance.GUARD_REGEN_MULT if e.guard else 1.0) * dt)
 	if not e.is_blocking:
 		e.mp = minf(e.stats.max_mp, e.mp + (e.stats.max_mp * Balance.REGEN_MP_PCT + Balance.REGEN_MP_FLAT) * dt)
 	# estados
@@ -1331,7 +1361,7 @@ const SEP_CELL := 3.0
 ## e a lista de quem um monstro pode querer atacar (jogador, bots, invocações).
 ## Monstro dorme sem alvo e sem personagem por perto (confere a cada 20 ticks); acorda ao ser atacado ou alguém chegar.
 func _dormant(e: SimEntity, m: Dictionary) -> bool:
-	if e.aggro_target >= 0 or e.hp < e.stats.max_hp or e.owner_id >= 0:
+	if e.aggro_target >= 0 or e.hp < e.stats.max_hp or e.owner_id >= 0 or e.raid_id >= 0:     # investida marcha sozinha
 		e.dormant = false
 		return false
 	if (tick_count + e.id) % 20 == 0 or not e.has_meta("dorm_seen"):
@@ -1356,7 +1386,7 @@ func _index_map(m: Dictionary) -> void:
 			grid[k].append(o)
 		else:
 			grid[k] = [o]
-		if o.kind == SimEntity.Kind.PLAYER or o.kind == SimEntity.Kind.BOT or o.kind == SimEntity.Kind.SUMMON:
+		if o.kind == SimEntity.Kind.PLAYER or o.kind == SimEntity.Kind.BOT or o.kind == SimEntity.Kind.SUMMON or o.guard:
 			chars.append(o)
 	m["sep_grid"] = grid
 	m["chars"] = chars

@@ -69,6 +69,19 @@ DUNGEONS["dg_catacumbas_trono"] = {
         "edges": [("chegada", "galeria"), ("galeria", "trono")],
     },
 }
+# Coração da Árvore: a raiz norte da Árvore-Mãe Ancestral (Cidade Élfica) desce ao salão do Rei Élfico.
+DUNGEONS["dg_coracao"] = {
+    "zone": "elf_city", "gate": (0.0, -66.0), "face": 90.0, "name": "Coração da Árvore", "seed": 17,
+    "rock": (0.36, 0.28, 0.2), "floor": (0.46, 0.4, 0.3), "glow": (0.6, 1.0, 0.65),
+    "layout": {
+        "rooms": {
+            "raizes": {"pos": (0, 18), "r": 12, "mobs": [("elf_archer", 3), ("elf_warrior", 3)]},
+            "seiva": {"pos": (-26, -8), "r": 10, "mobs": [("trent", 2), ("elf_warden", 1)]},
+            "trono": {"pos": (6, -36), "r": 17, "boss": "elf_king"},
+        },
+        "edges": [("chegada", "raizes"), ("raizes", "seiva"), ("seiva", "trono")],
+    },
+}
 DUNGEON_ARRIVE = (0.0, 44.0)   # chegada dentro de toda dungeon; a saída fica em DUNGEON_EXIT
 DUNGEON_EXIT = (0.0, 50.0)
 

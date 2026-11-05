@@ -118,6 +118,7 @@ def quadruped(cid, fur, dark, light, kind="wolf"):
     m_eye, m_white = base_mats()
     m_horn = ck.mat("m_horn", (0.95, 0.9, 0.78), 0.5)
     boar, dragon, bear = kind == "boar", kind == "dragon", kind == "bear"
+    griffin = kind == "griffin"
     bulk = 1.25 if boar else (1.15 if dragon else (1.45 if bear else 1.0))
     hip = 0.4 if boar else (0.5 if bear else 0.45)
     # tronco contínuo: anca -> peito -> pescoço
@@ -140,6 +141,15 @@ def quadruped(cid, fur, dark, light, kind="wolf"):
         for i in range(6):
             y = -0.45 + i * 0.15
             parts.append((cone("bristle%d" % i, (0, y, hip + 0.27 * bulk), (0, y + 0.06, hip + 0.42 * bulk), 0.05, md), "body"))
+    elif griffin:
+        # cabeça de águia clara, bico curvo dourado, tufos de pena no lugar das orelhas
+        parts.append((blob("crest", 0.2, hc + Vector((0, 0.02, 0.04)), ml, (1.05, 1.1, 1.05)), "head"))
+        beak = ck.mat("m_%s_beak" % cid, (0.98, 0.78, 0.3), 0.5)
+        parts.append((cone("beak", hc + Vector((0, -0.14, 0.0)), hc + Vector((0, -0.34, -0.08)), 0.08, beak), "head"))
+        parts.append((cone("beak_hook", hc + Vector((0, -0.3, -0.05)), hc + Vector((0, -0.34, -0.14)), 0.035, beak), "head"))
+        for sx in (-1, 1):
+            parts.append((cone("tuft%d" % sx, hc + Vector((sx * 0.1, 0.04, 0.14)), hc + Vector((sx * 0.16, 0.2, 0.3)), 0.05, ml), "head"))
+        parts.append((blob("ruff", 0.22, (0, -0.52, hip + 0.2), ml, (1.2, 0.8, 1.05)), "body"))
     else:
         parts.append((blob("snout", 0.12 * bulk, hc + Vector((0, -0.2, -0.05)), ml if not dragon else m, (0.6, 1.0, 0.55)), "head"))
         parts.append((blob("nose", 0.045 * bulk, hc + Vector((0, -0.32 * bulk, -0.01)), md), "head"))
@@ -189,6 +199,17 @@ def quadruped(cid, fur, dark, light, kind="wolf"):
         for i in range(5):
             y = -0.4 + i * 0.2
             parts.append((cone("spike%d" % i, (0, y, hip + 0.28 * bulk), (0, y + 0.08, hip + 0.45 * bulk), 0.06, m_horn), "body"))
+    elif griffin:
+        # asas de penas (leque de lâminas) dobradas para trás e rabo de leão com tufo
+        for sx in (-1, 1):
+            sh = Vector((sx * 0.16, -0.22, hip + 0.28))
+            for k in range(4):
+                tip = sh + Vector((sx * (0.45 + k * 0.1), 0.25 + k * 0.2, 0.42 - k * 0.12))
+                parts.append((ck.blade("feather%d_%d" % (sx, k), sh, tip, 0.34 - k * 0.04, 0.025, md if k % 2 else m, (0, 0, 1), 0.85), "body"))
+            parts.append((ck.tube("wingbone%d" % sx, sh, sh + Vector((sx * 0.5, 0.2, 0.46)), 0.035, 0.02, ml, 6), "body"))
+        tpts = [((0, 0.4, hip + 0.1), 0.05), ((0, 0.62, hip + 0.06), 0.04), ((0, 0.8, hip + 0.1), 0.035)]
+        parts.append((skin_body("tail", tpts, [(0, 1), (1, 2)], m), "body"))
+        parts.append((blob("tail_tip", 0.07, (0, 0.84, hip + 0.12), md, (0.9, 1.3, 0.9)), "body"))
     elif boar:
         parts.append((cone("tail", (0, 0.6, hip + 0.1), (0, 0.72, hip + 0.02), 0.03, md), "body"))
     elif bear:
@@ -647,6 +668,66 @@ def ent(cid="mob_ent"):
     return arm
 
 
+def trent(cid="mob_trent"):
+    """Trent Ancião: ent mais pesado e velho, tronco largo coberto de musgo, braços-raiz compridos e copa escura."""
+    arm = lp.make_armature("rig_" + cid, bm.MOB_BONES)
+    bark = ck.mat("m_trent_bark", (0.38, 0.28, 0.2), 0.9)
+    bark_d = ck.mat("m_trent_bark_d", (0.24, 0.17, 0.12), 0.9)
+    moss = ck.mat("m_trent_moss", (0.36, 0.56, 0.26), 0.85)
+    leaf = ck.mat("m_trent_leaf", (0.22, 0.42, 0.24), 0.8)
+    glow = ck.mat("m_trent_eye", (0.6, 1.0, 0.45), 0.3, 2.2)
+    pts = [((0, 0, 0.3), 0.42), ((0, 0.03, 0.85), 0.38), ((0, 0, 1.4), 0.3)]
+    parts = [(skin_body("trunk", pts, [(0, 1), (1, 2)], bark), "body")]
+    for i, (c, r) in enumerate([((0.2, -0.3, 0.7), 0.16), ((-0.25, -0.26, 1.05), 0.14), ((0.05, 0.32, 0.9), 0.18), ((-0.3, 0.1, 0.5), 0.13)]):
+        parts.append((blob("moss%d" % i, r, c, moss, (1.2, 0.5, 1.0)), "body"))
+    for sx in (-1, 1):
+        parts.append((blob("eye%d" % sx, 0.065, (sx * 0.12, -0.33, 1.22), glow, (1, 0.5, 0.6)), "head"))
+        parts.append((blob("brow%d" % sx, 0.11, (sx * 0.13, -0.31, 1.32), bark_d, (1.3, 0.5, 0.4)), "head"))
+    parts.append((blob("mouth", 0.1, (0, -0.35, 0.98), bark_d, (1.5, 0.4, 0.55)), "head"))
+    for bone, sx, sy in (("leg_fr", 1, -1), ("leg_fl", -1, -1), ("leg_br", 1, 1), ("leg_bl", -1, 1)):
+        parts.append((ck.tube("root_" + bone, (sx * 0.18, sy * 0.15, 0.36), (sx * 0.6, sy * 0.5, 0.02), 0.16, 0.06, bark_d, 8), bone))
+    for sx, bone in ((1, "arm_r"), (-1, "arm_l")):
+        sh = Vector((sx * 0.3, 0, 1.18))
+        el = Vector((sx * 0.75, -0.12, 0.92))
+        hand = Vector((sx * 0.85, -0.3, 0.25))
+        parts.append((ck.tube("branch%d" % sx, sh, el, 0.14, 0.1, bark, 8), bone))
+        parts.append((ck.tube("forearm%d" % sx, el, hand, 0.1, 0.06, bark, 8), bone))
+        for k in range(3):                   # dedos-raiz
+            parts.append((ck.tube("finger%d_%d" % (sx, k), hand, hand + Vector((sx * 0.08 * (k - 1), -0.12, -0.2)), 0.05, 0.015, bark_d, 6), bone))
+        parts.append((blob("mossarm%d" % sx, 0.13, el + Vector((0, 0, 0.1)), moss, (1.1, 0.8, 0.6)), bone))
+    for i, (c, r) in enumerate([((0, 0.05, 1.8), 0.56), ((-0.38, 0.1, 1.62), 0.38), ((0.4, 0.0, 1.64), 0.4), ((0.05, 0.36, 1.6), 0.36), ((0.0, -0.2, 1.7), 0.3)]):
+        parts.append((blob("canopy%d" % i, r, c, leaf if i % 2 == 0 else moss, (1, 1, 0.8)), "head"))
+    finish(arm, parts)
+    bm.mob_actions(arm)
+    return arm
+
+
+def elf_parts(cid, cloth2, ears=True, cape=False):
+    """Elfo: orelhas longas para trás e para cima (o que se lê de cima), faixa na testa e, no chefe, manto."""
+    def add(base, mats):
+        V = Vector
+        rig, b = base["rig"], base["b"]
+        c, r = V(base["head_c"]), b["head"]
+        skin = ck.mat("m_%s_ear" % cid, (0.96, 0.86, 0.74), 0.7)
+        band = ck.mat("m_%s_band" % cid, cloth2, 0.6)
+        head = []
+        if ears:
+            for sx in (-1, 1):
+                root = c + V((sx * r * 0.92, r * 0.05, r * 0.05))
+                head.append(ck.blade("%s_ear%d" % (cid, sx), root, root + V((sx * r * 0.85, r * 0.35, r * 0.55)), r * 0.28, r * 0.05, skin, (0, 1, 0), 0.5))
+        head.append(ck.tube(cid + "_band", c + V((0, 0, r * 0.3)), c + V((0, 0, r * 0.42)), r * 1.03, r * 1.02, band, 20))
+        head.append(ck.ball(cid + "_gem", r * 0.12, c + V((0, -r * 1.02, r * 0.36)), ck.mat("m_%s_gem" % cid, (0.6, 1.0, 0.7), 0.3, 1.8)))
+        for p_ in head:
+            ck.skin_rigid(p_, rig, "head")
+        if cape:
+            zc = ck.Z["chest"]
+            back = b["chest"] * b["depth"] + 0.03
+            ch = [ck.blade(cid + "_mantle", V((0, back, zc + 0.12)), V((0, back + 0.18, ck.Z["knee"])), 0.5, 0.03, band, (1, 0, 0), 0.4)]
+            for p_ in ch:
+                ck.skin_rigid(p_, rig, "chest")
+    return add
+
+
 def golem(cid="mob_golem"):
     arm = lp.make_armature("rig_" + cid, bm.MOB_BONES)
     stone = ck.mat("m_stone", (0.62, 0.6, 0.58), 0.9)
@@ -792,6 +873,18 @@ def build_all(out_dir, only=None):
         "mob_elemental_storm": lambda: elemental("mob_elemental_storm", "storm"),
         "mob_golem": golem,
         "mob_bandit": lambda: humanoid("mob_bandit", "leather", (0.62, 0.2, 0.2), "sword"),
+        # Cerco élfico: elfos de couro/tecido verde, Guardião de placa clara, Rei de placa dourada com coroa e manto
+        "mob_elf_warrior": lambda: humanoid("mob_elf_warrior", "leather", (0.3, 0.56, 0.42), "sword", skin=(0.96, 0.86, 0.74),
+                                            head="none", extra=elf_parts("mob_elf_warrior", (0.85, 0.8, 0.5))),
+        "mob_elf_archer": lambda: humanoid("mob_elf_archer", "cloth", (0.42, 0.66, 0.4), "bow", skin=(0.96, 0.86, 0.74),
+                                           head="leather", extra=elf_parts("mob_elf_archer", (0.6, 0.45, 0.28))),
+        "mob_elf_warden": lambda: humanoid("mob_elf_warden", "plate", (0.88, 0.86, 0.74), "sword2h", skin=(0.96, 0.86, 0.74),
+                                           head="none", extra=elf_parts("mob_elf_warden", (0.3, 0.6, 0.5))),
+        "mob_elf_king": lambda: humanoid("mob_elf_king", "plate", (0.95, 0.8, 0.35), "sword", skin=(0.96, 0.86, 0.74),
+                                         head="none", crown=7, extra=elf_parts("mob_elf_king", (0.22, 0.5, 0.42), cape=True)),
+        "mob_trent": trent,
+        "mob_griffin": lambda: quadruped("mob_griffin", (0.8, 0.62, 0.36), (0.55, 0.4, 0.22), (0.96, 0.94, 0.88), "griffin"),
+        "mob_elf_lynx": lambda: quadruped("mob_elf_lynx", (0.74, 0.56, 0.32), (0.2, 0.36, 0.24), (0.95, 0.9, 0.78), "lynx"),
         "mob_skeleton": lambda: humanoid("mob_skeleton", "plate", (0.42, 0.4, 0.38), "sword", skin=(0.92, 0.9, 0.82),
                                          eye=(1.0, 0.3, 0.2), offhand="shield", hide_hair=True),
         "mob_zombie": lambda: humanoid("mob_zombie", "leather", (0.32, 0.36, 0.28), "axe", skin=(0.52, 0.62, 0.42), eye=(0.95, 0.9, 0.3)),
@@ -810,7 +903,8 @@ def build_all(out_dir, only=None):
         for o in bpy.context.scene.objects:
             if "." in o.name:
                 o.name = o.name.replace(".", "_")
-        if name in ("mob_bandit", "mob_skeleton", "mob_zombie", "mob_lich", "mob_skeleton_king", "form_demon"):
+        if name in ("mob_bandit", "mob_skeleton", "mob_zombie", "mob_lich", "mob_skeleton_king", "form_demon",
+                    "mob_elf_warrior", "mob_elf_archer", "mob_elf_warden", "mob_elf_king"):
             ck.export_glb(arm, os.path.join(out_dir, name + ".glb"))
         else:
             lp.export_glb(os.path.join(out_dir, name + ".glb"), [arm])

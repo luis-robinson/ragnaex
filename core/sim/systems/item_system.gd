@@ -14,6 +14,11 @@ static func item_tier(sim: WorldSim, it: ItemDef) -> int:
 static func enhance_cost(sim: WorldSim, it: ItemDef, current: int) -> Dictionary:
 	var nxt := current + 1
 	var tier := item_tier(sim, it) + (1 if it.is_legendary() else 0)
+	if it.is_legendary() and it.level_req == Balance.PLUS_ELF_LEVEL:
+		# conjunto da Glória (nível 20): Aço Élfico e, do +6 em diante, Seiva da Árvore-Mãe (Cidade Élfica); ouro mais barato
+		var elf_mat := "mother_sap" if nxt >= Balance.PLUS_STAR_FROM else "elf_steel"
+		var elf_n := (nxt - Balance.PLUS_STAR_FROM + 1) if nxt >= Balance.PLUS_STAR_FROM else int((nxt + 1) / 2.0) + 1
+		return {"gold": int(Balance.PLUS_GOLD_BASE * (tier + 1) * pow(nxt, 1.5) * Balance.PLUS_ELF_GOLD_MULT), "item": elf_mat, "count": elf_n}
 	var mat := "star_ore" if nxt >= Balance.PLUS_STAR_FROM else "iron_ore"
 	var n := (nxt - Balance.PLUS_STAR_FROM + 1) + tier if nxt >= Balance.PLUS_STAR_FROM else nxt + 1 + tier
 	return {"gold": int(Balance.PLUS_GOLD_BASE * (tier + 1) * pow(nxt, 1.5)), "item": mat, "count": n}
@@ -129,6 +134,8 @@ static func relic_exchange(sim: WorldSim, e: SimEntity, item_id: String) -> bool
 static func legendary_chance(sim: WorldSim, mob: SimEntity) -> float:
 	if mob.monster_def.elite_of != "":
 		return 1.0
+	if mob.monster_def.coin_chance > 0.0:
+		return mob.monster_def.coin_chance
 	if mob.monster_def.is_boss:
 		return Balance.LEGENDARY_DROP_CHANCE_BOSS
 	if mob.map_id == Balance.LEGENDARY_START_MAP and mob.level + Balance.LEGENDARY_LEVEL_SLACK < Balance.LEGENDARY_LEVELS[1]:

@@ -176,7 +176,7 @@ static func select_targets(caster: SimEntity, skill: SkillDef, aim: Vector3, ent
 
 
 static func _valid(caster: SimEntity, e: SimEntity, friendly: bool) -> bool:
-	if e == null or not e.is_alive() or e.kind == SimEntity.Kind.NPC:
+	if e == null or not e.is_alive() or (e.kind == SimEntity.Kind.NPC and not e.guard):
 		return false
 	if friendly:
 		return caster.is_friend(e)

@@ -381,7 +381,7 @@ func _build_ui() -> void:
 		quest_mark.visible = false
 		add_child(quest_mark)
 
-	if entity.kind != SimEntity.Kind.NPC:
+	if entity.kind != SimEntity.Kind.NPC or entity.guard:       # sentinela que luta mostra a vida
 		hp_bar = Node3D.new()
 		hp_bar.position.y = top + 0.2
 		add_child(hp_bar)
@@ -916,7 +916,7 @@ func _update_bars() -> void:
 	var sr := clampf(entity.shield_hp / maxf(1.0, entity.stats.max_hp), 0.0, 1.0)
 	shield_fill.visible = sr > 0.0
 	_set_bar(shield_fill, sr, 1.0)
-	hp_bar.visible = entity.is_alive() and (entity.kind != SimEntity.Kind.MONSTER or ratio < 1.0 or entity.aggro_target >= 0)
+	hp_bar.visible = entity.is_alive() and ((entity.kind != SimEntity.Kind.MONSTER and not entity.guard) or ratio < 1.0 or entity.aggro_target >= 0)
 	var casting := entity.state == SimEntity.State.CASTING and entity.current_skill != null and entity.current_skill.startup > 0.2
 	cast_bar.visible = casting and entity.skill_phase == "startup"
 	if cast_bar.visible:

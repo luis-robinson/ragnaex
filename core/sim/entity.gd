@@ -115,6 +115,9 @@ var portal_notice_at: float = 0.0    # próximo aviso de portal bloqueado
 var brain = null                     # BotBrain / MonsterBrain (produz InputCommand)
 var brain_cmd: InputCommand = null   # último comando do cérebro (reutilizado entre pensamentos)
 var npc_data: Dictionary = {}
+var guard := false                   # NPC que luta (sentinela do povoado): monstros o atacam e ele revida (GuardBrain)
+var raid_id := -1                    # monstro de uma investida (RaidSystem): marcha pela rota, luta no caminho
+var raid_leg := 0                    # investida: índice do próximo ponto da rota
 var dormant := false                 # monstro sem ninguém por perto: não pensa nem anda (WorldSim._dormant)
 var npc_goal: Vector3 = Vector3.ZERO  # NPC que passeia: para onde está indo
 var npc_wait: float = 0.0            # parado olhando em volta antes do próximo passo
@@ -133,11 +136,11 @@ func is_hostile_to(other: SimEntity) -> bool:
 		return false
 	var a_mob := kind == Kind.MONSTER
 	var b_mob := other.kind == Kind.MONSTER
-	if other.kind == Kind.NPC or kind == Kind.NPC:
+	if (other.kind == Kind.NPC and not other.guard) or (kind == Kind.NPC and not guard):
 		return false
-	if kind == Kind.SUMMON:
+	if kind == Kind.SUMMON or kind == Kind.NPC:        # invocação e sentinela: só contra monstros
 		return b_mob
-	if other.kind == Kind.SUMMON:
+	if other.kind == Kind.SUMMON or other.kind == Kind.NPC:
 		return a_mob
 	return a_mob != b_mob
 
@@ -178,7 +181,7 @@ func is_friend(other: SimEntity) -> bool:
 	if kind == Kind.MONSTER or other.kind == Kind.MONSTER:
 		return kind == other.kind
 	if kind == Kind.NPC or other.kind == Kind.NPC:
-		return false
+		return guard or other.guard            # sentinela: aliada de todos (cura e buff de área pegam nela)
 	return group_key() == other.group_key()
 
 func can_act() -> bool:

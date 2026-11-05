@@ -28,4 +28,7 @@ extends Resource
 @export var gold_min: int = 1
 @export var gold_max: int = 5
 @export var skill_ids: Array[String] = [] ## skills especiais opcionais (usam SkillDef)
+@export var coin_chance: float = 0.0       ## > 0: chance própria de Moedas Lendárias (no lugar da regra comum/chefe)
+@export var coin_min: int = 0
+@export var coin_max: int = 0
 @export var phases: Array = []            ## chefe, em ordem de HP: {hp (0-1), say, skills, summon: {id, count, max}, enrage}

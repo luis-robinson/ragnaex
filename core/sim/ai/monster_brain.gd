@@ -12,12 +12,25 @@ var timer: float = 0.0
 var wander_target: Vector3 = Vector3.ZERO
 var skill_timer: float = 0.0
 var return_time: float = 0.0
+# investida (RaidSystem): marcha pela rota
+var calm: float = 0.0          # s sem puxar briga nova (acabou de largar um alvo longe da rota)
+var was_retreat := false
+var fought := false
+var water_path: Array = []
+var water_goal := Vector3.INF
+var water_timer: float = 0.0
+var last_pos := Vector3.ZERO
+var stuck: float = 0.0
+var detour := Vector2.ZERO
+var detour_left: float = 0.0
 
 func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 	var cmd := InputCommand.new()
 	cmd.aim = e.position + e.forward()      # sem alvo: mantém o rumo (padrão do comando é a origem do mundo)
 	timer -= dt
 	skill_timer -= dt
+	calm -= dt
+	var raider := e.raid_id >= 0
 	var def: MapDef = m["def"]
 	var mdef := e.monster_def
 	var is_summon := e.kind == SimEntity.Kind.SUMMON
@@ -33,7 +46,7 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 			target = null
 			e.aggro_target = -1
 			e.taunt_left = 0.0
-	if target == null and state != S.RETURN:
+	if target == null and state != S.RETURN and not (raider and calm > 0.0):
 		var aggro := mdef.aggro_range if not is_summon else 9.0
 		target = Combat.nearest_hostile(e, m.get("chars", m["entities"]), aggro)     # só personagens e invocações (lista do tick)
 		if target:
@@ -50,7 +63,12 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 		return cmd
 
 	# --- leash: longe demais de casa ---
-	if not is_summon and e.position.distance_to(e.home_position) > mdef.leash_range:
+	if raider and target != null and e.position.distance_to(e.home_position) > mdef.leash_range:
+		e.aggro_target = -1             # investida: larga quem foge e volta para a rota (sem teleporte para casa)
+		e.taunt_left = 0.0
+		target = null
+		calm = 4.0
+	elif not is_summon and not raider and e.position.distance_to(e.home_position) > mdef.leash_range:
 		state = S.RETURN
 		e.aggro_target = -1
 		e.taunt_left = 0.0
@@ -58,6 +76,7 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 
 	if target != null:
 		state = S.CHASE
+		fought = true
 		var dist := e.position.distance_to(target.position) - target.radius    # o acerto mede do centro de quem bate até a borda do alvo
 		cmd.aim = target.position
 		# skill especial? As últimas da lista são as mais novas (fases de chefe)
@@ -78,6 +97,9 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 		else:
 			cmd.move = _dir_to(e, target.position)
 		return cmd
+
+	if raider:
+		return _march(e, sim, cmd, dt)
 
 	# chefe sem alvo e fora de combate volta para casa e reseta: só wipe de verdade, não quem atira de longe
 	if mdef.is_boss and state != S.RETURN and e.combat_timer <= 0.0 and (e.hp < e.stats.max_hp or e.phase > 0):
@@ -117,6 +139,61 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 		_:
 			state = S.IDLE
 	return cmd
+
+## Investida sem alvo: segue a rota (ida ou recuo), desviando do rio pelas pontes e de obstáculos.
+## A âncora da luta (home_position) anda junto: a perseguição se mede de onde a briga começou.
+func _march(e: SimEntity, sim, cmd: InputCommand, dt: float) -> InputCommand:
+	state = S.IDLE
+	e.home_position = e.position
+	var retreat: bool = RaidSystem.retreating(sim, e)
+	if retreat != was_retreat or fought:
+		was_retreat = retreat
+		fought = false
+		e.raid_leg = RaidSystem.nearest_leg(sim, e)
+	var goal := RaidSystem.march_point(sim, e)
+	if not retreat and RaidSystem.mustering(sim, e):
+		cmd.aim = goal                      # trompas: a leva se junta na garganta antes de descer
+		return cmd
+	var last := e.raid_leg >= RaidSystem.march_len(sim, e) - 1
+	if e.position.distance_to(goal) < (2.5 if not last else 1.5):
+		if not last:
+			e.raid_leg += 1
+			goal = RaidSystem.march_point(sim, e)
+		elif not retreat:
+			# chegou ao povoado: ronda pela praça procurando briga
+			var r: float = float(sim.maps[e.map_id]["def"].raid.get("radius", 25.0)) * 0.6
+			wander_target = sim.random_walkable(sim.maps[e.map_id]["def"], goal, r)
+			cmd.move = _dir_to(e, wander_target) * 0.6
+			cmd.aim = wander_target
+			return cmd
+	cmd.move = _steer(e, sim, goal, dt) * (Balance.RAID_MARCH_PACE if not retreat else 1.0)     # marcha cautelosa; na luta, velocidade cheia
+	cmd.aim = e.position + Vector3(cmd.move.x, 0.0, cmd.move.y)
+	return cmd
+
+func _steer(e: SimEntity, sim, p: Vector3, dt: float) -> Vector2:
+	water_timer -= dt
+	if water_timer <= 0.0 or water_goal.distance_to(p) > 3.0:
+		water_timer = 1.5
+		water_goal = p
+		water_path = sim.water_path(e.map_id, e.position, p)
+	while not water_path.is_empty() and Vector2(e.position.x, e.position.z).distance_to(water_path[0]) < 1.2:
+		water_path.pop_front()
+	if not water_path.is_empty():
+		p = Vector3(water_path[0].x, 0.0, water_path[0].y)
+	var v := _dir_to(e, p)
+	if e.position.distance_to(last_pos) < 0.02 * (dt * 60.0):
+		stuck += dt
+	else:
+		stuck = 0.0
+	last_pos = e.position
+	if stuck > 0.5 and detour_left <= 0.0:
+		detour = v.rotated(PI * 0.5 * (1.0 if sim.rng.randf() < 0.5 else -1.0))
+		detour_left = sim.rng.randf_range(0.8, 1.4)
+		stuck = 0.0
+	detour_left -= dt
+	if detour_left > 0.0:
+		return (v * 0.3 + detour).normalized()
+	return v
 
 static func _dir_to(e: SimEntity, p: Vector3) -> Vector2:
 	var d := p - e.position

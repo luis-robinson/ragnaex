@@ -188,6 +188,7 @@ func run_only(tokens: Array, gd, sim, save) -> void:
 	save.delete_slot(TEST_SLOT)
 	print("--only: %d grupos" % ran)
 
+const HOSTILE_HUBS := ["elf_city"]      # zonas cujo hub é a cidade inimiga (sem serviços; spawners dentro do muro)
 const TEST_SLOT := 90       # espaço só dos testes (fora dos SLOTS da tela inicial): nunca toca nos personagens do jogador
 
 func run_all(gd, sim, balance, save) -> void:
@@ -633,7 +634,7 @@ func _check_zone(gd, sim) -> void:
 	check(wall_ok, "muralha bloqueia todo o anel fora dos portões")
 	for g in md.town_gates:
 		check(sim.is_walkable(g, md, 0.45), "portão %s passável" % [g])
-	for zid in ["city_aldara", "field_forest", "field_ruins"]:
+	for zid in ["city_aldara", "field_forest", "field_ruins", "elf_city"]:
 		_check_zone_layout(gd, sim, gd.maps[zid])
 		_check_places(gd, sim, gd.maps[zid])
 	_check_dungeons(gd, sim)
@@ -1304,6 +1305,9 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_elemental_debuffs(gd, sim)
 	_check_layout_conflicts(gd, sim)
 	_check_villagers(gd, sim)
+	_check_raids(gd, sim)
+	_check_elf_loot(gd, sim)
+	_check_hunter_post(gd, sim)
 	_check_interiors(gd, sim)
 	_check_druid_start(gd, sim)
 	_check_xp_budget(gd)
@@ -3275,7 +3279,7 @@ func _check_interiors(gd, sim) -> void:
 	sim.player = saved
 
 func _check_layout_conflicts(gd, sim) -> void:
-	for mid in ["city_aldara", "field_forest", "field_ruins"]:
+	for mid in ["city_aldara", "field_forest", "field_ruins", "elf_city"]:
 		var z: Dictionary = MapsCatalog.load_zone(mid)
 		var roads: Array = z["roads"].filter(func(r): return r["kind"] in ["road", "trail"])
 		var bad: Array = []
@@ -3362,7 +3366,8 @@ func _check_zone_layout(gd, sim, md: MapDef) -> void:
 	check(sim.is_walkable(md.spawn_point, md, 0.45), "%s: ponto de chegada andável" % mid)
 	for sp in md.spawners:
 		var d: float = Vector2(sp["pos"].x, sp["pos"].z).length()
-		check(d > 40.0 and d < 120.0 * (1.2 if mid == "city_aldara" else 1.0), "%s: spawner %s a %.0f m do hub" % [mid, sp["monster_id"], d])
+		var hostile_hub: bool = mid in HOSTILE_HUBS and d < gd.maps[mid].town_radius         # cidade inimiga: a guarnição mora no hub
+		check((d > 40.0 or hostile_hub) and d < 120.0 * (1.2 if mid == "city_aldara" else 1.0), "%s: spawner %s a %.0f m do hub" % [mid, sp["monster_id"], d])
 		check(sim.is_walkable(sim.random_walkable(md, sp["pos"], float(sp["radius"])), md), "%s: spawner %s andável" % [mid, sp["monster_id"]])
 	for n in md.npcs:
 		check(sim.is_walkable(n["pos"], md, 0.3), "%s: NPC %s em chão livre" % [mid, n["id"]])
@@ -4064,7 +4069,7 @@ func _check_review_fixes(gd, sim) -> void:
 	for mid in gd.maps:
 		for pt in gd.maps[mid].portals:
 			if pt.has("gate"):
-				check(pt["id"].begins_with("to_") and gd.maps[pt["target_map"]].parent_map != "" and pt["target_map"] != gd.maps[mid].parent_map or pt["target_map"] in ["field_forest", "field_ruins"], "portão %s só na ida" % pt["id"])
+				check(pt["id"].begins_with("to_") and gd.maps[pt["target_map"]].parent_map != "" and pt["target_map"] != gd.maps[mid].parent_map or pt["target_map"] in ["field_forest", "field_ruins", "elf_city"], "portão %s só na ida" % pt["id"])
 	for x in [chief, near, mob, other, nec, ber, pal, bis]:
 		sim.despawn(x)
 
@@ -4312,7 +4317,7 @@ func _check_boss_kit(gd, sim) -> void:
 	sim.despawn(boss)
 	sim.despawn(p)
 	# todo chefe de dungeon tem fases, e os lacaios delas não dão XP nem loot
-	for bid in ["slime_king", "spider_queen", "crypt_lord", "bone_captain", "wailing_widow", "count_vargo"]:
+	for bid in ["slime_king", "spider_queen", "crypt_lord", "bone_captain", "wailing_widow", "count_vargo", "elf_king"]:
 		var bd: MonsterDef = gd.monsters[bid]
 		check(bd.phases.size() >= 1, "%s tem fases" % bid)
 		for ph in bd.phases:
@@ -4527,7 +4532,7 @@ func _check_portal_gates() -> void:
 	check(sim.portal_block_reason(bot, pt) == "", "bot não fica preso em portão")
 
 func _check_water(gd, sim) -> void:
-	for mid in ["city_aldara", "field_forest", "field_ruins"]:
+	for mid in ["city_aldara", "field_forest", "field_ruins", "elf_city"]:
 		var def: MapDef = gd.maps[mid]
 		if not sim.maps.has(mid):
 			sim.load_map(def)
@@ -4629,7 +4634,7 @@ func _dist_poly(p: Vector2, pts: PackedVector2Array) -> float:
 # natureza fora da vila: nada de "arvorezinha", toda prop tem modelo, montanha com patamares
 # ---------------------------------------------------------------------------
 func _check_outdoor(gd) -> void:
-	for mid in ["city_aldara", "field_forest", "field_ruins"]:
+	for mid in ["city_aldara", "field_forest", "field_ruins", "elf_city"]:
 		var def: MapDef = gd.maps[mid]
 		var small := 0
 		var kinds := {}
@@ -4663,3 +4668,167 @@ func _count_kind(def: MapDef, kind: String) -> int:
 			n += 1
 	return n
 
+
+## Sentinelas do povoado (NPC com `fighter`) e investidas (RaidSystem) num mundo só da Floresta, com rota de teste.
+## Uma sim à parte (WorldSim.new): o relógio da investida e os ticks não mexem no mundo dos outros testes.
+func _check_raids(gd, sim) -> void:
+	var ws := WorldSim.new()
+	ws.rng.seed = 7
+	var def: MapDef = gd.maps["field_forest"].duplicate()
+	var target: Vector3 = def.raid.get("target", def.town_center) if not def.raid.is_empty() else Vector3.ZERO
+	var from: Vector3 = def.raid.get("from", Vector3(10, 0, -70)) if not def.raid.is_empty() else Vector3(10, 0, -70)
+	var route: Array = def.raid.get("route", [Vector3(5, 0, -45), Vector3(2, 0, -25)]) if not def.raid.is_empty() else [Vector3(5, 0, -45), Vector3(2, 0, -25)]
+	def.spawners = []                     # só a investida no mapa
+	def.raid = {"from": from, "route": route, "target": target, "radius": float(def.raid.get("radius", 17.0)) if not def.raid.is_empty() else 17.0,
+		"every": 999.0, "first": 1.0, "jitter": 0.0, "lifetime": 400.0, "waves": [{"mobs": {"elf_raider": 2, "elf_raider_archer": 2}}]}
+	ws.load_map(gd.maps[GameData.town_map_id()])
+	var m: Dictionary = ws.load_map(def)
+	for o in m["entities"].duplicate():
+		if o.guard:
+			ws.despawn(o)                    # o teste põe as próprias sentinelas
+	var plain: Array = m["entities"].filter(func(o): return o.kind == SimEntity.Kind.NPC)
+	# relógio parado com o jogador em outro mapa
+	ws.player = ws.spawn_player(gd.classes["berserker"], "RT", GameData.town_map_id())
+	for i in 120:
+		ws.tick(1.0 / 60.0)
+	check(RaidSystem.state(m)["ids"].is_empty(), "investida: relógio parado sem o jogador no mapa")
+	ws.despawn(ws.player)
+	ws.player = null
+	var started := []
+	var on_raid := func(map_id: String, kind: String): started.append(kind)
+	Events.raid_event.connect(on_raid)
+	for i in 90:
+		ws.tick(1.0 / 60.0)
+	var ids: Array = RaidSystem.state(m)["ids"]
+	check(ids.size() == 4 and "start" in started, "investida: leva nasce no relógio (%d)" % ids.size())
+	var raiders: Array = ids.map(func(id): return ws.entities[id])
+	check(raiders.all(func(r): return r.raid_id >= 0 and r.position.distance_to(from) < 6.0), "investida: nasce no portal élfico")
+	# marcha até o povoado sem ninguém por perto (sem dormir)
+	var t := 0.0
+	while t < 90.0 and not "arrived" in started:
+		ws.tick(1.0 / 20.0)
+		t += 1.0 / 20.0
+	check("arrived" in started, "investida: chega ao povoado (%.0f s)" % t)
+	check(t >= 5.0, "investida: marcha leva tempo de verdade (%.0f s)" % t)
+	# NPC comum nunca é alvo
+	for r in raiders:
+		check(r.aggro_target < 0 or not ws.entities.has(r.aggro_target) or ws.entities[r.aggro_target].kind != SimEntity.Kind.NPC, "investida: NPC comum não vira alvo")
+	check(plain.all(func(o): return o.hp == 1.0 and not raiders[0].is_hostile_to(o)), "investida: NPC comum intocável")
+	# sentinela: entra na lista de alvos, apanha e revida
+	var gw: SimEntity = ws._spawn_npc({"id": "t_guard", "name": "Sentinela", "pos": target + Vector3(2, 0, 0), "role": "guard", "fighter": "guard_warrior",
+		"gear": ["sword_iron"]}, def.id)
+	check(gw.guard and gw.stats.max_hp > 100.0 and gw.brain is GuardBrain, "sentinela: NPC com atributos e cérebro de luta")
+	check(raiders[0].is_hostile_to(gw) and gw.is_hostile_to(raiders[0]) and not gw.is_hostile_to(plain[0]) if not plain.is_empty() else true, "sentinela: hostil só a monstros")
+	var hit_guard := false
+	var guard_hit := false
+	for i in 30 * 20:
+		ws.tick(1.0 / 20.0)
+		if gw.hp < gw.stats.max_hp:
+			hit_guard = true
+		if raiders.any(func(r): return not r.is_alive() or r.hp < r.stats.max_hp):
+			guard_hit = true
+		if hit_guard and guard_hit:
+			break
+	check(hit_guard, "sentinela: a investida ataca a sentinela")
+	check(guard_hit, "sentinela: revida")
+	check(raiders.all(func(r): return r.damage_by.is_empty() or not r.damage_by.has(gw.id)), "sentinela não conta para o abate (XP fica com jogadores)")
+	# sentinela caída volta ao posto
+	ws._deal_damage(raiders[0], gw, int(gw.hp + 99999), false, false, "physical")
+	check(not gw.is_alive(), "sentinela morre")
+	for i in int((Balance.GUARD_RESPAWN + 1.0) * 20.0):
+		ws.tick(1.0 / 20.0)
+	check(gw.is_alive() and gw.hp > gw.stats.max_hp * 0.5 and gw.position.distance_to(gw.home_position) < 20.0, "sentinela renasce no posto")
+	ws.despawn(gw)
+	for r in raiders:
+		ws.despawn(r)
+	ws.tick(1.0 / 20.0)
+	check("repelled" in started and RaidSystem.state(m)["ids"].is_empty(), "investida: leva toda caída = repelida")
+	# luta no caminho: personagem perto da rota puxa a briga; morto, a leva volta a marchar
+	started.clear()
+	var leva := RaidSystem.start_raid(ws, m)
+	var mid_route: Vector3 = route[0]
+	var bot: SimEntity = ws.spawn_bot(gd.classes["berserker"], "RTB", def.id, mid_route + Vector3(1.5, 0, 0), 15)
+	bot.brain = null                     # parado: só isca
+	var engaged := false
+	for i in 40 * 20:
+		ws.tick(1.0 / 20.0)
+		if leva.any(func(id): return ws.entities.has(id) and ws.entities[id].aggro_target == bot.id):
+			engaged = true
+			break
+	check(engaged, "investida: personagem perto da rota puxa a briga")
+	ws.despawn(bot)
+	t = 0.0
+	while t < 90.0 and not "arrived" in started:
+		ws.tick(1.0 / 20.0)
+		t += 1.0 / 20.0
+	check("arrived" in started, "investida: depois da briga retoma a marcha e chega (%.0f s)" % t)
+	# recuo: passado o tempo de vida, volta ao portal e some
+	def.raid["lifetime"] = 0.0
+	t = 0.0
+	while t < 120.0 and not RaidSystem.state(m)["ids"].is_empty():
+		ws.tick(1.0 / 20.0)
+		t += 1.0 / 20.0
+	check("retreat" in started and RaidSystem.state(m)["ids"].is_empty() and "retreated" in started, "investida: recua ao portal e some (%.0f s)" % t)
+	Events.raid_event.disconnect(on_raid)
+	ws.free()
+
+## Cerco élfico: materiais da Glória, moedas do Rei e do Guardião, dados dos monstros.
+func _check_elf_loot(gd, sim) -> void:
+	var cls: ClassDef = gd.classes["berserker"]
+	var pool: Array = gd.legendary_pool(cls, 20)
+	check(not pool.is_empty(), "elfos: há peça da Glória (nível 20)")
+	var glory: ItemDef = gd.items[pool[0]]
+	var c1: Dictionary = sim.enhance_cost(glory, 0)
+	var c6: Dictionary = sim.enhance_cost(glory, Balance.PLUS_STAR_FROM - 1)
+	check(c1["item"] == "elf_steel" and c6["item"] == "mother_sap", "elfos: Glória aprimora com Aço Élfico e Seiva (%s, %s)" % [c1["item"], c6["item"]])
+	var other: ItemDef = gd.items[gd.legendary_pool(cls, 25)[0]]
+	var co: Dictionary = sim.enhance_cost(other, 0)
+	check(co["item"] == "iron_ore" and int(c1["gold"]) < int(co["gold"]), "elfos: só a Glória usa material élfico, e sai mais barato em ouro")
+	for iid in ["elf_steel", "mother_sap", "heartwood", "griffin_feather"]:
+		check(gd.items.has(iid), "elfos: item %s" % iid)
+	var king: MonsterDef = gd.monsters["elf_king"]
+	check(king.is_boss and king.coin_chance >= 1.0 and king.coin_min >= 4, "elfos: Rei solta 4+ moedas sempre")
+	check(gd.monsters["elf_warden"].coin_min >= 4 and gd.monsters["elf_warden"].coin_chance > 0.0, "elfos: Guardião às vezes solta 4 moedas")
+	check(gd.monsters["trent"].skill_ids.has("mob_root_grasp") and gd.monsters["trent"].hp >= gd.monsters["ent"].hp * 2.0, "elfos: Trent é tanque e enraíza")
+	check(gd.monsters["elf_raider"].move_speed > gd.monsters["bandit"].move_speed, "elfos: batedores são rápidos")
+	# abate do Rei: moedas no chão para quem matou
+	var m: Dictionary = sim.maps["city_aldara"]
+	var at := Vector3(70, 0, 40)
+	var k: SimEntity = sim.spawn_monster(king, "city_aldara", at)
+	var b: SimEntity = sim.spawn_bot(cls, "EK", "city_aldara", at + Vector3(1.5, 0, 0), 21)
+	var before: int = m["loot"].size()
+	sim._deal_damage(b, k, int(k.hp + 1), false, false, "physical")
+	var coins: Array = m["loot"].slice(before).filter(func(l): return l["item"] == "legend_coin")
+	check(coins.size() == 1 and int(coins[0]["count"]) >= 4, "elfos: Rei derrubado deixa 4-6 moedas (%s)" % str(coins.map(func(l): return l["count"])))
+	m["loot"].resize(before)
+	sim.despawn(k)
+	sim.despawn(b)
+
+## Posto dos Caçadores (hub da Floresta): sentinelas, serviços, rota das investidas andável e portões do cerco.
+func _check_hunter_post(gd, sim) -> void:
+	var def: MapDef = gd.maps["field_forest"]
+	var npcs: Array = def.npcs
+	var fighters: Array = npcs.filter(func(n): return n.has("fighter"))
+	check(fighters.size() >= 8, "Posto: 8+ sentinelas (%d)" % fighters.size())
+	check(fighters.any(func(n): return n["fighter"] == "guard_archer") and fighters.any(func(n): return n["fighter"] == "guard_warrior"), "Posto: caçadoras e soldados")
+	for role in ["smith", "merchant", "alchemy", "quest"]:
+		check(npcs.any(func(n): return n["role"] == role and def.town_center.distance_to(n["pos"]) < def.town_radius), "Posto: serviço %s dentro do muro" % role)
+	for n in fighters:
+		check(sim.is_walkable(n["pos"], def, 0.45), "Posto: %s nasce em chão livre" % n["id"])
+		for q in n.get("route", []):
+			check(sim.is_walkable(Vector3(float(q[0]), 0, float(q[1])), def, 0.45), "Posto: ronda de %s andável" % n["id"])
+	var live: Array = sim.maps["field_forest"]["entities"].filter(func(e): return e.guard)
+	check(live.size() == fighters.size() and live.all(func(e): return e.brain is GuardBrain and e.stats.max_hp > 300.0), "Posto: sentinelas nascem lutando")
+	check(not def.raid.is_empty() and def.raid["waves"].size() >= 2, "Posto: investida configurada")
+	if not def.raid.is_empty():
+		check(sim.is_walkable(def.raid["from"], def, 0.45), "investida: nasce em chão livre")
+		for q in def.raid["route"]:
+			check(sim.is_walkable(q, def, 0.45), "investida: ponto %s da rota andável" % [q])
+		check(def.raid["from"].distance_to(def.raid["target"]) > 80.0, "investida: garganta longe do Posto")
+	var gates := {}
+	for mid in gd.maps:
+		for pt in gd.maps[mid].portals:
+			gates[pt["id"]] = pt.get("gate", {})
+	check(gates.get("to_ruins", {}).get("quest", "") == "el6_king", "Ruínas: abrem com o Rei Élfico")
+	check(gates.get("to_elf_city", {}).get("quest", "") == "el2_defense", "Cidade Élfica: abre depois de segurar uma investida")
+	check(gd.quests["q12_ruins"].prereq_quest == "el6_king", "cadeia: Ruínas depois do Rei Élfico")

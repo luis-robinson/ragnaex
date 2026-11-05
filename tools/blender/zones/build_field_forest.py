@@ -1,4 +1,5 @@
-"""Floresta Sombria (field_forest, Lv 10-20): vale de mata fechada, acampamento dos rangers no hub (paliçada),
+"""Floresta Sombria (field_forest, Lv 10-20): vale de mata fechada, Posto dos Caçadores no hub (povoado humano murado
+sob cerco élfico: quartel, forja, mercado, sentinelas nas torres), garganta norte para a Cidade Élfica (rota das investidas),
 ninhos de aranha (NW/SW), acampamento dos bandidos murado (NE, chefe no centro), bosque dos ents (SE), rio com
 pontes, pântano e a Árvore-Mãe (landmark) ao norte. Portal de volta a Aldara na garganta oeste.
 
@@ -15,7 +16,9 @@ importlib.reload(zone_lib)
 from zone_lib import Zone, ROAD_W
 
 ZONE = "field_forest"
-CAMP_R = 17.0
+HUB = (-5.0, 0.0)          # povoado um pouco a oeste: o rio passa a ~30 m a leste
+CAMP_R = 24.0
+ELF_ANG = -93.0            # garganta norte (Cidade Élfica), entre o Círculo Druídico e a Árvore-Mãe
 BANDITS = (68.0, -60.0)
 BANDIT_R = 14.0
 TREE_COLS = [(0.22, 0.4, 0.27), (0.27, 0.47, 0.3), (0.32, 0.52, 0.32)]
@@ -44,33 +47,83 @@ def build(export=False):
     z.data["spawn"] = list(arrive)
     z.portal("to_town", portal, "city_aldara", places.grow_aldara((98.3, -32.1)), "Vale de Aldara")
 
-    # ---------- hub: acampamento dos rangers ----------
-    gates = [math.pi, 0.0, -math.pi / 2, math.pi / 2]
-    z.patch("clareira", (0, 0), CAMP_R + 11, (0.5, 0.62, 0.38), grass=True)   # clareira clara: o acampamento "fura" a mata
-    z.plaza("acampamento", (0, 0), CAMP_R - 1.0, "road")
-    z.ring_wall("acampamento", (0, 0), CAMP_R, gates, gate_half=3.0, height=2.8, stakes=True, towers=4)
-    for i, a in enumerate((45, 135, 225, 315)):
-        r = math.radians(a)
-        z.ob("tent", math.cos(r) * 10.5, math.sin(r) * 10.5, (3.0, 2.2, 3.0), a + 90, color=(0.45, 0.5, 0.35))
-    z.ob("crate", 3.5, -5.5, (1.0, 1.0, 1.0))
-    z.ob("crate", 4.6, -5.0, (0.8, 0.8, 0.8))
-    z.ob("well", -4.0, 3.0, (1.6, 1.4, 1.6))
-    for a in gates:
-        for s in (-1, 1):
-            p = (math.cos(a) * (CAMP_R - 2) - math.sin(a) * 3.6 * s, math.sin(a) * (CAMP_R - 2) + math.cos(a) * 3.6 * s)
-            z.ob("lamp", p[0], p[1], (0.4, 3.0, 0.4))
-    z.npc("ranger_post", 3.5, 2.0, -100.0)
-    z.data["hangouts"] = [[0, 4], [-4, -3], [5, -2], [-2, 6], [-6, -1]]
+    elf_portal = polar(z, ELF_ANG, 7)
+    elf_arrive = polar(z, ELF_ANG, 15)
+    z.portal("to_elf_city", elf_portal, "elf_city", (0.0, 99.5), "Cidade Élfica")
+    z.block(elf_arrive, 6)
+    ea = math.radians(ELF_ANG)
+    for sgn in (-1, 1):                     # marco élfico na garganta: colunas claras e lanternas verdes
+        for k, r_in in enumerate((9.0, 13.0)):
+            pr = z.rim_r(ea) - r_in
+            px, pz = math.cos(ea) * pr - math.sin(ea) * 4.2 * sgn, math.sin(ea) * pr + math.cos(ea) * 4.2 * sgn
+            z.ob("pillar", px, pz, (0.8, 4.2 - k * 0.8, 0.8), color=(0.86, 0.9, 0.8))
+            z.ob("lamp", px - math.sin(ea) * 1.2 * sgn, pz + math.cos(ea) * 1.2 * sgn, (0.4, 3.0, 0.4), color=(0.55, 0.95, 0.6))
+
+    # ---------- hub: Posto dos Caçadores (povoado murado) ----------
+    hx, hz = HUB
+    H = lambda r, a: (hx + math.cos(math.radians(a)) * r, hz + math.sin(math.radians(a)) * r)
+    gate_deg = [180.0, 0.0, -90.0, 90.0]                # O, L, N (elfos), S
+    gates = [math.radians(a) for a in gate_deg]
+    z.patch("clareira", HUB, CAMP_R + 10, (0.5, 0.62, 0.38), grass=True)
+    # chão de terra batida do povoado entre a clareira (0.006) e as ruas (0.012): sem z-fighting
+    zone_lib.disc(z.coll, z.P + "chao_posto", HUB, CAMP_R - 1.0, 0.009, z.M["street"], 48, 0.03, 5)
+    z.data["roads"].append({"kind": "street", "w": 0, "pts": [[HUB[0], HUB[1]]], "r": CAMP_R - 1.0})
+    z.plaza("praca", HUB, 7.5, "road")
+    z.ring_wall("posto", HUB, CAMP_R, gates, gate_half=3.2, height=3.4, stakes=True, towers=8)
+    z.data["town"] = {"center": [hx, hz], "radius": CAMP_R, "gates": [[round(H(CAMP_R, a)[0], 2), round(H(CAMP_R, a)[1], 2)] for a in gate_deg]}
+    for a in gate_deg:                                   # ruas radiais praça -> portão
+        z.road("rua_%d" % int(a), [H(7.0, a), H(CAMP_R - 2.0, a)], w=3.4, material="road", end_clearing=False)
+    z.ob("well", hx, hz, (2.0, 1.4, 2.0))
+    z.ob("statue", hx + 3.2, hz - 3.2, (1.2, 2.8, 1.2), 45.0)
+    # quadrantes entre as ruas: NE quartel, NO forja + alojamento dos caçadores, SE mercado, SO casas
+    roof_q = (0.42, 0.34, 0.5)
+    z.ob("house", *H(15.5, -45.0), (8.5, 5.0, 6.0), 45.0, roof=roof_q)          # quartel
+    for i, a in enumerate((-30.0, -60.0)):
+        z.ob("pillar", *H(10.0, a), (0.5, 1.8, 0.5))                          # bonecos de treino
+    z.ob("house", *H(16.0, -135.0), (6.5, 4.4, 5.5), 135.0, roof=(0.5, 0.3, 0.24))   # forja
+    z.ob("anvil", *H(10.5, -120.0), (1.0, 0.9, 0.6), 30.0)
+    z.ob("barrel", *H(10.5, -150.0), (0.8, 1.0, 0.8))
+    z.ob("house", *H(17.0, -160.0), (5.5, 4.2, 5.0), 160.0, roof=(0.36, 0.46, 0.32))  # alojamento dos caçadores
+    for i, a in enumerate((25.0, 45.0, 65.0)):
+        z.ob("stall", *H(12.5, a), (3.0, 2.4, 2.0), a + 90.0, color=[(0.75, 0.4, 0.3), (0.35, 0.55, 0.7), (0.8, 0.7, 0.35)][i])
+    z.ob("house", *H(18.0, 45.0), (6.0, 4.2, 5.0), 45.0, roof=(0.6, 0.32, 0.28))     # armazém do mercador
+    for i, a in enumerate((115.0, 140.0, 165.0)):
+        z.ob("house", *H(17.0, a), (5.0, 4.0, 4.6), a, roof=[(0.62, 0.32, 0.3), (0.5, 0.42, 0.3), (0.55, 0.36, 0.42)][i])
+    for a in (130.0, 152.0):
+        z.ob("crate", *H(11.0, a), (1.0, 1.0, 1.0), a)
+    for a in gate_deg:
+        for sgn in (-1, 1):
+            g = math.radians(a)
+            px, pz = H(CAMP_R - 2.0, a)
+            z.ob("lamp", px - math.sin(g) * 3.2 * sgn, pz + math.cos(g) * 3.2 * sgn, (0.4, 3.0, 0.4))
+    # NPCs de serviço e sentinelas (nomes/papéis em MapsCatalog.FOREST_NPCS)
+    z.npc("ranger_post", *H(5.5, 120.0), -60.0)
+    z.npc("forest_commander", *H(8.0, -60.0), 120.0)
+    z.npc("forest_smith", *H(9.0, -140.0), 40.0)
+    z.npc("forest_merchant", *H(8.5, 45.0), -135.0)
+    z.npc("forest_alchemist", *H(6.5, 160.0), -20.0)
+    for i, a in enumerate((-90.0, 180.0, 0.0, 90.0)):                    # soldados nos portões (dois no norte, de onde vêm os elfos)
+        g = math.radians(a)
+        for k, sgn in enumerate((-1, 1) if a == -90.0 else (1,)):
+            px, pz = H(CAMP_R - 4.0, a)
+            z.npc("guard_w_%d_%d" % (i, k), px - math.sin(g) * 2.0 * sgn, pz + math.cos(g) * 2.0 * sgn, (a + 180.0) % 360.0 - 180.0)
+    for i, a in enumerate((-135.0, -45.0, 45.0, 135.0)):                 # caçadoras junto às torres
+        z.npc("guard_a_%d" % i, *H(CAMP_R - 3.0, a), a)
+    z.data["hangouts"] = [list(H(r, a)) for r, a in ((3.5, 0), (4.0, 90), (4.0, 200), (5.0, 280), (12.0, 0), (12.0, 95), (12.0, 185), (12.0, -90))]
 
     # ---------- estradas ----------
-    z.road("W", [(-CAMP_R, 0), (-30, 7), (-50, -3), (-70, 9), arrive, portal], end_clearing=False)
-    z.road("N", [(0, -CAMP_R), (6, -30), (-8, -46), (-30, -56), (-50, -54)])
+    z.road("W", [(HUB[0] - CAMP_R, 0), (-38, 7), (-54, -3), (-70, 9), arrive, portal], end_clearing=False)
+    z.road("N", [(HUB[0], -CAMP_R), (2, -34), (-8, -46), (-30, -56), (-50, -54)])
     gate_dir = math.atan2(-26 - BANDITS[1], 44 - BANDITS[0])
     gate_out = (BANDITS[0] + math.cos(gate_dir) * (BANDIT_R + 3), BANDITS[1] + math.sin(gate_dir) * (BANDIT_R + 3))
-    z.road("E", [(CAMP_R, 0), (30, -8), (40, -22), gate_out, (BANDITS[0] + math.cos(gate_dir) * (BANDIT_R - 4), BANDITS[1] + math.sin(gate_dir) * (BANDIT_R - 4))])
-    z.road("S", [(0, CAMP_R), (-6, 30), (6, 48), (26, 58), (50, 58)])
-    z.road("SW", [(-6, 30), (-24, 44), (-42, 58)])
+    z.road("E", [(HUB[0] + CAMP_R, 0), (30, -8), (40, -22), gate_out, (BANDITS[0] + math.cos(gate_dir) * (BANDIT_R - 4), BANDITS[1] + math.sin(gate_dir) * (BANDIT_R - 4))])
+    z.road("S", [(HUB[0], CAMP_R), (-6, 36), (6, 50), (26, 58), (50, 58)])
+    z.road("SW", [(-6, 36), (-24, 46), (-42, 58)])
     z.road("arvore", [(-8, -46), (2, -66), (8, -80)])
+    # rota das investidas: garganta élfica -> junção da Árvore-Mãe -> estrada norte -> portão norte
+    z.road("elfos", [elf_portal, elf_arrive, (-4, -92), (8, -80)], end_clearing=False)
+    route = [(-4.0, -92.0), (8.0, -80.0), (2.0, -66.0), (-8.0, -46.0), (2.0, -34.0), (HUB[0], -CAMP_R - 4.0), (HUB[0], -CAMP_R + 4.0)]
+    z.data["raid"] = {"from": list(elf_arrive), "route": [list(p) for p in route], "target": list(HUB), "radius": CAMP_R}
     # arcos entre POIs (sem becos): norte = aranhas → Árvore-Mãe → bandidos; sul = ents → pântano → aranhas SO
     gate2 = math.atan2(-80 - BANDITS[1], 44 - BANDITS[0])
     g2_out = (BANDITS[0] + math.cos(gate2) * (BANDIT_R + 3), BANDITS[1] + math.sin(gate2) * (BANDIT_R + 3))
@@ -101,7 +154,7 @@ def build(export=False):
     z.hill("rochedo_nw", (-76, -86), 10, 3)
     z.hill("rochedo_se", (86, 82), 8, 2)
     # afloramentos baixos de rocha pela mata (relevo visto de cima)
-    for i, (c, r, lv) in enumerate([((-24, -24), 6, 2), ((52, 10), 7, 2), ((-70, -20), 7, 2), ((88, -30), 6, 1), ((-60, 30), 6, 1)]):
+    for i, (c, r, lv) in enumerate([((-32, -36), 6, 2), ((52, 10), 7, 2), ((-70, -20), 7, 2), ((88, -30), 6, 1), ((-60, 30), 6, 1)]):
         z.terrace("afloramento_%d" % i, c, r, lv, top="cliff_grass")
 
     z.cliffs()
@@ -109,20 +162,20 @@ def build(export=False):
     places.build(z, PLACES)
 
     # ---------- vegetação ----------
-    z.block((0, 0), CAMP_R + 11)
+    z.block(HUB, CAMP_R + 10)
     z.block(BANDITS, BANDIT_R + 3)
     z.scatter("tree", [((-58, -54), 26, 70), ((-46, 62), 20, 40), ((66, 56), 26, 55), ((20, -70), 28, 50),
                        ((-80, -20), 24, 40), ((90, -50), 20, 30), ((-10, 100), 22, 35), ((60, 100), 16, 18), ((-100, 90), 14, 14)],
               0, (1.6, 3.6, 1.6), TREE_COLS, margin=4.2, spacing=3.4, scale=(1.0, 1.6))
-    z.scatter("tree", [((0, 0), 110, 240)], 0, (1.6, 3.6, 1.6), TREE_COLS, margin=4.6, spacing=4.0, hub_r=CAMP_R + 6, scale=(0.9, 1.4))
+    z.scatter("tree", [((0, 0), 110, 240)], 0, (1.6, 3.6, 1.6), TREE_COLS, margin=4.6, spacing=4.0, hub_r=CAMP_R + 12, scale=(0.9, 1.4))
     z.rim_belt(170, (1.6, 3.6, 1.6), TREE_COLS[:2])
     z.scatter("rock", [((-58, -54), 26, 10), ((66, 56), 20, 8), ((0, 0), 100, 25)], 0, (1.4, 0.9, 1.2), [(0.5, 0.5, 0.48)],
-              margin=3.5, spacing=2.5, hub_r=CAMP_R + 4, scale=(0.8, 1.6))
+              margin=3.5, spacing=2.5, hub_r=CAMP_R + 10, scale=(0.8, 1.6))
 
     # ---------- natureza (passe 3): pinheiros na mata, sub-bosque, troncos/tocos, flores frias, juncos ----------
     nrnd = random.Random(41)
     obs = z.data["obstacles"]
-    fr = lambda x, zz, m: z.free(x, zz, m, CAMP_R + 6)
+    fr = lambda x, zz, m: z.free(x, zz, m, CAMP_R + 12)
     nature.fix_trees(obs, nrnd, pine_frac=0.3)
     nature.scatter(z.ob, fr, nrnd, "bush", [((0, 0), 110, 120)], (1.7, 0.95, 1.7), [(0.24, 0.42, 0.27), (0.3, 0.5, 0.3)],
                    solid=False, margin=2.6, spacing=2.6, avoid=obs)

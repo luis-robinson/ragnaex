@@ -50,6 +50,8 @@ static func on_monster_killed(sim: WorldSim, mob: SimEntity, killer: SimEntity) 
 				if leg == "":
 					continue
 				var coins: int = Balance.LEGENDARY_COINS_BOSS if mob.monster_def.is_boss else 1
+				if mob.monster_def.coin_max > 0:           # Rei Élfico / Guardião: punhado de moedas (uma peça da Glória)
+					coins = sim.rng.randi_range(mob.monster_def.coin_min, mob.monster_def.coin_max)
 				personal.append([leg, c, coins])
 				if c == sim.player:
 					Events.notification.emit("✦ %d Moeda%s Lendária%s! Troque com a Relicária em Aldara" % [coins, "s" if coins > 1 else "", "s" if coins > 1 else ""])

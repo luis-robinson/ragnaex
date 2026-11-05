@@ -38,7 +38,7 @@ const SLOT_ART := {ItemDef.Slot.HEAD: "head", ItemDef.Slot.BODY: "body", ItemDef
 const MATERIAL_ART := [["legend_coin", "legend_coin"], ["shell", "shell"], ["mushroom", "mushroom"], ["relic", "relic"], ["basket", "basket"],
 	["letter", "letter"], ["report", "letter"], ["star_ore", "star"], ["goods", "basket"], ["gel", "gel"], ["pelt", "pelt"], ["hide", "pelt"], ["tusk", "tusk"], ["fang", "tusk"], ["herb", "herb"],
 	["ore", "ore"], ["silk", "silk"], ["bark", "bark"], ["badge", "badge"], ["bone", "bone"], ["dust", "dust"],
-	["essence", "essence"], ["core", "core"], ["scale", "scale"]]
+	["essence", "essence"], ["core", "core"], ["scale", "scale"], ["feather", "feather"], ["steel", "ingot"], ["sap", "sap"], ["heartwood", "bark"]]
 ## inclinação da arte (rad): armas na diagonal, como na mão
 const ANGLE := {"sword": 0.74, "sword2h": 0.74, "dagger": 0.74, "mace": 0.6, "mace2h": 0.5, "axe": 0.42, "axe2h": 0.4, "staff": 0.6,
 	"wand": 0.66, "scythe": 0.2, "scepter": 0.6, "rifle": 0.76, "bow": -0.74, "tusk": 0.3, "bone": 0.7, "herb": 0.18}
@@ -1025,6 +1025,51 @@ func _a_silk() -> void:
 		_mark([-0.48, y, 0.48, y + 0.04], _pal("tint")[2], 0.025)
 		y += 0.11
 	_line([0.5, 0.2, 0.8, 0.5, 0.7, 0.96], "tint", 0.04)
+
+func _a_feather() -> void:
+	# pena: haste curva na diagonal, palheta em gomos dos dois lados, ponta mais escura
+	var spine: Array = []
+	for k in range(13):
+		var t := k / 12.0
+		spine.append(Vector2(lerpf(-0.72, 0.7, t) + sin(t * PI) * 0.12, lerpf(0.86, -0.9, t) + sin(t * PI) * 0.1))
+	for side in [-1.0, 1.0]:
+		var pts: Array = []
+		for k in range(2, 13):
+			var c: Vector2 = spine[k]
+			var t := k / 12.0
+			var w := 0.36 * sin(minf(1.0, t * 1.15) * PI) + 0.04
+			var n: Vector2 = ((spine[mini(k + 1, 12)] as Vector2) - (spine[k - 1] as Vector2)).normalized().orthogonal() * side
+			pts.append(c.x + n.x * w); pts.append(c.y + n.y * w)
+		for k in range(12, 1, -1):
+			pts.append((spine[k] as Vector2).x); pts.append((spine[k] as Vector2).y)
+		_poly(pts, "tint", 0.045, 0.12)
+	for k in [4, 6, 8, 10]:                        # gomos da palheta
+		var c: Vector2 = spine[k]
+		var n: Vector2 = ((spine[k + 1] as Vector2) - (spine[k - 1] as Vector2)).normalized().orthogonal()
+		_mark([c.x, c.y, c.x + n.x * 0.3 + 0.08, c.y + n.y * 0.3 - 0.06], _pal("tint")[2], 0.025)
+		_mark([c.x, c.y, c.x - n.x * 0.3 + 0.08, c.y - n.y * 0.3 - 0.06], _pal("tint")[2], 0.025)
+	var flat: Array = []
+	for q in spine:
+		flat.append((q as Vector2).x); flat.append((q as Vector2).y)
+	_line(flat, PAL["bone"][1] as Color, 0.05)
+
+func _a_ingot() -> void:
+	# lingote élfico: barra trapezoidal com face de cima clara e runa
+	_poly([-0.9, 0.42, 0.9, 0.42, 0.62, 0.86, -0.62, 0.86], "tint", 0.055, 0.1)
+	_poly([-0.9, 0.42, -0.56, -0.38, 0.56, -0.38, 0.9, 0.42], "tint", 0.055, 0.24)
+	_poly([-0.56, -0.38, -0.4, -0.66, 0.4, -0.66, 0.56, -0.38], PAL["steel"][0] as Color, 0.04, 0.0)
+	_mark([-0.2, 0.02, 0.0, -0.22, 0.2, 0.02, 0.0, 0.24, -0.2, 0.02], _pal("tint")[2], 0.035)
+	_dot(-0.34, -0.5, 0.06, Color(1, 1, 1, 0.85))
+
+func _a_sap() -> void:
+	# gota de seiva dourada (ponta para cima) com brilho e folhinha
+	var pts: Array = []
+	for k in range(32):
+		var t := TAU * k / 32.0
+		pts.append(0.78 * sin(t) * pow(absf(sin(t * 0.5)), 1.2)); pts.append(-cos(t) * 0.92 + 0.1)
+	_poly(pts, "tint", 0.06, 0.2)
+	_ell(-0.24, 0.32, 0.12, 0.22, Color(1, 1, 1, 0.55), 0.0)
+	_poly([0.1, -0.7, 0.52, -0.86, 0.64, -0.62, 0.24, -0.52], "green", 0.035, 0.04)
 
 func _a_bark() -> void:
 	_poly([-0.62, -0.92, 0.5, -0.82, 0.74, -0.2, 0.62, 0.62, 0.36, 0.96, -0.5, 0.86, -0.78, 0.2, -0.7, -0.4], "tint", 0.06, 0.22)

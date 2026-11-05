@@ -197,6 +197,14 @@ const POTION_COOLDOWN := 4.0
 const AGGRO_LOSE_TIME := 6.0
 const CORPSE_TIME := 1.6
 const PACK_AGGRO_RADIUS := 6.0             # puxou um monstro: os iguais parados a até isto vêm junto (bando)
+# ---- sentinelas do povoado e investidas (GuardBrain, RaidSystem) ----
+const GUARD_AGGRO := 13.0                  # m: sentinela enxerga monstro
+const GUARD_LEASH := 22.0                  # m: não se afasta mais que isto do posto (ou de onde a briga começou, na ronda)
+const GUARD_RESPAWN := 70.0                # s até a sentinela caída voltar ao posto
+const GUARD_REGEN_MULT := 3.0              # regenera mais rápido que personagem fora de combate
+const GUARD_PATROL_PACE := 0.42            # fração da velocidade na ronda
+const RAID_MUSTER := 12.0                  # s que a leva espera na garganta (trompas) antes de descer
+const RAID_MARCH_PACE := 0.6               # fração da velocidade na marcha (na luta e no recuo, cheia)
 const DORMANT_RANGE := 40.0                # monstro sem alvo e sem personagem a até isto dorme (não pensa/anda; custo da sim)
 const PLAYER_RESPAWN_TIME := 3.0
 const RESPAWN_SHARE := 0.5                 # renasce com metade da vida e da mana
@@ -230,6 +238,8 @@ const LEG_THORNS_RANGE := 4.0
 const LEG_RIPOSTE_RANGE := 4.0             # contra-ataque só em quem bate de perto
 const LEG_CHAIN_RANGE := 6.0               # salto do básico (corrente) até o próximo inimigo
 const LEG_WARD_TIME := 6.0
+const PLUS_ELF_LEVEL := 20                  # lendário deste nível (Glória) aprimora com materiais élficos
+const PLUS_ELF_GOLD_MULT := 0.6
 const LEGENDARY_COINS_BOSS := 2              # chefe (e Rei) solta 2 moedas lendárias; monstro comum, 1
 ## O lendário cai como Moeda Lendária; a Relicária troca: peça do tier i (LEGENDARY_LEVELS) custa i+1 moedas
 const LEGENDARY_START_MAP := "city_aldara"     # primeiro mapa: o 1º conjunto (tier de LEGENDARY_LEVELS[0]) cai mais

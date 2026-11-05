@@ -120,6 +120,9 @@ func after_start() -> void:
 	if DevArgs.flag("--bag_shot"):      # foto da bolsa e da ficha com uma amostra de cada tipo de item
 		_smoke_test = false
 		_bag_shot(DevArgs.value("--bag_shot"))
+	if DevArgs.flag("--raid_shot"):     # --raid_shot=<png>: investida élfica na Floresta (fotos _marcha e _portao) e sai
+		_smoke_test = false
+		_raid_shot(DevArgs.value("--raid_shot"))
 	if DevArgs.flag("--morph_film"):    # --morph_film=<png> [--morph=phantom|demon|wolf|bear]: quadros da transformação de perto
 		_smoke_test = false
 		_morph_film(DevArgs.value("--morph_film"), DevArgs.value("--morph", "phantom"))
@@ -179,6 +182,35 @@ func _morph_film(path: String, form: String) -> void:
 			sheet.blit_rect(img, Rect2i(cx, cy, cw, ch), Vector2i(i * cw, r * ch))
 	sheet.save_png(path)
 	print("MORPH_FILM ok %s" % path)
+	get_tree().quit()
+
+## Investida élfica: leva o jogador à Floresta, solta uma leva e fotografa a marcha na estrada norte e a luta no portão.
+## O jogador fica de pé no caminho (vida cheia o tempo todo) para a câmera seguir a ação.
+func _raid_shot(path: String) -> void:
+	var p := Sim.player
+	var def: MapDef = GameData.maps["field_forest"]
+	Sim._change_map(p, def.id, def.raid["route"][3])
+	await get_tree().create_timer(2.5).timeout
+	var m: Dictionary = Sim.maps[def.id]
+	for e in m["entities"]:
+		if e.kind == SimEntity.Kind.MONSTER and e.raid_id < 0:
+			e.brain = null                    # só a investida se mexe
+	RaidSystem.start_raid(Sim, m)
+	var t := 0.0
+	var shots := [[Balance.RAID_MUSTER + 14.0, "_marcha", def.raid["route"][3]], [-1.0, "_portao", def.raid["route"][def.raid["route"].size() - 1]]]
+	for sh in shots:
+		p.position = sh[2] + Vector3(0, 0, 3)
+		while true:
+			await get_tree().process_frame
+			t += get_process_delta_time()
+			p.hp = p.stats.max_hp
+			var st := RaidSystem.state(m)
+			if (float(sh[0]) > 0.0 and float(st["t"]) >= float(sh[0])) or (float(sh[0]) < 0.0 and st["arrived"] and float(st["t"]) > 4.0 + float(st.get("arrived_t", 0.0))) or t > 150.0:
+				break
+			if st["arrived"] and not st.has("arrived_t"):
+				st["arrived_t"] = st["t"]
+		get_viewport().get_texture().get_image().save_png(path.trim_suffix(".png") + sh[1] + ".png")
+		print("RAID_SHOT %s t=%.0f vivos=%d" % [sh[1], float(RaidSystem.state(m)["t"]), RaidSystem.state(m)["ids"].size()])
 	get_tree().quit()
 
 func _loot_demo() -> void:
