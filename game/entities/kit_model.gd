@@ -39,6 +39,7 @@ var _prepared: Dictionary = {}       # nome -> true quando os materiais toon já
 var _outline := 0.025
 var _cols := {}                      # cores do visual guardadas para peças que aparecem depois (hair, beard, iris, m_skin, mark)
 var legs: LegOverlay = null          # pernas correndo por cima do golpe
+var fade: PoseFade = null            # troca de clipe sem tranco (desliza da pose da tela)
 var _accents: Dictionary = {}        # nome do nó -> [ShaderMaterial] com material "tint2" (capa, manto, faixa)
 var _plus_of: Dictionary = {}        # slot -> aprimoramento da peça (brilho)
 var _glow_of: Dictionary = {}        # prefixo/nó -> aprimoramento
@@ -83,6 +84,9 @@ static func create(body: String, hair: Color, outline_width: float = 0.025, clas
 			k._prepare(k._nodes[n])
 	var sks := inst.find_children("*", "Skeleton3D", true, false)
 	k.skeleton = sks[0] if sks.size() > 0 else null
+	if k.skeleton:
+		k.fade = PoseFade.new()
+		k.skeleton.add_child(k.fade)                   # antes das pernas: o passo corre por cima do deslize
 	if k.skeleton and k.anim and k.anim.has_animation("run"):
 		k.legs = LegOverlay.new()
 		k.legs.setup(k.anim.get_animation("run"), k.skeleton)

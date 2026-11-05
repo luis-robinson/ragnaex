@@ -57,6 +57,35 @@ func _check_windup_timing() -> void:
 		if wt.y > EntityView.ANIM_MIN_SPEED + 0.001:
 			check(absf((pair[0] - wt.x) / wt.y - pair[1]) < 0.01, "preparo %.2f/%.2f: impacto no fim do preparo" % pair)
 
+## Troca de clipe: kit e bicho têm PoseFade; o deslize parte da pose congelada e chega no clipe novo pelo caminho curto
+## (a mistura do AnimationPlayer passava pelo repouso e virava a mão do avesso num quadro).
+func _check_pose_fade() -> void:
+	var k := KitModel.create("male", Color.WHITE, 0.025, "paladin")
+	add_child(k)                       # o modificador só acha o esqueleto na árvore
+	check(k.fade != null and k.legs != null and k.fade.get_index() < k.legs.get_index(), "kit: PoseFade antes das pernas")
+	var sk := k.skeleton
+	var hand := sk.find_bone("hand.R")
+	var q0 := Quaternion(Vector3.UP, deg_to_rad(10.0))
+	var q1 := Quaternion(Vector3.UP, deg_to_rad(170.0))
+	sk.set_bone_pose_rotation(hand, q0)
+	k.fade.start(0.1)
+	sk.set_bone_pose_rotation(hand, q1)
+	check(k.fade.shown_rotation(sk, hand).angle_to(q0) < 0.01, "deslize começa na pose congelada")
+	var prev := q0
+	var worst := 0.0
+	for i in range(8):
+		k.fade.tick(1.0 / 60.0)
+		var q := k.fade.shown_rotation(sk, hand)
+		worst = maxf(worst, rad_to_deg(prev.angle_to(q)))
+		prev = q
+	check(prev.angle_to(q1) < 0.01 and not k.fade.active, "deslize chega no clipe novo e desliga")
+	check(worst < 60.0, "deslize de 160° em 6 quadros sem salto (%.0f°/quadro)" % worst)
+	k.free()
+	var fm := FormModel.create("wolf")
+	if fm:
+		check(fm.fade != null, "forma de bicho tem PoseFade")
+		fm.free()
+
 ## Menu Esc → Gráficos: o 1º preset é o padrão de sempre (bilinear, escala automática); os FSR 2 renderizam abaixo de 100%.
 func _check_graphics_settings() -> void:
 	var ps: Array = GraphicsSettings.PRESETS
@@ -322,6 +351,7 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_graphics_settings()
 	_check_form_clips()
 	_check_windup_timing()
+	_check_pose_fade()
 	# builds: paladino = tanque (escudo) ou 2 mãos; berserker = 2 mãos ou duas armas de 1 mão (machado/espada misturados)
 	var pb: Array = gd.classes["paladin"].builds.map(func(b): return b["id"])
 	check(pb == ["guardiao", "cruzado"], "paladino tem só Guardião e Cruzado (%s)" % [pb])

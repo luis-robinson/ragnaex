@@ -10,6 +10,7 @@ var mats: Array = []                 # materiais toon (hit flash)
 var _tints: Dictionary = {}          # nome do nó -> [ShaderMaterial "tint"]
 var _accents: Dictionary = {}        # nome do nó -> [ShaderMaterial "tint2"]
 var _pieces: Array = []              # MeshInstance3D frm_*
+var fade: PoseFade = null            # troca de clipe sem tranco
 var legs: LegOverlay = null          # patas correndo por cima do golpe (bicho que ataca andando não desliza)
 
 static func path_for(form: String) -> String:
@@ -38,6 +39,9 @@ static func create_from(path: String) -> FormModel:
 		for a in LOOPS:
 			if f.anim.has_animation(a):
 				f.anim.get_animation(a).loop_mode = Animation.LOOP_LINEAR
+		if f.skeleton:
+			f.fade = PoseFade.new()
+			f.skeleton.add_child(f.fade)
 		if f.skeleton and f.anim.has_animation("run"):
 			f.legs = LegOverlay.new()
 			f.legs.setup(f.anim.get_animation("run"), f.skeleton)

@@ -583,6 +583,10 @@ var _lod_anim: AnimationMixer = null
 func _anim_lod(delta: float) -> void:
 	if anim == null:
 		return
+	if manual_anim:                  # sonda: quem chama _process_view anda a animação no passo dela
+		anim.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
+		anim.advance(delta)
+		return
 	if _lod_anim != anim:
 		if _lod_anim and is_instance_valid(_lod_anim):
 			_lod_anim.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_IDLE
@@ -619,6 +623,7 @@ func _process(delta: float) -> void:
 	prof_us += Time.get_ticks_usec() - _t0
 
 func _process_view(delta: float) -> void:
+	_dt = delta
 	if quest_mark:
 		_update_quest_mark(delta)
 	# posição suavizada (a sim roda a 60Hz; interpola um pouco)
@@ -949,6 +954,8 @@ const IMPACT_FRAME := {"maul": 7, "pounce": 9, "slam": 8, "roar": 7, "brace": 6,
 	"buff_power": 7, "buff_guard": 6, "buff_focus": 8}
 const RUN_REF_SPEED := 5.2            # m/s em que o ciclo "run" do kit casa com o chão
 const TWO_HANDED_MELEE := ["sword2h", "mace2h", "axe2h", "scythe"]
+var manual_anim := false             # combat_probe: animação andada à mão, quadro a quadro
+var _dt := 0.0                        # delta do _process_view atual
 var _act_skill: SkillDef = null      # skill da ação atual (detecta golpe novo)
 var _act_time := 0.0
 var _combo := 0                       # alterna golpe A/B (combo de 2) e mão direita/esquerda
@@ -1101,7 +1108,26 @@ func _update_trail(st: int) -> void:
 		on = t >= s.startup * 0.35 and t <= s.startup + s.active + 0.12
 	kit.trail_on = on
 
+## Modificador de troca de clipe do modelo mostrado (kit ou bicho).
+func pose_fade() -> PoseFade:
+	if form_view:
+		return form_view.fade
+	return kit.fade if kit else null
+
+## Troca de clipe: a pose da tela desliza para o clipe novo (PoseFade) em vez da mistura do AnimationPlayer,
+## que passa pelo repouso do osso e vira a mão do avesso num quadro quando ela está girada perto de 180°.
+func _play(clip: String, fade: float, speed: float = 1.0) -> void:
+	var pf := pose_fade()
+	if pf:
+		pf.start(fade)
+		anim.play(clip, 0.0, speed)
+	else:
+		anim.play(clip, fade, speed)
+
 func _animate_glb(st: int) -> void:
+	var pf := pose_fade()
+	if pf:
+		pf.tick(_dt)
 	if horse:                       # montado: boneco no clipe "ride", cavalo corre/para pela velocidade
 		var moving := entity.velocity.length() > 0.2
 		if anim.has_animation("ride") and anim.current_animation != "ride":
@@ -1120,7 +1146,7 @@ func _animate_glb(st: int) -> void:
 	var legs: LegOverlay = form_view.legs if form_view else (kit.legs if kit else null)
 	if legs:
 		var going: bool = st in [SimEntity.State.CASTING, SimEntity.State.BLOCKING] and entity.velocity.length() > 0.2
-		legs.drive(get_process_delta_time(), going, entity.velocity.length(), RUN_REF_SPEED)
+		legs.drive(_dt, going, entity.velocity.length(), RUN_REF_SPEED)
 	if st == SimEntity.State.CASTING:
 		var s := entity.current_skill
 		var fresh := s != _act_skill or entity.state_time < _act_time
@@ -1140,7 +1166,7 @@ func _animate_glb(st: int) -> void:
 				slowest = HELD_BASIC_MIN_SPEED                     # arma pesada: a volta do golpe fica mais lenta (peso)
 			anim.speed_scale = clampf(left / time_left / maxf(_act_speed, 0.01), slowest, 2.5)
 		elif s and not fresh and looping and not anim.is_playing() and entity.state_time < s.startup + s.active - 0.1:
-			anim.play(anim.assigned_animation, 0.05, _act_speed)       # fase ativa longa: o gesto repete
+			_play(anim.assigned_animation, 0.05, _act_speed)          # fase ativa longa: o gesto repete
 			anim.seek(0.0, true)
 		if fresh:
 			var want_clip := _action_clip(s)
@@ -1156,7 +1182,7 @@ func _animate_glb(st: int) -> void:
 				anim.speed_scale = 1.0
 				_act_speed = wt.y
 				_retimed = false
-				anim.play(clip, 0.06, wt.y)
+				_play(clip, 0.06, wt.y)
 				anim.seek(wt.x, true)
 				_combo += 1
 		return
@@ -1169,7 +1195,7 @@ func _animate_glb(st: int) -> void:
 	if gkind != "":
 		var gc := _clip(GatherPose.clip_for(gkind))
 		if gc != "" and anim.current_animation != gc:
-			anim.play(gc, 0.15)
+			_play(gc, 0.15)
 			anim.speed_scale = 1.0
 		if gc != "":
 			return
@@ -1178,7 +1204,7 @@ func _animate_glb(st: int) -> void:
 	if _was_air and not air:
 		_land_t = 0.16
 	_was_air = air
-	_land_t = maxf(0.0, _land_t - get_process_delta_time())
+	_land_t = maxf(0.0, _land_t - _dt)
 	var base := "idle"
 	if air and st in [SimEntity.State.IDLE, SimEntity.State.MOVING, SimEntity.State.DASHING]:
 		base = "jump" if entity.jump_v > 0.0 else "fall"
@@ -1205,7 +1231,7 @@ func _animate_glb(st: int) -> void:
 	if want == "":
 		want = _clip("idle")
 	if want != "" and anim.current_animation != want:
-		anim.play(want, 0.07 if base.begins_with("block") else 0.12)      # erguer a guarda é rápido: é reação
+		_play(want, 0.07 if base.begins_with("block") else 0.12)      # erguer a guarda é rápido: é reação
 	# corrida no ritmo da velocidade real (sem pé deslizando); o resto em velocidade normal
 	anim.speed_scale = clampf(entity.velocity.length() / RUN_REF_SPEED, 0.38 if entity.kind == SimEntity.Kind.NPC else 0.6, 1.7) if base == "run" else 1.0
 	if st == SimEntity.State.DEAD and base == "die" and anim.current_animation_position >= anim.current_animation_length - 0.01:

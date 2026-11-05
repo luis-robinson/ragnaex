@@ -11,6 +11,8 @@ const DT := 1.0 / 60.0
 const SPOT := Vector3(40, 0, 40)
 const LOCK_SLOW := 1.4          # s sem poder agir depois de apertar (fora canalização): parece travado
 const STARTUP_SLOW := 0.7       # s de preparo num golpe/magia comum: o golpe "demora a sair"
+const POP_DEG := 140.0          # tranco: giro de osso num quadro (a mistura do AnimationPlayer dava 160-179° no dash; golpe rápido ~130°)
+const POP_RATIO := 2.5          # ... e quantas vezes maior que os quadros vizinhos
 var p: SimEntity
 var view: EntityView
 var dummies: Array = []
@@ -74,6 +76,7 @@ func _probe_build(cls: ClassDef, build_id: String, map_id: String) -> void:
 			continue
 		tested += 1
 		lat_sum += r["latency"]
+	_pop_scan(cls, build_id)
 	print("PROBE %s/%s%s skills=%d latencia_media=%.1f ticks basico=%.2f golpes/s buraco_max=%d ticks parado_na_tela=%.2fs" % [cls.id, build_id,
 		(" (forma " + form + ")") if form != "" else "", tested, lat_sum / maxf(1, tested), cad[0], cad[1], cad[2]])
 	if cad[2] > 0.12:
@@ -85,6 +88,107 @@ func _probe_build(cls: ClassDef, build_id: String, map_id: String) -> void:
 	dummies.clear()
 	Sim.player = null
 	Sim.despawn(p)
+
+# ---------------------------------------------------------------------------
+# Trancos: sim + desenho andados juntos a 60 Hz; em cada quadro, o maior giro (graus) de um osso desde o quadro anterior.
+# Golpe rápido gira muito também; um tranco é um pico isolado na troca de clipe (o quadro de antes e o de depois giram pouco).
+var _prev_rot: Array = []
+var _hist: Array = []                 # [graus, rótulo] dos últimos quadros
+var _pops: Array = []                 # [graus, pico/vizinhos, rótulo, cenário]
+var _scene := ""
+
+func _skel() -> Skeleton3D:
+	if view.form_view:
+		return view.form_view.skeleton
+	return view.kit.skeleton if view.kit else null
+
+func _step(c: InputCommand) -> void:
+	var before: String = view.anim.current_animation if view.anim else ""
+	_tick(c)
+	view._process_view(DT)
+	var sk := _skel()
+	if sk == null:
+		return
+	var worst := 0.0
+	var wb := ""
+	var pf := view.pose_fade()
+	for i in range(sk.get_bone_count()):
+		var q := pf.shown_rotation(sk, i) if pf else sk.get_bone_pose_rotation(i)     # a pose da tela (com o deslize)
+		if i < _prev_rot.size():
+			var a := rad_to_deg((_prev_rot[i] as Quaternion).angle_to(q))
+			if a > worst:
+				worst = a
+				wb = sk.get_bone_name(i)
+			_prev_rot[i] = q
+		else:
+			_prev_rot.append(q)
+	var now: String = view.anim.current_animation if view.anim else ""
+	_hist.append([worst, "%s %s->%s" % [wb, before, now] if before != now else "%s %s" % [wb, now]])
+	if _hist.size() >= 3:
+		var mid: Array = _hist[_hist.size() - 2]
+		var side := maxf(1.0, maxf(float(_hist[_hist.size() - 3][0]), float(_hist[_hist.size() - 1][0])))
+		_pops.append([float(mid[0]), float(mid[0]) / side, str(mid[1]), _scene])
+
+func _hold(c: InputCommand, secs: float) -> void:
+	for i in range(int(secs / DT)):
+		_step(c)
+
+func _move_cmd(attack: bool = false, slot: int = -1) -> InputCommand:
+	var c := _cmd(slot, attack)
+	c.move = Vector2(1, 0)
+	return c
+
+func _pop_scan(cls: ClassDef, build_id: String) -> void:
+	if view.anim == null or _skel() == null:
+		return
+	view.manual_anim = true
+	view.set_process(false)
+	_prev_rot.clear()
+	_hist.clear()
+	_pops.clear()
+	_reset()
+	_scene = "parado->basico segurado->solta"
+	_hold(InputCommand.new(), 0.4)
+	_hold(_cmd(-1, true), 1.6)
+	_hold(InputCommand.new(), 0.8)
+	_scene = "corre->basico correndo->corre->para"
+	_hold(_move_cmd(), 0.6)
+	_hold(_move_cmd(true), 1.0)
+	_hold(_move_cmd(), 0.6)
+	_hold(InputCommand.new(), 0.6)
+	var n := 0
+	for sid in cls.skill_ids:
+		var s: SkillDef = GameData.skills[sid]
+		if (s.build != "" and s.build != build_id) or not p.stats.meets(s.requires) or s.effects.has("form"):
+			continue
+		n += 1
+		if n > 6:
+			break
+		p.skills[0] = s
+		_reset()
+		_scene = "%s: basico->skill->basico->parado" % s.id
+		_hold(_cmd(-1, true), 0.3)
+		_hold(_cmd(0, true), DT)
+		_hold(_cmd(-1, true), 1.2)
+		_hold(InputCommand.new(), 0.8)
+		_reset()
+		_scene = "%s: corre->skill->dash" % s.id
+		_hold(_move_cmd(), 0.4)
+		_step(_move_cmd(false, 0))
+		_hold(_move_cmd(), maxf(DT, s.startup * 0.5))
+		_step(_cmd(-1, false, true))
+		_hold(InputCommand.new(), 0.6)
+	view.manual_anim = false
+	# piores trancos: pico alto E isolado (bem maior que os quadros vizinhos)
+	_pops.sort_custom(func(a, b): return a[0] * minf(a[1], 4.0) > b[0] * minf(b[1], 4.0))
+	var top: Array = _pops.slice(0, 3)
+	if verbose or (not top.is_empty() and top[0][0] > POP_DEG and top[0][1] > POP_RATIO):
+		for t in top:
+			print("  tranco %.0f° (%.1fx os vizinhos) %s [%s]" % [t[0], t[1], t[2], t[3]])
+	for t in top:
+		if t[0] > POP_DEG and t[1] > POP_RATIO:
+			_flag("%s/%s tranco de %.0f° num quadro: %s [%s]" % [cls.id, build_id, t[0], t[2], t[3]])
+			break
 
 ## Build de forma de animal (Druida Lobo/Urso): as skills dela são usadas transformado.
 func _form_of(cls: ClassDef, build_id: String) -> String:
