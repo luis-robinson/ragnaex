@@ -39,15 +39,23 @@ static func start_raid(sim: WorldSim, m: Dictionary) -> Array:
 	st["retreat"] = false
 	var from: Vector3 = r["from"]
 	var spawned: Array = []
+	var step := power_step(sim, m)
+	var groups: Array = []
 	for w in r.get("waves", []):
 		var nth: int = int(w.get("every_nth", 1))
-		if (n + 1) % nth != 0:
-			continue
-		var mobs: Dictionary = w["mobs"]
+		if (n + 1) % nth == 0:
+			groups.append(w["mobs"])
+	var extra: Dictionary = r.get("scale_extra", {})
+	for at in extra:
+		if step >= int(at):
+			groups.append(extra[at])
+	var top := 0
+	for mobs in groups:
 		for mid in mobs:
-			var mdef: MonsterDef = GameData.monsters.get(mid)
+			var mdef: MonsterDef = scaled_def(sim, GameData.monsters.get(mid), step)
 			if mdef == null:
 				continue
+			top = maxi(top, mdef.level)
 			for i in int(mobs[mid]):
 				var p := MapGeometry.random_walkable(sim, def, from, 3.5)
 				var e := sim.spawn_monster(mdef, def.id, p)
@@ -56,7 +64,11 @@ static func start_raid(sim: WorldSim, m: Dictionary) -> Array:
 				spawned.append(e.id)
 	st["ids"] = spawned
 	st["total"] = spawned.size()
+	st["step"] = step
+	st["level"] = top
 	Events.chat_message.emit("Sistema", str(r.get("say_start", "Uma investida inimiga se aproxima!")), "system")
+	if step >= 3 and r.has("say_strong"):
+		Events.chat_message.emit("Sistema", str(r["say_strong"]), "system")
 	Events.raid_event.emit(def.id, "start")
 	return spawned
 
@@ -94,6 +106,33 @@ static func _update_wave(sim: WorldSim, m: Dictionary, st: Dictionary, dt: float
 		st["retreat"] = true
 		Events.chat_message.emit("Sistema", str(r.get("say_retreat", "Os inimigos recuam.")), "system")
 		Events.raid_event.emit(def.id, "retreat")
+
+## Força da próxima leva: passos de nível do jogador no mapa acima de RAID_SCALE_FROM (máx. RAID_SCALE_TO).
+## `m["raid"]["force_level"]` fixa o nível (sondas/testes); sem jogador no mapa a leva vem na força base.
+static func power_step(sim: WorldSim, m: Dictionary) -> int:
+	var st := state(m)
+	var lv := int(st.get("force_level", 0))
+	if lv <= 0 and sim.player != null and sim.player.map_id == (m["def"] as MapDef).id:
+		lv = sim.player.level
+	return clampi(mini(lv, Balance.RAID_SCALE_TO) - Balance.RAID_SCALE_FROM, 0, Balance.RAID_SCALE_TO - Balance.RAID_SCALE_FROM)
+
+## Monstro da investida reforçado `step` passos (mesmo id: quests, loot e abates contam igual). Guardado por id e passo.
+static func scaled_def(sim: WorldSim, base: MonsterDef, step: int) -> MonsterDef:
+	if base == null or step <= 0:
+		return base
+	var key := "%s@%d" % [base.id, step]
+	if sim._raid_defs.has(key):
+		return sim._raid_defs[key]
+	var d: MonsterDef = base.duplicate()
+	d.level = base.level + step
+	d.hp = base.hp * (1.0 + step * Balance.RAID_SCALE_HP_PCT / 100.0)
+	d.atk = base.atk * (1.0 + step * Balance.RAID_SCALE_ATK_PCT / 100.0)
+	d.matk = base.matk * (1.0 + step * Balance.RAID_SCALE_ATK_PCT / 100.0)
+	d.def = base.def * (1.0 + step * Balance.RAID_SCALE_DEF_PCT / 100.0)
+	d.mdef = base.mdef * (1.0 + step * Balance.RAID_SCALE_DEF_PCT / 100.0)
+	d.xp = int(round(base.xp * (1.0 + step * Balance.RAID_SCALE_XP_PCT / 100.0)))
+	sim._raid_defs[key] = d
+	return d
 
 ## Portão que a leva ataca: o portão do povoado mais perto do fim da rota (sem portões, o próprio alvo).
 static func gate_point(def: MapDef) -> Vector3:
@@ -136,7 +175,7 @@ static func _rally(sim: WorldSim, m: Dictionary, st: Dictionary, dt: float) -> v
 		e.hp = minf(e.stats.max_hp, e.hp + e.stats.max_hp * Balance.RAID_RALLY_REGEN * 0.5)
 
 ## Leitura para a apresentação (faixa do HUD, minimapa): {} sem investida no mapa.
-##   {active, alive, total, phase ("march" | "walls" | "retreat"), wave, next_in (s até a próxima, só sem leva), target, radius,
+##   {active, alive, total, phase ("march" | "walls" | "retreat"), wave, step (força 0-5), level (maior nível da leva), next_in (s até a próxima, só sem leva), target, radius,
 ##    gate (portão atacado), ids (invasores vivos)}
 static func status(sim: WorldSim, map_id: String) -> Dictionary:
 	var m: Dictionary = sim.maps.get(map_id, {})
@@ -153,7 +192,7 @@ static func status(sim: WorldSim, map_id: String) -> Dictionary:
 			alive += 1
 	var active := not (st["ids"] as Array).is_empty()
 	var phase := "retreat" if st["retreat"] else ("walls" if st["arrived"] else "march")
-	return {"active": active, "alive": alive, "total": int(st.get("total", alive)), "phase": phase, "wave": int(st["n"]),
+	return {"active": active, "alive": alive, "total": int(st.get("total", alive)), "phase": phase, "wave": int(st["n"]), "step": int(st.get("step", 0)), "level": int(st.get("level", 0)),
 		"next_in": 0.0 if active else maxf(0.0, float(st["timer"])), "target": def.raid["target"], "radius": float(def.raid.get("radius", 25.0)),
 		"gate": gate_point(def), "ids": (st["ids"] as Array).duplicate()}
 

@@ -1,6 +1,7 @@
 extends Node
 ## Investidas élficas contra o Posto dos Caçadores (calibrar RAID/GUARD/elfos): N levas por cenário, sem os outros spawners.
-##   godot --headless --path . tools/tests/raid_probe.tscn -- [--trials=20] [--bots=0,1,3] [--level=15] [--map=field_forest]
+##   godot --headless --path . tools/tests/raid_probe.tscn -- [--trials=20] [--bots=0,1,3] [--level=15] [--map=field_forest] [--raid_level=20]
+## --raid_level = nível do jogador que dá a força da leva (Balance.RAID_SCALE_*); sem ele, força base.
 ## Cenário = quantos bots (nível --level) esperam no portão norte junto das sentinelas.
 ## Saída: "RAID bots=N repelidas=R/T chegada=Ss duracao=Ss sentinelas_mortas=G bots_mortos=B presos=P"
 ##   repelidas = leva toda derrubada antes do recuo; chegada = s até a 1ª entrar no raio do povoado;
@@ -15,14 +16,17 @@ func _ready() -> void:
 	var bot_counts := [0, 1, 3]
 	var level := 15
 	var mid := "field_forest"
+	var raid_level := 0
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--trials="): trials = int(a.get_slice("=", 1))
 		if a.begins_with("--bots="): bot_counts = Array(a.get_slice("=", 1).split(",")).map(func(x): return int(x))
 		if a.begins_with("--level="): level = int(a.get_slice("=", 1))
 		if a.begins_with("--map="): mid = a.get_slice("=", 1)
+		if a.begins_with("--raid_level="): raid_level = int(a.get_slice("=", 1))
 	Sim.load_map(GameData.maps[GameData.town_map_id()])
 	var m: Dictionary = Sim.load_map(GameData.maps[mid])
 	m["spawners"].clear()
+	RaidSystem.state(m)["force_level"] = raid_level
 	for e in m["entities"].duplicate():
 		if e.kind == SimEntity.Kind.MONSTER:
 			Sim.despawn(e)

@@ -219,6 +219,14 @@ const RAID_DEFEND_RETURN := 0.7            # ...e volta ao portão com esta vida
 const RAID_RALLY_MARGIN := 8.0             # m além da muralha onde vale o Bastião
 const RAID_RALLY_DEF_PCT := 40.0           # Bastião: +% defesa física e mágica
 const RAID_RALLY_REGEN := 0.015            # Bastião: fração da vida máxima por segundo
+# força da investida pelo nível do jogador no mapa: um passo por nível acima de RAID_SCALE_FROM, até RAID_SCALE_TO
+# (cada passo: +1 nível e os % abaixo nos invasores; levas ganham reforço em MapsCatalog.RAIDS["scale_extra"])
+const RAID_SCALE_FROM := 15
+const RAID_SCALE_TO := 20
+const RAID_SCALE_HP_PCT := 8.0
+const RAID_SCALE_ATK_PCT := 6.0
+const RAID_SCALE_DEF_PCT := 6.0
+const RAID_SCALE_XP_PCT := 8.0
 const BOT_MED_POTION_LEVEL := 8            # bot daqui para cima usa e compra as poções (M) (35%)
 const DORMANT_RANGE := 40.0                # monstro sem alvo e sem personagem a até isto dorme (não pensa/anda; custo da sim)
 const PLAYER_RESPAWN_TIME := 3.0

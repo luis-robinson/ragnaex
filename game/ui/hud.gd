@@ -674,7 +674,8 @@ func _update_raid_banner(p: SimEntity) -> void:
 	if rs.is_empty():
 		return
 	if rs["active"]:
-		raid_label.text = "Investida: %d de %d inimigos %s" % [rs["alive"], rs["total"], RAID_PHASE.get(rs["phase"], "")]
+		var tag: String = (" nv %d" % int(rs["level"])) if int(rs["level"]) > 0 else ""
+		raid_label.text = "Investida%s: %d de %d inimigos %s" % [tag, rs["alive"], rs["total"], RAID_PHASE.get(rs["phase"], "")]
 		raid_label.add_theme_color_override("font_color", Color(1.0, 0.5, 0.4) if rs["phase"] == "walls" else Color(1.0, 0.82, 0.55))
 		raid_banner.visible = true
 	elif float(rs["next_in"]) <= RAID_WARN:

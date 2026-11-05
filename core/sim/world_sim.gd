@@ -1127,6 +1127,7 @@ func _kill(e: SimEntity, killer: SimEntity) -> void:
 			Events.chat_message.emit(e.name, GameData.random_bot_line("death"), "global")
 
 var _elite_defs: Dictionary = {}
+var _raid_defs: Dictionary = {}      # "<id>@<passo>" -> MonsterDef da investida reforçada (RaidSystem.scaled_def)
 
 var _gear_pools: Dictionary = {}
 

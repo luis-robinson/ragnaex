@@ -306,7 +306,10 @@ const RAIDS := {
 		"say_start": "Trompas élficas na garganta norte! Uma investida desce rumo ao Posto dos Caçadores!",
 		"say_arrived": "Os elfos chegaram ao portão norte do Posto!",
 		"say_repelled": "A investida élfica foi repelida. O Posto resiste!",
-		"say_retreat": "Os elfos sobreviventes recuam para a garganta."},
+		"say_retreat": "Os elfos sobreviventes recuam para a garganta.",
+		# reforço por passo de força (nível do jogador, ver Balance.RAID_SCALE_*): somado a toda leva a partir do passo
+		"scale_extra": {3: {"elf_raider": 1}, 5: {"elf_raider_archer": 1}},
+		"say_strong": "As trompas soam mais graves: a investida veio reforçada!"},
 }
 
 ## NPCs do Posto dos Caçadores prontos para o MapDef (posições do JSON).

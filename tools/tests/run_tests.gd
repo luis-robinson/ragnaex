@@ -1314,6 +1314,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_start_ruins(gd, sim)
 	_check_raid_status(gd, sim)
 	_check_raid_defense(gd, sim)
+	_check_raid_scaling(gd, sim)
 	_check_interiors(gd, sim)
 	_check_druid_start(gd, sim)
 	_check_xp_budget(gd)
@@ -5000,6 +5001,50 @@ func _check_raid_defense(gd, sim) -> void:
 		ws.tick(1.0 / 20.0)
 	check(not b.buffs.any(func(x): return x.get("id") == "bastion") and b.stats.pdef < pdef_with, "defesa: Bastião some depois da leva")
 	check(b.brain.defend_wave == -1, "defesa: bot volta à rotina")
+
+## Força da investida pelo nível do jogador: passo 0 até RAID_SCALE_FROM, sobe por nível até RAID_SCALE_TO (teto);
+## invasor reforçado tem o mesmo id (quest conta), mais nível/vida/ataque/XP; passos altos trazem reforço na leva.
+func _check_raid_scaling(gd, sim) -> void:
+	var ws := WorldSim.new()
+	ws.rng.seed = 5
+	var def: MapDef = gd.maps["field_forest"].duplicate()
+	def.spawners = []
+	ws.load_map(gd.maps[GameData.town_map_id()])
+	var m: Dictionary = ws.load_map(def)
+	for o in m["entities"].duplicate():
+		if o.guard:
+			ws.despawn(o)
+	ws.player = ws.spawn_player(gd.classes["berserker"], "Escala", def.id)
+	ws.player.position = ws.random_walkable(def, def.raid["target"] + Vector3(0, 0, 10), 3.0)
+	var steps := {}
+	for lv in [10, Balance.RAID_SCALE_FROM, Balance.RAID_SCALE_FROM + 2, Balance.RAID_SCALE_TO, 30]:
+		ws.player.level = lv
+		steps[lv] = RaidSystem.power_step(ws, m)
+	check(steps[10] == 0 and steps[Balance.RAID_SCALE_FROM] == 0 and steps[Balance.RAID_SCALE_FROM + 2] == 2, "investida: força sobe com o nível do jogador (%s)" % str(steps))
+	check(steps[Balance.RAID_SCALE_TO] == steps[30] and steps[30] == Balance.RAID_SCALE_TO - Balance.RAID_SCALE_FROM, "investida: força para no nível %d" % Balance.RAID_SCALE_TO)
+	var base: MonsterDef = gd.monsters["elf_raider"]
+	var top := RaidSystem.scaled_def(ws, base, steps[30])
+	check(top.id == base.id and top.level == base.level + steps[30] and top.hp > base.hp * 1.3 and top.atk > base.atk * 1.2 and top.xp > base.xp, "investida: invasor reforçado (nv %d, %.0f HP, %.0f ATK)" % [top.level, top.hp, top.atk])
+	check(RaidSystem.scaled_def(ws, base, 0) == base and RaidSystem.scaled_def(ws, base, 3) == RaidSystem.scaled_def(ws, base, 3), "investida: força 0 é o monstro base; reforço guardado por passo")
+	check(base.level == 16 and base.hp == gd.monsters["elf_raider"].hp, "investida: monstro base não muda")
+	ws.player.level = 10
+	var weak: Array = RaidSystem.start_raid(ws, m)
+	var n_weak := weak.size()
+	var lv_weak: int = ws.raid_status(def.id)["level"]
+	for id in weak:
+		ws.despawn(ws.entities[id])
+	RaidSystem.update_raids(ws, m, 0.1)
+	RaidSystem.state(m)["n"] = 0                 # mesma leva de antes, agora com o jogador no nível máximo da força
+	ws.player.level = 30
+	var strong: Array = RaidSystem.start_raid(ws, m)
+	var rs: Dictionary = ws.raid_status(def.id)
+	check(strong.size() > n_weak and rs["step"] == steps[30] and rs["level"] > lv_weak, "investida: leva forte maior e de nível maior (%d -> %d, nv %d -> %d)" % [n_weak, strong.size(), lv_weak, rs["level"]])
+	var r0: SimEntity = ws.entities[strong[0]]
+	check(r0.level == r0.monster_def.level and r0.stats.max_hp == r0.monster_def.hp and r0.monster_def.level > gd.monsters[r0.monster_def.id].level, "investida: invasor nasce com os números reforçados")
+	for id in strong:
+		ws.despawn(ws.entities[id])
+	ws.despawn(ws.player)
+	ws.player = null
 
 ## Começo rápido nível 16: Posto dos Caçadores, cadeia élfica até a garganta, garganta liberada, grupo do nível.
 func _check_start_elf(gd, sim) -> void:

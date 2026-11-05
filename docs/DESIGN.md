@@ -246,6 +246,11 @@ Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MS
   posição em leque e, com 35% de vida, recua para dentro até 70%. **Bastião** (`RaidSystem._rally`): jogador e bots junto das muralhas
   durante a leva ganham +40% de defesa e 1,5% de vida/s. Bots do nível 8+ usam e compram poções (M). raid_probe (20 levas, nível 15):
   1 bot repele 20/20 (antes 17/20) com 0,5 sentinela morta (antes 3,0); 3 bots, 20/20 e a leva nem chega.
+  **Força pelo nível do jogador** (`RaidSystem.power_step/scaled_def`): um passo por nível do jogador no mapa acima de 15, até 20
+  (5 passos). Cada passo: invasores +1 nível, +8% vida, +6% ataque, +6% defesa, +8% XP (mesmo id: quests e loot iguais);
+  reforço na leva em `RAIDS["scale_extra"]` (passo 3: +1 batedor; passo 5: +1 arqueiro). A faixa mostra o nível da leva.
+  raid_probe (`--raid_level=N`, bots do mesmo nível): sentinelas sozinhas repelem 85% na base, 40% no 16, 15% no 17 e nada do 18
+  em diante; com 1 ajudante ~90% em todos, perdendo 0,5 sentinela na base e 1,3 no 20.
 - **Colheita na Cidade Élfica**: Erva Azul no lago, cogumelos sob os trents, Pedra Estelar no Altar da Lua e caixotes de Aço Élfico
   no acampamento da patrulha (guardado).
 - **Cidade Élfica (17-21)** (`build_elf_city.py`): anel élfico (muralha clara r 44, 6 portões) em volta da **Árvore-Mãe Ancestral**
