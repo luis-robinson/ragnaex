@@ -61,6 +61,11 @@ const XP_KILLS_PER_MIN := 3.0            # solo, contando o caminho entre um e o
 const XP_MOB_BASE := 6.0
 const XP_MOB_PER_LEVEL := 4.5
 const XP_QUEST_SHARE := 0.45             # quests (não repetíveis) dão ~45% da faixa; abates, caçadas e quadros o resto
+const XP_QUEST_SHARE_BAND := {10: 0.55}   # faixa do meio (10-20): quests pedem mais abates e pagam mais (parte maior da faixa)
+
+## Parte da XP da faixa que começa em `band_start` que vem de quests.
+static func quest_share(band_start: int) -> float:
+	return float(XP_QUEST_SHARE_BAND.get(band_start, XP_QUEST_SHARE))
 const XP_BANDS := [[1, 10], [10, 20], [20, 30]]
 const DEATH_XP_PENALTY := 0.03
 # pontos de skill: aprender skill, subir maestria e comprar evoluções. Não dá pra pegar tudo até o 30:
@@ -200,7 +205,7 @@ const PACK_AGGRO_RADIUS := 6.0             # puxou um monstro: os iguais parados
 # ---- sentinelas do povoado e investidas (GuardBrain, RaidSystem) ----
 const GUARD_AGGRO := 13.0                  # m: sentinela enxerga monstro
 const GUARD_LEASH := 22.0                  # m: não se afasta mais que isto do posto (ou de onde a briga começou, na ronda)
-const GUARD_RESPAWN := 70.0                # s até a sentinela caída voltar ao posto
+const GUARD_RESPAWN := 65.0                # s até a sentinela caída voltar ao posto
 const GUARD_REGEN_MULT := 3.0              # regenera mais rápido que personagem fora de combate
 const GUARD_PATROL_PACE := 0.42            # fração da velocidade na ronda
 const RAID_MUSTER := 12.0                  # s que a leva espera na garganta (trompas) antes de descer

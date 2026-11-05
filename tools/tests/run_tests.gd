@@ -2973,7 +2973,8 @@ func _check_xp_budget(gd) -> void:
 				qx += q.reward_xp
 				n += 1
 		var share := float(qx) / maxf(1.0, need)
-		check(share > 0.4 and share < 0.5, "faixa %d-%d: quests dão %.0f%% da XP (%d quests)" % [band[0], band[1], share * 100.0, n])
+		var want := Balance.quest_share(band[0])
+		check(absf(share - want) < 0.05, "faixa %d-%d: quests dão %.0f%% da XP (alvo %.0f%%, %d quests)" % [band[0], band[1], share * 100.0, want * 100.0, n])
 		check(n >= 10, "faixa %d-%d: pelo menos 10 quests (%d)" % [band[0], band[1], n])
 	var kills_l25: float = Balance.xp_for_level(25) * (1.0 - Balance.XP_QUEST_SHARE) / gd.monsters["skeleton"].xp
 	check(kills_l25 > 100 and kills_l25 < 400, "nível 25: ~%d abates de esqueleto (não milhares)" % int(kills_l25))

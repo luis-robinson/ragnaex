@@ -256,6 +256,8 @@ q01 bem-vindo (TALK) → q02 slimes → q03 gel → q04 primeira poção (CRAFT)
 c1 terra revirada (TALK) → c2 descida (REACH) → c3 Capitão + c4 Viúva (ramos) → c5 aviso à Capitã → q08 floresta (TALK) → q09 seda → q10 bandidos →
 q10b Rainha Aranha → el1 trompas → el2 segurar o portão (investidas) → el3 além da garganta → el4 trents → el5 Guardiões → el6 Rei Élfico → q12 ruínas → q13 núcleos → q13b Senhor da Cripta → q14 dragonete. c6 (Conde Vargo) é opcional e pede grupo; q11 (Chefe dos Bandidos) e a linha do Dario viraram laterais.
 
+Faixa do meio (10-20): monstros 1-2 níveis acima do antigo, quests de abate pedem 1,5x e a faixa toda paga mais em quest (`Balance.XP_QUEST_SHARE_BAND`: 55% em vez de 45%).
+
 Laterais vêm das cabanas e de Bento, o Coveiro; recompensas repetíveis (`b_*`) ficam nos quadros e não acendem marcador. O jogador pode desistir de uma quest ativa.
 
 **Portões** (`MapsCatalog.PORTAL_GATES`, só o jogador; bots passam): Catacumbas = nível 8 + c1; selo do Trono = Capitão e Viúva abatidos; Floresta = nível 10 + c5;
