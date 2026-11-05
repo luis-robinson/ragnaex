@@ -241,6 +241,11 @@ Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MS
   (perdendo ~4), com um grupo de 3, todas; chegada em ~43 s.
   Na tela: faixa no topo (`hud._update_raid_banner`, lendo `Sim.raid_status`) com "N de M inimigos marchando / nas muralhas / recuando"
   e, nos últimos 30 s antes da leva, a contagem; no minimapa os invasores são losangos laranja e o povoado atacado pulsa.
+  **Defesa do portão** (`BotBrain._defend`): bot a até `RAID_DEFEND_RANGE` do povoado decide uma vez por leva (80%) se larga a caça;
+  defensor vai ao portão atacado (`RaidSystem.gate_point`), pega o invasor mais perto até `RAID_DEFEND_LEASH` além da muralha, segura
+  posição em leque e, com 35% de vida, recua para dentro até 70%. **Bastião** (`RaidSystem._rally`): jogador e bots junto das muralhas
+  durante a leva ganham +40% de defesa e 1,5% de vida/s. Bots do nível 8+ usam e compram poções (M). raid_probe (20 levas, nível 15):
+  1 bot repele 20/20 (antes 17/20) com 0,5 sentinela morta (antes 3,0); 3 bots, 20/20 e a leva nem chega.
 - **Colheita na Cidade Élfica**: Erva Azul no lago, cogumelos sob os trents, Pedra Estelar no Altar da Lua e caixotes de Aço Élfico
   no acampamento da patrulha (guardado).
 - **Cidade Élfica (17-21)** (`build_elf_city.py`): anel élfico (muralha clara r 44, 6 portões) em volta da **Árvore-Mãe Ancestral**

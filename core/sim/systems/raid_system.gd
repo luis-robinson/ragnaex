@@ -89,13 +89,55 @@ static func _update_wave(sim: WorldSim, m: Dictionary, st: Dictionary, dt: float
 		Events.raid_event.emit(def.id, "repelled" if repelled else "retreated")
 		return
 	st["ids"] = alive
+	_rally(sim, m, st, dt)
 	if not st["retreat"] and float(st["t"]) >= float(r.get("lifetime", 150.0)):
 		st["retreat"] = true
 		Events.chat_message.emit("Sistema", str(r.get("say_retreat", "Os inimigos recuam.")), "system")
 		Events.raid_event.emit(def.id, "retreat")
 
+## Portão que a leva ataca: o portão do povoado mais perto do fim da rota (sem portões, o próprio alvo).
+static func gate_point(def: MapDef) -> Vector3:
+	var r := def.raid
+	var route: Array = r.get("route", [])
+	var last: Vector3 = route[route.size() - 1] if not route.is_empty() else r["target"]
+	var best: Vector3 = r["target"]
+	var bd := 1e9
+	for g in def.town_gates:
+		var d: float = (g as Vector3).distance_to(last)
+		if d < bd:
+			bd = d
+			best = g
+	return best
+
+## Bastião: aventureiros (jogador e bots) junto das muralhas durante a leva ganham defesa e regeneram vida,
+## para segurar o portão por um tempo. Renova a cada 0,5 s; some 1,5 s depois de sair da área ou da leva acabar.
+static func _rally(sim: WorldSim, m: Dictionary, st: Dictionary, dt: float) -> void:
+	st["rally_t"] = float(st.get("rally_t", 0.0)) - dt
+	if float(st["rally_t"]) > 0.0:
+		return
+	st["rally_t"] = 0.5
+	var def: MapDef = m["def"]
+	var target: Vector3 = def.raid["target"]
+	var reach: float = float(def.raid.get("radius", 25.0)) + Balance.RAID_RALLY_MARGIN
+	for e in m["entities"]:
+		if not (e.kind == SimEntity.Kind.PLAYER or e.kind == SimEntity.Kind.BOT) or not e.is_alive():
+			continue
+		if e.position.distance_to(target) > reach:
+			continue
+		var had := false
+		for b in e.buffs:
+			if b.get("id") == "bastion":
+				b["remaining"] = 1.5
+				had = true
+		if not had:
+			e.put_buff({"id": "bastion", "remaining": 1.5, "duration": 1.5, "def_pct": Balance.RAID_RALLY_DEF_PCT})
+			e.recompute_stats()
+			Events.buff_applied.emit(e.id, "bastion", 1.5)
+		e.hp = minf(e.stats.max_hp, e.hp + e.stats.max_hp * Balance.RAID_RALLY_REGEN * 0.5)
+
 ## Leitura para a apresentação (faixa do HUD, minimapa): {} sem investida no mapa.
-##   {active, alive, total, phase ("march" | "walls" | "retreat"), next_in (s até a próxima, só sem leva), target, radius}
+##   {active, alive, total, phase ("march" | "walls" | "retreat"), wave, next_in (s até a próxima, só sem leva), target, radius,
+##    gate (portão atacado), ids (invasores vivos)}
 static func status(sim: WorldSim, map_id: String) -> Dictionary:
 	var m: Dictionary = sim.maps.get(map_id, {})
 	if m.is_empty():
@@ -111,8 +153,9 @@ static func status(sim: WorldSim, map_id: String) -> Dictionary:
 			alive += 1
 	var active := not (st["ids"] as Array).is_empty()
 	var phase := "retreat" if st["retreat"] else ("walls" if st["arrived"] else "march")
-	return {"active": active, "alive": alive, "total": int(st.get("total", alive)), "phase": phase,
-		"next_in": 0.0 if active else maxf(0.0, float(st["timer"])), "target": def.raid["target"], "radius": float(def.raid.get("radius", 25.0))}
+	return {"active": active, "alive": alive, "total": int(st.get("total", alive)), "phase": phase, "wave": int(st["n"]),
+		"next_in": 0.0 if active else maxf(0.0, float(st["timer"])), "target": def.raid["target"], "radius": float(def.raid.get("radius", 25.0)),
+		"gate": gate_point(def), "ids": (st["ids"] as Array).duplicate()}
 
 ## Rota da marcha (ida ou volta) e o ponto atual para a entidade.
 static func march_point(sim: WorldSim, e: SimEntity) -> Vector3:

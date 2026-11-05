@@ -1313,6 +1313,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_start_elf(gd, sim)
 	_check_start_ruins(gd, sim)
 	_check_raid_status(gd, sim)
+	_check_raid_defense(gd, sim)
 	_check_interiors(gd, sim)
 	_check_druid_start(gd, sim)
 	_check_xp_budget(gd)
@@ -4932,6 +4933,73 @@ func _check_raid_status(gd, sim) -> void:
 			sim.despawn(x)
 	RaidSystem.update_raids(sim, m, 0.1)
 	check(not sim.raid_status("field_forest")["active"], "investida: leva desfeita volta à contagem")
+
+## Defesa do portão: bot perto do povoado larga a caça e vai ao portão atacado; Bastião (defesa + regeneração)
+## só perto das muralhas; ferido recua para dentro; bot do meio do jogo anda com poções (M).
+func _check_raid_defense(gd, sim) -> void:
+	var ws := WorldSim.new()
+	ws.rng.seed = 11
+	var def: MapDef = gd.maps["field_forest"].duplicate()
+	check(not def.raid.is_empty(), "defesa: Floresta tem investida")
+	if def.raid.is_empty():
+		return
+	def.spawners = []
+	def.raid = def.raid.duplicate(true)
+	def.raid["first"] = 999.0
+	def.raid["lifetime"] = 400.0
+	def.raid["waves"] = [{"mobs": {"elf_raider": 2, "elf_raider_archer": 1}}]
+	ws.load_map(gd.maps[GameData.town_map_id()])
+	var m: Dictionary = ws.load_map(def)
+	var target: Vector3 = def.raid["target"]
+	var gate := RaidSystem.gate_point(def)
+	check(gate.distance_to(target) > 5.0 and gate.distance_to(def.raid["route"][def.raid["route"].size() - 1]) < 8.0, "defesa: portão atacado é o do fim da rota (%s)" % str(gate))
+	var b: SimEntity = ws.spawn_bot(gd.classes["paladin"], "Def", def.id, ws.random_walkable(def, target + Vector3(40, 0, 10), 4.0), 16)
+	check(b.potion_slots[0] == "potion_hp_m" and b.has_item("potion_hp_m"), "defesa: bot nível 16 anda com Poção de Vida (M)")
+	var low: SimEntity = ws.spawn_bot(gd.classes["ranger"], "Novato", "city_aldara", Vector3(0, 0, 8), 3)
+	check(low.potion_slots[0] == "potion_hp_s", "defesa: bot de nível baixo continua com a (P)")
+	ws.despawn(low)
+	var far: SimEntity = ws.spawn_bot(gd.classes["ranger"], "Longe", def.id, ws.random_walkable(def, target + Vector3(0, 0, 0), 2.0), 16)
+	far.position = ws.random_walkable(def, target + Vector3(80, 0, 62), 6.0)   # bem longe do povoado (e da rota)
+	var ids: Array = RaidSystem.start_raid(ws, m)
+	var wave: int = ws.raid_status(def.id)["wave"]
+	b.brain.skip_wave = -1
+	b.brain.rng.seed = 1
+	var d0 := b.position.distance_to(gate)
+	for i in 14 * 20:                         # leva ainda na garganta (trompas): o bot chega ao portão
+		ws.tick(1.0 / 20.0)
+	check(b.brain.defend_wave == wave or b.brain.skip_wave == wave, "defesa: bot decide uma vez por leva")
+	if b.brain.skip_wave == wave:              # sorteio negou: força a decisão para conferir o resto
+		b.brain.skip_wave = -1
+		b.brain.defend_wave = wave
+		for i in 14 * 20:
+			ws.tick(1.0 / 20.0)
+	check(b.position.distance_to(gate) < 8.0 and b.position.distance_to(gate) < d0, "defesa: bot vai ao portão atacado (%.1f m, antes %.1f)" % [b.position.distance_to(gate), d0])
+	check(far.brain.defend_wave != wave, "defesa: bot longe do povoado não larga a caça")
+	var bastion := b.buffs.filter(func(x): return x.get("id") == "bastion")
+	check(bastion.size() == 1 and float(bastion[0]["def_pct"]) == Balance.RAID_RALLY_DEF_PCT, "defesa: Bastião no defensor junto da muralha")
+	check(not far.buffs.any(func(x): return x.get("id") == "bastion"), "defesa: sem Bastião longe das muralhas")
+	var pdef_with := b.stats.pdef
+	b.hp = b.stats.max_hp * 0.5
+	var hp0 := b.hp
+	for i in 20:
+		ws.tick(1.0 / 20.0)
+	check(b.hp > hp0, "defesa: Bastião regenera vida (%.0f -> %.0f)" % [hp0, b.hp])
+	# ferido: recua para dentro das muralhas
+	b.hp = b.stats.max_hp * 0.2
+	b.potion_cd = 99.0
+	for i in 3 * 20:
+		ws.tick(1.0 / 20.0)
+	check(b.brain.falling_back and b.position.distance_to(target) < gate.distance_to(target) - 2.0, "defesa: ferido recua para dentro (%.1f m do centro)" % b.position.distance_to(target))
+	b.potion_cd = 0.0
+	# leva desfeita: Bastião some, bot solto
+	for id in ids:
+		var x: SimEntity = ws.entities.get(id)
+		if x != null:
+			ws.despawn(x)
+	for i in 3 * 20:
+		ws.tick(1.0 / 20.0)
+	check(not b.buffs.any(func(x): return x.get("id") == "bastion") and b.stats.pdef < pdef_with, "defesa: Bastião some depois da leva")
+	check(b.brain.defend_wave == -1, "defesa: bot volta à rotina")
 
 ## Começo rápido nível 16: Posto dos Caçadores, cadeia élfica até a garganta, garganta liberada, grupo do nível.
 func _check_start_elf(gd, sim) -> void:

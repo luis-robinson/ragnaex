@@ -397,7 +397,8 @@ const STATUS_NAMES := {"burn": ["Queimando", "Fogo: perde HP com o tempo."], "po
 	"slow": ["Lento", "Anda mais devagar. Gelo estilhaça: skills de gelo causam mais dano."], "root": ["Preso", "Não consegue andar."],
 	"stun": ["Atordoado", "Não age até passar."], "curse": ["Amaldiçoado", "Recebe mais dano e/ou causa menos."],
 	"wither": ["Definhando", "Cura recebida reduzida."], "shield": ["Barreira", "Absorve dano."],
-	"juramento": ["Juramento", "Cargas do escudo: bloquear acumula."]}
+	"juramento": ["Juramento", "Cargas do escudo: bloquear acumula."],
+	"bastion": ["Bastião", "Defendendo as muralhas na investida: mais defesa e regenera vida."]}
 
 func _update_status_bar(p: SimEntity) -> void:
 	var want: Array = []                  # [chave, buff?, tempo, cargas, ícone, nome, descrição]

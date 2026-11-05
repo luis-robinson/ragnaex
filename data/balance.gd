@@ -210,6 +210,16 @@ const GUARD_REGEN_MULT := 3.0              # regenera mais rápido que personage
 const GUARD_PATROL_PACE := 0.42            # fração da velocidade na ronda
 const RAID_MUSTER := 12.0                  # s que a leva espera na garganta (trompas) antes de descer
 const RAID_MARCH_PACE := 0.6               # fração da velocidade na marcha (na luta e no recuo, cheia)
+# defesa do povoado (BotBrain._defend) e Bastião (RaidSystem._rally: aventureiros perto das muralhas na investida)
+const RAID_DEFEND_RANGE := 90.0            # m do povoado: bot mais perto que isto pode largar a caça e defender
+const RAID_DEFEND_CHANCE := 0.8            # por leva, cada bot no alcance decide uma vez
+const RAID_DEFEND_LEASH := 20.0            # m além da muralha que o defensor persegue um invasor
+const RAID_DEFEND_FALLBACK := 0.35         # vida: defensor recua para dentro, atrás das sentinelas...
+const RAID_DEFEND_RETURN := 0.7            # ...e volta ao portão com esta vida
+const RAID_RALLY_MARGIN := 8.0             # m além da muralha onde vale o Bastião
+const RAID_RALLY_DEF_PCT := 40.0           # Bastião: +% defesa física e mágica
+const RAID_RALLY_REGEN := 0.015            # Bastião: fração da vida máxima por segundo
+const BOT_MED_POTION_LEVEL := 8            # bot daqui para cima usa e compra as poções (M) (35%)
 const DORMANT_RANGE := 40.0                # monstro sem alvo e sem personagem a até isto dorme (não pensa/anda; custo da sim)
 const PLAYER_RESPAWN_TIME := 3.0
 const RESPAWN_SHARE := 0.5                 # renasce com metade da vida e da mana

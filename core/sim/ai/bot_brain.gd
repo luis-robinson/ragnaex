@@ -35,6 +35,9 @@ var water_goal := Vector3.INF
 var water_timer: float = 0.0
 var greet := ""                # fala no canal do grupo depois de entrar
 var shop_timer: float = 0.0    # seguidor: reabastece na vila a cada tanto
+var defend_wave := -1          # leva da investida que este bot decidiu defender (-1 = nenhuma)
+var skip_wave := -1            # leva que ele decidiu ignorar (decide uma vez por leva)
+var falling_back := false      # defensor ferido: recua para dentro das muralhas até recuperar
 
 ## Um convite ao jogador por vez no servidor inteiro (não vira spam).
 static var next_player_invite: float = 60.0
@@ -78,10 +81,10 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 
 	# --- sobrevivência: poção ---
 	var potion_at: float = 0.35 if e.class_def == null or e.class_def.basic_attack_is_ranged else Balance.BOT_POTION_HP_MELEE
-	if e.hp < e.stats.max_hp * potion_at and e.potion_cd <= 0.0 and e.has_item("potion_hp_s"):
+	if e.hp < e.stats.max_hp * potion_at and e.potion_cd <= 0.0 and _has_potion(e, 0):
 		cmd.potion_slot = 0
 		return cmd
-	if e.mp < e.stats.max_mp * 0.15 and e.potion_cd <= 0.0 and e.has_item("potion_mp_s"):
+	if e.mp < e.stats.max_mp * 0.15 and e.potion_cd <= 0.0 and _has_potion(e, 1):
 		cmd.potion_slot = 1
 		return cmd
 
@@ -90,6 +93,11 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 		var leader: SimEntity = sim.party_leader(e)
 		if leader and leader != e:
 			return _follow(e, sim, m, leader, cmd, dt)
+
+	# --- investida no mapa: defende o portão do povoado ---
+	var dcmd := _defend(e, sim, m, cmd, dt)
+	if dcmd != null:
+		return dcmd
 
 	# --- combate reativo: se um monstro me bate, luto mesmo fora do estado HUNT ---
 	var threat := Combat.nearest_hostile(e, m["entities"], 9.0)
@@ -432,12 +440,103 @@ func _sell_materials(e: SimEntity) -> void:
 			e.gold += it.price * n
 
 func _restock(e: SimEntity) -> void:
-	while int(e.inventory.get("potion_hp_s", 0)) < 5 and e.gold >= 15:
-		e.gold -= 15
-		e.add_item("potion_hp_s", 1)
-	while int(e.inventory.get("potion_mp_s", 0)) < 3 and e.gold >= 18:
-		e.gold -= 18
-		e.add_item("potion_mp_s", 1)
+	var med := e.level >= Balance.BOT_MED_POTION_LEVEL
+	var want := [["potion_hp_m" if med else "potion_hp_s", 5], ["potion_mp_m" if med else "potion_mp_s", 3]]
+	for slot in range(2):
+		var iid: String = want[slot][0]
+		var it: ItemDef = GameData.items.get(iid)
+		if it == null:
+			continue
+		e.potion_slots[slot] = iid
+		while int(e.inventory.get(iid, 0)) < int(want[slot][1]) and e.gold >= it.price:
+			e.gold -= it.price
+			e.add_item(iid, 1)
+
+## Tem poção no atalho `slot` (bot sem a do atalho usa a pequena que sobrou).
+func _has_potion(e: SimEntity, slot: int) -> bool:
+	var iid: String = e.potion_slots[slot]
+	if iid != "" and e.has_item(iid):
+		return true
+	var small: String = ["potion_hp_s", "potion_mp_s"][slot]
+	if e.has_item(small):
+		e.potion_slots[slot] = small
+		return true
+	return false
+
+# ---------------------------------------------------------------------------
+## Investida no mapa (RaidSystem): bot perto do povoado decide uma vez por leva se defende. Defensor vai ao portão
+## atacado, pega o invasor mais perto (até RAID_DEFEND_LEASH além da muralha), segura a posição entre um e outro,
+## e recua para dentro (sentinelas + Bastião) quando a vida cai, voltando inteiro. Null = não está defendendo.
+const DEFEND_LINES := ["Investida no portão! Bora segurar!", "Elfos no portão norte, vou ajudar", "segura o portão galera",
+	"de novo esses elfos kkk", "indo defender o posto"]
+
+func _defend(e: SimEntity, sim, m: Dictionary, cmd: InputCommand, dt: float) -> InputCommand:
+	var def: MapDef = m["def"]
+	if def.raid.is_empty():
+		return null
+	var rs: Dictionary = sim.raid_status(e.map_id)
+	if not rs["active"] or rs["phase"] == "retreat":
+		defend_wave = -1
+		falling_back = false
+		return null
+	var wave: int = rs["wave"]
+	var target: Vector3 = rs["target"]
+	if defend_wave != wave:
+		if skip_wave == wave:
+			return null
+		if state == S.RETURN or e.position.distance_to(target) > Balance.RAID_DEFEND_RANGE or rng.randf() > Balance.RAID_DEFEND_CHANCE:
+			skip_wave = wave
+			return null
+		defend_wave = wave
+		falling_back = false
+		if rng.randf() < 0.4:
+			Events.chat_message.emit(e.name, DEFEND_LINES[rng.randi() % DEFEND_LINES.size()], "global")
+	var gate: Vector3 = rs["gate"]
+	var out := (gate - target).normalized() if gate.distance_to(target) > 0.5 else Vector3(0, 0, -1)
+	# ferido: recua para dentro das muralhas (Bastião regenera, sentinelas cobrem) e volta com vida
+	if e.hp < e.stats.max_hp * Balance.RAID_DEFEND_FALLBACK:
+		falling_back = true
+	elif e.hp > e.stats.max_hp * Balance.RAID_DEFEND_RETURN:
+		falling_back = false
+	if falling_back:
+		var inside := target + out * float(rs["radius"]) * 0.45
+		if e.position.distance_to(inside) > 2.0:
+			cmd.move = _steer(e, inside, dt)
+			cmd.aim = inside
+			return cmd
+		var near := Combat.nearest_hostile(e, m["entities"], 5.0)     # encurralado: briga
+		if near:
+			return _fight(e, sim, m, near, cmd)
+		cmd.aim = gate
+		return cmd
+	# alvo: o que já está brigando, senão o invasor vivo mais perto dentro da coleira, senão quem me bate
+	var leash: float = float(rs["radius"]) + Balance.RAID_DEFEND_LEASH
+	var mob := _sticky(e, m, 14.0)
+	if mob and mob.position.distance_to(target) > leash + 4.0:
+		mob = null
+	if mob == null:
+		var bd := 1e9
+		for id in rs["ids"]:
+			var r: SimEntity = sim.entities.get(id)
+			if r == null or not r.is_alive() or r.position.distance_to(target) > leash:
+				continue
+			var d := r.position.distance_to(e.position)
+			if d < bd:
+				bd = d
+				mob = r
+	if mob == null:
+		mob = Combat.nearest_hostile(e, m["entities"], 7.0)
+	if mob:
+		return _fight(e, sim, m, mob, cmd)
+	# ninguém ao alcance: posição no portão, em leque, olhando para fora
+	var side := Vector3(-out.z, 0, out.x)
+	var spot := gate + out * 2.5 + side * float((e.id % 5) - 2) * 2.2
+	if e.position.distance_to(spot) > 1.2:
+		cmd.move = _steer(e, spot, dt)
+		cmd.aim = spot
+	else:
+		cmd.aim = gate + out * 10.0
+	return cmd
 
 ## Ponto intermediário para entrar/sair da vila murada pelo portão mais conveniente.
 func _route(e: SimEntity, p: Vector3) -> Vector3:

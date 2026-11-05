@@ -132,6 +132,10 @@ func spawn_character(kind: SimEntity.Kind, cls: ClassDef, char_name: String, map
 	e.potion_slots = ["potion_hp_s", "potion_mp_s", ""]
 	e.add_item("potion_hp_s", 5)
 	e.add_item("potion_mp_s", 3)
+	if kind == SimEntity.Kind.BOT and level >= Balance.BOT_MED_POTION_LEVEL:    # bot do meio do jogo já anda com as (M)
+		e.potion_slots = ["potion_hp_m", "potion_mp_m", ""]
+		e.add_item("potion_hp_m", 5)
+		e.add_item("potion_mp_m", 3)
 	for item_id in cls.starting_bag:
 		if GameData.items.has(item_id):
 			e.add_item(item_id, 1)
