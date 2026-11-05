@@ -20,7 +20,7 @@ var _vignette: ColorRect = null
 
 const WINDOWED_SIZE := Vector2i(1920, 1080)
 
-## F11: tela cheia <-> janela 1920x1080 centralizada (começa em tela cheia, ver project.godot).
+## F11: janela 1920x1080 centralizada <-> tela cheia (começa em janela, ver project.godot).
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F11:
 		if DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_WINDOWED:
