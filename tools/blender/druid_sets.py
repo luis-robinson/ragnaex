@@ -370,41 +370,65 @@ FORM_CLIPS = ("maul", "pounce", "slam", "roar", "brace")
 
 def form_clips(lp, arm, kind):
     z = (0, 0, 0)
-    f = lambda n: n          # mesmo tempo no lobo e no urso: o quadro do impacto é um só (EntityView.IMPACT_FRAME)
-    legs_f = lambda a, b: {"leg_fr": [(1, z, z)] + a, "leg_fl": [(1, z, z)] + b}
-    # patada: empina, rasga com a pata direita e depois a esquerda (impacto no 7)
-    lp.add_action(arm, "maul", dict({
-        "body": [(1, z, z), (f(4), (-26, 0, 6), (0, 0.12, 0)), (f(7), (20, 0, -12), (0, -0.12, 0)), (f(10), (16, 0, 12), (0, -0.1, 0)), (f(16), z, z)],
-        "head": [(1, z, z), (f(4), (-16, 0, 0), z), (f(7), (22, 0, 0), z), (f(10), (18, 0, 0), z), (f(16), z, z)]},
-        **legs_f([(f(4), (-70, 0, 0), z), (f(7), (40, 0, 0), z), (f(10), (10, 0, 0), z), (f(16), z, z)],
-                 [(f(4), (-30, 0, 0), z), (f(7), (-20, 0, 0), z), (f(10), (45, 0, 0), z), (f(16), z, z)])), f(16), loop=False)
-    # bote: agacha, salta para a frente com as patas esticadas e cai no alvo (impacto no 9)
+    hv = 1.0 if kind == "bear" else 0.0      # peso: o urso empina mais, desaba mais fundo, segura o impacto e assenta quicando
+    k = lambda a, b: a + (b - a) * hv          # valor do lobo -> valor do urso
+    def r(x, y=0.0, zz=0.0):
+        return (x, y, zz)
+    def p(y, zz=0.0):
+        return (0, y, zz)
+    end = lambda w, b: int(round(k(w, b)))
+    # patada: arma com as patas de trás, empina, rasga com a direita e depois a esquerda, a cabeça morde junto (impacto no 7)
+    e = end(16, 20)
+    lp.add_action(arm, "maul", {
+        "body": [(1, z, z), (3, r(8, 0, -4), p(-0.03 - 0.03 * hv)), (5, r(k(-26, -34), 0, 8), p(k(0.12, 0.2))), (7, r(k(20, 10), 0, -12), p(k(-0.12, -0.05))),
+                 (9, r(k(14, 8), 0, -6), p(k(-0.1, -0.05))), (11, r(k(16, 6), 0, 12), p(k(-0.1, -0.03))), (e - 3, r(-4, 0, 0), p(k(0.02, 0.04))), (e, z, z)],
+        "head": [(1, z, z), (3, r(10), z), (5, r(-18, 6), z), (7, r(k(26, 8), -8), z), (9, r(k(20, 6), 4), z), (11, r(k(16, 4), 8), z), (e - 3, r(-5), z), (e, z, z)],
+        "leg_fr": [(1, z, z), (3, r(15), z), (5, r(k(-70, -85)), z), (7, r(40, 0, 6), z), (9, r(22), z), (11, r(10), z), (e, z, z)],
+        "leg_fl": [(1, z, z), (3, r(15), z), (5, r(k(-30, -45)), z), (7, r(-24), z), (9, r(-10), z), (11, r(45, 0, -6), z), (e - 2, r(6), z), (e, z, z)],
+        "leg_br": [(1, z, z), (3, r(-18), z), (5, r(22), z), (7, r(-8), z), (11, r(-4), z), (e, z, z)],
+        "leg_bl": [(1, z, z), (3, r(-18), z), (5, r(22), z), (7, r(-12), z), (11, r(-6), z), (e, z, z)]}, e, loop=False)
+    # bote: agacha, salta com as patas esticadas e cai no alvo, quica e assenta (impacto no 9)
+    e = end(18, 21)
     lp.add_action(arm, "pounce", {
-        "body": [(1, z, z), (f(5), (10, 0, 0), (0, -0.14, -0.08)), (f(7), (-24, 0, 0), (0, 0.62, 0.3)), (f(8), (-6, 0, 0), (0, 0.5, 0.42)), (f(9), (18, 0, 0), (0, -0.06, 0.45)),
-                 (f(13), (8, 0, 0), (0, -0.08, 0.2)), (f(18), z, z)],
-        "head": [(1, z, z), (f(5), (12, 0, 0), z), (f(7), (-14, 0, 0), z), (f(9), (20, 0, 0), z), (f(18), z, z)],
-        "leg_fr": [(1, z, z), (f(5), (30, 0, 0), z), (f(7), (-70, 0, 0), z), (f(9), (20, 0, 0), z), (f(18), z, z)],
-        "leg_fl": [(1, z, z), (f(5), (30, 0, 0), z), (f(7), (-70, 0, 0), z), (f(9), (20, 0, 0), z), (f(18), z, z)],
-        "leg_br": [(1, z, z), (f(5), (-30, 0, 0), z), (f(7), (55, 0, 0), z), (f(9), (-10, 0, 0), z), (f(18), z, z)],
-        "leg_bl": [(1, z, z), (f(5), (-30, 0, 0), z), (f(7), (55, 0, 0), z), (f(9), (-10, 0, 0), z), (f(18), z, z)]}, f(18), loop=False)
-    # pisão: empina bem alto e desaba com as duas patas no chão (impacto no 8; área em volta)
-    lp.add_action(arm, "slam", dict({
-        "body": [(1, z, z), (f(5), (-42, 0, 0), (0, 0.32, -0.05)), (f(8), (22, 0, 0), (0, -0.16, 0.08)), (f(12), (16, 0, 0), (0, -0.14, 0.06)), (f(18), z, z)],
-        "head": [(1, z, z), (f(5), (-22, 0, 0), z), (f(8), (16, 0, 0), z), (f(18), z, z)]},
-        **legs_f([(f(5), (-85, 0, 0), z), (f(8), (25, 0, 0), z), (f(12), (20, 0, 0), z), (f(18), z, z)],
-                 [(f(5), (-85, 0, 0), z), (f(8), (25, 0, 0), z), (f(12), (20, 0, 0), z), (f(18), z, z)])), f(18), loop=False)
-    # rugido: recolhe, ergue a cabeça e sacode (impacto no 7; magias, gritos e buffs de força)
+        "body": [(1, z, z), (3, r(6), p(-0.06, -0.04)), (5, r(10), p(-0.14 - 0.04 * hv, -0.08)), (7, r(-24), p(0.62, 0.3)), (8, r(-6), p(0.5, 0.42)),
+                 (9, r(18), p(-0.06, k(0.45, 0.4))), (11, r(k(12, 16)), p(-0.04, k(0.36, 0.3))), (13, r(6), p(-0.1 - 0.04 * hv, 0.2)), (e - 2, r(-2), p(0.01, 0.02)), (e, z, z)],
+        "head": [(1, z, z), (5, r(12), z), (7, r(-14), z), (9, r(22), z), (11, r(14), z), (13, r(6), z), (e, z, z)],
+        "leg_fr": [(1, z, z), (5, r(30), z), (7, r(-70), z), (9, r(20), z), (11, r(12), z), (13, r(-6), z), (e, z, z)],
+        "leg_fl": [(1, z, z), (5, r(30), z), (7, r(-64), z), (9, r(24), z), (11, r(10), z), (13, r(-4), z), (e, z, z)],
+        "leg_br": [(1, z, z), (5, r(-30), z), (7, r(55), z), (8, r(40), z), (9, r(-10), z), (12, r(-14), z), (e, z, z)],
+        "leg_bl": [(1, z, z), (5, r(-30), z), (7, r(50), z), (8, r(45), z), (9, r(-8), z), (12, r(-12), z), (e, z, z)]}, e, loop=False)
+    # pisão: empina alto, desaba com as duas patas, o corpo afunda e quica (impacto no 8; área em volta)
+    e = end(18, 23)
+    lp.add_action(arm, "slam", {
+        "body": [(1, z, z), (3, r(8), p(-0.05)), (5, r(k(-42, -55)), p(k(0.32, 0.42), -0.05)), (6, r(k(-36, -50)), p(k(0.3, 0.4), -0.04)), (8, r(k(22, 8)), p(k(-0.16, -0.06), 0.08)),
+                 (10, r(k(18, 6)), p(k(-0.14, -0.06), 0.07)), (12, r(k(14, 6)), p(k(-0.1, -0.04), 0.05)), (14, r(k(4, 2)), p(k(0.0, 0.04))), (e - 2, r(-3), p(0.02)), (e, z, z)],
+        "head": [(1, z, z), (3, r(8), z), (5, r(-24), z), (8, r(k(18, 4)), z), (10, r(k(14, 2), 0, 4), z), (12, r(10, 0, -4), z), (e, z, z)],
+        "leg_fr": [(1, z, z), (3, r(12), z), (5, r(k(-85, -100)), z), (8, r(25, 0, 8), z), (12, r(20, 0, 6), z), (e - 2, r(-4), z), (e, z, z)],
+        "leg_fl": [(1, z, z), (3, r(12), z), (5, r(k(-85, -100)), z), (8, r(25, 0, -8), z), (12, r(20, 0, -6), z), (e - 2, r(-4), z), (e, z, z)],
+        "leg_br": [(1, z, z), (3, r(-12), z), (5, r(k(26, 34)), z), (8, r(-16, 0, 6), z), (12, r(-10), z), (e, z, z)],
+        "leg_bl": [(1, z, z), (3, r(-12), z), (5, r(k(26, 34)), z), (8, r(-16, 0, -6), z), (12, r(-10), z), (e, z, z)]}, e, loop=False)
+    # rugido: recolhe e solta; o lobo crava as patas e uiva de focinho para cima, o urso fica de pé nas patas de trás
+    # e abre os braços (impacto no 7; magias, gritos e buffs de força)
+    e = end(18, 22)
+    rear = k(-16, -48)
     lp.add_action(arm, "roar", {
-        "body": [(1, z, z), (f(4), (10, 0, 0), (0, -0.06, 0)), (f(7), (-16, 0, 0), (0, 0.06, 0)), (f(13), (-14, 0, 0), (0, 0.05, 0)), (f(18), z, z)],
-        "head": [(1, z, z), (f(4), (18, 0, 0), z), (f(7), (-38, 0, 8), z), (f(9), (-36, 0, -8), z), (f(11), (-38, 0, 8), z), (f(13), (-34, 0, 0), z), (f(18), z, z)]}, f(18), loop=False)
-    # guarda: crava as patas abertas e abaixa o corpo (impacto no 6; buffs de defesa)
+        "body": [(1, z, z), (4, r(10), p(-0.06, -0.02)), (7, r(rear), p(k(0.06, 0.16), k(0.04, -0.05))), (9, r(rear + 2, 0, 3), p(k(0.06, 0.16), k(0.04, -0.05))),
+                 (11, r(rear, 0, -3), p(k(0.05, 0.15), k(0.04, -0.05))), (13, r(rear + 2), p(k(0.05, 0.14), k(0.03, -0.04))), (e - 3, r(4), p(-0.03 * hv)), (e, z, z)],
+        "head": [(1, z, z), (4, r(18), z), (7, r(k(-38, -20), 0, 8), z), (9, r(k(-36, -18), 0, -8), z), (11, r(k(-38, -20), 0, 8), z), (13, r(k(-34, -16)), z), (e - 3, r(6), z), (e, z, z)],
+        "leg_fr": [(1, z, z), (4, r(-10, 0, 6), z), (7, r(k(-12, -60), 0, k(14, 34)), z), (11, r(k(-12, -64), 0, k(14, 30)), z), (13, r(k(-10, -56), 0, k(12, 28)), z), (e - 2, r(6), z), (e, z, z)],
+        "leg_fl": [(1, z, z), (4, r(-10, 0, -6), z), (7, r(k(-12, -60), 0, k(-14, -34)), z), (11, r(k(-12, -64), 0, k(-14, -30)), z), (13, r(k(-10, -56), 0, k(-12, -28)), z), (e - 2, r(6), z), (e, z, z)],
+        "leg_br": [(1, z, z), (4, r(8), z), (7, r(k(10, 40)), z), (13, r(k(10, 38)), z), (e - 2, r(-4), z), (e, z, z)],
+        "leg_bl": [(1, z, z), (4, r(8), z), (7, r(k(10, 40)), z), (13, r(k(10, 38)), z), (e - 2, r(-4), z), (e, z, z)]}, e, loop=False)
+    # guarda: crava as patas abertas, abaixa o corpo e respira pesado (impacto no 6; buffs de defesa)
+    e = end(16, 19)
+    low = k(-0.16, -0.22)
     lp.add_action(arm, "brace", {
-        "body": [(1, z, z), (f(6), (6, 0, 0), (0, -0.16, 0)), (f(12), (6, 0, 0), (0, -0.15, 0)), (f(16), z, z)],
-        "head": [(1, z, z), (f(6), (14, 0, 0), z), (f(12), (12, 0, 0), z), (f(16), z, z)],
-        "leg_fr": [(1, z, z), (f(6), (-12, 0, 18), z), (f(12), (-12, 0, 18), z), (f(16), z, z)],
-        "leg_fl": [(1, z, z), (f(6), (-12, 0, -18), z), (f(12), (-12, 0, -18), z), (f(16), z, z)],
-        "leg_br": [(1, z, z), (f(6), (12, 0, 14), z), (f(12), (12, 0, 14), z), (f(16), z, z)],
-        "leg_bl": [(1, z, z), (f(6), (12, 0, -14), z), (f(12), (12, 0, -14), z), (f(16), z, z)]}, f(16), loop=False)
+        "body": [(1, z, z), (3, r(-6), p(0.04)), (6, r(6), p(low)), (9, r(5), p(low + 0.02)), (12, r(6), p(low)), (e - 2, r(-2), p(0.02)), (e, z, z)],
+        "head": [(1, z, z), (3, r(-8), z), (6, r(16, 0, 4), z), (9, r(12, 0, -3), z), (12, r(12), z), (e, z, z)],
+        "leg_fr": [(1, z, z), (3, r(-20), z), (6, r(-12, 0, 18), z), (12, r(-12, 0, 18), z), (e, z, z)],
+        "leg_fl": [(1, z, z), (3, r(-20), z), (6, r(-12, 0, -18), z), (12, r(-12, 0, -18), z), (e, z, z)],
+        "leg_br": [(1, z, z), (3, r(10), z), (6, r(12, 0, 14), z), (12, r(12, 0, 14), z), (e, z, z)],
+        "leg_bl": [(1, z, z), (3, r(10), z), (6, r(12, 0, -14), z), (12, r(12, 0, -14), z), (e, z, z)]}, e, loop=False)
 
 
 def build_forms(out_dir):
