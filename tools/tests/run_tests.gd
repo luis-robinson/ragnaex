@@ -140,7 +140,7 @@ func _check_mastery_desc() -> void:
 		var d := TreeCatalog.mastery_desc(sk)
 		if not ("MP" in d and "recarga" in d) or (("poder" in d) != (sk.power > 0.0)):
 			bad.append(sid)
-		if sk.effects.has("form") and not ("forma não mudam" in d):
+		if sk.effects.has("form") and not ("bônus da forma" in d):
 			bad.append(sid + "(forma)")
 		if "Nível " in d:
 			extras += 1
@@ -2082,6 +2082,29 @@ func _check_necromancer_builds(gd, sim) -> void:
 		sim._update_entity(n, nm, 0.1)
 	check(n.form == "demon", "forma demoníaca não acaba sozinha")
 	sim._apply_effects(n, n, gd.skills["nec_demon_form"].effects, 0.0)
+	# maestria fortalece os bônus: forma (x form_mult) e buff (valores positivos), sem mexer em penalidade
+	var ph: SkillDef = gd.skills["nec_phantom"]
+	n.mastery.erase(ph.id)
+	sim._apply_skill(n, ph, nm)
+	var ev0: float = n.stats.evasion
+	sim.end_form(n)
+	n.mastery[ph.id] = 3
+	sim._apply_skill(n, ph, nm)
+	check(n.form == "phantom" and is_equal_approx(n.form_mult, 1.0 + 3 * Balance.MASTERY_BONUS_PCT), "maestria 3 na fantasma: form_mult %.2f" % n.form_mult)
+	check(n.stats.evasion > ev0 + 1.0, "maestria aumenta a esquiva da fantasma (%.1f -> %.1f)" % [ev0, n.stats.evasion])
+	sim.end_form(n)
+	check(n.form_mult == 1.0 or n.form == "", "forma desligada")
+	var ba: SkillDef = gd.skills["nec_bone_armor"]
+	n.mastery[ba.id] = 5
+	sim._apply_skill(n, ba, nm)
+	var got := 0.0
+	for b in n.buffs:
+		if b.get("id") == "bone_armor":
+			got = float(b.get("def_pct", 0))
+	var want: float = float(ba.effects["buff"]["def_pct"]) * (1.0 + 5 * Balance.MASTERY_BONUS_PCT)
+	check(is_equal_approx(got, want), "maestria 5 na Armadura de Ossos: DEF +%.1f%% (esperado %.1f)" % [got, want])
+	var pen := SimEntity.scaled_bonus({"speed_pct": -10, "def_pct": 40, "duration": 6}, 1.5)
+	check(pen["speed_pct"] == -10 and is_equal_approx(float(pen["def_pct"]), 60.0) and pen["duration"] == 6, "maestria não piora penalidade nem tempo")
 	sim.despawn(mob)
 	sim.despawn(n)
 

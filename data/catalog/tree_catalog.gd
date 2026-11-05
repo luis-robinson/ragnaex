@@ -232,11 +232,12 @@ static func mastery_desc(s: SkillDef) -> String:
 		parts.append("-%d%% de MP" % mp)
 	if cd != 0:
 		parts.append("-%d%% de recarga" % cd)
-	var t := "Cada nível (até %d): %s." % [Balance.MASTERY_MAX, ", ".join(parts)]
+	var bonus := roundi(Balance.MASTERY_BONUS_PCT * 100.0)
 	if s.effects.has("form"):
-		t += " Os bônus da forma não mudam com a maestria."
-	elif s.power <= 0.0 and (s.effects.has("buff") or s.effects.has("stealth")):
-		t += " Os bônus do efeito não mudam com a maestria."
+		parts.push_front("+%d%% nos bônus da forma" % bonus)
+	elif s.effects.get("buff") is Dictionary:
+		parts.push_front("+%d%% nos bônus do efeito" % bonus)
+	var t := "Cada nível (até %d): %s." % [Balance.MASTERY_MAX, ", ".join(parts)]
 	for lv in range(1, Balance.MASTERY_MAX + 1):
 		var ex: Dictionary = s.mastery_entry(lv).get("extra", {})
 		var lines: Array = []

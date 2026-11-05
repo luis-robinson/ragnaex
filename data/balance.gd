@@ -68,6 +68,7 @@ const DEATH_XP_PENALTY := 0.03
 const MASTERY_POINTS_PER_LEVEL := 2
 const MASTERY_BONUS_LEVELS := [10, 20, 30]  # +1 ponto extra
 const MASTERY_MAX := 5
+const MASTERY_BONUS_PCT := 0.1     # cada nível de maestria: +10% nos bônus de buff e forma (só os positivos; tempo não muda)
 const SKILL_LEARN_COST := 1
 const SKILL_SLOTS := 6
 const LOADOUT_TOWN_ONLY := true             # trocar skills da barra só na cidade

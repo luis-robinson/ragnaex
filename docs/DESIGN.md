@@ -168,6 +168,8 @@ vê o que é dele ou o que já ficou livre (`WorldSim.loot_visible_to`).
 No primeiro mapa (Vale de Aldara, `Balance.LEGENDARY_START_MAP`) o 1º conjunto (nível 5) cai em 1 de 25 (`LEGENDARY_START_MAP_CHANCE`), e o
 **Javali Presa-Rachada** (mini-chefe nível 5 no bosque a leste, renasce em 90 s; chama 2 leitões a 50% e se enfurece a 25%) dá 40% como todo chefe.
 Maestria: o nó +1 da árvore compra de novo até `MASTERY_MAX` (1 ponto por nível); é o único jeito de subir (usar a skill não sobe).
+Cada nível: +12% de poder (dano/cura), -4% MP, -5% recarga e +`MASTERY_BONUS_PCT` (10%) nos bônus positivos de buffs e formas
+(`SimEntity.scaled_bonus`, `form_mult`; penalidade e duração não mudam). A descrição de cada maestria sai dos dados (`TreeCatalog.mastery_desc`).
 **Talentos de escolha** (aba "Talentos" da janela K): 8 linhas (níveis 3, 6, 9, 12, 15, 18, 24, 28), cada uma com 3 bônus pequenos
 (ATK/MATK, HP, velocidade, vel. de ataque, DEF, MP, crítico, roubo de vida, cura, esquiva, `-% recarga` global, duração de bênçãos);
 escolhe-se **um por linha**, liberado pelo nível (não gasta pontos de skill), e trocar é na cidade (`Balance.PICK_SWAP_TOWN_ONLY`). Cada classe troca algumas opções

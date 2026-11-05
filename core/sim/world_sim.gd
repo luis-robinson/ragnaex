@@ -759,6 +759,12 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 		effects[k] = extra[k]
 	for k in s.talent_effects:     # evoluções vencem a maestria
 		effects[k] = s.talent_effects[k]
+	if lv > 0:                     # maestria fortalece os bônus de buff e de forma
+		var bm := 1.0 + Balance.MASTERY_BONUS_PCT * lv
+		if effects.get("buff") is Dictionary:
+			effects["buff"] = SimEntity.scaled_bonus(effects["buff"], bm)
+		if effects.has("form"):
+			effects["form_mult"] = bm
 	e.combat_timer = Balance.AGGRO_LOSE_TIME
 	var aim := Combat.clamp_aim(e, e.skill_aim, s.range)
 	var any_hit := false
@@ -903,6 +909,7 @@ func _apply_effects(src: SimEntity, t: SimEntity, effects: Dictionary, power: fl
 	var longer: float = 1.0 + (src.stats.buff_duration / 100.0 if src.is_character() and src.stats else 0.0)     # bênçãos do Sacerdote duram mais
 	if effects.get("form") != null and t == src:
 		t.form = "" if t.form == effects["form"] else effects["form"]     # forma liga/desliga (a fantasma também acaba sozinha)
+		t.form_mult = float(effects.get("form_mult", 1.0)) if t.form != "" else 1.0
 		t.form_left = float(Balance.FORM_DURATION.get(t.form, 0.0))
 		t.recompute_stats()
 		Events.buff_applied.emit(t.id, "form_" + (t.form if t.form != "" else "human"), t.form_left)

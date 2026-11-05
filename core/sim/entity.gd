@@ -34,6 +34,7 @@ var stats: Stats = Stats.new()
 var hp: float = 100.0
 var mp: float = 50.0
 var shield_hp: float = 0.0           # escudo temporário
+var form_mult: float = 1.0             # bônus da forma x maestria da skill que transformou (Balance.MASTERY_BONUS_PCT)
 var form: String = ""                 # forma de animal do Druida: "" | "wolf" | "bear" (skill de forma liga/desliga)
 var form_left: float = 0.0             # s até a forma acabar sozinha (0 = até desligar; Balance.FORM_DURATION)
 var stealth_left: float = 0.0         # s de furtividade (monstros não enxergam); qualquer golpe quebra
@@ -209,7 +210,7 @@ func recompute_stats() -> void:
 	else:
 		var extra: Array = [tree_bonus] if not tree_bonus.is_empty() else []
 		if form != "":
-			extra.append(Balance.FORM_STATS[form])
+			extra.append(scaled_bonus(Balance.FORM_STATS[form], form_mult))
 		stats = Stats.compute(class_def, level, equipment, buffs + extra)
 		if form != "" and not stats.meets([Balance.FORM_REQUIRES[form]]):
 			form = ""                # trocou de arma: volta à forma humana
@@ -308,3 +309,16 @@ func display_title() -> String:
 	if monster_def:
 		return "Lv.%d" % level
 	return ""
+
+
+## Bônus (buff ou forma) com a maestria: valores positivos x mult; penalidades, id e tempos ficam iguais.
+const BONUS_FIXED_KEYS := ["id", "duration", "remaining", "stacks"]
+static func scaled_bonus(d: Dictionary, mult: float) -> Dictionary:
+	if is_equal_approx(mult, 1.0):
+		return d
+	var out := d.duplicate()
+	for k in out:
+		var v: Variant = out[k]
+		if not (k in BONUS_FIXED_KEYS) and (v is float or v is int) and float(v) > 0.0:
+			out[k] = float(v) * mult
+	return out
