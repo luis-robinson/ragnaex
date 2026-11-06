@@ -3216,8 +3216,8 @@ func _check_xp_budget(gd) -> void:
 		var want := Balance.quest_share(band[0])
 		check(absf(share - want) < 0.05, "faixa %d-%d: quests dão %.0f%% da XP (alvo %.0f%%, %d quests)" % [band[0], band[1], share * 100.0, want * 100.0, n])
 		check(n >= 10, "faixa %d-%d: pelo menos 10 quests (%d)" % [band[0], band[1], n])
-	# nível a nível na primeira faixa: nenhum nível fica só no grind (o 6-7 já ficou sem quest nenhuma)
-	for lv in range(2, 10):
+	# nível a nível (faixas 1-10 e 10-20): nenhum nível fica só no grind (o 6-7 e o 11-13 já ficaram quase sem quest)
+	for lv in range(2, 20):
 		var qx_lv := 0
 		for qid in gd.quests:
 			var q: QuestDef = gd.quests[qid]
