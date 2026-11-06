@@ -105,6 +105,7 @@ var mastery: Dictionary = {}         # skill_id -> level 0..5
 var mastery_points: int = 0          # "pontos de skill": aprender, maestria e evoluções
 var build_id: String = ""            # bots: build escolhida (guia equipamento/skills)
 var inventory: Dictionary = {}       # item_id -> count
+var leg_cast_at: float = 0.0       # arma lendária que lança magia: quando pode lançar de novo (Balance.LEG_CAST_ICD)
 var sig_ready_at: float = 0.0      # efeito-assinatura da build: quando pode disparar de novo (Balance.SIGNATURE_ICD)
 var legend_ready_at: float = 0.0   # arma lendária: quando o efeito com recarga (icd) pode disparar de novo
 var lost_leader_t: float = 0.0     # s em outro mapa que o líder do grupo (bots: reaparecem ao lado dele)

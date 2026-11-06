@@ -61,8 +61,8 @@ static func signature_on_hit(sim: WorldSim, e: SimEntity, t: SimEntity, s: Skill
 	var basic := s.id.begins_with("basic_")
 	var chance: float = Balance.SIGNATURE_BASIC_PCT + floorf(e.level / 5.0) * Balance.SIGNATURE_BASIC_PER5 if basic else Balance.SIGNATURE_SKILL_PCT
 	var le: Dictionary = e.stats.legend if e.stats else {}
-	if basic and str(le.get("kind", "")) == "cast_on_basic" and str(le.get("skill", "")) == sid:
-		chance += float(le.get("chance", 0.0))
+	if str(le.get("kind", "")) == "cast_on_basic" and str(le.get("skill", "")) == sid:
+		chance += float(le.get("chance", 0.0))       # arma lendária com a mesma magia: soma no ataque e nas habilidades
 	if not sim.signature_force and sim.rng.randf() * 100.0 >= chance:
 		return
 	e.sig_ready_at = sim.time + Balance.SIGNATURE_ICD
@@ -78,14 +78,20 @@ static func legend_on_hit(sim: WorldSim, e: SimEntity, t: SimEntity, s: SkillDef
 		return
 	var le: Dictionary = e.stats.legend
 	var basic: bool = s != null and s.id.begins_with("basic_")
+	# vale para o básico e para habilidades; golpe de alvo único (ou quase) para os que espalham dano
+	var single: bool = basic or (s != null and s.max_targets <= 2)
+	var own_cast: bool = sim.signature_casting or (s != null and s.id == str(le.get("skill", "")))     # a magia lançada pela arma não lança outra
 	match str(le.get("kind", "")):
-		"cast_on_basic":
+		"cast_on_basic":                    # (nome antigo) lança magia ao acertar com ataque OU habilidade
 			if str(le["skill"]) == signature_skill(e):
 				pass                                # mesma magia da assinatura: soma chance lá (não dispara duas vezes)
-			elif basic and t.is_alive() and sim.rng.randf() * 100.0 < float(le["chance"]):
+			elif not own_cast and t.is_alive() and sim.time >= e.leg_cast_at and sim.rng.randf() * 100.0 < float(le["chance"]):
+				e.leg_cast_at = sim.time + Balance.LEG_CAST_ICD
+				sim.signature_casting = true
 				legend_cast(sim, e, str(le["skill"]), t.position)
+				sim.signature_casting = false
 		"chain":
-			if basic:
+			if single and not own_cast:
 				var left: int = int(le.get("targets", 1))
 				for o in sim.maps[e.map_id]["entities"]:
 					if left <= 0:
@@ -94,7 +100,7 @@ static func legend_on_hit(sim: WorldSim, e: SimEntity, t: SimEntity, s: SkillDef
 						sim._deal_damage(e, o, maxi(1, int(amount * float(le["pct"]) / 100.0)), false, false, "chain")
 						left -= 1
 		"splash":
-			if basic:
+			if single and not own_cast:
 				for o in sim.maps[e.map_id]["entities"]:
 					if o != t and o.is_alive() and e.is_hostile_to(o) and o.position.distance_to(t.position) <= float(le.get("radius", 2.5)):
 						sim._deal_damage(e, o, maxi(1, int(amount * float(le["pct"]) / 100.0)), false, false, "splash")

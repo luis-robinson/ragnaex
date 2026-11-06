@@ -170,7 +170,7 @@ No primeiro mapa (Vale de Aldara, `Balance.LEGENDARY_START_MAP`) o 1º conjunto 
 Maestria: o nó +1 da árvore compra de novo até `MASTERY_MAX` (1 ponto por nível); é o único jeito de subir (usar a skill não sobe).
 Cada nível: +12% de poder (dano/cura), -4% MP, -5% recarga e +`MASTERY_BONUS_PCT` (10%) nos bônus positivos de buffs e formas
 (`SimEntity.scaled_bonus`, `form_mult`; penalidade e duração não mudam). A descrição de cada maestria sai dos dados (`TreeCatalog.mastery_desc`).
-**Talentos de escolha** (aba "Talentos" da janela K): 8 linhas (níveis 3, 6, 9, 12, 15, 18, 24, 28), cada uma com 3 bônus pequenos
+**Talentos de escolha** (aba "Talentos" da janela K): 10 linhas, a cada 3 níveis (3 a 30), cada uma com 3 bônus pequenos
 (ATK/MATK, HP, velocidade, vel. de ataque, DEF, MP, crítico, roubo de vida, cura, esquiva, `-% recarga` global, duração de bênçãos);
 escolhe-se **um por linha**, liberado pelo nível (não gasta pontos de skill), e trocar é na cidade (`Balance.PICK_SWAP_TOWN_ONLY`). Cada classe troca algumas opções
 por bônus dela (`TreeCatalog.PICK_FLAVOR`: pet, costas, elementos, Radiância...). Nó `kind: "pick"`, `group: "row_N"`, sem ligações.
@@ -355,7 +355,9 @@ Movimento: atravessam água só pelas pontes (`WorldSim.water_path`, grafo de ca
 - **Efeito-assinatura** (`ClassesCatalog.SIGNATURES`, `LegendEffects.signature_on_hit`): toda build lança de graça a magia dela ao acertar,
   sem depender da arma (Fogo: Bola de Fogo; Gelo: Lança de Gelo; Iluminado: Martelo de Luz; Caçador: Flecha Gélida...). Chance
   `SIGNATURE_BASIC_PCT` (+1%/5 níveis) no básico e `SIGNATURE_SKILL_PCT` por acerto de skill, recarga `SIGNATURE_ICD`, poder `SIGNATURE_POWER`
-  x o peso da build; o que ela acerta não dispara outra. Arma lendária com a mesma magia (Brasa Viva) soma chance. O básico da build
+  x o peso da build; o que ela acerta não dispara outra. Arma lendária com a mesma magia (Brasa Viva) soma chance.
+  Armas lendárias que lançam magia (Brasa Viva, Castigo Sagrado, Lua Cheia, Praga) disparam ao acertar com ataque OU habilidade
+  (no máximo 1 por `LEG_CAST_ICD`); Arco Voltaico e Pólvora valem no básico e em habilidades de alvo único. O básico da build
   ganha a aparência do tema (`SkillDef.look`, só visual: não estilhaça nem atordoa) e perde `SIGNATURE_BASIC_TRIM`. Calibrado com
   `tools/tests/dps_probe.tscn` (cada build, nv 10/20/30, com x sem: -5%..+10%); revisar com `-- --autostart=<classe> --sig_film=<png>`.
 - **Invocações lutam sozinhas** (`MonsterBrain._summon_target`): quem bate no dono, depois quem o dono ataca, quem bate nela, o monstro mais perto do dono

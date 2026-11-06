@@ -17,7 +17,7 @@ const SIDE := 0.95                # maestria / evolução ao lado da skill
 const PANE_W := 3.0               # largura de um painel
 const PANE_GAP := 0.5
 const ROOT_Y := -1.5              # nó inicial acima dos painéis
-## Talentos de escolha (aba "Talentos" da janela K): uma linha por nível, 3 bônus pequenos, compra-se UM por linha
+## Talentos de escolha (aba "Talentos" da janela K): uma linha a cada 3 níveis (3..30), 3 bônus pequenos, compra-se UM por linha
 ## (liberado pelo nível, não gasta pontos; trocar é na cidade). "power" = ATK ou MATK conforme a classe. Nó: kind "pick", group "row_N".
 const PICK_ROWS := [
 	[3, [["power", 4], ["hp_pct", 5], ["speed_pct", 4]]],
@@ -26,8 +26,10 @@ const PICK_ROWS := [
 	[12, [["power", 5], ["evasion", 2.0], ["cdr", 4]]],
 	[15, [["aspd_pct", 8], ["hp_pct", 7], ["speed_pct", 5]]],
 	[18, [["crit", 3.0], ["def_pct", 8], ["buff_pct", 10]]],
+	[21, [["power", 6], ["def_pct", 9], ["mp_pct", 10]]],
 	[24, [["power", 7], ["lifesteal", 3], ["cdr", 6]]],
-	[28, [["crit", 4.0], ["hp_pct", 10], ["aspd_pct", 10]]],
+	[27, [["crit", 4.0], ["hp_pct", 10], ["aspd_pct", 10]]],
+	[30, [["power", 8], ["evasion", 3.0], ["speed_pct", 6]]],
 ]
 ## sabor da classe: linha -> bônus que entra no lugar da 3ª opção (ou da 2ª, se repetir uma das outras)
 const PICK_FLAVOR := {

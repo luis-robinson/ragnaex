@@ -1937,6 +1937,16 @@ func _check_legend_weapons_and_attrs(gd, sim) -> void:
 	var before: int = m["projectiles"].size()
 	sim._legend_on_hit(el, mob, basic, 50)
 	check(m["projectiles"].size() > before, "Brasa Viva (fogo): o básico lança uma Bola de Fogo")
+	el.leg_cast_at = 0.0
+	var before_sk: int = m["projectiles"].size()
+	sim._legend_on_hit(el, mob, gd.skills["ele_ice_lance"], 50)
+	check(m["projectiles"].size() > before_sk, "Brasa Viva também dispara ao acertar com habilidade")
+	var after_sk: int = m["projectiles"].size()
+	sim._legend_on_hit(el, mob, gd.skills["ele_ice_lance"], 50)
+	check(m["projectiles"].size() == after_sk, "Brasa Viva: no máximo uma por segundo")
+	sim._legend_on_hit(el, mob, gd.skills["ele_fireball"], 50)
+	check(m["projectiles"].size() == after_sk, "a Bola de Fogo da arma não lança outra")
+	el.leg_cast_at = 0.0
 	el.stats.legend = {"kind": "cast_when_hit", "skill": "ele_frost_nova", "icd": 20.0}
 	el.legend_ready_at = 0.0
 	var nhp: float = mob.hp
@@ -3932,6 +3942,8 @@ func _check_picks(cid: String, picks: Array, sim) -> void:
 			rows[n["group"]] = []
 		rows[n["group"]].append(n)
 	check(rows.size() == TreeCatalog.PICK_ROWS.size(), "%s: %d linhas de talento" % [cid, rows.size()])
+	var lvs: Array = TreeCatalog.PICK_ROWS.map(func(r): return int(r[0]))
+	check(lvs == [3, 6, 9, 12, 15, 18, 21, 24, 27, 30], "talentos a cada 3 níveis, do 3 ao 30 (%s)" % str(lvs))
 	for g in rows:
 		var keys := {}
 		for n in rows[g]:

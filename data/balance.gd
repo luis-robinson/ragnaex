@@ -113,6 +113,7 @@ const PET_DEF_SHARE := 0.8
 ## invocação com status do dono: ataque = MATK x share x (ATK do monstro / ref), limitado
 const SUMMON_MATK_SHARE := 0.6
 # efeito-assinatura da build (LegendEffects.signature_on_hit): magia de graça ao acertar, sem depender de arma
+const LEG_CAST_ICD := 1.0              # arma lendária que lança magia ao acertar: no máximo uma a cada isto (habilidade em área não dispara 10)
 const SIGNATURE_BASIC_PCT := 10.0      # % no acerto do básico...
 const SIGNATURE_BASIC_PER5 := 1.0      # ... +isto a cada 5 níveis
 const SIGNATURE_SKILL_PCT := 6.0       # % por acerto de skill

@@ -478,10 +478,10 @@ static func legend_effect_text(le: Dictionary) -> String:
 		"echo": body = "%.0f%% de chance do golpe bater de novo com %.0f%% do dano" % [float(le["chance"]), float(le["pct"])]
 		"thorns": body = "devolve %.0f%% do dano corpo a corpo recebido" % float(le["pct"])
 		"ward": body = "%.0f%% de cada cura vira barreira no alvo" % float(le["pct"])
-		"cast_on_basic": body = "o ataque básico tem %.0f%% de chance de lançar %s" % [float(le["chance"]), skn]
+		"cast_on_basic": body = "ataques e habilidades têm %.0f%% de chance de lançar %s ao acertar (no máximo 1 por segundo)" % [float(le["chance"]), skn]
 		"cast_when_hit": body = "ao levar um golpe lança %s (no máximo a cada %.0f s)" % [skn, float(le["icd"])]
-		"chain": body = "o ataque básico salta para +%d alvo%s com %.0f%% do dano" % [int(le["targets"]), "s" if int(le["targets"]) > 1 else "", float(le["pct"])]
-		"splash": body = "o tiro explode: %.0f%% do dano em quem estiver a %.1f m do alvo" % [float(le["pct"]), float(le["radius"])]
+		"chain": body = "ataques e habilidades de alvo único saltam para +%d alvo%s com %.0f%% do dano" % [int(le["targets"]), "s" if int(le["targets"]) > 1 else "", float(le["pct"])]
+		"splash": body = "tiros e habilidades de alvo único explodem: %.0f%% do dano em quem estiver a %.1f m do alvo" % [float(le["pct"]), float(le["radius"])]
 		"stun": body = "%.0f%% de chance de atordoar por %.1f s (a cada %.0f s no máximo)" % [float(le["chance"]), float(le["dur"]), float(le["icd"])]
 		"frenzy": body = "cada golpe dá +%.1f%% de velocidade de ataque por 4 s (até %d vezes)" % [float(le["pct"]), int(le["max"])]
 		"execute": body = "+%.0f%% de dano em alvo abaixo de %.0f%% da vida" % [float(le["pct"]), float(le["below"]) * 100.0]
