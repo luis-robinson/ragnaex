@@ -95,13 +95,12 @@ static func _chain_before(qid: String) -> Array:
 	return out
 
 static func respawn_character(sim: WorldSim, e: SimEntity) -> void:
-	var town := GameData.town_map_id()
+	var home := PortalSystem.home_of(e)
 	e.hp = e.stats.max_hp * Balance.RESPAWN_SHARE
 	e.mp = e.stats.max_mp * Balance.RESPAWN_SHARE
 	e.set_state(SimEntity.State.IDLE)
 	e.threat.clear()
-	var def := sim.map_def(town)
-	PortalSystem.change_map(sim, e, town, def.spawn_point)
+	PortalSystem.change_map(sim, e, home["map"], home["pos"])      # cristal vinculado, ou a cidade
 	Events.entity_respawned.emit(e.id)
 
 ## Cópia da skill com as evoluções do personagem aplicadas (só as cuja arma exigida ele empunha).
@@ -176,7 +175,7 @@ static func tree_block_reason(sim: WorldSim, e: SimEntity, node_id: String) -> S
 			return "requer nível %d" % int(n["level"])
 		var other := pick_sibling(sim, e, node_id)
 		if other != "":
-			if Balance.PICK_SWAP_TOWN_ONLY and sim.maps.has(e.map_id) and not sim.maps[e.map_id]["def"].in_town(e.position):
+			if Balance.PICK_SWAP_TOWN_ONLY and sim.maps.has(e.map_id) and not sim.maps[e.map_id]["def"].in_hub(e.position):
 				return "troque a escolha desta linha na cidade"
 			return ""                          # troca: o ponto da escolha antiga volta
 		if e.mastery_points < int(n["cost"]):
@@ -263,8 +262,8 @@ static func learn_talent(sim: WorldSim, e: SimEntity, talent_id: String) -> bool
 static func set_skill_slot(sim: WorldSim, e: SimEntity, slot: int, skill_id: String) -> bool:
 	if slot < 0 or slot >= Balance.SKILL_SLOTS:
 		return false
-	if Balance.LOADOUT_TOWN_ONLY and sim.maps.has(e.map_id) and not sim.maps[e.map_id]["def"].in_town(e.position):
-		Events.notification.emit("Troque skills da barra na cidade")
+	if Balance.LOADOUT_TOWN_ONLY and sim.maps.has(e.map_id) and not sim.maps[e.map_id]["def"].in_hub(e.position):
+		Events.notification.emit("Troque skills da barra na cidade ou num povoado com cristal")
 		return false
 	e.ensure_slots()
 	if skill_id == "":

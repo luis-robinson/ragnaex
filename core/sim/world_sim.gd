@@ -1123,7 +1123,7 @@ func _kill(e: SimEntity, killer: SimEntity) -> void:
 	if e.kind == SimEntity.Kind.MONSTER:
 		LootSystem.on_monster_killed(self, e, killer)
 	elif e.kind == SimEntity.Kind.PLAYER:
-		Events.notification.emit("Você morreu. Renascendo em %s..." % map_def(GameData.town_map_id()).name)
+		Events.notification.emit("Você morreu. Renascendo em %s..." % map_def(PortalSystem.home_of(e)["map"]).name)
 		var loss := int(e.xp * Balance.DEATH_XP_PENALTY)
 		e.xp = maxi(0, e.xp - loss)
 	elif e.kind == SimEntity.Kind.BOT:
@@ -1605,6 +1605,11 @@ func _update_boss(e: SimEntity) -> void:
 	MobSystem.update_boss(self, e)
 func reset_boss(e: SimEntity) -> void:
 	MobSystem.reset_boss(self, e)
+# Cristal de retorno
+func bind_crystal(e: SimEntity, npc_id: String) -> bool:
+	return PortalSystem.bind_crystal(self, e, npc_id)
+func home_of(e: SimEntity) -> Dictionary:
+	return PortalSystem.home_of(e)
 # RaidSystem
 func raid_status(map_id: String) -> Dictionary:
 	return RaidSystem.status(self, map_id)

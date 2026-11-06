@@ -486,6 +486,7 @@ func _npc_role_label() -> String:
 		"quest": return "Quest"
 		"smith": return "Ferreiro"
 		"alchemy": return "Alquimista"
+		"crystal": return "Cristal"
 		"merchant": return "Mercador"
 		"storage": return "Depósito"
 		"relic": return "Relicária"

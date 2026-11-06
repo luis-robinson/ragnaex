@@ -53,6 +53,18 @@ static func build() -> Array:
 		md.gather = gather_rules(md.id)
 	return out
 
+## Cristais de retorno (role "crystal", modelo prop_crystal): vincular = G e renascer ali. Posição (x, z) na praça.
+const CRYSTALS := {"city_aldara": [-7.5, 0.0], "field_forest": [-5.5, -5.5]}
+const CRYSTAL_LINES := ["Uma pedra azul que zumbe baixinho. Toque para lembrar deste lugar.", "Os viajantes juram que o cristal os puxa de volta para casa."]
+
+static func crystal_npc(map_id: String) -> Array:
+	if not CRYSTALS.has(map_id):
+		return []
+	var p: Array = CRYSTALS[map_id]
+	var d := _npc("crystal_" + map_id, "Cristal de Retorno", float(p[0]), float(p[1]), "crystal", Color(0.45, 0.75, 1.0), CRYSTAL_LINES)
+	d["model"] = "prop_crystal"
+	return [d]
+
 ## NPCs dos lugares da zona `id` (cabanas e santuários).
 static func _place_npcs(id: String, npc_pos: Dictionary) -> Array:
 	var out: Array = []
@@ -419,6 +431,11 @@ static func load_zone(id: String) -> Dictionary:
 		if o.has("roof"):
 			d["roof"] = _col(o["roof"], C_ROOF)
 		obs.append(d)
+	if CRYSTALS.has(id):                  # cristal de retorno: coluna sólida invisível (o visual é o prop do NPC)
+		var cp: Array = CRYSTALS[id]
+		var c := _ob("pillar", float(cp[0]), float(cp[1]), 1.1, 2.6, 1.1, C_STONE, 0.0, true)
+		c["hidden"] = true
+		obs.append(c)
 	var portals: Array = []
 	for p in z["portals"]:
 		portals.append(_portal(p["id"], float(p["pos"][0]), float(p["pos"][1]), p["target_map"], float(p["target_pos"][0]), float(p["target_pos"][1]), p["label"]))
@@ -473,6 +490,7 @@ static func _aldara() -> MapDef:
 		var p: Array = npc_pos.get(nid, [0.0, 0.0, 180.0])
 		npcs.append(_npc(nid, n[0], float(p[0]), float(p[1]), n[1], n[2], n[3], float(p[2]), MERCHANT_SHOP + GearCatalog.shop_ids() + GearCatalog.starter_weapon_ids(GameData.items) if nid == "merchant" else []))
 	npcs.append_array(_place_npcs("city_aldara", npc_pos))
+	npcs.append_array(crystal_npc("city_aldara"))
 	npcs.append_array(villagers())
 	z["portals"] = (z["portals"] as Array) + _door_portals(_interior_doors(z))
 	z.erase("npc_pos")
@@ -488,10 +506,10 @@ static func _aldara() -> MapDef:
 static func _forest() -> MapDef:
 	var z := load_zone("field_forest")
 	var p: Array = z["npc_pos"].get("ranger_post", [0.0, 0.0, 180.0])
-	var extra := _place_npcs("field_forest", z["npc_pos"]) + forest_npcs(z["npc_pos"]) + villagers(POST_VILLAGERS)
+	var extra := _place_npcs("field_forest", z["npc_pos"]) + forest_npcs(z["npc_pos"]) + villagers(POST_VILLAGERS) + crystal_npc("field_forest")
 	z.erase("npc_pos")
 	z.merge({
-		"id": "field_forest", "name": "Floresta Sombria", "is_town": false, "level_range": Vector2i(10, 20),
+		"id": "field_forest", "name": "Floresta Sombria", "is_town": false, "hub": true, "level_range": Vector2i(10, 20),
 		"ground_color": Color(0.36, 0.52, 0.34), "ground_color_alt": Color(0.32, 0.48, 0.31), "ambient": Color(0.75, 0.85, 0.8), "sun_energy": 0.95,
 		"bot_population": 6,
 		"npcs": [_npc("ranger_post", "Ranger Teo", float(p[0]), float(p[1]), "quest", Color(0.5, 0.75, 0.55),

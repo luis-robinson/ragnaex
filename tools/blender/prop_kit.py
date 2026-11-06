@@ -799,12 +799,76 @@ def door(m):
             ck.ball("knob", 0.05, (0.4, -0.02, 1.0), m["iron"])]
 
 
+def _prism(name, r, h, sides, base, mat):
+    """Prisma de `sides` lados (degrau octogonal) com a base em `base`."""
+    me = bpy.data.meshes.new(name)
+    bm = bmesh.new()
+    bmesh.ops.create_cone(bm, cap_ends=True, segments=sides, radius1=r, radius2=r * 0.96, depth=h)
+    bm.to_mesh(me)
+    bm.free()
+    o = bpy.data.objects.new(name, me)
+    bpy.context.scene.collection.objects.link(o)
+    for v in o.data.vertices:
+        v.co += Vector(base) + Vector((0, 0, h * 0.5))
+    o.data.materials.append(mat)
+    return o
+
+
+def _bipyramid(name, r, h_top, h_bot, sides, center, mat, twist=0.0):
+    """Cristal facetado: bipirâmide de `sides` lados (ponta em cima maior que a de baixo)."""
+    import bmesh
+    me = bpy.data.meshes.new(name)
+    bm = bmesh.new()
+    ring = [bm.verts.new((math.cos(twist + i * math.tau / sides) * r, math.sin(twist + i * math.tau / sides) * r, 0.0)) for i in range(sides)]
+    top = bm.verts.new((0.0, 0.0, h_top))
+    bot = bm.verts.new((0.0, 0.0, -h_bot))
+    for i in range(sides):
+        a, b = ring[i], ring[(i + 1) % sides]
+        bm.faces.new((a, b, top))
+        bm.faces.new((b, a, bot))
+    bm.to_mesh(me)
+    bm.free()
+    o = bpy.data.objects.new(name, me)
+    bpy.context.scene.collection.objects.link(o)
+    for v in o.data.vertices:
+        v.co += Vector(center)
+    o.data.materials.append(mat)
+    return o
+
+
+def crystal(m):
+    """Cristal de retorno (vincular = G e renascer): base octogonal de pedra em degraus com runas que brilham,
+    três garras de pedra segurando um cristal azul facetado que flutua, e lascas em volta.
+    ~2,7 m: de cima lê como um losango azul cercado de pedra clara na praça."""
+    cry = ck.mat("p_crystal", (0.16, 0.5, 1.0), 0.15, 1.2)
+    cry_d = ck.mat("p_crystal_d", (0.08, 0.26, 0.75), 0.2, 0.5)
+    parts = []
+    for i, (r, h, z0, mat) in enumerate([(1.1, 0.22, 0.0, m["stone_d"]), (0.84, 0.2, 0.22, m["stone"]), (0.55, 0.16, 0.42, m["stone_l"])]):
+        parts.append(_prism("base%d" % i, r, h, 8, (0, 0, z0), mat))
+    for i in range(8):                       # runas: plaquinhas brilhando nos lados do degrau de baixo
+        a = i * math.tau / 8 + math.tau / 16
+        parts.append(B("rune%d" % i, (0.34, 0.04, 0.12), (math.cos(a) * 1.03, math.sin(a) * 1.03, 0.11), cry, 0.005, a + math.pi * 0.5))
+    parts.append(_prism("glow_disc", 0.42, 0.03, 8, (0, 0, 0.58), cry))          # poça de luz embaixo do cristal
+    for i in range(3):                       # garras de pedra: sobem da base e curvam para dentro
+        a = i * math.tau / 3 + math.pi / 6
+        c, sn = math.cos(a), math.sin(a)
+        parts.append(beam("claw_a%d" % i, (c * 0.62, sn * 0.62, 0.5), (c * 0.78, sn * 0.78, 1.3), 0.16, m["stone"]))
+        parts.append(beam("claw_b%d" % i, (c * 0.78, sn * 0.78, 1.3), (c * 0.5, sn * 0.5, 1.95), 0.13, m["stone_l"]))
+        parts.append(_bipyramid("claw_gem%d" % i, 0.07, 0.12, 0.08, 4, (c * 0.5, sn * 0.5, 2.0), cry, a))
+    parts.append(_bipyramid("core", 0.46, 1.0, 0.6, 6, (0, 0, 1.6), cry, 0.2))
+    parts.append(_bipyramid("core_in", 0.26, 0.62, 0.38, 6, (0, 0, 1.65), cry_d, 0.7))
+    for i in range(3):                       # lascas flutuando entre as garras
+        a = i * math.tau / 3 + math.pi / 6 + math.pi / 3
+        parts.append(_bipyramid("shard%d" % i, 0.1, 0.28, 0.16, 5, (math.cos(a) * 0.95, math.sin(a) * 0.95, 1.2 + 0.28 * i), cry, a))
+    return parts
+
+
 BUILDERS = {"house": house, "tree": tree, "rock": rock, "pillar": pillar, "wall": wall, "well": well,
             "fountain": fountain, "lamp": lamp, "stall": stall, "crate": crate, "tent": tent, "ruin": ruin,
             "statue": statue, "fence": fence, "bench": bench, "pine": pine, "bush": bush, "dead_tree": dead_tree,
             "log": log, "stump": stump, "flowers": flowers, "reeds": reeds,
             "iwall": iwall, "table": table, "stool": stool, "bed": bed, "counter": counter, "shelf": shelf,
-            "fireplace": fireplace, "barrel": barrel, "rug": rug, "anvil": anvil, "cauldron": cauldron, "door": door}
+            "fireplace": fireplace, "barrel": barrel, "rug": rug, "anvil": anvil, "cauldron": cauldron, "door": door, "crystal": crystal}
 import elf_props                       # arquitetura élfica (Cidade Élfica): casa-árvore, casulo, lanterna, portal
 importlib.reload(elf_props)
 BUILDERS.update(elf_props.BUILDERS)

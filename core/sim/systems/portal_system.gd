@@ -76,6 +76,36 @@ static func portal_towards(def: MapDef, target_map: String) -> Dictionary:
 			return p
 	return def.portals[0] if def.portals.size() > 0 else {}
 
+## Ponto de retorno (G e renascer): o cristal vinculado, ou a entrada da cidade inicial.
+static func home_of(e: SimEntity) -> Dictionary:
+	if e.bind_map != "" and GameData.maps.has(e.bind_map):
+		return {"map": e.bind_map, "pos": e.bind_pos}
+	var town := GameData.town_map_id()
+	return {"map": town, "pos": GameData.maps[town].spawn_point}
+
+## Vincula o cristal `npc` (NPC de role "crystal" do mapa atual): o retorno passa a ser na frente dele.
+static func bind_crystal(sim: WorldSim, e: SimEntity, npc_id: String) -> bool:
+	var npc: SimEntity = null
+	for o in sim.maps[e.map_id]["entities"] if sim.maps.has(e.map_id) else []:
+		if o.kind == SimEntity.Kind.NPC and o.npc_data.get("id", "") == npc_id:
+			npc = o
+	if npc == null or npc.npc_data.get("role", "") != "crystal":
+		return false
+	var def: MapDef = sim.maps[e.map_id]["def"]
+	var to_center := def.town_center - npc.position
+	to_center.y = 0.0
+	var dir := to_center.normalized() if to_center.length() > 0.5 else Vector3(0, 0, 1)
+	var pos := npc.position + dir * Balance.CRYSTAL_ARRIVE
+	for i in range(8):                     # frente do cristal livre (banco, barraca): gira até achar chão
+		if sim.is_walkable(pos, def, 0.5):
+			break
+		pos = npc.position + dir.rotated(Vector3.UP, PI * 0.25 * (i + 1)) * Balance.CRYSTAL_ARRIVE
+	e.bind_map = e.map_id
+	e.bind_pos = pos
+	if e == sim.player:
+		Events.notification.emit("Ponto de retorno: %s. O G e o renascer trazem você aqui." % npc.name)
+	return true
+
 ## `map_id` é `area` ou fica dentro dela (dungeon da zona).
 static func map_within(sim: WorldSim, map_id: String, area: String) -> bool:
 	var cur := map_id
@@ -114,7 +144,8 @@ static func process_map_changes(sim: WorldSim) -> void:
 static func update_recall(sim: WorldSim, e: SimEntity, cmd: InputCommand, action_cmd: InputCommand, dt: float) -> void:
 	if not e.is_character():
 		return
-	var town := GameData.town_map_id()
+	var home := home_of(e)
+	var town: String = home["map"]
 	if cmd.recall:
 		if e.recall_left > 0.0:
 			e.recall_left = 0.0
@@ -126,8 +157,8 @@ static func update_recall(sim: WorldSim, e: SimEntity, cmd: InputCommand, action
 			why = "Não dá agora"
 		elif e.combat_timer > 0.0:
 			why = "Não dá para voltar à cidade em combate"
-		elif e.map_id == town and sim.maps[town]["def"].in_town(e.position):
-			why = "Você já está na cidade"
+		elif e.map_id == town and (e.position.distance_to(home["pos"]) < Balance.RECALL_NEAR or (e.bind_map == "" and sim.maps[town]["def"].in_town(e.position))):
+			why = "Você já está no seu ponto de retorno"
 		if why != "":
 			if e == sim.player:
 				Events.notification.emit(why)
@@ -148,7 +179,7 @@ static func update_recall(sim: WorldSim, e: SimEntity, cmd: InputCommand, action
 	if e.recall_left <= 0.0:
 		e.recall_left = 0.0
 		e.mounted = false
-		sim._pending_map_changes.append({"e": e, "map": town, "pos": GameData.maps[town].spawn_point})
+		sim._pending_map_changes.append({"e": e, "map": town, "pos": home["pos"]})
 
 static func change_map(sim: WorldSim, e: SimEntity, map_id: String, pos: Vector3) -> void:
 	if e.mounted and GameData.maps.has(map_id) and GameData.maps[map_id].parent_map != "":

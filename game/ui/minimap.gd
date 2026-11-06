@@ -220,6 +220,12 @@ func _draw_dynamic() -> void:
 			SimEntity.Kind.NPC:
 				if mark != "":
 					quest_marks.append([rel, mark])
+				elif e.npc_data.get("role", "") == "crystal":       # cristal de retorno: losango azul (maior se for o seu)
+					var r := 5.0 if p.bind_map == p.map_id else 3.6
+					var dm := PackedVector2Array([rel + Vector2(0, -r), rel + Vector2(r * 0.7, 0), rel + Vector2(0, r), rel + Vector2(-r * 0.7, 0)])
+					d.draw_colored_polygon(dm, Color(0.45, 0.8, 1.0))
+					dm.append(dm[0])
+					d.draw_polyline(dm, Color(0.05, 0.15, 0.3), 1.2, true)
 				else:
 					d.draw_circle(rel, 3.0, Color(0.95, 0.95, 0.8))
 	for qm in quest_marks:

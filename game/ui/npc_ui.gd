@@ -238,6 +238,14 @@ func _dialog(body: VBoxContainer) -> void:
 			actions.add_child(UiKit.button("Abrir o depósito", func(): mode = "storage"; _rebuild(), 160))
 		"relic":
 			actions.add_child(UiKit.button("Trocar moedas lendárias", func(): mode = "relic"; _rebuild(), 200))
+		"crystal":
+			var bound: bool = p.bind_map == p.map_id
+			if bound:
+				body.add_child(UiKit.para("Este é o seu ponto de retorno: o G e o renascer trazem você aqui. Dentro do povoado dá para trocar skills.", 12, Color(0.6, 0.85, 1.0)))
+			else:
+				var here: String = GameData.maps[Sim.home_of(p)["map"]].name
+				body.add_child(UiKit.para("Ponto de retorno atual: %s. Vincular aqui muda o destino do G e onde você renasce." % here, 12, UiKit.MUTED))
+				actions.add_child(UiKit.button("Vincular aqui", func(): Sim.bind_crystal(p, npc_id); _rebuild(), 150))
 		"board":
 			body.add_child(UiKit.para("Campina (Lv 1-10): fora dos portões · Floresta (Lv 10-20): desfiladeiro leste · Ruínas (Lv 20-30): passagem oeste", 11, UiKit.MUTED))
 	actions.add_child(UiKit.button("Fechar", close, 100))

@@ -393,6 +393,9 @@ seguem, curam, provocam e atacam o que bate no grupo (`BotBrain._follow`).
 quests de abate contam o Rei como o monstro comum (`MonsterDef.elite_of`, `WorldSim.elite_def/_count_kill`).
 
 **G** volta para a cidade: `Balance.RECALL_TIME` (3 s) parado e fora de combate; andar, agir, levar dano ou G de novo cancela; os bots do grupo por perto vêm junto (`WorldSim._update_recall`).
+**Cristal de Retorno** (`MapsCatalog.CRYSTALS`: praça de Aldara e Posto dos Caçadores; role `crystal`, `prop_crystal`): "Vincular aqui" faz o G e o renascer
+levarem para a frente dele (`SimEntity.bind_map/bind_pos`, `PortalSystem.home_of`, salvo em `bind`; save antigo = Aldara). O Posto é `MapDef.hub`: dentro do muro
+dá para trocar skills e escolhas (`MapDef.in_hub`), sem virar a cidade inicial. Losango azul no minimapa (maior = o seu).
 
 XP: `Balance.XP_BASE` 220 × `XP_GROWTH` 1,30^(nível−1) (subir é ~2x mais lento que antes).
 

@@ -325,7 +325,7 @@ func _build_top_right() -> void:
 	minimap.hud = self
 
 func _build_hints() -> Label:
-	hint_label = UiKit.label("WASD mover · LMB atacar · RMB bloquear · Shift dash\n1-6 skills · F1-F3 poções · Espaço pular · F interagir\nQ/E girar câmera · Enter chat · F11 tela cheia\nI bolsa · C personagem · K skills · L quests · P grupo · G cidade", 12, UiKit.MUTED)
+	hint_label = UiKit.label("WASD mover · LMB atacar · RMB bloquear · Shift dash\n1-6 skills · F1-F3 poções · Espaço pular · F interagir\nQ/E girar câmera · Enter chat · F11 tela cheia\nI bolsa · C personagem · K skills · L quests · P grupo · G retorno", 12, UiKit.MUTED)
 	hint_label.custom_minimum_size.x = SIDE_W
 	hint_label.size_flags_vertical = Control.SIZE_SHRINK_END
 	hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT

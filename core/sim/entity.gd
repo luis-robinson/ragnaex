@@ -62,6 +62,8 @@ var gather_left: float = 0.0        # >0 = colhendo (F perto de um ponto): andar
 var gather_node: Dictionary = {}
 var gather_hp: float = 0.0
 var recall_left: float = 0.0        # >0 = voltando à cidade (G): parado, fora de combate
+var bind_map: String = ""          # cristal de retorno vinculado (G e renascer); "" = cidade inicial
+var bind_pos: Vector3 = Vector3.ZERO
 var cooldowns: Dictionary = {}       # skill_id -> segundos restantes
 var potion_cd: float = 0.0
 var dash_cd: float = 0.0

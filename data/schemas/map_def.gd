@@ -38,6 +38,7 @@ extends Resource
 @export var town_center: Vector3 = Vector3.ZERO
 @export var town_radius: float = 0.0               ## 0 = o mapa inteiro é cidade se is_town
 @export var town_gates: Array = []                 ## Array[Vector3] (centro do portão, na muralha)
+@export var hub: bool = false                      ## povoado com cristal (Posto): troca de skills dentro de town_radius, sem ser `is_town`
 ## estradas/água só para o visual (grama evita): {"kind":"road|street","w":4.2,"pts":PackedVector2Array,"r":float}
 @export var roads: Array = []
 @export var water: Array = []                      ## {"kind":"river","w":7,"pts":...} | {"kind":"lake","pos":Vector2,"r":13}
@@ -53,6 +54,12 @@ func in_town(p: Vector3) -> bool:
 	if town_radius <= 0.0:
 		return true
 	return Vector2(p.x - town_center.x, p.z - town_center.z).length() < town_radius
+
+## Lugar seguro para trocar skills: a cidade, ou dentro do muro de um povoado com cristal (`hub`).
+func in_hub(p: Vector3) -> bool:
+	if in_town(p):
+		return true
+	return hub and town_radius > 0.0 and Vector2(p.x - town_center.x, p.z - town_center.z).length() < town_radius
 
 ## Tem área de caça (spawners) — campo puro ou zona com vila + campina.
 func has_hunting() -> bool:

@@ -83,6 +83,7 @@ func save_player(p: SimEntity) -> void:
 		"learned": p.learned.keys(), "talents": p.talents.keys(),
 		"loadout": p.skills.map(func(s): return s.id if s else ""),
 		"quests_active": p.quests_active, "quests_completed": p.quests_completed,
+		"bind": [p.bind_map, p.bind_pos.x, p.bind_pos.z],
 		"save_version": VERSION, "bosses_killed": p.bosses_killed.keys(), "gates_open": p.gates_open.keys(), "bag_bonus": p.bag_bonus,
 	}
 	var f := FileAccess.open(path_of(slot), FileAccess.WRITE)
@@ -115,6 +116,12 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 		if GameData.resolve_item(str(iid)) and int(st[iid]) > 0:
 			p.storage[str(iid)] = int(st[iid])
 	p.gold = int(d.get("gold", 0))
+	var bnd: Array = d.get("bind", [])          # save antigo: sem cristal, volta para a cidade
+	if bnd.size() == 3 and GameData.maps.has(str(bnd[0])):
+		p.bind_map = str(bnd[0])
+		p.bind_pos = Vector3(float(bnd[1]), 0.0, float(bnd[2]))
+	else:
+		p.bind_map = ""
 	p.bag_bonus = clampi(int(d.get("bag_bonus", 0)), 0, Balance.BAG_UPGRADES)
 	p.inventory = {}
 	for k in d.get("inventory", {}):

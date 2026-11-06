@@ -644,6 +644,7 @@ func _check_zone(gd, sim) -> void:
 	_check_quest_marks(gd, sim)
 	_check_quest_guide(gd, sim)
 	_check_summon_ai(gd, sim)
+	_check_bind_crystal(gd, sim, save_ref)
 	_check_equipment_slots(gd, sim, save_ref)
 	_check_icons(gd)
 	_check_combat_feel(gd, sim)
@@ -2763,6 +2764,70 @@ func _check_quest_marks(gd, sim) -> void:
 	check(QuestSystem.npc_marker(p, q.giver_npc) == "", "sem quests restantes não há marcador")
 	sim.despawn(p)
 
+## Cristal de retorno no Posto dos Caçadores: vincular muda o G e o renascer; dentro do Posto dá para trocar skills;
+## o save guarda o vínculo e save antigo volta para a cidade.
+func _check_bind_crystal(gd, sim, save) -> void:
+	var fid := "field_forest"
+	if not sim.maps.has(fid):
+		sim.load_map(gd.maps[fid])
+	var fdef: MapDef = gd.maps[fid]
+	for mid in MapsCatalog.CRYSTALS:
+		var cp: Array = MapsCatalog.CRYSTALS[mid]
+		var crystal_at := Vector3(float(cp[0]), 0, float(cp[1]))
+		var found: bool = gd.maps[mid].npcs.any(func(n): return n.get("role", "") == "crystal" and n["pos"].distance_to(crystal_at) < 0.1)
+		check(found, "%s tem cristal de retorno" % mid)
+		check(gd.maps[mid].in_hub(crystal_at), "cristal de %s fica dentro do povoado" % mid)
+	check(fdef.hub and not fdef.is_town and gd.town_map_id() == "city_aldara", "Posto é hub sem virar a cidade inicial")
+	var e: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Vinculo", fid, fdef.town_center + Vector3(-3, 0, -8), 15)
+	e.brain = null
+	check(sim.home_of(e)["map"] == "city_aldara", "sem cristal: retorno é a cidade")
+	check(not sim.bind_crystal(e, "forest_smith"), "só cristal vincula")
+	check(sim.bind_crystal(e, "crystal_field_forest"), "vincula no cristal do Posto")
+	check(e.bind_map == fid and sim.is_walkable(e.bind_pos, fdef, 0.5), "ponto de retorno é chão livre na frente do cristal")
+	# G leva ao cristal
+	e.position = Vector3(70, 0, -16)
+	var go := InputCommand.new()
+	go.recall = true
+	var idle := InputCommand.new()
+	sim._update_recall(e, go, go, 0.1)
+	for i in range(int(Balance.RECALL_TIME / 0.1) + 2):
+		sim._update_recall(e, idle, idle, 0.1)
+	sim._process_map_changes()
+	check(e.map_id == fid and e.position.distance_to(e.bind_pos) < 0.5, "G volta para o cristal do Posto")
+	sim._update_recall(e, go, go, 0.1)
+	check(is_equal_approx(e.recall_left, 0.0), "já no cristal: G não começa")
+	# renascer no cristal
+	sim._change_map(e, "city_aldara", Vector3(60, 0, 10))
+	ProgressionSystem.respawn_character(sim, e)
+	sim._process_map_changes()
+	check(e.map_id == fid and e.position.distance_to(e.bind_pos) < 0.5, "morrer renasce no cristal vinculado")
+	# troca de skills: dentro do Posto pode, fora do muro não
+	var sid: String = e.learned.keys()[0] if not e.learned.is_empty() else ""
+	if sid != "":
+		e.position = fdef.town_center + Vector3(3, 0, 3)
+		check(sim.set_skill_slot(e, 5, sid), "troca skill dentro do Posto")
+		e.position = Vector3(70, 0, -16)
+		check(not sim.set_skill_slot(e, 4, sid), "fora do muro não troca skill")
+	# save
+	sim.despawn(e)
+	var me: SimEntity = sim.player
+	if me:
+		var keep_map := me.bind_map
+		var keep_pos := me.bind_pos
+		me.bind_map = fid
+		me.bind_pos = Vector3(-4, 0, -3)
+		save.save_player(me)
+		var d: Dictionary = save.load_data()
+		me.bind_map = ""
+		save.apply_to(me, d)
+		check(me.bind_map == fid and me.bind_pos.distance_to(Vector3(-4, 0, -3)) < 0.01, "save guarda o cristal vinculado")
+		d.erase("bind")
+		save.apply_to(me, d)
+		check(me.bind_map == "", "save antigo volta para a cidade")
+		me.bind_map = keep_map
+		me.bind_pos = keep_pos
+		save.delete_slot(TEST_SLOT)
+
 ## Invocações lutam sozinhas: acham alvo perto do dono, usam as skills do monstro, defendem o dono
 ## e as que atiram ficam longe (o Elemental de Fogo ficava parado). Sonda completa: tools/tests/pet_probe.tscn.
 func _check_summon_ai(gd, sim) -> void:
@@ -3476,6 +3541,9 @@ func _check_zone_layout(gd, sim, md: MapDef) -> void:
 		check((d > 40.0 or hostile_hub) and d < 120.0 * (1.2 if mid == "city_aldara" else 1.0), "%s: spawner %s a %.0f m do hub" % [mid, sp["monster_id"], d])
 		check(sim.is_walkable(sim.random_walkable(md, sp["pos"], float(sp["radius"])), md), "%s: spawner %s andável" % [mid, sp["monster_id"]])
 	for n in md.npcs:
+		if n.get("role", "") == "crystal":          # o cristal é a própria coluna sólida: confere a frente dele
+			check(sim.is_walkable(n["pos"] + (md.town_center - n["pos"]).normalized() * Balance.CRYSTAL_ARRIVE, md, 0.5), "%s: frente do cristal livre" % mid)
+			continue
 		check(sim.is_walkable(n["pos"], md, 0.3), "%s: NPC %s em chão livre" % [mid, n["id"]])
 	for pt in md.portals:
 		check(sim.is_walkable(pt["pos"], md, 0.45), "%s: portal %s alcançável" % [mid, pt["id"]])
