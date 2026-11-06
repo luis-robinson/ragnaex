@@ -25,7 +25,7 @@ const TOURS := {
 	"fort_bones": [["chegada", Vector3(0, 0, 90)], ["estrada", Vector3(8, 0, 44)], ["posto_oeste", Vector3(-52, 0, 40)], ["posto_leste", Vector3(50, 0, 30)], ["portao", Vector3(0, 0, 4)], ["patio", Vector3(4, 0, -22)]],
 	"fort_frost": [["chegada", Vector3(0, 0, 90)], ["estrada", Vector3(8, 0, 44)], ["posto_oeste", Vector3(-52, 0, 40)], ["posto_leste", Vector3(50, 0, 30)], ["portao", Vector3(0, 0, 4)], ["patio", Vector3(4, 0, -22)]],
 	"lich_citadel": [["chegada", Vector3(0, 0, 90)], ["estrada", Vector3(8, 0, 44)], ["posto_oeste", Vector3(-52, 0, 40)], ["posto_leste", Vector3(50, 0, 30)], ["portao", Vector3(0, 0, 4)], ["patio", Vector3(4, 0, -22)]],
-	"field_ruins": [["torre", Vector3(-66, 0, 24)], ["praca_catedral", Vector3(0, 0, 18)], ["mercado", Vector3(26, 0, 30)], ["quartel", Vector3(-26, 0, -30)], ["portao_oeste", Vector3(-46, 0, 0)],
+	"field_ruins": [["front_oeste", Vector3(-84, 0, -6)], ["torre", Vector3(-66, 0, 24)], ["praca_catedral", Vector3(0, 0, 18)], ["mercado", Vector3(26, 0, 30)], ["quartel", Vector3(-26, 0, -30)], ["portao_oeste", Vector3(-46, 0, 0)],
 		["portao_norte", Vector3(0, 0, -46)], ["portao_sul", Vector3(0, 0, 46)], ["front_carnical", Vector3(-76, 0, -6)], ["front_ossos", Vector3(8, 0, -80)],
 		["front_gelo", Vector3(-6, 0, 80)], ["cripta", Vector3(20, 0, -80)], ["chegada", Vector3(94, 0, -5)], ["dragonete", Vector3(64, 0, 44)], ["capela", Vector3(90, 0, 18)],
 		["ninho", Vector3(-66, 0, 36)], ["coveiro", Vector3(70, 0, -32)]],
@@ -50,6 +50,8 @@ var _tour_i := 0
 var _tour_t := 0.0
 var _tour_map := "city_aldara"
 var showcase: Showcase = null     # --showcase=<classe|all> [--skill=<id>] --out=<pasta> [--check]: bancada de skills
+var _playtest_dir := ""
+var _playtest: Playtest = null
 var _soak_left := 0.0
 var _soak_brain: BotBrain = null
 var _soak_t := 0.0
@@ -93,6 +95,9 @@ func before_start(returning: bool) -> String:
 	if DevArgs.flag("--cull"):        # medir: distância de corte dos bonecos
 		main.VIEW_CULL_DIST = float(DevArgs.value("--cull"))
 	_soak_map = DevArgs.value("--soak_map")
+	if DevArgs.flag("--playtest"):    # playtest: segue a cadeia principal como jogador e grava log/fotos (game/dev/playtest.gd)
+		autostart = "paladin" if autostart == "" else autostart
+		_playtest_dir = DevArgs.value("--playtest")
 	if DevArgs.flag("--soak"):        # joga sozinho (cérebro de bot) por N s e imprime FPS/nós/memória a cada 5 s
 		_soak_left = float(DevArgs.value("--soak"))
 		autostart = "berserker" if autostart == "" else autostart
@@ -121,6 +126,11 @@ func after_start() -> void:
 	if showcase:
 		main.camera.distance = 9.0
 		main.add_child(showcase)
+	if DevArgs.flag("--quests"):    # começa com estas quests concluídas (revisar conquista: --quests=dw_ghoul_boss)
+		for qid in DevArgs.value("--quests").split(","):
+			if not Sim.player.quests_completed.has(qid):
+				Sim.player.quests_completed.append(qid)
+		MapBuilder.apply_conquest(main.map_node)
 	if DevArgs.has("--mount"):      # começa a cavalo (revisar a montaria)
 		Sim.player.mounted = true
 	if DevArgs.has("--loot_demo"):  # amostra de drops ao lado do jogador (revisar o baú)
@@ -169,6 +179,15 @@ func at_title(returning: bool) -> void:
 
 ## Chamado pelo _process do Main com o jogo rodando.
 func tick(delta: float) -> void:
+	if _playtest_dir != "":
+		if _playtest == null and Sim.player != null:
+			_smoke_test = false
+			Engine.time_scale = float(DevArgs.value("--speed", "1"))
+			_playtest = Playtest.new()
+			_playtest.setup(main, _playtest_dir, float(DevArgs.value("--playtest_time", "600")))
+		if _playtest and not _playtest.tick(delta):
+			get_tree().quit()
+		return
 	if _soak_left > 0.0:
 		_soak(delta)
 	if _tour_dir != "":

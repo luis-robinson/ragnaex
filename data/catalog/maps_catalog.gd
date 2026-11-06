@@ -77,6 +77,13 @@ const DAWN_NPCS := {
 	"dawn_storage": ["Guarda-volumes Berta", "storage", Color(0.5, 0.6, 0.75), ["O cofre da catedral guarda o que não cabe na bolsa.", "É o mesmo depósito de Aldara: o que deixar lá aparece aqui."]],
 	"dawn_alchemist": ["Irmã Celes", "alchemy", Color(0.6, 0.8, 0.7), ["Bile pútrida queima limpo num caldeirão consagrado. Traga que eu cuido."]],
 }
+## Fronts que se limpam com a conquista: peças do map_field_ruins.glb pelo nome (`tag`), mostradas com `if`/`unless`.
+const DAWN_CONQUEST_VIS := [
+	{"tag": "chao_front_ghoul", "unless": "dw_ghoul_boss"}, {"tag": "ninho_putrido", "unless": "dw_ghoul_boss"}, {"tag": "limpo_ghoul", "if": "dw_ghoul_boss"},
+	{"tag": "chao_front_bones", "unless": "dw_bones_boss"}, {"tag": "limpo_bones", "if": "dw_bones_boss"},
+	{"tag": "chao_front_frost", "unless": "dw_frost_boss"}, {"tag": "limpo_frost", "if": "dw_frost_boss"},
+]
+
 ## Guarnição: marcadores `dawn_g_<lado>_<papel>_<n>` do JSON viram NPCs lutadores (guard_<papel>) com o modelo deles,
 ## renascendo em DAWN_RESPAWN s (a luta é constante). Os do posto avançado só ficam enquanto o front não caiu? Ficam sempre.
 const DAWN_ROLE_NAMES := {"wall": ["Besteiro da Torre"], "knight": ["Sir Gareth", "Sir Edwin", "Dama Rowena", "Sir Alaric", "Dama Isolde", "Sir Cedric"],
@@ -646,9 +653,9 @@ const PORTAL_GATES := {
 	"to_forest": {"level": 10, "quest": "c5_report", "text": "O desfiladeiro está fechado por ordem da Capitã Mira até resolverem as Catacumbas."},
 	"to_ruins": {"level": 20, "quest": "el6_king", "text": "A passagem está vigiada: enquanto o Rei Élfico atacar a Floresta, a guarda não libera o caminho do Bastião."},
 	"to_fort_ghoul": {"level": 20, "quest": "dw_gates", "text": "O Marechal Aldric só abre o portão oeste para quem já segurou os portões do Bastião."},
-	"to_fort_bones": {"level": 23, "quest": "dw_ghoul_boss", "text": "A Fortaleza dos Ossos: só com o Covil do Carniçal retomado a Aurora tem soldados para subir."},
-	"to_fort_frost": {"level": 26, "quest": "dw_bones_boss", "text": "A Torre do Mago: primeiro a Fortaleza dos Ossos tem de cair."},
-	"to_lich_citadel": {"level": 29, "quest": "dw_frost_boss", "text": "O selo da Cidadela só cede quando as três fortalezas forem da Aurora."},
+	"to_fort_bones": {"level": 22, "quest": "dw_ghoul_boss", "text": "A Fortaleza dos Ossos: só com o Covil do Carniçal retomado a Aurora tem soldados para subir."},
+	"to_fort_frost": {"level": 24, "quest": "dw_bones_boss", "text": "A Torre do Mago: primeiro a Fortaleza dos Ossos tem de cair."},
+	"to_lich_citadel": {"level": 28, "quest": "dw_frost_boss", "text": "O selo da Cidadela só cede quando as três fortalezas forem da Aurora."},
 	"to_elf_city": {"level": 16, "text": "A garganta élfica: a Comandante Hela só deixa passar quem tem nível 16."},
 }
 const MERCHANT_SHOP := ["potion_hp_s", "potion_mp_s", "potion_hp_m", "potion_mp_m", "elixir_might", "elixir_stone", "cap_leather", "boots_leather"]
@@ -684,6 +691,9 @@ static func load_zone(id: String) -> Dictionary:
 			d["hidden"] = true                # só colisão: o visual vem do map_<zona>.glb
 		if o.has("roof"):
 			d["roof"] = _col(o["roof"], C_ROOF)
+		for k in ["if", "unless"]:          # prop da conquista (WorldState): sem colisão, o jogo mostra/esconde
+			if o.has(k):
+				d[k] = o[k]
 		obs.append(d)
 	if CRYSTALS.has(id):                  # cristal de retorno: coluna sólida invisível (o visual é o prop do NPC)
 		var cp: Array = CRYSTALS[id]
@@ -824,6 +834,7 @@ static func _ruins() -> MapDef:
 	z.erase("npc_pos")
 	z.merge({
 		"id": "field_ruins", "name": "Bastião da Aurora", "is_town": false, "hub": true, "level_range": Vector2i(20, 30), "sortie": SORTIES["field_ruins"],
+		"conquest_vis": DAWN_CONQUEST_VIS,
 		"ground_color": Color(0.55, 0.56, 0.46), "ground_color_alt": Color(0.5, 0.52, 0.43), "ambient": Color(0.78, 0.78, 0.86), "sun_energy": 0.9,
 		"bot_population": 6,
 		"npcs": [_npc("ruins_scholar", "Erudita Senna", float(p[0]), float(p[1]), "quest", Color(0.8, 0.75, 0.9),

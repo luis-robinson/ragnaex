@@ -108,7 +108,7 @@ static func start_raid(sim: WorldSim, m: Dictionary, i: int = 0) -> Array:
 	var top := 0
 	for mobs in groups:
 		for mid in mobs:
-			var mdef: MonsterDef = scaled_def(sim, GameData.monsters.get(mid), step)
+			var mdef: MonsterDef = scaled_def(sim, GameData.monsters.get(mid), step + k * Balance.RAID_RECLAIM_STEPS)     # desespero: mais fortes a cada retomada
 			if mdef == null:
 				continue
 			top = maxi(top, mdef.level)
@@ -157,7 +157,7 @@ static func _update_wave(sim: WorldSim, m: Dictionary, st: Dictionary, dt: float
 		st["sortie"] = []
 		var repelled: bool = not st["retreat"]
 		st["ids"] = []
-		st["timer"] = float(r.get("every", 180.0)) + sim.rng.randf_range(-1.0, 1.0) * float(r.get("jitter", 0.0))
+		st["timer"] = (float(r.get("every", 180.0)) + sim.rng.randf_range(-1.0, 1.0) * float(r.get("jitter", 0.0))) * pow(Balance.RAID_RECLAIM_EVERY, reclaimed(sim, m))
 		if repelled:
 			Events.chat_message.emit("Sistema", str(r.get("say_repelled", "A investida foi repelida!")), "system")
 		Events.raid_event.emit(def.id, "repelled" if repelled else "retreated")

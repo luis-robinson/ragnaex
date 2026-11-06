@@ -33,6 +33,7 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func _ready() -> void:
+	Events.quest_completed.connect(_on_quest_done_visual)
 	Engine.max_physics_steps_per_frame = 3     # quadro lento não vira bola de neve de ticks (a sim desacelera um pouco)
 	GraphicsSettings.load_and_apply(get_viewport())     # Nítido (125%, 100% em tela grande) ou FSR 2 (menu Esc → Gráficos)
 	world_root = Node3D.new()
@@ -204,6 +205,11 @@ func _fade_occluders(delta: float) -> void:
 				var tr: float = c.transparency
 				if absf(tr - want) > 0.004:          # parado: não mexe (cada escrita atualiza a instância no render)
 					c.transparency = lerpf(tr, want, minf(1.0, delta * 10.0)) if absf(tr - want) > 0.02 else want
+
+## Quest concluída: o mapa atual se atualiza (front limpo, acampamento que some).
+func _on_quest_done_visual(_eid: int, _qid: String) -> void:
+	if map_node:
+		MapBuilder.apply_conquest(map_node)
 
 func _show_map(map_id: String) -> void:
 	if map_node:

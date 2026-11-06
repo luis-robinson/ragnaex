@@ -234,15 +234,19 @@ def cabin(s, p):
 
 def camp(s, p):
     c = Vector(p["pos"])
+    w = p.get("when")                     # acampamento que some com a conquista (tendas sem colisão, spawner calado)
     _ground(s, p["id"], p["pos"], 11.0, p.get("ground", (0.46, 0.38, 0.3)))
     d = direction(p["face"])
     base = math.atan2(d.y, d.x)
     for q, o in _ring(c, 7.5, p.get("tents", 3), base + 0.9, math.tau - 1.8):
-        s.ob("tent", q.x, q.y, (3.0, 2.2, 3.0), _rot(-o), color=p.get("cloth", (0.5, 0.3, 0.26)))
+        s.ob("tent", q.x, q.y, (3.0, 2.2, 3.0), _rot(-o), color=p.get("cloth", (0.5, 0.3, 0.26)), when=w)
     for q, o in _ring(c, 9.8, 6, base + 1.2, math.tau - 2.4):
-        s.ob("crate", q.x, q.y, (0.9, 0.9, 0.9))
-    s.ob("lamp", c.x, c.y, (0.5, 2.0, 0.5))
-    s.data["spawners"].append({"monster_id": p["mob"], "pos": [c.x, c.y], "radius": 7.0, "count": p["count"], "respawn": p.get("respawn", 18.0)})
+        s.ob("crate", q.x, q.y, (0.9, 0.9, 0.9), when=w)
+    s.ob("lamp", c.x, c.y, (0.5, 2.0, 0.5), when=w)
+    sp = {"monster_id": p["mob"], "pos": [c.x, c.y], "radius": 7.0, "count": p["count"], "respawn": p.get("respawn", 18.0)}
+    if w:
+        sp.update(w)
+    s.data["spawners"].append(sp)
     _trail(s, p["id"], c, c + d * 8.5)
     s.block(p["pos"], 12.5)
 

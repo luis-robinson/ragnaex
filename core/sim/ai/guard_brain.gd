@@ -7,6 +7,8 @@ const SKILL_GAP := 2.5
 
 var skill_timer: float = 0.0
 var returning := false
+var scan_t := 0.0                    # procura de alvo a cada SCAN s (era todo tick: 55 guardas x 150 entidades pesava)
+const SCAN := 0.35
 # marcha (assalto, reforço, surtida): caminho pelas pontes e desvio quando trava (como MonsterBrain._steer)
 var water_path: Array = []
 var water_goal := Vector3.INF
@@ -22,8 +24,15 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 	skill_timer -= dt
 	var mdef := e.monster_def
 	var home := e.home_position
+	scan_t -= dt
 	if e.is_perched():                                # torre: só mira e atira no que chegar ao alcance
-		var foe: SimEntity = Combat.nearest_hostile(e, m["entities"], mdef.attack_range)
+		var foe: SimEntity = sim.entities.get(e.aggro_target) if e.aggro_target >= 0 else null
+		if foe == null or not foe.is_alive() or foe.position.distance_to(e.position) > mdef.attack_range or scan_t <= 0.0:
+			if scan_t <= 0.0 or foe == null or not foe.is_alive():
+				scan_t = SCAN
+				foe = Combat.nearest_hostile(e, m["entities"], mdef.attack_range)
+			else:
+				foe = null
 		e.aggro_target = foe.id if foe else -1
 		if foe:
 			cmd.aim = foe.position
@@ -43,7 +52,8 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 	var target: SimEntity = sim.entities.get(e.aggro_target) if e.aggro_target >= 0 else null
 	if target and (not target.is_alive() or target.map_id != e.map_id or target.position.distance_to(home) > Balance.GUARD_LEASH + 2.0):
 		target = null
-	if target == null:
+	if target == null and scan_t <= 0.0:
+		scan_t = SCAN
 		var patrols: bool = e.npc_data.has("route") or e.npc_data.has("wander") or e.npc_data.has("march")
 		target = Combat.nearest_hostile(e, m["entities"], Balance.GUARD_AGGRO)
 		if target and not patrols and target.position.distance_to(home) > Balance.GUARD_LEASH + 2.0:

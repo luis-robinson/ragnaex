@@ -3927,6 +3927,164 @@
   {
    "kind": "tent",
    "pos": [
+    -92.55,
+    18.49
+   ],
+   "size": [
+    3.4,
+    2.4,
+    3.0
+   ],
+   "rot": 60.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_ghoul_boss",
+   "color": [
+    0.36,
+    0.48,
+    0.78
+   ]
+  },
+  {
+   "kind": "tent",
+   "pos": [
+    -90.34,
+    17.38
+   ],
+   "size": [
+    3.4,
+    2.4,
+    3.0
+   ],
+   "rot": 90.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_ghoul_boss",
+   "color": [
+    0.36,
+    0.48,
+    0.78
+   ]
+  },
+  {
+   "kind": "tent",
+   "pos": [
+    -87.86,
+    17.46
+   ],
+   "size": [
+    3.4,
+    2.4,
+    3.0
+   ],
+   "rot": 120.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_ghoul_boss",
+   "color": [
+    0.36,
+    0.48,
+    0.78
+   ]
+  },
+  {
+   "kind": "pillar",
+   "pos": [
+    -77.57,
+    8.15
+   ],
+   "size": [
+    0.4,
+    4.0,
+    0.4
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_ghoul_boss",
+   "color": [
+    0.85,
+    0.75,
+    0.4
+   ]
+  },
+  {
+   "kind": "lamp",
+   "pos": [
+    -76.57,
+    8.15
+   ],
+   "size": [
+    0.4,
+    3.0,
+    0.4
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_ghoul_boss"
+  },
+  {
+   "kind": "pillar",
+   "pos": [
+    -77.57,
+    -8.15
+   ],
+   "size": [
+    0.4,
+    4.0,
+    0.4
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_ghoul_boss",
+   "color": [
+    0.85,
+    0.75,
+    0.4
+   ]
+  },
+  {
+   "kind": "lamp",
+   "pos": [
+    -76.57,
+    -8.15
+   ],
+   "size": [
+    0.4,
+    3.0,
+    0.4
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_ghoul_boss"
+  },
+  {
+   "kind": "statue",
+   "pos": [
+    -89.27,
+    22.26
+   ],
+   "size": [
+    1.6,
+    2.4,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_ghoul_boss",
+   "color": [
+    0.92,
+    0.88,
+    0.72
+   ]
+  },
+  {
+   "kind": "tent",
+   "pos": [
     -62.35,
     -36.0
    ],
@@ -4062,6 +4220,164 @@
     0.46,
     0.36,
     0.26
+   ]
+  },
+  {
+   "kind": "tent",
+   "pos": [
+    -18.49,
+    -92.55
+   ],
+   "size": [
+    3.4,
+    2.4,
+    3.0
+   ],
+   "rot": -30.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_bones_boss",
+   "color": [
+    0.36,
+    0.48,
+    0.78
+   ]
+  },
+  {
+   "kind": "tent",
+   "pos": [
+    -17.38,
+    -90.34
+   ],
+   "size": [
+    3.4,
+    2.4,
+    3.0
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_bones_boss",
+   "color": [
+    0.36,
+    0.48,
+    0.78
+   ]
+  },
+  {
+   "kind": "tent",
+   "pos": [
+    -17.46,
+    -87.86
+   ],
+   "size": [
+    3.4,
+    2.4,
+    3.0
+   ],
+   "rot": 30.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_bones_boss",
+   "color": [
+    0.36,
+    0.48,
+    0.78
+   ]
+  },
+  {
+   "kind": "pillar",
+   "pos": [
+    -8.15,
+    -77.57
+   ],
+   "size": [
+    0.4,
+    4.0,
+    0.4
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_bones_boss",
+   "color": [
+    0.85,
+    0.75,
+    0.4
+   ]
+  },
+  {
+   "kind": "lamp",
+   "pos": [
+    -7.15,
+    -77.57
+   ],
+   "size": [
+    0.4,
+    3.0,
+    0.4
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_bones_boss"
+  },
+  {
+   "kind": "pillar",
+   "pos": [
+    8.15,
+    -77.57
+   ],
+   "size": [
+    0.4,
+    4.0,
+    0.4
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_bones_boss",
+   "color": [
+    0.85,
+    0.75,
+    0.4
+   ]
+  },
+  {
+   "kind": "lamp",
+   "pos": [
+    9.15,
+    -77.57
+   ],
+   "size": [
+    0.4,
+    3.0,
+    0.4
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_bones_boss"
+  },
+  {
+   "kind": "statue",
+   "pos": [
+    -22.26,
+    -89.27
+   ],
+   "size": [
+    1.6,
+    2.4,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_bones_boss",
+   "color": [
+    0.92,
+    0.88,
+    0.72
    ]
   },
   {
@@ -4207,6 +4523,164 @@
   {
    "kind": "tent",
    "pos": [
+    18.49,
+    92.55
+   ],
+   "size": [
+    3.4,
+    2.4,
+    3.0
+   ],
+   "rot": -210.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_frost_boss",
+   "color": [
+    0.36,
+    0.48,
+    0.78
+   ]
+  },
+  {
+   "kind": "tent",
+   "pos": [
+    17.38,
+    90.34
+   ],
+   "size": [
+    3.4,
+    2.4,
+    3.0
+   ],
+   "rot": -180.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_frost_boss",
+   "color": [
+    0.36,
+    0.48,
+    0.78
+   ]
+  },
+  {
+   "kind": "tent",
+   "pos": [
+    17.46,
+    87.86
+   ],
+   "size": [
+    3.4,
+    2.4,
+    3.0
+   ],
+   "rot": -150.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_frost_boss",
+   "color": [
+    0.36,
+    0.48,
+    0.78
+   ]
+  },
+  {
+   "kind": "pillar",
+   "pos": [
+    8.15,
+    77.57
+   ],
+   "size": [
+    0.4,
+    4.0,
+    0.4
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_frost_boss",
+   "color": [
+    0.85,
+    0.75,
+    0.4
+   ]
+  },
+  {
+   "kind": "lamp",
+   "pos": [
+    9.15,
+    77.57
+   ],
+   "size": [
+    0.4,
+    3.0,
+    0.4
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_frost_boss"
+  },
+  {
+   "kind": "pillar",
+   "pos": [
+    -8.15,
+    77.57
+   ],
+   "size": [
+    0.4,
+    4.0,
+    0.4
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_frost_boss",
+   "color": [
+    0.85,
+    0.75,
+    0.4
+   ]
+  },
+  {
+   "kind": "lamp",
+   "pos": [
+    -7.15,
+    77.57
+   ],
+   "size": [
+    0.4,
+    3.0,
+    0.4
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_frost_boss"
+  },
+  {
+   "kind": "statue",
+   "pos": [
+    22.26,
+    89.27
+   ],
+   "size": [
+    1.6,
+    2.4,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_frost_boss",
+   "color": [
+    0.92,
+    0.88,
+    0.72
+   ]
+  },
+  {
+   "kind": "tent",
+   "pos": [
     -36.0,
     62.35
    ],
@@ -4238,6 +4712,678 @@
    "rot": 0.0,
    "visible": false,
    "solid": true
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -90.0,
+    -21.01
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_ghoul_boss",
+   "color": [
+    0.9,
+    0.6,
+    0.7
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -75.24,
+    -22.66
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_ghoul_boss",
+   "color": [
+    0.7,
+    0.8,
+    0.95
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -89.3,
+    -24.68
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_ghoul_boss",
+   "color": [
+    0.9,
+    0.6,
+    0.7
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -77.95,
+    6.55
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_ghoul_boss",
+   "color": [
+    0.7,
+    0.8,
+    0.95
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -92.17,
+    7.88
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_ghoul_boss",
+   "color": [
+    0.9,
+    0.6,
+    0.7
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -94.04,
+    29.82
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_ghoul_boss",
+   "color": [
+    0.7,
+    0.8,
+    0.95
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -91.37,
+    7.22
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_ghoul_boss",
+   "color": [
+    0.95,
+    0.9,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -70.56,
+    11.87
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_ghoul_boss",
+   "color": [
+    0.7,
+    0.8,
+    0.95
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -77.91,
+    17.05
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_ghoul_boss",
+   "color": [
+    0.95,
+    0.9,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -72.25,
+    19.83
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_ghoul_boss",
+   "color": [
+    0.9,
+    0.6,
+    0.7
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    21.01,
+    -90.0
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_bones_boss",
+   "color": [
+    0.9,
+    0.6,
+    0.7
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    22.66,
+    -75.24
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_bones_boss",
+   "color": [
+    0.7,
+    0.8,
+    0.95
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    24.68,
+    -89.3
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_bones_boss",
+   "color": [
+    0.9,
+    0.6,
+    0.7
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -6.55,
+    -77.95
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_bones_boss",
+   "color": [
+    0.7,
+    0.8,
+    0.95
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    4.9,
+    -91.39
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_bones_boss",
+   "color": [
+    0.95,
+    0.9,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -7.88,
+    -92.17
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_bones_boss",
+   "color": [
+    0.9,
+    0.6,
+    0.7
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -29.82,
+    -94.04
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_bones_boss",
+   "color": [
+    0.7,
+    0.8,
+    0.95
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -7.22,
+    -91.37
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_bones_boss",
+   "color": [
+    0.95,
+    0.9,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -11.87,
+    -70.56
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_bones_boss",
+   "color": [
+    0.7,
+    0.8,
+    0.95
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -17.05,
+    -77.91
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_bones_boss",
+   "color": [
+    0.95,
+    0.9,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -19.83,
+    -72.25
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_bones_boss",
+   "color": [
+    0.9,
+    0.6,
+    0.7
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -21.01,
+    90.0
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_frost_boss",
+   "color": [
+    0.9,
+    0.6,
+    0.7
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -22.66,
+    75.24
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_frost_boss",
+   "color": [
+    0.7,
+    0.8,
+    0.95
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -24.68,
+    89.3
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_frost_boss",
+   "color": [
+    0.9,
+    0.6,
+    0.7
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    6.55,
+    77.95
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_frost_boss",
+   "color": [
+    0.7,
+    0.8,
+    0.95
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -4.9,
+    91.39
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_frost_boss",
+   "color": [
+    0.95,
+    0.9,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    7.88,
+    92.17
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_frost_boss",
+   "color": [
+    0.9,
+    0.6,
+    0.7
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    29.82,
+    94.04
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_frost_boss",
+   "color": [
+    0.7,
+    0.8,
+    0.95
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    7.22,
+    91.37
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_frost_boss",
+   "color": [
+    0.95,
+    0.9,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    11.87,
+    70.56
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_frost_boss",
+   "color": [
+    0.7,
+    0.8,
+    0.95
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    17.05,
+    77.91
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_frost_boss",
+   "color": [
+    0.95,
+    0.9,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    19.83,
+    72.25
+   ],
+   "size": [
+    1.8,
+    0.5,
+    1.8
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "if": "dw_frost_boss",
+   "color": [
+    0.9,
+    0.6,
+    0.7
+   ]
   },
   {
    "kind": "dead_tree",
@@ -14013,7 +15159,8 @@
    ],
    "rot": -161.6,
    "visible": true,
-   "solid": true,
+   "solid": false,
+   "unless": "dw_ghoul_boss",
    "color": [
     0.4,
     0.46,
@@ -14033,7 +15180,8 @@
    ],
    "rot": 112.8,
    "visible": true,
-   "solid": true,
+   "solid": false,
+   "unless": "dw_ghoul_boss",
    "color": [
     0.4,
     0.46,
@@ -14053,7 +15201,8 @@
    ],
    "rot": 27.2,
    "visible": true,
-   "solid": true,
+   "solid": false,
+   "unless": "dw_ghoul_boss",
    "color": [
     0.4,
     0.46,
@@ -14073,7 +15222,8 @@
    ],
    "rot": 0.0,
    "visible": true,
-   "solid": true
+   "solid": false,
+   "unless": "dw_ghoul_boss"
   },
   {
    "kind": "crate",
@@ -14088,7 +15238,8 @@
    ],
    "rot": 0.0,
    "visible": true,
-   "solid": true
+   "solid": false,
+   "unless": "dw_ghoul_boss"
   },
   {
    "kind": "crate",
@@ -14103,7 +15254,8 @@
    ],
    "rot": 0.0,
    "visible": true,
-   "solid": true
+   "solid": false,
+   "unless": "dw_ghoul_boss"
   },
   {
    "kind": "crate",
@@ -14118,7 +15270,8 @@
    ],
    "rot": 0.0,
    "visible": true,
-   "solid": true
+   "solid": false,
+   "unless": "dw_ghoul_boss"
   },
   {
    "kind": "crate",
@@ -14133,7 +15286,8 @@
    ],
    "rot": 0.0,
    "visible": true,
-   "solid": true
+   "solid": false,
+   "unless": "dw_ghoul_boss"
   },
   {
    "kind": "crate",
@@ -14148,7 +15302,8 @@
    ],
    "rot": 0.0,
    "visible": true,
-   "solid": true
+   "solid": false,
+   "unless": "dw_ghoul_boss"
   },
   {
    "kind": "lamp",
@@ -14163,7 +15318,8 @@
    ],
    "rot": 0.0,
    "visible": true,
-   "solid": true
+   "solid": false,
+   "unless": "dw_ghoul_boss"
   },
   {
    "kind": "pillar",
@@ -20353,75 +21509,55 @@
   {
    "kind": "log",
    "pos": [
-    18.97,
-    88.26
+    -51.76,
+    -43.33
    ],
    "size": [
-    3.22,
-    0.7,
-    0.75
+    3.1,
+    0.67,
+    0.72
    ],
-   "rot": 164.0,
+   "rot": 297.9,
    "visible": true,
    "solid": true,
    "color": [
-    0.36,
-    0.33,
-    0.3
+    0.42,
+    0.38,
+    0.33
    ]
   },
   {
    "kind": "log",
    "pos": [
-    35.03,
-    -77.69
+    -12.32,
+    -87.8
    ],
    "size": [
-    3.22,
-    0.7,
-    0.75
+    2.9,
+    0.63,
+    0.68
    ],
-   "rot": 12.0,
+   "rot": 246.4,
    "visible": true,
    "solid": true,
    "color": [
-    0.36,
-    0.33,
-    0.3
+    0.42,
+    0.38,
+    0.33
    ]
   },
   {
-   "kind": "log",
+   "kind": "stump",
    "pos": [
-    59.53,
-    24.48
+    -53.62,
+    65.33
    ],
    "size": [
-    2.66,
-    0.58,
-    0.62
+    1.16,
+    0.75,
+    1.16
    ],
-   "rot": 297.5,
-   "visible": true,
-   "solid": true,
-   "color": [
-    0.36,
-    0.33,
-    0.3
-   ]
-  },
-  {
-   "kind": "log",
-   "pos": [
-    -56.4,
-    -37.29
-   ],
-   "size": [
-    3.42,
-    0.74,
-    0.8
-   ],
-   "rot": 344.2,
+   "rot": 47.8,
    "visible": true,
    "solid": true,
    "color": [
@@ -20553,15 +21689,15 @@
   {
    "kind": "stump",
    "pos": [
-    39.52,
-    65.72
+    58.89,
+    27.46
    ],
    "size": [
-    1.06,
-    0.69,
-    1.06
+    0.87,
+    0.57,
+    0.87
    ],
-   "rot": 165.1,
+   "rot": 6.2,
    "visible": true,
    "solid": true,
    "color": [
@@ -20573,21 +21709,81 @@
   {
    "kind": "stump",
    "pos": [
-    -90.04,
-    -27.47
+    50.66,
+    -60.33
    ],
    "size": [
-    1.07,
-    0.69,
-    1.07
+    1.2,
+    0.78,
+    1.2
    ],
-   "rot": 58.6,
+   "rot": 297.1,
    "visible": true,
    "solid": true,
    "color": [
     0.42,
     0.38,
     0.33
+   ]
+  },
+  {
+   "kind": "stump",
+   "pos": [
+    66.75,
+    16.59
+   ],
+   "size": [
+    0.83,
+    0.54,
+    0.83
+   ],
+   "rot": 232.6,
+   "visible": true,
+   "solid": true,
+   "color": [
+    0.36,
+    0.33,
+    0.3
+   ]
+  },
+  {
+   "kind": "stump",
+   "pos": [
+    46.85,
+    76.7
+   ],
+   "size": [
+    1.07,
+    0.7,
+    1.07
+   ],
+   "rot": 137.7,
+   "visible": true,
+   "solid": true,
+   "color": [
+    0.42,
+    0.38,
+    0.33
+   ]
+  },
+  {
+   "kind": "stump",
+   "pos": [
+    -76.95,
+    56.82
+   ],
+   "size": [
+    1.0,
+    0.65,
+    1.0
+   ],
+   "rot": 143.7,
+   "visible": true,
+   "solid": true,
+   "color": [
+    0.36,
+    0.33,
+    0.3
    ]
   },
   {
@@ -20631,70 +21827,150 @@
    ]
   },
   {
-   "kind": "stump",
+   "kind": "reeds",
    "pos": [
-    -46.32,
-    77.82
+    -36.98,
+    -122.31
    ],
    "size": [
-    0.81,
-    0.52,
-    0.81
+    1.36,
+    1.42,
+    1.36
    ],
-   "rot": 32.0,
+   "rot": 302.2,
    "visible": true,
-   "solid": true,
+   "solid": false,
    "color": [
-    0.42,
-    0.38,
-    0.33
+    0.46,
+    0.46,
+    0.32
    ]
   },
   {
-   "kind": "stump",
+   "kind": "reeds",
    "pos": [
-    -83.83,
-    38.9
+    -34.18,
+    -115.46
    ],
    "size": [
-    0.96,
-    0.62,
-    0.96
+    1.55,
+    1.62,
+    1.55
    ],
-   "rot": 152.3,
+   "rot": 0.8,
    "visible": true,
-   "solid": true,
+   "solid": false,
    "color": [
-    0.42,
-    0.38,
-    0.33
-   ]
-  },
-  {
-   "kind": "stump",
-   "pos": [
-    -26.11,
-    -61.31
-   ],
-   "size": [
-    0.93,
-    0.6,
-    0.93
-   ],
-   "rot": 165.0,
-   "visible": true,
-   "solid": true,
-   "color": [
-    0.36,
-    0.33,
+    0.4,
+    0.48,
     0.3
    ]
   },
   {
    "kind": "reeds",
    "pos": [
-    -29.69,
-    -122.81
+    -41.96,
+    -115.23
+   ],
+   "size": [
+    1.55,
+    1.61,
+    1.55
+   ],
+   "rot": 159.9,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.46,
+    0.46,
+    0.32
+   ]
+  },
+  {
+   "kind": "reeds",
+   "pos": [
+    -39.0,
+    -108.32
+   ],
+   "size": [
+    1.37,
+    1.43,
+    1.37
+   ],
+   "rot": 26.3,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.46,
+    0.46,
+    0.32
+   ]
+  },
+  {
+   "kind": "reeds",
+   "pos": [
+    -48.5,
+    -104.38
+   ],
+   "size": [
+    1.33,
+    1.39,
+    1.33
+   ],
+   "rot": 103.3,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.4,
+    0.48,
+    0.3
+   ]
+  },
+  {
+   "kind": "reeds",
+   "pos": [
+    -50.91,
+    -101.13
+   ],
+   "size": [
+    1.21,
+    1.26,
+    1.21
+   ],
+   "rot": 152.3,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.4,
+    0.48,
+    0.3
+   ]
+  },
+  {
+   "kind": "reeds",
+   "pos": [
+    -53.73,
+    -95.7
+   ],
+   "size": [
+    1.3,
+    1.35,
+    1.3
+   ],
+   "rot": 303.8,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.46,
+    0.46,
+    0.32
+   ]
+  },
+  {
+   "kind": "reeds",
+   "pos": [
+    -50.95,
+    -88.85
    ],
    "size": [
     1.61,
@@ -20713,8 +21989,8 @@
   {
    "kind": "reeds",
    "pos": [
-    -31.78,
-    -119.06
+    -52.99,
+    -85.29
    ],
    "size": [
     1.48,
@@ -20733,8 +22009,8 @@
   {
    "kind": "reeds",
    "pos": [
-    -42.02,
-    -115.27
+    -64.93,
+    -78.83
    ],
    "size": [
     1.05,
@@ -20753,8 +22029,8 @@
   {
    "kind": "reeds",
    "pos": [
-    -40.95,
-    -104.55
+    -64.16,
+    -66.74
    ],
    "size": [
     1.03,
@@ -20773,8 +22049,8 @@
   {
    "kind": "reeds",
    "pos": [
-    -48.29,
-    -104.25
+    -71.46,
+    -65.96
    ],
    "size": [
     1.5,
@@ -20793,8 +22069,8 @@
   {
    "kind": "reeds",
    "pos": [
-    -45.2,
-    -97.58
+    -67.97,
+    -59.36
    ],
    "size": [
     1.34,
@@ -20813,8 +22089,8 @@
   {
    "kind": "reeds",
    "pos": [
-    -53.61,
-    -95.62
+    -75.36,
+    -58.32
    ],
    "size": [
     1.32,
@@ -20833,8 +22109,8 @@
   {
    "kind": "reeds",
    "pos": [
-    -58.71,
-    -88.97
+    -79.71,
+    -50.8
    ],
    "size": [
     1.16,
@@ -20853,8 +22129,8 @@
   {
    "kind": "reeds",
    "pos": [
-    -62.07,
-    -70.22
+    -77.86,
+    -35.14
    ],
    "size": [
     1.46,
@@ -20873,8 +22149,8 @@
   {
    "kind": "reeds",
    "pos": [
-    -71.7,
-    -66.09
+    -85.91,
+    -26.35
    ],
    "size": [
     1.05,
@@ -20893,8 +22169,8 @@
   {
    "kind": "reeds",
    "pos": [
-    -73.51,
-    -62.23
+    -86.27,
+    -20.33
    ],
    "size": [
     1.02,
@@ -20913,35 +22189,15 @@
   {
    "kind": "reeds",
    "pos": [
-    -75.31,
-    -58.3
+    -81.4,
+    5.89
    ],
    "size": [
-    1.6,
-    1.66,
-    1.6
+    1.32,
+    1.37,
+    1.32
    ],
-   "rot": 321.9,
-   "visible": true,
-   "solid": false,
-   "color": [
-    0.46,
-    0.46,
-    0.32
-   ]
-  },
-  {
-   "kind": "reeds",
-   "pos": [
-    -72.08,
-    -51.97
-   ],
-   "size": [
-    1.07,
-    1.11,
-    1.07
-   ],
-   "rot": 95.4,
+   "rot": 249.8,
    "visible": true,
    "solid": false,
    "color": [
@@ -20953,8 +22209,8 @@
   {
    "kind": "reeds",
    "pos": [
-    -80.9,
-    -46.7
+    -88.41,
+    13.5
    ],
    "size": [
     1.16,
@@ -20973,8 +22229,8 @@
   {
    "kind": "reeds",
    "pos": [
-    -76.92,
-    -39.05
+    -82.83,
+    18.59
    ],
    "size": [
     1.11,
@@ -20993,8 +22249,8 @@
   {
    "kind": "reeds",
    "pos": [
-    -78.13,
-    -35.21
+    -84.18,
+    24.53
    ],
    "size": [
     1.05,
@@ -21013,8 +22269,8 @@
   {
    "kind": "reeds",
    "pos": [
-    -84.94,
-    -32.44
+    -91.04,
+    27.23
    ],
    "size": [
     1.59,
@@ -21033,8 +22289,8 @@
   {
    "kind": "reeds",
    "pos": [
-    -79.41,
-    -25.63
+    -85.82,
+    32.83
    ],
    "size": [
     1.31,
@@ -21053,8 +22309,8 @@
   {
    "kind": "reeds",
    "pos": [
-    -81.47,
-    -6.04
+    -92.35,
+    49.37
    ],
    "size": [
     1.22,
@@ -21073,8 +22329,8 @@
   {
    "kind": "reeds",
    "pos": [
-    -87.75,
-    -0.31
+    -99.68,
+    49.99
    ],
    "size": [
     1.35,
@@ -21093,8 +22349,8 @@
   {
    "kind": "reeds",
    "pos": [
-    -81.45,
-    10.07
+    -101.1,
+    63.42
    ],
    "size": [
     1.23,
@@ -21113,8 +22369,8 @@
   {
    "kind": "reeds",
    "pos": [
-    -88.77,
-    13.45
+    -109.07,
+    62.09
    ],
    "size": [
     1.53,
@@ -21133,8 +22389,8 @@
   {
    "kind": "reeds",
    "pos": [
-    -89.93,
-    23.33
+    -114.05,
+    68.73
    ],
    "size": [
     1.56,
@@ -21153,8 +22409,8 @@
   {
    "kind": "reeds",
    "pos": [
-    -91.36,
-    27.15
+    -117.25,
+    71.49
    ],
    "size": [
     1.52,
@@ -21162,186 +22418,6 @@
     1.52
    ],
    "rot": 161.9,
-   "visible": true,
-   "solid": false,
-   "color": [
-    0.4,
-    0.48,
-    0.3
-   ]
-  },
-  {
-   "kind": "reeds",
-   "pos": [
-    -88.9,
-    41.04
-   ],
-   "size": [
-    1.55,
-    1.61,
-    1.55
-   ],
-   "rot": 62.7,
-   "visible": true,
-   "solid": false,
-   "color": [
-    0.46,
-    0.46,
-    0.32
-   ]
-  },
-  {
-   "kind": "reeds",
-   "pos": [
-    -96.43,
-    42.7
-   ],
-   "size": [
-    1.51,
-    1.57,
-    1.51
-   ],
-   "rot": 228.4,
-   "visible": true,
-   "solid": false,
-   "color": [
-    0.46,
-    0.46,
-    0.32
-   ]
-  },
-  {
-   "kind": "reeds",
-   "pos": [
-    -97.6,
-    46.73
-   ],
-   "size": [
-    1.36,
-    1.42,
-    1.36
-   ],
-   "rot": 274.3,
-   "visible": true,
-   "solid": false,
-   "color": [
-    0.4,
-    0.48,
-    0.3
-   ]
-  },
-  {
-   "kind": "reeds",
-   "pos": [
-    -94.26,
-    53.22
-   ],
-   "size": [
-    1.47,
-    1.53,
-    1.47
-   ],
-   "rot": 218.3,
-   "visible": true,
-   "solid": false,
-   "color": [
-    0.46,
-    0.46,
-    0.32
-   ]
-  },
-  {
-   "kind": "reeds",
-   "pos": [
-    -97.53,
-    58.33
-   ],
-   "size": [
-    1.6,
-    1.67,
-    1.6
-   ],
-   "rot": 263.2,
-   "visible": true,
-   "solid": false,
-   "color": [
-    0.46,
-    0.46,
-    0.32
-   ]
-  },
-  {
-   "kind": "reeds",
-   "pos": [
-    -106.02,
-    59.4
-   ],
-   "size": [
-    1.42,
-    1.48,
-    1.42
-   ],
-   "rot": 93.6,
-   "visible": true,
-   "solid": false,
-   "color": [
-    0.4,
-    0.48,
-    0.3
-   ]
-  },
-  {
-   "kind": "reeds",
-   "pos": [
-    -111.45,
-    65.47
-   ],
-   "size": [
-    1.25,
-    1.3,
-    1.25
-   ],
-   "rot": 212.4,
-   "visible": true,
-   "solid": false,
-   "color": [
-    0.46,
-    0.46,
-    0.32
-   ]
-  },
-  {
-   "kind": "reeds",
-   "pos": [
-    -109.82,
-    72.48
-   ],
-   "size": [
-    1.21,
-    1.26,
-    1.21
-   ],
-   "rot": 132.8,
-   "visible": true,
-   "solid": false,
-   "color": [
-    0.4,
-    0.48,
-    0.3
-   ]
-  },
-  {
-   "kind": "reeds",
-   "pos": [
-    -115.08,
-    78.81
-   ],
-   "size": [
-    1.3,
-    1.35,
-    1.3
-   ],
-   "rot": 277.8,
    "visible": true,
    "solid": false,
    "color": [
@@ -21446,7 +22522,8 @@
    ],
    "radius": 7.0,
    "count": 3,
-   "respawn": 22.0
+   "respawn": 22.0,
+   "unless": "dw_ghoul_boss"
   },
   {
    "monster_id": "larva",

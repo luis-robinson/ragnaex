@@ -35,7 +35,8 @@ PLACES = [
     {"type": "cabin", "id": "coveiro", "pos": (74.0, -38.0), "face": 160.0, "npc": "gravedigger_osric", "roof": (0.34, 0.32, 0.36), "wall": (0.5, 0.46, 0.42)},
     {"type": "cabin", "id": "escavacao", "pos": (60.0, 92.0), "face": 200.0, "npc": "digger_vera", "roof": (0.58, 0.44, 0.3), "wall": (0.6, 0.5, 0.38)},
     {"type": "shrine", "id": "capela", "pos": (96.0, 22.0), "npc": "dawn_board", "ground": (0.82, 0.78, 0.68)},
-    {"type": "camp", "id": "ninho_putrido", "pos": (-70.0, 42.0), "face": 200.0, "mob": "rot_ghoul", "count": 3, "cloth": (0.4, 0.46, 0.3), "respawn": 22.0},
+    {"type": "camp", "id": "ninho_putrido", "pos": (-70.0, 42.0), "face": 200.0, "mob": "rot_ghoul", "count": 3, "cloth": (0.4, 0.46, 0.3), "respawn": 22.0,
+     "when": {"unless": "dw_ghoul_boss"}},
     {"type": "dungeon", "id": "cripta", "dungeon": "dg_cripta"},
 ]
 
@@ -108,7 +109,7 @@ def build(export=False):
         "road": (0.7, 0.64, 0.52), "street": (0.82, 0.78, 0.7), "cliff_rock": (0.56, 0.53, 0.5), "cliff_rock_d": (0.45, 0.42, 0.39), "cliff_grass": (0.5, 0.52, 0.42),
         "hill_grass": (0.52, 0.54, 0.44), "water_dark": (0.28, 0.32, 0.4), "stone_ruin": (0.7, 0.68, 0.62), "leaf": (0.4, 0.46, 0.36),
         "town_wall": WALL, "roof_blue": (0.3, 0.42, 0.72), "gold": (0.98, 0.8, 0.32), "cathedral_stone": (0.86, 0.8, 0.68),
-        "cathedral_trim": (0.62, 0.56, 0.48), "glass": (0.45, 0.65, 0.95), "putrid": (0.45, 0.68, 0.22),
+        "cathedral_trim": (0.62, 0.56, 0.48), "glass": (0.45, 0.65, 0.95), "putrid": (0.45, 0.68, 0.22), "clean_grass": (0.46, 0.66, 0.36),
     })
     rnd = random.Random(21)
     portal = polar(z, -3, 7)
@@ -193,6 +194,7 @@ def build(export=False):
 
     # ---------- fronts: estrada do portão à garganta, chão queimado, trincheira, barricadas e posto avançado ----------
     raids = []
+    clean_flowers = []                                     # flores do front limpo: postas depois do rio (fora d'água e das estradas)
     for side, f in FRONTS.items():
         g = f["deg"]
         gorge_out = polar(z, g, 9)
@@ -212,7 +214,23 @@ def build(export=False):
         if side == "ghoul":                               # poças de bile no pântano do Carniçal
             for q in range(7):
                 pp = H(78.0 + (q % 3) * 7.0, g - 16.0 + q * 5.5)
-                disc(z.coll, z.P + "bile_%d" % q, pp, 2.2 + (q % 2), 0.02, z.M["putrid"], 14, 0.3, q)
+                disc(z.coll, z.P + "chao_front_ghoul_bile_%d" % q, pp, 2.2 + (q % 2), 0.02, z.M["putrid"], 14, 0.3, q)
+        # front limpo (aparece quando a fortaleza do lado cai): grama, flores e um acampamento da Aurora no caminho do reforço
+        disc(z.coll, z.P + "limpo_%s_chao" % side, H(84.0, g), 25.0, 0.004, z.M["clean_grass"], 36, 0.1, len(side))     # abaixo das estradas
+        cw = {"if": f["quest"]}
+        frnd = random.Random(len(side) * 7)
+        for k in range(14):
+            fx, fy = H(70.0 + frnd.uniform(0, 30), g + frnd.uniform(-18, 18))
+            clean_flowers.append((fx, fy, [(0.95, 0.9, 0.55), (0.9, 0.6, 0.7), (0.7, 0.8, 0.95)][k % 3], cw))
+        camp_c = H(92.0, g - 14.0)
+        for k in range(3):
+            a = math.radians(g - 14.0) + (k - 1) * 0.5
+            z.ob("tent", camp_c[0] + math.cos(a + 1.6) * 5.0, camp_c[1] + math.sin(a + 1.6) * 5.0, (3.4, 2.4, 3.0), face(g) + (k - 1) * 30, color=(0.36, 0.48, 0.78), when=cw)
+        for k in (-1, 1):
+            bx, by = H(78.0, g + k * 6.0)
+            z.ob("pillar", bx, by, (0.4, 4.0, 0.4), color=(0.85, 0.75, 0.4), when=cw)
+            z.ob("lamp", bx + 1.0, by, (0.4, 3.0, 0.4), when=cw)
+        z.ob("statue", camp_c[0], camp_c[1], (1.6, 2.4, 1.6), color=(0.92, 0.88, 0.72), when=cw)
         post = H(72.0, g + 30.0)                           # posto avançado da Aurora: tenda e fogueira
         z.ob("tent", post[0], post[1], (3.6, 2.4, 3.2), face(g + 30.0), color=(0.36, 0.48, 0.78))
         z.npc("dawn_g_%s_post_spearman_0" % side, post[0] + 3.0, post[1], face(g))
@@ -241,6 +259,9 @@ def build(export=False):
     # ---------- água: riacho escuro do norte ao sudoeste (pontes nas estradas) ----------
     z.river([(-30, -128), (-50, -96), (-66, -70), (-80, -40), (-84, -12), (-86, 18), (-96, 50), (-120, 80)], w=5.0, material="water_dark")
     z.bridges()
+    for fx, fy, col, cw in clean_flowers:
+        if z.free(fx, fy, 2.0, 0.0):
+            z.ob("flowers", fx, fy, (1.8, 0.5, 1.8), color=col, when=cw)
 
     z.cliffs(snow=False)
     places.build(z, PLACES)

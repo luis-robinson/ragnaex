@@ -226,9 +226,12 @@ class Zone:
         self.portal_angles = []
 
     # --- dados da sim ---
-    def ob(self, kind, x, z, size, rot=0.0, visible=True, solid=True, color=None, roof=None, y=None):
+    def ob(self, kind, x, z, size, rot=0.0, visible=True, solid=True, color=None, roof=None, y=None, when=None):
         d = {"kind": kind, "pos": [round(x, 2), round(z, 2)], "size": [round(s, 2) for s in size], "rot": round(rot, 1),
              "visible": visible, "solid": solid}
+        if when:                          # conquista (WorldState): só aparece antes/depois de uma quest; sem colisão
+            d.update(when)
+            d["solid"] = False
         if y is not None:
             d["y"] = y                     # altura visual (árvore no patamar da montanha); a sim é plana
         if color:

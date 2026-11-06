@@ -46,6 +46,7 @@ extends Resource
 ##   "every":s, "first":s, "jitter":s, "lifetime":s, "waves":[{"mobs":{"id":n}, "every_nth":int}], "name":"..."}
 @export var raid: Dictionary = {}
 @export var raids: Array = []             ## investidas extras (cidade atacada por vários lados): formato de `raid` + `side`, `if`/`unless`
+@export var conquest_vis: Array = []      ## peças do GLB que mudam com a conquista: {tag (parte do nome), if/unless} (MapBuilder.apply_conquest)
 @export var sortie: Dictionary = {}         ## surtida quando a investida chega à muralha: {from (porta), fighters {guard_id: n}, cooldown, say}
 @export var assaults: Array = []          ## levas aliadas que marcham (WorldState): {from, route, target, radius, fighters {guard_id: n}, every, max, first, say, if/unless}
 @export var decor: Array = []                       ## {"kind":"grass|flower|lamp|banner|path","pos":Vector3,"size":Vector3,"color":Color}

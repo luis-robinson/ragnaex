@@ -42,6 +42,13 @@ static func build(def: MapDef) -> Node3D:
 			_zone_materials(model, def)
 		root.add_child(model)
 		set_vis_range(model)
+		var tagged: Array = []                  # front sujo/limpo (MapDef.conquest_vis): pelo nome da peça
+		if not def.conquest_vis.is_empty():
+			for n in model.find_children("*", "Node3D", true, false):
+				for cv in def.conquest_vis:
+					if str(n.name).contains(str(cv["tag"])):
+						tagged.append([n, cv])
+		root.set_meta("conquest", tagged)
 	if zone or not has_model:
 		var obs_nodes: Array = []
 		for ob in def.obstacles:
@@ -51,6 +58,10 @@ static func build(def: MapDef) -> Node3D:
 			if n:
 				root.add_child(n)
 				set_vis_range(n)
+				if ob.has("if") or ob.has("unless"):
+					var tl: Array = root.get_meta("conquest", [])
+					tl.append([n, ob])
+					root.set_meta("conquest", tl)
 				var size: Vector3 = ob.get("size", Vector3.ONE)
 				if size.y > 1.6:
 					n.set_meta("occluder_h", size.y)
@@ -63,7 +74,15 @@ static func build(def: MapDef) -> Node3D:
 			set_vis_range(n)
 	for p in def.portals:
 		root.add_child(_portal(p))
+	apply_conquest(root)
 	return root
+
+## Mostra/esconde o que muda com a conquista (front sujo, acampamento pútrido, front limpo) pelas quests do jogador.
+static func apply_conquest(root: Node) -> void:
+	for pair in root.get_meta("conquest", []):
+		var n: Node3D = pair[0]
+		if is_instance_valid(n):
+			n.visible = WorldState.active(Sim, pair[1])
 
 ## Dungeon (mapa com parent_map): subterrâneo escuro, sem céu, névoa densa; o jogador leva a própria luz (main.gd).
 const DUNGEON_SUN := 0.5

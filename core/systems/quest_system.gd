@@ -140,11 +140,9 @@ static func objective(e: SimEntity, q: QuestDef) -> Dictionary:
 	match q.type:
 		QuestDef.Type.KILL:
 			var ids: Array = [q.target_id] + Array(q.also_counts)
-			var spot := _find(e, func(def: MapDef): return _raid_of(def, q.target_id))     # investida primeiro (no mapa atual)
-			if spot.is_empty() or spot["map"] != e.map_id:
-				var sp := _find(e, func(def: MapDef): return _spawner_of(def, ids))
-				if not sp.is_empty() and (spot.is_empty() or sp["map"] == e.map_id):
-					spot = sp
+			var spot := _find(e, func(def: MapDef): return _spawner_of(def, ids))           # onde o monstro vive (um front, um ninho)
+			if spot.is_empty():
+				spot = _find(e, func(def: MapDef): return _raid_of(def, q.target_id))   # só vem nas investidas: o povoado atacado
 			return spot
 		QuestDef.Type.COLLECT:
 			var spot := _find(e, func(def: MapDef): return _gather_of(def, q.target_id))
@@ -169,13 +167,43 @@ static func guide_point(e: SimEntity, q: QuestDef) -> Dictionary:
 	var obj := objective(e, q)
 	if obj.is_empty():
 		return {}
-	if obj["map"] == e.map_id:
-		return {"pos": obj["pos"], "via_portal": false}
 	var def: MapDef = GameData.maps.get(e.map_id)
 	if def == null:
 		return {}
-	var pt := PortalSystem.portal_towards(def, obj["map"])
-	return {} if pt.is_empty() else {"pos": pt["pos"], "via_portal": true}
+	var dest: Vector3 = obj["pos"]
+	var via := false
+	if obj["map"] != e.map_id:
+		var pt := PortalSystem.portal_towards(def, obj["map"])
+		if pt.is_empty():
+			return {}
+		dest = pt["pos"]
+		via = true
+	var gate := _gate_between(def, e.position, dest)
+	if gate != Vector3.INF:
+		return {"pos": gate, "via_portal": via, "via_gate": true}
+	return {"pos": dest, "via_portal": via}
+
+## Muralha entre o jogador e o destino (um dentro, o outro fora do povoado): o portão que melhor leva até lá.
+static func _gate_between(def: MapDef, from: Vector3, to: Vector3) -> Vector3:
+	if def.town_gates.is_empty() or def.town_radius <= 0.0:
+		return Vector3.INF
+	var c := def.town_center
+	var r := def.town_radius
+	var a_in := Vector2(from.x - c.x, from.z - c.z).length() < r - 1.0
+	var b_in := Vector2(to.x - c.x, to.z - c.z).length() < r - 1.0
+	if a_in == b_in:
+		return Vector3.INF
+	var best := Vector3.INF
+	var bd := INF
+	for g in def.town_gates:
+		var gp: Vector3 = g
+		if Vector2(gp.x - from.x, gp.z - from.z).length() < 3.0:
+			return Vector3.INF                # já no portão: segue direto
+		var d := from.distance_to(gp) + gp.distance_to(to)
+		if d < bd:
+			bd = d
+			best = gp
+	return best
 
 ## Procura em todos os mapas (o atual primeiro); `pick(def)` devolve a posição ou null.
 static func _find(e: SimEntity, pick: Callable) -> Dictionary:

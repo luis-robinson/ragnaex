@@ -658,6 +658,7 @@ func _check_zone(gd, sim) -> void:
 	_check_dawn_conquest(gd)
 	_check_dawn_relief(gd)
 	_check_dawn_towers(gd)
+	_check_dawn_clean_fronts(gd)
 	_check_signature(gd, sim)
 	_check_raid_tactics(gd, sim)
 	_check_equipment_slots(gd, sim, save_ref)
@@ -3018,6 +3019,48 @@ func _check_outlaws(gd, sim) -> void:
 ## a fortaleza retomada manda reforço à praça; leva na muralha solta a surtida de 20 da catedral (recarga, volta e some).
 ## Bastião: besteiros no alto das torres atiram nos invasores (pouco dano) e não são alvo nem tomam dano nem puxam aggro;
 ## serviços completos (relicário, depósito, reset na Alta Sacerdotisa); chefe de fortaleza volta enquanto a quest não sai.
+## Front que se limpa: cada fortaleza retomada esconde o chão pútrido/cinza/gelado do lado dela no Bastião e mostra o
+## acampamento limpo da Aurora; o acampamento pútrido some (spawner calado, tendas sem colisão). O GLB tem as peças.
+func _check_dawn_clean_fronts(gd) -> void:
+	var def: MapDef = gd.maps["field_ruins"]
+	var names: Array = []
+	var fa := FileAccess.open("res://assets/models/%s.glb" % def.model, FileAccess.READ)
+	if fa:
+		fa.seek(12)
+		var n := fa.get_32()
+		fa.seek(20)
+		var js: Dictionary = JSON.parse_string(fa.get_buffer(n).get_string_from_utf8())
+		names = js.get("nodes", []).map(func(nd): return str(nd.get("name", "")))
+	for side in ["ghoul", "bones", "frost"]:
+		var q := "dw_%s_boss" % side
+		var dirty := def.conquest_vis.filter(func(c): return c.get("unless", "") == q)
+		var clean := def.conquest_vis.filter(func(c): return c.get("if", "") == q)
+		check(not dirty.is_empty() and not clean.is_empty(), "Bastião: front %s some e limpa com %s" % [side, q])
+		for c in dirty + clean:
+			check(names.any(func(nm): return nm.contains(str(c["tag"]))), "Bastião: peça '%s' existe no GLB" % c["tag"])
+		var props := def.obstacles.filter(func(o): return o.get("if", "") == q)
+		check(props.size() >= 15 and props.all(func(o): return not o.get("solid", true)), "Bastião: acampamento limpo do %s (%d peças, sem colisão)" % [side, props.size()])
+	var camp := def.spawners.filter(func(sp): return sp["monster_id"] == "rot_ghoul" and sp.get("unless", "") == "dw_ghoul_boss")
+	check(not camp.is_empty(), "Bastião: o acampamento pútrido se cala com o Covil retomado")
+	check(def.obstacles.filter(func(o): return o.get("unless", "") == "dw_ghoul_boss").all(func(o): return not o.get("solid", true)), "Bastião: tendas pútridas sem colisão (somem sem deixar parede invisível)")
+	# visual: a raiz do mapa troca as peças na hora da conquista
+	var ws := WorldSim.new()
+	var old_player = Sim.player
+	var root := MapBuilder.build(def)
+	var tagged: Array = root.get_meta("conquest", [])
+	check(tagged.size() >= 60, "Bastião: o mapa liga peças da conquista (%d)" % tagged.size())
+	var visible_clean := func() -> int:
+		return tagged.filter(func(t): return str(t[1].get("if", "")) == "dw_ghoul_boss" and (t[0] as Node3D).visible).size()
+	check(visible_clean.call() == 0, "Bastião: antes do Covil, o front limpo não aparece")
+	var fake := SimEntity.new()
+	fake.quests_completed.append("dw_ghoul_boss")
+	Sim.player = fake
+	MapBuilder.apply_conquest(root)
+	check(visible_clean.call() > 0 and tagged.filter(func(t): return str(t[1].get("unless", "")) == "dw_ghoul_boss" and (t[0] as Node3D).visible).is_empty(),
+		"Bastião: Covil retomado, o oeste fica limpo e o pútrido some")
+	Sim.player = old_player
+	root.free()
+
 func _check_dawn_towers(gd) -> void:
 	var def: MapDef = gd.maps["field_ruins"]
 	var perched := def.npcs.filter(func(n): return float(n.get("perch", 0.0)) > 0.0)
