@@ -655,7 +655,7 @@ const PORTAL_GATES := {
 	"to_fort_ghoul": {"level": 20, "quest": "dw_gates", "text": "O Marechal Aldric só abre o portão oeste para quem já segurou os portões do Bastião."},
 	"to_fort_bones": {"level": 21, "quest": "dw_ghoul_boss", "text": "A Fortaleza dos Ossos: só com o Covil do Carniçal retomado a Aurora tem soldados para subir."},
 	"to_fort_frost": {"level": 23, "quest": "dw_bones_boss", "text": "A Torre do Mago: primeiro a Fortaleza dos Ossos tem de cair."},
-	"to_lich_citadel": {"level": 28, "quest": "dw_frost_boss", "text": "O selo da Cidadela só cede quando as três fortalezas forem da Aurora."},
+	"to_lich_citadel": {"level": 27, "quest": "dw_frost_boss", "text": "O selo da Cidadela só cede quando as três fortalezas forem da Aurora."},
 	"to_elf_city": {"level": 16, "text": "A garganta élfica: a Comandante Hela só deixa passar quem tem nível 16."},
 }
 const MERCHANT_SHOP := ["potion_hp_s", "potion_mp_s", "potion_hp_m", "potion_mp_m", "elixir_might", "elixir_stone", "cap_leather", "boots_leather"]
