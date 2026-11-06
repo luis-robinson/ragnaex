@@ -52,6 +52,7 @@ const GAP := 12          # espaço entre blocos do HUD
 const SIDE_W := 300      # colunas laterais (chat / dicas e quests): iguais para o hotbar ficar no centro
 const BOTTOM_H := 190    # altura da faixa de baixo (chat)
 var minimap: Minimap
+var tracked_quest_id := ""            # quest rastreada (seta amarela no minimapa); só apresentação
 var fps_label: Label                 # contador de FPS (canto direito, embaixo do nome do mapa)
 var gather_label: Label              # "[F] Colher ..." perto de um ponto; "Colhendo..." durante
 var raid_banner: PanelContainer      # faixa no topo durante uma investida no mapa do jogador (Sim.raid_status)
@@ -79,7 +80,7 @@ func _ready() -> void:
 	Events.notification.connect(_notify)
 	Events.item_gained.connect(_on_item_gained)
 	Events.chat_message.connect(_on_chat)
-	Events.quest_accepted.connect(func(_e, _q): refresh_quest_tracker())
+	Events.quest_accepted.connect(_on_quest_accepted)
 	Events.quest_progress.connect(func(_e, _q, _c, _n): refresh_quest_tracker())
 	Events.quest_completed.connect(func(_e, _q): refresh_quest_tracker())
 	Events.quest_abandoned.connect(func(_e, _q): refresh_quest_tracker())
@@ -317,8 +318,11 @@ func _build_top_right() -> void:
 	quest_tracker.custom_minimum_size = Vector2(SIDE_W - 20, 20)
 	quest_tracker.add_theme_font_size_override("normal_font_size", 13)
 	quest_tracker.add_theme_font_size_override("bold_font_size", 14)
-	quest_tracker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	quest_tracker.mouse_filter = Control.MOUSE_FILTER_STOP        # clique no título = rastrear (seta no minimapa)
+	quest_tracker.meta_underlined = false
+	quest_tracker.meta_clicked.connect(_on_track_clicked)
 	p.add_child(quest_tracker)
+	minimap.hud = self
 
 func _build_hints() -> Label:
 	hint_label = UiKit.label("WASD mover · LMB atacar · RMB bloquear · Shift dash\n1-6 skills · F1-F3 poções · Espaço pular · F interagir\nQ/E girar câmera · Enter chat · F11 tela cheia\nI bolsa · C personagem · K skills · L quests · P grupo · G cidade", 12, UiKit.MUTED)
@@ -646,18 +650,38 @@ func _on_chat_submit(text: String) -> void:
 			var reply: String = ["oi %s" % Sim.player.name, "kkkk", "verdade", "bora?", "tb acho", "?", "gg", "qual seu lvl?", "to na campina se quiser vir"][randi() % 9]
 			get_tree().create_timer(randf_range(1.5, 4.0)).timeout.connect(func(): Events.chat_message.emit(b.name, reply, "global"))
 
+## Quest que a seta amarela do minimapa segue: a escolhida no rastreador, senão a aceita por último.
+func tracked_quest() -> String:
+	var p: SimEntity = Sim.player
+	if p == null or p.quests_active.is_empty():
+		return ""
+	if p.quests_active.has(tracked_quest_id):
+		return tracked_quest_id
+	return p.quests_active.keys()[-1]
+
+func _on_quest_accepted(id: int, qid: String) -> void:
+	if Sim.player and id == Sim.player.id:
+		tracked_quest_id = qid
+	refresh_quest_tracker()
+
+func _on_track_clicked(meta: Variant) -> void:
+	tracked_quest_id = str(meta)
+	refresh_quest_tracker()
+
 func refresh_quest_tracker() -> void:
 	var p: SimEntity = Sim.player
 	if p == null:
 		return
-	var t := "[b][color=#ffd966]Quests[/color][/b]\n"
+	var t := "[b][color=#ffd966]Quests[/color][/b]  [color=#888](clique = seta)[/color]\n"
 	if p.quests_active.is_empty():
-		t += "[color=#888]Nenhuma. Fale com NPCs [Quest].[/color]"
+		t = "[b][color=#ffd966]Quests[/color][/b]\n[color=#888]Nenhuma. Fale com NPCs [Quest].[/color]"
+	var tracked := tracked_quest()
 	for qid in p.quests_active:
 		var q: QuestDef = GameData.quests[qid]
 		var prog := QuestSystem.progress(p, q)
 		var done := prog >= q.count
-		t += "[color=%s]%s[/color]  %d/%d%s\n" % ["#9f9" if done else "#eee", q.title, prog, q.count, "  ✔ entregar" if done else ""]
+		var col := "#9f9" if done else ("#ffd966" if qid == tracked else "#eee")
+		t += "[url=%s][color=%s]%s%s[/color][/url]  %d/%d%s\n" % [qid, col, "▶ " if qid == tracked else "", q.title, prog, q.count, "  ✔ entregar" if done else ""]
 		if not done:
 			t += "   [color=#888]%s[/color]\n" % q.map_hint
 	quest_tracker.text = t

@@ -660,7 +660,7 @@ func _follow(e: SimEntity, sim, m: Dictionary, leader: SimEntity, cmd: InputComm
 	state = S.TOWN_IDLE if in_town else S.HUNT     # se sair do grupo, continua de onde está
 	timer = 30.0
 	if leader.map_id != e.map_id:
-		var portal := _portal_towards(def, leader.map_id)
+		var portal := PortalSystem.portal_towards(def, leader.map_id)
 		if not portal.is_empty():
 			cmd.move = _steer(e, portal["pos"], dt)
 			cmd.aim = portal["pos"]
@@ -778,16 +778,3 @@ func _sticky(e: SimEntity, m: Dictionary, max_d: float) -> SimEntity:
 	hunt_target_id = -1
 	engaged = false
 	return null
-
-## Portal que leva a `target_map`; se não houver direto, o que leva à vila (de lá há portal pra todo lado).
-func _portal_towards(def: MapDef, target_map: String) -> Dictionary:
-	for p in def.portals:
-		if p["target_map"] == target_map:
-			return p
-	if GameData.maps.has(target_map) and GameData.maps[target_map].parent_map != "":
-		return _portal_towards(def, GameData.maps[target_map].parent_map)     # dungeon: vai pela zona da entrada
-	for p in def.portals:
-		if p["target_map"] == GameData.town_map_id():
-			return p
-	return def.portals[0] if def.portals.size() > 0 else {}
-

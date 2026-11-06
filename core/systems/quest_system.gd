@@ -132,6 +132,110 @@ static func npc_marker(e: SimEntity, npc_id: String) -> String:
 			return LOCKED
 	return ""
 
+## Onde cumprir o próximo passo da quest: {"map", "pos"} ({} = não sabe). Pronta → NPC de entrega;
+## senão o alvo pelo tipo (spawner, colheita, quem dropa, NPC, lugar, bancada). Mapa atual tem preferência.
+static func objective(e: SimEntity, q: QuestDef) -> Dictionary:
+	if is_complete(e, q):
+		return _npc_spot(e, q.turnin())
+	match q.type:
+		QuestDef.Type.KILL:
+			var spot := _find(e, func(def: MapDef): return _spawner_of(def, [q.target_id]))
+			return spot if not spot.is_empty() else _find(e, func(def: MapDef): return _raid_of(def, q.target_id))
+		QuestDef.Type.COLLECT:
+			var spot := _find(e, func(def: MapDef): return _gather_of(def, q.target_id))
+			if spot.is_empty():
+				spot = _find(e, func(def: MapDef): return _spawner_of(def, _droppers(q.target_id)))
+			return spot if not spot.is_empty() else _npc_spot(e, q.turnin())   # entrega: o pacote já está na bolsa
+		QuestDef.Type.TALK:
+			return _npc_spot(e, q.target_id)
+		QuestDef.Type.REACH:
+			if GameData.maps.has(q.target_id):
+				return {"map": q.target_id, "pos": GameData.maps[q.target_id].spawn_point}
+			return _find(e, func(def: MapDef): return _place_of(def, q.target_id))
+		QuestDef.Type.CRAFT:
+			for rid in GameData.recipes:
+				var r: RecipeDef = GameData.recipes[rid]
+				if r.result_item == q.target_id:
+					return _find(e, func(def: MapDef): return _role_of(def, r.station))
+	return {}
+
+## Ponto para onde a seta aponta no mapa atual: o objetivo, ou o portal que leva até ele.
+static func guide_point(e: SimEntity, q: QuestDef) -> Dictionary:
+	var obj := objective(e, q)
+	if obj.is_empty():
+		return {}
+	if obj["map"] == e.map_id:
+		return {"pos": obj["pos"], "via_portal": false}
+	var def: MapDef = GameData.maps.get(e.map_id)
+	if def == null:
+		return {}
+	var pt := PortalSystem.portal_towards(def, obj["map"])
+	return {} if pt.is_empty() else {"pos": pt["pos"], "via_portal": true}
+
+## Procura em todos os mapas (o atual primeiro); `pick(def)` devolve a posição ou null.
+static func _find(e: SimEntity, pick: Callable) -> Dictionary:
+	var order: Array = [e.map_id]
+	for mid in GameData.maps:
+		if mid != e.map_id:
+			order.append(mid)
+	for mid in order:
+		var def: MapDef = GameData.maps.get(mid)
+		if def:
+			var pos = pick.call(def)
+			if pos != null:
+				return {"map": mid, "pos": pos}
+	return {}
+
+static func _npc_spot(e: SimEntity, npc_id: String) -> Dictionary:
+	return _find(e, func(def: MapDef): return _npc_of(def, npc_id))
+
+static func _npc_of(def: MapDef, npc_id: String):
+	for n in def.npcs:
+		if n.get("id", "") == npc_id:
+			return n["pos"]
+	return null
+
+static func _role_of(def: MapDef, role: String):
+	for n in def.npcs:
+		if n.get("role", "") == role:
+			return n["pos"]
+	return null
+
+static func _spawner_of(def: MapDef, monster_ids: Array):
+	for s in def.spawners:
+		if s.get("monster_id", "") in monster_ids:
+			return s["pos"]
+	return null
+
+## Monstro que só vem na investida: o povoado atacado (onde a defesa acontece).
+static func _raid_of(def: MapDef, monster_id: String):
+	for w in def.raid.get("waves", []):
+		if w.get("mobs", {}).has(monster_id):
+			return def.raid["target"]
+	return null
+
+static func _gather_of(def: MapDef, item_id: String):
+	for g in def.gather:
+		if g.get("item", "") == item_id:
+			return g["at"]
+	return null
+
+static func _place_of(def: MapDef, place_id: String):
+	for pl in def.places:
+		if pl["id"] == place_id:
+			return pl["pos"]
+	return null
+
+## Monstros cuja tabela de loot tem o item.
+static func _droppers(item_id: String) -> Array:
+	var out: Array = []
+	for mid in GameData.monsters:
+		var m: MonsterDef = GameData.monsters[mid]
+		var lt: LootTable = GameData.loot_tables.get(m.loot_table)
+		if lt and lt.entries.any(func(en): return en.get("item", "") == item_id):
+			out.append(mid)
+	return out
+
 ## Peça do tier da quest que este personagem consegue vestir.
 static func gear_reward(e: SimEntity, q: QuestDef, sim) -> String:
 	if q.reward_gear_tier < 0:

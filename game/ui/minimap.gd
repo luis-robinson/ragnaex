@@ -25,6 +25,9 @@ var _dynamic: Node2D
 var _north: Label
 var _marks: Dictionary = {}           # id do NPC -> marcador de quest
 var _marks_timer := 0.0
+var hud: Node = null                  # dono da quest rastreada (hud.tracked_quest())
+var _guide: Dictionary = {}           # QuestSystem.guide_point da quest rastreada
+const C_GUIDE := Color(1.0, 0.85, 0.2)
 
 const PLACE_COLORS := {"cabin": Color(1.0, 0.85, 0.4), "camp": Color(0.95, 0.4, 0.3), "shrine": Color(0.6, 0.85, 1.0), "dungeon": Color(0.8, 0.45, 1.0)}
 
@@ -96,6 +99,8 @@ func _process(delta: float) -> void:
 		for e in Sim.map_entities(p.map_id):
 			if e.kind == SimEntity.Kind.NPC:
 				_marks[e.id] = QuestSystem.npc_marker(p, e.npc_data.get("id", ""))
+		var qid: String = hud.tracked_quest() if hud else ""
+		_guide = QuestSystem.guide_point(p, GameData.quests[qid]) if GameData.quests.has(qid) else {}
 	var f := camera.forward_flat() if camera else Vector3(0, 0, -1)
 	_holder.rotation = Vector2(f.x, f.z).angle_to(Vector2(0, -1))
 	_static.position = -Vector2(p.position.x, p.position.z) * zoom
@@ -219,12 +224,38 @@ func _draw_dynamic() -> void:
 					d.draw_circle(rel, 3.0, Color(0.95, 0.95, 0.8))
 	for qm in quest_marks:
 		_draw_quest_mark(d, qm[0], qm[1])
+	_draw_guide(d, origin)
 	# jogador: seta na direção em que encara (girada junto com o mapa)
 	var fwd := Vector2(sin(p.facing), cos(p.facing))
 	var side := Vector2(-fwd.y, fwd.x)
 	var tip := fwd * 8.0
 	d.draw_colored_polygon(PackedVector2Array([tip, -fwd * 4.0 + side * 5.0, -fwd * 1.5, -fwd * 4.0 - side * 5.0]), Color(1, 1, 1))
 	d.draw_polyline(PackedVector2Array([tip, -fwd * 4.0 + side * 5.0, -fwd * 1.5, -fwd * 4.0 - side * 5.0, tip]), Color(0.1, 0.1, 0.1), 1.2, true)
+
+## Seta amarela da quest rastreada: longe = presa na borda apontando o rumo; perto = sobre o ponto
+## (ponta para baixo, sempre de pé) com um anel. Objetivo noutro mapa aponta para o portal do caminho.
+func _draw_guide(d: Node2D, origin: Vector2) -> void:
+	if _guide.is_empty():
+		return
+	var gp: Vector3 = _guide["pos"]
+	var rel := (Vector2(gp.x, gp.z) - origin) * zoom
+	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.006)
+	var edge := SIZE * 0.5 - 14.0
+	var dir: Vector2
+	var at: Vector2
+	if rel.length() > edge:
+		dir = rel.normalized()
+		at = dir * (edge - 2.0 * pulse)
+	else:
+		d.draw_arc(rel, 5.0 + 2.0 * pulse, 0.0, TAU, 24, Color(C_GUIDE, 0.85), 2.0, true)
+		dir = Vector2(0, 1).rotated(-_holder.rotation)      # ponta para baixo na tela
+		at = rel - dir * (9.0 + 2.0 * pulse)
+	var side := Vector2(-dir.y, dir.x)
+	var tip := at + dir * 7.0
+	var pts := PackedVector2Array([tip, at - dir * 5.0 + side * 6.0, at - dir * 2.0, at - dir * 5.0 - side * 6.0])
+	d.draw_colored_polygon(pts, C_GUIDE)
+	pts.append(tip)
+	d.draw_polyline(pts, Color(0.25, 0.15, 0.0), 1.4, true)
 
 ## Lugares do mapa: um ponto com a cor do tipo (dungeon em destaque).
 ## Símbolo sempre de pé: desfaz a rotação do mapa só para este desenho.

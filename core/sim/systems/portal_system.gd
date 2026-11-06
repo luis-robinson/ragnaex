@@ -44,6 +44,38 @@ static func grandfather_gates(sim: WorldSim, e: SimEntity, map_id: String) -> vo
 			if e.level >= int(g.get("level", 1)) or map_within(sim, map_id, pt["target_map"]):
 				e.gates_open[pt["id"]] = true
 
+## Primeiro portal do caminho mais curto (em mapas) até `target_map`; sem caminho, o que leva à vila
+## (de lá há portal pra todo lado). Usado pelos bots (seguir o líder) e pela seta da quest no minimapa.
+static func portal_towards(def: MapDef, target_map: String) -> Dictionary:
+	for p in def.portals:
+		if p["target_map"] == target_map:
+			return p
+	# busca em largura pelo grafo de portais; guarda o portal de saída de cada ramo
+	var seen := {def.id: true}
+	var open: Array = []
+	for p in def.portals:
+		if not seen.has(p["target_map"]):
+			seen[p["target_map"]] = true
+			open.append([p["target_map"], p])
+	while not open.is_empty():
+		var cur: Array = open.pop_front()
+		var md: MapDef = GameData.maps.get(cur[0])
+		if md == null:
+			continue
+		for p in md.portals:
+			var nxt: String = p["target_map"]
+			if nxt == target_map:
+				return cur[1]
+			if not seen.has(nxt):
+				seen[nxt] = true
+				open.append([nxt, cur[1]])
+	if GameData.maps.has(target_map) and GameData.maps[target_map].parent_map != "":
+		return portal_towards(def, GameData.maps[target_map].parent_map)     # dungeon: vai pela zona da entrada
+	for p in def.portals:
+		if p["target_map"] == GameData.town_map_id():
+			return p
+	return def.portals[0] if def.portals.size() > 0 else {}
+
 ## `map_id` é `area` ou fica dentro dela (dungeon da zona).
 static func map_within(sim: WorldSim, map_id: String, area: String) -> bool:
 	var cur := map_id

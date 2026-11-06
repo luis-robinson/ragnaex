@@ -300,6 +300,10 @@ então provocar não rouba abate e estranho não rouba chefe. Saque tem dono por
 
 NPCs mostram **!** dourado (quest nova), **!** cinza (quest ainda bloqueada por nível ou quest anterior) e **?** (entregar, ou conversar numa
 quest de conversa), na cabeça e no minimapa: `QuestSystem.npc_marker`. No minimapa, ! dourado e ? longe ficam presos na borda, apontando o rumo.
+**Seta amarela** no minimapa: objetivo da quest rastreada (a aceita por último; clique no título do rastreador troca, ▶ amarelo).
+`QuestSystem.objective` acha o alvo pelo tipo (spawner, colheita, quem dropa, investida, NPC, lugar, bancada; pronta = quem recebe) e
+`guide_point` aponta para ele ou, noutro mapa, para o portal do caminho (`PortalSystem.portal_towards`, busca no grafo de portais, também usada pelos bots).
+Longe fica na borda; perto vira seta sobre o ponto com anel. Revisar: `-- --autostart=<classe> --quest_shot=<png>`.
 
 ## Combate: resposta
 Anda durante golpes e magias rápidas (60%; magias longas 25%; investidas 0), o rosto segue o cursor depois do impacto, e o básico até o impacto.

@@ -127,6 +127,9 @@ func after_start() -> void:
 	if DevArgs.flag("--raid_shot"):     # --raid_shot=<png>: investida élfica na Floresta (fotos _marcha e _portao) e sai
 		_smoke_test = false
 		_raid_shot(DevArgs.value("--raid_shot"))
+	if DevArgs.flag("--quest_shot"):    # --quest_shot=<png>: seta amarela do minimapa (objetivo neste mapa / noutro mapa) e sai
+		_smoke_test = false
+		_quest_shot(DevArgs.value("--quest_shot"))
 	if DevArgs.flag("--morph_film"):    # --morph_film=<png> [--morph=phantom|demon|wolf|bear]: quadros da transformação de perto
 		_smoke_test = false
 		_morph_film(DevArgs.value("--morph_film"), DevArgs.value("--morph", "phantom"))
@@ -153,6 +156,39 @@ func tick(delta: float) -> void:
 		_tour(delta)
 	elif _smoke_test:
 		_smoke(delta)
+
+## Fotos da seta da quest: rastreia uma quest com alvo neste mapa (<png>_aqui.png) e outra noutro mapa
+## (<png>_portal.png, aponta para o portal), recortadas no minimapa + rastreador.
+func _quest_shot(path: String) -> void:
+	var p: SimEntity = Sim.player
+	p.brain = null
+	var here := ""
+	var away := ""
+	for qid in GameData.quests:
+		var obj: Dictionary = QuestSystem.objective(p, GameData.quests[qid])
+		if obj.is_empty():
+			continue
+		if here == "" and obj["map"] == p.map_id and p.position.distance_to(obj["pos"]) > 60.0:
+			here = qid
+		elif away == "" and obj["map"] != p.map_id:
+			away = qid
+	for qid in [here, away]:
+		if qid != "":
+			p.quests_active[qid] = 0
+	var hud = main.hud
+	for pair in [[here, "_aqui"], [away, "_portal"]]:
+		if pair[0] == "":
+			continue
+		hud.tracked_quest_id = pair[0]
+		hud.refresh_quest_tracker()
+		await get_tree().create_timer(1.5).timeout
+		await RenderingServer.frame_post_draw
+		var img := get_viewport().get_texture().get_image()
+		var w := img.get_width()
+		img = img.get_region(Rect2i(w - 420, 0, 420, 520))
+		img.save_png(path.replace(".png", pair[1] + ".png"))
+		print("QUEST_SHOT %s %s guide=%s" % [pair[0], pair[1], QuestSystem.guide_point(p, GameData.quests[pair[0]])])
+	get_tree().quit()
 
 ## Filme da transformação: câmera perto, liga a forma e fotografa os instantes (linha de cima), segura a forma
 ## (último quadro da linha) e desliga (linha de baixo). Uma folha só, recortada em volta do jogador.

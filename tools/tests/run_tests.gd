@@ -642,6 +642,7 @@ func _check_zone(gd, sim) -> void:
 	_check_melee_reach(gd, sim)
 	_check_accents()
 	_check_quest_marks(gd, sim)
+	_check_quest_guide(gd, sim)
 	_check_equipment_slots(gd, sim, save_ref)
 	_check_icons(gd)
 	_check_combat_feel(gd, sim)
@@ -2759,6 +2760,40 @@ func _check_quest_marks(gd, sim) -> void:
 	check(QuestSystem.npc_marker(p, q.giver_npc) == "!", "! dourado aparece ao atingir o nível")
 	p.quests_completed.append(q.id)
 	check(QuestSystem.npc_marker(p, q.giver_npc) == "", "sem quests restantes não há marcador")
+	sim.despawn(p)
+
+## Seta da quest no minimapa: toda quest do catálogo tem um objetivo num mapa real, a seta acha o caminho
+## (portal) de onde a quest é dada, e a quest pronta aponta para quem recebe.
+func _check_quest_guide(gd, sim) -> void:
+	var p = sim.spawn_bot(gd.classes["paladin"], "Seta", "city_aldara", Vector3(0, 0, 6), 30)
+	var giver_map := {}
+	for mid in gd.maps:
+		for n in gd.maps[mid].npcs:
+			giver_map[n.get("id", "")] = mid
+	for qid in gd.quests:
+		var q: QuestDef = gd.quests[qid]
+		p.quests_active.clear()
+		p.inventory.clear()
+		p.map_id = giver_map.get(q.giver_npc, "city_aldara")
+		p.quests_active[qid] = 0
+		var obj: Dictionary = QuestSystem.objective(p, q)
+		check(not obj.is_empty() and gd.maps.has(obj["map"]), "quest %s tem objetivo no mapa (%s)" % [qid, obj])
+		var g: Dictionary = QuestSystem.guide_point(p, q)
+		check(not g.is_empty(), "seta da quest %s acha o rumo a partir de %s" % [qid, p.map_id])
+		if not obj.is_empty() and obj["map"] != p.map_id and not g.is_empty():
+			check(g["via_portal"], "quest %s noutro mapa aponta para um portal" % qid)
+	# caminho de portais: Aldara → Cidade Élfica passa pela Floresta; dungeon da floresta também
+	check(PortalSystem.portal_towards(gd.maps["city_aldara"], "elf_city").get("target_map", "") == "field_forest", "Aldara → cidade élfica: portal da floresta")
+	check(PortalSystem.portal_towards(gd.maps["city_aldara"], "dg_ninho").get("target_map", "") == "field_forest", "Aldara → ninho: portal da floresta")
+	check(PortalSystem.portal_towards(gd.maps["elf_city"], "dg_catacumbas_trono").get("target_map", "") == "field_forest", "cidade élfica → trono: volta pela floresta")
+	# pronta → NPC de entrega
+	var q1: QuestDef = gd.quests["q01_welcome"]
+	p.map_id = "city_aldara"
+	p.quests_active.clear()
+	p.quests_active[q1.id] = q1.count
+	var npc_pos = QuestSystem._npc_of(gd.maps["city_aldara"], q1.turnin())
+	check(npc_pos != null and QuestSystem.guide_point(p, q1).get("pos") == npc_pos, "quest pronta aponta para quem recebe")
+	p.quests_active.clear()
 	sim.despawn(p)
 
 ## Cor de destaque da roupa contrasta com a principal e nunca cai em verde-oliva escuro.
