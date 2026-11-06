@@ -646,6 +646,7 @@ func _check_zone(gd, sim) -> void:
 	_check_summon_ai(gd, sim)
 	_check_bind_crystal(gd, sim, save_ref)
 	_check_quarry(gd, sim)
+	_check_map_models(gd)
 	_check_raid_tactics(gd, sim)
 	_check_equipment_slots(gd, sim, save_ref)
 	_check_icons(gd)
@@ -2876,6 +2877,17 @@ func _check_raid_tactics(gd, sim) -> void:
 	m["chars"] = [tank, healer]
 	fresh.brain.think(fresh, ws, m, 0.05)
 	check(fresh.aggro_target == healer.id, "invasor mira em quem cura")
+
+## Todo mapa com modelo tem o GLB do Blender de verdade (uma exportação com a coleção escondida sai vazia, ~150 bytes,
+## e o jogo mostra só o chão: o Posto ficou sem muralha assim).
+func _check_map_models(gd) -> void:
+	for mid in gd.maps:
+		var md: MapDef = gd.maps[mid]
+		if md.model == "":
+			continue
+		var path := "res://assets/models/%s.glb" % md.model
+		var f := FileAccess.open(path, FileAccess.READ)
+		check(f != null and f.get_length() > 100000, "%s: %s.glb tem conteúdo (%d bytes)" % [mid, md.model, f.get_length() if f else 0])
 
 ## Pedreira dos Golens (Floresta, 11-15): entrada na floresta, 2 guardiões no mapa e o Coração atrás do selo,
 ## golens comuns na faixa, chefes com modelo próprio, lacaios sem XP, material com fonte.
