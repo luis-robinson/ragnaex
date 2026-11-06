@@ -105,6 +105,7 @@ var mastery: Dictionary = {}         # skill_id -> level 0..5
 var mastery_points: int = 0          # "pontos de skill": aprender, maestria e evoluções
 var build_id: String = ""            # bots: build escolhida (guia equipamento/skills)
 var inventory: Dictionary = {}       # item_id -> count
+var sig_ready_at: float = 0.0      # efeito-assinatura da build: quando pode disparar de novo (Balance.SIGNATURE_ICD)
 var legend_ready_at: float = 0.0   # arma lendária: quando o efeito com recarga (icd) pode disparar de novo
 var lost_leader_t: float = 0.0     # s em outro mapa que o líder do grupo (bots: reaparecem ao lado dele)
 var storage: Dictionary = {}         # depósito (NPC Guarda-volumes): item_id -> count; salvo com o personagem
@@ -225,7 +226,7 @@ func recompute_stats() -> void:
 			form = ""                # trocou de arma: volta à forma humana
 			stats = Stats.compute(class_def, level, equipment, buffs + ([tree_bonus] if not tree_bonus.is_empty() else []))
 		if class_def:
-			basic_skill = GameData.basic_skill_for_class(class_def, stats.weapon_type, stats.offhand_type)
+			basic_skill = GameData.basic_skill_for_class(class_def, stats.weapon_type, stats.offhand_type, LegendEffects.signature_build(self))
 	hp = minf(hp, stats.max_hp)
 	mp = minf(mp, stats.max_mp)
 

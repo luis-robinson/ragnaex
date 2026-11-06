@@ -20,6 +20,19 @@ static func _s(a: Array) -> Array[String]:
 	return out
 
 ## Build: armas (main/off), armadura do conjunto, atributos e stat do bônus de 5 peças, skills em prioridade.
+## Efeito-assinatura de cada build (LegendEffects.signature_on_hit): magia que dispara de graça ao acertar com o
+## básico ou com skills, em qualquer nível e com qualquer arma. `look` = tema visual do básico da build (só aparência).
+const SIGNATURES := {
+	"guardiao": {"skill": "pal_holy_strike", "look": "holy"}, "cruzado": {"skill": "pal_holy_wave", "look": "holy"},
+	"carniceiro": {"skill": "ber_throw_axe", "look": "blood"}, "executor": {"skill": "ber_overhead", "look": "blood"},
+	"sacerdote": {"skill": "bis_light", "look": "holy"}, "inquisidor": {"skill": "bis_hammer", "look": "holy"},
+	"guardiao_verde": {"skill": "dru_moonfire", "look": "nature"}, "fera": {"skill": "dru_claw", "look": "nature", "power": 0.8}, "xama": {"skill": "dru_moonfire", "look": "lunar", "power": 0.85},
+	"cacador": {"skill": "ran_frost_arrow", "look": "ice"}, "atirador": {"skill": "ran_snipe", "look": "fire"},
+	"laminas": {"skill": "ass_venom_dart", "look": "poison", "power": 0.8}, "duelista": {"skill": "ass_thrust", "look": "blood", "power": 0.55},
+	"fogo": {"skill": "ele_fireball", "look": "fire"}, "gelo": {"skill": "ele_ice_lance", "look": "ice", "power": 0.9}, "raio": {"skill": "ele_chain", "look": "lightning"},
+	"invocador": {"skill": "nec_bone_spear", "look": "bone"}, "ceifador": {"skill": "nec_soul_rend", "look": "shadow", "power": 0.8}, "pestilento": {"skill": "nec_mind_flay", "look": "shadow", "power": 0.7},
+}
+
 static func _b(id: String, name: String, role: String, main: Array, off: Array, armor: String, attr: String, attr2: String, stat: String, skills: Array) -> Dictionary:
 	return {"id": id, "name": name, "role": role, "main": main, "off": off, "armor": armor,
 		"attr": attr, "attr2": attr2, "stat": stat, "skills": skills}

@@ -206,12 +206,21 @@ func _on_hit_stop(frames: int) -> void:
 	_hit_stop_left = frames / 60.0
 	camera.add_shake(0.03 * frames)
 
+## Tema visual: o da skill (`vfx`), ou a aparência do básico da build (`look`); sem nenhum, físico.
+static func theme_of(s: SkillDef) -> String:
+	if s == null:
+		return ""
+	if s.vfx != "":
+		return s.vfx
+	return s.look if s.look != "" else "physical"
+
 ## Efeito da skill pelo TEMA (SkillDef.vfx) e na FORMA real da hitbox (SkillFx).
 func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: float) -> void:
-	var s: SkillDef = GameData.skills.get(skill_id)
+	var s: SkillDef = GameData.skill_or_basic(skill_id)
 	if s == null:
 		return
-	var th := s.vfx if s.vfx != "" else "physical"
+	var th := theme_of(s)
+	var basic := skill_id.begins_with("basic_")
 	var dir := aim - origin
 	dir.y = 0.0
 	dir = dir.normalized() if dir.length() > 0.01 else Vector3.FORWARD
@@ -232,8 +241,13 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: f
 				else:
 					SkillFx.flash(self, origin + Vector3(0, 1, 0), th, 1.8, maxf(radius, 1.0) * 1.6)
 		SkillDef.Target.CONE:
-			SkillFx.sector(self, origin, dir, radius, s.cone_angle_deg, th, 0.32)
-			SkillFx.burst(self, origin + dir * radius * 0.7 + Vector3(0, 0.6, 0), th, 18, dir + Vector3.UP * 0.4, 0.4)
+			if basic:                          # básico: o tema da build num rastro curto (não compete com as skills)
+				if th != "physical":
+					SkillFx.sector(self, origin, dir, radius, s.cone_angle_deg, th, 0.26)
+					SkillFx.burst(self, origin + dir * radius * 0.75 + Vector3(0, 0.7, 0), th, 12, dir + Vector3.UP * 0.5, 0.35)
+			else:
+				SkillFx.sector(self, origin, dir, radius, s.cone_angle_deg, th, 0.32)
+				SkillFx.burst(self, origin + dir * radius * 0.7 + Vector3(0, 0.6, 0), th, 18, dir + Vector3.UP * 0.4, 0.4)
 		SkillDef.Target.DIRECTION:
 			if s.effects.has("dash"):
 				var path := Vector2(aim.x - origin.x, aim.z - origin.z).length()    # investida barrada desenha só o que andou
@@ -300,7 +314,7 @@ func _on_skill_cast(entity_id: int, skill_id: String, phase: String) -> void:
 	var e: SimEntity = Sim.get_entity(entity_id)
 	if e == null or e.map_id != main.current_map_id or skill_id == "dash" or skill_id == "jump":
 		return
-	var s: SkillDef = GameData.skills.get(skill_id)
+	var s: SkillDef = GameData.skill_or_basic(skill_id)
 	# meteoro: começa a cair já na preparação, pra chegar no chão no instante do dano
 	if s and s.target == SkillDef.Target.GROUND and s.vfx == "fire" and ("meteor" in s.id or "phoenix" in s.id):
 		SkillFx.meteor(self, e.skill_aim, s.radius, s.vfx, maxf(0.15, s.startup))
@@ -560,13 +574,16 @@ func _on_projectile(p: SimProjectile) -> void:
 	sm.radial_segments = 8
 	sm.rings = 4
 	mi.mesh = sm
-	var th := p.skill.vfx if p.skill and p.skill.vfx != "" else ""
+	var th := theme_of(p.skill) if p.skill else ""
+	if th == "physical" and p.skill and p.skill.vfx == "":
+		th = ""
 	var pcol: Color = SkillFx.col(th, 0) if th != "" else p.color
 	mi.material_override = Materials.glow(pcol, 2.5)
 	n.add_child(mi)
 	# físico: flecha (dono com arco) ou lâmina girando (arremesso), em vez da bola de energia
 	var owner: SimEntity = Sim.get_entity(p.owner_id)
-	if th in ["physical", "blood", "earth", "bone"] or (owner and owner.stats and owner.stats.weapon_type == "bow" and th in ["", "physical"]):
+	var bow_shot: bool = owner != null and owner.stats != null and owner.stats.weapon_type == "bow" and p.skill != null and p.skill.id.begins_with("basic_")
+	if th in ["physical", "blood", "earth", "bone"] or bow_shot or (owner and owner.stats and owner.stats.weapon_type == "bow" and th in ["", "physical"]):
 		if owner and owner.stats and owner.stats.weapon_type == "bow":
 			var shaft := BoxMesh.new()
 			shaft.size = Vector3(0.06, 0.06, 0.9)

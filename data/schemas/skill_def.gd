@@ -19,6 +19,7 @@ enum Kind { PHYSICAL, MAGICAL, HEAL, BUFF, SUMMON, MOVEMENT }
 @export var kind: Kind = Kind.PHYSICAL
 @export var icon_color: Color = Color.WHITE
 @export var vfx: String = ""
+@export var look: String = ""         ## só aparência (básico da build): o FX usa quando `vfx` é vazio; não muda regra de combate
 ## elementos da skill (Elementalista): "fire" | "frost" | "storm"; combinações têm dois ou três. Dano × média dos bônus.
 @export var elements: Array[String] = []             ## tema do efeito visual (SkillsCatalog.VFX_RULES): fire, ice, holy, shadow...
 

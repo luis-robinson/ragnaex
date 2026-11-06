@@ -21,6 +21,10 @@ var _next_proj_id: int = 1
 var player: SimEntity = null
 var player_cmd: InputCommand = InputCommand.new()
 var _pending_map_changes: Array = []
+var power_scale := 1.0              # efeitos de graça (assinatura) lançam com menos poder
+var signatures_on := true
+var signature_force := false      # revisão visual: a assinatura dispara sempre (com a recarga)          # sondas: desliga a assinatura para comparar
+var signature_casting := false     # assinatura em andamento: o que ela acertar não dispara outra
 var parties: Dictionary = {}       # party_id -> {"id", "leader": entity_id, "members": Array[int]}
 var invites: Dictionary = {}       # entity_id convidado -> {"from", "expires", "decide_at"}
 var _next_party_id: int = 1
@@ -779,7 +783,7 @@ func _update_skill(e: SimEntity, m: Dictionary, dt: float) -> void:
 
 func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 	var lv := e.mastery_of(s.id) if s.id in e.mastery else 0
-	var power := s.power_at(lv) * e.stats.skill_power_mult(s.id) * e.stats.element_mult(s.elements) * ShieldSystem.shield_power(self, e, s)
+	var power := s.power_at(lv) * e.stats.skill_power_mult(s.id) * e.stats.element_mult(s.elements) * ShieldSystem.shield_power(self, e, s) * power_scale
 	if e.ambush:
 		power *= Balance.AMBUSH_MULT
 		e.ambush = false
@@ -904,6 +908,7 @@ func _strike(e: SimEntity, t: SimEntity, s: SkillDef, power: float, kind: SkillD
 	var dk := "magical" if s.kind == SkillDef.Kind.MAGICAL else "physical"
 	_deal_damage(e, t, r["amount"], r["crit"], r["blocked"], "shatter" if frost > 1.0 and dk == "magical" else dk, from)
 	LegendEffects.legend_on_hit(self, e, t, s, int(r["amount"]))
+	LegendEffects.signature_on_hit(self, e, t, s, int(r["amount"]))
 	return r
 
 func _storm_proc(src: SimEntity, s: SkillDef, t: SimEntity) -> void:

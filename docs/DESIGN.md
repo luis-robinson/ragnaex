@@ -352,6 +352,12 @@ Movimento: atravessam água só pelas pontes (`WorldSim.water_path`, grafo de ca
 - **XP**: abate dividido entre os membros vivos no mesmo mapa a até 45 m e com até 15 níveis de diferença;
   total × (1 + 15% por membro extra) ÷ membros, cada um com o multiplicador do próprio nível. Quests de abate contam para todos eles.
 - **Curas e buffs em área** só pegam você, o grupo e as invocações deles (`SimEntity.is_friend`); invocações herdam o grupo do dono.
+- **Efeito-assinatura** (`ClassesCatalog.SIGNATURES`, `LegendEffects.signature_on_hit`): toda build lança de graça a magia dela ao acertar,
+  sem depender da arma (Fogo: Bola de Fogo; Gelo: Lança de Gelo; Iluminado: Martelo de Luz; Caçador: Flecha Gélida...). Chance
+  `SIGNATURE_BASIC_PCT` (+1%/5 níveis) no básico e `SIGNATURE_SKILL_PCT` por acerto de skill, recarga `SIGNATURE_ICD`, poder `SIGNATURE_POWER`
+  x o peso da build; o que ela acerta não dispara outra. Arma lendária com a mesma magia (Brasa Viva) soma chance. O básico da build
+  ganha a aparência do tema (`SkillDef.look`, só visual: não estilhaça nem atordoa) e perde `SIGNATURE_BASIC_TRIM`. Calibrado com
+  `tools/tests/dps_probe.tscn` (cada build, nv 10/20/30, com x sem: -5%..+10%); revisar com `-- --autostart=<classe> --sig_film=<png>`.
 - **Invocações lutam sozinhas** (`MonsterBrain._summon_target`): quem bate no dono, depois quem o dono ataca, quem bate nela, o monstro mais perto do dono
   (`SUMMON_ASSIST_RANGE`); coleira de `SUMMON_LEASH` no dono; usam as skills do monstro; as que atiram (`ranged`: elementais de gelo/raio, lich) recuam
   medindo do alvo. Ataque e magia vêm do dono. Ordem do companheiro segura o alvo `PET_COMMAND_FOCUS` s. Sonda: `tools/tests/pet_probe.tscn` (FLAG = sem alvo, golpe lento, atirador colado).

@@ -648,6 +648,7 @@ func _check_zone(gd, sim) -> void:
 	_check_quarry(gd, sim)
 	_check_map_models(gd)
 	_check_repeatable_labels(gd)
+	_check_signature(gd, sim)
 	_check_raid_tactics(gd, sim)
 	_check_equipment_slots(gd, sim, save_ref)
 	_check_icons(gd)
@@ -1927,6 +1928,7 @@ func _check_legend_weapons_and_attrs(gd, sim) -> void:
 	# Elementalista: fogo lança Bola de Fogo no básico; gelo lança Nova ao levar golpe (uma vez a cada 20 s); raio salta
 	var el: SimEntity = sim.spawn_bot(gd.classes["elementalist"], "Ele2", "city_aldara", Vector3(-46, 0, -46), 20)
 	el.brain = null
+	el.build_id = "gelo"                   # Brasa Viva numa build que não é a de fogo: lança à parte (na de fogo soma na assinatura)
 	var mob2: SimEntity = sim.spawn_monster(gd.monsters["golem"], "city_aldara", Vector3(-44.5, 0, -44.5))
 	mob2.brain = null
 	var basic: SkillDef = el.basic_skill
@@ -2537,7 +2539,7 @@ func _check_berserker_builds(gd, sim) -> void:
 	e.equipment[ItemDef.Slot.WEAPON] = gd.items["axe_old"]
 	e.equipment.erase(ItemDef.Slot.OFFHAND)
 	e.recompute_stats()
-	check(e.basic_skill == b2, "berserker de machado de duas mãos usa o golpe largo")
+	check(e.basic_skill.id.begins_with(b2.id) and is_equal_approx(e.basic_skill.radius, b2.radius) and is_equal_approx(e.basic_skill.cone_angle_deg, b2.cone_angle_deg), "berserker de machado de duas mãos usa o golpe largo (%s)" % e.basic_skill.id)
 	var ring: Array = []
 	for i in range(5):
 		var a := deg_to_rad(-60.0 + i * 30.0)
@@ -2885,6 +2887,61 @@ func _check_raid_tactics(gd, sim) -> void:
 	QuestSystem.on_kill(healer, "elf_raider_mage")
 	QuestSystem.on_kill(healer, "elf_lynx")
 	check(int(healer.quests_active[hq.id]) == 2, "Segurar o Portão: guerreiro e mago contam, lince não (%d)" % int(healer.quests_active[hq.id]))
+
+## Efeito-assinatura: toda build lança a magia dela ao acertar (sem depender da arma), com recarga; o que a assinatura
+## acerta não dispara outra; arma lendária com a mesma magia soma chance; o básico da build tem a aparência do tema.
+func _check_signature(gd, sim) -> void:
+	for cid in gd.classes:
+		for b in gd.classes[cid].builds:
+			var sig: Dictionary = ClassesCatalog.SIGNATURES.get(b["id"], {})
+			var sk: SkillDef = gd.skills.get(str(sig.get("skill", "")))
+			check(sk != null and sk.class_id == cid and sk.power > 0.0, "%s/%s: assinatura existe e é da classe (%s)" % [cid, b["id"], sig.get("skill", "")])
+			if sk:
+				for bad in ["dash", "summon", "form", "buff", "boss_summon", "trap"]:
+					check(not sk.effects.has(bad), "%s: assinatura %s sem %s (não move nem muda o personagem)" % [b["id"], sk.id, bad])
+	var m: Dictionary = sim.maps["city_aldara"]
+	var el: SimEntity = sim.spawn_bot(gd.classes["elementalist"], "Sig", "city_aldara", Vector3(-60, 0, -40), 12)
+	el.brain = null
+	el.build_id = "fogo"
+	el.equipment[ItemDef.Slot.WEAPON] = gd.items["staff_silk"] if gd.items.has("staff_silk") else el.equipment.get(ItemDef.Slot.WEAPON)
+	el.recompute_stats()
+	check(el.stats.legend.is_empty(), "sem arma lendária")
+	check(el.basic_skill.look == "fire" and el.basic_skill.vfx == "", "básico do Fogo: aparência de fogo, sem mudar regra (vfx vazio)")
+	check(LegendEffects.signature_skill(el) == "ele_fireball", "assinatura do Fogo é a Bola de Fogo")
+	var dummy: SimEntity = sim.spawn_monster(gd.monsters["golem"], "city_aldara", Vector3(-58, 0, -40))
+	dummy.brain = null
+	var fired := 0
+	for i in range(200):
+		el.sig_ready_at = 0.0
+		var before: int = m["projectiles"].size()
+		LegendEffects.signature_on_hit(sim, el, dummy, el.basic_skill, 50)
+		if m["projectiles"].size() > before:
+			fired += 1
+	check(fired > 5 and fired < 60, "básico dispara a Bola de Fogo às vezes, sem arma lendária (%d/200)" % fired)
+	var before2: int = m["projectiles"].size()
+	el.sig_ready_at = sim.time + 10.0
+	for i in range(50):
+		LegendEffects.signature_on_hit(sim, el, dummy, el.basic_skill, 50)
+	check(m["projectiles"].size() == before2, "recarga segura a assinatura")
+	el.sig_ready_at = 0.0
+	for i in range(50):
+		LegendEffects.signature_on_hit(sim, el, dummy, gd.skills["ele_fireball"], 50)
+	check(m["projectiles"].size() == before2, "a própria Bola de Fogo não dispara a assinatura")
+	sim.signature_casting = true
+	for i in range(50):
+		LegendEffects.signature_on_hit(sim, el, dummy, el.basic_skill, 50)
+	sim.signature_casting = false
+	check(m["projectiles"].size() == before2, "o que a assinatura acerta não dispara outra")
+	el.stats.legend = {"kind": "cast_on_basic", "skill": "ele_fireball", "chance": 100.0}
+	el.sig_ready_at = 0.0
+	LegendEffects.signature_on_hit(sim, el, dummy, el.basic_skill, 50)
+	check(m["projectiles"].size() == before2 + 1, "Brasa Viva soma chance na assinatura (100%% dispara)")
+	var before3: int = m["projectiles"].size()
+	LegendEffects.legend_on_hit(sim, el, dummy, el.basic_skill, 50)
+	check(m["projectiles"].size() == before3, "Brasa Viva não lança uma segunda Bola de Fogo à parte")
+	m["projectiles"].clear()
+	sim.despawn(dummy)
+	sim.despawn(el)
 
 ## Quest repetível diz que é repetível (diálogo, rastreador, janela L e aviso de conclusão usam estes textos).
 func _check_repeatable_labels(gd) -> void:

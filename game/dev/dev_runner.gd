@@ -130,6 +130,9 @@ func after_start() -> void:
 	if DevArgs.flag("--raid_shot"):     # --raid_shot=<png>: investida élfica na Floresta (fotos _marcha e _portao) e sai
 		_smoke_test = false
 		_raid_shot(DevArgs.value("--raid_shot"))
+	if DevArgs.flag("--sig_film"):      # --sig_film=<png>: cada build da classe segurando o ataque num boneco, assinatura forçada (uma linha por build)
+		_smoke_test = false
+		_sig_film(DevArgs.value("--sig_film"))
 	if DevArgs.flag("--repeat_shot"):   # --repeat_shot=<png>: quest repetível no diálogo do quadro (_dialogo), no rastreador e na janela L (_janela)
 		_smoke_test = false
 		_repeat_shot(DevArgs.value("--repeat_shot"))
@@ -165,6 +168,58 @@ func tick(delta: float) -> void:
 		_tour(delta)
 	elif _smoke_test:
 		_smoke(delta)
+
+const SIG_SHOTS := [0.15, 0.35, 0.55, 0.8, 1.05, 1.35, 1.7, 2.1]
+
+func _sig_film(path: String) -> void:
+	var p: SimEntity = Sim.player
+	p.brain = null
+	main.controller.set_physics_process(false)
+	Sim._change_map(p, "field_forest", Vector3(-90, 0, 9))
+	main.camera.distance = 9.0
+	await get_tree().create_timer(1.5).timeout
+	Sim.signature_force = true
+	var rows: Array = []
+	for b in p.class_def.builds:
+		p.build_id = b["id"]
+		Sim._gear_bot(p)
+		Sim._skill_bot(p)
+		p.recompute_stats()
+		var mob: SimEntity = Sim.spawn_monster(GameData.monsters["spider"], "field_forest", p.position + Vector3(2.2, 0, -1.2))
+		mob.brain = null
+		mob.stats.max_hp = 1.0e7
+		mob.hp = 1.0e7
+		await get_tree().create_timer(0.6).timeout
+		p.sig_ready_at = 0.0
+		var frames: Array = []
+		var t0 := Time.get_ticks_msec()
+		for at in SIG_SHOTS:
+			while (Time.get_ticks_msec() - t0) / 1000.0 < float(at):
+				var c := InputCommand.new()
+				c.aim = mob.position
+				c.attack = true
+				Sim.set_player_command(c)
+				await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+			frames.append(get_viewport().get_texture().get_image())
+		rows.append(frames)
+		Sim.set_player_command(InputCommand.new())
+		Sim.despawn(mob)
+		await get_tree().create_timer(0.8).timeout
+	Sim.signature_force = false
+	var full: Image = rows[0][0]
+	var ch := int(full.get_height() * 0.5)
+	var cw := int(ch * 0.9)
+	var cx := (full.get_width() - cw) / 2 + int(cw * 0.12)
+	var cy := (full.get_height() - ch) / 2 - int(ch * 0.08)
+	var sheet := Image.create(cw * SIG_SHOTS.size(), ch * rows.size(), false, full.get_format())
+	for r in range(rows.size()):
+		for i in range(SIG_SHOTS.size()):
+			sheet.blit_rect(rows[r][i], Rect2i(cx, cy, cw, ch), Vector2i(i * cw, r * ch))
+	sheet.resize(sheet.get_width() / 2, sheet.get_height() / 2)
+	sheet.save_png(path)
+	print("SIG_FILM %s builds=%d" % [path, rows.size()])
+	get_tree().quit()
 
 func _repeat_shot(path: String) -> void:
 	var p: SimEntity = Sim.player

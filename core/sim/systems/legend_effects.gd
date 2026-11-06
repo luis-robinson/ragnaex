@@ -19,6 +19,59 @@ static func legend_cast(sim: WorldSim, e: SimEntity, skill_id: String, aim: Vect
 	sim._apply_skill(e, s, sim.maps[e.map_id])
 	e.skill_aim = keep
 
+## Build do personagem para a assinatura: a dos bots (build_id), ou a que mais combina com a arma e as skills aprendidas.
+static func signature_build(e: SimEntity) -> String:
+	if e.class_def == null:
+		return ""
+	if e.build_id != "" and ClassesCatalog.SIGNATURES.has(e.build_id):
+		return e.build_id
+	var wt: String = e.stats.weapon_type if e.stats else ""
+	var best := ""
+	var best_n := -1
+	for b in e.class_def.builds:
+		var bid: String = b.get("id", "")
+		if not ClassesCatalog.SIGNATURES.has(bid):
+			continue
+		var n := 0
+		if wt != "" and wt in b.get("main", []):
+			n += 100                              # a arma decide primeiro (machado duplo x de duas mãos...)
+		for sid in e.learned:
+			var sk: SkillDef = GameData.skills.get(sid)
+			if sk and sk.build == bid:
+				n += 1                            # mesma arma (cajado do elementalista): as skills aprendidas desempatam
+		if n > best_n:
+			best_n = n
+			best = bid
+	return best
+
+static func signature_skill(e: SimEntity) -> String:
+	return str(ClassesCatalog.SIGNATURES.get(signature_build(e), {}).get("skill", ""))
+
+## Efeito-assinatura: ao acertar com o básico (ou, menos, com skills), chance de lançar de graça a magia da build,
+## com poder reduzido (SIGNATURE_POWER) e recarga própria. Arma lendária com a mesma magia (Brasa Viva) soma chance.
+## O que a assinatura acerta não dispara outra (nem a própria magia, quando lançada pelo jogador, dispara a si mesma).
+static func signature_on_hit(sim: WorldSim, e: SimEntity, t: SimEntity, s: SkillDef, amount: int) -> void:
+	if not sim.signatures_on or sim.signature_casting or amount <= 0 or not e.is_character() or e.class_def == null or t == null or not t.is_alive() or s == null:
+		return
+	if sim.time < e.sig_ready_at or not e.is_hostile_to(t):
+		return
+	var sid := signature_skill(e)
+	if sid == "" or s.id == sid:
+		return
+	var basic := s.id.begins_with("basic_")
+	var chance: float = Balance.SIGNATURE_BASIC_PCT + floorf(e.level / 5.0) * Balance.SIGNATURE_BASIC_PER5 if basic else Balance.SIGNATURE_SKILL_PCT
+	var le: Dictionary = e.stats.legend if e.stats else {}
+	if basic and str(le.get("kind", "")) == "cast_on_basic" and str(le.get("skill", "")) == sid:
+		chance += float(le.get("chance", 0.0))
+	if not sim.signature_force and sim.rng.randf() * 100.0 >= chance:
+		return
+	e.sig_ready_at = sim.time + Balance.SIGNATURE_ICD
+	sim.signature_casting = true
+	sim.power_scale = Balance.SIGNATURE_POWER * float(ClassesCatalog.SIGNATURES.get(signature_build(e), {}).get("power", 1.0))     # peso por build (dps_probe)
+	legend_cast(sim, e, sid, t.position)
+	sim.power_scale = 1.0
+	sim.signature_casting = false
+
 ## Efeitos da arma lendária ao acertar (golpe direto de quem a usa). `s` = skill do golpe (o básico começa com "basic_").
 static func legend_on_hit(sim: WorldSim, e: SimEntity, t: SimEntity, s: SkillDef, amount: int) -> void:
 	if not e.is_character() or e.stats.legend.is_empty() or amount <= 0 or not t.is_alive() and str(e.stats.legend.get("kind", "")) != "splash":
@@ -27,7 +80,9 @@ static func legend_on_hit(sim: WorldSim, e: SimEntity, t: SimEntity, s: SkillDef
 	var basic: bool = s != null and s.id.begins_with("basic_")
 	match str(le.get("kind", "")):
 		"cast_on_basic":
-			if basic and t.is_alive() and sim.rng.randf() * 100.0 < float(le["chance"]):
+			if str(le["skill"]) == signature_skill(e):
+				pass                                # mesma magia da assinatura: soma chance lá (não dispara duas vezes)
+			elif basic and t.is_alive() and sim.rng.randf() * 100.0 < float(le["chance"]):
 				legend_cast(sim, e, str(le["skill"]), t.position)
 		"chain":
 			if basic:

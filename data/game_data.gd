@@ -17,6 +17,7 @@ var trees: Dictionary = {}       # class_id -> {"start", "nodes"} (árvore de po
 var bot_names: Array = []
 var bot_lines: Dictionary = {}
 var _basic_cache: Dictionary = {}
+var basic_skills: Dictionary = {}   # id -> SkillDef dos básicos gerados (o FX acha o tema por aqui)
 
 func _ready() -> void:
 	load_all()
@@ -146,12 +147,13 @@ func random_bot_line(ctx: String) -> String:
 ## Ataque básico como SkillDef gerado por classe (cadência, alcance e tipo vêm da ClassDef).
 ## Classe de ataque à distância empunhando arma corpo a corpo (druida de martelo, ranger de machados...)
 ## ataca corpo a corpo e físico.
-func basic_skill_for_class(cls: ClassDef, weapon_type: String = "", offhand_type: String = "") -> SkillDef:
+func basic_skill_for_class(cls: ClassDef, weapon_type: String = "", offhand_type: String = "", build_id: String = "") -> SkillDef:
 	var melee_override := cls.basic_attack_is_ranged and weapon_type in ItemDef.MELEE_TYPES
 	# arma corpo a corpo de duas mãos (montante, malho, machado): golpe largo — também no bispo de malho (golpe corpo a corpo)
 	var big := weapon_type in Balance.BIG_SWING_WEAPONS and (melee_override or not cls.basic_attack_is_ranged)
 	var rifle := weapon_type == "rifle" and cls.basic_attack_is_ranged
-	var key := "basic_" + cls.id + ("_melee" if melee_override else "") + ("_big" if big else "") + ("_rifle" if rifle else "")
+	var look: String = str(ClassesCatalog.SIGNATURES.get(build_id, {}).get("look", ""))
+	var key := "basic_" + cls.id + ("_melee" if melee_override else "") + ("_big" if big else "") + ("_rifle" if rifle else "") + ("_" + look if look != "" else "")
 	if _basic_cache.has(key):
 		return _basic_cache[key]
 	var ranged := cls.basic_attack_is_ranged and not melee_override
@@ -161,7 +163,8 @@ func basic_skill_for_class(cls: ClassDef, weapon_type: String = "", offhand_type
 	s.name = "Ataque"
 	s.class_id = cls.id
 	s.kind = SkillDef.Kind.PHYSICAL if melee_override else cls.basic_attack_kind
-	s.power = 1.0 if melee_override else cls.basic_attack_power
+	s.power = (1.0 if melee_override else cls.basic_attack_power) * Balance.SIGNATURE_BASIC_TRIM
+	s.look = look
 	s.mp_cost = 0.0
 	s.cooldown = cd
 	s.startup = 0.12 if not ranged else 0.18
@@ -193,7 +196,12 @@ func basic_skill_for_class(cls: ClassDef, weapon_type: String = "", offhand_type
 			s.cone_angle_deg = Balance.BIG_SWING_ARC_DEG
 			s.max_targets = Balance.BIG_SWING_MAX_TARGETS
 	_basic_cache[key] = s
+	basic_skills[key] = s
 	return s
+
+## Skill do catálogo ou básico gerado (o FX recebe só o id).
+func skill_or_basic(skill_id: String) -> SkillDef:
+	return skills.get(skill_id, basic_skills.get(skill_id))
 
 func basic_skill_for_monster(m: MonsterDef) -> SkillDef:
 	var key := "basic_mob_" + m.id
