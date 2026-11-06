@@ -10,15 +10,17 @@ static func gain_xp(sim: WorldSim, e: SimEntity, amount: int) -> void:
 	while e.level < Balance.MAX_LEVEL and e.xp >= Balance.xp_for_level(e.level):
 		e.xp -= Balance.xp_for_level(e.level)
 		e.level += 1
-		e.mastery_points += Balance.MASTERY_POINTS_PER_LEVEL + (1 if e.level in Balance.MASTERY_BONUS_LEVELS else 0)
+		e.mastery_points += Balance.points_at(e.level)
 		e.recompute_stats()
 		e.hp = minf(e.stats.max_hp, e.hp + e.stats.max_hp * Balance.LEVEL_UP_RESTORE)
 		e.mp = minf(e.stats.max_mp, e.mp + e.stats.max_mp * Balance.LEVEL_UP_RESTORE)
 		Events.level_up.emit(e.id, e.level)
 		if e == sim.player:
-			Events.notification.emit("Nível %d! +%d ponto(s) de skill (tecla K)" % [e.level, Balance.MASTERY_POINTS_PER_LEVEL + (1 if e.level in Balance.MASTERY_BONUS_LEVELS else 0)])
+			Events.notification.emit("Nível %d! +%d ponto(s) de skill (tecla K)" % [e.level, Balance.points_at(e.level)])
 		elif e.kind == SimEntity.Kind.BOT and sim.rng.randf() < 0.35:
 			Events.chat_message.emit(e.name, GameData.random_bot_line("levelup") % e.level, "global")
+		if e.kind == SimEntity.Kind.BOT and e.class_def:
+			bot_spend(sim, e)                  # bot gasta os pontos novos na teia
 		if e.level == Balance.MAX_LEVEL:
 			e.xp = 0
 
@@ -30,7 +32,7 @@ static func apply_start_preset(sim: WorldSim, e: SimEntity, preset_id: int) -> v
 		return
 	while e.level < mini(int(pr["level"]), Balance.MAX_LEVEL):
 		e.level += 1
-		e.mastery_points += Balance.MASTERY_POINTS_PER_LEVEL + (1 if e.level in Balance.MASTERY_BONUS_LEVELS else 0)
+		e.mastery_points += Balance.points_at(e.level)
 	e.xp = 0
 	e.gold += int(pr.get("gold", 0))
 	for iid in pr.get("items", {}):
@@ -107,6 +109,8 @@ static func respawn_character(sim: WorldSim, e: SimEntity) -> void:
 ## Sem evolução ativa devolve a própria skill (sem alocação).
 static func resolve_skill(sim: WorldSim, e: SimEntity, s: SkillDef) -> SkillDef:
 	var out := resolve_talents(sim, e, s)
+	if not e.ct.is_empty():
+		out = ClassTalentSystem.apply_mods(e, out)          # talentos de classe (recarga, área, efeitos...)
 	var fm: Dictionary = SkillsCatalog.FORM_MODS.get(s.id, {}).get(e.form, {}) if e.form != "" else {}
 	if fm.is_empty():
 		return out
@@ -232,16 +236,111 @@ static func tree_allocate(sim: WorldSim, e: SimEntity, node_id: String) -> bool:
 			e.talents[ref] = true
 		"mastery":
 			e.mastery[ref] = mini(Balance.MASTERY_MAX, e.mastery_of(ref) + 1)
-		"stat", "pick":
+		"stat", "notable", "pick":
 			recompute_tree_bonus(sim, e)
 	Events.mastery_changed.emit(e.id, ref, e.mastery_of(ref))
 	return true
+
+## Bot gasta os pontos na teia como um jogador da build: caminho mais curto até cada skill da build (na ordem da
+## build), maestria nas skills da barra (nível/6), evoluções às vezes, e o resto em notáveis e atributos do próprio
+## braço (depois dos anéis). `fresh` = recomeça do início (troca de build / bot novo).
+static func bot_spend(sim: WorldSim, e: SimEntity, fresh: bool = false) -> void:
+	var tr := tree_of(sim, e)
+	if tr.is_empty():
+		return
+	var nodes: Dictionary = tr["nodes"]
+	var cid := e.class_def.id
+	if fresh:
+		e.tree = {tr["start"]: true}
+		e.learned = {}
+		for sid in e.class_def.starting_skills:
+			e.tree["%s_s_%s" % [cid, sid]] = true
+			e.learned[sid] = true
+		e.talents = {}
+		e.mastery = {}
+		e.mastery_points = points_for_level(e.level)
+	var build := e.class_def.build_by_id(e.build_id)
+	var wanted: Array = build.get("skills", e.class_def.skill_ids)
+	ClassTalentSystem.bot_pick(sim, e)        # talentos de classe (grátis, pelo nível)
+	# 1) skills da build (que o nível já libera), pelo caminho mais curto
+	for sid in wanted:
+		var target := "%s_s_%s" % [cid, sid]
+		if not nodes.has(target) or e.tree.has(target) or int(nodes[target]["level"]) > e.level:
+			continue
+		var path := _path_to(e, nodes, target)
+		if path.is_empty() or path.size() > e.mastery_points:
+			continue
+		for nid in path:
+			if not tree_allocate(sim, e, nid):
+				break
+	# 2) maestria das skills da build aprendidas, até nível/6
+	var want_m := clampi(e.level / 6, 0, Balance.MASTERY_MAX)
+	for sid in wanted:
+		if not e.learned.has(sid):
+			continue
+		while e.mastery_of(sid) < want_m and e.mastery_points > 0:
+			if not tree_allocate(sim, e, "%s_m_%s" % [cid, sid]):
+				break
+	# 3) evoluções das skills aprendidas (metade, como antes)
+	for nid in nodes:
+		var n: Dictionary = nodes[nid]
+		if n["kind"] == "talent" and not e.tree.has(nid) and sim.rng.randf() < 0.5 and tree_block_reason(sim, e, nid) == "":
+			tree_allocate(sim, e, nid)
+	# 4) o resto: notáveis e atributos vizinhos, primeiro do braço da build, depois anéis e Geral
+	var guard := 0
+	while e.mastery_points > 0 and guard < 200:
+		guard += 1
+		var best := ""
+		var best_score := -INF
+		for nid in nodes:
+			var n: Dictionary = nodes[nid]
+			if not (n["kind"] in ["stat", "notable"]) or e.tree.has(nid) or tree_block_reason(sim, e, nid) != "":
+				continue
+			var score := 2.0 if n["kind"] == "notable" else 1.0
+			if n["branch"] == e.build_id:
+				score += 3.0
+			elif n["branch"] == "ring":
+				score += 1.0
+			score -= (n["pos"] as Vector2).length() * 0.05      # perto do centro primeiro (caminho barato)
+			if score > best_score:
+				best_score = score
+				best = nid
+		if best == "" or not tree_allocate(sim, e, best):
+			break
+
+## Caminho (nós a comprar, em ordem) do pedaço já comprado até `target`, por BFS; nós acima do nível não entram.
+static func _path_to(e: SimEntity, nodes: Dictionary, target: String) -> Array:
+	var prev := {}
+	var queue: Array = []
+	for nid in e.tree:
+		if nodes.has(nid):
+			prev[nid] = ""
+			queue.append(nid)
+	var head := 0
+	while head < queue.size():
+		var cur: String = queue[head]
+		head += 1
+		if cur == target:
+			break
+		for l in nodes[cur]["links"]:
+			if prev.has(l) or int(nodes[l]["level"]) > e.level or nodes[l]["kind"] in ["mastery", "talent"]:
+				continue
+			prev[l] = cur
+			queue.append(l)
+	if not prev.has(target):
+		return []
+	var path: Array = []
+	var at := target
+	while at != "" and not e.tree.has(at):
+		path.push_front(at)
+		at = prev[at]
+	return path
 
 ## Pontos de skill que o nível dá no total (o reset devolve isto).
 static func points_for_level(level: int) -> int:
 	var n := 0
 	for lv in range(2, level + 1):
-		n += Balance.MASTERY_POINTS_PER_LEVEL + (1 if lv in Balance.MASTERY_BONUS_LEVELS else 0)
+		n += Balance.points_at(lv)
 	return n
 
 ## Perto do NPC `npc_id` no mapa atual.
@@ -293,6 +392,7 @@ static func recompute_tree_bonus(sim: WorldSim, e: SimEntity) -> void:
 		var n: Dictionary = tr["nodes"].get(nid, {})
 		for k in n.get("stats", {}):
 			e.tree_bonus[k] = float(e.tree_bonus.get(k, 0.0)) + float(n["stats"][k])
+	ClassTalentSystem.refresh(e)
 	e.recompute_stats()
 
 ## Atalhos pela árvore (UI antiga, testes): aprender skill / comprar evolução = comprar o nó dela.

@@ -6,7 +6,7 @@ static func place_trap(sim: WorldSim, e: SimEntity, s: SkillDef, aim: Vector3, p
 	var m: Dictionary = sim.maps[e.map_id]
 	var traps: Array = m["traps"]
 	var mine: Array = traps.filter(func(t): return t["owner"] == e.id)
-	while mine.size() >= Balance.TRAP_MAX:        # a mais antiga some
+	while mine.size() >= ClassTalentSystem.trap_max(e):        # a mais antiga some
 		var old: Dictionary = mine.pop_front()
 		traps.erase(old)
 		Events.trap_removed.emit(old["id"], false)

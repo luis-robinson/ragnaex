@@ -726,10 +726,10 @@ func _bag_shot(path: String) -> void:
 	if DevArgs.flag("--level"):
 		var lv := int(DevArgs.value("--level"))
 		Sim.player.level = lv
-		Sim.player.mastery_points = lv
-		for sid in Sim.player.class_def.skill_ids:       # maestria como a de um bot do mesmo nível (anel da árvore)
-			if Sim.player.knows(sid):
-				Sim.player.mastery[sid] = clampi(lv / 6 - Sim.player.class_def.skill_ids.find(sid) % 3, 0, Balance.MASTERY_MAX)
+		if Sim.player.build_id == "" and not Sim.player.class_def.builds.is_empty():
+			Sim.player.build_id = Sim.player.class_def.builds[int(DevArgs.value("--build_i", "0"))]["id"]
+		ProgressionSystem.bot_spend(Sim, Sim.player, true)       # teia gasta como um bot da build (--build_i=N escolhe a build)
+		Sim.player.mastery_points += int(DevArgs.value("--spare", "4"))     # sobra para ver nós verdes
 	if DevArgs.has("--status_demo"):     # buffs e debuffs de amostra na barra (revisar ícones e tempos)
 		Sim.player.buffs.append({"id": "elixir", "remaining": 44.0, "atk_pct": 20})
 		Sim.player.buffs.append({"id": "frost_armor", "remaining": 7.2, "def_pct": 30})

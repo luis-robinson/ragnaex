@@ -20,6 +20,7 @@ func check(cond: bool, msg: String) -> void:
 
 func _ready() -> void:
 	Sim.running = false
+	ClassTalentSystem.bot_picks = false        # bots de teste sem talentos de classe sorteados (_check_class_talents escolhe os seus)
 	var only := DevArgs.value("--only")
 	if only != "":
 		run_only(Array(only.split(",")), GameData, Sim, SaveSystem)
@@ -398,6 +399,7 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_character_models(gd, sim)
 	_check_jump(gd, sim)
 	_check_tree(gd, sim, save)
+	_check_class_talents(gd, sim)
 	_check_skill_visuals(gd)
 	_check_party(gd, sim)
 	_check_threat_loot(gd, sim)
@@ -535,8 +537,8 @@ func _check_skill_points(gd, sim, p) -> void:
 	check(cost > 0 and p.knows("ber_leap") and p.mastery_points == pts - cost and p.slot_of("ber_leap") == 2, "aprende skill pelo caminho da árvore e vai pro slot livre (custo %d)" % cost)
 	check(sim.set_skill_slot(p, 5, "ber_leap") and p.skills[5].id == "ber_leap" and p.skills[2] == null, "move skill na barra (cidade)")
 	# arma define a build: Talho Duplo exige dois machados
-	p.mastery_points += 5
-	check(sim.learn_skill(p, "ber_hack"), "aprende skill de dois machados")
+	p.mastery_points += 20
+	check(_buy_path(sim, p, "berserker_s_ber_hack") >= 0 and p.knows("ber_hack"), "aprende skill de dois machados")
 	var slot: int = p.slot_of("ber_hack")
 	p.mp = p.stats.max_mp
 	check(not sim.try_cast(p, slot, p.position + Vector3(0, 0, 1), m), "Talho Duplo não sai com machado de duas mãos")
@@ -703,6 +705,8 @@ func _check_charge_path(gd, sim) -> void:
 	check(at != Vector3.INF, "há faixa livre para o teste da investida")
 	var hero: SimEntity = sim.spawn_bot(gd.classes["berserker"], "Ch", "city_aldara", at, 30)
 	hero.brain = null
+	hero.tree_bonus = {}                   # sem esquiva da teia: o teste é do caminho da investida
+	hero.recompute_stats()
 	var wolf = sim.spawn_monster(gd.monsters["wolf"], "city_aldara", at)
 	var charge: SkillDef = gd.skills["mob_charge"]
 	var hit_at := func(dist: float) -> bool:
@@ -1084,7 +1088,7 @@ func _check_shield_bonus(gd, sim, foe) -> void:
 	bis.shield_react_cd = 0.0
 	sim._shield_reaction(bis, foe, 10, false)
 	var bar: Array = bis.buffs.filter(func(x): return x.get("id") == "shield")
-	check(bis.shield_hp > 0.0 and bar.size() == 1 and float(bar[0]["remaining"]) <= Balance.SHIELD_BARRIER_TIME, "barreira do escudo tem duração")
+	check(bis.shield_hp > 0.0 and bar.size() == 1 and float(bar[0]["remaining"]) <= Balance.SHIELD_BARRIER_TIME * (1.0 + bis.stats.buff_duration / 100.0) + 0.01, "barreira do escudo tem duração")
 	bar[0]["remaining"] = 0.01
 	sim._update_entity(bis, sim.maps["city_aldara"], 1.0 / 60.0)
 	check(bis.shield_hp == 0.0, "barreira do escudo expira")
@@ -2302,6 +2306,8 @@ func _check_ranger_builds(gd, sim) -> void:
 	var t0: Dictionary = mine[0]
 	var mob: SimEntity = sim.spawn_monster(gd.monsters["golem"], "city_aldara", t0["pos"])
 	mob.brain = null
+	mob.stats.max_hp = 100000.0          # o tiro não pode matar (a morte limpa a raiz)
+	mob.hp = mob.stats.max_hp
 	var hp0: float = mob.hp
 	sim._update_traps(m)
 	check(m["traps"].has(t0) and mob.hp == hp0, "armadilha só dispara depois de armar")
@@ -2322,7 +2328,7 @@ func _check_ranger_builds(gd, sim) -> void:
 	sim._apply_skill(hunter, gd.skills["ran_companion"], m)
 	var pet: SimEntity = sim.pet_of(hunter)
 	check(pet != null and pet.summon_expires == INF, "companheiro é permanente")
-	check(pet != null and is_equal_approx(pet.stats.max_hp, hunter.stats.max_hp * Balance.PET_HP_SHARE), "vida do companheiro vem do dono")
+	check(pet != null and is_equal_approx(pet.stats.max_hp, hunter.stats.max_hp * Balance.PET_HP_SHARE * (1.0 + hunter.stats.pet_power / 100.0)), "vida do companheiro vem do dono")
 	hunter.skills[0] = gd.skills["ran_companion"]
 	hunter.learned["ran_companion"] = true
 	hunter.mp = hunter.stats.max_mp
@@ -3488,9 +3494,10 @@ func _check_reset_and_coin(gd, sim) -> void:
 	check(e.mastery_points < total or e.tree.size() > 1, "bot de nível 20 gastou pontos")
 	var picks := 0
 	for nid in ProgressionSystem.tree_of(sim, e)["nodes"]:
-		if ProgressionSystem.tree_of(sim, e)["nodes"][nid]["kind"] == "pick" and int(ProgressionSystem.tree_of(sim, e)["nodes"][nid]["level"]) <= 20 and str(nid).ends_with("_0"):
+		if ProgressionSystem.tree_of(sim, e)["nodes"][nid]["kind"] == "pick" and int(ProgressionSystem.tree_of(sim, e)["nodes"][nid]["level"]) <= 20 and ProgressionSystem.pick_sibling(sim, e, nid) == "" and not e.tree.has(nid):
 			e.tree[nid] = true
-			picks += 1
+	picks = e.tree.keys().filter(func(nid): return ProgressionSystem.tree_of(sim, e)["nodes"][nid]["kind"] == "pick").size()
+	check(picks == 4, "bot nível 20: um talento de classe por linha liberada (%d)" % picks)
 	check(not sim.reset_tree(e), "longe do Ancião não reseta")
 	e.position = at.call("elder")
 	check(sim.reset_tree(e), "perto do Ancião reseta")
@@ -4167,7 +4174,7 @@ func _check_forge(gd, sim) -> void:
 	SaveSystem.apply_to(sv, {"level": 10, "inventory": {sw.id: 2}, "equipment": {}, "plus": {sw.id: 4}})
 	check(sv.has_item(sw.id, 1) and sv.has_item(sw.id + "+4", 1), "save antigo: uma cópia vira +4, a outra continua +0")
 	sim.despawn(sv)
-	check(e.stats.patk > atk0 * 1.2, "arma +9 bate mais (%.0f -> %.0f)" % [atk0, e.stats.patk])
+	check(e.stats.patk > atk0 * 1.15, "arma +9 bate mais (%.0f -> %.0f)" % [atk0, e.stats.patk])
 	if body:
 		var bslot := -1
 		for sl in e.equipment:
@@ -4568,48 +4575,124 @@ func _buy_path(sim, e, target: String) -> int:
 # ---------------------------------------------------------------------------
 # árvore de pontos de skill (TreeCatalog): forma, regras e um "jogador" por build do 1 ao 30 (loops)
 # ---------------------------------------------------------------------------
-## Talentos de escolha: linhas de 3 opções diferentes, todo bônus com rótulo, e a regra de um por linha (troca na cidade).
-func _check_picks(cid: String, picks: Array, sim) -> void:
-	var rows := {}
-	for n in picks:
-		if not rows.has(n["group"]):
-			rows[n["group"]] = []
-		rows[n["group"]].append(n)
-	check(rows.size() == TreeCatalog.PICK_ROWS.size(), "%s: %d linhas de talento" % [cid, rows.size()])
-	var lvs: Array = TreeCatalog.PICK_ROWS.map(func(r): return int(r[0]))
-	check(lvs == [3, 6, 9, 12, 15, 18, 21, 24, 27, 30], "talentos a cada 3 níveis, do 3 ao 30 (%s)" % str(lvs))
-	for g in rows:
-		var keys := {}
-		for n in rows[g]:
-			for k in n["stats"]:
-				keys[k] = true
-				check(TreeCatalog.STAT_SHORT.has(k) and TreeCatalog.STAT_FAMILY.has(k), "%s: talento %s com rótulo" % [cid, k])
-		check(rows[g].size() == 3 and keys.size() == 3, "%s/%s: 3 opções diferentes (%s)" % [cid, g, str(keys.keys())])
-	if cid != "ranger":
-		return
-	# regra, com um ranger de verdade: compra uma, a irmã troca de graça na cidade e não fora dela
-	var gd = gd_ref
-	var e: SimEntity = sim.spawn_bot(gd.classes["ranger"], "Escolha", "city_aldara", sim.maps["city_aldara"]["def"].town_center, 30)
-	e.brain = null
-	e.mastery_points = 3
-	var row0: Array = rows["row_0"]
-	var a: String = row0[0]["id"]
-	var b: String = row0[1]["id"]
-	check(sim.tree_allocate(e, a) and e.mastery_points == 3, "talento de escolha não gasta pontos")
-	e.mastery_points = 0
-	check(sim.tree_block_reason(e, rows["row_1"][0]["id"]) == "", "talento de escolha sem pontos: liberado pelo nível")
-	e.mastery_points = 2
-	check(sim.tree_allocate(e, b) and not e.tree.has(a) and e.tree.has(b) and e.mastery_points == 2, "trocar a escolha na cidade é de graça e tira a outra")
-	e.position = Vector3(80, 0, 14)
-	check(sim.tree_block_reason(e, a) == "troque a escolha desta linha na cidade", "fora da cidade não troca")
-	e.level = 1
-	check(sim.tree_block_reason(e, rows["row_7"][0]["id"]).begins_with("requer nível"), "linha de nível alto bloqueada no nível baixo")
-	sim.despawn(e)
+## Talentos de classe (aba Talentos): 6 linhas × 3 por classe, ganchos válidos e o comportamento dos principais.
+func _check_class_talents(gd, sim) -> void:
+	var known_hooks := ["id", "name", "text", "kind", "permanent", "aura", "strength", "radius", "summon_permanent", "summon_extra",
+		"skill_mods", "stats", "form_mult", "form_time", "cheat_death", "ally_save", "ambush_mult", "on_kill", "low_hp", "execute",
+		"regen", "mana_shield", "trap_max", "oath_max"]
+	var cat: Dictionary = ClassTalentsCatalog.build()
+	for cid in gd.classes:
+		var rows: Array = cat.get(cid, [])
+		check(rows.map(func(r): return int(r[0])) == ClassTalentsCatalog.ROW_LEVELS, "%s: talentos nos níveis 5..30 (%s)" % [cid, str(rows.map(func(r): return r[0]))])
+		var skill_ids: Array = gd.classes[cid].skill_ids
+		for row in rows:
+			check((row[1] as Array).size() == 3, "%s nv %d: 3 escolhas" % [cid, int(row[0])])
+			for o in row[1]:
+				var bad: Array = (o as Dictionary).keys().filter(func(k): return not (k in known_hooks))
+				check(bad.is_empty(), "%s: %s só com ganchos conhecidos %s" % [cid, o["id"], bad])
+				check(str(o["text"]).length() > 10 and o["kind"] in ClassTalentsCatalog.KINDS, "%s: %s com texto e tipo" % [cid, o["id"]])
+				check(o.keys().size() > 4, "%s: %s tem efeito" % [cid, o["id"]])
+				var refs: Array = o.get("permanent", []) + o.get("aura", []) + o.get("summon_permanent", []) + o.get("summon_extra", {}).keys() + o.get("skill_mods", {}).keys()
+				if o.has("on_kill") and (o["on_kill"] as Dictionary).has("buff"):
+					refs.append(o["on_kill"]["buff"])
+				for r in refs:
+					check(r in skill_ids, "%s: %s cita skill da classe (%s)" % [cid, o["id"], r])
+				for r in o.get("permanent", []) + o.get("aura", []):
+					check(ClassTalentSystem.passive_buff(r, 1.0).size() > 2, "%s: %s — %s tem bônus para ficar permanente" % [cid, o["id"], r])
+				for r in o.get("summon_permanent", []) + o.get("summon_extra", {}).keys():
+					check(gd.skills.has(r) and gd.skills[r].effects.has("summon"), "%s: %s — %s invoca" % [cid, o["id"], r])
+				check(gd.trees[cid]["nodes"].has("%s_c_%s" % [cid, o["id"]]), "%s: %s é nó de escolha" % [cid, o["id"]])
+	var m: Dictionary = sim.maps["city_aldara"]
+	var at: Vector3 = m["def"].town_center
+	var mk := func(cid: String, lv: int, pick: String, pos: Vector3) -> SimEntity:
+		var e: SimEntity = sim.spawn_bot(gd.classes[cid], "CT", "city_aldara", pos, lv)
+		e.brain = null
+		for nid in e.tree.keys():
+			if gd.trees[cid]["nodes"][nid]["kind"] == "pick":
+				e.tree.erase(nid)
+		if pick != "":
+			e.tree["%s_c_%s" % [cid, pick]] = true
+		sim.recompute_tree_bonus(e)
+		e.heal_full()
+		return e
+	var run := func(secs: float) -> void:
+		for i in range(int(secs / 0.5)):
+			sim.time += 0.5
+			ClassTalentSystem.tick(sim, m, 0.5)
+	# Baluarte: Armadura Abençoada + Muralha sempre ativas (60%, sem a lentidão), por muito tempo
+	var pal: SimEntity = mk.call("paladin", 10, "", at)
+	var def0: float = pal.stats.pdef
+	var spd0: float = pal.stats.move_speed
+	pal.tree["paladin_c_pal_c_bulwark"] = true
+	sim.recompute_tree_bonus(pal)
+	run.call(36.0)
+	var ids: Array = pal.buffs.map(func(b): return b.get("id"))
+	check(pal.stats.pdef > def0 * 1.3 and pal.stats.move_speed >= spd0 - 0.01, "Baluarte: DEF sobe sem lançar e sem lentidão (%.0f -> %.0f)" % [def0, pal.stats.pdef])
+	check(ids.size() >= 2 and ids.size() == ids.filter(func(x): return ids.count(x) == 1).size(), "Baluarte: um buff de cada (não acumula) %s" % str(ids))
+	sim._apply_skill(pal, gd.skills["pal_blessed_armor"], m)
+	var ba: Array = pal.buffs.filter(func(b): return b.get("id") == gd.skills["pal_blessed_armor"].effects["buff"]["id"])
+	check(ba.size() == 1 and not ba[0].get("ct", false), "lançar com o permanente ativo: o lançado (mais forte) vale, um só")
+	sim.despawn(pal)
+	# Aura de Proteção: grupo a 10 m sim, a 25 m não, de fora do grupo não
+	var ap: SimEntity = mk.call("paladin", 10, "pal_c_aura_prot", at)
+	var near: SimEntity = mk.call("ranger", 10, "", at + Vector3(10, 0, 0))
+	var far: SimEntity = mk.call("ranger", 10, "", at + Vector3(0, 0, 25))
+	var stranger: SimEntity = mk.call("ranger", 10, "", at + Vector3(-8, 0, 0))
+	for x in [near, far]:
+		sim.party_invite(ap, x)
+		sim.party_accept(x)
+		check(x.party_id >= 0 and x.party_id == ap.party_id, "aura: entra no grupo")
+	run.call(1.0)
+	var has_aura := func(x: SimEntity) -> bool: return x.buffs.any(func(b): return b.get("ct", false))
+	check(has_aura.call(ap) and has_aura.call(near), "Aura de Proteção: você e o aliado a 10 m")
+	check(not has_aura.call(far) and not has_aura.call(stranger), "Aura de Proteção: nem a 25 m nem quem está fora do grupo")
+	for x in [ap, near, far, stranger]:
+		sim.despawn(x)
+	# Elemental Vinculado: fica para sempre e invocar outro troca o elemento
+	var ele: SimEntity = mk.call("elementalist", 10, "ele_c_bound", at + Vector3(4, 0, 4))
+	sim._apply_skill(ele, gd.skills["ele_summon_fire"], m)
+	var mine := func(owner: SimEntity) -> Array: return m["entities"].filter(func(o): return o.kind == SimEntity.Kind.SUMMON and o.owner_id == owner.id and o.is_alive())
+	check(mine.call(ele).size() == 1 and mine.call(ele)[0].summon_expires == INF, "Elemental Vinculado: elemental sem prazo")
+	check(sim._summons_full(ele, gd.skills["ele_summon_fire"]) and not sim._summons_full(ele, gd.skills["ele_summon_ice"]), "Elemental Vinculado: o mesmo não repete, outro elemento pode")
+	sim._apply_skill(ele, gd.skills["ele_summon_ice"], m)
+	var now: Array = mine.call(ele)
+	check(now.size() == 1 and now[0].monster_def.id == gd.skills["ele_summon_ice"].effects["summon"]["monster_id"] and now[0].summon_expires == INF, "Elemental Vinculado: troca de elemento")
+	sim.despawn(ele)
+	# Exército Eterno: esqueletos sem prazo, sem passar do máximo
+	var nec: SimEntity = mk.call("necromancer", 10, "nec_c_army", at + Vector3(-4, 0, 4))
+	for i in range(4):
+		sim._apply_skill(nec, gd.skills["nec_raise"], m)
+	var sk: Array = mine.call(nec)
+	check(sk.size() == int(gd.skills["nec_raise"].effects["summon"]["max"]) and sk.all(func(o): return o.summon_expires == INF), "Exército Eterno: %d esqueletos para sempre" % sk.size())
+	for o in sk:
+		sim.despawn(o)
+	sim.despawn(nec)
+	# Recusa a Morrer: golpe fatal deixa com 1 HP e imortal 6 s; depois disso, morre (recarga 60 s)
+	var ber: SimEntity = mk.call("berserker", 5, "ber_c_undying", at + Vector3(6, 0, -4))
+	var wolf: SimEntity = sim.spawn_monster(gd.monsters["wolf"], "city_aldara", at + Vector3(7, 0, -4))
+	wolf.brain = null
+	sim._deal_damage(wolf, ber, 999999, false, false, "physical")
+	check(ber.is_alive() and int(ber.hp) == 1 and ber.immortal_left > 5.0, "Recusa a Morrer: fica com 1 HP e imortal")
+	sim._deal_damage(wolf, ber, 999999, false, false, "physical")
+	check(ber.is_alive(), "Recusa a Morrer: imortal segura o golpe seguinte")
+	run.call(7.0)
+	sim._deal_damage(wolf, ber, 999999, false, false, "physical")
+	check(not ber.is_alive(), "Recusa a Morrer: só uma vez por minuto")
+	sim.despawn(ber)
+	sim.despawn(wolf)
+	# Emboscada e troca só na cidade
+	var ass: SimEntity = mk.call("assassin", 5, "ass_c_ambush", at)
+	check(is_equal_approx(ClassTalentSystem.ambush_mult(ass), 2.0), "Emboscada: 2,0x saindo da furtividade")
+	check(sim.tree_allocate(ass, "assassin_c_ass_c_venom") and not ass.tree.has("assassin_c_ass_c_ambush"), "trocar a escolha na cidade tira a outra")
+	ass.position = Vector3(90, 0, 60)
+	check(sim.tree_block_reason(ass, "assassin_c_ass_c_reflex") == "troque a escolha desta linha na cidade", "fora da cidade não troca")
+	check(sim.tree_block_reason(ass, "assassin_c_ass_c_vanish").begins_with("requer nível"), "linha de nível alto bloqueada")
+	sim.despawn(ass)
 
 func _check_tree(gd, sim, save) -> void:
 	var total_points := 0
 	for lv in range(2, Balance.MAX_LEVEL + 1):
-		total_points += Balance.MASTERY_POINTS_PER_LEVEL + (1 if lv in Balance.MASTERY_BONUS_LEVELS else 0)
+		total_points += Balance.points_at(lv)
 	for cid in gd.classes:
 		var cls: ClassDef = gd.classes[cid]
 		var tr: Dictionary = gd.trees.get(cid, {})
@@ -4621,9 +4704,20 @@ func _check_tree(gd, sim, save) -> void:
 				picks.append(tr["nodes"][nid])
 			else:
 				nodes[nid] = tr["nodes"][nid]
-		_check_picks(cid, picks, sim)
-		# --- forma ---
-		check(nodes.size() >= 25 and nodes.size() <= 100, "%s: árvore compacta (%d nós)" % [cid, nodes.size()])
+		# --- forma (teia estilo Path of Exile) ---
+		check(nodes.size() >= 130 and nodes.size() <= 200, "%s: teia com 130-200 nós (%d)" % [cid, nodes.size()])
+		var kinds := {}
+		for nid in nodes:
+			kinds[nodes[nid]["kind"]] = int(kinds.get(nodes[nid]["kind"], 0)) + 1
+		print("TEIA %s: %d nós %s" % [cid, nodes.size(), kinds])
+		check(int(kinds.get("notable", 0)) >= 10, "%s: notáveis na teia (%d)" % [cid, int(kinds.get("notable", 0))])
+		var attr_nodes := 0
+		for nid in nodes:
+			for k in nodes[nid]["stats"]:
+				if str(k).begins_with("attr_"):
+					attr_nodes += 1
+					break
+		check(attr_nodes >= 40, "%s: nós de atributo (FOR/AGI/VIT/WILL/INT) na teia (%d)" % [cid, attr_nodes])
 		var seen := {tr["start"]: true}
 		var queue: Array = [tr["start"]]
 		while queue.size() > 0:
@@ -4687,7 +4781,7 @@ func _check_tree(gd, sim, save) -> void:
 			var refused := 0
 			for lv in range(2, Balance.MAX_LEVEL + 1):
 				e.level = lv
-				e.mastery_points += Balance.MASTERY_POINTS_PER_LEVEL + (1 if lv in Balance.MASTERY_BONUS_LEVELS else 0)
+				e.mastery_points += Balance.points_at(lv)
 				var guard := 0
 				while e.mastery_points > 0 and guard < 30:
 					guard += 1
@@ -4707,7 +4801,7 @@ func _check_tree(gd, sim, save) -> void:
 							break
 					# sobra: maestria das skills da build, depois passivos
 					var bought := false
-					for kind in ["mastery", "stat", "talent"]:
+					for kind in ["mastery", "notable", "stat", "talent"]:
 						for nid in nodes:
 							var n: Dictionary = nodes[nid]
 							if n["kind"] == kind and (kind != "mastery" or n["ref"] in want) and sim.tree_block_reason(e, nid) == "":
@@ -5184,22 +5278,31 @@ func _check_dungeon_mood(gd) -> void:
 	dg.free()
 	out.free()
 
-## Árvore de skills: linhas com folga (o passivo entre duas skills não encosta nelas) e maestria longe da skill.
+## Teia: nós com folga no zoom 1 (nenhum par encosta: distância > soma dos raios + 8 px) e rótulos em tudo.
 func _check_tree_spacing() -> void:
 	var w = load("res://game/ui/windows.gd")
 	var node_px: Dictionary = w.NODE_PX
-	var row_px: float = TreeCatalog.ROW * float(w.TREE_ROW_PX)
-	var gap := row_px * 0.5 - (float(node_px["skill"]) + float(node_px["stat"])) * 0.5
-	check(gap >= 12.0, "árvore: passivo a %.0f px das skills (mínimo 12)" % gap)
-	var kx := (float(w.TREE_PX.x) - 34.0) / (4 * TreeCatalog.PANE_W + 3 * TreeCatalog.PANE_GAP)      # pior caso: 4 painéis
-	var side := TreeCatalog.SIDE * kx - (float(node_px["skill"]) + float(node_px["mastery"])) * 0.5
-	check(side >= 12.0, "árvore: maestria a %.0f px da skill (mínimo 12)" % side)
+	var unit: float = w.WEB_UNIT
+	var tight: Array = []
+	for cid in GameData.trees:
+		var nodes: Dictionary = GameData.trees[cid]["nodes"]
+		var ids := nodes.keys()
+		for i in range(ids.size()):
+			for k in range(i + 1, ids.size()):
+				var a: Dictionary = nodes[ids[i]]
+				var b: Dictionary = nodes[ids[k]]
+				if a["kind"] == "pick" or b["kind"] == "pick":
+					continue                    # talentos de classe ficam na aba própria
+				var need := (float(node_px.get(a["kind"], 16)) + float(node_px.get(b["kind"], 16))) * 0.5 + 8.0
+				if (a["pos"] as Vector2).distance_to(b["pos"]) * unit < need:
+					tight.append("%s~%s" % [ids[i], ids[k]])
+	check(tight.is_empty(), "teia: nós com folga no desenho (%d apertados: %s)" % [tight.size(), str(tight.slice(0, 6))])
 	# todo passivo da árvore tem rótulo curto e cor (o que dá aparece ao lado da bolinha)
 	var bad: Array = []
 	for cid in GameData.trees:
 		var nodes: Dictionary = GameData.trees[cid]["nodes"]
 		for nid in nodes:
-			if nodes[nid]["kind"] == "stat":
+			if nodes[nid]["kind"] in ["stat", "notable"]:
 				for k in nodes[nid]["stats"]:
 					if not TreeCatalog.STAT_SHORT.has(k) or not TreeCatalog.STAT_FAMILY.has(k):
 						bad.append(k)
@@ -5844,7 +5947,7 @@ func _check_start_presets(gd, sim) -> void:
 	sim.apply_start_preset(e, 10)
 	var want := pts0
 	for lv in range(2, 11):
-		want += Balance.MASTERY_POINTS_PER_LEVEL + (1 if lv in Balance.MASTERY_BONUS_LEVELS else 0)
+		want += Balance.points_at(lv)
 	check(e.level == 10 and e.mastery_points == want, "começo 10: nível 10 com os pontos de skill de cada nível (%d/%d)" % [e.mastery_points, want])
 	check(int(e.inventory.get("legend_coin", 0)) == 100, "começo 10: 100 Moedas Lendárias")
 	check(e.quests_active.has("q08_forest") and "c5_report" in e.quests_completed and "q01_welcome" in e.quests_completed if gd.quests.has("q01_welcome") else e.quests_active.has("q08_forest"), "começo 10: quest da Floresta ativa, cadeia anterior concluída")

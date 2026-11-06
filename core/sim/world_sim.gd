@@ -259,6 +259,7 @@ func spawn_bot(cls: ClassDef, bot_name: String, map_id: String, pos: Vector3, le
 		b.build_id = cls.builds[rng.randi() % cls.builds.size()]["id"]
 	_gear_bot(b)
 	_skill_bot(b)
+	b.heal_full()                     # a teia mexe no HP máximo: nasce cheio
 	return b
 
 ## Equipamento de bot: tier comum pelo nível; armas da build (principal + secundária).
@@ -304,26 +305,26 @@ func _gear_bot(b: SimEntity) -> void:
 	b.heal_full()
 	Events.equipment_changed.emit(b.id)   # a view já existe (spawn emite antes)
 
-## Skills de bot: aprende as da build até o nível, equipa as 6 primeiras que a arma permite,
-## maestria proporcional ao nível.
+## Skills de bot: gasta os pontos do nível na teia como um jogador da build (ProgressionSystem.bot_spend) e
+## equipa as 6 primeiras skills da build que aprendeu e que a arma permite.
 func _skill_bot(b: SimEntity) -> void:
+	ProgressionSystem.bot_spend(self, b, true)
+	_slot_bot(b)
+
+func _slot_bot(b: SimEntity) -> void:
 	var build := b.class_def.build_by_id(b.build_id)
 	var ids: Array = build.get("skills", b.class_def.skill_ids)
+	b.ensure_slots()
 	for i in range(b.skills.size()):
 		b.skills[i] = null
 	var slot := 0
-	for sid in ids:
+	for sid in ids + b.learned.keys():
 		var s: SkillDef = GameData.skills.get(sid)
-		if s == null or s.unlock_level > b.level:
+		if s == null or not b.learned.has(s.id) or b.slot_of(s.id) >= 0:
 			continue
-		b.learned[sid] = true
-		b.mastery[sid] = clampi(b.level / 6, 0, Balance.MASTERY_MAX)
 		if slot < Balance.SKILL_SLOTS and b.stats.meets(s.requires):
 			b.skills[slot] = s
 			slot += 1
-	for t in GameData.talents_for_class(b.class_def.id):
-		if t.unlock_level <= b.level and rng.randf() < 0.5:
-			b.talents[t.id] = true
 
 func despawn(e: SimEntity) -> void:
 	if e == null or not entities.has(e.id):
@@ -423,6 +424,7 @@ func tick(dt: float) -> void:
 		if profile:
 			_prof("r_spawners", pt); pt = Time.get_ticks_usec()
 		TrapSystem.update_traps(self, m)
+		ClassTalentSystem.tick(self, m, mdt)
 		LootSystem.update_loot(self, m, mdt)
 		if profile:
 			_prof("r_loot", pt); pt = Time.get_ticks_usec()
@@ -601,6 +603,19 @@ func _in_cancel_window(e: SimEntity) -> bool:
 	return e.skill_applied and e.state_time >= s.startup + s.active + minf(s.cancel_after, Balance.CANCEL_AFTER_MAX)
 
 ## Companheiro vivo do dono (invocação permanente), ou null.
+## Invocações vivas desta skill já no máximo (com o extra dos talentos)? Grupo exclusivo (elementais) troca, então
+## só conta o mesmo monstro.
+func _summons_full(e: SimEntity, s: SkillDef) -> bool:
+	var sm: Dictionary = s.effects["summon"]
+	var permanent: bool = float(sm.get("duration", 20)) <= 0.0 or ClassTalentSystem.summon_permanent(e, s.id)
+	if not permanent or not maps.has(e.map_id):
+		return false
+	var alive := 0
+	for o in maps[e.map_id]["entities"]:
+		if o.kind == SimEntity.Kind.SUMMON and o.owner_id == e.id and o.is_alive() and o.monster_def and o.monster_def.id == sm.get("monster_id", ""):
+			alive += 1
+	return alive >= int(sm.get("max", 3)) + ClassTalentSystem.summon_extra(e, s.id)
+
 func pet_of(e: SimEntity) -> SimEntity:
 	for o in maps[e.map_id]["entities"] if maps.has(e.map_id) else []:
 		if o.kind == SimEntity.Kind.SUMMON and o.owner_id == e.id and o.is_alive() and o.summon_expires == INF:
@@ -723,9 +738,9 @@ func try_cast(e: SimEntity, slot: int, aim: Vector3, m: Dictionary) -> bool:
 	var form_fx: String = s.effects.get("form", "")
 	if form_fx != "" and e.form == form_fx and e != player:
 		return false               # bot já transformado não desfaz a forma
-	if s.effects.has("summon") and float(s.effects["summon"].get("duration", 20)) <= 0.0 and pet_of(e) != null:
+	if s.effects.has("summon") and _summons_full(e, s):
 		if e == player:
-			Events.notification.emit("Seu companheiro já está com você")
+			Events.notification.emit("Seu companheiro já está com você" if float(s.effects["summon"].get("duration", 20)) <= 0.0 else "%s: já estão todos com você" % s.name)
 		return false
 	if (s.effects.has("pet_command") or s.effects.get("pet_buff", false)) and pet_of(e) == null:
 		if e == player:
@@ -792,7 +807,7 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 	var lv := e.mastery_of(s.id) if s.id in e.mastery else 0
 	var power := s.power_at(lv) * e.stats.skill_power_mult(s.id) * e.stats.element_mult(s.elements) * ShieldSystem.shield_power(self, e, s) * power_scale
 	if e.ambush:
-		power *= Balance.AMBUSH_MULT
+		power *= ClassTalentSystem.ambush_mult(e)
 		e.ambush = false
 	var extra: Dictionary = s.mastery_entry(lv).get("extra", {})
 	var effects := s.effects.duplicate(true)
@@ -841,11 +856,13 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 				if o.kind == SimEntity.Kind.SUMMON and o.owner_id == e.id and o.is_alive() and o.monster_def == mdef:
 					alive += 1
 			var n := int(sm.get("count", 1))
+			var cap := int(sm.get("max", 3)) + ClassTalentSystem.summon_extra(e, s.id)
+			var dur := 0.0 if ClassTalentSystem.summon_permanent(e, s.id) else float(sm.get("duration", 20))     # talento: fica para sempre
 			for i in range(n):
-				if alive >= int(sm.get("max", 3)):
+				if alive >= cap:
 					break
 				var off := Vector3(rng.randf_range(-1.2, 1.2), 0, rng.randf_range(-1.2, 1.2))
-				spawn_summon(e, mdef, e.position + e.forward() * 1.2 + off, float(sm.get("duration", 20)), bool(sm.get("owner_stats", false)))
+				spawn_summon(e, mdef, e.position + e.forward() * 1.2 + off, dur, bool(sm.get("owner_stats", false)))
 				alive += 1
 
 	if effects.has("trap"):         # armadilha: fica no chão; o efeito sai quando alguém pisa
@@ -951,8 +968,8 @@ func _apply_effects(src: SimEntity, t: SimEntity, effects: Dictionary, power: fl
 	var longer: float = 1.0 + (src.stats.buff_duration / 100.0 if src.is_character() and src.stats else 0.0)     # bênçãos do Sacerdote duram mais
 	if effects.get("form") != null and t == src:
 		t.form = "" if t.form == effects["form"] else effects["form"]     # forma liga/desliga (a fantasma também acaba sozinha)
-		t.form_mult = float(effects.get("form_mult", 1.0)) if t.form != "" else 1.0
-		t.form_left = float(Balance.FORM_DURATION.get(t.form, 0.0))
+		t.form_mult = float(effects.get("form_mult", 1.0)) * ClassTalentSystem.form_mult(t) if t.form != "" else 1.0
+		t.form_left = float(Balance.FORM_DURATION.get(t.form, 0.0)) * ClassTalentSystem.form_time(t, t.form)
 		t.recompute_stats()
 		Events.buff_applied.emit(t.id, "form_" + (t.form if t.form != "" else "human"), t.form_left)
 	if effects.get("stealth") != null and t == src:
@@ -962,6 +979,8 @@ func _apply_effects(src: SimEntity, t: SimEntity, effects: Dictionary, power: fl
 			if o.kind == SimEntity.Kind.MONSTER and o.aggro_target == t.id and o.taunt_left <= 0.0:
 				o.aggro_target = -1
 		Events.buff_applied.emit(t.id, "stealth", t.stealth_left)
+	if effects.get("heal_pct") != null and (t == src or src.is_friend(t)):       # cura % do HP (talentos: Provocar, Sumir...)
+		_heal(src, t, maxi(1, int(t.stats.max_hp * float(effects["heal_pct"]) / 100.0)))
 	if effects.get("buff") != null:
 		var b: Dictionary = effects["buff"].duplicate()
 		b["remaining"] = float(b.get("duration", 10)) * longer
@@ -1054,6 +1073,8 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 		dismount(target)
 	if target.is_character():
 		target.combat_timer = maxf(target.combat_timer, Balance.MOUNT_COMBAT_LOCK)
+	if not attacker.ct.is_empty() and attacker != target and not kind.begins_with("dot"):
+		amount = maxi(1, int(round(amount * ClassTalentSystem.damage_mult(attacker, target))))     # ferido / execução
 	# maldições: alvo amaldiçoado recebe mais, atacante enfraquecido causa menos
 	var taken := Combat.curse_sum(target, "taken_pct")
 	var weak := Combat.curse_sum(attacker, "weaken_pct")
@@ -1074,6 +1095,9 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 		var absorbed := minf(target.shield_hp, float(amount))
 		target.shield_hp -= absorbed
 		amount -= int(absorbed)
+	if not target.ct.is_empty():
+		amount = ClassTalentSystem.mana_shield(target, amount)
+	amount = ClassTalentSystem.before_hit(self, target, amount)       # imortal / recusa a morrer
 	target.hp -= amount
 	if amount > 0 and not kind.begins_with("dot") and attacker != target and attacker.is_character() and attacker.is_alive() and attacker.stats.lifesteal > 0.0:
 		attacker.hp = minf(attacker.stats.max_hp, attacker.hp + amount * attacker.stats.lifesteal / 100.0)     # roubo de vida
@@ -1137,6 +1161,7 @@ func _kill(e: SimEntity, killer: SimEntity) -> void:
 	Events.entity_died.emit(e.id, killer.id if killer else -1)
 	if e.kind == SimEntity.Kind.MONSTER:
 		LootSystem.on_monster_killed(self, e, killer)
+		ClassTalentSystem.on_kill(self, killer, e)
 	elif e.kind == SimEntity.Kind.PLAYER:
 		Events.notification.emit("Você morreu. Renascendo em %s..." % map_def(PortalSystem.home_of(e)["map"]).name)
 		var loss := int(e.xp * Balance.DEATH_XP_PENALTY)

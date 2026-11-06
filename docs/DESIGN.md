@@ -164,7 +164,7 @@ troca moedas por qualquer peça lendária da sua classe (conjuntos das builds, m
 `LEGENDARY_LEVELS` custa i+1 moedas (nível 5 = 1, nível 10 = 2 ... nível 30 = 6), até o seu nível (`WorldSim.relic_*`). Ela também vende
 Moeda Lendária por ouro (`Balance.LEGEND_COIN_PRICE` = 500, `ItemSystem.buy_legend_coin`). **Reset das skills** com o Ancião Ravi
 (`Balance.SKILL_RESET_NPC`, `ProgressionSystem.reset_tree`, grátis, segundo clique confirma): a árvore volta ao início com as skills
-iniciais e devolve todos os pontos do nível; os talentos de escolha ficam.
+iniciais e devolve todos os pontos do nível; os talentos de classe ficam.
 **Lendário é pessoal**: no grupo cada um que dividiu o abate rola o seu e ele fica preso ao dono por 110 s. O **jogador** no grupo também
 recebe o saque comum pessoal a cada abate dividido (mesmo sem ter batido: suporte ganha); o rodízio fica entre os bots. No chão o jogador só
 vê o que é dele ou o que já ficou livre (`WorldSim.loot_visible_to`).
@@ -173,10 +173,17 @@ No primeiro mapa (Vale de Aldara, `Balance.LEGENDARY_START_MAP`) o 1º conjunto 
 Maestria: o nó +1 da árvore compra de novo até `MASTERY_MAX` (1 ponto por nível); é o único jeito de subir (usar a skill não sobe).
 Cada nível: +12% de poder (dano/cura), -4% MP, -5% recarga e +`MASTERY_BONUS_PCT` (10%) nos bônus positivos de buffs e formas
 (`SimEntity.scaled_bonus`, `form_mult`; penalidade e duração não mudam). A descrição de cada maestria sai dos dados (`TreeCatalog.mastery_desc`).
-**Talentos de escolha** (aba "Talentos" da janela K): 10 linhas, a cada 3 níveis (3 a 30), cada uma com 3 bônus pequenos
-(ATK/MATK, HP, velocidade, vel. de ataque, DEF, MP, crítico, roubo de vida, cura, esquiva, `-% recarga` global, duração de bênçãos);
-escolhe-se **um por linha**, liberado pelo nível (não gasta pontos de skill), e trocar é na cidade (`Balance.PICK_SWAP_TOWN_ONLY`). Cada classe troca algumas opções
-por bônus dela (`TreeCatalog.PICK_FLAVOR`: pet, costas, elementos, Radiância...). Nó `kind: "pick"`, `group: "row_N"`, sem ligações.
+**Teia de skills** (janela K, estilo Path of Exile): uma teia por classe. Do início saem braços (Geral + um por build) com as skills
+da build por nível; entre duas skills, nós de atributo (FOR/AGI/VIT/WILL/INT +3, pelo atributo da build) e, a cada 3, um **notável**
+(bônus maior com nome); maestria e evoluções ao lado de cada skill. Dois **anéis** ligam braços vizinhos (atributos mistos e notáveis
+gerais: crítico, recarga, roubo de vida...), então dá para fazer híbridos. 4 pontos por nível (+1 no 10/20/30) = 119 no 30, numa teia de
+~140-170 nós: escolher o caminho é a build. Save antigo (antes da teia) recebe todos os pontos de volta. Bots compram o caminho até as skills
+da build e depois notáveis/atributos (`ProgressionSystem.bot_spend`).
+**Talentos de classe** (aba "Talentos"): a cada 5 níveis (5 a 30) uma linha com 3 escolhas que mudam o jeito de jogar
+(`ClassTalentsCatalog`): buffs que ficam **permanentes** ou viram **aura** para o grupo (15 m), invocações que **ficam para sempre**
+(elemental, esqueletos, lobos, Ent), **recusa a morrer** (1 HP e imortal por alguns segundos, com recarga), execução, emboscada mais forte,
+mana como escudo, cura no abate etc. Um por linha, grátis (liberado pelo nível), trocar na cidade (`Balance.PICK_SWAP_TOWN_ONLY`); o reset
+das skills mantém as escolhas. Buff de talento aparece com ∞ na barra e não acumula com o lançado (mesmo id; o lançado vale enquanto dura).
 Nível 30 só cai do Dragonete. Raridades: comum, incomum, raro, épico, **lendário** (laranja).
 
 ## Progressão (lenta)

@@ -5,7 +5,7 @@ extends Node
 const PATH := "user://save.json"          # save antigo (um só); migra para o espaço 0
 const SLOTS := 5
 var slot := 0
-const VERSION := 3      # 2 = portões de progressão e chefes abatidos; 3 = Rei Élfico guarda as Ruínas
+const VERSION := 4      # 2 = portões de progressão e chefes abatidos; 3 = Rei Élfico guarda as Ruínas; 4 = teia de passivos (reembolso)
 
 ## Pontos de skill ganhos até um nível (o que a árvore devolve quando é refeita).
 ## Arma que a classe não usa mais (ex.: Elementalista só de cajado): volta para a bolsa e a inicial da classe entra no lugar.
@@ -172,7 +172,7 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 	if not tr.is_empty():
 		p.tree[tr["start"]] = true
 		# nó que não existe mais (skill/build removida): a árvore volta ao início e os pontos voltam todos
-		if p.tree.keys().any(func(nid): return not tr["nodes"].has(nid)):
+		if int(d.get("save_version", 0)) < 4 or p.tree.keys().any(func(nid): return not tr["nodes"].has(nid)):
 			p.tree = {tr["start"]: true}
 			for sid in p.class_def.starting_skills:
 				p.tree["%s_s_%s" % [p.class_def.id, sid]] = true
@@ -180,8 +180,9 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 			for sid in p.class_def.starting_skills:
 				p.learned[sid] = true
 			p.talents = {}
+			p.mastery = {}
 			p.mastery_points = points_for_level(p.level)
-			Events.notification.emit("A árvore de skills mudou: seus pontos foram devolvidos (tecla K).")
+			Events.notification.emit("A teia de skills mudou: seus %d pontos foram devolvidos (tecla K)." % p.mastery_points)
 	Sim.recompute_tree_bonus(p)
 	var loadout: Array = d.get("loadout", p.learned.keys())
 	p.skills.clear()

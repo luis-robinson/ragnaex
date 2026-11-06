@@ -175,6 +175,7 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 		s.block_reduction = minf(Balance.BLOCK_REDUCTION_BASE + FOR * Balance.BLOCK_REDUCTION_PER_FOR, Balance.BLOCK_REDUCTION_CAP)
 
 	# 4) buffs e bônus de conjunto percentuais
+	var rad_cap := 0.0                  # talento de classe pode subir o teto da Radiância
 	for b in buffs + set_bonus:
 		s.patk *= 1.0 + float(b.get("atk_pct", 0)) / 100.0
 		s.matk *= 1.0 + float(b.get("matk_pct", 0)) / 100.0
@@ -190,6 +191,7 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 		s.attack_speed += float(b.get("aspd_pct", 0))
 		s.buff_duration += float(b.get("buff_pct", 0))
 		s.radiance += float(b.get("radiance", 0))
+		rad_cap += float(b.get("radiance_cap", 0))
 		s.pet_power += float(b.get("pet_pct", 0))
 		s.evasion += float(b.get("evasion", 0))
 		s.hit_poison = maxf(s.hit_poison, float(b.get("hit_poison", 0)))
@@ -201,7 +203,7 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 	s.lifesteal = minf(s.lifesteal, Balance.LIFESTEAL_CAP)
 	s.attack_speed = minf(s.attack_speed, Balance.ATTACK_SPEED_CAP)
 	s.buff_duration = minf(s.buff_duration, Balance.BUFF_DURATION_CAP)
-	s.radiance = minf(s.radiance, Balance.RADIANCE_CAP)
+	s.radiance = minf(s.radiance, Balance.RADIANCE_CAP + rad_cap)
 	s.evasion = minf(s.evasion, Balance.EVASION_CAP)
 	s.cdr = minf(s.cdr, Balance.CDR_CAP)
 	s.fire_pct = minf(s.fire_pct, Balance.ELEMENT_CAP)

@@ -68,9 +68,9 @@ static func quest_share(band_start: int) -> float:
 	return float(XP_QUEST_SHARE_BAND.get(band_start, XP_QUEST_SHARE))
 const XP_BANDS := [[1, 10], [10, 20], [20, 30]]
 const DEATH_XP_PENALTY := 0.03
-# pontos de skill: aprender skill, subir maestria e comprar evoluções. Não dá pra pegar tudo até o 30:
-# ~61 pontos no total vs. 6 skills no máximo = 6 x (1 + 15) = 96 — escolher é a build.
-const MASTERY_POINTS_PER_LEVEL := 2
+# pontos da teia (estilo Path of Exile): skills, maestria, evoluções, atributos e notáveis. 4 por nível (+1 no 10/20/30)
+# = 119 no 30, numa teia de ~150-180 nós: um braço inteiro + boa parte de outro, ou um braço + os anéis.
+const MASTERY_POINTS_PER_LEVEL := 4
 const MASTERY_BONUS_LEVELS := [10, 20, 30]  # +1 ponto extra
 const MASTERY_MAX := 5
 const MASTERY_BONUS_PCT := 0.1     # cada nível de maestria: +10% nos bônus de buff e forma (só os positivos; tempo não muda)
@@ -329,6 +329,10 @@ const PARTY_ASSIST_RANGE := 14.0           # bots atacam o que bate no grupo den
 const BOT_PARTY_ACCEPT := 0.8              # chance de um bot aceitar um convite válido
 const BOT_PARTY_FORM_CHANCE := 0.35        # bot que sai para caçar chama outros bots da vila
 const BOT_INVITE_PLAYER_CHANCE := 0.12     # ... ou chama o jogador, se ele estiver por perto e sem grupo
+
+## Pontos da teia ganhos ao chegar no nível `level`.
+static func points_at(level: int) -> int:
+	return MASTERY_POINTS_PER_LEVEL + (1 if level in MASTERY_BONUS_LEVELS else 0)
 
 static func xp_for_level(level: int) -> int:
 	if level >= MAX_LEVEL:

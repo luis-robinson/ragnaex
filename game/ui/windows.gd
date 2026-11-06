@@ -14,7 +14,7 @@ var _preview_model: Node3D = null       # prévia 3D da janela de personagem
 var _preview_yaw := 0.0
 var _preview_drag := 0.0
 
-const TITLES := {"inventory": "Bolsa", "character": "Personagem", "skills": "Árvore de Skills", "quests": "Quests", "party": "Grupo"}
+const TITLES := {"inventory": "Bolsa", "character": "Personagem", "skills": "Teia de Skills", "quests": "Quests", "party": "Grupo"}
 const KEYS := {"inventory": "I", "character": "C", "skills": "K", "quests": "L", "party": "P"}
 ## tamanho do conteúdo (a moldura soma título e bordas); base 1600×900
 const SIZES := {"inventory": Vector2(392, 470), "character": Vector2(470, 790), "skills": Vector2(1110, 720), "quests": Vector2(620, 600), "party": Vector2(430, 480)}
@@ -517,11 +517,11 @@ func _on_preview_input(ev: InputEvent) -> void:
 		_preview_model.rotation.y = _preview_yaw
 
 # ---------------------------------------------------------------------------
-## Janela K: árvore de skills no estilo dos talentos do WoW — um painel por ramo (Geral + builds) lado a lado,
-## descendo por nível; skills quadradas no meio, maestria (círculo) à esquerda, evolução (losango) à direita, passivos
-## pequenos na linha. Dourado = comprado, verde = dá pra comprar agora, cinza = bloqueado (nível em cima do nó).
+## Janela K: teia de skills (estilo Path of Exile) — braços por ramo (Geral + builds) saindo do início, skills
+## quadradas no braço, maestria (círculo) e evoluções (losango) ao lado, atributos (bolinhas) e notáveis (círculos com
+## pedra) entre elas, anéis ligando os braços. Dourado = comprado, verde = dá pra comprar agora, cinza = bloqueado.
 const TREE_PX := Vector2(840, 620)
-const NODE_PX := {"start": 44, "skill": 40, "talent": 26, "mastery": 24, "stat": 16}
+const NODE_PX := {"start": 48, "skill": 40, "talent": 26, "mastery": 24, "notable": 30, "stat": 16}
 const TREE_ROW_PX := 72.0       # px por unidade da árvore na vertical: ramo comprido rola em vez de apertar as linhas
 const TREE_TOP := 126.0         # espaço do nó inicial (e dos rótulos das evoluções do dash) e dos títulos dos painéis
 const C_OWNED := Color(1.0, 0.8, 0.35)
@@ -544,7 +544,7 @@ func _skills(body: VBoxContainer) -> void:
 	gap.custom_minimum_size.x = 18
 	top.add_child(gap)
 	var open_picks := _picks_open(p)
-	for t in [["tree", "Árvore"], ["picks", "Talentos" + (" (%d)" % open_picks if open_picks > 0 else "")]]:
+	for t in [["tree", "Teia"], ["picks", "Talentos" + (" (%d)" % open_picks if open_picks > 0 else "")]]:
 		var tb := UiKit.button(t[1], _set_skills_tab.bind(t[0]), 110)
 		tb.toggle_mode = true
 		tb.button_pressed = _skills_tab == t[0]
@@ -555,9 +555,9 @@ func _skills(body: VBoxContainer) -> void:
 	fill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(fill)
 	if _skills_tab == "tree":
-		top.add_child(UiKit.label("■ skill   ◆ evolução   ● maestria +1   · passivo      dourado = comprado   verde = disponível", 12, UiKit.MUTED))
+		top.add_child(UiKit.label("■ skill  ◆ evolução  ● maestria  ◉ notável  · atributo    dourado = comprado  verde = disponível", 12, UiKit.MUTED))
 	else:
-		top.add_child(UiKit.label("Um bônus por linha · liberado pelo nível, não gasta pontos · trocar: na cidade", 12, UiKit.MUTED))
+		top.add_child(UiKit.label("Talentos de classe: um por linha (a cada 5 níveis) · grátis · trocar: na cidade", 12, UiKit.MUTED))
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 12)
 	body.add_child(row)
@@ -584,14 +584,22 @@ func _picks_open(p: SimEntity) -> int:
 			done[n["group"]] = true
 	return rows.size() - done.size()
 
-## Aba Talentos: uma linha por nível, três escolhas (bolinha da cor da família + o bônus); a comprada fica dourada.
+## Aba Talentos: talentos de classe (ClassTalentsCatalog), uma linha a cada 5 níveis com 3 cartões; o escolhido fica
+## dourado. Grátis, um por linha, trocar na cidade.
+const KIND_COLORS := {"permanente": Color(1.0, 0.8, 0.4), "aura": Color(0.45, 0.85, 1.0), "invocação": Color(0.7, 0.95, 0.55),
+	"sobrevivência": Color(0.55, 0.95, 0.75), "dano": Color(1.0, 0.55, 0.45), "utilidade": Color(0.82, 0.72, 1.0)}
+
 func _picks_view(p: SimEntity) -> Control:
 	var frame := PanelContainer.new()
 	frame.add_theme_stylebox_override("panel", UiKit.panel_style(Color(0.03, 0.03, 0.05, 0.95), Color(0.3, 0.26, 0.36), 6, 1))
-	frame.custom_minimum_size = TREE_PX
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = TREE_PX
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	frame.add_child(scroll)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
-	frame.add_child(v)
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(v)
 	var tr: Dictionary = GameData.trees.get(p.class_def.id, {})
 	var rows := {}
 	for nid in tr.get("nodes", {}):
@@ -607,10 +615,10 @@ func _picks_view(p: SimEntity) -> Control:
 		opts.sort_custom(func(a, b): return a["pos"].x < b["pos"].x)
 		var lv: int = int(opts[0]["level"])
 		var line := HBoxContainer.new()
-		line.add_theme_constant_override("separation", 10)
+		line.add_theme_constant_override("separation", 8)
 		v.add_child(line)
-		var lvl := UiKit.label("Nv %d" % lv, 13, UiKit.GOLD if p.level >= lv else Color(1.0, 0.62, 0.5))
-		lvl.custom_minimum_size.x = 54
+		var lvl := UiKit.label("Nv %d" % lv, 14, UiKit.GOLD if p.level >= lv else Color(1.0, 0.62, 0.5))
+		lvl.custom_minimum_size.x = 50
 		lvl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		line.add_child(lvl)
 		for n in opts:
@@ -621,164 +629,193 @@ func _pick_card(p: SimEntity, n: Dictionary) -> Control:
 	var owned := p.tree.has(n["id"])
 	var why := Sim.tree_block_reason(p, n["id"])
 	var can := why == "" and not owned
-	var st: Dictionary = n["stats"]
-	var fam: String = TreeCatalog.STAT_FAMILY.get(st.keys()[0] if not st.is_empty() else "", "atk")
-	var col: Color = STAT_COLORS[fam]
+	var o: Dictionary = GameData.class_talents.get(n["ref"], {})
+	var kind: String = o.get("kind", "utilidade")
+	var col: Color = KIND_COLORS.get(kind, UiKit.TEXT)
 	var b := Button.new()
 	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(232, 52)
+	b.custom_minimum_size = Vector2(250, 104)
 	var border := C_OWNED if owned else (C_CAN if can else C_LOCK)
 	var bg := Color(0.16, 0.13, 0.07) if owned else (Color(0.07, 0.12, 0.08) if can else Color(0.07, 0.065, 0.09))
 	for state in ["normal", "hover", "pressed", "disabled"]:
 		b.add_theme_stylebox_override(state, UiKit.panel_style(bg.lightened(0.08) if state == "hover" else bg, border.lightened(0.2) if state == "hover" else border, 8, 2 if owned or can else 1))
-	var h := HBoxContainer.new()
-	h.add_theme_constant_override("separation", 8)
-	h.set_anchors_preset(Control.PRESET_FULL_RECT)
-	h.offset_left = 10
-	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	b.add_child(h)
-	var dot := Panel.new()
-	dot.custom_minimum_size = Vector2(22, 22)
-	dot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	dot.add_theme_stylebox_override("panel", UiKit.panel_style(col.darkened(0.25 if owned else 0.6), border, 11, 2))
-	h.add_child(dot)
 	var tv := VBoxContainer.new()
-	tv.add_theme_constant_override("separation", -2)
-	tv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	tv.add_theme_constant_override("separation", 1)
+	tv.set_anchors_preset(Control.PRESET_FULL_RECT)
+	tv.offset_left = 9; tv.offset_right = -7; tv.offset_top = 5; tv.offset_bottom = -4
 	tv.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	h.add_child(tv)
-	var big := UiKit.label(TreeCatalog.stat_short(st), 15, col if owned or can or p.level >= int(n["level"]) else col.darkened(0.45))
-	big.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	tv.add_child(big)
+	b.add_child(tv)
+	var head := HBoxContainer.new()
+	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tv.add_child(head)
+	var nm := UiKit.label(str(n["name"]), 14, C_OWNED if owned else (UiKit.TEXT if p.level >= int(n["level"]) else UiKit.MUTED))
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nm.clip_text = true
+	nm.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	head.add_child(nm)
+	var tag := UiKit.label(kind, 10, col)
+	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	head.add_child(tag)
+	var txt := UiKit.para(str(n["desc"]), 11, UiKit.TEXT if owned or can else UiKit.MUTED)
+	txt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	txt.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	txt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tv.add_child(txt)
 	var small := UiKit.label("escolhido" if owned else ("trocar para este" if why == "" and Sim.pick_sibling(p, n["id"]) != "" else ("disponível" if can else why)), 10,
 		C_OWNED if owned else (C_CAN if why == "" else UiKit.MUTED), false)
 	small.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tv.add_child(small)
-	b.mouse_entered.connect(func(): show_tip("[b]%s[/b]\n[color=#aaa]Nível %d · grátis · um por linha (trocar: na cidade)[/color]" % [n["name"], int(n["level"])]))
+	b.mouse_entered.connect(func(): show_tip("[b]%s[/b]  [color=#%s](%s)[/color]\n%s\n[color=#aaa]Nível %d · grátis · um por linha (trocar: na cidade)[/color]" % [n["name"], col.to_html(false), kind, n["desc"], int(n["level"])]))
 	b.mouse_exited.connect(hide_tip)
 	b.pressed.connect(func(): if not owned and Sim.tree_allocate(p, n["id"]): _rebuild("skills"))
 	return b
+
+## Teia (estilo Path of Exile): arrastar move, a roda dá zoom, a busca acende os nós que batem. Lembra posição e zoom
+## entre as recompras (a janela é refeita a cada compra).
+const WEB_UNIT := 58.0           # px por unidade da teia no zoom 1
+const WEB_ZOOM := Vector2(0.45, 1.6)
+var _web_pan := Vector2.ZERO     # deslocamento do centro da teia em relação ao meio da tela
+var _web_zoom := 0.8
+var _web_query := ""
+var _web_marks: Array = []       # [[anel de busca, texto do nó]]
+var _web_dragging := false
+var _web_moved := 0.0           # quanto o mouse andou desde o clique: arrasto não compra nó
 
 func _tree_view(p: SimEntity) -> Control:
 	var tr: Dictionary = GameData.trees.get(p.class_def.id, {})
 	var frame := PanelContainer.new()
 	frame.add_theme_stylebox_override("panel", UiKit.panel_style(Color(0.03, 0.03, 0.05, 0.95), Color(0.3, 0.26, 0.36), 6, 1))
-	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = TREE_PX
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	frame.add_child(scroll)
-	var canvas := Control.new()
-	canvas.custom_minimum_size = TREE_PX - Vector2(12, 0)
-	canvas.clip_contents = true
-	scroll.add_child(canvas)
+	var view := Control.new()
+	view.custom_minimum_size = TREE_PX
+	view.clip_contents = true
+	view.mouse_filter = Control.MOUSE_FILTER_STOP
+	frame.add_child(view)
+	var web := Control.new()
+	web.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	web.position = TREE_PX * 0.5 + _web_pan
+	web.scale = Vector2.ONE * _web_zoom
+	view.add_child(web)
+	view.gui_input.connect(_web_input.bind(view, web))
+	_web_marks.clear()
 	if tr.is_empty():
 		return frame
 	var nodes: Dictionary = {}
-	for nid in tr["nodes"]:                  # talentos de escolha ficam na aba própria
+	for nid in tr["nodes"]:                  # talentos de classe ficam na aba própria
 		if tr["nodes"][nid]["kind"] != "pick":
 			nodes[nid] = tr["nodes"][nid]
-	var panes: Array = tr.get("panes", [])
-	# escala: painéis ocupam a largura; o nó inicial fica na faixa de cima
-	var lo := Vector2(INF, INF)
-	var hi := Vector2(-INF, -INF)
-	for nid in nodes:
-		if nodes[nid]["branch"] == "start":
-			continue
-		var q: Vector2 = nodes[nid]["pos"]
-		lo = lo.min(q)
-		hi = hi.max(q)
-	lo.x = 0.0
-	hi.x = maxf(hi.x, panes.size() * TreeCatalog.PANE_W + (panes.size() - 1) * TreeCatalog.PANE_GAP)
-	var span := (hi - lo).max(Vector2(0.01, 0.01))
-	# escala própria em X e Y: os painéis enchem a largura mesmo quando um ramo é bem mais comprido
-	var kx := (TREE_PX.x - 34.0) / span.x
-	var ky := TREE_ROW_PX
-	var off := Vector2(10.0, TREE_TOP + 30.0) - Vector2(lo.x * kx, lo.y * ky)
-	var canvas_h := maxf(TREE_PX.y, off.y + hi.y * ky + 46.0)
-	canvas.custom_minimum_size.y = canvas_h
-	var to_px := func(q: Vector2, branch: String) -> Vector2:
-		if branch == "start":
-			return Vector2(q.x * kx + off.x, 28.0)
-		return Vector2(q.x * kx, q.y * ky) + off
-	# painéis: fundo, título (nome + papel) e pontos gastos nele
-	for pane in panes:
+	# anéis de guia (fundo) e ligações; o caminho comprado em dourado
+	web.draw.connect(func():
+		for R in TreeCatalog.RINGS:
+			web.draw_arc(Vector2.ZERO, float(R) * WEB_UNIT, 0.0, TAU, 96, Color(0.25, 0.22, 0.32, 0.25), 1.0, true)
+		for nid in nodes:
+			for l in nodes[nid]["links"]:
+				if nid < l and nodes.has(l):
+					var a: bool = p.tree.has(nid)
+					var b: bool = p.tree.has(l)
+					var col := C_OWNED if a and b else (Color(C_CAN, 0.6) if a or b else Color(C_LOCK, 0.85))
+					web.draw_line((nodes[nid]["pos"] as Vector2) * WEB_UNIT, (nodes[l]["pos"] as Vector2) * WEB_UNIT, col, 4.0 if a and b else 2.0, true))
+	# nome de cada braço na ponta, com os pontos gastos nele
+	for pane in tr.get("panes", []):
+		var spent := 0
+		var reach := 0.0
+		for nid in nodes:
+			if nodes[nid]["branch"] == pane["id"]:
+				reach = maxf(reach, (nodes[nid]["pos"] as Vector2).length())
+				if p.tree.has(nid):
+					spent += int(nodes[nid]["cost"])
+		var ang: float = pane["angle"]
+		var at := Vector2(cos(ang), sin(ang)) * (reach + 1.1) * WEB_UNIT
+		var role: String = {"tank": "tanque", "dps": "dano", "ranged": "distância", "caster": "magia", "healer": "cura"}.get(pane["role"], "classe")
+		var lb := UiKit.label("%s\n%s · %d pts" % [pane["name"], role, spent], 18, UiKit.GOLD if spent > 0 else UiKit.TEXT)
+		lb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		lb.add_theme_constant_override("outline_size", 4)
+		lb.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+		lb.size = Vector2(220, 50)
+		lb.position = at - lb.size * 0.5
+		lb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		web.add_child(lb)
+	for top in [false, true]:                 # skills e notáveis por cima dos pequenos
+		for nid in nodes:
+			if (nodes[nid]["kind"] in ["skill", "start", "notable"]) == top:
+				web.add_child(_tree_node(p, nodes[nid], (nodes[nid]["pos"] as Vector2) * WEB_UNIT))
+	# barra de cima (fundo escuro): busca, centralizar e para onde vai cada braço
+	var bar_bg := PanelContainer.new()
+	bar_bg.position = Vector2(6, 6)
+	bar_bg.add_theme_stylebox_override("panel", UiKit.panel_style(Color(0.04, 0.035, 0.06, 0.92), Color(0.3, 0.26, 0.36), 6, 1))
+	view.add_child(bar_bg)
+	var bar_v := VBoxContainer.new()
+	bar_v.add_theme_constant_override("separation", 3)
+	bar_bg.add_child(bar_v)
+	var bar := HBoxContainer.new()
+	bar.add_theme_constant_override("separation", 6)
+	bar_v.add_child(bar)
+	var arms: Array = []
+	for pane in tr.get("panes", []):
+		var a: float = pane["angle"]
+		var arrow: String = ["→", "↘", "↓", "↙", "←", "↖", "↑", "↗"][posmod(roundi(a / (PI * 0.25)), 8)]
 		var spent := 0
 		for nid in nodes:
 			if nodes[nid]["branch"] == pane["id"] and p.tree.has(nid):
 				spent += int(nodes[nid]["cost"])
-		var cx: float = float(pane["x"]) * kx + off.x
-		var w := TreeCatalog.PANE_W * kx
-		var bg := Panel.new()
-		bg.position = Vector2(cx - w * 0.5, TREE_TOP - 34.0)
-		bg.size = Vector2(w, canvas_h - TREE_TOP + 26.0)
-		bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		bg.add_theme_stylebox_override("panel", UiKit.panel_style(Color(0.08, 0.07, 0.11, 0.9), Color(0.24, 0.21, 0.3) if spent == 0 else Color(0.55, 0.45, 0.22), 6, 1))
-		canvas.add_child(bg)
-		var role: String = {"tank": "tanque", "dps": "dano", "ranged": "distância", "caster": "magia", "healer": "cura"}.get(pane["role"], "classe")
-		var title := UiKit.label(pane["name"], 15, UiKit.GOLD if spent > 0 else UiKit.TEXT)
-		var sub_t := UiKit.label("%s · %d pts" % [role, spent], 11, UiKit.MUTED, false)
-		for lb in [title, sub_t]:
-			lb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			lb.clip_text = true
-			lb.size = Vector2(w, 18)
-			lb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			canvas.add_child(lb)
-		title.position = Vector2(cx - w * 0.5, TREE_TOP - 32.0)
-		sub_t.position = Vector2(cx - w * 0.5, TREE_TOP - 14.0)
-	# ligações: retas (raiz desce em cotovelo até o topo de cada painel)
-	canvas.draw.connect(func():
-		for nid in nodes:
-			for l in nodes[nid]["links"]:
-				if nid < l:
-					var a: bool = p.tree.has(nid)
-					var b: bool = p.tree.has(l)
-					var col := C_OWNED if a and b else (Color(C_CAN, 0.7) if a or b else Color(C_LOCK, 0.9))
-					var pa: Vector2 = to_px.call(nodes[nid]["pos"], nodes[nid]["branch"])
-					var pb: Vector2 = to_px.call(nodes[l]["pos"], nodes[l]["branch"])
-					var wdt := 3.0 if a and b else 2.0
-					if (nodes[nid]["branch"] == "start") != (nodes[l]["branch"] == "start"):
-						var top_p := pa if nodes[nid]["branch"] == "start" else pb
-						var bot_p := pb if nodes[nid]["branch"] == "start" else pa
-						var mid_y := TREE_TOP - 46.0
-						canvas.draw_polyline(PackedVector2Array([top_p, Vector2(top_p.x, mid_y), Vector2(bot_p.x, mid_y), bot_p]), col, wdt, true)
-					else:
-						canvas.draw_line(pa, pb, col, wdt, true))
-	for skills_on_top in [false, true]:
-		for nid in nodes:
-			if (nodes[nid]["kind"] in ["skill", "start"]) == skills_on_top:
-				var lim := Vector2(0.0, canvas.custom_minimum_size.x)
-				for pane in panes:
-					if pane["id"] == nodes[nid]["branch"]:
-						var pcx: float = float(pane["x"]) * kx + off.x
-						lim = Vector2(pcx - TreeCatalog.PANE_W * kx * 0.5, pcx + TreeCatalog.PANE_W * kx * 0.5)
-				canvas.add_child(_tree_node(p, nodes[nid], to_px.call(nodes[nid]["pos"], nodes[nid]["branch"]), lim))
-	# nível da linha: uma vez, na margem esquerda do painel, só nas linhas acima do nível do jogador
-	for nid in nodes:
-		var n: Dictionary = nodes[nid]
-		if n["kind"] != "skill" or p.tree.has(nid) or p.level >= int(n["level"]):
-			continue
-		var at: Vector2 = to_px.call(n["pos"], n["branch"])
-		var left := at.x - TreeCatalog.PANE_W * kx * 0.5
-		var lv := UiKit.label("Nv %d" % int(n["level"]), 11, Color(1.0, 0.62, 0.5))
-		lv.position = Vector2(left + 4.0, at.y - 36.0)
-		lv.size = Vector2(44, 14)
-		lv.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		canvas.add_child(lv)
+		arms.append("%s %s (%d)" % [arrow, pane["name"], spent])
+	bar_v.add_child(UiKit.label("Braços:  " + "   ".join(arms) + "   · arraste para mover, roda = zoom", 11, UiKit.MUTED))
+	var q := LineEdit.new()
+	q.placeholder_text = "procurar (crít, FOR, nome...)"
+	q.custom_minimum_size.x = 220
+	q.text = _web_query
+	q.text_changed.connect(_web_search)
+	bar.add_child(q)
+	bar.add_child(UiKit.button("Centralizar", _web_center.bind(web), 100))
+	_web_search(_web_query)
 	return frame
 
-## lim = bordas esquerda/direita do painel do nó (x no canvas): os rótulos ficam dentro dele.
-func _tree_node(p: SimEntity, n: Dictionary, at: Vector2, lim: Vector2 = Vector2(-INF, INF)) -> Control:
+func _web_input(ev: InputEvent, view: Control, web: Control) -> void:
+	if ev is InputEventMouseButton:
+		var mb := ev as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_LEFT:
+			_web_dragging = mb.pressed
+			if mb.pressed:
+				_web_moved = 0.0
+		elif mb.pressed and mb.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+			var z0 := _web_zoom
+			_web_zoom = clampf(_web_zoom * (1.12 if mb.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0 / 1.12), WEB_ZOOM.x, WEB_ZOOM.y)
+			var m := mb.position                      # o ponto embaixo do mouse fica parado
+			web.position = m - (m - web.position) * (_web_zoom / z0)
+			web.scale = Vector2.ONE * _web_zoom
+			_web_pan = web.position - view.size * 0.5
+			view.accept_event()
+	elif ev is InputEventMouseMotion and _web_dragging and (ev as InputEventMouseMotion).button_mask & MOUSE_BUTTON_MASK_LEFT:
+		web.position += (ev as InputEventMouseMotion).relative
+		_web_moved += (ev as InputEventMouseMotion).relative.length()
+		_web_pan = web.position - view.size * 0.5
+		hide_tip()
+
+func _web_center(web: Control) -> void:
+	_web_pan = Vector2.ZERO
+	_web_zoom = 0.8
+	web.position = (web.get_parent() as Control).size * 0.5
+	web.scale = Vector2.ONE * _web_zoom
+
+func _web_search(t: String) -> void:
+	_web_query = t
+	var q := t.strip_edges().to_lower()
+	for m in _web_marks:
+		(m[0] as Control).visible = q.length() >= 2 and str(m[1]).contains(q)
+
+## Nó da teia (no espaço da teia, sem zoom). Os botões deixam o mouse passar para a tela (arrastar e zoom em cima dos nós).
+func _tree_node(p: SimEntity, n: Dictionary, at: Vector2) -> Control:
 	var kind: String = n["kind"]
 	var px: int = NODE_PX.get(kind, 16)
 	var owned := p.tree.has(n["id"])
 	var why := Sim.tree_block_reason(p, n["id"])
 	var can := why == ""
 	var col := Color(0.55, 0.55, 0.6)
+	var st: Dictionary = n.get("stats", {})
+	var fam: String = TreeCatalog.STAT_FAMILY.get(st.keys()[0] if not st.is_empty() else "", "atk")
 	match kind:
 		"skill": col = GameData.skills[n["ref"]].icon_color
 		"talent": col = Color(0.78, 0.55, 1.0)
-		"stat": col = Color(0.75, 0.85, 1.0)
+		"stat", "notable": col = STAT_COLORS[fam]
 		"mastery": col = Color(0.55, 0.95, 0.6)
 		"start": col = p.class_def.color
 	var fill := col.darkened(0.25) if owned else (col.darkened(0.55) if can else Color(0.12, 0.11, 0.15))
@@ -787,25 +824,34 @@ func _tree_node(p: SimEntity, n: Dictionary, at: Vector2, lim: Vector2 = Vector2
 	holder.position = at - Vector2(px, px) * 0.5
 	holder.size = Vector2(px, px)
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var mark := Panel.new()                  # anel ciano da busca
+	mark.position = Vector2(-7, -7)
+	mark.size = Vector2(px + 14, px + 14)
+	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mark.add_theme_stylebox_override("panel", UiKit.panel_style(Color(0.3, 0.9, 1.0, 0.15), Color(0.4, 0.95, 1.0), px, 3))
+	mark.visible = false
+	holder.add_child(mark)
+	_web_marks.append([mark, ("%s %s %s" % [n["name"], n["desc"], TreeCatalog.stat_short(st)]).to_lower()])
 	if can and not owned and kind != "stat":
 		var glow := Panel.new()          # brilho verde atrás de quem dá pra comprar agora
 		glow.position = Vector2(-4, -4)
 		glow.size = Vector2(px + 8, px + 8)
 		glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		glow.add_theme_stylebox_override("panel", UiKit.panel_style(Color(C_CAN, 0.18), Color(C_CAN, 0.0), px if kind in ["mastery", "start"] else 8, 0))
+		glow.add_theme_stylebox_override("panel", UiKit.panel_style(Color(C_CAN, 0.18), Color(C_CAN, 0.0), px if kind in ["mastery", "start", "notable"] else 8, 0))
 		if kind == "talent":
 			glow.rotation = PI / 4
 			glow.pivot_offset = Vector2(px + 8, px + 8) * 0.5
 		holder.add_child(glow)
 	var b := Button.new()
 	b.focus_mode = Control.FOCUS_NONE
+	b.mouse_filter = Control.MOUSE_FILTER_PASS
 	b.size = Vector2(px, px)
 	b.custom_minimum_size = Vector2(px, px)
-	var radius := px / 2 if kind in ["stat", "mastery", "start"] else (3 if kind == "talent" else 6)
-	var bw := 3 if owned or can else 2
-	var st := UiKit.panel_style(fill, border, radius, bw)
+	var radius := px / 2 if kind in ["stat", "mastery", "start", "notable"] else (3 if kind == "talent" else 6)
+	var bw := (4 if kind == "notable" else 3) if owned or can else 2
+	var stb := UiKit.panel_style(fill, border, radius, bw)
 	for state in ["normal", "hover", "pressed", "disabled"]:
-		b.add_theme_stylebox_override(state, st if state != "hover" else UiKit.panel_style(fill.lightened(0.15), border.lightened(0.25), radius, 3))
+		b.add_theme_stylebox_override(state, stb if state != "hover" else UiKit.panel_style(fill.lightened(0.15), border.lightened(0.25), radius, bw + 1))
 	if kind == "talent":
 		b.rotation = PI / 4
 		b.pivot_offset = Vector2(px, px) * 0.5
@@ -817,30 +863,35 @@ func _tree_node(p: SimEntity, n: Dictionary, at: Vector2, lim: Vector2 = Vector2
 		icon.modulate = Color.WHITE if owned else (Color(0.85, 0.85, 0.85) if can else Color(0.4, 0.4, 0.44))
 		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(icon)
-	elif kind == "stat":
-		# o que o passivo dá, escrito ao lado da bolinha na cor da família (apagado enquanto bloqueado)
-		var stats: Dictionary = n["stats"]
-		var fam: String = TreeCatalog.STAT_FAMILY.get(stats.keys()[0] if not stats.is_empty() else "", "atk")
-		var tag := UiKit.label(TreeCatalog.stat_short(stats), 10, STAT_COLORS[fam])
-		var tw := tag.get_minimum_size().x      # largura do texto: o rótulo termina 6 px antes da bolinha
-		tag.position = Vector2(-6.0 - tw, px * 0.5 - 9)
-		tag.size = Vector2(tw, 18)
-		tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		tag.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	elif kind in ["stat", "notable"]:
+		# pequeno: o bônus curto embaixo; notável: o nome (o bônus fica na dica)
+		var txt: String = TreeCatalog.stat_short(st) if kind == "stat" else str(n["name"])
+		var tag := UiKit.label(txt, 11 if kind == "stat" else 12, STAT_COLORS[fam] if kind == "stat" else Color(1.0, 0.9, 0.62))
+		tag.add_theme_constant_override("outline_size", 3)
+		tag.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+		var tw := tag.get_minimum_size().x
+		tag.position = Vector2(px * 0.5 - tw * 0.5, px + 1)
+		tag.size = Vector2(tw, 16)
+		tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		tag.modulate.a = 1.0 if owned or can else 0.55
 		tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(tag)
-		b.add_theme_stylebox_override("normal", UiKit.panel_style(STAT_COLORS[fam].darkened(0.3 if owned else (0.6 if can else 0.8)), border, px / 2, bw))
+		if kind == "notable":
+			var gem := Panel.new()            # pedra no meio do notável
+			gem.position = Vector2(px * 0.3, px * 0.3)
+			gem.size = Vector2(px * 0.4, px * 0.4)
+			gem.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			gem.add_theme_stylebox_override("panel", UiKit.panel_style(col.lightened(0.2) if owned else col.darkened(0.3), Color(0, 0, 0, 0), int(px * 0.2), 0))
+			holder.add_child(gem)
 	elif kind == "talent" and GameData.talents.has(n["ref"]):
 		var parts: Array = TreeCatalog.talent_tags(GameData.talents[n["ref"]])
 		var ev := UiKit.label("\n".join(parts), 10, C_TALENT_TAG)
-		# centrado no losango; encostado na borda direita do painel se faltar espaço, sem cobrir a bolinha do passivo
 		var w := ev.get_minimum_size().x + 4.0
-		var left := minf(at.x - w * 0.5, lim.y - 3.0 - w)
-		left = maxf(left, (lim.x + lim.y) * 0.5 + 14.0)          # meio do painel = coluna das skills e dos passivos
 		ev.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		ev.add_theme_constant_override("line_spacing", -3)
-		ev.position = Vector2(left - holder.position.x, px * 0.5 + 19.0)
+		ev.add_theme_constant_override("outline_size", 3)
+		ev.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+		ev.position = Vector2(px * 0.5 - w * 0.5, px + 6.0)
 		ev.size = Vector2(w, 24)
 		ev.modulate.a = 1.0 if owned or can else 0.55
 		ev.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -852,31 +903,37 @@ func _tree_node(p: SimEntity, n: Dictionary, at: Vector2, lim: Vector2 = Vector2
 		plus.size = Vector2(px, px)
 		plus.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(plus)
-		# nível atual da maestria: anel de segmentos em volta e "M2/5" embaixo
 		var lv_m := p.mastery_of(n["ref"])
 		var ring := Control.new()
 		ring.size = Vector2(px, px)
 		ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		ring.draw.connect(_mastery_ring.bind(ring, lv_m, px))
 		holder.add_child(ring)
-		var ml := UiKit.label("M%d/%d" % [lv_m, Balance.MASTERY_MAX], 10, C_OWNED if lv_m > 0 else UiKit.MUTED)
-		ml.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		ml.position = Vector2(px * 0.5 - 22, px + 4)
-		ml.size = Vector2(44, 12)
-		ml.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		holder.add_child(ml)
-	# nível que falta: em cima do nó bloqueado por nível
-	if not owned and p.level < int(n["level"]) and n["branch"] == "start":      # nos painéis o nível vai na margem
-		var lv := UiKit.label("Nv %d" % int(n["level"]), 10, Color(1.0, 0.6, 0.5))
-		lv.position = Vector2(px * 0.5 - 20, -13)
-		lv.size = Vector2(40, 12)
+		if lv_m > 0:
+			var ml := UiKit.label("M%d" % lv_m, 10, C_OWNED)
+			ml.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			ml.position = Vector2(px * 0.5 - 16, px + 4)
+			ml.size = Vector2(32, 12)
+			ml.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			holder.add_child(ml)
+	# nível que falta: em cima da skill bloqueada por nível
+	if not owned and p.level < int(n["level"]) and kind in ["skill", "talent"]:
+		var lv := UiKit.label("Nv %d" % int(n["level"]), 11, Color(1.0, 0.6, 0.5))
+		lv.add_theme_constant_override("outline_size", 3)
+		lv.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+		lv.position = Vector2(px * 0.5 - 20, -16)
+		lv.size = Vector2(40, 14)
 		lv.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		lv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(lv)
-	b.mouse_entered.connect(func(): show_tip(_tree_tip(p, n, owned, why)))
+	b.mouse_entered.connect(func(): if not _web_dragging: show_tip(_tree_tip(p, n, owned, why)))
 	b.mouse_exited.connect(hide_tip)
-	b.pressed.connect(func(): if Sim.tree_allocate(p, n["id"]): _rebuild("skills"))
+	b.pressed.connect(_web_buy.bind(p, n["id"]))
 	return holder
+
+func _web_buy(p: SimEntity, nid: String) -> void:
+	if _web_moved < 8.0 and Sim.tree_allocate(p, nid):
+		_rebuild("skills")
 
 ## Anel da maestria: um segmento por nível (até MASTERY_MAX), dourado até o nível atual.
 func _mastery_ring(ring: Control, lv: int, px: int) -> void:
@@ -891,7 +948,7 @@ func _mastery_ring(ring: Control, lv: int, px: int) -> void:
 		ring.draw_arc(c, r, a0, a1, 8, C_OWNED if i < lv else Color(0.3, 0.28, 0.34), 3.0, true)
 
 func _tree_tip(p: SimEntity, n: Dictionary, owned: bool, why: String) -> String:
-	var kinds := {"skill": "Skill", "talent": "Evolução", "stat": "Passivo", "mastery": "Maestria", "start": "Início"}
+	var kinds := {"skill": "Skill", "talent": "Evolução", "stat": "Passivo", "notable": "Notável", "mastery": "Maestria", "start": "Início"}
 	var t := "[b][color=#ffd966]%s[/color][/b]  [color=#aaa](%s)[/color]\n" % [n["name"], kinds.get(n["kind"], "")]
 	if n["kind"] == "skill":
 		t += UiKit.skill_tooltip(p, GameData.skills[n["ref"]]) + "\n"

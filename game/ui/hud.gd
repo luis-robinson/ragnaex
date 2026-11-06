@@ -435,7 +435,8 @@ func _update_status_bar(p: SimEntity) -> void:
 	for b in p.buffs:
 		var id: String = str(b.get("id", "buff"))
 		var src := _buff_source(id)
-		want.append(["b_" + id, true, float(b.get("remaining", 0)), int(b.get("stacks", 0)), src["tex"], src["name"], src["desc"]])
+		var tm: float = INF if b.get("ct", false) else float(b.get("remaining", 0))      # talento de classe: permanente
+		want.append(["b_" + id, true, tm, int(b.get("stacks", 0)), src["tex"], src["name"], src["desc"]])
 	if p.form_left > 0.0 and p.form != "":           # forma com tempo (fantasma): ícone da skill que transformou
 		var fs := _form_skill(p.form)
 		if fs:
@@ -461,7 +462,7 @@ func _update_status_bar(p: SimEntity) -> void:
 			c = _make_status_chip(w)
 			_status_chips[key] = c
 		var t: float = w[2]
-		(c["time"] as Label).text = ("%dm" % ceili(t / 60.0)) if t >= 60.0 else ("%.0fs" % ceilf(t) if t >= 1.0 else "%.1f" % t)
+		(c["time"] as Label).text = "∞" if t == INF else (("%dm" % ceili(t / 60.0)) if t >= 60.0 else ("%.0fs" % ceilf(t) if t >= 1.0 else "%.1f" % t))
 		(c["stacks"] as Label).text = str(w[3]) if int(w[3]) > 1 else ""
 	for key in _status_chips.keys():
 		if not keep.has(key):

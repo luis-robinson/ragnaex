@@ -44,7 +44,7 @@ static func shield_class_bonus(sim: WorldSim, e: SimEntity, off: ItemDef, parrie
 	if not (e.class_def.id == aff or (aff == "both" and e.class_def.id in ["paladin", "bishop"])):
 		return
 	if e.class_def.id == "paladin":
-		var stacks := mini(oath_stacks(sim, e) + (2 if parried else 1), Balance.SHIELD_OATH_MAX)
+		var stacks := mini(oath_stacks(sim, e) + (2 if parried else 1), ClassTalentSystem.oath_max(e))
 		e.put_buff({"id": "juramento", "remaining": Balance.SHIELD_OATH_TIME, "stacks": stacks})
 		Events.buff_applied.emit(e.id, "juramento", Balance.SHIELD_OATH_TIME)
 		return

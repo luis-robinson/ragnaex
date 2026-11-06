@@ -13,7 +13,8 @@ var maps: Dictionary = {}        # id -> MapDef
 var loot_tables: Dictionary = {} # id -> LootTable
 var sets: Dictionary = {}        # id -> SetDef (conjuntos lendários)
 var talents: Dictionary = {}     # id -> TalentDef (evoluções de skills/dash)
-var trees: Dictionary = {}       # class_id -> {"start", "nodes"} (árvore de pontos de skill, TreeCatalog)
+var trees: Dictionary = {}       # class_id -> {"start", "nodes"} (teia de pontos de skill, TreeCatalog)
+var class_talents: Dictionary = {}   # id da opção -> dicionário do ClassTalentsCatalog (aba Talentos)
 var bot_names: Array = []
 var bot_lines: Dictionary = {}
 var _basic_cache: Dictionary = {}
@@ -39,6 +40,10 @@ func load_all() -> void:
 			classes[cid].skill_ids.append(s.id)
 	for t in TalentsCatalog.build():
 		talents[t.id] = t
+	for cid in ClassTalentsCatalog.build().values():
+		for row in cid:
+			for o in row[1]:
+				class_talents[o["id"]] = o
 	trees = TreeCatalog.build(classes, skills, talents)
 	for i in ItemsCatalog.build():
 		items[i.id] = i

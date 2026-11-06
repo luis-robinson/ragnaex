@@ -1,6 +1,6 @@
 class_name TreeCatalog
 extends RefCounted
-## Árvore de pontos de skill (estilo talentos do WoW) — uma por classe, gerada por loops a partir das skills
+## Teia de pontos de skill (estilo Path of Exile) — uma por classe, gerada por loops a partir das skills
 ## (SkillsCatalog), builds (ClassDef.builds) e evoluções (TalentsCatalog). Nada escrito nó a nó.
 ##
 ## Forma: um PAINEL por ramo, lado a lado: "Geral" (skills sem build) e um por build. Em cada painel o caminho desce
@@ -12,61 +12,44 @@ extends RefCounted
 ## Árvore: {start, nodes, panes: [{id, name, role, x}]}
 ## Regra (WorldSim.tree_allocate): só se compra nó ligado a um já comprado, com nível e pontos suficientes.
 
-const ROW := 1.2                  # distância entre skills no painel (unidades da árvore; a UI escala)
-const SIDE := 0.95                # maestria / evolução ao lado da skill
-const PANE_W := 3.0               # largura de um painel
-const PANE_GAP := 0.5
-const ROOT_Y := -1.5              # nó inicial acima dos painéis
-## Talentos de escolha (aba "Talentos" da janela K): uma linha a cada 3 níveis (3..30), 3 bônus pequenos, compra-se UM por linha
-## (liberado pelo nível, não gasta pontos; trocar é na cidade). "power" = ATK ou MATK conforme a classe. Nó: kind "pick", group "row_N".
-const PICK_ROWS := [
-	[3, [["power", 4], ["hp_pct", 5], ["speed_pct", 4]]],
-	[6, [["aspd_pct", 6], ["def_pct", 6], ["mp_pct", 8]]],
-	[9, [["crit", 2.0], ["lifesteal", 2], ["heal_pct", 6]]],
-	[12, [["power", 5], ["evasion", 2.0], ["cdr", 4]]],
-	[15, [["aspd_pct", 8], ["hp_pct", 7], ["speed_pct", 5]]],
-	[18, [["crit", 3.0], ["def_pct", 8], ["buff_pct", 10]]],
-	[21, [["power", 6], ["def_pct", 9], ["mp_pct", 10]]],
-	[24, [["power", 7], ["lifesteal", 3], ["cdr", 6]]],
-	[27, [["crit", 4.0], ["hp_pct", 10], ["aspd_pct", 10]]],
-	[30, [["power", 8], ["evasion", 3.0], ["speed_pct", 6]]],
+## raio de desenho de cada tipo de nó (unidades da teia; espelha windows.NODE_PX / WEB_UNIT): o passo no braço
+## é a soma dos dois raios + folga, então nó grande ganha mais espaço
+const NODE_R := {"start": 0.42, "skill": 0.35, "notable": 0.27, "stat": 0.15}
+const GAP := 0.24
+const R0 := 1.45                  # primeiro nó de cada braço
+const SIDE := 0.86                # maestria / evolução ao lado da skill (perpendicular ao braço)
+const RINGS := [3.4, 7.4]         # anéis que ligam braços vizinhos (raio)
+const RING_LEVEL := [1, 12]       # nível mínimo dos nós de cada anel
+const RING_SPACING := 0.95        # distância entre nós de um anel
+const DASH_R := [0.85, 1.55, 2.25]  # evoluções do dash: espora curta entre o 1º e o 2º braço
+## Notáveis gerais dos anéis (os antigos talentos de escolha), em laço por classe; "power" = ATK ou MATK.
+const RING_NOTABLES := [
+	["Olho Treinado", {"crit": 3.0, "attr_AGI": 2}], ["Ritmo de Batalha", {"aspd_pct": 6}], ["Mente Serena", {"cdr": 5, "attr_WILL": 2}],
+	["Sangue Forte", {"hp_pct": 6, "attr_VIT": 2}], ["Passo Leve", {"speed_pct": 5, "evasion": 1.5}], ["Couraça", {"def_pct": 7}],
+	["Sede", {"lifesteal": 2}], ["Poço Arcano", {"mp_pct": 10, "attr_INT": 2}], ["Golpe Firme", {"power": 5, "attr_FOR": 2}],
+	["Mãos Curadoras", {"heal_pct": 7}], ["Vigília", {"buff_pct": 10}], ["Instinto", {"crit": 2.0, "power": 3}],
 ]
-## sabor da classe: linha -> bônus que entra no lugar da 3ª opção (ou da 2ª, se repetir uma das outras)
-const PICK_FLAVOR := {
-	"paladin": {2: ["heal_pct", 8], 5: ["hp_pct", 8]},
-	"berserker": {2: ["lifesteal", 3], 4: ["aspd_pct", 10]},
-	"bishop": {2: ["radiance", 3], 5: ["buff_pct", 12]},
-	"druid": {2: ["pet_pct", 10], 5: ["heal_pct", 8]},
-	"ranger": {2: ["pet_pct", 12], 4: ["aspd_pct", 10]},
-	"assassin": {2: ["backstab", 8], 5: ["evasion", 3.0]},
-	"elementalist": {1: ["storm_pct", 6], 2: ["fire_pct", 6], 5: ["frost_pct", 6]},
-	"necromancer": {2: ["pet_pct", 12], 5: ["lifesteal", 3]},
+## Notáveis de braço por papel (nome, bônus); o laço anda pela lista e soma o atributo principal da build.
+const ARM_NOTABLES := {
+	"tank": [["Pele de Ferro", {"def_pct": 6, "hp_pct": 4}], ["Inabalável", {"hp_pct": 7}], ["Bastião", {"def_pct": 8}], ["Muralha Viva", {"def_pct": 5, "hp_pct": 5}]],
+	"dps": [["Golpe Brutal", {"atk_pct": 6}], ["Lâmina Faminta", {"atk_pct": 4, "lifesteal": 1}], ["Fúria Fria", {"crit": 3.0, "atk_pct": 3}], ["Carnificina", {"aspd_pct": 5, "atk_pct": 3}]],
+	"ranged": [["Mira Firme", {"atk_pct": 5, "crit": 1.5}], ["Olho de Águia", {"crit": 3.5}], ["Disparo Rápido", {"aspd_pct": 6}], ["Caçador", {"atk_pct": 6}]],
+	"caster": [["Arcano Profundo", {"matk_pct": 6}], ["Fluxo", {"mp_pct": 8, "cdr": 3}], ["Foco Arcano", {"matk_pct": 4, "crit": 1.5}], ["Eco", {"matk_pct": 5, "mp_pct": 4}]],
+	"healer": [["Graça", {"heal_pct": 7}], ["Fé Viva", {"heal_pct": 4, "buff_pct": 6}], ["Coro", {"buff_pct": 10}], ["Luz Serena", {"heal_pct": 5, "mp_pct": 5}]],
+	"": [["Vigor", {"hp_pct": 5}], ["Agilidade", {"speed_pct": 4}], ["Treino", {"power": 4}], ["Resistência", {"def_pct": 5}]],
 }
+const SMALL_ATTR := 3             # atributo de um nó pequeno (FOR +3 ...)
+const NOTABLE_ATTR := 5           # atributo principal num notável de braço
 
 static func _is_caster(cls: ClassDef) -> bool:
 	return cls.builds.any(func(b): return b["role"] in ["caster", "healer"])
 
-## Linhas de escolha da classe, em laço: PICK_ROWS + PICK_FLAVOR; "power" vira o ataque da classe.
-static func _picks(cls: ClassDef, nodes: Dictionary) -> void:
-	var power := "matk_pct" if _is_caster(cls) else "atk_pct"
-	var flavor: Dictionary = PICK_FLAVOR.get(cls.id, {})
-	for r in range(PICK_ROWS.size()):
-		var lv: int = PICK_ROWS[r][0]
-		var opts: Array = (PICK_ROWS[r][1] as Array).duplicate(true)
-		for o in opts:
-			if o[0] == "power":
-				o[0] = power
-		if flavor.has(r):
-			var keys: Array = opts.map(func(o): return o[0])
-			var put: int = 2 if not (flavor[r][0] in [keys[0], keys[1]]) else (1 if flavor[r][0] != keys[0] else 0)
-			opts[put] = flavor[r].duplicate()
-		for k in range(opts.size()):
-			var st := {opts[k][0]: opts[k][1]}
-			var pid := "%s_k_%d_%d" % [cls.id, r, k]
-			nodes[pid] = _node(pid, "pick", "", stat_text(st), "Talento: %s." % stat_text(st), lv, 0, Vector2(k, r))
-			nodes[pid]["stats"] = st
-			nodes[pid]["branch"] = "talentos"
-			nodes[pid]["group"] = "row_%d" % r
+## "power" (genérico) vira o ataque da classe
+static func _power(st: Dictionary, cls: ClassDef) -> Dictionary:
+	var out := {}
+	for k in st:
+		out[("matk_pct" if _is_caster(cls) else "atk_pct") if k == "power" else k] = st[k]
+	return out
 
 ## passivo pequeno por papel da build (formato de buff: Stats.compute soma)
 const ROLE_STATS := {
@@ -81,7 +64,8 @@ const STAT_NAMES := {"def_pct": "%+d%% DEF", "hp_pct": "%+d%% HP máximo", "atk_
 	"matk_pct": "%+d%% MATK", "mp_pct": "%+d%% MP máximo", "heal_pct": "%+d%% cura", "speed_pct": "%+d%% velocidade",
 	"lifesteal": "%+d%% roubo de vida", "aspd_pct": "%+d%% velocidade de ataque", "buff_pct": "%+d%% duração das bênçãos", "radiance": "%+d%% Radiância",
 	"pet_pct": "%+d%% força do companheiro", "evasion": "%+.1f%% esquiva", "backstab": "%+d%% dano pelas costas",
-	"fire_pct": "%+d%% dano de fogo", "frost_pct": "%+d%% dano de gelo", "storm_pct": "%+d%% dano de raio", "cdr": "-%d%% recarga das skills"}
+	"fire_pct": "%+d%% dano de fogo", "frost_pct": "%+d%% dano de gelo", "storm_pct": "%+d%% dano de raio", "cdr": "-%d%% recarga das skills",
+	"attr_FOR": "%+d FOR", "attr_AGI": "%+d AGI", "attr_VIT": "%+d VIT", "attr_WILL": "%+d WILL", "attr_INT": "%+d INT"}
 
 ## Rótulo curto embaixo do losango da evolução: o que ela muda na skill (ou no dash), lido dos mods. Até 2 partes.
 const EFFECT_TAGS := {"stun": "atordoa", "slow": "lentidão", "dot": "+DoT", "root": "prende", "heal_pct_of_dmg": "dreno",
@@ -119,11 +103,13 @@ const STAT_SHORT := {"def_pct": "%+d%% DEF", "hp_pct": "%+d%% HP", "atk_pct": "%
 	"matk_pct": "%+d%% MATK", "mp_pct": "%+d%% MP", "heal_pct": "%+d%% Cura", "speed_pct": "%+d%% Veloc.",
 	"lifesteal": "%+d%% Roubo", "aspd_pct": "%+d%% Vel. atq", "buff_pct": "%+d%% Bênção", "radiance": "%+d%% Radiân.",
 	"pet_pct": "%+d%% Pet", "evasion": "%+.1f%% Esquiva", "backstab": "%+d%% Costas",
-	"fire_pct": "%+d%% Fogo", "frost_pct": "%+d%% Gelo", "storm_pct": "%+d%% Raio", "cdr": "-%d%% Recarga"}
+	"fire_pct": "%+d%% Fogo", "frost_pct": "%+d%% Gelo", "storm_pct": "%+d%% Raio", "cdr": "-%d%% Recarga",
+	"attr_FOR": "%+d FOR", "attr_AGI": "%+d AGI", "attr_VIT": "%+d VIT", "attr_WILL": "%+d WILL", "attr_INT": "%+d INT"}
 ## família do passivo (cor do rótulo): defesa, ataque, magia, cura, mobilidade
 const STAT_FAMILY := {"def_pct": "def", "hp_pct": "def", "evasion": "def", "atk_pct": "atk", "crit": "atk", "lifesteal": "atk",
 	"aspd_pct": "atk", "backstab": "atk", "pet_pct": "atk", "matk_pct": "mag", "mp_pct": "mag", "fire_pct": "mag", "frost_pct": "mag",
-	"storm_pct": "mag", "heal_pct": "heal", "buff_pct": "heal", "radiance": "heal", "speed_pct": "move", "cdr": "move"}
+	"storm_pct": "mag", "heal_pct": "heal", "buff_pct": "heal", "radiance": "heal", "speed_pct": "move", "cdr": "move",
+	"attr_FOR": "atk", "attr_AGI": "move", "attr_VIT": "def", "attr_WILL": "heal", "attr_INT": "mag"}
 
 static func stat_short(stats: Dictionary) -> String:
 	var out: Array = []
@@ -144,14 +130,18 @@ static func build(classes: Dictionary, skills: Dictionary, talents: Dictionary) 
 		out[cid] = _class_tree(classes[cid], skills, talents)
 	return out
 
+## Teia de uma classe (estilo Path of Exile): início no centro, um BRAÇO por ramo (Geral + builds) saindo em
+## volta, com as skills do ramo por nível e nós pequenos (atributo) e notáveis entre elas; maestria e evoluções ao lado
+## de cada skill; dois ANÉIS ligam braços vizinhos (atributos mistos + notáveis gerais) para builds híbridas.
 static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) -> Dictionary:
 	var nodes := {}
-	var branches: Array = [{"id": "", "role": "", "name": "Geral"}]
+	var geral_attr2: String = cls.builds[0].get("attr2", "FOR") if not cls.builds.is_empty() else "FOR"
+	var branches: Array = [{"id": "", "role": "", "name": "Geral", "attr": "VIT", "attr2": geral_attr2, "stat": "hp_pct"}]
 	for b in cls.builds:
-		branches.append({"id": b["id"], "role": b["role"], "name": b["name"], "passives": b.get("passives", [])})
-	var total_w := branches.size() * PANE_W + (branches.size() - 1) * PANE_GAP
+		branches.append({"id": b["id"], "role": b["role"], "name": b["name"], "passives": b.get("passives", []),
+			"attr": b.get("attr", "FOR"), "attr2": b.get("attr2", "VIT"), "stat": b.get("stat", "atk_pct")})
 	var start := "%s_start" % cls.id
-	nodes[start] = _node(start, "start", "", cls.name, "Início da árvore.", 1, 0, Vector2(total_w * 0.5, ROOT_Y))
+	nodes[start] = _node(start, "start", "", cls.name, "Início da teia.", 1, 0, Vector2.ZERO)
 	nodes[start]["branch"] = "start"
 	var by_skill := {}             # skill_id -> [talentos]
 	var dash_talents: Array = []
@@ -166,59 +156,167 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 				by_skill[t.skill_id] = []
 			by_skill[t.skill_id].append(t)
 	dash_talents.sort_custom(func(a, b): return a.unlock_level < b.unlock_level)
+	var n_arms := branches.size()
 	var panes: Array = []
-	for bi in range(branches.size()):
+	var spines: Array = []           # por braço: [{id, r}] dos nós no eixo (para ligar os anéis)
+	var notable_i := 0
+	for bi in range(n_arms):
 		var br: Dictionary = branches[bi]
-		var cx := bi * (PANE_W + PANE_GAP) + PANE_W * 0.5
-		panes.append({"id": br["id"], "name": br["name"], "role": br["role"], "x": cx})
+		var ang := -PI * 0.5 + TAU * bi / float(n_arms)
+		var dir := Vector2(cos(ang), sin(ang))
+		var side := Vector2(-dir.y, dir.x)
+		panes.append({"id": br["id"], "name": br["name"], "role": br["role"], "angle": ang})
 		var list: Array = []
 		for sid in cls.skill_ids:
-			var s: SkillDef = skills[sid]
-			if s.build == br["id"]:
-				list.append(s)
-		# iniciais primeiro (já vêm compradas), depois por nível
+			var sk: SkillDef = skills[sid]
+			if sk.build == br["id"]:
+				list.append(sk)
 		list.sort_custom(func(a, b): return _order(cls, a) < _order(cls, b))
-		var stats: Array = br["passives"] if not br.get("passives", []).is_empty() else ROLE_STATS.get(br["role"], ROLE_STATS[""])
+		var smalls: Array = br["passives"] if not br.get("passives", []).is_empty() else ROLE_STATS.get(br["role"], ROLE_STATS[""])
+		var arm_notes: Array = ARM_NOTABLES.get(br["role"], ARM_NOTABLES[""])
+		var spine: Array = []
 		var prev := start
-		var row := 0
+		var r := R0
+		var prev_kind := ""
+		var filler := 0
+		var small_i := 0
+		var tag: String = br["id"] if br["id"] != "" else "geral"
 		for i in range(list.size()):
-			var s: SkillDef = list[i]
-			var y := row * ROW
-			if i > 0 and not (s.id in cls.starting_skills):
-				# passivo pequeno na linha entre a skill anterior e esta
-				var st: Dictionary = stats[i % stats.size()]
-				var pid := "%s_p_%s_%d" % [cls.id, br["id"] if br["id"] != "" else "geral", i]
-				nodes[pid] = _node(pid, "stat", "", stat_text(st), "Passivo: %s." % stat_text(st), list[i - 1].unlock_level, 1, Vector2(cx, y - ROW * 0.5))
-				nodes[pid]["stats"] = st
-				nodes[pid]["branch"] = br["id"]
-				_link(nodes, prev, pid)
-				prev = pid
-			var nid := "%s_s_%s" % [cls.id, s.id]
-			nodes[nid] = _node(nid, "skill", s.id, s.name, s.description, s.unlock_level, Balance.SKILL_LEARN_COST, Vector2(cx, y))
+			var sk: SkillDef = list[i]
+			var lv_prev: int = list[i - 1].unlock_level if i > 0 else 1
+			if i > 0 or not (sk.id in cls.starting_skills):
+				# nós entre uma skill e a próxima: atributo da build, passivo da build e, a cada 3, um notável
+				for k in range(2 if i > 0 else 1):
+					filler += 1
+					var fid := "%s_n_%s_%d" % [cls.id, tag, filler]
+					var st: Dictionary
+					var nm: String
+					var kind := "stat"
+					if filler % 3 == 0:
+						var pick: Array = arm_notes[notable_i % arm_notes.size()]
+						notable_i += 1
+						st = (pick[1] as Dictionary).duplicate()
+						st["attr_" + str(br["attr"])] = NOTABLE_ATTR
+						nm = pick[0]
+						kind = "notable"
+					elif filler % 3 == 1:
+						st = {"attr_" + str(br["attr"]): SMALL_ATTR}
+					else:
+						st = (smalls[small_i % smalls.size()] as Dictionary).duplicate()
+						small_i += 1
+						st["attr_" + str(br["attr2"])] = SMALL_ATTR - 1
+					st = _power(st, cls)
+					if kind == "stat":
+						nm = stat_text(st)
+					r += _gap(prev_kind, kind)
+					prev_kind = kind
+					nodes[fid] = _node(fid, kind, "", nm, ("Notável: %s." if kind == "notable" else "Passivo: %s.") % stat_text(st), lv_prev, 1, dir * r)
+					nodes[fid]["stats"] = st
+					nodes[fid]["branch"] = br["id"]
+					_link(nodes, prev, fid)
+					spine.append({"id": fid, "r": r})
+					prev = fid
+			r += _gap(prev_kind, "skill")
+			prev_kind = "skill"
+			var nid := "%s_s_%s" % [cls.id, sk.id]
+			nodes[nid] = _node(nid, "skill", sk.id, sk.name, sk.description, sk.unlock_level, Balance.SKILL_LEARN_COST, dir * r)
 			nodes[nid]["branch"] = br["id"]
 			_link(nodes, prev, nid)
-			var mid := "%s_m_%s" % [cls.id, s.id]
-			nodes[mid] = _node(mid, "mastery", s.id, "Maestria: " + s.name, mastery_desc(s), s.unlock_level, 1, Vector2(cx - SIDE, y))
+			spine.append({"id": nid, "r": r})
+			var mid := "%s_m_%s" % [cls.id, sk.id]
+			nodes[mid] = _node(mid, "mastery", sk.id, "Maestria: " + sk.name, mastery_desc(sk), sk.unlock_level, 1, dir * r - side * SIDE)
 			nodes[mid]["branch"] = br["id"]
 			_link(nodes, nid, mid)
-			var k := 0
-			for t in by_skill.get(s.id, []):
+			var k2 := 0
+			for t in by_skill.get(sk.id, []):
 				var tnid := "%s_t_%s" % [cls.id, t.id]
-				nodes[tnid] = _node(tnid, "talent", t.id, t.name, t.description, t.unlock_level, t.cost, Vector2(cx + SIDE + k * 0.6, y + k * 0.35))
+				nodes[tnid] = _node(tnid, "talent", t.id, t.name, t.description, t.unlock_level, t.cost, dir * (r + k2 * 0.58) + side * SIDE * (1.0 + k2 * 0.35))
 				nodes[tnid]["branch"] = br["id"]
-				_link(nodes, nid if k == 0 else "%s_t_%s" % [cls.id, by_skill[s.id][k - 1].id], tnid)
-				k += 1
+				_link(nodes, nid if k2 == 0 else "%s_t_%s" % [cls.id, by_skill[sk.id][k2 - 1].id], tnid)
+				k2 += 1
 			prev = nid
-			row += 1
-	# evoluções do dash: ao lado do nó inicial, em corrente
+		spines.append(spine)
+	# anéis: arcos entre braços vizinhos; as pontas ligam no nó do braço de raio mais perto
+	var ring_note := cls.id.length() * 3
+	for ri in range(RINGS.size()):
+		var R: float = RINGS[ri]
+		for bi in range(n_arms):
+			var bj := (bi + 1) % n_arms
+			var a0 := -PI * 0.5 + TAU * bi / float(n_arms)
+			var a1 := a0 + TAU / float(n_arms)
+			var margin := (SIDE + 0.75) / R
+			var span := (a1 - a0) - margin * 2.0
+			var count := maxi(3, int(span * R / RING_SPACING))
+			if count % 2 == 0:
+				count += 1                     # ímpar: o do meio é o notável
+			var prev_r := _nearest(spines[bi], R)
+			for k in range(count):
+				var a := a0 + margin + span * (k + 0.5) / float(count)
+				var rid := "%s_r_%d_%d_%d" % [cls.id, ri, bi, k]
+				var st: Dictionary
+				var nm: String
+				var kind := "stat"
+				var A: Dictionary = branches[bi] if k < count / 2 else branches[bj]
+				if k == count / 2:
+					var pick: Array = RING_NOTABLES[ring_note % RING_NOTABLES.size()]
+					ring_note += 1
+					st = _power(pick[1], cls)
+					nm = pick[0]
+					kind = "notable"
+				else:
+					st = {"attr_" + str(A["attr"] if k % 2 == 0 else A["attr2"]): SMALL_ATTR}
+					nm = stat_text(st)
+				nodes[rid] = _node(rid, kind, "", nm, ("Notável: %s." if kind == "notable" else "Passivo: %s.") % stat_text(st), RING_LEVEL[ri], 1, Vector2(cos(a), sin(a)) * R)
+				nodes[rid]["stats"] = st
+				nodes[rid]["branch"] = "ring"
+				if prev_r != "":
+					_link(nodes, prev_r, rid)
+				prev_r = rid
+			var end := _nearest(spines[bj], R)
+			if end != "":
+				_link(nodes, prev_r, end)
+	# evoluções do dash: espora curta saindo do início, entre o 1º e o 2º braço
+	var da := -PI * 0.5 + TAU * 0.5 / float(n_arms)
 	for i in range(dash_talents.size()):
 		var t: TalentDef = dash_talents[i]
 		var tnid := "%s_t_%s" % [cls.id, t.id]
-		nodes[tnid] = _node(tnid, "talent", t.id, t.name, t.description, t.unlock_level, t.cost, Vector2(total_w * 0.5 + SIDE * 1.4 * (i + 1), ROOT_Y))
+		var dr: float = DASH_R[mini(i, DASH_R.size() - 1)] + maxi(0, i - 2) * 0.7
+		nodes[tnid] = _node(tnid, "talent", t.id, t.name, t.description, t.unlock_level, t.cost, Vector2(cos(da), sin(da)) * dr)
 		nodes[tnid]["branch"] = "start"
 		_link(nodes, start if i == 0 else "%s_t_%s" % [cls.id, dash_talents[i - 1].id], tnid)
-	_picks(cls, nodes)
+	_class_picks(cls, nodes)
 	return {"start": start, "nodes": nodes, "panes": panes}
+
+## Talentos de classe (ClassTalentsCatalog) como nós "pick" fora da teia: um grupo por linha, grátis, liberados
+## pelo nível; os `stats` da opção entram pelo tree_bonus, o resto pelo ClassTalentSystem.
+static func _class_picks(cls: ClassDef, nodes: Dictionary) -> void:
+	var rows: Array = ClassTalentsCatalog.build().get(cls.id, [])
+	for r in range(rows.size()):
+		var opts: Array = rows[r][1]
+		for k in range(opts.size()):
+			var o: Dictionary = opts[k]
+			var pid := "%s_c_%s" % [cls.id, o["id"]]
+			nodes[pid] = _node(pid, "pick", o["id"], o["name"], o["text"], int(rows[r][0]), 0, Vector2(k, r))
+			nodes[pid]["stats"] = _power(o.get("stats", {}), cls)
+			nodes[pid]["branch"] = "talentos"
+			nodes[pid]["group"] = "row_%d" % r
+
+## Passo no braço entre dois nós seguidos ("" = o primeiro, a partir de R0).
+static func _gap(a: String, b: String) -> float:
+	if a == "":
+		return 0.0
+	return float(NODE_R.get(a, 0.15)) + float(NODE_R.get(b, 0.15)) + GAP
+
+## Nó do eixo de um braço com raio mais perto de R ("" se o braço é vazio).
+static func _nearest(spine: Array, R: float) -> String:
+	var best := ""
+	var bd := INF
+	for q in spine:
+		var d := absf(float(q["r"]) - R)
+		if d < bd:
+			bd = d
+			best = q["id"]
+	return best
 
 ## Texto da maestria tirado dos dados da skill: o que cada nível melhora (poder só se a skill tem poder; forma e
 ## bônus têm valores fixos) e os efeitos extras de certos níveis (SkillDef.mastery[n].extra).

@@ -46,8 +46,14 @@ Scripts novos com `class_name` só são vistos pelos outros scripts depois de `-
   arma exigida em cada uma; o jogador aprende com pontos e equipa 6). `ClassDef.skill_ids` é preenchido sozinho.
   Campos em `data/schemas/skill_def.gd`; efeitos suportados por `WorldSim._apply_effects`
   (`dot, slow, stun, root, buff, shield, dash, summon, heal_pct_of_dmg, taunt, boss_summon, wither`); `dot` de skill de fogo vira queimadura sozinho e gelo estilhaça alvo retardado (`Combat.frost_mult`). Mira: SELF/DIRECTION/GROUND/CONE/TARGET.
-  A skill entra sozinha na árvore de pontos (`data/catalog/tree_catalog.gd`, ramo da build dela); nada a editar lá. Na janela K as linhas têm altura fixa (`TREE_ROW_PX`) e o painel rola; há check de folga entre nós.
-  Talentos de escolha (aba Talentos): `TreeCatalog.PICK_ROWS` + `PICK_FLAVOR` por classe (um por linha, `WorldSim.pick_sibling`); revisar `--bag_shot=<png> --wins=skills --level=20 --picks`.
+  A skill entra sozinha na **teia** (estilo Path of Exile, `data/catalog/tree_catalog.gd`): um braço por ramo (Geral + builds) com as skills por nível,
+  atributos (`attr_FOR`...) e notáveis entre elas (`ARM_NOTABLES`), maestria/evoluções ao lado e dois anéis (`RINGS`, `RING_NOTABLES`) ligando braços.
+  Passo no braço pelo tamanho do nó (`NODE_R` ↔ `windows.NODE_PX`/`WEB_UNIT`; há check de folga). 4 pontos por nível (`Balance.points_at`). Bots compram
+  caminho na teia (`ProgressionSystem.bot_spend`). Revisar: `--bag_shot=<png> --wins=skills --level=<n> [--build_i=N]` (arrastar/zoom/busca na janela K).
+  **Talentos de classe** (aba Talentos): `data/catalog/class_talents_catalog.gd`, 6 linhas (5..30) × 3 por classe, um por linha (nós `pick` `<classe>_c_<id>`,
+  `WorldSim.pick_sibling`, troca na cidade). Ganchos: `permanent`/`aura` (buff da skill sempre ativo / em você e no grupo), `summon_permanent`/`summon_extra`,
+  `skill_mods`, `stats`, `form_mult`/`form_time`, `cheat_death`, `ally_save`, `on_kill`, `low_hp`, `execute`, `regen`, `mana_shield`, `ambush_mult`, `trap_max`, `oath_max`;
+  regras em `core/sim/systems/class_talent_system.gd` (há check que todo gancho/skill citado existe). Revisar `--bag_shot=<png> --wins=skills --picks --level=30`.
   Ícone: adicione o id em `GLYPHS` (`tools/icons/make_icons.gd`) e rode `.\tools\godot.ps1 --path . tools/icons/make_icons.tscn` + `--import`.
   Fundo vem do tema, marcas (área, cone, avanço) finas ATRÁS do símbolo e selos (buff, dano no tempo, dreno) em discos nos cantos de baixo,
   todos dos dados; símbolo fino/cheio se equilibra em `GLYPH_WEIGHT`. Sombreado toon (`_toon`) e sombra projetada (`_flush` desenha as sombras de todos os símbolos antes) saem sozinhos de `_p`/`_c`/`_l`;
@@ -65,7 +71,7 @@ Scripts novos com `class_name` só são vistos pelos outros scripts depois de `-
 - **Build**: `ClassDef.builds` em `classes_catalog.gd` (armas, armadura, atributos, skills em prioridade). Uma build nova
   ganha conjuntos lendários sozinha (`gear_catalog.gd`; adicione o nome em `BUILD_OF`).
 - **Evolução** (skill ou dash): `data/catalog/talents_catalog.gd` (`TalentDef`; dash = `skill_id: "dash"`).
-- **Item/equipamento**: `items_catalog.gd` (atributos FOR/AGI/VIT/WILL/INT vêm SÓ de equipamento). Ícone: sem `icon` próprio, arte pintada
+- **Item/equipamento**: `items_catalog.gd` (atributos FOR/AGI/VIT/WILL/INT vêm de equipamento e dos nós de atributo da teia). Ícone: sem `icon` próprio, arte pintada
   `art_<id>.png` por `tools/icons/item_icons.gd` (laço sobre todos os itens; forma por `ItemIcons.art_key`: tipo de arma, slot + `armor_style`,
   palavra no id do material; cor principal = `icon_color`, acabamento/gema/brilho pela raridade) sobre a moldura `slot_r<raridade>.png`
   (fotos de conjunto/escudo também vão na moldura, recuadas 10%).
