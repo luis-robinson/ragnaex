@@ -644,6 +644,7 @@ func _check_zone(gd, sim) -> void:
 	_check_quest_marks(gd, sim)
 	_check_quest_guide(gd, sim)
 	_check_roteiro(gd, sim)
+	_check_hotbar_drag(gd, sim)
 	_check_summon_ai(gd, sim)
 	_check_bind_crystal(gd, sim, save_ref)
 	_check_quarry(gd, sim)
@@ -3639,6 +3640,35 @@ func _check_summon_ai(gd, sim) -> void:
 
 ## Seta da quest no minimapa: toda quest do catálogo tem um objetivo num mapa real, a seta acha o caminho
 ## (portal) de onde a quest é dada, e a quest pronta aponta para quem recebe.
+## Arrastar para a barra: poção da bolsa em F1-F3 (sem duplicar, F↔F troca), skill em 1-6 (troca de lugar).
+func _check_hotbar_drag(gd, sim) -> void:
+	var H = load("res://game/ui/hud.gd")
+	var p = sim.spawn_bot(gd.classes["paladin"], "Barra", "city_aldara", Vector3(0, 0, 4), 10)
+	sim.set_potion_slot(p, 0, "potion_hp_s"); sim.set_potion_slot(p, 1, "potion_mp_s"); sim.set_potion_slot(p, 2, "")
+	check(H.potion_drop_ok({"rx_drag": "bag", "item": "potion_hp_m"}), "poção da bolsa cabe em F")
+	var gear := ""
+	for iid in gd.items:
+		if gd.items[iid].is_equipment():
+			gear = iid
+			break
+	check(not H.potion_drop_ok({"rx_drag": "bag", "item": gear}), "equipamento não cabe em F")
+	H.drop_potion(p, {"rx_drag": "bag", "item": "potion_hp_m"}, 2)
+	check(p.potion_slots[2] == "potion_hp_m", "bolsa → F3")
+	H.drop_potion(p, {"rx_drag": "bag", "item": "potion_hp_s"}, 2)
+	check(p.potion_slots.count("potion_hp_s") == 1 and p.potion_slots[2] == "potion_hp_s" and p.potion_slots[0] == "potion_hp_m", "mesma poção não fica em dois F (troca)")
+	H.drop_potion(p, {"rx_drag": "potion", "item": "potion_mp_s", "from": 1}, 0)
+	check(p.potion_slots[0] == "potion_mp_s" and p.potion_slots[1] == "potion_hp_m", "F2 → F1 troca os dois")
+	var known: Array = []
+	for sid in p.class_def.skill_ids:
+		if p.knows(sid):
+			known.append(sid)
+	if known.size() >= 2:
+		var a: String = known[0]
+		var b2: String = known[1]
+		sim.set_skill_slot(p, 0, a); sim.set_skill_slot(p, 1, b2)
+		check(sim.set_skill_slot(p, 1, a) and p.skills[1].id == a and p.skills[0] != null and p.skills[0].id == b2, "skill arrastada para slot ocupado troca de lugar")
+	sim.despawn(p)
+
 ## Aba Roteiro da janela L: os três guias existem e viram BBCode legível (títulos, linhas de tabela, sem separador).
 func _check_roteiro(gd, sim) -> void:
 	var W = load("res://game/ui/windows.gd")

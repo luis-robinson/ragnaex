@@ -72,6 +72,7 @@ Scripts novos com `class_name` só são vistos pelos outros scripts depois de `-
   Forma nova = `_a_<chave>` em `item_icons.gd` (há check). Rodar `item_icons.tscn [-- --only=<id> --sheet=<png>]` (com janela) e `--import`.
   Loja do mercador (`npc_ui._shop`): grade da mercadoria e da bolsa, abas, clique/Shift, "vender materiais" (`junk_of`); revisar `--bag_shot=<png> --wins= --shop`.
   Bolsa ↔ boneco por arrastar e soltar (`windows._drag_from_bag/_drop_on_slot/_drop_on_bag`; clique = soltar sem arrastar); conferir com `--bag_shot=<png> --dnd_check`.
+  Barra do HUD: poção da bolsa → F1-F3 e skill da janela K → 1-6 por arrastar (`hud._drop_potion_slot/_drop_skill_slot`, botão direito esvazia); mouse simulado: `--bag_shot=<png> --wins= --hotbar_drag_check`.
   Barra de buffs/debuffs do HUD: ícone da skill/item que deu (`hud._buff_source`) ou `status_<estado>.png` (`make_icons.tscn -- --only=status`),
   tempo embaixo; revisar com `--bag_shot=<png> --status_demo --wins=`.
   A mesma arte boia sobre o baú no chão (`LootChest`) e aparece no aviso de item pego (`hud._on_item_gained`); revisar com `-- --loot_demo --screenshot=<png>`.

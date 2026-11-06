@@ -186,6 +186,9 @@ func _build_hotbar() -> HBoxContainer:
 		var s := _slot("%d" % (i + 1), 56)
 		bar.add_child(s["root"])
 		skill_slots.append(s)
+		# arrastar: da janela K (ou de outro slot) para cá; botão direito tira da barra
+		s["root"].set_drag_forwarding(_drag_skill_slot.bind(i), _can_drop_skill_slot, _drop_skill_slot.bind(i))
+		s["root"].gui_input.connect(_slot_right_click.bind("skill", i))
 	var sep := Control.new()
 	sep.custom_minimum_size.x = 26
 	bar.add_child(sep)
@@ -193,7 +196,75 @@ func _build_hotbar() -> HBoxContainer:
 		var s := _slot("F%d" % (i + 1), 44)
 		bar.add_child(s["root"])
 		potion_slots.append(s)
+		# arrastar: poção da bolsa (ou de outro F) para cá; botão direito esvazia
+		s["root"].set_drag_forwarding(_drag_potion_slot.bind(i), _can_drop_potion_slot, _drop_potion_slot.bind(i))
+		s["root"].gui_input.connect(_slot_right_click.bind("potion", i))
 	return bar
+
+## Ícone que segue o mouse no arrastar (skill ou item).
+func _drag_icon(c: Control, at: Control) -> void:
+	var wrap := Control.new()
+	c.position = Vector2(-24, -24)
+	c.modulate.a = 0.9
+	wrap.add_child(c)
+	at.set_drag_preview(wrap)
+
+func _drag_skill_slot(_at: Vector2, i: int) -> Variant:
+	var p: SimEntity = Sim.player
+	var sk: SkillDef = p.skills[i] if p and i < p.skills.size() else null
+	if sk == null:
+		return null
+	_drag_icon(UiKit.skill_icon(sk, 48), skill_slots[i]["root"])
+	return {"rx_drag": "skill", "skill": sk.id, "from": i}
+
+func _can_drop_skill_slot(_at: Vector2, data: Variant) -> bool:
+	return data is Dictionary and data.get("rx_drag") == "skill"
+
+func _drop_skill_slot(_at: Vector2, data: Variant, i: int) -> void:
+	if Sim.set_skill_slot(Sim.player, i, str(data["skill"])):     # já na barra: troca de lugar com o que estava aqui
+		Events.notification.emit("%s → %d" % [GameData.skills[str(data["skill"])].name, i + 1])
+
+func _drag_potion_slot(_at: Vector2, i: int) -> Variant:
+	var item_id: String = Sim.player.potion_slots[i]
+	var it: ItemDef = GameData.items.get(item_id) if item_id != "" else null
+	if it == null:
+		return null
+	_drag_icon(UiKit.item_icon(it, 44), potion_slots[i]["root"])
+	return {"rx_drag": "potion", "item": item_id, "from": i}
+
+## Aceita consumível vindo da bolsa (`windows._drag_from_bag`) ou de outro F.
+static func potion_drop_ok(data: Variant) -> bool:
+	if not (data is Dictionary) or not data.get("rx_drag") in ["bag", "potion"]:
+		return false
+	var it: ItemDef = GameData.items.get(str(data.get("item", "")))
+	return it != null and it.type == ItemDef.Type.CONSUMABLE and not it.consume.has("bag")
+
+func _can_drop_potion_slot(_at: Vector2, data: Variant) -> bool:
+	return potion_drop_ok(data)
+
+func _drop_potion_slot(_at: Vector2, data: Variant, i: int) -> void:
+	drop_potion(Sim.player, data, i)
+
+## F1-F3 recebe o item; vindo de outro F, os dois trocam de lugar. Sem duplicar o mesmo item em dois F.
+static func drop_potion(p: SimEntity, data: Dictionary, i: int) -> void:
+	var item_id := str(data["item"])
+	var old: String = p.potion_slots[i]
+	if data.get("rx_drag") == "potion":
+		Sim.set_potion_slot(p, int(data["from"]), old)
+	else:
+		for k in range(3):
+			if k != i and p.potion_slots[k] == item_id:
+				Sim.set_potion_slot(p, k, old)
+	Sim.set_potion_slot(p, i, item_id)
+
+func _slot_right_click(event: InputEvent, kind: String, i: int) -> void:
+	if not (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT):
+		return
+	if kind == "skill":
+		Sim.set_skill_slot(Sim.player, i, "")
+	else:
+		Sim.set_potion_slot(Sim.player, i, "")
+	get_viewport().set_input_as_handled()
 
 func _slot(key: String, size: int) -> Dictionary:
 	var p := PanelContainer.new()
@@ -237,6 +308,8 @@ func _slot(key: String, size: int) -> Dictionary:
 	lv.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	box.add_child(lv)
 	# sem nome embaixo (não cabia): o nome aparece passando o mouse
+	for c in p.find_children("*", "Control", true, false):      # só o painel recebe o mouse (arrastar/soltar, botão direito)
+		(c as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return {"root": p, "icon": icon, "tex": tex, "cd": cd, "cdt": cdt, "lv": lv}
 
 func _build_chat() -> PanelContainer:
@@ -392,7 +465,8 @@ func _process(_delta: float) -> void:
 		s["icon"].color = it.icon_color.darkened(0.62) if it else Color(0.2, 0.2, 0.25)
 		s["tex"].texture = UiKit.item_texture(it)
 		s["tex"].modulate = Color.WHITE
-		s["root"].tooltip_text = it.name if it else ""
+		s["root"].tooltip_text = ("%s
+Arraste outra poção da bolsa para cá · botão direito esvazia" % it.name) if it else "Arraste uma poção da bolsa (I) para cá"
 		s["lv"].text = str(count) if it else ""
 		s["cd"].visible = p.potion_cd > 0.0 or count == 0
 		s["cdt"].text = "%.1f" % p.potion_cd if p.potion_cd > 0.0 else ("" if count > 0 else "0")

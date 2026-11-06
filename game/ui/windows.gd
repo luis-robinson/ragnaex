@@ -218,7 +218,7 @@ func _inventory(body: VBoxContainer) -> void:
 	g.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	foot.add_child(g)
 	foot.add_child(UiKit.label("%d itens" % p.inventory_weight(), 12, UiKit.MUTED))
-	body.add_child(UiKit.para("Arraste para o boneco (C) ou clique: equipar / usar  ·  Shift+clique: poção em F1-F3 ou arma na mão secundária", 11, UiKit.MUTED))
+	body.add_child(UiKit.para("Arraste: equipamento para o boneco (C), poção para F1-F3  ·  clique: equipar / usar  ·  Shift+clique: arma na mão secundária", 11, UiKit.MUTED))
 
 func _bag_key(item_id: String) -> String:
 	var it: ItemDef = GameData.items.get(item_id)
@@ -260,10 +260,12 @@ func _bag_slot(it: ItemDef, count: int) -> Control:
 	box.mouse_exited.connect(hide_tip)
 	box.gui_input.connect(_on_bag_input.bind(it))
 	box.set_drag_forwarding(_drag_from_bag.bind(it), _can_drop_on_bag, _drop_on_bag)
+	drag_sources[it.id] = box              # revisão (--hotbar_drag_check): onde está cada item na tela
 	return box
 
 # --- arrastar e soltar: bolsa -> slot do boneco equipa; slot -> bolsa desequipa ----------------
 var _dragging := false           # o clique (soltar o botão) não vale se virou arrasto
+var drag_sources := {}           # id de item/skill -> quadrado que se arrasta (só para a revisão com mouse simulado)
 
 ## Clique = apertar e soltar sem arrastar (no aperto ainda pode virar arrasto).
 func _on_bag_input(ev: InputEvent, it: ItemDef) -> void:
@@ -282,8 +284,8 @@ func _drag_preview(it: ItemDef) -> Control:
 	return wrap
 
 func _drag_from_bag(_at: Vector2, it: ItemDef) -> Variant:
-	if not it.is_equipment():
-		return null
+	if not it.is_equipment() and not (it.type == ItemDef.Type.CONSUMABLE and not it.consume.has("bag")):
+		return null             # equipamento vai para o boneco; consumível vai para F1-F3 da barra
 	_dragging = true
 	hide_tip()
 	set_drag_preview(_drag_preview(it))
@@ -336,7 +338,7 @@ func _bag_hint(it: ItemDef) -> String:
 	if it.is_equipment():
 		return "Clique: equipar" + ("  ·  Shift: mão secundária" if it.weapon_type in ItemDef.ONE_HANDED_MELEE else "")
 	if it.type == ItemDef.Type.CONSUMABLE:
-		return "Clique: usar  ·  Shift: pôr em F1-F3"
+		return "Clique: usar  ·  arraste para F1-F3 (ou Shift+clique)"
 	return "Material (venda no mercador ou use na forja)"
 
 func _on_item_click(it: ItemDef) -> void:
@@ -921,9 +923,11 @@ func _known_skills(p: SimEntity) -> Control:
 		b.add_theme_font_size_override("font_size", 11)
 		b.clip_text = true
 		b.disabled = sk == null
-		b.tooltip_text = "Clique para tirar da barra"
+		b.tooltip_text = "Clique para tirar da barra · solte uma skill aqui"
+		b.set_drag_forwarding(Callable(), _can_drop_skill, _drop_skill.bind(i))
+		drag_sources["bar_%d" % i] = b
 		bar.add_child(b)
-	col.add_child(UiKit.para("Trocar a barra: só na cidade. ✖ na barra = a arma equipada não serve.", 11, UiKit.MUTED))
+	col.add_child(UiKit.para("Arraste uma skill para a barra 1-6 (aqui ou no HUD); botão direito na barra tira. Trocar a barra: só na cidade. ✖ = a arma equipada não serve.", 11, UiKit.MUTED))
 	col.add_child(UiKit.hsep(4))
 	col.add_child(UiKit.label("Skills conhecidas", 14, UiKit.GOLD))
 	for sid in p.class_def.skill_ids:
@@ -934,6 +938,8 @@ func _known_skills(p: SimEntity) -> Control:
 		card.add_theme_stylebox_override("panel", UiKit.panel_style(UiKit.BG_LIGHT, Color(0.3, 0.28, 0.35), 5, 1))
 		card.mouse_entered.connect(func(): show_tip(UiKit.skill_tooltip(p, sk)))
 		card.mouse_exited.connect(hide_tip)
+		card.set_drag_forwarding(_drag_skill.bind(sk), Callable(), Callable())     # arrastar para a barra 1-6 do HUD
+		drag_sources[sid] = card
 		col.add_child(card)
 		var v := VBoxContainer.new()
 		card.add_child(v)
@@ -955,6 +961,22 @@ func _known_skills(p: SimEntity) -> Control:
 				sb.add_theme_stylebox_override("normal", UiKit.panel_style(Color(0.35, 0.28, 0.12), UiKit.GOLD, 4, 1))
 			slots.add_child(sb)
 	return col
+
+func _drag_skill(_at: Vector2, sk: SkillDef) -> Variant:
+	hide_tip()
+	var wrap := Control.new()
+	var ic := UiKit.skill_icon(sk, 48)
+	ic.position = Vector2(-24, -24)
+	ic.modulate.a = 0.9
+	wrap.add_child(ic)
+	set_drag_preview(wrap)
+	return {"rx_drag": "skill", "skill": sk.id}
+
+func _can_drop_skill(_at: Vector2, data: Variant) -> bool:
+	return data is Dictionary and data.get("rx_drag") == "skill"
+
+func _drop_skill(_at: Vector2, data: Variant, i: int) -> void:
+	Sim.set_skill_slot(Sim.player, i, str(data["skill"]))
 
 # ---------------------------------------------------------------------------
 var _quests_tab := "quests"         # "quests" (ativas/concluídas) | "roteiro" (guia de cada andar, docs/roteiro_*.md)

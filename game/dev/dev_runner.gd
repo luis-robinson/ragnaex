@@ -632,6 +632,62 @@ func _perf_run() -> void:
 	get_tree().quit()
 
 ## Confere o arrastar e soltar: capacete da bolsa no slot da cabeça, depois de volta para a bolsa; anel no 2º slot.
+func _fake_drag(from: Control, to: Control) -> void:
+	var vp := get_viewport()
+	var a := from.get_global_transform_with_canvas() * Vector2(minf(40.0, from.size.x * 0.5), minf(12.0, from.size.y * 0.5))
+	var b := to.get_global_transform_with_canvas() * (to.size * 0.5)
+	var ev := InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_LEFT
+	ev.pressed = true
+	ev.position = a; ev.global_position = a
+	vp.push_input(ev, true)
+	for k in range(1, 13):
+		var mv := InputEventMouseMotion.new()
+		mv.button_mask = MOUSE_BUTTON_MASK_LEFT
+		mv.position = a.lerp(b, k / 12.0); mv.global_position = mv.position
+		mv.relative = (b - a) / 12.0
+		vp.push_input(mv, true)
+		await get_tree().process_frame
+	var up := InputEventMouseButton.new()
+	up.button_index = MOUSE_BUTTON_LEFT
+	up.pressed = false
+	up.position = b; up.global_position = b
+	vp.push_input(up, true)
+	await get_tree().process_frame
+
+func _hotbar_drag_check() -> void:
+	var w = main.hud.windows_script
+	var p := Sim.player
+	p.add_item("potion_hp_m", 3)
+	Sim.set_potion_slot(p, 2, "")
+	w.close_all()
+	w.toggle("inventory")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var cell: Control = w.drag_sources.get("potion_hp_m")
+	if cell:
+		await _fake_drag(cell, main.hud.potion_slots[2]["root"])
+	print("HOTBAR_DRAG potion F3=%s ok=%s" % [p.potion_slots[2], p.potion_slots[2] == "potion_hp_m"])
+	w.close_all()
+	w.toggle("skills")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var sid := ""
+	for s in p.class_def.skill_ids:
+		if p.knows(s) and p.slot_of(s) != 5:
+			sid = s
+			break
+	var card: Control = w.drag_sources.get(sid)
+	if card:
+		await _fake_drag(card, w.drag_sources["bar_5"])      # barra da própria janela K (o HUD fica atrás dela)
+	var got5: String = p.skills[5].id if p.skills.size() > 5 and p.skills[5] else ""
+	print("HOTBAR_DRAG skill K-bar %s slot6=%s ok=%s" % [sid, got5, got5 == sid and sid != ""])
+	w.close_all()
+	await get_tree().process_frame
+	await _fake_drag(main.hud.skill_slots[5]["root"], main.hud.skill_slots[0]["root"])     # HUD 6 -> 1: troca
+	var got0: String = p.skills[0].id if p.skills[0] else ""
+	print("HOTBAR_DRAG hud 6->1 slot1=%s ok=%s" % [got0, got0 == sid])
+
 func _dnd_check() -> void:
 	var w = main.hud.windows_script
 	var p := Sim.player
@@ -693,6 +749,8 @@ func _bag_shot(path: String) -> void:
 	for w in wins:
 		if w != "":
 			main.hud.windows_script.toggle(w)
+	if DevArgs.has("--hotbar_drag_check"):    # mouse simulado: poção da bolsa -> F3, skill da janela K -> slot 6
+		await _hotbar_drag_check()
 	if DevArgs.has("--craft_check"):      # forja aberta e rolada: a rolagem não pode voltar ao topo
 		main.hud.windows_script.close_all()
 		main.hud.npc_ui.open("smith")
