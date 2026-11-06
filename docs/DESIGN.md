@@ -337,6 +337,9 @@ Movimento: atravessam água só pelas pontes (`WorldSim.water_path`, grafo de ca
 - **XP**: abate dividido entre os membros vivos no mesmo mapa a até 45 m e com até 15 níveis de diferença;
   total × (1 + 15% por membro extra) ÷ membros, cada um com o multiplicador do próprio nível. Quests de abate contam para todos eles.
 - **Curas e buffs em área** só pegam você, o grupo e as invocações deles (`SimEntity.is_friend`); invocações herdam o grupo do dono.
+- **Invocações lutam sozinhas** (`MonsterBrain._summon_target`): quem bate no dono, depois quem o dono ataca, quem bate nela, o monstro mais perto do dono
+  (`SUMMON_ASSIST_RANGE`); coleira de `SUMMON_LEASH` no dono; usam as skills do monstro; as que atiram (`ranged`: elementais de gelo/raio, lich) recuam
+  medindo do alvo. Ataque e magia vêm do dono. Ordem do companheiro segura o alvo `PET_COMMAND_FOCUS` s. Sonda: `tools/tests/pet_probe.tscn` (FLAG = sem alvo, golpe lento, atirador colado).
 - **Bots**: aceitam convites (nível próximo); no grupo, quem não é líder segue o líder (por portais também), cura quem
   está abaixo de 60% de HP e ataca o que bate no grupo. Bot que sai pra caçar às vezes chama bots da vila e, raramente, o jogador
   (um convite por vez, com recarga). Grupo só de bots costuma se desfazer quando voltam à vila.

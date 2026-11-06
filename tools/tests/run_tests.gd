@@ -643,6 +643,7 @@ func _check_zone(gd, sim) -> void:
 	_check_accents()
 	_check_quest_marks(gd, sim)
 	_check_quest_guide(gd, sim)
+	_check_summon_ai(gd, sim)
 	_check_equipment_slots(gd, sim, save_ref)
 	_check_icons(gd)
 	_check_combat_feel(gd, sim)
@@ -2761,6 +2762,56 @@ func _check_quest_marks(gd, sim) -> void:
 	p.quests_completed.append(q.id)
 	check(QuestSystem.npc_marker(p, q.giver_npc) == "", "sem quests restantes não há marcador")
 	sim.despawn(p)
+
+## Invocações lutam sozinhas: acham alvo perto do dono, usam as skills do monstro, defendem o dono
+## e as que atiram ficam longe (o Elemental de Fogo ficava parado). Sonda completa: tools/tests/pet_probe.tscn.
+func _check_summon_ai(gd, sim) -> void:
+	var mid := "field_forest"
+	var m: Dictionary = sim.maps.get(mid, {})
+	if m.is_empty():
+		m = sim.load_map(gd.maps[mid])
+	var at := Vector3(-90, 0, 9)
+	var owner = sim.spawn_bot(gd.classes["elementalist"], "Dono", mid, at, 20)
+	owner.brain = null
+	for pid in ["fire_elemental", "frost_elemental"]:
+		var pet = sim.spawn_summon(owner, gd.monsters[pid], at + Vector3(1, 0, 0), 0.0)
+		check(pet.skills.size() >= 1 and pet.stats.matk == pet.stats.patk, "%s: carrega as skills e usa o ataque do dono na magia" % pid)
+		var dummy = sim.spawn_monster(gd.monsters["wolf"], mid, at + Vector3(8, 0, 0))
+		dummy.brain = null
+		dummy.stats.max_hp = 50000.0
+		dummy.hp = 50000.0
+		var near := 0.0
+		var nn := 0
+		for i in range(60):
+			sim.tick(0.05)
+			if pet.aggro_target == dummy.id and i >= 30:      # depois de se posicionar: distância média
+				near += pet.position.distance_to(dummy.position)
+				nn += 1
+		near /= maxf(1.0, nn)
+		check(dummy.hp < dummy.stats.max_hp, "%s ataca sozinho um monstro perto do dono" % pid)
+		if gd.monsters[pid].ranged:
+			check(near > 3.0, "%s atira de longe (%.1f m)" % [pid, near])
+		sim.despawn(dummy)
+		var wolf = sim.spawn_monster(gd.monsters["wolf"], mid, at + Vector3(-5, 0, 0))
+		wolf.aggro_target = owner.id
+		var defends := false
+		for i in range(40):
+			sim.tick(0.05)
+			defends = defends or pet.aggro_target == wolf.id
+		check(defends, "%s defende o dono de quem o ataca" % pid)
+		sim.despawn(wolf)
+		owner.position = at + Vector3(-30, 0, 0)       # dono se afasta: larga a briga e volta
+		var d2 = sim.spawn_monster(gd.monsters["wolf"], mid, at + Vector3(8, 0, 0))
+		d2.brain = null
+		pet.position = at + Vector3(6, 0, 0)
+		pet.aggro_target = d2.id
+		pet.brain.skill_rethink = 0.0
+		pet.brain.think(pet, sim, sim.maps[mid], 0.05)
+		check(pet.aggro_target != d2.id, "%s: coleira no dono (larga alvo longe)" % pid)
+		sim.despawn(d2)
+		owner.position = at
+		sim.despawn(pet)
+	sim.despawn(owner)
 
 ## Seta da quest no minimapa: toda quest do catálogo tem um objetivo num mapa real, a seta acha o caminho
 ## (portal) de onde a quest é dada, e a quest pronta aponta para quem recebe.

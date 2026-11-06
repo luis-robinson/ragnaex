@@ -208,7 +208,9 @@ func recompute_stats() -> void:
 		stats.matk *= dmg_mult
 		if kind == Kind.SUMMON:
 			stats.max_hp *= 1.0 + 0.1 * level
-			stats.patk = summon_patk if summon_patk > 0.0 else stats.patk
+			if summon_patk > 0.0:            # ataque do dono vale para golpe e magia da invocação
+				stats.patk = summon_patk
+				stats.matk = summon_patk
 			if summon_hp > 0.0:
 				stats.max_hp = summon_hp
 	else:

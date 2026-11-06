@@ -28,6 +28,7 @@ var shot_target := -1
 var shot_hp := 0.0
 var no_hit: float = 0.0
 var close_in: float = 0.0
+var skill_rethink: float = 0.0   # invocação: s até reescolher o alvo
 const NO_HIT_LIMIT := 3.0
 const CLOSE_IN_TIME := 2.0
 
@@ -53,9 +54,10 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 			target = null
 			e.aggro_target = -1
 			e.taunt_left = 0.0
-	if target == null and state != S.RETURN and not (raider and calm > 0.0):
-		var aggro := mdef.aggro_range if not is_summon else 9.0
-		target = Combat.nearest_hostile(e, m.get("chars", m["entities"]), aggro)     # só personagens e invocações (lista do tick)
+	if is_summon and owner:
+		target = _summon_target(e, sim, m, owner, target, dt)
+	elif target == null and state != S.RETURN and not (raider and calm > 0.0):
+		target = Combat.nearest_hostile(e, m.get("chars", m["entities"]), mdef.aggro_range)     # só personagens e invocações (lista do tick)
 		if target:
 			e.aggro_target = target.id
 			e.aggro_timer = Balance.AGGRO_LOSE_TIME
@@ -102,8 +104,8 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 		if dist <= reach * 0.85:
 			if e.basic_cd <= 0.0 and e.can_act():
 				cmd.attack = true
-			elif mdef.ranged and dist < reach * 0.5 and e.position.distance_to(e.home_position) < mdef.leash_range * 0.7:
-				cmd.move = -_dir_to(e, target.position)      # recua entre os tiros
+			elif mdef.ranged and dist < reach * 0.5 and (e.position.distance_to(e.home_position) < mdef.leash_range * 0.7 or (is_summon and owner and e.position.distance_to(owner.position) < Balance.SUMMON_LEASH * 0.7)):
+				cmd.move = -_dir_to(e, target.position)      # recua entre os tiros (invocação: medido do dono, não de onde nasceu)
 		else:
 			cmd.move = _steer(e, sim, target.position, dt)     # contorna árvore/muro/água em vez de empurrar parado
 		return cmd
@@ -149,6 +151,47 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 		_:
 			state = S.IDLE
 	return cmd
+
+## Alvo da invocação, nesta ordem: quem bate no dono, quem o dono está atacando, quem bate na invocação,
+## o monstro mais perto do dono. Nada longe do dono (coleira): dono se afastou, larga a briga e volta.
+## Reescolhe a cada SUMMON_RETHINK s (lista de entidades do mapa inteiro).
+func _summon_target(e: SimEntity, sim, m: Dictionary, owner: SimEntity, cur: SimEntity, dt: float) -> SimEntity:
+	if owner.map_id != e.map_id or not owner.is_alive() or e.position.distance_to(owner.position) > Balance.SUMMON_LEASH:
+		e.aggro_target = -1
+		return null
+	if cur and cur.position.distance_to(owner.position) > Balance.SUMMON_LEASH:
+		cur = null
+		e.aggro_target = -1
+	skill_rethink -= dt
+	if cur != null and skill_rethink > 0.0:
+		return cur
+	skill_rethink = Balance.SUMMON_RETHINK
+	var best: SimEntity = null
+	var best_s := -INF
+	for o in m["entities"]:
+		if o.kind != SimEntity.Kind.MONSTER or not o.is_alive() or o.stealth_left > 0.0 or not e.is_hostile_to(o):
+			continue
+		var d_owner: float = o.position.distance_to(owner.position)
+		if d_owner > Balance.SUMMON_ASSIST_RANGE:
+			continue
+		var s: float = -d_owner - 0.5 * o.position.distance_to(e.position)
+		if o.aggro_target == owner.id:
+			s += 100.0                       # defende o dono
+		elif o.threat.has(owner.id):
+			s += 60.0                        # entra na briga do dono
+		elif o.aggro_target == e.id:
+			s += 40.0                        # revida
+		if cur and o == cur:
+			s += 8.0                         # não fica trocando à toa
+		if s > best_s:
+			best_s = s
+			best = o
+	if best:
+		e.aggro_target = best.id
+		e.aggro_timer = Balance.AGGRO_LOSE_TIME
+	else:
+		e.aggro_target = -1
+	return best
 
 ## Investida sem alvo: segue a rota (ida ou recuo), desviando do rio pelas pontes e de obstáculos.
 ## A âncora da luta (home_position) anda junto: a perseguição se mede de onde a briga começou.

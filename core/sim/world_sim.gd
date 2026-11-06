@@ -184,6 +184,7 @@ func spawn_summon(owner: SimEntity, mdef: MonsterDef, pos: Vector3, duration: fl
 	e.scale = mdef.scale
 	e.summon_expires = time + duration if duration > 0.0 else INF       # duração 0 = permanente (companheiro)
 	e.basic_skill = GameData.basic_skill_for_monster(mdef)
+	_add_skills(e, mdef.skill_ids)
 	e.brain = MonsterBrain.new()
 	var pk := 1.0 + owner.stats.pet_power / 100.0 if owner.is_character() and owner.stats else 1.0
 	if owner_stats:            # companheiro: parte da vida/ataque/defesa do dono, mais o bônus de companheiro
@@ -196,6 +197,7 @@ func spawn_summon(owner: SimEntity, mdef: MonsterDef, pos: Vector3, duration: fl
 	if owner_stats:
 		e.stats.pdef = owner.stats.pdef * Balance.PET_DEF_SHARE
 	e.stats.patk = e.summon_patk
+	e.stats.matk = e.summon_patk
 	e.heal_full()
 	return _register(e, owner.map_id)
 
@@ -611,6 +613,8 @@ func _pet_command(e: SimEntity, s: SkillDef, aim: Vector3, power: float, effects
 	pet.position = target.position + (dir.normalized() if dir.length() > 0.01 else Vector3.FORWARD) * (target.radius + pet.radius + 0.2)
 	pet.face_towards(target.position)
 	pet.aggro_target = target.id
+	if pet.brain is MonsterBrain:
+		pet.brain.skill_rethink = Balance.PET_COMMAND_FOCUS     # ordem do dono: segura este alvo um tempo
 	var r := Combat.calc_damage(pet, target, power, SkillDef.Kind.PHYSICAL, rng, pet.position)
 	_deal_damage(pet, target, r["amount"], r["crit"], r["blocked"], "physical", pet.position)
 	if effects["pet_command"].has("stun"):
