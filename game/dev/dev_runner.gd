@@ -682,6 +682,9 @@ func _bag_shot(path: String) -> void:
 		Sim.player.debuffs.append({"kind": "dot", "remaining": 8.0, "dps": 0.0, "src": -1})
 		Sim.player.debuffs.append({"kind": "slow", "remaining": 2.6, "pct": 30.0})
 		Sim.player.debuffs.append({"kind": "curse", "remaining": 75.0, "taken_pct": 0.0, "weaken_pct": 0.0})
+	if DevArgs.flag("--roteiro"):        # janela L na aba Roteiro: --roteiro=1_10|10_20|20_30 (com --wins=quests)
+		main.hud.windows_script._quests_tab = "roteiro"
+		main.hud.windows_script._roteiro_band = DevArgs.value("--roteiro")
 	if DevArgs.has("--picks"):           # janela K na aba Talentos (revisar as escolhas)
 		main.hud.windows_script._skills_tab = "picks"
 	if DevArgs.has("--dnd_check"):      # arrastar e soltar pelos mesmos métodos da janela

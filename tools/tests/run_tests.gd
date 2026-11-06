@@ -643,6 +643,7 @@ func _check_zone(gd, sim) -> void:
 	_check_accents()
 	_check_quest_marks(gd, sim)
 	_check_quest_guide(gd, sim)
+	_check_roteiro(gd, sim)
 	_check_summon_ai(gd, sim)
 	_check_bind_crystal(gd, sim, save_ref)
 	_check_quarry(gd, sim)
@@ -3638,6 +3639,17 @@ func _check_summon_ai(gd, sim) -> void:
 
 ## Seta da quest no minimapa: toda quest do catálogo tem um objetivo num mapa real, a seta acha o caminho
 ## (portal) de onde a quest é dada, e a quest pronta aponta para quem recebe.
+## Aba Roteiro da janela L: os três guias existem e viram BBCode legível (títulos, linhas de tabela, sem separador).
+func _check_roteiro(gd, sim) -> void:
+	var W = load("res://game/ui/windows.gd")
+	for band in ["1_10", "10_20", "20_30"]:
+		var path := "res://docs/roteiro_%s.md" % band
+		check(FileAccess.file_exists(path), "roteiro %s existe" % band)
+		var bb: String = W.roteiro_bbcode(FileAccess.get_file_as_string(path))
+		check(bb.contains("[font_size=18]") and bb.contains("• [b]"), "roteiro %s: título e linhas de tabela" % band)
+		check(not bb.contains("|---") and not bb.contains("**"), "roteiro %s: sem markdown cru" % band)
+		check(bb.count("[b]") == bb.count("[/b]"), "roteiro %s: negrito fechado" % band)
+
 func _check_quest_guide(gd, sim) -> void:
 	var p = sim.spawn_bot(gd.classes["paladin"], "Seta", "city_aldara", Vector3(0, 0, 6), 30)
 	var giver_map := {}

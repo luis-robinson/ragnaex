@@ -17,7 +17,7 @@ var _preview_drag := 0.0
 const TITLES := {"inventory": "Bolsa", "character": "Personagem", "skills": "Árvore de Skills", "quests": "Quests", "party": "Grupo"}
 const KEYS := {"inventory": "I", "character": "C", "skills": "K", "quests": "L", "party": "P"}
 ## tamanho do conteúdo (a moldura soma título e bordas); base 1600×900
-const SIZES := {"inventory": Vector2(392, 470), "character": Vector2(470, 790), "skills": Vector2(1110, 720), "quests": Vector2(470, 520), "party": Vector2(430, 480)}
+const SIZES := {"inventory": Vector2(392, 470), "character": Vector2(470, 790), "skills": Vector2(1110, 720), "quests": Vector2(620, 600), "party": Vector2(430, 480)}
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -957,8 +957,105 @@ func _known_skills(p: SimEntity) -> Control:
 	return col
 
 # ---------------------------------------------------------------------------
+var _quests_tab := "quests"         # "quests" (ativas/concluídas) | "roteiro" (guia de cada andar, docs/roteiro_*.md)
+var _roteiro_band := ""             # "1_10" | "10_20" | "20_30" (vazio: o do nível do personagem)
+const ROTEIROS := [["1_10", "1-10 Aldara"], ["10_20", "10-20 Floresta"], ["20_30", "20-30 Bastião"]]
+
+func _set_quests_tab(t: String) -> void:
+	_quests_tab = t
+	_rebuild("quests")
+
+func _set_roteiro_band(b: String) -> void:
+	_roteiro_band = b
+	_rebuild("quests")
+
+## Roteiro (debug/guia): o markdown de docs/roteiro_<faixa>.md em texto rico; abre na faixa do nível do personagem.
+func _roteiro(body: VBoxContainer, p: SimEntity) -> void:
+	var band := _roteiro_band
+	if band == "":
+		band = "1_10" if p.level < 10 else ("10_20" if p.level < 20 else "20_30")
+	var row := HBoxContainer.new()
+	body.add_child(row)
+	for b in ROTEIROS:
+		var bb := UiKit.button(b[1], _set_roteiro_band.bind(b[0]), 150)
+		bb.toggle_mode = true
+		bb.button_pressed = band == b[0]
+		row.add_child(bb)
+	var path := "res://docs/roteiro_%s.md" % band
+	var md := FileAccess.get_file_as_string(path) if FileAccess.file_exists(path) else ""
+	if md == "":
+		body.add_child(UiKit.para("Roteiro não encontrado (%s)." % path, 12, UiKit.MUTED))
+		return
+	var rt := RichTextLabel.new()
+	rt.bbcode_enabled = true
+	rt.fit_content = true
+	rt.scroll_active = false
+	rt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rt.custom_minimum_size.x = 560
+	rt.add_theme_font_size_override("normal_font_size", 13)
+	rt.add_theme_font_size_override("bold_font_size", 13)
+	rt.text = roteiro_bbcode(md)
+	body.add_child(rt)
+
+## Markdown simples -> BBCode: títulos, tabelas (uma linha por item, 1ª coluna em destaque), listas, **negrito** e `código`.
+static func roteiro_bbcode(md: String) -> String:
+	var out := PackedStringArray()
+	var gold := UiKit.GOLD.to_html(false)
+	var muted := UiKit.MUTED.to_html(false)
+	var header_seen := false
+	for raw in md.split("\n"):
+		var line := raw.strip_edges()
+		if line.begins_with("|---") or line.begins_with("| ---") or line.begins_with("|:"):
+			continue
+		line = _inline_md(line)
+		if line.begins_with("# "):
+			out.append("[font_size=18][color=#%s][b]%s[/b][/color][/font_size]" % [gold, line.substr(2)])
+		elif line.begins_with("## "):
+			out.append("\n[font_size=15][color=#%s][b]%s[/b][/color][/font_size]" % [gold, line.substr(3)])
+			header_seen = false
+		elif line.begins_with("|"):
+			var cells := Array(line.trim_prefix("|").trim_suffix("|").split("|")).map(func(c): return str(c).strip_edges())
+			if not header_seen:
+				header_seen = true                # cabeçalho da tabela: os nomes das colunas não precisam aparecer
+				continue
+			var rest := " — ".join(PackedStringArray(cells.slice(1)))
+			out.append("• [b]%s[/b]%s" % [cells[0], (" — " + rest) if rest != "" else ""])
+		elif line.begins_with("- "):
+			out.append("• " + line.substr(2))
+		elif line == "":
+			header_seen = false
+			out.append("")
+		else:
+			out.append("[color=#%s]%s[/color]" % [muted, line] if line.begins_with("Tema") or line.begins_with("Os níveis") else line)
+	return "\n".join(out)
+
+static func _inline_md(s: String) -> String:
+	var r := s
+	while r.count("**") >= 2:
+		r = _swap_once(r, "**", "[b]", "[/b]")
+	while r.count("`") >= 2:
+		r = _swap_once(r, "`", "[i]", "[/i]")
+	return r
+
+static func _swap_once(s: String, mark: String, a: String, b: String) -> String:
+	var i := s.find(mark)
+	var j := s.find(mark, i + mark.length())
+	if i < 0 or j < 0:
+		return s
+	return s.substr(0, i) + a + s.substr(i + mark.length(), j - i - mark.length()) + b + s.substr(j + mark.length())
+
 func _quests(body: VBoxContainer) -> void:
 	var p: SimEntity = Sim.player
+	var top := HBoxContainer.new()
+	body.add_child(top)
+	for t in [["quests", "Quests"], ["roteiro", "Roteiro"]]:
+		var tb := UiKit.button(t[1], _set_quests_tab.bind(t[0]), 110)
+		tb.toggle_mode = true
+		tb.button_pressed = _quests_tab == t[0]
+		top.add_child(tb)
+	if _quests_tab == "roteiro":
+		_roteiro(body, p)
+		return
 	body.add_child(UiKit.label("Ativas:", 13, UiKit.GOLD))
 	if p.quests_active.is_empty():
 		body.add_child(UiKit.label("Nenhuma quest ativa. Procure NPCs marcados com [Quest].", 12, UiKit.MUTED))
