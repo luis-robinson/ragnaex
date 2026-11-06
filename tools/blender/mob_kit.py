@@ -702,8 +702,9 @@ def trent(cid="mob_trent"):
     return arm
 
 
-def elf_parts(cid, cloth2, ears=True, cape=False):
-    """Elfo: orelhas longas para trás e para cima (o que se lê de cima), faixa na testa e, no chefe, manto."""
+def elf_parts(cid, cloth2, ears=True, cape=False, hair=None, hood=None):
+    """Elfo (referência: elfos de Battle for Wesnoth): orelhas longas, faixa na testa, CABELO LONGO solto caindo pelas
+    costas (o que se lê de cima e de trás), capa opcional e capuz de atirador (`hood` = cor) com o cabelo saindo por baixo."""
     def add(base, mats):
         V = Vector
         rig, b = base["rig"], base["b"]
@@ -717,6 +718,22 @@ def elf_parts(cid, cloth2, ears=True, cape=False):
                 head.append(ck.blade("%s_ear%d" % (cid, sx), root, root + V((sx * r * 0.85, r * 0.35, r * 0.55)), r * 0.28, r * 0.05, skin, (0, 1, 0), 0.5))
         head.append(ck.tube(cid + "_band", c + V((0, 0, r * 0.3)), c + V((0, 0, r * 0.42)), r * 1.03, r * 1.02, band, 20))
         head.append(ck.ball(cid + "_gem", r * 0.12, c + V((0, -r * 1.02, r * 0.36)), ck.mat("m_%s_gem" % cid, (0.6, 1.0, 0.7), 0.3, 1.8)))
+        if hair:                                       # mechas longas: da nuca até a cintura, abrindo um pouco
+            hm = ck.mat("m_%s_longhair" % cid, hair, 0.55)
+            zc = ck.Z["chest"]
+            back = b["chest"] * b["depth"]
+            for i, x in enumerate((-0.55, -0.27, 0.0, 0.27, 0.55)):
+                root = c + V((x * r, r * 0.72, r * 0.25 - abs(x) * r * 0.2))
+                tip = V((x * r * 1.35, back + 0.12 + abs(x) * 0.05, zc - 0.22 - (0.06 if i % 2 else 0.0)))
+                head.append(ck.tube("%s_lock%d" % (cid, i), root, tip, r * 0.26, r * 0.07, hm, 7))
+            head.append(ck.blade(cid + "_hairsheet", c + V((0, r * 0.8, r * 0.1)), V((0, back + 0.1, zc - 0.18)), r * 1.25, r * 0.12, hm, (1, 0, 0), 0.35))
+            for sx in (-1, 1):                         # mechas da frente, por trás das orelhas, caindo nos ombros
+                root = c + V((sx * r * 0.82, r * 0.2, -r * 0.05))
+                head.append(ck.tube("%s_side%d" % (cid, sx), root, root + V((sx * r * 0.15, r * 0.15, -r * 1.05)), r * 0.2, r * 0.06, hm, 6))
+        if hood:                                       # capuz de atirador: cobre o alto da cabeça, aberto na frente
+            hd = ck.mat("m_%s_hood" % cid, hood, 0.8)
+            head.append(ck.ball(cid + "_hood", r * 1.12, c + V((0, r * 0.12, r * 0.12)), hd, (1.0, 1.05, 0.95)))
+            head.append(ck.tube(cid + "_hoodtip", c + V((0, r * 0.95, r * 0.4)), c + V((0, r * 1.5, -r * 0.2)), r * 0.35, r * 0.05, hd, 7))
         for p_ in head:
             ck.skin_rigid(p_, rig, "head")
         if cape:
@@ -726,6 +743,16 @@ def elf_parts(cid, cloth2, ears=True, cape=False):
             for p_ in ch:
                 ck.skin_rigid(p_, rig, "chest")
     return add
+
+
+def longbow(base, mats):
+    """Arco longo (Wesnoth): estica o arco da mão 40% na vertical em volta do centro dele."""
+    for o in bpy.context.scene.objects:
+        if o.type == "MESH" and o.name.startswith("wpn_main_bow"):
+            zs = [v.co.z for v in o.data.vertices]
+            mid = (min(zs) + max(zs)) * 0.5
+            for v in o.data.vertices:
+                v.co.z = mid + (v.co.z - mid) * 1.4
 
 
 def warrior_bows(base, mats):
@@ -754,7 +781,7 @@ def warrior_bows(base, mats):
 def elf_captain_parts(cid, cloth2, kind):
     """Capitães élficos: orelhas e manto do elf_parts + a peça que os distingue de cima (cabeça e ombros).
     hunter = chapéu de aba larga com pluma comprida e aljava; sky = elmo alado; sap = coroa de folhas e ombreiras de casca."""
-    base_add = elf_parts(cid, cloth2, cape=True)
+    base_add = elf_parts(cid, cloth2, cape=True, hair=None if kind == "sky" else ((0.95, 0.85, 0.5) if kind == "hunter" else (0.62, 0.85, 0.5)))
 
     def add(base, mats):
         base_add(base, mats)
@@ -1071,8 +1098,18 @@ def build_all(out_dir, only=None):
         "mob_quarry_heart": lambda: golem_boss("mob_quarry_heart", "heart"),
         "mob_bandit": lambda: humanoid("mob_bandit", "leather", (0.62, 0.2, 0.2), "sword"),
         # Cerco élfico: elfos de couro/tecido verde, Guardião de placa clara, Rei de placa dourada com coroa e manto
-        "mob_elf_warrior": lambda: humanoid("mob_elf_warrior", "leather", (0.3, 0.56, 0.42), "sword", skin=(0.96, 0.86, 0.74),
-                                            head="none", extra=elf_parts("mob_elf_warrior", (0.85, 0.8, 0.5)), after=warrior_bows),
+        # Herói élfico (guerreiro da cidade): couro reforçado verde-escuro, tiara dourada, cabelo castanho longo
+        "mob_elf_warrior": lambda: humanoid("mob_elf_warrior", "leather", (0.24, 0.42, 0.3), "sword", skin=(0.96, 0.86, 0.74),
+                                            head="none", hair=(0.45, 0.3, 0.18), extra=elf_parts("mob_elf_warrior", (0.9, 0.75, 0.3), hair=(0.45, 0.3, 0.18), cape=True),
+                                            after=warrior_bows),
+        # Lutador élfico (batedor das investidas): túnica verde clara, cabelo ruivo longo, espada; arco nas costas para a troca
+        "mob_elf_fighter": lambda: humanoid("mob_elf_fighter", "leather", (0.42, 0.62, 0.38), "sword", skin=(0.96, 0.86, 0.74),
+                                            head="none", hair=(0.72, 0.38, 0.18), extra=elf_parts("mob_elf_fighter", (0.6, 0.45, 0.28), hair=(0.72, 0.38, 0.18)),
+                                            after=warrior_bows),
+        # Arqueiro élfico (batedor arqueiro): loiro de cabelo longo, túnica verde, arco longo
+        "mob_elf_bowman": lambda: humanoid("mob_elf_bowman", "cloth", (0.38, 0.62, 0.36), "bow", skin=(0.96, 0.86, 0.74),
+                                           head="none", hair=(0.95, 0.85, 0.5), extra=elf_parts("mob_elf_bowman", (0.55, 0.4, 0.25), hair=(0.95, 0.85, 0.5)),
+                                           after=longbow),
         # capitães dos fortes élficos e cidadãos (Cidade Élfica)
         "mob_elf_captain_hunter": lambda: humanoid("mob_elf_captain_hunter", "leather", (0.3, 0.5, 0.36), "bow", skin=(0.96, 0.86, 0.74),
                                                    head="none", extra=elf_captain_parts("mob_elf_captain_hunter", (0.85, 0.55, 0.25), "hunter")),
@@ -1081,17 +1118,20 @@ def build_all(out_dir, only=None):
         "mob_elf_captain_sap": lambda: humanoid("mob_elf_captain_sap", "cloth", (0.45, 0.6, 0.35), "staff", skin=(0.96, 0.86, 0.74),
                                                 head="none", hair=(0.62, 0.85, 0.5), extra=elf_captain_parts("mob_elf_captain_sap", (0.6, 0.85, 0.4), "sap")),
         "mob_elf_citizen": lambda: humanoid("mob_elf_citizen", "cloth", (0.6, 0.78, 0.62), None, skin=(0.96, 0.86, 0.74),
-                                            head="none", extra=elf_parts("mob_elf_citizen", (0.85, 0.75, 0.45)), hair=(0.85, 0.75, 0.45)),
+                                            head="none", extra=elf_parts("mob_elf_citizen", (0.85, 0.75, 0.45), hair=(0.72, 0.5, 0.28)), hair=(0.72, 0.5, 0.28)),
         "mob_elf_citizen_f": lambda: humanoid("mob_elf_citizen_f", "cloth", (0.75, 0.62, 0.82), None, skin=(0.96, 0.86, 0.74),
-                                              head="none", extra=elf_parts("mob_elf_citizen_f", (0.55, 0.8, 0.7)), sex="female", hair=(0.95, 0.88, 0.62)),
-        "mob_elf_mage": lambda: humanoid("mob_elf_mage", "cloth", (0.86, 0.88, 0.8), "staff", skin=(0.96, 0.86, 0.74),
-                                         head="cloth", extra=elf_parts("mob_elf_mage", (0.3, 0.75, 0.55), cape=True)),
-        "mob_elf_archer": lambda: humanoid("mob_elf_archer", "cloth", (0.42, 0.66, 0.4), "bow", skin=(0.96, 0.86, 0.74),
-                                           head="leather", extra=elf_parts("mob_elf_archer", (0.6, 0.45, 0.28))),
+                                              head="none", extra=elf_parts("mob_elf_citizen_f", (0.55, 0.8, 0.7), hair=(0.95, 0.88, 0.62)), sex="female", hair=(0.95, 0.88, 0.62)),
+        # Xamã élfica: túnica clara, cabelo prateado longo, cajado
+        "mob_elf_mage": lambda: humanoid("mob_elf_mage", "cloth", (0.86, 0.88, 0.8), "staff", skin=(0.96, 0.86, 0.74), sex="female",
+                                         head="none", hair=(0.88, 0.9, 0.95), extra=elf_parts("mob_elf_mage", (0.3, 0.75, 0.55), cape=True, hair=(0.88, 0.9, 0.95))),
+        # Atirador élfico (arqueiro da cidade): capuz e capa verde-musgo, cabelo loiro saindo por baixo, arco longo
+        "mob_elf_archer": lambda: humanoid("mob_elf_archer", "cloth", (0.3, 0.48, 0.3), "bow", skin=(0.96, 0.86, 0.74),
+                                           head="none", hide_hair=True, hair=(0.9, 0.78, 0.45), extra=elf_parts("mob_elf_archer", (0.6, 0.45, 0.28), cape=True, hair=(0.9, 0.78, 0.45), hood=(0.24, 0.38, 0.24)),
+                                           after=longbow),
         "mob_elf_warden": lambda: humanoid("mob_elf_warden", "plate", (0.88, 0.86, 0.74), "sword2h", skin=(0.96, 0.86, 0.74),
-                                           head="none", extra=elf_parts("mob_elf_warden", (0.3, 0.6, 0.5))),
+                                           head="none", hair=(0.8, 0.82, 0.86), extra=elf_parts("mob_elf_warden", (0.3, 0.6, 0.5), hair=(0.8, 0.82, 0.86))),
         "mob_elf_king": lambda: humanoid("mob_elf_king", "plate", (0.95, 0.8, 0.35), "sword", skin=(0.96, 0.86, 0.74),
-                                         head="none", crown=7, extra=elf_parts("mob_elf_king", (0.22, 0.5, 0.42), cape=True)),
+                                         head="none", crown=7, hair=(0.96, 0.88, 0.55), extra=elf_parts("mob_elf_king", (0.22, 0.5, 0.42), cape=True, hair=(0.96, 0.88, 0.55))),
         "mob_trent": trent,
         "mob_griffin": lambda: quadruped("mob_griffin", (0.8, 0.62, 0.36), (0.55, 0.4, 0.22), (0.96, 0.94, 0.88), "griffin"),
         "mob_elf_lynx": lambda: quadruped("mob_elf_lynx", (0.74, 0.56, 0.32), (0.2, 0.36, 0.24), (0.95, 0.9, 0.78), "lynx"),
@@ -1115,7 +1155,8 @@ def build_all(out_dir, only=None):
                 o.name = o.name.replace(".", "_")
         if name in ("mob_bandit", "mob_skeleton", "mob_zombie", "mob_lich", "mob_skeleton_king", "form_demon",
                     "mob_elf_warrior", "mob_elf_archer", "mob_elf_warden", "mob_elf_king", "mob_elf_mage",
-                    "mob_elf_captain_hunter", "mob_elf_captain_sky", "mob_elf_captain_sap", "mob_elf_citizen", "mob_elf_citizen_f"):
+                    "mob_elf_captain_hunter", "mob_elf_captain_sky", "mob_elf_captain_sap", "mob_elf_citizen", "mob_elf_citizen_f",
+                    "mob_elf_fighter", "mob_elf_bowman"):
             ck.export_glb(arm, os.path.join(out_dir, name + ".glb"))
         else:
             lp.export_glb(os.path.join(out_dir, name + ".glb"), [arm])

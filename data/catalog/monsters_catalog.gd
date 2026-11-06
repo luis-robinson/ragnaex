@@ -58,10 +58,10 @@ static func build() -> Array:
 		# ---- Cerco élfico (lv 14-21): investidas na Floresta e a Cidade Élfica ----
 		# investida (RaidSystem): rápidos, marcham do portal élfico até o Posto dos Caçadores
 		{"id": "elf_raider", "name": "Batedor Élfico", "level": 16, "hp": 255, "atk": 36, "def": 9, "mdef": 9, "move_speed": 5.6, "attack_range": 1.8, "attack_cooldown": 1.0, "attack_startup": 0.25, "xp": 74, "aggro_range": 10.0, "leash_range": 20.0,
-		 "radius": 0.45, "scale": 1.0, "color": Color(0.45, 0.7, 0.4), "shape": "capsule", "loot_table": "lt_elf_raid", "gold_min": 10, "gold_max": 22, "model": "mob_elf_warrior", "skill_ids": ["mob_elf_lunge"] as Array[String],
+		 "radius": 0.45, "scale": 1.0, "color": Color(0.45, 0.7, 0.4), "shape": "capsule", "loot_table": "lt_elf_raid", "gold_min": 10, "gold_max": 22, "model": "mob_elf_fighter", "skill_ids": ["mob_elf_lunge"] as Array[String],
 		 "swap": {"hp": 0.4, "as": "elf_raider_archer", "stance": "bow"}},
 		{"id": "elf_raider_archer", "name": "Arqueiro Batedor", "level": 16, "hp": 195, "atk": 39, "def": 6, "mdef": 8, "move_speed": 5.4, "attack_range": 9.0, "attack_cooldown": 1.5, "attack_startup": 0.4, "xp": 74, "aggro_range": 11.0, "leash_range": 20.0, "ranged": true,
-		 "radius": 0.45, "scale": 1.0, "color": Color(0.55, 0.78, 0.45), "shape": "capsule", "loot_table": "lt_elf_raid", "gold_min": 10, "gold_max": 22, "model": "mob_elf_archer", "skill_ids": ["mob_root_arrow"] as Array[String]},
+		 "radius": 0.45, "scale": 1.0, "color": Color(0.55, 0.78, 0.45), "shape": "capsule", "loot_table": "lt_elf_raid", "gold_min": 10, "gold_max": 22, "model": "mob_elf_bowman", "skill_ids": ["mob_root_arrow"] as Array[String]},
 		{"id": "elf_lynx", "name": "Lince de Guerra", "level": 15, "hp": 180, "atk": 32, "def": 6, "mdef": 5, "move_speed": 6.2, "attack_range": 1.6, "attack_cooldown": 0.9, "attack_startup": 0.2, "xp": 59, "aggro_range": 9.0, "leash_range": 20.0,
 		 "radius": 0.5, "scale": 1.05, "color": Color(0.7, 0.6, 0.35), "shape": "box", "loot_table": "lt_elf_lynx", "gold_min": 4, "gold_max": 10, "model": "mob_elf_lynx", "skill_ids": ["mob_pounce", "mob_lynx_leap"] as Array[String]},
 		{"id": "elf_raider_mage", "name": "Mago Élfico", "level": 16, "hp": 210, "atk": 16, "matk": 42, "def": 5, "mdef": 12, "move_speed": 5.0, "attack_range": 8.5, "attack_cooldown": 1.7, "attack_startup": 0.45, "xp": 78, "aggro_range": 12.0, "leash_range": 20.0, "ranged": true,
