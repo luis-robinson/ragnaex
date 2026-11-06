@@ -970,15 +970,24 @@ func _quests(body: VBoxContainer) -> void:
 		var v := VBoxContainer.new()
 		card.add_child(v)
 		v.add_child(UiKit.label("%s   %d/%d%s" % [q.title, prog, q.count, "  ✔" if prog >= q.count else ""], 14, Color(0.6, 1, 0.6) if prog >= q.count else UiKit.TEXT))
+		if q.repeatable:
+			v.add_child(UiKit.repeat_label(q, 11))
 		v.add_child(UiKit.para(q.description, 11))
 		v.add_child(UiKit.para("Onde: %s · Entregar para: %s · Recompensa: %s" % [q.map_hint, _npc_name(q.turnin()), _reward_text(q)], 11, UiKit.MUTED))
 		v.add_child(UiKit.button("Desistir", func(): QuestSystem.abandon(p, q), 90))
 	body.add_child(UiKit.hsep())
-	body.add_child(UiKit.label("Concluídas: %d" % p.quests_completed.size(), 13, UiKit.MUTED))
-	for qid in p.quests_completed:
-		var q: QuestDef = GameData.quests.get(qid)
-		if q:
-			body.add_child(UiKit.label("✔ " + q.title, 11, UiKit.MUTED))
+	var once: Array = p.quests_completed.filter(func(id): return GameData.quests.has(id) and not GameData.quests[id].repeatable)
+	var again: Array = p.quests_completed.filter(func(id): return GameData.quests.has(id) and GameData.quests[id].repeatable)
+	body.add_child(UiKit.label("Concluídas: %d" % once.size(), 13, UiKit.MUTED))
+	for qid in once:
+		body.add_child(UiKit.label("✔ " + GameData.quests[qid].title, 11, UiKit.MUTED))
+	if not again.is_empty():
+		body.add_child(UiKit.label("Repetíveis já feitas (pegue de novo):", 13, UiKit.QUEST_REPEAT))
+		for qid in again:
+			var rq: QuestDef = GameData.quests[qid]
+			var l := UiKit.label("↻ %s  —  %s" % [rq.title, QuestSystem.npc_name(rq.giver_npc)], 11, UiKit.QUEST_REPEAT)
+			l.add_theme_font_override("font", UiKit.mark_font())
+			body.add_child(l)
 
 func _reward_text(q: QuestDef) -> String:
 	var parts: Array = ["%d XP" % q.reward_xp, "%d ouro" % q.reward_gold]

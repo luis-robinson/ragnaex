@@ -647,6 +647,7 @@ func _check_zone(gd, sim) -> void:
 	_check_bind_crystal(gd, sim, save_ref)
 	_check_quarry(gd, sim)
 	_check_map_models(gd)
+	_check_repeatable_labels(gd)
 	_check_raid_tactics(gd, sim)
 	_check_equipment_slots(gd, sim, save_ref)
 	_check_icons(gd)
@@ -2884,6 +2885,19 @@ func _check_raid_tactics(gd, sim) -> void:
 	QuestSystem.on_kill(healer, "elf_raider_mage")
 	QuestSystem.on_kill(healer, "elf_lynx")
 	check(int(healer.quests_active[hq.id]) == 2, "Segurar o Portão: guerreiro e mago contam, lince não (%d)" % int(healer.quests_active[hq.id]))
+
+## Quest repetível diz que é repetível (diálogo, rastreador, janela L e aviso de conclusão usam estes textos).
+func _check_repeatable_labels(gd) -> void:
+	var rep: QuestDef = gd.quests["b_spiders"]
+	var once: QuestDef = gd.quests["q01_welcome"]
+	check(rep.repeatable and QuestSystem.repeat_tag(rep).contains("Repetível") and QuestSystem.repeat_note(rep).contains("Círculo Druídico"), "repetível: etiqueta e onde pegar de novo")
+	check(QuestSystem.repeat_tag(once) == "" and QuestSystem.repeat_note(once) == "", "quest de uma vez só não diz repetível")
+	var n := 0
+	for qid in gd.quests:
+		if gd.quests[qid].repeatable:
+			n += 1
+			check(QuestSystem.npc_name(gd.quests[qid].giver_npc) != gd.quests[qid].giver_npc, "%s: quem dá a repetível tem nome" % qid)
+	check(n >= 10, "há repetíveis (%d)" % n)
 
 ## Todo mapa com modelo tem o GLB do Blender de verdade (uma exportação com a coleção escondida sai vazia, ~150 bytes,
 ## e o jogo mostra só o chão: o Posto ficou sem muralha assim).

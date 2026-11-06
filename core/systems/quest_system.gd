@@ -241,6 +241,22 @@ static func _droppers(item_id: String) -> Array:
 			out.append(mid)
 	return out
 
+## Etiqueta de repetível (UI e avisos): "" quando a quest é de uma vez só.
+static func repeat_tag(q: QuestDef) -> String:
+	return "↻ Repetível" if q.repeatable else ""
+
+## Nome do NPC (procura em todos os mapas); id quando não acha.
+static func npc_name(npc_id: String) -> String:
+	for mid in GameData.maps:
+		for n in GameData.maps[mid].npcs:
+			if n.get("id", "") == npc_id:
+				return str(n.get("name", npc_id))
+	return npc_id
+
+## Lembrete de repetível: onde pegar de novo.
+static func repeat_note(q: QuestDef) -> String:
+	return "↻ Repetível: pegue de novo com %s quando quiser." % npc_name(q.giver_npc) if q.repeatable else ""
+
 ## Peça do tier da quest que este personagem consegue vestir.
 static func gear_reward(e: SimEntity, q: QuestDef, sim) -> String:
 	if q.reward_gear_tier < 0:
@@ -266,4 +282,5 @@ static func complete(e: SimEntity, q: QuestDef, sim) -> void:
 		if e == sim.player:
 			Events.notification.emit("Recompensa: %s" % GameData.items[gear].name)
 	Events.quest_completed.emit(e.id, q.id)
-	Events.notification.emit("Quest concluída: %s (+%d XP, +%d ouro)" % [q.title, q.reward_xp, q.reward_gold])
+	var again := "  —  " + repeat_note(q) if q.repeatable else ""
+	Events.notification.emit("Quest concluída: %s (+%d XP, +%d ouro)%s" % [q.title, q.reward_xp, q.reward_gold, again])

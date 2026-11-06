@@ -32,6 +32,12 @@ static func mark_font() -> Font:
 		_mark_font = fv
 	return _mark_font
 
+## Rótulo azul "↻ Repetível" (fonte com o símbolo); vazio para quest de uma vez só.
+static func repeat_label(q: QuestDef, size: int = 12) -> Label:
+	var l := label(QuestSystem.repeat_tag(q), size, QUEST_REPEAT)
+	l.add_theme_font_override("font", mark_font())
+	return l
+
 static func quest_mark_color(mark: String) -> Color:
 	if mark == QuestSystem.REPEAT:
 		return QUEST_REPEAT

@@ -320,6 +320,7 @@ func _build_top_right() -> void:
 	quest_tracker.add_theme_font_size_override("bold_font_size", 14)
 	quest_tracker.mouse_filter = Control.MOUSE_FILTER_STOP        # clique no título = rastrear (seta no minimapa)
 	quest_tracker.meta_underlined = false
+	quest_tracker.add_theme_font_override("normal_font", UiKit.mark_font())     # "↻" das repetíveis
 	quest_tracker.meta_clicked.connect(_on_track_clicked)
 	p.add_child(quest_tracker)
 	minimap.hud = self
@@ -662,6 +663,9 @@ func tracked_quest() -> String:
 func _on_quest_accepted(id: int, qid: String) -> void:
 	if Sim.player and id == Sim.player.id:
 		tracked_quest_id = qid
+		var q: QuestDef = GameData.quests.get(qid)
+		if q and q.repeatable:
+			_notify("Quest repetível aceita: %s" % q.title)
 	refresh_quest_tracker()
 
 func _on_track_clicked(meta: Variant) -> void:
@@ -681,7 +685,8 @@ func refresh_quest_tracker() -> void:
 		var prog := QuestSystem.progress(p, q)
 		var done := prog >= q.count
 		var col := "#9f9" if done else ("#ffd966" if qid == tracked else "#eee")
-		t += "[url=%s][color=%s]%s%s[/color][/url]  %d/%d%s\n" % [qid, col, "▶ " if qid == tracked else "", q.title, prog, q.count, "  ✔ entregar" if done else ""]
+		var rep := "  [color=#59bfff]↻ repetível[/color]" if q.repeatable else ""
+		t += "[url=%s][color=%s]%s%s[/color][/url]  %d/%d%s%s\n" % [qid, col, "▶ " if qid == tracked else "", q.title, prog, q.count, rep, "  ✔ entregar" if done else ""]
 		if not done:
 			t += "   [color=#888]%s[/color]\n" % q.map_hint
 	quest_tracker.text = t

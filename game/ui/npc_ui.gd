@@ -188,6 +188,8 @@ func _dialog(body: VBoxContainer) -> void:
 		var cv := VBoxContainer.new()
 		card.add_child(cv)
 		cv.add_child(UiKit.label("✔ %s" % q.title, 14, Color(0.6, 1, 0.6)))
+		if q.repeatable:
+			cv.add_child(UiKit.repeat_label(q, 11))
 		cv.add_child(UiKit.para('"%s"' % q.dialog_complete, 12))
 		var rew := "Recompensa: %d XP, %d ouro" % [q.reward_xp, q.reward_gold]
 		for iid in q.reward_items:
@@ -206,6 +208,8 @@ func _dialog(body: VBoxContainer) -> void:
 			var cv := VBoxContainer.new()
 			card.add_child(cv)
 			cv.add_child(UiKit.label("… %s (%d/%d)" % [q.title, QuestSystem.progress(p, q), q.count], 13, UiKit.GOLD))
+			if q.repeatable:
+				cv.add_child(UiKit.repeat_label(q, 11))
 			cv.add_child(UiKit.para('"%s"' % q.dialog_progress, 12))
 	# quests disponíveis
 	for q in QuestSystem.available_from_npc(p, npc_id):
@@ -213,7 +217,13 @@ func _dialog(body: VBoxContainer) -> void:
 		body.add_child(card)
 		var cv := VBoxContainer.new()
 		card.add_child(cv)
-		cv.add_child(UiKit.label("! %s  (Lv %d)" % [q.title, q.level_req], 14, UiKit.GOLD))
+		if q.repeatable:                      # repetível: azul, com o símbolo e o lembrete
+			var t := UiKit.label("↻ %s  (Lv %d)  ·  Repetível" % [q.title, q.level_req], 14, UiKit.QUEST_REPEAT)
+			t.add_theme_font_override("font", UiKit.mark_font())
+			cv.add_child(t)
+			cv.add_child(UiKit.para("Pode fazer de novo quantas vezes quiser; a recompensa vem toda vez.", 11, UiKit.QUEST_REPEAT))
+		else:
+			cv.add_child(UiKit.label("! %s  (Lv %d)" % [q.title, q.level_req], 14, UiKit.GOLD))
 		cv.add_child(UiKit.para('"%s"' % q.dialog_offer, 12))
 		cv.add_child(UiKit.para(q.description + "  —  " + q.map_hint, 11, UiKit.MUTED))
 		cv.add_child(UiKit.button("Aceitar", func(): QuestSystem.accept(p, q); _rebuild(), 120))

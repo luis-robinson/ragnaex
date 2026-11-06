@@ -130,6 +130,9 @@ func after_start() -> void:
 	if DevArgs.flag("--raid_shot"):     # --raid_shot=<png>: investida élfica na Floresta (fotos _marcha e _portao) e sai
 		_smoke_test = false
 		_raid_shot(DevArgs.value("--raid_shot"))
+	if DevArgs.flag("--repeat_shot"):   # --repeat_shot=<png>: quest repetível no diálogo do quadro (_dialogo), no rastreador e na janela L (_janela)
+		_smoke_test = false
+		_repeat_shot(DevArgs.value("--repeat_shot"))
 	if DevArgs.flag("--elf_shot"):      # --elf_shot=<png>: leva élfica parada ao lado do jogador (batedor, batedor com arco, mago, lince, grifo, espírito)
 		_smoke_test = false
 		_elf_shot(DevArgs.value("--elf_shot"))
@@ -162,6 +165,29 @@ func tick(delta: float) -> void:
 		_tour(delta)
 	elif _smoke_test:
 		_smoke(delta)
+
+func _repeat_shot(path: String) -> void:
+	var p: SimEntity = Sim.player
+	p.brain = null
+	p.level = 12
+	QuestSystem.accept(p, GameData.quests["h_slime"])
+	p.quests_completed.append("b_wolves")
+	p.quests_completed.append("q01_welcome")
+	for e in Sim.map_entities(p.map_id):
+		if e.kind == SimEntity.Kind.NPC and e.npc_data.get("id", "") == "board":
+			p.position = e.position + Vector3(0, 0, 2)
+	await get_tree().create_timer(1.2).timeout
+	Events.dialog_requested.emit("board")
+	await get_tree().create_timer(0.8).timeout
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(path.replace(".png", "_dialogo.png"))
+	main.hud.npc_ui.close()
+	main.hud.windows_script.toggle("quests")
+	await get_tree().create_timer(0.8).timeout
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(path.replace(".png", "_janela.png"))
+	print("REPEAT_SHOT " + path)
+	get_tree().quit()
 
 func _elf_shot(path: String) -> void:
 	var p: SimEntity = Sim.player
