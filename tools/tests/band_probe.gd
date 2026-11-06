@@ -44,13 +44,14 @@ func _sources() -> Dictionary:
 			var arr: Array = spawns.get(sp["monster_id"], [])
 			arr.append(mid)
 			spawns[sp["monster_id"]] = arr
-	for mid in MapsCatalog.RAIDS:          # investidas: os invasores só nascem nas levas
-		for w in MapsCatalog.RAIDS[mid].get("waves", []):
-			for mon_id in w["mobs"]:
-				var arr: Array = spawns.get(mon_id, [])
-				if not ("investida " + mid) in arr:
-					arr.append("investida " + mid)
-				spawns[mon_id] = arr
+	for mid in GameData.maps:              # investidas: os invasores só nascem nas levas (todas as rotas do mapa)
+		for r in RaidSystem.routes(GameData.maps[mid]):
+			for w in r.get("waves", []):
+				for mon_id in w["mobs"]:
+					var arr: Array = spawns.get(mon_id, [])
+					if not ("investida " + mid) in arr:
+						arr.append("investida " + mid)
+					spawns[mon_id] = arr
 	var drops := {}        # item_id -> [[monster_id, chance, média]]
 	for mon_id in spawns:
 		var md: MonsterDef = GameData.monsters.get(mon_id)

@@ -1,7 +1,7 @@
 extends Node
 ## Investidas élficas contra o Posto dos Caçadores (calibrar RAID/GUARD/elfos): N levas por cenário, sem os outros spawners.
 ##   godot --headless --path . tools/tests/raid_probe.tscn -- [--trials=20] [--bots=0,1,3] [--level=15] [--map=field_forest] [--raid_level=20]
-## --raid_level = nível do jogador que dá a força da leva (Balance.RAID_SCALE_*); sem ele, força base.
+## --route=N = lado da cidade atacada por vários lados (0 = MapDef.raid). --raid_level = nível do jogador que dá a força da leva (Balance.RAID_SCALE_*); sem ele, força base.
 ## Cenário = quantos bots (nível --level) esperam no portão norte junto das sentinelas.
 ## Saída: "RAID bots=N repelidas=R/T chegada=Ss duracao=Ss sentinelas_mortas=G bots_mortos=B presos=P"
 ##   repelidas = leva toda derrubada antes do recuo; chegada = s até a 1ª entrar no raio do povoado;
@@ -9,6 +9,7 @@ extends Node
 
 const LIMIT := 260.0
 const DT := 1.0 / 20.0
+var route_i := 0                 # --route=N: qual lado da cidade (RaidSystem.routes)
 
 func _ready() -> void:
 	await get_tree().process_frame
@@ -23,6 +24,7 @@ func _ready() -> void:
 		if a.begins_with("--level="): level = int(a.get_slice("=", 1))
 		if a.begins_with("--map="): mid = a.get_slice("=", 1)
 		if a.begins_with("--raid_level="): raid_level = int(a.get_slice("=", 1))
+		if a.begins_with("--route="): route_i = int(a.get_slice("=", 1))
 	Sim.load_map(GameData.maps[GameData.town_map_id()])
 	var m: Dictionary = Sim.load_map(GameData.maps[mid])
 	m["spawners"].clear()
@@ -39,7 +41,7 @@ func _ready() -> void:
 
 func _run(m: Dictionary, nbots: int, level: int, trials: int) -> Dictionary:
 	var def: MapDef = m["def"]
-	var r := def.raid
+	var r := RaidSystem.route_def(def, route_i)
 	var guards: Array = m["entities"].filter(func(e): return e.guard)
 	var gate: Vector3 = r["route"][r["route"].size() - 1]
 	var classes: Array = GameData.classes.keys()
@@ -58,9 +60,9 @@ func _run(m: Dictionary, nbots: int, level: int, trials: int) -> Dictionary:
 		for i in range(nbots):
 			var cid: String = classes[(trial * 3 + i * 5) % classes.size()]
 			bots.append(Sim.spawn_bot(GameData.classes[cid], "D%d" % i, def.id, gate + Vector3(-3 + i * 3, 0, 4), level))
-		var st := RaidSystem.state(m)
+		var st := RaidSystem.state(m, route_i)
 		st["n"] = trial % 3                  # alterna as levas (a 3ª traz o grifo)
-		var ids := RaidSystem.start_raid(Sim, m)
+		var ids := RaidSystem.start_raid(Sim, m, route_i)
 		var t := 0.0
 		var arrive := -1.0
 		var guard_dead := {}

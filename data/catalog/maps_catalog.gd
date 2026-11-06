@@ -54,7 +54,7 @@ static func build() -> Array:
 	return out
 
 ## Cristais de retorno (role "crystal", modelo prop_crystal): vincular = G e renascer ali. Posição (x, z) na praça.
-const CRYSTALS := {"city_aldara": [-7.5, 0.0], "field_forest": [-5.5, -5.5]}
+const CRYSTALS := {"city_aldara": [-7.5, 0.0], "field_forest": [-5.5, -5.5], "field_ruins": [25.6, 4.6]}
 const CRYSTAL_LINES := ["Uma pedra azul que zumbe baixinho. Toque para lembrar deste lugar.", "Os viajantes juram que o cristal os puxa de volta para casa."]
 
 static func crystal_npc(map_id: String) -> Array:
@@ -64,6 +64,71 @@ static func crystal_npc(map_id: String) -> Array:
 	var d := _npc("crystal_" + map_id, "Cristal de Retorno", float(p[0]), float(p[1]), "crystal", Color(0.45, 0.75, 1.0), CRYSTAL_LINES)
 	d["model"] = "prop_crystal"
 	return [d]
+
+## Bastião da Aurora (terceiro andar): serviços na praça da catedral; posições do JSON.
+const DAWN_NPCS := {
+	"dawn_commander": ["Marechal Aldric", "quest", Color(0.4, 0.5, 0.8), ["Três portões, três fortalezas, uma cidade. Seguramos o que dá e retomamos o resto.", "O pântano a oeste é o mais fraco deles. Começamos por lá."]],
+	"high_priest": ["Alta Sacerdotisa Lyria", "quest", Color(0.97, 0.92, 0.7), ["A Luz não some. Ela só espera alguém acender de novo.", "Cada fortaleza retomada vira um posto da Aurora. É assim que a noite encolhe."]],
+	"dawn_smith": ["Doran, o Ferreiro da Aurora", "smith", Color(0.7, 0.55, 0.4), ["Prata consagrada leva uma peça lendária onde o ferro não chega.", "Do +6 em diante, só um Fragmento da Aurora segura o encanto."]],
+	"dawn_merchant": ["Mercador Tobias", "merchant", Color(0.8, 0.7, 0.5), ["Água benta, ataduras e poções. Na guerra, tudo vende."]],
+	"dawn_alchemist": ["Irmã Celes", "alchemy", Color(0.6, 0.8, 0.7), ["Bile pútrida queima limpo num caldeirão consagrado. Traga que eu cuido."]],
+}
+## Guarnição: marcadores `dawn_g_<lado>_<papel>_<n>` do JSON viram NPCs lutadores (guard_<papel>) com o modelo deles,
+## renascendo em DAWN_RESPAWN s (a luta é constante). Os do posto avançado só ficam enquanto o front não caiu? Ficam sempre.
+const DAWN_ROLE_NAMES := {"knight": ["Sir Gareth", "Sir Edwin", "Dama Rowena", "Sir Alaric", "Dama Isolde", "Sir Cedric"],
+	"spearman": ["Lanceiro Tomás", "Lanceira Bia", "Lanceiro Hugo", "Lanceira Nell", "Lanceiro Pim", "Lanceiro Joca", "Lanceira Mar", "Lanceiro Davi", "Lanceira Clô", "Lanceiro Rui", "Lanceira Ada", "Lanceiro Teo"],
+	"paladin": ["Paladino Benedito", "Paladina Aurélia"], "priest": ["Irmã Clara", "Irmã Inês", "Irmã Lúcia"],
+	"crossbow": ["Besteiro Fábio", "Besteira Lia", "Besteiro Caio", "Besteira Bel", "Besteiro Nico", "Besteira Su", "Besteiro Gil", "Besteira Ana", "Besteiro Leo"]}
+const DAWN_ROLE_LINES := {"knight": ["Portão firme. Nenhum osso passa por aqui.", "Escudos à frente quando a trompa soar."],
+	"spearman": ["A lança mantém o morto longe. É o que basta.", "Dizem que o Carniçal come os que caem. Não caia."],
+	"paladin": ["Que a Luz guarde quem guarda os portões.", "Ferido? Fique perto de mim."], "priest": ["Fique na luz e eu fecho suas feridas.", "Rezo pelos vivos. Os mortos já tiveram a vez deles."],
+	"crossbow": ["Do muro eu acerto o que você não alcança.", "Morcegos são os piores. Rápidos e baixos."]}
+const DAWN_RESPAWN := 12.0
+
+static func dawn_garrison(npc_pos: Dictionary) -> Array:
+	var out: Array = []
+	var count := {}
+	var seed := 401
+	var ids: Array = npc_pos.keys()
+	ids.sort()
+	for nid in ids:
+		if not str(nid).begins_with("dawn_g_"):
+			continue
+		var parts := str(nid).split("_")
+		var role := ""
+		for r in DAWN_ROLE_NAMES:
+			if parts.has(r):
+				role = r
+		var mdef: MonsterDef = GameData.monsters.get("guard_" + role)
+		if role == "" or mdef == null:
+			continue
+		var k: int = count.get(role, 0)
+		count[role] = k + 1
+		var names: Array = DAWN_ROLE_NAMES[role]
+		var p: Array = npc_pos[nid]
+		var d := _npc(nid, names[k % names.size()], float(p[0]), float(p[1]), "guard", Color(0.85, 0.85, 0.9), DAWN_ROLE_LINES[role], float(p[2]))
+		d["fighter"] = "guard_" + role
+		d["model"] = mdef.model
+		d["respawn"] = DAWN_RESPAWN
+		d["look_seed"] = seed
+		seed += 13
+		if role == "paladin":                 # paladinos rondam o anel da praça
+			var a0 := atan2(float(p[1]), float(p[0]))
+			d["route"] = [0, 1, 2, 3, 4, 5].map(func(i): return [cos(a0 + i * TAU / 6.0) * 30.0, sin(a0 + i * TAU / 6.0) * 30.0])
+		out.append(d)
+	return out
+
+static func dawn_services(npc_pos: Dictionary) -> Array:
+	var out: Array = []
+	for nid in DAWN_NPCS:
+		var n: Array = DAWN_NPCS[nid]
+		var p: Array = npc_pos.get(nid, [0.0, 0.0, 180.0])
+		var d := _npc(nid, n[0], float(p[0]), float(p[1]), n[1], n[2], n[3], float(p[2]),
+			MERCHANT_SHOP + GearCatalog.shop_ids() + GearCatalog.starter_weapon_ids(GameData.items) if n[1] == "merchant" else [])
+		if n.size() > 4:
+			d["model"] = n[4]
+		out.append(d)
+	return out
 
 ## NPCs dos lugares da zona `id` (cabanas e santuários).
 static func _place_npcs(id: String, npc_pos: Dictionary) -> Array:
@@ -367,6 +432,27 @@ const RAIDS := {
 		# reforço por passo de força (nível do jogador, ver Balance.RAID_SCALE_*): somado a toda leva a partir do passo
 		"scale_extra": {3: {"elf_raider": 3}, 5: {"elf_raider_archer": 3}},
 		"say_strong": "As trompas soam mais graves: a investida veio reforçada!"},
+	# Bastião da Aurora: três fronts, cada um com a leva do seu lado (a rota é calada pela quest do chefe da fortaleza)
+	"field_ruins": {
+		"ghoul": {"every": 200.0, "first": 70.0, "jitter": 40.0, "lifetime": 200.0,
+			"waves": [{"mobs": {"larva": 8, "rot_zombie": 5, "rot_ghoul": 3}}, {"mobs": {"rot_wolf": 3}, "every_nth": 2}, {"mobs": {"rot_bear": 1}, "every_nth": 3}],
+			"say_start": "O pântano do oeste se mexe: a ninhada do Carniçal marcha contra o Bastião!",
+			"say_arrived": "Os mortos do Carniçal chegaram ao portão oeste!",
+			"say_repelled": "A investida do Carniçal foi queimada no portão oeste!",
+			"say_retreat": "A ninhada recua para o pântano."},
+		"bones": {"every": 230.0, "first": 140.0, "jitter": 40.0, "lifetime": 210.0,
+			"waves": [{"mobs": {"skeleton": 6, "skel_archer": 4, "skel_guard": 2}}, {"mobs": {"skel_guard": 2}, "every_nth": 2}],
+			"say_start": "Tambores de osso ao norte: a legião da Fortaleza dos Ossos marcha!",
+			"say_arrived": "Os esqueletos chegaram ao portão norte! Escudos à frente!",
+			"say_repelled": "A legião dos ossos foi quebrada no portão norte!",
+			"say_retreat": "Os esqueletos recuam em fileira para o norte."},
+		"frost": {"every": 260.0, "first": 210.0, "jitter": 40.0, "lifetime": 210.0,
+			"waves": [{"mobs": {"cultist": 4, "tower_bat": 6, "ghost": 3}}, {"mobs": {"ghost": 2}, "every_nth": 2}],
+			"say_start": "Um vento gelado vem do sul: os adeptos da Torre marcham com morcegos e espectros!",
+			"say_arrived": "Os adeptos chegaram ao portão sul!",
+			"say_repelled": "O frio recua: o portão sul resistiu!",
+			"say_retreat": "Os adeptos recuam para a Torre."},
+	},
 }
 
 ## NPCs do Posto dos Caçadores prontos para o MapDef (posições do JSON).
@@ -406,9 +492,9 @@ const PLACE_NPCS := {
 		"moon_altar": ["Altar da Lua", "board", Color(0.8, 0.85, 0.95), ["Pedra branca, fria como luar. Pedidos de caça presos com fios de prata.", "Gravado em élfico: 'A Árvore não pertence ao rei'."], "prop_statue"],
 	},
 	"field_ruins": {
+		"dawn_board": ["Capela dos Pedidos", "board", Color(0.9, 0.85, 0.7), ["Pedidos da guarnição, pregados com cera da vela do altar.", "'Quem trouxer a cabeça de um morto ganha o pão de um vivo.'"], "prop_statue"],
 		"gravedigger_osric": ["Osric, o Coveiro", "quest", Color(0.55, 0.55, 0.65), ["Enterro os mesmos mortos toda semana. Eles é que não colaboram.", "Os espectros vêm do norte. Os esqueletos, de qualquer lugar."]],
 		"digger_vera": ["Vera, a Escavadora", "quest", Color(0.75, 0.6, 0.4), ["Vim atrás de ouro e achei uma cripta sob o zigurate.", "O Senhor da Cripta ainda dá ordens. Ouvi."]],
-		"stone_obelisk": ["Obelisco Partido", "board", Color(0.6, 0.55, 0.72), ["Runas de Vel'Thar: 'A cidade não caiu. Ela desceu.'", "O restante foi arrancado a golpes."], "prop_pillar"],
 	},
 	"dg_pedreira": {
 		"miner_tadeu": ["Mestre Tadeu, o Mineiro", "quest", Color(0.7, 0.55, 0.35), ["Abrimos a pedreira atrás de ferro e acordamos a montanha.", "A oeste o musgo anda; a leste o cristal canta. O veio do fundo só abre quando os dois guardiões caírem."]],
@@ -608,14 +694,14 @@ static func _elf_city() -> MapDef:
 static func _ruins() -> MapDef:
 	var z := load_zone("field_ruins")
 	var p: Array = z["npc_pos"].get("ruins_scholar", [0.0, 0.0, 180.0])
-	var extra := _place_npcs("field_ruins", z["npc_pos"])
+	var extra := _place_npcs("field_ruins", z["npc_pos"]) + dawn_services(z["npc_pos"]) + dawn_garrison(z["npc_pos"]) + crystal_npc("field_ruins")
 	z.erase("npc_pos")
 	z.merge({
-		"id": "field_ruins", "name": "Ruínas de Vel'Thar", "is_town": false, "level_range": Vector2i(20, 30),
-		"ground_color": Color(0.55, 0.52, 0.47), "ground_color_alt": Color(0.50, 0.48, 0.44), "ambient": Color(0.7, 0.72, 0.85), "sun_energy": 0.8,
-		"bot_population": 5,
+		"id": "field_ruins", "name": "Bastião da Aurora", "is_town": false, "hub": true, "level_range": Vector2i(20, 30),
+		"ground_color": Color(0.55, 0.56, 0.46), "ground_color_alt": Color(0.5, 0.52, 0.43), "ambient": Color(0.78, 0.78, 0.86), "sun_energy": 0.9,
+		"bot_population": 6,
 		"npcs": [_npc("ruins_scholar", "Erudita Senna", float(p[0]), float(p[1]), "quest", Color(0.8, 0.75, 0.9),
-			["Vel'Thar caiu há mil anos. Esqueletos no cemitério e no bairro ao sul, espectros no pântano ao norte, golens na pedreira.",
-			"O altar a oeste... não acorde o que dorme lá sem estar pronto."], float(p[2]))] + extra,
+			["Estudo os mortos para a Alta Sacerdotisa. Cada fortaleza tem um senhor, e cada senhor um ponto fraco.",
+			"A cripta ao norte é mais velha que a cidade. O Senhor dela ainda dá ordens lá embaixo."], float(p[2]))] + extra,
 	})
 	return _mk(z)

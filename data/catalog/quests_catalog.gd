@@ -18,7 +18,7 @@ static func _mk(d: Dictionary) -> QuestDef:
 			q.set(k, d[k])
 	return q
 
-const HUNT_GIVERS := {"city_aldara": "board", "field_forest": "stone_druid", "field_ruins": "stone_obelisk", "elf_city": "moon_altar"}
+const HUNT_GIVERS := {"city_aldara": "board", "field_forest": "stone_druid", "field_ruins": "dawn_board", "elf_city": "moon_altar"}
 
 ## Quests da história e laterais dão Balance.quest_share da XP de cada faixa de nível (o meio, 10-20, dá mais): o peso relativo entre elas
 ## fica (o número escrito em cada uma), o total da faixa é escalado. Repetíveis (caçadas e quadros) ficam como estão.
@@ -511,13 +511,13 @@ static func build() -> Array:
 		{"id": "b_ents", "title": "Pedra: Ents Inquietos", "giver_npc": "stone_druid", "type": KILL, "target_id": "ent", "count": 5, "level_req": 18, "repeatable": true,
 		 "reward_xp": 2200, "reward_gold": 400, "map_hint": "Floresta: bosque dos ents (SE)",
 		 "description": "Acalme 5 Ents.", "dialog_offer": "Riscado na pedra: 'até a árvore precisa dormir'.", "dialog_progress": "Bosque a sudeste.", "dialog_complete": "O musgo parece mais verde."},
-		{"id": "b_skeletons", "title": "Obelisco: Esqueletos", "giver_npc": "stone_obelisk", "type": KILL, "target_id": "skeleton", "count": 15, "level_req": 22, "repeatable": true,
+		{"id": "b_skeletons", "title": "Catedral: Esqueletos", "giver_npc": "dawn_board", "type": KILL, "target_id": "skeleton", "count": 15, "level_req": 22, "repeatable": true,
 		 "reward_xp": 6000, "reward_gold": 700, "map_hint": "Ruínas: cemitério e bairro sul",
 		 "description": "Abata 15 Esqueletos.", "dialog_offer": "As runas brilham quando os mortos caem.", "dialog_progress": "Cemitério e bairro sul.", "dialog_complete": "As runas se apagam, por enquanto."},
-		{"id": "b_ghosts", "title": "Obelisco: Espectros", "giver_npc": "stone_obelisk", "type": KILL, "target_id": "ghost", "count": 12, "level_req": 25, "repeatable": true,
+		{"id": "b_ghosts", "title": "Catedral: Espectros", "giver_npc": "dawn_board", "type": KILL, "target_id": "ghost", "count": 12, "level_req": 25, "repeatable": true,
 		 "reward_xp": 10000, "reward_gold": 950, "map_hint": "Ruínas: pântano ao norte",
 		 "description": "Dissipe 12 Espectros.", "dialog_offer": "As runas brilham quando os mortos caem.", "dialog_progress": "Pântano ao norte.", "dialog_complete": "As runas se apagam, por enquanto."},
-		{"id": "b_golems", "title": "Obelisco: Golens", "giver_npc": "stone_obelisk", "type": KILL, "target_id": "golem", "count": 6, "level_req": 27, "repeatable": true,
+		{"id": "b_golems", "title": "Catedral: Golens", "giver_npc": "dawn_board", "type": KILL, "target_id": "golem", "count": 6, "level_req": 27, "repeatable": true,
 		 "reward_xp": 16000, "reward_gold": 1300, "map_hint": "Ruínas: pedreira (SO)",
 		 "description": "Quebre 6 Golens de Pedra.", "dialog_offer": "As runas brilham quando os mortos caem.", "dialog_progress": "Pedreira a sudoeste.", "dialog_complete": "As runas se apagam, por enquanto."},
 	]

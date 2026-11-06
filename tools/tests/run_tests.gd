@@ -3772,7 +3772,7 @@ func _check_quest_variety(gd, sim) -> void:
 	check(not e.has_item("sealed_letter"), "desistir tira a carta")
 	sim.despawn(e)
 	# caçada: quem paga é da zona do monstro
-	var zone_giver := {"slime": "board", "crab": "board", "spider": "stone_druid", "skeleton": "stone_obelisk", "zombie": "board"}
+	var zone_giver := {"slime": "board", "crab": "board", "spider": "stone_druid", "skeleton": "dawn_board", "zombie": "board"}
 	for mon in zone_giver:
 		if gd.quests.has("h_" + mon):
 			check(gd.quests["h_" + mon].giver_npc == zone_giver[mon], "caçada de %s paga por %s" % [mon, zone_giver[mon]])
@@ -5844,10 +5844,11 @@ func _check_band_consistency(gd, sim) -> void:
 	for mid in gd.maps:
 		for sp in gd.maps[mid].spawners:
 			spawns[sp["monster_id"]] = true
-	for mid in MapsCatalog.RAIDS:
-		for w in MapsCatalog.RAIDS[mid]["waves"]:
-			for mon in w["mobs"]:
-				spawns[mon] = true
+	for mid in gd.maps:
+		for r in RaidSystem.routes(gd.maps[mid]):
+			for w in r.get("waves", []):
+				for mon in w["mobs"]:
+					spawns[mon] = true
 	var drops := {}
 	for mon in spawns:
 		var md: MonsterDef = gd.monsters.get(mon)
