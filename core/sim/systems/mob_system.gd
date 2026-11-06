@@ -91,7 +91,8 @@ static func spawn_adds(sim: WorldSim, boss: SimEntity, sm: Dictionary) -> void:
 		if boss.raid_id >= 0:                  # invocado por invasor: marcha com a leva e a leva só acaba com ele morto
 			add.raid_id = boss.raid_id
 			add.raid_leg = boss.raid_leg
-			(RaidSystem.state(m)["ids"] as Array).append(add.id)
+			add.raid_route = boss.raid_route
+			(RaidSystem.state(m, boss.raid_route)["ids"] as Array).append(add.id)
 		alive += 1
 
 ## Fala de chefe (abertura, fase, queda): aviso na tela só para quem está no mapa.
@@ -139,6 +140,8 @@ static func update_spawners(sim: WorldSim, m: Dictionary, dt: float) -> void:
 	for sp in m["spawners"]:
 		var sdef: Dictionary = sp["def"]
 		sp["alive"] = sp["alive"].filter(func(id): return sim.entities.has(id))
+		if not WorldState.active(sim, sdef):    # fortaleza retomada (if/unless): o spawner fica calado
+			continue
 		if sp.has("escort"):                 # líder vivo e fora de combate: repõe quem caiu da escolta
 			sp["escort_t"] = float(sp.get("escort_t", 0.0)) - dt
 			if float(sp["escort_t"]) <= 0.0:

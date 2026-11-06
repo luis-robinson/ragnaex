@@ -401,8 +401,10 @@ class Zone:
         self.portal_angles.append(math.atan2(pos[1], pos[0]))
         self.block(pos, 7)
 
-    def spawner(self, mid, x, z, r, n, respawn, route=None):
+    def spawner(self, mid, x, z, r, n, respawn, route=None, when=None):
         d = {"monster_id": mid, "pos": [x, z], "radius": r, "count": n, "respawn": respawn}
+        if when:                      # conquista (WorldState): {"if": quest} / {"unless": quest}
+            d.update(when)
         if route:                     # ronda do líder (MonsterBrain): pontos [x, z]
             d["route"] = [[round(p[0], 2), round(p[1], 2)] for p in route]
         self.data["spawners"].append(d)

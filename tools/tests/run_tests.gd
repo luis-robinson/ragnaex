@@ -653,6 +653,7 @@ func _check_zone(gd, sim) -> void:
 	_check_escort(gd, sim)
 	_check_elf_city_life(gd, sim)
 	_check_outlaws(gd, sim)
+	_check_world_state(gd)
 	_check_signature(gd, sim)
 	_check_raid_tactics(gd, sim)
 	_check_equipment_slots(gd, sim, save_ref)
@@ -3001,6 +3002,95 @@ func _check_outlaws(gd, sim) -> void:
 	for qid in ["q10_bandits", "b1_trilhas", "b6_limpeza", "b_bandits"]:
 		var q: QuestDef = gd.quests[qid]
 		check(q.also_counts.has("bandit_footpad") and q.also_counts.has("bandit_outlaw"), "%s conta a linha inteira de bandidos" % qid)
+
+## Mundo que muda com a conquista (WorldState): spawner e NPC com if/unless por quest do jogador, investida de
+## vários lados (uma rota cala sozinha), leva aliada que marcha até o pátio e briga, renascimento por NPC.
+func _check_world_state(gd) -> void:
+	var fd: MapDef = gd.maps["field_forest"]
+	var def: MapDef = fd.duplicate()
+	def.id = "ws_test"
+	def.raid = {}
+	def.raids = []
+	def.assaults = []
+	var from: Vector3 = fd.raid["from"]
+	var route: Array = fd.raid["route"]
+	var target: Vector3 = fd.raid["target"]
+	var mid_pt: Vector3 = route[route.size() / 2]
+	def.spawners = [{"monster_id": "wolf", "pos": mid_pt, "radius": 3.0, "count": 2, "respawn": 5.0, "unless": "ws_q"}]
+	def.npcs = [{"id": "ws_npc", "name": "Colono", "pos": mid_pt + Vector3(4, 0, 0), "role": "villager", "color": Color.WHITE, "dialog": ["oi"], "if": "ws_q"},
+		{"id": "ws_guard", "name": "Guarda", "pos": target, "role": "guard", "color": Color.WHITE, "dialog": [], "fighter": "guard_warrior", "respawn": 12.0}]
+	var ws := WorldSim.new()
+	ws.load_map(gd.maps[GameData.town_map_id()])
+	GameData.maps[def.id] = def
+	var m: Dictionary = ws.load_map(def)
+	ws.player = ws.spawn_player(gd.classes["paladin"], "Mundo", def.id)
+	ws.player.position = target + Vector3(0, 0, 6)
+	check(WorldState.active(ws, {"unless": "ws_q"}) and not WorldState.active(ws, {"if": "ws_q"}), "conquista: if/unless antes da quest")
+	for i in 60:
+		ws.tick(0.05)
+	var wolves := func(): return m["entities"].filter(func(e): return e.kind == SimEntity.Kind.MONSTER and e.monster_def.id == "wolf")
+	var npc_here := func(): return m["entities"].any(func(e): return e.kind == SimEntity.Kind.NPC and e.npc_data.get("id", "") == "ws_npc")
+	check(wolves.call().size() == 2 and not npc_here.call(), "conquista: antes da quest há monstros e o colono não está")
+	ws.player.quests_completed.append("ws_q")
+	for i in 60:
+		ws.tick(0.05)
+	check(wolves.call().is_empty() and npc_here.call(), "conquista: quest feita recolhe os monstros e traz o colono")
+	# renascimento por NPC (guarnição de 10-15 s)
+	var g: SimEntity = m["entities"].filter(func(e): return e.guard and e.npc_data.get("id", "") == "ws_guard")[0]
+	ws._deal_damage(ws.player, g, int(g.hp + 99999), false, false, "physical")
+	for i in int(11.0 * 20.0):
+		ws.tick(0.05)
+	check(not g.is_alive(), "guarnição: ainda caída antes do tempo dela")
+	for i in int(2.0 * 20.0):
+		ws.tick(0.05)
+	check(g.is_alive(), "guarnição: renasce em 12 s (respawn do NPC)")
+	# investida de dois lados; o lado B cala quando a quest dele está feita
+	var wave := {"first": 0.5, "every": 999.0, "lifetime": 400.0, "radius": 17.0, "waves": [{"mobs": {"wolf": 1}}]}
+	var ra: Dictionary = wave.duplicate(true)
+	ra.merge({"side": "a", "from": from, "route": route, "target": target})
+	var rb: Dictionary = wave.duplicate(true)
+	rb.merge({"side": "b", "from": mid_pt, "route": [], "target": target, "unless": "ws_side_b"})
+	def.raid = ra
+	def.raids = [rb]
+	ws.player.position = target
+	for i in 30:
+		ws.tick(0.05)
+	var a_ids: Array = RaidSystem.state(m, 0)["ids"]
+	var b_ids: Array = RaidSystem.state(m, 1)["ids"]
+	check(a_ids.size() == 1 and b_ids.size() == 1, "investida: dois lados, uma leva cada (%d/%d)" % [a_ids.size(), b_ids.size()])
+	if b_ids.size() == 1:
+		check(ws.entities[b_ids[0]].raid_route == 1 and RaidSystem.march_point(ws, ws.entities[b_ids[0]]).distance_to(target) < 0.1, "investida: o lado B marcha pela rota dele")
+	for id in a_ids + b_ids:
+		ws.despawn(ws.entities.get(id))
+	ws.player.quests_completed.append("ws_side_b")
+	ws.tick(0.05)                                 # a leva esvaziada fecha (e o relógio volta ao `every`)
+	RaidSystem.state(m, 0)["timer"] = 0.3
+	RaidSystem.state(m, 1)["timer"] = 0.3
+	for i in 40:
+		ws.tick(0.05)
+	check(RaidSystem.state(m, 0)["ids"].size() == 1 and RaidSystem.state(m, 1)["ids"].is_empty(), "investida: lado retomado não solta mais leva")
+	check(RaidSystem.routes(fd).size() == 1, "Floresta continua com uma rota")
+	for id in RaidSystem.state(m, 0)["ids"]:
+		ws.despawn(ws.entities.get(id))
+	def.raid = {}
+	def.raids = []
+	# leva aliada: nasce no começo da rota, sobe até o alvo e briga com o que estiver lá
+	var back: Array = route.duplicate()
+	back.reverse()
+	def.assaults = [{"id": "t", "from": target, "route": back, "target": from, "radius": 6.0, "fighters": {"guard_warrior": 2}, "every": 999.0, "max": 4, "first": 0.5, "if": "ws_q"}]
+	var foe: SimEntity = ws.spawn_monster(gd.monsters["wolf"], def.id, from + Vector3(2, 0, 0))
+	ws.player.position = target
+	var allies: Array = []
+	var fought := false
+	for i in int(120.0 * 20.0):
+		ws.tick(0.05)
+		allies = m["entities"].filter(func(e): return e.guard and str(e.npc_data.get("id", "")).begins_with("assault_"))
+		if not foe.is_alive() or foe.hp < foe.stats.max_hp:
+			fought = true
+			break
+	check(allies.size() == 2, "assalto: leva aliada de 2 nasceu (%d)" % allies.size())
+	check(fought, "assalto: a leva subiu a rota e brigou no alvo")
+	GameData.maps.erase(def.id)
 
 func _check_elf_city_life(gd, sim) -> void:
 	var md: MapDef = gd.maps["elf_city"]

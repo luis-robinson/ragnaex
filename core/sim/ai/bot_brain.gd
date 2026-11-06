@@ -475,7 +475,7 @@ const DEFEND_LINES := ["Investida no portão! Bora segurar!", "Elfos no portão 
 
 func _defend(e: SimEntity, sim, m: Dictionary, cmd: InputCommand, dt: float) -> InputCommand:
 	var def: MapDef = m["def"]
-	if def.raid.is_empty():
+	if def.raid.is_empty() and def.raids.is_empty():
 		return null
 	var rs: Dictionary = sim.raid_status(e.map_id)
 	if not rs["active"] or rs["phase"] == "retreat":

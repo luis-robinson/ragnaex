@@ -351,6 +351,10 @@ const FOREST_NPCS := {
 	"guard_a_6": ["Caçadora Sol", "guard", Color(0.45, 0.6, 0.4), ["Do muro leste eu cubro a ponte e o portão norte."], {"fighter": "guard_archer", "gear": ["bow_hunter"]}],
 	"guard_a_7": ["Caçador Abel", "guard", Color(0.45, 0.6, 0.4), ["Três levas por dia. Minha aljava não aguenta."], {"fighter": "guard_archer", "gear": ["bow_hunter"]}],
 }
+## Levas aliadas que marcham, por mapa e id do assalto no JSON (WorldState.update_assaults):
+##   fighters {guard_id: n}, every (s entre levas), max (vivos ao mesmo tempo), first, say, if/unless (quests).
+const ASSAULTS := {}
+
 ## Investidas por zona: levas (`every_nth` = só a cada N levas), ritmo e falas. A rota vem do JSON (Blender).
 const RAIDS := {
 	"field_forest": {"every": 240.0, "first": 75.0, "jitter": 45.0, "lifetime": 210.0,
@@ -490,6 +494,9 @@ static func load_zone(id: String) -> Dictionary:
 			spawners[-1]["emerge"] = s["emerge"]
 		if s.has("route"):             # ronda: o líder (e a escolta dele) percorre estes pontos
 			spawners[-1]["route"] = (s["route"] as Array).map(func(q): return _v3(q))
+		for k in ["if", "unless"]:     # conquista (WorldState): spawner que só vale antes/depois de uma quest
+			if s.has(k):
+				spawners[-1][k] = s[k]
 	var hangouts: Array = []
 	for h in z["hangouts"]:
 		hangouts.append(_v3(h))
@@ -516,7 +523,32 @@ static func load_zone(id: String) -> Dictionary:
 		raid["target"] = _v3(r["target"])
 		raid["radius"] = float(r["radius"])
 		raid["route"] = (r["route"] as Array).map(func(q): return _v3(q))
+	var raids: Array = []
+	for r in z.get("raids", []):       # cidade atacada por vários lados: uma rota por lado, levas em RAIDS[<mapa>][<lado>]
+		var d: Dictionary = (RAIDS.get(id, {}) as Dictionary).get(str(r["side"]), {}).duplicate(true)
+		d["side"] = str(r["side"])
+		d["from"] = _v3(r["from"])
+		d["target"] = _v3(r["target"])
+		d["radius"] = float(r["radius"])
+		d["route"] = (r["route"] as Array).map(func(q): return _v3(q))
+		for k in ["if", "unless"]:
+			if r.has(k):
+				d[k] = r[k]
+		if raid.is_empty():
+			raid = d
+		else:
+			raids.append(d)
+	var assaults: Array = []
+	for a in z.get("assaults", []):    # levas aliadas que marcham (WorldState): rota do JSON + tropa e ritmo de ASSAULTS
+		var d: Dictionary = (ASSAULTS.get(id, {}) as Dictionary).get(str(a["id"]), {}).duplicate(true)
+		d["id"] = str(a["id"])
+		d["from"] = _v3(a["from"])
+		d["target"] = _v3(a["target"])
+		d["radius"] = float(a.get("radius", 10.0))
+		d["route"] = (a["route"] as Array).map(func(q): return _v3(q))
+		assaults.append(d)
 	return {"size": Vector2(float(z["size"][0]), float(z["size"][1])), "spawn_point": _v3(z["spawn"]), "obstacles": obs, "raid": raid,
+		"raids": raids, "assaults": assaults,
 		"portals": portals, "spawners": spawners, "bot_hangouts": hangouts, "npc_pos": z["npcs"],
 		"town_center": _v3(z["town"]["center"]), "town_radius": float(z["town"]["radius"]), "town_gates": gates,
 		"roads": roads, "water": water, "model": "map_" + id, "places": places}

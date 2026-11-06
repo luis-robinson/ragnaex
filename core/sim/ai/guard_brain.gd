@@ -29,7 +29,7 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 	if target and (not target.is_alive() or target.map_id != e.map_id or target.position.distance_to(home) > Balance.GUARD_LEASH + 2.0):
 		target = null
 	if target == null:
-		var patrols: bool = e.npc_data.has("route") or e.npc_data.has("wander")
+		var patrols: bool = e.npc_data.has("route") or e.npc_data.has("wander") or e.npc_data.has("march")
 		target = Combat.nearest_hostile(e, m["entities"], Balance.GUARD_AGGRO)
 		if target and not patrols and target.position.distance_to(home) > Balance.GUARD_LEASH + 2.0:
 			target = null
@@ -53,8 +53,10 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 		else:
 			cmd.move = MonsterBrain._dir_to(e, target.position)
 		return cmd
-	# sem luta: ronda/passeio do NPC, ou fica no posto
+	# sem luta: marcha do assalto, ronda/passeio do NPC, ou fica no posto
 	var nd := e.npc_data
+	if nd.has("march"):
+		return _march(e, sim, m, cmd)
 	if nd.has("route") or nd.has("wander"):
 		if e.npc_wait > 0.0:
 			e.npc_wait -= dt
@@ -71,4 +73,28 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 		cmd.aim = home
 	else:
 		cmd.aim = e.position + Vector3(sin(deg_to_rad(float(nd.get("facing", 180.0)))), 0, cos(deg_to_rad(float(nd.get("facing", 180.0)))))
+	return cmd
+
+## Leva de assalto (WorldState.assaults): sobe a rota com a âncora junto; no alvo, ronda o pátio procurando briga.
+func _march(e: SimEntity, sim, m: Dictionary, cmd: InputCommand) -> InputCommand:
+	e.home_position = e.position
+	var route: Array = e.npc_data["march"]
+	var goal := WorldState.march_goal(e)
+	var last := e.raid_leg >= route.size() - 1
+	if e.position.distance_to(goal) < (2.5 if not last else 1.5):
+		if not last:
+			e.raid_leg += 1
+			goal = WorldState.march_goal(e)
+		else:
+			if e.npc_goal == Vector3.ZERO or e.position.distance_to(e.npc_goal) < 1.0:
+				e.npc_goal = sim.random_walkable(m["def"], goal, float(e.npc_data.get("march_radius", 10.0)))
+			cmd.move = MonsterBrain._dir_to(e, e.npc_goal) * 0.7
+			cmd.aim = e.npc_goal
+			return cmd
+	elif last and e.npc_goal != Vector3.ZERO and e.position.distance_to(goal) < float(e.npc_data.get("march_radius", 10.0)):
+		goal = e.npc_goal                   # já no pátio: segue rondando
+		if e.position.distance_to(goal) < 1.0:
+			e.npc_goal = sim.random_walkable(m["def"], route[route.size() - 1], float(e.npc_data.get("march_radius", 10.0)))
+	cmd.move = MonsterBrain._dir_to(e, goal)
+	cmd.aim = goal
 	return cmd

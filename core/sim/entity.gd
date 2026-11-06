@@ -127,6 +127,7 @@ var npc_data: Dictionary = {}
 var guard := false                   # NPC que luta (sentinela do povoado): monstros o atacam e ele revida (GuardBrain)
 var raid_id := -1                    # monstro de uma investida (RaidSystem): marcha pela rota, luta no caminho
 var raid_leg := 0                    # investida: índice do próximo ponto da rota
+var raid_route := 0                  # investida: qual rota do mapa (RaidSystem.routes; 0 = MapDef.raid)
 var stance := ""                     # monstro que trocou de arma (MonsterDef.swap): "bow" = espada guardada, arco na mão
 var dormant := false                 # monstro sem ninguém por perto: não pensa nem anda (WorldSim._dormant)
 var npc_goal: Vector3 = Vector3.ZERO  # NPC que passeia: para onde está indo

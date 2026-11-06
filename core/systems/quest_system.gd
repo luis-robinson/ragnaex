@@ -214,9 +214,10 @@ static func _spawner_of(def: MapDef, monster_ids: Array):
 
 ## Monstro que só vem na investida: o povoado atacado (onde a defesa acontece).
 static func _raid_of(def: MapDef, monster_id: String):
-	for w in def.raid.get("waves", []):
-		if w.get("mobs", {}).has(monster_id):
-			return def.raid["target"]
+	for r in RaidSystem.routes(def):
+		for w in r.get("waves", []):
+			if w.get("mobs", {}).has(monster_id):
+				return r["target"]
 	return null
 
 static func _gather_of(def: MapDef, item_id: String):

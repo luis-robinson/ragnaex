@@ -70,7 +70,9 @@ func load_map(def: MapDef) -> Dictionary:
 	for sp in def.spawners:
 		m["spawners"].append({"def": sp, "alive": [], "timer": 0.0, "primed": false})     # primed: já encheu a 1ª vez
 	for n in def.npcs:
-		_spawn_npc(n, def.id)
+		if not (n.has("if") or n.has("unless")):
+			_spawn_npc(n, def.id)
+	WorldState.sync_npcs(self, m)              # NPC de conquista (if/unless): só se valer agora
 	return m
 
 func map_entities(map_id: String) -> Array:
@@ -411,6 +413,7 @@ func tick(dt: float) -> void:
 		_update_projectiles(m, mdt)
 		if profile:
 			_prof("r_projectiles", pt); pt = Time.get_ticks_usec()
+		WorldState.update(self, m, mdt)
 		MobSystem.update_spawners(self, m, mdt)
 		RaidSystem.update_raids(self, m, mdt)
 		if profile:
@@ -1178,8 +1181,13 @@ func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 			if e.dead_time >= Balance.CORPSE_TIME:
 				despawn(e)
 		elif e.guard:
-			if e.dead_time >= Balance.GUARD_RESPAWN:     # sentinela volta ao posto
-				e.position = e.home_position
+			var back := float(e.npc_data.get("respawn", Balance.GUARD_RESPAWN))
+			if back < 0.0:                               # leva de assalto: quem cai não volta
+				if e.dead_time >= Balance.CORPSE_TIME:
+					despawn(e)
+			elif e.dead_time >= back:                    # sentinela volta ao posto
+				e.position = e.npc_data.get("pos", e.home_position) if e.npc_data.has("route") else e.home_position
+				e.home_position = e.position
 				e.set_state(SimEntity.State.IDLE)
 				e.threat.clear()
 				e.heal_full()

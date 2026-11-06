@@ -45,6 +45,8 @@ extends Resource
 ## investida periódica (RaidSystem): {"from":Vector3, "route":[Vector3...], "target":Vector3, "radius":float,
 ##   "every":s, "first":s, "jitter":s, "lifetime":s, "waves":[{"mobs":{"id":n}, "every_nth":int}], "name":"..."}
 @export var raid: Dictionary = {}
+@export var raids: Array = []             ## investidas extras (cidade atacada por vários lados): formato de `raid` + `side`, `if`/`unless`
+@export var assaults: Array = []          ## levas aliadas que marcham (WorldState): {from, route, target, radius, fighters {guard_id: n}, every, max, first, say, if/unless}
 @export var decor: Array = []                       ## {"kind":"grass|flower|lamp|banner|path","pos":Vector3,"size":Vector3,"color":Color}
 
 ## Dentro da cidade (sem combate de bots, troca de skills, chat de cidade)?

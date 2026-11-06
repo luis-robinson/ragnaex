@@ -98,7 +98,7 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 		e.aggro_target = -1
 		target = null
 		calm = 3.0
-		var back: Vector3 = (def.raid.get("from", e.position) as Vector3)
+		var back: Vector3 = (RaidSystem.route_def(def, e.raid_route).get("from", e.position) as Vector3)
 		cmd.move = _steer(e, sim, back, dt)
 		cmd.aim = back
 		return cmd
@@ -336,7 +336,7 @@ func _march(e: SimEntity, sim, cmd: InputCommand, dt: float) -> InputCommand:
 			goal = RaidSystem.march_point(sim, e)
 		elif not retreat:
 			# chegou ao povoado: ronda pela praça procurando briga
-			var r: float = float(sim.maps[e.map_id]["def"].raid.get("radius", 25.0)) * 0.6
+			var r: float = float(RaidSystem.route_def(sim.maps[e.map_id]["def"], e.raid_route).get("radius", 25.0)) * 0.6
 			wander_target = sim.random_walkable(sim.maps[e.map_id]["def"], goal, r)
 			cmd.move = _dir_to(e, wander_target) * 0.6
 			cmd.aim = wander_target
