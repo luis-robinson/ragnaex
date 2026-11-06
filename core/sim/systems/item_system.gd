@@ -19,6 +19,11 @@ static func enhance_cost(sim: WorldSim, it: ItemDef, current: int) -> Dictionary
 		var elf_mat := "mother_sap" if nxt >= Balance.PLUS_STAR_FROM else "elf_steel"
 		var elf_n := (nxt - Balance.PLUS_STAR_FROM + 1) if nxt >= Balance.PLUS_STAR_FROM else int((nxt + 1) / 2.0) + 1
 		return {"gold": int(Balance.PLUS_GOLD_BASE * (tier + 1) * pow(nxt, 1.5) * Balance.PLUS_ELF_GOLD_MULT), "item": elf_mat, "count": elf_n}
+	if it.is_legendary() and it.level_req >= Balance.PLUS_DAWN_LEVEL:
+		# lendários 25/30 (terceiro andar): Prata Consagrada e, do +6 em diante, Fragmento da Aurora
+		var dawn_mat := "dawn_shard" if nxt >= Balance.PLUS_STAR_FROM else "holy_silver"
+		var dawn_n := (nxt - Balance.PLUS_STAR_FROM + 1) if nxt >= Balance.PLUS_STAR_FROM else int((nxt + 1) / 2.0) + 1
+		return {"gold": int(Balance.PLUS_GOLD_BASE * (tier + 1) * pow(nxt, 1.5) * Balance.PLUS_DAWN_GOLD_MULT), "item": dawn_mat, "count": dawn_n}
 	var mat := "star_ore" if nxt >= Balance.PLUS_STAR_FROM else "iron_ore"
 	var n := (nxt - Balance.PLUS_STAR_FROM + 1) + tier if nxt >= Balance.PLUS_STAR_FROM else nxt + 1 + tier
 	return {"gold": int(Balance.PLUS_GOLD_BASE * (tier + 1) * pow(nxt, 1.5)), "item": mat, "count": n}

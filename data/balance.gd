@@ -285,6 +285,8 @@ const LEG_CHAIN_RANGE := 6.0               # salto do básico (corrente) até o 
 const LEG_WARD_TIME := 6.0
 const PLUS_ELF_LEVEL := 20                  # lendário deste nível (Glória) aprimora com materiais élficos
 const PLUS_ELF_GOLD_MULT := 0.6
+const PLUS_DAWN_LEVEL := 25                 # lendário 25+ (Bastião da Aurora) aprimora com Prata Consagrada e Fragmento da Aurora
+const PLUS_DAWN_GOLD_MULT := 0.6
 const LEGENDARY_COINS_BOSS := 2              # chefe (e Rei) solta 2 moedas lendárias; monstro comum, 1
 ## O lendário cai como Moeda Lendária; a Relicária troca: peça do tier i (LEGENDARY_LEVELS) custa i+1 moedas
 const LEGENDARY_START_MAP := "city_aldara"     # primeiro mapa: o 1º conjunto (tier de LEGENDARY_LEVELS[0]) cai mais

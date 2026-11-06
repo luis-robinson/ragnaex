@@ -655,6 +655,7 @@ func _check_zone(gd, sim) -> void:
 	_check_outlaws(gd, sim)
 	_check_world_state(gd)
 	_check_dawn_factions(gd)
+	_check_dawn_conquest(gd)
 	_check_signature(gd, sim)
 	_check_raid_tactics(gd, sim)
 	_check_equipment_slots(gd, sim, save_ref)
@@ -3008,6 +3009,56 @@ func _check_outlaws(gd, sim) -> void:
 ## vários lados (uma rota cala sozinha), leva aliada que marcha até o pátio e briga, renascimento por NPC.
 ## Terceiro andar: guarnição da Aurora (NPC lutador, sem XP, modelo próprio) e mortos-vivos das fortalezas
 ## (modelo próprio, golpe do tema); chefes completos com moedas; escudo de frente; a Luz da Aurora cura aliados.
+## Terceiro andar de ponta a ponta: o Bastião tem três fronts de investida, cada um calado pela quest da fortaleza dele;
+## portões de fortaleza em cadeia; na Fortaleza dos Ossos, antes de tudo só mortos e prisioneiros, com o Covil retomado a
+## leva da Aurora sobe a estrada, com Vorhag morto os mortos somem e o assentamento e a guarnição aparecem.
+func _check_dawn_conquest(gd) -> void:
+	var bd: MapDef = gd.maps["field_ruins"]
+	var routes := RaidSystem.routes(bd)
+	check(routes.size() == 3, "Bastião: investida pelos três lados (%d)" % routes.size())
+	var sides := routes.map(func(r): return [str(r.get("side", "")), str(r.get("unless", ""))])
+	check(sides.has(["ghoul", "dw_ghoul_boss"]) and sides.has(["bones", "dw_bones_boss"]) and sides.has(["frost", "dw_frost_boss"]), "Bastião: cada front cala com a fortaleza dele %s" % str(sides))
+	var garrison := bd.npcs.filter(func(n): return n.has("fighter"))
+	check(garrison.size() >= 24 and garrison.all(func(n): return float(n.get("respawn", 99.0)) <= 15.0 and str(n.get("model", "")).begins_with("mob_loyal_")),
+		"Bastião: guarnição da Aurora (%d) renasce em até 15 s" % garrison.size())
+	var targets := {}
+	for pt in bd.portals:
+		targets[pt["target_map"]] = pt["id"]
+	for fid in ["fort_ghoul", "fort_bones", "fort_frost", "lich_citadel"]:
+		check(targets.has(fid) and MapsCatalog.PORTAL_GATES.has(targets.get(fid, "")), "Bastião: portal com portão para %s" % fid)
+	check(MapsCatalog.PORTAL_GATES["to_fort_bones"]["quest"] == "dw_ghoul_boss" and MapsCatalog.PORTAL_GATES["to_lich_citadel"]["quest"] == "dw_frost_boss", "fortalezas abrem em cadeia")
+	# Fortaleza dos Ossos com o mundo de um personagem
+	var ws := WorldSim.new()
+	ws.load_map(gd.maps[GameData.town_map_id()])
+	var fd: MapDef = gd.maps["fort_bones"]
+	var m: Dictionary = ws.load_map(fd)
+	ws.player = ws.spawn_player(gd.classes["paladin"], "Aurora", fd.id)
+	var npc_ids := func(prefix: String) -> Array:
+		return m["entities"].filter(func(e): return e.kind == SimEntity.Kind.NPC and str(e.npc_data.get("id", "")).begins_with(prefix))
+	var undead := func() -> int:
+		return m["entities"].filter(func(e): return e.kind == SimEntity.Kind.MONSTER and e.is_alive()).size()
+	for i in 60:
+		ws.tick(0.05)
+	check(undead.call() > 10 and npc_ids.call("fort_bones_prisoner_").size() == 3 and npc_ids.call("fort_bones_settler_").is_empty(), "Ossos: antes, mortos (%d) e prisioneiros" % undead.call())
+	check(npc_ids.call("assault_").is_empty(), "Ossos: sem o Covil retomado, a Aurora não sobe")
+	ws.player.quests_completed.append("dw_ghoul_boss")
+	for i in int(10.0 * 20):
+		ws.tick(0.05)
+	var col: Array = npc_ids.call("assault_")
+	check(col.size() >= 4 and col.all(func(e): return e.guard), "Ossos: com o Covil retomado, a leva da Aurora sobe a estrada (%d)" % col.size())
+	ws.player.quests_completed.append("dw_bones_posts")     # a cadeia pede os postos antes do chefe
+	ws.player.quests_completed.append("dw_bones_boss")
+	for e in m["entities"].duplicate():
+		if e.kind == SimEntity.Kind.MONSTER:
+			e.aggro_target = -1
+	for i in 60:
+		ws.tick(0.05)
+	check(undead.call() <= 2, "Ossos: retomada, os mortos somem (%d)" % undead.call())
+	check(npc_ids.call("fort_bones_settler_").size() == 3 and npc_ids.call("fort_bones_prisoner_").is_empty(), "Ossos: assentamento no lugar dos prisioneiros")
+	check(npc_ids.call("fort_bones_g_").size() >= 4, "Ossos: guarnição da Aurora no pátio")
+	check(npc_ids.call("fort_bones_post_").size() == 4, "Ossos: postos retomados com guarda da Aurora")
+	check(not WorldState.active(ws, fd.assaults[0]), "Ossos: a leva para de subir depois da retomada")
+
 func _check_dawn_factions(gd) -> void:
 	for gid in ["guard_spearman", "guard_knight", "guard_paladin", "guard_priest", "guard_crossbow"]:
 		var g: MonsterDef = gd.monsters[gid]
@@ -4779,7 +4830,7 @@ func _check_review_fixes(gd, sim) -> void:
 	for mid in gd.maps:
 		for pt in gd.maps[mid].portals:
 			if pt.has("gate"):
-				check(pt["id"].begins_with("to_") and gd.maps[pt["target_map"]].parent_map != "" and pt["target_map"] != gd.maps[mid].parent_map or pt["target_map"] in ["field_forest", "field_ruins", "elf_city"], "portão %s só na ida" % pt["id"])
+				check(pt["id"].begins_with("to_") and gd.maps[pt["target_map"]].parent_map != "" and pt["target_map"] != gd.maps[mid].parent_map or pt["target_map"] in ["field_forest", "field_ruins", "elf_city", "fort_ghoul", "fort_bones", "fort_frost", "lich_citadel"], "portão %s só na ida" % pt["id"])
 	for x in [chief, near, mob, other, nec, ber, pal, bis]:
 		sim.despawn(x)
 
@@ -5495,7 +5546,8 @@ func _check_elf_loot(gd, sim) -> void:
 	check(c1["item"] == "elf_steel" and c6["item"] == "mother_sap", "elfos: Glória aprimora com Aço Élfico e Seiva (%s, %s)" % [c1["item"], c6["item"]])
 	var other: ItemDef = gd.items[gd.legendary_pool(cls, 25)[0]]
 	var co: Dictionary = sim.enhance_cost(other, 0)
-	check(co["item"] == "iron_ore" and int(c1["gold"]) < int(co["gold"]), "elfos: só a Glória usa material élfico, e sai mais barato em ouro")
+	check(co["item"] == "holy_silver" and int(c1["gold"]) < int(co["gold"]), "elfos: só a Glória usa material élfico; lendário 25 usa Prata Consagrada (%s)" % co["item"])
+	check(sim.enhance_cost(other, Balance.PLUS_STAR_FROM - 1)["item"] == "dawn_shard", "lendário 25: do +6 em diante, Fragmento da Aurora")
 	for iid in ["elf_steel", "mother_sap", "heartwood", "griffin_feather"]:
 		check(gd.items.has(iid), "elfos: item %s" % iid)
 	var king: MonsterDef = gd.monsters["elf_king"]

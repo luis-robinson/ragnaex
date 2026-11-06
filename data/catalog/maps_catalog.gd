@@ -44,6 +44,8 @@ static func _sp(monster: String, x: float, z: float, radius: float, count: int, 
 
 static func build() -> Array:
 	var out: Array = [_aldara(), _forest(), _ruins(), _elf_city()]
+	for fid in FORT_DEFS:
+		out.append(_fort(fid))
 	for did in DUNGEON_DEFS:
 		out.append(_dungeon(did))
 	var doors := _interior_doors(load_zone("city_aldara"))
@@ -85,14 +87,14 @@ const DAWN_ROLE_LINES := {"knight": ["Portão firme. Nenhum osso passa por aqui.
 	"crossbow": ["Do muro eu acerto o que você não alcança.", "Morcegos são os piores. Rápidos e baixos."]}
 const DAWN_RESPAWN := 12.0
 
-static func dawn_garrison(npc_pos: Dictionary) -> Array:
+static func dawn_garrison(npc_pos: Dictionary, prefix: String = "dawn_g_") -> Array:
 	var out: Array = []
 	var count := {}
 	var seed := 401
 	var ids: Array = npc_pos.keys()
 	ids.sort()
 	for nid in ids:
-		if not str(nid).begins_with("dawn_g_"):
+		if not str(nid).begins_with(prefix):
 			continue
 		var parts := str(nid).split("_")
 		var role := ""
@@ -129,6 +131,93 @@ static func dawn_services(npc_pos: Dictionary) -> Array:
 			d["model"] = n[4]
 		out.append(d)
 	return out
+
+## Fortalezas dos mortos-vivos e a Cidadela (tools/blender/zones/build_dawn_forts.py): cada uma tem a quest do chefe
+## (`quest`) que a retoma: mortos somem, nasce o assentamento (NPCs `settler`, guarnição `g`) e o assalto da seguinte sobe.
+const FORT_DEFS := {
+	"fort_ghoul": {"name": "Covil do Carniçal", "levels": Vector2i(20, 23), "quest": "dw_ghoul_boss", "posts": "dw_ghoul_posts",
+		"ground": Color(0.4, 0.38, 0.24), "ambient": Color(0.72, 0.78, 0.62), "sun": 0.75},
+	"fort_bones": {"name": "Fortaleza dos Ossos", "levels": Vector2i(23, 26), "quest": "dw_bones_boss", "posts": "dw_bones_posts",
+		"ground": Color(0.56, 0.54, 0.5), "ambient": Color(0.72, 0.72, 0.8), "sun": 0.75},
+	"fort_frost": {"name": "Torre do Mago Gélido", "levels": Vector2i(26, 29), "quest": "dw_frost_boss", "posts": "dw_frost_posts",
+		"ground": Color(0.74, 0.82, 0.9), "ambient": Color(0.75, 0.85, 1.0), "sun": 0.85},
+	"lich_citadel": {"name": "Cidadela do Lich", "levels": Vector2i(29, 30), "quest": "dw_lich", "posts": "dw_lich",
+		"ground": Color(0.32, 0.28, 0.36), "ambient": Color(0.62, 0.55, 0.78), "sun": 0.6},
+}
+## Por fortaleza: [prisioneiros (somem na retomada)], [assentamento (aparece na retomada)]: nome, papel, cor, falas.
+const FORT_NPCS := {
+	"fort_ghoul": {
+		"prisoner": [["Soldado Breno", ["Eles comem os que caem. Eu fingi estar morto três dias.", "O Gigante dorme no monte de carne, no fundo do pátio."]],
+			["Irmã Vânia", ["A Luz ainda me ouve, mesmo aqui.", "As larvas saem da barriga dele. Mate as pequenas antes."]],
+			["Caçador Ezequiel", ["Os lobos podres correm mais que você. Não fuja deles em campo aberto."]]],
+		"settler": [["Capitã Rena", "quest", ["O Covil é nosso. Daqui a Aurora marcha para o norte, contra a Fortaleza dos Ossos.", "Meus soldados sobem a estrada a cada pouco. Vá com eles."]],
+			["Ferreiro de Campo Otto", "smith", ["Ferro bento conserta o que a bile corroeu."]],
+			["Mercadora Lúcia", "merchant", ["Trouxe o que deu da cidade. Na linha de frente, tudo acaba rápido."]]],
+	},
+	"fort_bones": {
+		"prisoner": [["Sir Malcom", ["Jurei à Aurora antes de Vorhag jurar à noite. Fomos irmãos.", "O escudo deles não para golpe pelas costas."]],
+			["Escriba Tereza", ["Ele comanda pelo medo. Sem ele, os ossos se desmancham."]],
+			["Arqueiro Davi", ["Os arqueiros de osso miram em quem está parado. Mexa-se."]]],
+		"settler": [["Comandante Viana", "quest", ["A Fortaleza dos Ossos caiu. Resta a Torre ao sul, e depois o próprio Lich.", "Os adeptos usam gelo e morcegos. Fogo e luz funcionam."]],
+			["Armeira Glória", "smith", ["Osso negro derretido dá um aço que não enferruja. Quer ver?"]],
+			["Mercador Pietro", "merchant", ["Ataduras, poções e água benta. Na Torre vai precisar."]]],
+	},
+	"fort_frost": {
+		"prisoner": [["Mago Aurélio", ["Morvath foi meu mestre. Ele congelou o próprio coração para não sentir.", "A nevasca dele cobre o chão: saia do círculo azul."]],
+			["Irmã Lis", ["Os espectros somem quando ele cai. Não perca tempo com eles."]],
+			["Guarda Nuno", ["Não fique perto da torre quando o gelo começar a cantar."]]],
+		"settler": [["Paladina Sofia", "quest", ["A Torre é nossa. Agora a Cidadela: o Lich-Rei espera no trono, atrás de três portões.", "Leve um grupo. A Aurora inteira vai com você."]],
+			["Ferreira Inês", "smith", ["O frio da Torre tempera bem uma lâmina. Que ironia."]],
+			["Mercador Aldo", "merchant", ["Poções quentes, cobertores e flechas. O de sempre."]]],
+	},
+	"lich_citadel": {
+		"prisoner": [["Alma Presa", ["Ele guarda as almas da cidade antiga no trono. Liberte-nos."]], ["Cavaleiro Esquecido", ["Três portões. Cada um com a guarda de uma fortaleza."]],
+			["Velha Sacerdotisa", ["A noite tem um coração. Está no peito dele."]]],
+		"settler": [["Arauto da Aurora", "quest", ["A Cidadela caiu. A noite recua, mas não morre. Volte quando quiser caçar o que sobrou."]],
+			["Ferreiro Real Bento", "smith", ["Fragmentos da Aurora: só aqui eu consigo trabalhar o +9."]],
+			["Intendente Clara", "merchant", ["A guerra acabou para uns. Para nós, a cidade começa agora."]]],
+	},
+}
+const FORT_RESPAWN := 12.0
+
+static func fort_npcs(fid: String, npc_pos: Dictionary) -> Array:
+	var fd: Dictionary = FORT_DEFS[fid]
+	var tab: Dictionary = FORT_NPCS[fid]
+	var out: Array = []
+	for k in range(tab["prisoner"].size()):
+		var nid := "%s_prisoner_%d" % [fid, k]
+		var p: Array = npc_pos.get(nid, [0.0, 0.0, 180.0])
+		var d := _npc(nid, tab["prisoner"][k][0], float(p[0]), float(p[1]), "villager", Color(0.6, 0.55, 0.5), tab["prisoner"][k][1], float(p[2]))
+		d["unless"] = fd["quest"]
+		d["look_seed"] = 700 + k * 17 + fid.length()
+		out.append(d)
+	for k in range(tab["settler"].size()):
+		var nid := "%s_settler_%d" % [fid, k]
+		var p: Array = npc_pos.get(nid, [0.0, 0.0, 180.0])
+		var row: Array = tab["settler"][k]
+		var d := _npc(nid, row[0], float(p[0]), float(p[1]), row[1], Color(0.9, 0.85, 0.7), row[2], float(p[2]),
+			MERCHANT_SHOP + GearCatalog.shop_ids() + GearCatalog.starter_weapon_ids(GameData.items) if row[1] == "merchant" else [])
+		d["if"] = fd["quest"]
+		out.append(d)
+	# guarnição do assentamento (depois da retomada) e dos postos avançados (depois dos postos)
+	for d in dawn_garrison(npc_pos, fid + "_g_"):
+		d["if"] = fd["quest"]
+		d["respawn"] = FORT_RESPAWN
+		out.append(d)
+	for d in dawn_garrison(npc_pos, fid + "_post_"):
+		d["if"] = fd["posts"]
+		d["respawn"] = FORT_RESPAWN
+		out.append(d)
+	return out
+
+static func _fort(fid: String) -> MapDef:
+	var fd: Dictionary = FORT_DEFS[fid]
+	var z := load_zone(fid)
+	var extra := fort_npcs(fid, z["npc_pos"])
+	z.erase("npc_pos")
+	z.merge({"id": fid, "name": fd["name"], "is_town": false, "level_range": fd["levels"], "ground_color": fd["ground"], "ground_color_alt": (fd["ground"] as Color).darkened(0.08),
+		"ambient": fd["ambient"], "sun_energy": float(fd["sun"]), "bot_population": 0, "npcs": extra})
+	return _mk(z)
 
 ## NPCs dos lugares da zona `id` (cabanas e santuários).
 static func _place_npcs(id: String, npc_pos: Dictionary) -> Array:
@@ -222,7 +311,7 @@ const GATHER := {
 		["iron_ore", "ore", [-6.7, -93.6], 18.0, 6], ["crab_shell", "shell", [6.7, 111.0], 9.0, 4]],
 	"field_forest": [["forest_mushroom", "mushroom", [-44.0, 30.0], 18.0, 7], ["forest_mushroom", "mushroom", [74.0, 45.0], 15.0, 4],
 		["herb_blue", "herb_blue", [-28.0, -90.0], 14.0, 4], ["stolen_goods", "crate", [50.0, -36.0], 13.0, 6]],
-	"field_ruins": [["ancient_relic", "relic", [66.0, 84.0], 16.0, 7], ["ancient_relic", "relic", [20.0, -88.0], 12.0, 3],
+	"field_ruins": [["ancient_relic", "relic", [60.0, 80.0], 14.0, 7], ["ancient_relic", "relic", [24.0, -86.0], 10.0, 3],
 		["star_ore", "star", [-57.0, 53.0], 14.0, 5], ["iron_ore", "ore", [-80.0, -42.0], 14.0, 4]],
 	# Cidade Élfica: ervas na margem do lago, cogumelos sob o bosque dos trents, pedra-estrela no Altar da Lua
 	# e caixotes de Aço Élfico no acampamento da patrulha (guardados pelos guerreiros)
@@ -418,7 +507,14 @@ const FOREST_NPCS := {
 }
 ## Levas aliadas que marcham, por mapa e id do assalto no JSON (WorldState.update_assaults):
 ##   fighters {guard_id: n}, every (s entre levas), max (vivos ao mesmo tempo), first, say, if/unless (quests).
-const ASSAULTS := {}
+const ASSAULTS := {
+	"fort_bones": {"aurora": {"fighters": {"guard_knight": 2, "guard_spearman": 3, "guard_priest": 1}, "every": 45.0, "max": 10, "first": 6.0,
+		"if": "dw_ghoul_boss", "unless": "dw_bones_boss", "say": "Trompas da Aurora na estrada: os soldados do Covil sobem contra a Fortaleza dos Ossos!"}},
+	"fort_frost": {"aurora": {"fighters": {"guard_knight": 2, "guard_paladin": 1, "guard_crossbow": 2, "guard_priest": 1}, "every": 45.0, "max": 10, "first": 6.0,
+		"if": "dw_bones_boss", "unless": "dw_frost_boss", "say": "A Aurora marcha sobre a Torre do Mago!"}},
+	"lich_citadel": {"aurora": {"fighters": {"guard_knight": 3, "guard_paladin": 2, "guard_spearman": 2, "guard_priest": 2}, "every": 40.0, "max": 14, "first": 4.0,
+		"if": "dw_frost_boss", "unless": "dw_lich", "say": "A Ofensiva da Aurora sobe a rampa da Cidadela!"}},
+}
 
 ## Investidas por zona: levas (`every_nth` = só a cada N levas), ritmo e falas. A rota vem do JSON (Blender).
 const RAIDS := {
@@ -522,7 +618,11 @@ const PORTAL_GATES := {
 	"to_dg_catacumbas_trono": {"bosses": ["bone_captain", "wailing_widow"], "text": "O selo só cede quando o Capitão de Ossos e a Viúva Lamentosa caírem."},
 	"to_dg_pedreira_coracao": {"bosses": ["golem_ancient", "crystal_warden"], "text": "O veio está fechado: o Golem Ancestral e a Guardiã de Cristal ainda montam guarda."},
 	"to_forest": {"level": 10, "quest": "c5_report", "text": "O desfiladeiro está fechado por ordem da Capitã Mira até resolverem as Catacumbas."},
-	"to_ruins": {"level": 20, "quest": "el6_king", "text": "A passagem está vigiada: enquanto o Rei Élfico atacar a Floresta, a guarda não libera as Ruínas."},
+	"to_ruins": {"level": 20, "quest": "el6_king", "text": "A passagem está vigiada: enquanto o Rei Élfico atacar a Floresta, a guarda não libera o caminho do Bastião."},
+	"to_fort_ghoul": {"level": 20, "quest": "dw_gates", "text": "O Marechal Aldric só abre o portão oeste para quem já segurou os portões do Bastião."},
+	"to_fort_bones": {"level": 23, "quest": "dw_ghoul_boss", "text": "A Fortaleza dos Ossos: só com o Covil do Carniçal retomado a Aurora tem soldados para subir."},
+	"to_fort_frost": {"level": 26, "quest": "dw_bones_boss", "text": "A Torre do Mago: primeiro a Fortaleza dos Ossos tem de cair."},
+	"to_lich_citadel": {"level": 29, "quest": "dw_frost_boss", "text": "O selo da Cidadela só cede quando as três fortalezas forem da Aurora."},
 	"to_elf_city": {"level": 16, "text": "A garganta élfica: a Comandante Hela só deixa passar quem tem nível 16."},
 }
 const MERCHANT_SHOP := ["potion_hp_s", "potion_mp_s", "potion_hp_m", "potion_mp_m", "elixir_might", "elixir_stone", "cap_leather", "boots_leather"]

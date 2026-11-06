@@ -22,10 +22,12 @@ WALL = (0.84, 0.82, 0.76)
 ROOFS = [(0.3, 0.42, 0.7), (0.62, 0.24, 0.22), (0.36, 0.5, 0.74), (0.7, 0.58, 0.36)]
 # fronts: ângulo do portão e da garganta, cor do chão queimado, monstros do lado e a quest que o cala
 FRONTS = {
-    "ghoul": {"deg": 180.0, "ground": (0.46, 0.43, 0.26), "quest": "dw_ghoul_boss"},
-    "bones": {"deg": -90.0, "ground": (0.6, 0.58, 0.54), "quest": "dw_bones_boss"},
-    "frost": {"deg": 90.0, "ground": (0.68, 0.78, 0.86), "quest": "dw_frost_boss"},
+    "ghoul": {"deg": 180.0, "ground": (0.46, 0.43, 0.26), "quest": "dw_ghoul_boss", "fort_name": "Covil do Carniçal"},
+    "bones": {"deg": -90.0, "ground": (0.6, 0.58, 0.54), "quest": "dw_bones_boss", "fort_name": "Fortaleza dos Ossos"},
+    "frost": {"deg": 90.0, "ground": (0.68, 0.78, 0.86), "quest": "dw_frost_boss", "fort_name": "Torre do Mago Gélido"},
 }
+FORT_ARRIVE = (0.0, 96.0)       # chegada nos mapas das fortalezas (build_dawn_forts.ARRIVE_IN_FORT)
+CITADEL_DEG = -48.0
 DRAGON = (72.0, 52.0)
 DEAD_TREES = [(0.42, 0.38, 0.32), (0.5, 0.45, 0.36)]
 
@@ -179,6 +181,8 @@ def build(export=False):
         mid = H(86.0, g + 9.0)
         outer = H(RING_R + 6.0, g)
         z.road("front_" + side, [H(RING_R + 1.0, g), outer, mid, gorge_in, gorge_out], w=4.0, end_clearing=False)
+        z.portal("to_fort_" + side, gorge_out, "fort_" + side, FORT_ARRIVE, f["fort_name"])
+        print("BACK", side, gorge_in)
         z.patch("front_" + side, H(84.0, g), 26.0, f["ground"])
         for j in range(-4, 5):                            # barricada de estacas em arco, com vão na estrada
             a = g + j * 6.0
@@ -199,6 +203,11 @@ def build(export=False):
                       "unless": f["quest"]})
     z.data["raids"] = raids
 
+    # ---------- selo da Cidadela do Lich (garganta NE): abre com as três fortalezas retomadas ----------
+    cit_out, cit_in = polar(z, CITADEL_DEG, 7), polar(z, CITADEL_DEG, 18)
+    z.road("cidadela", [H(RING_R + 6.0, -90.0), H(76.0, -70.0), cit_in, cit_out], w=4.0, end_clearing=False)
+    z.portal("to_lich_citadel", cit_out, "lich_citadel", FORT_ARRIVE, "Cidadela do Lich")
+    print("BACK citadel", cit_in)
     # ---------- leste seguro: estrada de Aldara, rochedo do Dragonete ----------
     z.road("E", [H(RING_R + 1.0, 0.0), (72, 4), (88, -4), arrive, portal], end_clearing=False)
     z.road("dragao", [(72, 4), (80, 30), (DRAGON[0] - 6, DRAGON[1] - 10)])
