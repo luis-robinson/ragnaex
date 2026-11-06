@@ -10,6 +10,7 @@ enum Type { KILL, COLLECT, TALK, CRAFT, REACH }
 @export var turnin_npc: String = ""       ## NPC que recebe (vazio = o mesmo)
 @export var type: Type = Type.KILL
 @export var target_id: String = ""        ## monster_id / item_id / npc_id / item craftado / mapa ou lugar (REACH)
+@export var also_counts: Array[String] = [] ## KILL: outros monstros que também contam (ex.: qualquer elfo)
 @export var count: int = 1
 @export var level_req: int = 1
 @export var reward_xp: int = 50

@@ -58,7 +58,7 @@ static func is_complete(e: SimEntity, q: QuestDef) -> bool:
 static func on_kill(e: SimEntity, monster_id: String) -> void:
 	for qid in e.quests_active.keys():
 		var q: QuestDef = GameData.quests.get(qid)
-		if q and q.type == QuestDef.Type.KILL and q.target_id == monster_id:
+		if q and q.type == QuestDef.Type.KILL and (q.target_id == monster_id or monster_id in q.also_counts):
 			var cur := mini(int(e.quests_active[qid]) + 1, q.count)
 			e.quests_active[qid] = cur
 			Events.quest_progress.emit(e.id, qid, cur, q.count)
@@ -139,8 +139,13 @@ static func objective(e: SimEntity, q: QuestDef) -> Dictionary:
 		return _npc_spot(e, q.turnin())
 	match q.type:
 		QuestDef.Type.KILL:
-			var spot := _find(e, func(def: MapDef): return _spawner_of(def, [q.target_id]))
-			return spot if not spot.is_empty() else _find(e, func(def: MapDef): return _raid_of(def, q.target_id))
+			var ids: Array = [q.target_id] + Array(q.also_counts)
+			var spot := _find(e, func(def: MapDef): return _raid_of(def, q.target_id))     # investida primeiro (no mapa atual)
+			if spot.is_empty() or spot["map"] != e.map_id:
+				var sp := _find(e, func(def: MapDef): return _spawner_of(def, ids))
+				if not sp.is_empty() and (spot.is_empty() or sp["map"] == e.map_id):
+					spot = sp
+			return spot
 		QuestDef.Type.COLLECT:
 			var spot := _find(e, func(def: MapDef): return _gather_of(def, q.target_id))
 			if spot.is_empty():

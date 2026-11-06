@@ -11,7 +11,11 @@ const REACH := QuestDef.Type.REACH
 static func _mk(d: Dictionary) -> QuestDef:
 	var q := QuestDef.new()
 	for k in d:
-		q.set(k, d[k])
+		var cur = q.get(k)
+		if cur is Array and d[k] is Array:
+			(cur as Array).assign(d[k])     # campo Array[String]: set() com lista sem tipo falha em silêncio
+		else:
+			q.set(k, d[k])
 	return q
 
 const HUNT_GIVERS := {"city_aldara": "board", "field_forest": "stone_druid", "field_ruins": "stone_obelisk", "elf_city": "moon_altar"}
@@ -297,11 +301,12 @@ static func build() -> Array:
 		 "dialog_offer": "Ouviu as trompas? Os elfos descem pela garganta norte, atrás da Árvore-Mãe. A Comandante Hela organiza a defesa: fale com ela no quartel.",
 		 "dialog_progress": "O quartel fica no lado nordeste do Posto, perto do portão norte.", "dialog_complete": "Teo te mandou? Ótimo. Precisamos de cada arco e cada espada."},
 		{"id": "el2_defense", "title": "Segurar o Portão Norte", "giver_npc": "forest_commander", "type": KILL, "target_id": "elf_raider", "count": 24, "level_req": 15, "prereq_quest": "el1_alarm",
-		 "reward_xp": 2400, "reward_gold": 260, "reward_items": {"potion_hp_m": 3}, "map_hint": "Floresta: estrada norte (as investidas descem da garganta élfica)",
-		 "description": "Derrube 24 Batedores Élficos das investidas que atacam o Posto.",
-		 "dialog_offer": "Eles vêm em levas: batedores na frente, arqueiros atrás, linces no meio. Ajude as sentinelas e derrube vinte e quatro batedores. Cuidado: os feridos guardam a espada e puxam o arco.",
+		 "also_counts": ["elf_raider_archer", "elf_raider_mage", "elf_warrior", "elf_archer", "elf_warden"],
+		 "reward_xp": 2400, "reward_gold": 260, "reward_items": {"potion_hp_m": 3}, "map_hint": "Floresta: investidas na estrada norte, ou qualquer elfo (também na Cidade Élfica)",
+		 "description": "Derrube 24 elfos: batedores, arqueiros e magos das investidas, ou elfos em qualquer lugar.",
+		 "dialog_offer": "Eles vêm em levas: batedores na frente, arqueiros atrás, linces no meio. Ajude as sentinelas: vinte e quatro elfos a menos, onde for. Cuidado: os feridos guardam a espada e puxam o arco.",
 		 "dialog_progress": "Espere as trompas e vá para o portão norte, ou corte a leva na estrada antes que chegue.", "dialog_complete": "O portão aguentou. Agora vamos levar a guerra até eles."},
-		{"id": "el3_scout", "title": "Além da Garganta", "giver_npc": "forest_commander", "turnin_npc": "siege_scout", "type": TALK, "target_id": "siege_scout", "count": 1, "level_req": 16, "prereq_quest": "el2_defense",
+		{"id": "el3_scout", "title": "Além da Garganta", "giver_npc": "forest_commander", "turnin_npc": "siege_scout", "type": TALK, "target_id": "siege_scout", "count": 1, "level_req": 16, "prereq_quest": "el1_alarm",
 		 "reward_xp": 1300, "reward_gold": 160, "map_hint": "Cidade Élfica: acampamento do cerco (entrada sul)",
 		 "description": "Atravesse a garganta élfica e encontre a Batedora Yara no acampamento do cerco.",
 		 "dialog_offer": "Mandei a Yara na frente. Ela montou um acampamento na entrada da cidade deles. Passe pela garganta norte e encontre-a.",
@@ -325,7 +330,7 @@ static func build() -> Array:
 		 "reward_xp": 1650, "reward_gold": 180, "map_hint": "Floresta: investidas élficas (estrada norte)",
 		 "description": "Derrube 15 Linces de Guerra das investidas.", "dialog_offer": "Os linces correm na frente, saltam longe e farejam as sentinelas. Sem eles, os elfos chegam cegos.",
 		 "dialog_progress": "Eles vêm junto das investidas.", "dialog_complete": "Sem faro, sem surpresa."},
-		{"id": "els_steel", "title": "Aço que Pesa Nada", "giver_npc": "forest_smith", "type": COLLECT, "target_id": "elf_steel", "count": 5, "level_req": 16, "prereq_quest": "el2_defense",
+		{"id": "els_steel", "title": "Aço que Pesa Nada", "giver_npc": "forest_smith", "type": COLLECT, "target_id": "elf_steel", "count": 5, "level_req": 16, "prereq_quest": "el1_alarm",
 		 "reward_xp": 1740, "reward_gold": 220, "reward_items": {"elf_steel": 2}, "map_hint": "Cidade Élfica: guerreiros e arqueiros élficos",
 		 "description": "Traga 5 Aços Élficos para Gunnar estudar.", "dialog_offer": "Quero ver de perto esse aço élfico. Traga cinco e eu te mostro o que ele faz numa peça da Glória.",
 		 "dialog_progress": "Os elfos da cidade carregam. Os batedores, às vezes.", "dialog_complete": "Leve como pena! Fica com dois de volta: na Glória, isso vale ouro."},

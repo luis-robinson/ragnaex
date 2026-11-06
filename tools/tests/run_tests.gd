@@ -2877,6 +2877,13 @@ func _check_raid_tactics(gd, sim) -> void:
 	m["chars"] = [tank, healer]
 	fresh.brain.think(fresh, ws, m, 0.05)
 	check(fresh.aggro_target == healer.id, "invasor mira em quem cura")
+	# Segurar o Portão: qualquer elfo, em qualquer lugar, conta
+	var hq: QuestDef = gd.quests["el2_defense"]
+	healer.quests_active[hq.id] = 0
+	QuestSystem.on_kill(healer, "elf_warrior")
+	QuestSystem.on_kill(healer, "elf_raider_mage")
+	QuestSystem.on_kill(healer, "elf_lynx")
+	check(int(healer.quests_active[hq.id]) == 2, "Segurar o Portão: guerreiro e mago contam, lince não (%d)" % int(healer.quests_active[hq.id]))
 
 ## Todo mapa com modelo tem o GLB do Blender de verdade (uma exportação com a coleção escondida sai vazia, ~150 bytes,
 ## e o jogo mostra só o chão: o Posto ficou sem muralha assim).
@@ -5097,7 +5104,11 @@ func _check_hunter_post(gd, sim) -> void:
 		for pt in gd.maps[mid].portals:
 			gates[pt["id"]] = pt.get("gate", {})
 	check(gates.get("to_ruins", {}).get("quest", "") == "el6_king", "Ruínas: abrem com o Rei Élfico")
-	check(gates.get("to_elf_city", {}).get("quest", "") == "el2_defense", "Cidade Élfica: abre depois de segurar uma investida")
+	check(not gates.get("to_elf_city", {}).has("quest") and int(gates.get("to_elf_city", {}).get("level", 0)) == 16, "Cidade Élfica: só nível 16 (a defesa do portão não trava o avanço)")
+	check(gd.quests["el3_scout"].prereq_quest != "el2_defense", "Além da Garganta não depende de segurar o portão")
+	var hold: QuestDef = gd.quests["el2_defense"]
+	check(hold.also_counts.has("elf_warrior") and hold.also_counts.has("elf_raider_archer"), "Segurar o Portão conta qualquer elfo")
+	check(gd.quests["p6_coracao"].prereq_all.size() == 2, "Coração da Pedreira pede os dois guardiões")
 	check(gd.quests["q12_ruins"].prereq_quest == "el6_king", "cadeia: Ruínas depois do Rei Élfico")
 
 ## Criação de personagem: começo rápido nível 10 (teste do MVP) chega pronto para a Floresta.
