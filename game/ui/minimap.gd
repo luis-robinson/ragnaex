@@ -6,6 +6,9 @@ extends Control
 ## a câmera olha. Roda do mouse sobre o minimapa = zoom.
 
 const SIZE := 210.0
+var side := SIZE                      # lado em pixels (o mapa grande do M usa um lado maior)
+var big := false                      # mapa grande (M): norte para cima, mapa inteiro, nomes dos portais
+var _origin := Vector2.ZERO           # centro do desenho no mundo (jogador; no mapa grande, o centro do mapa)
 const ZOOM_MIN := 0.8
 const ZOOM_MAX := 3.2
 const C_ROAD := Color(0.78, 0.68, 0.5)
@@ -32,8 +35,8 @@ const C_GUIDE := Color(1.0, 0.85, 0.2)
 const PLACE_COLORS := {"cabin": Color(1.0, 0.85, 0.4), "camp": Color(0.95, 0.4, 0.3), "shrine": Color(0.6, 0.85, 1.0), "dungeon": Color(0.8, 0.45, 1.0)}
 
 func _ready() -> void:
-	custom_minimum_size = Vector2(SIZE, SIZE)
-	size = Vector2(SIZE, SIZE)
+	custom_minimum_size = Vector2(side, side)
+	size = Vector2(side, side)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	# recorte redondo: o painel desenha o círculo e recorta os filhos nele
 	_clip = Panel.new()
@@ -41,13 +44,13 @@ func _ready() -> void:
 	_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var st := StyleBoxFlat.new()
 	st.bg_color = C_CLIFF
-	st.set_corner_radius_all(int(SIZE / 2))
+	st.set_corner_radius_all(0 if big else int(side / 2))
 	st.anti_aliasing = true
 	_clip.add_theme_stylebox_override("panel", st)
 	_clip.clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW
 	add_child(_clip)
 	_holder = Node2D.new()
-	_holder.position = Vector2(SIZE, SIZE) * 0.5
+	_holder.position = Vector2(side, side) * 0.5
 	_clip.add_child(_holder)
 	_static = Node2D.new()
 	_static.draw.connect(_draw_static)
@@ -63,7 +66,7 @@ func _ready() -> void:
 	rs.bg_color = Color(0, 0, 0, 0)
 	rs.border_color = UiKit.BORDER
 	rs.set_border_width_all(3)
-	rs.set_corner_radius_all(int(SIZE / 2))
+	rs.set_corner_radius_all(6 if big else int(side / 2))
 	rs.anti_aliasing = true
 	ring.add_theme_stylebox_override("panel", rs)
 	add_child(ring)
@@ -77,6 +80,8 @@ func set_map(def: MapDef) -> void:
 	_static.queue_redraw()
 
 func _gui_input(event: InputEvent) -> void:
+	if big:
+		return
 	if event is InputEventMouseButton and event.pressed:
 		var mb := event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_WHEEL_UP:
@@ -101,13 +106,23 @@ func _process(delta: float) -> void:
 				_marks[e.id] = QuestSystem.npc_marker(p, e.npc_data.get("id", ""))
 		var qid: String = hud.tracked_quest() if hud else ""
 		_guide = QuestSystem.guide_point(p, GameData.quests[qid]) if GameData.quests.has(qid) else {}
-	var f := camera.forward_flat() if camera else Vector3(0, 0, -1)
-	_holder.rotation = Vector2(f.x, f.z).angle_to(Vector2(0, -1))
-	_static.position = -Vector2(p.position.x, p.position.z) * zoom
+	if big:                               # mapa inteiro, norte para cima, centrado no mapa
+		_holder.rotation = 0.0
+		zoom = side / maxf(_def.size.x, _def.size.y) * 1.02
+		_static.scale = Vector2.ONE * zoom
+		_origin = Vector2.ZERO
+	else:
+		var f := camera.forward_flat() if camera else Vector3(0, 0, -1)
+		_holder.rotation = Vector2(f.x, f.z).angle_to(Vector2(0, -1))
+		_origin = Vector2(p.position.x, p.position.z)
+	_static.position = -_origin * zoom
 	_dynamic.queue_redraw()
+	if big:
+		_north.position = Vector2(side * 0.5 - 5.0, 4.0)
+		return
 	# "N" na borda, no lado do norte do mundo (-z)
-	var n := Vector2(0, -1).rotated(_holder.rotation) * (SIZE * 0.5 - 12)
-	_north.position = Vector2(SIZE, SIZE) * 0.5 + n - Vector2(5, 9)
+	var n := Vector2(0, -1).rotated(_holder.rotation) * (side * 0.5 - 12)
+	_north.position = Vector2(side, side) * 0.5 + n - Vector2(5, 9)
 
 ## Mundo (x, z) -> coordenada local do _static (antes do zoom).
 static func _w(v: Vector3) -> Vector2:
@@ -183,14 +198,14 @@ func _draw_dynamic() -> void:
 	var p: SimEntity = Sim.player
 	if p == null:
 		return
-	var origin := Vector2(p.position.x, p.position.z)
+	var origin := _origin
 	var d := _dynamic
 	var quest_marks: Array = []
 	# investida: anel pulsante no povoado atacado (o alvo da marcha)
 	var rs: Dictionary = Sim.raid_status(p.map_id)
 	if not rs.is_empty() and rs["active"]:
 		var at := (Vector2(rs["target"].x, rs["target"].z) - origin) * zoom
-		if at.length() < SIZE * 0.5 + float(rs["radius"]) * zoom:
+		if at.length() < side * 0.5 + float(rs["radius"]) * zoom:
 			var pulse := 0.55 + 0.45 * sin(Time.get_ticks_msec() * 0.006)
 			d.draw_arc(at, float(rs["radius"]) * zoom, 0.0, TAU, 48, Color(1.0, 0.45, 0.2, 0.35 + 0.4 * pulse), 2.5, true)
 	for e in Sim.map_entities(p.map_id):
@@ -199,8 +214,8 @@ func _draw_dynamic() -> void:
 		var rel := (Vector2(e.position.x, e.position.z) - origin) * zoom
 		var mark: String = _marks.get(e.id, "")
 		if mark in ["!", "?", QuestSystem.REPEAT]:
-			rel = rel.limit_length(SIZE * 0.5 - 12.0)       # pendência longe fica na borda, apontando o rumo
-		if rel.length() > SIZE * 0.5:
+			rel = rel.limit_length(side * 0.5 - 12.0)       # pendência longe fica na borda, apontando o rumo
+		if rel.length() > side * 0.5:
 			continue
 		match e.kind:
 			SimEntity.Kind.MONSTER:
@@ -231,12 +246,54 @@ func _draw_dynamic() -> void:
 	for qm in quest_marks:
 		_draw_quest_mark(d, qm[0], qm[1])
 	_draw_guide(d, origin)
-	# jogador: seta na direção em que encara (girada junto com o mapa)
+	if big:
+		_draw_labels(d, origin)
+	# jogador: seta na direção em que encara (girada junto com o mapa); no mapa grande, maior e onde ele está
+	var pp := (Vector2(p.position.x, p.position.z) - origin) * zoom
+	var k := 1.6 if big else 1.0
 	var fwd := Vector2(sin(p.facing), cos(p.facing))
-	var side := Vector2(-fwd.y, fwd.x)
-	var tip := fwd * 8.0
-	d.draw_colored_polygon(PackedVector2Array([tip, -fwd * 4.0 + side * 5.0, -fwd * 1.5, -fwd * 4.0 - side * 5.0]), Color(1, 1, 1))
-	d.draw_polyline(PackedVector2Array([tip, -fwd * 4.0 + side * 5.0, -fwd * 1.5, -fwd * 4.0 - side * 5.0, tip]), Color(0.1, 0.1, 0.1), 1.2, true)
+	var sd := Vector2(-fwd.y, fwd.x)
+	var tip := pp + fwd * 8.0 * k
+	var poly := PackedVector2Array([tip, pp - fwd * 4.0 * k + sd * 5.0 * k, pp - fwd * 1.5 * k, pp - fwd * 4.0 * k - sd * 5.0 * k])
+	d.draw_colored_polygon(poly, Color(1, 1, 1))
+	poly.append(tip)
+	d.draw_polyline(poly, Color(0.1, 0.1, 0.1), 1.2, true)
+
+## Mapa grande: nome de cada portal (para onde leva) e dos lugares com NPC.
+func _draw_labels(d: Node2D, origin: Vector2) -> void:
+	var font: Font = UiKit.mark_font()
+	var used: Array = []                  # nomes não se sobrepõem: tenta acima, abaixo e dos lados; senão pula
+	for pt in _def.portals:
+		var rel := (Vector2(pt["pos"].x, pt["pos"].z) - origin) * zoom
+		d.draw_circle(rel, 5.0, Color(0.75, 0.55, 1.0))
+		if str(pt.get("target_map", "")).begins_with("in_"):
+			continue                          # porta de casa: só o ponto (nome embolava o centro da vila)
+		var txt := "➜ " + str(pt.get("label", ""))
+		var w := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
+		for off in [Vector2(-w * 0.5, -10.0), Vector2(-w * 0.5, 22.0), Vector2(-w - 10.0, 5.0), Vector2(10.0, 5.0)]:
+			var at: Vector2 = rel + off
+			at.x = clampf(at.x, -side * 0.5 + 4.0, side * 0.5 - w - 4.0)
+			var r := Rect2(at - Vector2(2, 14), Vector2(w + 4, 18))
+			if used.any(func(u): return (u as Rect2).intersects(r)):
+				continue
+			used.append(r)
+			d.draw_string_outline(font, at, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, 4, Color(0.05, 0.03, 0.08))
+			d.draw_string(font, at, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0.92, 0.85, 1.0))
+			break
+	for e in Sim.map_entities(Sim.player.map_id):
+		if e.kind != SimEntity.Kind.NPC or e.guard or e.npc_data.get("role", "") in ["villager", "guard", ""]:
+			continue
+		var rel := (Vector2(e.position.x, e.position.z) - origin) * zoom
+		var nm: String = e.name
+		var w := font.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+		for off in [Vector2(-w * 0.5, 16.0), Vector2(-w * 0.5, -8.0), Vector2(8.0, 4.0), Vector2(-w - 8.0, 4.0)]:
+			var r := Rect2(rel + off - Vector2(2, 12), Vector2(w + 4, 15))
+			if used.any(func(u): return (u as Rect2).intersects(r)):
+				continue
+			used.append(r)
+			d.draw_string_outline(font, rel + off, nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 3, Color(0.05, 0.04, 0.03))
+			d.draw_string(font, rel + off, nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1.0, 0.95, 0.8))
+			break
 
 ## Seta amarela da quest rastreada: longe = presa na borda apontando o rumo; perto = sobre o ponto
 ## (ponta para baixo, sempre de pé) com um anel. Objetivo noutro mapa aponta para o portal do caminho.
@@ -246,7 +303,7 @@ func _draw_guide(d: Node2D, origin: Vector2) -> void:
 	var gp: Vector3 = _guide["pos"]
 	var rel := (Vector2(gp.x, gp.z) - origin) * zoom
 	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.006)
-	var edge := SIZE * 0.5 - 14.0
+	var edge := side * 0.5 - 14.0
 	var dir: Vector2
 	var at: Vector2
 	if rel.length() > edge:

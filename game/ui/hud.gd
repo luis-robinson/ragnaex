@@ -108,6 +108,8 @@ func on_game_started() -> void:
 	refresh_party()
 
 func on_map_changed(def: MapDef) -> void:
+	if world_map != null:
+		toggle_world_map()                  # trocou de mapa: o mapa grande fecha (abre de novo no novo mapa com M)
 	if minimap:
 		minimap.set_map(def)
 	if map_label:
@@ -326,7 +328,7 @@ func _build_top_right() -> void:
 	minimap.hud = self
 
 func _build_hints() -> Label:
-	hint_label = UiKit.label("WASD mover · LMB atacar · RMB bloquear · Shift dash\n1-6 skills · F1-F3 poções · Espaço pular · F interagir\nQ/E girar câmera · Enter chat · F11 tela cheia\nI bolsa · C personagem · K skills · L quests · P grupo · G retorno", 12, UiKit.MUTED)
+	hint_label = UiKit.label("WASD mover · LMB atacar · RMB bloquear · Shift dash\n1-6 skills · F1-F3 poções · Espaço pular · F interagir\nQ/E girar câmera · Enter chat · F11 tela cheia\nI bolsa · C personagem · K skills · L quests · P grupo · M mapa · G retorno", 12, UiKit.MUTED)
 	hint_label.custom_minimum_size.x = SIDE_W
 	hint_label.size_flags_vertical = Control.SIZE_SHRINK_END
 	hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -526,6 +528,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		chat_input.grab_focus()
 		get_viewport().set_input_as_handled()
 		return
+	if event.is_action_pressed("ui_cancel") and world_map != null:
+		toggle_world_map()
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed("ui_cancel"):
 		if _chat_focus:
 			chat_input.release_focus()
@@ -541,12 +547,51 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if _chat_focus:
 		return
+	if event is InputEventKey and event.pressed and not event.echo and (event as InputEventKey).physical_keycode == KEY_M:
+		toggle_world_map()
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed("ui_inventory"): windows_script.toggle("inventory")
 	elif event.is_action_pressed("ui_character"): windows_script.toggle("character")
 	elif event.is_action_pressed("ui_skills"): windows_script.toggle("skills")
 	elif event.is_action_pressed("ui_quests"): windows_script.toggle("quests")
 	elif event.is_action_pressed("ui_party"): windows_script.toggle("party")
 	_update_blocking()
+
+## Mapa em tela cheia (M): o minimapa em modo grande, norte para cima, mapa inteiro, portais com nome. M ou Esc fecha.
+var world_map: Control = null
+
+func toggle_world_map() -> void:
+	if world_map != null:
+		world_map.queue_free()
+		world_map = null
+		return
+	var vp := get_viewport().get_visible_rect().size
+	var shade := ColorRect.new()
+	shade.color = Color(0.02, 0.02, 0.04, 0.78)
+	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	root.add_child(shade)
+	var box := VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.set_anchors_preset(Control.PRESET_FULL_RECT)
+	shade.add_child(box)
+	var def: MapDef = GameData.maps.get(Sim.player.map_id)
+	var title := UiKit.label("%s  (Lv %d-%d)" % [def.name, def.level_range.x, def.level_range.y] if def else "Mapa", 22, UiKit.GOLD)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(title)
+	var mm := Minimap.new()
+	mm.big = true
+	mm.side = floorf(minf(vp.x, vp.y) * 0.84)
+	mm.hud = self
+	mm.camera = main.camera
+	mm.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	box.add_child(mm)
+	mm.set_map(def)
+	var hint := UiKit.label("M ou Esc fecha · ➜ portais · ! ? quests · losango azul = cristal · vermelho = monstros · verde = seu grupo", 13, UiKit.MUTED)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(hint)
+	world_map = shade
 
 func _update_blocking() -> void:
 	if main and main.controller:

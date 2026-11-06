@@ -702,7 +702,10 @@ static func load_zone(id: String) -> Dictionary:
 		obs.append(c)
 	var portals: Array = []
 	for p in z["portals"]:
-		portals.append(_portal(p["id"], float(p["pos"][0]), float(p["pos"][1]), p["target_map"], float(p["target_pos"][0]), float(p["target_pos"][1]), p["label"]))
+		var label: String = p["label"]
+		if p["target_map"] == "field_ruins" and label.begins_with("Ruínas"):
+			label = "Bastião da Aurora (Lv 20-30)"     # as Ruínas viraram o Bastião (o JSON de Aldara guarda o nome antigo)
+		portals.append(_portal(p["id"], float(p["pos"][0]), float(p["pos"][1]), p["target_map"], float(p["target_pos"][0]), float(p["target_pos"][1]), label))
 		if PORTAL_GATES.has(p["id"]):
 			portals[-1]["gate"] = PORTAL_GATES[p["id"]]
 	var spawners: Array = []

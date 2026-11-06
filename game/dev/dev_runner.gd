@@ -126,6 +126,9 @@ func after_start() -> void:
 	if showcase:
 		main.camera.distance = 9.0
 		main.add_child(showcase)
+	if DevArgs.flag("--map_shot"):  # foto do mapa em tela cheia (M) e sai
+		_smoke_test = false
+		_map_shot.call_deferred(DevArgs.value("--map_shot"))
 	if DevArgs.flag("--quests"):    # começa com estas quests concluídas (revisar conquista: --quests=dw_ghoul_boss)
 		for qid in DevArgs.value("--quests").split(","):
 			if not Sim.player.quests_completed.has(qid):
@@ -497,6 +500,15 @@ func _demo_shot() -> void:
 	await get_tree().create_timer(2.0).timeout
 	if _shot_path != "":
 		get_viewport().get_texture().get_image().save_png(_shot_path)
+	get_tree().quit()
+
+func _map_shot(path: String) -> void:
+	await get_tree().create_timer(2.0).timeout
+	main.hud.toggle_world_map()
+	await get_tree().create_timer(1.0).timeout
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(path)
+	print("MAP_SHOT ", path)
 	get_tree().quit()
 
 func _perf_run() -> void:
