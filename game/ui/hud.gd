@@ -9,10 +9,8 @@ var root: Control
 var name_label: Label
 var hp_bar: ProgressBar
 var mp_bar: ProgressBar
-var xp_bar: ProgressBar
 var hp_text: Label
 var mp_text: Label
-var xp_text: Label
 var gold_label: Label
 var map_label: Label
 # hotbar
@@ -144,15 +142,9 @@ func _build_top_left() -> void:
 	mp_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mp_bar.add_child(mp_text)
 	v.add_child(mp_bar)
-	xp_bar = UiKit.bar(Color(0.95, 0.8, 0.3), 8)
-	v.add_child(xp_bar)
-	var h := HBoxContainer.new()
-	v.add_child(h)
-	xp_text = UiKit.label("", 11, UiKit.MUTED)
-	h.add_child(xp_text)
-	xp_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	gold_label = UiKit.label("", 12, UiKit.GOLD)
-	h.add_child(gold_label)
+	gold_label = UiKit.label("", 12, UiKit.GOLD)          # XP fica na barra de ações, embaixo
+	gold_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	v.add_child(gold_label)
 	buffs_box = HBoxContainer.new()
 	buffs_box.add_theme_constant_override("separation", 5)
 	v.add_child(buffs_box)
@@ -175,31 +167,31 @@ func _build_bottom_row() -> void:
 	row.add_child(_build_hotbar())
 	row.add_child(_build_hints())
 
-func _build_hotbar() -> HBoxContainer:
-	var bar := HBoxContainer.new()
-	bar.alignment = BoxContainer.ALIGNMENT_CENTER
-	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bar.size_flags_vertical = Control.SIZE_SHRINK_END
-	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bar.add_theme_constant_override("separation", 8)
+var action_bar: ActionBar
+
+## Barra de ações no centro de baixo (ActionBar): skills 1-6, poções F1-F3, atalhos e XP.
+func _build_hotbar() -> Control:
+	action_bar = ActionBar.new()
+	action_bar.hud = self
+	action_bar.build()
+	skill_slots = action_bar.skill_slots
+	potion_slots = action_bar.potion_slots
 	for i in range(6):
-		var s := _slot("%d" % (i + 1), 56)
-		bar.add_child(s["root"])
-		skill_slots.append(s)
+		var s: Dictionary = skill_slots[i]
 		# arrastar: da janela K (ou de outro slot) para cá; botão direito tira da barra
 		s["root"].set_drag_forwarding(_drag_skill_slot.bind(i), _can_drop_skill_slot, _drop_skill_slot.bind(i))
 		s["root"].gui_input.connect(_slot_right_click.bind("skill", i))
-	var sep := Control.new()
-	sep.custom_minimum_size.x = 26
-	bar.add_child(sep)
 	for i in range(3):
-		var s := _slot("F%d" % (i + 1), 44)
-		bar.add_child(s["root"])
-		potion_slots.append(s)
+		var s: Dictionary = potion_slots[i]
 		# arrastar: poção da bolsa (ou de outro F) para cá; botão direito esvazia
 		s["root"].set_drag_forwarding(_drag_potion_slot.bind(i), _can_drop_potion_slot, _drop_potion_slot.bind(i))
 		s["root"].gui_input.connect(_slot_right_click.bind("potion", i))
-	return bar
+	var wrap := CenterContainer.new()             # centraliza a moldura entre o chat e as dicas
+	wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	wrap.size_flags_vertical = Control.SIZE_SHRINK_END
+	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrap.add_child(action_bar)
+	return wrap
 
 ## Ícone que segue o mouse no arrastar (skill ou item).
 func _drag_icon(c: Control, at: Control) -> void:
@@ -265,52 +257,6 @@ func _slot_right_click(event: InputEvent, kind: String, i: int) -> void:
 	else:
 		Sim.set_potion_slot(Sim.player, i, "")
 	get_viewport().set_input_as_handled()
-
-func _slot(key: String, size: int) -> Dictionary:
-	var p := PanelContainer.new()
-	var st := UiKit.panel_style(UiKit.BG, UiKit.BORDER, 4, 1)
-	st.set_content_margin_all(5)
-	p.add_theme_stylebox_override("panel", st)
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 2)
-	p.add_child(v)
-	var box := Control.new()
-	box.custom_minimum_size = Vector2(size, size)
-	v.add_child(box)
-	var icon := ColorRect.new()
-	icon.color = Color(0.2, 0.2, 0.25)
-	icon.set_anchors_preset(Control.PRESET_FULL_RECT)
-	box.add_child(icon)
-	var cd := ColorRect.new()
-	cd.color = Color(0, 0, 0, 0.65)
-	cd.set_anchors_preset(Control.PRESET_FULL_RECT)
-	cd.visible = false
-	box.add_child(cd)
-	var tex := TextureRect.new()                 # ícone da skill, por baixo da sombra de recarga
-	tex.set_anchors_preset(Control.PRESET_FULL_RECT)
-	tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(tex)
-	box.move_child(tex, cd.get_index())
-	var cdt := UiKit.label("", 16)
-	cdt.set_anchors_preset(Control.PRESET_FULL_RECT)
-	cdt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	cdt.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	box.add_child(cdt)
-	var k := UiKit.label(key, 11, UiKit.GOLD)
-	k.position = Vector2(3, 1)
-	box.add_child(k)
-	var lv := UiKit.label("", 10, Color(0.8, 1, 0.8))
-	# canto superior direito (o inferior é dos selos do ícone: buff, dano no tempo); offsets relativos à âncora
-	lv.anchor_left = 1.0; lv.anchor_right = 1.0; lv.anchor_top = 0.0; lv.anchor_bottom = 0.0
-	lv.offset_left = -30; lv.offset_right = -3; lv.offset_top = 1; lv.offset_bottom = 17
-	lv.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	box.add_child(lv)
-	# sem nome embaixo (não cabia): o nome aparece passando o mouse
-	for c in p.find_children("*", "Control", true, false):      # só o painel recebe o mouse (arrastar/soltar, botão direito)
-		(c as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return {"root": p, "icon": icon, "tex": tex, "cd": cd, "cdt": cdt, "lv": lv}
 
 func _build_chat() -> PanelContainer:
 	var p := UiKit.panel(Color(0.05, 0.05, 0.08, 0.6), Color(0.3, 0.28, 0.35))
@@ -401,7 +347,7 @@ func _build_top_right() -> void:
 	minimap.hud = self
 
 func _build_hints() -> Label:
-	hint_label = UiKit.label("WASD mover · LMB atacar · RMB bloquear · Shift dash\n1-6 skills · F1-F3 poções · Espaço pular · F interagir\nQ/E girar câmera · Enter chat · F11 tela cheia\nI bolsa · C personagem · K skills · L quests · P grupo · M mapa · G retorno", 12, UiKit.MUTED)
+	hint_label = UiKit.label("WASD mover · LMB atacar · RMB bloquear · Shift dash\n1-6 skills · F1-F3 poções · Espaço pular · F interagir\nQ/E girar câmera · Enter chat · F11 tela cheia\nG retorno · arraste skills e poções para a barra", 12, UiKit.MUTED)
 	hint_label.custom_minimum_size.x = SIDE_W
 	hint_label.size_flags_vertical = Control.SIZE_SHRINK_END
 	hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -432,27 +378,28 @@ func _process(_delta: float) -> void:
 	mp_bar.max_value = p.stats.max_mp
 	mp_bar.value = p.mp
 	mp_text.text = "%d / %d" % [int(p.mp), int(p.stats.max_mp)]
-	var need := Balance.xp_for_level(p.level)
-	xp_bar.max_value = maxi(need, 1)
-	xp_bar.value = p.xp if need > 0 else 1
-	xp_text.text = "XP %d / %d" % [p.xp, need] if need > 0 else "Nível máximo"
+	action_bar.set_xp(p.level, p.xp, Balance.xp_for_level(p.level))
 	gold_label.text = "%d ouro" % p.gold
 	# hotbar
 	for i in range(6):
 		var s: Dictionary = skill_slots[i]
 		var sk: SkillDef = p.skills[i] if i < p.skills.size() else null
 		if sk == null:
-			s["icon"].color = Color(0.2, 0.2, 0.25)
+			s["icon"].color = Color(0.1, 0.1, 0.12)
 			s["tex"].texture = null
 			s["cd"].visible = false
 			s["cdt"].text = ""
+			s["sweep"].set_frac(0.0)
+			s["bevel"].set_empty(true)
 			continue
+		s["bevel"].set_empty(false)
 		# arma errada para a skill (ex.: Muralha de Escudo sem escudo) = cinza com ✖
 		var no_weapon := not p.stats.meets(sk.requires)
 		var cd := float(p.cooldowns.get(sk.id, 0.0))
 		var no_mp := p.mp < sk.mp_cost_at(p.mastery_of(sk.id))
-		s["cd"].visible = cd > 0.0 or no_weapon or no_mp
-		s["cdt"].text = "✖" if no_weapon else ("%.1f" % cd if cd > 0.0 else ("MP" if no_mp else ""))
+		s["cd"].visible = no_weapon or (no_mp and cd <= 0.0)
+		s["sweep"].set_frac(_cd_frac(s, cd))
+		s["cdt"].text = "✖" if no_weapon else (_cd_text(cd) if cd > 0.0 else ("MP" if no_mp else ""))
 		s["cdt"].add_theme_color_override("font_color", Color(1, 0.4, 0.4) if no_weapon else UiKit.TEXT)
 		s["icon"].color = sk.icon_color.darkened(0.6) if no_weapon else sk.icon_color
 		s["tex"].texture = UiKit.icon_texture("skill_" + sk.id)
@@ -468,8 +415,10 @@ func _process(_delta: float) -> void:
 		s["root"].tooltip_text = ("%s
 Arraste outra poção da bolsa para cá · botão direito esvazia" % it.name) if it else "Arraste uma poção da bolsa (I) para cá"
 		s["lv"].text = str(count) if it else ""
-		s["cd"].visible = p.potion_cd > 0.0 or count == 0
-		s["cdt"].text = "%.1f" % p.potion_cd if p.potion_cd > 0.0 else ("" if count > 0 else "0")
+		s["cd"].visible = count == 0 and it != null
+		s["sweep"].set_frac(_cd_frac(s, p.potion_cd) if it else 0.0)
+		s["bevel"].set_empty(it == null)
+		s["cdt"].text = _cd_text(p.potion_cd) if p.potion_cd > 0.0 and it else ""
 	_update_party_frames()
 	_update_status_bar(p)
 
@@ -584,6 +533,18 @@ func _buff_source(id: String) -> Dictionary:
 	if STATUS_NAMES.has(id):
 		return {"tex": UiKit.icon_texture("status_" + id), "name": STATUS_NAMES[id][0], "desc": STATUS_NAMES[id][1]}
 	return {"tex": UiKit.icon_texture("status_buff"), "name": id.capitalize(), "desc": ""}
+
+## Fração da recarga que falta: o maior valor visto desde que começou é o total (serve para skill e poção).
+func _cd_frac(s: Dictionary, cd: float) -> float:
+	if cd <= 0.0:
+		s["cd_max"] = 0.0
+		return 0.0
+	if cd > float(s.get("cd_max", 0.0)):
+		s["cd_max"] = cd
+	return cd / maxf(float(s["cd_max"]), 0.01)
+
+func _cd_text(cd: float) -> String:
+	return "%.1f" % cd if cd < 3.0 else str(ceili(cd))
 
 func _refresh_hotbar_names() -> void:
 	var p: SimEntity = Sim.player

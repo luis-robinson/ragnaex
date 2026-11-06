@@ -645,6 +645,7 @@ func _check_zone(gd, sim) -> void:
 	_check_quest_guide(gd, sim)
 	_check_roteiro(gd, sim)
 	_check_hotbar_drag(gd, sim)
+	_check_action_bar(gd, sim)
 	_check_summon_ai(gd, sim)
 	_check_bind_crystal(gd, sim, save_ref)
 	_check_quarry(gd, sim)
@@ -3668,6 +3669,19 @@ func _check_hotbar_drag(gd, sim) -> void:
 		sim.set_skill_slot(p, 0, a); sim.set_skill_slot(p, 1, b2)
 		check(sim.set_skill_slot(p, 1, a) and p.skills[1].id == a and p.skills[0] != null and p.skills[0].id == b2, "skill arrastada para slot ocupado troca de lugar")
 	sim.despawn(p)
+
+## Barra de ações: 6 skills + 3 poções + 7 atalhos, XP com gomos e o nível no brasão.
+func _check_action_bar(_gd, _sim) -> void:
+	var bar := ActionBar.new()
+	bar.build()
+	check(bar.skill_slots.size() == 6 and bar.potion_slots.size() == 3, "barra: 6 skills e 3 poções")
+	check(bar.skill_slots[0].has("sweep") and bar.skill_slots[0].has("bevel"), "barra: botão com recarga em leque")
+	bar.set_xp(12, 250, 1000)
+	check(is_equal_approx(bar.xp.frac, 0.25) and bar.xp.text.contains("25%") and bar.level_cap.value == "12", "barra: XP 25% e nível 12 no brasão")
+	bar.set_xp(30, 0, 0)
+	check(bar.xp.frac == 1.0 and bar.xp.text.contains("máximo"), "barra: nível máximo")
+	check(ActionBar.MICRO.size() == 7, "barra: atalhos I C K L P M Esc")
+	bar.free()
 
 ## Aba Roteiro da janela L: os três guias existem e viram BBCode legível (títulos, linhas de tabela, sem separador).
 func _check_roteiro(gd, sim) -> void:
