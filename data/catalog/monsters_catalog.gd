@@ -58,11 +58,21 @@ static func build() -> Array:
 		# ---- Cerco élfico (lv 14-21): investidas na Floresta e a Cidade Élfica ----
 		# investida (RaidSystem): rápidos, marcham do portal élfico até o Posto dos Caçadores
 		{"id": "elf_raider", "name": "Batedor Élfico", "level": 16, "hp": 255, "atk": 36, "def": 9, "mdef": 9, "move_speed": 5.6, "attack_range": 1.8, "attack_cooldown": 1.0, "attack_startup": 0.25, "xp": 74, "aggro_range": 10.0, "leash_range": 20.0,
-		 "radius": 0.45, "scale": 1.0, "color": Color(0.45, 0.7, 0.4), "shape": "capsule", "loot_table": "lt_elf_raid", "gold_min": 10, "gold_max": 22, "model": "mob_elf_warrior", "skill_ids": ["mob_elf_lunge"] as Array[String]},
+		 "radius": 0.45, "scale": 1.0, "color": Color(0.45, 0.7, 0.4), "shape": "capsule", "loot_table": "lt_elf_raid", "gold_min": 10, "gold_max": 22, "model": "mob_elf_warrior", "skill_ids": ["mob_elf_lunge"] as Array[String],
+		 "swap": {"hp": 0.4, "as": "elf_raider_archer", "stance": "bow"}},
 		{"id": "elf_raider_archer", "name": "Arqueiro Batedor", "level": 16, "hp": 195, "atk": 39, "def": 6, "mdef": 8, "move_speed": 5.4, "attack_range": 9.0, "attack_cooldown": 1.5, "attack_startup": 0.4, "xp": 74, "aggro_range": 11.0, "leash_range": 20.0, "ranged": true,
 		 "radius": 0.45, "scale": 1.0, "color": Color(0.55, 0.78, 0.45), "shape": "capsule", "loot_table": "lt_elf_raid", "gold_min": 10, "gold_max": 22, "model": "mob_elf_archer", "skill_ids": ["mob_root_arrow"] as Array[String]},
 		{"id": "elf_lynx", "name": "Lince de Guerra", "level": 15, "hp": 180, "atk": 32, "def": 6, "mdef": 5, "move_speed": 6.2, "attack_range": 1.6, "attack_cooldown": 0.9, "attack_startup": 0.2, "xp": 59, "aggro_range": 9.0, "leash_range": 20.0,
-		 "radius": 0.5, "scale": 1.05, "color": Color(0.7, 0.6, 0.35), "shape": "box", "loot_table": "lt_elf_lynx", "gold_min": 4, "gold_max": 10, "model": "mob_elf_lynx", "skill_ids": ["mob_pounce"] as Array[String]},
+		 "radius": 0.5, "scale": 1.05, "color": Color(0.7, 0.6, 0.35), "shape": "box", "loot_table": "lt_elf_lynx", "gold_min": 4, "gold_max": 10, "model": "mob_elf_lynx", "skill_ids": ["mob_pounce", "mob_lynx_leap"] as Array[String]},
+		{"id": "elf_raider_mage", "name": "Mago Élfico", "level": 16, "hp": 210, "atk": 16, "matk": 42, "def": 5, "mdef": 12, "move_speed": 5.0, "attack_range": 8.5, "attack_cooldown": 1.7, "attack_startup": 0.45, "xp": 78, "aggro_range": 12.0, "leash_range": 20.0, "ranged": true,
+		 "radius": 0.45, "scale": 1.0, "color": Color(0.85, 0.9, 0.82), "shape": "capsule", "loot_table": "lt_elf_raid", "gold_min": 10, "gold_max": 24, "model": "mob_elf_mage",
+		 "skill_ids": ["mob_light_beam", "mob_raise_wisps"] as Array[String]},
+		{"id": "griffin_raider", "name": "Grifo de Guerra", "level": 17, "hp": 360, "atk": 38, "def": 9, "mdef": 8, "move_speed": 6.0, "attack_range": 1.8, "attack_cooldown": 1.2, "attack_startup": 0.3, "xp": 96, "aggro_range": 12.0, "leash_range": 22.0,
+		 "radius": 0.6, "scale": 0.95, "color": Color(0.85, 0.66, 0.38), "shape": "box", "loot_table": "lt_elf_raid", "gold_min": 12, "gold_max": 26, "model": "mob_griffin",
+		 "skill_ids": ["mob_dive"] as Array[String]},
+		# invocação dos magos élficos (0 XP; some quando o mago cai)
+		{"id": "elf_wisp", "name": "Espírito da Mata", "level": 15, "hp": 120, "atk": 12, "matk": 26, "def": 4, "mdef": 10, "move_speed": 5.4, "attack_range": 6.0, "attack_cooldown": 1.5, "xp": 0, "aggro_range": 14.0, "leash_range": 30.0, "ranged": true,
+		 "radius": 0.4, "scale": 0.7, "color": Color(0.5, 1.0, 0.6), "shape": "capsule", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_elemental_storm"},
 		# Cidade Élfica
 		{"id": "elf_warrior", "name": "Guerreiro Élfico", "level": 18, "hp": 635, "atk": 42, "def": 13, "mdef": 11, "move_speed": 5.6, "attack_range": 1.9, "attack_cooldown": 1.0, "attack_startup": 0.25, "xp": 153, "aggro_range": 10.0,
 		 "radius": 0.45, "scale": 1.0, "color": Color(0.4, 0.62, 0.42), "shape": "capsule", "loot_table": "lt_elf", "gold_min": 14, "gold_max": 30, "model": "mob_elf_warrior", "skill_ids": ["mob_elf_lunge"] as Array[String]},
@@ -186,9 +196,9 @@ static func build() -> Array:
 		{"id": "griffin_young", "name": "Grifo Jovem", "level": 19, "hp": 300, "atk": 36, "def": 9, "mdef": 8, "move_speed": 6.0, "attack_range": 1.8, "attack_cooldown": 1.2, "xp": 0, "aggro_range": 14.0, "leash_range": 40.0,
 		 "radius": 0.6, "scale": 1.05, "color": Color(0.9, 0.8, 0.55), "shape": "box", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_griffin"},
 		# ---- sentinelas do Posto dos Caçadores (NPC com `fighter`; atributos e alcance daqui, visual do kit) ----
-		{"id": "guard_archer", "name": "Caçadora do Posto", "level": 18, "hp": 600, "atk": 32, "def": 14, "mdef": 12, "move_speed": 4.8, "attack_range": 10.0, "attack_cooldown": 1.5, "attack_startup": 0.4, "xp": 0, "ranged": true,
+		{"id": "guard_archer", "name": "Caçadora do Posto", "level": 18, "hp": 1050, "atk": 40, "def": 18, "mdef": 12, "move_speed": 4.8, "attack_range": 10.0, "attack_cooldown": 1.5, "attack_startup": 0.4, "xp": 0, "ranged": true,
 		 "radius": 0.45, "scale": 1.0, "color": Color(0.45, 0.55, 0.35), "shape": "capsule", "loot_table": "", "gold_min": 0, "gold_max": 0},
-		{"id": "guard_warrior", "name": "Soldado do Posto", "level": 18, "hp": 900, "atk": 29, "def": 20, "mdef": 14, "move_speed": 4.8, "attack_range": 1.9, "attack_cooldown": 1.2, "attack_startup": 0.3, "xp": 0,
+		{"id": "guard_warrior", "name": "Soldado do Posto", "level": 18, "hp": 1700, "atk": 37, "def": 27, "mdef": 14, "move_speed": 4.8, "attack_range": 1.9, "attack_cooldown": 1.2, "attack_startup": 0.3, "xp": 0,
 		 "radius": 0.45, "scale": 1.0, "color": Color(0.5, 0.5, 0.58), "shape": "capsule", "loot_table": "", "gold_min": 0, "gold_max": 0},
 		# ---- companheiro do Ranger Caçador (vida/ataque vêm do dono) ----
 		{"id": "companion", "name": "Lince", "level": 1, "hp": 100, "atk": 10, "def": 5, "mdef": 5, "move_speed": 6.4, "attack_range": 1.6, "attack_cooldown": 0.9, "xp": 0,

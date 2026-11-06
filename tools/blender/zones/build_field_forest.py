@@ -103,12 +103,13 @@ def build(export=False):
     z.npc("forest_smith", *H(9.0, -140.0), 40.0)
     z.npc("forest_merchant", *H(8.5, 45.0), -135.0)
     z.npc("forest_alchemist", *H(6.5, 160.0), -20.0)
-    for i, a in enumerate((-90.0, 180.0, 0.0, 90.0)):                    # soldados nos portões (dois no norte, de onde vêm os elfos)
+    for i, a in enumerate((-90.0, 180.0, 0.0, 90.0)):                    # soldados nos portões (quatro no norte, de onde vêm os elfos)
         g = math.radians(a)
-        for k, sgn in enumerate((-1, 1) if a == -90.0 else (1,)):
+        offs = (-3.3, -1.1, 1.1, 3.3) if a == -90.0 else (-2.0, 2.0)
+        for k, off in enumerate(offs):
             px, pz = H(CAMP_R - 4.0, a)
-            z.npc("guard_w_%d_%d" % (i, k), px - math.sin(g) * 2.0 * sgn, pz + math.cos(g) * 2.0 * sgn, (a + 180.0) % 360.0 - 180.0)
-    for i, a in enumerate((-135.0, -45.0, 45.0, 135.0)):                 # caçadoras junto às torres
+            z.npc("guard_w_%d_%d" % (i, k), px - math.sin(g) * off, pz + math.cos(g) * off, (a + 180.0) % 360.0 - 180.0)
+    for i, a in enumerate((-135.0, -45.0, 45.0, 135.0, -112.0, -68.0, 22.0, 158.0)):   # caçadoras no muro (o lado norte em dobro)
         z.npc("guard_a_%d" % i, *H(CAMP_R - 3.0, a), a)
     z.data["hangouts"] = [list(H(r, a)) for r, a in ((3.5, 0), (4.0, 90), (4.0, 200), (5.0, 280), (12.0, 0), (12.0, 95), (12.0, 185), (12.0, -90))]
 

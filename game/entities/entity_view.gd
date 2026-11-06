@@ -116,10 +116,36 @@ func _build_model() -> void:
 				if anim.has_animation(a):
 					anim.get_animation(a).loop_mode = Animation.LOOP_LINEAR
 		_apply_toon_recursive(inst)
-		RigidMerge.merge(inst, model_name)  # peças rígidas -> 1 malha (draw calls); malha guardada por modelo
+		_find_stance_weapons(inst)
+		if RigidMerge.merge(inst, model_name) == null and entity.kind != SimEntity.Kind.NPC:  # peças rígidas -> 1 malha (draw calls); malha guardada por modelo
+			RigidMerge.merge_skinned(inst, model_name)     # humanoide do kit (elfos, bandidos): peças com pele -> 1 malha por material
 		model_root.scale = Vector3.ONE * _base_scale
 		return
 	_build_placeholder()
+
+## Armas de troca (MonsterDef.swap): "wpn_alt_*" só aparece na troca; a principal e a das costas somem nela.
+var _stance_main: Array = []
+var _stance_alt: Array = []
+var _stance_seen := ""
+
+func _find_stance_weapons(inst: Node) -> void:
+	for n in inst.find_children("wpn_*", "Node3D", true, false):
+		var nm := String(n.name)
+		if nm.begins_with("wpn_alt_"):
+			_stance_alt.append(n)
+			(n as Node3D).visible = false
+		elif nm.begins_with("wpn_main_") or nm.begins_with("wpn_back_"):
+			_stance_main.append(n)
+
+func _apply_stance() -> void:
+	_stance_seen = entity.stance
+	var alt := _stance_seen != ""
+	for n in _stance_alt:
+		if is_instance_valid(n):
+			n.visible = alt
+	for n in _stance_main:
+		if is_instance_valid(n):
+			n.visible = not alt
 
 func _find_anim(n: Node) -> AnimationPlayer:
 	if n is AnimationPlayer:
@@ -134,8 +160,13 @@ func _find_anim(n: Node) -> AnimationPlayer:
 ## medida contra a cor do monstro dono do modelo; olhos, brilho e chifre/presa não mudam. O dono do modelo fica como está.
 const FIXED_MATS := ["m_eye", "m_white", "m_horn"]
 
+## Humanoide do kit (bandido, elfos): só a roupa muda de cor; pele, cabelo, orelha, metal, couro e madeira ficam.
+const KIT_FIXED := ["m_leather", "m_metal", "m_wood", "m_string", "belt", "trim"]
+
 static func monster_tint(mdef: MonsterDef, col: Color, mat_name: String) -> Color:
-	if mdef == null or mdef.model == "" or mat_name in FIXED_MATS:
+	if mdef == null or mdef.model == "" or mat_name in FIXED_MATS or mat_name in KIT_FIXED:
+		return col
+	if mat_name.begins_with("m_hair_") or (mat_name.begins_with("m_mob_") and not mat_name.ends_with("_cloth")):
 		return col
 	var base: MonsterDef = GameData.monsters.get(mdef.model.trim_prefix("mob_"))
 	if base == null or base == mdef or base.color.is_equal_approx(mdef.color):
@@ -705,6 +736,8 @@ func _process(delta: float) -> void:
 
 func _process_view(delta: float) -> void:
 	_dt = delta
+	if entity.stance != _stance_seen:
+		_apply_stance()
 	if quest_mark:
 		_update_quest_mark(delta)
 	# posição suavizada (a sim roda a 60Hz; interpola um pouco)

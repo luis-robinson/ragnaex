@@ -30,6 +30,7 @@ var no_hit: float = 0.0
 var close_in: float = 0.0
 var skill_rethink: float = 0.0   # invocação: s até reescolher o alvo
 const NO_HIT_LIMIT := 3.0
+const RAID_RETHINK := 1.2
 const CLOSE_IN_TIME := 2.0
 
 func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
@@ -43,6 +44,16 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 	var mdef := e.monster_def
 	var is_summon := e.kind == SimEntity.Kind.SUMMON
 	var owner: SimEntity = sim.entities.get(e.owner_id) if is_summon else null
+	# troca de arma com pouca vida (batedor élfico: guarda a espada, puxa o arco)
+	if not mdef.swap.is_empty() and e.stance == "" and e.hp < e.stats.max_hp * float(mdef.swap.get("hp", 0.4)):
+		var as_def: MonsterDef = GameData.monsters.get(str(mdef.swap.get("as", "")))
+		if as_def:
+			e.stance = str(mdef.swap.get("stance", "bow"))
+			e.basic_skill = GameData.basic_skill_for_monster(as_def)
+			e.basic_cd = 0.6                      # tempo de trocar de arma
+	var style := _style_def(e)             # de quem vêm alcance e tiro (o próprio monstro ou a arma trocada)
+	var ranged := style.ranged
+	var atk_range := style.attack_range
 
 	# --- escolher alvo ---
 	var target: SimEntity = null
@@ -56,6 +67,8 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 			e.taunt_left = 0.0
 	if is_summon and owner:
 		target = _summon_target(e, sim, m, owner, target, dt)
+	elif raider and not (calm > 0.0) and e.taunt_left <= 0.0:
+		target = _raid_target(e, sim, m, target, dt)
 	elif target == null and state != S.RETURN and not (raider and calm > 0.0):
 		target = Combat.nearest_hostile(e, m.get("chars", m["entities"]), mdef.aggro_range)     # só personagens e invocações (lista do tick)
 		if target:
@@ -69,6 +82,16 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 			cmd.aim = owner.position
 			return cmd
 		cmd.aim = e.position + e.forward()
+		return cmd
+
+	# invasor ferido e sozinho: recua pela rota até achar a leva (calma: não puxa briga nova)
+	if raider and target != null and e.hp < e.stats.max_hp * Balance.RAID_FLEE_HP and _alone(e, m, 8.0):
+		e.aggro_target = -1
+		target = null
+		calm = 3.0
+		var back: Vector3 = (def.raid.get("from", e.position) as Vector3)
+		cmd.move = _steer(e, sim, back, dt)
+		cmd.aim = back
 		return cmd
 
 	# --- leash: longe demais de casa ---
@@ -95,17 +118,20 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 				var reach_s: float = s.radius - 0.3 if s.target == SkillDef.Target.SELF else maxf(s.range, s.radius) + (0.0 if s.effects.has("dash") else 0.5)
 				if float(e.cooldowns.get(s.id, 0.0)) <= 0.0 and dist <= reach_s and (not s.is_charge() or sim.charge_lands(e, s, target, m)):
 					cmd.skill_slot = i
-					skill_timer = minf(s.cooldown + 1.0, SKILL_GAP)
+					skill_timer = minf(s.cooldown + 1.0, SKILL_GAP / (Balance.RAID_SMART if raider else 1.0))
 					return cmd
-		var reach := mdef.attack_range if not is_summon or mdef.ranged else 1.5
-		if mdef.ranged and _shots_blocked(e, target, dt) and dist > 1.5:
+		var reach := atk_range if not is_summon or ranged else 1.5
+		if ranged and _shots_blocked(e, target, dt) and dist > 1.5:
 			cmd.move = _steer(e, sim, target.position, dt)
 			return cmd
 		if dist <= reach * 0.85:
 			if e.basic_cd <= 0.0 and e.can_act():
 				cmd.attack = true
-			elif mdef.ranged and dist < reach * 0.5 and (e.position.distance_to(e.home_position) < mdef.leash_range * 0.7 or (is_summon and owner and e.position.distance_to(owner.position) < Balance.SUMMON_LEASH * 0.7)):
-				cmd.move = -_dir_to(e, target.position)      # recua entre os tiros (invocação: medido do dono, não de onde nasceu)
+			elif ranged and dist < reach * 0.5 and (e.position.distance_to(e.home_position) < mdef.leash_range * 0.7 or (is_summon and owner and e.position.distance_to(owner.position) < Balance.SUMMON_LEASH * 0.7)):
+				var away := -_dir_to(e, target.position)      # recua entre os tiros (invocação: medido do dono, não de onde nasceu)
+				if raider:                                   # arqueiros da leva se espalham: cada um recua para um lado
+					away = (away + away.orthogonal() * (0.6 if e.id % 2 == 0 else -0.6)).normalized()
+				cmd.move = away
 		else:
 			cmd.move = _steer(e, sim, target.position, dt)     # contorna árvore/muro/água em vez de empurrar parado
 		return cmd
@@ -151,6 +177,62 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 		_:
 			state = S.IDLE
 	return cmd
+
+## Estilo de ataque atual: o próprio monstro, ou o monstro cuja arma ele pegou (MonsterDef.swap).
+static func _style_def(e: SimEntity) -> MonsterDef:
+	if e.stance != "" and not e.monster_def.swap.is_empty():
+		var d: MonsterDef = GameData.monsters.get(str(e.monster_def.swap.get("as", "")))
+		if d:
+			return d
+	return e.monster_def
+
+## Nenhum outro invasor vivo a `r` m.
+static func _alone(e: SimEntity, m: Dictionary, r: float) -> bool:
+	for o in m["entities"]:
+		if o != e and o.raid_id >= 0 and o.is_alive() and o.position.distance_to(e.position) < r:
+			return false
+	return true
+
+## Alvo do invasor ("inteligência" da leva): entre quem está no alcance de aggro, prefere quem cura, quem está
+## ferido e quem está isolado; reavalia a cada RAID_RETHINK s e segura o alvo atual com um bônus (não fica trocando).
+func _raid_target(e: SimEntity, sim, m: Dictionary, cur: SimEntity, dt: float) -> SimEntity:
+	skill_rethink -= dt
+	if cur != null and skill_rethink > 0.0:
+		return cur
+	skill_rethink = RAID_RETHINK
+	var chars: Array = m.get("chars", m["entities"])
+	var best: SimEntity = null
+	var best_s := -INF
+	var aggro: float = e.monster_def.aggro_range
+	for o in chars:
+		if o == e or not o.is_alive() or not e.is_hostile_to(o) or o.stealth_left > 0.0:
+			continue
+		var d: float = o.position.distance_to(e.position) - o.radius
+		if d > aggro and o != cur:
+			continue
+		var s: float = -d
+		if o.stats and o.stats.max_hp > 0.0:
+			s += (1.0 - o.hp / o.stats.max_hp) * 8.0      # ferido: termina o serviço
+		if o.class_def and (o.class_def.id == "bishop" or o.build_id == "xama"):
+			s += 6.0                                     # quem cura cai primeiro
+		var isolated := true
+		for f in chars:
+			if f != o and f.is_alive() and o.is_friend(f) and f.position.distance_to(o.position) < 5.0:
+				isolated = false
+				break
+		if isolated:
+			s += 3.0
+		if o == cur:
+			s += 4.0
+		if s > best_s:
+			best_s = s
+			best = o
+	if best:
+		e.aggro_target = best.id
+		e.aggro_timer = Balance.AGGRO_LOSE_TIME
+	elif cur == null:
+		e.aggro_target = -1
+	return best if best else cur
 
 ## Alvo da invocação, nesta ordem: quem bate no dono, quem o dono está atacando, quem bate na invocação,
 ## o monstro mais perto do dono. Nada longe do dono (coleira): dono se afastou, larga a briga e volta.

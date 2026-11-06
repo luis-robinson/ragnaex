@@ -646,6 +646,7 @@ func _check_zone(gd, sim) -> void:
 	_check_summon_ai(gd, sim)
 	_check_bind_crystal(gd, sim, save_ref)
 	_check_quarry(gd, sim)
+	_check_raid_tactics(gd, sim)
 	_check_equipment_slots(gd, sim, save_ref)
 	_check_icons(gd)
 	_check_combat_feel(gd, sim)
@@ -2828,6 +2829,53 @@ func _check_bind_crystal(gd, sim, save) -> void:
 		me.bind_map = keep_map
 		me.bind_pos = keep_pos
 		save.delete_slot(TEST_SLOT)
+
+## Investida élfica como evento central: levas 3x, 18 sentinelas, invasores x1,5; mago invoca espíritos que marcham
+## e seguram a leva; batedor ferido troca a espada pelo arco; lince salta longe; invasor prefere quem cura.
+func _check_raid_tactics(gd, sim) -> void:
+	var fd: MapDef = gd.maps["field_forest"]
+	var guards: Array = fd.npcs.filter(func(n): return n.has("fighter"))
+	check(guards.size() >= 18, "Posto: 18 sentinelas (%d)" % guards.size())
+	var base_n := 0
+	for mid in fd.raid["waves"][0]["mobs"]:
+		base_n += int(fd.raid["waves"][0]["mobs"][mid])
+	check(base_n >= 18 and fd.raid["waves"][0]["mobs"].has("elf_raider_mage"), "investida: leva base 3x com magos (%d)" % base_n)
+	check(gd.monsters["elf_lynx"].skill_ids.has("mob_lynx_leap") and gd.skills["mob_lynx_leap"].effects["dash"] >= 7.0, "lince de guerra salta longe")
+	var ws := WorldSim.new()
+	ws.rng.seed = 11
+	ws.load_map(gd.maps[GameData.town_map_id()])
+	var m: Dictionary = ws.load_map(fd)
+	m["spawners"].clear()
+	for o in m["entities"].duplicate():
+		if o.kind == SimEntity.Kind.MONSTER:
+			ws.despawn(o)
+	var st := RaidSystem.state(m)
+	# mago: espíritos marcham com a leva e seguram o fim da leva
+	var mage: SimEntity = ws.spawn_monster(RaidSystem.scaled_def(ws, gd.monsters["elf_raider_mage"], 0), fd.id, fd.raid["from"])
+	mage.raid_id = 0
+	st["ids"] = [mage.id]
+	MobSystem.spawn_adds(ws, mage, gd.skills["mob_raise_wisps"].effects["boss_summon"])
+	var wisps: Array = m["entities"].filter(func(o): return o.boss_id == mage.id)
+	check(wisps.size() == 2 and wisps.all(func(w): return w.raid_id == 0 and (st["ids"] as Array).has(w.id)), "espíritos do mago marcham e contam na leva")
+	check(gd.monsters["elf_wisp"].xp == 0, "espírito não dá XP")
+	# batedor ferido: guarda a espada e atira
+	var raider: SimEntity = ws.spawn_monster(RaidSystem.scaled_def(ws, gd.monsters["elf_raider"], 0), fd.id, fd.raid["from"])
+	raider.raid_id = 0
+	var archer: MonsterDef = gd.monsters["elf_raider_archer"]
+	raider.hp = raider.stats.max_hp * 0.3
+	raider.brain.think(raider, ws, m, 0.05)
+	check(raider.stance == "bow" and raider.basic_skill == GameData.basic_skill_for_monster(archer) and MonsterBrain._style_def(raider).ranged,
+		"batedor com pouca vida troca a espada pelo arco")
+	# foco: entre dois alvos iguais, o bispo vem primeiro
+	var tank: SimEntity = ws.spawn_bot(gd.classes["paladin"], "Tanque", fd.id, raider.position + Vector3(3, 0, 0), 16)
+	var healer: SimEntity = ws.spawn_bot(gd.classes["bishop"], "Cura", fd.id, raider.position + Vector3(-3.5, 0, 0), 16)
+	tank.brain = null
+	healer.brain = null
+	var fresh: SimEntity = ws.spawn_monster(RaidSystem.scaled_def(ws, gd.monsters["elf_raider"], 0), fd.id, raider.position + Vector3(0, 0, 1))
+	fresh.raid_id = 0
+	m["chars"] = [tank, healer]
+	fresh.brain.think(fresh, ws, m, 0.05)
+	check(fresh.aggro_target == healer.id, "invasor mira em quem cura")
 
 ## Pedreira dos Golens (Floresta, 11-15): entrada na floresta, 2 guardiões no mapa e o Coração atrás do selo,
 ## golens comuns na faixa, chefes com modelo próprio, lacaios sem XP, material com fonte.
@@ -5224,7 +5272,10 @@ func _check_raid_scaling(gd, sim) -> void:
 	var base: MonsterDef = gd.monsters["elf_raider"]
 	var top := RaidSystem.scaled_def(ws, base, steps[30])
 	check(top.id == base.id and top.level == base.level + steps[30] and top.hp > base.hp * 1.3 and top.atk > base.atk * 1.2 and top.xp > base.xp, "investida: invasor reforçado (nv %d, %.0f HP, %.0f ATK)" % [top.level, top.hp, top.atk])
-	check(RaidSystem.scaled_def(ws, base, 0) == base and RaidSystem.scaled_def(ws, base, 3) == RaidSystem.scaled_def(ws, base, 3), "investida: força 0 é o monstro base; reforço guardado por passo")
+	var s0 := RaidSystem.scaled_def(ws, base, 0)
+	check(s0.level == base.level and is_equal_approx(s0.hp, base.hp * Balance.RAID_POWER) and is_equal_approx(s0.atk, base.atk * Balance.RAID_POWER) and s0.aggro_range > base.aggro_range,
+		"investida: força 0 = base x RAID_POWER (HP/ATK) e aggro maior")
+	check(RaidSystem.scaled_def(ws, base, 3) == RaidSystem.scaled_def(ws, base, 3), "investida: reforço guardado por passo")
 	check(base.level == 16 and base.hp == gd.monsters["elf_raider"].hp, "investida: monstro base não muda")
 	ws.player.level = 10
 	var weak: Array = RaidSystem.start_raid(ws, m)

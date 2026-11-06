@@ -316,21 +316,31 @@ const FOREST_NPCS := {
 		"route": [[15.0, 0.0], [3.0, 0.0]]}],
 	"guard_w_3_0": ["Soldada Meri", "guard", Color(0.55, 0.55, 0.65), ["Portão sul. Do pântano só vem mosquito e aranha."], {"fighter": "guard_warrior", "gear": ["sword_iron", "shield_iron"],
 		"route": [[-5.0, 20.0], [-5.0, 8.0]]}],
+	"guard_w_0_2": ["Soldado Davi", "guard", Color(0.55, 0.55, 0.65), ["Quatro no portão norte agora. A Comandante não quer surpresa."], {"fighter": "guard_warrior", "gear": ["sword_iron", "shield_iron", "helm_iron"]}],
+	"guard_w_0_3": ["Soldada Yara", "guard", Color(0.55, 0.55, 0.65), ["Mago élfico? Derrube ele e os espíritos somem junto."], {"fighter": "guard_warrior", "gear": ["sword_iron", "shield_iron", "helm_iron"]}],
+	"guard_w_1_1": ["Soldado Caio", "guard", Color(0.55, 0.55, 0.65), ["Se o norte cair, eles entram por aqui. Fico de olho."], {"fighter": "guard_warrior", "gear": ["sword_iron", "shield_iron"]}],
+	"guard_w_2_1": ["Soldada Tânia", "guard", Color(0.55, 0.55, 0.65), ["Batedor ferido puxa o arco. Não pense que ele desistiu."], {"fighter": "guard_warrior", "gear": ["sword_iron", "shield_iron"]}],
+	"guard_w_3_1": ["Soldado Juno", "guard", Color(0.55, 0.55, 0.65), ["O pântano é quieto. Quieto demais."], {"fighter": "guard_warrior", "gear": ["sword_iron", "shield_iron"]}],
 	"guard_a_0": ["Caçadora Lis", "guard", Color(0.45, 0.6, 0.4), ["Da torre eu vejo a Árvore-Mãe. E os elfos que saem de baixo dela."], {"fighter": "guard_archer", "gear": ["bow_ent"]}],
 	"guard_a_1": ["Caçador Rui", "guard", Color(0.45, 0.6, 0.4), ["Flecha élfica prende o pé no chão. Pule pro lado antes que ela chegue."], {"fighter": "guard_archer", "gear": ["bow_ent"]}],
 	"guard_a_2": ["Caçadora Nea", "guard", Color(0.45, 0.6, 0.4), ["Os linces vêm na frente. Derrube eles e o resto perde o faro."], {"fighter": "guard_archer", "gear": ["bow_hunter"]}],
 	"guard_a_3": ["Caçador Teodoro", "guard", Color(0.45, 0.6, 0.4), ["Grifo? Mire nas asas. Ou corra. Eu corro."], {"fighter": "guard_archer", "gear": ["bow_hunter"]}],
+	"guard_a_4": ["Caçadora Mira", "guard", Color(0.45, 0.6, 0.4), ["O lince salta longe. Quando ele agachar, saia do lugar."], {"fighter": "guard_archer", "gear": ["bow_ent"]}],
+	"guard_a_5": ["Caçador Breno", "guard", Color(0.45, 0.6, 0.4), ["Eles miram em quem cura. Protejam o Fen!"], {"fighter": "guard_archer", "gear": ["bow_ent"]}],
+	"guard_a_6": ["Caçadora Sol", "guard", Color(0.45, 0.6, 0.4), ["Do muro leste eu cubro a ponte e o portão norte."], {"fighter": "guard_archer", "gear": ["bow_hunter"]}],
+	"guard_a_7": ["Caçador Abel", "guard", Color(0.45, 0.6, 0.4), ["Três levas por dia. Minha aljava não aguenta."], {"fighter": "guard_archer", "gear": ["bow_hunter"]}],
 }
 ## Investidas por zona: levas (`every_nth` = só a cada N levas), ritmo e falas. A rota vem do JSON (Blender).
 const RAIDS := {
-	"field_forest": {"every": 210.0, "first": 75.0, "jitter": 45.0, "lifetime": 150.0,
-		"waves": [{"mobs": {"elf_raider": 3, "elf_raider_archer": 2, "elf_lynx": 1}}, {"mobs": {"elf_lynx": 1, "elf_raider_archer": 1}, "every_nth": 2}, {"mobs": {"griffin_young": 1}, "every_nth": 3}],
+	"field_forest": {"every": 240.0, "first": 75.0, "jitter": 45.0, "lifetime": 210.0,
+		"waves": [{"mobs": {"elf_raider": 9, "elf_raider_archer": 6, "elf_lynx": 3, "elf_raider_mage": 3}},
+			{"mobs": {"elf_lynx": 3, "elf_raider_archer": 3}, "every_nth": 2}, {"mobs": {"griffin_raider": 3}, "every_nth": 3}],
 		"say_start": "Trompas élficas na garganta norte! Uma investida desce rumo ao Posto dos Caçadores!",
 		"say_arrived": "Os elfos chegaram ao portão norte do Posto!",
 		"say_repelled": "A investida élfica foi repelida. O Posto resiste!",
 		"say_retreat": "Os elfos sobreviventes recuam para a garganta.",
 		# reforço por passo de força (nível do jogador, ver Balance.RAID_SCALE_*): somado a toda leva a partir do passo
-		"scale_extra": {3: {"elf_raider": 1}, 5: {"elf_raider_archer": 1}},
+		"scale_extra": {3: {"elf_raider": 3}, 5: {"elf_raider_archer": 3}},
 		"say_strong": "As trompas soam mais graves: a investida veio reforçada!"},
 }
 

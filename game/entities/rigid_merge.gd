@@ -132,3 +132,73 @@ static func mat_key(m: Material) -> String:
 	return "%s|%s|%s|%s|%s|%d|%d" % [str(col), str(sm.get_shader_parameter("spec_strength")), str(sm.get_shader_parameter("emission_amount")),
 		str(sm.get_shader_parameter("shadow_strength")), str(sm.get_shader_parameter("rim_strength")), 1 if sm.next_pass else 0,
 		tex.get_instance_id() if tex else 0]
+
+## Humanoide de monstro do kit (bandido, elfos, esqueleto): peças com pele no mesmo esqueleto viram uma malha por
+## material (como KitModel._remerge). Armas de troca ("wpn_*") ficam de fora: o EntityView liga/desliga elas.
+## Só funde se todas as peles têm os mesmos ossos na mesma ordem (índices de osso valem para todas).
+static var _skinned_cache: Dictionary = {}
+
+static func merge_skinned(root: Node, cache_key: String = "") -> MeshInstance3D:
+	if not enabled:
+		return null
+	var sks := root.find_children("*", "Skeleton3D", true, false)
+	if sks.is_empty():
+		return null
+	var sk: Skeleton3D = sks[0]
+	var skin: Skin = null
+	var groups := {}
+	var order: Array = []
+	var sources: Array = []
+	for n in root.find_children("*", "MeshInstance3D", true, false):
+		var mi := n as MeshInstance3D
+		if mi.mesh == null or mi.skin == null or not mi.visible or String(mi.name).begins_with("wpn_"):
+			continue
+		if skin == null:
+			skin = mi.skin
+		elif not _same_binds(skin, mi.skin):
+			return null
+		for si in range(mi.mesh.get_surface_count()):
+			var m := mi.get_active_material(si)
+			if m == null or mi.mesh.surface_get_primitive_type(si) != Mesh.PRIMITIVE_TRIANGLES:
+				continue
+			var key := mat_key(m)
+			if not groups.has(key):
+				groups[key] = [m, []]
+				order.append(key)
+			groups[key][1].append([mi.mesh, si])
+		sources.append(mi)
+	if sources.size() < 2:
+		return null
+	var am: ArrayMesh = _skinned_cache.get(cache_key + "#" + str(order.size()) + "#" + str(sources.size())) if cache_key != "" else null
+	if am == null:
+		am = ArrayMesh.new()
+		for key in order:
+			var st := SurfaceTool.new()
+			st.begin(Mesh.PRIMITIVE_TRIANGLES)
+			for p in groups[key][1]:
+				st.append_from(p[0], p[1], Transform3D.IDENTITY)
+			am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, st.commit_to_arrays())
+		if cache_key != "":
+			_skinned_cache[cache_key + "#" + str(order.size()) + "#" + str(sources.size())] = am
+	var out := MeshInstance3D.new()
+	out.name = "SkinMerged"
+	out.mesh = am
+	out.skin = skin
+	for i in range(mini(order.size(), am.get_surface_count())):
+		out.set_surface_override_material(i, groups[order[i]][0])
+	sk.add_child(out)
+	out.skeleton = NodePath("..")
+	for mi in sources:
+		mi.get_parent().remove_child(mi)
+		mi.queue_free()
+	return out
+
+static func _same_binds(a: Skin, b: Skin) -> bool:
+	if a == b:
+		return true
+	if a.get_bind_count() != b.get_bind_count():
+		return false
+	for i in range(a.get_bind_count()):
+		if a.get_bind_name(i) != b.get_bind_name(i) or a.get_bind_bone(i) != b.get_bind_bone(i) or not a.get_bind_pose(i).is_equal_approx(b.get_bind_pose(i)):
+			return false
+	return true

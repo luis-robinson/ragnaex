@@ -728,6 +728,29 @@ def elf_parts(cid, cloth2, ears=True, cape=False):
     return add
 
 
+def warrior_bows(base, mats):
+    """Batedor élfico que troca a espada pelo arco com pouca vida: arco nas costas (wpn_back_bow, preso ao peito) e
+    o mesmo arco na mão esquerda (wpn_alt_bow) que o jogo só mostra na troca (EntityView, SimEntity.stance == "bow")."""
+    rig = base["rig"]
+    hand = ck.kit_weapon(base, "bow", "main", mats)
+    hand.name = "wpn_alt_bow"
+    hand.data.name = "wpn_alt_bow"
+    back = hand.copy()
+    back.data = hand.data.copy()
+    back.name = "wpn_back_bow"
+    back.data.name = "wpn_back_bow"
+    bpy.context.scene.collection.objects.link(back)
+    back.modifiers.clear()
+    back.vertex_groups.clear()
+    c = sum((v.co for v in back.data.vertices), Vector()) / len(back.data.vertices)
+    R = Matrix.Rotation(math.radians(38), 4, "Y") @ Matrix.Rotation(math.radians(90), 4, "Z")
+    to = Vector((0.0, base["b"]["chest"] * base["b"]["depth"] + 0.06, ck.Z["chest"] - 0.02))
+    for v in back.data.vertices:
+        v.co = (R @ (v.co - c)) + to
+    back.parent = None
+    ck.skin_rigid(back, rig, "chest")
+
+
 def golem(cid="mob_golem"):
     arm = lp.make_armature("rig_" + cid, bm.MOB_BONES)
     stone = ck.mat("m_stone", (0.62, 0.6, 0.58), 0.9)
@@ -886,7 +909,7 @@ def spiked_crown(base, cid, spikes, mats):
         ck.skin_rigid(p, base["rig"], "head")
 
 
-def humanoid(cid, style, cloth, weapon, skin=None, eye=None, offhand=None, hide_hair=False, head=None, crown=0, extra=None):
+def humanoid(cid, style, cloth, weapon, skin=None, eye=None, offhand=None, hide_hair=False, head=None, crown=0, extra=None, after=None):
     ck.clear()
     base = ck.build_base(cid, "male", 0.0, (0.25, 0.18, 0.14))
     mats = ck._kit_mats()
@@ -917,6 +940,8 @@ def humanoid(cid, style, cloth, weapon, skin=None, eye=None, offhand=None, hide_
     ck.kit_weapon(base, weapon, "main", mats)
     if offhand:
         ck.kit_weapon(base, offhand, "off", mats)
+    if after:
+        after(base, mats)
     if cid.startswith("form_"):
         ck.animate(base["rig"], "all")    # forma do jogador (demônio): o mesmo jogo de clipes do kit, não só os do monstro
         ck.animate_combat(base["rig"])
@@ -993,7 +1018,9 @@ def build_all(out_dir, only=None):
         "mob_bandit": lambda: humanoid("mob_bandit", "leather", (0.62, 0.2, 0.2), "sword"),
         # Cerco élfico: elfos de couro/tecido verde, Guardião de placa clara, Rei de placa dourada com coroa e manto
         "mob_elf_warrior": lambda: humanoid("mob_elf_warrior", "leather", (0.3, 0.56, 0.42), "sword", skin=(0.96, 0.86, 0.74),
-                                            head="none", extra=elf_parts("mob_elf_warrior", (0.85, 0.8, 0.5))),
+                                            head="none", extra=elf_parts("mob_elf_warrior", (0.85, 0.8, 0.5)), after=warrior_bows),
+        "mob_elf_mage": lambda: humanoid("mob_elf_mage", "cloth", (0.86, 0.88, 0.8), "staff", skin=(0.96, 0.86, 0.74),
+                                         head="cloth", extra=elf_parts("mob_elf_mage", (0.3, 0.75, 0.55), cape=True)),
         "mob_elf_archer": lambda: humanoid("mob_elf_archer", "cloth", (0.42, 0.66, 0.4), "bow", skin=(0.96, 0.86, 0.74),
                                            head="leather", extra=elf_parts("mob_elf_archer", (0.6, 0.45, 0.28))),
         "mob_elf_warden": lambda: humanoid("mob_elf_warden", "plate", (0.88, 0.86, 0.74), "sword2h", skin=(0.96, 0.86, 0.74),
@@ -1022,7 +1049,7 @@ def build_all(out_dir, only=None):
             if "." in o.name:
                 o.name = o.name.replace(".", "_")
         if name in ("mob_bandit", "mob_skeleton", "mob_zombie", "mob_lich", "mob_skeleton_king", "form_demon",
-                    "mob_elf_warrior", "mob_elf_archer", "mob_elf_warden", "mob_elf_king"):
+                    "mob_elf_warrior", "mob_elf_archer", "mob_elf_warden", "mob_elf_king", "mob_elf_mage"):
             ck.export_glb(arm, os.path.join(out_dir, name + ".glb"))
         else:
             lp.export_glb(os.path.join(out_dir, name + ".glb"), [arm])

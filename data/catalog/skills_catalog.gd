@@ -98,6 +98,12 @@ static func build() -> Array:
 		 "effects": {"root": {"duration": 1.6}}},
 		{"id": "mob_thorn_lash", "name": "Chicote de Cipó", "target": T_TARGET, "kind": K_PHYS, "power": 0.9, "cooldown": 7.0, "range": 8.0, "radius": 0.0, "max_targets": 1, "startup": 0.55, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.45, 0.7, 0.3),
 		 "effects": {"root": {"duration": 1.2}}},
+		# investida élfica: mago, salto do lince
+		{"id": "mob_light_beam", "name": "Raio de Luz", "target": T_TARGET, "kind": K_MAG, "power": 1.3, "cooldown": 5.0, "range": 9.0, "radius": 0.0, "max_targets": 1, "startup": 0.5, "active": 0.1, "recovery": 0.4, "hit_stop_frames": 2, "icon_color": Color(0.95, 1.0, 0.75)},
+		{"id": "mob_raise_wisps", "name": "Chamar Espíritos", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 18.0, "radius": 12.0, "startup": 0.9, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.5, 1.0, 0.6),
+		 "effects": {"boss_summon": {"id": "elf_wisp", "count": 2, "max": 2}}},
+		{"id": "mob_lynx_leap", "name": "Salto do Lince", "target": T_DIR, "kind": K_PHYS, "power": 1.4, "cooldown": 9.0, "range": 9.0, "radius": 1.6, "startup": 0.45, "active": 0.15, "recovery": 0.5, "hit_stop_frames": 3, "icon_color": Color(0.9, 0.75, 0.4),
+		 "effects": {"dash": 8.0, "slow": {"pct": 40, "duration": 2}}},
 		# Pedreira dos Golens
 		{"id": "mob_quarry_slam", "name": "Soco da Pedreira", "target": T_CONE, "kind": K_PHYS, "power": 1.6, "cooldown": 7.0, "radius": 4.2, "cone_angle_deg": 80, "startup": 0.6, "active": 0.2, "recovery": 0.6, "hit_stop_frames": 5, "icon_color": Color(0.7, 0.6, 0.45),
 		 "effects": {"slow": {"pct": 40, "duration": 2}}},

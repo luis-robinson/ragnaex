@@ -130,6 +130,9 @@ func after_start() -> void:
 	if DevArgs.flag("--raid_shot"):     # --raid_shot=<png>: investida élfica na Floresta (fotos _marcha e _portao) e sai
 		_smoke_test = false
 		_raid_shot(DevArgs.value("--raid_shot"))
+	if DevArgs.flag("--elf_shot"):      # --elf_shot=<png>: leva élfica parada ao lado do jogador (batedor, batedor com arco, mago, lince, grifo, espírito)
+		_smoke_test = false
+		_elf_shot(DevArgs.value("--elf_shot"))
 	if DevArgs.flag("--quest_shot"):    # --quest_shot=<png>: seta amarela do minimapa (objetivo neste mapa / noutro mapa) e sai
 		_smoke_test = false
 		_quest_shot(DevArgs.value("--quest_shot"))
@@ -159,6 +162,26 @@ func tick(delta: float) -> void:
 		_tour(delta)
 	elif _smoke_test:
 		_smoke(delta)
+
+func _elf_shot(path: String) -> void:
+	var p: SimEntity = Sim.player
+	p.brain = null
+	Sim._change_map(p, "field_forest", Vector3(-5, 0, 40))
+	await get_tree().create_timer(1.0).timeout
+	var ids := ["elf_raider", "elf_raider", "elf_raider_mage", "elf_raider_archer", "elf_lynx", "griffin_raider", "elf_wisp"]
+	for i in ids.size():
+		var mdef: MonsterDef = RaidSystem.scaled_def(Sim, GameData.monsters[ids[i]], 0)
+		var e := Sim.spawn_monster(mdef, "field_forest", p.position + Vector3(-6.0 + i * 2.0, 0, -3.5))
+		e.brain = null
+		e.facing = 0.0
+		if i == 1:
+			e.stance = "bow"                       # o segundo batedor já trocou para o arco
+	main.camera.distance = 13.0
+	await get_tree().create_timer(2.0).timeout
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(path)
+	print("ELF_SHOT " + path)
+	get_tree().quit()
 
 ## Fotos da seta da quest: rastreia uma quest com alvo neste mapa (<png>_aqui.png) e outra noutro mapa
 ## (<png>_portal.png, aponta para o portal), recortadas no minimapa + rastreador.

@@ -116,18 +116,20 @@ static func power_step(sim: WorldSim, m: Dictionary) -> int:
 		lv = sim.player.level
 	return clampi(mini(lv, Balance.RAID_SCALE_TO) - Balance.RAID_SCALE_FROM, 0, Balance.RAID_SCALE_TO - Balance.RAID_SCALE_FROM)
 
-## Monstro da investida reforçado `step` passos (mesmo id: quests, loot e abates contam igual). Guardado por id e passo.
+## Monstro da investida: x RAID_POWER (vida/ataque) e x RAID_SMART (aggro) sobre o base, mais `step` passos de nível
+## (mesmo id: quests, loot e abates contam igual). Guardado por id e passo.
 static func scaled_def(sim: WorldSim, base: MonsterDef, step: int) -> MonsterDef:
-	if base == null or step <= 0:
+	if base == null:
 		return base
 	var key := "%s@%d" % [base.id, step]
 	if sim._raid_defs.has(key):
 		return sim._raid_defs[key]
 	var d: MonsterDef = base.duplicate()
 	d.level = base.level + step
-	d.hp = base.hp * (1.0 + step * Balance.RAID_SCALE_HP_PCT / 100.0)
-	d.atk = base.atk * (1.0 + step * Balance.RAID_SCALE_ATK_PCT / 100.0)
-	d.matk = base.matk * (1.0 + step * Balance.RAID_SCALE_ATK_PCT / 100.0)
+	d.hp = base.hp * (1.0 + step * Balance.RAID_SCALE_HP_PCT / 100.0) * Balance.RAID_POWER
+	d.atk = base.atk * (1.0 + step * Balance.RAID_SCALE_ATK_PCT / 100.0) * Balance.RAID_POWER
+	d.matk = base.matk * (1.0 + step * Balance.RAID_SCALE_ATK_PCT / 100.0) * Balance.RAID_POWER
+	d.aggro_range = base.aggro_range * Balance.RAID_SMART
 	d.def = base.def * (1.0 + step * Balance.RAID_SCALE_DEF_PCT / 100.0)
 	d.mdef = base.mdef * (1.0 + step * Balance.RAID_SCALE_DEF_PCT / 100.0)
 	d.xp = int(round(base.xp * (1.0 + step * Balance.RAID_SCALE_XP_PCT / 100.0)))
@@ -159,6 +161,9 @@ static func _rally(sim: WorldSim, m: Dictionary, st: Dictionary, dt: float) -> v
 	var target: Vector3 = def.raid["target"]
 	var reach: float = float(def.raid.get("radius", 25.0)) + Balance.RAID_RALLY_MARGIN
 	for e in m["entities"]:
+		if e.guard and e.is_alive() and e.position.distance_to(target) <= reach:
+			e.hp = minf(e.stats.max_hp, e.hp + e.stats.max_hp * Balance.RAID_RALLY_REGEN * 0.5)    # sentinela: só a regeneração
+			continue
 		if not (e.kind == SimEntity.Kind.PLAYER or e.kind == SimEntity.Kind.BOT) or not e.is_alive():
 			continue
 		if e.position.distance_to(target) > reach:

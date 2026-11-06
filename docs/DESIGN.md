@@ -244,8 +244,15 @@ Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MS
   (só com o jogador no mapa) uma leva (batedores, arqueiros, linces; a cada 3ª um grifo jovem) nasce na garganta, espera as trompas
   (`RAID_MUSTER`) e marcha pela estrada norte em passo cauteloso (`RAID_MARCH_PACE`; luta em velocidade cheia). Lutam com quem os
   ataca ou chega perto (jogador, bot, invocação, sentinela), largam quem foge (`calm`) e retomam a rota; no Posto atacam as sentinelas;
-  depois de `lifetime` recuam e somem. Calibrado com `tools/tests/raid_probe.tscn`: sentinelas sozinhas seguram ~2/3 das levas
-  (perdendo ~4), com um grupo de 3, todas; chegada em ~43 s.
+  depois de `lifetime` recuam e somem. **Evento central do 2º mapa**: leva base de 21 (9 batedores, 6 arqueiros, 3 linces, 3 magos; +linces/arqueiros
+  a cada 2ª, 3 grifos de guerra a cada 3ª), invasores com `RAID_POWER` 1,5 de vida/ataque e `RAID_SMART` 1,5 de aggro e ritmo de skill;
+  miram em quem cura, em quem está ferido e em quem está sozinho (`MonsterBrain._raid_target`); ferido e sozinho recua para a leva;
+  arqueiros se espalham. Mago élfico (`mob_elf_mage`) invoca Espíritos da Mata que marcham e seguram a leva (somem se o mago cai);
+  batedor abaixo de 40% guarda a espada e puxa o arco das costas (`MonsterDef.swap`, `SimEntity.stance`, `EntityView._apply_stance`);
+  lince salta 8 m (`mob_lynx_leap`). 18 sentinelas (4 no portão norte, 2 nos outros, 8 caçadoras no muro), com a regeneração do Bastião.
+  Calibrado com `tools/tests/raid_probe.tscn`: sentinelas sozinhas seguram ~1/6; com 1 bot ~2/3; com 3 bots todas; chegada em ~37 s.
+  Revisar a leva de perto: `-- --autostart=<classe> --elf_shot=<png>`. Humanoides de monstro fundem as peças com pele (`RigidMerge.merge_skinned`)
+  e só a roupa é tingida (`EntityView.KIT_FIXED`).
   Na tela: faixa no topo (`hud._update_raid_banner`, lendo `Sim.raid_status`) com "N de M inimigos marchando / nas muralhas / recuando"
   e, nos últimos 30 s antes da leva, a contagem; no minimapa os invasores são losangos laranja e o povoado atacado pulsa.
   **Defesa do portão** (`BotBrain._defend`): bot a até `RAID_DEFEND_RANGE` do povoado decide uma vez por leva (80%) se larga a caça;

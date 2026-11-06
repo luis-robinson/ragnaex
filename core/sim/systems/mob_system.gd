@@ -51,6 +51,10 @@ static func spawn_adds(sim: WorldSim, boss: SimEntity, sm: Dictionary) -> void:
 		add.adds_epoch = boss.adds_epoch
 		add.aggro_target = boss.aggro_target
 		add.aggro_timer = Balance.AGGRO_LOSE_TIME
+		if boss.raid_id >= 0:                  # invocado por invasor: marcha com a leva e a leva só acaba com ele morto
+			add.raid_id = boss.raid_id
+			add.raid_leg = boss.raid_leg
+			(RaidSystem.state(m)["ids"] as Array).append(add.id)
 		alive += 1
 
 ## Fala de chefe (abertura, fase, queda): aviso na tela só para quem está no mapa.
