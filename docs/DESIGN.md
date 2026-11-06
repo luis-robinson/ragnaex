@@ -174,7 +174,7 @@ Maestria: o nó +1 da árvore compra de novo até `MASTERY_MAX` (1 ponto por ní
 Cada nível: +12% de poder (dano/cura), -4% MP, -5% recarga e +`MASTERY_BONUS_PCT` (10%) nos bônus positivos de buffs e formas
 (`SimEntity.scaled_bonus`, `form_mult`; penalidade e duração não mudam). A descrição de cada maestria sai dos dados (`TreeCatalog.mastery_desc`).
 **Teia de skills** (janela K, estilo Path of Exile): uma teia por classe. Do início saem braços (Geral + um por build) com as skills
-da build por nível; entre duas skills, nós de atributo (FOR/AGI/VIT/WILL/INT +3, pelo atributo da build) e, a cada 3, um **notável**
+da build por nível; entre duas skills, nós de atributo (FOR/AGI/VIT/WILL/INT +1, pelo atributo da build) e, a cada 3, um **notável**
 (bônus maior com nome); maestria e evoluções ao lado de cada skill. Dois **anéis** ligam braços vizinhos (atributos mistos e notáveis
 gerais: crítico, recarga, roubo de vida...), então dá para fazer híbridos. 4 pontos por nível (+1 no 10/20/30) = 119 no 30, numa teia de
 ~140-170 nós: escolher o caminho é a build. Save antigo (antes da teia) recebe todos os pontos de volta. Bots compram o caminho até as skills

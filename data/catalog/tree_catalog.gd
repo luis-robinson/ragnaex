@@ -38,8 +38,9 @@ const ARM_NOTABLES := {
 	"healer": [["Graça", {"heal_pct": 7}], ["Fé Viva", {"heal_pct": 4, "buff_pct": 6}], ["Coro", {"buff_pct": 10}], ["Luz Serena", {"heal_pct": 5, "mp_pct": 5}]],
 	"": [["Vigor", {"hp_pct": 5}], ["Agilidade", {"speed_pct": 4}], ["Treino", {"power": 4}], ["Resistência", {"def_pct": 5}]],
 }
-const SMALL_ATTR := 3             # atributo de um nó pequeno (FOR +3 ...)
-const NOTABLE_ATTR := 5           # atributo principal num notável de braço
+const SMALL_ATTR := 1             # atributo de um nó pequeno (FOR +1 ...; calibrado pelo boss_probe: a teia inteira não pode dobrar a força)
+const NOTABLE_ATTR := 2           # atributo principal num notável de braço
+const NOTABLE_SCALE := 0.45        # bônus % dos notáveis (braço e anel) x isto
 
 static func _is_caster(cls: ClassDef) -> bool:
 	return cls.builds.any(func(b): return b["role"] in ["caster", "healer"])
@@ -195,16 +196,16 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 					if filler % 3 == 0:
 						var pick: Array = arm_notes[notable_i % arm_notes.size()]
 						notable_i += 1
-						st = (pick[1] as Dictionary).duplicate()
+						st = _scaled(pick[1])
 						st["attr_" + str(br["attr"])] = NOTABLE_ATTR
 						nm = pick[0]
 						kind = "notable"
 					elif filler % 3 == 1:
 						st = {"attr_" + str(br["attr"]): SMALL_ATTR}
 					else:
-						st = (smalls[small_i % smalls.size()] as Dictionary).duplicate()
+						st = _scaled(smalls[small_i % smalls.size()], 0.5)       # passivo de papel: metade do de antes (há muitos na teia)
 						small_i += 1
-						st["attr_" + str(br["attr2"])] = SMALL_ATTR - 1
+						st["attr_" + str(br["attr2"])] = SMALL_ATTR
 					st = _power(st, cls)
 					if kind == "stat":
 						nm = stat_text(st)
@@ -260,7 +261,7 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 				if k == count / 2:
 					var pick: Array = RING_NOTABLES[ring_note % RING_NOTABLES.size()]
 					ring_note += 1
-					st = _power(pick[1], cls)
+					st = _power(_scaled(pick[1]), cls)
 					nm = pick[0]
 					kind = "notable"
 				else:
@@ -306,6 +307,13 @@ static func _gap(a: String, b: String) -> float:
 	if a == "":
 		return 0.0
 	return float(NODE_R.get(a, 0.15)) + float(NODE_R.get(b, 0.15)) + GAP
+
+## Bônus de notável escalado (% x NOTABLE_SCALE, arredondado; atributo fica).
+static func _scaled(st: Dictionary, k_mult: float = NOTABLE_SCALE) -> Dictionary:
+	var out := {}
+	for k in st:
+		out[k] = st[k] if str(k).begins_with("attr_") else (snappedf(float(st[k]) * k_mult, 0.5) if st[k] is float else maxi(1, roundi(float(st[k]) * k_mult)))
+	return out
 
 ## Nó do eixo de um braço com raio mais perto de R ("" se o braço é vazio).
 static func _nearest(spine: Array, R: float) -> String:
