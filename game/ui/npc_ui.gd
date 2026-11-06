@@ -253,7 +253,7 @@ func _dialog(body: VBoxContainer) -> void:
 	body.add_child(UiKit.hsep())
 	var actions := HBoxContainer.new()
 	body.add_child(actions)
-	if npc_id == Balance.SKILL_RESET_NPC:      # reset das skills: segundo clique confirma
+	if npc_id in Balance.SKILL_RESET_NPCS:      # reset das skills: segundo clique confirma
 		var note := UiKit.para("Posso apagar o que você aprendeu: a árvore volta ao início e todos os %d pontos voltam para você distribuir de novo (os talentos de escolha ficam)." % ProgressionSystem.points_for_level(p.level), 12, UiKit.MUTED)
 		body.add_child(note)
 		body.move_child(note, actions.get_index())

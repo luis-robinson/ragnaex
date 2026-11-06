@@ -49,40 +49,58 @@ def polar(z, ang_deg, inset):
 H = lambda r, a: (round(math.cos(math.radians(a)) * r, 2), round(math.sin(math.radians(a)) * r, 2))
 
 
-def cathedral(z, c):
-    """Catedral da Aurora: nave e transepto em cruz, telhados azuis, torre central alta com flecha dourada (o marco
+def cathedral(z, c, S=0.72):
+    """Catedral da Aurora (escala S): nave e transepto em cruz, telhados azuis, torre central com flecha dourada (o marco
     que se vê de qualquer ponto do vale). Colisão por caixas invisíveis; a praça fica em volta."""
     stone, roof = z.M["cathedral_stone"], z.M["roof_blue"]
     gold, glass, dark = z.M["gold"], z.M["glass"], z.M["cathedral_trim"]
-    box(z.coll, z.P + "catedral_nave", c, (26.0, 9.0, 10.0), 0.0, stone, 0.0)
-    box(z.coll, z.P + "catedral_transepto", c, (10.0, 9.0, 22.0), 0.0, stone, 0.0)
-    box(z.coll, z.P + "catedral_telhado_nave", (c[0], c[1]), (27.0, 2.4, 7.0), 0.0, roof, 9.0)
-    box(z.coll, z.P + "catedral_telhado_trans", (c[0], c[1]), (7.0, 2.4, 23.0), 0.0, roof, 9.0)
-    cyl(z.coll, z.P + "catedral_torre", c, 4.2, 3.8, 22.0, stone, 0.0, 12)
-    cyl(z.coll, z.P + "catedral_flecha", c, 4.0, 0.25, 11.0, roof, 22.0, 12)
-    cyl(z.coll, z.P + "catedral_sol", c, 1.2, 1.2, 0.5, gold, 33.0, 12)
+    P = lambda dx, dy: (c[0] + dx * S, c[1] + dy * S)
+    box(z.coll, z.P + "catedral_nave", c, (26.0 * S, 9.0 * S, 10.0 * S), 0.0, stone, 0.0)
+    box(z.coll, z.P + "catedral_transepto", c, (10.0 * S, 9.0 * S, 22.0 * S), 0.0, stone, 0.0)
+    box(z.coll, z.P + "catedral_telhado_nave", c, (27.0 * S, 2.4 * S, 7.0 * S), 0.0, roof, 9.0 * S)
+    box(z.coll, z.P + "catedral_telhado_trans", c, (7.0 * S, 2.4 * S, 23.0 * S), 0.0, roof, 9.0 * S)
+    cyl(z.coll, z.P + "catedral_torre", c, 4.2 * S, 3.8 * S, 22.0 * S, stone, 0.0, 12)
+    cyl(z.coll, z.P + "catedral_flecha", c, 4.0 * S, 0.25, 11.0 * S, roof, 22.0 * S, 12)
+    cyl(z.coll, z.P + "catedral_sol", c, 1.2, 1.2, 0.5, gold, 33.0 * S, 12)
     for sx in (-1, 1):                                    # torres da fachada (oeste) e da abside (leste)
         for sy in (-1, 1):
-            p = (c[0] + sx * 12.0, c[1] + sy * 4.2)
-            cyl(z.coll, z.P + "catedral_torreta_%d_%d" % (sx, sy), p, 1.5, 1.3, 12.0, stone, 0.0, 8)
-            cyl(z.coll, z.P + "catedral_cone_%d_%d" % (sx, sy), p, 1.6, 0.1, 4.0, roof, 12.0, 8)
+            p = P(sx * 12.0, sy * 4.2)
+            cyl(z.coll, z.P + "catedral_torreta_%d_%d" % (sx, sy), p, 1.5 * S, 1.3 * S, 12.0 * S, stone, 0.0, 8)
+            cyl(z.coll, z.P + "catedral_cone_%d_%d" % (sx, sy), p, 1.6 * S, 0.1, 4.0 * S, roof, 12.0 * S, 8)
     for i in range(-5, 6):                                # contrafortes e vitrais nas laterais da nave
-        if abs(i) == 0:
+        if i == 0:
             continue
-        x = c[0] + i * 2.2
         for sy in (-1, 1):
-            box(z.coll, z.P + "catedral_contraforte_%d_%d" % (i, sy), (x, c[1] + sy * 5.4), (0.8, 7.0, 0.9), 0.0, dark, 0.0)
+            box(z.coll, z.P + "catedral_contraforte_%d_%d" % (i, sy), P(i * 2.2, sy * 5.4), (0.8 * S, 7.0 * S, 0.9 * S), 0.0, dark, 0.0)
             if abs(i) < 5 and abs(i) != 1:
-                box(z.coll, z.P + "catedral_vitral_%d_%d" % (i, sy), (x + 1.1, c[1] + sy * 5.05), (0.9, 3.6, 0.15), 0.0, glass, 3.2)
+                box(z.coll, z.P + "catedral_vitral_%d_%d" % (i, sy), P(i * 2.2 + 1.1, sy * 5.05), (0.9 * S, 3.6 * S, 0.15), 0.0, glass, 3.2 * S)
     for sx in (-1, 1):                                    # vitrais do transepto
         for k in (-1, 1):
-            box(z.coll, z.P + "catedral_vitral_t_%d_%d" % (sx, k), (c[0] + k * 2.0, c[1] + sx * 11.05), (1.0, 3.8, 0.15), 0.0, glass, 3.2)
-    box(z.coll, z.P + "catedral_porta", (c[0] - 13.05, c[1]), (0.2, 4.6, 3.2), 0.0, gold, 0.0)      # portal dourado (oeste)
-    cyl(z.coll, z.P + "catedral_rosacea", (c[0] - 13.1, c[1]), 1.6, 1.6, 0.2, glass, 6.0, 16)
-    box(z.coll, z.P + "catedral_cornija", c, (26.4, 0.5, 10.4), 0.0, dark, 8.6)
-    z.ob("wall", c[0], c[1], (26.5, 9.0, 10.5), visible=False)
-    z.ob("wall", c[0], c[1], (10.5, 9.0, 22.5), visible=False)
-    z.block(c, 18.0)
+            box(z.coll, z.P + "catedral_vitral_t_%d_%d" % (sx, k), P(k * 2.0, sx * 11.05), (1.0 * S, 3.8 * S, 0.15), 0.0, glass, 3.2 * S)
+    box(z.coll, z.P + "catedral_porta", P(-13.05, 0), (0.2, 4.6 * S, 3.2 * S), 0.0, gold, 0.0)      # portal dourado (oeste)
+    cyl(z.coll, z.P + "catedral_rosacea", P(-13.1, 0), 1.6 * S, 1.6 * S, 0.2, glass, 6.0 * S, 16)
+    box(z.coll, z.P + "catedral_cornija", c, (26.4 * S, 0.5, 10.4 * S), 0.0, dark, 8.6 * S)
+    z.ob("wall", c[0], c[1], (26.5 * S, 9.0 * S, 10.5 * S), visible=False)
+    z.ob("wall", c[0], c[1], (10.5 * S, 9.0 * S, 22.5 * S), visible=False)
+    z.block(c, 18.0 * S)
+
+
+def wall_towers(z, gate_deg):
+    """12 torres na muralha (fora dos portões): base larga, ameias, flâmula azul e um besteiro lá em cima."""
+    stone, roof = z.M["town_wall"], z.M["roof_blue"]
+    for k in range(12):
+        a = 15.0 + 30.0 * k
+        if any(abs((a - g + 180.0) % 360.0 - 180.0) < 10.0 for g in gate_deg):
+            continue
+        p = H(RING_R, a)
+        cyl(z.coll, z.P + "torre_%d" % k, p, 3.0, 2.7, 8.0, stone, 0.0, 10)
+        for m in range(8):                                # ameias
+            b = math.tau * m / 8
+            box(z.coll, z.P + "torre_%d_ameia_%d" % (k, m), (p[0] + math.cos(b) * 2.4, p[1] + math.sin(b) * 2.4), (1.0, 1.0, 0.7), math.degrees(-b), stone, 8.0)
+        cyl(z.coll, z.P + "torre_%d_mastro" % k, (p[0] + 1.6, p[1]), 0.08, 0.08, 4.0, z.M["cathedral_trim"], 8.0, 4)
+        box(z.coll, z.P + "torre_%d_flamula" % k, (p[0] + 2.2, p[1]), (1.2, 0.8, 0.06), 0.0, roof, 10.8)
+        z.ob("pillar", p[0], p[1], (6.0, 8.0, 6.0), visible=False)
+        z.npc("dawn_g_tower_wall_%d" % k, p[0], p[1], round(math.degrees(math.atan2(math.cos(math.radians(a)), math.sin(math.radians(a)))), 1))
 
 
 def build(export=False):
@@ -106,7 +124,8 @@ def build(export=False):
     disc(z.coll, z.P + "chao_cidade", (0, 0), RING_R - 1.0, 0.009, z.M["chao_cidade"], 64, 0.02, 3)
     z.M["pave_praca"] = zone_lib.mat("pave_praca", (0.78, 0.72, 0.62))
     z.plaza("praca", (0, 0), 24.0, "pave_praca")
-    z.ring_wall("cidade", (0, 0), RING_R, gates, gate_half=4.0, height=4.2, thick=1.8, material="town_wall", towers=8)
+    z.ring_wall("cidade", (0, 0), RING_R, gates, gate_half=4.0, height=4.2, thick=1.8, material="town_wall", towers=0)
+    wall_towers(z, gate_deg)
     z.data["town"] = {"center": [0.0, 0.0], "radius": RING_R, "gates": [list(H(RING_R, a)) for a in gate_deg]}
     cathedral(z, (0.0, 0.0))
     for a in gate_deg:                                    # avenidas da praça aos portões
@@ -152,7 +171,7 @@ def build(export=False):
             z.ob("lamp", *H(27.5, a), (0.4, 3.2, 0.4))
     # NPCs de serviço (na praça, em volta da catedral) e a guarnição dos portões
     for nid, a, r in (("dawn_commander", 160.0, 20.0), ("high_priest", -160.0, 20.0), ("ruins_scholar", -20.0, 20.0), ("dawn_smith", 20.0, 20.0),
-                      ("dawn_alchemist", 112.0, 24.0)):
+                      ("dawn_alchemist", 112.0, 24.0), ("dawn_relic", -68.0, 21.0), ("dawn_storage", 68.0, 21.0)):
         x, y = H(r, a)
         z.npc(nid, x, y, face(a))
     z.npc("dawn_merchant", MARKET[0] - 3.0, MARKET[1] - 3.0, 225.0)

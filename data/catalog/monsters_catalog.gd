@@ -119,6 +119,8 @@ static func build() -> Array:
 		{"id": "guard_priest", "name": "Sacerdotisa da Aurora", "level": 26, "hp": 1800, "atk": 18, "matk": 56, "def": 16, "mdef": 30, "move_speed": 4.6, "attack_range": 8.0, "attack_cooldown": 1.6, "attack_startup": 0.45, "xp": 0, "ranged": true,
 		 "radius": 0.45, "scale": 1.0, "color": Color(0.96, 0.95, 0.9), "shape": "capsule", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_loyal_priest",
 		 "skill_ids": ["mob_holy_light", "mob_light_beam"] as Array[String]},
+		{"id": "guard_wall_crossbow", "name": "Besteiro da Muralha", "level": 26, "hp": 5000, "atk": 14, "def": 30, "mdef": 30, "move_speed": 0.1, "attack_range": 18.0, "attack_cooldown": 1.7, "attack_startup": 0.35, "xp": 0, "ranged": true,
+		 "radius": 0.45, "scale": 1.0, "color": Color(0.55, 0.45, 0.32), "shape": "capsule", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_loyal_crossbow"},
 		{"id": "guard_crossbow", "name": "Besteiro da Aurora", "level": 26, "hp": 1900, "atk": 56, "def": 20, "mdef": 16, "move_speed": 4.6, "attack_range": 11.0, "attack_cooldown": 1.6, "attack_startup": 0.4, "xp": 0, "ranged": true,
 		 "radius": 0.45, "scale": 1.0, "color": Color(0.55, 0.45, 0.32), "shape": "capsule", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_loyal_crossbow"},
 		# ---- Linha dos fora-da-lei (Floresta, 12-21): trombadinha, gatuno, clandestino, bandido, fora-da-lei, capanga, chefe ----

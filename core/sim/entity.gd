@@ -139,6 +139,10 @@ var npc_stuck: float = 0.0
 func is_alive() -> bool:
 	return state != State.DEAD
 
+## NPC no alto da muralha/torre (npc_data.perch = altura visual): atira, não anda, não é alvo.
+func is_perched() -> bool:
+	return kind == Kind.NPC and float(npc_data.get("perch", 0.0)) > 0.0
+
 func is_character() -> bool:
 	return kind == Kind.PLAYER or kind == Kind.BOT
 
@@ -149,6 +153,8 @@ func is_hostile_to(other: SimEntity) -> bool:
 	var b_mob := other.kind == Kind.MONSTER
 	if (other.kind == Kind.NPC and not other.guard) or (kind == Kind.NPC and not guard):
 		return false
+	if a_mob and other.kind == Kind.NPC and other.is_perched():
+		return false                        # besteiro no alto da torre: o monstro não alcança, nem tenta
 	if kind == Kind.SUMMON or kind == Kind.NPC:        # invocação e sentinela: só contra monstros
 		return b_mob
 	if other.kind == Kind.SUMMON or other.kind == Kind.NPC:

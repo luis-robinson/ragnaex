@@ -24,10 +24,10 @@ ARRIVE_IN_FORT = (0.0, 96.0)          # chegada em todo mapa de fortaleza (o Bas
 FORTS = {
     "fort_ghoul": {
         "name": "Covil do Carniçal", "seed": 31, "quest": "dw_ghoul_boss", "posts_quest": "dw_ghoul_posts", "after": None, "boss": "ghoul_giant",
-        "ground": (0.4, 0.38, 0.24), "wall": (0.38, 0.3, 0.22), "wall_mat": "bark", "accent": (0.45, 0.68, 0.22), "patio": (0.32, 0.27, 0.18),
+        "ground": (0.4, 0.38, 0.24), "wall": (0.38, 0.3, 0.22), "wall_mat": "bark", "accent": (0.45, 0.68, 0.22), "patio": (0.32, 0.27, 0.18), "road": (0.36, 0.5, 0.16),
         "trees": [(0.36, 0.34, 0.26), (0.42, 0.38, 0.28)],
-        "outside": [("larva", 8, 14.0), ("rot_zombie", 5, 18.0), ("rot_wolf", 3, 20.0), ("rot_bear", 2, 30.0)],
-        "inside": [("rot_ghoul", 4, 22.0), ("larva", 6, 14.0)],
+        "outside": [("larva", 14, 12.0), ("rot_zombie", 9, 16.0), ("rot_wolf", 5, 18.0), ("rot_bear", 3, 26.0), ("rot_ghoul", 6, 18.0), ("larva", 12, 12.0)],
+        "inside": [("rot_ghoul", 6, 20.0), ("larva", 10, 12.0), ("rot_zombie", 6, 16.0)],
         "posts": [("rot_ghoul", 3), ("rot_zombie", 4)],
     },
     "fort_bones": {
@@ -70,7 +70,12 @@ def landmark(z, fid, cfg):
     c = FORT_C
     acc = z.M["accent"]
     wall = z.M["fort_wall"]
-    if fid == "fort_ghoul":                           # monte de carne com costelas e bolhas
+    if fid == "fort_ghoul":                           # monte de carne com costelas e bolhas; poço de podridão borbulhando
+        disc(z.coll, z.P + "poco_podre", (c[0] + 12, c[1] - 4), 4.0, 0.03, z.M["accent"], 18, 0.4, 3)
+        for k in range(6):
+            a = math.tau * k / 6
+            cyl(z.coll, z.P + "poco_bolha_%d" % k, (c[0] + 12 + math.cos(a) * 2.0, c[1] - 4 + math.sin(a) * 2.0), 0.5, 0.2, 0.6, z.M["accent"], 0.0, 6)
+        z.ob("rock", c[0] + 12, c[1] - 4, (7.0, 1.0, 7.0), visible=False)
         top = z.hill("monte", (c[0], c[1] - 10), 7, 2, rock="fort_wall", top="accent", step=1.6)
         for i in range(8):
             a = math.tau * i / 8
@@ -104,10 +109,10 @@ def landmark(z, fid, cfg):
 def build_one(fid, export=False):
     cfg = FORTS[fid]
     z = Zone(fid, seed=cfg["seed"], palette={
-        "road": (0.5, 0.46, 0.4), "street": (0.56, 0.52, 0.48), "cliff_rock": (0.44, 0.42, 0.42), "cliff_rock_d": (0.34, 0.32, 0.33),
+        "road": cfg.get("road", (0.5, 0.46, 0.4)), "street": (0.56, 0.52, 0.48), "cliff_rock": (0.44, 0.42, 0.42), "cliff_rock_d": (0.34, 0.32, 0.33),
         "cliff_grass": cfg["ground"], "hill_grass": cfg["ground"], "leaf": cfg["trees"][0], "bark": cfg["wall"],
         "town_wall": cfg["wall"], "fort_wall": cfg["wall"], "accent": cfg["accent"], "bone": (0.9, 0.87, 0.78),
-        "water_dark": (0.26, 0.3, 0.36), "patio": cfg["patio"],
+        "water_dark": (0.26, 0.3, 0.36), "patio": cfg["patio"], "flesh": (0.66, 0.5, 0.42), "fly": (0.12, 0.12, 0.08), "toxic": (0.5, 0.25, 0.55), "garden": (0.26, 0.34, 0.1),
     })
     rnd = random.Random(cfg["seed"])
     q, after = cfg["quest"], cfg["after"]
@@ -149,7 +154,7 @@ def build_one(fid, export=False):
         z.npc("%s_settler_%d" % (fid, k), c[0] + dx, c[1] + dy, 200.0)
     for i, role in enumerate(["knight", "knight", "spearman", "priest", "crossbow"]):
         z.npc("%s_g_%s_%d" % (fid, role, i), c[0] - 6 + i * 3.0, c[1] + FORT_R - 4.0, 180.0)
-    z.spawner(cfg["boss"], c[0], c[1] - 2, 2, 1, 240.0 if fid != "lich_citadel" else 300.0, when={"unless": q} if fid != "lich_citadel" else None)
+    z.spawner(cfg["boss"], c[0], c[1] - 2, 2, 1, 120.0 if fid != "lich_citadel" else 300.0, when={"unless": q} if fid != "lich_citadel" else None)
     for i, (mob, n, resp) in enumerate(cfg["inside"]):
         a = math.tau * i / len(cfg["inside"]) + 0.6
         z.spawner(mob, c[0] + math.cos(a) * 14, c[1] + math.sin(a) * 12, 6, n, resp, when={"unless": q} if fid != "lich_citadel" else None)
@@ -168,6 +173,19 @@ def build_one(fid, export=False):
         z.data["assaults"] = [{"id": "aurora", "from": [arrive[0], arrive[1] - 4.0], "route": [[-14, 70], [10, 40], [-6, 14], [gate_pt[0], gate_pt[1] + 2]],
                                "target": [c[0], c[1] + 4], "radius": 12.0}]
     z.data["hangouts"] = [[arrive[0] + dx, arrive[1] - 8] for dx in (-4, 0, 4)]
+    if fid == "fort_ghoul":                           # jardins venenosos: canteiros de cogumelos e flores doentes ao longo da estrada
+        grnd = random.Random(77)
+        for g, gc in enumerate([(-44, 62), (40, 62), (-58, 12), (34, 4), (-36, 88), (38, 84), (-74, 44), (72, 40)]):
+            if not z.free(gc[0], gc[1], 2.0, 0.0):
+                continue
+            disc(z.coll, z.P + "jardim_%d" % g, gc, 6.0, 0.014, z.M["garden"], 20, 0.25, g)
+            for k in range(10):
+                q = (gc[0] + grnd.uniform(-4.5, 4.5), gc[1] + grnd.uniform(-4.5, 4.5))
+                z.ob("flowers", q[0], q[1], (1.6, 0.6, 1.6), solid=False, color=[(0.62, 0.78, 0.2), (0.55, 0.3, 0.55), (0.8, 0.72, 0.25)][k % 3])
+            for k in range(5):
+                q = (gc[0] + grnd.uniform(-4, 4), gc[1] + grnd.uniform(-4, 4))
+                cyl(z.coll, z.P + "cogumelo_pe_%d_%d" % (g, k), q, 0.18, 0.16, 0.8, z.M["bone"], 0.0, 6)
+                cyl(z.coll, z.P + "cogumelo_chapeu_%d_%d" % (g, k), q, 0.7, 0.1, 0.45, z.M["accent"] if k % 2 else z.M["toxic"], 0.8, 8)
     # ---------- identidade do caminho: bile, ossos, cristais de gelo, chamas roxas ----------
     drnd = random.Random(cfg["seed"] + 11)
     for i in range(26):
@@ -178,6 +196,13 @@ def build_one(fid, export=False):
             continue
         if fid == "fort_ghoul":
             disc(z.coll, z.P + "bile_%d" % i, p, drnd.uniform(1.8, 3.4), 0.02, z.M["accent"], 14, 0.3, i)
+            if i % 3 == 0:                            # monte de pústulas que borbulha
+                for k in range(4):
+                    cyl(z.coll, z.P + "pustula_%d_%d" % (i, k), (p[0] + (k - 1.5) * 0.9, p[1] + (k % 2) * 0.8), 0.7 - k * 0.1, 0.25, 1.0 + k * 0.3, z.M["flesh"], 0.0, 7)
+                z.ob("rock", p[0], p[1], (3.2, 1.6, 2.6), visible=False)
+            if i % 2 == 0:                            # enxame de moscas pairando
+                for k in range(9):
+                    box(z.coll, z.P + "mosca_%d_%d" % (i, k), (p[0] + drnd.uniform(-1.6, 1.6), p[1] + drnd.uniform(-1.6, 1.6)), (0.16, 0.12, 0.16), drnd.uniform(0, 90), z.M["fly"], drnd.uniform(1.6, 3.2))
         elif fid == "fort_bones":
             for k in range(3):
                 cyl(z.coll, z.P + "ossada_%d_%d" % (i, k), (p[0] + k * 0.6, p[1] + (k % 2) * 0.5), 0.35, 0.08, 1.2 + k * 0.5, z.M["bone"], 0.0, 6)

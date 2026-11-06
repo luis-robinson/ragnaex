@@ -17176,7 +17176,7 @@
    ],
    "radius": 2,
    "count": 1,
-   "respawn": 240.0,
+   "respawn": 120.0,
    "unless": "dw_frost_boss"
   },
   {

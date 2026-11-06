@@ -321,6 +321,11 @@ Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MS
       - **Reforços:** cada fortaleza retomada manda soldados ao Bastião a cada 2 min (`ASSAULTS["field_ruins"]["reforco_<lado>"]`, a rota da investida ao contrário até a praça).
       - **Surtida:** quando uma leva chega à muralha, 20 soldados saem da porta da catedral até o portão atacado (`MapDef.sortie`, `SORTIES`, recarga `RAID_SORTIE_COOLDOWN` 180 s) e voltam/somem quando a leva acaba.
       - Com duas retomadas, o último front (~60) só cai com o jogador e o grupo (3 bots nv 27: 4/4).
+      - **Torres:** 10 torres na muralha com besteiros no alto (`guard_wall_crossbow`, `npc_data.perch` = altura visual; `SimEntity.is_perched`). Atiram por cima do muro com pouco dano, não andam, não são alvo, não tomam dano e não puxam aggro.
+      - **Serviços:** catedral a 72%. Na praça, Relicário (lendárias por moeda) e Depósito; a Alta Sacerdotisa também reseta skills (`Balance.SKILL_RESET_NPCS`).
+  - **Covil do Carniçal (praga):** estrada de bile, jardins venenosos (cogumelos e flores doentes), montes de pústulas, enxames de moscas e poço de podridão no pátio, com o dobro de criaturas.
+    - O Carniçal Gigante tem feridas com pus, rasgo na barriga, chifre, nuvem de moscas, sino enferrujado, chaminés de gás e cutelo.
+    - Os chefes das fortalezas renascem em 2 min enquanto a quest de retomada não sai.
   - **Fortalezas** (`build_dawn_forts.py`, um mapa por laço): Covil do Carniçal (20-23), Fortaleza dos Ossos (23-26), Torre do Mago Gélido (26-29).
     - Cada uma tem estrada, dois postos para retomar, muralha com marco no pátio, prisioneiros e chefe:
       - Carniçal Gigante: ninhada de larvas e bile;

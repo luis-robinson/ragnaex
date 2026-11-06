@@ -14,6 +14,8 @@ static func taunt(sim: WorldSim, mob: SimEntity, src: SimEntity, duration: float
 
 ## Troca de alvo por ameaça: o primeiro golpe puxa; depois só quem passa o alvo atual com folga.
 static func retarget(sim: WorldSim, mob: SimEntity, attacker: SimEntity) -> void:
+	if attacker.is_perched():
+		return                              # flecha da torre não puxa o monstro (ele não sobe)
 	mob.aggro_timer = Balance.AGGRO_LOSE_TIME
 	if mob.aggro_target < 0:
 		mob.aggro_target = attacker.id

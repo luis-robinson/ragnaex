@@ -22,6 +22,13 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 	skill_timer -= dt
 	var mdef := e.monster_def
 	var home := e.home_position
+	if e.is_perched():                                # torre: só mira e atira no que chegar ao alcance
+		var foe: SimEntity = Combat.nearest_hostile(e, m["entities"], mdef.attack_range)
+		e.aggro_target = foe.id if foe else -1
+		if foe:
+			cmd.aim = foe.position
+			cmd.attack = e.basic_cd <= 0.0 and e.can_act()
+		return cmd
 	if e.position.distance_to(home) > Balance.GUARD_LEASH:
 		returning = true
 	if returning:
@@ -58,7 +65,7 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 		if dist <= reach * 0.85:
 			if e.basic_cd <= 0.0 and e.can_act():
 				cmd.attack = true
-		else:
+		elif not e.is_perched():
 			cmd.move = MonsterBrain._dir_to(e, target.position)
 		return cmd
 	# sem luta: marcha do assalto, ronda/passeio do NPC, ou fica no posto

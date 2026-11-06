@@ -258,7 +258,7 @@ static func near_npc(sim: WorldSim, e: SimEntity, npc_id: String) -> bool:
 static func reset_tree(sim: WorldSim, e: SimEntity) -> bool:
 	if e.class_def == null:
 		return false
-	if not near_npc(sim, e, Balance.SKILL_RESET_NPC):
+	if not Balance.SKILL_RESET_NPCS.any(func(nid): return near_npc(sim, e, nid)):
 		if e == sim.player:
 			Events.notification.emit("Fale com o Ancião Ravi, na praça de Aldara, para resetar as skills")
 		return false

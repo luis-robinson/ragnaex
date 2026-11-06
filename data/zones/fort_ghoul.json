@@ -1503,6 +1503,21 @@
    "solid": true
   },
   {
+   "kind": "rock",
+   "pos": [
+    12.0,
+    -34.0
+   ],
+   "size": [
+    7.0,
+    1.0,
+    7.0
+   ],
+   "rot": 0.0,
+   "visible": false,
+   "solid": true
+  },
+  {
    "kind": "hill",
    "pos": [
     0.0,
@@ -1756,6 +1771,1696 @@
     0.28,
     0.3
    ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -41.31,
+    60.43
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -46.34,
+    64.9
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.55,
+    0.3,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -47.46,
+    61.79
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.8,
+    0.72,
+    0.25
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -43.48,
+    63.0
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -47.19,
+    63.18
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.55,
+    0.3,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -43.99,
+    65.16
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.8,
+    0.72,
+    0.25
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -48.24,
+    66.11
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -46.95,
+    64.82
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.55,
+    0.3,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -43.93,
+    65.02
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.8,
+    0.72,
+    0.25
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -46.85,
+    60.39
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    36.19,
+    65.06
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    44.34,
+    64.16
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.55,
+    0.3,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    42.19,
+    65.15
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.8,
+    0.72,
+    0.25
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    36.35,
+    61.65
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    36.21,
+    64.53
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.55,
+    0.3,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    40.34,
+    58.46
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.8,
+    0.72,
+    0.25
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    39.5,
+    64.49
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    40.47,
+    58.59
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.55,
+    0.3,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    43.93,
+    58.01
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.8,
+    0.72,
+    0.25
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    43.09,
+    66.27
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -58.04,
+    7.86
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -59.28,
+    16.4
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.55,
+    0.3,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -61.44,
+    16.37
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.8,
+    0.72,
+    0.25
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -54.35,
+    13.69
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -62.0,
+    11.74
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.55,
+    0.3,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -56.27,
+    8.36
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.8,
+    0.72,
+    0.25
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -59.82,
+    8.33
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -54.91,
+    15.74
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.55,
+    0.3,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -54.19,
+    14.26
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.8,
+    0.72,
+    0.25
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -57.32,
+    8.06
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    37.45,
+    0.72
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    31.85,
+    6.45
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.55,
+    0.3,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    30.27,
+    0.98
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.8,
+    0.72,
+    0.25
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    29.73,
+    8.12
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    31.6,
+    4.01
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.55,
+    0.3,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    32.91,
+    8.33
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.8,
+    0.72,
+    0.25
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    35.91,
+    4.91
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    33.91,
+    1.91
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.55,
+    0.3,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    37.05,
+    0.43
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.8,
+    0.72,
+    0.25
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    35.1,
+    2.16
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -34.39,
+    90.51
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -39.01,
+    92.06
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.55,
+    0.3,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -37.04,
+    87.64
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.8,
+    0.72,
+    0.25
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -36.11,
+    89.76
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -33.58,
+    85.25
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.55,
+    0.3,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -33.05,
+    87.35
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.8,
+    0.72,
+    0.25
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -38.24,
+    91.28
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -32.65,
+    91.22
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.55,
+    0.3,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -37.59,
+    91.72
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.8,
+    0.72,
+    0.25
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -33.52,
+    92.23
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    40.22,
+    84.56
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    39.86,
+    82.28
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.55,
+    0.3,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    34.21,
+    85.58
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.8,
+    0.72,
+    0.25
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    34.81,
+    82.74
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    40.53,
+    79.94
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.55,
+    0.3,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    41.7,
+    84.8
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.8,
+    0.72,
+    0.25
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    38.55,
+    85.59
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    34.01,
+    79.7
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.55,
+    0.3,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    39.99,
+    84.78
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.8,
+    0.72,
+    0.25
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    39.26,
+    86.91
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -74.42,
+    45.08
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -70.86,
+    39.92
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.55,
+    0.3,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -71.76,
+    40.84
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.8,
+    0.72,
+    0.25
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -74.86,
+    48.33
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -70.85,
+    40.19
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.55,
+    0.3,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -78.46,
+    39.78
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.8,
+    0.72,
+    0.25
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -71.47,
+    39.85
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -71.44,
+    46.77
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.55,
+    0.3,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -71.14,
+    47.93
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.8,
+    0.72,
+    0.25
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    -72.8,
+    46.92
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    74.42,
+    38.4
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    71.72,
+    37.21
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.55,
+    0.3,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    72.7,
+    43.96
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.8,
+    0.72,
+    0.25
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    70.98,
+    41.43
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    72.51,
+    37.26
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.55,
+    0.3,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    73.77,
+    37.41
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.8,
+    0.72,
+    0.25
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    73.02,
+    44.45
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    70.26,
+    41.52
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.55,
+    0.3,
+    0.55
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    70.56,
+    41.3
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.8,
+    0.72,
+    0.25
+   ]
+  },
+  {
+   "kind": "flowers",
+   "pos": [
+    69.22,
+    40.01
+   ],
+   "size": [
+    1.6,
+    0.6,
+    1.6
+   ],
+   "rot": 0.0,
+   "visible": true,
+   "solid": false,
+   "color": [
+    0.62,
+    0.78,
+    0.2
+   ]
+  },
+  {
+   "kind": "rock",
+   "pos": [
+    35.5,
+    27.5
+   ],
+   "size": [
+    3.2,
+    1.6,
+    2.6
+   ],
+   "rot": 0.0,
+   "visible": false,
+   "solid": true
+  },
+  {
+   "kind": "rock",
+   "pos": [
+    -68.5,
+    68.3
+   ],
+   "size": [
+    3.2,
+    1.6,
+    2.6
+   ],
+   "rot": 0.0,
+   "visible": false,
+   "solid": true
+  },
+  {
+   "kind": "rock",
+   "pos": [
+    -41.8,
+    1.1
+   ],
+   "size": [
+    3.2,
+    1.6,
+    2.6
+   ],
+   "rot": 0.0,
+   "visible": false,
+   "solid": true
+  },
+  {
+   "kind": "rock",
+   "pos": [
+    42.8,
+    37.4
+   ],
+   "size": [
+    3.2,
+    1.6,
+    2.6
+   ],
+   "rot": 0.0,
+   "visible": false,
+   "solid": true
+  },
+  {
+   "kind": "rock",
+   "pos": [
+    -7.4,
+    47.0
+   ],
+   "size": [
+    3.2,
+    1.6,
+    2.6
+   ],
+   "rot": 0.0,
+   "visible": false,
+   "solid": true
+  },
+  {
+   "kind": "rock",
+   "pos": [
+    63.6,
+    63.7
+   ],
+   "size": [
+    3.2,
+    1.6,
+    2.6
+   ],
+   "rot": 0.0,
+   "visible": false,
+   "solid": true
   },
   {
    "kind": "dead_tree",
@@ -16507,7 +18212,7 @@
    ],
    "radius": 2,
    "count": 1,
-   "respawn": 240.0,
+   "respawn": 120.0,
    "unless": "dw_ghoul_boss"
   },
   {
@@ -16517,19 +18222,30 @@
     -23.224290319259573
    ],
    "radius": 6,
-   "count": 4,
-   "respawn": 22.0,
+   "count": 6,
+   "respawn": 20.0,
    "unless": "dw_ghoul_boss"
   },
   {
    "monster_id": "larva",
    "pos": [
-    -11.554698608735496,
-    -36.77570968074043
+    -12.623275468588663,
+    -24.810715530452224
+   ],
+   "radius": 6,
+   "count": 10,
+   "respawn": 12.0,
+   "unless": "dw_ghoul_boss"
+  },
+  {
+   "monster_id": "rot_zombie",
+   "pos": [
+    1.0685768598531558,
+    -41.9649941502882
    ],
    "radius": 6,
    "count": 6,
-   "respawn": 14.0,
+   "respawn": 16.0,
    "unless": "dw_ghoul_boss"
   },
   {
@@ -16539,8 +18255,8 @@
     26.3
    ],
    "radius": 9,
-   "count": 8,
-   "respawn": 14.0,
+   "count": 14,
+   "respawn": 12.0,
    "unless": "dw_ghoul_boss"
   },
   {
@@ -16550,8 +18266,8 @@
     2.4
    ],
    "radius": 9,
-   "count": 5,
-   "respawn": 18.0,
+   "count": 9,
+   "respawn": 16.0,
    "unless": "dw_ghoul_boss"
   },
   {
@@ -16561,8 +18277,8 @@
     5.4
    ],
    "radius": 9,
-   "count": 3,
-   "respawn": 20.0,
+   "count": 5,
+   "respawn": 18.0,
    "unless": "dw_ghoul_boss"
   },
   {
@@ -16572,8 +18288,30 @@
     33.1
    ],
    "radius": 9,
-   "count": 2,
-   "respawn": 30.0,
+   "count": 3,
+   "respawn": 26.0,
+   "unless": "dw_ghoul_boss"
+  },
+  {
+   "monster_id": "rot_ghoul",
+   "pos": [
+    47.5,
+    65.7
+   ],
+   "radius": 9,
+   "count": 6,
+   "respawn": 18.0,
+   "unless": "dw_ghoul_boss"
+  },
+  {
+   "monster_id": "larva",
+   "pos": [
+    0.0,
+    80.0
+   ],
+   "radius": 9,
+   "count": 12,
+   "respawn": 12.0,
    "unless": "dw_ghoul_boss"
   }
  ],

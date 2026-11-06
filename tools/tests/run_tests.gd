@@ -657,6 +657,7 @@ func _check_zone(gd, sim) -> void:
 	_check_dawn_factions(gd)
 	_check_dawn_conquest(gd)
 	_check_dawn_relief(gd)
+	_check_dawn_towers(gd)
 	_check_signature(gd, sim)
 	_check_raid_tactics(gd, sim)
 	_check_equipment_slots(gd, sim, save_ref)
@@ -3015,6 +3016,62 @@ func _check_outlaws(gd, sim) -> void:
 ## leva da Aurora sobe a estrada, com Vorhag morto os mortos somem e o assentamento e a guarnição aparecem.
 ## Bastião: fortaleza retomada enfurece os fronts que sobram (x1,5 por retomada + elites, teto RAID_WAVE_CAP);
 ## a fortaleza retomada manda reforço à praça; leva na muralha solta a surtida de 20 da catedral (recarga, volta e some).
+## Bastião: besteiros no alto das torres atiram nos invasores (pouco dano) e não são alvo nem tomam dano nem puxam aggro;
+## serviços completos (relicário, depósito, reset na Alta Sacerdotisa); chefe de fortaleza volta enquanto a quest não sai.
+func _check_dawn_towers(gd) -> void:
+	var def: MapDef = gd.maps["field_ruins"]
+	var perched := def.npcs.filter(func(n): return float(n.get("perch", 0.0)) > 0.0)
+	check(perched.size() >= 8, "Bastião: besteiros nas torres (%d)" % perched.size())
+	var roles := def.npcs.map(func(n): return str(n.get("role", "")))
+	check(roles.has("relic") and roles.has("storage") and roles.has("smith") and roles.has("merchant") and roles.has("alchemy") and roles.has("crystal"), "Bastião: relicário, depósito, ferreiro, mercador, alquimista e cristal")
+	check(Balance.SKILL_RESET_NPCS.has("high_priest"), "Bastião: a Alta Sacerdotisa reseta skills")
+	var ws := WorldSim.new()
+	ws.load_map(gd.maps[GameData.town_map_id()])
+	var m: Dictionary = ws.load_map(def)
+	m["spawners"].clear()
+	for e in m["entities"].duplicate():
+		if e.kind == SimEntity.Kind.MONSTER:
+			ws.despawn(e)
+	var archer: SimEntity = m["entities"].filter(func(e): return e.is_perched())[0]
+	ws.player = ws.spawn_player(gd.classes["paladin"], "Teste", def.id)
+	ws.player.position = archer.position * 0.8           # perto, por dentro da muralha (mapa acordado)
+	ws.player.brain = null
+	var mob: SimEntity = ws.spawn_monster(gd.monsters["skeleton"], def.id, archer.position * 1.16)
+	mob.brain = null
+	var hp0 := mob.hp
+	for i in int(6.0 * 20):
+		ws.tick(0.05)
+	check(mob.hp < hp0 and hp0 - mob.hp < mob.stats.max_hp * 0.5, "besteiro da torre acerta o invasor com pouco dano (%d)" % int(hp0 - mob.hp))
+	check(archer.position.distance_to(archer.home_position) < 0.5, "besteiro da torre não sai do lugar")
+	check(not mob.is_hostile_to(archer) and mob.aggro_target != archer.id, "monstro não mira nem persegue o besteiro da torre")
+	var ahp := archer.hp
+	ws._deal_damage(mob, archer, 9999, false, false, "physical")
+	check(archer.is_alive() and archer.hp == ahp, "besteiro da torre não toma dano")
+	# chefe do Covil: morto antes da retomada, volta; depois da quest, não
+	var fd: MapDef = gd.maps["fort_ghoul"]
+	var bsp: Dictionary = fd.spawners.filter(func(sp): return sp["monster_id"] == "ghoul_giant")[0]
+	check(bsp.get("unless", "") == "dw_ghoul_boss" and float(bsp["respawn"]) <= 120.0, "Carniçal Gigante volta em até 2 min enquanto o Covil não é retomado")
+	var w2 := WorldSim.new()
+	w2.load_map(gd.maps[GameData.town_map_id()])
+	var fm: Dictionary = w2.load_map(fd)
+	w2.player = w2.spawn_player(gd.classes["paladin"], "Teste", fd.id)
+	var boss := func() -> Array:
+		return fm["entities"].filter(func(e): return e.kind == SimEntity.Kind.MONSTER and e.monster_def.id == "ghoul_giant" and e.is_alive())
+	for i in 40:
+		w2.tick(0.05)
+	check(boss.call().size() == 1, "Covil: o Carniçal Gigante está no pátio")
+	var b: SimEntity = boss.call()[0]
+	w2._deal_damage(w2.player, b, int(b.hp + 99999), false, false, "physical")
+	for i in int((float(bsp["respawn"]) + 5.0) * 20):
+		w2.tick(0.05)
+	check(boss.call().size() == 1, "Covil: morto sem a quest, o Carniçal Gigante renasce")
+	w2.player.quests_completed.append("dw_ghoul_boss")
+	for e in boss.call():
+		e.aggro_target = -1
+	for i in 40:
+		w2.tick(0.05)
+	check(boss.call().is_empty(), "Covil: retomado, o chefe não volta")
+
 func _check_dawn_relief(gd) -> void:
 	var ws := WorldSim.new()
 	ws.load_map(gd.maps[GameData.town_map_id()])
@@ -4205,7 +4262,7 @@ func _check_zone_layout(gd, sim, md: MapDef) -> void:
 		if n.get("role", "") == "crystal":          # o cristal é a própria coluna sólida: confere a frente dele
 			check(sim.is_walkable(n["pos"] + (md.town_center - n["pos"]).normalized() * Balance.CRYSTAL_ARRIVE, md, 0.5), "%s: frente do cristal livre" % mid)
 			continue
-		check(sim.is_walkable(n["pos"], md, 0.3), "%s: NPC %s em chão livre" % [mid, n["id"]])
+		check(float(n.get("perch", 0.0)) > 0.0 or sim.is_walkable(n["pos"], md, 0.3), "%s: NPC %s em chão livre" % [mid, n["id"]])
 	for pt in md.portals:
 		check(sim.is_walkable(pt["pos"], md, 0.45), "%s: portal %s alcançável" % [mid, pt["id"]])
 	for other in gd.maps:

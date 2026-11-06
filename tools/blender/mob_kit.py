@@ -1048,10 +1048,31 @@ def undead_parts(cid, kind, glow):
             for sx in (-1, 1):
                 head.append(ck.blade("%s_ear%d" % (cid, sx), c + V((sx * r * 0.9, r * 0.1, r * 0.2)), c + V((sx * r * 1.4, r * 0.3, r * 0.6)), r * 0.28, r * 0.04, hide, (0, 1, 0), 0.5))
             if kind == "giant":
+                sore = ck.mat("m_%s_sore" % cid, (0.55, 0.12, 0.12), 0.5)
+                rot_m = ck.mat("m_%s_mottle" % cid, (0.3, 0.36, 0.16), 0.8)
+                for i in range(5):                    # feridas abertas na barriga, com borda de pus
+                    a = -0.9 + i * 0.45
+                    q = V((math.sin(a) * 0.31, front - 0.31 + abs(math.sin(a)) * 0.08, ck.Z["waist"] + 0.09 * math.cos(a * 3)))
+                    body.append(ck.ball("%s_pusrim%d" % (cid, i), 0.1, q, pus, (1.2, 0.45, 1.0)))
+                    body.append(ck.ball("%s_sore%d" % (cid, i), 0.075, q + V((0, -0.015, 0)), sore, (1.2, 0.5, 0.95)))
+                body.append(ck.ball(cid + "_gash", 0.12, V((0.0, front - 0.36, ck.Z["waist"] - 0.06)), sore, (2.0, 0.4, 0.6)))
+                for i in range(10):                   # manchas de podridão no corpo
+                    a = math.tau * i / 10
+                    body.append(ck.ball("%s_mottle%d" % (cid, i), 0.07, V((math.cos(a) * 0.3, math.sin(a) * 0.25 + 0.02, ck.Z["waist"] + 0.18 + 0.05 * (i % 3))), rot_m, (1.0, 0.5, 1.0)))
+                head.append(ck.tube(cid + "_horn", c + V((r * 0.15, -r * 0.4, r * 0.75)), c + V((r * 0.35, -r * 0.9, r * 1.6)), r * 0.2, r * 0.02, bone, 6))
+                fly = ck.mat("m_%s_fly" % cid, (0.08, 0.08, 0.06), 0.6)
+                for i in range(24):                   # nuvem de moscas em volta da cabeça
+                    a = math.tau * i / 12 + (0.26 if i >= 12 else 0.0)
+                    head.append(ck.ball("%s_fly%d" % (cid, i), r * (0.05 if i < 12 else 0.04), c + V((math.cos(a) * r * (1.3 + 0.2 * (i % 3)), math.sin(a) * r * 1.3, r * (0.2 + 0.25 * (i % 4)))), fly))
+                rust = ck.mat("m_%s_bell" % cid, (0.5, 0.36, 0.2), 0.5)
+                body.append(ck.tube(cid + "_bellchain", V((0.22, front + 0.02, ck.Z["waist"] + 0.02)), V((0.24, front - 0.02, ck.Z["hip"])), 0.015, 0.015, rust, 4))
+                body.append(ck.tube(cid + "_bell", V((0.24, front - 0.02, ck.Z["hip"] + 0.02)), V((0.24, front - 0.02, ck.Z["hip"] - 0.14)), 0.05, 0.11, rust, 10))
+                for sx in (-1, 1):                    # chaminés de gás nas costas
+                    body.append(ck.tube("%s_chimney%d" % (cid, sx), V((sx * 0.14, back + 0.2, zc + 0.2)), V((sx * 0.2, back + 0.32, zc + 0.5)), 0.06, 0.05, rust, 7))
                 for i in range(4):
                     body.append(ck.tube("%s_backspike%d" % (cid, i), V(((i - 1.5) * 0.09, back + 0.2, zc + 0.05 + i * 0.05)), V(((i - 1.5) * 0.12, back + 0.45, zc + 0.3 + i * 0.07)), 0.05, 0.01, bone, 5))
             if kind == "giant":
-                body.append(ck.ball(cid + "_belly", 0.34, V((0, front - 0.05, ck.Z["waist"])), ck.mat("m_%s_belly" % cid, (0.55, 0.58, 0.42), 0.7), (1.1, 0.9, 1.0)))
+                body.append(ck.ball(cid + "_belly", 0.34, V((0, front - 0.05, ck.Z["waist"])), ck.mat("m_%s_belly" % cid, (0.42, 0.48, 0.24), 0.7), (1.1, 0.9, 1.0)))
                 for i in range(6):
                     a = math.tau * i / 6
                     body.append(ck.ball("%s_blister%d" % (cid, i), 0.06, V((math.cos(a) * 0.25, front - 0.15 + math.sin(a) * 0.08, ck.Z["waist"] + 0.05 * math.sin(a * 2))), pus))
@@ -1477,7 +1498,7 @@ def build_all(out_dir, only=None):
                                              head="none", extra=undead_parts("mob_death_knight", "knight", (1.0, 0.3, 0.25))),
         "mob_ghoul": lambda: humanoid("mob_ghoul", "leather", (0.35, 0.32, 0.26), None, skin=(0.55, 0.62, 0.45), eye=(0.9, 0.95, 0.3), hide_hair=True,
                                       head="none", extra=undead_parts("mob_ghoul", "ghoul", (0.6, 0.9, 0.3))),
-        "mob_ghoul_giant": lambda: humanoid("mob_ghoul_giant", "leather", (0.32, 0.28, 0.22), None, skin=(0.52, 0.6, 0.42), eye=(0.95, 0.9, 0.3), hide_hair=True,
+        "mob_ghoul_giant": lambda: humanoid("mob_ghoul_giant", "leather", (0.3, 0.26, 0.18), "axe2h", skin=(0.34, 0.42, 0.18), eye=(0.95, 0.9, 0.3), hide_hair=True,
                                             head="none", extra=undead_parts("mob_ghoul_giant", "giant", (0.6, 0.9, 0.3))),
         "mob_cultist": lambda: humanoid("mob_cultist", "cloth", (0.28, 0.1, 0.12), "wand", skin=(0.8, 0.76, 0.74), hide_hair=True,
                                         head="none", extra=undead_parts("mob_cultist", "cultist", (1.0, 0.35, 0.25))),

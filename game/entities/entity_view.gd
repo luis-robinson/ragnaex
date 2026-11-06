@@ -77,9 +77,14 @@ func setup(e: SimEntity, is_player: bool) -> void:
 		_add_crown()
 
 # ---------------------------------------------------------------------------
+var _perch := 0.0                  # altura do boneco no alto da torre (npc_data.perch); a sim fica no chão
+
 func _build_model() -> void:
 	model_root = Node3D.new()
 	model_root.name = "Model"
+	if entity.kind == SimEntity.Kind.NPC and float(entity.npc_data.get("perch", 0.0)) > 0.0:
+		_perch = float(entity.npc_data["perch"])                         # besteiro no alto da torre
+		model_root.position.y = _perch
 	add_child(model_root)
 	# personagens e NPCs: kit modular com as peças do equipamento
 	var body := ""
@@ -1051,11 +1056,11 @@ func _animate(delta: float) -> void:
 		SimEntity.State.DEAD:
 			var d := clampf(entity.dead_time / 0.5, 0.0, 1.0)
 			model_root.rotation.x = lerpf(model_root.rotation.x, -PI * 0.5, minf(1.0, delta * 8.0))
-			model_root.position.y = -d * 0.4
+			model_root.position.y = -d * 0.4 + _perch
 			model_root.scale = Vector3.ONE * _base_scale
 			return
 	model_root.rotation.x = lerpf(model_root.rotation.x, tilt, minf(1.0, delta * 22.0))
-	model_root.position.y = lerpf(model_root.position.y, y, minf(1.0, delta * 20.0))
+	model_root.position.y = lerpf(model_root.position.y, y + _perch, minf(1.0, delta * 20.0))
 	model_root.scale = Vector3(1.0, scale_y, 1.0) * _base_scale
 	if block_shield:
 		block_shield.position.x = lerpf(block_shield.position.x, -0.05 if entity.is_blocking else -0.38, minf(1.0, delta * 15.0))

@@ -1005,7 +1005,7 @@ func _update_projectiles(m: Dictionary, dt: float) -> void:
 		if not remove:
 			var def: MapDef = m["def"]
 			var h := def.half()
-			if absf(p.position.x) > h.x or absf(p.position.z) > h.y or MapGeometry.point_in_solid(self, p.position, m):
+			if absf(p.position.x) > h.x or absf(p.position.z) > h.y or (not owner.is_perched() and MapGeometry.point_in_solid(self, p.position, m)):     # virote da torre passa por cima do muro
 				remove = true
 		if not remove:
 			for t in m["entities"]:
@@ -1032,7 +1032,7 @@ func _update_projectiles(m: Dictionary, dt: float) -> void:
 # DANO / CURA / MORTE
 # ----------------------------------------------------------------------------
 func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: bool, blocked: bool, kind: String, from: Variant = null) -> void:
-	if not target.is_alive():
+	if not target.is_alive() or target.is_perched():
 		return
 	var in_arc := Combat.in_guard_arc(target, attacker.position if from == null else from)
 	var parried: bool = target.parry_left > 0.0 and target.is_blocking and attacker != target and not kind.begins_with("dot") and in_arc

@@ -117,6 +117,7 @@ const ESCORT_RING := 2.6               # m do líder até a vaga da escolta
 const ESCORT_RESPAWN := 25.0           # s para repor um da escolta que caiu (com o líder vivo)
 const PATROL_PACE := 0.45              # líder em ronda anda devagar (a escolta acompanha)
 const LEGEND_COIN_PRICE := 500         # Relicária vende uma Moeda Lendária por isto em ouro
+const SKILL_RESET_NPCS := ["elder", "high_priest"]   # quem reseta a árvore (Ancião Ravi; Alta Sacerdotisa no Bastião)
 const SKILL_RESET_NPC := "elder"       # quem reseta a árvore de skills (Ancião Ravi, praça de Aldara)
 const LEG_CAST_ICD := 1.0              # arma lendária que lança magia ao acertar: no máximo uma a cada isto (habilidade em área não dispara 10)
 const SIGNATURE_BASIC_PCT := 10.0      # % no acerto do básico...

@@ -70,18 +70,20 @@ static func crystal_npc(map_id: String) -> Array:
 ## Bastião da Aurora (terceiro andar): serviços na praça da catedral; posições do JSON.
 const DAWN_NPCS := {
 	"dawn_commander": ["Marechal Aldric", "quest", Color(0.4, 0.5, 0.8), ["Três portões, três fortalezas, uma cidade. Seguramos o que dá e retomamos o resto.", "O pântano a oeste é o mais fraco deles. Começamos por lá."]],
-	"high_priest": ["Alta Sacerdotisa Lyria", "quest", Color(0.97, 0.92, 0.7), ["A Luz não some. Ela só espera alguém acender de novo.", "Cada fortaleza retomada vira um posto da Aurora. É assim que a noite encolhe."]],
+	"high_priest": ["Alta Sacerdotisa Lyria", "quest", Color(0.97, 0.92, 0.7), ["A Luz não some. Ela só espera alguém acender de novo. Se quiser recomeçar seu caminho, eu desfaço o que aprendeu.", "Cada fortaleza retomada vira um posto da Aurora. É assim que a noite encolhe."]],
 	"dawn_smith": ["Doran, o Ferreiro da Aurora", "smith", Color(0.7, 0.55, 0.4), ["Prata consagrada leva uma peça lendária onde o ferro não chega.", "Do +6 em diante, só um Fragmento da Aurora segura o encanto."]],
 	"dawn_merchant": ["Mercador Tobias", "merchant", Color(0.8, 0.7, 0.5), ["Água benta, ataduras e poções. Na guerra, tudo vende."]],
+	"dawn_relic": ["Irmão Anselmo, o Relicário", "relic", Color(0.95, 0.7, 0.3), ["Moedas lendárias viram armas e armaduras de lenda. Escolha a peça.", "Também troco ouro por moedas, se a guerra apertar."]],
+	"dawn_storage": ["Guarda-volumes Berta", "storage", Color(0.5, 0.6, 0.75), ["O cofre da catedral guarda o que não cabe na bolsa.", "É o mesmo depósito de Aldara: o que deixar lá aparece aqui."]],
 	"dawn_alchemist": ["Irmã Celes", "alchemy", Color(0.6, 0.8, 0.7), ["Bile pútrida queima limpo num caldeirão consagrado. Traga que eu cuido."]],
 }
 ## Guarnição: marcadores `dawn_g_<lado>_<papel>_<n>` do JSON viram NPCs lutadores (guard_<papel>) com o modelo deles,
 ## renascendo em DAWN_RESPAWN s (a luta é constante). Os do posto avançado só ficam enquanto o front não caiu? Ficam sempre.
-const DAWN_ROLE_NAMES := {"knight": ["Sir Gareth", "Sir Edwin", "Dama Rowena", "Sir Alaric", "Dama Isolde", "Sir Cedric"],
+const DAWN_ROLE_NAMES := {"wall": ["Besteiro da Torre"], "knight": ["Sir Gareth", "Sir Edwin", "Dama Rowena", "Sir Alaric", "Dama Isolde", "Sir Cedric"],
 	"spearman": ["Lanceiro Tomás", "Lanceira Bia", "Lanceiro Hugo", "Lanceira Nell", "Lanceiro Pim", "Lanceiro Joca", "Lanceira Mar", "Lanceiro Davi", "Lanceira Clô", "Lanceiro Rui", "Lanceira Ada", "Lanceiro Teo"],
 	"paladin": ["Paladino Benedito", "Paladina Aurélia"], "priest": ["Irmã Clara", "Irmã Inês", "Irmã Lúcia"],
 	"crossbow": ["Besteiro Fábio", "Besteira Lia", "Besteiro Caio", "Besteira Bel", "Besteiro Nico", "Besteira Su", "Besteiro Gil", "Besteira Ana", "Besteiro Leo"]}
-const DAWN_ROLE_LINES := {"knight": ["Portão firme. Nenhum osso passa por aqui.", "Escudos à frente quando a trompa soar."],
+const DAWN_ROLE_LINES := {"wall": ["Daqui de cima eu vejo todos chegando.", "Um virote não mata, mas atrasa."], "knight": ["Portão firme. Nenhum osso passa por aqui.", "Escudos à frente quando a trompa soar."],
 	"spearman": ["A lança mantém o morto longe. É o que basta.", "Dizem que o Carniçal come os que caem. Não caia."],
 	"paladin": ["Que a Luz guarde quem guarda os portões.", "Ferido? Fique perto de mim."], "priest": ["Fique na luz e eu fecho suas feridas.", "Rezo pelos vivos. Os mortos já tiveram a vez deles."],
 	"crossbow": ["Do muro eu acerto o que você não alcança.", "Morcegos são os piores. Rápidos e baixos."]}
@@ -101,7 +103,7 @@ static func dawn_garrison(npc_pos: Dictionary, prefix: String = "dawn_g_") -> Ar
 		for r in DAWN_ROLE_NAMES:
 			if parts.has(r):
 				role = r
-		var mdef: MonsterDef = GameData.monsters.get("guard_" + role)
+		var mdef: MonsterDef = GameData.monsters.get("guard_wall_crossbow" if role == "wall" else "guard_" + role)
 		if role == "" or mdef == null:
 			continue
 		var k: int = count.get(role, 0)
@@ -109,7 +111,9 @@ static func dawn_garrison(npc_pos: Dictionary, prefix: String = "dawn_g_") -> Ar
 		var names: Array = DAWN_ROLE_NAMES[role]
 		var p: Array = npc_pos[nid]
 		var d := _npc(nid, names[k % names.size()], float(p[0]), float(p[1]), "guard", Color(0.85, 0.85, 0.9), DAWN_ROLE_LINES[role], float(p[2]))
-		d["fighter"] = "guard_" + role
+		d["fighter"] = "guard_wall_crossbow" if role == "wall" else "guard_" + role
+		if role == "wall":
+			d["perch"] = 8.4                    # no alto da torre (visual); a sim fica no chão
 		d["model"] = mdef.model
 		d["respawn"] = DAWN_RESPAWN
 		d["look_seed"] = seed
