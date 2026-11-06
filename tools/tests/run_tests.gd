@@ -654,6 +654,7 @@ func _check_zone(gd, sim) -> void:
 	_check_elf_city_life(gd, sim)
 	_check_outlaws(gd, sim)
 	_check_world_state(gd)
+	_check_dawn_factions(gd)
 	_check_signature(gd, sim)
 	_check_raid_tactics(gd, sim)
 	_check_equipment_slots(gd, sim, save_ref)
@@ -3005,6 +3006,67 @@ func _check_outlaws(gd, sim) -> void:
 
 ## Mundo que muda com a conquista (WorldState): spawner e NPC com if/unless por quest do jogador, investida de
 ## vários lados (uma rota cala sozinha), leva aliada que marcha até o pátio e briga, renascimento por NPC.
+## Terceiro andar: guarnição da Aurora (NPC lutador, sem XP, modelo próprio) e mortos-vivos das fortalezas
+## (modelo próprio, golpe do tema); chefes completos com moedas; escudo de frente; a Luz da Aurora cura aliados.
+func _check_dawn_factions(gd) -> void:
+	for gid in ["guard_spearman", "guard_knight", "guard_paladin", "guard_priest", "guard_crossbow"]:
+		var g: MonsterDef = gd.monsters[gid]
+		check(g.xp == 0 and g.model.begins_with("mob_loyal_") and FileAccess.file_exists("res://assets/models/%s.glb" % g.model), "Aurora: %s é guarnição com modelo próprio" % gid)
+	var undead := ["larva", "rot_zombie", "rot_ghoul", "rot_wolf", "rot_bear", "skeleton", "skel_archer", "skel_guard", "cultist", "tower_bat", "ghost",
+		"citadel_knight", "citadel_adept", "citadel_horror"]
+	for id in undead:
+		var md: MonsterDef = gd.monsters[id]
+		check(md.xp > 0 and md.loot_table != "" and FileAccess.file_exists("res://assets/models/%s.glb" % md.model), "morto-vivo %s: XP, saque e modelo" % id)
+		for sid in md.skill_ids:
+			check(gd.skills.has(sid), "%s: skill %s existe" % [id, sid])
+	for bid in ["ghoul_giant", "death_knight", "frost_mage", "lich_king"]:
+		var b: MonsterDef = gd.monsters[bid]
+		var kit := {}
+		for sid in b.skill_ids:
+			kit[sid] = true
+		for ph in b.phases:
+			for sid in ph.get("skills", []):
+				kit[sid] = true
+			if ph.has("summon"):
+				check(gd.monsters[ph["summon"]["id"]].xp == 0, "%s: lacaio da fase sem XP" % bid)
+		check(b.is_boss and kit.size() >= 4 and b.phases.size() >= 2 and b.intro != "" and b.last_words != "", "%s: chefe com repertório e falas" % bid)
+		check(b.coin_min >= 2 and b.coin_chance >= 1.0, "%s: solta moedas lendárias" % bid)
+	check(gd.monsters["lich_king"].level == 30 and gd.monsters["lich_king"].coin_min >= 5, "Lich-Rei: nível 30, 5+ moedas")
+	var themes := [gd.skills["mob_rot_bile"].vfx, gd.skills["mob_blizzard"].vfx, gd.skills["mob_holy_light"].vfx, gd.skills["mob_bone_cleave"].vfx]
+	check(themes == ["poison", "ice", "heal", "bone"], "skills do andar no tema %s" % str(themes))
+	# escudo de frente: o golpe de frente perde 60%, por trás passa inteiro
+	var ws := WorldSim.new()
+	ws.load_map(gd.maps[GameData.town_map_id()])
+	var mid: String = GameData.town_map_id()
+	var sg: SimEntity = ws.spawn_monster(gd.monsters["skel_guard"], mid, Vector3(0, 0, 30))
+	sg.brain = null
+	sg.facing = 0.0
+	var hitter: SimEntity = ws.spawn_bot(gd.classes["berserker"], "Teste", mid, sg.position + sg.forward() * 2.0, 25)
+	hitter.brain = null
+	var hp0 := sg.hp
+	ws._deal_damage(hitter, sg, 500, false, false, "physical")
+	var front_loss := hp0 - sg.hp
+	sg.hp = hp0
+	hitter.position = sg.position - sg.forward() * 2.0
+	ws._deal_damage(hitter, sg, 500, false, false, "physical")
+	var back_loss := hp0 - sg.hp
+	check(front_loss <= 210 and back_loss >= 490, "Guardião de Ossos: de frente %d, pelas costas %d" % [front_loss, back_loss])
+	sg.hp = hp0
+	hitter.position = sg.position + sg.forward() * 2.0
+	ws._deal_damage(hitter, sg, 500, false, false, "magical")
+	check(hp0 - sg.hp >= 490, "Guardião de Ossos: magia passa o escudo")
+	# Luz da Aurora: cura o aliado ferido em volta da sacerdotisa
+	var pr: SimEntity = ws._spawn_npc({"id": "t_priest", "name": "Sacerdotisa", "pos": Vector3(4, 0, 30), "role": "guard", "fighter": "guard_priest", "color": Color.WHITE, "dialog": []}, mid)
+	hitter.position = pr.position + Vector3(2, 0, 0)
+	hitter.hp = hitter.stats.max_hp * 0.4
+	var before := hitter.hp
+	var hl: SkillDef = gd.skills["mob_holy_light"]
+	var targets := Combat.select_targets(pr, hl, pr.position, ws.maps[mid]["entities"])
+	check(targets.has(hitter) and not targets.has(sg), "Luz da Aurora: pega o aventureiro, não o morto-vivo")
+	for t in targets:
+		ws._heal(pr, t, Combat.calc_heal(pr, hl.power, ws.rng))
+	check(hitter.hp > before, "Luz da Aurora cura o aliado")
+
 func _check_world_state(gd) -> void:
 	var fd: MapDef = gd.maps["field_forest"]
 	var def: MapDef = fd.duplicate()
@@ -3144,7 +3206,10 @@ func _check_escort(gd, sim) -> void:
 	var esc: Array = (sp["escort"] as Array).map(func(id): return sim.entities[id])
 	check(esc.size() == 4 and esc.all(func(f): return f.leader_id == leader.id and f.position.distance_to(at) < 5.0), "escolta nasce em volta do líder (%d)" % esc.size())
 	check(esc.map(func(f): return f.escort_slot).duplicate().size() == 4 and esc.all(func(f): return f.monster_def.xp > 0), "escolta: monstros normais (dão XP), uma vaga cada")
-	# o líder anda 20 m: a escolta vai junto
+	# o líder anda 20 m: a escolta vai junto (sem aventureiro do sim compartilhado por perto puxando briga)
+	for o in m["entities"]:
+		if o.is_character() and o.position.distance_to(at) < 45.0:
+			o.position = (m["def"] as MapDef).spawn_point
 	leader.brain = null
 	for i in range(160):
 		leader.position = at + Vector3(i * 0.125, 0, 0)

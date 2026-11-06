@@ -128,6 +128,9 @@ static func build() -> Array:
 		_mat("grave_dust", "Pó de Cova", 9, "Frio mesmo no sol.", Color(0.55, 0.52, 0.58)),
 		_mat("ghost_essence", "Essência Espectral", 25, "Fria ao toque.", Color(0.6, 0.9, 1.0)),
 		# Cerco élfico: aprimoram o conjunto lendário da Glória (nível 20) no ferreiro
+		_mat("holy_silver", "Prata Consagrada", 34, "Prata benzida na catedral da Aurora. Aprimora lendários 25+ (+1 a +5) no ferreiro.", Color(0.86, 0.9, 1.0)),
+		_mat("dawn_shard", "Fragmento da Aurora", 90, "Lasca de luz sólida. Aprimora lendários 25+ (+6 a +9) no ferreiro.", Color(1.0, 0.82, 0.4)),
+		_mat("rot_gel", "Bile Pútrida", 16, "Gosma verde que os mortos do Carniçal deixam. Os alquimistas da Aurora queimam.", Color(0.55, 0.8, 0.3)),
 		_mat("elf_steel", "Aço Élfico", 28, "Leve como pena. Aprimora peças da Glória (+1 a +5) no ferreiro.", Color(0.7, 0.9, 0.75)),
 		_mat("mother_sap", "Seiva da Árvore-Mãe", 70, "Dourada e morna. Aprimora peças da Glória (+6 a +9) no ferreiro.", Color(0.95, 0.8, 0.3)),
 		_mat("heartwood", "Cerne de Trent", 24, "O coração de madeira de um Trent Ancião.", Color(0.5, 0.36, 0.2)),

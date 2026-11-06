@@ -1042,6 +1042,9 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 		blocked = true
 		amount = maxi(1, int(round(amount * (1.0 - Balance.PARRY_REDUCTION / 100.0))))
 		target.parry_left = 0.0
+	elif target.monster_def != null and target.monster_def.front_guard > 0.0 and kind == "physical" and attacker != target 			and Combat.in_guard_arc(target, attacker.position if from == null else from):
+		blocked = true                          # escudo de frente: pelas costas (ou com magia) o golpe passa inteiro
+		amount = maxi(1, int(round(amount * (1.0 - target.monster_def.front_guard))))
 	# levou um golpe (não dano no tempo): cai do cavalo
 	if target.mounted and not kind.begins_with("dot") and attacker != target:
 		dismount(target)

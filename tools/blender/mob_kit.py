@@ -924,6 +924,219 @@ def outlaw_parts(cid, kind, cloth2):
     return add
 
 
+def _top_vertex(prefix):
+    """Ponta mais alta (z) das malhas que começam com `prefix` (ex.: a ponta do cajado para virar lança)."""
+    best = None
+    for o in bpy.context.scene.objects:
+        if o.type == "MESH" and o.name.startswith(prefix):
+            for v in o.data.vertices:
+                w = o.matrix_world @ v.co
+                if best is None or w.z > best.z:
+                    best = w.copy()
+    return best
+
+
+def loyalist_parts(cid, kind, cloth2):
+    """Guarnição da Luz (referência: loyalists de Battle for Wesnoth, arte nossa). De cima o que conta é a cabeça:
+    spearman = elmo aberto com crista vermelha, lança (cajado com ponta); knight = elmo fechado de balde com pluma e
+    tabardo com sol; paladin = elmo claro com auréola dourada; priest = mitra branca e dourada com disco de sol no cajado;
+    crossbow = chapéu de ferro de aba larga."""
+    def add(base, mats):
+        V = Vector
+        rig, b = base["rig"], base["b"]
+        c, r = V(base["head_c"]), b["head"]
+        steel = ck.mat("m_%s_steel" % cid, (0.82, 0.84, 0.88), 0.35)
+        gold = ck.mat("m_%s_gold" % cid, (0.98, 0.8, 0.3), 0.35, 0.3)
+        acc = ck.mat("m_%s_acc" % cid, cloth2, 0.7)
+        zc, front = ck.Z["chest"], -b["chest"] * b["depth"]
+        head, body, hand = [], [], []
+        if kind == "spearman":
+            head.append(ck.ball(cid + "_helm", r * 1.1, c + V((0, r * 0.05, r * 0.22)), steel, (1, 1.02, 0.8)))
+            head.append(ck.tube(cid + "_rim", c + V((0, 0, r * 0.12)), c + V((0, 0, r * 0.22)), r * 1.12, r * 1.1, steel, 18))
+            head.append(ck.blade(cid + "_crest", c + V((0, -r * 0.7, r * 1.0)), c + V((0, r * 1.1, r * 0.95)), r * 0.42, r * 0.07, acc, (0, 0, 1), 0.5))
+            tip = _top_vertex("wpn_main_staff")
+            if tip is not None:
+                hand.append(ck.blade(cid + "_spearhead", tip - V((0, 0, 0.02)), tip + V((0, -0.05, 0.3)), 0.11, 0.03, steel, (1, 0, 0), 0.4))
+                hand.append(ck.tube(cid + "_pennant_pole", tip - V((0, 0, 0.12)), tip - V((0, 0, 0.02)), 0.03, 0.03, gold, 6))
+        elif kind == "knight":
+            head.append(ck.tube(cid + "_bucket", c + V((0, 0, -r * 0.55)), c + V((0, 0, r * 0.75)), r * 1.12, r * 1.05, steel, 16))
+            head.append(ck.ball(cid + "_dome", r * 1.05, c + V((0, 0, r * 0.72)), steel, (1, 1, 0.45)))
+            head.append(ck.tube(cid + "_slit", c + V((-r * 0.55, -r * 1.1, r * 0.12)), c + V((r * 0.55, -r * 1.1, r * 0.12)), r * 0.07, r * 0.07, ck.mat("m_%s_dark" % cid, (0.08, 0.08, 0.1), 0.6), 6))
+            head.append(ck.tube(cid + "_cross", c + V((0, -r * 1.12, -r * 0.4)), c + V((0, -r * 1.12, r * 0.6)), r * 0.06, r * 0.06, gold, 4))
+            for k in range(3):
+                head.append(ck.blade("%s_plume%d" % (cid, k), c + V((0, r * 0.1, r * 1.1)), c + V(((k - 1) * r * 0.35, r * 1.6, r * (1.7 - abs(k - 1) * 0.25))), r * 0.3, r * 0.05, acc, (1, 0, 0), 0.45))
+            body.append(ck.blade(cid + "_tabard", V((0, front - 0.03, zc + 0.12)), V((0, front - 0.05, ck.Z["knee"] + 0.04)), 0.3, 0.02, acc, (1, 0, 0), 0.25))
+            body.append(ck.ball(cid + "_sun", 0.07, V((0, front - 0.07, zc - 0.04)), gold, (1, 0.4, 1)))
+        elif kind == "paladin":
+            head.append(ck.ball(cid + "_helm", r * 1.08, c + V((0, r * 0.18, r * 0.36)), ck.mat("m_%s_white" % cid, (0.95, 0.94, 0.9), 0.3), (1, 1.0, 0.72)))
+            head.append(ck.tube(cid + "_visor", c + V((0, 0, r * 0.38)), c + V((0, 0, r * 0.5)), r * 1.1, r * 1.08, gold, 18))
+            for sx in (-1, 1):
+                head.append(ck.blade("%s_wingcheek%d" % (cid, sx), c + V((sx * r * 0.95, r * 0.1, r * 0.45)), c + V((sx * r * 1.45, r * 0.55, r * 1.05)), r * 0.3, r * 0.04, gold, (0, 1, 0), 0.45))
+            head.append(ck.tube(cid + "_halo", c + V((0, r * 0.25, r * 1.45)), c + V((0, r * 0.25, r * 1.52)), r * 0.85, r * 0.85, gold, 20))
+            head.append(ck.tube(cid + "_halo_in", c + V((0, r * 0.25, r * 1.44)), c + V((0, r * 0.25, r * 1.53)), r * 0.66, r * 0.66, ck.mat("m_%s_glow" % cid, (1.0, 0.95, 0.7), 0.3, 1.5), 20))
+            for sx in (-1, 1):
+                body.append(ck.ball("%s_pauldron%d" % (cid, sx), 0.16, V((sx * (b["chest"] + 0.04), 0.0, zc + 0.12)), gold, (1.15, 1.0, 0.7)))
+        elif kind == "priest":
+            white = ck.mat("m_%s_white" % cid, (0.97, 0.96, 0.92), 0.5)
+            head.append(ck.tube(cid + "_mitre", c + V((0, 0, r * 0.45)), c + V((0, 0, r * 1.75)), r * 0.9, r * 0.25, white, 12))
+            head.append(ck.tube(cid + "_mitre_band", c + V((0, 0, r * 0.45)), c + V((0, 0, r * 0.62)), r * 0.93, r * 0.9, gold, 12))
+            head.append(ck.blade(cid + "_mitre_cross", c + V((0, -r * 0.62, r * 0.8)), c + V((0, -r * 0.5, r * 1.45)), r * 0.2, r * 0.03, gold, (1, 0, 0), 0.5))
+            body.append(ck.blade(cid + "_stole", V((0, front - 0.03, zc + 0.15)), V((0, front - 0.04, ck.Z["knee"])), 0.12, 0.02, gold, (1, 0, 0), 0.3))
+            tip = _top_vertex("wpn_main_staff")
+            if tip is not None:
+                hand.append(ck.tube(cid + "_sun", tip + V((0, 0.02, 0.06)), tip + V((0, -0.02, 0.06)), 0.16, 0.16, gold, 14))
+                hand.append(ck.ball(cid + "_sun_core", 0.07, tip + V((0, -0.03, 0.06)), ck.mat("m_%s_glow" % cid, (1.0, 0.95, 0.7), 0.3, 1.8)))
+        else:                                   # crossbow
+            head.append(ck.tube(cid + "_brim", c + V((0, 0, r * 0.45)), c + V((0, 0, r * 0.52)), r * 1.55, r * 1.5, steel, 16))
+            head.append(ck.ball(cid + "_kettle", r * 1.02, c + V((0, r * 0.02, r * 0.55)), steel, (1, 1, 0.72)))
+            body.append(ck.blade(cid + "_tabard", V((0, front - 0.03, zc + 0.12)), V((0, front - 0.04, ck.Z["waist"] - 0.1)), 0.26, 0.02, acc, (1, 0, 0), 0.25))
+        for p_ in head:
+            ck.skin_rigid(p_, rig, "head")
+        for p_ in body:
+            ck.skin_rigid(p_, rig, "chest")
+        for p_ in hand:
+            ck.skin_rigid(p_, rig, "hand.R")
+    return add
+
+
+def undead_parts(cid, kind, glow):
+    """Mortos-vivos (referência: mortos-vivos de Battle for Wesnoth, arte nossa). Cabeça e ombros definem cada um:
+    blade = meio-elmo enferrujado com chifre e ombreira; archer = capuz rasgado e aljava; guard = elmo de crista e
+    escudo grande; knight = coroa de espinhos negra, capa e olhos acesos; ghoul = corcunda, careca, gotas de veneno;
+    giant = barriga inchada, corcova e bolhas; cultist = capuz pontudo vermelho-escuro e máscara de osso;
+    frost = coroa de estilhaços de gelo e ombreiras geladas; lichking = coroa alta, gola de espinhos e capa."""
+    def add(base, mats):
+        V = Vector
+        rig, b = base["rig"], base["b"]
+        c, r = V(base["head_c"]), b["head"]
+        zc, back, front = ck.Z["chest"], b["chest"] * b["depth"], -b["chest"] * b["depth"]
+        rust = ck.mat("m_%s_rust" % cid, (0.45, 0.32, 0.25), 0.7)
+        dark = ck.mat("m_%s_dark" % cid, (0.14, 0.12, 0.16), 0.6)
+        bone = ck.mat("m_%s_bone" % cid, (0.9, 0.87, 0.78), 0.6)
+        gl = ck.mat("m_%s_glow" % cid, glow, 0.3, 2.2)
+        head, body = [], []
+        if kind == "blade":
+            head.append(ck.ball(cid + "_halfhelm", r * 1.08, c + V((0, r * 0.08, r * 0.3)), rust, (1, 1.02, 0.7)))
+            head.append(ck.tube(cid + "_horn", c + V((r * 0.6, 0, r * 0.75)), c + V((r * 1.2, r * 0.2, r * 1.5)), r * 0.16, r * 0.02, bone, 6))
+            body.append(ck.ball(cid + "_pauldron", 0.17, V((-(b["chest"] + 0.04), 0.0, zc + 0.13)), rust, (1.2, 1.0, 0.75)))
+        elif kind == "archer":
+            hd = ck.mat("m_%s_hood" % cid, (0.3, 0.28, 0.24), 0.9)
+            head.append(ck.ball(cid + "_hood", r * 1.14, c + V((0, r * 0.15, r * 0.12)), hd, (1, 1.05, 0.95)))
+            for k in range(3):
+                head.append(ck.blade("%s_rag%d" % (cid, k), c + V(((k - 1) * r * 0.4, r * 0.9, -r * 0.1)), c + V(((k - 1) * r * 0.55, r * 1.25, -r * 0.9)), r * 0.25, r * 0.03, hd, (1, 0, 0), 0.5))
+            body.append(ck.tube(cid + "_quiver", V((-0.1, back + 0.06, zc - 0.18)), V((-0.2, back + 0.1, zc + 0.3)), 0.07, 0.08, rust, 8))
+        elif kind == "guard":
+            head.append(ck.ball(cid + "_helm", r * 1.1, c + V((0, r * 0.04, r * 0.2)), dark, (1, 1.02, 0.85)))
+            head.append(ck.blade(cid + "_crest", c + V((0, -r * 0.6, r * 1.05)), c + V((0, r * 1.0, r * 1.0)), r * 0.35, r * 0.06, bone, (0, 0, 1), 0.5))
+        elif kind == "knight":
+            for i in range(7):
+                a = math.tau * i / 7
+                root = c + V((math.cos(a) * r * 0.9, math.sin(a) * r * 0.9, r * 0.75))
+                head.append(ck.tube("%s_spike%d" % (cid, i), root, root + V((math.cos(a) * r * 0.2, math.sin(a) * r * 0.2, r * (0.7 + 0.25 * (i % 2)))), r * 0.12, r * 0.01, dark, 5))
+            head.append(ck.tube(cid + "_band", c + V((0, 0, r * 0.62)), c + V((0, 0, r * 0.8)), r * 0.98, r * 0.96, dark, 18))
+            body.append(ck.blade(cid + "_cape", V((0, back + 0.03, zc + 0.14)), V((0, back + 0.2, ck.Z["ankle"])), 0.55, 0.03, ck.mat("m_%s_cape" % cid, (0.3, 0.08, 0.12), 0.7), (1, 0, 0), 0.4))
+            for sx in (-1, 1):
+                body.append(ck.tube("%s_shoulder_spike%d" % (cid, sx), V((sx * (b["chest"] + 0.04), 0, zc + 0.16)), V((sx * (b["chest"] + 0.2), 0.05, zc + 0.38)), 0.07, 0.01, dark, 5))
+        elif kind in ("ghoul", "giant"):
+            pus = ck.mat("m_%s_pus" % cid, (0.55, 0.85, 0.25), 0.4, 0.6)
+            hide = ck.mat("m_%s_hide" % cid, (0.4, 0.46, 0.32), 0.8)
+            body.append(ck.ball(cid + "_hump", 0.3 if kind == "ghoul" else 0.36, V((0.04, back + 0.08, zc + 0.16)), hide, (1.1, 0.95, 0.95)))
+            head.append(ck.ball(cid + "_jaw", r * 0.55, c + V((0, -r * 0.62, -r * 0.62)), ck.mat("m_%s_mouth" % cid, (0.25, 0.08, 0.08), 0.6), (1.2, 0.6, 0.6)))
+            for i in range(5):
+                x = (i - 2) * r * 0.2
+                head.append(ck.tube("%s_tooth%d" % (cid, i), c + V((x, -r * 0.95, -r * 0.48)), c + V((x, -r * 0.98, -r * 0.7)), r * 0.06, r * 0.01, bone, 4))
+            for sx in (-1, 1):
+                head.append(ck.blade("%s_ear%d" % (cid, sx), c + V((sx * r * 0.9, r * 0.1, r * 0.2)), c + V((sx * r * 1.4, r * 0.3, r * 0.6)), r * 0.28, r * 0.04, hide, (0, 1, 0), 0.5))
+            if kind == "giant":
+                for i in range(4):
+                    body.append(ck.tube("%s_backspike%d" % (cid, i), V(((i - 1.5) * 0.09, back + 0.2, zc + 0.05 + i * 0.05)), V(((i - 1.5) * 0.12, back + 0.45, zc + 0.3 + i * 0.07)), 0.05, 0.01, bone, 5))
+            if kind == "giant":
+                body.append(ck.ball(cid + "_belly", 0.34, V((0, front - 0.05, ck.Z["waist"])), ck.mat("m_%s_belly" % cid, (0.55, 0.58, 0.42), 0.7), (1.1, 0.9, 1.0)))
+                for i in range(6):
+                    a = math.tau * i / 6
+                    body.append(ck.ball("%s_blister%d" % (cid, i), 0.06, V((math.cos(a) * 0.25, front - 0.15 + math.sin(a) * 0.08, ck.Z["waist"] + 0.05 * math.sin(a * 2))), pus))
+            for i in range(3):
+                head.append(ck.ball("%s_drip%d" % (cid, i), r * 0.08, c + V(((i - 1) * r * 0.25, -r * 0.92, -r * 0.75)), pus, (0.7, 0.7, 1.4)))
+        elif kind == "cultist":
+            hd = ck.mat("m_%s_hood" % cid, (0.42, 0.08, 0.1), 0.85)
+            head.append(ck.ball(cid + "_hood", r * 1.16, c + V((0, r * 0.12, r * 0.15)), hd, (1, 1.05, 1.0)))
+            head.append(ck.tube(cid + "_hoodtip", c + V((0, r * 0.4, r * 1.0)), c + V((0, r * 0.9, r * 2.0)), r * 0.5, r * 0.03, hd, 8))
+            head.append(ck.ball(cid + "_mask", r * 0.62, c + V((0, -r * 0.62, -r * 0.05)), bone, (1.1, 0.4, 1.0)))
+            for sx in (-1, 1):
+                head.append(ck.ball("%s_eyehole%d" % (cid, sx), r * 0.1, c + V((sx * r * 0.25, -r * 0.88, r * 0.05)), gl))
+        elif kind == "frost":
+            ice = ck.mat("m_%s_ice" % cid, (0.7, 0.9, 1.0), 0.15, 0.6)
+            for i in range(8):
+                a = math.tau * i / 8
+                root = c + V((math.cos(a) * r * 0.85, math.sin(a) * r * 0.85, r * 0.7))
+                head.append(ck.blade("%s_shard%d" % (cid, i), root, root + V((math.cos(a) * r * 0.3, math.sin(a) * r * 0.3, r * (0.9 + 0.4 * (i % 2)))), r * 0.22, r * 0.06, ice, (-math.sin(a), math.cos(a), 0), 0.4))
+            for sx in (-1, 1):
+                body.append(ck.ball("%s_iceshoulder%d" % (cid, sx), 0.16, V((sx * (b["chest"] + 0.04), 0.0, zc + 0.13)), ice, (1.1, 1.0, 0.7)))
+                body.append(ck.blade("%s_icicle%d" % (cid, sx), V((sx * (b["chest"] + 0.06), 0, zc + 0.2)), V((sx * (b["chest"] + 0.16), 0.02, zc + 0.48)), 0.08, 0.03, ice, (0, 1, 0), 0.4))
+        else:                                   # lichking
+            crown = ck.mat("m_%s_crown" % cid, (0.55, 0.45, 0.75), 0.3, 0.4)
+            for i in range(9):
+                a = math.tau * i / 9
+                root = c + V((math.cos(a) * r * 0.88, math.sin(a) * r * 0.88, r * 0.7))
+                head.append(ck.tube("%s_tine%d" % (cid, i), root, root + V((math.cos(a) * r * 0.15, math.sin(a) * r * 0.15, r * (1.1 + 0.5 * (i % 3 == 0)))), r * 0.1, r * 0.01, crown, 5))
+            head.append(ck.tube(cid + "_circlet", c + V((0, 0, r * 0.6)), c + V((0, 0, r * 0.82)), r * 0.98, r * 0.95, crown, 18))
+            head.append(ck.ball(cid + "_gem", r * 0.16, c + V((0, -r * 0.95, r * 0.72)), gl))
+            body.append(ck.blade(cid + "_cape", V((0, back + 0.03, zc + 0.16)), V((0, back + 0.24, ck.Z["ankle"])), 0.62, 0.03, ck.mat("m_%s_cape" % cid, (0.16, 0.08, 0.24), 0.7), (1, 0, 0), 0.4))
+            for i in range(5):
+                a = math.pi * (0.15 + 0.7 * i / 4)
+                body.append(ck.tube("%s_collar%d" % (cid, i), V((math.cos(a) * 0.2, back * 0.4 + math.sin(a) * 0.08, zc + 0.2)), V((math.cos(a) * 0.32, back * 0.4 + math.sin(a) * 0.2, zc + 0.5)), 0.05, 0.01, crown, 5))
+        for p_ in head:
+            ck.skin_rigid(p_, rig, "head")
+        for p_ in body:
+            ck.skin_rigid(p_, rig, "chest")
+    return add
+
+
+def larva(cid="mob_larva"):
+    """Larva do Carniçal: verme claro e segmentado, mandíbulas e manchas de veneno (rig e clipes do slime)."""
+    arm = lp.make_armature("rig_" + cid, bm.MOB_BONES)
+    m = ck.mat("m_%s_skin" % cid, (0.86, 0.84, 0.66), 0.45)
+    spot = ck.mat("m_%s_spot" % cid, (0.55, 0.8, 0.25), 0.4, 0.4)
+    m_eye, m_white = base_mats()
+    parts = []
+    for i in range(5):
+        y = -0.32 + i * 0.17
+        rr = 0.17 - abs(i - 1.2) * 0.022
+        parts.append((blob("seg%d" % i, rr, (0, y, rr), m, (1.0, 0.9, 0.85)), "body"))
+        if i % 2 == 1:
+            parts.append((blob("spot%d" % i, rr * 0.4, (0.05, y, rr * 1.75), spot, (1, 1, 0.5)), "body"))
+    for sx in (-1, 1):
+        parts.append((ck.tube("mandible%d" % sx, (sx * 0.06, -0.44, 0.12), (sx * 0.02, -0.56, 0.08), 0.03, 0.008, m_eye, 5), "body"))
+    parts += [(o, "body") for o in eyes("l", [(-0.07, -0.45, 0.22), (0.07, -0.45, 0.22)], 0.04, m_eye, m_white)]
+    finish(arm, parts)
+    z = (0, 0, 0)
+    lp.add_action(arm, "idle", {"body": [(1, (0, 0, 0), z), (12, (0, 0, 6), (0, 0, 0.02)), (24, (0, 0, 0), z)]}, 24)
+    lp.add_action(arm, "run", {"body": [(1, (0, 0, -10), z), (4, (0, 0, 10), (0, -0.04, 0.03)), (8, (0, 0, -10), z)]}, 8)
+    lp.add_action(arm, "attack", {"body": [(1, (-10, 0, 0), z), (5, (20, 0, 0), (0, -0.2, 0.08)), (12, (0, 0, 0), z)]}, 12, loop=False)
+    lp.add_action(arm, "hit", {"body": [(1, (-15, 0, 0), (0, 0.06, 0)), (6, (0, 0, 0), z)]}, 6, loop=False)
+    lp.add_action(arm, "die", {"root": [(1, (0, 0, 0), z), (14, (0, 0, 0), (0, 0, -0.2))]}, 14, loop=False)
+    return arm
+
+
+def bat(cid="mob_bat"):
+    """Morcego da Torre: corpo pequeno e peludo, asas grandes de membrana nos braços, orelhas e olhos vermelhos (rig do fantasma)."""
+    arm = lp.make_armature("rig_" + cid, bm.MOB_BONES)
+    fur = ck.mat("m_%s_fur" % cid, (0.24, 0.18, 0.28), 0.8)
+    wing = ck.mat("m_%s_wing" % cid, (0.36, 0.22, 0.38), 0.7)
+    eye = ck.mat("m_%s_eye" % cid, (1.0, 0.25, 0.2), 0.3, 2.0)
+    parts = [(blob("body", 0.2, (0, 0, 1.1), fur, (1, 0.9, 1.1)), "body"),
+             (blob("head", 0.14, (0, -0.12, 1.32), fur), "head")]
+    for sx in (-1, 1):
+        parts.append((ck.tube("ear%d" % sx, (sx * 0.07, -0.1, 1.42), (sx * 0.12, -0.06, 1.6), 0.05, 0.005, fur, 5), "head"))
+        parts.append((blob("eye%d" % sx, 0.03, (sx * 0.06, -0.25, 1.34), eye), "head"))
+        w = ck.blade("wing%d" % sx, Vector((sx * 0.15, 0.02, 1.15)), Vector((sx * 0.75, 0.1, 1.3)), 0.42, 0.02, wing, (0, 0, 1), 0.3)
+        parts.append((w, "arm_r" if sx > 0 else "arm_l"))
+        parts.append((ck.tube("wingbone%d" % sx, (sx * 0.15, 0.0, 1.22), (sx * 0.75, 0.08, 1.34), 0.02, 0.01, fur, 4), "arm_r" if sx > 0 else "arm_l"))
+    finish(arm, parts)
+    bm.mob_actions(arm, floating=True)
+    return arm
+
+
 def golem(cid="mob_golem"):
     arm = lp.make_armature("rig_" + cid, bm.MOB_BONES)
     stone = ck.mat("m_stone", (0.62, 0.6, 0.58), 0.9)
@@ -1169,6 +1382,9 @@ def demon_parts(base, mats):
 
 
 # ---------------------------------------------------------------------------
+SK_BONE = (0.92, 0.9, 0.82)
+
+
 def build_all(out_dir, only=None):
     os.makedirs(out_dir, exist_ok=True)
     builders = {
@@ -1240,6 +1456,39 @@ def build_all(out_dir, only=None):
         "mob_trent": trent,
         "mob_griffin": lambda: quadruped("mob_griffin", (0.8, 0.62, 0.36), (0.55, 0.4, 0.22), (0.96, 0.94, 0.88), "griffin"),
         "mob_elf_lynx": lambda: quadruped("mob_elf_lynx", (0.74, 0.56, 0.32), (0.2, 0.36, 0.24), (0.95, 0.9, 0.78), "lynx"),
+        # Terceiro andar: guarnição da Luz (Bastião da Aurora) e mortos-vivos das fortalezas
+        "mob_loyal_spearman": lambda: humanoid("mob_loyal_spearman", "leather", (0.32, 0.42, 0.72), "staff", head="none", hide_hair=True,
+                                               after=loyalist_parts("mob_loyal_spearman", "spearman", (0.8, 0.18, 0.15))),
+        "mob_loyal_knight": lambda: humanoid("mob_loyal_knight", "plate", (0.78, 0.8, 0.86), "sword2h", head="none", hide_hair=True,
+                                             after=loyalist_parts("mob_loyal_knight", "knight", (0.25, 0.4, 0.8))),
+        "mob_loyal_paladin": lambda: humanoid("mob_loyal_paladin", "plate", (0.95, 0.93, 0.85), "mace", offhand="shield", head="none", hide_hair=True,
+                                              after=loyalist_parts("mob_loyal_paladin", "paladin", (0.95, 0.8, 0.35))),
+        "mob_loyal_priest": lambda: humanoid("mob_loyal_priest", "cloth", (0.96, 0.95, 0.9), "staff", head="none", hide_hair=True, sex="female",
+                                             after=loyalist_parts("mob_loyal_priest", "priest", (0.95, 0.8, 0.35))),
+        "mob_loyal_crossbow": lambda: humanoid("mob_loyal_crossbow", "leather", (0.55, 0.45, 0.32), "bow", head="none", hide_hair=True,
+                                               after=loyalist_parts("mob_loyal_crossbow", "crossbow", (0.25, 0.4, 0.8))),
+        "mob_skel_blade": lambda: humanoid("mob_skel_blade", "plate", (0.36, 0.32, 0.3), "sword2h", skin=SK_BONE, eye=(0.4, 0.8, 1.0), hide_hair=True,
+                                           head="none", extra=undead_parts("mob_skel_blade", "blade", (0.4, 0.8, 1.0))),
+        "mob_skel_archer": lambda: humanoid("mob_skel_archer", "cloth", (0.4, 0.37, 0.32), "bow", skin=SK_BONE, eye=(0.4, 0.8, 1.0), hide_hair=True,
+                                            head="none", extra=undead_parts("mob_skel_archer", "archer", (0.4, 0.8, 1.0))),
+        "mob_skel_guard": lambda: humanoid("mob_skel_guard", "plate", (0.3, 0.28, 0.3), "sword", offhand="shield", skin=SK_BONE, eye=(0.4, 0.8, 1.0),
+                                           hide_hair=True, head="none", extra=undead_parts("mob_skel_guard", "guard", (0.4, 0.8, 1.0))),
+        "mob_death_knight": lambda: humanoid("mob_death_knight", "plate", (0.18, 0.16, 0.2), "sword2h", skin=SK_BONE, eye=(1.0, 0.3, 0.25), hide_hair=True,
+                                             head="none", extra=undead_parts("mob_death_knight", "knight", (1.0, 0.3, 0.25))),
+        "mob_ghoul": lambda: humanoid("mob_ghoul", "leather", (0.35, 0.32, 0.26), None, skin=(0.55, 0.62, 0.45), eye=(0.9, 0.95, 0.3), hide_hair=True,
+                                      head="none", extra=undead_parts("mob_ghoul", "ghoul", (0.6, 0.9, 0.3))),
+        "mob_ghoul_giant": lambda: humanoid("mob_ghoul_giant", "leather", (0.32, 0.28, 0.22), None, skin=(0.52, 0.6, 0.42), eye=(0.95, 0.9, 0.3), hide_hair=True,
+                                            head="none", extra=undead_parts("mob_ghoul_giant", "giant", (0.6, 0.9, 0.3))),
+        "mob_cultist": lambda: humanoid("mob_cultist", "cloth", (0.28, 0.1, 0.12), "wand", skin=(0.8, 0.76, 0.74), hide_hair=True,
+                                        head="none", extra=undead_parts("mob_cultist", "cultist", (1.0, 0.35, 0.25))),
+        "mob_frost_mage": lambda: humanoid("mob_frost_mage", "cloth", (0.45, 0.6, 0.8), "staff", skin=SK_BONE, eye=(0.5, 0.9, 1.0), hide_hair=True,
+                                           head="none", extra=undead_parts("mob_frost_mage", "frost", (0.5, 0.9, 1.0))),
+        "mob_lich_king": lambda: humanoid("mob_lich_king", "cloth", (0.2, 0.12, 0.28), "staff", skin=SK_BONE, eye=(0.75, 0.5, 1.0), hide_hair=True,
+                                          head="none", extra=undead_parts("mob_lich_king", "lichking", (0.75, 0.5, 1.0))),
+        "mob_rot_bear": lambda: quadruped("mob_rot_bear", (0.36, 0.38, 0.28), (0.42, 0.14, 0.14), (0.9, 0.86, 0.72), "bear"),
+        "mob_rot_wolf": lambda: quadruped("mob_rot_wolf", (0.38, 0.4, 0.32), (0.42, 0.14, 0.14), (0.9, 0.86, 0.72), "wolf"),
+        "mob_larva": larva,
+        "mob_bat": bat,
         "mob_skeleton": lambda: humanoid("mob_skeleton", "plate", (0.42, 0.4, 0.38), "sword", skin=(0.92, 0.9, 0.82),
                                          eye=(1.0, 0.3, 0.2), offhand="shield", hide_hair=True),
         "mob_zombie": lambda: humanoid("mob_zombie", "leather", (0.32, 0.36, 0.28), "axe", skin=(0.52, 0.62, 0.42), eye=(0.95, 0.9, 0.3)),
@@ -1258,7 +1507,8 @@ def build_all(out_dir, only=None):
         for o in bpy.context.scene.objects:
             if "." in o.name:
                 o.name = o.name.replace(".", "_")
-        if name.startswith("mob_bandit") or name in ("mob_skeleton", "mob_zombie", "mob_lich", "mob_skeleton_king", "form_demon",
+        if name.startswith(("mob_bandit", "mob_loyal_", "mob_skel_")) or name in ("mob_death_knight", "mob_ghoul", "mob_ghoul_giant", "mob_cultist",
+                                                                              "mob_frost_mage", "mob_lich_king", "mob_skeleton", "mob_zombie", "mob_lich", "mob_skeleton_king", "form_demon",
                     "mob_elf_warrior", "mob_elf_archer", "mob_elf_warden", "mob_elf_king", "mob_elf_mage",
                     "mob_elf_captain_hunter", "mob_elf_captain_sky", "mob_elf_captain_sap", "mob_elf_citizen", "mob_elf_citizen_f",
                     "mob_elf_fighter", "mob_elf_bowman"):
