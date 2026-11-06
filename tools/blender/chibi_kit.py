@@ -1501,8 +1501,18 @@ def build_class(cid):
     return base
 
 
+def deselect_everything():
+    """Desmarca TUDO, objeto a objeto: select_all não alcança coleção escondida, e o que fica marcado lá entra no GLB
+    (os chãos das zonas chegaram a ir dentro dos modelos de monstro)."""
+    for o in bpy.data.objects:
+        try:
+            o.select_set(False)
+        except RuntimeError:
+            pass
+
+
 def export_glb(rig, path):
-    bpy.ops.object.select_all(action="DESELECT")
+    deselect_everything()
     rig.hide_set(False)
     rig.select_set(True)
     for c in rig.children_recursive:

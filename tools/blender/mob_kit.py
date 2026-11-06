@@ -751,6 +751,59 @@ def warrior_bows(base, mats):
     ck.skin_rigid(back, rig, "chest")
 
 
+def elf_captain_parts(cid, cloth2, kind):
+    """Capitães élficos: orelhas e manto do elf_parts + a peça que os distingue de cima (cabeça e ombros).
+    hunter = chapéu de aba larga com pluma comprida e aljava; sky = elmo alado; sap = coroa de folhas e ombreiras de casca."""
+    base_add = elf_parts(cid, cloth2, cape=True)
+
+    def add(base, mats):
+        base_add(base, mats)
+        V = Vector
+        rig, b = base["rig"], base["b"]
+        c, r = V(base["head_c"]), b["head"]
+        gold = ck.mat("m_%s_gold" % cid, (0.95, 0.78, 0.3), 0.4)
+        head = []
+        body = []
+        if kind == "hunter":
+            felt = ck.mat("m_%s_hat" % cid, (0.22, 0.42, 0.3), 0.7)
+            plume = ck.mat("m_%s_plume" % cid, (0.95, 0.55, 0.2), 0.6)
+            head.append(ck.tube(cid + "_brim", c + V((0, 0, r * 0.62)), c + V((0, 0, r * 0.7)), r * 1.55, r * 1.5, felt, 18))
+            head.append(ck.tube(cid + "_crown", c + V((0, 0, r * 0.68)), c + V((0, 0.02, r * 1.2)), r * 0.85, r * 0.55, felt, 14))
+            head.append(ck.blade(cid + "_plume", c + V((r * 0.4, r * 0.2, r * 1.1)), c + V((r * 1.3, r * 1.4, r * 1.9)), r * 0.35, r * 0.05, plume, (1, 0, 0), 0.5))
+            zc = ck.Z["chest"]
+            back = b["chest"] * b["depth"] + 0.06
+            body.append(ck.tube(cid + "_quiver", V((0.1, back, zc - 0.15)), V((0.2, back + 0.05, zc + 0.35)), 0.07, 0.08, felt, 8))
+            for i in range(3):
+                body.append(ck.tube(cid + "_arrow%d" % i, V((0.14 + i * 0.03, back + 0.05, zc + 0.3)), V((0.2 + i * 0.04, back + 0.08, zc + 0.5)), 0.012, 0.012, plume, 4))
+        elif kind == "sky":
+            plate = ck.mat("m_%s_helm" % cid, (0.88, 0.9, 0.95), 0.35)
+            feather = ck.mat("m_%s_wing" % cid, (0.97, 0.97, 1.0), 0.6)
+            head.append(ck.ball(cid + "_helm", r * 1.2, c + V((0, r * 0.04, r * 0.16)), plate, (1, 1.02, 0.9)))
+            head.append(ck.tube(cid + "_rim", c + V((0, 0, r * 0.18)), c + V((0, 0, r * 0.3)), r * 1.22, r * 1.2, gold, 20))
+            head.append(ck.tube(cid + "_crest", c + V((0, -r * 0.2, r * 1.0)), c + V((0, r * 0.7, r * 1.35)), r * 0.12, r * 0.04, gold, 6))
+            for sx in (-1, 1):
+                for k in range(3):
+                    root = c + V((sx * r * 0.95, r * (0.05 + k * 0.12), r * (0.3 + k * 0.1)))
+                    head.append(ck.blade(cid + "_wing%d_%d" % (sx, k), root, root + V((sx * r * (0.9 - k * 0.15), r * 0.35, r * (0.95 - k * 0.2))), r * 0.28, r * 0.04, feather, (0, 1, 0), 0.5))
+        else:                                              # sap
+            leaf = ck.mat("m_%s_leaf" % cid, (0.45, 0.85, 0.4), 0.6, 0.6)
+            bark = ck.mat("m_%s_bark" % cid, (0.42, 0.3, 0.2), 0.85)
+            for i in range(9):
+                a = math.tau * i / 9
+                root = c + V((math.cos(a) * r * 1.0, math.sin(a) * r * 1.0, r * 0.8))
+                head.append(ck.blade(cid + "_leaf%d" % i, root, root + V((math.cos(a) * r * 0.45, math.sin(a) * r * 0.45, r * (0.85 + 0.3 * (i % 2)))), r * 0.42, r * 0.05, leaf, (-math.sin(a), math.cos(a), 0), 0.5))
+            head.append(ck.ball(cid + "_sapgem", r * 0.16, c + V((0, -r * 0.95, r * 0.45)), ck.mat("m_%s_sap" % cid, (0.75, 1.0, 0.45), 0.3, 2.2)))
+            zs = ck.Z["chest"] + 0.12
+            for sx in (-1, 1):
+                body.append(ck.ball(cid + "_pauldron%d" % sx, 0.15, V((sx * (b["chest"] + 0.05), 0.0, zs)), bark, (1.1, 1.0, 0.7)))
+                body.append(ck.blade(cid + "_pleaf%d" % sx, V((sx * (b["chest"] + 0.08), 0.0, zs + 0.08)), V((sx * (b["chest"] + 0.3), 0.05, zs + 0.3)), 0.12, 0.02, leaf, (0, 1, 0), 0.5))
+        for p_ in head:
+            ck.skin_rigid(p_, rig, "head")
+        for p_ in body:
+            ck.skin_rigid(p_, rig, "chest")
+    return add
+
+
 def golem(cid="mob_golem"):
     arm = lp.make_armature("rig_" + cid, bm.MOB_BONES)
     stone = ck.mat("m_stone", (0.62, 0.6, 0.58), 0.9)
@@ -909,9 +962,9 @@ def spiked_crown(base, cid, spikes, mats):
         ck.skin_rigid(p, base["rig"], "head")
 
 
-def humanoid(cid, style, cloth, weapon, skin=None, eye=None, offhand=None, hide_hair=False, head=None, crown=0, extra=None, after=None):
+def humanoid(cid, style, cloth, weapon, skin=None, eye=None, offhand=None, hide_hair=False, head=None, crown=0, extra=None, after=None, sex="male", hair=(0.25, 0.18, 0.14)):
     ck.clear()
-    base = ck.build_base(cid, "male", 0.0, (0.25, 0.18, 0.14))
+    base = ck.build_base(cid, sex, 0.0, hair)
     mats = ck._kit_mats()
     mats["tint"] = ck.mat("m_%s_cloth" % cid, cloth, 0.7)
     if skin:
@@ -937,7 +990,8 @@ def humanoid(cid, style, cloth, weapon, skin=None, eye=None, offhand=None, hide_
         extra(base, mats)
     if crown:
         spiked_crown(base, cid, crown, mats)
-    ck.kit_weapon(base, weapon, "main", mats)
+    if weapon:
+        ck.kit_weapon(base, weapon, "main", mats)
     if offhand:
         ck.kit_weapon(base, offhand, "off", mats)
     if after:
@@ -1019,6 +1073,17 @@ def build_all(out_dir, only=None):
         # Cerco élfico: elfos de couro/tecido verde, Guardião de placa clara, Rei de placa dourada com coroa e manto
         "mob_elf_warrior": lambda: humanoid("mob_elf_warrior", "leather", (0.3, 0.56, 0.42), "sword", skin=(0.96, 0.86, 0.74),
                                             head="none", extra=elf_parts("mob_elf_warrior", (0.85, 0.8, 0.5)), after=warrior_bows),
+        # capitães dos fortes élficos e cidadãos (Cidade Élfica)
+        "mob_elf_captain_hunter": lambda: humanoid("mob_elf_captain_hunter", "leather", (0.3, 0.5, 0.36), "bow", skin=(0.96, 0.86, 0.74),
+                                                   head="none", extra=elf_captain_parts("mob_elf_captain_hunter", (0.85, 0.55, 0.25), "hunter")),
+        "mob_elf_captain_sky": lambda: humanoid("mob_elf_captain_sky", "plate", (0.86, 0.88, 0.94), "sword2h", skin=(0.96, 0.86, 0.74),
+                                                head="none", hide_hair=True, extra=elf_captain_parts("mob_elf_captain_sky", (0.3, 0.5, 0.8), "sky")),
+        "mob_elf_captain_sap": lambda: humanoid("mob_elf_captain_sap", "cloth", (0.45, 0.6, 0.35), "staff", skin=(0.96, 0.86, 0.74),
+                                                head="none", hair=(0.62, 0.85, 0.5), extra=elf_captain_parts("mob_elf_captain_sap", (0.6, 0.85, 0.4), "sap")),
+        "mob_elf_citizen": lambda: humanoid("mob_elf_citizen", "cloth", (0.6, 0.78, 0.62), None, skin=(0.96, 0.86, 0.74),
+                                            head="none", extra=elf_parts("mob_elf_citizen", (0.85, 0.75, 0.45)), hair=(0.85, 0.75, 0.45)),
+        "mob_elf_citizen_f": lambda: humanoid("mob_elf_citizen_f", "cloth", (0.75, 0.62, 0.82), None, skin=(0.96, 0.86, 0.74),
+                                              head="none", extra=elf_parts("mob_elf_citizen_f", (0.55, 0.8, 0.7)), sex="female", hair=(0.95, 0.88, 0.62)),
         "mob_elf_mage": lambda: humanoid("mob_elf_mage", "cloth", (0.86, 0.88, 0.8), "staff", skin=(0.96, 0.86, 0.74),
                                          head="cloth", extra=elf_parts("mob_elf_mage", (0.3, 0.75, 0.55), cape=True)),
         "mob_elf_archer": lambda: humanoid("mob_elf_archer", "cloth", (0.42, 0.66, 0.4), "bow", skin=(0.96, 0.86, 0.74),
@@ -1049,7 +1114,8 @@ def build_all(out_dir, only=None):
             if "." in o.name:
                 o.name = o.name.replace(".", "_")
         if name in ("mob_bandit", "mob_skeleton", "mob_zombie", "mob_lich", "mob_skeleton_king", "form_demon",
-                    "mob_elf_warrior", "mob_elf_archer", "mob_elf_warden", "mob_elf_king", "mob_elf_mage"):
+                    "mob_elf_warrior", "mob_elf_archer", "mob_elf_warden", "mob_elf_king", "mob_elf_mage",
+                    "mob_elf_captain_hunter", "mob_elf_captain_sky", "mob_elf_captain_sap", "mob_elf_citizen", "mob_elf_citizen_f"):
             ck.export_glb(arm, os.path.join(out_dir, name + ".glb"))
         else:
             lp.export_glb(os.path.join(out_dir, name + ".glb"), [arm])

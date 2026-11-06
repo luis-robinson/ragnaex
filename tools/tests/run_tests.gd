@@ -647,6 +647,7 @@ func _check_zone(gd, sim) -> void:
 	_check_bind_crystal(gd, sim, save_ref)
 	_check_quarry(gd, sim)
 	_check_map_models(gd)
+	_check_model_leaks()
 	_check_repeatable_labels(gd)
 	_check_reset_and_coin(gd, sim)
 	_check_escort(gd, sim)
@@ -3054,6 +3055,27 @@ func _check_repeatable_labels(gd) -> void:
 			n += 1
 			check(QuestSystem.npc_name(gd.quests[qid].giver_npc) != gd.quests[qid].giver_npc, "%s: quem dá a repetível tem nome" % qid)
 	check(n >= 10, "há repetíveis (%d)" % n)
+
+## Modelo de monstro/prop/kit não carrega pedaço de zona: objeto marcado numa coleção escondida do Blender ia junto
+## no GLB (centenas de chãos de dungeon dentro de cada elfo/grifo/casa élfica).
+func _check_model_leaks() -> void:
+	var dir := DirAccess.open("res://assets/models")
+	var bad: Array = []
+	for f in dir.get_files():
+		if not f.ends_with(".glb") or f.begins_with("map_"):
+			continue
+		var fa := FileAccess.open("res://assets/models/" + f, FileAccess.READ)
+		if fa == null:
+			continue
+		fa.seek(12)
+		var n := fa.get_32()
+		fa.seek(20)
+		var js: Dictionary = JSON.parse_string(fa.get_buffer(n).get_string_from_utf8())
+		for nd in js.get("nodes", []):
+			if str(nd.get("name", "")).begins_with("Z_"):
+				bad.append(f)
+				break
+	check(bad.is_empty(), "nenhum modelo de monstro/prop traz pedaço de zona (%s)" % str(bad))
 
 ## Todo mapa com modelo tem o GLB do Blender de verdade (uma exportação com a coleção escondida sai vazia, ~150 bytes,
 ## e o jogo mostra só o chão: o Posto ficou sem muralha assim).

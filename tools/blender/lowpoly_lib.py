@@ -236,7 +236,11 @@ def humanoid_actions(arm, weapon_hand="arm_r", caster=False):
 # export
 # ---------------------------------------------------------------------------
 def export_glb(path, objects):
-    bpy.ops.object.select_all(action="DESELECT")
+    for o in bpy.data.objects:            # select_all não alcança coleção escondida (zonas iam dentro do GLB)
+        try:
+            o.select_set(False)
+        except RuntimeError:
+            pass
     for o in objects:
         o.select_set(True)
         for c in o.children_recursive:

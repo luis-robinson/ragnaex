@@ -894,7 +894,7 @@ def export_scene(path, name="prop", kind=""):
         if o != joined:
             bpy.data.objects.remove(o, do_unlink=True)
     _decimate(kind)
-    bpy.ops.object.select_all(action="DESELECT")
+    ck.deselect_everything()              # select_all não alcança coleção escondida (zonas iam dentro do GLB)
     joined.select_set(True)
     bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_apply=True,
                               export_animations=False, export_yup=True, export_materials="EXPORT")
