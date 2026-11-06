@@ -122,3 +122,43 @@ static func march_goal(e: SimEntity) -> Vector3:
 		return e.home_position
 	e.raid_leg = clampi(e.raid_leg, 0, route.size() - 1)
 	return route[e.raid_leg]
+
+# ----------------------------------------------------------------------------
+# Surtida da catedral (MapDef.sortie): investida chegou à muralha -> 20 soldados saem pela porta até o portão atacado
+# ----------------------------------------------------------------------------
+static func spawn_sortie(sim: WorldSim, m: Dictionary, route_i: int) -> Array:
+	var def: MapDef = m["def"]
+	var so: Dictionary = def.sortie
+	var door: Vector3 = so["from"]
+	var gate := RaidSystem.gate_point(def, route_i)
+	var ga := atan2(gate.z - def.town_center.z, gate.x - def.town_center.x)
+	var mid := def.town_center + Vector3(cos(ga), 0, sin(ga)) * 30.0          # anel da praça na direção do portão
+	var out: Array = []
+	var k := 0
+	for fid in so.get("fighters", {}):
+		var mdef: MonsterDef = GameData.monsters.get(str(fid))
+		if mdef == null:
+			continue
+		for j in int(so["fighters"][fid]):
+			var n := {"id": "sortie_%d" % k, "name": mdef.name, "role": "guard", "fighter": str(fid), "respawn": -1.0, "model": mdef.model,
+				"pos": MapGeometry.random_walkable(sim, def, door, 3.0), "facing": 180.0, "color": Color(0.9, 0.88, 0.8),
+				"march": [mid, gate], "march_radius": 10.0, "sortie": true}
+			k += 1
+			out.append(sim._spawn_npc(n, def.id).id)
+	if sim.player and sim.player.map_id == def.id and so.has("say"):
+		Events.chat_message.emit("Sistema", str(so["say"]), "system")
+	return out
+
+## Leva acabou: a surtida volta à porta e some ao chegar (ou em RAID_SORTIE_LINGER s).
+static func end_sortie(sim: WorldSim, ids: Array) -> void:
+	for id in ids:
+		var e: SimEntity = sim.entities.get(id)
+		if e == null or not e.is_alive():
+			continue
+		var door: Vector3 = (sim.maps[e.map_id]["def"] as MapDef).sortie.get("from", e.position)
+		e.npc_data["march"] = [door]
+		e.npc_data["march_radius"] = 1.0
+		e.npc_data["sortie_return"] = true
+		e.npc_data["sortie_left"] = Balance.RAID_SORTIE_LINGER
+		e.raid_leg = 0
+		e.aggro_target = -1

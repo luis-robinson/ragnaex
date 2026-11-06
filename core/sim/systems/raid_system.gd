@@ -8,6 +8,17 @@ extends RefCounted
 ## estado próprio (m["raid"], m["raid_1"]...) e a entidade sabe a dela (`SimEntity.raid_route`). Rota com `if`/`unless`
 ## (WorldState) só solta leva enquanto vale: a fortaleza daquele lado retomada cala a investida dela.
 
+## Fortalezas retomadas: rotas do mapa caladas pela quest delas (`unless` concluída). Sondas fixam em state(m)["force_reclaimed"].
+static func reclaimed(sim: WorldSim, m: Dictionary) -> int:
+	var st := state(m)
+	if st.has("force_reclaimed"):
+		return int(st["force_reclaimed"])
+	var n := 0
+	for r in routes(m["def"]):
+		if r.has("unless") and not WorldState.active(sim, {"unless": r["unless"]}):
+			n += 1
+	return n
+
 ## Rotas de investida do mapa (vazio = sem investida).
 static func routes(def: MapDef) -> Array:
 	var out: Array = []
@@ -32,6 +43,8 @@ static func state(m: Dictionary, i: int = 0) -> Dictionary:
 static func update_raids(sim: WorldSim, m: Dictionary, dt: float) -> void:
 	var def: MapDef = m["def"]
 	var all := routes(def)
+	if float(m.get("sortie_cd", 0.0)) > 0.0:
+		m["sortie_cd"] = float(m["sortie_cd"]) - dt
 	for i in all.size():
 		var st := state(m, i)
 		if not (st["ids"] as Array).is_empty():
@@ -68,6 +81,30 @@ static func start_raid(sim: WorldSim, m: Dictionary, i: int = 0) -> Array:
 	for at in extra:
 		if step >= int(at):
 			groups.append(extra[at])
+	# fúria: cada fortaleza retomada aumenta a leva dos fronts que sobram (x RAID_RECLAIM_MULT^k) e soma elites
+	var k := reclaimed(sim, m)
+	var mult := pow(Balance.RAID_RECLAIM_MULT, k)
+	var rx: Dictionary = r.get("reclaim_extra", {})
+	var elites: Array = []
+	for at in rx:
+		if k >= int(at):
+			elites.append(rx[at])
+	var total := 0
+	for mobs in groups:
+		for mid in mobs:
+			total += int(round(int(mobs[mid]) * mult))
+	var fit := minf(1.0, float(Balance.RAID_WAVE_CAP) / maxf(1.0, float(total)))
+	var scaled: Array = []
+	for mobs in groups:
+		var g := {}
+		for mid in mobs:
+			g[mid] = maxi(1, int(round(int(mobs[mid]) * mult * fit)))
+		scaled.append(g)
+	groups = scaled + elites
+	if k > int(st.get("seen_reclaimed", 0)):
+		st["seen_reclaimed"] = k
+		if r.has("say_reclaim"):
+			Events.chat_message.emit("Sistema", str(r["say_reclaim"]), "system")
 	var top := 0
 	for mobs in groups:
 		for mid in mobs:
@@ -112,7 +149,12 @@ static func _update_wave(sim: WorldSim, m: Dictionary, st: Dictionary, dt: float
 			st["arrived"] = true
 			Events.chat_message.emit("Sistema", str(r.get("say_arrived", "Os inimigos chegaram às muralhas!")), "system")
 			Events.raid_event.emit(def.id, "arrived")
+			if not def.sortie.is_empty() and float(m.get("sortie_cd", 0.0)) <= 0.0:
+				m["sortie_cd"] = float(def.sortie.get("cooldown", Balance.RAID_SORTIE_COOLDOWN))
+				st["sortie"] = WorldState.spawn_sortie(sim, m, i)
 	if alive.is_empty():
+		WorldState.end_sortie(sim, st.get("sortie", []))
+		st["sortie"] = []
 		var repelled: bool = not st["retreat"]
 		st["ids"] = []
 		st["timer"] = float(r.get("every", 180.0)) + sim.rng.randf_range(-1.0, 1.0) * float(r.get("jitter", 0.0))

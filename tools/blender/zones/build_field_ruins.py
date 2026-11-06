@@ -202,6 +202,8 @@ def build(export=False):
         raids.append({"side": side, "from": list(gorge_in), "route": [list(mid), list(outer)], "target": [0.0, 0.0], "radius": RING_R - 6.0,
                       "unless": f["quest"]})
     z.data["raids"] = raids
+    z.data["assaults"] = [{"id": "reforco_" + r["side"], "from": r["from"], "route": list(reversed(r["route"])), "target": [0.0, 12.0], "radius": 14.0}
+                          for r in raids]          # reforço das fortalezas retomadas: a rota da investida, ao contrário, até a praça
 
     # ---------- selo da Cidadela do Lich (garganta NE): abre com as três fortalezas retomadas ----------
     cit_out, cit_in = polar(z, CITADEL_DEG, 7), polar(z, CITADEL_DEG, 18)

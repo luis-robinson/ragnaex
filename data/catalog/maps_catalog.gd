@@ -507,7 +507,23 @@ const FOREST_NPCS := {
 }
 ## Levas aliadas que marcham, por mapa e id do assalto no JSON (WorldState.update_assaults):
 ##   fighters {guard_id: n}, every (s entre levas), max (vivos ao mesmo tempo), first, say, if/unless (quests).
+## Surtida da catedral: quando uma leva chega à muralha, estes saem pela porta até o portão atacado (recarga em Balance).
+const SORTIES := {
+	"field_ruins": {"from": Vector3(-16.0, 0.0, 0.0), "cooldown": 180.0,
+		"fighters": {"guard_knight": 6, "guard_spearman": 6, "guard_paladin": 2, "guard_crossbow": 3, "guard_priest": 3},
+		"say": "Os portões da catedral se abrem: vinte soldados da Aurora saem em socorro do portão!"},
+}
+
 const ASSAULTS := {
+	# reforços: cada fortaleza retomada manda soldados ao Bastião de tempos em tempos (descem a estrada do front até a praça)
+	"field_ruins": {
+		"reforco_ghoul": {"fighters": {"guard_knight": 2, "guard_spearman": 2, "guard_priest": 1, "guard_crossbow": 1}, "every": 120.0, "max": 8, "first": 20.0,
+			"if": "dw_ghoul_boss", "say": "Reforços do Covil chegam pela garganta oeste!"},
+		"reforco_bones": {"fighters": {"guard_knight": 2, "guard_spearman": 2, "guard_priest": 1, "guard_crossbow": 1}, "every": 120.0, "max": 8, "first": 40.0,
+			"if": "dw_bones_boss", "say": "Reforços da Fortaleza dos Ossos chegam pela garganta norte!"},
+		"reforco_frost": {"fighters": {"guard_knight": 2, "guard_paladin": 1, "guard_priest": 1, "guard_crossbow": 2}, "every": 120.0, "max": 8, "first": 60.0,
+			"if": "dw_frost_boss", "say": "Reforços da Torre chegam pela garganta sul!"},
+	},
 	"fort_bones": {"aurora": {"fighters": {"guard_knight": 2, "guard_spearman": 3, "guard_priest": 1}, "every": 45.0, "max": 10, "first": 6.0,
 		"if": "dw_ghoul_boss", "unless": "dw_bones_boss", "say": "Trompas da Aurora na estrada: os soldados do Covil sobem contra a Fortaleza dos Ossos!"}},
 	"fort_frost": {"aurora": {"fighters": {"guard_knight": 2, "guard_paladin": 1, "guard_crossbow": 2, "guard_priest": 1}, "every": 45.0, "max": 10, "first": 6.0,
@@ -535,19 +551,25 @@ const RAIDS := {
 			"say_start": "O pântano do oeste se mexe: a ninhada do Carniçal marcha contra o Bastião!",
 			"say_arrived": "Os mortos do Carniçal chegaram ao portão oeste!",
 			"say_repelled": "A investida do Carniçal foi queimada no portão oeste!",
-			"say_retreat": "A ninhada recua para o pântano."},
+			"say_retreat": "A ninhada recua para o pântano.",
+			"reclaim_extra": {1: {"rot_bear": 2}, 2: {"citadel_horror": 2}},
+			"say_reclaim": "O pântano ferve de raiva pelas fortalezas perdidas: a ninhada vem maior!"},
 		"bones": {"every": 230.0, "first": 140.0, "jitter": 40.0, "lifetime": 210.0,
 			"waves": [{"mobs": {"skeleton": 12, "skel_archer": 8, "skel_guard": 5}}],
 			"say_start": "Tambores de osso ao norte: a legião da Fortaleza dos Ossos marcha!",
 			"say_arrived": "Os esqueletos chegaram ao portão norte! Escudos à frente!",
 			"say_repelled": "A legião dos ossos foi quebrada no portão norte!",
-			"say_retreat": "Os esqueletos recuam em fileira para o norte."},
+			"say_retreat": "Os esqueletos recuam em fileira para o norte.",
+			"reclaim_extra": {1: {"skel_guard": 2}, 2: {"citadel_knight": 2}},
+			"say_reclaim": "Os tambores de osso batem mais forte: a legião vem maior pelas fortalezas perdidas!"},
 		"frost": {"every": 260.0, "first": 210.0, "jitter": 40.0, "lifetime": 210.0,
 			"waves": [{"mobs": {"cultist": 7, "tower_bat": 8, "ghost": 6, "citadel_adept": 4}}, {"mobs": {"citadel_knight": 2}, "every_nth": 2}],
 			"say_start": "Um vento gelado vem do sul: os adeptos da Torre marcham com morcegos e espectros!",
 			"say_arrived": "Os adeptos chegaram ao portão sul!",
 			"say_repelled": "O frio recua: o portão sul resistiu!",
-			"say_retreat": "Os adeptos recuam para a Torre."},
+			"say_retreat": "Os adeptos recuam para a Torre.",
+			"reclaim_extra": {1: {"citadel_adept": 2}, 2: {"citadel_knight": 2}},
+			"say_reclaim": "O frio do sul fica cruel: a Torre manda mais adeptos pelas fortalezas perdidas!"},
 	},
 }
 
@@ -797,7 +819,7 @@ static func _ruins() -> MapDef:
 	var extra := _place_npcs("field_ruins", z["npc_pos"]) + dawn_services(z["npc_pos"]) + dawn_garrison(z["npc_pos"]) + crystal_npc("field_ruins")
 	z.erase("npc_pos")
 	z.merge({
-		"id": "field_ruins", "name": "Bastião da Aurora", "is_town": false, "hub": true, "level_range": Vector2i(20, 30),
+		"id": "field_ruins", "name": "Bastião da Aurora", "is_town": false, "hub": true, "level_range": Vector2i(20, 30), "sortie": SORTIES["field_ruins"],
 		"ground_color": Color(0.55, 0.56, 0.46), "ground_color_alt": Color(0.5, 0.52, 0.43), "ambient": Color(0.78, 0.78, 0.86), "sun_energy": 0.9,
 		"bot_population": 6,
 		"npcs": [_npc("ruins_scholar", "Erudita Senna", float(p[0]), float(p[1]), "quest", Color(0.8, 0.75, 0.9),

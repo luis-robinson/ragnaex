@@ -656,6 +656,7 @@ func _check_zone(gd, sim) -> void:
 	_check_world_state(gd)
 	_check_dawn_factions(gd)
 	_check_dawn_conquest(gd)
+	_check_dawn_relief(gd)
 	_check_signature(gd, sim)
 	_check_raid_tactics(gd, sim)
 	_check_equipment_slots(gd, sim, save_ref)
@@ -3012,6 +3013,81 @@ func _check_outlaws(gd, sim) -> void:
 ## Terceiro andar de ponta a ponta: o Bastião tem três fronts de investida, cada um calado pela quest da fortaleza dele;
 ## portões de fortaleza em cadeia; na Fortaleza dos Ossos, antes de tudo só mortos e prisioneiros, com o Covil retomado a
 ## leva da Aurora sobe a estrada, com Vorhag morto os mortos somem e o assentamento e a guarnição aparecem.
+## Bastião: fortaleza retomada enfurece os fronts que sobram (x1,5 por retomada + elites, teto RAID_WAVE_CAP);
+## a fortaleza retomada manda reforço à praça; leva na muralha solta a surtida de 20 da catedral (recarga, volta e some).
+func _check_dawn_relief(gd) -> void:
+	var ws := WorldSim.new()
+	ws.load_map(gd.maps[GameData.town_map_id()])
+	var def: MapDef = gd.maps["field_ruins"]
+	var m: Dictionary = ws.load_map(def)
+	m["spawners"].clear()
+	for e in m["entities"].duplicate():
+		if e.kind == SimEntity.Kind.MONSTER:
+			ws.despawn(e)
+	var bones := -1
+	for i in RaidSystem.routes(def).size():
+		if RaidSystem.route_def(def, i).get("side", "") == "bones":
+			bones = i
+	var sizes: Array = []
+	for k in [0, 1, 2]:
+		RaidSystem.state(m)["force_reclaimed"] = k
+		RaidSystem.state(m, bones)["n"] = 1
+		var ids := RaidSystem.start_raid(ws, m, bones)
+		sizes.append(ids.size())
+		for id in ids:
+			ws.despawn(ws.entities.get(id))
+		RaidSystem.state(m, bones)["ids"] = []
+	check(sizes[0] == 25 and sizes[1] >= 38 and sizes[1] <= 41 and sizes[2] >= 56 and sizes[2] <= Balance.RAID_WAVE_CAP, "fúria: leva dos Ossos 25 -> ~38 -> ~56 com elites %s" % str(sizes))
+	RaidSystem.state(m)["force_reclaimed"] = 5
+	var big := RaidSystem.start_raid(ws, m, bones)
+	check(big.size() <= Balance.RAID_WAVE_CAP + 6, "fúria: teto da leva (%d)" % big.size())
+	for id in big:
+		ws.despawn(ws.entities.get(id))
+	RaidSystem.state(m, bones)["ids"] = []
+	RaidSystem.state(m).erase("force_reclaimed")
+	# reforço: só a fortaleza retomada manda gente, e ela desce até a praça
+	ws.player = ws.spawn_player(gd.classes["paladin"], "Aurora", def.id)
+	for i in RaidSystem.routes(def).size():
+		RaidSystem.state(m, i)["timer"] = 9999.0
+	var relief := func() -> Array:
+		return m["entities"].filter(func(e): return e.guard and str(e.npc_data.get("id", "")).begins_with("assault_"))
+	for i in int(30.0 * 20):
+		ws.tick(0.05)
+	check(relief.call().is_empty(), "reforço: sem fortaleza retomada, ninguém vem")
+	ws.player.quests_completed.append("dw_ghoul_boss")
+	var reached := false
+	for i in int(150.0 * 20):
+		ws.tick(0.05)
+		if relief.call().any(func(e): return Vector2(e.position.x, e.position.z).length() < 26.0):
+			reached = true
+			break
+	check(relief.call().size() >= 4, "reforço do Covil desceu pela garganta oeste (%d)" % relief.call().size())
+	check(reached, "reforço chega à praça do Bastião")
+	# surtida: leva na muralha solta 20 da catedral, recarga segura a segunda, fim da leva -> voltam e somem
+	var sortie := func() -> Array:
+		return m["entities"].filter(func(e): return e.guard and e.npc_data.get("sortie", false))
+	var frost := -1
+	for i in RaidSystem.routes(def).size():
+		if RaidSystem.route_def(def, i).get("side", "") == "frost":
+			frost = i
+	var st := RaidSystem.state(m, frost)
+	var wave := RaidSystem.start_raid(ws, m, frost)
+	for id in wave:                                   # leva já na muralha
+		ws.entities[id].position = RaidSystem.route_def(def, frost)["target"] + Vector3(0, 0, 40)
+	ws.tick(0.05)
+	var so: Array = sortie.call()
+	check(so.size() == 20, "surtida: 20 soldados saem da catedral (%d)" % so.size())
+	check(so.all(func(e): return (e.npc_data["march"][1] as Vector3).distance_to(RaidSystem.gate_point(def, frost)) < 0.5), "surtida vai ao portão atacado")
+	check(float(m.get("sortie_cd", 0.0)) > 170.0, "surtida: recarga de 3 min")
+	st["arrived"] = false
+	ws.tick(0.05)
+	check(sortie.call().size() == 20, "surtida: a segunda chegada dentro da recarga não solta outra")
+	for id in wave:
+		ws.despawn(ws.entities.get(id))
+	for i in int((Balance.RAID_SORTIE_LINGER + 5.0) * 20):
+		ws.tick(0.05)
+	check(sortie.call().is_empty(), "surtida: leva acabou, os soldados voltam e somem")
+
 func _check_dawn_conquest(gd) -> void:
 	var bd: MapDef = gd.maps["field_ruins"]
 	var routes := RaidSystem.routes(bd)
@@ -3181,7 +3257,8 @@ func _check_world_state(gd) -> void:
 	RaidSystem.state(m, 1)["timer"] = 0.3
 	for i in 40:
 		ws.tick(0.05)
-	check(RaidSystem.state(m, 0)["ids"].size() == 1 and RaidSystem.state(m, 1)["ids"].is_empty(), "investida: lado retomado não solta mais leva")
+	check(RaidSystem.state(m, 1)["ids"].is_empty(), "investida: lado retomado não solta mais leva")
+	check(RaidSystem.state(m, 0)["ids"].size() == 2, "investida: o lado que sobra se enfurece (1 lobo -> 2, x1,5)")
 	check(RaidSystem.routes(fd).size() == 1, "Floresta continua com uma rota")
 	for id in RaidSystem.state(m, 0)["ids"]:
 		ws.despawn(ws.entities.get(id))

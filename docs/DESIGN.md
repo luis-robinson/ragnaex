@@ -316,6 +316,11 @@ Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MS
       - sul: campo gelado da Torre.
     - Cada front tem a sua rota (`MapDef.raids`, `RAIDS["field_ruins"][lado]`) e monstros que somem quando a fortaleza do lado cai (`unless`).
     - O leste é o lado seguro (Aldara, cabanas, rochedo do Dragonete).
+    - **Guerra que muda com a conquista:**
+      - **Fúria:** cada fortaleza retomada multiplica as levas dos fronts que sobram por `RAID_RECLAIM_MULT` (1,5) e soma elites (`reclaim_extra`), com teto de `RAID_WAVE_CAP` (90) por leva (`RaidSystem.reclaimed`).
+      - **Reforços:** cada fortaleza retomada manda soldados ao Bastião a cada 2 min (`ASSAULTS["field_ruins"]["reforco_<lado>"]`, a rota da investida ao contrário até a praça).
+      - **Surtida:** quando uma leva chega à muralha, 20 soldados saem da porta da catedral até o portão atacado (`MapDef.sortie`, `SORTIES`, recarga `RAID_SORTIE_COOLDOWN` 180 s) e voltam/somem quando a leva acaba.
+      - Com duas retomadas, o último front (~60) só cai com o jogador e o grupo (3 bots nv 27: 4/4).
   - **Fortalezas** (`build_dawn_forts.py`, um mapa por laço): Covil do Carniçal (20-23), Fortaleza dos Ossos (23-26), Torre do Mago Gélido (26-29).
     - Cada uma tem estrada, dois postos para retomar, muralha com marco no pátio, prisioneiros e chefe:
       - Carniçal Gigante: ninhada de larvas e bile;

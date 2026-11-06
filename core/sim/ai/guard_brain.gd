@@ -7,6 +7,14 @@ const SKILL_GAP := 2.5
 
 var skill_timer: float = 0.0
 var returning := false
+# marcha (assalto, reforço, surtida): caminho pelas pontes e desvio quando trava (como MonsterBrain._steer)
+var water_path: Array = []
+var water_goal := Vector3.INF
+var water_timer := 0.0
+var last_pos := Vector3.ZERO
+var stuck := 0.0
+var detour := Vector2.ZERO
+var detour_left := 0.0
 
 func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 	var cmd := InputCommand.new()
@@ -56,7 +64,7 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 	# sem luta: marcha do assalto, ronda/passeio do NPC, ou fica no posto
 	var nd := e.npc_data
 	if nd.has("march"):
-		return _march(e, sim, m, cmd)
+		return _march(e, sim, m, cmd, dt)
 	if nd.has("route") or nd.has("wander"):
 		if e.npc_wait > 0.0:
 			e.npc_wait -= dt
@@ -76,8 +84,17 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 	return cmd
 
 ## Leva de assalto (WorldState.assaults): sobe a rota com a âncora junto; no alvo, ronda o pátio procurando briga.
-func _march(e: SimEntity, sim, m: Dictionary, cmd: InputCommand) -> InputCommand:
+func _march(e: SimEntity, sim, m: Dictionary, cmd: InputCommand, dt: float) -> InputCommand:
 	e.home_position = e.position
+	if e.npc_data.get("sortie_return", false):        # surtida voltando: some na porta da catedral (ou no tempo)
+		e.npc_data["sortie_left"] = float(e.npc_data.get("sortie_left", 0.0)) - dt
+		var door: Vector3 = e.npc_data["march"][0]
+		if e.position.distance_to(door) < 2.5 or float(e.npc_data["sortie_left"]) <= 0.0:
+			sim.despawn(e)
+			return cmd
+		cmd.move = _steer(e, sim, door, dt)
+		cmd.aim = door
+		return cmd
 	var route: Array = e.npc_data["march"]
 	var goal := WorldState.march_goal(e)
 	var last := e.raid_leg >= route.size() - 1
@@ -95,6 +112,28 @@ func _march(e: SimEntity, sim, m: Dictionary, cmd: InputCommand) -> InputCommand
 		goal = e.npc_goal                   # já no pátio: segue rondando
 		if e.position.distance_to(goal) < 1.0:
 			e.npc_goal = sim.random_walkable(m["def"], route[route.size() - 1], float(e.npc_data.get("march_radius", 10.0)))
-	cmd.move = MonsterBrain._dir_to(e, goal)
+	cmd.move = _steer(e, sim, goal, dt)
 	cmd.aim = goal
 	return cmd
+
+func _steer(e: SimEntity, sim, p: Vector3, dt: float) -> Vector2:
+	water_timer -= dt
+	if water_timer <= 0.0 or water_goal.distance_to(p) > 3.0:
+		water_timer = 1.5
+		water_goal = p
+		water_path = sim.water_path(e.map_id, e.position, p)
+	while not water_path.is_empty() and Vector2(e.position.x, e.position.z).distance_to(water_path[0]) < 1.2:
+		water_path.pop_front()
+	if not water_path.is_empty():
+		p = Vector3(water_path[0].x, 0.0, water_path[0].y)
+	var v := MonsterBrain._dir_to(e, p)
+	stuck = stuck + dt if e.position.distance_to(last_pos) < 0.02 else 0.0
+	last_pos = e.position
+	if stuck > 0.5 and detour_left <= 0.0:
+		detour = v.rotated(PI * 0.5 * (1.0 if sim.rng.randf() < 0.5 else -1.0))
+		detour_left = sim.rng.randf_range(0.8, 1.4)
+		stuck = 0.0
+	detour_left -= dt
+	if detour_left > 0.0:
+		return (v * 0.3 + detour).normalized()
+	return v

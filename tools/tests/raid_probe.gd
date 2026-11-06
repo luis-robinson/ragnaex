@@ -9,7 +9,8 @@ extends Node
 
 const LIMIT := 260.0
 const DT := 1.0 / 20.0
-var route_i := 0                 # --route=N: qual lado da cidade (RaidSystem.routes)
+var route_i := 0
+var reclaimed := 0               # --reclaimed=N: fortalezas retomadas (fúria das levas, RaidSystem.reclaimed)                 # --route=N: qual lado da cidade (RaidSystem.routes)
 
 func _ready() -> void:
 	await get_tree().process_frame
@@ -25,10 +26,12 @@ func _ready() -> void:
 		if a.begins_with("--map="): mid = a.get_slice("=", 1)
 		if a.begins_with("--raid_level="): raid_level = int(a.get_slice("=", 1))
 		if a.begins_with("--route="): route_i = int(a.get_slice("=", 1))
+		if a.begins_with("--reclaimed="): reclaimed = int(a.get_slice("=", 1))
 	Sim.load_map(GameData.maps[GameData.town_map_id()])
 	var m: Dictionary = Sim.load_map(GameData.maps[mid])
 	m["spawners"].clear()
 	RaidSystem.state(m)["force_level"] = raid_level
+	RaidSystem.state(m)["force_reclaimed"] = reclaimed
 	for e in m["entities"].duplicate():
 		if e.kind == SimEntity.Kind.MONSTER:
 			Sim.despawn(e)
@@ -60,6 +63,7 @@ func _run(m: Dictionary, nbots: int, level: int, trials: int) -> Dictionary:
 		for i in range(nbots):
 			var cid: String = classes[(trial * 3 + i * 5) % classes.size()]
 			bots.append(Sim.spawn_bot(GameData.classes[cid], "D%d" % i, def.id, gate + Vector3(-3 + i * 3, 0, 4), level))
+		m["sortie_cd"] = 0.0                  # no jogo a recarga (180 s) cabe entre duas levas
 		var st := RaidSystem.state(m, route_i)
 		st["n"] = trial % 3                  # alterna as levas (a 3ª traz o grifo)
 		var ids := RaidSystem.start_raid(Sim, m, route_i)
