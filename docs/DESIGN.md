@@ -305,15 +305,46 @@ Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MS
   trono do **Rei Élfico Aelthar** (Guarda Real aos 70%, raízes + grifos aos 45%, fúria aos 20%; grupo de 3 vence ~80% em ~50 s).
   **Moedas**: Rei solta 4-6 sempre, Guardião 5% de 4 (`MonsterDef.coin_*`). **Glória** (lendário nível 20) aprimora no ferreiro com
   Aço Élfico (+1..+5) e Seiva da Árvore-Mãe (+6..+9), ouro a 60% (`PLUS_ELF_*`).
-- **Ruínas de Vel'Thar (20-30)** (`build_field_ruins.py`): praça antiga com colunas no hub (Erudita Senna), cemitério (NE, esqueletos),
-  bairro em ruínas (S, esqueletos e espectros), pântano escuro (N, espectros), pedreira (SO, golens), altar do Dragonete Ancestral (O),
-  zigurate partido (NE, landmark), riacho escuro com pontes. Garganta leste → Aldara.
+- **Terceiro andar (20-30): Luz contra Trevas.** Referência visual e de elenco: loyalists e mortos-vivos de Battle for Wesnoth (nomes e arte nossos).
+  - **Bastião da Aurora** (`field_ruins`, `build_field_ruins.py`; o id antigo ficou, saves e portões não mudam):
+    - Cidade murada r56 em volta da Catedral da Aurora (marco: torre com flecha dourada), com mercado, quartel, claustro e dois anéis de casas.
+    - `hub` com cristal e serviços (Marechal Aldric, Alta Sacerdotisa Lyria, ferreiro Doran, Capela dos Pedidos).
+    - **Guarnição** de 26 lutadores da Aurora (Lanceiro, Cavaleiro, Paladino, Sacerdotisa, Besteiro: `guard_*` com modelo `mob_loyal_*`), renascendo em 12 s (`DAWN_RESPAWN`).
+    - **Três fronts** com chão e investida próprios:
+      - oeste: pântano pútrido do Carniçal;
+      - norte: ossos, com a Cripta;
+      - sul: campo gelado da Torre.
+    - Cada front tem a sua rota (`MapDef.raids`, `RAIDS["field_ruins"][lado]`) e monstros que somem quando a fortaleza do lado cai (`unless`).
+    - O leste é o lado seguro (Aldara, cabanas, rochedo do Dragonete).
+  - **Fortalezas** (`build_dawn_forts.py`, um mapa por laço): Covil do Carniçal (20-23), Fortaleza dos Ossos (23-26), Torre do Mago Gélido (26-29).
+    - Cada uma tem estrada, dois postos para retomar, muralha com marco no pátio, prisioneiros e chefe:
+      - Carniçal Gigante: ninhada de larvas e bile;
+      - Vorhag, o Cavaleiro da Morte: ergue soldados, onda de morte;
+      - Morvath, o Arquimago Gélido: gelo, prisão, nevasca, espectros.
+    - **Conquista por personagem** (`WorldState`: spawner/NPC/rota/assalto com `if`/`unless` pela quest do jogador):
+      - a quest dos postos põe guardas da Aurora nos postos;
+      - a do chefe cala a fortaleza e a investida do lado;
+      - os prisioneiros saem e nasce o assentamento (capitão, ferreiro de campo, mercador) com guarnição;
+      - a fortaleza seguinte passa a receber a **leva aliada** (`MapDef.assaults`/`ASSAULTS`, `GuardBrain` em marcha) subindo a estrada.
+  - **Cidadela do Lich** (30, selo NE do Bastião, abre com as três): portões internos, elites das três fortalezas, a Ofensiva da Aurora sobe junto, e Azhar, o Lich-Rei (três fases).
+  - **Trevas:** Guardião de Ossos/Guarda da Cidadela bloqueiam golpe físico de frente (`MonsterDef.front_guard`); por trás ou com magia passa.
+  - **Recompensas:** Prata Consagrada (+1..+5) e Fragmento da Aurora (+6..+9) aprimoram lendários 25+ (`PLUS_DAWN_*`); quests principais e chefes dão Moedas Lendárias.
+  - **Calibrado** (`boss_probe` 20-24 lutas):
+
+    | Chefe | Sozinho | Grupo de 3 |
+    |---|---|---|
+    | Carniçal | 67% | 87% |
+    | Vorhag | 45% | 90% |
+    | Morvath | 45% | 100% |
+    | Lich-Rei | — | 70% |
+
+    `raid_probe --route` repele os três fronts com a guarnição (2-9 guardas caem por leva).
 - Loot: materiais por campo (gel, pele, presa, erva, minério, seda, casca, insígnia, osso, essência, núcleo, escama) + raros.
 
 ## Quests (cadeia)
 q01 bem-vindo (TALK) → q02 slimes → q03 gel → q04 primeira poção (CRAFT) → q05 presas → q06 lobos → q07 rei javali →
 c1 terra revirada (TALK) → c2 descida (REACH) → c3 Capitão + c4 Viúva (ramos) → c5 aviso à Capitã → q08 floresta (TALK) → q09 seda → q10 bandidos →
-q10b Rainha Aranha → el1 trompas → el2 segurar o portão (investidas) → el3 além da garganta → el4 trents → el5 Guardiões → el6 Rei Élfico → q12 ruínas → q13 núcleos → q13b Senhor da Cripta → q14 dragonete. c6 (Conde Vargo) é opcional e pede grupo; q11 (Chefe dos Bandidos) e a linha do Dario viraram laterais.
+q10b Rainha Aranha → el1 trompas → el2 segurar o portão (investidas) → el3 além da garganta → el4 trents → el5 Guardiões → el6 Rei Élfico → q12 Bastião → dw_gates segurar os portões → postos e Carniçal Gigante → assentamento → postos e Vorhag → postos e Morvath → Ofensiva da Aurora (Lich-Rei); laterais: núcleos, Cripta, Dragonete. c6 (Conde Vargo) é opcional e pede grupo; q11 (Chefe dos Bandidos) e a linha do Dario viraram laterais.
 
 Faixa do meio (10-20): monstros 1-2 níveis acima do antigo, quests de abate pedem 1,5x e a faixa toda paga mais em quest (`Balance.XP_QUEST_SHARE_BAND`: 55% em vez de 45%).
 
