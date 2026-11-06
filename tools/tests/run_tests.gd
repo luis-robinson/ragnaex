@@ -645,6 +645,7 @@ func _check_zone(gd, sim) -> void:
 	_check_quest_guide(gd, sim)
 	_check_summon_ai(gd, sim)
 	_check_bind_crystal(gd, sim, save_ref)
+	_check_quarry(gd, sim)
 	_check_equipment_slots(gd, sim, save_ref)
 	_check_icons(gd)
 	_check_combat_feel(gd, sim)
@@ -2828,6 +2829,37 @@ func _check_bind_crystal(gd, sim, save) -> void:
 		me.bind_pos = keep_pos
 		save.delete_slot(TEST_SLOT)
 
+## Pedreira dos Golens (Floresta, 11-15): entrada na floresta, 2 guardiões no mapa e o Coração atrás do selo,
+## golens comuns na faixa, chefes com modelo próprio, lacaios sem XP, material com fonte.
+func _check_quarry(gd, sim) -> void:
+	var fd: MapDef = gd.maps["field_forest"]
+	check(fd.portals.any(func(p): return p["target_map"] == "dg_pedreira"), "Floresta tem a entrada da Pedreira")
+	var pd: MapDef = gd.maps["dg_pedreira"]
+	check(pd.parent_map == "field_forest" and pd.level_range == Vector2i(11, 15), "Pedreira é dungeon 11-15 da Floresta")
+	var bosses := {}
+	for mid in ["dg_pedreira", "dg_pedreira_coracao"]:
+		for sp in gd.maps[mid].spawners:
+			var m: MonsterDef = gd.monsters[sp["monster_id"]]
+			if m.is_boss:
+				bosses[m.id] = mid
+			else:
+				check(m.level >= 11 and m.level <= 15 and m.xp > 0, "%s: %s na faixa 11-15 com XP" % [mid, m.id])
+	check(bosses.size() >= 3, "Pedreira tem 3+ chefes (%s)" % str(bosses.keys()))
+	for bid in ["golem_ancient", "crystal_warden", "quarry_heart"]:
+		var b: MonsterDef = gd.monsters[bid]
+		check(b.model == "mob_" + bid or b.model.begins_with("mob_") and ResourceLoader.exists("res://assets/models/%s.glb" % b.model), "%s tem modelo próprio" % bid)
+		for ph in b.phases:
+			if ph.has("summon"):
+				var add: MonsterDef = gd.monsters[ph["summon"]["id"]]
+				check(add.xp == 0 and add.loot_table == "", "lacaio %s sem XP nem loot" % add.id)
+	var gate: Dictionary = MapsCatalog.PORTAL_GATES.get("to_dg_pedreira_coracao", {})
+	check(gate.get("bosses", []) == ["golem_ancient", "crystal_warden"], "Coração da Pedreira abre com os dois guardiões")
+	var drops := false
+	for mid in ["golem_moss", "golem_stone", "golem_shard"]:
+		var lt: LootTable = gd.loot_tables[gd.monsters[mid].loot_table]
+		drops = drops or lt.entries.any(func(en): return en["item"] == "stone_core")
+	check(drops and gd.items.has("stone_core"), "golens dão Núcleo de Pedra")
+
 ## Invocações lutam sozinhas: acham alvo perto do dono, usam as skills do monstro, defendem o dono
 ## e as que atiram ficam longe (o Elemental de Fogo ficava parado). Sonda completa: tools/tests/pet_probe.tscn.
 func _check_summon_ai(gd, sim) -> void:
@@ -3274,7 +3306,7 @@ func _check_monster_polish(gd, sim) -> void:
 
 ## Dungeons do Vale (maiores): bandos também nos corredores, mas a chegada fica livre.
 func _check_dungeon_density(gd, sim) -> void:
-	for pair in [["dg_gruta", 6, 40], ["dg_catacumbas", 12, 60], ["dg_ninho", 6, 40], ["dg_cripta", 6, 36]]:
+	for pair in [["dg_gruta", 6, 40], ["dg_catacumbas", 12, 60], ["dg_ninho", 6, 40], ["dg_cripta", 6, 36], ["dg_pedreira", 12, 60]]:
 		var def: MapDef = gd.maps[pair[0]]
 		var mobs := 0
 		for sp in def.spawners:
@@ -5216,7 +5248,7 @@ func _check_raid_scaling(gd, sim) -> void:
 ## Faixa 10-20: chefes com repertório (3+ golpes somando as fases), fala de abertura uma vez por luta e fala ao cair;
 ## capanga do Chefe dos Bandidos sem XP; skills novas existem e estão no tema certo.
 func _check_band_bosses(gd, sim) -> void:
-	for bid in ["bandit_chief", "spider_queen", "elf_king", "count_vargo", "bone_captain", "wailing_widow"]:
+	for bid in ["bandit_chief", "spider_queen", "elf_king", "count_vargo", "bone_captain", "wailing_widow", "golem_ancient", "crystal_warden", "quarry_heart"]:
 		var md: MonsterDef = gd.monsters[bid]
 		var kit := {}
 		for sid in md.skill_ids:
@@ -5290,7 +5322,7 @@ func _check_post_life(gd, sim) -> void:
 		for pre in ["hunt_", "town_"]:
 			if str(ctx).begins_with(pre):
 				check(gd.maps.has(str(ctx).trim_prefix(pre)), "falas de bot: mapa %s existe" % ctx)
-	for mid in ["field_forest", "dg_ninho", "elf_city", "dg_coracao"]:
+	for mid in ["field_forest", "dg_ninho", "elf_city", "dg_coracao", "dg_pedreira"]:
 		check(BotsCatalog.LINES.has("hunt_" + mid) and (BotsCatalog.LINES["hunt_" + mid] as Array).size() >= 5, "falas de bot na faixa 10-20: %s" % mid)
 
 ## Faixa 10-20: toda quest tem alvo que nasce (spawner ou investida), item com fonte; monstros comuns sobem de vida com o nível

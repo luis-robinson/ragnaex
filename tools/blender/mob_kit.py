@@ -8,7 +8,7 @@ import bpy
 import importlib
 import math
 import os
-from mathutils import Vector
+from mathutils import Vector, Matrix
 
 import chibi_kit as ck
 import lowpoly_lib as lp
@@ -752,6 +752,121 @@ def golem(cid="mob_golem"):
     return arm
 
 
+def _spike(name, root, tip, r, material, segs=5):
+    """Cristal/chifre facetado: cone de poucos lados (lê como cristal com o toon)."""
+    return ck.tube(name, root, tip, r, r * 0.05, material, segs)
+
+
+def golem_boss(cid, kind):
+    """Chefes da Pedreira dos Golens (rig do golem). De cima o que define cada um é o dorso:
+    ancient = musgo e uma árvore nas costas; crystal = coroa e agulhas de cristal azul; heart = rocha escura
+    rachada de lava, núcleo exposto, chifres e placas flutuando."""
+    V = Vector
+    arm = lp.make_armature("rig_" + cid, bm.MOB_BONES)
+    if kind == "ancient":
+        stone = ck.mat("m_%s_stone" % cid, (0.5, 0.52, 0.46), 0.9)
+        stone_d = ck.mat("m_%s_stone_d" % cid, (0.34, 0.36, 0.32), 0.9)
+        moss = ck.mat("m_%s_moss" % cid, (0.36, 0.58, 0.28), 0.9)
+        moss2 = ck.mat("m_%s_moss2" % cid, (0.5, 0.7, 0.34), 0.85)
+        bark = ck.mat("m_%s_bark" % cid, (0.42, 0.3, 0.2), 0.9)
+        glow = ck.mat("m_%s_glow" % cid, (0.55, 1.0, 0.45), 0.3, 2.6)
+        parts = [(ck.box("torso", (1.15, 0.8, 0.82), (0, 0.05, 1.0), stone, 0.14), "body"),
+                 (ck.box("belly", (0.78, 0.62, 0.42), (0, 0.0, 0.5), stone_d, 0.12), "body"),
+                 (ck.box("head", (0.4, 0.36, 0.3), (0, -0.32, 1.3), stone, 0.08), "head"),
+                 (ck.box("brow", (0.46, 0.12, 0.1), (0, -0.5, 1.4), stone_d, 0.03), "head"),
+                 (blob("core", 0.12, (0, -0.42, 0.98), glow), "body")]
+        for sx in (-1, 1):
+            parts.append((blob("eye%d" % sx, 0.045, (sx * 0.1, -0.5, 1.3), glow), "head"))
+        # manto de musgo nas costas e ombros + árvore jovem crescendo do dorso
+        parts.append((blob("moss_back", 0.62, (0, 0.18, 1.42), moss, (1.0, 0.75, 0.32)), "body"))
+        for i, (c, r) in enumerate([((0.45, 0.25, 1.36), 0.22), ((-0.42, 0.3, 1.34), 0.24), ((0.1, 0.45, 1.2), 0.2)]):
+            parts.append((blob("moss_tuft%d" % i, r, c, moss2, (1.1, 1.0, 0.6)), "body"))
+        parts.append((ck.tube("trunk", (0.12, 0.3, 1.45), (0.2, 0.42, 2.25), 0.11, 0.06, bark, 7), "body"))
+        parts.append((ck.tube("branch", (0.18, 0.4, 2.0), (0.48, 0.52, 2.2), 0.05, 0.02, bark, 6), "body"))
+        for i, (c, r) in enumerate([((0.2, 0.44, 2.42), 0.36), ((0.46, 0.52, 2.26), 0.24), ((-0.06, 0.4, 2.3), 0.24)]):
+            parts.append((blob("canopy%d" % i, r, c, moss2 if i else moss, (1, 1, 0.8)), "body"))
+        for sx in (-1, 1):
+            bone = "arm_r" if sx > 0 else "arm_l"
+            parts.append((ck.box("shoulder%d" % sx, (0.5, 0.5, 0.46), (sx * 0.78, 0, 1.2), stone_d, 0.1), bone))
+            parts.append((blob("shoulder_moss%d" % sx, 0.28, (sx * 0.8, 0.04, 1.46), moss, (1.0, 1.0, 0.45)), bone))
+            parts.append((ck.box("forearm%d" % sx, (0.38, 0.4, 0.62), (sx * 0.88, -0.08, 0.72), stone, 0.1), bone))
+            parts.append((ck.box("fist%d" % sx, (0.52, 0.5, 0.42), (sx * 0.92, -0.12, 0.3), stone_d, 0.1), bone))
+            parts.append((blob("rune%d" % sx, 0.06, (sx * 0.92, -0.38, 0.32), glow, (1.4, 0.4, 0.6)), bone))
+            leg_bone = "leg_fr" if sx > 0 else "leg_fl"
+            parts.append((ck.box("leg%d" % sx, (0.4, 0.42, 0.5), (sx * 0.3, 0, 0.25), stone_d, 0.1), leg_bone))
+    elif kind == "crystal":
+        stone = ck.mat("m_%s_stone" % cid, (0.62, 0.66, 0.74), 0.85)
+        stone_d = ck.mat("m_%s_stone_d" % cid, (0.42, 0.46, 0.56), 0.85)
+        cry = ck.mat("m_%s_cry" % cid, (0.35, 0.68, 1.0), 0.15, 1.6)
+        cry_d = ck.mat("m_%s_cry_d" % cid, (0.2, 0.42, 0.85), 0.2, 0.8)
+        parts = [(ck.box("torso", (0.7, 0.48, 0.72), (0, 0, 1.12), stone, 0.12), "body"),
+                 (ck.box("waist", (0.42, 0.36, 0.34), (0, 0, 0.66), stone_d, 0.1), "body"),
+                 (ck.box("head", (0.3, 0.3, 0.32), (0, -0.08, 1.66), stone, 0.08), "head"),
+                 (blob("core", 0.14, (0, -0.26, 1.14), cry), "body")]
+        for sx in (-1, 1):
+            parts.append((blob("eye%d" % sx, 0.04, (sx * 0.07, -0.24, 1.68), cry), "head"))
+        # coroa de cristais (o que se vê de cima) e agulhas nas costas
+        for i in range(5):
+            a = math.pi * (0.15 + 0.7 * i / 4)
+            root = V((math.cos(a) * 0.14, -0.02 + math.sin(a) * 0.1, 1.8))
+            parts.append((_spike("crown%d" % i, root, root + V((math.cos(a) * 0.12, 0.06, 0.34 + 0.12 * (i == 2))), 0.06, cry), "head"))
+        for i, (x, y, h, r) in enumerate([(0.0, 0.26, 0.9, 0.13), (0.22, 0.24, 0.65, 0.1), (-0.22, 0.24, 0.65, 0.1), (0.12, 0.3, 0.45, 0.08), (-0.14, 0.3, 0.5, 0.08)]):
+            root = V((x, y, 1.3))
+            parts.append((_spike("back%d" % i, root, root + V((x * 0.6, 0.25, h)), r, cry if i % 2 == 0 else cry_d), "body"))
+        for sx in (-1, 1):
+            bone = "arm_r" if sx > 0 else "arm_l"
+            parts.append((ck.box("shoulder%d" % sx, (0.3, 0.32, 0.28), (sx * 0.5, 0, 1.36), stone_d, 0.08), bone))
+            parts.append((_spike("pauldron%d" % sx, V((sx * 0.52, 0.02, 1.48)), V((sx * 0.8, 0.1, 1.86)), 0.09, cry), bone))
+            parts.append((ck.box("forearm%d" % sx, (0.22, 0.24, 0.46), (sx * 0.56, -0.04, 0.96), stone, 0.07), bone))
+            parts.append((_spike("blade%d" % sx, V((sx * 0.58, -0.08, 0.76)), V((sx * 0.64, -0.3, 0.12)), 0.1, cry), bone))
+            leg_bone = "leg_fr" if sx > 0 else "leg_fl"
+            parts.append((ck.box("leg%d" % sx, (0.22, 0.26, 0.5), (sx * 0.18, 0, 0.25), stone_d, 0.07), leg_bone))
+    else:                                   # heart
+        rock = ck.mat("m_%s_rock" % cid, (0.4, 0.26, 0.22), 0.9)
+        rock_d = ck.mat("m_%s_rock_d" % cid, (0.24, 0.16, 0.14), 0.9)
+        lava = ck.mat("m_%s_lava" % cid, (1.0, 0.5, 0.15), 0.3, 3.0)
+        cry = ck.mat("m_%s_cry" % cid, (0.35, 0.68, 1.0), 0.15, 1.4)
+        moss = ck.mat("m_%s_moss" % cid, (0.36, 0.56, 0.28), 0.9)
+        parts = [(ck.box("torso", (1.3, 0.9, 0.95), (0, 0.04, 1.05), rock, 0.16), "body"),
+                 (ck.box("belly", (0.9, 0.7, 0.5), (0, 0, 0.5), rock_d, 0.12), "body"),
+                 (blob("core", 0.26, (0, -0.44, 1.08), lava), "body"),
+                 (ck.box("core_frame_t", (0.62, 0.1, 0.1), (0, -0.48, 1.38), rock_d, 0.03), "body"),
+                 (ck.box("core_frame_b", (0.62, 0.1, 0.1), (0, -0.48, 0.78), rock_d, 0.03), "body"),
+                 (ck.box("head", (0.46, 0.4, 0.34), (0, -0.3, 1.62), rock, 0.08), "head")]
+        for sx in (-1, 1):
+            parts.append((blob("eye%d" % sx, 0.05, (sx * 0.11, -0.5, 1.64), lava), "head"))
+            parts.append((ck.tube("horn%d" % sx, V((sx * 0.2, -0.22, 1.74)), V((sx * 0.56, -0.12, 2.12)), 0.15, 0.1, rock_d, 7), "head"))
+            parts.append((cone("horn_tip%d" % sx, V((sx * 0.56, -0.12, 2.12)), V((sx * 0.62, -0.42, 2.5)), 0.1, rock_d), "head"))
+            parts.append((ck.box("brow_crack%d" % sx, (0.14, 0.02, 0.03), (sx * 0.11, -0.52, 1.72), lava, 0.005), "head"))
+        # rachaduras de lava no peito e nas costas
+        for i, (c, s) in enumerate([((0.36, -0.46, 1.3), (0.06, 0.02, 0.36)), ((-0.4, -0.46, 0.9), (0.05, 0.02, 0.3)),
+                                    ((0.2, 0.5, 1.2), (0.3, 0.02, 0.05)), ((-0.25, 0.5, 0.9), (0.4, 0.02, 0.05))]):
+            parts.append((ck.box("crack%d" % i, s, c, lava, 0.01), "body"))
+        # dorso: metade cristal, metade musgo (os dois guardiões), placas de rocha flutuando
+        for i, (x, h) in enumerate([(0.3, 0.6), (0.48, 0.45), (0.16, 0.5)]):
+            root = V((x, 0.3, 1.5))
+            parts.append((_spike("back_cry%d" % i, root, root + V((x * 0.4, 0.2, h)), 0.11, cry), "body"))
+        parts.append((blob("back_moss", 0.36, (-0.34, 0.25, 1.5), moss, (1.1, 1.0, 0.5)), "body"))
+        for i, sx in enumerate((-1, 1)):            # placas de rocha soltas, inclinadas, flutuando atrás dos ombros
+            pl = ck.box("plate%d" % i, (0.42, 0.12, 0.3), (0, 0, 0), rock_d, 0.04)
+            R = Matrix.Rotation(sx * 0.5, 4, "Y") @ Matrix.Rotation(0.35, 4, "X")
+            for v in pl.data.vertices:
+                v.co = R @ v.co + V((sx * 0.86, 0.52, 1.95))
+            parts.append((pl, "body"))
+            parts.append((ck.box("plate_glow%d" % i, (0.3, 0.02, 0.04), (sx * 0.86, 0.6, 1.86), lava, 0.005), "body"))
+        for sx in (-1, 1):
+            bone = "arm_r" if sx > 0 else "arm_l"
+            parts.append((ck.box("shoulder%d" % sx, (0.56, 0.56, 0.5), (sx * 0.9, 0, 1.28), rock_d, 0.12), bone))
+            parts.append((ck.box("forearm%d" % sx, (0.44, 0.46, 0.7), (sx * 1.0, -0.08, 0.74), rock, 0.12), bone))
+            parts.append((ck.box("fist%d" % sx, (0.6, 0.58, 0.48), (sx * 1.04, -0.14, 0.28), rock_d, 0.12), bone))
+            parts.append((ck.box("arm_crack%d" % sx, (0.04, 0.02, 0.4), (sx * 1.0, -0.32, 0.74), lava, 0.01), bone))
+            leg_bone = "leg_fr" if sx > 0 else "leg_fl"
+            parts.append((ck.box("leg%d" % sx, (0.46, 0.48, 0.52), (sx * 0.34, 0, 0.26), rock_d, 0.12), leg_bone))
+    finish(arm, parts)
+    bm.mob_actions(arm)
+    return arm
+
+
 # ---------------------------------------------------------------------------
 # humanoides do kit chibi: bandido e esqueleto
 # ---------------------------------------------------------------------------
@@ -872,6 +987,9 @@ def build_all(out_dir, only=None):
         "mob_elemental_frost": lambda: elemental("mob_elemental_frost", "frost"),
         "mob_elemental_storm": lambda: elemental("mob_elemental_storm", "storm"),
         "mob_golem": golem,
+        "mob_golem_ancient": lambda: golem_boss("mob_golem_ancient", "ancient"),
+        "mob_crystal_warden": lambda: golem_boss("mob_crystal_warden", "crystal"),
+        "mob_quarry_heart": lambda: golem_boss("mob_quarry_heart", "heart"),
         "mob_bandit": lambda: humanoid("mob_bandit", "leather", (0.62, 0.2, 0.2), "sword"),
         # Cerco élfico: elfos de couro/tecido verde, Guardião de placa clara, Rei de placa dourada com coroa e manto
         "mob_elf_warrior": lambda: humanoid("mob_elf_warrior", "leather", (0.3, 0.56, 0.42), "sword", skin=(0.96, 0.86, 0.74),

@@ -27,6 +27,8 @@ const LINES := {
 		"essas aranhas grudam a gente no chão", "ent bate devagar mas bate", "cadê a trompa? quero xp de elfo", "o pântano sul tá cheio de aranha"],
 	"town_field_forest": ["portão norte segura mais uma?", "o Gunnar aprimora com aço élfico", "alguém pra Cidade Élfica?", "a Comandante Hela tá de mau humor",
 		"compro aço élfico", "o ensopado da Bia é bom demais", "quem segurou a última investida?"],
+	"hunt_dg_pedreira": ["golem de cristal atira de longe, chega perto", "núcleo de pedra pro Tadeu", "o Ancestral joga pedra, sai da sombra no chão",
+		"a Guardiã prende no cristal, dash!", "alguém pro Coração da Pedreira?", "golem é lento, kita ele"],
 	"hunt_dg_ninho": ["teia em todo canto aqui", "a Rainha pula, sai da frente!!", "poça verde = sai dela", "filhote de aranha por todo lado",
 		"alguém tem antídoto?", "não pisa no veneno kkk"],
 	"hunt_elf_city": ["arqueiro élfico prende o pé, dash pro lado", "os guardiões batem MUITO", "grifo no céu, corre", "trent devagar mas o cipó puxa",

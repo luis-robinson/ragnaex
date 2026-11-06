@@ -375,6 +375,10 @@ const PLACE_NPCS := {
 		"digger_vera": ["Vera, a Escavadora", "quest", Color(0.75, 0.6, 0.4), ["Vim atrás de ouro e achei uma cripta sob o zigurate.", "O Senhor da Cripta ainda dá ordens. Ouvi."]],
 		"stone_obelisk": ["Obelisco Partido", "board", Color(0.6, 0.55, 0.72), ["Runas de Vel'Thar: 'A cidade não caiu. Ela desceu.'", "O restante foi arrancado a golpes."], "prop_pillar"],
 	},
+	"dg_pedreira": {
+		"miner_tadeu": ["Mestre Tadeu, o Mineiro", "quest", Color(0.7, 0.55, 0.35), ["Abrimos a pedreira atrás de ferro e acordamos a montanha.", "A oeste o musgo anda; a leste o cristal canta. O veio do fundo só abre quando os dois guardiões caírem."]],
+		"miner_rosa": ["Rosa, a Cartógrafa", "quest", Color(0.6, 0.7, 0.8), ["Eu mapeio, eles quebram. Não é uma boa parceria.", "Golem de cristal atira de longe. Chegue perto ou procure cobertura."]],
+	},
 	"dg_catacumbas": {
 		"sister_odete": ["Irmã Odete", "quest", Color(0.85, 0.85, 0.95), ["Rezo aqui embaixo porque lá em cima ninguém quis ouvir.", "A oeste marcha a guarda do Conde; a leste chora a viúva dele. O selo ao norte só cede quando os dois caírem."]],
 		"gravedigger_bento": ["Bento, o Coveiro", "quest", Color(0.6, 0.55, 0.5), ["Meu avô cavou estas galerias. Meu pai fechou. Alguém abriu.", "Ela chora mais alto de noite. Aqui embaixo é sempre noite."]],
@@ -385,6 +389,8 @@ const DUNGEON_DEFS := {
 	"dg_gruta": {"name": "Gruta Gotejante", "parent": "city_aldara", "levels": Vector2i(6, 10), "ground": Color(0.3, 0.34, 0.36), "ambient": Color(0.6, 0.72, 0.85), "sun": 0.7},
 	"dg_catacumbas": {"name": "Catacumbas do Conde", "parent": "city_aldara", "levels": Vector2i(8, 13), "bosses": 2, "ground": Color(0.28, 0.27, 0.3), "ambient": Color(0.62, 0.6, 0.78), "sun": 0.6},
 	"dg_catacumbas_trono": {"name": "Trono do Conde", "parent": "dg_catacumbas", "levels": Vector2i(11, 13), "ground": Color(0.26, 0.22, 0.3), "ambient": Color(0.68, 0.5, 0.8), "sun": 0.55},
+	"dg_pedreira": {"name": "Pedreira dos Golens", "parent": "field_forest", "levels": Vector2i(11, 15), "bosses": 2, "ground": Color(0.42, 0.36, 0.28), "ambient": Color(0.82, 0.78, 0.72), "sun": 0.7},
+	"dg_pedreira_coracao": {"name": "Coração da Pedreira", "parent": "dg_pedreira", "levels": Vector2i(14, 16), "ground": Color(0.4, 0.3, 0.24), "ambient": Color(0.9, 0.7, 0.6), "sun": 0.65},
 	"dg_ninho": {"name": "Ninho Profundo", "parent": "field_forest", "levels": Vector2i(15, 20), "ground": Color(0.26, 0.3, 0.24), "ambient": Color(0.6, 0.78, 0.62), "sun": 0.65},
 	"dg_coracao": {"name": "Coração da Árvore", "parent": "elf_city", "levels": Vector2i(19, 22), "ground": Color(0.4, 0.34, 0.26), "ambient": Color(0.7, 0.92, 0.7), "sun": 0.65},
 	"dg_cripta": {"name": "Cripta de Vel'Thar", "parent": "field_ruins", "levels": Vector2i(25, 30), "ground": Color(0.3, 0.28, 0.32), "ambient": Color(0.66, 0.58, 0.82), "sun": 0.6},
@@ -393,6 +399,7 @@ const DUNGEON_DEFS := {
 const PORTAL_GATES := {
 	"to_dg_catacumbas": {"level": 8, "quest": "c1_digging", "text": "Catacumbas: a entrada ainda está soterrada. Fale com o Ancião Ravi."},
 	"to_dg_catacumbas_trono": {"bosses": ["bone_captain", "wailing_widow"], "text": "O selo só cede quando o Capitão de Ossos e a Viúva Lamentosa caírem."},
+	"to_dg_pedreira_coracao": {"bosses": ["golem_ancient", "crystal_warden"], "text": "O veio está fechado: o Golem Ancestral e a Guardiã de Cristal ainda montam guarda."},
 	"to_forest": {"level": 10, "quest": "c5_report", "text": "O desfiladeiro está fechado por ordem da Capitã Mira até resolverem as Catacumbas."},
 	"to_ruins": {"level": 20, "quest": "el6_king", "text": "A passagem está vigiada: enquanto o Rei Élfico atacar a Floresta, a guarda não libera as Ruínas."},
 	"to_elf_city": {"level": 16, "quest": "el2_defense", "text": "A garganta élfica: a Comandante Hela só deixa passar quem já segurou uma investida."},

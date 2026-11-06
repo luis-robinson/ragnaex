@@ -209,6 +209,11 @@ Margens têm corredor livre de 2 m (`nature.clear_banks`).
 central é um NPC de lore; o vão do círculo olha para a estrada) e entradas de dungeon, ligados à estrada por trilhas estreitas.
 Marcados no minimapa por cor. **Dungeons** (`build_dungeons.py`, mapas compartilhados): Gruta Gotejante (Aldara, 6-10, Rei Slime),
 Ninho Profundo (Floresta, 15-20, Rainha Aranha), Cripta de Vel'Thar (Ruínas, 25-30, Senhor da Cripta): chegada, três salões, chefe.
+**Pedreira dos Golens** (Floresta, 11-15, entrada a oeste-sudoeste, `dg_pedreira`): acampamento de mineiros (Tadeu, Rosa) no vestíbulo, ala do musgo
+(Golem Ancestral, modelo com árvore nas costas) e ala do cristal (Guardiã de Cristal), golens de musgo/pedra/cristal (variantes tingidas do `mob_golem`);
+o Veio da Montanha leva ao Coração da Pedreira (`dg_pedreira_coracao`, selo dos dois guardiões). Salas com chão e enfeites próprios (`floor`/`decor` em
+`places.DUNGEONS`, `build_dungeons._room_dress`). Chefes: `mob_kit.golem_boss`; sonda: solo 55-65%, grupo de 3 75-100%. Material: Núcleo de Pedra.
+A Floresta ganhou mais aranhas, ents e o Trent Jovem (nv 14).
 Cada chefe tem fases (`MonsterDef.phases`): o Rei Slime se divide em Slimezinhos e cospe ácido, a Rainha Aranha chama filhotes e
 prende com teia, o Senhor da Cripta ergue servos e no fim drena vida. Rei e Rainha entram em fúria no fim. Calibrados com bot solo do nível (60-70% de vitória).
 Visual de dungeon (`MapBuilder.is_dungeon`): fundo escuro sem céu, névoa densa, luz fria e fraca, bordas da tela escurecidas;

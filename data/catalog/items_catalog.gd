@@ -133,6 +133,7 @@ static func build() -> Array:
 		_mat("heartwood", "Cerne de Trent", 24, "O coração de madeira de um Trent Ancião.", Color(0.5, 0.36, 0.2)),
 		_mat("griffin_feather", "Pena de Grifo", 18, "Dourada na ponta. Flecheiros pagam bem.", Color(0.95, 0.85, 0.55)),
 		_mat("golem_core", "Núcleo de Golem", 60, "Pulsa com magia antiga.", Color(0.9, 0.6, 0.2)),
+		_mat("stone_core", "Núcleo de Pedra", 22, "Coração de um golem da Pedreira; ainda morno.", Color(0.66, 0.58, 0.46)),
 		_mat("dragon_scale", "Escama de Dragonete", 80, "Rara. Quase indestrutível.", Color(0.8, 0.2, 0.3)),
 		{"id": "letter_sealed", "name": "Carta Lacrada", "type": QST, "price": 0, "icon_color": Color(0.9, 0.85, 0.6), "description": "Carta do Ancião para a Capitã da guarda."},
 		# ---------------- armas tier 0 (lv1) ----------------

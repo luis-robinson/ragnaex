@@ -28,6 +28,7 @@ PLACES = [
     {"type": "camp", "id": "emboscada", "pos": (46.0, 94.0), "face": 215.0, "mob": "bandit", "count": 4},
     {"type": "shrine", "id": "circulo", "pos": (-28.0, -100.0), "npc": "stone_druid", "ground": (0.56, 0.56, 0.56)},
     {"type": "dungeon", "id": "ninho", "dungeon": "dg_ninho"},
+    {"type": "dungeon", "id": "pedreira", "dungeon": "dg_pedreira"},
 ]
 
 
@@ -196,6 +197,13 @@ def build(export=False):
     z.spawner("bandit_chief", BANDITS[0] + 3, BANDITS[1] - 2, 2, 1, 180.0)
     z.spawner("ent", 66, 54, 10, 4, 24.0)
     z.spawner("ent", 82, 36, 8, 3, 24.0)
+    # mais vida na mata (11-15): aranhas no arco norte e no sudoeste, ents e trents jovens no bosque SE
+    z.spawner("spider", -24, -72, 9, 5, 14.0)
+    z.spawner("spider", -66, 46, 8, 5, 14.0)
+    z.spawner("ent", 52, 74, 9, 4, 24.0)
+    z.spawner("ent", 94, 56, 7, 3, 24.0)
+    z.spawner("trent_young", 60, 30, 8, 4, 20.0)
+    z.spawner("trent_young", 76, 72, 8, 4, 20.0)
     z.data["arrive_from_town"] = list(arrive)
     print("chegada da Floresta:", arrive, "portal:", portal)
     return z.finish(export, poi=BANDITS, ground=(0.36, 0.52, 0.34))

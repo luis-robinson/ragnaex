@@ -10,7 +10,7 @@ import random
 import bpy
 from mathutils import Vector
 import places
-from zone_lib import Zone, poly_dist
+from zone_lib import Zone, poly_dist, disc, mat
 
 SCALE = 1.25           # dungeons maiores para grupos: salões, distâncias e corredores (a chegada/saída não muda)
 ROOMS = [(-20 * SCALE, 22 * SCALE), (20 * SCALE, 2 * SCALE), (-14 * SCALE, -18 * SCALE)]
@@ -123,6 +123,35 @@ def _rock_fill(z, did):
     print("dungeon", did, "paredes:", len(spots))
 
 
+def _room_dress(z, name, room, rooms, edges):
+    """Identidade da sala vista de cima: `floor` = mancha de chão com cor própria; `decor` = [(kind, n, (sx, sy, sz), cor)]
+    num anel por dentro da parede, longe das bocas dos corredores (nada no caminho)."""
+    x, y = room["pos"]
+    r = room["r"]
+    if "floor" in room:
+        mname = "patch_" + name
+        if mname not in z.M:
+            z.M[mname] = mat(mname, room["floor"])
+        disc(z.coll, z.P + "chao_" + name, (x, y), r * 0.86, 0.02, z.M[mname], 36, 0.12, len(name))
+    mouths = []
+    for a, b in edges:
+        if name in (a, b):
+            ox, oy = rooms[b if a == name else a]["pos"]
+            mouths.append(math.atan2(oy - y, ox - x))
+    rnd = random.Random(len(name) * 97 + int(x * 3 + y))
+    for kind, n, size, color in room.get("decor", []):
+        placed, tries = 0, 0
+        while placed < n and tries < n * 12:
+            tries += 1
+            a = rnd.uniform(0, math.tau)
+            if any(abs(math.atan2(math.sin(a - m), math.cos(a - m))) < 0.5 for m in mouths):
+                continue
+            rr = r * rnd.uniform(0.66, 0.84)
+            k = rnd.uniform(0.75, 1.25)
+            z.ob(kind, x + math.cos(a) * rr, y + math.sin(a) * rr, (size[0] * k, size[1] * k, size[2] * k), rnd.uniform(0, 360), color=color)
+            placed += 1
+
+
 def build_graph(did, g, export):
     """Dungeon ramificada: salões e ligações vêm de `g["layout"]`. Um mapa pode terminar num selo (portal para o próximo)."""
     L = _scaled_layout(g["layout"])
@@ -150,6 +179,7 @@ def build_graph(did, g, export):
     for name, room in rooms.items():
         x, y = room["pos"]
         z.plaza(name, (x, y), room["r"], "road")
+        _room_dress(z, name, room, rooms, L["edges"])
         z.block((x, y), room["r"] + 4.3)          # raio do salão + raio da rocha: a parede encosta na borda
         for mob, n in room.get("mobs", []):
             z.spawner(mob, x, y, room["r"] - 3.0, n, 30.0)

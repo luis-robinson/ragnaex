@@ -82,6 +82,44 @@ DUNGEONS["dg_coracao"] = {
         "edges": [("chegada", "raizes"), ("raizes", "seiva"), ("seiva", "trono")],
     },
 }
+MOSS_FLOOR = (0.44, 0.5, 0.34)
+MOSS_DECOR = [("rock", 6, (1.5, 0.9, 1.3), (0.42, 0.56, 0.34)), ("bush", 4, (1.6, 0.9, 1.6), (0.34, 0.5, 0.3))]
+CRYSTAL_FLOOR = (0.5, 0.54, 0.62)
+CRYSTAL_DECOR = [("pillar", 6, (0.55, 2.4, 0.55), (0.45, 0.75, 1.0)), ("rock", 3, (1.3, 0.8, 1.1), (0.55, 0.62, 0.75))]
+# Pedreira dos Golens (Floresta, 11-15): acampamento de mineiros no vestíbulo, ala do musgo (oeste) e do cristal (leste),
+# cada uma com um guardião; o Veio no fundo leva ao Coração da Pedreira (mapa à parte, abre com os dois guardiões mortos).
+DUNGEONS["dg_pedreira"] = {
+    "zone": "field_forest", "gate": (-88.0, -42.0), "face": 49.0, "name": "Pedreira dos Golens", "seed": 19,
+    "rock": (0.52, 0.42, 0.3), "floor": (0.56, 0.49, 0.38), "glow": (0.45, 0.75, 1.0),
+    "layout": {
+        "rooms": {
+            "vestibulo": {"pos": (0, 20), "r": 12, "floor": (0.6, 0.52, 0.4), "decor": [("tent", 2, (3.2, 2.3, 3.2), (0.62, 0.5, 0.34)), ("crate", 4, (1.0, 1.0, 1.0), None), ("barrel", 3, (0.8, 1.0, 0.8), None)]},
+            "musgo_1": {"pos": (-30, 16), "r": 10, "mobs": [("golem_moss", 6)], "floor": MOSS_FLOOR, "decor": MOSS_DECOR},
+            "musgo_2": {"pos": (-44, -10), "r": 10, "mobs": [("golem_moss", 3), ("golem_stone", 2)], "floor": MOSS_FLOOR, "decor": MOSS_DECOR},
+            "musgo_chefe": {"pos": (-26, -36), "r": 13, "boss": "golem_ancient", "floor": (0.38, 0.5, 0.3), "decor": MOSS_DECOR},
+            "cristal_1": {"pos": (30, 16), "r": 10, "mobs": [("golem_shard", 4), ("golem_stone", 1)], "floor": CRYSTAL_FLOOR, "decor": CRYSTAL_DECOR},
+            "cristal_2": {"pos": (44, -10), "r": 10, "mobs": [("golem_stone", 3), ("golem_shard", 2)], "floor": CRYSTAL_FLOOR, "decor": CRYSTAL_DECOR},
+            "cristal_chefe": {"pos": (26, -36), "r": 13, "boss": "crystal_warden", "floor": (0.44, 0.52, 0.66), "decor": CRYSTAL_DECOR},
+            "veio": {"pos": (0, -8), "r": 7, "mobs": [("golem_stone", 2)], "floor": (0.66, 0.46, 0.3)},
+        },
+        "edges": [("chegada", "vestibulo"), ("vestibulo", "musgo_1"), ("musgo_1", "musgo_2"), ("musgo_2", "musgo_chefe"),
+                  ("vestibulo", "cristal_1"), ("cristal_1", "cristal_2"), ("cristal_2", "cristal_chefe"), ("vestibulo", "veio")],
+        "npcs": {"miner_tadeu": (-6.0, 24.0, 90.0), "miner_rosa": (6.0, 25.0, 270.0)},
+        "door": {"target": "dg_pedreira_coracao", "pos": (0.0, -12.0), "label": "Veio da Montanha"},
+    },
+}
+DUNGEONS["dg_pedreira_coracao"] = {
+    "zone": "dg_pedreira", "return": (0.0, -6.0), "name": "Coração da Pedreira", "seed": 23,
+    "rock": (0.46, 0.32, 0.24), "floor": (0.52, 0.4, 0.32), "glow": (1.0, 0.6, 0.3),
+    "layout": {
+        "rooms": {
+            "galeria": {"pos": (0, 16), "r": 10, "mobs": [("golem_stone", 2), ("golem_shard", 2)], "floor": (0.56, 0.46, 0.36), "decor": MOSS_DECOR[:1] + CRYSTAL_DECOR[:1]},
+            "coracao": {"pos": (0, -20), "r": 17, "boss": "quarry_heart", "floor": (0.66, 0.42, 0.28),
+                        "decor": [("pillar", 6, (0.7, 2.6, 0.7), (1.0, 0.6, 0.3)), ("rock", 5, (1.6, 1.0, 1.4), (0.5, 0.36, 0.28))]},
+        },
+        "edges": [("chegada", "galeria"), ("galeria", "coracao")],
+    },
+}
 DUNGEON_ARRIVE = (0.0, 44.0)   # chegada dentro de toda dungeon; a saída fica em DUNGEON_EXIT
 DUNGEON_EXIT = (0.0, 50.0)
 

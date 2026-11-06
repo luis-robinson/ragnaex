@@ -10,7 +10,7 @@ const DT := 1.0 / 20.0
 const LIMIT := 45.0
 const CHAIN := 4              # monstros seguidos por caçada
 const ELITE_HP := 1500.0      # monstro com mais vida que isto é elite: luta sozinho (1 por caçada)
-const BAND_MAPS := ["field_forest", "dg_ninho", "elf_city", "dg_coracao", "dg_catacumbas", "dg_catacumbas_trono"]
+const BAND_MAPS := ["field_forest", "dg_ninho", "elf_city", "dg_coracao", "dg_catacumbas", "dg_catacumbas_trono", "dg_pedreira", "dg_pedreira_coracao"]
 
 var lv_from := 10
 var lv_to := 20
