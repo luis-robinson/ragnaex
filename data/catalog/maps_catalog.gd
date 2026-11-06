@@ -467,6 +467,8 @@ static func load_zone(id: String) -> Dictionary:
 		spawners.append(_sp(s["monster_id"], float(s["pos"][0]), float(s["pos"][1]), float(s["radius"]), n, float(s["respawn"]) * Balance.SPAWN_RESPAWN_MULT))
 		if s.has("emerge"):            # chefe que sai da água: [x, z, raio] do lago
 			spawners[-1]["emerge"] = s["emerge"]
+		if s.has("route"):             # ronda: o líder (e a escolta dele) percorre estes pontos
+			spawners[-1]["route"] = (s["route"] as Array).map(func(q): return _v3(q))
 	var hangouts: Array = []
 	for h in z["hangouts"]:
 		hangouts.append(_v3(h))

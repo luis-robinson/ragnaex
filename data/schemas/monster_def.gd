@@ -33,5 +33,6 @@ extends Resource
 @export var coin_max: int = 0
 @export var intro: String = ""             ## chefe: fala ao entrar em combate (uma vez por luta)
 @export var last_words: String = ""        ## chefe: fala ao cair
+@export var escort: Dictionary = {}         ## líder com escolta: {id, count} nascem junto e o seguem (capitão e bestas)
 @export var swap: Dictionary = {}           ## troca de arma com pouca vida: {hp (0-1), as: id do monstro cujo ataque/alcance passa a usar, stance}
 @export var phases: Array = []            ## chefe, em ordem de HP: {hp (0-1), say, skills, summon: {id, count, max}, enrage}

@@ -649,6 +649,7 @@ func _check_zone(gd, sim) -> void:
 	_check_map_models(gd)
 	_check_repeatable_labels(gd)
 	_check_reset_and_coin(gd, sim)
+	_check_escort(gd, sim)
 	_check_signature(gd, sim)
 	_check_raid_tactics(gd, sim)
 	_check_equipment_slots(gd, sim, save_ref)
@@ -2953,6 +2954,56 @@ func _check_signature(gd, sim) -> void:
 	m["projectiles"].clear()
 	sim.despawn(dummy)
 	sim.despawn(el)
+
+## Líder com escolta (capitão e bestas): a escolta nasce em volta dele, acompanha a ronda, entra na briga dele,
+## e quem cai volta enquanto ele vive.
+func _check_escort(gd, sim) -> void:
+	var mid := "field_forest"
+	var m: Dictionary = sim.maps.get(mid, {})
+	if m.is_empty():
+		m = sim.load_map(gd.maps[mid])
+	var lead_def: MonsterDef = gd.monsters["elf_raider_archer"].duplicate()
+	lead_def.id = "test_captain"
+	lead_def.escort = {"id": "elf_lynx", "count": 4}
+	var at := Vector3(-90, 0, 9)
+	var leader: SimEntity = sim.spawn_monster(lead_def, mid, at)
+	var sp := {}
+	MobSystem.spawn_escort(sim, leader, sp)
+	var esc: Array = (sp["escort"] as Array).map(func(id): return sim.entities[id])
+	check(esc.size() == 4 and esc.all(func(f): return f.leader_id == leader.id and f.position.distance_to(at) < 5.0), "escolta nasce em volta do líder (%d)" % esc.size())
+	check(esc.map(func(f): return f.escort_slot).duplicate().size() == 4 and esc.all(func(f): return f.monster_def.xp > 0), "escolta: monstros normais (dão XP), uma vaga cada")
+	# o líder anda 20 m: a escolta vai junto
+	leader.brain = null
+	for i in range(160):
+		leader.position = at + Vector3(i * 0.125, 0, 0)
+		for f in esc:
+			var c: InputCommand = f.brain.think(f, sim, m, 0.05)
+			f.position += Vector3(c.move.x, 0, c.move.y) * f.stats.move_speed * 0.05
+	var far := 0.0
+	for f in esc:
+		far = maxf(far, f.position.distance_to(leader.position))
+	check(far < 4.5, "escolta acompanha o líder que andou 20 m (mais longe a %.1f m)" % far)
+	# briga do líder vira briga da escolta
+	var foe: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Alvo", mid, leader.position + Vector3(6, 0, 0), 18)
+	foe.brain = null
+	MobSystem.pack_call(sim, leader, foe)
+	check(esc.all(func(f): return f.aggro_target == foe.id), "quem bate no líder chama a escolta toda")
+	for f in esc:
+		f.aggro_target = -1
+	leader.aggro_target = foe.id
+	var c2: InputCommand = esc[0].brain.think(esc[0], sim, m, 0.05)
+	check(esc[0].aggro_target == foe.id, "escolta entra na briga do líder")
+	# reposição: um cai, volta enquanto o líder vive
+	sim.despawn(esc[1])
+	leader.aggro_target = -1
+	MobSystem.spawn_escort(sim, leader, sp)
+	var alive := (sp["escort"] as Array).filter(func(id): return sim.entities.has(id) and sim.entities[id].is_alive())
+	check(alive.size() == 4, "escolta reposta com o líder vivo (%d)" % alive.size())
+	for id in sp["escort"]:
+		if sim.entities.has(id):
+			sim.despawn(sim.entities[id])
+	sim.despawn(leader)
+	sim.despawn(foe)
 
 ## Reset das skills no Ancião Ravi (devolve todos os pontos do nível, mantém os talentos de escolha) e Moeda Lendária
 ## à venda na Relicária por ouro.

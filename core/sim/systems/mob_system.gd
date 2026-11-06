@@ -22,8 +22,17 @@ static func retarget(sim: WorldSim, mob: SimEntity, attacker: SimEntity) -> void
 		mob.aggro_target = attacker.id
 
 ## Bando: o primeiro golpe num monstro chama os iguais que estão parados por perto (chefes e lacaios não).
+## Escolta: quem bate no líder ou num da escolta chama o grupo inteiro (líder + seguidores).
 static func pack_call(sim: WorldSim, mob: SimEntity, attacker: SimEntity) -> void:
-	if mob.monster_def == null or mob.monster_def.is_boss or not sim.maps.has(mob.map_id):
+	if mob.monster_def == null or not sim.maps.has(mob.map_id):
+		return
+	var lid: int = mob.leader_id if mob.leader_id >= 0 else (mob.id if not mob.monster_def.escort.is_empty() else -1)
+	if lid >= 0:
+		for o in sim.maps[mob.map_id]["entities"]:
+			if o != mob and o.is_alive() and o.aggro_target < 0 and (o.id == lid or o.leader_id == lid):
+				o.aggro_target = attacker.id
+				o.aggro_timer = Balance.AGGRO_LOSE_TIME
+	if mob.monster_def.is_boss:
 		return
 	var r2 := Balance.PACK_AGGRO_RADIUS * Balance.PACK_AGGRO_RADIUS
 	for o in sim.maps[mob.map_id]["entities"]:
@@ -32,6 +41,34 @@ static func pack_call(sim: WorldSim, mob: SimEntity, attacker: SimEntity) -> voi
 		if o.position.distance_squared_to(mob.position) <= r2:
 			o.aggro_target = attacker.id
 			o.aggro_timer = Balance.AGGRO_LOSE_TIME
+
+## Escolta do líder (MonsterDef.escort): nasce em volta dele, cada um numa vaga do anel. Monstros normais (XP, loot).
+static func spawn_escort(sim: WorldSim, leader: SimEntity, sp: Dictionary) -> void:
+	var es: Dictionary = leader.monster_def.escort
+	var mdef: MonsterDef = GameData.monsters.get(str(es.get("id", "")))
+	if mdef == null or not sim.maps.has(leader.map_id):
+		return
+	var m: Dictionary = sim.maps[leader.map_id]
+	var have := {}
+	for id in sp.get("escort", []):
+		var o: SimEntity = sim.entities.get(id)
+		if o and o.is_alive() and o.leader_id == leader.id:
+			have[o.escort_slot] = true
+	var out: Array = (sp.get("escort", []) as Array).filter(func(id): return sim.entities.has(id) and sim.entities[id].leader_id == leader.id)
+	for i in range(int(es.get("count", 0))):
+		if have.has(i):
+			continue
+		var p := MapGeometry.random_walkable(sim, m["def"], leader.position + escort_offset(i, int(es.get("count", 1))), 1.5)
+		var f := sim.spawn_monster(mdef, leader.map_id, p)
+		f.leader_id = leader.id
+		f.escort_slot = i
+		out.append(f.id)
+	sp["escort"] = out
+
+## Vaga i de n no anel em volta do líder.
+static func escort_offset(i: int, n: int) -> Vector3:
+	var a := TAU * float(i) / maxf(1.0, float(n)) + 0.4
+	return Vector3(cos(a), 0, sin(a)) * Balance.ESCORT_RING
 
 ## Lacaios de chefe: monstros de verdade sem spawner; somem quando o chefe morre ou reseta.
 static func spawn_adds(sim: WorldSim, boss: SimEntity, sm: Dictionary) -> void:
@@ -102,6 +139,14 @@ static func update_spawners(sim: WorldSim, m: Dictionary, dt: float) -> void:
 	for sp in m["spawners"]:
 		var sdef: Dictionary = sp["def"]
 		sp["alive"] = sp["alive"].filter(func(id): return sim.entities.has(id))
+		if sp.has("escort"):                 # líder vivo e fora de combate: repõe quem caiu da escolta
+			sp["escort_t"] = float(sp.get("escort_t", 0.0)) - dt
+			if float(sp["escort_t"]) <= 0.0:
+				sp["escort_t"] = Balance.ESCORT_RESPAWN
+				for id in sp["alive"]:
+					var ld: SimEntity = sim.entities.get(id)
+					if ld and ld.is_alive() and not ld.monster_def.escort.is_empty() and ld.aggro_target < 0:
+						spawn_escort(sim, ld, sp)
 		if sp["alive"].size() < int(sdef.get("count", 1)):
 			sp["timer"] -= dt
 			if sp["timer"] <= 0.0:
@@ -114,6 +159,16 @@ static func update_spawners(sim: WorldSim, m: Dictionary, dt: float) -> void:
 						var dir := Vector3(sdef["pos"].x - c.x, 0, sdef["pos"].z - c.z).normalized()
 						pos = c + dir * (float(em[2]) + mdef.radius + 0.6)
 					var mob := sim.spawn_monster(mdef, def.id, pos, sp)
+					if sdef.has("route"):
+						mob.patrol_route = sdef["route"]
+					if not mdef.escort.is_empty():         # líder novo: a escolta órfã do anterior some e nasce a dele
+						for id in sp.get("escort", []):
+							var old: SimEntity = sim.entities.get(id)
+							if old and old.leader_id != mob.id and old.aggro_target < 0:
+								sim.despawn(old)
+						sp["escort"] = []
+						spawn_escort(sim, mob, sp)
+						sp["escort_t"] = Balance.ESCORT_RESPAWN
 					if em is Array and em.size() >= 3:
 						Events.monster_emerged.emit(def.id, pos)
 						if sim.player and sim.player.map_id == def.id:

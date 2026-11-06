@@ -65,6 +65,15 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 			target = null
 			e.aggro_target = -1
 			e.taunt_left = 0.0
+	var leader: SimEntity = sim.entities.get(e.leader_id) if e.leader_id >= 0 else null
+	if leader and (not leader.is_alive() or leader.map_id != e.map_id):
+		leader = null
+	if leader and target == null and leader.aggro_target >= 0 and state != S.RETURN:      # escolta entra na briga do líder
+		var lt: SimEntity = sim.entities.get(leader.aggro_target)
+		if lt and lt.is_alive() and lt.map_id == e.map_id:
+			target = lt
+			e.aggro_target = lt.id
+			e.aggro_timer = Balance.AGGRO_LOSE_TIME
 	if is_summon and owner:
 		target = _summon_target(e, sim, m, owner, target, dt)
 	elif raider and not (calm > 0.0) and e.taunt_left <= 0.0:
@@ -138,6 +147,10 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 
 	if raider:
 		return _march(e, sim, cmd, dt)
+	if leader:                         # escolta sem briga: a casa anda com o líder (vaga no anel em volta dele)
+		return _follow_leader(e, sim, leader, cmd, dt)
+	if not e.patrol_route.is_empty() and state != S.RETURN and not (mdef.is_boss and e.combat_timer <= 0.0 and (e.hp < e.stats.max_hp or e.phase > 0)):
+		return _patrol(e, sim, cmd, dt)
 
 	# chefe sem alvo e fora de combate volta para casa e reseta: só wipe de verdade, não quem atira de longe
 	if mdef.is_boss and state != S.RETURN and e.combat_timer <= 0.0 and (e.hp < e.stats.max_hp or e.phase > 0):
@@ -274,6 +287,33 @@ func _summon_target(e: SimEntity, sim, m: Dictionary, owner: SimEntity, cur: Sim
 	else:
 		e.aggro_target = -1
 	return best
+
+## Escolta: vai para a vaga dela em volta do líder; longe, corre; perto, acompanha o passo dele.
+func _follow_leader(e: SimEntity, sim, leader: SimEntity, cmd: InputCommand, dt: float) -> InputCommand:
+	state = S.IDLE
+	var es: Dictionary = leader.monster_def.escort
+	var slot: Vector3 = leader.position + MobSystem.escort_offset(e.escort_slot, int(es.get("count", 1)))
+	e.home_position = slot
+	var d := e.position.distance_to(slot)
+	if d > 0.8:
+		cmd.move = _steer(e, sim, slot, dt) * (1.0 if d > 4.0 else clampf(d / 3.0, 0.35, 1.0))
+		cmd.aim = e.position + Vector3(cmd.move.x, 0.0, cmd.move.y)
+	else:
+		cmd.aim = e.position + leader.forward()
+	return cmd
+
+## Ronda do líder (spawner com `route`): anda devagar de ponto em ponto; a casa anda junto (a perseguição se mede de
+## onde a briga começou, como na investida).
+func _patrol(e: SimEntity, sim, cmd: InputCommand, dt: float) -> InputCommand:
+	state = S.IDLE
+	e.home_position = e.position
+	var goal: Vector3 = e.patrol_route[e.patrol_i % e.patrol_route.size()]
+	if e.position.distance_to(goal) < 1.5:
+		e.patrol_i = (e.patrol_i + 1) % e.patrol_route.size()
+		goal = e.patrol_route[e.patrol_i]
+	cmd.move = _steer(e, sim, goal, dt) * Balance.PATROL_PACE
+	cmd.aim = e.position + Vector3(cmd.move.x, 0.0, cmd.move.y)
+	return cmd
 
 ## Investida sem alvo: segue a rota (ida ou recuo), desviando do rio pelas pontes e de obstáculos.
 ## A âncora da luta (home_position) anda junto: a perseguição se mede de onde a briga começou.
