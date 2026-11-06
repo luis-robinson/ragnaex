@@ -185,6 +185,8 @@ chegada), salões com área de spawn do tamanho do salão.
 Ritmo (MVP até o 30, ~15 h): `Balance.xp_for_level` sai do tempo planejado no nível (6,5 + 1,75×(lv−1) min) × 3 abates/min ×
 XP de um monstro do nível (6 + 4,5×lv) ÷ 0,55. Quests não repetíveis dão `XP_QUEST_SHARE` (45%) de cada faixa (1-10, 10-20, 20-30):
 `QuestsCatalog.scale_xp` mantém o peso relativo escrito em cada quest e escala o total da faixa. Caçadas pagam no NPC da zona do monstro.
+A faixa 1-10 dá 50% (`XP_QUEST_SHARE_BAND`) e cada nível de 2 a 9 tem quests valendo ≥ 35% do nível (há check): o 6-7 ganhou 7 laterais
+de moradores de Aldara (`v1_tico`..`v7_marco`: javalis, chá do Ancião, peles e bando de lobos da Caçadora Ivy, Gruta, recibo para o Nils, Marco).
 Quests: cadeias (o Lago 6 passos até o Caranguejo-Rei, os bandidos 6, a erudita 4+), entregas (`QuestDef.give_items`: o NPC entrega o
 pacote ao aceitar e outro recebe), colheita (pontos `MapsCatalog.GATHER` que a sim espalha em chão livre; F perto colhe em 1,1 s,
 andar/atacar/apanhar cancela, volta em 75 s) e chefes/elite (Presa-Rachada, Caranguejo-Rei). Nenhum chefe tem duas quests de história.

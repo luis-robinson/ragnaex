@@ -61,7 +61,7 @@ const XP_KILLS_PER_MIN := 3.0            # solo, contando o caminho entre um e o
 const XP_MOB_BASE := 6.0
 const XP_MOB_PER_LEVEL := 4.5
 const XP_QUEST_SHARE := 0.45             # quests (não repetíveis) dão ~45% da faixa; abates, caçadas e quadros o resto
-const XP_QUEST_SHARE_BAND := {10: 0.55}   # faixa do meio (10-20): quests pedem mais abates e pagam mais (parte maior da faixa)
+const XP_QUEST_SHARE_BAND := {1: 0.5, 10: 0.55}   # 1-10: mais quests no 6-7; faixa do meio (10-20): quests pedem mais abates e pagam mais
 
 ## Parte da XP da faixa que começa em `band_start` que vem de quests.
 static func quest_share(band_start: int) -> float:

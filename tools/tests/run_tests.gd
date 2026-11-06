@@ -3020,6 +3020,14 @@ func _check_xp_budget(gd) -> void:
 		var want := Balance.quest_share(band[0])
 		check(absf(share - want) < 0.05, "faixa %d-%d: quests dão %.0f%% da XP (alvo %.0f%%, %d quests)" % [band[0], band[1], share * 100.0, want * 100.0, n])
 		check(n >= 10, "faixa %d-%d: pelo menos 10 quests (%d)" % [band[0], band[1], n])
+	# nível a nível na primeira faixa: nenhum nível fica só no grind (o 6-7 já ficou sem quest nenhuma)
+	for lv in range(2, 10):
+		var qx_lv := 0
+		for qid in gd.quests:
+			var q: QuestDef = gd.quests[qid]
+			if not q.repeatable and q.level_req == lv:
+				qx_lv += q.reward_xp
+		check(qx_lv >= Balance.xp_for_level(lv) * 0.35, "nível %d: quests dão %d de %d XP (>= 35%%)" % [lv, qx_lv, Balance.xp_for_level(lv)])
 	var kills_l25: float = Balance.xp_for_level(25) * (1.0 - Balance.XP_QUEST_SHARE) / gd.monsters["skeleton"].xp
 	check(kills_l25 > 100 and kills_l25 < 400, "nível 25: ~%d abates de esqueleto (não milhares)" % int(kills_l25))
 
