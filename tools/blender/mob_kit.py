@@ -831,6 +831,99 @@ def elf_captain_parts(cid, cloth2, kind):
     return add
 
 
+def outlaw_parts(cid, kind, cloth2):
+    """Linha dos fora-da-lei (referência: os fora-da-lei de Battle for Wesnoth, arte nossa): o que se lê de cima é a cabeça.
+    footpad = lenço amarrado com pontas soltas e bolsa de funda; thief = capuz fundo com bico e máscara de pano;
+    poacher = chapéu de feltro mole de aba caída e aljava; brute = careca, barba cheia e pele de bicho num ombro;
+    outlaw = capuz curto com cachecol, ombreira cravejada e faixa vermelha; thug = careca com faixa e ombros largos;
+    chief = tricórnio com pluma, barba, casaca comprida e argola de ouro."""
+    def add(base, mats):
+        V = Vector
+        rig, b = base["rig"], base["b"]
+        c, r = V(base["head_c"]), b["head"]
+        acc = ck.mat("m_%s_acc" % cid, cloth2, 0.75)
+        leather = ck.mat("m_%s_strap" % cid, (0.3, 0.2, 0.13), 0.85)
+        beard_m = ck.mat("m_%s_beard" % cid, (0.32, 0.2, 0.12), 0.8)
+        steel = ck.mat("m_%s_steel" % cid, (0.62, 0.62, 0.66), 0.4)
+        gold = ck.mat("m_%s_gold" % cid, (0.95, 0.78, 0.3), 0.4)
+        zc, back = ck.Z["chest"], b["chest"] * b["depth"]
+        head, body = [], []
+
+        def beard(scale):
+            head.append(ck.ball(cid + "_beard", r * 0.4 * scale, c + V((0, -r * 0.62, -r * 0.82)), beard_m, (1.25, 0.7, 0.85)))
+
+        def bald_shine():
+            head.append(ck.ball(cid + "_scalp", r * 1.01, c + V((0, r * 0.02, r * 0.06)), ck.mat("m_%s_scalp" % cid, (0.93, 0.76, 0.62), 0.45), (1, 1, 0.98)))
+
+        if kind == "footpad":
+            head.append(ck.ball(cid + "_kerchief", r * 1.1, c + V((0, r * 0.08, r * 0.22)), acc, (1.0, 1.02, 0.84)))
+            head.append(ck.tube(cid + "_knot", c + V((0, r * 1.0, r * 0.25)), c + V((0, r * 1.2, r * 0.25)), r * 0.16, r * 0.12, acc, 6))
+            for sx in (-1, 1):
+                head.append(ck.blade("%s_tail%d" % (cid, sx), c + V((sx * r * 0.1, r * 1.15, r * 0.22)), c + V((sx * r * 0.55, r * 1.75, -r * 0.35)), r * 0.24, r * 0.04, acc, (1, 0, 0), 0.4))
+            body.append(ck.ball(cid + "_pouch", 0.07, V((0.2, -0.05, ck.Z["waist"] - 0.04)), leather, (1, 0.8, 1.1)))
+            body.append(ck.tube(cid + "_sling", V((0.2, -0.08, ck.Z["waist"])), V((0.26, -0.1, ck.Z["hip"])), 0.012, 0.012, leather, 4))
+        elif kind == "thief":
+            hd = ck.mat("m_%s_hood" % cid, (0.2, 0.19, 0.24), 0.85)
+            head.append(ck.ball(cid + "_hood", r * 1.16, c + V((0, r * 0.14, r * 0.1)), hd, (1.0, 1.08, 1.0)))
+            head.append(ck.tube(cid + "_hoodtip", c + V((0, r * 0.9, r * 0.6)), c + V((0, r * 1.7, r * 0.05)), r * 0.42, r * 0.04, hd, 7))
+            head.append(ck.tube(cid + "_mask", c + V((0, 0, -r * 0.42)), c + V((0, 0, -r * 0.1)), r * 1.0, r * 1.04, acc, 18))
+            for sx in (-1, 1):
+                body.append(ck.tube("%s_belt_knife%d" % (cid, sx), V((sx * 0.17, -0.02, ck.Z["waist"])), V((sx * 0.2, -0.02, ck.Z["hip"] - 0.02)), 0.02, 0.008, steel, 4))
+        elif kind == "poacher":
+            felt = ck.mat("m_%s_hat" % cid, (0.4, 0.3, 0.18), 0.85)
+            head.append(ck.tube(cid + "_brim", c + V((0, r * 0.05, r * 0.5)), c + V((0, r * 0.05, r * 0.44)), r * 1.45, r * 1.6, felt, 16))
+            head.append(ck.ball(cid + "_hatcrown", r * 1.02, c + V((0, r * 0.05, r * 0.62)), felt, (1.0, 1.0, 0.78)))
+            head.append(ck.tube(cid + "_hatband", c + V((0, 0, r * 0.52)), c + V((0, 0, r * 0.64)), r * 1.0, r * 0.98, acc, 16))
+            head.append(ck.blade(cid + "_feather", c + V((r * 0.85, r * 0.2, r * 0.75)), c + V((r * 1.4, r * 1.0, r * 1.35)), r * 0.28, r * 0.04, acc, (1, 0, 0), 0.5))
+            body.append(ck.tube(cid + "_quiver", V((-0.1, back + 0.06, zc - 0.18)), V((-0.2, back + 0.1, zc + 0.3)), 0.07, 0.08, leather, 8))
+            for i in range(3):
+                body.append(ck.tube(cid + "_arrow%d" % i, V((-0.14 - i * 0.03, back + 0.1, zc + 0.26)), V((-0.2 - i * 0.04, back + 0.13, zc + 0.46)), 0.012, 0.012, acc, 4))
+        elif kind == "brute":
+            bald_shine()
+            beard(1.15)
+            fur = ck.mat("m_%s_fur" % cid, (0.5, 0.42, 0.32), 0.95)
+            body.append(ck.ball(cid + "_fur", 0.2, V((b["chest"] * 0.8, 0.02, zc + 0.16)), fur, (1.1, 1.1, 0.75)))
+            body.append(ck.tube(cid + "_strap", V((b["chest"] * 0.8, -0.1, zc + 0.15)), V((-b["chest"] * 0.7, -0.12, ck.Z["waist"])), 0.03, 0.03, leather, 5))
+        elif kind == "outlaw":
+            hd = ck.mat("m_%s_cowl" % cid, (0.3, 0.24, 0.18), 0.85)
+            head.append(ck.ball(cid + "_cowl", r * 1.14, c + V((0, r * 0.15, r * 0.14)), hd, (1.0, 1.05, 0.95)))
+            head.append(ck.tube(cid + "_scarf", c + V((0, 0, -r * 1.02)), c + V((0, 0, -r * 0.8)), r * 0.72, r * 0.78, acc, 16))
+            for sx in (-1, 1):
+                body.append(ck.ball("%s_pauldron%d" % (cid, sx), 0.15, V((sx * (b["chest"] + 0.04), 0.0, zc + 0.12)), leather, (1.1, 1.0, 0.7)))
+                for k in range(3):
+                    body.append(ck.tube("%s_stud%d_%d" % (cid, sx, k), V((sx * (b["chest"] + 0.04 + (k - 1) * 0.06), -0.02, zc + 0.2)),
+                                        V((sx * (b["chest"] + 0.04 + (k - 1) * 0.06), -0.02, zc + 0.3)), 0.025, 0.004, steel, 4))
+            body.append(ck.tube(cid + "_sash", V((b["chest"] * 0.9, -0.12, zc + 0.12)), V((-b["chest"] * 0.8, -0.13, ck.Z["waist"] - 0.02)), 0.045, 0.045, ck.mat("m_%s_sash" % cid, (0.75, 0.15, 0.12), 0.7), 5))
+            body.append(ck.ball(cid + "_pouch", 0.07, V((-0.2, -0.05, ck.Z["waist"] - 0.04)), leather, (1, 0.8, 1.1)))
+        elif kind == "thug":
+            bald_shine()
+            head.append(ck.tube(cid + "_band", c + V((0, 0, r * 0.32)), c + V((0, 0, r * 0.46)), r * 1.04, r * 1.03, acc, 18))
+            beard(0.85)
+            for sx in (-1, 1):
+                body.append(ck.ball("%s_shoulder%d" % (cid, sx), 0.16, V((sx * (b["chest"] + 0.03), 0.0, zc + 0.12)), leather, (1.15, 1.0, 0.75)))
+        else:                                   # chief (salteador)
+            felt = ck.mat("m_%s_tricorne" % cid, (0.16, 0.12, 0.1), 0.8)
+            head.append(ck.ball(cid + "_hatcrown", r * 0.9, c + V((0, r * 0.05, r * 0.85)), felt, (1.0, 1.0, 0.62)))
+            for i in range(3):                  # tricórnio: três abas viradas, uma na frente
+                a = math.radians(-90 + i * 120)
+                d = V((math.cos(a), math.sin(a), 0))
+                head.append(ck.blade("%s_brim%d" % (cid, i), c + V((0, 0, r * 0.7)) + d * r * 0.2, c + V((0, 0, r * 1.05)) + d * r * 1.5, r * 1.7, r * 0.06, felt, (-d.y, d.x, 0), 0.5))
+            head.append(ck.tube(cid + "_hatband", c + V((0, 0, r * 0.7)), c + V((0, 0, r * 0.8)), r * 0.92, r * 0.9, gold, 16))
+            head.append(ck.blade(cid + "_plume", c + V((r * 0.5, r * 0.3, r * 1.1)), c + V((r * 1.4, r * 1.6, r * 1.6)), r * 0.45, r * 0.05, ck.mat("m_%s_plume" % cid, (0.85, 0.15, 0.12), 0.6), (1, 0, 0), 0.5))
+            beard(1.0)
+            head.append(ck.tube(cid + "_earring", c + V((r * 0.98, 0, -r * 0.3)), c + V((r * 1.0, 0, -r * 0.45)), r * 0.09, r * 0.09, gold, 8))
+            coat = ck.mat("m_%s_coat" % cid, cloth2, 0.75)
+            body.append(ck.blade(cid + "_coattail", V((0, back + 0.03, ck.Z["waist"])), V((0, back + 0.14, ck.Z["knee"] - 0.06)), 0.46, 0.03, coat, (1, 0, 0), 0.35))
+            for sx in (-1, 1):
+                body.append(ck.ball("%s_lapel%d" % (cid, sx), 0.12, V((sx * 0.1, -b["chest"] * b["depth"] - 0.02, zc + 0.05)), coat, (0.6, 0.3, 1.2)))
+                body.append(ck.ball("%s_epaulet%d" % (cid, sx), 0.12, V((sx * (b["chest"] + 0.03), 0.0, zc + 0.13)), gold, (1.15, 1.0, 0.55)))
+        for p_ in head:
+            ck.skin_rigid(p_, rig, "head")
+        for p_ in body:
+            ck.skin_rigid(p_, rig, "chest")
+    return add
+
+
 def golem(cid="mob_golem"):
     arm = lp.make_armature("rig_" + cid, bm.MOB_BONES)
     stone = ck.mat("m_stone", (0.62, 0.6, 0.58), 0.9)
@@ -1096,7 +1189,19 @@ def build_all(out_dir, only=None):
         "mob_golem_ancient": lambda: golem_boss("mob_golem_ancient", "ancient"),
         "mob_crystal_warden": lambda: golem_boss("mob_crystal_warden", "crystal"),
         "mob_quarry_heart": lambda: golem_boss("mob_quarry_heart", "heart"),
-        "mob_bandit": lambda: humanoid("mob_bandit", "leather", (0.62, 0.2, 0.2), "sword"),
+        # Linha dos fora-da-lei (Floresta): cada tipo com cabeça própria (outlaw_parts) e a arma do papel
+        "mob_bandit_footpad": lambda: humanoid("mob_bandit_footpad", "leather", (0.55, 0.5, 0.3), "mace", head="none", hide_hair=True, extra=outlaw_parts("mob_bandit_footpad", "footpad", (0.75, 0.3, 0.2))),
+        "mob_bandit_thief": lambda: humanoid("mob_bandit_thief", "leather", (0.26, 0.25, 0.3), "dagger", offhand="dagger", head="none",
+                                             hide_hair=True, extra=outlaw_parts("mob_bandit_thief", "thief", (0.15, 0.14, 0.17))),
+        "mob_bandit_poacher": lambda: humanoid("mob_bandit_poacher", "leather", (0.38, 0.4, 0.24), "bow", head="none", hide_hair=True, extra=outlaw_parts("mob_bandit_poacher", "poacher", (0.85, 0.7, 0.4))),
+        "mob_bandit": lambda: humanoid("mob_bandit", "leather", (0.55, 0.22, 0.2), "mace2h", head="none", hide_hair=True,
+                                       extra=outlaw_parts("mob_bandit", "brute", (0.5, 0.2, 0.18))),
+        "mob_bandit_outlaw": lambda: humanoid("mob_bandit_outlaw", "leather", (0.34, 0.28, 0.22), "mace", head="none", hide_hair=True,
+                                              extra=outlaw_parts("mob_bandit_outlaw", "outlaw", (0.55, 0.45, 0.32))),
+        "mob_bandit_thug": lambda: humanoid("mob_bandit_thug", "leather", (0.5, 0.32, 0.22), "mace", head="none", hide_hair=True,
+                                            extra=outlaw_parts("mob_bandit_thug", "thug", (0.7, 0.18, 0.15))),
+        "mob_bandit_chief": lambda: humanoid("mob_bandit_chief", "leather", (0.55, 0.12, 0.12), "mace2h", head="none", hide_hair=True,
+                                             extra=outlaw_parts("mob_bandit_chief", "chief", (0.5, 0.1, 0.12))),
         # Cerco élfico: elfos de couro/tecido verde, Guardião de placa clara, Rei de placa dourada com coroa e manto
         # Herói élfico (guerreiro da cidade): couro reforçado verde-escuro, tiara dourada, cabelo castanho longo
         "mob_elf_warrior": lambda: humanoid("mob_elf_warrior", "leather", (0.24, 0.42, 0.3), "sword", skin=(0.96, 0.86, 0.74),
@@ -1153,7 +1258,7 @@ def build_all(out_dir, only=None):
         for o in bpy.context.scene.objects:
             if "." in o.name:
                 o.name = o.name.replace(".", "_")
-        if name in ("mob_bandit", "mob_skeleton", "mob_zombie", "mob_lich", "mob_skeleton_king", "form_demon",
+        if name.startswith("mob_bandit") or name in ("mob_skeleton", "mob_zombie", "mob_lich", "mob_skeleton_king", "form_demon",
                     "mob_elf_warrior", "mob_elf_archer", "mob_elf_warden", "mob_elf_king", "mob_elf_mage",
                     "mob_elf_captain_hunter", "mob_elf_captain_sky", "mob_elf_captain_sap", "mob_elf_citizen", "mob_elf_citizen_f",
                     "mob_elf_fighter", "mob_elf_bowman"):

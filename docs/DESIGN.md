@@ -246,6 +246,12 @@ Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MS
   **8 sentinelas que lutam** (4 caçadoras com arco junto às torres, 4 soldados nos portões; NPC com `fighter` = atributos de `guard_*`,
   `GuardBrain`, renascem no posto em `GUARD_RESPAWN`, não roubam XP/loot). Ninhos de aranha (NO e SO), paliçada dos bandidos (NE),
   bosque dos ents (SE), rio com pontes, Árvore-Mãe ao norte. Gargantas: oeste → Aldara, **norte → Cidade Élfica** (rota das investidas).
+  **Linha dos fora-da-lei** (referência: fora-da-lei de Battle for Wesnoth, nomes e arte nossos; `mob_kit.outlaw_parts`, cabeça própria por tipo):
+  Trombadinha (nv 12, lenço, porrete, Pedrada que retarda, 5,8 m/s), Gatuno (13, capuz e máscara, duas adagas, Facada pelas Costas: frágil e
+  perigoso), Clandestino (14, `bandit_archer`: chapéu de aba e aljava, arco, Laço que prende), Bandido (15, careca de malho, Porretada que
+  atordoa), Fora-da-Lei (17, capuz e faixa vermelha, lidera 2 trombadinhas em ronda pelas estradas: `escort` + `route`), Capanga (lacaio do
+  chefe) e o Chefe dos Bandidos (tricórnio com pluma, casaca, malho). Trombadinhas e gatunos na trilha leste (guardam a Carga Roubada), o
+  bando pesado na paliçada, clandestinos de tocaia na emboscada (S). As quests de "bandido" contam a linha inteira (`also_counts`).
 - **Investidas élficas** (`RaidSystem`, `MapDef.raid`: rota no JSON do Blender, levas/ritmo/falas em `MapsCatalog.RAIDS`): a cada ~3,5 min
   (só com o jogador no mapa) uma leva (batedores, arqueiros, linces; a cada 3ª um grifo jovem) nasce na garganta, espera as trompas
   (`RAID_MUSTER`) e marcha pela estrada norte em passo cauteloso (`RAID_MARCH_PACE`; luta em velocidade cheia). Lutam com quem os

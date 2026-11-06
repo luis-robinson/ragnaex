@@ -25,7 +25,7 @@ TREE_COLS = [(0.22, 0.4, 0.27), (0.27, 0.47, 0.3), (0.32, 0.52, 0.32)]
 PLACES = [
     {"type": "cabin", "id": "herborista", "pos": (-44.0, 30.0), "face": 60.0, "npc": "herbalist_maren", "roof": (0.36, 0.46, 0.32)},
     {"type": "cabin", "id": "cacador", "pos": (70.0, -16.0), "face": 170.0, "npc": "hunter_dario", "roof": (0.46, 0.32, 0.24)},
-    {"type": "camp", "id": "emboscada", "pos": (46.0, 94.0), "face": 215.0, "mob": "bandit", "count": 4},
+    {"type": "camp", "id": "emboscada", "pos": (46.0, 94.0), "face": 215.0, "mob": "bandit_footpad", "count": 4},
     {"type": "shrine", "id": "circulo", "pos": (-28.0, -100.0), "npc": "stone_druid", "ground": (0.56, 0.56, 0.56)},
     {"type": "dungeon", "id": "ninho", "dungeon": "dg_ninho"},
     {"type": "dungeon", "id": "pedreira", "dungeon": "dg_pedreira"},
@@ -192,9 +192,15 @@ def build(export=False):
     z.spawner("spider", -60, -50, 10, 6, 14.0)
     z.spawner("spider", -42, -68, 9, 5, 14.0)
     z.spawner("spider", -46, 64, 10, 6, 14.0)
-    z.spawner("bandit", 50, -36, 8, 4, 18.0)
+    # bandidos (linha dos fora-da-lei): trombadinhas e gatunos na trilha, o bando pesado na paliçada, clandestinos de tocaia
+    z.spawner("bandit_footpad", 50, -36, 8, 3, 16.0)
+    z.spawner("bandit_thief", 54, -30, 6, 2, 18.0)
     z.spawner("bandit", BANDITS[0] - 2, BANDITS[1] + 2, 6, 4, 18.0)
     z.spawner("bandit_archer", BANDITS[0] + 4, BANDITS[1] - 5, 5, 3, 20.0)
+    z.spawner("bandit_thief", BANDITS[0] - 6, BANDITS[1] - 6, 4, 2, 20.0)
+    z.spawner("bandit_archer", 40, 98, 6, 2, 20.0)                     # tocaia junto da emboscada
+    for route in ([(14, -81), (26, -82), (44, -82), (26, -82)], [(50, 58), (40, 72), (26, 80), (40, 72)]):
+        z.spawner("bandit_outlaw", route[0][0], route[0][1], 2, 1, 60.0, route=route)   # fora-da-lei com 2 trombadinhas faz ronda
     z.spawner("bandit_chief", BANDITS[0] + 3, BANDITS[1] - 2, 2, 1, 180.0)
     z.spawner("ent", 66, 54, 10, 4, 24.0)
     z.spawner("ent", 82, 36, 8, 3, 24.0)

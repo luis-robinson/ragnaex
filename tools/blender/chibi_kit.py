@@ -1517,7 +1517,7 @@ def export_glb(rig, path):
     rig.select_set(True)
     for c in rig.children_recursive:
         c.select_set(True)
-    bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_apply=False,
+    bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, use_active_scene=True, export_apply=False,
                               export_animations=True, export_animation_mode="NLA_TRACKS",
                               export_yup=True, export_materials="EXPORT", export_skins=True)
     print("exported", path)

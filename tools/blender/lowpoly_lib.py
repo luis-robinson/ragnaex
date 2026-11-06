@@ -245,7 +245,7 @@ def export_glb(path, objects):
         o.select_set(True)
         for c in o.children_recursive:
             c.select_set(True)
-    kwargs = dict(filepath=path, export_format="GLB", use_selection=True, export_apply=True,
+    kwargs = dict(filepath=path, export_format="GLB", use_selection=True, use_active_scene=True, export_apply=True,
                   export_animations=True, export_nla_strips=True, export_yup=True, export_materials="EXPORT")
     try:
         bpy.ops.export_scene.gltf(export_animation_mode="NLA_TRACKS", **kwargs)   # Blender 3.6+ / 4.x

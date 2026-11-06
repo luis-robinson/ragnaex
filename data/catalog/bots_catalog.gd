@@ -23,7 +23,7 @@ const LINES := {
 		"não aggra o rei javali agora pfv", "lootei 4 minério", "bloqueia quando ele avançar", "pull de 5 slime ez",
 	],
 	# caçando num mapa específico (BotBrain: "hunt_<mapa>" ou "town_<mapa>" quando existe, senão o genérico)
-	"hunt_field_forest": ["paliçada dos bandidos tá lotada hoje", "cuidado com os arqueiros na trilha leste", "alguém viu o Chefe dos Bandidos?",
+	"hunt_field_forest": ["paliçada dos bandidos tá lotada hoje", "cuidado com os clandestinos, o laço prende o pé", "trombadinha atira pedra e corre", "gatuno bate forte, mata ele primeiro", "alguém viu o Chefe dos Bandidos?",
 		"essas aranhas grudam a gente no chão", "ent bate devagar mas bate", "cadê a trompa? quero xp de elfo", "o pântano sul tá cheio de aranha"],
 	"town_field_forest": ["portão norte segura mais uma?", "o Gunnar aprimora com aço élfico", "alguém pra Cidade Élfica?", "a Comandante Hela tá de mau humor",
 		"compro aço élfico", "o ensopado da Bia é bom demais", "quem segurou a última investida?"],

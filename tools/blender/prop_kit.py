@@ -896,7 +896,7 @@ def export_scene(path, name="prop", kind=""):
     _decimate(kind)
     ck.deselect_everything()              # select_all não alcança coleção escondida (zonas iam dentro do GLB)
     joined.select_set(True)
-    bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_apply=True,
+    bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, use_active_scene=True, export_apply=True,
                               export_animations=False, export_yup=True, export_materials="EXPORT")
 
 

@@ -31098,7 +31098,7 @@
  ],
  "spawners": [
   {
-   "monster_id": "bandit",
+   "monster_id": "bandit_footpad",
    "pos": [
     46.0,
     94.0
@@ -31138,13 +31138,23 @@
    "respawn": 14.0
   },
   {
-   "monster_id": "bandit",
+   "monster_id": "bandit_footpad",
    "pos": [
     50,
     -36
    ],
    "radius": 8,
-   "count": 4,
+   "count": 3,
+   "respawn": 16.0
+  },
+  {
+   "monster_id": "bandit_thief",
+   "pos": [
+    54,
+    -30
+   ],
+   "radius": 6,
+   "count": 2,
    "respawn": 18.0
   },
   {
@@ -31166,6 +31176,82 @@
    "radius": 5,
    "count": 3,
    "respawn": 20.0
+  },
+  {
+   "monster_id": "bandit_thief",
+   "pos": [
+    62.0,
+    -66.0
+   ],
+   "radius": 4,
+   "count": 2,
+   "respawn": 20.0
+  },
+  {
+   "monster_id": "bandit_archer",
+   "pos": [
+    40,
+    98
+   ],
+   "radius": 6,
+   "count": 2,
+   "respawn": 20.0
+  },
+  {
+   "monster_id": "bandit_outlaw",
+   "pos": [
+    14,
+    -81
+   ],
+   "radius": 2,
+   "count": 1,
+   "respawn": 60.0,
+   "route": [
+    [
+     14,
+     -81
+    ],
+    [
+     26,
+     -82
+    ],
+    [
+     44,
+     -82
+    ],
+    [
+     26,
+     -82
+    ]
+   ]
+  },
+  {
+   "monster_id": "bandit_outlaw",
+   "pos": [
+    50,
+    58
+   ],
+   "radius": 2,
+   "count": 1,
+   "respawn": 60.0,
+   "route": [
+    [
+     50,
+     58
+    ],
+    [
+     40,
+     72
+    ],
+    [
+     26,
+     80
+    ],
+    [
+     40,
+     72
+    ]
+   ]
   },
   {
    "monster_id": "bandit_chief",

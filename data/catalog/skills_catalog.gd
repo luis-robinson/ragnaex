@@ -119,6 +119,15 @@ static func build() -> Array:
 		{"id": "mob_crystal_ward", "name": "Escudo de Cristal", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 18.0, "radius": 0.0, "startup": 0.6, "active": 0.1, "recovery": 0.4, "icon_color": Color(0.55, 0.85, 1.0),
 		 "effects": {"buff": {"id": "crystal_ward", "duration": 6, "def_pct": 50}}},
 		# chefes da faixa 10-20 (Floresta, Ninho, Coração da Árvore, Trono do Conde)
+		# linha dos fora-da-lei (Floresta): funda, facada pelas costas, laço e porrete
+		{"id": "mob_sling_stone", "name": "Pedrada", "target": T_TARGET, "kind": K_PHYS, "power": 0.9, "cooldown": 6.0, "range": 8.0, "radius": 0.0, "max_targets": 1, "startup": 0.4, "active": 0.1, "recovery": 0.4, "hit_stop_frames": 2, "icon_color": Color(0.7, 0.65, 0.55),
+		 "effects": {"slow": {"pct": 35, "duration": 2}}},
+		{"id": "mob_ambush_stab", "name": "Facada pelas Costas", "target": T_DIR, "kind": K_PHYS, "power": 1.4, "cooldown": 8.0, "range": 5.0, "radius": 1.0, "startup": 0.35, "active": 0.1, "recovery": 0.5, "hit_stop_frames": 3, "icon_color": Color(0.45, 0.35, 0.5),
+		 "effects": {"dash": 4.5, "dot": {"dps": 4, "duration": 3}}},
+		{"id": "mob_snare_shot", "name": "Laço do Clandestino", "target": T_TARGET, "kind": K_PHYS, "power": 1.0, "cooldown": 9.0, "range": 9.0, "radius": 0.0, "max_targets": 1, "startup": 0.5, "active": 0.1, "recovery": 0.4, "hit_stop_frames": 2, "icon_color": Color(0.6, 0.5, 0.3),
+		 "effects": {"root": {"duration": 1.2}}},
+		{"id": "mob_club_slam", "name": "Porretada", "target": T_CONE, "kind": K_PHYS, "power": 1.5, "cooldown": 8.0, "radius": 3.0, "cone_angle_deg": 80, "startup": 0.6, "active": 0.15, "recovery": 0.55, "hit_stop_frames": 4, "icon_color": Color(0.65, 0.45, 0.3),
+		 "effects": {"stun": {"duration": 0.6}}},
 		{"id": "mob_venom_knives", "name": "Facas Envenenadas", "target": T_CONE, "kind": K_PHYS, "power": 0.9, "cooldown": 8.0, "radius": 7.0, "cone_angle_deg": 40, "startup": 0.5, "active": 0.15, "recovery": 0.45, "hit_stop_frames": 2, "icon_color": Color(0.5, 0.8, 0.35),
 		 "effects": {"dot": {"dps": 8, "duration": 4}}},
 		{"id": "mob_smoke_bomb", "name": "Bomba de Fumaça", "target": T_GROUND, "kind": K_MAG, "power": 0.7, "cooldown": 12.0, "range": 9.0, "radius": 3.0, "startup": 0.8, "active": 0.2, "recovery": 0.5, "icon_color": Color(0.55, 0.55, 0.6),

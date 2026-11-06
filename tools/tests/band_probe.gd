@@ -184,6 +184,7 @@ func _duels(trials: int) -> void:
 					var mob = Sim.spawn_monster(md, mid, Sim.random_walkable(GameData.maps[mid], sp["pos"], area))
 					bot.brain.hunt_target_id = mob.id
 					mob.aggro_target = bot.id
+					mob.aggro_timer = 5.0                 # como no boss_probe: sem isso, monstro de aggro curto nascido longe largava o bot (travou falso)
 					var tk := 0.0
 					while tk < LIMIT and mob.is_alive() and bot.is_alive() and bot.map_id == mid:
 						Sim.tick(DT)

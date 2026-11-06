@@ -652,6 +652,7 @@ func _check_zone(gd, sim) -> void:
 	_check_reset_and_coin(gd, sim)
 	_check_escort(gd, sim)
 	_check_elf_city_life(gd, sim)
+	_check_outlaws(gd, sim)
 	_check_signature(gd, sim)
 	_check_raid_tactics(gd, sim)
 	_check_equipment_slots(gd, sim, save_ref)
@@ -2959,6 +2960,48 @@ func _check_signature(gd, sim) -> void:
 
 ## Cidade Élfica grande e habitada: muro largo, cidadãos neutros com modelo élfico, esquadrões em ronda, 3 fortes com
 ## capitães (chefes com escolta) entre o muro e a borda.
+## Linha dos fora-da-lei (Floresta): cada tipo com modelo próprio (GLB existe), golpe próprio e papel; o Fora-da-Lei lidera
+## trombadinhas e faz ronda; todos aparecem na Floresta; as quests de "bandido" contam a linha inteira.
+func _check_outlaws(gd, sim) -> void:
+	var line := ["bandit_footpad", "bandit_thief", "bandit_archer", "bandit", "bandit_outlaw", "bandit_thug", "bandit_chief"]
+	var models := {}
+	for id in line:
+		check(gd.monsters.has(id), "fora-da-lei %s existe" % id)
+		if not gd.monsters.has(id):
+			continue
+		var md: MonsterDef = gd.monsters[id]
+		check(FileAccess.file_exists("res://assets/models/%s.glb" % md.model), "%s: modelo %s exportado" % [id, md.model])
+		models[md.model] = true
+		for sid in md.skill_ids:
+			check(gd.skills.has(sid), "%s: skill %s existe" % [id, sid])
+	check(models.size() == line.size(), "cada fora-da-lei tem modelo próprio (%d de %d)" % [models.size(), line.size()])
+	var fp: MonsterDef = gd.monsters["bandit_footpad"]
+	var th: MonsterDef = gd.monsters["bandit_thief"]
+	var po: MonsterDef = gd.monsters["bandit_archer"]
+	var br: MonsterDef = gd.monsters["bandit"]
+	var ol: MonsterDef = gd.monsters["bandit_outlaw"]
+	check(fp.move_speed > br.move_speed and fp.level < br.level, "Trombadinha: rápido e de nível baixo")
+	check(th.atk > fp.atk and th.hp < fp.hp, "Gatuno: bate forte e é frágil")
+	check(po.ranged and po.skill_ids.has("mob_snare_shot"), "Clandestino: arco e laço")
+	check(br.hp > po.hp and br.skill_ids.has("mob_club_slam"), "Bandido: robusto, porretada")
+	check(ol.escort.get("id", "") == "bandit_footpad" and int(ol.escort.get("count", 0)) >= 2, "Fora-da-Lei lidera trombadinhas")
+	check(gd.monsters["bandit_thug"].xp == 0, "Capanga continua lacaio sem XP")
+	var seen := {}
+	var routed := 0
+	for sp in gd.maps["field_forest"].spawners:
+		seen[sp["monster_id"]] = true
+		if sp["monster_id"] == "bandit_outlaw" and sp.get("route", []).size() >= 2:
+			routed += 1
+			for pt in sp["route"]:
+				var p3 := Vector3(float(pt[0]), 0, float(pt[1]))
+				check(sim.is_walkable(p3, gd.maps["field_forest"], 0.5), "ronda do Fora-da-Lei passa por chão livre (%s)" % str(pt))
+	for id in ["bandit_footpad", "bandit_thief", "bandit_archer", "bandit", "bandit_outlaw", "bandit_chief"]:
+		check(seen.has(id), "Floresta tem %s" % id)
+	check(routed >= 2, "Floresta: %d rondas de Fora-da-Lei" % routed)
+	for qid in ["q10_bandits", "b1_trilhas", "b6_limpeza", "b_bandits"]:
+		var q: QuestDef = gd.quests[qid]
+		check(q.also_counts.has("bandit_footpad") and q.also_counts.has("bandit_outlaw"), "%s conta a linha inteira de bandidos" % qid)
+
 func _check_elf_city_life(gd, sim) -> void:
 	var md: MapDef = gd.maps["elf_city"]
 	check(md.town_radius >= 60.0, "Cidade Élfica: muro com raio %d m (era 44)" % int(md.town_radius))
@@ -3109,11 +3152,14 @@ func _check_model_leaks() -> void:
 		var n := fa.get_32()
 		fa.seek(20)
 		var js: Dictionary = JSON.parse_string(fa.get_buffer(n).get_string_from_utf8())
+		var stem := f.get_basename()
 		for nd in js.get("nodes", []):
-			if str(nd.get("name", "")).begins_with("Z_"):
-				bad.append(f)
+			var nm := str(nd.get("name", ""))
+			# pedaço de zona, ou de OUTRO monstro (o exportador do glTF pegava objetos selecionados de outras cenas do .blend)
+			if nm.begins_with("Z_") or (stem.begins_with("mob_") and nm.begins_with("mob_") and not nm.begins_with(stem)):
+				bad.append("%s<%s>" % [f, nm])
 				break
-	check(bad.is_empty(), "nenhum modelo de monstro/prop traz pedaço de zona (%s)" % str(bad))
+	check(bad.is_empty(), "nenhum modelo de monstro/prop traz pedaço de zona ou de outro monstro (%s)" % str(bad))
 
 ## Todo mapa com modelo tem o GLB do Blender de verdade (uma exportação com a coleção escondida sai vazia, ~150 bytes,
 ## e o jogo mostra só o chão: o Posto ficou sem muralha assim).
@@ -4606,6 +4652,8 @@ func _check_melee_reach(gd, sim) -> void:
 	arch.aggro_target = near.id
 	arch.aggro_timer = 5.0
 	arch.basic_cd = 1.0
+	for sid in arch.monster_def.skill_ids:
+		arch.cooldowns[sid] = 30.0           # sem o laço pronto: só o recuo entre os tiros
 	check(arch.brain.think(arch, sim, m, 0.05).move.x < 0.0, "ranged recua de quem encosta")
 	arch.home_position = arch.position + Vector3(arch.monster_def.leash_range * 0.8, 0, 0)
 	check(arch.brain.think(arch, sim, m, 0.05).move == Vector2.ZERO, "ranged não recua perto do limite do leash")
