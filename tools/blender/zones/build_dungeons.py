@@ -38,7 +38,7 @@ def build_one(did, g, export):
     f = g["flip"]
     z = Zone(did, size=MAP_SIZE, rim=(RIM_R, 3.0, 2.0, 1.5), seed=g["seed"], spawn=places.DUNGEON_ARRIVE, palette={
         "cliff_rock": g["rock"], "cliff_rock_d": tuple(c * 0.75 for c in g["rock"]), "cliff_grass": tuple(c * 1.1 for c in g["rock"]),
-        "hill_grass": tuple(c * 1.2 for c in g["rock"]), "road": g["floor"], "street": g["floor"],
+        "hill_grass": tuple(g.get("top", tuple(c * 1.2 for c in g["rock"]))), "road": g["floor"], "street": g["floor"],
     })
     rnd = random.Random(g["seed"])
     rooms = [(x * f, y) for x, y in ROOMS]
@@ -89,7 +89,7 @@ def build_one(did, g, export):
     return z.finish(export, poi=boss, ground=g["floor"])
 
 
-def _rock_fill(z, did):
+def _rock_fill(z, did, g_walls=""):
     """Preenche com rocha tudo que não é chão: é isso que sela as alas. Grade hexagonal cheia (círculos se sobrepõem)."""
     step, r = 5.6, 4.0
     spots = []
@@ -111,8 +111,10 @@ def _rock_fill(z, did):
         if any((p - c).length < cr for c, cr in z.blocked) or any(poly_dist(p, poly) <= r + WALKWAY * 0.5 + 0.3 for poly in z.road_polys.values()):
             continue
         spots.append((round(x, 1), round(y, 1)))
+    bark = g_walls == "bark"
+    rnd = random.Random(len(did) * 7)
     for i, c in enumerate(spots):
-        z.terrace("parede_%d" % i, c, r, 1)
+        z.terrace("parede_%d" % i, c, r, rnd.choice((2, 3)) if bark else 1)     # casca: paredes altas e irregulares
     # uma malha só por material: centenas de objetos virariam centenas de draw calls
     objs = [o for o in z.coll.objects if o.name.startswith(z.P + "morro_")]
     bpy.ops.object.select_all(action="DESELECT")
@@ -139,14 +141,20 @@ def _room_dress(z, name, room, rooms, edges):
             ox, oy = rooms[b if a == name else a]["pos"]
             mouths.append(math.atan2(oy - y, ox - x))
     rnd = random.Random(len(name) * 97 + int(x * 3 + y))
-    for kind, n, size, color in room.get("decor", []):
+    if "pool" in room:                       # poça brilhante no centro (seiva, lava...)
+        pm = "glow_pool_" + name
+        if pm not in z.M:
+            z.M[pm] = mat(pm, room["pool"])
+        disc(z.coll, z.P + "poca_" + name, (x, y), r * 0.22, 0.03, z.M[pm], 24, 0.2, len(name) + 1)
+    rings = [(k, n, sz, col, 0.66, 0.84) for k, n, sz, col in room.get("decor", [])] + [(k, n, sz, col, 0.3, 0.55) for k, n, sz, col in room.get("inner", [])]
+    for kind, n, size, color, r_in, r_out in rings:
         placed, tries = 0, 0
         while placed < n and tries < n * 12:
             tries += 1
             a = rnd.uniform(0, math.tau)
             if any(abs(math.atan2(math.sin(a - m), math.cos(a - m))) < 0.5 for m in mouths):
                 continue
-            rr = r * rnd.uniform(0.66, 0.84)
+            rr = r * rnd.uniform(r_in, r_out)
             k = rnd.uniform(0.75, 1.25)
             z.ob(kind, x + math.cos(a) * rr, y + math.sin(a) * rr, (size[0] * k, size[1] * k, size[2] * k), rnd.uniform(0, 360), color=color)
             placed += 1
@@ -199,13 +207,13 @@ def build_graph(did, g, export):
         for k in (-1, 1):
             z.ob("pillar", x + 3.0 * k, y - 0.5, (1.1, 4.2, 1.1), color=g["glow"])
     z.cliffs(snow=False)
-    _rock_fill(z, did)
+    _rock_fill(z, did, g.get("walls", ""))
     for name, poly in z.road_polys.items():
         for i in range(4, len(poly) - 3, 9):
             p, t = poly[i], (poly[i + 1] - poly[i]).normalized()
             q = p + Vector((-t.y, t.x)) * (WALKWAY * 0.5 + 0.1) * (1 if i % 2 else -1)
             if all((q - Vector(r["pos"])).length > r["r"] + 1.0 for r in rooms.values()):     # postes só nos corredores
-                z.ob("lamp", q.x, q.y, (0.4, 2.4, 0.4))
+                z.ob("elf_lantern" if g.get("style") == "tree" else "lamp", q.x, q.y, (0.6, 2.4, 0.6) if g.get("style") == "tree" else (0.4, 2.4, 0.4))
     z.data["hangouts"] = []
     boss_pos = next(r["pos"] for r in L["rooms"].values() if "boss" in r)
     return z.finish(export, poi=boss_pos, ground=g["floor"])

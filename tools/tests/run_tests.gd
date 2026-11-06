@@ -3125,9 +3125,12 @@ func _check_places(gd, sim, md: MapDef) -> void:
 		count[pl["type"]] = int(count.get(pl["type"], 0)) + 1
 		var d: float = Vector2(pl["pos"].x, pl["pos"].z).length()
 		var far: float = 112.0 * (1.2 if mid == "city_aldara" else 1.0)       # o Vale cresceu 20% (places.grow_aldara)
+		if pl.get("style", "") == "tree":     # porta no tronco da árvore do centro: fica no hub de propósito
+			check(d < 15.0, "%s: porta %s no tronco da árvore (%.0f m)" % [mid, pl["id"], d])
+			continue
 		check(d > 40.0 and d < far, "%s: lugar %s a %.0f m do hub" % [mid, pl["id"], d])
 		for other in md.places:
-			if other != pl:
+			if other != pl and other.get("style", "") != "tree":
 				check(pl["pos"].distance_to(other["pos"]) > 25.0, "%s: %s longe de %s" % [mid, pl["id"], other["id"]])
 	for t in ["cabin", "camp", "shrine", "dungeon"]:
 		check(int(count.get(t, 0)) >= 1, "%s: tem lugar %s" % [mid, t])

@@ -48,6 +48,8 @@ def great_tree(z, c):
     cyl(z.coll, z.P + "arvore_tronco", c, TREE_R * 1.45, TREE_R * 0.8, 36.0, z.M["bark"], 0.0, 14, 0.08, 3)
     for i in range(10):
         a = math.tau * i / 10 + 0.2
+        if abs(math.atan2(math.sin(a - math.pi / 4), math.cos(a - math.pi / 4))) < 0.45:
+            continue                         # sudeste (de frente para a câmera): a porta do Coração da Árvore fica aqui
         rt = (c[0] + math.cos(a) * TREE_R * 1.9, c[1] + math.sin(a) * TREE_R * 1.9)
         box(z.coll, z.P + "arvore_raiz_%d" % i, rt, (TREE_R * 2.2, 1.6 + (i % 3) * 0.5, 1.8), math.degrees(-a), z.M["bark"], 0.0)
     rnd = random.Random(5)
@@ -242,7 +244,7 @@ def build(export=False):
     for i, a in enumerate((45.0, 135.0, -100.0, -20.0)):                 # guarnição dentro do anel (entre árvore e muro)
         x, zz = H(31.0, a)
         z.spawner("elf_warrior" if i % 2 == 0 else "elf_archer", round(x, 1), round(zz, 1), 6, 4, 22.0)
-    z.spawner("elf_warden", 6.0, -54.0, 4, 2, 60.0)                       # diante da raiz norte (Coração)
+    z.spawner("elf_warden", 17.0, 10.0, 3, 2, 60.0)                       # guardam a porta do Coração, no tronco (sudeste)
     z.spawner("griffin", AERIE[0] + 4, AERIE[1] + 2, 11, 5, 26.0)
     z.spawner("trent", GROVE[0], GROVE[1], 12, 4, 30.0)
     z.spawner("elf_warrior", TRAINING[0] - 2, TRAINING[1] - 3, 7, 4, 22.0)

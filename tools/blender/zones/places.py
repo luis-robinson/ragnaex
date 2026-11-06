@@ -70,14 +70,21 @@ DUNGEONS["dg_catacumbas_trono"] = {
     },
 }
 # Coração da Árvore: a raiz norte da Árvore-Mãe Ancestral (Cidade Élfica) desce ao salão do Rei Élfico.
+# Dentro da Árvore-Mãe: a porta é um arco entalhado no tronco, virada para a câmera do jogo (sudeste) (style "tree", sem morro); paredes de casca altas
+# com musgo em cima, chão de raiz, seiva brilhando e lanternas élficas.
+TREE_ROOT_DECOR = [("log", 4, (2.6, 0.8, 0.9), (0.4, 0.3, 0.2)), ("stump", 3, (1.2, 0.9, 1.2), (0.38, 0.28, 0.2)), ("bush", 3, (1.4, 0.8, 1.4), (0.3, 0.55, 0.35))]
+TREE_SAP_DECOR = [("crystal", 4, (0.9, 1.6, 0.9), (0.75, 1.0, 0.5)), ("elf_lantern", 3, (0.6, 2.4, 0.6), None), ("flowers", 3, (1.4, 0.4, 1.4), (0.8, 0.95, 0.6))]
 DUNGEONS["dg_coracao"] = {
-    "zone": "elf_city", "gate": (0.0, -66.0), "face": 90.0, "name": "Coração da Árvore", "seed": 17,
-    "rock": (0.36, 0.28, 0.2), "floor": (0.46, 0.4, 0.3), "glow": (0.6, 1.0, 0.65),
+    "zone": "elf_city", "gate": (6.2, 6.2), "face": 45.0, "style": "tree", "name": "Coração da Árvore", "seed": 17,
+    "rock": (0.42, 0.3, 0.2), "floor": (0.5, 0.4, 0.28), "glow": (0.7, 1.0, 0.5), "walls": "bark", "top": (0.3, 0.5, 0.3),
     "layout": {
         "rooms": {
-            "raizes": {"pos": (0, 18), "r": 12, "mobs": [("elf_archer", 3), ("elf_warrior", 3)]},
-            "seiva": {"pos": (-26, -8), "r": 10, "mobs": [("trent", 2), ("elf_warden", 1)]},
-            "trono": {"pos": (6, -36), "r": 17, "boss": "elf_king"},
+            "raizes": {"pos": (0, 18), "r": 12, "mobs": [("elf_archer", 3), ("elf_warrior", 3)], "floor": (0.46, 0.36, 0.24), "decor": TREE_ROOT_DECOR,
+                       "inner": [("log", 3, (3.2, 0.9, 1.0), (0.42, 0.3, 0.2)), ("elf_lantern", 2, (0.6, 2.4, 0.6), None)]},
+            "seiva": {"pos": (-26, -8), "r": 10, "mobs": [("trent", 2), ("elf_warden", 1)], "floor": (0.5, 0.56, 0.3), "decor": TREE_SAP_DECOR, "pool": (0.75, 1.0, 0.5)},
+            "trono": {"pos": (6, -36), "r": 17, "boss": "elf_king", "floor": (0.56, 0.46, 0.3), "pool": (0.75, 1.0, 0.5),
+                      "inner": [("log", 5, (3.6, 1.0, 1.1), (0.4, 0.28, 0.18)), ("crystal", 3, (0.8, 1.4, 0.8), (0.75, 1.0, 0.5))],
+                      "decor": [("dead_tree", 6, (1.6, 3.6, 1.6), (0.4, 0.3, 0.2)), ("elf_lantern", 4, (0.6, 2.4, 0.6), None), ("crystal", 3, (0.9, 1.6, 0.9), (0.75, 1.0, 0.5))]},
         },
         "edges": [("chegada", "raizes"), ("raizes", "seiva"), ("seiva", "trono")],
     },
@@ -133,7 +140,7 @@ def gate_return(d):
     """Onde o jogador aparece na zona ao sair da dungeon: na frente da boca."""
     if "return" in d:
         return d["return"]
-    p = Vector(d["gate"]) + direction(d["face"]) * (GATE_R + 5.0)
+    p = Vector(d["gate"]) + direction(d["face"]) * (7.0 if d.get("style") == "tree" else GATE_R + 5.0)
     return (round(p.x, 1), round(p.y, 1))
 
 
@@ -257,6 +264,8 @@ def shrine(s, p):
 
 def dungeon(s, p):
     g = DUNGEONS[p["dungeon"]]
+    if g.get("style") == "tree":
+        return _tree_door(s, p, g)
     c, d = Vector(g["gate"]), direction(g["face"])
     side = Vector((-d.y, d.x))
     name = s.P + "dungeon_" + p["id"]
@@ -282,6 +291,38 @@ def dungeon(s, p):
     s.block(tuple(c + d * (GATE_R + 3.0)), 6.0)
 
 
+def _tree_door(s, p, g):
+    """Porta entalhada no tronco de uma árvore gigante: o tronco já é sólido e o chão em volta já é praça,
+    então sem morro, sem trilha e sem colina oculta. Arco escuro com moldura de casca, raízes dos lados,
+    arco élfico e lanternas na frente, poça de seiva no chão."""
+    c, d = Vector(g["gate"]), direction(g["face"])
+    side = Vector((-d.y, d.x))
+    name = s.P + "dungeon_" + p["id"]
+    bark = mat("bark_" + p["dungeon"], (0.34, 0.24, 0.16))
+    bark_l = mat("bark_l_" + p["dungeon"], (0.5, 0.38, 0.26))
+    glow = mat("glow_" + p["dungeon"], g["glow"])
+    box(s.coll, name + "_boca", tuple(c + d * 0.15), (3.4, 1.2, 4.2), _rot(d), mat("dungeon_boca", (0.03, 0.03, 0.05)))
+    for k in (-1, 1):                                        # moldura: duas colunas de casca e raízes que abraçam a porta
+        q = c + d * 0.45 + side * 2.15 * k
+        cyl(s.coll, name + "_coluna_%d" % k, tuple(q), 0.55, 0.45, 5.2, bark_l, segs=8, jitter=0.12, seed=7 + k)
+        for j in range(3):
+            r0 = c + side * (2.6 + j * 0.9) * k
+            box(s.coll, name + "_raiz_%d_%d" % (k, j), tuple(r0 + d * (1.2 + j * 0.8)), (0.9, 2.6 + j * 0.6, 1.0 - j * 0.15),
+                _rot(d) + 0.25 * k, bark, y0=0.0)
+    box(s.coll, name + "_verga", tuple(c + d * 0.5), (5.2, 1.0, 0.9), _rot(d), bark_l, y0=4.6)
+    for i in range(5):                                       # runas de seiva no arco
+        q = c + d * 1.0 + side * (i - 2) * 0.85
+        box(s.coll, name + "_runa_%d" % i, tuple(q), (0.32, 0.08, 0.32), _rot(d), glow, y0=4.85)
+    disc(s.coll, name + "_seiva", tuple(c + d * 2.4), 2.2, 0.02, glow, 20, 0.15, 3)
+    s.ob("elf_arch", (c + d * 2.0).x, (c + d * 2.0).y, (5.6, 4.6, 1.0), math.degrees(_rot(d)), solid=False)
+    for k in (-1, 1):
+        q = c + d * 3.4 + side * 3.4 * k
+        s.ob("elf_lantern", q.x, q.y, (0.6, 2.6, 0.6))
+    portal = c + d * 1.8
+    s.data["portals"].append({"id": "to_" + p["dungeon"], "pos": [round(portal.x, 2), round(portal.y, 2)], "radius": 2.0,
+                              "target_map": p["dungeon"], "target_pos": list(DUNGEON_ARRIVE), "label": g["name"]})
+
+
 KINDS = {"cabin": cabin, "camp": camp, "shrine": shrine, "dungeon": dungeon}
 
 
@@ -296,4 +337,7 @@ def build(s, places):
             if poly_dist(Vector(pos), river) < s.river_w * 0.5 + 8.0:
                 print("PLACE_CONFLICT %s colado no rio" % p["id"])
         KINDS[p["type"]](s, p)
-        s.data["places"].append({"id": p["id"], "type": p["type"], "pos": [pos[0], pos[1]]})
+        rec = {"id": p["id"], "type": p["type"], "pos": [pos[0], pos[1]]}
+        if p.get("dungeon") and DUNGEONS[p["dungeon"]].get("style"):
+            rec["style"] = DUNGEONS[p["dungeon"]]["style"]      # porta na árvore: fica no centro (teste de distância não vale)
+        s.data["places"].append(rec)

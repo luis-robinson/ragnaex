@@ -376,7 +376,7 @@ const PLACE_NPCS := {
 		"stone_druid": ["Círculo Druídico", "board", Color(0.6, 0.75, 0.6), ["Pedras frias, musgo novo. Os druidas se foram; a Árvore-Mãe ainda escuta.", "Gravado: 'Quem corta a raiz perde o caminho'."], "prop_ruin"],
 	},
 	"elf_city": {
-		"siege_scout": ["Batedora Yara", "quest", Color(0.6, 0.5, 0.38), ["O cerco começa aqui. Daqui eu conto cada elfo que sai daquele anel.", "A raiz norte da Árvore desce até o salão do rei. Ninguém voltou de lá ainda."]],
+		"siege_scout": ["Batedora Yara", "quest", Color(0.6, 0.5, 0.38), ["O cerco começa aqui. Daqui eu conto cada elfo que sai daquele anel.", "A porta no tronco da Árvore-Mãe desce até o salão do rei. Ninguém voltou de lá ainda."]],
 		"elf_deserter": ["Caelir, o Exilado", "quest", Color(0.55, 0.8, 0.65), ["Aelthar não era assim. A seiva da Árvore subiu à cabeça dele.", "Os trents obedecem a quem tem a seiva. Corte a raiz e eles dormem."]],
 		"moon_altar": ["Altar da Lua", "board", Color(0.8, 0.85, 0.95), ["Pedra branca, fria como luar. Pedidos de caça presos com fios de prata.", "Gravado em élfico: 'A Árvore não pertence ao rei'."], "prop_statue"],
 	},
@@ -478,7 +478,7 @@ static func load_zone(id: String) -> Dictionary:
 		roads.append({"kind": r["kind"], "w": float(r["w"]), "pts": _pts(r["pts"]), "r": float(r.get("r", 0.0))})
 	var places: Array = []
 	for p in z.get("places", []):
-		places.append({"id": p["id"], "type": p["type"], "pos": _v3(p["pos"])})
+		places.append({"id": p["id"], "type": p["type"], "pos": _v3(p["pos"]), "style": str(p.get("style", ""))})
 	var water: Array = []
 	for w in z["water"]:
 		if w["kind"] == "lake":

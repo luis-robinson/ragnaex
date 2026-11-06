@@ -284,7 +284,7 @@ Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MS
 - **Cidade Élfica (17-21)** (`build_elf_city.py`): anel élfico (muralha clara r 44, 6 portões) em volta da **Árvore-Mãe Ancestral**
   (copa alta, acima da câmera), guarnição de guerreiros/arqueiros dentro do muro (hub hostil: `HOSTILE_HUBS` nos testes), ninho dos
   grifos (NO), bosque dos trents (NE, chão escuro), campo de treino (L), poço da lua (O), riacho com pontes, cerco humano na entrada sul
-  (Batedora Yara), Caelir o exilado, Altar da Lua (caçadas). A raiz norte abre o **Coração da Árvore** (`dg_coracao`): raízes, seiva,
+  (Batedora Yara), Caelir o exilado, Altar da Lua (caçadas). Uma porta entalhada no tronco da Árvore-Mãe (lado sudeste, de frente para a câmera; `places.DUNGEONS` `style: "tree"`, `places._tree_door`) abre o **Coração da Árvore** (`dg_coracao`, por dentro da árvore: paredes de casca altas, chão de raiz, poças de seiva, `floor`/`decor`/`inner`/`pool` por salão): raízes, seiva,
   trono do **Rei Élfico Aelthar** (Guarda Real aos 70%, raízes + grifos aos 45%, fúria aos 20%; grupo de 3 vence ~80% em ~50 s).
   **Moedas**: Rei solta 4-6 sempre, Guardião 5% de 4 (`MonsterDef.coin_*`). **Glória** (lendário nível 20) aprimora no ferreiro com
   Aço Élfico (+1..+5) e Seiva da Árvore-Mãe (+6..+9), ouro a 60% (`PLUS_ELF_*`).
