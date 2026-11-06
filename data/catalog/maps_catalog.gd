@@ -90,6 +90,8 @@ static func villagers(table: Dictionary = VILLAGERS) -> Array:
 		else:
 			d["wander"] = float(v[4])
 		d["look_seed"] = seed
+		if v.size() > 5:                  # modelo próprio (cidadão élfico): sem o kit humano
+			d["model"] = v[5]
 		seed += 7
 		out.append(d)
 	return out
@@ -291,6 +293,25 @@ const VILLAGERS := {
 	"vil_monk": ["Irmão Odo", Color(0.85, 0.8, 0.7), ["Que a luz guie seus passos pela Campina.", "Os mortos das Ruínas não descansam. Reze por eles."], [7.0, -9.0], 5.0],
 	"vil_porter": ["Carregador Juca", Color(0.6, 0.45, 0.35), ["Caixas para o mercador, caixas para o ferreiro... minhas costas!", "Se vir o Tobias, diga que a carga atrasou."], [3.0, 13.0], [[3.0, 13.0], [-8.0, 13.0], [-14.0, -12.0], [14.0, -14.0]]],
 	"vil_patrol": ["Guarda de Ronda", Color(0.6, 0.6, 0.75), ["Ronda tranquila. Os monstros não passam do muro.", "Mantenha a arma na bainha dentro da vila."], [0.0, -19.0], [[0.0, -19.0], [19.0, 2.0], [2.0, 19.0], [-19.0, -2.0]]],
+}
+## Cidadãos da Cidade Élfica (neutros: não atacam nem são alvo): [nome, cor da roupa, falas, casa [x,z], passeio m | rota, modelo].
+const ELF_CITIZENS := {
+	"elf_vendor_a": ["Mercadora Lírien", Color(0.85, 0.6, 0.4), ["Mel de flor-da-lua, fresquinho. Humano paga o dobro.", "O cerco espanta os compradores. Os soldados não."], [35.2, 29.6], 3.0, "mob_elf_citizen_f"],
+	"elf_vendor_b": ["Tecelão Faelar", Color(0.55, 0.65, 0.9), ["Seda de aranha tingida com seiva. Brilha no escuro.", "O rei nos mandou tecer capas para o exército. Só capas."], [29.6, 37.8], 3.0, "mob_elf_citizen"],
+	"elf_vendor_c": ["Herbanária Nilya", Color(0.5, 0.8, 0.5), ["Folha de prata para febre, raiz-de-sombra para coragem.", "Você não devia estar aqui. Mas compra alguma coisa?"], [37.4, 36.1], 3.0, "mob_elf_citizen_f"],
+	"elf_kid_a": ["Pequeno Thaeo", Color(0.95, 0.75, 0.4), ["Um humano! De verdade! Posso tocar na armadura?", "Meu pai é arqueiro no muro. Ele acerta uma folha a cem passos."], [-25.9, 33.1], 7.0, "mob_elf_citizen"],
+	"elf_kid_b": ["Pequena Ilsa", Color(0.9, 0.55, 0.75), ["Os grifos do Capitão Aerion comem peixe do lago. Eu dou pra eles!", "Shhh, a guarda tá passando."], [-29.6, 37.8], 7.0, "mob_elf_citizen_f"],
+	"elf_gardener": ["Jardineira Saelis", Color(0.6, 0.85, 0.55), ["Cada flor deste jardim foi plantada no dia em que um elfo nasceu.", "O rei mandou cortar as árvores de fora para os fortes. Chorei a semana inteira."], [-43.3, 33.9], 5.0, "mob_elf_citizen_f"],
+	"elf_scribe": ["Escriba Orelien", Color(0.75, 0.7, 0.95), ["Registro cada investida contra os humanos. O livro está ficando grosso.", "A Árvore-Mãe tem três mil anéis. Eu contei duzentos."], [-24.4, -8.9], 4.0, "mob_elf_citizen"],
+	"elf_priestess": ["Sacerdotisa Myrel", Color(0.92, 0.92, 0.98), ["A seiva escolheu o rei. Ou o rei escolheu a seiva? Já não sei.", "Reze baixo perto da porta do tronco: os guardiões não gostam de barulho."], [20.8, 12.0], 4.0, "mob_elf_citizen_f"],
+	"elf_smith": ["Ferreira Thalindra", Color(0.75, 0.5, 0.35), ["Aço élfico se forja frio, com paciência e canção.", "Tudo que eu faço vai para o quartel. Tudo."], [40.5, -29.4], 4.0, "mob_elf_citizen_f"],
+	"elf_recruit": ["Recruta Caelan", Color(0.5, 0.7, 0.55), ["Amanhã é meu primeiro turno no muro. Não conta pro sargento que eu tremo.", "Os capitães moram nos fortes lá fora. A Sylvara corre mais que os linces dela."], [43.2, -15.7], 4.0, "mob_elf_citizen"],
+	"elf_elder": ["Ancião Vaeril", Color(0.85, 0.85, 0.8), ["No meu tempo, humanos e elfos dividiam a Floresta.", "Aelthar era um bom menino antes da seiva."], [-28.2, 10.3], 3.0, "mob_elf_citizen"],
+	"elf_courier": ["Mensageira Aryn", Color(0.55, 0.75, 0.85), ["Recados para os fortes, todo dia, ida e volta.", "Não me atrase, humano."], [40.6, 10.9], [[40.6, 10.9], [21.0, 36.4], [-10.9, 40.6], [-36.4, 21.0], [-40.6, -10.9], [-21.0, -36.4], [10.9, -40.6], [36.4, -21.0]], "mob_elf_citizen_f"],
+	"elf_walker_a": ["Bardo Elrion", Color(0.7, 0.55, 0.85), ["♪ A Árvore canta, o rei escuta, os humanos tremem... ♪", "Você daria um bom vilão para a minha canção."], [27.0, 0.0], [[27.0, 0.0], [19.1, 19.1], [0.0, 27.0], [-19.1, 19.1], [-27.0, 0.0], [-19.1, -19.1], [-0.0, -27.0], [19.1, -19.1]], "mob_elf_citizen"],
+	"elf_walker_b": ["Patrulheira Lúthia", Color(0.4, 0.6, 0.45), ["Folga hoje. Mesmo assim, não tiro o arco das costas.", "Os sargentos fazem a ronda no anel de fora. Eu só passeio."], [-39.5, -14.4], [[-39.5, -14.4], [-17.7, -38.1], [14.4, -39.5], [38.1, -17.7], [39.5, 14.4], [17.7, 38.1], [-14.4, 39.5], [-38.1, 17.7]], "mob_elf_citizen_f"],
+	"elf_baker": ["Padeiro Haldir", Color(0.95, 0.85, 0.6), ["Pão de nozes e mel. Lembas é coisa de outro povo.", "Leva um? É de graça para quem não está brigando."], [13.7, 37.6], 3.0, "mob_elf_citizen"],
+	"elf_carpenter": ["Entalhadora Vanya", Color(0.65, 0.5, 0.35), ["As casas crescem das árvores; eu só convenço os galhos.", "Aquela casa ali levou três verões para ficar pronta."], [-38.1, -22.0], 5.0, "mob_elf_citizen_f"],
 }
 ## Moradores do Posto dos Caçadores (refugiados da Floresta sob cerco), mesmo formato de VILLAGERS.
 const POST_VILLAGERS := {
@@ -541,12 +562,12 @@ static func _forest() -> MapDef:
 ## Cidade Élfica: tools/blender/zones/build_elf_city.py (anel élfico em volta da Árvore-Mãe Ancestral; cerco humano na entrada sul).
 static func _elf_city() -> MapDef:
 	var z := load_zone("elf_city")
-	var extra := _place_npcs("elf_city", z["npc_pos"])
+	var extra := _place_npcs("elf_city", z["npc_pos"]) + villagers(ELF_CITIZENS)
 	z.erase("npc_pos")
 	z.merge({
 		"id": "elf_city", "name": "Cidade Élfica", "is_town": false, "level_range": Vector2i(17, 21),
 		"ground_color": Color(0.42, 0.6, 0.44), "ground_color_alt": Color(0.38, 0.56, 0.41), "ambient": Color(0.82, 0.95, 0.86), "sun_energy": 1.05,
-		"bot_population": 4, "npcs": extra,
+		"bot_population": 5, "npcs": extra,
 	})
 	return _mk(z)
 

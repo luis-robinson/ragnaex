@@ -323,7 +323,30 @@ def _tree_door(s, p, g):
                               "target_map": p["dungeon"], "target_pos": list(DUNGEON_ARRIVE), "label": g["name"]})
 
 
-KINDS = {"cabin": cabin, "camp": camp, "shrine": shrine, "dungeon": dungeon}
+def fort(s, p):
+    """Forte élfico (Cidade Élfica): paliçada de casca com torres e um portão virado para a estrada (`face`),
+    cabanas encostadas no fundo, lanternas no portão. Spawners: o capitão no centro (chefe com escolta,
+    MonsterDef.escort) e os soldados (`guards` = [(monstro, n)]) em volta."""
+    c = Vector(p["pos"])
+    d = direction(p["face"])
+    R = float(p.get("r", 13.0))
+    gate = math.atan2(d.y, d.x)
+    _ground(s, p["id"], p["pos"], R - 0.6, p.get("ground", (0.5, 0.46, 0.34)))
+    s.ring_wall("forte_" + p["id"], tuple(c), R, [gate], gate_half=3.2, height=3.6, thick=1.2, material="bark", stakes=True, towers=4)
+    for q, o in _ring(c, R - 4.6, 3, gate + math.pi - 0.9, 1.8):
+        s.ob("elf_hut", q.x, q.y, (3.6, 4.4, 3.6), _rot(-o), color=(0.86, 0.86, 0.78), roof=p.get("roof", (0.3, 0.56, 0.5)))
+    for k in (-1, 1):
+        side = Vector((-d.y, d.x))
+        q = c + d * (R - 1.6) + side * 4.2 * k
+        s.ob("elf_lantern", q.x, q.y, (0.6, 2.8, 0.6))
+    s.data["spawners"].append({"monster_id": p["captain"], "pos": [c.x, c.y], "radius": 2.0, "count": 1, "respawn": p.get("captain_respawn", 180.0)})
+    for mob, n in p.get("guards", []):
+        s.data["spawners"].append({"monster_id": mob, "pos": [c.x, c.y], "radius": R - 4.0, "count": n, "respawn": 25.0})
+    _trail(s, p["id"], c, c + d * (R + 4.0))
+    s.block(p["pos"], R + 3.0)
+
+
+KINDS = {"fort": fort, "cabin": cabin, "camp": camp, "shrine": shrine, "dungeon": dungeon}
 
 
 def build(s, places):

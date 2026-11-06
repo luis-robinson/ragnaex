@@ -184,6 +184,8 @@ func _apply_toon_recursive(n: Node) -> void:
 				col = base.albedo_color
 			if entity and entity.monster_def:
 				col = monster_tint(entity.monster_def, col, base.resource_name if base else "")
+			elif entity and entity.kind == SimEntity.Kind.NPC and base and base.resource_name.ends_with("_cloth"):
+				col = Color(entity.npc_data.get("color", col))       # cidadão de modelo próprio: roupa na cor dele
 			var tm := Materials.toon_unique(col)
 			if base is BaseMaterial3D and base.albedo_texture:
 				tm.set_shader_parameter("albedo_tex", base.albedo_texture)

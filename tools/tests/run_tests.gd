@@ -651,6 +651,7 @@ func _check_zone(gd, sim) -> void:
 	_check_repeatable_labels(gd)
 	_check_reset_and_coin(gd, sim)
 	_check_escort(gd, sim)
+	_check_elf_city_life(gd, sim)
 	_check_signature(gd, sim)
 	_check_raid_tactics(gd, sim)
 	_check_equipment_slots(gd, sim, save_ref)
@@ -2955,6 +2956,43 @@ func _check_signature(gd, sim) -> void:
 	m["projectiles"].clear()
 	sim.despawn(dummy)
 	sim.despawn(el)
+
+## Cidade Élfica grande e habitada: muro largo, cidadãos neutros com modelo élfico, esquadrões em ronda, 3 fortes com
+## capitães (chefes com escolta) entre o muro e a borda.
+func _check_elf_city_life(gd, sim) -> void:
+	var md: MapDef = gd.maps["elf_city"]
+	check(md.town_radius >= 60.0, "Cidade Élfica: muro com raio %d m (era 44)" % int(md.town_radius))
+	var cits: Array = md.npcs.filter(func(n): return str(n.get("id", "")).begins_with("elf_") and n.get("role", "") == "villager")
+	check(cits.size() >= 14, "Cidade Élfica: %d cidadãos" % cits.size())
+	var m: Dictionary = sim.maps.get("elf_city", {})
+	if m.is_empty():
+		m = sim.load_map(md)
+	for n in cits:
+		var p: Vector3 = n["pos"]
+		check(Vector2(p.x, p.z).length() < md.town_radius and sim.is_walkable(p, md, 0.4), "cidadão %s dentro do muro, em chão livre" % n["id"])
+		check(str(n.get("model", "")).begins_with("mob_elf_citizen"), "cidadão %s com modelo élfico" % n["id"])
+	var someone: SimEntity = null
+	for e in m["entities"]:
+		if e.kind == SimEntity.Kind.NPC and str(e.npc_data.get("id", "")).begins_with("elf_vendor"):
+			someone = e
+	var hero: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Visita", "elf_city", Vector3(0, 0, 40), 20)
+	check(someone != null and not hero.is_hostile_to(someone) and not someone.is_hostile_to(hero), "cidadão élfico é neutro")
+	sim.despawn(hero)
+	var sergeants := md.spawners.filter(func(sp): return sp["monster_id"] == "elf_sergeant")
+	check(sergeants.size() >= 4 and sergeants.all(func(sp): return sp.has("route") and (sp["route"] as Array).size() >= 4), "esquadrões em ronda dentro da cidade (%d)" % sergeants.size())
+	var inside := 0
+	for sp in md.spawners:
+		if Vector2(sp["pos"].x, sp["pos"].z).length() < md.town_radius:
+			var mon: MonsterDef = gd.monsters[sp["monster_id"]]
+			inside += int(sp["count"]) + int(mon.escort.get("count", 0)) * int(sp["count"])
+	check(inside >= 36, "exército dentro do muro: %d soldados" % inside)
+	var forts := md.places.filter(func(pl): return pl["type"] == "fort")
+	check(forts.size() >= 3, "3 fortes élficos (%d)" % forts.size())
+	for cap in ["elf_captain_hunter", "elf_captain_sky", "elf_captain_sap"]:
+		var ok := md.spawners.any(func(sp): return sp["monster_id"] == cap and int(sp["count"]) == 1)
+		var c: MonsterDef = gd.monsters[cap]
+		check(ok and c.is_boss and not c.escort.is_empty(), "%s no forte, chefe com escolta" % cap)
+	check(gd.monsters["elf_captain_hunter"].move_speed >= 7.0 and gd.monsters["elf_captain_hunter"].escort.get("count", 0) >= 5, "Sylvara: a mais rápida, com 5+ bestas")
 
 ## Líder com escolta (capitão e bestas): a escolta nasce em volta dele, acompanha a ronda, entra na briga dele,
 ## e quem cai volta enquanto ele vive.
