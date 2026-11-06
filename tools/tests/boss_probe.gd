@@ -7,7 +7,8 @@ extends Node
 const BOSSES := {"bandit_chief": "field_forest", "crab_king": "city_aldara", "slime_king": "dg_gruta", "spider_queen": "dg_ninho", "crypt_lord": "dg_cripta",
 	"bone_captain": "dg_catacumbas", "wailing_widow": "dg_catacumbas", "count_vargo": "dg_catacumbas_trono",
 	"boar_brute": "city_aldara", "boar_king": "city_aldara", "elf_king": "dg_coracao", "elf_warden": "elf_city", "trent": "elf_city",
-	"golem_ancient": "dg_pedreira", "crystal_warden": "dg_pedreira", "quarry_heart": "dg_pedreira_coracao"}
+	"golem_ancient": "dg_pedreira", "crystal_warden": "dg_pedreira", "quarry_heart": "dg_pedreira_coracao",
+	"elf_captain_hunter": "elf_city", "elf_captain_sky": "elf_city", "elf_captain_sap": "elf_city"}
 const LIMIT := 240.0          # s por luta
 const DT := 1.0 / 20.0
 var _force_class := ""
@@ -51,6 +52,8 @@ func _run(bid: String, mid: String, party: int, trials: int) -> Array:
 		for e in m["entities"].duplicate():
 			Sim.despawn(e)
 		var boss = Sim.spawn_monster(base, mid, at)
+		if not base.escort.is_empty():
+			MobSystem.spawn_escort(Sim, boss, {})          # capitão luta com a escolta, como no forte
 		var bots: Array = []
 		for i in range(party):
 			var cid: String = _force_class if _force_class != "" else classes[(trial * 3 + i * 5) % classes.size()]

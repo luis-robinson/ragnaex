@@ -32,7 +32,7 @@ const LINES := {
 	"hunt_dg_ninho": ["teia em todo canto aqui", "a Rainha pula, sai da frente!!", "poça verde = sai dela", "filhote de aranha por todo lado",
 		"alguém tem antídoto?", "não pisa no veneno kkk"],
 	"hunt_elf_city": ["arqueiro élfico prende o pé, dash pro lado", "os guardiões batem MUITO", "grifo no céu, corre", "trent devagar mas o cipó puxa",
-		"essa cidade é linda pra quem não tá apanhando", "pena de grifo vale bem", "esses elfos nunca dormem?"],
+		"essa cidade é linda pra quem não tá apanhando", "pena de grifo vale bem", "esses elfos nunca dormem?", "a Sylvara corre mais que eu de cavalo", "sargento com três guerreiros, puxa um de cada vez", "a Ilwen cura os trents, mata os espíritos antes"],
 	"hunt_dg_coracao": ["o Rei chama a guarda com 70%", "chuva de flechas: espalha!", "sai de perto quando ele brilhar verde", "segura os grifos, tank!",
 		"seiva da árvore pra glória +6", "quase pegamos o rei"],
 	"hunt_dg_catacumbas": ["o capitão levanta os mortos", "a viúva grita em cone, sai da frente", "carniçal corre rápido demais", "pó de cova pro Bento"],

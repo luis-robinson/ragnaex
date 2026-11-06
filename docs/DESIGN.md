@@ -284,9 +284,17 @@ Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MS
   Sabor: moradores refugiados no Posto (`MapsCatalog.POST_VILLAGERS`) e falas de bot por mapa (`BotsCatalog.LINES["hunt_<mapa>"]`).
 - **Colheita na Cidade Élfica**: Erva Azul no lago, cogumelos sob os trents, Pedra Estelar no Altar da Lua e caixotes de Aço Élfico
   no acampamento da patrulha (guardado).
-- **Cidade Élfica (17-21)** (`build_elf_city.py`): anel élfico (muralha clara r 44, 6 portões) em volta da **Árvore-Mãe Ancestral**
-  (copa alta, acima da câmera), guarnição de guerreiros/arqueiros dentro do muro (hub hostil: `HOSTILE_HUBS` nos testes), ninho dos
-  grifos (NO), bosque dos trents (NE, chão escuro), campo de treino (L), poço da lua (O), riacho com pontes, cerco humano na entrada sul
+- **Cidade Élfica (17-21)** (`build_elf_city.py`): anel élfico (muralha clara r 66, 6 portões) em volta da **Árvore-Mãe Ancestral**
+  (copa alta, acima da câmera), dois anéis de casas (~50), bairros com chão próprio (mercado NE, quartel L, jardim com lago NO) e anel viário.
+  **Exército** (hub hostil: `HOSTILE_HUBS` nos testes): 5 esquadrões de **Sargento Élfico** com 3 guerreiros de escolta fazendo ronda
+  (`route` no spawner), arqueiros nos postos de vigia, guardas nos portões. **16 cidadãos neutros** (`MapsCatalog.ELF_CITIZENS`, modelos
+  `mob_elf_citizen[_f]` tingidos pela cor do NPC) andam e falam. **Escolta** (`MonsterDef.escort {id, count}`, `MobSystem.spawn_escort`):
+  seguidores nascem num anel em volta do líder, seguem a vaga dele (`MonsterBrain._follow_leader`), entram na briga dele e vice-versa,
+  voltam a nascer (`ESCORT_RESPAWN`) enquanto ele vive; são monstros normais (XP/saque). **Fortes** (`places.fort`: paliçada, torres, cabanas)
+  fora do muro com capitães chefes: **Sylvara, a Caçadora Veloz** (N, arqueira de 7 m/s com 5 linces), **Aerion, Senhor dos Grifos** (NO,
+  com 2 grifos) e **Ilwen, Guardiã da Seiva** (L, com 2 trents e espíritos); sozinho nv 20 vence ~45-70%, grupo de 3 ~80-100% (`boss_probe`).
+  Quests dos fortes com Yara/Caelir e a repetível "Patrulhas Élficas" no Altar da Lua (qualquer elfo conta). Ninho dos
+  grifos (NO), bosque dos trents (NE, chão escuro), poço da lua (O), riacho com pontes, cerco humano na entrada sul
   (Batedora Yara), Caelir o exilado, Altar da Lua (caçadas). Uma porta entalhada no tronco da Árvore-Mãe (lado sudeste, de frente para a câmera; `places.DUNGEONS` `style: "tree"`, `places._tree_door`) abre o **Coração da Árvore** (`dg_coracao`, por dentro da árvore: paredes de casca altas, chão de raiz, poças de seiva, `floor`/`decor`/`inner`/`pool` por salão): raízes, seiva,
   trono do **Rei Élfico Aelthar** (Guarda Real aos 70%, raízes + grifos aos 45%, fúria aos 20%; grupo de 3 vence ~80% em ~50 s).
   **Moedas**: Rei solta 4-6 sempre, Guardião 5% de 4 (`MonsterDef.coin_*`). **Glória** (lendário nível 20) aprimora no ferreiro com

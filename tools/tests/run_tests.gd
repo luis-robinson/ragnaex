@@ -5557,7 +5557,7 @@ func _check_raid_scaling(gd, sim) -> void:
 ## Faixa 10-20: chefes com repertório (3+ golpes somando as fases), fala de abertura uma vez por luta e fala ao cair;
 ## capanga do Chefe dos Bandidos sem XP; skills novas existem e estão no tema certo.
 func _check_band_bosses(gd, sim) -> void:
-	for bid in ["bandit_chief", "spider_queen", "elf_king", "count_vargo", "bone_captain", "wailing_widow", "golem_ancient", "crystal_warden", "quarry_heart"]:
+	for bid in ["bandit_chief", "spider_queen", "elf_king", "count_vargo", "bone_captain", "wailing_widow", "golem_ancient", "crystal_warden", "quarry_heart", "elf_captain_hunter", "elf_captain_sky", "elf_captain_sap"]:
 		var md: MonsterDef = gd.monsters[bid]
 		var kit := {}
 		for sid in md.skill_ids:
@@ -5567,7 +5567,7 @@ func _check_band_bosses(gd, sim) -> void:
 				kit[sid] = true
 		for sid in kit:
 			check(gd.skills.has(sid), "%s: skill %s existe" % [bid, sid])
-		if bid in ["bandit_chief", "spider_queen", "elf_king", "count_vargo"]:
+		if bid in ["bandit_chief", "spider_queen", "elf_king", "count_vargo", "elf_captain_hunter", "elf_captain_sky", "elf_captain_sap"]:
 			check(kit.size() >= 4 and md.phases.size() >= 2, "%s: repertório de chefe (%d golpes, %d fases)" % [bid, kit.size(), md.phases.size()])
 		check(md.intro != "" and md.last_words != "", "%s: fala de abertura e de queda" % bid)
 	check(gd.monsters["bandit_thug"].xp == 0 and gd.monsters["bandit_thug"].loot_table == "", "Capanga: lacaio sem XP nem saque")
