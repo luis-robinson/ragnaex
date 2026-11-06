@@ -161,7 +161,10 @@ Bônus: (2) +atributo secundário · (3) +atributo principal (ex. INT +2) · (4)
 (5) +% no stat da build e −% de recarga de outra skill. Os números crescem por tier (`Balance.SET_*`).
 Drop: o lendário cai como **Moeda Lendária** (1 em 100 monstros; chefes 40% e 2 moedas; Reis sempre). **Iara, a Relicária** (praça de Aldara)
 troca moedas por qualquer peça lendária da sua classe (conjuntos das builds, maça do conjunto, escudos nomeados): tier i de
-`LEGENDARY_LEVELS` custa i+1 moedas (nível 5 = 1, nível 10 = 2 ... nível 30 = 6), até o seu nível (`WorldSim.relic_*`).
+`LEGENDARY_LEVELS` custa i+1 moedas (nível 5 = 1, nível 10 = 2 ... nível 30 = 6), até o seu nível (`WorldSim.relic_*`). Ela também vende
+Moeda Lendária por ouro (`Balance.LEGEND_COIN_PRICE` = 500, `ItemSystem.buy_legend_coin`). **Reset das skills** com o Ancião Ravi
+(`Balance.SKILL_RESET_NPC`, `ProgressionSystem.reset_tree`, grátis, segundo clique confirma): a árvore volta ao início com as skills
+iniciais e devolve todos os pontos do nível; os talentos de escolha ficam.
 **Lendário é pessoal**: no grupo cada um que dividiu o abate rola o seu e ele fica preso ao dono por 110 s. O **jogador** no grupo também
 recebe o saque comum pessoal a cada abate dividido (mesmo sem ter batido: suporte ganha); o rodízio fica entre os bots. No chão o jogador só
 vê o que é dele ou o que já ficou livre (`WorldSim.loot_visible_to`).

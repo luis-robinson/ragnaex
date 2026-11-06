@@ -237,6 +237,54 @@ static func tree_allocate(sim: WorldSim, e: SimEntity, node_id: String) -> bool:
 	Events.mastery_changed.emit(e.id, ref, e.mastery_of(ref))
 	return true
 
+## Pontos de skill que o nível dá no total (o reset devolve isto).
+static func points_for_level(level: int) -> int:
+	var n := 0
+	for lv in range(2, level + 1):
+		n += Balance.MASTERY_POINTS_PER_LEVEL + (1 if lv in Balance.MASTERY_BONUS_LEVELS else 0)
+	return n
+
+## Perto do NPC `npc_id` no mapa atual.
+static func near_npc(sim: WorldSim, e: SimEntity, npc_id: String) -> bool:
+	if not sim.maps.has(e.map_id):
+		return false
+	for n in sim.maps[e.map_id]["def"].npcs:
+		if n.get("id", "") == npc_id and Vector2(n["pos"].x, n["pos"].z).distance_to(Vector2(e.position.x, e.position.z)) <= Balance.STATION_RANGE:
+			return true
+	return false
+
+## Reset da árvore (Ancião Ravi): volta ao nó inicial com as skills iniciais, sem evoluções nem maestria, e devolve
+## todos os pontos do nível. Os talentos de escolha ficam (não gastam pontos). A barra guarda só o que ainda conhece.
+static func reset_tree(sim: WorldSim, e: SimEntity) -> bool:
+	if e.class_def == null:
+		return false
+	if not near_npc(sim, e, Balance.SKILL_RESET_NPC):
+		if e == sim.player:
+			Events.notification.emit("Fale com o Ancião Ravi, na praça de Aldara, para resetar as skills")
+		return false
+	var tr := tree_of(sim, e)
+	var keep := {tr["start"]: true}
+	for nid in e.tree:
+		if tr["nodes"].has(nid) and tr["nodes"][nid]["kind"] == "pick":
+			keep[nid] = true
+	e.learned = {}
+	for sid in e.class_def.starting_skills:
+		keep["%s_s_%s" % [e.class_def.id, sid]] = true
+		e.learned[sid] = true
+	e.tree = keep
+	e.talents = {}
+	e.mastery = {}
+	e.mastery_points = points_for_level(e.level)
+	e.ensure_slots()
+	for i in range(e.skills.size()):
+		if e.skills[i] and not e.learned.has(e.skills[i].id):
+			e.skills[i] = null
+	recompute_tree_bonus(sim, e)
+	Events.mastery_changed.emit(e.id, "", 0)
+	if e == sim.player:
+		Events.notification.emit("Skills resetadas: %d pontos para distribuir (tecla K)" % e.mastery_points)
+	return true
+
 ## Soma os passivos comprados (chamar ao carregar o save).
 static func recompute_tree_bonus(sim: WorldSim, e: SimEntity) -> void:
 	e.tree_bonus = {}

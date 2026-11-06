@@ -1524,6 +1524,10 @@ func use_bag_upgrade(e: SimEntity, item_id: String) -> bool:
 	return ItemSystem.use_bag_upgrade(self, e, item_id)
 func roll_legendary(killer: SimEntity, mob: SimEntity) -> String:
 	return ItemSystem.roll_legendary(self, killer, mob)
+func buy_legend_coin(e: SimEntity, count: int = 1) -> bool:
+	return ItemSystem.buy_legend_coin(self, e, count)
+func reset_tree(e: SimEntity) -> bool:
+	return ProgressionSystem.reset_tree(self, e)
 func relic_offer(e: SimEntity) -> Array:
 	return ItemSystem.relic_offer(self, e)
 func relic_cost(it: ItemDef) -> int:

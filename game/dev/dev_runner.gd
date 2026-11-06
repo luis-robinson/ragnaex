@@ -134,6 +134,9 @@ func after_start() -> void:
 	if DevArgs.flag("--sig_film"):      # --sig_film=<png>: cada build da classe segurando o ataque num boneco, assinatura forçada (uma linha por build)
 		_smoke_test = false
 		_sig_film(DevArgs.value("--sig_film"))
+	if DevArgs.flag("--npc_shot"):      # --npc_shot=<png> --npc=<id> [--level=N] [--gold=N]: diálogo do NPC aberto
+		_smoke_test = false
+		_npc_shot(DevArgs.value("--npc_shot"), DevArgs.value("--npc", "elder"))
 	if DevArgs.flag("--repeat_shot"):   # --repeat_shot=<png>: quest repetível no diálogo do quadro (_dialogo), no rastreador e na janela L (_janela)
 		_smoke_test = false
 		_repeat_shot(DevArgs.value("--repeat_shot"))
@@ -220,6 +223,23 @@ func _sig_film(path: String) -> void:
 	sheet.resize(sheet.get_width() / 2, sheet.get_height() / 2)
 	sheet.save_png(path)
 	print("SIG_FILM %s builds=%d" % [path, rows.size()])
+	get_tree().quit()
+
+func _npc_shot(path: String, npc_id: String) -> void:
+	var p: SimEntity = Sim.player
+	p.brain = null
+	if DevArgs.flag("--level"):
+		p.level = int(DevArgs.value("--level"))
+	p.gold = int(DevArgs.value("--gold", str(p.gold)))
+	for e in Sim.map_entities(p.map_id):
+		if e.kind == SimEntity.Kind.NPC and e.npc_data.get("id", "") == npc_id:
+			p.position = e.position + Vector3(0, 0, 1.6)
+	await get_tree().create_timer(1.2).timeout
+	Events.dialog_requested.emit(npc_id)
+	await get_tree().create_timer(0.8).timeout
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(path)
+	print("NPC_SHOT " + path)
 	get_tree().quit()
 
 func _repeat_shot(path: String) -> void:

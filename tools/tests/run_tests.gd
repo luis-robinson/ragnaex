@@ -648,6 +648,7 @@ func _check_zone(gd, sim) -> void:
 	_check_quarry(gd, sim)
 	_check_map_models(gd)
 	_check_repeatable_labels(gd)
+	_check_reset_and_coin(gd, sim)
 	_check_signature(gd, sim)
 	_check_raid_tactics(gd, sim)
 	_check_equipment_slots(gd, sim, save_ref)
@@ -2952,6 +2953,43 @@ func _check_signature(gd, sim) -> void:
 	m["projectiles"].clear()
 	sim.despawn(dummy)
 	sim.despawn(el)
+
+## Reset das skills no Ancião Ravi (devolve todos os pontos do nível, mantém os talentos de escolha) e Moeda Lendária
+## à venda na Relicária por ouro.
+func _check_reset_and_coin(gd, sim) -> void:
+	var town: MapDef = gd.maps["city_aldara"]
+	var at := func(nid: String) -> Vector3:
+		for n in town.npcs:
+			if n.get("id", "") == nid:
+				return n["pos"] + Vector3(1.2, 0, 0)
+		return Vector3.ZERO
+	var e: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Reset", "city_aldara", Vector3(40, 0, 40), 20)
+	e.brain = null
+	var total := ProgressionSystem.points_for_level(20)
+	check(e.mastery_points < total or e.tree.size() > 1, "bot de nível 20 gastou pontos")
+	var picks := 0
+	for nid in ProgressionSystem.tree_of(sim, e)["nodes"]:
+		if ProgressionSystem.tree_of(sim, e)["nodes"][nid]["kind"] == "pick" and int(ProgressionSystem.tree_of(sim, e)["nodes"][nid]["level"]) <= 20 and str(nid).ends_with("_0"):
+			e.tree[nid] = true
+			picks += 1
+	check(not sim.reset_tree(e), "longe do Ancião não reseta")
+	e.position = at.call("elder")
+	check(sim.reset_tree(e), "perto do Ancião reseta")
+	check(e.mastery_points == total, "reset devolve todos os pontos do nível (%d/%d)" % [e.mastery_points, total])
+	check(e.talents.is_empty() and e.mastery.is_empty(), "sem evoluções nem maestria depois do reset")
+	check(e.learned.keys().all(func(sid): return sid in e.class_def.starting_skills), "só as skills iniciais ficam aprendidas")
+	var kept := e.tree.keys().filter(func(nid): return ProgressionSystem.tree_of(sim, e)["nodes"][nid]["kind"] == "pick").size()
+	check(kept == picks, "talentos de escolha ficam (%d/%d)" % [kept, picks])
+	check(e.skills.all(func(s): return s == null or e.learned.has(s.id)), "barra só com o que ainda conhece")
+	# moeda lendária
+	e.gold = 1200
+	var c0 := int(e.inventory.get("legend_coin", 0))
+	check(not sim.buy_legend_coin(e), "longe da Relicária não compra moeda")
+	e.position = at.call("relic")
+	check(sim.buy_legend_coin(e) and e.gold == 1200 - Balance.LEGEND_COIN_PRICE and int(e.inventory.get("legend_coin", 0)) == c0 + 1, "compra 1 Moeda Lendária por %d de ouro" % Balance.LEGEND_COIN_PRICE)
+	e.gold = Balance.LEGEND_COIN_PRICE - 1
+	check(not sim.buy_legend_coin(e) and int(e.inventory.get("legend_coin", 0)) == c0 + 1, "sem ouro suficiente não compra")
+	sim.despawn(e)
 
 ## Quest repetível diz que é repetível (diálogo, rastreador, janela L e aviso de conclusão usam estes textos).
 func _check_repeatable_labels(gd) -> void:

@@ -101,6 +101,12 @@ func _relic(body: VBoxContainer) -> void:
 	var p: SimEntity = Sim.player
 	var coins := int(p.inventory.get("legend_coin", 0))
 	body.add_child(UiKit.label("✦ Moedas lendárias: %d" % coins, 16, Color(1.0, 0.65, 0.2)))
+	var buy := HBoxContainer.new()
+	body.add_child(buy)
+	var bb := UiKit.button("Comprar 1 moeda (%d ouro)" % Balance.LEGEND_COIN_PRICE, _on_buy_coin, 230)
+	bb.disabled = p.gold < Balance.LEGEND_COIN_PRICE
+	buy.add_child(bb)
+	buy.add_child(UiKit.label("   Seu ouro: %d" % p.gold, 13, UiKit.GOLD))
 	var by_lv := {}
 	for iid in Sim.relic_offer(p):
 		var it: ItemDef = GameData.items[iid]
@@ -124,6 +130,17 @@ func _relic(body: VBoxContainer) -> void:
 			_tip(cell, func(): return UiKit.item_tooltip(it) + "\n" + hint)
 			cell.gui_input.connect(_on_relic_click.bind(it.id))
 			grid.add_child(cell)
+
+func _on_buy_coin() -> void:
+	if Sim.buy_legend_coin(Sim.player):
+		_rebuild()
+
+func _on_reset_pressed(b: Button) -> void:
+	if b.text != "Confirmar reset?":
+		b.text = "Confirmar reset?"
+		return
+	if Sim.reset_tree(Sim.player):
+		_rebuild()
 
 ## Dica ao passar o mouse: texto pronto ou Callable que monta o texto na hora.
 func _tip(c: Control, tip: Variant) -> void:
@@ -236,6 +253,13 @@ func _dialog(body: VBoxContainer) -> void:
 	body.add_child(UiKit.hsep())
 	var actions := HBoxContainer.new()
 	body.add_child(actions)
+	if npc_id == Balance.SKILL_RESET_NPC:      # reset das skills: segundo clique confirma
+		var note := UiKit.para("Posso apagar o que você aprendeu: a árvore volta ao início e todos os %d pontos voltam para você distribuir de novo (os talentos de escolha ficam)." % ProgressionSystem.points_for_level(p.level), 12, UiKit.MUTED)
+		body.add_child(note)
+		body.move_child(note, actions.get_index())
+		var rb := UiKit.button("Resetar skills", func(): pass, 160)
+		rb.pressed.connect(_on_reset_pressed.bind(rb))
+		actions.add_child(rb)
 	match role:
 		"merchant":
 			actions.add_child(UiKit.button("Abrir loja", func(): mode = "shop"; _rebuild(), 140))
@@ -248,6 +272,9 @@ func _dialog(body: VBoxContainer) -> void:
 			actions.add_child(UiKit.button("Abrir o depósito", func(): mode = "storage"; _rebuild(), 160))
 		"relic":
 			actions.add_child(UiKit.button("Trocar moedas lendárias", func(): mode = "relic"; _rebuild(), 200))
+			var bc := UiKit.button("Comprar moeda (%d ouro)" % Balance.LEGEND_COIN_PRICE, _on_buy_coin, 200)
+			bc.disabled = p.gold < Balance.LEGEND_COIN_PRICE
+			actions.add_child(bc)
 		"crystal":
 			var bound: bool = p.bind_map == p.map_id
 			if bound:

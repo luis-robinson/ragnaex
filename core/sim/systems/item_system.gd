@@ -118,6 +118,21 @@ static func relic_block_reason(sim: WorldSim, e: SimEntity, item_id: String) -> 
 		return "faltam moedas (%d)" % cost
 	return ""
 
+## Relicária vende Moeda Lendária por ouro (Balance.LEGEND_COIN_PRICE).
+static func buy_legend_coin(sim: WorldSim, e: SimEntity, count: int = 1) -> bool:
+	var why := ""
+	if not near_station(sim, e, "relic"):
+		why = "fale com a Relicária"
+	elif e.gold < Balance.LEGEND_COIN_PRICE * count:
+		why = "faltam %d de ouro" % (Balance.LEGEND_COIN_PRICE * count - e.gold)
+	if why != "":
+		if e == sim.player:
+			Events.notification.emit("Relicária: " + why)
+		return false
+	e.gold -= Balance.LEGEND_COIN_PRICE * count
+	e.add_item("legend_coin", count)
+	return true
+
 static func relic_exchange(sim: WorldSim, e: SimEntity, item_id: String) -> bool:
 	var why := relic_block_reason(sim, e, item_id)
 	if why != "":

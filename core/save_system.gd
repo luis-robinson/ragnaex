@@ -29,10 +29,7 @@ static func _fix_class_weapons(p: SimEntity) -> void:
 		Events.notification.emit("Sua classe mudou de arma: a antiga foi para a bolsa.")
 
 static func points_for_level(level: int) -> int:
-	var n := 0
-	for lv in range(2, level + 1):
-		n += Balance.MASTERY_POINTS_PER_LEVEL + (1 if lv in Balance.MASTERY_BONUS_LEVELS else 0)
-	return n
+	return ProgressionSystem.points_for_level(level)
 
 func _ready() -> void:
 	if FileAccess.file_exists(PATH) and not FileAccess.file_exists(path_of(0)):
