@@ -508,6 +508,20 @@ func _perf_run() -> void:
 	if DevArgs.flag("--perf_at") and Sim.player:      # medir num ponto do mapa (ex.: --perf_at=80,14)
 		var xz := DevArgs.value("--perf_at").split(",")
 		Sim.player.position = Vector3(float(xz[0]), 0, float(xz[1]))
+	if DevArgs.flag("--perf_raid") and Sim.player:    # pior caso da investida: --perf_raid=<retomadas>, leva do norte na muralha + surtida
+		var m: Dictionary = Sim.maps[Sim.player.map_id]
+		var def: MapDef = m["def"]
+		RaidSystem.state(m)["force_reclaimed"] = int(DevArgs.value("--perf_raid"))
+		var ri := 0
+		for i in RaidSystem.routes(def).size():
+			if RaidSystem.route_def(def, i).get("side", "") == "bones":
+				ri = i
+		var ids := RaidSystem.start_raid(Sim, m, ri)
+		var gate := RaidSystem.gate_point(def, ri)
+		for id in ids:
+			Sim.entities[id].position = Sim.random_walkable(def, gate * 1.25, 8.0)
+		Sim.player.position = gate * 0.9
+		print("PERF raid=%d invasores" % ids.size())
 	await get_tree().create_timer(2.5).timeout
 	Sim.profile = true
 	Sim.prof.clear()

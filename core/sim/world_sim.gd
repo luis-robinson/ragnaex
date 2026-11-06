@@ -367,7 +367,10 @@ func tick(dt: float) -> void:
 			mdt = dt * away_every
 		var m: Dictionary = maps[map_id]
 		var ents: Array = m["entities"]
+		var it := Time.get_ticks_usec() if profile else 0
 		_index_map(m)                       # grade de vizinhos + lista de personagens (separação e alvo dos monstros)
+		if profile:
+			_prof("index_map", it)
 		var pt := Time.get_ticks_usec() if profile else 0
 		var map_t := pt
 		# 1) comandos (jogador + cérebros)
@@ -381,9 +384,10 @@ func tick(dt: float) -> void:
 				if e.kind == SimEntity.Kind.MONSTER and _dormant(e, m):
 					continue
 				# cérebros pensam a 20 Hz (escalonados por id); entre pensamentos repetem o movimento
-				if (tick_count + e.id) % AI_EVERY == 0 or e.brain_cmd == null:
+				var every := AI_EVERY * 2 if (e.raid_id >= 0 or e.guard) else AI_EVERY      # horda e guarnição: 10 Hz (batalha grande)
+				if (tick_count + e.id) % every == 0 or e.brain_cmd == null:
 					var bt := Time.get_ticks_usec() if profile else 0
-					cmd = e.brain.think(e, self, m, mdt * AI_EVERY)
+					cmd = e.brain.think(e, self, m, mdt * every)
 					if profile:
 						_prof("think_" + ("bot" if e.kind == SimEntity.Kind.BOT else "mob"), bt)
 					e.brain_cmd = cmd

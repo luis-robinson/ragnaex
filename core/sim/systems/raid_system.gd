@@ -108,7 +108,7 @@ static func start_raid(sim: WorldSim, m: Dictionary, i: int = 0) -> Array:
 	var top := 0
 	for mobs in groups:
 		for mid in mobs:
-			var mdef: MonsterDef = scaled_def(sim, GameData.monsters.get(mid), step + k * Balance.RAID_RECLAIM_STEPS)     # desespero: mais fortes a cada retomada
+			var mdef: MonsterDef = scaled_def(sim, GameData.monsters.get(mid), step)
 			if mdef == null:
 				continue
 			top = maxi(top, mdef.level)

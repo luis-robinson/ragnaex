@@ -122,7 +122,7 @@ func _build_model() -> void:
 					anim.get_animation(a).loop_mode = Animation.LOOP_LINEAR
 		_apply_toon_recursive(inst)
 		_find_stance_weapons(inst)
-		if RigidMerge.merge(inst, model_name) == null and entity.kind != SimEntity.Kind.NPC:  # peças rígidas -> 1 malha (draw calls); malha guardada por modelo
+		if RigidMerge.merge(inst, model_name) == null and (entity.kind != SimEntity.Kind.NPC or entity.guard):  # peças rígidas -> 1 malha (draw calls); guarnição da Aurora também
 			RigidMerge.merge_skinned(inst, model_name)     # humanoide do kit (elfos, bandidos): peças com pele -> 1 malha por material
 		model_root.scale = Vector3.ONE * _base_scale
 		return

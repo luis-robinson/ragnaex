@@ -125,6 +125,10 @@ func _on_damage(attacker_id: int, target_id: int, amount: int, crit: bool, block
 	var t: SimEntity = Sim.get_entity(target_id)
 	if t == null or t.map_id != main.current_map_id:
 		return
+	if not _mine(attacker_id) and not _mine(target_id):
+		# briga dos outros (guarnição x investida): número só de perto e por amostra, senão a batalha grande trava o quadro
+		if Sim.player == null or t.position.distance_to(Sim.player.position) > 16.0 or randf() > 0.25:
+			return
 	var col := Color(1, 0.95, 0.85)
 	if kind == "magical":
 		col = Color(0.7, 0.8, 1)
@@ -161,6 +165,18 @@ func _on_damage(attacker_id: int, target_id: int, amount: int, crit: bool, block
 	# flash na câmera quando o jogador leva dano forte
 	if t == Sim.player and amount > t.stats.max_hp * 0.12:
 		camera.add_shake(0.12)
+
+## Do jogador ou do grupo dele (e as invocações deles): o que sempre mostra número.
+func _mine(id: int) -> bool:
+	var p: SimEntity = Sim.player
+	if p == null:
+		return false
+	var e: SimEntity = Sim.get_entity(id)
+	if e == null:
+		return false
+	if e == p or e.owner_id == p.id:
+		return true
+	return p.party_id >= 0 and e.party_id == p.party_id
 
 func _on_heal(_src: int, target_id: int, amount: int) -> void:
 	var t: SimEntity = Sim.get_entity(target_id)
@@ -563,16 +579,36 @@ func _beam(origin: Vector3, aim: Vector3, length: float, color: Color, duration:
 	tw.chain().tween_callback(mi.queue_free)
 
 # ---------------------------------------------------------------------------
+## Malhas dos projéteis guardadas (uma por raio / a flecha): a batalha grande soltava centenas de malhas novas por segundo.
+static var _sphere_cache := {}
+static var _arrow_cache: Array = []
+
+static func _proj_sphere(r: float) -> SphereMesh:
+	var key := snappedf(r, 0.05)
+	if not _sphere_cache.has(key):
+		var sm := SphereMesh.new()
+		sm.radius = key
+		sm.height = key * 2.0
+		sm.radial_segments = 8
+		sm.rings = 4
+		_sphere_cache[key] = sm
+	return _sphere_cache[key]
+
+static func _arrow_meshes() -> Array:
+	if _arrow_cache.is_empty():
+		var shaft := BoxMesh.new()
+		shaft.size = Vector3(0.06, 0.06, 0.9)
+		var tipm := PrismMesh.new()
+		tipm.size = Vector3(0.14, 0.2, 0.06)
+		_arrow_cache = [shaft, tipm]
+	return _arrow_cache
+
 func _on_projectile(p: SimProjectile) -> void:
 	if p.map_id != main.current_map_id:
 		return
 	var n := Node3D.new()
 	var mi := MeshInstance3D.new()
-	var sm := SphereMesh.new()
-	sm.radius = maxf(p.radius * 0.6, 0.15)
-	sm.height = sm.radius * 2.0
-	sm.radial_segments = 8
-	sm.rings = 4
+	var sm := _proj_sphere(maxf(p.radius * 0.6, 0.15))
 	mi.mesh = sm
 	var th := theme_of(p.skill) if p.skill else ""
 	if th == "physical" and p.skill and p.skill.vfx == "":
@@ -585,14 +621,10 @@ func _on_projectile(p: SimProjectile) -> void:
 	var bow_shot: bool = owner != null and owner.stats != null and owner.stats.weapon_type == "bow" and p.skill != null and p.skill.id.begins_with("basic_")
 	if th in ["physical", "blood", "earth", "bone"] or bow_shot or (owner and owner.stats and owner.stats.weapon_type == "bow" and th in ["", "physical"]):
 		if owner and owner.stats and owner.stats.weapon_type == "bow":
-			var shaft := BoxMesh.new()
-			shaft.size = Vector3(0.06, 0.06, 0.9)
-			mi.mesh = shaft
+			mi.mesh = _arrow_meshes()[0]
 			mi.material_override = Materials.toon(Color(0.55, 0.4, 0.25), false)
 			var tip := MeshInstance3D.new()
-			var tipm := PrismMesh.new()
-			tipm.size = Vector3(0.14, 0.2, 0.06)
-			tip.mesh = tipm
+			tip.mesh = _arrow_meshes()[1]
 			tip.rotation.x = PI * 0.5
 			tip.position.z = 0.5
 			tip.material_override = Materials.toon(Color(0.85, 0.85, 0.9), false)

@@ -232,9 +232,8 @@ const GUARD_RESPAWN := 65.0                # s até a sentinela caída voltar ao
 const GUARD_REGEN_MULT := 3.0              # regenera mais rápido que personagem fora de combate
 const GUARD_PATROL_PACE := 0.42            # fração da velocidade na ronda
 const RAID_RECLAIM_MULT := 1.5           # cada fortaleza retomada (rota calada por `unless`) multiplica as levas dos fronts que sobram
-const RAID_RECLAIM_STEPS := 2              # desespero: cada fortaleza retomada = +2 passos de força (nível, vida, ataque) nos invasores
 const RAID_RECLAIM_EVERY := 0.8             # ... e as levas voltam 20% mais rápido
-const RAID_WAVE_CAP := 90                   # teto de invasores por leva (FPS)
+const RAID_WAVE_CAP := 50                   # teto de invasores por leva (FPS)
 const RAID_SORTIE_COOLDOWN := 180.0         # s entre surtidas da catedral (MapDef.sortie)
 const RAID_SORTIE_LINGER := 40.0            # s que a surtida leva para voltar e sumir depois da leva
 const RAID_MUSTER := 12.0                  # s que a leva espera na garganta (trompas) antes de descer

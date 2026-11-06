@@ -228,11 +228,7 @@ func _raid_target(e: SimEntity, sim, m: Dictionary, cur: SimEntity, dt: float) -
 			s += (1.0 - o.hp / o.stats.max_hp) * 8.0      # ferido: termina o serviço
 		if o.class_def and (o.class_def.id == "bishop" or o.build_id == "xama"):
 			s += 6.0                                     # quem cura cai primeiro
-		var isolated := true
-		for f in chars:
-			if f != o and f.is_alive() and o.is_friend(f) and f.position.distance_to(o.position) < 5.0:
-				isolated = false
-				break
+		var isolated := _isolated(o, m)
 		if isolated:
 			s += 3.0
 		if o == cur:
@@ -246,6 +242,21 @@ func _raid_target(e: SimEntity, sim, m: Dictionary, cur: SimEntity, dt: float) -
 	elif cur == null:
 		e.aggro_target = -1
 	return best if best else cur
+
+## Ninguém amigo a menos de 5 m (só nas células vizinhas da grade de separação: era um laço em todos os personagens por candidato).
+static func _isolated(o: SimEntity, m: Dictionary) -> bool:
+	var grid: Dictionary = m.get("sep_grid", {})
+	var cx := floori(o.position.x / 3.0)
+	var cz := floori(o.position.z / 3.0)
+	for dx in range(-2, 3):
+		for dz in range(-2, 3):
+			var cell = grid.get(Vector2i(cx + dx, cz + dz))
+			if cell == null:
+				continue
+			for f in cell:
+				if f != o and f.kind != SimEntity.Kind.MONSTER and f.is_alive() and o.is_friend(f) and f.position.distance_to(o.position) < 5.0:
+					return false
+	return true
 
 ## Alvo da invocação, nesta ordem: quem bate no dono, quem o dono está atacando, quem bate na invocação,
 ## o monstro mais perto do dono. Nada longe do dono (coleira): dono se afastou, larga a briga e volta.

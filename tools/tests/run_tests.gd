@@ -3137,7 +3137,7 @@ func _check_dawn_relief(gd) -> void:
 		for id in ids:
 			ws.despawn(ws.entities.get(id))
 		RaidSystem.state(m, bones)["ids"] = []
-	check(sizes[0] == 25 and sizes[1] >= 38 and sizes[1] <= 41 and sizes[2] >= 56 and sizes[2] <= Balance.RAID_WAVE_CAP, "fúria: leva dos Ossos 25 -> ~38 -> ~56 com elites %s" % str(sizes))
+	check(sizes[0] == 25 and sizes[1] >= 38 and sizes[1] <= 41 and sizes[2] > sizes[1] and sizes[2] <= Balance.RAID_WAVE_CAP + 6, "fúria: leva dos Ossos 25 -> ~38 -> teto com elites %s" % str(sizes))
 	RaidSystem.state(m)["force_reclaimed"] = 5
 	var big := RaidSystem.start_raid(ws, m, bones)
 	check(big.size() <= Balance.RAID_WAVE_CAP + 6, "fúria: teto da leva (%d)" % big.size())
