@@ -1308,11 +1308,13 @@ func _action_clip(s: SkillDef) -> String:
 		if s.target == SkillDef.Target.SELF:
 			return "atk_spin"
 		if s.target == SkillDef.Target.GROUND and w not in ["bow", "rifle"]:
-			return "atk_leap" if w in TWO_HANDED_MELEE else "cast_ground"
+			return "atk_leap" if w in TWO_HANDED_MELEE or w == "spear" else "cast_ground"
 	if w == "bow":
 		return "atk_bow"
 	if w == "rifle":
 		return "atk_rifle"
+	if w == "spear":
+		return "atk_thrust"            # lança: estocada (o básico é uma linha longa e estreita)
 	if w == "axe2h":
 		return "atk_sweep"             # machado de duas mãos: talho largo de lado a lado (o golpe básico pega 150°)
 	if w in TWO_HANDED_MELEE:

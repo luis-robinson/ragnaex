@@ -48,7 +48,7 @@ Cada classe tem **20+ skills** (`skills_catalog.gd`), mas só **6 vão na barra*
 | Berserker | Armas Gêmeas (2 machadinhas) · Executor (machado 2M) · Arremessador (2 machadinhas de arremesso, sangramento à meia distância) |
 | Bispo | Sacerdote (maça + escudo; cura em grupo) · Iluminado (cetro 2M, dano sagrado) · Clérigo de Batalha (maça + escudo, placa; golpes que curam) |
 | Druida | Guardião da Floresta (martelo 2M, tank) · Fera Selvagem (2 maças) · Xamã (varinha + orbe, magia) |
-| Ranger | Caçador (arco + lince companheiro) · Atirador (mosquete + armadilhas) · Patrulheiro (arco veloz: armadilhas, lentidão e marca na presa) |
+| Ranger | Caçador (arco + lince companheiro) · Atirador (mosquete + armadilhas) · Lanceiro (lança: caça de perto, salto, dardos, sangramento) |
 | Assassino | Lâminas (2 adagas: veneno, esquiva, furtividade, pelas costas, ataque muito rápido) · Duelista (2 espadas, equilibrado) · Trapaceiro (espada + adaga de aparar: fumaça, estrepes, controle) |
 | Elementalista | Foco em Fogo · Gelo · Raio, todos de cajado (os ramos se misturam; conjuntos favorecem um elemento ou uma combinação) |
 | Necromancer | Invocador · Ceifador · Sombras, todos de foice (focos que se misturam) |
@@ -89,17 +89,26 @@ viram o golpe do bicho (`SkillsCatalog.FORM_MODS`, aplicado em `WorldSim.resolve
 desfaz a forma. **Espreitar** (só lobo): furtivo por 8 s (monstros não acham nem mantêm o alvo); o golpe que quebra vira emboscada (+60%).
 Visual: `form_<wolf|bear>.glb` (`druid_sets.build_forms`) com a armadura de animal de cada conjunto (`FormModel`).
 
-**Ranger** (sem corpo a corpo, isso é do Assassino): **Caçador** (arco) com **companheiro** permanente (lince; `ran_companion` invoca
+**Ranger**: **Caçador** (arco) com **companheiro** permanente (lince; `ran_companion` invoca
 uma vez, fica até cair; vida/ataque/defesa são parte das do dono, `Balance.PET_*`, mais `pet_pct`), Ataque da Fera (o lince salta no
 alvo e atordoa) e Instinto da Matilha (buff em você e nele). **Atirador**: **mosquete** de duas mãos (`rifle`: básico 1,8x mais lento e
 1,9x mais forte, alcance maior, clipe `atk_rifle`) e **armadilhas no chão** (`trap` em `TrapSystem.place_trap/update_traps`: armam em
 0,6 s, disparam quando um inimigo pisa, no máximo 3 por ranger, somem em 30 s; mandíbula prende, mina explode, gelo retarda).
-**Patrulheiro** (terceira build, arco sem bicho, `aspd_pct` no conjunto de 5 e `speed_pct` no de 3): mistura as duas pela mobilidade e
-pelo controle: Estrepes (área que retarda; assinatura), Salto Ligeiro (salto para onde mira + crítico e velocidade), Marca da Presa
-(maldição: o alvo recebe +20% de dano), Rede e Armadilha de Gelo (no setor dele), Flecha do Vendaval (ultimate de vento que atravessa a fila).
-Armadilha de Mandíbula, Armadilha de Gelo e Marca do Caçador aceitam arco ou mosquete. Arma lendária **Presa Acuada** (`prey`): +dano em
-alvo retardado, preso ou atordoado (`Combat.is_chilled`). Visual: chapéu de aba larga ou capuz fundo com máscara, capinha recortada nos
-ombros, aljava no quadril, faixas nas canelas, arcos curtos de pontas em meia-lua e fitas (`ranger_sets.RAN_SETS`/`RAN_BOWS` `ran_p*`).
+**Lanceiro** (terceira build, substituiu o Patrulheiro de arco): caçador de feras que luta de perto com a **lança** (`spear`, duas mãos).
+Básico = estocada em linha de `Balance.SPEAR_REACH` (3,3 m; espada ~1,9, montante ~2,7, arco 13), cone estreito (`SPEAR_ARC_DEG` 40°)
+que atravessa até 3 (`SPEAR_MAX_TARGETS`), um pouco mais lenta e forte que o arco; clipe `atk_thrust`. ATK da lança: AGI x1,6 + FOR x1,0
+(`PATK_PER_*_SPEAR`; o arco é AGI x2,2). Skills (todas exigem lança): Estocada Dupla (linha, sangra), Dardo de Caça (tira um dardo do cinto,
+retarda; assinatura), Salto do Predador (salta no cursor e prende), Lança Giratória (giro que retarda), Armadilha Lançada (mandíbula
+arremessada que prende e sangra na hora), Marca do Predador (maldição +18% de dano recebido, sangra), Instinto do Predador (velocidade,
+crítico e roubo de vida), Empalar (avanço que atravessa a fila, atordoa e sangra). Divide com o Atirador a Armadilha de Mandíbula e a
+Marca do Caçador (arco, mosquete ou lança). **Sangramento** = `dot` com `atk_pct` (% do ATK por segundo, renova). Arma lendária
+**Ferida Aberta** (`open_wound`): cada golpe abre uma ferida no alvo (até 5, somem em `LEG_WOUND_TIME`), +2,4..4,8% do seu dano nele por
+ferida; com as 5 abertas ele sangra. Árvore: ATK e vida; conjunto de 3 dá vida. Visual (`ranger_sets.LAN_SETS`/`RAN_SPEARS` `ran_l*`):
+cabeça de bicho (javali, crânio de lobo, juba de leão, serpe, corvo, crânio chifrudo), gola de pelo, troféu no ombro esquerdo, dardos nas
+costas; lanças de presa, folha, louro, ondulada, farpada e de asas. Save antigo do Patrulheiro: a armadura vira a do Lanceiro do mesmo
+nível e o arco vira o do Caçador (`GameData.migrate_item_id`); a teia volta com os pontos. Rede voltou ao Caçador e a Armadilha de Gelo ao Atirador.
+Bot do Lanceiro: `BotBrain` decide corpo a corpo pela classe (`basic_attack_is_ranged`), então ele se aproxima até ~75% da estocada e recua
+se o alvo encosta (a 40% do alcance); funciona (boss_probe 23/40). Melhor seria o cérebro olhar a arma (`stats.is_ranged_weapon`).
 
 **Assassino**: **Lâminas** (duas adagas, `aspd_pct`): Lâmina Pestilenta envenena as lâminas (`hit_poison`: todo golpe físico aplica
 um veneno que renova, não acumula, `Balance.HIT_POISON_TIME`), **esquiva** (`evasion`, teto `Balance.EVASION_CAP`; golpe direto
@@ -220,8 +229,8 @@ Nível 30 só cai do Dragonete. Raridades: comum, incomum, raro, épico, **lend�
 - Necromantes: a força vinha da sustentação da classe (Drenar Vida 40% a cada 2,5 s, Muralha de Ossos), não das invocações
   (sem invocação nenhuma o Invocador ainda vencia 31/32, só mais devagar). Dreno 20% a cada 5 s, Muralha 24 s, invocações 45% do MATK.
 - Fim de 2026-11-07 (vitórias de 40): Carniceiro 36, Inquisidor 34, Pestilento 34, Clérigo 33, Ceifador 32, Invocador 32, Cruzado 30,
-  Xamã 29, Templário 28, Arremessador 26, Duelista 25, Caçador 23, Fogo 22, Guardião 21, Gelo 20, Fera 19, Executor 18, Trapaceiro 18,
-  Patrulheiro 18, Raio 17, Sacerdote 17, Guardião Verde 16, Atirador 16, Lâminas 14. Próximo: Carniceiro e o grupo de 32+ para baixo.
+  Xamã 29, Templário 28, Arremessador 26, Duelista 25, Caçador 23, Lanceiro 23 (2026-11-07, substituiu o Patrulheiro), Fogo 22, Guardião 21, Gelo 20, Fera 19, Executor 18, Trapaceiro 18,
+  Raio 17, Sacerdote 17, Guardião Verde 16, Atirador 16, Lâminas 14. Próximo: Carniceiro e o grupo de 32+ para baixo.
 
 ## Progressão (lenta)
 Lv 1-30. XP = 150 × 1.28^(lv−1): ~15 kills por nível no começo, ~500 perto do 30 (~3800 kills no total).
@@ -564,7 +573,7 @@ Guardião Retaliação (devolve corpo a corpo) · Cruzado Julgamento (chance de 
 Executor Carrasco (+dano em alvo < 30%) · Arremessador Hemorragia (+dano em alvo sangrando/envenenado) · Sacerdote Égide (cura vira barreira) · Iluminado Castigo Sagrado (básico lança Castigar) ·
 Templário Penitência (5ª carga explode em fogo sagrado) · Clérigo de Batalha Mão que Cura (golpe cura o aliado mais ferido) ·
 Urso Casca Viva (apanhou: Pele de Carvalho, 20 s) · Lobo Sangue da Matilha (sangramento) · Xamã Lua Cheia (básico lança Fogo Lunar) ·
-Caçador Marca (alvo recebe mais dano de todos) · Atirador Pólvora (tiro explode em área) · Patrulheiro Presa Acuada (+dano em alvo retardado/preso) · Lâminas Veneno Letal · Duelista Riposte (esquivou,
+Caçador Marca (alvo recebe mais dano de todos) · Atirador Pólvora (tiro explode em área) · Lanceiro Ferida Aberta (feridas acumuladas: +dano seu e sangramento) · Lâminas Veneno Letal · Duelista Riposte (esquivou,
 contra-ataca) · Trapaceiro Truque Sujo (chance de retardar; +dano em alvo lento/preso/atordoado) · Fogo Brasa Viva (básico lança Bola de Fogo) · Gelo Coração de Gelo (apanhou: Nova de Gelo, no máx. a cada 20 s) · Raio Arco
 Voltaico (básico salta para +1 alvo) · Invocador Legião (abate levanta esqueleto) · Ceifador Ceifa (abate cura) · Sombras Praga (básico lança Agonia).
 Atributos: toda peça lendária usa os dois atributos da build; escudos nomeados seguem a afinidade (Paladino VIT/FOR, Bispo VIT/WILL);

@@ -154,9 +154,11 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 
 	s.max_hp = base_hp + VIT * Balance.HP_PER_VIT
 	s.max_mp = base_mp + WILL * Balance.MP_PER_WILL
-	# ataque físico: arco usa AGI; adaga mistura; resto FOR
+	# ataque físico: arco usa AGI; lança AGI + FOR; adaga mistura; resto FOR
 	if s.is_ranged_weapon:
 		s.patk = eq_atk + AGI * Balance.PATK_PER_AGI_RANGED + FOR * 0.3
+	elif s.weapon_type == "spear":       # lança: AGI primeiro, FOR ajuda
+		s.patk = eq_atk + AGI * Balance.PATK_PER_AGI_SPEAR + FOR * Balance.PATK_PER_FOR_SPEAR
 	elif s.weapon_type == "dagger":
 		s.patk = eq_atk + FOR * Balance.PATK_PER_FOR * 0.6 + AGI * Balance.PATK_PER_AGI_DAGGER
 	else:

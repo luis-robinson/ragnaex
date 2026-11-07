@@ -27,7 +27,7 @@ const SIGNATURES := {
 	"carniceiro": {"skill": "ber_throw_axe", "look": "blood"}, "executor": {"skill": "ber_overhead", "look": "blood"}, "arremessador": {"skill": "ber_hatchet", "look": "blood", "power": 0.8},
 	"sacerdote": {"skill": "bis_light", "look": "holy"}, "inquisidor": {"skill": "bis_hammer", "look": "holy"}, "batalha": {"skill": "bis_holy_nova", "look": "holy"},
 	"guardiao_verde": {"skill": "dru_moonfire", "look": "nature"}, "fera": {"skill": "dru_claw", "look": "nature", "power": 0.8}, "xama": {"skill": "dru_moonfire", "look": "lunar", "power": 0.85},
-	"cacador": {"skill": "ran_frost_arrow", "look": "ice"}, "atirador": {"skill": "ran_snipe", "look": "fire"}, "patrulheiro": {"skill": "ran_caltrops", "look": "wind"},
+	"cacador": {"skill": "ran_frost_arrow", "look": "ice"}, "atirador": {"skill": "ran_snipe", "look": "fire"}, "lanceiro": {"skill": "ran_javelin", "look": "blood", "power": 0.8},
 	"laminas": {"skill": "ass_venom_dart", "look": "poison", "power": 0.8}, "duelista": {"skill": "ass_thrust", "look": "blood", "power": 0.55}, "trapaceiro": {"skill": "ass_shadow_knives", "look": "shadow", "power": 0.7},
 	"fogo": {"skill": "ele_fireball", "look": "fire"}, "gelo": {"skill": "ele_ice_lance", "look": "ice", "power": 0.9}, "raio": {"skill": "ele_chain", "look": "lightning"},
 	"invocador": {"skill": "nec_bone_spear", "look": "bone"}, "ceifador": {"skill": "nec_soul_rend", "look": "shadow", "power": 0.8}, "pestilento": {"skill": "nec_mind_flay", "look": "shadow", "power": 0.7},
@@ -129,8 +129,8 @@ static func build() -> Array:
 					"passives": [{"matk_pct": 3}, {"buff_pct": 6}], "set_extra": {3: {"buff_pct": [10.0, 3.0]}}}),
 			]}),
 		_mk({"id": "ranger", "body_type": "female", "hair_color": Color(0.75, 0.4, 0.2), "name": "Ranger", "role": "ranged", "color": Color(0.5, 0.75, 0.55),
-			"description": "Caçador de arco com um lince companheiro, atirador de mosquete que espalha armadilhas pelo chão, ou patrulheiro veloz que retarda e marca a presa sem parar de andar.",
-			"weapon_types": _s(["bow", "rifle"]), "offhand_types": _s([]),
+			"description": "Caçador de arco com um lince companheiro, atirador de mosquete que espalha armadilhas pelo chão, ou lanceiro que caça de perto: estoca, salta na presa, lança dardos e armadilhas e a faz sangrar.",
+			"weapon_types": _s(["bow", "rifle", "spear"]), "offhand_types": _s([]),
 			"base_hp": 110.0, "base_mp": 55.0, "hp_per_level": 11.5, "mp_per_level": 6.0, "move_speed": 5.8,
 			"basic_attack_power": 1.0, "basic_attack_cooldown": 0.55, "basic_attack_range": 13.0, "basic_attack_is_ranged": true,
 			"starting_equipment": _s(["bow_short"] + ItemsCatalog.starter_ids("ranger")),
@@ -144,12 +144,12 @@ static func build() -> Array:
 				_b("atirador", "Atirador", "ranged", ["rifle"], [], "leather", "AGI", "FOR", "atk_pct",
 					["ran_power_shot", "ran_trap", "ran_anchor", "ran_scatter", "ran_snipe", "ran_mine", "ran_frost_trap", "ran_mark", "ran_headshot", "ran_deadeye", "ran_disengage"]).merged({
 					"passives": [{"atk_pct": 3}, {"crit": 1.5}], "set_extra": {3: {"crit": [4.0, 1.0]}}}),
-				# arco sem bicho: armadilhas, lentidão e marcas na presa, atirando sem parar de andar
-				_b("patrulheiro", "Patrulheiro", "ranged", ["bow"], [], "leather", "AGI", "FOR", "aspd_pct",
-					["ran_power_shot", "ran_caltrops", "ran_anchor", "ran_frost_arrow", "ran_tumble", "ran_trap", "ran_prey", "ran_net", "ran_mark",
-					 "ran_frost_trap", "ran_piercing", "ran_gale", "ran_disengage"]).merged({
-					# veloz: velocidade de ataque e de corrida (árvore e conjunto)
-					"passives": [{"atk_pct": 3}, {"aspd_pct": 3}], "set_extra": {3: {"speed_pct": [5.0, 1.0]}}}),
+				# caçador de perto com a lança: estocadas longas, salto na presa, dardos e armadilhas de mão; a presa sangra
+				_b("lanceiro", "Lanceiro", "dps", ["spear"], [], "leather", "AGI", "FOR", "atk_pct",
+					["ran_double_thrust", "ran_javelin", "ran_spear_leap", "ran_spear_sweep", "ran_snare_toss", "ran_predator", "ran_blood_instinct",
+					 "ran_impale", "ran_mark", "ran_trap", "ran_disengage"]).merged({
+					# linha de frente leve: ataque e vida (árvore), vida no conjunto de 3
+					"passives": [{"atk_pct": 3}, {"hp_pct": 3}], "set_extra": {3: {"hp_pct": [5.0, 1.5]}}}),
 			]}),
 		_mk({"id": "assassin", "body_type": "male", "hair_color": Color(0.2, 0.18, 0.25), "name": "Assassino", "role": "dps", "color": Color(0.55, 0.35, 0.75),
 			"description": "Sombras. Duas adagas velozes com veneno, esquiva e golpes pelas costas saindo da furtividade, duelista equilibrado de duas espadas, ou trapaceiro de espada e adaga que controla a luta com fumaça, estrepes e golpes baixos.",

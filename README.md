@@ -45,7 +45,7 @@ cursor (limitado ao alcance), `CONE` à frente, `TARGET` no inimigo sob o cursor
 
 * **Atributos vêm só do equipamento**: FOR (ATK físico, bloqueio), AGI (arco/adagas, crit), VIT (HP, DEF),
   WILL (cura, MP, DEF mágica), INT (dano/crit mágico). Fórmulas em `core/sim/stats.gd`; constantes em `data/balance.gd`.
-* **8 classes**, 2-3 **builds** cada (ex.: Paladino tank de escudo, cruzado de duas mãos ou templário de fogo sagrado; Bispo sacerdote, iluminado ou clérigo de batalha; Elementalista de fogo, gelo ou raio; Ranger caçador com lince, atirador de mosquete ou patrulheiro veloz de armadilhas e lentidão),
+* **8 classes**, 2-3 **builds** cada (ex.: Paladino tank de escudo, cruzado de duas mãos ou templário de fogo sagrado; Bispo sacerdote, iluminado ou clérigo de batalha; Elementalista de fogo, gelo ou raio; Ranger caçador com lince, atirador de mosquete ou lanceiro que caça de perto com a lança e faz a presa sangrar),
   **20+ skills por classe**, 6 na barra. **Pontos de skill** (2 por nível) aprendem skills, sobem maestria 0–5 e
   compram **evoluções** (inclusive do dash: paladino atordoa, mago atravessa objetos, assassino dash duplo, ranger rola).
   Skills exigem arma (escudo, duas armas, martelo de duas mãos…): **a arma é a build**. Detalhes em `docs/DESIGN.md`.

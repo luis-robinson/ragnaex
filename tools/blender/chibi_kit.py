@@ -1678,7 +1678,7 @@ KIT_STYLES = {
               "gloves": [("gloves", {"push": 0.006})], "boots": [("boots", {"push": 0.012})]},
 }
 KIT_STYLES["cape"] = {"cape": [("cape", {})]}       # capa é peça própria, igual para todas as classes
-KIT_MAIN = ["sword", "sword2h", "mace", "mace2h", "axe", "axe2h", "dagger", "bow", "staff", "wand", "scythe", "scepter", "rifle"]
+KIT_MAIN = ["sword", "sword2h", "mace", "mace2h", "axe", "axe2h", "dagger", "bow", "staff", "wand", "scythe", "scepter", "rifle", "spear"]
 KIT_OFF = ["shield", "orb", "sword", "mace", "axe", "dagger"]
 
 
@@ -1988,6 +1988,9 @@ def kit_weapon(base, wtype, hand, mats):
     elif wtype == "rifle":
         import ranger_sets
         parts = ranger_sets.rifle_parts(sys.modules[__name__], "rf_", g, mats, {"bands": 2})
+    elif wtype == "spear":
+        import ranger_sets
+        parts = ranger_sets.spear_parts(sys.modules[__name__], "sp_", g, Vector(ranger_sets.SPEAR_AXIS).normalized(), mats, {"head": "leaf", "tassel": True})
     elif wtype == "scythe":
         top = g + Vector((0, 0, 0.85))
         parts = [tube("shaft", g - Vector((0, 0, 0.3)), top, 0.022, 0.022, mat("m_darkwood", (0.25, 0.2, 0.25), 0.8), 6)]
@@ -2142,7 +2145,8 @@ CLASS_BODY = {"paladin": "male", "berserker": "male", "bishop": "female", "druid
               "assassin": "male", "elementalist": "female", "necromancer": "male"}
 # Armas comuns no kit da classe: só as que ela empunha (as classes com muitos conjuntos estouram as 200 malhas).
 # Classe fora daqui leva todas (KIT_MAIN / KIT_OFF).
-CLASS_WEAPONS = {"paladin": (["sword", "sword2h", "mace", "mace2h"], ["shield"]), "bishop": (["scepter", "mace"], ["shield"])}
+CLASS_WEAPONS = {"paladin": (["sword", "sword2h", "mace", "mace2h"], ["shield"]), "bishop": (["scepter", "mace"], ["shield"]),
+                 "ranger": (["bow", "rifle", "spear"], [])}
 CLASS_PREFIX = {"paladin": "pal", "berserker": "ber", "bishop": "bis", "druid": "dru", "ranger": "ran", "assassin": "ass", "elementalist": "ele", "necromancer": "nec"}        # prefixo dos estilos de conjunto de cada classe
 SHIELD_CLASSES = ("paladin", "bishop")                       # só eles empunham escudo
 

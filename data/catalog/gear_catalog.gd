@@ -22,7 +22,8 @@ const WEAPONS := {
 	"bow": [46, 0, 0, 0, "AGI", "FOR"],
 	"staff": [8, 62, 0, 0, "INT", "WILL"],
 	"scepter": [10, 60, 0, 6, "INT", "WILL"],
-	"rifle": [72, 0, 0, 0, "AGI", "FOR"],             # rifle de duas mãos (Ranger Atirador): tiro lento e pesado         # cetro sagrado de duas mãos (Bispo da luz): um pouco de MDEF
+	"rifle": [72, 0, 0, 0, "AGI", "FOR"],             # rifle de duas mãos (Ranger Atirador): tiro lento e pesado
+	"spear": [56, 0, 0, 0, "AGI", "FOR"],             # lança de duas mãos (Ranger Lanceiro): estocada longa
 	"wand": [4, 46, 0, 0, "INT", "WILL"],
 	"scythe": [20, 56, 0, 0, "INT", "WILL"],
 	"shield": [0, 0, 18, 8, "VIT", "FOR"],
@@ -31,10 +32,10 @@ const WEAPONS := {
 const WEAPON_NAMES := {
 	"sword": "Espada", "sword2h": "Montante", "mace": "Maça", "mace2h": "Martelo de Guerra",
 	"axe": "Machadinha", "axe2h": "Machado de Guerra", "dagger": "Adaga", "bow": "Arco",
-	"staff": "Cajado", "wand": "Varinha", "scythe": "Foice", "shield": "Escudo", "orb": "Orbe", "scepter": "Cetro", "rifle": "Mosquete",
+	"staff": "Cajado", "wand": "Varinha", "scythe": "Foice", "shield": "Escudo", "orb": "Orbe", "scepter": "Cetro", "rifle": "Mosquete", "spear": "Lança",
 }
 ## tipos que ganham versão comum gerada (os outros já existem em items_catalog)
-const NEW_COMMON_TYPES := ["sword2h", "mace", "mace2h", "axe", "orb", "scepter", "rifle"]
+const NEW_COMMON_TYPES := ["sword2h", "mace", "mace2h", "axe", "orb", "scepter", "rifle", "spear"]
 const COMMON_TIER_NAMES := ["de Bronze", "de Ferro", "de Mitril", "de Obsidiana"]
 
 ## armaduras: peso da peça + [def, mdef] da peça de corpo no nível de referência
@@ -63,7 +64,7 @@ const BUILD_OF := {
 	"carniceiro": "das Armas Gêmeas", "executor": "do Executor", "arremessador": "do Arremessador",
 	"sacerdote": "do Sacerdote", "inquisidor": "do Inquisidor", "batalha": "do Clérigo de Batalha",
 	"guardiao_verde": "do Guardião da Floresta", "fera": "da Fera Selvagem", "xama": "do Xamã",
-	"atirador": "do Atirador", "cacador": "do Caçador", "patrulheiro": "do Patrulheiro",
+	"atirador": "do Atirador", "cacador": "do Caçador", "lanceiro": "do Lanceiro",
 	"laminas": "das Lâminas Gêmeas", "duelista": "do Duelista", "trapaceiro": "do Trapaceiro",
 	"fogo": "do Fogo", "gelo": "do Gelo", "raio": "do Raio",
 	"invocador": "do Invocador", "ceifador": "do Ceifador", "pestilento": "das Sombras",
@@ -287,18 +288,18 @@ const SET_VISUALS := {
 		"names": {"head": "Chapéu do Trovão", "body": "Colete do Trovão", "gloves": "Braçadeira do Trovão", "boots": "Botas do Trovão", "weapon": "Mosquete do Trovão"}},
 	"set_ranger_atirador_30": {"style": "ran_a30", "icon": "ran_a30", "color": Color(0.82, 0.62, 0.3), "set_name": "Conjunto Canhão Dourado",
 		"names": {"head": "Chapéu Dourado", "body": "Colete Dourado", "gloves": "Braçadeira Dourado", "boots": "Botas Dourado", "weapon": "Mosquete Dourado"}},
-	"set_ranger_patrulheiro_5": {"style": "ran_p5", "icon": "ran_p5", "color": Color(0.55, 0.47, 0.32), "set_name": "Conjunto Trilha Nova",
-		"names": {"head": "Chapéu da Trilha", "body": "Gibão da Trilha", "gloves": "Braçadeira da Trilha", "boots": "Botas da Trilha", "weapon": "Arco da Trilha"}},
-	"set_ranger_patrulheiro_10": {"style": "ran_p10", "icon": "ran_p10", "color": Color(0.42, 0.45, 0.47), "set_name": "Conjunto Vigia Cinzento",
-		"names": {"head": "Capuz do Vigia", "body": "Gibão do Vigia", "gloves": "Braçadeira do Vigia", "boots": "Botas do Vigia", "weapon": "Arco do Vigia"}},
-	"set_ranger_patrulheiro_15": {"style": "ran_p15", "icon": "ran_p15", "color": Color(0.78, 0.42, 0.2), "set_name": "Conjunto Rastro da Raposa",
-		"names": {"head": "Chapéu da Raposa", "body": "Gibão da Raposa", "gloves": "Braçadeira da Raposa", "boots": "Botas da Raposa", "weapon": "Arco da Raposa"}},
-	"set_ranger_patrulheiro_20": {"style": "ran_p20", "icon": "ran_p20", "color": Color(0.45, 0.72, 0.68), "set_name": "Conjunto Brisa Errante",
-		"names": {"head": "Capuz da Brisa", "body": "Gibão da Brisa", "gloves": "Braçadeira da Brisa", "boots": "Botas da Brisa", "weapon": "Arco da Brisa"}},
-	"set_ranger_patrulheiro_25": {"style": "ran_p25", "icon": "ran_p25", "color": Color(0.45, 0.32, 0.5), "set_name": "Conjunto Andarilho do Crepúsculo",
-		"names": {"head": "Chapéu do Crepúsculo", "body": "Gibão do Crepúsculo", "gloves": "Braçadeira do Crepúsculo", "boots": "Botas do Crepúsculo", "weapon": "Arco do Crepúsculo"}},
-	"set_ranger_patrulheiro_30": {"style": "ran_p30", "icon": "ran_p30", "color": Color(0.22, 0.42, 0.34), "set_name": "Conjunto Senhor dos Caminhos",
-		"names": {"head": "Capuz dos Caminhos", "body": "Gibão dos Caminhos", "gloves": "Braçadeira dos Caminhos", "boots": "Botas dos Caminhos", "weapon": "Arco dos Caminhos"}},
+	"set_ranger_lanceiro_5": {"style": "ran_l5", "icon": "ran_l5", "color": Color(0.55, 0.42, 0.28), "set_name": "Conjunto Pele de Javali",
+		"names": {"head": "Capuz do Javali", "body": "Gibão do Javali", "gloves": "Braçadeiras do Javali", "boots": "Botas do Javali", "weapon": "Lança do Javali"}},
+	"set_ranger_lanceiro_10": {"style": "ran_l10", "icon": "ran_l10", "color": Color(0.62, 0.6, 0.56), "set_name": "Conjunto Crânio de Lobo",
+		"names": {"head": "Crânio do Lobo Cinzento", "body": "Gibão do Lobo Cinzento", "gloves": "Braçadeiras do Lobo Cinzento", "boots": "Botas do Lobo Cinzento", "weapon": "Lança do Lobo Cinzento"}},
+	"set_ranger_lanceiro_15": {"style": "ran_l15", "icon": "ran_l15", "color": Color(0.72, 0.4, 0.18), "set_name": "Conjunto Juba de Leão",
+		"names": {"head": "Juba do Leão", "body": "Gibão do Leão", "gloves": "Braçadeiras do Leão", "boots": "Botas do Leão", "weapon": "Lança do Leão"}},
+	"set_ranger_lanceiro_20": {"style": "ran_l20", "icon": "ran_l20", "color": Color(0.3, 0.5, 0.42), "set_name": "Conjunto Escama de Serpe",
+		"names": {"head": "Elmo da Serpe", "body": "Cota de Escamas da Serpe", "gloves": "Braçadeiras da Serpe", "boots": "Botas da Serpe", "weapon": "Lança da Serpe"}},
+	"set_ranger_lanceiro_25": {"style": "ran_l25", "icon": "ran_l25", "color": Color(0.36, 0.3, 0.42), "set_name": "Conjunto Pena de Corvo",
+		"names": {"head": "Máscara do Corvo", "body": "Gibão do Corvo", "gloves": "Braçadeiras do Corvo", "boots": "Botas do Corvo", "weapon": "Lança do Corvo"}},
+	"set_ranger_lanceiro_30": {"style": "ran_l30", "icon": "ran_l30", "color": Color(0.8, 0.7, 0.5), "set_name": "Conjunto Rei das Feras",
+		"names": {"head": "Crânio do Rei das Feras", "body": "Gibão do Rei das Feras", "gloves": "Braçadeiras do Rei das Feras", "boots": "Botas do Rei das Feras", "weapon": "Lança do Rei das Feras"}},
 	"set_assassin_laminas_5": {"style": "ass_l5", "icon": "ass_l5", "color": Color(0.32, 0.3, 0.38), "set_name": "Conjunto Passo Silencioso",
 		"names": {"head": "Capuz Silenciosa", "body": "Gibão Silenciosa", "gloves": "Faixas Silenciosa", "boots": "Botas Silenciosa", "weapon": "Adaga Silenciosa", "offhand": "Adaga Gêmea Silenciosa"}},
 	"set_assassin_laminas_10": {"style": "ass_l10", "icon": "ass_l10", "color": Color(0.55, 0.22, 0.25), "set_name": "Conjunto Faixa Rubra",
@@ -556,7 +557,9 @@ static func set_skills(build: Dictionary, skills: Dictionary, level: int, tier: 
 ## thorns (devolve corpo a corpo), ward (cura vira barreira), echo (golpe bate de novo; reserva),
 ## penance (cada golpe põe uma carga de Penitência no alvo; com `stacks` explode em fogo sagrado: `pct`% do ATK em `radius`),
 ## mend (parte do dano do golpe cura o aliado mais ferido por perto, você incluso), hemorrhage (dano extra em alvo
-## sangrando/envenenado), dirty_trick (chance de retardar; dano extra em alvo lento, preso ou atordoado).
+## sangrando/envenenado), dirty_trick (chance de retardar; dano extra em alvo lento, preso ou atordoado),
+## open_wound (cada golpe abre uma Ferida no alvo, até `max`: +`pct`% do seu dano nele por ferida; com todas abertas ele sangra
+## `bleed`% do ATK por segundo).
 const LEGEND_EFFECTS := {
 	"guardiao": {"kind": "thorns", "name": "Retaliação", "pct": [15, 3]},
 	"cruzado": {"kind": "stun", "name": "Julgamento", "chance": [12, 2], "dur": [0.8, 0.1], "icd": 6.0},
@@ -572,7 +575,7 @@ const LEGEND_EFFECTS := {
 	"xama": {"kind": "cast_on_basic", "name": "Lua Cheia", "skill": "dru_moonfire", "chance": [18, 3]},
 	"cacador": {"kind": "mark", "name": "Marca do Caçador", "pct": [8, 2]},
 	"atirador": {"kind": "splash", "name": "Pólvora", "pct": [40, 6], "radius": 2.5},
-	"patrulheiro": {"kind": "prey", "name": "Presa Acuada", "pct": [12, 2.4]},
+	"lanceiro": {"kind": "open_wound", "name": "Ferida Aberta", "pct": [2.4, 0.48], "max": 5, "bleed": [8, 1.6]},
 	"laminas": {"kind": "poison", "name": "Veneno Letal", "chance": [35, 4], "pct": [10, 2]},
 	"duelista": {"kind": "riposte", "name": "Riposte", "pct": [80, 10]},
 	"trapaceiro": {"kind": "dirty_trick", "name": "Truque Sujo", "chance": [25, 3], "pct": [16, 3.2]},

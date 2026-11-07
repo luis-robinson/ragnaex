@@ -121,6 +121,15 @@ func plus_item(base: ItemDef, n: int) -> ItemDef:
 	return it
 
 ## O id existe (ou é uma versão "+N" de um item que existe, criada agora). Para ler saves.
+## Id antigo de item de build que saiu do jogo -> o equivalente de hoje (save antigo). O Patrulheiro (arco) virou o
+## Lanceiro (lança): a armadura de couro passa para o conjunto do Lanceiro do mesmo nível e o arco vira o do Caçador.
+const LEGACY_PREFIX := "leg_ranger_patrulheiro_"
+func migrate_item_id(id: String) -> String:
+	if id.begins_with(LEGACY_PREFIX):
+		var weapon := id.get_slice("+", 0).ends_with("_weapon")
+		return ("leg_ranger_cacador_" if weapon else "leg_ranger_lanceiro_") + id.substr(LEGACY_PREFIX.length())
+	return id
+
 func resolve_item(id: String) -> bool:
 	if items.has(id):
 		return true
@@ -178,21 +187,22 @@ func random_bot_line(ctx: String) -> String:
 ## Classe de ataque à distância empunhando arma corpo a corpo (druida de martelo, ranger de machados...)
 ## ataca corpo a corpo e físico.
 func basic_skill_for_class(cls: ClassDef, weapon_type: String = "", offhand_type: String = "", build_id: String = "") -> SkillDef:
-	var melee_override := cls.basic_attack_is_ranged and weapon_type in ItemDef.MELEE_TYPES
+	var spear := weapon_type == "spear"         # lança: estocada longa e estreita (Ranger Lanceiro)
+	var melee_override := cls.basic_attack_is_ranged and weapon_type in ItemDef.MELEE_TYPES and not spear
 	# arma corpo a corpo de duas mãos (montante, malho, machado): golpe largo — também no bispo de malho (golpe corpo a corpo)
 	var big := weapon_type in Balance.BIG_SWING_WEAPONS and (melee_override or not cls.basic_attack_is_ranged)
 	var rifle := weapon_type == "rifle" and cls.basic_attack_is_ranged
 	var look: String = str(ClassesCatalog.SIGNATURES.get(build_id, {}).get("look", ""))
-	var key := "basic_" + cls.id + ("_melee" if melee_override else "") + ("_big" if big else "") + ("_rifle" if rifle else "") + ("_" + look if look != "" else "")
+	var key := "basic_" + cls.id + ("_melee" if melee_override else "") + ("_big" if big else "") + ("_rifle" if rifle else "") + ("_spear" if spear else "") + ("_" + look if look != "" else "")
 	if _basic_cache.has(key):
 		return _basic_cache[key]
-	var ranged := cls.basic_attack_is_ranged and not melee_override
+	var ranged := cls.basic_attack_is_ranged and not melee_override and not spear
 	var cd := cls.basic_attack_cooldown
 	var s := SkillDef.new()
 	s.id = key
 	s.name = "Ataque"
 	s.class_id = cls.id
-	s.kind = SkillDef.Kind.PHYSICAL if melee_override else cls.basic_attack_kind
+	s.kind = SkillDef.Kind.PHYSICAL if melee_override or spear else cls.basic_attack_kind
 	s.power = (1.0 if melee_override else cls.basic_attack_power) * Balance.SIGNATURE_BASIC_TRIM
 	s.look = look
 	s.mp_cost = 0.0
@@ -221,6 +231,13 @@ func basic_skill_for_class(cls: ClassDef, weapon_type: String = "", offhand_type
 		s.target = SkillDef.Target.CONE
 		s.radius = 2.0 if melee_override else cls.basic_attack_range
 		s.cone_angle_deg = 110.0
+		if spear:              # estocada: alcance longo, cone estreito, atravessa a fila
+			s.radius = Balance.SPEAR_REACH
+			s.cone_angle_deg = Balance.SPEAR_ARC_DEG
+			s.max_targets = Balance.SPEAR_MAX_TARGETS
+			s.power *= Balance.SPEAR_POWER_MULT
+			s.cooldown = cd * Balance.SPEAR_COOLDOWN_MULT
+			s.recovery = maxf(0.12, s.cooldown * 0.45)
 		if big:
 			s.radius *= Balance.BIG_SWING_REACH_MULT
 			s.cone_angle_deg = Balance.BIG_SWING_ARC_DEG

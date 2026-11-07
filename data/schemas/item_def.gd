@@ -8,10 +8,10 @@ enum Type { MATERIAL, CONSUMABLE, EQUIPMENT, QUEST }
 enum Slot { NONE, WEAPON, OFFHAND, HEAD, BODY, BOOTS, ACCESSORY, GLOVES, LEGS, CAPE, AMULET, RING, RING2 }
 
 ## armas que ocupam as duas mãos (não combinam com escudo/orbe/segunda arma)
-const TWO_HANDED := ["sword2h", "mace2h", "axe2h", "staff", "bow", "scythe", "scepter", "rifle"]
+const TWO_HANDED := ["sword2h", "mace2h", "axe2h", "staff", "bow", "scythe", "scepter", "rifle", "spear"]
 ## armas de 1 mão que podem ir na mão secundária (empunhar duas)
 const ONE_HANDED_MELEE := ["sword", "mace", "axe", "dagger"]
-const MELEE_TYPES := ["sword", "sword2h", "mace", "mace2h", "axe", "axe2h", "dagger"]
+const MELEE_TYPES := ["sword", "sword2h", "mace", "mace2h", "axe", "axe2h", "dagger", "spear"]
 const RARITY_LEGENDARY := 4
 
 @export var id: String = ""
@@ -26,7 +26,7 @@ const RARITY_LEGENDARY := 4
 @export var rarity: int = 0                 ## 0 comum, 1 incomum, 2 raro, 3 épico, 4 lendário
 
 ## equipamento
-## sword, sword2h, mace, mace2h, axe, axe2h, dagger, bow, staff, wand, scythe, scepter | mão secundária: shield, orb
+## sword, sword2h, mace, mace2h, axe, axe2h, dagger, bow, staff, wand, scythe, scepter, rifle, spear | mão secundária: shield, orb
 @export var weapon_type: String = ""
 @export var atk: float = 0.0
 @export var matk: float = 0.0
