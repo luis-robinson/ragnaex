@@ -27,18 +27,33 @@ static func tick(sim: WorldSim, m: Dictionary, dt: float) -> void:
 	if float(m["aura_t"]) < Balance.AURA_TICK:
 		return
 	m["aura_t"] = 0.0
-	for e in m["entities"]:
+	for e in m["entities"].duplicate():          # o pulso pode matar (a lista muda)
 		if not e.is_alive() or e.buffs.is_empty() or not e.is_character():
 			continue
 		for b in e.buffs:
 			if not b.get("toggle", false) or not (b.get("aura") is Dictionary):
 				continue
 			var au: Dictionary = b["aura"]
+			if au.get("pulse") is Dictionary:
+				b["pulse_t"] = float(b.get("pulse_t", 0.0)) + Balance.AURA_TICK
+				if float(b["pulse_t"]) >= Balance.AURA_PULSE_EVERY and e.combat_timer > 0.0:     # só em combate: não puxa bicho na estrada
+					b["pulse_t"] = 0.0
+					pulse(sim, e, m, au["pulse"])
 			var ally: Dictionary = au.get("ally", {}).duplicate()
 			ally["id"] = b["id"]
 			ally["aura_from"] = e.id
 			for t in receivers(sim, e, m, float(au.get("radius", 12.0))):
 				_keep(t, ally)
+
+## Pulso da aura (Juízo do Bastião): dano sagrado nos inimigos a `radius` m, `power` × ATK por pulso.
+## Sai do tanque, então gera ameaça (× threat_pct): segura um bando inteiro, não só o alvo.
+static func pulse(sim: WorldSim, e: SimEntity, m: Dictionary, pu: Dictionary) -> void:
+	var R := float(pu.get("radius", 3.5))
+	for t in m["entities"].duplicate():
+		if not t.is_alive() or not e.is_hostile_to(t) or t.position.distance_to(e.position) > R + t.radius:
+			continue
+		var r := Combat.calc_damage(e, t, float(pu.get("power", 0.4)), SkillDef.Kind.MAGICAL if e.stats.matk > e.stats.patk else SkillDef.Kind.PHYSICAL, sim.rng, e.position)
+		sim._deal_damage(e, t, int(r["amount"]), bool(r["crit"]), false, "aura", e.position)
 
 ## Quem recebe a aura: o grupo de `e` e as invocações dele a até R metros (sem ele: o dele é o buff da skill).
 static func receivers(sim: WorldSim, e: SimEntity, m: Dictionary, R: float) -> Array:

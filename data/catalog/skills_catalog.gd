@@ -312,8 +312,9 @@ static func _more() -> Dictionary:
 			 "mastery": _mastery({3: {"bounce": {"count": 4, "radius": 6.0, "falloff": 0.85, "taunt": 3.0, "interrupt": 0.5}},
 				5: {"bounce": {"count": 5, "radius": 7.0, "falloff": 0.85, "taunt": 3.5, "interrupt": 0.6}}})}),
 		_s("pal_bastion_aura", "Aura do Bastião", 10, "guardiao", ["shield"], T_SELF, K_BUFF, 0.0, 20, 6,
-			"Liga/desliga. Você gera 150% mais ameaça e tem +10% DEF; o grupo a 12 m recebe 10% menos dano e +10% DEF.",
-			{"buff": {"id": "bastion_aura", "toggle": true, "threat_pct": 150, "def_pct": 10}, "aura": {"radius": 12.0, "ally": {"dr_pct": 10, "def_pct": 10}}}),
+			"Liga/desliga. Você gera 150% mais ameaça, tem +10% DEF e queima com luz quem está a 3.5 m (40% do ATK por segundo); o grupo a 12 m recebe 10% menos dano e +10% DEF.",
+			{"buff": {"id": "bastion_aura", "toggle": true, "threat_pct": 150, "def_pct": 10},
+			 "aura": {"radius": 12.0, "ally": {"dr_pct": 10, "def_pct": 10}, "pulse": {"radius": 3.5, "power": 0.4}}}),
 		# Cruzado: mais golpes de arma de duas mãos
 		_s("pal_twin_slash", "Arco Radiante", 2, "cruzado", ["two_handed"], T_CONE, K_PHYS, 1.5, 8, 3, "Corte largo em leque com a arma de duas mãos.", {"radius": 2.6, "cone_angle_deg": 110, "max_targets": 4, "clip": "atk_sweep", "vfx": "holy"}),
 		_s("pal_blade_dance", "Giro do Cruzado", 7, "cruzado", ["two_handed"], T_SELF, K_PHYS, 2.0, 16, 9, "Gira a arma pesada: dano em tudo ao redor.", {"radius": 3.0, "active": 0.3, "clip": "atk_spin", "vfx": "holy"}),

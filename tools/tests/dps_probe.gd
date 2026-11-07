@@ -67,6 +67,9 @@ func _fight(cid: String, bid: String, lv: int, secs: float, sig: bool, trial: in
 		var bs: SkillDef = p.basic_skill.duplicate()
 		bs.power = p.basic_skill.power / Balance.SIGNATURE_BASIC_TRIM
 		p.basic_skill = bs
+	for sk in p.skills:                  # aura de liga/desliga (Aura do Bastião): fica ligada a luta toda, como no jogo
+		if sk and sk.effects.has("aura") and not AuraSystem.aura_on(p, sk):
+			Sim._apply_skill(p, sk, m)
 	var mob: SimEntity = Sim.spawn_monster(GameData.monsters["spider"], MAP, SPOT + Vector3(1.8, 0, 0))
 	mob.brain = null
 	mob.stats.max_hp = 1.0e7

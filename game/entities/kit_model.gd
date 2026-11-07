@@ -194,8 +194,8 @@ func _mat_key(m: Material) -> String:
 	if not (m is ShaderMaterial):
 		return "o%d" % m.get_instance_id()
 	var sm := m as ShaderMaterial
-	var col: Color = sm.get_shader_parameter("albedo")
-	return "%s|%s|%s|%s|%d|%s" % [col.to_html(), str(sm.get_shader_parameter("spec_strength")), str(sm.get_shader_parameter("emission_amount")),
+	var col: Variant = sm.get_shader_parameter("albedo")     # shader sem albedo (malha de efeito): Nil
+	return "%s|%s|%s|%s|%d|%s" % [(col as Color).to_html() if col is Color else "-", str(sm.get_shader_parameter("spec_strength")), str(sm.get_shader_parameter("emission_amount")),
 		str(sm.get_shader_parameter("shadow_strength")), 1 if sm.next_pass else 0, str(sm.get_shader_parameter("plus_glow"))]
 
 func _remerge() -> void:

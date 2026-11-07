@@ -156,6 +156,9 @@ func _on_damage(attacker_id: int, target_id: int, amount: int, crit: bool, block
 		txt = "✦" + txt
 		size = 1.5
 		SkillFx.explosion(self, t.position, 1.3 * t.scale, "fire")
+	if kind == "aura":                     # pulso da aura do tanque: faísca sagrada em quem está perto
+		col = Color(1.0, 0.88, 0.45)
+		SkillFx.burst(self, t.position + Vector3(0, 0.6, 0), "holy", 8, Vector3.UP, 0.25)
 	if kind == "interrupt":                # escudo arremessado cortou a preparação do golpe
 		_float_text(t.position + Vector3(0, 2.0 * t.scale, 0), "Interrompido!", Color(1.0, 0.9, 0.45), 1.1)
 		return

@@ -50,7 +50,8 @@ com a mediana das irmãs da mesma classe a ±6 níveis; WEAK = abaixo de 60%. Vi
 `ass_paralyze`, `dru_entangle` (controle/mobilidade), `pal_shield_bash`, `ber_blade_rush`, `dru_pounce` (aproximação).
 
 **Novas**: `pal_shield_throw` Escudo Ricochete (escudo voa, ricocheteia em 3, provoca, interrompe, volta; a mão fica vazia enquanto voa) e
-`pal_bastion_aura` Aura do Bastião (liga/desliga: anel no pé, onda até 12 m ao ligar; aliados no raio ganham o anel também).
+`pal_bastion_aura` Aura do Bastião (liga/desliga: anel no pé, onda até 12 m ao ligar; aliados no raio ganham o anel também; pulso de luz
+de 1 s em quem está a 3,5 m, faísca dourada no atingido). A bancada agora limpa invocações e buffs entre skills (o lince fica).
 
 **Ainda fracas no visual (próximas)**: a maioria das skills com preparo padrão de 0,15 s mostra o impacto no 2º quadro (pouca antecipação),
 físicos de tema "aço" ainda são o leque branco genérico, `dru_moonfire` tem retorno pequeno no acerto.

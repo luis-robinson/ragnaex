@@ -6402,6 +6402,13 @@ func _check_tank_kit(gd, sim) -> void:
 	check(has.call(ally, "bastion_aura") and ally.stats.dr_pct >= 10.0, "aura chega no aliado do grupo por perto")
 	check(not has.call(stranger, "bastion_aura") and not has.call(far_ally, "bastion_aura"), "aura não pega estranho nem aliado longe")
 	check(ally.stats.threat_pct == 0.0, "aliado não ganha a ameaça do tanque")
+	var near_mob = mob_at.call(pal.position + Vector3(2, 0, -2))
+	var far_mob = mob_at.call(pal.position + Vector3(-9, 0, -9))
+	pal.combat_timer = 5.0
+	for k in range(3):
+		AuraSystem.tick(sim, m, Balance.AURA_TICK + 0.01)
+	check(near_mob.hp < near_mob.stats.max_hp and far_mob.hp == far_mob.stats.max_hp, "pulso da aura queima quem está perto do tanque, não longe")
+	check(near_mob.threat.get(pal.id, 0.0) > near_mob.stats.max_hp - near_mob.hp, "pulso gera ameaça multiplicada pela aura")
 	var hp0: float = ally.hp
 	sim._deal_damage(far, ally, 1000, false, false, "magical")
 	check(hp0 - ally.hp <= 905.0, "aura reduz o dano no aliado (%d)" % int(hp0 - ally.hp))
