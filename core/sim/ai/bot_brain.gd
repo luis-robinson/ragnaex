@@ -210,7 +210,7 @@ func _fight(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCommand)
 	cmd.aim = mob.position
 	var dist := e.position.distance_to(mob.position) - mob.radius - e.radius
 	var cls := e.class_def
-	var melee: bool = cls == null or not cls.basic_attack_is_ranged
+	var melee: bool = cls == null or not cls.basic_attack_is_ranged or (e.basic_skill != null and e.basic_skill.target == SkillDef.Target.CONE)     # lança do Ranger: básico em cone = corpo a corpo
 	# perigo: área telegrafada de monstro (chão, em volta dele, cone, linha) → sai dela (com dash se der)
 	var away := _danger_escape(e, m)
 	if away != Vector2.ZERO:
