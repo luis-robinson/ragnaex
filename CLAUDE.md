@@ -45,7 +45,7 @@ Scripts novos com `class_name` só são vistos pelos outros scripts depois de `-
 - **Skill**: `data/catalog/skills_catalog.gd` → `_more()` com `_s(...)`/`_buff(...)` (20+ por classe; nível, build e
   arma exigida em cada uma; o jogador aprende com pontos e equipa 6). `ClassDef.skill_ids` é preenchido sozinho.
   Campos em `data/schemas/skill_def.gd`; efeitos suportados por `WorldSim._apply_effects`
-  (`dot, slow, stun, root, buff, shield, dash, summon, heal_pct_of_dmg, taunt, boss_summon, wither`); `dot` de skill de fogo vira queimadura sozinho e gelo estilhaça alvo retardado (`Combat.frost_mult`). Mira: SELF/DIRECTION/GROUND/CONE/TARGET.
+  (`dot, slow, stun, root, buff, shield, dash, summon, heal_pct_of_dmg, taunt, boss_summon, wither, mend_pct_of_dmg, combust, bounce, aura`; aura = liga/desliga em `AuraSystem`, `bounce` = projétil que ricocheteia; `SkillDef.clip`/`vfx` forçam clipe e tema); `dot` de skill de fogo vira queimadura sozinho e gelo estilhaça alvo retardado (`Combat.frost_mult`). Mira: SELF/DIRECTION/GROUND/CONE/TARGET.
   A skill entra sozinha na **teia** (estilo Path of Exile, `data/catalog/tree_catalog.gd`): malha de junções e estradas (grade `CELL` irregular,
   sorteio fixo por classe, parte das estradas sai = escolha de rota) com círculos nas casas: de skill (maestria/evoluções/passivos em volta) e de
   notável (`ARM_NOTABLES`/`RING_NOTABLES`, duas entradas). Setores por ramo; skill de nível alto mais longe. Há check de folga (`windows.NODE_PX`/`WEB_UNIT`). 8 pontos por nível (`Balance.points_at`); estradas/junções só caminho. Quanto a teia dá: `--headless --path . tools/tests/web_probe.tscn -- [--level=30]` (alvo ~x1,4 ATK, ~x1,2 HP no 30). Bots compram
@@ -221,7 +221,7 @@ procedurais, pulo, dash, golpes com antecipação e acomodação; IMPACT não mu
 Peça nova no kit: nome `arm_<plate|leather|cloth>_<head|body|legs|gloves|boots>_<parte>` (capa: `arm_cape_cape_cape`, igual para todos) ou `wpn_<main|off>_<tipo>`;
 material `tint` recebe a cor do item, `tint2` a cor de destaque derivada dela (`KitModel.accent`), `hair` a cor da classe.
 De cima a cabeça é o que mais aparece: detalhe novo vai primeiro no elmo/capuz e nos ombros. Item de armadura precisa de `armor_style`.
-Conjuntos do Ranger: `tools/blender/ranger_sets.py` (`RAN_SETS` couro leve, chapéu de pena/capuz/tricórnio/óculos, aljava ou bandoleira;
+Conjuntos do Ranger: `tools/blender/ranger_sets.py` (`RAN_SETS` couro leve, Patrulheiro `ran_p*` chapéu largo/capuz com máscara, chapéu de pena/capuz/tricórnio/óculos, aljava ou bandoleira;
 `RAN_BOWS` na mão esquerda; `RAN_RIFLES` e `rifle_parts`, que também desenha o mosquete comum). Lince: `mob_kit.quadruped(kind="lynx")`.
 Conjuntos do Assassino: `tools/blender/assassin_sets.py` (`ASS_SETS` Lâminas: capuz + máscara de pano, frascos de veneno, capa rasgada; Duelista:
 chapéu de pluma/máscara de baile, casaca de abas, meia-capa; `ASS_WEAPONS` gera o par `wpn_main_`/`wpn_off_<dagger|sword>_<estilo>`).
@@ -261,6 +261,8 @@ Lendário com visual próprio: referência em `reference/<classe>/set_N/` → fu
 (revisar em loop com `look` frente/costas contra a referência), entrada em `GearCatalog.SET_VISUALS` (estilo, cor, nomes, ícone)
 e ícones 128 px em `assets/icons/<icone>_<peça>.png`. Revisar no jogo: `lineup.tscn -- --strip=<classe> --set=<build> --level=<lv>`
 e `-- --autostart=<classe> --gear=<set_id> --screenshot=<png>` (janela C com ícones).
+Auditoria de clipes: `tools/lineup/film_all.sh` filma tudo e `--headless --path . tools/tests/anim_probe.tscn` mede emenda do laço, giro por quadro,
+quadros parados e cabeça no chão (notas em `docs/animations_review.md`). Força das skills: `--headless --path . tools/tests/skill_audit.tscn` (`WEAK` < 60% da mediana).
 Revisão em loop: `.\tools\godot.ps1 --path . tools/lineup/lineup.tscn -- --shot=<png> --anim=<clipe>` (todas as classes,
 equipamento inicial + lendários de cada build).
 
