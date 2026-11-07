@@ -636,6 +636,7 @@ func _ghost_for(toon: Material, appear: float) -> ShaderMaterial:
 	var col := Color(0.8, 0.8, 0.8)
 	if toon is ShaderMaterial and (toon as ShaderMaterial).get_shader_parameter("albedo") != null:
 		col = (toon as ShaderMaterial).get_shader_parameter("albedo")
+		gm.set_shader_parameter("vcol_srgb", (toon as ShaderMaterial).get_shader_parameter("vcol_srgb") == true)
 	elif toon is BaseMaterial3D:
 		col = (toon as BaseMaterial3D).albedo_color
 	gm.set_shader_parameter("base", col)
@@ -734,6 +735,10 @@ func _anim_lod(delta: float) -> void:
 		anim.advance(_anim_acc)
 		_anim_acc = 0.0          # --perf: soma do tempo de _process de todos os bonecos
 
+var _np_lv := -1                     # o que a placa de nome mostra (refaz o texto só quando muda)
+var _np_ally := false
+var _np_plv := -1
+
 func _process(delta: float) -> void:
 	if entity == null:
 		return
@@ -800,10 +805,10 @@ func _process_view(delta: float) -> void:
 	_update_status()
 	var ally := _is_party_mate()
 	var plv: int = Sim.player.level if Sim.player else 0
-	if entity.level != int(nameplate.get_meta("lv", -1)) or ally != bool(nameplate.get_meta("ally", false)) or plv != int(nameplate.get_meta("plv", -1)):
-		nameplate.set_meta("plv", plv)
-		nameplate.set_meta("lv", entity.level)
-		nameplate.set_meta("ally", ally)
+	if entity.level != _np_lv or ally != _np_ally or plv != _np_plv:     # campos, não meta (3 buscas por boneco por quadro)
+		_np_plv = plv
+		_np_lv = entity.level
+		_np_ally = ally
 		_refresh_nameplate()
 
 ## Estados que o jogador precisa ler de longe: atordoado (estrelas), queimando (brasas + laranja), retardado/preso (anel de gelo + azul).

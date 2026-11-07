@@ -736,6 +736,8 @@ func _check_zone(gd, sim) -> void:
 	_check_combat_feel(gd, sim)
 	_check_skill_clips()
 	_check_shields(gd, sim)
+	_check_render_merge(gd, sim)
+	_check_nearest_hostile(gd, sim)
 	# bot sai da vila pelo portão e vai caçar no próprio vale
 	var b = sim.spawn_bot(gd.classes["paladin"], "Rota", "city_aldara", Vector3(0, 0, 6), 3)
 	b.brain.dest_map = "city_aldara"
@@ -1175,6 +1177,91 @@ func _check_shield_bonus(gd, sim, foe) -> void:
 	check(with_shield > 0 and with_orb == 0, "bots Sacerdote usam maça e escudo, nunca orbe (%d/%d)" % [with_shield, with_orb])
 	for x in [pal, wrong, bis, ally, bwrong, inq]:
 		sim.despawn(x)
+
+## Otimização de draw calls: peças de cores diferentes dividem a superfície (cor e brilho no vértice, material branco
+## com vcol_srgb que recebe o hit flash). Boneco do kit e monstro de peças rígidas.
+func _check_render_merge(gd, sim) -> void:
+	var hero: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Fusao", "city_aldara", Vector3(0, 0, 6), 30)
+	hero.brain = null
+	var view := EntityView.new()
+	add_child(view)
+	view.setup(hero, false)
+	KitModel.vcol_merge = false                 # fusão antiga (uma superfície por cor) para comparar
+	view.kit._remerge()
+	var old_count := 0
+	for mi in view.kit.find_children("KitMerged", "MeshInstance3D", true, false):
+		old_count = (mi as MeshInstance3D).mesh.get_surface_count()
+	KitModel.vcol_merge = true
+	view.kit._remerge()
+	var merged: MeshInstance3D = null
+	for mi in view.kit.find_children("KitMerged", "MeshInstance3D", true, false):
+		merged = mi
+	check(merged != null and merged.mesh != null, "kit fundido existe")
+	if merged and merged.mesh:
+		var am := merged.mesh as ArrayMesh
+		var cols := {}
+		var vsurf := 0
+		for si in am.get_surface_count():
+			var m := am.surface_get_material(si) as ShaderMaterial
+			if m and m.get_shader_parameter("vcol_srgb") == true:
+				vsurf += 1
+				check(m.get_shader_parameter("albedo") == Color.WHITE, "material da fusão é branco (a cor vem do vértice)")
+				check(view.kit.mats.has(m), "material da fusão recebe o hit flash (kit.mats)")
+				var vc = am.surface_get_arrays(si)[Mesh.ARRAY_COLOR]
+				check(vc is PackedColorArray and (vc as PackedColorArray).size() == (am.surface_get_arrays(si)[Mesh.ARRAY_VERTEX] as PackedVector3Array).size(),
+					"cor por vértice em toda a superfície fundida")
+				if vc is PackedColorArray:
+					for c in (vc as PackedColorArray):
+						cols[(c as Color).to_html()] = true
+		# sobram grupos só por brilho de aprimoramento/emissão/contorno (lv 30 com peças +N)
+		check(vsurf >= 1 and am.get_surface_count() * 2 <= old_count, "boneco do kit em menos superfícies (%d, eram %d)" % [am.get_surface_count(), old_count])
+		check(cols.size() >= 3, "peças de cores diferentes na mesma superfície (%d cores)" % cols.size())
+	view.free()
+	sim.despawn(hero)
+	# monstro de peças rígidas: mesma ideia na RigidMerge (malha guardada por modelo + cores)
+	var wolf: SimEntity = sim.spawn_monster(gd.monsters["wolf"], "city_aldara", Vector3(3, 0, 6))
+	var wv := EntityView.new()
+	add_child(wv)
+	wv.setup(wolf, false)
+	var rm: MeshInstance3D = null
+	for mi in wv.find_children("RigidMerged", "MeshInstance3D", true, false):
+		rm = mi
+	if rm and rm.mesh:
+		var flashable := 0
+		for si in rm.mesh.get_surface_count():
+			var m := rm.get_surface_override_material(si) as ShaderMaterial
+			if m and m.get_shader_parameter("vcol_srgb") == true:
+				check(rm.mesh.surface_get_arrays(si)[Mesh.ARRAY_COLOR] is PackedColorArray, "monstro fundido: cor no vértice")
+				flashable += 1 if wv._mats.has(m) else 0
+		check(flashable >= 1, "monstro fundido: material branco recebe o hit flash")
+	else:
+		check(false, "lobo vira uma malha (RigidMerge)")
+	wv.free()
+	sim.despawn(wolf)
+
+## Combat.nearest_hostile com o filtro de distância barato primeiro dá o mesmo alvo da busca completa.
+func _check_nearest_hostile(gd, sim) -> void:
+	var m: Dictionary = sim.maps["city_aldara"]
+	var ents: Array = m["entities"]
+	var same := 0
+	var tries := 0
+	for e in ents:
+		if not e.is_alive() or tries >= 120:
+			continue
+		for r in [3.0, 9.0, 25.0]:
+			tries += 1
+			var best: SimEntity = null
+			var best_d: float = r
+			for o in ents:
+				if o == e or not o.is_alive() or not e.is_hostile_to(o) or o.stealth_left > 0.0:
+					continue
+				var d: float = o.position.distance_to(e.position) - o.radius
+				if d < best_d:
+					best_d = d
+					best = o
+			if Combat.nearest_hostile(e, ents, r) == best:
+				same += 1
+	check(tries > 0 and same == tries, "nearest_hostile igual à busca completa (%d/%d)" % [same, tries])
 
 ## Escudos: 14 nomeados com silhueta, ícone e reação; bloquear reage; aparar dobra, atordoa e tem janela curta.
 func _check_shields(gd, sim) -> void:

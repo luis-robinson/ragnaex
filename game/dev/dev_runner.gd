@@ -87,6 +87,8 @@ func before_start(returning: bool) -> String:
 	if DevArgs.has("--no_merge"):
 		KitModel.merge = false
 		RigidMerge.enabled = false
+	if DevArgs.has("--no_vcol_merge"):  # fusão antiga do kit: uma superfície por cor
+		KitModel.vcol_merge = false
 	main._cull_test = DevArgs.value("--cull_test")          # hide|noproc (medir: só esconde / só para de processar)
 	if DevArgs.has("--anim_test"):
 		EntityView.anim_test = true
@@ -534,6 +536,22 @@ func _perf_run() -> void:
 			Sim.entities[id].position = Sim.random_walkable(def, gate * 1.25, 8.0)
 		Sim.player.position = gate * 0.9
 		print("PERF raid=%d invasores" % ids.size())
+	if DevArgs.flag("--shadow_max"):                   # experimento: alcance da sombra do sol (m) e divisão das cascatas
+		for l in main.map_node.find_children("*", "DirectionalLight3D", true, false):
+			l.directional_shadow_max_distance = float(DevArgs.value("--shadow_max"))
+			if DevArgs.flag("--shadow_split"):
+				l.directional_shadow_split_1 = float(DevArgs.value("--shadow_split"))
+	if DevArgs.has("--no_prop_shadow"):                # experimento: props do mapa sem sombra
+		for g in main.map_node.find_children("*", "GeometryInstance3D", true, false):
+			g.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if DevArgs.has("--hide_minimap"):                  # experimento: custo do minimapa (2D)
+		main.hud.minimap.visible = false
+	if DevArgs.flag("--hide_props"):                   # experimento: some com props por nome (ex.: --hide_props=prop_rock,prop_bush)
+		var pre := DevArgs.value("--hide_props").split(",")
+		for mi in main.map_node.find_children("*", "MeshInstance3D", true, false):
+			for p in pre:
+				if str(mi.name).begins_with(p):
+					mi.visible = false
 	await get_tree().create_timer(2.5).timeout
 	Sim.profile = true
 	Sim.prof.clear()
@@ -595,6 +613,15 @@ func _perf_run() -> void:
 			elif mi.visible and mi.name != "WeaponTrail":
 				vis_src += 1
 	print("PERF kits merged=%d surfaces=%d visible_unmerged_pieces=%d" % [merged, msurf, vis_src])
+	var esurf := {}                      # superfícies desenhadas dos bonecos visíveis por tipo de malha (cada uma: cor + contorno + sombras)
+	for v in main.views.values():
+		if not v.visible:
+			continue
+		for mi in v.find_children("*", "MeshInstance3D", true, false):
+			if mi.is_visible_in_tree() and mi.mesh:
+				var k := str(mi.name) if str(mi.name) in ["KitMerged", "RigidMerged", "SkinMerged"] else "outros"
+				esurf[k] = int(esurf.get(k, 0)) + mi.mesh.get_surface_count()
+	print("PERF entity_surfaces ", esurf)
 	# triângulos por grupo de malha (prefixo do nome) e por dono: mapa x bonecos
 	var tri := {}
 	var cnt := {}
@@ -626,6 +653,16 @@ func _perf_run() -> void:
 		Performance.get_monitor(Performance.PHYSICS_3D_ACTIVE_OBJECTS), Performance.get_monitor(Performance.PHYSICS_3D_COLLISION_PAIRS),
 		Performance.get_monitor(Performance.PHYSICS_3D_ISLAND_COUNT), RenderingServer.viewport_get_measured_render_time_gpu(get_viewport().get_viewport_rid()),
 		RenderingServer.viewport_get_measured_render_time_cpu(get_viewport().get_viewport_rid()), Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME)])
+	var vp_rid := get_viewport().get_viewport_rid()      # último quadro, só a passada de cor (sem sombras): objetos e draws
+	print("PERF canvas_pass objects=%d draws=%d" % [
+		RenderingServer.viewport_get_render_info(vp_rid, RenderingServer.VIEWPORT_RENDER_INFO_TYPE_CANVAS, RenderingServer.VIEWPORT_RENDER_INFO_OBJECTS_IN_FRAME),
+		RenderingServer.viewport_get_render_info(vp_rid, RenderingServer.VIEWPORT_RENDER_INFO_TYPE_CANVAS, RenderingServer.VIEWPORT_RENDER_INFO_DRAW_CALLS_IN_FRAME)])
+	print("PERF visible_pass objects=%d draws=%d prims=%d | shadow_pass objects=%d draws=%d" % [
+		RenderingServer.viewport_get_render_info(vp_rid, RenderingServer.VIEWPORT_RENDER_INFO_TYPE_VISIBLE, RenderingServer.VIEWPORT_RENDER_INFO_OBJECTS_IN_FRAME),
+		RenderingServer.viewport_get_render_info(vp_rid, RenderingServer.VIEWPORT_RENDER_INFO_TYPE_VISIBLE, RenderingServer.VIEWPORT_RENDER_INFO_DRAW_CALLS_IN_FRAME),
+		RenderingServer.viewport_get_render_info(vp_rid, RenderingServer.VIEWPORT_RENDER_INFO_TYPE_VISIBLE, RenderingServer.VIEWPORT_RENDER_INFO_PRIMITIVES_IN_FRAME),
+		RenderingServer.viewport_get_render_info(vp_rid, RenderingServer.VIEWPORT_RENDER_INFO_TYPE_SHADOW, RenderingServer.VIEWPORT_RENDER_INFO_OBJECTS_IN_FRAME),
+		RenderingServer.viewport_get_render_info(vp_rid, RenderingServer.VIEWPORT_RENDER_INFO_TYPE_SHADOW, RenderingServer.VIEWPORT_RENDER_INFO_DRAW_CALLS_IN_FRAME)])
 	print("PERF fps=%.1f frame_ms=%.2f draws=%.0f nodes=%d objects=%d mem_mb=%.0f physics_ms=%.2f prune=%s" % [frames / secs, secs * 1000.0 / frames,
 		draws / frames, Performance.get_monitor(Performance.OBJECT_NODE_COUNT), Performance.get_monitor(Performance.OBJECT_COUNT),
 		Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0, sim_us / frames / 1000.0, str(KitModel.prune)])

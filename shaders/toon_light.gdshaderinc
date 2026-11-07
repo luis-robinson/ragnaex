@@ -30,6 +30,11 @@ void light() {
 	vec3 h = normalize(LIGHT + VIEW);
 	// mancha pequena e fraca: em superfícies grandes e lisas (copas, pedras) não pode virar "neve"
 	// luz com light_specular = 0 (tocha da dungeon) não faz mancha: no chão liso ela vira um reflexo solto
-	float spec = smoothstep(0.975, 0.99, dot(NORMAL, h)) * spec_strength * 0.35 * lit * falloff * step(0.001, SPECULAR_AMOUNT);
+#ifdef TOON_VSPEC
+	float spec_k = vspec;              // boneco fundido: força do brilho por peça (alfa da cor do vértice)
+#else
+	float spec_k = spec_strength;
+#endif
+	float spec = smoothstep(0.975, 0.99, dot(NORMAL, h)) * spec_k * 0.35 * lit * falloff * step(0.001, SPECULAR_AMOUNT);
 	SPECULAR_LIGHT += LIGHT_COLOR * spec;
 }
