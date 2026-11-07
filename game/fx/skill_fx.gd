@@ -523,3 +523,196 @@ static func aura(root: Node, follow: Node3D, theme: String, duration: float, rad
 	tw.tween_property(mi, "rotation:y", TAU, minf(duration, 30.0)).set_trans(Tween.TRANS_LINEAR)
 	tw.parallel().tween_property(m, "albedo_color:a", 0.0, 0.5).set_delay(maxf(0.1, duration - 0.5))
 	tw.tween_callback(mi.queue_free)
+
+## Marca no alvo durante a preparação de uma magia TARGET (Combustão, Estilhaçar...): aro do raio real que fecha
+## no alvo e brasas subindo nele; segue o boneco e some no instante do impacto.
+static func brand(root: Node, follow: Node3D, radius: float, theme: String, duration: float) -> void:
+	var holder := Node3D.new()
+	follow.add_child(holder)
+	var mi := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = 0.9
+	tm.outer_radius = 1.0
+	tm.rings = 36
+	tm.ring_segments = 4
+	mi.mesh = tm
+	var m := _mat(col(theme, 1))
+	m.albedo_color = Color(col(theme, 0), 0.95)
+	mi.material_override = m
+	mi.position = Vector3(0, 0.1, 0)
+	mi.scale = Vector3(radius, 0.4, radius)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	holder.add_child(mi)
+	var core := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = 0.5
+	sm.height = 1.0
+	sm.radial_segments = 12
+	sm.rings = 6
+	core.mesh = sm
+	var cm := _mat(col(theme, 0))
+	cm.albedo_color = Color(col(theme, 0), 0.55)
+	core.material_override = cm
+	core.position = Vector3(0, 0.9, 0)
+	core.scale = Vector3.ONE * 0.2
+	core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	holder.add_child(core)
+	var p := CPUParticles3D.new()
+	p.amount = 18
+	p.lifetime = 0.5
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+	p.emission_ring_axis = Vector3.UP
+	p.emission_ring_radius = 0.6
+	p.emission_ring_inner_radius = 0.2
+	p.emission_ring_height = 0.05
+	p.direction = Vector3.UP
+	p.spread = 10.0
+	p.gravity = Vector3(0, 3.0, 0)
+	p.initial_velocity_min = 0.8
+	p.initial_velocity_max = 1.8
+	var qm := QuadMesh.new()
+	qm.size = Vector2(0.16, 0.16)
+	p.mesh = qm
+	var grad := Gradient.new()
+	grad.set_color(0, col(theme, 1))
+	grad.set_color(1, Color(col(theme, 0), 0.0))
+	p.color_ramp = grad
+	var pm := _mat(Color.WHITE)
+	pm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	pm.albedo_texture = soft()
+	p.material_override = pm
+	holder.add_child(p)
+	var d := maxf(0.15, duration)
+	var tw := root.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(mi, "scale", Vector3(0.35, 0.4, 0.35), d).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+	tw.tween_property(mi, "rotation:y", TAU * 0.5, d)
+	tw.tween_property(core, "scale", Vector3.ONE * 1.1, d).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
+	tw.chain().tween_callback(holder.queue_free)
+
+## Escudo redondo arremessado (malha do projétil): disco com aro do tema e umbo, inclinado para girar no ar.
+static func thrown_shield(theme: String) -> Node3D:
+	var root := Node3D.new()
+	var face := MeshInstance3D.new()
+	var fm := CylinderMesh.new()
+	fm.top_radius = 0.42
+	fm.bottom_radius = 0.42
+	fm.height = 0.07
+	fm.radial_segments = 16
+	face.mesh = fm
+	face.material_override = Materials.toon(Color(0.78, 0.8, 0.88), false)
+	root.add_child(face)
+	var rim := MeshInstance3D.new()
+	var rm := TorusMesh.new()
+	rm.inner_radius = 0.38
+	rm.outer_radius = 0.47
+	rm.rings = 20
+	rm.ring_segments = 6
+	rim.mesh = rm
+	rim.material_override = Materials.glow(col(theme, 0), 1.6)
+	root.add_child(rim)
+	var boss := MeshInstance3D.new()
+	var bm := SphereMesh.new()
+	bm.radius = 0.13
+	bm.height = 0.14
+	boss.mesh = bm
+	boss.material_override = Materials.glow(col(theme, 1), 2.2)
+	boss.position.y = 0.05
+	root.add_child(boss)
+	root.rotation.z = 0.25
+	return root
+
+## Escudo batendo num alvo do ricochete: estalo de luz, aro curto e faíscas.
+static func ricochet(root: Node, pos: Vector3, theme: String) -> void:
+	var at := pos + Vector3(0, 0.9, 0)
+	burst(root, at, theme, 20, Vector3.UP, 0.25, 1.3)
+	burst(root, at, "physical", 14, Vector3.UP, 0.2, 1.2)
+	flash(root, at, theme, 2.2, 4.0)
+	var mi := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = 0.8
+	tm.outer_radius = 1.0
+	mi.mesh = tm
+	var m := _mat(col(theme, 1))
+	m.albedo_color = col(theme, 1)
+	mi.material_override = m
+	mi.position = at
+	mi.scale = Vector3.ONE * 0.2
+	root.add_child(mi)
+	var tw := root.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(mi, "scale", Vector3(1.1, 0.5, 1.1), 0.18).set_ease(Tween.EASE_OUT)
+	tw.tween_property(m, "albedo_color:a", 0.0, 0.22).set_delay(0.06)
+	tw.chain().tween_callback(mi.queue_free)
+
+## Aura ligada: anel girando no pé e, se `reach` > 0, o círculo fino do alcance no chão, pulsando.
+## Fica até o FxManager apagar (fade_out) quando o buff sair.
+static func aura_ring(root: Node, follow: Node3D, theme: String, reach: float, radius: float = 0.75) -> Node3D:
+	var holder := Node3D.new()
+	follow.add_child(holder)
+	var mi := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = 0.82
+	tm.outer_radius = 1.0
+	tm.rings = 28
+	tm.ring_segments = 4
+	mi.mesh = tm
+	var m := _mat(col(theme, 0))
+	m.albedo_color = Color(col(theme, 0), 0.6)
+	mi.material_override = m
+	mi.scale = Vector3(radius, 0.25, radius)
+	mi.position = Vector3(0, 0.08, 0)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	holder.add_child(mi)
+	var spin := holder.create_tween().set_loops()
+	spin.tween_property(mi, "rotation:y", TAU, 6.0).from(0.0)
+	var p := CPUParticles3D.new()          # fagulhas subindo do anel: lê de cima que a aura está ligada
+	p.amount = 14
+	p.lifetime = 1.2
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+	p.emission_ring_axis = Vector3.UP
+	p.emission_ring_radius = radius * 1.1
+	p.emission_ring_inner_radius = radius * 0.8
+	p.emission_ring_height = 0.05
+	p.direction = Vector3.UP
+	p.spread = 6.0
+	p.gravity = Vector3.ZERO
+	p.initial_velocity_min = 0.7
+	p.initial_velocity_max = 1.3
+	var qm := QuadMesh.new()
+	qm.size = Vector2(0.12, 0.12)
+	p.mesh = qm
+	var grad := Gradient.new()
+	grad.set_color(0, col(theme, 1))
+	grad.set_color(1, Color(col(theme, 0), 0.0))
+	p.color_ramp = grad
+	var pm := _mat(Color.WHITE)
+	pm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	pm.albedo_texture = soft()
+	p.material_override = pm
+	holder.add_child(p)
+	if reach > 0.0:
+		var big := MeshInstance3D.new()
+		var bt := TorusMesh.new()
+		bt.inner_radius = 0.985
+		bt.outer_radius = 1.0
+		bt.rings = 64
+		bt.ring_segments = 3
+		big.mesh = bt
+		var bm := _mat(col(theme, 1))
+		bm.albedo_color = Color(col(theme, 1), 0.22)
+		big.material_override = bm
+		big.scale = Vector3(reach, 0.2, reach)
+		big.position = Vector3(0, 0.06, 0)
+		big.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		holder.add_child(big)
+		var pulse := holder.create_tween().set_loops()
+		pulse.tween_property(bm, "albedo_color:a", 0.08, 1.2)
+		pulse.tween_property(bm, "albedo_color:a", 0.22, 1.2)
+	return holder
+
+## Apaga um efeito persistente (aura) aos poucos.
+static func fade_out(root: Node, n: Node3D, duration: float) -> void:
+	var tw := root.create_tween()
+	tw.tween_property(n, "scale", Vector3(0.2, 1.0, 0.2), duration).set_ease(Tween.EASE_IN)
+	tw.tween_callback(n.queue_free)

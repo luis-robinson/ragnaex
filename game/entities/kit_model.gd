@@ -16,6 +16,7 @@ var skeleton: Skeleton3D = null
 var mats: Array = []                 # todos os materiais toon (hit flash)
 ## rastro das armas: ligado pela EntityView durante o golpe (fita que segue a lâmina e some)
 var trail_on := false
+var trail_tint := Color(0, 0, 0, 0)     # cor do tema da skill no rastro (alfa 0 = cor da arma)
 var _trails: Array = []              # [{bone, base, tip (no espaço do osso), color, samples: [[base_w, tip_w, t]]}]
 var _trail_mesh: ImmediateMesh
 var _trail_mat: StandardMaterial3D
@@ -106,6 +107,19 @@ static func plus_glow_color(pl: int) -> Color:
 	if pl >= Balance.PLUS_GLOW_LOW:
 		return Color(0.6, 0.85, 1.0, 0.22 + 0.04 * (pl - Balance.PLUS_GLOW_LOW))
 	return Color(0, 0, 0, 0)
+
+## Escudo arremessado (Escudo Ricochete): esconde o escudo da mão enquanto ele voa; false devolve.
+var _thrown: Array = []
+func set_offhand_thrown(on: bool) -> void:
+	if on and _thrown.is_empty():
+		for n in _nodes:
+			if String(n).begins_with("wpn_off_shield") and _vis.get(n, false):
+				_thrown.append(n)
+				_show(n, false)
+	elif not on and not _thrown.is_empty():
+		for n in _thrown:
+			_show(n, true)
+		_thrown.clear()
 
 func set_gathering(kind: String) -> void:
 	if kind != "" and _hidden_wpns.is_empty():
@@ -490,7 +504,7 @@ func _process(delta: float) -> void:
 		var samples: Array = tr["samples"]
 		if samples.size() < 2:
 			continue
-		var col: Color = tr["color"]
+		var col: Color = tr["color"] if trail_tint.a <= 0.0 else trail_tint * 1.4
 		_trail_mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLE_STRIP, _trail_mat)
 		for smp in samples:
 			var k := 1.0 - (_time - float(smp[2])) / TRAIL_TIME     # mais velho = mais apagado

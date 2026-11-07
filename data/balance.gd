@@ -320,6 +320,9 @@ const BOT_CHAT_MAX := 90.0
 # --- grupo (party) ---
 const THREAT_SWITCH := 1.1                 # monstro troca de alvo quando outro passa 110% da ameaça do alvo atual
 const TAUNT_DURATION := 4.0                # s presos em quem provocou (chefes: metade)
+const DR_CAP := 40.0                       # % máx de redução de dano por buff/aura (Stats.dr_pct)
+const AURA_TICK := 0.5                     # s entre renovações da aura do tanque nos aliados (AuraSystem)
+const AURA_KEEP := 1.3                     # s que o buff da aura dura no aliado sem renovar (saiu do raio = some logo)
 const LOOT_LOCK_TIME := 20.0               # s em que só o dono pega o item; depois fica livre
 const PORTAL_NOTICE_CD := 4.0              # s entre avisos de portal bloqueado
 const PARTY_MAX := 5                       # membros por grupo

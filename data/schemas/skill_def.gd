@@ -20,6 +20,7 @@ enum Kind { PHYSICAL, MAGICAL, HEAL, BUFF, SUMMON, MOVEMENT }
 @export var icon_color: Color = Color.WHITE
 @export var vfx: String = ""
 @export var look: String = ""         ## só aparência (básico da build): o FX usa quando `vfx` é vazio; não muda regra de combate
+@export var clip: String = ""         ## clipe próprio do golpe (EntityView._action_clip usa antes das regras por palavra/forma/arma)
 ## elementos da skill (Elementalista): "fire" | "frost" | "storm"; combinações têm dois ou três. Dano × média dos bônus.
 @export var elements: Array[String] = []             ## tema do efeito visual (SkillsCatalog.VFX_RULES): fire, ice, holy, shadow...
 
@@ -48,6 +49,14 @@ enum Kind { PHYSICAL, MAGICAL, HEAL, BUFF, SUMMON, MOVEMENT }
 ## "stun": {"duration": 1}, "root": {"duration": 2}, "buff": {"id":"fury","duration":8,"atk_pct":30},
 ## "heal_pct_of_dmg": 0.3, "dash": 4.0, "summon": {"monster_id":"skeleton","count":2,"duration":20},
 ## "shield": {"amount_pct_hp": 20, "duration": 5}}
+## "combust": {"detonate": 1.25}  → antes do golpe, as queimaduras SUAS em cada atingido explodem na hora
+##     (dano restante × detonate, número "detonate") e somem; o `dot` da skill reacende em todos (espalha).
+## "bounce": {"count": 3, "radius": 6, "falloff": 0.85, "taunt": 3, "interrupt": 0.5}  → TARGET arremessado
+##     (velocidade = projectile_speed): voa até o alvo, salta para o inimigo mais perto ainda não atingido (count
+##     alvos no total, power × falloff a cada salto), provoca cada um (MobSystem.taunt) e atordoa `interrupt` s
+##     quem estava preparando um golpe; depois volta para a mão de quem lançou.
+## "aura": {"radius": 12, "ally": {"dr_pct": 8, "def_pct": 10}}  → liga/desliga: lançar põe o `buff` (sem fim)
+##     em você; enquanto ele durar, o grupo a `radius` m recebe `ally` com o mesmo id (AuraSystem). Lançar de novo desliga.
 @export var effects: Dictionary = {}
 
 ## Maestria: array de 6 dicionários {power_mult, mp_mult, cd_mult, extra:Dictionary}

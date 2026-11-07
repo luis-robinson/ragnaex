@@ -413,6 +413,7 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_threat_loot(gd, sim)
 	_check_self_aoe(gd, sim)
 	_check_review_fixes(gd, sim)
+	_check_tank_kit(gd, sim)
 	_check_boss_kit(gd, sim)
 	_check_tent_cloth()
 	_check_item_icons(gd)
@@ -6318,3 +6319,139 @@ func _check_start_elf(gd, sim) -> void:
 		if m != e:
 			sim.despawn(m)
 	sim.despawn(e)
+
+# ---------------------------------------------------------------------------
+# kit do tanque (Escudo Ricochete, Aura do Bastião) e Combustão
+# ---------------------------------------------------------------------------
+func _check_tank_kit(gd, sim) -> void:
+	var m: Dictionary = sim.maps["city_aldara"]
+	var at := Vector3(66, 0, 44)
+	var made: Array = []
+	for o in m["entities"].duplicate():          # sobras de outros testes perto: o ricochete pularia nelas
+		if o.kind in [SimEntity.Kind.MONSTER, SimEntity.Kind.SUMMON] and o.position.distance_to(at) < 45.0:
+			sim.despawn(o)
+	m["projectiles"].clear()
+	var mob_at := func(p: Vector3):
+		var w = sim.spawn_monster(gd.monsters["wolf"], "city_aldara", p)
+		w.brain = null
+		w.stats.max_hp = 50000.0
+		w.hp = 50000.0
+		made.append(w)
+		return w
+	var pal = sim.spawn_bot(gd.classes["paladin"], "TK", "city_aldara", at, 20)
+	pal.brain = null
+	pal.build_id = "guardiao"
+	sim._gear_bot(pal)
+	sim._skill_bot(pal)
+	made.append(pal)
+	var ally = sim.spawn_bot(gd.classes["ranger"], "TK2", "city_aldara", at + Vector3(0, 0, 3), 20)
+	ally.brain = null
+	made.append(ally)
+	sim.party_invite(pal, ally)
+	sim.party_accept(ally)
+	var bar: Array = []
+	for s in pal.skills:
+		if s:
+			bar.append(s.id)
+	check(pal.stats.has_shield and "pal_shield_throw" in bar and "pal_bastion_aura" in bar and "pal_taunt" in bar, "Guardião bot leva ricochete, aura e provocar na barra %s" % [bar])
+	# Escudo Ricochete: persegue, salta em 3, provoca, interrompe e volta
+	var throw: SkillDef = gd.skills["pal_shield_throw"]
+	check(throw.target == SkillDef.Target.TARGET and throw.requires.has("shield") and throw.build == "guardiao" and throw.vfx == "holy", "Escudo Ricochete: alvo, exige escudo, tema sagrado")
+	check(throw.startup <= 0.3 and throw.cancel_after <= 0.2, "Escudo Ricochete sai rápido")
+	var w: Array = []
+	for i in range(3):
+		w.append(mob_at.call(at + Vector3(4.0 + 2.5 * i, 0, 0)))
+	var far = mob_at.call(at + Vector3(30, 0, 0))
+	for x in w:
+		x.aggro_target = ally.id
+	sim._start_skill(w[1], gd.skills["mob_whirl"], 0, w[1].position)       # w1 está preparando um golpe
+	pal.face_towards(w[0].position)
+	pal.skill_aim = w[0].position
+	var projs: int = m["projectiles"].size()
+	sim._apply_skill(pal, sim.resolve_skill(pal, throw), m)
+	check(m["projectiles"].size() == projs + 1 and not m["projectiles"][-1].bounce.is_empty(), "o escudo vira projétil que persegue")
+	var gone := false
+	for k in range(120):
+		sim._update_projectiles(m, 1.0 / 20.0)
+		if m["projectiles"].size() == projs:
+			gone = true
+			break
+	var hit := w.all(func(x): return x.hp < x.stats.max_hp)
+	check(hit and far.hp == far.stats.max_hp, "ricocheteia nos 3 perto e não no distante %s" % [w.map(func(x): return int(x.hp))])
+	check(w.all(func(x): return x.aggro_target == pal.id and x.taunt_left > 0.0), "cada inimigo atingido fica provocado no tanque")
+	check(w[1].state == SimEntity.State.STUNNED, "quem preparava um golpe é interrompido")
+	check(gone, "o escudo volta para a mão (projétil some)")
+	# Aura do Bastião: liga, chega no grupo em alcance, não em estranho nem longe; ameaça e redução de dano
+	var aura: SkillDef = gd.skills["pal_bastion_aura"]
+	var stranger = sim.spawn_bot(gd.classes["ranger"], "TK3", "city_aldara", at + Vector3(-3, 0, 0), 20)
+	stranger.brain = null
+	made.append(stranger)
+	var far_ally = sim.spawn_bot(gd.classes["bishop"], "TK4", "city_aldara", at + Vector3(0, 0, 30), 20)
+	far_ally.brain = null
+	made.append(far_ally)
+	sim.party_invite(pal, far_ally)
+	sim.party_accept(far_ally)
+	pal.buffs.clear()
+	ally.buffs.clear()
+	pal.recompute_stats()
+	ally.recompute_stats()
+	sim._apply_skill(pal, sim.resolve_skill(pal, aura), m)
+	check(AuraSystem.aura_on(pal, aura) and pal.stats.threat_pct >= 150.0, "Aura do Bastião liga e dá ameaça ao tanque")
+	AuraSystem.tick(sim, m, Balance.AURA_TICK + 0.01)
+	var has := func(e, id): return e.buffs.any(func(b): return b.get("id") == id)
+	check(has.call(ally, "bastion_aura") and ally.stats.dr_pct >= 10.0, "aura chega no aliado do grupo por perto")
+	check(not has.call(stranger, "bastion_aura") and not has.call(far_ally, "bastion_aura"), "aura não pega estranho nem aliado longe")
+	check(ally.stats.threat_pct == 0.0, "aliado não ganha a ameaça do tanque")
+	var hp0: float = ally.hp
+	sim._deal_damage(far, ally, 1000, false, false, "magical")
+	check(hp0 - ally.hp <= 905.0, "aura reduz o dano no aliado (%d)" % int(hp0 - ally.hp))
+	var dummy = mob_at.call(at + Vector3(-6, 0, 4))
+	sim._deal_damage(pal, dummy, 100, false, false, "physical")
+	sim._deal_damage(ally, dummy, 200, false, false, "physical")
+	check(dummy.aggro_target == pal.id, "com a aura, o tanque segura o monstro contra o dobro do dano")
+	var slot: int = pal.slot_of("pal_bastion_aura")
+	pal.cooldowns.clear()
+	pal.mp = pal.stats.max_mp
+	check(slot >= 0 and not sim.try_cast(pal, slot, pal.position, m), "bot não desliga a própria aura")
+	sim._apply_skill(pal, sim.resolve_skill(pal, aura), m)
+	check(not AuraSystem.aura_on(pal, aura), "lançar de novo desliga a aura")
+	# Combustão: marca, explode em volta, detona as queimaduras e reacende
+	var comb: SkillDef = gd.skills["ele_combustion"]
+	check(comb.startup >= 0.25 and comb.startup <= 0.3 and comb.radius >= 2.0 and comb.effects.has("combust"), "Combustão: preparo visível, área e detonação")
+	var ele = sim.spawn_bot(gd.classes["elementalist"], "TK5", "city_aldara", at + Vector3(0, 0, -6), 20)
+	ele.brain = null
+	ele.build_id = "fogo"
+	sim._gear_bot(ele)
+	made.append(ele)
+	var c1 = mob_at.call(at + Vector3(4, 0, -6))
+	var c2 = mob_at.call(at + Vector3(5.5, 0, -5))
+	var c3 = mob_at.call(at + Vector3(14, 0, -6))
+	c1.debuffs.append({"kind": "dot", "id": "dot_%d" % ele.id, "remaining": 4.0, "dps": 60.0, "src": ele.id, "fire": true})
+	var kinds: Array = []
+	var fx_at: Array = []
+	var on_dmg := func(_a, t, amount, _c, _b, kind): kinds.append([t, kind, amount])
+	var on_fx := func(sid, _o, aim, _r): fx_at.append([sid, aim])
+	Events.damage_dealt.connect(on_dmg)
+	Events.skill_effect.connect(on_fx)
+	ele.face_towards(c1.position)
+	ele.skill_aim = c1.position + Vector3(0.6, 0, 0.6)
+	sim._apply_skill(ele, sim.resolve_skill(ele, comb), m)
+	Events.damage_dealt.disconnect(on_dmg)
+	Events.skill_effect.disconnect(on_fx)
+	var det: Array = kinds.filter(func(k): return k[0] == c1.id and k[1] == "detonate")
+	check(det.size() == 1 and int(det[0][2]) >= int(240 * 1.25) - 1, "Combustão detona a queimadura que faltava (%s)" % [det])
+	check(c2.hp < c2.stats.max_hp and c3.hp == c3.stats.max_hp, "Combustão explode em volta do alvo, não longe")
+	var burns := func(e): return e.debuffs.filter(func(d): return d.get("kind") == "dot" and d.get("fire", false) and int(d.get("src", -1)) == ele.id)
+	check(burns.call(c1).size() == 1 and burns.call(c2).size() == 1, "o fogo reacende no alvo e espalha para o vizinho")
+	var at_target: Array = fx_at.filter(func(f): return f[0] == "ele_combustion")
+	check(not at_target.is_empty() and Vector2(at_target[0][1].x, at_target[0][1].z).distance_to(Vector2(c1.position.x, c1.position.z)) < 0.05, "efeito de skill no alvo de verdade (não no cursor)")
+	for x in made:
+		sim.despawn(x)
+	# auditoria das skills: tema e clipe certos onde a palavra do id enganava
+	var moon: SkillDef = gd.skills["dru_moonfire"]
+	check(moon.vfx == "lunar" and not bool(moon.effects.get("dot", {}).get("fire", false)), "Fogo Lunar é lunar (não queima como fogo)")
+	check(gd.skills["ber_leap"].startup >= 0.15, "Salto Selvagem tem preparo de salto (clipe atk_leap)")
+	for sid in gd.skills:
+		var sk: SkillDef = gd.skills[sid]
+		if sk.clip != "":
+			check(EntityView.IMPACT_FRAME.has(sk.clip), "%s: clipe próprio %s existe" % [sid, sk.clip])

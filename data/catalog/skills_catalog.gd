@@ -191,6 +191,7 @@ const VFX_THEMES := ["fire", "ice", "lightning", "holy", "lunar", "shadow", "poi
 const VFX_RULES := [
 	["summon", ["raise", "golem", "army", "summon"]],
 	["lightning", ["prism"]],
+	["lunar", ["moonfire", "starfall"]],
 	["fire", ["fire", "flame", "combust", "inferno", "phoenix", "meteor", "explosive", "firebreath"]],
 	["ice", ["ice", "frost", "glacier", "shatter", "absolute_zero", "blizzard", "hail", "crystal", "shard"]],
 	["lightning", ["spark", "chain", "static", "overload", "thunder", "storm_lord", "lightning", "dru_storm"]],
@@ -200,13 +201,14 @@ const VFX_RULES := [
 	["shadow", ["shadow", "ambush", "veil", "dark", "soul", "grim", "harvest", "reap", "death", "drain", "assassinate", "ass_execute"]],
 	["blood", ["blood", "rend", "hack", "butcher", "crimson", "fury", "rampage", "frenzy", "savage", "eviscerate", "warcry", "titan", "ber_execute", "decapitate"]],
 	["earth", ["earth", "mountain", "stampede", "slam", "overhead", "maul", "splitter", "leap", "pounce", "boulder", "rockfall", "magnet"]],
-	["lunar", ["moonfire", "starfall"]],
-	["holy", ["holy", "light", "bless", "consecrate", "judg", "purge", "purify", "smite", "divine", "nova", "angel", "miracle", "sanct", "wrath", "crusad", "zeal", "valor", "exorc", "condemn", "martyr", "prayer", "ward", "hammer", "radiant", "lay_hands", "retribution"]],
+	["holy", ["shield_throw", "holy", "light", "bless", "consecrate", "judg", "purge", "purify", "smite", "divine", "nova", "angel", "miracle", "sanct", "wrath", "crusad", "zeal", "valor", "exorc", "condemn", "martyr", "prayer", "ward", "hammer", "radiant", "lay_hands", "retribution"]],
 	["nature", ["bark", "oak", "thorn", "entangle", "growth", "regrowth", "dru_"]],
 ]
 const VFX_CLASS := {"bishop": "holy", "paladin": "holy", "necromancer": "shadow", "druid": "nature"}
 
 static func vfx_theme(s: SkillDef) -> String:
+	if s.vfx != "":
+		return s.vfx                 # tema escrito na skill (quando a palavra do id engana)
 	if s.kind == SkillDef.Kind.HEAL:
 		return "heal"
 	if s.kind == SkillDef.Kind.SUMMON:
@@ -271,7 +273,7 @@ static func _s(id: String, name: String, lvl: int, build: String, req: Array, tg
 	if kind == K_BUFF:
 		d["power"] = 0.0; d["startup"] = 0.1; d["recovery"] = 0.2
 	for k in ext:
-		if k in ["dot", "slow", "stun", "root", "buff", "shield", "dash", "summon", "heal_pct_of_dmg", "taunt", "boss_summon", "wither", "form", "stealth", "trap", "pet_command", "pet_buff", "curse", "channel"]:
+		if k in ["dot", "slow", "stun", "root", "buff", "shield", "dash", "summon", "heal_pct_of_dmg", "taunt", "boss_summon", "wither", "form", "stealth", "trap", "pet_command", "pet_buff", "curse", "channel", "combust", "bounce", "aura"]:
 			if not d.has("effects"):
 				d["effects"] = {}
 			d["effects"][k] = ext[k]
@@ -303,9 +305,18 @@ static func _more() -> Dictionary:
 		_buff("pal_shield_wall", "Muralha de Escudo", 8, "guardiao", ["shield"], 18, 24, "+45% DEF e -20% velocidade por 6s.", {"id": "shield_wall", "duration": 6, "def_pct": 45, "speed_pct": -20}),
 		_s("pal_aegis_slam", "Golpe de Égide", 12, "guardiao", ["shield"], T_CONE, K_PHYS, 1.4, 14, 9, "Golpe de escudo em cone que atordoa 0.7s.", {"radius": 2.6, "cone_angle_deg": 100, "stun": _dur(0.7)}),
 		_s("pal_retribution", "Retribuição", 24, "guardiao", ["shield"], T_SELF, K_PHYS, 1.9, 26, 16, "Explosão de luz ao redor; cura 30% do dano causado.", {"radius": 3.5, "heal_pct_of_dmg": 0.3}),
+		_s("pal_shield_throw", "Escudo Ricochete", 6, "guardiao", ["shield"], T_TARGET, K_PHYS, 1.8, 14, 7,
+			"Arremessa o escudo no alvo: ele ricocheteia em até 3 inimigos (15% menos a cada salto), provoca cada um por 3s, interrompe quem está preparando um golpe e volta para a sua mão.",
+			{"range": 10.0, "projectile_speed": 24.0, "bounce": {"count": 3, "radius": 6.0, "falloff": 0.85, "taunt": 3.0, "interrupt": 0.5},
+			 "startup": 0.2, "recovery": 0.3, "cancel_after": 0.12, "hit_stop_frames": 3,
+			 "mastery": _mastery({3: {"bounce": {"count": 4, "radius": 6.0, "falloff": 0.85, "taunt": 3.0, "interrupt": 0.5}},
+				5: {"bounce": {"count": 5, "radius": 7.0, "falloff": 0.85, "taunt": 3.5, "interrupt": 0.6}}})}),
+		_s("pal_bastion_aura", "Aura do Bastião", 10, "guardiao", ["shield"], T_SELF, K_BUFF, 0.0, 20, 6,
+			"Liga/desliga. Você gera 150% mais ameaça e tem +10% DEF; o grupo a 12 m recebe 10% menos dano e +10% DEF.",
+			{"buff": {"id": "bastion_aura", "toggle": true, "threat_pct": 150, "def_pct": 10}, "aura": {"radius": 12.0, "ally": {"dr_pct": 10, "def_pct": 10}}}),
 		# Cruzado: mais golpes de arma de duas mãos
-		_s("pal_twin_slash", "Arco Radiante", 2, "cruzado", ["two_handed"], T_CONE, K_PHYS, 1.5, 8, 3, "Corte largo em leque com a arma de duas mãos.", {"radius": 2.6, "cone_angle_deg": 110, "max_targets": 4}),
-		_s("pal_blade_dance", "Giro do Cruzado", 7, "cruzado", ["two_handed"], T_SELF, K_PHYS, 2.0, 16, 9, "Gira a arma pesada: dano em tudo ao redor.", {"radius": 3.0, "active": 0.3}),
+		_s("pal_twin_slash", "Arco Radiante", 2, "cruzado", ["two_handed"], T_CONE, K_PHYS, 1.5, 8, 3, "Corte largo em leque com a arma de duas mãos.", {"radius": 2.6, "cone_angle_deg": 110, "max_targets": 4, "clip": "atk_sweep", "vfx": "holy"}),
+		_s("pal_blade_dance", "Giro do Cruzado", 7, "cruzado", ["two_handed"], T_SELF, K_PHYS, 2.0, 16, 9, "Gira a arma pesada: dano em tudo ao redor.", {"radius": 3.0, "active": 0.3, "clip": "atk_spin", "vfx": "holy"}),
 		_s("pal_lunge", "Estocada Sagrada", 11, "cruzado", ["two_handed"], T_DIR, K_PHYS, 1.8, 12, 7, "Avança 4.5m perfurando quem estiver no caminho.", {"range": 5.0, "radius": 0.9, "dash": 4.5}),
 		_s("pal_flurry", "Sentença", 17, "cruzado", ["two_handed"], T_TARGET, K_PHYS, 3.0, 20, 10, "Sequência de golpes pesados em um alvo.", {"hit_stop_frames": 5}),
 		_buff("pal_valor", "Valor", 22, "cruzado", ["two_handed"], 20, 24, "+30% ATK e +10 crit por 8s.", {"id": "valor", "duration": 8, "atk_pct": 30, "crit": 10}),
@@ -325,7 +336,7 @@ static func _more() -> Dictionary:
 		_s("ber_throw_axe", "Arremesso Brutal", 16, "carniceiro", ["dual"], T_DIR, K_PHYS, 1.9, 14, 8, "Arremessa a arma da mão secundária: dano e lentidão.", {"range": 9.0, "radius": 0.5, "projectile_speed": 18.0, "slow": _slow(35, 2)}),
 		_s("ber_butcher", "Carnificina", 24, "carniceiro", ["dual"], T_TARGET, K_PHYS, 3.6, 26, 14, "Golpe brutal em um alvo; cura 25% do dano.", {"heal_pct_of_dmg": 0.25, "hit_stop_frames": 6}),
 		# Armas Gêmeas: golpes rápidos
-		_s("ber_twin_fang", "Presas Gêmeas", 2, "carniceiro", ["dual"], T_CONE, K_PHYS, 1.5, 8, 3, "Dois cortes rápidos em leque que retardam 25%.", {"radius": 2.6, "cone_angle_deg": 100, "slow": _slow(25, 1.5)}),
+		_s("ber_twin_fang", "Presas Gêmeas", 2, "carniceiro", ["dual"], T_CONE, K_PHYS, 1.5, 8, 3, "Dois cortes rápidos em leque que retardam 25%.", {"radius": 2.6, "cone_angle_deg": 100, "slow": _slow(25, 1.5), "clip": "atk_flurry", "vfx": "blood"}),
 		_s("ber_blade_rush", "Investida de Lâminas", 7, "carniceiro", ["dual"], T_DIR, K_PHYS, 1.6, 12, 7, "Investida de 5m cortando tudo no caminho.", {"range": 5.0, "radius": 0.9, "dash": 5.0}),
 		_s("ber_steel_whirl", "Turbilhão de Aço", 12, "carniceiro", ["dual"], T_SELF, K_PHYS, 2.2, 18, 10, "Turbilhão de aço ao redor: cura 15% do dano causado.", {"radius": 3.0, "heal_pct_of_dmg": 0.15}),
 		_s("ber_crimson_flurry", "Rajada Rubra", 18, "carniceiro", ["dual"], T_TARGET, K_PHYS, 3.2, 22, 11, "Rajada de cortes em um alvo.", {"hit_stop_frames": 5}),
@@ -348,7 +359,7 @@ static func _more() -> Dictionary:
 		_buff("bis_angel", "Asas Angelicais", 22, "sacerdote", ["mace", "shield"], 28, 35, "+20% MATK, +20% velocidade e +15% DEF no grupo por 10s (você e aliados próximos).", {"id": "angel", "duration": 10, "matk_pct": 20, "speed_pct": 20, "def_pct": 15}, {"radius": 7.0}),
 		_s("bis_miracle", "Milagre", 28, "sacerdote", ["mace", "shield"], T_SELF, K_HEAL, 3.0, 40, 45, "Cura enorme em todos num raio de 8m.", {"radius": 8.0, "startup": 0.5}),
 		# Inquisidor (martelo de duas mãos)
-		_s("bis_hammer", "Martelo de Luz", 4, "inquisidor", ["scepter"], T_TARGET, K_MAG, 2.0, 10, 6, "Um martelo de luz cai no alvo: dano e atordoa 0.6s.", {"range": 8.0, "stun": _dur(0.6), "hit_stop_frames": 5}),
+		_s("bis_hammer", "Martelo de Luz", 4, "inquisidor", ["scepter"], T_TARGET, K_MAG, 2.3, 10, 6, "Um martelo de luz cai no alvo: dano e atordoa 0.6s.", {"range": 8.0, "stun": _dur(0.6), "hit_stop_frames": 5, "startup": 0.25}),
 		_s("bis_condemn", "Condenar", 9, "inquisidor", ["scepter"], T_GROUND, K_MAG, 1.4, 16, 9, "Chão condenado: dano contínuo.", {"range": 8.0, "radius": 2.4, "dot": _dot(7, 5)}),
 		_s("bis_exorcism", "Exorcismo", 11, "inquisidor", ["scepter"], T_DIR, K_MAG, 2.0, 16, 7, "Raio exorcista que atravessa inimigos.", {"range": 9.0, "radius": 0.7, "projectile_speed": 18.0, "projectile_pierce": true}),
 		_buff("bis_zealot", "Fervor", 14, "inquisidor", ["scepter"], 18, 22, "+25% ATK/MATK por 10s.", {"id": "fervor", "duration": 10, "atk_pct": 25, "matk_pct": 25}),
@@ -407,7 +418,7 @@ static func _more() -> Dictionary:
 		_s("ran_scatter", "Tiro de Dispersão", 6, "atirador", ["rifle"], T_CONE, K_PHYS, 1.8, 12, 6, "Carga de chumbo em cone curto que empurra o alvo para trás.",
 			{"radius": 5.0, "cone_angle_deg": 55, "max_targets": 5, "slow": _slow(30, 1.5)}),
 		_s("ran_mine", "Mina Explosiva", 9, "atirador", ["rifle"], T_GROUND, K_PHYS, 2.6, 16, 9, "Mina no chão (conta no limite de 3): explode em área quando um inimigo pisa.",
-			{"range": 7.0, "radius": 2.6, "trap": {"kind": "mine", "duration": 30.0, "hit_radius": 1.2}, "hit_stop_frames": 5}),
+			{"range": 7.0, "radius": 2.6, "trap": {"kind": "mine", "duration": 30.0, "hit_radius": 1.2}, "hit_stop_frames": 5, "clip": "atk_throw", "vfx": "fire"}),
 		_s("ran_frost_trap", "Armadilha de Gelo", 13, "atirador", ["rifle"], T_GROUND, K_PHYS, 1.0, 14, 10, "Armadilha no chão (conta no limite de 3): congela a área, retarda 60% por 3s.",
 			{"range": 7.0, "radius": 3.0, "trap": {"kind": "frost", "duration": 30.0, "hit_radius": 1.3}, "slow": _slow(60, 3.0)}),
 		_s("ran_explosive", "Flecha Explosiva", 5, "cacador", ["bow"], T_GROUND, K_PHYS, 1.6, 12, 7, "Explode no cursor.", {"range": 10.0, "radius": 2.2}),
@@ -464,7 +475,8 @@ static func _more() -> Dictionary:
 		_s("ele_spark", "Faísca", 1, "", [], T_DIR, K_MAG, 1.0, 4, 1.5, "Faísca instantânea em linha.", {"range": 8.0, "radius": 0.6, "max_targets": 1}),
 		# Fogo (orbe)
 		_s("ele_flame_wave", "Onda de Chamas", 5, "fogo", ["staff"], T_CONE, K_MAG, 1.6, 14, 6, "Chamas em cone que queimam.", {"radius": 4.0, "cone_angle_deg": 80, "dot": _dot(5, 3)}),
-		_s("ele_combustion", "Combustão", 9, "fogo", ["staff"], T_TARGET, K_MAG, 2.2, 16, 8, "Incendeia o alvo sob o cursor.", {"range": 9.0, "dot": _dot(8, 4)}),
+		_s("ele_combustion", "Combustão", 9, "fogo", ["staff"], T_TARGET, K_MAG, 2.1, 18, 9, "Marca o alvo sob o cursor e o faz explodir (2.6 m): suas queimaduras nos atingidos detonam na hora (125% do que faltava) e o fogo reacende em todos por 4s.",
+			{"range": 9.0, "radius": 2.6, "max_targets": 6, "dot": _dot(7, 4), "combust": {"detonate": 1.25}, "startup": 0.3, "recovery": 0.3, "cancel_after": 0.15, "hit_stop_frames": 4}),
 		_s("ele_fire_wall", "Muralha de Fogo", 13, "fogo", ["staff"], T_GROUND, K_MAG, 1.2, 22, 12, "Fogo no chão queima por 5s.", {"range": 8.0, "radius": 2.6, "dot": _dot(10, 5)}),
 		_s("ele_inferno", "Inferno", 22, "fogo", ["staff"], T_SELF, K_MAG, 2.6, 30, 16, "Explosão de fogo ao redor.", {"radius": 4.0, "dot": _dot(10, 4)}),
 		_s("ele_phoenix", "Fênix", 27, "fogo", ["staff"], T_DIR, K_MAG, 3.4, 36, 16, "Fênix atravessa tudo na linha e queima.", {"range": 11.0, "radius": 1.2, "projectile_speed": 16.0, "projectile_pierce": true, "dot": _dot(8, 3)}),
@@ -476,7 +488,7 @@ static func _more() -> Dictionary:
 		_s("ele_absolute_zero", "Zero Absoluto", 26, "gelo", ["staff"], T_SELF, K_MAG, 3.0, 36, 20, "Congela tudo ao redor por 1.5s.", {"radius": 4.5, "stun": _dur(1.5), "hit_stop_frames": 5}),
 		# Raio (varinha)
 		_s("ele_chain", "Corrente Elétrica", 4, "raio", ["staff"], T_TARGET, K_MAG, 1.6, 10, 4, "Raio salta para até 3 inimigos próximos.", {"range": 9.0, "radius": 3.0, "max_targets": 4}),
-		_s("ele_static", "Campo Estático", 11, "raio", ["staff"], T_GROUND, K_MAG, 1.4, 16, 9, "Campo elétrico: dano e lentidão.", {"range": 8.0, "radius": 3.0, "slow": _slow(40, 2.5)}),
+		_s("ele_static", "Campo Estático", 11, "raio", ["staff"], T_GROUND, K_MAG, 1.8, 16, 9, "Campo elétrico: dano e lentidão.", {"range": 8.0, "radius": 3.0, "slow": _slow(40, 2.5)}),
 		_buff("ele_overload", "Sobrecarga", 16, "raio", ["staff"], 18, 24, "+30% MATK e +15% velocidade por 10s.", {"id": "overload", "duration": 10, "matk_pct": 30, "speed_pct": 15}),
 		_s("ele_thunder", "Trovão", 21, "raio", ["staff"], T_GROUND, K_MAG, 2.8, 26, 12, "Trovão no cursor: atordoa 0.8s.", {"range": 9.0, "radius": 2.2, "stun": _dur(0.8), "hit_stop_frames": 5}),
 		_s("ele_storm_lord", "Senhor da Tempestade", 28, "raio", ["staff"], T_GROUND, K_MAG, 3.8, 38, 18, "Tempestade elétrica gigante.", {"range": 10.0, "radius": 3.5}),
@@ -550,7 +562,7 @@ static func _all() -> Dictionary:
 		{"id": "ber_cleave", "name": "Rachar", "description": "Golpe largo que acerta até 4 inimigos.", "target": T_CONE, "kind": K_PHYS,
 		 "power": 1.8, "mp_cost": 9, "cooldown": 3.5, "radius": 2.8, "cone_angle_deg": 120, "max_targets": 4, "startup": 0.18, "active": 0.06, "recovery": 0.35, "hit_stop_frames": 4, "icon_color": Color(1, 0.45, 0.3)},
 		{"id": "ber_leap", "name": "Salto Selvagem", "description": "Salta até o ponto do cursor e esmaga o chão.", "target": T_GROUND, "kind": K_PHYS,
-		 "power": 1.5, "mp_cost": 12, "cooldown": 8.0, "range": 6.0, "radius": 2.2, "startup": 0.12, "active": 0.1, "recovery": 0.35, "icon_color": Color(1, 0.6, 0.3),
+		 "power": 1.9, "mp_cost": 12, "cooldown": 8.0, "range": 6.0, "radius": 2.2, "startup": 0.2, "active": 0.1, "recovery": 0.35, "icon_color": Color(1, 0.6, 0.3),
 		 "effects": {"dash": 5.5, "slow": {"pct": 30, "duration": 1.5}}},
 		{"id": "ber_whirlwind", "name": "Redemoinho", "description": "Gira a arma: dano em todos ao redor.", "target": T_SELF, "kind": K_PHYS,
 		 "power": 2.2, "mp_cost": 18, "cooldown": 10.0, "radius": 3.0, "startup": 0.2, "active": 0.3, "recovery": 0.4, "icon_color": Color(1, 0.5, 0.5)},
@@ -559,9 +571,9 @@ static func _all() -> Dictionary:
 		 "effects": {"buff": {"id": "fury", "duration": 8, "atk_pct": 35, "speed_pct": 15}}},
 		{"id": "ber_execute", "name": "Executar", "description": "Golpe devastador em um alvo. Dano enorme.", "target": T_TARGET, "kind": K_PHYS,
 		 "power": 3.4, "mp_cost": 20, "cooldown": 12.0, "range": 2.6, "radius": 0.0, "startup": 0.3, "active": 0.06, "recovery": 0.5, "hit_stop_frames": 6, "icon_color": Color(0.9, 0.2, 0.2)},
-		{"id": "ber_warcry", "name": "Grito de Guerra", "description": "Atordoa inimigos próximos por 1.2s.", "target": T_SELF, "kind": K_MAG,
-		 "power": 0.4, "mp_cost": 22, "cooldown": 24.0, "radius": 4.0, "startup": 0.2, "active": 0.05, "recovery": 0.3, "icon_color": Color(1, 0.8, 0.5),
-		 "effects": {"stun": {"duration": 1.2}}},
+		{"id": "ber_warcry", "name": "Grito de Guerra", "description": "Brado que fere e atordoa inimigos a 4.5 m por 1.2s; você ganha +20% ATK por 8s.", "target": T_SELF, "kind": K_MAG,
+		 "power": 1.4, "mp_cost": 22, "cooldown": 20.0, "radius": 4.5, "startup": 0.2, "active": 0.05, "recovery": 0.3, "icon_color": Color(1, 0.8, 0.5),
+		 "effects": {"stun": {"duration": 1.2}, "buff": {"id": "warcry", "duration": 8, "atk_pct": 20}}},
 	],
 	"bishop": [
 		{"id": "bis_heal", "name": "Curar", "description": "Cura o aliado do grupo sob o cursor (ou você).", "target": T_TARGET, "kind": K_HEAL,
@@ -640,7 +652,7 @@ static func _all() -> Dictionary:
 		 "power": 1.8, "mp_cost": 11, "cooldown": 2.5, "range": 9.0, "radius": 0.5, "projectile_speed": 16.0, "startup": 0.22, "active": 0.05, "recovery": 0.3, "icon_color": Color(1, 0.5, 0.2),
 		 "effects": {"dot": {"dps": 5, "duration": 3}}},
 		{"id": "ele_frost_nova", "name": "Nova de Gelo", "description": "Congela e retarda tudo ao redor.", "target": T_SELF, "kind": K_MAG,
-		 "power": 1.1, "mp_cost": 16, "cooldown": 9.0, "radius": 3.5, "startup": 0.15, "active": 0.05, "recovery": 0.3, "icon_color": Color(0.6, 0.9, 1),
+		 "power": 1.5, "mp_cost": 16, "cooldown": 9.0, "radius": 3.5, "startup": 0.15, "active": 0.05, "recovery": 0.3, "icon_color": Color(0.6, 0.9, 1),
 		 "effects": {"root": {"duration": 1.2}, "slow": {"pct": 50, "duration": 3}}},
 		{"id": "ele_lightning", "name": "Relâmpago", "description": "Raio instantâneo em linha reta.", "target": T_DIR, "kind": K_MAG,
 		 "power": 2.0, "mp_cost": 14, "cooldown": 4.0, "range": 10.0, "radius": 0.6, "max_targets": 3, "startup": 0.2, "active": 0.05, "recovery": 0.3, "hit_stop_frames": 4, "icon_color": Color(0.8, 0.8, 1)},
@@ -672,7 +684,7 @@ static func _all() -> Dictionary:
 		 "power": 1.6, "mp_cost": 20, "cooldown": 10.0, "radius": 5.0, "cone_angle_deg": 75, "startup": 0.25, "active": 0.05, "recovery": 0.35, "icon_color": Color(0.5, 0.2, 0.6),
 		 "effects": {"slow": {"pct": 45, "duration": 3}}},
 		{"id": "nec_harvest", "name": "Colheita Sombria", "description": "Explosão de almas: dano alto em área e cura 25%.", "target": T_SELF, "kind": K_MAG,
-		 "power": 2.6, "mp_cost": 36, "cooldown": 22.0, "radius": 4.5, "startup": 0.45, "active": 0.05, "recovery": 0.45, "hit_stop_frames": 5, "icon_color": Color(0.3, 1, 0.7),
+		 "power": 3.4, "mp_cost": 36, "cooldown": 18.0, "radius": 4.5, "startup": 0.45, "active": 0.05, "recovery": 0.45, "hit_stop_frames": 5, "icon_color": Color(0.3, 1, 0.7),
 		 "effects": {"heal_pct_of_dmg": 0.25}},
 	],
 	}
