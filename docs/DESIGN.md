@@ -387,7 +387,7 @@ atordoa 0,5 s quem estava preparando um golpe (interrompe) e volta para a mão (
 de luz por segundo fere quem está a 3,5 m (40% do ATK; segura o bando todo); o grupo e as invocações a
 12 m recebem 10% menos dano (`Stats.dr_pct`, teto `Balance.DR_CAP`) e +10% DEF, renovado a cada 0,5 s (some 1,3 s depois de sair do raio).
 Morrer desliga; lançar de novo desliga; bot não desliga a própria. O bot Guardião leva na barra Golpe Sagrado, Ricochete, Aura, Provocar,
-Imposição de Mãos e Retribuição.
+Imposição de Mãos e Retribuição (Muralha de Escudo no lugar dela antes do nível 24).
 **Combustão** (Elementalista de fogo, `combust`): marca o alvo (aro que fecha nele durante o preparo de 0,3 s) e o faz explodir em 2,6 m;
 as queimaduras SUAS em cada atingido detonam na hora (125% do que faltava, número laranja ✦) e o fogo reacende em todos por 4 s.
 Combina com Bola de Fogo/Onda de Chamas/Muralha de Fogo antes.
