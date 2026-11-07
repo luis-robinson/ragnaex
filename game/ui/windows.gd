@@ -705,8 +705,12 @@ func _tree_view(p: SimEntity) -> Control:
 			nodes[nid] = tr["nodes"][nid]
 	# anéis de guia (fundo) e ligações; o caminho comprado em dourado
 	web.draw.connect(func():
-		for R in TreeCatalog.RINGS:
-			web.draw_arc(Vector2.ZERO, float(R) * WEB_UNIT, 0.0, TAU, 96, Color(0.25, 0.22, 0.32, 0.25), 1.0, true)
+		for cl in tr.get("clusters", []):          # círculos (skill, notável, dash) como os do PoE
+			var cc: Vector2 = (cl["center"] as Vector2) * WEB_UNIT
+			var rr: float = float(cl["r"]) * WEB_UNIT
+			web.draw_circle(cc, rr + 26.0, Color(0.09, 0.075, 0.11, 0.85))
+			web.draw_arc(cc, rr + 26.0, 0.0, TAU, 64, Color(0.42, 0.34, 0.22, 0.75), 2.0, true)
+			web.draw_arc(cc, rr, 0.0, TAU, 64, Color(0.3, 0.26, 0.34, 0.55), 1.5, true)
 		for nid in nodes:
 			for l in nodes[nid]["links"]:
 				if nid < l and nodes.has(l):
@@ -863,8 +867,8 @@ func _tree_node(p: SimEntity, n: Dictionary, at: Vector2) -> Control:
 		icon.modulate = Color.WHITE if owned else (Color(0.85, 0.85, 0.85) if can else Color(0.4, 0.4, 0.44))
 		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(icon)
-	elif kind in ["stat", "notable"]:
-		# pequeno: o bônus curto embaixo; notável: o nome (o bônus fica na dica)
+	elif kind in ["stat", "notable"] and n["branch"] != "ring":
+		# pequeno: o bônus curto embaixo; notável: o nome (o bônus fica na dica); junção/passagem: só na dica
 		var txt: String = TreeCatalog.stat_short(st) if kind == "stat" else str(n["name"])
 		var tag := UiKit.label(txt, 11 if kind == "stat" else 12, STAT_COLORS[fam] if kind == "stat" else Color(1.0, 0.9, 0.62))
 		tag.add_theme_constant_override("outline_size", 3)

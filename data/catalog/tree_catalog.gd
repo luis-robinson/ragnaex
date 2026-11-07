@@ -3,26 +3,15 @@ extends RefCounted
 ## Teia de pontos de skill (estilo Path of Exile) — uma por classe, gerada por loops a partir das skills
 ## (SkillsCatalog), builds (ClassDef.builds) e evoluções (TalentsCatalog). Nada escrito nó a nó.
 ##
-## Forma: um PAINEL por ramo, lado a lado: "Geral" (skills sem build) e um por build. Em cada painel o caminho desce
-## por nível: skill → passivo pequeno → skill... (skills na coluna do meio, passivos na linha entre elas). Em cada skill:
-## a MAESTRIA (+1) à esquerda e a EVOLUÇÃO à direita. O nó INICIAL fica em cima, ligado ao topo de cada painel;
-## as evoluções do dash ficam ao lado dele.
+## Forma (estilo PoE): MALHA de junções e estradas (grade irregular, sorteio fixo por classe) com CÍRCULOS nas casas:
+## de skill (skill no centro; maestria, evoluções e passivos em volta) e de notável (anel com o notável no meio, duas
+## entradas). Setores por ramo (Geral + builds) em volta do início; skill de nível alto mais longe. Ver _class_tree.
 ##
-## Nó: {id, kind: start|skill|stat|mastery|talent, ref, name, desc, level, cost, pos: Vector2, links: [ids], stats: {}, branch}
-## Árvore: {start, nodes, panes: [{id, name, role, x}]}
+## Nó: {id, kind: start|skill|stat|notable|mastery|talent|pick, ref, name, desc, level, cost, pos: Vector2, links: [ids], stats: {}, branch}
+## Teia: {start, nodes, panes: [{id, name, role, angle}], clusters: [{center, r, kind, branch}]}
 ## Regra (WorldSim.tree_allocate): só se compra nó ligado a um já comprado, com nível e pontos suficientes.
 
-## raio de desenho de cada tipo de nó (unidades da teia; espelha windows.NODE_PX / WEB_UNIT): o passo no braço
-## é a soma dos dois raios + folga, então nó grande ganha mais espaço
-const NODE_R := {"start": 0.42, "skill": 0.35, "notable": 0.27, "stat": 0.15}
-const GAP := 0.24
-const R0 := 1.45                  # primeiro nó de cada braço
-const SIDE := 0.86                # maestria / evolução ao lado da skill (perpendicular ao braço)
-const RINGS := [3.4, 7.4]         # anéis que ligam braços vizinhos (raio)
-const RING_LEVEL := [1, 12]       # nível mínimo dos nós de cada anel
-const RING_SPACING := 0.95        # distância entre nós de um anel
-const DASH_R := [0.85, 1.55, 2.25]  # evoluções do dash: espora curta entre o 1º e o 2º braço
-## Notáveis gerais dos anéis (os antigos talentos de escolha), em laço por classe; "power" = ATK ou MATK.
+## Notáveis gerais (os antigos talentos de escolha), em laço por classe; "power" = ATK ou MATK.
 const RING_NOTABLES := [
 	["Olho Treinado", {"crit": 3.0, "attr_AGI": 2}], ["Ritmo de Batalha", {"aspd_pct": 6}], ["Mente Serena", {"cdr": 5, "attr_WILL": 2}],
 	["Sangue Forte", {"hp_pct": 6, "attr_VIT": 2}], ["Passo Leve", {"speed_pct": 5, "evasion": 1.5}], ["Couraça", {"def_pct": 7}],
@@ -131,20 +120,32 @@ static func build(classes: Dictionary, skills: Dictionary, talents: Dictionary) 
 		out[cid] = _class_tree(classes[cid], skills, talents)
 	return out
 
-## Teia de uma classe (estilo Path of Exile): início no centro, um BRAÇO por ramo (Geral + builds) saindo em
-## volta, com as skills do ramo por nível e nós pequenos (atributo) e notáveis entre elas; maestria e evoluções ao lado
-## de cada skill; dois ANÉIS ligam braços vizinhos (atributos mistos + notáveis gerais) para builds híbridas.
+## Teia de uma classe (estilo Path of Exile): uma MALHA de junções (grade irregular, sorteio fixo por classe) com nós de
+## passagem nas estradas; nas casas da grade ficam CÍRCULOS: o de skill (a skill no centro, maestria, evoluções e
+## atributos em volta, uma entrada) e o de notável (anel de nós pequenos com o notável no meio, duas entradas = atalho).
+## Regiões por ramo (Geral + builds) como as do PoE: setores em volta do início; skill de nível alto mais longe.
+const CELL := 4.6                 # lado de uma casa da grade (unidades da teia)
+const GRID_K := 5                 # casas de -K a K-1 em cada eixo
+const WHEEL_R := 1.05             # raio dos círculos
+const EDGE_KEEP := 0.55           # das estradas que não são da árvore mínima, quantas ficam (o resto sai: escolha de rota)
+const NOTABLE_EVERY := 3          # a cada N casas de um setor, uma vira círculo de notável
+const JITTER_HUB := 0.32          # junções e círculos fora da grade perfeita (cara orgânica do PoE)
+const JITTER_CELL := 0.25
+
 static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) -> Dictionary:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(cls.id + "_teia")
 	var nodes := {}
 	var geral_attr2: String = cls.builds[0].get("attr2", "FOR") if not cls.builds.is_empty() else "FOR"
-	var branches: Array = [{"id": "", "role": "", "name": "Geral", "attr": "VIT", "attr2": geral_attr2, "stat": "hp_pct"}]
+	var branches: Array = [{"id": "", "role": "", "name": "Geral", "attr": "VIT", "attr2": geral_attr2}]
 	for b in cls.builds:
 		branches.append({"id": b["id"], "role": b["role"], "name": b["name"], "passives": b.get("passives", []),
-			"attr": b.get("attr", "FOR"), "attr2": b.get("attr2", "VIT"), "stat": b.get("stat", "atk_pct")})
+			"attr": b.get("attr", "FOR"), "attr2": b.get("attr2", "VIT")})
+	var n_br := branches.size()
 	var start := "%s_start" % cls.id
 	nodes[start] = _node(start, "start", "", cls.name, "Início da teia.", 1, 0, Vector2.ZERO)
 	nodes[start]["branch"] = "start"
-	var by_skill := {}             # skill_id -> [talentos]
+	var by_skill := {}
 	var dash_talents: Array = []
 	for tid in talents:
 		var t: TalentDef = talents[tid]
@@ -157,136 +158,229 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 				by_skill[t.skill_id] = []
 			by_skill[t.skill_id].append(t)
 	dash_talents.sort_custom(func(a, b): return a.unlock_level < b.unlock_level)
-	var n_arms := branches.size()
+	# setores: o ramo bi fica em volta do ângulo a(bi)
 	var panes: Array = []
-	var spines: Array = []           # por braço: [{id, r}] dos nós no eixo (para ligar os anéis)
-	var notable_i := 0
-	for bi in range(n_arms):
+	for bi in range(n_br):
 		var br: Dictionary = branches[bi]
-		var ang := -PI * 0.5 + TAU * bi / float(n_arms)
-		var dir := Vector2(cos(ang), sin(ang))
-		var side := Vector2(-dir.y, dir.x)
-		panes.append({"id": br["id"], "name": br["name"], "role": br["role"], "angle": ang})
+		panes.append({"id": br["id"], "name": br["name"], "role": br["role"], "angle": -PI * 0.5 + TAU * bi / float(n_br)})
+	var sector_of := func(p: Vector2) -> int:
+		var a := wrapf(p.angle() + PI * 0.5, 0.0, TAU)
+		return int(round(a / (TAU / float(n_br)))) % n_br
+	# casas por setor, da mais perto para a mais longe
+	var cells_by: Array = []
+	for bi in range(n_br):
+		cells_by.append([])
+	for i in range(-GRID_K, GRID_K):
+		for j in range(-GRID_K, GRID_K):
+			var c := Vector2((i + 0.5) * CELL, (j + 0.5) * CELL)
+			if c.length() > GRID_K * CELL:
+				continue
+			cells_by[sector_of.call(c)].append({"i": i, "j": j, "c": c, "d": c.length() + rng.randf() * CELL * 0.35})
+	for bi in range(n_br):
+		cells_by[bi].sort_custom(func(a, b): return float(a["d"]) < float(b["d"]))
+	var clusters: Array = []          # {cell, kind, center, branch, ...} (a UI desenha o círculo)
+	var used_cells := {}
+	var dash_cell: Dictionary = {}
+	for bi in range(n_br):
+		var br: Dictionary = branches[bi]
 		var list: Array = []
 		for sid in cls.skill_ids:
 			var sk: SkillDef = skills[sid]
 			if sk.build == br["id"]:
 				list.append(sk)
 		list.sort_custom(func(a, b): return _order(cls, a) < _order(cls, b))
-		var smalls: Array = br["passives"] if not br.get("passives", []).is_empty() else ROLE_STATS.get(br["role"], ROLE_STATS[""])
-		var arm_notes: Array = ARM_NOTABLES.get(br["role"], ARM_NOTABLES[""])
-		var spine: Array = []
-		var prev := start
-		var r := R0
-		var prev_kind := ""
-		var filler := 0
-		var small_i := 0
+		var k := 0
+		var placed := 0
+		for cell in cells_by[bi]:
+			if placed >= list.size() and k >= list.size() + list.size() / NOTABLE_EVERY:
+				break
+			k += 1
+			var key := Vector2i(cell["i"], cell["j"])
+			if bi == 0 and dash_cell.is_empty() and not dash_talents.is_empty():
+				dash_cell = cell                  # a primeira casa do Geral é a das evoluções do dash
+				used_cells[key] = true
+				continue
+			if placed < list.size() and (k % NOTABLE_EVERY != 0 or list[placed].id in cls.starting_skills):
+				clusters.append({"cell": cell, "kind": "skill", "skill": list[placed], "branch": bi})
+				placed += 1
+			else:
+				clusters.append({"cell": cell, "kind": "notable", "branch": bi})
+			used_cells[key] = true
+		while placed < list.size():           # sobrou skill (setor pequeno): casas mais longe do mesmo setor
+			for cell in cells_by[bi]:
+				var key := Vector2i(cell["i"], cell["j"])
+				if not used_cells.has(key):
+					clusters.append({"cell": cell, "kind": "skill", "skill": list[placed], "branch": bi})
+					used_cells[key] = true
+					placed += 1
+					break
+			if placed < list.size() and cells_by[bi].all(func(c): return used_cells.has(Vector2i(c["i"], c["j"]))):
+				push_error("teia de %s: setor %s sem casas" % [cls.id, br["name"]])
+				break
+	# junções: cantos das casas usadas (o início é o canto 0,0)
+	var hubs := {Vector2i(0, 0): start}
+	var hub_list: Array = [Vector2i(0, 0)]
+	for key in used_cells:
+		for dx in [0, 1]:
+			for dy in [0, 1]:
+				var h := Vector2i(key.x + dx, key.y + dy)
+				if not hubs.has(h):
+					var hp := Vector2(h.x, h.y) * CELL + Vector2(rng.randf_range(-1, 1), rng.randf_range(-1, 1)) * JITTER_HUB
+					var br: Dictionary = branches[sector_of.call(hp)] if hp.length() > 0.1 else branches[0]
+					var hid := "%s_h_%d_%d" % [cls.id, h.x + 50, h.y + 50]
+					var st := {"attr_" + str(br["attr"]): SMALL_ATTR}
+					nodes[hid] = _node(hid, "stat", "", stat_text(st), "Junção: %s." % stat_text(st), 1, 1, hp)
+					nodes[hid]["stats"] = st
+					nodes[hid]["branch"] = "ring"
+					hubs[h] = hid
+					hub_list.append(h)
+	# estradas: árvore mínima aleatória entre junções vizinhas (todas ligadas ao início) + parte das outras
+	var edges: Array = []
+	for h in hub_list:
+		for d in [Vector2i(1, 0), Vector2i(0, 1)]:
+			if hubs.has(h + d):
+				edges.append([h, h + d, rng.randf()])
+	edges.sort_custom(func(a, b): return float(a[2]) < float(b[2]))
+	var parent := {}
+	for h in hub_list:
+		parent[h] = h
+	var find := func(x: Vector2i) -> Vector2i:
+		while parent[x] != x:
+			x = parent[x]
+		return x
+	var keep: Array = []
+	for e in edges:
+		var ra: Vector2i = find.call(e[0])
+		var rb: Vector2i = find.call(e[1])
+		if ra != rb:
+			parent[ra] = rb
+			keep.append(e)
+		elif rng.randf() < EDGE_KEEP:
+			keep.append(e)
+	for e in keep:
+		var a: Vector2i = e[0]
+		var b: Vector2i = e[1]
+		var mid := ((nodes[hubs[a]]["pos"] as Vector2) + (nodes[hubs[b]]["pos"] as Vector2)) * 0.5
+		var br: Dictionary = branches[sector_of.call(mid)]
+		var tid := "%s_e_%d_%d_%d_%d" % [cls.id, a.x + 50, a.y + 50, b.x + 50, b.y + 50]
+		var st := {"attr_" + str(br["attr2"] if (a.x + a.y) % 2 == 0 else br["attr"]): SMALL_ATTR}
+		nodes[tid] = _node(tid, "stat", "", stat_text(st), "Passagem: %s." % stat_text(st), 1, 1, mid)
+		nodes[tid]["stats"] = st
+		nodes[tid]["branch"] = "ring"
+		_link(nodes, hubs[a], tid)
+		_link(nodes, tid, hubs[b])
+	# círculos
+	var notable_i := rng.randi() % 7
+	var small_i := {}                 # por ramo: anda pela lista de passivos da build
+	var out_clusters: Array = []
+	for cl in clusters:
+		var cell: Dictionary = cl["cell"]
+		var c: Vector2 = cell["c"] + Vector2(rng.randf_range(-1, 1), rng.randf_range(-1, 1)) * JITTER_CELL
+		var bi: int = cl["branch"]
+		var br: Dictionary = branches[bi]
 		var tag: String = br["id"] if br["id"] != "" else "geral"
-		for i in range(list.size()):
-			var sk: SkillDef = list[i]
-			var lv_prev: int = list[i - 1].unlock_level if i > 0 else 1
-			if i > 0 or not (sk.id in cls.starting_skills):
-				# nós entre uma skill e a próxima: atributo da build, passivo da build e, a cada 3, um notável
-				for k in range(2 if i > 0 else 1):
-					filler += 1
-					var fid := "%s_n_%s_%d" % [cls.id, tag, filler]
-					var st: Dictionary
-					var nm: String
-					var kind := "stat"
-					if filler % 3 == 0:
-						var pick: Array = arm_notes[notable_i % arm_notes.size()]
-						notable_i += 1
-						st = _scaled(pick[1])
-						st["attr_" + str(br["attr"])] = NOTABLE_ATTR
-						nm = pick[0]
-						kind = "notable"
-					elif filler % 3 == 1:
-						st = {"attr_" + str(br["attr"]): SMALL_ATTR}
-					else:
-						st = _scaled(smalls[small_i % smalls.size()], 0.5)       # passivo de papel: metade do de antes (há muitos na teia)
-						small_i += 1
-						st["attr_" + str(br["attr2"])] = SMALL_ATTR
-					st = _power(st, cls)
-					if kind == "stat":
-						nm = stat_text(st)
-					r += _gap(prev_kind, kind)
-					prev_kind = kind
-					nodes[fid] = _node(fid, kind, "", nm, ("Notável: %s." if kind == "notable" else "Passivo: %s.") % stat_text(st), lv_prev, 1, dir * r)
-					nodes[fid]["stats"] = st
-					nodes[fid]["branch"] = br["id"]
-					_link(nodes, prev, fid)
-					spine.append({"id": fid, "r": r})
-					prev = fid
-			r += _gap(prev_kind, "skill")
-			prev_kind = "skill"
+		# entrada: o canto da casa mais perto do início
+		var corner := Vector2i(cell["i"] + (1 if c.x < 0 else 0), cell["j"] + (1 if c.y < 0 else 0))
+		var far_corner := Vector2i(cell["i"] + (0 if c.x < 0 else 1), cell["j"] + (0 if c.y < 0 else 1))
+		var to_hub := (Vector2(corner.x, corner.y) * CELL - c).normalized()
+		var base_a := to_hub.angle()
+		var cid := "%s_%d_%d" % [tag, cell["i"] + 50, cell["j"] + 50]
+		if cl["kind"] == "skill":
+			var sk: SkillDef = cl["skill"]
 			var nid := "%s_s_%s" % [cls.id, sk.id]
-			nodes[nid] = _node(nid, "skill", sk.id, sk.name, sk.description, sk.unlock_level, Balance.SKILL_LEARN_COST, dir * r)
+			nodes[nid] = _node(nid, "skill", sk.id, sk.name, sk.description, sk.unlock_level, Balance.SKILL_LEARN_COST, c)
 			nodes[nid]["branch"] = br["id"]
-			_link(nodes, prev, nid)
-			spine.append({"id": nid, "r": r})
-			var mid := "%s_m_%s" % [cls.id, sk.id]
-			nodes[mid] = _node(mid, "mastery", sk.id, "Maestria: " + sk.name, mastery_desc(sk), sk.unlock_level, 1, dir * r - side * SIDE)
-			nodes[mid]["branch"] = br["id"]
-			_link(nodes, nid, mid)
-			var k2 := 0
-			for t in by_skill.get(sk.id, []):
-				var tnid := "%s_t_%s" % [cls.id, t.id]
-				nodes[tnid] = _node(tnid, "talent", t.id, t.name, t.description, t.unlock_level, t.cost, dir * (r + k2 * 0.58) + side * SIDE * (1.0 + k2 * 0.35))
-				nodes[tnid]["branch"] = br["id"]
-				_link(nodes, nid if k2 == 0 else "%s_t_%s" % [cls.id, by_skill[sk.id][k2 - 1].id], tnid)
-				k2 += 1
-			prev = nid
-		spines.append(spine)
-	# anéis: arcos entre braços vizinhos; as pontas ligam no nó do braço de raio mais perto
-	var ring_note := cls.id.length() * 3
-	for ri in range(RINGS.size()):
-		var R: float = RINGS[ri]
-		for bi in range(n_arms):
-			var bj := (bi + 1) % n_arms
-			var a0 := -PI * 0.5 + TAU * bi / float(n_arms)
-			var a1 := a0 + TAU / float(n_arms)
-			var margin := (SIDE + 0.75) / R
-			var span := (a1 - a0) - margin * 2.0
-			var count := maxi(3, int(span * R / RING_SPACING))
-			if count % 2 == 0:
-				count += 1                     # ímpar: o do meio é o notável
-			var prev_r := _nearest(spines[bi], R)
-			for k in range(count):
-				var a := a0 + margin + span * (k + 0.5) / float(count)
-				var rid := "%s_r_%d_%d_%d" % [cls.id, ri, bi, k]
-				var st: Dictionary
-				var nm: String
-				var kind := "stat"
-				var A: Dictionary = branches[bi] if k < count / 2 else branches[bj]
-				if k == count / 2:
-					var pick: Array = RING_NOTABLES[ring_note % RING_NOTABLES.size()]
-					ring_note += 1
-					st = _power(_scaled(pick[1]), cls)
-					nm = pick[0]
-					kind = "notable"
-				else:
-					st = {"attr_" + str(A["attr"] if k % 2 == 0 else A["attr2"]): SMALL_ATTR}
-					nm = stat_text(st)
-				nodes[rid] = _node(rid, kind, "", nm, ("Notável: %s." if kind == "notable" else "Passivo: %s.") % stat_text(st), RING_LEVEL[ri], 1, Vector2(cos(a), sin(a)) * R)
-				nodes[rid]["stats"] = st
-				nodes[rid]["branch"] = "ring"
-				if prev_r != "":
-					_link(nodes, prev_r, rid)
-				prev_r = rid
-			var end := _nearest(spines[bj], R)
-			if end != "":
-				_link(nodes, prev_r, end)
-	# evoluções do dash: espora curta saindo do início, entre o 1º e o 2º braço
-	var da := -PI * 0.5 + TAU * 0.5 / float(n_arms)
-	for i in range(dash_talents.size()):
-		var t: TalentDef = dash_talents[i]
-		var tnid := "%s_t_%s" % [cls.id, t.id]
-		var dr: float = DASH_R[mini(i, DASH_R.size() - 1)] + maxi(0, i - 2) * 0.7
-		nodes[tnid] = _node(tnid, "talent", t.id, t.name, t.description, t.unlock_level, t.cost, Vector2(cos(da), sin(da)) * dr)
-		nodes[tnid]["branch"] = "start"
-		_link(nodes, start if i == 0 else "%s_t_%s" % [cls.id, dash_talents[i - 1].id], tnid)
+			var evs: Array = by_skill.get(sk.id, [])
+			var slots := 4 + evs.size()
+			var roles: Array = []                     # papel de cada posição: entrada, maestria (do outro lado), evoluções, passivos
+			roles.resize(slots)
+			roles[0] = "in"
+			roles[slots / 2] = "m"
+			var q: Array = evs.duplicate()
+			for s in range(slots):
+				if roles[s] == null:
+					roles[s] = q.pop_front() if not q.is_empty() else "p"
+			for s in range(slots):
+				var a := base_a + TAU * s / float(slots)
+				var at := c + Vector2(cos(a), sin(a)) * WHEEL_R
+				var sid := ""
+				if str(roles[s]) == "in":                 # entrada: atributo da build, liga na junção
+					sid = "%s_n_%s_in" % [cls.id, cid]
+					var st := {"attr_" + str(br["attr"]): SMALL_ATTR}
+					nodes[sid] = _node(sid, "stat", "", stat_text(st), "Passivo: %s." % stat_text(st), 1, 1, at)
+					nodes[sid]["stats"] = st
+					_link(nodes, sid, hubs[corner])
+				elif str(roles[s]) == "m":            # maestria do outro lado da entrada
+					sid = "%s_m_%s" % [cls.id, sk.id]
+					nodes[sid] = _node(sid, "mastery", sk.id, "Maestria: " + sk.name, mastery_desc(sk), sk.unlock_level, 1, at)
+				elif roles[s] is TalentDef:
+					var t: TalentDef = roles[s]
+					sid = "%s_t_%s" % [cls.id, t.id]
+					nodes[sid] = _node(sid, "talent", t.id, t.name, t.description, t.unlock_level, t.cost, at)
+				else:                                 # passivo da build
+					sid = "%s_n_%s_%d" % [cls.id, cid, s]
+					var smalls: Array = br["passives"] if not br.get("passives", []).is_empty() else ROLE_STATS.get(br["role"], ROLE_STATS[""])
+					var si: int = small_i.get(bi, 0)
+					small_i[bi] = si + 1
+					var st := _power(_scaled(smalls[si % smalls.size()], 0.5), cls)
+					st["attr_" + str(br["attr2"])] = SMALL_ATTR
+					nodes[sid] = _node(sid, "stat", "", stat_text(st), "Passivo: %s." % stat_text(st), sk.unlock_level, 1, at)
+					nodes[sid]["stats"] = st
+				nodes[sid]["branch"] = br["id"]
+				_link(nodes, nid, sid)
+			out_clusters.append({"center": c, "r": WHEEL_R, "kind": "skill", "branch": br["id"]})
+		else:
+			# notável: anel de 5 nós pequenos, notável no centro ligado a dois do anel; duas entradas (atalho)
+			var pick: Array
+			if rng.randf() < 0.5:
+				var arm_notes: Array = ARM_NOTABLES.get(br["role"], ARM_NOTABLES[""])
+				pick = arm_notes[notable_i % arm_notes.size()]
+			else:
+				pick = RING_NOTABLES[notable_i % RING_NOTABLES.size()]
+			notable_i += 1
+			var nn := "%s_n_%s_x" % [cls.id, cid]
+			var nst := _power(_scaled(pick[1]), cls)
+			nst["attr_" + str(br["attr"])] = NOTABLE_ATTR
+			nodes[nn] = _node(nn, "notable", "", pick[0], "Notável: %s." % stat_text(nst), 1, 1, c)
+			nodes[nn]["stats"] = nst
+			nodes[nn]["branch"] = br["id"]
+			var ring: Array = []
+			for s in range(5):
+				var a := base_a + TAU * s / 5.0
+				var sid := "%s_n_%s_%d" % [cls.id, cid, s]
+				var st := {"attr_" + str(br["attr"] if s % 2 == 0 else br["attr2"]): SMALL_ATTR}
+				nodes[sid] = _node(sid, "stat", "", stat_text(st), "Passivo: %s." % stat_text(st), 1, 1, c + Vector2(cos(a), sin(a)) * WHEEL_R)
+				nodes[sid]["stats"] = st
+				nodes[sid]["branch"] = br["id"]
+				ring.append(sid)
+			for s in range(5):
+				_link(nodes, ring[s], ring[(s + 1) % 5])
+			_link(nodes, nn, ring[2])
+			_link(nodes, nn, ring[3])
+			_link(nodes, ring[0], hubs[corner])
+			if hubs.has(far_corner):
+				var a_far := (Vector2(far_corner.x, far_corner.y) * CELL - c).angle()
+				var best := 0
+				var bd := INF
+				for s in range(5):                    # a 2ª entrada sai do nó do anel virado para o outro canto
+					var d := absf(angle_difference(base_a + TAU * s / 5.0, a_far))
+					if d < bd:
+						bd = d
+						best = s
+				_link(nodes, ring[best], hubs[far_corner])
+			out_clusters.append({"center": c, "r": WHEEL_R, "kind": "notable", "branch": br["id"]})
+	# evoluções do dash: círculo pequeno na primeira casa do Geral, em corrente a partir do início
+	if not dash_cell.is_empty():
+		var c: Vector2 = dash_cell["c"]
+		for i in range(dash_talents.size()):
+			var t: TalentDef = dash_talents[i]
+			var tnid := "%s_t_%s" % [cls.id, t.id]
+			nodes[tnid] = _node(tnid, "talent", t.id, t.name, t.description, t.unlock_level, t.cost, c * (0.55 + 0.3 * i))      # espora do início
+
+			nodes[tnid]["branch"] = "start"
+			_link(nodes, start if i == 0 else "%s_t_%s" % [cls.id, dash_talents[i - 1].id], tnid)
 	_class_picks(cls, nodes)
-	return {"start": start, "nodes": nodes, "panes": panes}
+	return {"start": start, "nodes": nodes, "panes": panes, "clusters": out_clusters}
 
 ## Talentos de classe (ClassTalentsCatalog) como nós "pick" fora da teia: um grupo por linha, grátis, liberados
 ## pelo nível; os `stats` da opção entram pelo tree_bonus, o resto pelo ClassTalentSystem.
@@ -302,12 +396,6 @@ static func _class_picks(cls: ClassDef, nodes: Dictionary) -> void:
 			nodes[pid]["branch"] = "talentos"
 			nodes[pid]["group"] = "row_%d" % r
 
-## Passo no braço entre dois nós seguidos ("" = o primeiro, a partir de R0).
-static func _gap(a: String, b: String) -> float:
-	if a == "":
-		return 0.0
-	return float(NODE_R.get(a, 0.15)) + float(NODE_R.get(b, 0.15)) + GAP
-
 ## Bônus de notável escalado (% x NOTABLE_SCALE, arredondado; atributo fica).
 static func _scaled(st: Dictionary, k_mult: float = NOTABLE_SCALE) -> Dictionary:
 	var out := {}
@@ -315,19 +403,6 @@ static func _scaled(st: Dictionary, k_mult: float = NOTABLE_SCALE) -> Dictionary
 		out[k] = st[k] if str(k).begins_with("attr_") else (snappedf(float(st[k]) * k_mult, 0.5) if st[k] is float else maxi(1, roundi(float(st[k]) * k_mult)))
 	return out
 
-## Nó do eixo de um braço com raio mais perto de R ("" se o braço é vazio).
-static func _nearest(spine: Array, R: float) -> String:
-	var best := ""
-	var bd := INF
-	for q in spine:
-		var d := absf(float(q["r"]) - R)
-		if d < bd:
-			bd = d
-			best = q["id"]
-	return best
-
-## Texto da maestria tirado dos dados da skill: o que cada nível melhora (poder só se a skill tem poder; forma e
-## bônus têm valores fixos) e os efeitos extras de certos níveis (SkillDef.mastery[n].extra).
 static func mastery_desc(s: SkillDef) -> String:
 	var e1 := s.mastery_entry(1)
 	var pw := roundi((float(e1.get("power_mult", 1.0)) - 1.0) * 100.0)

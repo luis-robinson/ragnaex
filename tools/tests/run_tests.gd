@@ -4705,12 +4705,12 @@ func _check_tree(gd, sim, save) -> void:
 			else:
 				nodes[nid] = tr["nodes"][nid]
 		# --- forma (teia estilo Path of Exile) ---
-		check(nodes.size() >= 130 and nodes.size() <= 200, "%s: teia com 130-200 nós (%d)" % [cid, nodes.size()])
+		check(nodes.size() >= 200 and nodes.size() <= 480, "%s: teia com 200-480 nós (%d)" % [cid, nodes.size()])
 		var kinds := {}
 		for nid in nodes:
 			kinds[nodes[nid]["kind"]] = int(kinds.get(nodes[nid]["kind"], 0)) + 1
 		print("TEIA %s: %d nós %s" % [cid, nodes.size(), kinds])
-		check(int(kinds.get("notable", 0)) >= 10, "%s: notáveis na teia (%d)" % [cid, int(kinds.get("notable", 0))])
+		check(int(kinds.get("notable", 0)) >= 6, "%s: notáveis na teia (%d)" % [cid, int(kinds.get("notable", 0))])
 		var attr_nodes := 0
 		for nid in nodes:
 			for k in nodes[nid]["stats"]:

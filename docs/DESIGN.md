@@ -173,12 +173,13 @@ No primeiro mapa (Vale de Aldara, `Balance.LEGENDARY_START_MAP`) o 1º conjunto 
 Maestria: o nó +1 da árvore compra de novo até `MASTERY_MAX` (1 ponto por nível); é o único jeito de subir (usar a skill não sobe).
 Cada nível: +12% de poder (dano/cura), -4% MP, -5% recarga e +`MASTERY_BONUS_PCT` (10%) nos bônus positivos de buffs e formas
 (`SimEntity.scaled_bonus`, `form_mult`; penalidade e duração não mudam). A descrição de cada maestria sai dos dados (`TreeCatalog.mastery_desc`).
-**Teia de skills** (janela K, estilo Path of Exile): uma teia por classe. Do início saem braços (Geral + um por build) com as skills
-da build por nível; entre duas skills, nós de atributo (FOR/AGI/VIT/WILL/INT +1, pelo atributo da build) e, a cada 3, um **notável**
-(bônus maior com nome); maestria e evoluções ao lado de cada skill. Dois **anéis** ligam braços vizinhos (atributos mistos e notáveis
-gerais: crítico, recarga, roubo de vida...), então dá para fazer híbridos. 4 pontos por nível (+1 no 10/20/30) = 119 no 30, numa teia de
-~140-170 nós: escolher o caminho é a build. Save antigo (antes da teia) recebe todos os pontos de volta. Bots compram o caminho até as skills
-da build e depois notáveis/atributos (`ProgressionSystem.bot_spend`).
+**Teia de skills** (janela K, estilo Path of Exile): uma teia por classe. É uma malha de junções e estradas (grade irregular,
+sorteio fixo por classe; parte das estradas some, então há várias rotas) com círculos pendurados nas casas: o de skill (a skill no
+centro; maestria, evoluções e passivos da build em volta) e o de notável (anel de atributos com o notável no meio, duas entradas =
+atalho). Cada ramo (Geral + builds) tem o seu setor em volta do início, como as regiões do PoE; skill de nível alto fica mais longe.
+Estradas e junções dão atributo (+1, pelo setor). 4 pontos por nível (+1 no 10/20/30) = 119 no 30, numa teia de ~250-360 nós.
+Save antigo recebe os pontos de volta. Bots compram o caminho mais curto até as skills da build e depois notáveis/atributos
+(`ProgressionSystem.bot_spend`).
 **Talentos de classe** (aba "Talentos"): a cada 5 níveis (5 a 30) uma linha com 3 escolhas que mudam o jeito de jogar
 (`ClassTalentsCatalog`): buffs que ficam **permanentes** ou viram **aura** para o grupo (15 m), invocações que **ficam para sempre**
 (elemental, esqueletos, lobos, Ent), **recusa a morrer** (1 HP e imortal por alguns segundos, com recarga), execução, emboscada mais forte,

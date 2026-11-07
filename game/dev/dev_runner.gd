@@ -810,6 +810,13 @@ func _bag_shot(path: String) -> void:
 		main.hud.npc_ui.mode = "storage"
 		main.hud.npc_ui._rebuild()
 	await get_tree().create_timer(1.0).timeout
+	if DevArgs.has("--fps"):              # média de FPS por 3 s com a janela aberta (custo da UI)
+		var t0 := Time.get_ticks_msec()
+		var frames := 0
+		while Time.get_ticks_msec() - t0 < 3000:
+			await get_tree().process_frame
+			frames += 1
+		print("BAG_FPS %.1f" % (frames / 3.0))
 	get_viewport().get_texture().get_image().save_png(path)
 	print("bag_shot: " + path)
 	get_tree().quit()

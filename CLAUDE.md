@@ -46,9 +46,9 @@ Scripts novos com `class_name` só são vistos pelos outros scripts depois de `-
   arma exigida em cada uma; o jogador aprende com pontos e equipa 6). `ClassDef.skill_ids` é preenchido sozinho.
   Campos em `data/schemas/skill_def.gd`; efeitos suportados por `WorldSim._apply_effects`
   (`dot, slow, stun, root, buff, shield, dash, summon, heal_pct_of_dmg, taunt, boss_summon, wither`); `dot` de skill de fogo vira queimadura sozinho e gelo estilhaça alvo retardado (`Combat.frost_mult`). Mira: SELF/DIRECTION/GROUND/CONE/TARGET.
-  A skill entra sozinha na **teia** (estilo Path of Exile, `data/catalog/tree_catalog.gd`): um braço por ramo (Geral + builds) com as skills por nível,
-  atributos (`attr_FOR`...) e notáveis entre elas (`ARM_NOTABLES`), maestria/evoluções ao lado e dois anéis (`RINGS`, `RING_NOTABLES`) ligando braços.
-  Passo no braço pelo tamanho do nó (`NODE_R` ↔ `windows.NODE_PX`/`WEB_UNIT`; há check de folga). 4 pontos por nível (`Balance.points_at`). Bots compram
+  A skill entra sozinha na **teia** (estilo Path of Exile, `data/catalog/tree_catalog.gd`): malha de junções e estradas (grade `CELL` irregular,
+  sorteio fixo por classe, parte das estradas sai = escolha de rota) com círculos nas casas: de skill (maestria/evoluções/passivos em volta) e de
+  notável (`ARM_NOTABLES`/`RING_NOTABLES`, duas entradas). Setores por ramo; skill de nível alto mais longe. Há check de folga (`windows.NODE_PX`/`WEB_UNIT`). 4 pontos por nível (`Balance.points_at`). Bots compram
   caminho na teia (`ProgressionSystem.bot_spend`). Revisar: `--bag_shot=<png> --wins=skills --level=<n> [--build_i=N]` (arrastar/zoom/busca na janela K).
   **Talentos de classe** (aba Talentos): `data/catalog/class_talents_catalog.gd`, 6 linhas (5..30) × 3 por classe, um por linha (nós `pick` `<classe>_c_<id>`,
   `WorldSim.pick_sibling`, troca na cidade). Ganchos: `permanent`/`aura` (buff da skill sempre ativo / em você e no grupo), `summon_permanent`/`summon_extra`,
