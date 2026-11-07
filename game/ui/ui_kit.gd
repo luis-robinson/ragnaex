@@ -491,6 +491,8 @@ static func legend_effect_text(le: Dictionary) -> String:
 		"riposte": body = "ao esquivar, contra-ataca com %.0f%% do ATK" % float(le["pct"])
 		"raise_on_kill": body = "abater levanta um esqueleto por %.0f s (a cada %.0f s no máximo)" % [float(le["time"]), float(le["icd"])]
 		"heal_on_kill": body = "abater cura %.1f%% da vida" % float(le["pct"])
+		"hemorrhage": body = "+%.0f%% de dano em alvo sangrando ou envenenado" % float(le["pct"])
+		"dirty_trick": body = "%.0f%% de chance de retardar o alvo; +%.0f%% de dano em alvo lento, preso ou atordoado" % [float(le["chance"]), float(le["pct"])]
 	return ("%s — %s" % [nm, body]) if nm != "" else body
 
 ## Tooltip de skill: números com a maestria atual (+ próximo nível) e exigência de arma.

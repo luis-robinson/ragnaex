@@ -199,6 +199,7 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 		list.sort_custom(func(a, b): return _order(cls, a) < _order(cls, b))
 		var k := 0
 		var placed := 0
+		var n_cells: int = cells_by[bi].size()
 		for cell in cells_by[bi]:
 			if placed >= list.size() and k >= list.size() + list.size() / NOTABLE_EVERY:
 				break
@@ -208,7 +209,8 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 				dash_cell = cell                  # a primeira casa do Geral é a das evoluções do dash
 				used_cells[key] = true
 				continue
-			if placed < list.size() and (k % NOTABLE_EVERY != 0 or list[placed].id in cls.starting_skills):
+			var tight: bool = n_cells - k + 1 <= list.size() - placed      # setor apertado (classe de 3 builds): sem notável, só skill
+			if placed < list.size() and (k % NOTABLE_EVERY != 0 or list[placed].id in cls.starting_skills or tight):
 				clusters.append({"cell": cell, "kind": "skill", "skill": list[placed], "branch": bi})
 				placed += 1
 			else:

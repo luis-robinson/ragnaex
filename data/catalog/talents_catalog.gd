@@ -41,6 +41,8 @@ static func build() -> Array:
 			{"mult": {"power": 1.2}, "effects": {"dot": {"dps": 7, "duration": 5}}}),
 		_t("ber_t_whirlwind", "berserker", "ber_whirlwind", 16, 2, "Redemoinho Sedento", "Redemoinho cura 15% do dano causado.",
 			{"effects": {"heal_pct_of_dmg": 0.15}}, ["two_handed"]),
+		_t("ber_t_hatchet", "berserker", "ber_hatchet", 8, 2, "Machadinha Afiada", "Machadinha Voadora atravessa inimigos e causa +15% de dano.",
+			{"set": {"projectile_pierce": true}, "mult": {"power": 1.15}}),
 		# --- Bispo ---
 		_t("bis_t_holy_step", "bishop", D, 5, 2, "Passo Sagrado", "O dash cura 6% do seu HP máximo.",
 			{"heal_pct": 6}),
@@ -87,6 +89,8 @@ static func build() -> Array:
 			{"mult": {"radius": 1.25}, "effects": {"dot": {"dps": 5, "duration": 4}}}),
 		_t("ass_t_shadowstep", "assassin", "ass_shadowstep", 16, 2, "Sombra Inquieta", "Passo das Sombras recarrega 30% mais rápido.",
 			{"mult": {"cooldown": 0.7}}),
+		_t("ass_t_smoke_bomb", "assassin", "ass_smoke_bomb", 10, 2, "Fumaça Densa", "Bomba de Fumaça 25% maior e recarrega 20% mais rápido.",
+			{"mult": {"radius": 1.25, "cooldown": 0.8}}),
 		# --- Elementalista ---
 		_t("ele_t_phase", "elementalist", D, 5, 2, "Translocação", "O dash atravessa objetos e vai 25% mais longe.",
 			{"ghost": true, "distance_mult": 1.25}),
