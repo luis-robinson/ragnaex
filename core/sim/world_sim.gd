@@ -981,7 +981,12 @@ func _apply_effects(src: SimEntity, t: SimEntity, effects: Dictionary, power: fl
 		return
 	if effects.get("dot") != null:
 		var d: Dictionary = effects["dot"]
-		t.debuffs.append({"kind": "dot", "id": "dot_%d" % src.id, "remaining": float(d.get("duration", 4)), "dps": float(d.get("dps", 5)) * (src.stats.matk / 20.0), "src": src.id, "fire": bool(d.get("fire", false))})
+		if d.has("atk_pct"):          # sangramento (Lanceiro): % do ATK por segundo; o mesmo atacante renova, não acumula
+			var bid := "bleed_%d" % src.id
+			t.debuffs = t.debuffs.filter(func(dd): return dd.get("id") != bid)
+			t.debuffs.append({"kind": "dot", "id": bid, "remaining": float(d.get("duration", Balance.BLEED_TIME_DEFAULT)), "dps": maxf(1.0, src.stats.patk * float(d["atk_pct"]) / 100.0), "src": src.id, "bleed": true})
+		else:
+			t.debuffs.append({"kind": "dot", "id": "dot_%d" % src.id, "remaining": float(d.get("duration", 4)), "dps": float(d.get("dps", 5)) * (src.stats.matk / 20.0), "src": src.id, "fire": bool(d.get("fire", false))})
 	if effects.get("slow") != null:
 		var d: Dictionary = effects["slow"]
 		t.debuffs.append({"kind": "slow", "remaining": float(d.get("duration", 2)), "pct": float(d.get("pct", 30))})

@@ -110,8 +110,9 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 	p.storage = {}
 	var st: Dictionary = d.get("storage", {})
 	for iid in st:
-		if GameData.resolve_item(str(iid)) and int(st[iid]) > 0:
-			p.storage[str(iid)] = int(st[iid])
+		var sid := GameData.migrate_item_id(str(iid))          # peça de build que saiu do jogo vira a equivalente
+		if GameData.resolve_item(sid) and int(st[iid]) > 0:
+			p.storage[sid] = int(p.storage.get(sid, 0)) + int(st[iid])
 	p.gold = int(d.get("gold", 0))
 	var bnd: Array = d.get("bind", [])          # save antigo: sem cristal, volta para a cidade
 	if bnd.size() == 3 and GameData.maps.has(str(bnd[0])):
@@ -122,11 +123,12 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 	p.bag_bonus = clampi(int(d.get("bag_bonus", 0)), 0, Balance.BAG_UPGRADES)
 	p.inventory = {}
 	for k in d.get("inventory", {}):
-		if GameData.resolve_item(str(k)):
-			p.inventory[k] = int(d["inventory"][k])
+		var iid := GameData.migrate_item_id(str(k))
+		if GameData.resolve_item(iid):
+			p.inventory[iid] = int(p.inventory.get(iid, 0)) + int(d["inventory"][k])
 	p.equipment = {}
 	for k in d.get("equipment", {}):
-		var eid := str(d["equipment"][k])
+		var eid := GameData.migrate_item_id(str(d["equipment"][k]))
 		var it: ItemDef = GameData.items.get(eid) if GameData.resolve_item(eid) else null
 		if it:
 			p.equipment[saved_slot(int(k), it)] = it

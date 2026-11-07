@@ -3,7 +3,7 @@ extends RefCounted
 ## Efeitos das armas lendárias (GearCatalog.LEGEND_EFFECTS): ao acertar, ao bater com a arma, ao abater.
 
 ## Multiplicador de dano da arma lendária no alvo (Carrasco: pouca vida; Presa Acuada e Truque Sujo: lento/preso/atordoado;
-## Hemorragia: sangrando).
+## Hemorragia: sangrando; Ferida Aberta: feridas que você abriu nele).
 static func legend_power(sim: WorldSim, e: SimEntity, t: SimEntity) -> float:
 	var le: Dictionary = e.stats.legend if e.is_character() else {}
 	match str(le.get("kind", "")):
@@ -19,7 +19,28 @@ static func legend_power(sim: WorldSim, e: SimEntity, t: SimEntity) -> float:
 		"dirty_trick":                # Trapaceiro: alvo lento, preso ou atordoado apanha mais
 			if t.has_debuff("slow") or t.has_debuff("root") or t.state == SimEntity.State.STUNNED:
 				return 1.0 + float(le["pct"]) / 100.0
+		"open_wound":                 # Lanceiro: cada Ferida Aberta que você abriu no alvo = +pct% do seu dano nele
+			var n := wounds(e, t)
+			if n > 0:
+				return 1.0 + float(le["pct"]) * n / 100.0
 	return 1.0
+
+## Feridas Abertas (arma do Lanceiro) que `e` abriu em `t`.
+static func wounds(e: SimEntity, t: SimEntity) -> int:
+	var did := "legend_wound_%d" % e.id
+	for d in t.debuffs:
+		if d.get("id") == did:
+			return int(d.get("stacks", 0))
+	return 0
+
+## Ferida Aberta: o golpe abre mais uma (até `max`, somem juntas em LEG_WOUND_TIME s sem golpe); com todas abertas o
+## alvo sangra `bleed`% do ATK por segundo (renova a cada golpe).
+static func wound_hit(sim: WorldSim, e: SimEntity, t: SimEntity, le: Dictionary) -> void:
+	var n := mini(int(le.get("max", 5)), wounds(e, t) + 1)
+	t.put_debuff({"kind": "wound", "id": "legend_wound_%d" % e.id, "remaining": Balance.LEG_WOUND_TIME, "stacks": n})
+	if n >= int(le.get("max", 5)):
+		var bid := "legend_wound_bleed_%d" % e.id
+		t.put_debuff({"kind": "dot", "id": bid, "remaining": Balance.LEG_WOUND_TIME, "dps": maxf(1.0, e.stats.patk * float(le.get("bleed", 8.0)) / 100.0), "src": e.id, "bleed": true})
 
 ## Lança uma skill de graça (sem mana nem recarga) a partir de `e`, mirando em `aim`: os efeitos que "lançam" algo.
 static func legend_cast(sim: WorldSim, e: SimEntity, skill_id: String, aim: Vector3) -> void:
@@ -140,6 +161,9 @@ static func legend_on_hit(sim: WorldSim, e: SimEntity, t: SimEntity, s: SkillDef
 		"penance":                          # Penitência (Templário): cargas no alvo; na última explode em fogo sagrado
 			if t.is_alive() and not own_cast and e.is_hostile_to(t):
 				penance_hit(sim, e, t, le)
+		"open_wound":                       # Ferida Aberta (Lanceiro): golpes direto abrem feridas; a assinatura não conta
+			if t.is_alive() and not own_cast and e.is_hostile_to(t):
+				wound_hit(sim, e, t, le)
 
 ## Penitência: +1 carga no alvo (some em LEG_PENANCE_TIME s sem golpe); com `stacks` cargas, explode: dano mágico de
 ## `pct`% do ATK em todos os inimigos a `radius` m do alvo (a explosão não põe carga).

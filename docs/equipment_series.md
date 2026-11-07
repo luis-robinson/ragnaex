@@ -84,7 +84,7 @@ Proposta: **um estilo por build**, com o tier mudando brilho e detalhe. São 20 
 | Druida | Xamã | Tempestade verde | Penas e amuletos | Verde, âmbar | Cocar |
 | Ranger | Atirador | Olho de falcão | Capa curta, aljava alta | Verde-escuro | Capuz com pena |
 | Ranger | Caçador | Armadilheiro | Bolsas e correntes | Couro, latão | Máscara de caça |
-| Ranger | Patrulheiro | Fronteira | Capa de viagem e duas lâminas | Cinza, musgo | Chapéu de abas |
+| Ranger | Lanceiro | Caça de feras | Gola de pelo, troféu no ombro, dardos nas costas | Couro, osso | Cabeça de bicho |
 | Assassino | Lâminas Gêmeas | Dança | Faixas soltas | Preto, carmim | Máscara e lenço longo |
 | Assassino | Envenenador | Alquimista | Frascos no cinto | Roxo, verde | Máscara de bico |
 | Assassino | Sombra | Duelista | Sobretudo longo | Preto, prata | Gola alta |

@@ -221,7 +221,8 @@ procedurais, pulo, dash, golpes com antecipação e acomodação; IMPACT não mu
 Peça nova no kit: nome `arm_<plate|leather|cloth>_<head|body|legs|gloves|boots>_<parte>` (capa: `arm_cape_cape_cape`, igual para todos) ou `wpn_<main|off>_<tipo>`;
 material `tint` recebe a cor do item, `tint2` a cor de destaque derivada dela (`KitModel.accent`), `hair` a cor da classe.
 De cima a cabeça é o que mais aparece: detalhe novo vai primeiro no elmo/capuz e nos ombros. Item de armadura precisa de `armor_style`.
-Conjuntos do Ranger: `tools/blender/ranger_sets.py` (`RAN_SETS` couro leve, Patrulheiro `ran_p*` chapéu largo/capuz com máscara, chapéu de pena/capuz/tricórnio/óculos, aljava ou bandoleira;
+Conjuntos do Ranger: `tools/blender/ranger_sets.py` (`RAN_SETS` couro leve, chapéu de pena/capuz/tricórnio/óculos, aljava ou bandoleira;
+`LAN_SETS`/`build_lancer` Lanceiro `ran_l*`: cabeça de bicho, gola de pelo, troféu no ombro esquerdo, dardos nas costas; `RAN_SPEARS`/`spear_parts` lanças, que também desenham a lança comum;
 `RAN_BOWS` na mão esquerda; `RAN_RIFLES` e `rifle_parts`, que também desenha o mosquete comum). Lince: `mob_kit.quadruped(kind="lynx")`.
 Conjuntos do Assassino: `tools/blender/assassin_sets.py` (`ASS_SETS` Lâminas: capuz + máscara de pano, frascos de veneno, capa rasgada; Duelista:
 chapéu de pluma/máscara de baile, casaca de abas, meia-capa; `ASS_WEAPONS` gera o par `wpn_main_`/`wpn_off_<dagger|sword>_<estilo>`).
