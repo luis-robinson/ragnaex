@@ -10,12 +10,18 @@ var name_label: Label
 var hp_bar: ProgressBar
 var mp_bar: ProgressBar
 var hp_text: Label
+var hp_shield: ShieldOverlay       # barreira (vida temporária) por cima da barra de HP
 var mp_text: Label
 var gold_label: Label
 var map_label: Label
 # hotbar
 var skill_slots: Array = []     # [{box, cd, key, name, lv}]
 var potion_slots: Array = []
+var util_slots: Array = []       # montaria (H), volta à cidade (G)
+var cast_panel: PanelContainer   # barra de conjuração do jogador (volta à cidade)
+var cast_fill: ProgressBar
+var cast_label: Label
+var _cast_flash := 0.0           # >0 = mostrando "Interrompido" na barra
 # chat / notificações
 var chat_log: RichTextLabel
 var chat_input: LineEdit
@@ -68,6 +74,7 @@ func _ready() -> void:
 	_build_top_right()
 	_build_notifications()
 	_build_bottom_row()
+	_build_cast_bar()
 	windows_script = load("res://game/ui/windows.gd").new()
 	windows_script.hud = self
 	root.add_child(windows_script)
@@ -89,6 +96,7 @@ func _ready() -> void:
 	Events.mastery_changed.connect(_on_mastery)
 	Events.party_changed.connect(func(_p): refresh_party())
 	Events.party_invited.connect(_on_party_invited)
+	Events.recall_cast.connect(_on_recall_cast)
 
 func _on_level_up(id: int, _lv: int) -> void:
 	if Sim.player and id == Sim.player.id:
@@ -135,6 +143,7 @@ func _build_top_left() -> void:
 	hp_text.set_anchors_preset(Control.PRESET_FULL_RECT)
 	hp_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hp_bar.add_child(hp_text)
+	hp_shield = ShieldOverlay.attach(hp_bar)
 	v.add_child(hp_bar)
 	mp_bar = UiKit.bar(Color(0.3, 0.45, 0.95), 14)
 	mp_text = UiKit.label("", 11)
@@ -176,6 +185,9 @@ func _build_hotbar() -> Control:
 	action_bar.build()
 	skill_slots = action_bar.skill_slots
 	potion_slots = action_bar.potion_slots
+	util_slots = action_bar.util_slots
+	for s in util_slots:
+		s["root"].gui_input.connect(_util_click.bind(str(s["id"])))
 	for i in range(6):
 		var s: Dictionary = skill_slots[i]
 		# arrastar: da janela K (ou de outro slot) para cá; botão direito tira da barra
@@ -248,6 +260,17 @@ static func drop_potion(p: SimEntity, data: Dictionary, i: int) -> void:
 			if k != i and p.potion_slots[k] == item_id:
 				Sim.set_potion_slot(p, k, old)
 	Sim.set_potion_slot(p, i, item_id)
+
+## Clique no H/G da barra = apertar a tecla (vai pelo mesmo comando do teclado).
+func _util_click(event: InputEvent, what: String) -> void:
+	if not (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT):
+		return
+	if main and main.controller:
+		if what == "mount":
+			main.controller.queue_mount()
+		else:
+			main.controller.queue_recall()
+	get_viewport().set_input_as_handled()
 
 func _slot_right_click(event: InputEvent, kind: String, i: int) -> void:
 	if not (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT):
@@ -347,7 +370,7 @@ func _build_top_right() -> void:
 	minimap.hud = self
 
 func _build_hints() -> Label:
-	hint_label = UiKit.label("WASD mover · LMB atacar · RMB bloquear · Shift dash\n1-6 skills · F1-F3 poções · Espaço pular · F interagir\nQ/E girar câmera · Enter chat · F11 tela cheia\nG retorno · arraste skills e poções para a barra", 12, UiKit.MUTED)
+	hint_label = UiKit.label("WASD mover · LMB atacar · RMB bloquear · Shift dash\n1-6 skills · F1-F3 poções · Espaço pular · F interagir\nQ/E girar câmera · Enter chat · F11 tela cheia\nH montar · G voltar à cidade · arraste skills e poções para a barra", 12, UiKit.MUTED)
 	hint_label.custom_minimum_size.x = SIDE_W
 	hint_label.size_flags_vertical = Control.SIZE_SHRINK_END
 	hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -372,9 +395,8 @@ func _process(_delta: float) -> void:
 	name_label.text = "%s — %s Lv.%d" % [p.name, p.class_def.name, p.level]
 	hp_bar.max_value = p.stats.max_hp
 	hp_bar.value = p.hp
-	hp_text.text = "%d / %d" % [int(p.hp), int(p.stats.max_hp)]
-	if p.shield_hp > 0:
-		hp_text.text += "  (+%d)" % int(p.shield_hp)
+	hp_text.text = ShieldOverlay.hp_text(p.hp, p.stats.max_hp, p.shield_hp)
+	hp_shield.set_values(p.hp, p.shield_hp, p.stats.max_hp)
 	mp_bar.max_value = p.stats.max_mp
 	mp_bar.value = p.mp
 	mp_text.text = "%d / %d" % [int(p.mp), int(p.stats.max_mp)]
@@ -422,11 +444,81 @@ func _process(_delta: float) -> void:
 Arraste outra poção da bolsa para cá · botão direito esvazia" % it.name) if it else "Arraste uma poção da bolsa (I) para cá"
 		s["lv"].text = str(count) if it else ""
 		s["cd"].visible = count == 0 and it != null
-		s["sweep"].set_frac(_cd_frac(s, p.potion_cd) if it else 0.0)
+		var pcd: float = p.potion_cds[i]            # cada F tem a sua recarga
+		s["sweep"].set_frac(_cd_frac(s, pcd) if it else 0.0)
 		s["bevel"].set_empty(it == null)
-		s["cdt"].text = _cd_text(p.potion_cd) if p.potion_cd > 0.0 and it else ""
+		s["cdt"].text = _cd_text(pcd) if pcd > 0.0 and it else ""
+	_update_util_slots(p, _delta)
 	_update_party_frames()
 	_update_status_bar(p)
+
+## H (montaria) e G (volta à cidade) na barra: aro dourado quando ligados; H mostra o tempo até poder montar
+## (em combate), G a conjuração enchendo em leque claro.
+func _update_util_slots(p: SimEntity, delta: float) -> void:
+	for s in util_slots:
+		if s["id"] == "mount":
+			var lock := p.combat_timer if not p.mounted else 0.0
+			s["bevel"].set_active(p.mounted)
+			s["sweep"].set_color(Color(0, 0, 0, 0.62))
+			s["sweep"].set_frac(_cd_frac(s, lock))
+			s["cdt"].text = _cd_text(lock) if lock > 0.0 else ""
+			s["cd"].visible = not p.is_alive()
+		else:
+			var prog := Sim.recall_progress(p)
+			s["bevel"].set_active(prog > 0.0)
+			s["sweep"].set_color(Color(1.0, 0.9, 0.55, 0.38))
+			s["sweep"].set_frac(1.0 - prog if prog > 0.0 else 0.0)
+			s["cdt"].text = _cd_text(p.recall_left) if prog > 0.0 else ""
+			s["cd"].visible = not p.is_alive()
+	_update_cast_bar(p, delta)
+
+## Barra de conjuração acima da barra de ações (volta à cidade); "Interrompido" em vermelho por um instante.
+func _update_cast_bar(p: SimEntity, delta: float) -> void:
+	if cast_panel == null:
+		return
+	_cast_flash = maxf(0.0, _cast_flash - delta)
+	var prog := Sim.recall_progress(p)
+	if prog > 0.0:
+		_cast_flash = 0.0
+		cast_panel.visible = true
+		cast_panel.modulate.a = 1.0
+		cast_fill.value = prog
+		cast_fill.get_theme_stylebox("fill").bg_color = Color(0.55, 0.78, 1.0)
+		var home: String = Sim.home_of(p)["map"]
+		cast_label.text = "Voltando para %s  %.1f s" % [GameData.maps[home].name, p.recall_left]
+		cast_label.add_theme_color_override("font_color", UiKit.TEXT)
+	elif _cast_flash > 0.0:
+		cast_panel.visible = true
+		cast_panel.modulate.a = minf(1.0, _cast_flash / 0.4)
+	else:
+		cast_panel.visible = false
+
+func _on_recall_cast(id: int, phase: String) -> void:
+	if Sim.player == null or id != Sim.player.id or cast_panel == null:
+		return
+	if phase == "interrupted" or phase == "cancel":
+		_cast_flash = 1.1
+		cast_fill.get_theme_stylebox("fill").bg_color = Color(0.85, 0.25, 0.25)
+		cast_label.text = "Interrompido" if phase == "interrupted" else "Cancelado"
+		cast_label.add_theme_color_override("font_color", Color(1.0, 0.55, 0.5))
+
+func _build_cast_bar() -> void:
+	cast_panel = UiKit.panel(Color(0.05, 0.05, 0.08, 0.85), Color(0.55, 0.7, 0.95))
+	cast_panel.anchor_left = 0.5; cast_panel.anchor_right = 0.5; cast_panel.anchor_top = 1.0; cast_panel.anchor_bottom = 1.0
+	cast_panel.offset_left = -160; cast_panel.offset_right = 160; cast_panel.offset_top = -205; cast_panel.offset_bottom = -173
+	cast_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cast_panel.visible = false
+	root.add_child(cast_panel)
+	cast_fill = UiKit.bar(Color(0.55, 0.78, 1.0), 18)
+	cast_fill.max_value = 1.0
+	cast_fill.step = 0.0
+	cast_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cast_panel.add_child(cast_fill)
+	cast_label = UiKit.label("", 13)
+	cast_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	cast_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cast_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	cast_fill.add_child(cast_label)
 
 ## Barra de buffs/debuffs: ícone (da skill/item que deu, ou do estado) com o tempo embaixo; borda verde = buff, vermelha = debuff.
 const STATUS_NAMES := {"burn": ["Queimando", "Fogo: perde HP com o tempo."], "poison": ["Envenenado", "Perde HP com o tempo."],
@@ -998,10 +1090,11 @@ func refresh_party() -> void:
 		var info := UiKit.label("", 10, UiKit.MUTED)
 		h.add_child(info)
 		var hp := UiKit.bar(Color(0.85, 0.25, 0.3), 9)
+		var hsh := ShieldOverlay.attach(hp)
 		v.add_child(hp)
 		var mp := UiKit.bar(Color(0.3, 0.45, 0.95), 4)
 		v.add_child(mp)
-		party_frames.append({"id": m.id, "frame": fr, "hp": hp, "mp": mp, "info": info})
+		party_frames.append({"id": m.id, "frame": fr, "hp": hp, "shield": hsh, "mp": mp, "info": info})
 	if leader == p:
 		party_box.add_child(UiKit.label("♛ Você lidera (P)", 10, UiKit.MUTED))
 
@@ -1012,6 +1105,8 @@ func _update_party_frames() -> void:
 			continue
 		f["hp"].max_value = m.stats.max_hp
 		f["hp"].value = m.hp
+		f["shield"].set_values(m.hp, m.shield_hp, m.stats.max_hp)
+		f["hp"].tooltip_text = ShieldOverlay.hp_text(m.hp, m.stats.max_hp, m.shield_hp)
 		f["mp"].max_value = m.stats.max_mp
 		f["mp"].value = m.mp
 		var where := ""

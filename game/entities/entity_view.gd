@@ -433,8 +433,8 @@ func _build_ui() -> void:
 		hp_fill = _quad(1.0, 0.07, fill_col, 1)
 		hp_fill.position.z = 0.001
 		hp_bar.add_child(hp_fill)
-		shield_fill = _quad(1.0, 0.03, Color(0.95, 0.9, 0.5), 2)
-		shield_fill.position = Vector3(0, 0.05, 0.002)
+		shield_fill = _quad(1.0, 0.07, Color(0.8, 0.93, 1.0, 0.92), 2)     # barreira: azul-clara depois da vida (ShieldOverlay.span_of)
+		shield_fill.position = Vector3(0, 0, 0.002)
 		hp_bar.add_child(shield_fill)
 		cast_bar = Node3D.new()
 		cast_bar.position.y = top + 0.08
@@ -959,13 +959,17 @@ func _update_bars() -> void:
 		return
 	var ratio := clampf(entity.hp / maxf(1.0, entity.stats.max_hp), 0.0, 1.0)
 	_set_bar(hp_fill, ratio, 1.0)
-	var sr := clampf(entity.shield_hp / maxf(1.0, entity.stats.max_hp), 0.0, 1.0)
-	shield_fill.visible = sr > 0.0
-	_set_bar(shield_fill, sr, 1.0)
+	var sp := ShieldOverlay.span_of(entity.hp, entity.shield_hp, entity.stats.max_hp)
+	shield_fill.visible = sp.y > sp.x
+	if shield_fill.visible:
+		_set_seg(shield_fill, sp.x, sp.y, 1.0)
 	hp_bar.visible = entity.is_alive() and ((entity.kind != SimEntity.Kind.MONSTER and not entity.guard) or ratio < 1.0 or entity.aggro_target >= 0)
 	var casting := entity.state == SimEntity.State.CASTING and entity.current_skill != null and entity.current_skill.startup > 0.2
-	cast_bar.visible = casting and entity.skill_phase == "startup"
-	if cast_bar.visible:
+	var recall := Sim.recall_progress(entity)          # volta à cidade (G) também mostra a conjuração
+	cast_bar.visible = (casting and entity.skill_phase == "startup") or recall > 0.0
+	if recall > 0.0:
+		_set_bar(cast_fill, recall, 0.8)
+	elif cast_bar.visible:
 		var r := clampf(entity.state_time / entity.current_skill.startup, 0.0, 1.0)
 		_set_bar(cast_fill, r, 0.8)
 
@@ -978,6 +982,16 @@ func _set_bar(mi: MeshInstance3D, ratio: float, width: float) -> void:
 		return
 	q.size.x = w
 	q.center_offset.x = -(width - w) * 0.5
+
+## Pedaço da barra de `from` a `to` (frações), mesma ideia do _set_bar (billboard: mexe na malha, não no nó).
+func _set_seg(mi: MeshInstance3D, from: float, to: float, width: float) -> void:
+	var q := mi.mesh as QuadMesh
+	var w := maxf(0.001, to - from) * width
+	var c := (-0.5 + (from + to) * 0.5) * width
+	if is_equal_approx(q.size.x, w) and is_equal_approx(q.center_offset.x, c):
+		return
+	q.size.x = w
+	q.center_offset.x = c
 
 ## Leque plano à frente, do tamanho de Balance.BLOCK_ARC_DEG.
 func _build_guard_arc() -> void:
@@ -1098,6 +1112,7 @@ var _retimed := false                 # depois do impacto o resto do clipe cabe 
 ## Clip de golpe/magia para a skill: primeiro pela FORMA da skill (salto, investida, arremesso, magia no chão,
 ## canalizada, no alvo, invocação, leque de flechas), depois pela família da arma empunhada.
 ## Gestos de fase ativa longa (giro, canalização, pisão): repetem até a fase ativa acabar em vez de parar na pose final.
+const RECALL_ANIM_SPEED := 0.75      # conjuração da volta à cidade: gesto calmo, em laço
 const ACTIVE_LOOP := ["atk_spin", "cast_channel", "cast_shadow", "slam"]
 ## Velocidade do clipe para o impacto do desenho cair no tick do dano (preparo longo = clipe mais lento).
 const LOOP_MIN_ACTIVE := 0.5        # s de fase ativa para o gesto repetir (curta: acaba junto com a skill, como os outros)
@@ -1347,6 +1362,16 @@ func _animate_glb(st: int) -> void:
 			_play(gc, 0.15)
 			anim.speed_scale = 1.0
 		if gc != "":
+			return
+	# volta à cidade (G): gesto de conjuração repetindo até acabar ou ser interrompido
+	if entity.recall_left > 0.0:
+		var rc := _clip("cast_channel")
+		if rc == "":
+			rc = _clip("cast")
+		if rc != "":
+			if anim.current_animation != rc:
+				_play(rc, 0.18)
+			anim.speed_scale = RECALL_ANIM_SPEED
 			return
 	# pulo: sobe / cai / pousa (clip curto e volta ao normal)
 	var air := entity.airborne()

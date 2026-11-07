@@ -139,8 +139,9 @@ static func process_map_changes(sim: WorldSim) -> void:
 		change_map(sim, ch["e"], ch["map"], ch["pos"])
 	sim._pending_map_changes.clear()
 
-## Voltar à cidade (G): RECALL_TIME s parado e fora de combate; andar, agir, levar dano ou apertar G de novo cancela.
-## Chega no ponto de entrada da vila; os bots do grupo por perto vêm junto (mesma regra do portal).
+## Voltar à cidade (G): conjuração de RECALL_TIME s (vale em combate). Andar, agir (golpe, skill, dash, pulo, guarda)
+## ou apertar G de novo cancela; levar dano (WorldSim._deal_damage) ou ser atordoado interrompe.
+## Chega no ponto de retorno; os bots do grupo por perto vêm junto (mesma regra do portal).
 static func update_recall(sim: WorldSim, e: SimEntity, cmd: InputCommand, action_cmd: InputCommand, dt: float) -> void:
 	if not e.is_character():
 		return
@@ -148,38 +149,64 @@ static func update_recall(sim: WorldSim, e: SimEntity, cmd: InputCommand, action
 	var town: String = home["map"]
 	if cmd.recall:
 		if e.recall_left > 0.0:
-			e.recall_left = 0.0
-			if e == sim.player:
-				Events.notification.emit("Retorno à cidade cancelado")
+			stop_recall(sim, e, "cancel")
 			return
-		var why := ""
-		if not e.is_alive():
-			why = "Não dá agora"
-		elif e.combat_timer > 0.0:
-			why = "Não dá para voltar à cidade em combate"
-		elif e.map_id == town and (e.position.distance_to(home["pos"]) < Balance.RECALL_NEAR or (e.bind_map == "" and sim.maps[town]["def"].in_town(e.position))):
-			why = "Você já está no seu ponto de retorno"
+		var why := recall_blocked(sim, e)
+		if why == "" and cmd.move.length_squared() > 0.04:
+			why = "Pare para voltar à cidade"
 		if why != "":
 			if e == sim.player:
 				Events.notification.emit(why)
 			return
+		if e.mounted:
+			sim.dismount(e)                    # conjura a pé
+		e.is_blocking = false
 		e.recall_left = Balance.RECALL_TIME
+		Events.recall_cast.emit(e.id, "start")
 		if e == sim.player:
-			Events.notification.emit("Voltando para %s... fique parado" % GameData.maps[town].name)
+			Events.notification.emit("Voltando para %s... (andar ou levar dano interrompe)" % GameData.maps[town].name)
 		return
 	if e.recall_left <= 0.0:
 		return
-	if not e.is_alive() or e.combat_timer > 0.0 or cmd.move.length_squared() > 0.04 or action_cmd.attack or action_cmd.skill_slot >= 0 \
-			or action_cmd.dash or action_cmd.jump or cmd.block:
-		e.recall_left = 0.0
-		if e == sim.player:
-			Events.notification.emit("Retorno à cidade cancelado")
+	if not e.is_alive() or cmd.move.length_squared() > 0.04 or action_cmd.attack or action_cmd.skill_slot >= 0 \
+			or action_cmd.dash or action_cmd.jump or cmd.block or cmd.mount:
+		stop_recall(sim, e, "cancel")
 		return
 	e.recall_left -= dt
 	if e.recall_left <= 0.0:
 		e.recall_left = 0.0
 		e.mounted = false
+		Events.recall_cast.emit(e.id, "done")
 		sim._pending_map_changes.append({"e": e, "map": town, "pos": home["pos"]})
+
+## Por que G não começa agora ("" = pode). Combate não impede: o dano é que interrompe.
+static func recall_blocked(sim: WorldSim, e: SimEntity) -> String:
+	if not e.is_alive():
+		return "Não dá agora"
+	var home := home_of(e)
+	var town: String = home["map"]
+	if e.map_id == town and (e.position.distance_to(home["pos"]) < Balance.RECALL_NEAR or (e.bind_map == "" and sim.maps[town]["def"].in_town(e.position))):
+		return "Você já está no seu ponto de retorno"
+	return ""
+
+## Fração já conjurada da volta (0..1; 0 = não está voltando). Barra de conjuração do HUD e da cabeça.
+static func recall_progress(e: SimEntity) -> float:
+	if e.recall_left <= 0.0:
+		return 0.0
+	return clampf(1.0 - e.recall_left / Balance.RECALL_TIME, 0.0, 1.0)
+
+## Levou dano / atordoado no meio da volta.
+static func interrupt_recall(sim: WorldSim, e: SimEntity) -> void:
+	stop_recall(sim, e, "interrupted")
+
+## Para a conjuração: "cancel" (andou, agiu, G de novo) ou "interrupted" (dano, atordoamento).
+static func stop_recall(sim: WorldSim, e: SimEntity, why: String) -> void:
+	if e.recall_left <= 0.0:
+		return
+	e.recall_left = 0.0
+	Events.recall_cast.emit(e.id, why)
+	if e == sim.player:
+		Events.notification.emit("Retorno à cidade interrompido!" if why == "interrupted" else "Retorno à cidade cancelado")
 
 static func change_map(sim: WorldSim, e: SimEntity, map_id: String, pos: Vector3) -> void:
 	if e.mounted and GameData.maps.has(map_id) and GameData.maps[map_id].parent_map != "":

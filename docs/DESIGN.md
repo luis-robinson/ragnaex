@@ -17,7 +17,7 @@ o cursor, LMB básico, skills como skillshots/área no cursor).
 5. **Pronto para rede**: `core/sim` é o servidor; apresentação é cliente burro.
 
 ## Controles
-WASD mover · LMB ataque básico · RMB (segurar) bloqueio · 1-6 skills · F1-F3 poções · Shift dash · Espaço pular · F interagir ·
+WASD mover · LMB ataque básico · RMB (segurar) bloqueio · 1-6 skills · F1-F3 poções · H montar · G voltar à cidade · Shift dash · Espaço pular · F interagir ·
 Q/E girar câmera 45° · scroll zoom · I bolsa · C personagem · K skills/maestria · L quests · P grupo · Enter chat · Esc fecha · F11 tela cheia (padrão) ↔ janela 1920×1080.
 
 ## Atributos → stats (`core/sim/stats.gd`, constantes em `data/balance.gd`)
@@ -537,7 +537,15 @@ seguem, curam, provocam e atacam o que bate no grupo (`BotBrain._follow`).
 `ELITE_HP_MULT` 5x vida, 2x ataque, maior, coroa dourada, 6x XP/5x ouro, **lendário garantido** (no mínimo o 1º conjunto);
 quests de abate contam o Rei como o monstro comum (`MonsterDef.elite_of`, `WorldSim.elite_def/_count_kill`).
 
-**G** volta para a cidade: `Balance.RECALL_TIME` (3 s) parado e fora de combate; andar, agir, levar dano ou G de novo cancela; os bots do grupo por perto vêm junto (`WorldSim._update_recall`).
+**G** volta para a cidade: conjuração de `Balance.RECALL_TIME` (3,5 s), **vale em combate**. Começar correndo não vale; andar, agir (golpe, skill, dash,
+pulo, guarda, H) ou G de novo cancela; **levar dano** (o que a barreira segura inteiro não conta) ou ser atordoado **interrompe** (`PortalSystem.update_recall/stop_recall`,
+`Events.recall_cast` start/done/interrupted/cancel). Montado: desce e conjura. Barra de conjuração no HUD e na cabeça, gesto `cast_channel` em laço
+(`EntityView`) e círculo de runas + coluna de luz (`game/fx/recall_fx.gd`); "Interrompido" boia na cabeça. Os bots do grupo por perto vêm junto.
+H (montaria) e G têm botão próprio na barra de ações (`ActionBar.UTIL`, ícones `action_mount`/`action_recall` de `make_icons.tscn -- --only=action`).
+Poções: **cada atalho F1-F3 tem a sua recarga** (`SimEntity.potion_cds`); como o mesmo item não fica em dois F, por atalho = por poção.
+`potion_cd` continua como leitura do F1 (cérebro dos bots).
+Barreira (`shield_hp`, vida temporária) aparece nas barras de HP como faixa azul-clara listrada depois da vida (no fim da barra se passar do máximo)
+e "(+N)" no texto (`ShieldOverlay`): quadro do jogador, quadros do grupo e barra sobre a cabeça. Revisar: `-- --autostart=<c> --recall_shot=<png> [--recall_close]`.
 **Cristal de Retorno** (`MapsCatalog.CRYSTALS`: praça de Aldara e Posto dos Caçadores; role `crystal`, `prop_crystal`): "Vincular aqui" faz o G e o renascer
 levarem para a frente dele (`SimEntity.bind_map/bind_pos`, `PortalSystem.home_of`, salvo em `bind`; save antigo = Aldara). O Posto é `MapDef.hub`: dentro do muro
 dá para trocar skills e escolhas (`MapDef.in_hub`), sem virar a cidade inicial. Losango azul no minimapa (maior = o seu).

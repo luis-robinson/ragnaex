@@ -61,11 +61,20 @@ var bag_bonus: int = 0               # Bolsas Ampliadas usadas (0..Balance.BAG_U
 var gather_left: float = 0.0        # >0 = colhendo (F perto de um ponto): andar/atacar/levar dano cancela
 var gather_node: Dictionary = {}
 var gather_hp: float = 0.0
-var recall_left: float = 0.0        # >0 = voltando à cidade (G): parado, fora de combate
+var recall_left: float = 0.0        # >0 = conjurando a volta à cidade (G): andar, agir ou levar dano interrompe
 var bind_map: String = ""          # cristal de retorno vinculado (G e renascer); "" = cidade inicial
 var bind_pos: Vector3 = Vector3.ZERO
 var cooldowns: Dictionary = {}       # skill_id -> segundos restantes
-var potion_cd: float = 0.0
+## recarga de cada atalho de poção (F1-F3), independentes: vida em F1 e mana em F2 não se bloqueiam.
+## (o mesmo item não fica em dois F, então por atalho = por poção)
+var potion_cds: Array[float] = [0.0, 0.0, 0.0]
+## compatibilidade (cérebro dos bots): lê a recarga do F1 (vida); escrever trava/solta os três
+var potion_cd: float:
+	get:
+		return potion_cds[0]
+	set(v):
+		for i in range(potion_cds.size()):
+			potion_cds[i] = v
 var dash_cd: float = 0.0
 var dash_dir: Vector3 = Vector3.ZERO
 var dash_charges_used: int = 0       # evolução "2 cargas": dashes já usados na janela atual

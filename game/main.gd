@@ -50,6 +50,9 @@ func _ready() -> void:
 	fx.camera = camera
 	fx.main = self
 	world_root.add_child(fx)
+	var recall_fx := RecallFx.new()          # coluna de luz da volta à cidade (G)
+	recall_fx.name = "RecallFx"
+	world_root.add_child(recall_fx)
 	controller = PlayerController.new()
 	controller.name = "PlayerController"
 	controller.camera = camera

@@ -455,6 +455,8 @@ func tick(dt: float) -> void:
 func _apply_command(e: SimEntity, cmd: InputCommand, m: Dictionary, dt: float) -> void:
 	e.last_cmd = cmd
 	if e.state == SimEntity.State.STUNNED or e.state == SimEntity.State.DEAD:
+		if e.recall_left > 0.0:
+			PortalSystem.interrupt_recall(self, e)       # atordoado no meio da volta: interrompe
 		return
 
 	# --- input buffer: guarda a ação se não pode agir agora ---
@@ -1242,6 +1244,8 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 	if not target.ct.is_empty():
 		amount = ClassTalentSystem.mana_shield(target, amount)
 	amount = ClassTalentSystem.before_hit(self, target, amount)       # imortal / recusa a morrer
+	if amount > 0 and target.recall_left > 0.0:
+		PortalSystem.interrupt_recall(self, target)                   # levou dano (o que a barreira segurou não conta)
 	target.hp -= amount
 	if amount > 0 and not kind.begins_with("dot") and attacker != target and attacker.is_character() and attacker.is_alive() and attacker.stats.lifesteal > 0.0:
 		attacker.hp = minf(attacker.stats.max_hp, attacker.hp + amount * attacker.stats.lifesteal / 100.0)     # roubo de vida
@@ -1296,6 +1300,7 @@ func end_form(e: SimEntity) -> void:
 
 func _kill(e: SimEntity, killer: SimEntity) -> void:
 	e.mounted = false
+	e.recall_left = 0.0
 	e.is_blocking = false
 	e.form = ""
 	e.form_left = 0.0
@@ -1342,7 +1347,8 @@ func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 	e.parry_cd = maxf(0.0, e.parry_cd - dt)
 	e.shield_react_cd = maxf(0.0, e.shield_react_cd - dt)
 	e.grace_cd = maxf(0.0, e.grace_cd - dt)
-	e.potion_cd = maxf(0.0, e.potion_cd - dt)
+	for ps in range(e.potion_cds.size()):
+		e.potion_cds[ps] = maxf(0.0, e.potion_cds[ps] - dt)
 	e.dash_cd = maxf(0.0, e.dash_cd - dt)
 	e.combat_timer = maxf(0.0, e.combat_timer - dt)
 	e.stealth_left = maxf(0.0, e.stealth_left - dt)
@@ -1819,6 +1825,10 @@ func bind_crystal(e: SimEntity, npc_id: String) -> bool:
 	return PortalSystem.bind_crystal(self, e, npc_id)
 func home_of(e: SimEntity) -> Dictionary:
 	return PortalSystem.home_of(e)
+func recall_progress(e: SimEntity) -> float:
+	return PortalSystem.recall_progress(e)
+func recall_blocked(e: SimEntity) -> String:
+	return PortalSystem.recall_blocked(self, e)
 # RaidSystem
 func raid_status(map_id: String) -> Dictionary:
 	return RaidSystem.status(self, map_id)
