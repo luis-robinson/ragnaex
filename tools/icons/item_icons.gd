@@ -41,10 +41,10 @@ const MATERIAL_ART := [["legend_coin", "legend_coin"], ["shell", "shell"], ["mus
 	["essence", "essence"], ["core", "core"], ["scale", "scale"], ["feather", "feather"], ["steel", "ingot"], ["sap", "sap"], ["heartwood", "bark"]]
 ## inclinação da arte (rad): armas na diagonal, como na mão
 const ANGLE := {"sword": 0.74, "sword2h": 0.74, "dagger": 0.74, "mace": 0.6, "mace2h": 0.5, "axe": 0.42, "axe2h": 0.4, "staff": 0.6,
-	"wand": 0.66, "scythe": 0.2, "scepter": 0.6, "rifle": 0.76, "bow": -0.74, "tusk": 0.3, "bone": 0.7, "herb": 0.18}
+	"wand": 0.66, "scythe": 0.2, "scepter": 0.6, "rifle": 0.76, "pistol": -0.2, "bow": -0.74, "tusk": 0.3, "bone": 0.7, "herb": 0.18}
 ## escala extra: armas longas na diagonal ocupam menos área que um elmo
 const GROW := {"sword": 1.2, "sword2h": 1.12, "dagger": 1.25, "mace": 1.12, "mace2h": 1.06, "axe": 1.12, "axe2h": 1.06, "staff": 1.14,
-	"wand": 1.22, "scythe": 1.08, "scepter": 1.18, "rifle": 1.16, "bow": 1.1, "bone": 1.2, "tusk": 1.05}
+	"wand": 1.22, "scythe": 1.08, "scepter": 1.18, "rifle": 1.16, "pistol": 1.3, "bow": 1.1, "bone": 1.2, "tusk": 1.05}
 
 ## Arte de um item: arma pelo tipo, armadura pelo slot e estilo, consumível/missão/material pela palavra no id.
 static func art_key(it: ItemDef) -> String:
@@ -564,6 +564,20 @@ func _a_rifle() -> void:
 		_poly([-0.14, y - 0.04, 0.12, y - 0.04, 0.12, y + 0.04, -0.14, y + 0.04], "trim", 0.035, 0.03)
 	_line([0.11, 0.3, 0.24, 0.38, 0.15, 0.5], "metal", 0.05)
 	_poly([-0.13, 0.62, 0.15, 0.56, 0.16, 0.7, -0.13, 0.76], "tint", 0.03, 0.03)
+
+## Pistola de pederneira de perfil (Corsário): cano para a direita, coronha curva, cão, gatilho e boca dourada.
+func _a_pistol() -> void:
+	_poly([-0.86, 0.86, -0.5, 0.98, -0.16, 0.3, 0.02, 0.12, 0.0, -0.16, -0.36, -0.2, -0.62, 0.14], "wood", 0.055, 0.12)
+	_circ(-0.72, 0.88, 0.14, "trim")
+	_poly([-0.4, -0.36, 0.94, -0.36, 0.94, -0.1, -0.4, -0.1], "blade", 0.05, 0.08)
+	_poly([0.84, -0.44, 1.0, -0.44, 1.0, -0.02, 0.84, -0.02], "trim", 0.045, 0.04)
+	_poly([-0.3, -0.08, 0.6, -0.08, 0.54, 0.1, -0.22, 0.12], "tint", 0.045, 0.05)
+	for x in [0.1, 0.42]:
+		_poly([x, -0.4, x + 0.06, -0.4, x + 0.06, -0.06, x, -0.06], "trim", 0.03, 0.02)
+	_poly([-0.4, -0.36, -0.46, -0.66, -0.3, -0.7, -0.24, -0.38], "metal", 0.045, 0.04)
+	_line([-0.18, 0.12, -0.12, 0.34, 0.06, 0.34, 0.12, 0.14], "metal", 0.05)
+	if _r >= 2:
+		_gem(-0.22, -0.24, 0.07)
 
 func _a_bow() -> void:
 	var limb := _arc(-0.66, 0.0, 1.05, -0.96, 0.96, 22)

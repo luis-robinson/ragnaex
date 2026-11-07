@@ -28,7 +28,7 @@ const SIGNATURES := {
 	"sacerdote": {"skill": "bis_light", "look": "holy"}, "inquisidor": {"skill": "bis_hammer", "look": "holy"}, "batalha": {"skill": "bis_holy_nova", "look": "holy"},
 	"guardiao_verde": {"skill": "dru_moonfire", "look": "nature"}, "fera": {"skill": "dru_claw", "look": "nature", "power": 0.8}, "xama": {"skill": "dru_moonfire", "look": "lunar", "power": 0.85},
 	"cacador": {"skill": "ran_frost_arrow", "look": "ice"}, "atirador": {"skill": "ran_snipe", "look": "fire"}, "patrulheiro": {"skill": "ran_caltrops", "look": "wind"},
-	"laminas": {"skill": "ass_venom_dart", "look": "poison", "power": 0.8}, "duelista": {"skill": "ass_thrust", "look": "blood", "power": 0.55}, "trapaceiro": {"skill": "ass_shadow_knives", "look": "shadow", "power": 0.7},
+	"laminas": {"skill": "ass_venom_dart", "look": "poison", "power": 0.8}, "duelista": {"skill": "ass_thrust", "look": "blood", "power": 0.55}, "corsario": {"skill": "ass_pistol_shot", "look": "fire", "power": 0.7},
 	"fogo": {"skill": "ele_fireball", "look": "fire"}, "gelo": {"skill": "ele_ice_lance", "look": "ice", "power": 0.9}, "raio": {"skill": "ele_chain", "look": "lightning"},
 	"invocador": {"skill": "nec_bone_spear", "look": "bone"}, "ceifador": {"skill": "nec_soul_rend", "look": "shadow", "power": 0.8}, "pestilento": {"skill": "nec_mind_flay", "look": "shadow", "power": 0.7},
 }
@@ -152,8 +152,8 @@ static func build() -> Array:
 					"passives": [{"atk_pct": 3}, {"aspd_pct": 3}], "set_extra": {3: {"speed_pct": [5.0, 1.0]}}}),
 			]}),
 		_mk({"id": "assassin", "body_type": "male", "hair_color": Color(0.2, 0.18, 0.25), "name": "Assassino", "role": "dps", "color": Color(0.55, 0.35, 0.75),
-			"description": "Sombras. Duas adagas velozes com veneno, esquiva e golpes pelas costas saindo da furtividade, duelista equilibrado de duas espadas, ou trapaceiro de espada e adaga que controla a luta com fumaça, estrepes e golpes baixos.",
-			"weapon_types": _s(["dagger", "sword"]), "offhand_types": _s(["dagger", "sword"]),
+			"description": "Sombras. Duas adagas velozes com veneno, esquiva e golpes pelas costas saindo da furtividade, duelista equilibrado de duas espadas, ou corsário de sabre e pistola que junta Bravata com tiros e a gasta num tiro entre os olhos.",
+			"weapon_types": _s(["dagger", "sword"]), "offhand_types": _s(["dagger", "sword", "pistol"]),
 			"base_hp": 100.0, "base_mp": 60.0, "hp_per_level": 11.0, "mp_per_level": 6.0, "move_speed": 6.2,
 			"basic_attack_power": 0.75, "basic_attack_cooldown": 0.38, "basic_attack_range": 1.7,
 			"starting_equipment": _s(["dagger_iron"] + ItemsCatalog.starter_ids("assassin")),
@@ -166,15 +166,16 @@ static func build() -> Array:
 					"passives": [{"aspd_pct": 3}, {"evasion": 1.5}, {"backstab": 6}], "set_extra": {3: {"evasion": [4.0, 1.0], "backstab": [10.0, 3.0]}}}),
 				_b("duelista", "Duelista", "dps", ["sword"], ["sword"], "leather", "AGI", "FOR", "atk_pct",
 					["ass_cross_slash", "ass_backstab", "ass_quick_stab", "ass_thrust", "ass_shadowstep", "ass_guard", "ass_lunge", "ass_steel_whirl", "ass_crimson",
-					 "ass_execute", "ass_focus", "ass_master"]).merged({
+					 "ass_execute", "ass_focus", "ass_master", "ass_expose"]).merged({
 					# equilibrado: ataque, defesa e um pouco de crítico
 					"passives": [{"atk_pct": 3}, {"def_pct": 3}, {"crit": 1.5}], "set_extra": {3: {"def_pct": [5.0, 1.5], "crit": [3.0, 0.5]}}}),
-				# controle: espada + adaga de aparar, fumaça, estrepes e golpes baixos; mistura venenos das Lâminas e a guarda do Duelista
-				_b("trapaceiro", "Trapaceiro", "dps", ["sword"], ["dagger"], "leather", "AGI", "VIT", "atk_pct",
-					["ass_shadow_knives", "ass_cheap_shot", "ass_expose", "ass_smoke_bomb", "ass_backstab", "ass_caltrops", "ass_paralyze", "ass_vanish",
-					 "ass_thrust", "ass_quick_stab", "ass_shadowstep", "ass_guard", "ass_toxic_cloud", "ass_smoke", "ass_execute", "ass_venom_dart"]).merged({
-					# recarga e defesa (árvore e conjunto): mais controle na mão; a arma dá Truque Sujo (alvo preso/lento apanha mais)
-					"passives": [{"atk_pct": 3}, {"cdr": 2}, {"def_pct": 3}], "set_extra": {3: {"cdr": [4.0, 1.0], "def_pct": [4.0, 1.0]}}}),
+				# Corsário: sabre (espada) na direita e pistola de pederneira na esquerda. Tiros e cortes juntam Bravata
+				# (até 5 cargas); o Tiro Entre os Olhos gasta tudo num tiro que atordoa. Dados da Sorte, gancho e a bandeira do capitão.
+				_b("corsario", "Corsário", "dps", ["sword"], ["pistol"], "leather", "AGI", "FOR", "atk_pct",
+					["ass_pistol_shot", "ass_slash_shot", "ass_between_eyes", "ass_dice", "ass_backstab", "ass_ricochet_shot", "ass_grapple",
+					 "ass_black_flag", "ass_broadside", "ass_quick_stab", "ass_thrust", "ass_guard", "ass_expose", "ass_shadowstep", "ass_execute", "ass_smoke"]).merged({
+					# crítico e defesa (árvore e conjunto: casaca grossa de abordagem); a arma dá Bala na Agulha (golpe às vezes dispara a pistola de graça)
+					"passives": [{"atk_pct": 3}, {"crit": 1.5}, {"def_pct": 3}], "set_extra": {3: {"crit": [3.0, 0.8], "def_pct": [5.0, 1.5]}}}),
 			]}),
 		_mk({"id": "elementalist", "body_type": "female", "hair_color": Color(0.25, 0.3, 0.55), "name": "Elementalista", "role": "caster", "color": Color(0.35, 0.6, 0.95),
 			"description": "Cajado e três elementos que se misturam: fogo, gelo e raio, combinações e elementais invocados. O maior dano mágico do jogo.",

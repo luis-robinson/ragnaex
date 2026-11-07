@@ -156,7 +156,7 @@ static func resolve_talents(sim: WorldSim, e: SimEntity, s: SkillDef) -> SkillDe
 static func requires_text(req: Array) -> String:
 	var names := {"shield": "escudo", "orb": "orbe", "dual": "duas armas de 1 mão", "two_handed": "arma de duas mãos",
 		"sword": "espada", "sword2h": "montante", "mace": "maça", "mace2h": "martelo de duas mãos", "axe": "machadinha",
-		"axe2h": "machado de duas mãos", "dagger": "adaga", "bow": "arco", "staff": "cajado", "wand": "varinha", "scythe": "foice", "scepter": "cetro", "rifle": "mosquete"}
+		"axe2h": "machado de duas mãos", "dagger": "adaga", "bow": "arco", "staff": "cajado", "wand": "varinha", "scythe": "foice", "scepter": "cetro", "rifle": "mosquete", "pistol": "pistola"}
 	var plural := {"sword": "duas espadas", "mace": "duas maças", "axe": "dois machados", "dagger": "duas adagas"}
 	var parts: Array = []
 	for r in req:

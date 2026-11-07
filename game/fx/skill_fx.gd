@@ -716,3 +716,122 @@ static func fade_out(root: Node, n: Node3D, duration: float) -> void:
 	var tw := root.create_tween()
 	tw.tween_property(n, "scale", Vector3(0.2, 1.0, 0.2), duration).set_ease(Tween.EASE_IN)
 	tw.tween_callback(n.queue_free)
+
+## Tiro de pistola (Corsário): clarão em cone na boca do cano, rastro claro da bala até o alvo, fumaça cinza e faíscas
+## no impacto. `muzzle` e `hit` já na altura certa (mão e peito).
+static func gunshot(root: Node, muzzle: Vector3, hit: Vector3, big: bool = false, tracer: bool = true) -> void:
+	var d := hit - muzzle
+	var length := maxf(d.length(), 0.3)
+	var dir := d / length
+	var basis := Basis.looking_at(dir, Vector3.UP if absf(dir.y) < 0.95 else Vector3.RIGHT)
+	# rastro: barra fina e brilhante que some rápido (lê de cima como um risco amarelo)
+	var tr := MeshInstance3D.new()
+	tr.visible = tracer                    # bala de verdade (projétil): sem risco
+	var tb := BoxMesh.new()
+	tb.size = Vector3(0.07 if big else 0.05, 0.07 if big else 0.05, length)
+	tr.mesh = tb
+	var tm := _mat(Color(1.0, 0.92, 0.6))
+	tm.albedo_color = Color(1.0, 0.92, 0.6, 0.95)
+	tr.material_override = tm
+	tr.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	tr.basis = basis
+	tr.position = muzzle + dir * length * 0.5
+	root.add_child(tr)
+	var tw := root.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(tr, "scale", Vector3(0.3, 0.3, 1.0), 0.16)
+	tw.tween_property(tm, "albedo_color:a", 0.0, 0.16)
+	tw.chain().tween_callback(tr.queue_free)
+	# clarão: cone curto que abre da boca do cano para o alvo
+	var fl := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = 0.0
+	cm.bottom_radius = 0.26 if big else 0.18
+	cm.height = 0.55 if big else 0.4
+	cm.radial_segments = 8
+	fl.mesh = cm
+	var fm := _mat(col("fire", 1))
+	fm.albedo_color = Color(1.0, 0.85, 0.35, 1.0)
+	fl.material_override = fm
+	fl.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	fl.basis = basis * Basis(Vector3.RIGHT, PI * 0.5)       # eixo do cilindro (y) vira a direção do tiro
+	fl.position = muzzle + dir * cm.height * 0.5
+	root.add_child(fl)
+	var tw2 := root.create_tween()
+	tw2.set_parallel(true)
+	tw2.tween_property(fl, "scale", Vector3(1.6, 0.4, 1.6), 0.1)
+	tw2.tween_property(fm, "albedo_color:a", 0.0, 0.12)
+	tw2.chain().tween_callback(fl.queue_free)
+	burst(root, muzzle, "fire", 10 if big else 7, dir + Vector3.UP * 0.2, 0.05, 0.8)
+	flash(root, muzzle, "fire", 3.5 if big else 2.5, 4.0)
+	puff(root, muzzle + dir * 0.15, 0.45 if big else 0.32)
+	if not tracer:
+		return
+	# impacto: faíscas no alvo
+	burst(root, hit, "fire", 12, -dir + Vector3.UP * 0.5, 0.12, 1.1)
+	burst(root, hit, "physical", 10, -dir + Vector3.UP * 0.4, 0.1, 1.0)
+
+## Fumaça de pólvora: bolinhas cinzas macias que sobem devagar e somem.
+static func puff(root: Node, pos: Vector3, size: float = 0.3) -> void:
+	var p := CPUParticles3D.new()
+	p.one_shot = true
+	p.explosiveness = 0.85
+	p.amount = 8
+	p.lifetime = 0.9
+	p.direction = Vector3.UP
+	p.spread = 60.0
+	p.initial_velocity_min = 0.3
+	p.initial_velocity_max = 0.9
+	p.gravity = Vector3(0, 0.6, 0)
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	p.emission_sphere_radius = size * 0.4
+	var curve := Curve.new()
+	curve.add_point(Vector2(0, 0.5))
+	curve.add_point(Vector2(1, 1.4))
+	p.scale_amount_curve = curve
+	var grad := Gradient.new()
+	grad.set_color(0, Color(0.85, 0.84, 0.82, 0.8))
+	grad.set_color(1, Color(0.55, 0.55, 0.58, 0.0))
+	p.color_ramp = grad
+	var qm := QuadMesh.new()
+	qm.size = Vector2(size, size)
+	p.mesh = qm
+	var m := _mat(Color.WHITE, false, true)
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	m.albedo_texture = soft()
+	p.material_override = m
+	p.position = pos
+	root.add_child(p)
+	p.emitting = true
+	root.get_tree().create_timer(p.lifetime + 0.2).timeout.connect(p.queue_free)
+
+## Corda do gancho: linha escura esticada de `a` até `b` que encolhe para o ponto de chegada.
+static func rope(root: Node, a: Vector3, b: Vector3) -> void:
+	var d := b - a
+	var length := maxf(d.length(), 0.3)
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(0.06, 0.06, length)
+	mi.mesh = bm
+	var m := _mat(Color(0.45, 0.32, 0.2), false)
+	m.albedo_color = Color(0.45, 0.32, 0.2, 1.0)
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.basis = Basis.looking_at(d / length, Vector3.UP if absf(d.y / length) < 0.95 else Vector3.RIGHT)
+	mi.position = a + d * 0.5
+	root.add_child(mi)
+	var hook := MeshInstance3D.new()
+	var hm := SphereMesh.new()
+	hm.radius = 0.12
+	hm.height = 0.24
+	hook.mesh = hm
+	hook.material_override = _mat(Color(0.8, 0.82, 0.9), false)
+	hook.position = b
+	root.add_child(hook)
+	var tw := root.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(mi, "scale", Vector3(1.0, 1.0, 0.05), 0.22).set_delay(0.06)
+	tw.tween_property(mi, "position", b, 0.22).set_delay(0.06)
+	tw.chain().tween_callback(mi.queue_free)
+	root.get_tree().create_timer(0.4).timeout.connect(hook.queue_free)
+	burst(root, b, "physical", 10, Vector3.UP, 0.15, 0.9)

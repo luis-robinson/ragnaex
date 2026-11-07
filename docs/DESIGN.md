@@ -49,7 +49,7 @@ Cada classe tem **20+ skills** (`skills_catalog.gd`), mas só **6 vão na barra*
 | Bispo | Sacerdote (maça + escudo; cura em grupo) · Iluminado (cetro 2M, dano sagrado) · Clérigo de Batalha (maça + escudo, placa; golpes que curam) |
 | Druida | Guardião da Floresta (martelo 2M, tank) · Fera Selvagem (2 maças) · Xamã (varinha + orbe, magia) |
 | Ranger | Caçador (arco + lince companheiro) · Atirador (mosquete + armadilhas) · Patrulheiro (arco veloz: armadilhas, lentidão e marca na presa) |
-| Assassino | Lâminas (2 adagas: veneno, esquiva, furtividade, pelas costas, ataque muito rápido) · Duelista (2 espadas, equilibrado) · Trapaceiro (espada + adaga de aparar: fumaça, estrepes, controle) |
+| Assassino | Lâminas (2 adagas: veneno, esquiva, furtividade, pelas costas, ataque muito rápido) · Duelista (2 espadas, equilibrado) · Corsário (sabre + pistola: Bravata, tiros, Dados da Sorte, gancho) |
 | Elementalista | Foco em Fogo · Gelo · Raio, todos de cajado (os ramos se misturam; conjuntos favorecem um elemento ou uma combinação) |
 | Necromancer | Invocador · Ceifador · Sombras, todos de foice (focos que se misturam) |
 
@@ -106,10 +106,19 @@ um veneno que renova, não acumula, `Balance.HIT_POISON_TIME`), **esquiva** (`ev
 esquivado não causa nada, evento `dodged`), Sumir (`stealth` sem forma: só o Lobo do Druida exige estar transformado) e **pelas costas**
 (`backstab`: % de dano e +`BACKSTAB_CRIT` de crítico quando o atacante está atrás do alvo, `Combat.is_behind`). Venenos escalam com ATK.
 **Duelista** (duas espadas, `atk_pct`): golpes largos, Guarda (DEF + esquiva), Avanço, Turbilhão, Foco e Golpe de Mestre; árvore com
-ATK/DEF/crítico e conjunto com DEF + crítico. **Trapaceiro** (espada + adaga de aparar, `atk_pct`): controle — Facas da Sombra (leque
-que retarda), Bomba de Fumaça (tonteia e retarda), Expor Fraqueza (alvo recebe +20% de todos, maldição `expose`), Estrepes, Toxina
-Paralisante e Golpe Baixo; Dardo/Nuvem/Sumir das Lâminas e Estocada/Guarda do Duelista valem para qualquer par de armas (`dual`);
-árvore e conjunto com recarga e DEF; arma com Truque Sujo. Envenenador e Sombra saíram (save com nó antigo reseta a árvore e devolve os pontos).
+ATK/DEF/crítico e conjunto com DEF + crítico; Expor Fraqueza (alvo recebe +20% de todos, maldição `expose`) é dele.
+**Corsário** (sabre = `sword` na direita + **pistola** na esquerda, `atk_pct`, AGI/FOR): a pistola (`pistol`) é arma só de mão
+secundária (`ItemDef.OFFHAND_ONLY`, como escudo e orbe; ficha de exigência `"pistol"`), soma o ATK inteiro e não atira no básico — os
+tiros saem das skills (`"shot"` = clarão na boca do cano + rastro no FX, clipe `atk_pistol`). **Bravata** (`Balance.BRAVADO_*`, buff
+`bravado` com cargas, até 5): Tiro de Pistola +1, Corte e Tiro +2, Gancho/Bala Ricochete +1, Bordada +2, Bandeira Negra +3 (`combo_gain`);
+o **Tiro Entre os Olhos** gasta tudo (`combo_spend`: +25% de dano e +0,3 s de atordoamento por carga). **Dados da Sorte** (`dice`):
+sorteia com o rng da sim UM buff de 12 s (ATK, crítico, velocidade ou recarga; o HUD mostra qual). **Gancho de Abordagem**
+(`dash_to_aim`): puxa até o ponto mirado. **Bala Ricochete**: `bounce` com `back: false` (bala some no último salto) e `taunt: 0`.
+Mistura Estocada, Guarda e Expor do Duelista (aceitam `pistol`). Arma lendária **Bala na Agulha** (`spare_shot`): golpe às vezes
+dispara a pistola de graça (% do ATK, +1 Bravata, `Balance.LEG_SHOT_ICD`). Visual (`assassin_sets.CORSAIR_SETS`/`CORSAIR_PISTOLS`):
+tricórnio de abas viradas, bicorne atravessado ou bandana, casaca longa aberta com abas, faixa, boldrié, tapa-olho, dragonas, papagaio.
+O Trapaceiro saiu: Abrolhos virou geral, Toxina Paralisante voltou às Lâminas; save antigo troca as peças `leg_assassin_trapaceiro_*`
+pelas do Corsário (`SaveSystem.RENAMED_ITEMS`) e a teia é refeita com os pontos devolvidos. Envenenador e Sombra saíram antes.
 
 **Elementalista**: só **cajado**; Fogo, Gelo e Raio são focos (ramos da árvore), não caminhos fechados: dá para pegar skills dos três.
 Cada skill tem `SkillDef.elements` (o ramo dá; gerais e combinações em `SkillsCatalog.ELEMENTS`) e o dano multiplica pela média de
@@ -563,7 +572,7 @@ Executor Carrasco (+dano em alvo < 30%) · Arremessador Hemorragia (+dano em alv
 Templário Penitência (5ª carga explode em fogo sagrado) · Clérigo de Batalha Mão que Cura (golpe cura o aliado mais ferido) ·
 Urso Casca Viva (apanhou: Pele de Carvalho, 20 s) · Lobo Sangue da Matilha (sangramento) · Xamã Lua Cheia (básico lança Fogo Lunar) ·
 Caçador Marca (alvo recebe mais dano de todos) · Atirador Pólvora (tiro explode em área) · Patrulheiro Presa Acuada (+dano em alvo retardado/preso) · Lâminas Veneno Letal · Duelista Riposte (esquivou,
-contra-ataca) · Trapaceiro Truque Sujo (chance de retardar; +dano em alvo lento/preso/atordoado) · Fogo Brasa Viva (básico lança Bola de Fogo) · Gelo Coração de Gelo (apanhou: Nova de Gelo, no máx. a cada 20 s) · Raio Arco
+contra-ataca) · Corsário Bala na Agulha (golpe às vezes dispara a pistola de graça; +1 Bravata) · Fogo Brasa Viva (básico lança Bola de Fogo) · Gelo Coração de Gelo (apanhou: Nova de Gelo, no máx. a cada 20 s) · Raio Arco
 Voltaico (básico salta para +1 alvo) · Invocador Legião (abate levanta esqueleto) · Ceifador Ceifa (abate cura) · Sombras Praga (básico lança Agonia).
 Atributos: toda peça lendária usa os dois atributos da build; escudos nomeados seguem a afinidade (Paladino VIT/FOR, Bispo VIT/WILL);
 o Elementalista Raio é INT/WILL (AGI não serve a mago) e o conjunto inicial do Paladino é VIT/FOR.

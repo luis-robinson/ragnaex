@@ -1096,7 +1096,7 @@ func _animate(delta: float) -> void:
 const IMPACT_FRAME := {"maul": 7, "pounce": 9, "slam": 8, "roar": 7, "brace": 6, "atk_rifle": 6, "atk_1h_a": 7, "atk_1h_b": 7, "atk_2h": 10, "atk_dual_a": 5, "atk_dual_b": 5, "atk_dagger": 5,
 	"atk_bow": 8, "atk_staff": 7, "atk_spin": 8, "atk_thrust": 6, "cast": 10, "cast_buff": 8, "attack": 5,
 	"cast_ground": 10, "cast_channel": 14, "cast_target": 8, "atk_leap": 12, "atk_charge": 5, "atk_throw": 7,
-	"atk_shoot_multi": 8, "summon": 11, "atk_sweep": 8, "atk_finisher": 10, "atk_flurry": 5, "atk_claw": 6, "shout": 7,
+	"atk_shoot_multi": 8, "summon": 11, "atk_pistol": 6, "atk_slash_shot": 9, "atk_sweep": 8, "atk_finisher": 10, "atk_flurry": 5, "atk_claw": 6, "shout": 7,
 	"cast_fire": 8, "cast_ice": 8, "cast_bolt": 7, "cast_holy": 8, "cast_shadow": 8, "cast_nature": 9,
 	"buff_power": 7, "buff_guard": 6, "buff_focus": 8}
 const RUN_REF_SPEED := 5.2            # m/s em que o ciclo "run" do kit casa com o chão
@@ -1265,6 +1265,8 @@ func _update_trail(st: int) -> void:
 	if st == SimEntity.State.CASTING and s != null:
 		var t := entity.state_time
 		on = t >= s.startup * 0.35 and t <= s.startup + s.active + 0.12
+		if s.effects.get("shot", false) and s.range > 3.0:
+			on = false                     # tiro de pistola: o sabre fica parado, sem rastro
 		var th := FxManager.theme_of(s)
 		var magic := s.kind != SkillDef.Kind.PHYSICAL and th != "physical" and th != ""
 		kit.trail_tint = SkillFx.col(th, 0) if magic else Color(0, 0, 0, 0)     # magia: o rastro do cajado/cetro na cor do tema

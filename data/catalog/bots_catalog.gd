@@ -132,7 +132,7 @@ const BUILD_LINES := {
 	"guardiao": ["escudo de torre é amor", "guardião não morre, só fica cansado", "puxa tudo que eu seguro"],
 	"cruzado": ["espada de duas mãos e fé", "cruzado é dps disfarçado de tank", "zelo no talo"],
 	"arremessador": ["machadinha voando, cuidado aí", "sangrou? então já era", "lanço daqui, não precisa chegar perto", "tenho machado pra todo mundo"],
-	"trapaceiro": ["fumaça e uma rasteira, clássico", "jogo limpo é pra quem perde", "estrepe no chão, golpe baixo na sequência", "expus a fraqueza, agora bate"],
+	"corsario": ["sabre numa mão, pistola na outra", "bravata cheia, tiro entre os olhos", "rolei os dados e deu crítico, sorte de capitão", "gancho no mastro e lá vou eu", "a bala ricocheteia, a culpa não é minha"],
 	"templario": ["escudo numa mão, fogo sagrado na outra", "marquei, agora queima", "templário é paladino que descobriu o fogo", "cinco marcas e bum"],
 	"batalha": ["cada martelada cura alguém, confia", "clérigo de linha de frente, sem medo", "hino de batalha tocando", "quem tá ferido? vou bater em algo"],
 	"patrulheiro": ["estrepe no chão e pé na estrada", "lento eu acerto, parado eu mato", "sem pet, só eu e o vento", "corre que eu marco a presa"],

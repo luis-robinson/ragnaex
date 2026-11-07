@@ -273,7 +273,8 @@ static func _s(id: String, name: String, lvl: int, build: String, req: Array, tg
 	if kind == K_BUFF:
 		d["power"] = 0.0; d["startup"] = 0.1; d["recovery"] = 0.2
 	for k in ext:
-		if k in ["dot", "slow", "stun", "root", "buff", "shield", "dash", "summon", "heal_pct_of_dmg", "taunt", "boss_summon", "wither", "form", "stealth", "trap", "pet_command", "pet_buff", "curse", "channel", "mend_pct_of_dmg", "combust", "bounce", "aura"]:
+		if k in ["dot", "slow", "stun", "root", "buff", "shield", "dash", "summon", "heal_pct_of_dmg", "taunt", "boss_summon", "wither", "form", "stealth", "trap", "pet_command", "pet_buff", "curse", "channel", "mend_pct_of_dmg", "combust", "bounce", "aura",
+				"combo_gain", "combo_spend", "dice", "dash_to_aim", "shot"]:
 			if not d.has("effects"):
 				d["effects"] = {}
 			d["effects"][k] = ext[k]
@@ -472,8 +473,8 @@ static func _more() -> Dictionary:
 		_s("ass_thousand", "Mil Cortes", 26, "laminas", ["dual_dagger"], T_TARGET, K_PHYS, 4.0, 30, 16, "Rajada final em um alvo.", {"hit_stop_frames": 7}),
 		# Duelista: duas espadas, equilibrado (golpes largos, guarda, avanço e golpe de mestre)
 		_s("ass_cross_slash", "Corte Cruzado", 2, "duelista", ["dual_sword"], T_CONE, K_PHYS, 1.6, 9, 4, "Duas espadas em X num leque largo.", {"radius": 2.9, "cone_angle_deg": 110}),
-		_s("ass_thrust", "Estocada Dupla", 6, "duelista", ["dual"], T_TARGET, K_PHYS, 2.0, 11, 6, "Duas estocadas no alvo que fazem sangrar.", {"range": 2.6, "dot": _dot(6, 4)}),
-		_buff("ass_guard", "Guarda do Duelista", 9, "duelista", ["dual"], 14, 18, "+30% DEF e +15% de esquiva por 6s.", {"id": "duel_guard", "duration": 6, "def_pct": 30, "evasion": 15}),
+		_s("ass_thrust", "Estocada Dupla", 6, "duelista", ["dual", "pistol"], T_TARGET, K_PHYS, 2.0, 11, 6, "Duas estocadas no alvo que fazem sangrar.", {"range": 2.6, "dot": _dot(6, 4)}),
+		_buff("ass_guard", "Guarda do Duelista", 9, "duelista", ["dual", "pistol"], 14, 18, "+30% DEF e +15% de esquiva por 6s.", {"id": "duel_guard", "duration": 6, "def_pct": 30, "evasion": 15}),
 		_s("ass_lunge", "Avanço do Duelista", 12, "duelista", ["dual_sword"], T_DIR, K_PHYS, 2.4, 15, 9, "Avança 6m com as duas espadas à frente.", {"range": 6.0, "radius": 0.9, "dash": 6.0}),
 		_s("ass_steel_whirl", "Turbilhão de Aço", 16, "duelista", ["dual_sword"], T_SELF, K_PHYS, 2.2, 18, 10, "Gira com as duas espadas: dano ao redor.", {"radius": 3.0}),
 		_s("ass_crimson", "Lâmina Carmesim", 20, "duelista", ["dual_sword"], T_TARGET, K_PHYS, 2.8, 18, 9, "Golpe que cura 25% do dano.", {"heal_pct_of_dmg": 0.25}),
@@ -481,24 +482,47 @@ static func _more() -> Dictionary:
 		_s("ass_master", "Golpe de Mestre", 28, "duelista", ["dual_sword"], T_TARGET, K_PHYS, 4.4, 32, 16, "Sequência final das duas espadas no alvo.", {"hit_stop_frames": 7}),
 		_s("ass_toxic_cloud", "Nuvem Tóxica", 5, "laminas", ["dual"], T_GROUND, K_PHYS, 0.5, 12, 9, "Nuvem no cursor: veneno forte por 6s.", {"range": 8.0, "radius": 2.4, "dot": _dot(8, 6)}),
 		_s("ass_venom_dart", "Dardo Venenoso", 9, "laminas", ["dual"], T_DIR, K_PHYS, 1.0, 8, 3, "Dardo que envenena por 5s.", {"range": 10.0, "radius": 0.4, "projectile_speed": 24.0, "dot": _dot(6, 5)}),
-		_s("ass_paralyze", "Toxina Paralisante", 14, "trapaceiro", ["dual"], T_TARGET, K_PHYS, 0.8, 14, 12, "Paralisa o alvo por 1.5s.", {"range": 3.0, "stun": _dur(1.5)}),
+		_s("ass_paralyze", "Toxina Paralisante", 14, "laminas", ["dual"], T_TARGET, K_PHYS, 0.8, 14, 12, "Paralisa o alvo por 1.5s.", {"range": 3.0, "stun": _dur(1.5)}),
 		_buff("ass_plague_blade", "Lâmina Pestilenta", 4, "laminas", ["dual_dagger"], 14, 22, "Envenena as lâminas por 14s: cada golpe aplica veneno (renova) e +15% velocidade de ataque.",
 			{"id": "plague_blade", "duration": 14, "hit_poison": 9, "aspd_pct": 15}),
 		_s("ass_vanish", "Sumir", 7, "laminas", ["dual"], T_SELF, K_BUFF, 0.0, 16, 14, "Some da vista dos inimigos por 6s. O primeiro golpe sai da sombra com +60% de dano (e pelas costas, crítico).",
 			{"stealth": 6.0, "startup": 0.1}),
 		_buff("ass_reflexes", "Reflexos", 11, "laminas", ["dual_dagger"], 12, 18, "+35% de esquiva e +20% velocidade por 5s.", {"id": "reflexes", "duration": 5, "evasion": 35, "speed_pct": 20}),
 		_s("ass_virulence", "Virulência", 25, "laminas", ["dual_dagger"], T_GROUND, K_PHYS, 1.2, 30, 16, "Epidemia no cursor: veneno altíssimo.", {"range": 8.0, "radius": 3.2, "dot": _dot(16, 6)}),
-		# Trapaceiro (espada + adaga de aparar): controle, fumaça e golpes baixos (Truque Sujo na arma)
-		_s("ass_shadow_knives", "Facas da Sombra", 2, "trapaceiro", ["dual"], T_CONE, K_PHYS, 1.7, 8, 4, "Leque de facas até 6.5m à frente: dano e lentidão de 30%.",
-			{"radius": 6.5, "cone_angle_deg": 40, "max_targets": 4, "slow": _slow(30, 2)}),
-		_s("ass_smoke_bomb", "Bomba de Fumaça", 5, "trapaceiro", ["dual"], T_GROUND, K_PHYS, 0.6, 14, 12, "Bomba no cursor: inimigos tontos por 0.8s e retardados 50% por 3s.",
-			{"range": 8.0, "radius": 3.0, "stun": _dur(0.8), "slow": _slow(50, 3)}),
-		_s("ass_expose", "Expor Fraqueza", 9, "trapaceiro", ["dual"], T_TARGET, K_PHYS, 2.0, 10, 8, "Golpe que expõe o alvo: recebe +20% de dano de todos por 6s.",
+		_s("ass_expose", "Expor Fraqueza", 9, "duelista", ["dual", "pistol"], T_TARGET, K_PHYS, 2.0, 10, 8, "Golpe que expõe o alvo: recebe +20% de dano de todos por 6s.",
 			{"curse": {"id": "expose", "duration": 6.0, "taken_pct": 20}}),
-		_s("ass_caltrops", "Abrolhos", 13, "trapaceiro", ["dual"], T_GROUND, K_PHYS, 1.1, 14, 10, "Espalha estrepes no cursor: lentidão de 40% e sangramento por 5s.",
+		_s("ass_caltrops", "Abrolhos", 13, "", [], T_GROUND, K_PHYS, 1.1, 14, 10, "Espalha estrepes no cursor: lentidão de 40% e sangramento por 5s.",
 			{"range": 8.0, "radius": 3.2, "dot": _dot(10, 5), "slow": _slow(40, 4)}),
-		_s("ass_cheap_shot", "Golpe Baixo", 22, "trapaceiro", ["dual"], T_TARGET, K_PHYS, 4.2, 24, 14, "Golpe sujo de espada e adaga: dano alto e atordoa 1.2s.",
-			{"stun": _dur(1.2), "hit_stop_frames": 6}),
+		# Corsário (sabre + pistola): tiros e cortes juntam Bravata (Balance.BRAVADO_*); o Tiro Entre os Olhos gasta tudo.
+		# "shot" = sai da pistola (clarão na boca do cano + rastro da bala no FX; a arma lendária Bala na Agulha também atira)
+		_s("ass_pistol_shot", "Tiro de Pistola", 2, "corsario", ["pistol"], T_TARGET, K_PHYS, 1.3, 6, 3,
+			"Tiro rápido de pistola no alvo sob o cursor (até 9 m). +1 Bravata.",
+			{"range": 9.0, "startup": 0.12, "recovery": 0.22, "cancel_after": 0.08, "hit_stop_frames": 3, "combo_gain": 1, "shot": true, "vfx": "fire", "clip": "atk_pistol"}),
+		_s("ass_slash_shot", "Corte e Tiro", 5, "corsario", ["pistol"], T_TARGET, K_PHYS, 2.0, 10, 6,
+			"Corte de sabre e um tiro à queima-roupa no mesmo alvo. +2 Bravata.",
+			{"range": 2.8, "startup": 0.2, "recovery": 0.28, "cancel_after": 0.12, "hit_stop_frames": 4, "combo_gain": 2, "shot": true, "vfx": "fire", "clip": "atk_slash_shot"}),
+		_s("ass_dice", "Dados da Sorte", 9, "corsario", ["pistol"], T_SELF, K_BUFF, 0.0, 14, 24,
+			"Rola os dados: por 12s ganha UM entre +25% de ATK, +20 de crítico, +25% de velocidade de ataque (e 15% de corrida) ou -25% de recarga. O resultado aparece na barra de efeitos.",
+			{"vfx": "holy", "dice": [{"id": "lucky_dice", "duration": 12, "atk_pct": 25, "label": "Ataque"}, {"id": "lucky_dice", "duration": 12, "crit": 20, "label": "Crítico"},
+				{"id": "lucky_dice", "duration": 12, "aspd_pct": 25, "speed_pct": 15, "label": "Velocidade"}, {"id": "lucky_dice", "duration": 12, "cdr": 25, "label": "Recarga"}]}),
+		_s("ass_grapple", "Gancho de Abordagem", 12, "corsario", ["pistol"], T_GROUND, K_PHYS, 1.4, 12, 10,
+			"Dispara o gancho e se puxa até o ponto do cursor (até 9 m): corta quem estiver lá e retarda 40% por 2s. +1 Bravata.",
+			{"range": 9.0, "radius": 1.8, "dash": 9.0, "dash_to_aim": true, "startup": 0.12, "recovery": 0.25, "cancel_after": 0.12, "slow": _slow(40, 2), "combo_gain": 1}),
+		_s("ass_ricochet_shot", "Bala Ricochete", 16, "corsario", ["pistol"], T_TARGET, K_PHYS, 1.8, 14, 8,
+			"Bala que ricocheteia em até 4 inimigos (15% menos a cada salto). +1 Bravata.",
+			{"range": 10.0, "projectile_speed": 40.0, "bounce": {"count": 4, "radius": 6.0, "falloff": 0.85, "taunt": 0.0, "back": false},
+			 "startup": 0.14, "recovery": 0.24, "cancel_after": 0.1, "hit_stop_frames": 3, "combo_gain": 1, "shot": true, "vfx": "fire", "clip": "atk_pistol"}),
+		_s("ass_between_eyes", "Tiro Entre os Olhos", 20, "corsario", ["pistol"], T_TARGET, K_PHYS, 2.2, 18, 12,
+			"Finalizador: mira e atira no alvo (até 10 m), atordoando 0.3s. Gasta toda a Bravata: +25% de dano e +0.3s de atordoamento por carga.",
+			{"range": 10.0, "startup": 0.28, "recovery": 0.3, "cancel_after": 0.15, "hit_stop_frames": 6, "stun": _dur(0.3), "combo_spend": {"power_pct": 25, "stun_per": 0.3},
+			 "shot": true, "vfx": "fire", "clip": "atk_pistol"}),
+		_buff("ass_black_flag", "Bandeira Negra", 24, "corsario", ["pistol"], 20, 26,
+			"Ergue a bandeira do capitão: você e os aliados a 8 m ganham +15% de ATK e +15% de velocidade de ataque por 10s; você ganha 3 de Bravata.",
+			{"id": "black_flag", "duration": 10, "atk_pct": 15, "aspd_pct": 15}, {"radius": 8.0, "combo_gain": 3}),
+		_s("ass_broadside", "Bordada", 28, "corsario", ["pistol"], T_CONE, K_PHYS, 2.4, 26, 14,
+			"Saca as pistolas de reserva e descarrega tudo num leque de 6 m à frente (até 5 inimigos). +2 Bravata.",
+			{"radius": 6.0, "cone_angle_deg": 50, "max_targets": 5, "startup": 0.24, "recovery": 0.32, "cancel_after": 0.15, "hit_stop_frames": 5, "combo_gain": 2,
+			 "shot": true, "vfx": "fire", "clip": "atk_pistol"}),
 	],
 	"elementalist": [
 		# Combinações (geral: qualquer foco usa; o dano soma a média dos bônus dos dois elementos)

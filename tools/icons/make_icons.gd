@@ -35,7 +35,7 @@ const GLYPHS := {
 	"axe": ["ber_cleave", "ber_leap", "ber_execute", "ber_hack", "ber_axe_storm", "ber_throw_axe", "ber_butcher",
 		"ber_crimson_flurry", "ber_whirlwind", "ber_hatchet", "ber_hatchet_fan", "ber_tomahawk_rain"],
 	"dagger": ["ass_backstab", "ass_poison", "ass_fan", "ass_execute", "ass_quick_stab", "ass_twin_strike", "ass_blade_flurry", "ass_dance", "ass_thousand",
-		"ass_plague_blade", "ass_eviscerate", "ass_shadow_knives"],
+		"ass_plague_blade", "ass_eviscerate"],
 	"hammer": ["bis_holy_blow", "bis_divine_hammer", "pal_hammer_light", "bis_hammer", "bis_judgement", "bis_condemn", "ber_overhead"],
 	"scythe": ["nec_reap", "nec_harvest", "nec_grim"],
 	"arrow": ["ran_scatter", "ran_power_shot", "ran_multishot", "ran_rain", "ran_explosive", "ran_frost_arrow", "ran_volley", "ass_venom_dart"],
@@ -47,7 +47,7 @@ const GLYPHS := {
 	"heart": ["ber_bloodlust", "bis_heal", "bis_sanctuary", "nec_drain"],
 	"wing": ["bis_faith_leap", "bis_angel", "ran_disengage", "ass_reflexes"],
 	"shout": ["bis_battle_hymn", "ran_pack", "pal_taunt", "ber_warcry", "dru_bellow"],
-	"fist": ["pal_avenging_wrath", "ber_titan_grip", "ass_cheap_shot"],
+	"fist": ["pal_avenging_wrath", "ber_titan_grip"],
 	"drop": ["ran_prey", "ass_virulence", "ber_fury", "ass_paralyze", "nec_plague", "nec_rot", "nec_decay"],
 	"claw": ["ran_sic", "ass_thousand", "dru_pounce", "dru_claw", "dru_savage", "dru_frenzy", "ran_maul", "ber_rend", "ber_twin_fang"],
 	"paw": ["nec_bone_hound", "ran_companion", "dru_spirit_wolves", "dru_maim", "dru_bear_form", "dru_maul", "dru_stampede", "dru_rampage", "ran_wild"],
@@ -67,7 +67,7 @@ const GLYPHS := {
 	"net": ["ran_net"],
 	"cloud": ["ele_hailstorm", "nec_pandemic", "ele_thunder", "ass_smoke", "ass_toxic_cloud", "nec_curse"],
 	"flame": ["pal_sacred_flame", "pal_cleansing_fire", "pal_flame_pyre", "nec_demon_form", "ele_frost_flare", "ele_summon_fire", "pal_zeal", "pal_purge", "ele_fireball", "ele_flame_wave", "ele_fire_wall", "ele_inferno"],
-	"meteor": ["ran_mine", "ele_meteor", "ass_smoke_bomb", "ber_great_throw"],
+	"meteor": ["ran_mine", "ele_meteor", "ber_great_throw"],
 	"bird": ["ran_gale", "ele_phoenix"],
 	"crystal": ["ele_prism", "ele_summon_ice", "ele_absolute_zero", "ele_ice_lance", "ele_glacier"],
 	"snowflake": ["nec_lich", "ran_frost_trap", "ele_shatter", "ele_frost_nova", "ele_blizzard"],
@@ -75,10 +75,18 @@ const GLYPHS := {
 	"ghost": ["bis_exorcism", "nec_phantom", "nec_soul_rend"],
 	"spear": ["ran_piercing"],
 	"bone": ["nec_bone_spear", "nec_bone_wall", "nec_corpse_explosion"],
+	# Corsário (sabre + pistola)
+	"pistol": ["ass_pistol_shot", "ass_broadside"],
+	"sabre_pistol": ["ass_slash_shot"],
+	"ricochet": ["ass_ricochet_shot"],
+	"crosshair": ["ass_between_eyes"],
+	"dice": ["ass_dice"],
+	"hook": ["ass_grapple"],
+	"flag": ["ass_black_flag"],
 }
 const TWIN := ["ass_cross_slash", "ass_thrust", "ass_master", "pal_twin_slash", "ber_hack", "ber_twin_fang", "ran_twin_cut", "ass_twin_strike", "ass_blade_flurry", "ber_axe_storm", "ber_bladestorm", "ass_dance", "pal_flurry", "ber_crimson_flurry"]
 const RAIN := ["ber_tomahawk_rain", "ran_rain", "ran_volley", "dru_starfall", "ele_blizzard", "ele_storm_lord"]
-const FAN := ["ran_multishot", "ass_fan", "ber_hatchet_fan", "ass_shadow_knives"]
+const FAN := ["ran_multishot", "ass_fan", "ber_hatchet_fan", "ass_broadside"]
 const WALL := ["ele_fire_wall", "nec_bone_wall", "pal_shield_wall", "nec_army"]
 const FALLBACK := ["sword", "star", "heart", "sun", "skull", "boot"]    # por SkillDef.Kind
 
@@ -391,7 +399,7 @@ func _drop_at(p: Vector2, r: float, col: Color) -> void:
 
 # --- símbolos: desenhados em unidade (-1..1), virados para cima ---
 func _base_angle(g: String) -> float:
-	return {"sword": 0.72, "dagger": 0.72, "arrow": 0.78, "axe": 0.25, "hammer": 0.3, "scythe": 0.12, "bone": 0.72, "crystal": 0.4, "spear": 0.78}.get(g, 0.0)
+	return {"pistol": -0.18, "sword": 0.72, "dagger": 0.72, "arrow": 0.78, "axe": 0.25, "hammer": 0.3, "scythe": 0.12, "bone": 0.72, "crystal": 0.4, "spear": 0.78}.get(g, 0.0)
 
 var _ox := 1.0        # espelho
 
@@ -805,6 +813,94 @@ func _g_bone() -> void:
 	for p in [[-0.2, -0.86], [0.2, -0.86], [-0.2, 0.86], [0.2, 0.86]]:
 		_c(p[0], p[1], 0.24)
 	_p([-0.12, -0.74, 0.12, -0.74, 0.12, 0.74, -0.12, 0.74], 2, 0.0)
+
+## Pistola de pederneira de perfil: cano para a direita, coronha curva para baixo e para a esquerda, cão e gatilho.
+func _g_pistol() -> void:
+	var wood := Color(0.56, 0.34, 0.2)
+	_p([-0.86, 0.86, -0.56, 0.98, -0.22, 0.3, -0.02, 0.1, -0.02, -0.18, -0.36, -0.2, -0.62, 0.12], wood)       # coronha
+	_c(-0.72, 0.9, 0.14, 4, 0.05)                                                                             # pomo
+	_p([-0.42, -0.36, 0.98, -0.36, 0.98, -0.08, -0.42, -0.08])                                               # cano
+	_p([-0.42, -0.22, 0.98, -0.22, 0.98, -0.08, -0.42, -0.08], 3, 0.0)
+	_p([0.86, -0.44, 1.02, -0.44, 1.02, 0.0, 0.86, 0.0], 4, 0.05)                                            # boca
+	_p([-0.3, -0.06, 0.56, -0.06, 0.5, 0.1, -0.24, 0.12], wood, 0.05)                                        # coronha sob o cano
+	_p([-0.42, -0.36, -0.46, -0.66, -0.3, -0.7, -0.24, -0.38], 3, 0.05)                                      # cão
+	_l(_arc_pts(-0.08, 0.14, 0.2, 0.2, PI - 0.2, 8), 4, 0.05)                                                # guarda do gatilho
+	_l([-0.06, 0.1, -0.12, 0.3], 4, 0.05)
+
+## Sabre e pistola cruzados (Corte e Tiro).
+func _g_sabre_pistol() -> void:
+	_p([0.86, -1.0, 0.98, -0.86, -0.3, 0.46, -0.44, 0.34], Color(0.92, 0.93, 1.0))                            # lâmina do sabre (diagonal)
+	_p([0.86, -1.0, 0.98, -0.86, 0.2, 0.0, 0.1, -0.1], 3, 0.0)
+	_l(_arc_pts(-0.5, 0.48, 0.24, -1.8, 1.4, 10), 4, 0.07)                                                   # concha da guarda
+	_p([-0.52, 0.48, -0.42, 0.6, -0.82, 0.98, -0.94, 0.86], Color(0.46, 0.28, 0.17))                          # cabo
+	_p([0.62, 0.66, -0.66, -0.26, -0.48, -0.44, 0.78, 0.46], 2, 0.06)                                        # cano da pistola (outra diagonal)
+	_p([-0.66, -0.26, -0.92, -0.5, -0.98, -0.82, -0.72, -0.86, -0.48, -0.44], Color(0.56, 0.34, 0.2), 0.06)   # coronha
+	_c(0.72, 0.58, 0.1, 4, 0.05)
+
+## Bala que ricocheteia: três estalos ligados por um risco em zigue-zague e a bala na frente.
+func _g_ricochet() -> void:
+	var pts := [-0.92, 0.7, -0.36, -0.5, 0.18, 0.56, 0.7, -0.62]
+	_l(pts, 4, 0.08)
+	for i in range(3):
+		var x: float = pts[i * 2]
+		var y: float = pts[i * 2 + 1]
+		var star: Array = []
+		for k in range(8):
+			var r := 0.24 if k % 2 == 0 else 0.1
+			star.append(x + cos(k * TAU / 8.0) * r)
+			star.append(y + sin(k * TAU / 8.0) * r)
+		_p(star, 3, 0.04)
+	_p([0.56, -0.48, 0.74, -0.86, 0.98, -0.94, 0.86, -0.62], 2, 0.06)                                       # bala
+
+## Mira na caveira (Tiro Entre os Olhos).
+func _g_crosshair() -> void:
+	_g_skull()
+	_garc(Vector2(0, -0.14), 0.62, 36, INK, 0.2)
+	_garc(Vector2(0, -0.14), 0.62, 36, Color(0.95, 0.25, 0.22), 0.09)
+	for d in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
+		_l([d.x * 0.42, -0.14 + d.y * 0.42, d.x * 0.98, -0.14 + d.y * 0.98], Color(0.95, 0.25, 0.22), 0.07)
+	_c(0, -0.14, 0.09, Color(0.95, 0.25, 0.22), 0.04)
+
+## Dois dados (um de frente, outro inclinado atrás) com as pintas.
+func _g_dice() -> void:
+	var ivory := Color(0.98, 0.95, 0.86)
+	_p([0.02, -0.92, 0.88, -0.66, 0.66, 0.14, -0.2, -0.12], Color(0.92, 0.88, 0.78))
+	for q in [[0.3, -0.62], [0.62, -0.5], [0.46, -0.26], [0.26, -0.18]]:
+		_c(q[0], q[1], 0.06, INK, 0.0)
+	_p([-0.86, -0.18, 0.1, -0.18, 0.1, 0.8, -0.86, 0.8], ivory)
+	_p([-0.86, 0.5, 0.1, 0.5, 0.1, 0.8, -0.86, 0.8], 3, 0.0)
+	for q in [[-0.6, 0.06], [-0.38, 0.31], [-0.16, 0.56], [-0.6, 0.56], [-0.16, 0.06]]:
+		_c(q[0], q[1], 0.08, Color(0.75, 0.12, 0.14), 0.0)
+
+## Gancho de abordagem: haste, três pontas curvas e a corda subindo em curva.
+func _g_hook() -> void:
+	_l([0.0, 0.2, -0.3, -0.3, -0.2, -0.62, 0.2, -0.86, 0.66, -0.96], Color(0.62, 0.44, 0.26), 0.07)            # corda
+	_c(0.0, 0.18, 0.12, 4, 0.05)                                                                              # argola
+	_p([-0.08, 0.2, 0.08, 0.2, 0.08, 0.9, -0.08, 0.9])                                                       # haste
+	for s in [-1.0, 1.0]:
+		_l([0.0, 0.86, s * 0.34, 0.86, s * 0.62, 0.62, s * 0.66, 0.32], 2, 0.12)
+		_p([s * 0.66, 0.2, s * 0.8, 0.4, s * 0.56, 0.4], 3, 0.04)
+	_l([0.0, 0.9, 0.0, 0.98], 2, 0.12)
+
+## Bandeira negra num mastro, ondulando, com uma caveira branca.
+func _g_flag() -> void:
+	_p([-0.7, -1.0, -0.56, -1.0, -0.56, 1.0, -0.7, 1.0], Color(0.56, 0.36, 0.22))
+	_c(-0.63, -1.02, 0.1, 4, 0.05)
+	var cloth: Array = [-0.56, -0.86]
+	for i in range(9):
+		var x := lerpf(-0.56, 0.96, i / 8.0)
+		cloth.append(x)
+		cloth.append(-0.86 + sin(i / 8.0 * TAU) * 0.1)
+	for i in range(9):
+		var x := lerpf(0.96, -0.56, i / 8.0)
+		cloth.append(x)
+		cloth.append(0.14 + sin((1.0 - i / 8.0) * TAU) * 0.1)
+	_p(cloth, Color(0.14, 0.12, 0.16))
+	_c(0.2, -0.42, 0.2, Color(0.96, 0.94, 0.88), 0.04)
+	_c(0.13, -0.44, 0.05, INK, 0.0)
+	_c(0.27, -0.44, 0.05, INK, 0.0)
+	_l([-0.04, -0.12, 0.44, -0.2], Color(0.96, 0.94, 0.88), 0.07)
+	_l([-0.04, -0.2, 0.44, -0.12], Color(0.96, 0.94, 0.88), 0.07)
 
 ## Cabeça de cavalo de perfil (virada para a direita, silhueta de peça de xadrez), crina atrás, olho e cabresto.
 func _g_horse() -> void:

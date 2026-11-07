@@ -1304,7 +1304,7 @@ ARM_BACK_HIGH_R = {"upper_arm.R": (90, -50, 75), "forearm.R": (-15, 0, 0), "hand
 ARM_SIDE_LOW_R = {"upper_arm.R": (-20, 80, 15), "forearm.R": (-15, 0, 0), "hand.R": (-75, 165, 45)}
 # frame (1-based) do impacto dos clipes de skill
 IMPACT.update({"cast_ground": 10, "cast_channel": 14, "cast_target": 8, "atk_leap": 12, "atk_charge": 5, "atk_throw": 7,
-               "atk_shoot_multi": 8, "summon": 11})
+               "atk_shoot_multi": 8, "summon": 11, "atk_pistol": 6, "atk_slash_shot": 9})
 
 
 def _both(right):
@@ -1377,6 +1377,28 @@ def _skill_clips(rig):
     open_ = dict(_both(ARM_SIDE_LOW_R), **{"spine": (10, 0, 0), "head": (8, 0, 0), "thigh.R": (-20, 0, 0), "shin.R": (22, 0, 0), "thigh.L": (14, 0, 0)})
     _pose_action(rig, "summon", [(1, R, None), (6, raise_, (0, 0.06, 0)), (9, raise_, (0, 0.07, 0)), (11, open_, (0, -0.06, 0)),
                                  (16, open_, (0, -0.06, 0)), (22, R, None)], 22)
+    # --- pistola (Corsário): ombro esquerdo à frente, braço esquerdo esticado no alvo, coice para cima; sabre baixo atrás ---
+    # ângulos medidos no rig (braço esquerdo para -Y, cano da pistola_parts alinhado com ele, cão para cima)
+    pistol_aim = dict(R, **{"upper_arm.L": (-110, -35, 45), "forearm.L": (-6, 0, 0), "hand.L": (45, 45, -15),
+                            "upper_arm.R": (30, 0, 20), "forearm.R": (-30, 0, 0), "spine": (4, -24, 0), "chest": (2, -10, 0), "head": (0, 20, 0),
+                            "thigh.L": (-26, 0, 0), "shin.L": (22, 0, 0), "thigh.R": (16, 0, 0), "shin.R": (10, 0, 0)})
+    pistol_kick = dict(pistol_aim, **{"upper_arm.L": (-113, -35, 45), "forearm.L": (-10, 0, 0), "hand.L": (42, 45, -15),
+                                      "spine": (0, -22, 0), "chest": (-2, -9, 0), "head": (-4, 19, 0)})
+    _pose_action(rig, "atk_pistol", [(1, R, None), (3, _blend(R, pistol_aim, 0.8), None), (5, pistol_aim, (0, -0.02, 0.02)),
+                                     (6, pistol_kick, (0, -0.01, -0.04)), (9, pistol_kick, (0, -0.01, -0.03)),
+                                     (12, _blend(pistol_kick, R, 0.5), None), (16, R, None)], 16)
+    # --- corte e tiro: sabre de cima pra baixo e, no embalo, a pistola encostada no alvo ---
+    sab_up = dict(R, **ARM_BACK_HIGH_R, **{"spine": (-4, 18, 0), "chest": (-2, 6, 0), "head": (0, -14, 0),
+                                         "upper_arm.L": (-20, 0, -20), "forearm.L": (-50, 0, 0)})
+    sab_down = dict(R, **ARM_LOW_FRONT_R, **{"spine": (16, -6, 0), "chest": (6, -4, 0), "head": (6, 4, 0),
+                                           "upper_arm.L": (-40, 0, -10), "forearm.L": (-60, 0, 0),
+                                           "thigh.R": (-30, 0, 0), "shin.R": (26, 0, 0), "thigh.L": (14, 0, 0)})
+    close = dict(pistol_aim, **{"upper_arm.L": (-95, -35, 45), "forearm.L": (-20, 0, 0), "upper_arm.R": ARM_LOW_FRONT_R["upper_arm.R"],
+                                "forearm.R": (-25, 0, 0), "hand.R": ARM_LOW_FRONT_R["hand.R"], "spine": (10, -26, 0)})
+    close_kick = dict(close, **{"upper_arm.L": (-100, -35, 45), "forearm.L": (-26, 0, 0), "hand.L": (33, 45, -15), "spine": (2, -22, 0), "head": (-4, 18, 0)})
+    _pose_action(rig, "atk_slash_shot", [(1, R, None), (3, sab_up, (0, 0.01, -0.02)), (5, sab_down, (0, -0.06, 0.08)),
+                                         (7, close, (0, -0.04, 0.1)), (9, close_kick, (0, -0.03, 0.06)), (12, close_kick, (0, -0.03, 0.05)),
+                                         (18, R, None)], 18)
 
 
 IMPACT.update({"atk_sweep": 8, "atk_finisher": 10, "atk_flurry": 5, "atk_claw": 6, "shout": 7, "cast_fire": 8, "cast_ice": 8, "cast_bolt": 7,
@@ -1679,7 +1701,7 @@ KIT_STYLES = {
 }
 KIT_STYLES["cape"] = {"cape": [("cape", {})]}       # capa é peça própria, igual para todas as classes
 KIT_MAIN = ["sword", "sword2h", "mace", "mace2h", "axe", "axe2h", "dagger", "bow", "staff", "wand", "scythe", "scepter", "rifle"]
-KIT_OFF = ["shield", "orb", "sword", "mace", "axe", "dagger"]
+KIT_OFF = ["shield", "orb", "sword", "mace", "axe", "dagger"]       # pistola: só no kit do Assassino (CLASS_WEAPONS)
 
 
 def _kit_mats():
@@ -2000,6 +2022,9 @@ def kit_weapon(base, wtype, hand, mats):
     elif wtype == "shield":
         bone = "forearm.L"
         return kit_shield(base, "juramento", "wpn_%s_shield" % hand, mats)
+    elif wtype == "pistol":
+        import assassin_sets
+        parts = assassin_sets.pistol_parts(sys.modules[__name__], "ps_", g, mats, {})
     elif wtype == "orb":
         oc = g + Vector((0.05 * sx, -0.1, 0.13))
         parts = [ball("orb", 0.085, oc, mt), tube("ring", oc + Vector((0, 0, -0.012)), oc + Vector((0, 0, 0.012)), 0.11, 0.11, mg, 16)]
@@ -2142,7 +2167,8 @@ CLASS_BODY = {"paladin": "male", "berserker": "male", "bishop": "female", "druid
               "assassin": "male", "elementalist": "female", "necromancer": "male"}
 # Armas comuns no kit da classe: só as que ela empunha (as classes com muitos conjuntos estouram as 200 malhas).
 # Classe fora daqui leva todas (KIT_MAIN / KIT_OFF).
-CLASS_WEAPONS = {"paladin": (["sword", "sword2h", "mace", "mace2h"], ["shield"]), "bishop": (["scepter", "mace"], ["shield"])}
+CLASS_WEAPONS = {"paladin": (["sword", "sword2h", "mace", "mace2h"], ["shield"]), "bishop": (["scepter", "mace"], ["shield"]),
+                 "assassin": (["dagger", "sword"], ["dagger", "sword", "pistol"])}
 CLASS_PREFIX = {"paladin": "pal", "berserker": "ber", "bishop": "bis", "druid": "dru", "ranger": "ran", "assassin": "ass", "elementalist": "ele", "necromancer": "nec"}        # prefixo dos estilos de conjunto de cada classe
 SHIELD_CLASSES = ("paladin", "bishop")                       # só eles empunham escudo
 

@@ -162,7 +162,7 @@ func _fits(req: Array, main_t: String, off_t: String) -> bool:
 		return true
 	for need in req:
 		match need:
-			"shield", "orb": if off_t == need: return true
+			"shield", "orb", "pistol": if off_t == need: return true
 			"two_handed": if main_t in ItemDef.TWO_HANDED: return true
 			"dual": if off_t in ItemDef.ONE_HANDED_MELEE: return true
 			_:
