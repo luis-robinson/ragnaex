@@ -400,7 +400,10 @@ func _process(_delta: float) -> void:
 		s["cd"].visible = no_weapon or (no_mp and cd <= 0.0)
 		s["sweep"].set_frac(_cd_frac(s, cd))
 		s["cdt"].text = "✖" if no_weapon else (_cd_text(cd) if cd > 0.0 else ("MP" if no_mp else ""))
-		var cdt_col: Color = Color(1, 0.4, 0.4) if no_weapon else UiKit.TEXT
+		var aura_on: bool = sk.effects.has("aura") and AuraSystem.aura_on(p, sk)
+		if aura_on and cd <= 0.0 and not no_weapon:
+			s["cdt"].text = "✓"                  # aura ligada (lançar de novo desliga)
+		var cdt_col: Color = Color(1, 0.4, 0.4) if no_weapon else (Color(1.0, 0.85, 0.35) if aura_on else UiKit.TEXT)
 		if s.get("cdt_col") != cdt_col:             # override de tema reavisa o Label (relayout): só quando a cor muda
 			s["cdt_col"] = cdt_col
 			s["cdt"].add_theme_color_override("font_color", cdt_col)
@@ -438,7 +441,7 @@ func _update_status_bar(p: SimEntity) -> void:
 	for b in p.buffs:
 		var id: String = str(b.get("id", "buff"))
 		var src := _buff_source(id)
-		var tm: float = INF if b.get("ct", false) else float(b.get("remaining", 0))      # talento de classe: permanente
+		var tm: float = INF if (b.get("ct", false) or b.get("toggle", false) or b.has("aura_from")) else float(b.get("remaining", 0))      # talento de classe / aura: permanente
 		want.append(["b_" + id, true, tm, int(b.get("stacks", 0)), src["tex"], src["name"], src["desc"]])
 	if p.form_left > 0.0 and p.form != "":           # forma com tempo (fantasma): ícone da skill que transformou
 		var fs := _form_skill(p.form)

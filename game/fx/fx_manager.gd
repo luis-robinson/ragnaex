@@ -64,6 +64,7 @@ func _process(delta: float) -> void:
 	else:
 		reticle.visible = false; dir_reticle.visible = false; cone_reticle.visible = false
 	_update_loot(delta)
+	_update_auras(delta)
 
 ## Retículo de mira estilo MOBA: mostra alcance/forma da skill cujo número está sendo segurado,
 ## senão um pequeno cursor no chão.
@@ -154,6 +155,17 @@ func _on_damage(attacker_id: int, target_id: int, amount: int, crit: bool, block
 		col = Color(1.0, 0.85, 0.35)
 		txt = "✦" + txt
 		size = 1.3
+	if kind == "detonate":                 # Combustão: a queimadura explode de uma vez
+		col = Color(1.0, 0.42, 0.12)
+		txt = "✦" + txt
+		size = 1.5
+		SkillFx.explosion(self, t.position, 1.3 * t.scale, "fire")
+	if kind == "aura":                     # pulso da aura do tanque: faísca sagrada em quem está perto
+		col = Color(1.0, 0.88, 0.45)
+		SkillFx.burst(self, t.position + Vector3(0, 0.6, 0), "holy", 8, Vector3.UP, 0.25)
+	if kind == "interrupt":                # escudo arremessado cortou a preparação do golpe
+		_float_text(t.position + Vector3(0, 2.0 * t.scale, 0), "Interrompido!", Color(1.0, 0.9, 0.45), 1.1)
+		return
 	if kind == "shatter":                  # gelo em alvo retardado/preso: estilhaço
 		col = Color(0.55, 0.95, 1.0)
 		txt = "❄" + txt
@@ -241,6 +253,9 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: f
 		return
 	var th := theme_of(s)
 	var basic := skill_id.begins_with("basic_")
+	if radius < 0.0 and s.effects.has("bounce"):      # escudo arremessado batendo num alvo
+		SkillFx.ricochet(self, aim, th)
+		return
 	var dir := aim - origin
 	dir.y = 0.0
 	dir = dir.normalized() if dir.length() > 0.01 else Vector3.FORWARD
@@ -250,6 +265,10 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: f
 		SkillDef.Target.SELF:
 			if s.kind == SkillDef.Kind.BUFF or s.kind == SkillDef.Kind.HEAL or s.effects.has("shield"):
 				SkillFx.burst(self, origin + Vector3(0, 0.8, 0), th, 18, Vector3.UP, 0.4)
+				if s.effects.get("aura") is Dictionary:      # aura liga: onda até o alcance dela e coluna de luz
+					SkillFx.circle(self, origin, float(s.effects["aura"].get("radius", 8.0)), th, 0.9)
+					SkillFx.column(self, origin, 0.9, th, 0.6)
+					SkillFx.flash(self, origin + Vector3(0, 1.0, 0), th, 2.5, 6.0)
 				if s.kind == SkillDef.Kind.HEAL and radius > 2.0:
 					SkillFx.circle(self, origin, radius, th, 0.6)
 			else:
@@ -283,6 +302,10 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: f
 				if s.kind == SkillDef.Kind.PHYSICAL:
 					SkillFx.slash_x(self, aim, th, 1.5)
 				SkillFx.burst(self, aim + Vector3(0, 0.8, 0), th, 22, Vector3.UP, 0.3)
+				if th == "fire" and s.radius > 1.0:          # Combustão, Choque Térmico: o alvo explode
+					SkillFx.explosion(self, aim, s.radius, th)
+					SkillFx.column(self, aim, 0.7, th, 0.4)
+					camera.add_shake(0.1)
 				if th == "lightning":
 					# raio sai da mão até o alvo e, se a skill acerta vários, pula pros vizinhos
 					var hand := origin + Vector3(0, 1.0, 0) + dir * 0.4
@@ -338,6 +361,13 @@ func _on_skill_cast(entity_id: int, skill_id: String, phase: String) -> void:
 	# meteoro: começa a cair já na preparação, pra chegar no chão no instante do dano
 	if s and s.target == SkillDef.Target.GROUND and s.vfx == "fire" and ("meteor" in s.id or "phoenix" in s.id):
 		SkillFx.meteor(self, e.skill_aim, s.radius, s.vfx, maxf(0.15, s.startup))
+	# magia no alvo: a marca cresce em cima de quem vai levar (lê de longe antes do impacto)
+	if s and s.target == SkillDef.Target.TARGET and s.kind == SkillDef.Kind.MAGICAL and s.startup >= 0.2 and e.kind != SimEntity.Kind.MONSTER:
+		var foe := _foe_under(e, s)
+		if foe and main.views.has(foe.id):
+			SkillFx.brand(self, main.views[foe.id], maxf(0.8, minf(s.radius, 3.0)), s.vfx, s.startup)
+			if "hammer" in s.id:          # martelo de luz: cai do céu e bate no quadro do dano
+				SkillFx.meteor(self, foe.position, 1.4, s.vfx, s.startup)
 	# preparação: magia junta energia do tema nas mãos; golpe lento mostra o aro de aviso
 	if s and s.kind != SkillDef.Kind.PHYSICAL and s.startup >= 0.2:
 		SkillFx.gather(self, e.position + Vector3(0, 1.0, 0) + e.forward() * 0.35, s.vfx, s.startup)
@@ -345,6 +375,11 @@ func _on_skill_cast(entity_id: int, skill_id: String, phase: String) -> void:
 		_ring(e.position, 0.7, SkillFx.col(s.vfx), s.startup, false, true)
 	if s and e.kind == SimEntity.Kind.MONSTER and s.startup >= 0.25 and s.kind != SkillDef.Kind.BUFF:
 		_telegraph(e, s)
+
+## Inimigo que a magia TARGET vai pegar (o mesmo critério de Combat.select_targets, só leitura).
+func _foe_under(e: SimEntity, s: SkillDef) -> SimEntity:
+	var picked: Array = Combat.select_targets(e, s, e.skill_aim, Sim.map_entities(e.map_id))
+	return picked[0] if not picked.is_empty() and picked[0] != e else null
 
 ## Aviso de golpe de monstro: a área de verdade (círculo no chão, cone na frente, faixa da investida) em vermelho,
 ## enchendo do centro para a borda até o instante do impacto. Chefe: borda mais grossa.
@@ -448,10 +483,46 @@ func _on_buff(entity_id: int, buff_id: String, duration: float) -> void:
 		if s.effects.get("buff", {}).get("id", "") == buff_id or sid == buff_id:
 			th = s.vfx
 			break
+	if buff_id.ends_with("_off"):
+		return
+	var aura_b: Dictionary = {}
+	for b in e.buffs:
+		if b.get("id") == buff_id and (b.get("toggle", false) or b.has("aura_from")):
+			aura_b = b
+	if not aura_b.is_empty():
+		_aura_ring(e, buff_id, th, aura_b)
+		return
 	if buff_id == "shield":
 		th = "holy" if e.class_def == null or e.class_def.id != "necromancer" else "bone"
 	if buff_id != "juramento":         # acumula a cada bloqueio: o HUD já mostra as cargas
 		SkillFx.aura(self, main.views[entity_id], th, duration, 0.75 * e.scale)
+
+## Auras ligadas: [entity_id, buff_id] -> nó; some quando o buff sai (desligou, saiu do raio, morreu).
+var _auras: Dictionary = {}
+var _aura_poll := 0.0
+
+func _aura_ring(e: SimEntity, buff_id: String, th: String, b: Dictionary) -> void:
+	var key := "%d:%s" % [e.id, buff_id]
+	if _auras.has(key) and is_instance_valid(_auras[key]):
+		return
+	var R: float = float((b.get("aura", {}) as Dictionary).get("radius", 0.0)) if b.get("toggle", false) else 0.0
+	_auras[key] = SkillFx.aura_ring(self, main.views[e.id], th, R, 0.75 * e.scale)
+
+func _update_auras(delta: float) -> void:
+	_aura_poll -= delta
+	if _aura_poll > 0.0 or _auras.is_empty():
+		return
+	_aura_poll = 0.25
+	for key in _auras.keys():
+		var n: Variant = _auras[key]          # o nó morre junto com a view (despawn): checar antes de tipar
+		if not is_instance_valid(n):
+			_auras.erase(key)
+			continue
+		var parts: PackedStringArray = str(key).split(":")
+		var e: SimEntity = Sim.get_entity(int(parts[0]))
+		if e == null or not e.buffs.any(func(b): return b.get("id") == parts[1]):
+			SkillFx.fade_out(self, n as Node3D, 0.35)
+			_auras.erase(key)
 
 ## Transformação (liga ou desliga uma forma): estouro de partículas, coluna de luz e clarão no tema da forma
 ## (fantasma = névoa lunar, demônio = fogo, lobo/urso = natureza). O aperto/estouro do boneco é da EntityView._morph.
@@ -623,7 +694,11 @@ func _on_projectile(p: SimProjectile) -> void:
 	# físico: flecha (dono com arco) ou lâmina girando (arremesso), em vez da bola de energia
 	var owner: SimEntity = Sim.get_entity(p.owner_id)
 	var bow_shot: bool = owner != null and owner.stats != null and owner.stats.weapon_type == "bow" and p.skill != null and p.skill.id.begins_with("basic_")
-	if th in ["physical", "blood", "earth", "bone"] or bow_shot or (owner and owner.stats and owner.stats.weapon_type == "bow" and th in ["", "physical"]):
+	if p.skill and p.skill.effects.has("bounce"):
+		mi.mesh = null
+		mi.add_child(SkillFx.thrown_shield(th))
+		mi.set_meta("spin", true)
+	elif th in ["physical", "blood", "earth", "bone"] or bow_shot or (owner and owner.stats and owner.stats.weapon_type == "bow" and th in ["", "physical"]):
 		if owner and owner.stats and owner.stats.weapon_type == "bow":
 			mi.mesh = _arrow_meshes()[0]
 			mi.material_override = Materials.toon(Color(0.55, 0.4, 0.25), false)
@@ -684,6 +759,7 @@ func _on_projectile(p: SimProjectile) -> void:
 	light.omni_range = 3.0
 	n.add_child(light)
 	n.set_meta("vfx", th)
+	n.set_meta("caught", not p.bounce.is_empty())
 	n.set_meta("radius", p.skill.radius if p.skill else 0.5)
 	n.position = p.position
 	n.rotation.y = atan2(p.direction.x, p.direction.z)
@@ -695,6 +771,10 @@ func _on_projectile_removed(id: int) -> void:
 		var n: Node3D = _projectiles[id]
 		_projectiles.erase(id)
 		var th: String = n.get_meta("vfx", "")
+		if n.get_meta("caught", false):           # escudo voltou para a mão: brilho curto, sem explosão
+			SkillFx.flash(self, n.position, th, 1.2, 2.5)
+			n.queue_free()
+			return
 		if th == "":
 			_ring(n.position - Vector3(0, 0.8, 0), 0.6, Color(1, 1, 1, 0.8), 0.25)
 		elif th == "fire":

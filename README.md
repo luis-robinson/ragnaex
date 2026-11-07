@@ -47,6 +47,9 @@ cursor (limitado ao alcance), `CONE` à frente, `TARGET` no inimigo sob o cursor
   **20+ skills por classe**, 6 na barra. **Pontos de skill** (2 por nível) aprendem skills, sobem maestria 0–5 e
   compram **evoluções** (inclusive do dash: paladino atordoa, mago atravessa objetos, assassino dash duplo, ranger rola).
   Skills exigem arma (escudo, duas armas, martelo de duas mãos…): **a arma é a build**. Detalhes em `docs/DESIGN.md`.
+  O Guardião (Paladino de escudo) arremessa o escudo que ricocheteia e provoca (**Escudo Ricochete**) e liga a **Aura do Bastião**
+  (mais ameaça para ele, menos dano no grupo); a **Combustão** do mago de fogo detona as queimaduras dele no alvo e em volta.
+  Auditoria dos números das skills: `--headless --path . tools/tests/skill_audit.tscn` (WEAK = abaixo de 60% das irmãs).
 * **Equipamento**: espada/montante, maça/martelo, machadinha/machado de guerra, adaga, arco, cajado, varinha, foice,
   escudo e orbe; duas armas de 1 mão (Shift+clique na bolsa). **Lendários a cada 5 níveis** com bônus de conjunto
   (3 peças: INT +2; 4 peças: Bola de Fogo +20%…).

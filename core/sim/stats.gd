@@ -27,6 +27,8 @@ var frost_pct: float = 0.0       # % de dano das skills de gelo
 var storm_pct: float = 0.0       # % de dano das skills de raio
 var backstab: float = 0.0        # % a mais de dano (e +crítico) golpeando pelas costas
 var cdr: float = 0.0             # % de recarga a menos em todas as skills (talentos de escolha)
+var threat_pct: float = 0.0      # % a mais de ameaça gerada pelo dano (Aura do Bastião: o tanque segura o monstro)
+var dr_pct: float = 0.0          # % a menos de todo dano recebido (aura do tanque no grupo; teto Balance.DR_CAP)
 var echo_chance: float = 0.0     # arma lendária (dano): % de chance do golpe direto bater de novo...
 var echo_pct: float = 0.0        # ... com esta % do dano
 var thorns_pct: float = 0.0      # arma lendária (tanque): % do dano corpo a corpo recebido devolvido
@@ -199,6 +201,8 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 		s.hit_poison = maxf(s.hit_poison, float(b.get("hit_poison", 0)))
 		s.backstab += float(b.get("backstab", 0))
 		s.cdr += float(b.get("cdr", 0))
+		s.threat_pct += float(b.get("threat_pct", 0))
+		s.dr_pct += float(b.get("dr_pct", 0))
 		s.fire_pct += float(b.get("fire_pct", 0))
 		s.frost_pct += float(b.get("frost_pct", 0))
 		s.storm_pct += float(b.get("storm_pct", 0))

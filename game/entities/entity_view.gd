@@ -1143,6 +1143,8 @@ func _action_clip(s: SkillDef) -> String:
 		return "attack"                   # bicho: o básico é a mordida dele
 	var w := entity.stats.weapon_type if entity.stats else ""
 	var off := entity.stats.offhand_type if entity.stats else ""
+	if not basic and s.clip != "" and form_view == null:
+		return s.clip                 # clipe escrito na skill (a palavra do id enganava a regra)
 	if not basic:
 		if "disengage" in s.id:
 			return "jump"                 # salto pra trás
@@ -1232,6 +1234,15 @@ func _clip(name: String) -> String:
 	var alt: String = FORM_CLIP.get(name, "")
 	return alt if alt != "" and anim.has_animation(alt) else ""
 
+## Escudo arremessado (efeito "bounce") ainda no ar: a mão do escudo fica vazia até ele voltar.
+func _shield_in_flight() -> bool:
+	if not Sim.maps.has(entity.map_id):
+		return false
+	for p in Sim.maps[entity.map_id]["projectiles"]:
+		if p.owner_id == entity.id and not p.bounce.is_empty():
+			return true
+	return false
+
 ## Rastro da arma só na parte "rápida" do golpe/magia (fim da preparação até logo depois do impacto).
 func _update_trail(st: int) -> void:
 	var s := entity.current_skill
@@ -1239,6 +1250,9 @@ func _update_trail(st: int) -> void:
 	if st == SimEntity.State.CASTING and s != null:
 		var t := entity.state_time
 		on = t >= s.startup * 0.35 and t <= s.startup + s.active + 0.12
+		var th := FxManager.theme_of(s)
+		var magic := s.kind != SkillDef.Kind.PHYSICAL and th != "physical" and th != ""
+		kit.trail_tint = SkillFx.col(th, 0) if magic else Color(0, 0, 0, 0)     # magia: o rastro do cajado/cetro na cor do tema
 	kit.trail_on = on
 
 ## Modificador de troca de clipe do modelo mostrado (kit ou bicho).
@@ -1274,6 +1288,8 @@ func _animate_glb(st: int) -> void:
 		return
 	if kit and form_view == null:
 		_update_trail(st)
+		if entity.stats and entity.stats.has_shield:
+			kit.set_offhand_thrown(_shield_in_flight())
 	# golpe/magia: escolhe o clip pela arma, reinicia a cada ação e acelera o clip para o impacto
 	# cair exatamente no momento do dano (fim do startup da skill)
 	var legs: LegOverlay = form_view.legs if form_view else (kit.legs if kit else null)

@@ -399,7 +399,19 @@ Conde: dreno, ergue mortos em 70%, fúria e onda de morte em 30%. Chefe sem alvo
 
 **Escudos**: 18 modelos únicos (`shield_kit.py`), usados por Paladino e pelo Sacerdote de maça. Com escudo da afinidade, o Paladino junta Juramento ao bloquear (até 5 cargas, aparar vale 2) e a próxima skill sagrada ou de escudo gasta tudo; skills de escudo também escalam com a DEF dele. O Bispo cura 5% do HP do aliado mais ferido ao bloquear (Graça, recarga de 4 s) e, ao aparar, protege quem está por perto. Com escudo, a chance de bloqueio usa o maior entre FOR e WILL. Guarda sem MP quebra: só volta soltando o botão e com `Balance.BLOCK_MIN_MP`. Dano no tempo não apara. Séries e plano de arte: `docs/equipment_series.md`.
 
-**Grupo e papéis**: o alvo do monstro segue a ameaça (troca em 110%); Provocar prende por 4 s (chefes 2 s). O abate vai para quem causou mais dano real, com o grupo somado,
+**Guardião (Paladino tanque)**: **Escudo Ricochete** (nível 6, exige escudo; efeito `bounce`) arremessa o escudo no alvo: ele voa, salta para o
+inimigo mais perto ainda não atingido (3 alvos, 4 na maestria 3, 5 na 5; -15% de dano por salto), provoca cada um por 3 s (chefes metade),
+atordoa 0,5 s quem estava preparando um golpe (interrompe) e volta para a mão (a mão do escudo fica vazia enquanto ele voa).
+**Aura do Bastião** (nível 10, efeito `aura`, liga/desliga; `AuraSystem`): você gera +150% de ameaça, tem +10% DEF e, em combate, um pulso
+de luz por segundo fere quem está a 3,5 m (40% do ATK; segura o bando todo); o grupo e as invocações a
+12 m recebem 10% menos dano (`Stats.dr_pct`, teto `Balance.DR_CAP`) e +10% DEF, renovado a cada 0,5 s (some 1,3 s depois de sair do raio).
+Morrer desliga; lançar de novo desliga; bot não desliga a própria. O bot Guardião leva na barra Golpe Sagrado, Ricochete, Aura, Provocar,
+Imposição de Mãos e Retribuição (Muralha de Escudo no lugar dela antes do nível 24).
+**Combustão** (Elementalista de fogo, `combust`): marca o alvo (aro que fecha nele durante o preparo de 0,3 s) e o faz explodir em 2,6 m;
+as queimaduras SUAS em cada atingido detonam na hora (125% do que faltava, número laranja ✦) e o fogo reacende em todos por 4 s.
+Combina com Bola de Fogo/Onda de Chamas/Muralha de Fogo antes.
+
+**Grupo e papéis**: o alvo do monstro segue a ameaça (troca em 110%; `Stats.threat_pct` multiplica a ameaça do dano); Provocar prende por 4 s (chefes 2 s). O abate vai para quem causou mais dano real, com o grupo somado,
 então provocar não rouba abate e estranho não rouba chefe. Saque tem dono por 20 s e gira entre o grupo; ouro de grupo é dividido direto.
 
 NPCs mostram **!** dourado (quest nova), **!** cinza (quest ainda bloqueada por nível ou quest anterior) e **?** (entregar, ou conversar numa

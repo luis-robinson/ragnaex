@@ -271,6 +271,11 @@ func _finish(p: SimEntity) -> void:
 		if is_instance_valid(m) or m != null:
 			Sim.despawn(m)
 	_dummies.clear()
+	for e in Sim.map_entities(p.map_id).duplicate():       # invocações e auras da skill anterior escondiam a próxima
+		if e.kind == SimEntity.Kind.SUMMON and e.owner_id == p.id and e != Sim.pet_of(p):     # o lince fica (Matilha e Atacar precisam dele)
+			Sim.despawn(e)
+	p.buffs.clear()
+	p.recompute_stats()
 	_phase = "wait"
 	_t = 0.0
 

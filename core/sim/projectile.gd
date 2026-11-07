@@ -17,3 +17,8 @@ var pierce: bool = false
 var hit_ids: Array[int] = []
 var color: Color = Color.WHITE
 var is_basic: bool = false
+## escudo arremessado (efeito "bounce"): persegue o alvo, salta para o próximo e volta para quem lançou
+var homing_id: int = -1
+var bounce: Dictionary = {}
+var bounces_left: int = 0
+var returning: bool = false

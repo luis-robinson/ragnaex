@@ -430,6 +430,7 @@ func tick(dt: float) -> void:
 			_prof("r_spawners", pt); pt = Time.get_ticks_usec()
 		TrapSystem.update_traps(self, m)
 		ClassTalentSystem.tick(self, m, mdt)
+		AuraSystem.tick(self, m, mdt)
 		LootSystem.update_loot(self, m, mdt)
 		if profile:
 			_prof("r_loot", pt); pt = Time.get_ticks_usec()
@@ -752,6 +753,8 @@ func try_cast(e: SimEntity, slot: int, aim: Vector3, m: Dictionary) -> bool:
 	var form_fx: String = s.effects.get("form", "")
 	if form_fx != "" and e.form == form_fx and e != player:
 		return false               # bot já transformado não desfaz a forma
+	if s.effects.has("aura") and e != player and AuraSystem.aura_on(e, s):
+		return false               # bot com a aura ligada não a desliga
 	if s.effects.has("summon") and _summons_full(e, s):
 		if e == player:
 			Events.notification.emit("Seu companheiro já está com você" if float(s.effects["summon"].get("duration", 20)) <= 0.0 else "%s: já estão todos com você" % s.name)
@@ -838,6 +841,11 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 	e.combat_timer = Balance.AGGRO_LOSE_TIME
 	var aim := Combat.clamp_aim(e, e.skill_aim, s.range)
 	var any_hit := false
+	if effects.has("aura") and AuraSystem.aura_on(e, s):      # aura ligada: lançar de novo desliga
+		AuraSystem.switch_off(self, e, s)
+		return
+	if effects.get("aura") is Dictionary and effects.get("buff") is Dictionary:
+		effects["buff"]["aura"] = effects["aura"]              # o buff de quem liga carrega a aura (AuraSystem.tick)
 
 	# movimento (dash de skill)
 	var origin := e.position                # investida atravessa o alvo: a guarda olha de onde ela partiu
@@ -897,6 +905,12 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 			if o.kind == SimEntity.Kind.MONSTER and o.is_alive() and o.position.distance_to(e.position) <= s.radius + o.radius:
 				MobSystem.taunt(self, o, e, float(effects["taunt"].get("duration", Balance.TAUNT_DURATION)))
 
+	# escudo arremessado: persegue o alvo, ricocheteia e volta
+	if effects.get("bounce") is Dictionary:
+		var first: Array = Combat.select_targets(e, s, aim, m["entities"])
+		_throw_bouncer(e, s, power, m, effects, first[0] if not first.is_empty() else null, aim)
+		return
+
 	# projétil (DIRECTION com velocidade)
 	if s.projectile_speed > 0.0 and s.target == SkillDef.Target.DIRECTION:
 		_spawn_projectile(e, s, power, m, false, effects)
@@ -912,6 +926,8 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 		targets = [e]        # o raio é de quem é provocado; o buff é só de quem provoca
 	if charge:
 		Events.skill_effect.emit(s.id, origin, origin + e.forward() * reach, s.radius)
+	elif s.target == SkillDef.Target.TARGET and not targets.is_empty():
+		Events.skill_effect.emit(s.id, e.position, targets[0].position, s.radius)     # efeito no alvo de verdade, não no cursor
 	else:
 		Events.skill_effect.emit(s.id, e.position, aim, s.radius)
 	var on_foes := effects.duplicate()    # buff e escudo são de quem lança, nunca do inimigo atingido
@@ -926,8 +942,11 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 				pass
 			_:
 				var from: Vector3 = aim if s.target == SkillDef.Target.GROUND else origin     # área no chão vem do ponto de impacto
+				var burn_left := consume_burns(e, t) if effects.get("combust") is Dictionary and e.is_hostile_to(t) else 0.0
 				var r := _strike(e, t, s, power, s.kind if s.kind != SkillDef.Kind.SUMMON else SkillDef.Kind.MAGICAL, from)
 				any_hit = true
+				if burn_left >= 1.0 and t.is_alive():      # Combustão: a queimadura que faltava explode de uma vez
+					_deal_damage(e, t, int(burn_left * float(effects["combust"].get("detonate", 1.0))), false, false, "detonate", from)
 				if effects.has("heal_pct_of_dmg"):
 					_heal(e, e, int(r["amount"] * float(effects["heal_pct_of_dmg"])))
 				if effects.has("mend_pct_of_dmg") and r["amount"] > 0:      # Clérigo de Batalha: o golpe cura o aliado mais ferido por perto
@@ -999,7 +1018,7 @@ func _apply_effects(src: SimEntity, t: SimEntity, effects: Dictionary, power: fl
 		_heal(src, t, maxi(1, int(t.stats.max_hp * float(effects["heal_pct"]) / 100.0)))
 	if effects.get("buff") != null:
 		var b: Dictionary = effects["buff"].duplicate()
-		b["remaining"] = float(b.get("duration", 10)) * longer
+		b["remaining"] = INF if b.get("toggle", false) else float(b.get("duration", 10)) * longer     # aura: até desligar ou morrer
 		t.put_buff(b)
 		t.recompute_stats()
 		Events.buff_applied.emit(t.id, b.get("id", "buff"), b["remaining"])
@@ -1036,6 +1055,11 @@ func _spawn_projectile(e: SimEntity, s: SkillDef, power: float, m: Dictionary, i
 func _update_projectiles(m: Dictionary, dt: float) -> void:
 	var projs: Array = m["projectiles"]
 	for p in projs.duplicate():
+		if not p.bounce.is_empty():
+			if _update_bouncer(p, m, dt):
+				projs.erase(p)
+				Events.projectile_removed.emit(p.id)
+			continue
 		var step: float = p.speed * dt
 		p.position += p.direction * step
 		p.traveled += step
@@ -1067,6 +1091,108 @@ func _update_projectiles(m: Dictionary, dt: float) -> void:
 			projs.erase(p)
 			Events.projectile_removed.emit(p.id)
 
+## Escudo arremessado (efeito "bounce"): projétil que persegue `first` (ou voa até `aim` e volta, sem alvo).
+func _throw_bouncer(e: SimEntity, s: SkillDef, power: float, m: Dictionary, effects: Dictionary, first: SimEntity, aim: Vector3) -> void:
+	var p := SimProjectile.new()
+	p.id = _next_proj_id
+	_next_proj_id += 1
+	p.map_id = e.map_id
+	p.owner_id = e.id
+	p.skill = s
+	p.effects = effects
+	p.power = power
+	p.position = e.position + Vector3(0, 0.9, 0) + e.forward() * 0.6
+	var goal: Vector3 = first.position if first else aim
+	var d := goal - e.position
+	d.y = 0.0
+	p.direction = d.normalized() if d.length() > 0.05 else e.forward()
+	p.speed = s.projectile_speed if s.projectile_speed > 0.0 else 22.0
+	p.max_distance = s.range
+	p.radius = 0.45
+	p.color = s.icon_color
+	p.bounce = effects["bounce"]
+	p.bounces_left = int(p.bounce.get("count", 3)) - 1
+	p.homing_id = first.id if first else -1
+	m["projectiles"].append(p)
+	Events.projectile_spawned.emit(p)
+
+## Um passo do escudo arremessado. Devolve true quando ele volta à mão (ou se perde).
+func _update_bouncer(p: SimProjectile, m: Dictionary, dt: float) -> bool:
+	var owner: SimEntity = entities.get(p.owner_id)
+	if owner == null or not owner.is_alive() or owner.map_id != p.map_id or p.traveled > p.max_distance * 6.0:
+		return true
+	var step: float = p.speed * dt
+	var tgt: SimEntity = owner if p.returning else entities.get(p.homing_id)
+	if not p.returning and p.homing_id >= 0 and (tgt == null or not tgt.is_alive() or tgt.map_id != p.map_id):
+		tgt = _next_bounce(p, owner, m, p.position)          # o alvo morreu no caminho: segue para o próximo
+		if tgt == null:
+			p.returning = true
+			tgt = owner
+		else:
+			p.homing_id = tgt.id
+	var goal: Vector3 = (tgt.position + Vector3(0, 0.9, 0)) if tgt else p.position + p.direction * step
+	var to := goal - p.position
+	var dist := to.length()
+	if dist > 0.01:
+		p.direction = to / dist
+	p.position += p.direction * minf(step, dist)
+	p.traveled += step
+	if p.returning:
+		return dist <= step + 0.6                             # pegou de volta
+	if tgt == null:                                           # lançado no vazio: vai até o alcance e volta
+		if p.traveled >= p.max_distance:
+			p.returning = true
+		return false
+	if dist > step + tgt.radius + p.radius:
+		return false
+	# acertou: dano, provocação, interrupção; depois salta ou volta
+	p.hit_ids.append(tgt.id)
+	var from: Vector3 = tgt.position - p.direction
+	var r := _strike(owner, tgt, p.skill, p.power, p.skill.kind, from)
+	owner.combat_timer = Balance.AGGRO_LOSE_TIME
+	if tgt.is_alive() and tgt.kind == SimEntity.Kind.MONSTER and tgt.monster_def:
+		var casting := tgt.state == SimEntity.State.CASTING and tgt.skill_phase == "startup"
+		MobSystem.taunt(self, tgt, owner, float(p.bounce.get("taunt", Balance.TAUNT_DURATION)))
+		if casting and float(p.bounce.get("interrupt", 0.0)) > 0.0:
+			_apply_effects(owner, tgt, {"stun": {"duration": float(p.bounce["interrupt"])}}, 0.0)
+			Events.damage_dealt.emit(owner.id, tgt.id, 0, false, false, "interrupt")
+	Events.skill_effect.emit(p.skill.id, p.position, tgt.position, -1.0)     # raio < 0 = salto do escudo (FX do ricochete)
+	if int(r["amount"]) > 0 and p.skill.hit_stop_frames > 0 and (owner == player or tgt == player):
+		Events.hit_stop.emit(maxi(2, p.skill.hit_stop_frames - p.hit_ids.size() + 1))
+	var nxt: SimEntity = _next_bounce(p, owner, m, tgt.position) if p.bounces_left > 0 else null
+	if nxt:
+		p.bounces_left -= 1
+		p.homing_id = nxt.id
+		p.power *= float(p.bounce.get("falloff", 0.85))
+	else:
+		p.returning = true
+	return false
+
+## Próximo alvo do ricochete: o inimigo vivo mais perto de `at` (até `radius`) que o escudo ainda não acertou.
+func _next_bounce(p: SimProjectile, owner: SimEntity, m: Dictionary, at: Vector3) -> SimEntity:
+	var best: SimEntity = null
+	var best_d := float(p.bounce.get("radius", 6.0))
+	for o in m["entities"]:
+		if not o.is_alive() or o.id in p.hit_ids or not owner.is_hostile_to(o) or o.is_perched():
+			continue
+		var d: float = Vector2(o.position.x - at.x, o.position.z - at.z).length() - o.radius
+		if d < best_d:
+			best_d = d
+			best = o
+	return best
+
+## Combustão: tira as queimaduras de `src` em `t` e devolve quanto dano elas ainda iam causar.
+func consume_burns(src: SimEntity, t: SimEntity) -> float:
+	var left := 0.0
+	var keep: Array = []
+	for d in t.debuffs:
+		if d.get("kind") == "dot" and d.get("fire", false) and int(d.get("src", -1)) == src.id:
+			left += float(d.get("dps", 0.0)) * maxf(0.0, float(d.get("remaining", 0.0))) + float(d.get("acc", 0.0))
+		else:
+			keep.append(d)
+	t.debuffs = keep
+	return left
+
 # ----------------------------------------------------------------------------
 # DANO / CURA / MORTE
 # ----------------------------------------------------------------------------
@@ -1096,6 +1222,8 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 	var weak := Combat.curse_sum(attacker, "weaken_pct")
 	if taken > 0.0 or weak > 0.0:
 		amount = maxi(1, int(round(amount * (1.0 + taken / 100.0) * (1.0 - minf(weak, Balance.CURSE_WEAKEN_CAP) / 100.0))))
+	if target.stats.dr_pct > 0.0 and attacker != target:      # aura do tanque: menos dano em quem está no grupo dele
+		amount = maxi(1, int(round(amount * (1.0 - minf(target.stats.dr_pct, Balance.DR_CAP) / 100.0))))
 	# esquiva (Assassino): o golpe direto não pega
 	if not kind.begins_with("dot") and attacker != target and target.is_character() and target.stats.evasion > 0.0 and rng.randf() * 100.0 < target.stats.evasion:
 		if kind != "riposte" and str(target.stats.legend.get("kind", "")) == "riposte" and attacker.is_alive() and attacker.position.distance_to(target.position) <= Balance.LEG_RIPOSTE_RANGE:
@@ -1122,7 +1250,7 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 	target.hit_flash = Balance.HIT_FLASH_TIME
 	target.combat_timer = Balance.AGGRO_LOSE_TIME
 	target.last_damage_from = attacker.id
-	target.threat[attacker.id] = float(target.threat.get(attacker.id, 0.0)) + amount
+	target.threat[attacker.id] = float(target.threat.get(attacker.id, 0.0)) + amount * (1.0 + attacker.stats.threat_pct / 100.0)     # aura do tanque: mais ameaça
 	if target.kind == SimEntity.Kind.MONSTER:
 		var who: int = attacker.owner_id if attacker.kind == SimEntity.Kind.SUMMON else attacker.id   # invocação conta para o dono, mesmo depois de expirar
 		if not attacker.guard:              # sentinela não rouba o abate: XP e saque ficam com quem lutou junto

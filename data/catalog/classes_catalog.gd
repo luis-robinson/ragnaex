@@ -48,7 +48,9 @@ static func build() -> Array:
 			"starting_skills": _s(["pal_holy_strike", "pal_blessed_armor"]),
 			"builds": [
 				_b("guardiao", "Guardião", "tank", ["sword", "mace"], ["shield"], "plate", "VIT", "FOR", "def_pct",
-					["pal_holy_strike", "pal_shield_bash", "pal_blessed_armor", "pal_shield_wall", "pal_aegis_slam", "pal_lay_hands", "pal_taunt", "pal_divine_shield", "pal_retribution"]),
+					# os 6 primeiros que o nível libera vão na barra do bot: ricochete, aura e provocar sempre entram
+					["pal_holy_strike", "pal_shield_throw", "pal_bastion_aura", "pal_taunt", "pal_lay_hands", "pal_retribution",
+					 "pal_shield_wall", "pal_aegis_slam", "pal_shield_bash", "pal_divine_shield", "pal_blessed_armor"]),
 				_b("cruzado", "Cruzado", "dps", ["sword2h", "mace2h"], [], "plate", "FOR", "WILL", "atk_pct",
 					["pal_holy_strike", "pal_crusader_strike", "pal_twin_slash", "pal_consecrate", "pal_lunge", "pal_hammer_light", "pal_blade_dance",
 					 "pal_holy_wave", "pal_flurry", "pal_zeal", "pal_valor", "pal_judgement_blade", "pal_purge"]),
