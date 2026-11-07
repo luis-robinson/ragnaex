@@ -54,7 +54,7 @@ func _ready() -> void:
 	def.sun_energy = 1.28
 	var map := MapBuilder.build(def)
 	add_child(map)
-	if _strip != "":
+	if _strip != "" or DevArgs.flag("--mob_strip"):
 		var g := map.get_node_or_null("Grass")
 		if g:
 			g.queue_free()                    # filme: pernas à mostra
@@ -408,13 +408,13 @@ func _process(delta: float) -> void:
 				it["done"] = true
 				it["k"].anim.play(it["k"].resolve("idle" if it["row"] == 1 else "block_shield"), 0.12 if it["row"] == 1 else 0.07)
 		if _time >= FILM_SHOT:
-			get_viewport().get_texture().get_image().save_png(_shot)
+			_save_shot()
 			get_tree().quit()
 		return
 	if _trail:
 		# rastro: foto no meio do golpe (--t = segundos), sem pausar
 		if _time > _t and _shot != "":
-			get_viewport().get_texture().get_image().save_png(_shot)
+			_save_shot()
 			get_tree().quit()
 		return
 	if _time > _t + 0.5 and _shot != "" and not _side:
@@ -422,5 +422,17 @@ func _process(delta: float) -> void:
 			k.anim.pause()
 	if _time > _t + 0.7:
 		if _shot != "":
-			get_viewport().get_texture().get_image().save_png(_shot)
+			_save_shot()
 		get_tree().quit()
+
+## --crop=<y0>,<y1> (fração da altura) e --half: recorta a faixa dos bonecos e reduz (laço de revisão: tools/lineup/film_all.sh)
+func _save_shot() -> void:
+	var img := get_viewport().get_texture().get_image()
+	var crop := DevArgs.value("--crop")
+	if crop != "":
+		var y0 := int(float(crop.get_slice(",", 0)) * img.get_height())
+		var y1 := int(float(crop.get_slice(",", 1)) * img.get_height())
+		img = img.get_region(Rect2i(0, y0, img.get_width(), y1 - y0))
+	if DevArgs.has("--half"):
+		img.resize(img.get_width() / 2, img.get_height() / 2, Image.INTERPOLATE_LANCZOS)
+	img.save_png(_shot)
