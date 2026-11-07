@@ -1102,7 +1102,7 @@ const ACTIVE_LOOP := ["atk_spin", "cast_channel", "cast_shadow", "slam"]
 ## Velocidade do clipe para o impacto do desenho cair no tick do dano (preparo longo = clipe mais lento).
 const LOOP_MIN_ACTIVE := 0.5        # s de fase ativa para o gesto repetir (curta: acaba junto com a skill, como os outros)
 const ANIM_MIN_SPEED := 0.4
-const HELD_BASIC_MIN_SPEED := 0.35   # ataque segurado: a volta do golpe pode ir até 0,35x para emendar no próximo
+const HELD_BASIC_MIN_SPEED := 0.28   # ataque segurado: a volta do golpe pode ir até 0,28x para emendar no próximo
 const ANIM_MAX_SPEED := 3.2
 const WINDUP_MAX_SPEED := 2.2        # preparo mais curto que isso: o clipe começa no meio da preparação em vez de correr 3x
 

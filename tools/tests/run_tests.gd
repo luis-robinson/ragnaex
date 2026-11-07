@@ -1476,7 +1476,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_skill_chain(gd, sim)
 	_check_berserker_builds(gd, sim)
 	_check_bishop_builds(gd, sim)
-	_check_third_builds(gd, sim)
+	_check_holy_third_builds(gd, sim)
 	_check_druid_builds(gd, sim)
 	_check_ranger_builds(gd, sim)
 	_check_assassin_builds(gd, sim)
@@ -2842,7 +2842,7 @@ func _check_bishop_builds(gd, sim) -> void:
 
 ## Terceiras builds: Templário (paladino de espada/maça e escudo, fogo sagrado e Penitência) e Clérigo de Batalha
 ## (bispo de placa, maça e escudo, golpes que curam o aliado mais ferido).
-func _check_third_builds(gd, sim) -> void:
+func _check_holy_third_builds(gd, sim) -> void:
 	var tem: Dictionary = gd.classes["paladin"].build_by_id("templario")
 	var bat: Dictionary = gd.classes["bishop"].build_by_id("batalha")
 	check(not tem.is_empty() and tem["main"] == ["sword", "mace"] and tem["off"] == ["shield"] and tem["armor"] == "plate" and tem["role"] == "dps",

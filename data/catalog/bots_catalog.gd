@@ -131,6 +131,8 @@ const CLASS_DOING := ["passei a tarde {doing} kkk", "{doing} desde cedo e ningu�
 const BUILD_LINES := {
 	"guardiao": ["escudo de torre é amor", "guardião não morre, só fica cansado", "puxa tudo que eu seguro"],
 	"cruzado": ["espada de duas mãos e fé", "cruzado é dps disfarçado de tank", "zelo no talo"],
+	"arremessador": ["machadinha voando, cuidado aí", "sangrou? então já era", "lanço daqui, não precisa chegar perto", "tenho machado pra todo mundo"],
+	"trapaceiro": ["fumaça e uma rasteira, clássico", "jogo limpo é pra quem perde", "estrepe no chão, golpe baixo na sequência", "expus a fraqueza, agora bate"],
 	"templario": ["escudo numa mão, fogo sagrado na outra", "marquei, agora queima", "templário é paladino que descobriu o fogo", "cinco marcas e bum"],
 	"batalha": ["cada martelada cura alguém, confia", "clérigo de linha de frente, sem medo", "hino de batalha tocando", "quem tá ferido? vou bater em algo"],
 	"patrulheiro": ["estrepe no chão e pé na estrada", "lento eu acerto, parado eu mato", "sem pet, só eu e o vento", "corre que eu marco a presa"],
