@@ -980,17 +980,38 @@ def animate_combat(rig):
                    "upper_arm.L": (-60, 0, -20), "forearm.L": (-80, 0, 0)}
     dual_r_hit = {"spine": (12, 28, 0), "upper_arm.R": (-85, -45, 0), "forearm.R": (-10, 0, 0),
                   "upper_arm.L": (-50, 0, -30), "forearm.L": (-90, 0, 0), "thigh.R": (-28, 0, 0), "shin.R": (22, 0, 0)}
-    _pose_action(rig, "atk_dual_a", [(1, R, None), (3, dual_r_wind, None), (5, dual_r_hit, (0, -0.02, 0.06)), (12, R, None)], 12)
-    _pose_action(rig, "atk_dual_b", [(1, R, None), (3, _mirror(dual_r_wind), None), (5, _mirror(dual_r_hit), (0, -0.02, 0.06)), (12, R, None)], 12)
+    # revisão 2026-11: o par de cortes era quase só cotovelo; agora a lâmina sobe por fora, o tronco torce e varre até o outro
+    # lado (a outra mão fica em guarda na frente e recua no golpe), com passo e acompanhamento antes de voltar
+    dual_r_wind = dict(dual_r_wind, **{"spine": (2, -38, 0), "chest": (0, -10, 0), "head": (0, 30, 0), "upper_arm.R": (-100, 80, 0),
+                                       "forearm.R": (-75, 0, 0), "upper_arm.L": (-70, -10, 0), "forearm.L": (-85, 0, 0),
+                                       "thigh.R": (6, 0, 0), "thigh.L": (-12, 0, 0), "shin.L": (14, 0, 0)})
+    dual_r_hit = dict(dual_r_hit, **{"spine": (14, 32, 0), "chest": (4, 8, 0), "head": (0, -28, 0), "upper_arm.R": (-72, -55, 0),
+                                     "forearm.R": (-15, 0, 0), "upper_arm.L": (-25, 15, -30), "forearm.L": (-75, 0, 0),
+                                     "thigh.R": (-34, 0, 0), "shin.R": (28, 0, 0), "thigh.L": (20, 0, 0), "shin.L": (14, 0, 0)})
+    dual_r_follow = dict(dual_r_hit, **{"spine": (12, 40, 0), "head": (0, -32, 0), "upper_arm.R": (-58, -72, 0), "forearm.R": (-28, 0, 0)})
+    for nm, mir in (("atk_dual_a", lambda p: p), ("atk_dual_b", _mirror)):
+        _pose_action(rig, nm, [(1, R, None), (3, mir(dual_r_wind), (0, -0.01, -0.03)), (4, mir(_blend(dual_r_wind, dual_r_hit, 0.45)), (0, -0.02, 0.03)),
+                               (5, mir(dual_r_hit), (0, -0.03, 0.08)), (7, mir(dual_r_follow), (0, -0.03, 0.08)), (12, R, None)], 12)
     # --- adaga: estocada ---
     stab_back = {"spine": (0, -22, 0), "upper_arm.R": (0, 90, 0), "forearm.R": (-70, 0, 0), "hand.R": (-30, -90, 75),
                  "upper_arm.L": (-45, 0, -20)}
     stab_hit = {"spine": (14, 22, 0), "upper_arm.R": (-80, 10, 0), "forearm.R": (-5, 0, 0), "hand.R": (90, 60, -15),
                 "upper_arm.L": (5, 0, -25), "thigh.R": (-36, 0, 0), "shin.R": (30, 0, 0), "thigh.L": (20, 0, 0)}
-    _pose_action(rig, "atk_dagger", [(1, R, None), (3, stab_back, (0, 0, -0.03)), (5, stab_hit, (0, -0.03, 0.1)),
-                                     (8, stab_hit, (0, -0.03, 0.09)), (12, R, None)], 12)
-    _pose_action(rig, "atk_thrust", [(1, R, None), (3, stab_back, (0, -0.04, -0.05)), (6, stab_hit, (0, -0.05, 0.16)),
-                                     (10, stab_hit, (0, -0.05, 0.14)), (16, R, None)], 16)
+    # revisão 2026-11 (docs/animations_review.md): a estocada mal saía do lugar (braço curto do chibi). Agora o tronco gira
+    # para trás com a adaga na cintura e a mão livre na frente, e o bote leva o corpo junto (passo longo, ombro à frente).
+    stab_coil = dict(stab_back, **{"spine": (2, -34, 0), "chest": (0, -10, 0), "head": (-2, 30, 0), "upper_arm.R": (25, 80, 0),
+                                   "forearm.R": (-85, 0, 0), "upper_arm.L": (-62, -15, 0), "forearm.L": (-55, 0, 0),
+                                   "thigh.R": (10, 0, 0), "shin.R": (16, 0, 0), "thigh.L": (-18, 0, 0), "shin.L": (22, 0, 0)})
+    stab_lunge = dict(stab_hit, **{"spine": (16, 32, 0), "chest": (6, 8, 0), "head": (-4, -30, 0), "upper_arm.R": (-86, 4, 0),
+                                   "forearm.R": (-2, 0, 0), "upper_arm.L": (35, 0, -30), "forearm.L": (-40, 0, 0),
+                                   "thigh.R": (-50, 0, 0), "shin.R": (46, 0, 0), "thigh.L": (32, 0, 0), "shin.L": (18, 0, 0)})
+    stab_reach = dict(stab_lunge, **{"spine": (18, 38, 0), "upper_arm.R": (-90, 0, 0)})
+    _pose_action(rig, "atk_dagger", [(1, R, None), (3, stab_coil, (0, -0.02, -0.05)), (4, _blend(stab_coil, stab_lunge, 0.4), (0, -0.03, 0.03)),
+                                     (5, stab_lunge, (0, -0.05, 0.16)), (7, stab_reach, (0, -0.05, 0.17)), (9, _blend(stab_lunge, R, 0.5), (0, -0.02, 0.07)),
+                                     (12, R, None)], 12)
+    _pose_action(rig, "atk_thrust", [(1, R, None), (3, stab_coil, (0, -0.04, -0.07)), (5, _blend(stab_coil, stab_lunge, 0.4), (0, -0.05, 0.04)),
+                                     (6, stab_lunge, (0, -0.06, 0.22)), (9, stab_reach, (0, -0.06, 0.23)), (12, _blend(stab_lunge, R, 0.5), (0, -0.03, 0.1)),
+                                     (16, R, None)], 16)
     # --- arco: corpo de lado, braço esquerdo estica o arco, direito puxa a corda e solta ---
     # (resolvido numericamente: arco vertical com a barriga pra frente; mão direita na corda -> bochecha)
     bow_aim = {"spine": (2, 40, 0), "head": (0, -38, 0), "upper_arm.L": (-85, 30, 30), "forearm.L": (0, 0, 0),
@@ -1150,8 +1171,11 @@ def animate_v3(rig):
     # tiro de mosquete: mira no ombro (braços à frente, cabeça encostada), coice para trás e volta
     aim = {"spine": (4, 0, 0), "head": (-2, -10, 0), "upper_arm.R": (-80, 10, 0), "forearm.R": (-20, 0, 0), "hand.R": (0, 0, 0),
            "upper_arm.L": (-75, -35, 0), "forearm.L": (-30, 0, 0), "thigh.R": (-12, 0, 0), "shin.R": (16, 0, 0), "thigh.L": (10, 0, 0), "shin.L": (12, 0, 0)}
-    kick = dict(aim, **{"spine": (-8, 0, 0), "head": (-8, -10, 0), "upper_arm.R": (-95, 12, 0), "upper_arm.L": (-88, -35, 0)})
-    _pose_action(rig, "atk_rifle", [(1, R, None), (4, aim, (0, 0.01, 0)), (6, kick, (0, 0.04, 0)), (9, aim, (0, 0.01, 0)), (13, R, None)], 13)
+    # coice (revisão 2026-11): o cano sobe, ombros e cabeça vão para trás, o pé de trás segura o tranco; antes era um tremor de 8°
+    kick = dict(aim, **{"spine": (-14, 4, 0), "chest": (-4, 0, 0), "head": (-12, -10, 0), "upper_arm.R": (-108, 14, 0), "upper_arm.L": (-102, -35, 0),
+                        "thigh.R": (-6, 0, 0), "thigh.L": (16, 0, 0), "shin.L": (18, 0, 0)})
+    _pose_action(rig, "atk_rifle", [(1, R, None), (3, _blend(R, aim, 0.75), (0, 0.0, 0.0)), (5, aim, (0, -0.01, 0.01)), (6, kick, (0, 0.02, -0.07)),
+                                    (8, _blend(kick, aim, 0.6), (0, 0.0, -0.04)), (10, aim, (0, -0.01, -0.01)), (13, R, None)], 13)
     # --- pulo: impulso (pernas estendem, braços sobem) -> encolhe no alto ---
     # braços sobem PRA FORA (Z abre), não na frente do rosto; no alto, encolhe as pernas
     push = {"spine": (-8, 0, 0), "head": (-16, 0, 0), "thigh.R": (-6, 0, 0), "shin.R": (4, 0, 0), "thigh.L": (8, 0, 0),
@@ -1177,8 +1201,11 @@ def animate_v3(rig):
     dash = {"spine": (34, 0, 0), "chest": (8, 0, 0), "head": (-24, 0, 0), "thigh.R": (-50, 0, 0), "shin.R": (60, 0, 0),
             "thigh.L": (40, 0, 0), "shin.L": (50, 0, 0), "upper_arm.R": (60, 0, 0), "forearm.R": (-20, 0, 0),
             "upper_arm.L": (60, 0, 0), "forearm.L": (-20, 0, 0)}
-    _pose_action(rig, "dash", [(1, _blend(R, dash, 0.5), (0, -0.04, 0.04)), (3, dash, (0, -0.1, 0.1)), (7, dash, (0, -0.1, 0.1)),
-                               (10, _blend(dash, R, 0.6), (0, -0.04, 0.02))], 10)
+    # meio do dash: as pernas trocam a tesoura, braços batem atrás e o corpo sobe/desce (antes ficava parado do 3 ao 7)
+    dash_b = dict(dash, **{"spine": (38, 0, 0), "chest": (10, 0, 0), "thigh.R": (34, 0, 0), "shin.R": (58, 0, 0), "thigh.L": (-48, 0, 0),
+                           "shin.L": (66, 0, 0), "upper_arm.R": (72, 0, 8), "upper_arm.L": (50, 0, -8)})
+    _pose_action(rig, "dash", [(1, _blend(R, dash, 0.5), (0, -0.04, 0.04)), (3, dash, (0, -0.1, 0.1)), (5, dash_b, (0, -0.07, 0.11)),
+                               (7, dash, (0, -0.1, 0.1)), (10, _blend(dash, R, 0.6), (0, -0.04, 0.02))], 10)
     # --- reação a golpe: estalo pra trás, recua e se recompõe com pequeno balanço ---
     hit = {"spine": (-24, 10, 0), "chest": (-6, 0, 0), "head": (-30, -8, 12), "upper_arm.R": (10, 0, 38), "forearm.R": (-62, 0, 0),
            "upper_arm.L": (12, 0, -36), "forearm.L": (-62, 0, 0), "thigh.R": (14, 0, 0), "shin.R": (20, 0, 0), "thigh.L": (-10, 0, 0)}
@@ -1188,13 +1215,15 @@ def animate_v3(rig):
     stagger = dict(hit, **{"spine": (-14, 18, 0)})
     kneel = {"spine": (18, 10, 0), "head": (20, 0, 8), "thigh.R": (-70, 0, 0), "shin.R": (110, 0, 0), "thigh.L": (-50, 0, 0),
              "shin.L": (95, 0, 0), "upper_arm.R": (20, 0, 0), "forearm.R": (-30, 0, 0), "upper_arm.L": (20, 0, 0), "forearm.L": (-30, 0, 0)}
-    down = {"root": (-86, 0, 6), "spine": (-8, 0, 0), "head": (-18, 20, 25), "thigh.R": (-30, 0, 0), "shin.R": (40, 0, 0),
+    # deitado: a cabeça enorme apoia no chão (raiz -76°, não -86°; queixo no peito; quadril sem empurrar para baixo).
+    # Antes a cabeça afundava ~0,3 m no chão nos últimos quadros (anim_probe: head_min -0,12 m).
+    down = {"root": (-76, 0, 6), "spine": (-6, 0, 0), "head": (10, 20, 25), "thigh.R": (-30, 0, 0), "shin.R": (40, 0, 0),
             "thigh.L": (-10, 0, 0), "shin.L": (14, 0, 0), "upper_arm.R": (-80, 80, 0), "forearm.R": (-10, 0, 0),
             "upper_arm.L": (-70, -85, 0), "forearm.L": (-25, 0, 0)}
-    bounce = dict(down, **{"root": (-80, 0, 6), "head": (-10, 20, 25)})
+    bounce = dict(down, **{"root": (-69, 0, 6), "head": (16, 20, 25), "upper_arm.R": (-95, 70, 0), "upper_arm.L": (-85, -75, 0)})
     _pose_action(rig, "die", [(1, R, None), (4, stagger, (0, 0, -0.08)), (11, kneel, (0, -0.32, 0.04)),
-                              (19, down, (0, -0.05, -0.12)), (22, bounce, (0, -0.03, -0.12)), (26, down, (0, -0.05, -0.12)),
-                              (30, down, (0, -0.05, -0.12))], 30)
+                              (19, down, (0, -0.04, 0.0)), (22, bounce, (0, -0.03, 0.0)), (26, down, (0, -0.04, 0.0)),
+                              (30, down, (0, -0.04, 0.0))], 30)
     _settle_attacks(rig)
     _ranged_and_magic(rig)
     _skill_clips(rig)
@@ -1473,6 +1502,76 @@ def _fcurves(act):
 
 
 # ---------------------------------------------------------------------------
+# monstros humanoides (bandidos, elfos, esqueletos, lich...): o mesmo rig do kit, mas só 7 clipes com os nomes do bicho
+# (idle run attack cast hit die block). Antes eram os clipes v1 de animate() (3 chaves, golpe de cima sem preparo).
+# ---------------------------------------------------------------------------
+MOB_ATTACK = {"sword": "atk_1h_a", "mace": "atk_1h_a", "axe": "atk_1h_a", "dagger": "atk_dagger", "sword2h": "atk_2h", "mace2h": "atk_2h",
+              "axe2h": "atk_sweep", "scythe": "atk_sweep", "bow": "atk_bow", "staff": "atk_staff", "wand": "atk_staff", "scepter": "atk_staff",
+              "rifle": "atk_rifle", None: "atk_claw"}
+MOB_IMPACT = 5           # EntityView.IMPACT_FRAME["attack"]: o "attack" dos monstros bate no quadro 5
+MOB_KEEP = ("idle", "run", "attack", "cast", "hit", "die", "block")
+
+
+def _tracks(rig):
+    return {t.name: t for t in rig.animation_data.nla_tracks}
+
+
+def _rename_track(rig, src, dst):
+    tr = _tracks(rig)
+    if dst in tr:
+        rig.animation_data.nla_tracks.remove(tr[dst])
+    t = _tracks(rig)[src]
+    t.name = dst
+    t.strips[0].name = dst
+    t.strips[0].action.name = dst
+
+
+def _retimed_copy(rig, src, dst, impact_to):
+    """Cópia do clipe `src` com o impacto (IMPACT[src]) movido para o quadro `impact_to`: a preparação encolhe/estica
+    por igual, o resto do clipe mantém o tempo."""
+    act = _tracks(rig)[src].strips[0].action
+    imp = IMPACT.get(src, 6)
+    end = act.frame_range[1]
+    k1 = (impact_to - 1) / max(1.0, imp - 1)
+    g = lambda f: 1 + (f - 1) * k1 if f <= imp else impact_to + (f - imp)
+    new = act.copy()
+    new.name = dst
+    for fc in _fcurves(new):
+        for kp in fc.keyframe_points:
+            x = kp.co.x
+            kp.co.x = g(x)
+            kp.handle_left.x = g(kp.handle_left.x) if kp.handle_left.x >= 1 else kp.co.x - 0.3
+            kp.handle_right.x = g(kp.handle_right.x)
+        fc.update()
+    new.frame_range = (1, g(end))
+    tr = _tracks(rig)
+    if dst in tr:
+        rig.animation_data.nla_tracks.remove(tr[dst])
+    t = rig.animation_data.nla_tracks.new()
+    t.name = dst
+    s = t.strips.new(dst, 1, new)
+    s.name = dst
+
+
+def mob_clips(rig, weapon=None, offhand=None, attack=None):
+    """Clipes de monstro humanoide a partir do jogo completo do kit (v3): golpe da arma com impacto no quadro 5, magia,
+    idle da arma (arco baixo, cajado em pé), guarda de escudo, corrida/tranco/morte do kit."""
+    animate(rig, "melee")
+    animate_combat(rig)
+    animate_v3(rig)
+    src = attack or ("atk_dual_a" if offhand in ("dagger", "sword", "axe", "mace") else MOB_ATTACK.get(weapon, "atk_1h_a"))
+    _retimed_copy(rig, src, "attack", MOB_IMPACT)
+    idle = {"bow": "idle_bow", "staff": "idle_staff", "wand": "idle_staff", "scythe": "idle_staff", "scepter": "idle_staff"}.get(weapon)
+    if idle:
+        _rename_track(rig, idle, "idle")
+    if offhand == "shield":
+        _rename_track(rig, "block_shield", "block")
+    for t in list(rig.animation_data.nla_tracks):
+        if t.name not in MOB_KEEP:
+            rig.animation_data.nla_tracks.remove(t)
+
+
+# ---------------------------------------------------------------------------
 # elenco: classe -> (sexo, conjunto, cor da classe, arma, estilo de animação, cor do cabelo)
 # cores = data/catalog/classes_catalog.gd
 # ---------------------------------------------------------------------------
@@ -1512,13 +1611,15 @@ def deselect_everything():
 
 
 def export_glb(rig, path):
+    # slide_to_zero: sem ele o glTF começa no quadro 0 (cópia parada do quadro 1): todo clipe ganhava 1 quadro morto,
+    # o impacto saía 1/24 s atrasado e idle/corrida davam um tranco na costura do loop (há check: _check_loop_seams)
     deselect_everything()
     rig.hide_set(False)
     rig.select_set(True)
     for c in rig.children_recursive:
         c.select_set(True)
     bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, use_active_scene=True, export_apply=False,
-                              export_animations=True, export_animation_mode="NLA_TRACKS",
+                              export_animations=True, export_animation_mode="NLA_TRACKS", export_anim_slide_to_zero=True,
                               export_yup=True, export_materials="EXPORT", export_skins=True)
     print("exported", path)
 

@@ -232,6 +232,7 @@ def quadruped(cid, fur, dark, light, kind="wolf"):
     finish(arm, parts)
     bm.mob_actions(arm, quadruped=True)
     quad_motion(arm, kind)
+    quad_combat(arm, kind)
     return arm
 
 
@@ -283,6 +284,78 @@ def quad_motion(arm, kind):
         k_run["leg_bl"].append((f, (back_a * math.sin(p - 0.2), 0, 0), (0, 0, 0)))
         k_run["tail"].append((f, (-8 + 10 * math.sin(p - 1.2), 0, (4 if heavy else 9) * math.sin(p + 0.6)), (0, 0, 0)))
     lp.add_action(arm, "run", k_run, n)
+
+
+def quad_combat(arm, kind):
+    """attack/hit/die dos quadrúpedes (e o básico das formas Lobo/Urso do druida, que é o "attack" deles).
+    Mordida (lobo, lince, cão, dragão, grifo): recolhe com a cabeça erguida, dá o bote e crava, sacode e volta.
+    Javali: abaixa a cabeça e joga as presas para cima. Urso: empina e desce a pata direita em gancho.
+    Impacto no quadro 5 (EntityView.IMPACT_FRAME["attack"]); o jogo estica a preparação até o startup do bicho.
+    Morte: gane, as patas da frente dobram, rola de lado (raiz +Z) com as patas duras e quica."""
+    _drop_clips(arm, ("attack", "hit", "die"))
+    z = (0, 0, 0)
+    r = lambda x=0.0, y=0.0, zz=0.0: (x, y, zz)
+    p = lambda up=0.0, fwd=0.0: (0, up, fwd)
+    heavy = kind in ("bear", "boar")
+    if kind == "bear":
+        e = 18
+        atk = {
+            "body": [(1, z, z), (3, r(-24), p(0.12, -0.04)), (5, r(12, 0, -6), p(-0.02, 0.14)), (8, r(10, 0, -4), p(-0.02, 0.12)), (12, r(2), p(0, 0.04)), (15, r(-2), p(0.01)), (e, z, z)],
+            "head": [(1, z, z), (3, r(-14, 0, 6), z), (5, r(16, 0, -10), z), (8, r(12, 0, -6), z), (12, r(2), z), (e, z, z)],
+            "leg_fr": [(1, z, z), (3, r(-80, 0, 14), z), (5, r(34, 0, -14), z), (8, r(24, 0, -8), z), (12, r(6), z), (e, z, z)],
+            "leg_fl": [(1, z, z), (3, r(-30), z), (5, r(-8), z), (8, r(-6), z), (12, r(-2), z), (e, z, z)],
+            "leg_br": [(1, z, z), (3, r(24), z), (5, r(-8), z), (9, r(-4), z), (e, z, z)],
+            "leg_bl": [(1, z, z), (3, r(24), z), (5, r(-10), z), (9, r(-6), z), (e, z, z)],
+            "tail": [(1, z, z), (3, r(16), z), (5, r(-6, 0, 8), z), (9, r(4, 0, -6), z), (e, z, z)],
+        }
+    elif kind == "boar":
+        e = 16
+        atk = {
+            "body": [(1, z, z), (3, r(8), p(-0.04, -0.1)), (5, r(-10), p(0.04, 0.22)), (8, r(-6), p(0.02, 0.18)), (11, r(2), p(0, 0.06)), (e, z, z)],
+            "head": [(1, z, z), (3, r(22), z), (5, r(-26), z), (8, r(-16, 0, 10), z), (11, r(-4, 0, -6), z), (e, z, z)],
+            "leg_fr": [(1, z, z), (3, r(14), z), (5, r(-26), z), (8, r(-18), z), (12, r(-4), z), (e, z, z)],
+            "leg_fl": [(1, z, z), (3, r(10), z), (5, r(-20), z), (8, r(-14), z), (12, r(-2), z), (e, z, z)],
+            "leg_br": [(1, z, z), (3, r(-14), z), (5, r(30), z), (8, r(18), z), (12, r(4), z), (e, z, z)],
+            "leg_bl": [(1, z, z), (3, r(-14), z), (5, r(26), z), (8, r(14), z), (12, r(2), z), (e, z, z)],
+            "tail": [(1, z, z), (3, r(10), z), (5, r(-14), z), (9, r(6, 0, 10), z), (e, z, z)],
+        }
+    else:
+        e = 16
+        atk = {
+            "body": [(1, z, z), (3, r(-7), p(-0.02, -0.08)), (5, r(9), p(0.03, 0.2)), (7, r(7), p(0.02, 0.17)), (10, r(4), p(0.01, 0.1)), (13, r(-2), p(0, 0.02)), (e, z, z)],
+            "head": [(1, z, z), (3, r(-18), z), (5, r(26), z), (7, r(16, 0, 14), z), (9, r(18, 0, -12), z), (12, r(-4), z), (e, z, z)],
+            "leg_fr": [(1, z, z), (3, r(10), z), (5, r(-36), z), (7, r(-24), z), (10, r(-10), z), (13, r(4), z), (e, z, z)],
+            "leg_fl": [(1, z, z), (3, r(8), z), (5, r(-26), z), (7, r(-18), z), (10, r(-6), z), (13, r(2), z), (e, z, z)],
+            "leg_br": [(1, z, z), (3, r(-12), z), (5, r(28), z), (7, r(16), z), (10, r(6), z), (e, z, z)],
+            "leg_bl": [(1, z, z), (3, r(-12), z), (5, r(22), z), (7, r(12), z), (10, r(4), z), (e, z, z)],
+            "tail": [(1, z, z), (3, r(16), z), (5, r(-12, 0, 8), z), (7, r(-6, 0, -10), z), (10, r(4, 0, 8), z), (e, z, z)],
+        }
+    lp.add_action(arm, "attack", atk, e, loop=False)
+    # tranco: o corpo recua, a cabeça vira, o rabo encolhe e as patas da frente escorregam
+    lp.add_action(arm, "hit", {
+        "body": [(1, z, z), (2, r(-9, 0, 7), p(0.02, -0.09)), (5, r(4, 0, -3), p(-0.01, -0.05)), (7, r(-1), p(0, -0.02)), (10, z, z)],
+        "head": [(1, z, z), (2, r(-24, 0, 16), z), (5, r(8, 0, -8), z), (7, r(-2), z), (10, z, z)],
+        "leg_fr": [(1, z, z), (2, r(-14), z), (5, r(6), z), (10, z, z)],
+        "leg_fl": [(1, z, z), (2, r(-10), z), (5, r(4), z), (10, z, z)],
+        "leg_br": [(1, z, z), (2, r(10), z), (5, r(-4), z), (10, z, z)],
+        "leg_bl": [(1, z, z), (2, r(8), z), (5, r(-4), z), (10, z, z)],
+        "tail": [(1, z, z), (2, r(-26), z), (5, r(-14, 0, 6), z), (10, z, z)],
+    }, 10, loop=False)
+    # morte: rola sobre o lado direito; a raiz gira em volta do chão, então sobe (loc Y) para o corpo deitar em cima dele
+    up = 0.2 if heavy else 0.16
+    s = 1.25 if heavy else 1.0                  # pesado: cai mais devagar
+    f = lambda x: int(round(1 + (x - 1) * s))
+    e = f(24)
+    lp.add_action(arm, "die", {
+        "body": [(1, z, z), (f(4), r(-14), p(0.04, -0.05)), (f(9), r(12), p(-0.12, 0.02)), (f(14), r(4), p(-0.05)), (e, r(4), p(-0.05))],
+        "head": [(1, z, z), (f(4), r(-32, 0, 8), z), (f(9), r(22), z), (f(14), r(6, 0, -18), z), (f(17), r(-4, 0, -10), z), (f(20), r(6, 0, -18), z), (e, r(6, 0, -18), z)],
+        "leg_fr": [(1, z, z), (f(4), r(-16), z), (f(9), r(34), z), (f(14), r(-22), z), (f(17), r(-30), z), (e, r(-22), z)],
+        "leg_fl": [(1, z, z), (f(4), r(-12), z), (f(9), r(30), z), (f(14), r(-10), z), (f(17), r(-16), z), (e, r(-10), z)],
+        "leg_br": [(1, z, z), (f(4), r(8), z), (f(9), r(-18), z), (f(14), r(18), z), (f(17), r(26), z), (e, r(18), z)],
+        "leg_bl": [(1, z, z), (f(4), r(8), z), (f(9), r(-18), z), (f(14), r(28), z), (f(17), r(34), z), (e, r(28), z)],
+        "tail": [(1, z, z), (f(4), r(-24), z), (f(9), r(-30), z), (f(14), r(6, 0, 10), z), (f(17), r(10, 0, 18), z), (e, r(4, 0, 12), z)],
+        "root": [(1, z, z), (f(9), z, (0, -0.02, 0)), (f(14), r(0, 0, 84), (0, up, 0)), (f(17), r(0, 0, 76), (0, up, 0)), (f(20), r(0, 0, 84), (0, up, 0)), (e, r(0, 0, 84), (0, up, 0))],
+    }, e, loop=False)
 
 
 HIP = 0.58
@@ -1316,7 +1389,7 @@ def spiked_crown(base, cid, spikes, mats):
         ck.skin_rigid(p, base["rig"], "head")
 
 
-def humanoid(cid, style, cloth, weapon, skin=None, eye=None, offhand=None, hide_hair=False, head=None, crown=0, extra=None, after=None, sex="male", hair=(0.25, 0.18, 0.14)):
+def humanoid(cid, style, cloth, weapon, skin=None, eye=None, offhand=None, hide_hair=False, head=None, crown=0, extra=None, after=None, sex="male", hair=(0.25, 0.18, 0.14), attack=None):
     ck.clear()
     base = ck.build_base(cid, sex, 0.0, hair)
     mats = ck._kit_mats()
@@ -1355,7 +1428,7 @@ def humanoid(cid, style, cloth, weapon, skin=None, eye=None, offhand=None, hide_
         ck.animate_combat(base["rig"])
         ck.animate_v3(base["rig"])
     else:
-        ck.animate(base["rig"], "melee")
+        ck.mob_clips(base["rig"], weapon, offhand, attack)
     return base["rig"]
 
 
@@ -1478,7 +1551,7 @@ def build_all(out_dir, only=None):
         "mob_griffin": lambda: quadruped("mob_griffin", (0.8, 0.62, 0.36), (0.55, 0.4, 0.22), (0.96, 0.94, 0.88), "griffin"),
         "mob_elf_lynx": lambda: quadruped("mob_elf_lynx", (0.74, 0.56, 0.32), (0.2, 0.36, 0.24), (0.95, 0.9, 0.78), "lynx"),
         # Terceiro andar: guarnição da Luz (Bastião da Aurora) e mortos-vivos das fortalezas
-        "mob_loyal_spearman": lambda: humanoid("mob_loyal_spearman", "leather", (0.32, 0.42, 0.72), "staff", head="none", hide_hair=True,
+        "mob_loyal_spearman": lambda: humanoid("mob_loyal_spearman", "leather", (0.32, 0.42, 0.72), "staff", head="none", hide_hair=True, attack="atk_thrust",
                                                after=loyalist_parts("mob_loyal_spearman", "spearman", (0.8, 0.18, 0.15))),
         "mob_loyal_knight": lambda: humanoid("mob_loyal_knight", "plate", (0.78, 0.8, 0.86), "sword2h", head="none", hide_hair=True,
                                              after=loyalist_parts("mob_loyal_knight", "knight", (0.25, 0.4, 0.8))),

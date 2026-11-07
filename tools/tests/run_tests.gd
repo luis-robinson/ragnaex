@@ -64,6 +64,61 @@ func _check_form_clips() -> void:
 			check(dm.anim.has_animation(want), "forma demoníaca tem '%s'" % want)
 		dm.free()
 
+## Revisão de animação (docs/animations_review.md, tools/tests/anim_probe.tscn): costura dos loops sem quadro parado,
+## cabeça fora do chão na morte, golpe dos monstros com pose de impacto no quadro 5 e morte que tomba.
+func _check_anim_review() -> void:
+	var loops := ["idle", "idle_bow", "idle_staff", "run", "block", "block_shield", "fall"]
+	for model in ["kit_paladin_male", "kit_bishop_female", "mob_wolf", "mob_bandit", "mob_elf_bowman", "mob_golem", "mob_ghost", "form_bear"]:
+		var ps: PackedScene = load("res://assets/models/%s.glb" % model)
+		if ps == null:
+			check(false, "anim: modelo %s carrega" % model)
+			continue
+		var inst: Node3D = ps.instantiate()
+		add_child(inst)
+		var ap: AnimationPlayer = inst.find_children("*", "AnimationPlayer", true, false)[0]
+		var sk: Skeleton3D = inst.find_children("*", "Skeleton3D", true, false)[0]
+		for clip in ap.get_animation_list():
+			var an := ap.get_animation(clip)
+			if clip in loops:
+				# o glTF começava no quadro 0 (cópia parada do 1): a corrida dava um tranco a cada passada (export_anim_slide_to_zero)
+				var seam := 0.0
+				var d0 := 0.0
+				var d1 := 0.0
+				var dt := 1.0 / 24.0
+				for t in range(an.get_track_count()):
+					if an.track_get_type(t) != Animation.TYPE_ROTATION_3D:
+						continue
+					seam = maxf(seam, rad_to_deg(an.rotation_track_interpolate(t, 0.0).angle_to(an.rotation_track_interpolate(t, an.length))))
+					d0 += rad_to_deg(an.rotation_track_interpolate(t, 0.0).angle_to(an.rotation_track_interpolate(t, dt)))
+					d1 += rad_to_deg(an.rotation_track_interpolate(t, an.length - dt).angle_to(an.rotation_track_interpolate(t, an.length)))
+				check(seam < 1.5, "anim %s/%s: o loop fecha (%.1f°)" % [model, clip, seam])
+				check(d1 < 2.0 or d0 > d1 * 0.3, "anim %s/%s: sem quadro parado na costura (%.1f° no 1º quadro, %.1f° no último)" % [model, clip, d0, d1])
+		var head := sk.find_bone("head")
+		if model.begins_with("kit_") or model == "mob_bandit":
+			ap.play("die")
+			ap.seek(ap.current_animation_length, true)
+			# centro da cabeça (meio do osso, ~0,3 m acima do pescoço) acima do raio dela: deitado, apoia sem afundar
+			var hp := sk.get_bone_global_pose(head)
+			var hy := (hp.origin + hp.basis.y.normalized() * 0.3).y
+			check(hy > 0.24, "anim %s: cabeça não afunda no chão na morte (centro a %.2f m)" % [model, hy])
+		if model.begins_with("mob_"):
+			# golpe do monstro: o desenho já está longe do repouso no quadro 5 (EntityView.IMPACT_FRAME["attack"])
+			var an := ap.get_animation("attack")
+			var far := 0.0
+			for t in range(an.get_track_count()):
+				if an.track_get_type(t) == Animation.TYPE_ROTATION_3D:
+					far = maxf(far, rad_to_deg(an.rotation_track_interpolate(t, 0.0).angle_to(an.rotation_track_interpolate(t, 4.0 / 24.0))))
+			check(far > 20.0, "anim %s: golpe com pose de impacto no quadro 5 (%.0f°)" % [model, far])
+			check(ap.has_animation("hit") and ap.has_animation("die") and ap.get_animation("die").length >= 0.8, "anim %s: tranco e morte com tempo" % model)
+		inst.free()
+	# monstro humanoide: só os 7 clipes com nome de bicho (o resto do kit não vai no GLB)
+	var hm: Node = (load("res://assets/models/mob_skeleton.glb") as PackedScene).instantiate()
+	var hap: AnimationPlayer = hm.find_children("*", "AnimationPlayer", true, false)[0]
+	var names := Array(hap.get_animation_list())
+	names.sort()
+	check(names == ["attack", "block", "cast", "die", "hit", "idle", "run"], "anim: monstro humanoide tem idle/run/attack/cast/hit/die/block (%s)" % [names])
+	hm.free()
+
 ## Preparo curto: o clipe começa no meio da preparação (não corre mais que WINDUP_MAX_SPEED) e o impacto cai no fim do preparo.
 func _check_windup_timing() -> void:
 	for pair in [[0.375, 0.12], [0.29, 0.12], [0.33, 0.5], [0.2, 0.06]]:
@@ -429,6 +484,7 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_windup_timing()
 	_check_pose_fade()
 	_check_hand_twist()
+	_check_anim_review()
 	_check_mastery_desc()
 	# builds: paladino = tanque (escudo) ou 2 mãos; berserker = 2 mãos ou duas armas de 1 mão (machado/espada misturados)
 	var pb: Array = gd.classes["paladin"].builds.map(func(b): return b["id"])
