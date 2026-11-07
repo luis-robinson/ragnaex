@@ -52,6 +52,7 @@ func load_all() -> void:
 		items[i.id] = i
 	for sd in gear["sets"]:
 		sets[sd.id] = sd
+	_scale_attrs()
 	for m in MonstersCatalog.build():
 		monsters[m.id] = m
 	for l in MonstersCatalog.build_loot():
@@ -67,6 +68,27 @@ func load_all() -> void:
 	QuestsCatalog.scale_xp(quests)             # quests dão ~45% da XP de cada faixa (Balance.XP_QUEST_SHARE)
 	bot_names = BotsCatalog.NAMES.duplicate()
 	bot_lines = BotsCatalog.LINES
+
+## Catálogos escritos na escala antiga de atributos: itens e bônus de conjunto x Balance.ATTR_SCALE (cópia nova:
+## nada de dicionário compartilhado escalado duas vezes).
+func _scale_attrs() -> void:
+	for id in items:
+		var it: ItemDef = items[id]
+		var out := {}
+		for a in it.attributes:
+			out[a] = int(it.attributes[a]) * Balance.ATTR_SCALE
+		it.attributes = out
+	for sid in sets:
+		var sd: SetDef = sets[sid]
+		for k in sd.bonuses:
+			var b: Dictionary = sd.bonuses[k]
+			if b.has("attrs"):
+				var out := {}
+				for a in b["attrs"]:
+					out[a] = int(b["attrs"][a]) * Balance.ATTR_SCALE
+				var nb := b.duplicate()
+				nb["attrs"] = out
+				sd.bonuses[k] = nb
 
 ## Versão aprimorada de um item: id "<base>+N", stats da base com o bônus por nível. Cada cópia aprimorada
 ## vira um item próprio (a espada +3 e a espada +0 são pilhas diferentes). Criada uma vez e guardada em `items`.

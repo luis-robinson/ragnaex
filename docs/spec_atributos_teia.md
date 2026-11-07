@@ -1,6 +1,6 @@
 # Spec: atributos na teia (caminho +1, círculo +5, fundo +10)
 
-**Status:** a fazer. A tentativa de 2026-11-07 foi descartada sem commit: não compilava e não foi calibrada. O estado atual é o commit `3b102d2`: estradas não dão nada e o círculo dá +1.
+**Status:** feito em 2026-11-07 (ATTR_SCALE=10; estrada +1, círculo +5..+10 pela profundidade da própria teia, notável +6..+12, notáveis gerais +5; web_probe no 30: ATK x1,42, HP x1,24).
 
 ## Pedido
 - Os caminhos (estradas e junções da teia) devem dar pelo menos um pouco de status relevante, por exemplo **+1 FOR**. O atributo depende da classe e do setor.

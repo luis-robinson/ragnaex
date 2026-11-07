@@ -13,9 +13,9 @@ extends RefCounted
 
 ## Notáveis gerais (os antigos talentos de escolha), em laço por classe; "power" = ATK ou MATK.
 const RING_NOTABLES := [
-	["Olho Treinado", {"crit": 3.0, "attr_AGI": 2}], ["Ritmo de Batalha", {"aspd_pct": 6}], ["Mente Serena", {"cdr": 5, "attr_WILL": 2}],
-	["Sangue Forte", {"hp_pct": 6, "attr_VIT": 2}], ["Passo Leve", {"speed_pct": 5, "evasion": 1.5}], ["Couraça", {"def_pct": 7}],
-	["Sede", {"lifesteal": 2}], ["Poço Arcano", {"mp_pct": 10, "attr_INT": 2}], ["Golpe Firme", {"power": 5, "attr_FOR": 2}],
+	["Olho Treinado", {"crit": 3.0, "attr_AGI": 5}], ["Ritmo de Batalha", {"aspd_pct": 6}], ["Mente Serena", {"cdr": 5, "attr_WILL": 5}],
+	["Sangue Forte", {"hp_pct": 6, "attr_VIT": 5}], ["Passo Leve", {"speed_pct": 5, "evasion": 1.5}], ["Couraça", {"def_pct": 7}],
+	["Sede", {"lifesteal": 2}], ["Poço Arcano", {"mp_pct": 10, "attr_INT": 5}], ["Golpe Firme", {"power": 5, "attr_FOR": 5}],
 	["Mãos Curadoras", {"heal_pct": 7}], ["Vigília", {"buff_pct": 10}], ["Instinto", {"crit": 2.0, "power": 3}],
 ]
 ## Notáveis de braço por papel (nome, bônus); o laço anda pela lista e soma o atributo principal da build.
@@ -27,9 +27,17 @@ const ARM_NOTABLES := {
 	"healer": [["Graça", {"heal_pct": 7}], ["Fé Viva", {"heal_pct": 4, "buff_pct": 6}], ["Coro", {"buff_pct": 10}], ["Luz Serena", {"heal_pct": 5, "mp_pct": 5}]],
 	"": [["Vigor", {"hp_pct": 5}], ["Agilidade", {"speed_pct": 4}], ["Treino", {"power": 4}], ["Resistência", {"def_pct": 5}]],
 }
-const SMALL_ATTR := 1             # atributo de um nó pequeno (FOR +1 ...; calibrado pelo boss_probe: a teia inteira não pode dobrar a força)
-const NOTABLE_ATTR := 1           # atributo principal num notável de braço
-const NOTABLE_SCALE := 0.25        # bônus % dos notáveis (braço e anel) x isto
+## Atributos na escala nova (Balance.ATTR_SCALE): estrada/junção +1 do setor; nó de círculo +5 perto do início até +10
+## no fundo; notável +6..+12. Calibrado por tools/tests/web_probe (alvo ~x1,4 ATK e ~x1,2 HP no 30).
+const ROAD_ATTR := 1                     # estrada, junção e os 2 nós do anel do notável sem atributo de círculo
+const CLUSTER_ATTR := Vector2i(5, 10)    # entrada do círculo de skill; 3 de 5 do anel do notável (perto -> fundo)
+const NOTABLE_ATTR := Vector2i(6, 12)    # atributo principal num notável
+
+## Valor pela profundidade na teia: mínimo na casa mais perto do início, máximo na mais longe (`far` = raio dela).
+static func _depth(c: Vector2, span: Vector2i, far: float) -> int:
+	var t := clampf((c.length() - CELL) / maxf(1.0, far - CELL), 0.0, 1.0)
+	return roundi(lerpf(span.x, span.y, t))
+const NOTABLE_SCALE := 0.2        # bônus % dos notáveis (braço e anel) x isto
 
 static func _is_caster(cls: ClassDef) -> bool:
 	return cls.builds.any(func(b): return b["role"] in ["caster", "healer"])
@@ -228,7 +236,9 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 					var hp := Vector2(h.x, h.y) * CELL + Vector2(rng.randf_range(-1, 1), rng.randf_range(-1, 1)) * JITTER_HUB
 					var br: Dictionary = branches[sector_of.call(hp)] if hp.length() > 0.1 else branches[0]
 					var hid := "%s_h_%d_%d" % [cls.id, h.x + 50, h.y + 50]
-					nodes[hid] = _node(hid, "stat", "", "Junção", "Junção: só caminho (o que dá está nos círculos).", 1, 1, hp)
+					var hst := {"attr_" + str(br["attr"]): ROAD_ATTR}
+					nodes[hid] = _node(hid, "stat", "", "Junção", "Junção: %s." % stat_text(hst), 1, 1, hp)
+					nodes[hid]["stats"] = hst
 					nodes[hid]["branch"] = "ring"
 					hubs[h] = hid
 					hub_list.append(h)
@@ -261,11 +271,16 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 		var mid := ((nodes[hubs[a]]["pos"] as Vector2) + (nodes[hubs[b]]["pos"] as Vector2)) * 0.5
 		var br: Dictionary = branches[sector_of.call(mid)]
 		var tid := "%s_e_%d_%d_%d_%d" % [cls.id, a.x + 50, a.y + 50, b.x + 50, b.y + 50]
-		nodes[tid] = _node(tid, "stat", "", "Passagem", "Passagem: só caminho (o que dá está nos círculos).", 1, 1, mid)
+		var est := {"attr_" + str(br["attr"]): ROAD_ATTR}
+		nodes[tid] = _node(tid, "stat", "", "Passagem", "Passagem: %s." % stat_text(est), 1, 1, mid)
+		nodes[tid]["stats"] = est
 		nodes[tid]["branch"] = "ring"
 		_link(nodes, hubs[a], tid)
 		_link(nodes, tid, hubs[b])
 	# círculos
+	var far := 0.0                    # casa mais longe: o fundo da teia (+10)
+	for cl in clusters:
+		far = maxf(far, (cl["cell"]["c"] as Vector2).length())
 	var notable_i := rng.randi() % 7
 	var small_i := {}                 # por ramo: anda pela lista de passivos da build
 	var out_clusters: Array = []
@@ -302,7 +317,7 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 				var sid := ""
 				if str(roles[s]) == "in":                 # entrada: atributo da build, liga na junção
 					sid = "%s_n_%s_in" % [cls.id, cid]
-					var st := {"attr_" + str(br["attr"]): SMALL_ATTR}
+					var st := {"attr_" + str(br["attr"]): _depth(c, CLUSTER_ATTR, far)}
 					nodes[sid] = _node(sid, "stat", "", stat_text(st), "Passivo: %s." % stat_text(st), 1, 1, at)
 					nodes[sid]["stats"] = st
 					_link(nodes, sid, hubs[corner])
@@ -318,7 +333,7 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 					var smalls: Array = br["passives"] if not br.get("passives", []).is_empty() else ROLE_STATS.get(br["role"], ROLE_STATS[""])
 					var si: int = small_i.get(bi, 0)
 					small_i[bi] = si + 1
-					var st := _power(_scaled(smalls[si % smalls.size()], 0.3), cls)
+					var st := _power(_scaled(smalls[si % smalls.size()], 0.25), cls)
 					nodes[sid] = _node(sid, "stat", "", stat_text(st), "Passivo: %s." % stat_text(st), sk.unlock_level, 1, at)
 					nodes[sid]["stats"] = st
 				nodes[sid]["branch"] = br["id"]
@@ -335,7 +350,8 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 			notable_i += 1
 			var nn := "%s_n_%s_x" % [cls.id, cid]
 			var nst := _power(_scaled(pick[1]), cls)
-			nst["attr_" + str(br["attr"])] = NOTABLE_ATTR
+			var na := "attr_" + str(br["attr"])
+			nst[na] = int(nst.get(na, 0)) + _depth(c, NOTABLE_ATTR, far)
 			nodes[nn] = _node(nn, "notable", "", pick[0], "Notável: %s." % stat_text(nst), 1, 1, c)
 			nodes[nn]["stats"] = nst
 			nodes[nn]["branch"] = br["id"]
@@ -343,8 +359,9 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 			for s in range(5):
 				var a := base_a + TAU * s / 5.0
 				var sid := "%s_n_%s_%d" % [cls.id, cid, s]
-				var st := {"attr_" + str(br["attr"] if s % 4 == 0 else br["attr2"]): SMALL_ATTR} if s % 2 == 0 else {}     # 3 de 5 dão atributo
-				nodes[sid] = _node(sid, "stat", "", stat_text(st) if not st.is_empty() else "Caminho", "Passivo: %s." % stat_text(st) if not st.is_empty() else "Caminho do círculo.", 1, 1, c + Vector2(cos(a), sin(a)) * WHEEL_R)
+				var ra := "attr_" + str(br["attr"] if s % 4 == 0 else br["attr2"])
+				var st := {ra: _depth(c, CLUSTER_ATTR, far) if s % 2 == 0 else ROAD_ATTR}     # 3 de 5 dão o atributo do círculo, 2 dão +1
+				nodes[sid] = _node(sid, "stat", "", stat_text(st), "Passivo: %s." % stat_text(st), 1, 1, c + Vector2(cos(a), sin(a)) * WHEEL_R)
 				nodes[sid]["stats"] = st
 				nodes[sid]["branch"] = br["id"]
 				ring.append(sid)

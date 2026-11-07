@@ -249,9 +249,17 @@ func run_all(gd, sim, balance, save) -> void:
 		var it = gd.items[iid]
 		eq[it.slot] = it
 	var st = Stats.compute(pal, 1, eq, [])
-	check(st.attrs["FOR"] == 5 and st.attrs["VIT"] == 5 and st.attrs["AGI"] == 0, "atributos do paladino vêm do equipamento (FOR=%d VIT=%d)" % [st.attrs["FOR"], st.attrs["VIT"]])
+	check(st.attrs["FOR"] == 5 * Balance.ATTR_SCALE and st.attrs["VIT"] == 5 * Balance.ATTR_SCALE and st.attrs["AGI"] == 0, "atributos do paladino vêm do equipamento (FOR=%d VIT=%d)" % [st.attrs["FOR"], st.attrs["VIT"]])
 	check(st.has_shield and st.block_chance > 12.0, "escudo dá chance de bloqueio")
 	check(st.max_hp == pal.base_hp + 5 * balance.HP_PER_VIT, "HP = base + VIT*12")
+	var st_web = Stats.compute(pal, 1, eq, [{"attr_VIT": Balance.ATTR_SCALE}])
+	check(is_equal_approx(st_web.max_hp - st.max_hp, balance.HP_PER_VIT), "escala de atributos: %d pontos de VIT (teia) = 1 ponto antigo" % Balance.ATTR_SCALE)
+	var off_scale: Array = []
+	for iid in gd.items:
+		for a in gd.items[iid].attributes:
+			if int(gd.items[iid].attributes[a]) % Balance.ATTR_SCALE != 0 and gd.items[iid].plus == 0:
+				off_scale.append(iid)
+	check(off_scale.is_empty(), "atributos de item escalados x%d ao carregar %s" % [Balance.ATTR_SCALE, off_scale.slice(0, 3)])
 	var ran = gd.classes["ranger"]
 	var eq2 := {}
 	for iid in ran.starting_equipment:
@@ -518,7 +526,7 @@ func _check_builds(gd) -> void:
 			check(gd.skills[sid].kind in GearCatalog.DAMAGE_KINDS, "%s: bônus de 4 peças em skill de dano/cura" % set_id)
 	# exemplo pedido: elementalista de fogo nível 5 -> 3 peças INT +2, 4 peças Bola de Fogo +20%
 	var fire: SetDef = gd.sets.get("set_elementalist_fogo_5")
-	check(fire != null and fire.bonuses[3]["attrs"].get("INT", 0) == 2 and fire.bonuses[4]["skill_dmg"].get("ele_fireball", 0.0) == 20.0, "conjunto de fogo lv5: INT +2 (3) e Bola de Fogo +20% (4)")
+	check(fire != null and fire.bonuses[3]["attrs"].get("INT", 0) == 2 * Balance.ATTR_SCALE and fire.bonuses[4]["skill_dmg"].get("ele_fireball", 0.0) == 20.0, "conjunto de fogo lv5: INT +2 (3) e Bola de Fogo +20% (4)")
 	# todos os tipos de arma pedidos existem em itens comuns
 	for t in ["sword", "sword2h", "mace", "mace2h", "axe", "axe2h", "shield", "bow", "wand", "orb"]:
 		var n := 0
@@ -601,7 +609,7 @@ func _check_skill_points(gd, sim, p) -> void:
 		eq[it.slot] = it
 		base_int += it.attr("INT")
 	var st3 := Stats.compute(cls, 5, eq, [])
-	check(st3.attrs["INT"] == base_int + 2 and st3.skill_power_mult("ele_fireball") == 1.0, "3 peças: INT +2 (%d vs %d)" % [st3.attrs["INT"], base_int])
+	check(st3.attrs["INT"] == base_int + 2 * Balance.ATTR_SCALE and st3.skill_power_mult("ele_fireball") == 1.0, "3 peças: INT +2 (%d vs %d)" % [st3.attrs["INT"], base_int])
 	var it4: ItemDef = gd.items[fire.pieces[3]]
 	eq[it4.slot] = it4
 	var st4 := Stats.compute(cls, 5, eq, [])
@@ -3896,6 +3904,7 @@ func _check_villagers(gd, sim) -> void:
 	var smith_at: Vector3 = smith.position
 	var far := 0.0
 	var moved := 0
+	var went := {}
 	var bad: Array = []
 	for i in range(60 * 40):
 		for v in vil:
@@ -3905,10 +3914,11 @@ func _check_villagers(gd, sim) -> void:
 				var home: Vector3 = v.npc_data["pos"]
 				var lim: float = float(v.npc_data.get("wander", 0.0)) + 1.5 if v.npc_data.has("wander") else 40.0
 				far = maxf(far, home.distance_to(v.position) - lim)
+				went[v.id] = maxf(float(went.get(v.id, 0.0)), v.position.distance_to(start[v.id]))     # passear e voltar para casa também conta
 				if not sim.is_walkable(v.position, def, 0.3):
 					bad.append(v.npc_data["id"])
 	for v in vil:
-		if v.position.distance_to(start[v.id]) > 1.0:
+		if float(went.get(v.id, 0.0)) > 1.0:
 			moved += 1
 	check(moved >= vil.size() - 2, "moradores andam (%d/%d se moveram em 40 s)" % [moved, vil.size()])
 	check(far <= 0.0, "moradores ficam perto de casa (excesso %.1f m)" % far)
@@ -4718,6 +4728,28 @@ func _check_tree(gd, sim, save) -> void:
 					attr_nodes += 1
 					break
 		check(attr_nodes >= 40, "%s: nós de atributo (FOR/AGI/VIT/WILL/INT) na teia (%d)" % [cid, attr_nodes])
+		# escala nova: estrada/junção +1; entrada de círculo +5..+10 (mais longe do início = mais)
+		var road_bad: Array = []
+		var near_in := 99
+		var far_in := 0
+		for nid in nodes:
+			var nd: Dictionary = nodes[nid]
+			if nd["kind"] == "stat" and nd["branch"] == "ring":
+				var tot := 0
+				for k in nd["stats"]:
+					tot += int(nd["stats"][k])
+				if tot != TreeCatalog.ROAD_ATTR:
+					road_bad.append(nid)
+			elif nd["kind"] == "stat" and str(nid).ends_with("_in"):
+				var v: int = nd["stats"].values()[0]
+				check(v >= TreeCatalog.CLUSTER_ATTR.x and v <= TreeCatalog.CLUSTER_ATTR.y, "%s: entrada de círculo %s dá +5..+10 (%d)" % [cid, nid, v])
+				near_in = mini(near_in, v)
+			if nd["kind"] == "stat" and nd["branch"] != "ring":
+				for k in nd["stats"]:
+					if str(k).begins_with("attr_"):
+						far_in = maxi(far_in, int(nd["stats"][k]))
+		check(road_bad.is_empty(), "%s: estradas e junções dão +%d de atributo %s" % [cid, TreeCatalog.ROAD_ATTR, road_bad.slice(0, 3)])
+		check(near_in == TreeCatalog.CLUSTER_ATTR.x and far_in == TreeCatalog.CLUSTER_ATTR.y, "%s: círculo perto dá +%d e no fundo +%d (%d..%d)" % [cid, TreeCatalog.CLUSTER_ATTR.x, TreeCatalog.CLUSTER_ATTR.y, near_in, far_in])
 		var seen := {tr["start"]: true}
 		var queue: Array = [tr["start"]]
 		while queue.size() > 0:

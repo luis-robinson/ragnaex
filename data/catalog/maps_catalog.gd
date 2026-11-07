@@ -456,7 +456,7 @@ const VILLAGERS := {
 	"vil_baker": ["Padeira Rosa", Color(0.95, 0.85, 0.6), ["Pão quentinho para quem volta da caça!", "Farinha da fazenda, mel da floresta. Simples e bom."], [11.0, 6.0], 5.0],
 	"vil_bard": ["Bardo Fennel", Color(0.55, 0.75, 0.45), ["♪ Lá na Campina o javali corria... ♪", "Toda canção precisa de um herói. Está procurando trabalho?"], [-11.0, 6.0], 6.0],
 	"vil_monk": ["Irmão Odo", Color(0.85, 0.8, 0.7), ["Que a luz guie seus passos pela Campina.", "Os mortos das Ruínas não descansam. Reze por eles."], [7.0, -9.0], 5.0],
-	"vil_porter": ["Carregador Juca", Color(0.6, 0.45, 0.35), ["Caixas para o mercador, caixas para o ferreiro... minhas costas!", "Se vir o Tobias, diga que a carga atrasou."], [3.0, 13.0], [[3.0, 13.0], [-8.0, 13.0], [-14.0, -12.0], [14.0, -14.0]]],
+	"vil_porter": ["Carregador Juca", Color(0.6, 0.45, 0.35), ["Caixas para o mercador, caixas para o ferreiro... minhas costas!", "Se vir o Tobias, diga que a carga atrasou."], [2.5, 12.0], [[2.5, 12.0], [-8.0, 13.0], [-14.0, -12.0], [14.0, -14.0]]],
 	"vil_patrol": ["Guarda de Ronda", Color(0.6, 0.6, 0.75), ["Ronda tranquila. Os monstros não passam do muro.", "Mantenha a arma na bainha dentro da vila."], [0.0, -19.0], [[0.0, -19.0], [19.0, 2.0], [2.0, 19.0], [-19.0, -2.0]]],
 }
 ## Cidadãos da Cidade Élfica (neutros: não atacam nem são alvo): [nome, cor da roupa, falas, casa [x,z], passeio m | rota, modelo].

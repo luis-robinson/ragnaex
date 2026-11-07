@@ -3,8 +3,11 @@ extends Node
 
 const MAX_LEVEL := 30
 const ATTRS := ["FOR", "AGI", "VIT", "WILL", "INT"]
+## Escala dos atributos: cada ponto vale 1/ATTR_SCALE do antigo (a teia dá +1 na estrada e +5..+10 nos círculos).
+## Os catálogos de equipamento e conjuntos seguem na escala antiga e são multiplicados ao carregar (GameData.load_all).
+const ATTR_SCALE := 10
 
-# --- atributos -> stats derivados ---
+# --- atributos -> stats derivados (por ponto da escala antiga = ATTR_SCALE pontos de hoje) ---
 const HP_PER_VIT := 12.0
 const MP_PER_WILL := 8.0
 const PATK_PER_FOR := 2.0

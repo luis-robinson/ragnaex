@@ -66,11 +66,11 @@ func _meets_one(r: String) -> bool:
 	return weapon_type == r
 
 
-## Atributo a mais de uma peça +N: % do atributo dela, nunca menos de +1 a cada 3 níveis (peça com o atributo).
+## Atributo a mais de uma peça +N: % do atributo dela, nunca menos de +1 (escala antiga) a cada 3 níveis (peça com o atributo).
 static func plus_attr(base: int, pl: int) -> int:
 	if base <= 0 or pl <= 0:
 		return 0
-	return maxi(int(round(base * pl * Balance.PLUS_ATTR_PCT)), pl / 3)
+	return maxi(int(round(base * pl * Balance.PLUS_ATTR_PCT)), pl / 3 * Balance.ATTR_SCALE)
 
 static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Array) -> Stats:
 	var s := Stats.new()
@@ -130,8 +130,10 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 	s.is_ranged_weapon = s.weapon_type in ["bow", "rifle"]
 	s.is_magic_weapon = s.weapon_type in ["staff", "wand", "scythe", "scepter"]
 
-	var FOR := float(s.attrs["FOR"]); var AGI := float(s.attrs["AGI"]); var VIT := float(s.attrs["VIT"])
-	var WILL := float(s.attrs["WILL"]); var INT := float(s.attrs["INT"])
+	# escala nova: Balance.*_PER_* valem por ATTR_SCALE pontos
+	var sc := float(Balance.ATTR_SCALE)
+	var FOR: float = s.attrs["FOR"] / sc; var AGI: float = s.attrs["AGI"] / sc; var VIT: float = s.attrs["VIT"] / sc
+	var WILL: float = s.attrs["WILL"] / sc; var INT: float = s.attrs["INT"] / sc
 
 	# 2) equipamento: atk/def planos
 	var eq_atk := 0.0; var eq_matk := 0.0; var eq_def := 0.0; var eq_mdef := 0.0
