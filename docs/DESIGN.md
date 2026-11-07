@@ -45,11 +45,11 @@ Cada classe tem **20+ skills** (`skills_catalog.gd`), mas só **6 vão na barra*
 | Classe | Builds (arma) |
 |---|---|
 | Paladino | Guardião (espada/maça + escudo, tank) · Cruzado (montante/martelo 2M, dps) · Templário (espada/maça + escudo, dps de fogo sagrado) |
-| Berserker | Armas Gêmeas (2 armas de 1 mão: machadinhas e/ou espadas) · Executor (machado/montante 2M) |
+| Berserker | Armas Gêmeas (2 machadinhas) · Executor (machado 2M) · Arremessador (2 machadinhas de arremesso, sangramento à meia distância) |
 | Bispo | Sacerdote (maça + escudo; cura em grupo) · Iluminado (cetro 2M, dano sagrado) · Clérigo de Batalha (maça + escudo, placa; golpes que curam) |
 | Druida | Guardião da Floresta (martelo 2M, tank) · Fera Selvagem (2 maças) · Xamã (varinha + orbe, magia) |
 | Ranger | Caçador (arco + lince companheiro) · Atirador (mosquete + armadilhas) · Patrulheiro (arco veloz: armadilhas, lentidão e marca na presa) |
-| Assassino | Lâminas (2 adagas: veneno, esquiva, furtividade, pelas costas, ataque muito rápido) · Duelista (2 espadas, equilibrado) |
+| Assassino | Lâminas (2 adagas: veneno, esquiva, furtividade, pelas costas, ataque muito rápido) · Duelista (2 espadas, equilibrado) · Trapaceiro (espada + adaga de aparar: fumaça, estrepes, controle) |
 | Elementalista | Foco em Fogo · Gelo · Raio, todos de cajado (os ramos se misturam; conjuntos favorecem um elemento ou uma combinação) |
 | Necromancer | Invocador · Ceifador · Sombras, todos de foice (focos que se misturam) |
 
@@ -64,7 +64,9 @@ Arma de 2 mãos (montante, martelo, machado de guerra, cajado, arco, foice) libe
 
 **Berserker** (só machados): **Machados Gêmeos** (dois machados de 1 mão, couro) = velocidade de ataque (`aspd_pct`, recarga do básico menor) e
 roubo de vida (`lifesteal`, % do dano direto volta como vida; dano no tempo não conta), na árvore e no conjunto. **Executor** (machado de 2 mãos,
-placa) = tanque de apoio: passivos e conjunto com vida e defesa sem perder ATK. Tetos: `Balance.LIFESTEAL_CAP` 20%, `ATTACK_SPEED_CAP` 60%.
+placa) = tanque de apoio: passivos e conjunto com vida e defesa sem perder ATK. **Arremessador** (duas machadinhas, couro) = meia distância:
+Machadinha Voadora, Machado Ricochete (atravessa), Leque de Machadinhas, Chuva de Machados e Arremesso Colossal fazem sangrar; mistura Talho/
+Dilacerar/Arremesso Brutal dos Gêmeos e os gritos gerais; árvore e conjunto com crítico e recarga; arma com Hemorragia. Tetos: `Balance.LIFESTEAL_CAP` 20%, `ATTACK_SPEED_CAP` 60%.
 Toda arma corpo a corpo de duas mãos (montante, malho, machado; `Balance.BIG_SWING_WEAPONS`) tem golpe básico largo: alcance x1,4,
 arco de 150° e até 4 alvos (`Balance.BIG_SWING_*`). Vale para Executor, Cruzado e Inquisidor; arco e cajado não mudam.
 
@@ -104,7 +106,10 @@ um veneno que renova, não acumula, `Balance.HIT_POISON_TIME`), **esquiva** (`ev
 esquivado não causa nada, evento `dodged`), Sumir (`stealth` sem forma: só o Lobo do Druida exige estar transformado) e **pelas costas**
 (`backstab`: % de dano e +`BACKSTAB_CRIT` de crítico quando o atacante está atrás do alvo, `Combat.is_behind`). Venenos escalam com ATK.
 **Duelista** (duas espadas, `atk_pct`): golpes largos, Guarda (DEF + esquiva), Avanço, Turbilhão, Foco e Golpe de Mestre; árvore com
-ATK/DEF/crítico e conjunto com DEF + crítico. Envenenador e Sombra saíram (save com nó antigo reseta a árvore e devolve os pontos).
+ATK/DEF/crítico e conjunto com DEF + crítico. **Trapaceiro** (espada + adaga de aparar, `atk_pct`): controle — Facas da Sombra (leque
+que retarda), Bomba de Fumaça (tonteia e retarda), Expor Fraqueza (alvo recebe +20% de todos, maldição `expose`), Estrepes, Toxina
+Paralisante e Golpe Baixo; Dardo/Nuvem/Sumir das Lâminas e Estocada/Guarda do Duelista valem para qualquer par de armas (`dual`);
+árvore e conjunto com recarga e DEF; arma com Truque Sujo. Envenenador e Sombra saíram (save com nó antigo reseta a árvore e devolve os pontos).
 
 **Elementalista**: só **cajado**; Fogo, Gelo e Raio são focos (ramos da árvore), não caminhos fechados: dá para pegar skills dos três.
 Cada skill tem `SkillDef.elements` (o ramo dá; gerais e combinações em `SkillsCatalog.ELEMENTS`) e o dano multiplica pela média de
@@ -520,11 +525,11 @@ Cada conjunto tem **5 peças de armadura** (cabeça, peito, **calça**, luvas, b
 mão secundária) é do conjunto, mas **não conta** nas peças: a arma lendária tem **efeito próprio** pelo papel da build, crescendo por tier —
 um por build (`GearCatalog.LEGEND_EFFECTS`, números [base, por tier]):
 Guardião Retaliação (devolve corpo a corpo) · Cruzado Julgamento (chance de atordoar) · Gêmeos Frenesi (golpes acumulam vel. de ataque) ·
-Executor Carrasco (+dano em alvo < 30%) · Sacerdote Égide (cura vira barreira) · Iluminado Castigo Sagrado (básico lança Castigar) ·
+Executor Carrasco (+dano em alvo < 30%) · Arremessador Hemorragia (+dano em alvo sangrando/envenenado) · Sacerdote Égide (cura vira barreira) · Iluminado Castigo Sagrado (básico lança Castigar) ·
 Templário Penitência (5ª carga explode em fogo sagrado) · Clérigo de Batalha Mão que Cura (golpe cura o aliado mais ferido) ·
 Urso Casca Viva (apanhou: Pele de Carvalho, 20 s) · Lobo Sangue da Matilha (sangramento) · Xamã Lua Cheia (básico lança Fogo Lunar) ·
 Caçador Marca (alvo recebe mais dano de todos) · Atirador Pólvora (tiro explode em área) · Patrulheiro Presa Acuada (+dano em alvo retardado/preso) · Lâminas Veneno Letal · Duelista Riposte (esquivou,
-contra-ataca) · Fogo Brasa Viva (básico lança Bola de Fogo) · Gelo Coração de Gelo (apanhou: Nova de Gelo, no máx. a cada 20 s) · Raio Arco
+contra-ataca) · Trapaceiro Truque Sujo (chance de retardar; +dano em alvo lento/preso/atordoado) · Fogo Brasa Viva (básico lança Bola de Fogo) · Gelo Coração de Gelo (apanhou: Nova de Gelo, no máx. a cada 20 s) · Raio Arco
 Voltaico (básico salta para +1 alvo) · Invocador Legião (abate levanta esqueleto) · Ceifador Ceifa (abate cura) · Sombras Praga (básico lança Agonia).
 Atributos: toda peça lendária usa os dois atributos da build; escudos nomeados seguem a afinidade (Paladino VIT/FOR, Bispo VIT/WILL);
 o Elementalista Raio é INT/WILL (AGI não serve a mago) e o conjunto inicial do Paladino é VIT/FOR.

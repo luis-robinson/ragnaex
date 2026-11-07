@@ -2,8 +2,8 @@ class_name LegendEffects
 extends RefCounted
 ## Efeitos das armas lendárias (GearCatalog.LEGEND_EFFECTS): ao acertar, ao bater com a arma, ao abater.
 
-## Multiplicador de dano da arma lendária no alvo (Carrasco: alvo com pouca vida apanha mais; Presa Acuada:
-## alvo retardado, preso ou atordoado apanha mais).
+## Multiplicador de dano da arma lendária no alvo (Carrasco: pouca vida; Presa Acuada e Truque Sujo: lento/preso/atordoado;
+## Hemorragia: sangrando).
 static func legend_power(sim: WorldSim, e: SimEntity, t: SimEntity) -> float:
 	var le: Dictionary = e.stats.legend if e.is_character() else {}
 	match str(le.get("kind", "")):
@@ -12,6 +12,12 @@ static func legend_power(sim: WorldSim, e: SimEntity, t: SimEntity) -> float:
 				return 1.0 + float(le["pct"]) / 100.0
 		"prey":
 			if Combat.is_chilled(t):
+				return 1.0 + float(le["pct"]) / 100.0
+		"hemorrhage":                 # Arremessador: alvo sangrando (ou com qualquer dano no tempo) apanha mais
+			if t.has_debuff("dot"):
+				return 1.0 + float(le["pct"]) / 100.0
+		"dirty_trick":                # Trapaceiro: alvo lento, preso ou atordoado apanha mais
+			if t.has_debuff("slow") or t.has_debuff("root") or t.state == SimEntity.State.STUNNED:
 				return 1.0 + float(le["pct"]) / 100.0
 	return 1.0
 
@@ -122,6 +128,9 @@ static func legend_on_hit(sim: WorldSim, e: SimEntity, t: SimEntity, s: SkillDef
 			if t.is_alive() and sim.rng.randf() * 100.0 < float(le["chance"]):
 				var did := "legend_%s_%d" % [le["kind"], e.id]
 				t.put_debuff({"kind": "dot", "id": did, "remaining": 3.0, "dps": maxf(1.0, e.stats.patk * float(le["pct"]) / 100.0), "src": e.id})
+		"dirty_trick":                      # golpe baixo: chance de retardar (e aí o próprio efeito bate mais forte)
+			if t.is_alive() and sim.rng.randf() * 100.0 < float(le["chance"]):
+				sim._apply_effects(e, t, {"slow": {"pct": 30, "duration": 2.0}}, 0.0)
 		"mark":
 			if t.is_alive():
 				sim._apply_effects(e, t, {"curse": {"id": "legend_mark", "duration": 4.0, "taken_pct": float(le["pct"])}}, 0.0)

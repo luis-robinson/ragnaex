@@ -24,11 +24,11 @@ static func _s(a: Array) -> Array[String]:
 ## básico ou com skills, em qualquer nível e com qualquer arma. `look` = tema visual do básico da build (só aparência).
 const SIGNATURES := {
 	"guardiao": {"skill": "pal_holy_strike", "look": "holy"}, "cruzado": {"skill": "pal_holy_wave", "look": "holy"}, "templario": {"skill": "pal_sacred_flame", "look": "holy"},
-	"carniceiro": {"skill": "ber_throw_axe", "look": "blood"}, "executor": {"skill": "ber_overhead", "look": "blood"},
+	"carniceiro": {"skill": "ber_throw_axe", "look": "blood"}, "executor": {"skill": "ber_overhead", "look": "blood"}, "arremessador": {"skill": "ber_hatchet", "look": "blood", "power": 0.8},
 	"sacerdote": {"skill": "bis_light", "look": "holy"}, "inquisidor": {"skill": "bis_hammer", "look": "holy"}, "batalha": {"skill": "bis_holy_nova", "look": "holy"},
 	"guardiao_verde": {"skill": "dru_moonfire", "look": "nature"}, "fera": {"skill": "dru_claw", "look": "nature", "power": 0.8}, "xama": {"skill": "dru_moonfire", "look": "lunar", "power": 0.85},
 	"cacador": {"skill": "ran_frost_arrow", "look": "ice"}, "atirador": {"skill": "ran_snipe", "look": "fire"}, "patrulheiro": {"skill": "ran_caltrops", "look": "wind"},
-	"laminas": {"skill": "ass_venom_dart", "look": "poison", "power": 0.8}, "duelista": {"skill": "ass_thrust", "look": "blood", "power": 0.55},
+	"laminas": {"skill": "ass_venom_dart", "look": "poison", "power": 0.8}, "duelista": {"skill": "ass_thrust", "look": "blood", "power": 0.55}, "trapaceiro": {"skill": "ass_shadow_knives", "look": "shadow", "power": 0.7},
 	"fogo": {"skill": "ele_fireball", "look": "fire"}, "gelo": {"skill": "ele_ice_lance", "look": "ice", "power": 0.9}, "raio": {"skill": "ele_chain", "look": "lightning"},
 	"invocador": {"skill": "nec_bone_spear", "look": "bone"}, "ceifador": {"skill": "nec_soul_rend", "look": "shadow", "power": 0.8}, "pestilento": {"skill": "nec_mind_flay", "look": "shadow", "power": 0.7},
 }
@@ -60,7 +60,7 @@ static func build() -> Array:
 					"passives": [{"atk_pct": 3}, {"crit": 1.5}], "set_extra": {3: {"crit": [3.0, 0.8]}}}),
 			]}),
 		_mk({"id": "berserker", "body_type": "male", "hair_color": Color(0.55, 0.2, 0.12), "name": "Berserker", "role": "dps", "color": Color(0.85, 0.3, 0.25),
-			"description": "Fúria pura. Dois machados velozes que bebem o sangue do inimigo ou um machado de duas mãos que aguenta o tranco e executa.",
+			"description": "Fúria pura. Dois machados velozes que bebem o sangue do inimigo, um machado de duas mãos que aguenta o tranco e executa, ou machadinhas arremessadas que deixam tudo sangrando.",
 			"weapon_types": _s(["axe2h", "axe"]), "offhand_types": _s(["axe"]),
 			"base_hp": 125.0, "base_mp": 40.0, "hp_per_level": 14.0, "mp_per_level": 4.0, "move_speed": 5.4,
 			"basic_attack_power": 1.25, "basic_attack_cooldown": 0.85, "basic_attack_range": 2.2,
@@ -76,6 +76,12 @@ static func build() -> Array:
 					["ber_cleave", "ber_overhead", "ber_bloodlust", "ber_whirlwind", "ber_earthsplitter", "ber_execute", "ber_titan_grip", "ber_warcry", "ber_decapitate"]).merged({
 					# tanque de apoio: vida e defesa na árvore e no conjunto, sem perder o dano
 					"passives": [{"atk_pct": 3}, {"hp_pct": 4}, {"def_pct": 3}], "set_extra": {3: {"hp_pct": [5.0, 1.5], "def_pct": [5.0, 1.5]}}}),
+				# meia distância: machadinhas arremessadas e sangramento; mistura os talhos dos Gêmeos com os gritos gerais
+				_b("arremessador", "Arremessador", "dps", ["axe"], ["axe"], "leather", "FOR", "AGI", "atk_pct",
+					["ber_hatchet", "ber_great_throw", "ber_tomahawk_rain", "ber_hatchet_fan", "ber_ricochet", "ber_throw_axe", "ber_hack", "ber_rend",
+					 "ber_fury", "ber_bloodlust", "ber_leap", "ber_warcry", "ber_cleave"]).merged({
+					# crítico e recarga: mais arremessos (árvore e conjunto); a arma dá Hemorragia (alvo sangrando apanha mais)
+					"passives": [{"atk_pct": 3}, {"crit": 1.5}, {"cdr": 2}], "set_extra": {3: {"crit": [3.0, 0.6], "cdr": [3.0, 0.8]}}}),
 			]}),
 		_mk({"id": "bishop", "body_type": "female", "hair_color": Color(0.95, 0.85, 0.55), "name": "Bispo", "role": "healer", "color": Color(0.95, 0.95, 0.9),
 			"description": "Fé. Sacerdote de maça e escudo que cura e fortalece o grupo, Iluminado de cetro que fere com luz e cura com o próprio golpe, ou Clérigo de Batalha de placa que luta na linha de frente e cura o grupo a cada golpe.",
@@ -144,7 +150,7 @@ static func build() -> Array:
 					"passives": [{"atk_pct": 3}, {"aspd_pct": 3}], "set_extra": {3: {"speed_pct": [5.0, 1.0]}}}),
 			]}),
 		_mk({"id": "assassin", "body_type": "male", "hair_color": Color(0.2, 0.18, 0.25), "name": "Assassino", "role": "dps", "color": Color(0.55, 0.35, 0.75),
-			"description": "Sombras. Duas adagas velozes com veneno, esquiva e golpes pelas costas saindo da furtividade, ou duelista equilibrado de duas espadas.",
+			"description": "Sombras. Duas adagas velozes com veneno, esquiva e golpes pelas costas saindo da furtividade, duelista equilibrado de duas espadas, ou trapaceiro de espada e adaga que controla a luta com fumaça, estrepes e golpes baixos.",
 			"weapon_types": _s(["dagger", "sword"]), "offhand_types": _s(["dagger", "sword"]),
 			"base_hp": 95.0, "base_mp": 60.0, "hp_per_level": 10.0, "mp_per_level": 6.0, "move_speed": 6.2,
 			"basic_attack_power": 0.75, "basic_attack_cooldown": 0.38, "basic_attack_range": 1.7,
@@ -161,6 +167,12 @@ static func build() -> Array:
 					 "ass_execute", "ass_focus", "ass_master"]).merged({
 					# equilibrado: ataque, defesa e um pouco de crítico
 					"passives": [{"atk_pct": 3}, {"def_pct": 3}, {"crit": 1.5}], "set_extra": {3: {"def_pct": [5.0, 1.5], "crit": [3.0, 0.5]}}}),
+				# controle: espada + adaga de aparar, fumaça, estrepes e golpes baixos; mistura venenos das Lâminas e a guarda do Duelista
+				_b("trapaceiro", "Trapaceiro", "dps", ["sword"], ["dagger"], "leather", "AGI", "VIT", "atk_pct",
+					["ass_shadow_knives", "ass_cheap_shot", "ass_expose", "ass_smoke_bomb", "ass_backstab", "ass_caltrops", "ass_paralyze", "ass_vanish",
+					 "ass_thrust", "ass_quick_stab", "ass_shadowstep", "ass_guard", "ass_toxic_cloud", "ass_smoke", "ass_execute", "ass_venom_dart"]).merged({
+					# recarga e defesa (árvore e conjunto): mais controle na mão; a arma dá Truque Sujo (alvo preso/lento apanha mais)
+					"passives": [{"atk_pct": 3}, {"cdr": 2}, {"def_pct": 3}], "set_extra": {3: {"cdr": [4.0, 1.0], "def_pct": [4.0, 1.0]}}}),
 			]}),
 		_mk({"id": "elementalist", "body_type": "female", "hair_color": Color(0.25, 0.3, 0.55), "name": "Elementalista", "role": "caster", "color": Color(0.35, 0.6, 0.95),
 			"description": "Cajado e três elementos que se misturam: fogo, gelo e raio, combinações e elementais invocados. O maior dano mágico do jogo.",

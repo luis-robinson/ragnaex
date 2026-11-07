@@ -491,11 +491,11 @@ func run_all(gd, sim, balance, save) -> void:
 	var pb: Array = gd.classes["paladin"].builds.map(func(b): return b["id"])
 	check(pb == ["guardiao", "cruzado", "templario"], "paladino tem Guardião, Cruzado e Templário (%s)" % [pb])
 	var bb: Array = gd.classes["berserker"].builds.map(func(b): return b["id"])
-	check(bb.size() == 2 and "carniceiro" in bb and "executor" in bb, "berserker tem só Armas Gêmeas e Executor (%s)" % [bb])
+	check(bb == ["carniceiro", "executor", "arremessador"], "berserker: Armas Gêmeas, Executor e Arremessador (%s)" % [bb])
 	check(not ("sword" in gd.classes["paladin"].offhand_types), "paladino não usa espada na mão secundária")
 	for sid in gd.skills:
 		var sk = gd.skills[sid]
-		if sid.begins_with("ber_") and sk.build == "carniceiro":
+		if sid.begins_with("ber_") and sk.build in ["carniceiro", "arremessador"]:
 			check(sk.requires == ["dual"], "%s vale para qualquer par de armas de 1 mão" % sid)
 
 
@@ -1479,6 +1479,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_druid_builds(gd, sim)
 	_check_ranger_builds(gd, sim)
 	_check_assassin_builds(gd, sim)
+	_check_third_builds(gd, sim)
 	_check_elementalist_builds(gd, sim)
 	_check_necromancer_builds(gd, sim)
 	_check_elemental_debuffs(gd, sim)
@@ -2368,8 +2369,9 @@ func _check_assassin_builds(gd, sim) -> void:
 	var cls: ClassDef = gd.classes["assassin"]
 	var lam: Dictionary = cls.build_by_id("laminas")
 	var due: Dictionary = cls.build_by_id("duelista")
-	check(cls.builds.size() == 2 and lam["main"] == ["dagger"] and lam["off"] == ["dagger"] and due["main"] == ["sword"] and due["off"] == ["sword"],
-		"Assassino: Lâminas (duas adagas) e Duelista (duas espadas)")
+	var tra: Dictionary = cls.build_by_id("trapaceiro")
+	check(cls.builds.size() == 3 and lam["main"] == ["dagger"] and lam["off"] == ["dagger"] and due["main"] == ["sword"] and due["off"] == ["sword"]
+		and tra["main"] == ["sword"] and tra["off"] == ["dagger"], "Assassino: Lâminas (duas adagas), Duelista (duas espadas) e Trapaceiro (espada + adaga)")
 	for sid in ["ass_plague_blade", "ass_vanish", "ass_reflexes"]:
 		check(sid in lam["skills"], "Lâminas tem %s" % sid)
 	for sid in ["ass_cross_slash", "ass_guard", "ass_lunge", "ass_master"]:
@@ -2427,6 +2429,101 @@ func _check_assassin_builds(gd, sim) -> void:
 	check(a.stealth_left > 0.0, "Sumir deixa o Assassino furtivo")
 	sim.despawn(mob)
 	sim.despawn(a)
+
+## Terceiras builds do Berserker (Arremessador: machadinhas e sangramento) e do Assassino (Trapaceiro: espada + adaga,
+## fumaça e controle): setor próprio na teia, 6 conjuntos com visual, efeito lendário, bot que se equipa e gasta a teia.
+func _check_third_builds(gd, sim) -> void:
+	var at := Vector3(-30, 0, 34)
+	for row in [["berserker", "arremessador", "axe", "axe", "ber_hatchet", "hemorrhage"], ["assassin", "trapaceiro", "sword", "dagger", "ass_shadow_knives", "dirty_trick"]]:
+		var cid: String = row[0]
+		var bid: String = row[1]
+		var cls: ClassDef = gd.classes[cid]
+		var b: Dictionary = cls.build_by_id(bid)
+		check(b["main"] == [row[2]] and b["off"] == [row[3]], "%s/%s: %s + %s" % [cid, bid, row[2], row[3]])
+		var own: Array = b["skills"].filter(func(sid): return gd.skills[sid].build == bid)
+		var mixed: Array = b["skills"].filter(func(sid): return gd.skills[sid].build != bid and gd.skills[sid].build != "")
+		check(own.size() >= 6 and mixed.size() >= 2, "%s: skills próprias (%d) e de outras builds misturadas (%d)" % [bid, own.size(), mixed.size()])
+		# teia: setor próprio com skills e passivos
+		var nodes: Dictionary = gd.trees[cid]["nodes"]
+		var in_sector := 0
+		var stat_nodes := 0
+		for nid in nodes:
+			if nodes[nid]["branch"] == bid:
+				in_sector += 1
+				stat_nodes += 1 if nodes[nid]["kind"] == "stat" else 0
+		check(in_sector >= 20 and stat_nodes >= 5, "%s: setor da teia com nós (%d, %d passivos)" % [bid, in_sector, stat_nodes])
+		# 6 conjuntos, cada um com visual próprio, armas próprias (as duas mãos) e o efeito lendário da build
+		var styles := {}
+		for lv in Balance.LEGENDARY_LEVELS:
+			var sid: String = "set_%s_%s_%d" % [cid, bid, lv]
+			check(gd.sets.has(sid) and GearCatalog.SET_VISUALS.has(sid), "%s existe com visual próprio" % sid)
+			if not gd.sets.has(sid):
+				continue
+			var vis: Dictionary = GearCatalog.SET_VISUALS[sid]
+			styles[vis["style"]] = true
+			var w: ItemDef = gd.items["leg_%s_%s_%d_weapon" % [cid, bid, lv]]
+			var o: ItemDef = gd.items["leg_%s_%s_%d_offhand" % [cid, bid, lv]]
+			check(w.weapon_type == row[2] and o.weapon_type == row[3] and w.weapon_style == vis["style"] and o.weapon_style == vis["style"], "%s: armas próprias nas duas mãos" % sid)
+			check(str(w.legend_effect.get("kind", "")) == row[5] and float(w.legend_effect.get("pct", 0)) > 0.0, "%s: arma com %s" % [sid, row[5]])
+			for piece in ["head", "body", "gloves", "boots", "weapon", "offhand"]:
+				check(ResourceLoader.exists("res://assets/icons/%s_%s.png" % [vis["icon"], piece]), "%s: ícone %s" % [sid, piece])
+		check(styles.size() == 6, "%s: 6 visuais diferentes (%d)" % [bid, styles.size()])
+		# bot da build: armas certas, skills da build na barra e pontos no setor dela
+		var bot: SimEntity = sim.spawn_bot(cls, "Third", "city_aldara", at, 30)
+		bot.brain = null
+		bot.build_id = bid
+		sim._gear_bot(bot)
+		sim._skill_bot(bot)
+		check(bot.stats.weapon_type == row[2] and bot.stats.offhand_type == row[3], "bot %s: empunha %s + %s (%s + %s)" % [bid, row[2], row[3], bot.stats.weapon_type, bot.stats.offhand_type])
+		var slotted: Array = bot.skills.filter(func(s): return s != null).map(func(s): return s.id)
+		check(slotted.size() == Balance.SKILL_SLOTS and row[4] in slotted and slotted.all(func(x): return bot.stats.meets(gd.skills[x].requires)), "bot %s: barra cheia com %s (%s)" % [bid, row[4], slotted])
+		var bought := 0
+		for nid in bot.tree:
+			if nodes.has(nid) and nodes[nid]["branch"] == bid:
+				bought += 1
+		check(bought >= 15, "bot %s: gasta a teia no setor da build (%d nós)" % [bid, bought])
+		sim.despawn(bot)
+	# efeitos lendários: Hemorragia (alvo sangrando) e Truque Sujo (alvo lento/preso/atordoado)
+	var e: SimEntity = sim.spawn_bot(gd.classes["berserker"], "Hemo", "city_aldara", at, 30)
+	e.brain = null
+	e.equipment[ItemDef.Slot.WEAPON] = gd.items["leg_berserker_arremessador_30_weapon"]
+	e.recompute_stats()
+	var foe: SimEntity = sim.spawn_monster(gd.monsters["golem"], "city_aldara", at + Vector3(0, 0, 2))
+	foe.brain = null
+	check(is_equal_approx(LegendEffects.legend_power(sim, e, foe), 1.0), "Hemorragia: alvo sem sangrar apanha normal")
+	sim._apply_effects(e, foe, gd.skills["ber_hatchet"].effects, 1.0)
+	check(foe.has_debuff("dot") and LegendEffects.legend_power(sim, e, foe) > 1.1, "Hemorragia: Machadinha Voadora faz sangrar e o alvo sangrando apanha mais (x%.2f)" % LegendEffects.legend_power(sim, e, foe))
+	var a: SimEntity = sim.spawn_bot(gd.classes["assassin"], "Truque", "city_aldara", at + Vector3(2, 0, 0), 30)
+	a.brain = null
+	a.equipment[ItemDef.Slot.WEAPON] = gd.items["leg_assassin_trapaceiro_30_weapon"]
+	a.recompute_stats()
+	foe.debuffs.clear()
+	check(is_equal_approx(LegendEffects.legend_power(sim, a, foe), 1.0), "Truque Sujo: alvo livre apanha normal")
+	sim._apply_effects(a, foe, gd.skills["ass_smoke_bomb"].effects, 1.0)
+	check(foe.has_debuff("slow") and foe.state == SimEntity.State.STUNNED and LegendEffects.legend_power(sim, a, foe) > 1.2, "Bomba de Fumaça atordoa e retarda; o Truque Sujo bate mais forte nele")
+	foe.debuffs.clear()
+	foe.set_state(SimEntity.State.IDLE)
+	var slowed := 0
+	sim.rng.seed = 5
+	for i in range(100):
+		foe.debuffs.clear()
+		LegendEffects.legend_on_hit(sim, a, foe, gd.skills["ass_cheap_shot"], 10)
+		slowed += 1 if foe.has_debuff("slow") else 0
+	check(slowed > 20 and slowed < 60, "Truque Sujo: golpe às vezes retarda (%d/100)" % slowed)
+	# Expor Fraqueza: o alvo recebe mais dano de todos
+	foe.debuffs.clear()
+	foe.hp = foe.stats.max_hp
+	var hp0: float = foe.hp
+	sim._deal_damage(e, foe, 100, false, false, "physical")
+	var plain: float = hp0 - foe.hp
+	sim._apply_effects(a, foe, gd.skills["ass_expose"].effects, 1.0)
+	foe.hp = foe.stats.max_hp
+	sim._deal_damage(e, foe, 100, false, false, "physical")
+	var exposed: float = hp0 - foe.hp
+	check(exposed > plain * 1.1,"Expor Fraqueza: alvo exposto apanha mais de todos (%.0f x %.0f)" % [exposed, plain])
+	check(UiKit.legend_effect_text(e.stats.legend).contains("sangrando") and UiKit.legend_effect_text(a.stats.legend).contains("atordoado"), "texto dos efeitos novos")
+	for x in [e, a, foe]:
+		sim.despawn(x)
 
 func _check_ranger_builds(gd, sim) -> void:
 	var cls: ClassDef = gd.classes["ranger"]
@@ -4730,6 +4827,8 @@ func _check_character_models(gd, sim) -> void:
 				var oit: ItemDef = gd.items[iid]
 				if iid.ends_with("_offhand") and oit.weapon_type == "axe":
 					check(k.off_node_of(oit) == "wpn_off_axe_%s" % oit.weapon_style and k._nodes.has(k.off_node_of(oit)), "kit_%s: %s com machado próprio na mão esquerda" % [kid, iid])
+				elif iid.ends_with("_offhand") and oit.weapon_type in ["dagger", "sword"]:      # Assassino: par próprio (Trapaceiro: adaga de aparar)
+					check(k.off_node_of(oit) == "wpn_off_%s_%s" % [oit.weapon_type, oit.weapon_style] and k._nodes.has(k.off_node_of(oit)), "kit_%s: %s com arma própria na mão esquerda" % [kid, iid])
 		var plain: ItemDef = gd.items["sword_iron"]
 		check(k.main_node(plain) == "wpn_main_sword", "arma comum continua com o modelo do tipo")
 		# todo conjunto com visual próprio (GearCatalog.SET_VISUALS) tem as 4 peças no kit
@@ -4756,7 +4855,7 @@ func _check_character_models(gd, sim) -> void:
 		if gd.sets[set_id].class_id == "berserker":
 			ber += 1
 			check(GearCatalog.SET_VISUALS.has(set_id), "%s tem visual próprio" % set_id)
-	check(ber == 12, "12 conjuntos do berserker (%d)" % ber)
+	check(ber == 18, "18 conjuntos do berserker (%d)" % ber)
 	var bis := 0
 	for set_id in gd.sets:
 		if gd.sets[set_id].class_id == "bishop":

@@ -1,6 +1,6 @@
 extends Node
 ## Ícones dos conjuntos lendários fotografados do próprio kit (como os escudos): ícone e peça nunca divergem.
-##   godot --path . tools/icons/set_icons.tscn [-- --only=<estilo>]   (com janela; depois rode --import)
+##   godot --path . tools/icons/set_icons.tscn [-- --only=<estilo>[,<estilo>...]]   (com janela; depois rode --import)
 ## Só conjuntos de GearCatalog.SET_VISUALS com "icon" igual ao estilo (o pal1 tem arte desenhada à mão).
 ## Peças: head/body/gloves/boots = malhas arm_<estilo>_<peça>_*; weapon = a espada do conjunto. Escudo: shield_icons.tscn.
 
@@ -15,6 +15,7 @@ const VIEWS := {
 }
 
 func _ready() -> void:
+	KitModel.merge = false            # a foto separa as peças pelo nome da malha: sem juntar as peças ligadas numa malha só
 	await get_tree().process_frame
 	KitModel.prune = false          # a foto procura as peças pelo nome: todas na árvore e sem a fusão de malhas
 	KitModel.merge = false
@@ -45,7 +46,7 @@ func _ready() -> void:
 	KitModel.merge = false        # a foto escolhe peça por nome: a malha juntada (KitMerged) esconderia as peças
 	for set_id in GearCatalog.SET_VISUALS:
 		var vis: Dictionary = GearCatalog.SET_VISUALS[set_id]
-		if vis.get("icon", "") != vis["style"] or (only != "" and vis["style"] != only):
+		if vis.get("icon", "") != vis["style"] or (only != "" and not (vis["style"] in only.split(","))):
 			continue
 		var sd: SetDef = GameData.sets[set_id]
 		var eq := {}

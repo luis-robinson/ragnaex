@@ -180,7 +180,8 @@ func _mat_key(m: Material) -> String:
 	if not (m is ShaderMaterial):
 		return "o%d" % m.get_instance_id()
 	var sm := m as ShaderMaterial
-	var col: Color = sm.get_shader_parameter("albedo")
+	var albedo = sm.get_shader_parameter("albedo")
+	var col: Color = albedo if albedo is Color else Color.WHITE     # shader sem albedo (efeito): chave só pelos outros campos
 	return "%s|%s|%s|%s|%d|%s" % [col.to_html(), str(sm.get_shader_parameter("spec_strength")), str(sm.get_shader_parameter("emission_amount")),
 		str(sm.get_shader_parameter("shadow_strength")), 1 if sm.next_pass else 0, str(sm.get_shader_parameter("plus_glow"))]
 
