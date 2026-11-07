@@ -80,7 +80,7 @@ static func signature_on_hit(sim: WorldSim, e: SimEntity, t: SimEntity, s: Skill
 
 ## Efeitos da arma lendária ao acertar (golpe direto de quem a usa). `s` = skill do golpe (o básico começa com "basic_").
 static func legend_on_hit(sim: WorldSim, e: SimEntity, t: SimEntity, s: SkillDef, amount: int) -> void:
-	if not e.is_character() or e.stats.legend.is_empty() or amount <= 0 or not t.is_alive() and str(e.stats.legend.get("kind", "")) != "splash":
+	if not e.is_character() or e.stats.legend.is_empty() or amount <= 0 or not t.is_alive() and not (str(e.stats.legend.get("kind", "")) in ["splash", "mend"]):
 		return
 	var le: Dictionary = e.stats.legend
 	var basic: bool = s != null and s.id.begins_with("basic_")
@@ -125,6 +125,31 @@ static func legend_on_hit(sim: WorldSim, e: SimEntity, t: SimEntity, s: SkillDef
 		"mark":
 			if t.is_alive():
 				sim._apply_effects(e, t, {"curse": {"id": "legend_mark", "duration": 4.0, "taken_pct": float(le["pct"])}}, 0.0)
+		"mend":                             # Mão que Cura (Clérigo de Batalha): o golpe cura o aliado mais ferido
+			if e.is_hostile_to(t):
+				sim.mend(e, amount, float(le["pct"]) / 100.0)
+		"penance":                          # Penitência (Templário): cargas no alvo; na última explode em fogo sagrado
+			if t.is_alive() and not own_cast and e.is_hostile_to(t):
+				penance_hit(sim, e, t, le)
+
+## Penitência: +1 carga no alvo (some em LEG_PENANCE_TIME s sem golpe); com `stacks` cargas, explode: dano mágico de
+## `pct`% do ATK em todos os inimigos a `radius` m do alvo (a explosão não põe carga).
+static func penance_hit(sim: WorldSim, e: SimEntity, t: SimEntity, le: Dictionary) -> void:
+	var did := "legend_penance_%d" % e.id
+	var n := 1
+	for d in t.debuffs:
+		if d.get("id") == did:
+			n = int(d.get("stacks", 0)) + 1
+	if n < int(le.get("stacks", 5)):
+		t.put_debuff({"kind": "penance", "id": did, "remaining": Balance.LEG_PENANCE_TIME, "stacks": n})
+		return
+	t.debuffs = t.debuffs.filter(func(d): return d.get("id") != did)
+	var at := t.position
+	Events.skill_effect.emit("pal_sun_strike", at, at, float(le.get("radius", 2.5)))
+	for o in sim.maps[e.map_id]["entities"].duplicate():
+		if o.is_alive() and e.is_hostile_to(o) and o.position.distance_to(at) <= float(le.get("radius", 2.5)) + o.radius:
+			var r := Combat.calc_damage(e, o, float(le["pct"]) / 100.0, SkillDef.Kind.PHYSICAL, sim.rng, at)
+			sim._deal_damage(e, o, r["amount"], r["crit"], false, "penance", at)
 
 ## Arma lendária: Eco (o golpe direto bate de novo), Retaliação (devolve parte do corpo a corpo recebido). Eco e
 ## retaliação não disparam a si mesmos.

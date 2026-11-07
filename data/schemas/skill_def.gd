@@ -46,7 +46,7 @@ enum Kind { PHYSICAL, MAGICAL, HEAL, BUFF, SUMMON, MOVEMENT }
 
 ## efeitos extra: {"dot": {"dps": 5, "duration": 4}, "slow": {"pct": 40, "duration": 2},
 ## "stun": {"duration": 1}, "root": {"duration": 2}, "buff": {"id":"fury","duration":8,"atk_pct":30},
-## "heal_pct_of_dmg": 0.3, "dash": 4.0, "summon": {"monster_id":"skeleton","count":2,"duration":20},
+## "heal_pct_of_dmg": 0.3 (cura quem lança), "mend_pct_of_dmg": 0.3 (cura o aliado mais ferido a Balance.RADIANCE_RANGE), "dash": 4.0, "summon": {"monster_id":"skeleton","count":2,"duration":20},
 ## "shield": {"amount_pct_hp": 20, "duration": 5}}
 @export var effects: Dictionary = {}
 

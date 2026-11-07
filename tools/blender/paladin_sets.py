@@ -40,6 +40,19 @@ PAL_SETS = {
                 "tabard": 0.24, "tabard_mat": "dark", "faulds": 2, "trim": "gold", "gauntlet": 1.1, "knee": "spike"},
     "pal_c30": {"helm": "open", "visor": "none", "orn": ["wings", "halo"], "emblem": "sun", "layers": 3, "pauldron": ["wing"],
                 "tabard": 0.26, "tabard_mat": "white", "faulds": 2, "trim": "gold", "gauntlet": 1.05, "knee": "wing"},
+    # ---- Templário (fogo sagrado, espada e escudo): elmo-balde, sobreveste longa com a cruz grande, chamas que crescem a cada tier ----
+    "pal_t5": {"helm": "great", "visor": "jaw", "orn": [], "emblem": "cross", "layers": 1, "pauldron": [],
+               "tabard": 0.3, "tabard_mat": "white", "mark": "tint", "faulds": 1, "trim": "tint", "gauntlet": 0.95, "knee": "plain"},
+    "pal_t10": {"helm": "great", "visor": "bevor", "orn": ["crest"], "emblem": "cross", "layers": 1, "pauldron": ["round"],
+                "tabard": 0.32, "tabard_mat": "white", "mark": "tint", "faulds": 1, "trim": "gold", "gauntlet": 1.0, "knee": "plain"},
+    "pal_t15": {"helm": "great", "visor": "jaw", "orn": ["flame"], "emblem": "cross", "layers": 2, "pauldron": ["round"],
+                "tabard": 0.32, "tabard_mat": "white", "mark": "tint", "faulds": 1, "trim": "tint", "gauntlet": 1.0, "knee": "spike"},
+    "pal_t20": {"helm": "great", "visor": "jaw", "orn": ["flame", "rays"], "emblem": "sun", "layers": 2, "pauldron": ["flame"],
+                "tabard": 0.34, "tabard_mat": "white", "mark": "gold", "faulds": 2, "trim": "gold", "gauntlet": 1.05, "knee": "plain"},
+    "pal_t25": {"helm": "great", "visor": "bevor", "orn": ["flame", "horns"], "emblem": "cross", "layers": 2, "pauldron": ["spike", "flame"],
+                "tabard": 0.34, "tabard_mat": "dark", "mark": "tint2", "faulds": 2, "trim": "tint2", "gauntlet": 1.15, "knee": "spike"},
+    "pal_t30": {"helm": "great", "visor": "jaw", "orn": ["flame", "crown", "halo"], "emblem": "sun", "layers": 3, "pauldron": ["flame", "wing"],
+                "tabard": 0.36, "tabard_mat": "white", "mark": "gold", "faulds": 2, "trim": "gold", "gauntlet": 1.15, "knee": "wing"},
 }
 
 
@@ -102,6 +115,13 @@ def build(ck, base, mats, style, cfg):
             d = V((math.cos(a), math.sin(a), 0))
             head.append(ck.blade(P + "head_crown_%d" % k, c + d * r * 1.02 + V((0, 0, r * 0.6)), c + d * r * 1.08 + V((0, 0, r * 1.02)),
                                  r * 0.26, 0.04, gold, (-d.y, d.x, 0)))
+    if "flame" in orn:         # chama sagrada no alto do elmo (Templário): línguas de fogo que brilham, abertas em leque
+        fire = ck.mat("m_set_holyfire", (1.0, 0.36, 0.05), 0.3, 0.6)
+        for k in range(5):
+            a = math.radians(-50 + k * 25)
+            h = 1.15 if k == 2 else (0.95 if k in (1, 3) else 0.7)
+            root = c + V((math.sin(a) * r * 0.3, r * 0.05, r * 0.9))
+            head.append(ck.blade(P + "head_flame_%d" % k, root, root + V((math.sin(a) * r * 0.55, r * 0.2, r * h)), r * 0.34, 0.05, fire, (math.cos(a), 0, -math.sin(a)), 0.3))
     if "halo" in orn:          # anel sobre a cabeça, inclinado para trás
         n = 18
         ring = [c + V((math.cos(math.tau * i / n) * r * 0.78, r * 0.25 + math.sin(math.tau * i / n) * r * 0.5, r * 1.62)) for i in range(n)]
@@ -116,7 +136,12 @@ def build(ck, base, mats, style, cfg):
     em = cfg["emblem"]
     ez = Z_CHEST(ck) + 0.03
     chest = [ck.tube(P + "body_gorget", V((0, 0, ck.Z["neck"] - 0.05)), V((0, 0, ck.Z["neck"] + 0.01)), b["chest"] * 0.62, b["chest"] * 0.5, tr, 16)]
-    if em == "cross":
+    if em == "cross" and cfg.get("mark"):       # Templário: sobreveste branca no peito com a cruz grande
+        mk = pick[cfg["mark"]]
+        chest += [ck.box(P + "body_surcoat", (0.24, 0.02, 0.26), (0, front + 0.012, ez - 0.03), pick[cfg["tabard_mat"]], 0.02),
+                  ck.box(P + "body_cross_v", (0.055, 0.03, 0.22), (0, front - 0.004, ez - 0.02), mk, 0.01),
+                  ck.box(P + "body_cross_h", (0.19, 0.03, 0.055), (0, front - 0.004, ez + 0.03), mk, 0.01)]
+    elif em == "cross":
         chest += [ck.box(P + "body_cross_v", (0.045, 0.03, 0.17), (0, front, ez), tr, 0.01), ck.box(P + "body_cross_h", (0.13, 0.03, 0.045), (0, front, ez + 0.035), tr, 0.01)]
     elif em == "sun":
         chest.append(ck.ball(P + "body_sun", 0.045, (0, front, ez), gold, (1, 0.5, 1)))
@@ -141,7 +166,9 @@ def build(ck, base, mats, style, cfg):
         chest.append(ck.box(P + "body_plackart_%d" % k, (0.2 - k * 0.03, 0.03, 0.045), (0, -b["waist"] * d * 1.12 - 0.02, zz), t if k == 0 else tr, 0.012))
     back = b["chest"] * d + 0.035
     if em in ("cross", "shield", "wing"):
-        chest += [ck.box(P + "body_back_cross_v", (0.05, 0.03, 0.2), (0, back, ez), tr, 0.01), ck.box(P + "body_back_cross_h", (0.15, 0.03, 0.05), (0, back, ez + 0.04), tr, 0.01)]
+        bm_ = pick[cfg["mark"]] if cfg.get("mark") else tr
+        bw_ = 1.4 if cfg.get("mark") else 1.0
+        chest += [ck.box(P + "body_back_cross_v", (0.05 * bw_, 0.03, 0.2 * bw_), (0, back, ez), bm_, 0.01), ck.box(P + "body_back_cross_h", (0.15 * bw_, 0.03, 0.05 * bw_), (0, back, ez + 0.04), bm_, 0.01)]
     else:
         chest.append(ck.ball(P + "body_back_disc", 0.07, (0, back, ez), tr, (1, 0.35, 1)))
         for k in range(8):
@@ -160,10 +187,17 @@ def build(ck, base, mats, style, cfg):
         tm = pick[cfg["tabard_mat"]]
         for side, y in (("f", -b["waist"] * d * 1.2 - 0.02), ("b", b["waist"] * d * 1.2 + 0.02)):
             top = ck.Z["waist"] - 0.03
-            hips += [_banner(ck, P + "body_tabard_" + side, y, top, 0.085, L, 0.016, tm),
-                     _banner(ck, P + "body_tabard_hem_" + side, y + (-0.004 if side == "f" else 0.004), top, 0.095, L + 0.025, 0.01, tr)]
-        hips += [ck.box(P + "body_tabard_mark_v", (0.025, 0.012, 0.08), (0, -b["waist"] * d * 1.2 - 0.032, ck.Z["waist"] - 0.1), tr, 0.004),
-                 ck.box(P + "body_tabard_mark_h", (0.065, 0.012, 0.022), (0, -b["waist"] * d * 1.2 - 0.032, ck.Z["waist"] - 0.085), tr, 0.004)]
+            hw = 0.12 if cfg.get("mark") else 0.085       # sobreveste do Templário: pano mais largo
+            hips += [_banner(ck, P + "body_tabard_" + side, y, top, hw, L, 0.016, tm),
+                     _banner(ck, P + "body_tabard_hem_" + side, y + (-0.004 if side == "f" else 0.004), top, hw + 0.01, L + 0.025, 0.01, tr)]
+        if cfg.get("mark"):    # cruz grande na sobreveste, na frente e atrás (de cima é o que se lê)
+            mk = pick[cfg["mark"]]
+            for side, y in (("f", -b["waist"] * d * 1.2 - 0.032), ("b", b["waist"] * d * 1.2 + 0.032)):
+                hips += [ck.box(P + "body_tabard_mark_v_" + side, (0.045, 0.012, L * 0.62), (0, y, ck.Z["waist"] - 0.04 - L * 0.32), mk, 0.004),
+                         ck.box(P + "body_tabard_mark_h_" + side, (0.15, 0.012, 0.04), (0, y, ck.Z["waist"] - 0.04 - L * 0.18), mk, 0.004)]
+        else:
+            hips += [ck.box(P + "body_tabard_mark_v", (0.025, 0.012, 0.08), (0, -b["waist"] * d * 1.2 - 0.032, ck.Z["waist"] - 0.1), tr, 0.004),
+                     ck.box(P + "body_tabard_mark_h", (0.065, 0.012, 0.022), (0, -b["waist"] * d * 1.2 - 0.032, ck.Z["waist"] - 0.085), tr, 0.004)]
     ck._rigid(hips, rig, "hips")
     for s, sx in ((".R", -1), (".L", 1)):
         tag = s.replace(".", "_")
@@ -184,6 +218,13 @@ def build(ck, base, mats, style, cfg):
             pa.append(ck.blade(P + "body_pauldron_spike" + tag, top, top + V((sx * 0.08, 0, 0.17)), 0.08, 0.05, tr, (0, 1, 0)))
         if "ridge" in cfg["pauldron"]:
             pa.append(ck.blade(P + "body_pauldron_ridge" + tag, top + V((0, -0.1, -0.02)), top + V((sx * 0.02, 0.12, 0.03)), 0.06, 0.04, tr, (0, 0, 1)))
+        if "round" in cfg["pauldron"]:     # bossa redonda no meio da ombreira
+            pa.append(ck.ball(P + "body_pauldron_boss" + tag, 0.045, sh + V((sx * 0.13, 0, 0.1)), tr, (1, 1, 0.7)))
+        if "flame" in cfg["pauldron"]:     # chamas sagradas saindo das ombreiras
+            fire = ck.mat("m_set_holyfire", (1.0, 0.36, 0.05), 0.3, 0.6)
+            for k in range(3):
+                pa.append(ck.blade(P + "body_pauldron_flame_%d" % k + tag, top + V((sx * 0.01, -0.06 + k * 0.06, -0.03)),
+                                   top + V((sx * (0.07 + 0.02 * (k == 1)), -0.08 + k * 0.08, 0.16 + 0.06 * (k == 1))), 0.07, 0.03, fire, (0, 1, 0), 0.3))
         if "wing" in cfg["pauldron"]:
             for k in range(3):
                 pa.append(ck.blade(P + "body_pauldron_wing_%d%s" % (k, tag), top + V((0, 0.02, -0.02)),
@@ -309,6 +350,13 @@ PAL_WEAPONS = {
     "pal_c20": {"type": "sword2h", "w0": 0.056, "w1": 0.046, "tip": 0.18, "guard": "sun", "pommel": "ball", "core": True},
     "pal_c25": {"type": "sword2h", "w0": 0.05, "w1": 0.046, "tip": 0.14, "wave": 0.016, "guard": "horn", "pommel": "crown", "gem": True, "grip_mat": "tint2"},
     "pal_c30": {"type": "sword2h", "w0": 0.058, "w1": 0.05, "tip": 0.2, "guard": "wing", "pommel": "gem", "gem": True, "halo": True, "core": True},
+    # Templário: espada de cruzada (guarda reta e longa), o filete vira chama sagrada nos tiers altos
+    "pal_t5": {"type": "sword", "w0": 0.038, "w1": 0.03, "tip": 0.12, "guard": "cross", "pommel": "ball", "grip_mat": "tint2"},
+    "pal_t10": {"type": "sword", "w0": 0.04, "w1": 0.032, "tip": 0.13, "guard": "cross", "pommel": "ring", "fuller": True, "gem": True},
+    "pal_t15": {"type": "sword", "w0": 0.042, "w1": 0.034, "tip": 0.13, "guard": "flame", "pommel": "gem", "fire": True},
+    "pal_t20": {"type": "sword", "w0": 0.044, "w1": 0.036, "tip": 0.15, "guard": "sun", "pommel": "gem", "fire": True, "gem": True},
+    "pal_t25": {"type": "sword", "w0": 0.045, "w1": 0.04, "tip": 0.12, "wave": 0.012, "guard": "flame", "pommel": "crown", "fire": True, "blade_mat": "dark"},
+    "pal_t30": {"type": "sword", "w0": 0.046, "w1": 0.038, "tip": 0.16, "guard": "flame", "pommel": "gem", "gem": True, "halo": True, "fire": True},
 }
 LEN = {"sword": 0.62, "sword2h": 0.95}           # lâmina sem a ponta
 GRIP = {"sword": 0.09, "sword2h": 0.2}           # meio cabo (a mão fica no meio)
@@ -359,6 +407,10 @@ def build_weapon(ck, base, mats, style, cfg):
     if cfg.get("fuller"):          # canal no meio da lâmina, nas duas faces
         for sgn in (-1, 1):
             parts.append(_blade(ck, n + "fuller_%d" % sgn, g + ridge * sgn * 0.012 * gs, fwd, side, start + 0.04, L * 0.7, 0.008, 0.006, 0.02, 0.004, 0.0, gold))
+    if cfg.get("fire"):            # filete de fogo sagrado (Templário), mais largo que o core
+        fire = ck.mat("m_set_holyfire", (1.0, 0.36, 0.05), 0.3, 0.6)
+        for sgn in (-1, 1):
+            parts.append(_blade(ck, n + "fire_%d" % sgn, g + ridge * sgn * 0.013 * gs, fwd, side, start + 0.02, L * 0.9, 0.016, 0.01, 0.07, 0.004, cfg.get("wave", 0.0), fire))
     if cfg.get("core"):            # filete que brilha
         glow = ck.mat("m_wpn_glow", (1.0, 0.92, 0.6), 0.3, 2.2)
         for sgn in (-1, 1):
@@ -409,6 +461,13 @@ def build_weapon(ck, base, mats, style, cfg):
             a = math.tau * i / 10
             d = side * math.cos(a) + ridge * math.sin(a) * 0.35
             parts.append(ck.blade(n + "guard_ray_%d" % i, gc + d * 0.06 * gs, gc + d.normalized() * 0.15 * gs + fwd * 0.02, 0.035, 0.012, gold, fwd))
+    elif guard == "flame":         # braços em chama, subindo ao longo da lâmina
+        fire = ck.mat("m_set_holyfire", (1.0, 0.36, 0.05), 0.3, 0.6)
+        parts.append(ck.tube(n + "guard", gc - side * 0.1 * gs, gc + side * 0.1 * gs, 0.024, 0.024, gold, 8))
+        for sx in (-1, 1):
+            for k in range(2):
+                parts.append(ck.blade(n + "flame_%d_%d" % (sx, k), gc + side * sx * (0.06 + k * 0.05) * gs,
+                                      gc + side * sx * (0.1 + k * 0.06) * gs + fwd * (0.12 - k * 0.04) * gs, 0.045 * gs, 0.015, fire, ridge))
     elif guard == "wing":          # asas abertas para os lados e para a ponta
         parts.append(ck.ball(n + "guard_mid", 0.04, gc, gold, (1.3, 0.8, 1.0)))
         for sx in (-1, 1):
@@ -537,8 +596,66 @@ def shield_pal_g30(ck, name, mats):
     return parts + sk._back(ck, name, mats)
 
 
+# Escudos do Templário: heater/kite com a cruz grande (reta ou pátea) sobre campo claro; chamas no alto nos tiers altos.
+# shape: heater | kite | tower | round ; field / cross / rim = material (white, tint, tint2, gold, dark) ; flames: n línguas no topo
+TEMPLAR_SHIELDS = {
+    "pal_t5": {"shape": "heater", "field": "white", "cross": "tint", "patee": False, "rim": "tint"},
+    "pal_t10": {"shape": "heater", "field": "white", "cross": "tint", "patee": True, "rim": "gold", "rivets": True},
+    "pal_t15": {"shape": "kite", "field": "white", "cross": "tint", "patee": True, "rim": "tint", "flames": 3},
+    "pal_t20": {"shape": "round", "field": "white", "cross": "gold", "patee": True, "rim": "gold", "flames": 5, "gem": "ambar"},
+    "pal_t25": {"shape": "kite", "field": "dark", "cross": "tint2", "patee": True, "rim": "tint2", "flames": 3, "gem": "rubi"},
+    "pal_t30": {"shape": "tower", "field": "white", "cross": "gold", "patee": True, "rim": "gold", "flames": 7, "gem": "ambar", "halo": True},
+}
+
+
+def shield_templar(cfg):
+    def fn(ck, name, mats):
+        import shield_kit as sk
+        pick = {"white": mats["white"], "tint": mats["tint"], "tint2": mats["tint2"], "gold": mats["trim"], "dark": mats["dark"]}
+        S = 0.37
+        shp = cfg["shape"]
+        if shp == "round":
+            out = [(math.cos(math.tau * i / 28) * S * 0.98, math.sin(math.tau * i / 28) * S * 0.98) for i in range(28)]
+        elif shp == "kite":
+            out = sk.mirror([(0, 0.95), (0.42, 0.88), (0.66, 0.6), (0.6, 0.0), (0.34, -0.6), (0, -1.12)], S)
+        elif shp == "tower":
+            out = sk.mirror([(0, 1.02), (0.5, 0.98), (0.7, 0.85), (0.7, -0.4), (0.5, -0.85), (0, -1.08)], S)
+        else:
+            out = sk.mirror(_heater(S), S)
+        top = max(z for _, z in out)
+        bot = min(z for _, z in out)
+        wid = max(x for x, _ in out)
+        cz = (top + bot) * 0.5 + S * 0.12
+        parts = [sk.plate(name + "_aro", [(x * 1.08, z * 1.06) for x, z in out], -0.03, 0.03, pick[cfg["rim"]]),
+                 sk.plate(name + "_corpo", out, -0.09, 0.02, pick[cfg["field"]])]
+        cm = pick[cfg["cross"]]
+        ends = [(0, top * 0.9), (0, bot * 0.86), (-wid * 0.86, cz), (wid * 0.86, cz)]
+        for i, e in enumerate(ends):
+            if cfg.get("patee"):        # braço que alarga para a ponta
+                parts.append(sk.blade(name + "_cruz_%d" % i, (0, cz), e, 0.2, 0.05, cm, 0.88, -0.09))
+            else:
+                parts.append(sk.blade(name + "_cruz_%d" % i, (0, cz), e, 0.11, 0.05, cm, 0.5, -0.09))
+        if cfg.get("rivets"):
+            for i, (x, z) in enumerate(out[::2]):
+                parts.append(ck.ball(name + "_rebite_%d" % i, 0.024, (x * 0.93, -0.055, z * 0.93), mats["trim"]))
+        nf = int(cfg.get("flames", 0))
+        if nf:
+            fire = ck.mat("m_set_holyfire", (1.0, 0.36, 0.05), 0.3, 0.6)
+            for i in range(nf):
+                f = (i + 0.5) / nf - 0.5
+                h = 0.32 - abs(f) * 0.32
+                parts.append(sk.blade(name + "_chama_%d" % i, (f * wid * 1.5, top * 0.9), (f * wid * 1.9, top + S * (0.22 + h)), 0.1, 0.04, fire, 0.3, -0.04))
+        if cfg.get("gem"):
+            parts.append(sk.gem(name + "_gema", (0, cz), 0.07, sk.jewel(ck, cfg["gem"]), -0.15, 8, 1.0))
+        if cfg.get("halo"):
+            parts += sk.ring(name + "_halo", (0, cz), S * 0.3, 0.015, mats["trim"], 18, -0.12)
+        return parts + sk._back(ck, name, mats)
+    return fn
+
+
 SET_SHIELDS = {"pal1": shield_pal1, "pal_g10": shield_pal_g10, "pal_g15": shield_pal_g15, "pal_g20": shield_pal_g20,
                "pal_g25": shield_pal_g25, "pal_g30": shield_pal_g30}
+SET_SHIELDS.update({st: shield_templar(cf) for st, cf in TEMPLAR_SHIELDS.items()})
 
 
 
@@ -559,6 +676,12 @@ PAL_MACES = {
     "pal_c20": {"type": "mace2h", "face": "sun", "glow": True},
     "pal_c25": {"type": "mace2h", "face": "gem", "spikes": True, "dark": True},
     "pal_c30": {"type": "mace2h", "face": "sun", "wings": True, "halo": True, "glow": True},
+    "pal_t5": {"type": "mace", "head": "flange", "n": 4, "core": "metal", "cap": "ball"},
+    "pal_t10": {"type": "mace", "head": "flange", "n": 6, "core": "tint", "cap": "gem"},
+    "pal_t15": {"type": "mace", "head": "star", "core": "tint", "cap": "gem", "fire": True},
+    "pal_t20": {"type": "mace", "head": "sun", "core": "tint", "cap": "gem", "fire": True},
+    "pal_t25": {"type": "mace", "head": "star", "core": "tint", "cap": "gem", "dark": True, "fire": True},
+    "pal_t30": {"type": "mace", "head": "sun", "core": "tint", "cap": "gem", "halo": True, "fire": True},
 }
 
 
@@ -660,6 +783,12 @@ def build_mace(ck, base, mats, style, cfg, hand="main"):
                     d = side * math.cos(a) + fwd * math.sin(a)
                     parts.append(ck.blade(n + "pray%d_%d" % (sg, k), fc + ridge * sg * 0.02 + d * 0.05, fc + ridge * sg * 0.02 + d * 0.12, 0.035, 0.015, gold, ridge.cross(d)))
         wing_at, wing_s = hc - fwd * 0.18, 1.25
+    if cfg.get("fire"):            # brasa sagrada em volta da cabeça (Templário)
+        fire = ck.mat("m_set_holyfire", (1.0, 0.36, 0.05), 0.3, 0.6)
+        for k in range(6):
+            a = math.tau * k / 6
+            d = side * math.cos(a) + ridge * math.sin(a)
+            parts.append(ck.blade(n + "fire%d" % k, hc + d * 0.1 - fwd * 0.05, hc + d * 0.16 + fwd * 0.16, 0.06, 0.02, fire, fwd.cross(d)))
     if cfg.get("glow"):
         parts.append(ck.tube(n + "glow", hc - fwd * 0.04, hc + fwd * 0.04, 0.155 if cfg["type"] == "mace2h" else 0.1, 0.155 if cfg["type"] == "mace2h" else 0.1, glow, 14))
     if cfg.get("wings"):

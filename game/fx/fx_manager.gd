@@ -150,6 +150,10 @@ func _on_damage(attacker_id: int, target_id: int, amount: int, crit: bool, block
 		txt = "⚡" + txt
 	if kind == "splash":                   # Pólvora
 		col = Color(1.0, 0.6, 0.3)
+	if kind == "penance":                  # Penitência (Templário): explosão de fogo sagrado
+		col = Color(1.0, 0.85, 0.35)
+		txt = "✦" + txt
+		size = 1.3
 	if kind == "shatter":                  # gelo em alvo retardado/preso: estilhaço
 		col = Color(0.55, 0.95, 1.0)
 		txt = "❄" + txt
