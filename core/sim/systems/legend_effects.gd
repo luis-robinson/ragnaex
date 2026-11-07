@@ -2,11 +2,17 @@ class_name LegendEffects
 extends RefCounted
 ## Efeitos das armas lendárias (GearCatalog.LEGEND_EFFECTS): ao acertar, ao bater com a arma, ao abater.
 
-## Multiplicador de dano da arma lendária no alvo (Carrasco: alvo com pouca vida apanha mais).
+## Multiplicador de dano da arma lendária no alvo (Carrasco: alvo com pouca vida apanha mais; Presa Acuada:
+## alvo retardado, preso ou atordoado apanha mais).
 static func legend_power(sim: WorldSim, e: SimEntity, t: SimEntity) -> float:
 	var le: Dictionary = e.stats.legend if e.is_character() else {}
-	if str(le.get("kind", "")) == "execute" and t.hp < t.stats.max_hp * float(le.get("below", 0.3)):
-		return 1.0 + float(le["pct"]) / 100.0
+	match str(le.get("kind", "")):
+		"execute":
+			if t.hp < t.stats.max_hp * float(le.get("below", 0.3)):
+				return 1.0 + float(le["pct"]) / 100.0
+		"prey":
+			if Combat.is_chilled(t):
+				return 1.0 + float(le["pct"]) / 100.0
 	return 1.0
 
 ## Lança uma skill de graça (sem mana nem recarga) a partir de `e`, mirando em `aim`: os efeitos que "lançam" algo.

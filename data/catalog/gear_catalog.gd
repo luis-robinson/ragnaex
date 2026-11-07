@@ -243,6 +243,18 @@ const SET_VISUALS := {
 		"names": {"head": "Chapéu do Trovão", "body": "Colete do Trovão", "gloves": "Braçadeira do Trovão", "boots": "Botas do Trovão", "weapon": "Mosquete do Trovão"}},
 	"set_ranger_atirador_30": {"style": "ran_a30", "icon": "ran_a30", "color": Color(0.82, 0.62, 0.3), "set_name": "Conjunto Canhão Dourado",
 		"names": {"head": "Chapéu Dourado", "body": "Colete Dourado", "gloves": "Braçadeira Dourado", "boots": "Botas Dourado", "weapon": "Mosquete Dourado"}},
+	"set_ranger_patrulheiro_5": {"style": "ran_p5", "icon": "ran_p5", "color": Color(0.55, 0.47, 0.32), "set_name": "Conjunto Trilha Nova",
+		"names": {"head": "Chapéu da Trilha", "body": "Gibão da Trilha", "gloves": "Braçadeira da Trilha", "boots": "Botas da Trilha", "weapon": "Arco da Trilha"}},
+	"set_ranger_patrulheiro_10": {"style": "ran_p10", "icon": "ran_p10", "color": Color(0.42, 0.45, 0.47), "set_name": "Conjunto Vigia Cinzento",
+		"names": {"head": "Capuz do Vigia", "body": "Gibão do Vigia", "gloves": "Braçadeira do Vigia", "boots": "Botas do Vigia", "weapon": "Arco do Vigia"}},
+	"set_ranger_patrulheiro_15": {"style": "ran_p15", "icon": "ran_p15", "color": Color(0.78, 0.42, 0.2), "set_name": "Conjunto Rastro da Raposa",
+		"names": {"head": "Chapéu da Raposa", "body": "Gibão da Raposa", "gloves": "Braçadeira da Raposa", "boots": "Botas da Raposa", "weapon": "Arco da Raposa"}},
+	"set_ranger_patrulheiro_20": {"style": "ran_p20", "icon": "ran_p20", "color": Color(0.45, 0.72, 0.68), "set_name": "Conjunto Brisa Errante",
+		"names": {"head": "Capuz da Brisa", "body": "Gibão da Brisa", "gloves": "Braçadeira da Brisa", "boots": "Botas da Brisa", "weapon": "Arco da Brisa"}},
+	"set_ranger_patrulheiro_25": {"style": "ran_p25", "icon": "ran_p25", "color": Color(0.45, 0.32, 0.5), "set_name": "Conjunto Andarilho do Crepúsculo",
+		"names": {"head": "Chapéu do Crepúsculo", "body": "Gibão do Crepúsculo", "gloves": "Braçadeira do Crepúsculo", "boots": "Botas do Crepúsculo", "weapon": "Arco do Crepúsculo"}},
+	"set_ranger_patrulheiro_30": {"style": "ran_p30", "icon": "ran_p30", "color": Color(0.22, 0.42, 0.34), "set_name": "Conjunto Senhor dos Caminhos",
+		"names": {"head": "Capuz dos Caminhos", "body": "Gibão dos Caminhos", "gloves": "Braçadeira dos Caminhos", "boots": "Botas dos Caminhos", "weapon": "Arco dos Caminhos"}},
 	"set_assassin_laminas_5": {"style": "ass_l5", "icon": "ass_l5", "color": Color(0.32, 0.3, 0.38), "set_name": "Conjunto Passo Silencioso",
 		"names": {"head": "Capuz Silenciosa", "body": "Gibão Silenciosa", "gloves": "Faixas Silenciosa", "boots": "Botas Silenciosa", "weapon": "Adaga Silenciosa", "offhand": "Adaga Gêmea Silenciosa"}},
 	"set_assassin_laminas_10": {"style": "ass_l10", "icon": "ass_l10", "color": Color(0.55, 0.22, 0.25), "set_name": "Conjunto Faixa Rubra",
@@ -483,7 +495,7 @@ static func set_skills(build: Dictionary, skills: Dictionary, level: int, tier: 
 ## Efeito da arma lendária de cada build (a cara dela). Números: [base, por tier]. Tipos (WorldSim._legend_*):
 ## cast_on_basic (acertar com ataque ou habilidade lança a skill; Balance.LEG_CAST_ICD), cast_when_hit (ao levar golpe lança a skill; icd = s entre usos),
 ## chain (básico pula para +N alvos), stun, frenzy (cada golpe acumula vel. de ataque), execute (dano extra em alvo
-## abaixo de `below`), bleed/poison (dano no tempo do ATK), mark (alvo recebe mais dano de todos), splash (básico
+## abaixo de `below`), prey (dano extra em alvo retardado, preso ou atordoado), bleed/poison (dano no tempo do ATK), mark (alvo recebe mais dano de todos), splash (básico
 ## explode em volta), riposte (esquivar contra-ataca), raise_on_kill (abate levanta um esqueleto), heal_on_kill,
 ## thorns (devolve corpo a corpo), ward (cura vira barreira), echo (golpe bate de novo; reserva).
 const LEGEND_EFFECTS := {
@@ -498,6 +510,7 @@ const LEGEND_EFFECTS := {
 	"xama": {"kind": "cast_on_basic", "name": "Lua Cheia", "skill": "dru_moonfire", "chance": [18, 3]},
 	"cacador": {"kind": "mark", "name": "Marca do Caçador", "pct": [8, 2]},
 	"atirador": {"kind": "splash", "name": "Pólvora", "pct": [40, 6], "radius": 2.5},
+	"patrulheiro": {"kind": "prey", "name": "Presa Acuada", "pct": [12, 2.4]},
 	"laminas": {"kind": "poison", "name": "Veneno Letal", "chance": [35, 4], "pct": [10, 2]},
 	"duelista": {"kind": "riposte", "name": "Riposte", "pct": [80, 10]},
 	"fogo": {"kind": "cast_on_basic", "name": "Brasa Viva", "skill": "ele_fireball", "chance": [20, 4]},

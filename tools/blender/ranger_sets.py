@@ -1,14 +1,18 @@
-"""Conjuntos lendários do Ranger (12), arcos do Caçador e mosquetes do Atirador, por construtor paramétrico.
+"""Conjuntos lendários do Ranger (18), arcos do Caçador e do Patrulheiro e mosquetes do Atirador, por construtor paramétrico.
 
 Linguagem visual (original; só o "clima" de arqueiro clássico de MMO): couro leve, chapéu com pena ou capuz com
 capinha, colete, aljava nas costas, braçadeira de arqueiro, capa curta de barra recortada. O Atirador troca a aljava
 por bandoleira com frascos de pólvora, chapéu de três pontas ou óculos de latão, ombreira acolchoada do lado do coice.
+O Patrulheiro (arco veloz, armadilhas e lentidão) lê de cima pela aba larga: chapéu de aba caída presa de um lado ou
+capuz fundo com máscara de pano, capinha recortada cobrindo os dois ombros, aljava curta no quadril, faixas nas canelas.
 Peças: arm_<estilo>_<head|body|gloves|boots>_*; armas: wpn_main_bow_<estilo> (mão esquerda) e wpn_main_rifle_<estilo>.
 """
 import math
 from mathutils import Vector
 
-# head: feather_cap | hood | circlet | tricorn | goggles ; cape: comprimento da capa (0 = sem) ; back: quiver | bandolier
+# head: feather_cap | hood | circlet | tricorn | goggles | slouch | cowl ; mantle: capinha recortada nos ombros ; wraps: faixas na canela
+# back: quiver | bandolier | hip_quiver ; shoulder: bow | recoil | none ; strips: tiras da capa (padrão 5)
+# cape: comprimento da capa (0 = sem) ; back: quiver | bandolier
 # feathers: nº de penas no chapéu/aljava ; shoulder: bow (ombreira na esquerda) | recoil (acolchoada na direita)
 RAN_SETS = {
     # ---- Caçador (arco + companheiro) ----
@@ -25,6 +29,13 @@ RAN_SETS = {
     "ran_a20": {"head": "goggles", "cape": 0.3, "back": "bandolier", "feathers": 0, "shoulder": "recoil", "scarf": False, "glow": (1.0, 0.6, 0.25)},
     "ran_a25": {"head": "tricorn", "cape": 0.34, "back": "bandolier", "feathers": 2, "shoulder": "recoil", "scarf": True, "glow": (0.55, 0.85, 1.0)},
     "ran_a30": {"head": "tricorn", "cape": 0.4, "back": "bandolier", "feathers": 3, "shoulder": "recoil", "scarf": True, "glow": (1.0, 0.75, 0.3)},
+    # ---- Patrulheiro (arco veloz + armadilhas, sem bicho) ----
+    "ran_p5": {"head": "slouch", "cape": 0.0, "back": "hip_quiver", "feathers": 1, "shoulder": "none", "scarf": False, "mantle": True, "wraps": True},
+    "ran_p10": {"head": "cowl", "cape": 0.3, "back": "hip_quiver", "feathers": 2, "shoulder": "none", "scarf": False, "mantle": True, "wraps": True, "strips": 7},
+    "ran_p15": {"head": "slouch", "cape": 0.34, "back": "hip_quiver", "feathers": 2, "shoulder": "none", "scarf": True, "mantle": True, "wraps": True, "strips": 7},
+    "ran_p20": {"head": "cowl", "cape": 0.38, "back": "hip_quiver", "feathers": 3, "shoulder": "none", "scarf": False, "mantle": True, "wraps": True, "strips": 7, "glow": (0.55, 1.0, 0.85)},
+    "ran_p25": {"head": "slouch", "cape": 0.42, "back": "hip_quiver", "feathers": 3, "shoulder": "none", "scarf": True, "mantle": True, "wraps": True, "strips": 7, "glow": (0.8, 0.6, 1.0)},
+    "ran_p30": {"head": "cowl", "cape": 0.48, "back": "hip_quiver", "feathers": 4, "shoulder": "none", "scarf": False, "mantle": True, "wraps": True, "strips": 9, "glow": (0.85, 1.0, 0.5)},
 }
 FEATHER = (0.95, 0.94, 0.9)
 BRASS = (0.85, 0.62, 0.28)
@@ -74,7 +85,20 @@ def build(ck, base, mats, style, cfg):
             p = c + V((sx * r * 0.32, -r * 1.05, r * 0.55))
             head += [ck.tube(P + "head_lens_rim_%d" % sx, p + V((0, 0.02, 0)), p - V((0, 0.03, 0)), r * 0.24, r * 0.22, brass, 12),
                      ck.ball(P + "head_lens_%d" % sx, r * 0.18, p - V((0, 0.03, 0)), glow or t2, (1, 0.4, 1))]
-    for k in range(cfg["feathers"] if hk in ("feather_cap", "tricorn") else 0):     # penas no chapéu
+    elif hk == "slouch":           # chapéu de patrulheiro: copa baixa e aba larga caída, presa para cima do lado esquerdo
+        head += [ck._shell(P + "head_crown", c + V((0, 0, r * 0.12)), r * 1.08, 0.5, -0.05, 0.3, 0.035, t),
+                 ck.tube(P + "head_brim", c + V((0, 0, r * 0.45)), c + V((0, 0, r * 0.45)) + V((0.0, -0.05, 1.0)).normalized() * 0.022, r * 1.8, r * 1.74, t, 28),
+                 ck.tube(P + "head_band", c + V((0, 0, r * 0.52)), c + V((0, 0, r * 0.66)), r * 1.08, r * 1.05, t2, 24),
+                 ck.blade(P + "head_pinned", c + V((r * 1.05, 0, r * 0.5)), c + V((r * 1.35, r * 0.1, r * 1.15)), r * 1.4, 0.03, t, (0, 1, 0), 0.5)]
+        if glow:
+            head.append(ck.ball(P + "head_pin", r * 0.12, c + V((r * 1.12, -r * 0.05, r * 0.8)), glow, (0.5, 1, 1)))
+    elif hk == "cowl":             # capuz fundo, ponta longa caída nas costas e máscara de pano no rosto
+        head += [ck._shell(P + "head_cowl", c + V((0, r * 0.04, r * 0.04)), r * 1.22, 0.22, -1.0, -0.6, 0.04, t),
+                 ck.strand(P + "head_tail", c + V((0, r * 0.9, r * 0.2)), r * 1.3, r * 0.7, r * 0.4, t, taper=0.95, lean=(0.0, 0.5)),
+                 ck.ball(P + "head_mask", r * 0.5, c + V((0, -r * 0.6, -r * 0.5)), t2, (1.3, 0.8, 0.55))]
+        if glow:
+            head.append(ck.ball(P + "head_clasp", r * 0.13, c + V((0, -r * 1.12, r * 0.62)), glow, (1, 0.5, 1.4)))
+    for k in range(cfg["feathers"] if hk in ("feather_cap", "tricorn", "slouch") else 0):     # penas no chapéu
         a = 0.35 + k * 0.25
         head.append(_feather(ck, P + "head_feather_%d" % k, c + V((r * 0.5, r * 0.2, r * 0.75)),
                              c + V((r * (0.9 + k * 0.12), r * (1.1 + k * 0.1), r * (1.4 - k * 0.15))), r * 0.3, feather if k % 2 == 0 else t2, (math.cos(a), 0, math.sin(a))))
@@ -101,6 +125,8 @@ def build(ck, base, mats, style, cfg):
         for k in range(max(2, cfg["feathers"])):
             off = V(((k - 1) * 0.025, 0.0, 0.0))
             chest.append(_feather(ck, P + "body_fletch_%d" % k, q1 + off, q1 + off + (q1 - q0).normalized() * 0.11, 0.035, feather if k % 2 == 0 else t2))
+    elif cfg["back"] == "hip_quiver":     # aljava curta no quadril (vai nos quadris, abaixo)
+        pass
     else:                          # bandoleira com frascos de pólvora e cartuchos
         chest.append(ck.tube(P + "body_bandolier", (-0.15, front + 0.02, zc + 0.14), (0.13, front + 0.02, ck.Z["waist"] + 0.04), 0.024, 0.024, dark, 6))
         for k in range(5):
@@ -111,10 +137,24 @@ def build(ck, base, mats, style, cfg):
                   ck.ball(P + "body_flask_cap", 0.02, (0.1, back + 0.02, zc + 0.02), dark)]
     if glow:
         chest.append(ck.ball(P + "body_charm", 0.026, (-0.07, front - 0.02, zc + 0.08), glow))
+    if cfg.get("mantle"):          # capinha recortada cobrindo os dois ombros (de cima, um anel de pano em volta do pescoço)
+        rw = abs(V(j["shoulder.L"]).x) + b["arm"] * 2.3
+        zt = ck.Z["neck"] - 0.02
+        mt = ck.tube(P + "body_mantle", (0, 0, zt - 0.11), (0, 0, zt), rw, b["chest"] * 0.5, t2, 18)
+        for v in mt.data.vertices:
+            v.co.y *= 0.8
+        chest.append(mt)
+        n_d = 10
+        for k in range(n_d):       # barra em pontas
+            a = math.tau * (k + 0.5) / n_d
+            dv = V((math.cos(a), math.sin(a) * 0.8, 0))
+            chest.append(ck.blade(P + "body_dag_%d" % k, dv * rw * 0.97 + V((0, 0, zt - 0.1)), dv * rw * 1.04 + V((0, 0, zt - 0.2)), rw * 0.55, 0.012, t2 if k % 2 else t, V((-dv.y, dv.x, 0)), 0.3))
+        chest.append(ck.ball(P + "body_brooch", 0.03, (0.0, -b["chest"] * 0.5 - 0.02, zt - 0.03), glow or gold, (1, 0.5, 1)))
     if cfg["cape"] > 0.0:          # capa curta de barra recortada (de cima, a capa é o que aparece)
         L = cfg["cape"]
-        for k in range(5):
-            x = (k - 2) * 0.07
+        ns = cfg.get("strips", 5)
+        for k in range(ns):
+            x = (k - (ns - 1) / 2.0) * (0.28 / (ns - 1))
             chest.append(ck.blade(P + "body_cape_%d" % k, (x * 0.8, back + 0.02, ck.Z["neck"] - 0.05), (x * 1.2, back + 0.08, ck.Z["neck"] - 0.05 - L - (k % 2) * 0.04),
                                   0.1, 0.015, t if k % 2 == 0 else t2, (1, 0, 0), 0.2))
     ck._rigid(chest, rig, "chest")
@@ -126,7 +166,22 @@ def build(ck, base, mats, style, cfg):
     hips = [ck.box(P + "body_buckle", (0.06, 0.025, 0.05), (0, -b["waist"] * d * 1.2 - 0.01, ck.Z["waist"]), brass if cfg["back"] == "bandolier" else gold, 0.008),
             ck.ball(P + "body_pouch", 0.045, (-0.11, -b["waist"] * d * 1.12 - 0.02, ck.Z["waist"] - 0.04), leather, (1, 0.6, 1)),
             ck.box(P + "body_tasset_f", (0.12, 0.014, 0.12), (0, -b["waist"] * d * 1.18 - 0.012, ck.Z["waist"] - 0.1), t, 0.004)]
+    if cfg["back"] == "hip_quiver":       # aljava curta pendurada no quadril direito, inclinada para trás
+        q0 = V((-b["waist"] * 1.2 - 0.03, 0.05, ck.Z["waist"] - 0.2))
+        q1 = V((-b["waist"] * 1.15 - 0.05, 0.1, ck.Z["waist"] + 0.04))
+        hips += [ck.tube(P + "body_hquiver", q0, q1, 0.05, 0.06, leather, 10),
+                 ck.tube(P + "body_hquiver_rim", q1, q1 + (q1 - q0).normalized() * 0.02, 0.065, 0.065, gold, 10)]
+        for k in range(max(2, cfg["feathers"])):
+            off = V((0.0, (k - 1) * 0.022, 0.0))
+            hips.append(_feather(ck, P + "body_hfletch_%d" % k, q1 + off, q1 + off + (q1 - q0).normalized() * 0.1, 0.032, feather if k % 2 == 0 else t2, (0, 1, 0)))
     ck._rigid(hips, rig, "hips")
+    if cfg["shoulder"] != "none":
+        _pauldron(ck, rig, b, j, P, cfg, t, gold, leather, brass, feather)
+    _arms_boots(ck, base, rig, body, b, j, P, cfg, t, t2, leather)
+
+
+def _pauldron(ck, rig, b, j, P, cfg, t, gold, leather, brass, feather):
+    V = Vector
     side = ".L" if cfg["shoulder"] == "bow" else ".R"
     sx = 1 if side == ".L" else -1
     sh = V(j["shoulder" + side])
@@ -136,6 +191,10 @@ def build(ck, base, mats, style, cfg):
         for k in range(2):
             pa.append(_feather(ck, P + "body_pfeather_%d" % k, sh + V((sx * 0.1, 0.02, 0.1)), sh + V((sx * (0.2 + k * 0.05), 0.06, 0.2 - k * 0.05)), 0.05, feather, (0, 1, 0)))
     ck._rigid(pa, rig, "upper_arm" + side)
+
+
+def _arms_boots(ck, base, rig, body, b, j, P, cfg, t, t2, leather):
+    V = Vector
     # ---------------- braços: braçadeira de arqueiro / luvas ----------------
     for s, sxx in ((".R", -1), (".L", 1)):
         tag = s.replace(".", "_")
@@ -152,6 +211,11 @@ def build(ck, base, mats, style, cfg):
         an = V(j["ankle" + s])
         k = [ck.tube(P + "boots_cuff" + tag, an + V((0, 0, 0.07)), an + V((0, 0, 0.11)), 0.085, 0.09, t, 12),
              ck.tube(P + "boots_wrap" + tag, an + V((0, 0, 0.02)), an + V((0, 0, 0.04)), 0.075, 0.075, t2, 12)]
+        if cfg.get("wraps"):       # faixas de pano subindo a canela
+            kn = V(j["knee" + s]) if ("knee" + s) in j else an + V((0, 0, 0.14))
+            for w in range(3):
+                p0 = an.lerp(kn, 0.3 + w * 0.2)
+                k.append(ck.tube(P + "boots_band%d" % w + tag, p0, p0 + V((0, 0.006, 0.026)), 0.078 - w * 0.004, 0.078 - w * 0.004, t2 if w % 2 == 0 else leather, 12))
         ck._rigid(k, rig, "shin" + s)
 
 
@@ -159,7 +223,13 @@ def build(ck, base, mats, style, cfg):
 # Arcos (mão esquerda, em pé como o arco do kit). tips: wing | leaf | horn | crescent | crystal | flame
 RAN_BOWS = {"ran_c5": {"tips": "leaf", "size": 1.0}, "ran_c10": {"tips": "horn", "size": 1.05}, "ran_c15": {"tips": "wing", "size": 1.1},
             "ran_c20": {"tips": "leaf", "size": 1.12, "gem": True}, "ran_c25": {"tips": "crystal", "size": 1.15, "gem": True},
-            "ran_c30": {"tips": "wing", "size": 1.2, "gem": True, "glow": True}}
+            "ran_c30": {"tips": "wing", "size": 1.2, "gem": True, "glow": True},
+            # Patrulheiro: arcos curtos e bem curvos (de cavalaria), pontas em meia-lua e fitas ao vento
+            "ran_p5": {"tips": "crescent", "size": 0.88, "curve": 1.35}, "ran_p10": {"tips": "ribbon", "size": 0.9, "curve": 1.35},
+            "ran_p15": {"tips": "crescent", "size": 0.93, "curve": 1.4, "gem": True, "ribbon": True},
+            "ran_p20": {"tips": "ribbon", "size": 0.95, "curve": 1.4, "gem": True, "fins": True, "glow": (0.55, 1.0, 0.85)},
+            "ran_p25": {"tips": "crescent", "size": 0.98, "curve": 1.45, "gem": True, "fins": True, "ribbon": True, "glow": (0.8, 0.6, 1.0)},
+            "ran_p30": {"tips": "crescent", "size": 1.02, "curve": 1.5, "gem": True, "fins": True, "ribbon": True, "glow": (0.85, 1.0, 0.5)}}
 
 
 def build_bow(ck, base, mats, style, cfg):
@@ -173,7 +243,8 @@ def build_bow(ck, base, mats, style, cfg):
     pts = []
     for i in range(13):
         tt = i / 6.0 - 1.0
-        y = -0.15 * (1 - tt * tt) + 0.03 + 0.06 * max(0.0, abs(tt) - 0.75) / 0.25 * (abs(tt) > 0.75)
+        cv = cfg.get("curve", 1.0)         # recurvo mais fechado (arco curto do Patrulheiro)
+        y = -0.15 * cv * (1 - tt * tt) + 0.03 + 0.06 * cv * max(0.0, abs(tt) - 0.75) / 0.25 * (abs(tt) > 0.75)
         pts.append(g + V((0.0, y * S, tt * 0.5 * S)))
     parts = [ck.tube(n + "limb%d" % i, pts[i], pts[i + 1], 0.022 - abs(i - 6) * 0.0015, 0.022 - abs(i + 1 - 6) * 0.0015, t if 2 < i < 9 else wood, 6) for i in range(12)]
     parts += [ck.tube(n + "string", pts[0], pts[-1], 0.004, 0.004, ck.mat("m_string", (0.95, 0.95, 0.9)), 4),
@@ -192,11 +263,19 @@ def build_bow(ck, base, mats, style, cfg):
             parts.append(ck.blade(n + "tip%d" % sz, tip, tip + dirv * 0.14 * S, 0.06 * S, 0.04, ck.mat("m_ran_crystal", (0.6, 0.85, 1.0), 0.2, 1.8), (1, 0, 0)))
         elif tk == "crescent":
             parts.append(ck.blade(n + "tip%d" % sz, tip, tip + V((0, 0.12, sz * 0.04)) * S, 0.07 * S, 0.014, gold, (1, 0, 0)))
+        if tk == "ribbon" or cfg.get("ribbon"):     # fita ao vento pendurada na ponta
+            parts.append(ck.blade(n + "ribbon%d" % sz, tip, tip + V((0.01, 0.13, -0.1 if sz > 0 else 0.06)) * S, 0.035 * S, 0.008, t2, (1, 0, 0), 0.25))
+            parts.append(ck.ball(n + "knot%d" % sz, 0.016, tip, gold))
     if cfg.get("gem"):
         parts.append(ck.ball(n + "gem", 0.035, g + V((0, -0.035, 0.08)), t2, (1, 0.6, 1.3)))
         parts.append(ck.ball(n + "gem2", 0.035, g + V((0, -0.035, -0.08)), t2, (1, 0.6, 1.3)))
+    if cfg.get("fins"):            # aletas de vento nos braços do arco, para a frente
+        for i in (3, 9):
+            parts.append(ck.blade(n + "fin%d" % i, pts[i], pts[i] + V((0, -0.08, 0.04 if i > 6 else -0.04)) * S, 0.05 * S, 0.012, t2, (1, 0, 0), 0.35))
     if cfg.get("glow"):
-        parts.append(ck.tube(n + "glow", pts[3], pts[9], 0.008, 0.008, ck.mat("m_ran_glow_bow", (1.0, 0.9, 0.55), 0.3, 2.5), 4))
+        gcol = cfg["glow"] if isinstance(cfg["glow"], tuple) else (1.0, 0.9, 0.55)
+        gm = ck.mat("m_ran_glow_bow" if gcol == (1.0, 0.9, 0.55) else "m_ran_glow_bow_%d" % int(sum(gcol) * 100), gcol, 0.3, 2.5)
+        parts.append(ck.tube(n + "glow", pts[3], pts[9], 0.008, 0.008, gm, 4))
     obj = ck._join(parts, "wpn_main_bow_%s" % style)
     ck._smooth(obj.data)
     ck.skin_rigid(obj, base["rig"], "hand.L")

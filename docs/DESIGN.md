@@ -48,7 +48,7 @@ Cada classe tem **20+ skills** (`skills_catalog.gd`), mas só **6 vão na barra*
 | Berserker | Armas Gêmeas (2 armas de 1 mão: machadinhas e/ou espadas) · Executor (machado/montante 2M) |
 | Bispo | Sacerdote (maça + orbe ou escudo, ou cajado; cura em grupo) · Inquisidor (martelo 2M, dano sagrado) |
 | Druida | Guardião da Floresta (martelo 2M, tank) · Fera Selvagem (2 maças) · Xamã (varinha + orbe, magia) |
-| Ranger | Atirador (arco, alvo único) · Caçador (arco, área/controle) · Patrulheiro (2 armas de 1 mão) |
+| Ranger | Caçador (arco + lince companheiro) · Atirador (mosquete + armadilhas) · Patrulheiro (arco veloz: armadilhas, lentidão e marca na presa) |
 | Assassino | Lâminas (2 adagas: veneno, esquiva, furtividade, pelas costas, ataque muito rápido) · Duelista (2 espadas, equilibrado) |
 | Elementalista | Foco em Fogo · Gelo · Raio, todos de cajado (os ramos se misturam; conjuntos favorecem um elemento ou uma combinação) |
 | Necromancer | Invocador · Ceifador · Sombras, todos de foice (focos que se misturam) |
@@ -84,6 +84,12 @@ uma vez, fica até cair; vida/ataque/defesa são parte das do dono, `Balance.PET
 alvo e atordoa) e Instinto da Matilha (buff em você e nele). **Atirador**: **mosquete** de duas mãos (`rifle`: básico 1,8x mais lento e
 1,9x mais forte, alcance maior, clipe `atk_rifle`) e **armadilhas no chão** (`trap` em `TrapSystem.place_trap/update_traps`: armam em
 0,6 s, disparam quando um inimigo pisa, no máximo 3 por ranger, somem em 30 s; mandíbula prende, mina explode, gelo retarda).
+**Patrulheiro** (terceira build, arco sem bicho, `aspd_pct` no conjunto de 5 e `speed_pct` no de 3): mistura as duas pela mobilidade e
+pelo controle: Estrepes (área que retarda; assinatura), Salto Ligeiro (salto para onde mira + crítico e velocidade), Marca da Presa
+(maldição: o alvo recebe +20% de dano), Rede e Armadilha de Gelo (no setor dele), Flecha do Vendaval (ultimate de vento que atravessa a fila).
+Armadilha de Mandíbula, Armadilha de Gelo e Marca do Caçador aceitam arco ou mosquete. Arma lendária **Presa Acuada** (`prey`): +dano em
+alvo retardado, preso ou atordoado (`Combat.is_chilled`). Visual: chapéu de aba larga ou capuz fundo com máscara, capinha recortada nos
+ombros, aljava no quadril, faixas nas canelas, arcos curtos de pontas em meia-lua e fitas (`ranger_sets.RAN_SETS`/`RAN_BOWS` `ran_p*`).
 
 **Assassino**: **Lâminas** (duas adagas, `aspd_pct`): Lâmina Pestilenta envenena as lâminas (`hit_poison`: todo golpe físico aplica
 um veneno que renova, não acumula, `Balance.HIT_POISON_TIME`), **esquiva** (`evasion`, teto `Balance.EVASION_CAP`; golpe direto
@@ -498,7 +504,7 @@ um por build (`GearCatalog.LEGEND_EFFECTS`, números [base, por tier]):
 Guardião Retaliação (devolve corpo a corpo) · Cruzado Julgamento (chance de atordoar) · Gêmeos Frenesi (golpes acumulam vel. de ataque) ·
 Executor Carrasco (+dano em alvo < 30%) · Sacerdote Égide (cura vira barreira) · Iluminado Castigo Sagrado (básico lança Castigar) ·
 Urso Casca Viva (apanhou: Pele de Carvalho, 20 s) · Lobo Sangue da Matilha (sangramento) · Xamã Lua Cheia (básico lança Fogo Lunar) ·
-Caçador Marca (alvo recebe mais dano de todos) · Atirador Pólvora (tiro explode em área) · Lâminas Veneno Letal · Duelista Riposte (esquivou,
+Caçador Marca (alvo recebe mais dano de todos) · Atirador Pólvora (tiro explode em área) · Patrulheiro Presa Acuada (+dano em alvo retardado/preso) · Lâminas Veneno Letal · Duelista Riposte (esquivou,
 contra-ataca) · Fogo Brasa Viva (básico lança Bola de Fogo) · Gelo Coração de Gelo (apanhou: Nova de Gelo, no máx. a cada 20 s) · Raio Arco
 Voltaico (básico salta para +1 alvo) · Invocador Legião (abate levanta esqueleto) · Ceifador Ceifa (abate cura) · Sombras Praga (básico lança Agonia).
 Atributos: toda peça lendária usa os dois atributos da build; escudos nomeados seguem a afinidade (Paladino VIT/FOR, Bispo VIT/WILL);

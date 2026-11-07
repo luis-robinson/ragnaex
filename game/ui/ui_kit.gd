@@ -485,6 +485,7 @@ static func legend_effect_text(le: Dictionary) -> String:
 		"stun": body = "%.0f%% de chance de atordoar por %.1f s (a cada %.0f s no máximo)" % [float(le["chance"]), float(le["dur"]), float(le["icd"])]
 		"frenzy": body = "cada golpe dá +%.1f%% de velocidade de ataque por 4 s (até %d vezes)" % [float(le["pct"]), int(le["max"])]
 		"execute": body = "+%.0f%% de dano em alvo abaixo de %.0f%% da vida" % [float(le["pct"]), float(le["below"]) * 100.0]
+		"prey": body = "+%.0f%% de dano em alvo retardado, preso ou atordoado" % float(le["pct"])
 		"bleed": body = "%.0f%% de chance de sangrar o alvo (%.0f%% do ATK por segundo, 3 s)" % [float(le["chance"]), float(le["pct"])]
 		"poison": body = "%.0f%% de chance de envenenar o alvo (%.0f%% do ATK por segundo, 3 s)" % [float(le["chance"]), float(le["pct"])]
 		"mark": body = "o alvo atingido recebe +%.0f%% de dano de todos por 4 s" % float(le["pct"])
