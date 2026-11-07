@@ -4368,6 +4368,9 @@ func _check_summon_ai(gd, sim) -> void:
 	if m.is_empty():
 		m = sim.load_map(gd.maps[mid])
 	var at := Vector3(-90, 0, 9)
+	for o in m["entities"].duplicate():           # mapa pode já estar carregado com monstros (outro teste): limpa a área
+		if o.kind == SimEntity.Kind.MONSTER and o.position.distance_to(at) < 30.0:
+			sim.despawn(o)
 	var owner = sim.spawn_bot(gd.classes["elementalist"], "Dono", mid, at, 20)
 	owner.brain = null
 	for pid in ["fire_elemental", "frost_elemental"]:
@@ -4391,6 +4394,8 @@ func _check_summon_ai(gd, sim) -> void:
 		sim.despawn(dummy)
 		var wolf = sim.spawn_monster(gd.monsters["wolf"], mid, at + Vector3(-5, 0, 0))
 		wolf.aggro_target = owner.id
+		wolf.stats.max_hp = 50000.0               # não morre antes de a invocação virar (o outro elemental também bate)
+		wolf.hp = 50000.0
 		var defends := false
 		for i in range(40):
 			sim.tick(0.05)

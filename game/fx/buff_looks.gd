@@ -32,11 +32,11 @@ const LOOKS := {
 	"frenzy": ["power", "blood"], "legend_frenzy": ["power", "blood"], "elixir": ["power", "fire"],
 	"valor": ["power", "holy"], "zeal": ["power", "holy"], "fervor": ["power", "holy"], "battle_hymn": ["power", "holy"],
 	"mark": ["power", "physical"], "deadeye": ["power", "physical"], "focus": ["power", "physical"], "duel_focus": ["power", "physical"],
-	"pack": ["power", "nature"], "overload": ["power", "lightning"],
+	"pack": ["power", "nature"], "overload": ["power", "lightning"], "blood_instinct": ["power", "blood"], "black_flag": ["power", "fire"],
 	# bênçãos
 	"blessing": ["holy", "holy"], "angel": ["holy", "holy"], "avenging_wrath": ["holy", "holy"], "grove": ["holy", "nature"],
 	# movimento
-	"swift": ["speed", "wind"], "tumble": ["speed", "wind"], "reflexes": ["speed", "wind"], "wild_run": ["speed", "nature"],
+	"swift": ["speed", "wind"], "reflexes": ["speed", "wind"], "wild_run": ["speed", "nature"],
 	"smoke": ["smoke", "shadow"],
 	# arma / sombra
 	"plague_blade": ["poison", "poison"],

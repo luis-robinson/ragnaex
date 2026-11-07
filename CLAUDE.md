@@ -226,7 +226,7 @@ Conjuntos do Ranger: `tools/blender/ranger_sets.py` (`RAN_SETS` couro leve, chap
 `LAN_SETS`/`build_lancer` Lanceiro `ran_l*`: cabeça de bicho, gola de pelo, troféu no ombro esquerdo, dardos nas costas; `RAN_SPEARS`/`spear_parts` lanças, que também desenham a lança comum;
 `RAN_BOWS` na mão esquerda; `RAN_RIFLES` e `rifle_parts`, que também desenha o mosquete comum). Lince: `mob_kit.quadruped(kind="lynx")`.
 Conjuntos do Assassino: `tools/blender/assassin_sets.py` (`ASS_SETS` Lâminas: capuz + máscara de pano, frascos de veneno, capa rasgada; Duelista:
-chapéu de pluma/máscara de baile, casaca de abas, meia-capa; `ASS_WEAPONS` gera o par `wpn_main_`/`wpn_off_<dagger|sword>_<estilo>`).
+chapéu de pluma/máscara de baile, casaca de abas, meia-capa; `ASS_WEAPONS` gera o par `wpn_main_`/`wpn_off_<dagger|sword>_<estilo>`; Corsário `CORSAIR_SETS`: tricórnio/bicorne, casaca de abas, faixa; sabres e pistolas `pistol_parts`, `wpn_off_pistol`).
 Revisar conjuntos de uma build lado a lado: `lineup.tscn -- --strip=<classe> --set=<build> --tiers [--front]` (de costas com `--front`).
 Conjuntos do Elementalista: `tools/blender/elementalist_sets.py` (`ELE_SETS` gerados por elemento × nível: o 1º elemento dá chapéu/coroa, barra
 e cor; o 2º (`SECOND`, igual ao `favor` do `SET_VISUALS`) dá ombros, orbes e a gema do cajado). Elementais: `mob_kit.elemental(cid, kind)`;
