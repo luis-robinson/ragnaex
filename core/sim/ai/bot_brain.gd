@@ -80,10 +80,10 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 
 	# --- sobrevivência: poção ---
 	var potion_at: float = 0.35 if e.class_def == null or e.class_def.basic_attack_is_ranged else Balance.BOT_POTION_HP_MELEE
-	if e.hp < e.stats.max_hp * potion_at and e.potion_cd <= 0.0 and _has_potion(e, 0):
+	if e.hp < e.stats.max_hp * potion_at and e.potion_cds[0] <= 0.0 and _has_potion(e, 0):
 		cmd.potion_slot = 0
 		return cmd
-	if e.mp < e.stats.max_mp * 0.15 and e.potion_cd <= 0.0 and _has_potion(e, 1):
+	if e.mp < e.stats.max_mp * 0.15 and e.potion_cds[1] <= 0.0 and _has_potion(e, 1):
 		cmd.potion_slot = 1
 		return cmd
 
