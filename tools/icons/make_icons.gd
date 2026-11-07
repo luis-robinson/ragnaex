@@ -86,6 +86,8 @@ const FALLBACK := ["sword", "star", "heart", "sun", "skull", "boot"]    # por Sk
 const STATUS_ICONS := {"burn": ["fire", "flame"], "poison": ["poison", "drop"], "slow": ["ice", "snowflake"], "root": ["nature", "thorn"],
 	"stun": ["lightning", "star"], "curse": ["shadow", "skull"], "wither": ["bone", "bone"], "shield": ["holy", "shield"],
 	"juramento": ["holy", "cross"], "buff": ["heal", "sun"]}
+## ações fixas da barra (action_<chave>.png): montaria (H) e volta à cidade (G). [tema, símbolo]
+const ACTION_ICONS := {"mount": ["earth", "horse"], "recall": ["lunar", "portal"]}
 ## classe: [tema, símbolo, símbolo de trás (ou "")]
 const CLASS_ICONS := {
 	"paladin": ["holy", "shield", "sword"], "berserker": ["blood", "axe", "axe"], "bishop": ["heal", "cross", ""], "druid": ["nature", "leaf", "paw"],
@@ -115,6 +117,9 @@ func _ready() -> void:
 	if only == "" or only == "status":
 		for k in STATUS_ICONS:
 			_queue.append({"file": "status_" + k, "status": k})
+	if only == "" or only == "action":
+		for k in ACTION_ICONS:
+			_queue.append({"file": "action_" + k, "action": k})
 	for sid in GameData.skills:
 		var s: SkillDef = GameData.skills[sid]
 		if s.class_id == "" or (only != "" and s.class_id != only):
@@ -175,8 +180,8 @@ func _paint() -> void:
 	if _cur.has("cls"):
 		_paint_class(_cur["cls"])
 		return
-	if _cur.has("status"):
-		var st: Array = STATUS_ICONS[_cur["status"]]
+	if _cur.has("status") or _cur.has("action"):
+		var st: Array = STATUS_ICONS[_cur["status"]] if _cur.has("status") else ACTION_ICONS[_cur["action"]]
 		_t = THEMES[st[0]]
 		_frame()
 		_glyph(st[1], Vector2(256, 256), _base_angle(st[1]), GLYPH_SIZE * 1.05 * float(GLYPH_WEIGHT.get(st[1], 1.0)))
@@ -320,7 +325,7 @@ func _disc_gradient(c: Vector2, r: float, a: Color, b: Color) -> void:
 const GLYPH_SIZE := 160.0
 ## peso visual: símbolos finos/diagonais crescem, os cheios (sol, chama) encolhem, para todos parecerem do mesmo tamanho
 const GLYPH_WEIGHT := {"sword": 1.16, "dagger": 1.22, "arrow": 1.14, "spear": 1.12, "bone": 1.1, "crystal": 1.12, "chain": 1.2,
-	"scythe": 1.2, "axe": 1.06, "hammer": 1.04, "sun": 0.9, "flame": 0.94, "star": 0.94, "snowflake": 0.94, "cloud": 0.94, "heart": 0.96}
+	"scythe": 1.2, "horse": 1.08, "portal": 0.98, "axe": 1.06, "hammer": 1.04, "sun": 0.9, "flame": 0.94, "star": 0.94, "snowflake": 0.94, "cloud": 0.94, "heart": 0.96}
 
 ## Área no chão: duas elipses claras embaixo do símbolo.
 func _ground() -> void:
@@ -800,3 +805,44 @@ func _g_bone() -> void:
 	for p in [[-0.2, -0.86], [0.2, -0.86], [-0.2, 0.86], [0.2, 0.86]]:
 		_c(p[0], p[1], 0.24)
 	_p([-0.12, -0.74, 0.12, -0.74, 0.12, 0.74, -0.12, 0.74], 2, 0.0)
+
+## Cabeça de cavalo de perfil (virada para a direita, silhueta de peça de xadrez), crina atrás, olho e cabresto.
+func _g_horse() -> void:
+	var brown := Color(0.66, 0.42, 0.24)
+	var mane := Color(0.26, 0.15, 0.1)
+	# crina: tufos atrás da nuca e do pescoço (desenhada antes: fica por trás)
+	_p([-0.3, -0.66, -0.52, -0.5, -0.62, -0.22, -0.82, -0.02, -0.7, 0.2, -0.88, 0.42, -0.74, 0.62, -0.86, 0.9, -0.5, 0.9, -0.4, -0.2], mane)
+	_p([-0.56, 0.96, -0.6, 0.5, -0.55, 0.05, -0.42, -0.36, -0.26, -0.6, -0.2, -0.98, -0.04, -0.62, 0.2, -0.5, 0.46, -0.24, 0.72, 0.02,
+		0.84, 0.2, 0.8, 0.36, 0.62, 0.44, 0.4, 0.38, 0.2, 0.3, 0.06, 0.24, 0.02, 0.5, 0.16, 0.96], brown)
+	_p([0.5, -0.2, 0.72, 0.02, 0.84, 0.2, 0.8, 0.36, 0.62, 0.44, 0.48, 0.4], Color(0.88, 0.74, 0.6), 0.0)     # focinho claro
+	_c(0.68, 0.2, 0.05, INK, 0.0)                                              # narina
+	_c(0.06, -0.3, 0.1, INK, 0.03)                                             # olho
+	_c(0.09, -0.33, 0.035, Color(1, 1, 1), 0.0)
+	_l([0.44, -0.24, 0.42, 0.36], 4, 0.07)                                     # cabresto
+	_l([-0.3, -0.5, 0.42, -0.16], 4, 0.06)
+
+## Volta à cidade: portal em arco de pedra com redemoinho de luz dentro e degrau embaixo (desenho próprio).
+func _g_portal() -> void:
+	var arch: Array = [-0.7, 0.86]
+	arch.append_array(_arc_pts(0.0, -0.12, 0.7, PI, TAU, 18))
+	arch.append_array([0.7, 0.86, 0.44, 0.86])
+	var inner := _arc_pts(0.0, -0.12, 0.44, TAU, PI, 14)
+	arch.append_array(inner)
+	arch.append_array([-0.44, 0.86])
+	_p(arch, 2)
+	var hole: Array = [-0.44, 0.86]
+	hole.append_array(_arc_pts(0.0, -0.12, 0.44, PI, TAU, 14))
+	hole.append_array([0.44, 0.86])
+	_p(hole, Color(0.12, 0.16, 0.42), 0.0)
+	if not _shadow:
+		for k in range(3):                                                     # redemoinho: três braços em espiral
+			var pts := PackedVector2Array()
+			for i in range(22):
+				var t := i / 21.0
+				var a := TAU * k / 3.0 + t * 4.2
+				var rr := lerpf(0.36, 0.03, t)
+				pts.append(Vector2(cos(a) * rr * _ox, 0.28 + sin(a) * rr * 1.25))
+			_canvas.draw_polyline(pts, Color(_t[4], 0.95), 0.07, true)
+		_canvas.draw_circle(Vector2(0, 0.28), 0.09, Color(1, 1, 0.9))
+	_c(0.0, -0.7, 0.1, 4, 0.05)                                                # pedra-chave
+	_p([-0.92, 0.86, 0.92, 0.86, 0.84, 1.02, -0.84, 1.02], 3)                  # degrau

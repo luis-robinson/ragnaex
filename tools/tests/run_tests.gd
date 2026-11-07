@@ -1513,6 +1513,9 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_item_descriptions(gd)
 	_check_party_personal_loot(gd, sim)
 	_check_recall_and_personal_loot(gd, sim)
+	_check_recall_cast(gd, sim)
+	_check_potion_slot_cooldowns(gd, sim)
+	_check_shield_bar(gd, sim)
 	_check_party_follow_elite(gd, sim)
 	_check_party_seek_storage(gd, sim, save_ref)
 	_check_first_set_drops(gd, sim)
@@ -1907,7 +1910,107 @@ func _check_party_follow_elite(gd, sim) -> void:
 		sim.despawn(king)
 	sim.despawn(hunter)
 
-## G volta à cidade: 3 s parado, fora de combate; andar cancela. Lendário é pessoal (cada membro do grupo rola o seu).
+## Volta à cidade (G) é conjuração: em combate começa e chega; levar dano ou ser atordoado interrompe (com aviso),
+## barreira que segura o golpe inteiro não interrompe; começar andando não vale; bot (comando da sim) também volta.
+func _check_recall_cast(gd, sim) -> void:
+	var town: String = gd.town_map_id()
+	var m: Dictionary = sim.maps["city_aldara"]
+	var e: SimEntity = sim.spawn_bot(gd.classes["elementalist"], "Lareira", "city_aldara", Vector3(70, 0, 10), 12)
+	e.brain = null
+	var mob: SimEntity = sim.spawn_monster(gd.monsters["slime"], "city_aldara", Vector3(73, 0, 10))
+	mob.brain = null
+	var go := InputCommand.new()
+	go.recall = true
+	var idle := InputCommand.new()
+	var phases: Array = []
+	var on_phase := func(id: int, ph: String): phases.append(ph if id == e.id else "")
+	Events.recall_cast.connect(on_phase)
+	check(Balance.RECALL_TIME >= 3.0 and Balance.RECALL_TIME <= 4.0, "volta: conjuração de 3-4 s (%.1f)" % Balance.RECALL_TIME)
+	# em combate: começa; levar dano interrompe
+	e.combat_timer = 5.0
+	sim._apply_command(e, go, m, 0.05)
+	check(e.recall_left > 0.0 and phases.has("start"), "volta: começa em combate")
+	check(sim.recall_progress(e) >= 0.0 and sim.recall_progress(e) < 0.1, "volta: progresso começa perto de 0")
+	sim._apply_command(e, idle, m, 1.0)
+	check(sim.recall_progress(e) > 0.2, "volta: progresso sobe (%.2f)" % sim.recall_progress(e))
+	sim._deal_damage(mob, e, 30, false, false, "physical")
+	check(is_equal_approx(e.recall_left, 0.0) and phases.has("interrupted"), "volta: levar dano interrompe")
+	# barreira que segura tudo: não interrompe
+	sim._apply_command(e, go, m, 0.05)
+	e.shield_hp = 500.0
+	sim._deal_damage(mob, e, 30, false, false, "physical")
+	check(e.recall_left > 0.0, "volta: dano todo na barreira não interrompe")
+	e.shield_hp = 0.0
+	# atordoado: interrompe
+	e.set_state(SimEntity.State.STUNNED, 1.0)
+	sim._apply_command(e, idle, m, 0.05)
+	check(is_equal_approx(e.recall_left, 0.0), "volta: atordoado interrompe")
+	e.set_state(SimEntity.State.IDLE)
+	# começar correndo não vale; G de novo cancela
+	var run_go := InputCommand.new()
+	run_go.recall = true
+	run_go.move = Vector2(1, 0)
+	sim._apply_command(e, run_go, m, 0.05)
+	check(is_equal_approx(e.recall_left, 0.0), "volta: não começa correndo")
+	sim._apply_command(e, go, m, 0.05)
+	sim._apply_command(e, go, m, 0.05)
+	check(is_equal_approx(e.recall_left, 0.0) and phases.has("cancel"), "volta: G de novo cancela")
+	# montado: desce e conjura
+	e.mounted = true
+	sim._apply_command(e, go, m, 0.05)
+	check(e.recall_left > 0.0 and not e.mounted, "volta: montado desce e conjura")
+	# completa em combate (bot pelo comando da sim) e chega na cidade
+	e.combat_timer = 5.0
+	for i in range(int(Balance.RECALL_TIME / 0.1) + 2):
+		sim._apply_command(e, idle, m, 0.1)
+	sim._process_map_changes()
+	check(phases.has("done") and e.map_id == town and e.position.distance_to(gd.maps[town].spawn_point) < 0.5, "volta: bot conjura em combate e chega na cidade")
+	Events.recall_cast.disconnect(on_phase)
+	sim.despawn(mob)
+	sim.despawn(e)
+
+## F1-F3 têm recarga própria: poção de vida no F1 não trava a de mana no F2.
+func _check_potion_slot_cooldowns(gd, sim) -> void:
+	var e: SimEntity = sim.spawn_bot(gd.classes["bishop"], "Frascos", "city_aldara", Vector3(66, 0, 12), 10)
+	e.brain = null
+	e.add_item("potion_hp_s", 3)
+	e.add_item("potion_mp_s", 3)
+	sim.set_potion_slot(e, 0, "potion_hp_s"); sim.set_potion_slot(e, 1, "potion_mp_s"); sim.set_potion_slot(e, 2, "")
+	e.potion_cd = 0.0
+	e.hp = e.stats.max_hp * 0.5
+	e.mp = e.stats.max_mp * 0.2
+	check(sim.use_potion(e, 0), "F1: bebe a de vida")
+	check(e.potion_cds[0] > 0.0 and is_equal_approx(e.potion_cds[1], 0.0), "F1 entra em recarga, F2 não")
+	check(sim.use_potion(e, 1), "F2: de mana mesmo com F1 em recarga")
+	check(not sim.use_potion(e, 0), "F1 em recarga não bebe de novo")
+	check(e.potion_cd == e.potion_cds[0], "potion_cd (bots) = recarga do F1")
+	for i in range(int(maxf(gd.items["potion_hp_s"].consume_cooldown, gd.items["potion_mp_s"].consume_cooldown) * 20) + 4):
+		sim._update_entity(e, sim.maps["city_aldara"], 0.05)
+	check(e.potion_cds[0] <= 0.0 and e.potion_cds[1] <= 0.0, "recargas dos F acabam sozinhas")
+	e.potion_cd = 99.0
+	check(e.potion_cds.all(func(c): return c == 99.0), "escrever potion_cd trava os três")
+	e.potion_cd = 0.0
+	sim.despawn(e)
+
+## Barreira (vida temporária) nas barras: texto "(+N)" e faixa depois da vida, ou no fim da barra se passar do máximo.
+func _check_shield_bar(gd, sim) -> void:
+	check(ShieldOverlay.hp_text(540, 800, 120) == "540 / 800 (+120)", "barra: texto com barreira")
+	check(ShieldOverlay.hp_text(540, 800, 0) == "540 / 800", "barra: texto sem barreira")
+	var a := ShieldOverlay.span_of(400, 200, 800)
+	check(is_equal_approx(a.x, 0.5) and is_equal_approx(a.y, 0.75) and a.z == 0.0, "barra: barreira logo depois da vida")
+	var b := ShieldOverlay.span_of(700, 200, 800)
+	check(is_equal_approx(b.x, 0.75) and is_equal_approx(b.y, 1.0) and b.z == 1.0, "barra: passou do máximo encosta no fim")
+	check(ShieldOverlay.span_of(700, 0, 800) == Vector3.ZERO, "barra: sem barreira, sem faixa")
+	# a Armadura de Gelo dá barreira, e é ela que a barra lê
+	var e: SimEntity = sim.spawn_bot(gd.classes["elementalist"], "Gelo", "city_aldara", Vector3(64, 0, 8), 20)
+	e.brain = null
+	if gd.skills.has("ele_frost_armor"):
+		sim._apply_effects(e, e, gd.skills["ele_frost_armor"].effects, 1.0)
+		check(e.shield_hp > 0.0, "Armadura de Gelo põe barreira (%d)" % int(e.shield_hp))
+		check(ShieldOverlay.hp_text(e.hp, e.stats.max_hp, e.shield_hp).ends_with("(+%d)" % int(e.shield_hp)), "barra do jogador mostra a barreira da Armadura de Gelo")
+	sim.despawn(e)
+
+## G volta à cidade: conjuração de RECALL_TIME s (vale em combate); andar cancela. Lendário é pessoal (cada membro do grupo rola o seu).
 func _check_recall_and_personal_loot(gd, sim) -> void:
 	var town: String = gd.town_map_id()
 	var e: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Volta", "city_aldara", Vector3(70, 0, 10), 8)
@@ -1929,7 +2032,8 @@ func _check_recall_and_personal_loot(gd, sim) -> void:
 	e.position = Vector3(70, 0, 10)
 	e.combat_timer = 3.0
 	sim._update_recall(e, go, go, 0.1)
-	check(is_equal_approx(e.recall_left, 0.0), "em combate não volta")
+	check(e.recall_left > 0.0, "em combate também começa a volta (o dano é que interrompe)")
+	e.recall_left = 0.0
 	e.combat_timer = 0.0
 	sim.despawn(e)
 	# lendário pessoal: chefe com dois do grupo → cada um rola o seu
@@ -4085,6 +4189,9 @@ func _check_action_bar(_gd, _sim) -> void:
 	bar.build()
 	check(bar.skill_slots.size() == 6 and bar.potion_slots.size() == 3, "barra: 6 skills e 3 poções")
 	check(bar.skill_slots[0].has("sweep") and bar.skill_slots[0].has("bevel"), "barra: botão com recarga em leque")
+	check(bar.util_slots.size() == 2 and bar.util_slots[0]["id"] == "mount" and bar.util_slots[1]["id"] == "recall", "barra: H (montaria) e G (volta) com slot próprio")
+	for u in bar.util_slots:
+		check(ResourceLoader.exists("res://assets/icons/action_%s.png" % u["id"]) and str(u["root"].tooltip_text).contains("(%s)" % ("H" if u["id"] == "mount" else "G")), "barra: %s tem ícone e dica com a tecla" % u["id"])
 	bar.set_xp(12, 250, 1000)
 	check(is_equal_approx(bar.xp.frac, 0.25) and bar.xp.text.contains("25%") and bar.level_cap.value == "12", "barra: XP 25% e nível 12 no brasão")
 	bar.set_xp(30, 0, 0)

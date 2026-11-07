@@ -181,7 +181,7 @@ const ELITE_XP_MULT := 6
 const ELITE_GOLD_MULT := 5
 const ELITE_RADIUS_MULT := 1.3
 const ELITE_LEASH_MIN := 25.0
-const RECALL_TIME := 3.0                   # s parado (fora de combate) para voltar à cidade com G
+const RECALL_TIME := 3.5                   # s de conjuração (G) para voltar à cidade; vale em combate; andar, agir ou levar dano interrompe
 ## IA dos bots no combate
 const BOT_POTION_HP_MELEE := 0.45          # corpo a corpo bebe poção de vida abaixo disto (os outros: 0.35)
 const BOT_FLEE_HP := 0.2                   # sem poção, abaixo disto recua por BOT_FLEE_TIME s

@@ -2,7 +2,7 @@ class_name PlayerController
 extends Node
 ## Lê teclado/mouse e monta o InputCommand do jogador a cada tick de física.
 ## WASD relativo à câmera, mira = ponto do chão sob o mouse (MOBA), LMB ataque, RMB bloqueio,
-## 1-6 skills, F1-F3 poções, Shift dash, Espaço pula, F interage.
+## 1-6 skills, F1-F3 poções, Shift dash, Espaço pula, F interage, H monta, G volta à cidade.
 
 var camera: CameraRig
 var ui_blocking: bool = false     # true quando uma janela modal/chat está aberta
@@ -31,6 +31,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		_pending.mount = true          # H: montar/desmontar
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_G:
 		_pending.recall = true         # G: voltar à cidade
+
+## Botões H/G da barra de ações: o mesmo comando das teclas.
+func queue_mount() -> void:
+	_pending.mount = true
+
+func queue_recall() -> void:
+	_pending.recall = true
 
 func _physics_process(_delta: float) -> void:
 	var cmd := InputCommand.new()

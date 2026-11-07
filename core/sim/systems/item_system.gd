@@ -192,7 +192,7 @@ static func pick_legendary(sim: WorldSim, killer: SimEntity, mob_level: int) -> 
 	return pool[sim.rng.randi() % pool.size()] if pool.size() > 0 else ""
 
 static func use_potion(sim: WorldSim, e: SimEntity, slot: int) -> bool:
-	if slot < 0 or slot > 2 or e.potion_cd > 0.0:
+	if slot < 0 or slot > 2 or e.potion_cds[slot] > 0.0:
 		return false
 	var item_id: String = e.potion_slots[slot]
 	if item_id == "" or not e.has_item(item_id):
@@ -201,7 +201,7 @@ static func use_potion(sim: WorldSim, e: SimEntity, slot: int) -> bool:
 		return false
 	var item: ItemDef = GameData.items[item_id]
 	e.remove_item(item_id, 1)
-	e.potion_cd = item.consume_cooldown
+	e.potion_cds[slot] = item.consume_cooldown          # recarga só deste atalho (F1/F2/F3 são independentes)
 	var c := item.consume
 	if c.has("heal"):
 		sim._heal(e, e, int(c["heal"]))

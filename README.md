@@ -28,7 +28,9 @@ godot --headless --path . -- --autostart=berserker        # smoke test: joga soz
 | **Botão esquerdo** | ataque básico (segurar = contínuo) |
 | **Botão direito** (segurar) | bloquear para onde o cursor aponta (arco de 140° à frente; reduz dano; custa um pouco de MP) |
 | **1 – 6** | skills (segure para ver a mira/alcance no chão) |
-| **F1 F2 F3** | poções (configure na bolsa: Shift+clique no item) |
+| **F1 F2 F3** | poções (configure na bolsa: Shift+clique no item); cada atalho tem a sua recarga |
+| **H** | montar / desmontar (fora de combate; também pelo botão H da barra) |
+| **G** | voltar à cidade: conjuração de 3,5 s, vale em combate; andar ou agir cancela, levar dano interrompe (botão G da barra) |
 | **Shift** | dash (também cancela a recovery de uma skill) |
 | **Espaço** | pular |
 | **F** | falar com NPC |

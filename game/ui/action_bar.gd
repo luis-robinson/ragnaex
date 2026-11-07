@@ -1,7 +1,7 @@
 class_name ActionBar
 extends PanelContainer
 ## Barra de ações (estilo MMO clássico): moldura de bronze no centro de baixo com as skills 1-6, as poções F1-F3,
-## o menu de atalhos (I C K L P M Esc) e a barra de XP de 20 gomos por baixo de tudo. Arte toda desenhada aqui.
+## montaria (H) e volta à cidade (G), o menu de atalhos (I C K L P M Esc) e a barra de XP de 20 gomos por baixo de tudo. Arte toda desenhada aqui.
 
 const BRONZE := Color(0.62, 0.47, 0.25)
 const BRONZE_DARK := Color(0.28, 0.2, 0.1)
@@ -14,6 +14,12 @@ const POTION_PX := 42
 var hud
 var skill_slots: Array = []
 var potion_slots: Array = []
+var util_slots: Array = []          # [montaria (H), volta à cidade (G)]
+## [tecla, ícone (assets/icons/action_<id>.png), dica]
+const UTIL := [["H", "mount", "Montar / desmontar (H)
+Cavalo: anda %d%% mais rápido. Não dá para montar em combate."],
+	["G", "recall", "Voltar à cidade (G)
+Conjura %.1f s, também em combate. Andar ou agir cancela; levar dano interrompe."]]
 var xp: XpBar
 var level_cap: Crest
 ## [tecla, nome, janela que abre (@map/@menu = mapa grande / menu do Esc)]
@@ -54,6 +60,16 @@ func build() -> void:
 		s["root"].size_flags_vertical = Control.SIZE_SHRINK_END
 		row.add_child(s["root"])
 		potion_slots.append(s)
+	row.add_child(_divider())
+	for u in UTIL:
+		var s := make_button(u[0], POTION_PX)
+		s["root"].size_flags_vertical = Control.SIZE_SHRINK_END
+		s["tex"].texture = UiKit.icon_texture("action_" + u[1])
+		s["bevel"].set_empty(false)
+		s["id"] = u[1]
+		s["root"].tooltip_text = u[2] % (roundi((Balance.MOUNT_SPEED_MULT - 1.0) * 100.0) if u[1] == "mount" else Balance.RECALL_TIME)
+		row.add_child(s["root"])
+		util_slots.append(s)
 	row.add_child(_divider())
 	var grid := GridContainer.new()
 	grid.columns = 4
@@ -189,6 +205,11 @@ func set_xp(level: int, cur: int, need: int) -> void:
 
 class CdSweep extends Control:
 	var frac := 0.0                   # quanto da recarga ainda falta (1 = começou agora)
+	var color := Color(0, 0, 0, 0.62)     # leque de recarga; conjuração (G) usa um leque claro
+	func set_color(c: Color) -> void:
+		if c != color:
+			color = c
+			queue_redraw()
 	func set_frac(f: float) -> void:
 		if absf(f - frac) > 0.004 or (f == 0.0) != (frac == 0.0):
 			frac = f
@@ -204,15 +225,20 @@ class CdSweep extends Control:
 		for i in range(steps + 1):
 			var a := a0 + TAU * frac * float(i) / float(steps)
 			pts.append(c + Vector2(cos(a), sin(a)) * r)
-		draw_colored_polygon(pts, Color(0, 0, 0, 0.62))
+		draw_colored_polygon(pts, color)
 		var edge := c + Vector2(cos(a0), sin(a0)) * r
 		draw_line(c, edge, Color(1.0, 0.9, 0.55, 0.7), 1.5, true)
 
 class Bevel extends Control:
 	var empty := true                 # slot vazio: trama fina de losangos (não fica um buraco preto)
+	var active := false               # ligado (montado, conjurando): aro dourado por dentro
 	func set_empty(e: bool) -> void:
 		if e != empty:
 			empty = e
+			queue_redraw()
+	func set_active(a: bool) -> void:
+		if a != active:
+			active = a
 			queue_redraw()
 	func _draw() -> void:
 		var w := size.x
@@ -229,6 +255,9 @@ class Bevel extends Control:
 		draw_line(Vector2(0.5, 0), Vector2(0.5, h), Color(1, 1, 1, 0.14), 1.0)
 		draw_line(Vector2(0, h - 0.5), Vector2(w, h - 0.5), Color(0, 0, 0, 0.55), 1.0)
 		draw_line(Vector2(w - 0.5, 0), Vector2(w - 0.5, h), Color(0, 0, 0, 0.45), 1.0)
+		if active:
+			draw_rect(Rect2(1.5, 1.5, w - 3.0, h - 3.0), Color(1.0, 0.85, 0.4, 0.95), false, 3.0)
+			draw_rect(Rect2(4.5, 4.5, w - 9.0, h - 9.0), Color(1.0, 0.95, 0.7, 0.35), false, 2.0)
 
 class Divider extends Control:
 	func _draw() -> void:

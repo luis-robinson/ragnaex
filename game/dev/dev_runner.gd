@@ -105,6 +105,8 @@ func before_start(returning: bool) -> String:
 		autostart = "berserker" if autostart == "" else autostart
 	if DevArgs.flag("--gather_shot"):   # colhendo minério e erva (fotos <png>_ore.png / <png>_herb.png)
 		_gather_shot.call_deferred(DevArgs.value("--gather_shot"))
+	if DevArgs.flag("--recall_shot"):   # --recall_shot=<png> [--recall_close]: barreira nas barras, F1-F3 com recargas próprias, volta à cidade (quadros) e interrupção
+		_recall_shot.call_deferred(DevArgs.value("--recall_shot"))
 	if DevArgs.flag("--title_shot"):    # foto da tela de criação com uma classe escolhida (revisar o layout)
 		_title_shot.call_deferred(DevArgs.value("--title_shot"))
 	if DevArgs.has("--perf"):                 # mede a cidade cheia por ~8 s e sai (FPS, draw calls, nós, tempo da sim)
@@ -471,6 +473,64 @@ func _gather_shot(path: String) -> void:
 		get_viewport().get_texture().get_image().save_png(path.trim_suffix(".png") + "_" + want + ".png")
 		await get_tree().create_timer(1.0).timeout
 	get_tree().quit()
+
+func _recall_shot(path: String) -> void:
+	await get_tree().create_timer(3.0).timeout
+	_smoke_test = false
+	var p := Sim.player
+	var base := path.trim_suffix(".png")
+	var out := p.position if Sim.recall_blocked(p) == "" else Vector3(70, 0, 10)     # na cidade: fora das muralhas (dentro, G não começa)
+	_place(p, out)
+	if DevArgs.has("--recall_close"):
+		main.camera.distance = 8.0
+	p.hp = p.stats.max_hp * 0.7
+	p.shield_hp = p.stats.max_hp * 0.22             # como a Armadura de Gelo
+	p.buffs.append({"id": "shield", "remaining": 12.0})
+	for iid in ["potion_hp_s", "potion_mp_s", "potion_hp_m"]:
+		p.add_item(iid, 5)
+	Sim.set_potion_slot(p, 0, "potion_hp_s"); Sim.set_potion_slot(p, 1, "potion_mp_s"); Sim.set_potion_slot(p, 2, "potion_hp_m")
+	p.potion_cds[0] = 3.6
+	p.potion_cds[2] = 1.4
+	var near: Array = Sim.map_entities(p.map_id).filter(func(e): return e.kind == SimEntity.Kind.BOT and e.party_id < 0 and e.is_alive())
+	if p.party_id < 0 and near.size() > 0 and Sim.party_invite(p, near[0]):
+		Sim.party_accept(near[0])
+	var nsh := 0
+	for m in Sim.party_members(p):
+		if m != p:                                      # 1º: passa do máximo (faixa no fim); 2º: cabe depois da vida
+			m.hp = m.stats.max_hp * (0.8 if nsh == 0 else 0.5)
+			m.shield_hp = m.stats.max_hp * (0.5 if nsh == 0 else 0.25)
+			nsh += 1
+			if nsh >= 2:
+				break
+	await get_tree().create_timer(0.4).timeout
+	main.controller.queue_recall()                 # o mesmo caminho do G e do clique no slot
+	var shots := [0.35, 1.0, 1.8, 2.6, 3.2]
+	var t0 := 0.0
+	for k in range(shots.size()):
+		await get_tree().create_timer(shots[k] - t0).timeout
+		t0 = shots[k]
+		print("RECALL_SHOT %d recall_left=%.2f map=%s" % [k, p.recall_left, p.map_id])
+		get_viewport().get_texture().get_image().save_png("%s_%d.png" % [base, k])
+	await get_tree().create_timer(1.2).timeout
+	print("RECALL_SHOT done map=%s pos=%s" % [p.map_id, str(p.position)])
+	# de novo, e um golpe interrompe
+	_place(p, p.position if Sim.recall_blocked(p) == "" else Vector3(70, 0, 10))
+	await get_tree().create_timer(0.8).timeout
+	main.controller.queue_recall()
+	await get_tree().create_timer(1.2).timeout
+	var mob := Sim.spawn_monster(GameData.monsters["slime"], p.map_id, p.position + Vector3(2, 0, 1))
+	mob.brain = null
+	p.shield_hp = 0.0
+	Sim._deal_damage(mob, p, 25, false, false, "physical")
+	await get_tree().create_timer(0.25).timeout
+	print("RECALL_SHOT interrupted recall_left=%.2f" % p.recall_left)
+	get_viewport().get_texture().get_image().save_png("%s_interrompido.png" % base)
+	get_tree().quit()
+
+func _place(p: SimEntity, at: Vector3) -> void:
+	p.position = at
+	main.views[p.id].position = at
+	main.views[p.id]._smooth_pos = at
 
 func _title_shot(path: String) -> void:
 	await get_tree().create_timer(2.5).timeout

@@ -30,6 +30,7 @@ signal chat_message(sender_name: String, text: String, channel: String)
 signal notification(text: String)          # texto de sistema (ex.: "Nível 5!")
 signal dialog_requested(npc_id: String)
 signal potion_used(entity_id: int, slot: int)
+signal recall_cast(entity_id: int, phase: String)   # volta à cidade (G): start | done | interrupted | cancel
 signal blocked_hit(target_id: int)
 signal guard_flanked(target_id: int)        # golpe por fora do arco enquanto segurava a guarda
 signal shield_block(target_id: int, attacker_id: int, theme: String, parried: bool, from: Vector3)     # from = origem do golpe
