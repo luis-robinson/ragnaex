@@ -9,9 +9,12 @@ uniform vec4 status : source_color = vec4(0.0, 0.0, 0.0, 0.0);   // estado (gelo
 uniform float emission_amount : hint_range(0.0, 2.0) = 0.0;
 uniform vec4 plus_glow : source_color = vec4(0.0, 0.0, 0.0, 0.0);   // aprimoramento +5/+9: cor + força em alpha (borda pulsando)
 uniform float paint : hint_range(0.0, 1.0) = 0.0;   // personagens: pintura à mão (pés mais escuros, manchas suaves)
+uniform bool vcol_srgb = false;   // boneco fundido (KitModel._remerge): a cor de cada peça vem no COLOR do vértice, em sRGB
 
 varying vec3 obj_pos;
+varying float vspec;
 
+#define TOON_VSPEC
 #include "res://shaders/toon_light.gdshaderinc"
 
 void vertex() {
@@ -35,7 +38,13 @@ float blot(vec3 p) {
 
 void fragment() {
 	vec4 tex = texture(albedo_tex, UV);
-	vec3 base = albedo.rgb * tex.rgb * COLOR.rgb;
+	vec3 vc = COLOR.rgb;
+	vspec = spec_strength;
+	if (vcol_srgb) {
+		vc = mix(vc / 12.92, pow((vc + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), vc));
+		vspec = COLOR.a;
+	}
+	vec3 base = albedo.rgb * tex.rgb * vc;
 	if (paint > 0.0) {
 		float height = smoothstep(0.0, 1.5, obj_pos.y);
 		float mottle = blot(obj_pos * 11.0) * 0.6 + blot(obj_pos * 27.0) * 0.4 - 0.5;

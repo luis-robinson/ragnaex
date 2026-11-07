@@ -347,6 +347,8 @@ func set_player_command(cmd: InputCommand) -> void:
 
 var profile := false                 # --perf: soma o tempo de cada fase do tick
 var prof: Dictionary = {}
+const _APPLY_KEYS := ["apply_PLAYER", "apply_BOT", "apply_MONSTER", "apply_NPC", "apply_SUMMON"]     # por SimEntity.Kind (sem montar texto por entidade)
+const _UPD_KEYS := ["upd_PLAYER", "upd_BOT", "upd_MONSTER", "upd_NPC", "upd_SUMMON"]
 
 func _prof(key: String, since: int) -> void:
 	prof[key] = float(prof.get(key, 0.0)) + float(Time.get_ticks_usec() - since)
@@ -393,14 +395,17 @@ func tick(dt: float) -> void:
 						_prof("think_" + ("bot" if e.kind == SimEntity.Kind.BOT else "mob"), bt)
 					e.brain_cmd = cmd
 				else:
-					cmd = e.brain_cmd.duplicate_cmd()
+					if e.repeat_cmd == null:
+						e.repeat_cmd = InputCommand.new()
+					cmd = e.repeat_cmd                 # só movimento, mira e guarda se repetem
+					cmd.move = e.brain_cmd.move; cmd.aim = e.brain_cmd.aim; cmd.block = e.brain_cmd.block
 					cmd.attack = false; cmd.skill_slot = -1; cmd.potion_slot = -1; cmd.dash = false; cmd.interact = false; cmd.jump = false
 					cmd.mount = false; cmd.recall = false          # ações de 1 vez: repetir trocaria a montaria a cada tick
 			if cmd != null:
 				var at := Time.get_ticks_usec() if profile else 0
 				_apply_command(e, cmd, m, mdt)
 				if profile:
-					_prof("apply_" + SimEntity.Kind.keys()[e.kind], at)
+					_prof(_APPLY_KEYS[e.kind], at)
 		if profile:
 			_prof("commands", pt)
 			pt = Time.get_ticks_usec()
@@ -411,7 +416,7 @@ func tick(dt: float) -> void:
 			var ut := Time.get_ticks_usec() if profile else 0
 			_update_entity(e, m, mdt)
 			if profile:
-				_prof("upd_" + SimEntity.Kind.keys()[e.kind], ut)
+				_prof(_UPD_KEYS[e.kind], ut)
 		if profile:
 			_prof("entities", pt)
 			pt = Time.get_ticks_usec()
@@ -1205,8 +1210,9 @@ func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 		if e.jump_h <= 0.0:
 			e.jump_h = 0.0
 			e.jump_v = 0.0
-	for k in e.cooldowns.keys():
-		e.cooldowns[k] = maxf(0.0, e.cooldowns[k] - dt)
+	if not e.cooldowns.is_empty():                # vazio: sem alocar a lista de chaves (por entidade, todo tick)
+		for k in e.cooldowns.keys():
+			e.cooldowns[k] = maxf(0.0, e.cooldowns[k] - dt)
 	if e.state == SimEntity.State.DEAD:
 		e.dead_time += dt
 		if e.kind == SimEntity.Kind.MONSTER or e.kind == SimEntity.Kind.SUMMON:
@@ -1239,14 +1245,14 @@ func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 			return
 	# buffs / debuffs
 	var recompute := false
-	for b in e.buffs.duplicate():
+	for b in (e.buffs.duplicate() if not e.buffs.is_empty() else e.buffs):     # cópia só quando há o que remover
 		b["remaining"] = float(b.get("remaining", 0)) - dt
 		if b["remaining"] <= 0.0:
 			e.buffs.erase(b)
 			if b.get("id") == "shield":
 				e.shield_hp = 0.0
 			recompute = true
-	for d in e.debuffs.duplicate():
+	for d in (e.debuffs.duplicate() if not e.debuffs.is_empty() else e.debuffs):
 		d["remaining"] = float(d.get("remaining", 0)) - dt
 		if d.get("kind") == "dot":
 			d["acc"] = float(d.get("acc", 0.0)) + float(d["dps"]) * dt
@@ -1418,8 +1424,8 @@ func _dormant(e: SimEntity, m: Dictionary) -> bool:
 	if e.aggro_target >= 0 or e.hp < e.stats.max_hp or e.owner_id >= 0 or e.raid_id >= 0:     # investida marcha sozinha
 		e.dormant = false
 		return false
-	if (tick_count + e.id) % 20 == 0 or not e.has_meta("dorm_seen"):
-		e.set_meta("dorm_seen", true)
+	if (tick_count + e.id) % 20 == 0 or not e.has_meta(&"dorm_seen"):
+		e.set_meta(&"dorm_seen", true)
 		var r2 := Balance.DORMANT_RANGE * Balance.DORMANT_RANGE
 		var near := false
 		for c in m.get("chars", []):
@@ -1449,22 +1455,27 @@ func _separate(e: SimEntity, m: Dictionary) -> void:
 	if e.state == SimEntity.State.DASHING:
 		return
 	var grid: Dictionary = m.get("sep_grid", {})
-	var near: Array = []
 	if grid.is_empty():
-		near = m["entities"]
-	else:
-		var cx := floori(e.position.x / SEP_CELL)
-		var cz := floori(e.position.z / SEP_CELL)
-		for dx in range(-1, 2):
-			for dz in range(-1, 2):
-				var cell = grid.get(Vector2i(cx + dx, cz + dz))
-				if cell != null:
-					near.append_array(cell)
+		_separate_from(e, m["entities"])
+		return
+	var cx := floori(e.position.x / SEP_CELL)
+	var cz := floori(e.position.z / SEP_CELL)
+	for dx in range(-1, 2):
+		for dz in range(-1, 2):
+			var cell = grid.get(Vector2i(cx + dx, cz + dz))
+			if cell != null:
+				_separate_from(e, cell)          # célula por célula, na mesma ordem (sem montar uma lista por entidade)
+
+func _separate_from(e: SimEntity, near: Array) -> void:
 	for o in near:
+		var rx: float = e.position.x - o.position.x
+		var rz: float = e.position.z - o.position.z
+		var min_d: float = e.radius + o.radius
+		if absf(rx) >= min_d or absf(rz) >= min_d:
+			continue                             # longe (o caso comum): não empurra
 		if o == e or not o.is_alive():
 			continue
-		var rel := Vector2(e.position.x - o.position.x, e.position.z - o.position.z)
-		var min_d: float = e.radius + o.radius
+		var rel := Vector2(rx, rz)
 		var d := rel.length()
 		if d < min_d and d > 0.0001:
 			var push := (min_d - d) * 0.5

@@ -126,6 +126,7 @@ var gates_open: Dictionary = {}      # portal_id -> true (portão já aberto con
 var portal_notice_at: float = 0.0    # próximo aviso de portal bloqueado
 var brain = null                     # BotBrain / MonsterBrain (produz InputCommand)
 var brain_cmd: InputCommand = null   # último comando do cérebro (reutilizado entre pensamentos)
+var repeat_cmd: InputCommand = null  # cópia reaproveitada do brain_cmd entre pensamentos (sem alocar um comando por tick)
 var npc_data: Dictionary = {}
 var guard := false                   # NPC que luta (sentinela do povoado): monstros o atacam e ele revida (GuardBrain)
 var raid_id := -1                    # monstro de uma investida (RaidSystem): marcha pela rota, luta no caminho

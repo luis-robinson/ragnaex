@@ -195,10 +195,15 @@ static func clamp_aim(caster: SimEntity, aim: Vector3, range: float) -> Vector3:
 static func nearest_hostile(from: SimEntity, entities: Array, max_dist: float) -> SimEntity:
 	var best: SimEntity = null
 	var best_d := max_dist
+	var at := from.position
 	for e in entities:
+		# longe primeiro (o barato): a maioria do mapa cai aqui sem chamar is_hostile_to; folga de 0,1% mantém o resultado exato
+		var reach: float = best_d + e.radius
+		if e.position.distance_squared_to(at) > reach * reach * 1.001 + 0.0001:
+			continue
 		if e == from or not e.is_alive() or not from.is_hostile_to(e) or e.stealth_left > 0.0:     # furtivo: ninguém acha
 			continue
-		var d: float = e.position.distance_to(from.position) - e.radius
+		var d: float = e.position.distance_to(at) - e.radius
 		if d < best_d:
 			best_d = d
 			best = e

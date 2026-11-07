@@ -53,8 +53,19 @@ func _ready() -> void:
 	_holder.position = Vector2(side, side) * 0.5
 	_clip.add_child(_holder)
 	_static = Node2D.new()
-	_static.draw.connect(_draw_static)
+	_static.draw.connect(_draw_baked)
+	_static.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	_holder.add_child(_static)
+	# camada estática assada numa textura (uma vez por mapa): desenhada direto eram ~1.500 draw calls por quadro
+	# (cada árvore/pedra/casa um círculo ou retângulo, o mapa inteiro, todo quadro)
+	_bake_vp = SubViewport.new()
+	_bake_vp.disable_3d = true
+	_bake_vp.transparent_bg = true
+	_bake_vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(_bake_vp)
+	_bake = Node2D.new()
+	_bake.draw.connect(_draw_static_in.bind(_bake))
+	_bake_vp.add_child(_bake)
 	_dynamic = Node2D.new()
 	_dynamic.draw.connect(_draw_dynamic)
 	_holder.add_child(_dynamic)
@@ -77,7 +88,33 @@ func _ready() -> void:
 func set_map(def: MapDef) -> void:
 	_def = def
 	_static.scale = Vector2.ONE * zoom
+	_bake_static()
 	_static.queue_redraw()
+
+## Textura da camada estática: retângulo do mapa (+ margem) a BAKE_PPM pixels por metro (menos em mapa enorme).
+const BAKE_PPM := 5.0
+const BAKE_MAX := 4096
+const BAKE_MARGIN := 12.0
+var _bake_vp: SubViewport
+var _bake: Node2D
+var _bake_rect := Rect2()             # área do mundo (x, z) coberta pela textura
+
+func _bake_static() -> void:
+	if _def == null:
+		return
+	var h := _def.half() + Vector2.ONE * BAKE_MARGIN
+	_bake_rect = Rect2(-h, h * 2.0)
+	var ppm := minf(BAKE_PPM, float(BAKE_MAX) / maxf(_bake_rect.size.x, _bake_rect.size.y))
+	_bake_vp.size = Vector2i(ceili(_bake_rect.size.x * ppm), ceili(_bake_rect.size.y * ppm))
+	_bake.scale = Vector2.ONE * ppm
+	_bake.position = -_bake_rect.position * ppm
+	_bake.queue_redraw()
+	_bake_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+
+func _draw_baked() -> void:
+	if _def == null or _bake_vp == null:
+		return
+	_static.draw_texture_rect(_bake_vp.get_texture(), _bake_rect, false)
 
 func _gui_input(event: InputEvent) -> void:
 	if big:
@@ -128,10 +165,9 @@ func _process(delta: float) -> void:
 static func _w(v: Vector3) -> Vector2:
 	return Vector2(v.x, v.z)
 
-func _draw_static() -> void:
+func _draw_static_in(n: Node2D) -> void:
 	if _def == null:
 		return
-	var n := _static
 	var ground := _def.ground_color.lightened(0.05)
 	# chão do vale: polígono pela face interna dos penhascos (ou retângulo do mapa)
 	var cliffs: Array = []

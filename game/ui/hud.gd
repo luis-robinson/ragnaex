@@ -400,7 +400,10 @@ func _process(_delta: float) -> void:
 		s["cd"].visible = no_weapon or (no_mp and cd <= 0.0)
 		s["sweep"].set_frac(_cd_frac(s, cd))
 		s["cdt"].text = "✖" if no_weapon else (_cd_text(cd) if cd > 0.0 else ("MP" if no_mp else ""))
-		s["cdt"].add_theme_color_override("font_color", Color(1, 0.4, 0.4) if no_weapon else UiKit.TEXT)
+		var cdt_col: Color = Color(1, 0.4, 0.4) if no_weapon else UiKit.TEXT
+		if s.get("cdt_col") != cdt_col:             # override de tema reavisa o Label (relayout): só quando a cor muda
+			s["cdt_col"] = cdt_col
+			s["cdt"].add_theme_color_override("font_color", cdt_col)
 		s["icon"].color = sk.icon_color.darkened(0.6) if no_weapon else sk.icon_color
 		s["tex"].texture = UiKit.icon_texture("skill_" + sk.id)
 		s["tex"].modulate = Color(0.4, 0.4, 0.4) if no_weapon else Color.WHITE

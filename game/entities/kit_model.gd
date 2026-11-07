@@ -184,11 +184,54 @@ func _mat_key(m: Material) -> String:
 	return "%s|%s|%s|%s|%d|%s" % [col.to_html(), str(sm.get_shader_parameter("spec_strength")), str(sm.get_shader_parameter("emission_amount")),
 		str(sm.get_shader_parameter("shadow_strength")), 1 if sm.next_pass else 0, str(sm.get_shader_parameter("plus_glow"))]
 
+## Cor no vértice: peças que só diferem na cor dividem UMA superfície (a cor vai no COLOR do vértice, em sRGB, e o
+## material da fusão é branco com `vcol_srgb`). Um boneco tinha ~12 superfícies (x contorno, x sombra, x prepass);
+## agora 2-4. --no_vcol_merge volta à fusão por cor (medir).
+static var vcol_merge := not DevArgs.has("--no_vcol_merge")
+var _shared_mats: Dictionary = {}    # chave sem cor -> material branco da fusão (reaproveitado entre refusões)
+
+## Chave do material sem a cor: o que muda o shader além do albedo (brilho, sombra, contorno, aprimoramento, textura).
+func _shared_key(m: Material) -> String:
+	if not (m is ShaderMaterial):
+		return "o%d" % m.get_instance_id()
+	var sm := m as ShaderMaterial
+	var tex = sm.get_shader_parameter("albedo_tex")
+	return "%s|%s|%s|%s|%d|%s|%d" % [str(sm.get_shader_parameter("emission_amount")),
+		str(sm.get_shader_parameter("shadow_strength")), str(sm.get_shader_parameter("rim_strength")), str(sm.get_shader_parameter("paint")),
+		1 if sm.next_pass else 0, str(sm.get_shader_parameter("plus_glow")), tex.get_instance_id() if tex else 0]
+
+func _shared_mat(key: String, like: ShaderMaterial) -> ShaderMaterial:
+	if _shared_mats.has(key):
+		return _shared_mats[key]
+	var m := like.duplicate() as ShaderMaterial      # mesmo shader e parâmetros (flash/estado atuais inclusive); contorno compartilhado
+	m.set_shader_parameter("albedo", Color.WHITE)
+	m.set_shader_parameter("vcol_srgb", true)
+	_shared_mats[key] = m
+	mats.append(m)                                     # hit flash e estado (EntityView._mats é este array)
+	return m
+
+## Cor (sRGB) de cada vértice da superfície fundida, peça por peça na ordem do append ([] se a contagem não bater);
+## o alfa leva a força do brilho (spec_strength) da peça. Se as peças já tinham cor de vértice, multiplica o RGB.
+static func _vertex_colors(parts: Array, total: int, src) -> PackedColorArray:
+	var out := PackedColorArray()
+	for p in parts:
+		var seg := PackedColorArray()
+		seg.resize((p[0] as ArrayMesh).surface_get_array_len(p[1]))
+		seg.fill(p[2])
+		out.append_array(seg)
+	if out.size() != total:
+		return PackedColorArray()
+	if src is PackedColorArray and (src as PackedColorArray).size() == total:
+		var sc := src as PackedColorArray
+		for i in total:
+			out[i] = Color(out[i].r * sc[i].r, out[i].g * sc[i].g, out[i].b * sc[i].b, out[i].a)
+	return out
+
 func _remerge() -> void:
 	_merge_queued = false
 	if not merge or skeleton == null or not is_instance_valid(skeleton):
 		return
-	var groups := {}           # chave -> [material, [[mesh, surface]]]
+	var groups := {}           # chave -> [material, [[mesh, surface, cor]]]
 	var order: Array = []
 	var alpha := 0.0
 	for n in _nodes:
@@ -200,11 +243,19 @@ func _remerge() -> void:
 			var m := mi.get_active_material(si)
 			if m == null:
 				continue
-			var key := _mat_key(m)
+			var col := Color.WHITE
+			var key: String
+			if vcol_merge and m is ShaderMaterial and (m as ShaderMaterial).shader == Materials.toon_shader() and mi.mesh is ArrayMesh:
+				key = "v" + _shared_key(m)
+				col = (m as ShaderMaterial).get_shader_parameter("albedo")
+				var spec = (m as ShaderMaterial).get_shader_parameter("spec_strength")
+				col.a = float(spec) if spec != null else 0.1     # padrão do toon_light
+			else:
+				key = _mat_key(m)
 			if not groups.has(key):
 				groups[key] = [m, []]
 				order.append(key)
-			groups[key][1].append([mi.mesh, si])
+			groups[key][1].append([mi.mesh, si, col, m])
 		mi.visible = false
 	var am := ArrayMesh.new()
 	for key in order:
@@ -212,8 +263,23 @@ func _remerge() -> void:
 		st.begin(Mesh.PRIMITIVE_TRIANGLES)
 		for p in groups[key][1]:
 			st.append_from(p[0], p[1], Transform3D.IDENTITY)
-		am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, st.commit_to_arrays())
-		am.surface_set_material(am.get_surface_count() - 1, groups[key][0])
+		var arrs := st.commit_to_arrays()
+		var mat: Material = groups[key][0]
+		if key.begins_with("v"):
+			var cols := _vertex_colors(groups[key][1], (arrs[Mesh.ARRAY_VERTEX] as PackedVector3Array).size(), arrs[Mesh.ARRAY_COLOR])
+			if cols.is_empty():
+				# contagem de vértices não bateu (não deveria): uma superfície por peça, cada uma com o seu material
+				for p in groups[key][1]:
+					var one := SurfaceTool.new()
+					one.begin(Mesh.PRIMITIVE_TRIANGLES)
+					one.append_from(p[0], p[1], Transform3D.IDENTITY)
+					am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, one.commit_to_arrays())
+					am.surface_set_material(am.get_surface_count() - 1, p[3])
+				continue
+			arrs[Mesh.ARRAY_COLOR] = cols
+			mat = _shared_mat(key, mat as ShaderMaterial)
+		am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrs)
+		am.surface_set_material(am.get_surface_count() - 1, mat)
 	if _merged == null:
 		_merged = MeshInstance3D.new()
 		_merged.name = "KitMerged"

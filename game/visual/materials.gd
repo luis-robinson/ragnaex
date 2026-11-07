@@ -25,6 +25,11 @@ static func toon(color: Color, outline: bool = true, emission: float = 0.0) -> S
 	_cache[key] = m
 	return m
 
+static func toon_shader() -> Shader:
+	if _toon_shader == null:
+		toon(Color.WHITE)
+	return _toon_shader
+
 ## Material próprio (não cacheado) para entidades que precisam de hit-flash individual.
 static func toon_unique(color: Color, outline_width: float = 0.025) -> ShaderMaterial:
 	var base := toon(color, true)
