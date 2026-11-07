@@ -25,6 +25,7 @@ var hunt_target_id: int = -1
 var block_timer: float = 0.0
 var engaged := false           # corpo a corpo: já no alcance (histerese: entra a 75% do alcance, sai a 95%)
 var flee_timer: float = 0.0    # recuando com pouca vida
+var recall_retry: float = 0.0  # volta (G) interrompida: anda para o portal e tenta de novo depois disto
 var stall_t: float = 0.0       # no alcance mas o alvo não perde vida (obstáculo no meio): chega mais perto
 var stall_hp: float = -1.0
 var personality: float = 0.5   # 0 = cauteloso, 1 = agressivo
@@ -67,6 +68,7 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 	chat_timer -= dt
 	block_timer -= dt
 	flee_timer -= dt
+	recall_retry -= dt
 	var def: MapDef = m["def"]
 	cur_def = def
 	cur_sim = sim
@@ -173,6 +175,12 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 			elif def.is_town:
 				cmd.move = _steer(e, def.town_center, dt)      # mesma zona: volta pela estrada até a praça
 				cmd.aim = def.town_center
+			elif e.recall_left > 0.0:
+				cmd.move = Vector2.ZERO                         # conjurando a volta (G): parado, sem agir
+			elif recall_retry <= 0.0 and PortalSystem.recall_blocked(sim, e) == "":
+				cmd.recall = true                               # volta como o jogador; dano interrompe
+				cmd.move = Vector2.ZERO
+				recall_retry = Balance.BOT_RECALL_RETRY
 			else:
 				var portal := _find_portal(def, GameData.town_map_id())
 				if not portal.is_empty():

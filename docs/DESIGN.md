@@ -541,6 +541,7 @@ quests de abate contam o Rei como o monstro comum (`MonsterDef.elite_of`, `World
 pulo, guarda, H) ou G de novo cancela; **levar dano** (o que a barreira segura inteiro não conta) ou ser atordoado **interrompe** (`PortalSystem.update_recall/stop_recall`,
 `Events.recall_cast` start/done/interrupted/cancel). Montado: desce e conjura. Barra de conjuração no HUD e na cabeça, gesto `cast_channel` em laço
 (`EntityView`) e círculo de runas + coluna de luz (`game/fx/recall_fx.gd`); "Interrompido" boia na cabeça. Os bots do grupo por perto vêm junto.
+Bot voltando para vender (bolsa cheia, pouca vida) fora da zona da cidade também conjura o G; interrompido, anda para o portal e tenta de novo depois de `Balance.BOT_RECALL_RETRY` s.
 H (montaria) e G têm botão próprio na barra de ações (`ActionBar.UTIL`, ícones `action_mount`/`action_recall` de `make_icons.tscn -- --only=action`).
 Poções: **cada atalho F1-F3 tem a sua recarga** (`SimEntity.potion_cds`); como o mesmo item não fica em dois F, por atalho = por poção.
 `potion_cd` continua como leitura do F1 (cérebro dos bots).

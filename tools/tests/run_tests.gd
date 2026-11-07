@@ -1516,6 +1516,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_party_personal_loot(gd, sim)
 	_check_recall_and_personal_loot(gd, sim)
 	_check_recall_cast(gd, sim)
+	_check_bot_recall(gd, sim)
 	_check_potion_slot_cooldowns(gd, sim)
 	_check_shield_bar(gd, sim)
 	_check_party_follow_elite(gd, sim)
@@ -7102,3 +7103,20 @@ func _check_bot_skill_reject(gd, sim) -> void:
 	var pick: int = brain._best_skill(r, sim, m, mob, r.position.distance_to(mob.position))
 	check(pick != 0, "bot sem companheiro não escolhe Ataque da Fera (a sim recusaria e o bot travava)")
 	mob.hp = 0
+
+## Bot voltando (bolsa cheia, pouca vida) num mapa fora da cidade conjura o G como o jogador e chega na cidade.
+func _check_bot_recall(gd, sim) -> void:
+	var fid := "field_forest"
+	if not sim.maps.has(fid):
+		sim.load_map(gd.maps[fid])
+	var town: String = gd.town_map_id()
+	var e: SimEntity = sim.spawn_bot(gd.classes["ranger"], "Volta", fid, gd.maps[fid].spawn_point, 12)
+	e.brain._go_home()
+	var cast := false
+	for i in range(int((Balance.RECALL_TIME + 2.0) * 20)):
+		sim.tick(0.05)
+		cast = cast or e.recall_left > 0.0
+		if e.map_id == town:
+			break
+	check(cast and e.map_id == town, "bot voltando conjura o G e chega na cidade (mapa %s)" % e.map_id)
+	sim.despawn(e)
