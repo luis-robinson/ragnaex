@@ -177,7 +177,9 @@ Cada nível: +12% de poder (dano/cura), -4% MP, -5% recarga e +`MASTERY_BONUS_PC
 sorteio fixo por classe; parte das estradas some, então há várias rotas) com círculos pendurados nas casas: o de skill (a skill no
 centro; maestria, evoluções e passivos da build em volta) e o de notável (anel de atributos com o notável no meio, duas entradas =
 atalho). Cada ramo (Geral + builds) tem o seu setor em volta do início, como as regiões do PoE; skill de nível alto fica mais longe.
-Estradas e junções dão atributo (+1, pelo setor). 4 pontos por nível (+1 no 10/20/30) = 119 no 30, numa teia de ~250-360 nós.
+Estradas e junções são só caminho (custam 1 ponto e não dão nada); atributos (+1) e bônus ficam nos círculos. 8 pontos por nível
+(+1 no 10/20/30) = 235 no 30, numa teia de ~250-360 nós (+ maestrias). Medido com `tools/tests/web_probe.tscn`: no 30 a teia dá
+~x1,4 de ataque e ~x1,2 de HP a um bot da build.
 Save antigo recebe os pontos de volta. Bots compram o caminho mais curto até as skills da build e depois notáveis/atributos
 (`ProgressionSystem.bot_spend`).
 **Talentos de classe** (aba "Talentos"): a cada 5 níveis (5 a 30) uma linha com 3 escolhas que mudam o jeito de jogar

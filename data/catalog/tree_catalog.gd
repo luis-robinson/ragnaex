@@ -28,8 +28,8 @@ const ARM_NOTABLES := {
 	"": [["Vigor", {"hp_pct": 5}], ["Agilidade", {"speed_pct": 4}], ["Treino", {"power": 4}], ["Resistência", {"def_pct": 5}]],
 }
 const SMALL_ATTR := 1             # atributo de um nó pequeno (FOR +1 ...; calibrado pelo boss_probe: a teia inteira não pode dobrar a força)
-const NOTABLE_ATTR := 2           # atributo principal num notável de braço
-const NOTABLE_SCALE := 0.45        # bônus % dos notáveis (braço e anel) x isto
+const NOTABLE_ATTR := 1           # atributo principal num notável de braço
+const NOTABLE_SCALE := 0.25        # bônus % dos notáveis (braço e anel) x isto
 
 static func _is_caster(cls: ClassDef) -> bool:
 	return cls.builds.any(func(b): return b["role"] in ["caster", "healer"])
@@ -228,9 +228,7 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 					var hp := Vector2(h.x, h.y) * CELL + Vector2(rng.randf_range(-1, 1), rng.randf_range(-1, 1)) * JITTER_HUB
 					var br: Dictionary = branches[sector_of.call(hp)] if hp.length() > 0.1 else branches[0]
 					var hid := "%s_h_%d_%d" % [cls.id, h.x + 50, h.y + 50]
-					var st := {"attr_" + str(br["attr"]): SMALL_ATTR}
-					nodes[hid] = _node(hid, "stat", "", stat_text(st), "Junção: %s." % stat_text(st), 1, 1, hp)
-					nodes[hid]["stats"] = st
+					nodes[hid] = _node(hid, "stat", "", "Junção", "Junção: só caminho (o que dá está nos círculos).", 1, 1, hp)
 					nodes[hid]["branch"] = "ring"
 					hubs[h] = hid
 					hub_list.append(h)
@@ -263,9 +261,7 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 		var mid := ((nodes[hubs[a]]["pos"] as Vector2) + (nodes[hubs[b]]["pos"] as Vector2)) * 0.5
 		var br: Dictionary = branches[sector_of.call(mid)]
 		var tid := "%s_e_%d_%d_%d_%d" % [cls.id, a.x + 50, a.y + 50, b.x + 50, b.y + 50]
-		var st := {"attr_" + str(br["attr2"] if (a.x + a.y) % 2 == 0 else br["attr"]): SMALL_ATTR}
-		nodes[tid] = _node(tid, "stat", "", stat_text(st), "Passagem: %s." % stat_text(st), 1, 1, mid)
-		nodes[tid]["stats"] = st
+		nodes[tid] = _node(tid, "stat", "", "Passagem", "Passagem: só caminho (o que dá está nos círculos).", 1, 1, mid)
 		nodes[tid]["branch"] = "ring"
 		_link(nodes, hubs[a], tid)
 		_link(nodes, tid, hubs[b])
@@ -322,8 +318,7 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 					var smalls: Array = br["passives"] if not br.get("passives", []).is_empty() else ROLE_STATS.get(br["role"], ROLE_STATS[""])
 					var si: int = small_i.get(bi, 0)
 					small_i[bi] = si + 1
-					var st := _power(_scaled(smalls[si % smalls.size()], 0.5), cls)
-					st["attr_" + str(br["attr2"])] = SMALL_ATTR
+					var st := _power(_scaled(smalls[si % smalls.size()], 0.3), cls)
 					nodes[sid] = _node(sid, "stat", "", stat_text(st), "Passivo: %s." % stat_text(st), sk.unlock_level, 1, at)
 					nodes[sid]["stats"] = st
 				nodes[sid]["branch"] = br["id"]
@@ -348,8 +343,8 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 			for s in range(5):
 				var a := base_a + TAU * s / 5.0
 				var sid := "%s_n_%s_%d" % [cls.id, cid, s]
-				var st := {"attr_" + str(br["attr"] if s % 2 == 0 else br["attr2"]): SMALL_ATTR}
-				nodes[sid] = _node(sid, "stat", "", stat_text(st), "Passivo: %s." % stat_text(st), 1, 1, c + Vector2(cos(a), sin(a)) * WHEEL_R)
+				var st := {"attr_" + str(br["attr"] if s % 4 == 0 else br["attr2"]): SMALL_ATTR} if s % 2 == 0 else {}     # 3 de 5 dão atributo
+				nodes[sid] = _node(sid, "stat", "", stat_text(st) if not st.is_empty() else "Caminho", "Passivo: %s." % stat_text(st) if not st.is_empty() else "Caminho do círculo.", 1, 1, c + Vector2(cos(a), sin(a)) * WHEEL_R)
 				nodes[sid]["stats"] = st
 				nodes[sid]["branch"] = br["id"]
 				ring.append(sid)

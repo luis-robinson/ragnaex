@@ -48,7 +48,7 @@ Scripts novos com `class_name` só são vistos pelos outros scripts depois de `-
   (`dot, slow, stun, root, buff, shield, dash, summon, heal_pct_of_dmg, taunt, boss_summon, wither`); `dot` de skill de fogo vira queimadura sozinho e gelo estilhaça alvo retardado (`Combat.frost_mult`). Mira: SELF/DIRECTION/GROUND/CONE/TARGET.
   A skill entra sozinha na **teia** (estilo Path of Exile, `data/catalog/tree_catalog.gd`): malha de junções e estradas (grade `CELL` irregular,
   sorteio fixo por classe, parte das estradas sai = escolha de rota) com círculos nas casas: de skill (maestria/evoluções/passivos em volta) e de
-  notável (`ARM_NOTABLES`/`RING_NOTABLES`, duas entradas). Setores por ramo; skill de nível alto mais longe. Há check de folga (`windows.NODE_PX`/`WEB_UNIT`). 4 pontos por nível (`Balance.points_at`). Bots compram
+  notável (`ARM_NOTABLES`/`RING_NOTABLES`, duas entradas). Setores por ramo; skill de nível alto mais longe. Há check de folga (`windows.NODE_PX`/`WEB_UNIT`). 8 pontos por nível (`Balance.points_at`); estradas/junções só caminho. Quanto a teia dá: `--headless --path . tools/tests/web_probe.tscn -- [--level=30]` (alvo ~x1,4 ATK, ~x1,2 HP no 30). Bots compram
   caminho na teia (`ProgressionSystem.bot_spend`). Revisar: `--bag_shot=<png> --wins=skills --level=<n> [--build_i=N]` (arrastar/zoom/busca na janela K).
   **Talentos de classe** (aba Talentos): `data/catalog/class_talents_catalog.gd`, 6 linhas (5..30) × 3 por classe, um por linha (nós `pick` `<classe>_c_<id>`,
   `WorldSim.pick_sibling`, troca na cidade). Ganchos: `permanent`/`aura` (buff da skill sempre ativo / em você e no grupo), `summon_permanent`/`summon_extra`,

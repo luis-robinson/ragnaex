@@ -68,9 +68,9 @@ static func quest_share(band_start: int) -> float:
 	return float(XP_QUEST_SHARE_BAND.get(band_start, XP_QUEST_SHARE))
 const XP_BANDS := [[1, 10], [10, 20], [20, 30]]
 const DEATH_XP_PENALTY := 0.03
-# pontos da teia (estilo Path of Exile): skills, maestria, evoluções, atributos e notáveis. 4 por nível (+1 no 10/20/30)
-# = 119 no 30, numa teia de ~150-180 nós: um braço inteiro + boa parte de outro, ou um braço + os anéis.
-const MASTERY_POINTS_PER_LEVEL := 4
+# pontos da teia (estilo Path of Exile): skills, maestria, evoluções, atributos e notáveis. 8 por nível (+1 no 10/20/30)
+# = 235 no 30, numa teia de ~250-360 nós (+ maestrias): muita liberdade, mas não dá para pegar tudo.
+const MASTERY_POINTS_PER_LEVEL := 8
 const MASTERY_BONUS_LEVELS := [10, 20, 30]  # +1 ponto extra
 const MASTERY_MAX := 5
 const MASTERY_BONUS_PCT := 0.1     # cada nível de maestria: +10% nos bônus de buff e forma (só os positivos; tempo não muda)
