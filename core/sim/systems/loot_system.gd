@@ -18,6 +18,8 @@ static func on_monster_killed(sim: WorldSim, mob: SimEntity, killer: SimEntity) 
 			QuestSystem.on_kill(c, mob.monster_def.elite_of if mob.monster_def.elite_of != "" else mob.monster_def.id)
 			if mob.monster_def.is_boss:
 				c.bosses_killed[mob.monster_def.id] = true
+				if c == sim.player:
+					BotChat.party_event(sim, c, "boss_kill", {"boss": mob.monster_def.name})
 		# loot
 		var lt: LootTable = GameData.loot_tables.get(mob.monster_def.loot_table)
 		var gold := sim.rng.randi_range(mob.monster_def.gold_min, mob.monster_def.gold_max) * (3 if mob.monster_def.is_boss else 1)
@@ -57,6 +59,7 @@ static func on_monster_killed(sim: WorldSim, mob: SimEntity, killer: SimEntity) 
 				personal.append([leg, c, coins])
 				if c == sim.player:
 					Events.notification.emit("✦ %d Moeda%s Lendária%s! Troque com a Relicária em Aldara" % [coins, "s" if coins > 1 else "", "s" if coins > 1 else ""])
+					BotChat.party_event(sim, c, "loot_legend")
 				elif c.kind == SimEntity.Kind.BOT:
 					Events.chat_message.emit(c.name, "DROPOU MOEDA LENDÁRIA!!!", "global")
 		var i := 0
@@ -255,3 +258,5 @@ static func pickup(sim: WorldSim, e: SimEntity, l: Dictionary) -> void:
 		if e == sim.player:
 			var it: ItemDef = GameData.items.get(l["item"])
 			Events.notification.emit("+%d %s" % [int(l["count"]), it.name if it else l["item"]])
+			if it and it.rarity >= 2 and e.party_id >= 0:             # raro ou melhor: o grupo comenta
+				BotChat.party_event(sim, e, "loot", {"item": it.name}, null, 0.6)

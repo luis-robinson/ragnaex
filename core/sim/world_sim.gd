@@ -438,6 +438,7 @@ func tick(dt: float) -> void:
 	player_cmd.mount = false; player_cmd.recall = false
 	PortalSystem.process_map_changes(self)
 	PartySystem.party_catchup(self, dt)
+	BotChat.update(self)
 	if not invites.is_empty():
 		PartySystem.update_invites(self)
 	tick_usec = tick_usec * 0.95 + float(Time.get_ticks_usec() - t_start) * 0.05     # média móvel (overlay/medição)
@@ -1128,6 +1129,11 @@ func _heal(src: SimEntity, target: SimEntity, amount: int) -> void:
 	var before := target.hp
 	target.hp = minf(target.stats.max_hp, target.hp + amount * target.heal_factor())
 	Events.healed.emit(src.id, target.id, int(target.hp - before))
+	if src != target and src.party_id >= 0 and src.party_id == target.party_id and target.hp - before >= target.stats.max_hp * 0.15:
+		if src == player and target.kind == SimEntity.Kind.BOT:
+			BotChat.party_event(self, target, "healed_by_player", {}, target, 0.5)
+		elif target == player and src.kind == SimEntity.Kind.BOT:
+			BotChat.party_event(self, target, "healed_player", {}, src, 0.35)
 	if src.is_character() and src.stats.ward_pct > 0.0:      # arma lendária de cura: Égide (parte da cura vira barreira)
 		target.shield_hp = minf(target.shield_hp + amount * src.stats.ward_pct / 100.0, target.stats.max_hp * 0.3)
 		var sb: Array = target.buffs.filter(func(b): return b.get("id") == "shield")
@@ -1166,8 +1172,11 @@ func _kill(e: SimEntity, killer: SimEntity) -> void:
 		Events.notification.emit("Você morreu. Renascendo em %s..." % map_def(PortalSystem.home_of(e)["map"]).name)
 		var loss := int(e.xp * Balance.DEATH_XP_PENALTY)
 		e.xp = maxi(0, e.xp - loss)
+		BotChat.party_event(self, e, "player_died")
 	elif e.kind == SimEntity.Kind.BOT:
-		if rng.randf() < 0.5:
+		if BotChat.in_player_party(self, e):
+			BotChat.party_event(self, e, "bot_died", {}, e, 0.7)
+		elif rng.randf() < 0.5:
 			Events.chat_message.emit(e.name, GameData.random_bot_line("death"), "global")
 
 var _elite_defs: Dictionary = {}
@@ -1514,6 +1523,8 @@ func party_kick(leader: SimEntity, target: SimEntity) -> bool:
 	return PartySystem.party_kick(self, leader, target)
 func party_promote(leader: SimEntity, target: SimEntity) -> bool:
 	return PartySystem.party_promote(self, leader, target)
+func party_chat_reply(text: String) -> bool:
+	return BotChat.party_reply(self, text)
 func party_seek_start(e: SimEntity) -> int:
 	return PartySystem.party_seek_start(self, e)
 func _update_invites() -> void:

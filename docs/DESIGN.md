@@ -411,6 +411,16 @@ Venda = 50% do preço. Tiers de equipamento: 0 (lv1) · 1 (lv8) · 2 (lv16) · 3
 ## Bots
 FSM: TOWN_IDLE ↔ TOWN_WALK → TRAVEL (portal, ou direto se a caça é no próprio vale) → HUNT (área do nível) → RETURN (HP < 30% ou bolsa > 60; volta à vila pelo portão ou portal) → SHOP (vende, recompra poções) → …
 Usam skills, poções e bloqueio reativo; falam no chat (contexto cidade/caça/morte/level/viagem); respondem ao jogador.
+**Conversa por contexto** (`core/sim/systems/bot_chat.gd`, falas em `BotsCatalog`, montadas por laços em `GameData.bot_chat`):
+- *Onde*: `BotChat.place_kind` dá o tipo de lugar pelos dados (`MAP_KIND`, `interior`, `parent_map` = dungeon, dentro/fora da muralha):
+  Aldara (vila/campina), Floresta/Posto, Cidade Élfica, Aurora/Bastião, fortes, Cidadela, dungeon, interior. Chefe vivo perto
+  (`BOT_CHAT_BOSS_RANGE`) ou investida no mapa viram assunto (`BOT_CHAT_SITUATION`); `LINES["hunt_<mapa>"]` somam ao lugar.
+- *Quem*: voz de cada classe (falas + modelos `CLASS_WANT`/`CLASS_DOING` × peças da classe) e toque por build (`BUILD_LINES`).
+- *Grupo com o jogador*: o bot fala no canal do grupo, pelo nome (`{p}`; `_address` gera "fala", "{p}, fala", "fala, {p}"), e reage a
+  entrar no grupo, vida baixa/morte/nível do jogador, chefe (início e queda), saque raro/lendário, cura (dada e recebida), entrar em
+  dungeon/mapa, colheita, investida e `/p` (resposta pelas palavras: `REPLY_KEYS`). Voz da classe em `PARTY_CLASS`.
+  Ritmo: fila com "digitação" (`PARTY_REACT_DELAY`), `PARTY_CHAT_GAP` entre falas, `PARTY_REACT_CD` por evento, conversa solta do
+  grupo a cada `PARTY_CHAT_MIN..MAX`; estado no dicionário do grupo, falas recentes em `BotBrain.recent_lines` (nunca repete seguida).
 Movimento: atravessam água só pelas pontes (`WorldSim.water_path`, grafo de cabeceiras + margens + anel dos lagos, seguido por
 `BotBrain._water_step`); preso, o bot desvia a 90° e abre para 135°/180° se prender de novo (`BotBrain._steer`).
 

@@ -942,7 +942,7 @@ func _chat_command(text: String) -> void:
 				_notify("Você não está em um grupo.")
 			elif arg != "":
 				Events.chat_message.emit(p.name, arg, "party")
-				_party_reply()
+				_party_reply(arg)
 		_:
 			_notify("Comandos: /party · /convidar nome · /sair · /expulsar nome · /lider nome · /p texto")
 
@@ -957,13 +957,8 @@ func find_character(char_name: String) -> SimEntity:
 	return null
 
 ## Um bot do grupo responde no canal do grupo de vez em quando.
-func _party_reply() -> void:
-	var mates: Array = Sim.party_members(Sim.player).filter(func(e): return e != Sim.player and e.kind == SimEntity.Kind.BOT)
-	if mates.is_empty() or randf() > 0.6:
-		return
-	var b: SimEntity = mates[randi() % mates.size()]
-	var reply: String = ["ok", "blz", "bora", "to indo", "kk", "pode puxar", "segura que eu curo", "vlw", "+1"][randi() % 9]
-	get_tree().create_timer(randf_range(1.0, 3.0)).timeout.connect(func(): Events.chat_message.emit(b.name, reply, "party"))
+func _party_reply(text: String) -> void:
+	Sim.party_chat_reply(text)
 
 ## Quadros do grupo (sem você): nome, nível, HP/MP; ♛ líder; mapa se estiver longe; cinza se morto.
 func refresh_party() -> void:

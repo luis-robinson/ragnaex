@@ -55,7 +55,7 @@ cursor (limitado ao alcance), `CONE` à frente, `TARGET` no inimigo sob o cursor
   Alquimista, Mercador, Quadro) cercada pela **Campina** (1–10: lago, bosque, colinas, clareira, fazenda), rio com pontes,
   castelo na colina e penhascos; desfiladeiros levam à **Floresta Sombria** (10–20: Posto dos Caçadores murado sob **investidas élficas** periódicas, defendido por sentinelas que lutam; paliçada dos bandidos, Árvore-Mãe; a garganta norte leva à **Cidade Élfica** (17–21: Árvore-Mãe Ancestral, trents, grifos, Guardiões e o Rei Élfico no Coração da Árvore)) e às
   **Ruínas de Vel'Thar** (20–30: cemitério, pântano, pedreira, altar do dragonete, zigurate). Cada área tem um mini-boss; as **Catacumbas do Conde** (8–13) são uma dungeon ramificada com 3 chefes, para grupo. 39 quests (história, laterais e 9 recompensas repetíveis), com portões de progressão entre as zonas, 47 receitas.
-* **Bots** são jogadores falsos: caçam no campo do nível deles, voltam pra vender, conversam no chat, morrem e renascem.
+* **Bots** são jogadores falsos: caçam no campo do nível deles, voltam pra vender, conversam no chat (do lugar onde estão, da classe/build e, no seu grupo, com você pelo nome), morrem e renascem.
   Eles usam exatamente o mesmo `InputCommand` que você — a simulação não sabe quem é humano.
 
 ## Arquitetura

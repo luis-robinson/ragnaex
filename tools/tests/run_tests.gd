@@ -410,6 +410,7 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_class_talents(gd, sim)
 	_check_skill_visuals(gd)
 	_check_party(gd, sim)
+	_check_bot_chat(gd, sim)
 	_check_threat_loot(gd, sim)
 	_check_self_aoe(gd, sim)
 	_check_review_fixes(gd, sim)
@@ -4917,6 +4918,123 @@ func _check_skill_visuals(gd) -> void:
 # ---------------------------------------------------------------------------
 # grupo (party): convite, limite, XP dividida, curas só no grupo, liderança, bots seguindo o líder
 # ---------------------------------------------------------------------------
+## Conversa dos bots por contexto (BotChat): lugar, classe/build, grupo com o jogador (nome, eventos, ritmo, sem repetir).
+func _check_bot_chat(gd, sim) -> void:
+	var full := {"p": "Fulano", "pcls": "paladino", "map": "Mapa", "lv": "12", "me": "Bot", "boss": "Chefão", "item": "Anel"}
+	var bad := 0
+	for key in gd.bot_chat:
+		for line in gd.bot_chat[key]:
+			var s := str(line)
+			if s.strip_edges() == "" or (not s.contains("%") and s.format(full).contains("{")):
+				bad += 1
+				print("  fala com marca desconhecida/vazia: %s -> %s" % [key, s])
+	check(bad == 0, "falas de bot: marcas conhecidas e nada vazio (%d ruins)" % bad)
+	# classe e build
+	for cid in gd.classes:
+		var cp: Array = BotChat.pool("class:" + cid)
+		check(cp.size() >= 20, "falas de bot: %s tem voz própria (%d)" % [cid, cp.size()])
+		for ev in ["join", "hunt", "player_low", "boss_fight"]:
+			check(not BotChat.pool("party:%s:%s" % [ev, cid]).is_empty(), "falas de grupo: %s reage a %s" % [cid, ev])
+		for b in gd.classes[cid].builds:
+			check(BotChat.pool("build:" + str(b["id"])).size() >= 2, "falas de bot: build %s" % b["id"])
+	# lugar: todo mapa (dentro e fora da muralha) cai num tipo com falas; os tipos esperados existem
+	var kinds := {}
+	for mid in gd.maps:
+		var def: MapDef = gd.maps[mid]
+		var spots: Array = [def.spawn_point, def.town_center, def.town_center + Vector3(def.town_radius + 6.0, 0, 0)]
+		for pos in spots:
+			var k := BotChat.place_kind(def, pos)
+			kinds[k] = true
+			check(BotChat.pool("place:" + k).size() >= 4, "falas de bot: %s (%s) tem conversa do lugar" % [mid, k])
+	for k in ["aldara_town", "aldara_field", "forest", "forest_town", "elf_city", "dawn", "dawn_town", "fort", "citadel", "dungeon", "interior"]:
+		check(kinds.has(k), "falas de bot: algum mapa é '%s'" % k)
+	check(BotChat.place_kind(gd.maps["dg_catacumbas"], Vector3.ZERO) == "dungeon" and BotChat.place_kind(gd.maps["in_tavern"], Vector3.ZERO) == "interior",
+		"falas de bot: dungeon e interior pelos dados")
+	# eventos do grupo: todos têm fala com o nome do jogador
+	for ev in BotsCatalog.PARTY_LINES:
+		if str(ev).begins_with("reply") and ev != "reply_hi":
+			continue
+		var pp: Array = BotChat.pool("party:" + ev)
+		check(pp.any(func(l): return str(l).contains("{p}")), "falas de grupo: '%s' chama o jogador pelo nome" % ev)
+	check(BotChat.reply_kind("valeu mano") == "reply_thanks" and BotChat.reply_kind("bora la") == "reply_go" and BotChat.reply_kind("que horas?") == "reply_ask"
+		and BotChat.reply_kind("hm") == "reply", "resposta do grupo pelas palavras")
+	var pl: SimEntity = sim.player
+	if pl.party_id >= 0:
+		sim.party_leave(pl)
+	var b1: SimEntity = sim.spawn_bot(gd.classes["paladin"], "ChatA", "city_aldara", pl.position + Vector3(2, 0, 0), pl.level)
+	var b2: SimEntity = sim.spawn_bot(gd.classes["bishop"], "ChatB", "city_aldara", pl.position + Vector3(-2, 0, 0), pl.level)
+	# sem repetir em seguida (conjunto grande e conjunto de 2)
+	var rep := 0
+	var last := ""
+	for i in 300:
+		var l := BotChat.pick(sim, b1, ["a", "b"] if i < 100 else BotChat.pool("class:paladin"), full)
+		rep += 1 if l == last else 0
+		last = l
+	check(rep == 0, "bot não repete a mesma fala duas vezes seguidas (%d)" % rep)
+	# chefe vivo perto: a conversa fala dele pelo nome
+	var boss_def: MonsterDef = null
+	for mid in gd.monsters:
+		if gd.monsters[mid].is_boss:
+			boss_def = gd.monsters[mid]
+			break
+	var boss: SimEntity = sim.spawn_monster(boss_def, "city_aldara", b1.position + Vector3(0, 0, 6))
+	var said_boss := false
+	for i in 60:
+		if BotChat.ambient_line(sim, b1).contains(boss_def.name):
+			said_boss = true
+	check(said_boss, "bot perto de chefe vivo fala dele (%s)" % boss_def.name)
+	sim.despawn(boss)
+	# custo: uma fala solta (lugar, chefe perto, investida) é barata mesmo no mapa cheio
+	var us0 := Time.get_ticks_usec()
+	for i in 500:
+		BotChat.ambient_line(sim, b1)
+	var per := float(Time.get_ticks_usec() - us0) / 500.0
+	print("fala de bot: %.1f µs" % per)
+	check(per < 300.0, "fala de bot custa pouco (%.1f µs)" % per)
+	# grupo com o jogador: cumprimenta pelo canal do grupo, reage, respeita o ritmo
+	var heard: Array = []
+	var listen := func(who: String, text: String, ch: String): heard.append([who, text, ch, sim.time])
+	Events.chat_message.connect(listen)
+	sim.party_invite(pl, b1)
+	sim.party_accept(b1)
+	sim.party_invite(pl, b2)
+	sim.party_accept(b2)
+	var t0: float = sim.time
+	for i in 80:
+		sim.time += 0.1
+		BotChat.update(sim)
+	var greets: Array = heard.filter(func(h): return h[2] == "party" and h[0] in ["ChatA", "ChatB"])
+	check(greets.size() >= 2, "bots que entram no grupo do jogador cumprimentam no grupo (%d)" % greets.size())
+	BotChat.ambient(sim, b1)
+	check(not heard.any(func(h): return h[0] == "ChatA" and h[2] == "global"), "bot no grupo do jogador não fala no global")
+	check(BotChat.party_event(sim, pl, "player_died"), "grupo reage à morte do jogador")
+	check(not BotChat.party_event(sim, pl, "player_died"), "mesma reação tem recarga")
+	var named := 0
+	for i in 40:
+		if BotChat.party_line(sim, b2, "player_low").contains(pl.name):
+			named += 1
+	check(named > 0, "fala de grupo usa o nome do jogador (%d/40)" % named)
+	heard.clear()
+	var minutes := 10.0
+	for i in int(minutes * 60.0 / 0.25):
+		sim.time += 0.25
+		BotChat.update(sim)
+	var party_said: Array = heard.filter(func(h): return h[2] == "party")
+	var min_gap := 999.0
+	for i in range(1, party_said.size()):
+		min_gap = minf(min_gap, float(party_said[i][3]) - float(party_said[i - 1][3]))
+	check(party_said.size() >= 4 and party_said.size() <= int(minutes * 60.0 / Balance.PARTY_CHAT_MIN) + 6,
+		"grupo conversa sem virar spam (%d falas em %d min)" % [party_said.size(), int(minutes)])
+	check(min_gap >= Balance.PARTY_CHAT_GAP - 0.01, "intervalo mínimo entre falas do grupo (%.1f s)" % min_gap)
+	Events.chat_message.disconnect(listen)
+	sim.party_leave(b1)
+	sim.party_leave(b2)
+	if pl.party_id >= 0:
+		sim.party_leave(pl)
+	sim.despawn(b1)
+	sim.despawn(b2)
+	check(sim.time > t0, "relógio andou")
+
 func _check_party(gd, sim) -> void:
 	var m: Dictionary = sim.maps["city_aldara"]
 	var mk := func(cls: String, nm: String, pos: Vector3, lv: int):

@@ -17,6 +17,7 @@ var trees: Dictionary = {}       # class_id -> {"start", "nodes"} (teia de ponto
 var class_talents: Dictionary = {}   # id da opção -> dicionário do ClassTalentsCatalog (aba Talentos)
 var bot_names: Array = []
 var bot_lines: Dictionary = {}
+var bot_chat: Dictionary = {}    # "<tipo>:<chave>" -> falas (BotsCatalog.pools, escolhidas por BotChat)
 var _basic_cache: Dictionary = {}
 var basic_skills: Dictionary = {}   # id -> SkillDef dos básicos gerados (o FX acha o tema por aqui)
 
@@ -68,6 +69,7 @@ func load_all() -> void:
 	QuestsCatalog.scale_xp(quests)             # quests dão ~45% da XP de cada faixa (Balance.XP_QUEST_SHARE)
 	bot_names = BotsCatalog.NAMES.duplicate()
 	bot_lines = BotsCatalog.LINES
+	bot_chat = BotsCatalog.pools()
 
 ## Catálogos escritos na escala antiga de atributos: itens e bônus de conjunto x Balance.ATTR_SCALE (cópia nova:
 ## nada de dicionário compartilhado escalado duas vezes).

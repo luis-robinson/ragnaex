@@ -17,6 +17,9 @@ static func gain_xp(sim: WorldSim, e: SimEntity, amount: int) -> void:
 		Events.level_up.emit(e.id, e.level)
 		if e == sim.player:
 			Events.notification.emit("Nível %d! +%d ponto(s) de skill (tecla K)" % [e.level, Balance.points_at(e.level)])
+			BotChat.party_event(sim, e, "player_levelup", {"lv": str(e.level)})
+		elif BotChat.in_player_party(sim, e):
+			BotChat.party_event(sim, e, "self_levelup", {"lv": str(e.level)}, e, 0.6)
 		elif e.kind == SimEntity.Kind.BOT and sim.rng.randf() < 0.35:
 			Events.chat_message.emit(e.name, GameData.random_bot_line("levelup") % e.level, "global")
 		if e.kind == SimEntity.Kind.BOT and e.class_def:

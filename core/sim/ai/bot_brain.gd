@@ -33,7 +33,7 @@ var cur_sim = null             # para desviar da água pelas pontes
 var water_path: Array = []     # pontos até atravessar a água pela ponte
 var water_goal := Vector3.INF
 var water_timer: float = 0.0
-var greet := ""                # fala no canal do grupo depois de entrar
+var recent_lines: Array = []   # falas recentes (BotChat não repete)
 var shop_timer: float = 0.0    # seguidor: reabastece na vila a cada tanto
 var defend_wave := -1          # leva da investida que este bot decidiu defender (-1 = nenhuma)
 var skip_wave := -1            # leva que ele decidiu ignorar (decide uma vez por leva)
@@ -76,11 +76,7 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 	# --- chat ---
 	if chat_timer <= 0.0:
 		chat_timer = rng.randf_range(Balance.BOT_CHAT_MIN, Balance.BOT_CHAT_MAX)
-		var walls := def.town_radius > 0.0 and Vector2(e.position.x - def.town_center.x, e.position.z - def.town_center.z).length() < def.town_radius
-		var ctx := "town" if in_town or walls else "hunt"        # dentro de um povoado (Posto) também é "vila" para a conversa
-		if GameData.bot_lines.has(ctx + "_" + def.id) and rng.randf() < 0.6:
-			ctx += "_" + def.id                        # fala do lugar: bandidos, teias, elfos...
-		Events.chat_message.emit(e.name, GameData.random_bot_line(ctx), "global")
+		BotChat.ambient(sim, e)                    # lugar, chefe/investida, classe e build (no grupo do jogador: BotChat.update)
 
 	# --- sobrevivência: poção ---
 	var potion_at: float = 0.35 if e.class_def == null or e.class_def.basic_attack_is_ranged else Balance.BOT_POTION_HP_MELEE
@@ -619,9 +615,7 @@ func wants_party(e: SimEntity, from: SimEntity, sim) -> bool:
 		return false
 	var yes := rng.randf() < (0.9 if from == sim.player else Balance.BOT_PARTY_ACCEPT)
 	if from == sim.player:
-		if yes:
-			greet = ["oi! bora", "opa, valeu pelo convite", "partiu", "to dentro", "bora upar"][rng.randi() % 5]
-		else:
+		if not yes:
 			Events.chat_message.emit(e.name, ["agora não, valeu", "to indo deslogar já", "to solando quest, foi mal"][rng.randi() % 3], "whisper")
 	return yes
 
@@ -653,9 +647,6 @@ func _party_has_player(e: SimEntity, sim) -> bool:
 ## Seguidor: vai até o mapa do líder, cura quem precisa, ajuda no combate e anda em formação atrás dele.
 func _follow(e: SimEntity, sim, m: Dictionary, leader: SimEntity, cmd: InputCommand, dt: float) -> InputCommand:
 	var def: MapDef = m["def"]
-	if greet != "":
-		Events.chat_message.emit(e.name, greet, "party")
-		greet = ""
 	var in_town := def.in_town(e.position)
 	state = S.TOWN_IDLE if in_town else S.HUNT     # se sair do grupo, continua de onde está
 	timer = 30.0

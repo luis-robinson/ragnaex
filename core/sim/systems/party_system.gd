@@ -112,6 +112,10 @@ static func party_accept(sim: WorldSim, e: SimEntity) -> bool:
 		p["leader"] = e.id                       # grupo com o jogador: os bots seguem e ajudam o jogador
 		party_say(sim, p, "%s agora lidera o grupo." % e.name)
 	Events.party_changed.emit(p["id"])
+	if e.kind == SimEntity.Kind.BOT:
+		BotChat.party_event(sim, e, "join", {}, e)       # entrou no grupo do jogador: cumprimenta
+	elif e == sim.player:
+		BotChat.party_event(sim, e, "welcome")
 	return true
 
 static func party_decline(sim: WorldSim, e: SimEntity) -> void:

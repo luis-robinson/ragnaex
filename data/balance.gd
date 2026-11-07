@@ -316,6 +316,18 @@ const SET_5PC_CDR_PER_TIER := 2.0
 # --- bots ---
 const BOT_CHAT_MIN := 25.0
 const BOT_CHAT_MAX := 90.0
+const BOT_CHAT_PLACE := 0.5                # conversa solta: chance de falar do lugar (senão da classe/build)
+const BOT_CHAT_SITUATION := 0.6            # chefe vivo por perto ou investida no mapa: chance de falar disso
+const BOT_CHAT_BOSS_RANGE := 30.0          # m: chefe vivo até aqui conta como "perto"
+const BOT_CHAT_RECENT := 4                 # falas recentes que o bot evita repetir
+# grupo com o jogador (BotChat.update): os bots falam com ele no canal do grupo
+const PARTY_CHAT_MIN := 35.0               # s entre duas falas soltas do grupo (um bot por vez)
+const PARTY_CHAT_MAX := 75.0
+const PARTY_CHAT_GAP := 4.0                # s mínimos entre duas falas de bot no grupo
+const PARTY_REACT_CD := 25.0               # s até o grupo reagir de novo ao mesmo tipo de evento
+const PARTY_REACT_DELAY := Vector2(0.8, 2.2)   # s de "digitação" antes da reação
+const PARTY_CHAT_LOW_HP := 0.3             # jogador abaixo disto: o grupo avisa
+const PARTY_CHAT_SCAN := 1.0               # s entre olhadas do grupo (vida, chefe, colheita, investida)
 
 # --- grupo (party) ---
 const THREAT_SWITCH := 1.1                 # monstro troca de alvo quando outro passa 110% da ameaça do alvo atual

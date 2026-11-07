@@ -200,6 +200,10 @@ static func change_map(sim: WorldSim, e: SimEntity, map_id: String, pos: Vector3
 	e.aggro_target = -1
 	sim.maps[map_id]["entities"].append(e)
 	Events.entity_changed_map.emit(e.id, map_id)
+	if e == sim.player and e.party_id >= 0:              # o grupo comenta a chegada (dungeon ou mapa novo)
+		var nd: MapDef = sim.maps[map_id]["def"]
+		if not nd.interior and not nd.is_town:             # voltar para casa (morte, retorno) não é novidade
+			BotChat.party_event(sim, e, "enter_dungeon" if nd.parent_map != "" else "enter_map", {"map": nd.name}, null, 1.0 if nd.parent_map != "" else 0.6)
 	for o in sim.entities.values():
 		if o.kind == SimEntity.Kind.SUMMON and o.owner_id == e.id and o.map_id != map_id:
 			sim.maps[o.map_id]["entities"].erase(o)
