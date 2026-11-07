@@ -28,14 +28,16 @@ const WEAPONS := {
 	"scythe": [20, 56, 0, 0, "INT", "WILL"],
 	"shield": [0, 0, 18, 8, "VIT", "FOR"],
 	"orb": [0, 16, 0, 4, "INT", "WILL"],
+	"pistol": [20, 0, 0, 0, "AGI", "FOR"],            # pistola de pederneira (mão secundária do Corsário): soma o ATK inteiro (menos que a 2ª arma), os tiros saem das skills
 }
 const WEAPON_NAMES := {
 	"sword": "Espada", "sword2h": "Montante", "mace": "Maça", "mace2h": "Martelo de Guerra",
 	"axe": "Machadinha", "axe2h": "Machado de Guerra", "dagger": "Adaga", "bow": "Arco",
 	"staff": "Cajado", "wand": "Varinha", "scythe": "Foice", "shield": "Escudo", "orb": "Orbe", "scepter": "Cetro", "rifle": "Mosquete", "spear": "Lança",
+	"pistol": "Pistola",
 }
 ## tipos que ganham versão comum gerada (os outros já existem em items_catalog)
-const NEW_COMMON_TYPES := ["sword2h", "mace", "mace2h", "axe", "orb", "scepter", "rifle", "spear"]
+const NEW_COMMON_TYPES := ["sword2h", "mace", "mace2h", "axe", "orb", "scepter", "rifle", "spear", "pistol"]
 const COMMON_TIER_NAMES := ["de Bronze", "de Ferro", "de Mitril", "de Obsidiana"]
 
 ## armaduras: peso da peça + [def, mdef] da peça de corpo no nível de referência
@@ -65,7 +67,7 @@ const BUILD_OF := {
 	"sacerdote": "do Sacerdote", "inquisidor": "do Inquisidor", "batalha": "do Clérigo de Batalha",
 	"guardiao_verde": "do Guardião da Floresta", "fera": "da Fera Selvagem", "xama": "do Xamã",
 	"atirador": "do Atirador", "cacador": "do Caçador", "lanceiro": "do Lanceiro",
-	"laminas": "das Lâminas Gêmeas", "duelista": "do Duelista", "trapaceiro": "do Trapaceiro",
+	"laminas": "das Lâminas Gêmeas", "duelista": "do Duelista", "corsario": "do Corsário",
 	"fogo": "do Fogo", "gelo": "do Gelo", "raio": "do Raio",
 	"invocador": "do Invocador", "ceifador": "do Ceifador", "pestilento": "das Sombras",
 }
@@ -324,18 +326,18 @@ const SET_VISUALS := {
 		"names": {"head": "Diadema da Lua Prateada", "body": "Casaca da Lua Prateada", "gloves": "Luvas da Lua Prateada", "boots": "Botas da Lua Prateada", "weapon": "Espada da Lua Prateada", "offhand": "Espada Gêmea da Lua Prateada"}},
 	"set_assassin_duelista_30": {"style": "ass_d30", "icon": "ass_d30", "color": Color(0.3, 0.15, 0.4), "set_name": "Conjunto Mestre das Lâminas",
 		"names": {"head": "Chapéu do Mestre", "body": "Casaca do Mestre", "gloves": "Luvas do Mestre", "boots": "Botas do Mestre", "weapon": "Espada do Mestre", "offhand": "Espada Gêmea do Mestre"}},
-	"set_assassin_trapaceiro_5": {"style": "ass_t5", "icon": "ass_t5", "color": Color(0.46, 0.42, 0.36), "set_name": "Conjunto Batedor de Carteiras",
-		"names": {"head": "Capuz do Batedor", "body": "Jaqueta do Batedor", "gloves": "Luvas do Batedor", "boots": "Botas do Batedor", "weapon": "Espada do Batedor", "offhand": "Adaga de Aparar do Batedor"}},
-	"set_assassin_trapaceiro_10": {"style": "ass_t10", "icon": "ass_t10", "color": Color(0.36, 0.37, 0.42), "set_name": "Conjunto Pólvora e Fumaça",
-		"names": {"head": "Máscara da Fumaça", "body": "Jaqueta da Fumaça", "gloves": "Luvas da Fumaça", "boots": "Botas da Fumaça", "weapon": "Espada da Fumaça", "offhand": "Adaga de Aparar da Fumaça"}},
-	"set_assassin_trapaceiro_15": {"style": "ass_t15", "icon": "ass_t15", "color": Color(0.3, 0.3, 0.44), "set_name": "Conjunto Gato do Telhado",
-		"names": {"head": "Capuz do Gato", "body": "Jaqueta do Gato", "gloves": "Luvas do Gato", "boots": "Botas do Gato", "weapon": "Espada do Gato", "offhand": "Adaga de Aparar do Gato"}},
-	"set_assassin_trapaceiro_20": {"style": "ass_t20", "icon": "ass_t20", "color": Color(0.52, 0.33, 0.2), "set_name": "Conjunto Contrabandista",
-		"names": {"head": "Chapéu do Contrabandista", "body": "Jaqueta do Contrabandista", "gloves": "Luvas do Contrabandista", "boots": "Botas do Contrabandista", "weapon": "Espada do Contrabandista", "offhand": "Adaga de Aparar do Contrabandista"}},
-	"set_assassin_trapaceiro_25": {"style": "ass_t25", "icon": "ass_t25", "color": Color(0.2, 0.22, 0.27), "set_name": "Conjunto Corvo Fumacento",
-		"names": {"head": "Máscara do Corvo Fumacento", "body": "Jaqueta do Corvo Fumacento", "gloves": "Luvas do Corvo Fumacento", "boots": "Botas do Corvo Fumacento", "weapon": "Espada do Corvo Fumacento", "offhand": "Adaga de Aparar do Corvo Fumacento"}},
-	"set_assassin_trapaceiro_30": {"style": "ass_t30", "icon": "ass_t30", "color": Color(0.5, 0.2, 0.45), "set_name": "Conjunto Rei dos Ladrões",
-		"names": {"head": "Coroa do Rei dos Ladrões", "body": "Jaqueta do Rei dos Ladrões", "gloves": "Luvas do Rei dos Ladrões", "boots": "Botas do Rei dos Ladrões", "weapon": "Espada do Rei dos Ladrões", "offhand": "Adaga de Aparar do Rei dos Ladrões"}},
+	"set_assassin_corsario_5": {"style": "ass_c5", "icon": "ass_c5", "color": Color(0.62, 0.3, 0.22), "set_name": "Conjunto Grumete",
+		"names": {"head": "Bandana do Grumete", "body": "Casaca do Grumete", "gloves": "Luvas do Grumete", "boots": "Botas do Grumete", "weapon": "Sabre do Grumete", "offhand": "Pistola do Grumete"}},
+	"set_assassin_corsario_10": {"style": "ass_c10", "icon": "ass_c10", "color": Color(0.22, 0.38, 0.6), "set_name": "Conjunto Maré Alta",
+		"names": {"head": "Tricórnio da Maré Alta", "body": "Casaca da Maré Alta", "gloves": "Luvas da Maré Alta", "boots": "Botas da Maré Alta", "weapon": "Sabre da Maré Alta", "offhand": "Pistola da Maré Alta"}},
+	"set_assassin_corsario_15": {"style": "ass_c15", "icon": "ass_c15", "color": Color(0.2, 0.42, 0.36), "set_name": "Conjunto Contrabandista de Coral",
+		"names": {"head": "Lenço do Coral", "body": "Casaca do Coral", "gloves": "Luvas do Coral", "boots": "Botas do Coral", "weapon": "Sabre do Coral", "offhand": "Pistola do Coral"}},
+	"set_assassin_corsario_20": {"style": "ass_c20", "icon": "ass_c20", "color": Color(0.66, 0.16, 0.2), "set_name": "Conjunto Bandeira Rubra",
+		"names": {"head": "Bicorne da Bandeira Rubra", "body": "Casaca da Bandeira Rubra", "gloves": "Luvas da Bandeira Rubra", "boots": "Botas da Bandeira Rubra", "weapon": "Sabre da Bandeira Rubra", "offhand": "Pistola da Bandeira Rubra"}},
+	"set_assassin_corsario_25": {"style": "ass_c25", "icon": "ass_c25", "color": Color(0.16, 0.18, 0.26), "set_name": "Conjunto Navio Fantasma",
+		"names": {"head": "Tricórnio do Navio Fantasma", "body": "Casaca do Navio Fantasma", "gloves": "Luvas do Navio Fantasma", "boots": "Botas do Navio Fantasma", "weapon": "Sabre do Navio Fantasma", "offhand": "Pistola do Navio Fantasma"}},
+	"set_assassin_corsario_30": {"style": "ass_c30", "icon": "ass_c30", "color": Color(0.42, 0.18, 0.46), "set_name": "Conjunto Almirante dos Sete Mares",
+		"names": {"head": "Chapéu do Almirante", "body": "Casaca do Almirante", "gloves": "Luvas do Almirante", "boots": "Botas do Almirante", "weapon": "Sabre do Almirante", "offhand": "Pistola do Almirante"}},
 	"set_elementalist_fogo_5": {"style": "ele_f5", "icon": "ele_f5", "color": Color(0.82, 0.32, 0.18), "set_name": "Conjunto Brasa Nova",
 		"names": {"head": "Chapéu da Brasa", "body": "Túnica da Brasa", "gloves": "Mangas da Brasa", "boots": "Sapatilhas da Brasa", "weapon": "Cajado da Brasa"}},
 	"set_elementalist_fogo_10": {"style": "ele_f10", "icon": "ele_f10", "color": Color(0.72, 0.34, 0.37), "set_name": "Conjunto Tempestade Rubra", "favor": "storm",
@@ -436,7 +438,7 @@ static func weapon_item(id: String, name: String, wtype: String, level: int, rar
 	it.id = id
 	it.name = name
 	it.type = EQ
-	it.slot = S.OFFHAND if wtype in ["shield", "orb"] else S.WEAPON
+	it.slot = S.OFFHAND if wtype in ItemDef.OFFHAND_ONLY else S.WEAPON
 	it.weapon_type = wtype
 	it.level_req = level
 	it.rarity = rarity
@@ -557,9 +559,9 @@ static func set_skills(build: Dictionary, skills: Dictionary, level: int, tier: 
 ## thorns (devolve corpo a corpo), ward (cura vira barreira), echo (golpe bate de novo; reserva),
 ## penance (cada golpe põe uma carga de Penitência no alvo; com `stacks` explode em fogo sagrado: `pct`% do ATK em `radius`),
 ## mend (parte do dano do golpe cura o aliado mais ferido por perto, você incluso), hemorrhage (dano extra em alvo
-## sangrando/envenenado), dirty_trick (chance de retardar; dano extra em alvo lento, preso ou atordoado),
-## open_wound (cada golpe abre uma Ferida no alvo, até `max`: +`pct`% do seu dano nele por ferida; com todas abertas ele sangra
-## `bleed`% do ATK por segundo).
+## sangrando/envenenado), open_wound (cada golpe abre uma Ferida no alvo, até `max`: +`pct`% do seu dano nele por ferida; com todas
+## abertas ele sangra `bleed`% do ATK por segundo), spare_shot (Corsário com pistola: golpe às vezes dispara um tiro de graça no alvo,
+## `pct`% do ATK, +1 Bravata; Balance.LEG_SHOT_ICD).
 const LEGEND_EFFECTS := {
 	"guardiao": {"kind": "thorns", "name": "Retaliação", "pct": [15, 3]},
 	"cruzado": {"kind": "stun", "name": "Julgamento", "chance": [12, 2], "dur": [0.8, 0.1], "icd": 6.0},
@@ -578,7 +580,7 @@ const LEGEND_EFFECTS := {
 	"lanceiro": {"kind": "open_wound", "name": "Ferida Aberta", "pct": [2.4, 0.48], "max": 5, "bleed": [8, 1.6]},
 	"laminas": {"kind": "poison", "name": "Veneno Letal", "chance": [35, 4], "pct": [10, 2]},
 	"duelista": {"kind": "riposte", "name": "Riposte", "pct": [80, 10]},
-	"trapaceiro": {"kind": "dirty_trick", "name": "Truque Sujo", "chance": [25, 3], "pct": [16, 3.2]},
+	"corsario": {"kind": "spare_shot", "name": "Bala na Agulha", "chance": [25, 3], "pct": [45, 6]},
 	"fogo": {"kind": "cast_on_basic", "name": "Brasa Viva", "skill": "ele_fireball", "chance": [20, 4]},
 	"gelo": {"kind": "cast_when_hit", "name": "Coração de Gelo", "skill": "ele_frost_nova", "icd": 20.0},
 	"raio": {"kind": "chain", "name": "Arco Voltaico", "targets": [1, 0.34], "pct": [60, 6]},
@@ -670,7 +672,7 @@ static func build(classes: Dictionary, skills: Dictionary) -> Dictionary:
 					alts[alt.id] = true
 				if build["off"].size() > 0:
 					var off_t: String = build["off"][0]
-					var off_name: String = WEAPON_NAMES[off_t] + ("" if off_t in ["shield", "orb"] else " Gêmea")
+					var off_name: String = WEAPON_NAMES[off_t] + ("" if off_t in ItemDef.OFFHAND_ONLY else " Gêmea")
 					var off := weapon_item("leg_%s_%s_%d_offhand" % [cid, bid, lv], "%s %s" % [off_name, tail], off_t, lv, ItemDef.RARITY_LEGENDARY, mult, col, PIECE_WEIGHT["offhand"])
 					off.attributes = _attrs(build["attr"], build["attr2"], lv, PIECE_WEIGHT["offhand"], mult)     # serve à build (escudo do Sacerdote dá WILL, não FOR)
 					made.append(off)
@@ -694,7 +696,9 @@ static func build(classes: Dictionary, skills: Dictionary) -> Dictionary:
 						elif it.slot == S.WEAPON:
 							it.weapon_style = vis["style"]          # arma própria do conjunto (paladin_sets / berserker_sets); vale na mão secundária
 						elif it.weapon_type == "shield":
-							it.shield_style = vis["style"]          # escudo próprio do conjunto (paladin_sets.SET_SHIELDS)
+							it.shield_style = vis["style"]
+						elif it.weapon_type == "pistol":
+							it.weapon_style = vis["style"]          # pistola própria do conjunto (assassin_sets.ASS_WEAPONS, wpn_off_pistol_<estilo>)          # escudo próprio do conjunto (paladin_sets.SET_SHIELDS)
 					it.set_id = sd.id
 					it.class_restriction = restrict
 					var hands := "Duas mãos. " if it.is_two_handed() else ""

@@ -97,8 +97,8 @@ static func build() -> Array:
 			{"mult": {"radius": 1.25}, "effects": {"dot": {"dps": 5, "duration": 4}}}),
 		_t("ass_t_shadowstep", "assassin", "ass_shadowstep", 16, 2, "Sombra Inquieta", "Passo das Sombras recarrega 30% mais rápido.",
 			{"mult": {"cooldown": 0.7}}),
-		_t("ass_t_smoke_bomb", "assassin", "ass_smoke_bomb", 10, 2, "Fumaça Densa", "Bomba de Fumaça 25% maior e recarrega 20% mais rápido.",
-			{"mult": {"radius": 1.25, "cooldown": 0.8}}),
+		_t("ass_t_ricochet", "assassin", "ass_ricochet_shot", 16, 2, "Ricochete Certeiro", "Bala Ricochete salta em mais 2 inimigos e perde só 8% por salto.",
+			{"effects": {"bounce": {"count": 6, "radius": 7.0, "falloff": 0.92, "taunt": 0.0, "back": false}}}),
 		# --- Elementalista ---
 		_t("ele_t_phase", "elementalist", D, 5, 2, "Translocação", "O dash atravessa objetos e vai 25% mais longe.",
 			{"ghost": true, "distance_mult": 1.25}),

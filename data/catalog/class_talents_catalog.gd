@@ -168,7 +168,7 @@ static func build() -> Dictionary:
 				_o("ass_c_dance", "Dança de Lâminas", "+10% de velocidade de ataque.", "dano", {"stats": {"aspd_pct": 10}}),
 				_o("ass_c_crit", "Olho Frio", "+6% de crítico.", "dano", {"stats": {"crit": 6.0}})]],
 			[25, [_o("ass_c_escape", "Fuga", "Sumir cura 15% do HP.", "sobrevivência", {"skill_mods": {"ass_vanish": {"effects": {"heal_pct": 15}}}}),
-				_o("ass_c_eviscerate", "Eviscerar", "Eviscerar, Golpe de Mestre e Golpe Baixo +25% de dano.", "dano", {"skill_mods": {"ass_eviscerate": {"mult": {"power": 1.25}}, "ass_master": {"mult": {"power": 1.25}}, "ass_cheap_shot": {"mult": {"power": 1.25}}}}),
+				_o("ass_c_eviscerate", "Golpe Final", "Eviscerar, Golpe de Mestre e Tiro Entre os Olhos +25% de dano.", "dano", {"skill_mods": {"ass_eviscerate": {"mult": {"power": 1.25}}, "ass_master": {"mult": {"power": 1.25}}, "ass_between_eyes": {"mult": {"power": 1.25}}}}),
 				_o("ass_c_leech", "Lâmina Sedenta", "+4% de roubo de vida.", "sobrevivência", {"stats": {"lifesteal": 4}})]],
 			[30, [_o("ass_c_death", "Morte Certa", "+50% de dano em alvos abaixo de 25% do HP.", "dano", {"execute": {"below": 0.25, "dmg_pct": 50}}),
 				_o("ass_c_phantom", "Fantasma", "Golpe fatal: fica com 1 HP, imortal e invisível por 4 s (uma vez a cada 90 s).", "sobrevivência", {"cheat_death": {"cd": 90.0, "dur": 4.0, "stealth": true}}),

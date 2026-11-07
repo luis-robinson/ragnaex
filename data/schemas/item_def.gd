@@ -12,6 +12,8 @@ const TWO_HANDED := ["sword2h", "mace2h", "axe2h", "staff", "bow", "scythe", "sc
 ## armas de 1 mão que podem ir na mão secundária (empunhar duas)
 const ONE_HANDED_MELEE := ["sword", "mace", "axe", "dagger"]
 const MELEE_TYPES := ["sword", "sword2h", "mace", "mace2h", "axe", "axe2h", "dagger", "spear"]
+## só na mão secundária (slot OFFHAND): escudo, orbe e a pistola do Corsário (os tiros saem das skills)
+const OFFHAND_ONLY := ["shield", "orb", "pistol"]
 const RARITY_LEGENDARY := 4
 
 @export var id: String = ""
@@ -26,7 +28,7 @@ const RARITY_LEGENDARY := 4
 @export var rarity: int = 0                 ## 0 comum, 1 incomum, 2 raro, 3 épico, 4 lendário
 
 ## equipamento
-## sword, sword2h, mace, mace2h, axe, axe2h, dagger, bow, staff, wand, scythe, scepter, rifle, spear | mão secundária: shield, orb
+## sword, sword2h, mace, mace2h, axe, axe2h, dagger, bow, staff, wand, scythe, scepter, rifle, spear | mão secundária: shield, orb, pistol
 @export var weapon_type: String = ""
 @export var atk: float = 0.0
 @export var matk: float = 0.0

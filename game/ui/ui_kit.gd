@@ -121,7 +121,7 @@ static func bar(color: Color, height: int = 16) -> ProgressBar:
 
 ## Símbolo do tipo de item (sigla da bolsa e amostras do --bag_shot; a arte vem de item_texture).
 const WEAPON_GLYPHS := {"sword": "sword", "sword2h": "sword", "mace": "mace", "mace2h": "hammer", "axe": "axe", "axe2h": "axe",
-	"dagger": "dagger", "bow": "longbow", "staff": "staff", "wand": "wand", "scythe": "scythe", "shield": "shield", "orb": "orb", "scepter": "scepter", "rifle": "rifle", "spear": "spear"}
+	"dagger": "dagger", "bow": "longbow", "staff": "staff", "wand": "wand", "scythe": "scythe", "shield": "shield", "orb": "orb", "scepter": "scepter", "rifle": "rifle", "spear": "spear", "pistol": "rifle"}
 const SLOT_GLYPHS := {ItemDef.Slot.HEAD: "helm", ItemDef.Slot.BODY: "armor", ItemDef.Slot.LEGS: "pants", ItemDef.Slot.GLOVES: "fist",
 	ItemDef.Slot.BOOTS: "boot", ItemDef.Slot.CAPE: "cape", ItemDef.Slot.AMULET: "amulet", ItemDef.Slot.RING: "ring",
 	ItemDef.Slot.RING2: "ring", ItemDef.Slot.ACCESSORY: "ring"}
@@ -496,7 +496,7 @@ static func legend_effect_text(le: Dictionary) -> String:
 		"mend": body = "%.0f%% do dano de ataques e habilidades cura o aliado mais ferido por perto (você incluso)" % float(le["pct"])
 		"hemorrhage": body = "+%.0f%% de dano em alvo sangrando ou envenenado" % float(le["pct"])
 		"open_wound": body = "cada golpe abre uma ferida no alvo (até %d): +%.1f%% do seu dano nele por ferida; com todas abertas ele sangra %.0f%% do ATK por segundo" % [int(le["max"]), float(le["pct"]), float(le["bleed"])]
-		"dirty_trick": body = "%.0f%% de chance de retardar o alvo; +%.0f%% de dano em alvo lento, preso ou atordoado" % [float(le["chance"]), float(le["pct"])]
+		"spare_shot": body = "%.0f%% de chance, ao golpear com a pistola na outra mão, de disparar um tiro de graça (%.0f%% do ATK) que dá +1 Bravata" % [float(le["chance"]), float(le["pct"])]
 	return ("%s — %s" % [nm, body]) if nm != "" else body
 
 ## Tooltip de skill: números com a maestria atual (+ próximo nível) e exigência de arma.

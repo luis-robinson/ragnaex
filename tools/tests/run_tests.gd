@@ -506,7 +506,7 @@ func run_all(gd, sim, balance, save) -> void:
 const WEAPON_TOKENS := ["sword", "sword2h", "mace", "mace2h", "axe", "axe2h", "dagger", "bow", "staff", "wand", "scythe", "scepter", "rifle", "spear"]
 
 func _token_ok(r: String) -> bool:
-	if r in ["shield", "orb", "dual", "two_handed"] or r in WEAPON_TOKENS:
+	if r in ["shield", "orb", "pistol", "dual", "two_handed"] or r in WEAPON_TOKENS:
 		return true
 	return r.begins_with("dual_") and r.substr(5) in ItemDef.ONE_HANDED_MELEE
 
@@ -1482,6 +1482,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_ranger_builds(gd, sim)
 	_check_assassin_builds(gd, sim)
 	_check_third_builds(gd, sim)
+	_check_corsair(gd, sim)
 	_check_bot_skill_reject(gd, sim)
 	_check_elementalist_builds(gd, sim)
 	_check_necromancer_builds(gd, sim)
@@ -2531,9 +2532,9 @@ func _check_assassin_builds(gd, sim) -> void:
 	var cls: ClassDef = gd.classes["assassin"]
 	var lam: Dictionary = cls.build_by_id("laminas")
 	var due: Dictionary = cls.build_by_id("duelista")
-	var tra: Dictionary = cls.build_by_id("trapaceiro")
+	var cor: Dictionary = cls.build_by_id("corsario")
 	check(cls.builds.size() == 3 and lam["main"] == ["dagger"] and lam["off"] == ["dagger"] and due["main"] == ["sword"] and due["off"] == ["sword"]
-		and tra["main"] == ["sword"] and tra["off"] == ["dagger"], "Assassino: Lâminas (duas adagas), Duelista (duas espadas) e Trapaceiro (espada + adaga)")
+		and cor["main"] == ["sword"] and cor["off"] == ["pistol"], "Assassino: Lâminas (duas adagas), Duelista (duas espadas) e Corsário (sabre + pistola)")
 	for sid in ["ass_plague_blade", "ass_vanish", "ass_reflexes"]:
 		check(sid in lam["skills"], "Lâminas tem %s" % sid)
 	for sid in ["ass_cross_slash", "ass_guard", "ass_lunge", "ass_master"]:
@@ -2592,11 +2593,11 @@ func _check_assassin_builds(gd, sim) -> void:
 	sim.despawn(mob)
 	sim.despawn(a)
 
-## Terceiras builds do Berserker (Arremessador: machadinhas e sangramento) e do Assassino (Trapaceiro: espada + adaga,
-## fumaça e controle): setor próprio na teia, 6 conjuntos com visual, efeito lendário, bot que se equipa e gasta a teia.
+## Terceiras builds do Berserker (Arremessador: machadinhas e sangramento) e do Assassino (Corsário: sabre + pistola,
+## Bravata): setor próprio na teia, 6 conjuntos com visual, efeito lendário, bot que se equipa e gasta a teia.
 func _check_third_builds(gd, sim) -> void:
 	var at := Vector3(-30, 0, 34)
-	for row in [["berserker", "arremessador", "axe", "axe", "ber_hatchet", "hemorrhage"], ["assassin", "trapaceiro", "sword", "dagger", "ass_shadow_knives", "dirty_trick"]]:
+	for row in [["berserker", "arremessador", "axe", "axe", "ber_hatchet", "hemorrhage"], ["assassin", "corsario", "sword", "pistol", "ass_pistol_shot", "spare_shot"]]:
 		var cid: String = row[0]
 		var bid: String = row[1]
 		var cls: ClassDef = gd.classes[cid]
@@ -2655,24 +2656,10 @@ func _check_third_builds(gd, sim) -> void:
 	check(is_equal_approx(LegendEffects.legend_power(sim, e, foe), 1.0), "Hemorragia: alvo sem sangrar apanha normal")
 	sim._apply_effects(e, foe, gd.skills["ber_hatchet"].effects, 1.0)
 	check(foe.has_debuff("dot") and LegendEffects.legend_power(sim, e, foe) > 1.1, "Hemorragia: Machadinha Voadora faz sangrar e o alvo sangrando apanha mais (x%.2f)" % LegendEffects.legend_power(sim, e, foe))
-	var a: SimEntity = sim.spawn_bot(gd.classes["assassin"], "Truque", "city_aldara", at + Vector3(2, 0, 0), 30)
+	var a: SimEntity = sim.spawn_bot(gd.classes["assassin"], "Expor", "city_aldara", at + Vector3(2, 0, 0), 30)
 	a.brain = null
-	a.equipment[ItemDef.Slot.WEAPON] = gd.items["leg_assassin_trapaceiro_30_weapon"]
-	a.recompute_stats()
 	foe.debuffs.clear()
-	check(is_equal_approx(LegendEffects.legend_power(sim, a, foe), 1.0), "Truque Sujo: alvo livre apanha normal")
-	sim._apply_effects(a, foe, gd.skills["ass_smoke_bomb"].effects, 1.0)
-	check(foe.has_debuff("slow") and foe.state == SimEntity.State.STUNNED and LegendEffects.legend_power(sim, a, foe) > 1.2, "Bomba de Fumaça atordoa e retarda; o Truque Sujo bate mais forte nele")
-	foe.debuffs.clear()
-	foe.set_state(SimEntity.State.IDLE)
-	var slowed := 0
-	sim.rng.seed = 5
-	for i in range(100):
-		foe.debuffs.clear()
-		LegendEffects.legend_on_hit(sim, a, foe, gd.skills["ass_cheap_shot"], 10)
-		slowed += 1 if foe.has_debuff("slow") else 0
-	check(slowed > 20 and slowed < 60, "Truque Sujo: golpe às vezes retarda (%d/100)" % slowed)
-	# Expor Fraqueza: o alvo recebe mais dano de todos
+	# Expor Fraqueza (Duelista; o Corsário também usa): o alvo recebe mais dano de todos
 	foe.debuffs.clear()
 	foe.hp = foe.stats.max_hp
 	var hp0: float = foe.hp
@@ -2683,8 +2670,150 @@ func _check_third_builds(gd, sim) -> void:
 	sim._deal_damage(e, foe, 100, false, false, "physical")
 	var exposed: float = hp0 - foe.hp
 	check(exposed > plain * 1.1,"Expor Fraqueza: alvo exposto apanha mais de todos (%.0f x %.0f)" % [exposed, plain])
-	check(UiKit.legend_effect_text(e.stats.legend).contains("sangrando") and UiKit.legend_effect_text(a.stats.legend).contains("atordoado"), "texto dos efeitos novos")
+	check(UiKit.legend_effect_text(e.stats.legend).contains("sangrando"), "texto do efeito novo")
 	for x in [e, a, foe]:
+		sim.despawn(x)
+
+## Corsário (Assassino, sabre + pistola): pistola só na mão secundária, Bravata (ganha com tiros/cortes, o Tiro Entre os
+## Olhos gasta tudo), Dados da Sorte (um buff sorteado pelo rng da sim), gancho até o cursor, bala que ricocheteia sem
+## voltar nem provocar, Bala na Agulha (tiro de graça) e save antigo do Trapaceiro.
+func _check_corsair(gd, sim) -> void:
+	var cls: ClassDef = gd.classes["assassin"]
+	check("pistol" in ItemDef.OFFHAND_ONLY and gd.items.has("pistol_t0") and gd.items["pistol_t0"].slot == ItemDef.Slot.OFFHAND
+		and gd.items["pistol_t0"].level_req <= 1 and "pistol_t0" in GearCatalog.starter_weapon_ids(gd.items), "pistola: mão secundária, comum de nível 1 na loja")
+	check(not ("trapaceiro" in cls.builds.map(func(b): return b["id"])) and not gd.items.has("leg_assassin_trapaceiro_30_weapon"), "Trapaceiro saiu do jogo")
+	for sid in ["ass_shadow_knives", "ass_smoke_bomb", "ass_cheap_shot"]:
+		check(not gd.skills.has(sid), "skill do Trapaceiro removida: %s" % sid)
+	check(gd.skills["ass_caltrops"].build == "" and gd.skills["ass_paralyze"].build == "laminas" and gd.skills["ass_expose"].build == "duelista", "Abrolhos geral, Toxina nas Lâminas, Expor no Duelista")
+	var at := Vector3(-34, 0, 30)
+	var m: Dictionary = sim.maps["city_aldara"]
+	var a: SimEntity = sim.spawn_bot(cls, "Corsario", "city_aldara", at, 30)
+	a.brain = null
+	check(ItemSystem.equip_error(sim, a, gd.items["pistol_t3"]) == "", "Assassino equipa pistola")
+	check(ItemSystem.equip_error(sim, sim.spawn_bot(gd.classes["ranger"], "NoPistol", "city_aldara", at + Vector3(0, 0, -6), 30), gd.items["pistol_t3"]) != "", "outra classe não usa pistola")
+	a.equipment[ItemDef.Slot.WEAPON] = gd.items["leg_assassin_corsario_30_weapon"]
+	a.equipment[ItemDef.Slot.OFFHAND] = gd.items["leg_assassin_corsario_30_offhand"]
+	a.recompute_stats()
+	check(a.stats.offhand_type == "pistol" and a.stats.meets(["pistol"]) and not a.stats.meets(["dual"]), "sabre + pistola cumpre \"pistol\", não \"dual\"")
+	check(gd.items["leg_assassin_corsario_30_offhand"].weapon_style == "ass_c30", "pistola lendária com modelo próprio")
+	var foe: SimEntity = sim.spawn_monster(gd.monsters["golem"], "city_aldara", at + Vector3(0, 0, 2.0))
+	foe.brain = null
+	foe.hp = 1e9
+	a.face_towards(foe.position)
+	a.skill_aim = foe.position
+	# Bravata: tiros e cortes juntam até o máximo; o finalizador gasta tudo e atordoa mais (Bala na Agulha parada aqui)
+	a.shot_ready_at = sim.time + 1e6
+	sim._apply_skill(a, gd.skills["ass_pistol_shot"], m)
+	check(a.buff_stacks(Balance.BRAVADO_BUFF) == 1, "Tiro de Pistola dá 1 Bravata (%d)" % a.buff_stacks(Balance.BRAVADO_BUFF))
+	sim._apply_skill(a, gd.skills["ass_slash_shot"], m)
+	check(a.buff_stacks(Balance.BRAVADO_BUFF) == 3, "Corte e Tiro dá 2 Bravata (%d)" % a.buff_stacks(Balance.BRAVADO_BUFF))
+	for i in range(4):
+		sim._apply_skill(a, gd.skills["ass_slash_shot"], m)
+	check(a.buff_stacks(Balance.BRAVADO_BUFF) == Balance.BRAVADO_MAX, "Bravata tem teto (%d)" % a.buff_stacks(Balance.BRAVADO_BUFF))
+	var eyes: SkillDef = gd.skills["ass_between_eyes"]
+	sim.rng.seed = 3
+	var hp0: float = foe.hp
+	foe.set_state(SimEntity.State.IDLE)
+	sim._apply_skill(a, eyes, m)
+	var full_dmg: float = hp0 - foe.hp
+	var full_stun: float = foe.state_duration if foe.state == SimEntity.State.STUNNED else 0.0
+	check(a.buff_stacks(Balance.BRAVADO_BUFF) == 0 and a.combo_spent == Balance.BRAVADO_MAX, "Tiro Entre os Olhos gasta toda a Bravata")
+	sim.rng.seed = 3
+	hp0 = foe.hp
+	foe.set_state(SimEntity.State.IDLE)
+	sim._apply_skill(a, eyes, m)
+	var dry_dmg: float = hp0 - foe.hp
+	var dry_stun: float = foe.state_duration if foe.state == SimEntity.State.STUNNED else 0.0
+	check(full_dmg > dry_dmg * 2.0 and full_stun > dry_stun + 1.0, "Bravata cheia: tiro bem mais forte (%.0f x %.0f) e atordoa mais (%.1f x %.1f s)" % [full_dmg, dry_dmg, full_stun, dry_stun])
+	foe.set_state(SimEntity.State.IDLE)
+	# Dados da Sorte: um resultado dos 4 por vez, sorteado pelo rng da sim (mesma semente, mesmo resultado)
+	var dice: SkillDef = gd.skills["ass_dice"]
+	var seen := {}
+	for sd_i in range(24):
+		sim.rng.seed = sd_i
+		sim._apply_skill(a, dice, m)
+		var got: Array = a.buffs.filter(func(b): return b.get("id") == "lucky_dice")
+		check(got.size() == 1, "Dados da Sorte: um buff só")
+		if got.size() == 1:
+			seen[str(got[0].get("label", ""))] = true
+	check(seen.size() == 4, "Dados da Sorte: os 4 resultados saem (%s)" % str(seen.keys()))
+	sim.rng.seed = 7
+	sim._apply_skill(a, dice, m)
+	var first: String = str(a.buffs.filter(func(b): return b.get("id") == "lucky_dice")[0]["label"])
+	sim.rng.seed = 7
+	sim._apply_skill(a, dice, m)
+	check(str(a.buffs.filter(func(b): return b.get("id") == "lucky_dice")[0]["label"]) == first, "Dados da Sorte: determinístico pela semente da sim")
+	a.drop_buff("lucky_dice")
+	a.recompute_stats()
+	# Gancho: vai até o ponto mirado (não passa dele) e corta quem está lá
+	a.position = at
+	var spot := at + Vector3(6, 0, 0)
+	a.face_towards(spot)
+	a.skill_aim = spot
+	sim._apply_skill(a, gd.skills["ass_grapple"], m)
+	var moved: float = a.position.distance_to(at)
+	check(moved > 4.5 and moved < 6.2, "Gancho puxa até o cursor (%.1f m de 6)" % moved)
+	# Bala Ricochete: salta entre inimigos, não provoca e não volta para a mão
+	a.position = at
+	var foes: Array = []
+	for k in range(3):
+		var f: SimEntity = sim.spawn_monster(gd.monsters["golem"], "city_aldara", at + Vector3(-3.0 - k * 2.0, 0, 3.0))
+		f.brain = null
+		f.hp = 1e9
+		foes.append(f)
+	a.face_towards(foes[0].position)
+	a.skill_aim = foes[0].position
+	var before: Array = foes.map(func(f): return f.hp)
+	sim._apply_skill(a, gd.skills["ass_ricochet_shot"], m)
+	var proj: SimProjectile = null
+	for p in m["projectiles"]:
+		if p.owner_id == a.id and p.skill and p.skill.id == "ass_ricochet_shot":
+			proj = p
+	check(proj != null and not bool(proj.bounce.get("back", true)), "Bala Ricochete é uma bala (sem volta)")
+	for i in range(90):
+		sim._update_projectiles(m, 1.0 / 30.0)
+	var hit := 0
+	for k in range(3):
+		hit += 1 if foes[k].hp < before[k] else 0
+	check(hit == 3 and not m["projectiles"].has(proj), "Bala Ricochete acerta os 3 e some (%d)" % hit)
+	check(foes.all(func(f): return f.taunt_left <= 0.0), "Bala Ricochete não provoca")
+	for f in foes:
+		sim.despawn(f)
+	# Bala na Agulha: golpe às vezes atira de graça (com a pistola na outra mão), com recarga
+	a.position = at
+	a.face_towards(foe.position)
+	a.drop_buff(Balance.BRAVADO_BUFF)
+	var shots := 0
+	a.shot_ready_at = 0.0
+	sim.rng.seed = 9
+	var basic: SkillDef = gd.basic_skill_for_class(cls, "sword")
+	for i in range(60):
+		sim.time += Balance.LEG_SHOT_ICD + 0.01
+		var hb: float = foe.hp
+		LegendEffects.legend_on_hit(sim, a, foe, basic, 10)
+		shots += 1 if foe.hp < hb else 0
+	check(shots > 8 and shots < 40, "Bala na Agulha: o golpe às vezes dispara a pistola (%d/60)" % shots)
+	check(a.buff_stacks(Balance.BRAVADO_BUFF) > 0, "tiro de graça dá Bravata")
+	var burst := 0
+	for i in range(20):
+		var hb: float = foe.hp
+		LegendEffects.legend_on_hit(sim, a, foe, basic, 10)
+		burst += 1 if foe.hp < hb else 0
+	check(burst <= 1, "Bala na Agulha tem recarga (%d tiros sem esperar)" % burst)
+	check(UiKit.legend_effect_text(a.stats.legend).contains("Bravata"), "texto da Bala na Agulha")
+	# save antigo do Trapaceiro: as peças viram as do Corsário do mesmo nível
+	check(SaveSystem.renamed_item("leg_assassin_trapaceiro_20_offhand+3") == "leg_assassin_corsario_20_offhand+3"
+		and gd.resolve_item(SaveSystem.renamed_item("leg_assassin_trapaceiro_20_offhand+3")), "save antigo: peça do Trapaceiro vira a do Corsário")
+	var d := {"level": 30, "equipment": {str(ItemDef.Slot.WEAPON): "leg_assassin_trapaceiro_25_weapon", str(ItemDef.Slot.OFFHAND): "leg_assassin_trapaceiro_25_offhand"},
+		"inventory": {"leg_assassin_trapaceiro_25_head": 1}, "learned": ["ass_shadow_knives", "ass_backstab"], "tree": ["assassin_s_ass_shadow_knives"], "save_version": SaveSystem.VERSION}
+	var old: SimEntity = sim.spawn_bot(cls, "Velho", "city_aldara", at + Vector3(0, 0, -3), 30)
+	old.brain = null
+	SaveSystem.apply_to(old, d)
+	var ow: ItemDef = old.equipment.get(ItemDef.Slot.WEAPON)
+	var oo: ItemDef = old.equipment.get(ItemDef.Slot.OFFHAND)
+	check(ow != null and ow.id == "leg_assassin_corsario_25_weapon" and oo != null and oo.weapon_type == "pistol" and old.inventory.has("leg_assassin_corsario_25_head")
+		and not old.learned.has("ass_shadow_knives"), "save antigo do Trapaceiro carrega: sabre e pistola do Corsário, skill sumida fora")
+	for x in [a, foe, old]:
 		sim.despawn(x)
 
 func _check_ranger_builds(gd, sim) -> void:

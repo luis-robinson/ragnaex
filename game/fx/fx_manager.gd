@@ -151,6 +151,9 @@ func _on_damage(attacker_id: int, target_id: int, amount: int, crit: bool, block
 		txt = "⚡" + txt
 	if kind == "splash":                   # Pólvora
 		col = Color(1.0, 0.6, 0.3)
+	if kind == "shot":                     # Bala na Agulha (Corsário): tiro de graça da pistola
+		col = Color(1.0, 0.78, 0.35)
+		txt = "✦" + txt
 	if kind == "penance":                  # Penitência (Templário): explosão de fogo sagrado
 		col = Color(1.0, 0.85, 0.35)
 		txt = "✦" + txt
@@ -259,8 +262,13 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: f
 	var dir := aim - origin
 	dir.y = 0.0
 	dir = dir.normalized() if dir.length() > 0.01 else Vector3.FORWARD
+	if s.effects.get("shot", false) and not basic:       # pistola do Corsário: clarão na boca do cano e rastro da bala
+		_pistol_fx(s, origin, aim, dir, radius)
+		return
 	match s.target:
 		SkillDef.Target.GROUND:
+			if s.effects.get("dash_to_aim", false):      # gancho: a corda vai da mão até onde ele chegou
+				SkillFx.rope(self, origin + Vector3(0, 1.0, 0) - dir * 0.4, aim + Vector3(0, 1.0, 0))
 			_ground_impact(s, th, aim, radius)
 		SkillDef.Target.SELF:
 			if s.kind == SkillDef.Kind.BUFF or s.kind == SkillDef.Kind.HEAL or s.effects.has("shield"):
@@ -326,6 +334,36 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: f
 					SkillFx.column(self, aim, 0.6, th, 0.45)
 				if s.radius > 1.0:
 					SkillFx.circle(self, aim, s.radius, th, 0.45)
+
+## Pistola (skills com "shot"): o tiro sai da mão esquerda. Alvo único = um rastro; leque (Bordada) = vários rastros
+## espalhados no cone; Tiro Entre os Olhos = tiro grosso e tremida de câmera.
+func _pistol_fx(s: SkillDef, origin: Vector3, aim: Vector3, dir: Vector3, radius: float) -> void:
+	var left := Vector3.UP.cross(dir).normalized()
+	var muzzle := origin + Vector3(0, 0.95, 0) + dir * 0.6 + left * 0.22
+	var big := s.effects.has("combo_spend")
+	match s.target:
+		SkillDef.Target.CONE:
+			var n := 5
+			for i in range(n):
+				var a := deg_to_rad(s.cone_angle_deg) * (float(i) / float(n - 1) - 0.5)
+				var d2 := dir.rotated(Vector3.UP, a)
+				SkillFx.gunshot(self, muzzle, origin + d2 * radius * randf_range(0.75, 1.0) + Vector3(0, 0.8, 0), i == n / 2)
+			SkillFx.sector(self, origin, dir, radius, s.cone_angle_deg, "fire", 0.22)
+			camera.add_shake(0.08)
+		_:
+			var hit := aim + Vector3(0, 0.85, 0)
+			if s.effects.has("bounce"):
+				if radius < 0.0:                              # bala ricocheteando entre alvos: só o estalo no alvo
+					SkillFx.ricochet(self, aim, "fire")
+				else:                                         # disparo: clarão e fumaça (a bala é o projétil)
+					SkillFx.gunshot(self, muzzle, hit, false, false)
+				return
+			if s.range <= 3.0:                                # Corte e Tiro: o corte primeiro, o tiro à queima-roupa
+				SkillFx.slash_x(self, aim, "physical", 1.3)
+			SkillFx.gunshot(self, muzzle, hit, big)
+			if big:
+				SkillFx.explosion(self, aim, 0.9, "fire")
+				camera.add_shake(0.12)
 
 ## Impacto no chão por tema (o círculo sempre tem o raio real).
 func _ground_impact(s: SkillDef, th: String, at: Vector3, radius: float) -> void:
@@ -474,6 +512,13 @@ func _on_buff(entity_id: int, buff_id: String, duration: float) -> void:
 	var e: SimEntity = Sim.get_entity(entity_id)
 	if e == null or e.map_id != main.current_map_id or not main.views.has(entity_id):
 		return
+	if buff_id == Balance.BRAVADO_BUFF:          # Bravata: só o número subindo em cima da cabeça (o HUD mostra as cargas)
+		if _mine(entity_id):
+			_float_text(e.position + Vector3(0, 2.3 * e.scale, 0), "Bravata %d" % e.buff_stacks(buff_id), Color(1.0, 0.8, 0.4), 0.6)
+		return
+	for b in e.buffs:                            # Dados da Sorte: o que saiu nos dados
+		if b.get("id") == buff_id and b.has("label") and _mine(entity_id):
+			_float_text(e.position + Vector3(0, 2.6 * e.scale, 0), "Dados: %s!" % b["label"], Color(1.0, 0.92, 0.5), 1.2)
 	if buff_id.begins_with("form_"):
 		_transform_fx(e, buff_id.substr(5))
 		return
@@ -692,7 +737,7 @@ func _on_projectile(p: SimProjectile) -> void:
 	# físico: flecha (dono com arco) ou lâmina girando (arremesso), em vez da bola de energia
 	var owner: SimEntity = Sim.get_entity(p.owner_id)
 	var bow_shot: bool = owner != null and owner.stats != null and owner.stats.weapon_type == "bow" and p.skill != null and p.skill.id.begins_with("basic_")
-	if p.skill and p.skill.effects.has("bounce"):
+	if p.skill and p.skill.effects.has("bounce") and not p.skill.effects.get("shot", false):     # bala (Corsário) fica a bolinha de fogo
 		mi.mesh = null
 		mi.add_child(SkillFx.thrown_shield(th))
 		mi.set_meta("spin", true)

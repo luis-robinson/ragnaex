@@ -307,6 +307,12 @@ const LEG_RIPOSTE_RANGE := 4.0             # contra-ataque só em quem bate de p
 const LEG_CHAIN_RANGE := 6.0               # salto do básico (corrente) até o próximo inimigo
 const LEG_WARD_TIME := 6.0
 const MEND_SELF_MULT := 0.4               # Clérigo de Batalha: golpe que cura (mend) rende só isto quando o mais ferido é você
+const LEG_SHOT_ICD := 1.2                  # Bala na Agulha (Corsário): no máximo um tiro de graça a cada isto
+## Bravata (Corsário): cargas em você ("combo_gain" das skills, até MAX, somem em TIME s sem ganhar outra);
+## "combo_spend" (Tiro Entre os Olhos) gasta todas de uma vez
+const BRAVADO_BUFF := "bravado"
+const BRAVADO_MAX := 5
+const BRAVADO_TIME := 12.0
 const LEG_PENANCE_TIME := 5.0              # Penitência (Templário): cargas no alvo somem sem golpe por este tempo
 const LEG_WOUND_TIME := 5.0                 # Ferida Aberta (Lanceiro): feridas no alvo somem juntas sem golpe por este tempo
 const PLUS_ELF_LEVEL := 20                  # lendário deste nível (Glória) aprimora com materiais élficos

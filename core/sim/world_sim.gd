@@ -834,6 +834,9 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 		effects[k] = extra[k]
 	for k in s.talent_effects:     # evoluções vencem a maestria
 		effects[k] = s.talent_effects[k]
+	if effects.get("dice") is Array and not (effects["dice"] as Array).is_empty():     # Dados da Sorte: sorteia UM dos buffs (rng da sim)
+		var faces: Array = effects["dice"]
+		effects["buff"] = (faces[rng.randi() % faces.size()] as Dictionary).duplicate()
 	if lv > 0:                     # maestria fortalece os bônus de buff e de forma
 		var bm := 1.0 + Balance.MASTERY_BONUS_PCT * lv
 		if effects.get("buff") is Dictionary:
@@ -855,6 +858,10 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 	var reach := -1.0
 	if effects.has("dash"):
 		var d := e.forward() * float(effects["dash"])
+		if effects.get("dash_to_aim", false):     # gancho: puxa até o ponto mirado (no máximo `dash` m), parando na frente de quem estiver lá
+			var to_aim := aim - e.position
+			to_aim.y = 0.0
+			d = e.forward() * clampf(to_aim.length() - 0.6, 0.0, float(effects["dash"]))
 		if charge:
 			var stopped := _charge(e, d, m)
 			reach = maxf(0.0, (e.position - origin).dot(e.forward()))
@@ -907,16 +914,31 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 			if o.kind == SimEntity.Kind.MONSTER and o.is_alive() and o.position.distance_to(e.position) <= s.radius + o.radius:
 				MobSystem.taunt(self, o, e, float(effects["taunt"].get("duration", Balance.TAUNT_DURATION)))
 
+	# Bravata (Corsário): o finalizador gasta todas as cargas (mais dano e mais atordoamento por carga)
+	if effects.get("combo_spend") is Dictionary:
+		var spent := e.buff_stacks(Balance.BRAVADO_BUFF)
+		var cs: Dictionary = effects["combo_spend"]
+		power *= 1.0 + float(cs.get("power_pct", 0.0)) / 100.0 * spent
+		if float(cs.get("stun_per", 0.0)) > 0.0:
+			effects["stun"] = {"duration": float((effects.get("stun", {}) as Dictionary).get("duration", 0.0)) + float(cs["stun_per"]) * spent}
+		e.drop_buff(Balance.BRAVADO_BUFF)
+		e.combo_spent = spent
+
 	# escudo arremessado: persegue o alvo, ricocheteia e volta
 	if effects.get("bounce") is Dictionary:
 		var first: Array = Combat.select_targets(e, s, aim, m["entities"])
 		_throw_bouncer(e, s, power, m, effects, first[0] if not first.is_empty() else null, aim)
+		if effects.get("shot", false):          # bala: clarão na boca do cano já no disparo
+			Events.skill_effect.emit(s.id, e.position, first[0].position if not first.is_empty() else aim, 0.0)
+		if not first.is_empty():
+			gain_bravado(e, int(effects.get("combo_gain", 0)))
 		return
 
 	# projétil (DIRECTION com velocidade)
 	if s.projectile_speed > 0.0 and s.target == SkillDef.Target.DIRECTION:
 		_spawn_projectile(e, s, power, m, false, effects)
 		Events.skill_effect.emit(s.id, e.position, aim, s.radius)
+		gain_bravado(e, int(effects.get("combo_gain", 0)))
 		return
 
 	if s.target == SkillDef.Target.SELF and s.radius <= 0.0 and s.kind != SkillDef.Kind.HEAL and s.kind != SkillDef.Kind.BUFF and not effects.has("shield"):
@@ -930,6 +952,8 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 		Events.skill_effect.emit(s.id, origin, origin + e.forward() * reach, s.radius)
 	elif s.target == SkillDef.Target.TARGET and not targets.is_empty():
 		Events.skill_effect.emit(s.id, e.position, targets[0].position, s.radius)     # efeito no alvo de verdade, não no cursor
+	elif effects.get("dash_to_aim", false):
+		Events.skill_effect.emit(s.id, origin, aim, s.radius)       # gancho: a corda sai de onde ele estava
 	else:
 		Events.skill_effect.emit(s.id, e.position, aim, s.radius)
 	var on_foes := effects.duplicate()    # buff e escudo são de quem lança, nunca do inimigo atingido
@@ -957,8 +981,20 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 		_apply_effects(e, t, effects if e.is_friend(t) else on_foes, power)
 	if effects.has("buff") or effects.has("shield"):
 		_apply_effects(e, e, {"buff": effects.get("buff", null), "shield": effects.get("shield", null)}, power)
+	if any_hit or s.kind == SkillDef.Kind.BUFF:
+		gain_bravado(e, int(effects.get("combo_gain", 0)))
 	if any_hit and s.hit_stop_frames > 0 and (e == player or targets.has(player)):
 		Events.hit_stop.emit(s.hit_stop_frames)
+
+## Bravata (Corsário): +n cargas em `e` (até Balance.BRAVADO_MAX; o tempo renova a cada ganho). O HUD mostra as cargas.
+func gain_bravado(e: SimEntity, n: int) -> void:
+	if n <= 0 or e == null or not e.is_alive():
+		return
+	var cur := e.buff_stacks(Balance.BRAVADO_BUFF)
+	var now := mini(Balance.BRAVADO_MAX, cur + n)
+	e.put_buff({"id": Balance.BRAVADO_BUFF, "remaining": Balance.BRAVADO_TIME, "stacks": now})
+	if now != cur:
+		Events.buff_applied.emit(e.id, Balance.BRAVADO_BUFF, Balance.BRAVADO_TIME)
 
 ## Raio: chance de atordoar no golpe direto (Balance.STORM_STUN_*).
 ## Golpe direto (skill ou projétil) em um alvo: gelo estilhaça alvo retardado/preso, a arma lendária multiplica e reage.
@@ -1146,8 +1182,11 @@ func _update_bouncer(p: SimProjectile, m: Dictionary, dt: float) -> bool:
 	p.traveled += step
 	if p.returning:
 		return dist <= step + 0.6                             # pegou de volta
+	var back := bool(p.bounce.get("back", true))             # bala (Corsário): não volta, some no último salto
 	if tgt == null:                                           # lançado no vazio: vai até o alcance e volta
 		if p.traveled >= p.max_distance:
+			if not back:
+				return true
 			p.returning = true
 		return false
 	if dist > step + tgt.radius + p.radius:
@@ -1159,7 +1198,8 @@ func _update_bouncer(p: SimProjectile, m: Dictionary, dt: float) -> bool:
 	owner.combat_timer = Balance.AGGRO_LOSE_TIME
 	if tgt.is_alive() and tgt.kind == SimEntity.Kind.MONSTER and tgt.monster_def:
 		var casting := tgt.state == SimEntity.State.CASTING and tgt.skill_phase == "startup"
-		MobSystem.taunt(self, tgt, owner, float(p.bounce.get("taunt", Balance.TAUNT_DURATION)))
+		if float(p.bounce.get("taunt", Balance.TAUNT_DURATION)) > 0.0:
+			MobSystem.taunt(self, tgt, owner, float(p.bounce.get("taunt", Balance.TAUNT_DURATION)))
 		if casting and float(p.bounce.get("interrupt", 0.0)) > 0.0:
 			_apply_effects(owner, tgt, {"stun": {"duration": float(p.bounce["interrupt"])}}, 0.0)
 			Events.damage_dealt.emit(owner.id, tgt.id, 0, false, false, "interrupt")
@@ -1171,6 +1211,8 @@ func _update_bouncer(p: SimProjectile, m: Dictionary, dt: float) -> bool:
 		p.bounces_left -= 1
 		p.homing_id = nxt.id
 		p.power *= float(p.bounce.get("falloff", 0.85))
+	elif not back:
+		return true
 	else:
 		p.returning = true
 	return false

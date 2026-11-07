@@ -53,7 +53,7 @@ cursor (limitado ao alcance), `CONE` à frente, `TARGET` no inimigo sob o cursor
   (mais ameaça para ele, menos dano no grupo); a **Combustão** do mago de fogo detona as queimaduras dele no alvo e em volta.
   Auditoria dos números das skills: `--headless --path . tools/tests/skill_audit.tscn` (WEAK = abaixo de 60% das irmãs).
 * **Equipamento**: espada/montante, maça/martelo, machadinha/machado de guerra, adaga, arco, cajado, varinha, foice,
-  escudo e orbe; duas armas de 1 mão (Shift+clique na bolsa). **Lendários a cada 5 níveis** com bônus de conjunto
+  escudo, orbe e pistola (mão secundária do Corsário: os tiros saem das skills); duas armas de 1 mão (Shift+clique na bolsa). **Lendários a cada 5 níveis** com bônus de conjunto
   (3 peças: INT +2; 4 peças: Bola de Fogo +20%…).
 * **Nível máximo 30, progressão lenta** (~3800 kills). Morrer custa 3 % do XP e você renasce em Aldara.
 * **Vale de Aldara** (zona estilo Erenshor feita no Blender): vila murada no centro (NPCs: Ancião, Capitã, Ferreiro,

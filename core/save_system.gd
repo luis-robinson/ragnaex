@@ -7,6 +7,16 @@ const SLOTS := 5
 var slot := 0
 const VERSION := 4      # 2 = portões de progressão e chefes abatidos; 3 = Rei Élfico guarda as Ruínas; 4 = teia de passivos (reembolso)
 
+## Itens de build que saiu do jogo: o id antigo vira o da build que ficou no lugar (o "+N" do aprimoramento segue junto).
+## Trapaceiro (espada + adaga) virou Corsário (sabre + pistola): a adaga de aparar do conjunto vira a pistola do mesmo nível.
+const RENAMED_ITEMS := {"leg_assassin_trapaceiro_": "leg_assassin_corsario_"}
+
+static func renamed_item(id: String) -> String:
+	for old in RENAMED_ITEMS:
+		if id.begins_with(old):
+			return RENAMED_ITEMS[old] + id.substr(old.length())
+	return id
+
 ## Pontos de skill ganhos até um nível (o que a árvore devolve quando é refeita).
 ## Arma que a classe não usa mais (ex.: Elementalista só de cajado): volta para a bolsa e a inicial da classe entra no lugar.
 static func _fix_class_weapons(p: SimEntity) -> void:
@@ -110,7 +120,7 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 	p.storage = {}
 	var st: Dictionary = d.get("storage", {})
 	for iid in st:
-		var sid := GameData.migrate_item_id(str(iid))          # peça de build que saiu do jogo vira a equivalente
+		var sid := GameData.migrate_item_id(renamed_item(str(iid)))          # peça de build que saiu do jogo vira a equivalente
 		if GameData.resolve_item(sid) and int(st[iid]) > 0:
 			p.storage[sid] = int(p.storage.get(sid, 0)) + int(st[iid])
 	p.gold = int(d.get("gold", 0))
@@ -123,12 +133,12 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 	p.bag_bonus = clampi(int(d.get("bag_bonus", 0)), 0, Balance.BAG_UPGRADES)
 	p.inventory = {}
 	for k in d.get("inventory", {}):
-		var iid := GameData.migrate_item_id(str(k))
+		var iid := GameData.migrate_item_id(renamed_item(str(k)))
 		if GameData.resolve_item(iid):
 			p.inventory[iid] = int(p.inventory.get(iid, 0)) + int(d["inventory"][k])
 	p.equipment = {}
 	for k in d.get("equipment", {}):
-		var eid := GameData.migrate_item_id(str(d["equipment"][k]))
+		var eid := GameData.migrate_item_id(renamed_item(str(d["equipment"][k])))
 		var it: ItemDef = GameData.items.get(eid) if GameData.resolve_item(eid) else null
 		if it:
 			p.equipment[saved_slot(int(k), it)] = it

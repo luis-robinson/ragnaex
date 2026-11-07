@@ -534,6 +534,9 @@ func _update_status_bar(p: SimEntity) -> void:
 		var id: String = str(b.get("id", "buff"))
 		var src := _buff_source(id)
 		var tm: float = INF if (b.get("ct", false) or b.get("toggle", false) or b.has("aura_from")) else float(b.get("remaining", 0))      # talento de classe / aura: permanente
+		if b.has("label"):              # Dados da Sorte: o que saiu (um ícone por resultado, com o nome dele)
+			want.append(["b_%s_%s" % [id, b["label"]], true, tm, 0, src["tex"], "%s: %s" % [src["name"], b["label"]], src["desc"]])
+			continue
 		want.append(["b_" + id, true, tm, int(b.get("stacks", 0)), src["tex"], src["name"], src["desc"]])
 	if p.form_left > 0.0 and p.form != "":           # forma com tempo (fantasma): ícone da skill que transformou
 		var fs := _form_skill(p.form)
@@ -617,8 +620,14 @@ func _form_skill(form: String) -> SkillDef:
 
 func _buff_source(id: String) -> Dictionary:
 	if _buff_src.is_empty():
+		if GameData.skills.has("ass_between_eyes"):       # Bravata (Corsário): cargas que o Tiro Entre os Olhos gasta
+			_buff_src[Balance.BRAVADO_BUFF] = {"tex": UiKit.icon_texture("skill_ass_between_eyes"), "name": "Bravata",
+				"desc": "Cargas do Corsário (até %d): tiros e cortes juntam, o Tiro Entre os Olhos gasta todas." % Balance.BRAVADO_MAX}
 		for sid in GameData.skills:
 			var sk: SkillDef = GameData.skills[sid]
+			var faces = sk.effects.get("dice")
+			if faces is Array and not faces.is_empty() and not _buff_src.has(faces[0].get("id", "")):
+				_buff_src[faces[0]["id"]] = {"tex": UiKit.icon_texture("skill_" + sid), "name": sk.name, "desc": sk.description}
 			var b = sk.effects.get("buff")
 			if b is Dictionary and b.has("id") and not _buff_src.has(b["id"]):
 				_buff_src[b["id"]] = {"tex": UiKit.icon_texture("skill_" + sid), "name": sk.name, "desc": sk.description}

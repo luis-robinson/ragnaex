@@ -56,7 +56,7 @@ func meets(req: Array) -> bool:
 
 func _meets_one(r: String) -> bool:
 	match r:
-		"shield", "orb":
+		"shield", "orb", "pistol":
 			return offhand_type == r
 		"dual":
 			return weapon_type in ItemDef.ONE_HANDED_MELEE and offhand_type in ItemDef.ONE_HANDED_MELEE
