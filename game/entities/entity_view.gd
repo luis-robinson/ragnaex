@@ -28,6 +28,11 @@ var _last_status := Color(0, 0, 0, 0)
 var _stun_fx: Node3D = null           # estrelas girando na cabeça
 var _burn_fx: CPUParticles3D = null   # brasas subindo
 var _chill_fx: MeshInstance3D = null  # anel de gelo nos pés (retardado/preso)
+var _poison_fx: CPUParticles3D = null # bolhas verdes subindo (veneno)
+var _curse_fx: CPUParticles3D = null  # fiapos roxos sobre a cabeça (maldição/definhar)
+var buff_aura: BuffAura = null        # buffs ativos no boneco (criado no primeiro buff)
+var _rim_shown := Color(0, 0, 0, 0)
+var _rim_style_shown := 0
 var nameplate: Label3D
 var quest_mark: Label3D = null       # NPC: "!" quest nova, "?" entregar
 var _mark_timer := 0.0
@@ -654,6 +659,7 @@ func _swap_form() -> void:
 		kit.visible = true
 		anim = kit.anim
 		_mats = kit.mats
+		_reapply_mats()
 		return
 	form_view = FormModel.create(_shown_form)
 	form_view.scale = Vector3.ONE * float(FORM_SCALE.get(_shown_form, 1.0))
@@ -665,6 +671,13 @@ func _swap_form() -> void:
 	_mats = form_view.mats
 	_stealth_shown = not (entity.stealth_left > 0.0)     # reaplica a transparência nas malhas novas
 	_alpha_shown = -1.0
+	_reapply_mats()
+
+## Materiais trocados (forma, peças novas): estado e borda de buff voltam a valer nos novos.
+func _reapply_mats() -> void:
+	_last_status = Color(-1, -1, -1, -1)
+	if _rim_shown.a > 0.0:
+		set_buff_rim(_rim_shown, _rim_style_shown)
 
 func refresh_equipment() -> void:
 	_alpha_shown = -1.0            # peças novas do kit entram na árvore agora: reaplica a transparência (furtivo)
@@ -675,6 +688,7 @@ func refresh_equipment() -> void:
 	if kit:
 		var bare := Color(entity.npc_data.get("color", Color(0.55, 0.42, 0.3))) if entity.kind == SimEntity.Kind.NPC else Color(0.55, 0.42, 0.3)
 		kit.apply_equipment(entity.equipment, bare)
+		_reapply_mats()
 	elif anim == null and entity.class_def:
 		_build_weapon(entity.class_def.color)
 	_refresh_nameplate()
@@ -803,6 +817,12 @@ func _process_view(delta: float) -> void:
 	elif mat:
 		mat.set_shader_parameter("flash", flash)
 	_update_status()
+	if buff_aura == null and BuffAura.enabled and (not entity.buffs.is_empty() or entity.shield_hp > 0.0):
+		buff_aura = BuffAura.new()
+		buff_aura.setup(self)
+		add_child(buff_aura)
+	if buff_aura and (buff_aura.active or not entity.buffs.is_empty()):
+		buff_aura.update(delta)
 	var ally := _is_party_mate()
 	var plv: int = Sim.player.level if Sim.player else 0
 	if entity.level != _np_lv or ally != _np_ally or plv != _np_plv:     # campos, não meta (3 buscas por boneco por quadro)
@@ -815,12 +835,19 @@ func _process_view(delta: float) -> void:
 func _update_status() -> void:
 	var stunned := entity.state == SimEntity.State.STUNNED and entity.is_alive()
 	var burning := false
+	var poisoned := false
+	var cursed := false
 	var chill := 0                       # 0 nada, 1 retardado, 2 preso
 	if entity.is_alive():
 		for d in entity.debuffs:
 			match d.get("kind"):
 				"dot":
-					burning = burning or bool(d.get("fire", false))
+					if d.get("fire", false):
+						burning = true
+					else:
+						poisoned = true
+				"curse", "wither", "penance":
+					cursed = true
 				"slow":
 					chill = maxi(chill, 1)
 				"root":
@@ -835,6 +862,14 @@ func _update_status() -> void:
 		_burn_fx = _make_embers()
 	if _burn_fx:
 		_burn_fx.emitting = burning
+	if poisoned and _poison_fx == null:
+		_poison_fx = _make_rising(Color(0.6, 1.0, 0.35), Color(0.25, 0.6, 0.1), 0.5, 0.6, "sphere")
+	if _poison_fx:
+		_poison_fx.emitting = poisoned
+	if cursed and _curse_fx == null:
+		_curse_fx = _make_rising(Color(0.75, 0.45, 1.0), Color(0.3, 0.1, 0.45), _status_head() / maxf(_base_scale, 0.01) - 0.25, 0.25, "quad")
+	if _curse_fx:
+		_curse_fx.emitting = cursed
 	if chill > 0 and _chill_fx == null:
 		_chill_fx = _make_frost_ring()
 	if _chill_fx:
@@ -846,6 +881,10 @@ func _update_status() -> void:
 		st = Color(0.55, 0.85, 1.0, 0.35 if chill == 1 else 0.55)
 	elif burning:
 		st = Color(1.0, 0.45, 0.12, 0.22 + 0.12 * sin(Time.get_ticks_msec() * 0.018))
+	elif poisoned:
+		st = Color(0.45, 0.9, 0.25, 0.2 + 0.08 * sin(Time.get_ticks_msec() * 0.008))
+	elif cursed:
+		st = Color(0.5, 0.25, 0.75, 0.22)
 	if st != _last_status:
 		_last_status = st
 		if not _mats.is_empty():
@@ -853,6 +892,18 @@ func _update_status() -> void:
 				m.set_shader_parameter("status", st)
 		elif mat:
 			mat.set_shader_parameter("status", st)
+
+## Borda/padrão de buff na pele (BuffAura): uniform buff_rim do toon em todos os materiais do boneco.
+func set_buff_rim(c: Color, style: int) -> void:
+	_rim_shown = c
+	_rim_style_shown = style
+	if not _mats.is_empty():
+		for m in _mats:
+			m.set_shader_parameter("buff_rim", c)
+			m.set_shader_parameter("buff_style", float(style))
+	elif mat:
+		mat.set_shader_parameter("buff_rim", c)
+		mat.set_shader_parameter("buff_style", float(style))
 
 ## Rei (surge depois de muitos abates): coroa dourada flutuando sobre a cabeça, lida de longe pela câmera alta.
 func _add_crown() -> void:
@@ -930,6 +981,45 @@ func _make_embers() -> CPUParticles3D:
 	var g := Gradient.new()
 	g.set_color(0, Color(1.0, 0.85, 0.3, 1.0))
 	g.set_color(1, Color(0.9, 0.2, 0.05, 0.0))
+	p.color_ramp = g
+	add_child(p)
+	return p
+
+## Partículas de estado subindo devagar (veneno: bolhas verdes no corpo; maldição: fiapos roxos sobre a cabeça).
+func _make_rising(c0: Color, c1: Color, y: float, r: float, shape: String) -> CPUParticles3D:
+	var p := CPUParticles3D.new()
+	p.amount = 8
+	p.lifetime = 1.0
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	p.emission_sphere_radius = r * _base_scale
+	p.position.y = y * _base_scale
+	p.direction = Vector3.UP
+	p.spread = 20.0
+	p.gravity = Vector3(0, 0.6, 0)
+	p.initial_velocity_min = 0.3
+	p.initial_velocity_max = 0.7
+	p.scale_amount_min = 0.7
+	p.scale_amount_max = 1.3
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.vertex_color_use_as_albedo = true
+	var mesh: PrimitiveMesh
+	if shape == "sphere":
+		var sm := SphereMesh.new()
+		sm.radius = 0.05; sm.height = 0.1; sm.radial_segments = 6; sm.rings = 3
+		mesh = sm
+	else:
+		var q := QuadMesh.new()
+		q.size = Vector2(0.16, 0.16)
+		m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		m.albedo_texture = SkillFx.soft()
+		mesh = q
+	mesh.material = m
+	p.mesh = mesh
+	var g := Gradient.new()
+	g.set_color(0, Color(c0, 0.95))
+	g.set_color(1, Color(c1, 0.0))
 	p.color_ramp = g
 	add_child(p)
 	return p

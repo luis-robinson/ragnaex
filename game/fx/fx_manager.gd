@@ -469,7 +469,7 @@ func _strip(length: float, w: float, col: Color) -> MeshInstance3D:
 	holder.add_child(mi)
 	return holder
 
-## Buff/escudo: aura no pé de quem recebe, pelo tempo do buff (tema da skill que deu o buff, se houver).
+## Buff/escudo: estouro curto no tema (BuffLooks) quando entra; aura ligada ganha o anel no chão.
 func _on_buff(entity_id: int, buff_id: String, duration: float) -> void:
 	var e: SimEntity = Sim.get_entity(entity_id)
 	if e == null or e.map_id != main.current_map_id or not main.views.has(entity_id):
@@ -477,14 +477,10 @@ func _on_buff(entity_id: int, buff_id: String, duration: float) -> void:
 	if buff_id.begins_with("form_"):
 		_transform_fx(e, buff_id.substr(5))
 		return
-	var th := "holy"
-	for sid in GameData.skills:
-		var s: SkillDef = GameData.skills[sid]
-		if s.effects.get("buff", {}).get("id", "") == buff_id or sid == buff_id:
-			th = s.vfx
-			break
 	if buff_id.ends_with("_off"):
 		return
+	var lk: Dictionary = BuffLooks.look(buff_id, e)
+	var th: String = lk.get("theme", "holy")
 	var aura_b: Dictionary = {}
 	for b in e.buffs:
 		if b.get("id") == buff_id and (b.get("toggle", false) or b.has("aura_from")):
@@ -492,10 +488,12 @@ func _on_buff(entity_id: int, buff_id: String, duration: float) -> void:
 	if not aura_b.is_empty():
 		_aura_ring(e, buff_id, th, aura_b)
 		return
-	if buff_id == "shield":
-		th = "holy" if e.class_def == null or e.class_def.id != "necromancer" else "bone"
-	if buff_id != "juramento":         # acumula a cada bloqueio: o HUD já mostra as cargas
-		SkillFx.aura(self, main.views[entity_id], th, duration, 0.75 * e.scale)
+	if buff_id == "juramento" or duration < 0.0:     # Juramento acumula a cada bloqueio (o HUD conta)
+		return
+	# estouro curto na entrada; o que fica enquanto dura é da BuffAura (no próprio boneco)
+	var sc := e.scale
+	SkillFx.burst(self, e.position + Vector3(0, 0.9 * sc, 0), th, 18, Vector3.UP, 0.3 * sc, sc)
+	_ring(e.position, 0.9 * sc, SkillFx.col(th, 0), 0.4, false, false)
 
 ## Auras ligadas: [entity_id, buff_id] -> nó; some quando o buff sai (desligou, saiu do raio, morreu).
 var _auras: Dictionary = {}
