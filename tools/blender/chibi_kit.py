@@ -2039,6 +2039,9 @@ _necromancer_sets.register(sys.modules[__name__])
 # leva nada de conjunto. Cada boneco instancia o kit inteiro, então o tamanho do kit é o custo de GPU por personagem.
 CLASS_BODY = {"paladin": "male", "berserker": "male", "bishop": "female", "druid": "female", "ranger": "female",
               "assassin": "male", "elementalist": "female", "necromancer": "male"}
+# Armas comuns no kit da classe: só as que ela empunha (as classes com muitos conjuntos estouram as 200 malhas).
+# Classe fora daqui leva todas (KIT_MAIN / KIT_OFF).
+CLASS_WEAPONS = {"paladin": (["sword", "sword2h", "mace", "mace2h"], ["shield"]), "bishop": (["scepter", "mace"], ["shield"])}
 CLASS_PREFIX = {"paladin": "pal", "berserker": "ber", "bishop": "bis", "druid": "dru", "ranger": "ran", "assassin": "ass", "elementalist": "ele", "necromancer": "nec"}        # prefixo dos estilos de conjunto de cada classe
 SHIELD_CLASSES = ("paladin", "bishop")                       # só eles empunham escudo
 
@@ -2049,6 +2052,17 @@ def style_class(key):
         if key.startswith(pre):
             return cid
     return None
+
+
+def join_style_slots(prefix):
+    """Junta as peças de cada slot (prefix + <slot>_*) numa malha só, mantendo os pesos por bone."""
+    for slot in ("head", "body", "legs", "gloves", "boots"):
+        objs = [o for o in bpy.data.objects if o.type == "MESH" and o.name.startswith("%s%s_" % (prefix, slot))]
+        if len(objs) < 2:
+            continue
+        with bpy.context.temp_override(active_object=objs[0], object=objs[0], selected_objects=objs, selected_editable_objects=objs):
+            bpy.ops.object.join()
+        objs[0].name = "%s%s_all" % (prefix, slot)
 
 
 def build_kit(sex, out_dir=None, class_id=None):
@@ -2066,12 +2080,14 @@ def build_kit(sex, out_dir=None, class_id=None):
                 kit_piece(base, style, slot, part, opt, mats)
         if style != "cape":
             kit_head(base, style, mats)
+        join_style_slots("arm_%s_" % style)       # armadura comum: 1 malha por slot (o jogo liga por slot)
     for key, fn in SET_STYLES.items():
         if class_id is not None and style_class(key) == class_id:
             fn(base, mats)
-    for t in KIT_MAIN:
+    mains, offs = CLASS_WEAPONS.get(class_id, (KIT_MAIN, KIT_OFF)) if class_id else (KIT_MAIN, KIT_OFF)
+    for t in mains:
         kit_weapon(base, t, "main", mats)
-    for t in KIT_OFF:
+    for t in offs:
         kit_weapon(base, t, "off", mats)
     for key, fn in SET_WEAPONS.items():      # armas próprias dos conjuntos (wpn_main_<tipo>_<estilo>)
         if class_id is not None and style_class(key) == class_id:

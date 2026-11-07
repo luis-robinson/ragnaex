@@ -59,9 +59,9 @@ const ARMOR_NAMES := {
 }
 ## "do/da/dos <build>" para nomear peças (ex.: "Elmo do Guardião da Alvorada")
 const BUILD_OF := {
-	"guardiao": "do Guardião", "cruzado": "do Cruzado",
+	"guardiao": "do Guardião", "cruzado": "do Cruzado", "templario": "do Templário",
 	"carniceiro": "das Armas Gêmeas", "executor": "do Executor",
-	"sacerdote": "do Sacerdote", "inquisidor": "do Inquisidor",
+	"sacerdote": "do Sacerdote", "inquisidor": "do Inquisidor", "batalha": "do Clérigo de Batalha",
 	"guardiao_verde": "do Guardião da Floresta", "fera": "da Fera Selvagem", "xama": "do Xamã",
 	"atirador": "do Atirador", "cacador": "do Caçador", "patrulheiro": "do Patrulheiro",
 	"laminas": "das Lâminas Gêmeas", "duelista": "do Duelista",
@@ -90,7 +90,9 @@ const SHIELD_AFFINITY := {"bastiao": "paladin", "juramento": "paladin", "sol": "
 	"escama": "paladin", "coluna": "paladin", "veredito": "paladin", "serpente": "paladin", "cruel": "paladin", "suspiros": "paladin",
 	"relicario": "bishop", "prisma": "bishop", "gaia": "bishop", "perdao": "bishop", "asa": "both", "asa_negra": "both", "ferro": "both",
 	"bis_s5": "bishop", "bis_s10": "bishop", "bis_s15": "bishop", "bis_s20": "bishop", "bis_s25": "bishop", "bis_s30": "bishop",
-	"pal1": "paladin", "pal_g10": "paladin", "pal_g15": "paladin", "pal_g20": "paladin", "pal_g25": "paladin", "pal_g30": "paladin"}     # escudos de conjunto
+	"pal1": "paladin", "pal_g10": "paladin", "pal_g15": "paladin", "pal_g20": "paladin", "pal_g25": "paladin", "pal_g30": "paladin",
+	"pal_t5": "paladin", "pal_t10": "paladin", "pal_t15": "paladin", "pal_t20": "paladin", "pal_t25": "paladin", "pal_t30": "paladin",
+	"bis_b5": "bishop", "bis_b10": "bishop", "bis_b15": "bishop", "bis_b20": "bishop", "bis_b25": "bishop", "bis_b30": "bishop"}     # escudos de conjunto
 ## epíteto por nível lendário (5..30)
 const TIER_EPITHETS := ["da Alvorada", "do Juramento", "da Vanguarda", "da Glória", "da Lenda", "da Eternidade"]
 const LEGENDARY_COLOR := Color(1.0, 0.6, 0.15)
@@ -183,6 +185,36 @@ const SET_VISUALS := {
 		"names": {"head": "Mitra da Estrela", "body": "Vestes da Estrela", "gloves": "Mangas da Estrela", "boots": "Sandálias da Estrela", "weapon": "Cetro da Estrela"}},
 	"set_bishop_inquisidor_30": {"style": "bis_i30", "icon": "bis_i30", "color": Color(0.99, 0.97, 0.92), "set_name": "Conjunto Luz Primordial",
 		"names": {"head": "Mitra da Luz Primordial", "body": "Vestes da Luz Primordial", "gloves": "Mangas da Luz Primordial", "boots": "Sandálias da Luz Primordial", "weapon": "Cetro da Luz Primordial"}},
+	"set_paladin_templario_5": {"style": "pal_t5", "icon": "pal_t5", "color": Color(0.82, 0.36, 0.22), "set_name": "Conjunto Brasa do Noviço",
+		"names": {"head": "Elmo da Brasa", "body": "Couraça da Brasa", "gloves": "Manoplas da Brasa", "boots": "Grevas da Brasa",
+			"weapon": "Espada da Brasa", "offhand": "Escudo da Brasa"}},
+	"set_paladin_templario_10": {"style": "pal_t10", "icon": "pal_t10", "color": Color(0.92, 0.9, 0.84), "set_name": "Conjunto Manto Branco",
+		"names": {"head": "Elmo do Manto Branco", "body": "Couraça do Manto Branco", "gloves": "Manoplas do Manto Branco", "boots": "Grevas do Manto Branco",
+			"weapon": "Espada do Manto Branco", "offhand": "Escudo do Manto Branco"}},
+	"set_paladin_templario_15": {"style": "pal_t15", "icon": "pal_t15", "color": Color(0.62, 0.12, 0.14), "set_name": "Conjunto Cruz Vermelha",
+		"names": {"head": "Elmo da Cruz Vermelha", "body": "Couraça da Cruz Vermelha", "gloves": "Manoplas da Cruz Vermelha", "boots": "Grevas da Cruz Vermelha",
+			"weapon": "Espada da Cruz Vermelha", "offhand": "Escudo da Cruz Vermelha"}},
+	"set_paladin_templario_20": {"style": "pal_t20", "icon": "pal_t20", "color": Color(0.95, 0.55, 0.18), "set_name": "Conjunto Chama Votiva",
+		"names": {"head": "Elmo da Chama Votiva", "body": "Couraça da Chama Votiva", "gloves": "Manoplas da Chama Votiva", "boots": "Grevas da Chama Votiva",
+			"weapon": "Espada da Chama Votiva", "offhand": "Escudo da Chama Votiva"}},
+	"set_paladin_templario_25": {"style": "pal_t25", "icon": "pal_t25", "color": Color(0.24, 0.22, 0.3), "set_name": "Conjunto Penitente Negro",
+		"names": {"head": "Elmo do Penitente", "body": "Couraça do Penitente", "gloves": "Manoplas do Penitente", "boots": "Grevas do Penitente",
+			"weapon": "Espada do Penitente", "offhand": "Escudo do Penitente"}},
+	"set_paladin_templario_30": {"style": "pal_t30", "icon": "pal_t30", "color": Color(1.0, 0.78, 0.3), "set_name": "Conjunto Sol Vingador",
+		"names": {"head": "Elmo do Sol Vingador", "body": "Couraça do Sol Vingador", "gloves": "Manoplas do Sol Vingador", "boots": "Grevas do Sol Vingador",
+			"weapon": "Espada do Sol Vingador", "offhand": "Escudo do Sol Vingador"}},
+	"set_bishop_batalha_5": {"style": "bis_b5", "icon": "bis_b5", "color": Color(0.7, 0.66, 0.6), "set_name": "Conjunto Irmã de Armas",
+		"names": {"head": "Elmo da Irmã de Armas", "body": "Couraça da Irmã de Armas", "gloves": "Manoplas da Irmã de Armas", "boots": "Grevas da Irmã de Armas", "weapon": "Maça da Irmã de Armas", "offhand": "Escudo da Irmã de Armas"}},
+	"set_bishop_batalha_10": {"style": "bis_b10", "icon": "bis_b10", "color": Color(0.5, 0.62, 0.78), "set_name": "Conjunto Capelão de Aço",
+		"names": {"head": "Elmo do Capelão", "body": "Couraça do Capelão", "gloves": "Manoplas do Capelão", "boots": "Grevas do Capelão", "weapon": "Maça do Capelão", "offhand": "Escudo do Capelão"}},
+	"set_bishop_batalha_15": {"style": "bis_b15", "icon": "bis_b15", "color": Color(0.32, 0.52, 0.42), "set_name": "Conjunto Guarda do Mosteiro",
+		"names": {"head": "Elmo do Mosteiro", "body": "Couraça do Mosteiro", "gloves": "Manoplas do Mosteiro", "boots": "Grevas do Mosteiro", "weapon": "Maça do Mosteiro", "offhand": "Escudo do Mosteiro"}},
+	"set_bishop_batalha_20": {"style": "bis_b20", "icon": "bis_b20", "color": Color(0.9, 0.72, 0.36), "set_name": "Conjunto Martelo da Fé",
+		"names": {"head": "Elmo do Martelo da Fé", "body": "Couraça do Martelo da Fé", "gloves": "Manoplas do Martelo da Fé", "boots": "Grevas do Martelo da Fé", "weapon": "Maça do Martelo da Fé", "offhand": "Escudo do Martelo da Fé"}},
+	"set_bishop_batalha_25": {"style": "bis_b25", "icon": "bis_b25", "color": Color(0.55, 0.3, 0.62), "set_name": "Conjunto Vigília Púrpura",
+		"names": {"head": "Elmo da Vigília Púrpura", "body": "Couraça da Vigília Púrpura", "gloves": "Manoplas da Vigília Púrpura", "boots": "Grevas da Vigília Púrpura", "weapon": "Maça da Vigília Púrpura", "offhand": "Escudo da Vigília Púrpura"}},
+	"set_bishop_batalha_30": {"style": "bis_b30", "icon": "bis_b30", "color": Color(0.96, 0.94, 0.86), "set_name": "Conjunto Arcanjo Combatente",
+		"names": {"head": "Elmo do Arcanjo", "body": "Couraça do Arcanjo", "gloves": "Manoplas do Arcanjo", "boots": "Grevas do Arcanjo", "weapon": "Maça do Arcanjo", "offhand": "Escudo do Arcanjo"}},
 	"set_druid_xama_5": {"style": "dru_x5", "icon": "dru_x5", "color": Color(0.5, 0.7, 0.4), "set_name": "Conjunto Broto da Clareira",
 		"names": {"head": "Coroa do Broto", "body": "Manto do Broto", "gloves": "Braçais do Broto", "boots": "Botas do Broto", "weapon": "Cajado do Broto"}},
 	"set_druid_xama_10": {"style": "dru_x10", "icon": "dru_x10", "color": Color(0.45, 0.35, 0.22), "set_name": "Conjunto Galhada Antiga",
@@ -485,14 +517,18 @@ static func set_skills(build: Dictionary, skills: Dictionary, level: int, tier: 
 ## chain (básico pula para +N alvos), stun, frenzy (cada golpe acumula vel. de ataque), execute (dano extra em alvo
 ## abaixo de `below`), bleed/poison (dano no tempo do ATK), mark (alvo recebe mais dano de todos), splash (básico
 ## explode em volta), riposte (esquivar contra-ataca), raise_on_kill (abate levanta um esqueleto), heal_on_kill,
-## thorns (devolve corpo a corpo), ward (cura vira barreira), echo (golpe bate de novo; reserva).
+## thorns (devolve corpo a corpo), ward (cura vira barreira), echo (golpe bate de novo; reserva),
+## penance (cada golpe põe uma carga de Penitência no alvo; com `stacks` explode em fogo sagrado: `pct`% do ATK em `radius`),
+## mend (parte do dano do golpe cura o aliado mais ferido por perto, você incluso).
 const LEGEND_EFFECTS := {
 	"guardiao": {"kind": "thorns", "name": "Retaliação", "pct": [15, 3]},
 	"cruzado": {"kind": "stun", "name": "Julgamento", "chance": [12, 2], "dur": [0.8, 0.1], "icd": 6.0},
+	"templario": {"kind": "penance", "name": "Penitência", "pct": [120, 24], "stacks": 5, "radius": 2.5},
 	"carniceiro": {"kind": "frenzy", "name": "Frenesi", "pct": [4, 0.6], "max": 5},
 	"executor": {"kind": "execute", "name": "Carrasco", "pct": [30, 6], "below": 0.3},
 	"sacerdote": {"kind": "ward", "name": "Égide", "pct": [15, 3]},
 	"inquisidor": {"kind": "cast_on_basic", "name": "Castigo Sagrado", "skill": "bis_smite", "chance": [18, 3]},
+	"batalha": {"kind": "mend", "name": "Mão que Cura", "pct": [8, 2]},
 	"guardiao_verde": {"kind": "cast_when_hit", "name": "Casca Viva", "skill": "dru_oak_skin", "icd": 20.0},
 	"fera": {"kind": "bleed", "name": "Sangue da Matilha", "chance": [30, 4], "pct": [12, 2]},
 	"xama": {"kind": "cast_on_basic", "name": "Lua Cheia", "skill": "dru_moonfire", "chance": [18, 3]},

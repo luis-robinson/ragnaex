@@ -271,7 +271,7 @@ static func _s(id: String, name: String, lvl: int, build: String, req: Array, tg
 	if kind == K_BUFF:
 		d["power"] = 0.0; d["startup"] = 0.1; d["recovery"] = 0.2
 	for k in ext:
-		if k in ["dot", "slow", "stun", "root", "buff", "shield", "dash", "summon", "heal_pct_of_dmg", "taunt", "boss_summon", "wither", "form", "stealth", "trap", "pet_command", "pet_buff", "curse", "channel"]:
+		if k in ["dot", "slow", "stun", "root", "buff", "shield", "dash", "summon", "heal_pct_of_dmg", "taunt", "boss_summon", "wither", "form", "stealth", "trap", "pet_command", "pet_buff", "curse", "channel", "mend_pct_of_dmg"]:
 			if not d.has("effects"):
 				d["effects"] = {}
 			d["effects"][k] = ext[k]
@@ -315,6 +315,13 @@ static func _more() -> Dictionary:
 		_s("pal_holy_wave", "Onda Sagrada", 14, "cruzado", ["two_handed"], T_DIR, K_MAG, 1.8, 16, 7, "Onda sagrada que atravessa inimigos.", {"range": 9.0, "radius": 0.8, "projectile_speed": 16.0, "projectile_pierce": true}),
 		_buff("pal_zeal", "Zelo", 18, "cruzado", ["two_handed"], 18, 22, "+25% ATK/MATK e +10% velocidade por 10s.", {"id": "zeal", "duration": 10, "atk_pct": 25, "matk_pct": 25, "speed_pct": 10}),
 		_s("pal_judgement_blade", "Lâmina do Juízo", 26, "cruzado", ["two_handed"], T_GROUND, K_PHYS, 3.4, 30, 16, "Lâmina gigante de luz no cursor: dano enorme e atordoa 1s.", {"range": 6.0, "radius": 2.5, "stun": _dur(1.0), "hit_stop_frames": 6}),
+		# Templário (espada/maça + escudo): golpes de fogo sagrado (dano físico do ATK, queimadura do MATK), marca de penitência
+		_s("pal_sacred_flame", "Chama Sagrada", 2, "templario", ["shield"], T_DIR, K_PHYS, 1.8, 8, 3, "Corte que lança uma chama sagrada: dano e queimadura por 4s.", {"range": 9.0, "radius": 0.5, "projectile_speed": 20.0, "startup": 0.14, "dot": _dot(5, 4)}),
+		_s("pal_brand", "Marca da Penitência", 7, "templario", ["shield"], T_TARGET, K_PHYS, 1.8, 12, 9, "Golpe que marca o alvo com luz: dano e ele recebe +15% de dano de todos por 6s.", {"range": 8.0, "startup": 0.15, "curse": {"id": "penance", "duration": 6, "taken_pct": 15}}),
+		_s("pal_cleansing_fire", "Fogo Purificador", 13, "templario", ["shield"], T_GROUND, K_PHYS, 1.9, 16, 9, "Chão em chamas sagradas no cursor: dano, queimadura e lentidão.", {"range": 8.0, "radius": 2.6, "startup": 0.2, "dot": _dot(9, 5), "slow": _slow(25, 2)}),
+		_s("pal_flame_pyre", "Pira Sagrada", 16, "templario", ["shield"], T_SELF, K_PHYS, 2.2, 18, 10, "Ergue chamas sagradas à sua volta: dano e queimadura em quem estiver perto.", {"radius": 3.4, "startup": 0.2, "dot": _dot(7, 4)}),
+		_buff("pal_avenging_wrath", "Ira Vingadora", 19, "templario", ["shield"], 20, 24, "+25% ATK, +25% MATK e +8 crit por 10s.", {"id": "avenging_wrath", "duration": 10, "atk_pct": 25, "matk_pct": 25, "crit": 8}),
+		_s("pal_sun_strike", "Golpe Solar", 25, "templario", ["shield"], T_CONE, K_PHYS, 4.0, 28, 15, "Golpe de luz solar em leque: dano enorme, atordoa 0.8s e cura 20% do dano.", {"radius": 3.2, "cone_angle_deg": 110, "startup": 0.25, "stun": _dur(0.8), "heal_pct_of_dmg": 0.2, "hit_stop_frames": 6}),
 	],
 	"berserker": [
 		_buff("ber_bloodlust", "Sede de Sangue", 1, "", [], 10, 18, "+15% ATK por 10s.", {"id": "bloodlust", "duration": 10, "atk_pct": 15}),
@@ -354,6 +361,13 @@ static func _more() -> Dictionary:
 		_buff("bis_zealot", "Fervor", 14, "inquisidor", ["scepter"], 18, 22, "+25% ATK/MATK por 10s.", {"id": "fervor", "duration": 10, "atk_pct": 25, "matk_pct": 25}),
 		_s("bis_crusade", "Cruzada", 18, "inquisidor", ["scepter"], T_CONE, K_MAG, 2.2, 22, 10, "Cone de fogo sagrado.", {"radius": 4.0, "cone_angle_deg": 90}),
 		_s("bis_wrath", "Ira Divina", 25, "inquisidor", ["scepter"], T_GROUND, K_MAG, 3.6, 34, 20, "Dano enorme em área e atordoa 1.2s.", {"range": 8.0, "radius": 3.0, "stun": _dur(1.2), "hit_stop_frames": 6}),
+		# Clérigo de Batalha (maça + escudo, placa): corpo a corpo, cada golpe cura o aliado mais ferido
+		_s("bis_holy_blow", "Martelada da Fé", 2, "batalha", ["mace"], T_CONE, K_PHYS, 3.0, 8, 3, "Golpe largo com a maça; 25% do dano cura o aliado mais ferido por perto.", {"radius": 2.4, "cone_angle_deg": 100, "startup": 0.14, "mend_pct_of_dmg": 0.25}),
+		_s("bis_shield_smite", "Castigo do Escudo", 7, "batalha", ["mace", "shield"], T_DIR, K_PHYS, 2.6, 12, 8, "Avança 3m com o escudo: dano e atordoa o primeiro alvo 0.8s.", {"range": 3.5, "radius": 0.9, "max_targets": 1, "startup": 0.1, "dash": 3.0, "stun": _dur(0.8)}),
+		_buff("bis_battle_hymn", "Hino de Batalha", 10, "batalha", ["mace"], 18, 24, "+20% ATK e +15% DEF para você e aliados próximos por 10s.", {"id": "battle_hymn", "duration": 10, "atk_pct": 20, "def_pct": 15}, {"radius": 6.0}),
+		_s("bis_holy_quake", "Tremor Sagrado", 14, "batalha", ["mace"], T_SELF, K_PHYS, 3.4, 18, 9, "Bate a maça no chão: dano ao redor, lentidão e 20% do dano cura o aliado mais ferido.", {"radius": 3.2, "startup": 0.2, "slow": _slow(30, 2), "mend_pct_of_dmg": 0.2, "hit_stop_frames": 5}),
+		_s("bis_faith_leap", "Salto da Fé", 20, "batalha", ["mace"], T_GROUND, K_PHYS, 3.6, 20, 12, "Salta até o cursor e esmaga o chão: dano, atordoa 0.6s e 20% do dano cura o aliado mais ferido.", {"range": 6.0, "radius": 2.4, "startup": 0.12, "dash": 5.5, "stun": _dur(0.6), "mend_pct_of_dmg": 0.2}),
+		_s("bis_divine_hammer", "Martelo Divino", 26, "batalha", ["mace"], T_TARGET, K_PHYS, 5.5, 30, 16, "Golpe divino num alvo: dano enorme, atordoa 1s e 35% do dano cura o aliado mais ferido.", {"startup": 0.25, "stun": _dur(1.0), "mend_pct_of_dmg": 0.35, "hit_stop_frames": 6}),
 	],
 	"druid": [
 		_buff("dru_bark", "Pele de Casca", 1, "", [], 10, 18, "+20% DEF por 10s.", {"id": "bark", "duration": 10, "def_pct": 20}),

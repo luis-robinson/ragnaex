@@ -23,9 +23,9 @@ static func _s(a: Array) -> Array[String]:
 ## Efeito-assinatura de cada build (LegendEffects.signature_on_hit): magia que dispara de graça ao acertar com o
 ## básico ou com skills, em qualquer nível e com qualquer arma. `look` = tema visual do básico da build (só aparência).
 const SIGNATURES := {
-	"guardiao": {"skill": "pal_holy_strike", "look": "holy"}, "cruzado": {"skill": "pal_holy_wave", "look": "holy"},
+	"guardiao": {"skill": "pal_holy_strike", "look": "holy"}, "cruzado": {"skill": "pal_holy_wave", "look": "holy"}, "templario": {"skill": "pal_sacred_flame", "look": "holy"},
 	"carniceiro": {"skill": "ber_throw_axe", "look": "blood"}, "executor": {"skill": "ber_overhead", "look": "blood"},
-	"sacerdote": {"skill": "bis_light", "look": "holy"}, "inquisidor": {"skill": "bis_hammer", "look": "holy"},
+	"sacerdote": {"skill": "bis_light", "look": "holy"}, "inquisidor": {"skill": "bis_hammer", "look": "holy"}, "batalha": {"skill": "bis_holy_nova", "look": "holy"},
 	"guardiao_verde": {"skill": "dru_moonfire", "look": "nature"}, "fera": {"skill": "dru_claw", "look": "nature", "power": 0.8}, "xama": {"skill": "dru_moonfire", "look": "lunar", "power": 0.85},
 	"cacador": {"skill": "ran_frost_arrow", "look": "ice"}, "atirador": {"skill": "ran_snipe", "look": "fire"},
 	"laminas": {"skill": "ass_venom_dart", "look": "poison", "power": 0.8}, "duelista": {"skill": "ass_thrust", "look": "blood", "power": 0.55},
@@ -40,7 +40,7 @@ static func _b(id: String, name: String, role: String, main: Array, off: Array, 
 static func build() -> Array:
 	return [
 		_mk({"id": "paladin", "body_type": "male", "hair_color": Color(0.85, 0.65, 0.3), "name": "Paladino", "role": "tank", "color": Color(0.95, 0.85, 0.45),
-			"description": "Guerreiro sagrado. Tanque de escudo ou cruzado de arma de duas mãos.",
+			"description": "Guerreiro sagrado. Tanque de escudo, cruzado de arma de duas mãos ou templário de espada e escudo que queima com fogo sagrado.",
 			"weapon_types": _s(["sword", "mace", "sword2h", "mace2h"]), "offhand_types": _s(["shield"]),
 			"base_hp": 140.0, "base_mp": 45.0, "hp_per_level": 16.0, "mp_per_level": 5.0, "move_speed": 5.2,
 			"basic_attack_power": 1.0, "basic_attack_cooldown": 0.7, "basic_attack_range": 1.9,
@@ -52,6 +52,12 @@ static func build() -> Array:
 				_b("cruzado", "Cruzado", "dps", ["sword2h", "mace2h"], [], "plate", "FOR", "WILL", "atk_pct",
 					["pal_holy_strike", "pal_crusader_strike", "pal_twin_slash", "pal_consecrate", "pal_lunge", "pal_hammer_light", "pal_blade_dance",
 					 "pal_holy_wave", "pal_flurry", "pal_zeal", "pal_valor", "pal_judgement_blade", "pal_purge"]),
+				# Templário: espada (ou maça) e escudo como o Guardião, mas para causar dano: golpes de fogo sagrado que marcam
+				# e queimam (FOR no golpe, INT na queimadura); as skills de escudo do Guardião e a Retribuição entram na mistura
+				_b("templario", "Templário", "dps", ["sword", "mace"], ["shield"], "plate", "FOR", "INT", "atk_pct",
+					["pal_sacred_flame", "pal_holy_strike", "pal_brand", "pal_cleansing_fire", "pal_sun_strike", "pal_shield_bash", "pal_flame_pyre", "pal_avenging_wrath",
+					 "pal_aegis_slam", "pal_retribution", "pal_blessed_armor", "pal_lay_hands", "pal_purge"]).merged({
+					"passives": [{"atk_pct": 3}, {"crit": 1.5}], "set_extra": {3: {"crit": [3.0, 0.8]}}}),
 			]}),
 		_mk({"id": "berserker", "body_type": "male", "hair_color": Color(0.55, 0.2, 0.12), "name": "Berserker", "role": "dps", "color": Color(0.85, 0.3, 0.25),
 			"description": "Fúria pura. Dois machados velozes que bebem o sangue do inimigo ou um machado de duas mãos que aguenta o tranco e executa.",
@@ -72,7 +78,7 @@ static func build() -> Array:
 					"passives": [{"atk_pct": 3}, {"hp_pct": 4}, {"def_pct": 3}], "set_extra": {3: {"hp_pct": [5.0, 1.5], "def_pct": [5.0, 1.5]}}}),
 			]}),
 		_mk({"id": "bishop", "body_type": "female", "hair_color": Color(0.95, 0.85, 0.55), "name": "Bispo", "role": "healer", "color": Color(0.95, 0.95, 0.9),
-			"description": "Fé. Sacerdote de maça e escudo que cura e fortalece o grupo, ou Iluminado de cetro que fere com luz e cura com o próprio golpe.",
+			"description": "Fé. Sacerdote de maça e escudo que cura e fortalece o grupo, Iluminado de cetro que fere com luz e cura com o próprio golpe, ou Clérigo de Batalha de placa que luta na linha de frente e cura o grupo a cada golpe.",
 			"weapon_types": _s(["scepter", "mace"]), "offhand_types": _s(["shield"]),
 			"base_hp": 90.0, "base_mp": 90.0, "hp_per_level": 9.0, "mp_per_level": 10.0, "move_speed": 5.3,
 			"basic_attack_power": 0.9, "basic_attack_cooldown": 0.75, "basic_attack_range": 7.0, "basic_attack_is_ranged": true, "basic_attack_kind": 1,
@@ -87,6 +93,12 @@ static func build() -> Array:
 					["bis_light", "bis_smite", "bis_holy_nova", "bis_hammer", "bis_condemn", "bis_exorcism", "bis_zealot", "bis_purify", "bis_crusade", "bis_judgement", "bis_wrath"]).merged({
 					# luz: dano mágico e Radiância (parte do dano cura o aliado mais ferido por perto)
 					"passives": [{"matk_pct": 3}, {"radiance": 2}], "set_extra": {3: {"radiance": [6.0, 1.5]}}}),
+				# Clérigo de Batalha: maça e escudo como o Sacerdote, mas de placa e na linha de frente: golpes físicos que curam
+				# o aliado mais ferido (mend_pct_of_dmg), bênçãos do Sacerdote como apoio
+				_b("batalha", "Clérigo de Batalha", "dps", ["mace"], ["shield"], "plate", "FOR", "WILL", "atk_pct",
+					["bis_holy_blow", "bis_shield_smite", "bis_holy_quake", "bis_battle_hymn", "bis_faith_leap", "bis_divine_hammer", "bis_heal", "bis_blessing", "bis_ward", "bis_renew",
+					 "bis_holy_nova", "bis_martyr", "bis_prayer", "bis_light"]).merged({
+					"passives": [{"atk_pct": 3}, {"heal_pct": 4}], "set_extra": {3: {"def_pct": [5.0, 1.5]}}}),
 			]}),
 		_mk({"id": "druid", "body_type": "female", "hair_color": Color(0.4, 0.28, 0.16), "name": "Druida", "role": "caster", "color": Color(0.45, 0.8, 0.35),
 			"description": "Natureza. Xamã de cajado que invoca e abençoa, lobo veloz que some nas sombras (duas maças) ou urso que segura a linha (malho).",

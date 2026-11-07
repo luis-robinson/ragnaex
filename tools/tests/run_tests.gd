@@ -432,7 +432,7 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_mastery_desc()
 	# builds: paladino = tanque (escudo) ou 2 mãos; berserker = 2 mãos ou duas armas de 1 mão (machado/espada misturados)
 	var pb: Array = gd.classes["paladin"].builds.map(func(b): return b["id"])
-	check(pb == ["guardiao", "cruzado"], "paladino tem só Guardião e Cruzado (%s)" % [pb])
+	check(pb == ["guardiao", "cruzado", "templario"], "paladino tem Guardião, Cruzado e Templário (%s)" % [pb])
 	var bb: Array = gd.classes["berserker"].builds.map(func(b): return b["id"])
 	check(bb.size() == 2 and "carniceiro" in bb and "executor" in bb, "berserker tem só Armas Gêmeas e Executor (%s)" % [bb])
 	check(not ("sword" in gd.classes["paladin"].offhand_types), "paladino não usa espada na mão secundária")
@@ -1032,7 +1032,7 @@ func _check_shield_bonus(gd, sim, foe) -> void:
 			if gd.items[iid].weapon_type == "shield":
 				set_shields += 1
 				check(gd.items[iid].shield_style == GearCatalog.SET_VISUALS[set_id]["style"], "%s: escudo próprio do conjunto" % iid)
-	check(set_shields == 12, "conjuntos com escudo têm escudo próprio: 6 do Guardião e 6 do Sacerdote (%d)" % set_shields)
+	check(set_shields == 24, "conjuntos com escudo têm escudo próprio: 6 do Guardião, do Templário, do Sacerdote e do Clérigo de Batalha (%d)" % set_shields)
 	check(styles.size() == 18 + set_shields and styles.values().all(func(n): return n == 1), "cada escudo tem modelo próprio: %s" % str(styles))
 	var mk := func(cls: String, shield: String) -> SimEntity:
 		var e: SimEntity = sim.spawn_bot(gd.classes[cls], "EB", "city_aldara", Vector3(0, 0, 6), 30)
@@ -1331,6 +1331,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_skill_chain(gd, sim)
 	_check_berserker_builds(gd, sim)
 	_check_bishop_builds(gd, sim)
+	_check_third_builds(gd, sim)
 	_check_druid_builds(gd, sim)
 	_check_ranger_builds(gd, sim)
 	_check_assassin_builds(gd, sim)
@@ -2523,6 +2524,84 @@ func _check_bishop_builds(gd, sim) -> void:
 	check(b.stats.radiance == Balance.RADIANCE_CAP and b.stats.buff_duration == Balance.BUFF_DURATION_CAP, "Radiância e duração de bênçãos têm teto")
 	for e in [foe, ally, b]:
 		sim.despawn(e)
+
+## Terceiras builds: Templário (paladino de espada/maça e escudo, fogo sagrado e Penitência) e Clérigo de Batalha
+## (bispo de placa, maça e escudo, golpes que curam o aliado mais ferido).
+func _check_third_builds(gd, sim) -> void:
+	var tem: Dictionary = gd.classes["paladin"].build_by_id("templario")
+	var bat: Dictionary = gd.classes["bishop"].build_by_id("batalha")
+	check(not tem.is_empty() and tem["main"] == ["sword", "mace"] and tem["off"] == ["shield"] and tem["armor"] == "plate" and tem["role"] == "dps",
+		"Templário: espada ou maça, escudo e placa, para dano")
+	check(not bat.is_empty() and bat["main"] == ["mace"] and bat["off"] == ["shield"] and bat["armor"] == "plate", "Clérigo de Batalha: maça, escudo e placa")
+	for pair in [["paladin", "templario", "pal_t"], ["bishop", "batalha", "bis_b"]]:
+		var n_sets := 0
+		for lv in Balance.LEGENDARY_LEVELS:
+			var sid := "set_%s_%s_%d" % [pair[0], pair[1], lv]
+			var vis: Dictionary = GearCatalog.SET_VISUALS.get(sid, {})
+			check(gd.sets.has(sid) and vis.get("style", "") == "%s%d" % [pair[2], lv], "%s: visual próprio (%s)" % [sid, vis.get("style", "")])
+			n_sets += 1 if gd.sets.has(sid) else 0
+			for piece in ["head", "body", "gloves", "boots", "weapon", "offhand"]:
+				check(ResourceLoader.exists("res://assets/icons/%s%d_%s.png" % [pair[2], lv, piece]), "%s: ícone %s" % [sid, piece])
+			var off: ItemDef = gd.items["leg_%s_%s_%d_offhand" % [pair[0], pair[1], lv]]
+			check(off.weapon_type == "shield" and GearCatalog.SHIELD_AFFINITY.get(off.shield_style, "") == pair[0], "%s: escudo próprio com afinidade da classe" % sid)
+		check(n_sets == 6, "%s/%s: 6 conjuntos lendários" % [pair[0], pair[1]])
+		var own: Array = gd.classes[pair[0]].skill_ids.filter(func(x): return gd.skills[x].build == pair[1])
+		check(own.size() >= 6, "%s/%s: setor da teia com skills próprias (%d)" % [pair[0], pair[1], own.size()])
+		var web: Dictionary = gd.trees[pair[0]]
+		check(web["panes"].any(func(pn): return pn["id"] == pair[1]), "%s/%s: tem setor na teia" % [pair[0], pair[1]])
+		for x in own:
+			check(ResourceLoader.exists("res://assets/icons/skill_%s.png" % x), "ícone da skill %s" % x)
+	var m: Dictionary = sim.maps["city_aldara"]
+	# Clérigo de Batalha: Martelada da Fé cura o aliado mais ferido com parte do dano
+	var cle: SimEntity = sim.spawn_bot(gd.classes["bishop"], "Cle", "city_aldara", Vector3(0, 0, 6), 30)
+	cle.brain = null
+	var ally: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Ally", "city_aldara", Vector3(2, 0, 6), 30)
+	ally.brain = null
+	sim.party_invite(cle, ally)
+	sim.party_accept(ally)
+	var foe: SimEntity = sim.spawn_monster(gd.monsters["golem"], "city_aldara", Vector3(0, 0, 7.5))
+	foe.brain = null
+	foe.stats.max_hp = 1.0e6
+	foe.hp = 1.0e6
+	ally.hp = ally.stats.max_hp * 0.3
+	var a0: float = ally.hp
+	cle.face_towards(foe.position)
+	cle.skill_aim = foe.position
+	sim._apply_skill(cle, gd.skills["bis_holy_blow"], m)
+	check(foe.hp < 1.0e6 and ally.hp > a0, "Martelada da Fé fere e cura o aliado mais ferido (+%.0f)" % (ally.hp - a0))
+	# arma lendária Mão que Cura: golpe direto cura o aliado mais ferido
+	cle.equipment[ItemDef.Slot.WEAPON] = gd.items["leg_bishop_batalha_30_weapon"]
+	cle.recompute_stats()
+	check(str(cle.stats.legend.get("kind", "")) == "mend", "maça lendária do Clérigo: Mão que Cura")
+	a0 = ally.hp
+	LegendEffects.legend_on_hit(sim, cle, foe, gd.skills["bis_holy_blow"], 400)
+	check(ally.hp > a0, "Mão que Cura: o golpe cura o aliado (+%.0f)" % (ally.hp - a0))
+	ally.heal_full()
+	cle.hp = cle.stats.max_hp * 0.3
+	var c0: float = cle.hp
+	sim.mend(cle, 1000, 0.5)
+	check(absf(cle.hp - c0 - 500.0 * Balance.MEND_SELF_MULT * cle.heal_factor()) < 2.0, "cura do golpe em você mesmo rende só %.0f%% (+%.0f)" % [Balance.MEND_SELF_MULT * 100.0, cle.hp - c0])
+	# Templário: Penitência acumula no alvo e explode na 5ª carga, ferindo quem está em volta
+	var tem_e: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Tem", "city_aldara", Vector3(0, 0, 4), 30)
+	tem_e.brain = null
+	tem_e.equipment[ItemDef.Slot.WEAPON] = gd.items["leg_paladin_templario_30_weapon"]
+	tem_e.recompute_stats()
+	var le: Dictionary = tem_e.stats.legend
+	check(str(le.get("kind", "")) == "penance" and int(le.get("stacks", 0)) == 5, "espada lendária do Templário: Penitência")
+	var near: SimEntity = sim.spawn_monster(gd.monsters["golem"], "city_aldara", Vector3(1.2, 0, 7.5))
+	near.brain = null
+	near.stats.max_hp = 1.0e6
+	near.hp = 1.0e6
+	for i in range(4):
+		LegendEffects.legend_on_hit(sim, tem_e, foe, gd.skills["pal_sacred_flame"], 100)
+	var st: Array = foe.debuffs.filter(func(d): return d.get("id") == "legend_penance_%d" % tem_e.id)
+	check(st.size() == 1 and int(st[0]["stacks"]) == 4 and near.hp == 1.0e6, "Penitência: 4 cargas e nada explode ainda")
+	LegendEffects.legend_on_hit(sim, tem_e, foe, gd.skills["pal_sacred_flame"], 100)
+	st = foe.debuffs.filter(func(d): return d.get("id") == "legend_penance_%d" % tem_e.id)
+	check(st.is_empty() and near.hp < 1.0e6, "Penitência: a 5ª carga explode e fere quem está perto (%.0f)" % (1.0e6 - near.hp))
+	check(gd.skills["pal_brand"].effects.has("curse") and gd.skills["pal_sacred_flame"].vfx == "fire", "Marca da Penitência amaldiçoa; Chama Sagrada é fogo (queima)")
+	for x in [cle, ally, foe, tem_e, near]:
+		sim.despawn(x)
 
 ## Berserker: só machados; Machados Gêmeos = velocidade de ataque + roubo de vida, Executor = vida/defesa (tanque de apoio).
 func _check_berserker_builds(gd, sim) -> void:
@@ -4408,7 +4487,7 @@ func _check_character_models(gd, sim) -> void:
 		var mine := func(set_id: String) -> bool: return gd.sets[set_id].class_id == own
 		for clip in ["idle", "run", "atk_1h_a", "atk_2h", "atk_bow", "atk_staff", "cast", "cast_buff", "hit", "die", "block", "jump", "fall", "land", "dash", "idle_bow", "idle_staff"]:
 			check(k.resolve(clip) != "", "kit_%s: clipe %s" % [kid, clip])
-		for piece in ["arm_cape_cape_cape", "arm_plate_legs_legs", "arm_leather_legs_legs", "arm_cloth_legs_legs", "arm_plate_head_ridge", "arm_leather_body_mantle", "arm_leather_body_strap", "arm_cloth_body_sash"]:
+		for piece in ["arm_cape_cape_", "arm_plate_legs_", "arm_leather_legs_", "arm_cloth_legs_", "arm_plate_head_", "arm_leather_body_", "arm_cloth_body_"]:     # armadura comum: 1 malha por slot (chibi_kit.join_style_slots)
 			check(k.pieces(piece + "*").size() > 0, "kit_%s: detalhe %s" % [kid, piece])
 		check(k.has_material("tint2"), "kit_%s: tem peças de cor de destaque" % kid)
 		# cada boneco instancia o kit inteiro: malha demais estoura o limite de recursos da GPU com a cidade cheia
@@ -4454,7 +4533,7 @@ func _check_character_models(gd, sim) -> void:
 			if pit.armor_style != "" and pit.slot != ItemDef.Slot.LEGS:      # calça: estilo da build (o kit tem), na cor do conjunto
 				pal_styles[pit.armor_style] = true
 				check(pit.armor_style == GearCatalog.SET_VISUALS.get(set_id, {}).get("style", ""), "%s usa o visual do conjunto" % iid)
-	check(pal_styles.size() == 12, "12 conjuntos do paladino, 12 visuais (%d)" % pal_styles.size())
+	check(pal_styles.size() == 18, "18 conjuntos do paladino, 18 visuais (%d)" % pal_styles.size())
 	var ber := 0
 	for set_id in gd.sets:
 		if gd.sets[set_id].class_id == "berserker":
@@ -4470,7 +4549,7 @@ func _check_character_models(gd, sim) -> void:
 				var bit: ItemDef = gd.items[pid]
 				if bit.weapon_type == "shield":
 					check(bit.shield_style == GearCatalog.SET_VISUALS[set_id]["style"] and ResourceLoader.exists("res://assets/icons/%s.png" % bit.icon), "%s: escudo próprio com ícone" % pid)
-	check(bis == 12, "12 conjuntos do bispo (%d)" % bis)
+	check(bis == 18, "18 conjuntos do bispo (%d)" % bis)
 	# cada conjunto do paladino tem uma maça além da espada: cai junto, conta como a peça de arma, não muda o total
 	var mace_sets := 0
 	for set_id in gd.sets:
@@ -4492,7 +4571,7 @@ func _check_character_models(gd, sim) -> void:
 			if gd.items[pid].slot == ItemDef.Slot.WEAPON and not pid.ends_with("_offhand"):
 				sword = gd.items[pid]
 		check(sword != null and mace.attributes == sword.attributes and mace.is_two_handed() == sword.is_two_handed(), "%s: maça com os atributos e as mãos da espada" % mace.id)
-	check(mace_sets == 12, "12 maças de conjunto (%d)" % mace_sets)
+	check(mace_sets == 18, "18 maças de conjunto (Guardião, Cruzado e Templário) (%d)" % mace_sets)
 	# bônus: maça + armadura conta igual a espada + armadura
 	var ms: SetDef = gd.sets["set_paladin_guardiao_20"]
 	var pa: SimEntity = sim.spawn_bot(gd.classes["paladin"], "SetMace", "city_aldara", Vector3(0, 0, 6), 30)

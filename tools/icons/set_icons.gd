@@ -40,6 +40,7 @@ func _ready() -> void:
 	sun.light_energy = 1.1
 	vp.add_child(sun)
 	var made := 0
+	KitModel.merge = false        # a foto escolhe peça por nome: a malha juntada (KitMerged) esconderia as peças
 	for set_id in GearCatalog.SET_VISUALS:
 		var vis: Dictionary = GearCatalog.SET_VISUALS[set_id]
 		if vis.get("icon", "") != vis["style"] or (only != "" and vis["style"] != only):
@@ -57,6 +58,8 @@ func _ready() -> void:
 				shot_eq[ItemDef.Slot.OFFHAND] = it   # segunda arma (machado gêmeo): vai na mão esquerda
 			else:
 				shot_eq[it.slot] = it                # variante (maça): empunhada no lugar da espada
+			if piece == "legs":
+				continue          # calça: arte pintada (item_icons.tscn)
 			if it.shield_style != "":
 				continue          # escudo: tools/icons/shield_icons.tscn fotografa de frente (aqui sairia no ângulo do braço)
 			var kit := KitModel.create("male", GameData.classes[sd.class_id].hair_color, 0.025, sd.class_id)        # cabelo sob chapéu na cor da classe

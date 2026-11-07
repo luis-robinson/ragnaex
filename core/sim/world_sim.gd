@@ -658,6 +658,14 @@ func _radiance(e: SimEntity, amount: int) -> void:
 	if best.hp < best.stats.max_hp:
 		_heal(e, best, maxi(1, int(round(amount * e.stats.radiance / 100.0))))
 
+## Clérigo de Batalha: `pct` do dano cura o aliado mais ferido por perto; se for você mesmo, só Balance.MEND_SELF_MULT
+## (é cura de grupo, não roubo de vida).
+func mend(e: SimEntity, amount: int, pct: float) -> void:
+	var f := most_hurt_friend(e, Balance.RADIANCE_RANGE)
+	if f.hp >= f.stats.max_hp:
+		return
+	_heal(e, f, maxi(1, int(amount * pct * (Balance.MEND_SELF_MULT if f == e else 1.0))))
+
 ## Personagem aliado vivo mais ferido (em % de vida) a até `range_m` de `e` (o próprio `e` se ninguém estiver pior).
 func most_hurt_friend(e: SimEntity, range_m: float) -> SimEntity:
 	var best: SimEntity = e
@@ -916,6 +924,8 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 				any_hit = true
 				if effects.has("heal_pct_of_dmg"):
 					_heal(e, e, int(r["amount"] * float(effects["heal_pct_of_dmg"])))
+				if effects.has("mend_pct_of_dmg") and r["amount"] > 0:      # Clérigo de Batalha: o golpe cura o aliado mais ferido por perto
+					mend(e, int(r["amount"]), float(effects["mend_pct_of_dmg"]))
 				_storm_proc(e, s, t)
 		_apply_effects(e, t, effects if e.is_friend(t) else on_foes, power)
 	if effects.has("buff") or effects.has("shield"):

@@ -30,6 +30,8 @@ static func build() -> Array:
 			{"set": {"radius": 6.0}}),
 		_t("pal_t_twin_slash", "paladin", "pal_twin_slash", 12, 2, "Arco Sangrento", "Arco Radiante recarrega 30% mais rápido e faz sangrar.",
 			{"mult": {"cooldown": 0.7}, "effects": {"dot": {"dps": 4, "duration": 3}}}, ["two_handed"]),
+		_t("pal_t_sacred_flame", "paladin", "pal_sacred_flame", 10, 2, "Chama Ardente", "Chama Sagrada atravessa inimigos e queima por mais tempo.",
+			{"set": {"projectile_pierce": true}, "effects": {"dot": {"dps": 6, "duration": 6}}}, ["shield"]),
 		# --- Berserker ---
 		_t("ber_t_crash", "berserker", D, 5, 2, "Avanço Brutal", "O dash fere inimigos ao redor do ponto de chegada.",
 			{"power": 0.8, "radius": 1.8}),
@@ -52,6 +54,8 @@ static func build() -> Array:
 			{"effects": {"stun": {"duration": 0.5}}}),
 		_t("bis_t_light", "bishop", "bis_light", 12, 2, "Luz Penetrante", "Luz Sagrada atravessa inimigos e causa +20% de dano.",
 			{"set": {"projectile_pierce": true}, "mult": {"power": 1.2}}),
+		_t("bis_t_holy_blow", "bishop", "bis_holy_blow", 9, 2, "Martelada Generosa", "Martelada da Fé 25% mais larga e cura com 40% do dano.",
+			{"mult": {"radius": 1.25}, "effects": {"mend_pct_of_dmg": 0.4}}, ["mace"]),
 		# --- Druida ---
 		_t("dru_t_stampede_step", "druid", D, 5, 2, "Disparada", "Após o dash, +30% de velocidade por 3s.",
 			{"buff": {"id": "wild_run", "duration": 3, "speed_pct": 30}}),

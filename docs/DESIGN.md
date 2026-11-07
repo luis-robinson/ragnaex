@@ -44,9 +44,9 @@ Cada classe tem **20+ skills** (`skills_catalog.gd`), mas só **6 vão na barra*
 
 | Classe | Builds (arma) |
 |---|---|
-| Paladino | Guardião (espada/maça + escudo, tank) · Cruzado (montante/martelo 2M, dps) |
+| Paladino | Guardião (espada/maça + escudo, tank) · Cruzado (montante/martelo 2M, dps) · Templário (espada/maça + escudo, dps de fogo sagrado) |
 | Berserker | Armas Gêmeas (2 armas de 1 mão: machadinhas e/ou espadas) · Executor (machado/montante 2M) |
-| Bispo | Sacerdote (maça + orbe ou escudo, ou cajado; cura em grupo) · Inquisidor (martelo 2M, dano sagrado) |
+| Bispo | Sacerdote (maça + escudo; cura em grupo) · Iluminado (cetro 2M, dano sagrado) · Clérigo de Batalha (maça + escudo, placa; golpes que curam) |
 | Druida | Guardião da Floresta (martelo 2M, tank) · Fera Selvagem (2 maças) · Xamã (varinha + orbe, magia) |
 | Ranger | Atirador (arco, alvo único) · Caçador (arco, área/controle) · Patrulheiro (2 armas de 1 mão) |
 | Assassino | Lâminas (2 adagas: veneno, esquiva, furtividade, pelas costas, ataque muito rápido) · Duelista (2 espadas, equilibrado) |
@@ -71,6 +71,14 @@ arco de 150° e até 4 alvos (`Balance.BIG_SWING_*`). Vale para Executor, Cruzad
 **Bispo**: **Sacerdote** (maça + escudo, suporte) = cura mais forte e bênçãos/escudos que duram mais (`buff_pct`, em você e nos aliados);
 **Iluminado** (build `inquisidor`; **cetro** de duas mãos, arma mágica nova com ataque básico de luz à distância; túnicas) = dano mágico +
 **Radiância** (`radiance`: % do dano mágico direto cura o aliado mais ferido a até 10 m, você incluso). Tetos em `Balance` (80% / 40%).
+**Clérigo de Batalha** (build `batalha`; maça + escudo como o Sacerdote, mas de **placa** e na linha de frente; FOR/WILL) = golpes físicos que
+curam o aliado mais ferido a até 10 m (efeito de skill `mend_pct_of_dmg`; em você mesmo rende só `Balance.MEND_SELF_MULT`; arma lendária Mão que Cura faz o mesmo em todo golpe), Hino de
+Batalha (ATK/DEF no grupo) e as bênçãos do Sacerdote como apoio. Dano ~2x o do Sacerdote e ~55% de um dps puro: o resto vira cura.
+
+**Paladino Templário** (build `templario`; espada ou maça + escudo como o Guardião, placa; FOR/INT) = dano: golpes de fogo sagrado que
+queimam (Chama Sagrada, Fogo Purificador, Pira Sagrada), Marca da Penitência (+15% de dano recebido), Ira Vingadora e Golpe Solar, misturados
+às skills de escudo do Guardião (Pancada, Golpe de Égide, Retribuição). Arma lendária **Penitência**: cada golpe põe uma carga no alvo; na 5ª ele
+explode em fogo sagrado (`pct`% do ATK em 2,5 m). DPS ~10% abaixo do Cruzado (troca dano pelo escudo).
 
 **Druida**: **Xamã** (cajado de duas mãos, túnicas) = magia da natureza, invocações (Lobos Espirituais, Ent Guardião) e Bênção do Bosque;
 passivos de MATK e duração de bênçãos. **Lobo** (duas maças, couro) e **Urso** (malho, placa) viram bicho: `Forma de Lobo`/`Forma de Urso`
@@ -497,6 +505,7 @@ mão secundária) é do conjunto, mas **não conta** nas peças: a arma lendári
 um por build (`GearCatalog.LEGEND_EFFECTS`, números [base, por tier]):
 Guardião Retaliação (devolve corpo a corpo) · Cruzado Julgamento (chance de atordoar) · Gêmeos Frenesi (golpes acumulam vel. de ataque) ·
 Executor Carrasco (+dano em alvo < 30%) · Sacerdote Égide (cura vira barreira) · Iluminado Castigo Sagrado (básico lança Castigar) ·
+Templário Penitência (5ª carga explode em fogo sagrado) · Clérigo de Batalha Mão que Cura (golpe cura o aliado mais ferido) ·
 Urso Casca Viva (apanhou: Pele de Carvalho, 20 s) · Lobo Sangue da Matilha (sangramento) · Xamã Lua Cheia (básico lança Fogo Lunar) ·
 Caçador Marca (alvo recebe mais dano de todos) · Atirador Pólvora (tiro explode em área) · Lâminas Veneno Letal · Duelista Riposte (esquivou,
 contra-ataca) · Fogo Brasa Viva (básico lança Bola de Fogo) · Gelo Coração de Gelo (apanhou: Nova de Gelo, no máx. a cada 20 s) · Raio Arco

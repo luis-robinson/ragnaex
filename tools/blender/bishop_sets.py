@@ -1,4 +1,4 @@
-"""Conjuntos lendários do Bispo (12), maças e escudos do Sacerdote e cetros do Iluminado, por construtor paramétrico.
+"""Conjuntos lendários do Bispo (18), maças e escudos do Sacerdote e do Clérigo de Batalha e cetros do Iluminado, por construtor paramétrico.
 
 Linguagem visual (original): clérigo — túnicas longas, estola, capinha nos ombros, véu ou mitra, aros de luz.
 Sacerdote (suporte, maça + escudo): véu/capuz, túnica com painel de cruz, estola, cordão; fica mais protetor a cada tier.
@@ -34,6 +34,21 @@ BIS_SETS = {
                 "halo": True, "glow": (0.65, 0.8, 1.0)},
     "bis_i30": {"head": "mitre", "robe": (0.05, 2.1), "over": 0.32, "stole": True, "capelet": True, "collar": True, "emblem": "sun", "shoulder": "wing",
                 "halo": True, "wings": True, "glow": (1.0, 0.95, 0.75)},
+    # ---- Clérigo de Batalha (maça e escudo na linha de frente): placa sobre a túnica curta, elmo de clérigo, ombreiras largas ----
+    # plate = couraça no lugar do corpo da túnica (a saia vira a túnica branca por baixo) ; gauntlet / greaves = manoplas e grevas
+    # helm_orn: crest | wings ; shoulder "big" = duas lâminas e bossa
+    "bis_b5": {"head": "helm", "helm_orn": [], "robe": (0.22, 1.45), "plate": True, "gauntlet": True, "greaves": True,
+               "stole": False, "capelet": False, "collar": False, "emblem": "cross", "shoulder": "plate"},
+    "bis_b10": {"head": "helm", "helm_orn": ["crest"], "robe": (0.2, 1.5), "over": 0.26, "plate": True, "gauntlet": True, "greaves": True,
+                "stole": False, "capelet": False, "collar": False, "emblem": "cross", "shoulder": "big"},
+    "bis_b15": {"head": "helm", "helm_orn": ["wings"], "robe": (0.2, 1.5), "over": 0.28, "plate": True, "gauntlet": True, "greaves": True,
+                "stole": False, "capelet": False, "collar": True, "emblem": "dove", "shoulder": "big", "glow": (0.75, 1.0, 0.85)},
+    "bis_b20": {"head": "helm", "helm_orn": ["crest"], "robe": (0.18, 1.55), "over": 0.3, "plate": True, "gauntlet": True, "greaves": True,
+                "stole": True, "capelet": False, "collar": True, "emblem": "sun", "shoulder": "big", "halo": True, "glow": (1.0, 0.9, 0.55)},
+    "bis_b25": {"head": "helm", "helm_orn": ["wings", "crest"], "robe": (0.18, 1.55), "over": 0.3, "plate": True, "gauntlet": True, "greaves": True,
+                "stole": True, "capelet": False, "collar": True, "emblem": "star", "shoulder": "wing", "glow": (0.85, 0.65, 1.0)},
+    "bis_b30": {"head": "helm", "helm_orn": ["wings", "crest"], "robe": (0.16, 1.6), "over": 0.32, "plate": True, "gauntlet": True, "greaves": True,
+                "stole": True, "capelet": False, "collar": True, "emblem": "sun", "shoulder": "wing", "halo": True, "wings": True, "glow": (1.0, 0.95, 0.75)},
 }
 
 
@@ -104,6 +119,20 @@ def build(ck, base, mats, style, cfg):
             head.append(ck.blade(P + "head_ray_%d" % k, c + d * r * 1.12 + V((0, 0, r * 0.55)), c + d * r * 1.2 + V((0, 0, r * (1.15 if k % 2 == 0 else 0.95))),
                                  r * 0.22, 0.04, gold, V((-d.y, d.x, 0))))
         head.append(ck.ball(P + "head_gem", 0.04, c + V((0, -r * 1.2, r * 0.5)), glow or t2, (1, 0.6, 1.3)))
+    elif hk == "helm":             # elmo de clérigo: touca de pano por baixo, calota de metal, testeira e nasal com cruz
+        head += [ck._shell(P + "head_coif", c, r * 1.14, 0.3, -1.0, -0.62, 0.03, wh),
+                 ck._shell(P + "head_cap", c, r * 1.2, 0.36, 0.05, 0.12, 0.04, t),
+                 ck.tube(P + "head_band", c + V((0, 0, r * 0.2)), c + V((0, 0, r * 0.36)), r * 1.26, r * 1.24, gold, 24),
+                 ck.box(P + "head_nasal", (0.032, 0.04, r * 0.42), c + V((0, -r * 1.22, r * 0.08)), gold, 0.01),
+                 ck.box(P + "head_nasal_h", (r * 0.42, 0.05, 0.045), c + V((0, -r * 1.24, r * 0.28)), gold, 0.01)]
+        ho = cfg.get("helm_orn", [])
+        if "crest" in ho:          # crista baixa de frente para trás (de cima, a linha do elmo)
+            head.append(ck.blade(P + "head_crest", c + V((0, -r * 0.85, r * 0.75)), c + V((0, r * 0.75, r * 1.05)), r * 0.32, 0.07, gold, (0, 1, 0)))
+        if "wings" in ho:          # asinhas brancas dos lados do elmo
+            for sx in (-1, 1):
+                for k in range(2):
+                    head.append(ck.blade(P + "head_wing_%d_%d" % (sx, k), c + V((sx * r * 1.0, r * 0.1, r * 0.35 - k * 0.05)),
+                                         c + V((sx * r * (1.6 - k * 0.2), r * (0.5 + k * 0.15), r * (1.05 - k * 0.3))), r * (0.5 - k * 0.1), 0.05, wh, (0, 1, 0.4)))
     if cfg.get("halo"):
         n = 20
         ring = [c + V((math.cos(math.tau * i / n) * r * 0.85, r * 0.3 + math.sin(math.tau * i / n) * r * 0.55, r * (1.75 if hk != "mitre" else 2.25))) for i in range(n)]
@@ -111,10 +140,11 @@ def build(ck, base, mats, style, cfg):
             head.append(ck.tube(P + "head_halo_%d" % i, ring[i], ring[(i + 1) % n], 0.022, 0.022, glow or gold, 6))
     ck._rigid(head, rig, "head")
     # ---------------- corpo: túnica longa ----------------
-    ck.armor_piece(body, rig, P + "body_robe", "torso", t, 0.014, 0.014, 0.03)
-    ck.armor_piece(body, rig, P + "body_legs", "legs", wh, 0.008, 0.012)
+    plate = cfg.get("plate", False)
+    ck.armor_piece(body, rig, P + "body_robe", "torso", t, 0.02 if plate else 0.014, 0.018 if plate else 0.014, 0.03)
+    ck.armor_piece(body, rig, P + "body_legs", "legs", mats["metal"] if plate else wh, 0.008, 0.012)
     bottom, flare = cfg["robe"]
-    ck.skirt(P + "body_skirt", b, body, rig, t, bottom, flare)
+    ck.skirt(P + "body_skirt", b, body, rig, wh if plate else t, bottom, flare)      # de placa: a túnica branca aparece por baixo
     if cfg.get("over"):            # sobretúnica mais curta, cor de destaque
         ck.skirt(P + "body_over", b, body, rig, t2, ck.Z["waist"] - cfg["over"], flare * 0.85)
     d = b["depth"]
@@ -126,8 +156,11 @@ def build(ck, base, mats, style, cfg):
     if cfg.get("capelet"):         # capinha nos ombros
         chest.append(ck.tube(P + "body_capelet", V((0, 0, ck.Z["neck"] - 0.02)), V((0, 0, zc + 0.02)), b["chest"] * 0.55, b["chest"] * 1.18, wh, 18))
         chest.append(ck.tube(P + "body_capelet_hem", V((0, 0, zc + 0.01)), V((0, 0, zc + 0.04)), b["chest"] * 1.2, b["chest"] * 1.2, gold, 18))
+    if plate:                      # couraça: crista no meio do peito e lâmina da barriga
+        chest.append(ck.box(P + "body_plackart", (0.2, 0.03, 0.05), (0, -b["waist"] * d * 1.12 - 0.02, ck.Z["waist"] + 0.06), gold, 0.012))
+        chest.append(ck.blade(P + "body_ridge", (0, front + 0.004, zc + 0.12), (0, front + 0.004, zc - 0.14), 0.035, 0.03, t, (1, 0, 0), 0.5))
     # painel da frente com o emblema (e o mesmo nas costas: a câmera alta vê as costas)
-    chest.append(ck.box(P + "body_panel", (0.13, 0.02, 0.3), (0, front, zc - 0.06), wh, 0.006))
+    chest.append(ck.box(P + "body_panel", (0.1, 0.02, 0.16) if plate else (0.13, 0.02, 0.3), (0, front, zc if plate else zc - 0.06), wh, 0.006))
     chest += _emblem(ck, P, "body_emblem", cfg["emblem"], (0, front - 0.02, zc + 0.02), mats, glow)
     chest += _emblem(ck, P, "body_back", cfg["emblem"], (0, b["chest"] * d + 0.04, zc + 0.02), mats, glow)
     if cfg.get("wings"):           # asas nas costas
@@ -154,6 +187,11 @@ def build(ck, base, mats, style, cfg):
         tag = s.replace(".", "_")
         sh = V(j["shoulder" + s])
         pa = []
+        if cfg["shoulder"] == "big":   # ombreira larga de duas lâminas com bossa (Clérigo de Batalha)
+            pa += [ck.ball(P + "body_pauldron" + tag, b["arm"] * 2.7, sh + V((sx * 0.06, 0, 0.06)), t, (1.15, 1.1, 0.62)),
+                   ck.ball(P + "body_pauldron_2" + tag, b["arm"] * 2.3, sh + V((sx * 0.1, 0, -0.02)), gold, (1.1, 1.05, 0.5)),
+                   ck.ball(P + "body_pauldron_rim" + tag, b["arm"] * 2.78, sh + V((sx * 0.06, 0, 0.03)), gold, (1.17, 1.12, 0.15)),
+                   ck.ball(P + "body_pauldron_boss" + tag, 0.04, sh + V((sx * 0.13, 0, 0.12)), wh, (1, 1, 0.7))]
         if cfg["shoulder"] in ("plate", "wing"):
             pa += [ck.ball(P + "body_pauldron" + tag, b["arm"] * 2.2, sh + V((sx * 0.05, 0, 0.05)), t, (1.1, 1.05, 0.55)),
                    ck.ball(P + "body_pauldron_rim" + tag, b["arm"] * 2.28, sh + V((sx * 0.05, 0, 0.025)), gold, (1.12, 1.07, 0.15))]
@@ -167,17 +205,25 @@ def build(ck, base, mats, style, cfg):
     for s, sx in ((".R", -1), (".L", 1)):
         tag = s.replace(".", "_")
         el, wr = V(j["elbow" + s]), V(j["wrist" + s])
-        g = [ck.tube(P + "gloves_sleeve" + tag, el.lerp(wr, 0.35), wr + V((0, 0, -0.01)), 0.07, 0.115, t, 14),      # manga larga
-             ck.tube(P + "gloves_cuff" + tag, wr + V((0, 0, -0.012)), wr + V((0, 0, 0.012)), 0.12, 0.12, gold, 14)]
+        if cfg.get("gauntlet"):    # manopla de placa com borda dourada
+            g = [ck.tube(P + "gloves_cuff" + tag, el.lerp(wr, 0.25), wr + V((0, 0, 0.01)), 0.075, 0.105, t, 12),
+                 ck.tube(P + "gloves_rim" + tag, wr + V((0, 0, 0.005)), wr + V((0, 0, 0.03)), 0.112, 0.112, gold, 12)]
+        else:
+            g = [ck.tube(P + "gloves_sleeve" + tag, el.lerp(wr, 0.35), wr + V((0, 0, -0.01)), 0.07, 0.115, t, 14),      # manga larga
+                 ck.tube(P + "gloves_cuff" + tag, wr + V((0, 0, -0.012)), wr + V((0, 0, 0.012)), 0.12, 0.12, gold, 14)]
         ck._rigid(g, rig, "forearm" + s)
-        fist = ck.ball(P + "gloves_fist" + tag, b["hand"] * 1.25, ck.hand_center(base, s), wh, (1, 1, 1.1))
+        gl = cfg.get("gauntlet", False)
+        fist = ck.ball(P + "gloves_fist" + tag, b["hand"] * (1.35 if gl else 1.25), ck.hand_center(base, s), t if gl else wh, (1, 1, 1.1))
         ck._rigid([fist], rig, "hand" + s)
     # ---------------- sandálias/botas ----------------
-    ck.armor_piece(body, rig, P + "boots_shell", "boots", wh, 0.02, 0.014)
+    gr = cfg.get("greaves", False)
+    ck.armor_piece(body, rig, P + "boots_shell", "boots", t if gr else wh, 0.024 if gr else 0.02, 0.016 if gr else 0.014)
     for s, sx in ((".R", -1), (".L", 1)):
         tag = s.replace(".", "_")
         an = V(j["ankle" + s])
         k = [ck.tube(P + "boots_band" + tag, an + V((0, 0, 0.05)), an + V((0, 0, 0.075)), 0.075, 0.075, gold, 12)]
+        if gr:                     # joelheira de placa
+            k.append(ck.ball(P + "boots_knee" + tag, 0.07, V(j["knee" + s]) + V((0, -0.07, 0.01)), gold, (1.05, 0.7, 1.0)))
         if cfg["shoulder"] == "wing":
             k.append(ck.blade(P + "boots_wing" + tag, an + V((sx * 0.06, 0.01, 0.06)), an + V((sx * 0.13, 0.05, 0.16)), 0.06, 0.02, wh, (0, 1, 0)))
         ck._rigid(k, rig, "shin" + s)
@@ -192,6 +238,13 @@ BIS_MACES = {
     "bis_s20": {"type": "mace", "head": "flange", "n": 8, "core": "tint", "cap": "gem", "halo": True, "glow": True},
     "bis_s25": {"type": "mace", "head": "flange", "n": 8, "core": "tint", "cap": "gem", "wings": True},
     "bis_s30": {"type": "mace", "head": "sun", "core": "tint", "cap": "gem", "wings": True, "halo": True, "glow": True},
+    # Clérigo de Batalha: maças de guerra mais pesadas (cravos e flanges largos)
+    "bis_b5": {"type": "mace", "head": "star", "core": "metal", "cap": "ball"},
+    "bis_b10": {"type": "mace", "head": "flange", "n": 8, "core": "metal", "cap": "gem"},
+    "bis_b15": {"type": "mace", "head": "star", "core": "tint", "cap": "gem", "wings": True},
+    "bis_b20": {"type": "mace", "head": "sun", "core": "tint", "cap": "gem", "glow": True, "horns": True},
+    "bis_b25": {"type": "mace", "head": "star", "core": "tint", "cap": "gem", "dark": True, "glow": True},
+    "bis_b30": {"type": "mace", "head": "flange", "n": 8, "core": "tint", "cap": "gem", "wings": True, "halo": True, "glow": True, "horns": True},
 }
 
 
@@ -285,7 +338,61 @@ def shield_s30(ck, name, mats):
     return parts + sk._back(ck, name, mats)
 
 
+# Escudos do Clérigo de Batalha: escudo de guerra (redondo com umbo, heater com faixas, torre) e duas maças cruzadas em relevo.
+# shape: round | heater | tower ; boss = umbo no meio com cruz ; bands = faixas ; maces ; wings ; gem ; halo
+BATTLE_SHIELDS = {
+    "bis_b5": {"shape": "round", "field": "tint", "rim": "gold", "boss": True, "bands": 0},
+    "bis_b10": {"shape": "heater", "field": "white", "rim": "tint", "boss": False, "bands": 2, "maces": True},
+    "bis_b15": {"shape": "round", "field": "tint", "rim": "gold", "boss": True, "bands": 0, "wings": True, "gem": "ciano"},
+    "bis_b20": {"shape": "tower", "field": "white", "rim": "gold", "boss": False, "bands": 3, "maces": True, "gem": "ambar"},
+    "bis_b25": {"shape": "heater", "field": "tint", "rim": "gold", "boss": True, "bands": 0, "wings": True, "gem": "violeta"},
+    "bis_b30": {"shape": "tower", "field": "white", "rim": "gold", "boss": False, "bands": 2, "maces": True, "wings": True, "gem": "branco", "halo": True},
+}
+
+
+def shield_battle(cfg):
+    def fn(ck, name, mats):
+        import shield_kit as sk
+        pick = {"white": mats["white"], "tint": mats["tint"], "tint2": mats["tint2"], "gold": mats["trim"]}
+        gold, wh = mats["trim"], mats["white"]
+        S = 0.36
+        if cfg["shape"] == "round":
+            out = _round(S)
+        elif cfg["shape"] == "tower":
+            out = sk.mirror([(0, 1.05), (0.55, 1.0), (0.72, 0.88), (0.72, -0.7), (0.55, -0.98), (0, -1.05)], S)
+        else:
+            out = sk.mirror([(0, 0.82), (0.42, 0.86), (0.76, 0.78), (0.76, 0.2), (0.56, -0.42), (0.28, -0.82), (0, -1.05)], S)
+        top = max(z for _, z in out)
+        wid = max(x for x, _ in out)
+        parts = [sk.plate(name + "_aro", [(x * 1.09, z * 1.07) for x, z in out], -0.03, 0.03, pick[cfg["rim"]]),
+                 sk.plate(name + "_corpo", out, -0.09, 0.02, pick[cfg["field"]])]
+        for k in range(int(cfg.get("bands", 0))):
+            z = top * (0.55 - k * 0.55)
+            parts.append(sk.rib(name + "_faixa_%d" % k, z, wid * 0.92, 0.04, 0.06, gold, -0.07, 0.9))
+        if cfg.get("maces"):       # duas maças cruzadas em relevo
+            for k in (-1, 1):
+                a, b_ = (k * wid * 0.62, -top * 0.62), (-k * wid * 0.42, top * 0.5)
+                parts.append(sk.blade(name + "_cabo_%d" % (k + 1), a, b_, 0.05, 0.03, gold, 0.5, -0.11))
+                parts.append(ck.ball(name + "_cabeca_%d" % (k + 1), 0.06, (b_[0], -0.13, b_[1]), gold, (1, 0.6, 1)))
+        if cfg.get("boss"):
+            parts.append(sk.plate(name + "_umbo", [(math.cos(math.tau * i / 16) * S * 0.3, math.sin(math.tau * i / 16) * S * 0.3) for i in range(16)], -0.17, -0.07, gold))
+            for i in range(4):
+                a = math.tau * i / 4 + math.pi / 2
+                parts.append(sk.blade(name + "_cruz_%d" % i, (math.cos(a) * S * 0.3, math.sin(a) * S * 0.3), (math.cos(a) * S * 0.9, math.sin(a) * S * 0.9), 0.1, 0.03, wh, 0.75, -0.09))
+        if cfg.get("wings"):
+            for k in (-1, 1):
+                for i in range(3):
+                    parts.append(sk.blade(name + "_asa_%d_%d" % (k, i), (k * wid * 0.55, top * 0.6), (k * wid * (1.35 - i * 0.14), top * (1.15 - i * 0.25)), 0.11, 0.035, wh, 0.3, -0.05))
+        if cfg.get("gem"):
+            parts.append(sk.gem(name + "_gema", (0, 0 if cfg.get("boss") else top * 0.1), 0.065, sk.jewel(ck, cfg["gem"]), -0.19 if cfg.get("boss") else -0.15, 8, 1.0))
+        if cfg.get("halo"):
+            parts += sk.ring(name + "_halo", (0, top * 1.08), S * 0.28, 0.015, gold, 18, -0.06)
+        return parts + sk._back(ck, name, mats)
+    return fn
+
+
 BIS_SHIELDS = {"bis_s5": shield_s5, "bis_s10": shield_s10, "bis_s15": shield_s15, "bis_s20": shield_s20, "bis_s25": shield_s25, "bis_s30": shield_s30}
+BIS_SHIELDS.update({st: shield_battle(cf) for st, cf in BATTLE_SHIELDS.items()})
 
 
 # ---------------------------------------------------------------------------

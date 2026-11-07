@@ -36,18 +36,18 @@ const GLYPHS := {
 		"ber_crimson_flurry", "ber_whirlwind"],
 	"dagger": ["ass_backstab", "ass_poison", "ass_fan", "ass_execute", "ass_quick_stab", "ass_twin_strike", "ass_blade_flurry", "ass_dance", "ass_thousand",
 		"ass_plague_blade", "ass_eviscerate"],
-	"hammer": ["pal_hammer_light", "bis_hammer", "bis_judgement", "bis_condemn", "ber_overhead"],
+	"hammer": ["bis_holy_blow", "bis_divine_hammer", "pal_hammer_light", "bis_hammer", "bis_judgement", "bis_condemn", "ber_overhead"],
 	"scythe": ["nec_reap", "nec_harvest", "nec_grim"],
 	"arrow": ["ran_scatter", "ran_power_shot", "ran_multishot", "ran_rain", "ran_explosive", "ran_frost_arrow", "ran_volley", "ass_venom_dart"],
-	"shield": ["pal_shield_bash", "pal_divine_shield", "pal_shield_wall", "pal_aegis_slam", "bis_martyr"],
+	"shield": ["bis_shield_smite", "pal_shield_bash", "pal_divine_shield", "pal_shield_wall", "pal_aegis_slam", "bis_martyr"],
 	"armor": ["ass_guard", "dru_oak_skin", "bis_ward", "pal_blessed_armor", "ele_frost_armor", "nec_bone_armor"],
 	"cross": ["pal_consecrate", "bis_blessing", "bis_smite", "bis_purify"],
-	"sun": ["ele_combustion", "pal_holy_wave", "pal_valor", "pal_retribution", "bis_light", "bis_holy_nova", "bis_wrath", "bis_zealot"],
+	"sun": ["pal_sun_strike", "ele_combustion", "pal_holy_wave", "pal_valor", "pal_retribution", "bis_light", "bis_holy_nova", "bis_wrath", "bis_zealot"],
 	"hand": ["nec_drain_soul", "pal_lay_hands", "bis_prayer", "bis_mend"],
 	"heart": ["ber_bloodlust", "bis_heal", "bis_sanctuary", "nec_drain"],
-	"wing": ["bis_angel", "ran_disengage", "ass_reflexes"],
-	"shout": ["ran_pack", "pal_taunt", "ber_warcry", "dru_bellow"],
-	"fist": ["ber_titan_grip"],
+	"wing": ["bis_faith_leap", "bis_angel", "ran_disengage", "ass_reflexes"],
+	"shout": ["bis_battle_hymn", "ran_pack", "pal_taunt", "ber_warcry", "dru_bellow"],
+	"fist": ["pal_avenging_wrath", "ber_titan_grip"],
 	"drop": ["ass_virulence", "ber_fury", "ass_paralyze", "nec_plague", "nec_rot", "nec_decay"],
 	"claw": ["ran_sic", "ass_thousand", "dru_pounce", "dru_claw", "dru_savage", "dru_frenzy", "ran_maul", "ber_rend", "ber_twin_fang"],
 	"paw": ["nec_bone_hound", "ran_companion", "dru_spirit_wolves", "dru_maim", "dru_bear_form", "dru_maul", "dru_stampede", "dru_rampage", "ran_wild"],
@@ -55,18 +55,18 @@ const GLYPHS := {
 	"thorn": ["nec_curse_agony", "dru_thorns", "dru_entangle"],
 	"tree": ["dru_treant", "dru_bark"],
 	"bug": ["dru_swarm", "nec_swarm"],
-	"mountain": ["dru_earth_slam", "dru_mountain", "ber_earthsplitter"],
+	"mountain": ["bis_holy_quake", "dru_earth_slam", "dru_mountain", "ber_earthsplitter"],
 	"moon": ["dru_wolf_form", "dru_moonfire"],
 	"star": ["bis_miracle", "dru_starfall", "ele_spark"],
 	"tornado": ["ele_firestorm", "nec_death_spin", "ber_steel_whirl", "ass_steel_whirl", "dru_cyclone", "ele_blink"],
 	"bolt": ["nec_void_beam", "ele_summon_storm", "dru_storm", "ele_lightning", "ele_static", "ele_overload", "ele_storm_lord"],
 	"chain": ["ele_chain", "nec_curse_weakness", "ran_anchor"],
-	"target": ["nec_curse_doom", "ass_focus", "ran_barrage", "ran_snipe", "ran_mark"],
+	"target": ["pal_brand", "nec_curse_doom", "ass_focus", "ran_barrage", "ran_snipe", "ran_mark"],
 	"eye": ["nec_mind_flay", "dru_prowl", "ran_deadeye", "ass_vanish", "ass_shadowstep"],
 	"trap": ["ran_trap"],
 	"net": ["ran_net"],
 	"cloud": ["ele_hailstorm", "nec_pandemic", "ele_thunder", "ass_smoke", "ass_toxic_cloud", "nec_curse"],
-	"flame": ["nec_demon_form", "ele_frost_flare", "ele_summon_fire", "pal_zeal", "pal_purge", "ele_fireball", "ele_flame_wave", "ele_fire_wall", "ele_inferno"],
+	"flame": ["pal_sacred_flame", "pal_cleansing_fire", "pal_flame_pyre", "nec_demon_form", "ele_frost_flare", "ele_summon_fire", "pal_zeal", "pal_purge", "ele_fireball", "ele_flame_wave", "ele_fire_wall", "ele_inferno"],
 	"meteor": ["ran_mine", "ele_meteor"],
 	"bird": ["ele_phoenix"],
 	"crystal": ["ele_prism", "ele_summon_ice", "ele_absolute_zero", "ele_ice_lance", "ele_glacier"],
@@ -153,7 +153,7 @@ func _ready() -> void:
 ## O que muda a aparência além do símbolo: dois ícones iguais na mesma classe confundem na barra.
 func _signature(s: SkillDef) -> String:
 	var shape := "buff" if s.kind == SkillDef.Kind.BUFF else str(s.target if s.target != SkillDef.Target.SELF or s.power > 0.0 else 9)
-	return "%s/%s/%s/%s/%s/%s/%s" % [s.vfx, shape, s.effects.has("dash"), s.effects.has("dot"), s.effects.has("heal_pct_of_dmg"),
+	return "%s/%s/%s/%s/%s/%s/%s" % [s.vfx, shape, s.effects.has("dash"), s.effects.has("dot"), s.effects.has("heal_pct_of_dmg") or s.effects.has("mend_pct_of_dmg"),
 		"t" if s.id in TWIN else ("r" if s.id in RAIN else ("f" if s.id in FAN else ("w" if s.id in WALL else ""))), s.kind == SkillDef.Kind.BUFF]
 
 func _save_sheet(path: String) -> void:
@@ -193,7 +193,7 @@ func _paint() -> void:
 		badges.append("up")
 	if s.effects.has("dot"):
 		badges.append("drops")
-	if s.effects.has("heal_pct_of_dmg"):
+	if s.effects.has("heal_pct_of_dmg") or s.effects.has("mend_pct_of_dmg"):
 		badges.append("leech")
 	var at := Vector2(256, 256)
 	var sc: float = GLYPH_SIZE * float(GLYPH_WEIGHT.get(g, 1.0))
