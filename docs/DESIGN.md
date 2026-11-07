@@ -206,6 +206,8 @@ Save antigo recebe os pontos de volta. Bots compram o caminho mais curto até as
 (elemental, esqueletos, lobos, Ent), **recusa a morrer** (1 HP e imortal por alguns segundos, com recarga), execução, emboscada mais forte,
 mana como escudo, cura no abate etc. Um por linha, grátis (liberado pelo nível), trocar na cidade (`Balance.PICK_SWAP_TOWN_ONLY`); o reset
 das skills mantém as escolhas. Buff de talento aparece com ∞ na barra e não acumula com o lançado (mesmo id; o lançado vale enquanto dura).
+Todo buff ativo aparece **no boneco** enquanto dura (borda/padrão na pele, bolha de escudo, cristal de gelo, chama, auréola, rastros, gotas,
+fumaça; buff de talento ou aura do grupo só com a borda fraca) — tabela e revisão em `docs/buffs_visual.md`; buff novo precisa de linha em `BuffLooks.LOOKS`.
 Nível 30 só cai do Dragonete. Raridades: comum, incomum, raro, épico, **lendário** (laranja).
 
 ## Progressão (lenta)

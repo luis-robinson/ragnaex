@@ -9,7 +9,9 @@ uniform vec4 status : source_color = vec4(0.0, 0.0, 0.0, 0.0);   // estado (gelo
 uniform float emission_amount : hint_range(0.0, 2.0) = 0.0;
 uniform vec4 plus_glow : source_color = vec4(0.0, 0.0, 0.0, 0.0);   // aprimoramento +5/+9: cor + força em alpha (borda pulsando)
 uniform float paint : hint_range(0.0, 1.0) = 0.0;   // personagens: pintura à mão (pés mais escuros, manchas suaves)
-uniform bool vcol_srgb = false;   // boneco fundido (KitModel._remerge): a cor de cada peça vem no COLOR do vértice, em sRGB
+uniform bool vcol_srgb = false;
+uniform vec4 buff_rim : source_color = vec4(0.0, 0.0, 0.0, 0.0);   // buff ativo (BuffAura): cor + força em alpha
+uniform float buff_style = 0.0;   // 0 borda, 1 cristal de gelo, 2 pedra/osso, 3 chama tremendo, 4 casca, 5 brilho sagrado, 6 fumaça   // boneco fundido (KitModel._remerge): a cor de cada peça vem no COLOR do vértice, em sRGB
 
 varying vec3 obj_pos;
 varying float vspec;
@@ -53,8 +55,40 @@ void fragment() {
 		base = mix(base, painted * (1.0 + mottle * 0.22), paint);
 	}
 	base = mix(base, status.rgb, status.a);
+	vec3 bglow = vec3(0.0);
+	if (buff_rim.a > 0.0) {
+		// buff: borda colorida + padrão do tema na própria pele (sem malha extra)
+		float a = buff_rim.a;
+		float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
+		int st = int(buff_style + 0.5);
+		float pulse = 0.8 + 0.2 * sin(TIME * 3.0);
+		float pat = 0.0;
+		if (st == 1) {          // gelo: placas claras de cristal + geada
+			float c = blot(obj_pos * 9.0);
+			pat = step(0.6, c) * 0.75 + step(0.8, blot(obj_pos * 23.0)) * 0.5;
+			base = mix(base, mix(buff_rim.rgb, vec3(1.0), 0.45), a * (0.1 + 0.3 * pat));
+		} else if (st == 2) {   // pedra/osso: manchas de placa
+			pat = smoothstep(0.5, 0.62, blot(obj_pos * 7.0));
+			base = mix(base, buff_rim.rgb * 0.85, a * (0.15 + 0.5 * pat));
+		} else if (st == 3) {   // chama: tremor subindo pelo corpo
+			pulse = 0.55 + 0.45 * sin(TIME * 13.0 + obj_pos.y * 9.0 + blot(obj_pos * 5.0 + vec3(0.0, -TIME * 2.0, 0.0)) * 6.0);
+			base = mix(base, buff_rim.rgb, a * 0.06);
+		} else if (st == 4) {   // casca: veios verticais
+			pat = smoothstep(0.55, 0.7, blot(vec3(obj_pos.x * 18.0, obj_pos.y * 2.5, obj_pos.z * 18.0)));
+			base = mix(base, buff_rim.rgb * 0.7, a * (0.12 + 0.45 * pat));
+		} else if (st == 5) {   // sagrado: faixa dourada subindo
+			pat = smoothstep(0.8, 1.0, sin(obj_pos.y * 6.0 - TIME * 2.6) * 0.5 + 0.5);
+			base = mix(base, buff_rim.rgb, a * 0.1);
+		} else if (st == 6) {   // sombra: escurece de baixo para cima, ondulando
+			pat = 1.0 - smoothstep(0.2, 0.9, obj_pos.y + 0.3 * blot(obj_pos * 4.0 + vec3(0.0, -TIME, 0.0)));
+			base = mix(base, buff_rim.rgb * 0.5, a * 0.45 * pat);
+		} else {
+			base = mix(base, buff_rim.rgb, a * 0.1);
+		}
+		bglow = buff_rim.rgb * a * ((0.05 + 1.4 * rim) * pulse + pat * 0.25);
+	}
 	ALBEDO = mix(base, vec3(1.0), flash);
-	EMISSION = base * emission_amount + vec3(flash) * 0.6 + status.rgb * status.a * 0.35;
+	EMISSION = base * emission_amount + vec3(flash) * 0.6 + status.rgb * status.a * 0.35 + bglow;
 	if (plus_glow.a > 0.0) {
 		float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
 		float pulse = 0.75 + 0.25 * sin(TIME * 2.6);

@@ -80,6 +80,8 @@ func before_start(returning: bool) -> String:
 	if DevArgs.flag("--gfx"):        # --gfx=<n>: preset de GraphicsSettings só nesta partida (não salva); comparar FPS/imagem
 		GraphicsSettings.preset = clampi(int(DevArgs.value("--gfx")), 0, GraphicsSettings.PRESETS.size() - 1)
 		GraphicsSettings.apply(main.get_viewport())
+	if DevArgs.has("--no_buff_fx"):     # medir: sem buffs no boneco (BuffAura)
+		BuffAura.enabled = false
 	if DevArgs.has("--no_prune"):
 		KitModel.prune = false
 	if DevArgs.has("--no_away"):
@@ -167,6 +169,11 @@ func after_start() -> void:
 	if DevArgs.flag("--morph_film"):    # --morph_film=<png> [--morph=phantom|demon|wolf|bear]: quadros da transformação de perto
 		_smoke_test = false
 		_morph_film(DevArgs.value("--morph_film"), DevArgs.value("--morph", "phantom"))
+	if DevArgs.flag("--buff_shot"):     # --buff_shot=<pasta> [--only=<id>,...] [--close]: cada buff num boneco (ao lado de um sem buff), câmera do jogo
+		_smoke_test = false
+		_buff_shot(DevArgs.value("--buff_shot"), DevArgs.value("--only"))
+	if DevArgs.flag("--buff_cast"):     # --buff_cast=<skill_id> [--buff_hold]: o jogador lança o buff no início (com --buff_hold dura até o --screenshot)
+		_cast_buff_at_start.call_deferred(DevArgs.value("--buff_cast"))
 
 ## Tela inicial (sem partida automática): fotos da tela de classes.
 func at_title(returning: bool) -> void:
@@ -378,6 +385,194 @@ func _morph_film(path: String, form: String) -> void:
 	sheet.save_png(path)
 	print("MORPH_FILM ok %s" % path)
 	get_tree().quit()
+
+## Buff no boneco (BuffAura): para cada buff de BuffLooks (ou --only), dois bonecos da classe dona lado a lado —
+## à esquerda sem nada, à direita com o buff — fotografados pela câmera do jogo no estouro (_pop) e parado.
+## Saída: <pasta>/<id>.png, <pasta>/<id>_pop.png e <pasta>/folha.png (todas as fotos paradas, 6 por linha, ordem do log).
+const BUFF_SHOT_EXTRA := ["shield@necromancer", "shield@elementalist", "bastion_aura@ally", "blessing@ally",
+	"dbf_slow", "dbf_root", "dbf_stun", "dbf_burn", "dbf_poison", "dbf_curse"]
+const BUFF_SHOT_CLASS := {"legend_frenzy": "berserker", "bastion": "paladin", "juramento": "paladin", "wild_run": "druid", "shield": "paladin",
+	"elixir": "berserker", "stoneskin": "paladin"}
+
+func _buff_shot(dir: String, only: String) -> void:
+	DirAccess.make_dir_recursive_absolute(dir)
+	var p: SimEntity = Sim.player
+	p.brain = null
+	Sim._change_map(p, "city_aldara", Vector3(DevArgs.value("--buff_at", "4,0,34").split(",")[0].to_float(), 0, DevArgs.value("--buff_at", "4,0,34").split(",")[2].to_float()))
+	main.camera.distance = 9.0 if DevArgs.has("--close") else 24.0
+	await get_tree().create_timer(1.2).timeout
+	if main.views.has(p.id):            # o jogador fica no meio (a câmera o segue), invisível
+		var pv: EntityView = main.views[p.id]
+		pv.model_root.visible = false
+		pv.nameplate.visible = false
+		if pv.hp_bar:
+			pv.hp_bar.visible = false
+	var ids: Array = []
+	for id in BuffLooks.LOOKS:
+		if BuffLooks.LOOKS[id][0] != "form":
+			ids.append(id)
+	ids += BUFF_SHOT_EXTRA
+	if only != "":
+		ids = Array(only.split(","))
+	var shots: Array = []
+	for id in ids:
+		var parts: PackedStringArray = str(id).split("@")
+		var bid: String = parts[0]
+		var extra: String = parts[1] if parts.size() > 1 else ""
+		var cls_id := _buff_class(bid, extra)
+		var cls: ClassDef = GameData.classes.get(cls_id, p.class_def)
+		var cam_pos: Vector3 = main.camera.cam.global_position
+		var pair: Array = []
+		for k in 2:
+			var b := Sim.spawn_bot(cls, "B%d" % k, p.map_id, p.position + Vector3(-0.9 + 1.8 * k, 0, 0), 30)
+			b.brain = null
+			b.ct = {}
+			b.buffs.clear()
+			b.recompute_stats()
+			b.face_towards(Vector3(cam_pos.x, 0, cam_pos.z))
+			pair.append(b)
+		await get_tree().create_timer(0.8).timeout
+		for v in main.views.values():        # só o par aparece (bots, guardas e o jogador somem da foto)
+			var ev: EntityView = v
+			if not pair.has(ev.entity):
+				ev.model_root.visible = false
+				ev.nameplate.visible = false
+				if ev.hp_bar:
+					ev.hp_bar.visible = false
+		var t: SimEntity = pair[1]
+		_put_buff_demo(t, bid, extra, pair[0])
+		for b in t.buffs:
+			if float(b.get("remaining", 0.0)) != INF:
+				b["remaining"] = 999.0
+		await get_tree().create_timer(0.12).timeout
+		await RenderingServer.frame_post_draw
+		var pop := _buff_crop(p.position)
+		await get_tree().create_timer(1.3).timeout
+		await RenderingServer.frame_post_draw
+		var still := _buff_crop(p.position)
+		var fname := str(id).replace("@", "_")
+		pop.save_png(dir.path_join(fname + "_pop.png"))
+		still.save_png(dir.path_join(fname + ".png"))
+		shots.append(still)
+		print("BUFF_SHOT %d %s (%s) -> %s" % [shots.size(), id, cls_id, dir.path_join(fname + ".png")])
+		for b in pair:
+			Sim.despawn(b)
+		await get_tree().create_timer(0.2).timeout
+	if shots.size() > 1:
+		var w: int = shots[0].get_width()
+		var h: int = shots[0].get_height()
+		var cols := mini(6, shots.size())
+		var rows := (shots.size() + cols - 1) / cols
+		var sheet := Image.create(w * cols, h * rows, false, shots[0].get_format())
+		for i in shots.size():
+			sheet.blit_rect(shots[i], Rect2i(0, 0, w, h), Vector2i((i % cols) * w, (i / cols) * h))
+		sheet.save_png(dir.path_join("folha.png"))
+	print("BUFF_SHOT_END %d" % shots.size())
+	get_tree().quit()
+
+func _buff_class(bid: String, extra: String) -> String:
+	if extra != "" and extra != "ally":
+		return extra
+	if BUFF_SHOT_CLASS.has(bid):
+		return BUFF_SHOT_CLASS[bid]
+	for sid in GameData.skills:
+		var s: SkillDef = GameData.skills[sid]
+		if s.effects.get("buff") is Dictionary and s.effects["buff"].get("id", "") == bid and s.class_id != "":
+			return s.class_id
+	return Sim.player.class_def.id
+
+## Põe o buff (ou debuff de amostra, "dbf_*") como a sim poria: pela skill que o dá, pelo item, ou o dicionário do sistema.
+func _put_buff_demo(t: SimEntity, bid: String, extra: String, other: SimEntity) -> void:
+	match bid:
+		"dbf_slow":
+			t.debuffs.append({"kind": "slow", "remaining": 999.0, "pct": 30.0})
+			return
+		"dbf_root":
+			t.debuffs.append({"kind": "root", "remaining": 999.0})
+			return
+		"dbf_stun":
+			t.set_state(SimEntity.State.STUNNED, 999.0)
+			return
+		"dbf_burn":
+			t.debuffs.append({"kind": "dot", "remaining": 999.0, "dps": 0.0, "fire": true, "src": -1})
+			return
+		"dbf_poison":
+			t.debuffs.append({"kind": "dot", "remaining": 999.0, "dps": 0.0, "src": -1})
+			return
+		"dbf_curse":
+			t.debuffs.append({"kind": "curse", "remaining": 999.0, "taken_pct": 0.0, "weaken_pct": 0.0})
+			return
+		"shield":
+			Sim._apply_effects(t, t, {"shield": {"amount_pct_hp": 25, "duration": 6}}, 1.0)
+			return
+		"legend_frenzy":
+			t.put_buff({"id": "legend_frenzy", "remaining": 999.0, "stacks": 3, "aspd_pct": 15.0})
+			return
+		"bastion":
+			t.put_buff({"id": "bastion", "remaining": 999.0, "def_pct": 10})
+			return
+		"juramento":
+			t.put_buff({"id": "juramento", "remaining": 999.0, "stacks": 3})
+			return
+	for iid in GameData.items:
+		var it: ItemDef = GameData.items[iid]
+		if it.consume.get("buff") is Dictionary and it.consume["buff"].get("id", "") == bid:
+			Sim._apply_effects(t, t, {"buff": it.consume["buff"]}, 1.0)
+			return
+	for tid in GameData.talents:
+		var td: TalentDef = GameData.talents[tid]
+		if td.mods.get("buff") is Dictionary and td.mods["buff"].get("id", "") == bid:
+			Sim._apply_effects(t, t, {"buff": td.mods["buff"]}, 1.0)
+			return
+	for sid in GameData.skills:
+		var s: SkillDef = GameData.skills[sid]
+		if s.effects.get("buff") is Dictionary and s.effects["buff"].get("id", "") == bid:
+			if extra == "ally":            # aura/bênção recebida de um aliado: a versão fraca (só a borda)
+				var nb: Dictionary = s.effects["buff"].duplicate()
+				nb.erase("toggle")
+				nb["aura_from"] = other.id
+				nb["remaining"] = 999.0
+				t.put_buff(nb)
+				t.recompute_stats()
+				return
+			var fx := {"buff": s.effects["buff"]}
+			if s.effects.has("shield"):
+				fx["shield"] = s.effects["shield"]
+			Sim._apply_effects(t, t, fx, 1.0)
+			return
+	push_warning("buff_shot: sem fonte para " + bid)
+
+## Recorte da tela em volta dos dois bonecos (o par fica no centro da câmera, que segue o jogador escondido).
+func _buff_crop(at: Vector3) -> Image:
+	var img := get_viewport().get_texture().get_image()
+	var c: Vector2 = main.camera.cam.unproject_position(at + Vector3(0, 0.9, 0))
+	var vs := get_viewport().get_visible_rect().size
+	var sx := img.get_width() / vs.x
+	var ch := int(img.get_height() * (0.62 if DevArgs.has("--close") else 0.3))
+	var cw := int(ch * 1.25)
+	var r := Rect2i(int(c.x * sx) - cw / 2, int(c.y * sx) - ch / 2, cw, ch)
+	r = r.intersection(Rect2i(0, 0, img.get_width(), img.get_height()))
+	return img.get_region(r)
+
+## --buff_cast=<skill>: lança o buff no jogador logo no início (o --screenshot do smoke sai com ele).
+func _cast_buff_at_start(sid: String) -> void:
+	await get_tree().create_timer(0.6).timeout
+	var s: SkillDef = GameData.skills.get(sid)
+	if s == null:
+		push_warning("buff_cast: skill desconhecida " + sid)
+		return
+	var fx := {}
+	for k in ["buff", "shield", "form", "stealth"]:
+		if s.effects.has(k):
+			fx[k] = s.effects[k]
+	Sim._apply_effects(Sim.player, Sim.player, fx, 1.0)
+	if DevArgs.has("--buff_hold"):          # o buff dura a partida toda (a foto do smoke sai no fim)
+		for b in Sim.player.buffs:
+			b["remaining"] = 600.0
+	var got: Array = []
+	for b in Sim.player.buffs:
+		got.append(b.get("id"))
+	print("BUFF_CAST %s buffs=%s shield=%d" % [sid, str(got), int(Sim.player.shield_hp)])
 
 ## Investida élfica: leva o jogador à Floresta, solta uma leva e fotografa a marcha na estrada norte e a luta no portão.
 ## O jogador fica de pé no caminho (vida cheia o tempo todo) para a câmera seguir a ação.

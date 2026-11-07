@@ -1518,6 +1518,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_first_set_drops(gd, sim)
 	_check_mastery_rebuy(gd, sim)
 	_check_status_and_drag(gd, sim)
+	_check_buff_visuals(gd, sim)
 	_check_hunts(gd, sim)
 	_check_looks(gd, sim)
 	_check_craft_class(gd, sim)
@@ -1707,6 +1708,59 @@ func _note_damage(_a: int, _t: int, _amount: int, _crit: bool, _blocked: bool, k
 	_dmg_kinds.append(kind)
 
 ## Barra de buffs: todo estado tem ícone; anel arrastado vai para o slot escolhido.
+## Buff no boneco: todo buff que o jogo pode pôr (skills, evoluções, formas, talentos, itens, sistemas) tem visual em
+## BuffLooks (nada de buff invisível), a família existe e o que ela promete (partícula/casca/auréola) está montado;
+## e a BuffAura de verdade liga a borda/casca com o buff e apaga depois que ele sai.
+func _check_buff_visuals(gd, sim) -> void:
+	var srcs: Array = BuffLooks.sources()
+	check(srcs.size() >= 40, "BuffLooks.sources acha os buffs do jogo (%d)" % srcs.size())
+	var missing: Array = []
+	for src in srcs:
+		var id: String = src["id"]
+		var lk: Dictionary = BuffLooks.look(id)
+		if lk.is_empty():
+			missing.append("%s (%s)" % [id, src["source"]])
+			continue
+		check(lk["family"] in BuffLooks.FAMILIES, "buff %s: família %s conhecida" % [id, lk["family"]])
+		check(SkillFx.PALETTE.has(lk["theme"]), "buff %s: tema %s tem paleta" % [id, lk["theme"]])
+		if lk["parts"] != "":
+			check(BuffAura.PRESETS.has(lk["parts"]), "buff %s: partículas %s existem" % [id, lk["parts"]])
+		if lk["family"] in ["power", "speed", "smoke", "poison", "dark", "holy"]:
+			check(lk["parts"] != "" or lk["halo"] or int(lk["shell"]) > 0, "buff %s (%s) mostra algo além da borda" % [id, lk["family"]])
+	check(missing.is_empty(), "todo buff tem visual em BuffLooks.LOOKS (faltam: %s)" % ", ".join(missing))
+	for id in BuffLooks.LOOKS:
+		check(srcs.any(func(x): return x["id"] == id), "BuffLooks.LOOKS[%s] é dado por algo (linha morta?)" % id)
+	check(BuffLooks.look("frost_armor")["shell"] == 2 and BuffLooks.look("frost_armor")["parts"] == "snow", "Armadura de Gelo: casca de cristal + neve")
+	# BuffAura num boneco de verdade (sem cena: a view não entra na árvore, só o cálculo)
+	var e: SimEntity = sim.spawn_bot(gd.classes["elementalist"], "Gelo", "city_aldara", Vector3(-44, 0, -44), 30)
+	e.brain = null
+	e.ct = {}
+	e.buffs.clear()
+	var v := EntityView.new()
+	v.entity = e
+	v.model_root = Node3D.new()
+	v.add_child(v.model_root)
+	var ba := BuffAura.new()
+	ba.setup(v)
+	v.add_child(ba)
+	sim._apply_effects(e, e, {"buff": gd.skills["ele_frost_armor"].effects["buff"], "shield": gd.skills["ele_frost_armor"].effects["shield"]}, 1.0)
+	for i in 30:
+		ba.update(1.0 / 30.0)
+	check(ba._rim > 0.5 and ba._rim_style == 1, "Armadura de Gelo acende a borda de cristal (%.2f, estilo %d)" % [ba._rim, ba._rim_style])
+	check(ba._shell > 0.5 and is_equal_approx(ba._shell_facets, 1.0), "Armadura de Gelo monta a casca facetada (%.2f)" % ba._shell)
+	check(ba._emit[0] != null and (ba._emit[0] as GPUParticles3D).emitting, "Armadura de Gelo solta neve")
+	e.buffs.clear()
+	e.shield_hp = 0.0
+	for i in 60:
+		ba.update(1.0 / 30.0)
+	check(ba._rim < 0.02 and ba._shell < 0.02 and not (ba._emit[0] as GPUParticles3D).emitting, "buff saiu: borda, casca e partículas apagam")
+	e.put_buff({"id": "bastion_aura", "remaining": 3.0, "def_pct": 10, "aura_from": 999})
+	for i in 30:
+		ba.update(1.0 / 30.0)
+	check(ba._rim > 0.15 and ba._rim < BuffAura.STRONG * 0.6 and ba._halo < 0.02 and ba._emit_key[0] == "", "aura recebida do grupo: só a borda, fraca (%.2f)" % ba._rim)
+	v.free()
+	sim.despawn(e)
+
 func _check_status_and_drag(gd, sim) -> void:
 	for k in ["burn", "poison", "slow", "root", "stun", "curse", "wither", "shield", "juramento", "buff"]:
 		check(ResourceLoader.exists("res://assets/icons/status_%s.png" % k), "ícone de estado %s (make_icons -- --only=status)" % k)
