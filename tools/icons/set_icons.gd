@@ -16,6 +16,8 @@ const VIEWS := {
 
 func _ready() -> void:
 	await get_tree().process_frame
+	KitModel.prune = false          # a foto procura as peças pelo nome: todas na árvore e sem a fusão de malhas
+	KitModel.merge = false
 	var only := ""
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--only="): only = a.get_slice("=", 1)

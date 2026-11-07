@@ -74,6 +74,10 @@ static func build() -> Array:
 			{"mult": {"radius": 1.4}}, ["bow"]),
 		_t("ran_t_trap", "ranger", "ran_trap", 14, 2, "Armadilha Grande", "Armadilha com área 40% maior.",
 			{"mult": {"radius": 1.4}}),
+		_t("ran_t_caltrops", "ranger", "ran_caltrops", 9, 2, "Estrepes Farpados", "Estrepes 40% maiores e retardam 65%.",
+			{"mult": {"radius": 1.4}, "effects": {"slow": {"pct": 65, "duration": 3.0}}}, ["bow"]),
+		_t("ran_t_prey", "ranger", "ran_prey", 18, 2, "Presa Marcada", "Marca da Presa: o alvo recebe +30% de dano (era +20%).",
+			{"effects": {"curse": {"id": "prey", "duration": 8.0, "taken_pct": 30}}}, ["bow"]),
 		# --- Assassino ---
 		_t("ass_t_double_step", "assassin", D, 5, 2, "Passo Duplo", "Duas cargas de dash: use duas vezes seguidas.",
 			{"charges": 2}),

@@ -2286,7 +2286,8 @@ func _check_assassin_builds(gd, sim) -> void:
 
 func _check_ranger_builds(gd, sim) -> void:
 	var cls: ClassDef = gd.classes["ranger"]
-	check(cls.builds.size() == 2 and cls.build_by_id("cacador")["main"] == ["bow"] and cls.build_by_id("atirador")["main"] == ["rifle"], "Ranger: Caçador (arco) e Atirador (mosquete)")
+	check(cls.builds.size() == 3 and cls.build_by_id("cacador")["main"] == ["bow"] and cls.build_by_id("atirador")["main"] == ["rifle"], "Ranger: Caçador (arco) e Atirador (mosquete)")
+	_check_ranger_patrol(gd, sim, cls)
 	check(not cls.builds.any(func(b): return not b["off"].is_empty()), "Ranger sem build de duas armas (é do Assassino)")
 	for sid in ["ran_twin_cut", "ran_hunter_dash", "ran_whirl", "ran_wild", "ran_cross_cut", "ran_maul"]:
 		check(not gd.skills.has(sid), "skill de corpo a corpo removida: %s" % sid)
@@ -2365,6 +2366,78 @@ func _check_ranger_builds(gd, sim) -> void:
 		"learned": ["ran_power_shot", "ran_twin_cut"], "class": "ranger"})
 	check(not old.tree.has("ranger_s_ran_twin_cut") and old.mastery_points == SaveSystem.points_for_level(old.level), "save antigo com skill removida: árvore refeita, %d pontos devolvidos" % old.mastery_points)
 	sim.despawn(old)
+
+## Patrulheiro: arco sem bicho, armadilhas (agora de arco ou mosquete), lentidão e marca na presa; arma lendária Presa Acuada.
+func _check_ranger_patrol(gd, sim, cls: ClassDef) -> void:
+	var pb: Dictionary = cls.build_by_id("patrulheiro")
+	check(not pb.is_empty() and pb["main"] == ["bow"] and pb["off"].is_empty() and pb["role"] == "ranged", "Patrulheiro: arco, sem mão secundária")
+	var own := 0
+	for sid in pb.get("skills", []):
+		var sk: SkillDef = gd.skills.get(sid)
+		check(sk != null and sk.class_id == "ranger", "Patrulheiro: skill %s existe" % sid)
+		if sk and sk.build == "patrulheiro":
+			own += 1
+			check(sk.requires.has("bow") and ResourceLoader.exists("res://assets/icons/skill_%s.png" % sid), "%s: exige arco e tem ícone" % sid)
+		if sk:
+			check(sk.requires.is_empty() or sk.requires.has("bow"), "Patrulheiro usa %s de arco" % sid)
+	check(own >= 6, "Patrulheiro tem 6+ skills próprias (4 novas + Rede e Armadilha de Gelo) (%d)" % own)
+	for sid in ["ran_trap", "ran_frost_trap", "ran_mark"]:
+		check(gd.skills[sid].requires.has("bow") and gd.skills[sid].requires.has("rifle"), "%s: arco ou mosquete" % sid)
+	check(gd.skills["ran_gale"].vfx == "wind" and gd.skills["ran_gale"].projectile_pierce, "Flecha do Vendaval: vento, atravessa")
+	var tr: Dictionary = gd.trees["ranger"]
+	var sector := 0
+	for nid in tr["nodes"]:
+		if str(tr["nodes"][nid].get("branch", "")) == "patrulheiro":
+			sector += 1
+	check(sector >= 10, "teia: setor do Patrulheiro não é vazio (%d nós)" % sector)
+	# 6 conjuntos com visual e ícones próprios; arco próprio
+	var styles := {}
+	for lv in Balance.LEGENDARY_LEVELS:
+		var sid := "set_ranger_patrulheiro_%d" % lv
+		check(gd.sets.has(sid) and GearCatalog.SET_VISUALS.has(sid), "%s existe com visual" % sid)
+		if not gd.sets.has(sid):
+			continue
+		var vis: Dictionary = GearCatalog.SET_VISUALS[sid]
+		styles[vis["style"]] = true
+		for iid in gd.sets[sid].pieces:
+			var it: ItemDef = gd.items[iid]
+			if it.slot == ItemDef.Slot.WEAPON:
+				check(it.weapon_type == "bow" and it.weapon_style == vis["style"] and str(it.legend_effect.get("kind", "")) == "prey", "%s: arco próprio com Presa Acuada" % iid)
+	check(styles.size() == 6 and not styles.keys().any(func(st): return str(st).begins_with("ran_c") or str(st).begins_with("ran_a")), "6 visuais próprios do Patrulheiro")
+	# Presa Acuada: mais dano em alvo retardado/preso/atordoado
+	var at := Vector3(0, 0, 6)
+	var e: SimEntity = sim.spawn_bot(cls, "Patrol", "city_aldara", at, 30)
+	e.brain = null
+	e.build_id = "patrulheiro"
+	e.equipment[ItemDef.Slot.WEAPON] = gd.items["leg_ranger_patrulheiro_30_weapon"]
+	e.recompute_stats()
+	var mob: SimEntity = sim.spawn_monster(gd.monsters["golem"], "city_aldara", at + Vector3(5, 0, 0))
+	mob.brain = null
+	mob.stats.max_hp = 1000000.0          # os tiros não podem matar
+	mob.hp = mob.stats.max_hp
+	check(is_equal_approx(LegendEffects.legend_power(sim, e, mob), 1.0), "Presa Acuada: alvo livre apanha normal")
+	mob.debuffs.append({"kind": "slow", "remaining": 2.0, "pct": 40.0})
+	var lp: float = LegendEffects.legend_power(sim, e, mob)
+	check(lp > 1.15 and lp < 1.3, "Presa Acuada: alvo retardado apanha mais (x%.2f)" % lp)
+	mob.debuffs.clear()
+	# Estrepes retarda; Marca da Presa amaldiçoa (mais dano recebido); Rolamento move e dá crítico
+	e.skill_aim = mob.position
+	sim._apply_skill(e, gd.skills["ran_caltrops"], sim.maps["city_aldara"])
+	check(mob.has_debuff("slow"), "Estrepes retarda")
+	sim._apply_skill(e, gd.skills["ran_prey"], sim.maps["city_aldara"])
+	check(mob.debuffs.any(func(d): return d.get("kind") == "curse" and float(d.get("taken_pct", 0)) >= 20.0), "Marca da Presa: alvo recebe mais dano")
+	var c0: float = e.stats.crit_phys
+	sim._apply_skill(e, gd.skills["ran_tumble"], sim.maps["city_aldara"])
+	check(e.buffs.any(func(b): return b.get("id") == "tumble") and e.stats.crit_phys > c0, "Salto Ligeiro: +crítico")
+	# bot do Patrulheiro: equipamento e teia na build
+	var bot: SimEntity = sim.spawn_bot(cls, "PatrolBot", "city_aldara", at + Vector3(0, 0, 3), 20)
+	bot.brain = null
+	bot.build_id = "patrulheiro"
+	ProgressionSystem.bot_spend(sim, bot, true)
+	check(bot.learned.has("ran_caltrops") and bot.learned.has("ran_tumble") and bot.learned.has("ran_prey"), "bot do Patrulheiro aprende as skills da build")
+	check(gd.legendary_pool(cls, 30, "patrulheiro").size() >= 6, "bot do Patrulheiro acha o conjunto dele")
+	for x in [e, mob, bot]:
+		sim.despawn(x)
 
 ## Druida: Xamã (cajado, invocações e bênçãos), Lobo (duas maças, forma de lobo, furtividade) e Urso (malho, forma de urso).
 func _check_druid_builds(gd, sim) -> void:
