@@ -299,6 +299,18 @@ func _best_skill(e: SimEntity, sim, m: Dictionary, mob: SimEntity, dist: float) 
 			continue
 		if not _ready_to_cast(e, s):
 			continue
+		# a sim recusaria (try_cast): sem companheiro para mandar, ou invocações no limite. Escolher assim travava o
+		# bot inteiro (pedia a mesma skill todo tick e nunca atacava nem andava: Caçador com o lince morto).
+		if (s.effects.has("pet_command") or s.effects.get("pet_buff", false)) and sim.pet_of(e) == null:
+			continue
+		if s.effects.has("summon") and sim._summons_full(e, s):
+			continue
+		if (s.effects.has("aura") and AuraSystem.aura_on(e, s)) or (str(s.effects.get("form", "")) != "" and e.form == str(s.effects["form"])):
+			continue                        # aura ligada / já na forma: bot não desliga
+		if e.is_character() and not e.knows(s.id):
+			continue
+		if s.effects.has("channel") and mob.monster_def and mob.monster_def.is_boss and mob.aggro_target == e.id:
+			continue                        # canalizar parado com o chefe em cima = morrer (Pestilento solo: 2/40)
 		var score := 0.0
 		if s.kind == SkillDef.Kind.BUFF:
 			var b = s.effects.get("buff")

@@ -73,7 +73,7 @@ static func build() -> Array:
 					["ber_hack", "ber_twin_fang", "ber_cleave", "ber_rend", "ber_blade_rush", "ber_axe_storm", "ber_steel_whirl", "ber_throw_axe",
 					 "ber_crimson_flurry", "ber_fury", "ber_butcher", "ber_bladestorm", "ber_leap"]).merged({
 					# velocidade de ataque e roubo de vida (árvore e conjunto)
-					"passives": [{"aspd_pct": 3}, {"lifesteal": 1}], "set_extra": {3: {"lifesteal": [3.0, 0.8]}}}),
+					"passives": [{"aspd_pct": 3}, {"lifesteal": 1}], "set_extra": {3: {"lifesteal": [2.0, 0.5]}}}),
 				_b("executor", "Executor", "dps", ["axe2h"], [], "plate", "FOR", "VIT", "atk_pct",
 					["ber_cleave", "ber_overhead", "ber_bloodlust", "ber_whirlwind", "ber_earthsplitter", "ber_execute", "ber_titan_grip", "ber_warcry", "ber_decapitate"]).merged({
 					# tanque de apoio: vida e defesa na árvore e no conjunto, sem perder o dano
@@ -111,7 +111,7 @@ static func build() -> Array:
 		_mk({"id": "druid", "body_type": "female", "hair_color": Color(0.4, 0.28, 0.16), "name": "Druida", "role": "caster", "color": Color(0.45, 0.8, 0.35),
 			"description": "Natureza. Xamã de cajado que invoca e abençoa, lobo veloz que some nas sombras (duas maças) ou urso que segura a linha (malho).",
 			"weapon_types": _s(["staff", "mace", "mace2h"]), "offhand_types": _s(["mace"]),
-			"base_hp": 105.0, "base_mp": 75.0, "hp_per_level": 11.0, "mp_per_level": 8.0, "move_speed": 5.5,
+			"base_hp": 110.0, "base_mp": 75.0, "hp_per_level": 12.5, "mp_per_level": 8.0, "move_speed": 5.5,
 			"basic_attack_power": 0.9, "basic_attack_cooldown": 0.7, "basic_attack_range": 6.5, "basic_attack_is_ranged": true, "basic_attack_kind": 1,
 			"starting_equipment": _s(["staff_oak"] + ItemsCatalog.starter_ids("druid")),
 			"starting_skills": _s(["dru_thorns", "dru_bark"]),
@@ -131,7 +131,7 @@ static func build() -> Array:
 		_mk({"id": "ranger", "body_type": "female", "hair_color": Color(0.75, 0.4, 0.2), "name": "Ranger", "role": "ranged", "color": Color(0.5, 0.75, 0.55),
 			"description": "Caçador de arco com um lince companheiro, atirador de mosquete que espalha armadilhas pelo chão, ou patrulheiro veloz que retarda e marca a presa sem parar de andar.",
 			"weapon_types": _s(["bow", "rifle"]), "offhand_types": _s([]),
-			"base_hp": 100.0, "base_mp": 55.0, "hp_per_level": 10.0, "mp_per_level": 6.0, "move_speed": 5.8,
+			"base_hp": 110.0, "base_mp": 55.0, "hp_per_level": 11.5, "mp_per_level": 6.0, "move_speed": 5.8,
 			"basic_attack_power": 1.0, "basic_attack_cooldown": 0.55, "basic_attack_range": 13.0, "basic_attack_is_ranged": true,
 			"starting_equipment": _s(["bow_short"] + ItemsCatalog.starter_ids("ranger")),
 			"starting_skills": _s(["ran_power_shot", "ran_disengage"]),
@@ -154,7 +154,7 @@ static func build() -> Array:
 		_mk({"id": "assassin", "body_type": "male", "hair_color": Color(0.2, 0.18, 0.25), "name": "Assassino", "role": "dps", "color": Color(0.55, 0.35, 0.75),
 			"description": "Sombras. Duas adagas velozes com veneno, esquiva e golpes pelas costas saindo da furtividade, duelista equilibrado de duas espadas, ou trapaceiro de espada e adaga que controla a luta com fumaça, estrepes e golpes baixos.",
 			"weapon_types": _s(["dagger", "sword"]), "offhand_types": _s(["dagger", "sword"]),
-			"base_hp": 95.0, "base_mp": 60.0, "hp_per_level": 10.0, "mp_per_level": 6.0, "move_speed": 6.2,
+			"base_hp": 100.0, "base_mp": 60.0, "hp_per_level": 11.0, "mp_per_level": 6.0, "move_speed": 6.2,
 			"basic_attack_power": 0.75, "basic_attack_cooldown": 0.38, "basic_attack_range": 1.7,
 			"starting_equipment": _s(["dagger_iron"] + ItemsCatalog.starter_ids("assassin")),
 			"starting_skills": _s(["ass_backstab", "ass_quick_stab"]),
@@ -213,9 +213,9 @@ static func build() -> Array:
 					"passives": [{"matk_pct": 3}, {"pet_pct": 5}], "set_extra": {3: {"pet_pct": [10.0, 3.0]}}}),
 				_b("ceifador", "Ceifador", "dps", ["scythe"], [], "leather", "INT", "VIT", "matk_pct",
 					["nec_reap", "nec_phantom", "nec_drain", "nec_soul_rend", "nec_death_spin", "nec_bone_armor", "nec_harvest", "nec_demon_form", "nec_bone_wall", "nec_grim"]).merged({
-					"passives": [{"matk_pct": 3}, {"lifesteal": 1}, {"hp_pct": 3}], "set_extra": {3: {"lifesteal": [2.0, 0.5]}}}),
+					"passives": [{"matk_pct": 3}, {"lifesteal": 1}, {"hp_pct": 3}], "set_extra": {3: {"lifesteal": [1.0, 0.3]}}}),
 				_b("pestilento", "Sombras", "caster", ["scythe"], [], "cloth", "INT", "WILL", "matk_pct",
-					["nec_rot", "nec_mind_flay", "nec_plague", "nec_curse_weakness", "nec_swarm", "nec_drain_soul", "nec_curse", "nec_decay", "nec_curse_doom",
+					["nec_rot", "nec_drain", "nec_mind_flay", "nec_plague", "nec_curse_weakness", "nec_swarm", "nec_drain_soul", "nec_curse", "nec_decay", "nec_curse_doom",
 					 "nec_void_beam", "nec_pandemic", "nec_curse_agony"]).merged({
 					"passives": [{"matk_pct": 3}, {"mp_pct": 4}]}),
 			]}),

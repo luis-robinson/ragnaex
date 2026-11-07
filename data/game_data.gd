@@ -28,6 +28,7 @@ func load_all() -> void:
 	for c in ClassesCatalog.build():
 		classes[c.id] = c
 	for s in SkillsCatalog.build():
+		s.power *= float(Balance.BUILD_POWER.get(s.build, 1.0))
 		skills[s.id] = s
 	# pool de skills de cada classe = todas as skills dela, por nível (a ordem da janela K)
 	for cid in classes:

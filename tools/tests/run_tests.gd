@@ -875,6 +875,7 @@ func _check_charge_path(gd, sim) -> void:
 		check(not sim.charge_lands(rider, rush, prey, m) and rider.position == near, "simular a investida barrada não move ninguém")
 		# bot decide de verdade: sem o portão a investida sairia contra o obstáculo
 		rider.skills.assign([charge])
+		rider.learned[charge.id] = true      # bot só escolhe skill aprendida (a sim recusa as outras)
 		var bot_fires := func() -> int:
 			var fired := 0
 			for i in range(40):
@@ -1481,6 +1482,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_ranger_builds(gd, sim)
 	_check_assassin_builds(gd, sim)
 	_check_third_builds(gd, sim)
+	_check_bot_skill_reject(gd, sim)
 	_check_elementalist_builds(gd, sim)
 	_check_necromancer_builds(gd, sim)
 	_check_elemental_debuffs(gd, sim)
@@ -6974,3 +6976,22 @@ func _check_tank_kit(gd, sim) -> void:
 		var sk: SkillDef = gd.skills[sid]
 		if sk.clip != "":
 			check(EntityView.IMPACT_FRAME.has(sk.clip), "%s: clipe próprio %s existe" % [sid, sk.clip])
+
+## Bot não escolhe skill que a sim recusa (sem companheiro, invocação no limite): antes pedia a mesma skill todo
+## tick e ficava parado até morrer (Caçador com o lince morto: 0 vitórias solo no boss_probe).
+func _check_bot_skill_reject(gd, sim) -> void:
+	var r = sim.spawn_character(SimEntity.Kind.BOT, gd.classes["ranger"], "Caca", "city_aldara", Vector3(-30, 0, 30), 30)
+	r.build_id = "cacador"
+	var sic: SkillDef = gd.skills["ran_sic"]
+	r.learned[sic.id] = true
+	r.skills[0] = sic
+	r.cooldowns.clear()
+	r.mp = r.stats.max_mp
+	var mob = sim.spawn_monster(gd.monsters["slime"], "city_aldara", r.position + Vector3(0, 0, 3.0))
+	var m: Dictionary = sim.maps["city_aldara"]
+	check(sim.pet_of(r) == null, "bot sem companheiro para o teste")
+	var brain := BotBrain.new()
+	brain.setup(r, RandomNumberGenerator.new())
+	var pick: int = brain._best_skill(r, sim, m, mob, r.position.distance_to(mob.position))
+	check(pick != 0, "bot sem companheiro não escolhe Ataque da Fera (a sim recusaria e o bot travava)")
+	mob.hp = 0

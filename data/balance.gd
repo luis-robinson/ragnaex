@@ -6,6 +6,10 @@ const ATTRS := ["FOR", "AGI", "VIT", "WILL", "INT"]
 ## Escala dos atributos: cada ponto vale 1/ATTR_SCALE do antigo (a teia dá +1 na estrada e +5..+10 nos círculos).
 ## Os catálogos de equipamento e conjuntos seguem na escala antiga e são multiplicados ao carregar (GameData.load_all).
 const ATTR_SCALE := 10
+## Poder das skills de cada build (setor da teia) x isto, aplicado ao carregar (GameData.load_all). Calibrado com
+## dps_probe (dano no boneco) e boss_probe --lead=<classe>:<build> (vitórias solo): ver docs/DESIGN.md "Equilíbrio entre builds".
+const BUILD_POWER := {"inquisidor": 0.6, "ceifador": 0.85, "invocador": 0.85, "carniceiro": 0.88, "batalha": 0.88,
+	"laminas": 1.6, "duelista": 1.4, "fera": 1.6}
 
 # --- atributos -> stats derivados (por ponto da escala antiga = ATTR_SCALE pontos de hoje) ---
 const HP_PER_VIT := 12.0
@@ -114,7 +118,7 @@ const PET_HP_SHARE := 0.7
 const PET_ATK_SHARE := 0.5
 const PET_DEF_SHARE := 0.8
 ## invocação com status do dono: ataque = MATK x share x (ATK do monstro / ref), limitado
-const SUMMON_MATK_SHARE := 0.6
+const SUMMON_MATK_SHARE := 0.45
 # efeito-assinatura da build (LegendEffects.signature_on_hit): magia de graça ao acertar, sem depender de arma
 const ESCORT_RING := 2.6               # m do líder até a vaga da escolta
 const ESCORT_RESPAWN := 25.0           # s para repor um da escolta que caiu (com o líder vivo)

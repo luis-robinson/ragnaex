@@ -208,6 +208,19 @@ mana como escudo, cura no abate etc. Um por linha, grátis (liberado pelo nível
 das skills mantém as escolhas. Buff de talento aparece com ∞ na barra e não acumula com o lançado (mesmo id; o lançado vale enquanto dura).
 Nível 30 só cai do Dragonete. Raridades: comum, incomum, raro, épico, **lendário** (laranja).
 
+## Equilíbrio entre builds
+
+- `Balance.BUILD_POWER` multiplica o poder das skills do setor de uma build (ao carregar). Mexe no dano, pouco na sobrevivência.
+- Medir: `dps_probe.tscn -- --levels=30` (dano no boneco) e `boss_probe.tscn -- --party=1 --trials=10 --lead=<classe>:<build>
+  --boss=count_vargo,elf_king,death_knight,lich_king` (vitórias solo de 40). Alvo: 18-30 de 40; tank e cura podem ficar abaixo.
+- Bot não escolhe skill que a sim recusaria (sem companheiro, invocação no limite, aura ligada, já na forma) nem canaliza com
+  o chefe mirando nele: as duas coisas o deixavam parado até morrer (Caçador 2 → 23, Pestilento 2 → 11).
+- Necromantes: a força vinha da sustentação da classe (Drenar Vida 40% a cada 2,5 s, Muralha de Ossos), não das invocações
+  (sem invocação nenhuma o Invocador ainda vencia 31/32, só mais devagar). Dreno 20% a cada 5 s, Muralha 24 s, invocações 45% do MATK.
+- Fim de 2026-11-07 (vitórias de 40): Carniceiro 36, Inquisidor 34, Pestilento 34, Clérigo 33, Ceifador 32, Invocador 32, Cruzado 30,
+  Xamã 29, Templário 28, Arremessador 26, Duelista 25, Caçador 23, Fogo 22, Guardião 21, Gelo 20, Fera 19, Executor 18, Trapaceiro 18,
+  Patrulheiro 18, Raio 17, Sacerdote 17, Guardião Verde 16, Atirador 16, Lâminas 14. Próximo: Carniceiro e o grupo de 32+ para baixo.
+
 ## Progressão (lenta)
 Lv 1-30. XP = 150 × 1.28^(lv−1): ~15 kills por nível no começo, ~500 perto do 30 (~3800 kills no total).
 Spawners enchem de uma vez ao carregar o mapa (`primed`); depois cada abate volta no tempo de respawn. Monstro sem alvo e sem personagem
