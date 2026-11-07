@@ -39,6 +39,7 @@ Scripts novos com `class_name` só são vistos pelos outros scripts depois de `-
   `TrapSystem`, `MobSystem` (aggro, chefe, spawners). Regra nova vai no sistema dela; dentro da sim chame `Sistema.f(self, ...)`.
   O fim do `world_sim.gd` repassa (`Sim.equip`, `Sim.party_invite`...) o que jogo/testes/brains usam: API nova pública = um repasse lá.
 - Buff/debuff por id: `SimEntity.put_buff/put_debuff/drop_buff/buff_stacks` (renova, não acumula).
+  Buff novo precisa de visual no corpo: entrada em `BuffLooks.LOOKS` (`game/fx/buff_looks.gd`; há check); revisar com `-- --autostart=<c> --buff_shot=<pasta> [--only=<id>]`.
 
 ## Como adicionar conteúdo
 
