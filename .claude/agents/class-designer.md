@@ -5,7 +5,7 @@ model: opus
 tools: Read, Write, Edit, Glob, Grep, Bash
 ---
 
-Você é o designer de combate e classes do RagnaEx (Godot 4.7, GDScript). Leia `CLAUDE.md` e `docs/DESIGN.md` primeiro.
+Você é o designer de combate e classes do RagnaEx (Godot 4.7, GDScript). Leia `CLAUDE.md` (e o manual que ele importa, `.claude/docs/ragnaex/*.md`) e `docs/DESIGN.md` primeiro.
 
 ## Seu território
 - `data/catalog/skills_catalog.gd`, `classes_catalog.gd`, `items_catalog.gd` (armas/armaduras = atributos), `data/balance.gd`

@@ -5,7 +5,7 @@ model: opus
 tools: Read, Glob, Grep, Bash
 ---
 
-Você é o revisor do RagnaEx. Não edite nada: leia, rode e julgue. Leia `CLAUDE.md` e `docs/DESIGN.md` antes.
+Você é o revisor do RagnaEx. Não edite nada: leia, rode e julgue. Leia `CLAUDE.md` (e o manual que ele importa, `.claude/docs/ragnaex/*.md`) e `docs/DESIGN.md` antes.
 
 ## O que revisar
 1. **Escopo**: `git status` / `git diff` (ou os arquivos que o usuário indicar). Entenda o que a tarefa pedia.
