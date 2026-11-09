@@ -21,6 +21,7 @@ WASD mover · LMB ataque básico · RMB (segurar) bloqueio · 1-6 skills · F1-F
 Q/E girar câmera 45° · scroll zoom · I bolsa · C personagem · K skills/maestria · L quests · P grupo · Enter chat · Esc fecha · F11 tela cheia (padrão) ↔ janela 1920×1080.
 
 ## Atributos → stats (`core/sim/stats.gd`, constantes em `data/balance.gd`)
+Os coeficientes valem por `Balance.ATTR_SCALE` (10) pontos de atributo: "/pt" na tabela = a cada 10 pontos.
 | Atributo | Efeito |
 |---|---|
 | FOR | ATK físico (×2/pt); com escudo: +0.6%/pt chance de bloqueio (usa o maior entre FOR e WILL); com arma física: redução ao bloquear 30% + 0.5%/pt (cap 60%) |
@@ -487,7 +488,7 @@ Pernas correm por cima do golpe (`LegOverlay`) e o clipe é ajustado em duas fas
 
 ## Escudos
 14 escudos nomeados (`GearCatalog.SHIELDS`), lendários, cada um com silhueta, ícone e reação ao bloquear (cura, barreira, mana, reflexo, veneno, queimadura, lentidão, raiz, atordoar). A barreira dura `Balance.SHIELD_BARRIER_TIME` (5 s) e nunca encurta um escudo maior.
-**Aparar**: erguer o escudo até 0,22 s antes do golpe tira 90% do dano, dobra a reação e atordoa quem bateu de perto (recarga 0,9 s; segurar não apara).
+**Aparar**: erguer o escudo até 0,22 s antes do golpe tira 90% do que sobrou depois da redução da guarda (somados, ~98,5% com a guarda no teto), dobra a reação e atordoa quem bateu de perto (recarga 0,9 s; segurar não apara).
 
 ## Equipamento: slots
 Toda classe usa arma, mão secundária, cabeça, peito, calça, luvas, botas, capa, amuleto e dois anéis. Calças, capas, amuletos e anéis são
