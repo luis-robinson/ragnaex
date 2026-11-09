@@ -575,8 +575,17 @@ Props/construções em `tools/blender/prop_kit.py` (casas enxaimel com telhas, �
 recebem a cor do obstáculo no `MapDef`). Ruas de paralelepípedo e restos de calçamento nas ruínas vêm do `ground.gdshader` (voronoi). Câmera perspectiva FOV 35, pitch 52°, yaw em 45°.
 Obstáculos entre câmera e jogador ficam 72% transparentes. Chibi: cabeça ≈ 1/3 da altura. Paleta: pedra creme, telhados terracota/azul, verdes suaves.
 
+## Som — `Sfx` (game/audio/sfx.gd), volumes em `AudioSettings` (Esc → Volume geral / Efeitos / Interface)
+Efeitos sonoros lidos dos `Events`, sem música por enquanto. Banco em `assets/audio/sfx/<nome>_<n>` gerado por `tools/audio/build_sfx.py`:
+golpes, impactos, bloqueio, monstros, itens e cliques vêm de pacotes CC0 (créditos em `assets/audio/CREDITS.md`); magias por tema,
+preparação de magia, esquiva, crítico, arco/tiro, nível, quest e volta à cidade são sintetizados pelo script (semente fixa).
+- Golpe físico: vento da arma na fase ativa (arco/rifle/pistola: disparo ao sair o projétil); acerto e crítico no alvo; você levando dano tem som próprio.
+- Skill: som do TEMA visual (`FxManager.theme_of` → `Sfx.THEME_SOUND`; magia sem tema = arcano) no ponto mirado; magia com preparação ≥ 0,2 s zumbe antes.
+- Volume pela distância ao jogador (cheio até 8 m, some em 40 m), direção pela câmera; briga dos outros -5 dB; cada som tem intervalo mínimo e no máximo 3 vozes iguais.
+- Interface: todo botão clica, janela abre/fecha, nível, quest aceita/concluída, item (épico+ brilha), ouro, poção, equipar, forja, colheita, porta de casa.
+
 ## Fora de escopo (por enquanto)
-Rede real, PvP, guildas, dungeons instanciadas, áudio.
+Rede real, PvP, guildas, dungeons instanciadas, música e som ambiente.
 
 ## Depósito
 

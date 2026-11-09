@@ -51,6 +51,10 @@ func _ready() -> void:
 	fx.camera = camera
 	fx.main = self
 	world_root.add_child(fx)
+	var sfx := Sfx.new()                     # efeitos sonoros (banco em assets/audio/sfx, volume no Esc)
+	sfx.name = "Sfx"
+	sfx.main = self
+	add_child(sfx)
 	var recall_fx := RecallFx.new()          # coluna de luz da volta à cidade (G)
 	recall_fx.name = "RecallFx"
 	world_root.add_child(recall_fx)

@@ -713,6 +713,7 @@ func _check_zone(gd, sim) -> void:
 		_check_places(gd, sim, gd.maps[zid])
 	_check_dungeons(gd, sim)
 	_check_fort_lairs(gd, sim)
+	_check_sfx_bank(gd)
 	_check_catacombs(gd, sim)
 	_check_melee_reach(gd, sim)
 	_check_accents()
@@ -4812,6 +4813,24 @@ func _check_places(gd, sim, md: MapDef) -> void:
 ## Fortalezas do terceiro andar com layout próprio (não o molde de muralha): Covil do Carniçal (pântano-ninho, rio de
 ## bile), Fortaleza dos Ossos (necrópole, fenda com ponte de ossos), Torre do Mago Gélido (lago congelado, canal de água
 ## escura em volta da ilha). Tudo alcançável a pé da chegada; fechando as duas pontes, o chefe fica isolado.
+## Áudio: todo som citado pelo Sfx existe no banco (tools/audio/build_sfx.py), todo tema de skill soa,
+## o banco carrega e os barramentos de volume existem.
+func _check_sfx_bank(gd) -> void:
+	var sfx := Sfx.new()
+	sfx._load_bank()
+	check(sfx.bank.size() >= 40, "banco de sons carregado (%d nomes; rode tools/audio/build_sfx.py + --import)" % sfx.bank.size())
+	var names: Array = Sfx.VOL.keys() + Sfx.THEME_SOUND.values() + Sfx.RANGED_SOUND.values()
+	for n in names:
+		check(sfx.bank.has(n) and (sfx.bank[n] as Array).size() > 0, "som '%s' no banco" % n)
+	for th in SkillFx.PALETTE:
+		check(th == "physical" or Sfx.THEME_SOUND.has(th), "tema de skill '%s' tem som (Sfx.THEME_SOUND)" % th)
+	for n in sfx.bank:
+		check(Sfx.VOL.has(n), "som '%s' do banco tem volume em Sfx.VOL" % n)
+	sfx.free()
+	AudioSettings.load_and_apply()
+	for b in AudioSettings.BUSES:
+		check(AudioServer.get_bus_index(b) >= 0, "barramento de áudio %s" % b)
+
 func _check_fort_lairs(gd, sim) -> void:
 	for row in [["fort_ghoul", "Covil", 6], ["fort_bones", "Ossos", 0], ["fort_frost", "Gélido", 6]]:
 		_check_fort_lair(gd, sim, row[0], row[1], row[2])

@@ -1472,6 +1472,7 @@ func _smoke(delta: float) -> void:
 				img.save_png(_shot_path)
 				print("screenshot: " + _shot_path)
 			print("SMOKE OK: map=%s hp=%d entities=%d views=%d" % [p.map_id, p.hp, Sim.entities.size(), main.views.size()])
+			print("SMOKE SOM: " + Sfx.played_summary())
 			get_tree().quit(0)
 	Sim.set_player_command(cmd)
 

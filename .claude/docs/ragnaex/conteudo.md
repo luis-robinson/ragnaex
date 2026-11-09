@@ -88,4 +88,7 @@
 - **Quest**: `quests_catalog.gd` (KILL/COLLECT/TALK/CRAFT/REACH; NPC giver precisa existir em algum `MapDef.npcs`). `prereq_all` junta ramos, `reward_gear_tier` dá peça vestível, `repeatable` é recompensa de quadro.
 - **Mapa/zona**: siga "Layout de zonas" abaixo (`/layout-zone`). O `MapDef` continua sendo a verdade da sim
   (obstáculos = colisão, portais, spawners, NPCs); o visual da zona vem do Blender (`map_<zona>.glb`).
+- **Som**: banco em `assets/audio/sfx/<nome>_<n>.<ogg|wav>`, todo gerado por `python tools/audio/build_sfx.py` (+ `--import`): `CC0` = arquivos dos pacotes
+  do OpenGameArt (baixados para `.godot/sfx_cache`), `SYNTH` = funções `s_<nome>` (biblioteca padrão, semente fixa). Nome novo precisa de volume em `Sfx.VOL`
+  (`game/audio/sfx.gd`; há check) e de um gancho em evento lá. Tema de skill novo = entrada em `Sfx.THEME_SOUND`. O smoke imprime `SMOKE SOM:` (o que tocou).
 - Sempre adicione um `check(...)` em `tools/tests/run_tests.gd` para conteúdo/regra nova.

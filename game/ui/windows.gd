@@ -69,9 +69,11 @@ func is_open(name: String = "") -> bool:
 func toggle(name: String) -> void:
 	if wins.has(name):
 		close(name)
+		Sfx.ui("ui_close")
 	else:
 		open_name = name
 		_rebuild(name)
+		Sfx.ui("ui_open")
 
 func close(name: String) -> void:
 	if wins.has(name):

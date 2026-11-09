@@ -981,10 +981,29 @@ FSR 2: renderiza menor e reconstrói — mais FPS em PC fraco, contorno pode tre
 	gfx.pressed.connect(func(): gfx.text = "Gráficos: " + GraphicsSettings.cycle(get_viewport()))
 	gfx.add_theme_font_size_override("font_size", 13)
 	v.add_child(gfx)
+	for bus in AudioSettings.BUSES:
+		v.add_child(_volume_row(bus))
 	var hint := UiKit.label("O jogo também salva sozinho a cada minuto e ao fechar a janela.", 10, UiKit.MUTED)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(hint)
 	_update_blocking()
+
+## Linha do menu: nome do barramento + barra de volume (salva ao soltar).
+func _volume_row(bus: String) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	var l := UiKit.label(AudioSettings.LABELS[bus], 12)
+	l.custom_minimum_size.x = 96
+	row.add_child(l)
+	var sl := HSlider.new()
+	sl.min_value = 0.0
+	sl.max_value = 1.0
+	sl.step = 0.05
+	sl.value = AudioSettings.volume[bus]
+	sl.custom_minimum_size.x = 140
+	sl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	sl.value_changed.connect(func(x: float): AudioSettings.set_volume(bus, x))
+	row.add_child(sl)
+	return row
 
 func close_game_menu() -> void:
 	if game_menu:
