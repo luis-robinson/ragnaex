@@ -4894,6 +4894,45 @@ func _check_sfx_bank(gd) -> void:
 func _check_fort_lairs(gd, sim) -> void:
 	for row in [["fort_ghoul", "Covil", 6], ["fort_bones", "Ossos", 0], ["fort_frost", "Gélido", 6]]:
 		_check_fort_lair(gd, sim, row[0], row[1], row[2])
+	_check_citadel(gd, sim)
+
+## Cidadela do Lich (necrópole): cidade morta com ruas, casas e torres; tudo alcançável a pé; a Ofensiva anda a avenida inteira;
+## o trono não depende de uma rua só (fechar o meio da avenida ou o portão da cidade ainda deixa chegar pelas ruas/brechas).
+func _check_citadel(gd, sim) -> void:
+	var md: MapDef = gd.maps["lich_citadel"]
+	sim.load_map(md)
+	var kinds := {}
+	for o in md.obstacles:
+		kinds[o["kind"]] = int(kinds.get(o["kind"], 0)) + 1
+	check(int(kinds.get("ruin", 0)) + int(kinds.get("house", 0)) >= 120, "Cidadela: casas mortas pela cidade (ruína %d, casa %d)" % [kinds.get("ruin", 0), kinds.get("house", 0)])
+	check(md.roads.filter(func(r): return r["kind"] == "road").size() >= 6, "Cidadela: avenida, ruas e becos (%d)" % md.roads.size())
+	check(md.water.filter(func(w): return w["kind"] == "lake").size() >= 5, "Cidadela: poços de almas")
+	var seen := _reach(sim, md, md.spawn_point)
+	for n in md.npcs:
+		check(_reached(seen, n["pos"]), "Cidadela: NPC %s alcançável a pé" % n["id"])
+	for sp in md.spawners:
+		check(_reached(seen, sp["pos"]), "Cidadela: spawner %s alcançável a pé" % sp["monster_id"])
+	check(_reached(seen, md.town_gates[0]), "Cidadela: portão do palácio alcançável")
+	var boss: Dictionary = md.spawners.filter(func(sp): return sp["monster_id"] == "lich_king")[0]
+	check(_reached(seen, boss["pos"]), "Cidadela: trono alcançável")
+	for pt in md.portals:
+		check(_reached(seen, pt["pos"]), "Cidadela: portal %s alcançável" % pt["id"])
+	var a: Dictionary = md.assaults[0]
+	var route: Array = [a["from"]] + a["route"] + [a["target"]]
+	var ok := true
+	for i in route.size() - 1:
+		var p0: Vector3 = route[i]
+		var p1: Vector3 = route[i + 1]
+		for k in 11:
+			if not sim.is_walkable(p0.lerp(p1, k / 10.0), md, 0.45):
+				print("DBG rota bloqueada em ", p0.lerp(p1, k / 10.0), " seg ", i)
+				ok = false
+	check(ok, "Cidadela: a Ofensiva anda a avenida em linha reta entre os pontos")
+	var mid := Vector3(8, 0, 34)
+	check(_reached(_reach(sim, md, md.spawn_point, mid, 7.0), boss["pos"]), "Cidadela: com o meio da avenida fechado, as ruas de lado chegam ao trono")
+	check(_reached(_reach(sim, md, md.spawn_point, Vector3(0, 0, 73), 7.0), boss["pos"]), "Cidadela: com o portão da cidade fechado, as brechas chegam ao trono")
+	var tall := md.obstacles.filter(func(o): return o.get("hidden", false) and float(o["size"].y) >= 10.0 and Vector2(o["pos"].x, o["pos"].z).distance_to(Vector2(0, -53)) < 14.0)
+	check(not tall.is_empty(), "Cidadela: palácio com a agulha no fundo da praça")
 
 func _check_fort_lair(gd, sim, fid: String, label: String, min_lakes: int) -> void:
 	var md: MapDef = gd.maps[fid]

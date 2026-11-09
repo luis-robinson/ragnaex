@@ -114,6 +114,8 @@ def build_one(fid, export=False):
         return build_bones(export)
     if fid == "fort_frost":
         return build_frost(export)
+    if fid == "lich_citadel":
+        return build_citadel(export)
     cfg = FORTS[fid]
     z = Zone(fid, seed=cfg["seed"], palette={
         "road": cfg.get("road", (0.5, 0.46, 0.4)), "street": (0.56, 0.52, 0.48), "cliff_rock": (0.44, 0.42, 0.42), "cliff_rock_d": (0.34, 0.32, 0.33),
@@ -856,6 +858,280 @@ def build_frost(export=False):
     nature.fix_trees(obs, nrnd, pine_frac=1.0, pine_cols=pines)
     nature.clear_banks(obs, z.rivers, lakes_all, 6.0)
     return z.finish(export, poi=c, ground=(0.86, 0.9, 0.95))
+
+
+# ======================================================================================================
+# Cidadela do Lich: necrópole. Uma cidade morta inteira dentro do anel de montanhas: muralha externa em ruínas (portão da
+# cidade ao sul + brechas), ruas tortas entre casas sem teto e torres de ossos, um anel de ossuário no meio (o segundo
+# portão, com três passagens) e, na praça do centro, o palácio do Lich com a agulha de almas (o marco) e o trono.
+# Três "portões" da subida = cidade, ossuário, palácio; a avenida é o caminho mais curto, as ruas de lado também chegam.
+# ======================================================================================================
+CIT_C = (0.0, -30.0)                     # praça do palácio (centro do anel de dentro, raio FORT_R)
+CIT_MID_R = 50.0                         # anel do ossuário (em volta da praça)
+CIT_OUT_C, CIT_OUT_R = (0.0, -8.0), 81.0  # muralha da cidade
+CIT_AVENUE = [(0, 92), (8, 84), (0, 73), (-12, 60), (-6, 46), (8, 34), (3, 20), (-6, 8), (0, 2), (0, -1)]
+CIT_WEST = [(-12, 60), (-34, 57), (-56, 44), (-64, 24), (-66, 2), (-58, -18), (-48, -30)]
+CIT_WEST_IN = [(-48, -30), (-40, -10), (-24, 2), (-6, 6)]
+CIT_EAST = [(8, 34), (30, 40), (52, 34), (63, 14), (62, -8), (50, -30)]
+CIT_EAST_IN = [(50, -30), (40, -10), (24, 2), (6, 6)]
+CIT_ALLEYS = [("beco_oeste", [(-56, 44), (-40, 30), (-22, 34), (-6, 46)]), ("beco_leste", [(30, 40), (34, 58), (16, 64), (0, 73)]),
+              ("beco_norte_o", [(-58, -18), (-50, -54), (-24, -76), (0, -84)]), ("beco_norte_l", [(62, -8), (52, -50), (26, -76), (0, -84)])]
+CIT_POSTS = [(-64, 24), (63, 14)]        # pracinhas com torre de ossos (postos da quest)
+CIT_SOUL_POOLS = [("alma_0", (-40, 76), 5.0), ("alma_1", (44, 74), 5.5), ("alma_2", (-82, -40), 6.0), ("alma_3", (80, -34), 6.0),
+                  ("alma_4", (0, -96), 6.5), ("alma_5", (-30, 20), 3.6), ("alma_6", (30, 22), 3.6)]
+CIT_TOWERS = [(-24, 72), (22, 50), (-48, 12), (48, 4), (-36, -64), (36, -64), (-72, 52), (74, 42)]
+
+
+def bone_tower(z, name, p, h):
+    """Torre de ossos: tronco de pedra escura coberto de ossos em espiral, coroa de crânios e chama de almas no topo."""
+    cyl(z.coll, z.P + name, p, 1.9, 1.3, h, z.M["fort_wall"], 0.0, 8)
+    for k in range(int(h * 1.6)):
+        a = k * 0.9
+        y = 0.5 + k * (h - 1.2) / (h * 1.6)
+        q = (p[0] + math.cos(a) * 1.75, p[1] + math.sin(a) * 1.75)
+        box(z.coll, z.P + "%s_osso_%d" % (name, k), q, (0.22, 0.22, 1.2), math.degrees(-a), z.M["bone"], y)
+    for k in range(7):
+        a = math.tau * k / 7
+        skull(z, "%s_cr%d" % (name, k), (p[0] + math.cos(a) * 1.25, p[1] + math.sin(a) * 1.25), 0.42, h, z.M)
+    cone(z.coll, z.P + name + "_chama", p, 0.9, 2.2, z.M["soul"], h + 0.2, 7)
+    z.ob("pillar", p[0], p[1], (4.0, h, 4.0), visible=False)
+    z.block(p, 5.0)
+
+
+def ruined_ring(z, name, c, r, gates, gate_half, height, rnd, skulls=False, rubble=0.18, towers=0):
+    """Muralha em ruínas: segmentos de altura variada; alguns viraram monte de entulho (baixo, ainda fecha); vãos em `gates` (rad)."""
+    n = max(16, int(math.tau * r / 3.0))
+    for i in range(n):
+        am = math.tau * (i + 0.5) / n
+        if any(zone_lib.angdiff(am, g) * r < gate_half + 0.4 for g in gates):
+            continue
+        p = (c[0] + math.cos(am) * r, c[1] + math.sin(am) * r)
+        seg = math.tau * r / n + 0.15
+        rot = zone_lib.along(-math.sin(am), math.cos(am))
+        if rnd.random() < rubble:                         # entulho: pedras caídas (ainda fecha a passagem)
+            for k in range(3):
+                blob(z.coll, z.P + "%s_entulho_%d_%d" % (name, i, k), (p[0] + rnd.uniform(-1.2, 1.2), p[1] + rnd.uniform(-1.2, 1.2)),
+                     rnd.uniform(0.7, 1.1), 0.25, z.M["fort_wall"], i * 3 + k, 0.6)
+            z.ob("wall", p[0], p[1], (seg, 1.4, 2.4), rot, visible=False)
+            continue
+        h = height * rnd.uniform(0.55, 1.0)
+        box(z.coll, z.P + "%s_muro_%d" % (name, i), p, (seg, h, 1.6), rot, z.M["fort_wall"], 0.0)
+        if skulls and i % 2 == 0:
+            skull(z, "%s_cr_%d" % (name, i), p, 0.42, h, z.M)
+        z.ob("wall", p[0], p[1], (seg, h, 2.0), rot, visible=False)
+    for k in range(towers):
+        a = math.tau * (k + 0.5) / towers
+        if any(zone_lib.angdiff(a, g) * r < gate_half + 4 for g in gates):
+            continue
+        p = (c[0] + math.cos(a) * r, c[1] + math.sin(a) * r)
+        top = height + rnd.uniform(1.0, 3.0)
+        cyl(z.coll, z.P + "%s_torre_%d" % (name, k), p, 2.2, 1.9, top, z.M["fort_wall"], 0.0, 8, 0.12, k)
+        z.ob("pillar", p[0], p[1], (4.4, top, 4.4), visible=False)
+
+
+def dead_house(z, name, p, rot, w, d, rnd, intact):
+    """Casa da cidade morta: três paredes quebradas (prop `ruin`, aberta para a rua) com chão escuro; `intact` = sobrado
+    (paredes mais altas). Nenhuma casa inteira: a cidade morreu. `rot` = graus do jogo (frente = +z local)."""
+    wall_c = rnd.choice([(0.34, 0.31, 0.36), (0.3, 0.28, 0.33), (0.38, 0.35, 0.38)])
+    tall = 1.45 if intact else 1.0                       # sobrado: paredes mais altas (ainda sem teto)
+    a = math.radians(rot)
+    ux, uz = math.cos(a), -math.sin(a)                   # eixo x local (largura) no plano do jogo
+    fx, fz = math.sin(a), math.cos(a)                    # frente (+z local), virada para a rua
+    disc(z.coll, z.P + name + "_chao", p, min(w, d) * 0.55, 0.01, z.M["floor"], 6, 0.2, len(name))
+    back = (p[0] - fx * d / 2, p[1] - fz * d / 2)
+    z.ob("ruin", back[0], back[1], (w, rnd.uniform(1.8, 3.2) * tall, 0.7), rot, color=wall_c)
+    for sx in (-1, 1):
+        q = (p[0] + ux * sx * w / 2, p[1] + uz * sx * w / 2)
+        z.ob("ruin", q[0], q[1], (d, rnd.uniform(1.4, 2.8) * tall, 0.7), rot + 90, color=wall_c)
+
+
+def build_citadel(export=False):
+    fid = "lich_citadel"
+    cfg = FORTS[fid]
+    z = Zone(fid, seed=cfg["seed"], palette={
+        "road": (0.36, 0.33, 0.38), "street": (0.42, 0.4, 0.44), "cliff_rock": (0.26, 0.23, 0.3), "cliff_rock_d": (0.19, 0.17, 0.22),
+        "cliff_grass": (0.3, 0.27, 0.32), "hill_grass": (0.32, 0.29, 0.34), "leaf": (0.3, 0.26, 0.3), "bark": (0.26, 0.22, 0.26),
+        "fort_wall": cfg["wall"], "town_wall": cfg["wall"], "accent": cfg["accent"], "roof": (0.24, 0.2, 0.3),
+        "bone": (0.84, 0.8, 0.7), "socket": (0.05, 0.04, 0.06), "soul": (0.45, 1.0, 0.6), "soulwater": (0.1, 0.32, 0.22),
+        "floor": (0.2, 0.18, 0.22), "pave_rua": (0.52, 0.48, 0.5), "palace": (0.17, 0.14, 0.21), "palace_l": (0.32, 0.26, 0.4),
+        "tomb": (0.28, 0.27, 0.3), "tomb_l": (0.5, 0.5, 0.52), "roof_d": (0.2, 0.18, 0.24), "grave": (0.24, 0.2, 0.18),
+    })
+    q = cfg["quest"]
+    rnd = random.Random(cfg["seed"])
+    arrive = ARRIVE_IN_FORT
+    z.data["spawn"] = list(arrive)
+    z.portal("to_bastion", polar(z, 90, 7), "field_ruins", BACK[fid], "Bastião da Aurora")
+    c, R = CIT_C, FORT_R
+    gate = math.radians(90.0)
+    gate_pt = (c[0], c[1] + R)
+    # ---------- chão: terra roxa-escura; bairros com manchas próprias (cinza, praça calçada) ----------
+    z.patch("cidade", (0, -4), 108, (0.26, 0.24, 0.28))
+    for k in range(16):
+        a, r = rnd.uniform(0, math.tau), rnd.uniform(14, 96)
+        pc = (math.cos(a) * r, math.sin(a) * r - 6)
+        z.patch("cinza_%d" % k, pc, rnd.uniform(6, 12), (0.25, 0.23, 0.27) if k % 2 else (0.34, 0.3, 0.33))
+    z.patch("ossuario", c, CIT_MID_R + 3, (0.27, 0.25, 0.3))
+    z.patch("praca", c, R - 0.5, (0.36, 0.32, 0.42), paved=True)
+    # ---------- ruas: avenida torta (a subida), duas ruas de volta, becos ----------
+    z.road("avenida", CIT_AVENUE, w=4.6, material="pave_rua")
+    z.road("rua_oeste", CIT_WEST, w=3.8, material="pave_rua")
+    z.road("rua_oeste_dentro", CIT_WEST_IN, w=3.6, material="pave_rua", end_clearing=False)
+    z.road("rua_leste", CIT_EAST, w=3.8, material="pave_rua")
+    z.road("rua_leste_dentro", CIT_EAST_IN, w=3.6, material="pave_rua", end_clearing=False)
+    for name, pts in CIT_ALLEYS:
+        z.road(name, pts, w=3.0, material="pave_rua", end_clearing=False)
+    # ---------- água de almas: poços verdes (bloqueiam), velas de alma em volta ----------
+    for name, p, r in CIT_SOUL_POOLS:
+        z.lake(name, p, r, material="soulwater")
+        for k in range(6):
+            a = math.tau * k / 6 + 0.3
+            cyl(z.coll, z.P + "%s_vela_%d" % (name, k), (p[0] + math.cos(a) * (r + 1.3), p[1] + math.sin(a) * (r + 1.3)), 0.12, 0.12, 0.5, z.M["soul"], 0.0, 6)
+    # ---------- três portões: muralha da cidade, anel do ossuário, palácio ----------
+    out_gates = [math.atan2(73 - CIT_OUT_C[1], 0 - CIT_OUT_C[0])] + [math.radians(d) for d in (28, 152, 214, 326)]
+    ruined_ring(z, "muralha", CIT_OUT_C, CIT_OUT_R, out_gates, 4.2, 5.0, random.Random(7), rubble=0.14, towers=10)
+    for sx in (-1, 1):                                    # portão da cidade: dois torreões com crânio e chama de almas
+        p = (sx * 7.4, 73.0)
+        cyl(z.coll, z.P + "portao_torre_%d" % sx, p, 2.2, 1.9, 5.2, z.M["fort_wall"], 0.0, 8)
+        skull(z, "portao_cranio_%d" % sx, p, 0.7, 5.2, z.M)
+        cone(z.coll, z.P + "portao_chama_%d" % sx, p, 0.6, 1.2, z.M["soul"], 6.4, 7)
+        z.ob("pillar", p[0], p[1], (4.2, 5.2, 4.2), visible=False)
+    mid_gates = [math.atan2(p[1] - c[1], p[0] - c[0]) for p in [(3, 20), (-48, -30), (50, -30)]]
+    ruined_ring(z, "ossuario", c, CIT_MID_R, mid_gates, 4.4, 3.4, random.Random(11), skulls=True, rubble=0.1, towers=0)
+    z.ring_wall("palacio", c, R, [gate], gate_half=4.0, height=5.5, thick=2.0, material="fort_wall", towers=6)
+    z.data["town"] = {"center": list(c), "radius": R, "gates": [list(gate_pt)]}
+    for k in range(36):                                   # coroa de crânios e cravos de osso no alto do muro do palácio
+        a = math.tau * (k + 0.5) / 36
+        if zone_lib.angdiff(a, gate) * R < 6.0:
+            continue
+        p = (c[0] + math.cos(a) * R, c[1] + math.sin(a) * R)
+        if k % 2:
+            skull(z, "palacio_cranio_%d" % k, p, 0.5, 5.5, z.M)
+        else:
+            cone(z.coll, z.P + "palacio_cravo_%d" % k, p, 0.35, 1.6, z.M["bone"], 5.5, 6)
+    for sx in (-1, 1):                                    # braseiros de almas no portão do palácio
+        p = (gate_pt[0] + sx * 5.6, gate_pt[1] + 2.4)
+        cyl(z.coll, z.P + "braseiro_%d" % sx, p, 0.7, 0.5, 1.2, z.M["fort_wall"], 0.0, 8)
+        cone(z.coll, z.P + "braseiro_alma_%d" % sx, p, 0.6, 1.4, z.M["soul"], 1.2, 7)
+        z.ob("pillar", p[0], p[1], (1.4, 1.2, 1.4), visible=False)
+    # ---------- palácio do Lich (fundo da praça) e a agulha de almas (o marco) ----------
+    pal = (c[0], c[1] - 23.0)
+    cyl(z.coll, z.P + "palacio_base", pal, 12.0, 11.0, 2.0, z.M["palace"], 0.0, 12)
+    box(z.coll, z.P + "palacio_salao", (pal[0], pal[1] - 1.5), (20.0, 9.0, 8.0), 0.0, z.M["palace"], 2.0)
+    for sx in (-1, 1):
+        cyl(z.coll, z.P + "palacio_torre_%d" % sx, (pal[0] + sx * 10.5, pal[1] - 1.5), 2.6, 1.8, 17.0, z.M["palace"], 0.0, 8)
+        cone(z.coll, z.P + "palacio_teto_%d" % sx, (pal[0] + sx * 10.5, pal[1] - 1.5), 2.8, 4.5, z.M["palace_l"], 17.0, 8)
+        cone(z.coll, z.P + "palacio_chama_%d" % sx, (pal[0] + sx * 10.5, pal[1] - 1.5), 0.7, 1.6, z.M["soul"], 21.5, 6)
+    cyl(z.coll, z.P + "agulha", (pal[0], pal[1] - 2.0), 3.4, 0.5, 36.0, z.M["palace"], 2.0, 8)
+    for k in range(6):                                    # costelas de osso abraçando a agulha
+        a = math.tau * k / 6
+        rib(z.coll, z.P + "agulha_costela_%d" % k, (pal[0] + math.cos(a) * 3.6, pal[1] - 2.0 + math.sin(a) * 3.6), a, 22.0, 0.35, 0.5, 0.18, z.M["bone"])
+    cone(z.coll, z.P + "agulha_alma", (pal[0], pal[1] - 2.0), 1.6, 5.0, z.M["soul"], 37.0, 8)
+    z.ob("wall", pal[0], pal[1] - 1.5, (22.0, 12.0, 10.0), visible=False)
+    for sx in (-1, 1):
+        z.ob("pillar", pal[0] + sx * 10.5, pal[1] - 1.5, (5.2, 17.0, 5.2), visible=False)
+    # trono: estrado de três degraus diante do palácio, colunas com chama de almas em volta (como antes: arena aberta)
+    th = (c[0], c[1] - 12)
+    for k in range(3):
+        cyl(z.coll, z.P + "trono_degrau_%d" % k, th, 6.0 - k * 1.4, 5.8 - k * 1.4, 0.3, z.M["palace_l"] if k % 2 else z.M["palace"], k * 0.3, 16)
+    box(z.coll, z.P + "trono", (th[0], th[1] - 1.4), (2.4, 3.6, 1.2), 0.0, z.M["palace"], 0.9)
+    skull(z, "trono_cranio", (th[0], th[1] - 1.4), 0.7, 4.5, z.M)
+    for i in range(8):
+        a = math.tau * i / 8
+        p = (th[0] + math.cos(a) * 9, th[1] + math.sin(a) * 9)
+        cyl(z.coll, z.P + "coluna_%d" % i, p, 0.8, 0.7, 6.5, z.M["fort_wall"], 0.0, 8)        # mais baixa que antes: não tampa a luta
+        cyl(z.coll, z.P + "chama_%d" % i, p, 0.6, 0.05, 1.6, z.M["soul"], 6.5, 6)
+        z.ob("pillar", p[0], p[1], (1.6, 9.0, 1.6), visible=False)
+    # ---------- torres de ossos pelos bairros ----------
+    for k, p in enumerate(CIT_TOWERS):
+        bone_tower(z, "torre_ossos_%d" % k, p, rnd.uniform(10.0, 14.0))
+    # ---------- pracinhas dos postos (torre de ossos menor, guarda da Aurora depois) ----------
+    for i, (p, (mob, n)) in enumerate(zip(CIT_POSTS, cfg["posts"])):
+        z.patch("posto_%d" % i, p, 9.0, (0.38, 0.34, 0.4), paved=True)
+        bone_tower(z, "posto_torre_%d" % i, (p[0] + (-7 if i == 0 else 7), p[1] - 4), 8.0)
+        z.spawner(mob, p[0], p[1], 5, n, 22.0, when={"unless": cfg["posts_quest"]})
+        z.npc("%s_post_spearman_%d" % (fid, i), p[0] + 2.0, p[1] + 3.0, 180.0)
+        z.npc("%s_post_crossbow_%d" % (fid, i), p[0] - 2.0, p[1] + 3.0, 180.0)
+        z.block(p, 9.0)
+    # ---------- praça: jaulas, assentamento, guarnição, chefe e a guarda do trono ----------
+    for i in range(3):
+        p = (c[0] - 16 + i * 4.0, c[1] + 6)
+        for k in range(4):
+            a = math.tau * k / 4 + math.pi / 4
+            z.ob("pillar", p[0] + math.cos(a) * 1.4, p[1] + math.sin(a) * 1.4, (0.3, 2.4, 0.3), color=(0.3, 0.28, 0.3))
+        z.npc("%s_prisoner_%d" % (fid, i), p[0], p[1], 180.0)
+    for k, (dx, dy) in enumerate([(14, 4), (17, 8), (11, 10)]):
+        z.npc("%s_settler_%d" % (fid, k), c[0] + dx, c[1] + dy, 200.0)
+    for k, (dx, dy) in enumerate([(19, 2), (8, 14), (20, 12)]):
+        z.ob("tent", c[0] + dx, c[1] + dy, (3.4, 2.4, 3.0), 200.0, color=(0.82, 0.78, 0.66), when={"if": q})
+    for i, role in enumerate(["knight", "knight", "spearman", "priest", "crossbow"]):
+        z.npc("%s_g_%s_%d" % (fid, role, i), c[0] - 6 + i * 3.0, c[1] + R - 4.0, 180.0)
+    z.spawner(cfg["boss"], c[0], c[1] - 2, 2, 1, 300.0)
+    for i, (mob, n, resp) in enumerate(cfg["inside"]):
+        a = math.tau * i / len(cfg["inside"]) + 0.6
+        z.spawner(mob, c[0] + math.cos(a) * 14, c[1] + math.sin(a) * 12, 6, n, resp)
+    for (mob, n, resp), p in zip(cfg["outside"], [(-34, 34), (38, -8)]):      # bairro oeste e anel do ossuário a leste
+        z.spawner(mob, p[0], p[1], 9, n, resp)
+    # ---------- assalto aliado: a Ofensiva sobe a avenida até a praça ----------
+    z.data["assaults"] = [{"id": "aurora", "from": [arrive[0], arrive[1] - 4.0],
+                           "route": [list(p) for p in CIT_AVENUE[1:-1]] + [[gate_pt[0], gate_pt[1] + 2]],
+                           "target": [c[0], c[1] + 4], "radius": 12.0}]
+    z.data["hangouts"] = [[arrive[0] + dx, arrive[1] - 8] for dx in (-4, 0, 4)]
+    # ---------- casas mortas ao longo das ruas (abertas para a rua) ----------
+    z.block(c, CIT_MID_R - 18)                            # anel de dentro: praça livre
+    z.block(arrive, 9)
+    z.block((0, 73), 9)
+    z.block((0, 6), 10)                                   # cruzamento das ruas de dentro com a avenida, diante do palácio
+    hrnd = random.Random(cfg["seed"] + 3)
+    houses = 0
+    for name, poly in list(z.road_polys.items()):
+        for i in range(3, len(poly) - 3, 6):
+            t = (poly[i + 2] - poly[i - 2]).normalized()
+            side_v = zone_lib.Vector((t.y, -t.x))
+            for sgn in (-1, 1):
+                w, d = hrnd.uniform(5.0, 7.0), hrnd.uniform(4.2, 5.6)
+                off = 2.6 + d / 2 + hrnd.uniform(1.4, 2.4)
+                p = poly[i] + side_v * sgn * off
+                x, zz = round(p.x, 1), round(p.y, 1)
+                ro = math.hypot(x - CIT_OUT_C[0], zz - CIT_OUT_C[1])
+                if not z.free(x, zz, d / 2 + 1.6) or ro > CIT_OUT_R - 5 or abs(math.hypot(x - c[0], zz - c[1]) - CIT_MID_R) < 6:
+                    continue
+                face = -side_v * sgn                     # frente da casa para a rua
+                rot = math.degrees(math.atan2(face.x, face.y))
+                dead_house(z, "casa_%d" % houses, (x, zz), rot, w, d, hrnd, intact=hrnd.random() < 0.25)
+                z.block((x, zz), max(w, d) * 0.75)
+                houses += 1
+    # quarteirões entre as ruas: ruínas soltas (a cidade é cheia, não só a beira da rua)
+    filler = 0
+    for gx in range(-78, 79, 10):
+        for gz in range(-86, 72, 10):
+            if filler >= 48:
+                break
+            x, zz = gx + hrnd.uniform(-2.5, 2.5), gz + hrnd.uniform(-2.5, 2.5)
+            ro = math.hypot(x - CIT_OUT_C[0], zz - CIT_OUT_C[1])
+            rm = math.hypot(x - c[0], zz - c[1])
+            if ro > CIT_OUT_R - 6 or abs(rm - CIT_MID_R) < 6 or rm < R + 6 or not z.free(x, zz, 6.0) or hrnd.random() < 0.3:
+                continue
+            w, d = hrnd.uniform(5.0, 7.5), hrnd.uniform(4.2, 6.0)
+            dead_house(z, "bloco_%d" % filler, (round(x, 1), round(zz, 1)), hrnd.choice([0.0, 90.0, 180.0, 270.0]) + hrnd.uniform(-12, 12), w, d, hrnd, intact=hrnd.random() < 0.2)
+            z.block((x, zz), max(w, d) * 0.75)
+            filler += 1
+    print("CIDADELA quarteirões", filler)
+    # ---------- cemitério do fundo (atrás do palácio, fora do anel do ossuário) ----------
+    for f, (corner, cols_n, rows_n) in enumerate([((-70, -64), 4, 3), ((50, -66), 4, 3), ((-24, -90), 4, 2)]):
+        for rw in range(rows_n):
+            tomb_row(z, "campo_%d_%d" % (f, rw), (corner[0], corner[1] - rw * 4.0), (3.6, 0.0), cols_n, rnd)
+    # ---------- fora e no anel de montanhas: árvores mortas e pedras ----------
+    z.cliffs(rock="cliff_rock", top="cliff_grass", snow=False)
+    z.block((0, 0), 6)
+    cols = [(0.3, 0.26, 0.3), (0.26, 0.22, 0.28)]
+    z.rim_belt(90, (1.5, 3.3, 1.5), cols)
+    z.scatter("rock", [((0, -4), 100, 50)], 0, (1.2, 0.8, 1.1), [(0.36, 0.33, 0.38)], margin=3.2, spacing=4.0, scale=(0.6, 1.3))
+    nrnd = random.Random(cfg["seed"] + 5)
+    obs = z.data["obstacles"]
+    nature.fix_trees(obs, nrnd, dead=True, dead_cols=cols)
+    nature.clear_banks(obs, z.rivers, [], 9.0)
+    print("CIDADELA casas", houses)
+    return z.finish(export, poi=c, ground=(0.3, 0.27, 0.31))
 
 
 def build(export=False, only=None):

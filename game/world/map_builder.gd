@@ -393,6 +393,12 @@ static func _zone_materials(node: Node, def: MapDef) -> void:
 				"icewater":                # água escura nos buracos do gelo (Torre do Mago Gélido)
 					mat = Materials.toon(base.srgb_to_linear(), false, 0.1)
 					mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				"soul":                    # chama de almas (Cidadela do Lich): verde que brilha no escuro
+					mat = Materials.glow(base.srgb_to_linear(), 1.6)
+					mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				"soulwater":               # poço de almas (Cidadela do Lich): verde-escuro com brilho fraco
+					mat = Materials.toon(base.srgb_to_linear(), false, 0.35)
+					mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				"bile":                    # rio/lagoa de bile (Covil do Carniçal): cor do Blender, sem puxar para o azul
 					mat = Materials.toon(base.srgb_to_linear(), false, 0.12)
 					mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

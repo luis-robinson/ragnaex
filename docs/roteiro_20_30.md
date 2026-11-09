@@ -78,7 +78,7 @@ Os níveis abaixo são os que um jogador normal tem ao fazer a cadeia principal 
 
 | Quest | Quem dá | O que é |
 |---|---|---|
-| A Ofensiva da Aurora | Lyria → Marechal | Garganta nordeste → Cidadela do Lich. O exército da Aurora sobe a rampa junto. Dois portões internos com elites das três fortalezas. No trono, Azhar, o Lich-Rei (nível 30): ossos aos 75%, ninhada e espectros aos 50%, fúria aos 25%. Rende 3 Moedas e 3 Fragmentos. Leve um grupo. |
+| A Ofensiva da Aurora | Lyria → Marechal | Garganta nordeste → Cidadela do Lich, uma cidade morta. O exército da Aurora sobe a avenida junto; as ruas de lado também chegam à praça. Três portões (cidade, ossuário, palácio) com elites das três fortalezas. No trono, Azhar, o Lich-Rei (nível 30): ossos aos 75%, ninhada e espectros aos 50%, fúria aos 25%. Rende 3 Moedas e 3 Fragmentos. Leve um grupo. |
 | De Volta a Aldara | Marechal → Ancião Ravi | Epílogo: volte para casa (G) e conte ao Ancião Ravi que a noite acabou. Aldara e o Bastião estão em festa (fogos na praça, festeiros, bots comemorando). Entregar mostra a tela de **Fim do Ato I**, o fim do MVP; o jogo continua depois. |
 
 **Depois:** a Cidadela vira assentamento, os fronts ficam limpos e o Lich-Rei continua lá para quem quiser caçar.

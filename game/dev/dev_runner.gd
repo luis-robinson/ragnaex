@@ -24,7 +24,9 @@ const TOURS := {
 	"fort_ghoul": [["chegada", Vector3(0, 0, 90)], ["lagoa", Vector3(-14, 0, 74)], ["ninho_oeste", Vector3(-52, 0, 58)], ["ponte_oeste", Vector3(-46, 0, 38)], ["ponte_leste", Vector3(42, 0, 42)], ["ninho_leste", Vector3(50, 0, 18)], ["brecha", Vector3(0, 0, 6)], ["patio", Vector3(4, 0, -22)], ["cranio", Vector3(0, 0, -50)]],
 	"fort_bones": [["chegada", Vector3(0, 0, 90)], ["cemiterio", Vector3(-60, 0, 84)], ["ponte_ossos", Vector3(-6, 0, 50)], ["cripta_oeste", Vector3(-50, 0, 66)], ["cripta_leste", Vector3(52, 0, 16)], ["patamar", Vector3(-20, 0, 0)], ["portao", Vector3(0, 0, 4)], ["patio", Vector3(4, 0, -22)]],
 	"fort_frost": [["chegada", Vector3(0, 0, 90)], ["lago", Vector3(-12, 0, 56)], ["navio", Vector3(-30, 0, 84)], ["acamp_oeste", Vector3(-54, 0, 40)], ["acamp_leste", Vector3(52, 0, 30)], ["ponte_gelo", Vector3(0, 0, 10)], ["patio", Vector3(4, 0, -22)]],
-	"lich_citadel": [["chegada", Vector3(0, 0, 90)], ["estrada", Vector3(8, 0, 44)], ["posto_oeste", Vector3(-52, 0, 40)], ["posto_leste", Vector3(50, 0, 30)], ["portao", Vector3(0, 0, 4)], ["patio", Vector3(4, 0, -22)]],
+	"lich_citadel": [["chegada", Vector3(0, 0, 88)], ["portao_cidade", Vector3(-4, 0, 66)], ["avenida", Vector3(-4, 0, 44)], ["rua_oeste", Vector3(-54, 0, 40)],
+		["posto_oeste", Vector3(-62, 0, 28)], ["posto_leste", Vector3(60, 0, 18)], ["ossuario", Vector3(4, 0, 16)], ["anel_leste", Vector3(46, 0, -16)],
+		["portao_palacio", Vector3(0, 0, 2)], ["trono", Vector3(4, 0, -26)], ["cemiterio", Vector3(-36, 0, -70)]],
 	"field_ruins": [["front_oeste", Vector3(-84, 0, -6)], ["torre", Vector3(-66, 0, 24)], ["praca_catedral", Vector3(0, 0, 18)], ["mercado", Vector3(26, 0, 30)], ["quartel", Vector3(-26, 0, -30)], ["portao_oeste", Vector3(-46, 0, 0)],
 		["portao_norte", Vector3(0, 0, -46)], ["portao_sul", Vector3(0, 0, 46)], ["front_carnical", Vector3(-76, 0, -6)], ["front_ossos", Vector3(8, 0, -80)],
 		["front_gelo", Vector3(-6, 0, 80)], ["cripta", Vector3(20, 0, -80)], ["chegada", Vector3(94, 0, -5)], ["dragonete", Vector3(64, 0, 44)], ["capela", Vector3(90, 0, 18)],
@@ -1281,6 +1283,8 @@ func _tour(delta: float) -> void:
 	_tour_t += delta
 	var p := Sim.player
 	p.hp = p.stats.max_hp
+	if DevArgs.has("--far"):                   # zoom máximo do jogador: ver marcos e o desenho da zona
+		main.camera.distance = main.camera.max_distance
 	if _tour_t < 2.0:
 		return
 	var stops: Array = TOURS.get(_tour_map, TOUR)

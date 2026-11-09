@@ -386,7 +386,7 @@ Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MS
     - O Carniçal Gigante tem feridas com pus, rasgo na barriga, chifre, nuvem de moscas, sino enferrujado, chaminés de gás e cutelo.
     - Os chefes das fortalezas renascem em 2 min enquanto a quest de retomada não sai.
   - **Fortalezas** (`build_dawn_forts.py`, um mapa por laço): Covil do Carniçal (20-23), Fortaleza dos Ossos (23-26), Torre do Mago Gélido (26-29).
-    - Layout próprio de cada uma (2026-11-09; a Cidadela do Lich segue o molde): Covil = pântano-ninho (acima);
+    - Layout próprio de cada uma (2026-11-09; a Cidadela também, abaixo): Covil = pântano-ninho (acima);
       **Fortaleza dos Ossos** = necrópole na colina (`build_bones`): fenda funda que corta o vale de borda a borda (material
       `chasm`, só a ponte de ossos da estrada e a passarela da cripta leste atravessam, com postes de crânio), campos de túmulos
       e sarcófagos na encosta, mausoléus, muros de ossuário coroados de crânios ao longo da estrada em zigue-zague, criptas
@@ -405,7 +405,14 @@ Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MS
       - a do chefe cala a fortaleza e a investida do lado;
       - os prisioneiros saem e nasce o assentamento (capitão, ferreiro de campo, mercador) com guarnição;
       - a fortaleza seguinte passa a receber a **leva aliada** (`MapDef.assaults`/`ASSAULTS`, `GuardBrain` em marcha) subindo a estrada.
-  - **Cidadela do Lich** (30, selo NE do Bastião, abre com as três): portões internos, elites das três fortalezas, a Ofensiva da Aurora sobe junto, e Azhar, o Lich-Rei (três fases).
+  - **Cidadela do Lich** (30, selo NE do Bastião, abre com as três): a Ofensiva da Aurora sobe junto, elites das três fortalezas, e Azhar, o Lich-Rei (três fases).
+    - Layout = **necrópole** (`build_dawn_forts.build_citadel`): uma cidade morta inteira. Muralha externa em ruínas (portão da cidade com
+      torreões de chama de almas ao sul + quatro brechas), avenida torta subindo até a praça, duas ruas de volta (oeste/leste) e becos,
+      ~80 casas sem teto (prop `ruin`, abertas para a rua; sobrados mais altos), torres de ossos com chama verde, poços de almas (material
+      `soulwater`, bloqueiam), cemitério atrás do palácio. Os três portões da subida são a muralha da cidade, o anel do ossuário (muro
+      coroado de crânios com três passagens) e o muro do palácio. Na praça: o palácio do Lich com a agulha de almas (36 m, o marco) e o
+      trono em degraus com as colunas da arena de antes (mesma colisão). Postos = pracinhas com torre de ossos.
+      Check `_check_citadel` (tudo alcançável; a Ofensiva anda a avenida; fechar o meio da avenida ou o portão da cidade ainda chega ao trono).
   - **Fim do Ato I (e do MVP):** depois do Lich, o Comandante dá `dw_epilogue` (De Volta a Aldara): falar com o Ancião Ravi. Com o Lich morto
     (`MapsCatalog.VICTORY_QUEST`), Aldara e o Bastião festejam: festeiros condicionais (`MapsCatalog.FESTIVAL`, `if`), fogos sobre a praça
     (`FestivalFx`, com som) e bots comemorando no chat (`place:victory`, `Balance.BOT_CHAT_VICTORY`). Entregar o epílogo abre a tela
