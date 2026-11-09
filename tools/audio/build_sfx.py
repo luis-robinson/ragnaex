@@ -394,6 +394,17 @@ def s_death(rng):
 	return out
 
 
+def s_firework(rng):
+	"""Assobio de subida (0,55 s, o tempo do foguete no FestivalFx) + estouro + estalos caindo."""
+	out = zeros(1.9)
+	add(out, tone(0.55, rng.uniform(900, 1100), rng.uniform(2200, 2600), decay=0.6, attack=0.05), 0, 0.18)
+	add(out, tone(0.6, 80, 35, decay=7), 0.55, 1.0)
+	add(out, lowpass(noise(0.5, rng, decay=9), 2500), 0.55, 0.8)
+	for _ in range(26):
+		add(out, highpass(noise(0.015, rng, decay=200), 2500), 0.62 + rng.random() * 1.0, rng.uniform(0.15, 0.4))
+	return out
+
+
 def s_ui_open(rng):
 	return tone(0.09, 520, 820, decay=30, attack=0.002)
 
@@ -409,7 +420,7 @@ SYNTH = {
 	"bone": (s_bone, 3), "cast": (s_cast, 3), "dodge": (s_dodge, 3), "crit": (s_crit, 3),
 	"hurt": (s_hurt, 2), "bow": (s_bow, 3), "gun": (s_gun, 2), "level_up": (s_level_up, 1),
 	"quest_accept": (s_quest_accept, 1), "quest_done": (s_quest_done, 1), "recall": (s_recall, 1),
-	"recall_done": (s_recall_done, 1), "death": (s_death, 1), "ui_open": (s_ui_open, 1), "ui_close": (s_ui_close, 1),
+	"recall_done": (s_recall_done, 1), "death": (s_death, 1), "firework": (s_firework, 3), "ui_open": (s_ui_open, 1), "ui_close": (s_ui_close, 1),
 }
 
 

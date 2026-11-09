@@ -406,6 +406,10 @@ Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MS
       - os prisioneiros saem e nasce o assentamento (capitão, ferreiro de campo, mercador) com guarnição;
       - a fortaleza seguinte passa a receber a **leva aliada** (`MapDef.assaults`/`ASSAULTS`, `GuardBrain` em marcha) subindo a estrada.
   - **Cidadela do Lich** (30, selo NE do Bastião, abre com as três): portões internos, elites das três fortalezas, a Ofensiva da Aurora sobe junto, e Azhar, o Lich-Rei (três fases).
+  - **Fim do Ato I (e do MVP):** depois do Lich, o Comandante dá `dw_epilogue` (De Volta a Aldara): falar com o Ancião Ravi. Com o Lich morto
+    (`MapsCatalog.VICTORY_QUEST`), Aldara e o Bastião festejam: festeiros condicionais (`MapsCatalog.FESTIVAL`, `if`), fogos sobre a praça
+    (`FestivalFx`, com som) e bots comemorando no chat (`place:victory`, `Balance.BOT_CHAT_VICTORY`). Entregar o epílogo abre a tela
+    "Fim do Ato I" (`hud.show_act_end`); o jogo continua depois. Revisar: `-- --autostart=<c> --act_end_shot=<png>`.
   - **Trevas:** Guardião de Ossos/Guarda da Cidadela bloqueiam golpe físico de frente (`MonsterDef.front_guard`); por trás ou com magia passa.
   - **Recompensas:** Prata Consagrada (+1..+5) e Fragmento da Aurora (+6..+9) aprimoram lendários 25+ (`PLUS_DAWN_*`); quests principais e chefes dão Moedas Lendárias.
   - **Calibrado**: tabela na seção Chefes.
@@ -452,7 +456,7 @@ Campo (Caranguejo-Rei, Rei Slime, Presa-Rachada, Rei Javali) e elite (Trent, Gua
 ## Quests (cadeia)
 q01 bem-vindo (TALK) → q02 slimes → q03 gel → q04 primeira poção (CRAFT) → q05 presas → q06 lobos → q07 rei javali →
 c1 terra revirada (TALK) → c2 descida (REACH) → c3 Capitão + c4 Viúva (ramos) → c5 aviso à Capitã → q08 floresta (TALK) → q09 seda → q10 bandidos →
-q10b Rainha Aranha → el1 trompas → el2 segurar o portão (investidas) → el3 além da garganta → el4 trents → el5 Guardiões → el6 Rei Élfico → q12 Bastião → dw_gates segurar os portões → postos e Carniçal Gigante → assentamento → postos e Vorhag → postos e Morvath → Ofensiva da Aurora (Lich-Rei); laterais: núcleos, Cripta, Dragonete. c6 (Conde Vargo) é opcional e pede grupo; q11 (Chefe dos Bandidos) e a linha do Dario viraram laterais.
+q10b Rainha Aranha → el1 trompas → el2 segurar o portão (investidas) → el3 além da garganta → el4 trents → el5 Guardiões → el6 Rei Élfico → q12 Bastião → dw_gates segurar os portões → postos e Carniçal Gigante → assentamento → postos e Vorhag → postos e Morvath → Ofensiva da Aurora (Lich-Rei) → De Volta a Aldara (epílogo, fim do Ato I); laterais: núcleos, Cripta, Dragonete. c6 (Conde Vargo) é opcional e pede grupo; q11 (Chefe dos Bandidos) e a linha do Dario viraram laterais.
 
 Faixa do meio (10-20): monstros 1-2 níveis acima do antigo, quests de abate pedem 1,5x e a faixa toda paga mais em quest (`Balance.XP_QUEST_SHARE_BAND`: 55% em vez de 45%).
 
@@ -583,6 +587,12 @@ preparação de magia, esquiva, crítico, arco/tiro, nível, quest e volta à ci
 - Skill: som do TEMA visual (`FxManager.theme_of` → `Sfx.THEME_SOUND`; magia sem tema = arcano) no ponto mirado; magia com preparação ≥ 0,2 s zumbe antes.
 - Volume pela distância ao jogador (cheio até 8 m, some em 40 m), direção pela câmera; briga dos outros -5 dB; cada som tem intervalo mínimo e no máximo 3 vozes iguais.
 - Interface: todo botão clica, janela abre/fecha, nível, quest aceita/concluída, item (épico+ brilha), ouro, poção, equipar, forja, colheita, porta de casa.
+
+## Dicas contextuais — `Tips` (game/ui/tips.gd)
+Começo guiado sem tutorial travado: um cartão acima da barra aparece UMA vez quando a mecânica fica relevante (andar, atacar com monstro perto,
+skills, dash/guarda ao levar dano, poção com vida baixa, colheita perto, quest, bolsa ao ganhar peça, teia no nível 2, cavalo no 3, talentos no 5,
+voltar à cidade longe de casa, grupo no convite, câmera/mapa, morte). Some em 9 s ou no clique; vistas em `user://settings.cfg` (todos os personagens),
+Esc → "Dicas" liga/desliga; partida automática não grava. Revisar: `-- --autostart=<c> --tip_shot=<png> [--tip=<id>]`.
 
 ## Fora de escopo (por enquanto)
 Rede real, PvP, guildas, dungeons instanciadas, música e som ambiente.

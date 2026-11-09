@@ -55,6 +55,10 @@ func _ready() -> void:
 	sfx.name = "Sfx"
 	sfx.main = self
 	add_child(sfx)
+	var festival := FestivalFx.new()          # fogos nas praças depois do Lich (fim do Ato I)
+	festival.name = "FestivalFx"
+	festival.main = self
+	world_root.add_child(festival)
 	var recall_fx := RecallFx.new()          # coluna de luz da volta à cidade (G)
 	recall_fx.name = "RecallFx"
 	world_root.add_child(recall_fx)

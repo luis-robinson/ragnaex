@@ -96,6 +96,35 @@ const DAWN_ROLE_LINES := {"wall": ["Daqui de cima eu vejo todos chegando.", "Um 
 	"crossbow": ["Do muro eu acerto o que você não alcança.", "Morcegos são os piores. Rápidos e baixos."]}
 const DAWN_RESPAWN := 12.0
 
+## Festa da vitória (fim do Ato I): quem só aparece depois que o Lich cai (`if` = quest do Lich; WorldState faz nascer).
+## mapa -> id -> [nome, papel, cor, falas, x, z, passeio m].
+const VICTORY_QUEST := "dw_lich"
+const ACT_END_QUEST := "dw_epilogue"      # entregar ao Ancião Ravi = fim do Ato I (tela de encerramento do HUD)
+const FESTIVAL := {
+	"city_aldara": {
+		"fest_bard": ["Bardo Fennel, o Moço", "villager", Color(0.55, 0.8, 0.45), ["♪ E o Lich caiu, caiu, caiu... e Aldara cantou! ♪", "Estou compondo a sua canção. Rima com \"Azhar\"? Só \"jantar\"."], -7.0, -2.0, 3.0],
+		"fest_dancer_a": ["Dançarina Mel", "villager", Color(0.95, 0.55, 0.6), ["Dança comigo! Hoje ninguém fica parado na praça!", "Três dias de festa, foi o que o Ancião prometeu."], 7.0, -2.0, 4.0],
+		"fest_dancer_b": ["Tico Saltitante", "villager", Color(0.95, 0.8, 0.35), ["A noite acabou! A NOITE ACABOU!", "Eu sempre soube que você ia voltar."], -3.0, 8.0, 4.0],
+		"fest_brewer": ["Mestre Cervejeiro Duda", "villager", Color(0.7, 0.5, 0.3), ["Cerveja por conta da casa para o herói da Aurora!", "Barril novo, aberto em sua honra."], 3.0, 8.0, 2.0],
+	},
+	"field_ruins": {
+		"fest_soldier_a": ["Soldado Bruno", "guard", Color(0.85, 0.85, 0.9), ["Vencemos! Vou dormir uma semana inteira.", "Nenhum osso se mexe mais na garganta."], 10.0, 6.0, 3.0],
+		"fest_soldier_b": ["Arqueira Tainá", "guard", Color(0.8, 0.9, 0.8), ["Os fogos são ideia do Comandante. Bonitos, não?", "Guardei a última flecha. De lembrança."], 10.0, -6.0, 3.0],
+		"fest_cleric": ["Irmã Alba", "villager", Color(0.95, 0.9, 0.75), ["Que a luz da Aurora fique com você, sempre.", "Rezamos pelos que não voltaram da Cidadela."], 6.0, 15.0, 2.0],
+	},
+}
+
+static func festival(map_id: String) -> Array:
+	var out: Array = []
+	var t: Dictionary = FESTIVAL.get(map_id, {})
+	for nid in t:
+		var v: Array = t[nid]
+		var d := _npc(nid, v[0], float(v[4]), float(v[5]), v[1], v[2], v[3], 180.0)
+		d["wander"] = float(v[6])
+		d["if"] = VICTORY_QUEST
+		out.append(d)
+	return out
+
 static func dawn_garrison(npc_pos: Dictionary, prefix: String = "dawn_g_") -> Array:
 	var out: Array = []
 	var count := {}
@@ -789,6 +818,7 @@ static func _aldara() -> MapDef:
 	npcs.append_array(_place_npcs("city_aldara", npc_pos))
 	npcs.append_array(crystal_npc("city_aldara"))
 	npcs.append_array(villagers())
+	npcs.append_array(festival("city_aldara"))
 	z["portals"] = (z["portals"] as Array) + _door_portals(_interior_doors(z))
 	z.erase("npc_pos")
 	z.merge({
@@ -833,7 +863,7 @@ static func _elf_city() -> MapDef:
 static func _ruins() -> MapDef:
 	var z := load_zone("field_ruins")
 	var p: Array = z["npc_pos"].get("ruins_scholar", [0.0, 0.0, 180.0])
-	var extra := _place_npcs("field_ruins", z["npc_pos"]) + dawn_services(z["npc_pos"]) + dawn_garrison(z["npc_pos"]) + crystal_npc("field_ruins")
+	var extra := _place_npcs("field_ruins", z["npc_pos"]) + dawn_services(z["npc_pos"]) + dawn_garrison(z["npc_pos"]) + crystal_npc("field_ruins") + festival("field_ruins")
 	z.erase("npc_pos")
 	z.merge({
 		"id": "field_ruins", "name": "Bastião da Aurora", "is_town": false, "hub": true, "level_range": Vector2i(20, 30), "sortie": SORTIES["field_ruins"],

@@ -47,6 +47,8 @@ var windows_script
 var npc_ui
 var class_select: CanvasLayer = null
 var death_panel: Control = null
+var act_end_panel: Control = null
+var tips: Tips = null
 var _chat_focus := false
 
 # layout (em px da resolução base 1280x720; a janela 1920x1080 escala 1.5x)
@@ -75,6 +77,9 @@ func _ready() -> void:
 	_build_notifications()
 	_build_bottom_row()
 	_build_cast_bar()
+	tips = Tips.new()                       # dicas contextuais do começo (uma vez cada; Esc liga/desliga)
+	tips.hud = self
+	root.add_child(tips)
 	windows_script = load("res://game/ui/windows.gd").new()
 	windows_script.hud = self
 	root.add_child(windows_script)
@@ -97,6 +102,7 @@ func _ready() -> void:
 	Events.party_changed.connect(func(_p): refresh_party())
 	Events.party_invited.connect(_on_party_invited)
 	Events.recall_cast.connect(_on_recall_cast)
+	Events.quest_completed.connect(_on_act_quest)
 
 func _on_level_up(id: int, _lv: int) -> void:
 	if Sim.player and id == Sim.player.id:
@@ -751,7 +757,7 @@ func toggle_world_map() -> void:
 
 func _update_blocking() -> void:
 	if main and main.controller:
-		main.controller.ui_blocking = _chat_focus or npc_ui.is_open() or (death_panel != null) or (class_select != null) or (game_menu != null)
+		main.controller.ui_blocking = _chat_focus or npc_ui.is_open() or (death_panel != null) or (class_select != null) or (game_menu != null) or (act_end_panel != null)
 
 # ---------------------------------------------------------------------------
 func _notify(text: String) -> void:
@@ -940,6 +946,62 @@ func _on_died(id: int, _k: int) -> void:
 		root.add_child(death_panel)
 		_update_blocking()
 
+## Entregou o epílogo ao Ancião Ravi: tela de fim do Ato I (e do MVP). O jogo continua depois.
+func _on_act_quest(id: int, qid: String) -> void:
+	if Sim.player and id == Sim.player.id and qid == MapsCatalog.ACT_END_QUEST:
+		show_act_end()
+
+func show_act_end() -> void:
+	if act_end_panel or Sim.player == null:
+		return
+	if npc_ui.is_open():
+		npc_ui.close()
+	var p: SimEntity = Sim.player
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.6)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	root.add_child(dim)
+	act_end_panel = dim
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.add_child(center)
+	var panel := UiKit.panel(Color(0.08, 0.07, 0.12, 0.96), UiKit.GOLD)
+	center.add_child(panel)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	v.custom_minimum_size.x = 560
+	panel.add_child(v)
+	for row in [["FIM DO ATO I", 38, UiKit.GOLD], ["A Noite de Azhar", 18, UiKit.TEXT]]:
+		var l := UiKit.label(row[0], row[1], row[2])
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_child(l)
+	var story := UiKit.label("Do portão de Aldara com uma arma de treino até o trono da Cidadela: a Floresta foi salva do cerco, as três fortalezas voltaram para a Aurora e Azhar, o Lich-Rei, virou pó. A praça canta o nome de %s." % p.name, 14, UiKit.TEXT)
+	story.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	story.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(story)
+	var stats := UiKit.label("%s — %s Lv.%d   ·   %d quests concluídas   ·   %d de ouro" % [p.name, p.class_def.name if p.class_def else "", p.level, p.quests_completed.size(), p.gold], 13, UiKit.MUTED)
+	stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(stats)
+	var thanks := UiKit.label("Você completou o MVP do RagnaEx. Obrigado por jogar!", 15, UiKit.GOLD)
+	thanks.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(thanks)
+	var after := UiKit.label("O mundo continua: caçadas repetíveis, lendários e os chefes esperam por você.", 12, UiKit.MUTED)
+	after.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(after)
+	var btn := UiKit.button("Continuar jogando", close_act_end, 220)
+	var bc := CenterContainer.new()
+	bc.add_child(btn)
+	v.add_child(bc)
+	Sfx.ui("level_up")
+	_update_blocking()
+
+func close_act_end() -> void:
+	if act_end_panel:
+		act_end_panel.queue_free()
+		act_end_panel = null
+	_update_blocking()
+
 func _on_respawned(id: int) -> void:
 	if Sim.player and id == Sim.player.id and death_panel:
 		death_panel.queue_free()
@@ -983,6 +1045,12 @@ FSR 2: renderiza menor e reconstrói — mais FPS em PC fraco, contorno pode tre
 	v.add_child(gfx)
 	for bus in AudioSettings.BUSES:
 		v.add_child(_volume_row(bus))
+	var tip_btn := UiKit.button("", Callable(), 240)
+	tip_btn.text = "Dicas: " + ("ligadas" if tips.enabled else "desligadas")
+	tip_btn.tooltip_text = "Cartões curtos que explicam cada mecânica na primeira vez que ela aparece."
+	tip_btn.pressed.connect(func(): tips.set_enabled(not tips.enabled); tip_btn.text = "Dicas: " + ("ligadas" if tips.enabled else "desligadas"))
+	tip_btn.add_theme_font_size_override("font_size", 13)
+	v.add_child(tip_btn)
 	var hint := UiKit.label("O jogo também salva sozinho a cada minuto e ao fechar a janela.", 10, UiKit.MUTED)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(hint)

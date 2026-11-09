@@ -363,6 +363,7 @@ const SET_5PC_CDR_PER_TIER := 2.0
 const BOT_CHAT_MIN := 25.0
 const BOT_CHAT_MAX := 90.0
 const BOT_CHAT_PLACE := 0.5                # conversa solta: chance de falar do lugar (senão da classe/build)
+const BOT_CHAT_VICTORY := 0.45            # depois do Lich, na cidade/Bastião: chance de a conversa ser comemoração
 const BOT_CHAT_SITUATION := 0.6            # chefe vivo por perto ou investida no mapa: chance de falar disso
 const BOT_CHAT_BOSS_RANGE := 30.0          # m: chefe vivo até aqui conta como "perto"
 const BOT_CHAT_RECENT := 4                 # falas recentes que o bot evita repetir

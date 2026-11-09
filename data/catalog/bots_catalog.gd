@@ -56,6 +56,12 @@ const MAP_KIND := {
 }
 const WALLED := ["aldara", "forest", "dawn"]     # tipos com vila/povoado murado (variante <tipo>_town)
 
+## Depois que o Lich cai (MapsCatalog.VICTORY_QUEST feita): a cidade e o Bastião comemoram no chat.
+const VICTORY_LINES := ["O LICH CAIU!!! festa na praça", "{p} matou o Azhar, alguém viu?? lendário", "GG {p}, a noite acabou de vez",
+	"cerveja de graça na taverna, é o que dizem", "olha os fogos em cima do chafariz", "três dias de festa, nem vou caçar hoje",
+	"alguém tira print dos fogos", "o bardo já fez música pro {p}", "valeu {p}, Aldara te deve uma", "a Aurora venceu \\o/",
+	"saudade do medo que dava a Cidadela kkk", "e agora? farmar lendário até o próximo ato"]
+
 const PLACE_LINES := {
 	"aldara_town": ["o chafariz da praça é o melhor ponto de afk", "a taverna do Gus tá lotada hoje", "a Relicária troca moeda lendária, só lembrando",
 		"alguém pra Gruta Gotejante?", "o Brom aprimora até +9 e nunca quebra, confia", "quem vende bolsa ampliada?", "vou passar no ferreiro e já volto",
@@ -227,6 +233,7 @@ static func pools() -> Dictionary:
 		out["place:" + kind] = (PLACE_LINES[kind] as Array).duplicate()
 	(out["place:aldara_town"] as Array).append_array(LINES["town"])     # papo de cidade antigo é de Aldara
 	(out["place:aldara_field"] as Array).append_array(LINES["hunt"])
+	out["place:victory"] = VICTORY_LINES.duplicate()
 	for cid in CLASS_VOICE:
 		var v: Dictionary = CLASS_VOICE[cid]
 		var arr: Array = (v["lines"] as Array).duplicate()

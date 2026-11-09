@@ -139,6 +139,12 @@ func after_start() -> void:
 	if DevArgs.has("--return_check"):      # revisão: menu do Esc (foto) e "voltar ao menu"
 		_menu_check()
 		return
+	if DevArgs.flag("--tip_shot"):          # revisão: cartão de dica (--tip=<id>, padrão attack)
+		_tip_shot(DevArgs.value("--tip_shot"))
+		return
+	if DevArgs.flag("--act_end_shot"):      # revisão: festa do fim do Ato I (praça) e a tela de encerramento
+		_act_end_shot(DevArgs.value("--act_end_shot"))
+		return
 	_smoke_test = showcase == null and not DevArgs.has("--perf")
 	if DevArgs.flag("--block_shot"):      # fotos do bloqueio e do aparar (escudo: --shield=<id>)
 		_smoke_test = false
@@ -846,6 +852,34 @@ func _title_shot(path: String) -> void:
 			if tab != "":
 				cs._look_tab = tab
 			cs._set_step(step)
+	await get_tree().create_timer(1.0).timeout
+	get_viewport().get_texture().get_image().save_png(path)
+	get_tree().quit()
+
+func _tip_shot(path: String) -> void:
+	await get_tree().create_timer(1.0).timeout
+	var tips: Tips = main.hud.tips
+	tips.seen.clear()
+	tips._queue.clear()
+	tips._hide_card()
+	tips._gap = 0.0
+	tips.request(DevArgs.value("--tip", "attack"))
+	await get_tree().create_timer(1.0).timeout
+	print("TIP na tela: ", tips.current(), " rect=", tips._card.get_global_rect() if tips._card else Rect2(), " tips=", tips.get_global_rect(), " vis=", tips.is_visible_in_tree())
+	get_viewport().get_texture().get_image().save_png(path)
+	get_tree().quit()
+
+## Lich morto: festeiros nascem e os fogos começam (foto <png>_festa.png); depois a tela do fim do ato (<png>).
+func _act_end_shot(path: String) -> void:
+	Sim.sync()
+	Sim.player.quests_completed.append(MapsCatalog.VICTORY_QUEST)
+	await get_tree().create_timer(3.0).timeout
+	var fest: FestivalFx = main.world_root.get_node("FestivalFx")
+	for i in 3:
+		fest.launch()
+	await get_tree().create_timer(fest.RISE + 0.25).timeout
+	get_viewport().get_texture().get_image().save_png(path.get_basename() + "_festa.png")
+	main.hud.show_act_end()
 	await get_tree().create_timer(1.0).timeout
 	get_viewport().get_texture().get_image().save_png(path)
 	get_tree().quit()

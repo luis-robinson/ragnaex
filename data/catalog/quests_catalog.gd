@@ -228,6 +228,13 @@ static func build() -> Array:
 		 "description": "Suba a rampa da Cidadela com a Ofensiva da Aurora e destrua Azhar, o Lich-Rei.",
 		 "dialog_offer": "A Aurora inteira marcha com você. Três portões, a guarda das três fortalezas e, no trono, Azhar. Acabe com a noite.",
 		 "dialog_progress": "Ele chama os ossos, depois a ninhada e os espectros. No fim, perde a calma: segure firme.", "dialog_complete": "A noite... recuou. O Bastião vai cantar o seu nome por cem anos."},
+		# Epílogo do Ato I: a volta para casa. Entregar = fim do ato (o HUD mostra a tela de encerramento).
+		{"id": "dw_epilogue", "title": "De Volta a Aldara", "giver_npc": "dawn_commander", "turnin_npc": "elder", "type": TALK, "target_id": "elder", "count": 1, "level_req": 27, "prereq_quest": "dw_lich",
+		 "reward_xp": 600, "reward_gold": 1500, "reward_items": {"legend_coin": 2}, "map_hint": "Vale de Aldara: o Ancião Ravi, na praça (G volta à cidade)",
+		 "description": "Azhar caiu. Volte para casa e conte ao Ancião Ravi que a noite acabou.",
+		 "dialog_offer": "Azhar virou pó e a Aurora deve isso a você. Agora vá para casa, herói: Aldara precisa ouvir da sua boca. Conte ao Ancião Ravi que a noite acabou.",
+		 "dialog_progress": "Aldara fica longe daqui. O cristal (G) te leva num instante.",
+		 "dialog_complete": "Eu sabia, desde o dia em que você passou pelo portão com uma arma de treino na mão. Ouça a praça: é o seu nome que estão cantando. Aldara resiste mais trezentos anos, graças a você."},
 		{"id": "dw_bile", "title": "Bile para o Caldeirão", "giver_npc": "dawn_alchemist", "type": COLLECT, "target_id": "rot_gel", "count": 8, "level_req": 21, "repeatable": true,
 		 "reward_xp": 1400, "reward_gold": 260, "reward_items": {"holy_silver": 1}, "map_hint": "Bastião: front oeste e Covil do Carniçal",
 		 "description": "Traga 8 Biles Pútridas para a Irmã Celes queimar. Repetível.", "dialog_offer": "Bile pútrida queima limpo num caldeirão consagrado. Traga oito e eu te pago em prata benzida.",

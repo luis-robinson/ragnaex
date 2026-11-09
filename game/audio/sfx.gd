@@ -23,7 +23,7 @@ const VOL := {
 	"lunar": -6.0, "summon": -6.0, "heal": -8.0, "bone": -6.0, "die_monster": -7.0, "die_boss": -2.0,
 	"pickup": -8.0, "coins": -8.0, "gem": -4.0, "potion": -6.0, "equip": -8.0, "craft": -6.0, "gather": -6.0,
 	"door": -8.0, "click": -10.0, "page": -8.0, "ui_open": -14.0, "ui_close": -16.0, "level_up": -3.0,
-	"quest_accept": -5.0, "quest_done": -3.0, "recall": -6.0, "recall_done": -5.0, "death": -3.0,
+	"quest_accept": -5.0, "quest_done": -3.0, "recall": -6.0, "recall_done": -5.0, "death": -3.0, "firework": -7.0,
 }
 ## Tema visual (FxManager.theme_of) -> som da skill. Físico não tem: quem soa é o golpe (swing/hit).
 const THEME_SOUND := {

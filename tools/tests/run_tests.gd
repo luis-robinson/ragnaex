@@ -714,6 +714,8 @@ func _check_zone(gd, sim) -> void:
 	_check_dungeons(gd, sim)
 	_check_fort_lairs(gd, sim)
 	_check_sfx_bank(gd)
+	_check_epilogue(gd)
+	_check_tips()
 	_check_catacombs(gd, sim)
 	_check_melee_reach(gd, sim)
 	_check_accents()
@@ -4813,6 +4815,64 @@ func _check_places(gd, sim, md: MapDef) -> void:
 ## Fortalezas do terceiro andar com layout próprio (não o molde de muralha): Covil do Carniçal (pântano-ninho, rio de
 ## bile), Fortaleza dos Ossos (necrópole, fenda com ponte de ossos), Torre do Mago Gélido (lago congelado, canal de água
 ## escura em volta da ilha). Tudo alcançável a pé da chegada; fechando as duas pontes, o chefe fica isolado.
+## Dicas contextuais: cada uma uma vez, desligar cala, o "visto" fica salvo (arquivo próprio do teste, nunca o do jogador).
+func _check_tips() -> void:
+	for id in Tips.TIPS:
+		check(str(Tips.TIPS[id]).length() <= 120, "dica %s cabe no cartão (%d letras)" % [id, str(Tips.TIPS[id]).length()])
+	var old := Tips.cfg_path
+	Tips.cfg_path = "user://test_tips.cfg"
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(Tips.cfg_path))
+	var t := Tips.new()
+	t.load_state()
+	check(t.enabled and t.seen.is_empty(), "dicas: arquivo novo começa ligado e sem nenhuma vista")
+	check(t.request("attack"), "dicas: a primeira vez entra na fila")
+	check(not t.request("attack"), "dicas: a mesma dica não volta")
+	check(not t.request("nao_existe"), "dicas: id desconhecido é ignorado")
+	t.set_enabled(false)
+	check(not t.request("dash"), "dicas: desligadas não aparecem")
+	var t2 := Tips.new()
+	t2.load_state()
+	check(t2.seen.has("attack") and not t2.seen.has("dash") and not t2.enabled, "dicas: vistas e o desligado ficam salvos")
+	t.free()
+	t2.free()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(Tips.cfg_path))
+	Tips.cfg_path = old
+
+## Fim do Ato I: o epílogo sai do Lich, volta ao Ancião Ravi; a festa (NPCs, fogos, chat dos bots) só depois do Lich.
+func _check_epilogue(gd) -> void:
+	var q: QuestDef = gd.quests.get(MapsCatalog.ACT_END_QUEST)
+	check(q != null, "epílogo %s existe" % MapsCatalog.ACT_END_QUEST)
+	if q == null:
+		return
+	check(q.prereq_quest == MapsCatalog.VICTORY_QUEST and q.giver_npc == "dawn_commander" and q.turnin_npc == "elder",
+		"epílogo: sai do Comandante depois do Lich e volta ao Ancião Ravi")
+	check(gd.quests.values().all(func(o): return o.prereq_quest != MapsCatalog.ACT_END_QUEST), "epílogo é a última quest da história")
+	var aldara: MapDef = gd.maps["city_aldara"]
+	check(aldara.npcs.any(func(n): return n["id"] == "elder"), "Ancião Ravi está em Aldara")
+	check(gd.maps["field_ruins"].npcs.any(func(n): return n["id"] == "dawn_commander"), "Comandante está no Bastião")
+	check(BotChat.pool("place:victory").size() >= 8, "bots têm falas de vitória")
+	var ff := FestivalFx.new()
+	check(ff is Node3D and Sfx.VOL.has("firework"), "fogos têm efeito e som")
+	ff.free()
+	for mid in MapsCatalog.FESTIVAL:
+		var def: MapDef = gd.maps[mid]
+		var fest: Array = def.npcs.filter(func(n): return str(n["id"]).begins_with("fest_"))
+		check(fest.size() == (MapsCatalog.FESTIVAL[mid] as Dictionary).size() and fest.all(func(n): return n.get("if", "") == MapsCatalog.VICTORY_QUEST),
+			"%s: festeiros só depois do Lich (%d)" % [mid, fest.size()])
+		var ws := WorldSim.new()
+		ws.load_map(gd.maps[GameData.town_map_id()])
+		var m: Dictionary = ws.load_map(def)
+		for n in fest:
+			check(ws.is_walkable(n["pos"], def, 0.4), "%s: festeiro %s em chão andável" % [mid, n["id"]])
+		ws.player = ws.spawn_player(gd.classes["paladin"], "Teste", def.id)
+		var live := func() -> int:
+			return m["entities"].filter(func(e): return str(e.npc_data.get("id", "")).begins_with("fest_")).size()
+		WorldState.sync_npcs(ws, m)
+		check(live.call() == 0, "%s: sem o Lich morto, ninguém festeja" % mid)
+		ws.player.quests_completed.append(MapsCatalog.VICTORY_QUEST)
+		WorldState.sync_npcs(ws, m)
+		check(live.call() == fest.size(), "%s: Lich morto, os festeiros aparecem (%d)" % [mid, live.call()])
+
 ## Áudio: todo som citado pelo Sfx existe no banco (tools/audio/build_sfx.py), todo tema de skill soa,
 ## o banco carrega e os barramentos de volume existem.
 func _check_sfx_bank(gd) -> void:
