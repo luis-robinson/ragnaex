@@ -10,6 +10,9 @@ o cursor, LMB básico, skills como skillshots/área no cursor).
    recovery cancelável por movimento/dash, hit-stop curto. **Encadear (estilo Diablo)**: 0,05 s depois do impacto outra skill ou o
    básico já sai, sem esperar a animação acabar; o golpe atual sempre acerta (tudo é aplicado no impacto). Básico atrás de básico
    mantém o ritmo dele; monstros não encadeiam (`WorldSim._can_chain`, `Balance.CHAIN_AFTER_IMPACT`).
+   **Dash com i-frames**: o dash inteiro (`Balance.DASH_IFRAMES`, 0,18 s) é invulnerável a golpe direto, skill, projétil e chuva
+   de chefe, e efeito de inimigo (atordoar, prender, gancho) não pega; dano no tempo que já estava em você continua. Vale também
+   no dash que cancela uma skill. Na tela aparece como esquiva (`Events.dodged`).
 2. **Mira pelo mouse**: toda skill tem forma no chão (retículo) — SELF / DIRECTION / GROUND / CONE / TARGET.
 3. **Equipamento é poder, build é escolha**: atributos vêm só de itens; level dá HP/MP base e pontos de skill;
    a arma empunhada decide quais skills funcionam.
@@ -164,7 +167,7 @@ Rosto: tom de pele (9), sobrancelhas, boca e marcas (cicatriz, sardas, pintura d
 peça restrita só para a classe dela; poções e materiais para todos) e `can_craft` recusa o resto.
 **Ícones dos conjuntos** (`tools/icons/set_icons.tscn`): enquadramento automático pelos vértices; arma vista pela face larga em diagonal
 (eixos principais), uma luva só, cabeça com o rosto do boneco como manequim.
-**Montaria (H)**: só fora de combate (`combat_timer`), fora de forma animal e de dungeon; `Balance.MOUNT_SPEED_MULT` 1,7.
+**Montaria (H)**: conjuração de `Balance.MOUNT_CAST_TIME` (1,5 s; vale em combate e andando; barra de conjuração e leque no botão H); agir, pular, bloquear, começar a volta (G), ser atordoado ou levar golpe interrompe; H de novo cancela. Fora de forma animal; `Balance.MOUNT_SPEED_MULT` 1,7. Bots só montam fora de combate.
 Atacar, usar skill, dash ou bloquear desmonta e a ação acontece; levar golpe derruba (`WorldSim.dismount`, evento `mount_changed`).
 Bots montam às vezes andando fora de combate. Visual: `mob_horse.glb` (`mob_kit.horse`, pelagem "tint" com cor por entidade) e o boneco
 no clipe "ride" gerado do idle (`RidePose.ensure_clip`, pernas/braços fixos). Revisar: `lineup.tscn -- --mounted [--front] [--nohorse]`.
@@ -406,20 +409,20 @@ Todo chefe de grupo tem resposta de longe, invocação e três fases; quem kita 
   `berserk_after` = s de luta até o dano × `Balance.BOSS_BERSERK_MULT` (corta luta solo longa sem mexer no trio, que acaba em 30-70 s).
 - **Faixas** (`boss_probe --bands`): campo/elite = solo 60-100%, trio 90-100%; grupo = solo 20-40%, trio 75-100% em 30-150 s,
   4+ skills/min, 35%+ do tempo golpeando, 4+ lacaios, 10%+ do dano fora do alvo, 2+ golpes/min em quem kita a 9,5 m.
-  Com 20 lutas o solo oscila ±10 pontos entre rodadas (sorteio muda com a ordem dos chefes): mire no meio da faixa e confirme com 40.
+  Com 20 lutas o solo oscila ±10 pontos entre rodadas (sorteio muda com a ordem dos chefes): mire no meio da faixa e confirme com 40. Desde o dash com i-frames (os bots desviam pelo dash) o solo subiu ~5-10 pontos; Chefe dos Bandidos (52 mil, fúria 120 s), Golem Ancestral (27 mil, 130 s) e Rei Élfico (55 mil, 110 s) foram reajustados com 40 lutas.
 - **Sonda**: o bot da sonda (`StayBrain`) não sai da sala e volta ao chefe que resetou (antes ficava parado a 30 m e a luta contava
   como derrota). `--why` mostra dano por fonte, estado do chefe (`STATES`) e onde cada um estava numa luta que não começou.
 
 | Chefe | Sozinho | Trio | Trio (s) |
 |---|---|---|---|
-| Chefe dos Bandidos | 35% | 95% | 37 |
+| Chefe dos Bandidos | 28% | 98% | 40 |
 | Rainha Aranha | 35% | 100% | 42 |
 | Senhor da Cripta | 30% | 100% | 37 |
 | Capitão de Ossos | 35% | 100% | 42 |
 | Viúva Lamentosa | 40% | 100% | 37 |
 | Conde Vargo | 15-30% | 100% | 41 |
-| Rei Élfico | 30% | 100% | 47 |
-| Golem Ancestral | 35% | 100% | 43 |
+| Rei Élfico | 33% | 100% | 50 |
+| Golem Ancestral | 40% | 100% | 44 |
 | Guardiã de Cristal | 30% | 100% | 40 |
 | Coração da Pedreira | 25% | 100% | 66 |
 | Sylvara (Caçadora) | 40% | 85% | 36 |
@@ -522,7 +525,7 @@ Movimento: atravessam água só pelas pontes (`WorldSim.water_path`, grafo de ca
   ganha a aparência do tema (`SkillDef.look`, só visual: não estilhaça nem atordoa) e perde `SIGNATURE_BASIC_TRIM`. Calibrado com
   `tools/tests/dps_probe.tscn` (cada build, nv 10/20/30, com x sem: -5%..+10%); revisar com `-- --autostart=<classe> --sig_film=<png>`.
 - **Invocações lutam sozinhas** (`MonsterBrain._summon_target`): quem bate no dono, depois quem o dono ataca, quem bate nela, o monstro mais perto do dono
-  (`SUMMON_ASSIST_RANGE`); coleira de `SUMMON_LEASH` no dono; usam as skills do monstro; as que atiram (`ranged`: elementais de gelo/raio, lich) recuam
+  (`SUMMON_ASSIST_RANGE`); coleira de `SUMMON_LEASH` no dono; a que ficar presa a mais de `SUMMON_TELEPORT` (36 m) aparece ao lado dele, e refazer a skill dispensa a que está fora da coleira e chama de novo (antes: "já está com você" com o bicho perdido); usam as skills do monstro; as que atiram (`ranged`: elementais de gelo/raio, lich) recuam
   medindo do alvo. Ataque e magia vêm do dono. Ordem do companheiro segura o alvo `PET_COMMAND_FOCUS` s. Sonda: `tools/tests/pet_probe.tscn` (FLAG = sem alvo, golpe lento, atirador colado).
 - **Bots**: aceitam convites (nível próximo); no grupo, quem não é líder segue o líder (por portais também), cura quem
   está abaixo de 60% de HP e ataca o que bate no grupo. Bot que sai pra caçar às vezes chama bots da vila e, raramente, o jogador

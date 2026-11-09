@@ -154,6 +154,7 @@ const CRYSTAL_ARRIVE := 2.4             # m na frente do cristal onde o G/renasc
 const RECALL_NEAR := 12.0               # já está a isto do ponto de retorno: G não faz nada
 const SUMMON_ASSIST_RANGE := 13.0       # invocação ajuda contra monstros a até isto do dono
 const SUMMON_LEASH := 18.0              # m do dono: mais longe larga a briga e volta
+const SUMMON_TELEPORT := 36.0           # m do dono: invocação mais longe que isto (presa, perdida) aparece ao lado dele
 const SUMMON_RETHINK := 0.4             # s entre reescolhas de alvo da invocação
 const PET_COMMAND_FOCUS := 4.0          # s que o companheiro segura o alvo mandado pelo dono
 const SUMMON_ATK_REF := 12.0
@@ -161,7 +162,8 @@ const SUMMON_ATK_MIN := 0.6
 const SUMMON_ATK_MAX := 2.5
 ## Montaria (H): só fora de combate; atacar, usar skill, dash, bloquear ou levar dano desmonta
 const MOUNT_SPEED_MULT := 1.7
-const MOUNT_COMBAT_LOCK := 3.0            # s depois do último golpe/dano antes de poder montar de novo
+const MOUNT_COMBAT_LOCK := 3.0            # s de "em combate" depois do último golpe/dano (bots não montam nisso; o jogador pode)
+const MOUNT_CAST_TIME := 1.5              # s de conjuração para montar (H); dá para andar; agir ou levar golpe interrompe
 const BOT_MOUNT_CHANCE := 0.04            # por pensamento, bot andando fora de combate monta
 ## Otimização: mapa sem o jogador simula a cada N ticks (passo N vezes maior)
 const AWAY_MAP_EVERY := 4
@@ -245,6 +247,7 @@ const CHAIN_AFTER_IMPACT := 0.05            # depois do impacto, outra skill/ata
 const HIT_STOP_FRAMES_BASIC := 2
 const DASH_DISTANCE := 3.2
 const DASH_TIME := 0.18
+const DASH_IFRAMES := 0.18              # s invulnerável a golpe direto depois de sair o dash (o dash inteiro; dano no tempo continua)
 const DASH_SKILL_STEP := 0.25          # investida anda em passos: para em parede e rio, não salta por cima
 const JUMP_VELOCITY := 6.2          # m/s para cima (Espaço): ~0,96 m de altura
 const JUMP_GRAVITY := 20.0          # m/s²: ~0,62 s no ar

@@ -81,6 +81,8 @@ var dash_charges_used: int = 0       # evolução "2 cargas": dashes já usados 
 var dash_params: Dictionary = {}     # dash resolvido no início (distância, fantasma, atordoa...)
 var is_blocking: bool = false
 var parry_left: float = 0.0          # s restantes da janela de aparar
+var mount_left: float = 0.0          # s até montar (conjuração do H; 0 = não está montando)
+var iframe_left: float = 0.0         # s de invulnerabilidade do dash (golpe direto e efeitos de inimigo não pegam)
 var parry_cd: float = 0.0
 var shield_react_cd: float = 0.0
 var guard_broken: bool = false       # MP zerou segurando a guarda: só volta soltando o botão

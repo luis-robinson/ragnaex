@@ -1055,7 +1055,9 @@ func _update_bars() -> void:
 		_set_seg(shield_fill, sp.x, sp.y, 1.0)
 	hp_bar.visible = entity.is_alive() and ((entity.kind != SimEntity.Kind.MONSTER and not entity.guard) or ratio < 1.0 or entity.aggro_target >= 0)
 	var casting := entity.state == SimEntity.State.CASTING and entity.current_skill != null and entity.current_skill.startup > 0.2
-	var recall := Sim.recall_progress(entity)          # volta à cidade (G) também mostra a conjuração
+	var recall := Sim.recall_progress(entity)          # volta à cidade (G) e montaria (H) também mostram a conjuração
+	if recall <= 0.0:
+		recall = Sim.mount_progress(entity)
 	cast_bar.visible = (casting and entity.skill_phase == "startup") or recall > 0.0
 	if recall > 0.0:
 		_set_bar(cast_fill, recall, 0.8)

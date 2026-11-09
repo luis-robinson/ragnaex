@@ -115,10 +115,12 @@ dead target. Buffs and shields never land on enemies (they go to the caster inst
 - Shield reactions on block (stun on parry, Oath and Grace) are in `ShieldSystem`.
 
 ### 2.8 Dash
-A dash moves the character and cancels casts (with refund before impact). Today it has
-**no invulnerability**: the character can be hit mid-dash.
-**Design gap (confirmed by the author): dash should have invulnerability frames.**
-The length of the window is not designed yet.
+A dash moves the character `DASH_DISTANCE` over `DASH_TIME` (0.18 s) and cancels casts (with
+refund before impact). **Invulnerability (decided 2026-11-09):** for `DASH_IFRAMES` (0.18 s,
+the whole dash) direct hits miss: basic attacks, skills, projectiles and boss barrage circles,
+and effects from hostile sources (stun, root, slow, pull…) are not applied. Dots and burns
+already on the character keep ticking. A dash that cancels a cast gets the same window.
+A missed hit shows as a dodge (`Events.dodged`). Bots get it too (they dash out of telegraphs).
 
 ### 2.9 Threat
 Threat = damage × (1 + `threat_pct`/100). A monster switches target when another source
@@ -179,11 +181,13 @@ evasion 45, cooldown reduction 25, element 60.
 - **Target leaves or dies during the wind-up:** not hit (targets are chosen at impact).
 - **Caster stunned mid-cast:** the skill is lost, no refund (confirmed intent).
 - **Dash before impact:** cast cancelled, mana and cooldown refunded.
-- **Hit while dashing:** takes full damage today (gap: should have i-frames).
+- **Hit while dashing:** misses (i-frames); a dot already applied still ticks.
+- **Dash charges:** each dash of a multi-charge evolution starts its own 0.18 s window.
 - **Friendly fire:** none; characters are never hostile to each other.
 - **Projectile:** removed when its owner is gone, at max range, outside the map or on
   solid geometry (perched owners ignore walls); each target is hit once.
 - **Bouncing projectile:** re-targets if its target dies in flight.
+- **Summon stuck far away:** beyond `SUMMON_TELEPORT` (36 m) it appears next to its owner; recasting the summon skill dismisses summons outside `SUMMON_LEASH` and summons again (`_check_summon_lost`).
 - **Guard at 0 mana:** breaks; needs release and MP ≥ 5 to raise again.
 - **Hit from behind while guarding:** outside the 140° arc, so no block.
 - **Mounted when hit:** dismounted.
@@ -216,10 +220,9 @@ evasion 45, cooldown reduction 25, element 60.
 - [ ] Parry inside the 0.22 s window cuts the hit to 10% of the blocked amount.
 - [ ] `combat_probe` reports 0 FLAG (latency, chaining, buffer, dash cancel, impact on the damage tick).
 - [ ] `skill_audit` reports no `WEAK` skill below 60% of the median.
-- [ ] (Future) A dash grants invulnerability for its i-frame window.
+- [x] A dash makes direct hits and hostile effects miss for `DASH_IFRAMES`, also on a cancel-dash; dots still tick (`_check_dash_iframes`).
 
 ## Open questions
 
-- Dash i-frames: how long, and does a dash during a cast keep them?
 - `INTENT UNKNOWN`: the weapon-specific FOR/AGI factors (e.g. bow FOR ×0.3, dagger ×1.2) beyond balancing.
 - `INTENT UNKNOWN`: the 15% damage floor (`atk × power × 0.15`) when DEF is high.

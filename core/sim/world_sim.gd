@@ -458,6 +458,8 @@ func _apply_command(e: SimEntity, cmd: InputCommand, m: Dictionary, dt: float) -
 	if e.state == SimEntity.State.STUNNED or e.state == SimEntity.State.DEAD:
 		if e.recall_left > 0.0:
 			PortalSystem.interrupt_recall(self, e)       # atordoado no meio da volta: interrompe
+		if e.mount_left > 0.0:
+			stop_mount(e, "Montaria interrompida")
 		return
 
 	# --- input buffer: guarda a ação se não pode agir agora ---
@@ -491,17 +493,28 @@ func _apply_command(e: SimEntity, cmd: InputCommand, m: Dictionary, dt: float) -
 	if can_turn:
 		e.face_towards(cmd.aim)
 
-	# --- montaria (H) ---
+	# --- montaria (H): conjuração de MOUNT_CAST_TIME (vale em combate e andando); agir ou levar golpe interrompe ---
 	if cmd.mount and e.is_character():
 		if e.mounted:
 			dismount(e)
-		elif e.combat_timer > 0.0 or e.state == SimEntity.State.CASTING or e.airborne() or e.form != "":
+		elif e.mount_left > 0.0:
+			stop_mount(e, "")                      # H de novo cancela
+		elif e.state == SimEntity.State.CASTING or e.airborne() or e.form != "":
 			if e == player:
-				Events.notification.emit("Não dá para montar agora (em combate)" if e.combat_timer > 0.0 else "Não dá para montar agora")
+				Events.notification.emit("Não dá para montar agora")
 		else:
-			e.mounted = true
+			e.mount_left = Balance.MOUNT_CAST_TIME
 			e.is_blocking = false
-			Events.mount_changed.emit(e.id, true)
+	elif e.mount_left > 0.0:
+		if action_cmd.attack or action_cmd.skill_slot >= 0 or action_cmd.dash or action_cmd.jump or cmd.block or cmd.recall or e.recall_left > 0.0:
+			stop_mount(e, "Montaria interrompida")
+		else:
+			e.mount_left -= dt
+			if e.mount_left <= 0.0:
+				e.mount_left = 0.0
+				e.mounted = true
+				e.is_blocking = false
+				Events.mount_changed.emit(e.id, true)
 	PortalSystem.update_recall(self, e, cmd, action_cmd, dt)
 	GatherSystem.update_gather(self, e, cmd, action_cmd, dt)
 	# atacar, usar skill, dash ou bloquear: desce do cavalo e a ação acontece
@@ -537,6 +550,7 @@ func _apply_command(e: SimEntity, cmd: InputCommand, m: Dictionary, dt: float) -
 		else:
 			e.dash_cd = Balance.DASH_CHARGE_WINDOW * 0.25
 		e.is_blocking = false
+		e.iframe_left = Balance.DASH_IFRAMES
 		e.set_state(SimEntity.State.DASHING, Balance.DASH_TIME)
 		Events.skill_cast.emit(e.id, "dash", "active")
 		return
@@ -599,6 +613,18 @@ func _apply_command(e: SimEntity, cmd: InputCommand, m: Dictionary, dt: float) -
 			if k > 0.0:
 				_move(e, e.velocity * dt, m)
 
+## Para a conjuração do cavalo (agir, levar golpe, atordoado, H de novo). `why` vazio = sem aviso.
+func stop_mount(e: SimEntity, why: String) -> void:
+	e.mount_left = 0.0
+	if e == player and why != "":
+		Events.notification.emit(why)
+
+## Fração já conjurada do cavalo (0..1; 0 = não está montando). Barra de conjuração do HUD e da cabeça.
+func mount_progress(e: SimEntity) -> float:
+	if e.mount_left <= 0.0:
+		return 0.0
+	return clampf(1.0 - e.mount_left / Balance.MOUNT_CAST_TIME, 0.0, 1.0)
+
 ## Desce do cavalo (golpe, dano, troca de mapa, morte ou H).
 func dismount(e: SimEntity) -> void:
 	if not e.mounted:
@@ -621,8 +647,9 @@ func _summons_full(e: SimEntity, s: SkillDef) -> bool:
 	if not permanent or not maps.has(e.map_id):
 		return false
 	var alive := 0
-	for o in maps[e.map_id]["entities"]:
-		if o.kind == SimEntity.Kind.SUMMON and o.owner_id == e.id and o.is_alive() and o.monster_def and o.monster_def.id == sm.get("monster_id", ""):
+	for o in maps[e.map_id]["entities"]:            # só conta quem está com o dono: a perdida (presa longe) se chama de novo
+		if o.kind == SimEntity.Kind.SUMMON and o.owner_id == e.id and o.is_alive() and o.monster_def and o.monster_def.id == sm.get("monster_id", "") \
+				and o.position.distance_to(e.position) <= Balance.SUMMON_LEASH:
 			alive += 1
 	return alive >= int(sm.get("max", 3)) + ClassTalentSystem.summon_extra(e, s.id)
 
@@ -886,9 +913,12 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 						despawn(o)
 			# limita invocações vivas por dono
 			var alive := 0             # limite por tipo de invocação (esqueletos, cão, lich, rei... cada um conta o seu)
-			for o in m["entities"]:
+			for o in m["entities"].duplicate():
 				if o.kind == SimEntity.Kind.SUMMON and o.owner_id == e.id and o.is_alive() and o.monster_def == mdef:
-					alive += 1
+					if o.position.distance_to(e.position) > Balance.SUMMON_LEASH:
+						despawn(o)          # perdida longe do dono (presa atrás de muro/rio): a nova toma o lugar
+					else:
+						alive += 1
 			var n := int(sm.get("count", 1))
 			var cap := int(sm.get("max", 3)) + ClassTalentSystem.summon_extra(e, s.id)
 			var dur := 0.0 if ClassTalentSystem.summon_permanent(e, s.id) else float(sm.get("duration", 20))     # talento: fica para sempre
@@ -1006,6 +1036,9 @@ func gain_bravado(e: SimEntity, n: int) -> void:
 ## Golpe direto (skill ou projétil) em um alvo: gelo estilhaça alvo retardado/preso, a arma lendária multiplica e reage.
 ## Devolve o resultado de Combat.calc_damage.
 func _strike(e: SimEntity, t: SimEntity, s: SkillDef, power: float, kind: SkillDef.Kind, from: Vector3) -> Dictionary:
+	if t.iframe_left > 0.0 and e != t and e.is_hostile_to(t):        # dash: o golpe passa por ele
+		Events.dodged.emit(t.id)
+		return {"amount": 0, "crit": false, "blocked": false}
 	var frost := Combat.frost_mult(s, t)
 	var r := Combat.calc_damage(e, t, power * (frost * LegendEffects.legend_power(self, e, t)), kind, rng, from)
 	var dk := "magical" if s.kind == SkillDef.Kind.MAGICAL else "physical"
@@ -1020,6 +1053,8 @@ func _storm_proc(src: SimEntity, s: SkillDef, t: SimEntity) -> void:
 
 func _apply_effects(src: SimEntity, t: SimEntity, effects: Dictionary, power: float) -> void:
 	if not t.is_alive():
+		return
+	if t.iframe_left > 0.0 and src != t and src.is_hostile_to(t):          # dash: nem atordoar, prender ou puxar
 		return
 	if effects.get("dot") != null:
 		var d: Dictionary = effects["dot"]
@@ -1261,6 +1296,9 @@ func consume_burns(src: SimEntity, t: SimEntity) -> float:
 func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: bool, blocked: bool, kind: String, from: Variant = null) -> void:
 	if not target.is_alive() or target.is_perched():
 		return
+	if target.iframe_left > 0.0 and attacker != target and not kind.begins_with("dot"):     # dash: invulnerável a golpe direto
+		Events.dodged.emit(target.id)
+		return
 	var in_arc := Combat.in_guard_arc(target, attacker.position if from == null else from)
 	var parried: bool = target.parry_left > 0.0 and target.is_blocking and attacker != target and not kind.begins_with("dot") and in_arc
 	if target.is_blocking and not in_arc and not kind.begins_with("dot") and attacker != target:
@@ -1275,6 +1313,8 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 	# levou um golpe (não dano no tempo): cai do cavalo
 	if target.mounted and not kind.begins_with("dot") and attacker != target:
 		dismount(target)
+	if target.mount_left > 0.0 and not kind.begins_with("dot") and attacker != target:
+		stop_mount(target, "Montaria interrompida")        # levou golpe no meio da conjuração
 	if target.is_character():
 		target.combat_timer = maxf(target.combat_timer, Balance.MOUNT_COMBAT_LOCK)
 	if not attacker.ct.is_empty() and attacker != target and not kind.begins_with("dot"):
@@ -1363,6 +1403,7 @@ func end_form(e: SimEntity) -> void:
 func _kill(e: SimEntity, killer: SimEntity) -> void:
 	e.mounted = false
 	e.recall_left = 0.0
+	e.mount_left = 0.0
 	e.is_blocking = false
 	e.form = ""
 	e.form_left = 0.0
@@ -1412,6 +1453,7 @@ func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 	for ps in range(e.potion_cds.size()):
 		e.potion_cds[ps] = maxf(0.0, e.potion_cds[ps] - dt)
 	e.dash_cd = maxf(0.0, e.dash_cd - dt)
+	e.iframe_left = maxf(0.0, e.iframe_left - dt)
 	e.combat_timer = maxf(0.0, e.combat_timer - dt)
 	e.stealth_left = maxf(0.0, e.stealth_left - dt)
 	if e.form_left > 0.0:
@@ -1452,6 +1494,13 @@ func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 	if e.kind == SimEntity.Kind.SUMMON and time >= e.summon_expires:
 		despawn(e)
 		return
+	# invocação perdida (presa longe, fora da tela) aparece ao lado do dono
+	if e.kind == SimEntity.Kind.SUMMON and e.owner_id >= 0:
+		var owner: SimEntity = entities.get(e.owner_id)
+		if owner and owner.is_alive() and owner.map_id == e.map_id and e.position.distance_to(owner.position) > Balance.SUMMON_TELEPORT:
+			e.position = owner.position + Vector3(0.8, 0, 0.8)
+			e.velocity = Vector3.ZERO
+			e.aggro_target = -1
 	# lacaio sem chefe (morto ou resetado) some
 	if e.boss_id >= 0:
 		var boss: SimEntity = entities.get(e.boss_id)

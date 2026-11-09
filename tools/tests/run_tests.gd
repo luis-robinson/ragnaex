@@ -721,6 +721,7 @@ func _check_zone(gd, sim) -> void:
 	_check_hotbar_drag(gd, sim)
 	_check_action_bar(gd, sim)
 	_check_summon_ai(gd, sim)
+	_check_summon_lost(gd, sim)
 	_check_bind_crystal(gd, sim, save_ref)
 	_check_quarry(gd, sim)
 	_check_map_models(gd)
@@ -741,6 +742,7 @@ func _check_zone(gd, sim) -> void:
 	_check_equipment_slots(gd, sim, save_ref)
 	_check_icons(gd)
 	_check_combat_feel(gd, sim)
+	_check_dash_iframes(gd, sim)
 	_check_skill_clips()
 	_check_shields(gd, sim)
 	_check_render_merge(gd, sim)
@@ -1403,6 +1405,55 @@ func _check_skill_clips() -> void:
 		k.free()
 
 ## Feel de combate: anda durante o golpe, dash interrompe, buffer sobrevive ao ataque segurado, reacerta a mira.
+## Dash: invulnerável a golpe direto e a efeito de inimigo por Balance.DASH_IFRAMES (o dash inteiro), também
+## no dash que cancela uma skill; dano no tempo continua; acabou a janela, o golpe pega (design/gdd/combat-skills.md).
+func _check_dash_iframes(gd, sim) -> void:
+	var m: Dictionary = sim.maps["city_aldara"]
+	var dt := 1.0 / 60.0
+	check(Balance.DASH_IFRAMES >= Balance.DASH_TIME, "i-frames cobrem o dash inteiro")
+	var p: SimEntity = sim.spawn_bot(gd.classes["berserker"], "Iframe", "city_aldara", Vector3(0, 0, 6), 20)
+	p.brain = null
+	var mob: SimEntity = sim.spawn_monster(gd.monsters["slime"], "city_aldara", Vector3(0, 0, 8))
+	mob.brain = null
+	var c := InputCommand.new()
+	c.move = Vector2(1, 0)
+	c.aim = Vector3(0, 0, 12)
+	c.dash = true
+	p.dash_cd = 0.0
+	sim._apply_command(p, c, m, dt)
+	check(p.state == SimEntity.State.DASHING and p.iframe_left > 0.0, "dash liga os i-frames")
+	var hp0: float = p.hp
+	sim._deal_damage(mob, p, 50, false, false, "physical")
+	check(p.hp == hp0, "golpe direto durante o dash não tira vida")
+	sim._apply_effects(mob, p, {"stun": {"duration": 1.0}, "root": {"duration": 1.0}}, 1.0)
+	check(p.state != SimEntity.State.STUNNED and not p.has_debuff("root"), "atordoar/prender de inimigo não pega no dash")
+	var r: Dictionary = sim._strike(mob, p, gd.skills["mob_whirl"], 1.0, SkillDef.Kind.PHYSICAL, mob.position)
+	check(int(r["amount"]) == 0 and p.hp == hp0, "skill de inimigo passa pelo dash")
+	sim._deal_damage(mob, p, 7, false, false, "dot")
+	check(p.hp < hp0, "dano no tempo continua durante o dash")
+	# a janela acaba
+	var t := 0.0
+	while t < Balance.DASH_IFRAMES + 0.05:
+		sim._update_entity(p, m, dt)
+		t += dt
+	check(p.iframe_left == 0.0, "i-frames acabam em DASH_IFRAMES")
+	var hp1: float = p.hp
+	sim._deal_damage(mob, p, 50, false, false, "physical")
+	check(p.hp < hp1, "depois do dash o golpe pega")
+	# dash que cancela uma skill também dá i-frames
+	p.set_state(SimEntity.State.IDLE)
+	p.dash_cd = 0.0
+	p.dash_charges_used = 0
+	sim._start_skill(p, p.skills[0], 0, Vector3(0, 0, 12))
+	var c2 := InputCommand.new()
+	c2.move = Vector2(1, 0)
+	c2.aim = Vector3(0, 0, 12)
+	c2.dash = true
+	sim._apply_command(p, c2, m, dt)
+	check(p.state == SimEntity.State.DASHING and p.iframe_left > 0.0, "dash que cancela skill também dá i-frames")
+	sim.despawn(mob)
+	sim.despawn(p)
+
 func _check_combat_feel(gd, sim) -> void:
 	var m: Dictionary = sim.maps["city_aldara"]
 	var dt := 1.0 / 60.0
@@ -1562,12 +1613,55 @@ func _check_mount(gd, sim) -> void:
 	var e: SimEntity = sim.spawn_bot(cls, "Cavaleiro", "city_aldara", Vector3(-12, 0, -12), 10)
 	e.brain = null
 	e.combat_timer = 0.0
+	var dt := 1.0 / 60.0
 	var c := InputCommand.new()
 	c.mount = true
 	c.aim = e.position + Vector3(0, 0, 3)
-	sim._apply_command(e, c, m, 1.0 / 60.0)
-	check(e.mounted, "H monta fora de combate")
-	# mais rápido montado
+	var idle := InputCommand.new()
+	idle.aim = c.aim
+	var walk := InputCommand.new()
+	walk.move = Vector2(0, 1)
+	walk.aim = c.aim
+	# H conjura MOUNT_CAST_TIME (andando vale; em combate vale); agir ou levar golpe interrompe
+	e.combat_timer = Balance.MOUNT_COMBAT_LOCK
+	sim._apply_command(e, c, m, dt)
+	check(not e.mounted and e.mount_left > 0.0, "H começa a conjuração do cavalo (não monta na hora)")
+	var t := 0.0
+	while t < Balance.MOUNT_CAST_TIME * 0.5:
+		sim._apply_command(e, walk, m, dt)
+		t += dt
+	check(not e.mounted and e.mount_left > 0.0, "andando a conjuração continua")
+	while t < Balance.MOUNT_CAST_TIME + 0.05:
+		sim._apply_command(e, idle, m, dt)
+		t += dt
+	check(e.mounted, "depois da conjuração monta, mesmo em combate")
+	sim.dismount(e)
+	sim._apply_command(e, c, m, dt)
+	var hit_mob: SimEntity = sim.spawn_monster(gd.monsters["wolf"], "city_aldara", e.position + Vector3(1, 0, 0))
+	hit_mob.brain = null
+	sim._deal_damage(hit_mob, e, 5, false, false, "physical")
+	check(e.mount_left == 0.0 and not e.mounted, "levar golpe interrompe a conjuração do cavalo")
+	sim.despawn(hit_mob)
+	sim._apply_command(e, c, m, dt)
+	var atk0 := InputCommand.new()
+	atk0.attack = true
+	atk0.aim = c.aim
+	e.basic_cd = 0.0
+	sim._apply_command(e, atk0, m, dt)
+	check(e.mount_left == 0.0 and not e.mounted, "atacar interrompe a conjuração do cavalo")
+	e.set_state(SimEntity.State.IDLE)
+	e.current_skill = null
+	sim._apply_command(e, c, m, dt)
+	sim._apply_command(e, c, m, dt)
+	check(e.mount_left == 0.0 and not e.mounted, "H de novo cancela a conjuração")
+	sim._apply_command(e, c, m, dt)
+	t = 0.0
+	while t < Balance.MOUNT_CAST_TIME + 0.05:
+		sim._apply_command(e, idle, m, dt)
+		t += dt
+	check(e.mounted, "H monta depois da conjuração")
+	# mais rápido montado (volta ao ponto de partida: andou durante a conjuração)
+	e.position = Vector3(-12, 0, -12)
 	var mv := InputCommand.new()
 	mv.move = Vector2(1, 0)
 	mv.aim = c.aim
@@ -1582,14 +1676,15 @@ func _check_mount(gd, sim) -> void:
 	e.basic_cd = 0.0
 	sim._apply_command(e, atk, m, 1.0 / 60.0)
 	check(not e.mounted and e.state == SimEntity.State.CASTING, "atacar desmonta e o golpe acontece")
-	# levar golpe desmonta; em combate não monta
-	sim._apply_command(e, c, m, 1.0 / 60.0)
-	check(not e.mounted, "em combate (acabou de atacar) não monta")
-	e.combat_timer = 0.0
+	# levar golpe montado derruba
 	e.set_state(SimEntity.State.IDLE)
 	e.current_skill = null
-	sim._apply_command(e, c, m, 1.0 / 60.0)
-	check(e.mounted, "fora de combate monta de novo")
+	sim._apply_command(e, c, m, dt)
+	t = 0.0
+	while t < Balance.MOUNT_CAST_TIME + 0.05:
+		sim._apply_command(e, idle, m, dt)
+		t += dt
+	check(e.mounted, "monta de novo logo depois de atacar (sem trava de combate)")
 	var mob: SimEntity = sim.spawn_monster(gd.monsters["wolf"], "city_aldara", e.position + Vector3(1, 0, 0))
 	mob.brain = null
 	sim._deal_damage(mob, e, 5, false, false, "physical")
@@ -4369,6 +4464,57 @@ func _check_quarry(gd, sim) -> void:
 
 ## Invocações lutam sozinhas: acham alvo perto do dono, usam as skills do monstro, defendem o dono
 ## e as que atiram ficam longe (o Elemental de Fogo ficava parado). Sonda completa: tools/tests/pet_probe.tscn.
+## Invocação permanente presa longe (atrás de muro/rio, fora da tela) não trava a skill: refazer a skill chama de novo
+## perto do dono, e a que ficou a mais de SUMMON_TELEPORT m aparece ao lado dele sozinha.
+## Antes: "Seu companheiro já está com você" com o lince vivo a 40 m, sem jeito de chamar de volta.
+func _check_summon_lost(gd, sim) -> void:
+	var m: Dictionary = sim.maps.get("city_aldara", {})
+	if m.is_empty():
+		m = sim.load_map(gd.maps["city_aldara"])
+	var dt := 1.0 / 60.0
+	var e: SimEntity = sim.spawn_bot(gd.classes["ranger"], "Perdido", "city_aldara", Vector3(0, 0, 6), 30)
+	e.brain = null
+	e.build_id = "cacador"
+	sim._gear_bot(e)
+	sim._skill_bot(e)
+	var s: SkillDef = gd.skills["ran_companion"]
+	e.learned[s.id] = true
+	e.skills.append(s)
+	var slot := e.skills.size() - 1
+	var far_pet: SimEntity = sim.spawn_summon(e, gd.monsters["companion"], e.position + Vector3(40, 0, 0), 0.0, true)
+	far_pet.brain = null
+	check(not sim._summons_full(e, s), "companheiro preso a 40 m não conta como 'já está com você'")
+	e.mp = e.stats.max_mp
+	e.cooldowns.clear()
+	var ok: bool = sim.try_cast(e, slot, e.position + Vector3(0, 0, 3), m)
+	for i in range(60):
+		sim._update_entity(e, m, dt)
+	var near := 0
+	var alive := 0
+	for o in m["entities"]:
+		if o.kind == SimEntity.Kind.SUMMON and o.owner_id == e.id and o.is_alive():
+			alive += 1
+			if o.position.distance_to(e.position) < Balance.SUMMON_LEASH:
+				near += 1
+	check(ok and near == 1 and alive == 1, "refazer a skill chama o companheiro perto do dono e dispensa o perdido (perto %d, vivos %d)" % [near, alive])
+	# sozinho: longe demais (sem briga), aparece ao lado do dono
+	for o in m["entities"].duplicate():
+		if o.kind == SimEntity.Kind.SUMMON and o.owner_id == e.id:
+			sim.despawn(o)
+	var stray: SimEntity = sim.spawn_summon(e, gd.monsters["companion"], e.position + Vector3(Balance.SUMMON_TELEPORT + 4.0, 0, 0), 0.0, true)
+	stray.brain = null
+	sim._update_entity(stray, m, dt)
+	check(stray.position.distance_to(e.position) < 4.0, "companheiro a mais de SUMMON_TELEPORT m aparece ao lado do dono (%.1f m)" % stray.position.distance_to(e.position))
+	var close: SimEntity = sim.spawn_summon(e, gd.monsters["companion"], e.position + Vector3(10, 0, 0), 0.0, true)
+	close.brain = null
+	var before := close.position
+	sim._update_entity(close, m, dt)
+	check(close.position.distance_to(before) < 1.0, "companheiro perto não é teletransportado")
+	for o in m["entities"].duplicate():
+		if o.kind == SimEntity.Kind.SUMMON and o.owner_id == e.id:
+			sim.despawn(o)
+	sim.despawn(e)
+
 func _check_summon_ai(gd, sim) -> void:
 	var mid := "field_forest"
 	var m: Dictionary = sim.maps.get(mid, {})

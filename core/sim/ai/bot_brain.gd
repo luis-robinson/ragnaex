@@ -57,7 +57,7 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 		return cmd                 # canalizando: o bot segura até o fim (o jogador pode cortar com outra skill)
 	cmd = _think(e, sim, m, dt)
 	# andando fora de combate: às vezes monta (atacar desmonta sozinho, na sim)
-	if not e.mounted and e.combat_timer <= 0.0 and cmd.move.length_squared() > 0.25 and not cmd.has_action() and sim.rng.randf() < Balance.BOT_MOUNT_CHANCE \
+	if not e.mounted and e.mount_left <= 0.0 and e.combat_timer <= 0.0 and cmd.move.length_squared() > 0.25 and not cmd.has_action() and sim.rng.randf() < Balance.BOT_MOUNT_CHANCE \
 			and m["def"].parent_map == "":
 		cmd.mount = true
 	return cmd

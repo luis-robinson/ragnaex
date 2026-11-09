@@ -452,16 +452,16 @@ Arraste outra poção da bolsa para cá · botão direito esvazia" % it.name) if
 	_update_party_frames()
 	_update_status_bar(p)
 
-## H (montaria) e G (volta à cidade) na barra: aro dourado quando ligados; H mostra o tempo até poder montar
-## (em combate), G a conjuração enchendo em leque claro.
+## H (montaria) e G (volta à cidade) na barra: aro dourado quando ligados; os dois mostram a conjuração
+## enchendo em leque claro.
 func _update_util_slots(p: SimEntity, delta: float) -> void:
 	for s in util_slots:
 		if s["id"] == "mount":
-			var lock := p.combat_timer if not p.mounted else 0.0
-			s["bevel"].set_active(p.mounted)
-			s["sweep"].set_color(Color(0, 0, 0, 0.62))
-			s["sweep"].set_frac(_cd_frac(s, lock))
-			s["cdt"].text = _cd_text(lock) if lock > 0.0 else ""
+			var mp := Sim.mount_progress(p)
+			s["bevel"].set_active(p.mounted or mp > 0.0)
+			s["sweep"].set_color(Color(1.0, 0.9, 0.55, 0.38))
+			s["sweep"].set_frac(1.0 - mp if mp > 0.0 else 0.0)
+			s["cdt"].text = _cd_text(p.mount_left) if mp > 0.0 else ""
 			s["cd"].visible = not p.is_alive()
 		else:
 			var prog := Sim.recall_progress(p)
@@ -478,14 +478,18 @@ func _update_cast_bar(p: SimEntity, delta: float) -> void:
 		return
 	_cast_flash = maxf(0.0, _cast_flash - delta)
 	var prog := Sim.recall_progress(p)
-	if prog > 0.0:
+	var mp := Sim.mount_progress(p)
+	if prog > 0.0 or mp > 0.0:
 		_cast_flash = 0.0
 		cast_panel.visible = true
 		cast_panel.modulate.a = 1.0
-		cast_fill.value = prog
-		cast_fill.get_theme_stylebox("fill").bg_color = Color(0.55, 0.78, 1.0)
-		var home: String = Sim.home_of(p)["map"]
-		cast_label.text = "Voltando para %s  %.1f s" % [GameData.maps[home].name, p.recall_left]
+		cast_fill.value = prog if prog > 0.0 else mp
+		cast_fill.get_theme_stylebox("fill").bg_color = Color(0.55, 0.78, 1.0) if prog > 0.0 else Color(0.95, 0.8, 0.45)
+		if prog > 0.0:
+			var home: String = Sim.home_of(p)["map"]
+			cast_label.text = "Voltando para %s  %.1f s" % [GameData.maps[home].name, p.recall_left]
+		else:
+			cast_label.text = "Montando  %.1f s" % p.mount_left
 		cast_label.add_theme_color_override("font_color", UiKit.TEXT)
 	elif _cast_flash > 0.0:
 		cast_panel.visible = true
