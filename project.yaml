@@ -1,0 +1,90 @@
+# CCGS project configuration — single source of truth for project settings.
+# Look a key up section by section in .claude/docs/effects-map.md (`## <key>`).
+# RagnaEx adaptations (see docs/ccgs-adoption.md): engine.code_roots and
+# engine.test_root override the framework's Godot defaults (src/, tests/unit|integration).
+
+schema_version: 1
+
+framework:
+  version: 1.2.0
+  last_upgraded: 2026-11-08
+
+project:
+  name: RagnaEx
+  kind: game
+  # MVP complete (levels 1-30 playable); seeded at adoption time instead of by
+  # /start + /gate-check because the project predates the framework.
+  stage: Production
+
+# Only `rigor` and `automation` are seeded here, as /start would. The six knobs
+# rigor FRONTS — modes.review_mode, modes.workflow, docs.density, qa.level,
+# modes.story_granularity and team.size — must stay ABSENT: seeding any of them
+# pins it and shadows the rigor expansion. Per-developer preferences go in
+# project.local.yaml (gitignored) via `/settings --local <key>=<value>`.
+modes:
+  rigor: standard
+  automation: guided
+
+engine:
+  name: Godot
+  version: "4.7.2"
+  language: GDScript
+  rendering: Forward+
+  physics: "none (custom 2D sim on the y=0 plane in core/; Godot physics unused)"
+  # Godot is not on PATH on this machine; helpers that cannot read the OS-aware
+  # commands map fall back to this (console build: prints to the terminal).
+  path: "C:/Users/luisf/Desktop/Godot_v4.7.2-stable_win64_console.exe"
+  # RagnaEx override — the framework default for Godot is `src/`. Our code lives in
+  # three roots: core/ (simulation, future server), game/ (presentation), data/
+  # (catalogs + balance). resolve_code_root()/resolve_code_roots() read this list.
+  code_roots: [core, game, data]
+  # RagnaEx override — the framework default for Godot is tests/unit + tests/integration
+  # (gdUnit4). We use one hand-rolled runner: tools/tests/run_tests.gd (`check(...)`),
+  # scene tools/tests/tests.tscn, plus the *_probe.tscn tools beside it.
+  test_root: tools/tests
+
+specialists:
+  code: godot-gdscript-specialist
+  shader: godot-shader-specialist
+  ui: godot-specialist
+  # godot-gdextension-specialist / godot-csharp-specialist were not adopted (GDScript only).
+  additional: []
+
+naming:
+  classes: PascalCase
+  variables: snake_case
+  constants: SCREAMING_SNAKE
+  signals: past_tense
+  files: snake_case
+  scenes: snake_case
+
+testing:
+  # Not gdUnit4: a single custom runner (tools/tests/run_tests.gd, 27k+ checks).
+  framework: custom
+
+# Commands are OS-aware. The `windows` values call the Godot console binary
+# directly (no spaces in the path, so they run unchanged from Git Bash AND
+# PowerShell). Human form on Windows (PowerShell wrapper that finds Godot):
+#   import: .\tools\godot.ps1 --headless --path . --import
+#   test:   .\tools\godot.ps1 --headless --path . tools/tests/tests.tscn
+#   smoke:  .\tools\godot.ps1 --headless --path . -- --autostart=berserker
+#   run:    .\tools\godot.ps1 --path .
+# Run `import` first whenever a script with class_name was added. The test scene
+# prints "=== N passed, M failed ===". Smoke passes on 0 "SCRIPT ERROR" lines and
+# "SMOKE OK"; run it under a timeout. Fast iteration: append `-- --only=<check,...>`
+# to the test command.
+commands:
+  import:
+    default: "godot --headless --path . --import"
+    windows: "C:/Users/luisf/Desktop/Godot_v4.7.2-stable_win64_console.exe --headless --path . --import"
+  test:
+    default: "godot --headless --path . tools/tests/tests.tscn"
+    windows: "C:/Users/luisf/Desktop/Godot_v4.7.2-stable_win64_console.exe --headless --path . tools/tests/tests.tscn"
+  smoke:
+    default: "godot --headless --path . -- --autostart=berserker"
+    windows: "C:/Users/luisf/Desktop/Godot_v4.7.2-stable_win64_console.exe --headless --path . -- --autostart=berserker"
+  run:
+    default: "godot --path ."
+    windows: "C:/Users/luisf/Desktop/Godot_v4.7.2-stable_win64_console.exe --path ."
+  # No export presets yet — left unset on purpose (the framework forbids guessing one).
+  build: "[TO BE CONFIGURED]"

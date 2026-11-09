@@ -2,7 +2,7 @@
 name: blender-layout
 description: Constrói ou refina o layout de uma zona no estilo Erenshor (vale fechado, vila murada no hub, estradas curvas, rio com pontes, POIs com marcos) no Blender via MCP, vista pela câmera alta do RagnaEx. Use ao criar/ajustar zonas, cidades, campos ou dungeons, ou quando o usuário pedir "layout".
 ---
-Regras completas em `CLAUDE.md` → "Layout de zonas". Referência visual e de código:
+Regras completas em `.claude/docs/ragnaex/zonas.md` → "Layout de zonas" (importado pelo `CLAUDE.md`). Referência visual e de código:
 `C:\Users\luisf\Desktop\projects\erenpg\blender\scripts\build_vale_inicial.py` (terreno, catmull, rio, vila murada)
 e o minimapa `C:\Users\luisf\Desktop\projects\erenpg\godot\assets\maps\vale_inicial.png`.
 

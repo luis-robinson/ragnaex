@@ -4,3 +4,11 @@
 assets/models/*.blend1
 __pycache__/
 .claude/settings.local.json
+
+# === Claude Code Game Studios (CCGS) local/ephemeral state ===
+CLAUDE.local.md
+project.local.yaml
+production/session-state/
+production/session-logs/
+.claude/agent-memory/
+.claude/worktrees/
