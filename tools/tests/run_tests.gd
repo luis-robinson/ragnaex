@@ -1512,6 +1512,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_interiors(gd, sim)
 	_check_druid_start(gd, sim)
 	_check_xp_budget(gd)
+	_check_web_strength(gd, sim)
 	_check_gather(gd, sim)
 	_check_quest_variety(gd, sim)
 	_check_monster_polish(gd, sim)
@@ -4750,6 +4751,29 @@ func _check_xp_budget(gd) -> void:
 		check(qx_lv >= Balance.xp_for_level(lv) * 0.35, "nível %d: quests dão %d de %d XP (>= 35%%)" % [lv, qx_lv, Balance.xp_for_level(lv)])
 	var kills_l25: float = Balance.xp_for_level(25) * (1.0 - Balance.XP_QUEST_SHARE) / gd.monsters["skeleton"].xp
 	check(kills_l25 > 100 and kills_l25 < 400, "nível 25: ~%d abates de esqueleto (não milhares)" % int(kills_l25))
+
+## Teia no 30 (design/gdd/progression.md): a média das builds dá ~x1,4 de ATK e ~x1,2 de HP (Balance.WEB_GAIN_*);
+## cada build fica com ATK×HP em WEB_GAIN_BUILD (tanque troca ATK por HP, curandeiro tem pouco ATK).
+func _check_web_strength(gd, sim) -> void:
+	if not sim.maps.has("city_aldara"):
+		sim.load_map(gd.maps["city_aldara"])
+	var sum_atk := 0.0
+	var sum_hp := 0.0
+	var n := 0
+	for cid in gd.classes:
+		var cls: ClassDef = gd.classes[cid]
+		for b in cls.builds:
+			var r := WebGain.measure(sim, cls, b["id"], Balance.MAX_LEVEL)
+			var both: float = r["atk"] * r["hp"]
+			sum_atk += r["atk"]
+			sum_hp += r["hp"]
+			n += 1
+			check(both >= Balance.WEB_GAIN_BUILD[0] and both <= Balance.WEB_GAIN_BUILD[1],
+				"teia %s/%s no 30: ATK x%.2f × HP x%.2f = x%.2f (faixa %s)" % [cid, b["id"], r["atk"], r["hp"], both, Balance.WEB_GAIN_BUILD])
+	var atk := sum_atk / maxf(1, n)
+	var hp := sum_hp / maxf(1, n)
+	check(atk >= Balance.WEB_GAIN_ATK[0] and atk <= Balance.WEB_GAIN_ATK[1], "teia no 30, média de %d builds: ATK x%.2f (alvo %s)" % [n, atk, Balance.WEB_GAIN_ATK])
+	check(hp >= Balance.WEB_GAIN_HP[0] and hp <= Balance.WEB_GAIN_HP[1], "teia no 30, média de %d builds: HP x%.2f (alvo %s)" % [n, hp, Balance.WEB_GAIN_HP])
 
 ## Colheita: pontos em chão livre, F colhe em ~1 s, andar cancela, volta depois; COLLECT conta.
 func _check_gather(gd, sim) -> void:

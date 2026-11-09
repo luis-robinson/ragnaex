@@ -84,6 +84,11 @@ const MASTERY_BONUS_LEVELS := [10, 20, 30]  # +1 ponto extra
 const MASTERY_MAX := 5
 const MASTERY_BONUS_PCT := 0.1     # cada nível de maestria: +10% nos bônus de buff e forma (só os positivos; tempo não muda)
 const SKILL_LEARN_COST := 1
+## Quanto a teia rende no 30 (bot da build, com e sem tree_bonus; web_probe e _check_web_strength).
+## Média das builds de ATK e HP dentro da faixa; cada build com ATK×HP dentro de WEB_GAIN_BUILD (tanque troca ATK por HP).
+const WEB_GAIN_ATK := [1.3, 1.5]
+const WEB_GAIN_HP := [1.1, 1.3]
+const WEB_GAIN_BUILD := [1.2, 2.3]
 const SKILL_SLOTS := 6
 const LOADOUT_TOWN_ONLY := true             # trocar skills da barra só na cidade
 

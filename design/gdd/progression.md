@@ -170,12 +170,13 @@ Example: 3 players, mob XP 100, all same level → each 100 × 1.3 ÷ 3 ≈ 43.
 - [ ] Each class web has 200–480 nodes and 40+ attribute nodes (`run_tests`).
 - [ ] A node can only be bought when it links to a bought node and the level is met.
 - [ ] Respec works only near the Elder or High Priest, refunds every point and keeps class talents.
-- [ ] **(New requirement, confirmed by the author)** At level 30, a full web gives about
-      ×1.4 ATK and ×1.2 HP over no web, for every build (`web_probe`), enforced by a test
-      with a tolerance to be set.
+- [x] **(Requirement, confirmed by the author)** At level 30 the web's gain over no web,
+      averaged over all builds, is ATK ×1.3–1.5 and HP ×1.1–1.3, and every build's
+      ATK × HP gain is ×1.2–2.3 (tanks trade ATK for HP, healers have little ATK).
+      Ranges in `Balance.WEB_GAIN_*`; enforced by `_check_web_strength`; `web_probe` prints the same numbers.
+      On 2026-11-09: average ATK ×1.37, HP ×1.22; builds ×1.24–2.23.
 
 ## Open questions
 
-- Tolerance for the web-strength test (e.g. ATK ×1.3–1.5, HP ×1.1–1.3?).
 - `INTENT UNKNOWN`: the ~3800-kill total pace is a comment only; is it a target?
 - `INTENT UNKNOWN`: why death costs XP only for the player and not for bots.
