@@ -10,8 +10,9 @@ manual (pt-BR) is imported below and loads every session.
 - **Engine**: Godot 4.7.2 (Forward+), no addons
 - **Language**: GDScript (static typing)
 - **Version Control**: Git, trunk-based (`main`); feature work in worktrees/branches
-- **Build System**: none yet (no export presets); the game runs from the project
-  (`.\tools\godot.ps1 --path .`). Commands live in `project.yaml` `commands.*`.
+- **Build System**: Godot export, preset "Windows Desktop" (`export_presets.cfg`) ->
+  `build/windows/RagnaEx.exe` (pck embedded; `project.yaml` `commands.build`). Dev runs
+  from the project (`.\tools\godot.ps1 --path .`). Commands live in `project.yaml` `commands.*`.
 - **Asset Pipeline**: Blender scripts in `tools/blender/` -> GLB in `assets/models/`
   (Blender MCP); icons by `tools/icons/*.tscn`; zones from
   `tools/blender/zones/build_<zona>.py` -> `map_<zona>.glb` + `data/zones/<zona>.json`

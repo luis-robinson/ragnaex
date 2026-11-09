@@ -12,3 +12,6 @@ production/session-state/
 production/session-logs/
 .claude/agent-memory/
 .claude/worktrees/
+
+# exported builds
+build/

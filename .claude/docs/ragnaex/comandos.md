@@ -17,6 +17,8 @@ skills com mira MOBA). Leia `README.md` e `docs/DESIGN.md`.
 .\tools\godot.ps1 --headless --path . tools/tests/tests.tscn -- --only=party,shield   # só os _check_* com esses nomes (iterar rápido)
 .\tools\godot.ps1 --headless --path . -- --autostart=berserker    # smoke test: joga sozinho e sai; 0 "SCRIPT ERROR" é o critério
 .\tools\godot.ps1 --path .                                        # abre o jogo com janela
+.\tools\godot.ps1 --headless --path . --export-release "Windows Desktop" build/windows/RagnaEx.exe   # gera o jogo (1 .exe, pck dentro)
+build\windows\RagnaEx.exe --headless -- --autostart=berserker  # smoke no exportado (pega JSON/arquivo que ficou fora do pacote)
 ```
 Linux/mac: troque `.\tools\godot.ps1` por `godot` (binário 4.7.2 no PATH).
 
