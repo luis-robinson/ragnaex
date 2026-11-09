@@ -102,7 +102,11 @@ Scripts novos com `class_name` só são vistos pelos outros scripts depois de `-
   (`parent_map` em cadeia, que bots seguem). `bosses` no `DUNGEON_DEFS` se houver mais de um; NPCs de dentro em `PLACE_NPCS[<dungeon>]`.
 - **Faixa de nível (teste de jogo)**: `--headless --path . tools/tests/band_probe.tscn -- [--from=10] [--to=20] [--trials=16] [--only=audit|duel] [--mob=<id>] [--why]`
   (auditoria das quests + caçada de 4 monstros seguidos por bot do nível; `travou` com `--why` mostra por quê). Mexeu em monstro da faixa: rode.
-- **Chefe com mecânica**: `MonsterDef.phases` (`hp`, `say`, `skills`, `summon`, `enrage`) em `MobSystem.update_boss`; `intro`/`last_words` = falas de abertura/queda; lacaios com 0 XP via `summon` ou efeito `boss_summon` (nunca o `summon` de jogador).
+- **Chefe com mecânica**: `MonsterDef.phases` (`hp`, `say`, `skills`, `summon` [+`pick`], `enrage`, `ward` = corte de dano enquanto um lacaio vive) em `MobSystem.update_boss`;
+  `berserk_after` (s de luta → dano × `Balance.BOSS_BERSERK_MULT`); `SkillDef.mob_pick` (`far`/`random`/`soft`: num CHEFE a skill mira outra vítima, o aggro fica no tanque;
+  `SkillsCatalog.BOSS_PICK` liga em skills já existentes); efeitos `barrage` (círculos avisados que caem depois, `m["hazards"]`, `MobSystem.place_barrage/update_hazards`; bots fogem)
+  e `pull` (gancho). Skill de invocar (`boss_summon`) ou BUFF de chefe vale a qualquer distância (`MonsterBrain._skill_reach`): lacaios no ritmo da recarga.
+  Grupos e faixas (campo/elite/grupo) em `boss_probe.GROUPS/BANDS`; `--bands` imprime `OUT_OF_BAND`, `--kite` testa atirador a 9,5 m+. `intro`/`last_words` = falas de abertura/queda; lacaios com 0 XP via `summon` ou efeito `boss_summon` (nunca o `summon` de jogador).
   Chefe sem alvo reseta (`reset_boss`). Calibre rodando a luta com bots: eles têm ATK de equipamento do nível, bem acima do inicial.
   Sonda: `--headless --path . tools/tests/boss_probe.tscn -- [--party=1,3] [--trials=20] [--boss=<id>,...]` (vitórias, tempo, mortes).
   Use 20+ lutas: com 14 a variação passa de ±2 vitórias.

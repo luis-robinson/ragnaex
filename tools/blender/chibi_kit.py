@@ -1532,6 +1532,9 @@ MOB_ATTACK = {"sword": "atk_1h_a", "mace": "atk_1h_a", "axe": "atk_1h_a", "dagge
               "rifle": "atk_rifle", None: "atk_claw"}
 MOB_IMPACT = 5           # EntityView.IMPACT_FRAME["attack"]: o "attack" dos monstros bate no quadro 5
 MOB_KEEP = ("idle", "run", "attack", "cast", "hit", "die", "block")
+# chefes humanoides guardam também os gestos das skills especiais (EntityView._action_clip pede pelo nome do kit)
+MOB_BOSS_KEEP = ("atk_spin", "atk_charge", "atk_leap", "atk_sweep", "atk_throw", "atk_claw", "cast_ground", "cast_channel", "cast_target",
+                 "summon", "shout", "buff_focus", "buff_guard", "cast_fire", "cast_ice", "cast_shadow", "cast_nature", "cast_holy", "cast_bolt")
 
 
 def _tracks(rig):
@@ -1575,9 +1578,11 @@ def _retimed_copy(rig, src, dst, impact_to):
     s.name = dst
 
 
-def mob_clips(rig, weapon=None, offhand=None, attack=None):
+def mob_clips(rig, weapon=None, offhand=None, attack=None, boss=False):
     """Clipes de monstro humanoide a partir do jogo completo do kit (v3): golpe da arma com impacto no quadro 5, magia,
-    idle da arma (arco baixo, cajado em pé), guarda de escudo, corrida/tranco/morte do kit."""
+    idle da arma (arco baixo, cajado em pé), guarda de escudo, corrida/tranco/morte do kit.
+    boss=True: guarda também MOB_BOSS_KEEP (giro, investida, salto, arremesso, magias por tema...)."""
+    keep = MOB_KEEP + (MOB_BOSS_KEEP if boss else ())
     animate(rig, "melee")
     animate_combat(rig)
     animate_v3(rig)
@@ -1589,8 +1594,12 @@ def mob_clips(rig, weapon=None, offhand=None, attack=None):
     if offhand == "shield":
         _rename_track(rig, "block_shield", "block")
     for t in list(rig.animation_data.nla_tracks):
-        if t.name not in MOB_KEEP:
+        if t.name not in keep:
             rig.animation_data.nla_tracks.remove(t)
+    if boss:
+        missing = [n for n in MOB_BOSS_KEEP if n not in _tracks(rig)]
+        if missing:
+            print("mob_clips: faltam clipes de chefe", missing)
 
 
 # ---------------------------------------------------------------------------

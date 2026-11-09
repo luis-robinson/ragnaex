@@ -201,6 +201,13 @@ const BOT_POTION_HP_MELEE := 0.45          # corpo a corpo bebe poção de vida 
 const BOT_FLEE_HP := 0.2                   # sem poção, abaixo disto recua por BOT_FLEE_TIME s
 const BOT_FLEE_TIME := 2.5
 const BOT_STICKY_RANGE := 16.0             # mantém o alvo atual enquanto ele estiver vivo e a até esta distância
+# chefes (MobSystem): mira, chuva de golpes, gancho, fúria por tempo, escudo dos lacaios
+const BOSS_PICK_RANGE := 16.0               # m: quem o chefe escolhe como vítima de skill com mob_pick
+const BOSS_HAZARD_DELAY := 1.3              # s do aviso no chão até o golpe da chuva (barrage sem delay)
+const BOSS_BERSERK_MULT := 1.6              # dano do chefe que passou de berserk_after
+const BOSS_WARD_CHECK := 0.5                # s entre conferências dos lacaios vivos (ward)
+const BOSS_FOLLOW := 5.0                    # m: skill de alvo de chefe (mob_pick) segue a vítima que andou até isto na preparação
+const BOSS_PULL_GAP := 0.6                  # m entre o chefe e quem ele puxa
 const BOT_DODGE_MIN_RADIUS := 1.2          # telegrafia menor que isto (golpe curto) não dá para fugir: bloqueia ou aguenta
 const PARTY_SEEK_MAX := 3                  # /party: quantos bots do mapa oferecem grupo (um convite por vez)
 const PARTY_SEEK_COOLDOWN := 20.0          # s entre dois /party

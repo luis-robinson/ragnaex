@@ -13,10 +13,12 @@ from mathutils import Vector, Matrix
 import chibi_kit as ck
 import lowpoly_lib as lp
 import build_monsters as bm
+import boss_gestures
 
 importlib.reload(ck)
 importlib.reload(lp)
 importlib.reload(bm)
+importlib.reload(boss_gestures)
 
 
 # ---------------------------------------------------------------------------
@@ -63,6 +65,16 @@ def eyes(prefix, centers, size, m_eye, m_white, look=(0, -1, 0)):
         out.append(blob("%s_eye%d" % (prefix, i), size, c, m_eye, (0.85, 0.45, 1.25), 2))
         out.append(blob("%s_hl%d" % (prefix, i), size * 0.32, c + Vector((size * 0.25, look[1] * size * 0.4, size * 0.4)), m_white, (1, 1, 1), 1))
     return out
+
+
+def pivots(**heads):
+    """MOB_BONES com a cabeça de alguns ossos movida (mesma direção e tamanho, então os eixos dos clipes não mudam):
+    o pivô vai para o ombro/quadril/pescoço do bicho em vez do lugar genérico (braço em z=0,9, cabeça em y=-0,5)."""
+    bones = dict(bm.MOB_BONES)
+    for name, h in heads.items():
+        h0, t0, parent = bones[name]
+        bones[name] = (tuple(h), tuple(h[i] + t0[i] - h0[i] for i in range(3)), parent)
+    return bones
 
 
 def finish(arm, parts):
@@ -531,7 +543,8 @@ def horse_actions(arm):
 # aranha
 # ---------------------------------------------------------------------------
 def spider(cid="mob_spider"):
-    arm = lp.make_armature("rig_" + cid, bm.MOB_BONES)
+    arm = lp.make_armature("rig_" + cid, pivots(leg_fr=(0.15, -0.18, 0.42), leg_fl=(-0.15, -0.18, 0.42), leg_br=(0.15, 0.1, 0.42),
+                                                leg_bl=(-0.15, 0.1, 0.42), head=(0, -0.22, 0.45)))
     m = ck.mat("m_spider", (0.28, 0.24, 0.32), 0.6)
     ms = ck.mat("m_spider_mark", (0.85, 0.35, 0.3), 0.6)
     m_eye = ck.mat("m_spider_eye", (1.0, 0.25, 0.2), 0.3, 1.5)
@@ -560,7 +573,8 @@ def spider(cid="mob_spider"):
 def crab(cid="mob_crab"):
     """Caranguejo do lago: casco largo e chato, 6 patas, pinças grandes nos braços (o golpe padrão é o beliscão),
     olhos em pedúnculo. Casco em "m_crab" (o jogo pinta o Rei e os filhotes pela cor do monstro)."""
-    arm = lp.make_armature("rig_" + cid, bm.MOB_BONES)
+    arm = lp.make_armature("rig_" + cid, pivots(arm_r=(0.46, -0.22, 0.34), arm_l=(-0.46, -0.22, 0.34), leg_fr=(0.4, 0.03, 0.3),
+                                                leg_fl=(-0.4, 0.03, 0.3), leg_br=(0.4, 0.27, 0.3), leg_bl=(-0.4, 0.27, 0.3), head=(0, -0.3, 0.45)))
     m = ck.mat("m_crab", (0.86, 0.4, 0.28), 0.55)
     md = ck.mat("m_crab_d", (0.62, 0.24, 0.18), 0.6)
     mb = ck.mat("m_crab_belly", (0.95, 0.82, 0.66), 0.6)
@@ -598,6 +612,7 @@ def crab(cid="mob_crab"):
             parts.append((ck.tube("leg%d%d_b" % (sx, i), knee, foot, 0.032, 0.012, md, 6), leg))
     finish(arm, parts)
     bm.mob_actions(arm, quadruped=True)
+    boss_gestures.crab_attack(arm)
     return arm
 
 
@@ -605,7 +620,7 @@ def crab(cid="mob_crab"):
 # espectro, ent, golem
 # ---------------------------------------------------------------------------
 def ghost(cid="mob_ghost"):
-    arm = lp.make_armature("rig_" + cid, bm.MOB_BONES)
+    arm = lp.make_armature("rig_" + cid, pivots(head=(0, -0.2, 1.1), arm_r=(0.36, -0.05, 1.05), arm_l=(-0.36, -0.05, 1.05)))
     m = ck.mat("m_ghost", (0.72, 0.92, 1.0), 0.3, 0.35)
     m_eye = ck.mat("m_ghost_eye", (0.15, 0.2, 0.4), 0.3)
     body = blob("body", 0.42, (0, 0, 0), m, cuts=4)
@@ -743,7 +758,8 @@ def ent(cid="mob_ent"):
 
 def trent(cid="mob_trent"):
     """Trent Ancião: ent mais pesado e velho, tronco largo coberto de musgo, braços-raiz compridos e copa escura."""
-    arm = lp.make_armature("rig_" + cid, bm.MOB_BONES)
+    arm = lp.make_armature("rig_" + cid, pivots(arm_r=(0.3, 0, 1.18), arm_l=(-0.3, 0, 1.18), head=(0, -0.1, 1.3),
+                                                leg_fr=(0.18, -0.15, 0.36), leg_fl=(-0.18, -0.15, 0.36), leg_br=(0.18, 0.15, 0.36), leg_bl=(-0.18, 0.15, 0.36)))
     bark = ck.mat("m_trent_bark", (0.38, 0.28, 0.2), 0.9)
     bark_d = ck.mat("m_trent_bark_d", (0.24, 0.17, 0.12), 0.9)
     moss = ck.mat("m_trent_moss", (0.36, 0.56, 0.26), 0.85)
@@ -1265,7 +1281,10 @@ def golem_boss(cid, kind):
     ancient = musgo e uma árvore nas costas; crystal = coroa e agulhas de cristal azul; heart = rocha escura
     rachada de lava, núcleo exposto, chifres e placas flutuando."""
     V = Vector
-    arm = lp.make_armature("rig_" + cid, bm.MOB_BONES)
+    sh, hip, neck = {"ancient": ((0.78, 1.25), (0.3, 0.5), (-0.2, 1.2)), "crystal": ((0.5, 1.38), (0.18, 0.5), (-0.05, 1.5)),
+                     "heart": ((0.9, 1.3), (0.34, 0.52), (-0.2, 1.45))}[kind]
+    arm = lp.make_armature("rig_" + cid, pivots(arm_r=(sh[0], 0, sh[1]), arm_l=(-sh[0], 0, sh[1]), leg_fr=(hip[0], 0, hip[1]),
+                                                leg_fl=(-hip[0], 0, hip[1]), head=(0, neck[0], neck[1])))
     if kind == "ancient":
         stone = ck.mat("m_%s_stone" % cid, (0.5, 0.52, 0.46), 0.9)
         stone_d = ck.mat("m_%s_stone_d" % cid, (0.34, 0.36, 0.32), 0.9)
@@ -1389,6 +1408,12 @@ def spiked_crown(base, cid, spikes, mats):
         ck.skin_rigid(p, base["rig"], "head")
 
 
+# chefes humanoides: modelos que guardam os gestos de skill do kit (chibi_kit.MOB_BOSS_KEEP); mob_skeleton = Senhor da Cripta e
+# Capitão dos Ossos, mob_lich = Conde Vargo
+BOSS_HUMANOIDS = {"mob_bandit_chief", "mob_elf_king", "mob_elf_warden", "mob_elf_captain_hunter", "mob_elf_captain_sky", "mob_elf_captain_sap",
+                  "mob_ghoul_giant", "mob_death_knight", "mob_frost_mage", "mob_lich_king", "mob_skeleton", "mob_lich"}
+
+
 def humanoid(cid, style, cloth, weapon, skin=None, eye=None, offhand=None, hide_hair=False, head=None, crown=0, extra=None, after=None, sex="male", hair=(0.25, 0.18, 0.14), attack=None):
     ck.clear()
     base = ck.build_base(cid, sex, 0.0, hair)
@@ -1428,7 +1453,7 @@ def humanoid(cid, style, cloth, weapon, skin=None, eye=None, offhand=None, hide_
         ck.animate_combat(base["rig"])
         ck.animate_v3(base["rig"])
     else:
-        ck.mob_clips(base["rig"], weapon, offhand, attack)
+        ck.mob_clips(base["rig"], weapon, offhand, attack, boss=cid in BOSS_HUMANOIDS)
     return base["rig"]
 
 
@@ -1477,6 +1502,10 @@ def demon_parts(base, mats):
 
 # ---------------------------------------------------------------------------
 SK_BONE = (0.92, 0.9, 0.82)
+# bichos que são (ou vestem) chefes: gestos maul/pounce/slam/roar/brace (boss_gestures), para as skills especiais não
+# repetirem o "attack"
+BOSS_GESTURES = {"mob_boar": "quad", "mob_crab": "crab", "mob_slime": "slime", "mob_spider": "spider", "mob_ghost": "ghost", "mob_trent": "biped4",
+                 "mob_golem_ancient": "biped", "mob_crystal_warden": "biped", "mob_quarry_heart": "biped"}
 
 
 def build_all(out_dir, only=None):
@@ -1598,6 +1627,8 @@ def build_all(out_dir, only=None):
             continue
         ck.clear()
         arm = fn()
+        if name in BOSS_GESTURES:
+            boss_gestures.add(arm, BOSS_GESTURES[name])
         for o in bpy.context.scene.objects:
             if "." in o.name:
                 o.name = o.name.replace(".", "_")

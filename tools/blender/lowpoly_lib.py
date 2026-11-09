@@ -162,16 +162,22 @@ def add_action(arm, name, keys, frame_end, loop=True):
         pb.rotation_mode = "XYZ"
         pb.rotation_euler = (0, 0, 0)
         pb.location = (0, 0, 0)
+        pb.scale = (1, 1, 1)
     action = bpy.data.actions.new(name)
     arm.animation_data_create()
     arm.animation_data.action = action
     for bone, frames in keys.items():
         pb = arm.pose.bones[bone]
-        for frame, rot, loc in frames:
+        for key in frames:              # (quadro, rot, loc) ou (quadro, rot, loc, escala): escala só é gravada se o osso usar
+            frame, rot, loc = key[:3]
             pb.rotation_euler = Euler([math.radians(a) for a in rot], "XYZ")
             pb.location = Vector(loc)
             pb.keyframe_insert("rotation_euler", frame=frame)
             pb.keyframe_insert("location", frame=frame)
+            if len(key) > 3:
+                pb.scale = Vector(key[3])
+                pb.keyframe_insert("scale", frame=frame)
+        pb.scale = (1, 1, 1)
     if hasattr(action, "use_frame_range"):
         action.use_frame_range = True
     action.frame_range = (1, frame_end)

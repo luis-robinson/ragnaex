@@ -44,6 +44,9 @@ enum Kind { PHYSICAL, MAGICAL, HEAL, BUFF, SUMMON, MOVEMENT }
 ## projétil: 0 = instantâneo (hitscan). >0 = velocidade m/s (DIRECTION)
 @export var projectile_speed: float = 0.0
 @export var projectile_pierce: bool = false
+## monstro CHEFE: em quem mira esta skill (o aggro continua no tanque). "" = alvo atual; "far" = o mais longe;
+## "random" = qualquer um por perto; "soft" = curandeiro/conjurador/atirador (senão o mais longe). MobSystem.pick_victim.
+@export var mob_pick: String = ""
 
 ## efeitos extra: {"dot": {"dps": 5, "duration": 4}, "slow": {"pct": 40, "duration": 2},
 ## "dot": {"atk_pct": 12, "duration": 4} → sangramento: % do ATK físico por segundo (o `dps` comum escala com o MATK);
@@ -59,6 +62,9 @@ enum Kind { PHYSICAL, MAGICAL, HEAL, BUFF, SUMMON, MOVEMENT }
 ##     quem estava preparando um golpe; depois volta para a mão de quem lançou.
 ## "aura": {"radius": 12, "ally": {"dr_pct": 8, "def_pct": 10}}  → liga/desliga: lançar põe o `buff` (sem fim)
 ##     em você; enquanto ele durar, o grupo a `radius` m recebe `ally` com o mesmo id (AuraSystem). Lançar de novo desliga.
+## "barrage": {"count": 4, "radius": 2.2, "delay": 1.3, "spread": 8}  → (chefe, GROUND) N círculos avisados no chão:
+##     um em cada inimigo por perto, o resto em volta do chefe; caem depois de `delay` s (MobSystem.place_barrage).
+## "pull": {"gap": 0.6}  → puxa o atingido para o lado de quem lançou (gancho; chefe nunca é puxado).
 @export var effects: Dictionary = {}
 
 ## Maestria: array de 6 dicionários {power_mult, mp_mult, cd_mult, extra:Dictionary}

@@ -150,6 +150,9 @@ func after_start() -> void:
 	if DevArgs.flag("--bag_shot"):      # foto da bolsa e da ficha com uma amostra de cada tipo de item
 		_smoke_test = false
 		_bag_shot(DevArgs.value("--bag_shot"))
+	if DevArgs.flag("--boss_film"):     # --boss_film=<chefe>[,..] --out=<pasta>: cada skill do chefe lançada num grupo parado, 3 quadros por skill
+		_smoke_test = false
+		_boss_film(Array(DevArgs.value("--boss_film").split(",")), DevArgs.value("--out"))
 	if DevArgs.flag("--raid_shot"):     # --raid_shot=<png>: investida élfica na Floresta (fotos _marcha e _portao) e sai
 		_smoke_test = false
 		_raid_shot(DevArgs.value("--raid_shot"))
@@ -603,6 +606,94 @@ func _raid_shot(path: String) -> void:
 				st["arrived_t"] = st["t"]
 		get_viewport().get_texture().get_image().save_png(path.trim_suffix(".png") + sh[1] + ".png")
 		print("RAID_SHOT %s t=%.0f vivos=%d" % [sh[1], float(RaidSystem.state(m)["t"]), RaidSystem.state(m)["ids"].size()])
+	get_tree().quit()
+
+## --boss_film=<chefe>[,<chefe>...] --out=<pasta>: no mapa do chefe, ele lança cada skill do kit (base + fases) num grupo
+## parado (jogador ao lado, bot a 11 m). Uma folha por skill: preparo, impacto e depois (chuva: até os círculos caírem).
+## Revisa gesto, aviso no chão, corda do gancho e lacaios. Sai no fim.
+func _boss_film(ids: Array, out: String) -> void:
+	DirAccess.make_dir_recursive_absolute(out)
+	var p := Sim.player
+	var probe = load("res://tools/tests/boss_probe.gd")
+	for bid in ids:
+		var md: MonsterDef = GameData.monsters.get(bid)
+		if md == null or not probe.BOSSES.has(bid):
+			print("BOSS_FILM %s: chefe desconhecido" % bid)
+			continue
+		var mid: String = probe.BOSSES[bid]
+		var at := Vector3.ZERO
+		for sp in GameData.maps[mid].spawners:
+			if sp["monster_id"] == bid:
+				at = sp["pos"]
+		Sim._change_map(p, mid, at + Vector3(2.5, 0, 2.0))
+		await get_tree().create_timer(2.0).timeout
+		var m: Dictionary = Sim.maps[mid]
+		m["spawners"].clear()
+		for e in m["entities"].duplicate():
+			if e != p and e.kind != SimEntity.Kind.NPC:
+				Sim.despawn(e)
+		var boss := Sim.spawn_monster(md, mid, at)
+		boss.brain = null
+		var far := Sim.spawn_bot(GameData.classes["ranger"], "Longe", mid, at + Vector3(-9.0, 0, 6.0), md.level)
+		far.brain = null
+		p.brain = null
+		var kit: Array = Array(md.skill_ids)
+		for ph in md.phases:
+			for sid in ph.get("skills", []):
+				if not kit.has(sid):
+					kit.append(sid)
+		Sim._add_skills(boss, kit.filter(func(sid): return not boss.skills.any(func(s): return s != null and s.id == sid)))
+		for sid in kit:
+			var s: SkillDef = GameData.skills.get(sid)
+			if s == null:
+				continue
+			for e in [p, far, boss]:
+				e.hp = e.stats.max_hp
+				e.debuffs.clear()
+				e.set_state(SimEntity.State.IDLE)
+			p.position = at + Vector3(2.5, 0, 2.0)
+			far.position = at + Vector3(-9.0, 0, 6.0)
+			boss.cooldowns.clear()
+			boss.aggro_target = p.id
+			var victim := p
+			if s.mob_pick != "":
+				victim = MobSystem.pick_victim(Sim, boss, s.mob_pick)
+			var aim: Vector3 = (victim if victim else p).position
+			boss.face_towards(aim)
+			var slot := -1
+			for i in range(boss.skills.size()):
+				if boss.skills[i] != null and boss.skills[i].id == sid:
+					slot = i
+			if slot < 0 or not Sim.try_cast(boss, slot, aim, m):
+				print("BOSS_FILM %s %s: não lançou" % [bid, sid])
+				continue
+			var times: Array = [s.startup * 0.5, s.startup + s.active * 0.5, s.startup + s.active + 0.35]
+			if s.effects.has("barrage"):
+				var d := float(s.effects["barrage"].get("delay", Balance.BOSS_HAZARD_DELAY))
+				times = [s.startup * 0.6, s.startup + d * 0.6, s.startup + d + 0.1]
+			var frames: Array = []
+			var t0 := Time.get_ticks_msec()
+			for want in times:
+				while (Time.get_ticks_msec() - t0) / 1000.0 < float(want):
+					await get_tree().process_frame
+					p.hp = p.stats.max_hp
+					far.hp = far.stats.max_hp
+				var img := get_viewport().get_texture().get_image()
+				img.resize(img.get_width() / 2, img.get_height() / 2)
+				frames.append(img)
+			var sheet := Image.create(frames[0].get_width() * frames.size(), frames[0].get_height(), false, frames[0].get_format())
+			for i in range(frames.size()):
+				sheet.blit_rect(frames[i], Rect2i(Vector2i.ZERO, frames[i].get_size()), Vector2i(frames[0].get_width() * i, 0))
+			var path := "%s/%s_%s.png" % [out, bid, sid]
+			sheet.save_png(path)
+			print("BOSS_FILM %s %s -> %s" % [bid, sid, path])
+			await get_tree().create_timer(maxf(0.3, s.recovery + 0.3)).timeout
+			for e in m["entities"].duplicate():
+				if e.boss_id == boss.id:
+					Sim.despawn(e)
+		Sim.despawn(boss)
+		Sim.despawn(far)
+	print("BOSS_FILM_END")
 	get_tree().quit()
 
 func _loot_demo() -> void:

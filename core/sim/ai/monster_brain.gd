@@ -121,12 +121,22 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 		var dist := e.position.distance_to(target.position) - target.radius    # o acerto mede do centro de quem bate até a borda do alvo
 		cmd.aim = target.position
 		# skill especial? As últimas da lista são as mais novas (fases de chefe)
+		# Chefe: skill com mob_pick mira outra vítima (longe, curandeiro...) sem tirar o aggro do tanque.
 		if skill_timer <= 0.0 and e.can_act():
+			var boss := mdef.is_boss and not is_summon
 			for i in range(e.skills.size() - 1, -1, -1):
 				var s: SkillDef = e.skills[i]
-				var reach_s: float = s.radius - 0.3 if s.target == SkillDef.Target.SELF else maxf(s.range, s.radius) + (0.0 if s.effects.has("dash") else 0.5)
-				if float(e.cooldowns.get(s.id, 0.0)) <= 0.0 and dist <= reach_s and (not s.is_charge() or sim.charge_lands(e, s, target, m)):
+				if float(e.cooldowns.get(s.id, 0.0)) > 0.0:
+					continue
+				var v := target
+				if boss and s.mob_pick != "":
+					var pv: SimEntity = MobSystem.pick_victim(sim, e, s.mob_pick)
+					if pv:
+						v = pv
+				var dv := dist if v == target else e.position.distance_to(v.position) - v.radius
+				if dv <= _skill_reach(s, boss) and (not s.is_charge() or sim.charge_lands(e, s, v, m)):
 					cmd.skill_slot = i
+					cmd.aim = v.position
 					skill_timer = minf(s.cooldown + 1.0, SKILL_GAP / (Balance.RAID_SMART if raider else 1.0))
 					return cmd
 		var reach := atk_range if not is_summon or ranged else 1.5
@@ -190,6 +200,14 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 		_:
 			state = S.IDLE
 	return cmd
+
+## Até onde a skill alcança o alvo. Chefe: invocar lacaios e se proteger valem a qualquer distância (vêm no ritmo do recarga).
+static func _skill_reach(s: SkillDef, boss: bool) -> float:
+	if boss and (s.effects.has("boss_summon") or s.kind == SkillDef.Kind.BUFF):
+		return INF
+	if s.target == SkillDef.Target.SELF:
+		return s.radius - 0.3
+	return maxf(s.range, s.radius) + (0.0 if s.effects.has("dash") else 0.5)
 
 ## Estilo de ataque atual: o próprio monstro, ou o monstro cuja arma ele pegou (MonsterDef.swap).
 static func _style_def(e: SimEntity) -> MonsterDef:

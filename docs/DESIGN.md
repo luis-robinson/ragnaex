@@ -283,7 +283,7 @@ o Veio da Montanha leva ao Coração da Pedreira (`dg_pedreira_coracao`, selo do
 `places.DUNGEONS`, `build_dungeons._room_dress`). Chefes: `mob_kit.golem_boss`; sonda: solo 55-65%, grupo de 3 75-100%. Material: Núcleo de Pedra.
 A Floresta ganhou mais aranhas, ents e o Trent Jovem (nv 14).
 Cada chefe tem fases (`MonsterDef.phases`): o Rei Slime se divide em Slimezinhos e cospe ácido, a Rainha Aranha chama filhotes e
-prende com teia, o Senhor da Cripta ergue servos e no fim drena vida. Rei e Rainha entram em fúria no fim. Calibrados com bot solo do nível (60-70% de vitória).
+prende com teia, o Senhor da Cripta ergue servos e no fim drena vida. Rei e Rainha entram em fúria no fim. Números atuais na seção Chefes.
 Visual de dungeon (`MapBuilder.is_dungeon`): fundo escuro sem céu, névoa densa, luz fria e fraca, bordas da tela escurecidas;
 o jogador leva uma luz quente (`main._torch`, sem especular para não deixar reflexo no chão).
 Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MSAA 4x e sem FXAA; neblina fraca, porque ela cresce com a distância da câmera.
@@ -345,10 +345,7 @@ Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MS
   com a vida, ^0,6). Ent e Trent ganharam Chicote de Cipó (prende à distância; antes todo mundo os kitava).
   Monstro que persegue contorna obstáculo (`MonsterBrain._steer`); atirador cujo tiro não tira vida há 3 s chega mais perto
   (`_shots_blocked`): antes ficavam travados atrás de árvore/muro.
-  Chefes com repertório (boss_probe, 20 lutas): Chefe dos Bandidos (facas envenenadas, bomba de fumaça, capangas, investida no fim;
-  sozinho 75% em ~58 s, trio 95%), Rainha Aranha (poça de veneno, salto da rainha; sozinho 75% em ~44 s, trio 100%), Rei Élfico
-  (lâmina da coroa, chuva de flechas, julgamento de espinhos; trio 85% em ~45 s), Conde Vargo (marca de sangue, revoada; trio 75% em
-  ~56 s). Todo chefe da faixa tem `intro` (fala ao entrar em combate, de novo depois de um reset) e `last_words`.
+  Chefes com repertório (calibragem na seção Chefes). Todo chefe da faixa tem `intro` (fala ao entrar em combate, de novo depois de um reset) e `last_words`.
   Sabor: moradores refugiados no Posto (`MapsCatalog.POST_VILLAGERS`) e falas de bot por mapa (`BotsCatalog.LINES["hunt_<mapa>"]`).
 - **Colheita na Cidade Élfica**: Erva Azul no lago, cogumelos sob os trents, Pedra Estelar no Altar da Lua e caixotes de Aço Élfico
   no acampamento da patrulha (guardado).
@@ -360,7 +357,7 @@ Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MS
   seguidores nascem num anel em volta do líder, seguem a vaga dele (`MonsterBrain._follow_leader`), entram na briga dele e vice-versa,
   voltam a nascer (`ESCORT_RESPAWN`) enquanto ele vive; são monstros normais (XP/saque). **Fortes** (`places.fort`: paliçada, torres, cabanas)
   fora do muro com capitães chefes: **Sylvara, a Caçadora Veloz** (N, arqueira de 7 m/s com 5 linces), **Aerion, Senhor dos Grifos** (NO,
-  com 2 grifos) e **Ilwen, Guardiã da Seiva** (L, com 2 trents e espíritos); sozinho nv 20 vence ~45-70%, grupo de 3 ~80-100% (`boss_probe`).
+  com 2 grifos) e **Ilwen, Guardiã da Seiva** (L, com 2 trents e espíritos); números na seção Chefes (`boss_probe`).
   Quests dos fortes com Yara/Caelir e a repetível "Patrulhas Élficas" no Altar da Lua (qualquer elfo conta). Ninho dos
   grifos (NO), bosque dos trents (NE, chão escuro), poço da lua (O), riacho com pontes, cerco humano na entrada sul
   (Batedora Yara), Caelir o exilado, Altar da Lua (caçadas). Uma porta entalhada no tronco da Árvore-Mãe (lado sudeste, de frente para a câmera; `places.DUNGEONS` `style: "tree"`, `places._tree_door`) abre o **Coração da Árvore** (`dg_coracao`, por dentro da árvore: paredes de casca altas, chão de raiz, poças de seiva, `floor`/`decor`/`inner`/`pool` por salão): raízes, seiva,
@@ -401,17 +398,46 @@ Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MS
   - **Cidadela do Lich** (30, selo NE do Bastião, abre com as três): portões internos, elites das três fortalezas, a Ofensiva da Aurora sobe junto, e Azhar, o Lich-Rei (três fases).
   - **Trevas:** Guardião de Ossos/Guarda da Cidadela bloqueiam golpe físico de frente (`MonsterDef.front_guard`); por trás ou com magia passa.
   - **Recompensas:** Prata Consagrada (+1..+5) e Fragmento da Aurora (+6..+9) aprimoram lendários 25+ (`PLUS_DAWN_*`); quests principais e chefes dão Moedas Lendárias.
-  - **Calibrado** (`boss_probe` 20-24 lutas):
-
-    | Chefe | Sozinho | Grupo de 3 |
-    |---|---|---|
-    | Carniçal | 67% | 87% |
-    | Vorhag | 45% | 90% |
-    | Morvath | 45% | 100% |
-    | Lich-Rei | — | 70% |
+  - **Calibrado**: tabela na seção Chefes.
 
     `raid_probe --route` repele os três fronts com a guarnição (2-9 guardas caem por leva).
 - Loot: materiais por campo (gel, pele, presa, erva, minério, seda, casca, insígnia, osso, essência, núcleo, escama) + raros.
+
+## Chefes (mecânicas e calibragem, 2026-11-09)
+Todo chefe de grupo tem resposta de longe, invocação e três fases; quem kita não fica de graça.
+- **Mira**: `SkillDef.mob_pick` (`far`/`random`/`soft`, `SkillsCatalog.BOSS_PICK`): num chefe a skill escolhe outra vítima e o aggro
+  fica no tanque. Golpe TARGET do chefe segue a vítima até o impacto (`MobSystem.follow_victim`, `Balance.BOSS_FOLLOW`); o aviso fica nela.
+- **Efeitos**: `barrage` (círculos avisados que caem depois, `m["hazards"]`; bots saem deles) e `pull` (gancho; parede segura).
+  Invocar e buff de chefe valem a qualquer distância (`MonsterBrain._skill_reach`).
+- **Fases** (`MonsterDef.phases`): `summon` (+`pick`), `skills`, `ward` (corte de dano enquanto um lacaio vive), `enrage`;
+  `berserk_after` = s de luta até o dano × `Balance.BOSS_BERSERK_MULT` (corta luta solo longa sem mexer no trio, que acaba em 30-70 s).
+- **Faixas** (`boss_probe --bands`): campo/elite = solo 60-100%, trio 90-100%; grupo = solo 20-40%, trio 75-100% em 30-150 s,
+  4+ skills/min, 35%+ do tempo golpeando, 4+ lacaios, 10%+ do dano fora do alvo, 2+ golpes/min em quem kita a 9,5 m.
+  Com 20 lutas o solo oscila ±10 pontos entre rodadas (sorteio muda com a ordem dos chefes): mire no meio da faixa e confirme com 40.
+- **Sonda**: o bot da sonda (`StayBrain`) não sai da sala e volta ao chefe que resetou (antes ficava parado a 30 m e a luta contava
+  como derrota). `--why` mostra dano por fonte, estado do chefe (`STATES`) e onde cada um estava numa luta que não começou.
+
+| Chefe | Sozinho | Trio | Trio (s) |
+|---|---|---|---|
+| Chefe dos Bandidos | 35% | 95% | 37 |
+| Rainha Aranha | 35% | 100% | 42 |
+| Senhor da Cripta | 30% | 100% | 37 |
+| Capitão de Ossos | 35% | 100% | 42 |
+| Viúva Lamentosa | 40% | 100% | 37 |
+| Conde Vargo | 15-30% | 100% | 41 |
+| Rei Élfico | 30% | 100% | 47 |
+| Golem Ancestral | 35% | 100% | 43 |
+| Guardiã de Cristal | 30% | 100% | 40 |
+| Coração da Pedreira | 25% | 100% | 66 |
+| Sylvara (Caçadora) | 40% | 85% | 36 |
+| Aerion (Grifos) | 25% | 100% | 40 |
+| Ilwen (Seiva) | 20% | 100% | 65 |
+| Carniçal Gigante | 30% | 95% | 44 |
+| Vorhag | 25% | 95% | 33 |
+| Morvath | 20-45% | 100% | 31 |
+| Lich-Rei | 30% | 95% | 40 |
+
+Campo (Caranguejo-Rei, Rei Slime, Presa-Rachada, Rei Javali) e elite (Trent, Guardião Élfico): 95-100% sozinho.
 
 ## Quests (cadeia)
 q01 bem-vindo (TALK) → q02 slimes → q03 gel → q04 primeira poção (CRAFT) → q05 presas → q06 lobos → q07 rei javali →

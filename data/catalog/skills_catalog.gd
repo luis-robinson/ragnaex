@@ -69,7 +69,7 @@ static func build() -> Array:
 		 "effects": {"dot": {"dps": 5, "duration": 6}, "wither": {"pct": 50, "duration": 6}}},
 		{"id": "mob_soul_drain", "name": "Dreno de Almas", "target": T_TARGET, "kind": K_MAG, "power": 1.4, "cooldown": 8.0, "range": 8.0, "radius": 0.0, "max_targets": 1, "startup": 0.6, "active": 0.1, "recovery": 0.4, "icon_color": Color(0.7, 0.3, 0.9),
 		 "effects": {"heal_pct_of_dmg": 1.5}},
-		{"id": "mob_raise_dead", "name": "Erguer os Mortos", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 20.0, "radius": 9.0, "startup": 1.0, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.8, 0.9, 0.75),
+		{"id": "mob_raise_dead", "name": "Erguer os Mortos", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 20.0, "radius": 9.0, "startup": 1.0, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.8, 0.9, 0.75),
 		 "effects": {"boss_summon": {"id": "bone_servant", "count": 2, "max": 4}}},
 		{"id": "mob_death_wave", "name": "Onda de Morte", "target": T_SELF, "kind": K_MAG, "power": 1.5, "cooldown": 12.0, "radius": 6.0, "startup": 1.2, "active": 0.2, "recovery": 0.6, "hit_stop_frames": 5, "icon_color": Color(0.55, 0.2, 0.7),
 		 "effects": {"wither": {"pct": 40, "duration": 5}}},
@@ -96,11 +96,11 @@ static func build() -> Array:
 		{"id": "mob_volley", "name": "Saraivada", "target": T_CONE, "kind": K_PHYS, "power": 1.2, "cooldown": 9.0, "radius": 8.0, "cone_angle_deg": 50, "startup": 0.6, "active": 0.2, "recovery": 0.5, "hit_stop_frames": 3, "icon_color": Color(0.7, 0.95, 0.6)},
 		{"id": "mob_king_roots", "name": "Ira da Árvore-Mãe", "target": T_SELF, "kind": K_MAG, "power": 1.1, "cooldown": 14.0, "radius": 9.0, "startup": 1.2, "active": 0.2, "recovery": 0.6, "hit_stop_frames": 5, "icon_color": Color(0.5, 0.9, 0.4),
 		 "effects": {"root": {"duration": 1.6}}},
-		{"id": "mob_thorn_lash", "name": "Chicote de Cipó", "target": T_TARGET, "kind": K_PHYS, "power": 0.9, "cooldown": 7.0, "range": 8.0, "radius": 0.0, "max_targets": 1, "startup": 0.55, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.45, 0.7, 0.3),
+		{"id": "mob_thorn_lash", "name": "Chicote de Cipó", "clip": "atk_sweep", "target": T_TARGET, "kind": K_PHYS, "power": 0.9, "cooldown": 7.0, "range": 8.0, "radius": 0.0, "max_targets": 1, "startup": 0.55, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.45, 0.7, 0.3),
 		 "effects": {"root": {"duration": 1.2}}},
 		# investida élfica: mago, salto do lince
 		{"id": "mob_light_beam", "name": "Raio de Luz", "target": T_TARGET, "kind": K_MAG, "power": 1.3, "cooldown": 5.0, "range": 9.0, "radius": 0.0, "max_targets": 1, "startup": 0.5, "active": 0.1, "recovery": 0.4, "hit_stop_frames": 2, "icon_color": Color(0.95, 1.0, 0.75)},
-		{"id": "mob_raise_wisps", "name": "Chamar Espíritos", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 18.0, "radius": 12.0, "startup": 0.9, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.5, 1.0, 0.6),
+		{"id": "mob_raise_wisps", "name": "Chamar Espíritos", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 18.0, "radius": 12.0, "startup": 0.9, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.5, 1.0, 0.6),
 		 "effects": {"boss_summon": {"id": "elf_wisp", "count": 2, "max": 2}}},
 		{"id": "mob_lynx_leap", "name": "Salto do Lince", "target": T_DIR, "kind": K_PHYS, "power": 1.4, "cooldown": 9.0, "range": 9.0, "radius": 1.6, "startup": 0.45, "active": 0.15, "recovery": 0.5, "hit_stop_frames": 3, "icon_color": Color(0.9, 0.75, 0.4),
 		 "effects": {"dash": 8.0, "slow": {"pct": 40, "duration": 2}}},
@@ -109,18 +109,18 @@ static func build() -> Array:
 		 "effects": {"slow": {"pct": 40, "duration": 2}}},
 		{"id": "mob_boulder_toss", "name": "Pedregulho", "target": T_GROUND, "kind": K_PHYS, "power": 1.7, "cooldown": 9.0, "range": 10.0, "radius": 2.2, "startup": 1.0, "active": 0.2, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(0.6, 0.55, 0.45),
 		 "effects": {"stun": {"duration": 0.6}}},
-		{"id": "mob_rockfall", "name": "Desabamento", "target": T_GROUND, "kind": K_PHYS, "power": 1.6, "cooldown": 12.0, "range": 12.0, "radius": 3.0, "startup": 1.25, "active": 0.25, "recovery": 0.6, "hit_stop_frames": 4, "icon_color": Color(0.55, 0.5, 0.42),
+		{"id": "mob_rockfall", "name": "Desabamento", "target": T_GROUND, "kind": K_PHYS, "power": 1.6, "cooldown": 12.0, "range": 12.0, "radius": 2.5, "startup": 1.25, "active": 0.25, "recovery": 0.6, "hit_stop_frames": 4, "icon_color": Color(0.55, 0.5, 0.42),
 		 "effects": {"slow": {"pct": 35, "duration": 2}}},
-		{"id": "mob_magnet_pull", "name": "Veio Magnético", "target": T_SELF, "kind": K_MAG, "power": 0.7, "cooldown": 16.0, "radius": 6.0, "startup": 1.1, "active": 0.2, "recovery": 0.6, "hit_stop_frames": 3, "icon_color": Color(0.85, 0.45, 0.25),
-		 "effects": {"root": {"duration": 1.0}}},
-		{"id": "mob_shard_fan", "name": "Leque de Lascas", "target": T_CONE, "kind": K_MAG, "power": 1.3, "cooldown": 6.0, "radius": 7.5, "cone_angle_deg": 60, "startup": 0.6, "active": 0.15, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.5, 0.78, 1.0)},
+		{"id": "mob_magnet_pull", "name": "Veio Magnético", "target": T_SELF, "kind": K_MAG, "power": 0.7, "cooldown": 22.0, "radius": 10.0, "startup": 1.1, "active": 0.2, "recovery": 0.6, "hit_stop_frames": 3, "icon_color": Color(0.85, 0.45, 0.25),
+		 "effects": {"pull": {"gap": 2.5}, "slow": {"pct": 40, "duration": 2}}},
+		{"id": "mob_shard_fan", "name": "Leque de Lascas", "target": T_CONE, "kind": K_MAG, "power": 1.3, "cooldown": 8.0, "radius": 7.5, "cone_angle_deg": 60, "startup": 0.6, "active": 0.15, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.5, 0.78, 1.0)},
 		{"id": "mob_crystal_prison", "name": "Prisão de Cristal", "target": T_GROUND, "kind": K_MAG, "power": 1.0, "cooldown": 12.0, "range": 9.0, "radius": 2.0, "startup": 1.0, "active": 0.2, "recovery": 0.5, "hit_stop_frames": 3, "icon_color": Color(0.55, 0.8, 1.0),
 		 "effects": {"stun": {"duration": 1.0}}},
 		{"id": "mob_crystal_ward", "name": "Escudo de Cristal", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 18.0, "radius": 0.0, "startup": 0.6, "active": 0.1, "recovery": 0.4, "icon_color": Color(0.55, 0.85, 1.0),
 		 "effects": {"buff": {"id": "crystal_ward", "duration": 6, "def_pct": 50}}},
 		# chefes da faixa 10-20 (Floresta, Ninho, Coração da Árvore, Trono do Conde)
 		# linha dos fora-da-lei (Floresta): funda, facada pelas costas, laço e porrete
-		{"id": "mob_sling_stone", "name": "Pedrada", "target": T_TARGET, "kind": K_PHYS, "power": 0.9, "cooldown": 6.0, "range": 8.0, "radius": 0.0, "max_targets": 1, "startup": 0.4, "active": 0.1, "recovery": 0.4, "hit_stop_frames": 2, "icon_color": Color(0.7, 0.65, 0.55),
+		{"id": "mob_sling_stone", "name": "Pedrada", "clip": "atk_throw", "target": T_TARGET, "kind": K_PHYS, "power": 0.9, "cooldown": 6.0, "range": 8.0, "radius": 0.0, "max_targets": 1, "startup": 0.4, "active": 0.1, "recovery": 0.4, "hit_stop_frames": 2, "icon_color": Color(0.7, 0.65, 0.55),
 		 "effects": {"slow": {"pct": 35, "duration": 2}}},
 		{"id": "mob_ambush_stab", "name": "Facada pelas Costas", "target": T_DIR, "kind": K_PHYS, "power": 1.4, "cooldown": 8.0, "range": 5.0, "radius": 1.0, "startup": 0.35, "active": 0.1, "recovery": 0.5, "hit_stop_frames": 3, "icon_color": Color(0.45, 0.35, 0.5),
 		 "effects": {"dash": 4.5, "dot": {"dps": 4, "duration": 3}}},
@@ -135,7 +135,7 @@ static func build() -> Array:
 		 "effects": {"dot": {"dps": 10, "duration": 4}}},
 		{"id": "mob_rot_bile", "name": "Vômito de Bile", "target": T_GROUND, "kind": K_MAG, "power": 1.0, "cooldown": 9.0, "range": 10.0, "radius": 3.2, "startup": 0.85, "active": 0.2, "recovery": 0.5, "icon_color": Color(0.55, 0.85, 0.25),
 		 "effects": {"dot": {"dps": 10, "duration": 5}, "slow": {"pct": 30, "duration": 3}}},
-		{"id": "mob_raise_brood", "name": "Ninhada", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 14.0, "radius": 8.0, "startup": 0.9, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.85, 0.82, 0.6),
+		{"id": "mob_raise_brood", "name": "Ninhada", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 14.0, "radius": 8.0, "startup": 0.9, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.85, 0.82, 0.6),
 		 "effects": {"boss_summon": {"id": "larva_brood", "count": 2, "max": 4}}},
 		{"id": "mob_bone_cleave", "name": "Corte de Ossos", "target": T_CONE, "kind": K_PHYS, "power": 1.5, "cooldown": 7.0, "radius": 3.0, "cone_angle_deg": 100, "startup": 0.55, "active": 0.15, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(0.85, 0.85, 0.8)},
 		{"id": "mob_blizzard", "name": "Nevasca", "target": T_GROUND, "kind": K_MAG, "power": 1.3, "cooldown": 12.0, "range": 11.0, "radius": 4.0, "startup": 1.1, "active": 0.25, "recovery": 0.6, "hit_stop_frames": 3, "icon_color": Color(0.7, 0.9, 1.0),
@@ -164,9 +164,69 @@ static func build() -> Array:
 		 "effects": {"slow": {"pct": 35, "duration": 2}}},
 		{"id": "mob_web", "name": "Teia", "target": T_CONE, "kind": K_PHYS, "power": 0.7, "cooldown": 10.0, "radius": 6.0, "cone_angle_deg": 60, "startup": 0.7, "active": 0.2, "recovery": 0.5, "icon_color": Color(0.85, 0.85, 0.9),
 		 "effects": {"root": {"duration": 1.5}}},
+		# ---- chefes: ganchos, saltos na retaguarda, chuvas avisadas no chão e lacaios no ritmo da recarga ----
+		{"id": "mob_bone_hook", "name": "Gancho de Ossos", "clip": "atk_throw", "target": T_TARGET, "kind": K_PHYS, "power": 0.8, "cooldown": 11.0, "range": 15.0, "radius": 0.0, "max_targets": 1, "startup": 0.55, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.9, 0.85, 0.7), "mob_pick": "far",
+		 "effects": {"pull": {"gap": 0.6}, "stun": {"duration": 0.5}}},
+		{"id": "mob_thorn_hook", "name": "Laço de Espinhos", "clip": "atk_throw", "target": T_TARGET, "kind": K_PHYS, "power": 0.7, "cooldown": 12.0, "range": 15.0, "radius": 0.0, "max_targets": 1, "startup": 0.55, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.45, 0.75, 0.35), "mob_pick": "far",
+		 "effects": {"pull": {"gap": 0.6}, "root": {"duration": 0.8}}},
+		{"id": "mob_rot_hook", "name": "Língua Podre", "clip": "atk_throw", "target": T_TARGET, "kind": K_PHYS, "power": 0.5, "cooldown": 14.0, "range": 14.0, "radius": 0.0, "max_targets": 1, "startup": 0.55, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.55, 0.8, 0.3), "mob_pick": "far",
+		 "effects": {"pull": {"gap": 0.6}, "stun": {"duration": 0.4}, "dot": {"dps": 6, "duration": 4}}},
+		{"id": "mob_web_pull", "name": "Fio da Rainha", "clip": "atk_throw", "target": T_TARGET, "kind": K_PHYS, "power": 0.7, "cooldown": 11.0, "range": 15.0, "radius": 0.0, "max_targets": 1, "startup": 0.55, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.85, 0.85, 0.9), "mob_pick": "far", "vfx": "poison",
+		 "effects": {"pull": {"gap": 0.6}, "slow": {"pct": 40, "duration": 3}}},
+		{"id": "mob_grapple_hook", "name": "Arpéu", "clip": "atk_throw", "target": T_TARGET, "kind": K_PHYS, "power": 0.8, "cooldown": 12.0, "range": 14.0, "radius": 0.0, "max_targets": 1, "startup": 0.5, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.7, 0.6, 0.5), "mob_pick": "far", "vfx": "physical",
+		 "effects": {"pull": {"gap": 0.6}, "stun": {"duration": 0.4}}},
+		{"id": "mob_tusk_rush", "name": "Disparada", "target": T_DIR, "kind": K_PHYS, "power": 1.4, "cooldown": 10.0, "range": 13, "radius": 1.2, "startup": 0.7, "active": 0.15, "recovery": 0.6, "hit_stop_frames": 4, "icon_color": Color(0.8, 0.55, 0.35), "mob_pick": "far", "vfx": "earth",
+		 "effects": {"dash": 12.0, "stun": {"duration": 0.6}}},
+		{"id": "mob_sky_dive", "name": "Mergulho do Capitão", "target": T_DIR, "kind": K_PHYS, "power": 1.5, "cooldown": 11.0, "range": 14, "radius": 1.8, "startup": 0.7, "active": 0.15, "recovery": 0.6, "hit_stop_frames": 4, "icon_color": Color(0.95, 0.9, 0.7), "mob_pick": "soft", "vfx": "wind",
+		 "effects": {"dash": 13.0, "stun": {"duration": 0.5}}},
+		{"id": "mob_boulder_barrage", "name": "Chuva de Pedras", "target": T_GROUND, "kind": K_PHYS, "power": 1.3, "cooldown": 13.0, "range": 14.0, "radius": 2.2, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.6, 0.55, 0.45), "mob_pick": "far",
+		 "effects": {"barrage": {"count": 4, "radius": 2.2, "delay": 1.4, "spread": 9.0}, "slow": {"pct": 35, "duration": 2}}},
+		{"id": "mob_hail_barrage", "name": "Granizo", "target": T_GROUND, "kind": K_MAG, "power": 1.2, "cooldown": 12.0, "range": 14.0, "radius": 2.0, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.7, 0.9, 1.0), "mob_pick": "far",
+		 "effects": {"barrage": {"count": 5, "radius": 2.0, "delay": 1.3, "spread": 9.0}, "slow": {"pct": 40, "duration": 2}}},
+		{"id": "mob_soul_barrage", "name": "Chuva de Almas", "target": T_GROUND, "kind": K_MAG, "power": 1.2, "cooldown": 13.0, "range": 14.0, "radius": 2.2, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.55, 0.3, 0.75), "mob_pick": "far",
+		 "effects": {"barrage": {"count": 4, "radius": 2.2, "delay": 1.3, "spread": 9.0}, "wither": {"pct": 30, "duration": 5}}},
+		{"id": "mob_thorn_barrage", "name": "Espinhos do Chão", "target": T_GROUND, "kind": K_MAG, "power": 1.1, "cooldown": 13.0, "range": 14.0, "radius": 2.0, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.5, 0.85, 0.4), "mob_pick": "far",
+		 "effects": {"barrage": {"count": 4, "radius": 2.0, "delay": 1.3, "spread": 9.0}, "root": {"duration": 0.8}}},
+		{"id": "mob_venom_barrage", "name": "Chuva de Bile", "target": T_GROUND, "kind": K_MAG, "power": 1.0, "cooldown": 12.0, "range": 14.0, "radius": 2.4, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.55, 0.85, 0.25), "mob_pick": "far",
+		 "effects": {"barrage": {"count": 4, "radius": 2.4, "delay": 1.4, "spread": 9.0}, "dot": {"dps": 6, "duration": 4}}},
+		{"id": "mob_flame_barrage", "name": "Chamas da Cripta", "target": T_GROUND, "kind": K_MAG, "power": 1.2, "cooldown": 12.0, "range": 14.0, "radius": 2.2, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.7, 0.4, 1.0), "mob_pick": "far",
+		 "effects": {"barrage": {"count": 4, "radius": 2.2, "delay": 1.3, "spread": 9.0}, "dot": {"dps": 6, "duration": 3}}},
+		{"id": "mob_fire_kegs", "name": "Barris de Pólvora", "clip": "atk_throw", "target": T_GROUND, "kind": K_PHYS, "power": 1.4, "cooldown": 14.0, "range": 13.0, "radius": 2.6, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(1.0, 0.5, 0.2), "mob_pick": "far", "vfx": "fire",
+		 "effects": {"barrage": {"count": 3, "radius": 2.6, "delay": 1.6, "spread": 8.0}, "dot": {"dps": 6, "duration": 3}}},
+		{"id": "mob_crab_bubbles", "name": "Bolhas do Lago", "target": T_GROUND, "kind": K_MAG, "power": 0.9, "cooldown": 11.0, "range": 14, "radius": 1.8, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.55, 0.8, 1.0), "mob_pick": "far", "vfx": "ice",
+		 "effects": {"barrage": {"count": 3, "radius": 1.8, "delay": 1.4, "spread": 7.0}, "slow": {"pct": 35, "duration": 2}}},
+		{"id": "mob_toxic_rain", "name": "Chuva Ácida", "target": T_GROUND, "kind": K_MAG, "power": 0.9, "cooldown": 12.0, "range": 12.0, "radius": 2.0, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.45, 0.85, 0.5), "mob_pick": "far",
+		 "effects": {"barrage": {"count": 3, "radius": 2.0, "delay": 1.4, "spread": 7.0}, "dot": {"dps": 5, "duration": 4}}},
+		# lacaios no ritmo da recarga (chefe: invocar vale a qualquer distância; o `max` limita quantos vivem juntos)
+		{"id": "mob_call_thugs", "name": "Chamar Capangas", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 26.0, "radius": 0.0, "startup": 0.8, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.75, 0.3, 0.25), "vfx": "summon",
+		 "effects": {"boss_summon": {"id": "bandit_thug", "count": 2, "max": 3}}},
+		{"id": "mob_raise_spiderlings", "name": "Chocar Ovos", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 22.0, "radius": 0.0, "startup": 0.8, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.6, 0.35, 0.7),
+		 "effects": {"boss_summon": {"id": "spiderling", "count": 3, "max": 5}}},
+		{"id": "mob_raise_thralls", "name": "Erguer Servos", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 25.0, "radius": 0.0, "startup": 0.9, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.6, 0.45, 0.85),
+		 "effects": {"boss_summon": {"id": "crypt_thrall", "count": 2, "max": 4}}},
+		{"id": "mob_call_souls", "name": "Chamar Almas", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 24.0, "radius": 0.0, "startup": 0.8, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.7, 0.8, 1.0), "vfx": "summon",
+		 "effects": {"boss_summon": {"id": "lost_soul", "count": 2, "max": 3, "pick": "soft"}}},
+		{"id": "mob_raise_moss", "name": "Acordar o Musgo", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 24.0, "radius": 0.0, "startup": 0.9, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.45, 0.6, 0.35),
+		 "effects": {"boss_summon": {"id": "golem_mossling", "count": 2, "max": 4}}},
+		{"id": "mob_raise_shards", "name": "Brotar Lascas", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 24.0, "radius": 0.0, "startup": 0.8, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.5, 0.78, 1.0),
+		 "effects": {"boss_summon": {"id": "crystal_shardling", "count": 2, "max": 4}}},
+		{"id": "mob_call_lynx", "name": "Chamar a Matilha", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 24.0, "radius": 0.0, "startup": 0.7, "active": 0.1, "recovery": 0.4, "icon_color": Color(0.9, 0.75, 0.4), "vfx": "summon",
+		 "effects": {"boss_summon": {"id": "pack_lynx", "count": 2, "max": 5, "pick": "soft"}}},
+		{"id": "mob_call_griffins", "name": "Chamar Grifos", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 26.0, "radius": 0.0, "startup": 0.8, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.95, 0.85, 0.55), "vfx": "summon",
+		 "effects": {"boss_summon": {"id": "griffin_young", "count": 2, "max": 3, "pick": "far"}}},
+		{"id": "mob_call_guard", "name": "Chamar a Guarda Real", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 30.0, "radius": 0.0, "startup": 0.9, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.95, 0.85, 0.4), "vfx": "summon",
+		 "effects": {"boss_summon": {"id": "king_guard", "count": 2, "max": 2}}},
+		{"id": "mob_raise_fallen", "name": "Erguer os Caídos", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 24.0, "radius": 0.0, "startup": 0.9, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.8, 0.9, 0.75),
+		 "effects": {"boss_summon": {"id": "bone_raised", "count": 2, "max": 5}}},
+		{"id": "mob_raise_wraiths", "name": "Erguer Espectros", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 26.0, "radius": 0.0, "startup": 0.9, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.6, 0.9, 1.0),
+		 "effects": {"boss_summon": {"id": "frost_wraith", "count": 2, "max": 4, "pick": "far"}}},
 	]:
 		d["mp_cost"] = 0
 		d["mastery"] = _mastery()
+		if BOSS_PICK.has(d["id"]):
+			d["mob_pick"] = BOSS_PICK[d["id"]]
+		if BOSS_RANGE.has(d["id"]):
+			d["range"] = BOSS_RANGE[d["id"]]
 		out.append(_mk(d))
 	for s in out:
 		s.vfx = vfx_theme(s)
@@ -179,6 +239,17 @@ static func build() -> Array:
 			burn["fire"] = true
 			s.effects["dot"] = burn
 	return out
+
+## Skills de monstro já existentes que, num CHEFE, miram quem está longe (atirador, curandeiro) em vez do tanque.
+## Monstro comum ignora `mob_pick` (MonsterBrain.think), então vale até para skill dividida com o lixo.
+const BOSS_PICK := {"mob_shadow_bolt": "far", "mob_frost_shard": "far", "mob_light_beam": "far", "mob_thorn_lash": "far",
+	"mob_root_arrow": "far", "mob_blood_mark": "far", "mob_grave_touch": "far", "mob_acid_spit": "far", "mob_snare_shot": "far",
+	"mob_sling_stone": "far", "mob_venom_pool": "far", "mob_rot_bile": "far", "mob_boulder_toss": "far", "mob_rockfall": "far",
+	"mob_crystal_prison": "far", "mob_blizzard": "far", "mob_arrow_rain": "far", "mob_shadow_bats": "far", "mob_soul_drain": "far",
+	"mob_lynx_leap": "soft", "mob_dive": "soft"}
+## Alcance maior para skills que só chefes usam (respondem a quem luta de longe).
+const BOSS_RANGE := {"mob_blood_mark": 12.0, "mob_grave_touch": 12.0, "mob_acid_spit": 11.0, "mob_rot_bile": 12.0,
+	"mob_shadow_bats": 12.0, "mob_venom_pool": 12.0, "mob_arrow_rain": 12.0}
 
 ## Elementos das skills do Elementalista: o ramo dá o elemento; as gerais e as combinações dizem aqui.
 const ELEMENTALS := ["fire_elemental", "frost_elemental", "storm_elemental"]     # um por vez (o novo substitui)
@@ -273,7 +344,7 @@ static func _s(id: String, name: String, lvl: int, build: String, req: Array, tg
 	if kind == K_BUFF:
 		d["power"] = 0.0; d["startup"] = 0.1; d["recovery"] = 0.2
 	for k in ext:
-		if k in ["dot", "slow", "stun", "root", "buff", "shield", "dash", "summon", "heal_pct_of_dmg", "taunt", "boss_summon", "wither", "form", "stealth", "trap", "pet_command", "pet_buff", "curse", "channel", "mend_pct_of_dmg", "combust", "bounce", "aura",
+		if k in ["dot", "slow", "stun", "root", "buff", "shield", "dash", "summon", "heal_pct_of_dmg", "taunt", "boss_summon", "wither", "form", "stealth", "trap", "pet_command", "pet_buff", "curse", "channel", "mend_pct_of_dmg", "combust", "bounce", "aura", "barrage", "pull",
 				"combo_gain", "combo_spend", "dice", "dash_to_aim", "shot"]:
 			if not d.has("effects"):
 				d["effects"] = {}

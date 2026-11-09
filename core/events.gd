@@ -37,6 +37,7 @@ signal shield_block(target_id: int, attacker_id: int, theme: String, parried: bo
 signal buff_applied(entity_id: int, buff_id: String, duration: float)
 signal trap_placed(trap_id: int, kind: String, pos: Vector3, radius: float, map_id: String)     # armadilha no chão (Ranger)
 signal trap_removed(trap_id: int, triggered: bool)
+signal hazard_placed(map_id: String, pos: Vector3, radius: float, delay: float, skill_id: String)     # chefe: círculo de aviso que cai depois de delay s
 signal dodged(entity_id: int)
 signal raid_event(map_id: String, kind: String)          # investida (RaidSystem): start | arrived | retreat | repelled | retreated
 signal monster_emerged(map_id: String, position: Vector3)

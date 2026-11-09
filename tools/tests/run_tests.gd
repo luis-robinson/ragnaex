@@ -111,13 +111,18 @@ func _check_anim_review() -> void:
 			check(far > 20.0, "anim %s: golpe com pose de impacto no quadro 5 (%.0f°)" % [model, far])
 			check(ap.has_animation("hit") and ap.has_animation("die") and ap.get_animation("die").length >= 0.8, "anim %s: tranco e morte com tempo" % model)
 		inst.free()
-	# monstro humanoide: só os 7 clipes com nome de bicho (o resto do kit não vai no GLB)
-	var hm: Node = (load("res://assets/models/mob_skeleton.glb") as PackedScene).instantiate()
+	# monstro humanoide comum: só os 7 clipes com nome de bicho (o resto do kit não vai no GLB; chefes guardam os gestos, abaixo)
+	var hm: Node = (load("res://assets/models/mob_bandit.glb") as PackedScene).instantiate()
 	var hap: AnimationPlayer = hm.find_children("*", "AnimationPlayer", true, false)[0]
 	var names := Array(hap.get_animation_list())
 	names.sort()
 	check(names == ["attack", "block", "cast", "die", "hit", "idle", "run"], "anim: monstro humanoide tem idle/run/attack/cast/hit/die/block (%s)" % [names])
 	hm.free()
+	# chefes: cada skill do kit toca um gesto próprio (não o golpe básico); tools/tests/boss_anim_probe.gd
+	var bap = load("res://tools/tests/boss_anim_probe.gd")
+	for bid in load("res://tools/tests/boss_probe.gd").BOSSES:
+		var r: Dictionary = bap.check_boss(bid, self)
+		check(int(r["flags"]) == 0, "anim %s: toda skill do chefe tem gesto próprio (%s)" % [bid, ", ".join((r["lines"] as Array).filter(func(l): return l.ends_with("FLAG")))])
 
 ## Preparo curto: o clipe começa no meio da preparação (não corre mais que WINDUP_MAX_SPEED) e o impacto cai no fim do preparo.
 func _check_windup_timing() -> void:
@@ -471,6 +476,7 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_review_fixes(gd, sim)
 	_check_tank_kit(gd, sim)
 	_check_boss_kit(gd, sim)
+	_check_boss_mechanics(gd)
 	_check_tent_cloth()
 	_check_item_icons(gd)
 	_check_tree_spacing()
@@ -7062,6 +7068,158 @@ func _check_raid_scaling(gd, sim) -> void:
 
 ## Faixa 10-20: chefes com repertório (3+ golpes somando as fases), fala de abertura uma vez por luta e fala ao cair;
 ## capanga do Chefe dos Bandidos sem XP; skills novas existem e estão no tema certo.
+## Chefes: mira em quem está longe (mob_pick), lacaios a qualquer distância, chuva avisada (barrage), gancho (pull),
+## fúria por tempo (berserk_after), escudo dos lacaios (ward) e o kit mínimo de todo chefe da sonda.
+func _check_boss_mechanics(gd) -> void:
+	var ws := WorldSim.new()
+	ws.load_map(gd.maps[GameData.town_map_id()])
+	var m: Dictionary = ws.load_map(gd.maps["dg_ninho"])
+	m["spawners"].clear()
+	for e in m["entities"].duplicate():
+		ws.despawn(e)
+	var at := Vector3(0, 0, 0)
+	for sp in gd.maps["dg_ninho"].spawners:
+		if sp["monster_id"] == "spider_queen":
+			at = sp["pos"]
+	var mdef: MonsterDef = gd.monsters["spider_queen"].duplicate()
+	mdef.skill_ids = ["mob_whirl", "mob_bone_hook"] as Array[String]
+	mdef.phases = []
+	mdef.berserk_after = 0.0
+	mdef.aggro_range = 0.0
+	var boss: SimEntity = ws.spawn_monster(mdef, "dg_ninho", at)
+	var tank: SimEntity = ws.spawn_bot(gd.classes["paladin"], "Tanque", "dg_ninho", at + Vector3(1.5, 0, 0), 20)
+	var far: SimEntity = ws.spawn_bot(gd.classes["ranger"], "Longe", "dg_ninho", at + Vector3(-11, 0, 0), 20)
+	for b in [tank, far]:
+		b.brain = null                          # parados: o teste mexe neles na mão
+	boss.aggro_target = tank.id
+	boss.aggro_timer = 5.0
+	var cmd: InputCommand = boss.brain.think(boss, ws, m, 0.05)
+	check(cmd.skill_slot == 1 and cmd.aim.distance_to(far.position) < 0.01 and boss.aggro_target == tank.id,
+		"chefe: gancho (far) mira quem está longe e o aggro fica no tanque (slot %d)" % cmd.skill_slot)
+	check(MobSystem.pick_victim(ws, boss, "far") == far, "pick far = o mais longe")
+	var bishop: SimEntity = ws.spawn_bot(gd.classes["bishop"], "Cura", "dg_ninho", at + Vector3(0, 0, 5), 20)
+	bishop.brain = null
+	bishop.build_id = "sacerdote"          # curandeiro de verdade (as outras builds do Bispo batem)
+	far.position = at + Vector3(0, 0, -14)
+	tank.position = at + Vector3(0, 0, 10)
+	check(MobSystem.pick_victim(ws, boss, "soft") in [bishop, far] and MobSystem.pick_victim(ws, boss, "far") == far, "pick soft prefere curandeiro/atirador")
+	far.position = at + Vector3(-30, 0, 0)
+	tank.position = at + Vector3(0, 0, 10)
+	check(MobSystem.pick_victim(ws, boss, "soft") == bishop, "pick soft: curandeiro antes do tanque mais longe")
+	bishop.position = at + Vector3(0, 0, 40)
+	tank.position = at + Vector3(1.5, 0, 0)
+	far.position = at + Vector3(-11, 0, 0)
+	# monstro comum com a mesma skill: mira o alvo dele, não escolhe vítima
+	var plain: MonsterDef = mdef.duplicate()
+	plain.is_boss = false
+	var mob: SimEntity = ws.spawn_monster(plain, "dg_ninho", at + Vector3(0.5, 0, 0.5))
+	mob.aggro_target = tank.id
+	mob.aggro_timer = 5.0
+	cmd = mob.brain.think(mob, ws, m, 0.05)
+	check(cmd.skill_slot == 1 and cmd.aim.distance_to(tank.position) < 0.01, "monstro comum ignora mob_pick")
+	ws.despawn(mob)
+	# invocar lacaios vale a qualquer distância
+	var sdef: MonsterDef = mdef.duplicate()
+	sdef.skill_ids = ["mob_whirl", "mob_raise_fallen"] as Array[String]
+	var caller: SimEntity = ws.spawn_monster(sdef, "dg_ninho", at + Vector3(0, 0, -15))
+	caller.aggro_target = tank.id
+	caller.aggro_timer = 5.0
+	cmd = caller.brain.think(caller, ws, m, 0.05)
+	check(cmd.skill_slot == 1, "chefe invoca lacaios com o alvo a 15 m (slot %d)" % cmd.skill_slot)
+	ws.despawn(caller)
+	# gancho: puxa para o lado do chefe; chefe nunca é puxado
+	ws._apply_effects(boss, far, {"pull": {"gap": 0.6}}, 1.0)
+	check(far.position.distance_to(boss.position) <= boss.radius + far.radius + 0.6 + 0.3, "gancho traz o alvo para o lado do chefe (%.1f m)" % far.position.distance_to(boss.position))
+	var bp := boss.position
+	ws._apply_effects(tank, boss, {"pull": {"gap": 0.6}}, 1.0)
+	check(boss.position == bp, "chefe não é puxado")
+	far.position = at + Vector3(-11, 0, 0)
+	# chuva: círculos avisados que caem depois do atraso
+	var placed: Array = []
+	var on_hz := func(_map: String, p: Vector3, _r: float, _d: float, _s: String): placed.append(p)
+	Events.hazard_placed.connect(on_hz)
+	var hs: SkillDef = gd.skills["mob_hail_barrage"]
+	MobSystem.place_barrage(ws, boss, hs, far.position, hs.power, hs.effects)
+	Events.hazard_placed.disconnect(on_hz)
+	var hz: Array = m["hazards"]
+	check(hz.size() >= 3 and placed.size() == hz.size(), "chuva marca círculos no chão (%d)" % hz.size())
+	check(hz.any(func(h): return (h["pos"] as Vector3).distance_to(Vector3(far.position.x, 0, far.position.z)) < 0.1)
+		and hz.any(func(h): return (h["pos"] as Vector3).distance_to(Vector3(tank.position.x, 0, tank.position.z)) < 0.1), "chuva: um círculo em cada inimigo")
+	var bb := BotBrain.new()
+	bb.setup(far, ws.rng)
+	check(bb._danger_escape(far, m) != Vector2.ZERO, "bot foge do círculo marcado")
+	var hp0: float = far.hp
+	MobSystem.update_hazards(ws, m)
+	check(far.hp == hp0 and not hz.is_empty(), "chuva: nada cai antes do atraso")
+	ws.time += float(hs.effects["barrage"]["delay"]) + 0.1
+	MobSystem.update_hazards(ws, m)
+	check(far.hp < hp0 and far.debuffs.any(func(d): return d.get("kind") == "slow") and m["hazards"].is_empty(), "chuva cai: dano e lentidão")
+	MobSystem.place_barrage(ws, boss, hs, far.position, hs.power, hs.effects)
+	ws.reset_boss(boss)
+	check(m["hazards"].is_empty(), "reset do chefe apaga a chuva")
+	# fúria por tempo e fúria da fase se multiplicam; reset desfaz
+	var base_atk: float = boss.stats.patk
+	mdef.berserk_after = 10.0
+	mdef.phases = [{"hp": 0.5, "enrage": 1.5}]
+	boss.aggro_target = tank.id
+	MobSystem.update_boss(ws, boss, 10.1)
+	check(boss.berserk and is_equal_approx(boss.stats.patk, base_atk * Balance.BOSS_BERSERK_MULT) and boss.buffs.any(func(b): return b.get("id") == "boss_berserk"),
+		"chefe enlouquece depois de berserk_after")
+	boss.hp = boss.stats.max_hp * 0.4
+	MobSystem.update_boss(ws, boss, 0.05)
+	check(is_equal_approx(boss.stats.patk, base_atk * 1.5 * Balance.BOSS_BERSERK_MULT), "fúria da fase soma com a do tempo")
+	ws.reset_boss(boss)
+	check(not boss.berserk and is_equal_approx(boss.stats.patk, base_atk) and boss.fight_time == 0.0, "reset desfaz a fúria")
+	# escudo dos lacaios: corta o dano enquanto um lacaio vive
+	mdef.berserk_after = 0.0
+	mdef.phases = [{"hp": 0.9, "ward": 0.5, "summon": {"id": "spiderling", "count": 1, "max": 1}}]
+	boss.aggro_target = tank.id
+	boss.hp = boss.stats.max_hp * 0.85
+	MobSystem.update_boss(ws, boss, 0.05)
+	check(boss.ward == 0.5 and boss.buffs.any(func(b): return b.get("id") == "boss_ward"), "fase com ward: escudo com lacaio vivo")
+	var h1: float = boss.hp
+	ws._deal_damage(tank, boss, 1000, false, false, "physical")
+	check(is_equal_approx(h1 - boss.hp, 500.0), "escudo corta metade do dano (%.0f)" % (h1 - boss.hp))
+	for o in m["entities"].duplicate():
+		if o.boss_id == boss.id:
+			ws.despawn(o)
+	MobSystem.update_boss(ws, boss, Balance.BOSS_WARD_CHECK + 0.1)
+	h1 = boss.hp
+	ws._deal_damage(tank, boss, 1000, false, false, "physical")
+	check(boss.ward == 0.0 and is_equal_approx(h1 - boss.hp, 1000.0), "sem lacaio, dano inteiro")
+	for e in m["entities"].duplicate():
+		ws.despawn(e)
+	# kit mínimo de todo chefe da sonda
+	var probe = load("res://tools/tests/boss_probe.gd")
+	for bid in probe.BOSSES:
+		var md: MonsterDef = gd.monsters[bid]
+		var grp: String = probe.GROUPS.get(bid, "group")
+		var kit: Array = Array(md.skill_ids)
+		for ph in md.phases:
+			kit.append_array(ph.get("skills", []))
+		var ranged_answer := false
+		var summons := false
+		for sid in kit:
+			var sk: SkillDef = gd.skills.get(sid)
+			check(sk != null, "%s: skill %s existe" % [bid, sid])
+			if sk == null:
+				continue
+			if (sk.mob_pick != "" and (maxf(sk.range, sk.radius) >= 10.0 or sk.effects.has("barrage") or sk.effects.has("pull"))) \
+					or (sk.target == SkillDef.Target.SELF and sk.effects.has("pull") and sk.radius >= 9.0):
+				ranged_answer = true
+			if sk.effects.has("boss_summon"):
+				summons = true
+				var ad: MonsterDef = gd.monsters.get(str(sk.effects["boss_summon"]["id"]))
+				check(ad != null and ad.xp == 0 and ad.loot_table == "", "%s: lacaio de %s sem XP/loot" % [bid, sid])
+		check(ranged_answer, "%s: tem resposta para quem luta de longe (alcance 10 m+ com mira, chuva ou gancho)" % bid)
+		if grp == "group":
+			check(md.phases.size() >= 3 and summons and md.berserk_after > 0.0, "%s: chefe de grupo com 3 fases, lacaios no ritmo e fúria por tempo" % bid)
+			check(md.phases.any(func(ph): return ph.has("ward")), "%s: alguma fase protegida pelos lacaios (ward)" % bid)
+		elif grp == "elite":
+			check(md.phases.is_empty() and not md.is_boss, "%s: elite sem fases (missão e escolta)" % bid)
+		else:
+			check(md.berserk_after == 0.0, "%s: chefe de campo sem fúria por tempo (dá para solar)" % bid)
+
 func _check_band_bosses(gd, sim) -> void:
 	for bid in ["bandit_chief", "spider_queen", "elf_king", "count_vargo", "bone_captain", "wailing_widow", "golem_ancient", "crystal_warden", "quarry_heart", "elf_captain_hunter", "elf_captain_sky", "elf_captain_sap"]:
 		var md: MonsterDef = gd.monsters[bid]

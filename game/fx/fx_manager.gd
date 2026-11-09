@@ -28,6 +28,7 @@ func _ready() -> void:
 	Events.loot_dropped.connect(_on_loot)
 	Events.monster_emerged.connect(_on_emerged)
 	Events.trap_placed.connect(_on_trap_placed)
+	Events.hazard_placed.connect(_on_hazard_placed)
 	Events.dodged.connect(_on_dodged)
 	Events.trap_removed.connect(_on_trap_removed)
 	Events.level_up.connect(_on_level_up)
@@ -303,6 +304,8 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: f
 			elif s.projectile_speed <= 0.0:
 				SkillFx.wave(self, origin, dir, s.range, maxf(s.radius * 2.0, 0.6), th, 0.35)
 		SkillDef.Target.TARGET:
+			if s.effects.has("pull"):            # gancho de chefe: a corda vai de quem puxa até quem foi puxado
+				SkillFx.rope(self, origin + Vector3(0, 1.0, 0) + dir * 0.4, aim + Vector3(0, 1.0, 0))
 			if s.kind == SkillDef.Kind.HEAL or s.kind == SkillDef.Kind.BUFF:
 				SkillFx.column(self, aim, 0.7, th, 0.55)
 				SkillFx.burst(self, aim + Vector3(0, 0.4, 0), th, 18, Vector3.UP, 0.4)
@@ -411,8 +414,8 @@ func _on_skill_cast(entity_id: int, skill_id: String, phase: String) -> void:
 		SkillFx.gather(self, e.position + Vector3(0, 1.0, 0) + e.forward() * 0.35, s.vfx, s.startup)
 	elif s and s.startup >= 0.3 and e.kind != SimEntity.Kind.MONSTER:
 		_ring(e.position, 0.7, SkillFx.col(s.vfx), s.startup, false, true)
-	if s and e.kind == SimEntity.Kind.MONSTER and s.startup >= 0.25 and s.kind != SkillDef.Kind.BUFF:
-		_telegraph(e, s)
+	if s and e.kind == SimEntity.Kind.MONSTER and s.startup >= 0.25 and s.kind != SkillDef.Kind.BUFF and not s.effects.has("barrage"):
+		_telegraph(e, s)          # chuva de chefe: cada círculo avisa sozinho (_on_hazard_placed)
 
 ## Inimigo que a magia TARGET vai pegar (o mesmo critério de Combat.select_targets, só leitura).
 func _foe_under(e: SimEntity, s: SkillDef) -> SimEntity:
@@ -443,7 +446,7 @@ func _telegraph(e: SimEntity, s: SkillDef) -> void:
 			fill = _strip(length, w, Color(col.r, col.g, col.b, 0.42))
 		_:
 			var r := s.radius if s.radius > 0.0 else 1.6
-			root.position = (e.skill_aim if s.target == SkillDef.Target.GROUND else e.position) + Vector3(0, 0.05, 0)
+			root.position = (e.skill_aim if s.target in [SkillDef.Target.GROUND, SkillDef.Target.TARGET] else e.position) + Vector3(0, 0.05, 0)     # alvo único: a marca fica em quem vai levar
 			outline = _disc(r, col)
 			fill = _disc(r, Color(col.r, col.g, col.b, 0.42))
 	root.add_child(outline)
@@ -454,6 +457,25 @@ func _telegraph(e: SimEntity, s: SkillDef) -> void:
 		outline.scale = Vector3.ONE * 1.04
 	var tw := create_tween()
 	tw.tween_property(fill, "scale", Vector3.ONE, dur)
+	tw.tween_callback(root.queue_free)
+
+## Chuva de chefe (MobSystem.place_barrage): círculo vermelho que enche até a hora da queda, como o aviso de golpe.
+func _on_hazard_placed(map_id: String, pos: Vector3, radius: float, delay: float, _skill_id: String) -> void:
+	if map_id != main.current_map_id:
+		return
+	var col := Color(1.0, 0.25, 0.18, 0.32)
+	var root := Node3D.new()
+	add_child(root)
+	root.position = pos + Vector3(0, 0.05, 0)
+	var outline := _disc(radius, col)
+	var fill := _disc(radius, Color(col.r, col.g, col.b, 0.42))
+	root.add_child(outline)
+	root.add_child(fill)
+	fill.position.y = 0.01
+	fill.scale = Vector3(0.05, 1, 0.05)
+	outline.scale = Vector3.ONE * 1.04
+	var tw := create_tween()
+	tw.tween_property(fill, "scale", Vector3.ONE, maxf(0.2, delay))
 	tw.tween_callback(root.queue_free)
 
 func _flat_mat(col: Color) -> StandardMaterial3D:

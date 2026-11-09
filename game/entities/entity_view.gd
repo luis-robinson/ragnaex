@@ -1331,7 +1331,9 @@ const FORM_CLIP := {"atk_claw": "maul", "atk_flurry": "maul", "atk_finisher": "m
 	"atk_dual_b": "maul", "atk_1h_a": "maul", "atk_1h_b": "maul", "atk_2h": "maul", "atk_thrust": "maul",
 	"atk_leap": "pounce", "atk_charge": "pounce", "atk_spin": "slam", "cast_ground": "slam",
 	"shout": "roar", "cast": "roar", "cast_nature": "roar", "cast_buff": "roar", "cast_target": "roar", "cast_channel": "roar",
-	"buff_power": "roar", "buff_focus": "roar", "summon": "roar", "buff_guard": "brace"}
+	"buff_power": "roar", "buff_focus": "roar", "summon": "roar", "buff_guard": "brace",
+	"atk_throw": "maul", "cast_fire": "roar", "cast_ice": "roar", "cast_bolt": "roar", "cast_holy": "roar",
+	"cast_shadow": "roar"}
 
 func _clip(name: String) -> String:
 	if kit and form_view == null:

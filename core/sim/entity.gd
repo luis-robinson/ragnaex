@@ -95,7 +95,13 @@ var threat: Dictionary = {}          # attacker_id -> ameaça (dano + provocaç�
 var damage_by: Dictionary = {}       # attacker_id -> dano real; decide quem levou o abate
 var taunt_left: float = 0.0          # s preso no alvo atual
 var phase: int = 0                   # fases de chefe já iniciadas
-var dmg_mult: float = 1.0            # fúria de chefe
+var dmg_mult: float = 1.0            # fúria de chefe (enrage_mult × berserk)
+var enrage_mult: float = 1.0         # chefe: fúria da fase (MonsterDef.phases[].enrage)
+var fight_time: float = 0.0          # chefe: s em combate nesta luta (MonsterDef.berserk_after)
+var berserk := false                 # chefe: passou do tempo da luta e enlouqueceu
+var ward_base: float = 0.0           # chefe: fração de dano cortada enquanto os lacaios vivem (fase com "ward")
+var ward: float = 0.0                # corte valendo agora (0 = sem lacaio vivo)
+var ward_t: float = 0.0              # s até reconferir os lacaios
 var boss_id: int = -1                # lacaio: chefe que o chamou
 var leader_id: int = -1              # escolta: líder que este monstro segue (capitão, sargento)
 var escort_slot: int = 0             # escolta: vaga no anel em volta do líder

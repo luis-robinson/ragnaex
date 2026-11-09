@@ -359,14 +359,20 @@ func _best_skill(e: SimEntity, sim, m: Dictionary, mob: SimEntity, dist: float) 
 
 ## Para onde sair de uma área de golpe de monstro que está começando (Vector2.ZERO = seguro).
 func _danger_escape(e: SimEntity, m: Dictionary) -> Vector2:
+	for h in m.get("hazards", []):           # círculos de chefe (barrage) já marcados no chão
+		var hp: Vector3 = h["pos"]
+		var hc := Vector2(hp.x, hp.z)
+		var mine := Vector2(e.position.x, e.position.z)
+		if mine.distance_to(hc) < float(h["radius"]) + e.radius + 0.5:
+			return (mine - hc).normalized() if mine.distance_to(hc) > 0.05 else Vector2.RIGHT
 	for o in m["entities"]:
 		if o.state != SimEntity.State.CASTING or o.kind != SimEntity.Kind.MONSTER or o.current_skill == null:       # o barato primeiro
 			continue
 		if o.skill_phase != "startup" or o.position.distance_to(e.position) > 14.0:
 			continue
 		var s: SkillDef = o.current_skill
-		if s.radius < Balance.BOT_DODGE_MIN_RADIUS or s.target == SkillDef.Target.TARGET:
-			continue
+		if s.radius < Balance.BOT_DODGE_MIN_RADIUS or s.target == SkillDef.Target.TARGET or s.effects.has("barrage"):
+			continue                             # chuva: quem marca o perigo são os círculos (acima), não o lançamento
 		var me := Vector2(e.position.x, e.position.z)
 		var pad: float = e.radius + 0.5
 		match s.target:

@@ -62,7 +62,7 @@ func reset_world() -> void:
 func load_map(def: MapDef) -> Dictionary:
 	if maps.has(def.id):
 		return maps[def.id]
-	var m := {"def": def, "entities": [], "projectiles": [], "loot": [], "spawners": [], "grid": {}, "colliders": [], "traps": [],
+	var m := {"def": def, "entities": [], "projectiles": [], "loot": [], "spawners": [], "grid": {}, "colliders": [], "traps": [], "hazards": [],
 		"kills": {}, "elites": {}}         # abates por monstro e o Rei vivo de cada um (Balance.ELITE_*)
 	maps[def.id] = m
 	MapGeometry.build_collider_grid(self, m)
@@ -429,6 +429,7 @@ func tick(dt: float) -> void:
 		if profile:
 			_prof("r_spawners", pt); pt = Time.get_ticks_usec()
 		TrapSystem.update_traps(self, m)
+		MobSystem.update_hazards(self, m)
 		ClassTalentSystem.tick(self, m, mdt)
 		AuraSystem.tick(self, m, mdt)
 		LootSystem.update_loot(self, m, mdt)
@@ -846,6 +847,8 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 	e.combat_timer = Balance.AGGRO_LOSE_TIME
 	var aim := Combat.clamp_aim(e, e.skill_aim, s.range)
 	var any_hit := false
+	if s.mob_pick != "" and s.target == SkillDef.Target.TARGET and e.kind == SimEntity.Kind.MONSTER:
+		aim = MobSystem.follow_victim(self, e, s, aim)      # gancho de chefe: acompanha a vítima que andou (o alcance ainda vale)
 	if effects.has("aura") and AuraSystem.aura_on(e, s):      # aura ligada: lançar de novo desliga
 		AuraSystem.switch_off(self, e, s)
 		return
@@ -909,6 +912,9 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 			_apply_effects(e, pet, {"buff": effects["buff"]}, power)
 	if effects.has("boss_summon"):
 		MobSystem.spawn_adds(self, e, effects["boss_summon"])
+	if effects.has("barrage"):            # chefe: círculos avisados no chão que caem depois (MobSystem.update_hazards)
+		MobSystem.place_barrage(self, e, s, aim, power, effects)
+		return
 	if effects.get("taunt") != null:
 		for o in m["entities"]:
 			if o.kind == SimEntity.Kind.MONSTER and o.is_alive() and o.position.distance_to(e.position) <= s.radius + o.radius:
@@ -1026,6 +1032,13 @@ func _apply_effects(src: SimEntity, t: SimEntity, effects: Dictionary, power: fl
 	if effects.get("slow") != null:
 		var d: Dictionary = effects["slow"]
 		t.debuffs.append({"kind": "slow", "remaining": float(d.get("duration", 2)), "pct": float(d.get("pct", 30))})
+	if effects.get("pull") != null and t != src and src.is_hostile_to(t) and not (t.monster_def and t.monster_def.is_boss) and not t.is_perched() and maps.has(t.map_id):
+		var gap := float((effects["pull"] as Dictionary).get("gap", Balance.BOSS_PULL_GAP))
+		var to := src.position - t.position
+		to.y = 0.0
+		var want := to.length() - (src.radius + t.radius + gap)
+		if want > 0.1:                         # gancho: arrasta reto até o lado de quem puxou, parando no primeiro obstáculo
+			_charge(t, to.normalized() * want, maps[t.map_id])
 	if effects.get("root") != null:
 		t.debuffs.append({"kind": "root", "remaining": float(effects["root"].get("duration", 2))})
 	if effects.get("stun") != null and (t.kind != SimEntity.Kind.NPC or t.guard):
@@ -1271,6 +1284,8 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 	var weak := Combat.curse_sum(attacker, "weaken_pct")
 	if taken > 0.0 or weak > 0.0:
 		amount = maxi(1, int(round(amount * (1.0 + taken / 100.0) * (1.0 - minf(weak, Balance.CURSE_WEAKEN_CAP) / 100.0))))
+	if target.ward > 0.0 and attacker != target:          # chefe com lacaios vivos: escudo da fase ("ward")
+		amount = maxi(1, int(round(amount * (1.0 - target.ward))))
 	if target.stats.dr_pct > 0.0 and attacker != target:      # aura do tanque: menos dano em quem está no grupo dele
 		amount = maxi(1, int(round(amount * (1.0 - minf(target.stats.dr_pct, Balance.DR_CAP) / 100.0))))
 	# esquiva (Assassino): o golpe direto não pega
@@ -1492,8 +1507,8 @@ func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 				e.set_state(SimEntity.State.IDLE)
 		_:
 			pass
-	if e.kind == SimEntity.Kind.MONSTER and not e.monster_def.phases.is_empty():
-		MobSystem.update_boss(self, e)
+	if e.kind == SimEntity.Kind.MONSTER and (not e.monster_def.phases.is_empty() or e.monster_def.berserk_after > 0.0):
+		MobSystem.update_boss(self, e, dt)
 	# aggro
 	if e.kind == SimEntity.Kind.MONSTER and (e.aggro_target >= 0 or not e.damage_by.is_empty()):
 		e.aggro_timer -= dt
@@ -1863,8 +1878,8 @@ func _update_traps(m: Dictionary) -> void:
 # MobSystem
 func _retarget(mob: SimEntity, attacker: SimEntity) -> void:
 	MobSystem.retarget(self, mob, attacker)
-func _update_boss(e: SimEntity) -> void:
-	MobSystem.update_boss(self, e)
+func _update_boss(e: SimEntity, dt: float = 0.0) -> void:
+	MobSystem.update_boss(self, e, dt)
 func reset_boss(e: SimEntity) -> void:
 	MobSystem.reset_boss(self, e)
 # Cristal de retorno

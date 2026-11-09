@@ -26,9 +26,9 @@ const LOOKS := {
 	"shield_wall": ["armor", "holy"], "bastion": ["armor", "holy"], "juramento": ["armor", "holy"],
 	"duel_guard": ["armor", "physical"],
 	# escudo de HP
-	"shield": ["shield", ""],
+	"shield": ["shield", ""], "boss_ward": ["shield", ""],
 	# ataque
-	"fury": ["power", "blood"], "warcry": ["power", "blood"], "bloodlust": ["power", "blood"], "titan_grip": ["power", "blood"],
+	"fury": ["power", "blood"], "boss_berserk": ["power", "blood"], "warcry": ["power", "blood"], "bloodlust": ["power", "blood"], "titan_grip": ["power", "blood"],
 	"frenzy": ["power", "blood"], "legend_frenzy": ["power", "blood"], "elixir": ["power", "fire"],
 	"valor": ["power", "holy"], "zeal": ["power", "holy"], "fervor": ["power", "holy"], "battle_hymn": ["power", "holy"],
 	"mark": ["power", "physical"], "deadeye": ["power", "physical"], "focus": ["power", "physical"], "duel_focus": ["power", "physical"],
@@ -55,6 +55,8 @@ const SYSTEM_BUFFS := {
 	"bastion": "RaidSystem (sentinela: reunir)",
 	"juramento": "ShieldSystem (Juramento ao bloquear)",
 	"shield": "WorldSim (efeito shield, Égide lendária)",
+	"boss_ward": "MobSystem (chefe protegido pelos lacaios: fase com ward)",
+	"boss_berserk": "MobSystem (chefe enlouquecido: berserk_after)",
 }
 
 ## Padrão na pele (uniform buff_style do toon) por tema.
