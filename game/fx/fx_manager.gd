@@ -14,7 +14,16 @@ var _reticle_shader: Shader
 
 var show_reticle := true      # bancada de skills desliga (o cursor do mouse não interessa nas fotos)
 
+static var fx_shadows := false    # --fx_shadows: efeitos voltam a projetar sombra (medir)
+
+## Efeito não projeta sombra: cada objeto com sombra era redesenhado em cada cascata + pré-passada
+## (≈4-5 draw calls por faísca, número de dano ou anel; a briga somava +1000 draws).
+func _on_node_added(n: Node) -> void:
+	if not fx_shadows and n is GeometryInstance3D and is_ancestor_of(n):
+		(n as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
 func _ready() -> void:
+	get_tree().node_added.connect(_on_node_added)
 	_reticle_shader = load("res://shaders/ground_reticle.gdshader")
 	reticle = _make_reticle(0)
 	dir_reticle = _make_reticle(1)

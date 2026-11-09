@@ -58,10 +58,10 @@ static func on_monster_killed(sim: WorldSim, mob: SimEntity, killer: SimEntity) 
 					coins = sim.rng.randi_range(mob.monster_def.coin_min, mob.monster_def.coin_max)
 				personal.append([leg, c, coins])
 				if c == sim.player:
-					Events.notification.emit("✦ %d Moeda%s Lendária%s! Troque com a Relicária em Aldara" % [coins, "s" if coins > 1 else "", "s" if coins > 1 else ""])
+					Events.post(&"notification", "✦ %d Moeda%s Lendária%s! Troque com a Relicária em Aldara" % [coins, "s" if coins > 1 else "", "s" if coins > 1 else ""])
 					BotChat.party_event(sim, c, "loot_legend")
 				elif c.kind == SimEntity.Kind.BOT:
-					Events.chat_message.emit(c.name, "DROPOU MOEDA LENDÁRIA!!!", "global")
+					Events.post(&"chat_message", c.name, "DROPOU MOEDA LENDÁRIA!!!", "global")
 		var i := 0
 		for item_id in drops:
 			drop(m, mob, i, 0.5, item_id, int(drops[item_id]), 45.0, looter.id, sim.time + Balance.LOOT_LOCK_TIME)
@@ -84,7 +84,7 @@ static func on_monster_killed(sim: WorldSim, mob: SimEntity, killer: SimEntity) 
 static func drop(m: Dictionary, mob: SimEntity, i: int, ring: float, item_id: String, count: int, timer: float, owner_id: int, free_at: float) -> void:
 	var off := Vector3(cos(i * 1.7) * ring, 0.0, sin(i * 1.7) * ring)
 	m["loot"].append({"pos": mob.position + off, "item": item_id, "count": count, "timer": timer, "owner": owner_id, "free_at": free_at})
-	Events.loot_dropped.emit(mob.map_id, mob.position + off, item_id, count)
+	Events.post(&"loot_dropped", mob.map_id, mob.position + off, item_id, count)
 
 static func count_kill(sim: WorldSim, m: Dictionary, mob: SimEntity) -> void:
 	var md: MonsterDef = mob.monster_def
@@ -106,9 +106,9 @@ static func count_kill(sim: WorldSim, m: Dictionary, mob: SimEntity) -> void:
 	var king := sim.spawn_monster(elite_def(sim, md), mob.map_id, pos)
 	m["elites"][md.id] = king.id
 	var where: String = m["def"].name
-	Events.chat_message.emit("Sistema", "%s surgiu em %s! (lendário garantido)" % [king.monster_def.name, where], "system")
+	Events.post(&"chat_message", "Sistema", "%s surgiu em %s! (lendário garantido)" % [king.monster_def.name, where], "system")
 	if sim.player and sim.player.map_id == mob.map_id:
-		Events.notification.emit("👑 %s surgiu!" % king.monster_def.name)
+		Events.post(&"notification", "👑 %s surgiu!" % king.monster_def.name)
 
 ## Rei de um monstro comum (criado uma vez por tipo): mais vida, ataque e tamanho; a coroa é da apresentação (EntityView).
 static func elite_def(sim: WorldSim, base: MonsterDef) -> MonsterDef:
@@ -180,7 +180,7 @@ static func split_gold(sim: WorldSim, sharers: Array, gold: int) -> void:
 		var share := each + (1 if i < extra else 0)
 		sharers[i].gold += share
 		if sharers[i] == sim.player and share > 0:
-			Events.notification.emit("+%d ouro (grupo)" % share)
+			Events.post(&"notification", "+%d ouro (grupo)" % share)
 
 ## Calça/capa/amuleto/anel comum do maior tier que o nível do monstro alcança. Tiers baixos também estão na loja.
 static func roll_gear(sim: WorldSim, killer: SimEntity, mob: SimEntity) -> String:
@@ -238,7 +238,7 @@ static func update_loot(sim: WorldSim, m: Dictionary, dt: float) -> void:
 			if e == sim.player and l["item"] != "gold" and e.bag_full_for(l["item"]):
 				if sim.time >= e.portal_notice_at:
 					e.portal_notice_at = sim.time + Balance.NOTICE_CD
-					Events.notification.emit("Bolsa cheia (%d/%d): libere espaço ou amplie a bolsa" % [e.inventory.size(), e.bag_capacity()])
+					Events.post(&"notification", "Bolsa cheia (%d/%d): libere espaço ou amplie a bolsa" % [e.inventory.size(), e.bag_capacity()])
 				continue
 			pickup(sim, e, l)
 			loot.erase(l)
@@ -251,12 +251,12 @@ static func pickup(sim: WorldSim, e: SimEntity, l: Dictionary) -> void:
 	if l["item"] == "gold":
 		e.gold += int(l["count"])
 		if e == sim.player:
-			Events.notification.emit("+%d ouro" % int(l["count"]))
+			Events.post(&"notification", "+%d ouro" % int(l["count"]))
 	else:
 		e.add_item(l["item"], int(l["count"]))
 		QuestSystem.on_item_changed(e, l["item"])
 		if e == sim.player:
 			var it: ItemDef = GameData.items.get(l["item"])
-			Events.notification.emit("+%d %s" % [int(l["count"]), it.name if it else l["item"]])
+			Events.post(&"notification", "+%d %s" % [int(l["count"]), it.name if it else l["item"]])
 			if it and it.rarity >= 2 and e.party_id >= 0:             # raro ou melhor: o grupo comenta
 				BotChat.party_event(sim, e, "loot", {"item": it.name}, null, 0.6)

@@ -270,7 +270,7 @@ const VFX_RULES := [
 	["bone", ["bone", "corpse"]],
 	["poison", ["toxic", "venom", "paralyze", "plague", "virulence", "poison", "rot", "swarm", "decay", "pandemic", "curse", "smoke"]],
 	["shadow", ["shadow", "expose", "ambush", "veil", "dark", "soul", "grim", "harvest", "reap", "death", "drain", "assassinate", "ass_execute"]],
-	["blood", ["blood", "hatchet", "tomahawk", "ricochet", "great_throw", "rend", "hack", "butcher", "crimson", "fury", "rampage", "frenzy", "savage", "eviscerate", "warcry", "titan", "ber_execute", "decapitate"]],
+	["blood", ["blood", "rend", "hack", "butcher", "crimson", "fury", "rampage", "frenzy", "savage", "eviscerate", "warcry", "titan", "ber_execute", "decapitate"]],
 	["earth", ["earth", "mountain", "stampede", "slam", "overhead", "maul", "splitter", "leap", "pounce", "boulder", "rockfall", "magnet"]],
 	["holy", ["shield_throw", "holy", "light", "bless", "consecrate", "judg", "purge", "purify", "smite", "divine", "nova", "angel", "miracle", "sanct", "wrath", "crusad", "zeal", "valor", "exorc", "condemn", "martyr", "prayer", "ward", "hammer", "radiant", "lay_hands", "retribution"]],
 	["nature", ["bark", "oak", "thorn", "entangle", "growth", "regrowth", "dru_"]],
@@ -345,7 +345,7 @@ static func _s(id: String, name: String, lvl: int, build: String, req: Array, tg
 		d["power"] = 0.0; d["startup"] = 0.1; d["recovery"] = 0.2
 	for k in ext:
 		if k in ["dot", "slow", "stun", "root", "buff", "shield", "dash", "summon", "heal_pct_of_dmg", "taunt", "boss_summon", "wither", "form", "stealth", "trap", "pet_command", "pet_buff", "curse", "channel", "mend_pct_of_dmg", "combust", "bounce", "aura", "barrage", "pull",
-				"combo_gain", "combo_spend", "dice", "dash_to_aim", "shot"]:
+				"combo_gain", "combo_spend", "dice", "dash_to_aim", "shot", "fury_gain", "fury_spend", "heal_pct", "mana_pct"]:
 			if not d.has("effects"):
 				d["effects"] = {}
 			d["effects"][k] = ext[k]
@@ -413,7 +413,7 @@ static func _more() -> Dictionary:
 		_s("ber_hack", "Talho Duplo", 2, "carniceiro", ["dual"], T_TARGET, K_PHYS, 1.7, 8, 3, "Dois talhos com as duas armas: sangramento por 4s.", {"dot": _dot(4, 4)}),
 		_s("ber_rend", "Dilacerar", 8, "carniceiro", ["dual"], T_CONE, K_PHYS, 1.4, 12, 7, "Dilacera em cone: sangramento forte.", {"radius": 2.6, "cone_angle_deg": 110, "dot": _dot(6, 5)}),
 		_s("ber_axe_storm", "Tempestade de Aço", 13, "carniceiro", ["dual"], T_SELF, K_PHYS, 2.4, 20, 11, "Tempestade de golpes ao redor: tudo sangra por 4s.", {"radius": 3.2, "active": 0.3, "dot": _dot(6, 4)}),
-		_s("ber_throw_axe", "Arremesso Brutal", 16, "arremessador", ["dual"], T_DIR, K_PHYS, 1.9, 14, 8, "Arremessa a arma da mão secundária: dano e lentidão.", {"range": 9.0, "radius": 0.5, "projectile_speed": 18.0, "slow": _slow(35, 2)}),
+		_s("ber_throw_axe", "Arremesso Brutal", 16, "carniceiro", ["dual"], T_DIR, K_PHYS, 1.9, 14, 8, "Arremessa a arma da mão secundária: dano e lentidão.", {"range": 9.0, "radius": 0.5, "projectile_speed": 18.0, "slow": _slow(35, 2)}),
 		_s("ber_butcher", "Carnificina", 24, "carniceiro", ["dual"], T_TARGET, K_PHYS, 3.6, 26, 14, "Golpe brutal em um alvo; cura 25% do dano.", {"heal_pct_of_dmg": 0.25, "hit_stop_frames": 6}),
 		# Armas Gêmeas: golpes rápidos
 		_s("ber_twin_fang", "Presas Gêmeas", 2, "carniceiro", ["dual"], T_CONE, K_PHYS, 1.5, 8, 3, "Dois cortes rápidos em leque que retardam 25%.", {"radius": 2.6, "cone_angle_deg": 100, "slow": _slow(25, 1.5), "clip": "atk_flurry", "vfx": "blood"}),
@@ -426,17 +426,24 @@ static func _more() -> Dictionary:
 		_s("ber_earthsplitter", "Racha-Terra", 11, "executor", ["two_handed"], T_DIR, K_PHYS, 2.2, 16, 9, "Racha o chão em linha reta: dano e lentidão.", {"range": 7.0, "radius": 1.0, "slow": _slow(40, 2)}),
 		_buff("ber_titan_grip", "Pegada de Titã", 17, "executor", ["two_handed"], 18, 24, "+35% ATK e -15% DEF por 10s.", {"id": "titan_grip", "duration": 10, "atk_pct": 35, "def_pct": -15}),
 		_s("ber_decapitate", "Decapitar", 28, "executor", ["two_handed"], T_TARGET, K_PHYS, 4.4, 34, 18, "Golpe final devastador em um alvo.", {"hit_stop_frames": 7}),
-		# Arremessador (duas machadinhas de arremesso): luta de meia distância, sangramento em tudo (Hemorragia na arma)
-		_s("ber_hatchet", "Machadinha Voadora", 2, "arremessador", ["dual"], T_DIR, K_PHYS, 1.3, 7, 3.2, "Arremessa uma machadinha: dano e sangramento por 4s.",
-			{"range": 10.0, "radius": 0.5, "projectile_speed": 22.0, "dot": _dot(4, 4)}),
-		_s("ber_ricochet", "Machado Ricochete", 9, "arremessador", ["dual"], T_DIR, K_PHYS, 1.6, 13, 7, "Machado girando que atravessa a fila de inimigos e faz sangrar.",
-			{"range": 11.0, "radius": 0.7, "projectile_speed": 16.0, "projectile_pierce": true, "dot": _dot(5, 4)}),
-		_s("ber_hatchet_fan", "Leque de Machadinhas", 14, "arremessador", ["dual"], T_CONE, K_PHYS, 1.7, 16, 9, "Leque de machadinhas até 7m à frente: dano, sangramento e lentidão.",
-			{"radius": 7.0, "cone_angle_deg": 50, "max_targets": 6, "dot": _dot(5, 4), "slow": _slow(30, 2)}),
-		_s("ber_tomahawk_rain", "Chuva de Machados", 21, "arremessador", ["dual"], T_GROUND, K_PHYS, 2.2, 24, 13, "Chuva de machados no cursor: tudo sangra forte por 5s.",
-			{"range": 10.0, "radius": 3.0, "dot": _dot(6, 5), "hit_stop_frames": 4}),
-		_s("ber_great_throw", "Arremesso Colossal", 27, "arremessador", ["dual"], T_DIR, K_PHYS, 3.0, 30, 16, "Arremesso com toda a força: atravessa tudo em linha e atordoa 0.6s.",
-			{"range": 12.0, "radius": 1.0, "projectile_speed": 20.0, "projectile_pierce": true, "stun": _dur(0.6), "hit_stop_frames": 6}),
+		# Punhos de Fúria (duas garras): muita AGI e esquiva; cada golpe esquivado vira Fúria do Punho e contra-ataque
+		# (FistSystem); o Punho Final gasta a Fúria. Monge da fúria: socos, ki em linha, chakra e postura.
+		_s("ber_fist_flurry", "Socos Repetidos", 2, "punhos", ["dual_claw"], T_TARGET, K_PHYS, 1.8, 7, 3, "Rajada de socos com as garras em um alvo.",
+			{"clip": "atk_flurry", "vfx": "blood", "hit_stop_frames": 3}),
+		_s("ber_shockwave", "Onda de Choque", 5, "punhos", ["dual_claw"], T_DIR, K_PHYS, 1.5, 10, 6, "Soco no chão que solta uma onda de ki em linha: atravessa inimigos.",
+			{"range": 9.0, "radius": 0.9, "projectile_speed": 16.0, "projectile_pierce": true, "vfx": "holy"}),
+		_buff("ber_chakra", "Chakra", 8, "punhos", ["dual_claw"], 0, 16, "Concentra o ki: cura 25% da vida, devolve 15% da mana e +15% DEF por 6s.",
+			{"id": "chakra", "duration": 6, "def_pct": 15}, {"heal_pct": 25, "mana_pct": 15, "vfx": "holy"}),
+		_s("ber_earth_slash", "Fenda na Terra", 12, "punhos", ["dual_claw"], T_CONE, K_PHYS, 2.0, 14, 8, "Soco que racha o chão em leque até 5m: dano e lentidão.",
+			{"radius": 5.0, "cone_angle_deg": 50, "slow": _slow(30, 2), "hit_stop_frames": 4, "vfx": "earth"}),
+		_buff("ber_counter_stance", "Postura do Contra-Golpe", 15, "punhos", ["dual_claw"], 14, 20, "+25% de esquiva por 8s: cada golpe esquivado vira Fúria e contra-ataque.",
+			{"id": "counter_stance", "duration": 8, "evasion": 25}),
+		_s("ber_tiger_pounce", "Bote do Tigre", 18, "punhos", ["dual_claw"], T_DIR, K_PHYS, 2.0, 16, 9, "Avança 6m com as garras: dano e atordoa 0.5s.",
+			{"range": 6.0, "radius": 1.0, "dash": 6.0, "stun": _dur(0.5), "vfx": "blood"}),
+		_s("ber_final_fist", "Punho Final", 22, "punhos", ["dual_claw"], T_TARGET, K_PHYS, 2.6, 18, 10, "Golpe que gasta toda a Fúria do Punho: +30% de dano por carga.",
+			{"fury_spend": {"power_pct": 30}, "hit_stop_frames": 7, "vfx": "blood"}),
+		_s("ber_hundred_fists", "Cem Punhos", 27, "punhos", ["dual_claw"], T_SELF, K_PHYS, 3.0, 30, 16, "Tempestade de socos ao redor; se acertar alguém, +2 de Fúria do Punho.",
+			{"radius": 3.2, "active": 0.4, "fury_gain": 2, "vfx": "blood"}),
 	],
 	"bishop": [
 		_s("bis_light", "Luz Sagrada", 1, "", [], T_DIR, K_MAG, 1.2, 6, 1.8, "Pequeno projétil de luz.", {"range": 9.0, "radius": 0.4, "projectile_speed": 20.0}),

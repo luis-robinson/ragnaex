@@ -73,7 +73,7 @@ static func build() -> Dictionary:
 				_o("ber_c_wounded", "Fera Ferida", "Abaixo de 50% do HP: +18% de dano.", "dano", {"low_hp": {"below": 0.5, "dmg_pct": 18}})]],
 			[10, [_o("ber_c_fury_long", "Fúria sem Fim", "Fúria dura o dobro e recarrega 30% mais rápido.", "dano", {"skill_mods": {"ber_fury": {"mult": {"cooldown": 0.7, "duration": 2.0}}}}),
 				_o("ber_c_warcry", "Grito de Guerra", "Sede de Sangue vira aura: você e o grupo a 15 m (60% da força).", "aura", {"aura": ["ber_bloodlust"], "strength": 0.6}),
-				_o("ber_c_twin", "Machado Gêmeo", "Talho Duplo, Presas Gêmeas e Machadinha Voadora +20% de dano.", "dano", {"skill_mods": {"ber_hack": {"mult": {"power": 1.2}}, "ber_twin_fang": {"mult": {"power": 1.2}}, "ber_hatchet": {"mult": {"power": 1.2}}}})]],
+				_o("ber_c_twin", "Machado Gêmeo", "Talho Duplo, Presas Gêmeas e Socos Repetidos +20% de dano.", "dano", {"skill_mods": {"ber_hack": {"mult": {"power": 1.2}}, "ber_twin_fang": {"mult": {"power": 1.2}}, "ber_fist_flurry": {"mult": {"power": 1.2}}}})]],
 			[15, [_o("ber_c_cleave", "Rachar Amplo", "Rachar e Redemoinho 25% maiores.", "dano", {"skill_mods": {"ber_cleave": {"mult": {"radius": 1.25}}, "ber_whirlwind": {"mult": {"radius": 1.25}}}}),
 				_o("ber_c_massacre", "Massacre", "Matar renova a Sede de Sangue.", "dano", {"on_kill": {"buff": "ber_bloodlust"}}),
 				_o("ber_c_titan", "Pele de Titã", "Pegada de Titã fica sempre ativa (50% da força, sem perder DEF).", "permanente", {"permanent": ["ber_titan_grip"], "strength": 0.5})]],

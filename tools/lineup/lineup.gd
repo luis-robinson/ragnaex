@@ -342,8 +342,9 @@ func _build_tiers() -> void:
 		var eq := {}
 		for iid in GameData.legendary_pool(cls, int(levels[i]), _set):
 			var it: ItemDef = GameData.items[iid]
-			if not eq.has(it.slot):
-				eq[it.slot] = it
+			var slot: int = ItemDef.Slot.OFFHAND if iid.ends_with("_offhand") else it.slot     # 2ª arma (Gêmeos, garras) vai na outra mão
+			if not eq.has(slot):
+				eq[slot] = it
 		var k := KitModel.create(cls.body_type, cls.hair_color, 0.025, cls.id)
 		add_child(k)
 		k.position = Vector3(-5.0 + i * 2.0, 0, 0)

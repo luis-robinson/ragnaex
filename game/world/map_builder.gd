@@ -387,6 +387,15 @@ static func _zone_materials(node: Node, def: MapDef) -> void:
 				"street":
 					mat = _ground_material(Color(0.74, 0.7, 0.62), Color(0.68, 0.64, 0.56), Color(0.6, 0.55, 0.47), 0.0, 5.0, 1.0, 0.9, Color(0.8, 0.77, 0.7))
 					mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				"chasm":                   # fenda funda (Fortaleza dos Ossos): quase preta, brilho roxo fraco
+					mat = Materials.toon(base.srgb_to_linear(), false, 0.18)
+					mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				"icewater":                # água escura nos buracos do gelo (Torre do Mago Gélido)
+					mat = Materials.toon(base.srgb_to_linear(), false, 0.1)
+					mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				"bile":                    # rio/lagoa de bile (Covil do Carniçal): cor do Blender, sem puxar para o azul
+					mat = Materials.toon(base.srgb_to_linear(), false, 0.12)
+					mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				"water", "water_dark":
 					mat = Materials.toon(base.lerp(Color(0.4, 0.66, 0.86), 0.25), false, 0.25)
 					mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

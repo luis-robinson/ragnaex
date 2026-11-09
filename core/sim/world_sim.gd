@@ -33,13 +33,68 @@ var party_seek: Dictionary = {}    # /party: entity_id -> {"queue": [ids de bots
 func _ready() -> void:
 	rng.seed = 1337
 	set_physics_process(true)
+	process_priority = -1000
+	process_physics_priority = -1000
+	get_tree().physics_frame.connect(sync)
+	get_tree().process_frame.connect(sync)
 
 func _physics_process(delta: float) -> void:
-	if running:
+	if not running:
+		return
+	if not threaded:
 		tick(delta)
+		return
+	sync()
+	_queued_cmds.append(player_cmd)                 # o comando deste passo (o tick roda depois, na thread)
+	player_cmd = player_cmd.duplicate_cmd()          # como no fim do tick: o de 1 vez não repete no passo seguinte
+	player_cmd.attack = false; player_cmd.skill_slot = -1; player_cmd.potion_slot = -1
+	player_cmd.interact = false; player_cmd.dash = false; player_cmd.jump = false
+	player_cmd.mount = false; player_cmd.recall = false
+	_queued_dt = delta
+	if _queued_cmds.size() >= ASYNC_FALLBACK:       # ninguém desenhou (janela minimizada): roda aqui mesmo
+		_run_queued()
+
+# ----------------------------------------------------------------------------
+# SIM NA THREAD (jogo): o physics só agenda os ticks (com o comando de cada passo); eles rodam numa WorkerThreadPool
+# enquanto o quadro desenha (`start_async`, chamado no frame_pre_draw) e quem toca a sim antes espera (`sync`:
+# input, physics_frame, process_frame). Events emitidos na thread saem na thread principal no sync, na ordem.
+# Testes/sondas chamam tick() direto (threaded = false).
+# ----------------------------------------------------------------------------
+const ASYNC_FALLBACK := 4
+var threaded := false
+var _queued_cmds: Array = []
+var _queued_dt := 1.0 / TICK_RATE
+var _task := -1
+
+## Começa os ticks agendados numa thread (o jogo chama logo antes de desenhar, quando ninguém mais lê a sim).
+func start_async() -> void:
+	if not threaded or _task >= 0 or _queued_cmds.is_empty():
+		return
+	Events.deferring_sim = self
+	_task = WorkerThreadPool.add_task(_run_queued, true, "sim tick")
+
+## Espera a thread terminar e entrega os eventos dela. Chame antes de ler ou mudar a sim fora do tick.
+func sync() -> void:
+	if _task < 0:
+		return
+	WorkerThreadPool.wait_for_task_completion(_task)
+	_task = -1
+	Events.deferring_sim = null
+	Events.flush(self)
+
+func _run_queued() -> void:
+	var keep := player_cmd                         # o comando que o controle já mandou para o próximo passo
+	var cmds := _queued_cmds
+	_queued_cmds = []
+	for c in cmds:
+		player_cmd = c
+		tick(_queued_dt)
+	player_cmd = keep
 
 ## Zera o mundo (voltar ao menu): mapas, entidades, grupos e o jogador. A cena principal recarrega e monta tudo de novo.
 func reset_world() -> void:
+	sync()
+	_queued_cmds.clear()
 	running = false
 	maps.clear()
 	entities.clear()
@@ -100,7 +155,7 @@ func _register(e: SimEntity, map_id: String) -> SimEntity:
 	e.map_id = map_id
 	entities[e.id] = e
 	maps[map_id]["entities"].append(e)
-	Events.entity_spawned.emit(e)
+	Events.post(&"entity_spawned", e)
 	return e
 
 func spawn_character(kind: SimEntity.Kind, cls: ClassDef, char_name: String, map_id: String, pos: Vector3, level: int = 1) -> SimEntity:
@@ -303,7 +358,7 @@ func _gear_bot(b: SimEntity) -> void:
 		b.equipment.erase(ItemDef.Slot.OFFHAND)
 	b.recompute_stats()
 	b.heal_full()
-	Events.equipment_changed.emit(b.id)   # a view já existe (spawn emite antes)
+	Events.post(&"equipment_changed", b.id)   # a view já existe (spawn emite antes)
 
 ## Skills de bot: gasta os pontos do nível na teia como um jogador da build (ProgressionSystem.bot_spend) e
 ## equipa as 6 primeiras skills da build que aprendeu e que a arma permite.
@@ -337,7 +392,7 @@ func despawn(e: SimEntity) -> void:
 		maps[e.map_id]["entities"].erase(e)
 		if maps[e.map_id].has("chars"):
 			maps[e.map_id]["chars"].erase(e)       # a lista do tick não pode guardar quem saiu
-	Events.entity_despawned.emit(e.id)
+	Events.post(&"entity_despawned", e.id)
 
 # ----------------------------------------------------------------------------
 # TICK
@@ -506,7 +561,7 @@ func _apply_command(e: SimEntity, cmd: InputCommand, m: Dictionary, dt: float) -
 			stop_mount(e, "")                      # H de novo cancela
 		elif e.state == SimEntity.State.CASTING or e.airborne() or e.form != "":
 			if e == player:
-				Events.notification.emit("Não dá para montar agora")
+				Events.post(&"notification", "Não dá para montar agora")
 		else:
 			e.mount_left = Balance.MOUNT_CAST_TIME
 			e.is_blocking = false
@@ -519,7 +574,7 @@ func _apply_command(e: SimEntity, cmd: InputCommand, m: Dictionary, dt: float) -
 				e.mount_left = 0.0
 				e.mounted = true
 				e.is_blocking = false
-				Events.mount_changed.emit(e.id, true)
+				Events.post(&"mount_changed", e.id, true)
 	PortalSystem.update_recall(self, e, cmd, action_cmd, dt)
 	GatherSystem.update_gather(self, e, cmd, action_cmd, dt)
 	# atacar, usar skill, dash ou bloquear: desce do cavalo e a ação acontece
@@ -535,7 +590,7 @@ func _apply_command(e: SimEntity, cmd: InputCommand, m: Dictionary, dt: float) -
 		e.jump_v = Balance.JUMP_VELOCITY
 		e.jump_h = 0.001
 		e.is_blocking = false
-		Events.skill_cast.emit(e.id, "jump", "active")
+		Events.post(&"skill_cast", e.id, "jump", "active")
 
 	# --- dash ---
 	if action_cmd.dash and e.dash_cd <= 0.0 and (e.can_act() or _in_cancel_window(e) or _dash_cancels(e, action_cmd)) and not e.has_debuff("root"):
@@ -557,7 +612,7 @@ func _apply_command(e: SimEntity, cmd: InputCommand, m: Dictionary, dt: float) -
 		e.is_blocking = false
 		e.iframe_left = Balance.DASH_IFRAMES
 		e.set_state(SimEntity.State.DASHING, Balance.DASH_TIME)
-		Events.skill_cast.emit(e.id, "dash", "active")
+		Events.post(&"skill_cast", e.id, "dash", "active")
 		return
 
 	# --- skills ---
@@ -622,7 +677,7 @@ func _apply_command(e: SimEntity, cmd: InputCommand, m: Dictionary, dt: float) -
 func stop_mount(e: SimEntity, why: String) -> void:
 	e.mount_left = 0.0
 	if e == player and why != "":
-		Events.notification.emit(why)
+		Events.post(&"notification", why)
 
 ## Fração já conjurada do cavalo (0..1; 0 = não está montando). Barra de conjuração do HUD e da cabeça.
 func mount_progress(e: SimEntity) -> float:
@@ -635,7 +690,7 @@ func dismount(e: SimEntity) -> void:
 	if not e.mounted:
 		return
 	e.mounted = false
-	Events.mount_changed.emit(e.id, false)
+	Events.post(&"mount_changed", e.id, false)
 
 func _in_cancel_window(e: SimEntity) -> bool:
 	if e.state != SimEntity.State.CASTING or e.current_skill == null:
@@ -687,7 +742,7 @@ func _pet_command(e: SimEntity, s: SkillDef, aim: Vector3, power: float, effects
 	_deal_damage(pet, target, r["amount"], r["crit"], r["blocked"], "physical", pet.position)
 	if effects["pet_command"].has("stun"):
 		_apply_effects(e, target, {"stun": {"duration": float(effects["pet_command"]["stun"])}}, power)
-	Events.skill_effect.emit(s.id, pet.position, target.position, 1.0)
+	Events.post(&"skill_effect", s.id, pet.position, target.position, 1.0)
 
 # ----------------------------------------------------------------------------
 # ARMADILHAS (Ranger Atirador): ficam no mapa, armam, disparam quando um inimigo pisa, somem com o tempo
@@ -762,7 +817,7 @@ func _interact(e: SimEntity, m: Dictionary) -> void:
 	best.npc_hold = Balance.NPC_TALK_HOLD
 	best.face_towards(e.position)
 	NpcSystem.npc_stop(self, best)
-	Events.dialog_requested.emit(best.npc_data.get("id", ""))
+	Events.post(&"dialog_requested", best.npc_data.get("id", ""))
 
 # ----------------------------------------------------------------------------
 # SKILLS
@@ -775,7 +830,7 @@ func try_cast(e: SimEntity, slot: int, aim: Vector3, m: Dictionary) -> bool:
 		return false
 	if e.is_character() and not e.stats.meets(s.requires):
 		if e == player:
-			Events.notification.emit("%s exige: %s" % [s.name, ProgressionSystem.requires_text(s.requires)])
+			Events.post(&"notification", "%s exige: %s" % [s.name, ProgressionSystem.requires_text(s.requires)])
 		return false
 	var lv := e.mastery_of(s.id)
 	if e.cooldowns.get(s.id, 0.0) > 0.0:
@@ -783,7 +838,7 @@ func try_cast(e: SimEntity, slot: int, aim: Vector3, m: Dictionary) -> bool:
 	var cost := s.mp_cost_at(lv)
 	if e.mp < cost:
 		if e == player:
-			Events.notification.emit("MP insuficiente")
+			Events.post(&"notification", "MP insuficiente")
 		return false
 	var form_fx: String = s.effects.get("form", "")
 	if form_fx != "" and e.form == form_fx and e != player:
@@ -792,15 +847,15 @@ func try_cast(e: SimEntity, slot: int, aim: Vector3, m: Dictionary) -> bool:
 		return false               # bot com a aura ligada não a desliga
 	if s.effects.has("summon") and _summons_full(e, s):
 		if e == player:
-			Events.notification.emit("Seu companheiro já está com você" if float(s.effects["summon"].get("duration", 20)) <= 0.0 else "%s: já estão todos com você" % s.name)
+			Events.post(&"notification", "Seu companheiro já está com você" if float(s.effects["summon"].get("duration", 20)) <= 0.0 else "%s: já estão todos com você" % s.name)
 		return false
 	if (s.effects.has("pet_command") or s.effects.get("pet_buff", false)) and pet_of(e) == null:
 		if e == player:
-			Events.notification.emit("%s: chame o companheiro primeiro" % s.name)
+			Events.post(&"notification", "%s: chame o companheiro primeiro" % s.name)
 		return false
 	if s.effects.has("stealth") and s.class_id == "druid" and e.form != "wolf":
 		if e == player:
-			Events.notification.emit("%s: só na forma de lobo" % s.name)
+			Events.post(&"notification", "%s: só na forma de lobo" % s.name)
 		return false
 	s = ProgressionSystem.resolve_skill(self, e, s)
 	e.mp -= cost
@@ -823,7 +878,7 @@ func _start_skill(e: SimEntity, s: SkillDef, slot: int, aim: Vector3) -> void:
 	e.velocity = Vector3.ZERO
 	e.face_towards(aim)
 	e.set_state(SimEntity.State.CASTING, s.startup + s.active + s.recovery)
-	Events.skill_cast.emit(e.id, s.id, "startup")
+	Events.post(&"skill_cast", e.id, s.id, "startup")
 
 func _end_skill(e: SimEntity) -> void:
 	e.current_skill = null
@@ -841,7 +896,7 @@ func _update_skill(e: SimEntity, m: Dictionary, dt: float) -> void:
 		e.skill_applied = true
 		e.skill_phase = "active"
 		e.channel_done = 1
-		Events.skill_cast.emit(e.id, s.id, "active")
+		Events.post(&"skill_cast", e.id, s.id, "active")
 		_apply_skill(e, s, m)
 	elif e.skill_applied and e.skill_phase == "active" and s.effects.has("channel"):
 		# canalização (estilo sacerdote das sombras): um pulso a cada active/ticks, mirando onde o cursor está
@@ -851,7 +906,7 @@ func _update_skill(e: SimEntity, m: Dictionary, dt: float) -> void:
 			_apply_skill(e, s, m)
 	elif e.skill_applied and e.skill_phase == "active" and t >= s.startup + s.active:
 		e.skill_phase = "recovery"
-		Events.skill_cast.emit(e.id, s.id, "recovery")
+		Events.post(&"skill_cast", e.id, s.id, "recovery")
 	if t >= e.state_duration:
 		_end_skill(e)
 
@@ -936,7 +991,7 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 
 	if effects.has("trap"):         # armadilha: fica no chão; o efeito sai quando alguém pisa
 		TrapSystem.place_trap(self, e, s, aim, power, effects)
-		Events.skill_effect.emit(s.id, e.position, aim, 0.0)
+		Events.post(&"skill_effect", s.id, e.position, aim, 0.0)
 		return
 	if effects.has("pet_command"):  # companheiro salta no alvo e morde
 		_pet_command(e, s, aim, power, effects, m)
@@ -965,12 +1020,16 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 		e.drop_buff(Balance.BRAVADO_BUFF)
 		e.combo_spent = spent
 
+	# Punho Final (Punhos de Fúria): gasta toda a Fúria do Punho, mais dano por carga
+	if effects.get("fury_spend") is Dictionary:
+		power *= FistSystem.spend_fury(e, float((effects["fury_spend"] as Dictionary).get("power_pct", 0.0)))
+
 	# escudo arremessado: persegue o alvo, ricocheteia e volta
 	if effects.get("bounce") is Dictionary:
 		var first: Array = Combat.select_targets(e, s, aim, m["entities"])
 		_throw_bouncer(e, s, power, m, effects, first[0] if not first.is_empty() else null, aim)
 		if effects.get("shot", false):          # bala: clarão na boca do cano já no disparo
-			Events.skill_effect.emit(s.id, e.position, first[0].position if not first.is_empty() else aim, 0.0)
+			Events.post(&"skill_effect", s.id, e.position, first[0].position if not first.is_empty() else aim, 0.0)
 		if not first.is_empty():
 			gain_bravado(e, int(effects.get("combo_gain", 0)))
 		return
@@ -978,25 +1037,25 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 	# projétil (DIRECTION com velocidade)
 	if s.projectile_speed > 0.0 and s.target == SkillDef.Target.DIRECTION:
 		_spawn_projectile(e, s, power, m, false, effects)
-		Events.skill_effect.emit(s.id, e.position, aim, s.radius)
+		Events.post(&"skill_effect", s.id, e.position, aim, s.radius)
 		gain_bravado(e, int(effects.get("combo_gain", 0)))
 		return
 
 	if s.target == SkillDef.Target.SELF and s.radius <= 0.0 and s.kind != SkillDef.Kind.HEAL and s.kind != SkillDef.Kind.BUFF and not effects.has("shield"):
-		Events.skill_effect.emit(s.id, e.position, e.position, s.radius)
+		Events.post(&"skill_effect", s.id, e.position, e.position, s.radius)
 		return
 
 	var targets := Combat.select_targets(e, s, aim, m["entities"], origin if charge else null, reach)
 	if effects.has("taunt"):
 		targets = [e]        # o raio é de quem é provocado; o buff é só de quem provoca
 	if charge:
-		Events.skill_effect.emit(s.id, origin, origin + e.forward() * reach, s.radius)
+		Events.post(&"skill_effect", s.id, origin, origin + e.forward() * reach, s.radius)
 	elif s.target == SkillDef.Target.TARGET and not targets.is_empty():
-		Events.skill_effect.emit(s.id, e.position, targets[0].position, s.radius)     # efeito no alvo de verdade, não no cursor
+		Events.post(&"skill_effect", s.id, e.position, targets[0].position, s.radius)     # efeito no alvo de verdade, não no cursor
 	elif effects.get("dash_to_aim", false):
-		Events.skill_effect.emit(s.id, origin, aim, s.radius)       # gancho: a corda sai de onde ele estava
+		Events.post(&"skill_effect", s.id, origin, aim, s.radius)       # gancho: a corda sai de onde ele estava
 	else:
-		Events.skill_effect.emit(s.id, e.position, aim, s.radius)
+		Events.post(&"skill_effect", s.id, e.position, aim, s.radius)
 	var on_foes := effects.duplicate()    # buff e escudo são de quem lança, nunca do inimigo atingido
 	on_foes.erase("buff")
 	on_foes.erase("shield")
@@ -1021,11 +1080,14 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 				_storm_proc(e, s, t)
 		_apply_effects(e, t, effects if e.is_friend(t) else on_foes, power)
 	if effects.has("buff") or effects.has("shield"):
-		_apply_effects(e, e, {"buff": effects.get("buff", null), "shield": effects.get("shield", null)}, power)
+		_apply_effects(e, e, {"buff": effects.get("buff", null), "shield": effects.get("shield", null),
+			"heal_pct": effects.get("heal_pct", null), "mana_pct": effects.get("mana_pct", null)}, power)
 	if any_hit or s.kind == SkillDef.Kind.BUFF:
 		gain_bravado(e, int(effects.get("combo_gain", 0)))
+	if any_hit:
+		FistSystem.gain_fury(self, e, int(effects.get("fury_gain", 0)))
 	if any_hit and s.hit_stop_frames > 0 and (e == player or targets.has(player)):
-		Events.hit_stop.emit(s.hit_stop_frames)
+		Events.post(&"hit_stop", s.hit_stop_frames)
 
 ## Bravata (Corsário): +n cargas em `e` (até Balance.BRAVADO_MAX; o tempo renova a cada ganho). O HUD mostra as cargas.
 func gain_bravado(e: SimEntity, n: int) -> void:
@@ -1035,14 +1097,14 @@ func gain_bravado(e: SimEntity, n: int) -> void:
 	var now := mini(Balance.BRAVADO_MAX, cur + n)
 	e.put_buff({"id": Balance.BRAVADO_BUFF, "remaining": Balance.BRAVADO_TIME, "stacks": now})
 	if now != cur:
-		Events.buff_applied.emit(e.id, Balance.BRAVADO_BUFF, Balance.BRAVADO_TIME)
+		Events.post(&"buff_applied", e.id, Balance.BRAVADO_BUFF, Balance.BRAVADO_TIME)
 
 ## Raio: chance de atordoar no golpe direto (Balance.STORM_STUN_*).
 ## Golpe direto (skill ou projétil) em um alvo: gelo estilhaça alvo retardado/preso, a arma lendária multiplica e reage.
 ## Devolve o resultado de Combat.calc_damage.
 func _strike(e: SimEntity, t: SimEntity, s: SkillDef, power: float, kind: SkillDef.Kind, from: Vector3) -> Dictionary:
 	if t.iframe_left > 0.0 and e != t and e.is_hostile_to(t):        # dash: o golpe passa por ele
-		Events.dodged.emit(t.id)
+		Events.post(&"dodged", t.id)
 		return {"amount": 0, "crit": false, "blocked": false}
 	var frost := Combat.frost_mult(s, t)
 	var r := Combat.calc_damage(e, t, power * (frost * LegendEffects.legend_power(self, e, t)), kind, rng, from)
@@ -1102,22 +1164,24 @@ func _apply_effects(src: SimEntity, t: SimEntity, effects: Dictionary, power: fl
 		t.form_mult = float(effects.get("form_mult", 1.0)) * ClassTalentSystem.form_mult(t) if t.form != "" else 1.0
 		t.form_left = float(Balance.FORM_DURATION.get(t.form, 0.0)) * ClassTalentSystem.form_time(t, t.form)
 		t.recompute_stats()
-		Events.buff_applied.emit(t.id, "form_" + (t.form if t.form != "" else "human"), t.form_left)
+		Events.post(&"buff_applied", t.id, "form_" + (t.form if t.form != "" else "human"), t.form_left)
 	if effects.get("stealth") != null and t == src:
 		t.stealth_left = float(effects["stealth"])
 		t.ambush = false
 		for o in maps[t.map_id]["entities"]:        # quem estava atrás dele perde o rastro
 			if o.kind == SimEntity.Kind.MONSTER and o.aggro_target == t.id and o.taunt_left <= 0.0:
 				o.aggro_target = -1
-		Events.buff_applied.emit(t.id, "stealth", t.stealth_left)
+		Events.post(&"buff_applied", t.id, "stealth", t.stealth_left)
 	if effects.get("heal_pct") != null and (t == src or src.is_friend(t)):       # cura % do HP (talentos: Provocar, Sumir...)
 		_heal(src, t, maxi(1, int(t.stats.max_hp * float(effects["heal_pct"]) / 100.0)))
+	if effects.get("mana_pct") != null and (t == src or src.is_friend(t)):       # devolve % da mana (Chakra)
+		t.mp = minf(t.stats.max_mp, t.mp + t.stats.max_mp * float(effects["mana_pct"]) / 100.0)
 	if effects.get("buff") != null:
 		var b: Dictionary = effects["buff"].duplicate()
 		b["remaining"] = INF if b.get("toggle", false) else float(b.get("duration", 10)) * longer     # aura: até desligar ou morrer
 		t.put_buff(b)
 		t.recompute_stats()
-		Events.buff_applied.emit(t.id, b.get("id", "buff"), b["remaining"])
+		Events.post(&"buff_applied", t.id, b.get("id", "buff"), b["remaining"])
 	if effects.get("shield") != null:
 		var sh: Dictionary = effects["shield"]
 		t.shield_hp = maxf(t.shield_hp, t.stats.max_hp * float(sh.get("amount_pct_hp", 20)) / 100.0)
@@ -1126,7 +1190,7 @@ func _apply_effects(src: SimEntity, t: SimEntity, effects: Dictionary, power: fl
 			if x.get("id") == "shield":
 				left = maxf(left, float(x.get("remaining", 0.0)))     # escudo novo não encurta o que já existe
 		t.put_buff({"id": "shield", "remaining": left})
-		Events.buff_applied.emit(t.id, "shield", left)
+		Events.post(&"buff_applied", t.id, "shield", left)
 
 func _spawn_projectile(e: SimEntity, s: SkillDef, power: float, m: Dictionary, is_basic: bool, effects: Dictionary = {}) -> void:
 	var p := SimProjectile.new()
@@ -1146,7 +1210,7 @@ func _spawn_projectile(e: SimEntity, s: SkillDef, power: float, m: Dictionary, i
 	p.color = s.icon_color
 	p.is_basic = is_basic
 	m["projectiles"].append(p)
-	Events.projectile_spawned.emit(p)
+	Events.post(&"projectile_spawned", p)
 
 func _update_projectiles(m: Dictionary, dt: float) -> void:
 	var projs: Array = m["projectiles"]
@@ -1154,7 +1218,7 @@ func _update_projectiles(m: Dictionary, dt: float) -> void:
 		if not p.bounce.is_empty():
 			if _update_bouncer(p, m, dt):
 				projs.erase(p)
-				Events.projectile_removed.emit(p.id)
+				Events.post(&"projectile_removed", p.id)
 			continue
 		var step: float = p.speed * dt
 		p.position += p.direction * step
@@ -1179,13 +1243,13 @@ func _update_projectiles(m: Dictionary, dt: float) -> void:
 					_apply_effects(owner, t, p.effects, p.power)
 					_storm_proc(owner, p.skill, t)
 					if p.skill.hit_stop_frames > 0 and (owner == player or t == player):
-						Events.hit_stop.emit(p.skill.hit_stop_frames)
+						Events.post(&"hit_stop", p.skill.hit_stop_frames)
 					if not p.pierce:
 						remove = true
 						break
 		if remove:
 			projs.erase(p)
-			Events.projectile_removed.emit(p.id)
+			Events.post(&"projectile_removed", p.id)
 
 ## Escudo arremessado (efeito "bounce"): projétil que persegue `first` (ou voa até `aim` e volta, sem alvo).
 func _throw_bouncer(e: SimEntity, s: SkillDef, power: float, m: Dictionary, effects: Dictionary, first: SimEntity, aim: Vector3) -> void:
@@ -1210,7 +1274,7 @@ func _throw_bouncer(e: SimEntity, s: SkillDef, power: float, m: Dictionary, effe
 	p.bounces_left = int(p.bounce.get("count", 3)) - 1
 	p.homing_id = first.id if first else -1
 	m["projectiles"].append(p)
-	Events.projectile_spawned.emit(p)
+	Events.post(&"projectile_spawned", p)
 
 ## Um passo do escudo arremessado. Devolve true quando ele volta à mão (ou se perde).
 func _update_bouncer(p: SimProjectile, m: Dictionary, dt: float) -> bool:
@@ -1255,10 +1319,10 @@ func _update_bouncer(p: SimProjectile, m: Dictionary, dt: float) -> bool:
 			MobSystem.taunt(self, tgt, owner, float(p.bounce.get("taunt", Balance.TAUNT_DURATION)))
 		if casting and float(p.bounce.get("interrupt", 0.0)) > 0.0:
 			_apply_effects(owner, tgt, {"stun": {"duration": float(p.bounce["interrupt"])}}, 0.0)
-			Events.damage_dealt.emit(owner.id, tgt.id, 0, false, false, "interrupt")
-	Events.skill_effect.emit(p.skill.id, p.position, tgt.position, -1.0)     # raio < 0 = salto do escudo (FX do ricochete)
+			Events.post(&"damage_dealt", owner.id, tgt.id, 0, false, false, "interrupt")
+	Events.post(&"skill_effect", p.skill.id, p.position, tgt.position, -1.0)     # raio < 0 = salto do escudo (FX do ricochete)
 	if int(r["amount"]) > 0 and p.skill.hit_stop_frames > 0 and (owner == player or tgt == player):
-		Events.hit_stop.emit(maxi(2, p.skill.hit_stop_frames - p.hit_ids.size() + 1))
+		Events.post(&"hit_stop", maxi(2, p.skill.hit_stop_frames - p.hit_ids.size() + 1))
 	var nxt: SimEntity = _next_bounce(p, owner, m, tgt.position) if p.bounces_left > 0 else null
 	if nxt:
 		p.bounces_left -= 1
@@ -1302,12 +1366,12 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 	if not target.is_alive() or target.is_perched():
 		return
 	if target.iframe_left > 0.0 and attacker != target and not kind.begins_with("dot"):     # dash: invulnerável a golpe direto
-		Events.dodged.emit(target.id)
+		Events.post(&"dodged", target.id)
 		return
 	var in_arc := Combat.in_guard_arc(target, attacker.position if from == null else from)
 	var parried: bool = target.parry_left > 0.0 and target.is_blocking and attacker != target and not kind.begins_with("dot") and in_arc
 	if target.is_blocking and not in_arc and not kind.begins_with("dot") and attacker != target:
-		Events.guard_flanked.emit(target.id)
+		Events.post(&"guard_flanked", target.id)
 	if parried:
 		blocked = true
 		amount = maxi(1, int(round(amount * (1.0 - Balance.PARRY_REDUCTION / 100.0))))
@@ -1337,7 +1401,8 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 	if not kind.begins_with("dot") and attacker != target and target.is_character() and target.stats.evasion > 0.0 and rng.randf() * 100.0 < target.stats.evasion:
 		if kind != "riposte" and str(target.stats.legend.get("kind", "")) == "riposte" and attacker.is_alive() and attacker.position.distance_to(target.position) <= Balance.LEG_RIPOSTE_RANGE:
 			_deal_damage(target, attacker, maxi(1, int(target.stats.patk * float(target.stats.legend["pct"]) / 100.0)), false, false, "riposte")     # Duelista: esquivou, contra-ataca
-		Events.dodged.emit(target.id)
+		FistSystem.on_dodge(self, target, attacker, kind)          # Punhos de Fúria: esquiva vira Fúria e contra-ataque
+		Events.post(&"dodged", target.id)
 		return
 	# veneno na lâmina: golpe físico direto envenena (renova, não acumula)
 	if kind == "physical" and attacker != target and attacker.is_character() and attacker.stats.hit_poison > 0.0:
@@ -1367,9 +1432,9 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 		if not attacker.guard:              # sentinela não rouba o abate: XP e saque ficam com quem lutou junto
 			target.damage_by[who] = float(target.damage_by.get(who, 0.0)) + amount
 		MobSystem.retarget(self, target, attacker)
-	Events.damage_dealt.emit(attacker.id, target.id, amount, crit, blocked, kind)
+	Events.post(&"damage_dealt", attacker.id, target.id, amount, crit, blocked, kind)
 	if blocked:
-		Events.blocked_hit.emit(target.id)
+		Events.post(&"blocked_hit", target.id)
 	if target.hp <= 0.0:
 		target.hp = 0.0
 		_kill(target, attacker)
@@ -1382,7 +1447,7 @@ func _heal(src: SimEntity, target: SimEntity, amount: int) -> void:
 		return
 	var before := target.hp
 	target.hp = minf(target.stats.max_hp, target.hp + amount * target.heal_factor())
-	Events.healed.emit(src.id, target.id, int(target.hp - before))
+	Events.post(&"healed", src.id, target.id, int(target.hp - before))
 	if src != target and src.party_id >= 0 and src.party_id == target.party_id and target.hp - before >= target.stats.max_hp * 0.15:
 		if src == player and target.kind == SimEntity.Kind.BOT:
 			BotChat.party_event(self, target, "healed_by_player", {}, target, 0.5)
@@ -1403,7 +1468,7 @@ func end_form(e: SimEntity) -> void:
 		return
 	e.form = ""
 	e.recompute_stats()
-	Events.buff_applied.emit(e.id, "form_human", 0.0)
+	Events.post(&"buff_applied", e.id, "form_human", 0.0)
 
 func _kill(e: SimEntity, killer: SimEntity) -> void:
 	e.mounted = false
@@ -1420,12 +1485,12 @@ func _kill(e: SimEntity, killer: SimEntity) -> void:
 	e.shield_hp = 0.0
 	e.set_state(SimEntity.State.DEAD)
 	e.dead_time = 0.0
-	Events.entity_died.emit(e.id, killer.id if killer else -1)
+	Events.post(&"entity_died", e.id, killer.id if killer else -1)
 	if e.kind == SimEntity.Kind.MONSTER:
 		LootSystem.on_monster_killed(self, e, killer)
 		ClassTalentSystem.on_kill(self, killer, e)
 	elif e.kind == SimEntity.Kind.PLAYER:
-		Events.notification.emit("Você morreu. Renascendo em %s..." % map_def(PortalSystem.home_of(e)["map"]).name)
+		Events.post(&"notification", "Você morreu. Renascendo em %s..." % map_def(PortalSystem.home_of(e)["map"]).name)
 		var loss := int(e.xp * Balance.DEATH_XP_PENALTY)
 		e.xp = maxi(0, e.xp - loss)
 		BotChat.party_event(self, e, "player_died")
@@ -1433,7 +1498,7 @@ func _kill(e: SimEntity, killer: SimEntity) -> void:
 		if BotChat.in_player_party(self, e):
 			BotChat.party_event(self, e, "bot_died", {}, e, 0.7)
 		elif rng.randf() < 0.5:
-			Events.chat_message.emit(e.name, GameData.random_bot_line("death"), "global")
+			Events.post(&"chat_message", e.name, GameData.random_bot_line("death"), "global")
 
 var _elite_defs: Dictionary = {}
 var _raid_defs: Dictionary = {}      # "<id>@<passo>" -> MonsterDef da investida reforçada (RaidSystem.scaled_def)
@@ -1491,7 +1556,7 @@ func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 				e.set_state(SimEntity.State.IDLE)
 				e.threat.clear()
 				e.heal_full()
-				Events.entity_respawned.emit(e.id)
+				Events.post(&"entity_respawned", e.id)
 		elif e.dead_time >= Balance.PLAYER_RESPAWN_TIME + (2.0 if e.kind == SimEntity.Kind.BOT else 0.0):
 			ProgressionSystem.respawn_character(self, e)
 		return
@@ -1675,7 +1740,7 @@ func _dash_arrive(e: SimEntity, dp: Dictionary, m: Dictionary) -> void:
 		effects["stun"] = {"duration": dp["stun"]}
 	if dp["slow"] != null:
 		effects["slow"] = dp["slow"]
-	Events.skill_effect.emit("dash", e.position, e.position, r)
+	Events.post(&"skill_effect", "dash", e.position, e.position, r)
 	for t in m["entities"]:
 		if not e.is_hostile_to(t) or not t.is_alive() or t.position.distance_to(e.position) > r + t.radius:
 			continue

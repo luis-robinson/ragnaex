@@ -44,11 +44,11 @@ static func start_gather(sim: WorldSim, e: SimEntity, m: Dictionary) -> void:
 		return
 	if e.combat_timer > 0.0:
 		if e == sim.player:
-			Events.notification.emit("Não dá para colher em combate")
+			Events.post(&"notification", "Não dá para colher em combate")
 		return
 	if e.bag_full_for(node["item"]):
 		if e == sim.player:
-			Events.notification.emit("Bolsa cheia (%d/%d)" % [e.inventory.size(), e.bag_capacity()])
+			Events.post(&"notification", "Bolsa cheia (%d/%d)" % [e.inventory.size(), e.bag_capacity()])
 		return
 	e.face_towards(node["pos"])
 	e.gather_left = Balance.GATHER_TIME
@@ -73,6 +73,6 @@ static func update_gather(sim: WorldSim, e: SimEntity, cmd: InputCommand, action
 	e.add_item(node["item"], n)
 	node["ready_at"] = sim.time + Balance.GATHER_RESPAWN
 	var idx: int = (sim.maps[e.map_id]["gather"] as Array).find(node)
-	Events.gathered.emit(e.map_id, idx, e.id)
+	Events.post(&"gathered", e.map_id, idx, e.id)
 	if e == sim.player:
-		Events.notification.emit("Colheu %d %s" % [n, GameData.items[node["item"]].name])
+		Events.post(&"notification", "Colheu %d %s" % [n, GameData.items[node["item"]].name])

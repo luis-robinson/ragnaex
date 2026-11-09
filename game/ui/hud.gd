@@ -377,7 +377,13 @@ func _build_hints() -> Label:
 	return hint_label
 
 # ---------------------------------------------------------------------------
+static var prof_us := 0.0           # --soak: tempo de script do HUD (sem o minimapa)
 func _process(_delta: float) -> void:
+	var _t0 := Time.get_ticks_usec()
+	_hud_process(_delta)
+	prof_us += Time.get_ticks_usec() - _t0
+
+func _hud_process(_delta: float) -> void:
 	_fps_t -= _delta
 	if fps_label and _fps_t <= 0.0:
 		_fps_t = 0.5
@@ -627,6 +633,9 @@ func _buff_source(id: String) -> Dictionary:
 		if GameData.skills.has("ass_between_eyes"):       # Bravata (Corsário): cargas que o Tiro Entre os Olhos gasta
 			_buff_src[Balance.BRAVADO_BUFF] = {"tex": UiKit.icon_texture("skill_ass_between_eyes"), "name": "Bravata",
 				"desc": "Cargas do Corsário (até %d): tiros e cortes juntam, o Tiro Entre os Olhos gasta todas." % Balance.BRAVADO_MAX}
+		if GameData.skills.has("ber_final_fist"):         # Fúria do Punho (Punhos de Fúria): esquivar junta, o Punho Final gasta
+			_buff_src[Balance.FIST_FURY_BUFF] = {"tex": UiKit.icon_texture("skill_ber_final_fist"), "name": "Fúria do Punho",
+				"desc": "Cargas de quem luta com duas garras (até %d): cada golpe esquivado dá uma e contra-ataca; +ATK e velocidade por carga. O Punho Final gasta todas." % Balance.FIST_FURY_MAX}
 		for sid in GameData.skills:
 			var sk: SkillDef = GameData.skills[sid]
 			var faces = sk.effects.get("dice")

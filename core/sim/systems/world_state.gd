@@ -112,7 +112,7 @@ static func spawn_assault(sim: WorldSim, m: Dictionary, i: int) -> Array:
 			e.npc_data = n
 			out.append(e.id)
 	if not out.is_empty() and sim.player and sim.player.map_id == def.id and a.has("say"):
-		Events.chat_message.emit("Sistema", str(a["say"]), "system")
+		Events.post(&"chat_message", "Sistema", str(a["say"]), "system")
 	return out
 
 ## Ponto da marcha do aliado (GuardBrain): o próximo da rota; no fim, o alvo.
@@ -146,7 +146,7 @@ static func spawn_sortie(sim: WorldSim, m: Dictionary, route_i: int) -> Array:
 			k += 1
 			out.append(sim._spawn_npc(n, def.id).id)
 	if sim.player and sim.player.map_id == def.id and so.has("say"):
-		Events.chat_message.emit("Sistema", str(so["say"]), "system")
+		Events.post(&"chat_message", "Sistema", str(so["say"]), "system")
 	return out
 
 ## Leva acabou: a surtida volta à porta e some ao chegar (ou em RAID_SORTIE_LINGER s).

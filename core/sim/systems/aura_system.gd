@@ -17,9 +17,9 @@ static func aura_id(s: SkillDef) -> String:
 static func switch_off(sim: WorldSim, e: SimEntity, s: SkillDef) -> void:
 	e.drop_buff(aura_id(s))
 	e.recompute_stats()
-	Events.buff_applied.emit(e.id, aura_id(s) + "_off", 0.0)
+	Events.post(&"buff_applied", e.id, aura_id(s) + "_off", 0.0)
 	if e == sim.player:
-		Events.notification.emit("%s desligada" % s.name)
+		Events.post(&"notification", "%s desligada" % s.name)
 
 ## Renova o buff de aliado de cada aura ligada no mapa.
 static func tick(sim: WorldSim, m: Dictionary, dt: float) -> void:
@@ -77,4 +77,4 @@ static func _keep(t: SimEntity, ally: Dictionary) -> void:
 	nb["remaining"] = Balance.AURA_KEEP
 	t.put_buff(nb)
 	t.recompute_stats()
-	Events.buff_applied.emit(t.id, nb["id"], Balance.AURA_KEEP)
+	Events.post(&"buff_applied", t.id, nb["id"], Balance.AURA_KEEP)

@@ -14,7 +14,7 @@ static func check_portals(sim: WorldSim, e: SimEntity, m: Dictionary) -> void:
 				sim._pending_map_changes.append({"e": e, "map": pt["target_map"], "pos": pt["target_pos"]})
 			elif e == sim.player and sim.time >= e.portal_notice_at:
 				e.portal_notice_at = sim.time + Balance.PORTAL_NOTICE_CD
-				Events.notification.emit(blocked)
+				Events.post(&"notification", blocked)
 			return
 
 ## Por que `e` não passa neste portal; "" = passa. Vale só para o jogador: bots não ficam presos em quest.
@@ -103,7 +103,7 @@ static func bind_crystal(sim: WorldSim, e: SimEntity, npc_id: String) -> bool:
 	e.bind_map = e.map_id
 	e.bind_pos = pos
 	if e == sim.player:
-		Events.notification.emit("Ponto de retorno: %s. O G e o renascer trazem você aqui." % npc.name)
+		Events.post(&"notification", "Ponto de retorno: %s. O G e o renascer trazem você aqui." % npc.name)
 	return true
 
 ## `map_id` é `area` ou fica dentro dela (dungeon da zona).
@@ -156,15 +156,15 @@ static func update_recall(sim: WorldSim, e: SimEntity, cmd: InputCommand, action
 			why = "Pare para voltar à cidade"
 		if why != "":
 			if e == sim.player:
-				Events.notification.emit(why)
+				Events.post(&"notification", why)
 			return
 		if e.mounted:
 			sim.dismount(e)                    # conjura a pé
 		e.is_blocking = false
 		e.recall_left = Balance.RECALL_TIME
-		Events.recall_cast.emit(e.id, "start")
+		Events.post(&"recall_cast", e.id, "start")
 		if e == sim.player:
-			Events.notification.emit("Voltando para %s... (andar ou levar dano interrompe)" % GameData.maps[town].name)
+			Events.post(&"notification", "Voltando para %s... (andar ou levar dano interrompe)" % GameData.maps[town].name)
 		return
 	if e.recall_left <= 0.0:
 		return
@@ -176,7 +176,7 @@ static func update_recall(sim: WorldSim, e: SimEntity, cmd: InputCommand, action
 	if e.recall_left <= 0.0:
 		e.recall_left = 0.0
 		e.mounted = false
-		Events.recall_cast.emit(e.id, "done")
+		Events.post(&"recall_cast", e.id, "done")
 		sim._pending_map_changes.append({"e": e, "map": town, "pos": home["pos"]})
 
 ## Por que G não começa agora ("" = pode). Combate não impede: o dano é que interrompe.
@@ -204,9 +204,9 @@ static func stop_recall(sim: WorldSim, e: SimEntity, why: String) -> void:
 	if e.recall_left <= 0.0:
 		return
 	e.recall_left = 0.0
-	Events.recall_cast.emit(e.id, why)
+	Events.post(&"recall_cast", e.id, why)
 	if e == sim.player:
-		Events.notification.emit("Retorno à cidade interrompido!" if why == "interrupted" else "Retorno à cidade cancelado")
+		Events.post(&"notification", "Retorno à cidade interrompido!" if why == "interrupted" else "Retorno à cidade cancelado")
 
 static func change_map(sim: WorldSim, e: SimEntity, map_id: String, pos: Vector3) -> void:
 	if e.mounted and GameData.maps.has(map_id) and GameData.maps[map_id].parent_map != "":
@@ -226,7 +226,7 @@ static func change_map(sim: WorldSim, e: SimEntity, map_id: String, pos: Vector3
 	e.velocity = Vector3.ZERO
 	e.aggro_target = -1
 	sim.maps[map_id]["entities"].append(e)
-	Events.entity_changed_map.emit(e.id, map_id)
+	Events.post(&"entity_changed_map", e.id, map_id)
 	if e == sim.player and e.party_id >= 0:              # o grupo comenta a chegada (dungeon ou mapa novo)
 		var nd: MapDef = sim.maps[map_id]["def"]
 		if not nd.interior and not nd.is_town:             # voltar para casa (morte, retorno) não é novidade
@@ -237,4 +237,4 @@ static func change_map(sim: WorldSim, e: SimEntity, map_id: String, pos: Vector3
 			o.map_id = map_id
 			o.position = pos + Vector3(1, 0, 1)
 			sim.maps[map_id]["entities"].append(o)
-			Events.entity_changed_map.emit(o.id, map_id)
+			Events.post(&"entity_changed_map", o.id, map_id)

@@ -21,9 +21,9 @@ const TOURS := {
 		["bandidos_portao", Vector3(52, 0, -40)], ["bandidos_centro", Vector3(66, 0, -56)], ["aranhas", Vector3(-50, 0, -50)],
 		["ents", Vector3(56, 0, 54)], ["arvore_mae", Vector3(8, 0, -76)], ["pantano", Vector3(-30, 0, 66)],
 		["borda_norte", Vector3(-18, 0, -104)], ["borda_leste", Vector3(94, 0, 25)]],
-	"fort_ghoul": [["jardim", Vector3(-44, 0, 66)], ["chegada", Vector3(0, 0, 90)], ["estrada", Vector3(8, 0, 44)], ["posto_oeste", Vector3(-52, 0, 40)], ["posto_leste", Vector3(50, 0, 30)], ["portao", Vector3(0, 0, 4)], ["patio", Vector3(4, 0, -22)]],
-	"fort_bones": [["chegada", Vector3(0, 0, 90)], ["estrada", Vector3(8, 0, 44)], ["posto_oeste", Vector3(-52, 0, 40)], ["posto_leste", Vector3(50, 0, 30)], ["portao", Vector3(0, 0, 4)], ["patio", Vector3(4, 0, -22)]],
-	"fort_frost": [["chegada", Vector3(0, 0, 90)], ["estrada", Vector3(8, 0, 44)], ["posto_oeste", Vector3(-52, 0, 40)], ["posto_leste", Vector3(50, 0, 30)], ["portao", Vector3(0, 0, 4)], ["patio", Vector3(4, 0, -22)]],
+	"fort_ghoul": [["chegada", Vector3(0, 0, 90)], ["lagoa", Vector3(-14, 0, 74)], ["ninho_oeste", Vector3(-52, 0, 58)], ["ponte_oeste", Vector3(-46, 0, 38)], ["ponte_leste", Vector3(42, 0, 42)], ["ninho_leste", Vector3(50, 0, 18)], ["brecha", Vector3(0, 0, 6)], ["patio", Vector3(4, 0, -22)], ["cranio", Vector3(0, 0, -50)]],
+	"fort_bones": [["chegada", Vector3(0, 0, 90)], ["cemiterio", Vector3(-60, 0, 84)], ["ponte_ossos", Vector3(-6, 0, 50)], ["cripta_oeste", Vector3(-50, 0, 66)], ["cripta_leste", Vector3(52, 0, 16)], ["patamar", Vector3(-20, 0, 0)], ["portao", Vector3(0, 0, 4)], ["patio", Vector3(4, 0, -22)]],
+	"fort_frost": [["chegada", Vector3(0, 0, 90)], ["lago", Vector3(-12, 0, 56)], ["navio", Vector3(-30, 0, 84)], ["acamp_oeste", Vector3(-54, 0, 40)], ["acamp_leste", Vector3(52, 0, 30)], ["ponte_gelo", Vector3(0, 0, 10)], ["patio", Vector3(4, 0, -22)]],
 	"lich_citadel": [["chegada", Vector3(0, 0, 90)], ["estrada", Vector3(8, 0, 44)], ["posto_oeste", Vector3(-52, 0, 40)], ["posto_leste", Vector3(50, 0, 30)], ["portao", Vector3(0, 0, 4)], ["patio", Vector3(4, 0, -22)]],
 	"field_ruins": [["front_oeste", Vector3(-84, 0, -6)], ["torre", Vector3(-66, 0, 24)], ["praca_catedral", Vector3(0, 0, 18)], ["mercado", Vector3(26, 0, 30)], ["quartel", Vector3(-26, 0, -30)], ["portao_oeste", Vector3(-46, 0, 0)],
 		["portao_norte", Vector3(0, 0, -46)], ["portao_sul", Vector3(0, 0, 46)], ["front_carnical", Vector3(-76, 0, -6)], ["front_ossos", Vector3(8, 0, -80)],
@@ -63,6 +63,8 @@ var _soak_map := ""
 var _soak_boss := ""            # --soak_boss=<id>: o grupo vai até o chefe e briga com ele (medir FPS na luta)
 var _soak_boss_placed := false
 var _soak_gpu := 0.0
+var _soak_rcpu := 0.0
+var _soak_phys := 0.0
 var _soak_draws := 0.0
 
 ## Antes do jogo: liga as chaves de medição e decide a partida automática. Devolve a classe ("" = tela inicial).
@@ -84,6 +86,8 @@ func before_start(returning: bool) -> String:
 	if DevArgs.flag("--gfx"):        # --gfx=<n>: preset de GraphicsSettings só nesta partida (não salva); comparar FPS/imagem
 		GraphicsSettings.preset = clampi(int(DevArgs.value("--gfx")), 0, GraphicsSettings.PRESETS.size() - 1)
 		GraphicsSettings.apply(main.get_viewport())
+	if DevArgs.has("--fx_shadows"):      # medir: efeitos com sombra (como era)
+		FxManager.fx_shadows = true
 	if DevArgs.has("--no_buff_fx"):     # medir: sem buffs no boneco (BuffAura)
 		BuffAura.enabled = false
 	if DevArgs.has("--no_prune"):
@@ -1310,6 +1314,8 @@ func _soak(delta: float) -> void:
 			main.hud.minimap.visible = false
 			main.hud.minimap.process_mode = Node.PROCESS_MODE_DISABLED
 	_soak_gpu += RenderingServer.viewport_get_measured_render_time_gpu(get_viewport().get_viewport_rid())
+	_soak_rcpu += RenderingServer.viewport_get_measured_render_time_cpu(get_viewport().get_viewport_rid())
+	_soak_phys += Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0
 	_soak_draws += Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)
 	_soak_left -= delta
 	_soak_t += delta
@@ -1355,8 +1361,19 @@ func _soak(delta: float) -> void:
 				var k: String = c.get_class() + ":" + String(c.name).rstrip("0123456789@")
 				kinds[k] = int(kinds.get(k, 0)) + 1
 			print("SOAKFX ", kinds)
-		print("SOAKX views_ms=%.2f gpu_ms=%.2f draws=%.0f fx_nodes=%d process_ms=%.2f" % [EntityView.prof_us / maxf(1, _soak_frames) / 1000.0,
-			_soak_gpu / maxf(1, _soak_frames), _soak_draws / maxf(1, _soak_frames), fx_n, Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0])
+		var vis_by := {}
+		for v in main.views.values():
+			if v.visible:
+				var kk: String = SimEntity.Kind.keys()[v.entity.kind]
+				vis_by[kk] = int(vis_by.get(kk, 0)) + 1
+		print("SOAKUI hud_ms=%.2f minimap_ms=%.2f" % [Hud.prof_us / maxf(1, _soak_frames) / 1000.0, Minimap.prof_us / maxf(1, _soak_frames) / 1000.0])
+		print("SOAKF frame_ms=%.2f render_cpu_ms=%.2f physics_ms=%.2f" % [_soak_t * 1000.0 / maxf(1, _soak_frames), _soak_rcpu / maxf(1, _soak_frames), _soak_phys / maxf(1, _soak_frames)])
+		_soak_rcpu = 0.0
+		_soak_phys = 0.0
+		Hud.prof_us = 0.0
+		Minimap.prof_us = 0.0
+		print("SOAKX views_ms=%.2f gpu_ms=%.2f draws=%.0f fx_nodes=%d process_ms=%.2f visiveis=%s" % [EntityView.prof_us / maxf(1, _soak_frames) / 1000.0,
+			_soak_gpu / maxf(1, _soak_frames), _soak_draws / maxf(1, _soak_frames), fx_n, Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0, vis_by])
 		EntityView.prof_us = 0.0
 		_soak_gpu = 0.0
 		_soak_draws = 0.0

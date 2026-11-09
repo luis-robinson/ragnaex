@@ -230,9 +230,9 @@ static func _save(sim: WorldSim, owner: SimEntity, target: SimEntity, cd: float,
 	target.immortal_left = dur
 	if stealth:
 		sim._apply_effects(target, target, {"stealth": dur}, 0.0)
-	Events.buff_applied.emit(target.id, "immortal", dur)
+	Events.post(&"buff_applied", target.id, "immortal", dur)
 	if target == sim.player or owner == sim.player:
-		Events.notification.emit("%s se recusa a cair! (%d s)" % [target.name, int(dur)])
+		Events.post(&"notification", "%s se recusa a cair! (%d s)" % [target.name, int(dur)])
 
 ## Abate: cura, MP, furtividade ou buff renovado (escolhas "on_kill"). Abate da invocação conta para o dono se `minions`.
 static func on_kill(sim: WorldSim, killer: SimEntity, victim: SimEntity) -> void:

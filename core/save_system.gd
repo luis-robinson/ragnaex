@@ -9,7 +9,8 @@ const VERSION := 4      # 2 = portões de progressão e chefes abatidos; 3 = Rei
 
 ## Itens de build que saiu do jogo: o id antigo vira o da build que ficou no lugar (o "+N" do aprimoramento segue junto).
 ## Trapaceiro (espada + adaga) virou Corsário (sabre + pistola): a adaga de aparar do conjunto vira a pistola do mesmo nível.
-const RENAMED_ITEMS := {"leg_assassin_trapaceiro_": "leg_assassin_corsario_"}
+## Arremessador (duas machadinhas) virou Punhos de Fúria (duas garras): cada peça vira a do mesmo nível.
+const RENAMED_ITEMS := {"leg_assassin_trapaceiro_": "leg_assassin_corsario_", "leg_berserker_arremessador_": "leg_berserker_punhos_"}
 
 static func renamed_item(id: String) -> String:
 	for old in RENAMED_ITEMS:
@@ -36,7 +37,7 @@ static func _fix_class_weapons(p: SimEntity) -> void:
 			if st.slot == ItemDef.Slot.WEAPON:
 				p.equipment[ItemDef.Slot.WEAPON] = st
 				break
-		Events.notification.emit("Sua classe mudou de arma: a antiga foi para a bolsa.")
+		Events.post(&"notification", "Sua classe mudou de arma: a antiga foi para a bolsa.")
 
 static func points_for_level(level: int) -> int:
 	return ProgressionSystem.points_for_level(level)
@@ -97,7 +98,7 @@ func save_player(p: SimEntity) -> void:
 	if f:
 		f.store_string(JSON.stringify(data, "  "))
 		f.close()
-		Events.notification.emit("Jogo salvo")
+		Events.post(&"notification", "Jogo salvo")
 
 func load_data(i: int = -2) -> Dictionary:
 	if i == -2:
@@ -194,7 +195,7 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 			p.talents = {}
 			p.mastery = {}
 			p.mastery_points = points_for_level(p.level)
-			Events.notification.emit("A teia de skills mudou: seus %d pontos foram devolvidos (tecla K)." % p.mastery_points)
+			Events.post(&"notification", "A teia de skills mudou: seus %d pontos foram devolvidos (tecla K)." % p.mastery_points)
 	Sim.recompute_tree_bonus(p)
 	var loadout: Array = d.get("loadout", p.learned.keys())
 	p.skills.clear()
@@ -226,7 +227,7 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 	p.recompute_stats()
 	p.hp = clampf(float(d.get("hp", p.stats.max_hp)), 1.0, p.stats.max_hp)
 	p.mp = clampf(float(d.get("mp", p.stats.max_mp)), 0.0, p.stats.max_mp)
-	Events.equipment_changed.emit(p.id)
+	Events.post(&"equipment_changed", p.id)
 
 
 ## Save antigo: o slot único de acessório vira amuleto ou anel, conforme o item.

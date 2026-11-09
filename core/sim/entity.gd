@@ -308,7 +308,7 @@ func bag_full_for(item_id: String) -> bool:
 
 func add_item(item_id: String, count: int = 1) -> void:
 	inventory[item_id] = int(inventory.get(item_id, 0)) + count
-	Events.item_gained.emit(id, item_id, count)
+	Events.post(&"item_gained", id, item_id, count)
 
 func remove_item(item_id: String, count: int = 1) -> bool:
 	var have := int(inventory.get(item_id, 0))
@@ -318,7 +318,7 @@ func remove_item(item_id: String, count: int = 1) -> bool:
 		inventory.erase(item_id)
 	else:
 		inventory[item_id] = have - count
-	Events.item_removed.emit(id, item_id, count)
+	Events.post(&"item_removed", id, item_id, count)
 	return true
 
 func has_item(item_id: String, count: int = 1) -> bool:

@@ -498,18 +498,18 @@ func run_all(gd, sim, balance, save) -> void:
 	var pb: Array = gd.classes["paladin"].builds.map(func(b): return b["id"])
 	check(pb == ["guardiao", "cruzado", "templario"], "paladino tem Guardião, Cruzado e Templário (%s)" % [pb])
 	var bb: Array = gd.classes["berserker"].builds.map(func(b): return b["id"])
-	check(bb == ["carniceiro", "executor", "arremessador"], "berserker: Armas Gêmeas, Executor e Arremessador (%s)" % [bb])
+	check(bb == ["carniceiro", "executor", "punhos"], "berserker: Armas Gêmeas, Executor e Punhos de Fúria (%s)" % [bb])
 	check(not ("sword" in gd.classes["paladin"].offhand_types), "paladino não usa espada na mão secundária")
 	for sid in gd.skills:
 		var sk = gd.skills[sid]
-		if sid.begins_with("ber_") and sk.build in ["carniceiro", "arremessador"]:
+		if sid.begins_with("ber_") and sk.build == "carniceiro":
 			check(sk.requires == ["dual"], "%s vale para qualquer par de armas de 1 mão" % sid)
 
 
 # ---------------------------------------------------------------------------
 # builds, skills, evoluções e conjuntos (loops sobre todo o catálogo)
 # ---------------------------------------------------------------------------
-const WEAPON_TOKENS := ["sword", "sword2h", "mace", "mace2h", "axe", "axe2h", "dagger", "bow", "staff", "wand", "scythe", "scepter", "rifle", "spear"]
+const WEAPON_TOKENS := ["sword", "sword2h", "mace", "mace2h", "axe", "axe2h", "dagger", "bow", "staff", "wand", "scythe", "scepter", "rifle", "spear", "claw"]
 
 func _token_ok(r: String) -> bool:
 	if r in ["shield", "orb", "pistol", "dual", "two_handed"] or r in WEAPON_TOKENS:
@@ -712,6 +712,7 @@ func _check_zone(gd, sim) -> void:
 		_check_zone_layout(gd, sim, gd.maps[zid])
 		_check_places(gd, sim, gd.maps[zid])
 	_check_dungeons(gd, sim)
+	_check_fort_lairs(gd, sim)
 	_check_catacombs(gd, sim)
 	_check_melee_reach(gd, sim)
 	_check_accents()
@@ -723,6 +724,8 @@ func _check_zone(gd, sim) -> void:
 	_check_summon_ai(gd, sim)
 	_check_summon_lost(gd, sim)
 	_check_party_invitable(gd, sim)
+	_check_sim_thread(gd)
+	_check_fist_fury(gd, sim)
 	_check_effect_map(gd, sim)
 	_check_bind_crystal(gd, sim, save_ref)
 	_check_quarry(gd, sim)
@@ -2697,11 +2700,11 @@ func _check_assassin_builds(gd, sim) -> void:
 	sim.despawn(mob)
 	sim.despawn(a)
 
-## Terceiras builds do Berserker (Arremessador: machadinhas e sangramento) e do Assassino (Corsário: sabre + pistola,
+## Terceiras builds do Berserker (Punhos de Fúria: duas garras, esquiva vira Fúria) e do Assassino (Corsário: sabre + pistola,
 ## Bravata): setor próprio na teia, 6 conjuntos com visual, efeito lendário, bot que se equipa e gasta a teia.
 func _check_third_builds(gd, sim) -> void:
 	var at := Vector3(-30, 0, 34)
-	for row in [["berserker", "arremessador", "axe", "axe", "ber_hatchet", "hemorrhage"], ["assassin", "corsario", "sword", "pistol", "ass_pistol_shot", "spare_shot"]]:
+	for row in [["berserker", "punhos", "claw", "claw", "ber_fist_flurry", "fist_counter"], ["assassin", "corsario", "sword", "pistol", "ass_pistol_shot", "spare_shot"]]:
 		var cid: String = row[0]
 		var bid: String = row[1]
 		var cls: ClassDef = gd.classes[cid]
@@ -2750,16 +2753,12 @@ func _check_third_builds(gd, sim) -> void:
 				bought += 1
 		check(bought >= 15, "bot %s: gasta a teia no setor da build (%d nós)" % [bid, bought])
 		sim.despawn(bot)
-	# efeitos lendários: Hemorragia (alvo sangrando) e Truque Sujo (alvo lento/preso/atordoado)
-	var e: SimEntity = sim.spawn_bot(gd.classes["berserker"], "Hemo", "city_aldara", at, 30)
+	var e: SimEntity = sim.spawn_bot(gd.classes["berserker"], "Punho", "city_aldara", at, 30)
 	e.brain = null
-	e.equipment[ItemDef.Slot.WEAPON] = gd.items["leg_berserker_arremessador_30_weapon"]
+	e.equipment[ItemDef.Slot.WEAPON] = gd.items["leg_berserker_punhos_30_weapon"]
 	e.recompute_stats()
 	var foe: SimEntity = sim.spawn_monster(gd.monsters["golem"], "city_aldara", at + Vector3(0, 0, 2))
 	foe.brain = null
-	check(is_equal_approx(LegendEffects.legend_power(sim, e, foe), 1.0), "Hemorragia: alvo sem sangrar apanha normal")
-	sim._apply_effects(e, foe, gd.skills["ber_hatchet"].effects, 1.0)
-	check(foe.has_debuff("dot") and LegendEffects.legend_power(sim, e, foe) > 1.1, "Hemorragia: Machadinha Voadora faz sangrar e o alvo sangrando apanha mais (x%.2f)" % LegendEffects.legend_power(sim, e, foe))
 	var a: SimEntity = sim.spawn_bot(gd.classes["assassin"], "Expor", "city_aldara", at + Vector3(2, 0, 0), 30)
 	a.brain = null
 	foe.debuffs.clear()
@@ -2774,8 +2773,86 @@ func _check_third_builds(gd, sim) -> void:
 	sim._deal_damage(e, foe, 100, false, false, "physical")
 	var exposed: float = hp0 - foe.hp
 	check(exposed > plain * 1.1,"Expor Fraqueza: alvo exposto apanha mais de todos (%.0f x %.0f)" % [exposed, plain])
-	check(UiKit.legend_effect_text(e.stats.legend).contains("sangrando"), "texto do efeito novo")
+	check(UiKit.legend_effect_text(e.stats.legend).contains("contra-ataque"), "texto do efeito novo (Punho Vingativo)")
 	for x in [e, a, foe]:
+		sim.despawn(x)
+
+## Punhos de Fúria (Berserker, duas garras): garra é arma de 1 mão das duas mãos; esquivar com duas garras dá Fúria do
+## Punho (ATK e velocidade por carga, até o máximo) e contra-ataca quem está perto; Punho Vingativo (arma lendária) bate
+## mais forte; Punho Final gasta as cargas (mais dano); Chakra cura vida e mana; save do Arremessador vira Punhos.
+func _check_fist_fury(gd, sim) -> void:
+	var cls: ClassDef = gd.classes["berserker"]
+	check("claw" in cls.weapon_types and "claw" in cls.offhand_types and "claw" in ItemDef.ONE_HANDED_MELEE and gd.items.has("claw_t0"), "garra: arma de 1 mão do Berserker, comum no tier 0")
+	var at := Vector3(-34, 0, 30)
+	var b: SimEntity = sim.spawn_bot(cls, "Monge", "city_aldara", at, 30)
+	b.brain = null
+	b.equipment[ItemDef.Slot.WEAPON] = gd.items["claw_t3"]
+	b.equipment[ItemDef.Slot.OFFHAND] = gd.items["claw_t3"]
+	b.recompute_stats()
+	check(FistSystem.has_claws(b) and b.stats.meets(["dual_claw"]), "duas garras: liga a esquiva que vira fúria")
+	var foe: SimEntity = sim.spawn_monster(gd.monsters["golem"], "city_aldara", at + Vector3(0, 0, 2))
+	foe.brain = null
+	var atk0 := b.stats.patk
+	var hp0 := foe.hp
+	FistSystem.on_dodge(sim, b, foe, "physical")
+	var hit1 := hp0 - foe.hp
+	check(b.buff_stacks(Balance.FIST_FURY_BUFF) == 1 and b.stats.patk > atk0, "esquivar: +1 Fúria do Punho e mais ATK (%.0f -> %.0f)" % [atk0, b.stats.patk])
+	check(hit1 > 0, "esquivar: contra-ataca quem está perto (%d)" % hit1)
+	for i in 10:
+		FistSystem.on_dodge(sim, b, foe, "physical")
+	check(b.buff_stacks(Balance.FIST_FURY_BUFF) == Balance.FIST_FURY_MAX, "Fúria do Punho para no máximo (%d)" % b.buff_stacks(Balance.FIST_FURY_BUFF))
+	foe.position = at + Vector3(0, 0, Balance.FIST_COUNTER_RANGE + 3.0)
+	var hp1 := foe.hp
+	FistSystem.on_dodge(sim, b, foe, "physical")
+	check(is_equal_approx(foe.hp, hp1), "longe: não contra-ataca")
+	foe.position = at + Vector3(0, 0, 2)
+	FistSystem.on_dodge(sim, b, foe, "riposte")
+	check(is_equal_approx(foe.hp, hp1), "contra-ataque não gera outro")
+	# arma lendária: contra-ataque mais forte (alvo novo: o golem pode ter caído)
+	sim.despawn(foe)
+	foe = sim.spawn_monster(gd.monsters["golem"], "city_aldara", at + Vector3(0, 0, 2))
+	foe.brain = null
+	var h0 := foe.hp
+	FistSystem.on_dodge(sim, b, foe, "physical")
+	var plain := h0 - foe.hp
+	b.equipment[ItemDef.Slot.WEAPON] = gd.items["leg_berserker_punhos_30_weapon"]
+	b.equipment[ItemDef.Slot.OFFHAND] = gd.items["leg_berserker_punhos_30_offhand"]
+	b.recompute_stats()
+	foe.hp = foe.stats.max_hp
+	FistSystem.on_dodge(sim, b, foe, "physical")
+	check(str(b.stats.legend.get("kind", "")) == "fist_counter" and (h0 - foe.hp) > plain * 1.2, "Punho Vingativo: contra-ataque mais forte (%.0f x %.0f)" % [h0 - foe.hp, plain])
+	# com uma garra só: nada
+	var solo: SimEntity = sim.spawn_bot(cls, "Uma", "city_aldara", at + Vector3(3, 0, 0), 30)
+	solo.brain = null
+	solo.equipment[ItemDef.Slot.WEAPON] = gd.items["claw_t3"]
+	solo.equipment.erase(ItemDef.Slot.OFFHAND)
+	solo.recompute_stats()
+	FistSystem.on_dodge(sim, solo, foe, "physical")
+	check(solo.buff_stacks(Balance.FIST_FURY_BUFF) == 0, "uma garra só: esquiva não vira fúria")
+	# Punho Final gasta tudo e bate mais
+	var mult := FistSystem.spend_fury(b, 30.0)
+	check(is_equal_approx(mult, 1.0 + 0.3 * Balance.FIST_FURY_MAX) and b.buff_stacks(Balance.FIST_FURY_BUFF) == 0, "Punho Final: gasta as cargas (x%.2f)" % mult)
+	check(gd.skills["ber_final_fist"].effects.has("fury_spend") and gd.skills["ber_hundred_fists"].effects.get("fury_gain", 0) > 0, "Punho Final gasta e Cem Punhos ganha Fúria")
+	# Chakra: cura vida e devolve mana
+	b.hp = b.stats.max_hp * 0.5
+	b.mp = 0.0
+	sim._apply_effects(b, b, {"heal_pct": 20, "mana_pct": 15}, 1.0)
+	check(b.hp > b.stats.max_hp * 0.6 and b.mp > b.stats.max_mp * 0.1, "Chakra: cura vida e devolve mana")
+	# esquiva de verdade passa pelo _deal_damage: monstro erra o golpe -> Fúria
+	b.drop_buff(Balance.FIST_FURY_BUFF)
+	b.put_buff({"id": "counter_stance", "remaining": 99.0, "evasion": 100})
+	b.recompute_stats()
+	var dodged := 0
+	for i in 40:                                  # esquiva tem teto (EVASION_CAP): alguns golpes passam
+		b.hp = b.stats.max_hp
+		var st0 := b.buff_stacks(Balance.FIST_FURY_BUFF)
+		sim._deal_damage(foe, b, 50, false, false, "physical")
+		if b.hp == b.stats.max_hp:
+			dodged += 1
+			check(b.buff_stacks(Balance.FIST_FURY_BUFF) == mini(st0 + 1, Balance.FIST_FURY_MAX), "golpe esquivado no combate: +1 Fúria")
+	check(dodged >= 5, "golpes esquivados no combate (%d de 40)" % dodged)
+	check(SaveSystem.renamed_item("leg_berserker_arremessador_20_offhand+3") == "leg_berserker_punhos_20_offhand+3", "save do Arremessador vira Punhos de Fúria")
+	for x in [b, foe, solo]:
 		sim.despawn(x)
 
 ## Corsário (Assassino, sabre + pistola): pistola só na mão secundária, Bravata (ganha com tiros/cortes, o Tiro Entre os
@@ -3389,7 +3466,7 @@ func _check_berserker_builds(gd, sim) -> void:
 	var cls: ClassDef = gd.classes["berserker"]
 	for b in cls.builds:
 		for w in b["main"] + b["off"]:
-			check(w in ["axe", "axe2h"], "berserker %s usa só machados (%s)" % [b["id"], w])
+			check(w in (["claw"] if b["id"] == "punhos" else ["axe", "axe2h"]), "berserker %s usa a arma dela (%s)" % [b["id"], w])
 	var twin: Dictionary = cls.build_by_id("carniceiro")
 	var exe: Dictionary = cls.build_by_id("executor")
 	check(twin["main"] == ["axe"] and twin["off"] == ["axe"] and exe["main"] == ["axe2h"], "Gêmeos = 2 machados, Executor = machado de 2 mãos")
@@ -4732,6 +4809,57 @@ func _check_places(gd, sim, md: MapDef) -> void:
 		if n["role"] == "board" and MapsCatalog.PLACE_NPCS[mid].has(n["id"]):
 			check(ResourceLoader.exists("res://assets/models/%s.glb" % n.get("model", "")), "%s: %s é uma pedra, não um boneco" % [mid, n["id"]])
 
+## Fortalezas do terceiro andar com layout próprio (não o molde de muralha): Covil do Carniçal (pântano-ninho, rio de
+## bile), Fortaleza dos Ossos (necrópole, fenda com ponte de ossos), Torre do Mago Gélido (lago congelado, canal de água
+## escura em volta da ilha). Tudo alcançável a pé da chegada; fechando as duas pontes, o chefe fica isolado.
+func _check_fort_lairs(gd, sim) -> void:
+	for row in [["fort_ghoul", "Covil", 6], ["fort_bones", "Ossos", 0], ["fort_frost", "Gélido", 6]]:
+		_check_fort_lair(gd, sim, row[0], row[1], row[2])
+
+func _check_fort_lair(gd, sim, fid: String, label: String, min_lakes: int) -> void:
+	var md: MapDef = gd.maps[fid]
+	sim.load_map(md)
+	var rivers := md.water.filter(func(w): return w["kind"] == "river")
+	var lakes := md.water.filter(func(w): return w["kind"] == "lake")
+	check(rivers.size() == 1 and lakes.size() >= min_lakes, "%s: rio/fenda/canal e lagoas (%d)" % [label, lakes.size()])
+	var seen := _reach(sim, md, md.spawn_point)
+	for n in md.npcs:
+		check(_reached(seen, n["pos"]), "%s: NPC %s alcançável a pé" % [label, n["id"]])
+	for sp in md.spawners:
+		check(_reached(seen, sp["pos"]), "%s: spawner %s alcançável a pé" % [label, sp["monster_id"]])
+	check(_reached(seen, md.town_gates[0]), "%s: portão/brecha alcançável" % label)
+	# pontes: onde as trilhas cruzam o rio; sem elas o covil fica isolado
+	var pts: Array = rivers[0]["pts"]
+	var crossings: Array = []
+	for rd in md.roads:
+		if rd["kind"] != "road":
+			continue
+		for q in rd["pts"]:
+			var near := false
+			for i in pts.size() - 1:
+				var a := Vector2(pts[i][0], pts[i][1])
+				var b := Vector2(pts[i + 1][0], pts[i + 1][1])
+				var qq := Vector2(q.x, q.z) if q is Vector3 else Vector2(q[0], q[1])
+				near = near or Geometry2D.get_closest_point_to_segment(qq, a, b).distance_to(qq) < 2.0
+			if near and not crossings.any(func(c): return c.distance_to(q if q is Vector3 else Vector3(q[0], 0, q[1])) < 10.0):
+				crossings.append(q if q is Vector3 else Vector3(q[0], 0, q[1]))
+	check(crossings.size() == 2, "%s: duas pontes (%d)" % [label, crossings.size()])
+	if crossings.size() == 2:
+		var cut2 := {}                     # flood fill com as duas pontes fechadas
+		var open: Array[Vector2i] = [Vector2i(roundi(md.spawn_point.x / 1.5), roundi(md.spawn_point.z / 1.5))]
+		cut2[open[0]] = true
+		while not open.is_empty():
+			var c: Vector2i = open.pop_back()
+			for d in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+				var n: Vector2i = c + d
+				var p := Vector3(n.x * 1.5, 0, n.y * 1.5)
+				if not cut2.has(n) and sim.is_walkable(p, md, 0.45) and p.distance_to(crossings[0]) > 9.0 and p.distance_to(crossings[1]) > 9.0:
+					cut2[n] = true
+					open.append(n)
+		var boss_id: String = str(MapsCatalog.FORT_DEFS.get(fid, {}).get("boss", {"fort_ghoul": "ghoul_giant", "fort_bones": "death_knight", "fort_frost": "frost_mage"}[fid]))
+		var boss: Dictionary = md.spawners.filter(func(sp): return sp["monster_id"] == boss_id)[0]
+		check(not _reached(cut2, boss["pos"]), "%s: sem as pontes, a chegada não alcança o chefe" % label)
+
 ## Dungeon: entrada e saída casam, chefe no fim, tudo alcançável, bots não entram sozinhos.
 func _check_dungeons(gd, sim) -> void:
 	for did in MapsCatalog.DUNGEON_DEFS:
@@ -6041,6 +6169,40 @@ func _check_effect_map(gd, sim) -> void:
 	check(not mine.is_empty() and mine.all(func(x): return x[0] == mid), "efeito de skill sai marcado com o mapa de quem lançou (%d efeitos)" % mine.size())
 	check(sim.ticking_map == "", "fora do tick nenhum mapa está rodando")
 	sim.despawn(e)
+
+## Sim na thread (WorldSim.threaded): o physics só agenda o tick com o comando do passo; o tick roda na thread e os
+## Events dele só chegam no sync (na thread principal). O comando de 1 vez de um passo não se perde nem repete.
+func _check_sim_thread(gd) -> void:
+	var ws := WorldSim.new()
+	var td: MapDef = gd.maps[GameData.town_map_id()]
+	ws.load_map(td)
+	ws.player = ws.spawn_player(gd.classes["paladin"], "Fio", td.id)
+	ws.player.brain = null
+	ws.running = true
+	ws.threaded = true
+	var got: Array = [0]
+	var on_note := func(_t: String) -> void: got[0] += 1
+	var on_recall := func(_id: int, _ph: String) -> void: got[0] += 1
+	Events.notification.connect(on_note)
+	Events.recall_cast.connect(on_recall)
+	var t0 := ws.tick_count
+	var c1 := InputCommand.new()
+	c1.recall = true                                  # 1 vez: volta à cidade (ou o aviso de por que não)
+	ws.set_player_command(c1)
+	ws._physics_process(1.0 / 60.0)
+	ws.set_player_command(InputCommand.new())           # o controle já mandou o passo seguinte, sem o recall
+	ws._physics_process(1.0 / 60.0)
+	check(ws.tick_count == t0, "sim na thread: o physics só agenda (nenhum tick ainda)")
+	ws.start_async()
+	check(ws._task >= 0 and got[0] == 0, "sim na thread: tick na thread; eventos não chegam antes do sync")
+	ws.sync()
+	check(ws.tick_count == t0 + 2, "sim na thread: os dois passos rodaram (%d)" % (ws.tick_count - t0))
+	check(got[0] == 1, "sim na thread: o recall de 1 vez saiu uma vez só no sync (%d)" % got[0])
+	check(Events.deferring_sim == null and Events.pending() == 0, "sim na thread: fila vazia depois do sync")
+	Events.notification.disconnect(on_note)
+	Events.recall_cast.disconnect(on_recall)
+	ws.threaded = false
+	ws.free()
 
 func _check_party(gd, sim) -> void:
 	var m: Dictionary = sim.maps["city_aldara"]

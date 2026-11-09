@@ -19,6 +19,7 @@ const WEAPONS := {
 	"axe": [48, 0, 0, 0, "FOR", "AGI"],
 	"axe2h": [64, 0, 0, 0, "FOR", "VIT"],
 	"dagger": [34, 0, 0, 0, "AGI", "FOR"],
+	"claw": [42, 0, 0, 0, "AGI", "FOR"],              # soqueira com garras (Berserker Punhos de Fúria): uma em cada mão
 	"bow": [46, 0, 0, 0, "AGI", "FOR"],
 	"staff": [8, 62, 0, 0, "INT", "WILL"],
 	"scepter": [10, 60, 0, 6, "INT", "WILL"],
@@ -34,10 +35,10 @@ const WEAPON_NAMES := {
 	"sword": "Espada", "sword2h": "Montante", "mace": "Maça", "mace2h": "Martelo de Guerra",
 	"axe": "Machadinha", "axe2h": "Machado de Guerra", "dagger": "Adaga", "bow": "Arco",
 	"staff": "Cajado", "wand": "Varinha", "scythe": "Foice", "shield": "Escudo", "orb": "Orbe", "scepter": "Cetro", "rifle": "Mosquete", "spear": "Lança",
-	"pistol": "Pistola",
+	"pistol": "Pistola", "claw": "Garra",
 }
 ## tipos que ganham versão comum gerada (os outros já existem em items_catalog)
-const NEW_COMMON_TYPES := ["sword2h", "mace", "mace2h", "axe", "orb", "scepter", "rifle", "spear", "pistol"]
+const NEW_COMMON_TYPES := ["sword2h", "mace", "mace2h", "axe", "orb", "scepter", "rifle", "spear", "pistol", "claw"]
 const COMMON_TIER_NAMES := ["de Bronze", "de Ferro", "de Mitril", "de Obsidiana"]
 
 ## armaduras: peso da peça + [def, mdef] da peça de corpo no nível de referência
@@ -63,7 +64,7 @@ const ARMOR_NAMES := {
 ## "do/da/dos <build>" para nomear peças (ex.: "Elmo do Guardião da Alvorada")
 const BUILD_OF := {
 	"guardiao": "do Guardião", "cruzado": "do Cruzado", "templario": "do Templário",
-	"carniceiro": "das Armas Gêmeas", "executor": "do Executor", "arremessador": "do Arremessador",
+	"carniceiro": "das Armas Gêmeas", "executor": "do Executor", "punhos": "dos Punhos de Fúria",
 	"sacerdote": "do Sacerdote", "inquisidor": "do Inquisidor", "batalha": "do Clérigo de Batalha",
 	"guardiao_verde": "do Guardião da Floresta", "fera": "da Fera Selvagem", "xama": "do Xamã",
 	"atirador": "do Atirador", "cacador": "do Caçador", "lanceiro": "do Lanceiro",
@@ -164,18 +165,18 @@ const SET_VISUALS := {
 		"names": {"head": "Elmo de Obsidiana", "body": "Couraça de Obsidiana", "gloves": "Braçais de Obsidiana", "boots": "Botas de Obsidiana", "weapon": "Machado de Guerra de Obsidiana"}},
 	"set_berserker_executor_30": {"style": "ber_e30", "icon": "ber_e30", "color": Color(0.75, 0.16, 0.12), "set_name": "Conjunto Titã Escarlate",
 		"names": {"head": "Elmo Escarlate", "body": "Couraça Escarlate", "gloves": "Braçais Escarlate", "boots": "Botas Escarlate", "weapon": "Machado de Guerra Escarlate"}},
-	"set_berserker_arremessador_5": {"style": "ber_a5", "icon": "ber_a5", "color": Color(0.48, 0.4, 0.26), "set_name": "Conjunto Lenhador Errante",
-		"names": {"head": "Faixa do Lenhador", "body": "Gibão do Lenhador", "gloves": "Braçais do Lenhador", "boots": "Botas do Lenhador", "weapon": "Machadinha do Lenhador", "offhand": "Machadinha Gêmea do Lenhador"}},
-	"set_berserker_arremessador_10": {"style": "ber_a10", "icon": "ber_a10", "color": Color(0.26, 0.26, 0.32), "set_name": "Conjunto Corvo das Colinas",
-		"names": {"head": "Elmo do Corvo", "body": "Gibão do Corvo", "gloves": "Braçais do Corvo", "boots": "Botas do Corvo", "weapon": "Machadinha do Corvo", "offhand": "Machadinha Gêmea do Corvo"}},
-	"set_berserker_arremessador_15": {"style": "ber_a15", "icon": "ber_a15", "color": Color(0.56, 0.33, 0.18), "set_name": "Conjunto Caçador de Ursos",
-		"names": {"head": "Crânio do Caçador de Ursos", "body": "Gibão do Caçador de Ursos", "gloves": "Braçais do Caçador de Ursos", "boots": "Botas do Caçador de Ursos", "weapon": "Machadinha do Caçador de Ursos", "offhand": "Machadinha Gêmea do Caçador de Ursos"}},
-	"set_berserker_arremessador_20": {"style": "ber_a20", "icon": "ber_a20", "color": Color(0.38, 0.55, 0.62), "set_name": "Conjunto Gume do Fiorde",
-		"names": {"head": "Elmo do Fiorde", "body": "Gibão do Fiorde", "gloves": "Braçais do Fiorde", "boots": "Botas do Fiorde", "weapon": "Machadinha do Fiorde", "offhand": "Machadinha Gêmea do Fiorde"}},
-	"set_berserker_arremessador_25": {"style": "ber_a25", "icon": "ber_a25", "color": Color(0.62, 0.14, 0.12), "set_name": "Conjunto Sangue de Dragão",
-		"names": {"head": "Elmo do Dragão", "body": "Gibão do Dragão", "gloves": "Braçais do Dragão", "boots": "Botas do Dragão", "weapon": "Machadinha do Dragão", "offhand": "Machadinha Gêmea do Dragão"}},
-	"set_berserker_arremessador_30": {"style": "ber_a30", "icon": "ber_a30", "color": Color(0.86, 0.66, 0.26), "set_name": "Conjunto Senhor dos Machados Voadores",
-		"names": {"head": "Coroa dos Machados Voadores", "body": "Gibão dos Machados Voadores", "gloves": "Braçais dos Machados Voadores", "boots": "Botas dos Machados Voadores", "weapon": "Machadinha dos Machados Voadores", "offhand": "Machadinha Gêmea dos Machados Voadores"}},
+	"set_berserker_punhos_5": {"style": "ber_m5", "icon": "ber_m5", "color": Color(0.62, 0.5, 0.34), "set_name": "Conjunto Noviço do Mosteiro",
+		"names": {"head": "Faixa do Noviço", "body": "Gibão do Noviço", "gloves": "Faixas do Noviço", "boots": "Sandálias do Noviço", "weapon": "Garra do Noviço", "offhand": "Garra Gêmea do Noviço"}},
+	"set_berserker_punhos_10": {"style": "ber_m10", "icon": "ber_m10", "color": Color(0.72, 0.42, 0.16), "set_name": "Conjunto Punho de Bronze",
+		"names": {"head": "Tiara de Bronze", "body": "Gibão de Bronze", "gloves": "Faixas de Bronze", "boots": "Sandálias de Bronze", "weapon": "Garra de Bronze", "offhand": "Garra Gêmea de Bronze"}},
+	"set_berserker_punhos_15": {"style": "ber_m15", "icon": "ber_m15", "color": Color(0.3, 0.42, 0.34), "set_name": "Conjunto Tigre da Montanha",
+		"names": {"head": "Máscara do Tigre", "body": "Gibão do Tigre", "gloves": "Faixas do Tigre", "boots": "Sandálias do Tigre", "weapon": "Garra do Tigre", "offhand": "Garra Gêmea do Tigre"}},
+	"set_berserker_punhos_20": {"style": "ber_m20", "icon": "ber_m20", "color": Color(0.55, 0.16, 0.12), "set_name": "Conjunto Lótus Rubra",
+		"names": {"head": "Coroa de Contas da Lótus", "body": "Gibão da Lótus Rubra", "gloves": "Faixas da Lótus Rubra", "boots": "Sandálias da Lótus Rubra", "weapon": "Garra da Lótus Rubra", "offhand": "Garra Gêmea da Lótus Rubra"}},
+	"set_berserker_punhos_25": {"style": "ber_m25", "icon": "ber_m25", "color": Color(0.18, 0.2, 0.3), "set_name": "Conjunto Dragão de Ferro",
+		"names": {"head": "Elmo do Dragão de Ferro", "body": "Gibão do Dragão de Ferro", "gloves": "Faixas do Dragão de Ferro", "boots": "Sandálias do Dragão de Ferro", "weapon": "Garra do Dragão de Ferro", "offhand": "Garra Gêmea do Dragão de Ferro"}},
+	"set_berserker_punhos_30": {"style": "ber_m30", "icon": "ber_m30", "color": Color(0.86, 0.66, 0.26), "set_name": "Conjunto Mestre dos Cem Punhos",
+		"names": {"head": "Coroa dos Cem Punhos", "body": "Gibão dos Cem Punhos", "gloves": "Faixas dos Cem Punhos", "boots": "Sandálias dos Cem Punhos", "weapon": "Garra dos Cem Punhos", "offhand": "Garra Gêmea dos Cem Punhos"}},
 	"set_bishop_sacerdote_5": {"style": "bis_s5", "icon": "bis_s5", "color": Color(0.92, 0.88, 0.78), "set_name": "Conjunto Vestes da Aurora",
 		"names": {"head": "Véu da Aurora", "body": "Vestes da Aurora", "gloves": "Mangas da Aurora", "boots": "Sandálias da Aurora", "weapon": "Maça da Aurora", "offhand": "Escudo da Aurora"}},
 	"set_bishop_sacerdote_10": {"style": "bis_s10", "icon": "bis_s10", "color": Color(0.55, 0.68, 0.9), "set_name": "Conjunto Vigília Serena",
@@ -558,17 +559,17 @@ static func set_skills(build: Dictionary, skills: Dictionary, level: int, tier: 
 ## explode em volta), riposte (esquivar contra-ataca), raise_on_kill (abate levanta um esqueleto), heal_on_kill,
 ## thorns (devolve corpo a corpo), ward (cura vira barreira), echo (golpe bate de novo; reserva),
 ## penance (cada golpe põe uma carga de Penitência no alvo; com `stacks` explode em fogo sagrado: `pct`% do ATK em `radius`),
-## mend (parte do dano do golpe cura o aliado mais ferido por perto, você incluso), hemorrhage (dano extra em alvo
-## sangrando/envenenado), open_wound (cada golpe abre uma Ferida no alvo, até `max`: +`pct`% do seu dano nele por ferida; com todas
+## mend (parte do dano do golpe cura o aliado mais ferido por perto, você incluso), open_wound (cada golpe abre uma Ferida no alvo, até `max`: +`pct`% do seu dano nele por ferida; com todas
 ## abertas ele sangra `bleed`% do ATK por segundo), spare_shot (Corsário com pistola: golpe às vezes dispara um tiro de graça no alvo,
 ## `pct`% do ATK, +1 Bravata; Balance.LEG_SHOT_ICD).
+## fist_counter (Punhos de Fúria com duas garras: o contra-ataque da esquiva causa +`pct`% do ATK; FistSystem).
 const LEGEND_EFFECTS := {
 	"guardiao": {"kind": "thorns", "name": "Retaliação", "pct": [15, 3]},
 	"cruzado": {"kind": "stun", "name": "Julgamento", "chance": [12, 2], "dur": [0.8, 0.1], "icd": 6.0},
 	"templario": {"kind": "penance", "name": "Penitência", "pct": [120, 24], "stacks": 5, "radius": 2.5},
 	"carniceiro": {"kind": "frenzy", "name": "Frenesi", "pct": [4, 0.6], "max": 5},
 	"executor": {"kind": "execute", "name": "Carrasco", "pct": [30, 6], "below": 0.3},
-	"arremessador": {"kind": "hemorrhage", "name": "Hemorragia", "pct": [8, 1.6]},
+	"punhos": {"kind": "fist_counter", "name": "Punho Vingativo", "pct": [30, 6]},
 	"sacerdote": {"kind": "ward", "name": "Égide", "pct": [15, 3]},
 	"inquisidor": {"kind": "cast_on_basic", "name": "Castigo Sagrado", "skill": "bis_smite", "chance": [18, 3]},
 	"batalha": {"kind": "mend", "name": "Mão que Cura", "pct": [8, 2]},

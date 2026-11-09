@@ -63,9 +63,9 @@ static func enhance(sim: WorldSim, e: SimEntity, item_id: String, slot: int = -1
 		e.remove_item(item_id, 1)
 		e.add_item(nxt.id, 1)
 	e.recompute_stats()
-	Events.equipment_changed.emit(e.id)
+	Events.post(&"equipment_changed", e.id)
 	if e == sim.player:
-		Events.notification.emit("%s pronto!" % nxt.name)
+		Events.post(&"notification", "%s pronto!" % nxt.name)
 	return nxt
 
 ## Bolsa Ampliada: na ordem (I antes da II...), até Balance.BAG_UPGRADES.
@@ -76,12 +76,12 @@ static func use_bag_upgrade(sim: WorldSim, e: SimEntity, item_id: String) -> boo
 	var want := int(it.consume["bag"])
 	if want != e.bag_bonus:
 		if e == sim.player:
-			Events.notification.emit("Use antes a Bolsa Ampliada %s" % ["I", "II", "III", "IV"][mini(e.bag_bonus, 3)] if want > e.bag_bonus else "Sua bolsa já é maior que esta")
+			Events.post(&"notification", "Use antes a Bolsa Ampliada %s" % ["I", "II", "III", "IV"][mini(e.bag_bonus, 3)] if want > e.bag_bonus else "Sua bolsa já é maior que esta")
 		return false
 	e.remove_item(item_id, 1)
 	e.bag_bonus += 1
 	if e == sim.player:
-		Events.notification.emit("Bolsa ampliada: %d espaços" % e.bag_capacity())
+		Events.post(&"notification", "Bolsa ampliada: %d espaços" % e.bag_capacity())
 	return true
 
 ## Sorteia se cai lendário para quem matou: cai como Moeda Lendária (chefe/Rei: LEGENDARY_COINS_BOSS moedas).
@@ -132,7 +132,7 @@ static func buy_legend_coin(sim: WorldSim, e: SimEntity, count: int = 1) -> bool
 		why = "faltam %d de ouro" % (Balance.LEGEND_COIN_PRICE * count - e.gold)
 	if why != "":
 		if e == sim.player:
-			Events.notification.emit("Relicária: " + why)
+			Events.post(&"notification", "Relicária: " + why)
 		return false
 	e.gold -= Balance.LEGEND_COIN_PRICE * count
 	e.add_item("legend_coin", count)
@@ -142,12 +142,12 @@ static func relic_exchange(sim: WorldSim, e: SimEntity, item_id: String) -> bool
 	var why := relic_block_reason(sim, e, item_id)
 	if why != "":
 		if e == sim.player:
-			Events.notification.emit("Relicária: " + why)
+			Events.post(&"notification", "Relicária: " + why)
 		return false
 	e.remove_item("legend_coin", relic_cost(sim, GameData.items[item_id]))
 	e.add_item(item_id, 1)
 	if e == sim.player:
-		Events.notification.emit("★ LENDÁRIO: %s!" % GameData.items[item_id].name)
+		Events.post(&"notification", "★ LENDÁRIO: %s!" % GameData.items[item_id].name)
 	return true
 
 ## Chance de lendário por monstro: chefe 25%; no primeiro mapa o 1º conjunto cai mais (1 em 50); no resto 1 em 200.
@@ -197,7 +197,7 @@ static func use_potion(sim: WorldSim, e: SimEntity, slot: int) -> bool:
 	var item_id: String = e.potion_slots[slot]
 	if item_id == "" or not e.has_item(item_id):
 		if e == sim.player:
-			Events.notification.emit("Sem poção nesse slot")
+			Events.post(&"notification", "Sem poção nesse slot")
 		return false
 	var item: ItemDef = GameData.items[item_id]
 	e.remove_item(item_id, 1)
@@ -213,7 +213,7 @@ static func use_potion(sim: WorldSim, e: SimEntity, slot: int) -> bool:
 		e.mp = minf(e.stats.max_mp, e.mp + e.stats.max_mp * float(c["mana_pct"]))
 	if c.has("buff"):
 		sim._apply_effects(e, e, {"buff": c["buff"]}, 1.0)
-	Events.potion_used.emit(e.id, slot)
+	Events.post(&"potion_used", e.id, slot)
 	return true
 
 ## Por que `e` não pode equipar `item` (no slot dado); "" = pode.
@@ -242,7 +242,7 @@ static func equip(sim: WorldSim, e: SimEntity, item_id: String, to_offhand: bool
 		return false
 	var err := equip_error(sim, e, item, to_offhand)
 	if err != "":
-		Events.notification.emit(err)
+		Events.post(&"notification", err)
 		return false
 	var slot: int = ItemDef.Slot.OFFHAND if to_offhand else item.slot
 	if slot == ItemDef.Slot.RING and want_slot in [ItemDef.Slot.RING, ItemDef.Slot.RING2]:
@@ -259,9 +259,9 @@ static func equip(sim: WorldSim, e: SimEntity, item_id: String, to_offhand: bool
 		e.add_item(e.equipment[bump].id, 1)
 		e.equipment.erase(bump)
 		if e == sim.player:
-			Events.notification.emit("Arma de duas mãos: a outra mão foi liberada")
+			Events.post(&"notification", "Arma de duas mãos: a outra mão foi liberada")
 	e.recompute_stats()
-	Events.equipment_changed.emit(e.id)
+	Events.post(&"equipment_changed", e.id)
 	return true
 
 static func unequip(sim: WorldSim, e: SimEntity, slot: int) -> void:
@@ -269,7 +269,7 @@ static func unequip(sim: WorldSim, e: SimEntity, slot: int) -> void:
 		e.add_item(e.equipment[slot].id, 1)
 		e.equipment.erase(slot)
 		e.recompute_stats()
-		Events.equipment_changed.emit(e.id)
+		Events.post(&"equipment_changed", e.id)
 
 static func first_free_slot(sim: WorldSim, e: SimEntity) -> int:
 	for i in range(e.skills.size()):
@@ -292,7 +292,7 @@ static func storage_deposit(sim: WorldSim, e: SimEntity, item_id: String, count:
 		return false
 	if not e.storage.has(item_id) and e.storage.size() >= Balance.STORAGE_SLOTS:
 		if e == sim.player:
-			Events.notification.emit("Depósito cheio (%d tipos de item)." % Balance.STORAGE_SLOTS)
+			Events.post(&"notification", "Depósito cheio (%d tipos de item)." % Balance.STORAGE_SLOTS)
 		return false
 	e.remove_item(item_id, count)
 	e.storage[item_id] = int(e.storage.get(item_id, 0)) + count

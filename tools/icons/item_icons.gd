@@ -41,10 +41,10 @@ const MATERIAL_ART := [["legend_coin", "legend_coin"], ["shell", "shell"], ["mus
 	["essence", "essence"], ["core", "core"], ["scale", "scale"], ["feather", "feather"], ["steel", "ingot"], ["sap", "sap"], ["heartwood", "bark"]]
 ## inclinação da arte (rad): armas na diagonal, como na mão
 const ANGLE := {"sword": 0.74, "sword2h": 0.74, "dagger": 0.74, "mace": 0.6, "mace2h": 0.5, "axe": 0.42, "axe2h": 0.4, "staff": 0.6,
-	"wand": 0.66, "scythe": 0.2, "scepter": 0.6, "rifle": 0.76, "spear": 0.74, "pistol": -0.2, "bow": -0.74, "tusk": 0.3, "bone": 0.7, "herb": 0.18}
+	"wand": 0.66, "scythe": 0.2, "scepter": 0.6, "rifle": 0.76, "spear": 0.74, "pistol": -0.2, "claw": 0.3, "bow": -0.74, "tusk": 0.3, "bone": 0.7, "herb": 0.18}
 ## escala extra: armas longas na diagonal ocupam menos área que um elmo
 const GROW := {"sword": 1.2, "sword2h": 1.12, "dagger": 1.25, "mace": 1.12, "mace2h": 1.06, "axe": 1.12, "axe2h": 1.06, "staff": 1.14,
-	"wand": 1.22, "scythe": 1.08, "scepter": 1.18, "rifle": 1.16, "spear": 1.06, "pistol": 1.3, "bow": 1.1, "bone": 1.2, "tusk": 1.05}
+	"wand": 1.22, "scythe": 1.08, "scepter": 1.18, "rifle": 1.16, "spear": 1.06, "pistol": 1.3, "claw": 1.15, "bow": 1.1, "bone": 1.2, "tusk": 1.05}
 
 ## Arte de um item: arma pelo tipo, armadura pelo slot e estilo, consumível/missão/material pela palavra no id.
 static func art_key(it: ItemDef) -> String:
@@ -583,6 +583,21 @@ func _a_spear() -> void:
 		_gem(0, -0.49, 0.07)
 
 ## Pistola de pederneira de perfil (Corsário): cano para a direita, coronha curva, cão, gatilho e boca dourada.
+## Garra (soqueira com lâminas): três lâminas para cima saindo dos nós dos dedos, placa da mão e barra de empunhar.
+func _a_claw() -> void:
+	for k: int in [-1, 0, 1]:
+		var x: float = k * 0.3
+		var bend: float = k * 0.12 if _r >= 2 else 0.0          # nos tiers altos as lâminas abrem como garra de fera
+		_poly([x - 0.1, -0.02, x + 0.1, -0.02, x + 0.07 + bend, -0.62, x + bend * 1.6, -0.98 + absf(k) * 0.08, x - 0.07 + bend * 0.6, -0.62], "blade", 0.05, 0.1)
+		_mark([x + bend * 0.4, -0.12, x + bend * 1.3, -0.82 + absf(k) * 0.08], _pal("blade")[2], 0.035)
+	_poly([-0.56, -0.08, 0.56, -0.08, 0.6, 0.12, -0.6, 0.12], "trim", 0.05, 0.06)          # barra dos nós dos dedos
+	_poly([-0.5, 0.12, 0.5, 0.12, 0.44, 0.56, -0.44, 0.56], "tint", 0.05, 0.1)             # placa sobre a mão
+	_poly([-0.36, 0.62, 0.36, 0.62, 0.36, 0.82, -0.36, 0.82], "tint_dark", 0.05, 0.05)       # barra de empunhar
+	_line([-0.44, 0.56, -0.36, 0.72], "tint_dark", 0.06)
+	_line([0.44, 0.56, 0.36, 0.72], "tint_dark", 0.06)
+	if _r >= 2:
+		_gem(0, 0.34, 0.09)
+
 func _a_pistol() -> void:
 	_poly([-0.86, 0.86, -0.5, 0.98, -0.16, 0.3, 0.02, 0.12, 0.0, -0.16, -0.36, -0.2, -0.62, 0.14], "wood", 0.055, 0.12)
 	_circ(-0.72, 0.88, 0.14, "trim")

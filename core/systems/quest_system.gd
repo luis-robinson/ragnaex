@@ -34,7 +34,7 @@ static func accept(e: SimEntity, q: QuestDef) -> void:
 	e.quests_active[q.id] = 0
 	for iid in q.give_items:                 # entrega: o pacote vai para a bolsa
 		e.add_item(iid, int(q.give_items[iid]))
-	Events.quest_accepted.emit(e.id, q.id)
+	Events.post(&"quest_accepted", e.id, q.id)
 	# COLLECT: conta o que já tem; TALK ao próprio NPC completa na hora
 	if q.type == QuestDef.Type.COLLECT:
 		on_item_changed(e, q.target_id)
@@ -45,7 +45,7 @@ static func abandon(e: SimEntity, q: QuestDef) -> void:
 	if e.quests_active.erase(q.id):
 		for iid in q.give_items:
 			e.remove_item(iid, mini(int(q.give_items[iid]), int(e.inventory.get(iid, 0))))
-		Events.quest_abandoned.emit(e.id, q.id)
+		Events.post(&"quest_abandoned", e.id, q.id)
 
 static func progress(e: SimEntity, q: QuestDef) -> int:
 	if q.type == QuestDef.Type.COLLECT:
@@ -61,13 +61,13 @@ static func on_kill(e: SimEntity, monster_id: String) -> void:
 		if q and q.type == QuestDef.Type.KILL and (q.target_id == monster_id or monster_id in q.also_counts):
 			var cur := mini(int(e.quests_active[qid]) + 1, q.count)
 			e.quests_active[qid] = cur
-			Events.quest_progress.emit(e.id, qid, cur, q.count)
+			Events.post(&"quest_progress", e.id, qid, cur, q.count)
 
 static func on_item_changed(e: SimEntity, item_id: String) -> void:
 	for qid in e.quests_active.keys():
 		var q: QuestDef = GameData.quests.get(qid)
 		if q and q.type == QuestDef.Type.COLLECT and q.target_id == item_id:
-			Events.quest_progress.emit(e.id, qid, progress(e, q), q.count)
+			Events.post(&"quest_progress", e.id, qid, progress(e, q), q.count)
 
 static func on_craft(e: SimEntity, item_id: String, count: int) -> void:
 	for qid in e.quests_active.keys():
@@ -75,14 +75,14 @@ static func on_craft(e: SimEntity, item_id: String, count: int) -> void:
 		if q and q.type == QuestDef.Type.CRAFT and q.target_id == item_id:
 			var cur := mini(int(e.quests_active[qid]) + count, q.count)
 			e.quests_active[qid] = cur
-			Events.quest_progress.emit(e.id, qid, cur, q.count)
+			Events.post(&"quest_progress", e.id, qid, cur, q.count)
 
 static func on_talk(e: SimEntity, npc_id: String) -> void:
 	for qid in e.quests_active.keys():
 		var q: QuestDef = GameData.quests.get(qid)
 		if q and q.type == QuestDef.Type.TALK and q.target_id == npc_id:
 			e.quests_active[qid] = q.count
-			Events.quest_progress.emit(e.id, qid, q.count, q.count)
+			Events.post(&"quest_progress", e.id, qid, q.count, q.count)
 
 ## REACH: chegou ao mapa alvo, ou perto do lugar alvo no mapa atual.
 static func on_position(e: SimEntity) -> void:
@@ -90,7 +90,7 @@ static func on_position(e: SimEntity) -> void:
 		var q: QuestDef = GameData.quests.get(qid)
 		if q and q.type == QuestDef.Type.REACH and not is_complete(e, q) and _arrived(e, q.target_id):
 			e.quests_active[qid] = q.count
-			Events.quest_progress.emit(e.id, qid, q.count, q.count)
+			Events.post(&"quest_progress", e.id, qid, q.count, q.count)
 
 static func _arrived(e: SimEntity, target: String) -> bool:
 	if e.map_id == target:
@@ -309,7 +309,7 @@ static func complete(e: SimEntity, q: QuestDef, sim) -> void:
 	if gear != "":
 		e.add_item(gear)
 		if e == sim.player:
-			Events.notification.emit("Recompensa: %s" % GameData.items[gear].name)
-	Events.quest_completed.emit(e.id, q.id)
+			Events.post(&"notification", "Recompensa: %s" % GameData.items[gear].name)
+	Events.post(&"quest_completed", e.id, q.id)
 	var again := "  —  " + repeat_note(q) if q.repeatable else ""
-	Events.notification.emit("Quest concluída: %s (+%d XP, +%d ouro)%s" % [q.title, q.reward_xp, q.reward_gold, again])
+	Events.post(&"notification", "Quest concluída: %s (+%d XP, +%d ouro)%s" % [q.title, q.reward_xp, q.reward_gold, again])

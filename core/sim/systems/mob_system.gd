@@ -104,7 +104,7 @@ static func spawn_adds(sim: WorldSim, boss: SimEntity, sm: Dictionary) -> void:
 ## Fala de chefe (abertura, fase, queda): aviso na tela só para quem está no mapa.
 static func boss_say(sim: WorldSim, e: SimEntity, text: String) -> void:
 	if sim.player and sim.player.map_id == e.map_id:
-		Events.notification.emit("%s: %s" % [e.name, text])
+		Events.post(&"notification", "%s: %s" % [e.name, text])
 
 ## Avança as fases pelo HP; uma queda grande de HP pode entrar em mais de uma de uma vez.
 ## Com `dt`: conta o tempo da luta (berserk_after) e confere os lacaios vivos (escudo da fase com "ward").
@@ -284,7 +284,7 @@ static func place_barrage(sim: WorldSim, e: SimEntity, s: SkillDef, aim: Vector3
 			spots.append(p)
 	for p in spots:
 		m["hazards"].append({"owner": e.id, "pos": p, "radius": r, "at": sim.time + delay, "power": power, "kind": s.kind, "effects": fx, "skill": s.id})
-		Events.hazard_placed.emit(e.map_id, p, r, delay, s.id)
+		Events.post(&"hazard_placed", e.map_id, p, r, delay, s.id)
 
 ## Círculos de chefe: caem na hora marcada (dano + efeito em quem ficou dentro); somem se o dono morreu ou saiu.
 static func update_hazards(sim: WorldSim, m: Dictionary) -> void:
@@ -306,7 +306,7 @@ static func update_hazards(sim: WorldSim, m: Dictionary) -> void:
 				var r := Combat.calc_damage(owner, o, float(h["power"]), kind, sim.rng, pos)
 				sim._deal_damage(owner, o, r["amount"], r["crit"], false, "magical" if kind == SkillDef.Kind.MAGICAL else "physical", pos)
 				sim._apply_effects(owner, o, h["effects"], float(h["power"]))
-		Events.skill_effect.emit(h["skill"], pos, pos, float(h["radius"]))
+		Events.post(&"skill_effect", h["skill"], pos, pos, float(h["radius"]))
 
 static func update_spawners(sim: WorldSim, m: Dictionary, dt: float) -> void:
 	var def: MapDef = m["def"]
@@ -346,9 +346,9 @@ static func update_spawners(sim: WorldSim, m: Dictionary, dt: float) -> void:
 						spawn_escort(sim, mob, sp)
 						sp["escort_t"] = Balance.ESCORT_RESPAWN
 					if em is Array and em.size() >= 3:
-						Events.monster_emerged.emit(def.id, pos)
+						Events.post(&"monster_emerged", def.id, pos)
 						if sim.player and sim.player.map_id == def.id:
-							Events.chat_message.emit("Sistema", "%s emerge do lago!" % mob.monster_def.name, "system")
+							Events.post(&"chat_message", "Sistema", "%s emerge do lago!" % mob.monster_def.name, "system")
 				if sp["alive"].size() >= int(sdef.get("count", 1)):
 					sp["primed"] = true
 				# enche rápido na 1ª vez (mapa recém-carregado) e quando esvazia; depois, um por vez no tempo de respawn

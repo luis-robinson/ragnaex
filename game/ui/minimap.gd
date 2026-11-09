@@ -2,7 +2,7 @@ class_name Minimap
 extends Control
 ## Minimapa redondo (canto superior direito), desenhado a partir do MapDef — sem segunda câmera 3D.
 ## Camada estática (chão do vale, água, estradas, vila, casas, árvores, penhascos, portais) é desenhada uma vez
-## por mapa; a dinâmica (jogador, bots, monstros, NPCs) a cada frame. Gira com a câmera: "para cima" = para onde
+## por mapa; os pontos (bots, monstros, NPCs) viram uma malha só refeita a DOTS_HZ; o resto (jogador, quests, guia) a cada frame. Gira com a câmera: "para cima" = para onde
 ## a câmera olha. Roda do mouse sobre o minimapa = zoom.
 
 const SIZE := 210.0
@@ -25,6 +25,11 @@ var _clip: Panel
 var _holder: Node2D                   # centro do minimapa; gira com a câmera
 var _static: Node2D                   # mapa inteiro em coordenadas de mundo × zoom
 var _dynamic: Node2D
+var _dots: Node2D                     # pontos de bots/monstros/NPCs: 1 malha (1 draw call), refeita a DOTS_HZ
+var _dots_mesh := ArrayMesh.new()
+var _dots_t := 0.0
+var _dots_zoom := -1.0
+const DOTS_HZ := 10.0                 # antes: um draw_circle por ponto, todo quadro (~250 no mapa cheio)
 var _north: Label
 var _marks: Dictionary = {}           # id do NPC -> marcador de quest
 var _marks_timer := 0.0
@@ -66,6 +71,9 @@ func _ready() -> void:
 	_bake = Node2D.new()
 	_bake.draw.connect(_draw_static_in.bind(_bake))
 	_bake_vp.add_child(_bake)
+	_dots = Node2D.new()
+	_dots.draw.connect(func(): _dots.draw_mesh(_dots_mesh, null))
+	_holder.add_child(_dots)
 	_dynamic = Node2D.new()
 	_dynamic.draw.connect(_draw_dynamic)
 	_holder.add_child(_dynamic)
@@ -130,7 +138,13 @@ func _gui_input(event: InputEvent) -> void:
 		_static.scale = Vector2.ONE * zoom
 		accept_event()
 
+static var prof_us := 0.0           # --soak: tempo de script do minimapa (processo + desenho dinâmico)
 func _process(delta: float) -> void:
+	var _t0 := Time.get_ticks_usec()
+	_mm_process(delta)
+	prof_us += Time.get_ticks_usec() - _t0
+
+func _mm_process(delta: float) -> void:
 	var p: SimEntity = Sim.player
 	if p == null or _def == null or not is_visible_in_tree():
 		return
@@ -153,6 +167,11 @@ func _process(delta: float) -> void:
 		_holder.rotation = Vector2(f.x, f.z).angle_to(Vector2(0, -1))
 		_origin = Vector2(p.position.x, p.position.z)
 	_static.position = -_origin * zoom
+	_dots.position = -_origin * zoom       # a malha está em mundo × zoom: anda junto com o fundo
+	_dots_t -= delta
+	if _dots_t <= 0.0 or not is_equal_approx(_dots_zoom, zoom):
+		_dots_t = 1.0 / DOTS_HZ
+		_rebuild_dots(p)
 	_dynamic.queue_redraw()
 	if big:
 		_north.position = Vector2(side * 0.5 - 5.0, 4.0)
@@ -231,6 +250,11 @@ func _draw_static_in(n: Node2D) -> void:
 		n.draw_circle(pos, 1.6, Color(1, 1, 1))
 
 func _draw_dynamic() -> void:
+	var _t0 := Time.get_ticks_usec()
+	_draw_dynamic_body()
+	prof_us += Time.get_ticks_usec() - _t0
+
+func _draw_dynamic_body() -> void:
 	var p: SimEntity = Sim.player
 	if p == null:
 		return
@@ -244,41 +268,19 @@ func _draw_dynamic() -> void:
 		if at.length() < side * 0.5 + float(rs["radius"]) * zoom:
 			var pulse := 0.55 + 0.45 * sin(Time.get_ticks_msec() * 0.006)
 			d.draw_arc(at, float(rs["radius"]) * zoom, 0.0, TAU, 48, Color(1.0, 0.45, 0.2, 0.35 + 0.4 * pulse), 2.5, true)
-	for e in Sim.map_entities(p.map_id):
-		if e == p or not e.is_alive():
+	for id in _marks:                     # NPC com pendência de quest (os pontos comuns estão na malha _dots)
+		var mark: String = _marks[id]
+		if mark == "":
+			continue
+		var e: SimEntity = Sim.get_entity(id)
+		if e == null or not e.is_alive() or e.map_id != p.map_id:
 			continue
 		var rel := (Vector2(e.position.x, e.position.z) - origin) * zoom
-		var mark: String = _marks.get(e.id, "")
 		if mark in ["!", "?", QuestSystem.REPEAT]:
 			rel = rel.limit_length(side * 0.5 - 12.0)       # pendência longe fica na borda, apontando o rumo
 		if rel.length() > side * 0.5:
 			continue
-		match e.kind:
-			SimEntity.Kind.MONSTER:
-				if e.raid_id >= 0:              # investida: losango laranja com borda, maior que o monstro comum
-					var dm := PackedVector2Array([rel + Vector2(0, -4.5), rel + Vector2(4.5, 0), rel + Vector2(0, 4.5), rel + Vector2(-4.5, 0)])
-					d.draw_colored_polygon(dm, Color(1.0, 0.55, 0.15))
-					dm.append(dm[0])
-					d.draw_polyline(dm, Color(0.2, 0.05, 0.0), 1.2, true)
-				else:
-					d.draw_circle(rel, 4.0 if e.monster_def and e.monster_def.is_boss else 2.6, Color(0.95, 0.3, 0.3))
-			SimEntity.Kind.BOT:
-				if Sim.same_party(e, p):
-					d.draw_circle(rel, 4.0, Color(0.1, 0.25, 0.1))
-					d.draw_circle(rel, 3.2, Color(0.45, 1.0, 0.5))
-				else:
-					d.draw_circle(rel, 2.6, Color(0.45, 0.8, 1.0))
-			SimEntity.Kind.NPC:
-				if mark != "":
-					quest_marks.append([rel, mark])
-				elif e.npc_data.get("role", "") == "crystal":       # cristal de retorno: losango azul (maior se for o seu)
-					var r := 5.0 if p.bind_map == p.map_id else 3.6
-					var dm := PackedVector2Array([rel + Vector2(0, -r), rel + Vector2(r * 0.7, 0), rel + Vector2(0, r), rel + Vector2(-r * 0.7, 0)])
-					d.draw_colored_polygon(dm, Color(0.45, 0.8, 1.0))
-					dm.append(dm[0])
-					d.draw_polyline(dm, Color(0.05, 0.15, 0.3), 1.2, true)
-				else:
-					d.draw_circle(rel, 3.0, Color(0.95, 0.95, 0.8))
+		quest_marks.append([rel, mark])
 	for qm in quest_marks:
 		_draw_quest_mark(d, qm[0], qm[1])
 	_draw_guide(d, origin)
@@ -294,6 +296,64 @@ func _draw_dynamic() -> void:
 	d.draw_colored_polygon(poly, Color(1, 1, 1))
 	poly.append(tip)
 	d.draw_polyline(poly, Color(0.1, 0.1, 0.1), 1.2, true)
+
+## Malha dos pontos (mundo × zoom; _dots anda com o fundo): monstro vermelho (chefe maior), investida em losango
+## laranja com borda, bot azul, do grupo verde com borda, NPC creme, cristal de retorno em losango azul.
+## Só quem cabe no círculo (com folga do giro); NPC com quest fica de fora (marca própria em _draw_dynamic).
+func _rebuild_dots(p: SimEntity) -> void:
+	_dots_zoom = zoom
+	var verts := PackedVector2Array()
+	var cols := PackedColorArray()
+	var reach := (side * 0.75 + 8.0) / zoom   # metros: canto do quadrado girado
+	var o := _origin
+	for e in Sim.map_entities(p.map_id):
+		if e == p or not e.is_alive():
+			continue
+		var dx: float = e.position.x - o.x
+		var dz: float = e.position.z - o.y
+		if absf(dx) > reach or absf(dz) > reach:
+			continue
+		var at := Vector2(e.position.x, e.position.z) * zoom
+		match e.kind:
+			SimEntity.Kind.MONSTER:
+				if e.raid_id >= 0:
+					_dot_poly(verts, cols, at, 5.6, 4, Color(0.2, 0.05, 0.0))
+					_dot_poly(verts, cols, at, 4.5, 4, Color(1.0, 0.55, 0.15))
+				else:
+					_dot_poly(verts, cols, at, 4.0 if e.monster_def and e.monster_def.is_boss else 2.6, 8, Color(0.95, 0.3, 0.3))
+			SimEntity.Kind.BOT:
+				if Sim.same_party(e, p):
+					_dot_poly(verts, cols, at, 4.0, 8, Color(0.1, 0.25, 0.1))
+					_dot_poly(verts, cols, at, 3.2, 8, Color(0.45, 1.0, 0.5))
+				else:
+					_dot_poly(verts, cols, at, 2.6, 8, Color(0.45, 0.8, 1.0))
+			SimEntity.Kind.NPC:
+				if _marks.get(e.id, "") != "":
+					continue
+				if e.npc_data.get("role", "") == "crystal":
+					var r := 5.0 if p.bind_map == p.map_id else 3.6
+					_dot_poly(verts, cols, at, r + 1.1, 4, Color(0.05, 0.15, 0.3), 0.7)
+					_dot_poly(verts, cols, at, r, 4, Color(0.45, 0.8, 1.0), 0.7)
+				else:
+					_dot_poly(verts, cols, at, 3.0, 8, Color(0.95, 0.95, 0.8))
+	_dots_mesh.clear_surfaces()
+	if not verts.is_empty():
+		var arr := []
+		arr.resize(Mesh.ARRAY_MAX)
+		arr[Mesh.ARRAY_VERTEX] = verts
+		arr[Mesh.ARRAY_COLOR] = cols
+		_dots_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	_dots.queue_redraw()
+
+## Polígono regular de `n` lados em triângulos (n = 4: losango; `wx` achata na horizontal).
+static func _dot_poly(verts: PackedVector2Array, cols: PackedColorArray, at: Vector2, r: float, n: int, c: Color, wx: float = 1.0) -> void:
+	for i in range(n):
+		var a0 := TAU * i / n - PI * 0.5
+		var a1 := TAU * (i + 1) / n - PI * 0.5
+		verts.append(at)
+		verts.append(at + Vector2(cos(a0) * r * wx, sin(a0) * r))
+		verts.append(at + Vector2(cos(a1) * r * wx, sin(a1) * r))
+		cols.append(c); cols.append(c); cols.append(c)
 
 ## Mapa grande: nome de cada portal (para onde leva) e dos lugares com NPC.
 func _draw_labels(d: Node2D, origin: Vector2) -> void:

@@ -97,7 +97,7 @@ static func ambient(sim, e: SimEntity) -> void:
 		return
 	var line := ambient_line(sim, e)
 	if line != "":
-		Events.chat_message.emit(e.name, line, "global")
+		Events.post(&"chat_message", e.name, line, "global")
 
 # ---------------------------------------------------------------------------
 # GRUPO COM O JOGADOR (canal do grupo)
@@ -236,4 +236,4 @@ static func _flush(sim, p: Dictionary) -> void:
 	if e == null or e.party_id != p["id"] or sim.time > float(it["at"]) + 10.0:
 		return                                  # saiu do grupo ou a fala envelheceu
 	p["chat_next"] = sim.time + Balance.PARTY_CHAT_GAP
-	Events.chat_message.emit(e.name, str(it["text"]), "party")
+	Events.post(&"chat_message", e.name, str(it["text"]), "party")

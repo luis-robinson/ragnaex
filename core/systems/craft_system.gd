@@ -43,9 +43,9 @@ static func craft(e: SimEntity, r: RecipeDef) -> bool:
 	e.add_item(r.result_item, r.result_count)
 	QuestSystem.on_craft(e, r.result_item, r.result_count)
 	QuestSystem.on_item_changed(e, r.result_item)
-	Events.crafted.emit(e.id, r.result_item, r.result_count)
+	Events.post(&"crafted", e.id, r.result_item, r.result_count)
 	var it: ItemDef = GameData.items.get(r.result_item)
-	Events.notification.emit("Criou %s x%d" % [it.name if it else r.result_item, r.result_count])
+	Events.post(&"notification", "Criou %s x%d" % [it.name if it else r.result_item, r.result_count])
 	return true
 
 # --- loja ---
@@ -55,7 +55,7 @@ static func buy(e: SimEntity, item_id: String, count: int = 1) -> bool:
 		return false
 	var cost := it.price * count
 	if e.gold < cost:
-		Events.notification.emit("Ouro insuficiente")
+		Events.post(&"notification", "Ouro insuficiente")
 		return false
 	e.gold -= cost
 	e.add_item(item_id, count)

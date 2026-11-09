@@ -104,7 +104,7 @@ static func start_raid(sim: WorldSim, m: Dictionary, i: int = 0) -> Array:
 	if k > int(st.get("seen_reclaimed", 0)):
 		st["seen_reclaimed"] = k
 		if r.has("say_reclaim"):
-			Events.chat_message.emit("Sistema", str(r["say_reclaim"]), "system")
+			Events.post(&"chat_message", "Sistema", str(r["say_reclaim"]), "system")
 	var top := 0
 	for mobs in groups:
 		for mid in mobs:
@@ -123,10 +123,10 @@ static func start_raid(sim: WorldSim, m: Dictionary, i: int = 0) -> Array:
 	st["total"] = spawned.size()
 	st["step"] = step
 	st["level"] = top
-	Events.chat_message.emit("Sistema", str(r.get("say_start", "Uma investida inimiga se aproxima!")), "system")
+	Events.post(&"chat_message", "Sistema", str(r.get("say_start", "Uma investida inimiga se aproxima!")), "system")
 	if step >= 3 and r.has("say_strong"):
-		Events.chat_message.emit("Sistema", str(r["say_strong"]), "system")
-	Events.raid_event.emit(def.id, "start")
+		Events.post(&"chat_message", "Sistema", str(r["say_strong"]), "system")
+	Events.post(&"raid_event", def.id, "start")
 	return spawned
 
 static func _update_wave(sim: WorldSim, m: Dictionary, st: Dictionary, dt: float, i: int = 0) -> void:
@@ -147,8 +147,8 @@ static func _update_wave(sim: WorldSim, m: Dictionary, st: Dictionary, dt: float
 		alive.append(id)
 		if not st["arrived"] and e.position.distance_to(target) < radius:
 			st["arrived"] = true
-			Events.chat_message.emit("Sistema", str(r.get("say_arrived", "Os inimigos chegaram às muralhas!")), "system")
-			Events.raid_event.emit(def.id, "arrived")
+			Events.post(&"chat_message", "Sistema", str(r.get("say_arrived", "Os inimigos chegaram às muralhas!")), "system")
+			Events.post(&"raid_event", def.id, "arrived")
 			if not def.sortie.is_empty() and float(m.get("sortie_cd", 0.0)) <= 0.0:
 				m["sortie_cd"] = float(def.sortie.get("cooldown", Balance.RAID_SORTIE_COOLDOWN))
 				st["sortie"] = WorldState.spawn_sortie(sim, m, i)
@@ -159,15 +159,15 @@ static func _update_wave(sim: WorldSim, m: Dictionary, st: Dictionary, dt: float
 		st["ids"] = []
 		st["timer"] = (float(r.get("every", 180.0)) + sim.rng.randf_range(-1.0, 1.0) * float(r.get("jitter", 0.0))) * pow(Balance.RAID_RECLAIM_EVERY, reclaimed(sim, m))
 		if repelled:
-			Events.chat_message.emit("Sistema", str(r.get("say_repelled", "A investida foi repelida!")), "system")
-		Events.raid_event.emit(def.id, "repelled" if repelled else "retreated")
+			Events.post(&"chat_message", "Sistema", str(r.get("say_repelled", "A investida foi repelida!")), "system")
+		Events.post(&"raid_event", def.id, "repelled" if repelled else "retreated")
 		return
 	st["ids"] = alive
 	_rally(sim, m, st, dt, i)
 	if not st["retreat"] and float(st["t"]) >= float(r.get("lifetime", 150.0)):
 		st["retreat"] = true
-		Events.chat_message.emit("Sistema", str(r.get("say_retreat", "Os inimigos recuam.")), "system")
-		Events.raid_event.emit(def.id, "retreat")
+		Events.post(&"chat_message", "Sistema", str(r.get("say_retreat", "Os inimigos recuam.")), "system")
+		Events.post(&"raid_event", def.id, "retreat")
 
 ## Força da próxima leva: passos de nível do jogador no mapa acima de RAID_SCALE_FROM (máx. RAID_SCALE_TO).
 ## `m["raid"]["force_level"]` fixa o nível (sondas/testes); sem jogador no mapa a leva vem na força base.
@@ -238,7 +238,7 @@ static func _rally(sim: WorldSim, m: Dictionary, st: Dictionary, dt: float, i: i
 		if not had:
 			e.put_buff({"id": "bastion", "remaining": 1.5, "duration": 1.5, "def_pct": Balance.RAID_RALLY_DEF_PCT})
 			e.recompute_stats()
-			Events.buff_applied.emit(e.id, "bastion", 1.5)
+			Events.post(&"buff_applied", e.id, "bastion", 1.5)
 		e.hp = minf(e.stats.max_hp, e.hp + e.stats.max_hp * Balance.RAID_RALLY_REGEN * 0.5)
 
 ## Leitura para a apresentação (faixa do HUD, minimapa): {} sem investida no mapa.

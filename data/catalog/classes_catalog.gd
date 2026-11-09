@@ -24,7 +24,7 @@ static func _s(a: Array) -> Array[String]:
 ## básico ou com skills, em qualquer nível e com qualquer arma. `look` = tema visual do básico da build (só aparência).
 const SIGNATURES := {
 	"guardiao": {"skill": "pal_holy_strike", "look": "holy"}, "cruzado": {"skill": "pal_holy_wave", "look": "holy"}, "templario": {"skill": "pal_sacred_flame", "look": "holy"},
-	"carniceiro": {"skill": "ber_throw_axe", "look": "blood"}, "executor": {"skill": "ber_overhead", "look": "blood"}, "arremessador": {"skill": "ber_hatchet", "look": "blood", "power": 0.8},
+	"carniceiro": {"skill": "ber_throw_axe", "look": "blood"}, "executor": {"skill": "ber_overhead", "look": "blood"}, "punhos": {"skill": "ber_shockwave", "look": "blood", "power": 0.8},
 	"sacerdote": {"skill": "bis_light", "look": "holy"}, "inquisidor": {"skill": "bis_hammer", "look": "holy"}, "batalha": {"skill": "bis_holy_nova", "look": "holy"},
 	"guardiao_verde": {"skill": "dru_moonfire", "look": "nature"}, "fera": {"skill": "dru_claw", "look": "nature", "power": 0.8}, "xama": {"skill": "dru_moonfire", "look": "lunar", "power": 0.85},
 	"cacador": {"skill": "ran_frost_arrow", "look": "ice"}, "atirador": {"skill": "ran_snipe", "look": "fire"}, "lanceiro": {"skill": "ran_javelin", "look": "blood", "power": 0.8},
@@ -62,8 +62,8 @@ static func build() -> Array:
 					"passives": [{"atk_pct": 3}, {"crit": 1.5}], "set_extra": {3: {"crit": [3.0, 0.8]}}}),
 			]}),
 		_mk({"id": "berserker", "body_type": "male", "hair_color": Color(0.55, 0.2, 0.12), "name": "Berserker", "role": "dps", "color": Color(0.85, 0.3, 0.25),
-			"description": "Fúria pura. Dois machados velozes que bebem o sangue do inimigo, um machado de duas mãos que aguenta o tranco e executa, ou machadinhas arremessadas que deixam tudo sangrando.",
-			"weapon_types": _s(["axe2h", "axe"]), "offhand_types": _s(["axe"]),
+			"description": "Fúria pura. Dois machados velozes que bebem o sangue do inimigo, um machado de duas mãos que aguenta o tranco e executa, ou duas garras de monge da fúria: esquiva tudo e devolve cada golpe.",
+			"weapon_types": _s(["axe2h", "axe", "claw"]), "offhand_types": _s(["axe", "claw"]),
 			"base_hp": 125.0, "base_mp": 40.0, "hp_per_level": 14.0, "mp_per_level": 4.0, "move_speed": 5.4,
 			"basic_attack_power": 1.25, "basic_attack_cooldown": 0.85, "basic_attack_range": 2.2,
 			"starting_equipment": _s(["axe_old"] + ItemsCatalog.starter_ids("berserker")),
@@ -78,12 +78,12 @@ static func build() -> Array:
 					["ber_cleave", "ber_overhead", "ber_bloodlust", "ber_whirlwind", "ber_earthsplitter", "ber_execute", "ber_titan_grip", "ber_warcry", "ber_decapitate"]).merged({
 					# tanque de apoio: vida e defesa na árvore e no conjunto, sem perder o dano
 					"passives": [{"atk_pct": 3}, {"hp_pct": 4}, {"def_pct": 3}], "set_extra": {3: {"hp_pct": [5.0, 1.5], "def_pct": [5.0, 1.5]}}}),
-				# meia distância: machadinhas arremessadas e sangramento; mistura os talhos dos Gêmeos com os gritos gerais
-				_b("arremessador", "Arremessador", "dps", ["axe"], ["axe"], "leather", "FOR", "AGI", "atk_pct",
-					["ber_hatchet", "ber_great_throw", "ber_tomahawk_rain", "ber_hatchet_fan", "ber_ricochet", "ber_throw_axe", "ber_hack", "ber_rend",
-					 "ber_fury", "ber_bloodlust", "ber_leap", "ber_warcry", "ber_cleave"]).merged({
-					# crítico e recarga: mais arremessos (árvore e conjunto); a arma dá Hemorragia (alvo sangrando apanha mais)
-					"passives": [{"atk_pct": 3}, {"crit": 1.5}, {"cdr": 2}], "set_extra": {3: {"crit": [3.0, 0.6], "cdr": [3.0, 0.8]}}}),
+				# monge da fúria: duas garras, muita AGI e esquiva; esquivar dá Fúria do Punho e contra-ataca (FistSystem)
+				_b("punhos", "Punhos de Fúria", "dps", ["claw"], ["claw"], "leather", "AGI", "FOR", "aspd_pct",
+					["ber_final_fist", "ber_hundred_fists", "ber_tiger_pounce", "ber_fist_flurry", "ber_shockwave", "ber_earth_slash", "ber_counter_stance",
+					 "ber_chakra", "ber_rend", "ber_blade_rush", "ber_fury", "ber_bloodlust", "ber_leap", "ber_warcry", "ber_cleave"]).merged({
+					# esquiva e velocidade (árvore e conjunto); a arma dá Punho Vingativo (contra-ataque mais forte)
+					"passives": [{"evasion": 4}, {"aspd_pct": 3}], "set_extra": {3: {"evasion": [6.0, 1.0], "crit": [3.0, 0.6]}}}),
 			]}),
 		_mk({"id": "bishop", "body_type": "female", "hair_color": Color(0.95, 0.85, 0.55), "name": "Bispo", "role": "healer", "color": Color(0.95, 0.95, 0.9),
 			"description": "Fé. Sacerdote de maça e escudo que cura e fortalece o grupo, Iluminado de cetro que fere com luz e cura com o próprio golpe, ou Clérigo de Batalha de placa que luta na linha de frente e cura o grupo a cada golpe.",

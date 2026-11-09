@@ -104,12 +104,12 @@ static func party_invite(sim: WorldSim, from: SimEntity, to: SimEntity) -> bool:
 	var err := party_invite_error(sim, from, to)
 	if err != "":
 		if from == sim.player:
-			Events.notification.emit(err)
+			Events.post(&"notification", err)
 		return false
 	sim.invites[to.id] = {"from": from.id, "expires": sim.time + Balance.PARTY_INVITE_TIME, "decide_at": sim.time + sim.rng.randf_range(1.0, 3.0)}
-	Events.party_invited.emit(from.id, to.id)
+	Events.post(&"party_invited", from.id, to.id)
 	if from == sim.player:
-		Events.notification.emit("Convite enviado para %s." % to.name)
+		Events.post(&"notification", "Convite enviado para %s." % to.name)
 	return true
 
 static func party_accept(sim: WorldSim, e: SimEntity) -> bool:
@@ -135,7 +135,7 @@ static func party_accept(sim: WorldSim, e: SimEntity) -> bool:
 	if e.kind == SimEntity.Kind.PLAYER and lead and lead.kind == SimEntity.Kind.BOT:
 		p["leader"] = e.id                       # grupo com o jogador: os bots seguem e ajudam o jogador
 		party_say(sim, p, "%s agora lidera o grupo." % e.name)
-	Events.party_changed.emit(p["id"])
+	Events.post(&"party_changed", p["id"])
 	if e.kind == SimEntity.Kind.BOT:
 		BotChat.party_event(sim, e, "join", {}, e)       # entrou no grupo do jogador: cumprimenta
 	elif e == sim.player:
@@ -146,7 +146,7 @@ static func party_decline(sim: WorldSim, e: SimEntity) -> void:
 	var inv: Dictionary = sim.invites.get(e.id, {})
 	sim.invites.erase(e.id)
 	if not inv.is_empty() and sim.player and inv["from"] == sim.player.id:
-		Events.notification.emit("%s recusou o convite." % e.name)
+		Events.post(&"notification", "%s recusou o convite." % e.name)
 
 static func party_leave(sim: WorldSim, e: SimEntity) -> void:
 	var p := party_of(sim, e)
@@ -156,10 +156,10 @@ static func party_leave(sim: WorldSim, e: SimEntity) -> void:
 	p["members"].erase(e.id)
 	set_party(sim, e, -1)
 	if e == sim.player:
-		Events.notification.emit("Você saiu do grupo.")
+		Events.post(&"notification", "Você saiu do grupo.")
 	if p["members"].size() < 2:
 		if sim.player and p["members"].has(sim.player.id):
-			Events.notification.emit("O grupo foi desfeito.")
+			Events.post(&"notification", "O grupo foi desfeito.")
 		for id in p["members"]:
 			if sim.entities.has(id):
 				set_party(sim, sim.entities[id], -1)
@@ -167,13 +167,13 @@ static func party_leave(sim: WorldSim, e: SimEntity) -> void:
 	elif p["leader"] == e.id:
 		p["leader"] = p["members"][0]
 		party_say(sim, p, "%s agora é o líder." % sim.entities[p["leader"]].name)
-	Events.party_changed.emit(p["id"])
+	Events.post(&"party_changed", p["id"])
 
 static func party_kick(sim: WorldSim, leader: SimEntity, target: SimEntity) -> bool:
 	if not same_party(sim, leader, target) or leader == target or party_of(sim, leader)["leader"] != leader.id:
 		return false
 	if target == sim.player:
-		Events.notification.emit("Você foi removido do grupo.")
+		Events.post(&"notification", "Você foi removido do grupo.")
 	party_leave(sim, target)
 	return true
 
@@ -183,7 +183,7 @@ static func party_promote(sim: WorldSim, leader: SimEntity, target: SimEntity) -
 	var p := party_of(sim, leader)
 	p["leader"] = target.id
 	party_say(sim, p, "%s agora é o líder." % target.name)
-	Events.party_changed.emit(p["id"])
+	Events.post(&"party_changed", p["id"])
 	return true
 
 static func set_party(sim: WorldSim, e: SimEntity, party_id: int) -> void:
@@ -195,7 +195,7 @@ static func set_party(sim: WorldSim, e: SimEntity, party_id: int) -> void:
 ## Mensagem de sistema no canal do grupo (só aparece se o jogador está nele).
 static func party_say(sim: WorldSim, p: Dictionary, text: String) -> void:
 	if sim.player and p["members"].has(sim.player.id):
-		Events.chat_message.emit("Grupo", text, "party")
+		Events.post(&"chat_message", "Grupo", text, "party")
 
 ## /party: bots do mesmo mapa, sozinhos ou líderes com vaga e de nível próximo, se oferecem (fala no chat) e
 ## convidam um por vez: recusou ou deixou passar → o próximo; entrou num grupo → acaba. Devolve quantos se ofereceram.
@@ -222,7 +222,7 @@ static func party_seek_start(sim: WorldSim, e: SimEntity) -> int:
 	var q: Array = []
 	for i in range(cands.size()):
 		q.append(cands[i].id)
-		Events.chat_message.emit(cands[i].name, SEEK_LINES[(i + e.id) % SEEK_LINES.size()] % e.name, "say")
+		Events.post(&"chat_message", cands[i].name, SEEK_LINES[(i + e.id) % SEEK_LINES.size()] % e.name, "say")
 	sim.party_seek[e.id] = {"queue": q, "next_at": sim.time + 1.0, "until": sim.time + Balance.PARTY_SEEK_COOLDOWN}
 	return q.size()
 

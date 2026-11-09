@@ -183,6 +183,14 @@ const SET_FAVOR_BASE := 5.0               # conjunto que favorece uma combinaç�
 const SET_FAVOR_PER_TIER := 1.5
 ## Assassino: esquiva, veneno na lâmina e golpe pelas costas
 const EVASION_CAP := 45.0                 # % máximo de esquiva
+## Punhos de Fúria (Berserker de duas garras, FistSystem): esquivar dá Fúria do Punho e contra-ataca
+const FIST_FURY_BUFF := "fist_fury"
+const FIST_FURY_MAX := 5
+const FIST_FURY_TIME := 8.0               # s sem esquivar até as cargas sumirem (renova a cada carga)
+const FIST_FURY_ATK_PCT := 6.0            # +% ATK por carga
+const FIST_FURY_ASPD_PCT := 5.0           # +% velocidade de ataque por carga
+const FIST_COUNTER_PCT := 60.0            # contra-ataque ao esquivar: % do ATK (a arma lendária soma)
+const FIST_COUNTER_RANGE := 3.2           # m: só devolve em quem está perto
 const STORM_STUN_CHANCE := 15.0            # % de chance de skill de raio atordoar no golpe direto (a que já atordoa não rola)
 const STORM_STUN_TIME := 0.5              # s (chefes: 40%, como todo atordoar)
 const FROST_SHATTER_MULT := 1.3            # skill de gelo em alvo retardado/preso/atordoado: +30% de dano ("estilhaço")

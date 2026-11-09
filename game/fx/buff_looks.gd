@@ -24,7 +24,7 @@ const LOOKS := {
 	"bone_armor": ["armor", "bone"], "bonewall": ["armor", "bone"],
 	"blessed_armor": ["armor", "holy"], "ward": ["armor", "holy"], "bulwark": ["armor", "holy"],
 	"shield_wall": ["armor", "holy"], "bastion": ["armor", "holy"], "juramento": ["armor", "holy"],
-	"duel_guard": ["armor", "physical"],
+	"duel_guard": ["armor", "physical"], "chakra": ["armor", "holy"],
 	# escudo de HP
 	"shield": ["shield", ""], "boss_ward": ["shield", ""],
 	# ataque
@@ -32,11 +32,11 @@ const LOOKS := {
 	"frenzy": ["power", "blood"], "legend_frenzy": ["power", "blood"], "elixir": ["power", "fire"],
 	"valor": ["power", "holy"], "zeal": ["power", "holy"], "fervor": ["power", "holy"], "battle_hymn": ["power", "holy"],
 	"mark": ["power", "physical"], "deadeye": ["power", "physical"], "focus": ["power", "physical"], "duel_focus": ["power", "physical"],
-	"pack": ["power", "nature"], "overload": ["power", "lightning"], "blood_instinct": ["power", "blood"], "black_flag": ["power", "fire"],
+	"pack": ["power", "nature"], "overload": ["power", "lightning"], "blood_instinct": ["power", "blood"], "black_flag": ["power", "fire"], "fist_fury": ["power", "blood"],
 	# bênçãos
 	"blessing": ["holy", "holy"], "angel": ["holy", "holy"], "avenging_wrath": ["holy", "holy"], "grove": ["holy", "nature"],
 	# movimento
-	"swift": ["speed", "wind"], "reflexes": ["speed", "wind"], "wild_run": ["speed", "nature"],
+	"swift": ["speed", "wind"], "reflexes": ["speed", "wind"], "counter_stance": ["speed", "wind"], "wild_run": ["speed", "nature"],
 	"smoke": ["smoke", "shadow"],
 	# arma / sombra
 	"plague_blade": ["poison", "poison"],
@@ -52,6 +52,7 @@ const FAMILIES := ["armor", "shield", "power", "holy", "speed", "smoke", "poison
 ## Buffs que a sim põe direto no código (sem catálogo): id -> onde.
 const SYSTEM_BUFFS := {
 	"legend_frenzy": "LegendEffects (arma lendária: frenesi)",
+	"fist_fury": "FistSystem (Punhos de Fúria: esquivar dá Fúria do Punho)",
 	"bastion": "RaidSystem (sentinela: reunir)",
 	"juramento": "ShieldSystem (Juramento ao bloquear)",
 	"shield": "WorldSim (efeito shield, Égide lendária)",

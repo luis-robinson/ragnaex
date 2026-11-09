@@ -84,3 +84,16 @@ e voltou a ~1,1 ms com o cache de geometria (abaixo).
 - Godot docs — *CPU optimization*: https://docs.godotengine.org/en/stable/tutorials/performance/cpu_optimization.html
 - Godot docs — *GPU optimization*: https://docs.godotengine.org/en/stable/tutorials/performance/gpu_optimization.html
 - Fórum Godot — *Understanding batching in Godot 4*: https://forum.godotengine.org/t/understanding-batching-in-godot-4/65635
+
+## Sim numa thread (2026-11-09)
+
+O gargalo do mapa aberto cheio é a sim (9-13 ms por quadro na briga em elf_city), toda na thread principal. Agora o tick roda
+numa WorkerThreadPool enquanto o quadro desenha: o physics só agenda (`WorldSim._queued_cmds`, um comando por passo),
+`SimSync` chama `Sim.start_async` no `RenderingServer.frame_pre_draw` e `Sim.sync` espera antes de input/physics/process.
+Events da thread vão para a fila (`Events.post`) e saem na thread principal no sync, com o mapa de cada um (`ticking_map`).
+As views leem o estado do tick anterior (1 quadro a mais de atraso visual; o comando entra no mesmo passo de antes).
+
+`--perf` (cidade cheia), duas rodadas: síncrono 78,5 / 63,3 FPS (12,7 / 15,8 ms), com thread 109,9 / 88,6 FPS (9,1 / 11,3 ms): ~40%.
+Próximo passo se precisar: a sim só sobrepõe o desenho; views/HUD (que leem a sim) ainda esperam o tick. Sobrepor também o
+`_process` exigiria um retrato (snapshot) do estado para as views.
+

@@ -159,7 +159,7 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 		s.patk = eq_atk + AGI * Balance.PATK_PER_AGI_RANGED + FOR * 0.3
 	elif s.weapon_type == "spear":       # lança: AGI primeiro, FOR ajuda
 		s.patk = eq_atk + AGI * Balance.PATK_PER_AGI_SPEAR + FOR * Balance.PATK_PER_FOR_SPEAR
-	elif s.weapon_type == "dagger":
+	elif s.weapon_type in ["dagger", "claw"]:      # adaga e garra: AGI pesa mais
 		s.patk = eq_atk + FOR * Balance.PATK_PER_FOR * 0.6 + AGI * Balance.PATK_PER_AGI_DAGGER
 	else:
 		s.patk = eq_atk + FOR * Balance.PATK_PER_FOR + AGI * Balance.PATK_PER_AGI_OTHER

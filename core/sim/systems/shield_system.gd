@@ -11,7 +11,7 @@ static func shield_reaction(sim: WorldSim, target: SimEntity, attacker: SimEntit
 	if parried and attacker.is_alive() and attacker.position.distance_to(target.position) <= Balance.PARRY_MELEE_RANGE:
 		sim._apply_effects(target, attacker, {"stun": {"duration": Balance.PARRY_STUN}}, 1.0)
 	if target.shield_react_cd > 0.0 and not parried:
-		Events.shield_block.emit(target.id, attacker.id, theme, parried, origin)
+		Events.post(&"shield_block", target.id, attacker.id, theme, parried, origin)
 		return
 	target.shield_react_cd = Balance.SHIELD_REACT_CD
 	shield_class_bonus(sim, target, off, parried)
@@ -34,7 +34,7 @@ static func shield_reaction(sim: WorldSim, target: SimEntity, attacker: SimEntit
 			sim._apply_effects(target, attacker, {"stun": {"duration": 0.8}}, 1.0)
 		if fx.has("reflect_pct"):
 			sim._deal_damage(target, attacker, maxi(1, int(round(amount * float(fx["reflect_pct"]) * k / 100.0))), false, false, "physical")
-	Events.shield_block.emit(target.id, attacker.id, theme, parried, origin)
+	Events.post(&"shield_block", target.id, attacker.id, theme, parried, origin)
 
 ## Escudo da afinidade certa: paladino junta Juramento; bispo cura o aliado mais ferido e, ao aparar, protege o grupo.
 static func shield_class_bonus(sim: WorldSim, e: SimEntity, off: ItemDef, parried: bool) -> void:
@@ -46,7 +46,7 @@ static func shield_class_bonus(sim: WorldSim, e: SimEntity, off: ItemDef, parrie
 	if e.class_def.id == "paladin":
 		var stacks := mini(oath_stacks(sim, e) + (2 if parried else 1), ClassTalentSystem.oath_max(e))
 		e.put_buff({"id": "juramento", "remaining": Balance.SHIELD_OATH_TIME, "stacks": stacks})
-		Events.buff_applied.emit(e.id, "juramento", Balance.SHIELD_OATH_TIME)
+		Events.post(&"buff_applied", e.id, "juramento", Balance.SHIELD_OATH_TIME)
 		return
 	var hurt := sim.most_hurt_friend(e, Balance.SHIELD_GRACE_RANGE)
 	var ents: Array = sim.maps[e.map_id]["entities"]

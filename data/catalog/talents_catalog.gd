@@ -43,8 +43,8 @@ static func build() -> Array:
 			{"mult": {"power": 1.2}, "effects": {"dot": {"dps": 7, "duration": 5}}}),
 		_t("ber_t_whirlwind", "berserker", "ber_whirlwind", 16, 2, "Redemoinho Sedento", "Redemoinho cura 15% do dano causado.",
 			{"effects": {"heal_pct_of_dmg": 0.15}}, ["two_handed"]),
-		_t("ber_t_hatchet", "berserker", "ber_hatchet", 8, 2, "Machadinha Afiada", "Machadinha Voadora atravessa inimigos e causa +15% de dano.",
-			{"set": {"projectile_pierce": true}, "mult": {"power": 1.15}}),
+		_t("ber_t_flurry", "berserker", "ber_fist_flurry", 8, 2, "Socos Afiados", "Socos Repetidos causa +15% de dano e dá 1 de Fúria do Punho ao acertar.",
+			{"mult": {"power": 1.15}, "effects": {"fury_gain": 1}}, ["dual_claw"]),
 		# --- Bispo ---
 		_t("bis_t_holy_step", "bishop", D, 5, 2, "Passo Sagrado", "O dash cura 6% do seu HP máximo.",
 			{"heal_pct": 6}),

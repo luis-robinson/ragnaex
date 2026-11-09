@@ -1,6 +1,29 @@
 extends Node
 ## EventBus global. A simulação emite, a apresentação escuta.
 ## Nenhum sinal carrega nós — só ids e dados simples.
+## A sim emite por `post`: com a sim rodando na thread (`deferring_sim`), o evento entra numa fila e sai na thread
+## principal em `flush` (na ordem, com o mapa que estava rodando), porque quem escuta mexe em nós.
+
+var deferring_sim: Object = null           # WorldSim rodando fora da thread principal (null = emite na hora)
+var _queue: Array = []                       # [sinal, args, mapa]
+
+func post(sig: StringName, ...args: Array) -> void:
+	if deferring_sim != null:
+		_queue.append([sig, args, deferring_sim.ticking_map])
+		return
+	callv(&"emit_signal", [sig] + args)
+
+## Emite o que a thread da sim enfileirou (thread principal). `sim.ticking_map` volta ao mapa de cada evento.
+func flush(sim: Object) -> void:
+	var q := _queue
+	_queue = []
+	for ev in q:
+		sim.ticking_map = ev[2]
+		callv(&"emit_signal", [ev[0]] + ev[1])
+	sim.ticking_map = ""
+
+func pending() -> int:
+	return _queue.size()
 
 signal entity_spawned(entity)            # SimEntity
 signal entity_despawned(entity_id: int)

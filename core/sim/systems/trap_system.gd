@@ -9,7 +9,7 @@ static func place_trap(sim: WorldSim, e: SimEntity, s: SkillDef, aim: Vector3, p
 	while mine.size() >= ClassTalentSystem.trap_max(e):        # a mais antiga some
 		var old: Dictionary = mine.pop_front()
 		traps.erase(old)
-		Events.trap_removed.emit(old["id"], false)
+		Events.post(&"trap_removed", old["id"], false)
 	var td: Dictionary = effects["trap"]
 	var fx := {}
 	for k in ["root", "slow", "stun", "dot"]:
@@ -21,7 +21,7 @@ static func place_trap(sim: WorldSim, e: SimEntity, s: SkillDef, aim: Vector3, p
 		"armed_at": sim.time + Balance.TRAP_ARM_TIME, "expires": sim.time + float(td.get("duration", 30.0))}
 	sim._next_trap_id += 1
 	traps.append(t)
-	Events.trap_placed.emit(t["id"], t["kind"], pos, t["radius"], e.map_id)
+	Events.post(&"trap_placed", t["id"], t["kind"], pos, t["radius"], e.map_id)
 
 static func update_traps(sim: WorldSim, m: Dictionary) -> void:
 	var traps: Array = m["traps"]
@@ -29,7 +29,7 @@ static func update_traps(sim: WorldSim, m: Dictionary) -> void:
 		var owner: SimEntity = sim.entities.get(t["owner"])
 		if sim.time >= float(t["expires"]) or owner == null or owner.map_id != m["def"].id:
 			traps.erase(t)
-			Events.trap_removed.emit(t["id"], false)
+			Events.post(&"trap_removed", t["id"], false)
 			continue
 		if sim.time < float(t["armed_at"]):
 			continue
@@ -47,5 +47,5 @@ static func update_traps(sim: WorldSim, m: Dictionary) -> void:
 				var r := Combat.calc_damage(owner, o, float(t["power"]), SkillDef.Kind.PHYSICAL, sim.rng, pos)
 				sim._deal_damage(owner, o, r["amount"], r["crit"], false, "physical", pos)
 				sim._apply_effects(owner, o, t["effects"], float(t["power"]))
-		Events.trap_removed.emit(t["id"], true)
-		Events.skill_effect.emit(t["skill"], pos, pos, float(t["radius"]))
+		Events.post(&"trap_removed", t["id"], true)
+		Events.post(&"skill_effect", t["skill"], pos, pos, float(t["radius"]))

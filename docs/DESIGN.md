@@ -49,7 +49,7 @@ Cada classe tem **20+ skills** (`skills_catalog.gd`), mas só **6 vão na barra*
 | Classe | Builds (arma) |
 |---|---|
 | Paladino | Guardião (espada/maça + escudo, tank) · Cruzado (montante/martelo 2M, dps) · Templário (espada/maça + escudo, dps de fogo sagrado) |
-| Berserker | Armas Gêmeas (2 machadinhas) · Executor (machado 2M) · Arremessador (2 machadinhas de arremesso, sangramento à meia distância) |
+| Berserker | Armas Gêmeas (2 machadinhas) · Executor (machado 2M) · Punhos de Fúria (2 garras, esquiva vira Fúria e contra-ataque) |
 | Bispo | Sacerdote (maça + escudo; cura em grupo) · Iluminado (cetro 2M, dano sagrado) · Clérigo de Batalha (maça + escudo, placa; golpes que curam) |
 | Druida | Guardião da Floresta (martelo 2M, tank) · Fera Selvagem (2 maças) · Xamã (varinha + orbe, magia) |
 | Ranger | Caçador (arco + lince companheiro) · Atirador (mosquete + armadilhas) · Lanceiro (lança: caça de perto, salto, dardos, sangramento) |
@@ -66,11 +66,15 @@ Principal: espada, montante, maça, martelo de guerra, machadinha, machado de gu
 Secundária: escudo, orbe (mago) ou arma de 1 mão (espada/maça/machadinha/adaga; Shift+clique na bolsa).
 Arma de 2 mãos (montante, martelo, machado de guerra, cajado, arco, foice) libera a secundária. Segunda arma soma 60% do ATK.
 
-**Berserker** (só machados): **Machados Gêmeos** (dois machados de 1 mão, couro) = velocidade de ataque (`aspd_pct`, recarga do básico menor) e
+**Berserker** (machados; garras no Punhos de Fúria): **Machados Gêmeos** (dois machados de 1 mão, couro) = velocidade de ataque (`aspd_pct`, recarga do básico menor) e
 roubo de vida (`lifesteal`, % do dano direto volta como vida; dano no tempo não conta), na árvore e no conjunto. **Executor** (machado de 2 mãos,
-placa) = tanque de apoio: passivos e conjunto com vida e defesa sem perder ATK. **Arremessador** (duas machadinhas, couro) = meia distância:
-Machadinha Voadora, Machado Ricochete (atravessa), Leque de Machadinhas, Chuva de Machados e Arremesso Colossal fazem sangrar; mistura Talho/
-Dilacerar/Arremesso Brutal dos Gêmeos e os gritos gerais; árvore e conjunto com crítico e recarga; arma com Hemorragia. Tetos: `Balance.LIFESTEAL_CAP` 20%, `ATTACK_SPEED_CAP` 60%.
+placa) = tanque de apoio: passivos e conjunto com vida e defesa sem perder ATK. **Punhos de Fúria** (duas garras/soqueiras, couro; monge da fúria,
+2026-11-09, substituiu o Arremessador) = muita AGI e esquiva (árvore e conjunto): com duas garras, cada golpe direto esquivado dá uma carga de
+**Fúria do Punho** (`FistSystem`; +6% ATK e +5% velocidade por carga, até 5, somem em 8 s sem esquivar) e contra-ataca quem está a até 3,2 m
+(60% do ATK). Skills: Socos Repetidos, Onda de Choque (ki em linha, atravessa), Chakra (cura 25% da vida, 15% da mana, +DEF), Fenda na Terra (cone),
+Postura do Contra-Golpe (+25% esquiva), Bote do Tigre (avanço que atordoa), Punho Final (gasta toda a Fúria: +30% de dano por carga), Cem Punhos
+(+2 Fúria se acertar); mistura Dilacerar/Investida de Lâminas dos Gêmeos e os gritos gerais. Arma lendária: Punho Vingativo (contra-ataque mais forte).
+Números em `Balance.FIST_*`; save antigo do Arremessador vira as peças do mesmo nível (`SaveSystem.RENAMED_ITEMS`). Tetos: `Balance.LIFESTEAL_CAP` 20%, `ATTACK_SPEED_CAP` 60%.
 Toda arma corpo a corpo de duas mãos (montante, malho, machado; `Balance.BIG_SWING_WEAPONS`) tem golpe básico largo: alcance x1,4,
 arco de 150° e até 4 alvos (`Balance.BIG_SWING_*`). Vale para Executor, Cruzado e Inquisidor; arco e cajado não mudam.
 
@@ -378,10 +382,20 @@ Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MS
       - Com duas retomadas, o último front (~60) só cai com o jogador e o grupo (3 bots nv 27: 4/4).
       - **Torres:** 10 torres na muralha com besteiros no alto (`guard_wall_crossbow`, `npc_data.perch` = altura visual; `SimEntity.is_perched`). Atiram por cima do muro com pouco dano, não andam, não são alvo, não tomam dano e não puxam aggro.
       - **Serviços:** catedral a 72%. Na praça, Relicário (lendárias por moeda) e Depósito; a Alta Sacerdotisa também reseta skills (`Balance.SKILL_RESET_NPCS`).
-  - **Covil do Carniçal (praga):** estrada de bile, jardins venenosos (cogumelos e flores doentes), montes de pústulas, enxames de moscas e poço de podridão no pátio, com o dobro de criaturas.
+  - **Covil do Carniçal (praga):** layout próprio de pântano-ninho (`build_dawn_forts.build_ghoul`), sem o molde de muralha das outras: rio de bile que corta o vale com duas pontes de osso, lagoas de bile, duas trilhas de lama em volta da lagoa do meio (e um atalho estreito), ninhos de carcaça no lugar dos postos, e o covil é o cadáver do bicho: costelas colossais em anel com brecha ao sul, crânio gigante e coluna ao norte, monte de carne e poço de bile no pátio. Ovos de larva, ossadas, pústulas e moscas pelo charco, com o dobro de criaturas. Retomado, a Aurora acampa dentro das costelas.
     - O Carniçal Gigante tem feridas com pus, rasgo na barriga, chifre, nuvem de moscas, sino enferrujado, chaminés de gás e cutelo.
     - Os chefes das fortalezas renascem em 2 min enquanto a quest de retomada não sai.
   - **Fortalezas** (`build_dawn_forts.py`, um mapa por laço): Covil do Carniçal (20-23), Fortaleza dos Ossos (23-26), Torre do Mago Gélido (26-29).
+    - Layout próprio de cada uma (2026-11-09; a Cidadela do Lich segue o molde): Covil = pântano-ninho (acima);
+      **Fortaleza dos Ossos** = necrópole na colina (`build_bones`): fenda funda que corta o vale de borda a borda (material
+      `chasm`, só a ponte de ossos da estrada e a passarela da cripta leste atravessam, com postes de crânio), campos de túmulos
+      e sarcófagos na encosta, mausoléus, muros de ossuário coroados de crânios ao longo da estrada em zigue-zague, criptas
+      abertas no lugar dos postos, e dois patamares em volta da torre negra (o de fora com crânios e entrada a sudoeste: a
+      estrada dá a volta entre eles até o portão sul); **Torre do Mago Gélido** = lago congelado (`build_frost`): gelo com
+      placas e rachaduras, buracos de água escura (material `icewater`, bloqueiam), navios presos no gelo, montes de neve,
+      acampamentos de cultistas em ilhas de neve (tenda, círculo de runas, braseiro de fogo azul) e a torre numa ilha cercada
+      por um canal de água escura que só as pontes de gelo (sul e norte) cruzam. Check `_check_fort_lairs` (tudo alcançável;
+      sem as pontes, o chefe fica isolado).
     - Cada uma tem estrada, dois postos para retomar, muralha com marco no pátio, prisioneiros e chefe:
       - Carniçal Gigante: ninhada de larvas e bile;
       - Vorhag, o Cavaleiro da Morte: ergue soldados, onda de morte;
@@ -601,7 +615,7 @@ Cada conjunto tem **5 peças de armadura** (cabeça, peito, **calça**, luvas, b
 mão secundária) é do conjunto, mas **não conta** nas peças: a arma lendária tem **efeito próprio** pelo papel da build, crescendo por tier —
 um por build (`GearCatalog.LEGEND_EFFECTS`, números [base, por tier]):
 Guardião Retaliação (devolve corpo a corpo) · Cruzado Julgamento (chance de atordoar) · Gêmeos Frenesi (golpes acumulam vel. de ataque) ·
-Executor Carrasco (+dano em alvo < 30%) · Arremessador Hemorragia (+dano em alvo sangrando/envenenado) · Sacerdote Égide (cura vira barreira) · Iluminado Castigo Sagrado (básico lança Castigar) ·
+Executor Carrasco (+dano em alvo < 30%) · Punhos de Fúria Punho Vingativo (contra-ataque da esquiva mais forte) · Sacerdote Égide (cura vira barreira) · Iluminado Castigo Sagrado (básico lança Castigar) ·
 Templário Penitência (5ª carga explode em fogo sagrado) · Clérigo de Batalha Mão que Cura (golpe cura o aliado mais ferido) ·
 Urso Casca Viva (apanhou: Pele de Carvalho, 20 s) · Lobo Sangue da Matilha (sangramento) · Xamã Lua Cheia (básico lança Fogo Lunar) ·
 Caçador Marca (alvo recebe mais dano de todos) · Atirador Pólvora (tiro explode em área) · Lanceiro Ferida Aberta (feridas acumuladas: +dano seu e sangramento) · Lâminas Veneno Letal · Duelista Riposte (esquivou,

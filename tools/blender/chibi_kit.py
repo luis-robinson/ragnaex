@@ -1709,8 +1709,8 @@ KIT_STYLES = {
               "gloves": [("gloves", {"push": 0.006})], "boots": [("boots", {"push": 0.012})]},
 }
 KIT_STYLES["cape"] = {"cape": [("cape", {})]}       # capa é peça própria, igual para todas as classes
-KIT_MAIN = ["sword", "sword2h", "mace", "mace2h", "axe", "axe2h", "dagger", "bow", "staff", "wand", "scythe", "scepter", "rifle", "spear"]
-KIT_OFF = ["shield", "orb", "sword", "mace", "axe", "dagger"]       # pistola: só no kit do Assassino (CLASS_WEAPONS)
+KIT_MAIN = ["sword", "sword2h", "mace", "mace2h", "axe", "axe2h", "dagger", "bow", "staff", "wand", "scythe", "scepter", "rifle", "spear", "claw"]
+KIT_OFF = ["shield", "orb", "sword", "mace", "axe", "dagger", "claw"]       # pistola: só no kit do Assassino (CLASS_WEAPONS)
 
 
 def _kit_mats():
@@ -2001,6 +2001,10 @@ def kit_weapon(base, wtype, hand, mats):
         f2 = Vector((0, -1, 0.3)).normalized()
         parts = [tube("grip", g - f2 * 0.05, g + f2 * 0.05, 0.018, 0.018, ml, 6), box("guard", (0.1, 0.03, 0.03), g + f2 * 0.06, mg, 0.006),
                  tube("blade", g + f2 * 0.07, g + f2 * 0.32, 0.03, 0.006, mm, 4)]
+    elif wtype == "claw":                 # soqueira com garras (Berserker Punhos de Fúria; berserker_sets.claw_parts)
+        import berserker_sets
+        parts = berserker_sets._outward(berserker_sets.claw_parts(sys.modules[__name__], "cl_", g, mats, {"blades": 3, "len": 0.32}, None, None,
+                                                                   Vector(base["j"]["hand_tip" + side]) - Vector(base["j"]["wrist" + side])))
     elif wtype == "bow":
         pts = [g + Vector((0.0, -0.12 * (1 - t * t) + 0.02, t * 0.45)) for t in [i / 4 - 1 for i in range(9)]]
         parts = [tube("limb%d" % i, pts[i], pts[i + 1], 0.018, 0.018, mw, 6) for i in range(8)]
@@ -2180,7 +2184,7 @@ CLASS_BODY = {"paladin": "male", "berserker": "male", "bishop": "female", "druid
 # Armas comuns no kit da classe: só as que ela empunha (as classes com muitos conjuntos estouram as 200 malhas).
 # Classe fora daqui leva todas (KIT_MAIN / KIT_OFF).
 CLASS_WEAPONS = {"paladin": (["sword", "sword2h", "mace", "mace2h"], ["shield"]), "bishop": (["scepter", "mace"], ["shield"]),
-                 "ranger": (["bow", "rifle", "spear"], []),
+                 "ranger": (["bow", "rifle", "spear"], []), "berserker": (["axe", "axe2h", "claw"], ["axe", "claw"]),
                  "assassin": (["dagger", "sword"], ["dagger", "sword", "pistol"])}
 CLASS_PREFIX = {"paladin": "pal", "berserker": "ber", "bishop": "bis", "druid": "dru", "ranger": "ran", "assassin": "ass", "elementalist": "ele", "necromancer": "nec"}        # prefixo dos estilos de conjunto de cada classe
 SHIELD_CLASSES = ("paladin", "bishop")                       # só eles empunham escudo

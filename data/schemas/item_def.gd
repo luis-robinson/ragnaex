@@ -10,8 +10,8 @@ enum Slot { NONE, WEAPON, OFFHAND, HEAD, BODY, BOOTS, ACCESSORY, GLOVES, LEGS, C
 ## armas que ocupam as duas mãos (não combinam com escudo/orbe/segunda arma)
 const TWO_HANDED := ["sword2h", "mace2h", "axe2h", "staff", "bow", "scythe", "scepter", "rifle", "spear"]
 ## armas de 1 mão que podem ir na mão secundária (empunhar duas)
-const ONE_HANDED_MELEE := ["sword", "mace", "axe", "dagger"]
-const MELEE_TYPES := ["sword", "sword2h", "mace", "mace2h", "axe", "axe2h", "dagger", "spear"]
+const ONE_HANDED_MELEE := ["sword", "mace", "axe", "dagger", "claw"]
+const MELEE_TYPES := ["sword", "sword2h", "mace", "mace2h", "axe", "axe2h", "dagger", "spear", "claw"]
 ## só na mão secundária (slot OFFHAND): escudo, orbe e a pistola do Corsário (os tiros saem das skills)
 const OFFHAND_ONLY := ["shield", "orb", "pistol"]
 const RARITY_LEGENDARY := 4

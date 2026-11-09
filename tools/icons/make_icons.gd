@@ -33,7 +33,7 @@ const GLYPHS := {
 	"sword": ["nec_skeleton_king", "ran_cross_cut", "ass_thrust", "ass_cross_slash", "ass_lunge", "ass_crimson", "bis_crusade", "pal_holy_strike", "pal_twin_slash", "pal_blade_dance", "pal_lunge", "pal_flurry", "pal_crusader_strike", "pal_judgement_blade",
 		"ber_blade_rush", "ber_bladestorm", "ran_twin_cut", "ran_hunter_dash", "ran_whirl"],
 	"axe": ["ber_cleave", "ber_leap", "ber_execute", "ber_hack", "ber_axe_storm", "ber_throw_axe", "ber_butcher",
-		"ber_crimson_flurry", "ber_whirlwind", "ber_hatchet", "ber_hatchet_fan", "ber_tomahawk_rain"],
+		"ber_crimson_flurry", "ber_whirlwind"],
 	"dagger": ["ass_backstab", "ass_poison", "ass_fan", "ass_execute", "ass_quick_stab", "ass_twin_strike", "ass_blade_flurry", "ass_dance", "ass_thousand",
 		"ass_plague_blade", "ass_eviscerate"],
 	"hammer": ["bis_holy_blow", "bis_divine_hammer", "pal_hammer_light", "bis_hammer", "bis_judgement", "bis_condemn", "ber_overhead"],
@@ -42,23 +42,23 @@ const GLYPHS := {
 	"shield": ["bis_shield_smite", "pal_shield_bash", "pal_divine_shield", "pal_shield_wall", "pal_aegis_slam", "bis_martyr", "pal_shield_throw"],
 	"armor": ["ass_guard", "dru_oak_skin", "bis_ward", "pal_blessed_armor", "ele_frost_armor", "nec_bone_armor"],
 	"cross": ["pal_consecrate", "bis_blessing", "bis_smite", "bis_purify", "pal_bastion_aura"],
-	"sun": ["pal_sun_strike", "ele_combustion", "pal_holy_wave", "pal_valor", "pal_retribution", "bis_light", "bis_holy_nova", "bis_wrath", "bis_zealot"],
-	"hand": ["nec_drain_soul", "pal_lay_hands", "bis_prayer", "bis_mend"],
+	"sun": ["ber_shockwave", "pal_sun_strike", "ele_combustion", "pal_holy_wave", "pal_valor", "pal_retribution", "bis_light", "bis_holy_nova", "bis_wrath", "bis_zealot"],
+	"hand": ["nec_drain_soul", "pal_lay_hands", "bis_prayer", "bis_mend", "ber_chakra"],
 	"heart": ["ber_bloodlust", "bis_heal", "bis_sanctuary", "nec_drain"],
-	"wing": ["bis_faith_leap", "bis_angel", "ran_disengage", "ass_reflexes"],
+	"wing": ["bis_faith_leap", "bis_angel", "ran_disengage", "ass_reflexes", "ber_counter_stance"],
 	"shout": ["bis_battle_hymn", "ran_pack", "pal_taunt", "ber_warcry", "dru_bellow"],
-	"fist": ["pal_avenging_wrath", "ber_titan_grip"],
+	"fist": ["pal_avenging_wrath", "ber_titan_grip", "ber_fist_flurry", "ber_final_fist", "ber_hundred_fists"],
 	"drop": ["ass_virulence", "ber_fury", "ass_paralyze", "nec_plague", "nec_rot", "nec_decay"],
-	"claw": ["ran_sic", "ran_spear_leap", "ass_thousand", "dru_pounce", "dru_claw", "dru_savage", "dru_frenzy", "ran_maul", "ber_rend", "ber_twin_fang"],
+	"claw": ["ran_sic", "ran_spear_leap", "ass_thousand", "dru_pounce", "dru_claw", "dru_savage", "dru_frenzy", "ran_maul", "ber_rend", "ber_twin_fang", "ber_tiger_pounce"],
 	"paw": ["nec_bone_hound", "ran_companion", "dru_spirit_wolves", "dru_maim", "dru_bear_form", "dru_maul", "dru_stampede", "dru_rampage", "ran_wild"],
 	"leaf": ["dru_grove", "bis_renew", "dru_regrowth", "dru_wild_growth"],
 	"thorn": ["nec_curse_agony", "dru_thorns", "dru_entangle", "ass_caltrops"],
 	"tree": ["dru_treant", "dru_bark"],
 	"bug": ["dru_swarm", "nec_swarm"],
-	"mountain": ["bis_holy_quake", "dru_earth_slam", "dru_mountain", "ber_earthsplitter"],
+	"mountain": ["bis_holy_quake", "dru_earth_slam", "dru_mountain", "ber_earthsplitter", "ber_earth_slash"],
 	"moon": ["dru_wolf_form", "dru_moonfire"],
 	"star": ["bis_miracle", "dru_starfall", "ele_spark"],
-	"tornado": ["ran_spear_sweep", "ber_ricochet", "ele_firestorm", "nec_death_spin", "ber_steel_whirl", "ass_steel_whirl", "dru_cyclone", "ele_blink"],
+	"tornado": ["ran_spear_sweep", "ele_firestorm", "nec_death_spin", "ber_steel_whirl", "ass_steel_whirl", "dru_cyclone", "ele_blink"],
 	"bolt": ["nec_void_beam", "ele_summon_storm", "dru_storm", "ele_lightning", "ele_static", "ele_overload", "ele_storm_lord"],
 	"chain": ["ele_chain", "nec_curse_weakness", "ran_anchor"],
 	"target": ["pal_brand", "ran_predator", "nec_curse_doom", "ass_focus", "ass_expose", "ran_barrage", "ran_snipe", "ran_mark"],
@@ -67,7 +67,7 @@ const GLYPHS := {
 	"net": ["ran_net"],
 	"cloud": ["ele_hailstorm", "nec_pandemic", "ele_thunder", "ass_smoke", "ass_toxic_cloud", "nec_curse"],
 	"flame": ["pal_sacred_flame", "pal_cleansing_fire", "pal_flame_pyre", "nec_demon_form", "ele_frost_flare", "ele_summon_fire", "pal_zeal", "pal_purge", "ele_fireball", "ele_flame_wave", "ele_fire_wall", "ele_inferno"],
-	"meteor": ["ran_mine", "ele_meteor", "ber_great_throw"],
+	"meteor": ["ran_mine", "ele_meteor"],
 	"bird": ["ele_phoenix"],
 	"crystal": ["ele_prism", "ele_summon_ice", "ele_absolute_zero", "ele_ice_lance", "ele_glacier"],
 	"snowflake": ["nec_lich", "ran_frost_trap", "ele_shatter", "ele_frost_nova", "ele_blizzard"],
@@ -84,9 +84,9 @@ const GLYPHS := {
 	"hook": ["ass_grapple"],
 	"flag": ["ass_black_flag"],
 }
-const TWIN := ["ass_cross_slash", "ran_double_thrust", "ass_thrust", "ass_master", "pal_twin_slash", "ber_hack", "ber_twin_fang", "ran_twin_cut", "ass_twin_strike", "ass_blade_flurry", "ber_axe_storm", "ber_bladestorm", "ass_dance", "pal_flurry", "ber_crimson_flurry"]
-const RAIN := ["ber_tomahawk_rain", "ran_rain", "ran_volley", "dru_starfall", "ele_blizzard", "ele_storm_lord"]
-const FAN := ["ran_multishot", "ass_fan", "ber_hatchet_fan", "ass_broadside"]
+const TWIN := ["ber_fist_flurry", "ass_cross_slash", "ran_double_thrust", "ass_thrust", "ass_master", "pal_twin_slash", "ber_hack", "ber_twin_fang", "ran_twin_cut", "ass_twin_strike", "ass_blade_flurry", "ber_axe_storm", "ber_bladestorm", "ass_dance", "pal_flurry", "ber_crimson_flurry"]
+const RAIN := ["ran_rain", "ran_volley", "dru_starfall", "ele_blizzard", "ele_storm_lord"]
+const FAN := ["ran_multishot", "ass_fan", "ass_broadside"]
 const WALL := ["ele_fire_wall", "nec_bone_wall", "pal_shield_wall", "nec_army"]
 const FALLBACK := ["sword", "star", "heart", "sun", "skull", "boot"]    # por SkillDef.Kind
 

@@ -6,7 +6,7 @@ static func gain_xp(sim: WorldSim, e: SimEntity, amount: int) -> void:
 	if e.level >= Balance.MAX_LEVEL:
 		return
 	e.xp += amount
-	Events.xp_gained.emit(e.id, amount)
+	Events.post(&"xp_gained", e.id, amount)
 	while e.level < Balance.MAX_LEVEL and e.xp >= Balance.xp_for_level(e.level):
 		e.xp -= Balance.xp_for_level(e.level)
 		e.level += 1
@@ -14,14 +14,14 @@ static func gain_xp(sim: WorldSim, e: SimEntity, amount: int) -> void:
 		e.recompute_stats()
 		e.hp = minf(e.stats.max_hp, e.hp + e.stats.max_hp * Balance.LEVEL_UP_RESTORE)
 		e.mp = minf(e.stats.max_mp, e.mp + e.stats.max_mp * Balance.LEVEL_UP_RESTORE)
-		Events.level_up.emit(e.id, e.level)
+		Events.post(&"level_up", e.id, e.level)
 		if e == sim.player:
-			Events.notification.emit("Nível %d! +%d ponto(s) de skill (tecla K)" % [e.level, Balance.points_at(e.level)])
+			Events.post(&"notification", "Nível %d! +%d ponto(s) de skill (tecla K)" % [e.level, Balance.points_at(e.level)])
 			BotChat.party_event(sim, e, "player_levelup", {"lv": str(e.level)})
 		elif BotChat.in_player_party(sim, e):
 			BotChat.party_event(sim, e, "self_levelup", {"lv": str(e.level)}, e, 0.6)
 		elif e.kind == SimEntity.Kind.BOT and sim.rng.randf() < 0.35:
-			Events.chat_message.emit(e.name, GameData.random_bot_line("levelup") % e.level, "global")
+			Events.post(&"chat_message", e.name, GameData.random_bot_line("levelup") % e.level, "global")
 		if e.kind == SimEntity.Kind.BOT and e.class_def:
 			bot_spend(sim, e)                  # bot gasta os pontos novos na teia
 		if e.level == Balance.MAX_LEVEL:
@@ -64,7 +64,7 @@ static func apply_start_preset(sim: WorldSim, e: SimEntity, preset_id: int) -> v
 	PortalSystem.grandfather_gates(sim, e, e.map_id)
 	e.recompute_stats()
 	e.heal_full()
-	Events.equipment_changed.emit(e.id)
+	Events.post(&"equipment_changed", e.id)
 	_start_party(sim, e, pr.get("party", []))
 
 ## Grupo pronto do começo rápido: bots do nível do jogador, na build pedida, entram já no grupo dele (líder).
@@ -106,7 +106,7 @@ static func respawn_character(sim: WorldSim, e: SimEntity) -> void:
 	e.set_state(SimEntity.State.IDLE)
 	e.threat.clear()
 	PortalSystem.change_map(sim, e, home["map"], home["pos"])      # cristal vinculado, ou a cidade
-	Events.entity_respawned.emit(e.id)
+	Events.post(&"entity_respawned", e.id)
 
 ## Cópia da skill com as evoluções do personagem aplicadas (só as cuja arma exigida ele empunha).
 ## Sem evolução ativa devolve a própria skill (sem alocação).
@@ -156,8 +156,8 @@ static func resolve_talents(sim: WorldSim, e: SimEntity, s: SkillDef) -> SkillDe
 static func requires_text(req: Array) -> String:
 	var names := {"shield": "escudo", "orb": "orbe", "dual": "duas armas de 1 mão", "two_handed": "arma de duas mãos",
 		"sword": "espada", "sword2h": "montante", "mace": "maça", "mace2h": "martelo de duas mãos", "axe": "machadinha",
-		"axe2h": "machado de duas mãos", "dagger": "adaga", "bow": "arco", "staff": "cajado", "wand": "varinha", "scythe": "foice", "scepter": "cetro", "rifle": "mosquete", "spear": "lança", "pistol": "pistola"}
-	var plural := {"sword": "duas espadas", "mace": "duas maças", "axe": "dois machados", "dagger": "duas adagas"}
+		"axe2h": "machado de duas mãos", "dagger": "adaga", "claw": "garra", "bow": "arco", "staff": "cajado", "wand": "varinha", "scythe": "foice", "scepter": "cetro", "rifle": "mosquete", "spear": "lança", "pistol": "pistola"}
+	var plural := {"sword": "duas espadas", "mace": "duas maças", "axe": "dois machados", "dagger": "duas adagas", "claw": "duas garras"}
 	var parts: Array = []
 	for r in req:
 		if r.begins_with("dual_"):
@@ -217,7 +217,7 @@ static func tree_allocate(sim: WorldSim, e: SimEntity, node_id: String) -> bool:
 	var why := tree_block_reason(sim, e, node_id)
 	if why != "":
 		if e == sim.player:
-			Events.notification.emit("Árvore: " + why)
+			Events.post(&"notification", "Árvore: " + why)
 		return false
 	var n: Dictionary = tree_of(sim, e)["nodes"][node_id]
 	if n["kind"] == "pick":
@@ -241,7 +241,7 @@ static func tree_allocate(sim: WorldSim, e: SimEntity, node_id: String) -> bool:
 			e.mastery[ref] = mini(Balance.MASTERY_MAX, e.mastery_of(ref) + 1)
 		"stat", "notable", "pick":
 			recompute_tree_bonus(sim, e)
-	Events.mastery_changed.emit(e.id, ref, e.mastery_of(ref))
+	Events.post(&"mastery_changed", e.id, ref, e.mastery_of(ref))
 	return true
 
 ## Bot gasta os pontos na teia como um jogador da build: caminho mais curto até cada skill da build (na ordem da
@@ -362,7 +362,7 @@ static func reset_tree(sim: WorldSim, e: SimEntity) -> bool:
 		return false
 	if not Balance.SKILL_RESET_NPCS.any(func(nid): return near_npc(sim, e, nid)):
 		if e == sim.player:
-			Events.notification.emit("Fale com o Ancião Ravi, na praça de Aldara, para resetar as skills")
+			Events.post(&"notification", "Fale com o Ancião Ravi, na praça de Aldara, para resetar as skills")
 		return false
 	var tr := tree_of(sim, e)
 	var keep := {tr["start"]: true}
@@ -382,9 +382,9 @@ static func reset_tree(sim: WorldSim, e: SimEntity) -> bool:
 		if e.skills[i] and not e.learned.has(e.skills[i].id):
 			e.skills[i] = null
 	recompute_tree_bonus(sim, e)
-	Events.mastery_changed.emit(e.id, "", 0)
+	Events.post(&"mastery_changed", e.id, "", 0)
 	if e == sim.player:
-		Events.notification.emit("Skills resetadas: %d pontos para distribuir (tecla K)" % e.mastery_points)
+		Events.post(&"notification", "Skills resetadas: %d pontos para distribuir (tecla K)" % e.mastery_points)
 	return true
 
 ## Soma os passivos comprados (chamar ao carregar o save).
@@ -414,12 +414,12 @@ static func set_skill_slot(sim: WorldSim, e: SimEntity, slot: int, skill_id: Str
 	if slot < 0 or slot >= Balance.SKILL_SLOTS:
 		return false
 	if Balance.LOADOUT_TOWN_ONLY and sim.maps.has(e.map_id) and not sim.maps[e.map_id]["def"].in_hub(e.position):
-		Events.notification.emit("Troque skills da barra na cidade ou num povoado com cristal")
+		Events.post(&"notification", "Troque skills da barra na cidade ou num povoado com cristal")
 		return false
 	e.ensure_slots()
 	if skill_id == "":
 		e.skills[slot] = null
-		Events.mastery_changed.emit(e.id, "", 0)
+		Events.post(&"mastery_changed", e.id, "", 0)
 		return true
 	var s: SkillDef = GameData.skills.get(skill_id)
 	if s == null or not e.knows(skill_id):
@@ -428,7 +428,7 @@ static func set_skill_slot(sim: WorldSim, e: SimEntity, slot: int, skill_id: Str
 	if cur >= 0:
 		e.skills[cur] = e.skills[slot]
 	e.skills[slot] = s
-	Events.mastery_changed.emit(e.id, skill_id, e.mastery_of(skill_id))
+	Events.post(&"mastery_changed", e.id, skill_id, e.mastery_of(skill_id))
 	return true
 
 ## +1 maestria com pontos = comprar a folha de maestria da skill na árvore (repete até Balance.MASTERY_MAX).

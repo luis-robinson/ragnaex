@@ -431,7 +431,7 @@ func _plan_trip(e: SimEntity, sim) -> void:
 	state = S.TRAVEL
 	timer = 60.0
 	if rng.randf() < 0.3:
-		Events.chat_message.emit(e.name, GameData.random_bot_line("leaving") % GameData.maps[dest_map].name, "global")
+		Events.post(&"chat_message", e.name, GameData.random_bot_line("leaving") % GameData.maps[dest_map].name, "global")
 	_gather_party(e, sim)
 
 func _go_home() -> void:
@@ -515,7 +515,7 @@ func _defend(e: SimEntity, sim, m: Dictionary, cmd: InputCommand, dt: float) -> 
 		defend_wave = wave
 		falling_back = false
 		if rng.randf() < 0.4:
-			Events.chat_message.emit(e.name, DEFEND_LINES[rng.randi() % DEFEND_LINES.size()], "global")
+			Events.post(&"chat_message", e.name, DEFEND_LINES[rng.randi() % DEFEND_LINES.size()], "global")
 	var gate: Vector3 = rs["gate"]
 	var out := (gate - target).normalized() if gate.distance_to(target) > 0.5 else Vector3(0, 0, -1)
 	# ferido: recua para dentro das muralhas (Bastião regenera, sentinelas cobrem) e volta com vida
@@ -642,7 +642,7 @@ func wants_party(e: SimEntity, from: SimEntity, sim) -> bool:
 	var yes := rng.randf() < (0.9 if from == sim.player else Balance.BOT_PARTY_ACCEPT)
 	if from == sim.player:
 		if not yes:
-			Events.chat_message.emit(e.name, ["agora não, valeu", "to indo deslogar já", "to solando quest, foi mal"][rng.randi() % 3], "whisper")
+			Events.post(&"chat_message", e.name, ["agora não, valeu", "to indo deslogar já", "to solando quest, foi mal"][rng.randi() % 3], "whisper")
 	return yes
 
 ## Saindo pra caçar: chama bots parados na vila (nível parecido) e, às vezes, o jogador.
@@ -665,7 +665,7 @@ func _gather_party(e: SimEntity, sim) -> void:
 			and absi(pl.level - e.level) <= 5 and pl.position.distance_to(e.position) < 25.0 and rng.randf() < Balance.BOT_INVITE_PLAYER_CHANCE:
 		next_player_invite = sim.time + PLAYER_INVITE_COOLDOWN
 		if sim.party_invite(e, pl):
-			Events.chat_message.emit(e.name, "bora caçar na %s? te mandei convite" % GameData.maps[dest_map].name, "whisper")
+			Events.post(&"chat_message", e.name, "bora caçar na %s? te mandei convite" % GameData.maps[dest_map].name, "whisper")
 
 func _party_has_player(e: SimEntity, sim) -> bool:
 	return sim.player != null and sim.same_party(e, sim.player)

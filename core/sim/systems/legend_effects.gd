@@ -3,7 +3,7 @@ extends RefCounted
 ## Efeitos das armas lendárias (GearCatalog.LEGEND_EFFECTS): ao acertar, ao bater com a arma, ao abater.
 
 ## Multiplicador de dano da arma lendária no alvo (Carrasco: pouca vida; Presa Acuada: lento/preso/atordoado;
-## Hemorragia: sangrando; Ferida Aberta: feridas que você abriu nele).
+## Ferida Aberta: feridas que você abriu nele).
 static func legend_power(sim: WorldSim, e: SimEntity, t: SimEntity) -> float:
 	var le: Dictionary = e.stats.legend if e.is_character() else {}
 	match str(le.get("kind", "")):
@@ -12,9 +12,6 @@ static func legend_power(sim: WorldSim, e: SimEntity, t: SimEntity) -> float:
 				return 1.0 + float(le["pct"]) / 100.0
 		"prey":
 			if Combat.is_chilled(t):
-				return 1.0 + float(le["pct"]) / 100.0
-		"hemorrhage":                 # Arremessador: alvo sangrando (ou com qualquer dano no tempo) apanha mais
-			if t.has_debuff("dot"):
 				return 1.0 + float(le["pct"]) / 100.0
 		"open_wound":                 # Lanceiro: cada Ferida Aberta que você abriu no alvo = +pct% do seu dano nele
 			var n := wounds(e, t)
@@ -166,7 +163,7 @@ static func legend_on_hit(sim: WorldSim, e: SimEntity, t: SimEntity, s: SkillDef
 
 ## Tiro de graça da pistola (Bala na Agulha): `pct`% do ATK no alvo, +1 Bravata. O FX é o do Tiro de Pistola.
 static func spare_shot(sim: WorldSim, e: SimEntity, t: SimEntity, pct: float) -> void:
-	Events.skill_effect.emit("ass_pistol_shot", e.position, t.position, 0.0)
+	Events.post(&"skill_effect", "ass_pistol_shot", e.position, t.position, 0.0)
 	var r := Combat.calc_damage(e, t, pct / 100.0, SkillDef.Kind.PHYSICAL, sim.rng, e.position)
 	sim._deal_damage(e, t, r["amount"], r["crit"], r["blocked"], "shot", e.position)
 	sim.gain_bravado(e, 1)
@@ -184,7 +181,7 @@ static func penance_hit(sim: WorldSim, e: SimEntity, t: SimEntity, le: Dictionar
 		return
 	t.debuffs = t.debuffs.filter(func(d): return d.get("id") != did)
 	var at := t.position
-	Events.skill_effect.emit("pal_sun_strike", at, at, float(le.get("radius", 2.5)))
+	Events.post(&"skill_effect", "pal_sun_strike", at, at, float(le.get("radius", 2.5)))
 	for o in sim.maps[e.map_id]["entities"].duplicate():
 		if o.is_alive() and e.is_hostile_to(o) and o.position.distance_to(at) <= float(le.get("radius", 2.5)) + o.radius:
 			var r := Combat.calc_damage(e, o, float(le["pct"]) / 100.0, SkillDef.Kind.PHYSICAL, sim.rng, at)
