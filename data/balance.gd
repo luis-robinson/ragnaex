@@ -377,6 +377,7 @@ const AURA_KEEP := 1.3                     # s que o buff da aura dura no aliado
 const LOOT_LOCK_TIME := 20.0               # s em que só o dono pega o item; depois fica livre
 const PORTAL_NOTICE_CD := 4.0              # s entre avisos de portal bloqueado
 const PARTY_MAX := 5                       # membros por grupo
+const PARTY_NEARBY_RANGE := 40.0          # m: janela P lista quem dá para convidar até esta distância
 const PARTY_SHARE_RANGE := 45.0            # m: membros vivos no mesmo mapa e dentro disto dividem XP e quests de abate
 const PARTY_XP_BONUS := 0.15               # +15% de XP total por membro extra que divide o abate
 const PARTY_LEVEL_GAP := 15                # diferença máx. de nível para dividir XP (e para bots aceitarem convite)

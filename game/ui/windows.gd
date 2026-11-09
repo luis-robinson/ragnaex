@@ -1185,7 +1185,6 @@ func _npc_name(npc_id: String) -> String:
 	return npc_id
 
 # ---------------------------------------------------------------------------
-const NEARBY_RANGE := 40.0
 
 ## Grupo: membros (líder pode promover/expulsar), sair, e quem está por perto para convidar.
 func _party(body: VBoxContainer) -> void:
@@ -1208,26 +1207,22 @@ func _party(body: VBoxContainer) -> void:
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(t)
 	h.add_child(UiKit.button("Atualizar", func(): _rebuild("party")))
-	var near: Array = []
-	for e in Sim.map_entities(p.map_id):
-		if e != p and e.is_character() and not Sim.same_party(e, p) and e.position.distance_to(p.position) <= NEARBY_RANGE:
-			near.append(e)
-	near.sort_custom(func(a, b): return a.position.distance_squared_to(p.position) < b.position.distance_squared_to(p.position))
-	if near.is_empty():
-		body.add_child(UiKit.label("Ninguém a até %dm." % int(NEARBY_RANGE), 12, UiKit.MUTED))
+	# só quem dá para convidar agora (sem grupo, sem convite pendente, nível compatível)
+	var blocked: String = Sim.party_invite_blocked(p)
+	var near: Array = Sim.party_invitable_near(p)
+	if blocked != "":
+		body.add_child(UiKit.label(blocked, 12, UiKit.MUTED))
+	elif near.is_empty():
+		body.add_child(UiKit.label("Ninguém por perto para formar grupo (até %dm, nível até %d de diferença)." % [int(Balance.PARTY_NEARBY_RANGE), Balance.PARTY_LEVEL_GAP], 12, UiKit.MUTED))
 	for e in near.slice(0, 10):
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
 		body.add_child(row)
 		row.add_child(UiKit.class_icon(e.class_def, 22))
-		var l := UiKit.label("%s  ·  %s %d%s" % [e.name, e.class_def.name, e.level, "  (em grupo)" if e.party_id >= 0 else ""], 12, UiKit.TEXT if e.party_id < 0 else UiKit.MUTED)
+		var l := UiKit.label("%s  ·  %s %d" % [e.name, e.class_def.name, e.level], 12, UiKit.TEXT)
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(l)
-		var why: String = Sim.party_invite_error(p, e)
-		var b := UiKit.button("Convidar", _invite.bind(e.id), 96)
-		b.disabled = why != ""
-		b.tooltip_text = why
-		row.add_child(b)
+		row.add_child(UiKit.button("Convidar", _invite.bind(e.id), 96))
 
 func _party_row(p: SimEntity, m: SimEntity, is_leader: bool, i_lead: bool) -> Control:
 	var card := UiKit.panel(UiKit.BG_LIGHT, m.class_def.color.darkened(0.3))

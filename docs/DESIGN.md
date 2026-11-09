@@ -530,7 +530,7 @@ Movimento: atravessam água só pelas pontes (`WorldSim.water_path`, grafo de ca
 - **Bots**: aceitam convites (nível próximo); no grupo, quem não é líder segue o líder (por portais também), cura quem
   está abaixo de 60% de HP e ataca o que bate no grupo. Bot que sai pra caçar às vezes chama bots da vila e, raramente, o jogador
   (um convite por vez, com recarga). Grupo só de bots costuma se desfazer quando voltam à vila.
-- **UI**: quadros dos membros abaixo do seu (HP/MP, ♛ líder, mapa se longe), janela Grupo (P) com membros e "Por perto" para convidar,
+- **UI**: quadros dos membros abaixo do seu (HP/MP, ♛ líder, mapa se longe), janela Grupo (P) com membros e "Por perto" para convidar (só quem aceitaria agora: fora de grupo, sem convite pendente, nível compatível, até `PARTY_NEARBY_RANGE` m; `PartySystem.invitable_near`; quem não é líder ou tem o grupo cheio vê o motivo),
   popup de convite (Aceitar/Recusar), nomes e pontos do minimapa em verde. Chat: `/party` (até `PARTY_SEEK_MAX` bots do mapa, sozinhos ou líderes com vaga e de nível próximo, te convidam um por vez; recusou → o próximo), `/convidar nome`, `/sair`, `/expulsar nome`,
   `/lider nome`, `/p texto` (canal do grupo).
 

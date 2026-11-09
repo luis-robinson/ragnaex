@@ -1777,6 +1777,10 @@ func kill_sharers(killer: SimEntity, mob: SimEntity) -> Array:
 	return PartySystem.kill_sharers(self, killer, mob)
 func party_invite_error(from: SimEntity, to: SimEntity) -> String:
 	return PartySystem.party_invite_error(self, from, to)
+func party_invitable_near(e: SimEntity) -> Array:
+	return PartySystem.invitable_near(self, e)
+func party_invite_blocked(e: SimEntity) -> String:
+	return PartySystem.invite_blocked(self, e)
 func party_invite(from: SimEntity, to: SimEntity) -> bool:
 	return PartySystem.party_invite(self, from, to)
 func party_accept(e: SimEntity) -> bool:

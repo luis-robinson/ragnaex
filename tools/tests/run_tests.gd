@@ -722,6 +722,7 @@ func _check_zone(gd, sim) -> void:
 	_check_action_bar(gd, sim)
 	_check_summon_ai(gd, sim)
 	_check_summon_lost(gd, sim)
+	_check_party_invitable(gd, sim)
 	_check_bind_crystal(gd, sim, save_ref)
 	_check_quarry(gd, sim)
 	_check_map_models(gd)
@@ -5975,6 +5976,42 @@ func _check_bot_chat(gd, sim) -> void:
 	sim.despawn(b1)
 	sim.despawn(b2)
 	check(sim.time > t0, "relógio andou")
+
+## Janela P: a lista "Por perto" só traz quem aceitaria um convite agora (fora de grupo, sem convite pendente,
+## nível compatível, vivo, perto); quem não pode convidar (não é líder / grupo cheio) não vê ninguém.
+func _check_party_invitable(gd, sim) -> void:
+	var at := Vector3(-14, 0, 14)
+	var me: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Lider", "city_aldara", at, 15)
+	me.brain = null
+	var ok_bot: SimEntity = sim.spawn_bot(gd.classes["bishop"], "Livre", "city_aldara", at + Vector3(3, 0, 0), 16)
+	var far_lv: SimEntity = sim.spawn_bot(gd.classes["ranger"], "Alto", "city_aldara", at + Vector3(4, 0, 0), 15 + Balance.PARTY_LEVEL_GAP + 4)
+	var grouped: SimEntity = sim.spawn_bot(gd.classes["druid"], "Agrupado", "city_aldara", at + Vector3(5, 0, 0), 15)
+	var other: SimEntity = sim.spawn_bot(gd.classes["assassin"], "Outro", "city_aldara", at + Vector3(6, 0, 0), 15)
+	var away: SimEntity = sim.spawn_bot(gd.classes["berserker"], "Longe", "city_aldara", at + Vector3(Balance.PARTY_NEARBY_RANGE + 5, 0, 0), 15)
+	var dead: SimEntity = sim.spawn_bot(gd.classes["necromancer"], "Morto", "city_aldara", at + Vector3(2, 0, 2), 15)
+	for x in [ok_bot, grouped, other, away, dead]:
+		x.brain = null           # far_lv fica com cérebro: a regra de nível vale para bots
+	sim.party_invite(other, grouped)
+	sim.party_accept(grouped)
+	sim._kill(dead, null)
+	var pending: SimEntity = sim.spawn_bot(gd.classes["elementalist"], "Pendente", "city_aldara", at + Vector3(2, 0, -2), 15)
+	pending.brain = null
+	sim.invites[pending.id] = {"from": grouped.id, "expires": sim.time + 30.0, "decide_at": sim.time + 30.0}
+	var list: Array = sim.party_invitable_near(me)
+	check(list.has(ok_bot), "janela P lista quem dá para convidar")
+	for x in [far_lv, grouped, other, away, dead, pending]:
+		check(not list.has(x), "janela P esconde %s (não dá para convidar)" % x.name)
+	for x in list:
+		check(sim.party_invite_error(me, x) == "", "todo listado aceita convite (%s)" % x.name)
+	# no grupo de outro: não é líder, não vê ninguém
+	sim.party_invite(ok_bot, me)
+	sim.party_accept(me)
+	check(sim.party_invite_blocked(me) != "" and sim.party_invitable_near(me).is_empty(), "quem não é líder não vê ninguém para convidar")
+	sim.invites.erase(pending.id)
+	for x in [me, ok_bot, far_lv, grouped, other, away, dead, pending]:
+		if x.party_id >= 0:
+			sim.party_leave(x)
+		sim.despawn(x)
 
 func _check_party(gd, sim) -> void:
 	var m: Dictionary = sim.maps["city_aldara"]

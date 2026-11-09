@@ -76,6 +76,30 @@ static func party_invite_error(sim: WorldSim, from: SimEntity, to: SimEntity) ->
 			return "O grupo está cheio (%d)." % Balance.PARTY_MAX
 	return ""
 
+## Por que `e` não pode convidar ninguém agora ("" = pode): está num grupo e não é o líder, ou o grupo está cheio.
+static func invite_blocked(sim: WorldSim, e: SimEntity) -> String:
+	var p := party_of(sim, e)
+	if p.is_empty():
+		return ""
+	if p["leader"] != e.id:
+		return "Só o líder pode convidar."
+	if p["members"].size() >= Balance.PARTY_MAX:
+		return "O grupo está cheio (%d)." % Balance.PARTY_MAX
+	return ""
+
+## Personagens a até `range` m no mapa de `e` que aceitariam um convite dele agora (fora de grupo, sem convite
+## pendente, nível dentro de PARTY_LEVEL_GAP), do mais perto para o mais longe. Janela P (aba Grupo).
+static func invitable_near(sim: WorldSim, e: SimEntity, range: float = Balance.PARTY_NEARBY_RANGE) -> Array:
+	var out: Array = []
+	if not sim.maps.has(e.map_id) or invite_blocked(sim, e) != "":
+		return out
+	for o in sim.maps[e.map_id]["entities"]:
+		if o != e and o.is_character() and o.is_alive() and o.position.distance_to(e.position) <= range \
+				and party_invite_error(sim, e, o) == "":
+			out.append(o)
+	out.sort_custom(func(a, b): return a.position.distance_squared_to(e.position) < b.position.distance_squared_to(e.position))
+	return out
+
 static func party_invite(sim: WorldSim, from: SimEntity, to: SimEntity) -> bool:
 	var err := party_invite_error(sim, from, to)
 	if err != "":
