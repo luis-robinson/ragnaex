@@ -172,16 +172,8 @@ no clipe "ride" gerado do idle (`RidePose.ensure_clip`, pernas/braços fixos). R
 facho de luz em épico/lendário) e moedas para ouro; malhas compartilhadas. Revisar: `-- --autostart=<classe> --loot_demo --screenshot=<png>`.
 Save com nó de árvore que não existe mais (build removida): a árvore volta ao início e os pontos voltam (`SaveSystem.points_for_level`).
 
-## Pontos de skill: árvore (estilo talentos do WoW)
-2 pontos por nível (+1 nos níveis 10/20/30), ~61 no total, gastos SÓ na árvore da classe (`TreeCatalog`, gerada por loops;
-tecla K). Um **painel por ramo**, lado a lado: **Geral** e um por **build** (título, papel e pontos gastos). O nó inicial fica em
-cima, ligado ao topo de cada painel; cada painel desce por nível: skill → passivo → skill… Nós: **skill** (quadrado no meio;
-aprende e vai pro 1º slot livre), **passivo** (círculo pequeno na linha: % de ATK/DEF/HP/MATK/MP/cura/crit pelo papel da build),
-**maestria** (círculo "+1" à esquerda da skill), **evolução** (losango à direita; a do dash fica ao lado do início).
-Dourado = comprado, verde = dá pra comprar agora, cinza = bloqueado; "Nv X" na margem marca a linha acima do seu nível.
-Só se compra nó ligado a um já comprado, com nível e pontos (os ramos não se ligam entre si: cada build parte do início).
-A árvore inteira custa mais que os pontos do jogo: escolher o caminho é a build.
-A barra 1-6 só se troca na cidade. Testes: cada build, do 1 ao 30 comprando só pela árvore, pega todas as skills dela.
+## Pontos de skill: teia (estilo Path of Exile)
+Regras completas, fórmulas e critérios em `design/gdd/progression.md` (a teia está descrita em "Teia de skills" mais abaixo). A barra 1-6 só se troca na cidade; resetar a teia é grátis perto do Ancião ou do Sumo Sacerdote (`SKILL_RESET_NPCS`).
 
 ## Lendários com visual próprio (`GearCatalog.SET_VISUALS`)
 Arte de referência em `reference/<classe>/set_N/` (frente, costas, ícones). Cada um vira um estilo do kit (`chibi_kit.SET_STYLES`,
@@ -201,7 +193,7 @@ Drop: o lendário cai como **Moeda Lendária** (1 em 100 monstros; chefes 40% e 
 troca moedas por qualquer peça lendária da sua classe (conjuntos das builds, maça do conjunto, escudos nomeados): tier i de
 `LEGENDARY_LEVELS` custa i+1 moedas (nível 5 = 1, nível 10 = 2 ... nível 30 = 6), até o seu nível (`WorldSim.relic_*`). Ela também vende
 Moeda Lendária por ouro (`Balance.LEGEND_COIN_PRICE` = 500, `ItemSystem.buy_legend_coin`). **Reset das skills** com o Ancião Ravi
-(`Balance.SKILL_RESET_NPC`, `ProgressionSystem.reset_tree`, grátis, segundo clique confirma): a árvore volta ao início com as skills
+(`Balance.SKILL_RESET_NPCS`, `ProgressionSystem.reset_tree`, grátis, segundo clique confirma): a árvore volta ao início com as skills
 iniciais e devolve todos os pontos do nível; os talentos de classe ficam.
 **Lendário é pessoal**: no grupo cada um que dividiu o abate rola o seu e ele fica preso ao dono por 110 s. O **jogador** no grupo também
 recebe o saque comum pessoal a cada abate dividido (mesmo sem ter batido: suporte ganha); o rodízio fica entre os bots. No chão o jogador só
@@ -215,7 +207,7 @@ Cada nível: +12% de poder (dano/cura), -4% MP, -5% recarga e +`MASTERY_BONUS_PC
 sorteio fixo por classe; parte das estradas some, então há várias rotas) com círculos pendurados nas casas: o de skill (a skill no
 centro; maestria, evoluções e passivos da build em volta) e o de notável (anel de atributos com o notável no meio, duas entradas =
 atalho). Cada ramo (Geral + builds) tem o seu setor em volta do início, como as regiões do PoE; skill de nível alto fica mais longe.
-Estradas e junções são só caminho (custam 1 ponto e não dão nada); atributos (+1) e bônus ficam nos círculos. 8 pontos por nível
+Estradas e junções custam 1 ponto e dão +1 do atributo do setor; os atributos maiores e os bônus ficam nos círculos. 8 pontos por nível
 (+1 no 10/20/30) = 235 no 30, numa teia de ~250-360 nós (+ maestrias). Medido com `tools/tests/web_probe.tscn`: no 30 a teia dá
 ~x1,4 de ataque e ~x1,2 de HP a um bot da build.
 Save antigo recebe os pontos de volta. Bots compram o caminho mais curto até as skills da build e depois notáveis/atributos
@@ -243,13 +235,13 @@ Nível 30 só cai do Dragonete. Raridades: comum, incomum, raro, épico, **lend�
   Raio 17, Sacerdote 17, Guardião Verde 16, Atirador 16, Lâminas 14. Próximo: Carniceiro e o grupo de 32+ para baixo.
 
 ## Progressão (lenta)
-Lv 1-30. XP = 150 × 1.28^(lv−1): ~15 kills por nível no começo, ~500 perto do 30 (~3800 kills no total).
+Lv 1-30 (fórmula no parágrafo "Ritmo" abaixo e em `design/gdd/progression.md`).
 Spawners enchem de uma vez ao carregar o mapa (`primed`); depois cada abate volta no tempo de respawn. Monstro sem alvo e sem personagem
 a `Balance.DORMANT_RANGE` (40 m) dorme (não pensa/anda/atualiza). Separação usa grade de 3 m por tick (`WorldSim._index_map`) e monstros
 procuram alvo só na lista de personagens do tick. Dungeons do mapa (`build_dungeons.py`): bando no meio de cada corredor (menos o da
 chegada), salões com área de spawn do tamanho do salão.
 Ritmo (MVP até o 30, ~15 h): `Balance.xp_for_level` sai do tempo planejado no nível (6,5 + 1,75×(lv−1) min) × 3 abates/min ×
-XP de um monstro do nível (6 + 4,5×lv) ÷ 0,55. Quests não repetíveis dão `XP_QUEST_SHARE` (45%) de cada faixa (1-10, 10-20, 20-30):
+XP de um monstro do nível (6 + 4,5×lv) ÷ 0,55. Quests não repetíveis dão 50% / 55% / 65% de cada faixa (1-10, 10-20, 20-30; `XP_QUEST_SHARE_BAND`; a curva conta 45%, então quem faz quest sobe mais rápido que o tempo planejado):
 `QuestsCatalog.scale_xp` mantém o peso relativo escrito em cada quest e escala o total da faixa. Caçadas pagam no NPC da zona do monstro.
 A faixa 1-10 dá 50% (`XP_QUEST_SHARE_BAND`) e cada nível de 2 a 19 tem quests valendo ≥ 35% do nível (há check): o 6-7 ganhou 7 laterais
 de moradores de Aldara (`v1_tico`..`v7_marco`: javalis, chá do Ancião, peles e bando de lobos da Caçadora Ivy, Gruta, recibo para o Nils, Marco).
