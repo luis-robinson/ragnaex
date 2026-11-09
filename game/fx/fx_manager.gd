@@ -252,6 +252,10 @@ static func theme_of(s: SkillDef) -> String:
 
 ## Efeito da skill pelo TEMA (SkillDef.vfx) e na FORMA real da hitbox (SkillFx).
 func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: float) -> void:
+	if Sim.ticking_map != "" and Sim.ticking_map != main.current_map_id:
+		return                 # efeito de outro mapa (a sim roda todos): antes aparecia no seu, nas coordenadas do outro
+	if Sim.player and origin.distance_to(Sim.player.position) > main.VIEW_CULL_DIST and aim.distance_to(Sim.player.position) > main.VIEW_CULL_DIST:
+		return                 # longe da tela: ninguém vê
 	var s: SkillDef = GameData.skill_or_basic(skill_id)
 	if s == null:
 		return

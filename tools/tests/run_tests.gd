@@ -723,6 +723,7 @@ func _check_zone(gd, sim) -> void:
 	_check_summon_ai(gd, sim)
 	_check_summon_lost(gd, sim)
 	_check_party_invitable(gd, sim)
+	_check_effect_map(gd, sim)
 	_check_bind_crystal(gd, sim, save_ref)
 	_check_quarry(gd, sim)
 	_check_map_models(gd)
@@ -6012,6 +6013,34 @@ func _check_party_invitable(gd, sim) -> void:
 		if x.party_id >= 0:
 			sim.party_leave(x)
 		sim.despawn(x)
+
+## Efeito de skill (Events.skill_effect não carrega mapa): durante o tick, Sim.ticking_map diz de que mapa veio,
+## e a tela ignora os de outro mapa (antes apareciam no seu, nas coordenadas do outro). Fora do tick volta a "".
+func _check_effect_map(gd, sim) -> void:
+	var mid := "field_forest"
+	if not sim.maps.has(mid):
+		sim.load_map(gd.maps[mid])
+	var e: SimEntity = sim.spawn_bot(gd.classes["berserker"], "Efeito", mid, Vector3(-60, 0, 20), 10)
+	e.brain = null
+	var seen: Array = []
+	var grab := func(_sid: String, o: Vector3, _a: Vector3, _r: float): seen.append([sim.ticking_map, o])
+	Events.skill_effect.connect(grab)
+	var c := InputCommand.new()
+	c.attack = true
+	c.aim = e.position + Vector3(0, 0, 2)
+	e.basic_cd = 0.0
+	sim._apply_command(e, c, sim.maps[mid], 1.0 / 60.0)
+	var old_away: int = sim.away_every
+	sim.away_every = 1
+	for i in range(40):
+		sim.tick(1.0 / 60.0)
+	sim.away_every = old_away
+	Events.skill_effect.disconnect(grab)
+	# os outros mapas também têm brigas (bots, guardas): olha só os efeitos que saíram do bot do teste
+	var mine: Array = seen.filter(func(x): return x[0] != "" and (x[1] as Vector3).distance_to(e.position) < 3.0)
+	check(not mine.is_empty() and mine.all(func(x): return x[0] == mid), "efeito de skill sai marcado com o mapa de quem lançou (%d efeitos)" % mine.size())
+	check(sim.ticking_map == "", "fora do tick nenhum mapa está rodando")
+	sim.despawn(e)
 
 func _check_party(gd, sim) -> void:
 	var m: Dictionary = sim.maps["city_aldara"]

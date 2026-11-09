@@ -353,6 +353,9 @@ const _UPD_KEYS := ["upd_PLAYER", "upd_BOT", "upd_MONSTER", "upd_NPC", "upd_SUMM
 func _prof(key: String, since: int) -> void:
 	prof[key] = float(prof.get(key, 0.0)) + float(Time.get_ticks_usec() - since)
 
+## Mapa que está rodando agora no tick ("" fora do laço): eventos sem mapa (skill_effect...) saem daqui.
+var ticking_map := ""
+
 func tick(dt: float) -> void:
 	var t_start := Time.get_ticks_usec()
 	tick_count += 1
@@ -369,6 +372,7 @@ func tick(dt: float) -> void:
 				continue
 			mdt = dt * away_every
 		var m: Dictionary = maps[map_id]
+		ticking_map = map_id              # quem ouve os eventos (efeitos) sabe de que mapa vieram
 		var ents: Array = m["entities"]
 		var it := Time.get_ticks_usec() if profile else 0
 		_index_map(m)                       # grade de vizinhos + lista de personagens (separação e alvo dos monstros)
@@ -438,6 +442,7 @@ func tick(dt: float) -> void:
 		if profile:
 			_prof("rest", pt)
 			_prof("map_" + map_id, map_t)
+	ticking_map = ""
 	# descarta inputs de 1 tick do jogador
 	player_cmd = player_cmd.duplicate_cmd()
 	player_cmd.attack = false; player_cmd.skill_slot = -1; player_cmd.potion_slot = -1

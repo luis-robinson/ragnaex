@@ -60,6 +60,10 @@ var _soak_ticks0 := 0
 var _soak_worst := 0.0
 
 var _soak_map := ""
+var _soak_boss := ""            # --soak_boss=<id>: o grupo vai até o chefe e briga com ele (medir FPS na luta)
+var _soak_boss_placed := false
+var _soak_gpu := 0.0
+var _soak_draws := 0.0
 
 ## Antes do jogo: liga as chaves de medição e decide a partida automática. Devolve a classe ("" = tela inicial).
 ## `returning` = voltou ao menu pelo Esc: não repete o --autostart.
@@ -99,6 +103,12 @@ func before_start(returning: bool) -> String:
 	if DevArgs.flag("--cull"):        # medir: distância de corte dos bonecos
 		main.VIEW_CULL_DIST = float(DevArgs.value("--cull"))
 	_soak_map = DevArgs.value("--soak_map")
+	_soak_boss = DevArgs.value("--soak_boss")
+	if _soak_boss != "":                 # mapa do chefe: o do spawner dele
+		for mid in GameData.maps:
+			for sp in GameData.maps[mid].spawners:
+				if sp["monster_id"] == _soak_boss:
+					_soak_map = mid
 	if DevArgs.flag("--playtest"):    # playtest: segue a cadeia principal como jogador e grava log/fotos (game/dev/playtest.gd)
 		autostart = "paladin" if autostart == "" else autostart
 		_playtest_dir = DevArgs.value("--playtest")
@@ -1264,7 +1274,7 @@ func _soak_fight(p: SimEntity) -> void:
 	var best: SimEntity = null
 	var bd := 1e9
 	for e in Sim.map_entities(p.map_id):
-		if e.kind == SimEntity.Kind.MONSTER and e.is_alive():
+		if e.kind == SimEntity.Kind.MONSTER and e.is_alive() and (_soak_boss == "" or e.monster_def.id == _soak_boss or e.boss_id >= 0):
 			var d: float = e.position.distance_squared_to(p.position)
 			if d < bd:
 				bd = d
@@ -1291,6 +1301,16 @@ func _soak(delta: float) -> void:
 		_smoke_test = false
 		Sim.profile = true
 		_soak_ticks0 = Sim.tick_count
+		RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
+		EntityView.prof_us = 0.0
+		if DevArgs.has("--exp_no_hud"):              # medir: HUD inteiro desligado (não desenha nem processa)
+			main.hud.visible = false
+			main.hud.process_mode = Node.PROCESS_MODE_DISABLED
+		if DevArgs.has("--exp_no_minimap"):          # medir: só o minimapa desligado
+			main.hud.minimap.visible = false
+			main.hud.minimap.process_mode = Node.PROCESS_MODE_DISABLED
+	_soak_gpu += RenderingServer.viewport_get_measured_render_time_gpu(get_viewport().get_viewport_rid())
+	_soak_draws += Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)
 	_soak_left -= delta
 	_soak_t += delta
 	_soak_frames += 1
@@ -1309,6 +1329,13 @@ func _soak(delta: float) -> void:
 			Sim.party_invite(p, b)
 			Sim.party_accept(b)
 			k += 1
+	if _soak_boss != "" and not _soak_boss_placed and p.map_id == _soak_map:
+		for e in Sim.map_entities(p.map_id):           # chega com o grupo ao lado do chefe
+			if e.kind == SimEntity.Kind.MONSTER and e.monster_def.id == _soak_boss and e.is_alive():
+				for c in Sim.map_entities(p.map_id):
+					if c == p or (c.kind == SimEntity.Kind.BOT and Sim.same_party(c, p)):
+						c.position = e.position + Vector3(4, 0, 4)
+				_soak_boss_placed = true
 	if _soak_map != "":
 		_soak_fight(p)                     # dungeon: briga com o monstro mais perto (bot não caça em dungeon sozinho)
 	elif Sim.maps.has(p.map_id):
@@ -1321,6 +1348,18 @@ func _soak(delta: float) -> void:
 		print("SOAK t=%.0f fps=%.1f map=%s lv=%d awake_mobs=%d nodes=%d objects=%d mem_mb=%.0f tick_ms=%.2f views=%d worst_ms=%.0f" % [Time.get_ticks_msec() / 1000.0,
 			_soak_frames / _soak_t, p.map_id, p.level, near, Performance.get_monitor(Performance.OBJECT_NODE_COUNT),
 			Performance.get_monitor(Performance.OBJECT_COUNT), Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0, Sim.tick_usec / 1000.0, main.views.size(), _soak_worst * 1000.0])
+		var fx_n: int = main.fx.get_child_count() if main.fx else 0
+		if main.fx:
+			var kinds := {}
+			for c in main.fx.get_children():
+				var k: String = c.get_class() + ":" + String(c.name).rstrip("0123456789@")
+				kinds[k] = int(kinds.get(k, 0)) + 1
+			print("SOAKFX ", kinds)
+		print("SOAKX views_ms=%.2f gpu_ms=%.2f draws=%.0f fx_nodes=%d process_ms=%.2f" % [EntityView.prof_us / maxf(1, _soak_frames) / 1000.0,
+			_soak_gpu / maxf(1, _soak_frames), _soak_draws / maxf(1, _soak_frames), fx_n, Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0])
+		EntityView.prof_us = 0.0
+		_soak_gpu = 0.0
+		_soak_draws = 0.0
 		_soak_worst = 0.0
 		_soak_t = 0.0
 		_soak_frames = 0
