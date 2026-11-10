@@ -815,19 +815,30 @@ func _taunt_party(e: SimEntity, m: Dictionary, members: Array, cmd: InputCommand
 func _heal_party(e: SimEntity, sim, members: Array, cmd: InputCommand, dt: float) -> bool:
 	if not e.can_act():
 		return false
+	# ordem: alguém quase morrendo (< BOT_HEAL_CRIT_HP) se o tanque não estiver em perigo; depois o tanque abaixo de
+	# BOT_HEAL_TANK_HP (segura o chefe: cai e o grupo cai junto); depois o mais ferido abaixo de BOT_HEAL_HP
 	var hurt: SimEntity = null
 	var worst := Balance.BOT_HEAL_HP
+	var crit: SimEntity = null
+	var crit_r := Balance.BOT_HEAL_CRIT_HP
 	var tank := _tank_of(e, sim)
+	var tank_r := 1.0
 	for o in members:
 		if o.map_id != e.map_id or not o.is_alive() or o.position.distance_to(e.position) > Balance.BOT_HEAL_RANGE:
 			continue
 		var r: float = o.hp / maxf(1.0, o.stats.max_hp)
-		if o == tank and r < Balance.BOT_HEAL_TANK_HP:
-			hurt = o                     # o tanque vem primeiro (segura o chefe; cai e o grupo cai junto)
-			break
+		if o == tank:
+			tank_r = r
+		elif r < crit_r:
+			crit_r = r
+			crit = o
 		if r < worst:
 			worst = r
 			hurt = o
+	if crit and tank_r >= Balance.BOT_HEAL_TANK_SAFE:
+		hurt = crit
+	elif tank and tank_r < Balance.BOT_HEAL_TANK_HP:
+		hurt = tank
 	if hurt == null:
 		return false
 	for i in range(e.skills.size()):

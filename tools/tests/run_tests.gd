@@ -8173,6 +8173,14 @@ func _check_bot_group(gd, sim) -> void:
 	tank.hp = tank.stats.max_hp
 	cmd = InputCommand.new()
 	check(bh._heal_party(heal, sim, sim.party_members(heal), cmd, 0.05) and cmd.aim.distance_to(dps.position) < 0.01, "tanque cheio: cura o mais ferido")
+	tank.hp = tank.stats.max_hp * (Balance.BOT_HEAL_TANK_HP - 0.05)
+	dps.hp = dps.stats.max_hp * (Balance.BOT_HEAL_CRIT_HP - 0.1)
+	cmd = InputCommand.new()
+	check(bh._heal_party(heal, sim, sim.party_members(heal), cmd, 0.05) and cmd.aim.distance_to(dps.position) < 0.01, "dps quase morrendo passa na frente do tanque fora de perigo")
+	tank.hp = tank.stats.max_hp * (Balance.BOT_HEAL_TANK_SAFE - 0.1)
+	cmd = InputCommand.new()
+	check(bh._heal_party(heal, sim, sim.party_members(heal), cmd, 0.05) and cmd.aim.distance_to(tank.position) < 0.01, "tanque em perigo continua primeiro")
+	tank.hp = tank.stats.max_hp
 	dps.hp = dps.stats.max_hp
 	# tanque não foge do golpe de frente do chefe que segura; sozinho foge
 	boss.state = SimEntity.State.CASTING

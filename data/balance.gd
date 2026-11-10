@@ -536,9 +536,12 @@ const BOT_PLACE_COOL := 4.0                # ... e luta de onde está por isto
 ## de BOT_THREAT_STOP para de bater até o tanque abrir distância (troca de alvo = THREAT_SWITCH).
 const BOT_THREAT_HOLD := 0.85
 const BOT_THREAT_STOP := 1.0
-## Cura: o tanque é curado abaixo de BOT_HEAL_TANK_HP, os outros abaixo de BOT_HEAL_HP; o tanque vem primeiro.
+## Cura: o tanque é curado abaixo de BOT_HEAL_TANK_HP, os outros abaixo de BOT_HEAL_HP; o tanque vem primeiro, menos quando
+## alguém está quase morrendo (BOT_HEAL_CRIT_HP) e o tanque está fora de perigo (BOT_HEAL_TANK_SAFE).
 const BOT_HEAL_TANK_HP := 0.75
 const BOT_HEAL_HP := 0.6
+const BOT_HEAL_CRIT_HP := 0.4             # alguém abaixo disto passa na frente do tanque ...
+const BOT_HEAL_TANK_SAFE := 0.5            # ... se o tanque estiver acima disto
 const BOT_HEAL_RANGE := 16.0               # m: membros mais longe que isto não entram na conta
 ## Lacaio batendo em quem cura/luta de longe a até BOT_PEEL_RANGE m dele: um dps de perto larga o chefe e vai nele.
 const BOT_PEEL_RANGE := 10.0

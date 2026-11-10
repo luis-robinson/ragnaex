@@ -7,6 +7,8 @@ extends Node
 ##     [--kite[=ranger:cacador]]   (luta solo de um atirador que fica a 9,5 m+ do chefe: o chefe tem resposta de longe?)
 ##     [--comp=paladin:guardiao,bishop:sacerdote,...]   (grupo fixo, um classe:build por membro; o 1º é o líder; as métricas de
 ##                                  grupo contam como tanque o 1º com papel "tank" — líder dps = o jogador liderando, tanque bot seguindo)
+##     [--dmg=X]                   (ATK/MATK do chefe × X; lacaios iguais: grupo sob pressão, mede cura e tanque)
+##     [--under=N]                 (bots N níveis abaixo do chefe, com equipamento e skills do nível deles: luta de grupo apertada)
 ##     [--bands]                   (solo + trio + kite por chefe e compara com BANDS; imprime BAND/OUT e OUT_OF_BAND no fim)
 ## Saída: "PROBE <chefe> grupo=N vitorias=V/T tempo_medio=Ss mortes=M cast/min=C act=A% adds=N off=O% longe/min=F"
 ##   cast/min = skills do chefe por minuto; act = parte da luta golpeando/lançando (o resto é andando);
@@ -16,6 +18,7 @@ extends Node
 ##   poça, projétil no ar); cura_tq = parte da cura do grupo que foi no líder (tanque); baixa = s por luta em que alguém
 ##   que não é o líder ficou abaixo de 35% de vida; frente = parte do dano que veio de golpe do chefe SEM mira de
 ##   propósito (mob_pick vazio) em quem não é o líder: quem estava no lugar errado (a IA de grupo tenta zerar);
+##   baixa_tq = o mesmo para o tanque; pocoes = poções de vida bebidas por luta (grupo todo);
 ##   ritmo = parte da luta em que os outros membros estavam golpeando/lançando (o resto é andando ou parado).
 
 const BOSSES := {"bandit_chief": "field_forest", "crab_king": "city_aldara", "slime_king": "dg_gruta", "spider_queen": "dg_ninho", "crypt_lord": "dg_cripta",
@@ -44,6 +47,8 @@ var _lead := ""
 var _kite := ""
 var _why := false
 var _comp: Array = []
+var _under := 0
+var _dmg := 1.0
 
 ## Bot da sonda: veio pelo chefe. Não planeja viagem de caça nem volta à cidade no meio da luta (a sala do chefe não é mapa de caça, e o
 ## líder levava o grupo embora: contava como derrota).
@@ -96,6 +101,8 @@ func _ready() -> void:
 		if a.begins_with("--kite="): _kite = a.get_slice("=", 1)
 		if a == "--bands": bands = true
 		if a.begins_with("--comp="): _comp = Array(a.get_slice("=", 1).split(","))
+		if a.begins_with("--under="): _under = int(a.get_slice("=", 1))
+		if a.begins_with("--dmg="): _dmg = float(a.get_slice("=", 1))
 		if a == "--why": _why = true          # imprime de onde veio o dano que o grupo levou
 	var out_of_band: Array = []
 	for bid in BOSSES:
@@ -120,7 +127,7 @@ func _ready() -> void:
 func _print(bid: String, n: int, trials: int, r: Dictionary) -> void:
 	print("PROBE %-18s grupo=%d%s vitorias=%d/%d tempo_medio=%.0fs mortes=%.1f cast/min=%.1f act=%.0f%% adds=%.1f off=%.0f%% longe/min=%.1f%s" % [
 		bid, n, (" kite" if r["kite"] else ""), r["wins"], trials, r["time"], r["deaths"], r["casts"], r["act"], r["adds"], r["off"], r["far"],
-		("" if _lead == "" and _comp.is_empty() else " aggro=%.0f%% area=%.0f%% cura_tq=%.0f%% baixa=%.1fs frente=%.0f%% ritmo=%.0f%%" % [r["aggro"], r["area"], r["heal_tank"], r["low"], r["stray"], r["busy"]])])
+		("" if _lead == "" and _comp.is_empty() else " aggro=%.0f%% area=%.0f%% cura_tq=%.0f%% baixa=%.1fs frente=%.0f%% ritmo=%.0f%% baixa_tq=%.1fs pocoes=%.1f" % [r["aggro"], r["area"], r["heal_tank"], r["low"], r["stray"], r["busy"], r["low_tank"], r["pots"]])])
 
 ## Solo, trio e kite contra as faixas do grupo do chefe. Devolve os motivos de estar fora (vazio = dentro).
 func _band(bid: String, trials: int) -> Array:
@@ -150,6 +157,10 @@ func _band(bid: String, trials: int) -> Array:
 
 func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Dictionary:
 	var base: MonsterDef = GameData.monsters[bid]
+	if _dmg != 1.0:                 # chefe batendo mais forte (só ele; lacaios iguais): testar cura/tanque sob pressão
+		base = base.duplicate()
+		base.atk *= _dmg
+		base.matk *= _dmg
 	var m: Dictionary = Sim.load_map(GameData.maps[mid])
 	m["spawners"].clear()
 	for ri in RaidSystem.routes(m["def"]).size():
@@ -167,7 +178,8 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 	var adds_sum := 0
 	var low_sum := 0.0
 	var busy_sum := 0.0
-	var acc := {"stray": 0.0, "area": 0.0, "heal": 0.0, "heal_tank": 0.0, "lead": -1, "casts": 0, "dmg": 0.0, "off": 0.0, "far": 0, "boss": -1, "bots": {}, "from": Vector3.ZERO, "why": {}, "why_t": {}, "states": {}}
+	var low_tank := 0.0
+	var acc := {"pots": 0, "stray": 0.0, "area": 0.0, "heal": 0.0, "heal_tank": 0.0, "lead": -1, "casts": 0, "dmg": 0.0, "off": 0.0, "far": 0, "boss": -1, "bots": {}, "from": Vector3.ZERO, "why": {}, "why_t": {}, "states": {}}
 	var on_cast := func(id: int, sid: String, ph: String):
 		if id == acc["boss"] and ph == "startup":
 			acc["from"] = Sim.entities[id].position if Sim.entities.has(id) else Vector3.ZERO     # de onde o golpe saiu
@@ -208,6 +220,10 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 	Events.skill_cast.connect(on_cast)
 	Events.damage_dealt.connect(on_dmg)
 	Events.healed.connect(on_heal)
+	var on_pot := func(id: int, slot: int):
+		if slot == 0 and acc["bots"].has(id):
+			acc["pots"] += 1
+	Events.potion_used.connect(on_pot)
 	var classes: Array = GameData.classes.keys()
 	for trial in range(trials):
 		for e in m["entities"].duplicate():
@@ -236,7 +252,7 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 			elif _lead != "" and _comp.is_empty():
 				while cid == _lead.get_slice(":", 0):
 					cid = classes[(classes.find(cid) + 1) % classes.size()]
-			var bot = Sim.spawn_bot(GameData.classes[cid], "P%d" % i, mid, at + Vector3(3 + i, 0, 3), base.level)
+			var bot = Sim.spawn_bot(GameData.classes[cid], "P%d" % i, mid, at + Vector3(3 + i, 0, 3), maxi(1, base.level - _under))
 			if want_build != "" and bot.build_id != want_build:
 				bot.build_id = want_build          # mesma build para todos: equipamento e skills dela
 				Sim._gear_bot(bot)
@@ -294,6 +310,8 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 					adds[o.id] = true
 			for bi in range(bots.size()):
 				if bots[bi] == tank_bot:
+					if tank_bot.is_alive() and tank_bot.hp < tank_bot.stats.max_hp * 0.35:
+						low_tank += DT
 					continue
 				if bots[bi].is_alive() and bots[bi].hp < bots[bi].stats.max_hp * 0.35:
 					low_sum += DT
@@ -341,9 +359,11 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 	Events.skill_cast.disconnect(on_cast)
 	Events.damage_dealt.disconnect(on_dmg)
 	Events.healed.disconnect(on_heal)
+	Events.potion_used.disconnect(on_pot)
 	var mins := maxf(0.01, fight_sum / 60.0)
 	return {"wins": wins, "time": t_sum / maxf(1, wins), "deaths": float(deaths) / trials, "aggro": 100.0 * agg_sum / trials,
 		"casts": acc["casts"] / mins, "act": 100.0 * act_sum / maxf(0.01, fight_sum), "adds": float(adds_sum) / trials,
 		"off": 100.0 * acc["off"] / maxf(1.0, acc["dmg"]), "far": acc["far"] / mins, "kite": kite != "",
 		"area": 100.0 * acc["area"] / maxf(1.0, acc["dmg"]), "heal_tank": 100.0 * acc["heal_tank"] / maxf(1.0, acc["heal"]), "low": low_sum / trials,
-		"stray": 100.0 * acc["stray"] / maxf(1.0, acc["dmg"]), "busy": 100.0 * busy_sum / maxf(0.01, fight_sum)}
+		"stray": 100.0 * acc["stray"] / maxf(1.0, acc["dmg"]), "busy": 100.0 * busy_sum / maxf(0.01, fight_sum),
+		"low_tank": low_tank / trials, "pots": float(acc["pots"]) / trials}

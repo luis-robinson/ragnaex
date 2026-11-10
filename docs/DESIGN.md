@@ -706,4 +706,10 @@ do chefe que segura (bloqueia; círculos no chão ele evita). Nas costas do chef
 de cima de quem cura/atira (`BOT_PEEL_RANGE`). Investida é desviada mesmo estreita. Medição (`boss_probe --comp`, 17 chefes de
 grupo × 8, Guardião/Sacerdote/Machados/Atirador/Fogo): chefe no tanque 48% → 91% (dps liderando, como o jogador: 67% → 82%);
 dano de golpe sem mira em quem não é tanque 36% → 13%; lutas 19,5 s → 25 s (ritmo do grupo 62% → 51%: o preço de ficar no lugar).
+Cura: emergência (alguém < `BOT_HEAL_CRIT_HP`) passa na frente do tanque se ele estiver acima de `BOT_HEAL_TANK_SAFE`.
+**Grupo sob pressão** (`--dmg`/`--under`, 2026-11-10): grupo de 4 (Guardião, Sacerdote, Machados, Fogo) contra chefe do nível vence
+sem ninguém abaixo de 35% de vida até com o chefe batendo 4× mais forte, e também 11 níveis abaixo (só demora mais): **os chefes de
+grupo batem pouco para um grupo completo** (decisão de equilíbrio em aberto). A 6× o grupo vence ~75-85%; ali a IA nova empata com
+a antiga em vitórias (36 contra 41/48, a diferença é toda o Senhor da Cripta: o Dreno de Almas "far" a 6× mata de uma vez o conjurador
+que fica no flanco a 7 m) e morre menos (1,86 contra 1,96 por luta).
 Dungeons: 25% maiores (`build_dungeons.SCALE`) e `SPAWN_COUNT_MULT_DUNGEON` 2x de monstros, para grupos.
