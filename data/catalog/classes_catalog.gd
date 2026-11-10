@@ -94,7 +94,7 @@ static func build() -> Array:
 			"starting_skills": _s(["bis_heal", "bis_light"]),
 			"builds": [
 				_b("sacerdote", "Sacerdote", "healer", ["mace"], ["shield"], "cloth", "WILL", "VIT", "heal_pct",
-					["bis_heal", "bis_light", "bis_renew", "bis_prayer", "bis_blessing", "bis_sanctuary", "bis_ward", "bis_mend", "bis_angel", "bis_martyr", "bis_miracle"]).merged({
+					["bis_heal", "bis_light", "bis_holy_nova", "bis_renew", "bis_prayer", "bis_blessing", "bis_sanctuary", "bis_ward", "bis_mend", "bis_angel", "bis_martyr", "bis_miracle"]).merged({
 					# suporte: cura mais forte e bênçãos que duram mais (árvore e conjunto)
 					"passives": [{"heal_pct": 4}, {"buff_pct": 6}], "set_extra": {3: {"buff_pct": [10.0, 3.0]}}}),
 				_b("inquisidor", "Iluminado", "dps", ["scepter"], [], "cloth", "INT", "WILL", "matk_pct",

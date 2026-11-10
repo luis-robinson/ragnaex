@@ -325,9 +325,12 @@ func _best_skill(e: SimEntity, sim, m: Dictionary, mob: SimEntity, dist: float) 
 			var bid: String = b.get("id", "") if b is Dictionary else ""
 			if bid != "" and e.buffs.any(func(x): return x.get("id") == bid):
 				continue                    # já está ativo
-			if s.effects.has("form") or s.effects.has("stealth") or s.effects.has("taunt"):
-				continue                    # forma, furtividade e provocar têm hora certa (fora daqui)
-			score = 2.5 if dist < 6.0 else 0.0
+			if s.effects.has("form") and str(s.effects["form"]) in Balance.BOT_AUTO_FORMS:
+				score = Balance.BOT_FORM_SCORE if dist < Balance.BOT_FORM_RANGE else 0.0     # Lobo/Urso: entra na forma antes de bater
+			elif s.effects.has("form") or s.effects.has("stealth") or s.effects.has("taunt"):
+				continue                    # outras formas, furtividade e provocar têm hora certa (fora daqui)
+			else:
+				score = 2.5 if dist < 6.0 else 0.0
 		elif s.kind == SkillDef.Kind.MOVEMENT or (s.effects.has("dash") and s.power <= 0.0):
 			continue
 		elif s.kind == SkillDef.Kind.SUMMON or s.effects.has("summon"):

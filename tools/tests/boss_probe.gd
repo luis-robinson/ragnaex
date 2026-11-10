@@ -221,6 +221,10 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 				sb.boss_id = boss.id
 				bot.brain = sb
 			bot.brain.personality = 1.0          # veio pelo chefe: encara (o bot cauteloso ignora chefe)
+			if _why and i == 0 and trial == 0:
+				var st: Stats = bot.stats
+				print("      LIDER %s/%s arma=%s+%s lv=%d hp=%d pdef=%d mdef=%d patk=%d matk=%d esq=%.0f%% skills=%s" % [cid, bot.build_id, st.weapon_type, st.offhand_type, bot.level, st.max_hp, st.pdef, st.mdef, st.patk, st.matk, st.evasion,
+					",".join(bot.skills.filter(func(s): return s != null).map(func(s): return s.id))])
 			bots.append(bot)
 			acc["bots"][bot.id] = true
 		for i in range(1, party):
@@ -251,7 +255,9 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 					adds[o.id] = true
 			for b in bots:
 				if _why and b.map_id == mid and b.brain is BotBrain:
-					b.set_meta("probe_state", "%s t=%.0f hp=%.0f%% alvo=%d dest=%s" % [BotBrain.S.keys()[b.brain.state], t, 100.0 * b.hp / b.stats.max_hp, b.brain.target_id if "target_id" in b.brain else -1, b.brain.dest_map])
+					b.set_meta("probe_state", "%s t=%.0f hp=%.0f%% alvo=%d dest=%s forma=%s (teve: %s)" % [BotBrain.S.keys()[b.brain.state], t, 100.0 * b.hp / b.stats.max_hp, b.brain.target_id if "target_id" in b.brain else -1, b.brain.dest_map, b.form, b.get_meta("had_form", "nenhuma")])
+				if _why and b.form != "":
+					b.set_meta("had_form", b.form)
 				if not b.is_alive() or b.map_id != mid:
 					if _why and not dead.has(b.id) and b.has_meta("probe_state"):
 						print("      saiu/morreu %s: antes = %s" % [b.class_def.id, b.get_meta("probe_state")])

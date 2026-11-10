@@ -9,7 +9,7 @@ const ATTR_SCALE := 10
 ## Poder das skills de cada build (setor da teia) x isto, aplicado ao carregar (GameData.load_all). Calibrado com
 ## dps_probe (dano no boneco) e boss_probe --lead=<classe>:<build> (vitórias solo): ver docs/DESIGN.md "Equilíbrio entre builds".
 const BUILD_POWER := {"inquisidor": 0.6, "ceifador": 0.85, "invocador": 0.85, "carniceiro": 0.88, "batalha": 0.88,
-	"laminas": 1.6, "duelista": 1.4, "fera": 1.6}
+	"laminas": 2.3, "duelista": 1.7, "fera": 1.6, "raio": 1.35, "guardiao": 1.5}
 
 # --- atributos -> stats derivados (por ponto da escala antiga = ATTR_SCALE pontos de hoje) ---
 const HP_PER_VIT := 12.0
@@ -363,6 +363,11 @@ const SET_5PC_CDR_PER_TIER := 2.0
 const BOT_CHAT_MIN := 25.0
 const BOT_CHAT_MAX := 90.0
 const BOT_CHAT_PLACE := 0.5                # conversa solta: chance de falar do lugar (senão da classe/build)
+## Bot druida entra na forma (Lobo/Urso) quando há inimigo a BOT_FORM_RANGE m; antes nunca se transformava e lutava
+## como humano com as skills da forma (Lobo e Urso 0/40 solo). Formas do Necromante seguem fora (têm hora certa).
+const BOT_AUTO_FORMS := ["wolf", "bear"]
+const BOT_FORM_RANGE := 12.0
+const BOT_FORM_SCORE := 9.0                # acima de qualquer golpe: a forma vem primeiro
 const BOT_CHAT_VICTORY := 0.45            # depois do Lich, na cidade/Bastião: chance de a conversa ser comemoração
 const BOT_CHAT_SITUATION := 0.6            # chefe vivo por perto ou investida no mapa: chance de falar disso
 const BOT_CHAT_BOSS_RANGE := 30.0          # m: chefe vivo até aqui conta como "perto"

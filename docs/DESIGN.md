@@ -232,14 +232,24 @@ Nível 30 só cai do Dragonete. Raridades: comum, incomum, raro, épico, **lend�
 
 - `Balance.BUILD_POWER` multiplica o poder das skills do setor de uma build (ao carregar). Mexe no dano, pouco na sobrevivência.
 - Medir: `dps_probe.tscn -- --levels=30` (dano no boneco) e `boss_probe.tscn -- --party=1 --trials=10 --lead=<classe>:<build>
-  --boss=count_vargo,elf_king,death_knight,lich_king` (vitórias solo de 40). Alvo: 18-30 de 40; tank e cura podem ficar abaixo.
+  --boss=count_vargo,elf_king,death_knight,lich_king` (vitórias solo de 40). Depois do retrabalho dos chefes (2026-11-09) os 4 são
+  chefes de GRUPO: o alvo antigo (18-30) caiu; solo bom = 8-30 de 40, tank e cura podem ficar abaixo. `--why` mostra a linha LIDER
+  (armas, atributos, barra, forma vista).
+- Bot druida entra na forma (Lobo/Urso, `Balance.BOT_AUTO_FORMS`) com inimigo a `BOT_FORM_RANGE` m; antes nunca se transformava e
+  lutava como humano (Lobo e Urso 0/40). Check `_check_bot_form`.
+- Rodada 2026-11-09 ("só consertar as quebradas", sem cortar as fortes): `BUILD_POWER` Lâminas 2,3, Duelista 1,7, Fera 1,6, Raio 1,35,
+  Guardião 1,5; Sacerdote ganhou Nova Sagrada na prioridade. Vitórias de 40: Sacerdote 0, Lâminas 6, Caçador 6, Lanceiro 7, Xamã 8,
+  Duelista 10, Lobo 10, Gelo 10, Corsário 11, Raio 11, Cruzado 14, Guardião 14, Fogo 15, Atirador 15, Executor 16, Templário 16, Urso 18,
+  Invocador 25, Ceifador 26, Punhos 28, Sombras 29, Batalha 31, Gêmeos 34, Iluminado 40.
+  Pendente: Sacerdote não morre mas estoura o tempo (chefe ~45% em 300 s; MATK metade do Iluminado) — dobrar o dano é decisão de design.
+  Lâminas morre (não usa a furtividade de abertura). Caçador e Lanceiro caíram para 6-7.
 - Bot não escolhe skill que a sim recusaria (sem companheiro, invocação no limite, aura ligada, já na forma) nem canaliza com
   o chefe mirando nele: as duas coisas o deixavam parado até morrer (Caçador 2 → 23, Pestilento 2 → 11).
 - Necromantes: a força vinha da sustentação da classe (Drenar Vida 40% a cada 2,5 s, Muralha de Ossos), não das invocações
   (sem invocação nenhuma o Invocador ainda vencia 31/32, só mais devagar). Dreno 20% a cada 5 s, Muralha 24 s, invocações 45% do MATK.
 - Fim de 2026-11-07 (vitórias de 40): Carniceiro 36, Inquisidor 34, Pestilento 34, Clérigo 33, Ceifador 32, Invocador 32, Cruzado 30,
   Xamã 29, Templário 28, Arremessador 26, Duelista 25, Caçador 23, Lanceiro 23 (2026-11-07, substituiu o Patrulheiro), Fogo 22, Guardião 21, Gelo 20, Fera 19, Executor 18, Trapaceiro 18,
-  Raio 17, Sacerdote 17, Guardião Verde 16, Atirador 16, Lâminas 14. Próximo: Carniceiro e o grupo de 32+ para baixo.
+  Raio 17, Sacerdote 17, Guardião Verde 16, Atirador 16, Lâminas 14 (antes do retrabalho dos chefes; histórico).
 
 ## Progressão (lenta)
 Lv 1-30 (fórmula no parágrafo "Ritmo" abaixo e em `design/gdd/progression.md`).

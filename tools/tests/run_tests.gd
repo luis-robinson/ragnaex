@@ -1549,6 +1549,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_third_builds(gd, sim)
 	_check_corsair(gd, sim)
 	_check_bot_skill_reject(gd, sim)
+	_check_bot_form(gd, sim)
 	_check_elementalist_builds(gd, sim)
 	_check_necromancer_builds(gd, sim)
 	_check_elemental_debuffs(gd, sim)
@@ -8037,6 +8038,30 @@ func _check_bot_skill_reject(gd, sim) -> void:
 	var pick: int = brain._best_skill(r, sim, m, mob, r.position.distance_to(mob.position))
 	check(pick != 0, "bot sem companheiro não escolhe Ataque da Fera (a sim recusaria e o bot travava)")
 	mob.hp = 0
+
+## Druida bot entra na forma (Lobo/Urso) com inimigo perto; antes pulava a skill de forma e lutava como humano (0/40 solo).
+func _check_bot_form(gd, sim) -> void:
+	for row in [["fera", "dru_wolf_form", "wolf"], ["guardiao_verde", "dru_bear_form", "bear"]]:
+		var d = sim.spawn_character(SimEntity.Kind.BOT, gd.classes["druid"], "Forma", "city_aldara", Vector3(-30, 0, 30), 30)
+		d.build_id = row[0]
+		sim._gear_bot(d)
+		var fs: SkillDef = gd.skills[row[1]]
+		d.learned[fs.id] = true
+		d.skills[0] = fs
+		d.cooldowns.clear()
+		d.mp = d.stats.max_mp
+		var mob = sim.spawn_monster(gd.monsters["slime"], "city_aldara", d.position + Vector3(0, 0, 3.0))
+		var m: Dictionary = sim.maps["city_aldara"]
+		var brain := BotBrain.new()
+		brain.setup(d, RandomNumberGenerator.new())
+		check(d.stats.meets(fs.requires), "%s: equipamento do bot permite a forma" % row[0])
+		var pick: int = brain._best_skill(d, sim, m, mob, d.position.distance_to(mob.position))
+		check(pick == 0, "%s: bot com inimigo perto escolhe entrar na forma (%d)" % [row[0], pick])
+		d.form = row[2]
+		pick = brain._best_skill(d, sim, m, mob, d.position.distance_to(mob.position))
+		check(pick != 0, "%s: já na forma, o bot não a desliga" % row[0])
+		mob.hp = 0
+		sim.despawn(d)
 
 ## Bot voltando (bolsa cheia, pouca vida) num mapa fora da cidade conjura o G como o jogador e chega na cidade.
 func _check_bot_recall(gd, sim) -> void:
