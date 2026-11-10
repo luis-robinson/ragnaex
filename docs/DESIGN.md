@@ -201,7 +201,9 @@ Bônus: (2) +atributo secundário · (3) +atributo principal (ex. INT +2) · (4)
 (5) +% no stat da build e −% de recarga de outra skill. Os números crescem por tier (`Balance.SET_*`).
 Drop: o lendário cai como **Moeda Lendária** (1 em 100 monstros; chefes 40% e 2 moedas; Reis sempre). **Iara, a Relicária** (praça de Aldara)
 troca moedas por qualquer peça lendária da sua classe (conjuntos das builds, maça do conjunto, escudos nomeados): tier i de
-`LEGENDARY_LEVELS` custa i+1 moedas (nível 5 = 1, nível 10 = 2 ... nível 30 = 6), até o seu nível (`WorldSim.relic_*`). Ela também vende
+`LEGENDARY_LEVELS` custa i+1 moedas (nível 5 = 1, nível 10 = 2 ... nível 30 = 6), até o seu nível (`WorldSim.relic_*`). A janela tem uma aba por build (abre na do conjunto que você veste, senão na do braço da teia com mais nós) e uma linha
+por conjunto (bônus, armadura | arma, maça, escudo; ✓ = já tem, vestida, na bolsa ou no depósito); **Trocar o que falta** leva de uma vez as peças
+de armadura que você ainda não tem (moedas × peças; a arma troca à parte). Escudos nomeados ficam na aba Escudos. Ela também vende
 Moeda Lendária por ouro (`Balance.LEGEND_COIN_PRICE` = 500, `ItemSystem.buy_legend_coin`). **Reset das skills** com o Ancião Ravi
 (`Balance.SKILL_RESET_NPCS`, `ProgressionSystem.reset_tree`, grátis, segundo clique confirma): a árvore volta ao início com as skills
 iniciais e devolve todos os pontos do nível; os talentos de classe ficam.

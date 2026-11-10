@@ -2255,6 +2255,30 @@ func _check_recall_and_personal_loot(gd, sim) -> void:
 	check(sim.relic_block_reason(buyer, t15[0]).begins_with("requer nível"), "peça acima do nível: não troca")
 	buyer.position += Vector3(30, 0, 0)
 	check(sim.relic_block_reason(buyer, t5[0]) == "fale com a Relicária", "longe da Relicária: não troca")
+	# conjunto de uma vez: só as peças de armadura que faltam (vestida, bolsa ou depósito, +N conta), moedas × peças
+	buyer.position -= Vector3(30, 0, 0)
+	var sid10: String = gd.set_id_for("paladin", gd.classes["paladin"].builds[0]["id"], 10)
+	var sd10: SetDef = gd.sets[sid10]
+	buyer.inventory = {sd10.armor[0]: 1, "legend_coin": 20}
+	buyer.storage = {GameData.plus_item(gd.items[sd10.armor[1]], 3).id: 1}
+	var miss: Array = sim.relic_set_missing(buyer, sid10)
+	check(miss.size() == sd10.armor.size() - 2 and not (sd10.armor[0] in miss) and not (sd10.armor[1] in miss), "conjunto: faltam %d peças (bolsa e depósito +3 contam)" % miss.size())
+	var got: int = sim.relic_exchange_set(buyer, sid10)
+	check(got == miss.size() and int(buyer.inventory.get("legend_coin", 0)) == 20 - 2 * got and sd10.armor.all(func(pid): return sim.owns_item(buyer, pid)), "troca o que falta por 2 moedas cada (%d peças)" % got)
+	check(sim.relic_set_block_reason(buyer, sid10) == "você já tem as peças do conjunto" and sim.relic_exchange_set(buyer, sid10) == 0, "conjunto completo: não troca de novo")
+	check(not sd10.pieces.any(func(pid): return not (pid in sd10.armor) and buyer.has_item(pid)), "a arma do conjunto não entra na troca do conjunto")
+	var sid15: String = gd.set_id_for("paladin", gd.classes["paladin"].builds[0]["id"], 15)
+	check(sim.relic_set_block_reason(buyer, sid15).begins_with("requer nível"), "conjunto acima do nível: não troca")
+	buyer.inventory = {"legend_coin": 3}
+	check(sim.relic_exchange_set(buyer, gd.set_id_for("paladin", gd.classes["paladin"].builds[1]["id"], 10)) == 0, "conjunto sem moedas para todas: não troca nada")
+	check(int(buyer.inventory.get("legend_coin", 0)) == 3, "falha na troca do conjunto não gasta moeda")
+	var wear_build: String = gd.classes["paladin"].builds[2]["id"]
+	buyer.build_id = ""
+	buyer.tree = {}
+	buyer.equipment[ItemDef.Slot.HEAD] = gd.items[gd.sets[gd.set_id_for("paladin", wear_build, 5)].armor[0]]
+	check(sim.relic_default_build(buyer) == wear_build, "Relicária abre na build do conjunto que você veste")
+	buyer.equipment.erase(ItemDef.Slot.HEAD)
+	buyer.storage = {}
 	buyer.inventory = {"legend_coin": 3, "slime_gel": 2}
 	BotBrain.new()._sell_materials(buyer)
 	check(int(buyer.inventory.get("legend_coin", 0)) == 3 and not buyer.inventory.has("slime_gel"), "bot vende material mas guarda a moeda")

@@ -1927,6 +1927,16 @@ func relic_block_reason(e: SimEntity, item_id: String) -> String:
 	return ItemSystem.relic_block_reason(self, e, item_id)
 func relic_exchange(e: SimEntity, item_id: String) -> bool:
 	return ItemSystem.relic_exchange(self, e, item_id)
+func owns_item(e: SimEntity, item_id: String) -> bool:
+	return ItemSystem.owns_item(self, e, item_id)
+func relic_set_missing(e: SimEntity, set_id: String) -> Array:
+	return ItemSystem.relic_set_missing(self, e, set_id)
+func relic_set_block_reason(e: SimEntity, set_id: String) -> String:
+	return ItemSystem.relic_set_block_reason(self, e, set_id)
+func relic_exchange_set(e: SimEntity, set_id: String) -> int:
+	return ItemSystem.relic_exchange_set(self, e, set_id)
+func relic_default_build(e: SimEntity) -> String:
+	return ItemSystem.relic_default_build(self, e)
 func legendary_chance(mob: SimEntity) -> float:
 	return ItemSystem.legendary_chance(self, mob)
 func _uses_shield(e: SimEntity) -> bool:

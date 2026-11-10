@@ -96,40 +96,129 @@ func _restore_scroll(scroll: ScrollContainer, v: int) -> void:
 	if is_instance_valid(scroll):
 		scroll.scroll_vertical = v
 
-## Relicária: uma linha por nível (preço em moedas), as peças lendárias da classe; clique troca.
+var relic_tab := ""           # build da aba aberta na Relicária ("shields" = escudos avulsos; "" = escolher ao abrir)
+const RELIC_CELL := 50
+const RELIC_ARMOR_ORDER := [ItemDef.Slot.HEAD, ItemDef.Slot.BODY, ItemDef.Slot.LEGS, ItemDef.Slot.GLOVES, ItemDef.Slot.BOOTS]
+
+## Relicária: uma aba por build (abre na sua) e uma linha por conjunto: nome, preço, bônus e as peças em ordem fixa
+## (armadura | arma, maça, mão secundária); ✓ = já tem. "Trocar o que falta" leva as peças de armadura que faltam.
+## Escudos nomeados ficam numa aba à parte.
 func _relic(body: VBoxContainer) -> void:
 	var p: SimEntity = Sim.player
+	win.custom_minimum_size = Vector2(760, 420)
 	var coins := int(p.inventory.get("legend_coin", 0))
-	body.add_child(UiKit.label("✦ Moedas lendárias: %d" % coins, 16, Color(1.0, 0.65, 0.2)))
-	var buy := HBoxContainer.new()
-	body.add_child(buy)
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 14)
+	body.add_child(top)
+	top.add_child(UiKit.label("✦ Moedas lendárias: %d" % coins, 16, Color(1.0, 0.65, 0.2)))
 	var bb := UiKit.button("Comprar 1 moeda (%d ouro)" % Balance.LEGEND_COIN_PRICE, _on_buy_coin, 230)
 	bb.disabled = p.gold < Balance.LEGEND_COIN_PRICE
-	buy.add_child(bb)
-	buy.add_child(UiKit.label("   Seu ouro: %d" % p.gold, 13, UiKit.GOLD))
+	top.add_child(bb)
+	top.add_child(UiKit.label("Seu ouro: %d" % p.gold, 13, UiKit.GOLD))
+	var shields: Array = Sim.relic_offer(p).filter(func(i): return GameData.items[i].weapon_type == "shield" and GameData.items[i].set_id == "")
+	var valid: Array = p.class_def.builds.map(func(b): return str(b["id"]))
+	if not shields.is_empty():
+		valid.append("shields")
+	if not (relic_tab in valid):
+		relic_tab = Sim.relic_default_build(p)
+	var tabs := HBoxContainer.new()
+	tabs.add_theme_constant_override("separation", 6)
+	body.add_child(tabs)
+	for b in p.class_def.builds:
+		tabs.add_child(UiKit.button(("● " if relic_tab == b["id"] else "") + str(b["name"]), _set_relic_tab.bind(str(b["id"])), 130))
+	if not shields.is_empty():
+		tabs.add_child(UiKit.button(("● " if relic_tab == "shields" else "") + "Escudos", _set_relic_tab.bind("shields"), 110))
+	if relic_tab == "shields":
+		_relic_shields(body, shields)
+		return
+	for lv in Balance.LEGENDARY_LEVELS:
+		var sd: SetDef = GameData.sets.get(GameData.set_id_for(p.class_def.id, relic_tab, lv))
+		if sd:
+			_relic_set_row(body, sd)
+
+func _set_relic_tab(tab: String) -> void:
+	relic_tab = tab
+	_rebuild()
+
+## Uma linha da Relicária: cabeçalho (nível, nome, preço), bônus por nº de peças, peças e o botão do conjunto.
+func _relic_set_row(body: VBoxContainer, sd: SetDef) -> void:
+	var p: SimEntity = Sim.player
+	var cost: int = Sim.relic_cost(GameData.items[sd.armor[0]])
+	var reach := p.level >= sd.level
+	body.add_child(UiKit.label("Nível %d — %s · %d moeda%s por peça" % [sd.level, sd.name, cost, "s" if cost > 1 else ""], 14, UiKit.GOLD if reach else Color(1.0, 0.62, 0.5)))
+	var ks := sd.bonuses.keys()
+	ks.sort()
+	var lines: Array = []
+	for k in ks:
+		lines.append("%d peças: %s" % [int(k), UiKit.set_bonus_text(sd.bonuses[k])])
+	body.add_child(UiKit.para("   ".join(lines), 11, UiKit.MUTED))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	body.add_child(row)
+	var armor: Array = sd.armor.duplicate()
+	armor.sort_custom(func(x, y): return RELIC_ARMOR_ORDER.find(GameData.items[x].slot) < RELIC_ARMOR_ORDER.find(GameData.items[y].slot))
+	for iid in armor:
+		row.add_child(_relic_cell(GameData.items[iid], cost))
+	var sep := Control.new()
+	sep.custom_minimum_size = Vector2(14, 0)
+	row.add_child(sep)
+	for iid in sd.pieces + sd.alt_pieces:
+		if not (iid in sd.armor):
+			row.add_child(_relic_cell(GameData.items[iid], cost))
+	var sep2 := Control.new()
+	sep2.custom_minimum_size = Vector2(14, 0)
+	row.add_child(sep2)
+	var missing: Array = Sim.relic_set_missing(p, sd.id)
+	var why: String = Sim.relic_set_block_reason(p, sd.id)
+	var txt := "Conjunto completo ✓" if missing.is_empty() else "Trocar o que falta: %d peça%s = %d moedas" % [missing.size(), "s" if missing.size() > 1 else "", cost * missing.size()]
+	var btn := UiKit.button(txt, _on_relic_set.bind(sd.id), 250)
+	btn.disabled = why != ""
+	btn.tooltip_text = "Só as peças de armadura (cabeça, peito, calça, luvas, botas) que você ainda não tem. A arma troca à parte." if why == "" else why.capitalize()
+	btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(btn)
+
+## Peça da Relicária: ✓ = já tem (vestida, bolsa ou depósito); escura = não dá para trocar agora (dica diz por quê).
+func _relic_cell(it: ItemDef, cost: int) -> Control:
+	var p: SimEntity = Sim.player
+	var owned: bool = Sim.owns_item(p, it.id)
+	var why: String = Sim.relic_block_reason(p, it.id)
+	var cell := UiKit.icon_cell(it, RELIC_CELL, Color.WHITE if why == "" and not owned else UiKit.DIM)
+	if owned:
+		var ok := UiKit.label("✓", 22, Color(0.45, 1.0, 0.45))
+		ok.position = Vector2(RELIC_CELL - 20, RELIC_CELL - 30)
+		ok.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cell.add_child(ok)
+	var hint: String = ("[color=#9f9]Você já tem esta peça · clique: trocar outra por %d moeda%s[/color]" if owned else "[color=#9f9]Clique: trocar por %d moeda%s[/color]") % [cost, "s" if cost > 1 else ""]
+	if why != "":
+		hint = "[color=#f99]%s[/color]" % why.capitalize()
+	_tip(cell, func(): return UiKit.item_tooltip(it) + "
+" + hint)
+	cell.gui_input.connect(_on_relic_click.bind(it.id))
+	return cell
+
+## Aba de escudos nomeados: um grupo por nível.
+func _relic_shields(body: VBoxContainer, shields: Array) -> void:
 	var by_lv := {}
-	for iid in Sim.relic_offer(p):
+	for iid in shields:
 		var it: ItemDef = GameData.items[iid]
 		if not by_lv.has(it.level_req):
 			by_lv[it.level_req] = []
 		by_lv[it.level_req].append(it)
-	for lv in Balance.LEGENDARY_LEVELS:
-		if not by_lv.has(lv):
-			continue
-		var cost: int = Sim.relic_cost(by_lv[lv][0])
-		var head := UiKit.label("Nível %d — %d moeda%s" % [lv, cost, "s" if cost > 1 else ""], 13, UiKit.GOLD if p.level >= lv else Color(1.0, 0.62, 0.5))
-		body.add_child(head)
-		var grid := UiKit.grid(12, 4)
-		body.add_child(grid)
+	var lvs := by_lv.keys()
+	lvs.sort()
+	for lv in lvs:
 		var items: Array = by_lv[lv]
 		items.sort_custom(func(a, b): return a.name < b.name)
+		var cost: int = Sim.relic_cost(items[0])
+		body.add_child(UiKit.label("Nível %d — %d moeda%s" % [lv, cost, "s" if cost > 1 else ""], 14, UiKit.GOLD if Sim.player.level >= lv else Color(1.0, 0.62, 0.5)))
+		var grid := UiKit.grid(12, 4)
+		body.add_child(grid)
 		for it in items:
-			var why := Sim.relic_block_reason(p, it.id)
-			var cell := UiKit.icon_cell(it, 46, Color.WHITE if why == "" else UiKit.DIM)
-			var hint: String = ("[color=#9f9]Clique: trocar por %d moeda%s[/color]" % [cost, "s" if cost > 1 else ""]) if why == "" else ("[color=#f99]%s[/color]" % why.capitalize())
-			_tip(cell, func(): return UiKit.item_tooltip(it) + "\n" + hint)
-			cell.gui_input.connect(_on_relic_click.bind(it.id))
-			grid.add_child(cell)
+			grid.add_child(_relic_cell(it, cost))
+
+func _on_relic_set(set_id: String) -> void:
+	if Sim.relic_exchange_set(Sim.player, set_id) > 0:
+		_rebuild()
 
 func _on_buy_coin() -> void:
 	if Sim.buy_legend_coin(Sim.player):
@@ -271,7 +360,7 @@ func _dialog(body: VBoxContainer) -> void:
 		"storage":
 			actions.add_child(UiKit.button("Abrir o depósito", func(): mode = "storage"; _rebuild(), 160))
 		"relic":
-			actions.add_child(UiKit.button("Trocar moedas lendárias", func(): mode = "relic"; _rebuild(), 200))
+			actions.add_child(UiKit.button("Trocar moedas lendárias", func(): mode = "relic"; relic_tab = ""; _rebuild(), 200))
 			var bc := UiKit.button("Comprar moeda (%d ouro)" % Balance.LEGEND_COIN_PRICE, _on_buy_coin, 200)
 			bc.disabled = p.gold < Balance.LEGEND_COIN_PRICE
 			actions.add_child(bc)

@@ -150,6 +150,78 @@ static func relic_exchange(sim: WorldSim, e: SimEntity, item_id: String) -> bool
 		Events.post(&"notification", "★ LENDÁRIO: %s!" % GameData.items[item_id].name)
 	return true
 
+## Já tem a peça (vestida, na bolsa ou no depósito; a versão aprimorada +N conta).
+static func owns_item(sim: WorldSim, e: SimEntity, item_id: String) -> bool:
+	for sl in e.equipment:
+		var it: ItemDef = e.equipment[sl]
+		if it and (it.id == item_id or it.base_id == item_id):
+			return true
+	for bag in [e.inventory, e.storage]:
+		for iid in bag:
+			var it: ItemDef = GameData.items.get(iid)
+			if iid == item_id or (it and it.base_id == item_id):
+				return true
+	return false
+
+## Relicária: peças de ARMADURA do conjunto que ainda faltam (arma, maça e escudo trocam à parte).
+static func relic_set_missing(sim: WorldSim, e: SimEntity, set_id: String) -> Array:
+	var sd: SetDef = GameData.sets.get(set_id)
+	if sd == null:
+		return []
+	return sd.armor.filter(func(pid): return not owns_item(sim, e, pid))
+
+## Por que não troca o conjunto de uma vez ("" = pode): mesmas regras da peça, moedas para todas as que faltam.
+static func relic_set_block_reason(sim: WorldSim, e: SimEntity, set_id: String) -> String:
+	var missing := relic_set_missing(sim, e, set_id)
+	if missing.is_empty():
+		return "você já tem as peças do conjunto"
+	var why := relic_block_reason(sim, e, missing[0])
+	if why.begins_with("faltam moedas") or why == "":
+		var cost := relic_cost(sim, GameData.items[missing[0]]) * missing.size()
+		if int(e.inventory.get("legend_coin", 0)) < cost:
+			return "faltam moedas (%d)" % cost
+		return ""
+	return why
+
+## Troca todas as peças de armadura que faltam do conjunto (moedas × peças). Devolve quantas trocou.
+static func relic_exchange_set(sim: WorldSim, e: SimEntity, set_id: String) -> int:
+	var why := relic_set_block_reason(sim, e, set_id)
+	if why != "":
+		if e == sim.player:
+			Events.post(&"notification", "Relicária: " + why)
+		return 0
+	var missing := relic_set_missing(sim, e, set_id)
+	e.remove_item("legend_coin", relic_cost(sim, GameData.items[missing[0]]) * missing.size())
+	for pid in missing:
+		e.add_item(pid, 1)
+	if e == sim.player:
+		Events.post(&"notification", "★ LENDÁRIO: %s (%d peça%s)!" % [GameData.sets[set_id].name, missing.size(), "s" if missing.size() > 1 else ""])
+	return missing.size()
+
+## Build da aba inicial da Relicária: a do bot; no jogador, a do conjunto que mais veste, senão a do braço da teia com mais nós.
+static func relic_default_build(sim: WorldSim, e: SimEntity) -> String:
+	if e.build_id != "":
+		return e.build_id
+	var score := {}
+	for b in e.class_def.builds:
+		score[b["id"]] = 0.0
+	for sl in e.equipment:
+		var it: ItemDef = e.equipment[sl]
+		if it and it.set_id != "":
+			var bid := GearCatalog.bid_of_set(it.set_id).trim_prefix(e.class_def.id + "_")
+			if score.has(bid):
+				score[bid] += 10.0
+	var nodes: Dictionary = ProgressionSystem.tree_of(sim, e)["nodes"]
+	for nid in e.tree:
+		var n: Dictionary = nodes.get(nid, {})
+		if score.has(n.get("branch", "")):
+			score[n["branch"]] += 1.0
+	var best: String = e.class_def.builds[0]["id"]
+	for bid in score:
+		if score[bid] > score[best]:
+			best = bid
+	return best
+
 ## Chance de lendário por monstro: chefe 25%; no primeiro mapa o 1º conjunto cai mais (1 em 50); no resto 1 em 200.
 static func legendary_chance(sim: WorldSim, mob: SimEntity) -> float:
 	if mob.monster_def.elite_of != "":
