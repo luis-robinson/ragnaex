@@ -44,7 +44,7 @@ var echo_chance: float = 0.0     # arma lendária (dano): % de chance do golpe d
 var echo_pct: float = 0.0        # ... com esta % do dano
 var thorns_pct: float = 0.0      # arma lendária (tanque): % do dano corpo a corpo recebido devolvido
 var ward_pct: float = 0.0        # arma lendária (cura): % da cura que vira barreira
-var legend: Dictionary = {}      # efeito da arma lendária equipada (GearCatalog.LEGEND_EFFECTS); vazio = nenhum
+var legend: Dictionary = {}      # efeito da arma lendária equipada (GearCatalog.legend_effect); vazio = nenhum
 var attrs := {"FOR": 0, "AGI": 0, "VIT": 0, "WILL": 0, "INT": 0}
 var has_shield: bool = false
 var weapon_type: String = ""     # mão principal

@@ -11,6 +11,40 @@ const ATTR_SCALE := 10
 const BUILD_POWER := {"inquisidor": 0.6, "ceifador": 0.85, "invocador": 0.85, "carniceiro": 0.88, "batalha": 0.88,
 	"laminas": 2.3, "duelista": 1.7, "fera": 1.6, "raio": 1.35, "guardiao": 1.5}
 
+## Peso da magia-assinatura por build (x SIGNATURE_POWER; sem entrada = 1.0), calibrado com dps_probe.
+const SIGNATURE_BUILD_POWER := {
+	"punhos": 0.8, "fera": 0.8, "xama": 0.85, "lanceiro": 0.8, "laminas": 0.8, "duelista": 0.55, "corsario": 0.7,
+	"gelo": 0.9, "ceifador": 0.8, "pestilento": 0.7,
+}
+## Números do efeito da arma lendária de cada build ([base, por tier] ou fixo); kind/name/skill ficam na build
+## (classes_catalog `legend`). Tipos e regras em LegendEffects. Toda build tem entrada (há check).
+const LEGEND_NUMBERS := {
+	"guardiao": {"pct": [15, 3]},
+	"cruzado": {"chance": [12, 2], "dur": [0.8, 0.1], "icd": 6.0},
+	"templario": {"pct": [120, 24], "stacks": 5, "radius": 2.5},
+	"carniceiro": {"pct": [4, 0.6], "max": 5},
+	"executor": {"pct": [30, 6], "below": 0.3},
+	"punhos": {"pct": [30, 6]},
+	"sacerdote": {"pct": [15, 3]},
+	"inquisidor": {"chance": [18, 3]},
+	"batalha": {"pct": [8, 2]},
+	"guardiao_verde": {"icd": 20.0},
+	"fera": {"chance": [30, 4], "pct": [12, 2]},
+	"xama": {"chance": [18, 3]},
+	"atirador": {"pct": [40, 6], "radius": 2.5},
+	"cacador": {"pct": [8, 2]},
+	"lanceiro": {"pct": [2.4, 0.48], "max": 5, "bleed": [8, 1.6]},
+	"laminas": {"chance": [35, 4], "pct": [10, 2]},
+	"duelista": {"pct": [80, 10]},
+	"corsario": {"chance": [25, 3], "pct": [45, 6]},
+	"fogo": {"chance": [20, 4]},
+	"gelo": {"icd": 20.0},
+	"raio": {"targets": [1, 0.34], "pct": [60, 6]},
+	"invocador": {"icd": 12.0, "time": [15, 2]},
+	"ceifador": {"pct": [6, 1.2]},
+	"pestilento": {"chance": [12, 2]},
+}
+
 # --- atributos -> stats derivados (por ponto da escala antiga = ATTR_SCALE pontos de hoje) ---
 const HP_PER_VIT := 12.0
 const MP_PER_WILL := 8.0
@@ -324,7 +358,7 @@ const LEGENDARY_LEVELS := [5, 10, 15, 20, 25, 30]
 const LEGENDARY_MULT := 1.2                   # ATK/DEF/atributos vs. item comum do mesmo nível
 const LEGENDARY_DROP_CHANCE := 0.01           # por monstro morto (1 em 100); cada membro do grupo rola o seu
 const LEGENDARY_DROP_CHANCE_BOSS := 0.4
-## Arma lendária: efeito próprio da build (GearCatalog.LEGEND_EFFECTS); aqui só os limites comuns
+## Arma lendária: efeito próprio da build (`legend` da build + LEGEND_NUMBERS acima); aqui só os limites comuns
 const LEG_THORNS_RANGE := 4.0
 const LEG_RIPOSTE_RANGE := 4.0             # contra-ataque só em quem bate de perto
 const LEG_CHAIN_RANGE := 6.0               # salto do básico (corrente) até o próximo inimigo

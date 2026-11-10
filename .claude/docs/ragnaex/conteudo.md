@@ -28,8 +28,10 @@
 - **Escudo**: linha em `GearCatalog.SHIELDS` (modelo próprio em `tools/blender/shield_kit.py`, um por escudo; afinidade em `GearCatalog.SHIELD_AFFINITY` dá Juramento/Graça; ícone é foto do modelo: `tools/icons/shield_icons.tscn`; `shield_effect` = reação ao bloquear).
   Rode `build_kits` e `tools/icons/shield_icons.tscn` (com janela) + `--import`. Revisar: `-- --autostart=paladin --block_shot=<png> [--shield=<id>]`, `lineup.tscn -- --shields [--page=N] --anim=block_shield`, `--block_film`; montagem e guarda: `tools/blender/shield_mount.py` (sem args resolve `SHIELD_*` no idle; `-- --guard` acha o braço do
   `block_shield`; `-- --check` conta toques fora do braço esquerdo em idle/corrida/guarda, os 18 escudos). Mudou montagem ou pose: rode `--check`.
-- **Build**: `ClassDef.builds` em `classes_catalog.gd` (armas, armadura, atributos, skills em prioridade). Uma build nova
-  ganha conjuntos lendários sozinha (`gear_catalog.gd`; adicione o nome em `BUILD_OF`).
+- **Build**: uma entrada `_b(...)` em `classes_catalog.gd` diz tudo da build: armas, armadura, atributos, skills em prioridade,
+  `passives`/`set_extra`, `of` ("do X" das peças), `signature` (magia-assinatura + `look` do básico), `legend` (kind/name/skill
+  da arma lendária) e, no Elementalista, `element`. Números por build ficam em `Balance` (`BUILD_POWER`, `SIGNATURE_BUILD_POWER`,
+  `LEGEND_NUMBERS`; check `_check_build_entries`). Uma build nova ganha conjuntos lendários sozinha (`gear_catalog.gd`).
 - **Evolução** (skill ou dash): `data/catalog/talents_catalog.gd` (`TalentDef`; dash = `skill_id: "dash"`).
 - **Item/equipamento**: `items_catalog.gd` (atributos FOR/AGI/VIT/WILL/INT vêm de equipamento e dos nós de atributo da teia). Ícone: sem `icon` próprio, arte pintada
   `art_<id>.png` por `tools/icons/item_icons.gd` (laço sobre todos os itens; forma por `ItemIcons.art_key`: tipo de arma, slot + `armor_style`,

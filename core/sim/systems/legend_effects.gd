@@ -1,6 +1,6 @@
 class_name LegendEffects
 extends RefCounted
-## Efeitos das armas lendárias (GearCatalog.LEGEND_EFFECTS): ao acertar, ao bater com a arma, ao abater.
+## Efeitos das armas lendárias (`legend` de cada build + Balance.LEGEND_NUMBERS): ao acertar, ao bater com a arma, ao abater.
 
 ## Multiplicador de dano da arma lendária no alvo (Carrasco: pouca vida; Presa Acuada: lento/preso/atordoado;
 ## Ferida Aberta: feridas que você abriu nele).
@@ -50,14 +50,14 @@ static func legend_cast(sim: WorldSim, e: SimEntity, skill_id: String, aim: Vect
 static func signature_build(e: SimEntity) -> String:
 	if e.class_def == null:
 		return ""
-	if e.build_id != "" and ClassesCatalog.SIGNATURES.has(e.build_id):
+	if e.build_id != "" and e.class_def.build_by_id(e.build_id).has("signature"):
 		return e.build_id
 	var wt: String = e.stats.weapon_type if e.stats else ""
 	var best := ""
 	var best_n := -1
 	for b in e.class_def.builds:
 		var bid: String = b.get("id", "")
-		if not ClassesCatalog.SIGNATURES.has(bid):
+		if not b.has("signature"):
 			continue
 		var n := 0
 		if wt != "" and wt in b.get("main", []):
@@ -72,7 +72,9 @@ static func signature_build(e: SimEntity) -> String:
 	return best
 
 static func signature_skill(e: SimEntity) -> String:
-	return str(ClassesCatalog.SIGNATURES.get(signature_build(e), {}).get("skill", ""))
+	if e.class_def == null:
+		return ""
+	return str(e.class_def.build_by_id(signature_build(e)).get("signature", {}).get("skill", ""))
 
 ## Efeito-assinatura: ao acertar com o básico (ou, menos, com skills), chance de lançar de graça a magia da build,
 ## com poder reduzido (SIGNATURE_POWER) e recarga própria. Arma lendária com a mesma magia (Brasa Viva) soma chance.
@@ -94,7 +96,7 @@ static func signature_on_hit(sim: WorldSim, e: SimEntity, t: SimEntity, s: Skill
 		return
 	e.sig_ready_at = sim.time + Balance.SIGNATURE_ICD
 	sim.signature_casting = true
-	sim.power_scale = Balance.SIGNATURE_POWER * float(ClassesCatalog.SIGNATURES.get(signature_build(e), {}).get("power", 1.0))     # peso por build (dps_probe)
+	sim.power_scale = Balance.SIGNATURE_POWER * float(Balance.SIGNATURE_BUILD_POWER.get(signature_build(e), 1.0))     # peso por build (dps_probe)
 	legend_cast(sim, e, sid, t.position)
 	sim.power_scale = 1.0
 	sim.signature_casting = false

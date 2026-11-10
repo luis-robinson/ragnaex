@@ -551,7 +551,7 @@ Movimento: atravessam água só pelas pontes (`WorldSim.water_path`, grafo de ca
 - **XP**: abate dividido entre os membros vivos no mesmo mapa a até 45 m e com até 15 níveis de diferença;
   total × (1 + 15% por membro extra) ÷ membros, cada um com o multiplicador do próprio nível. Quests de abate contam para todos eles.
 - **Curas e buffs em área** só pegam você, o grupo e as invocações deles (`SimEntity.is_friend`); invocações herdam o grupo do dono.
-- **Efeito-assinatura** (`ClassesCatalog.SIGNATURES`, `LegendEffects.signature_on_hit`): toda build lança de graça a magia dela ao acertar,
+- **Efeito-assinatura** (`signature` de cada build em `classes_catalog.gd`, `LegendEffects.signature_on_hit`): toda build lança de graça a magia dela ao acertar,
   sem depender da arma (Fogo: Bola de Fogo; Gelo: Lança de Gelo; Iluminado: Martelo de Luz; Caçador: Flecha Gélida...). Chance
   `SIGNATURE_BASIC_PCT` (+1%/5 níveis) no básico e `SIGNATURE_SKILL_PCT` por acerto de skill, recarga `SIGNATURE_ICD`, poder `SIGNATURE_POWER`
   x o peso da build; o que ela acerta não dispara outra. Arma lendária com a mesma magia (Brasa Viva) soma chance.
@@ -649,7 +649,7 @@ XP: `Balance.XP_BASE` 220 × `XP_GROWTH` 1,30^(nível−1) (subir é ~2x mais le
 
 Cada conjunto tem **5 peças de armadura** (cabeça, peito, **calça**, luvas, botas): os bônus saem com 2, 3, 4 e 5 delas. A arma (e a 2ª arma /
 mão secundária) é do conjunto, mas **não conta** nas peças: a arma lendária tem **efeito próprio** pelo papel da build, crescendo por tier —
-um por build (`GearCatalog.LEGEND_EFFECTS`, números [base, por tier]):
+um por build (`legend` da build em `classes_catalog.gd`; números [base, por tier] em `Balance.LEGEND_NUMBERS`):
 Guardião Retaliação (devolve corpo a corpo) · Cruzado Julgamento (chance de atordoar) · Gêmeos Frenesi (golpes acumulam vel. de ataque) ·
 Executor Carrasco (+dano em alvo < 30%) · Punhos de Fúria Punho Vingativo (contra-ataque da esquiva mais forte) · Sacerdote Égide (cura vira barreira) · Iluminado Castigo Sagrado (básico lança Castigar) ·
 Templário Penitência (5ª carga explode em fogo sagrado) · Clérigo de Batalha Mão que Cura (golpe cura o aliado mais ferido) ·

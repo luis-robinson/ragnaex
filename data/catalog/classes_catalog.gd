@@ -19,18 +19,10 @@ static func _s(a: Array) -> Array[String]:
 	return out
 
 ## Build: armas (main/off), armadura do conjunto, atributos e stat do bônus de 5 peças, skills em prioridade.
-## Efeito-assinatura de cada build (LegendEffects.signature_on_hit): magia que dispara de graça ao acertar com o
-## básico ou com skills, em qualquer nível e com qualquer arma. `look` = tema visual do básico da build (só aparência).
-const SIGNATURES := {
-	"guardiao": {"skill": "pal_holy_strike", "look": "holy"}, "cruzado": {"skill": "pal_holy_wave", "look": "holy"}, "templario": {"skill": "pal_sacred_flame", "look": "holy"},
-	"carniceiro": {"skill": "ber_throw_axe", "look": "blood"}, "executor": {"skill": "ber_overhead", "look": "blood"}, "punhos": {"skill": "ber_shockwave", "look": "blood", "power": 0.8},
-	"sacerdote": {"skill": "bis_light", "look": "holy"}, "inquisidor": {"skill": "bis_hammer", "look": "holy"}, "batalha": {"skill": "bis_holy_nova", "look": "holy"},
-	"guardiao_verde": {"skill": "dru_moonfire", "look": "nature"}, "fera": {"skill": "dru_claw", "look": "nature", "power": 0.8}, "xama": {"skill": "dru_moonfire", "look": "lunar", "power": 0.85},
-	"cacador": {"skill": "ran_frost_arrow", "look": "ice"}, "atirador": {"skill": "ran_snipe", "look": "fire"}, "lanceiro": {"skill": "ran_javelin", "look": "blood", "power": 0.8},
-	"laminas": {"skill": "ass_venom_dart", "look": "poison", "power": 0.8}, "duelista": {"skill": "ass_thrust", "look": "blood", "power": 0.55}, "corsario": {"skill": "ass_pistol_shot", "look": "fire", "power": 0.7},
-	"fogo": {"skill": "ele_fireball", "look": "fire"}, "gelo": {"skill": "ele_ice_lance", "look": "ice", "power": 0.9}, "raio": {"skill": "ele_chain", "look": "lightning"},
-	"invocador": {"skill": "nec_bone_spear", "look": "bone"}, "ceifador": {"skill": "nec_soul_rend", "look": "shadow", "power": 0.8}, "pestilento": {"skill": "nec_mind_flay", "look": "shadow", "power": 0.7},
-}
+## Cada build também diz `of` ("do X" das peças), `signature` (magia que dispara de graça ao acertar com o básico ou
+## skills, LegendEffects.signature_on_hit; `look` = tema visual do básico), `legend` (efeito da arma lendária: kind/name/skill;
+## números em Balance.LEGEND_NUMBERS) e, no Elementalista, `element`. Números por build: Balance.BUILD_POWER,
+## SIGNATURE_BUILD_POWER e LEGEND_NUMBERS (há check de que toda build está em todas).
 
 static func _b(id: String, name: String, role: String, main: Array, off: Array, armor: String, attr: String, attr2: String, stat: String, skills: Array) -> Dictionary:
 	return {"id": id, "name": name, "role": role, "main": main, "off": off, "armor": armor,
@@ -49,15 +41,18 @@ static func build() -> Array:
 				_b("guardiao", "Guardião", "tank", ["sword", "mace"], ["shield"], "plate", "VIT", "FOR", "def_pct",
 					# os 6 primeiros que o nível libera vão na barra do bot: ricochete, aura e provocar sempre entram
 					["pal_holy_strike", "pal_shield_throw", "pal_bastion_aura", "pal_taunt", "pal_lay_hands", "pal_retribution",
-					 "pal_shield_wall", "pal_aegis_slam", "pal_shield_bash", "pal_divine_shield", "pal_blessed_armor"]),
+					 "pal_shield_wall", "pal_aegis_slam", "pal_shield_bash", "pal_divine_shield", "pal_blessed_armor"]).merged({
+					"of": "do Guardião", "signature": {"skill": "pal_holy_strike", "look": "holy"}, "legend": {"kind": "thorns", "name": "Retaliação"}}),
 				_b("cruzado", "Cruzado", "dps", ["sword2h", "mace2h"], [], "plate", "FOR", "WILL", "atk_pct",
 					["pal_holy_strike", "pal_crusader_strike", "pal_twin_slash", "pal_consecrate", "pal_lunge", "pal_hammer_light", "pal_blade_dance",
-					 "pal_holy_wave", "pal_flurry", "pal_zeal", "pal_valor", "pal_judgement_blade", "pal_purge"]),
+					 "pal_holy_wave", "pal_flurry", "pal_zeal", "pal_valor", "pal_judgement_blade", "pal_purge"]).merged({
+					"of": "do Cruzado", "signature": {"skill": "pal_holy_wave", "look": "holy"}, "legend": {"kind": "stun", "name": "Julgamento"}}),
 				# Templário: espada (ou maça) e escudo como o Guardião, mas para causar dano: golpes de fogo sagrado que marcam
 				# e queimam (FOR no golpe, INT na queimadura); as skills de escudo do Guardião e a Retribuição entram na mistura
 				_b("templario", "Templário", "dps", ["sword", "mace"], ["shield"], "plate", "FOR", "INT", "atk_pct",
 					["pal_sacred_flame", "pal_holy_strike", "pal_brand", "pal_cleansing_fire", "pal_sun_strike", "pal_shield_bash", "pal_flame_pyre", "pal_avenging_wrath",
 					 "pal_aegis_slam", "pal_retribution", "pal_blessed_armor", "pal_lay_hands", "pal_purge"]).merged({
+					"of": "do Templário", "signature": {"skill": "pal_sacred_flame", "look": "holy"}, "legend": {"kind": "penance", "name": "Penitência"},
 					"passives": [{"atk_pct": 3}, {"crit": 1.5}], "set_extra": {3: {"crit": [3.0, 0.8]}}}),
 			]}),
 		_mk({"id": "berserker", "body_type": "male", "hair_color": Color(0.55, 0.2, 0.12), "name": "Berserker", "role": "dps", "color": Color(0.85, 0.3, 0.25),
@@ -71,16 +66,19 @@ static func build() -> Array:
 				_b("carniceiro", "Machados Gêmeos", "dps", ["axe"], ["axe"], "leather", "FOR", "AGI", "aspd_pct",
 					["ber_hack", "ber_twin_fang", "ber_cleave", "ber_rend", "ber_blade_rush", "ber_axe_storm", "ber_steel_whirl", "ber_throw_axe",
 					 "ber_crimson_flurry", "ber_fury", "ber_butcher", "ber_bladestorm", "ber_leap"]).merged({
+					"of": "das Armas Gêmeas", "signature": {"skill": "ber_throw_axe", "look": "blood"}, "legend": {"kind": "frenzy", "name": "Frenesi"},
 					# velocidade de ataque e roubo de vida (árvore e conjunto)
 					"passives": [{"aspd_pct": 3}, {"lifesteal": 1}], "set_extra": {3: {"lifesteal": [2.0, 0.5]}}}),
 				_b("executor", "Executor", "dps", ["axe2h"], [], "plate", "FOR", "VIT", "atk_pct",
 					["ber_cleave", "ber_overhead", "ber_bloodlust", "ber_whirlwind", "ber_earthsplitter", "ber_execute", "ber_titan_grip", "ber_warcry", "ber_decapitate"]).merged({
+					"of": "do Executor", "signature": {"skill": "ber_overhead", "look": "blood"}, "legend": {"kind": "execute", "name": "Carrasco"},
 					# tanque de apoio: vida e defesa na árvore e no conjunto, sem perder o dano
 					"passives": [{"atk_pct": 3}, {"hp_pct": 4}, {"def_pct": 3}], "set_extra": {3: {"hp_pct": [5.0, 1.5], "def_pct": [5.0, 1.5]}}}),
 				# monge da fúria: duas garras, muita AGI e esquiva; esquivar dá Fúria do Punho e contra-ataca (FistSystem)
 				_b("punhos", "Punhos de Fúria", "dps", ["claw"], ["claw"], "leather", "AGI", "FOR", "aspd_pct",
 					["ber_final_fist", "ber_hundred_fists", "ber_tiger_pounce", "ber_fist_flurry", "ber_shockwave", "ber_earth_slash", "ber_counter_stance",
 					 "ber_chakra", "ber_rend", "ber_blade_rush", "ber_fury", "ber_bloodlust", "ber_leap", "ber_warcry", "ber_cleave"]).merged({
+					"of": "dos Punhos de Fúria", "signature": {"skill": "ber_shockwave", "look": "blood"}, "legend": {"kind": "fist_counter", "name": "Punho Vingativo"},
 					# esquiva e velocidade (árvore e conjunto); a arma dá Punho Vingativo (contra-ataque mais forte)
 					"passives": [{"evasion": 4}, {"aspd_pct": 3}], "set_extra": {3: {"evasion": [6.0, 1.0], "crit": [3.0, 0.6]}}}),
 			]}),
@@ -94,10 +92,12 @@ static func build() -> Array:
 			"builds": [
 				_b("sacerdote", "Sacerdote", "healer", ["mace"], ["shield"], "cloth", "WILL", "VIT", "heal_pct",
 					["bis_heal", "bis_light", "bis_holy_nova", "bis_renew", "bis_prayer", "bis_blessing", "bis_sanctuary", "bis_ward", "bis_mend", "bis_angel", "bis_martyr", "bis_miracle"]).merged({
+					"of": "do Sacerdote", "signature": {"skill": "bis_light", "look": "holy"}, "legend": {"kind": "ward", "name": "Égide"},
 					# suporte: cura mais forte e bênçãos que duram mais (árvore e conjunto)
 					"passives": [{"heal_pct": 4}, {"buff_pct": 6}], "set_extra": {3: {"buff_pct": [10.0, 3.0]}}}),
 				_b("inquisidor", "Iluminado", "dps", ["scepter"], [], "cloth", "INT", "WILL", "matk_pct",
 					["bis_light", "bis_smite", "bis_holy_nova", "bis_hammer", "bis_condemn", "bis_exorcism", "bis_zealot", "bis_purify", "bis_crusade", "bis_judgement", "bis_wrath"]).merged({
+					"of": "do Inquisidor", "signature": {"skill": "bis_hammer", "look": "holy"}, "legend": {"kind": "cast_on_basic", "name": "Castigo Sagrado", "skill": "bis_smite"},
 					# luz: dano mágico e Radiância (parte do dano cura o aliado mais ferido por perto)
 					"passives": [{"matk_pct": 3}, {"radiance": 2}], "set_extra": {3: {"radiance": [6.0, 1.5]}}}),
 				# Clérigo de Batalha: maça e escudo como o Sacerdote, mas de placa e na linha de frente: golpes físicos que curam
@@ -105,6 +105,7 @@ static func build() -> Array:
 				_b("batalha", "Clérigo de Batalha", "dps", ["mace"], ["shield"], "plate", "FOR", "WILL", "atk_pct",
 					["bis_holy_blow", "bis_shield_smite", "bis_holy_quake", "bis_battle_hymn", "bis_faith_leap", "bis_divine_hammer", "bis_heal", "bis_blessing", "bis_ward", "bis_renew",
 					 "bis_holy_nova", "bis_martyr", "bis_prayer", "bis_light"]).merged({
+					"of": "do Clérigo de Batalha", "signature": {"skill": "bis_holy_nova", "look": "holy"}, "legend": {"kind": "mend", "name": "Mão que Cura"},
 					"passives": [{"atk_pct": 3}, {"heal_pct": 4}], "set_extra": {3: {"def_pct": [5.0, 1.5]}}}),
 			]}),
 		_mk({"id": "druid", "body_type": "female", "hair_color": Color(0.4, 0.28, 0.16), "name": "Druida", "role": "caster", "color": Color(0.45, 0.8, 0.35),
@@ -118,12 +119,15 @@ static func build() -> Array:
 			"builds": [
 				_b("guardiao_verde", "Urso", "tank", ["mace2h"], [], "plate", "VIT", "WILL", "def_pct",
 					["dru_bear_form", "dru_maul", "dru_bellow", "dru_thorns", "dru_earth_slam", "dru_bark", "dru_oak_skin", "dru_stampede", "dru_regrowth", "dru_mountain"]).merged({
+					"of": "do Guardião da Floresta", "signature": {"skill": "dru_moonfire", "look": "nature"}, "legend": {"kind": "cast_when_hit", "name": "Casca Viva", "skill": "dru_oak_skin"},
 					"passives": [{"hp_pct": 4}, {"def_pct": 3}], "set_extra": {3: {"hp_pct": [5.0, 1.5]}}}),
 				_b("fera", "Lobo", "dps", ["mace"], ["mace"], "leather", "FOR", "AGI", "atk_pct",
 					["dru_wolf_form", "dru_claw", "dru_prowl", "dru_maim", "dru_thorns", "dru_pounce", "dru_frenzy", "dru_rampage", "dru_regrowth", "dru_savage", "dru_entangle"]).merged({
+					"of": "da Fera Selvagem", "signature": {"skill": "dru_claw", "look": "nature"}, "legend": {"kind": "bleed", "name": "Sangue da Matilha"},
 					"passives": [{"aspd_pct": 3}, {"crit": 1.5}], "set_extra": {3: {"aspd_pct": [6.0, 2.0]}}}),
 				_b("xama", "Xamã", "caster", ["staff"], [], "cloth", "INT", "WILL", "matk_pct",
 					["dru_thorns", "dru_moonfire", "dru_grove", "dru_entangle", "dru_spirit_wolves", "dru_swarm", "dru_starfall", "dru_cyclone", "dru_treant", "dru_wild_growth", "dru_regrowth", "dru_storm"]).merged({
+					"of": "do Xamã", "signature": {"skill": "dru_moonfire", "look": "lunar"}, "legend": {"kind": "cast_on_basic", "name": "Lua Cheia", "skill": "dru_moonfire"},
 					# natureza: magia, invocações e bênçãos que duram mais
 					"passives": [{"matk_pct": 3}, {"buff_pct": 6}], "set_extra": {3: {"buff_pct": [10.0, 3.0]}}}),
 			]}),
@@ -138,15 +142,18 @@ static func build() -> Array:
 				_b("cacador", "Caçador", "ranged", ["bow"], [], "leather", "AGI", "VIT", "atk_pct",
 					["ran_power_shot", "ran_companion", "ran_multishot", "ran_anchor", "ran_frost_arrow", "ran_sic", "ran_explosive", "ran_piercing", "ran_net",
 					 "ran_pack", "ran_rain", "ran_volley", "ran_barrage", "ran_disengage"]).merged({
+					"of": "do Caçador", "signature": {"skill": "ran_frost_arrow", "look": "ice"}, "legend": {"kind": "mark", "name": "Marca do Caçador"},
 					# companheiro mais forte (árvore e conjunto)
 					"passives": [{"atk_pct": 3}, {"pet_pct": 5}], "set_extra": {3: {"pet_pct": [10.0, 3.0]}}}),
 				_b("atirador", "Atirador", "ranged", ["rifle"], [], "leather", "AGI", "FOR", "atk_pct",
 					["ran_power_shot", "ran_trap", "ran_anchor", "ran_scatter", "ran_snipe", "ran_mine", "ran_frost_trap", "ran_mark", "ran_headshot", "ran_deadeye", "ran_disengage"]).merged({
+					"of": "do Atirador", "signature": {"skill": "ran_snipe", "look": "fire"}, "legend": {"kind": "splash", "name": "Pólvora"},
 					"passives": [{"atk_pct": 3}, {"crit": 1.5}], "set_extra": {3: {"crit": [4.0, 1.0]}}}),
 				# caçador de perto com a lança: estocadas longas, salto na presa, dardos e armadilhas de mão; a presa sangra
 				_b("lanceiro", "Lanceiro", "dps", ["spear"], [], "leather", "AGI", "FOR", "atk_pct",
 					["ran_double_thrust", "ran_javelin", "ran_spear_leap", "ran_spear_sweep", "ran_snare_toss", "ran_predator", "ran_blood_instinct",
 					 "ran_impale", "ran_mark", "ran_trap", "ran_disengage"]).merged({
+					"of": "do Lanceiro", "signature": {"skill": "ran_javelin", "look": "blood"}, "legend": {"kind": "open_wound", "name": "Ferida Aberta"},
 					# linha de frente leve: ataque e vida (árvore), vida no conjunto de 3
 					"passives": [{"atk_pct": 3}, {"hp_pct": 3}], "set_extra": {3: {"hp_pct": [5.0, 1.5]}}}),
 			]}),
@@ -161,11 +168,13 @@ static func build() -> Array:
 				_b("laminas", "Lâminas", "dps", ["dagger"], ["dagger"], "leather", "AGI", "FOR", "aspd_pct",
 					["ass_twin_strike", "ass_backstab", "ass_plague_blade", "ass_quick_stab", "ass_shadowstep", "ass_vanish", "ass_poison", "ass_blade_flurry", "ass_venom_dart",
 					 "ass_fan", "ass_reflexes", "ass_eviscerate", "ass_paralyze", "ass_toxic_cloud", "ass_dance", "ass_execute", "ass_virulence", "ass_thousand"]).merged({
+					"of": "das Lâminas Gêmeas", "signature": {"skill": "ass_venom_dart", "look": "poison"}, "legend": {"kind": "poison", "name": "Veneno Letal"},
 					# velocidade, esquiva e pelas costas (árvore e conjunto)
 					"passives": [{"aspd_pct": 3}, {"evasion": 3}, {"backstab": 6}, {"hp_pct": 4}], "set_extra": {3: {"evasion": [6.0, 1.5], "backstab": [10.0, 3.0]}}}),
 				_b("duelista", "Duelista", "dps", ["sword"], ["sword"], "leather", "AGI", "FOR", "atk_pct",
 					["ass_cross_slash", "ass_backstab", "ass_quick_stab", "ass_thrust", "ass_shadowstep", "ass_guard", "ass_lunge", "ass_steel_whirl", "ass_crimson",
 					 "ass_execute", "ass_focus", "ass_master", "ass_expose"]).merged({
+					"of": "do Duelista", "signature": {"skill": "ass_thrust", "look": "blood"}, "legend": {"kind": "riposte", "name": "Riposte"},
 					# equilibrado: ataque, defesa e um pouco de crítico
 					"passives": [{"atk_pct": 3}, {"def_pct": 3}, {"crit": 1.5}], "set_extra": {3: {"def_pct": [5.0, 1.5], "crit": [3.0, 0.5]}}}),
 				# Corsário: sabre (espada) na direita e pistola de pederneira na esquerda. Tiros e cortes juntam Bravata
@@ -173,6 +182,7 @@ static func build() -> Array:
 				_b("corsario", "Corsário", "dps", ["sword"], ["pistol"], "leather", "AGI", "FOR", "atk_pct",
 					["ass_pistol_shot", "ass_slash_shot", "ass_between_eyes", "ass_dice", "ass_backstab", "ass_ricochet_shot", "ass_grapple",
 					 "ass_black_flag", "ass_broadside", "ass_quick_stab", "ass_thrust", "ass_guard", "ass_expose", "ass_shadowstep", "ass_execute", "ass_smoke"]).merged({
+					"of": "do Corsário", "signature": {"skill": "ass_pistol_shot", "look": "fire"}, "legend": {"kind": "spare_shot", "name": "Bala na Agulha"},
 					# crítico e defesa (árvore e conjunto: casaca grossa de abordagem); a arma dá Bala na Agulha (golpe às vezes dispara a pistola de graça)
 					"passives": [{"atk_pct": 3}, {"crit": 1.5}, {"def_pct": 3}], "set_extra": {3: {"crit": [3.0, 0.8], "def_pct": [5.0, 1.5]}}}),
 			]}),
@@ -188,14 +198,17 @@ static func build() -> Array:
 				_b("fogo", "Fogo", "caster", ["staff"], [], "cloth", "INT", "WILL", "matk_pct",
 					["ele_fireball", "ele_flame_wave", "ele_combustion", "ele_summon_fire", "ele_meteor", "ele_firestorm", "ele_fire_wall", "ele_frost_flare",
 					 "ele_blink", "ele_inferno", "ele_phoenix", "ele_prism"]).merged({
+					"of": "do Fogo", "signature": {"skill": "ele_fireball", "look": "fire"}, "legend": {"kind": "cast_on_basic", "name": "Brasa Viva", "skill": "ele_fireball"}, "element": ["fire"],
 					"passives": [{"matk_pct": 3}, {"fire_pct": 4}], "set_extra": {3: {"fire_pct": [6.0, 2.0]}}}),
 				_b("gelo", "Gelo", "caster", ["staff"], [], "cloth", "INT", "VIT", "matk_pct",
 					["ele_ice_lance", "ele_frost_nova", "ele_fireball", "ele_frost_armor", "ele_glacier", "ele_summon_ice", "ele_frost_flare", "ele_shatter",
 					 "ele_hailstorm", "ele_blizzard", "ele_blink", "ele_absolute_zero", "ele_prism"]).merged({
+					"of": "do Gelo", "signature": {"skill": "ele_ice_lance", "look": "ice"}, "legend": {"kind": "cast_when_hit", "name": "Coração de Gelo", "skill": "ele_frost_nova"}, "element": ["frost"],
 					"passives": [{"matk_pct": 3}, {"frost_pct": 4}, {"hp_pct": 3}], "set_extra": {3: {"frost_pct": [6.0, 2.0]}}}),
 				_b("raio", "Raio", "caster", ["staff"], [], "cloth", "INT", "WILL", "matk_pct",
 					["ele_spark", "ele_lightning", "ele_chain", "ele_static", "ele_firestorm", "ele_summon_storm", "ele_overload", "ele_hailstorm",
 					 "ele_thunder", "ele_blink", "ele_storm_lord", "ele_prism"]).merged({
+					"of": "do Raio", "signature": {"skill": "ele_chain", "look": "lightning"}, "legend": {"kind": "chain", "name": "Arco Voltaico"}, "element": ["storm"],
 					"passives": [{"matk_pct": 3}, {"storm_pct": 4}], "set_extra": {3: {"storm_pct": [6.0, 2.0]}}}),
 			]}),
 		_mk({"id": "necromancer", "body_type": "male", "hair_color": Color(0.85, 0.85, 0.9), "name": "Necromancer", "role": "caster", "color": Color(0.4, 0.85, 0.65),
@@ -210,13 +223,16 @@ static func build() -> Array:
 				_b("invocador", "Invocador", "caster", ["scythe"], [], "cloth", "INT", "WILL", "matk_pct",
 					["nec_raise", "nec_bone_spear", "nec_bone_hound", "nec_dark_pact", "nec_drain", "nec_lich", "nec_curse_weakness", "nec_corpse_explosion",
 					 "nec_bone_wall", "nec_army", "nec_skeleton_king"]).merged({
+					"of": "do Invocador", "signature": {"skill": "nec_bone_spear", "look": "bone"}, "legend": {"kind": "raise_on_kill", "name": "Legião"},
 					"passives": [{"matk_pct": 3}, {"pet_pct": 5}], "set_extra": {3: {"pet_pct": [10.0, 3.0]}}}),
 				_b("ceifador", "Ceifador", "dps", ["scythe"], [], "leather", "INT", "VIT", "matk_pct",
 					["nec_reap", "nec_phantom", "nec_drain", "nec_soul_rend", "nec_death_spin", "nec_bone_armor", "nec_harvest", "nec_demon_form", "nec_bone_wall", "nec_grim"]).merged({
+					"of": "do Ceifador", "signature": {"skill": "nec_soul_rend", "look": "shadow"}, "legend": {"kind": "heal_on_kill", "name": "Ceifa"},
 					"passives": [{"matk_pct": 3}, {"lifesteal": 1}, {"hp_pct": 3}], "set_extra": {3: {"lifesteal": [1.0, 0.3]}}}),
 				_b("pestilento", "Sombras", "caster", ["scythe"], [], "cloth", "INT", "WILL", "matk_pct",
 					["nec_rot", "nec_drain", "nec_mind_flay", "nec_plague", "nec_curse_weakness", "nec_swarm", "nec_drain_soul", "nec_curse", "nec_decay", "nec_curse_doom",
 					 "nec_void_beam", "nec_pandemic", "nec_curse_agony"]).merged({
+					"of": "das Sombras", "signature": {"skill": "nec_mind_flay", "look": "shadow"}, "legend": {"kind": "cast_on_basic", "name": "Praga", "skill": "nec_curse_agony"},
 					"passives": [{"matk_pct": 3}, {"mp_pct": 4}]}),
 			]}),
 	]

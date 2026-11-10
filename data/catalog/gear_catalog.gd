@@ -61,17 +61,6 @@ const ARMOR_NAMES := {
 	"leather": {"head": "Capuz", "body": "Gibão", "legs": "Calças", "gloves": "Luvas", "boots": "Botas"},
 	"cloth": {"head": "Tiara", "body": "Manto", "legs": "Calças", "gloves": "Luvas", "boots": "Sandálias"},
 }
-## "do/da/dos <build>" para nomear peças (ex.: "Elmo do Guardião da Alvorada")
-const BUILD_OF := {
-	"guardiao": "do Guardião", "cruzado": "do Cruzado", "templario": "do Templário",
-	"carniceiro": "das Armas Gêmeas", "executor": "do Executor", "punhos": "dos Punhos de Fúria",
-	"sacerdote": "do Sacerdote", "inquisidor": "do Inquisidor", "batalha": "do Clérigo de Batalha",
-	"guardiao_verde": "do Guardião da Floresta", "fera": "da Fera Selvagem", "xama": "do Xamã",
-	"atirador": "do Atirador", "cacador": "do Caçador", "lanceiro": "do Lanceiro",
-	"laminas": "das Lâminas Gêmeas", "duelista": "do Duelista", "corsario": "do Corsário",
-	"fogo": "do Fogo", "gelo": "do Gelo", "raio": "do Raio",
-	"invocador": "do Invocador", "ceifador": "do Ceifador", "pestilento": "das Sombras",
-}
 ## Escudos nomeados (referência em reference/shields): [id, nome, nível, silhueta, cor, reação ao bloquear, texto]
 const SHIELDS := [
 	["defensor_antigo", "Escudo Defensor Antigo", 5, "coluna", Color(0.22, 0.25, 0.42), {"theme": "physical", "reflect_pct": 12}, "Bloquear devolve 12% do golpe."],
@@ -563,40 +552,14 @@ static func set_skills(build: Dictionary, skills: Dictionary, level: int, tier: 
 ## abertas ele sangra `bleed`% do ATK por segundo), spare_shot (Corsário com pistola: golpe às vezes dispara um tiro de graça no alvo,
 ## `pct`% do ATK, +1 Bravata; Balance.LEG_SHOT_ICD).
 ## fist_counter (Punhos de Fúria com duas garras: o contra-ataque da esquiva causa +`pct`% do ATK; FistSystem).
-const LEGEND_EFFECTS := {
-	"guardiao": {"kind": "thorns", "name": "Retaliação", "pct": [15, 3]},
-	"cruzado": {"kind": "stun", "name": "Julgamento", "chance": [12, 2], "dur": [0.8, 0.1], "icd": 6.0},
-	"templario": {"kind": "penance", "name": "Penitência", "pct": [120, 24], "stacks": 5, "radius": 2.5},
-	"carniceiro": {"kind": "frenzy", "name": "Frenesi", "pct": [4, 0.6], "max": 5},
-	"executor": {"kind": "execute", "name": "Carrasco", "pct": [30, 6], "below": 0.3},
-	"punhos": {"kind": "fist_counter", "name": "Punho Vingativo", "pct": [30, 6]},
-	"sacerdote": {"kind": "ward", "name": "Égide", "pct": [15, 3]},
-	"inquisidor": {"kind": "cast_on_basic", "name": "Castigo Sagrado", "skill": "bis_smite", "chance": [18, 3]},
-	"batalha": {"kind": "mend", "name": "Mão que Cura", "pct": [8, 2]},
-	"guardiao_verde": {"kind": "cast_when_hit", "name": "Casca Viva", "skill": "dru_oak_skin", "icd": 20.0},
-	"fera": {"kind": "bleed", "name": "Sangue da Matilha", "chance": [30, 4], "pct": [12, 2]},
-	"xama": {"kind": "cast_on_basic", "name": "Lua Cheia", "skill": "dru_moonfire", "chance": [18, 3]},
-	"cacador": {"kind": "mark", "name": "Marca do Caçador", "pct": [8, 2]},
-	"atirador": {"kind": "splash", "name": "Pólvora", "pct": [40, 6], "radius": 2.5},
-	"lanceiro": {"kind": "open_wound", "name": "Ferida Aberta", "pct": [2.4, 0.48], "max": 5, "bleed": [8, 1.6]},
-	"laminas": {"kind": "poison", "name": "Veneno Letal", "chance": [35, 4], "pct": [10, 2]},
-	"duelista": {"kind": "riposte", "name": "Riposte", "pct": [80, 10]},
-	"corsario": {"kind": "spare_shot", "name": "Bala na Agulha", "chance": [25, 3], "pct": [45, 6]},
-	"fogo": {"kind": "cast_on_basic", "name": "Brasa Viva", "skill": "ele_fireball", "chance": [20, 4]},
-	"gelo": {"kind": "cast_when_hit", "name": "Coração de Gelo", "skill": "ele_frost_nova", "icd": 20.0},
-	"raio": {"kind": "chain", "name": "Arco Voltaico", "targets": [1, 0.34], "pct": [60, 6]},
-	"invocador": {"kind": "raise_on_kill", "name": "Legião", "icd": 12.0, "time": [15, 2]},
-	"ceifador": {"kind": "heal_on_kill", "name": "Ceifa", "pct": [6, 1.2]},
-	"pestilento": {"kind": "cast_on_basic", "name": "Praga", "skill": "nec_curse_agony", "chance": [12, 2]},
-}
 
-## Efeito da arma lendária da build no tier: os [base, por tier] viram números.
-static func legend_effect(build_id: String, role: String, tier: int) -> Dictionary:
-	var src: Dictionary = LEGEND_EFFECTS.get(build_id, {"kind": "thorns" if role == "tank" else ("ward" if role == "healer" else "echo"),
-		"name": "Eco", "chance": [10, 2], "pct": [50, 5]})
-	var out := {}
-	for k in src:
-		var v = src[k]
+## Efeito da arma lendária da build no tier: identidade em `build["legend"]` (classes_catalog), números em
+## Balance.LEGEND_NUMBERS[<build>] ([base, por tier] viram números).
+static func legend_effect(build: Dictionary, tier: int) -> Dictionary:
+	var out: Dictionary = (build["legend"] as Dictionary).duplicate()
+	var nums: Dictionary = Balance.LEGEND_NUMBERS[build["id"]]
+	for k in nums:
+		var v = nums[k]
 		out[k] = round((float(v[0]) + float(v[1]) * tier) * 100.0) / 100.0 if v is Array else v
 	if out.has("targets"):
 		out["targets"] = int(out["targets"])
@@ -638,7 +601,7 @@ static func build(classes: Dictionary, skills: Dictionary) -> Dictionary:
 		var restrict: Array[String] = [cid]
 		for build in cls.builds:
 			var bid: String = build["id"]
-			var of: String = BUILD_OF.get(bid, "")
+			var of: String = build["of"]
 			var col: Color = cls.color.lerp(LEGENDARY_COLOR, 0.35)
 			for tier in range(Balance.LEGENDARY_LEVELS.size()):
 				var lv: int = Balance.LEGENDARY_LEVELS[tier]
@@ -658,7 +621,7 @@ static func build(classes: Dictionary, skills: Dictionary) -> Dictionary:
 				wpn.attributes = _attrs(build["attr"], build["attr2"], lv, PIECE_WEIGHT["weapon"], mult)
 				if build["stat"] == "matk_pct":
 					wpn.matk = maxf(wpn.matk, round(wpn.atk * 0.9))
-				wpn.legend_effect = legend_effect(bid, build["role"], tier)
+				wpn.legend_effect = legend_effect(build, tier)
 				made.append(wpn)
 				var alts := {}
 				# conjunto com visual próprio e build de duas armas (espada ou maça): a outra também vira peça do conjunto

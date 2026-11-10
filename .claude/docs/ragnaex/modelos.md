@@ -41,7 +41,7 @@ ombreiras em camadas, tabardo, emblema, elmos fechados `closed` com fenda/grade/
 Arma própria de conjunto: linha em `paladin_sets.PAL_WEAPONS` (lâmina em losango, guarda cross/down/sun/horn/wing, pomo, gema, halo,
 filete brilhante) → malha `wpn_main_<tipo>_<estilo>`; a arma do conjunto ganha `ItemDef.weapon_style` e `KitModel.main_node` escolhe a malha.
 Conjunto lendário = 5 peças de armadura (`SetDef.armor`: cabeça, peito, calça, luvas, botas; bônus 2-5); arma/mão secundária não contam e a arma tem
-`ItemDef.legend_effect` próprio da build (`GearCatalog.LEGEND_EFFECTS`, tipos em `LegendEffects.legend_on_hit/legend_weapon/legend_on_kill`; build nova precisa de entrada lá). Atributos das peças, da arma, da mão secundária
+`ItemDef.legend_effect` próprio da build (`legend` da build em `classes_catalog.gd` + números em `Balance.LEGEND_NUMBERS`, tipos em `LegendEffects.legend_on_hit/legend_weapon/legend_on_kill`). Atributos das peças, da arma, da mão secundária
 e dos escudos nomeados (por `SHIELD_AFFINITY`) vêm da build/classe (há check de coerência).
 Maça de conjunto: build com 2 armas principais ganha a 2ª como `SetDef.alt_pieces` (mesmo efeito lendário da arma, não conta nas peças, cai como
 lendário); modelo em `paladin_sets.PAL_MACES`. Revisar: `-- --autostart=paladin --gear=<set_id> --mace`.

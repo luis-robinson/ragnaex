@@ -21,8 +21,13 @@ static func _mastery(extras: Dictionary = {}) -> Array:
 		arr.append({"power_mult": 1.0 + 0.12 * lv, "mp_mult": 1.0 - 0.04 * lv, "cd_mult": 1.0 - 0.05 * lv, "extra": extras.get(lv, {})})
 	return arr
 
-static func build() -> Array:
+static func build(classes: Dictionary) -> Array:
 	var out: Array = []
+	var build_element := {}            # build -> elementos (campo `element` da build, só no Elementalista)
+	for cid in classes:
+		for b in classes[cid].builds:
+			if b.has("element"):
+				build_element[b["id"]] = b["element"]
 	var defs := _originals()
 	for cls_id in defs:
 		for d in defs[cls_id]:
@@ -209,7 +214,7 @@ static func build() -> Array:
 		if s.class_id == "ranger" and s.target != SkillDef.Target.SELF and (s.requires.has("bow") or s.requires.has("rifle")):
 			s.range *= Balance.ARCHER_RANGE_MULT
 		if s.class_id == "elementalist":
-			s.elements.assign(ELEMENTS.get(s.id, BUILD_ELEMENT.get(s.build, [])))
+			s.elements.assign(ELEMENTS.get(s.id, build_element.get(s.build, [])))
 		if s.effects.has("dot") and (s.vfx == "fire" or s.elements.has("fire")):     # dano no tempo de fogo = queimadura (número laranja)
 			var burn: Dictionary = (s.effects["dot"] as Dictionary).duplicate()
 			burn["fire"] = true
@@ -229,7 +234,6 @@ const BOSS_RANGE := {"mob_blood_mark": 12.0, "mob_grave_touch": 12.0, "mob_acid_
 
 ## Elementos das skills do Elementalista: o ramo dá o elemento; as gerais e as combinações dizem aqui.
 const ELEMENTALS := ["fire_elemental", "frost_elemental", "storm_elemental"]     # um por vez (o novo substitui)
-const BUILD_ELEMENT := {"fogo": ["fire"], "gelo": ["frost"], "raio": ["storm"]}
 const ELEMENTS := {"ele_fireball": ["fire"], "ele_spark": ["storm"], "ele_blink": [],
 	"ele_firestorm": ["fire", "storm"], "ele_frost_flare": ["fire", "frost"], "ele_hailstorm": ["frost", "storm"], "ele_prism": ["fire", "frost", "storm"]}
 

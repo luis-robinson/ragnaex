@@ -1552,6 +1552,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_bot_form(gd, sim)
 	_check_bot_stealth(gd, sim)
 	_check_catalog_keys(gd)
+	_check_build_entries(gd)
 	_check_portal_arrivals(gd)
 	_check_elementalist_builds(gd, sim)
 	_check_necromancer_builds(gd, sim)
@@ -2346,14 +2347,19 @@ func _check_legend_weapons_and_attrs(gd, sim) -> void:
 		check(w != null and not w.legend_effect.is_empty(), "%s: arma lendária tem efeito próprio" % sid)
 		if w:
 			var bid: String = sd.id.trim_prefix("set_%s_" % sd.class_id).rsplit("_", true, 1)[0]
-			check(GearCatalog.LEGEND_EFFECTS.has(bid) and w.legend_effect["kind"] == GearCatalog.LEGEND_EFFECTS[bid]["kind"], "%s: efeito próprio da build %s" % [sid, bid])
+			var own: Dictionary = gd.classes[sd.class_id].build_by_id(bid).get("legend", {})
+			check(not own.is_empty() and w.legend_effect["kind"] == own["kind"], "%s: efeito próprio da build %s" % [sid, bid])
 			check(UiKit.legend_effect_text(w.legend_effect).length() > 12, "%s: texto do efeito" % sid)
 	var names := {}
-	for bid in GearCatalog.LEGEND_EFFECTS:
-		names[GearCatalog.LEGEND_EFFECTS[bid]["name"]] = true
-		var sk: String = GearCatalog.LEGEND_EFFECTS[bid].get("skill", "")
-		check(sk == "" or gd.skills.has(sk), "%s: skill do efeito existe (%s)" % [bid, sk])
-	check(names.size() == GearCatalog.LEGEND_EFFECTS.size(), "cada build tem um efeito lendário com nome próprio (%d)" % names.size())
+	var n_builds := 0
+	for cid in gd.classes:
+		for b in gd.classes[cid].builds:
+			n_builds += 1
+			var leg: Dictionary = b.get("legend", {})
+			names[leg.get("name", "")] = true
+			var sk: String = leg.get("skill", "")
+			check(sk == "" or gd.skills.has(sk), "%s: skill do efeito existe (%s)" % [b["id"], sk])
+	check(names.size() == n_builds and not names.has(""), "cada build tem um efeito lendário com nome próprio (%d)" % names.size())
 	# eco: golpe direto bate de novo (forçando a chance)
 	var a: SimEntity = sim.spawn_bot(gd.classes["berserker"], "Eco", "city_aldara", Vector3(-46, 0, -46), 20)
 	a.brain = null
@@ -3875,7 +3881,7 @@ func _check_raid_tactics(gd, sim) -> void:
 func _check_signature(gd, sim) -> void:
 	for cid in gd.classes:
 		for b in gd.classes[cid].builds:
-			var sig: Dictionary = ClassesCatalog.SIGNATURES.get(b["id"], {})
+			var sig: Dictionary = b.get("signature", {})
 			var sk: SkillDef = gd.skills.get(str(sig.get("skill", "")))
 			check(sk != null and sk.class_id == cid and sk.power > 0.0, "%s/%s: assinatura existe e é da classe (%s)" % [cid, b["id"], sig.get("skill", "")])
 			if sk:
@@ -8156,6 +8162,26 @@ func _check_portal_arrivals(gd) -> void:
 				if gap <= float(own.get("radius", 2.0)) + Balance.PORTAL_ARRIVE_GAP:
 					bad.append("%s.%s -> %s chega a %.1f m de %s" % [src, pt["id"], dst.id, gap, own["id"]])
 	check(bad.is_empty(), "portais: toda chegada fica fora dos portais do destino (%s)" % [bad])
+
+## Uma build = uma entrada: identidade (of, signature, legend, element no Elementalista) no `_b()` da build; números por
+## build em Balance (BUILD_POWER, SIGNATURE_BUILD_POWER, LEGEND_NUMBERS) só com ids de build que existem, e toda build
+## tem LEGEND_NUMBERS (sem ela a arma lendária não teria números).
+func _check_build_entries(gd) -> void:
+	var ids := {}
+	for cid in gd.classes:
+		for b in gd.classes[cid].builds:
+			var bid: String = b["id"]
+			ids[bid] = true
+			check(str(b.get("of", "")).begins_with("d"), "%s: `of` nomeia as peças (\"do/da/das ...\")" % bid)
+			check(b.get("signature", {}).has("skill") and b.get("signature", {}).has("look"), "%s: signature com skill e look" % bid)
+			check(b.get("legend", {}).has("kind") and b.get("legend", {}).has("name"), "%s: legend com kind e name" % bid)
+			for k in b.get("legend", {}):
+				check(k in ["kind", "name", "skill"], "%s: legend só com identidade (%s vai em Balance.LEGEND_NUMBERS)" % [bid, k])
+			check(Balance.LEGEND_NUMBERS.has(bid), "%s: tem números em Balance.LEGEND_NUMBERS" % bid)
+			check(cid != "elementalist" or b.has("element"), "%s: build do Elementalista diz o elemento" % bid)
+	for table in [["BUILD_POWER", Balance.BUILD_POWER], ["SIGNATURE_BUILD_POWER", Balance.SIGNATURE_BUILD_POWER], ["LEGEND_NUMBERS", Balance.LEGEND_NUMBERS]]:
+		for bid in table[1]:
+			check(ids.has(bid), "Balance.%s: build %s existe" % [table[0], bid])
 
 func _bad_stats(bad: Array[String], where: String, d: Dictionary, meta: Array) -> void:
 	for k in d:

@@ -27,7 +27,7 @@ func _ready() -> void:
 func load_all() -> void:
 	for c in ClassesCatalog.build():
 		classes[c.id] = c
-	for s in SkillsCatalog.build():
+	for s in SkillsCatalog.build(classes):
 		s.power *= float(Balance.BUILD_POWER.get(s.build, 1.0))
 		skills[s.id] = s
 	# pool de skills de cada classe = todas as skills dela, por nível (a ordem da janela K)
@@ -192,7 +192,7 @@ func basic_skill_for_class(cls: ClassDef, weapon_type: String = "", offhand_type
 	# arma corpo a corpo de duas mãos (montante, malho, machado): golpe largo — também no bispo de malho (golpe corpo a corpo)
 	var big := weapon_type in Balance.BIG_SWING_WEAPONS and (melee_override or not cls.basic_attack_is_ranged)
 	var rifle := weapon_type == "rifle" and cls.basic_attack_is_ranged
-	var look: String = str(ClassesCatalog.SIGNATURES.get(build_id, {}).get("look", ""))
+	var look: String = str(cls.build_by_id(build_id).get("signature", {}).get("look", ""))
 	var key := "basic_" + cls.id + ("_melee" if melee_override else "") + ("_big" if big else "") + ("_rifle" if rifle else "") + ("_spear" if spear else "") + ("_" + look if look != "" else "")
 	if _basic_cache.has(key):
 		return _basic_cache[key]
