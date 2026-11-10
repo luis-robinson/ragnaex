@@ -6,8 +6,7 @@ extends RefCounted
 
 static func _mk(d: Dictionary) -> ClassDef:
 	var c := ClassDef.new()
-	for k in d:
-		c.set(k, d[k])
+	CatalogUtil.fill(c, d)
 	if c.model == "":
 		c.model = c.id   # assets/models/<id>.glb (gerado por tools/blender/chibi_kit.py)
 	c.can_use_shield = "shield" in c.offhand_types

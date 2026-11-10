@@ -70,8 +70,7 @@ static func _starter_items() -> Array:
 
 static func _mk(d: Dictionary) -> ItemDef:
 	var it := ItemDef.new()
-	for k in d:
-		it.set(k, d[k])
+	CatalogUtil.fill(it, d)
 	return it
 
 static func _mat(id: String, name: String, price: int, desc: String, color: Color) -> Dictionary:

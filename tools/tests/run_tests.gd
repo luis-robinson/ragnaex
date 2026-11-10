@@ -1551,6 +1551,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_bot_skill_reject(gd, sim)
 	_check_bot_form(gd, sim)
 	_check_bot_stealth(gd, sim)
+	_check_catalog_keys(gd)
 	_check_elementalist_builds(gd, sim)
 	_check_necromancer_builds(gd, sim)
 	_check_elemental_debuffs(gd, sim)
@@ -8106,6 +8107,42 @@ func _check_bot_stealth(gd, sim) -> void:
 	check(hit != null and hit.kind == SkillDef.Kind.PHYSICAL, "furtivo pelas costas: sai da sombra com uma skill de dano (%s)" % (hit.id if hit else "nada"))
 	mob.hp = 0
 	sim.despawn(d)
+
+## Erros de digitação nos catálogos: chave que o Resource não tem (CatalogUtil), stat fora de Stats.STAT_KEYS em
+## passivos/bônus/buffs e efeito fora de SkillDef.EFFECT_KEYS. Antes todos somavam 0 ou sumiam em silêncio.
+func _check_catalog_keys(gd) -> void:
+	check(CatalogUtil.unknown_keys.is_empty(), "catálogos: nenhuma chave desconhecida (%s)" % [CatalogUtil.unknown_keys])
+	var bad: Array[String] = []
+	for cid in gd.classes:
+		for b in gd.classes[cid].builds:
+			var bid: String = b["id"]
+			if not (str(b["stat"]) in Stats.STAT_KEYS):
+				bad.append("%s.stat=%s" % [bid, b["stat"]])
+			for p in b.get("passives", []):
+				_bad_stats(bad, "%s.passives" % bid, p, [])
+			var extra: Dictionary = b.get("set_extra", {})
+			for n in extra:
+				_bad_stats(bad, "%s.set_extra" % bid, extra[n], [])
+	for sid in gd.sets:
+		var bon: Dictionary = gd.sets[sid].bonuses
+		for n in bon:
+			_bad_stats(bad, "%s.bonus" % sid, bon[n], Stats.SET_BONUS_META)
+	for kid in gd.skills:
+		var s: SkillDef = gd.skills[kid]
+		for k in s.effects:
+			if not (k in SkillDef.EFFECT_KEYS):
+				bad.append("%s.effects.%s" % [kid, k])
+		if s.effects.get("buff") is Dictionary:
+			_bad_stats(bad, "%s.buff" % kid, s.effects["buff"], Stats.BUFF_META)
+		var aura = s.effects.get("aura")
+		if aura is Dictionary and aura.get("ally") is Dictionary:
+			_bad_stats(bad, "%s.aura.ally" % kid, aura["ally"], Stats.BUFF_META)
+	check(bad.is_empty(), "catálogos: stats e efeitos só com chaves conhecidas (%s)" % [bad])
+
+func _bad_stats(bad: Array[String], where: String, d: Dictionary, meta: Array) -> void:
+	for k in d:
+		if not (k in Stats.STAT_KEYS) and not (k in meta):
+			bad.append("%s.%s" % [where, k])
 
 ## Bot voltando (bolsa cheia, pouca vida) num mapa fora da cidade conjura o G como o jogador e chega na cidade.
 func _check_bot_recall(gd, sim) -> void:

@@ -1,37 +1,17 @@
 class_name SkillsCatalog
 extends RefCounted
 ## 8 classes × 20+ skills (o jogador aprende com pontos e equipa 6). Cada skill tem nível mínimo,
-## build ("" = geral) e arma exigida (requires). As 6 originais de cada classe estão em `_all()` e recebem
-## nível/build/arma por META; as demais vêm de `_more()` via construtores compactos.
+## build ("" = geral) e arma exigida (requires). Todas pelos construtores compactos `_s`/`_buff`: as 6 originais de
+## cada classe em `_originals()` (registradas primeiro), as demais em `_more()`.
 ## target: 0 SELF, 1 DIRECTION, 2 GROUND, 3 CONE, 4 TARGET · kind: 0 PHYS, 1 MAG, 2 HEAL, 3 BUFF, 4 SUMMON, 5 MOVE
 
 const T_SELF := 0; const T_DIR := 1; const T_GROUND := 2; const T_CONE := 3; const T_TARGET := 4
 const K_PHYS := 0; const K_MAG := 1; const K_HEAL := 2; const K_BUFF := 3; const K_SUMMON := 4; const K_MOVE := 5
 
-## skills originais: id -> [nível, build, requires]
-const META := {
-	"pal_holy_strike": [1, "", []], "pal_shield_bash": [3, "guardiao", ["shield"]], "pal_consecrate": [6, "cruzado", ["two_handed"]],
-	"pal_lay_hands": [10, "", []], "pal_taunt": [8, "guardiao", ["shield"]], "pal_divine_shield": [20, "guardiao", ["shield"]],
-	"ber_cleave": [1, "", []], "ber_leap": [3, "", []], "ber_whirlwind": [6, "executor", ["two_handed"]],
-	"ber_fury": [10, "", []], "ber_execute": [15, "executor", ["two_handed"]], "ber_warcry": [20, "", []],
-	"bis_heal": [1, "", []], "bis_smite": [3, "inquisidor", []], "bis_blessing": [6, "sacerdote", ["mace", "shield"]],
-	"bis_sanctuary": [10, "sacerdote", ["mace", "shield"]], "bis_purify": [15, "inquisidor", ["scepter"]], "bis_judgement": [20, "inquisidor", ["scepter"]],
-	"dru_thorns": [1, "", []], "dru_entangle": [3, "", []], "dru_regrowth": [6, "", []],
-	"dru_swarm": [10, "xama", ["staff"]], "dru_bear_form": [3, "guardiao_verde", ["mace2h"]], "dru_wild_growth": [20, "xama", ["staff"]],
-	"ran_power_shot": [1, "", ["bow", "rifle"]], "ran_multishot": [3, "cacador", ["bow"]], "ran_disengage": [1, "", []],
-	"ran_trap": [3, "atirador", ["bow", "rifle", "spear"]], "ran_mark": [15, "atirador", ["bow", "rifle", "spear"]], "ran_rain": [20, "cacador", ["bow"]],
-	"ass_backstab": [1, "", ["dagger", "sword"]], "ass_shadowstep": [3, "", []], "ass_poison": [6, "laminas", ["dual_dagger"]],
-	"ass_fan": [10, "laminas", []], "ass_smoke": [15, "", []], "ass_execute": [20, "", []],
-	"ele_fireball": [1, "", []], "ele_frost_nova": [3, "gelo", ["staff"]], "ele_lightning": [6, "raio", ["staff"]],
-	"ele_meteor": [10, "fogo", ["staff"]], "ele_blink": [15, "", []], "ele_blizzard": [20, "gelo", ["staff"]],
-	"nec_drain": [1, "", []], "nec_raise": [3, "invocador", ["scythe"]], "nec_plague": [6, "pestilento", ["scythe"]],
-	"nec_bone_wall": [10, "", []], "nec_curse": [15, "pestilento", ["scythe"]], "nec_harvest": [20, "ceifador", ["scythe"]],
-}
 
 static func _mk(d: Dictionary) -> SkillDef:
 	var s := SkillDef.new()
-	for k in d:
-		s.set(k, d[k])
+	CatalogUtil.fill(s, d)
 	return s
 
 ## maestria padrão: +12% poder, -4% MP, -5% CD por nível; `extras` opcional por nível (índice 1..5)
@@ -43,13 +23,9 @@ static func _mastery(extras: Dictionary = {}) -> Array:
 
 static func build() -> Array:
 	var out: Array = []
-	var defs := _all()
+	var defs := _originals()
 	for cls_id in defs:
 		for d in defs[cls_id]:
-			var meta: Array = META[d["id"]]
-			d["unlock_level"] = meta[0]
-			d["build"] = meta[1]
-			d["requires"] = _req(meta[2])
 			out.append(_finish(d, cls_id))
 	var more := _more()
 	for cls_id in more:
@@ -344,8 +320,7 @@ static func _s(id: String, name: String, lvl: int, build: String, req: Array, tg
 	if kind == K_BUFF:
 		d["power"] = 0.0; d["startup"] = 0.1; d["recovery"] = 0.2
 	for k in ext:
-		if k in ["dot", "slow", "stun", "root", "buff", "shield", "dash", "summon", "heal_pct_of_dmg", "taunt", "boss_summon", "wither", "form", "stealth", "trap", "pet_command", "pet_buff", "curse", "channel", "mend_pct_of_dmg", "combust", "bounce", "aura", "barrage", "pull",
-				"combo_gain", "combo_spend", "dice", "dash_to_aim", "shot", "fury_gain", "fury_spend", "heal_pct", "mana_pct"]:
+		if k in SkillDef.EFFECT_KEYS:
 			if not d.has("effects"):
 				d["effects"] = {}
 			d["effects"][k] = ext[k]
@@ -705,153 +680,119 @@ static func _more() -> Dictionary:
 	],
 	}
 
-static func _all() -> Dictionary:
+## As 6 skills originais de cada classe (registradas antes das de `_more()`, nesta ordem).
+static func _originals() -> Dictionary:
 	return {
 	"paladin": [
-		{"id": "pal_holy_strike", "name": "Golpe Sagrado", "description": "Golpe frontal com luz. Cura 15% do dano causado.", "target": T_CONE, "kind": K_PHYS,
-		 "power": 1.6, "mp_cost": 8, "cooldown": 3.0, "radius": 2.4, "cone_angle_deg": 90, "startup": 0.14, "active": 0.06, "recovery": 0.3, "cancel_after": 0.12, "icon_color": Color(1, 0.95, 0.6),
-		 "effects": {"heal_pct_of_dmg": 0.15}, "mastery": _mastery({3: {"heal_pct_of_dmg": 0.25}, 5: {"heal_pct_of_dmg": 0.35}})},
-		{"id": "pal_shield_bash", "name": "Pancada de Escudo", "description": "Avança e atordoa o alvo à frente por 1s.", "target": T_DIR, "kind": K_PHYS,
-		 "power": 1.1, "mp_cost": 10, "cooldown": 7.0, "range": 3.0, "radius": 0.9, "max_targets": 1, "startup": 0.1, "active": 0.08, "recovery": 0.3, "icon_color": Color(0.8, 0.8, 0.9),
-		 "effects": {"stun": {"duration": 1.0}, "dash": 1.5}, "mastery": _mastery({2: {"stun": {"duration": 1.3}}, 4: {"stun": {"duration": 1.6}}})},
-		{"id": "pal_consecrate", "name": "Consagração", "description": "Abençoa o chão: dano sagrado em área ao redor.", "target": T_SELF, "kind": K_MAG,
-		 "power": 1.4, "mp_cost": 16, "cooldown": 9.0, "radius": 3.2, "startup": 0.25, "active": 0.1, "recovery": 0.4, "icon_color": Color(1, 0.9, 0.4)},
-		{"id": "pal_lay_hands", "name": "Imposição de Mãos", "description": "Cura forte em si mesmo (ou aliado próximo).", "target": T_SELF, "kind": K_HEAL,
-		 "power": 2.2, "mp_cost": 22, "cooldown": 14.0, "radius": 2.0, "startup": 0.3, "active": 0.05, "recovery": 0.35, "icon_color": Color(1, 1, 0.8)},
-		{"id": "pal_taunt", "name": "Provocar", "description": "Prende os inimigos em 7 m em você por 4s (chefes: 2s) e ganha +25% DEF por 6s.", "target": T_SELF, "kind": K_BUFF,
-		 "power": 0.0, "mp_cost": 12, "cooldown": 12.0, "radius": 7.0, "startup": 0.1, "active": 0.05, "recovery": 0.25, "icon_color": Color(1, 0.6, 0.4),
-		 "effects": {"taunt": {"duration": 4}, "buff": {"id": "bulwark", "duration": 6, "def_pct": 25}}},
-		{"id": "pal_divine_shield", "name": "Escudo Divino", "description": "Escudo que absorve 25% do HP máximo por 6s.", "target": T_SELF, "kind": K_BUFF, "radius": 0.0,
-		 "power": 0.0, "mp_cost": 28, "cooldown": 22.0, "startup": 0.15, "active": 0.05, "recovery": 0.2, "icon_color": Color(1, 1, 0.5),
-		 "effects": {"shield": {"amount_pct_hp": 25, "duration": 6}}, "mastery": _mastery({2: {"shield": {"amount_pct_hp": 32, "duration": 6}}, 4: {"shield": {"amount_pct_hp": 40, "duration": 7}}})},
+		_s("pal_holy_strike", "Golpe Sagrado", 1, "", [], T_CONE, K_PHYS, 1.6, 8, 3.0, "Golpe frontal com luz. Cura 15% do dano causado.",
+			{"radius": 2.4, "cone_angle_deg": 90, "startup": 0.14, "active": 0.06, "recovery": 0.3, "cancel_after": 0.12, "icon_color": Color(1, 0.95, 0.6), "heal_pct_of_dmg": 0.15, "mastery": _mastery({3: {"heal_pct_of_dmg": 0.25}, 5: {"heal_pct_of_dmg": 0.35}})}),
+		_s("pal_shield_bash", "Pancada de Escudo", 3, "guardiao", ["shield"], T_DIR, K_PHYS, 1.1, 10, 7.0, "Avança e atordoa o alvo à frente por 1s.",
+			{"range": 3.0, "radius": 0.9, "max_targets": 1, "startup": 0.1, "active": 0.08, "recovery": 0.3, "icon_color": Color(0.8, 0.8, 0.9), "stun": {"duration": 1.0}, "dash": 1.5, "mastery": _mastery({2: {"stun": {"duration": 1.3}}, 4: {"stun": {"duration": 1.6}}})}),
+		_s("pal_consecrate", "Consagração", 6, "cruzado", ["two_handed"], T_SELF, K_MAG, 1.4, 16, 9.0, "Abençoa o chão: dano sagrado em área ao redor.",
+			{"radius": 3.2, "startup": 0.25, "active": 0.1, "recovery": 0.4, "icon_color": Color(1, 0.9, 0.4)}),
+		_s("pal_lay_hands", "Imposição de Mãos", 10, "", [], T_SELF, K_HEAL, 2.2, 22, 14.0, "Cura forte em si mesmo (ou aliado próximo).",
+			{"radius": 2.0, "startup": 0.3, "active": 0.05, "recovery": 0.35, "icon_color": Color(1, 1, 0.8)}),
+		_s("pal_taunt", "Provocar", 8, "guardiao", ["shield"], T_SELF, K_BUFF, 0.0, 12, 12.0, "Prende os inimigos em 7 m em você por 4s (chefes: 2s) e ganha +25% DEF por 6s.",
+			{"radius": 7.0, "startup": 0.1, "active": 0.05, "recovery": 0.25, "icon_color": Color(1, 0.6, 0.4), "taunt": {"duration": 4}, "buff": {"id": "bulwark", "duration": 6, "def_pct": 25}}),
+		_s("pal_divine_shield", "Escudo Divino", 20, "guardiao", ["shield"], T_SELF, K_BUFF, 0.0, 28, 22.0, "Escudo que absorve 25% do HP máximo por 6s.",
+			{"radius": 0.0, "startup": 0.15, "active": 0.05, "recovery": 0.2, "icon_color": Color(1, 1, 0.5), "shield": {"amount_pct_hp": 25, "duration": 6}, "mastery": _mastery({2: {"shield": {"amount_pct_hp": 32, "duration": 6}}, 4: {"shield": {"amount_pct_hp": 40, "duration": 7}}})}),
 	],
 	"berserker": [
-		{"id": "ber_cleave", "name": "Rachar", "description": "Golpe largo que acerta até 4 inimigos.", "target": T_CONE, "kind": K_PHYS,
-		 "power": 1.8, "mp_cost": 9, "cooldown": 3.5, "radius": 2.8, "cone_angle_deg": 120, "max_targets": 4, "startup": 0.18, "active": 0.06, "recovery": 0.35, "hit_stop_frames": 4, "icon_color": Color(1, 0.45, 0.3)},
-		{"id": "ber_leap", "name": "Salto Selvagem", "description": "Salta até o ponto do cursor e esmaga o chão.", "target": T_GROUND, "kind": K_PHYS,
-		 "power": 1.9, "mp_cost": 12, "cooldown": 8.0, "range": 6.0, "radius": 2.2, "startup": 0.2, "active": 0.1, "recovery": 0.35, "icon_color": Color(1, 0.6, 0.3),
-		 "effects": {"dash": 5.5, "slow": {"pct": 30, "duration": 1.5}}},
-		{"id": "ber_whirlwind", "name": "Redemoinho", "description": "Gira a arma: dano em todos ao redor.", "target": T_SELF, "kind": K_PHYS,
-		 "power": 2.2, "mp_cost": 18, "cooldown": 10.0, "radius": 3.0, "startup": 0.2, "active": 0.3, "recovery": 0.4, "icon_color": Color(1, 0.5, 0.5)},
-		{"id": "ber_fury", "name": "Fúria", "description": "+35% ATK e +15% velocidade por 8s.", "target": T_SELF, "kind": K_BUFF, "radius": 0.0,
-		 "power": 0.0, "mp_cost": 15, "cooldown": 20.0, "startup": 0.1, "active": 0.05, "recovery": 0.2, "icon_color": Color(1, 0.3, 0.2),
-		 "effects": {"buff": {"id": "fury", "duration": 8, "atk_pct": 35, "speed_pct": 15}}},
-		{"id": "ber_execute", "name": "Executar", "description": "Golpe devastador em um alvo. Dano enorme.", "target": T_TARGET, "kind": K_PHYS,
-		 "power": 3.4, "mp_cost": 20, "cooldown": 12.0, "range": 2.6, "radius": 0.0, "startup": 0.3, "active": 0.06, "recovery": 0.5, "hit_stop_frames": 6, "icon_color": Color(0.9, 0.2, 0.2)},
-		{"id": "ber_warcry", "name": "Grito de Guerra", "description": "Brado que fere e atordoa inimigos a 4.5 m por 1.2s; você ganha +20% ATK por 8s.", "target": T_SELF, "kind": K_MAG,
-		 "power": 1.4, "mp_cost": 22, "cooldown": 20.0, "radius": 4.5, "startup": 0.2, "active": 0.05, "recovery": 0.3, "icon_color": Color(1, 0.8, 0.5),
-		 "effects": {"stun": {"duration": 1.2}, "buff": {"id": "warcry", "duration": 8, "atk_pct": 20}}},
+		_s("ber_cleave", "Rachar", 1, "", [], T_CONE, K_PHYS, 1.8, 9, 3.5, "Golpe largo que acerta até 4 inimigos.",
+			{"radius": 2.8, "cone_angle_deg": 120, "max_targets": 4, "startup": 0.18, "active": 0.06, "recovery": 0.35, "hit_stop_frames": 4, "icon_color": Color(1, 0.45, 0.3)}),
+		_s("ber_leap", "Salto Selvagem", 3, "", [], T_GROUND, K_PHYS, 1.9, 12, 8.0, "Salta até o ponto do cursor e esmaga o chão.",
+			{"range": 6.0, "radius": 2.2, "startup": 0.2, "active": 0.1, "recovery": 0.35, "icon_color": Color(1, 0.6, 0.3), "dash": 5.5, "slow": {"pct": 30, "duration": 1.5}}),
+		_s("ber_whirlwind", "Redemoinho", 6, "executor", ["two_handed"], T_SELF, K_PHYS, 2.2, 18, 10.0, "Gira a arma: dano em todos ao redor.",
+			{"radius": 3.0, "startup": 0.2, "active": 0.3, "recovery": 0.4, "icon_color": Color(1, 0.5, 0.5)}),
+		_s("ber_fury", "Fúria", 10, "", [], T_SELF, K_BUFF, 0.0, 15, 20.0, "+35% ATK e +15% velocidade por 8s.",
+			{"radius": 0.0, "startup": 0.1, "active": 0.05, "recovery": 0.2, "icon_color": Color(1, 0.3, 0.2), "buff": {"id": "fury", "duration": 8, "atk_pct": 35, "speed_pct": 15}}),
+		_s("ber_execute", "Executar", 15, "executor", ["two_handed"], T_TARGET, K_PHYS, 3.4, 20, 12.0, "Golpe devastador em um alvo. Dano enorme.",
+			{"range": 2.6, "radius": 0.0, "startup": 0.3, "active": 0.06, "recovery": 0.5, "hit_stop_frames": 6, "icon_color": Color(0.9, 0.2, 0.2), "max_targets": 99}),
+		_s("ber_warcry", "Grito de Guerra", 20, "", [], T_SELF, K_MAG, 1.4, 22, 20.0, "Brado que fere e atordoa inimigos a 4.5 m por 1.2s; você ganha +20% ATK por 8s.",
+			{"radius": 4.5, "startup": 0.2, "active": 0.05, "recovery": 0.3, "icon_color": Color(1, 0.8, 0.5), "stun": {"duration": 1.2}, "buff": {"id": "warcry", "duration": 8, "atk_pct": 20}}),
 	],
 	"bishop": [
-		{"id": "bis_heal", "name": "Curar", "description": "Cura o aliado do grupo sob o cursor (ou você).", "target": T_TARGET, "kind": K_HEAL,
-		 "power": 1.5, "mp_cost": 14, "cooldown": 2.5, "range": 12.0, "radius": 0.0, "max_targets": 5, "startup": 0.3, "active": 0.05, "recovery": 0.25, "lock_facing": false, "icon_color": Color(0.8, 1, 0.8)},
-		{"id": "bis_smite", "name": "Castigar", "description": "Raio de luz que atravessa inimigos.", "target": T_DIR, "kind": K_MAG,
-		 "power": 1.7, "mp_cost": 12, "cooldown": 3.0, "range": 8.0, "radius": 0.5, "projectile_speed": 20.0, "projectile_pierce": true, "startup": 0.2, "active": 0.05, "recovery": 0.3, "icon_color": Color(1, 1, 0.7)},
-		{"id": "bis_blessing", "name": "Bênção", "description": "+20% ATK/MATK e +5 crit para aliados próximos por 15s.", "target": T_SELF, "kind": K_BUFF,
-		 "power": 0.0, "mp_cost": 20, "cooldown": 25.0, "radius": 6.0, "startup": 0.25, "active": 0.05, "recovery": 0.3, "icon_color": Color(1, 0.95, 0.6),
-		 "effects": {"buff": {"id": "blessing", "duration": 15, "atk_pct": 20, "matk_pct": 20, "crit": 5}}},
-		{"id": "bis_sanctuary", "name": "Santuário", "description": "Cura em área no ponto do cursor.", "target": T_GROUND, "kind": K_HEAL,
-		 "power": 1.2, "mp_cost": 26, "cooldown": 12.0, "range": 8.0, "radius": 3.0, "startup": 0.35, "active": 0.05, "recovery": 0.35, "icon_color": Color(0.9, 1, 0.9)},
-		{"id": "bis_purify", "name": "Purificar", "description": "Explosão sagrada: dano e lentidão em cone.", "target": T_CONE, "kind": K_MAG,
-		 "power": 1.5, "mp_cost": 18, "cooldown": 8.0, "radius": 4.5, "cone_angle_deg": 80, "startup": 0.25, "active": 0.05, "recovery": 0.35, "icon_color": Color(1, 1, 0.9),
-		 "effects": {"slow": {"pct": 40, "duration": 2.5}}},
-		{"id": "bis_judgement", "name": "Julgamento", "description": "Pilar de luz no cursor: dano alto e atordoa.", "target": T_GROUND, "kind": K_MAG,
-		 "power": 2.8, "mp_cost": 32, "cooldown": 18.0, "range": 9.0, "radius": 2.2, "startup": 0.45, "active": 0.05, "recovery": 0.4, "hit_stop_frames": 5, "icon_color": Color(1, 0.95, 0.5),
-		 "effects": {"stun": {"duration": 1.0}}},
+		_s("bis_heal", "Curar", 1, "", [], T_TARGET, K_HEAL, 1.5, 14, 2.5, "Cura o aliado do grupo sob o cursor (ou você).",
+			{"range": 12.0, "radius": 0.0, "max_targets": 5, "startup": 0.3, "active": 0.05, "recovery": 0.25, "lock_facing": false, "icon_color": Color(0.8, 1, 0.8)}),
+		_s("bis_smite", "Castigar", 3, "inquisidor", [], T_DIR, K_MAG, 1.7, 12, 3.0, "Raio de luz que atravessa inimigos.",
+			{"range": 8.0, "radius": 0.5, "projectile_speed": 20.0, "projectile_pierce": true, "startup": 0.2, "active": 0.05, "recovery": 0.3, "icon_color": Color(1, 1, 0.7)}),
+		_s("bis_blessing", "Bênção", 6, "sacerdote", ["mace", "shield"], T_SELF, K_BUFF, 0.0, 20, 25.0, "+20% ATK/MATK e +5 crit para aliados próximos por 15s.",
+			{"radius": 6.0, "startup": 0.25, "active": 0.05, "recovery": 0.3, "icon_color": Color(1, 0.95, 0.6), "buff": {"id": "blessing", "duration": 15, "atk_pct": 20, "matk_pct": 20, "crit": 5}}),
+		_s("bis_sanctuary", "Santuário", 10, "sacerdote", ["mace", "shield"], T_GROUND, K_HEAL, 1.2, 26, 12.0, "Cura em área no ponto do cursor.",
+			{"range": 8.0, "radius": 3.0, "startup": 0.35, "active": 0.05, "recovery": 0.35, "icon_color": Color(0.9, 1, 0.9)}),
+		_s("bis_purify", "Purificar", 15, "inquisidor", ["scepter"], T_CONE, K_MAG, 1.5, 18, 8.0, "Explosão sagrada: dano e lentidão em cone.",
+			{"radius": 4.5, "cone_angle_deg": 80, "startup": 0.25, "active": 0.05, "recovery": 0.35, "icon_color": Color(1, 1, 0.9), "slow": {"pct": 40, "duration": 2.5}}),
+		_s("bis_judgement", "Julgamento", 20, "inquisidor", ["scepter"], T_GROUND, K_MAG, 2.8, 32, 18.0, "Pilar de luz no cursor: dano alto e atordoa.",
+			{"range": 9.0, "radius": 2.2, "startup": 0.45, "active": 0.05, "recovery": 0.4, "hit_stop_frames": 5, "icon_color": Color(1, 0.95, 0.5), "stun": {"duration": 1.0}}),
 	],
 	"druid": [
-		{"id": "dru_thorns", "name": "Espinhos", "description": "Lança espinhos envenenados na direção do cursor.", "target": T_DIR, "kind": K_MAG,
-		 "power": 1.3, "mp_cost": 9, "cooldown": 2.5, "range": 8.0, "radius": 0.4, "projectile_speed": 18.0, "startup": 0.15, "active": 0.05, "recovery": 0.25, "icon_color": Color(0.5, 0.9, 0.4),
-		 "effects": {"dot": {"dps": 4, "duration": 4}}},
-		{"id": "dru_entangle", "name": "Enraizar", "description": "Raízes prendem inimigos na área por 2.5s.", "target": T_GROUND, "kind": K_MAG,
-		 "power": 0.6, "mp_cost": 15, "cooldown": 10.0, "range": 8.0, "radius": 2.5, "startup": 0.25, "active": 0.05, "recovery": 0.3, "icon_color": Color(0.4, 0.7, 0.3),
-		 "effects": {"root": {"duration": 2.5}}},
-		{"id": "dru_regrowth", "name": "Rebrotar", "description": "Cura a si e aliados próximos.", "target": T_SELF, "kind": K_HEAL,
-		 "power": 1.3, "mp_cost": 18, "cooldown": 8.0, "radius": 4.0, "startup": 0.3, "active": 0.05, "recovery": 0.3, "icon_color": Color(0.6, 1, 0.6)},
-		{"id": "dru_swarm", "name": "Enxame", "description": "Insetos devoram inimigos em cone (dano contínuo).", "target": T_CONE, "kind": K_MAG,
-		 "power": 1.0, "mp_cost": 20, "cooldown": 9.0, "radius": 5.0, "cone_angle_deg": 70, "startup": 0.2, "active": 0.05, "recovery": 0.3, "icon_color": Color(0.7, 0.6, 0.2),
-		 "effects": {"dot": {"dps": 7, "duration": 5}, "slow": {"pct": 25, "duration": 3}}},
-		{"id": "dru_bear_form", "name": "Forma de Urso", "description": "Vira urso (lance de novo para voltar): +40% DEF, +25% HP, +10% ATK, um pouco mais lento. As skills do Guardião viram golpes de urso.", "target": T_SELF, "kind": K_BUFF, "radius": 0.0,
-		 "power": 0.0, "mp_cost": 10, "cooldown": 1.5, "startup": 0.25, "active": 0.05, "recovery": 0.25, "icon_color": Color(0.55, 0.4, 0.25),
-		 "effects": {"form": "bear"}},
-		{"id": "dru_wild_growth", "name": "Crescimento Selvagem", "description": "Floresta explode no cursor: dano alto + raízes.", "target": T_GROUND, "kind": K_MAG,
-		 "power": 2.6, "mp_cost": 34, "cooldown": 20.0, "range": 9.0, "radius": 3.2, "startup": 0.4, "active": 0.05, "recovery": 0.4, "icon_color": Color(0.3, 0.9, 0.4),
-		 "effects": {"root": {"duration": 1.5}}},
+		_s("dru_thorns", "Espinhos", 1, "", [], T_DIR, K_MAG, 1.3, 9, 2.5, "Lança espinhos envenenados na direção do cursor.",
+			{"range": 8.0, "radius": 0.4, "projectile_speed": 18.0, "startup": 0.15, "active": 0.05, "recovery": 0.25, "icon_color": Color(0.5, 0.9, 0.4), "dot": {"dps": 4, "duration": 4}}),
+		_s("dru_entangle", "Enraizar", 3, "", [], T_GROUND, K_MAG, 0.6, 15, 10.0, "Raízes prendem inimigos na área por 2.5s.",
+			{"range": 8.0, "radius": 2.5, "startup": 0.25, "active": 0.05, "recovery": 0.3, "icon_color": Color(0.4, 0.7, 0.3), "root": {"duration": 2.5}}),
+		_s("dru_regrowth", "Rebrotar", 6, "", [], T_SELF, K_HEAL, 1.3, 18, 8.0, "Cura a si e aliados próximos.",
+			{"radius": 4.0, "startup": 0.3, "active": 0.05, "recovery": 0.3, "icon_color": Color(0.6, 1, 0.6)}),
+		_s("dru_swarm", "Enxame", 10, "xama", ["staff"], T_CONE, K_MAG, 1.0, 20, 9.0, "Insetos devoram inimigos em cone (dano contínuo).",
+			{"radius": 5.0, "cone_angle_deg": 70, "startup": 0.2, "active": 0.05, "recovery": 0.3, "icon_color": Color(0.7, 0.6, 0.2), "dot": {"dps": 7, "duration": 5}, "slow": {"pct": 25, "duration": 3}}),
+		_s("dru_bear_form", "Forma de Urso", 3, "guardiao_verde", ["mace2h"], T_SELF, K_BUFF, 0.0, 10, 1.5, "Vira urso (lance de novo para voltar): +40% DEF, +25% HP, +10% ATK, um pouco mais lento. As skills do Guardião viram golpes de urso.",
+			{"radius": 0.0, "startup": 0.25, "active": 0.05, "recovery": 0.25, "icon_color": Color(0.55, 0.4, 0.25), "form": "bear"}),
+		_s("dru_wild_growth", "Crescimento Selvagem", 20, "xama", ["staff"], T_GROUND, K_MAG, 2.6, 34, 20.0, "Floresta explode no cursor: dano alto + raízes.",
+			{"range": 9.0, "radius": 3.2, "startup": 0.4, "active": 0.05, "recovery": 0.4, "icon_color": Color(0.3, 0.9, 0.4), "root": {"duration": 1.5}}),
 	],
 	"ranger": [
-		{"id": "ran_power_shot", "name": "Tiro Poderoso", "description": "Flecha perfurante de longo alcance.", "target": T_DIR, "kind": K_PHYS,
-		 "power": 2.0, "mp_cost": 8, "cooldown": 3.0, "range": 12.0, "radius": 0.4, "projectile_speed": 28.0, "projectile_pierce": true, "startup": 0.22, "active": 0.05, "recovery": 0.3, "icon_color": Color(0.7, 1, 0.7)},
-		{"id": "ran_multishot", "name": "Tiro Múltiplo", "description": "Leque de flechas em cone curto.", "target": T_CONE, "kind": K_PHYS,
-		 "power": 1.3, "mp_cost": 12, "cooldown": 5.0, "radius": 6.0, "cone_angle_deg": 60, "max_targets": 5, "startup": 0.18, "active": 0.05, "recovery": 0.3, "icon_color": Color(0.8, 1, 0.6)},
-		{"id": "ran_disengage", "name": "Recuar", "description": "Salta para trás e ganha +30% de velocidade por 3s.", "target": T_SELF, "kind": K_BUFF, "radius": 0.0,
-		 "power": 0.0, "mp_cost": 8, "cooldown": 9.0, "startup": 0.05, "active": 0.05, "recovery": 0.15, "lock_facing": true, "icon_color": Color(0.6, 0.9, 0.9),
-		 "effects": {"dash": -4.5, "buff": {"id": "swift", "duration": 3, "speed_pct": 30}}},
-		{"id": "ran_trap", "name": "Armadilha de Mandíbula", "description": "Coloca no chão uma armadilha (até 3): quem pisar fica preso 2.5s e sofre dano.", "target": T_GROUND, "kind": K_PHYS,
-		 "power": 1.6, "mp_cost": 12, "cooldown": 6.0, "range": 7.0, "radius": 1.4, "startup": 0.25, "active": 0.05, "recovery": 0.3, "icon_color": Color(0.7, 0.6, 0.4),
-		 "effects": {"trap": {"kind": "jaw", "duration": 30.0, "hit_radius": 1.4}, "root": {"duration": 2.5}}},
-		{"id": "ran_mark", "name": "Marca do Caçador", "description": "+40% ATK e +15 crit por 8s.", "target": T_SELF, "kind": K_BUFF, "radius": 0.0,
-		 "power": 0.0, "mp_cost": 16, "cooldown": 22.0, "startup": 0.1, "active": 0.05, "recovery": 0.2, "icon_color": Color(1, 0.8, 0.4),
-		 "effects": {"buff": {"id": "mark", "duration": 8, "atk_pct": 40, "crit": 15}}},
-		{"id": "ran_rain", "name": "Chuva de Flechas", "description": "Chuva de flechas em grande área no cursor.", "target": T_GROUND, "kind": K_PHYS,
-		 "power": 2.4, "mp_cost": 30, "cooldown": 18.0, "range": 11.0, "radius": 3.8, "startup": 0.4, "active": 0.05, "recovery": 0.4, "icon_color": Color(0.6, 0.8, 1),
-		 "effects": {"slow": {"pct": 30, "duration": 2}}},
+		_s("ran_power_shot", "Tiro Poderoso", 1, "", ["bow", "rifle"], T_DIR, K_PHYS, 2.0, 8, 3.0, "Flecha perfurante de longo alcance.",
+			{"range": 12.0, "radius": 0.4, "projectile_speed": 28.0, "projectile_pierce": true, "startup": 0.22, "active": 0.05, "recovery": 0.3, "icon_color": Color(0.7, 1, 0.7)}),
+		_s("ran_multishot", "Tiro Múltiplo", 3, "cacador", ["bow"], T_CONE, K_PHYS, 1.3, 12, 5.0, "Leque de flechas em cone curto.",
+			{"radius": 6.0, "cone_angle_deg": 60, "max_targets": 5, "startup": 0.18, "active": 0.05, "recovery": 0.3, "icon_color": Color(0.8, 1, 0.6)}),
+		_s("ran_disengage", "Recuar", 1, "", [], T_SELF, K_BUFF, 0.0, 8, 9.0, "Salta para trás e ganha +30% de velocidade por 3s.",
+			{"radius": 0.0, "startup": 0.05, "active": 0.05, "recovery": 0.15, "lock_facing": true, "icon_color": Color(0.6, 0.9, 0.9), "dash": -4.5, "buff": {"id": "swift", "duration": 3, "speed_pct": 30}}),
+		_s("ran_trap", "Armadilha de Mandíbula", 3, "atirador", ["bow", "rifle", "spear"], T_GROUND, K_PHYS, 1.6, 12, 6.0, "Coloca no chão uma armadilha (até 3): quem pisar fica preso 2.5s e sofre dano.",
+			{"range": 7.0, "radius": 1.4, "startup": 0.25, "active": 0.05, "recovery": 0.3, "icon_color": Color(0.7, 0.6, 0.4), "trap": {"kind": "jaw", "duration": 30.0, "hit_radius": 1.4}, "root": {"duration": 2.5}}),
+		_s("ran_mark", "Marca do Caçador", 15, "atirador", ["bow", "rifle", "spear"], T_SELF, K_BUFF, 0.0, 16, 22.0, "+40% ATK e +15 crit por 8s.",
+			{"radius": 0.0, "startup": 0.1, "active": 0.05, "recovery": 0.2, "icon_color": Color(1, 0.8, 0.4), "buff": {"id": "mark", "duration": 8, "atk_pct": 40, "crit": 15}}),
+		_s("ran_rain", "Chuva de Flechas", 20, "cacador", ["bow"], T_GROUND, K_PHYS, 2.4, 30, 18.0, "Chuva de flechas em grande área no cursor.",
+			{"range": 11.0, "radius": 3.8, "startup": 0.4, "active": 0.05, "recovery": 0.4, "icon_color": Color(0.6, 0.8, 1), "slow": {"pct": 30, "duration": 2}}),
 	],
 	"assassin": [
-		{"id": "ass_backstab", "name": "Apunhalar", "description": "Golpe rápido com chance de crítico altíssima (pelas costas, ainda mais).", "target": T_TARGET, "kind": K_PHYS,
-		 "power": 1.7, "mp_cost": 7, "cooldown": 2.5, "range": 2.2, "startup": 0.08, "active": 0.05, "recovery": 0.22, "cancel_after": 0.05, "icon_color": Color(0.8, 0.5, 1),
-		 "effects": {"buff": {"id": "focus", "duration": 0.3, "crit": 40}}},
-		{"id": "ass_shadowstep", "name": "Passo das Sombras", "description": "Teleporta até o cursor e corta tudo ao redor.", "target": T_GROUND, "kind": K_PHYS,
-		 "power": 1.2, "mp_cost": 12, "cooldown": 7.0, "range": 7.0, "radius": 1.8, "startup": 0.05, "active": 0.05, "recovery": 0.25, "icon_color": Color(0.5, 0.3, 0.7),
-		 "effects": {"dash": 6.5}},
-		{"id": "ass_poison", "name": "Lâmina Venenosa", "description": "Corte em cone que envenena por 6s.", "target": T_CONE, "kind": K_PHYS,
-		 "power": 1.1, "mp_cost": 10, "cooldown": 6.0, "radius": 2.3, "cone_angle_deg": 100, "startup": 0.1, "active": 0.05, "recovery": 0.25, "icon_color": Color(0.4, 0.9, 0.3),
-		 "effects": {"dot": {"dps": 6, "duration": 6}}},
-		{"id": "ass_fan", "name": "Leque de Facas", "description": "Lança facas em todas as direções.", "target": T_SELF, "kind": K_PHYS,
-		 "power": 1.5, "mp_cost": 16, "cooldown": 9.0, "radius": 4.5, "startup": 0.15, "active": 0.05, "recovery": 0.3, "icon_color": Color(0.8, 0.8, 0.9)},
-		{"id": "ass_smoke", "name": "Cortina de Fumaça", "description": "Lentidão em área e +25% velocidade própria.", "target": T_SELF, "kind": K_MAG,
-		 "power": 0.3, "mp_cost": 18, "cooldown": 16.0, "radius": 4.0, "startup": 0.1, "active": 0.05, "recovery": 0.2, "icon_color": Color(0.5, 0.5, 0.55),
-		 "effects": {"slow": {"pct": 50, "duration": 3}, "buff": {"id": "smoke", "duration": 4, "speed_pct": 25}}},
-		{"id": "ass_execute", "name": "Golpe Mortal", "description": "Dano brutal em um alvo isolado.", "target": T_TARGET, "kind": K_PHYS,
-		 "power": 3.6, "mp_cost": 24, "cooldown": 14.0, "range": 2.4, "startup": 0.2, "active": 0.05, "recovery": 0.4, "hit_stop_frames": 6, "icon_color": Color(0.9, 0.2, 0.5)},
+		_s("ass_backstab", "Apunhalar", 1, "", ["dagger", "sword"], T_TARGET, K_PHYS, 1.7, 7, 2.5, "Golpe rápido com chance de crítico altíssima (pelas costas, ainda mais).",
+			{"range": 2.2, "startup": 0.08, "active": 0.05, "recovery": 0.22, "cancel_after": 0.05, "icon_color": Color(0.8, 0.5, 1), "buff": {"id": "focus", "duration": 0.3, "crit": 40}, "radius": 1.5, "max_targets": 99}),
+		_s("ass_shadowstep", "Passo das Sombras", 3, "", [], T_GROUND, K_PHYS, 1.2, 12, 7.0, "Teleporta até o cursor e corta tudo ao redor.",
+			{"range": 7.0, "radius": 1.8, "startup": 0.05, "active": 0.05, "recovery": 0.25, "icon_color": Color(0.5, 0.3, 0.7), "dash": 6.5}),
+		_s("ass_poison", "Lâmina Venenosa", 6, "laminas", ["dual_dagger"], T_CONE, K_PHYS, 1.1, 10, 6.0, "Corte em cone que envenena por 6s.",
+			{"radius": 2.3, "cone_angle_deg": 100, "startup": 0.1, "active": 0.05, "recovery": 0.25, "icon_color": Color(0.4, 0.9, 0.3), "dot": {"dps": 6, "duration": 6}}),
+		_s("ass_fan", "Leque de Facas", 10, "laminas", [], T_SELF, K_PHYS, 1.5, 16, 9.0, "Lança facas em todas as direções.",
+			{"radius": 4.5, "startup": 0.15, "active": 0.05, "recovery": 0.3, "icon_color": Color(0.8, 0.8, 0.9)}),
+		_s("ass_smoke", "Cortina de Fumaça", 15, "", [], T_SELF, K_MAG, 0.3, 18, 16.0, "Lentidão em área e +25% velocidade própria.",
+			{"radius": 4.0, "startup": 0.1, "active": 0.05, "recovery": 0.2, "icon_color": Color(0.5, 0.5, 0.55), "slow": {"pct": 50, "duration": 3}, "buff": {"id": "smoke", "duration": 4, "speed_pct": 25}}),
+		_s("ass_execute", "Golpe Mortal", 20, "", [], T_TARGET, K_PHYS, 3.6, 24, 14.0, "Dano brutal em um alvo isolado.",
+			{"range": 2.4, "startup": 0.2, "active": 0.05, "recovery": 0.4, "hit_stop_frames": 6, "icon_color": Color(0.9, 0.2, 0.5), "radius": 1.5, "max_targets": 99}),
 	],
 	"elementalist": [
-		{"id": "ele_fireball", "name": "Bola de Fogo", "description": "Projétil de fogo que explode e queima.", "target": T_DIR, "kind": K_MAG,
-		 "power": 1.8, "mp_cost": 11, "cooldown": 2.5, "range": 9.0, "radius": 0.5, "projectile_speed": 16.0, "startup": 0.22, "active": 0.05, "recovery": 0.3, "icon_color": Color(1, 0.5, 0.2),
-		 "effects": {"dot": {"dps": 5, "duration": 3}}},
-		{"id": "ele_frost_nova", "name": "Nova de Gelo", "description": "Congela e retarda tudo ao redor.", "target": T_SELF, "kind": K_MAG,
-		 "power": 1.5, "mp_cost": 16, "cooldown": 9.0, "radius": 3.5, "startup": 0.15, "active": 0.05, "recovery": 0.3, "icon_color": Color(0.6, 0.9, 1),
-		 "effects": {"root": {"duration": 1.2}, "slow": {"pct": 50, "duration": 3}}},
-		{"id": "ele_lightning", "name": "Relâmpago", "description": "Raio instantâneo em linha reta.", "target": T_DIR, "kind": K_MAG,
-		 "power": 2.0, "mp_cost": 14, "cooldown": 4.0, "range": 10.0, "radius": 0.6, "max_targets": 3, "startup": 0.2, "active": 0.05, "recovery": 0.3, "hit_stop_frames": 4, "icon_color": Color(0.8, 0.8, 1)},
-		{"id": "ele_meteor", "name": "Meteoro", "description": "Meteoro cai no cursor: dano enorme em área.", "target": T_GROUND, "kind": K_MAG,
-		 "power": 3.0, "mp_cost": 30, "cooldown": 14.0, "range": 10.0, "radius": 3.0, "startup": 0.55, "active": 0.05, "recovery": 0.45, "hit_stop_frames": 6, "icon_color": Color(1, 0.4, 0.1),
-		 "effects": {"dot": {"dps": 6, "duration": 3}}},
-		{"id": "ele_blink", "name": "Piscar", "description": "Teleporta curta distância na direção do cursor.", "target": T_SELF, "kind": K_MOVE, "radius": 0.0,
-		 "power": 0.0, "mp_cost": 10, "cooldown": 8.0, "startup": 0.02, "active": 0.02, "recovery": 0.1, "icon_color": Color(0.7, 0.6, 1),
-		 "effects": {"dash": 6.0}},
-		{"id": "ele_blizzard", "name": "Nevasca", "description": "Tempestade de gelo gigante no cursor.", "target": T_GROUND, "kind": K_MAG,
-		 "power": 2.6, "mp_cost": 38, "cooldown": 20.0, "range": 10.0, "radius": 4.5, "startup": 0.5, "active": 0.05, "recovery": 0.5, "icon_color": Color(0.5, 0.8, 1),
-		 "effects": {"slow": {"pct": 60, "duration": 4}, "dot": {"dps": 5, "duration": 4}}},
+		_s("ele_fireball", "Bola de Fogo", 1, "", [], T_DIR, K_MAG, 1.8, 11, 2.5, "Projétil de fogo que explode e queima.",
+			{"range": 9.0, "radius": 0.5, "projectile_speed": 16.0, "startup": 0.22, "active": 0.05, "recovery": 0.3, "icon_color": Color(1, 0.5, 0.2), "dot": {"dps": 5, "duration": 3}}),
+		_s("ele_frost_nova", "Nova de Gelo", 3, "gelo", ["staff"], T_SELF, K_MAG, 1.5, 16, 9.0, "Congela e retarda tudo ao redor.",
+			{"radius": 3.5, "startup": 0.15, "active": 0.05, "recovery": 0.3, "icon_color": Color(0.6, 0.9, 1), "root": {"duration": 1.2}, "slow": {"pct": 50, "duration": 3}}),
+		_s("ele_lightning", "Relâmpago", 6, "raio", ["staff"], T_DIR, K_MAG, 2.0, 14, 4.0, "Raio instantâneo em linha reta.",
+			{"range": 10.0, "radius": 0.6, "max_targets": 3, "startup": 0.2, "active": 0.05, "recovery": 0.3, "hit_stop_frames": 4, "icon_color": Color(0.8, 0.8, 1)}),
+		_s("ele_meteor", "Meteoro", 10, "fogo", ["staff"], T_GROUND, K_MAG, 3.0, 30, 14.0, "Meteoro cai no cursor: dano enorme em área.",
+			{"range": 10.0, "radius": 3.0, "startup": 0.55, "active": 0.05, "recovery": 0.45, "hit_stop_frames": 6, "icon_color": Color(1, 0.4, 0.1), "dot": {"dps": 6, "duration": 3}}),
+		_s("ele_blink", "Piscar", 15, "", [], T_SELF, K_MOVE, 0.0, 10, 8.0, "Teleporta curta distância na direção do cursor.",
+			{"radius": 0.0, "startup": 0.02, "active": 0.02, "recovery": 0.1, "icon_color": Color(0.7, 0.6, 1), "dash": 6.0}),
+		_s("ele_blizzard", "Nevasca", 20, "gelo", ["staff"], T_GROUND, K_MAG, 2.6, 38, 20.0, "Tempestade de gelo gigante no cursor.",
+			{"range": 10.0, "radius": 4.5, "startup": 0.5, "active": 0.05, "recovery": 0.5, "icon_color": Color(0.5, 0.8, 1), "slow": {"pct": 60, "duration": 4}, "dot": {"dps": 5, "duration": 4}}),
 	],
 	"necromancer": [
-		{"id": "nec_drain", "name": "Drenar Vida", "description": "Dreno sombrio: cura 20% do dano.", "target": T_DIR, "kind": K_MAG,
-		 "power": 1.4, "mp_cost": 10, "cooldown": 5.0, "range": 7.0, "radius": 0.7, "max_targets": 1, "startup": 0.2, "active": 0.05, "recovery": 0.3, "icon_color": Color(0.4, 1, 0.6),
-		 "effects": {"heal_pct_of_dmg": 0.2}},
-		{"id": "nec_raise", "name": "Erguer Mortos", "description": "Invoca 2 esqueletos por 25s (máx 3).", "target": T_SELF, "kind": K_SUMMON, "radius": 0.0,
-		 "power": 0.0, "mp_cost": 22, "cooldown": 12.0, "startup": 0.4, "active": 0.05, "recovery": 0.3, "icon_color": Color(0.7, 0.9, 0.7),
-		 "effects": {"summon": {"monster_id": "skeleton_minion", "count": 2, "duration": 25, "max": 3}},
-		 "mastery": _mastery({2: {"summon": {"monster_id": "skeleton_minion", "count": 2, "duration": 30, "max": 4}}, 4: {"summon": {"monster_id": "skeleton_minion", "count": 3, "duration": 35, "max": 5}}})},
-		{"id": "nec_plague", "name": "Praga", "description": "Nuvem de doença no cursor: dano contínuo forte.", "target": T_GROUND, "kind": K_MAG,
-		 "power": 0.8, "mp_cost": 18, "cooldown": 9.0, "range": 9.0, "radius": 3.0, "startup": 0.3, "active": 0.05, "recovery": 0.3, "icon_color": Color(0.5, 0.7, 0.3),
-		 "effects": {"dot": {"dps": 9, "duration": 6}, "slow": {"pct": 20, "duration": 3}}},
-		{"id": "nec_bone_wall", "name": "Muralha de Ossos", "description": "Escudo de ossos (20% HP) e +20% DEF por 6s.", "target": T_SELF, "kind": K_BUFF, "radius": 0.0,
-		 "power": 0.0, "mp_cost": 20, "cooldown": 24.0, "startup": 0.15, "active": 0.05, "recovery": 0.25, "icon_color": Color(0.9, 0.9, 0.8),
-		 "effects": {"shield": {"amount_pct_hp": 20, "duration": 6}, "buff": {"id": "bonewall", "duration": 6, "def_pct": 20}}},
-		{"id": "nec_curse", "name": "Maldição", "description": "Cone de trevas: dano e lentidão pesada.", "target": T_CONE, "kind": K_MAG,
-		 "power": 1.6, "mp_cost": 20, "cooldown": 10.0, "radius": 5.0, "cone_angle_deg": 75, "startup": 0.25, "active": 0.05, "recovery": 0.35, "icon_color": Color(0.5, 0.2, 0.6),
-		 "effects": {"slow": {"pct": 45, "duration": 3}}},
-		{"id": "nec_harvest", "name": "Colheita Sombria", "description": "Explosão de almas: dano alto em área e cura 25%.", "target": T_SELF, "kind": K_MAG,
-		 "power": 3.4, "mp_cost": 36, "cooldown": 18.0, "radius": 4.5, "startup": 0.45, "active": 0.05, "recovery": 0.45, "hit_stop_frames": 5, "icon_color": Color(0.3, 1, 0.7),
-		 "effects": {"heal_pct_of_dmg": 0.25}},
+		_s("nec_drain", "Drenar Vida", 1, "", [], T_DIR, K_MAG, 1.4, 10, 5.0, "Dreno sombrio: cura 20% do dano.",
+			{"range": 7.0, "radius": 0.7, "max_targets": 1, "startup": 0.2, "active": 0.05, "recovery": 0.3, "icon_color": Color(0.4, 1, 0.6), "heal_pct_of_dmg": 0.2}),
+		_s("nec_raise", "Erguer Mortos", 3, "invocador", ["scythe"], T_SELF, K_SUMMON, 0.0, 22, 12.0, "Invoca 2 esqueletos por 25s (máx 3).",
+			{"radius": 0.0, "startup": 0.4, "active": 0.05, "recovery": 0.3, "icon_color": Color(0.7, 0.9, 0.7), "summon": {"monster_id": "skeleton_minion", "count": 2, "duration": 25, "max": 3}, "mastery": _mastery({2: {"summon": {"monster_id": "skeleton_minion", "count": 2, "duration": 30, "max": 4}}, 4: {"summon": {"monster_id": "skeleton_minion", "count": 3, "duration": 35, "max": 5}}})}),
+		_s("nec_plague", "Praga", 6, "pestilento", ["scythe"], T_GROUND, K_MAG, 0.8, 18, 9.0, "Nuvem de doença no cursor: dano contínuo forte.",
+			{"range": 9.0, "radius": 3.0, "startup": 0.3, "active": 0.05, "recovery": 0.3, "icon_color": Color(0.5, 0.7, 0.3), "dot": {"dps": 9, "duration": 6}, "slow": {"pct": 20, "duration": 3}}),
+		_s("nec_bone_wall", "Muralha de Ossos", 10, "", [], T_SELF, K_BUFF, 0.0, 20, 24.0, "Escudo de ossos (20% HP) e +20% DEF por 6s.",
+			{"radius": 0.0, "startup": 0.15, "active": 0.05, "recovery": 0.25, "icon_color": Color(0.9, 0.9, 0.8), "shield": {"amount_pct_hp": 20, "duration": 6}, "buff": {"id": "bonewall", "duration": 6, "def_pct": 20}}),
+		_s("nec_curse", "Maldição", 15, "pestilento", ["scythe"], T_CONE, K_MAG, 1.6, 20, 10.0, "Cone de trevas: dano e lentidão pesada.",
+			{"radius": 5.0, "cone_angle_deg": 75, "startup": 0.25, "active": 0.05, "recovery": 0.35, "icon_color": Color(0.5, 0.2, 0.6), "slow": {"pct": 45, "duration": 3}}),
+		_s("nec_harvest", "Colheita Sombria", 20, "ceifador", ["scythe"], T_SELF, K_MAG, 3.4, 36, 18.0, "Explosão de almas: dano alto em área e cura 25%.",
+			{"radius": 4.5, "startup": 0.45, "active": 0.05, "recovery": 0.45, "hit_stop_frames": 5, "icon_color": Color(0.3, 1, 0.7), "heal_pct_of_dmg": 0.25}),
 	],
 	}

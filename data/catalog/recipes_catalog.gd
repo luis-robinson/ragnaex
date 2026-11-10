@@ -3,8 +3,7 @@ extends RefCounted
 
 static func _mk(d: Dictionary) -> RecipeDef:
 	var r := RecipeDef.new()
-	for k in d:
-		r.set(k, d[k])
+	CatalogUtil.fill(r, d)
 	return r
 
 static func _r(result: String, count: int, station: String, lv: int, gold: int, ing: Dictionary) -> Dictionary:

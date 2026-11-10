@@ -4,8 +4,7 @@ extends RefCounted
 
 static func _mk(d: Dictionary) -> MonsterDef:
 	var m := MonsterDef.new()
-	for k in d:
-		m.set(k, d[k])
+	CatalogUtil.fill(m, d)
 	return m
 
 static func _lt(id: String, entries: Array) -> LootTable:

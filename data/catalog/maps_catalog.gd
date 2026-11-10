@@ -15,8 +15,7 @@ const C_RUIN := Color(0.70, 0.68, 0.62)
 
 static func _mk(d: Dictionary) -> MapDef:
 	var m := MapDef.new()
-	for k in d:
-		m.set(k, d[k])
+	CatalogUtil.fill(m, d)
 	return m
 
 static func _ob(kind: String, x: float, z: float, sx: float, sy: float, sz: float, color: Color, rot: float = 0.0, solid: bool = true) -> Dictionary:

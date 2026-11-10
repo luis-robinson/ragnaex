@@ -5,6 +5,13 @@ extends Resource
 enum Target { SELF, DIRECTION, GROUND, CONE, TARGET }
 enum Kind { PHYSICAL, MAGICAL, HEAL, BUFF, SUMMON, MOVEMENT }
 
+## Chaves de `effects` que a sim conhece (WorldSim._apply_effects e sistemas). Fonte única: `SkillsCatalog._s` manda
+## estas para `effects` (o resto vira campo da skill) e há check de que toda skill usa só estas.
+const EFFECT_KEYS := ["dot", "slow", "stun", "root", "buff", "shield", "dash", "summon", "heal_pct_of_dmg", "taunt",
+	"boss_summon", "wither", "form", "stealth", "trap", "pet_command", "pet_buff", "curse", "channel", "mend_pct_of_dmg",
+	"combust", "bounce", "aura", "barrage", "pull", "combo_gain", "combo_spend", "dice", "dash_to_aim", "shot", "fury_gain",
+	"fury_spend", "heal_pct", "mana_pct"]
+
 @export var id: String = ""
 @export var name: String = ""
 @export var description: String = ""

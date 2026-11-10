@@ -10,12 +10,7 @@ const REACH := QuestDef.Type.REACH
 
 static func _mk(d: Dictionary) -> QuestDef:
 	var q := QuestDef.new()
-	for k in d:
-		var cur = q.get(k)
-		if cur is Array and d[k] is Array:
-			(cur as Array).assign(d[k])     # campo Array[String]: set() com lista sem tipo falha em silêncio
-		else:
-			q.set(k, d[k])
+	CatalogUtil.fill(q, d)
 	return q
 
 const HUNT_GIVERS := {"city_aldara": "board", "field_forest": "stone_druid", "field_ruins": "dawn_board", "elf_city": "moon_altar",

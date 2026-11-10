@@ -92,3 +92,8 @@
   do OpenGameArt (baixados para `.godot/sfx_cache`), `SYNTH` = funções `s_<nome>` (biblioteca padrão, semente fixa). Nome novo precisa de volume em `Sfx.VOL`
   (`game/audio/sfx.gd`; há check) e de um gancho em evento lá. Tema de skill novo = entrada em `Sfx.THEME_SOUND`. O smoke imprime `SMOKE SOM:` (o que tocou).
 - Sempre adicione um `check(...)` em `tools/tests/run_tests.gd` para conteúdo/regra nova.
+- **Chaves dos catálogos** (check `_check_catalog_keys`): os `_mk` passam por `CatalogUtil.fill` (chave que o Resource não tem
+  = falha no teste, não some mais em silêncio). Stat de passivo/`set_extra`/bônus/buff só de `Stats.STAT_KEYS` (stat novo = ler
+  em `Stats.compute` E pôr na lista); efeito de skill só de `SkillDef.EFFECT_KEYS` (efeito novo = entra na lista e o `_s` o manda para `effects`).
+- **Refatorar catálogo sem mudar dado**: `--headless --path . tools/tests/catalog_dump.tscn -- --out=<arquivo>` antes e depois
+  (skills, itens, conjuntos, classes, monstros, quests, receitas, mapas, evoluções; dicionários em ordem) e `diff` vazio.

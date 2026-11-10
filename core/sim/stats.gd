@@ -3,6 +3,17 @@ extends RefCounted
 ## Stats derivados de atributos (FOR/AGI/VIT/WILL/INT) + equipamento + classe + nível.
 ## Pura função: `compute()` gera um Stats novo. Nunca toca nós.
 
+## Chaves de stat que `compute()` soma dos buffs e bônus de conjunto (passivos, set_extra, nós da teia, buffs de skill).
+## Fonte única: há check de que todo passivo/bônus/buff do catálogo usa só estas (erro de digitação somava 0 em silêncio).
+## Chave nova = ler aqui embaixo em `compute()` E acrescentar na lista.
+const STAT_KEYS := ["atk_pct", "matk_pct", "def_pct", "speed_pct", "heal_pct", "hp_pct", "mp_pct", "crit", "lifesteal",
+	"aspd_pct", "buff_pct", "radiance", "radiance_cap", "pet_pct", "evasion", "hit_poison", "backstab", "cdr", "threat_pct",
+	"dr_pct", "fire_pct", "frost_pct", "storm_pct"]
+## Chaves de buff que não são stat: id (renova, não acumula), duração e aura de ligar/desligar.
+const BUFF_META := ["id", "duration", "toggle"]
+## Chaves de bônus de conjunto que não são stat (SetDef: atributos e bônus por skill).
+const SET_BONUS_META := ["attrs", "skill_dmg", "skill_cdr"]
+
 var max_hp: float = 100.0
 var max_mp: float = 50.0
 var patk: float = 10.0
