@@ -1555,6 +1555,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_bot_skill_reject(gd, sim)
 	_check_bot_form(gd, sim)
 	_check_bot_stealth(gd, sim)
+	_check_bot_group(gd, sim)
 	_check_catalog_keys(gd)
 	_check_build_entries(gd)
 	_check_portal_arrivals(gd)
@@ -8109,6 +8110,116 @@ func _check_bot_form(gd, sim) -> void:
 		check(pick != 0, "%s: já na forma, o bot não a desliga" % row[0])
 		mob.hp = 0
 		sim.despawn(d)
+
+## IA de grupo (BotBrain): papel pela build, lugar por papel contra chefe preso no tanque (costas/flanco, fora da frente),
+## ameaça (passou o tanque: para), cura com o tanque primeiro, tanque não foge do golpe do próprio chefe, sem guarda
+## nas costas, dps de perto tira lacaio de quem cura. Números em Balance.BOT_* (medidos com boss_probe --comp).
+func _check_bot_group(gd, sim) -> void:
+	var at := Vector3(-30, 0, 30)
+	var mk := func(cid: String, bid: String, name: String, pos: Vector3) -> SimEntity:
+		var b = sim.spawn_character(SimEntity.Kind.BOT, gd.classes[cid], name, "city_aldara", pos, 30)
+		b.build_id = bid
+		sim._gear_bot(b)
+		sim._skill_bot(b)
+		b.brain = null
+		return b
+	var tank: SimEntity = mk.call("paladin", "guardiao", "Tq", at + Vector3(0, 0, 2.5))
+	var heal: SimEntity = mk.call("bishop", "sacerdote", "Cura", at + Vector3(6, 0, -6))
+	var dps: SimEntity = mk.call("berserker", "carniceiro", "Dps", at + Vector3(0, 0, -2.5))
+	var gun: SimEntity = mk.call("ranger", "atirador", "Arma", at + Vector3(-7, 0, -5))
+	check(sim.role_of(tank) == "tank" and sim.role_of(heal) == "healer" and sim.role_of(dps) == "dps" and sim.role_of(gun) == "ranged", "papel no grupo vem da build")
+	for o in [heal, dps, gun]:
+		sim.party_invite(tank, o)
+		sim.party_accept(o)
+	var boss: SimEntity = sim.spawn_monster(gd.monsters["bandit_chief"], "city_aldara", at)
+	boss.brain = null
+	boss.aggro_target = tank.id
+	boss.aggro_timer = 5.0
+	boss.threat = {tank.id: 1000.0}
+	var m: Dictionary = sim.maps["city_aldara"]
+	var bd := BotBrain.new()
+	bd.setup(dps, RandomNumberGenerator.new())
+	check(bd._tank_of(dps, sim) == tank, "dps acha o tanque do grupo")
+	check(BotBrain._in_front(dps, boss, tank) == false and BotBrain._in_front(mk.call("berserker", "carniceiro", "Frente", at + Vector3(0, 0, 1.0)), boss, tank), "frente do chefe = lado do tanque (costas não são frente)")
+	var reach: float = dps.basic_skill.radius if dps.basic_skill else 1.8
+	var spot: Vector3 = bd._role_spot(dps, sim, boss, true, reach, tank)
+	check(not BotBrain._in_front(dps, boss, tank) and (spot - boss.position).dot(tank.position - boss.position) < 0.0, "corpo a corpo: lugar nas costas do chefe")
+	var bg := BotBrain.new()
+	bg.setup(gun, RandomNumberGenerator.new())
+	var gspot: Vector3 = bg._role_spot(gun, sim, boss, false, 14.0, tank)
+	check((gspot - boss.position).dot(tank.position - boss.position) < 0.0 and gspot.distance_to(boss.position) >= Balance.BOT_RANGED_DIST, "longe: flanco de trás a %.0f m+" % Balance.BOT_RANGED_DIST)
+	# na frente: sai antes de bater
+	dps.position = at + Vector3(0.6, 0, 1.6)
+	var cmd: InputCommand = bd._fight(dps, sim, m, boss, InputCommand.new())
+	check(cmd.move != Vector2.ZERO and not cmd.attack and cmd.skill_slot < 0, "dps na frente do chefe preso no tanque: sai antes de bater")
+	# ameaça: passou o tanque, para
+	dps.position = spot
+	dps.cooldowns.clear()
+	boss.threat[dps.id] = 1000.0 * Balance.BOT_THREAT_STOP + 1.0
+	cmd = bd._fight(dps, sim, m, boss, InputCommand.new())
+	check(not cmd.attack and cmd.skill_slot < 0, "dps com mais ameaça que o tanque para de bater")
+	boss.threat[dps.id] = 0.0
+	cmd = bd._fight(dps, sim, m, boss, InputCommand.new())
+	check(cmd.attack or cmd.skill_slot >= 0 or cmd.move != Vector2.ZERO, "dps nas costas com pouca ameaça luta")
+	# cura: tanque primeiro
+	var bh := BotBrain.new()
+	bh.setup(heal, RandomNumberGenerator.new())
+	heal.cooldowns.clear()
+	heal.mp = heal.stats.max_mp
+	tank.hp = tank.stats.max_hp * (Balance.BOT_HEAL_TANK_HP - 0.05)
+	dps.hp = dps.stats.max_hp * (Balance.BOT_HEAL_HP - 0.1)
+	cmd = InputCommand.new()
+	check(bh._heal_party(heal, sim, sim.party_members(heal), cmd, 0.05) and cmd.aim.distance_to(tank.position) < 0.01, "quem cura vai primeiro no tanque abaixo de %d%%" % int(Balance.BOT_HEAL_TANK_HP * 100))
+	tank.hp = tank.stats.max_hp
+	cmd = InputCommand.new()
+	check(bh._heal_party(heal, sim, sim.party_members(heal), cmd, 0.05) and cmd.aim.distance_to(dps.position) < 0.01, "tanque cheio: cura o mais ferido")
+	dps.hp = dps.stats.max_hp
+	# tanque não foge do golpe de frente do chefe que segura; sozinho foge
+	boss.state = SimEntity.State.CASTING
+	boss.current_skill = gd.skills["mob_whirl"]
+	boss.skill_phase = "startup"
+	boss.skill_aim = boss.position
+	var bt := BotBrain.new()
+	bt.setup(tank, RandomNumberGenerator.new())
+	check(bt._danger_escape(tank, m, true) == Vector2.ZERO and bt._danger_escape(tank, m, false) != Vector2.ZERO, "tanque no grupo aguenta o giro do chefe que segura (sozinho, foge)")
+	check(bd._danger_escape(dps, m) != Vector2.ZERO, "dps foge do giro")
+	# investida: foge da linha mesmo estreita
+	var ch: SkillDef = gd.skills["mob_charge"]
+	check(ch.radius < Balance.BOT_DODGE_MIN_RADIUS and ch.is_charge(), "investida é estreita (abaixo do mínimo de desvio)")
+	boss.current_skill = ch
+	dps.position = boss.position + boss.forward() * 3.0
+	check(bd._danger_escape(dps, m) != Vector2.ZERO, "bot sai da linha da investida")
+	boss.state = SimEntity.State.IDLE
+	boss.current_skill = null
+	# nas costas, sem guarda: quem cura com escudo não bloqueia golpe que não vem
+	heal.position = spot
+	boss.state = SimEntity.State.CASTING
+	boss.current_skill = gd.skills["mob_whirl"]
+	boss.skill_phase = "active"
+	bh.block_timer = 0.0
+	var blocked := false
+	for i in 20:
+		bh.block_timer = 0.0
+		var c: InputCommand = bh._fight(heal, sim, m, boss, InputCommand.new())
+		blocked = blocked or c.block
+	check(not blocked, "nas costas do chefe preso no tanque: sem guarda")
+	boss.state = SimEntity.State.IDLE
+	boss.current_skill = null
+	# lacaio em quem cura: o dps de perto vai nele; o atirador não
+	var add: SimEntity = sim.spawn_monster(gd.monsters["slime"], "city_aldara", heal.position + Vector3(1.5, 0, 0))
+	add.brain = null
+	add.aggro_target = heal.id
+	check(bd._peel_target(dps, sim, m, sim.party_members(dps)) == add, "dps de perto pega o lacaio em cima de quem cura")
+	check(bg._peel_target(gun, sim, m, sim.party_members(gun)) == null, "quem atira não larga o chefe pelo lacaio")
+	sim.despawn(add)
+	sim.despawn(boss)
+	for o in [heal, dps, gun]:
+		sim.party_leave(o)
+	for o in m["entities"].duplicate():
+		if o.name == "Frente":
+			sim.despawn(o)
+	for o in [tank, heal, dps, gun]:
+		sim.despawn(o)
 
 ## Lâminas: Sumir está na barra do bot, abre a luta furtivo (alvo ainda não o mira), e na sombra o bot contorna o alvo
 ## sem golpe básico e sai com a skill mais forte pelas costas (antes Sumir nunca entrava na barra: 6/40 solo).

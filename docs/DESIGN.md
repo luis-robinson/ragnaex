@@ -694,4 +694,16 @@ com histerese (entra a 75%, sai a 95%), fica parado durante o golpe, encosta num
 o alvo não perde vida (obstáculo), chega mais perto; distância anda de lado até ter linha de tiro. Skill: a melhor pontuada (buff que não está
 ativo, área quando há vários, a mais forte), invocação quando não há. Defesa: sai de área telegrafada de monstro (chão, em volta, cone, linha)
 com dash se der; poção a 45% (corpo a corpo); sem poção e < 20% recua. Em grupo: segue o alvo do líder e entra quando ele briga.
+
+**Em grupo (2026-11-10)**: cada bot tem o papel da build (`role`: tank, healer, dps, caster, ranged; jogador = build principal,
+`ProgressionSystem.main_build`). Contra chefe/elite preso no tanque, a "frente" é a direção do chefe até o tanque (estável; o
+`forward` girava a cada golpe mirado em outro): corpo a corpo vai para as costas (espalhado por id), quem luta de longe fica a
+`BOT_RANGED_DIST` m num flanco de trás e só se mexe se estiver na frente, colado ou fora do alcance; quem cura fica a até
+`BOT_HEALER_LEASH` m do tanque. Lugar inalcançável: desiste por `BOT_PLACE_COOL` s. Ameaça: acima de `BOT_THREAT_HOLD` × a
+do tanque só básico, acima de `BOT_THREAT_STOP` para. Cura: tanque primeiro abaixo de `BOT_HEAL_TANK_HP`, os outros abaixo de
+`BOT_HEAL_HP`. Tanque (líder ou seguidor) provoca e vai buscar chefe que largou dele, e não foge do golpe de frente/em volta
+do chefe que segura (bloqueia; círculos no chão ele evita). Nas costas do chefe ninguém fica de guarda. Dps de perto tira lacaio
+de cima de quem cura/atira (`BOT_PEEL_RANGE`). Investida é desviada mesmo estreita. Medição (`boss_probe --comp`, 17 chefes de
+grupo × 8, Guardião/Sacerdote/Machados/Atirador/Fogo): chefe no tanque 48% → 91% (dps liderando, como o jogador: 67% → 82%);
+dano de golpe sem mira em quem não é tanque 36% → 13%; lutas 19,5 s → 25 s (ritmo do grupo 62% → 51%: o preço de ficar no lugar).
 Dungeons: 25% maiores (`build_dungeons.SCALE`) e `SPAWN_COUNT_MULT_DUNGEON` 2x de monstros, para grupos.

@@ -198,29 +198,9 @@ static func relic_exchange_set(sim: WorldSim, e: SimEntity, set_id: String) -> i
 		Events.post(&"notification", "★ LENDÁRIO: %s (%d peça%s)!" % [GameData.sets[set_id].name, missing.size(), "s" if missing.size() > 1 else ""])
 	return missing.size()
 
-## Build da aba inicial da Relicária: a do bot; no jogador, a do conjunto que mais veste, senão a do braço da teia com mais nós.
+## Build da aba inicial da Relicária: a principal do personagem (ProgressionSystem.main_build).
 static func relic_default_build(sim: WorldSim, e: SimEntity) -> String:
-	if e.build_id != "":
-		return e.build_id
-	var score := {}
-	for b in e.class_def.builds:
-		score[b["id"]] = 0.0
-	for sl in e.equipment:
-		var it: ItemDef = e.equipment[sl]
-		if it and it.set_id != "":
-			var bid := GearCatalog.bid_of_set(it.set_id).trim_prefix(e.class_def.id + "_")
-			if score.has(bid):
-				score[bid] += 10.0
-	var nodes: Dictionary = ProgressionSystem.tree_of(sim, e)["nodes"]
-	for nid in e.tree:
-		var n: Dictionary = nodes.get(nid, {})
-		if score.has(n.get("branch", "")):
-			score[n["branch"]] += 1.0
-	var best: String = e.class_def.builds[0]["id"]
-	for bid in score:
-		if score[bid] > score[best]:
-			best = bid
-	return best
+	return ProgressionSystem.main_build(sim, e)
 
 ## Chance de lendário por monstro: chefe 25%; no primeiro mapa o 1º conjunto cai mais (1 em 50); no resto 1 em 200.
 static func legendary_chance(sim: WorldSim, mob: SimEntity) -> float:

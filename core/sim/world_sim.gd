@@ -1937,6 +1937,10 @@ func relic_exchange_set(e: SimEntity, set_id: String) -> int:
 	return ItemSystem.relic_exchange_set(self, e, set_id)
 func relic_default_build(e: SimEntity) -> String:
 	return ItemSystem.relic_default_build(self, e)
+func main_build(e: SimEntity) -> String:
+	return ProgressionSystem.main_build(self, e)
+func role_of(e: SimEntity) -> String:
+	return ProgressionSystem.role_of(self, e)
 func legendary_chance(mob: SimEntity) -> float:
 	return ItemSystem.legendary_chance(self, mob)
 func _uses_shield(e: SimEntity) -> bool:

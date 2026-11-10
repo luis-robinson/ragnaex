@@ -440,3 +440,33 @@ static func upgrade_mastery(sim: WorldSim, e: SimEntity, skill_id: String) -> bo
 
 static func set_potion_slot(sim: WorldSim, e: SimEntity, slot: int, item_id: String) -> void:
 	e.potion_slots[slot] = item_id
+
+## Build principal: a do bot; no jogador, a do conjunto que mais veste, senão a do braço da teia com mais nós.
+static func main_build(sim: WorldSim, e: SimEntity) -> String:
+	if e.build_id != "" or e.class_def == null or e.class_def.builds.is_empty():
+		return e.build_id
+	var score := {}
+	for b in e.class_def.builds:
+		score[b["id"]] = 0.0
+	for sl in e.equipment:
+		var it: ItemDef = e.equipment[sl]
+		if it and it.set_id != "":
+			var bid := GearCatalog.bid_of_set(it.set_id).trim_prefix(e.class_def.id + "_")
+			if score.has(bid):
+				score[bid] += 10.0
+	var nodes: Dictionary = tree_of(sim, e)["nodes"]
+	for nid in e.tree:
+		var n: Dictionary = nodes.get(nid, {})
+		if score.has(n.get("branch", "")):
+			score[n["branch"]] += 1.0
+	var best: String = e.class_def.builds[0]["id"]
+	for bid in score:
+		if score[bid] > score[best]:
+			best = bid
+	return best
+
+## Papel no grupo pela build principal ("tank", "healer", "dps", "caster", "ranged"; ClassDef.builds[].role).
+static func role_of(sim: WorldSim, e: SimEntity) -> String:
+	if e.class_def == null:
+		return "dps"
+	return str(e.class_def.build_by_id(main_build(sim, e)).get("role", "dps"))

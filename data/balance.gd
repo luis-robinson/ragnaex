@@ -306,7 +306,7 @@ const BOSS_BERSERK_MULT := 1.6              # dano do chefe que passou de berser
 const BOSS_WARD_CHECK := 0.5                # s entre conferências dos lacaios vivos (ward)
 const BOSS_FOLLOW := 5.0                    # m: skill de alvo de chefe (mob_pick) segue a vítima que andou até isto na preparação
 const BOSS_PULL_GAP := 0.6                  # m entre o chefe e quem ele puxa
-const BOT_DODGE_MIN_RADIUS := 1.2          # telegrafia menor que isto (golpe curto) não dá para fugir: bloqueia ou aguenta
+const BOT_DODGE_MIN_RADIUS := 1.2          # telegrafia menor que isto (golpe curto) não dá para fugir: bloqueia ou aguenta (investida: sempre foge da linha)
 const PARTY_SEEK_MAX := 3                  # /party: quantos bots do mapa oferecem grupo (um convite por vez)
 const PARTY_SEEK_COOLDOWN := 20.0          # s entre dois /party
 const STORAGE_SLOTS := 48                  # tipos de item no depósito (cada um empilha)
@@ -520,6 +520,29 @@ const PARTY_ASSIST_RANGE := 14.0           # bots atacam o que bate no grupo den
 const BOT_PARTY_ACCEPT := 0.8              # chance de um bot aceitar um convite válido
 const BOT_PARTY_FORM_CHANCE := 0.35        # bot que sai para caçar chama outros bots da vila
 const BOT_INVITE_PLAYER_CHANCE := 0.12     # ... ou chama o jogador, se ele estiver por perto e sem grupo
+## IA de grupo (BotBrain; papel = role da build: tank, healer, dps, caster, ranged). Contra chefe/elite preso no tanque:
+## quem bate de perto vai para as costas/flancos (fora de ±BOT_FRONT_ARC_DEG da frente), quem luta de longe fica a
+## BOT_RANGED_DIST m num flanco de trás; quem cura fica a até BOT_HEALER_LEASH m do tanque.
+const BOT_FRONT_ARC_DEG := 70.0
+const BOT_FRONT_RANGE := 9.0               # m (além dos raios): na frente do chefe e mais perto que isto = sai
+const BOT_RANGED_DIST := 8.0
+const BOT_RANGED_MIN := 4.0                # m: quem luta de longe e está mais perto que isto do chefe volta para o seu lugar
+const BOT_BACK_SPREAD := 0.55              # rad: quem bate de perto se espalha nas costas (por id)
+const BOT_RANGED_SPREAD := 1.0             # rad a partir das costas: flanco de quem luta de longe
+const BOT_HEALER_LEASH := 10.0
+const BOT_PLACE_GIVEUP := 2.5              # s tentando chegar ao lugar do papel sem conseguir: desiste ...
+const BOT_PLACE_COOL := 4.0                # ... e luta de onde está por isto
+## Ameaça: com o tanque segurando o chefe, quem passa BOT_THREAT_HOLD × a ameaça do tanque só usa o básico; acima
+## de BOT_THREAT_STOP para de bater até o tanque abrir distância (troca de alvo = THREAT_SWITCH).
+const BOT_THREAT_HOLD := 0.85
+const BOT_THREAT_STOP := 1.0
+## Cura: o tanque é curado abaixo de BOT_HEAL_TANK_HP, os outros abaixo de BOT_HEAL_HP; o tanque vem primeiro.
+const BOT_HEAL_TANK_HP := 0.75
+const BOT_HEAL_HP := 0.6
+const BOT_HEAL_RANGE := 16.0               # m: membros mais longe que isto não entram na conta
+## Lacaio batendo em quem cura/luta de longe a até BOT_PEEL_RANGE m dele: um dps de perto larga o chefe e vai nele.
+const BOT_PEEL_RANGE := 10.0
+const BOT_DODGE_PAD := 1.0                 # m de folga ao sair de círculo/área telegrafada (antes 0.5)
 
 ## Pontos da teia ganhos ao chegar no nível `level`.
 static func points_at(level: int) -> int:

@@ -40,6 +40,12 @@ var shop_timer: float = 0.0    # seguidor: reabastece na vila a cada tanto
 var defend_wave := -1          # leva da investida que este bot decidiu defender (-1 = nenhuma)
 var skip_wave := -1            # leva que ele decidiu ignorar (decide uma vez por leva)
 var falling_back := false      # defensor ferido: recua para dentro das muralhas até recuperar
+var tank_id := -1              # tanque do grupo (recalculado a cada TANK_RECHECK s; -1 = sem tanque)
+var tank_t := 0.0
+var my_role := ""              # papel da build (ProgressionSystem.role_of), lido uma vez
+const TANK_RECHECK := 2.0
+var place_t := 0.0             # s seguidos indo para o lugar do papel (lugar inalcançável: desiste por um tempo)
+var place_cool := 0.0
 
 ## Um convite ao jogador por vez no servidor inteiro (não vira spam).
 static var next_player_invite: float = 60.0
@@ -70,6 +76,8 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 	block_timer -= dt
 	flee_timer -= dt
 	recall_retry -= dt
+	tank_t -= dt
+	place_cool -= dt
 	var def: MapDef = m["def"]
 	cur_def = def
 	cur_sim = sim
@@ -90,11 +98,18 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 		cmd.potion_slot = 1
 		return cmd
 
-	# --- grupo: quem não é líder segue o líder ---
+	# --- grupo: quem não é líder segue o líder; o líder também cura, provoca e segura o chefe solto ---
 	if e.party_id >= 0:
 		var leader: SimEntity = sim.party_leader(e)
 		if leader and leader != e:
 			return _follow(e, sim, m, leader, cmd, dt)
+		if not in_town:
+			var members: Array = sim.party_members(e)
+			if _heal_party(e, sim, members, cmd, dt) or _taunt_party(e, m, members, cmd):
+				return cmd
+			var loose := _loose_big(e, sim, m, members)
+			if loose:
+				return _fight(e, sim, m, loose, cmd)
 
 	# --- investida no mapa: defende o portão do povoado ---
 	var dcmd := _defend(e, sim, m, cmd, dt)
@@ -213,7 +228,7 @@ func _fight(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCommand)
 	var cls := e.class_def
 	var melee: bool = cls == null or not cls.basic_attack_is_ranged or (e.basic_skill != null and e.basic_skill.target == SkillDef.Target.CONE)     # lança do Ranger: básico em cone = corpo a corpo
 	# perigo: área telegrafada de monstro (chão, em volta dele, cone, linha) → sai dela (com dash se der)
-	var away := _danger_escape(e, m)
+	var away := _danger_escape(e, m, e.party_id >= 0 and _role(e, sim) == "tank")
 	if away != Vector2.ZERO:
 		cmd.move = away
 		cmd.aim = e.position + Vector3(away.x, 0, away.y) * 3.0
@@ -238,8 +253,11 @@ func _fight(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCommand)
 				cmd.skill_slot = i
 				cmd.aim = e.position
 				return cmd
-	# bloqueio reativo: monstro em startup de ataque e eu sou tank/melee
-	if mob.state == SimEntity.State.CASTING and dist < 2.5 and e.stats.has_shield and block_timer <= 0.0 and rng.randf() < 0.6:
+	# bloqueio reativo: monstro em startup de ataque e eu sou tank/melee. Em grupo, com o tanque segurando, só bloqueia
+	# quem está na frente (nas costas o golpe não vem; ficar de guarda só tira o dano/a cura)
+	var held_by := _tank_of(e, sim)
+	var shielded_back: bool = held_by != null and held_by != e and mob.aggro_target == held_by.id and not _in_front(e, mob, held_by)
+	if mob.state == SimEntity.State.CASTING and dist < 2.5 and e.stats.has_shield and block_timer <= 0.0 and not shielded_back and rng.randf() < 0.6:
 		block_timer = 1.2
 	if block_timer > 0.0:
 		cmd.block = true
@@ -261,16 +279,42 @@ func _fight(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCommand)
 		cmd.move = _steer(e, spot, 0.0)
 		return cmd
 	stealth_peak = 0.0
+	# Corpo a corpo é um cone: o alcance do básico é o raio dele (não o "range", que no cone não vale).
+	var basic_reach := 1.8
+	if e.basic_skill:
+		basic_reach = e.basic_skill.radius if e.basic_skill.target == SkillDef.Target.CONE else e.basic_skill.range
+	# grupo contra chefe/elite preso no tanque: cada um no seu lugar (fora da frente dele) e de olho na ameaça
+	var tank := _tank_of(e, sim)
+	var held: bool = tank != null and tank != e and mob.aggro_target == tank.id and _is_big(mob)
+	var hold_skills := false
+	if held:
+		var spot := _role_spot(e, sim, mob, melee, basic_reach, tank)
+		var off_spot := Vector2(spot.x - e.position.x, spot.z - e.position.z).length()
+		# só sai do lugar quando precisa: na frente do chefe; de longe, também colado nele, fora do alcance ou (cura) longe do tanque
+		var must := _in_front(e, mob, tank)
+		if not melee and not must:
+			must = dist < Balance.BOT_RANGED_MIN or dist > basic_reach * 0.95 or (_role(e, sim) == "healer" and e.position.distance_to(tank.position) > Balance.BOT_HEALER_LEASH)
+		if off_spot > 1.2 and must and place_cool <= 0.0:
+			place_t += 0.05
+			if place_t > Balance.BOT_PLACE_GIVEUP:      # parede, pilar, outro no caminho: luta de onde está por um tempo
+				place_t = 0.0
+				place_cool = Balance.BOT_PLACE_COOL
+			cmd.move = _steer(e, spot, 0.0)
+			engaged = false
+			return cmd
+		place_t = 0.0
+		var mine := float(mob.threat.get(e.id, 0.0))
+		var theirs := float(mob.threat.get(tank.id, 0.0))
+		if mob.monster_def.is_boss and mine >= theirs * Balance.BOT_THREAT_STOP:
+			cmd.move = Vector2.ZERO           # passou o tanque: espera ele abrir distância (senão o chefe vira)
+			return cmd
+		hold_skills = mob.monster_def.is_boss and mine >= theirs * Balance.BOT_THREAT_HOLD
 	# skill: a melhor disponível (buff que não está ativo, área quando há vários, a mais forte no resto)
-	var pick := _best_skill(e, sim, m, mob, dist)
+	var pick := -1 if hold_skills else _best_skill(e, sim, m, mob, dist)
 	if pick >= 0:
 		cmd.skill_slot = pick
 		return cmd
 	# ataque básico, com histerese: entra a 75% do alcance e só sai depois de 95% (não fica entrando e saindo).
-	# Corpo a corpo é um cone: o alcance é o raio dele (não o "range", que no cone não vale).
-	var basic_reach := 1.8
-	if e.basic_skill:
-		basic_reach = e.basic_skill.radius if e.basic_skill.target == SkillDef.Target.CONE else e.basic_skill.range
 	var in_range := dist <= basic_reach * (0.95 if engaged else 0.75)
 	# vigia: "no alcance", batendo, e o alvo não perde vida → algo no meio (árvore, pedra). Corpo a corpo chega mais
 	# perto; distância anda de lado em volta do alvo até ter linha de tiro.
@@ -302,9 +346,12 @@ func _fight(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCommand)
 		return cmd
 	# aproximar: corpo a corpo encosta num lado do alvo (cada bot num ângulo) e usa o dash para fechar distância
 	var spot := mob.position
-	if melee:
+	if held:
+		spot = _role_spot(e, sim, mob, melee, basic_reach, tank)
+	elif melee:
 		var side := Vector3(e.position.x - mob.position.x, 0, e.position.z - mob.position.z).normalized().rotated(Vector3.UP, (float(e.id % 5) - 2.0) * 0.35)
 		spot = mob.position + side * (mob.radius + e.radius + basic_reach * 0.5)
+	if melee:
 		if dist > 5.0 and dist < 9.0 and e.dash_cd <= 0.0 and rng.randf() < 0.12:
 			cmd.dash = true
 	cmd.move = _steer(e, spot, 0.0)
@@ -383,12 +430,14 @@ func _best_skill(e: SimEntity, sim, m: Dictionary, mob: SimEntity, dist: float) 
 	return best
 
 ## Para onde sair de uma área de golpe de monstro que está começando (Vector2.ZERO = seguro).
-func _danger_escape(e: SimEntity, m: Dictionary) -> Vector2:
+## Tanque (`tank`): não foge do golpe de frente/em volta do monstro que está segurando (ele viria atrás e o grupo
+## inteiro teria de se mexer): bloqueia e aguenta. Círculos no chão e golpes de outros monstros ele evita como todos.
+func _danger_escape(e: SimEntity, m: Dictionary, tank: bool = false) -> Vector2:
 	for h in m.get("hazards", []):           # círculos de chefe (barrage) já marcados no chão
 		var hp: Vector3 = h["pos"]
 		var hc := Vector2(hp.x, hp.z)
 		var mine := Vector2(e.position.x, e.position.z)
-		if mine.distance_to(hc) < float(h["radius"]) + e.radius + 0.5:
+		if mine.distance_to(hc) < float(h["radius"]) + e.radius + Balance.BOT_DODGE_PAD:
 			return (mine - hc).normalized() if mine.distance_to(hc) > 0.05 else Vector2.RIGHT
 	for o in m["entities"]:
 		if o.state != SimEntity.State.CASTING or o.kind != SimEntity.Kind.MONSTER or o.current_skill == null:       # o barato primeiro
@@ -396,10 +445,12 @@ func _danger_escape(e: SimEntity, m: Dictionary) -> Vector2:
 		if o.skill_phase != "startup" or o.position.distance_to(e.position) > 14.0:
 			continue
 		var s: SkillDef = o.current_skill
-		if s.radius < Balance.BOT_DODGE_MIN_RADIUS or s.target == SkillDef.Target.TARGET or s.effects.has("barrage"):
+		if tank and o.aggro_target == e.id and s.target != SkillDef.Target.GROUND:
+			continue
+		if (s.radius < Balance.BOT_DODGE_MIN_RADIUS and not s.is_charge()) or s.target == SkillDef.Target.TARGET or s.effects.has("barrage"):
 			continue                             # chuva: quem marca o perigo são os círculos (acima), não o lançamento
 		var me := Vector2(e.position.x, e.position.z)
-		var pad: float = e.radius + 0.5
+		var pad: float = e.radius + Balance.BOT_DODGE_PAD
 		match s.target:
 			SkillDef.Target.GROUND, SkillDef.Target.SELF:
 				var c3: Vector3 = o.skill_aim if s.target == SkillDef.Target.GROUND else o.position
@@ -710,7 +761,11 @@ func _follow(e: SimEntity, sim, m: Dictionary, leader: SimEntity, cmd: InputComm
 	var members: Array = sim.party_members(e)
 	if _heal_party(e, sim, members, cmd, dt):
 		return cmd
-	var foe := _sticky(e, m, Balance.BOT_STICKY_RANGE)
+	var foe := _loose_big(e, sim, m, members) if not in_town else null      # tanque: chefe que largou dele
+	if foe == null and not in_town:
+		foe = _peel_target(e, sim, m, members)                                 # dps de perto: lacaio em cima de quem cura/atira
+	if foe == null:
+		foe = _sticky(e, m, Balance.BOT_STICKY_RANGE)
 	if foe and foe.position.distance_to(leader.position) > Balance.PARTY_ASSIST_RANGE * 1.6:
 		foe = null                       # o líder foi embora: larga e acompanha
 	if foe == null:
@@ -761,11 +816,15 @@ func _heal_party(e: SimEntity, sim, members: Array, cmd: InputCommand, dt: float
 	if not e.can_act():
 		return false
 	var hurt: SimEntity = null
-	var worst := 0.6
+	var worst := Balance.BOT_HEAL_HP
+	var tank := _tank_of(e, sim)
 	for o in members:
-		if o.map_id != e.map_id or not o.is_alive() or o.position.distance_to(e.position) > 16.0:
+		if o.map_id != e.map_id or not o.is_alive() or o.position.distance_to(e.position) > Balance.BOT_HEAL_RANGE:
 			continue
 		var r: float = o.hp / maxf(1.0, o.stats.max_hp)
+		if o == tank and r < Balance.BOT_HEAL_TANK_HP:
+			hurt = o                     # o tanque vem primeiro (segura o chefe; cai e o grupo cai junto)
+			break
 		if r < worst:
 			worst = r
 			hurt = o
@@ -819,4 +878,93 @@ func _sticky(e: SimEntity, m: Dictionary, max_d: float) -> SimEntity:
 		return o
 	hunt_target_id = -1
 	engaged = false
+	return null
+
+## Papel da build (tank, healer, dps, caster, ranged), lido uma vez.
+func _role(e: SimEntity, sim) -> String:
+	if my_role == "":
+		my_role = sim.role_of(e)
+	return my_role
+
+## Tanque do grupo no mesmo mapa (o primeiro membro vivo com papel "tank"; null = sem tanque). Recalcula de tempos em tempos.
+func _tank_of(e: SimEntity, sim) -> SimEntity:
+	if e.party_id < 0:
+		return null
+	if tank_t <= 0.0:
+		tank_t = TANK_RECHECK
+		tank_id = -1
+		for o in sim.party_members(e):
+			if o.is_alive() and o.map_id == e.map_id and sim.role_of(o) == "tank":
+				tank_id = o.id
+				break
+	var t: SimEntity = sim.entities.get(tank_id) if tank_id >= 0 else null
+	return t if t and t.is_alive() and t.map_id == e.map_id else null
+
+## Chefe ou elite: vale a pena se posicionar e cuidar da ameaça.
+static func _is_big(mob: SimEntity) -> bool:
+	return mob.monster_def != null and (mob.monster_def.is_boss or mob.monster_def.elite_of != "")
+
+## Frente do monstro preso no tanque: a direção dele até o tanque (para onde vão os golpes normais). Estável: o
+## forward gira a cada golpe mirado em outro (mob_pick) e fazia o grupo correr à toa.
+static func _front_dir(mob: SimEntity, tank: SimEntity) -> Vector3:
+	var f := tank.position - mob.position
+	f.y = 0.0
+	if f.length() < 0.3:
+		f = mob.forward()
+		f.y = 0.0
+	return f.normalized() if f.length() > 0.01 else Vector3.FORWARD
+
+## Estou na frente do monstro (±BOT_FRONT_ARC_DEG da direção do tanque), perto o bastante para levar o golpe frontal?
+static func _in_front(e: SimEntity, mob: SimEntity, tank: SimEntity) -> bool:
+	var to := Vector2(e.position.x - mob.position.x, e.position.z - mob.position.z)
+	if to.length() > mob.radius + e.radius + Balance.BOT_FRONT_RANGE or to.length() < 0.01:
+		return false
+	var f3 := _front_dir(mob, tank)
+	return absf(Vector2(f3.x, f3.z).angle_to(to)) < deg_to_rad(Balance.BOT_FRONT_ARC_DEG)
+
+## Lugar do papel com o tanque segurando o monstro: perto = costas (espalhados por id); longe = flanco de trás a
+## BOT_RANGED_DIST m; quem cura fica a até BOT_HEALER_LEASH m do tanque.
+func _role_spot(e: SimEntity, sim, mob: SimEntity, melee: bool, reach: float, tank: SimEntity) -> Vector3:
+	var back := -_front_dir(mob, tank)
+	if melee:
+		var ang := (float(e.id % 3) - 1.0) * Balance.BOT_BACK_SPREAD
+		return mob.position + back.rotated(Vector3.UP, ang) * (mob.radius + e.radius + reach * 0.6)
+	var side := 1.0 if e.id % 2 == 0 else -1.0
+	var d := minf(Balance.BOT_RANGED_DIST, maxf(reach * 0.8, 3.0))
+	var spot := mob.position + back.rotated(Vector3.UP, side * Balance.BOT_RANGED_SPREAD) * (mob.radius + d)
+	if _role(e, sim) == "healer" and spot.distance_to(tank.position) > Balance.BOT_HEALER_LEASH:
+		spot = tank.position + (spot - tank.position).limit_length(Balance.BOT_HEALER_LEASH - 1.0)
+	return spot
+
+## Tanque: chefe/elite por perto que largou dele e está batendo em outro do grupo (vai buscar; _taunt_party provoca).
+func _loose_big(e: SimEntity, sim, m: Dictionary, members: Array) -> SimEntity:
+	if _role(e, sim) != "tank":
+		return null
+	var ids := {}
+	for o in members:
+		ids[o.id] = true
+	for o in m["entities"]:
+		if o.kind != SimEntity.Kind.MONSTER or not o.is_alive() or o.position.distance_to(e.position) > Balance.PARTY_ASSIST_RANGE:
+			continue
+		if _is_big(o) and o.aggro_target >= 0 and o.aggro_target != e.id and ids.has(o.aggro_target):
+			return o
+	return null
+
+## Dps de perto: lacaio batendo em quem cura/luta de longe (a até BOT_PEEL_RANGE m dele) que nenhum outro do grupo já pegou.
+func _peel_target(e: SimEntity, sim, m: Dictionary, members: Array) -> SimEntity:
+	if _role(e, sim) != "dps" or (e.class_def and e.class_def.basic_attack_is_ranged):
+		return null
+	var soft := {}
+	for o in members:
+		if o != e and o.map_id == e.map_id and sim.role_of(o) in ["healer", "ranged", "caster"]:
+			soft[o.id] = o
+	if soft.is_empty():
+		return null
+	for o in m["entities"]:
+		if o.kind != SimEntity.Kind.MONSTER or not o.is_alive() or _is_big(o) or not soft.has(o.aggro_target):
+			continue
+		if o.position.distance_to((soft[o.aggro_target] as SimEntity).position) > Balance.BOT_PEEL_RANGE:
+			continue
+		if o.id == hunt_target_id or not members.any(func(x): return x != e and x.brain is BotBrain and x.brain.hunt_target_id == o.id):
+			return o
 	return null

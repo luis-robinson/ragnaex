@@ -87,6 +87,8 @@
   (repelidas, chegada, mortes, `presos` = FLAG). Filmar: `-- --autostart=<classe> --raid_shot=<png>`.
 - **Grupo (party)**: regras na sim (`PartySystem`, via `Sim.party_*`, `kill_sharers`; aliado = `SimEntity.is_friend`), números em `Balance.PARTY_*`,
   bots em `BotBrain._follow/_gather_party/wants_party`; UI em `hud.gd` (quadros/convite/comandos de chat) e janela `party` (P).
+  IA de grupo por papel da build (posição contra chefe, ameaça, cura no tanque, tirar lacaio; `Balance.BOT_*`, check `_check_bot_group`). Medir:
+  `boss_probe.tscn -- --party=5 --comp=paladin:guardiao,bishop:sacerdote,... [--why]` (aggro no tanque, `frente` = dano no lugar errado, `ritmo`, `cura_tq`).
 - **Quest**: `quests_catalog.gd` (KILL/COLLECT/TALK/CRAFT/REACH; NPC giver precisa existir em algum `MapDef.npcs`). `prereq_all` junta ramos, `reward_gear_tier` dá peça vestível, `repeatable` é recompensa de quadro.
 - **Mapa/zona**: siga "Layout de zonas" abaixo (`/layout-zone`). O `MapDef` continua sendo a verdade da sim
   (obstáculos = colisão, portais, spawners, NPCs); o visual da zona vem do Blender (`map_<zona>.glb`).
