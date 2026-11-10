@@ -18,7 +18,7 @@ static func _mk(d: Dictionary) -> SkillDef:
 static func _mastery(extras: Dictionary = {}) -> Array:
 	var arr := []
 	for lv in range(6):
-		arr.append({"power_mult": 1.0 + 0.12 * lv, "mp_mult": 1.0 - 0.04 * lv, "cd_mult": 1.0 - 0.05 * lv, "extra": extras.get(lv, {})})
+		arr.append({"power_mult": 1.0 + Balance.MASTERY_POWER_PER_LV * lv, "mp_mult": 1.0 - Balance.MASTERY_MP_PER_LV * lv, "cd_mult": 1.0 - Balance.MASTERY_CD_PER_LV * lv, "extra": extras.get(lv, {})})
 	return arr
 
 static func build(classes: Dictionary) -> Array:
@@ -492,7 +492,7 @@ static func _more() -> Dictionary:
 		_s("dru_wolf_form", "Forma de Lobo", 3, "fera", ["dual_mace"], T_SELF, K_BUFF, 0.0, 10, 1.5, "Vira lobo (lance de novo para voltar): +25% velocidade de ataque, +20% velocidade, +10% ATK, +5 crítico. As skills da Fera viram golpes de lobo.",
 			{"form": "wolf", "startup": 0.25}),
 		_s("dru_prowl", "Espreitar", 5, "fera", ["dual_mace"], T_SELF, K_BUFF, 0.0, 14, 12, "Só na forma de lobo: some da vista dos inimigos por 8s. O primeiro golpe sai da sombra com +60% de dano.",
-			{"stealth": 8.0, "startup": 0.15}),
+			{"stealth": 8.0, "startup": 0.15, "requires_form": "wolf"}),
 		_s("dru_storm", "Tempestade da Natureza", 27, "xama", ["staff"], T_GROUND, K_MAG, 3.4, 36, 18, "Tempestade enorme: dano e lentidão.", {"range": 9.0, "radius": 3.5, "slow": _slow(40, 3)}),
 	],
 	"ranger": [

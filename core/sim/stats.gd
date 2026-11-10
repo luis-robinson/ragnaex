@@ -167,15 +167,15 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 	s.max_mp = base_mp + WILL * Balance.MP_PER_WILL
 	# ataque físico: arco usa AGI; lança AGI + FOR; adaga mistura; resto FOR
 	if s.is_ranged_weapon:
-		s.patk = eq_atk + AGI * Balance.PATK_PER_AGI_RANGED + FOR * 0.3
+		s.patk = eq_atk + AGI * Balance.PATK_PER_AGI_RANGED + FOR * Balance.PATK_PER_FOR_RANGED
 	elif s.weapon_type == "spear":       # lança: AGI primeiro, FOR ajuda
 		s.patk = eq_atk + AGI * Balance.PATK_PER_AGI_SPEAR + FOR * Balance.PATK_PER_FOR_SPEAR
 	elif s.weapon_type in ["dagger", "claw"]:      # adaga e garra: AGI pesa mais
-		s.patk = eq_atk + FOR * Balance.PATK_PER_FOR * 0.6 + AGI * Balance.PATK_PER_AGI_DAGGER
+		s.patk = eq_atk + FOR * Balance.PATK_PER_FOR * Balance.PATK_FOR_DAGGER_SHARE + AGI * Balance.PATK_PER_AGI_DAGGER
 	else:
 		s.patk = eq_atk + FOR * Balance.PATK_PER_FOR + AGI * Balance.PATK_PER_AGI_OTHER
-	s.patk += 4.0 + level * 0.8
-	s.matk = eq_matk + INT * Balance.MATK_PER_INT + 4.0 + level * 0.8
+	s.patk += Balance.ATK_BASE + level * Balance.ATK_PER_LEVEL
+	s.matk = eq_matk + INT * Balance.MATK_PER_INT + Balance.ATK_BASE + level * Balance.ATK_PER_LEVEL
 	s.pdef = eq_def + VIT * Balance.PDEF_PER_VIT
 	s.mdef = eq_mdef + WILL * Balance.MDEF_PER_WILL
 	s.crit_phys = Balance.CRIT_BASE + AGI * Balance.CRIT_PER_AGI

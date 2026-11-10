@@ -337,7 +337,7 @@ func _best_skill(e: SimEntity, sim, m: Dictionary, mob: SimEntity, dist: float) 
 			continue                        # na sombra: só golpe (o resto quebraria a furtividade sem o bônus)
 		var score := 0.0
 		if s.effects.has("stealth"):
-			if e.stealth_left > 0.0 or dist > Balance.BOT_STEALTH_RANGE or (s.class_id == "druid" and e.form != "wolf"):
+			if e.stealth_left > 0.0 or dist > Balance.BOT_STEALTH_RANGE or (s.requires_form != "" and e.form != s.requires_form):
 				continue
 			if e.combat_timer > 0.0 or mob.aggro_target == e.id:
 				continue                    # só abertura: no meio da luta o chefe perde o alvo e pode resetar

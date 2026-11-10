@@ -55,7 +55,7 @@ Criação de personagem: `tools/blender/looks.py` põe em todo kit cabelos `base
 catálogo + refazer os kits. `SimEntity.look` (salvo no save; bots sorteiam) → `KitModel.apply_look`. Cada boneco instancia o kit inteiro, então peças de conjunto passam
 por `paladin_sets.join_slots` (1 malha por slot) e há check de < 200 malhas por kit (o smoke headless não pega o estouro da GPU).
 Lendário com visual próprio: referência em `reference/<classe>/set_N/` → função `kit_set_<estilo>` em `chibi_kit.SET_STYLES`
-(revisar em loop com `look` frente/costas contra a referência), entrada em `GearCatalog.SET_VISUALS` (estilo, cor, nomes, ícone)
+(revisar em loop com `look` frente/costas contra a referência), entrada em `GearCatalog.SET_VISUALS` (estilo, cor, `suffix`/`adj` do nome, ícone; substantivos da build em `PIECE_NOUNS`)
 e ícones 128 px em `assets/icons/<icone>_<peça>.png`. Revisar no jogo: `lineup.tscn -- --strip=<classe> --set=<build> --level=<lv>`
 e `-- --autostart=<classe> --gear=<set_id> --screenshot=<png>` (janela C com ícones).
 Auditoria de clipes: `tools/lineup/film_all.sh` filma tudo e `--headless --path . tools/tests/anim_probe.tscn` mede emenda do laço, giro por quadro,

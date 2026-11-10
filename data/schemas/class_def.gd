@@ -26,6 +26,10 @@ extends Resource
 @export var skill_ids: Array[String] = []     ## TODAS as skills da classe (20+); o jogador aprende com pontos e equipa 6
 @export var starting_skills: Array[String] = [] ## aprendidas de graça no lv1 e postas nos slots 1..n
 @export var role: String = "dps"              ## tank | dps | healer | ranged | caster
+## escudo da afinidade certa (ShieldSystem): "oath" = junta Juramento (Paladino), "grace" = Graça cura e protege (Bispo); "" = nenhum
+@export var shield_charge: String = ""
+## chefes miram primeiro em quem é da classe (MonsterBrain: quem cura cai primeiro); a build também pode ter "boss_priority"
+@export var boss_priority: bool = false
 ## builds: [{id, name, role, main:[tipos], off:[tipos], armor: plate|leather|cloth, attr, attr2, stat, skills:[ids em prioridade]}]
 ## Guiam bots (equipamento + skills), conjuntos lendários e o agrupamento da janela de skills.
 @export var builds: Array = []

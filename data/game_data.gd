@@ -116,19 +116,11 @@ func plus_item(base: ItemDef, n: int) -> ItemDef:
 	for a in base.attributes:
 		attrs[a] = int(base.attributes[a]) + Stats.plus_attr(int(base.attributes[a]), n)
 	it.attributes = attrs
-	it.price = int(base.price * (1.0 + 0.25 * n))
+	it.price = int(base.price * (1.0 + Balance.PLUS_PRICE_PCT * n))
 	items[id] = it
 	return it
 
 ## O id existe (ou é uma versão "+N" de um item que existe, criada agora). Para ler saves.
-## Id antigo de item de build que saiu do jogo -> o equivalente de hoje (save antigo). O Patrulheiro (arco) virou o
-## Lanceiro (lança): a armadura de couro passa para o conjunto do Lanceiro do mesmo nível e o arco vira o do Caçador.
-const LEGACY_PREFIX := "leg_ranger_patrulheiro_"
-func migrate_item_id(id: String) -> String:
-	if id.begins_with(LEGACY_PREFIX):
-		var weapon := id.get_slice("+", 0).ends_with("_weapon")
-		return ("leg_ranger_cacador_" if weapon else "leg_ranger_lanceiro_") + id.substr(LEGACY_PREFIX.length())
-	return id
 
 func resolve_item(id: String) -> bool:
 	if items.has(id):

@@ -244,7 +244,7 @@ func _raid_target(e: SimEntity, sim, m: Dictionary, cur: SimEntity, dt: float) -
 		var s: float = -d
 		if o.stats and o.stats.max_hp > 0.0:
 			s += (1.0 - o.hp / o.stats.max_hp) * 8.0      # ferido: termina o serviço
-		if o.class_def and (o.class_def.id == "bishop" or o.build_id == "xama"):
+		if o.class_def and (o.class_def.boss_priority or bool(o.class_def.build_by_id(o.build_id).get("boss_priority", false))):
 			s += 6.0                                     # quem cura cai primeiro
 		var isolated := _isolated(o, m)
 		if isolated:

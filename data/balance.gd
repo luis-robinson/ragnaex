@@ -18,6 +18,55 @@ const SIGNATURE_BUILD_POWER := {
 }
 ## Números do efeito da arma lendária de cada build ([base, por tier] ou fixo); kind/name/skill ficam na build
 ## (classes_catalog `legend`). Tipos e regras em LegendEffects. Toda build tem entrada (há check).
+## Passivos da teia por build (um por nó do braço, em ciclo; Stats.STAT_KEYS) e bônus extra do conjunto (peças -> stat:
+## [base, por tier]). Antes no classes_catalog; mesmos números. Sem entrada = sem passivo próprio.
+const BUILD_PASSIVES := {
+	"templario": [{"atk_pct": 3}, {"crit": 1.5}],
+	"carniceiro": [{"aspd_pct": 3}, {"lifesteal": 1}],     # velocidade de ataque e roubo de vida (árvore e conjunto)
+	"executor": [{"atk_pct": 3}, {"hp_pct": 4}, {"def_pct": 3}],     # tanque de apoio: vida e defesa na árvore e no conjunto, sem perder o dano
+	"punhos": [{"evasion": 4}, {"aspd_pct": 3}],     # esquiva e velocidade (árvore e conjunto); a arma dá Punho Vingativo (contra-ataque mais forte)
+	"sacerdote": [{"heal_pct": 4}, {"buff_pct": 6}],     # suporte: cura mais forte e bênçãos que duram mais (árvore e conjunto)
+	"inquisidor": [{"matk_pct": 3}, {"radiance": 2}],     # luz: dano mágico e Radiância (parte do dano cura o aliado mais ferido por perto)
+	"batalha": [{"atk_pct": 3}, {"heal_pct": 4}],
+	"guardiao_verde": [{"hp_pct": 4}, {"def_pct": 3}],
+	"fera": [{"aspd_pct": 3}, {"crit": 1.5}],
+	"xama": [{"matk_pct": 3}, {"buff_pct": 6}],     # natureza: magia, invocações e bênçãos que duram mais
+	"cacador": [{"atk_pct": 3}, {"pet_pct": 5}],     # companheiro mais forte (árvore e conjunto)
+	"atirador": [{"atk_pct": 3}, {"crit": 1.5}],
+	"lanceiro": [{"atk_pct": 3}, {"hp_pct": 3}],     # linha de frente leve: ataque e vida (árvore), vida no conjunto de 3
+	"laminas": [{"aspd_pct": 3}, {"evasion": 3}, {"backstab": 6}, {"hp_pct": 4}],     # velocidade, esquiva e pelas costas (árvore e conjunto)
+	"duelista": [{"atk_pct": 3}, {"def_pct": 3}, {"crit": 1.5}],     # equilibrado: ataque, defesa e um pouco de crítico
+	"corsario": [{"atk_pct": 3}, {"crit": 1.5}, {"def_pct": 3}],     # crítico e defesa (árvore e conjunto: casaca grossa de abordagem); a arma dá Bala na Agulha (golpe às vezes dispara a pistola de graça)
+	"fogo": [{"matk_pct": 3}, {"fire_pct": 4}],
+	"gelo": [{"matk_pct": 3}, {"frost_pct": 4}, {"hp_pct": 3}],
+	"raio": [{"matk_pct": 3}, {"storm_pct": 4}],
+	"invocador": [{"matk_pct": 3}, {"pet_pct": 5}],
+	"ceifador": [{"matk_pct": 3}, {"lifesteal": 1}, {"hp_pct": 3}],
+	"pestilento": [{"matk_pct": 3}, {"mp_pct": 4}],
+}
+const BUILD_SET_EXTRA := {
+	"templario": {3: {"crit": [3.0, 0.8]}},
+	"carniceiro": {3: {"lifesteal": [2.0, 0.5]}},
+	"executor": {3: {"hp_pct": [5.0, 1.5], "def_pct": [5.0, 1.5]}},
+	"punhos": {3: {"evasion": [6.0, 1.0], "crit": [3.0, 0.6]}},
+	"sacerdote": {3: {"buff_pct": [10.0, 3.0]}},
+	"inquisidor": {3: {"radiance": [6.0, 1.5]}},
+	"batalha": {3: {"def_pct": [5.0, 1.5]}},
+	"guardiao_verde": {3: {"hp_pct": [5.0, 1.5]}},
+	"fera": {3: {"aspd_pct": [6.0, 2.0]}},
+	"xama": {3: {"buff_pct": [10.0, 3.0]}},
+	"cacador": {3: {"pet_pct": [10.0, 3.0]}},
+	"atirador": {3: {"crit": [4.0, 1.0]}},
+	"lanceiro": {3: {"hp_pct": [5.0, 1.5]}},
+	"laminas": {3: {"evasion": [6.0, 1.5], "backstab": [10.0, 3.0]}},
+	"duelista": {3: {"def_pct": [5.0, 1.5], "crit": [3.0, 0.5]}},
+	"corsario": {3: {"crit": [3.0, 0.8], "def_pct": [5.0, 1.5]}},
+	"fogo": {3: {"fire_pct": [6.0, 2.0]}},
+	"gelo": {3: {"frost_pct": [6.0, 2.0]}},
+	"raio": {3: {"storm_pct": [6.0, 2.0]}},
+	"invocador": {3: {"pet_pct": [10.0, 3.0]}},
+	"ceifador": {3: {"lifesteal": [1.0, 0.3]}},
+}
 const LEGEND_NUMBERS := {
 	"guardiao": {"pct": [15, 3]},
 	"cruzado": {"chance": [12, 2], "dur": [0.8, 0.1], "icd": 6.0},
@@ -354,6 +403,22 @@ const GEAR_LEVEL_OFFSET := 4.0
 const GEAR_ATTR_PRIMARY_PER_LEVEL := 0.62     # pontos do atributo principal por nível (peça de peso 1)
 const GEAR_ATTR_SECONDARY_PER_LEVEL := 0.3
 const COMMON_TIER_LEVELS := [1, 8, 16, 24]
+## Preços e números dos catálogos (antes soltos em gear/items/skills_catalog, game_data e stats; mesmos valores)
+const STARTER_WEAPON_PRICES := [40, 220, 700, 1800]     # armas comuns escritas à mão, por tier (COMMON_TIER_LEVELS)
+const STARTER_ARMOR_PRICES := [30, 180, 600, 1500]
+const GEAR_PRICE_BASE := 20.0                # equipamento gerado: (base + nível² x isto) x peso da peça x mult
+const GEAR_PRICE_PER_LV2 := 2.5
+const LEGEND_MATK_FROM_ATK := 0.9            # arma lendária de build mágica: MATK no mínimo isto x ATK
+const PLUS_PRICE_PCT := 0.25                 # cada +N do aprimoramento: +25% no preço
+const MASTERY_POWER_PER_LV := 0.12           # maestria padrão por nível: +12% poder, -4% MP, -5% recarga
+const MASTERY_MP_PER_LV := 0.04
+const MASTERY_CD_PER_LV := 0.05
+const ATK_BASE := 4.0                        # ATK e MATK de todo personagem: base + nível x isto
+const ATK_PER_LEVEL := 0.8
+const PATK_PER_FOR_RANGED := 0.3             # arco/rifle: FOR ajuda o ATK físico só isto por ponto (antiga escala)
+const PATK_FOR_DAGGER_SHARE := 0.6           # adaga e garra: a FOR vale isto do normal (a AGI pesa mais)
+const LEG_FRENZY_TIME := 4.0                 # s das cargas do Frenesi (arma lendária dos Gêmeos)
+const LEG_DOT_TIME := 3.0                    # s do sangramento/veneno das armas lendárias (Fera, Lâminas)
 const OFFHAND_WEAPON_ATK_MULT := 0.6          # empunhando duas: a 2ª arma soma 60% do ATK (atributos inteiros)
 
 # --- lendários: um conjunto por classe a cada 5 níveis ---

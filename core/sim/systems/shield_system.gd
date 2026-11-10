@@ -41,9 +41,9 @@ static func shield_class_bonus(sim: WorldSim, e: SimEntity, off: ItemDef, parrie
 	if off == null or e.class_def == null:
 		return
 	var aff: String = GearCatalog.SHIELD_AFFINITY.get(off.shield_style if off.shield_style != "" else "juramento", "")     # sem estilo = escudo de conjunto
-	if not (e.class_def.id == aff or (aff == "both" and e.class_def.id in ["paladin", "bishop"])):
+	if not (e.class_def.id == aff or (aff == "both" and e.class_def.shield_charge != "")):
 		return
-	if e.class_def.id == "paladin":
+	if e.class_def.shield_charge == "oath":
 		var stacks := mini(oath_stacks(sim, e) + (2 if parried else 1), ClassTalentSystem.oath_max(e))
 		e.put_buff({"id": "juramento", "remaining": Balance.SHIELD_OATH_TIME, "stacks": stacks})
 		Events.post(&"buff_applied", e.id, "juramento", Balance.SHIELD_OATH_TIME)
@@ -68,7 +68,7 @@ static func shield_power(sim: WorldSim, e: SimEntity, s: SkillDef) -> float:
 	if off == null or off.weapon_type != "shield" or e.class_def == null or s.kind == SkillDef.Kind.BUFF:
 		return 1.0
 	var mult := 1.0
-	var shield_skill: bool = "shield" in s.requires and e.class_def.id == "paladin"
+	var shield_skill: bool = "shield" in s.requires and e.class_def.shield_charge == "oath"
 	if shield_skill:
 		mult += minf(off.def * Balance.SHIELD_DEF_POWER, Balance.SHIELD_DEF_POWER_MAX)
 	var stacks := oath_stacks(sim, e)

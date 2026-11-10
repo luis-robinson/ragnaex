@@ -1561,6 +1561,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_assault_routes(gd, sim)
 	_check_assault_march(gd)
 	_check_music(gd)
+	_check_set_names(gd)
 	_check_elementalist_builds(gd, sim)
 	_check_necromancer_builds(gd, sim)
 	_check_elemental_debuffs(gd, sim)
@@ -2871,7 +2872,9 @@ func _check_fist_fury(gd, sim) -> void:
 			dodged += 1
 			check(b.buff_stacks(Balance.FIST_FURY_BUFF) == mini(st0 + 1, Balance.FIST_FURY_MAX), "golpe esquivado no combate: +1 Fúria")
 	check(dodged >= 5, "golpes esquivados no combate (%d de 40)" % dodged)
-	check(SaveSystem.renamed_item("leg_berserker_arremessador_20_offhand+3") == "leg_berserker_punhos_20_offhand+3", "save do Arremessador vira Punhos de Fúria")
+	check(SaveSystem.migrate_item_id("leg_berserker_arremessador_20_offhand+3") == "leg_berserker_punhos_20_offhand+3", "save do Arremessador vira Punhos de Fúria")
+	check(SaveSystem.migrate_item_id("leg_ranger_patrulheiro_15_weapon+2") == "leg_ranger_cacador_15_weapon+2" and SaveSystem.migrate_item_id("leg_ranger_patrulheiro_15_body") == "leg_ranger_lanceiro_15_body",
+		"save antigo: arco do Patrulheiro vira o do Caçador, armadura vira a do Lanceiro (+N junto)")
 	for x in [b, foe, solo]:
 		sim.despawn(x)
 
@@ -3003,8 +3006,8 @@ func _check_corsair(gd, sim) -> void:
 	check(burst <= 1, "Bala na Agulha tem recarga (%d tiros sem esperar)" % burst)
 	check(UiKit.legend_effect_text(a.stats.legend).contains("Bravata"), "texto da Bala na Agulha")
 	# save antigo do Trapaceiro: as peças viram as do Corsário do mesmo nível
-	check(SaveSystem.renamed_item("leg_assassin_trapaceiro_20_offhand+3") == "leg_assassin_corsario_20_offhand+3"
-		and gd.resolve_item(SaveSystem.renamed_item("leg_assassin_trapaceiro_20_offhand+3")), "save antigo: peça do Trapaceiro vira a do Corsário")
+	check(SaveSystem.migrate_item_id("leg_assassin_trapaceiro_20_offhand+3") == "leg_assassin_corsario_20_offhand+3"
+		and gd.resolve_item(SaveSystem.migrate_item_id("leg_assassin_trapaceiro_20_offhand+3")), "save antigo: peça do Trapaceiro vira a do Corsário")
 	var d := {"level": 30, "equipment": {str(ItemDef.Slot.WEAPON): "leg_assassin_trapaceiro_25_weapon", str(ItemDef.Slot.OFFHAND): "leg_assassin_trapaceiro_25_offhand"},
 		"inventory": {"leg_assassin_trapaceiro_25_head": 1}, "learned": ["ass_shadow_knives", "ass_backstab"], "tree": ["assassin_s_ass_shadow_knives"], "save_version": SaveSystem.VERSION}
 	var old: SimEntity = sim.spawn_bot(cls, "Velho", "city_aldara", at + Vector3(0, 0, -3), 30)
@@ -8244,6 +8247,38 @@ func _check_music(gd) -> void:
 	check(Music.THEMES.all(func(th): return credits.contains("| %s |" % th)), "música: CREDITS.md cita cada tema")
 	check("Music" in AudioSettings.BUSES and AudioSettings.LABELS.has("Music") and AudioSettings.DEFAULTS.has("Music"), "música: barramento Music com volume no menu")
 
+## Nomes das peças de conjunto por regra (GearCatalog.set_piece_name): toda build com substantivos, todo substantivo com
+## gênero/número, todo adjetivo com as 4 formas, e cada peça com adjetivo termina na forma que concorda ("Manoplas Rubras").
+func _check_set_names(gd) -> void:
+	var bad: Array[String] = []
+	for cid in gd.classes:
+		for b in gd.classes[cid].builds:
+			if not GearCatalog.PIECE_NOUNS.has("%s_%s" % [cid, b["id"]]):
+				bad.append("sem substantivos: %s_%s" % [cid, b["id"]])
+	for bid in GearCatalog.PIECE_NOUNS:
+		for piece in GearCatalog.PIECE_NOUNS[bid]:
+			if not GearCatalog.NOUN_FORM.has(GearCatalog.PIECE_NOUNS[bid][piece]):
+				bad.append("sem gênero: %s" % GearCatalog.PIECE_NOUNS[bid][piece])
+	for adj in GearCatalog.ADJ_FORMS:
+		if (GearCatalog.ADJ_FORMS[adj] as Array).size() != 4:
+			bad.append("adjetivo sem 4 formas: %s" % adj)
+	for sid in GearCatalog.SET_VISUALS:
+		var vis: Dictionary = GearCatalog.SET_VISUALS[sid]
+		check(vis.has("names") or vis.has("suffix") or vis.has("adj"), "%s: nome por regra (suffix/adj) ou escrito à mão (names)" % sid)
+		for n in vis.get("nouns", {}).values():
+			if not GearCatalog.NOUN_FORM.has(n):
+				bad.append("sem gênero: %s (%s)" % [n, sid])
+		if not vis.has("adj"):
+			continue
+		var sd: SetDef = gd.sets.get(sid)
+		for iid in (sd.pieces + sd.alt_pieces if sd else []):
+			var it: ItemDef = gd.items[iid]
+			var noun := it.name.substr(0, it.name.rfind(" "))
+			var want: String = GearCatalog.ADJ_FORMS[vis["adj"]][GearCatalog.FORM_INDEX[GearCatalog.NOUN_FORM.get(noun, "?")]] if GearCatalog.NOUN_FORM.has(noun) else "?"
+			if not it.name.ends_with(" " + want):
+				bad.append("%s: %s" % [iid, it.name])
+	check(bad.is_empty(), "nomes de conjunto: substantivos, gênero e concordância (%s)" % [bad])
+
 ## Uma build = uma entrada: identidade (of, signature, legend, element no Elementalista) no `_b()` da build; números por
 ## build em Balance (BUILD_POWER, SIGNATURE_BUILD_POWER, LEGEND_NUMBERS) só com ids de build que existem, e toda build
 ## tem LEGEND_NUMBERS (sem ela a arma lendária não teria números).
@@ -8260,7 +8295,8 @@ func _check_build_entries(gd) -> void:
 				check(k in ["kind", "name", "skill"], "%s: legend só com identidade (%s vai em Balance.LEGEND_NUMBERS)" % [bid, k])
 			check(Balance.LEGEND_NUMBERS.has(bid), "%s: tem números em Balance.LEGEND_NUMBERS" % bid)
 			check(cid != "elementalist" or b.has("element"), "%s: build do Elementalista diz o elemento" % bid)
-	for table in [["BUILD_POWER", Balance.BUILD_POWER], ["SIGNATURE_BUILD_POWER", Balance.SIGNATURE_BUILD_POWER], ["LEGEND_NUMBERS", Balance.LEGEND_NUMBERS]]:
+	for table in [["BUILD_POWER", Balance.BUILD_POWER], ["SIGNATURE_BUILD_POWER", Balance.SIGNATURE_BUILD_POWER], ["LEGEND_NUMBERS", Balance.LEGEND_NUMBERS],
+			["BUILD_PASSIVES", Balance.BUILD_PASSIVES], ["BUILD_SET_EXTRA", Balance.BUILD_SET_EXTRA]]:
 		for bid in table[1]:
 			check(ids.has(bid), "Balance.%s: build %s existe" % [table[0], bid])
 

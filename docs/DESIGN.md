@@ -185,6 +185,9 @@ Regras completas, fórmulas e critérios em `design/gdd/progression.md` (a teia 
 ## Lendários com visual próprio (`GearCatalog.SET_VISUALS`)
 Arte de referência em `reference/<classe>/set_N/` (frente, costas, ícones). Cada um vira um estilo do kit (`chibi_kit.SET_STYLES`,
 peças `arm_<estilo>_<slot>_*`), ícones renderizados em `assets/icons/<icone>_<peça>.png` e nomes da referência.
+Nomes das peças por regra (2026-11-10, `GearCatalog.set_piece_name`): substantivo da build (`PIECE_NOUNS`; `nouns` no conjunto troca
+uma peça, ex.: capuz) + complemento do conjunto (`suffix` "da Galhada", ou `adj` que concorda: `ADJ_FORMS` x `NOUN_FORM`); `names`
+só nos 2 conjuntos escritos à mão. Corrigiu 39 nomes ("Manoplas Rubro" -> "Manoplas Rubras"). Check `_check_set_names`.
 - Paladino Guardião lv5 — **Conjunto Cavaleiro da Fortaleza** (`pal1`): placa violeta sobre traje branco, elmo com crista e
   aletas + viseira, ombreiras em bloco, emblema em V, manoplas, faldas e joelheiras. "Polainas" não tem slot no RagnaEx: vêm com a armadura.
 

@@ -853,9 +853,9 @@ func try_cast(e: SimEntity, slot: int, aim: Vector3, m: Dictionary) -> bool:
 		if e == player:
 			Events.post(&"notification", "%s: chame o companheiro primeiro" % s.name)
 		return false
-	if s.effects.has("stealth") and s.class_id == "druid" and e.form != "wolf":
+	if s.requires_form != "" and e.form != s.requires_form:
 		if e == player:
-			Events.post(&"notification", "%s: só na forma de lobo" % s.name)
+			Events.post(&"notification", "%s: só na forma de %s" % [s.name, SkillDef.FORM_LABELS.get(s.requires_form, s.requires_form)])
 		return false
 	s = ProgressionSystem.resolve_skill(self, e, s)
 	e.mp -= cost

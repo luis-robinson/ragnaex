@@ -80,12 +80,12 @@ static func _weapon(id: String, name: String, wtype: String, tier: int, atk: flo
 	var cr: Array[String] = []
 	for c in classes:
 		cr.append(c)
-	return {"id": id, "name": name, "type": EQ, "slot": S_O if wtype == "shield" else S_W, "weapon_type": wtype, "rarity": tier, "level_req": [1, 8, 16, 24][tier],
-		"atk": atk, "matk": matk, "attributes": attrs, "icon_color": color, "price": [40, 220, 700, 1800][tier], "stack_max": 1, "class_restriction": cr}
+	return {"id": id, "name": name, "type": EQ, "slot": S_O if wtype == "shield" else S_W, "weapon_type": wtype, "rarity": tier, "level_req": Balance.COMMON_TIER_LEVELS[tier],
+		"atk": atk, "matk": matk, "attributes": attrs, "icon_color": color, "price": Balance.STARTER_WEAPON_PRICES[tier], "stack_max": 1, "class_restriction": cr}
 
 static func _armor(id: String, name: String, slot: int, tier: int, def: float, mdef: float, attrs: Dictionary, color: Color) -> Dictionary:
-	return {"id": id, "name": name, "type": EQ, "slot": slot, "rarity": tier, "level_req": [1, 8, 16, 24][tier],
-		"def": def, "mdef": mdef, "attributes": attrs, "icon_color": color, "price": [30, 180, 600, 1500][tier], "stack_max": 1}
+	return {"id": id, "name": name, "type": EQ, "slot": slot, "rarity": tier, "level_req": Balance.COMMON_TIER_LEVELS[tier],
+		"def": def, "mdef": mdef, "attributes": attrs, "icon_color": color, "price": Balance.STARTER_ARMOR_PRICES[tier], "stack_max": 1}
 
 static func build() -> Array:
 	var L := [

@@ -139,12 +139,12 @@ static func legend_on_hit(sim: WorldSim, e: SimEntity, t: SimEntity, s: SkillDef
 				sim._apply_effects(e, t, {"stun": {"duration": float(le["dur"])}}, 0.0)
 		"frenzy":
 			var n: int = mini(int(le.get("max", 5)), e.buff_stacks("legend_frenzy") + 1)
-			e.put_buff({"id": "legend_frenzy", "remaining": 4.0, "stacks": n, "aspd_pct": float(le["pct"]) * n})
+			e.put_buff({"id": "legend_frenzy", "remaining": Balance.LEG_FRENZY_TIME, "stacks": n, "aspd_pct": float(le["pct"]) * n})
 			e.recompute_stats()
 		"bleed", "poison":
 			if t.is_alive() and sim.rng.randf() * 100.0 < float(le["chance"]):
 				var did := "legend_%s_%d" % [le["kind"], e.id]
-				t.put_debuff({"kind": "dot", "id": did, "remaining": 3.0, "dps": maxf(1.0, e.stats.patk * float(le["pct"]) / 100.0), "src": e.id})
+				t.put_debuff({"kind": "dot", "id": did, "remaining": Balance.LEG_DOT_TIME, "dps": maxf(1.0, e.stats.patk * float(le["pct"]) / 100.0), "src": e.id})
 		"spare_shot":                       # Bala na Agulha (Corsário): o golpe às vezes dispara a pistola de graça no alvo
 			if single and not own_cast and t.is_alive() and e.is_hostile_to(t) and e.stats.offhand_type == "pistol" \
 					and sim.time >= e.shot_ready_at and sim.rng.randf() * 100.0 < float(le["chance"]):

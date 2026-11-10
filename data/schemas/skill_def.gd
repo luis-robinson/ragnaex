@@ -54,6 +54,10 @@ const EFFECT_KEYS := ["dot", "slow", "stun", "root", "buff", "shield", "dash", "
 ## monstro CHEFE: em quem mira esta skill (o aggro continua no tanque). "" = alvo atual; "far" = o mais longe;
 ## "random" = qualquer um por perto; "soft" = curandeiro/conjurador/atirador (senão o mais longe). MobSystem.pick_victim.
 @export var mob_pick: String = ""
+## só lança nesta forma ("wolf", "bear"...; "" = qualquer). Ex.: Espreitar do Druida só como lobo.
+@export var requires_form: String = ""
+## nome da forma nos avisos ("só na forma de lobo")
+const FORM_LABELS := {"wolf": "lobo", "bear": "urso", "phantom": "fantasma", "demon": "demônio"}
 
 ## efeitos extra: {"dot": {"dps": 5, "duration": 4}, "slow": {"pct": 40, "duration": 2},
 ## "dot": {"atk_pct": 12, "duration": 4} → sangramento: % do ATK físico por segundo (o `dps` comum escala com o MATK);
@@ -89,7 +93,7 @@ func mastery_entry(level: int) -> Dictionary:
 	if mastery.size() > lv:
 		return mastery[lv]
 	# fallback padrão: +12% poder, -4% custo, -5% cooldown por nível
-	return {"power_mult": 1.0 + 0.12 * lv, "mp_mult": 1.0 - 0.04 * lv, "cd_mult": 1.0 - 0.05 * lv, "extra": {}}
+	return {"power_mult": 1.0 + Balance.MASTERY_POWER_PER_LV * lv, "mp_mult": 1.0 - Balance.MASTERY_MP_PER_LV * lv, "cd_mult": 1.0 - Balance.MASTERY_CD_PER_LV * lv, "extra": {}}
 
 func power_at(level: int) -> float:
 	return power * float(mastery_entry(level).get("power_mult", 1.0))

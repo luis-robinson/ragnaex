@@ -7,15 +7,22 @@ const SLOTS := 5
 var slot := 0
 const VERSION := 4      # 2 = portões de progressão e chefes abatidos; 3 = Rei Élfico guarda as Ruínas; 4 = teia de passivos (reembolso)
 
-## Itens de build que saiu do jogo: o id antigo vira o da build que ficou no lugar (o "+N" do aprimoramento segue junto).
+## Itens de build que saiu do jogo (save antigo): prefixo antigo -> [prefixo novo da peça, prefixo novo da arma]; o resto
+## do id (nível, peça e o "+N" do aprimoramento) segue junto. Único lugar das migrações de id de item.
 ## Trapaceiro (espada + adaga) virou Corsário (sabre + pistola): a adaga de aparar do conjunto vira a pistola do mesmo nível.
 ## Arremessador (duas machadinhas) virou Punhos de Fúria (duas garras): cada peça vira a do mesmo nível.
-const RENAMED_ITEMS := {"leg_assassin_trapaceiro_": "leg_assassin_corsario_", "leg_berserker_arremessador_": "leg_berserker_punhos_"}
+## Patrulheiro (arco) virou Lanceiro (lança): a armadura de couro vai para o conjunto do Lanceiro e o arco vira o do Caçador.
+const ITEM_ID_MIGRATIONS := {
+	"leg_assassin_trapaceiro_": ["leg_assassin_corsario_", "leg_assassin_corsario_"],
+	"leg_berserker_arremessador_": ["leg_berserker_punhos_", "leg_berserker_punhos_"],
+	"leg_ranger_patrulheiro_": ["leg_ranger_lanceiro_", "leg_ranger_cacador_"],
+}
 
-static func renamed_item(id: String) -> String:
-	for old in RENAMED_ITEMS:
+static func migrate_item_id(id: String) -> String:
+	for old in ITEM_ID_MIGRATIONS:
 		if id.begins_with(old):
-			return RENAMED_ITEMS[old] + id.substr(old.length())
+			var weapon := id.get_slice("+", 0).ends_with("_weapon")
+			return str(ITEM_ID_MIGRATIONS[old][1 if weapon else 0]) + id.substr(old.length())
 	return id
 
 ## Pontos de skill ganhos até um nível (o que a árvore devolve quando é refeita).
@@ -121,7 +128,7 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 	p.storage = {}
 	var st: Dictionary = d.get("storage", {})
 	for iid in st:
-		var sid := GameData.migrate_item_id(renamed_item(str(iid)))          # peça de build que saiu do jogo vira a equivalente
+		var sid := migrate_item_id(str(iid))          # peça de build que saiu do jogo vira a equivalente
 		if GameData.resolve_item(sid) and int(st[iid]) > 0:
 			p.storage[sid] = int(p.storage.get(sid, 0)) + int(st[iid])
 	p.gold = int(d.get("gold", 0))
@@ -134,12 +141,12 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 	p.bag_bonus = clampi(int(d.get("bag_bonus", 0)), 0, Balance.BAG_UPGRADES)
 	p.inventory = {}
 	for k in d.get("inventory", {}):
-		var iid := GameData.migrate_item_id(renamed_item(str(k)))
+		var iid := migrate_item_id(str(k))
 		if GameData.resolve_item(iid):
 			p.inventory[iid] = int(p.inventory.get(iid, 0)) + int(d["inventory"][k])
 	p.equipment = {}
 	for k in d.get("equipment", {}):
-		var eid := GameData.migrate_item_id(renamed_item(str(d["equipment"][k])))
+		var eid := migrate_item_id(str(d["equipment"][k]))
 		var it: ItemDef = GameData.items.get(eid) if GameData.resolve_item(eid) else null
 		if it:
 			p.equipment[saved_slot(int(k), it)] = it
