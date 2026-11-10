@@ -247,6 +247,15 @@ func _fight(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCommand)
 	if not e.can_act():
 		cmd.move = Vector2.ZERO
 		return cmd
+	# furtivo: contorna até as costas do alvo e sai da sombra com a skill mais forte (bônus de emboscada + crítico)
+	if e.stealth_left > 0.0:
+		if Combat.is_behind(e, mob) or e.stealth_left < Balance.BOT_STEALTH_STRIKE_LEFT:
+			var opener := _best_skill(e, sim, m, mob, dist)
+			if opener >= 0:
+				cmd.skill_slot = opener
+				return cmd
+		cmd.move = _steer(e, mob.position - mob.forward() * (mob.radius + e.radius + Balance.BOT_STEALTH_BACK_GAP), 0.0)
+		return cmd
 	# skill: a melhor disponível (buff que não está ativo, área quando há vários, a mais forte no resto)
 	var pick := _best_skill(e, sim, m, mob, dist)
 	if pick >= 0:
@@ -319,16 +328,26 @@ func _best_skill(e: SimEntity, sim, m: Dictionary, mob: SimEntity, dist: float) 
 			continue
 		if s.effects.has("channel") and mob.monster_def and mob.monster_def.is_boss and mob.aggro_target == e.id:
 			continue                        # canalizar parado com o chefe em cima = morrer (Pestilento solo: 2/40)
+		if e.stealth_left > 0.0 and not (s.kind in [SkillDef.Kind.PHYSICAL, SkillDef.Kind.MAGICAL]):
+			continue                        # na sombra: só golpe (o resto quebraria a furtividade sem o bônus)
 		var score := 0.0
-		if s.kind == SkillDef.Kind.BUFF:
+		if s.effects.has("stealth"):
+			if e.stealth_left > 0.0 or dist > Balance.BOT_STEALTH_RANGE or (s.class_id == "druid" and e.form != "wolf"):
+				continue
+			var opener: bool = e.combat_timer <= 0.0 and mob.aggro_target != e.id
+			var escape: bool = mob.aggro_target == e.id and e.hp < e.stats.max_hp * Balance.BOT_STEALTH_ESCAPE_HP
+			if not (opener or escape):
+				continue                    # abertura fora de combate, ou fuga com o alvo em cima e pouca vida
+			score = Balance.BOT_STEALTH_SCORE
+		elif s.kind == SkillDef.Kind.BUFF:
 			var b = s.effects.get("buff")
 			var bid: String = b.get("id", "") if b is Dictionary else ""
 			if bid != "" and e.buffs.any(func(x): return x.get("id") == bid):
 				continue                    # já está ativo
 			if s.effects.has("form") and str(s.effects["form"]) in Balance.BOT_AUTO_FORMS:
 				score = Balance.BOT_FORM_SCORE if dist < Balance.BOT_FORM_RANGE else 0.0     # Lobo/Urso: entra na forma antes de bater
-			elif s.effects.has("form") or s.effects.has("stealth") or s.effects.has("taunt"):
-				continue                    # outras formas, furtividade e provocar têm hora certa (fora daqui)
+			elif s.effects.has("form") or s.effects.has("taunt"):
+				continue                    # outras formas e provocar têm hora certa (fora daqui)
 			else:
 				score = 2.5 if dist < 6.0 else 0.0
 		elif s.kind == SkillDef.Kind.MOVEMENT or (s.effects.has("dash") and s.power <= 0.0):

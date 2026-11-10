@@ -160,7 +160,7 @@ static func build() -> Array:
 			"starting_skills": _s(["ass_backstab", "ass_quick_stab"]),
 			"builds": [
 				_b("laminas", "Lâminas", "dps", ["dagger"], ["dagger"], "leather", "AGI", "FOR", "aspd_pct",
-					["ass_twin_strike", "ass_backstab", "ass_plague_blade", "ass_quick_stab", "ass_shadowstep", "ass_poison", "ass_vanish", "ass_blade_flurry", "ass_venom_dart",
+					["ass_twin_strike", "ass_backstab", "ass_plague_blade", "ass_quick_stab", "ass_shadowstep", "ass_vanish", "ass_poison", "ass_blade_flurry", "ass_venom_dart",
 					 "ass_fan", "ass_reflexes", "ass_eviscerate", "ass_paralyze", "ass_toxic_cloud", "ass_dance", "ass_execute", "ass_virulence", "ass_thousand"]).merged({
 					# velocidade, esquiva e pelas costas (árvore e conjunto)
 					"passives": [{"aspd_pct": 3}, {"evasion": 1.5}, {"backstab": 6}], "set_extra": {3: {"evasion": [4.0, 1.0], "backstab": [10.0, 3.0]}}}),

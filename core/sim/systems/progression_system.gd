@@ -24,6 +24,7 @@ static func gain_xp(sim: WorldSim, e: SimEntity, amount: int) -> void:
 			Events.post(&"chat_message", e.name, GameData.random_bot_line("levelup") % e.level, "global")
 		if e.kind == SimEntity.Kind.BOT and e.class_def:
 			bot_spend(sim, e)                  # bot gasta os pontos novos na teia
+			sim._slot_bot(e)                   # barra na ordem da build (senão a skill nova nunca entrava: 6 vagas cheias)
 		if e.level == Balance.MAX_LEVEL:
 			e.xp = 0
 

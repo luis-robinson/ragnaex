@@ -1550,6 +1550,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_corsair(gd, sim)
 	_check_bot_skill_reject(gd, sim)
 	_check_bot_form(gd, sim)
+	_check_bot_stealth(gd, sim)
 	_check_elementalist_builds(gd, sim)
 	_check_necromancer_builds(gd, sim)
 	_check_elemental_debuffs(gd, sim)
@@ -8062,6 +8063,46 @@ func _check_bot_form(gd, sim) -> void:
 		check(pick != 0, "%s: já na forma, o bot não a desliga" % row[0])
 		mob.hp = 0
 		sim.despawn(d)
+
+## Lâminas: Sumir está na barra do bot, abre a luta furtivo (alvo ainda não o mira), e na sombra o bot contorna o alvo
+## sem golpe básico e sai com a skill mais forte pelas costas (antes Sumir nunca entrava na barra: 6/40 solo).
+func _check_bot_stealth(gd, sim) -> void:
+	var d = sim.spawn_character(SimEntity.Kind.BOT, gd.classes["assassin"], "Sombra", "city_aldara", Vector3(-30, 0, 30), 30)
+	d.build_id = "laminas"
+	sim._gear_bot(d)
+	sim._skill_bot(d)
+	var vs: int = d.slot_of("ass_vanish")
+	check(vs >= 0, "Lâminas nível 30: Sumir está na barra do bot")
+	check(d.slot_of("ass_shadowstep") >= 0, "Lâminas: Passo das Sombras (dano) continua na barra")
+	d.cooldowns.clear()
+	d.mp = d.stats.max_mp
+	var mob = sim.spawn_monster(gd.monsters["slime"], "city_aldara", d.position + Vector3(0, 0, 6.0))
+	var m: Dictionary = sim.maps["city_aldara"]
+	var brain := BotBrain.new()
+	brain.setup(d, RandomNumberGenerator.new())
+	var dist: float = d.position.distance_to(mob.position)
+	check(vs >= 0 and brain._best_skill(d, sim, m, mob, dist) == vs, "Lâminas: alvo ainda solto a 6 m, o bot abre com Sumir")
+	mob.aggro_target = d.id
+	check(brain._best_skill(d, sim, m, mob, dist) != vs, "Lâminas: alvo mirando o bot com vida cheia, nada de Sumir")
+	d.hp = d.stats.max_hp * Balance.BOT_STEALTH_ESCAPE_HP * 0.5
+	check(brain._best_skill(d, sim, m, mob, dist) == vs, "Lâminas: alvo em cima e pouca vida, some (fuga)")
+	d.hp = d.stats.max_hp
+	check(Balance.AGGRO_LOSE_TIME > float(gd.skills["ass_vanish"].effects["stealth"]) - Balance.BOT_STEALTH_STRIKE_LEFT,
+		"fuga: o bot golpeia antes de o chefe sair de combate (senão ele resetaria)")
+	mob.aggro_target = -1
+	d.combat_timer = Balance.AGGRO_LOSE_TIME
+	check(brain._best_skill(d, sim, m, mob, dist) != vs, "Lâminas: em combate (lacaio solto), nada de Sumir no meio da luta")
+	d.combat_timer = 0.0
+	d.stealth_left = 5.0
+	d.position = mob.position + mob.forward() * 6.0      # de frente para o slime (pela frente, longe das costas)
+	var cmd := brain._fight(d, sim, m, mob, InputCommand.new())
+	check(not cmd.attack and cmd.skill_slot < 0 and cmd.move != Vector2.ZERO, "furtivo pela frente: contorna o alvo sem golpear")
+	d.position = mob.position - mob.forward() * (mob.radius + d.radius + 0.5)
+	cmd = brain._fight(d, sim, m, mob, InputCommand.new())
+	var hit: SkillDef = d.skills[cmd.skill_slot] if cmd.skill_slot >= 0 else null
+	check(hit != null and hit.kind == SkillDef.Kind.PHYSICAL, "furtivo pelas costas: sai da sombra com uma skill de dano (%s)" % (hit.id if hit else "nada"))
+	mob.hp = 0
+	sim.despawn(d)
 
 ## Bot voltando (bolsa cheia, pouca vida) num mapa fora da cidade conjura o G como o jogador e chega na cidade.
 func _check_bot_recall(gd, sim) -> void:
