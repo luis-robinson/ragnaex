@@ -1556,6 +1556,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_bot_form(gd, sim)
 	_check_bot_stealth(gd, sim)
 	_check_bot_group(gd, sim)
+	_check_boss_crowd(gd, sim)
 	_check_catalog_keys(gd)
 	_check_build_entries(gd)
 	_check_portal_arrivals(gd)
@@ -8110,6 +8111,47 @@ func _check_bot_form(gd, sim) -> void:
 		check(pick != 0, "%s: já na forma, o bot não a desliga" % row[0])
 		mob.hp = 0
 		sim.despawn(d)
+
+## Chefe escala com quem luta contra ele (MobSystem.crowd_of/crowd_mult): conta quem o atingiu e o grupo dessas pessoas
+## a até BOSS_CROWD_RANGE m; quem só passa perto não conta; solo/dupla iguais; reset volta ao normal.
+func _check_boss_crowd(gd, sim) -> void:
+	check(MobSystem.crowd_mult(1) == 1.0 and MobSystem.crowd_mult(2) == 1.0, "chefe: solo e dupla sem reforço")
+	check(Balance.BOSS_CROWD_MULT.size() == Balance.PARTY_MAX + 1, "BOSS_CROWD_MULT tem uma entrada por tamanho de grupo (0..PARTY_MAX)")
+	var grows := true
+	for i in range(1, Balance.BOSS_CROWD_MULT.size()):
+		grows = grows and float(Balance.BOSS_CROWD_MULT[i]) >= float(Balance.BOSS_CROWD_MULT[i - 1])
+	check(grows and MobSystem.crowd_mult(Balance.PARTY_MAX) > 1.0, "chefe: reforço cresce com o grupo")
+	var at := Vector3(-40, 0, 40)
+	var boss: SimEntity = sim.spawn_monster(gd.monsters["bandit_chief"], "city_aldara", at)
+	boss.brain = null
+	var mk := func(name: String, pos: Vector3) -> SimEntity:
+		var b = sim.spawn_character(SimEntity.Kind.BOT, gd.classes["paladin"], name, "city_aldara", pos, 20)
+		b.brain = null
+		return b
+	var a: SimEntity = mk.call("A", at + Vector3(2, 0, 0))
+	var members: Array = [a]
+	for i in 3:
+		var o: SimEntity = mk.call("M%d" % i, at + Vector3(-3 - i, 0, 2))
+		sim.party_invite(a, o)
+		sim.party_accept(o)
+		members.append(o)
+	var passer: SimEntity = mk.call("Passante", at + Vector3(0, 0, -3))
+	boss.threat = {a.id: 50.0}
+	boss.aggro_target = a.id
+	check(MobSystem.crowd_of(sim, boss) == 4, "chefe conta quem bateu e o grupo dele, não quem passa (%d)" % MobSystem.crowd_of(sim, boss))
+	members[3].position = at + Vector3(Balance.BOSS_CROWD_RANGE + 5.0, 0, 0)
+	check(MobSystem.crowd_of(sim, boss) == 3, "membro longe do chefe não conta")
+	members[3].position = at + Vector3(-6, 0, 2)
+	var patk0: float = boss.stats.patk
+	boss.crowd_t = 0.0
+	MobSystem.update_boss(sim, boss, 0.05)
+	check(boss.crowd == 4 and is_equal_approx(boss.stats.patk, patk0 * MobSystem.crowd_mult(4)), "chefe com 4 contra: dano × %.1f" % MobSystem.crowd_mult(4))
+	sim.reset_boss(boss)
+	check(boss.crowd == 0 and is_equal_approx(boss.stats.patk, patk0), "reset do chefe tira o reforço")
+	for o in members.slice(1):
+		sim.party_leave(o)
+	for o in members + [passer, boss]:
+		sim.despawn(o)
 
 ## IA de grupo (BotBrain): papel pela build, lugar por papel contra chefe preso no tanque (costas/flanco, fora da frente),
 ## ameaça (passou o tanque: para), cura com o tanque primeiro, tanque não foge do golpe do próprio chefe, sem guarda

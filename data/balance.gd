@@ -303,6 +303,12 @@ const BOT_STICKY_RANGE := 16.0             # mantém o alvo atual enquanto ele e
 const BOSS_PICK_RANGE := 16.0               # m: quem o chefe escolhe como vítima de skill com mob_pick
 const BOSS_HAZARD_DELAY := 1.3              # s do aviso no chão até o golpe da chuva (barrage sem delay)
 const BOSS_BERSERK_MULT := 1.6              # dano do chefe que passou de berserk_after
+## Chefe escala com quem luta contra ele (MobSystem.crowd_of: quem o atingiu a até BOSS_CROWD_RANGE m + o grupo dessas
+## pessoas): dano × BOSS_CROWD_MULT[pessoas] (índice 0..PARTY_MAX). Grupo cheio com tanque e cura sente a luta (antes nem a
+## 4× ninguém ficava abaixo de 35% de vida); solo e dupla não mudam. Medido com boss_probe (8 chefes de grupo × 6).
+const BOSS_CROWD_MULT := [1.0, 1.0, 1.0, 2.0, 3.5, 5.0]
+const BOSS_CROWD_RANGE := 20.0
+const BOSS_CROWD_CHECK := 1.0               # s entre recontagens
 const BOSS_WARD_CHECK := 0.5                # s entre conferências dos lacaios vivos (ward)
 const BOSS_FOLLOW := 5.0                    # m: skill de alvo de chefe (mob_pick) segue a vítima que andou até isto na preparação
 const BOSS_PULL_GAP := 0.6                  # m entre o chefe e quem ele puxa

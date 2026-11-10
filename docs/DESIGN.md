@@ -460,6 +460,12 @@ Todo chefe de grupo tem resposta de longe, invocação e três fases; quem kita 
   Invocar e buff de chefe valem a qualquer distância (`MonsterBrain._skill_reach`).
 - **Fases** (`MonsterDef.phases`): `summon` (+`pick`), `skills`, `ward` (corte de dano enquanto um lacaio vive), `enrage`;
   `berserk_after` = s de luta até o dano × `Balance.BOSS_BERSERK_MULT` (corta luta solo longa sem mexer no trio, que acaba em 30-70 s).
+- **Gente contra o chefe** (2026-11-10, `MobSystem.crowd_of/crowd_mult`): dano do chefe × `Balance.BOSS_CROWD_MULT[pessoas]`
+  (1 · 1 · 1 · 2 · 3,5 · 5 para 0..5). Conta quem o atingiu a até `BOSS_CROWD_RANGE` m e o grupo dessas pessoas (quem só cura conta;
+  quem só passa, não); reconta a cada `BOSS_CROWD_CHECK` s e avisa no chat quando passa do máximo da luta; reset tira. Antes um grupo
+  completo não ficava abaixo de 35% de vida nem com o chefe a 4×. Medido (8 chefes de grupo × 6): grupo completo de 4 (Guardião,
+  Sacerdote, Machados, Fogo) 48/48 com 0,39 morte e 1,7 poção por luta (antes 0 e 0); completo de 5 46/48, 0,83 morte; 4 sorteados
+  36/48; trio sorteado 42/48 (antes 45/48); solo igual (30/48). Os números da tabela abaixo são sem reforço (solo e trio).
 - **Faixas** (`boss_probe --bands`): campo/elite = solo 60-100%, trio 90-100%; grupo = solo 20-40%, trio 75-100% em 30-150 s,
   4+ skills/min, 35%+ do tempo golpeando, 4+ lacaios, 10%+ do dano fora do alvo, 2+ golpes/min em quem kita a 9,5 m.
   Com 20 lutas o solo oscila ±10 pontos entre rodadas (sorteio muda com a ordem dos chefes): mire no meio da faixa e confirme com 40. Desde o dash com i-frames (os bots desviam pelo dash) o solo subiu ~5-10 pontos; Chefe dos Bandidos (52 mil, fúria 120 s), Golem Ancestral (27 mil, 130 s) e Rei Élfico (55 mil, 110 s) foram reajustados com 40 lutas.

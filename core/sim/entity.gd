@@ -104,6 +104,10 @@ var berserk := false                 # chefe: passou do tempo da luta e enlouque
 var ward_base: float = 0.0           # chefe: fração de dano cortada enquanto os lacaios vivem (fase com "ward")
 var ward: float = 0.0                # corte valendo agora (0 = sem lacaio vivo)
 var ward_t: float = 0.0              # s até reconferir os lacaios
+var crowd: int = 0                   # chefe: quantos lutam contra ele agora (MobSystem.crowd_of)
+var crowd_mult: float = 1.0          # chefe: dano × por quem luta (Balance.BOSS_CROWD_*)
+var crowd_t: float = 0.0             # s até recontar
+var crowd_peak: int = 0              # chefe: maior contagem nesta luta (só avisa quando passa dela)
 var boss_id: int = -1                # lacaio: chefe que o chamou
 var leader_id: int = -1              # escolta: líder que este monstro segue (capitão, sargento)
 var escort_slot: int = 0             # escolta: vaga no anel em volta do líder

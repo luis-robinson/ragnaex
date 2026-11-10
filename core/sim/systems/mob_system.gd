@@ -136,6 +136,17 @@ static func update_boss(sim: WorldSim, e: SimEntity, dt: float = 0.0) -> void:
 		_apply_fury(e)
 	if e.berserk:
 		e.put_buff({"id": "boss_berserk", "remaining": 1.0})
+	e.crowd_t -= dt
+	if e.crowd_t <= 0.0 and e.aggro_target >= 0:
+		e.crowd_t = Balance.BOSS_CROWD_CHECK
+		var n := crowd_of(sim, e)
+		if n != e.crowd:
+			e.crowd = n
+			e.crowd_mult = crowd_mult(n)
+			_apply_fury(e)
+			if n > e.crowd_peak and e.crowd_mult > 1.0:
+				boss_say(sim, e, "Tantos contra mim? Fico mais forte! (%d lutando: dano ×%s)" % [n, String.num(e.crowd_mult, 1)])
+			e.crowd_peak = maxi(e.crowd_peak, n)
 	if e.ward_base > 0.0:
 		e.ward_t -= dt
 		if e.ward_t <= 0.0:
@@ -146,10 +157,36 @@ static func update_boss(sim: WorldSim, e: SimEntity, dt: float = 0.0) -> void:
 		else:
 			e.drop_buff("boss_ward")
 
-## Fúria = fúria da fase × enlouquecer por tempo (um não apaga o outro).
+## Fúria = fúria da fase × enlouquecer por tempo × gente lutando contra (um não apaga o outro).
 static func _apply_fury(e: SimEntity) -> void:
-	e.dmg_mult = e.enrage_mult * (Balance.BOSS_BERSERK_MULT if e.berserk else 1.0)
+	e.dmg_mult = e.enrage_mult * (Balance.BOSS_BERSERK_MULT if e.berserk else 1.0) * e.crowd_mult
 	e.recompute_stats()
+
+## Quantos lutam contra o chefe: personagens vivos a até BOSS_CROWD_RANGE m que já o atingiram (ameaça) e os
+## companheiros de grupo deles (quem só cura conta; quem só passa perto, não). Máximo PARTY_MAX.
+static func crowd_of(sim: WorldSim, boss: SimEntity) -> int:
+	if not sim.maps.has(boss.map_id):
+		return 0
+	var parties := {}
+	var hit := {}
+	for id in boss.threat:
+		var o: SimEntity = sim.entities.get(id)
+		if o and o.is_character():
+			hit[id] = true
+			if o.party_id >= 0:
+				parties[o.party_id] = true
+	var n := 0
+	var r2 := Balance.BOSS_CROWD_RANGE * Balance.BOSS_CROWD_RANGE
+	for o in sim.maps[boss.map_id]["entities"]:          # 1×/s por chefe: a lista completa (a "chars" é do tick)
+		if o.kind == SimEntity.Kind.MONSTER or o.position.distance_squared_to(boss.position) > r2 or not o.is_character() or not o.is_alive():
+			continue
+		if hit.has(o.id) or (o.party_id >= 0 and parties.has(o.party_id)):
+			n += 1
+	return mini(n, Balance.PARTY_MAX)
+
+## Dano do chefe por quem luta contra ele (Balance.BOSS_CROWD_MULT por número de pessoas).
+static func crowd_mult(n: int) -> float:
+	return float(Balance.BOSS_CROWD_MULT[clampi(n, 0, Balance.BOSS_CROWD_MULT.size() - 1)])
 
 ## Lacaios vivos deste chefe.
 static func adds_alive(sim: WorldSim, boss: SimEntity) -> int:
@@ -172,6 +209,10 @@ static func reset_boss(sim: WorldSim, e: SimEntity) -> void:
 	e.ward_base = 0.0
 	e.ward = 0.0
 	e.ward_t = 0.0
+	e.crowd = 0
+	e.crowd_mult = 1.0
+	e.crowd_t = 0.0
+	e.crowd_peak = 0
 	e.adds_epoch += 1
 	e.skills.clear()
 	sim._add_skills(e, e.monster_def.skill_ids)

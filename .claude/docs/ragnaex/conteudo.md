@@ -63,7 +63,8 @@
   (`parent_map` em cadeia, que bots seguem). `bosses` no `DUNGEON_DEFS` se houver mais de um; NPCs de dentro em `PLACE_NPCS[<dungeon>]`.
 - **Faixa de nível (teste de jogo)**: `--headless --path . tools/tests/band_probe.tscn -- [--from=10] [--to=20] [--trials=16] [--only=audit|duel] [--mob=<id>] [--why]`
   (auditoria das quests + caçada de 4 monstros seguidos por bot do nível; `travou` com `--why` mostra por quê). Mexeu em monstro da faixa: rode.
-- **Chefe com mecânica**: `MonsterDef.phases` (`hp`, `say`, `skills`, `summon` [+`pick`], `enrage`, `ward` = corte de dano enquanto um lacaio vive) em `MobSystem.update_boss`;
+- **Chefe com mecânica**: dano escala com quem luta contra ele (`Balance.BOSS_CROWD_MULT`, `MobSystem.crowd_of`; check `_check_boss_crowd`);
+  `MonsterDef.phases` (`hp`, `say`, `skills`, `summon` [+`pick`], `enrage`, `ward` = corte de dano enquanto um lacaio vive) em `MobSystem.update_boss`;
   `berserk_after` (s de luta → dano × `Balance.BOSS_BERSERK_MULT`); `SkillDef.mob_pick` (`far`/`random`/`soft`: num CHEFE a skill mira outra vítima, o aggro fica no tanque;
   `SkillsCatalog.BOSS_PICK` liga em skills já existentes); efeitos `barrage` (círculos avisados que caem depois, `m["hazards"]`, `MobSystem.place_barrage/update_hazards`; bots fogem)
   e `pull` (gancho). Skill de invocar (`boss_summon`) ou BUFF de chefe vale a qualquer distância (`MonsterBrain._skill_reach`): lacaios no ritmo da recarga.
