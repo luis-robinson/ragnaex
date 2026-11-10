@@ -252,7 +252,7 @@ static func build() -> Array:
 		 "description": "Desça à Cripta de Vel'Thar e derrote o Senhor da Cripta.",
 		 "dialog_offer": "Debaixo do front norte há uma cripta mais velha que a cidade. O Senhor dela ainda dá ordens aos mortos. Cale essa voz.",
 		 "dialog_progress": "Ele espera no último salão da Cripta.", "dialog_complete": "Uma voz a menos. E dizem que no rochedo a leste algo antigo acordou com o barulho."},
-		{"id": "q14_dragon", "title": "O Dragonete Ancestral", "giver_npc": "ruins_scholar", "type": KILL, "target_id": "dragonling", "turnin_npc": "elder", "count": 1, "level_req": 27, "prereq_quest": "q13b_crypt",
+		{"id": "q14_dragon", "title": "O Dragonete Ancestral", "giver_npc": "ruins_scholar", "type": KILL, "target_id": "dragonling", "turnin_npc": "elder", "count": 1, "level_req": 30, "prereq_quest": "q13b_crypt",
 		 "reward_xp": 9000, "reward_gold": 2000, "reward_items": {"dragon_scale": 2, "elixir_might": 3}, "map_hint": "Bastião: rochedo do Dragonete (leste)",
 		 "description": "Derrote o Dragonete Ancestral no rochedo a leste do Bastião.",
 		 "dialog_offer": "Um dragonete acordou no rochedo a leste com o barulho da guerra. Se ele virar para a cidade, perdemos o lado seguro.",

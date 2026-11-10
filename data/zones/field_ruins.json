@@ -22643,7 +22643,7 @@
    ],
    "radius": 2,
    "count": 1,
-   "respawn": 300.0
+   "respawn": 120.0
   }
  ],
  "npcs": {

@@ -224,8 +224,16 @@ static func build() -> Array:
 		 "skill_ids": ["mob_frost_shard"] as Array[String]},
 		{"id": "golem", "name": "Golem de Pedra", "level": 27, "hp": 1100, "atk": 70, "def": 34, "mdef": 18, "move_speed": 2.8, "attack_range": 2.6, "attack_cooldown": 2.0, "attack_startup": 0.6, "xp": 260, "aggro_range": 7.0,
 		 "radius": 0.85, "scale": 1.7, "color": Color(0.5, 0.5, 0.45), "shape": "box", "loot_table": "lt_golem", "gold_min": 25, "gold_max": 60, "model": "mob_golem"},
-		{"id": "dragonling", "name": "Dragonete Ancestral", "level": 30, "hp": 4200, "atk": 95, "matk": 90, "def": 36, "mdef": 30, "move_speed": 4.2, "attack_range": 2.8, "attack_cooldown": 1.3, "attack_startup": 0.4, "xp": 1600, "aggro_range": 10.0, "leash_range": 30.0,
-		 "radius": 1.1, "scale": 2.2, "color": Color(0.8, 0.2, 0.3), "shape": "box", "is_boss": true, "loot_table": "lt_dragonling", "gold_min": 200, "gold_max": 400, "skill_ids": ["mob_firebreath"] as Array[String], "model": "mob_dragon"},
+		# chefe opcional mais difícil do jogo (grupo de 4+): vida ~1,6x e dano ~1,3x o do Lich-Rei (2026-11-10; antes 4.200 de vida)
+		{"id": "dragonling", "name": "Dragonete Ancestral", "level": 30, "hp": 140000, "atk": 120, "matk": 117, "def": 40, "mdef": 36, "move_speed": 4.4, "attack_range": 3.0, "attack_cooldown": 1.3, "attack_startup": 0.45, "xp": 4000, "aggro_range": 12.0, "leash_range": 34.0,
+		 "radius": 1.1, "scale": 2.2, "color": Color(0.8, 0.2, 0.3), "shape": "box", "is_boss": true, "berserk_after": 200, "loot_table": "lt_dragonling", "gold_min": 400, "gold_max": 700, "model": "mob_dragon",
+		 "skill_ids": ["mob_dragon_breath", "mob_dragon_tail", "mob_dragon_dive", "mob_dragon_roar"] as Array[String], "coin_chance": 1.0, "coin_min": 5, "coin_max": 8,
+		 "intro": "Mil anos de sono... e vocês acordam o fogo?", "last_words": "As cinzas... lembram...",
+		 "phases": [{"hp": 0.7, "say": "O céu vai queimar com vocês!", "skills": ["mob_dragon_meteor"], "summon": {"id": "dragon_whelp", "count": 2, "max": 4}},
+			{"hp": 0.4, "say": "Ninhada, protejam o sangue antigo!", "ward": 0.5, "skills": ["mob_dragon_call"], "enrage": 1.2},
+			{"hp": 0.15, "say": "QUEIMEM!", "enrage": 1.4}]},
+		{"id": "dragon_whelp", "name": "Filhote de Dragão", "level": 30, "hp": 1800, "atk": 60, "matk": 60, "def": 18, "mdef": 18, "move_speed": 5.0, "attack_range": 2.2, "attack_cooldown": 1.3, "attack_startup": 0.4, "xp": 0, "aggro_range": 14.0, "leash_range": 40.0,
+		 "radius": 0.6, "scale": 0.9, "color": Color(0.9, 0.35, 0.3), "shape": "box", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_dragon"},
 		# ---- chefes de dungeon (modelo de um monstro comum, maior) ----
 		{"id": "slime_king", "name": "Rei Slime", "level": 11, "hp": 2800, "atk": 28, "def": 9, "mdef": 8, "move_speed": 3.4, "attack_range": 2.4, "attack_cooldown": 1.5, "attack_startup": 0.45, "xp": 240, "aggro_range": 9.0, "leash_range": 25.0,
 		 "radius": 1.0, "scale": 2.0, "color": Color(0.3, 0.5, 0.95), "shape": "sphere", "is_boss": true, "loot_table": "lt_slime_king", "gold_min": 35, "gold_max": 70, "skill_ids": ["mob_charge", "mob_acid_spit"] as Array[String], "model": "mob_slime",

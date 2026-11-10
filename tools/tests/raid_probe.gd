@@ -6,11 +6,14 @@ extends Node
 ## Saída: "RAID bots=N repelidas=R/T chegada=Ss duracao=Ss sentinelas_mortas=G bots_mortos=B presos=P"
 ##   repelidas = leva toda derrubada antes do recuo; chegada = s até a 1ª entrar no raio do povoado;
 ##   presos = elfos parados 10 s fora de luta antes de chegar (FLAG: rota/pathing quebrado).
+## --reinforce=N: os reforços das N primeiras fortalezas retomadas (assaults "reforco_*" do mapa) já rondando a praça,
+##   cheios até o `max` de cada um, como no jogo depois das retomadas (sem eles a sonda mede só a guarnição).
 
 const LIMIT := 260.0
 const DT := 1.0 / 20.0
 var route_i := 0
 var reclaimed := 0               # --reclaimed=N: fortalezas retomadas (fúria das levas, RaidSystem.reclaimed)                 # --route=N: qual lado da cidade (RaidSystem.routes)
+var reinforce := 0
 
 func _ready() -> void:
 	await get_tree().process_frame
@@ -27,6 +30,7 @@ func _ready() -> void:
 		if a.begins_with("--raid_level="): raid_level = int(a.get_slice("=", 1))
 		if a.begins_with("--route="): route_i = int(a.get_slice("=", 1))
 		if a.begins_with("--reclaimed="): reclaimed = int(a.get_slice("=", 1))
+		if a.begins_with("--reinforce="): reinforce = int(a.get_slice("=", 1))
 	Sim.load_map(GameData.maps[GameData.town_map_id()])
 	var m: Dictionary = Sim.load_map(GameData.maps[mid])
 	m["spawners"].clear()
@@ -37,8 +41,8 @@ func _ready() -> void:
 			Sim.despawn(e)
 	for n in bot_counts:
 		var r := _run(m, n, level, trials)
-		print("RAID bots=%d repelidas=%d/%d chegada=%.0fs duracao=%.0fs sentinelas_mortas=%.1f bots_mortos=%.1f presos=%d%s" % [
-			n, r["repelled"], trials, r["arrive"], r["dur"], r["guards"], r["bots"], r["stuck"], "  FLAG" if r["stuck"] > 0 else ""])
+		print("RAID bots=%d reforcos=%d repelidas=%d/%d chegada=%.0fs duracao=%.0fs sentinelas_mortas=%.1f bots_mortos=%.1f presos=%d%s" % [
+			n, r["allies"], r["repelled"], trials, r["arrive"], r["dur"], r["guards"], r["bots"], r["stuck"], "  FLAG" if r["stuck"] > 0 else ""])
 	print("RAID_END")
 	get_tree().quit()
 
@@ -63,6 +67,7 @@ func _run(m: Dictionary, nbots: int, level: int, trials: int) -> Dictionary:
 		for i in range(nbots):
 			var cid: String = classes[(trial * 3 + i * 5) % classes.size()]
 			bots.append(Sim.spawn_bot(GameData.classes[cid], "D%d" % i, def.id, gate + Vector3(-3 + i * 3, 0, 4), level))
+		var allies := _reinforcements(m)
 		m["sortie_cd"] = 0.0                  # no jogo a recarga (180 s) cabe entre duas levas
 		var st := RaidSystem.state(m, route_i)
 		st["n"] = trial % 3                  # alterna as levas (a 3ª traz o grifo)
@@ -113,10 +118,43 @@ func _run(m: Dictionary, nbots: int, level: int, trials: int) -> Dictionary:
 		st["ids"] = []
 		for b in bots:
 			Sim.despawn(b)
+		for id in allies:
+			if Sim.entities.has(id):
+				Sim.despawn(Sim.entities[id])
 		for e in m["entities"].duplicate():           # corpos e lacaios que sobraram
 			if e.kind == SimEntity.Kind.MONSTER:
 				Sim.despawn(e)
 	out["arrive"] = out["arrive"] / maxf(1, arrived_n)
+	out["allies"] = _ally_count
+	return _finish(out, trials)
+
+var _ally_count := 0
+
+## Reforços das `reinforce` primeiras fortalezas retomadas já na praça (fim da marcha), cheios até o max.
+func _reinforcements(m: Dictionary) -> Array:
+	var def: MapDef = m["def"]
+	var ids: Array = []
+	var done := 0
+	for i in def.assaults.size():
+		var a: Dictionary = def.assaults[i]
+		if not str(a.get("id", "")).begins_with("reforco_") or done >= reinforce:
+			continue
+		done += 1
+		var mine: Array = []
+		while mine.size() < int(a.get("max", 8)):
+			var got: Array = WorldState.spawn_assault(Sim, m, i)
+			if got.is_empty():
+				break
+			mine.append_array(got)
+		for id in mine:
+			var e: SimEntity = Sim.entities[id]
+			e.position = MapGeometry.random_walkable(Sim, def, a["target"], float(a.get("radius", 10.0)))
+			e.raid_leg = (e.npc_data["march"] as Array).size() - 1
+		ids.append_array(mine)
+	_ally_count = ids.size()
+	return ids
+
+func _finish(out: Dictionary, trials: int) -> Dictionary:
 	out["dur"] = out["dur"] / trials
 	out["guards"] = out["guards"] / trials
 	out["bots"] = out["bots"] / trials

@@ -93,6 +93,19 @@ static func update_assaults(sim: WorldSim, m: Dictionary, dt: float) -> void:
 		s["timer"] = float(a.get("every", 30.0))
 		s["ids"].append_array(spawn_assault(sim, m, i))
 
+## Soldado de leva com vida e ataque x `power` (criado uma vez por tipo e força; mesmo id, então guarnição e textos
+## continuam iguais). Usado nas levas que sobem junto com o jogador às fortalezas: ajudam sem limpar tudo sozinhas.
+static func assault_def(sim: WorldSim, base: MonsterDef, power: float) -> MonsterDef:
+	var key := "%s@%.2f" % [base.id, power]
+	if sim._elite_defs.has(key):
+		return sim._elite_defs[key]
+	var d: MonsterDef = base.duplicate()
+	d.hp = base.hp * power
+	d.atk = base.atk * power
+	d.matk = base.matk * power
+	sim._elite_defs[key] = d
+	return d
+
 ## Solta uma leva aliada do assalto i agora; devolve os ids.
 static func spawn_assault(sim: WorldSim, m: Dictionary, i: int) -> Array:
 	var def: MapDef = m["def"]
@@ -110,6 +123,10 @@ static func spawn_assault(sim: WorldSim, m: Dictionary, i: int) -> Array:
 			k += 1
 			var e := sim._spawn_npc(n, def.id)
 			e.npc_data = n
+			if a.has("power"):                         # leva de apoio: soldado com vida e ataque x power
+				e.monster_def = assault_def(sim, mdef, float(a["power"]))
+				e.recompute_stats()
+				e.heal_full()
 			out.append(e.id)
 	if not out.is_empty() and sim.player and sim.player.map_id == def.id and a.has("say"):
 		Events.post(&"chat_message", "Sistema", str(a["say"]), "system")

@@ -120,7 +120,7 @@ const MASTERY_BONUS_PCT := 0.1     # cada nível de maestria: +10% nos bônus de
 const SKILL_LEARN_COST := 1
 ## Quanto a teia rende no 30 (bot da build, com e sem tree_bonus; web_probe e _check_web_strength).
 ## Média das builds de ATK e HP dentro da faixa; cada build com ATK×HP dentro de WEB_GAIN_BUILD (tanque troca ATK por HP).
-const WEB_GAIN_ATK := [1.3, 1.5]
+const WEB_GAIN_ATK := [1.25, 1.5]          # 1,3 -> 1,25 (2026-11-10): anel/capa/amuleto mais fortes, a teia rende um pouco menos em proporção
 const WEB_GAIN_HP := [1.1, 1.3]
 const WEB_GAIN_BUILD := [1.2, 2.3]
 const SKILL_SLOTS := 6
@@ -308,6 +308,12 @@ const GUARD_PATROL_PACE := 0.42            # fração da velocidade na ronda
 const RAID_RECLAIM_MULT := 1.5           # cada fortaleza retomada (rota calada por `unless`) multiplica as levas dos fronts que sobram
 const RAID_RECLAIM_EVERY := 0.8             # ... e as levas voltam 20% mais rápido
 const RAID_WAVE_CAP := 50                   # teto de invasores por leva (FPS)
+## Último front (as outras duas fortalezas retomadas): o cerco joga tudo nele. Leva x isto (além da fúria), teto
+## próprio e um líder elite (RAIDS[..]["leader"]). Antes a Torre vinha com ~54 e era espalhada pelos reforços (2026-11-10).
+const RAID_LAST_FRONT_MULT := 2.0
+const RAID_WAVE_CAP_LAST := 80
+## Reforços de cada fortaleza retomada no Bastião (WorldState): eram até 8 de 2.000-3.000 de vida por fortaleza.
+const REINFORCE_MAX := 3
 const RAID_SORTIE_COOLDOWN := 180.0         # s entre surtidas da catedral (MapDef.sortie)
 const RAID_SORTIE_LINGER := 40.0            # s que a surtida leva para voltar e sumir depois da leva
 const RAID_MUSTER := 12.0                  # s que a leva espera na garganta (trompas) antes de descer
@@ -433,6 +439,11 @@ const LOOT_LOCK_TIME := 20.0               # s em que só o dono pega o item; de
 const PORTAL_NOTICE_CD := 4.0              # s entre avisos de portal bloqueado
 const PORTAL_ARRIVE_GAP := 1.0             # m mínimos entre a chegada e a borda de qualquer portal do mapa (check)
 const ASSAULT_ROUTE_STEP := 1.0            # m entre amostras ao conferir que a rota de uma leva é andável em linha reta (check)
+## Leva da Aurora que sobe junto com o jogador às fortalezas (Ossos, Torre): apoio, não limpeza. Antes 10 soldados a cada
+## 45 s com 1.800-3.200 de vida contra mortos de 260-420: limpavam os postos sozinhos (2026-11-10, "não tem nem graça").
+const ASSAULT_FORT_MAX := 4
+const ASSAULT_FORT_EVERY := 90.0
+const ASSAULT_FORT_POWER := 0.5            # vida e ataque dos soldados dessas levas (WorldState.assault_def)
 const PARTY_MAX := 5                       # membros por grupo
 const PARTY_NEARBY_RANGE := 40.0          # m: janela P lista quem dá para convidar até esta distância
 const PARTY_SHARE_RANGE := 45.0            # m: membros vivos no mesmo mapa e dentro disto dividem XP e quests de abate

@@ -317,9 +317,13 @@ func run_all(gd, sim, balance, save) -> void:
 	var off_scale: Array = []
 	for iid in gd.items:
 		for a in gd.items[iid].attributes:
-			if int(gd.items[iid].attributes[a]) % Balance.ATTR_SCALE != 0 and gd.items[iid].plus == 0:
-				off_scale.append(iid)
+			if int(gd.items[iid].attributes[a]) < Balance.ATTR_SCALE and gd.items[iid].plus == 0:
+				off_scale.append(iid)          # sem escalar daria 1..9 (o piso é 1 ponto antigo; gerados têm precisão de 1 ponto novo)
 	check(off_scale.is_empty(), "atributos de item escalados x%d ao carregar %s" % [Balance.ATTR_SCALE, off_scale.slice(0, 3)])
+	var ring: Array = ["ring_guerreiro_t0", "ring_guerreiro_t1", "ring_guerreiro_t2", "ring_guerreiro_t3"].map(func(i): return int(gd.items[i].attributes["FOR"]))
+	check(ring[0] < ring[1] and ring[1] < ring[2] and ring[2] < ring[3], "anel do Guerreiro sobe a cada tier (FOR %s)" % [ring])
+	check(int(gd.items["ring_guerreiro_t3"].attributes["FOR"]) + int(gd.items["ring_guerreiro_t3"].attributes["VIT"]) > int(gd.items["ring_captain"].attributes["FOR"]) + int(gd.items["ring_captain"].attributes["VIT"]),
+		"anel comum do 24 passa o Anel do Capitão (drop do 8)")
 	var ran = gd.classes["ranger"]
 	var eq2 := {}
 	for iid in ran.starting_equipment:
@@ -4106,10 +4110,13 @@ func _check_dawn_relief(gd) -> void:
 		for id in ids:
 			ws.despawn(ws.entities.get(id))
 		RaidSystem.state(m, bones)["ids"] = []
-	check(sizes[0] == 25 and sizes[1] >= 38 and sizes[1] <= 41 and sizes[2] > sizes[1] and sizes[2] <= Balance.RAID_WAVE_CAP + 6, "fúria: leva dos Ossos 25 -> ~38 -> teto com elites %s" % str(sizes))
+	check(sizes[0] == 25 and sizes[1] >= 38 and sizes[1] <= 41 and sizes[2] > Balance.RAID_WAVE_CAP + 6 and sizes[2] <= Balance.RAID_WAVE_CAP_LAST + 7,
+		"fúria: leva dos Ossos 25 -> ~38 -> último front (as outras duas retomadas) passa do teto comum, com elites e líder %s" % str(sizes))
 	RaidSystem.state(m)["force_reclaimed"] = 5
 	var big := RaidSystem.start_raid(ws, m, bones)
-	check(big.size() <= Balance.RAID_WAVE_CAP + 6, "fúria: teto da leva (%d)" % big.size())
+	check(big.size() <= Balance.RAID_WAVE_CAP_LAST + 7, "fúria: teto da leva do último front (%d)" % big.size())
+	check(big.any(func(id): return ws.entities.has(id) and ws.entities[id].monster_def.elite_of == str(RaidSystem.route_def(def, bones).get("leader", ""))),
+		"fúria: o último front vem com o líder elite")
 	for id in big:
 		ws.despawn(ws.entities.get(id))
 	RaidSystem.state(m, bones)["ids"] = []
@@ -4130,7 +4137,7 @@ func _check_dawn_relief(gd) -> void:
 		if relief.call().any(func(e): return Vector2(e.position.x, e.position.z).length() < 26.0):
 			reached = true
 			break
-	check(relief.call().size() >= 4, "reforço do Covil desceu pela garganta oeste (%d)" % relief.call().size())
+	check(relief.call().size() >= 1 and relief.call().size() <= Balance.REINFORCE_MAX, "reforço do Covil desceu pela garganta oeste, até %d (%d)" % [Balance.REINFORCE_MAX, relief.call().size()])
 	check(reached, "reforço chega à praça do Bastião")
 	# surtida: leva na muralha solta 20 da catedral, recarga segura a segunda, fim da leva -> voltam e somem
 	var sortie := func() -> Array:
@@ -4327,7 +4334,8 @@ func _check_world_state(gd) -> void:
 	for i in 40:
 		ws.tick(0.05)
 	check(RaidSystem.state(m, 1)["ids"].is_empty(), "investida: lado retomado não solta mais leva")
-	check(RaidSystem.state(m, 0)["ids"].size() == 2, "investida: o lado que sobra se enfurece (1 lobo -> 2, x1,5)")
+	var last_n := int(round(1.0 * Balance.RAID_RECLAIM_MULT * Balance.RAID_LAST_FRONT_MULT))
+	check(RaidSystem.state(m, 0)["ids"].size() == last_n, "investida: o lado que sobra se enfurece e, sendo o último, joga tudo (1 lobo -> %d, x%.1f x%.1f): %d" % [last_n, Balance.RAID_RECLAIM_MULT, Balance.RAID_LAST_FRONT_MULT, RaidSystem.state(m, 0)["ids"].size()])
 	check(RaidSystem.routes(fd).size() == 1, "Floresta continua com uma rota")
 	for id in RaidSystem.state(m, 0)["ids"]:
 		ws.despawn(ws.entities.get(id))
@@ -8207,6 +8215,9 @@ func _check_assault_march(gd) -> void:
 		ws.tick(0.05)
 		if first.is_empty():
 			first = m["entities"].filter(func(e): return e.guard and str(e.npc_data.get("id", "")).begins_with("assault_"))
+	check(first.size() <= Balance.ASSAULT_FORT_MAX, "Ossos: leva de apoio com até %d soldados (%d)" % [Balance.ASSAULT_FORT_MAX, first.size()])
+	var weak: bool = not first.is_empty() and first.all(func(e): return e.stats.max_hp < GameData.monsters[e.monster_def.id].hp * (Balance.ASSAULT_FORT_POWER + 0.05))
+	check(weak, "Ossos: soldados da leva com vida x%.1f (apoio, não limpeza)" % Balance.ASSAULT_FORT_POWER)
 	var last_leg: int = fd.assaults[0]["route"].size()        # marcha = route + [target]
 	var stuck: Array = []
 	for e in first:

@@ -387,7 +387,10 @@ Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MS
     - O leste é o lado seguro (Aldara, cabanas, rochedo do Dragonete).
     - **Guerra que muda com a conquista:**
       - **Fúria:** cada fortaleza retomada multiplica as levas dos fronts que sobram por `RAID_RECLAIM_MULT` (1,5) e soma elites (`reclaim_extra`), com teto de `RAID_WAVE_CAP` (90) por leva (`RaidSystem.reclaimed`).
-      - **Reforços:** cada fortaleza retomada manda soldados ao Bastião a cada 2 min (`ASSAULTS["field_ruins"]["reforco_<lado>"]`, a rota da investida ao contrário até a praça).
+      - **Reforços:** cada fortaleza retomada manda até `Balance.REINFORCE_MAX` (3) soldados ao Bastião a cada 2 min (`ASSAULTS["field_ruins"]["reforco_<lado>"]`):
+        a rota da investida até o portão do lado, a avenida e a borda da praça. Eram até 8 por fortaleza e espalhavam a última investida (2026-11-10).
+      - **Último front** (as outras duas retomadas): leva x `RAID_LAST_FRONT_MULT` (2) além da fúria, teto `RAID_WAVE_CAP_LAST` (80) e um líder elite
+        (`RAIDS[..]["leader"]`). raid_probe `--reclaimed=2 --reinforce=2` (reforços já na praça): antes 24 reforços; agora 6, e um bot do 24 cai em toda leva.
       - **Surtida:** quando uma leva chega à muralha, 20 soldados saem da porta da catedral até o portão atacado (`MapDef.sortie`, `SORTIES`, recarga `RAID_SORTIE_COOLDOWN` 180 s) e voltam/somem quando a leva acaba.
       - Com duas retomadas, o último front (~60) só cai com o jogador e o grupo (3 bots nv 27: 4/4).
       - **Torres:** 10 torres na muralha com besteiros no alto (`guard_wall_crossbow`, `npc_data.perch` = altura visual; `SimEntity.is_perched`). Atiram por cima do muro com pouco dano, não andam, não são alvo, não tomam dano e não puxam aggro.
@@ -414,7 +417,10 @@ Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MS
       - a quest dos postos põe guardas da Aurora nos postos;
       - a do chefe cala a fortaleza e a investida do lado;
       - os prisioneiros saem e nasce o assentamento (capitão, ferreiro de campo, mercador) com guarnição;
-      - a fortaleza seguinte passa a receber a **leva aliada** (`MapDef.assaults`/`ASSAULTS`, `GuardBrain` em marcha) subindo a estrada.
+      - a fortaleza seguinte passa a receber a **leva aliada** (`MapDef.assaults`/`ASSAULTS`, `GuardBrain` em marcha) subindo a estrada:
+        apoio, não limpeza — até `ASSAULT_FORT_MAX` (4) por vez a cada 90 s, vida e ataque x `ASSAULT_FORT_POWER` (0,5, `WorldState.assault_def`).
+        Eram 10 a cada 45 s com 1.800-3.200 de vida contra mortos de 260-420 e limpavam os postos sozinhos. Checks `_check_assault_routes`
+        (nenhum trecho de rota passa por sólido) e `_check_assault_march` (a leva dos Ossos chega ao pátio).
   - **Cidadela do Lich** (30, selo NE do Bastião, abre com as três): a Ofensiva da Aurora sobe junto, elites das três fortalezas, e Azhar, o Lich-Rei (três fases).
     - Layout = **necrópole** (`build_dawn_forts.build_citadel`): uma cidade morta inteira. Muralha externa em ruínas (portão da cidade com
       torreões de chama de almas ao sul + quatro brechas), avenida torta subindo até a praça, duas ruas de volta (oeste/leste) e becos,
@@ -467,8 +473,15 @@ Todo chefe de grupo tem resposta de longe, invocação e três fases; quem kita 
 | Vorhag | 25% | 95% | 33 |
 | Morvath | 20-45% | 100% | 31 |
 | Lich-Rei | 30% | 95% | 40 |
+| Dragonete Ancestral (opcional; medido com grupo de 4) | 30% | 100% (mortes 0,2) | 60 |
 
 Campo (Caranguejo-Rei, Rei Slime, Presa-Rachada, Rei Javali) e elite (Trent, Guardião Élfico): 95-100% sozinho.
+
+Dragonete Ancestral (2026-11-10, rochedo leste do Bastião, volta em 2 min, quest no 30): 140.000 de vida, ATK/MATK ~1,3x o Lich-Rei;
+sopro (cone que queima), varrida de cauda, mergulho de asa no mais longe, rugido que atordoa e, aos 70%, chuva de meteoros + 2 filhotes;
+aos 40% fica protegido (ward) enquanto um filhote vive e chama a ninhada; fúria aos 40% e 15%, berserk aos 200 s. Gestos próprios
+no modelo (`mob_kit.quad_dragon_gestures`: cast_fire, atk_sweep, atk_charge, shout, cast_ground, summon). Antes: 4.200 de vida e só o bafo.
+A sonda agora para as investidas no mapa do chefe (os bots largavam o chefe para defender o portão do Bastião).
 
 ## Quests (cadeia)
 q01 bem-vindo (TALK) → q02 slimes → q03 gel → q04 primeira poção (CRAFT) → q05 presas → q06 lobos → q07 rei javali →

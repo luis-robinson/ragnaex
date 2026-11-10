@@ -45,7 +45,7 @@ const COMMON_TIER_NAMES := ["de Bronze", "de Ferro", "de Mitril", "de Obsidiana"
 const PIECES := ["head", "body", "legs", "gloves", "boots"]     # peças de armadura do conjunto lendário (contam nos bônus 2-5)
 const PIECE_SLOT := {"head": S.HEAD, "body": S.BODY, "gloves": S.GLOVES, "boots": S.BOOTS, "legs": S.LEGS, "cape": S.CAPE, "amulet": S.AMULET, "ring": S.RING}
 const PIECE_WEIGHT := {"head": 0.5, "body": 1.0, "gloves": 0.35, "boots": 0.4, "weapon": 1.3, "offhand": 0.8,
-	"legs": 0.4, "cape": 0.15, "amulet": 0.25, "ring": 0.15}
+	"legs": 0.4, "cape": 0.3, "amulet": 0.35, "ring": 0.3}     # capa/anel/amuleto: o de nível 24 passa os drops de chefe do 8
 ## calça: uma por tipo de armadura [nome, atributo, secundário]
 const LEGS := {"plate": ["Perneiras", "VIT", "FOR"], "leather": ["Calças de Couro", "AGI", "VIT"], "cloth": ["Calças de Tecido", "INT", "WILL"]}
 ## capa/amuleto/anel: um por tema [sufixo, atributo, secundário, cor]
@@ -408,11 +408,15 @@ const DAMAGE_KINDS := [SkillDef.Kind.PHYSICAL, SkillDef.Kind.MAGICAL, SkillDef.K
 static func level_factor(level: int) -> float:
 	return (float(level) + Balance.GEAR_LEVEL_OFFSET) / (Balance.GEAR_REF_LEVEL + Balance.GEAR_LEVEL_OFFSET)
 
+## Atributos na escala antiga com uma casa (= ponto inteiro na escala nova, GameData._scale_attrs arredonda depois do
+## x ATTR_SCALE). Arredondar aqui para inteiro achatava as peças leves: anel/capa de Bronze, Ferro e Mitril davam o mesmo.
+## Piso de 1 (10 na escala nova), como antes: as peças de nível 1 não mudam.
 static func _attrs(primary: String, secondary: String, level: int, weight: float, mult: float) -> Dictionary:
+	var step := 1.0 / Balance.ATTR_SCALE
 	var a := {}
-	a[primary] = maxi(1, int(round(Balance.GEAR_ATTR_PRIMARY_PER_LEVEL * level * weight * mult)))
+	a[primary] = maxf(1.0, snappedf(Balance.GEAR_ATTR_PRIMARY_PER_LEVEL * level * weight * mult, step))
 	if secondary != primary:
-		a[secondary] = maxi(1, int(round(Balance.GEAR_ATTR_SECONDARY_PER_LEVEL * level * weight * mult)))
+		a[secondary] = maxf(1.0, snappedf(Balance.GEAR_ATTR_SECONDARY_PER_LEVEL * level * weight * mult, step))
 	return a
 
 static func _price(level: int, weight: float, mult: float) -> int:

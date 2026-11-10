@@ -38,7 +38,7 @@ Os níveis abaixo são os que um jogador normal tem ao fazer a cadeia principal 
 - o oeste do Bastião fica limpo (grama, flores e um acampamento da Aurora no lugar do pântano);
 - o acampamento pútrido some;
 - a investida do oeste para;
-- de 2 em 2 minutos, 6 soldados do Covil descem até a praça;
+- de 2 em 2 minutos, soldados do Covil descem até a praça (até 3 de cada fortaleza retomada);
 - Ossos e Torre se enfurecem: levas de ~38, com elites e 20% mais frequentes.
 
 **Até o nível 22 o Covil já foi liberado.** O jogador segue para o norte.
@@ -47,12 +47,12 @@ Os níveis abaixo são os que um jogador normal tem ao fazer a cadeia principal 
 
 | Quest | Quem dá | O que é |
 |---|---|---|
-| Ossos na Estrada | Capitã Rena | 14 esqueletos, no front norte ou na estrada da Fortaleza. A Aurora sobe junto pela estrada. |
+| Ossos na Estrada | Capitã Rena | 14 esqueletos, no front norte ou na estrada da Fortaleza. Uma leva pequena da Aurora (até 4) sobe junto pela estrada. |
 | O Juramento de Vorhag | Capitã Rena → Marechal | Vorhag, o Cavaleiro da Morte, na torre negra. Rende 2 Moedas, Prata e Fragmento da Aurora. |
 | Espectros / Os Que Guardam (laterais) | Senna, Osric | Espectros no front sul. |
 
 - **Tática:** o Guardião de Ossos para golpe de frente. Ataque pelas costas ou use magia.
-- **Ao retomar:** o norte limpa, chegam reforços dos Ossos e a Torre (o último lado) vem com levas de ~50 e mais elites.
+- **Ao retomar:** o norte limpa, chegam reforços dos Ossos e a Torre (o último lado) joga tudo: levas de ~80 com elites e um líder (Adepto da Cidadela elite).
 
 ## Nível 23-24: a Torre do Mago Gélido
 
@@ -70,7 +70,7 @@ Os níveis abaixo são os que um jogador normal tem ao fazer a cadeia principal 
 |---|---|
 | Quem Dá as Ordens (25) | Senhor da Cripta, na Cripta de Vel'Thar (front norte). |
 | Pedras que Andam (26) | Golens da Cripta. |
-| O Dragonete Ancestral (27) | Rochedo a leste do Bastião. |
+| O Dragonete Ancestral (30) | Rochedo a leste do Bastião. Chefe opcional mais difícil do jogo (grupo de 4+): sopro, cauda, mergulho, rugido que atordoa e chuva de meteoros; volta em 2 min. |
 | Repetíveis | Capela dos Pedidos (caçadas por tipo), Bile para o Caldeirão. |
 | Aprimorar | Lendários 25+ com Prata (+1 a +5) e Fragmento (+6 a +9), no ferreiro Doran. |
 

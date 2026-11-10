@@ -84,6 +84,9 @@ static func start_raid(sim: WorldSim, m: Dictionary, i: int = 0) -> Array:
 	# fúria: cada fortaleza retomada aumenta a leva dos fronts que sobram (x RAID_RECLAIM_MULT^k) e soma elites
 	var k := reclaimed(sim, m)
 	var mult := pow(Balance.RAID_RECLAIM_MULT, k)
+	var last: bool = k > 0 and k >= routes(def).size() - 1          # só sobra este front: o cerco joga tudo nele
+	if last:
+		mult *= Balance.RAID_LAST_FRONT_MULT
 	var rx: Dictionary = r.get("reclaim_extra", {})
 	var elites: Array = []
 	for at in rx:
@@ -93,7 +96,8 @@ static func start_raid(sim: WorldSim, m: Dictionary, i: int = 0) -> Array:
 	for mobs in groups:
 		for mid in mobs:
 			total += int(round(int(mobs[mid]) * mult))
-	var fit := minf(1.0, float(Balance.RAID_WAVE_CAP) / maxf(1.0, float(total)))
+	var cap: int = Balance.RAID_WAVE_CAP_LAST if last else Balance.RAID_WAVE_CAP
+	var fit := minf(1.0, float(cap) / maxf(1.0, float(total)))
 	var scaled: Array = []
 	for mobs in groups:
 		var g := {}
@@ -119,6 +123,16 @@ static func start_raid(sim: WorldSim, m: Dictionary, i: int = 0) -> Array:
 				e.raid_leg = 0
 				e.raid_route = i
 				spawned.append(e.id)
+	if last and r.has("leader"):                   # último front: um líder elite à frente da leva
+		var base: MonsterDef = GameData.monsters.get(str(r["leader"]))
+		if base:
+			var e := sim.spawn_monster(LootSystem.elite_def(sim, base), def.id, MapGeometry.random_walkable(sim, def, from, 3.5))
+			e.raid_id = n
+			e.raid_leg = 0
+			e.raid_route = i
+			spawned.append(e.id)
+			if r.has("say_leader"):
+				Events.post(&"chat_message", "Sistema", str(r["say_leader"]), "system")
 	st["ids"] = spawned
 	st["total"] = spawned.size()
 	st["step"] = step

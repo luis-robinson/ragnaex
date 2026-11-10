@@ -79,7 +79,7 @@ func _scale_attrs() -> void:
 		var it: ItemDef = items[id]
 		var out := {}
 		for a in it.attributes:
-			out[a] = int(it.attributes[a]) * Balance.ATTR_SCALE
+			out[a] = int(round(float(it.attributes[a]) * Balance.ATTR_SCALE))     # gerados têm uma casa (GearCatalog._attrs)
 		it.attributes = out
 	for sid in sets:
 		var sd: SetDef = sets[sid]

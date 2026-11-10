@@ -1145,6 +1145,39 @@ func _dnd_check() -> void:
 		ok = ok and p.equipment.get(ItemDef.Slot.RING2) != null and p.equipment.get(ItemDef.Slot.RING) == null
 	print("DND_CHECK ", "ok" if ok else "FAIL", " head=", head, " ring=", ring)
 
+## Teia: 3 passos de roda (afasta) pelo mesmo _web_input da janela, foto, compra um nó disponível como o clique faz
+## (_web_buy reconstrói a janela) e deixa a foto final para o _bag_shot. Relato: "o clique compra, mas as linhas somem".
+func _web_click_check(path: String) -> void:
+	var ws = main.hud.windows_script
+	await get_tree().process_frame
+	var view: Control = ws._web_view
+	var web: Control = ws._web_node
+	for k in int(DevArgs.value("--wheel", "3")):
+		var ev := InputEventMouseButton.new()
+		ev.button_index = MOUSE_BUTTON_WHEEL_DOWN if not DevArgs.has("--zoom_in") else MOUSE_BUTTON_WHEEL_UP
+		ev.pressed = true
+		ev.position = view.size * 0.5 + Vector2(140, 90)
+		ws._web_input(ev, view, web)
+	if DevArgs.flag("--pan"):                 # arrasto (x,y em px) pelo mesmo _web_input: leva a origem da teia para longe
+		var pan := Array(DevArgs.value("--pan").split(","))
+		ws._web_dragging = true
+		var mv := InputEventMouseMotion.new()
+		mv.button_mask = MOUSE_BUTTON_MASK_LEFT
+		mv.relative = Vector2(float(pan[0]), float(pan[1]))
+		ws._web_input(mv, view, web)
+		ws._web_dragging = false
+	await get_tree().create_timer(0.4).timeout
+	get_viewport().get_texture().get_image().save_png(path.get_basename() + "_antes.png")
+	var p := Sim.player
+	var tr: Dictionary = GameData.trees.get(p.class_def.id, {})
+	for nid in tr.get("nodes", {}):
+		if not p.tree.has(nid) and Sim.tree_block_reason(p, nid) == "" and tr["nodes"][nid]["kind"] != "pick":
+			ws._web_moved = 0.0
+			ws._web_buy(p, nid)
+			print("WEB_CLICK comprado=%s zoom=%.2f" % [nid, ws._web_zoom])
+			break
+	await get_tree().create_timer(0.4).timeout
+
 func _bag_shot(path: String) -> void:
 	var seen := {}
 	for iid in GameData.items:
@@ -1184,6 +1217,8 @@ func _bag_shot(path: String) -> void:
 			main.hud.windows_script.toggle(w)
 	if DevArgs.has("--hotbar_drag_check"):    # mouse simulado: poção da bolsa -> F3, skill da janela K -> slot 6
 		await _hotbar_drag_check()
+	if DevArgs.has("--web_click_check"):      # teia (janela K): zoom pela roda e compra de um nó; foto antes em <png>_antes.png
+		await _web_click_check(path)
 	if DevArgs.has("--craft_check"):      # forja aberta e rolada: a rolagem não pode voltar ao topo
 		main.hud.windows_script.close_all()
 		main.hud.npc_ui.open("smith")

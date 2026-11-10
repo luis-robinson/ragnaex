@@ -245,6 +245,8 @@ def quadruped(cid, fur, dark, light, kind="wolf"):
     bm.mob_actions(arm, quadruped=True)
     quad_motion(arm, kind)
     quad_combat(arm, kind)
+    if dragon:
+        quad_dragon_gestures(arm)
     return arm
 
 
@@ -296,6 +298,76 @@ def quad_motion(arm, kind):
         k_run["leg_bl"].append((f, (back_a * math.sin(p - 0.2), 0, 0), (0, 0, 0)))
         k_run["tail"].append((f, (-8 + 10 * math.sin(p - 1.2), 0, (4 if heavy else 9) * math.sin(p + 0.6)), (0, 0, 0)))
     lp.add_action(arm, "run", k_run, n)
+
+
+def quad_dragon_gestures(arm):
+    """Gestos de chefe do dragão (Dragonete Ancestral): cada skill toca o seu, nenhum cai no "attack".
+    cast_fire = sopro (empina, puxa o ar, projeta a cabeça e segura o jorro); atk_sweep = varrida de cauda (arma o giro e
+    varre); atk_charge = mergulho (agacha e salta à frente); shout = rugido (empina alto, patas no ar, sacode a cabeça);
+    cast_ground = meteoros (empina e bate as patas no chão); summon = chamado da ninhada (cabeça alta, balança e chama)."""
+    names = ("cast_fire", "atk_sweep", "atk_charge", "shout", "cast_ground", "summon")
+    _drop_clips(arm, names)
+    z = (0, 0, 0)
+    r = lambda x=0.0, y=0.0, zz=0.0: (x, y, zz)
+    p = lambda up=0.0, fwd=0.0: (0, up, fwd)
+    e = 24
+    lp.add_action(arm, "cast_fire", {
+        "body": [(1, z, z), (5, r(-16), p(0.1, -0.08)), (9, r(-18), p(0.12, -0.1)), (12, r(8), p(0.0, 0.12)), (18, r(6), p(0.0, 0.1)), (e, z, z)],
+        "head": [(1, z, z), (5, r(-30), z), (9, r(-34), z), (12, r(22), z), (14, r(20, 0, 8), z), (16, r(20, 0, -8), z), (18, r(18), z), (e, z, z)],
+        "leg_fr": [(1, z, z), (5, r(-18), z), (9, r(-20), z), (12, r(-6), z), (e, z, z)],
+        "leg_fl": [(1, z, z), (5, r(-14), z), (9, r(-16), z), (12, r(-4), z), (e, z, z)],
+        "leg_br": [(1, z, z), (5, r(10), z), (12, r(-6), z), (e, z, z)],
+        "leg_bl": [(1, z, z), (5, r(10), z), (12, r(-6), z), (e, z, z)],
+        "tail": [(1, z, z), (5, r(-20), z), (12, r(12, 0, 10), z), (18, r(8, 0, -10), z), (e, z, z)],
+    }, e, loop=False)
+    e = 18
+    lp.add_action(arm, "atk_sweep", {
+        "body": [(1, z, z), (4, r(4, -38, 0), p(0.02, -0.04)), (7, r(2, 62, 0), p(0.0, 0.04)), (10, r(0, 48, 0), z), (14, r(0, 10, 0), z), (e, z, z)],     # Y = giro (Z no corpo é rolar: a asa entrava no chão)
+        "head": [(1, z, z), (4, r(-10, 0, 20), z), (7, r(6, 0, -24), z), (12, r(0, 0, -6), z), (e, z, z)],
+        "tail": [(1, z, z), (4, r(-14, 0, -60), z), (7, r(10, 0, 80), z), (10, r(6, 0, 50), z), (14, r(0, 0, 10), z), (e, z, z)],
+        "leg_fr": [(1, z, z), (4, r(-10), z), (7, r(10), z), (e, z, z)],
+        "leg_fl": [(1, z, z), (4, r(12), z), (7, r(-10), z), (e, z, z)],
+        "leg_br": [(1, z, z), (4, r(14), z), (7, r(-14), z), (e, z, z)],
+        "leg_bl": [(1, z, z), (4, r(-14), z), (7, r(14), z), (e, z, z)],
+    }, e, loop=False)
+    e = 18
+    lp.add_action(arm, "atk_charge", {
+        "body": [(1, z, z), (4, r(12), p(-0.08, -0.12)), (7, r(-14), p(0.2, 0.45)), (9, r(-6), p(0.12, 0.55)), (11, r(10), p(-0.02, 0.4)), (14, r(4), p(0, 0.15)), (e, z, z)],
+        "head": [(1, z, z), (4, r(10), z), (7, r(-20), z), (9, r(-10), z), (11, r(24), z), (14, r(6), z), (e, z, z)],
+        "leg_fr": [(1, z, z), (4, r(20), z), (7, r(-60), z), (9, r(-50), z), (11, r(10), z), (e, z, z)],
+        "leg_fl": [(1, z, z), (4, r(18), z), (7, r(-54), z), (9, r(-44), z), (11, r(8), z), (e, z, z)],
+        "leg_br": [(1, z, z), (4, r(-20), z), (7, r(46), z), (9, r(36), z), (11, r(-6), z), (e, z, z)],
+        "leg_bl": [(1, z, z), (4, r(-20), z), (7, r(42), z), (9, r(32), z), (11, r(-4), z), (e, z, z)],
+        "tail": [(1, z, z), (4, r(14), z), (7, r(-24), z), (11, r(16), z), (e, z, z)],
+    }, e, loop=False)
+    e = 26
+    lp.add_action(arm, "shout", {
+        "body": [(1, z, z), (6, r(-28), p(0.18, -0.1)), (10, r(-30), p(0.2, -0.1)), (18, r(-26), p(0.17, -0.09)), (22, r(-6), p(0.03, -0.02)), (e, z, z)],
+        "head": [(1, z, z), (6, r(-40), z), (10, r(-42, 0, 10), z), (13, r(-40, 0, -10), z), (16, r(-42, 0, 8), z), (19, r(-36, 0, -6), z), (22, r(-8), z), (e, z, z)],
+        "leg_fr": [(1, z, z), (6, r(-46), z), (18, r(-40), z), (22, r(-6), z), (e, z, z)],
+        "leg_fl": [(1, z, z), (6, r(-40), z), (18, r(-36), z), (22, r(-4), z), (e, z, z)],
+        "leg_br": [(1, z, z), (6, r(18), z), (22, r(4), z), (e, z, z)],
+        "leg_bl": [(1, z, z), (6, r(18), z), (22, r(4), z), (e, z, z)],
+        "tail": [(1, z, z), (6, r(-30), z), (12, r(-34, 0, 14), z), (16, r(-30, 0, -14), z), (22, r(-6), z), (e, z, z)],
+    }, e, loop=False)
+    e = 22
+    lp.add_action(arm, "cast_ground", {
+        "body": [(1, z, z), (7, r(-30), p(0.2, -0.1)), (10, r(-32), p(0.22, -0.1)), (12, r(14), p(-0.04, 0.1)), (15, r(10), p(-0.03, 0.08)), (e, z, z)],
+        "head": [(1, z, z), (7, r(-30), z), (10, r(-36), z), (12, r(20), z), (15, r(12), z), (e, z, z)],
+        "leg_fr": [(1, z, z), (7, r(-60), z), (10, r(-64), z), (12, r(20), z), (15, r(12), z), (e, z, z)],
+        "leg_fl": [(1, z, z), (7, r(-56), z), (10, r(-60), z), (12, r(18), z), (15, r(10), z), (e, z, z)],
+        "leg_br": [(1, z, z), (7, r(20), z), (12, r(-8), z), (e, z, z)],
+        "leg_bl": [(1, z, z), (7, r(20), z), (12, r(-8), z), (e, z, z)],
+        "tail": [(1, z, z), (7, r(-26), z), (12, r(18), z), (e, z, z)],
+    }, e, loop=False)
+    e = 24
+    lp.add_action(arm, "summon", {
+        "body": [(1, z, z), (6, r(-12), p(0.06, -0.04)), (18, r(-12), p(0.06, -0.04)), (e, z, z)],
+        "head": [(1, z, z), (6, r(-45, 0, 20), z), (10, r(-48, 0, -20), z), (14, r(-45, 0, 20), z), (18, r(-46, 0, -12), z), (e, z, z)],
+        "tail": [(1, z, z), (6, r(-30, 0, 16), z), (12, r(-30, 0, -16), z), (18, r(-24), z), (e, z, z)],
+        "leg_fr": [(1, z, z), (6, r(-12), z), (18, r(-10), z), (e, z, z)],
+        "leg_fl": [(1, z, z), (6, r(-12), z), (18, r(-10), z), (e, z, z)],
+    }, e, loop=False)
 
 
 def quad_combat(arm, kind):

@@ -16,7 +16,8 @@ const BOSSES := {"bandit_chief": "field_forest", "crab_king": "city_aldara", "sl
 	"boar_brute": "city_aldara", "boar_king": "city_aldara", "elf_king": "dg_coracao", "elf_warden": "elf_city", "trent": "elf_city",
 	"golem_ancient": "dg_pedreira", "crystal_warden": "dg_pedreira", "quarry_heart": "dg_pedreira_coracao",
 	"elf_captain_hunter": "elf_city", "elf_captain_sky": "elf_city", "elf_captain_sap": "elf_city",
-	"ghoul_giant": "fort_ghoul", "death_knight": "fort_bones", "frost_mage": "fort_frost", "lich_king": "lich_citadel"}
+	"ghoul_giant": "fort_ghoul", "death_knight": "fort_bones", "frost_mage": "fort_frost", "lich_king": "lich_citadel",
+	"dragonling": "field_ruins"}
 ## field = chefe de campo (dá para solar); elite = monstro forte de missão (sem fases); group = conteúdo de grupo.
 const GROUPS := {"crab_king": "field", "boar_brute": "field", "boar_king": "field", "slime_king": "field",
 	"trent": "elite", "elf_warden": "elite"}          # o resto: group
@@ -142,6 +143,8 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 	var base: MonsterDef = GameData.monsters[bid]
 	var m: Dictionary = Sim.load_map(GameData.maps[mid])
 	m["spawners"].clear()
+	for ri in RaidSystem.routes(m["def"]).size():
+		RaidSystem.state(m, ri)["timer"] = INF       # investidas paradas (Bastião): os bots largavam o chefe para defender o portão
 	var at := Vector3.ZERO
 	for sp in m["def"].spawners:
 		if sp["monster_id"] == bid:

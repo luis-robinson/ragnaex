@@ -682,11 +682,14 @@ var _web_query := ""
 var _web_marks: Array = []       # [[anel de busca, texto do nó]]
 var _web_dragging := false
 var _web_moved := 0.0           # quanto o mouse andou desde o clique: arrasto não compra nó
+var _web_view: Control = null   # área e teia da janela aberta (revisão automática: --web_click_check)
+var _web_node: Control = null
 
 func _tree_view(p: SimEntity) -> Control:
 	var tr: Dictionary = GameData.trees.get(p.class_def.id, {})
 	var frame := PanelContainer.new()
 	frame.add_theme_stylebox_override("panel", UiKit.panel_style(Color(0.03, 0.03, 0.05, 0.95), Color(0.3, 0.26, 0.36), 6, 1))
+	frame.size_flags_vertical = Control.SIZE_SHRINK_BEGIN      # não estica com a lista de skills ao lado: a teia pulava ~400 px a cada compra
 	var view := Control.new()
 	view.custom_minimum_size = TREE_PX
 	view.clip_contents = true
@@ -694,6 +697,8 @@ func _tree_view(p: SimEntity) -> Control:
 	frame.add_child(view)
 	var web := Control.new()
 	web.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_web_view = view
+	_web_node = web
 	web.position = TREE_PX * 0.5 + _web_pan
 	web.scale = Vector2.ONE * _web_zoom
 	view.add_child(web)
@@ -705,21 +710,24 @@ func _tree_view(p: SimEntity) -> Control:
 	for nid in tr["nodes"]:                  # talentos de classe ficam na aba própria
 		if tr["nodes"][nid]["kind"] != "pick":
 			nodes[nid] = tr["nodes"][nid]
-	# anéis de guia (fundo) e ligações; o caminho comprado em dourado
-	web.draw.connect(func():
+	# anéis de guia (fundo) e ligações; o caminho comprado em dourado. Num Node2D: um Control de tamanho zero só é
+	# desenhado com a origem (o ponto dele) dentro da área visível, e as linhas sumiam com a teia arrastada para longe.
+	var lines := Node2D.new()
+	web.add_child(lines)
+	lines.draw.connect(func():
 		for cl in tr.get("clusters", []):          # círculos (skill, notável, dash) como os do PoE
 			var cc: Vector2 = (cl["center"] as Vector2) * WEB_UNIT
 			var rr: float = float(cl["r"]) * WEB_UNIT
-			web.draw_circle(cc, rr + 26.0, Color(0.09, 0.075, 0.11, 0.85))
-			web.draw_arc(cc, rr + 26.0, 0.0, TAU, 64, Color(0.42, 0.34, 0.22, 0.75), 2.0, true)
-			web.draw_arc(cc, rr, 0.0, TAU, 64, Color(0.3, 0.26, 0.34, 0.55), 1.5, true)
+			lines.draw_circle(cc, rr + 26.0, Color(0.09, 0.075, 0.11, 0.85))
+			lines.draw_arc(cc, rr + 26.0, 0.0, TAU, 64, Color(0.42, 0.34, 0.22, 0.75), 2.0, true)
+			lines.draw_arc(cc, rr, 0.0, TAU, 64, Color(0.3, 0.26, 0.34, 0.55), 1.5, true)
 		for nid in nodes:
 			for l in nodes[nid]["links"]:
 				if nid < l and nodes.has(l):
 					var a: bool = p.tree.has(nid)
 					var b: bool = p.tree.has(l)
 					var col := C_OWNED if a and b else (Color(C_CAN, 0.6) if a or b else Color(C_LOCK, 0.85))
-					web.draw_line((nodes[nid]["pos"] as Vector2) * WEB_UNIT, (nodes[l]["pos"] as Vector2) * WEB_UNIT, col, 4.0 if a and b else 2.0, true))
+					lines.draw_line((nodes[nid]["pos"] as Vector2) * WEB_UNIT, (nodes[l]["pos"] as Vector2) * WEB_UNIT, col, 4.0 if a and b else 2.0, true))
 	# nome de cada braço na ponta, com os pontos gastos nele
 	for pane in tr.get("panes", []):
 		var spent := 0

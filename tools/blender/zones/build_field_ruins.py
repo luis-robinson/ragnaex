@@ -298,5 +298,5 @@ def build(export=False):
         for i, (mid_, n, resp) in enumerate(mobs):
             x, y = H(88.0 + (i % 2) * 8.0, f["deg"] - 18.0 + i * 12.0)
             z.spawner(mid_, x, y, 8, n, resp, when={"unless": f["quest"]})
-    z.spawner("dragonling", DRAGON[0], DRAGON[1], 2, 1, 300.0)
+    z.spawner("dragonling", DRAGON[0], DRAGON[1], 2, 1, 120.0)          # chefe opcional do 30: volta em 2 min (era 5)
     return z.finish(export, poi=DRAGON, ground=(0.55, 0.56, 0.46))
