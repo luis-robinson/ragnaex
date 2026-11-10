@@ -655,7 +655,7 @@ def build_bones(export=False):
     z.data["town"] = {"center": list(c), "radius": R, "gates": [list(gate_pt)]}
     landmark(z, fid, cfg)                              # torre negra com coroa de ossos
     # ---------- ossuário ao longo da estrada (perto da ponte) e túmulos na encosta ----------
-    for k, (a, b) in enumerate([((-14, 60), (-24, 64)), ((4, 52), (14, 56)), ((-14, 30), (-28, 32)), ((8, 28), (18, 22))]):
+    for k, (a, b) in enumerate([((-14, 60), (-24, 64)), ((4, 52), (14, 56)), ((-18, 30), (-32, 32)), ((8, 28), (18, 22))]):     # o 3º fica a oeste do trecho (-4,40)->(-22,24): a leva anda reto
         ossuary_wall(z, "ossuario_%d" % k, a, b)
     # campos de túmulos: fileiras paralelas na encosta (o que se lê de cima é o cemitério inteiro)
     for f, (corner, cols_n, rows_n) in enumerate([((-82, 90), 7, 3), ((30, 92), 7, 3), ((-90, 28), 4, 4), ((66, 62), 4, 3),

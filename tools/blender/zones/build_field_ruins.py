@@ -18,6 +18,7 @@ from zone_lib import Zone, cyl, box, disc
 
 ZONE = "field_ruins"
 RING_R = 56.0
+PLAZA_R = 24.0                     # raio da praça (as avenidas dos portões chegam aqui)
 WALL = (0.84, 0.82, 0.76)
 ROOFS = [(0.3, 0.42, 0.7), (0.62, 0.24, 0.22), (0.36, 0.5, 0.74), (0.7, 0.58, 0.36)]
 # fronts: ângulo do portão e da garganta, cor do chão queimado, monstros do lado e a quest que o cala
@@ -124,13 +125,13 @@ def build(export=False):
     z.M["chao_cidade"] = zone_lib.mat("chao_cidade", (0.6, 0.56, 0.5))
     disc(z.coll, z.P + "chao_cidade", (0, 0), RING_R - 1.0, 0.009, z.M["chao_cidade"], 64, 0.02, 3)
     z.M["pave_praca"] = zone_lib.mat("pave_praca", (0.78, 0.72, 0.62))
-    z.plaza("praca", (0, 0), 24.0, "pave_praca")
+    z.plaza("praca", (0, 0), PLAZA_R, "pave_praca")
     z.ring_wall("cidade", (0, 0), RING_R, gates, gate_half=4.0, height=4.2, thick=1.8, material="town_wall", towers=0)
     wall_towers(z, gate_deg)
     z.data["town"] = {"center": [0.0, 0.0], "radius": RING_R, "gates": [list(H(RING_R, a)) for a in gate_deg]}
     cathedral(z, (0.0, 0.0))
     for a in gate_deg:                                    # avenidas da praça aos portões
-        z.road("av_%d" % int(a), [H(24.0, a), H(RING_R - 2.0, a)], w=4.4, material="road", end_clearing=False)
+        z.road("av_%d" % int(a), [H(PLAZA_R, a), H(RING_R - 2.0, a)], w=4.4, material="road", end_clearing=False)
     z.road("anel", [H(30.0, 360.0 * k / 28) for k in range(29)], w=3.2, material="road", end_clearing=False)
     z.road("anel_externo", [H(45.0, 360.0 * k / 34) for k in range(35)], w=3.2, material="road", end_clearing=False)
     face = lambda a: round(math.degrees(math.atan2(-math.cos(math.radians(a)), -math.sin(math.radians(a)))), 1)
@@ -239,8 +240,13 @@ def build(export=False):
         raids.append({"side": side, "from": list(gorge_in), "route": [list(mid), list(outer)], "target": [0.0, 0.0], "radius": RING_R - 6.0,
                       "unless": f["quest"]})
     z.data["raids"] = raids
-    z.data["assaults"] = [{"id": "reforco_" + r["side"], "from": r["from"], "route": list(reversed(r["route"])), "target": [0.0, 12.0], "radius": 14.0}
-                          for r in raids]          # reforço das fortalezas retomadas: a rota da investida, ao contrário, até a praça
+    # reforço das fortalezas retomadas: sai da mesma garganta da investida, faz a mesma rota até o portão do lado e segue a
+    # avenida até a borda da praça; ronda ali, do lado dele (a catedral no meio da praça não é contornada pela ronda)
+    deg_of = {s: f["deg"] for s, f in FRONTS.items()}
+    z.data["assaults"] = [{"id": "reforco_" + r["side"], "from": r["from"],
+                           "route": list(r["route"]) + [list(H(RING_R - 2.0, deg_of[r["side"]])), list(H(PLAZA_R, deg_of[r["side"]]))],
+                           "target": list(H(PLAZA_R - 6.0, deg_of[r["side"]])), "radius": 5.0}
+                          for r in raids]
 
     # ---------- selo da Cidadela do Lich (garganta NE): abre com as três fortalezas retomadas ----------
     cit_out, cit_in = polar(z, CITADEL_DEG, 7), polar(z, CITADEL_DEG, 18)

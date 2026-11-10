@@ -1554,6 +1554,8 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_catalog_keys(gd)
 	_check_build_entries(gd)
 	_check_portal_arrivals(gd)
+	_check_assault_routes(gd, sim)
+	_check_assault_march(gd)
 	_check_elementalist_builds(gd, sim)
 	_check_necromancer_builds(gd, sim)
 	_check_elemental_debuffs(gd, sim)
@@ -8162,6 +8164,55 @@ func _check_portal_arrivals(gd) -> void:
 				if gap <= float(own.get("radius", 2.0)) + Balance.PORTAL_ARRIVE_GAP:
 					bad.append("%s.%s -> %s chega a %.1f m de %s" % [src, pt["id"], dst.id, gap, own["id"]])
 	check(bad.is_empty(), "portais: toda chegada fica fora dos portais do destino (%s)" % [bad])
+
+## Leva de assalto (MapDef.assaults): os guardas andam reto de ponto a ponto (só a água tem desvio, por water_path),
+## então nenhum trecho from -> route -> target pode passar por sólido (água conta como livre: a ponte resolve). Antes só
+## a Cidadela conferia; na Fortaleza dos Ossos a leva parava contra o muro de ossos e o reforço do Bastião fazia a rota
+## da investida ao contrário (cortava a muralha fora do portão).
+func _check_assault_routes(gd, sim) -> void:
+	var bad: Array[String] = []
+	for mid in gd.maps:
+		var md: MapDef = gd.maps[mid]
+		if md.assaults.is_empty():
+			continue
+		sim.load_map(md)
+		for a in md.assaults:
+			var route: Array = [a["from"]] + a["route"] + [a["target"]]
+			for i in route.size() - 1:
+				var p0: Vector3 = route[i]
+				var p1: Vector3 = route[i + 1]
+				var steps := maxi(2, int(p0.distance_to(p1) / Balance.ASSAULT_ROUTE_STEP))
+				for k in steps + 1:
+					var q := p0.lerp(p1, float(k) / steps)
+					if MapGeometry.point_in_solid(sim, q, sim.maps[mid]):
+						bad.append("%s.%s trecho %d (%s -> %s) bloqueado em (%.1f, %.1f)" % [mid, a["id"], i, p0, p1, q.x, q.z])
+						break
+	check(bad.is_empty(), "levas de assalto: todo trecho da rota andável em linha reta (%s)" % [bad])
+
+## A leva da Aurora na Fortaleza dos Ossos sobe a estrada inteira até o pátio (sem mortos no caminho para não parar
+## para lutar): o muro de ossos no trecho (-4,40)->(-22,24) prendia todos (o jogador viu a leva amontoada no muro).
+func _check_assault_march(gd) -> void:
+	const MARCH_TIME := 90.0                    # s: a estrada inteira com folga
+	var ws := WorldSim.new()
+	ws.load_map(gd.maps[GameData.town_map_id()])
+	var fd: MapDef = gd.maps["fort_bones"]
+	var m: Dictionary = ws.load_map(fd)
+	ws.player = ws.spawn_player(gd.classes["paladin"], "Marcha", fd.id)
+	ws.player.quests_completed.append("dw_ghoul_boss")
+	var first: Array = []
+	for i in int(MARCH_TIME * 20):
+		for e in m["entities"].duplicate():
+			if e.kind == SimEntity.Kind.MONSTER and not e.guard:
+				ws.despawn(e)                     # caminho livre: só a rota está em teste
+		ws.tick(0.05)
+		if first.is_empty():
+			first = m["entities"].filter(func(e): return e.guard and str(e.npc_data.get("id", "")).begins_with("assault_"))
+	var last_leg: int = fd.assaults[0]["route"].size()        # marcha = route + [target]
+	var stuck: Array = []
+	for e in first:
+		if is_instance_valid(e) and e.is_alive() and e.raid_leg < last_leg:
+			stuck.append("%s leg %d em (%.0f, %.0f)" % [e.npc_data.get("id", "?"), e.raid_leg, e.position.x, e.position.z])
+	check(not first.is_empty() and stuck.is_empty(), "Ossos: a primeira leva (%d) chega ao pátio em %.0f s (%s)" % [first.size(), MARCH_TIME, stuck])
 
 ## Uma build = uma entrada: identidade (of, signature, legend, element no Elementalista) no `_b()` da build; números por
 ## build em Balance (BUILD_POWER, SIGNATURE_BUILD_POWER, LEGEND_NUMBERS) só com ids de build que existem, e toda build
