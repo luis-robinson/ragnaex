@@ -397,6 +397,7 @@ const AURA_PULSE_EVERY := 1.0             # s entre pulsos de dano da aura do ta
 const AURA_KEEP := 1.3                     # s que o buff da aura dura no aliado sem renovar (saiu do raio = some logo)
 const LOOT_LOCK_TIME := 20.0               # s em que só o dono pega o item; depois fica livre
 const PORTAL_NOTICE_CD := 4.0              # s entre avisos de portal bloqueado
+const PORTAL_ARRIVE_GAP := 1.0             # m mínimos entre a chegada e a borda de qualquer portal do mapa (check)
 const PARTY_MAX := 5                       # membros por grupo
 const PARTY_NEARBY_RANGE := 40.0          # m: janela P lista quem dá para convidar até esta distância
 const PARTY_SHARE_RANGE := 45.0            # m: membros vivos no mesmo mapa e dentro disto dividem XP e quests de abate

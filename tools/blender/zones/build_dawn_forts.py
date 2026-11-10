@@ -21,6 +21,9 @@ import bmesh
 FORT_C = (0.0, -30.0)
 FORT_R = 28.0
 ARRIVE_IN_FORT = (0.0, 96.0)          # chegada em todo mapa de fortaleza (o Bastião aponta para cá)
+# Fortaleza dos Ossos: a borda sul fica mais perto, e o portal a 90° caía a 1,2 m da chegada (o jogador voltava na hora).
+# Um pouco para o lado, na mesma distância da borda: ~7 m da chegada (check _check_portal_arrivals).
+BONES_PORTAL_ANG = 94
 
 FORTS = {
     "fort_ghoul": {
@@ -606,7 +609,7 @@ def build_bones(export=False):
     gone = {"unless": q}
     arrive = ARRIVE_IN_FORT
     z.data["spawn"] = list(arrive)
-    z.portal("to_bastion", polar(z, 90, 7), "field_ruins", BACK[fid], "Bastião da Aurora")
+    z.portal("to_bastion", polar(z, BONES_PORTAL_ANG, 7), "field_ruins", BACK[fid], "Bastião da Aurora")
     c, R = FORT_C, FORT_R
     gate = math.radians(90.0)
     gate_pt = (c[0], c[1] + R)

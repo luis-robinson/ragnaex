@@ -1552,6 +1552,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_bot_form(gd, sim)
 	_check_bot_stealth(gd, sim)
 	_check_catalog_keys(gd)
+	_check_portal_arrivals(gd)
 	_check_elementalist_builds(gd, sim)
 	_check_necromancer_builds(gd, sim)
 	_check_elemental_debuffs(gd, sim)
@@ -8138,6 +8139,23 @@ func _check_catalog_keys(gd) -> void:
 		if aura is Dictionary and aura.get("ally") is Dictionary:
 			_bad_stats(bad, "%s.aura.ally" % kid, aura["ally"], Stats.BUFF_META)
 	check(bad.is_empty(), "catálogos: stats e efeitos só com chaves conhecidas (%s)" % [bad])
+
+## Todo portal de todo mapa: a chegada no destino fica fora de todos os portais de lá (senão o jogador volta na hora:
+## Fortaleza dos Ossos, chegada a 1,2 m do portal do Bastião). Antes só os 4 mapas de _check_zone_layout conferiam.
+func _check_portal_arrivals(gd) -> void:
+	var bad: Array[String] = []
+	for src in gd.maps:
+		for pt in gd.maps[src].portals:
+			var dst: MapDef = gd.maps.get(pt["target_map"])
+			if dst == null:
+				bad.append("%s.%s: destino %s não existe" % [src, pt["id"], pt["target_map"]])
+				continue
+			var arrive: Vector3 = pt["target_pos"]
+			for own in dst.portals:
+				var gap: float = Vector2(arrive.x, arrive.z).distance_to(Vector2(own["pos"].x, own["pos"].z))
+				if gap <= float(own.get("radius", 2.0)) + Balance.PORTAL_ARRIVE_GAP:
+					bad.append("%s.%s -> %s chega a %.1f m de %s" % [src, pt["id"], dst.id, gap, own["id"]])
+	check(bad.is_empty(), "portais: toda chegada fica fora dos portais do destino (%s)" % [bad])
 
 func _bad_stats(bad: Array[String], where: String, d: Dictionary, meta: Array) -> void:
 	for k in d:
