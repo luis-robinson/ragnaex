@@ -369,14 +369,12 @@ const BOT_AUTO_FORMS := ["wolf", "bear"]
 const BOT_FORM_RANGE := 12.0
 const BOT_FORM_SCORE := 9.0                # acima de qualquer golpe: a forma vem primeiro
 ## Abertura furtiva do bot (Sumir): só fora de combate, com o alvo ainda sem mirá-lo e a até BOT_STEALTH_RANGE m (no meio
-## da luta, um chefe solo perderia o alvo e resetaria). Na sombra contorna até as costas; sai golpeando com BOT_STEALTH_STRIKE_LEFT s restando.
+## da luta, um chefe solo perderia o alvo e resetaria; testado e tirado: deixava o Rei Lich voltar a 100%). Na sombra
+## contorna até as costas por até BOT_STEALTH_CIRCLE s (costas contra a parede = inalcançável) e depois golpeia de onde der.
 const BOT_STEALTH_RANGE := 10.0
 const BOT_STEALTH_SCORE := 8.0
-const BOT_STEALTH_STRIKE_LEFT := 1.5
+const BOT_STEALTH_CIRCLE := 1.5
 const BOT_STEALTH_BACK_GAP := 0.6           # m atrás do alvo (além dos raios)
-## Fuga: com o alvo em cima e vida abaixo disto, some no meio da luta (o alvo perde o bot; ele volta golpeando pelas
-## costas antes de o chefe sair de combate: AGGRO_LOSE_TIME > tempo na sombra até o golpe).
-const BOT_STEALTH_ESCAPE_HP := 0.45
 const BOT_CHAT_VICTORY := 0.45            # depois do Lich, na cidade/Bastião: chance de a conversa ser comemoração
 const BOT_CHAT_SITUATION := 0.6            # chefe vivo por perto ou investida no mapa: chance de falar disso
 const BOT_CHAT_BOSS_RANGE := 30.0          # m: chefe vivo até aqui conta como "perto"

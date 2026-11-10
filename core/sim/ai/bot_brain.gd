@@ -28,6 +28,7 @@ var flee_timer: float = 0.0    # recuando com pouca vida
 var recall_retry: float = 0.0  # volta (G) interrompida: anda para o portal e tenta de novo depois disto
 var stall_t: float = 0.0       # no alcance mas o alvo não perde vida (obstáculo no meio): chega mais perto
 var stall_hp: float = -1.0
+var stealth_peak: float = 0.0   # furtividade no começo desta sombra (quanto tempo já contornou o alvo)
 var personality: float = 0.5   # 0 = cauteloso, 1 = agressivo
 var cur_def: MapDef = null     # mapa do tick atual (rota pelos portões da vila)
 var cur_sim = null             # para desviar da água pelas pontes
@@ -249,13 +250,17 @@ func _fight(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCommand)
 		return cmd
 	# furtivo: contorna até as costas do alvo e sai da sombra com a skill mais forte (bônus de emboscada + crítico)
 	if e.stealth_left > 0.0:
-		if Combat.is_behind(e, mob) or e.stealth_left < Balance.BOT_STEALTH_STRIKE_LEFT:
+		stealth_peak = maxf(stealth_peak, e.stealth_left)
+		var circled: bool = stealth_peak - e.stealth_left > Balance.BOT_STEALTH_CIRCLE      # costas inalcançáveis: vai de frente
+		if Combat.is_behind(e, mob) or circled:
 			var opener := _best_skill(e, sim, m, mob, dist)
 			if opener >= 0:
 				cmd.skill_slot = opener
 				return cmd
-		cmd.move = _steer(e, mob.position - mob.forward() * (mob.radius + e.radius + Balance.BOT_STEALTH_BACK_GAP), 0.0)
+		var spot := mob.position if circled else mob.position - mob.forward() * (mob.radius + e.radius + Balance.BOT_STEALTH_BACK_GAP)
+		cmd.move = _steer(e, spot, 0.0)
 		return cmd
+	stealth_peak = 0.0
 	# skill: a melhor disponível (buff que não está ativo, área quando há vários, a mais forte no resto)
 	var pick := _best_skill(e, sim, m, mob, dist)
 	if pick >= 0:
@@ -334,10 +339,8 @@ func _best_skill(e: SimEntity, sim, m: Dictionary, mob: SimEntity, dist: float) 
 		if s.effects.has("stealth"):
 			if e.stealth_left > 0.0 or dist > Balance.BOT_STEALTH_RANGE or (s.class_id == "druid" and e.form != "wolf"):
 				continue
-			var opener: bool = e.combat_timer <= 0.0 and mob.aggro_target != e.id
-			var escape: bool = mob.aggro_target == e.id and e.hp < e.stats.max_hp * Balance.BOT_STEALTH_ESCAPE_HP
-			if not (opener or escape):
-				continue                    # abertura fora de combate, ou fuga com o alvo em cima e pouca vida
+			if e.combat_timer > 0.0 or mob.aggro_target == e.id:
+				continue                    # só abertura: no meio da luta o chefe perde o alvo e pode resetar
 			score = Balance.BOT_STEALTH_SCORE
 		elif s.kind == SkillDef.Kind.BUFF:
 			var b = s.effects.get("buff")

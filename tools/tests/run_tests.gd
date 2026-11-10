@@ -8083,12 +8083,9 @@ func _check_bot_stealth(gd, sim) -> void:
 	var dist: float = d.position.distance_to(mob.position)
 	check(vs >= 0 and brain._best_skill(d, sim, m, mob, dist) == vs, "Lâminas: alvo ainda solto a 6 m, o bot abre com Sumir")
 	mob.aggro_target = d.id
-	check(brain._best_skill(d, sim, m, mob, dist) != vs, "Lâminas: alvo mirando o bot com vida cheia, nada de Sumir")
-	d.hp = d.stats.max_hp * Balance.BOT_STEALTH_ESCAPE_HP * 0.5
-	check(brain._best_skill(d, sim, m, mob, dist) == vs, "Lâminas: alvo em cima e pouca vida, some (fuga)")
+	d.hp = d.stats.max_hp * 0.2
+	check(brain._best_skill(d, sim, m, mob, dist) != vs, "Lâminas: alvo mirando o bot (mesmo com pouca vida), nada de Sumir no meio da luta")
 	d.hp = d.stats.max_hp
-	check(Balance.AGGRO_LOSE_TIME > float(gd.skills["ass_vanish"].effects["stealth"]) - Balance.BOT_STEALTH_STRIKE_LEFT,
-		"fuga: o bot golpeia antes de o chefe sair de combate (senão ele resetaria)")
 	mob.aggro_target = -1
 	d.combat_timer = Balance.AGGRO_LOSE_TIME
 	check(brain._best_skill(d, sim, m, mob, dist) != vs, "Lâminas: em combate (lacaio solto), nada de Sumir no meio da luta")
@@ -8097,6 +8094,12 @@ func _check_bot_stealth(gd, sim) -> void:
 	d.position = mob.position + mob.forward() * 6.0      # de frente para o slime (pela frente, longe das costas)
 	var cmd := brain._fight(d, sim, m, mob, InputCommand.new())
 	check(not cmd.attack and cmd.skill_slot < 0 and cmd.move != Vector2.ZERO, "furtivo pela frente: contorna o alvo sem golpear")
+	d.position = mob.position + mob.forward() * (mob.radius + d.radius + 0.5)      # colado na frente, costas inalcançáveis
+	d.stealth_left = 5.0 - Balance.BOT_STEALTH_CIRCLE - 0.2
+	cmd = brain._fight(d, sim, m, mob, InputCommand.new())
+	check(cmd.skill_slot >= 0, "furtivo há tempo sem chegar às costas: golpeia de frente (não fica parado até a sombra acabar)")
+	d.stealth_left = 5.0
+	brain.stealth_peak = 0.0
 	d.position = mob.position - mob.forward() * (mob.radius + d.radius + 0.5)
 	cmd = brain._fight(d, sim, m, mob, InputCommand.new())
 	var hit: SkillDef = d.skills[cmd.skill_slot] if cmd.skill_slot >= 0 else null

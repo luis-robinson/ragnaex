@@ -163,7 +163,7 @@ static func build() -> Array:
 					["ass_twin_strike", "ass_backstab", "ass_plague_blade", "ass_quick_stab", "ass_shadowstep", "ass_vanish", "ass_poison", "ass_blade_flurry", "ass_venom_dart",
 					 "ass_fan", "ass_reflexes", "ass_eviscerate", "ass_paralyze", "ass_toxic_cloud", "ass_dance", "ass_execute", "ass_virulence", "ass_thousand"]).merged({
 					# velocidade, esquiva e pelas costas (árvore e conjunto)
-					"passives": [{"aspd_pct": 3}, {"evasion": 1.5}, {"backstab": 6}], "set_extra": {3: {"evasion": [4.0, 1.0], "backstab": [10.0, 3.0]}}}),
+					"passives": [{"aspd_pct": 3}, {"evasion": 3}, {"backstab": 6}, {"hp_pct": 4}], "set_extra": {3: {"evasion": [6.0, 1.5], "backstab": [10.0, 3.0]}}}),
 				_b("duelista", "Duelista", "dps", ["sword"], ["sword"], "leather", "AGI", "FOR", "atk_pct",
 					["ass_cross_slash", "ass_backstab", "ass_quick_stab", "ass_thrust", "ass_shadowstep", "ass_guard", "ass_lunge", "ass_steel_whirl", "ass_crimson",
 					 "ass_execute", "ass_focus", "ass_master", "ass_expose"]).merged({
