@@ -1,11 +1,11 @@
 class_name AudioSettings
 extends RefCounted
 ## Volumes (menu Esc → Som), salvos em user://settings.cfg na seção "audio" (vale para todos os personagens).
-## Barramentos: Master ← SFX (combate e mundo) e UI (cliques, janelas, nível, quest).
+## Barramentos: Master ← Music (temas por lugar, chefe, investida), SFX (combate e mundo) e UI (cliques, janelas, nível, quest).
 
-const BUSES := ["Master", "SFX", "UI"]
-const LABELS := {"Master": "Volume geral", "SFX": "Efeitos", "UI": "Interface"}
-const DEFAULTS := {"Master": 0.8, "SFX": 1.0, "UI": 0.8}
+const BUSES := ["Master", "Music", "SFX", "UI"]
+const LABELS := {"Master": "Volume geral", "Music": "Música", "SFX": "Efeitos", "UI": "Interface"}
+const DEFAULTS := {"Master": 0.8, "Music": 0.55, "SFX": 1.0, "UI": 0.8}
 
 static var volume: Dictionary = DEFAULTS.duplicate()
 

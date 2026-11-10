@@ -1560,6 +1560,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_portal_arrivals(gd)
 	_check_assault_routes(gd, sim)
 	_check_assault_march(gd)
+	_check_music(gd)
 	_check_elementalist_builds(gd, sim)
 	_check_necromancer_builds(gd, sim)
 	_check_elemental_debuffs(gd, sim)
@@ -8224,6 +8225,24 @@ func _check_assault_march(gd) -> void:
 		if is_instance_valid(e) and e.is_alive() and e.raid_leg < last_leg:
 			stuck.append("%s leg %d em (%.0f, %.0f)" % [e.npc_data.get("id", "?"), e.raid_leg, e.position.x, e.position.z])
 	check(not first.is_empty() and stuck.is_empty(), "Ossos: a primeira leva (%d) chega ao pátio em %.0f s (%s)" % [first.size(), MARCH_TIME, stuck])
+
+## Música: todo mapa que não é interior tem tema, todo tema tem faixa no banco (assets/audio/music, build_music.py) e os
+## créditos citam cada uma; os 4 barramentos existem para o menu Som.
+func _check_music(gd) -> void:
+	var missing: Array[String] = []
+	for mid in gd.maps:
+		var th := Music.theme_for(mid)
+		if th == "" or not (th in Music.THEMES):
+			missing.append("%s->%s" % [mid, th])
+	check(missing.is_empty(), "música: todo mapa tem tema (%s)" % [missing])
+	var no_file: Array[String] = []
+	for th in Music.THEMES:
+		if not (ResourceLoader.exists(Music.DIR + th + ".ogg") or ResourceLoader.exists(Music.DIR + th + ".mp3")):
+			no_file.append(th)
+	check(no_file.is_empty(), "música: todo tema tem faixa no banco (%s)" % [no_file])
+	var credits := FileAccess.get_file_as_string(Music.DIR + "CREDITS.md")
+	check(Music.THEMES.all(func(th): return credits.contains("| %s |" % th)), "música: CREDITS.md cita cada tema")
+	check("Music" in AudioSettings.BUSES and AudioSettings.LABELS.has("Music") and AudioSettings.DEFAULTS.has("Music"), "música: barramento Music com volume no menu")
 
 ## Uma build = uma entrada: identidade (of, signature, legend, element no Elementalista) no `_b()` da build; números por
 ## build em Balance (BUILD_POWER, SIGNATURE_BUILD_POWER, LEGEND_NUMBERS) só com ids de build que existem, e toda build

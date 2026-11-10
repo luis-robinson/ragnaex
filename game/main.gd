@@ -55,6 +55,10 @@ func _ready() -> void:
 	sfx.name = "Sfx"
 	sfx.main = self
 	add_child(sfx)
+	var music := Music.new()                 # música por lugar, chefe e investida (assets/audio/music, volume no Esc)
+	music.name = "Music"
+	music.main = self
+	add_child(music)
 	var festival := FestivalFx.new()          # fogos nas praças depois do Lich (fim do Ato I)
 	festival.name = "FestivalFx"
 	festival.main = self

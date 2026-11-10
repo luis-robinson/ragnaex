@@ -178,6 +178,9 @@ func after_start() -> void:
 	if DevArgs.flag("--raid_shot"):     # --raid_shot=<png>: investida élfica na Floresta (fotos _marcha e _portao) e sai
 		_smoke_test = false
 		_raid_shot(DevArgs.value("--raid_shot"))
+	if DevArgs.flag("--siege_perf"):    # --siege_perf=<png>: último front do Bastião (Covil e Ossos retomados) no portão sul; FPS e sim
+		_smoke_test = false
+		_siege_perf(DevArgs.value("--siege_perf"))
 	if DevArgs.flag("--sig_film"):      # --sig_film=<png>: cada build da classe segurando o ataque num boneco, assinatura forçada (uma linha por build)
 		_smoke_test = false
 		_sig_film(DevArgs.value("--sig_film"))
@@ -628,6 +631,66 @@ func _raid_shot(path: String) -> void:
 				st["arrived_t"] = st["t"]
 		get_viewport().get_texture().get_image().save_png(path.trim_suffix(".png") + sh[1] + ".png")
 		print("RAID_SHOT %s t=%.0f vivos=%d" % [sh[1], float(RaidSystem.state(m)["t"]), RaidSystem.state(m)["ids"].size()])
+	get_tree().quit()
+
+## Carga do último front: Bastião com Covil e Ossos retomados (a Torre joga tudo: leva x2, teto RAID_WAVE_CAP_LAST, líder),
+## reforços das duas fortalezas na praça, jogador (imortal) no portão sul. A cada 5 s: FPS, pior quadro, ms/tick da sim,
+## vivos da leva; foto quando a leva chega ao portão. Medir com janela (o FPS headless não vale).
+func _siege_perf(path: String) -> void:
+	var p := Sim.player
+	for q in ["dw_gates", "dw_ghoul_posts", "dw_ghoul_boss", "dw_bones_posts", "dw_bones_boss"]:
+		if not p.quests_completed.has(q):
+			p.quests_completed.append(q)
+	var def: MapDef = GameData.maps["field_ruins"]
+	var frost := -1
+	for i in RaidSystem.routes(def).size():
+		if RaidSystem.route_def(def, i).get("side", "") == "frost":
+			frost = i
+	var gate := RaidSystem.gate_point(def, frost)
+	Sim._change_map(p, def.id, gate + Vector3(0, 0, -4))
+	await get_tree().create_timer(2.0).timeout
+	MapBuilder.apply_conquest(main.map_node)
+	var m: Dictionary = Sim.maps[def.id]
+	for i in def.assaults.size():                  # reforços já descidos (até o max de cada fortaleza retomada)
+		if WorldState.active(Sim, def.assaults[i]):
+			for id in WorldState.spawn_assault(Sim, m, i):
+				var e: SimEntity = Sim.entities[id]
+				e.position = MapGeometry.random_walkable(Sim, def, def.assaults[i]["target"], 4.0)
+				e.raid_leg = (e.npc_data["march"] as Array).size() - 1
+	var ids := RaidSystem.start_raid(Sim, m, frost)
+	print("SIEGE start leva=%d" % ids.size())
+	var t := 0.0
+	var frames := 0
+	var worst := 0.0
+	var t_win := 0.0
+	var shot := false
+	var fps_sum := 0.0
+	var fps_n := 0
+	var worst_all := 0.0
+	while t < float(DevArgs.value("--siege_time", "90")):
+		await get_tree().process_frame
+		var dt := get_process_delta_time()
+		t += dt
+		t_win += dt
+		frames += 1
+		worst = maxf(worst, dt)
+		p.hp = p.stats.max_hp
+		var st := RaidSystem.state(m, frost)
+		if not shot and st["arrived"]:
+			shot = true
+			get_viewport().get_texture().get_image().save_png(path)
+		if t_win >= 5.0:
+			var fps := frames / t_win
+			fps_sum += fps
+			fps_n += 1
+			worst_all = maxf(worst_all, worst)
+			print("SIEGE t=%.0f fps=%.1f worst_ms=%.0f tick_ms=%.2f leva_viva=%d entidades=%d views=%d" % [t, fps, worst * 1000.0, Sim.tick_usec / 1000.0,
+				(st["ids"] as Array).size(), m["entities"].size(), main.views.size()])
+			frames = 0
+			worst = 0.0
+			t_win = 0.0
+	var mus: Music = main.get_node_or_null("Music")
+	print("SIEGE_END fps_medio=%.1f pior_ms=%.0f musica=%s tocadas=%s" % [fps_sum / maxf(1, fps_n), worst_all * 1000.0, mus.current if mus else "-", mus.played if mus else {}])
 	get_tree().quit()
 
 ## --boss_film=<chefe>[,<chefe>...] --out=<pasta>: no mapa do chefe, ele lança cada skill do kit (base + fases) num grupo
@@ -1546,6 +1609,9 @@ func _smoke(delta: float) -> void:
 				print("screenshot: " + _shot_path)
 			print("SMOKE OK: map=%s hp=%d entities=%d views=%d" % [p.map_id, p.hp, Sim.entities.size(), main.views.size()])
 			print("SMOKE SOM: " + Sfx.played_summary())
+			var mus: Music = main.get_node_or_null("Music")
+			if mus:
+				print("SMOKE MUSICA: atual=%s tocadas=%s" % [mus.current, mus.played])
 			get_tree().quit(0)
 	Sim.set_player_command(cmd)
 

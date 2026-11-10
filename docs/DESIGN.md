@@ -230,6 +230,9 @@ Nível 30 só cai do Dragonete. Raridades: comum, incomum, raro, épico, **lend�
 
 ## Equilíbrio entre builds
 
+- **Princípio (2026-11-10, decisão do jogador):** o RagnaEx é jogo de grupo; o foco é a IA dos bots. Build não precisa vencer chefe
+  de grupo sozinha: equilíbrio se mede em grupo (cada build liderando um grupo de bots: `boss_probe --party=4 --lead=<classe>:<build>`),
+  e a vitória solo vira só sinal de alerta (0/40 com mortes = a IA ou a build quebrou), não alvo.
 - `Balance.BUILD_POWER` multiplica o poder das skills do setor de uma build (ao carregar). Mexe no dano, pouco na sobrevivência.
 - Medir: `dps_probe.tscn -- --levels=30` (dano no boneco) e `boss_probe.tscn -- --party=1 --trials=10 --lead=<classe>:<build>
   --boss=count_vargo,elf_king,death_knight,lich_king` (vitórias solo de 40). Depois do retrabalho dos chefes (2026-11-09) os 4 são
@@ -241,8 +244,10 @@ Nível 30 só cai do Dragonete. Raridades: comum, incomum, raro, épico, **lend�
   Guardião 1,5; Sacerdote ganhou Nova Sagrada na prioridade. Vitórias de 40: Sacerdote 0, Lâminas 6, Caçador 6, Lanceiro 7, Xamã 8,
   Duelista 10, Lobo 10, Gelo 10, Corsário 11, Raio 11, Cruzado 14, Guardião 14, Fogo 15, Atirador 15, Executor 16, Templário 16, Urso 18,
   Invocador 25, Ceifador 26, Punhos 28, Sombras 29, Batalha 31, Gêmeos 34, Iluminado 40.
-  Pendente: Sacerdote não morre mas estoura o tempo (chefe ~45% em 300 s; MATK metade do Iluminado) — dobrar o dano é decisão de design.
-  Lâminas morre (não usa a furtividade de abertura). Caçador e Lanceiro caíram para 6-7.
+  Sacerdote: não morre mas estoura o tempo (chefe ~45% em 300 s; MATK metade do Iluminado). Decisão 2026-11-10: aceito como build
+  de suporte — fraco sozinho contra chefe de grupo, forte em grupo; não subir o dano.
+  Lâminas (2026-11-10): furtividade de abertura, esquiva, vida e roubo de vida pequenos ficaram no ruído (~5/40). Reflexos ganhou
+  -30% de dano sofrido por 5 s e entrou na barra do bot no lugar da Estocada Rápida. Caçador e Lanceiro seguem em 6-7.
 - Bot não escolhe skill que a sim recusaria (sem companheiro, invocação no limite, aura ligada, já na forma) nem canaliza com
   o chefe mirando nele: as duas coisas o deixavam parado até morrer (Caçador 2 → 23, Pestilento 2 → 11).
 - Necromantes: a força vinha da sustentação da classe (Drenar Vida 40% a cada 2,5 s, Muralha de Ossos), não das invocações
@@ -391,6 +396,8 @@ Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MS
         a rota da investida até o portão do lado, a avenida e a borda da praça. Eram até 8 por fortaleza e espalhavam a última investida (2026-11-10).
       - **Último front** (as outras duas retomadas): leva x `RAID_LAST_FRONT_MULT` (2) além da fúria, teto `RAID_WAVE_CAP_LAST` (80) e um líder elite
         (`RAIDS[..]["leader"]`). raid_probe `--reclaimed=2 --reinforce=2` (reforços já na praça): antes 24 reforços; agora 6, e um bot do 24 cai em toda leva.
+        Desempenho (`-- --autostart=paladin --siege_perf=<png>`, com janela): leva de 84, FPS médio 71; na chegada ao portão
+        ~37 FPS por ~5 s (leva antiga de 55: ~62). A sim do Bastião já passava de 5 ms/tick (~8 ms) antes da leva maior.
       - **Surtida:** quando uma leva chega à muralha, 20 soldados saem da porta da catedral até o portão atacado (`MapDef.sortie`, `SORTIES`, recarga `RAID_SORTIE_COOLDOWN` 180 s) e voltam/somem quando a leva acaba.
       - Com duas retomadas, o último front (~60) só cai com o jogador e o grupo (3 bots nv 27: 4/4).
       - **Torres:** 10 torres na muralha com besteiros no alto (`guard_wall_crossbow`, `npc_data.perch` = altura visual; `SimEntity.is_perched`). Atiram por cima do muro com pouco dano, não andam, não são alvo, não tomam dano e não puxam aggro.
@@ -609,8 +616,10 @@ Props/construções em `tools/blender/prop_kit.py` (casas enxaimel com telhas, �
 recebem a cor do obstáculo no `MapDef`). Ruas de paralelepípedo e restos de calçamento nas ruínas vêm do `ground.gdshader` (voronoi). Câmera perspectiva FOV 35, pitch 52°, yaw em 45°.
 Obstáculos entre câmera e jogador ficam 72% transparentes. Chibi: cabeça ≈ 1/3 da altura. Paleta: pedra creme, telhados terracota/azul, verdes suaves.
 
-## Som — `Sfx` (game/audio/sfx.gd), volumes em `AudioSettings` (Esc → Volume geral / Efeitos / Interface)
-Efeitos sonoros lidos dos `Events`, sem música por enquanto. Banco em `assets/audio/sfx/<nome>_<n>` gerado por `tools/audio/build_sfx.py`:
+## Som — `Sfx` (game/audio/sfx.gd) e `Music` (game/audio/music.gd), volumes em `AudioSettings` (Esc → Volume geral / Música / Efeitos / Interface)
+Música (2026-11-10): 12 faixas CC0 do OpenGameArt (`tools/audio/build_music.py`, créditos em `assets/audio/music/CREDITS.md`): Aldara, taverna,
+campo, Cidade Élfica, Bastião, masmorra, caverna, Catacumbas, fortalezas, Cidadela; por cima, chefe em luta e investida no mapa; troca suave de 1,6 s.
+Efeitos sonoros lidos dos `Events`. Banco em `assets/audio/sfx/<nome>_<n>` gerado por `tools/audio/build_sfx.py`:
 golpes, impactos, bloqueio, monstros, itens e cliques vêm de pacotes CC0 (créditos em `assets/audio/CREDITS.md`); magias por tema,
 preparação de magia, esquiva, crítico, arco/tiro, nível, quest e volta à cidade são sintetizados pelo script (semente fixa).
 - Golpe físico: vento da arma na fase ativa (arco/rifle/pistola: disparo ao sair o projétil); acerto e crítico no alvo; você levando dano tem som próprio.

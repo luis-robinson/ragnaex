@@ -93,6 +93,10 @@
 - **Som**: banco em `assets/audio/sfx/<nome>_<n>.<ogg|wav>`, todo gerado por `python tools/audio/build_sfx.py` (+ `--import`): `CC0` = arquivos dos pacotes
   do OpenGameArt (baixados para `.godot/sfx_cache`), `SYNTH` = funções `s_<nome>` (biblioteca padrão, semente fixa). Nome novo precisa de volume em `Sfx.VOL`
   (`game/audio/sfx.gd`; há check) e de um gancho em evento lá. Tema de skill novo = entrada em `Sfx.THEME_SOUND`. O smoke imprime `SMOKE SOM:` (o que tocou).
+- **Música**: `game/audio/music.gd` (`Music`, criado no `main`, barramento `Music`): tema do lugar (`Music.MAP_THEME` / `theme_for`: masmorras,
+  fortalezas, interiores por família), por cima "chefe" (chefe de verdade em luta a 32 m) e "investida" (leva no mapa). Faixas CC0 do OpenGameArt
+  em `assets/audio/music/<tema>.<ogg|mp3>`, geradas por `python tools/audio/build_music.py` (licença conferida na página de cada faixa; créditos
+  em `CREDITS.md`). Mapa ou tema novo = entrada aqui e lá (check `_check_music`). O smoke imprime `SMOKE MUSICA:`.
 - Sempre adicione um `check(...)` em `tools/tests/run_tests.gd` para conteúdo/regra nova.
 - **Chaves dos catálogos** (check `_check_catalog_keys`): os `_mk` passam por `CatalogUtil.fill` (chave que o Resource não tem
   = falha no teste, não some mais em silêncio). Stat de passivo/`set_extra`/bônus/buff só de `Stats.STAT_KEYS` (stat novo = ler

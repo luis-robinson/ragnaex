@@ -577,7 +577,7 @@ static func _more() -> Dictionary:
 			{"id": "plague_blade", "duration": 14, "hit_poison": 9, "aspd_pct": 15}),
 		_s("ass_vanish", "Sumir", 7, "laminas", ["dual"], T_SELF, K_BUFF, 0.0, 16, 14, "Some da vista dos inimigos por 6s. O primeiro golpe sai da sombra com +60% de dano (e pelas costas, crítico).",
 			{"stealth": 6.0, "startup": 0.1}),
-		_buff("ass_reflexes", "Reflexos", 11, "laminas", ["dual_dagger"], 12, 18, "+35% de esquiva e +20% velocidade por 5s.", {"id": "reflexes", "duration": 5, "evasion": 35, "speed_pct": 20}),
+		_buff("ass_reflexes", "Reflexos", 11, "laminas", ["dual_dagger"], 12, 18, "+35% de esquiva, -30% de dano sofrido e +20% velocidade por 5s.", {"id": "reflexes", "duration": 5, "evasion": 35, "dr_pct": 30, "speed_pct": 20}),
 		_s("ass_virulence", "Virulência", 25, "laminas", ["dual_dagger"], T_GROUND, K_PHYS, 1.2, 30, 16, "Epidemia no cursor: veneno altíssimo.", {"range": 8.0, "radius": 3.2, "dot": _dot(16, 6)}),
 		_s("ass_expose", "Expor Fraqueza", 9, "duelista", ["dual", "pistol"], T_TARGET, K_PHYS, 2.0, 10, 8, "Golpe que expõe o alvo: recebe +20% de dano de todos por 6s.",
 			{"curse": {"id": "expose", "duration": 6.0, "taken_pct": 20}}),
