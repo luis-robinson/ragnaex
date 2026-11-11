@@ -106,23 +106,183 @@ talento novas (`class_talents_catalog.gd`, 3 escolhas por linha, cada uma pensad
 tem uso pelos bots (`BotBrain`; alvo: bot ascendido usa a ascensão ao menos 1× em 60 s de luta contra chefe) — sem isso ela não entra.
 | Classe | Ascensão (35) | Regra principal | 40 / 45 (refinos por build) |
 |---|---|---|---|
-| Paladino | **Combate Montado** | montado, o paladino ataca e usa skills marcadas como montáveis; básico do alto (alcance maior), **Carga Montada** (avanço longo que atropela a linha), **Pisotear** (área em volta); a aura vale montado; atordoar/prender/gancho **derruba** do cavalo | Guardião provoca montado com escudo · Cruzado com lança pesada (Carga mais longa) · Templário com estandarte (aura maior no grupo) |
+| Paladino | **Combate Montado** + **Modo Arcano** | montado, o paladino ataca e usa skills montáveis (Carga Montada, Pisotear; atordoar/prender/gancho derrubam); **Corrente de Luz** puxa o alvo até ele; **Modo Arcano** (liga/desliga) abre **asas de luz** e troca os golpes por versões arcanas | Guardião: corrente provoca · Cruzado: lança pesada · Templário: Modo Arcano mais longo e asas que protegem o grupo |
 | Elementalista | **Elemental que evolui e muda de forma** | o elemental (um por vez, regra atual) ganha **experiência** com abates feitos perto do mago e evolui: Básico → **Maior** (35) → **Ancestral** (40/45); o mago **troca a forma** entre fogo/gelo/raio sem perder o estágio; cada forma tem skills e um **modo** (atacar, proteger, apoiar) | Fogo: Salamandra → Ifrit (área) · Gelo: Golem de Gelo → Ondina (escudo no grupo) · Raio: Silfo → Tempestade (velocidade) |
-| Berserker | **Empunhadura de Titã** | pode equipar **arma de duas mãos também na mão secundária** (só machado de 2 mãos, as builds de machado); golpe duplo, penalidade de velocidade de ataque que a teia reduz | Gêmeos: os dois machados giram juntos · Carniceiro/Executor: execução com o segundo machado |
-| Bispo | **Santuário** | área no chão: ninguém do grupo dentro **morre** por alguns segundos (vida para em 1) + **ressurreição em combate** (uma por aliado por luta; ver F9) | Sacerdote: santuário maior · Iluminado: santuário fere mortos-vivos/orcs · Batalha: ressurreição com escudo |
-| Druida | **Forma Ancestral** | terceira forma por build: Urso → **Ent** (raízes, provoca em área); Lobo → **Lobo Alfa** (chama a matilha); Xamã → espírito da tempestade | variantes de skill por forma (como Lobo/Urso hoje) |
-| Ranger | **Companheiro Evoluído** | Caçador: lince → **Tigre Dente-de-Sabre**; Atirador: **torreta** de campo (armadilha que atira); Lanceiro: arremesso que salta | tigre com investida · torreta dupla · salto que provoca |
+| Berserker | **Empunhadura de Titã** + **Modo Gladiador** | duas armas de duas mãos (Executor e Machados Gêmeos; Punhos: Garras de Titã); **Modo Gladiador** (postura de arena): a Fúria vira **Glória**, golpes elementais na arma, investida e grito para a plateia | Machados Gêmeos: os dois machados giram juntos · Executor: golpe final da arena · Punhos: Glória não esfria |
+| Bispo | **Coro Celeste** | **Anjo Guardião** invocado que cura o grupo, **Barreira Sagrada** em área (mecânica de grupo e de movimento: o grupo se junta dentro, ela anda com o Bispo) e **bênçãos** de grupo novas; ressurreição em combate aos 45 | Sacerdote: anjo mais forte · Iluminado: barreira que fere quem entra · Batalha: barreira que vai junto na carga |
+| Druida | **Forma Ancestral** | terceira forma por build: Urso → **Ent** (raízes, provoca em área); Lobo → **Lobo Alfa** (chama a matilha); Xamã → **Pássaro Arcano** (forma mágica alada: voa por cima do chão, raios e chuva de penas de luz) | variantes de skill por forma (como Lobo/Urso hoje) |
+| Ranger | **Companheiro Evoluído** / **Lanceiro Dracônico** | Caçador: lince → **Tigre Dente-de-Sabre**; Atirador: **torreta** de campo; Lanceiro: **Salto Dracônico** (sobe e some do chão, cai com a lança em área) e **Brados Elementais** (gritos que dão elemento à lança e ao grupo) | tigre com investida · torreta dupla · salto duplo e brado combinado |
 | Assassino | **Sombras Gêmeas** | **clone de sombra** que repete seus golpes por alguns segundos + **execução** (dano enorme em alvo abaixo de 25%) | Duelista: contra-ataque em cadeia · Corsário: canhão de mão |
-| Necromante | **Senhor dos Mortos** | limite de invocações maior + **Forma de Lich** temporária (nova forma, como fantasma/demônio) com magias amplificadas | Invocador: exército · Ceifador: lich corpo a corpo · Sombras: lich das maldições |
+| Necromante | **Senhor dos Mortos** | invocações **duram mais** e +1 por tipo, **Pacto Sombrio** (buff nas invocações) e **debuffs em área** (Miasma, Marca da Cova); Forma de Lich aos 45 | Invocador: exército · Ceifador: as invocações batem junto com a foice · Sombras: debuffs em área mais largos |
+
+#### R6.1 Especificação das ascensões (proposta para revisar — Pergunta aberta 6)
+Formato comum: **missão de ascensão** (mestre da classe em Porto Esperança, nível 35, 1 cadeia de 3 passos: provar, buscar, enfrentar)
+→ a mecânica liberada vale para as 3 builds; **skills novas** entram na teia (nós de skill aos 35) e seguem as regras de skill
+(`SkillDef`, mira pelo mouse, maestria 0–5); **refinos** aos 40 e 45 são as linhas de talento novas; **bots** usam pela regra
+descrita; números em `Balance.ASC_*` dentro do orçamento F5. Skills/mecânicas marcadas **(H)** são calibradas na fase.
+
+**Paladino — Combate Montado** (pedido do autor)
+- Mestre: Sir Aldwin, cavaleiro da Aurora no porto; missão: domar o corcel de guerra (*O Corcel de Guerra*).
+- Regra: com a ascensão, montar (H) não impede lutar. Skills com `mountable: true` saem montadas; as outras ficam apagadas na
+  barra enquanto montado. Básico montado: alcance +0,8 m (F8). Aura do Paladino vale montado.
+- Skills novas: **Carga Montada** (DIRECTION, 11,2 m, atropela todos na linha, power 1,6, recarga 14 s); **Pisotear** (SELF,
+  raio 3,5, power 0,9, lentidão 30% 2 s, recarga 8 s). As skills de escudo/aura/bênção existentes ganham `mountable`.
+- Cai do cavalo: atordoar, prender, gancho, rede; 2 s imune a controle; remontar 1,5 s. Não monta em masmorra (regra atual).
+- Refinos: Guardião provoca montado e bloqueia com escudo a cavalo · Cruzado: lança pesada (Carga ×1,3 de distância) · Templário:
+  estandarte (aura do grupo +50% de raio montado).
+- Bots: montam ao entrar em combate em campo aberto; usam a Carga para abrir a luta e quando o alvo está a 6–11 m em linha livre.
+- **Corrente de Luz** (TARGET, 10 m, recarga 12 s; pedido do autor "skill de puxar"): corrente sagrada que **puxa o alvo** até o
+  paladino (efeito `pull` que já existe; chefe não é puxado, mas é **provocado** por 3 s). Vale montado. Guardião: provoca também
+  os monstros a 3 m do alvo puxado.
+- **Modo Arcano** (liga/desliga, como as formas; dura até desligar ou a MP acabar, consome `ARCANE_MP_PER_S`; recarga 20 s ao
+  desligar; pedido do autor "asas, modo arcano"): **asas de luz** se abrem nas costas (visual, a sim continua plana); o básico e as
+  skills de golpe viram **dano mágico** escalando com INT/WILL (FOR conta metade), com alcance +1 m (golpe de luz); **Asas
+  Arcanas** (SELF, ao ligar e a cada 8 s no modo: rajada de penas de luz em volta, raio 4 m, power 0,8, empurra); **Voo
+  Arcano** (o dash vira um planeio de 6 m que passa por cima de golpes de chão — os mesmos i-frames do dash, mais longo).
+  Não monta no Modo Arcano (montar desliga o modo).
+- Refinos (40/45): Guardião — corrente provoca em área · Cruzado — Carga mais longa · Templário (INT) — Modo Arcano consome metade
+  da MP e as asas dão 10% de redução de dano ao grupo a 6 m.
+- Bots: Templário liga o Modo Arcano em luta de chefe; Guardião usa a Corrente em quem bate no curandeiro; Corrente no alvo a 6–10 m.
+
+**Elementalista — Elemental que evolui e muda de forma** (pedido do autor)
+- Mestra: Ysolde, arquimaga da frota; missão: *O Núcleo Elemental* (juntar 3 essências na Costa e despertar o núcleo).
+- Regra: o elemental vira **companheiro persistente** (um por vez, como hoje): ganha `elem_xp` (F6), evolui Básico → Maior →
+  Ancestral, e o mago escolhe a **forma** (fogo, gelo, raio) e o **modo**: *atacar* (foca o alvo do mago), *proteger* (provoca o que
+  bate no mago, ganha DEF), *apoiar* (buff/escudo no grupo). Troca de forma: recarga 20 s, mantém estágio e % de vida.
+- Formas por estágio: Fogo — Salamandra (cospe fogo em cone) → Ifrit (área que queima, explosão ao morrer); Gelo — Golem de Gelo
+  (provoca, lentidão) → Ondina (escudo d'água no grupo); Raio — Silfo (rápido, salta entre alvos) → Tempestade (raios em cadeia,
+  +velocidade do grupo).
+- Skills novas do mago: **Comando Elemental** (troca o modo, sem recarga), **Fusão** (por 8 s o mago ganha a skill-assinatura
+  da forma do elemental; recarga 40 s).
+- Refinos: Fogo/Gelo/Raio fortalecem a forma do próprio elemento (o mago ainda pode trocar para as outras).
+- Save: `elem_xp`, forma e modo (campo novo, `save_version`). Bots: modo *atacar* por padrão; *proteger* se forem o alvo do chefe.
+
+**Berserker — Empunhadura de Titã** (pedido do autor)
+- Mestre: Gorm Duas-Lâminas, mercenário no porto; missão: *O Peso do Titã* (erguer os machados do campeão caído na Praia).
+- Regra: Executor e Machados Gêmeos podem pôr **machado de 2 mãos na mão secundária** (`Stats.meets`/`ItemSystem.equip` aceitam
+  com a ascensão); golpe duplo (F7: 2ª arma ×0,45, −25% de velocidade de ataque, a teia devolve até 9%).
+- Punhos de Fúria: **Garras de Titã** — garras ganham perfil de arma pesada (golpe +35% e empurrão, −20% de velocidade) **(H)**.
+- Skill nova: **Ciclone de Titã** (SELF, raio 3, gira com as duas armas por 2 s, power 0,6 por giro, recarga 12 s).
+- Refinos: Gêmeos — os dois machados giram juntos (Ciclone mais longo) · Executor — execução com o 2º machado abaixo de 20% · Punhos —
+  a Fúria não esfria por 6 s depois do Ciclone.
+- Bots: equipam a 2ª arma de 2 mãos se tiverem; Ciclone com 3+ inimigos a 3 m.
+- **Modo Gladiador** (postura liga/desliga; referência de arquétipo: o gladiador de arena dos táticos — golpes elementais na arma,
+  investida e plateia —, nomes e regras nossos): enquanto ligado, a **Fúria vira Glória** — cada abate e cada golpe crítico dá 1
+  de Glória (máx. `GLORY_MAX` 5), e a Glória gasta reforça os golpes da arena; a postura dá +10% de dano e −10% de defesa.
+  - **Lâmina Ígnea / Gélida / Trovejante** (DIRECTION/CONE, uma de cada elemento, recarga 8 s cada): golpe da arma com o
+    elemento (fogo queima, gelo deixa lento e estilhaça, raio salta para 2 vizinhos), power 1,3 + 0,2 por Glória gasta.
+  - **Investida do Gladiador** (avanço 7 m que derruba o primeiro atingido, recarga 10 s).
+  - **Brado da Arena** (SELF, raio 8 m, recarga 25 s): provoca os monstros em volta por 2 s e dá +1 Glória por inimigo provocado
+    (até 3) — a "plateia".
+  - **Golpe Final** (gasta 5 de Glória): golpe com as duas armas, power 3,5, área de 3 m na frente.
+- Combina com a Empunhadura de Titã (as Lâminas Elementais batem com as duas armas). Punhos: Glória não esfria fora de combate
+  por 6 s.
+- Bots: ligam a postura em luta de chefe; usam a Lâmina do elemento que o alvo não resiste (fogo no troll); Golpe Final com 5 de Glória.
+
+**Bispo — Coro Celeste** (direção do autor: buffs, anjo que cura, barreira em área com mecânica de grupo e movimento)
+- Mestra: Madre Celene, capelã da frota; missão: *A Chama do Coro* (reacender o altar do Santuário Afogado e chamar o anjo).
+- **Anjo Guardião** (SUMMON, um por vez, 30 s, recarga 40 s): voa atrás do Bispo, cura o membro mais ferido a 12 m (tanque
+  primeiro, mesma ordem dos bots), e no fim da duração solta uma **Luz de Partida** (cura em área). Invocação do Bispo escala com
+  WILL (`summon_patk` vira `summon_heal`).
+- **Barreira Sagrada** (GROUND, cúpula de raio 5 m, 8 s, recarga 30 s): dentro, o grupo recebe −30% de dano e **projéteis de fora
+  param na borda**; a cúpula **anda com o Bispo** (vai até 2 m/s mais devagar que ele — o grupo precisa se mover junto). Mecânica
+  de grupo: contra chuva de flechas de fogo e golpes "far" dos chefes, quem fica fora da cúpula apanha.
+- **Bênçãos novas** (BUFF, grupo a 12 m, 20 s, recarga 25 s): **Asas da Aurora** (+15% de velocidade de movimento e de ataque) e
+  **Égide Coral** (+12% DEF/MDEF e 4% de cura por golpe recebido). Não somam com elas mesmas (renovam pelo id).
+- 45: **Retorno** (ressurreição em combate, uma por aliado por luta; F9) e a barreira passa a segurar a vida em 1 por 3 s quando
+  é lançada (o "santuário" vira o primeiro instante da barreira).
+- Refinos: Sacerdote — anjo com +50% de cura e 2 anjos aos 45 · Iluminado — a barreira fere inimigos que entram (power 0,4/s) ·
+  Batalha — a barreira acompanha a velocidade dele (mesma velocidade) e dá escudo de 10% a quem está dentro ao lançar.
+- Bots: Anjo sempre que pronto em luta de chefe; Barreira quando o chefe começa `barrage`/golpe "far" avisado ou 2+ membros estão
+  abaixo de 50%; os outros bots do grupo **entram e ficam na cúpula** enquanto ela existir (regra nova de posição em `BotBrain`).
+
+**Druida — Forma Ancestral** (proposta)
+- Mestre: Ancião Bhoran, druida náufrago; missão: *Raízes no Sal* (plantar a semente ancestral no mangue).
+- Regra: cada build ganha uma 3ª forma (liga/desliga, igual às formas atuais, com variantes das skills): Urso → **Ent** (tanque:
+  raízes que prendem em área, provoca, +DEF); Lobo → **Lobo Alfa** (chama 2 lobos da matilha por 15 s, uivo que dá velocidade ao
+  grupo); Xamã → **Pássaro Arcano** (forma mágica alada, como Lobo/Urso hoje: voa acima do chão — o visual sobe, a sim continua plana —,
+  ganha velocidade, troca as magias por variantes: raio em cadeia, chuva de penas de luz que cura o grupo embaixo, rajada de
+  vento que empurra). Modelos em `druid_sets.build_forms` (`form_bird.glb`).
+- Refinos: duração e força das variantes de skill na forma ancestral.
+- Bots: entram na forma ancestral no começo de luta de chefe (mesma regra de `BOT_AUTO_FORMS`).
+
+**Ranger — Companheiro Evoluído (Caçador, Atirador) e Lanceiro Dracônico** (Lanceiro: direção do autor — referência de
+arquétipo: o cavaleiro do dragão de Final Fantasy, salto e gritos elementais; nomes e regras nossos)
+- Mestra: Kaya Olho-de-Falcão, batedora da colônia; missão: *O Rastro do Dente-de-Sabre* (Lanceiro: *O Ninho nas Falésias* —
+  provar o salto nas Falésias dos Ninhos e receber a bênção do dragão de pedra do Santuário Afogado).
+- Caçador: o lince evolui para **Tigre Dente-de-Sabre** (mais vida, investida que derruba, rugido que provoca o alvo).
+  Atirador: **Torreta** (GROUND, armadilha que atira no inimigo mais perto por 12 s, até 2 ativas). *(propostas — confirmar)*
+- **Lanceiro Dracônico**:
+  - **Salto Dracônico** (GROUND, até 9 m, recarga 14 s): o lanceiro **salta alto e some do chão por 1,2 s** (fora de alcance:
+    golpes, projéteis e chuva não o pegam; o chefe perde o alvo e volta ao tanque) e **cai** no ponto mirado com a lança: power
+    2,2 no centro (raio 1,5) e 1,0 na borda (raio 3). Se houver Brado ativo, a queda leva o elemento.
+  - **Brados Elementais** (SELF, um de cada elemento, 12 s, recarga 20 s, só um ativo por vez): **Brado das Chamas** (a lança
+    queima; grupo a 10 m +10% de dano de fogo), **Brado da Geada** (a lança deixa lento; inimigos a 6 m −10% de velocidade de
+    ataque), **Brado do Trovão** (a lança salta para 1 vizinho; grupo a 10 m +10% de velocidade). O grito também **provoca** 1 s
+    os monstros a 4 m (puxa a atenção na hora certa).
+  - **Lança do Dragão** (DIRECTION, 10 m, recarga 10 s): arremesso que atravessa a fila e **volta** (substitui o "arremesso que
+    salta" da proposta antiga).
+  - Refinos: 40 — **Salto Duplo** (o segundo salto pode ser usado no ar em até 1 s, recarga só depois) · 45 — **Brado Combinado**
+    (dois brados ativos ao mesmo tempo, por 8 s, recarga 40 s).
+- Bots: Lanceiro salta para desviar de golpe grande avisado (usa o salto como esquiva) e para fechar distância a 6–9 m; Brado do
+  elemento que o alvo não resiste (Chamas no troll) na abertura da luta; Lança do Dragão com 2+ inimigos em linha.
+
+**Assassino — Sombras Gêmeas** (proposta)
+- Mestre: "Ninguém", espião da Aurora na taverna; missão: *A Sombra que Anda Sozinha*.
+- Skills novas: **Sombra Gêmea** (SELF, um clone semitransparente repete seus golpes com 50% do dano por 6 s, monstros o ignoram,
+  recarga 30 s); **Execução** (TARGET corpo a corpo, power 3,0 em alvo abaixo de 25% de vida, 0,8 acima; recarga 10 s).
+- Refinos: Lâminas — o clone sai da furtividade junto · Duelista — contra-ataque em cadeia (cada esquiva prepara a próxima
+  Execução sem recarga, 1×) · Corsário — **Canhão de Mão** (DIRECTION, tiro pesado que empurra).
+- Bots: Sombra Gêmea na abertura contra chefe; Execução com o alvo abaixo de 25%.
+
+**Necromante — Senhor dos Mortos** (direção do autor: invocações duram mais, buff para elas, debuffs em área)
+- Mestre: o Último Escriba de Azhar (prisioneiro arrependido no porto); missão: *O Filactério Vazio*.
+- **Invocações duram mais**: duração das invocações temporárias ×1,5 e +1 no limite de cada tipo (`summon_extra`).
+- **Pacto Sombrio** (BUFF nas invocações a 15 m, 12 s, recarga 20 s): +25% de dano, +20% de velocidade e roubo de vida de 10% para
+  o mago (o que elas causam cura o necromante).
+- **Debuffs em área**: **Miasma** (GROUND, raio 4 m, nuvem de 8 s: −20% de ATK e −15% de velocidade em quem está dentro,
+  recarga 16 s) e **Marca da Cova** (GROUND, raio 3,5 m, marca por 10 s: quem morrer marcado levanta como esqueleto aliado por
+  15 s; recarga 24 s). Somam com as maldições atuais.
+- 45: **Forma de Lich** (liga por 15 s, recarga 60 s — forma nova como fantasma/demônio: magias +30%, maldições espalham para quem
+  está perto). Ao sair, invocações acima do limite somem da mais antiga para a mais nova.
+- Refinos: Invocador — exército (+1 invocação, elas ganham 20% da vida do mago) · Ceifador — invocações batem junto com a foice
+  (cada golpe dele manda as invocações atacarem o mesmo alvo) · Sombras — Miasma e Marca com +50% de raio.
+- Bots: Pacto Sombrio com 2+ invocações vivas em luta; Miasma onde há 3+ inimigos ou no chefe; Marca da Cova no bando com pouca vida.
 
 #### R7. Progressão estendida
 - Nível máximo **45**. XP por nível segue a mesma fórmula (Formulas F1); três faixas novas em `XP_BANDS` e `XP_QUEST_SHARE_BAND`.
 - Teia: `points_at` continua 8 por nível, com **+1 ponto uma vez** ao chegar no 40 (`points_at(40)` = 9, como no 10/20/30); nós novos para as ascensões.
 - Talentos de classe: linhas novas aos **35, 40, 45** (hoje 6 linhas de 5 a 30).
 - Equipamento comum: tiers novos aos **32 e 40** (`COMMON_TIER_LEVELS`), pelos laços de `gear_catalog.gd`.
-- Lendários: níveis **35, 40, 45** (`LEGENDARY_LEVELS`) — 24 builds × 3 = 72 conjuntos, nomes pela regra (`set_piece_name`);
-  na fatia 1 o visual reaproveita o conjunto de nível 30 da build com paleta nova, modelos próprios no polimento.
+- Lendários: níveis **35, 40, 45** (`LEGENDARY_LEVELS`) — **dois tipos que coexistem** (decisão do autor): o conjunto **da build**
+  (24 builds × 3 = 72, como no Ato I) e o **híbrido por par de builds** (R7.1: 8 classes × 3 pares × 3 tiers = 72) → **144**
+  conjuntos. Nomes pela regra (`set_piece_name`); na fatia 1 o visual parte do conjunto de nível 30 (híbrido: lado A com detalhes
+  do lado B), modelos próprios no polimento.
 - Moedas Lendárias, Relicária e aprimoramento +1..+9 seguem iguais; preço em moedas continua `índice do tier + 1`.
+
+#### R7.1 Conjuntos híbridos (35/40/45) — proposta do autor: "as builds ficam mais híbridas"
+A partir do 35, a build cresce além do braço dela na teia (com muitos pontos, a maioria das builds fica híbrida — observação do
+autor), então além do conjunto da build passa a existir um **por par de builds da mesma classe** — o mesmo padrão que os
+conjuntos do Elementalista já usam (1º elemento manda, 2º "favorece": `SET_FAVOR_*`). **Coexistem** (decisão do autor): quem
+fica pura usa o da build; quem mistura usa o híbrido ou combina os dois tipos.
+- **Quantos**: por classe e por tier, 3 conjuntos híbridos (A+B, B+C, C+A) → 8 classes × 3 pares × 3 tiers = **72**, somados
+  aos 72 da build = 144 nos tiers 35/40/45 (o dobro de arte: na fatia 1 o visual é reaproveitado; os modelos próprios vêm no
+  polimento, por classe).
+- **Peças**: 5 de armadura (contam para os bônus) + **as armas das duas builds** (a de A e a de B, como peças alternativas —
+  igual à maça do conjunto hoje: `SetDef.alt_pieces`, não contam no total). Armadura e atributo principal vêm do lado A; o
+  atributo secundário vem do lado B (`attr` de A + `attr` de B). Ex.: Guardião+Cruzado = placa, VIT e FOR, espada/maça + escudo
+  e espada de 2 mãos.
+- **Bônus**: 2 peças = o bônus de 2 peças de A · 3 peças = o de 3 peças de B · 4 peças = a skill-assinatura de A **e** a de B,
+  cada uma com metade do bônus de 4 peças normal · 5 peças = **Fusão**: um efeito que liga as duas builds (ex.: Guardião+Cruzado —
+  golpes de 2 mãos geram cargas de Juramento; Fogo+Gelo — gelo estilhaça as queimaduras; Caçador+Atirador — o tigre ataca o alvo
+  da torreta; Lâminas+Duelista — esquiva deixa a próxima facada furtiva).
+- **Liberdade**: misturar conjuntos do mesmo tier vale como hoje (cada conjunto conta as próprias peças) — 2+3 de um híbrido com
+  o conjunto da build, ou de dois híbridos, ativa os bônus de 2 e 3 de cada lado. A arma usada decide as skills (regra atual), então a mesma pessoa pode trocar
+  entre os dois lados do par trocando só a arma.
+- **Nomes**: pela regra de `set_piece_name` com o par (ex.: "do Juramento Rubro"); visual: na fatia 1, base no conjunto de nível 30
+  do lado A com detalhes (cor/emblema) do lado B; modelos próprios no polimento.
+- **Relicária**: a aba da build mostra também os híbridos em que ela entra (cada híbrido aparece nas abas das duas builds).
+- **Bots**: o bot escolhe o híbrido que inclui a build dele, preferindo o par com a outra build que a teia dele mais comprou.
 
 #### R8. Loops de qualidade (decisão do autor: "use loops para garantir qualidade")
 Nada fecha sem passar pelo loop medido da sua categoria:
@@ -313,15 +473,35 @@ abaixo de um terço do ganho da teia (ATK ×1,3–1,5). Ascensões de utilidade 
 Derrubam: atordoar, prender, gancho. Lentidão não derruba. Remontar leva `MOUNT_CAST_TIME` (1,5 s).
 **Example:** paladino a 5,5 m/s a pé → **9,35** montado fora de combate, **7,15** montado em combate.
 
-### F9. Santuário e ressurreição em combate (Bispo)
+### F9. Coro Celeste (Bispo): barreira, anjo, bênçãos e ressurreição
 | Variable | Type | Range | Source | Description |
 |---|---|---|---|---|
-| SANCTUARY_TIME / RADIUS / CD | float | 6 s / 6 m (Sacerdote 8) / 45 s | data file | dentro, a vida do grupo não cai abaixo de 1 (dano no tempo também não mata) |
+| BARRIER_TIME / RADIUS / CD | float | 8 s / 5 m / 30 s | data file | cúpula: −30% de dano dentro (`BARRIER_DR`), projéteis de fora param na borda |
+| BARRIER_LAG | float | 2 m/s | data file | quanto a cúpula anda mais devagar que o Bispo (Batalha: 0) |
+| BARRIER_HOLD | float | 3 s (45) | data file | ao lançar, a vida de quem está dentro não cai abaixo de 1 (antigo Santuário) |
+| ANGEL_TIME / CD / HEAL | float | 30 s / 40 s / power 0,6 por 1,5 s | data file | Anjo Guardião, cura pela WILL do Bispo **(H)** |
+| BLESS_* | dict | Asas: +15% mov./ataque · Égide: +12% DEF/MDEF, 4% de cura por golpe; 20 s, recarga 25 s | data file | bênçãos de grupo **(H)** |
 | RES_HP_PCT / CAST / RANGE / CD | float | 0,35 / 2,5 s / 15 m / 120 s | data file | ressurreição em combate, uma por aliado por luta **(H)**; "luta" = do primeiro golpe num chefe até ele morrer ou resetar (`reset_boss`); fora de chefe, até o `combat_timer` do grupo zerar |
 | RES_BATTLE_SHIELD | float | 0,20 do HP por 6 s | data file | refino do Clérigo de Batalha |
 
-**Output Range:** santuário cobre ~13% de um ciclo de 45 s; como o reforço do chefe chega a ×5, 6 s é o teto antes de trivializar.
-**Example:** chefe tirando 30% da vida por segundo do grupo → todos ficam em 1 de vida por 6 s; o Bispo cura nos 6 s seguintes.
+**Output Range:** barreira cobre ~27% de um ciclo de 30 s com −30% de dano; o "não morre" é só 3 s e só aos 45 (com o reforço
+do chefe chegando a ×5, segurar mais que isso trivializa). Anjo + bênçãos entram no orçamento F5 (ascensão de utilidade).
+**Example:** chefe tirando 20% da vida por segundo do grupo → dentro da barreira 14%/s; ao lançar aos 45, ninguém cai abaixo de 1
+por 3 s; o anjo cura ~0,6 × WILL-escala por 1,5 s no mais ferido.
+
+### F9b. Novas mecânicas de ascensão (Paladino, Berserker, Lanceiro) — **(H)**, calibrar na fase
+| Variable | Type | Range | Source | Description |
+|---|---|---|---|---|
+| ARCANE_MP_PER_S | float | 2–4 MP/s | data file | custo do Modo Arcano ligado |
+| ARCANE_MAGIC_SHARE | float | INT/WILL 1,0, FOR 0,5 | data file | de onde vem o dano mágico no Modo Arcano |
+| GLORY_MAX / GLORY_STEP | int / float | 5 / +0,2 de power por Glória | data file | Modo Gladiador |
+| GLADIATOR_STANCE | dict | +10% dano, −10% DEF | data file | postura |
+| DRAGON_JUMP_AIR | float | 1,2 s | data file | tempo fora do chão no Salto Dracônico (intocável) |
+| DRAGON_JUMP_POWER | float | 2,2 centro / 1,0 borda | data file | dano da queda |
+| SHOUT_TIME / CD / BUFF | float | 12 s / 20 s / +10% | data file | Brados Elementais |
+
+Todas entram no orçamento F5 (+8% aos 35 sobre a build sem ascensão); o Salto Dracônico conta como esquiva longa: medir no
+`combat_probe` (dash e salto não podem deixar o lanceiro intocável mais de 25% do tempo de luta).
 
 ### F10. Equipamento 35/40/45 — decisão: **moedas sem mudança (7/8/9)**
 `gear_factor(L) = (L + 4) ÷ 28` (linear, já existe) → 30: 1,214 · 35: 1,393 · 40: 1,571 · 45: 1,75. `LEGENDARY_MULT` 1,2 igual.
@@ -370,12 +550,24 @@ Atributos continuam lineares. Preço em moedas `i + 1` = **7 / 8 / 9** (decisão
 - **Se o mago troca de forma com o elemental ferido**: a nova forma nasce com a mesma % de vida; recarga 20 s.
 - **Se o save é de antes do Ato II**: `elem_xp` = 0, forma = a do último elemental; `save_version` sobe e a migração preenche o padrão.
 - **Se o Berserker sem ascensão tenta pôr arma de 2 mãos na secundária**: recusa com "requer Empunhadura de Titã"; se perder o acesso (respec não tira ascensão, então não acontece), a arma volta para a bolsa.
-- **Se dois Santuários se sobrepõem**: não somam; vale o maior tempo restante.
-- **Se alguém morre no exato tick em que o Santuário termina**: o Santuário vale até o fim do tick (dano aplicado antes da expiração no mesmo tick é segurado em 1).
+- **Se duas Barreiras se sobrepõem**: não somam; vale a de maior tempo restante.
+- **Se alguém leva dano no exato tick em que o "segura em 1" (45) termina**: vale até o fim do tick (dano aplicado antes da expiração no mesmo tick é segurado em 1).
+- **Se o Bispo corre mais que a Barreira**: a cúpula fica para trás (anda `BARRIER_LAG` mais devagar) — quem segue o Bispo sai dela; os bots seguem a cúpula, não o Bispo.
+- **Se o Anjo é atacado**: monstros não o miram (como o clone de sombra); ele some se o Bispo morrer.
+- **Se o Pássaro Arcano é atingido por golpe de chão**: a sim é plana, então ele leva o golpe normalmente (o voo é só visual).
+- **Se a Marca da Cova levanta um chefe ou elite**: não levanta (só monstros comuns).
 - **Se a ressurreição em combate é usada em quem já foi ressuscitado nesta luta**: recusa ("já voltou nesta luta").
-- **Se o chefe tem golpe de execução ou fúria final**: o Santuário segura em 1, mas a regra do chefe pode furar (decisão por chefe em `bosses.md`, nunca global).
+- **Se o chefe tem golpe de execução ou fúria final**: o "segura em 1" da Barreira (45) vale, mas a regra do chefe pode furar (decisão por chefe em `bosses.md`, nunca global).
 - **Se o clone de sombra recebe aggro**: o clone não segura aggro (monstros o ignoram); ele some ao fim do tempo ou se o dono morrer.
 - **Se a Forma de Lich termina com mais invocações que o limite normal**: as que passam do limite somem da mais antiga para a mais nova.
+- **Se o Pacto Sombrio é lançado com invocações longe**: só as que estão a 15 m recebem; as que chegam depois não.
+- **Se o Lanceiro está no ar quando o alvo morre ou some**: cai no ponto mirado mesmo assim (o salto não persegue).
+- **Se o Lanceiro salta sobre água/parede**: a queda é ajustada para o chão andável mais perto do ponto mirado (`MapGeometry`).
+- **Se o chefe estava mirando o Lanceiro quando ele salta**: o chefe perde o alvo e volta ao maior de ameaça (normalmente o tanque).
+- **Se o Paladino liga o Modo Arcano montado**: desmonta antes (as duas coisas não ficam juntas).
+- **Se a MP acaba no Modo Arcano**: o modo desliga e entra a recarga de 20 s.
+- **Se a Corrente de Luz mira um chefe**: não puxa (regra atual do `pull`), só provoca por 3 s.
+- **Se o Berserker sai do Modo Gladiador com Glória acumulada**: a Glória zera (só existe na postura); Punhos guarda por 6 s.
 
 ## Dependencies
 
@@ -425,7 +617,8 @@ reaparecendo (fumaça + aviso curto antes do golpe).
 
 **Ascensões**: Paladino montado com clipes `ride_attack`/`ride_charge`; elemental com **três estágios visíveis** por forma
 (tamanho, partículas e detalhe crescem); Berserker com o segundo machado de 2 mãos na esquerda (o kit já tem o nó da mão
-secundária); Santuário com cúpula de luz no chão; clone de sombra semitransparente; Forma de Lich; Ent e Lobo Alfa; tigre.
+secundária); Barreira Sagrada como cúpula de luz que anda com o Bispo e Anjo Guardião voando atrás dele; clone de sombra
+semitransparente; Forma de Lich e nuvem de Miasma; Ent, Lobo Alfa e Pássaro Arcano (forma alada, penas de luz); tigre.
 
 **Áudio**: temas novos (CC0 do OpenGameArt, `build_music.py`, licença conferida por faixa): porto (mar, esperança tensa),
 costa, estepes (tambores), Kharzun (pesado), cidadela/raide; os temas "chefe" e "investida" do Ato I valem aqui. Sons novos em
@@ -503,11 +696,18 @@ costa, estepes (tambores), Kharzun (pesado), cidadela/raide; os temas "chefe" e 
 - **AC-27 (F6)** **GIVEN** 30 comuns nível 36 + 2 chefes mortos a ≤ 13 m do mago, **THEN** `elem_xp` = 74 e Básico; aos 120, Maior; lacaio/escolta com 0 XP não soma; morte perde 10% sem cair de estágio; trocar de forma mantém estágio e % de vida, recarga 20 s; o ATK do estágio vem depois de `SUMMON_ATK_MAX`. — check `_check_elemental_evolution`.
 - **AC-28 (F7)** **GIVEN** machado de 2 mãos com 100 de DPS, **THEN** 108,75 com n = 0 e 121,8 com n = 3; sem a ascensão, a mão secundária recusa com "requer Empunhadura de Titã". — check `_check_titan_grip`.
 - **AC-29 (F8)** **GIVEN** paladino a 5,5 m/s, **THEN** 9,35 montado fora de combate e 7,15 em combate; Carga anda 11,2 m e para em parede/água; atordoar/prender/gancho derrubam, lentidão não; 2 s imune depois de cair; remontar 1,5 s; não monta em masmorra. — check `_check_mounted_combat`.
-- **AC-30 (F9)** **GIVEN** grupo dentro do Santuário levando 30%/s, **THEN** ninguém cai abaixo de 1 em 6 s, nem por dano no tempo, inclusive no tick da expiração; dois Santuários não somam; ressuscitar o mesmo aliado 2× na mesma luta (até o chefe morrer/resetar) é recusado. — check `_check_sanctuary`.
+- **AC-30 (F9)** **GIVEN** grupo dentro da Barreira Sagrada, **THEN** o dano recebido cai 30%, projétil vindo de fora para na borda, a cúpula anda 2 m/s mais devagar que o Bispo (Batalha: igual) e duas barreiras não somam; aos 45, ao lançar, ninguém dentro cai abaixo de 1 por 3 s, inclusive no tick da expiração; o Anjo cura o tanque primeiro e não é mirado; ressuscitar o mesmo aliado 2× na mesma luta é recusado; bots do grupo entram e ficam na cúpula. — check `_check_choir`.
+- **AC-30b (R6.1)** **GIVEN** Necromante ascendido, **THEN** invocações temporárias duram ×1,5 e cabe +1 por tipo; Pacto Sombrio dá +25% de dano às invocações a 15 m; Miasma tira 20% de ATK de quem está dentro; Marca da Cova levanta comum (não chefe/elite) como aliado por 15 s. — check `_check_lord_of_dead`.
+- **AC-30c (R6.1)** **GIVEN** Xamã ascendido, **WHEN** entra no Pássaro Arcano, **THEN** troca as magias pelas variantes da forma, como Lobo/Urso hoje, e o golpe de chão o atinge normalmente. — check `_check_ancestral_forms` + evidência `lineup --strip=druid --set=xama --form=bird`.
+- **AC-31b (R6.1)** **GIVEN** Paladino ascendido, **THEN** a Corrente de Luz puxa monstro comum e só provoca chefe; o Modo Arcano abre as asas, troca o básico por dano mágico pela INT/WILL, consome MP e desmonta se estiver montado. — check `_check_paladin_ascension` + evidência `--autostart=paladin --screenshot` com as asas.
+- **AC-31c (R6.1)** **GIVEN** Berserker no Modo Gladiador, **THEN** abate e crítico dão Glória (máx. 5), as Lâminas Elementais aplicam o elemento e ficam mais fortes com Glória, o Golpe Final gasta 5, e sair da postura zera a Glória (Punhos: 6 s). — check `_check_gladiator`.
+- **AC-31d (R6.1)** **GIVEN** Lanceiro ascendido, **WHEN** usa o Salto Dracônico, **THEN** fica 1,2 s sem levar golpe/projétil/chuva, o chefe que o mirava volta ao tanque, e a queda causa 2,2/1,0 no ponto mirado (ajustado para chão andável); com Brado ativo, a queda leva o elemento; só um Brado por vez (45: dois por 8 s). — check `_check_dragon_lancer`; sonda `combat_probe -- --class=ranger` (tempo intocável ≤ 25%).
 - **AC-31 (R6)** **GIVEN** clone de sombra, **THEN** monstros não o miram e ele some com o dono; execução vale abaixo de 25%; o fim da Forma de Lich remove o excesso de invocações da mais antiga para a mais nova. — check `_check_ascensions`.
 
 ### Equipamento
-- **AC-32 (F10)** **GIVEN** lendários 35/40/45, **THEN** 72 conjuntos, fator 40 = 1,89, preço 7/8/9 moedas, 4 peças 42/44/46%; tiers comuns aos 32 e 40. — checks `_check_act2_gear` + `_check_build_entries`.
+- **AC-32 (F10)** **GIVEN** lendários 35/40/45, **THEN** 144 conjuntos (72 da build + 72 híbridos), fator 40 = 1,89, preço 7/8/9 moedas, 4 peças 42/44/46%; tiers comuns aos 32 e 40. — checks `_check_act2_gear` + `_check_build_entries`.
+- **AC-32b (R7.1)** **GIVEN** os conjuntos 35/40/45 de uma classe, **THEN** são 3 por tier (A+B, B+C, C+A); cada um tem 5 peças de armadura do lado A, atributo principal de A e secundário de B, e as armas das duas builds como peças alternativas (não contam no total); os bônus de 2/3/4/5 peças seguem R7.1; cada híbrido aparece na aba da Relicária das duas builds. — check `_check_hybrid_sets` + evidência `--bag_shot=<png> --wins= --relic`.
+- **AC-32c (R7.1, bots)** **GIVEN** bot da build A com a teia mais comprada no braço B, **WHEN** escolhe lendário 35+, **THEN** pega o híbrido A+B. — check `_check_hybrid_sets`.
 - **AC-33** **GIVEN** lendário 40+, **WHEN** K1 está ativo, **THEN** o Ferreiro Anão aprimora a peça. — check `_check_act2_stages` + evidência `--bag_shot=<png> --wins= --enhance`.
 
 ### Desempenho / Qualidade
@@ -527,6 +727,8 @@ checam a mecânica, e cada número é calibrado pela sonda na fase em que entra.
 | 3 | Valores marcados **(H)** em Formulas (quest share das faixas novas, poder do jogador ×2, tempo do troll solo, perda de `elem_xp`, Carga/Pisotear, ressurreição, imunidade depois de cair) | systems-designer + sondas | cada um na fase em que a mecânica entra |
 | 4 | Combate montado vale para outras classes depois (ex.: Ranger atirador montado)? Hoje é só a ascensão do Paladino | autor | depois da fatia 1 |
 | 5 | Montaria lobo atroz (*Ovos do Lobo Atroz*): só visual ou mais rápida que o cavalo? | autor | fase 3 |
-| 6 | As cinco ascensões que você não pediu explicitamente (Bispo, Druida, Ranger, Assassino, Necromante) ficam como estão ou mudam? | autor | antes de implementar cada uma (fase 1, depois das três primeiras) |
+| 6 | ~~As cinco ascensões propostas~~ — **resolvida** (2026-11-10): Assassino aprovado; Necromante → invocações mais longas + Pacto + debuffs em área; Druida aprovado + Pássaro Arcano no Xamã; Bispo → Coro Celeste (anjo, barreira móvel, bênçãos). Ranger: **Lanceiro Dracônico** definido (salto + brados); pendente só confirmar tigre (Caçador) e torreta (Atirador). Paladino ganhou Corrente de Luz + Modo Arcano com asas; Berserker ganhou Modo Gladiador | autor | antes de implementar Caçador/Atirador |
+| 10 | Paladino: "skill de puxar, asas, modo arcano" foi lido como Corrente de Luz (puxa) + Modo Arcano com asas de luz — confirmar a leitura | autor | antes de implementar o Paladino (fase 1) |
+| 9 | ~~Híbridos substituem ou coexistem?~~ — **resolvida**: coexistem (144 conjuntos). Pendente: os 24 efeitos de Fusão (5 peças), um por par | autor + systems-designer | antes do lendário 35 (fase 1) |
 | 7 | Leitura das mecânicas novas pelos bots (focar o Agitador, fogo/veneno no troll, proteger quem cura do assassino): cabe na IA de grupo atual ou pede regras novas? | ai-programmer | fase 1 (Agitador) e fase 2 (troll) |
 | 8 | Precisa de um `systems-index.md`/`game-concept.md` (hoje o projeto não tem; este documento ficou fora de índice)? | autor | quando rodar `/map-systems` |
