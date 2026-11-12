@@ -6,6 +6,7 @@ extends Node
 ## Saída: "RAID bots=N repelidas=R/T chegada=Ss duracao=Ss sentinelas_mortas=G bots_mortos=B presos=P"
 ##   repelidas = leva toda derrubada antes do recuo; chegada = s até a 1ª entrar no raio do povoado;
 ##   presos = elfos parados 10 s fora de luta antes de chegar (FLAG: rota/pathing quebrado).
+## --quests=<id,...>: mede um estágio da conquista (ex.: `--map=city_port --route=1 --quests=hx_palisade` = C1, paliçada fechada).
 ## --reinforce=N: os reforços das N primeiras fortalezas retomadas (assaults "reforco_*" do mapa) já rondando a praça,
 ##   cheios até o `max` de cada um, como no jogo depois das retomadas (sem eles a sonda mede só a guarnição).
 
@@ -14,6 +15,7 @@ const DT := 1.0 / 20.0
 var route_i := 0
 var reclaimed := 0               # --reclaimed=N: fortalezas retomadas (fúria das levas, RaidSystem.reclaimed)                 # --route=N: qual lado da cidade (RaidSystem.routes)
 var reinforce := 0
+var quests: PackedStringArray = []   # --quests=<id,...>: quests feitas (WorldState: rota, guarnição e colisores do estágio; ex. hx_palisade com --route=1)
 
 func _ready() -> void:
 	await get_tree().process_frame
@@ -24,6 +26,7 @@ func _ready() -> void:
 	var raid_level := 0
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--trials="): trials = int(a.get_slice("=", 1))
+		if a.begins_with("--seed="): Sim.rng.seed = int(a.get_slice("=", 1))   # semente da sim (fixa por padrão: pedaços repetem a mesma amostra)
 		if a.begins_with("--bots="): bot_counts = Array(a.get_slice("=", 1).split(",")).map(func(x): return int(x))
 		if a.begins_with("--level="): level = int(a.get_slice("=", 1))
 		if a.begins_with("--map="): mid = a.get_slice("=", 1)
@@ -31,9 +34,17 @@ func _ready() -> void:
 		if a.begins_with("--route="): route_i = int(a.get_slice("=", 1))
 		if a.begins_with("--reclaimed="): reclaimed = int(a.get_slice("=", 1))
 		if a.begins_with("--reinforce="): reinforce = int(a.get_slice("=", 1))
+		if a.begins_with("--quests="): quests = a.get_slice("=", 1).split(",")
 	Sim.load_map(GameData.maps[GameData.town_map_id()])
 	var m: Dictionary = Sim.load_map(GameData.maps[mid])
 	m["spawners"].clear()
+	if not quests.is_empty():          # estágio da conquista: um jogador parado no ponto de entrada do mapa (mapa acordado), com as quests feitas
+		var p := Sim.spawn_player(GameData.classes["paladin"], "Sonda", mid)
+		p.brain = null
+		for q in quests:
+			p.quests_completed.append(q)
+		WorldState.sync_npcs(Sim, m)
+		MapGeometry.sync_stage(Sim, m)
 	RaidSystem.state(m)["force_level"] = raid_level
 	RaidSystem.state(m)["force_reclaimed"] = reclaimed
 	for e in m["entities"].duplicate():

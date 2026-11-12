@@ -1,5 +1,6 @@
 class_name WebGain
-## Quanto a teia rende para um bot da build no nível `lv`: {atk, hp, nodes, attrs} (razões com/sem tree_bonus).
+## Quanto a teia rende para um bot da build no nível `lv`: {atk, hp, nodes, attrs} (razões com/sem tree_bonus),
+## left (pontos sobrando) e spent (pontos por tipo de nó).
 ## Usado por web_probe.tscn e por _check_web_strength (run_tests).
 
 static func measure(sim, cls: ClassDef, build_id: String, lv: int) -> Dictionary:
@@ -12,6 +13,15 @@ static func measure(sim, cls: ClassDef, build_id: String, lv: int) -> Dictionary
 	var with_hp := e.stats.max_hp
 	var bonus: Dictionary = e.tree_bonus.duplicate()
 	var nodes: int = e.tree.size()
+	var left: int = e.mastery_points
+	var spent := {}                    # pontos por tipo de nó (maestria = soma dos níveis comprados)
+	var tr: Dictionary = ProgressionSystem.tree_of(sim, e)
+	for nid in e.tree:
+		var kind: String = tr["nodes"][nid]["kind"] if tr["nodes"].has(nid) else "?"
+		if kind != "start" and kind != "mastery":
+			spent[kind] = int(spent.get(kind, 0)) + int(tr["nodes"][nid]["cost"])
+	for sid in e.mastery:
+		spent["mastery"] = int(spent.get("mastery", 0)) + int(e.mastery[sid])      # 1 ponto por nível de maestria
 	e.tree_bonus = {}
 	e.recompute_stats()
 	var no_atk := maxf(e.stats.patk, e.stats.matk)
@@ -21,4 +31,4 @@ static func measure(sim, cls: ClassDef, build_id: String, lv: int) -> Dictionary
 	for k in bonus:
 		if str(k).begins_with("attr_"):
 			attrs[k] = int(bonus[k])
-	return {"atk": with_atk / maxf(1.0, no_atk), "hp": with_hp / maxf(1.0, no_hp), "nodes": nodes, "attrs": attrs}
+	return {"atk": with_atk / maxf(1.0, no_atk), "hp": with_hp / maxf(1.0, no_hp), "nodes": nodes, "attrs": attrs, "left": left, "spent": spent}
