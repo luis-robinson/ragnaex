@@ -395,7 +395,7 @@ static func target_name(t: int) -> String:
 	return ""
 
 ## O que um atributo faz (o mesmo texto da ficha do personagem).
-const ATTR_EFFECT := {"FOR": "ataque físico e bloqueio", "AGI": "arco/adaga e crítico físico", "VIT": "HP e DEF física",
+const ATTR_EFFECT := {"FOR": "ataque físico e bloqueio", "AGI": "arco/adaga, crítico físico e esquiva", "VIT": "HP e DEF física",
 	"WILL": "cura, MP e DEF mágica", "INT": "dano e crítico mágico"}
 const STYLE_WORDS := {"plate": "placa", "leather": "couro", "cloth": "pano"}
 

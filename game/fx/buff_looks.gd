@@ -42,6 +42,9 @@ const LOOKS := {
 	"glory": ["power", "fire"],
 	"elem_ember": ["power", "fire"], "elem_fusion": ["power", "lightning"],
 	"fus_aurora": ["power", "holy"],          # Aurora (Fusão Martelo da Aurora)
+	"fus_frenzy": ["power", "blood"],          # Frenesi da Fusão (golpes rápidos empilham velocidade de ataque)
+	"fus_weight": ["power", "physical"],      # Peso (Fusão Executor+Punhos: a próxima skill bate mais forte)
+	"fus_pack_frenzy": ["power", "nature"],   # Frenesi da Matilha (Fusão Guardião Verde+Fera: Bramido dá frenesi no grupo)
 	# bênçãos
 	"choir_wings": ["speed", "holy"], "choir_aegis": ["armor", "holy"],        # bênçãos do Coro Celeste (Bispo ascendido)
 	"blessing": ["holy", "holy"], "angel": ["holy", "holy"], "avenging_wrath": ["holy", "holy"], "grove": ["holy", "nature"],
@@ -91,6 +94,9 @@ const SYSTEM_BUFFS := {
 	"elem_gale": "ElementalSystem (elemental de raio no modo apoiar)",
 	"elem_fusion": "ElementalSystem (Fusão Elemental)",
 	"fus_aurora": "FusionEffects.on_cast (Martelo da Aurora: magia sagrada dá Aurora)",
+	"fus_frenzy": "FusionEffects._frenzy (Fusão: frenesi empilhável)",
+	"fus_weight": "FusionEffects._weight (Fusão Executor+Punhos: Peso)",
+	"fus_pack_frenzy": "FusionEffects.on_cast (Fusão Guardião Verde+Fera: frenesi da matilha no grupo)",
 }
 
 ## Padrão na pele (uniform buff_style do toon) por tema.

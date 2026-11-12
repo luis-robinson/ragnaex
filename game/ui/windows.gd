@@ -384,7 +384,7 @@ const CHAR_BOTTOM := [ItemDef.Slot.WEAPON, ItemDef.Slot.OFFHAND]
 const SLOT_SHORT := {ItemDef.Slot.WEAPON: "Arma", ItemDef.Slot.OFFHAND: "Mão sec.", ItemDef.Slot.HEAD: "Cabeça", ItemDef.Slot.BODY: "Peito",
 	ItemDef.Slot.LEGS: "Calça", ItemDef.Slot.GLOVES: "Luvas", ItemDef.Slot.BOOTS: "Botas", ItemDef.Slot.CAPE: "Capa",
 	ItemDef.Slot.AMULET: "Amuleto", ItemDef.Slot.RING: "Anel", ItemDef.Slot.RING2: "Anel"}
-const ATTR_DESC := {"FOR": "+ATK físico · bloqueio", "AGI": "+arco/adaga · +crítico físico", "VIT": "+HP · +DEF física",
+const ATTR_DESC := {"FOR": "+ATK físico · bloqueio", "AGI": "+arco/adaga · +crítico físico · +esquiva", "VIT": "+HP · +DEF física",
 	"WILL": "+cura · +MP · +DEF mágica", "INT": "+dano mágico · +crítico mágico"}
 var _char_tab := "status"           # "status" | "sets"
 var char_slots := {}                # slot -> quadrado do boneco (checks e revisão)
@@ -433,7 +433,7 @@ func _character(body: VBoxContainer) -> void:
 	var tabs := HBoxContainer.new()
 	tabs.add_theme_constant_override("separation", 4)
 	side.add_child(tabs)
-	var n_sets := p.stats.active_sets.size() + (1 if not p.stats.legend.is_empty() else 0)
+	var n_sets := p.stats.active_sets.size()          # só conjuntos (a arma lendária não é conjunto nem peça)
 	for t in [["status", "Status"], ["sets", "Conjuntos" + (" (%d)" % n_sets if n_sets > 0 else "")]]:
 		var tb := UiKit.button(t[1], _set_char_tab.bind(t[0]), 110)
 		tb.toggle_mode = true
@@ -533,7 +533,10 @@ func _char_status(p: SimEntity, side: VBoxContainer) -> void:
 	var attr_tips := {}
 	for a in Balance.ATTRS:
 		attr_pairs.append([a, str(s.attrs[a])])
-		attr_tips[a] = "[b]%s[/b]\n%s\n[color=#aaa]Vem do equipamento e dos nós de atributo da teia.[/color]" % [UiKit.attr_name(a), ATTR_DESC.get(a, "")]
+		var extra := ""
+		if a == "AGI":           # esquiva passiva: quanto desta AGI vira esquiva (a do Assassino soma por cima)
+			extra = "\nEsquiva pela AGI: %.1f%% (chance de evitar um golpe direto inteiro; teto %.0f%%)" % [Stats.agi_evasion(float(s.attrs[a]) / Balance.ATTR_SCALE), Balance.EVASION_CAP]
+		attr_tips[a] = "[b]%s[/b]\n%s%s\n[color=#aaa]Vem do equipamento e dos nós de atributo da teia.[/color]" % [UiKit.attr_name(a), ATTR_DESC.get(a, ""), extra]
 	_char_group(side, "Atributos", attr_pairs, [], attr_tips)
 	var atk_extra: Array = []
 	for e in [[s.attack_speed, "Veloc. de ataque", "+%.0f%%"], [s.lifesteal, "Roubo de vida", "%.1f%%"], [s.cdr, "Recarga", "-%.0f%%"],
@@ -545,11 +548,13 @@ func _char_status(p: SimEntity, side: VBoxContainer) -> void:
 	_char_group(side, "Ataque", [["ATK", "%.0f" % s.patk], ["MATK", "%.0f" % s.matk],
 		["Crít.", "%.1f%%" % s.crit_phys], ["Crít. mág.", "%.1f%%" % s.crit_mag]], atk_extra)
 	var def_extra: Array = []
-	for e in [[s.evasion, "Esquiva", "%.0f%%"], [s.dr_pct, "Dano recebido", "-%.0f%%"], [s.thorns_pct, "Espinhos", "%.0f%%"]]:
+	if s.has_shield:                     # a redução do bloqueio vai para os extras: a esquiva (AGI + Assassino) fica sempre à vista
+		def_extra.append(["Redução no bloqueio", "%.0f%%" % s.block_reduction])
+	for e in [[s.dr_pct, "Dano recebido", "-%.0f%%"], [s.thorns_pct, "Espinhos", "%.0f%%"]]:
 		if float(e[0]) > 0.0:
 			def_extra.append([e[1], e[2] % float(e[0])])
 	_char_group(side, "Defesa", [["DEF", "%.0f" % s.pdef], ["MDEF", "%.0f" % s.mdef],
-		["Bloqueio", "%.0f%%" % s.block_chance if s.has_shield else "—"], ["Redução", "%.0f%%" % s.block_reduction if s.has_shield else "—"]], def_extra)
+		["Bloqueio", "%.0f%%" % s.block_chance if s.has_shield else "—"], ["Esquiva", "%.1f%%" % s.evasion]], def_extra)
 	var res_extra: Array = []
 	for e in [[s.buff_duration, "Duração das bênçãos", "+%.0f%%"], [s.radiance, "Radiância", "%.0f%%"], [s.pet_power, "Companheiro", "+%.0f%%"],
 			[s.ward_pct, "Cura em barreira", "%.0f%%"]]:
@@ -558,46 +563,165 @@ func _char_status(p: SimEntity, side: VBoxContainer) -> void:
 	_char_group(side, "Recursos", [["HP", "%d/%d" % [int(p.hp), int(s.max_hp)]], ["MP", "%d/%d" % [int(p.mp), int(s.max_mp)]],
 		["Cura", "x%.2f" % s.heal_power], ["Veloc.", "%.1f" % s.move_speed]], res_extra)
 
-## Aba Conjuntos: uma linha por conjunto (peças e bônus ativos) com o bloco inteiro na dica; arma lendária embaixo.
+## Aba Conjuntos: um cartão por conjunto vestido — nome, peças de armadura (as 5 que contam; a que falta fica apagada)
+## e os bônus de 2 a 5 peças (ativos em dourado). Com 2+ conjuntos o cartão encolhe (bônus viram selos, texto na dica).
+## A arma lendária vem num cartão próprio embaixo (tem efeito próprio, não conta nas peças).
+const SET_ICON_PX := 36
+const SET_ICON_SMALL := 28
 func _char_sets(p: SimEntity, side: VBoxContainer) -> void:
 	var s := p.stats
 	if s.active_sets.is_empty() and s.legend.is_empty():
 		side.add_child(UiKit.para("Nenhuma peça de conjunto. Lendários caem a cada 5 níveis (chefes dropam mais).", 12, UiKit.MUTED))
 		return
+	var compact := s.active_sets.size() > 1
 	for set_id in s.active_sets:
 		var sd: SetDef = GameData.sets.get(set_id)
-		if sd == null:
-			continue
-		var n := int(s.active_sets[set_id])
-		var card := PanelContainer.new()
-		var sb := UiKit.panel_style(Color(0.1, 0.08, 0.13, 0.9), UiKit.rarity_color(4) if n >= sd.armor.size() else UiKit.SLOT_EDGE, 4, 1)
-		sb.set_content_margin_all(5)
-		card.add_theme_stylebox_override("panel", sb)
-		side.add_child(card)
-		var v := VBoxContainer.new()
-		v.add_theme_constant_override("separation", 1)
-		v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		card.add_child(v)
-		var t := UiKit.label("%s  (%d/%d)" % [sd.name, n, sd.armor.size()], 12, UiKit.rarity_color(4))
-		t.clip_text = true
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		v.add_child(t)
-		var on := 0
-		var total := 0
-		for k in sd.bonuses:
-			total += 1
-			if n >= int(k):
-				on += 1
-		var sub := UiKit.label("%d de %d bônus ativos%s" % [on, total, "  ·  Fusão" if sd.is_hybrid() else ""], 11, UiKit.MUTED)
-		sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		v.add_child(sub)
-		_tip_on(card, UiKit.set_block(set_id).strip_edges())
+		if sd != null:
+			_char_set_card(p, sd, int(s.active_sets[set_id]), compact, side)
 	if not s.legend.is_empty():
-		var lt := UiKit.label("Arma lendária: %s" % str(s.legend.get("name", "?")), 12, UiKit.rarity_color(4))
-		lt.clip_text = true
-		side.add_child(lt)
-		_tip_on(lt, "[b]Arma lendária[/b]
-" + UiKit.legend_effect_text(s.legend))
+		_char_legend_card(p, side)
+
+## Peças de armadura do conjunto (as que contam), na ordem do SetDef.
+static func set_armor_items(sd: SetDef) -> Array:
+	var out: Array = []
+	for pid in sd.armor:
+		var it: ItemDef = GameData.items.get(pid)
+		if it:
+			out.append(it)
+	return out
+
+## A peça está vestida? (cópia aprimorada `<id>+N` conta como a base)
+static func set_piece_worn(p: SimEntity, it: ItemDef) -> bool:
+	for slot in p.equipment:
+		var eq: ItemDef = p.equipment[slot]
+		if eq and (eq.id == it.id or eq.base_id == it.id):
+			return true
+	return false
+
+func _char_set_card(p: SimEntity, sd: SetDef, n: int, compact: bool, side: VBoxContainer) -> void:
+	var full := n >= sd.armor.size()
+	var card := PanelContainer.new()
+	var sb := UiKit.panel_style(Color(0.1, 0.08, 0.13, 0.9), UiKit.rarity_color(4) if full else UiKit.SLOT_EDGE, 4, 1)
+	sb.set_content_margin_all(5)
+	card.add_theme_stylebox_override("panel", sb)
+	side.add_child(card)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 3)
+	card.add_child(v)
+	# cabeçalho: nome · peças n/5 (dica = bloco inteiro do conjunto)
+	var head := HBoxContainer.new()
+	v.add_child(head)
+	var t := UiKit.label(sd.name, 13, UiKit.rarity_color(4))
+	t.clip_text = true
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(t)
+	var cnt := UiKit.label("%d/%d peças" % [n, sd.armor.size()], 12, UiKit.GOLD if full else UiKit.MUTED)
+	head.add_child(cnt)
+	_tip_on(head, UiKit.set_block(sd.id).strip_edges())
+	# peças de armadura: vestida = ícone cheio com a borda da raridade; faltando = apagada
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	v.add_child(row)
+	var px := SET_ICON_SMALL if compact else SET_ICON_PX
+	for it in set_armor_items(sd):
+		row.add_child(_set_piece_icon(p, it, px))
+	if not compact:
+		var lv := UiKit.label("Lv %d%s" % [sd.level, "\nFusão" if sd.is_hybrid() else ""], 11, UiKit.MUTED)
+		lv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		lv.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		lv.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		row.add_child(lv)
+	# bônus 2..5 em ordem
+	var ks := sd.bonuses.keys()
+	ks.sort()
+	if compact:
+		var gap := Control.new()
+		gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(gap)
+		for k in ks:
+			row.add_child(_set_bonus_badge(int(k), n >= int(k), UiKit.set_bonus_text(sd.bonuses[k])))
+		return
+	for k in ks:
+		var on := n >= int(k)
+		var br := HBoxContainer.new()
+		br.add_theme_constant_override("separation", 5)
+		v.add_child(br)
+		br.add_child(_set_bonus_badge(int(k), on, ""))
+		var txt := UiKit.para(UiKit.set_bonus_text(sd.bonuses[k]), 11, Color(1.0, 0.85, 0.4) if on else Color(0.5, 0.48, 0.52))
+		txt.max_lines_visible = 2
+		txt.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		br.add_child(txt)
+		_tip_on(br, "[b](%d peças)[/b] %s\n[color=%s]%s[/color]" % [int(k), UiKit.set_bonus_text(sd.bonuses[k]),
+			"#9f9" if on else "#aaa", "Ativo" if on else "Falta%s %d peça%s" % ["m" if int(k) - n > 1 else "", int(k) - n, "s" if int(k) - n > 1 else ""]])
+
+## Ícone de uma peça do conjunto: cheio se vestida, apagado (e borda cinza) se faltando; dica com o item.
+func _set_piece_icon(p: SimEntity, it: ItemDef, px: int) -> Control:
+	var worn := set_piece_worn(p, it)
+	var box := PanelContainer.new()
+	var sb := UiKit.panel_style(Color(0.06, 0.05, 0.08, 0.95), UiKit.rarity_color(it.rarity) if worn else Color(0.3, 0.28, 0.35), 4, 1)
+	sb.set_content_margin_all(1)
+	box.add_theme_stylebox_override("panel", sb)
+	box.custom_minimum_size = Vector2(px, px)
+	var icon := UiKit.item_icon(it, px - 2)
+	if not worn:
+		icon.modulate = Color(0.55, 0.55, 0.6, 0.35)
+	box.add_child(icon)
+	box.set_meta("worn", worn)
+	_tip_on(box, UiKit.item_tooltip(it) + ("\n[color=#9f9]Vestida[/color]" if worn else "\n[color=#f99]Falta esta peça[/color]"))
+	return box
+
+## Selo "(N)" do bônus de N peças: dourado cheio quando ativo, contorno cinza quando não.
+func _set_bonus_badge(k: int, on: bool, tip: String) -> Control:
+	var box := PanelContainer.new()
+	var sb := UiKit.panel_style(Color(0.55, 0.38, 0.08, 0.95) if on else Color(0.1, 0.09, 0.12, 0.9),
+		Color(1.0, 0.85, 0.4) if on else Color(0.35, 0.33, 0.4), 3, 1)
+	sb.content_margin_left = 4; sb.content_margin_right = 4; sb.content_margin_top = 0; sb.content_margin_bottom = 0
+	box.add_theme_stylebox_override("panel", sb)
+	box.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	box.set_meta("active", on)
+	var l := UiKit.label(str(k), 11, Color(1, 0.95, 0.8) if on else Color(0.55, 0.53, 0.58))
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.custom_minimum_size.x = 10
+	box.add_child(l)
+	if tip != "":
+		_tip_on(box, "[b](%d peças)[/b] %s\n[color=%s]%s[/color]" % [k, tip, "#9f9" if on else "#aaa", "Ativo" if on else "Inativo"])
+	else:
+		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return box
+
+## Cartão da arma lendária: ícone, nome e o efeito (1 linha; inteiro na dica).
+func _char_legend_card(p: SimEntity, side: VBoxContainer) -> void:
+	var le: Dictionary = p.stats.legend
+	var wpn: ItemDef = null
+	for slot in [ItemDef.Slot.WEAPON, ItemDef.Slot.OFFHAND]:
+		var it: ItemDef = p.equipment.get(slot)
+		if it and not it.legend_effect.is_empty() and wpn == null:
+			wpn = it
+	var card := PanelContainer.new()
+	var sb := UiKit.panel_style(Color(0.1, 0.08, 0.13, 0.9), UiKit.SLOT_EDGE, 4, 1)
+	sb.set_content_margin_all(5)
+	card.add_theme_stylebox_override("panel", sb)
+	side.add_child(card)
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 6)
+	card.add_child(h)
+	if wpn:
+		var ic := UiKit.item_icon(wpn, SET_ICON_PX)
+		ic.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		h.add_child(ic)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 0)
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(v)
+	var t := UiKit.label("Arma lendária: %s" % str(le.get("name", "?")), 12, UiKit.rarity_color(4))
+	t.clip_text = true
+	v.add_child(t)
+	var full := UiKit.legend_effect_text(le)
+	var d := UiKit.para(full, 11, UiKit.MUTED)
+	d.max_lines_visible = 1            # 1 linha: cabe junto do híbrido (bônus de Fusão em 2 linhas); inteiro na dica
+	d.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	v.add_child(d)
+	_tip_on(card, "[b]Arma lendária[/b]\n" + full + "\n[color=#aaa]Efeito próprio: não conta nas peças do conjunto.[/color]")
 
 func _on_slot_input(ev: InputEvent, slot: int) -> void:
 	if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:

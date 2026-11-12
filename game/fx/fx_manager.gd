@@ -660,6 +660,21 @@ func _update_domes(delta: float) -> void:
 				SkillFx.fade_out(self, n as Node3D, 0.35)
 			_domes.erase(id)
 
+## View que nasceu depois dos eventos (fila de views, chegada no mapa): refaz o que o _on_buff deixaria ligado.
+## Só estado que dura (anel de aura ligada / `aura_from`, forma atual para o tema da saída); sem estouros.
+## Exemplo (main._create_view): `views[e.id] = v; fx.sync_entity_visuals(e)`
+func sync_entity_visuals(e: SimEntity) -> void:
+	if e == null or main == null or not main.views.has(e.id):
+		return
+	if e.form != "":
+		_last_form[e.id] = e.form
+	for b in e.buffs:
+		var bid := str(b.get("id", ""))
+		if bid == "" or bid.begins_with("form_") or bid.ends_with("_off"):
+			continue
+		if b.get("toggle", false) or b.has("aura_from"):
+			_aura_ring(e, bid, str(BuffLooks.look(bid, e).get("theme", "holy")), b)
+
 func _aura_ring(e: SimEntity, buff_id: String, th: String, b: Dictionary) -> void:
 	var key := "%d:%s" % [e.id, buff_id]
 	if _auras.has(key) and is_instance_valid(_auras[key]):

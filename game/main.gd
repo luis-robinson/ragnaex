@@ -5,7 +5,8 @@ extends Node
 var world_root: Node3D
 var map_node: Node3D = null
 var views_root: Node3D
-var views: Dictionary = {}       # entity_id -> EntityView
+var views: Dictionary = {}       # entity_id -> EntityView (pode faltar: a view nasce pela fila; sempre `views.has`/`get`)
+var view_queue := ViewQueue.new()  # entidades do mapa ainda sem view (criadas aos poucos em _drain_views)
 var camera: CameraRig
 var controller: PlayerController
 var fx: FxManager
@@ -149,6 +150,7 @@ func start_game(cls: ClassDef, char_name: String, load_save: bool, look: Diction
 	Events.chat_message.emit("Sistema", "%s entrou no jogo." % char_name, "system")
 
 func _process(delta: float) -> void:
+	_drain_views()
 	if not started:
 		return
 	perf_watch.tick(self, delta)
@@ -171,12 +173,22 @@ func _process(delta: float) -> void:
 var VIEW_CULL_DIST := 58.0
 var _cull_t := 0.0
 var _cull_test := ""         # --cull_test=hide|noproc (medir: só esconde / só para de processar)
+## Criar bonecos custa ms na thread principal (kit + fusão): a 1ª leva de um spawner ou a chegada num mapa cheio
+## travava o quadro (100+ views de uma vez). Cada quadro cria views da fila até gastar este orçamento, as do grupo/alvo
+## primeiro e depois a mais perto; quem está além de VIEW_CULL_DIST + VIEW_QUEUE_MARGIN espera chegar perto.
+## 0 = tudo de uma vez e sem esperar a distância (como antes; revisões com foto, `--view_budget=<ms>`).
+var view_budget_ms := 3.5
+const VIEW_QUEUE_MARGIN := 8.0
+var _queue_dirty := false
+var map_build_ms := 0.0      # último _show_map (medição: --perf)
 
 func _cull_views() -> void:
 	if Sim.player == null or not views.has(Sim.player.id):
 		return
 	var at: Vector3 = Sim.player.position
 	var lim2 := VIEW_CULL_DIST * VIEW_CULL_DIST
+	if view_queue.size() > 0:
+		_queue_dirty = true          # quem esperava longe pode ter chegado perto
 	for id in views:
 		var v: EntityView = views[id]
 		var e: SimEntity = v.entity
@@ -229,20 +241,28 @@ func _on_quest_done_visual(_eid: int, _qid: String) -> void:
 		MapBuilder.apply_conquest(map_node)
 
 func _show_map(map_id: String) -> void:
+	var t0 := Time.get_ticks_usec()
 	if map_node:
 		map_node.queue_free()
 		map_node = null
 	for id in views.keys():
 		views[id].queue_free()
 	views.clear()
+	view_queue.clear()
 	current_map_id = map_id
 	var def: MapDef = GameData.maps[map_id]
 	map_node = MapBuilder.build(def)
 	world_root.add_child(map_node)
 	map_node.add_child(GatherView.create(map_id))        # pontos de colheita (F)
 	map_node.add_child(AmbientLife.create(map_id))       # bichos de ambiente e falas soltas dos NPCs (só visual)
-	for e in Sim.map_entities(map_id):
-		_create_view(e)
+	for e in Sim.map_entities(map_id):                   # o jogador na hora; o resto pela fila, os de perto já neste quadro
+		if e == Sim.player:
+			_create_view(e)
+		else:
+			view_queue.push(e)
+	_queue_dirty = true
+	_drain_views()
+	map_build_ms = (Time.get_ticks_usec() - t0) / 1000.0
 	fx.sync_loot_for_map()
 	_update_vignette(def)
 	if hud:
@@ -294,12 +314,20 @@ void fragment() {
 	(_vignette.material as ShaderMaterial).set_shader_parameter("tint", Color(def.ambient.darkened(0.9), 0.85))
 
 func _create_view(e: SimEntity) -> void:
+	view_queue.erase(e.id)
 	if views.has(e.id):
 		return
 	var v := EntityView.new()
 	v.setup(e, e == Sim.player)
 	views_root.add_child(v)
 	views[e.id] = v
+	v.snap_visual_state()        # nasceu depois dos eventos: forma/aura do jeito que a entidade está agora
+	fx.sync_entity_visuals(e)
+	if e != Sim.player and Sim.player and views.has(Sim.player.id):     # já nasce no estado do corte (longe = some e para)
+		var d: Vector3 = e.position - Sim.player.position
+		if d.x * d.x + d.z * d.z >= VIEW_CULL_DIST * VIEW_CULL_DIST and _cull_test == "":
+			v.visible = false
+			v.process_mode = Node.PROCESS_MODE_DISABLED
 	if e == Sim.player:
 		camera.target = v
 		camera.global_position = v.global_position
@@ -308,9 +336,56 @@ func _create_view(e: SimEntity) -> void:
 
 func _on_spawned(e: SimEntity) -> void:
 	if e.map_id == current_map_id:
+		_queue_view(e)
+
+## Jogador ganha a view na hora; os outros entram na fila (_drain_views).
+func _queue_view(e: SimEntity) -> void:
+	if e == Sim.player:
 		_create_view(e)
+	elif not views.has(e.id):
+		view_queue.push(e)
+		_queue_dirty = true
+
+## Cria views da fila até gastar `view_budget_ms` neste quadro (pelo menos 1). Ordem: grupo do jogador, suas invocações
+## e o último alvo; depois a mais perto do jogador (na tela de título, da câmera).
+func _drain_views() -> void:
+	if not _queue_dirty or view_queue.size() == 0:
+		return
+	var p := Sim.player
+	var mine := p != null and p.map_id == current_map_id
+	var at: Vector3 = p.position if mine else camera.global_position
+	var prio := {}
+	if mine:
+		for m in Sim.party_members(p):
+			prio[(m as SimEntity).id] = true
+		prio[p.id] = true
+		if p.last_target_id >= 0:
+			prio[p.last_target_id] = true
+	var unlimited := view_budget_ms <= 0.0
+	var list := view_queue.ready_list(current_map_id, at, INF if unlimited else VIEW_CULL_DIST + VIEW_QUEUE_MARGIN, prio)
+	var t0 := Time.get_ticks_usec()
+	var budget := int(view_budget_ms * 1000.0)
+	var made := 0
+	for i in list.size():
+		if made > 0 and not unlimited and Time.get_ticks_usec() - t0 > budget:
+			return                   # continua no próximo quadro
+		var e: SimEntity = list[i]
+		if Sim.get_entity(e.id) != e or e.map_id != current_map_id:
+			view_queue.erase(e.id)   # sumiu ou saiu do mapa sem evento visto
+			continue
+		_create_view(e)
+		made += 1
+	_queue_dirty = false
+
+## Medição (--perf): quantos da fila já poderiam ganhar view (perto do jogador).
+func views_pending_near() -> int:
+	if view_queue.size() == 0:
+		return 0
+	var at: Vector3 = Sim.player.position if Sim.player else camera.global_position
+	return view_queue.ready_list(current_map_id, at, INF if view_budget_ms <= 0.0 else VIEW_CULL_DIST + VIEW_QUEUE_MARGIN, {}).size()
 
 func _on_despawned(id: int) -> void:
+	view_queue.erase(id)
 	if views.has(id):
 		views[id].queue_free()
 		views.erase(id)
@@ -321,8 +396,8 @@ func _on_changed_map(id: int, map_id: String) -> void:
 		_show_map(map_id)
 		Events.notification.emit("— %s —" % GameData.maps[map_id].name)
 		return
-	if map_id == current_map_id:
-		_create_view(e)
+	if e and map_id == current_map_id:
+		_queue_view(e)
 	else:
 		_on_despawned(id)
 

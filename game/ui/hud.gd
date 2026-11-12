@@ -1026,7 +1026,8 @@ func _on_died(id: int, _k: int) -> void:
 		death_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
 		var v := VBoxContainer.new()
 		v.add_child(UiKit.label("Você morreu", 32, Color(1, 0.4, 0.4)))
-		v.add_child(UiKit.label("Renascendo em Aldara... (-3% XP)", 14))
+		var home: String = GameData.maps[PortalSystem.home_of(Sim.player)["map"]].name      # cristal vinculado ou a cidade inicial
+		v.add_child(UiKit.label("Renascendo %s... (-%d%% XP)" % [BotsCatalog.place_words(home)["em"], roundi(Balance.DEATH_XP_PENALTY * 100.0)], 14))
 		death_panel.add_child(v)
 		root.add_child(death_panel)
 		_update_blocking()

@@ -51,6 +51,33 @@ static func create_from(path: String) -> FormModel:
 	f._toon(inst)
 	return f
 
+## Forma sem peças de armadura (Lich, demônio): as dezenas de malhas viram uma só (RigidMerge; draw calls).
+## Lobo/urso não fundem: as peças frm_* ligam/desligam com o equipamento. Devolve a malha fundida ou null.
+func merge_parts(cache_key: String) -> MeshInstance3D:
+	if not _pieces.is_empty():
+		return null
+	var mi := RigidMerge.merge(self, cache_key)
+	if mi == null:
+		mi = RigidMerge.merge_skinned(self, cache_key)
+	return mi
+
+## Superfícies desenhadas (malhas visíveis na árvore): medida de draw calls por boneco (testes).
+func drawn_surfaces() -> int:
+	var n := 0
+	for c in find_children("*", "MeshInstance3D", true, false):
+		var mi := c as MeshInstance3D
+		if mi.mesh != null and _shown(mi):
+			n += mi.mesh.get_surface_count()
+	return n
+
+## Visível até a raiz da forma (funciona fora da árvore da cena).
+func _shown(n: Node) -> bool:
+	while n != null and n != self:
+		if n is Node3D and not (n as Node3D).visible:
+			return false
+		n = n.get_parent()
+	return true
+
 ## Pinta todas as superfícies "tint" (pelagem do cavalo).
 func paint(col: Color) -> void:
 	for lst in _tints.values():

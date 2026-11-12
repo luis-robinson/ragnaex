@@ -409,6 +409,10 @@ static func _zone_materials(node: Node, def: MapDef) -> void:
 				if flat or mname == "det_vcol_mini":                 # miudeza (capim, seixo, flor): contorno sim, sombra não
 					mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				continue
+			if mname.begins_with("glow_brasa") or mname.begins_with("glow_lava"):     # fogueira/braseiro: chama com miolo claro e tremor
+				mi.set_surface_override_material(i, Materials.fire(base.srgb_to_linear()))
+				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				continue
 			if mname.begins_with("glow_"):        # brasa, runa, cogumelo, cristal (dress.py / horde.py): brilha, sem sombra
 				mi.set_surface_override_material(i, Materials.glow(base.srgb_to_linear(), 1.5))
 				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -449,7 +453,7 @@ static func _zone_materials(node: Node, def: MapDef) -> void:
 						mat = Materials.toon(base.lerp(Color(0.4, 0.66, 0.86), 0.25), false, 0.25)
 					mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				"fire":
-					mat = Materials.glow(Color(1.0, 0.6, 0.2), 2.5)
+					mat = Materials.fire(Color(1.0, 0.6, 0.2), 1.6)
 					mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				"cliff_grass", "hill_grass":
 					mat = Materials.toon(def.ground_color.lerp(base, 0.4), false)

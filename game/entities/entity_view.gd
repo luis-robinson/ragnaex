@@ -145,6 +145,14 @@ func _build_model() -> void:
 ## Vida dos mapas: NPC com `carry` (MapsCatalog.LIVING_NPCS) leva a carga no ombro ou puxa a carroça. O prop tem tamanho
 ## real e segue o boneco; CarryPose segura os braços. Só apresentação.
 var carry_node: Node3D = null
+var draft: FormModel = null              # animal de tiro da carroça (CarryPose.DRAFT): anda entre os varais, ao lado do boneco
+var _draft_walk := 1.0                   # m/s que o clipe "walk" do animal cobre a 1x
+var _cart: Node3D = null                 # nó `cart` do prop: a carroça atrás do animal (atrasa na curva)
+var _wheels: Node3D = null               # nó `wheels` do prop: rodas e eixo (giram pela distância andada)
+var _wheel_r := 0.5
+var _cart_lag := 0.0                     # peso por segundo do atraso da carroça (0 = presa ao rumo do boneco)
+var _cart_lag_max := 0.0                 # teto do ângulo entre a carroça e o animal (rad)
+var _cart_yaw := 0.0                     # rumo da carroça no mundo (rad)
 
 func _attach_carry() -> void:
 	if entity.kind != SimEntity.Kind.NPC or kit == null or kit.skeleton == null:
@@ -154,11 +162,63 @@ func _attach_carry() -> void:
 		return
 	carry_node = (load(CarryPose.model_path(what)) as PackedScene).instantiate()
 	carry_node.name = "Carry"
+	carry_node.position = CarryPose.lift_of(what)
 	model_root.add_child(carry_node)
 	_apply_toon_recursive(carry_node)
+	# rodas (nó `wheels`: direto no prop da carroça de mão, dentro de `cart` na de tiro) giram pela distância andada
+	_wheels = carry_node.find_child("wheels", true, false) as Node3D
+	_wheel_r = CarryPose.wheel_r_of(what)
+	_attach_draft(CarryPose.draft_of(what))
 	var pose := CarryPose.new()
 	pose.setup(kit.skeleton, what)
 	kit.skeleton.add_child(pose)
+
+## Carroça de tiro: o cavalo nasce como o da montaria (FormModel + RigidMerge: 1 malha, geometria dividida com as montarias)
+## e fica preso ao boneco junto com a carroça; o passo dele segue a velocidade do boneco (_animate_draft).
+func _attach_draft(d: Dictionary) -> void:
+	if d.is_empty():
+		return
+	draft = FormModel.create_from("res://assets/models/%s.glb" % d["model"])
+	if draft == null:
+		return
+	draft.name = "Draft"
+	draft.position = d["at"]
+	draft.scale = Vector3.ONE * float(d["scale"])
+	_draft_walk = float(d["walk"])
+	draft.paint(HORSE_COATS[entity.id % HORSE_COATS.size()])
+	# animal de tiro não leva sela: as peças saem antes da fusão (chave própria: a malha da montaria não é a mesma)
+	for pat: String in d.get("strip", []):
+		for n in draft.find_children(pat, "MeshInstance3D", true, false):
+			n.get_parent().remove_child(n)
+			n.free()
+	RigidMerge.merge(draft, "%s#draft" % d["model"])
+	model_root.add_child(draft)
+	_cart = carry_node.get_node_or_null("cart") as Node3D
+	_cart_lag = float(d.get("lag", 0.0))
+	_cart_lag_max = deg_to_rad(float(d.get("lag_max", 0.0)))
+	_cart_yaw = model_root.rotation.y
+
+## Rodas da carroça (de mão ou de tiro): rolam para a frente (+Z) o ângulo da distância andada no quadro.
+func _animate_wheels(delta: float) -> void:
+	var v := entity.velocity.length()
+	if v > 0.05:
+		_wheels.rotation.x = wrapf(_wheels.rotation.x + v * delta / _wheel_r, -PI, PI)
+
+func _animate_draft(delta: float = 0.0) -> void:
+	var v := entity.velocity.length()
+	if _cart and _cart_lag > 0.0 and delta > 0.0:
+		# a carroça segue o rumo do animal com atraso (e nunca dobra mais que `lag_max` em relação a ele)
+		var yaw := model_root.rotation.y
+		_cart_yaw = lerp_angle(_cart_yaw, yaw, minf(1.0, delta * _cart_lag))
+		var off := clampf(angle_difference(yaw, _cart_yaw), -_cart_lag_max, _cart_lag_max)
+		_cart_yaw = yaw + off
+		_cart.rotation.y = off
+	if draft.anim == null:
+		return
+	var clip := "walk" if v > 0.2 else "idle"
+	if draft.anim.has_animation(clip) and draft.anim.current_animation != clip:
+		draft.anim.play(clip, 0.25)
+	draft.anim.speed_scale = clampf(v / _draft_walk, 0.8, 2.4) if v > 0.2 else 1.0
 
 ## Armas de troca (MonsterDef.swap): "wpn_alt_*" só aparece na troca; a principal e a das costas somem nela.
 var _stance_main: Array = []
@@ -722,6 +782,14 @@ func _ghost_for(toon: Material, appear: float) -> ShaderMaterial:
 	_ghost_mats[toon] = gm
 	return gm
 
+## View criada tarde (fila de views, chegada no mapa): já nasce no estado da entidade, sem a transição que o
+## _process_view tocaria (forma trocada na hora, sem metamorfose). Montaria, furtivo e buffs no corpo o _process_view lê sozinho.
+## Exemplo: `v.setup(e, false); views_root.add_child(v); v.snap_visual_state()`
+func snap_visual_state() -> void:
+	if kit and entity.form != _shown_form:
+		_swap_form()
+		_morph_t = 1.0
+
 func _swap_form() -> void:
 	_shown_form = entity.form
 	if form_view:
@@ -736,6 +804,7 @@ func _swap_form() -> void:
 		return
 	form_view = FormModel.create(_shown_form)
 	form_view.scale = Vector3.ONE * float(FORM_SCALE.get(_shown_form, 1.0))
+	form_view.merge_parts("form_" + _shown_form)     # Lich/demônio: peças rígidas -> 1 malha
 	model_root.add_child(form_view)
 	form_view.apply_equipment(entity.equipment)
 	kit.visible = false
@@ -1264,6 +1333,10 @@ func _animate(delta: float) -> void:
 	model_root.position.z = lerpf(model_root.position.z, _kick.z, minf(1.0, delta * 30.0))
 	_update_guard_arc()
 	_kick = _kick.lerp(Vector3.ZERO, minf(1.0, delta * 12.0))
+	if _wheels:
+		_animate_wheels(delta)
+	if draft:
+		_animate_draft(delta)
 	if anim:
 		_animate_glb(st)
 		return

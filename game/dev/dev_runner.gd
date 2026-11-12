@@ -11,10 +11,12 @@ const TOURS := {
 	# Ato II, fase 1: Costa Partida, Porto Esperança e Grutas Goblin
 	"field_coast": [["ponte_costa", Vector3(-62.2, 0, 38.9)], ["encruzilhada", Vector3(4, 0, 6)], ["praia", Vector3(-12, 0, 62)], ["mae_das_mares", Vector3(4, 0, 60)], ["farol", Vector3(54, 0, 74)],
 		["santuario", Vector3(86, 0, 26)], ["ginetes", Vector3(62, 0, -50)], ["falesias", Vector3(-6, 0, -74)], ["palafitas", Vector3(-78, 0, 18)],
-		["grutas", Vector3(-70, 0, -28)], ["ponte_mangue", Vector3(-52, 0, -10)], ["chegada", Vector3(92, 0, 12)], ["passo_estepes", Vector3(28, 0, -72)]],
+		["grutas", Vector3(-70, 0, -28)], ["ponte_mangue", Vector3(-52, 0, -10)], ["chegada", Vector3(92, 0, 12)], ["passo_estepes", Vector3(28, 0, -72)],
+		["varas_farol", Vector3(46, 0, 71)]],
 	"city_port": [["chegada_navio", Vector3(-3, 0, 52)], ["praca", Vector3(0, 0, 18)], ["portao_norte", Vector3(0, 0, -30)], ["cais", Vector3(4, 0, 58)],
 		["farolete", Vector3(45, 0, 56)], ["taverna", Vector3(-21, 0, 14)], ["garganta", Vector3(40, 0, -60)],
-		["estaleiro", Vector3(-40, 0, 58)], ["hortas", Vector3(-62, 0, 2)], ["posto", Vector3(57, 0, -26)], ["portao_oeste", Vector3(-40, 0, 8)], ["garganta_costa", Vector3(-72, 0, -25)]],
+		["estaleiro", Vector3(-40, 0, 58)], ["hortas", Vector3(-62, 0, 2)], ["posto", Vector3(57, 0, -26)], ["portao_oeste", Vector3(-40, 0, 8)], ["garganta_costa", Vector3(-72, 0, -25)],
+		["pescadores_cais", Vector3(3, 0, 66)], ["cais_oeste", Vector3(-6, 0, 65.5)]],
 	# Ato II, fase 2: Estepes de Cinza e os três acampamentos de guerra
 	"field_steppe": [["posto_caravana", Vector3(0, 0, 4)], ["vao_oeste", Vector3(-24, 0, 0)], ["ponte_oeste", Vector3(-45, 0, -5)], ["front_trolls", Vector3(-80, 0, 2)],
 		["front_ghar", Vector3(58, 0, -32)], ["front_fogo", Vector3(66, 0, 46)], ["mamutes", Vector3(-84, 0, 52)], ["desertores", Vector3(-34, 0, -78)],
@@ -127,6 +129,10 @@ func before_start(returning: bool) -> String:
 	if DevArgs.has("--no_vcol_merge"):  # fusão antiga do kit: uma superfície por cor
 		KitModel.vcol_merge = false
 	main._cull_test = DevArgs.value("--cull_test")          # hide|noproc (medir: só esconde / só para de processar)
+	if DevArgs.flag("--view_budget"):    # ms por quadro para criar bonecos da fila (0 = tudo de uma vez, como antes)
+		main.view_budget_ms = float(DevArgs.value("--view_budget"))
+	elif _review_shots():                # foto/filme de revisão: todos os bonecos já no quadro (o orçamento é para jogar)
+		main.view_budget_ms = 0.0
 	if DevArgs.has("--anim_test"):
 		EntityView.anim_test = true
 	if DevArgs.has("--no_anim_lod"):
@@ -160,6 +166,14 @@ func before_start(returning: bool) -> String:
 		_tour_dir = ""
 		showcase = null
 	return autostart
+
+## Modo de revisão que tira foto/filme (o boneco tem de estar lá quando a foto sai): `*shot*`, `*film*`, `--tour`...
+static func _review_shots() -> bool:
+	for a in DevArgs.all():
+		for k in ["shot", "film", "tour", "showcase", "playtest", "sheet"]:
+			if a.begins_with("--") and a.split("=")[0].contains(k):
+				return true
+	return false
 
 ## Logo depois do start_game da partida automática: monta a cena de revisão pedida.
 func after_start() -> void:
@@ -235,6 +249,9 @@ func after_start() -> void:
 	if DevArgs.flag("--spot_shot"):     # --spot_shot=<png> --spot=<mapa>:<x>,<z> [--dist=14] [--wait=3] [--hide] [--form=<forma>]: foto de um ponto do mapa (adereços, vida)
 		_smoke_test = false
 		_spot_shot.call_deferred(DevArgs.value("--spot_shot"))
+	if DevArgs.flag("--carry_shot"):    # --carry_shot=<png>: um morador com cada carga (caixa, saco, estaca, pedra), de 3/4 (_jogo) e de lado (_lado)
+		_smoke_test = false
+		_carry_shot.call_deferred(DevArgs.value("--carry_shot"))
 	if DevArgs.flag("--ride_shot"):     # --ride_shot=<pasta>: Paladino ascendido a cavalo: básico, Carga, Pisotear e Modo Arcano (asas)
 		_smoke_test = false
 		_ride_shot(DevArgs.value("--ride_shot"))
@@ -502,7 +519,8 @@ func _morph_film(path: String, form: String) -> void:
 const BUFF_SHOT_EXTRA := ["shield@necromancer", "shield@elementalist", "bastion_aura@ally", "blessing@ally",
 	"dbf_slow", "dbf_root", "dbf_stun", "dbf_burn", "dbf_poison", "dbf_curse"]
 const BUFF_SHOT_CLASS := {"legend_frenzy": "berserker", "bastion": "paladin", "juramento": "paladin", "wild_run": "druid", "shield": "paladin",
-	"elixir": "berserker", "stoneskin": "paladin"}
+	"elixir": "berserker", "stoneskin": "paladin", "fus_frenzy": "berserker", "fus_weight": "berserker", "fus_pack_frenzy": "druid",
+	"fus_aurora": "bishop"}
 
 func _buff_shot(dir: String, only: String) -> void:
 	DirAccess.make_dir_recursive_absolute(dir)
@@ -650,6 +668,9 @@ func _put_buff_demo(t: SimEntity, bid: String, extra: String, other: SimEntity) 
 				fx["shield"] = s.effects["shield"]
 			Sim._apply_effects(t, t, fx, 1.0)
 			return
+	if BuffLooks.SYSTEM_BUFFS.has(bid):      # buff que a sim põe no código (Fusões etc.): o id basta para o visual
+		t.put_buff({"id": bid, "remaining": 999.0, "stacks": 3})
+		return
 	push_warning("buff_shot: sem fonte para " + bid)
 
 ## Recorte da tela em volta dos dois bonecos (o par fica no centro da câmera, que segue o jogador escondido).
@@ -703,6 +724,39 @@ func _spot_shot(path: String) -> void:
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(path)
 	print("SPOT_SHOT %s %s draws=%d" % [spot, path, int(RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME))])
+	get_tree().quit()
+
+## --carry_shot=<png>: moradores parados com cada carga de CarryPose lado a lado (altura da carga no ombro/braços).
+## Duas fotos: câmera do jogo de perto (_jogo) e quase de lado (_lado).
+func _carry_shot(path: String) -> void:
+	var p: SimEntity = Sim.player
+	p.brain = null
+	var at := Vector3(-14, 0, 40)
+	Sim._change_map(p, "city_aldara", at)
+	await get_tree().create_timer(1.0).timeout
+	Sim.sync()
+	var kinds := ["carry_crate", "carry_sack", "carry_log", "carry_rock"]
+	if DevArgs.flag("--carry"):         # --carry=cart_draft: só essa carga (carroça de tiro com o cavalo), com mais distância
+		kinds = [DevArgs.value("--carry")]
+	for i in kinds.size():
+		var n := {"id": "carry_demo_%d" % i, "name": kinds[i], "pos": at + Vector3(-2.7 + i * 1.8, 0, -2.0), "role": "villager",
+			"color": Color(0.6, 0.5, 0.4), "dialog": [], "facing": 20.0, "carry": kinds[i], "look_seed": 900 + i * 7}
+		if DevArgs.flag("--carry"):     # uma carga só: no centro da foto, de lado (--facing=<graus>)
+			n["pos"] = at
+			n["facing"] = float(DevArgs.value("--facing", "110"))
+		Sim._spawn_npc(n, p.map_id)
+	await get_tree().create_timer(1.5).timeout
+	Sim.sync()
+	if main.views.has(p.id):
+		main.views[p.id].model_root.visible = false
+		main.views[p.id].nameplate.visible = false
+	main.camera.distance = 11.0 if DevArgs.flag("--carry") else 7.0
+	for shot in [["_jogo", 52.0], ["_lado", 12.0]]:
+		main.camera.pitch_deg = float(shot[1])
+		await get_tree().create_timer(0.6).timeout
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png(path.replace(".png", str(shot[0]) + ".png"))
+	print("CARRY_SHOT " + path)
 	get_tree().quit()
 
 ## --ride_shot=<pasta>: Combate Montado (ascensão do Paladino). Um bot paladino ascendido a cavalo, de 3/4 para a câmera,
@@ -1303,6 +1357,12 @@ func _wear_set(set_id: String) -> void:
 	if sd.is_hybrid():           # híbrido: armas da build A (ou B com --face=b)
 		var side: String = sd.pair[1] if DevArgs.value("--face") == "b" else sd.pair[0]
 		wear.append_array(sd.alt_pieces.filter(func(x): return x.contains("_%s_weapon" % side) or x.contains("_%s_offhand" % side)))
+	if DevArgs.flag("--gear_partial"):      # --gear_partial=N: só as N primeiras peças de armadura (revisar peça faltando na aba Conjuntos)
+		var keep: Array = sd.armor.slice(0, int(DevArgs.value("--gear_partial")))
+		wear = wear.filter(func(x): return keep.has(x) or not sd.armor.has(x))
+		var sd2: SetDef = GameData.sets.get(DevArgs.value("--gear2", ""))
+		if sd2:                             # --gear2=<set_id>: as peças que faltam vêm de outro conjunto (2 cartões)
+			wear.append_array(sd2.armor.slice(keep.size()))
 	for iid in wear:
 		Sim.player.add_item(iid)
 		Sim.equip(Sim.player, iid, iid.ends_with("_offhand") and GameData.items[iid].weapon_type != "shield")
@@ -1455,6 +1515,7 @@ func _menu_check() -> void:
 	await get_tree().create_timer(0.5).timeout
 	if DevArgs.flag("--menu_shot"):
 		get_viewport().get_texture().get_image().save_png(DevArgs.value("--menu_shot"))
+	print("RETURN_CHECK views=%d fila=%d" % [main.views.size(), main.view_queue.size()])     # fila com gente longe: a volta não pode tropeçar nela
 	main.hud._menu_to_title()
 
 func _demo_shot() -> void:
@@ -1511,9 +1572,24 @@ func _perf_run() -> void:
 			for p in pre:
 				if str(mi.name).begins_with(p):
 					mi.visible = false
-	await get_tree().create_timer(2.5).timeout
+	# espera assentar: spawners do mapa cheios (1º enchimento) e a fila de bonecos de perto vazia por 1 s; teto 15 s
+	var st0 := Time.get_ticks_usec()
+	var calm := 0.0
+	var settle := 0.0
+	while true:
+		await get_tree().process_frame
+		settle = (Time.get_ticks_usec() - st0) / 1_000_000.0
+		var ok: bool = settle >= 2.5 and _perf_primed() and main.views_pending_near() == 0
+		calm = calm + get_process_delta_time() if ok else 0.0
+		if calm >= 1.0 or settle >= 15.0:
+			break
+	print("PERF settle_s=%.1f primed=%s views_queued=%d (perto=%d) map_build_ms=%.0f" % [settle, str(_perf_primed()), main.view_queue.size(), main.views_pending_near(), main.map_build_ms])
 	Sim.profile = true
 	Sim.prof.clear()
+	if get_tree().physics_frame.is_connected(Sim.sync):     # mede cada espera do Sim.sync no passo de física (thread + Events.flush)
+		get_tree().physics_frame.disconnect(Sim.sync)
+		get_tree().physics_frame.connect(_perf_sync_step)
+	_sync_worst = 0.0; _sync_sum = 0.0; _sync_n = 0
 	if DevArgs.has("--test_no_anim"):
 		for v in main.views.values():
 			for a in v.find_children("*", "AnimationMixer", true, false):
@@ -1547,6 +1623,7 @@ func _perf_run() -> void:
 		rcpu_sum += RenderingServer.viewport_get_measured_render_time_cpu(get_viewport().get_viewport_rid())
 	var secs := (Time.get_ticks_usec() - t0) / 1_000_000.0
 	print("PERF sim_tick_ms=%.2f away=%d ticks_per_frame=%.2f" % [tick_sum / frames / 1000.0, Sim.away_every, float(Sim.tick_count - ticks0) / frames])
+	print("PERF sync_step avg_ms=%.2f worst_ms=%.2f steps=%d (espera do Sim.sync + Events.flush por passo de física)" % [_sync_sum / maxi(1, _sync_n), _sync_worst, _sync_n])
 	print("PERF views_script_ms=%.2f per_frame (%d bonecos visíveis)" % [EntityView.prof_us / frames / 1000.0, main.views.values().filter(func(v): return v.visible).size()])
 	var nt := maxi(1, Sim.tick_count - ticks0)
 	var keys: Array = Sim.prof.keys()
@@ -1607,7 +1684,7 @@ func _perf_run() -> void:
 	tk.sort_custom(func(a, b): return tri[a] > tri[b])
 	for k in tk.slice(0, 18):
 		print("PERF   tri %-28s %8d  (%d malhas)" % [k, tri[k], cnt[k]])
-	print("PERF avg process_ms=%.2f physics_ms=%.2f gpu_ms=%.2f render_cpu_ms=%.2f" % [proc_us / frames / 1000.0, sim_us / frames / 1000.0, gpu_sum / frames, rcpu_sum / frames])
+	print("PERF avg process_ms=%.2f physics_max1s_ms=%.2f gpu_ms=%.2f render_cpu_ms=%.2f" % [proc_us / frames / 1000.0, sim_us / frames / 1000.0, gpu_sum / frames, rcpu_sum / frames])
 	print("PERF process_ms=%.2f phys_objects=%d pairs=%d islands=%d gpu_ms=%.2f cpu_ms=%.2f prims=%d" % [Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
 		Performance.get_monitor(Performance.PHYSICS_3D_ACTIVE_OBJECTS), Performance.get_monitor(Performance.PHYSICS_3D_COLLISION_PAIRS),
 		Performance.get_monitor(Performance.PHYSICS_3D_ISLAND_COUNT), RenderingServer.viewport_get_measured_render_time_gpu(get_viewport().get_viewport_rid()),
@@ -1622,10 +1699,31 @@ func _perf_run() -> void:
 		RenderingServer.viewport_get_render_info(vp_rid, RenderingServer.VIEWPORT_RENDER_INFO_TYPE_VISIBLE, RenderingServer.VIEWPORT_RENDER_INFO_PRIMITIVES_IN_FRAME),
 		RenderingServer.viewport_get_render_info(vp_rid, RenderingServer.VIEWPORT_RENDER_INFO_TYPE_SHADOW, RenderingServer.VIEWPORT_RENDER_INFO_OBJECTS_IN_FRAME),
 		RenderingServer.viewport_get_render_info(vp_rid, RenderingServer.VIEWPORT_RENDER_INFO_TYPE_SHADOW, RenderingServer.VIEWPORT_RENDER_INFO_DRAW_CALLS_IN_FRAME)])
-	print("PERF fps=%.1f frame_ms=%.2f draws=%.0f nodes=%d objects=%d mem_mb=%.0f physics_ms=%.2f prune=%s" % [frames / secs, secs * 1000.0 / frames,
+	print("PERF fps=%.1f frame_ms=%.2f draws=%.0f nodes=%d objects=%d mem_mb=%.0f physics_max1s_ms=%.2f prune=%s" % [frames / secs, secs * 1000.0 / frames,
 		draws / frames, Performance.get_monitor(Performance.OBJECT_NODE_COUNT), Performance.get_monitor(Performance.OBJECT_COUNT),
 		Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0, sim_us / frames / 1000.0, str(KitModel.prune)])
 	get_tree().quit()
+
+## --perf: todos os spawners ativos do mapa do jogador já encheram a 1ª vez.
+func _perf_primed() -> bool:
+	if Sim.player == null:
+		return true
+	for sp in Sim.maps[Sim.player.map_id]["spawners"]:
+		if not sp.get("primed", false) and WorldState.active(Sim, sp["def"]):
+			return false
+	return true
+
+var _sync_worst := 0.0
+var _sync_sum := 0.0
+var _sync_n := 0
+## --perf: Sim.sync do passo de física, cronometrado (physics_ms do Godot é o PIOR passo de cada segundo).
+func _perf_sync_step() -> void:
+	var t := Time.get_ticks_usec()
+	Sim.sync()
+	var ms := (Time.get_ticks_usec() - t) / 1000.0
+	_sync_worst = maxf(_sync_worst, ms)
+	_sync_sum += ms
+	_sync_n += 1
 
 ## Confere o arrastar e soltar: capacete da bolsa no slot da cabeça, depois de volta para a bolsa; anel no 2º slot.
 func _fake_drag(from: Control, to: Control) -> void:
@@ -1969,7 +2067,16 @@ func _water_tour(delta: float) -> void:
 func _tour(delta: float) -> void:
 	_tour_t += delta
 	var p := Sim.player
+	if not has_meta("tour_leveled"):          # --level=N: turista do nível da zona (teia gasta como bot da build)
+		set_meta("tour_leveled", true)
+		if DevArgs.flag("--level"):
+			p.level = int(DevArgs.value("--level"))
+			if p.build_id == "" and not p.class_def.builds.is_empty():
+				p.build_id = p.class_def.builds[0]["id"]
+			ProgressionSystem.bot_spend(Sim, p, true)
+			p.recompute_stats()
 	p.hp = p.stats.max_hp
+	p.iframe_left = 1.0                        # turista não leva golpe direto (a foto não vira tela de morte)
 	if DevArgs.has("--far"):                   # zoom máximo do jogador: ver marcos e o desenho da zona
 		main.camera.distance = main.camera.max_distance
 	if _tour_t < 2.0:
