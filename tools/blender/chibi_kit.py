@@ -28,6 +28,14 @@ BODIES = {
     "female": dict(shoulder=0.19, hip=0.09, pelvis=0.17, waist=0.13, chest=0.165, upper=0.15,
                    arm=0.06, elbow=0.052, wrist=0.043, hand=0.05, thigh=0.086, knee=0.066, ankle=0.056,
                    toe=0.062, neck=0.056, depth=0.8, head=0.34),
+    # corpos de monstro (mob_kit.humanoid(body=...)): troll = ombros largos, braços compridos e grossos, cabeça menor;
+    # brute = orc chefe, mais largo que o corpo comum. "arm_len" estica o braço a partir do ombro.
+    "troll": dict(shoulder=0.3, hip=0.115, pelvis=0.2, waist=0.21, chest=0.25, upper=0.24,
+                  arm=0.1, elbow=0.088, wrist=0.084, hand=0.1, thigh=0.108, knee=0.09, ankle=0.08,
+                  toe=0.09, neck=0.09, depth=0.86, head=0.31, arm_len=1.3),
+    "brute": dict(shoulder=0.262, hip=0.1, pelvis=0.185, waist=0.18, chest=0.22, upper=0.21,
+                  arm=0.086, elbow=0.075, wrist=0.066, hand=0.076, thigh=0.1, knee=0.082, ankle=0.072,
+                  toe=0.08, neck=0.08, depth=0.85, head=0.34, arm_len=1.1),
 }
 # alturas das juntas (z)
 Z = dict(ankle=0.07, knee=0.2, hip=0.34, pelvis=0.38, waist=0.54, chest=0.7, upper=0.82,
@@ -92,6 +100,7 @@ def _smooth(me):
 # ---------------------------------------------------------------------------
 def joints(b):
     S, H = b["shoulder"], b["hip"]
+    L = b.get("arm_len", 1.0)
     j = {
         "root": (0, 0, 0), "pelvis": (0, 0, Z["pelvis"]), "waist": (0, 0, Z["waist"]),
         "chest": (0, 0, Z["chest"]), "upper": (0, 0, Z["upper"]), "neck": (0, 0, Z["neck"]),
@@ -99,9 +108,9 @@ def joints(b):
     }
     for side, sx in ((".R", -1), (".L", 1)):
         j["shoulder" + side] = (sx * S, 0, Z["upper"] + 0.01)
-        j["elbow" + side] = (sx * (S + 0.045), 0.0, Z["upper"] - 0.15)
-        j["wrist" + side] = (sx * (S + 0.075), -0.01, Z["upper"] - 0.29)
-        j["hand_tip" + side] = (sx * (S + 0.085), -0.02, Z["upper"] - 0.37)
+        j["elbow" + side] = (sx * (S + 0.045 * L), 0.0, Z["upper"] - 0.15 * L)
+        j["wrist" + side] = (sx * (S + 0.075 * L), -0.01, Z["upper"] - 0.29 * L)
+        j["hand_tip" + side] = (sx * (S + 0.085 * L), -0.02, Z["upper"] - 0.37 * L)
         j["hip" + side] = (sx * H, 0, Z["hip"])
         j["knee" + side] = (sx * H, -0.005, Z["knee"])
         j["ankle" + side] = (sx * H, 0.0, Z["ankle"])
@@ -1578,11 +1587,11 @@ def _retimed_copy(rig, src, dst, impact_to):
     s.name = dst
 
 
-def mob_clips(rig, weapon=None, offhand=None, attack=None, boss=False):
+def mob_clips(rig, weapon=None, offhand=None, attack=None, boss=False, extra_keep=()):
     """Clipes de monstro humanoide a partir do jogo completo do kit (v3): golpe da arma com impacto no quadro 5, magia,
     idle da arma (arco baixo, cajado em pé), guarda de escudo, corrida/tranco/morte do kit.
     boss=True: guarda também MOB_BOSS_KEEP (giro, investida, salto, arremesso, magias por tema...)."""
-    keep = MOB_KEEP + (MOB_BOSS_KEEP if boss else ())
+    keep = MOB_KEEP + (MOB_BOSS_KEEP if boss else ()) + tuple(extra_keep)     # extra: gesto de skill própria (estocada da Horda)
     animate(rig, "melee")
     animate_combat(rig)
     animate_v3(rig)

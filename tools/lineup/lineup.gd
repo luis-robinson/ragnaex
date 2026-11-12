@@ -5,6 +5,7 @@ extends Node3D
 ##   --block_film: a guarda como o jogo toca: erguer, soltar e andar bloqueando, quadro a quadro
 ##   --shields: as 8 famílias de escudo vistas da câmera do jogo, com paladino (fila de trás) e bispo (fila da frente)
 ##   --strip=<classe>: filme de um clipe — 8 cópias da classe, cada uma num instante do clipe, vistas de lado
+##     [--titan[=<item>]]: Berserker com machado de 2 mãos nas duas mãos (Empunhadura de Titã)
 ## Salva a screenshot e sai.
 
 var _shot := ""
@@ -176,6 +177,11 @@ func _build_strip() -> void:
 			var it: ItemDef = GameData.items[iid]
 			if not eq.has(it.slot):
 				eq[it.slot] = it
+	if DevArgs.has("--titan") or DevArgs.flag("--titan"):     # --titan: Empunhadura de Titã (o machado de 2 mãos da principal também na esquerda)
+		var w: ItemDef = GameData.items.get(DevArgs.value("--titan")) if DevArgs.flag("--titan") else eq.get(ItemDef.Slot.WEAPON)
+		if w and w.weapon_type in Balance.TITAN_WEAPONS:
+			eq[ItemDef.Slot.WEAPON] = w
+			eq[ItemDef.Slot.OFFHAND] = w
 	for i in range(8):
 		var k := KitModel.create(cls.body_type, cls.hair_color, 0.025, cls.id)
 		add_child(k)

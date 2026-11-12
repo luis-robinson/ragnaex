@@ -462,6 +462,8 @@ def build_forms(out_dir):
                 o.name = o.name.replace(".", "_")
         lp.export_glb(os.path.join(out_dir, "form_%s.glb" % kind), [arm])
     print("forms done")
+    import druid_ancestral          # ascensão: Ent, Lobo Alfa e Pássaro Arcano (form_ent/alpha/bird.glb)
+    druid_ancestral.build(out_dir)
 
 
 def register(ck):

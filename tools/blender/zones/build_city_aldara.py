@@ -24,10 +24,11 @@ from mathutils import Vector
 
 import nature
 import places
+import zone_lib
 
 ZONE = "city_aldara"
 P = "Z_%s_" % ZONE
-ROOT = r"C:/Users/luisf/Desktop/projects/ragnaex"
+ROOT = zone_lib.ROOT          # RAGNAEX_ROOT (worktree) ou o projeto
 SIZE = 300.0                  # vale ~20% maior (places.grow_aldara): era 260
 TOWN_R = 30.0                 # raio da muralha
 GATE_HALF = 4.0               # meia largura do portão (m)
@@ -58,7 +59,7 @@ ROADS_BASE = [
     ("W", [(-30, 0), (-42, 7), (-54, 4), (-66, 14), (-80, 22), (-93, 6), (-100, -16), (-104, -32)]),
     ("SW", [(-80, 22), (-74, 42), (-62, 58)]),
     ("castelo", [(5, -44), (18, -52), (30, -50)]),
-    ("lago_fazenda", [(5, 62), (-12, 66), (-30, 70), (-48, 64)]),      # sai do fim da estrada S (antes ficava solta)
+    ("lago_fazenda", [(5, 62), (-8, 62), (-18, 72), (-30, 74), (-48, 64)]),      # sai do fim da estrada S; cruza o rio de frente (>= 60 graus), junto da foz
     ("colinas_castelo", [(-3, -72), (10, -70), (22, -62), (30, -50)]),
     ("castelo_bosque", [(30, -50), (34, -36), (50, -32), (68, -24), (84, -10), (88, -4)]),
 ]
@@ -336,9 +337,12 @@ def build(export=False):
             "obstacles": [], "portals": [], "spawners": [], "npcs": {}, "hangouts": [], "roads": [], "water": []}
     obs = data["obstacles"]
 
-    def ob(kind, x, z, size, rot=0.0, visible=True, solid=True, color=None, roof=None, y=None):
+    def ob(kind, x, z, size, rot=0.0, visible=True, solid=True, color=None, roof=None, y=None, when=None, stage_solid=False):
         d = {"kind": kind, "pos": [round(x, 2), round(z, 2)], "size": [round(s, 2) for s in size], "rot": round(rot, 1),
              "visible": visible, "solid": solid}
+        if when:                          # como Zone.ob (places.py passa `when` nos acampamentos de conquista)
+            d["solid"] = bool(stage_solid)
+            d.update(when)
         if y is not None:
             d["y"] = y
         if color:
@@ -368,23 +372,10 @@ def build(export=False):
     data["water"].append({"kind": "lake", "pos": [lx, lz], "r": lr})
     ob("water", lx, lz, (2 * (lr - 1.2), 1.0, 2 * (lr - 1.2)), visible=False)     # lago: sólido (rio é raso, dá pra atravessar)
 
-    # pontes onde estradas cruzam o rio
-    for name, poly in road_polys.items():
-        for i in range(len(poly) - 1):
-            p = poly[i]
-            if poly_dist(p, river) < 0.9:
-                t = (poly[min(i + 2, len(poly) - 1)] - poly[max(i - 2, 0)]).normalized()
-                ang = along(t.x, t.y)
-                box(coll, P + "ponte_" + name, (p.x, p.y), (RIVER_W + 5.0, 0.08, ROAD_W + 0.6), ang, M["wood"], 0.03)
-                for sx in (-1, 1):
-                    side = Vector((t.y, -t.x)) * (ROAD_W / 2 + 0.2) * sx
-                    box(coll, P + "corrimao_%s_%d" % (name, sx), (p.x + side.x, p.y + side.y), (RIVER_W + 5.0, 0.14, 0.18), ang, M["wood"], 0.75)
-                for k in range(-2, 3):          # postes do corrimão
-                    along_v = Vector((t.x, t.y)) * k * (RIVER_W + 4.0) / 4
-                    for sx in (-1, 1):
-                        side = Vector((t.y, -t.x)) * (ROAD_W / 2 + 0.2) * sx
-                        box(coll, P + "poste_%s_%d_%d" % (name, k, sx), (p.x + side.x + along_v.x, p.y + side.y + along_v.y), (0.22, 0.85, 0.22), ang, M["wood"], 0.0)
-                break
+    # pontes: um tabuleiro em cada cruzamento de verdade estrada x rio (o mesmo ponto do vão da sim), gravado em
+    # data["bridges"] para o teste `_check_bridges` (zone_lib.build_bridges, o mesmo das zonas feitas com Zone)
+    data["bridges"] = []
+    zone_lib.build_bridges(ZONE, coll, P, road_polys, [river], [RIVER_W], M["wood"], data["bridges"])
 
     # ---------- vila murada (hub) ----------
     disc(coll, P + "praca", (0, 0), 9.5, 0.014, M["street"], 40)

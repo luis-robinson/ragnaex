@@ -1,5 +1,5 @@
 """Banco de música do RagnaEx: faixas CC0 do OpenGameArt (licença conferida na página de cada uma em 2026-11-10: só "CC0",
-nenhuma com licença dupla). Baixa para .godot/music_cache, copia para assets/audio/music/<tema>.<ext> e escreve
+nenhuma com licença dupla; as do Ato II — porto, costa, goblins — em 2026-11-11). Baixa para .godot/music_cache, copia para assets/audio/music/<tema>.<ext> e escreve
 assets/audio/music/CREDITS.md. Os temas são os de game/audio/music.gd (Music.MAP_THEME, "chefe", "investida").
 
     python tools/audio/build_music.py        (depois: godot --headless --path . --import)
@@ -29,6 +29,10 @@ TRACKS = {
     "cidadela": ("JRPG%20Music%20Pack%20%233%20%5BEvil%5D%20by%20Juhani%20Junkala.zip", "Evil3 - Apocalypse.ogg", "Apocalypse (JRPG Pack 3 Evil)", "Juhani Junkala (SubspaceAudio)", "jrpg-pack-3-evil"),
     "chefe": ("bosstheme_WO_low_0.mp3", "", "Boss Fight", "Lisboa", "boss-fight-0"),
     "investida": ("battleThemeA.mp3", "", "Battle Theme A", "cynicmusic", "battle-theme-a"),
+    # Ato II (A Horda)
+    "porto": ("port_town_in_game.ogg", "", "Port Town Loop", "beardalaxy", "port-town-loop"),
+    "costa": ("song_of_the_sea_0.ogg", "", "Song of the Sea", "Kistol", "song-of-the-sea"),
+    "goblins": ("Krakatoa_0.ogg", "", "Krakatoa", "Kistol", "krakatoa"),
 }
 
 

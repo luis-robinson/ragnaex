@@ -12,6 +12,7 @@ import random
 import importlib
 import nature
 import places
+import sea
 import zone_lib
 importlib.reload(zone_lib)
 from zone_lib import Zone, cyl, box, disc
@@ -27,9 +28,11 @@ FRONTS = {
     "bones": {"deg": -90.0, "ground": (0.6, 0.58, 0.54), "quest": "dw_bones_boss", "fort_name": "Fortaleza dos Ossos"},
     "frost": {"deg": 90.0, "ground": (0.68, 0.78, 0.86), "quest": "dw_frost_boss", "fort_name": "Torre do Mago Gélido"},
 }
-FORT_ARRIVE = (0.0, 96.0)       # chegada nos mapas das fortalezas (build_dawn_forts.ARRIVE_IN_FORT)
+FORT_ARRIVE = (0.0, 96.0)       # chegada nos mapas das fortalezas no desenho original (build_dawn_forts.ARRIVE_IN_FORT); o mapa gira: zone_lib.fort_arrive
 CITADEL_DEG = -48.0
 DRAGON = (72.0, 52.0)
+DOCK_DEG = -15.0                   # cais leste (Ato II): baía na garganta, navio do Capitão Bren para Porto Esperança
+PORT_ARRIVE = (-3.0, 52.0)         # chegada em city_port (build_city_port.SHIP_ARRIVE)
 DEAD_TREES = [(0.42, 0.38, 0.32), (0.5, 0.45, 0.36)]
 
 PLACES = [
@@ -203,7 +206,7 @@ def build(export=False):
         mid = H(86.0, g + 9.0)
         outer = H(RING_R + 6.0, g)
         z.road("front_" + side, [H(RING_R + 1.0, g), outer, mid, gorge_in, gorge_out], w=4.0, end_clearing=False)
-        z.portal("to_fort_" + side, gorge_out, "fort_" + side, FORT_ARRIVE, f["fort_name"])
+        z.portal("to_fort_" + side, gorge_out, "fort_" + side, zone_lib.fort_arrive("fort_" + side, FORT_ARRIVE), f["fort_name"])
         print("BACK", side, gorge_in)
         z.patch("front_" + side, H(84.0, g), 26.0, f["ground"])
         for j in range(-4, 5):                            # barricada de estacas em arco, com vão na estrada
@@ -251,7 +254,7 @@ def build(export=False):
     # ---------- selo da Cidadela do Lich (garganta NE): abre com as três fortalezas retomadas ----------
     cit_out, cit_in = polar(z, CITADEL_DEG, 7), polar(z, CITADEL_DEG, 18)
     z.road("cidadela", [H(RING_R + 6.0, -90.0), H(76.0, -70.0), cit_in, cit_out], w=4.0, end_clearing=False)
-    z.portal("to_lich_citadel", cit_out, "lich_citadel", FORT_ARRIVE, "Cidadela do Lich")
+    z.portal("to_lich_citadel", cit_out, "lich_citadel", zone_lib.fort_arrive("lich_citadel", FORT_ARRIVE), "Cidadela do Lich")
     print("BACK citadel", cit_in)
     # ---------- leste seguro: estrada de Aldara, rochedo do Dragonete ----------
     z.road("E", [H(RING_R + 1.0, 0.0), (72, 4), (88, -4), arrive, portal], end_clearing=False)
@@ -262,6 +265,37 @@ def build(export=False):
     z.data["roads"].append({"kind": "street", "w": 0, "pts": [list(DRAGON)], "r": 10.0})
     z.block(DRAGON, 12)
 
+    # ---------- cais leste (Ato II): baía do mar de Kharzun na garganta, píer, navio e o Capitão Bren ----------
+    # A baía é uma enseada que entra pela garganta (centro fora do anel): de cima lê como mar aberto, não como poça.
+    BAY_R = 22.0
+    bay_c = polar(z, DOCK_DEG, -10)
+    dock_portal, dock_arrive = polar(z, DOCK_DEG, 16), polar(z, DOCK_DEG, 23)
+    sea.sea(z, bay_c, BAY_R, beach=7.0, name="baia")
+    z.portal("to_city_port", dock_portal, "city_port", PORT_ARRIVE, "Porto Esperança (Ato II)")
+    print("BACK port", dock_arrive)
+    z.road("cais", [(88, -4), (dock_arrive[0] - 6.0, dock_arrive[1] + 4.0), dock_arrive, dock_portal], end_clearing=False)
+    a = math.radians(DOCK_DEG)
+    out = (math.cos(a), math.sin(a))
+    side = (-out[1], out[0])
+    D = lambda p, o, sd: (round(p[0] + out[0] * o + side[0] * sd, 2), round(p[1] + out[1] * o + side[1] * sd, 2))
+    z.M["pave_largo_cais"] = zone_lib.mat("pave_largo_cais", (0.7, 0.58, 0.42))
+    z.plaza("largo_cais", D(dock_arrive, 1.0, 0.0), 7.0, "pave_largo_cais")       # largo de tábuas: quem chega do porto cabe aqui
+    sea.pier(z, "bastiao", D(dock_portal, 1.5, 0.0), D(dock_portal, 17.0, 0.0), w=3.6)
+    sea.pier(z, "bastiao_braco", D(dock_portal, 13.0, 0.0), D(dock_portal, 13.0, -8.0), w=2.6)
+    sea.ship(z, "bren", D(dock_portal, 17.0, 8.5), DOCK_DEG, L=16.0)
+    z.npc("port_captain_bren", *D(dock_portal, -1.0, 3.2), round(math.degrees(math.atan2(-out[0], -out[1])), 1))
+    for k in range(4):
+        q = D(dock_arrive, 0.5 + (k % 2) * 1.4, -6.0 - (k // 2) * 1.4)
+        z.ob("crate" if k % 2 else "barrel", q[0], q[1], (1.0, 1.0, 1.0) if k % 2 else (0.8, 1.0, 0.8), k * 30.0)
+    z.ob("stall", *D(dock_arrive, -1.0, 8.0), (2.8, 2.2, 1.8), round(math.degrees(math.atan2(-out[0], -out[1])), 1) + 90.0, color=(0.3, 0.42, 0.72))
+    for sd in (-4.6, 4.6):
+        z.ob("lamp", *D(dock_portal, -2.5, sd), (0.4, 3.0, 0.4))
+    mast = D(dock_arrive, -4.0, -7.5)                       # estandarte da Aurora: acha-se o cais da estrada leste
+    cyl(z.coll, z.P + "cais_mastro", mast, 0.14, 0.1, 7.5, z.M["wood"], 0.0, 6)
+    box(z.coll, z.P + "cais_bandeira", (mast[0] + 1.2, mast[1]), (2.2, 1.4, 0.06), 0.0, z.M["banner"], 5.9)
+    z.ob("pillar", mast[0], mast[1], (0.5, 7.5, 0.5), visible=False)
+    z.block(dock_arrive, 11.0)
+
     # ---------- água: riacho escuro do norte ao sudoeste (pontes nas estradas) ----------
     z.river([(-30, -128), (-50, -96), (-66, -70), (-80, -40), (-84, -12), (-86, 18), (-96, 50), (-120, 80)], w=5.0, material="water_dark")
     z.bridges()
@@ -270,6 +304,7 @@ def build(export=False):
             z.ob("flowers", fx, fy, (1.8, 0.5, 1.8), color=col, when=cw)
 
     z.cliffs(snow=False)
+    sea.sink_cliffs(z, margin=2.0)
     places.build(z, PLACES)
 
     # ---------- vegetação: árvores mortas nos fronts, mata viva no leste ----------

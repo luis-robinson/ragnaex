@@ -872,6 +872,9 @@ BUILDERS = {"house": house, "tree": tree, "rock": rock, "pillar": pillar, "wall"
 import elf_props                       # arquitetura élfica (Cidade Élfica): casa-árvore, casulo, lanterna, portal
 importlib.reload(elf_props)
 BUILDERS.update(elf_props.BUILDERS)
+import life_props                      # carga no ombro e carroça dos NPCs que trabalham (tamanho real)
+importlib.reload(life_props)
+BUILDERS.update(life_props.BUILDERS)
 
 
 def build(kind):

@@ -45,6 +45,13 @@ CC0 = {
 	"door": [("kenney", "OGG/doorOpen_1.ogg")],
 	"click": [("ui", "click1.wav"), ("ui", "click3.wav"), ("ui", "mouseclick1.wav")],
 	"page": [("kenney", "OGG/bookFlip2.ogg"), ("kenney", "OGG/bookFlip3.ogg")],
+	# Ato II (A Horda): vozes gravadas dos mesmos pacotes
+	"orc": [("rpgpack", "RPG Sound Pack/NPC/ogre/ogre%d.wav" % i) for i in (1, 2, 5)],
+	"wolf_snarl": [("rpgpack", "RPG Sound Pack/NPC/misc/wolfman.wav"), ("oga80", "creature_roar_01.ogg")],
+	# trolls das Estepes: rugido ao ver você, grunhido na skill, queda pesada
+	"troll_growl": [("oga80", "creature_roar_02.ogg"), ("oga80", "creature_roar_03.ogg"), ("rpgpack", "RPG Sound Pack/NPC/gutteral beast/mnstr6.wav")],
+	"troll_grunt": [("rpgpack", "RPG Sound Pack/NPC/ogre/ogre3.wav"), ("rpgpack", "RPG Sound Pack/NPC/ogre/ogre4.wav"), ("oga80", "creature_monster_02.ogg")],
+	"troll_die": [("rpgpack", "RPG Sound Pack/NPC/giant/giant4.wav"), ("oga80", "creature_monster_04.ogg")],
 }
 
 
@@ -405,6 +412,139 @@ def s_firework(rng):
 	return out
 
 
+# ---- Ato II (A Horda)
+def _drum_hit(out, rng, f, at, gain, ring=0.5):
+	"""Uma batida de tambor de pele: grave que cai de tom + estalo abafado da baqueta."""
+	add(out, tone(ring, f * 1.7, f, decay=7.0 / ring * 0.5, harm=[(1.59, 0.3), (2.14, 0.15)]), at, gain)
+	add(out, lowpass(noise(0.1, rng, decay=38), 1100), at, gain * 0.55)
+
+
+def s_war_drum(rng):
+	"""Tambor de guerra grande (skill do Agitador): dum, dum, DUM."""
+	out = zeros(1.5)
+	f = rng.uniform(58, 70)
+	for at, g in ((0.0, 0.65), (0.26, 0.8), (0.52, 1.0)):
+		_drum_hit(out, rng, f, at, g, ring=0.9)
+	return out
+
+
+def s_drum_beat(rng):
+	"""Pulso da aura do Agitador (o jogo repete enquanto ele vive): uma a três batidas curtas."""
+	out = zeros(0.55)
+	f = rng.uniform(82, 96)
+	for at, g in rng.choice([[(0.0, 1.0)], [(0.0, 1.0), (0.2, 0.6)], [(0.0, 0.8), (0.14, 0.5), (0.28, 1.0)]]):
+		_drum_hit(out, rng, f, at, g, ring=0.26)
+	return out
+
+
+def s_net(rng):
+	"""Rede arremessada: giro no ar (vupe-vupe) e as cordas esticando ao abrir."""
+	out = zeros(0.65)
+	nz = swell(bandpass(noise(0.45, rng, decay=0.8), 300, 2600), 0.6)
+	rate = rng.uniform(15, 20)
+	add(out, [x * (0.55 + 0.45 * math.sin(i / SR * 2 * math.pi * rate)) for i, x in enumerate(nz)], 0, 0.9)
+	for _ in range(5):
+		add(out, lowpass(pluck(0.12, rng.uniform(140, 260), rng, damp=0.98), 1800), 0.36 + rng.uniform(0, 0.14), 0.35)
+	return out
+
+
+def s_wolf_howl(rng):
+	"""Uivo: sobe, sustenta com tremor e cai."""
+	dur = rng.uniform(1.4, 1.7)
+	n = n_of(dur)
+	lo = rng.uniform(300, 345)
+	hi = lo * rng.uniform(1.55, 1.75)
+	out, ph = [], 0.0
+	for i in range(n):
+		u = i / n
+		if u < 0.22:
+			f = lo * (hi / lo) ** (u / 0.22)
+		elif u < 0.7:
+			f = hi * (1 + 0.012 * math.sin(2 * math.pi * 5.5 * i / SR))
+		else:
+			f = hi * 0.72 ** ((u - 0.7) / 0.3)
+		ph += 2 * math.pi * f / SR
+		v = math.sin(ph) + 0.45 * math.sin(2 * ph) + 0.2 * math.sin(3 * ph) + 0.08 * math.sin(4 * ph)
+		out.append(v * min(1.0, u / 0.12) * min(1.0, (1 - u) / 0.3))
+	breath = bandpass(noise(dur, rng, decay=0.3), 500, 2500)
+	return lowpass([a + 0.15 * b * abs(a) for a, b in zip(out, breath)], 2600)
+
+
+def s_goblin(rng):
+	"""Tagarelar de goblin: quatro a seis guinchos curtos, cada um num tom."""
+	out = zeros(0.8)
+	at = 0.0
+	for _ in range(rng.randint(4, 6)):
+		d = rng.uniform(0.05, 0.1)
+		f = rng.uniform(380, 640)
+		y = tone(d, f, f * rng.choice([0.7, 1.35, 1.5]), kind="saw", decay=6, attack=0.008)
+		add(out, bandpass(y, 700, 2600), at, rng.uniform(0.6, 1.0))
+		at += d + rng.uniform(0.01, 0.05)
+	return out
+
+
+def s_goblin_shriek(rng):
+	"""Guincho de goblin caindo: sobe rápido e desce tremendo."""
+	dur = rng.uniform(0.4, 0.5)
+	n = n_of(dur)
+	f0 = rng.uniform(620, 760)
+	out, ph = [], 0.0
+	for i in range(n):
+		u = i / n
+		f = f0 * (2.1 ** (u / 0.3) if u < 0.3 else 2.1 * 0.5 ** ((u - 0.3) / 0.7))
+		ph += 2 * math.pi * f / SR
+		v = sum(math.sin(ph * k) / k for k in range(1, 6)) * 0.6
+		trem = 1.0 if u < 0.3 else 0.65 + 0.35 * math.sin(i / SR * 2 * math.pi * 28)
+		out.append(v * trem * min(1.0, u / 0.03) * min(1.0, (1 - u) / 0.25))
+	out = bandpass(out, 800, 4500)
+	add(out, highpass(noise(dur * 0.7, rng, decay=8), 3000), 0.08, 0.1)
+	return out
+
+
+def s_naga(rng):
+	"""Silvo de naga: chiado agudo que treme, com o estalo da língua no começo."""
+	dur = rng.uniform(0.65, 0.85)
+	nz = highpass(noise(dur, rng, decay=0.4, attack=0.05), 3500)
+	rate = rng.uniform(26, 38)
+	out = swell([x * (0.75 + 0.25 * math.sin(i / SR * 2 * math.pi * rate)) for i, x in enumerate(nz)], 0.3)
+	add(out, tone(0.1, 900, 500, decay=25), 0, 0.12)
+	return out
+
+
+def s_tide(rng):
+	"""Maré/respingo: o corpo d'água bate, estoura, recua e pinga."""
+	out = zeros(1.1)
+	add(out, tone(0.35, 110, 48, decay=10), 0, 0.8)
+	add(out, bandpass(noise(0.5, rng, decay=7, attack=0.004), 500, 6000), 0, 0.9)
+	add(out, swell(lowpass(noise(1.0, rng, decay=1.6), 2200, 500), 0.25), 0.05, 0.5)
+	for _ in range(10):
+		f = rng.uniform(900, 2600)
+		add(out, tone(0.05, f, f * 1.5, decay=45), rng.uniform(0.15, 0.8), rng.uniform(0.08, 0.2))
+	return out
+
+
+def s_troll_slam(rng):
+	"""Pancada de troll: o punho de pedra bate no chão (grave fundo), a terra estala e o cascalho chove."""
+	out = zeros(1.0)
+	add(out, tone(0.6, 58, 26, decay=6, harm=[(1.5, 0.25)]), 0, 1.0)
+	add(out, lowpass(noise(0.25, rng, decay=18, attack=0.001), 900), 0, 1.0)
+	add(out, lowpass(noise(0.8, rng, decay=3.5), 380), 0.03, 0.7)
+	for _ in range(14):
+		add(out, bandpass(noise(0.03, rng, decay=90), 700, 3500), 0.12 + rng.random() * 0.6, rng.uniform(0.12, 0.35))
+	return out
+
+
+def s_troll_regen(rng):
+	"""Carne de troll se fechando (pulso da regeneração): borbulho úmido grave e um zumbido verde que sobe."""
+	out = zeros(0.75)
+	for _ in range(rng.randint(4, 6)):
+		f = rng.uniform(90, 180)
+		add(out, tone(0.08, f, f * 1.8, decay=30, attack=0.006), rng.uniform(0.0, 0.4), rng.uniform(0.35, 0.6))
+	add(out, swell(lowpass(noise(0.6, rng, decay=1.5), 600), 0.35), 0.0, 0.45)
+	add(out, swell(tone(0.55, 220, 330, kind="tri", decay=1.2, harm=[(1.5, 0.3)]), 0.6), 0.12, 0.22)
+	return out
+
+
 def s_ui_open(rng):
 	return tone(0.09, 520, 820, decay=30, attack=0.002)
 
@@ -421,6 +561,10 @@ SYNTH = {
 	"hurt": (s_hurt, 2), "bow": (s_bow, 3), "gun": (s_gun, 2), "level_up": (s_level_up, 1),
 	"quest_accept": (s_quest_accept, 1), "quest_done": (s_quest_done, 1), "recall": (s_recall, 1),
 	"recall_done": (s_recall_done, 1), "death": (s_death, 1), "firework": (s_firework, 3), "ui_open": (s_ui_open, 1), "ui_close": (s_ui_close, 1),
+	# Ato II (A Horda)
+	"war_drum": (s_war_drum, 2), "drum_beat": (s_drum_beat, 3), "net": (s_net, 2), "wolf_howl": (s_wolf_howl, 3),
+	"goblin": (s_goblin, 3), "goblin_shriek": (s_goblin_shriek, 2), "naga": (s_naga, 3), "tide": (s_tide, 3),
+	"troll_slam": (s_troll_slam, 3), "troll_regen": (s_troll_regen, 3),
 }
 
 

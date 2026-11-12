@@ -127,6 +127,29 @@ DUNGEONS["dg_pedreira_coracao"] = {
         "edges": [("chegada", "galeria"), ("galeria", "coracao")],
     },
 }
+# Grutas Goblin (Costa Partida, Ato II 30-35): boca ao norte da Aldeia de Palafitas. Três salões (lamaçal, forja, tambores)
+# e o Selo do Agitador no fundo, onde o Agitador-Mor bate o tambor de guerra.
+GOBLIN_DECOR = [("crate", 4, (1.0, 1.0, 1.0), None), ("barrel", 3, (0.8, 1.0, 0.8), None), ("rock", 3, (1.4, 0.9, 1.2), (0.42, 0.4, 0.3))]
+DUNGEONS["dg_goblin"] = {
+    "zone": "field_coast", "gate": (-78.0, -38.0), "face": 55.0, "name": "Grutas Goblin", "seed": 29,
+    "rock": (0.36, 0.34, 0.26), "floor": (0.44, 0.4, 0.3), "glow": (0.95, 0.45, 0.25),
+    "layout": {
+        "rooms": {
+            # cada salão tem a sua cor de chão e o seu miolo, para se saber onde se está só de olhar de cima:
+            # lamaçal verde com poça turva, forja laranja com lava, tambores roxo-vinho com a pele do tambor pintada no chão,
+            # selo vermelho-sangue com a brasa do Agitador-Mor
+            "lamacal": {"pos": (0, 20), "r": 12, "mobs": [("goblin_lancer", 6)], "floor": (0.3, 0.46, 0.3), "pool": (0.36, 0.6, 0.52),
+                        "decor": GOBLIN_DECOR + [("stump", 4, (1.0, 0.8, 1.0), (0.36, 0.3, 0.2))]},
+            "forja": {"pos": (-30, -4), "r": 10, "mobs": [("goblin_impaler", 3), ("goblin_lancer", 3)], "floor": (0.62, 0.36, 0.2),
+                      "pool": (1.0, 0.5, 0.2), "decor": [("anvil", 3, (1.0, 1.0, 0.6), (0.4, 0.4, 0.42)), ("cauldron", 2, (1.1, 1.0, 1.1), (0.3, 0.3, 0.32))] + GOBLIN_DECOR[:2]},
+            "tambores": {"pos": (28, -16), "r": 10, "mobs": [("orc_recruit", 3), ("goblin_agitator", 1)], "floor": (0.48, 0.26, 0.4),
+                         "pool": (0.9, 0.78, 0.52), "decor": [("barrel", 7, (1.5, 1.2, 1.5), (0.74, 0.24, 0.2))]},
+            "selo": {"pos": (0, -40), "r": 15, "boss": "boss_agitator_lord", "floor": (0.62, 0.22, 0.2), "pool": (1.0, 0.62, 0.25),
+                     "decor": [("tent", 3, (3.0, 2.2, 3.0), (0.6, 0.2, 0.16)), ("barrel", 4, (1.5, 1.2, 1.5), (0.74, 0.24, 0.2))]},
+        },
+        "edges": [("chegada", "lamacal"), ("lamacal", "forja"), ("forja", "tambores"), ("tambores", "selo")],
+    },
+}
 DUNGEON_ARRIVE = (0.0, 44.0)   # chegada dentro de toda dungeon; a saída fica em DUNGEON_EXIT
 DUNGEON_EXIT = (0.0, 50.0)
 

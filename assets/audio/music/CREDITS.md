@@ -14,3 +14,6 @@
 | cidadela | Apocalypse (JRPG Pack 3 Evil) | Juhani Junkala (SubspaceAudio) | https://opengameart.org/content/jrpg-pack-3-evil |
 | chefe | Boss Fight | Lisboa | https://opengameart.org/content/boss-fight-0 |
 | investida | Battle Theme A | cynicmusic | https://opengameart.org/content/battle-theme-a |
+| porto | Port Town Loop | beardalaxy | https://opengameart.org/content/port-town-loop |
+| costa | Song of the Sea | Kistol | https://opengameart.org/content/song-of-the-sea |
+| goblins | Krakatoa | Kistol | https://opengameart.org/content/krakatoa |

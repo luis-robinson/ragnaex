@@ -209,23 +209,24 @@ def build(export=False):
             k += 1
     for a in gate_deg:                                    # portais em arco de dois troncos (só visual: a passagem fica livre)
         z.ob("elf_arch", *H(RING_R - 0.5, a), (5.6, 5.4, 0.9), face(a), solid=False)
-    z.data["hangouts"] = [list(arrive), [10.0, 80.0], [-8.0, 70.0], [30.0, 72.0], list(H(70.0, 90.0)), [-80.0, 30.0], [76.0, 34.0]]
+    z.data["hangouts"] = [list(arrive), [10.0, 80.0], [-8.0, 70.0], [30.0, 72.0], list(H(70.0, 90.0)), [-93.0, 5.0], [76.0, 34.0]]      # o do poço: largo ao norte dele, em chão seco
 
     # ---------- estradas (curvas; os portões ligam os POIs e há arcos entre eles) ----------
     gS, gE, gW, gNW, gNE, gN = (H(RING_R, a) for a in gate_deg)
     z.road("S", [gS, (8, 58), (-6, 76), (2, 90), arrive, portal], end_clearing=False)
     z.road("L", [gE, (72.0, 4.0), (73.0, 10.0)])                                     # forte da Seiva (portão a oeste)
-    z.road("O", [gW, (-76, 2), (-84, 6), (MOONWELL[0] + 12, MOONWELL[1] - 4)])     # cruza o riacho (ponte) até o poço
+    z.road("O", [gW, (-74, 0.5), (-82, 2.0), (MOONWELL[0] + 5, MOONWELL[1] - 12)])   # cruza o riacho de frente (ponte) e chega ao poço pelo norte
     z.road("NO", [gNW, (-40.0, -60.0), (-41.0, -64.0)])                              # forte do Ninho
     z.road("NE", [gNE, (42, -58), (56, -58), (GROVE[0] - 8, GROVE[1] + 2)])
     z.road("N", [gN, (6.0, -70.0), (10.0, -74.0)])                                   # forte da Matilha
     z.road("arco_norte", [(10.0, -74.0), (28, -78), (44, -74), (GROVE[0] - 8, GROVE[1] + 2)])
     z.road("arco_leste", [(GROVE[0] + 4, GROVE[1] + 10), (84, -32), (84, -10)])
     z.road("arco_sul", [(74, 36), (64, 56), (40, 70), (-6, 76)], end_clearing=False)
-    z.road("arco_oeste", [(MOONWELL[0] + 8, MOONWELL[1] + 12), (-72, 52), (-58, 86), (-30, 84), (-6, 76)], end_clearing=False)
+    # margem oeste do riacho (a ~10 m da água, nunca por cima dela), passa entre o riacho e a cabana do desertor e só então cruza, de frente
+    z.road("arco_oeste", [(MOONWELL[0] + 8, MOONWELL[1] + 12), (-84, 48), (-75, 62), (-65, 78), (-61, 86), (-45, 81), (-28, 83), (-6, 76)], end_clearing=False)
 
     # ---------- água: riacho a oeste (pontes nas estradas) e o poço da lua ----------
-    z.river([(-30, -128), (-56, -106), (-76, -70), (-82, -32), (-84, 0), (-80, 34), (-62, 68), (-46, 98), (-40, 128)], w=5.5)     # por fora do muro
+    z.river([(-30, -128), (-56, -106), (-76, -70), (-81, -32), (-81, 0), (-77, 34), (-62, 68), (-46, 98), (-40, 128)], w=5.5)     # por fora do muro
     z.lake("poco_lua", MOONWELL, 10.0, "water_dark")
     z.bridges()
 
@@ -242,7 +243,7 @@ def build(export=False):
     # ---------- relevo ----------
     z.hill("colina_se", (90, 80), 9, 2)
     z.hill("colina_n", (30, -104), 8, 2)
-    for i, (c, r, lv) in enumerate([((-90, -26), 7, 2), ((96, -60), 6, 2), ((-30, 104), 6, 1), ((60, 100), 6, 1)]):
+    for i, (c, r, lv) in enumerate([((-96, -26), 7, 2), ((96, -60), 6, 2), ((-30, 104), 6, 1), ((60, 100), 6, 1)]):
         z.terrace("afloramento_%d" % i, c, r, lv, top="cliff_grass")
     z.cliffs()
 
@@ -290,6 +291,6 @@ def build(export=False):
     z.spawner("elf_warden", 17.0, 10.0, 3, 2, 60.0)                       # guardam a porta do Coração, no tronco (sudeste)
     z.spawner("griffin", AERIE[0] - 4, AERIE[1] - 2, 6, 2, 26.0)          # grifos soltos no ninho (o capitão traz os dele)
     z.spawner("trent", GROVE[0], GROVE[1], 12, 4, 30.0)
-    z.spawner("elf_archer", MOONWELL[0] + 14, MOONWELL[1] + 8, 6, 3, 22.0)
+    z.spawner("elf_archer", MOONWELL[0] + 8, MOONWELL[1] + 20, 6, 3, 22.0)      # margem oeste do riacho, ao sul do poço (antes caía na água)
     z.spawner("elf_lynx", -24.0, -76.0, 9, 4, 18.0)
     return z.finish(export, poi=AERIE, ground=(0.4, 0.58, 0.42))

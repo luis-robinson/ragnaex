@@ -15,7 +15,7 @@ import os
 import random
 from mathutils import Vector
 
-ROOT = r"C:/Users/luisf/Desktop/projects/ragnaex"
+ROOT = os.environ.get("RAGNAEX_ROOT", r"C:/Users/luisf/Desktop/projects/ragnaex").replace("\\", "/")   # worktree: RAGNAEX_ROOT
 ROAD_W = 4.2
 
 
@@ -51,6 +51,39 @@ def seg_dist(p, a, b):
 
 def poly_dist(p, poly):
     return min(seg_dist(p, poly[i], poly[i + 1]) for i in range(len(poly) - 1))
+
+
+# Giro de cada mapa de fortaleza (graus, horário visto de cima) = rumo do portal de saída na zona-mãe (0 = norte, 90 = leste):
+# quem sai do Bastião pelo oeste chega na fortaleza pelo LESTE dela. O desenho de toda fortaleza é "chegada ao sul" (0, 96);
+# Zone.apply_turn gira dados e malhas no fim do build. O teste `_check_world_layout` confere saída x chegada de todo portal.
+FORT_TURN = {"fort_ghoul": 270.0, "fort_bones": 0.0, "fort_frost": 180.0, "lich_citadel": 42.0,
+             "fort_trolls": 270.0, "fort_war": 60.0, "fort_fire": 125.0}
+
+
+def turned(p, deg):
+    """Ponto do desenho original (x, z) -> depois do giro de `deg` graus (o mesmo de Zone.apply_turn)."""
+    a = math.radians(deg)
+    return (round(p[0] * math.cos(a) - p[1] * math.sin(a), 2), round(p[0] * math.sin(a) + p[1] * math.cos(a), 2))
+
+
+def fort_arrive(fid, p=(0.0, 96.0)):
+    """Chegada no mapa da fortaleza `fid` (o `target_pos` do portal da zona-mãe), já girada."""
+    return turned(p, FORT_TURN.get(fid, 0.0))
+
+
+BRIDGE_MIN_ANGLE = 60.0       # graus entre estrada e rio no cruzamento (90 = perpendicular). O vão que a sim abre no rio é reto
+                              # (atravessado ao rio): em ponte enviesada as bordas do tabuleiro ficam sobre água sólida (run_tests BRIDGE_SQUARE)
+
+
+def seg_hit(a, b, c, d):
+    """Interseção dos segmentos ab e cd (Vector 2D) ou None — a mesma conta de Geometry2D.segment_intersects_segment."""
+    r, s = b - a, d - c
+    den = r.x * s.y - r.y * s.x
+    if abs(den) < 1e-9:
+        return None
+    t = ((c.x - a.x) * s.y - (c.y - a.y) * s.x) / den
+    u = ((c.x - a.x) * r.y - (c.y - a.y) * r.x) / den
+    return a + r * t if 0.0 <= t <= 1.0 and 0.0 <= u <= 1.0 else None
 
 
 def angdiff(a, b):
@@ -110,7 +143,7 @@ def disc(coll, name, c, r, y, material, segs=48, jitter=0.0, seed=0):
     # borda orgânica e suave (soma de senos), com segmentos curtos: sem quinas visíveis de perto
     ph = [rnd.uniform(0, math.tau) for _ in range(3)]
     if jitter > 0:
-        segs = max(segs, min(180, int(r * 4)))
+        segs = max(segs, min(240, int(r * 9)))
     for i in range(segs):
         a = math.tau * i / segs
         rr = r * (1.0 + jitter * (0.6 * math.sin(3 * a + ph[0]) + 0.3 * math.sin(5 * a + ph[1]) + 0.18 * math.sin(9 * a + ph[2])))
@@ -178,6 +211,58 @@ def blob(coll, name, c, r, y, material, seed=0, squash=0.8):
     return _obj(coll, name, bm, material)
 
 
+def build_bridges(zone, coll, P, road_polys, rivers, widths, wood, out, roads=()):
+    """O trabalho de Zone.bridges, para quem monta a zona sem a classe (build_city_aldara): um tabuleiro por cruzamento
+    de verdade estrada x rio, na corda da estrada; cada um entra em `out` (o "bridges" do JSON)."""
+    sim_pts = lambda poly: poly[::2] + [poly[-1]]          # o que vai para o JSON (road()/river())
+    for name, poly in road_polys.items():
+        if name.startswith("trilha_") and name not in roads:
+            continue                                       # trilha de lugar (places._trail, kind "trail") não abre vão na sim;
+                                                           # estrada de verdade com esse nome (Zone.road, kind "road") abre
+        rp = sim_pts(poly)
+        for k, rv in enumerate(rivers):
+            w = widths[k]
+            wp = sim_pts(rv)
+            hits = []
+            for i in range(len(wp) - 1):
+                for j in range(len(rp) - 1):
+                    h = seg_hit(wp[i], wp[i + 1], rp[j], rp[j + 1])
+                    if h is not None and all((h - q).length > 1.0 for q, _ in hits):
+                        hits.append((h, (wp[i + 1] - wp[i]).normalized()))
+            for n, (h, rdir) in enumerate(hits):
+                # corda da estrada sobre a faixa de água (+ margem), em volta do cruzamento
+                i0 = min(range(len(poly)), key=lambda i: (poly[i] - h).length)
+                lo = hi = i0
+                while lo > 0 and poly_dist(poly[lo], rv) < w * 0.5 + 1.2:
+                    lo -= 1
+                while hi < len(poly) - 1 and poly_dist(poly[hi], rv) < w * 0.5 + 1.2:
+                    hi += 1
+                if hi == lo:
+                    lo, hi = max(lo - 1, 0), min(hi + 1, len(poly) - 1)
+                t = (poly[hi] - poly[lo]).normalized()
+                cross = math.degrees(math.acos(min(1.0, abs(t.dot(rdir)))))      # 90 = perpendicular ao rio
+                if cross < BRIDGE_MIN_ANGLE:
+                    print("BRIDGE_CONFLICT %s: estrada %s cruza o rio a %.0f graus em (%.1f, %.1f) (mínimo %.0f)"
+                          % (zone, name, cross, h.x, h.y, BRIDGE_MIN_ANGLE))
+                ang = along(t.x, t.y)
+                L = min(w / max(math.sin(math.radians(cross)), 0.5), w * 1.5) + 5.0
+                tag = "%s_%d" % (name, k) if n == 0 else "%s_%d_%d" % (name, k, n)
+                box(coll, P + "ponte_" + tag, (h.x, h.y), (L, 0.08, ROAD_W + 0.6), ang, wood, 0.03)
+                for sx in (-1, 1):
+                    side = Vector((t.y, -t.x)) * (ROAD_W / 2 + 0.2) * sx
+                    box(coll, P + "corrimao_%s_%d" % (tag, sx), (h.x + side.x, h.y + side.y), (L, 0.14, 0.18), ang, wood, 0.75)
+                    for j in range(-2, 3):
+                        av = t * j * (L - 1.0) / 4
+                        box(coll, P + "poste_%s_%d_%d" % (tag, sx, j), (h.x + side.x + av.x, h.y + side.y + av.y), (0.22, 0.85, 0.22), ang, wood, 0.0)
+                out.append({"pos": [round(h.x, 2), round(h.y, 2)], "rot": round(ang, 1), "len": round(L, 2), "w": ROAD_W + 0.6,
+                            "road": name, "cross": round(cross, 1)})
+            # estrada dentro da água longe de qualquer ponte: não cruza (ou encosta antes de cruzar)
+            for q in poly:
+                if poly_dist(q, rv) < w * 0.5 - 0.5 and all((q - h).length > w + 4.0 for h, _ in hits):
+                    print("BRIDGE_CONFLICT %s: estrada %s entra no rio sem ponte em (%.1f, %.1f)" % (zone, name, q.x, q.y))
+                    break
+
+
 # ---------------------------------------------------------------------------
 # zona
 # ---------------------------------------------------------------------------
@@ -221,17 +306,20 @@ class Zone:
                      "town": {"center": [0.0, 0.0], "radius": 0.0, "gates": []},
                      "obstacles": [], "portals": [], "spawners": [], "npcs": {}, "hangouts": [], "roads": [], "water": []}
         self.road_polys = {}
+        self.real_roads = set()      # nomes passados por road() (kind "road"): as trilhas dos lugares não entram
         self.rivers = []
+        self.river_ws = []           # largura de cada rio (bridges)
         self.blocked = []          # (centro, raio) onde não nasce árvore/pedra
         self.portal_angles = []
+        self.turn = FORT_TURN.get(zone, 0.0)      # giro do mapa inteiro no fim (apply_turn)
 
     # --- dados da sim ---
-    def ob(self, kind, x, z, size, rot=0.0, visible=True, solid=True, color=None, roof=None, y=None, when=None):
+    def ob(self, kind, x, z, size, rot=0.0, visible=True, solid=True, color=None, roof=None, y=None, when=None, stage_solid=False):
         d = {"kind": kind, "pos": [round(x, 2), round(z, 2)], "size": [round(s, 2) for s in size], "rot": round(rot, 1),
              "visible": visible, "solid": solid}
-        if when:                          # conquista (WorldState): só aparece antes/depois de uma quest; sem colisão
+        if when:                          # conquista (WorldState): só aparece antes/depois de uma quest; sem colisão,
+            d["solid"] = bool(stage_solid)    # a não ser com stage_solid (colisor que só vale naquele estágio: MapGeometry.sync_stage)
             d.update(when)
-            d["solid"] = False
         if y is not None:
             d["y"] = y                     # altura visual (árvore no patamar da montanha); a sim é plana
         if color:
@@ -240,6 +328,12 @@ class Zone:
             d["roof"] = list(roof)
         self.data["obstacles"].append(d)
         return d
+
+    def water_tint(self, material):
+        """A água deste material aparece no jogo na cor da paleta da zona (sem o azul padrão): MapDef.water_tints.
+        Chame antes do river()/lake() que usa o material."""
+        c = self.M[material].diffuse_color
+        self.data.setdefault("water_tints", {})[material] = [round(c[0], 3), round(c[1], 3), round(c[2], 3)]
 
     def rim_r(self, a):
         base, a3, a5, a9 = self.rim
@@ -262,24 +356,46 @@ class Zone:
     def road(self, name, pts, w=ROAD_W, material="road", end_clearing=True):
         poly = catmull(pts, 1.6)
         self.road_polys[name] = poly
+        self.real_roads.add(name)
         ribbon(self.coll, self.P + "estrada_" + name, poly, w, 0.012, self.M[material])
         self.data["roads"].append({"kind": "road", "w": w, "pts": [[round(p.x, 2), round(p.y, 2)] for p in poly[::2] + [poly[-1]]]})
         end = poly[-1]
         if end_clearing:
             disc(self.coll, self.P + "estrada_fim_" + name, (end.x, end.y), w * 1.1, 0.011, self.M[material], 20, 0.12, len(name))
+        # pontas arredondadas e irregulares (a fita acabava num corte reto): um borrão de terra em cada ponta
+        for tag, q in (("ini", poly[0]), ("ponta", end)):
+            if tag == "ponta" and end_clearing:
+                continue
+            disc(self.coll, self.P + "estrada_%s_%s" % (tag, name), (q.x, q.y), w * 0.58, 0.0115, self.M[material], 16, 0.14, len(name) + 3)
         return poly
+
+    def arrival(self, pos, toward=None, r=6.5, material="road", name="chegada"):
+        """Largo de chegada: a estrada nasce num terreiro irregular (não num corte reto) e uma trilha curta liga o
+        terreiro ao portal `toward`. Só visual + grama fora (a estrada da sim não muda)."""
+        m = self.M[material]
+        disc(self.coll, self.P + "largo_" + name, pos, r, 0.0118, m, 40, 0.16, len(name) + 5)
+        disc(self.coll, self.P + "largo_" + name + "_b", (pos[0] + r * 0.45, pos[1] - r * 0.3), r * 0.62, 0.0117, m, 24, 0.2, len(name) + 9)
+        disc(self.coll, self.P + "largo_" + name + "_c", (pos[0] - r * 0.5, pos[1] + r * 0.2), r * 0.55, 0.0116, m, 24, 0.2, len(name) + 2)
+        self.data["roads"].append({"kind": "street", "w": 0, "pts": [[round(pos[0], 2), round(pos[1], 2)]], "r": round(r, 2)})
+        if toward is not None:
+            a, b = Vector(pos), Vector(toward)
+            mid = (a + b) * 0.5 + Vector((-(b - a).y, (b - a).x)) * 0.12
+            ribbon(self.coll, self.P + "largo_" + name + "_trilha", catmull([tuple(a), tuple(mid), tuple(b)], 1.4), ROAD_W * 0.9, 0.0119, m)
+            disc(self.coll, self.P + "largo_" + name + "_portal", toward, ROAD_W * 0.95, 0.0114, m, 20, 0.16, len(name) + 1)
 
     def plaza(self, name, c, r, material="street"):
         disc(self.coll, self.P + "praca_" + name, c, r, 0.014, self.M[material], 40, 0.05, len(name))
         self.data["roads"].append({"kind": "street", "w": 0, "pts": [[c[0], c[1]]], "r": r})
 
-    def patch(self, name, c, r, color, paved=False, grass=False):
+    def patch(self, name, c, r, color, paved=False, grass=False, y=None):
         """Mancha de chão com cor própria (lê a região de cima). Material "pave_*" vira calçamento no jogo,
         "patch_*" vira chão pintado; grass=False tira a grama ali."""
         mname = ("pave_" if paved else "patch_") + name
         if mname not in self.M:
             self.M[mname] = mat(mname, color)
-        disc(self.coll, self.P + "chao_" + name, c, r, 0.006, self.M[mname], 36, 0.1, len(name))
+        if y is None:        # camadas por tamanho: mancha grande por baixo da pequena (duas no mesmo plano brigam: faixas em leque)
+            y = 0.0045 if r >= 80 else (0.0052 if r >= 40 else (0.006 if r >= 12 else 0.0068))
+        disc(self.coll, self.P + "chao_" + name, c, r, y, self.M[mname], 36, 0.1, len(name))
         if not grass:
             self.data["roads"].append({"kind": "street", "w": 0, "pts": [[c[0], c[1]]], "r": r})
         return mname
@@ -294,35 +410,34 @@ class Zone:
         ribbon(self.coll, self.P + "agua_rio_%d" % len(self.rivers), poly, w, 0.02, self.M[material])
         ribbon(self.coll, self.P + "margem_rio_%d" % len(self.rivers), poly, w + 2.4, 0.008, self.M["road"])
         self.data["water"].append({"kind": "river", "w": w, "pts": [[round(p.x, 2), round(p.y, 2)] for p in poly[::2] + [poly[-1]]]})
+        if material in self.data.get("water_tints", {}):      # cor própria da zona (water_tint): o minimapa acha pelo material
+            self.data["water"][-1]["material"] = material
         self.river_w = w
+        self.river_ws.append(w)
         return poly
 
     def lake(self, name, c, r, material="water", solid=True):
         disc(self.coll, self.P + "agua_" + name, c, r, 0.025, self.M[material], 40, 0.07, len(name))
         disc(self.coll, self.P + "margem_" + name, c, r + 2.2, 0.009, self.M["road"], 40, 0.07, len(name))
         self.data["water"].append({"kind": "lake", "pos": list(c), "r": r})
+        if material in self.data.get("water_tints", {}):
+            self.data["water"][-1]["material"] = material
         if solid:
             self.ob("water", c[0], c[1], (2 * (r - 1.2), 1.0, 2 * (r - 1.2)), visible=False)
         self.block(c, r + 3)
 
     def bridges(self):
-        """Ponte (tabuleiro rente ao chão + corrimão baixo) onde cada estrada cruza cada rio."""
-        for name, poly in self.road_polys.items():
-            for k, rv in enumerate(self.rivers):
-                for i in range(len(poly) - 1):
-                    p = poly[i]
-                    if poly_dist(p, rv) < 0.9:
-                        t = (poly[min(i + 2, len(poly) - 1)] - poly[max(i - 2, 0)]).normalized()
-                        ang = along(t.x, t.y)
-                        L = self.river_w + 5.0
-                        box(self.coll, self.P + "ponte_%s_%d" % (name, k), (p.x, p.y), (L, 0.08, ROAD_W + 0.6), ang, self.M["wood"], 0.03)
-                        for sx in (-1, 1):
-                            side = Vector((t.y, -t.x)) * (ROAD_W / 2 + 0.2) * sx
-                            box(self.coll, self.P + "corrimao_%s_%d_%d" % (name, k, sx), (p.x + side.x, p.y + side.y), (L, 0.14, 0.18), ang, self.M["wood"], 0.75)
-                            for j in range(-2, 3):
-                                av = t * j * (L - 1.0) / 4
-                                box(self.coll, self.P + "poste_%s_%d_%d_%d" % (name, k, sx, j), (p.x + side.x + av.x, p.y + side.y + av.y), (0.22, 0.85, 0.22), ang, self.M["wood"], 0.0)
-                        break
+        """Ponte (tabuleiro rente ao chão + corrimão baixo) em CADA ponto onde uma estrada cruza um rio.
+
+        O ponto é o mesmo em que a sim abre o vão do rio (MapGeometry.water_crossings: interseção das polilinhas
+        exportadas no JSON), não "o primeiro ponto da estrada perto da água": estrada que encosta no rio antes de
+        cruzar ganhava a ponte no lugar errado (ao longo da água) e o cruzamento de verdade ficava sem ponte, com o vão
+        aberto. O tabuleiro segue a corda da estrada sobre a água (não a tangente de 2 pontos, que entorta na curva).
+        Guarda cada ponte em data["bridges"] (pos, rot, len, w, road) para o teste `_check_bridges` e avisa
+        BRIDGE_CONFLICT quando a estrada cruza raso demais (< BRIDGE_MIN_ANGLE) ou entra na água sem cruzar."""
+        out = self.data.setdefault("bridges", [])
+        widths = [self.river_ws[k] if k < len(self.river_ws) else self.river_w for k in range(len(self.rivers))]
+        build_bridges(self.zone, self.coll, self.P, self.road_polys, self.rivers, widths, self.M["wood"], out, self.real_roads)
 
     # --- relevo ---
     def hill(self, name, c, r, levels, rock="cliff_rock", top="hill_grass", step=1.8):
@@ -474,7 +589,7 @@ class Zone:
         o = bpy.data.objects.new("CAM_top", cam_top)
         o.location = (0, 0, 200)
         sc.collection.objects.link(o)
-        for name, (tx, tz) in (("CAM_game", tuple(self.data["spawn"])), ("CAM_poi", poi)):
+        for name, (tx, tz) in (("CAM_game", tuple(getattr(self, "cam_game", self.data["spawn"]))), ("CAM_poi", poi)):
             cd = bpy.data.cameras.new(name)
             cd.lens_unit = "FOV"
             cd.angle = math.radians(56)
@@ -518,7 +633,62 @@ class Zone:
         for s in self.data["spawners"]:
             disc(pc, "PV_sp", s["pos"], s["radius"], 0.03, red, 16)
 
+    def apply_turn(self, poi):
+        """Gira o mapa inteiro `self.turn` graus no sentido horário visto de cima (norte = -z): dados da sim e malhas.
+
+        Os mapas de fortaleza são desenhados com a chegada ao sul; o mundo pede que a chegada fique do lado de onde o
+        jogador saiu na zona-mãe (saiu pelo oeste -> chega pelo leste). `turn` = rumo do portal de saída na zona-mãe
+        (0 = norte, 90 = leste) e é gravado no JSON (`"turn"`), para quem tem ponto fixo no desenho original (tour, testes).
+        `target_pos` dos portais fica como está (é ponto de OUTRO mapa)."""
+        deg = float(getattr(self, "turn", 0.0)) % 360.0
+        self.data["turn"] = round(deg, 1)
+        if deg == 0.0:
+            return poi
+        a = math.radians(deg)
+        ca, sa = math.cos(a), math.sin(a)
+
+        def rp(p):
+            return [round(p[0] * ca - p[1] * sa, 2), round(p[0] * sa + p[1] * ca, 2)]
+
+        def yaw(r):
+            return round((float(r) - deg + 180.0) % 360.0 - 180.0, 1)
+
+        POINT = ("pos", "from", "target", "spawn", "center", "arrive")
+        LISTS = ("route", "pts", "hangouts", "gates")
+
+        def walk(v, key=""):
+            if isinstance(v, dict):
+                for k in list(v.keys()):
+                    x = v[k]
+                    if k in POINT and isinstance(x, (list, tuple)) and len(x) == 2:
+                        v[k] = rp(x)
+                    elif k in LISTS and isinstance(x, list):
+                        v[k] = [rp(q) for q in x]
+                    elif k == "emerge" and isinstance(x, (list, tuple)) and len(x) == 3:
+                        v[k] = rp(x[:2]) + [x[2]]
+                    elif k == "rot" and isinstance(x, (int, float)):
+                        v[k] = yaw(x)
+                    elif k == "npcs" and isinstance(x, dict):
+                        for nid, q in x.items():
+                            x[nid] = rp(q[:2]) + [yaw(q[2])]
+                    elif k != "target_pos":
+                        walk(x, k)
+            elif isinstance(v, list):
+                for x in v:
+                    walk(x, key)
+
+        walk(self.data)
+        from mathutils import Matrix
+        R = Matrix.Rotation(-a, 4, "Z")           # Blender (x, y) = jogo (x, -z): horário no jogo = -a em Z
+        for o in self.coll.objects:
+            if o.parent is None:
+                o.matrix_world = R @ o.matrix_world
+        if hasattr(self, "cam_game"):
+            self.cam_game = tuple(rp(self.cam_game))
+        return tuple(rp(poi))
+
     def finish(self, export=False, poi=(0.0, 0.0), ground=(0.55, 0.74, 0.42)):
+        poi = self.apply_turn(poi)
         self.markers(poi)
         self.preview(ground)
         if export:
@@ -528,8 +698,11 @@ class Zone:
             bpy.ops.object.select_all(action="DESELECT")
             for o in self.coll.objects:
                 o.select_set(True)
+            kw = {}
+            if "export_vertex_color" in bpy.ops.export_scene.gltf.get_rna_type().properties:
+                kw["export_vertex_color"] = "ACTIVE"       # lotes do dress.py: a cor de cada peça vai no vértice (COLOR_0)
             bpy.ops.export_scene.gltf(filepath=ROOT + "/assets/models/map_%s.glb" % self.zone, export_format="GLB",
                                       use_selection=True, use_active_scene=True, export_apply=True, export_animations=False,
-                                      export_yup=True, export_materials="EXPORT")
+                                      export_yup=True, export_materials="EXPORT", **kw)
             print("exportado: map_%s.glb + data/zones/%s.json" % (self.zone, self.zone))
         return self.data

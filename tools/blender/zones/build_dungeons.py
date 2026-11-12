@@ -9,6 +9,7 @@ import math
 import random
 import bpy
 from mathutils import Vector
+import act2_dress
 import places
 from zone_lib import Zone, poly_dist, disc, mat
 
@@ -215,6 +216,8 @@ def build_graph(did, g, export):
             if all((q - Vector(r["pos"])).length > r["r"] + 1.0 for r in rooms.values()):     # postes só nos corredores
                 z.ob("elf_lantern" if g.get("style") == "tree" else "lamp", q.x, q.y, (0.6, 2.4, 0.6) if g.get("style") == "tree" else (0.4, 2.4, 0.4))
     z.data["hangouts"] = []
+    if did == "dg_goblin":                # acabamento do Ato II (estalagmites, cogumelos, lava, runas): act2_dress.goblin
+        act2_dress.goblin(z, rooms, L["edges"])
     boss_pos = next(r["pos"] for r in L["rooms"].values() if "boss" in r)
     return z.finish(export, poi=boss_pos, ground=g["floor"])
 

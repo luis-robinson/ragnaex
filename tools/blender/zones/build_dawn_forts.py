@@ -249,7 +249,7 @@ GHOUL_RIVER = [(-130, 40), (-92, 30), (-62, 44), (-30, 36), (0, 46), (30, 34), (
 GHOUL_LAKES = [("lagoa_meio", (0, 66), 10.0), ("lagoa_oeste", (-92, 4), 9.0), ("lagoa_leste", (80, 66), 8.0),
                ("lagoa_no", (-56, -38), 8.5), ("lagoa_ne", (54, -50), 7.5), ("lagoa_sul", (-66, 86), 6.5)]
 GHOUL_NESTS = [(-60, 60), (58, 12)]              # ninhos (os "postos" da quest dw_ghoul_posts)
-GHOUL_W = [(0, 92), (-20, 82), (-42, 70), (-50, 56), (-48, 26), (-38, 10), (-18, 2), (0, 0)]
+GHOUL_W = [(0, 92), (-20, 82), (-42, 70), (-50, 56), (-53, 36), (-48, 24), (-38, 10), (-18, 2), (0, 0)]      # cruza o rio de bile de frente
 GHOUL_E = [(0, 92), (18, 80), (30, 62), (40, 44), (46, 24), (36, 8), (16, 2), (0, 0)]
 
 
@@ -420,6 +420,7 @@ def build_ghoul(export=False):
     # ---------- duas trilhas de lama que contornam a lagoa do meio e se juntam na brecha do covil ----------
     z.road("trilha_oeste", GHOUL_W, w=4.4)
     z.road("trilha_leste", GHOUL_E, w=4.4)
+    z.arrival(arrive, polar(z, 90, 7), 6.5, "road")      # largo de chegada + trilha ate o portal (a estrada nao nasce num corte reto)
     z.road("vau", [(-50, 56), (-26, 60), (-12, 76), (0, 82)], w=2.6, end_clearing=False)      # atalho estreito pela margem da lagoa
     z.bridges()
     # ---------- ninhos (postos avançados da quest) ----------
@@ -452,7 +453,7 @@ def build_ghoul(export=False):
         z.npc("%s_g_%s_%d" % (fid, role, i), c[0] - 6 + i * 3.0, c[1] + R - 4.0, 180.0)
     z.spawner(cfg["boss"], c[0], c[1] - 2, 2, 1, 120.0, when=gone)
     for i, (mob, n, resp) in enumerate(cfg["inside"]):
-        a = math.tau * i / len(cfg["inside"]) + 0.6
+        a = math.tau * i / len(cfg["inside"]) + 1.2      # 1.2 (era 0.6): o terceiro grupo caía dentro do morro/mausoléu do fundo do pátio
         z.spawner(mob, c[0] + math.cos(a) * 14, c[1] + math.sin(a) * 12, 6, n, resp, when=gone)
     # ninhada espalhada pelo charco (fora das trilhas, das lagoas e do rio)
     out_pts = [(-82, 70), (24, 16), (-74, -14), (80, -10), (-22, 20), (46, 86)]
@@ -626,6 +627,7 @@ def build_bones(export=False):
     # ---------- a fenda: atravessa o vale de borda a borda; ponte de ossos onde a estrada e a trilha da cripta cruzam ----------
     z.river(BONES_CHASM, w=9.0, material="chasm")
     z.road("subida", BONES_ROAD, w=4.4)
+    z.arrival(arrive, polar(z, 90, 7), 6.5, "road")      # largo de chegada + trilha ate o portal (a estrada nao nasce num corte reto)
     z.road("trilha_cripta", BONES_CRYPT_PATH, w=3.0)
     z.road("trilha_oeste", [(-26, 82), (-44, 72), (-52, 66)], w=2.8, end_clearing=False)
     z.bridges()
@@ -689,7 +691,7 @@ def build_bones(export=False):
         z.npc("%s_g_%s_%d" % (fid, role, i), c[0] - 6 + i * 3.0, c[1] + R - 4.0, 180.0)
     z.spawner(cfg["boss"], c[0], c[1] - 2, 2, 1, 120.0, when=gone)
     for i, (mob, n, resp) in enumerate(cfg["inside"]):
-        a = math.tau * i / len(cfg["inside"]) + 0.6
+        a = math.tau * i / len(cfg["inside"]) + 1.2      # 1.2 (era 0.6): o terceiro grupo caía dentro do morro/mausoléu do fundo do pátio
         z.spawner(mob, c[0] + math.cos(a) * 14, c[1] + math.sin(a) * 12, 6, n, resp, when=gone)
     for (mob, n, resp), p in zip(cfg["outside"], [(-60, 84), (34, 82), (-62, 20)]):
         z.spawner(mob, p[0], p[1], 9, n, resp, when=gone)
@@ -742,7 +744,7 @@ def ship(z, name, p, rot, mats):
 
 def cultist_camp(z, i, p, mats):
     """Acampamento de cultistas numa ilha de neve: tenda roxa, círculo de runas, braseiro de fogo azul."""
-    z.patch("ilha_%d" % i, p, 10.0, (0.9, 0.93, 0.97), grass=False)
+    z.patch("ilha_%d" % i, p, 10.0, (0.9, 0.93, 0.97), grass=False, y=0.0076)
     blob(z.coll, z.P + "ilha_%d_monte" % i, (p[0] - 4.0, p[1] - 3.0), 2.6, 0.0, mats["snow"], i, 0.45)
     z.ob("tent", p[0] - 3.0, p[1] - 2.5, (3.4, 2.6, 3.0), 30.0 * i, color=(0.42, 0.28, 0.58))
     disc(z.coll, z.P + "ilha_%d_runas" % i, (p[0] + 2.0, p[1] + 1.0), 3.0, 0.03, mats["rune"], 24)
@@ -773,7 +775,7 @@ def build_frost(export=False):
     rnd = random.Random(cfg["seed"])
     # ---------- o lago congelado: gelo claro, rachaduras e montes de neve; margem de neve na borda ----------
     z.patch("neve", (0, 10), 112, (0.9, 0.93, 0.97), grass=False)
-    z.patch("gelo", (0, 4), 92, (0.72, 0.84, 0.93), grass=False)
+    z.patch("gelo", (0, 4), 92, (0.72, 0.84, 0.93), grass=False, y=0.0052)      # acima da neve (no mesmo plano as duas brigavam: faixas azuis)
     for k in range(10):
         a, r = rnd.uniform(0, math.tau), rnd.uniform(20, 80)
         z.patch("placa_%d" % k, (math.cos(a) * r, math.sin(a) * r), rnd.uniform(6, 12), (0.8, 0.9, 0.97), grass=False)
@@ -792,13 +794,14 @@ def build_frost(export=False):
     for name, pc, r in FROST_HOLES:
         z.lake(name, pc, r, material="icewater")
     z.road("travessia", FROST_ROAD, w=4.4)
+    z.arrival(arrive, polar(z, 90, 7), 6.5, "road")      # largo de chegada + trilha ate o portal (a estrada nao nasce num corte reto)
     z.road("trilha_oeste", FROST_PATH_W, w=3.0, end_clearing=False)
     z.road("trilha_leste", FROST_PATH_E, w=3.0, end_clearing=False)
     z.road("ponte_norte", [(0, -88), (0, -66), (0, -59)], w=3.0, end_clearing=False)      # ponte dos fundos (saída de gelo ao norte)
     z.bridges()
     # ---------- ilha da torre ----------
-    z.patch("ilha_torre", c, R + 4.0, (0.88, 0.92, 0.97), grass=False)
-    z.patch("patio", c, R - 6.0, (0.62, 0.7, 0.8), paved=True)
+    z.patch("ilha_torre", c, R + 4.0, (0.88, 0.92, 0.97), grass=False, y=0.0076)
+    z.patch("patio", c, R - 6.0, (0.62, 0.7, 0.8), paved=True, y=0.0082)
     z.data["town"] = {"center": list(c), "radius": R, "gates": [list(gate_pt)]}
     landmark(z, fid, cfg)                              # torre de gelo com cristal e picos
     for k in range(14):                                  # pedras de gelo na beira da ilha (sem fechar a passagem)
@@ -977,6 +980,7 @@ def build_citadel(export=False):
     z.patch("praca", c, R - 0.5, (0.36, 0.32, 0.42), paved=True)
     # ---------- ruas: avenida torta (a subida), duas ruas de volta, becos ----------
     z.road("avenida", CIT_AVENUE, w=4.6, material="pave_rua")
+    z.arrival(arrive, polar(z, 90, 7), 6.5, "pave_rua")      # largo de chegada + trilha ate o portal (a estrada nao nasce num corte reto)
     z.road("rua_oeste", CIT_WEST, w=3.8, material="pave_rua")
     z.road("rua_oeste_dentro", CIT_WEST_IN, w=3.6, material="pave_rua", end_clearing=False)
     z.road("rua_leste", CIT_EAST, w=3.8, material="pave_rua")

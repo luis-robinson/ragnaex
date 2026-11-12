@@ -14,8 +14,10 @@ import chibi_kit as ck
 import lowpoly_lib as lp
 import build_monsters as bm
 import boss_gestures
+import act2_bosses
 
 importlib.reload(ck)
+importlib.reload(act2_bosses)
 importlib.reload(lp)
 importlib.reload(bm)
 importlib.reload(boss_gestures)
@@ -120,7 +122,7 @@ def slime(cid="mob_slime", color=(0.42, 0.88, 0.48)):
 # ---------------------------------------------------------------------------
 # quadrúpedes: lobo, javali, dragão
 # ---------------------------------------------------------------------------
-def quadruped(cid, fur, dark, light, kind="wolf"):
+def quadruped(cid, fur, dark, light, kind="wolf", rider=None):
     hip0 = 0.4 if kind == "boar" else (0.5 if kind == "bear" else 0.45)
     # rabo com osso próprio (balança no idle e ondula na corrida); só os quadrúpedes têm
     arm = lp.make_armature("rig_" + cid, dict(bm.MOB_BONES, tail=((0, 0.52, hip0 + 0.14), (0, 0.9, hip0 + 0.2), "body")))
@@ -131,7 +133,8 @@ def quadruped(cid, fur, dark, light, kind="wolf"):
     m_horn = ck.mat("m_horn", (0.95, 0.9, 0.78), 0.5)
     boar, dragon, bear = kind == "boar", kind == "dragon", kind == "bear"
     griffin = kind == "griffin"
-    bulk = 1.25 if boar else (1.15 if dragon else (1.45 if bear else 1.0))
+    sheep, goat = kind == "sheep", kind == "goat"          # rebanho dos pastores das Estepes (só vida de mapa)
+    bulk = 1.25 if boar else (1.15 if dragon else (1.45 if bear else (1.12 if sheep else 1.0)))
     hip = 0.4 if boar else (0.5 if bear else 0.45)
     # tronco contínuo: anca -> peito -> pescoço
     pts = [((0, 0.42, hip + 0.02), 0.2 * bulk), ((0, 0.05, hip + 0.06), 0.23 * bulk), ((0, -0.32, hip + 0.08), 0.25 * bulk),
@@ -173,9 +176,24 @@ def quadruped(cid, fur, dark, light, kind="wolf"):
                 parts.append((cone("tuft%d" % sx, hc + Vector((sx * 0.14, 0.05, 0.34)), hc + Vector((sx * 0.15, 0.06, 0.46)), 0.02, md), "head"))
             elif bear:          # orelha redonda
                 parts.append((blob("ear%d" % sx, 0.07 * bulk, hc + Vector((sx * 0.14 * bulk, 0.02, 0.17 * bulk)), m, (1, 0.6, 1)), "head"))
+            elif sheep or goat:  # orelha caída para o lado; a cabra tem chifres curvos para trás
+                parts.append((ck.blade("ear%d" % sx, hc + Vector((sx * 0.15, 0.02, 0.08)), hc + Vector((sx * 0.36, 0.04, 0.0 if sheep else 0.1)), 0.11, 0.03, md, (0, 1, 0), 0.45), "head"))
+                if goat:
+                    h0 = hc + Vector((sx * 0.08, 0.02, 0.16))
+                    h1 = h0 + Vector((sx * 0.05, 0.12, 0.17))
+                    parts.append((ck.tube("horn%da" % sx, h0, h1, 0.04, 0.032, m_horn, 6), "head"))
+                    parts.append((cone("horn%db" % sx, h1, h1 + Vector((sx * 0.05, 0.17, 0.02)), 0.032, m_horn, 6), "head"))
             else:
                 parts.append((cone("ear%d" % sx, hc + Vector((sx * 0.11, 0.02, 0.14)), hc + Vector((sx * 0.15, 0.05, 0.36)), 0.065, m), "head"))
     parts += [(o, "head") for o in eyes(cid, [hc + Vector((sx * 0.1 * bulk, -0.16 * bulk, 0.07)) for sx in (-1, 1)], 0.045 * bulk, m_eye, m_white)]
+    if sheep:                # lã: gomos claros cobrindo o lombo e um topete
+        for i, (x, y, z_, r_) in enumerate(((0, 0.3, 0.16, 0.25), (0, -0.02, 0.2, 0.28), (0, -0.32, 0.2, 0.26), (0.2, 0.16, 0.06, 0.2), (-0.2, 0.16, 0.06, 0.2),
+                                            (0.21, -0.18, 0.08, 0.2), (-0.21, -0.18, 0.08, 0.2), (0, 0.46, 0.08, 0.2), (0, -0.5, 0.22, 0.2))):
+            parts.append((blob("wool%d" % i, r_ * bulk, (x * bulk, y, hip + z_ * bulk), ml, (1.0, 1.0, 0.85)), "body"))
+        parts.append((blob("topknot", 0.13, hc + Vector((0, 0.04, 0.15)), ml, (1.1, 1.0, 0.8)), "head"))
+    if goat:                 # barbicha e uma faixa escura no lombo
+        parts.append((cone("beard", hc + Vector((0, -0.2, -0.12)), hc + Vector((0, -0.2, -0.32)), 0.045, ml, 5), "head"))
+        parts.append((blob("stripe", 0.12, (0, -0.05, hip + 0.26), md, (0.6, 3.2, 0.4)), "body"))
     if kind == "wolf":
         # juba de pelos escuros no pescoço
         parts.append((blob("mane", 0.24, (0, -0.5, hip + 0.18), md, (1.15, 0.85, 1.0)), "body"))
@@ -226,6 +244,10 @@ def quadruped(cid, fur, dark, light, kind="wolf"):
         parts.append((cone("tail", (0, 0.6, hip + 0.1), (0, 0.72, hip + 0.02), 0.03, md), "body"))
     elif bear:
         parts.append((blob("tail", 0.07 * bulk, (0, 0.6, hip + 0.16), m, (1, 1, 1)), "body"))
+    elif sheep:
+        parts.append((blob("tail", 0.09, (0, 0.62, hip + 0.12), ml, (1, 1, 1)), "body"))
+    elif goat:
+        parts.append((cone("tail", (0, 0.5, hip + 0.16), (0, 0.6, hip + 0.32), 0.05, md, 5), "body"))
     elif kind == "lynx":         # rabo curto de ponta escura e manchas no dorso
         parts.append((blob("tail", 0.075, (0, 0.47, hip + 0.17), m, (0.85, 1.7, 0.85)), "body"))        # sai de dentro da anca (o tronco acaba em y≈0,45)
         parts.append((blob("tail_tip", 0.055, (0, 0.6, hip + 0.19), md, (0.85, 1.1, 0.85)), "body"))
@@ -237,6 +259,8 @@ def quadruped(cid, fur, dark, light, kind="wolf"):
         tpts = [((0, 0.4, hip + 0.12), 0.1), ((0, 0.6, hip + 0.17), 0.095), ((0, 0.74, hip + 0.15), 0.1), ((0, 0.86, hip + 0.08), 0.08), ((0, 0.94, hip + 0.02), 0.045)]
         parts.append((skin_body("tail", tpts, [(0, 1), (1, 2), (2, 3), (3, 4)], m), "body"))
         parts.append((blob("tail_tip", 0.055, (0, 0.93, hip + 0.03), ml, (0.95, 1.2, 0.95)), "body"))
+    if rider:                                    # Ginete: goblin montado (goblin_rider)
+        rider(parts, hip)
     for i, (o, bone) in enumerate(parts):          # tudo que é rabo vai para o osso do rabo
         if bone == "body" and o.name.startswith("tail"):
             o.name = "fur_" + o.name                  # nome igual ao osso "tail" faz o import do Godot renomear o osso
@@ -1483,12 +1507,16 @@ def spiked_crown(base, cid, spikes, mats):
 # chefes humanoides: modelos que guardam os gestos de skill do kit (chibi_kit.MOB_BOSS_KEEP); mob_skeleton = Senhor da Cripta e
 # Capitão dos Ossos, mob_lich = Conde Vargo
 BOSS_HUMANOIDS = {"mob_bandit_chief", "mob_elf_king", "mob_elf_warden", "mob_elf_captain_hunter", "mob_elf_captain_sky", "mob_elf_captain_sap",
-                  "mob_ghoul_giant", "mob_death_knight", "mob_frost_mage", "mob_lich_king", "mob_skeleton", "mob_lich"}
+                  "mob_ghoul_giant", "mob_death_knight", "mob_frost_mage", "mob_lich_king", "mob_skeleton", "mob_lich",
+                  "mob_tide_mother", "mob_agitator_lord", "mob_troll_king", "mob_crossbow_master", "mob_ghar"}
 
 
-def humanoid(cid, style, cloth, weapon, skin=None, eye=None, offhand=None, hide_hair=False, head=None, crown=0, extra=None, after=None, sex="male", hair=(0.25, 0.18, 0.14), attack=None):
+def humanoid(cid, style, cloth, weapon, skin=None, eye=None, offhand=None, hide_hair=False, head=None, crown=0, extra=None, after=None, sex="male", hair=(0.25, 0.18, 0.14), attack=None, keep=(),
+             body=None, posture=None, xbow=None):
+    """body = corpo de monstro de chibi_kit.BODIES ("troll", "brute"); posture = (graus por osso, quadril) somados a todos os
+    clipes (act2_bosses.posture); weapon "crossbow" = besta de verdade (xbow = opções de act2_bosses.crossbow)."""
     ck.clear()
-    base = ck.build_base(cid, sex, 0.0, hair)
+    base = ck.build_base(cid, body or sex, 0.0, hair)
     mats = ck._kit_mats()
     mats["tint"] = ck.mat("m_%s_cloth" % cid, cloth, 0.7)
     if skin:
@@ -1514,7 +1542,10 @@ def humanoid(cid, style, cloth, weapon, skin=None, eye=None, offhand=None, hide_
         extra(base, mats)
     if crown:
         spiked_crown(base, cid, crown, mats)
-    if weapon:
+    if weapon == "crossbow":
+        act2_bosses.crossbow(base, mats, **(xbow or {}))
+        attack = attack or "atk_rifle"
+    elif weapon:
         ck.kit_weapon(base, weapon, "main", mats)
     if offhand:
         ck.kit_weapon(base, offhand, "off", mats)
@@ -1525,7 +1556,9 @@ def humanoid(cid, style, cloth, weapon, skin=None, eye=None, offhand=None, hide_
         ck.animate_combat(base["rig"])
         ck.animate_v3(base["rig"])
     else:
-        ck.mob_clips(base["rig"], weapon, offhand, attack, boss=cid in BOSS_HUMANOIDS)
+        ck.mob_clips(base["rig"], weapon, offhand, attack, boss=cid in BOSS_HUMANOIDS, extra_keep=keep)
+    if posture:
+        act2_bosses.posture(base["rig"], posture[0], posture[1])
     return base["rig"]
 
 
@@ -1572,12 +1605,218 @@ def demon_parts(base, mats):
         ck.skin_rigid(p_, rig, "hips")
 
 
+def horde_parts(cid, kind, skin):
+    """Ato II, a Horda e as nagas da Costa. Goblin = orelhas enormes, nariz comprido e presinhas; Lanceiro com gorro de couro,
+    Empalador com elmo de osso de cravos, Agitador com tambor na barriga e cocar vermelho, Agitador-Mor com tambor nas costas,
+    coroa de ossos e capa vermelha. Orc = presas grandes, coque no alto e ombreira de ferro escuro. Naga = crista de
+    barbatanas, ombros de escamas e cauda turquesa que arrasta no chão; a Mãe das Marés com coroa de coral e pérola.
+    Estepes (35-40): cada estágio mais pesado e enfeitado. Arqueiro Orc de capuz de couro e aljava; Besteiro de casquete de
+    ferro, ombreira e estojo de virotes; Guerreiro de elmo de ferro com cravo e duas ombreiras; Mestre Besteiro de elmo com
+    pluma vermelha, capa e aljava dupla; Ghar de elmo de chifres, ombreiras de cravos e estandarte nas costas. Troll =
+    pele cinza-azulada, narigão, presas para cima, orelhas caídas e pedras incrustadas nos ombros e nas costas (o Trollzinho
+    tem poucas; o Rei-da-Rocha, coroa de lascas de pedra e um cinturão de pedregulhos)."""
+    def add(base, mats):
+        V = Vector
+        rig, b = base["rig"], base["b"]
+        c, r = V(base["head_c"]), b["head"]
+        sk = ck.mat("m_%s_skin2" % cid, skin, 0.7)
+        horn = ck.mat("m_%s_tooth" % cid, (0.95, 0.92, 0.78), 0.5)
+        leather = ck.mat("m_%s_strap" % cid, (0.36, 0.24, 0.14), 0.85)
+        iron = ck.mat("m_%s_iron" % cid, (0.28, 0.28, 0.32), 0.45)
+        red = ck.mat("m_%s_red" % cid, (0.78, 0.14, 0.12), 0.7)
+        zc, back = ck.Z["chest"], b["chest"] * b["depth"]
+        head, body, hips = [], [], []
+        goblin = kind.startswith("goblin") or kind == "agitator_lord"
+        orc = kind.startswith("orc") or kind in ("crossbow_master", "ghar")
+        troll = kind.startswith("troll")
+        naga = kind.startswith("naga") or kind == "tide_mother"
+        if goblin or orc or troll:
+            for sx in (-1, 1):                 # presas saindo do queixo
+                tl = 0.42 if troll else 0.32 if orc else 0.18
+                head.append(cone("%s_tusk%d" % (cid, sx), c + V((sx * r * 0.32, -r * 0.82, -r * 0.42)), c + V((sx * r * 0.4, -r * (0.92 + tl * 0.3), -r * (0.42 - tl))), r * (0.1 if orc or troll else 0.07), horn))
+        if goblin:
+            for sx in (-1, 1):                 # orelhas grandes e pontudas para os lados
+                head.append(ck.blade("%s_ear%d" % (cid, sx), c + V((sx * r * 0.85, 0, r * 0.1)), c + V((sx * r * 1.9, r * 0.2, r * 0.55)), r * 0.62, r * 0.06, sk, (0, 0, 1), 0.35))
+            head.append(cone(cid + "_nose", c + V((0, -r * 0.88, 0)), c + V((0, -r * 1.35, -r * 0.12)), r * 0.16, sk))
+        if kind == "goblin_lancer":
+            head.append(ck.ball(cid + "_cap", r * 1.04, c + V((0, r * 0.04, r * 0.18)), leather, (1.0, 1.0, 0.7)))
+        elif kind == "goblin_impaler":
+            bone = ck.mat("m_%s_bone" % cid, (0.9, 0.86, 0.72), 0.6)
+            head.append(ck.ball(cid + "_helm", r * 1.06, c + V((0, r * 0.04, r * 0.2)), bone, (1.0, 1.0, 0.72)))
+            for i in range(3):
+                head.append(cone("%s_spike%d" % (cid, i), c + V(((i - 1) * r * 0.42, 0, r * 0.75)), c + V(((i - 1) * r * 0.6, r * 0.1, r * (1.45 if i == 1 else 1.2))), r * 0.14, bone))
+            for sx in (-1, 1):
+                body.append(cone("%s_shspike%d" % (cid, sx), V((sx * (b["chest"] + 0.02), 0, zc + 0.12)), V((sx * (b["chest"] + 0.12), 0.02, zc + 0.3)), 0.05, bone))
+        elif kind in ("goblin_agitator", "agitator_lord"):
+            lord = kind == "agitator_lord"
+            drum = ck.mat("m_%s_drum" % cid, (0.72, 0.52, 0.32), 0.7)
+            skin_d = ck.mat("m_%s_drumskin" % cid, (0.93, 0.86, 0.7), 0.8)
+            if lord:                          # tambor grande nas costas + coroa de ossos + capa
+                p0, p1 = V((0, back + 0.06, zc - 0.05)), V((0, back + 0.34, zc - 0.05))
+                body.append(ck.tube(cid + "_drum", p0, p1, 0.24, 0.24, drum, 14))
+                body.append(ck.tube(cid + "_drumtop", p1, p1 + V((0, 0.02, 0)), 0.24, 0.22, skin_d, 14))
+                body.append(ck.tube(cid + "_drumband", p0.lerp(p1, 0.45), p0.lerp(p1, 0.55), 0.25, 0.25, red, 14))
+                bone = ck.mat("m_%s_bone" % cid, (0.92, 0.88, 0.74), 0.6)
+                for i in range(5):
+                    a = math.radians(-60 + i * 30)
+                    d = V((math.sin(a), -math.cos(a), 0)) * r * 0.8
+                    head.append(cone("%s_crown%d" % (cid, i), c + d + V((0, 0, r * 0.6)), c + d * 1.15 + V((0, 0, r * 1.35)), r * 0.12, bone))
+                body.append(ck.blade(cid + "_cape", V((0, back + 0.03, zc + 0.12)), V((0, back + 0.12, ck.Z["knee"])), 0.5, 0.03, red, (1, 0, 0), 0.3))
+            else:                             # tambor na barriga e cocar vermelho
+                p0, p1 = V((0, -back - 0.04, ck.Z["waist"] + 0.02)), V((0, -back - 0.26, ck.Z["waist"] + 0.02))
+                body.append(ck.tube(cid + "_drum", p0, p1, 0.15, 0.15, drum, 12))
+                body.append(ck.tube(cid + "_drumtop", p1, p1 + V((0, -0.015, 0)), 0.15, 0.13, skin_d, 12))
+                for i in range(3):
+                    head.append(ck.blade("%s_feather%d" % (cid, i), c + V(((i - 1) * r * 0.3, r * 0.2, r * 0.7)), c + V(((i - 1) * r * 0.7, r * 0.6, r * 1.8)), r * 0.35, r * 0.05, red, (1, 0, 0), 0.5))
+            head.append(ck.tube(cid + "_paint", c + V((0, -r * 0.2, r * 0.2)), c + V((0, -r * 0.2, r * 0.32)), r * 1.02, r * 1.01, red, 16))
+        elif orc:
+            hair = ck.mat("m_%s_knot" % cid, (0.12, 0.1, 0.08), 0.8)
+            wood = ck.mat("m_%s_wood" % cid, (0.45, 0.32, 0.2), 0.8)
+            heavy = kind in ("orc_warrior", "ghar")
+            shooter = kind in ("orc_archer", "orc_crossbow", "crossbow_master")
+            if kind in ("orc_recruit", "orc_archer"):
+                head.append(ck.ball(cid + "_topknot", r * 0.3, c + V((0, r * 0.25, r * 1.0)), hair, (1, 1, 1.3)))
+            if kind == "orc_archer":            # capuz de couro aberto atrás do coque
+                head.append(ck.ball(cid + "_hood", r * 1.05, c + V((0, r * 0.12, r * 0.1)), leather, (1.0, 1.0, 0.78)))
+            elif kind != "orc_recruit":         # casquete/elmo de ferro escuro
+                head.append(ck.ball(cid + "_helm", r * 1.07, c + V((0, r * 0.04, r * 0.2)), iron, (1.0, 1.0, 0.74)))
+                head.append(ck.tube(cid + "_helmrim", c + V((0, 0, r * 0.2)), c + V((0, 0, r * 0.3)), r * 1.1, r * 1.09, leather if kind == "orc_crossbow" else red, 14))
+            if kind == "orc_warrior":
+                head.append(cone(cid + "_helmspike", c + V((0, 0, r * 0.9)), c + V((0, r * 0.05, r * 1.45)), r * 0.16, iron))
+            elif kind == "crossbow_master":     # pluma vermelha alta
+                for i in range(3):
+                    head.append(ck.blade("%s_plume%d" % (cid, i), c + V((0, r * (0.1 + i * 0.25), r * 0.85)), c + V((0, r * (0.5 + i * 0.3), r * (1.9 - i * 0.25))), r * 0.4, r * 0.06, red, (1, 0, 0), 0.5))
+            elif kind == "ghar":                # chifres largos no elmo
+                for sx in (-1, 1):
+                    h0 = c + V((sx * r * 0.85, 0, r * 0.55))
+                    h1 = h0 + V((sx * r * 0.55, 0, r * 0.25))
+                    head.append(ck.tube("%s_horn%da" % (cid, sx), h0, h1, r * 0.17, r * 0.13, horn, 7))
+                    head.append(cone("%s_horn%db" % (cid, sx), h1, h1 + V((sx * r * 0.15, -r * 0.1, r * 0.7)), r * 0.13, horn))
+            for sx in ((-1, 1) if heavy or kind == "crossbow_master" else (1,)):
+                if kind == "orc_archer":
+                    break
+                pr = 0.2 if kind == "ghar" else 0.17
+                body.append(ck.ball("%s_pauldron%d" % (cid, sx), pr, V((sx * (b["chest"] + 0.05), 0.0, zc + 0.14)), iron, (1.15, 1.05, 0.7)))
+                body.append(cone("%s_pspike%d" % (cid, sx), V((sx * (b["chest"] + 0.07), 0, zc + 0.24)), V((sx * (b["chest"] + 0.1), 0.02, zc + (0.48 if kind == "ghar" else 0.4))), 0.05, horn))
+                if kind == "ghar":
+                    body.append(cone("%s_pspike%db" % (cid, sx), V((sx * (b["chest"] + 0.16), 0, zc + 0.18)), V((sx * (b["chest"] + 0.3), 0.02, zc + 0.34)), 0.045, horn))
+            body.append(ck.tube(cid + "_strap", V((b["chest"] * 0.8, -0.1, zc + 0.15)), V((-b["chest"] * 0.7, -0.12, ck.Z["waist"])), 0.03, 0.03, leather, 5))
+            if shooter:                         # aljava / estojo de virotes nas costas, penas vermelhas à mostra
+                for k, sx in enumerate((1, -1) if kind == "crossbow_master" else (1,)):
+                    q0 = V((sx * 0.1, back + 0.06, ck.Z["waist"] + 0.02))
+                    q1 = V((sx * 0.2, back + 0.1, zc + 0.24))
+                    body.append(ck.tube("%s_quiver%d" % (cid, k), q0, q1, 0.06, 0.075, leather if kind != "orc_crossbow" else iron, 8))
+                    for j in range(3):
+                        body.append(cone("%s_fletch%d_%d" % (cid, k, j), q1 + V(((j - 1) * 0.035, 0, 0)), q1 + V(((j - 1) * 0.05, 0.01, 0.13)), 0.022, red))
+            if kind == "crossbow_master":
+                body.append(ck.blade(cid + "_cape", V((0, back + 0.03, zc + 0.12)), V((0, back + 0.14, ck.Z["knee"])), 0.5, 0.03, red, (1, 0, 0), 0.3))
+            if kind == "ghar":                  # estandarte da Horda nas costas
+                p0, p1 = V((0, back + 0.07, ck.Z["waist"])), V((0, back + 0.12, zc + 1.05))
+                body.append(ck.tube(cid + "_pole", p0, p1, 0.025, 0.02, wood, 6))
+                body.append(ck.blade(cid + "_banner", p1 + V((0, 0.01, -0.02)), p1 + V((0, 0.03, -0.62)), 0.42, 0.02, red, (1, 0, 0), 0.5))
+                body.append(cone(cid + "_poletip", p1, p1 + V((0, 0, 0.14)), 0.04, horn))
+        elif troll:
+            king = kind == "troll_king"
+            whelp = kind == "troll_whelp"
+            stone = ck.mat("m_%s_stone" % cid, (0.52, 0.5, 0.48), 0.9)
+            stone2 = ck.mat("m_%s_stone2" % cid, (0.4, 0.4, 0.42), 0.9)
+            head.append(ck.ball(cid + "_nose", r * 0.3, c + V((0, -r * 0.95, -r * 0.08)), sk, (0.9, 1.2, 1.1)))       # narigão
+            for sx in (-1, 1):                  # orelhas caídas
+                head.append(ck.blade("%s_ear%d" % (cid, sx), c + V((sx * r * 0.88, 0, r * 0.05)), c + V((sx * r * 1.5, r * 0.15, -r * 0.35)), r * 0.5, r * 0.07, sk, (0, 0, 1), 0.4))
+            head.append(ck.ball(cid + "_brow", r * 0.5, c + V((0, -r * 0.62, r * 0.42)), sk, (1.7, 0.6, 0.45)))            # testa pesada
+            n_sh = 1 if whelp else 3 if king else 2
+            for sx in (-1, 1):                  # pedras incrustadas nos ombros
+                for k in range(n_sh):
+                    rr = (0.12 if whelp else 0.16) * (1.0 - 0.22 * k)
+                    body.append(ck.ball("%s_rock%d_%d" % (cid, sx, k), rr, V((sx * (b["chest"] + 0.04 + 0.09 * k), 0.03 * k, zc + 0.16 + 0.07 * k)), stone if (k + sx) % 2 else stone2, (1.1, 0.9, 0.8)))
+            n_bk = 2 if whelp else 5 if king else 4
+            for k in range(n_bk):               # fileira de pedras nas costas
+                t = k / max(1, n_bk - 1)
+                body.append(cone("%s_backrock%d" % (cid, k), V((0.05 * math.sin(k * 2.1), back + 0.02, ck.Z["waist"] + 0.06 + t * (zc + 0.2 - ck.Z["waist"]))),
+                                 V((0.08 * math.sin(k * 2.1), back + (0.2 if king else 0.15), ck.Z["waist"] + 0.14 + t * (zc + 0.26 - ck.Z["waist"]))), 0.085 if not whelp else 0.06, stone2 if k % 2 else stone, 5))
+            if not whelp:
+                hips.append(ck.tube(cid + "_belt", V((0, 0, ck.Z["waist"] - 0.03)), V((0, 0, ck.Z["waist"] + 0.05)), b["chest"] * 1.08, b["chest"] * 1.08, leather, 12))
+            if king:                            # coroa de lascas de pedra e cinturão de pedregulhos
+                for i in range(6):
+                    a = math.radians(i * 60 + 30)
+                    d = V((math.sin(a), -math.cos(a), 0)) * r * 0.78
+                    head.append(cone("%s_crown%d" % (cid, i), c + d + V((0, 0, r * 0.55)), c + d * 1.2 + V((0, 0, r * (1.5 if i % 2 else 1.25))), r * 0.17, stone if i % 2 else stone2, 5))
+                for i in range(6):
+                    a = math.radians(i * 60)
+                    hips.append(ck.ball("%s_beltrock%d" % (cid, i), 0.08, V((math.sin(a) * b["chest"] * 1.1, -math.cos(a) * b["chest"] * b["depth"] * 1.15, ck.Z["waist"] + 0.01)), stone, (1, 1, 0.85)))
+        if naga:
+            mother = kind == "tide_mother"
+            fin = ck.mat("m_%s_fin" % cid, (0.2, 0.55, 0.65), 0.6)
+            scale_m = ck.mat("m_%s_scales" % cid, (0.22, 0.6, 0.58), 0.55)
+            for i in range(4):                 # crista de barbatanas no meio da cabeça
+                y = -r * 0.4 + i * r * 0.4
+                head.append(ck.blade("%s_crest%d" % (cid, i), c + V((0, y, r * 0.8)), c + V((0, y + r * 0.4, r * (1.5 - i * 0.12))), r * 0.5, r * 0.05, fin, (0, 1, 0), 0.4))
+            for sx in (-1, 1):
+                head.append(ck.blade("%s_gill%d" % (cid, sx), c + V((sx * r * 0.9, 0, 0)), c + V((sx * r * 1.45, r * 0.3, r * 0.1)), r * 0.5, r * 0.05, fin, (0, 0, 1), 0.4))
+                body.append(ck.ball("%s_shscale%d" % (cid, sx), 0.15, V((sx * (b["chest"] + 0.03), 0.0, zc + 0.12)), scale_m, (1.1, 1.0, 0.7)))
+            n = 7 if mother else 5               # cauda: desce da cintura e arrasta atrás
+            prev = V((0, back * 0.6, ck.Z["waist"] - 0.04))
+            for k in range(1, n + 1):
+                t = k / n
+                q = V((0.06 * math.sin(k * 1.3), back * 0.6 + 0.13 * k, max(0.05, ck.Z["waist"] - 0.06 - 0.5 * t + 0.1 * t * t)))
+                hips.append(ck.tube("%s_tail%d" % (cid, k), prev, q, 0.13 * (1.0 - 0.7 * (k - 1) / n), 0.13 * (1.0 - 0.7 * k / n), sk if k % 2 else scale_m, 8))
+                prev = q
+            hips.append(ck.blade(cid + "_tailfin", prev, prev + V((0, 0.2, 0.02)), 0.3, 0.03, fin, (1, 0, 0), 0.4))
+            if mother:
+                coral = ck.mat("m_%s_coral" % cid, (0.95, 0.45, 0.4), 0.5)
+                for i in range(5):
+                    a = math.radians(-70 + i * 35)
+                    d = V((math.sin(a), -math.cos(a), 0)) * r * 0.75
+                    head.append(cone("%s_coral%d" % (cid, i), c + d + V((0, 0, r * 0.65)), c + d * 1.25 + V((0, 0, r * 1.4)), r * 0.1, coral))
+                body.append(ck.ball(cid + "_pearl", 0.07, V((0, -back - 0.03, zc + 0.04)), ck.mat("m_%s_pearl" % cid, (0.95, 0.95, 1.0), 0.2, 0.6)))
+        for o in head:
+            ck.skin_rigid(o, rig, "head")
+        for o in body:
+            ck.skin_rigid(o, rig, "chest")
+        for o in hips:
+            ck.skin_rigid(o, rig, "hips")
+    return add
+
+
+def goblin_rider(cid, raider=False):
+    """Goblin montado no lobo (Ginete/Saqueador): corpo, cabeça de orelhas grandes e lança; o Saqueador leva elmo e a rede."""
+    def add(parts, hip):
+        V = Vector
+        skin = ck.mat("m_%s_rskin" % cid, (0.5, 0.64, 0.3), 0.7)
+        cloth = ck.mat("m_%s_rcloth" % cid, (0.45, 0.3, 0.18) if not raider else (0.55, 0.16, 0.12), 0.8)
+        wood = ck.mat("m_%s_rwood" % cid, (0.45, 0.32, 0.2), 0.8)
+        steel = ck.mat("m_%s_rsteel" % cid, (0.7, 0.7, 0.74), 0.4)
+        horn = ck.mat("m_%s_rtooth" % cid, (0.95, 0.92, 0.78), 0.5)
+        m_eye, m_white = base_mats()
+        seat = V((0, 0.05, hip + 0.3))
+        parts.append((blob("rider_saddle", 0.17, seat + V((0, 0, -0.04)), cloth, (1.2, 1.3, 0.4)), "body"))
+        parts.append((blob("rider_torso", 0.14, seat + V((0, -0.02, 0.17)), cloth, (1.0, 0.85, 1.15)), "body"))
+        hc = seat + V((0, -0.06, 0.42))
+        parts.append((blob("rider_head", 0.15, hc, skin, (1.0, 0.95, 0.95)), "body"))
+        for sx in (-1, 1):
+            parts.append((ck.blade("rider_ear%d" % sx, hc + V((sx * 0.12, 0, 0.02)), hc + V((sx * 0.3, 0.04, 0.1)), 0.1, 0.012, skin, (0, 0, 1), 0.35), "body"))
+            parts.append((cone("rider_tusk%d" % sx, hc + V((sx * 0.05, -0.12, -0.06)), hc + V((sx * 0.06, -0.15, -0.0)), 0.015, horn), "body"))
+            parts.append((ck.tube("rider_leg%d" % sx, seat + V((sx * 0.12, 0, 0.02)), seat + V((sx * 0.2, -0.06, -0.2)), 0.04, 0.035, cloth, 6), "body"))
+        parts += [(o, "body") for o in eyes("rider", [hc + V((sx * 0.055, -0.13, 0.03)) for sx in (-1, 1)], 0.03, m_eye, m_white)]
+        parts.append((ck.tube("rider_arm", seat + V((-0.13, -0.02, 0.22)), seat + V((-0.2, -0.22, 0.2)), 0.035, 0.03, skin, 6), "body"))
+        parts.append((ck.tube("rider_spear", seat + V((-0.22, 0.35, 0.12)), seat + V((-0.22, -0.95, 0.32)), 0.018, 0.018, wood, 6), "body"))
+        parts.append((cone("rider_spearhead", seat + V((-0.22, -0.95, 0.32)), seat + V((-0.22, -1.1, 0.35)), 0.04, steel), "body"))
+        if raider:
+            parts.append((blob("rider_helm", 0.155, hc + V((0, 0.01, 0.05)), steel, (1.03, 1.03, 0.7)), "body"))
+            net = ck.mat("m_%s_net" % cid, (0.82, 0.74, 0.5), 0.9)
+            parts.append((blob("rider_net", 0.12, seat + V((0.05, 0.16, 0.2)), net, (1.1, 0.8, 1.0)), "body"))
+    return add
+
+
 # ---------------------------------------------------------------------------
 SK_BONE = (0.92, 0.9, 0.82)
 # bichos que são (ou vestem) chefes: gestos maul/pounce/slam/roar/brace (boss_gestures), para as skills especiais não
 # repetirem o "attack"
 BOSS_GESTURES = {"mob_boar": "quad", "mob_crab": "crab", "mob_slime": "slime", "mob_spider": "spider", "mob_ghost": "ghost", "mob_trent": "biped4",
                  "mob_golem_ancient": "biped", "mob_crystal_warden": "biped", "mob_quarry_heart": "biped"}
+
+
+TROLL_STANCE = (act2_bosses.TROLL_POSTURE, act2_bosses.TROLL_HIPS)
 
 
 def build_all(out_dir, only=None):
@@ -1588,6 +1827,9 @@ def build_all(out_dir, only=None):
         "mob_boar": lambda: quadruped("mob_boar", (0.55, 0.38, 0.27), (0.32, 0.22, 0.16), (0.85, 0.66, 0.6), "boar"),
         "mob_dragon": lambda: quadruped("mob_dragon", (0.78, 0.25, 0.28), (0.45, 0.12, 0.18), (0.95, 0.75, 0.5), "dragon"),
         "mob_lynx": lambda: quadruped("mob_lynx", (0.82, 0.62, 0.38), (0.36, 0.25, 0.16), (0.95, 0.88, 0.78), "lynx"),
+        # rebanho das Estepes (NPC de vida de mapa: MapsCatalog.LIVING_NPCS, `model`)
+        "mob_sheep": lambda: quadruped("mob_sheep", (0.36, 0.32, 0.3), (0.2, 0.18, 0.18), (0.96, 0.94, 0.88), "sheep"),
+        "mob_goat": lambda: quadruped("mob_goat", (0.8, 0.74, 0.64), (0.4, 0.32, 0.26), (0.95, 0.92, 0.86), "goat"),
         "mob_spider": spider,
         "mob_crab": crab,
         "mob_ghost": ghost,
@@ -1660,7 +1902,7 @@ def build_all(out_dir, only=None):
                                               after=loyalist_parts("mob_loyal_paladin", "paladin", (0.95, 0.8, 0.35))),
         "mob_loyal_priest": lambda: humanoid("mob_loyal_priest", "cloth", (0.96, 0.95, 0.9), "staff", head="none", hide_hair=True, sex="female",
                                              after=loyalist_parts("mob_loyal_priest", "priest", (0.95, 0.8, 0.35))),
-        "mob_loyal_crossbow": lambda: humanoid("mob_loyal_crossbow", "leather", (0.55, 0.45, 0.32), "bow", head="none", hide_hair=True,
+        "mob_loyal_crossbow": lambda: humanoid("mob_loyal_crossbow", "leather", (0.55, 0.45, 0.32), "crossbow", head="none", hide_hair=True, xbow={"metal": (0.8, 0.82, 0.86), "accent": (0.25, 0.4, 0.8)},
                                                after=loyalist_parts("mob_loyal_crossbow", "crossbow", (0.25, 0.4, 0.8))),
         "mob_skel_blade": lambda: humanoid("mob_skel_blade", "plate", (0.36, 0.32, 0.3), "sword2h", skin=SK_BONE, eye=(0.4, 0.8, 1.0), hide_hair=True,
                                            head="none", extra=undead_parts("mob_skel_blade", "blade", (0.4, 0.8, 1.0))),
@@ -1692,6 +1934,47 @@ def build_all(out_dir, only=None):
                                               eye=(0.4, 0.9, 1.0), hide_hair=True, crown=8),
         "form_demon": lambda: humanoid("form_demon", "leather", (0.28, 0.07, 0.1), "scythe", skin=(0.68, 0.16, 0.18),
                                        eye=(1.0, 0.75, 0.15), hide_hair=True, head="none", extra=demon_parts),
+        # Forma de Lich (Necromante ascendido, 45): act2_bosses.lich_parts
+        "form_lich": lambda: humanoid("form_lich", "cloth", (0.13, 0.2, 0.34), "scythe", skin=SK_BONE, eye=(0.5, 0.95, 1.0), hide_hair=True, head="none",
+                                      extra=act2_bosses.lich_parts),
+        # Ato II, a Horda (30-35) e as nagas da Costa (horde_parts / goblin_rider)
+        "mob_goblin_lancer": lambda: humanoid("mob_goblin_lancer", "leather", (0.45, 0.32, 0.2), "spear", skin=(0.5, 0.64, 0.3), eye=(0.95, 0.85, 0.2), hide_hair=True, head="none", attack="atk_thrust",
+                                              extra=horde_parts("mob_goblin_lancer", "goblin_lancer", (0.5, 0.64, 0.3))),
+        "mob_goblin_impaler": lambda: humanoid("mob_goblin_impaler", "leather", (0.38, 0.3, 0.22), "spear", skin=(0.5, 0.64, 0.3), eye=(0.95, 0.4, 0.2), hide_hair=True, head="none", attack="atk_thrust",
+                                               extra=horde_parts("mob_goblin_impaler", "goblin_impaler", (0.5, 0.64, 0.3))),
+        "mob_goblin_agitator": lambda: humanoid("mob_goblin_agitator", "leather", (0.6, 0.2, 0.15), "mace", skin=(0.5, 0.64, 0.3), eye=(0.95, 0.3, 0.2), hide_hair=True, head="none",
+                                                extra=horde_parts("mob_goblin_agitator", "goblin_agitator", (0.5, 0.64, 0.3))),
+        "mob_agitator_lord": lambda: humanoid("mob_agitator_lord", "leather", (0.55, 0.16, 0.12), "mace2h", skin=(0.5, 0.64, 0.3), eye=(1.0, 0.3, 0.15), hide_hair=True, head="none", keep=("atk_thrust",),
+                                              extra=horde_parts("mob_agitator_lord", "agitator_lord", (0.5, 0.64, 0.3)), after=act2_bosses.boss_extras("mob_agitator_lord", "agitator_lord")),
+        "mob_orc_recruit": lambda: humanoid("mob_orc_recruit", "leather", (0.42, 0.3, 0.2), "axe", skin=(0.45, 0.55, 0.4), eye=(0.95, 0.7, 0.2), hide_hair=True, head="none",
+                                            extra=horde_parts("mob_orc_recruit", "orc_recruit", (0.45, 0.55, 0.4))),
+        # Ato II, Estepes de Cinza (35-40): trolls (grandes; a escala vem do MonsterDef), arqueiros/besteiros e o Guerreiro Orc
+        "mob_troll_whelp": lambda: humanoid("mob_troll_whelp", "leather", (0.4, 0.3, 0.22), "mace", skin=(0.5, 0.6, 0.72), eye=(0.95, 0.85, 0.3), hide_hair=True, head="none",
+                                            extra=horde_parts("mob_troll_whelp", "troll_whelp", (0.5, 0.6, 0.72)), body="troll", posture=TROLL_STANCE),
+        "mob_troll": lambda: humanoid("mob_troll", "leather", (0.36, 0.28, 0.2), "mace2h", skin=(0.45, 0.55, 0.68), eye=(0.95, 0.75, 0.2), hide_hair=True, head="none",
+                                      extra=horde_parts("mob_troll", "troll", (0.45, 0.55, 0.68)), body="troll", posture=TROLL_STANCE),
+        "mob_troll_king": lambda: humanoid("mob_troll_king", "leather", (0.3, 0.24, 0.2), "mace2h", skin=(0.42, 0.5, 0.66), eye=(1.0, 0.55, 0.15), hide_hair=True, head="none",
+                                           extra=horde_parts("mob_troll_king", "troll_king", (0.42, 0.5, 0.66)), body="troll", posture=TROLL_STANCE,
+                                           after=act2_bosses.boss_extras("mob_troll_king", "troll_king")),
+        "mob_orc_archer": lambda: humanoid("mob_orc_archer", "leather", (0.4, 0.34, 0.22), "bow", skin=(0.45, 0.55, 0.4), eye=(0.95, 0.7, 0.2), hide_hair=True, head="none",
+                                           extra=horde_parts("mob_orc_archer", "orc_archer", (0.45, 0.55, 0.4))),
+        "mob_orc_crossbow": lambda: humanoid("mob_orc_crossbow", "leather", (0.3, 0.26, 0.24), "crossbow", skin=(0.43, 0.52, 0.38), eye=(0.95, 0.55, 0.2), hide_hair=True, head="none",
+                                             extra=horde_parts("mob_orc_crossbow", "orc_crossbow", (0.43, 0.52, 0.38))),
+        "mob_orc_warrior": lambda: humanoid("mob_orc_warrior", "plate", (0.5, 0.18, 0.14), "axe", skin=(0.43, 0.53, 0.38), eye=(0.95, 0.5, 0.2), hide_hair=True, head="none",
+                                            extra=horde_parts("mob_orc_warrior", "orc_warrior", (0.43, 0.53, 0.38))),
+        "mob_crossbow_master": lambda: humanoid("mob_crossbow_master", "leather", (0.55, 0.16, 0.12), "crossbow", skin=(0.43, 0.52, 0.38), eye=(1.0, 0.45, 0.15), hide_hair=True, head="none",
+                                                extra=horde_parts("mob_crossbow_master", "crossbow_master", (0.43, 0.52, 0.38)), xbow={"heavy": True},
+                                                after=act2_bosses.boss_extras("mob_crossbow_master", "crossbow_master")),
+        "mob_ghar": lambda: humanoid("mob_ghar", "plate", (0.6, 0.14, 0.1), "axe2h", skin=(0.4, 0.5, 0.34), eye=(1.0, 0.35, 0.12), hide_hair=True, head="none",
+                                     extra=horde_parts("mob_ghar", "ghar", (0.4, 0.5, 0.34)), body="brute", after=act2_bosses.boss_extras("mob_ghar", "ghar")),
+        "mob_naga_tide": lambda: humanoid("mob_naga_tide", "cloth", (0.2, 0.5, 0.55), "spear", skin=(0.32, 0.72, 0.68), eye=(0.95, 0.9, 0.3), hide_hair=True, head="none", sex="female", attack="atk_thrust",
+                                          extra=horde_parts("mob_naga_tide", "naga_tide", (0.32, 0.72, 0.68))),
+        "mob_naga_warrior": lambda: humanoid("mob_naga_warrior", "plate", (0.25, 0.55, 0.55), "spear", skin=(0.32, 0.72, 0.68), eye=(0.95, 0.5, 0.2), hide_hair=True, head="none", sex="female", attack="atk_thrust",
+                                             extra=horde_parts("mob_naga_warrior", "naga_warrior", (0.32, 0.72, 0.68))),
+        "mob_tide_mother": lambda: humanoid("mob_tide_mother", "cloth", (0.18, 0.42, 0.55), "staff", skin=(0.32, 0.72, 0.68), eye=(0.6, 0.95, 1.0), hide_hair=True, head="none", sex="female", keep=("atk_thrust",),
+                                            extra=horde_parts("mob_tide_mother", "tide_mother", (0.32, 0.72, 0.68)), after=act2_bosses.boss_extras("mob_tide_mother", "tide_mother")),
+        "mob_wolf_rider": lambda: quadruped("mob_wolf_rider", (0.42, 0.4, 0.4), (0.22, 0.2, 0.2), (0.75, 0.72, 0.68), "wolf", rider=goblin_rider("mob_wolf_rider")),
+        "mob_wolf_raider": lambda: quadruped("mob_wolf_raider", (0.32, 0.3, 0.3), (0.16, 0.14, 0.14), (0.68, 0.64, 0.6), "wolf", rider=goblin_rider("mob_wolf_raider", raider=True)),
         "mob_lich": lambda: humanoid("mob_lich", "cloth", (0.3, 0.16, 0.42), "staff", skin=(0.86, 0.84, 0.8), eye=(0.5, 0.9, 1.0), hide_hair=True, head="leather", crown=8),
     }
     for name, fn in builders.items():
@@ -1705,10 +1988,10 @@ def build_all(out_dir, only=None):
             if "." in o.name:
                 o.name = o.name.replace(".", "_")
         if name.startswith(("mob_bandit", "mob_loyal_", "mob_skel_")) or name in ("mob_death_knight", "mob_ghoul", "mob_ghoul_giant", "mob_cultist",
-                                                                              "mob_frost_mage", "mob_lich_king", "mob_skeleton", "mob_zombie", "mob_lich", "mob_skeleton_king", "form_demon",
+                                                                              "mob_frost_mage", "mob_lich_king", "mob_skeleton", "mob_zombie", "mob_lich", "mob_skeleton_king", "form_demon", "form_lich",
                     "mob_elf_warrior", "mob_elf_archer", "mob_elf_warden", "mob_elf_king", "mob_elf_mage",
                     "mob_elf_captain_hunter", "mob_elf_captain_sky", "mob_elf_captain_sap", "mob_elf_citizen", "mob_elf_citizen_f",
-                    "mob_elf_fighter", "mob_elf_bowman"):
+                    "mob_elf_fighter", "mob_elf_bowman") or name.startswith(("mob_goblin_", "mob_orc_", "mob_naga_", "mob_troll")) or name in ("mob_tide_mother", "mob_agitator_lord", "mob_crossbow_master", "mob_ghar"):
             ck.export_glb(arm, os.path.join(out_dir, name + ".glb"))
         else:
             lp.export_glb(os.path.join(out_dir, name + ".glb"), [arm])
