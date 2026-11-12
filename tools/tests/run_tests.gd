@@ -29,6 +29,66 @@ func _ready() -> void:
 	print("\n=== %d passed, %d failed ===" % [passes, fails])
 	get_tree().quit(1 if fails > 0 else 0)
 
+class FakeMain:
+	var views := {}
+	var current_map_id := ""
+
+## View criada tarde (fila de views, chegada no mapa): nasce na forma atual sem metamorfose e com o anel da aura ligada
+## que o _on_buff teria posto (EntityView.snap_visual_state + FxManager.sync_entity_visuals, chamados no main._create_view).
+func _check_late_view_state(gd, sim) -> void:
+	var dru: SimEntity = sim.spawn_bot(gd.classes["druid"], "Tarde", "city_aldara", Vector3(0, 0, 8), 30)
+	dru.brain = null
+	dru.form = "wolf"
+	dru.buffs.append({"id": "test_late_aura", "toggle": true, "aura": {"radius": 6.0}, "left": 60.0})
+	var view := EntityView.new()
+	add_child(view)
+	view.setup(dru, false)
+	view.snap_visual_state()
+	check(view.form_view != null and view._shown_form == "wolf" and view._morph_t >= 1.0, "view tardia: já nasce na forma, sem metamorfose")
+	var fx := FxManager.new()
+	var fm := FakeMain.new()
+	fm.current_map_id = dru.map_id
+	fm.views[dru.id] = view
+	fx.main = fm
+	add_child(fx)
+	var kids := view.get_child_count()
+	fx.sync_entity_visuals(dru)
+	fx.sync_entity_visuals(dru)
+	check(fx._auras.has("%d:test_late_aura" % dru.id) and view.get_child_count() == kids + 1, "view tardia: anel da aura ligada, uma vez só")
+	check(str(fx._last_form.get(dru.id, "")) == "wolf", "view tardia: forma lembrada para o tema da saída")
+	for n: Node in [fx, view]:          # na hora: o run_all segue síncrono e os dois escutam o Events
+		remove_child(n)
+		n.free()
+	sim.despawn(dru)
+
+## Fila de criação de bonecos (main._drain_views): só o mapa atual, longe espera, grupo/alvo e invocações deles primeiro,
+## depois a mais perto; quem sai da fila (despawn, view criada) não volta; limpar zera.
+func _check_view_queue() -> void:
+	var q := ViewQueue.new()
+	var mk := func(id: int, map_id: String, x: float, owner: int = -1) -> SimEntity:
+		var e := SimEntity.new()
+		e.id = id; e.map_id = map_id; e.position = Vector3(x, 0, 0); e.owner_id = owner
+		return e
+	q.push(mk.call(1, "a", 30.0))
+	q.push(mk.call(2, "a", 5.0))
+	q.push(mk.call(3, "a", 100.0))            # longe: espera
+	q.push(mk.call(4, "b", 1.0))              # outro mapa
+	q.push(mk.call(5, "a", 50.0))
+	q.push(mk.call(6, "a", 200.0, 9))         # invocação de alguém do grupo: vem mesmo longe
+	q.push(mk.call(9, "a", 120.0))            # membro do grupo, longe
+	var ids := func(l: Array) -> Array: return l.map(func(e): return e.id)
+	check(ids.call(q.ready_list("a", Vector3.ZERO, 66.0, {})) == [2, 1, 5], "fila de views: perto primeiro, longe e outro mapa esperam")
+	var l2: Array = ids.call(q.ready_list("a", Vector3.ZERO, 66.0, {9: true}))
+	check(l2.size() == 5 and l2.slice(0, 2).has(9) and l2.slice(0, 2).has(6) and l2.slice(2) == [2, 1, 5], "fila de views: grupo e suas invocações primeiro (%s)" % str(l2))
+	check(ids.call(q.ready_list("a", Vector3(100, 0, 0), 66.0, {})) == [3, 9, 5], "fila de views: ordem segue o jogador")
+	check(q.ready_list("a", Vector3.ZERO, INF, {}).size() == 6, "fila de views: sem limite de distância cria todos do mapa")
+	q.erase(2)
+	check(not q.has(2) and q.size() == 6 and not ids.call(q.ready_list("a", Vector3.ZERO, 66.0, {})).has(2), "fila de views: despawn sai da fila")
+	q.push(mk.call(1, "a", 30.0))
+	check(q.size() == 6, "fila de views: entrar de novo não duplica")
+	q.clear()
+	check(q.size() == 0 and q.ready_list("a", Vector3.ZERO, INF, {}).is_empty(), "fila de views: troca de mapa zera a fila")
+
 ## Formas de bicho: todo gesto que EntityView.FORM_CLIP manda para o animal existe no modelo (senão toda skill vira a mesma mordida);
 ## a forma demoníaca tem os clipes do kit (sombra, buffs, giro...).
 func _check_form_clips() -> void:
@@ -228,7 +288,7 @@ func run_only(tokens: Array, gd, sim, save) -> void:
 	for mid in gd.maps:            # o mesmo mundo do run_all: todos os mapas e um jogador na cidade
 		sim.load_map(gd.maps[mid])
 	sim.spawn_player(gd.classes["berserker"], "Tester", "city_aldara")
-	var by_name := {"gd": gd, "sim": sim, "save": save}
+	var by_name := {"gd": gd, "sim": sim, "save": save, "_gd": gd, "_sim": sim, "_save": save}     # "_x" = parâmetro não usado
 	var ran := 0
 	for m in get_method_list():
 		var mname: String = m["name"]
@@ -251,6 +311,26 @@ func run_only(tokens: Array, gd, sim, save) -> void:
 
 const HOSTILE_HUBS := ["elf_city"]      # zonas cujo hub é a cidade inimiga (sem serviços; spawners dentro do muro)
 const TEST_SLOT := 90       # espaço só dos testes (fora dos SLOTS da tela inicial): nunca toca nos personagens do jogador
+# performance da simulação: 3000 ticks levam ~25,6 s com a máquina quieta; o limite pega uma regressão de 2x (~51 s)
+const PERF_SIM_LIMIT_MS := 32000.0
+const PERF_CAL_QUIET_MS := 36.0      # mediana do laço de calibração com a máquina quieta (medida nesta máquina, 2026-11-12)
+const PERF_MAX_SLOWDOWN := 3.0       # teto: máquina mais de 3x mais lenta já não é um teste justo
+
+## Laço fixo de CPU (~2M operações de float em GDScript): mediana de 5 amostras, em ms.
+func _perf_calibration() -> float:
+	var samples: Array[float] = []
+	for s in range(5):
+		var t0 := Time.get_ticks_usec()
+		var x := 0.0
+		var y := 1.0
+		for i in range(500000):
+			x += y * 1.000001
+			y = y * 0.999999 + 0.5
+			x -= y * 0.25
+			y += x * 0.0000001
+		samples.append((Time.get_ticks_usec() - t0) / 1000.0 + (0.0 if x != 12345.678 else 1.0))
+	samples.sort()
+	return samples[2]
 
 func run_all(gd, sim, balance, save) -> void:
 	gd_ref = gd
@@ -435,12 +515,18 @@ func run_all(gd, sim, balance, save) -> void:
 			k += 1
 	var cmd0 := InputCommand.new(); cmd0.aim = p.position + Vector3(0, 0, 1)
 	sim.set_player_command(cmd0)
+	# a máquina pode estar ocupada (outros Godot rodando): mede um laço fixo de CPU antes e depois dos ticks e
+	# alarga o limite na mesma proporção; com a máquina quieta o limite é PERF_SIM_LIMIT_MS (pega uma regressão de 2x)
+	var cal_before := _perf_calibration()
 	var t0 := Time.get_ticks_msec()
 	for i in range(3000):
 		sim.tick(1.0 / 60.0)
 	var ms := Time.get_ticks_msec() - t0
-	print("3000 ticks com %d entidades em %d ms (%.2f ms/tick)" % [sim.entities.size(), ms, ms / 3000.0])
-	check(ms < 32000, "performance da simulação (%d ms; todos os mapas cheios e a todo vapor, sem o jogador)" % ms)
+	var cal_after := _perf_calibration()
+	var slowdown := clampf((cal_before + cal_after) * 0.5 / PERF_CAL_QUIET_MS, 1.0, PERF_MAX_SLOWDOWN)
+	var limit := int(PERF_SIM_LIMIT_MS * slowdown)
+	print("3000 ticks com %d entidades em %d ms (%.2f ms/tick); calibração %.1f/%.1f ms (quieta %.1f) -> lentidão x%.2f, limite %d ms" % [sim.entities.size(), ms, ms / 3000.0, cal_before, cal_after, PERF_CAL_QUIET_MS, slowdown, limit])
+	check(ms < limit, "performance da simulação (%d ms < %d ms, lentidão da máquina x%.2f; todos os mapas cheios e a todo vapor, sem o jogador)" % [ms, limit, slowdown])
 	var alive_bots := 0
 	for e in sim.entities.values():
 		if e.kind == SimEntity.Kind.BOT:
@@ -475,6 +561,7 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_skill_visuals(gd)
 	_check_party(gd, sim)
 	_check_bot_chat(gd, sim)
+	_check_act2_playtest(gd, sim, save)
 	_check_threat_loot(gd, sim)
 	_check_self_aoe(gd, sim)
 	_check_review_fixes(gd, sim)
@@ -496,6 +583,8 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_outdoor(gd)
 	_check_graphics_settings()
 	_check_form_clips()
+	_check_view_queue()
+	_check_late_view_state(GameData, Sim)
 	_check_windup_timing()
 	_check_pose_fade()
 	_check_hand_twist()
@@ -806,6 +895,7 @@ func _check_charge_path(gd, sim) -> void:
 	hero.brain = null
 	hero.tree_bonus = {}                   # sem esquiva da teia: o teste é do caminho da investida
 	hero.recompute_stats()
+	hero.stats.evasion = 0.0                # nem da AGI (p4-agi): o teste é do caminho, não da rolagem
 	var wolf = sim.spawn_monster(gd.monsters["wolf"], "city_aldara", at)
 	var charge: SkillDef = gd.skills["mob_charge"]
 	var hit_at := func(dist: float) -> bool:
@@ -1355,6 +1445,7 @@ func _check_shields(gd, sim) -> void:
 		e.brain = null
 		e.equipment[ItemDef.Slot.OFFHAND] = gd.items[shield]
 		e.recompute_stats()
+		e.stats.evasion = 0.0                 # o golpe tem de pegar (esquiva da AGI/equipamento sortearia no sim.rng compartilhado)
 		e.heal_full()
 		return e
 	var foe: SimEntity = sim.spawn_bot(gd.classes["berserker"], "Bate", "city_aldara", Vector3(1.5, 0, 6), 30)
@@ -1563,6 +1654,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_druid_builds(gd, sim)
 	_check_ranger_builds(gd, sim)
 	_check_assassin_builds(gd, sim)
+	_check_agi_evasion(gd, sim)
 	_check_assassin_ascension(gd, sim)
 	_check_assassin_ascension_bots(gd, sim)
 	_check_third_builds(gd, sim)
@@ -1571,8 +1663,12 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_bot_form(gd, sim)
 	_check_bot_stealth(gd, sim)
 	_check_bot_group(gd, sim)
+	_check_bot_opener(gd, sim)
+	_check_bot_threat_budget(gd, sim)
+	_check_probe_sampler(gd)
 	_check_tank_threat(gd, sim)
 	_check_boss_crowd(gd, sim)
+	_check_boss_crowd_cocoon(gd, sim)
 	_check_horde_lines(gd)
 	_check_horde_stats(gd)
 	_check_agitator_aura(gd, sim)
@@ -2334,6 +2430,30 @@ func _note_damage(_a: int, _t: int, _amount: int, _crit: bool, _blocked: bool, k
 ## Buff no boneco: todo buff que o jogo pode pôr (skills, evoluções, formas, talentos, itens, sistemas) tem visual em
 ## BuffLooks (nada de buff invisível), a família existe e o que ela promete (partícula/casca/auréola) está montado;
 ## e a BuffAura de verdade liga a borda/casca com o buff e apaga depois que ele sai.
+## Ids de buff escritos no código da sim: `{"id": "<id>", "remaining": ...}` (sem "kind": debuff tem kind) e `["id"] = "<id>"`.
+func _coded_buff_ids(dir_path: String) -> Array:
+	var out: Array = []
+	var lit := RegEx.create_from_string("\"id\": *\"([a-z_]+)\", *\"remaining\"")
+	var set_id := RegEx.create_from_string("\\[\"id\"\\] = \"([a-z_]+)\"")
+	var dir := DirAccess.open(dir_path)
+	if dir == null:
+		return out
+	for sub in dir.get_directories():
+		for id in _coded_buff_ids(dir_path + "/" + sub):
+			if not id in out:
+				out.append(id)
+	for fn in dir.get_files():
+		if not fn.ends_with(".gd"):
+			continue
+		for line in FileAccess.get_file_as_string(dir_path + "/" + fn).split("\n"):
+			if "\"kind\"" in line or "debuff" in line:
+				continue
+			for rx: RegEx in [lit, set_id]:
+				for m in rx.search_all(line):
+					if not m.get_string(1) in out:
+						out.append(m.get_string(1))
+	return out
+
 func _check_buff_visuals(gd, sim) -> void:
 	var srcs: Array = BuffLooks.sources()
 	check(srcs.size() >= 40, "BuffLooks.sources acha os buffs do jogo (%d)" % srcs.size())
@@ -2351,6 +2471,11 @@ func _check_buff_visuals(gd, sim) -> void:
 		if lk["family"] in ["power", "speed", "smoke", "poison", "dark", "holy"]:
 			check(lk["parts"] != "" or lk["halo"] or int(lk["shell"]) > 0, "buff %s (%s) mostra algo além da borda" % [id, lk["family"]])
 	check(missing.is_empty(), "todo buff tem visual em BuffLooks.LOOKS (faltam: %s)" % ", ".join(missing))
+	# buffs postos direto no código da sim (put_buff com id escrito): também precisam de visual e de linha em SYSTEM_BUFFS
+	var coded := _coded_buff_ids("res://core")
+	check(coded.size() >= 8, "varredura do core acha os buffs escritos no código (%d)" % coded.size())
+	var no_look: Array = coded.filter(func(id): return not BuffLooks.LOOKS.has(id) or not srcs.any(func(x): return x["id"] == id))
+	check(no_look.is_empty(), "buff escrito no core tem visual em BuffLooks.LOOKS e fonte em SYSTEM_BUFFS (faltam: %s)" % ", ".join(no_look))
 	for id in BuffLooks.LOOKS:
 		check(srcs.any(func(x): return x["id"] == id), "BuffLooks.LOOKS[%s] é dado por algo (linha morta?)" % id)
 	check(BuffLooks.look("frost_armor")["shell"] == 2 and BuffLooks.look("frost_armor")["parts"] == "snow", "Armadura de Gelo: casca de cristal + neve")
@@ -2902,10 +3027,20 @@ func _check_legend_weapons_and_attrs(gd, sim) -> void:
 	# retaliação: tanque devolve parte do corpo a corpo
 	a.stats.echo_chance = 0.0
 	a.stats.thorns_pct = 20.0
+	# o golpe precisa pegar: o equipamento sorteado do bot pode dar esquiva (> 0) e a rolagem usa o sim.rng
+	# compartilhado (estado depende dos checks anteriores); sem esquiva, invulnerável, aparo nem barreira
+	a.stats.evasion = 0.0
+	a.iframe_left = 0.0
+	a.parry_left = 0.0
+	a.is_blocking = false
+	a.shield_hp = 0.0
+	a.hp = a.stats.max_hp
+	a.position = Vector3(-46, 0, -46)
+	mob.position = Vector3(-46, 0, -44.5)
 	_dmg_kinds.clear()
 	var mhp: float = mob.hp
 	sim._deal_damage(mob, a, 100, false, false, "physical")
-	check(_dmg_kinds.has("thorns") and mob.hp < mhp, "Retaliação: quem bate corpo a corpo leva parte de volta")
+	check(_dmg_kinds.has("thorns") and mob.hp < mhp, "Retaliação: quem bate corpo a corpo leva parte de volta (%s, %d/%d)" % [str(_dmg_kinds), int(mob.hp), int(mhp)])
 	Events.damage_dealt.disconnect(_note_damage)
 	# Elementalista: fogo lança Bola de Fogo no básico; gelo lança Nova ao levar golpe (uma vez a cada 20 s); raio salta
 	var el: SimEntity = sim.spawn_bot(gd.classes["elementalist"], "Ele2", "city_aldara", Vector3(-46, 0, -46), 20)
@@ -3091,7 +3226,7 @@ func _check_necromancer_builds(gd, sim) -> void:
 	check(n.form == "phantom", "fantasma ainda ativa antes do fim")
 	for i in range(10):
 		sim._update_entity(n, nm, 0.1)
-	check(n.form == "" and n.form_left == 0.0 and n.stats.evasion == 0.0, "fantasma acaba sozinha e devolve os atributos")
+	check(n.form == "" and n.form_left == 0.0 and is_equal_approx(n.stats.evasion, Stats.agi_evasion(float(n.stats.attrs["AGI"]) / Balance.ATTR_SCALE)), "fantasma acaba sozinha e devolve os atributos (sobra só a esquiva da AGI)")
 	sim._apply_effects(n, n, gd.skills["nec_phantom"].effects, 0.0)
 	sim._apply_effects(n, n, gd.skills["nec_phantom"].effects, 0.0)
 	check(n.form == "" and n.form_left == 0.0, "usar de novo desfaz a fantasma")
@@ -3846,6 +3981,74 @@ func _check_elemental_evolution(gd, sim, save) -> void:
 			sim.despawn(o)
 	sim.despawn(bm)
 	sim.despawn(b)
+
+## Esquiva passiva da AGI (decisão do autor, 2026-11-12): curva Balance.EVASION_AGI_*, só personagens, só golpe direto, teto EVASION_CAP.
+func _check_agi_evasion(gd, sim) -> void:
+	var ref := Balance.EVASION_AGI_REF
+	check(Stats.agi_evasion(0.0) == 0.0 and Stats.agi_evasion(-5.0) == 0.0, "AGI 0 não dá esquiva")
+	check(is_equal_approx(Stats.agi_evasion(ref), Balance.EVASION_AGI_REF_PCT), "AGI de referência (%.0f) dá %.0f%% de esquiva" % [ref, Balance.EVASION_AGI_REF_PCT])
+	check(Stats.agi_evasion(ref) >= 9.0 and Stats.agi_evasion(ref) <= 11.0, "build toda em AGI no 45 fica perto de 10%% (%.1f%%)" % Stats.agi_evasion(ref))
+	var low := Stats.agi_evasion(40.0)          # força com AGI de passagem (Cruzado/Executor/Fera no 45)
+	check(low >= 1.0 and low <= 3.0, "AGI de passagem (40) dá 1-3%% (%.1f%%)" % low)
+	check(Stats.agi_evasion(80.0) < 5.0, "AGI média (80, Carniceiro no 45) fica abaixo de 5%% (%.1f%%)" % Stats.agi_evasion(80.0))
+	check(Stats.agi_evasion(100.0) > Stats.agi_evasion(50.0) and Stats.agi_evasion(50.0) > 0.0, "mais AGI, mais esquiva")
+	# bot da build de AGI: a esquiva da ficha vem da AGI (o Caçador não tem outra fonte)
+	var at := Vector3(34, 0, 34)
+	var r: SimEntity = sim.spawn_bot(gd.classes["ranger"], "Eva", "city_aldara", at, 30)
+	r.brain = null
+	r.build_id = "cacador"
+	sim._gear_bot(r)
+	sim._skill_bot(r)
+	r.buffs.clear()
+	r.recompute_stats()
+	var from_agi := Stats.agi_evasion(float(r.stats.attrs["AGI"]) / Balance.ATTR_SCALE)
+	check(r.stats.attrs["AGI"] > 0 and from_agi > 2.0 and r.stats.evasion >= from_agi - 0.001, "Caçador nv 30 esquiva pela AGI (%d AGI -> %.1f%%, ficha %.1f%%)" % [r.stats.attrs["AGI"], from_agi, r.stats.evasion])
+	# soma com a esquiva de buff/passivo e respeita o teto
+	r.buffs.append({"id": "t_agi_ev", "duration": 99, "remaining": 99, "evasion": 5.0})
+	r.recompute_stats()
+	check(is_equal_approx(r.stats.evasion, minf(from_agi + 5.0, Balance.EVASION_CAP)), "esquiva da AGI soma com a de buff (%.1f%%)" % r.stats.evasion)
+	r.buffs.append({"id": "t_agi_big", "duration": 99, "remaining": 99, "attr_AGI": 100000})
+	r.recompute_stats()
+	check(r.stats.evasion == Balance.EVASION_CAP, "AGI enorme para no teto (%.0f%%)" % Balance.EVASION_CAP)
+	# taxa real: AGI de referência pega ~10% dos golpes diretos (1000 golpes, semente fixa)
+	r.buffs.clear()
+	r.recompute_stats()
+	r.buffs.append({"id": "t_agi_set", "duration": 99, "remaining": 99, "attr_AGI": int(ref * Balance.ATTR_SCALE) - int(r.stats.attrs["AGI"])})
+	r.recompute_stats()
+	var mob: SimEntity = sim.spawn_monster(gd.monsters["golem"], "city_aldara", at + Vector3(0, 0, 1.5))
+	var dodged := 0
+	sim.rng.seed = 23
+	for i in range(1000):
+		var hp0: float = r.hp
+		sim._deal_damage(mob, r, 1, false, false, "physical")
+		if r.hp == hp0:
+			dodged += 1
+		r.hp = r.stats.max_hp
+	check(dodged >= 70 and dodged <= 130, "AGI %d esquiva ~10%% dos golpes de monstro (%d/1000, ficha %.1f%%)" % [r.stats.attrs["AGI"], dodged, r.stats.evasion])
+	# dano no tempo não é golpe direto: nunca é esquivado
+	r.buffs.append({"id": "t_agi_cap", "duration": 99, "remaining": 99, "evasion": 300})
+	r.recompute_stats()
+	var dot_miss := 0
+	for i in range(200):
+		var hp1: float = r.hp
+		sim._deal_damage(mob, r, 1, false, false, "dot")
+		if r.hp == hp1:
+			dot_miss += 1
+		r.hp = r.stats.max_hp
+	check(dot_miss == 0, "dano no tempo ignora a esquiva (%d de 200 não pegaram)" % dot_miss)
+	# monstro não esquiva: nem com AGI no stat (não passa por Stats.compute) nem forçando o stat
+	check(mob.stats.evasion == 0.0, "monstro não ganha esquiva")
+	mob.stats.evasion = Balance.EVASION_CAP
+	var mob_miss := 0
+	for i in range(200):
+		var mh: float = mob.hp
+		sim._deal_damage(r, mob, 1, false, false, "physical")
+		if mob.hp == mh:
+			mob_miss += 1
+		mob.hp = mob.stats.max_hp
+	check(mob_miss == 0, "golpe de bot em monstro nunca é esquivado (%d de 200)" % mob_miss)
+	sim.despawn(mob)
+	sim.despawn(r)
 
 func _check_assassin_builds(gd, sim) -> void:
 	var cls: ClassDef = gd.classes["assassin"]
@@ -6238,6 +6441,47 @@ func _check_character_window(gd, sim) -> void:
 		check(size.x * size.y <= 0.6 * 490.0 * 868.0, "janela C (%s): área %.0f ≤ 60%% da antiga" % [tab, size.x * size.y])
 		check(w.char_slots.size() == UiKit.EQUIP_SLOTS.size(), "janela C (%s): %d quadrados de slot" % [tab, w.char_slots.size()])
 	check(w._can_drop_on_bag(Vector2.ZERO, {"rx_drag": "slot", "slot": ItemDef.Slot.HEAD}), "janela C: slot arrasta para a bolsa")
+	# aba Conjuntos: conta só as 5 peças de armadura (arma lendária fora), peça faltando apagada, bônus ativos marcados
+	var bad_sets: Array = []
+	for sid in gd.sets:
+		var arm: Array = W.set_armor_items(gd.sets[sid])
+		if arm.size() != 5 or arm.any(func(it): return it.slot in [ItemDef.Slot.WEAPON, ItemDef.Slot.OFFHAND]):
+			bad_sets.append(sid)
+	check(bad_sets.is_empty(), "conjuntos: 5 peças de armadura, sem arma/mão secundária (%s)" % [bad_sets.slice(0, 4)])
+	var sid0 := "set_paladin_mix_guardiao_cruzado_35"
+	for wid in gd.sets[sid0].alt_pieces:          # arma lendária da build A na mão (híbrido: as armas ficam em alt_pieces)
+		if str(wid).ends_with("_guardiao_weapon"):
+			p.add_item(wid)
+			sim.equip(p, wid, false)
+	check(not p.stats.legend.is_empty() and p.stats.active_sets.size() == 1 and int(p.stats.active_sets[sid0]) == 5,
+		"janela C: conjunto vestido conta 5/5 com a arma lendária na mão (%s)" % [p.stats.active_sets])
+	for drop in [0, 2]:
+		if drop > 0:
+			for it in W.set_armor_items(gd.sets[sid0]).slice(0, drop):
+				sim.unequip(p, it.slot)
+		w._char_tab = "sets"
+		w._rebuild("character")
+		var root: Control = (w.wins["character"]["panel"] as Control)
+		var tab_txt := ""
+		var worn := 0
+		var icons := 0
+		var on := 0
+		var badges := 0
+		for c in root.find_children("*", "", true, false):
+			if c is Button and (c as Button).text.begins_with("Conjuntos"):
+				tab_txt = (c as Button).text
+			if c.has_meta("worn"):
+				icons += 1
+				worn += 1 if c.get_meta("worn") else 0
+			if c.has_meta("active"):
+				badges += 1
+				on += 1 if c.get_meta("active") else 0
+		var n_on: int = gd.sets[sid0].bonuses.keys().filter(func(k): return 5 - drop >= int(k)).size()
+		check(tab_txt == "Conjuntos (1)", "janela C: aba conta conjuntos, não a arma lendária (%s)" % tab_txt)
+		check(icons == 5 and worn == 5 - drop, "janela C: %d/5 peças vestidas na aba Conjuntos (%d de %d)" % [5 - drop, worn, icons])
+		check(badges == gd.sets[sid0].bonuses.size() and on == n_on, "janela C: bônus ativos marcados (%d de %d, esperado %d)" % [on, badges, n_on])
+		var need2: Vector2 = ((w.wins["character"]["scroll"] as ScrollContainer).get_child(0) as Control).get_combined_minimum_size()
+		check(need2.y <= W.SIZES["character"].y + 0.5, "janela C (conjuntos, %d peças): cabe sem rolar (%s)" % [5 - drop, need2])
 	w.close_all()
 	w.free()
 	sim.player = keep
@@ -6993,6 +7237,25 @@ func _check_hybrid_sets(gd, sim) -> void:
 	t2.debuffs.append({"kind": "dot", "id": "dot_%d" % ele.id, "remaining": 4.0, "dps": 100.0, "src": ele.id, "fire": true})
 	FusionEffects.on_hit(sim, ele, t2, gd.skills["ele_ice_lance"], 10, false)
 	check(t2.hp <= 1.0e6 - 400.0 * 1.4 and not t2.debuffs.any(func(d): return d.get("fire", false)), "Vapor: gelo apaga a queimadura e causa %d%% dela na hora" % int(FusionEffects.num(ele, "quench")))
+	# E1 (2026-11-12): fogo em alvo retardado também faz Vapor; com recarga (o vapor retarda: não se encadeia) e nada sem o alvo retardado
+	var fb: SkillDef = gd.skills["ele_fireball"]
+	var burn := {"kind": "dot", "id": "dot_%d" % ele.id, "remaining": 4.0, "dps": 100.0, "src": ele.id, "fire": true}
+	t2.debuffs.clear()
+	t2.hp = 1.0e6
+	t2.debuffs.append(burn.duplicate())
+	FusionEffects.on_hit(sim, ele, t2, fb, 10, false)
+	check(is_equal_approx(t2.hp, 1.0e6) and t2.debuffs.any(func(d): return d.get("fire", false)), "Vapor: fogo em alvo SEM lentidão não apaga a queimadura")
+	t2.debuffs.append({"kind": "slow", "remaining": 3.0, "pct": 30.0})
+	ele.fus.erase("vapor_at")
+	FusionEffects.on_hit(sim, ele, t2, fb, 10, false)
+	check(t2.hp <= 1.0e6 - 400.0 * 1.4 and not t2.debuffs.any(func(d): return d.get("fire", false)), "Vapor: fogo em alvo retardado apaga a queimadura e causa %d%% dela na hora" % int(FusionEffects.num(ele, "quench")))
+	var hp1 := t2.hp
+	t2.debuffs.append(burn.duplicate())
+	FusionEffects.on_hit(sim, ele, t2, fb, 10, false)
+	check(is_equal_approx(t2.hp, hp1) and t2.debuffs.any(func(d): return d.get("fire", false)), "Vapor por fogo tem recarga de %.1f s (não se encadeia no próprio retardo)" % Balance.FUSION_VAPOR_ICD)
+	FusionEffects.on_hit(sim, ele, t2, gd.skills["ele_ice_lance"], 10, false)
+	check(t2.hp < hp1 and not t2.debuffs.any(func(d): return d.get("fire", false)), "Vapor por gelo segue sem recarga")
+	check(GearCatalog.FUSIONS["fogo+gelo"]["text"]["all"].contains("fogo em alvo retardado"), "texto do Vapor cita o gatilho do fogo")
 	sim.despawn(t2)
 	sim.despawn(ele)
 	_check_fusion_redesign(gd, sim)
@@ -8379,6 +8642,7 @@ func _check_skill_visuals(gd) -> void:
 ## Conversa dos bots por contexto (BotChat): lugar, classe/build, grupo com o jogador (nome, eventos, ritmo, sem repetir).
 func _check_bot_chat(gd, sim) -> void:
 	var full := {"p": "Fulano", "pcls": "paladino", "map": "Mapa", "lv": "12", "me": "Bot", "boss": "Chefão", "item": "Anel"}
+	full.merge(BotsCatalog.place_words("Mapa"))     # falas de viagem: {pra} {em} {nome}
 	var bad := 0
 	for key in gd.bot_chat:
 		for line in gd.bot_chat[key]:
@@ -8416,6 +8680,14 @@ func _check_bot_chat(gd, sim) -> void:
 		check(pp.any(func(l): return str(l).contains("{p}")), "falas de grupo: '%s' chama o jogador pelo nome" % ev)
 	check(BotChat.reply_kind("valeu mano") == "reply_thanks" and BotChat.reply_kind("bora la") == "reply_go" and BotChat.reply_kind("que horas?") == "reply_ask"
 		and BotChat.reply_kind("hm") == "reply", "resposta do grupo pelas palavras")
+	# viagem: artigo certo pelo nome do lugar ("no Vale", "nas Estepes"), sem marca sobrando
+	check(BotsCatalog.place_words("Vale de Aldara")["em"] == "no Vale de Aldara" and BotsCatalog.place_words("Estepes de Cinza")["pra"] == "pras Estepes de Cinza"
+		and BotsCatalog.place_words("Floresta Sombria")["em"] == "na Floresta Sombria" and BotsCatalog.place_words("Arraial de Ghar")["pra"] == "pro Arraial de Ghar",
+		"falas de viagem: artigo do lugar (no/na/nas/pro)")
+	for mid in gd.maps:
+		for line in gd.bot_lines["leaving"]:
+			var s := str(line).format(BotsCatalog.place_words(gd.maps[mid].name))
+			check(not s.contains("{") and not s.contains("%"), "falas de viagem sem marca sobrando: %s" % s)
 	var pl: SimEntity = sim.player
 	if pl.party_id >= 0:
 		sim.party_leave(pl)
@@ -10681,6 +10953,17 @@ func _check_boss_crowd(gd, sim) -> void:
 	for i in range(1, Balance.BOSS_CROWD_MULT.size()):
 		grows = grows and float(Balance.BOSS_CROWD_MULT[i]) >= float(Balance.BOSS_CROWD_MULT[i - 1])
 	check(grows and MobSystem.crowd_mult(Balance.PARTY_MAX) > 1.0, "chefe: reforço cresce com o grupo")
+	# reforço extra por chefe (BOSS_CROWD_EXTRA): só a partir de BOSS_CROWD_EXTRA_FROM pessoas e só nos chefes da lista
+	check(Balance.BOSS_CROWD_EXTRA_FROM >= 4, "reforço extra não mexe em solo/dupla/trio")
+	for bid in Balance.BOSS_CROWD_EXTRA:
+		var x: float = float(Balance.BOSS_CROWD_EXTRA[bid])
+		check(gd.monsters.has(bid) and gd.monsters[bid].is_boss and x >= 1.0, "reforço extra: %s é chefe e × >= 1" % bid)
+		var same := true
+		for n in range(0, Balance.BOSS_CROWD_EXTRA_FROM):
+			same = same and MobSystem.crowd_mult(n, bid) == MobSystem.crowd_mult(n)
+		check(same, "reforço extra de %s não vale abaixo de %d pessoas" % [bid, Balance.BOSS_CROWD_EXTRA_FROM])
+		check(is_equal_approx(MobSystem.crowd_mult(Balance.BOSS_CROWD_EXTRA_FROM, bid), MobSystem.crowd_mult(Balance.BOSS_CROWD_EXTRA_FROM) * x), "reforço extra de %s vale com %d" % [bid, Balance.BOSS_CROWD_EXTRA_FROM])
+	check(not Balance.BOSS_CROWD_EXTRA.has("bandit_chief") and MobSystem.crowd_mult(Balance.PARTY_MAX, "bandit_chief") == MobSystem.crowd_mult(Balance.PARTY_MAX), "chefe fora da lista: só o reforço comum")
 	var at := Vector3(-40, 0, 40)
 	var boss: SimEntity = sim.spawn_monster(gd.monsters["bandit_chief"], "city_aldara", at)
 	boss.brain = null
@@ -10712,6 +10995,152 @@ func _check_boss_crowd(gd, sim) -> void:
 		sim.party_leave(o)
 	for o in members + [passer, boss]:
 		sim.despawn(o)
+
+## Mecânica de grupo grande (MonsterDef.crowd_skills; GDD design/gdd/spider-queen-4p.md): a Rainha Aranha ganha o Casulo de Seda
+## só quando o pico da luta chega a BOSS_CROWD_EXTRA_FROM (solo/trio nunca), segue com o pico depois de uma morte e sai no reset.
+## Casulo: prende (STUNNED) até quebrar; quebrado solta sem dano; tempo esgotado aperta COCOON_BURST da vida; bot dps acha o casulo.
+func _check_boss_crowd_cocoon(gd, sim) -> void:
+	for mid in gd.monsters:
+		for sid in gd.monsters[mid].crowd_skills:
+			check(gd.skills.has(sid) and gd.monsters[mid].is_boss, "crowd_skills de %s: %s existe e é chefe" % [mid, sid])
+	var qd: MonsterDef = gd.monsters["spider_queen"]
+	check("mob_cocoon" in qd.crowd_skills and not ("mob_cocoon" in qd.skill_ids), "Rainha: Casulo só como mecânica de 4+")
+	for ph in qd.phases:
+		check(not ("mob_cocoon" in ph.get("skills", [])), "Rainha: Casulo não entra por fase (valeria no solo)")
+	var cd: MonsterDef = gd.monsters.get("web_cocoon")
+	check(cd != null and cd.move_speed == 0.0 and cd.xp == 0 and cd.loot_table == "", "casulo: não anda, sem XP nem saque")
+	check((gd.skills["mob_cocoon"] as SkillDef).effects.has("cocoon") and (gd.skills["mob_cocoon"] as SkillDef).mob_pick == "soft", "Casulo mira o frágil (mob_pick soft)")
+	var at := Vector3(-40, 0, 40)
+	var q: SimEntity = sim.spawn_monster(qd, "city_aldara", at)
+	q.brain = null
+	var mk := func(cname: String, pos: Vector3) -> SimEntity:
+		var b = sim.spawn_character(SimEntity.Kind.BOT, gd.classes[cname], cname, "city_aldara", pos, 20)
+		b.brain = null
+		return b
+	var a: SimEntity = mk.call("paladin", at + Vector3(2, 0, 0))
+	var members: Array = [a]
+	for cname in ["bishop", "elementalist", "berserker"]:
+		var o: SimEntity = mk.call(cname, at + Vector3(-3 - members.size(), 0, 2))
+		members.append(o)
+	q.threat = {a.id: 50.0}
+	q.aggro_target = a.id
+	var has_cocoon := func() -> bool: return gd.skills["mob_cocoon"] in q.skills
+	# solo e trio: sem casulo (o grupo vai crescendo de 1 em 1)
+	for n in [1, 2, 3]:
+		if n > 1:
+			sim.party_invite(a, members[n - 1])
+			sim.party_accept(members[n - 1])
+		q.crowd_t = 0.0
+		MobSystem.update_boss(sim, q, 0.05)
+		check(q.crowd == n and not has_cocoon.call(), "Rainha com %d: sem Casulo (crowd=%d)" % [n, q.crowd])
+	sim.party_invite(a, members[3])
+	sim.party_accept(members[3])
+	q.crowd_t = 0.0
+	MobSystem.update_boss(sim, q, 0.05)
+	check(q.crowd == 4 and q.crowd_peak == 4 and has_cocoon.call(), "Rainha com 4: Casulo entra (crowd=%d)" % q.crowd)
+	members[3].position = at + Vector3(Balance.BOSS_CROWD_RANGE + 5.0, 0, 0)
+	q.crowd_t = 0.0
+	MobSystem.update_boss(sim, q, 0.05)
+	check(q.crowd == 3 and has_cocoon.call(), "Rainha: um sai (ou morre) e o Casulo fica (vale pelo pico da luta)")
+	members[3].position = at + Vector3(-6, 0, 2)
+	# casulo quebrado: solta sem dano
+	var v: SimEntity = members[1]
+	var hp0: float = v.hp
+	MobSystem.cocoon(sim, q, v, {"id": "web_cocoon"})
+	var add: SimEntity = null
+	for o: SimEntity in sim.maps["city_aldara"]["entities"]:
+		if o.monster_def == cd and o.aggro_target == v.id:
+			add = o
+	check(add != null and add.boss_id == q.id and v.state == SimEntity.State.STUNNED and v.has_debuff("cocoon"), "Casulo prende a vítima num lacaio da Rainha")
+	check(MobSystem.adds_alive(sim, q) >= 1, "casulo conta como lacaio (escudo da fase 2)")
+	check(MobSystem.cocoon_of(sim, members[2], members, Balance.BOT_COCOON_RANGE) == add, "bot do grupo acha o casulo do aliado")
+	MobSystem.cocoon(sim, q, v, {"id": "web_cocoon"})
+	var n_add := 0
+	for o: SimEntity in sim.maps["city_aldara"]["entities"]:
+		if o.monster_def == cd and o.is_alive():
+			n_add += 1
+	check(n_add == 1, "vítima já presa não ganha 2º casulo")
+	MobSystem.cocoon_tick(sim, v)
+	check(v.state == SimEntity.State.STUNNED, "casulo inteiro e tempo correndo: segue preso")
+	sim.despawn(add)                          # quebrado (morto ou sumido com o chefe)
+	MobSystem.cocoon_tick(sim, v)
+	check(v.state != SimEntity.State.STUNNED and not v.has_debuff("cocoon"), "casulo quebrado: solta (estado %d)" % v.state)
+	check(is_equal_approx(v.hp, hp0), "casulo quebrado: sem dano (%.0f -> %.0f)" % [hp0, v.hp])
+	# tempo esgotado: aperta
+	MobSystem.cocoon(sim, q, v, {"id": "web_cocoon"})
+	var add2: SimEntity = null
+	for o: SimEntity in sim.maps["city_aldara"]["entities"]:
+		if o.monster_def == cd and o.is_alive() and o.aggro_target == v.id:
+			add2 = o
+	v.iframe_left = 0.0
+	v.state_time = v.state_duration
+	MobSystem.cocoon_tick(sim, v)
+	var lost: float = (hp0 - v.hp) / v.stats.max_hp
+	check(v.state != SimEntity.State.STUNNED and not v.has_debuff("cocoon") and not sim.entities.has(add2.id), "tempo esgotado: casulo some e solta")
+	check(absf(lost - Balance.COCOON_BURST) < 0.02, "tempo esgotado: aperta %.2f da vida (perdeu %.2f)" % [Balance.COCOON_BURST, lost])
+	sim.reset_boss(q)
+	check(not has_cocoon.call() and q.crowd_peak == 0, "reset da Rainha tira o Casulo")
+	for o in members.slice(1):
+		sim.party_leave(o)
+	for o in members + [q]:
+		sim.despawn(o)
+	_cocoon_breakers(gd, sim)
+
+## Quem quebra o casulo (BotBrain._cocoon_target): o LÍDER dps do grupo também (antes só seguidores), o bot sozinho
+## perto do jogador preso também; o tanque líder segue no chefe. A Rainha fica mais perto que o casulo (o combate
+## reativo pegaria o mais perto: o teste é da regra, não da distância).
+func _cocoon_breakers(gd, sim) -> void:
+	var map_id := "field_forest" if sim.maps.has("field_forest") else "city_aldara"
+	var m: Dictionary = sim.maps[map_id]
+	var def: MapDef = m["def"]
+	var at: Vector3 = def.spawn_point + Vector3(30, 0, 30)
+	var qd: MonsterDef = gd.monsters["spider_queen"]
+	var mk := func(kind: int, cname: String, pos: Vector3) -> SimEntity:
+		var b: SimEntity = sim.spawn_character(kind, gd.classes[cname], cname, map_id, pos, 20)
+		b.brain = null
+		b.stats.evasion = 0.0
+		return b
+	var cocoon_on := func(v: SimEntity, q: SimEntity) -> SimEntity:
+		MobSystem.cocoon(sim, q, v, {"id": "web_cocoon"})
+		for o: SimEntity in m["entities"]:
+			if o.monster_def != null and o.monster_def.id == "web_cocoon" and o.is_alive() and o.aggro_target == v.id:
+				return o
+		return null
+	# [classe do bot que pensa, quebra?, sozinho perto do jogador?]
+	for row in [["berserker", true, false], ["paladin", false, false], ["berserker", true, true]]:
+		var solo: bool = row[2]
+		var q: SimEntity = sim.spawn_monster(qd, map_id, at)
+		q.brain = null
+		var lead: SimEntity = mk.call(SimEntity.Kind.BOT, row[0], at + Vector3(1.5, 0, 0))
+		var v: SimEntity = mk.call(SimEntity.Kind.PLAYER if solo else SimEntity.Kind.BOT, "bishop", at + Vector3(1.5 + 6.0, 0, 0))
+		var keep = sim.player
+		if solo:
+			sim.player = v
+		else:
+			sim.party_invite(lead, v)
+			sim.party_accept(v)
+		q.threat = {lead.id: 50.0}
+		q.aggro_target = lead.id
+		var add: SimEntity = cocoon_on.call(v, q)
+		var role: String = sim.role_of(lead)
+		var bb := BotBrain.new()
+		bb.setup(lead, RandomNumberGenerator.new())
+		var cmd: InputCommand = bb.think(lead, sim, m, 0.05)
+		var tag := "%s %s (%s)" % ["sozinho perto do jogador" if solo else "líder do grupo", row[0], role]
+		check(add != null and (solo or sim.party_leader(lead) == lead) and not def.in_town(lead.position), "%s: casulo de pé e fora da vila" % tag)
+		if row[1]:
+			check(role != "tank" and role != "healer" and bb.hunt_target_id == add.id and cmd.aim.is_equal_approx(add.position),
+				"%s quebra o casulo do aliado (alvo %d, casulo %d)" % [tag, bb.hunt_target_id, add.id])
+		else:
+			check(role == "tank" and bb.hunt_target_id != add.id and not cmd.aim.is_equal_approx(add.position),
+				"%s segue no chefe e não quebra o casulo (alvo %d)" % [tag, bb.hunt_target_id])
+		if solo:
+			sim.player = keep
+		else:
+			sim.party_leave(v)
+		for o in [add, v, lead, q]:
+			if o != null and sim.entities.has(o.id):
+				sim.despawn(o)
 
 ## IA de grupo (BotBrain): papel pela build, lugar por papel contra chefe preso no tanque (costas/flanco, fora da frente),
 ## ameaça (passou o tanque: para), cura com o tanque primeiro, tanque não foge do golpe do próprio chefe, sem guarda
@@ -10888,6 +11317,8 @@ func _check_bot_group(gd, sim) -> void:
 	cmd = bd._fight(dps, sim, m, boss, InputCommand.new())
 	check(not cmd.attack and cmd.skill_slot < 0, "dps com mais ameaça que o tanque para de bater")
 	boss.threat[dps.id] = 0.0
+	# tanque bem à frente do básico previsto (crítico + assinatura: 1000 não basta para o Carniceiro do nível)
+	boss.threat[tank.id] = maxf(1000.0, (BotBrain._skill_threat(dps, dps.basic_skill, boss, true) + BotBrain._signature_threat(dps, sim, boss)) * 10.0)
 	cmd = bd._fight(dps, sim, m, boss, InputCommand.new())
 	check(cmd.attack or cmd.skill_slot >= 0 or cmd.move != Vector2.ZERO, "dps nas costas com pouca ameaça luta")
 	# cura: tanque primeiro
@@ -10957,6 +11388,317 @@ func _check_bot_group(gd, sim) -> void:
 			sim.despawn(o)
 	for o in [tank, heal, dps, gun]:
 		sim.despawn(o)
+
+## Abertura do grupo (BotBrain._opener): com tanque no grupo, quem não é o tanque segura as skills no chefe/elite até ele
+## ficar BOT_OPENER_TIME s preso no tanque (com ameaça dele) e só usa o básico abaixo de BOT_OPENER_RATIO × a ameaça do
+## tanque (buff em si pode); área num lacaio perto do chefe também espera; tanque que não pega em BOT_OPENER_WAIT s libera; o
+## tanque guarda a provocação para o estouro. Antes o Fogo tirava o chefe do tanque na abertura do Ato II.
+func _check_bot_opener(gd, sim) -> void:
+	check(Balance.BOT_OPENER_TIME > 0.0 and Balance.BOT_OPENER_WAIT > Balance.BOT_OPENER_TIME and Balance.BOT_OPENER_RATIO > 0.0 and Balance.BOT_OPENER_RATIO < Balance.BOT_THREAT_HOLD, "abertura: números coerentes (espera > tempo preso; razão abaixo do freio)")
+	var at := Vector3(-30, 0, 30)
+	var mk := func(cid: String, bid: String, name: String, pos: Vector3) -> SimEntity:
+		var b = sim.spawn_character(SimEntity.Kind.BOT, gd.classes[cid], name, "city_aldara", pos, 30)
+		b.build_id = bid
+		sim._gear_bot(b)
+		sim._skill_bot(b)
+		b.brain = null
+		return b
+	var t0: float = sim.time
+	var tank: SimEntity = mk.call("paladin", "guardiao", "TqA", at + Vector3(0, 0, 2.5))
+	var dps: SimEntity = mk.call("berserker", "carniceiro", "DpsA", at + Vector3(0, 0, -2.5))
+	var fire: SimEntity = mk.call("elementalist", "fogo", "FogoA", at + Vector3(-8, 0, -6))
+	for o in [dps, fire]:
+		sim.party_invite(tank, o)
+		sim.party_accept(o)
+	var boss: SimEntity = sim.spawn_monster(gd.monsters["bandit_chief"], "city_aldara", at)
+	boss.brain = null
+	boss.aggro_target = tank.id
+	boss.aggro_timer = 5.0
+	boss.threat = {tank.id: 1000.0}
+	var m: Dictionary = sim.maps["city_aldara"]
+	var bf := BotBrain.new()
+	bf.setup(fire, RandomNumberGenerator.new())
+	check(bf._opener(fire, sim, m, boss, tank) == boss, "abertura: chefe recém-preso no tanque segura as skills do Fogo")
+	check(bf._opener(tank, sim, m, boss, tank) == null and bf._opener(fire, sim, m, boss, null) == null, "abertura: não vale para o tanque nem sem tanque")
+	sim.time = t0 + Balance.BOT_OPENER_TIME + 0.1
+	check(bf._opener(fire, sim, m, boss, tank) == null, "abertura: %.0f s preso no tanque, luta normal" % Balance.BOT_OPENER_TIME)
+	boss.aggro_target = fire.id
+	check(bf._opener(fire, sim, m, boss, tank) == boss, "abertura: chefe largou o tanque, segura de novo")
+	sim.time += Balance.BOT_OPENER_WAIT + 0.1
+	bf.opener_id = -1
+	check(bf._opener(fire, sim, m, boss, tank) == boss, "abertura: chefe novo, relógio da espera recomeça")
+	sim.time += Balance.BOT_OPENER_WAIT + 0.1
+	check(bf._opener(fire, sim, m, boss, tank) == null, "abertura: tanque não pegou em %.0f s, luta normal (não trava o grupo)" % Balance.BOT_OPENER_WAIT)
+	boss.aggro_target = tank.id
+	# área no lacaio colado no chefe também espera
+	var add: SimEntity = sim.spawn_monster(gd.monsters["slime"], "city_aldara", at + Vector3(2, 0, 0))
+	add.brain = null
+	bf.opener_id = -1
+	check(bf._opener(fire, sim, m, add, tank) == boss, "abertura: lacaio a %.0f m do chefe conta como o chefe" % Balance.BOT_OPENER_AOE_RANGE)
+	add.position = at + Vector3(Balance.BOT_OPENER_AOE_RANGE + 3.0, 0, 0)
+	check(bf._opener(fire, sim, m, add, tank) == null, "abertura: lacaio longe do chefe, luta normal")
+	sim.despawn(add)
+	BotBrain.opener_enabled = false
+	bf.opener_id = -1
+	check(bf._opener(fire, sim, m, boss, tank) == null, "abertura desligada (sonda --no_opener): luta normal")
+	BotBrain.opener_enabled = true
+	# no comando: o dps de perto nas costas só usa o básico, e nem ele acima da razão
+	var bd := BotBrain.new()
+	bd.setup(dps, RandomNumberGenerator.new())
+	var reach: float = dps.basic_skill.radius if dps.basic_skill else 1.8
+	dps.position = bd._role_spot(dps, sim, boss, true, reach, tank)
+	dps.cooldowns.clear()
+	dps.mp = dps.stats.max_mp
+	dps.basic_cd = 0.0
+	var dist: float = dps.position.distance_to(boss.position)
+	check(bd._best_skill(dps, sim, m, boss, dist) >= 0, "abertura: o dps tem skill pronta (base do teste)")
+	var tk_thr: float = 1000.0 + 20.0 * BotBrain._skill_threat(dps, dps.basic_skill, boss)     # tanque bem à frente do básico do dps
+	boss.threat = {tank.id: tk_thr, dps.id: 0.0}
+	var cmd: InputCommand = bd._fight(dps, sim, m, boss, InputCommand.new())
+	check(cmd.skill_slot < 0 and cmd.attack, "abertura: dps nas costas só no básico (sem skill)")
+	boss.threat[dps.id] = tk_thr * Balance.BOT_OPENER_RATIO + 1.0
+	cmd = bd._fight(dps, sim, m, boss, InputCommand.new())
+	check(cmd.skill_slot < 0 and not cmd.attack, "abertura: dps a %.0f%% da ameaça do tanque nem básico" % (Balance.BOT_OPENER_RATIO * 100.0))
+	boss.threat[dps.id] = 0.0
+	sim.time += Balance.BOT_OPENER_TIME + 0.1
+	cmd = bd._fight(dps, sim, m, boss, InputCommand.new())
+	check(cmd.skill_slot >= 0 or cmd.attack, "abertura: passado o tempo, o dps luta normal")
+	# dash que fere (Avanço Brutal) não sai na fuga durante a abertura: o Executor tirava o Besteiro do tanque a ~1 s
+	dps.talents["ber_t_crash"] = true
+	dps.dash_cd = 0.0
+	check(BotBrain._dash_hits(dps, sim) and not BotBrain._dash_hits(fire, sim), "abertura: Avanço Brutal conta como dash que fere")
+	m["hazards"] = [{"pos": dps.position, "radius": 3.0}]
+	var dashes := [0, 0]
+	for k in range(2):
+		sim.time += 0.0 if k == 0 else Balance.BOT_OPENER_TIME + 0.1
+		for i in range(12):
+			var bz := BotBrain.new()
+			var rz := RandomNumberGenerator.new()
+			rz.seed = 31 + i
+			bz.setup(dps, rz)
+			if k == 1:
+				bz.opener_id = boss.id
+				bz.opener_seen = sim.time - Balance.BOT_OPENER_WAIT - 1.0
+				bz.opener_held = sim.time - Balance.BOT_OPENER_TIME - 1.0
+			dashes[k] += 1 if bz._fight(dps, sim, m, boss, InputCommand.new()).dash else 0
+	check(dashes[0] == 0, "abertura: fugindo da área, sem dash que fere (%d/12 deram dash)" % dashes[0])
+	check(dashes[1] > 0, "abertura: passada a abertura, a fuga volta a usar o dash (%d/12)" % dashes[1])
+	m["hazards"] = []
+	dps.talents.erase("ber_t_crash")
+	# buff em si (sem dano/provocação) não espera; skill de dano espera
+	var bl: SkillDef = gd.skills["ber_bloodlust"]
+	check(BotBrain._self_buff(bl) and not BotBrain._self_buff(gd.skills["pal_taunt"]) and not BotBrain._self_buff(gd.skills["ele_fireball"]), "abertura: Sede de Sangue pode, Provocar e Bola de Fogo esperam")
+	# o tanque guarda a provocação (recarga longa) para quando o dps estourar: não provoca o chefe que já mira nele
+	var bt := BotBrain.new()
+	bt.setup(tank, RandomNumberGenerator.new())
+	tank.cooldowns.clear()
+	tank.mp = tank.stats.max_mp
+	boss.threat = {}
+	boss.taunt_left = 0.0
+	boss.aggro_target = tank.id
+	cmd = InputCommand.new()
+	check(not bt._taunt_party(tank, sim, m, sim.party_members(tank), cmd), "abertura: tanque com o chefe nele guarda a provocação")
+	boss.aggro_target = dps.id
+	cmd = InputCommand.new()
+	check(bt._taunt_party(tank, sim, m, sim.party_members(tank), cmd) and tank.skills[cmd.skill_slot].effects.has("taunt"), "chefe no dps: o tanque provoca")
+	sim.time = t0
+	sim.despawn(boss)
+	for o in [dps, fire]:
+		sim.party_leave(o)
+	for o in [tank, dps, fire]:
+		sim.despawn(o)
+
+## Ameaça prevista (BotBrain._threat_budget/_skill_threat/_pending_threat): com o chefe preso no tanque, a skill cujo golpe
+## (+ dano no tempo) passaria BOT_THREAT_HOLD × a ameaça do tanque espera; o dano no tempo pendente conta como ameaça já
+## feita; área num lacaio colado no chefe usa o orçamento do chefe. Antes o Meteoro saía a 0,6 do tanque e passava dele.
+func _check_bot_threat_budget(gd, sim) -> void:
+	var at := Vector3(-30, 0, 30)
+	var mk := func(cid: String, bid: String, name: String, pos: Vector3) -> SimEntity:
+		var b = sim.spawn_character(SimEntity.Kind.BOT, gd.classes[cid], name, "city_aldara", pos, 30)
+		b.build_id = bid
+		sim._gear_bot(b)
+		sim._skill_bot(b)
+		b.brain = null
+		return b
+	var tank: SimEntity = mk.call("paladin", "guardiao", "TqB", at + Vector3(0, 0, 2.5))
+	var fire: SimEntity = mk.call("elementalist", "fogo", "FogoB", at + Vector3(-8, 0, -6))
+	sim.party_invite(tank, fire)
+	sim.party_accept(fire)
+	var boss: SimEntity = sim.spawn_monster(gd.monsters["bandit_chief"], "city_aldara", at)
+	boss.brain = null
+	boss.aggro_target = tank.id
+	boss.aggro_timer = 5.0
+	var m: Dictionary = sim.maps["city_aldara"]
+	var bf := BotBrain.new()
+	bf.setup(fire, RandomNumberGenerator.new())
+	var meteor: float = BotBrain._skill_threat(fire, gd.skills["ele_meteor"], boss)
+	var ball: float = BotBrain._skill_threat(fire, gd.skills["ele_fireball"], boss)
+	check(meteor > ball and ball > 0.0 and BotBrain._skill_threat(fire, gd.skills["ber_bloodlust"], boss) == 0.0, "ameaça prevista: Meteoro > Bola de Fogo > 0; buff = 0 (%.0f / %.0f)" % [meteor, ball])
+	fire.cooldowns.clear()
+	fire.mp = fire.stats.max_mp
+	var dist: float = fire.position.distance_to(boss.position)
+	# tanque muito à frente: tudo cabe
+	boss.threat = {tank.id: meteor * 100.0, fire.id: 0.0}
+	bf._threat_budget(fire, m, boss, tank)
+	check(bf.threat_boss == boss and bf._best_skill(fire, sim, m, boss, dist) >= 0, "ameaça prevista: com folga o Fogo usa skill")
+	# folga menor que qualquer golpe: nenhuma skill de dano sai
+	boss.threat = {tank.id: 10.0, fire.id: 0.0}
+	bf._threat_budget(fire, m, boss, tank)
+	var pick: int = bf._best_skill(fire, sim, m, boss, dist)
+	check(pick < 0 or BotBrain._skill_threat(fire, fire.skills[pick], boss) * Balance.BOT_THREAT_PREDICT <= bf.threat_room, "ameaça prevista: skill que passaria o tanque espera")
+	# folga que cabe a Bola de Fogo mas não o Meteoro: o Meteoro nunca sai
+	boss.threat = {tank.id: (ball * Balance.BOT_THREAT_PREDICT + 1.0) / Balance.BOT_THREAT_HOLD, fire.id: 0.0}
+	bf._threat_budget(fire, m, boss, tank)
+	pick = bf._best_skill(fire, sim, m, boss, dist)
+	check(pick < 0 or fire.skills[pick].id != "ele_meteor", "ameaça prevista: Meteoro espera, golpe menor pode")
+	# dano no tempo pendente conta como ameaça
+	boss.debuffs.append({"kind": "dot", "id": "dot_%d" % fire.id, "remaining": 2.0, "dps": 50.0, "src": fire.id, "fire": true})
+	check(is_equal_approx(BotBrain._pending_threat(fire, boss), 100.0 * (1.0 + fire.stats.threat_pct / 100.0)), "ameaça prevista: queimadura que ainda vai cair conta")
+	boss.threat = {tank.id: 1000.0, fire.id: 0.0}
+	bf._threat_budget(fire, m, boss, tank)
+	check(is_equal_approx(bf.threat_room, 1000.0 * Balance.BOT_THREAT_HOLD - BotBrain._pending_threat(fire, boss)), "ameaça prevista: folga desconta o dano no tempo pendente")
+	boss.debuffs.clear()
+	# básico pesado: segura quando o próximo golpe passaria BOT_THREAT_STOP × o tanque
+	var bb: float = BotBrain._skill_threat(fire, fire.basic_skill, boss)
+	check(bb > 0.0, "ameaça prevista: o básico do Fogo tem ameaça (%.0f)" % bb)
+	# básico conta o crítico (no teto da variação) para quem tem crítico: o do Executor passava o tanque na abertura
+	var ex: SimEntity = mk.call("berserker", "executor", "ExecB", at + Vector3(1.5, 0, 0))
+	var eb_mean: float = BotBrain._skill_threat(ex, ex.basic_skill, boss)
+	var eb_crit: float = BotBrain._skill_threat(ex, ex.basic_skill, boss, true)
+	var cmean: float = 1.0 + clampf(ex.stats.crit_phys / 100.0, 0.0, 1.0) * (Balance.CRIT_MULT - 1.0)
+	check(ex.stats.crit_phys >= Balance.BOT_THREAT_CRIT_CHANCE and is_equal_approx(eb_crit / eb_mean, Balance.CRIT_MULT * (1.0 + Balance.DMG_VARIANCE) / cmean),
+		"ameaça prevista: básico do Executor conta o crítico no teto (%.0f vs médio %.0f, crítico %.0f%%)" % [eb_crit, eb_mean, ex.stats.crit_phys])
+	var ex_sk: SkillDef = gd.skills["ber_overhead"]
+	check(is_equal_approx(BotBrain._skill_threat(ex, ex_sk, boss, false), BotBrain._skill_threat(ex, ex_sk, boss)), "ameaça prevista: skill segue com o crítico médio")
+	var ex_crit0: float = ex.stats.crit_phys
+	ex.stats.crit_phys = Balance.BOT_THREAT_CRIT_CHANCE - 1.0
+	check(is_equal_approx(BotBrain._skill_threat(ex, ex.basic_skill, boss, true), BotBrain._skill_threat(ex, ex.basic_skill, boss)), "ameaça prevista: crítico abaixo de BOT_THREAT_CRIT_CHANCE usa o médio")
+	ex.stats.crit_phys = ex_crit0
+	# o golpe de verdade aplica a marca no alvo: a estimativa também
+	boss.debuffs.append({"kind": "curse", "id": "t_mark", "remaining": 5.0, "taken_pct": 20.0, "src": tank.id})
+	var marked: float = BotBrain._skill_threat(ex, ex.basic_skill, boss)
+	boss.debuffs.clear()
+	check(marked > eb_mean * 1.05, "ameaça prevista: marca no alvo (+%% de dano levado) entra na estimativa (%.0f vs %.0f)" % [marked, eb_mean])
+	# abertura: o básico que só passaria RATIO × o tanque com o crítico espera (com o médio, sairia)
+	var bex := BotBrain.new()
+	bex.setup(ex, RandomNumberGenerator.new())
+	sim.party_invite(tank, ex)
+	sim.party_accept(ex)
+	ex.position = bex._role_spot(ex, sim, boss, true, ex.basic_skill.range, tank)
+	ex.cooldowns.clear()
+	ex.basic_cd = 0.0
+	var thr_tank: float = (eb_mean + eb_crit) * 0.5 / Balance.BOT_OPENER_RATIO     # médio cabe, crítico não
+	boss.threat = {tank.id: thr_tank, ex.id: 0.0}
+	bex.opener_id = boss.id
+	bex.opener_seen = sim.time
+	bex.opener_held = sim.time
+	var c3: InputCommand = bex._fight(ex, sim, m, boss, InputCommand.new())
+	check(not c3.attack and (c3.skill_slot < 0 or BotBrain._self_buff(ex.skills[c3.skill_slot])), "abertura: básico do Executor que passaria com crítico espera")
+	# a assinatura (Golpe Avassalador) que o básico lança junto conta, fora da recarga dela
+	ex.sig_ready_at = 0.0
+	var sig: float = BotBrain._signature_threat(ex, sim, boss)
+	check(sig > eb_mean * 0.5, "ameaça prevista: assinatura do Executor conta no básico (%.0f, básico %.0f)" % [sig, eb_mean])
+	ex.sig_ready_at = sim.time + 10.0
+	check(BotBrain._signature_threat(ex, sim, boss) == 0.0, "ameaça prevista: assinatura em recarga não conta")
+	ex.sig_ready_at = 0.0
+	sim.party_leave(ex)
+	sim.despawn(ex)
+	var bfire := BotBrain.new()
+	bfire.setup(fire, RandomNumberGenerator.new())
+	fire.position = bfire._role_spot(fire, sim, boss, false, fire.basic_skill.range, tank)
+	fire.cooldowns.clear()
+	fire.basic_cd = 0.0
+	sim.time += Balance.BOT_OPENER_TIME + Balance.BOT_OPENER_WAIT + 1.0
+	boss.threat = {tank.id: 1000.0 + bb * 50.0, fire.id: (1000.0 + bb * 50.0) * Balance.BOT_THREAT_STOP - bb * 0.5}
+	bfire.opener_held = 0.0
+	bfire.opener_id = boss.id
+	var c2: InputCommand = bfire._fight(fire, sim, m, boss, InputCommand.new())
+	check(not c2.attack and c2.skill_slot < 0, "ameaça prevista: básico que passaria o tanque espera")
+	# chefe solto (não está no tanque): sem orçamento (as outras regras cuidam); lacaio colado no chefe usa o do chefe
+	boss.aggro_target = fire.id
+	bf._threat_budget(fire, m, boss, tank)
+	check(bf.threat_boss == null and bf.threat_room == INF, "ameaça prevista: chefe fora do tanque, sem orçamento")
+	boss.aggro_target = tank.id
+	var add: SimEntity = sim.spawn_monster(gd.monsters["slime"], "city_aldara", at + Vector3(2, 0, 0))
+	add.brain = null
+	bf._threat_budget(fire, m, add, tank)
+	check(bf.threat_boss == boss, "ameaça prevista: área no lacaio colado no chefe conta no chefe")
+	add.position = at + Vector3(Balance.BOT_OPENER_AOE_RANGE + 3.0, 0, 0)
+	bf._threat_budget(fire, m, add, tank)
+	check(bf.threat_boss == null, "ameaça prevista: lacaio longe do chefe, sem orçamento")
+	bf.threat_room = INF
+	bf.threat_boss = null
+	sim.despawn(add)
+	sim.despawn(boss)
+	sim.party_leave(fire)
+	for o in [tank, fire]:
+		sim.despawn(o)
+
+## Sonda de chefes: o grupo sorteado só depende de (chefe, luta, semente), não da ordem/lista dos chefes nem do rng da sim
+## (antes as builds vinham do rng que passava pelas lutas dos chefes anteriores: Rei Élfico 75% numa lista, 52,5% noutra).
+func _check_probe_sampler(gd) -> void:
+	var probe = load("res://tools/tests/boss_probe.gd")
+	var a: Array = probe.random_comp("elf_king", 3, 1337, 4)
+	Sim.rng.randi()                               # rng da sim andou (outra luta, outro chefe): não muda o sorteio
+	probe.random_comp("spider_queen", 3, 1337, 4)
+	var b: Array = probe.random_comp("elf_king", 3, 1337, 4)
+	check(a == b and a.size() == 4, "sonda: mesmo (chefe, luta, semente) = mesmo grupo (%s / %s)" % [a, b])
+	var cls := {}
+	for c in a:
+		var cid: String = str(c).get_slice(":", 0)
+		cls[cid] = true
+		var ok := false
+		for bd in gd.classes[cid].builds:
+			ok = ok or bd["id"] == str(c).get_slice(":", 1)
+		check(ok, "sonda: build sorteada %s existe na classe" % c)
+	check(cls.size() == 4, "sonda: 4 classes distintas no grupo sorteado (%s)" % [a])
+	var differ := 0
+	for t in range(20):
+		if probe.random_comp("elf_king", t, 1337, 4) != probe.random_comp("elf_king", t, 7, 4):
+			differ += 1
+	check(differ >= 15, "sonda: outra semente sorteia outros grupos (%d/20 diferentes)" % differ)
+	var no_pal: Array = probe.random_comp("elf_king", 3, 1337, 3, ["paladin"])
+	check(no_pal.filter(func(c): return str(c).begins_with("paladin:")).is_empty(), "sonda: classe do líder fica fora do sorteio")
+	check(probe.fight_seed("elf_king", 3, 1337) == probe.fight_seed("elf_king", 3, 1337) and probe.fight_seed("elf_king", 3, 1337) != probe.fight_seed("elf_king", 4, 1337), "sonda: semente da luta fixa por (chefe, luta, semente)")
+	# baralho: cobertura igual das classes (±1 em qualquer prefixo de lutas), classes distintas, builds de cada classe na vez delas
+	var n_cls: int = gd.classes.size()
+	for cfg in [[4, [], 20], [3, ["paladin"], 21], [4, [], 9]]:
+		var party: int = cfg[0]
+		var excl: Array = cfg[1]
+		var per := {}
+		var per_build := {}
+		var spread_ok := true
+		var distinct_ok := true
+		for t in range(int(cfg[2])):
+			var c: Array = probe.random_comp("boss_ghar", t, 7, party, excl)
+			var seen := {}
+			for s in c:
+				var cid: String = str(s).get_slice(":", 0)
+				distinct_ok = distinct_ok and not seen.has(cid) and not (cid in excl)
+				seen[cid] = true
+				per[cid] = int(per.get(cid, 0)) + 1
+				per_build[s] = int(per_build.get(s, 0)) + 1
+			var lo := 1 << 30
+			var hi := 0
+			for cid in gd.classes:
+				if not (cid in excl):
+					lo = mini(lo, int(per.get(cid, 0)))
+					hi = maxi(hi, int(per.get(cid, 0)))
+			spread_ok = spread_ok and hi - lo <= 1 and c.size() == party
+		check(distinct_ok, "sonda: baralho dá classes distintas, sem a do líder (party %d, fora %s)" % [party, excl])
+		check(spread_ok, "sonda: baralho cobre as %d classes por igual (±1 a cada luta; party %d, fora %s): %s" % [n_cls - excl.size(), party, excl, per])
+		var b_ok := true
+		for cid in per:
+			var nb: int = gd.classes[cid].builds.size()
+			var lo := 1 << 30
+			var hi := 0
+			for bd in gd.classes[cid].builds:
+				var k: int = int(per_build.get("%s:%s" % [cid, bd["id"]], 0))
+				lo = mini(lo, k)
+				hi = maxi(hi, k)
+			b_ok = b_ok and (nb == 0 or hi - lo <= 1)
+		check(b_ok, "sonda: builds de cada classe se revezam (±1; party %d): %s" % [party, per_build])
+	check(probe.random_comp("boss_ghar", 13, 7, 4) == probe.random_comp("boss_ghar", 13, 7, 4) and probe.random_comp("boss_ghar", 13, 7, 4) != probe.random_comp("boss_troll_king", 13, 7, 4), "sonda: baralho fixo por chefe/semente e diferente entre chefes")
 
 ## Lâminas: Sumir está na barra do bot, abre a luta furtivo (alvo ainda não o mira), e na sombra o bot contorna o alvo
 ## sem golpe básico e sai com a skill mais forte pelas costas (antes Sumir nunca entrava na barra: 6/40 solo).
@@ -11117,6 +11859,8 @@ func _check_music(gd) -> void:
 	check(no_file.is_empty(), "música: todo tema tem faixa no banco (%s)" % [no_file])
 	check(Music.theme_for("city_port") == "porto" and Music.theme_for("field_coast") == "costa" and Music.theme_for("dg_goblin") == "goblins",
 		"música: porto, costa e grutas goblin têm tema próprio")
+	check(["fort_trolls", "fort_fire", "fort_war", "field_steppe"].all(func(m): return Music.theme_for(m) == "horda") 		and ["fort_bones", "fort_frost", "fort_ghoul"].all(func(m): return Music.theme_for(m) == "trevas"),
+		"música: acampamentos da Horda e Estepes com tema da Horda; fortes do Lich seguem em trevas")
 	var credits := FileAccess.get_file_as_string(Music.DIR + "CREDITS.md")
 	check(Music.THEMES.all(func(th): return credits.contains("| %s |" % th)), "música: CREDITS.md cita cada tema")
 	check("Music" in AudioSettings.BUSES and AudioSettings.LABELS.has("Music") and AudioSettings.DEFAULTS.has("Music"), "música: barramento Music com volume no menu")
@@ -12434,6 +13178,37 @@ func _check_ancestral_forms(gd, sim) -> void:
 	var dr0: float = buddy.stats.dr_pct
 	check(_anc_cast(sim, g, "dru_ent_grove", g.position, m), "Bosque Protetor sai na forma de Ent")
 	check(buddy.stats.dr_pct >= dr0 + Balance.ANC_GROVE_DR - 0.01 and g.buffs.any(func(b): return b.get("id") == "ent_grove"), "Bosque Protetor: redução de dano no grupo (%.0f -> %.0f)" % [dr0, buddy.stats.dr_pct])
+	# ameaça extra do Ent só quando ele é o tanque do grupo (2026-11-12)
+	var ent_thr: float = float(SimEntity.scaled_bonus(Balance.FORM_STATS["ent"], g.form_mult).get("threat_pct", 0.0))
+	check(ent_thr > 0.0 and DruidAscension.is_group_tank(sim, g) and is_equal_approx(DruidAscension.threat_pct(sim, g), g.stats.threat_pct), "Ent com um DPS no grupo é o tanque: ameaça cheia (+%.0f%%)" % g.stats.threat_pct)
+	var tk: SimEntity = sim.spawn_bot(gd.classes["paladin"], "TanqueEnt", "city_aldara", g.position + Vector3(-3, 0, 0), 40)
+	tk.brain = null
+	tk.build_id = "guardiao"
+	sim.party_leave(g)
+	check(sim.party_invite(tk, g) and sim.party_accept(g) and sim.role_of(tk) == "tank", "Paladino Guardião lidera o grupo com o Ent")
+	check(not DruidAscension.is_group_tank(sim, g) and is_equal_approx(DruidAscension.threat_pct(sim, g), g.stats.threat_pct - ent_thr), "Ent como 2º membro ao lado de outro tanque: sem a ameaça extra da forma (%.0f%%)" % DruidAscension.threat_pct(sim, g))
+	var wt: SimEntity = sim.spawn_monster(gd.monsters["wolf"], "city_aldara", g.position + Vector3(1, 0, 0))
+	wt.brain = null
+	wt.stats.max_hp = 1.0e6
+	wt.hp = 1.0e6
+	sim._deal_damage(g, wt, 100, false, false, "physical")
+	check(is_equal_approx(float(wt.threat.get(g.id, 0.0)), 100.0 * (1.0 + (g.stats.threat_pct - ent_thr) / 100.0)), "o dano do Ent 2º membro gera a ameaça sem o extra da forma (%.0f)" % float(wt.threat.get(g.id, 0.0)))
+	# Raízes Ancestrais: ao lado de outro tanque prendem e ferem, mas não provocam (2026-11-12)
+	wt.aggro_target = -1
+	wt.taunt_left = 0.0
+	var wt_hp: float = wt.hp
+	check(not DruidAscension.may_provoke(sim, g), "Ent 2º membro: não provoca em área")
+	check(_anc_cast(sim, g, "dru_ent_roots", g.position, m), "Raízes Ancestrais saem com o Ent como 2º membro")
+	check(wt.has_debuff("root") and wt.hp < wt_hp, "Ent 2º membro: as raízes ainda ferem e prendem")
+	check(wt.taunt_left <= 0.0, "Ent 2º membro: as raízes não provocam o alvo (taunt_left %.1f)" % wt.taunt_left)
+	tk.state = SimEntity.State.DEAD
+	check(DruidAscension.is_group_tank(sim, g), "tanque do grupo caiu: o Ent volta a ser o tanque")
+	wt.aggro_target = -1
+	wt.taunt_left = 0.0
+	check(DruidAscension.may_provoke(sim, g) and _anc_cast(sim, g, "dru_ent_roots", g.position, m) and wt.aggro_target == g.id and wt.taunt_left > 0.0, "tanque caiu: as raízes do Ent voltam a provocar")
+	tk.state = SimEntity.State.IDLE
+	for o in [wt, tk]:
+		sim.despawn(o)
 	g.add_item("staff_oak", 1)
 	sim.equip(g, "staff_oak")
 	check(g.form == "", "trocar a arma desfaz a forma de Ent")
@@ -13051,6 +13826,7 @@ func _check_act2_steppe(gd, sim) -> void:
 		for pt in fd.portals:
 			check(_reached(fseen, pt["pos"]), "%s: portal %s alcançável" % [fid, pt["id"]])
 		_check_glb_tags(fd)
+		_check_fort_tents(fd)
 	_check_glb_tags(steppe)
 	_check_glb_tags(coast)
 	# estágios E0-E5 (tabela do GDD): o que vale em cada um
@@ -13109,6 +13885,75 @@ func _check_glb_tags(md: MapDef) -> void:
 	for cv in md.conquest_vis:
 		check(names.any(func(nm): return nm.contains(str(cv["tag"]))), "%s: peça do GLB com a marca %s" % [md.id, cv["tag"]])
 	root.free()
+
+## Tendas do pátio dos acampamentos da Horda (act2_dress.fort): a tenda de couro mora no lote marcado da Horda (some na
+## retomada), o pavilhão da Aurora no lote da Aurora, no mesmo chão; o colisor é um só, neutro (vale antes e depois).
+## Mede a altura de cada lote em cima de cada colisor de tenda: tenda no lote neutro ficaria de pé depois da retomada.
+## Pátio dos acampamentos (build_steppe_forts.FORT_C / FORT_R) e os candidatos dos bonecos de treino (act2_dress.FORT_DRILL:
+## [recuo do muro em m, ângulo]). Na Toca os pedregulhos e as jaulas tomam o anel de 8,2 m: os bonecos ficam no meio do pátio.
+const FORT_YARD_C := Vector2(0.0, -30.0)
+const FORT_YARD_R := 28.0
+const FORT_DRILL_N := {"fort_war": 2, "fort_fire": 3, "fort_trolls": 3}          # quantos cabem
+const FORT_DRILL_INSET := 8.2
+const FORT_FAR_CELL := 12.0             # m: malha de células atrás do pátio (longe da chegada) para medir o acabamento
+const FORT_FAR_MIN_CELLS := 45          # medido: 24-25 antes do fort_far, 64-72 depois
+const FORT_DRILL := {"fort_war": [[8.2, 168.0], [8.2, 176.0], [8.2, 192.0]], "fort_fire": [[8.2, 172.0], [8.2, 180.0], [8.2, 190.0]],
+	"fort_trolls": [[12.0, 196.0], [12.0, 206.0], [12.0, 216.0], [8.2, 150.0], [8.2, 158.0], [8.2, 166.0]]}
+
+func _check_fort_tents(md: MapDef) -> void:
+	var path := "res://assets/models/%s.glb" % md.model
+	if not ResourceLoader.exists(path):
+		return
+	var spots: Array = md.obstacles.filter(func(o): return o.get("hidden", false) and (o["size"] as Vector3).is_equal_approx(Vector3(3.4, 2.4, 3.4)))
+	check(spots.size() >= 4, "%s: tendas do pátio têm colisor (%d)" % [md.id, spots.size()])
+	check(spots.all(func(o): return o.get("solid", true) and not o.has("if") and not o.has("unless")), "%s: colisor de tenda é neutro (vale antes e depois da retomada)" % md.id)
+	var root: Node = (load(path) as PackedScene).instantiate()
+	var top := {"horda": {}, "aurora": {}, "neutro": {}}          # lote -> índice da tenda -> altura máxima a 1,2 m do centro
+	# bonecos de treino (act2_dress.fort, sem colisor): candidatos = [recuo, ângulo] do build, no mapa girado
+	var drill: Array[Vector3] = []
+	for cand: Array in FORT_DRILL[md.id] + [[FORT_DRILL_INSET, 198.0], [FORT_DRILL_INSET, 144.0], [FORT_DRILL_INSET, 136.0]]:
+		var rr := FORT_YARD_R - float(cand[0])
+		var deg := float(cand[1])
+		drill.append(_turned(md.id, Vector3(FORT_YARD_C.x + cos(deg_to_rad(deg)) * rr, 0.0, FORT_YARD_C.y + sin(deg_to_rad(deg)) * rr)))
+	var dtop := {"horda": {}, "aurora": {}, "neutro": {}}         # lote -> índice do candidato -> altura máxima a 0,45 m do poste
+	# quadrantes de trás (act2_dress.fort_far): do pátio para longe da chegada, células de FORT_FAR_CELL m com alguma peça baixa
+	var yard_c := _turned(md.id, Vector3(FORT_YARD_C.x, 0.0, FORT_YARD_C.y))
+	var to_arrive := (_turned(md.id, Vector3(0.0, 0.0, 96.0)) - yard_c).normalized()
+	var far_cells := {}
+	for mi: MeshInstance3D in root.find_children("*det_*", "MeshInstance3D", true, false):
+		var nm := str(mi.name)
+		var layer := "horda" if nm.contains("estandarte_horda_det") else ("aurora" if nm.contains("estandarte_aurora_det") else "neutro")
+		var xf := Transform3D.IDENTITY
+		var n: Node = mi
+		while n != root and n is Node3D:
+			xf = (n as Node3D).transform * xf
+			n = n.get_parent()
+		for si in mi.mesh.get_surface_count():
+			var verts: PackedVector3Array = mi.mesh.surface_get_arrays(si)[Mesh.ARRAY_VERTEX]
+			for v in verts:
+				var w: Vector3 = xf * v
+				if layer == "neutro" and w.y > 0.04 and w.y < 1.3 and (w - yard_c).dot(to_arrive) < 0.0 and Vector2(w.x - yard_c.x, w.z - yard_c.z).length() > FORT_YARD_R + 7.0:
+					far_cells[Vector2i(floori(w.x / FORT_FAR_CELL), floori(w.z / FORT_FAR_CELL))] = true
+				for i in spots.size():
+					var c: Vector3 = spots[i]["pos"]
+					if absf(w.x - c.x) < 1.2 and absf(w.z - c.z) < 1.2:
+						top[layer][i] = maxf(float(top[layer].get(i, 0.0)), w.y)
+				for i in drill.size():
+					if absf(w.x - drill[i].x) < 0.45 and absf(w.z - drill[i].z) < 0.45:
+						dtop[layer][i] = maxf(float(dtop[layer].get(i, 0.0)), w.y)
+	root.free()
+	for i in spots.size():
+		var at: Vector3 = spots[i]["pos"]
+		check(float(top["horda"].get(i, 0.0)) > 2.4, "%s: tenda de couro em (%.0f, %.0f) está no lote da Horda (%.1f m)" % [md.id, at.x, at.z, float(top["horda"].get(i, 0.0))])
+		check(float(top["aurora"].get(i, 0.0)) > 2.4, "%s: pavilhão da Aurora em (%.0f, %.0f) no mesmo chão (%.1f m)" % [md.id, at.x, at.z, float(top["aurora"].get(i, 0.0))])
+		check(float(top["neutro"].get(i, 0.0)) < 1.6, "%s: nada de tenda no lote neutro em (%.0f, %.0f) (%.1f m)" % [md.id, at.x, at.z, float(top["neutro"].get(i, 0.0))])
+	# boneco de treino (balde a 2,3 m): o da Horda (escudo vermelho) some na retomada e o da Aurora (penacho a 2,7 m) entra no mesmo ponto
+	var posts: Array = range(drill.size()).filter(func(i): return float(dtop["horda"].get(i, 0.0)) > 2.2)
+	check(posts.size() == int(FORT_DRILL_N[md.id]), "%s: bonecos de treino no lote da Horda (%d de %d)" % [md.id, posts.size(), int(FORT_DRILL_N[md.id])])
+	for i: int in posts:
+		check(float(dtop["aurora"].get(i, 0.0)) > 2.6, "%s: boneco de treino da Aurora em (%.0f, %.0f) no mesmo ponto (%.1f m)" % [md.id, drill[i].x, drill[i].z, float(dtop["aurora"].get(i, 0.0))])
+	check(range(drill.size()).all(func(i): return float(dtop["neutro"].get(i, 0.0)) < 1.9), "%s: nenhum boneco de treino no lote neutro (ficaria da Horda depois da retomada)" % md.id)
+	check(far_cells.size() >= FORT_FAR_MIN_CELLS, "%s: quadrantes de trás do acampamento têm acabamento (%d células de %d m com peça baixa, mín %d)" % [md.id, far_cells.size(), int(FORT_FAR_CELL), FORT_FAR_MIN_CELLS])
 
 # ---------------------------------------------------------------------------
 # Ascensão do Necromante: Senhor dos Mortos (GDD ato2-horda R6.1, AC-30b; NecroAscension)
@@ -13855,6 +14700,7 @@ func _choir_cast(gd, sim, m: Dictionary, e: SimEntity, sid: String, aim: Vector3
 func _choir_hit(sim, d: SimEntity, t: SimEntity, amount: int) -> float:
 	t.shield_hp = 0.0
 	t.hp = t.stats.max_hp
+	t.stats.evasion = 0.0              # mede redução de dano, não a esquiva da AGI
 	var before := t.hp
 	sim._deal_damage(d, t, amount, false, false, "physical")
 	return before - t.hp
@@ -14016,6 +14862,7 @@ func _check_choir(gd, sim) -> void:
 	dome = m["barriers"][0]
 	ally.hp = ally.stats.max_hp
 	ally.shield_hp = 0.0
+	ally.stats.evasion = 0.0            # o golpe mortal tem de pegar (sem esquiva da AGI)
 	sim._deal_damage(foe, ally, 100000000, false, false, "physical")
 	check(ally.is_alive() and ally.hp >= 1.0 and ally.hp < 2.0, "santuário: golpe mortal dentro da cúpula deixa em 1 de vida")
 	sim.time = float(dome["born"]) + Balance.BARRIER_HOLD
@@ -14101,6 +14948,7 @@ func _check_choir(gd, sim) -> void:
 	check(_choir_cast(gd, sim, m, b, "bis_choir_aegis", b.position) and absf(ally.stats.pdef - def0 * 1.12) < 0.6 and absf(ally.stats.mdef - mdef0 * 1.12) < 0.6, "Égide Coral: +12% de DEF e MDEF")
 	ally.hp = ally.stats.max_hp * 0.5
 	ally.aegis_cd = 0.0
+	ally.stats.evasion = 0.0            # os golpes têm de pegar (sem esquiva da AGI)
 	sim._deal_damage(foe, ally, 10, false, false, "physical")
 	var after_first := ally.hp
 	check(after_first > ally.stats.max_hp * 0.5 + ally.stats.max_hp * Balance.BLESS_AEGIS_HEAL / 100.0 * ally.heal_factor() - 12.0, "Égide Coral: o golpe recebido cura 4% da vida")
@@ -14498,8 +15346,9 @@ func _check_falconer_bots(gd, sim) -> void:
 # rondas, sentinelas que rondam, barks, bichos de ambiente), rotas andáveis e secas, modelos que existem.
 # ---------------------------------------------------------------------------
 ## Mínimos por mapa: [andam (passeio+ronda), rondas, sentinelas que rondam, barks, bichos, rondas de monstro].
+## Porto: 17 andando desde que a Iara foi para a vara do cais (antes passeava; p4-ui)
 const LIVING_MIN := {
-	"city_port": [18, 4, 2, 20, 10, 0], "field_coast": [12, 2, 2, 15, 15, 0], "field_steppe": [14, 2, 1, 15, 10, 0],
+	"city_port": [17, 4, 2, 20, 10, 0], "field_coast": [12, 2, 2, 15, 15, 0], "field_steppe": [14, 2, 1, 15, 10, 0],
 	"dg_goblin": [3, 1, 0, 3, 10, 1], "fort_trolls": [5, 3, 2, 10, 4, 1], "fort_fire": [5, 2, 2, 10, 4, 1], "fort_war": [5, 2, 2, 10, 4, 1],
 }
 ## Melhor mapa do Ato I por tipo (para o "pelo menos tão vivo quanto").
@@ -14509,6 +15358,133 @@ const LIVING_REF := {"city_port": "city_aldara", "field_coast": "field_forest", 
 func _living_moving(def: MapDef) -> int:
 	return def.npcs.filter(func(n): return not n.has("fighter") and (n.has("route") or n.has("wander"))).size()
 
+## Carroça de tiro (CarryPose.DRAFT, tools/blender/life_props.cart_draft): a caravana das Estepes anda ao lado do cavalo que
+## puxa a carroça. O cavalo fica entre os varais (rodas atrás dos cascos, varal até o ombro), é 1 malha fundida como a
+## montaria e anda no clipe "walk" no ritmo do boneco; parado, "idle".
+func _check_draft_cart(gd, sim) -> void:
+	var drivers: Array = (gd.maps["field_steppe"] as MapDef).npcs.filter(func(n): return not CarryPose.draft_of(str(n.get("carry", ""))).is_empty())
+	check(drivers.size() >= 2 and drivers.all(func(n): return n.has("route")), "Estepes: os carroceiros da caravana levam carroça de tiro (%d)" % drivers.size())
+	for what in CarryPose.DRAFT:
+		var d: Dictionary = CarryPose.DRAFT[what]
+		var at: Vector3 = d["at"]
+		var sc: float = d["scale"]
+		check(CarryPose.pose_of(what) == "lead" and absf(at.x) > 0.8, "%s: o boneco anda ao lado do animal (%.2f m) com o cabresto na mão" % [what, absf(at.x)])
+		if not ResourceLoader.exists(CarryPose.model_path(what)):
+			check(false, "%s: prop existe" % what)
+			continue
+		var cart: Node = (load(CarryPose.model_path(what)) as PackedScene).instantiate()
+		var meshes := cart.find_children("*", "MeshInstance3D", true, false)
+		# arreio (preso ao bicho) + nó `cart` (a carroça, que atrasa na curva) + nó `wheels` (rodas e eixo, que giram)
+		var cart_n := cart.get_node_or_null("cart") as Node3D
+		var wheels_n := cart_n.get_node_or_null("wheels") as Node3D if cart_n else null
+		check(meshes.size() == 3 and meshes.all(func(mi): return (mi as MeshInstance3D).mesh.get_surface_count() <= 10), "%s: carroça são 3 malhas: arreio, caixa e rodas (%d)" % [what, meshes.size()])
+		check(cart_n != null and cart_n.position.is_equal_approx(at), "%s: nó `cart` com a origem onde o animal pisa (pivô da curva)" % what)
+		check(wheels_n != null and is_equal_approx(wheels_n.position.y, float(d["wheel_r"])) and absf(wheels_n.position.x) < 0.01, "%s: nó `wheels` com a origem no eixo, a um raio do chão" % what)
+		var wheel_front := -INF          # ponto mais à frente (+Z) do que encosta no chão: as rodas
+		var shaft_front := -INF          # ponto mais à frente na altura do flanco, na linha dos varais
+		for mi: MeshInstance3D in meshes:
+			for si in mi.mesh.get_surface_count():
+				for v: Vector3 in mi.mesh.surface_get_arrays(si)[Mesh.ARRAY_VERTEX]:
+					var w: Vector3 = v
+					var up: Node = mi
+					while up != cart:
+						w = (up as Node3D).transform * w
+						up = up.get_parent()
+					if w.y < 0.25:
+						wheel_front = maxf(wheel_front, w.z)
+					var side := absf(w.x - at.x)
+					if side > 0.34 and side < 0.56 and w.y > 0.6 and w.y < 1.1:
+						shaft_front = maxf(shaft_front, w.z)
+		cart.free()
+		check(wheel_front < at.z - float(d["hoof_back"]), "%s: rodas atrás dos cascos de trás (%.2f < %.2f)" % [what, wheel_front, at.z - float(d["hoof_back"])])
+		check(shaft_front > at.z + 0.3 * sc and shaft_front - wheel_front > 2.2, "%s: varais chegam ao ombro do animal (%.1f m à frente das rodas)" % [what, shaft_front - wheel_front])
+		var n := {"id": "draft_check", "name": "Carroceiro", "pos": Vector3(0, 0, 6), "role": "villager", "color": Color(0.6, 0.5, 0.4), "dialog": [], "carry": what}
+		var e: SimEntity = sim._spawn_npc(n, "city_aldara")
+		var view := EntityView.new()
+		add_child(view)
+		view.setup(e, false)
+		check(view.draft != null and view.carry_node != null, "%s: o boneco nasce com a carroça e o animal" % what)
+		if view.draft != null:
+			check(view.draft.position.is_equal_approx(at) and is_equal_approx(view.draft.scale.x, sc), "%s: animal entre os varais (posição e escala do CarryPose.DRAFT)" % what)
+			check(view.draft.drawn_surfaces() <= 6, "%s: animal fundido como a montaria (%d superfícies)" % [what, view.draft.drawn_surfaces()])
+			check(view.draft.anim != null and view.draft.anim.has_animation("walk") and view.draft.anim.has_animation("idle"), "%s: animal tem passo e descanso" % what)
+			e.velocity = Vector3(0, 0, Balance.NPC_WALK_SPEED)
+			view._animate_draft()
+			var walking := str(view.draft.anim.current_animation) == "walk"
+			var pace: float = view.draft.anim.speed_scale
+			e.velocity = Vector3.ZERO
+			view._animate_draft()
+			check(walking and pace > 1.2 and pace <= 2.4 and str(view.draft.anim.current_animation) == "idle", "%s: anda no passo do boneco (x%.1f) e para com ele" % [what, pace])
+			# arreio, não sela: as peças da sela de montaria saem antes da fusão (a montaria continua com a dela)
+			var mount := FormModel.create_from("res://assets/models/%s.glb" % d["model"])
+			var saddle := 0
+			for pat: String in d["strip"]:
+				saddle += mount.find_children(pat, "MeshInstance3D", true, false).size()
+			RigidMerge.merge(mount, str(d["model"]))
+			var vm := _merged_verts(mount)
+			var vd := _merged_verts(view.draft)
+			mount.free()
+			check(saddle >= 6 and vd > 0 and vd < vm - 200, "%s: animal de tiro sem a sela da montaria (%d peças fora, %d < %d vértices)" % [what, saddle, vd, vm])
+			# rodas giram pela distância andada; paradas, não giram
+			var wn: Node3D = view._wheels
+			check(wn != null and view._cart != null, "%s: a vista achou os nós `cart` e `wheels`" % what)
+			if wn != null and view._cart != null:
+				var r0 := wn.rotation.x
+				view._animate_wheels(0.1)
+				var still := is_equal_approx(wn.rotation.x, r0)
+				e.velocity = Vector3(0, 0, Balance.NPC_WALK_SPEED)
+				view._animate_wheels(0.1)
+				var turn := wrapf(wn.rotation.x - r0, -PI, PI)
+				check(still and is_equal_approx(turn, Balance.NPC_WALK_SPEED * 0.1 / float(d["wheel_r"])), "%s: rodas rolam para a frente pela distância andada (%.3f rad em 0,1 s)" % [what, turn])
+				# curva: a carroça fica para trás do rumo (até o teto) e alcança depois
+				view.model_root.rotation.y += 1.0
+				view._animate_draft(0.1)
+				var off: float = view._cart.rotation.y
+				for i in 80:
+					view._animate_draft(0.1)
+				check(off < -0.01 and off >= -deg_to_rad(float(d["lag_max"])) - 0.001 and absf(view._cart.rotation.y) < 0.01, "%s: a carroça atrasa na curva (%.0f graus, teto %.0f) e alcança o rumo" % [what, rad_to_deg(off), float(d["lag_max"])])
+				e.velocity = Vector3.ZERO
+		view.queue_free()
+		sim.despawn(e)
+	# carroça de mão: caixa numa malha + nó `wheels` (rodas e eixo) com a origem no eixo; gira pela distância andada
+	for what in CarryPose.WHEELS:
+		var r: float = CarryPose.WHEELS[what]
+		var prop: Node = (load(CarryPose.model_path(what)) as PackedScene).instantiate()
+		var wheels_n := prop.get_node_or_null("wheels") as Node3D
+		var n_mesh := prop.find_children("*", "MeshInstance3D", true, false).size()
+		check(wheels_n != null and n_mesh == 2, "%s: carroça de mão são 2 malhas: caixa e rodas (%d)" % [what, n_mesh])
+		if wheels_n != null:
+			var ab: AABB = (wheels_n as MeshInstance3D).get_aabb()
+			check(is_equal_approx(wheels_n.position.y, r) and absf(wheels_n.position.x) < 0.01 and absf(ab.position.y + r) < 0.02 and absf(ab.end.y - r) < 0.02,
+				"%s: nó `wheels` com a origem no eixo, a um raio (%.2f m) do chão" % [what, r])
+		prop.free()
+		var n := {"id": "cart_check", "name": "Carroceiro", "pos": Vector3(0, 0, 6), "role": "villager", "color": Color(0.6, 0.5, 0.4), "dialog": [], "carry": what}
+		var e: SimEntity = sim._spawn_npc(n, "city_aldara")
+		var view := EntityView.new()
+		add_child(view)
+		view.setup(e, false)
+		var wn: Node3D = view._wheels
+		check(wn != null and view.draft == null, "%s: a vista achou o nó `wheels` (sem animal de tiro)" % what)
+		if wn != null:
+			var r0 := wn.rotation.x
+			view._animate_wheels(0.1)
+			var still := is_equal_approx(wn.rotation.x, r0)
+			e.velocity = Vector3(0, 0, Balance.NPC_WALK_SPEED)
+			view._animate_wheels(0.1)
+			var turn := wrapf(wn.rotation.x - r0, -PI, PI)
+			check(still and is_equal_approx(turn, Balance.NPC_WALK_SPEED * 0.1 / r), "%s: rodas rolam para a frente pela distância andada (%.3f rad em 0,1 s)" % [what, turn])
+			e.velocity = Vector3.ZERO
+		view.queue_free()
+		sim.despawn(e)
+
+func _merged_verts(root: Node) -> int:
+	var n := 0
+	for mi: MeshInstance3D in root.find_children("*", "MeshInstance3D", true, false):
+		if mi.skin != null and mi.mesh != null:
+			for si in mi.mesh.get_surface_count():
+				n += (mi.mesh.surface_get_arrays(si)[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()
+	return n
+
 ## Criaturas e vida do Ato II: Forma de Lich com modelo próprio, besta de verdade nos besteiros, guarda montada,
 ## carga/carroça dos NPCs que trabalham (prop existe para cada `carry`) e o rebanho das Estepes.
 func _check_creatures_act2(gd, _sim) -> void:
@@ -14516,7 +15492,29 @@ func _check_creatures_act2(gd, _sim) -> void:
 	var lich := FormModel.create("lich")
 	check(lich != null and lich.anim != null and lich.anim.has_animation("idle") and lich.anim.has_animation("run") and lich.anim.has_animation("atk_sweep"), "form_lich traz os clipes do kit (idle, corrida, golpe de foice)")
 	if lich:
+		# draw calls da forma: as peças rígidas (dezenas de malhas) viram 1 malha com poucas superfícies
+		var before := lich.drawn_surfaces()
+		var merged := lich.merge_parts("form_lich")
+		var after := lich.drawn_surfaces()
+		print("FORM_LICH_SURFACES before=%d after=%d" % [before, after])
+		check(merged != null and after <= 12 and after * 4 <= before, "Forma de Lich funde as peças (%d -> %d superfícies)" % [before, after])
+		check(lich.anim != null and lich.anim.has_animation("idle"), "Forma de Lich fundida mantém os clipes")
 		lich.free()
+	var demon := FormModel.create("demon")
+	check(demon != null, "forma demoníaca tem form_demon.glb")
+	if demon:
+		var d0 := demon.drawn_surfaces()
+		var dm := demon.merge_parts("form_demon")
+		var d1 := demon.drawn_surfaces()
+		print("FORM_DEMON_SURFACES before=%d after=%d" % [d0, d1])
+		check(dm != null and d1 < d0 and d1 <= 12, "forma demoníaca funde as peças (%d -> %d superfícies)" % [d0, d1])
+		check(demon.anim != null and demon.anim.has_animation("idle") and demon.anim.has_animation("run"), "forma demoníaca fundida mantém idle e corrida")
+		demon.free()
+	for frm in ["wolf", "bear"]:
+		var fv := FormModel.create(frm)
+		if fv:
+			check(fv.merge_parts("form_" + frm) == null, "forma %s não funde (peças de armadura ligam/desligam)" % frm)
+			fv.free()
 	for mid in ["mob_orc_crossbow", "mob_crossbow_master", "mob_loyal_crossbow"]:
 		var inst: Node = (load("res://assets/models/%s.glb" % mid) as PackedScene).instantiate()
 		check(inst.find_child("wpn_main_crossbow*", true, false) != null and inst.find_child("wpn_main_bow*", true, false) == null, "%s empunha besta, não arco" % mid)
@@ -14544,6 +15542,7 @@ func _check_creatures_act2(gd, _sim) -> void:
 				flock += 1
 				check(ResourceLoader.exists("res://assets/models/%s.glb" % n["model"]), "%s: modelo do rebanho existe" % n.get("id", "?"))
 	check(carriers >= 6, "Ato II: 6+ moradores carregam carga ou puxam carroça (%d)" % carriers)
+	_check_draft_cart(gd, _sim)
 	check(flock >= 4, "Estepes: rebanho do pastor com 4+ ovelhas/cabras (%d)" % flock)
 
 func _check_living_act2(gd, sim) -> void:
@@ -14606,6 +15605,54 @@ func _check_living_act2(gd, sim) -> void:
 LIVING_BAD ".join(bad))
 	check(bad.is_empty(), "rotas/barks/modelos dos NPCs e rondas em ordem (%d: %s)" % [bad.size(), "; ".join(bad.slice(0, 8))])
 	check(legs > 150, "pernas de rota conferidas (%d)" % legs)
+	# pescadores no posto das varas (act2_dress fishing_pole): parados, olhando a água; no cais, sobre o tabuleiro.
+	# [mapa, id, virado°, fala da margem]: a Iara dá quest, então fica na vara do cais mais perto da margem
+	for fid in [["city_port", "port_vil_fisher", 90.0, true], ["city_port", "port_vil_fisher_b", 90.0, true], ["city_port", "port_vil_fisher_c", 7.0, false],
+			["field_coast", "coast_fisher_shore", 352.0, true], ["field_coast", "coast_fisher_b", 349.0, true], ["field_coast", "coast_fisher_c", 356.4, true]]:
+		var fn: Dictionary = {}
+		for n in (gd.maps[fid[0]] as MapDef).npcs:
+			if n.get("id", "") == fid[1]:
+				fn = n
+		var on_pier: bool = fid[0] == "city_port" and fid[3]          # cais do Porto = tabuleiro; Anselmo (fisher_c) e a costa pescam da areia: sem `perch` nem `reach`
+		check(not fn.is_empty() and not fn.has("wander") and not fn.has("route") and is_equal_approx(float(fn.get("facing", -1.0)), float(fid[2])),
+			"%s: pescador fica na vara olhando a água" % fid[1])
+		check(is_equal_approx(float(fn.get("perch", 0.0)), MapsCatalog.PIER_DECK if on_pier else 0.0), "%s: altura do posto (cais = tabuleiro)" % fid[1])
+		# conversa: o ponto andável mais perto (margem) fica ao alcance do F (2,6 m + reach)
+		var home: Vector3 = fn.get("pos", Vector3.ZERO)
+		var near := INF
+		for dz in range(0, 80):
+			var q := home + Vector3(0, 0, -dz * 0.1)
+			if sim.is_walkable(q, gd.maps[fid[0]], 0.45):
+				near = q.distance_to(home)
+				break
+		check(near - float(fn.get("reach", 0.0)) < 2.6, "%s: dá para falar com ele da margem (%.1f m, alcance extra %.1f)" % [fid[1], near, float(fn.get("reach", 0.0))])
+		if not on_pier:         # na areia: chão livre e seco, a menos de 1,5 m da vara (fica atrás do cabo)
+			check(sim.is_walkable(home, gd.maps[fid[0]], 0.3), "%s: posto na areia em chão livre" % fid[1])
+	# cada pescador numa vara diferente; a Iara (quests do Porto) parada na vara
+	var posts := {}
+	for mid in ["city_port", "field_coast"]:
+		for n in (gd.maps[mid] as MapDef).npcs:
+			if str(n.get("id", "")).contains("fisher") and not n.has("wander") and not n.has("route"):
+				var key := "%s:%d,%d" % [mid, roundi(n["pos"].x), roundi(n["pos"].z)]
+				check(not posts.has(key), "%s: vara só dele (%s divide com %s)" % [n["id"], key, posts.get(key, "")])
+				posts[key] = n["id"]
+	check(posts.values().has("port_vil_fisher") and posts.size() >= 6, "pescadores nas varas: Iara + 5 (%s)" % [posts.values()])
+	# NPC parado com `facing` olha o jogador na conversa e depois volta para o posto
+	var fe: SimEntity = null
+	for o in sim.maps["city_port"]["entities"]:
+		if o.kind == SimEntity.Kind.NPC and o.npc_data.get("id", "") == "port_vil_fisher_c":
+			fe = o
+	if fe != null:
+		fe.face_towards(fe.position + Vector3(0, 0, -3))
+		fe.npc_hold = Balance.NPC_TALK_HOLD
+		var turned := absf(angle_difference(fe.facing, deg_to_rad(7.0))) > 0.5
+		for i in range(int((Balance.NPC_TALK_HOLD + 0.5) * 60)):
+			sim._update_npc(fe, sim.maps["city_port"], 1.0 / 60.0)
+		check(turned and absf(angle_difference(fe.facing, deg_to_rad(7.0))) < 0.01 and fe.npc_hold <= 0.0, "pescador volta a olhar a água depois da conversa")
+		check(sim.is_walkable(fe.position, gd.maps["city_port"], 0.3) and float(fe.npc_data.get("reach", 0.0)) == 0.0, "Anselmo pesca da praia, em chão seco: fala-se com ele de perto, sem alcance extra")
+	check(fe != null, "pescador da praia do Porto existe na sim")
+	# carroça de mão em uso: um carroceiro do Porto a puxa do cais ao mercado
+	check((gd.maps["city_port"] as MapDef).npcs.any(func(n): return str(n.get("carry", "")) == "cart" and n.has("route")), "Porto: um carroceiro com rota puxa a carroça de mão")
 	# ronda de verdade: no porto, quem tem rota anda 2+ pernas em 60 s (sem parar num canto)
 	var m: Dictionary = sim.maps["city_port"]
 	var walkers: Array = m["entities"].filter(func(o): return o.kind == SimEntity.Kind.NPC and not o.guard and o.npc_data.has("route"))
@@ -14614,3 +15661,69 @@ LIVING_BAD ".join(bad))
 			sim._update_npc(v, m, 1.0 / 60.0)
 	var stuck: Array = walkers.filter(func(v): return v.npc_leg < 3).map(func(v): return v.npc_data["id"])
 	check(walkers.size() >= 4 and stuck.is_empty(), "Porto: %d moradores de ronda andam a rota (travados: %s)" % [walkers.size(), str(stuck)])
+
+## Playtest do Ato II (2026-11-12): retorno no porto depois de Terra à Vista, item de chefe garantido em coleta ativa,
+## grito de moeda lendária com intervalo por mapa.
+func _check_act2_playtest(gd, sim, save) -> void:
+	var cls: ClassDef = gd.classes["ranger"]
+	var at: Vector3 = gd.maps["city_port"].spawn_point
+	var e: SimEntity = sim.spawn_character(SimEntity.Kind.BOT, cls, "Turista", "city_port", at, 30)
+	e.bind_map = ""
+	check(PortalSystem.home_of(e)["map"] == gd.town_map_id(), "sem cristal: renasce na cidade inicial")
+	check(PortalSystem.quest_bind(sim, e, "hx_crossing", false) and e.bind_map == "city_port"
+		and sim.is_walkable(e.bind_pos, gd.maps["city_port"], 0.5), "Terra à Vista: retorno no cristal do porto, em chão livre")
+	var c: Array = MapsCatalog.CRYSTALS["city_port"]
+	check(e.bind_pos.distance_to(Vector3(float(c[0]), 0, float(c[1]))) < Balance.CRYSTAL_ARRIVE + 0.5, "retorno do porto: na frente do cristal")
+	check(not PortalSystem.quest_bind(sim, e, "hx_first_wave", false), "só as quests de MapsCatalog.QUEST_BIND mudam o retorno")
+	for qid in MapsCatalog.QUEST_BIND:
+		check(gd.quests.has(qid) and MapsCatalog.CRYSTALS.has(MapsCatalog.QUEST_BIND[qid]), "QUEST_BIND %s: quest e cristal existem" % qid)
+	# bot que conclui Terra à Vista não muda de retorno (só o jogador)
+	var b: SimEntity = sim.spawn_character(SimEntity.Kind.BOT, cls, "Marujo", "city_port", at, 30)
+	b.bind_map = ""
+	b.quests_active["hx_crossing"] = 1
+	QuestSystem.complete(b, gd.quests["hx_crossing"], sim)
+	check(b.bind_map == "" and "hx_crossing" in b.quests_completed, "bot conclui Terra à Vista sem trocar o retorno")
+	# save antigo: já passou de Terra à Vista e não tem cristal -> renasce no porto; com cristal, fica o dele
+	var old: SimEntity = sim.spawn_character(SimEntity.Kind.BOT, cls, "Antigo", "city_aldara", gd.maps["city_aldara"].spawn_point, 30)
+	save.apply_to(old, {"level": 31, "class": "ranger", "save_version": SaveSystem.VERSION, "quests_completed": ["dw_epilogue", "hx_crossing"]})
+	check(old.bind_map == "city_port", "save antigo depois de Terra à Vista sem cristal: retorno no porto")
+	var kept: SimEntity = sim.spawn_character(SimEntity.Kind.BOT, cls, "Fiel", "city_aldara", gd.maps["city_aldara"].spawn_point, 30)
+	save.apply_to(kept, {"level": 31, "class": "ranger", "save_version": SaveSystem.VERSION, "quests_completed": ["hx_crossing"], "bind": ["field_steppe", -6.0, 7.0]})
+	check(kept.bind_map == "field_steppe", "save com cristal vinculado mantém o dele")
+	var fresh: SimEntity = sim.spawn_character(SimEntity.Kind.BOT, cls, "Novo", "city_aldara", gd.maps["city_aldara"].spawn_point, 5)
+	save.apply_to(fresh, {"level": 5, "class": "ranger", "save_version": SaveSystem.VERSION, "quests_completed": []})
+	check(fresh.bind_map == "", "save antes do porto: retorno continua na cidade inicial")
+	# coleta ativa de item de chefe: o abate garante 1 para quem precisa; completa, não garante mais
+	var lt: LootTable = gd.loot_tables.get(gd.monsters["boss_tide_mother"].loot_table)
+	var q: QuestDef = gd.quests["hx_asc2_elementalist"]
+	check(lt != null and q.type == QuestDef.Type.COLLECT and q.target_id == "tide_essence", "ascensão do Elementalista coleta Essência da Maré da Mãe das Marés")
+	e.quests_active[q.id] = 0
+	e.inventory.erase(q.target_id)
+	check(LootSystem.quest_needs(e, lt) == ["tide_essence"], "coleta ativa: a Mãe das Marés garante a Essência da Maré")
+	e.inventory[q.target_id] = q.count
+	check(LootSystem.quest_needs(e, lt).is_empty(), "coleta já completa: nada garantido")
+	e.quests_active.erase(q.id)
+	e.inventory.erase(q.target_id)
+	check(LootSystem.quest_needs(e, lt).is_empty(), "sem a quest: nada garantido")
+	# abate de verdade: o chefe solta a Essência presa ao dono da quest
+	e.quests_active[q.id] = 0
+	var m: Dictionary = sim.maps["city_port"]
+	var before: int = m["loot"].size()
+	var boss: SimEntity = sim.spawn_monster(gd.monsters["boss_tide_mother"], "city_port", at + Vector3(3, 0, 0))
+	LootSystem.on_monster_killed(sim, boss, e)
+	var got := false
+	for i in range(before, m["loot"].size()):
+		var l: Dictionary = m["loot"][i]
+		if l["item"] == "tide_essence" and int(l["owner"]) == e.id:
+			got = true
+	check(got, "abate da Mãe das Marés com a coleta ativa: Essência da Maré no chão para o dono da quest")
+	e.quests_active.erase(q.id)
+	sim.despawn(boss)
+	# grito de moeda lendária: 1 por mapa a cada BOT_LOOT_SHOUT_GAP
+	m.erase("loot_shout_at")
+	check(LootSystem.loot_shout_ok(sim, "city_port") and not LootSystem.loot_shout_ok(sim, "city_port"), "grito de moeda lendária: o 2º no mesmo instante cala")
+	m["loot_shout_at"] = sim.time - Balance.BOT_LOOT_SHOUT_GAP - 0.1
+	check(LootSystem.loot_shout_ok(sim, "city_port"), "grito de moeda lendária: depois do intervalo, volta")
+	m.erase("loot_shout_at")
+	for x in [e, b, old, kept, fresh]:
+		sim.despawn(x)

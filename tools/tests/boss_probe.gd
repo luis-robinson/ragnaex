@@ -18,6 +18,7 @@ extends Node
 ##     [--tank_lock]               (a ameaça do tanque fica sempre TANK_LOCK × a do 2º: o chefe não vira e nenhum bot segura as skills
 ##                                  por ameaça (BOT_THREAT_HOLD). Mede a força da build sem o teto do tanque — sem isto, build que já
 ##                                  bate no teto não responde a +dano nenhum: a razão F5 dela sai ~1,00 por causa do tanque, não dela)
+##     [--no_opener]               (desliga a abertura dos bots, BotBrain._opener: A/B)
 ##     [--hp=X]                    (vida do chefe × X: luta mais longa. Build que derruba o chefe em 20-30 s mede a abertura,
 ##                                  não o ritmo — recarga de 40 s usada uma vez pesa o dobro)
 ##     [--set=b4|b5|h4|h5|h5n] [--set_who=2,3] [--set_lv=40] [--pair=<build>]   (conjunto lendário nos membros --set_who (padrão:
@@ -26,6 +27,11 @@ extends Node
 ##                                  da Fusão. Orçamento F-FUS2: G_5n = T(b4)/T(b5) − 1, G_fus = T(h4)/T(h5) − 1, ref. T(h4)/T(h5n) − 1.
 ##                                  Imprime "FUS <membro> disparos/luta" (a Fusão disparou?))
 ##     [--seed=N]                  (semente da sim; padrão 1337. Rodadas com sementes diferentes somam lutas independentes)
+##                                  Cada luta sorteia o grupo (classes distintas + build) e ressemeia a sim por (chefe, luta, semente)
+##                                  (random_comp/fight_seed): o mesmo chefe dá o mesmo grupo e a mesma luta sozinho ou no meio de outros.
+##     [--rotation]                (classes pelo rodízio antigo, build do mesmo jeito: A/B do sorteio)
+##     [--comp_stats]              (não luta: imprime COMPSTAT baralho/livre/rodízio — vezes por classe, lutas com tanque/cura)
+##     [--show_comp]               (imprime o grupo de cada luta: COMP <chefe> #<luta> classe:build,...)
 ##     [--bands]                   (solo + trio + kite por chefe e compara com BANDS; imprime BAND/OUT e OUT_OF_BAND no fim)
 ## "perdas" (com --lead/--comp) = vezes por luta em que o chefe largou o tanque vivo por outro membro; "freio" também sai no fim da linha PROBE.
 ## "freio" (na linha TIME) = parte do tempo dos membros que não são o tanque acima de BOT_THREAT_HOLD × a ameaça dele (só básico).
@@ -34,6 +40,8 @@ extends Node
 ##   tempo sem ÷ com a ascensão; o ruído dela ≈ raiz(ep_sem² + ep_com²) ÷ média.
 ##   "DPS" soma em "<membro>+inv" o dano das invocações de cada membro no chefe (matilha, torreta, elemental);
 ##   com --why, "INV" conta quantas invocações de bot morreram por luta antes do prazo.
+##   com --why, cada "PERDA" (chefe largou o tanque) traz o golpe [tipo estado skill] e "decisao": o último lance do membro
+##   (skill/fase, t, distância alvo-chefe, aggro/ameaça do tanque, a minha, a prevista, abertura). Assim achou-se o dash da fuga.
 ## Saída: "PROBE <chefe> grupo=N vitorias=V/T tempo_medio=Ss mortes=M cast/min=C act=A% adds=N off=O% longe/min=F"
 ##   cast/min = skills do chefe por minuto; act = parte da luta golpeando/lançando (o resto é andando);
 ##   adds = lacaios por luta; off = dano do chefe e dos lacaios fora do alvo do chefe; longe/min = skills do chefe miradas
@@ -89,6 +97,120 @@ var _set_who: Array = []
 var _set_lv := 0
 var _pair := ""
 var _fus_fired := {}
+var _seed := 1337             # --seed (a sim nasce com 1337)
+var _show_comp := false
+var _rotation := false         # --rotation: classes pelo rodízio antigo (A/B contra o baralho)
+
+## Grupo sorteado de uma luta: `party` classes distintas (fora `exclude`) com uma build cada, ["classe:build", ...].
+## Só depende de (chefe, luta, semente): rodar o chefe sozinho ou numa lista dá o mesmo grupo (antes as classes se revezavam
+## pela ordem dos chefes e o build saía do rng da sim, que vinha das lutas anteriores: Rei Élfico 75% numa lista, 52,5% noutra).
+## Baralho: as classes saem de baralhos embaralhados (um atrás do outro, `party` cartas por luta), então nas lutas 0..T-1 cada
+## classe aparece T×party/n vezes ±1 (como o rodízio antigo); carta repetida na virada do baralho troca com uma mais adiante
+## do mesmo baralho. A build de cada classe sai de um baralho próprio das builds dela (cada build na sua vez, ±1).
+static func random_comp(bid: String, trial: int, run_seed: int, party: int, exclude: Array = []) -> Array:
+	var pool: Array = GameData.classes.keys().filter(func(c): return not (c in exclude))
+	pool.sort()                    # ordem fixa (não depende da ordem do dicionário)
+	var n := pool.size()
+	var hands: Array = []           # mãos das lutas 0..trial (refeitas do zero: só dependem de chefe/semente)
+	var deck: Array = []
+	var deck_i := 0
+	var at := 0
+	for t in range(trial + 1):
+		var hand: Array = []
+		while hand.size() < mini(party, n):
+			if at >= deck.size():
+				deck = _shuffled(pool, "deck|%s|%d|%d" % [bid, deck_i, run_seed])
+				deck_i += 1
+				at = 0
+			if deck[at] in hand:       # virada do baralho: troca com a 1ª carta adiante que não está na mão
+				for j in range(at + 1, deck.size()):
+					if not (deck[j] in hand):
+						var tmp: String = deck[at]
+						deck[at] = deck[j]
+						deck[j] = tmp
+						break
+			hand.append(deck[at])
+			at += 1
+		hands.append(hand)
+	var seen := {}                  # vez de cada classe -> carta do baralho de builds dela
+	var out: Array = []
+	for t in range(hands.size()):
+		for cid in hands[t]:
+			var k: int = int(seen.get(cid, 0))
+			seen[cid] = k + 1
+			if t == trial:
+				var ids: Array = GameData.classes[cid].builds.map(func(b): return str(b["id"]))
+				var bd := ""
+				if not ids.is_empty():
+					bd = str(_shuffled(ids, "build|%s|%s|%d|%d" % [bid, cid, k / ids.size(), run_seed])[k % ids.size()])
+				out.append("%s:%s" % [cid, bd])
+	return out
+
+## Cópia de `items` embaralhada só pela chave (Fisher-Yates com rng próprio).
+static func _shuffled(items: Array, key: String) -> Array:
+	var r := RandomNumberGenerator.new()
+	r.seed = hash(key)
+	var a: Array = items.duplicate()
+	for i in range(a.size() - 1, 0, -1):
+		var j := r.randi() % (i + 1)
+		var tmp = a[i]
+		a[i] = a[j]
+		a[j] = tmp
+	return a
+
+## Sorteio livre da versão anterior (classes e build ao acaso por luta). Só para comparar cobertura (--comp_stats).
+static func free_comp(bid: String, trial: int, run_seed: int, party: int, exclude: Array = []) -> Array:
+	var r := RandomNumberGenerator.new()
+	r.seed = hash("comp|%s|%d|%d" % [bid, trial, run_seed])
+	var pool: Array = GameData.classes.keys().filter(func(c): return not (c in exclude))
+	pool.sort()
+	var out: Array = []
+	for i in range(party):
+		if pool.is_empty():
+			break
+		var cid: String = pool.pop_at(r.randi() % pool.size())
+		var builds: Array = GameData.classes[cid].builds
+		out.append("%s:%s" % [cid, str(builds[r.randi() % builds.size()]["id"]) if builds.size() > 0 else ""])
+	return out
+
+## Rodízio antigo (até 2026-11-11) das classes: classes[(luta×3 + i×5) % n] na ordem do catálogo; a build vem do baralho de
+## builds (o antigo a tirava do rng da sim). `--rotation` usa este na luta (A/B contra o baralho); --comp_stats compara.
+static func rotation_comp(bid: String, trial: int, run_seed: int, party: int, exclude: Array = []) -> Array:
+	var classes: Array = GameData.classes.keys()
+	var out: Array = []
+	for i in range(party + exclude.size()):
+		if out.size() >= party:
+			break
+		var cid: String = classes[(trial * 3 + i * 5) % classes.size()]
+		if cid in exclude or out.any(func(c): return str(c).begins_with(cid + ":")):
+			continue
+		var ids: Array = GameData.classes[cid].builds.map(func(b): return str(b["id"]))
+		var r := RandomNumberGenerator.new()
+		r.seed = hash("rot|%s|%s|%d|%d" % [bid, cid, trial, run_seed])
+		out.append("%s:%s" % [cid, str(ids[r.randi() % ids.size()]) if not ids.is_empty() else ""])
+	return out
+
+## Cobertura de um sorteador nas lutas 0..trials-1: vezes por classe, % com tanque, com cura, com os dois (papel da build).
+static func comp_stats(kind: String, bid: String, trials: int, run_seed: int, party: int, exclude: Array = []) -> Dictionary:
+	var per := {}
+	var tank := 0
+	var heal := 0
+	var both := 0
+	for t in range(trials):
+		var c: Array = random_comp(bid, t, run_seed, party, exclude) if kind == "deck" else (free_comp(bid, t, run_seed, party, exclude) if kind == "free" else rotation_comp(bid, t, run_seed, party, exclude))
+		var roles := {}
+		for s in c:
+			var cid: String = str(s).get_slice(":", 0)
+			per[cid] = int(per.get(cid, 0)) + 1
+			roles[str(GameData.classes[cid].build_by_id(str(s).get_slice(":", 1)).get("role", "dps"))] = true
+		tank += 1 if roles.has("tank") else 0
+		heal += 1 if roles.has("healer") else 0
+		both += 1 if roles.has("tank") and roles.has("healer") else 0
+	return {"per": per, "tank": tank, "heal": heal, "both": both}
+
+## Semente da sim para uma luta (mesma regra: só depende de chefe, luta e semente).
+static func fight_seed(bid: String, trial: int, run_seed: int) -> int:
+	return hash("fight|%s|%d|%d" % [bid, trial, run_seed])
 
 ## Bot da sonda: veio pelo chefe. Não planeja viagem de caça nem volta à cidade no meio da luta (a sala do chefe não é mapa de caça, e o
 ## líder levava o grupo embora: contava como derrota).
@@ -133,7 +255,11 @@ func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--party="): parties = Array(a.get_slice("=", 1).split(",")).map(func(x): return int(x))
 		if a.begins_with("--trials="): trials = int(a.get_slice("=", 1))
-		if a.begins_with("--seed="): Sim.rng.seed = int(a.get_slice("=", 1))   # a sim nasce com semente fixa: rodadas em pedaços precisam de sementes diferentes
+		if a.begins_with("--seed="):       # a sim nasce com semente fixa: rodadas em pedaços precisam de sementes diferentes
+			_seed = int(a.get_slice("=", 1))
+			Sim.rng.seed = _seed
+		if a == "--show_comp": _show_comp = true
+		if a == "--rotation": _rotation = true
 		if a.begins_with("--boss="): only = Array(a.get_slice("=", 1).split(","))
 		if a.begins_with("--class="): _force_class = a.get_slice("=", 1)
 		if a.begins_with("--build="): _force_build = a.get_slice("=", 1)
@@ -153,12 +279,22 @@ func _ready() -> void:
 		if a.begins_with("--asc_base="): _asc_base = Array(a.get_slice("=", 1).split(","))
 		if a.begins_with("--elem_stage="): _elem_stage = int(a.get_slice("=", 1))
 		if a == "--tank_lock": _tank_lock = true
+		if a == "--no_opener": BotBrain.opener_enabled = false     # A/B da abertura (BotBrain._opener)
 		if a.begins_with("--hp="): _hp = float(a.get_slice("=", 1))
 		if a.begins_with("--set="): _set = a.get_slice("=", 1)
 		if a.begins_with("--set_who="): _set_who = Array(a.get_slice("=", 1).split(",")).map(func(x): return int(x))
 		if a.begins_with("--set_lv="): _set_lv = int(a.get_slice("=", 1))
 		if a.begins_with("--pair="): _pair = a.get_slice("=", 1)
 		if a == "--why": _why = true          # imprime de onde veio o dano que o grupo levou
+	if OS.get_cmdline_user_args().has("--comp_stats"):      # só o sorteio, sem luta: cobertura de cada sorteador
+		for bid in BOSSES:
+			if only.is_empty() or bid in only:
+				for kind in ["deck", "free", "rotation"]:
+					var st := comp_stats(kind, bid, trials, _seed, parties[0])
+					print("COMPSTAT %s %s s%d n=%d tanque=%d cura=%d ambos=%d classes=%s" % [kind, bid, _seed, trials, st["tank"], st["heal"], st["both"], str(st["per"])])
+		print("PROBE_END")
+		get_tree().quit()
+		return
 	var out_of_band: Array = []
 	for bid in BOSSES:
 		if not (only.is_empty() or bid in only):
@@ -274,8 +410,18 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 	var low_sum := 0.0
 	var busy_sum := 0.0
 	var low_tank := 0.0
-	var acc := {"pots": 0, "stray": 0.0, "area": 0.0, "heal": 0.0, "heal_tank": 0.0, "lead": -1, "casts": 0, "dmg": 0.0, "off": 0.0, "far": 0, "boss": -1, "bots": {}, "from": Vector3.ZERO, "why": {}, "why_t": {}, "states": {}, "asc": {}, "dealt": {}, "drop_by": {}}
+	var acc := {"pots": 0, "stray": 0.0, "area": 0.0, "heal": 0.0, "heal_tank": 0.0, "lead": -1, "casts": 0, "dmg": 0.0, "off": 0.0, "far": 0, "boss": -1, "bots": {}, "from": Vector3.ZERO, "why": {}, "why_t": {}, "states": {}, "asc": {}, "dealt": {}, "drop_by": {}, "last_hit": {}, "drop_how": {}, "decide": {}}
 	var on_cast := func(id: int, sid: String, ph: String):
+		if _why and acc["bots"].has(id) and Sim.entities.has(acc["boss"]):     # último lance de cada membro (PERDA: "decisao")
+			var be: SimEntity = Sim.entities[id]
+			if be.brain is BotBrain:
+				var bb: SimEntity = Sim.entities[acc["boss"]]
+				var br: BotBrain = be.brain
+				var tg: SimEntity = Sim.entities.get(br.hunt_target_id)
+				acc["decide"][id] = sid + "/" + ph + " t=%.2f alvo_chefe_d=%.1f aggro_tq=%s tq=%.0f eu=%.0f est=%.0f abre=%s visto=%.2f preso=%.2f d=%.2f" % [Sim.time - float(acc.get("t0", 0.0)),
+					-1.0 if tg == null else tg.position.distance_to(bb.position), str(bb.aggro_target == acc["lead"]), float(bb.threat.get(acc["lead"], 0.0)),
+					float(bb.threat.get(id, 0.0)), BotBrain._skill_threat(be, be.basic_skill, bb, true) + BotBrain._signature_threat(be, Sim, bb),
+					str(br.opener_id == bb.id), br.opener_seen - float(acc.get("t0", 0.0)), br.opener_held - float(acc.get("t0", 0.0)), be.position.distance_to(bb.position)]
 		if ph == "startup" and acc["bots"].has(id) and GameData.skills.has(sid) and GameData.skills[sid].ascension:
 			acc["asc"][sid] = int(acc["asc"].get(sid, 0)) + 1      # skill da ascensão usada por um bot (--asc)
 		if id == acc["boss"] and ph == "startup":
@@ -290,6 +436,13 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 		if tid == acc["boss"] and acc["bots"].has(src):         # dano de cada membro no chefe (--asc_level: DPS por build)
 			var key: String = acc["bots"][src]
 			acc["dealt"][key] = float(acc["dealt"].get(key, 0.0)) + amount
+			if _why:                 # último golpe de cada membro no chefe (PERDAS_COMO: com o quê tirou o chefe do tanque)
+				var a0: SimEntity = Sim.entities.get(src)
+				var b0: SimEntity = Sim.entities.get(acc["boss"])
+				var how: String = "dot" if _k.begins_with("dot") else (a0.current_skill.id if a0.state == SimEntity.State.CASTING and a0.current_skill and a0.current_skill != a0.basic_skill else "basico/proj")
+				var tk0: float = float(b0.threat.get(acc["lead"], 0.0))
+				var pre: float = (float(b0.threat.get(src, 0.0)) - amount * (1.0 + a0.stats.threat_pct / 100.0)) / maxf(1.0, tk0)
+				acc["last_hit"][src] = [how + "[%s %s %s]" % [_k, SimEntity.State.keys()[a0.state], a0.current_skill.id if a0.current_skill else "-"], pre, amount / maxf(1.0, tk0), _c, a0.sig_ready_at > Sim.time + Balance.SIGNATURE_ICD - 0.05]
 		elif tid == acc["boss"] and Sim.entities.has(src) and acc["bots"].has(Sim.entities[src].owner_id):      # invocação de um membro
 			var key: String = acc["bots"][Sim.entities[src].owner_id] + "+inv"
 			acc["dealt"][key] = float(acc["dealt"].get(key, 0.0)) + amount
@@ -327,7 +480,6 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 		if slot == 0 and acc["bots"].has(id):
 			acc["pots"] += 1
 	Events.potion_used.connect(on_pot)
-	var classes: Array = GameData.classes.keys()
 	for trial in range(trials):
 		if OS.get_cmdline_user_args().has("--slow"):       # sonda lenta com o tempo? quanto custa cada luta e o que sobra na sim
 			var per := {}
@@ -345,15 +497,23 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 		for e in m["entities"].duplicate():
 			Sim.despawn(e)
 		m["hazards"] = []
+		Sim.rng.seed = fight_seed(bid, trial, _seed)      # a luta não herda o rng das lutas/chefes anteriores
 		var boss = Sim.spawn_monster(base, mid, at)
 		acc["boss"] = boss.id
 		if not base.escort.is_empty():
 			MobSystem.spawn_escort(Sim, boss, {})          # capitão luta com a escolta, como no forte
 		var bots: Array = []
 		acc["bots"] = {}
+		var lead_cls := _lead.get_slice(":", 0) if _lead != "" else ""
+		var excl: Array = [lead_cls] if lead_cls != "" else []
+		var drawn := rotation_comp(bid, trial, _seed, party, excl) if _rotation else random_comp(bid, trial, _seed, party, excl)
+		if lead_cls != "" and drawn.size() >= party:       # o 1º é o líder: os sorteados ficam nas vagas 1..
+			drawn.push_front("")
+		if _show_comp:
+			print("COMP %s #%d %s" % [bid, trial, ",".join(drawn)])
 		for i in range(party):
-			var cid: String = _force_class if _force_class != "" else classes[(trial * 3 + i * 5) % classes.size()]
-			var want_build := _force_build
+			var cid: String = _force_class if _force_class != "" else str(drawn[i]).get_slice(":", 0)
+			var want_build := _force_build if _force_class != "" else str(drawn[i]).get_slice(":", 1)
 			if i < _comp.size():
 				cid = str(_comp[i]).get_slice(":", 0)
 				want_build = str(_comp[i]).get_slice(":", 1)
@@ -365,9 +525,6 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 			elif _lead != "" and i == 0:
 				cid = _lead.get_slice(":", 0)
 				want_build = _lead.get_slice(":", 1)
-			elif _lead != "" and _comp.is_empty():
-				while cid == _lead.get_slice(":", 0):
-					cid = classes[(classes.find(cid) + 1) % classes.size()]
 			var bot = Sim.spawn_bot(GameData.classes[cid], "P%d" % i, mid, at + Vector3(3 + i, 0, 3), _lvl if _lvl > 0 else maxi(1, base.level - _under))
 			if want_build != "" and bot.build_id != want_build:
 				bot.build_id = want_build          # mesma build para todos: equipamento e skills dela
@@ -420,6 +577,8 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 		boss.aggro_target = bots[0].id
 		boss.aggro_timer = 5.0
 		var t := 0.0
+		acc["t0"] = Sim.time
+		acc["decide"] = {}
 		var dead := {}
 		var on_lead := 0.0
 		var targeted := 0.0
@@ -476,6 +635,17 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 					var who: String = "?" if tk == null else (str(acc["bots"].get(tk.id, "")) if acc["bots"].has(tk.id) else ("inv:" + str(acc["bots"].get(tk.owner_id, "?")) if tk.kind == SimEntity.Kind.SUMMON else SimEntity.Kind.keys()[tk.kind]))
 					var key2 := "%s %s" % [who, "abertura" if t < 5.0 else "luta"]
 					acc["drop_by"][key2] = int(acc["drop_by"].get(key2, 0)) + 1
+					if tk != null and acc["last_hit"].has(tk.id):
+						var lh: Array = acc["last_hit"][tk.id]
+						var band: String = "pre<0.85" if float(lh[1]) < Balance.BOT_THREAT_HOLD else ("pre<1.0" if float(lh[1]) < 1.0 else "pre>=1.0")
+						var key3 := "%s %s %s golpe=%s" % [who, lh[0], band, "grande" if float(lh[2]) > 0.25 else "pequeno"]
+						acc["drop_how"][key3] = int(acc["drop_how"].get(key3, 0)) + 1
+						var hb = tk.brain
+						var ht: SimEntity = Sim.entities.get(hb.hunt_target_id) if hb is BotBrain else null
+						print("      PERDA t=%.1f %s %s pre=%.2f golpe=%.2f crit=%s assinatura=%s alvo=%s abertura=%s d=%.1f tanque_d=%.1f" % [t, who, lh[0], lh[1], lh[2], lh[3], lh[4],
+							"chefe" if ht == boss else ("-" if ht == null else str(ht.monster_def.id if ht.monster_def else ht.id)), str(hb.opener_id == boss.id) if hb is BotBrain else "?",
+							tk.position.distance_to(boss.position), tank_bot.position.distance_to(boss.position)])
+						print("        decisao %s" % str(acc["decide"].get(tk.id, "-")))
 			prev_tgt = boss.aggro_target
 			if boss.aggro_target >= 0:
 				targeted += DT
@@ -538,6 +708,7 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 		bks.sort()
 		print("BUFFS %s %s" % [bid, ", ".join(bks.map(func(k): return "%s=%.0f%%" % [k, 100.0 * buff_t[k] / maxf(0.01, fight_sum)]))])
 		print("PERDAS %s %s" % [bid, str(acc["drop_by"])])
+		print("PERDAS_COMO %s %s" % [bid, str(acc["drop_how"])])
 		print("WHY %s grupo=%d %s" % [bid, party, ", ".join(keys.slice(0, 8).map(func(k): return "%s=%.0f%%" % [k, 100.0 * acc["why"][k] / maxf(1.0, acc["dmg"])]))])
 	Events.skill_cast.disconnect(on_cast)
 	Events.damage_dealt.disconnect(on_dmg)

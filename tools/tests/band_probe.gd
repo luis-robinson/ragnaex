@@ -1,6 +1,6 @@
 extends Node
 ## Teste de jogo de uma faixa de nível (padrão 10-20): auditoria das quests e duelos de bot contra cada monstro da faixa.
-##   godot --headless --path . tools/tests/band_probe.tscn -- [--from=10] [--to=20] [--trials=6] [--only=audit|duel] [--mob=<id>,...] [--why]
+##   godot --headless --path . tools/tests/band_probe.tscn -- [--from=10] [--to=20] [--trials=6] [--only=audit|duel] [--mob=<id>,...] [--class=<id>,...] [--why]
 ## AUDIT: quest sem NPC, alvo que não nasce em mapa nenhum, nível do alvo fora da quest, item de coleta sem fonte, abates esperados.
 ## DUEL <monstro> nv=N vitorias=V/T ttk=Ss vida_perdida=P% (bot do nível do monstro, classes se revezam; CHAIN monstros
 ##   seguidos sem descanso nem poção: ttk = média por monstro; vida perdida = o ponto mais baixo da caçada).
@@ -200,6 +200,9 @@ func _audit() -> void:
 func _duels(trials: int) -> void:
 	var src := _sources()
 	var classes: Array = GameData.classes.keys()
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--class="):          # só essas classes se revezam nos duelos (ex.: --class=assassin,ranger)
+			classes = Array(a.get_slice("=", 1).split(","))
 	Sim.load_map(GameData.maps[GameData.town_map_id()])
 	var seen := {}
 	var only_mobs: Array = []
