@@ -3,6 +3,9 @@ Tamanho real (não é esticado pelo jogo): 1 u = 1 m, origem = onde o boneco pis
 
     carry_crate / carry_sack / carry_log / carry_rock   carga no ombro direito (-X), já na altura do ombro
     cart                                                carroça de caravana puxada pelos varais, atrás do boneco (+Y)
+    cart_draft                                          a mesma carroça com varais compridos, arreio e cabresto para um animal
+                                                        de tiro (o jogo põe o `mob_horse` entre os varais: CarryPose.DRAFT);
+                                                        o boneco anda ao lado, à direita do bicho, com o cabresto na mão esquerda
 """
 import math
 
@@ -56,8 +59,79 @@ def carry_rock(m):
 
 def cart(m):
     """Carroça de duas rodas da caravana: caixa de tábuas, toldo de lona em arcos, carga e dois varais até as mãos."""
-    canvas = ck.mat("p_canvas", (0.9, 0.84, 0.68), 0.9)
     y0, y1 = 0.95, 2.75                     # a caixa fica atrás do boneco
+    parts = _cart(m, y0, y1)
+    # rodas e eixo saem no nó `wheels` do GLB, com a origem no eixo: o jogo as gira pela distância andada (CarryPose.WHEELS)
+    axle = (0.0, (y0 + y1) * 0.5 + 0.1, WHEEL_R)
+    for o in parts:
+        if o.name.split(".")[0].startswith(WHEEL_PARTS):
+            o["node"], o["pivot"] = "wheels", axle
+    return parts
+
+
+# Animal de tiro (espelhado em CarryPose.DRAFT, game/entities/carry_pose.gd): onde o bicho pisa em relação ao boneco
+# (+X = esquerda do boneco, +Y = atrás) e a escala do mob_horse (mob_kit.horse, HIP 0,58) entre os varais.
+DRAFT_X, DRAFT_Y, DRAFT_SCALE = 0.95, 0.6, 1.5
+DRAFT_SHAFT = 2.2                           # comprimento do varal (m): da caixa até o ombro do animal
+
+
+def cart_draft(m):
+    """Carroça de tiro: a caixa da caravana atrás do animal, varais de 2,2 m pelos flancos, coleira, cilha, retranca e o
+    cabresto que cai do focinho até a mão esquerda do boneco. Tudo numa malha só (o bicho é do jogo)."""
+    S = DRAFT_SCALE
+    h = 0.58 * S                            # altura do quadril do cavalo na escala de tiro
+    y0 = DRAFT_Y + 0.9 * S + 0.05           # a caixa começa atrás do rabo
+    parts = _cart(m, y0, y0 + 1.8, hand=False)
+    for o in parts:                         # a caixa sai centrada no boneco: vai para trás do animal
+        for v in o.data.vertices:
+            v.co.x += DRAFT_X
+    strap = ck.mat("p_harness", (0.3, 0.2, 0.14), 0.8)
+    rope = ck.mat("p_rope", (0.8, 0.7, 0.5), 0.9)
+    P = lambda x, y, z: Vector((DRAFT_X + x, DRAFT_Y + y, z))
+    tip_y = y0 + 0.1 - DRAFT_Y - DRAFT_SHAFT            # ponta do varal: passa do ombro do animal
+    for sx in (-1, 1):
+        a, b = P(sx * 0.5, y0 + 0.1 - DRAFT_Y, 0.66), P(sx * 0.4, tip_y, h + 0.1)
+        parts.append(ck.tube("shaft%d" % sx, a, b, 0.045, 0.035, m["wood_d"], 5))
+        parts.append(ck.tube("shaft_cap%d" % sx, b, b + Vector((0, -0.07, 0.0)), 0.05, 0.03, m["iron"], 5))
+        parts.append(ck.tube("trace%d" % sx, b + Vector((0, 0.1, 0)), P(sx * 0.25, -0.6, h + 0.2), 0.02, 0.02, strap, 4))
+    # coleira: anel inclinado na base do pescoço
+    ring = [P(math.cos(math.tau * k / 8) * 0.27, -0.6 - math.sin(math.tau * k / 8) * 0.08, h + 0.2 + math.sin(math.tau * k / 8) * 0.33) for k in range(8)]
+    for k in range(8):
+        parts.append(ck.tube("collar%d" % k, ring[k], ring[(k + 1) % 8], 0.05, 0.05, strap, 5))
+    # cilha por cima do lombo (na frente da sela) e retranca por trás da garupa, de varal a varal
+    for name, pts in (("girth", [(-0.4, -0.38, h + 0.1), (-0.27, -0.38, h + 0.34), (0.0, -0.38, h + 0.5), (0.27, -0.38, h + 0.34), (0.4, -0.38, h + 0.1)]),
+                      ("breech", [(-0.42, 0.3, h + 0.02), (-0.34, 0.72, h + 0.12), (0.0, 0.86, h + 0.16), (0.34, 0.72, h + 0.12), (0.42, 0.3, h + 0.02)])):
+        for k in range(len(pts) - 1):
+            parts.append(ck.tube("%s%d" % (name, k), P(*pts[k]), P(*pts[k + 1]), 0.022, 0.022, strap, 4))
+    # cabresto: do focinho, com barriga, até a mão esquerda do boneco
+    lead = [P(-0.1, -0.98 * S, h + 0.44 * S), Vector((0.62, -0.62, 0.98)), Vector((0.46, -0.34, 0.8)), Vector((LEAD_HAND))]
+    for k in range(len(lead) - 1):
+        parts.append(ck.tube("lead%d" % k, lead[k], lead[k + 1], 0.016, 0.016, rope, 4))
+    # nós do GLB (prop_kit.export_scene lê `node`/`pivot`/`under`): o arreio e o cabresto ficam na malha principal (presos
+    # ao bicho); a carroça é o nó `cart`, com a origem onde o animal pisa (o jogo a deixa atrasar na curva em torno dele), e
+    # as rodas com o eixo são o nó `wheels`, filho dela, com a origem no eixo (o jogo as gira pela distância andada).
+    axle = (DRAFT_X, y0 + 0.9 + 0.1, WHEEL_R)
+    for o in parts:
+        nm = o.name.split(".")[0]
+        if nm.startswith(RIG_PARTS):
+            continue
+        if nm.startswith(WHEEL_PARTS):
+            o["node"], o["pivot"], o["under"] = "wheels", axle, "cart"
+        else:
+            o["node"], o["pivot"] = "cart", (DRAFT_X, DRAFT_Y, 0.0)
+    return parts
+
+
+WHEEL_R = 0.52                              # raio da roda (m): espelhado em CarryPose.DRAFT `wheel_r`
+WHEEL_PARTS = ("wheel", "hub", "spoke", "axle")
+RIG_PARTS = ("trace", "collar", "girth", "breech", "lead")
+
+
+LEAD_HAND = (0.4, -0.2, 0.86)               # mão esquerda na pose "lead" do CarryPose (medida no jogo)
+
+
+def _cart(m, y0, y1, hand=True):
+    canvas = ck.mat("p_canvas", (0.9, 0.84, 0.68), 0.9)
     yc = (y0 + y1) * 0.5
     parts = [_B("bed", (1.2, y1 - y0, 0.1), (0, yc, 0.62), m["wood"], 0.02)]
     for sx in (-1, 1):
@@ -72,7 +146,8 @@ def cart(m):
             d = Vector((0, math.cos(a), math.sin(a))) * 0.46
             parts.append(ck.tube("spoke%d_%d" % (sx, k), wc + Vector((sx * 0.05, 0, 0)) - d, wc + Vector((sx * 0.05, 0, 0)) + d, 0.03, 0.03, m["wood_l"], 4))
         # varal: do canto da caixa até a mão
-        parts.append(ck.tube("shaft%d" % sx, Vector((sx * 0.5, y0 + 0.1, 0.66)), Vector((sx * 0.34, 0.02, 0.72)), 0.04, 0.035, m["wood_d"], 5))
+        if hand:
+            parts.append(ck.tube("shaft%d" % sx, Vector((sx * 0.5, y0 + 0.1, 0.66)), Vector((sx * 0.34, 0.02, 0.72)), 0.04, 0.035, m["wood_d"], 5))
     parts.append(ck.tube("axle", Vector((-0.72, yc + 0.1, 0.52)), Vector((0.72, yc + 0.1, 0.52)), 0.045, 0.045, m["iron"], 6))
     for sy in (y0, y1):
         parts.append(_B("end%d" % int(sy * 10), (1.2, 0.07, 0.42), (0, sy, 0.86), m["wood"], 0.02))
@@ -97,4 +172,4 @@ def cart(m):
     return parts
 
 
-BUILDERS = {"carry_crate": carry_crate, "carry_sack": carry_sack, "carry_log": carry_log, "carry_rock": carry_rock, "cart": cart}
+BUILDERS = {"carry_crate": carry_crate, "carry_sack": carry_sack, "carry_log": carry_log, "carry_rock": carry_rock, "cart": cart, "cart_draft": cart_draft}

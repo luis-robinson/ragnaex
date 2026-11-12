@@ -892,13 +892,33 @@ def export_scene(path, name="prop", kind=""):
         if o.matrix_world != Matrix.Identity(4):
             o.data.transform(o.matrix_world)
             o.matrix_world = Matrix.Identity(4)
-    joined = ck._join(meshes, name)
+    # peça com `node` (custom prop) sai num nó à parte do GLB, com a origem em `pivot` e, se houver `under`, filha desse nó
+    # (carroça de tiro: `cart` atrasa na curva, `wheels` gira; life_props.cart_draft). O resto é a malha única de sempre.
+    extra = {}
+    for o in meshes:
+        if o.get("node"):
+            extra.setdefault(o["node"], {"objs": [], "pivot": Vector(o.get("pivot", (0, 0, 0))), "under": o.get("under", "")})["objs"].append(o)
+    main = [o for o in meshes if not o.get("node")]
+    joined = ck._join(main, name)
+    keep = [joined]
+    nodes = {}
+    for node, e in extra.items():
+        ob = ck._join(e["objs"], node)
+        ob.data.transform(Matrix.Translation(-e["pivot"]))
+        ob.location = e["pivot"]
+        nodes[node] = ob
+        keep.append(ob)
+    for node, e in extra.items():
+        if e["under"] in nodes:
+            nodes[node].parent = nodes[e["under"]]
+            nodes[node].location = e["pivot"] - extra[e["under"]]["pivot"]
     for o in list(bpy.context.scene.objects):
-        if o != joined:
+        if o not in keep:
             bpy.data.objects.remove(o, do_unlink=True)
     _decimate(kind)
     ck.deselect_everything()              # select_all não alcança coleção escondida (zonas iam dentro do GLB)
-    joined.select_set(True)
+    for o in keep:
+        o.select_set(True)
     bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, use_active_scene=True, export_apply=True,
                               export_animations=False, export_yup=True, export_materials="EXPORT")
 

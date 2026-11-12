@@ -266,6 +266,10 @@ def boss_extras(cid, kind):
             for i in range(3):                  # caveiras de troféu no cinto
                 hips.extend(skull("%s_trophy%d" % (cid, i), V(((i - 1) * 0.17, front - 0.06 + 0.03 * abs(i - 1), zw - 0.06)), 0.07, dark))
             hips.append(ck.tube(cid + "_warbelt", V((0, 0, zw - 0.04)), V((0, 0, zw + 0.05)), sw * 1.1, sw * 1.1, iron, 12))
+            # o cinto é um tubo sem tampa, mais largo que a cintura: visto de cima/de costas (e na corrida, com o tronco
+            # inclinado) aparecia o vão entre ele e o corpo. Dois chanfros fecham o vão em cima e embaixo.
+            hips.append(ck.tube(cid + "_warbelt_top", V((0, 0, zw + 0.05)), V((0, 0, zw + 0.1)), sw * 1.1, sw * 0.8, iron, 12))
+            hips.append(ck.tube(cid + "_warbelt_low", V((0, 0, zw - 0.09)), V((0, 0, zw - 0.04)), sw * 0.86, sw * 1.1, iron, 12))
             for sx in (-1, 1):                  # presas de javali do elmo, mais largas que os chifres
                 t0 = c + V((sx * r * 0.7, -r * 0.6, -r * 0.15))
                 head.append(cone("%s_boartusk%d" % (cid, sx), t0, t0 + V((sx * r * 0.45, -r * 0.5, r * 0.55)), r * 0.13, bone, 6))

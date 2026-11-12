@@ -29,7 +29,7 @@ AURORA_BLUE = (0.36, 0.48, 0.78)
 FORTS = {
     "fort_trolls": {
         "name": "Toca do Rei-da-Rocha", "seed": 61, "quest": "hx_fort_trolls", "boss": "boss_troll_king",
-        "ground": (0.56, 0.52, 0.46), "patio": (0.44, 0.42, 0.42), "wall": (0.46, 0.44, 0.44), "road": (0.46, 0.42, 0.38), "trail": (0.5, 0.46, 0.42),
+        "ground": (0.56, 0.52, 0.46), "patio": (0.44, 0.42, 0.42), "wall": (0.46, 0.44, 0.44), "road": (0.46, 0.42, 0.38), "trail": (0.47, 0.41, 0.33),      # terra pisada quente (cinza frio lia como asfalto no chão bege)
         "outside": [("troll_whelp", 5, 20.0), ("troll_whelp", 4, 20.0), ("troll", 2, 28.0), ("troll", 2, 28.0)],
         "inside": [("troll", 3, 28.0), ("troll_whelp", 4, 20.0)], "posts": [("troll_whelp", 4), ("troll", 2)],
         "road_pts": [(-16, 74), (12, 60), (13, 50), (11, 36), (-4, 24), (4, 12)],      # cruza a fenda de frente (ponte reta)

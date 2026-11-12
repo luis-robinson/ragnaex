@@ -764,6 +764,26 @@ class Dress:
         a = math.radians(rot)
         self.box(g, self.m("tenda_boca", (0.12, 0.1, 0.1)), (c[0] - math.sin(a) * 1.5 * s, c[1] - math.cos(a) * 1.5 * s), (0.9 * s, 1.3 * s, 0.5 * s), rot, 0.0, tilt=(-28, 0))
 
+    def tent_aurora(self, c, rot, s=1.0, color=(0.93, 0.89, 0.78), trim=(0.3, 0.42, 0.72), gold=(0.96, 0.9, 0.62), g="tenda"):
+        """Pavilhão de campanha da Aurora: parede redonda de lona, teto em cone com barra azul, mastro com flâmula dourada.
+        Cabe no mesmo chão (e no mesmo colisor) da tenda de couro orc: é a peça que entra no lugar dela na retomada."""
+        cm = self.m("lona_%d_%d" % (int(color[0] * 100), int(color[2] * 100)), color)
+        tm = self.m("lona_barra_%d_%d" % (int(trim[0] * 100), int(trim[2] * 100)), trim)
+        gm = self.m("lona_ouro_%d" % int(gold[0] * 100), gold)
+        self.cyl(g, cm, c, 1.5 * s, 1.5 * s, 1.15 * s, 0.0, 8, rot, cap=False)
+        self.cyl(g, tm, c, 1.86 * s, 1.5 * s, 0.34 * s, 1.0 * s, 8, rot, cap=False)          # beiral azul (lê de cima)
+        self.cyl(g, cm, c, 1.5 * s, 0.16 * s, 1.5 * s, 1.34 * s, 8, rot)
+        self.cyl(g, tm, c, 0.62 * s, 0.16 * s, 0.52 * s, 2.36 * s, 8, rot)                  # coifa azul
+        self.cyl(g, self.m("mastro_fl_82", (0.82, 0.68, 0.48)), c, 0.05, 0.04, 0.9 * s, 2.84 * s, 4)
+        self.cyl(g, gm, c, 0.13 * s, 0.0, 0.26 * s, 3.7 * s, 4)
+        a = math.radians(rot)
+        dx, dz = -math.sin(a), -math.cos(a)                                                  # a porta olha para o pátio
+        self.box(g, gm, (c[0] + math.cos(a) * 0.32 * s, c[1] - math.sin(a) * 0.32 * s), (0.6 * s, 0.3 * s, 0.04), rot, 3.3 * s)
+        self.box(g, self.m("tenda_boca", (0.12, 0.1, 0.1)), (c[0] + dx * 1.42 * s, c[1] + dz * 1.42 * s), (0.8 * s, 1.0 * s, 0.14 * s), rot, 0.0)
+        for k in (-1, 1):                                                                    # abas da porta, abertas
+            q = (c[0] + dx * 1.5 * s + math.cos(a) * k * 0.52 * s, c[1] + dz * 1.5 * s - math.sin(a) * k * 0.52 * s)
+            self.box(g, tm, q, (0.26 * s, 1.05 * s, 0.08 * s), rot + k * 24.0, 0.0)
+
     def woodpile(self, c, rot, n=3, L=2.4, g="lenha", color=(0.56, 0.42, 0.28)):
         """Pilha de toras (pirâmide deitada)."""
         m = self.m("tora_%d" % int(color[0] * 100), color)
@@ -870,8 +890,10 @@ class Dress:
         s = (c[0] - uz * 0.8 - ux * 0.3, c[1] + ux * 0.8 - uz * 0.3)
         self.cyl(g, d, s, 0.24, 0.2, 0.4, y0, 6)                 # banquinho de toco
 
-    def drill_post(self, c, rot, g="treino", shield=(0.72, 0.16, 0.13)):
-        """Boneco de treino: poste com travessa, tronco de palha amarrado, balde na cabeça e um escudo velho no braço."""
+    def drill_post(self, c, rot, g="treino", shield=(0.72, 0.16, 0.13), boss=None, crest=None):
+        """Boneco de treino: poste com travessa, tronco de palha amarrado, balde na cabeça e um escudo velho no braço.
+        `boss` = cor do umbigo do escudo (padrão ferro); `crest` = cor de uma faixa no peito e de um penacho no balde
+        (o boneco da Aurora: escudo azul, umbigo e faixa dourados). Gasta 56 sorteios do lote sem `crest`."""
         w = self.m("cavalete", (0.4, 0.3, 0.22))
         straw = self.m("alvo_palha", (0.8, 0.68, 0.4))
         rope = self.m("corda", (0.78, 0.7, 0.5))
@@ -888,9 +910,13 @@ class Dress:
         self.cyl(g, iron, c, 0.26, 0.22, 0.34, 1.98, 8)
         e = (c[0] + ux * 0.86, c[1] + uz * 0.86)
         self.cyl(g, self.m("escudo_treino_%d" % int(shield[0] * 100), shield), e, 0.42, 0.42, 0.08, 1.42, 8, rot, tilt=(90, 0))
-        self.cyl(g, iron, e, 0.12, 0.05, 0.14, 1.42, 6, rot, tilt=(90, 0))
+        self.cyl(g, iron if boss is None else self.m("escudo_umbigo_%d" % int(boss[0] * 100), boss), e, 0.12, 0.05, 0.14, 1.42, 6, rot, tilt=(90, 0))
         e2 = (c[0] - ux * 0.8, c[1] - uz * 0.8)
         self.cyl(g, w, e2, 0.04, 0.04, 1.0, 0.45, 4)             # espada de pau pendurada
+        if crest is not None:
+            cm = self.m("treino_faixa_%d_%d" % (int(crest[0] * 100), int(crest[2] * 100)), crest)
+            self.cyl(g, cm, c, 0.385, 0.385, 0.16, 1.05, 8, cap=False)          # faixa no peito
+            self.cyl(g, cm, c, 0.08, 0.0, 0.42, 2.32, 5)                        # penacho no balde
 
     def cookfire(self, c, s=1.0, rot=0.0, g="cozinha", fire="glow_brasa"):
         """Fogo de cozinha do acampamento: roda de pedras, brasa, lenha, duas forquilhas com travessa e panela pendurada,

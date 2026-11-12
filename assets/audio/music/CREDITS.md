@@ -17,3 +17,4 @@
 | porto | Port Town Loop | beardalaxy | https://opengameart.org/content/port-town-loop |
 | costa | Song of the Sea | Kistol | https://opengameart.org/content/song-of-the-sea |
 | goblins | Krakatoa | Kistol | https://opengameart.org/content/krakatoa |
+| horda | Orcs Victorious (2024) | Bobjt | https://opengameart.org/content/orcs-victorious |

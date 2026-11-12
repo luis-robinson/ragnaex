@@ -138,7 +138,10 @@ DUNGEONS["dg_goblin"] = {
             # cada salão tem a sua cor de chão e o seu miolo, para se saber onde se está só de olhar de cima:
             # lamaçal verde com poça turva, forja laranja com lava, tambores roxo-vinho com a pele do tambor pintada no chão,
             # selo vermelho-sangue com a brasa do Agitador-Mor
-            "lamacal": {"pos": (0, 20), "r": 12, "mobs": [("goblin_lancer", 6)], "floor": (0.3, 0.46, 0.3), "pool": (0.36, 0.6, 0.52),
+            # `mob_off` (metros, depois da escala): o bando do lamaçal nasce 7 m para dentro, fora do alcance de quem acabou
+            # de chegar (antes a borda do bando ficava a 7 m da chegada e os lanceiros de nível 30 atacavam em 2 s);
+            # a entrada é dos Empaladores (33), o bicho da gruta: 3, cada um com 2 lanceiros de escolta (~9 bichos)
+            "lamacal": {"pos": (0, 20), "r": 12, "mobs": [("goblin_impaler", 3)], "mob_off": (0.0, -7.0), "floor": (0.3, 0.46, 0.3), "pool": (0.36, 0.6, 0.52),
                         "decor": GOBLIN_DECOR + [("stump", 4, (1.0, 0.8, 1.0), (0.36, 0.3, 0.2))]},
             "forja": {"pos": (-30, -4), "r": 10, "mobs": [("goblin_impaler", 3), ("goblin_lancer", 3)], "floor": (0.62, 0.36, 0.2),
                       "pool": (1.0, 0.5, 0.2), "decor": [("anvil", 3, (1.0, 1.0, 0.6), (0.4, 0.4, 0.42)), ("cauldron", 2, (1.1, 1.0, 1.1), (0.3, 0.3, 0.32))] + GOBLIN_DECOR[:2]},

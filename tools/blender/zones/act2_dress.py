@@ -375,6 +375,10 @@ def coast(z, sea_c, sea_r, village, nests, beach, lighthouse, shrine, hub_r, hub
 # ----------------------------------------------------------------------------------------------------------------
 # Porto Esperança
 # ----------------------------------------------------------------------------------------------------------------
+# vara de pescar da praia (candidatos; a primeira que couber): espelhada em MapsCatalog (port_vil_fisher_c fica 0,9 m atrás dela)
+PORT_SHORE_POLE = ((-13.0, 66.4), (-15.0, 66.2), (-3.5, 66.6))
+
+
 def port(z, sea_c, sea_r, town_c, town_r, plaza_r, gates, gate_half, farm, shipyard_c, beacon_c, beacon_root, post_c, ship_c, ship_rot, ship_L, piers):
     d = Dress(z, 211)
     rnd = d.rnd
@@ -557,6 +561,13 @@ def port(z, sea_c, sea_r, town_c, town_r, plaza_r, gates, gate_half, farm, shipy
     for q, rot in (((19.5, 60.5), 12.0), ((-14.5, 58.0), -8.0), ((30.0, 55.5), 30.0)):
         if d.ok(q[0], q[1], 1.6, road=0.8, water=0.0):
             d.fish_rack(q, rot, "pesca")
+    # vara de pescar na AREIA, do lado do píer oeste (PORT_SHORE_POLE): o pescador dela fica em chão seco, a um passo de quem
+    # chega pela praia (os dos píeres só se alcançam com `reach`). Sem colisor; a boia cai na água, além da linha da praia.
+    for q in PORT_SHORE_POLE:
+        if d.ok(q[0], q[1], 0.5, road=0.3, water=0.0):
+            d.fishing_pole(q, zone_lib.along(sea_c[0] - q[0], sea_c[1] - q[1]), 3.4, 0.0)
+            print("PORT_SHORE_POLE %.1f %.1f rot %.1f" % (q[0], q[1], zone_lib.along(sea_c[0] - q[0], sea_c[1] - q[1])))
+            break
     return d.flush()
 
 
@@ -733,7 +744,7 @@ def steppe(z, hub_r, hub_gates, fronts, camp_r, graveyard, deserters, totem, shr
 # ----------------------------------------------------------------------------------------------------------------
 FORT_LOOK = {      # tons do chão = o `ground` do acampamento (MapsCatalog) um pouco acima/abaixo: manchas que não gritam
     "fort_trolls": {"tones": [("toca_claro", (0.65, 0.6, 0.51)), ("toca_escuro", (0.54, 0.5, 0.43)), ("toca_musgo", (0.58, 0.57, 0.44))],
-                    "edge": (0.4, 0.37, 0.35), "ruts": None, "rock": (0.5, 0.48, 0.48), "grass": (0.62, 0.58, 0.36)},
+                    "edge": (0.4, 0.35, 0.3), "ruts": None, "rock": (0.5, 0.48, 0.48), "grass": (0.62, 0.58, 0.36)},
     "fort_fire": {"tones": [("fogo_cinza", (0.5, 0.45, 0.4)), ("fogo_carvao", (0.37, 0.33, 0.3)), ("fogo_brasa", (0.46, 0.39, 0.34))],
                   "edge": (0.27, 0.24, 0.23), "ruts": (0.22, 0.2, 0.2), "rock": (0.36, 0.33, 0.32), "grass": (0.56, 0.46, 0.28)},
     "fort_war": {"tones": [("guerra_ouro", (0.72, 0.58, 0.4)), ("guerra_pisado", (0.6, 0.47, 0.33)), ("guerra_palha", (0.7, 0.57, 0.4))],
@@ -741,10 +752,20 @@ FORT_LOOK = {      # tons do chão = o `ground` do acampamento (MapsCatalog) um 
 }
 
 
+# bonecos de treino do pátio: candidatos (recuo do muro em m, ângulo em graus), espelhados em run_tests FORT_DRILL. Na Toca
+# os pedregulhos e as jaulas tomam o anel de 8,2 m: os bonecos vão para o meio do pátio, do lado da fogueira do espeto.
+FORT_DRILL_INSET = 8.2
+FORT_DRILL = {
+    "fort_war": ((8.2, 168.0), (8.2, 176.0), (8.2, 192.0)),
+    "fort_fire": ((8.2, 172.0), (8.2, 180.0), (8.2, 190.0)),
+    "fort_trolls": ((12.0, 196.0), (12.0, 206.0), (12.0, 216.0), (8.2, 150.0), (8.2, 158.0), (8.2, 166.0)),
+}
+
+
 def fort(z, fid, c, R, gate_pt, arrive, posts, quest):
     look = FORT_LOOK[fid]
     d = Dress(z, 401 + len(fid) * 3 + int(look["edge"][0] * 100))
-    hd = d        # o que tem corpo (tenda, totem, frisa, tambor) é neutro: peça de conquista não pode colidir (teste)
+    hd = d        # o que tem corpo (totem, frisa, tambor; da tenda, só o colisor) é neutro: peça de conquista não pode colidir (teste)
     fl = Dress(z, 409 + int(look["edge"][0] * 100), tag="estandarte_horda_det")      # só pano e troféu: somem na retomada
     ad = Dress(z, 419, tag="estandarte_aurora_det")                                  # pano da Aurora: aparece na retomada
     rnd = d.rnd
@@ -810,7 +831,14 @@ def fort(z, fid, c, R, gate_pt, arrive, posts, quest):
     for k, deg in enumerate((205.0, 235.0, 305.0, 335.0, 160.0, 20.0)):
         q = P(c, R - 5.4, deg)
         if hd.ok(q[0], q[1], 2.2, road=1.0):
-            hd.tent_hide(q, -deg - 90.0, rnd.uniform(1.0, 1.25), [(0.62, 0.48, 0.36), (0.5, 0.38, 0.3)][k % 2])
+            # a tenda de couro é da Horda (some na retomada) e o pavilhão da Aurora entra no mesmo chão; o colisor é um só,
+            # neutro, e vale para as duas. As 28 voltas gastam o sorteio que a tenda gastava no lote neutro (o cyl sorteia
+            # por gomo mesmo sem jitter): o resto do acabamento, e os colisores dele, saem iguais aos de antes.
+            sc = rnd.uniform(1.0, 1.25)
+            for _ in range(28):
+                rnd.random()
+            fl.tent_hide(q, 90.0 - deg, sc, [(0.62, 0.48, 0.36), (0.5, 0.38, 0.3)][k % 2])
+            ad.tent_aurora(q, 90.0 - deg, sc * 0.96)          # as duas com a boca para o pátio
             hd.solid(q[0], q[1], 3.4, 3.4, 2.4)
             hd.reserve(q[0], q[1], 3.2)
     for k, deg in enumerate((184.0, 356.0, 60.0, 120.0)):
@@ -914,12 +942,18 @@ def fort(z, fid, c, R, gate_pt, arrive, posts, quest):
             hh = 0.9 + (k % 2) * 0.4
             d.cyl("toca", d.m("dente_toca", (0.7, 0.68, 0.64)), (x, mouth[1] + 1.25), 0.3, 0.0, -hh, 3.6, 5)
     # ---- vida do acampamento (por último, sem colisor): bonecos de treino, fogo de cozinha; retomado, andaime da Aurora ----
-    drill = {"fort_war": (168.0, 176.0, 192.0), "fort_fire": (172.0, 180.0, 190.0), "fort_trolls": (150.0, 158.0, 166.0)}[fid]
+    drill = FORT_DRILL[fid] + tuple((FORT_DRILL_INSET, deg) for deg in (198.0, 144.0, 136.0))
     n_ok = 0
-    for deg in drill + (198.0, 144.0, 136.0):
-        q = P(c, R - 8.2, deg)
+    for inset, deg in drill:
+        q = P(c, R - inset, deg)
         if n_ok < 3 and d.ok(q[0], q[1], 1.0, road=0.8):
-            d.drill_post(q, -deg + (90.0 if n_ok % 2 else 60.0), shield=HORDE_RED if n_ok != 1 else (0.3, 0.26, 0.22))
+            # boneco de treino com escudo da Horda some na retomada; no mesmo ponto entra o da Aurora (escudo azul, umbigo e
+            # faixa dourados). Sem colisor (só reserva). As 56 voltas gastam o sorteio que o boneco gastava no lote neutro.
+            for _ in range(56):
+                rnd.random()
+            rot = -deg + (90.0 if n_ok % 2 else 60.0)
+            fl.drill_post(q, rot, shield=HORDE_RED if n_ok != 1 else (0.3, 0.26, 0.22))
+            ad.drill_post(q, rot, shield=AURORA_BLUE if n_ok != 1 else (0.88, 0.84, 0.7), boss=AURORA_GOLD, crest=AURORA_GOLD if n_ok != 1 else AURORA_BLUE)
             d.reserve(q[0], q[1], 1.4)
             n_ok += 1
     n_ok = 0
@@ -932,7 +966,203 @@ def fort(z, fid, c, R, gate_pt, arrive, posts, quest):
     for deg, L in ((63.0, 5.2), (118.0, 4.4)):                                   # andaimes por dentro do muro, dos dois lados do portão
         q = P(c, R - (3.0 if fid == "fort_trolls" else 1.6), deg)
         ad.scaffold(q, -deg + 90.0, L, 4.2)
+    fort_far(d, fid, c, R, look)
     return d.flush() + fl.flush() + ad.flush()
+
+
+# o que sobra nos quadrantes longe da estrada de cada acampamento (rodízio): restos baixos, sem corpo
+FAR_KINDS = {"fort_trolls": ("midden", "tracks", "fire", "midden", "skirmish", "tracks"),
+             "fort_fire": ("scorch", "skirmish", "fire", "scorch", "tracks", "skirmish"),
+             "fort_war": ("skirmish", "wheel", "fire", "tracks", "skirmish", "wheel")}
+FAR_ROAD = 20.0                # m da estrada: aquém disso a beira de estrada e os conjuntos já enchem o chão
+FAR_SPACING = 13.0             # m entre um resto e outro
+FAR_MAX = 60
+
+
+def fort_far(d, fid, c, R, look):
+    """Quadrantes longe da estrada (atrás e dos lados do acampamento): fogueiras apagadas, restos de escaramuça, rastros,
+    monturos de osso. Tudo baixo e SEM colisor nem reserva nova de sim (o JSON da zona não muda); entra no lote neutro por
+    último, depois de tudo que sorteia posição de colisor. Só nasce onde `Dress.ok` deixa (fora de pedra, árvore, água)."""
+    z, rnd = d.z, d.rnd
+    kinds = FAR_KINDS[fid]
+    cv = Vector(c)
+    sites = []
+    for _ in range(1400):
+        if len(sites) >= FAR_MAX:
+            break
+        a, rr = rnd.uniform(0, math.tau), 104.0 * math.sqrt(rnd.random())
+        p = Vector((math.cos(a) * rr, math.sin(a) * rr))
+        if (p - cv).length < R + 7.0 or any((p - q).length < FAR_SPACING for q in sites):
+            continue
+        if any(zone_lib.poly_dist(p, poly) < FAR_ROAD for poly in z.road_polys.values()):
+            continue
+        if not d.ok(p.x, p.y, 2.4, road=2.0, water=2.0, rim=5.0):
+            continue
+        sites.append(p)
+    for k, p in enumerate(sites):
+        far_piece(d, kinds[k % len(kinds)], (p.x, p.y), rnd.uniform(0, 360), look)
+        d.reserve(p.x, p.y, 3.0)
+    print("FORT_FAR %s %d" % (fid, len(sites)))
+    return len(sites)
+
+
+def far_piece(d, kind, c, rot, look):
+    """Um resto de ~3 m de raio, baixo (ninguém fica tapado) e sem corpo: o boneco passa por cima. Geometria magra de
+    propósito (são dezenas por mapa): osso/haste = prisma de 3 lados sem tampa, pedra = toco de 4 lados."""
+    rnd = d.rnd
+    bone = d.m("osso", (0.9, 0.87, 0.78))
+    char = d.m("carvao", (0.16, 0.15, 0.16))
+    wood = d.m("resto_madeira", (0.36, 0.29, 0.23))
+    stone = d.m("resto_pedra", look["rock"])
+    grass = d.m("capim_resto_%d" % int(look["grass"][0] * 100), look["grass"])
+    free = lambda q, r=0.3: d.ok(q[0], q[1], r, road=0.6, water=0.8)
+
+    def stick(g, m, q, r, L, deg, y=0.06, segs=3, cap=False):       # vara deitada, centrada em q (como Dress.log, mais magra)
+        a = math.radians(deg)
+        st = (q[0] - math.cos(a) * L * 0.5, q[1] + math.sin(a) * L * 0.5)
+        d.cyl(g, m, st, r, r, L, y, segs, deg, tilt=(0, 90), cap=cap)
+
+    def pebble(m, q, r):                                            # pedra: toco facetado de 4 lados
+        d.cyl("mini", m, q, r, r * 0.55, r * 0.8, 0.0, 4, rnd.uniform(0, 90))
+
+    def bones(q, n, spread, skull=True):
+        for _ in range(n):
+            a, dd = rnd.uniform(0, math.tau), rnd.uniform(0.2, spread)
+            stick("ossos", bone, (q[0] + math.cos(a) * dd, q[1] + math.sin(a) * dd), 0.055, rnd.uniform(0.5, 1.1), rnd.uniform(0, 360))
+        if skull:
+            d.rock("ossos", bone, q, 0.22, 0.0, 0.85, sub=1)
+
+    if kind == "fire":                                  # fogueira apagada: cinza, roda de pedras, tições, toras de sentar
+        d.blob("resto", d.m("patch_pisado_resto", tuple(k * 0.8 for k in look["tones"][1][1])), c, 2.9, 0.0071, 0.3, 14)
+        d.blob("resto", d.m("patch_cinza_resto", (0.24, 0.22, 0.21)), c, 1.0, 0.0078, 0.25, 9)
+        for k in range(6):
+            pebble(stone, P(c, 0.95, rot + k * 60.0 + rnd.uniform(-10, 10)), rnd.uniform(0.18, 0.28))
+        for k in range(3):
+            stick("resto", char, P(c, 0.2, rot + k * 120.0), 0.07, rnd.uniform(0.9, 1.3), rot + k * 61.0, 0.1)
+        for k, deg in enumerate((rot + 30.0, rot + 170.0, rot + 265.0)[:rnd.randint(2, 3)]):
+            q = P(c, 2.1, deg)
+            if free(q, 0.9):
+                stick("resto", wood, q, 0.2, rnd.uniform(1.5, 2.1), -deg + 90.0, 0.17, 5, True)
+        q = P(c, 2.6, rot + 100.0)
+        if free(q, 0.8):
+            bones(q, 3, 0.7, False)
+    elif kind == "skirmish":                            # escaramuça velha: flechas cravadas, escudo rachado, lança partida, ossos
+        d.blob("resto", d.m("patch_mancha_resto", tuple(k * 0.72 for k in look["tones"][1][1])), c, 1.8, 0.0071, 0.35, 11)
+        arrow = d.m("flecha", (0.3, 0.24, 0.2))
+        feather = d.m("flecha_pena", (0.74, 0.7, 0.62))
+        for _ in range(rnd.randint(5, 8)):
+            q = (c[0] + rnd.uniform(-2.8, 2.8), c[1] + rnd.uniform(-2.8, 2.8))
+            if not free(q, 0.2):
+                continue
+            ti = (rnd.uniform(-34, 34), rnd.uniform(-34, 34))
+            d.cyl("flechas", arrow, q, 0.035, 0.035, 0.8, 0.0, 3, 0.0, ti, cap=False)
+            tx, ty = math.radians(ti[0]), math.radians(ti[1])      # a pena acompanha a haste inclinada (o y0 do cyl não inclina)
+            fq = (q[0] + 0.62 * math.cos(tx) * math.sin(ty), q[1] + 0.62 * math.sin(tx))
+            d.cyl("flechas", feather, fq, 0.08, 0.03, 0.2, 0.62 * math.cos(tx) * math.cos(ty), 3, 0.0, ti)
+        q = P(c, 1.4, rot)
+        sh = d.m("resto_escudo_%d" % (int(rot) % 2), [(0.44, 0.2, 0.17), (0.34, 0.3, 0.27)][int(rot) % 2])
+        d.cyl("resto", sh, q, 0.5, 0.5, 0.07, 0.03, 7, rot, tilt=(rnd.uniform(4, 14), 0))
+        d.cyl("resto", d.m("ferro_velho", (0.42, 0.42, 0.45)), q, 0.14, 0.0, 0.16, 0.08, 4, rot)
+        q = P(c, 1.9, rot + 150.0)
+        stick("resto", wood, q, 0.04, 2.3, rot + 40.0, 0.05)
+        d.cyl("resto", d.m("ferro_velho", (0.42, 0.42, 0.45)), P(q, 1.25, -(rot + 40.0)), 0.07, 0.0, 0.36, 0.05, 3, rot + 40.0, tilt=(0, 90))
+        for k in range(2):
+            q = P(c, rnd.uniform(1.6, 2.8), rot + 230.0 + k * 70.0)
+            if free(q, 0.8):
+                bones(q, rnd.randint(3, 4), 0.8, k == 0)
+    elif kind == "tracks":                              # rastro: pegadas em duas fileiras numa curva longa, capim amassado
+        dark = d.m("patch_pegada", tuple(k * 0.74 for k in look["tones"][1][1]))
+        a = math.radians(rot)
+        big = rnd.random() < 0.5
+        step, r0 = (2.3, 0.5) if big else (1.3, 0.26)
+        bend = rnd.uniform(-0.035, 0.035)
+        q = Vector(c) - Vector((math.cos(a), math.sin(a))) * 11.0
+        for k in range(int(22.0 / step)):
+            a += bend * step
+            fw = Vector((math.cos(a), math.sin(a)))
+            q = q + fw * step
+            s = 1 if k % 2 else -1
+            f = q + Vector((-fw.y, fw.x)) * s * r0 * 1.5
+            if not free((f.x, f.y), r0):
+                continue
+            d.blob("resto", dark, (f.x, f.y), r0, 0.0072, 0.12, 7, 1.5, -math.degrees(a))
+            if big:                                     # três dedos na frente (pé de troll / pata de fera)
+                for t in (-1, 0, 1):
+                    toe = f + fw * r0 * 1.35 + Vector((-fw.y, fw.x)) * t * r0 * 0.6
+                    d.blob("resto", dark, (toe.x, toe.y), r0 * 0.3, 0.0072, 0.1, 4)
+        for _ in range(2):
+            q2 = (c[0] + rnd.uniform(-3.0, 3.0), c[1] + rnd.uniform(-3.0, 3.0))
+            if free(q2, 0.5):
+                d.tuft("campo", grass, q2, 0.6, 0.5, 5, (0.5, 0.2))
+    elif kind == "midden":                              # monturo de troll: ossada roída, costelas baixas, pedras e musgo
+        d.blob("resto", d.m("patch_musgo_resto", (0.5, 0.52, 0.38)), c, 2.6, 0.0071, 0.35, 13)
+        bones(c, 8, 1.7)
+        bones(P(c, 1.4, rot + 200.0), 4, 0.9, False)
+        a = math.radians(rot)
+        ux, uz = math.cos(a), math.sin(a)
+        for i in range(3):                              # costelas até 0,8 m
+            t = (i - 1.0) * 0.6
+            for s in (-1, 1):
+                b0 = (c[0] + ux * t, c[1] + uz * t)
+                d.tube("ossos", bone, [(b0[0] - uz * s * 0.1, 0.1, b0[1] + ux * s * 0.1), (b0[0] - uz * s * 0.7, 0.62, b0[1] + ux * s * 0.7),
+                                       (b0[0] - uz * s * 0.45, 0.85, b0[1] + ux * s * 0.45)], 0.07, 0.025, 3)
+        stick("ossos", bone, c, 0.08, 2.2, -rot, 0.09)
+        for k in range(3):
+            pebble(stone, P(c, rnd.uniform(1.6, 2.6), rot + 60.0 + k * 25.0), rnd.uniform(0.2, 0.36))
+        pebble(d.m("carne", (0.66, 0.3, 0.26)), P(c, 0.9, rot + 300.0), 0.3)
+    elif kind == "scorch":                              # chão queimado: mancha de carvão, brasas, flechas de fogo, toco em brasa
+        d.blob("resto", d.m("patch_queimado", (0.2, 0.18, 0.18)), c, rnd.uniform(2.2, 3.2), 0.0074, 0.35, 14)
+        ember = d.m("glow_brasa_chao", (1.0, 0.45, 0.14))
+        arrow = d.m("flecha", (0.3, 0.24, 0.2))
+        tipm = d.m("glow_flecha", (1.0, 0.5, 0.16))
+        for _ in range(4):
+            q = (c[0] + rnd.uniform(-2.0, 2.0), c[1] + rnd.uniform(-2.0, 2.0))
+            d.blob("resto", ember, q, rnd.uniform(0.15, 0.36), 0.0079, 0.3, 5)
+        for _ in range(rnd.randint(4, 6)):
+            q = (c[0] + rnd.uniform(-3.0, 3.0), c[1] + rnd.uniform(-3.0, 3.0))
+            if not free(q, 0.2):
+                continue
+            ti = (rnd.uniform(-30, 30), rnd.uniform(-30, 30))
+            d.cyl("flechas", arrow, q, 0.04, 0.04, 1.0, 0.0, 3, 0.0, ti, cap=False)
+            d.cyl("flechas", tipm, q, 0.09, 0.0, 0.22, 0.0, 3, 0.0, ti)
+        d.cyl("resto", char, c, 0.3, 0.22, 0.45, 0.0, 5, rot, jitter=0.15)
+        for k in range(3):
+            pebble(char, P(c, rnd.uniform(1.0, 2.2), rot + 110.0 + k * 30.0), rnd.uniform(0.14, 0.26))
+        stick("resto", char, P(c, 1.7, rot + 300.0), 0.13, 1.9, rot, 0.11, 4, True)
+    elif kind == "wheel":                               # carga perdida: roda quebrada deitada, tábuas, sulcos de carroça
+        rut = d.m("patch_sulco_resto", tuple(k * 0.78 for k in look["tones"][1][1]))
+        a = math.radians(rot)
+        fw = Vector((math.cos(a), math.sin(a)))
+        nr = Vector((-fw.y, fw.x))
+        for s in (-0.8, 0.8):
+            pts = [Vector(c) + nr * s + fw * t for t in (-7.0, -3.5, 0.0, 3.5)]
+            if all(free((q.x, q.y), 0.3) for q in pts):
+                d.strip("resto", rut, pts, 0.24, 0.0072, 0.4, taper=True)
+        q = P(c, 1.2, rot + 60.0)
+        for k in range(8):                              # aro em gomos + raios, deitado
+            a0 = math.tau * k / 8
+            if k == 5:
+                continue                                # gomo que falta
+            m0 = (q[0] + math.cos(a0 + 0.39) * 0.62, q[1] + math.sin(a0 + 0.39) * 0.62)
+            stick("resto", wood, m0, 0.07, 0.52, -math.degrees(a0 + 0.39) + 90.0, 0.07, 4)
+            if k % 2 == 0:
+                stick("resto", wood, (q[0] + math.cos(a0) * 0.3, q[1] + math.sin(a0) * 0.3), 0.04, 0.6, -math.degrees(a0), 0.07)
+        d.cyl("resto", d.m("ferro_velho", (0.42, 0.42, 0.45)), q, 0.13, 0.1, 0.16, 0.0, 5)
+        for k in range(3):
+            pq = P(c, rnd.uniform(1.4, 2.6), rot + 180.0 + k * 55.0)
+            if free(pq, 0.6):
+                d.box("resto", wood, pq, (rnd.uniform(0.9, 1.5), 0.05, 0.22), rnd.uniform(0, 180), 0.02)
+        q = P(c, 2.3, rot + 290.0)
+        if free(q, 0.6):
+            d.sack(q, 0.9)
+    for _ in range(2):                                  # capim e seixos em volta: o resto não fica num chão pelado
+        q = (c[0] + rnd.uniform(-4.5, 4.5), c[1] + rnd.uniform(-4.5, 4.5))
+        if free(q, 0.5):
+            d.tuft("campo", grass, q, 0.5, rnd.uniform(0.6, 1.0), 4, WIND)
+    q = (c[0] + rnd.uniform(-3.5, 3.5), c[1] + rnd.uniform(-3.5, 3.5))
+    if free(q, 0.6):
+        for k in range(2):
+            pebble(stone, (q[0] + rnd.uniform(-0.6, 0.6), q[1] + rnd.uniform(-0.6, 0.6)), rnd.uniform(0.14, 0.26))
 
 
 # ----------------------------------------------------------------------------------------------------------------

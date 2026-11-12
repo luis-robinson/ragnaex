@@ -19612,13 +19612,13 @@
    "respawn": 30.0
   },
   {
-   "monster_id": "goblin_lancer",
+   "monster_id": "goblin_impaler",
    "pos": [
     0.0,
-    25.0
+    18.0
    ],
    "radius": 12.0,
-   "count": 6,
+   "count": 3,
    "respawn": 30.0
   },
   {

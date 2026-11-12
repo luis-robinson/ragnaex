@@ -1324,6 +1324,161 @@ def larva(cid="mob_larva"):
     return arm
 
 
+# ---------------------------------------------------------------------------
+# Casulo de Seda (Rainha Aranha): lacaio parado que embrulha um jogador atordoado; o grupo quebra
+# ---------------------------------------------------------------------------
+COCOON_BONES = {            # ossos todos de pé (eixos locais iguais: x = X, y = para cima, z = -Y); nomes de MOB_BONES + "core"
+    "root": ((0, 0, 0), (0, 0, 0.2), None),
+    "body": ((0, 0, 0.05), (0, 0, 0.9), "root"),            # a casca toda: pulsa e balança a partir do chão
+    "core": ((0, 0, 0.05), (0, 0, 0.9), "root"),            # o miolo escuro (quem está preso): some quando o casulo estoura
+    "head": ((0, 0, 1.55), (0, 0, 1.9), "body"),            # tampa de cima
+    "arm_r": ((0.3, 0, 0.9), (0.3, 0, 1.3), "body"),        # metade da casca em +X
+    "arm_l": ((-0.3, 0, 0.9), (-0.3, 0, 1.3), "body"),      # metade da casca em -X
+}
+COCOON_H = 1.9
+
+
+def _cocoon_r(zz, r0=0.43):
+    """Raio do casulo na altura zz: ovo de pé, um pouco mais gordo embaixo, fechado nas pontas."""
+    t = max(-1.0, min(1.0, (zz - COCOON_H * 0.5) / (COCOON_H * 0.5)))
+    return r0 * math.sqrt(max(0.0, 1.0 - abs(t) ** 2.4)) * (1.0 - 0.1 * t)
+
+
+def _silk(name, pts, material, closed=False, segs=6):
+    """Faixa de seda: tubo de `segs` lados varrido pelos pontos [(pos, raio)] (aberto com as pontas fechadas, ou anel)."""
+    import bmesh
+    bmx = bmesh.new()
+    n = len(pts)
+    rings = []
+    for i, (p, r) in enumerate(pts):
+        a = pts[(i - 1) % n][0] if closed or i > 0 else p
+        b = pts[(i + 1) % n][0] if closed or i < n - 1 else p
+        t = (b - a).normalized()
+        out = Vector((p.x, p.y, 0.0))
+        out = out.normalized() if out.length > 1e-4 else Vector((1, 0, 0))
+        side = t.cross(out).normalized()
+        out = side.cross(t).normalized()
+        rings.append([bmx.verts.new(p + (out * math.cos(math.tau * k / segs) + side * math.sin(math.tau * k / segs)) * r) for k in range(segs)])
+    for i in range(n if closed else n - 1):
+        r0, r1 = rings[i], rings[(i + 1) % n]
+        for k in range(segs):
+            bmx.faces.new((r0[k], r0[(k + 1) % segs], r1[(k + 1) % segs], r1[k]))
+    if not closed:
+        bmx.faces.new(rings[0])
+        bmx.faces.new(list(reversed(rings[-1])))
+    bmesh.ops.recalc_face_normals(bmx, faces=bmx.faces[:])
+    return ck.mesh_from(name, bmx, material)
+
+
+def web_cocoon(cid="mob_web_cocoon"):
+    """Casulo de seda de pé (~1,9 m x ~1,0 m): miolo escuro visto pelas frestas de faixas de seda cruzadas (parece oco),
+    tampa com nó em cima, fios presos ao chão. Peças rígidas em ossos: as duas metades da casca e a tampa se soltam no `die`."""
+    arm = lp.make_armature("rig_" + cid, COCOON_BONES)
+    silk = ck.mat("m_%s_silk" % cid, (0.9, 0.93, 0.87), 1.0)
+    silk2 = ck.mat("m_%s_silk2" % cid, (0.7, 0.8, 0.74), 1.0)          # faixa de baixo: branco puxado para o verde-cinza
+    dark = ck.mat("m_%s_core" % cid, (0.13, 0.18, 0.18), 1.0)
+    parts = []
+    core = ck.quad_sphere("core", 1.0, (0, 0, 0), cuts=3)
+    for v in core.data.vertices:
+        zz = COCOON_H * 0.5 + v.co.z * (COCOON_H * 0.5 - 0.05)
+        h = math.hypot(v.co.x, v.co.y)
+        rr = _cocoon_r(zz) * 0.9
+        v.co = Vector((v.co.x / h * rr, v.co.y / h * rr, zz)) if h > 1e-6 else Vector((0, 0, zz))
+    core.data.materials.append(dark)
+    parts.append((core, "core"))
+    # faixas: anéis inclinados em volta do ovo, cada um em duas metades (-X / +X) com a emenda desencontrada
+    n = 10
+    for i in range(n):
+        z0 = 0.17 + i * 0.172
+        tilt = (0.13 if i % 2 else -0.11) * (1.0 + 0.3 * math.sin(i * 1.7))
+        ph = i * 2.1
+        seam = 0.22 * math.sin(i * 2.6)
+        m = silk if i % 2 else silk2
+        thick = 0.088 if 0 < i < n - 1 else 0.075
+
+        def pt(a):
+            zz = max(0.07, min(COCOON_H - 0.08, z0 + tilt * math.sin(a + ph)))
+            r = max(0.13, _cocoon_r(zz)) + 0.012
+            return Vector((math.cos(a) * r, math.sin(a) * r, zz))
+
+        if i == n - 1:              # a de cima é um anel inteiro: vai na tampa
+            pts = [(pt(math.tau * k / 14), thick) for k in range(14)]
+            parts.append((_silk("silk_top", pts, m, closed=True), "head"))
+            continue
+        for side, bone, a0 in ((1, "arm_r", -math.pi / 2), (-1, "arm_l", math.pi / 2)):
+            pts = []
+            for k in range(9):
+                a = a0 + seam - 0.1 + (math.pi + 0.2) * k / 8
+                pts.append((pt(a), thick * (0.75 if k in (0, 8) else 1.0) * (1.0 + 0.12 * math.sin(i * 1.9 + k))))
+            parts.append((_silk("silk_%s%d" % ("r" if side > 0 else "l", i), pts, m), bone))
+    # fios finos em diagonal por cima das faixas (seda enrolada às pressas, não uma mola)
+    for j in range(5):
+        z0, tilt, ph = 0.42 + j * 0.27, (0.34 if j % 2 else -0.3), j * 1.3 + 0.7
+
+        def pd(a):
+            zz = max(0.1, min(COCOON_H - 0.2, z0 + tilt * math.sin(a + ph)))
+            r = _cocoon_r(zz) + 0.085
+            return Vector((math.cos(a) * r, math.sin(a) * r, zz))
+
+        for side, bone, a0 in ((1, "arm_r", -math.pi / 2), (-1, "arm_l", math.pi / 2)):
+            pts = [(pd(a0 + 0.05 + (math.pi - 0.1) * k / 8), 0.034) for k in range(9)]
+            parts.append((_silk("strand_%s%d" % ("r" if side > 0 else "l", j), pts, silk if j % 2 else silk2, segs=4), bone))
+    # tampa: nó de seda e três fios soltos escorrendo
+    parts.append((blob("knot", 0.15, (0, 0, COCOON_H - 0.1), silk, (1.0, 1.0, 0.75), 2), "head"))
+    for k in range(3):
+        a = 0.6 + k * math.tau / 3
+        parts.append((ck.tube("drip%d" % k, (math.cos(a) * 0.08, math.sin(a) * 0.08, COCOON_H - 0.08),
+                              (math.cos(a) * 0.4, math.sin(a) * 0.4, 1.38), 0.03, 0.018, silk2, 5), "head"))
+    # fios que prendem o casulo ao chão e a poça de seda da base (ficam no lugar quando ele estoura)
+    for k in range(6):
+        a = 0.3 + k * math.tau / 6 + 0.25 * math.sin(k * 3.1)
+        zz = (0.34 + 0.08 * math.sin(k * 2.3)) if k % 2 else 1.15 + 0.1 * math.sin(k)      # baixos e altos alternados
+        r = _cocoon_r(zz) + 0.03
+        far = 0.6 if k % 2 else 0.72
+        hold = "root" if k % 2 else ("arm_r" if math.cos(a) > 0 else "arm_l")      # fio alto cai junto com a metade da casca
+        parts.append((ck.tube("thread%d" % k, (math.cos(a) * r, math.sin(a) * r, zz), (math.cos(a) * far, math.sin(a) * far, 0.0), 0.022, 0.009, silk, 5), hold))
+        parts.append((blob("foot%d" % k, 0.06, (math.cos(a) * far, math.sin(a) * far, 0.0), silk2, (1.3, 1.3, 0.3), 1), "root"))
+    parts.append((blob("pool", 0.46, (0, 0, 0.0), silk2, (1.0, 1.0, 0.07), 2), "root"))
+    finish(arm, parts)
+
+    z, one = (0, 0, 0), (1, 1, 1)
+    shell = ("body", "core")
+
+    def both(frames):               # casca e miolo juntos (o miolo não é filho da casca, para poder sumir sozinho no `die`)
+        return {b: list(frames) for b in shell}
+
+    def still(keys, end):           # toda chave de escala vai em todo clipe: clipe sem a trilha herdaria a escala do anterior
+        for b in ("head", "arm_r", "arm_l"):
+            keys.setdefault(b, [(1, z, z, one), (end, z, z, one)])
+        return keys
+
+    # idle: respira devagar (incha para os lados e encolhe um nada na altura) com um balanço mínimo
+    breathe = [(1, z, z, one), (14, (0.6, 0, 0.8), z, (1.035, 0.988, 1.035)), (28, (0, 0, 0), z, (1.0, 1.0, 1.0)),
+               (42, (-0.6, 0, -0.8), z, (1.03, 0.99, 1.03)), (56, z, z, one)]
+    lp.add_action(arm, "idle", still(both(breathe), 56), 56)
+    lp.add_action(arm, "run", still(both(breathe), 56), 56)          # nunca anda; o clipe existe para a vista não ficar sem
+    # attack: a seda aperta (quem está dentro se debate)
+    squeeze = [(1, z, z, one), (5, (0, 0, 0), z, (0.93, 1.04, 0.93)), (9, (2.5, 0, -3), z, (1.05, 0.97, 1.05)), (16, z, z, one)]
+    lp.add_action(arm, "attack", still(both(squeeze), 16), 16, loop=False)
+    # hit: amassa e treme
+    hit = [(1, (0, 0, 7), z, (1.09, 0.93, 1.09)), (4, (0, 0, -5), z, (0.97, 1.03, 0.97)), (7, (0, 0, 2.5), z, (1.02, 0.99, 1.02)), (10, z, z, one)]
+    lp.add_action(arm, "hit", still(both(hit), 10), 10, loop=False)
+    # die: incha, estoura (as metades tombam para os lados, a tampa voa para trás) e o miolo some
+    die = {
+        "body": [(1, z, z, one), (5, (0, 0, 0), z, (1.14, 0.95, 1.14)), (8, z, z, one), (24, z, z, one)],
+        "core": [(1, z, z, one), (5, (0, 0, 0), z, (1.14, 0.95, 1.14)), (8, z, z, (1.2, 1.0, 1.2)), (13, z, (0, -0.3, 0), (0.02, 0.02, 0.02)),
+                 (24, z, (0, -0.3, 0), (0.02, 0.02, 0.02))],
+        "arm_r": [(1, z, z, one), (5, z, z, one), (8, (0, 0, -22), (0.22, 0.1, 0), one), (14, (0, 12, -70), (0.6, -0.35, 0.1), (0.95, 0.95, 0.95)),
+                  (19, (0, 18, -92), (0.66, -0.8, 0.14), (0.8, 0.8, 0.8)), (24, (0, 18, -92), (0.62, -0.83, 0.14), (0.6, 0.6, 0.6))],
+        "arm_l": [(1, z, z, one), (5, z, z, one), (8, (0, 0, 22), (-0.22, 0.1, 0), one), (14, (0, -12, 70), (-0.6, -0.35, -0.1), (0.95, 0.95, 0.95)),
+                  (19, (0, -18, 92), (-0.66, -0.8, -0.14), (0.8, 0.8, 0.8)), (24, (0, -18, 92), (-0.62, -0.83, -0.14), (0.6, 0.6, 0.6))],
+        "head": [(1, z, z, one), (5, z, (0, 0.03, 0), one), (9, (-40, 0, 10), (0, 0.5, -0.25), one), (15, (-120, 0, 25), (0.1, 0.1, -0.75), (0.9, 0.9, 0.9)),
+                 (20, (-170, 0, 30), (0.12, -1.42, -0.95), (0.8, 0.8, 0.8)), (24, (-170, 0, 30), (0.12, -1.45, -0.95), (0.7, 0.7, 0.7))],
+    }
+    lp.add_action(arm, "die", die, 24, loop=False)
+    return arm
+
+
 def bat(cid="mob_bat"):
     """Morcego da Torre: corpo pequeno e peludo, asas grandes de membrana nos braços, orelhas e olhos vermelhos (rig do fantasma)."""
     arm = lp.make_armature("rig_" + cid, bm.MOB_BONES)
@@ -1711,10 +1866,20 @@ def horde_parts(cid, kind, skin):
             if kind == "crossbow_master":
                 body.append(ck.blade(cid + "_cape", V((0, back + 0.03, zc + 0.12)), V((0, back + 0.14, ck.Z["knee"])), 0.5, 0.03, red, (1, 0, 0), 0.3))
             if kind == "ghar":                  # estandarte da Horda nas costas
-                p0, p1 = V((0, back + 0.07, ck.Z["waist"])), V((0, back + 0.12, zc + 1.05))
-                body.append(ck.tube(cid + "_pole", p0, p1, 0.025, 0.02, wood, 6))
-                body.append(ck.blade(cid + "_banner", p1 + V((0, 0.01, -0.02)), p1 + V((0, 0.03, -0.62)), 0.42, 0.02, red, (1, 0, 0), 0.5))
-                body.append(cone(cid + "_poletip", p1, p1 + V((0, 0, 0.14)), 0.04, horn))
+                # o mastro sai do cinto inclinado para trás e passa POR FORA da cabeça (a cabeça chibi é mais funda que o
+                # tronco: reto, o mastro e o pano ficavam enterrados no elmo); o pano pende de uma travessa, atrás do elmo
+                p0, p1 = V((0, back + 0.07, ck.Z["waist"])), V((0, c.y + r * 1.6, c.z + r * 1.3))
+                body.append(ck.tube(cid + "_pole", p0, p1, 0.028, 0.022, wood, 6))
+                bar = p1 + V((0, 0.0, -0.05))
+                body.append(ck.tube(cid + "_bannerbar", bar + V((-0.25, 0, 0)), bar + V((0.25, 0, 0)), 0.018, 0.018, wood, 5))
+                by = bar.y + 0.035
+                body.append(ck.box(cid + "_banner", (0.44, 0.024, 0.5), (0, by, bar.z - 0.25), red))
+                for sx in (-1, 1):              # duas pontas de andorinha
+                    body.append(ck.blade("%s_bannertail%d" % (cid, sx), V((sx * 0.11, by, bar.z - 0.49)), V((sx * 0.13, by, bar.z - 0.68)), 0.22, 0.024, red, (1, 0, 0), 0.04))
+                body.append(ck.ball(cid + "_bannerskull", 0.085, V((0, by + 0.014, bar.z - 0.22)), horn, (1.0, 0.3, 1.1)))      # caveira pintada, lida de costas
+                for sx in (-1, 1):
+                    body.append(cone("%s_bannerhorn%d" % (cid, sx), V((sx * 0.07, by + 0.014, bar.z - 0.17)), V((sx * 0.17, by + 0.014, bar.z - 0.08)), 0.03, horn, 5))
+                body.append(cone(cid + "_poletip", p1, p1 + V((0, 0.02, 0.14)), 0.04, horn))
         elif troll:
             king = kind == "troll_king"
             whelp = kind == "troll_whelp"
@@ -1925,6 +2090,7 @@ def build_all(out_dir, only=None):
         "mob_rot_bear": lambda: quadruped("mob_rot_bear", (0.36, 0.38, 0.28), (0.42, 0.14, 0.14), (0.9, 0.86, 0.72), "bear"),
         "mob_rot_wolf": lambda: quadruped("mob_rot_wolf", (0.38, 0.4, 0.32), (0.42, 0.14, 0.14), (0.9, 0.86, 0.72), "wolf"),
         "mob_larva": larva,
+        "mob_web_cocoon": web_cocoon,      # lacaio do Casulo de Seda da Rainha Aranha (monstro `web_cocoon`)
         "mob_bat": bat,
         "mob_skeleton": lambda: humanoid("mob_skeleton", "plate", (0.42, 0.4, 0.38), "sword", skin=(0.92, 0.9, 0.82),
                                          eye=(1.0, 0.3, 0.2), offhand="shield", hide_hair=True),

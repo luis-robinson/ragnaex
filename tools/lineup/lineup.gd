@@ -17,7 +17,7 @@ var _time := 0.0
 var _strip := ""
 var _side := false
 var _front := false
-var _mobs := ""               # --mobs=<modelo>,<modelo>: modelos de monstro lado a lado (de 3/4) no --anim
+var _mobs := ""               # --mobs=<modelo>,<modelo> [--yaws=<graus>,...] [--cam_dist=<m>]: modelos de monstro lado a lado (de 3/4) no --anim
 var _tiers := false
 var _looks := ""
 var _mounted := false            # --mounted: bonecos a cavalo (revisar sela, pose e escala), de lado e de 3/4               # --looks=<male|female>[:<classe>]: uma cabeça por estilo de cabelo/barba/olhos (revisar a criação)             # --tiers (--strip=<classe> --set=<build>): um boneco por nível lendário, de 3/4
@@ -283,6 +283,9 @@ func _build_mobs() -> void:
 		add_child(n)
 		n.position = Vector3((i - (ids.size() - 1) * 0.5) * 2.2, 0, 0)
 		n.rotation.y = 0.5
+		var yaws := DevArgs.value("--yaws")      # --yaws=<graus>,<graus>: giro de cada cópia (0 = de frente, 180 = de costas)
+		if yaws != "":
+			n.rotation.y = deg_to_rad(float(yaws.get_slice(",", mini(i, yaws.get_slice_count(",") - 1))))
 		var ap: AnimationPlayer = n.find_child("AnimationPlayer", true, false)
 		if ap and ap.has_animation(_anim):
 			ap.play(_anim)
@@ -291,7 +294,8 @@ func _build_mobs() -> void:
 	var cam := Camera3D.new()
 	cam.fov = 30.0
 	add_child(cam)
-	cam.look_at_from_position(Vector3(0, 3.0, 9.0), Vector3(0, 0.9, 0), Vector3.UP)
+	var dist := float(DevArgs.value("--cam_dist", "9"))      # --cam_dist=<m>: câmera mais perto (revisar costas/lado de um modelo)
+	cam.look_at_from_position(Vector3(0, 0.9 + dist * 0.233, dist), Vector3(0, 0.9, 0), Vector3.UP)
 	_side = true
 
 ## --mob_strip=<modelo> --anim=<clipe>: filme de um clipe de monstro/forma — 8 cópias, cada uma num instante, de perfil.

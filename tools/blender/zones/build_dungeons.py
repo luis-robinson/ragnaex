@@ -191,7 +191,8 @@ def build_graph(did, g, export):
         _room_dress(z, name, room, rooms, L["edges"])
         z.block((x, y), room["r"] + 4.3)          # raio do salão + raio da rocha: a parede encosta na borda
         for mob, n in room.get("mobs", []):
-            z.spawner(mob, x, y, room["r"] - 3.0, n, 30.0)
+            ox, oy = room.get("mob_off", (0.0, 0.0))       # bando recuado da chegada (places.DUNGEONS)
+            z.spawner(mob, x + ox, y + oy, room["r"] - 3.0, n, 30.0)
         if "boss" in room:
             z.spawner(room["boss"], x, y, 2, 1, 240.0)
             z.ob("statue", x, y - room["r"] + 3.5, (1.8, 3.0, 1.8), color=g["glow"])

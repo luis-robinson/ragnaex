@@ -173,7 +173,8 @@ def drowned_shrine(z, c):
     o leste fica livre para quem chega do porto)."""
     z.M["pave_santuario"] = mat("pave_santuario", (0.84, 0.84, 0.8))
     shallow = mat("agua_rasa", (0.36, 0.74, 0.8))
-    disc(z.coll, z.P + "santuario_laje", c, 7.6, 0.012, z.M["pave_santuario"], 10, 0.1, 3)
+    # 0.014: acima da estrada e da trilha (0.012), que entram na laje; no mesmo plano as duas brigavam (lascas marrons no piso)
+    disc(z.coll, z.P + "santuario_laje", c, 7.6, 0.014, z.M["pave_santuario"], 10, 0.1, 3)
     for i, (dx, dy, r) in enumerate(((-11.0, -6.0, 3.6), (-12.5, 4.0, 4.4), (-4.0, 12.0, 3.8), (-5.0, -12.5, 3.0), (4.5, 11.5, 2.6))):
         disc(z.coll, z.P + "santuario_poca_%d" % i, (c[0] + dx, c[1] + dy), r, 0.016, shallow, 14, 0.25, i)
         disc(z.coll, z.P + "santuario_poca_borda_%d" % i, (c[0] + dx, c[1] + dy), r + 0.35, 0.01, mat("espuma_mar", sea.FOAM), 14, 0.25, i)
