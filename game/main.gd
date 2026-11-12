@@ -216,7 +216,8 @@ func _fade_occluders(delta: float) -> void:
 			var perp := (rel - seg_dir * along).length()
 			if perp < 1.6 + h * 0.25:
 				want = 0.72
-		for c in node.get_children():
+		var parts: Array = [node] if node is GeometryInstance3D else node.get_children()      # peça do GLB da zona: ela mesma
+		for c in parts:
 			if c is GeometryInstance3D:
 				var tr: float = c.transparency
 				if absf(tr - want) > 0.004:          # parado: não mexe (cada escrita atualiza a instância no render)
@@ -239,6 +240,7 @@ func _show_map(map_id: String) -> void:
 	map_node = MapBuilder.build(def)
 	world_root.add_child(map_node)
 	map_node.add_child(GatherView.create(map_id))        # pontos de colheita (F)
+	map_node.add_child(AmbientLife.create(map_id))       # bichos de ambiente e falas soltas dos NPCs (só visual)
 	for e in Sim.map_entities(map_id):
 		_create_view(e)
 	fx.sync_loot_for_map()

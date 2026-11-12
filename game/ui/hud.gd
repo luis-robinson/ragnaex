@@ -38,6 +38,11 @@ var _status_chips: Dictionary = {}   # chave -> {root, time, stacks}: ícones de
 var _buff_src: Dictionary = {}       # id do buff -> {tex, name, desc} (skill ou item que dá)
 # grupo: quadros dos membros (abaixo do seu) e convite pendente
 var party_box: VBoxContainer
+var elem_frame: PanelContainer      # quadro do elemental (Elementalista ascendido)
+var elem_label: Label
+var elem_xp_bar: ProgressBar
+var elem_buttons: Dictionary = {}   # "form:fire" / "mode:attack" -> Button
+var _elem_t := 0.0
 var party_frames: Array = []    # [{id, name, hp, mp, info}]
 var invite_panel: Control = null
 var invite_from := -1
@@ -163,10 +168,70 @@ func _build_top_left() -> void:
 	buffs_box = HBoxContainer.new()
 	buffs_box.add_theme_constant_override("separation", 5)
 	v.add_child(buffs_box)
+	_build_elem_frame(col)
 	party_box = VBoxContainer.new()
 	party_box.add_theme_constant_override("separation", 4)
 	party_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(party_box)
+
+## Quadro do elemental (Elementalista ascendido): nome e estágio, experiência até o próximo, forma e modo (botões).
+func _build_elem_frame(col: VBoxContainer) -> void:
+	elem_frame = UiKit.panel()
+	elem_frame.custom_minimum_size = Vector2(SIDE_W, 0)
+	elem_frame.visible = false
+	col.add_child(elem_frame)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	elem_frame.add_child(v)
+	elem_label = UiKit.label("", 13, UiKit.GOLD)
+	v.add_child(elem_label)
+	elem_xp_bar = UiKit.bar(Color(0.95, 0.6, 0.25), 10)
+	v.add_child(elem_xp_bar)
+	for row_kind in ["form", "mode"]:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 4)
+		v.add_child(row)
+		var keys: Array = SkillsCatalog.ELEM_FORMS if row_kind == "form" else SkillsCatalog.ELEM_MODES
+		var labels: Dictionary = SkillsCatalog.ELEM_FORM_LABELS if row_kind == "form" else SkillsCatalog.ELEM_MODE_LABELS
+		for k in keys:
+			var b := UiKit.button(str(labels[k]).capitalize(), _elem_pick.bind(row_kind, str(k)), 58)
+			b.focus_mode = Control.FOCUS_NONE
+			row.add_child(b)
+			elem_buttons[row_kind + ":" + str(k)] = b
+
+func _elem_pick(row_kind: String, key: String) -> void:
+	var p: SimEntity = Sim.player
+	if p == null:
+		return
+	Sim.sync()
+	Sim.elem_command(p, key if row_kind == "form" else "", key if row_kind == "mode" else "")
+
+func _update_elem_frame(p: SimEntity) -> void:
+	var on := ElementalSystem.ascended(p)
+	if elem_frame.visible != on:
+		elem_frame.visible = on
+	if not on:
+		return
+	var st := ElementalSystem.stage_of(p)
+	var form := ElementalSystem.default_form(p)
+	var cur := Sim.elemental_of(p)
+	var nm: String = SkillsCatalog.ELEM_STAGE_NAMES[form][st]
+	var prog := ElementalSystem.xp_progress(p)
+	var swap_left := maxf(0.0, p.elem_swap_at - Sim.time)
+	var xp_txt := (" · %d/%d" % [prog[0], prog[1]]) if int(prog[1]) > 0 else ""
+	elem_label.text = "%s (%s)%s%s" % [nm, SkillsCatalog.ELEM_STAGE_LABELS[st], xp_txt, "" if cur else (" · volta em %ds" % ceili(swap_left) if swap_left > 0.0 else " · chame-o")]
+	elem_xp_bar.max_value = maxf(1.0, float(prog[1] if int(prog[1]) > 0 else prog[0]))
+	elem_xp_bar.value = float(prog[0])
+	elem_xp_bar.tooltip_text = ("Experiência do elemental: %d / %d" % [prog[0], prog[1]]) if int(prog[1]) > 0 else "Estágio máximo"
+	if st + 1 < Balance.ELEM_STAGE_LEVEL.size() and p.level < int(Balance.ELEM_STAGE_LEVEL[st + 1]) and int(prog[0]) >= int(prog[1]):
+		elem_xp_bar.tooltip_text += " (próximo estágio no nível %d)" % int(Balance.ELEM_STAGE_LEVEL[st + 1])
+	for k in elem_buttons:
+		var b: Button = elem_buttons[k]
+		var parts: PackedStringArray = str(k).split(":")
+		var lit: bool = (parts[1] == form) if parts[0] == "form" else (parts[1] == p.elem_mode)
+		b.modulate = Color(1.0, 0.85, 0.4) if lit else Color(0.75, 0.75, 0.8)
+		if parts[0] == "form":
+			b.tooltip_text = "Forma de %s (troca: recarga %ds; mantém estágio e %% de vida)" % [SkillsCatalog.ELEM_FORM_LABELS[parts[1]], int(Balance.ELEM_SWAP_CD)]
 
 ## Faixa de baixo: [chat] [hotbar centralizado] [dicas]. Containers garantem que nada se sobrepõe.
 func _build_bottom_row() -> void:
@@ -194,7 +259,7 @@ func _build_hotbar() -> Control:
 	util_slots = action_bar.util_slots
 	for s in util_slots:
 		s["root"].gui_input.connect(_util_click.bind(str(s["id"])))
-	for i in range(6):
+	for i in range(skill_slots.size()):
 		var s: Dictionary = skill_slots[i]
 		# arrastar: da janela K (ou de outro slot) para cá; botão direito tira da barra
 		s["root"].set_drag_forwarding(_drag_skill_slot.bind(i), _can_drop_skill_slot, _drop_skill_slot.bind(i))
@@ -232,7 +297,7 @@ func _can_drop_skill_slot(_at: Vector2, data: Variant) -> bool:
 
 func _drop_skill_slot(_at: Vector2, data: Variant, i: int) -> void:
 	if Sim.set_skill_slot(Sim.player, i, str(data["skill"])):     # já na barra: troca de lugar com o que estava aqui
-		Events.notification.emit("%s → %d" % [GameData.skills[str(data["skill"])].name, i + 1])
+		Events.notification.emit("%s → %s" % [GameData.skills[str(data["skill"])].name, ActionBar.key_of(i)])
 
 func _drag_potion_slot(_at: Vector2, i: int) -> Variant:
 	var item_id: String = Sim.player.potion_slots[i]
@@ -414,8 +479,9 @@ func _hud_process(_delta: float) -> void:
 	mp_text.text = "%d / %d" % [int(p.mp), int(p.stats.max_mp)]
 	action_bar.set_xp(p.level, p.xp, Balance.xp_for_level(p.level))
 	gold_label.text = "%d ouro" % p.gold
-	# hotbar
-	for i in range(6):
+	# hotbar (7-0 aparecem com a ascensão)
+	action_bar.set_slot_count(p.skills.size())
+	for i in range(skill_slots.size()):
 		var s: Dictionary = skill_slots[i]
 		var sk: SkillDef = p.skills[i] if i < p.skills.size() else null
 		if sk == null:
@@ -428,13 +494,14 @@ func _hud_process(_delta: float) -> void:
 			continue
 		s["bevel"].set_empty(false)
 		# arma errada para a skill (ex.: Muralha de Escudo sem escudo) = cinza com ✖
-		var no_weapon := not p.stats.meets(sk.requires)
+		# a cavalo (Combate Montado): a não montável fica apagada; Carga/Pisotear a pé também
+		var no_weapon := not p.stats.meets(sk.requires) or Sim.mount_block(p, sk) != ""
 		var cd := float(p.cooldowns.get(sk.id, 0.0))
 		var no_mp := p.mp < sk.mp_cost_at(p.mastery_of(sk.id))
 		s["cd"].visible = no_weapon or (no_mp and cd <= 0.0)
 		s["sweep"].set_frac(_cd_frac(s, cd))
 		s["cdt"].text = "✖" if no_weapon else (_cd_text(cd) if cd > 0.0 else ("MP" if no_mp else ""))
-		var aura_on: bool = sk.effects.has("aura") and AuraSystem.aura_on(p, sk)
+		var aura_on: bool = (sk.effects.has("aura") and AuraSystem.aura_on(p, sk)) or (sk.effects.has("arcane") and Sim.arcane_on(p))
 		if aura_on and cd <= 0.0 and not no_weapon:
 			s["cdt"].text = "✓"                  # aura ligada (lançar de novo desliga)
 		var cdt_col: Color = Color(1, 0.4, 0.4) if no_weapon else (Color(1.0, 0.85, 0.35) if aura_on else UiKit.TEXT)
@@ -461,6 +528,10 @@ Arraste outra poção da bolsa para cá · botão direito esvazia" % it.name) if
 		s["bevel"].set_empty(it == null)
 		s["cdt"].text = _cd_text(pcd) if pcd > 0.0 and it else ""
 	_update_util_slots(p, _delta)
+	_elem_t -= _delta
+	if _elem_t <= 0.0:
+		_elem_t = 0.2
+		_update_elem_frame(p)
 	_update_party_frames()
 	_update_status_bar(p)
 
@@ -639,9 +710,23 @@ func _buff_source(id: String) -> Dictionary:
 		if GameData.skills.has("ass_between_eyes"):       # Bravata (Corsário): cargas que o Tiro Entre os Olhos gasta
 			_buff_src[Balance.BRAVADO_BUFF] = {"tex": UiKit.icon_texture("skill_ass_between_eyes"), "name": "Bravata",
 				"desc": "Cargas do Corsário (até %d): tiros e cortes juntam, o Tiro Entre os Olhos gasta todas." % Balance.BRAVADO_MAX}
+		if GameData.skills.has(Balance.SHADOW_SKILL):     # Sombras Gêmeas (Assassino ascendido)
+			_buff_src[Balance.SHADOW_BUFF] = {"tex": UiKit.icon_texture("skill_" + Balance.SHADOW_SKILL), "name": "Sombra Gêmea",
+				"desc": "Seu clone de sombra repete cada golpe direto com parte do dano."}
+			_buff_src[Balance.CHAIN_COUNTER_BUFF] = {"tex": UiKit.icon_texture("skill_" + Balance.EXECUTION_SKILL), "name": "Execução preparada",
+				"desc": "Você esquivou: a próxima Execução sai sem recarga."}
 		if GameData.skills.has("ber_final_fist"):         # Fúria do Punho (Punhos de Fúria): esquivar junta, o Punho Final gasta
 			_buff_src[Balance.FIST_FURY_BUFF] = {"tex": UiKit.icon_texture("skill_ber_final_fist"), "name": "Fúria do Punho",
 				"desc": "Cargas de quem luta com duas garras (até %d): cada golpe esquivado dá uma e contra-ataca; +ATK e velocidade por carga. O Punho Final gasta todas." % Balance.FIST_FURY_MAX}
+		if GameData.skills.has("ber_glad_finale"):        # Glória (Modo Gladiador): crítico/abate/Brado juntam, o Golpe Final gasta
+			_buff_src[Balance.GLORY_BUFF] = {"tex": UiKit.icon_texture("skill_ber_glad_finale"), "name": "Glória",
+				"desc": "Cargas do Modo Gladiador (até %d): golpe crítico, abate e o Brado da Arena juntam; as Lâminas Elementais ficam mais fortes com ela e o Golpe Final gasta todas. Esfria %d s depois do último ganho." % [Balance.GLORY_MAX, int(Balance.GLORY_TIME)]}
+		if GameData.skills.has(Balance.ARCANE_SKILL):     # Asas Protetoras (Templário): redução de dano no grupo perto das asas
+			_buff_src[str(Balance.ARCANE_WARD["id"])] = {"tex": UiKit.icon_texture("skill_" + Balance.ARCANE_SKILL), "name": "Asas Protetoras",
+				"desc": "As asas de um Templário perto protegem você: −%d%% de dano sofrido." % int(Balance.ARCANE_WARD["dr_pct"])}
+		if GameData.skills.has("bis_hammer"):             # Aurora (Fusão Martelo da Aurora): magia sagrada dá +ATK e +MATK
+			_buff_src[FusionEffects.AURORA_BUFF] = {"tex": UiKit.icon_texture("skill_bis_hammer"), "name": "Aurora",
+				"desc": "Martelo da Aurora: sua magia sagrada deixa ATK e MATK mais altos por %d s." % int(Balance.FUSION_AURORA_TIME)}
 		for sid in GameData.skills:
 			var sk: SkillDef = GameData.skills[sid]
 			var faces = sk.effects.get("dice")
@@ -677,7 +762,7 @@ func _refresh_hotbar_names() -> void:
 	var p: SimEntity = Sim.player
 	if p == null:
 		return
-	for i in range(6):
+	for i in range(skill_slots.size()):
 		var s: Dictionary = skill_slots[i]
 		var sk: SkillDef = p.skills[i] if i < p.skills.size() else null
 		s["root"].tooltip_text = sk.name if sk else ""

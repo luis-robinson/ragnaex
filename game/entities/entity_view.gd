@@ -13,10 +13,13 @@ var form_view: FormModel = null
 var horse: FormModel = null              # montado: o cavalo (o boneco senta na sela)
 var _horse_kept: FormModel = null        # o mesmo cavalo volta a cada montada (criar um é caro)
 var _shown_mount := false
+var _ride_legs: RideLegs = null           # pernas presas na sela enquanto golpeia montado (Combate Montado)
 const HORSE_SCALE := 1.75
 const SADDLE_Y := 1.06                   # quanto o boneco sobe (sela do cavalo escalado − quadril do boneco)
 const HORSE_COATS := [Color(0.55, 0.38, 0.24), Color(0.25, 0.18, 0.14), Color(0.9, 0.88, 0.84), Color(0.7, 0.45, 0.25), Color(0.5, 0.5, 0.52), Color(0.85, 0.7, 0.45)]         # Druida transformado: o bicho (o kit fica escondido)
-const FORM_SCALE := {"wolf": 1.15, "bear": 1.4, "demon": 1.3}     # o bicho do druida é maior que o lobo comum
+const FORM_SCALE := {"wolf": 1.15, "bear": 1.4, "demon": 1.3, "lich": 1.2,     # o bicho do druida é maior que o lobo comum
+	"ent": 1.2, "alpha": 1.4, "bird": 1.3}                         # formas ancestrais (ascensão do Druida)
+var _fly := 0.0                      # Pássaro Arcano: altura do voo no desenho (a sim é plana)
 var _shown_form := ""
 var _stealth_shown := false
 var _alpha_shown := 0.0              # transparência aplicada (furtivo 0.7, forma fantasma 0.45)
@@ -30,6 +33,8 @@ var _burn_fx: CPUParticles3D = null   # brasas subindo
 var _chill_fx: MeshInstance3D = null  # anel de gelo nos pés (retardado/preso)
 var _poison_fx: CPUParticles3D = null # bolhas verdes subindo (veneno)
 var _curse_fx: CPUParticles3D = null  # fiapos roxos sobre a cabeça (maldição/definhar)
+var falcon_view: FalconView = null    # falcão do Caçador ascendido voando sobre o boneco (SimEntity.falcon)
+var _prey_fx: Node3D = null           # Presa do falcão: mira âmbar girando sobre a cabeça
 var buff_aura: BuffAura = null        # buffs ativos no boneco (criado no primeiro buff)
 var _rim_shown := Color(0, 0, 0, 0)
 var _rim_style_shown := 0
@@ -80,6 +85,9 @@ func setup(e: SimEntity, is_player: bool) -> void:
 	_build_ui()
 	if e.monster_def and e.monster_def.elite_of != "":
 		_add_crown()
+	if e.elem_stage > 0 and e.monster_def:           # elemental que evoluiu (Maior/Ancestral): brilho na pele do tema (o tamanho vem de e.scale)
+		var gc: Color = e.monster_def.color.lightened(0.25)
+		set_buff_rim(Color(gc.r, gc.g, gc.b, 0.45 * e.elem_stage), 3)
 
 # ---------------------------------------------------------------------------
 var _perch := 0.0                  # altura do boneco no alto da torre (npc_data.perch); a sim fica no chão
@@ -106,6 +114,7 @@ func _build_model() -> void:
 		_mats = kit.mats
 		model_root.scale = Vector3.ONE * _base_scale
 		kit.apply_equipment(entity.equipment, Color(entity.npc_data.get("color", Color(0.55, 0.42, 0.3))) if entity.kind == SimEntity.Kind.NPC else Color(0.55, 0.42, 0.3))
+		_attach_carry()
 		return
 	var model_name := ""
 	if entity.class_def and entity.class_def.model != "":
@@ -132,6 +141,24 @@ func _build_model() -> void:
 		model_root.scale = Vector3.ONE * _base_scale
 		return
 	_build_placeholder()
+
+## Vida dos mapas: NPC com `carry` (MapsCatalog.LIVING_NPCS) leva a carga no ombro ou puxa a carroça. O prop tem tamanho
+## real e segue o boneco; CarryPose segura os braços. Só apresentação.
+var carry_node: Node3D = null
+
+func _attach_carry() -> void:
+	if entity.kind != SimEntity.Kind.NPC or kit == null or kit.skeleton == null:
+		return
+	var what := str(entity.npc_data.get("carry", ""))
+	if what == "" or not ResourceLoader.exists(CarryPose.model_path(what)):
+		return
+	carry_node = (load(CarryPose.model_path(what)) as PackedScene).instantiate()
+	carry_node.name = "Carry"
+	model_root.add_child(carry_node)
+	_apply_toon_recursive(carry_node)
+	var pose := CarryPose.new()
+	pose.setup(kit.skeleton, what)
+	kit.skeleton.add_child(pose)
 
 ## Armas de troca (MonsterDef.swap): "wpn_alt_*" só aparece na troca; a principal e a das costas somem nela.
 var _stance_main: Array = []
@@ -379,6 +406,38 @@ func _build_monster(color: Color) -> void:
 				var eye := BoxMesh.new(); eye.size = Vector3(0.08, 0.12, 0.04)
 				var ey := MeshInstance3D.new(); ey.mesh = eye; ey.material_override = Materials.flat(Color(0.2, 0.1, 0.3))
 				ey.position = Vector3(sx * 0.12, 1.78, 0.33); model_root.add_child(ey)
+		"turret":  # torreta de campo do Atirador: tripé, tambor e cano
+			for i in range(3):
+				var a := TAU * float(i) / 3.0
+				var leg := _mesh(_box(0.08, 0.75, 0.08), color.darkened(0.35))
+				leg.position = Vector3(sin(a) * 0.32, 0.3, cos(a) * 0.32)
+				leg.rotation = Vector3(cos(a) * 0.45, 0.0, -sin(a) * 0.45)
+				model_root.add_child(leg)
+			var drum := CylinderMesh.new(); drum.top_radius = 0.26; drum.bottom_radius = 0.3; drum.height = 0.36; drum.radial_segments = 10
+			var d := _mesh(drum, color, true); d.position.y = 0.78; model_root.add_child(d)
+			var cap := SphereMesh.new(); cap.radius = 0.22; cap.height = 0.3; cap.radial_segments = 8; cap.rings = 4
+			var c := _mesh(cap, color.lightened(0.2)); c.position.y = 0.98; model_root.add_child(c)
+			var barrel := _mesh(_box(0.1, 0.1, 0.85), Color(0.3, 0.3, 0.34)); barrel.position = Vector3(0, 0.86, 0.45); model_root.add_child(barrel)
+			var muzzle := MeshInstance3D.new(); muzzle.mesh = SphereMesh.new(); (muzzle.mesh as SphereMesh).radius = 0.07; (muzzle.mesh as SphereMesh).height = 0.14
+			muzzle.material_override = Materials.glow(Color(1.0, 0.7, 0.3), 1.5); muzzle.position = Vector3(0, 0.86, 0.9); model_root.add_child(muzzle)
+		"angel":  # Anjo Guardião do Bispo (Coro Celeste): túnica de luz, auréola e asas, pairando no ar
+			var lift := Node3D.new(); lift.name = "AngelLift"; lift.position.y = Balance.ANGEL_HOVER - 0.9; model_root.add_child(lift)
+			var light := Materials.glow(Color(color.r, color.g, color.b, 0.9), 1.1)
+			var robe := CylinderMesh.new(); robe.top_radius = 0.16; robe.bottom_radius = 0.42; robe.height = 1.0; robe.radial_segments = 10
+			var rb := MeshInstance3D.new(); rb.mesh = robe; rb.material_override = light; rb.position.y = 0.55; lift.add_child(rb)
+			var head := SphereMesh.new(); head.radius = 0.24; head.height = 0.48; head.radial_segments = 10; head.rings = 5
+			var hd := MeshInstance3D.new(); hd.mesh = head; hd.material_override = Materials.glow(Color(1.0, 0.97, 0.88, 0.95), 1.2); hd.position.y = 1.28; lift.add_child(hd)
+			var halo := TorusMesh.new(); halo.inner_radius = 0.2; halo.outer_radius = 0.27; halo.rings = 16; halo.ring_segments = 5
+			var hl := MeshInstance3D.new(); hl.mesh = halo; hl.material_override = Materials.glow(Color(1.0, 0.85, 0.35), 2.4); hl.position.y = 1.66; lift.add_child(hl)
+			var wing_mat := Materials.glow(Color(1.0, 0.98, 0.9, 0.8), 1.4)
+			for sx in [-1.0, 1.0]:
+				var wing := Node3D.new(); wing.name = "Wing%s" % ("L" if sx < 0.0 else "R"); wing.position = Vector3(sx * 0.14, 1.0, -0.16); lift.add_child(wing)
+				for k in range(3):          # três penas grandes em leque
+					var fe := MeshInstance3D.new(); fe.mesh = _box(0.9 - 0.2 * k, 0.26, 0.04); fe.material_override = wing_mat
+					fe.position = Vector3(sx * (0.5 - 0.08 * k), 0.12 - 0.26 * k, 0.0)
+					fe.rotation.z = sx * (0.5 - 0.28 * k)
+					wing.add_child(fe)
+			var glow := OmniLight3D.new(); glow.light_color = Color(1.0, 0.9, 0.6); glow.light_energy = 0.8; glow.omni_range = 3.5; glow.position.y = 1.0; lift.add_child(glow)
 		_:  # capsule (bandidos, esqueletos)
 			var body := CapsuleMesh.new(); body.radius = 0.3; body.height = 1.0
 			var b := _mesh(body, color, true); b.position.y = 0.6; model_root.add_child(b)
@@ -400,6 +459,8 @@ func _build_ui() -> void:
 	var top := 1.95 * _base_scale
 	if entity.monster_def and entity.monster_def.shape in ["sphere", "box"]:
 		top = 1.4 * _base_scale
+	if entity.spirit:
+		top += Balance.ANGEL_HOVER - 0.9          # o anjo paira: o nome sobe junto
 	nameplate = Label3D.new()
 	nameplate.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	nameplate.no_depth_test = true
@@ -562,6 +623,11 @@ func _swap_mount() -> void:
 	horse.process_mode = Node.PROCESS_MODE_INHERIT
 	kit.position.y = SADDLE_Y / maxf(_base_scale, 0.01)
 	RidePose.ensure_clip(kit.anim, kit.skeleton)
+	RidePose.ensure_guard_clip(kit.anim, kit.skeleton)
+	if _ride_legs == null and kit.skeleton:
+		_ride_legs = RideLegs.new()
+		_ride_legs.setup(kit.skeleton)
+		kit.skeleton.add_child(_ride_legs)      # depois do LegOverlay: a sela vence a corrida
 
 ## O boneco acompanha o lombo do cavalo (sobe/desce e balança no galope).
 func _ride_saddle() -> void:
@@ -610,6 +676,8 @@ func _ghost_set(param: String, v: float) -> void:
 ## Forma Fantasma: cada superfície do kit (menos o rastro da arma) troca para o ghost.gdshader com a cor dela
 ## (o toon fica guardado no meta "toon" da superfície); desligar devolve o toon.
 const GHOST_SHADER := preload("res://shaders/ghost.gdshader")
+const SHADE_TINT := Color(0.07, 0.04, 0.13)
+const SHADE_RIM := Color(0.55, 0.3, 0.95)
 
 func _set_ghost(on: bool) -> void:
 	_ghost_on = on
@@ -646,6 +714,11 @@ func _ghost_for(toon: Material, appear: float) -> ShaderMaterial:
 		col = (toon as BaseMaterial3D).albedo_color
 	gm.set_shader_parameter("base", col)
 	gm.set_shader_parameter("appear", appear)
+	if entity.shade:              # clone de sombra (Assassino): o mesmo boneco, escuro e translúcido, borda violeta
+		gm.set_shader_parameter("tint", SHADE_TINT)
+		gm.set_shader_parameter("rim_color", SHADE_RIM)
+		gm.set_shader_parameter("own_mix", 0.12)
+		gm.set_shader_parameter("body_alpha", 0.62)
 	_ghost_mats[toon] = gm
 	return gm
 
@@ -760,6 +833,53 @@ func _process(delta: float) -> void:
 	_process_view(delta)
 	prof_us += Time.get_ticks_usec() - _t0
 
+## Anjo Guardião: paira subindo e descendo devagar e bate as asas (só desenho).
+func _angel_hover() -> void:
+	var lift := model_root.get_node_or_null("AngelLift") as Node3D
+	if lift == null:
+		return
+	var t := Time.get_ticks_msec() * 0.001 + float(entity.id) * 0.7
+	lift.position.y = Balance.ANGEL_HOVER - 0.9 + sin(t * 2.2) * 0.12
+	for side in [["WingL", -1.0], ["WingR", 1.0]]:
+		var w := lift.get_node_or_null(side[0]) as Node3D
+		if w:
+			w.rotation.y = float(side[1]) * (-0.3 + sin(t * 5.0) * 0.32)
+
+## Presa (Falcoeiro): quatro garras âmbar apontando para dentro, girando sobre a cabeça do alvo marcado.
+func _make_prey_mark() -> Node3D:
+	var root := Node3D.new()
+	root.position.y = _status_head() / maxf(_base_scale, 0.01) + 0.15
+	var r := maxf(0.42, entity.radius * 0.8) / maxf(_base_scale, 0.01)
+	var claw := PrismMesh.new(); claw.size = Vector3(0.16, 0.26, 0.05)
+	for i in range(4):
+		var a := TAU * float(i) / 4.0
+		var mi := MeshInstance3D.new()
+		mi.mesh = claw
+		mi.material_override = Materials.glow(Color(1.0, 0.72, 0.2, 0.95), 1.6)
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.position = Vector3(sin(a) * r, 0.0, cos(a) * r)
+		mi.rotation = Vector3(-PI * 0.5, a, 0.0)          # deitada, a ponta para o centro
+		root.add_child(mi)
+	model_root.add_child(root)
+	return root
+
+## Falcoeiro: o falcão aparece/some com SimEntity.falcon (só desenho; na sim ele é estado do dono).
+func _swap_falcon() -> void:
+	if entity.falcon:
+		falcon_view = FalconView.new()
+		add_child(falcon_view)
+	else:
+		falcon_view.queue_free()
+		falcon_view = null
+
+## Salto Dracônico: altura do desenho no ar (sobe rápido, some no alto, cai de uma vez). A sim é plana.
+static func sky_lift(e: SimEntity) -> float:
+	if e.sky_left <= 0.0 or e.current_skill == null or not e.current_skill.effects.has("dragon_jump"):
+		return 0.0
+	var s := e.current_skill
+	var k := clampf((e.state_time - s.startup) / maxf(s.active, 0.01), 0.0, 1.0)
+	return Balance.DRAGON_JUMP_HEIGHT * (1.0 - pow(2.0 * k - 1.0, 4.0))
+
 func _process_view(delta: float) -> void:
 	_dt = delta
 	if entity.stance != _stance_seen:
@@ -778,11 +898,20 @@ func _process_view(delta: float) -> void:
 		lift = sin(_arc_t * PI) * minf(2.2, _arc_from.distance_to(entity.position) * 0.35)
 	else:
 		_smooth_pos = _smooth_pos.lerp(entity.position, minf(1.0, delta * 28.0))
+	lift += sky_lift(entity)
+	_fly = lerpf(_fly, Balance.ANC_BIRD_LIFT if entity.form == "bird" and entity.is_alive() else 0.0, minf(1.0, delta * 5.0))
+	lift += _fly                     # Pássaro Arcano voa por cima do chão (só desenho)
 	position = _smooth_pos + Vector3(0, entity.jump_h + lift, 0)   # pulo: a sim guarda só a altura
+	if entity.falcon != (falcon_view != null):
+		_swap_falcon()
+	if falcon_view:
+		falcon_view.follow(entity, _smooth_pos, delta)
 	var target_rot := entity.facing
 	if entity.kind != SimEntity.Kind.PLAYER and entity.kind != SimEntity.Kind.BOT:
 		target_rot = entity.facing
 	model_root.rotation.y = lerp_angle(model_root.rotation.y, target_rot, minf(1.0, delta * 18.0))
+	if entity.spirit:
+		_angel_hover()
 	if kit and entity.form != _shown_form:
 		_morph_t = 0.0 if _shown_form != "" or entity.form != "" else 1.0
 		_swap_form()
@@ -794,7 +923,7 @@ func _process_view(delta: float) -> void:
 		_alpha_shown = want_alpha
 		for mi in model_root.find_children("*", "MeshInstance3D", true, false):
 			(mi as MeshInstance3D).transparency = want_alpha
-	var ghost := kit != null and entity.form == "phantom" and entity.is_alive()
+	var ghost := kit != null and (entity.form == "phantom" or entity.shade) and entity.is_alive()
 	if ghost != _ghost_on:
 		_set_ghost(ghost)
 	_animate(delta)
@@ -837,6 +966,7 @@ func _update_status() -> void:
 	var burning := false
 	var poisoned := false
 	var cursed := false
+	var prey := false
 	var chill := 0                       # 0 nada, 1 retardado, 2 preso
 	if entity.is_alive():
 		for d in entity.debuffs:
@@ -846,8 +976,11 @@ func _update_status() -> void:
 						burning = true
 					else:
 						poisoned = true
-				"curse", "wither", "penance":
-					cursed = true
+				"curse", "wither", "penance", "grave_mark":
+					if d.get("prey", false):
+						prey = true              # Presa: mira própria (não os fiapos roxos de maldição)
+					else:
+						cursed = true
 				"slow":
 					chill = maxi(chill, 1)
 				"root":
@@ -870,6 +1003,12 @@ func _update_status() -> void:
 		_curse_fx = _make_rising(Color(0.75, 0.45, 1.0), Color(0.3, 0.1, 0.45), _status_head() / maxf(_base_scale, 0.01) - 0.25, 0.25, "quad")
 	if _curse_fx:
 		_curse_fx.emitting = cursed
+	if prey and _prey_fx == null:
+		_prey_fx = _make_prey_mark()
+	if _prey_fx:
+		_prey_fx.visible = prey
+		if prey:
+			_prey_fx.rotation.y += get_process_delta_time() * 2.2
 	if chill > 0 and _chill_fx == null:
 		_chill_fx = _make_frost_ring()
 	if _chill_fx:
@@ -1053,7 +1192,7 @@ func _update_bars() -> void:
 	shield_fill.visible = sp.y > sp.x
 	if shield_fill.visible:
 		_set_seg(shield_fill, sp.x, sp.y, 1.0)
-	hp_bar.visible = entity.is_alive() and ((entity.kind != SimEntity.Kind.MONSTER and not entity.guard) or ratio < 1.0 or entity.aggro_target >= 0)
+	hp_bar.visible = not entity.shade and entity.is_alive() and ((entity.kind != SimEntity.Kind.MONSTER and not entity.guard) or ratio < 1.0 or entity.aggro_target >= 0)
 	var casting := entity.state == SimEntity.State.CASTING and entity.current_skill != null and entity.current_skill.startup > 0.2
 	var recall := Sim.recall_progress(entity)          # volta à cidade (G) e montaria (H) também mostram a conjuração
 	if recall <= 0.0:
@@ -1318,7 +1457,8 @@ func _action_clip(s: SkillDef) -> String:
 	if w == "spear":
 		return "atk_thrust"            # lança: estocada (o básico é uma linha longa e estreita)
 	if w == "axe2h":
-		return "atk_sweep"             # machado de duas mãos: talho largo de lado a lado (o golpe básico pega 150°)
+		return "atk_sweep"             # machado de duas mãos: talho largo de lado a lado (o golpe básico pega 150°); com a
+		                               # Empunhadura de Titã também (o golpe é lento: o clipe de duas armas acabava antes e parava)
 	if w in TWO_HANDED_MELEE:
 		return "atk_2h"
 	if off in ItemDef.ONE_HANDED_MELEE:
@@ -1388,17 +1528,26 @@ func _animate_glb(st: int) -> void:
 	var pf := pose_fade()
 	if pf:
 		pf.tick(_dt)
+	var ride_strike := false
 	if horse:                       # montado: boneco no clipe "ride", cavalo corre/para pela velocidade
 		var moving := entity.velocity.length() > 0.2
-		if anim.has_animation("ride") and anim.current_animation != "ride":
-			anim.play("ride", 0.15)
-		var hc := "run" if moving else "idle"
+		ride_strike = (st == SimEntity.State.CASTING and entity.current_skill != null) or st == SimEntity.State.BLOCKING     # Combate Montado: golpeia (e bloqueia, Muralha a Cavalo) da sela
+		var hc := "run" if moving or ride_strike else "idle"
 		if horse.anim and horse.anim.has_animation(hc) and horse.anim.current_animation != hc:
 			horse.anim.play(hc, 0.15)
 		if horse.anim:
 			horse.anim.speed_scale = clampf(entity.velocity.length() / 6.0, 0.6, 1.8) if moving else 1.0
 		_ride_saddle()
-		return
+		if _ride_legs:
+			_ride_legs.active = ride_strike
+		if not ride_strike:
+			if anim.has_animation("ride") and anim.current_animation != "ride":
+				anim.speed_scale = 1.0
+				anim.play("ride", 0.15)
+			_act_skill = null
+			return
+	elif _ride_legs and _ride_legs.active:
+		_ride_legs.active = false
 	if kit and form_view == null:
 		_update_trail(st)
 		if entity.stats and entity.stats.has_shield:
@@ -1423,7 +1572,7 @@ func _animate_glb(st: int) -> void:
 			var end_t: float = minf(entity.state_duration, s.startup + s.active) if looping else entity.state_duration
 			var time_left := maxf(end_t - entity.state_time, 0.05)
 			var slowest := 0.5
-			if s == entity.basic_skill and entity.last_cmd and entity.last_cmd.attack:
+			if (s == entity.basic_skill or entity.current_skill_slot < 0) and entity.last_cmd and entity.last_cmd.attack:     # slot -1 = básico (montado: cópia)
 				time_left = maxf(time_left, entity.basic_cd)     # segurando o ataque: o golpe emenda no próximo, sem parar na guarda
 				slowest = HELD_BASIC_MIN_SPEED                     # arma pesada: a volta do golpe fica mais lenta (peso)
 			anim.speed_scale = clampf(left / time_left / maxf(_act_speed, 0.01), slowest, 2.5)
@@ -1486,7 +1635,10 @@ func _animate_glb(st: int) -> void:
 		base = "land"
 	match st if base == "idle" else -1:
 		SimEntity.State.MOVING: base = "run"
-		SimEntity.State.BLOCKING: base = "block_shield" if entity.stats.has_shield and _clip("block_shield") != "" else "block"
+		SimEntity.State.BLOCKING:
+			base = "block_shield" if entity.stats.has_shield and _clip("block_shield") != "" else "block"
+			if horse and base == "block_shield" and _clip(RidePose.GUARD_CLIP) != "":
+				base = RidePose.GUARD_CLIP      # Muralha a Cavalo: escudo acima do pescoço do cavalo
 		SimEntity.State.DASHING: base = "dash" if anim.has_animation("dash") else "run"
 		SimEntity.State.STUNNED: base = "hit"
 		SimEntity.State.IDLE, SimEntity.State.MOVING:

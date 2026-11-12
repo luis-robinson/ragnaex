@@ -92,12 +92,19 @@ func _ready() -> void:
 	_north = UiKit.label("N", 13, UiKit.GOLD)
 	_north.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_north)
+	Events.quest_completed.connect(_on_quest_done)
 
 func set_map(def: MapDef) -> void:
 	_def = def
 	_static.scale = Vector2.ONE * zoom
 	_bake_static()
 	_static.queue_redraw()
+
+## Quest concluída mudou um colisor de estágio deste mapa (paliçada nova): assa o fundo de novo.
+func _on_quest_done(_eid: int, _qid: String) -> void:
+	if _def != null and _def.obstacles.any(func(ob): return ob.get("solid", true) and (ob.has("if") or ob.has("unless"))):
+		_bake_static()
+		_static.queue_redraw()
 
 ## Textura da camada estática: retângulo do mapa (+ margem) a BAKE_PPM pixels por metro (menos em mapa enorme).
 const BAKE_PPM := 5.0
@@ -204,10 +211,11 @@ func _draw_static_in(n: Node2D) -> void:
 		n.draw_rect(Rect2(-h, h * 2.0), ground)
 	# água
 	for w in _def.water:
+		var wc: Color = _def.water_tints.get(w.get("material", ""), C_WATER)     # água com cor própria da zona (mangue)
 		if w.get("kind", "") == "lake":
-			n.draw_circle(w["pos"], float(w["r"]), C_WATER)
+			n.draw_circle(w["pos"], float(w["r"]), wc)
 		elif w.has("pts"):
-			n.draw_polyline(w["pts"], C_WATER, float(w.get("w", 6.0)), true)
+			n.draw_polyline(w["pts"], wc, float(w.get("w", 6.0)), true)
 	# estradas e praças
 	for r in _def.roads:
 		var pts: PackedVector2Array = r["pts"]
@@ -218,6 +226,8 @@ func _draw_static_in(n: Node2D) -> void:
 	_draw_places(n)
 	# obstáculos: casas (telhado), muralha, árvores, pedras, morros
 	for ob in _def.obstacles:
+		if ob.get("solid", true) and (ob.has("if") or ob.has("unless")) and not WorldState.active(Sim, ob):
+			continue                 # colisor de estágio que ainda não vale (vão da paliçada): fora do mapa
 		var kind: String = ob.get("kind", "")
 		var pos := _w(ob["pos"])
 		var sz: Vector3 = ob.get("size", Vector3.ONE)

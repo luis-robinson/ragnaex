@@ -398,6 +398,8 @@ func apply_equipment(eq: Dictionary, bare_body: Color = Color(0.55, 0.42, 0.3), 
 		weapons[main_node(main)] = main.icon_color
 		_glow_of[main_node(main)] = _plus_of.get(ItemDef.Slot.WEAPON, 0)
 	if off:
+		if off.weapon_type in ItemDef.TWO_HANDED and off.weapon_type != "shield":
+			_ensure_off_twohand(off)          # Empunhadura de Titã: machado de 2 mãos na esquerda
 		var off_node := off_node_of(off)
 		weapons[off_node] = off.icon_color
 		_glow_of[off_node] = _plus_of.get(ItemDef.Slot.OFFHAND, 0)
@@ -520,13 +522,85 @@ func off_node_of(off: ItemDef) -> String:
 	var styled := "wpn_off_%s_%s" % [off.weapon_type, off.weapon_style]
 	return styled if off.weapon_style != "" and _nodes.has(styled) else "wpn_off_" + off.weapon_type
 
+## Malhas espelhadas já montadas: "<id da malha>_<osso>" -> ArrayMesh (o kit é o mesmo em todos os bonecos).
+static var _mirror_cache: Dictionary = {}
+
+## O kit não traz arma de 2 mãos na mão esquerda: espelha a da direita (X no espaço do esqueleto, o rig é simétrico) e
+## prende no osso hand.L. Vira a peça "wpn_off_<tipo>[_<estilo>]" (off_node_of acha) e entra na fusão como as outras.
+func _ensure_off_twohand(off: ItemDef) -> void:
+	var nm := "wpn_off_%s_%s" % [off.weapon_type, off.weapon_style] if off.weapon_style != "" else "wpn_off_" + off.weapon_type
+	if _nodes.has(nm) or skeleton == null:
+		return
+	var src_name := main_node(off)
+	var src: MeshInstance3D = _nodes.get(src_name)
+	if src == null or src.mesh == null or src.skin == null:
+		return
+	var lbind := -1
+	for i in range(src.skin.get_bind_count()):
+		var bn := src.skin.get_bind_name(i)
+		if bn == "" and src.skin.get_bind_bone(i) >= 0:
+			bn = skeleton.get_bone_name(src.skin.get_bind_bone(i))
+		if bn == "hand.L":
+			lbind = i
+	if lbind < 0:
+		return
+	var key := "%d_%d" % [src.mesh.get_instance_id(), lbind]
+	if not _mirror_cache.has(key):
+		_mirror_cache[key] = _mirrored(src.mesh, lbind)
+	var mi := MeshInstance3D.new()
+	mi.name = nm
+	mi.mesh = _mirror_cache[key]
+	mi.skin = src.skin
+	var parent: Node = src.get_parent() if src.get_parent() != null else _parent_of.get(src_name)
+	if parent == null:
+		return
+	parent.add_child(mi)
+	mi.skeleton = mi.get_path_to(skeleton)
+	_nodes[nm] = mi
+	_show(nm, false)
+
+static func _mirrored(src: Mesh, bind: int) -> ArrayMesh:
+	var am := ArrayMesh.new()
+	for si in range(src.get_surface_count()):
+		var arr: Array = src.surface_get_arrays(si)
+		var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+		for i in range(vs.size()):
+			vs[i].x = -vs[i].x
+		arr[Mesh.ARRAY_VERTEX] = vs
+		if arr[Mesh.ARRAY_NORMAL] != null:
+			var ns: PackedVector3Array = arr[Mesh.ARRAY_NORMAL]
+			for i in range(ns.size()):
+				ns[i].x = -ns[i].x
+			arr[Mesh.ARRAY_NORMAL] = ns
+		arr[Mesh.ARRAY_TANGENT] = null
+		var flags: int = src.surface_get_format(si) & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS
+		var per := 8 if flags != 0 else 4
+		var bones := PackedInt32Array()
+		var weights := PackedFloat32Array()
+		bones.resize(vs.size() * per)
+		weights.resize(vs.size() * per)
+		for i in range(vs.size()):
+			bones[i * per] = bind
+			weights[i * per] = 1.0
+		arr[Mesh.ARRAY_BONES] = bones
+		arr[Mesh.ARRAY_WEIGHTS] = weights
+		var idx: PackedInt32Array = arr[Mesh.ARRAY_INDEX] if arr[Mesh.ARRAY_INDEX] != null else PackedInt32Array(range(vs.size()))
+		for t in range(0, idx.size() - 2, 3):          # espelhar inverte a ordem dos triângulos
+			var a := idx[t + 1]
+			idx[t + 1] = idx[t + 2]
+			idx[t + 2] = a
+		arr[Mesh.ARRAY_INDEX] = idx
+		am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], {}, flags)
+		am.surface_set_material(si, src.surface_get_material(si))
+	return am
+
 func _setup_trails(main: ItemDef, off: ItemDef) -> void:
 	_trails.clear()
 	if skeleton == null:
 		return
 	if main and main.weapon_type != "bow":
 		_add_trail(main_node(main), "hand.R", main.icon_color)
-	if off and off.weapon_type in ItemDef.ONE_HANDED_MELEE:
+	if off and (off.weapon_type in ItemDef.ONE_HANDED_MELEE or off.weapon_type in Balance.TITAN_WEAPONS):
 		_add_trail(off_node_of(off), "hand.L", off.icon_color)
 
 func _add_trail(node_name: String, bone: String, col: Color) -> void:

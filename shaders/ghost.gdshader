@@ -8,6 +8,7 @@ uniform vec4 tint : source_color = vec4(0.72, 0.8, 1.0, 1.0);       // cor espec
 uniform vec4 rim_color : source_color = vec4(0.82, 0.7, 1.0, 1.0);  // borda
 uniform vec4 base : source_color = vec4(0.8, 0.8, 0.8, 1.0);        // cor da peça (capa vermelha continua lembrando a capa)
 uniform float body_alpha : hint_range(0.0, 1.0) = 0.5;
+uniform float own_mix : hint_range(0.0, 1.0) = 0.68;                // quanto da cor da peça aparece (clone de sombra: quase nada)
 uniform float flash : hint_range(0.0, 1.0) = 0.0;                  // hit flash
 uniform float appear : hint_range(0.0, 1.0) = 1.0;                 // 0 = ainda não materializou (transformação)
 uniform bool vcol_srgb = false;                                     // kit fundido: cor da peça no vértice (sRGB)
@@ -34,7 +35,7 @@ void fragment() {
 	vec3 b = base.rgb * vc;                                   // como no toon: cor da peça x cor do vértice (kit juntado)
 	float lum = dot(b, vec3(0.3, 0.59, 0.11));
 	vec3 own = mix(vec3(lum), b, 0.8) + 0.12;           // a cor da peça, desbotada e clara
-	vec3 col = mix(tint.rgb, own, 0.68) * (0.85 + 0.25 * band) + rim_color.rgb * rim * 1.2;
+	vec3 col = mix(tint.rgb, own, own_mix) * (0.85 + 0.25 * band) + rim_color.rgb * rim * 1.2;
 	ALBEDO = mix(col, vec3(1.0), flash);
 	ALPHA = clamp((body_alpha + rim * 0.55 + band * 0.12) * feet * appear + flash * 0.4, 0.0, 1.0);
 }

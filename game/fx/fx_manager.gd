@@ -75,6 +75,8 @@ func _process(delta: float) -> void:
 		reticle.visible = false; dir_reticle.visible = false; cone_reticle.visible = false
 	_update_loot(delta)
 	_update_auras(delta)
+	_update_mob_auras(delta)
+	_update_domes(delta)
 
 ## Retículo de mira estilo MOBA: mostra alcance/forma da skill cujo número está sendo segurado,
 ## senão um pequeno cursor no chão.
@@ -84,7 +86,7 @@ func _update_reticle() -> void:
 		return
 	var aim: Vector3 = main.controller.aim_point
 	var held: SkillDef = null
-	for i in range(6):
+	for i in range(Balance.SKILL_SLOTS + Balance.ASC_SLOTS):     # 1-6 e 7 8 9 0 (ascensão)
 		if Input.is_action_pressed("skill_%d" % (i + 1)) and i < p.skills.size():
 			held = p.skills[i]
 	if held == null and p.state == SimEntity.State.CASTING and p.current_skill and p.current_skill_slot >= 0:
@@ -156,6 +158,10 @@ func _on_damage(attacker_id: int, target_id: int, amount: int, crit: bool, block
 		txt = "✦" + txt
 	if kind in ["thorns", "riposte"]:      # arma lendária: dano devolvido / contra-ataque
 		col = Color(0.95, 0.55, 0.4)
+	if kind == "shadow":                   # Sombra Gêmea: o golpe repetido pelo clone
+		col = Color(0.72, 0.55, 1.0)
+		size = 0.85
+		SkillFx.burst(self, t.position + Vector3(0, 0.8, 0), "shadow", 6, Vector3.UP, 0.3)
 	if kind == "chain":                    # Arco Voltaico
 		col = Color(0.75, 0.75, 1.0)
 		txt = "⚡" + txt
@@ -265,10 +271,17 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: f
 		return                 # efeito de outro mapa (a sim roda todos): antes aparecia no seu, nas coordenadas do outro
 	if Sim.player and origin.distance_to(Sim.player.position) > main.VIEW_CULL_DIST and aim.distance_to(Sim.player.position) > main.VIEW_CULL_DIST:
 		return                 # longe da tela: ninguém vê
+	if skill_id == ChoirSystem.BARRIER_SKILL + "_stop":      # projétil barrado na borda da Barreira Sagrada
+		_ring(aim, radius, DOME_COLOR, 0.3, true)
+		return
 	var s: SkillDef = GameData.skill_or_basic(skill_id)
 	if s == null:
 		return
 	var th := theme_of(s)
+	if skill_id == ChoirSystem.ANGEL_SKILL and origin.distance_to(aim) > 0.5 and radius <= 0.0:      # o anjo cura: fio de luz até o aliado
+		_beam(origin + Vector3(0, Balance.ANGEL_HOVER, 0), aim + Vector3(0, 1.0, 0), origin.distance_to(aim), DOME_COLOR, 0.35)
+		SkillFx.burst(self, aim + Vector3(0, 1.0, 0), th, 10, Vector3.UP, 0.4)
+		return
 	var basic := skill_id.begins_with("basic_")
 	if radius < 0.0 and s.effects.has("bounce"):      # escudo arremessado batendo num alvo
 		SkillFx.ricochet(self, aim, th)
@@ -579,6 +592,74 @@ func _on_buff(entity_id: int, buff_id: String, duration: float) -> void:
 var _auras: Dictionary = {}
 var _aura_poll := 0.0
 
+# ---------------------------------------------------------------------------
+# Barreira Sagrada (Bispo ascendido): cúpula de luz que anda com o Bispo. Lê Sim.maps[mapa]["barriers"] (ChoirSystem).
+# ---------------------------------------------------------------------------
+const DOME_COLOR := Color(1.0, 0.88, 0.5)
+var _domes: Dictionary = {}       # id da cúpula -> Node3D
+
+func _make_dome(radius: float) -> Node3D:
+	var root := Node3D.new()
+	var shell := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = radius; sm.height = radius; sm.is_hemisphere = true; sm.radial_segments = 32; sm.rings = 10
+	shell.mesh = sm
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.albedo_color = Color(DOME_COLOR.r, DOME_COLOR.g, DOME_COLOR.b, 0.13)
+	m.rim_enabled = false
+	m.emission_enabled = true
+	m.emission = DOME_COLOR
+	m.emission_energy_multiplier = 0.6
+	m.disable_receive_shadows = true
+	shell.material_override = m
+	shell.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	shell.name = "Shell"
+	root.add_child(shell)
+	var rim := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = radius - 0.12; tm.outer_radius = radius; tm.rings = 48; tm.ring_segments = 5
+	rim.mesh = tm
+	rim.material_override = Materials.glow(Color(DOME_COLOR.r, DOME_COLOR.g, DOME_COLOR.b, 0.85), 2.2)
+	rim.position.y = 0.06
+	rim.scale.y = 0.35
+	root.add_child(rim)
+	var floor_disc := _disc(radius, Color(DOME_COLOR.r, DOME_COLOR.g, DOME_COLOR.b, 0.1))
+	floor_disc.position.y = 0.04
+	root.add_child(floor_disc)
+	root.scale = Vector3.ONE * 0.05
+	add_child(root)
+	create_tween().tween_property(root, "scale", Vector3.ONE, 0.25).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	return root
+
+func _update_domes(delta: float) -> void:
+	var list: Array = Sim.maps.get(main.current_map_id, {}).get("barriers", []) if main != null else []
+	if list.is_empty() and _domes.is_empty():
+		return
+	var live := {}
+	for b in list:
+		var id: int = b["id"]
+		live[id] = true
+		var pos: Vector3 = b["pos"]
+		var n: Node3D = _domes.get(id)
+		if n == null or not is_instance_valid(n):
+			n = _make_dome(float(b["radius"]))
+			n.position = pos
+			_domes[id] = n
+		n.position = n.position.lerp(pos, minf(1.0, delta * 20.0))
+		var shell := n.get_node_or_null("Shell") as MeshInstance3D
+		if shell:        # pulsa de leve; nos primeiros BARRIER_HOLD s do santuário (nó dos 45) brilha mais
+			var holding: bool = b["hold"] and Sim.time <= float(b["born"]) + Balance.BARRIER_HOLD
+			(shell.material_override as StandardMaterial3D).albedo_color.a = (0.26 if holding else 0.13) + sin(Sim.time * 4.0) * 0.03
+	for id in _domes.keys():
+		if not live.has(id):
+			var n: Variant = _domes[id]
+			if is_instance_valid(n):
+				SkillFx.fade_out(self, n as Node3D, 0.35)
+			_domes.erase(id)
+
 func _aura_ring(e: SimEntity, buff_id: String, th: String, b: Dictionary) -> void:
 	var key := "%d:%s" % [e.id, buff_id]
 	if _auras.has(key) and is_instance_valid(_auras[key]):
@@ -602,9 +683,47 @@ func _update_auras(delta: float) -> void:
 			SkillFx.fade_out(self, n as Node3D, 0.35)
 			_auras.erase(key)
 
+## Aura de facção de monstro (Agitador da Horda): quem emite ganha o anel no pé e o círculo do raio no chão, no tema
+## do buff que ela dá; some quando ele morre. Os buffados já ganham o anel no pé pelo _on_buff (buff com `aura_from`).
+var _mob_auras: Dictionary = {}       # id do monstro -> nó
+var _mob_aura_poll := 0.0
+
+## Raio (m) do círculo da aura que este monstro emite (Balance.MOB_AURAS); 0 = não emite.
+static func mob_aura_reach(def: MonsterDef) -> float:
+	if def == null or def.aura == "":
+		return 0.0
+	return float((Balance.MOB_AURAS.get(def.aura, {}) as Dictionary).get("radius", 0.0))
+
+func _update_mob_auras(delta: float) -> void:
+	_mob_aura_poll -= delta
+	if _mob_aura_poll > 0.0:
+		return
+	_mob_aura_poll = 0.25
+	for e in Sim.map_entities(main.current_map_id):
+		if e.kind != SimEntity.Kind.MONSTER or e.monster_def.aura == "" or not e.is_alive():
+			continue
+		if _mob_auras.has(e.id) and is_instance_valid(_mob_auras[e.id]):
+			continue
+		var reach := mob_aura_reach(e.monster_def)
+		if reach <= 0.0 or not main.views.has(e.id):
+			continue
+		var buff_id := str(Balance.MOB_AURAS[e.monster_def.aura]["id"])
+		var th: String = BuffLooks.look(buff_id, e).get("theme", "blood")
+		_mob_auras[e.id] = SkillFx.aura_ring(self, main.views[e.id], th, reach, 0.75 * e.scale, true)
+	for id in _mob_auras.keys():
+		var n: Variant = _mob_auras[id]       # o nó morre junto com a view (despawn): checar antes de tipar
+		if not is_instance_valid(n):
+			_mob_auras.erase(id)
+			continue
+		var e: SimEntity = Sim.get_entity(int(id))
+		if e == null or not e.is_alive():
+			SkillFx.fade_out(self, n as Node3D, 0.35)
+			_mob_auras.erase(id)
+
 ## Transformação (liga ou desliga uma forma): estouro de partículas, coluna de luz e clarão no tema da forma
 ## (fantasma = névoa lunar, demônio = fogo, lobo/urso = natureza). O aperto/estouro do boneco é da EntityView._morph.
-const FORM_FX_THEME := {"phantom": "lunar", "demon": "fire", "wolf": "nature", "bear": "nature"}
+const FORM_FX_THEME := {"phantom": "lunar", "demon": "fire", "wolf": "nature", "bear": "nature", "lich": "ice",
+	"ent": "nature", "alpha": "nature", "bird": "lightning"}
 
 var _last_form: Dictionary = {}       # id -> forma de onde está saindo (o desligar usa o tema dela)
 
@@ -881,6 +1000,9 @@ const TRAP_LOOK := {"jaw": [Color(0.85, 0.7, 0.45), "physical"], "mine": [Color(
 func _on_trap_placed(id: int, kind: String, pos: Vector3, radius: float, map_id: String) -> void:
 	if map_id != main.current_map_id:
 		return
+	if kind == "miasma":                       # nuvem do Necromante ascendido (NecroAscension usa o canal das armadilhas)
+		_miasma_fx(id, pos, radius)
+		return
 	var look: Array = TRAP_LOOK.get(kind, TRAP_LOOK["jaw"])
 	var col: Color = look[0]
 	var n := Node3D.new()
@@ -952,6 +1074,68 @@ func _on_trap_placed(id: int, kind: String, pos: Vector3, radius: float, map_id:
 			n.add_child(crystal)
 	_ring(pos, radius, col, 0.6, false, true)      # pulso enquanto arma
 
+## Miasma: chão manchado, borda e névoa verde baixa enquanto a nuvem dura (some no trap_removed).
+func _miasma_fx(id: int, pos: Vector3, radius: float) -> void:
+	var col := Color(0.45, 0.62, 0.25)
+	var n := Node3D.new()
+	n.position = pos
+	n.set_meta("theme", "poison")
+	add_child(n)
+	_traps[id] = n
+	var stain := _disc(radius, Color(col.r * 0.6, col.g * 0.6, col.b * 0.5, 0.26))
+	stain.position.y = 0.04
+	n.add_child(stain)
+	var ring := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = 0.96
+	tm.outer_radius = 1.0
+	tm.rings = 40
+	tm.ring_segments = 4
+	ring.mesh = tm
+	ring.material_override = Materials.glow(Color(col, 0.6), 1.1)
+	ring.scale = Vector3(radius, 0.3, radius)
+	ring.position.y = 0.05
+	n.add_child(ring)
+	var fog := CPUParticles3D.new()
+	fog.amount = int(clampf(radius * radius * 3.0, 24.0, 110.0))
+	fog.lifetime = 2.4
+	fog.preprocess = 1.2
+	fog.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+	fog.emission_ring_axis = Vector3.UP
+	fog.emission_ring_radius = radius * 0.92
+	fog.emission_ring_inner_radius = 0.0
+	fog.emission_ring_height = 0.3
+	fog.direction = Vector3.UP
+	fog.spread = 40.0
+	fog.gravity = Vector3(0, 0.12, 0)
+	fog.initial_velocity_min = 0.08
+	fog.initial_velocity_max = 0.3
+	fog.scale_amount_min = 1.5
+	fog.scale_amount_max = 2.8
+	var qm := QuadMesh.new()
+	qm.size = Vector2.ONE
+	var fm := StandardMaterial3D.new()
+	fm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	fm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	fm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	fm.vertex_color_use_as_albedo = true
+	fm.albedo_texture = SkillFx.soft()
+	fm.albedo_color = col
+	qm.material = fm
+	fog.mesh = qm
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(1, 1, 1, 0.0))
+	ramp.set_color(1, Color(0.8, 0.7, 1.0, 0.0))
+	ramp.add_point(0.3, Color(1, 1, 1, 0.5))
+	fog.color_ramp = ramp
+	fog.position.y = 0.35
+	fog.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	n.add_child(fog)
+	n.scale = Vector3(0.2, 1.0, 0.2)
+	var tw := create_tween()
+	tw.tween_property(n, "scale", Vector3.ONE, 0.3).set_ease(Tween.EASE_OUT)
+	n.tree_exiting.connect(tw.kill)
+
 func _on_trap_removed(id: int, triggered: bool) -> void:
 	var n: Node3D = _traps.get(id)
 	if n == null:
@@ -974,7 +1158,7 @@ func sync_traps_for_map() -> void:
 	_traps.clear()
 	if not Sim.maps.has(main.current_map_id):
 		return
-	for t in Sim.maps[main.current_map_id].get("traps", []):
+	for t in Sim.maps[main.current_map_id].get("traps", []) + Sim.maps[main.current_map_id].get(NecroAscension.ZONES, []):
 		_on_trap_placed(t["id"], t["kind"], t["pos"], t["radius"], main.current_map_id)
 
 func clear_map_fx() -> void:

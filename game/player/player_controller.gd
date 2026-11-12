@@ -15,7 +15,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	# ações "one-shot" são acumuladas até o próximo tick de física (não perde clique entre frames)
 	if event.is_action_pressed("attack"):
 		_pending.attack = true
-	for i in range(6):
+	for i in range(Balance.SKILL_SLOTS + Balance.ASC_SLOTS):     # 1-6 e 7 8 9 0 (ascensão)
 		if event.is_action_pressed("skill_%d" % (i + 1)):
 			_pending.skill_slot = i
 	for i in range(3):

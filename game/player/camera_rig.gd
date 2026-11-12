@@ -36,7 +36,10 @@ func _apply_cam() -> void:
 
 func _process(delta: float) -> void:
 	if target:
-		global_position = global_position.lerp(target.global_position, minf(1.0, delta * follow_speed))
+		var tp := target.global_position
+		if target is EntityView and (target as EntityView).entity != null:
+			tp.y -= EntityView.sky_lift((target as EntityView).entity)     # Salto Dracônico: a câmera fica no chão, ele some no alto
+		global_position = global_position.lerp(tp, minf(1.0, delta * follow_speed))
 	_yaw = lerp_angle(_yaw, _target_yaw, minf(1.0, delta * 8.0))
 	rotation.y = _yaw
 	shake = maxf(0.0, shake - delta * 2.0)

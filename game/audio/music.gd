@@ -9,11 +9,16 @@ const DIR := "res://assets/audio/music/"
 const FADE := 1.6                      # s da troca entre temas
 const CHECK_EVERY := 0.5
 const BOSS_RANGE := 32.0               # m: chefe em luta até aqui troca para o tema de chefe
-const THEMES := ["aldara", "taverna", "campo", "elfos", "bastiao", "masmorra", "caverna", "catacumbas", "trevas", "cidadela", "chefe", "investida"]
+const THEMES := ["aldara", "taverna", "campo", "elfos", "bastiao", "masmorra", "caverna", "catacumbas", "trevas", "cidadela", "chefe", "investida",
+	"porto", "costa", "goblins"]
 ## mapa -> tema; o resto sai de theme_for() (masmorras, fortalezas, interiores)
 const MAP_THEME := {"city_aldara": "aldara", "in_tavern": "taverna", "field_forest": "campo", "elf_city": "elfos",
 	"field_ruins": "bastiao", "lich_citadel": "cidadela", "dg_catacumbas": "catacumbas", "dg_catacumbas_trono": "catacumbas",
-	"dg_gruta": "caverna", "dg_pedreira": "caverna", "dg_pedreira_coracao": "caverna"}
+	"dg_gruta": "caverna", "dg_pedreira": "caverna", "dg_pedreira_coracao": "caverna",
+	# Ato II: Porto Esperança, Costa Partida e Grutas Goblin (tambores); a taverna do porto usa a do Ato I
+	"city_port": "porto", "in_port_tavern": "taverna", "in_port_warehouse": "porto", "field_coast": "costa", "dg_goblin": "goblins",
+	# Ato II (fase 2): Estepes com o tema de guerra do Bastião até o tema de tambores entrar; os acampamentos caem na família "fort_"
+	"field_steppe": "bastiao"}
 
 var main                                # Main
 var current := ""

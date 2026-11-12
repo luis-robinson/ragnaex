@@ -10,9 +10,11 @@ const XP_FILL := Color(0.52, 0.36, 0.92)
 const XP_SEGMENTS := 20
 const SKILL_PX := 50
 const POTION_PX := 42
+const ASC_GOLD := Color(1.0, 0.8, 0.35)      # filete das vagas de ascensão
 
 var hud
-var skill_slots: Array = []
+var skill_slots: Array = []         # 1-6 e, ascendido, 7 8 9 0 (Balance.ASC_SLOTS, só skills de ascensão)
+var asc_box: HBoxContainer          # as 4 vagas da ascensão (escondidas até a missão de ascensão)
 var potion_slots: Array = []
 var util_slots: Array = []          # [montaria (H), volta à cidade (G)]
 ## [tecla, ícone (assets/icons/action_<id>.png), dica]
@@ -50,9 +52,19 @@ func build() -> void:
 	level_cap = Crest.new()
 	level_cap.kind = "level"
 	row.add_child(level_cap)
-	for i in range(6):
+	for i in range(Balance.SKILL_SLOTS):
 		var s := make_button("%d" % (i + 1), SKILL_PX)
 		row.add_child(s["root"])
+		skill_slots.append(s)
+	asc_box = HBoxContainer.new()
+	asc_box.add_theme_constant_override("separation", 5)
+	asc_box.visible = false
+	row.add_child(asc_box)
+	asc_box.add_child(_divider())
+	for i in range(Balance.ASC_SLOTS):
+		var s := make_button(key_of(Balance.SKILL_SLOTS + i), SKILL_PX, ASC_GOLD.darkened(0.25))
+		s["asc"] = true
+		asc_box.add_child(s["root"])
 		skill_slots.append(s)
 	row.add_child(_divider())
 	for i in range(3):
@@ -85,6 +97,14 @@ func build() -> void:
 	xp = XpBar.new()
 	xp.custom_minimum_size = Vector2(0, 14)
 	col.add_child(xp)
+
+## Tecla da vaga i da barra (0-9): "1".."9", e "0" na décima.
+static func key_of(i: int) -> String:
+	return str((i + 1) % 10)
+
+## Mostra as vagas 7-0 quando a barra do personagem tem mais de 6 (ascensão).
+func set_slot_count(n: int) -> void:
+	asc_box.visible = n > Balance.SKILL_SLOTS
 
 ## Moldura: filete dourado por dentro e rebites de bronze no alto e embaixo.
 func _draw() -> void:
@@ -135,11 +155,11 @@ func _micro_pressed(what: String) -> void:
 
 ## Botão de ação: fundo fundo (afundado), ícone, sombra de recarga em leque, tecla e número.
 ## Devolve o mesmo dicionário que o HUD já usa ({root, icon, tex, cd, cdt, lv}) + "sweep".
-static func make_button(key: String, px: int) -> Dictionary:
+static func make_button(key: String, px: int, rim: Color = Color(0.42, 0.33, 0.2)) -> Dictionary:
 	var p := PanelContainer.new()
 	var st := StyleBoxFlat.new()
 	st.bg_color = Color(0.03, 0.03, 0.04)
-	st.border_color = Color(0.42, 0.33, 0.2)
+	st.border_color = rim
 	st.set_border_width_all(2)
 	st.set_corner_radius_all(3)
 	st.set_content_margin_all(2)
@@ -190,7 +210,7 @@ static func make_button(key: String, px: int) -> Dictionary:
 	for c in p.find_children("*", "Control", true, false):      # só o painel recebe o mouse (arrastar/soltar, botão direito)
 		(c as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p.mouse_entered.connect(func(): st.border_color = Color(1.0, 0.82, 0.4))
-	p.mouse_exited.connect(func(): st.border_color = Color(0.42, 0.33, 0.2))
+	p.mouse_exited.connect(func(): st.border_color = rim)
 	return {"root": p, "icon": icon, "tex": tex, "cd": cd, "cdt": cdt, "lv": lv, "sweep": sweep, "style": st, "bevel": bevel}
 
 ## XP do nível: texto no meio, preenchimento violeta e 20 gomos.

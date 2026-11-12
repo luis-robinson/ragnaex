@@ -17,7 +17,7 @@ var _preview_drag := 0.0
 const TITLES := {"inventory": "Bolsa", "character": "Personagem", "skills": "Teia de Skills", "quests": "Quests", "party": "Grupo"}
 const KEYS := {"inventory": "I", "character": "C", "skills": "K", "quests": "L", "party": "P"}
 ## tamanho do conteúdo (a moldura soma título e bordas); base 1600×900
-const SIZES := {"inventory": Vector2(392, 470), "character": Vector2(470, 790), "skills": Vector2(1110, 720), "quests": Vector2(620, 600), "party": Vector2(430, 480)}
+const SIZES := {"inventory": Vector2(392, 470), "character": Vector2(566, 340), "skills": Vector2(1110, 720), "quests": Vector2(620, 600), "party": Vector2(430, 480)}
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -72,6 +72,7 @@ func toggle(name: String) -> void:
 		Sfx.ui("ui_close")
 	else:
 		open_name = name
+		_picks_jump = true
 		_rebuild(name)
 		Sfx.ui("ui_open")
 
@@ -371,105 +372,232 @@ func _on_item_click(it: ItemDef) -> void:
 		Sim.use_potion(p, 2)
 
 # ---------------------------------------------------------------------------
-## Janela C estilo MMORPG: boneco 3D com o equipamento no meio, slots dos lados, stats à direita.
+## Janela C compacta (estilo WoW): boneco 3D no meio, armadura à esquerda, joias e luvas à direita, armas embaixo;
+## ao lado, a ficha em abas (Status / Conjuntos). O detalhe (o que cada atributo faz, stats raros, bônus dos conjuntos) fica nas dicas.
+const CHAR_SLOT_PX := 46
+const CHAR_PREVIEW := Vector2(152, 256)
+const CHAR_STATS_W := 292
+const CHAR_LEFT := [ItemDef.Slot.HEAD, ItemDef.Slot.CAPE, ItemDef.Slot.BODY, ItemDef.Slot.LEGS, ItemDef.Slot.BOOTS]
+const CHAR_RIGHT := [ItemDef.Slot.AMULET, ItemDef.Slot.GLOVES, ItemDef.Slot.RING, ItemDef.Slot.RING2]
+const CHAR_BOTTOM := [ItemDef.Slot.WEAPON, ItemDef.Slot.OFFHAND]
+## nome curto do slot vazio (cabe no quadrado)
+const SLOT_SHORT := {ItemDef.Slot.WEAPON: "Arma", ItemDef.Slot.OFFHAND: "Mão sec.", ItemDef.Slot.HEAD: "Cabeça", ItemDef.Slot.BODY: "Peito",
+	ItemDef.Slot.LEGS: "Calça", ItemDef.Slot.GLOVES: "Luvas", ItemDef.Slot.BOOTS: "Botas", ItemDef.Slot.CAPE: "Capa",
+	ItemDef.Slot.AMULET: "Amuleto", ItemDef.Slot.RING: "Anel", ItemDef.Slot.RING2: "Anel"}
+const ATTR_DESC := {"FOR": "+ATK físico · bloqueio", "AGI": "+arco/adaga · +crítico físico", "VIT": "+HP · +DEF física",
+	"WILL": "+cura · +MP · +DEF mágica", "INT": "+dano mágico · +crítico mágico"}
+var _char_tab := "status"           # "status" | "sets"
+var char_slots := {}                # slot -> quadrado do boneco (checks e revisão)
+
 func _character(body: VBoxContainer) -> void:
 	var p: SimEntity = Sim.player
-	var s := p.stats
-	body.add_child(UiKit.label("%s — %s Lv.%d  (%s)" % [p.name, p.class_def.name, p.level, p.class_def.role], 16, UiKit.GOLD))
+	char_slots.clear()
+	var head := HBoxContainer.new()
+	body.add_child(head)
+	var nm := UiKit.label("%s — %s Lv.%d" % [p.name, p.class_def.name, p.level], 15, UiKit.GOLD)
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nm.clip_text = true
+	head.add_child(nm)
+	var info := "%s  ·  pontos %d" % [p.class_def.role, p.mastery_points]
+	if Sim.has_ascension(p):
+		info += "  ·  ascensão %d" % Sim.asc_points(p)
+	var il := UiKit.label(info + "  ·  quests %d" % p.quests_completed.size(), 12, UiKit.MUTED)
+	head.add_child(il)
+	_tip_on(il, "Função da classe · pontos de skill para gastar na teia (K)%s · quests completadas" % (" · pontos de ascensão" if Sim.has_ascension(p) else ""))
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	body.add_child(row)
-	# boneco: slots à esquerda e à direita da prévia 3D; atributos e stats embaixo (janela estreita, cabe com a bolsa)
-	row.add_child(_slot_column(p, [ItemDef.Slot.HEAD, ItemDef.Slot.BODY, ItemDef.Slot.LEGS, ItemDef.Slot.BOOTS]))
-	row.add_child(_preview(p))
-	row.add_child(_slot_column(p, [ItemDef.Slot.WEAPON, ItemDef.Slot.OFFHAND, ItemDef.Slot.GLOVES, ItemDef.Slot.CAPE]))
-	var jewels := _slot_column(p, [ItemDef.Slot.AMULET, ItemDef.Slot.RING, ItemDef.Slot.RING2], true)
-	jewels.alignment = BoxContainer.ALIGNMENT_CENTER
-	body.add_child(jewels)
-	# stats
-	var st := VBoxContainer.new()
-	st.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	body.add_child(st)
-	st.add_child(UiKit.label("Atributos (vêm do equipamento):", 13))
-	var g := GridContainer.new()
-	g.columns = 2
-	st.add_child(g)
-	var desc := {
-		"FOR": "+ATK físico · bloqueio",
-		"AGI": "+arco/adaga · +crit físico",
-		"VIT": "+HP · +DEF física",
-		"WILL": "+cura · +MP · +DEF mágica",
-		"INT": "+dano mágico · +crit mágico",
-	}
-	for a in Balance.ATTRS:
-		g.add_child(UiKit.label("%s %d" % [a, s.attrs[a]], 13, UiKit.GOLD))
-		g.add_child(UiKit.label(desc[a], 11, UiKit.MUTED))
-	st.add_child(UiKit.hsep())
-	var g2 := GridContainer.new()
-	g2.columns = 4
-	st.add_child(g2)
-	var rows := [
-		["HP", "%d/%d" % [int(p.hp), int(s.max_hp)]], ["MP", "%d/%d" % [int(p.mp), int(s.max_mp)]],
-		["ATK", "%.0f" % s.patk], ["MATK", "%.0f" % s.matk],
-		["DEF", "%.0f" % s.pdef], ["MDEF", "%.0f" % s.mdef],
-		["Crít.", "%.1f%%" % s.crit_phys], ["Crít. mág.", "%.1f%%" % s.crit_mag],
-		["Cura", "x%.2f" % s.heal_power], ["Veloc.", "%.1f" % s.move_speed],
-		["Bloqueio", "%.0f%%" % s.block_chance if s.has_shield else "—"], ["Redução", "%.0f%%" % s.block_reduction],
-		["Pontos", str(p.mastery_points)], ["Quests", str(p.quests_completed.size())],
-	]
-	for r in rows:
-		g2.add_child(UiKit.label(r[0], 12, UiKit.MUTED))
-		g2.add_child(UiKit.label(r[1], 12))
-	st.add_child(UiKit.hsep())
-	st.add_child(UiKit.label("Conjuntos:", 13))
-	if s.active_sets.is_empty():
-		st.add_child(UiKit.para("Nenhuma peça de conjunto. Lendários caem a cada 5 níveis (chefes dropam mais).", 11, UiKit.MUTED))
-	for set_id in s.active_sets:
-		var rt := RichTextLabel.new()
-		rt.bbcode_enabled = true
-		rt.fit_content = true
-		rt.custom_minimum_size.x = 440
-		rt.add_theme_font_size_override("normal_font_size", 11)
-		rt.add_theme_font_size_override("bold_font_size", 11)
-		rt.text = UiKit.set_block(set_id).strip_edges()
-		st.add_child(rt)
+	# boneco: colunas de slots dos lados da prévia, armas embaixo dela
+	var doll := HBoxContainer.new()
+	doll.add_theme_constant_override("separation", 6)
+	row.add_child(doll)
+	doll.add_child(_char_column(p, CHAR_LEFT))
+	var mid := VBoxContainer.new()
+	mid.add_theme_constant_override("separation", 6)
+	doll.add_child(mid)
+	mid.add_child(_preview(p))
+	var arms := HBoxContainer.new()
+	arms.alignment = BoxContainer.ALIGNMENT_CENTER
+	arms.add_theme_constant_override("separation", 10)
+	mid.add_child(arms)
+	for slot in CHAR_BOTTOM:
+		arms.add_child(_char_slot(p, slot))
+	var right := _char_column(p, CHAR_RIGHT)
+	right.alignment = BoxContainer.ALIGNMENT_CENTER
+	doll.add_child(right)
+	# ficha
+	var side := VBoxContainer.new()
+	side.custom_minimum_size.x = CHAR_STATS_W
+	side.add_theme_constant_override("separation", 3)
+	row.add_child(side)
+	var tabs := HBoxContainer.new()
+	tabs.add_theme_constant_override("separation", 4)
+	side.add_child(tabs)
+	var n_sets := p.stats.active_sets.size() + (1 if not p.stats.legend.is_empty() else 0)
+	for t in [["status", "Status"], ["sets", "Conjuntos" + (" (%d)" % n_sets if n_sets > 0 else "")]]:
+		var tb := UiKit.button(t[1], _set_char_tab.bind(t[0]), 110)
+		tb.toggle_mode = true
+		tb.button_pressed = _char_tab == t[0]
+		tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tabs.add_child(tb)
+	if _char_tab == "sets":
+		_char_sets(p, side)
+	else:
+		_char_status(p, side)
 
-## Coluna de slots do boneco: quadrado com a cor do item e borda da raridade; clique desequipa.
-func _slot_column(p: SimEntity, slots: Array, horizontal: bool = false) -> BoxContainer:
-	var col: BoxContainer = HBoxContainer.new() if horizontal else VBoxContainer.new()
-	col.add_theme_constant_override("separation", 8)
+func _set_char_tab(t: String) -> void:
+	_char_tab = t
+	_rebuild("character")
+
+func _char_column(p: SimEntity, slots: Array) -> VBoxContainer:
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 6)
 	for slot in slots:
-		var it: ItemDef = p.equipment.get(slot)
+		col.add_child(_char_slot(p, slot))
+	return col
+
+## Quadrado do boneco: ícone com a borda da raridade (vazio: nome curto do slot); clique ou arrastar para a bolsa desequipa,
+## soltar um item da bolsa equipa.
+func _char_slot(p: SimEntity, slot: int) -> Control:
+	var it: ItemDef = p.equipment.get(slot)
+	var box := PanelContainer.new()
+	var border: Color = UiKit.rarity_color(it.rarity) if it else Color(0.3, 0.28, 0.35)
+	var sb := UiKit.panel_style(Color(0.06, 0.05, 0.08, 0.95), border, 5, 2 if it and it.is_legendary() else 1)
+	sb.set_content_margin_all(3)
+	box.add_theme_stylebox_override("panel", sb)
+	box.custom_minimum_size = Vector2(CHAR_SLOT_PX, CHAR_SLOT_PX)
+	box.mouse_filter = Control.MOUSE_FILTER_STOP
+	if it:
+		var icon := UiKit.item_icon(it, CHAR_SLOT_PX - 6)
+		box.add_child(icon)
+		if icon is ColorRect:            # sem ícone: sigla por cima da cor
+			var tag := UiKit.label(_slot_glyph(it), 12, Color(0.08, 0.06, 0.1), false)
+			tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			tag.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			box.add_child(tag)
+		box.mouse_entered.connect(func(): show_tip(UiKit.item_tooltip(it) + "\n[color=#9f9]Clique ou arraste para a bolsa: desequipar[/color]"))
+		box.gui_input.connect(_on_slot_input.bind(slot))
+	else:
+		var tag := UiKit.label(SLOT_SHORT.get(slot, "-"), 9, Color(0.5, 0.48, 0.55), false)
+		tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		tag.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		tag.clip_text = true
+		tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		box.add_child(tag)
+		box.mouse_entered.connect(func(): show_tip("[b]%s[/b]\n[color=#aaa]Vazio — arraste um item da bolsa para cá[/color]" % UiKit.slot_name(slot)))
+	box.mouse_exited.connect(hide_tip)
+	box.set_drag_forwarding(_drag_from_slot.bind(slot) if it else Callable(), _can_drop_on_slot.bind(slot), _drop_on_slot.bind(slot))
+	char_slots[slot] = box
+	return box
+
+## Dica ao passar o mouse num controle da ficha.
+func _tip_on(c: Control, text: String) -> void:
+	c.mouse_filter = Control.MOUSE_FILTER_STOP
+	c.mouse_entered.connect(show_tip.bind(text))
+	c.mouse_exited.connect(hide_tip)
+
+## Grupo da ficha: título (com "+N" quando há stats raros na dica) e pares nome/valor em 2 colunas.
+func _char_group(parent: VBoxContainer, title: String, pairs: Array, extra: Array = [], tips: Dictionary = {}) -> void:
+	var h := HBoxContainer.new()
+	parent.add_child(h)
+	var t := UiKit.label(title, 13, UiKit.GOLD)
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(t)
+	var tip := "[b]%s[/b]" % title
+	for e in extra:
+		tip += "\n%s: [color=#ffd966]%s[/color]" % [e[0], e[1]]
+	if not extra.is_empty():
+		var more := UiKit.label("+%d ⓘ" % extra.size(), 11, UiKit.MUTED)
+		h.add_child(more)
+		_tip_on(h, tip)
+	var g := GridContainer.new()
+	g.columns = 4
+	g.add_theme_constant_override("h_separation", 8)
+	g.add_theme_constant_override("v_separation", 1)
+	parent.add_child(g)
+	for pr in pairs:
+		var k := UiKit.label(pr[0], 13, UiKit.MUTED)
+		k.custom_minimum_size.x = 66
+		var v := UiKit.label(pr[1], 13)
+		v.custom_minimum_size.x = 68
+		g.add_child(k)
+		g.add_child(v)
+		if tips.has(pr[0]):
+			_tip_on(k, tips[pr[0]])
+			_tip_on(v, tips[pr[0]])
+
+func _char_status(p: SimEntity, side: VBoxContainer) -> void:
+	var s := p.stats
+	var attr_pairs: Array = []
+	var attr_tips := {}
+	for a in Balance.ATTRS:
+		attr_pairs.append([a, str(s.attrs[a])])
+		attr_tips[a] = "[b]%s[/b]\n%s\n[color=#aaa]Vem do equipamento e dos nós de atributo da teia.[/color]" % [UiKit.attr_name(a), ATTR_DESC.get(a, "")]
+	_char_group(side, "Atributos", attr_pairs, [], attr_tips)
+	var atk_extra: Array = []
+	for e in [[s.attack_speed, "Veloc. de ataque", "+%.0f%%"], [s.lifesteal, "Roubo de vida", "%.1f%%"], [s.cdr, "Recarga", "-%.0f%%"],
+			[s.backstab, "Pelas costas", "+%.0f%%"], [s.fire_pct, "Dano de fogo", "+%.0f%%"], [s.frost_pct, "Dano de gelo", "+%.0f%%"],
+			[s.storm_pct, "Dano de raio", "+%.0f%%"], [s.echo_chance, "Eco do golpe", "%.0f%%"], [s.hit_poison, "Veneno na lâmina", "%.0f/s"],
+			[s.threat_pct, "Ameaça", "+%.0f%%"]]:
+		if float(e[0]) > 0.0:
+			atk_extra.append([e[1], e[2] % float(e[0])])
+	_char_group(side, "Ataque", [["ATK", "%.0f" % s.patk], ["MATK", "%.0f" % s.matk],
+		["Crít.", "%.1f%%" % s.crit_phys], ["Crít. mág.", "%.1f%%" % s.crit_mag]], atk_extra)
+	var def_extra: Array = []
+	for e in [[s.evasion, "Esquiva", "%.0f%%"], [s.dr_pct, "Dano recebido", "-%.0f%%"], [s.thorns_pct, "Espinhos", "%.0f%%"]]:
+		if float(e[0]) > 0.0:
+			def_extra.append([e[1], e[2] % float(e[0])])
+	_char_group(side, "Defesa", [["DEF", "%.0f" % s.pdef], ["MDEF", "%.0f" % s.mdef],
+		["Bloqueio", "%.0f%%" % s.block_chance if s.has_shield else "—"], ["Redução", "%.0f%%" % s.block_reduction if s.has_shield else "—"]], def_extra)
+	var res_extra: Array = []
+	for e in [[s.buff_duration, "Duração das bênçãos", "+%.0f%%"], [s.radiance, "Radiância", "%.0f%%"], [s.pet_power, "Companheiro", "+%.0f%%"],
+			[s.ward_pct, "Cura em barreira", "%.0f%%"]]:
+		if float(e[0]) > 0.0:
+			res_extra.append([e[1], e[2] % float(e[0])])
+	_char_group(side, "Recursos", [["HP", "%d/%d" % [int(p.hp), int(s.max_hp)]], ["MP", "%d/%d" % [int(p.mp), int(s.max_mp)]],
+		["Cura", "x%.2f" % s.heal_power], ["Veloc.", "%.1f" % s.move_speed]], res_extra)
+
+## Aba Conjuntos: uma linha por conjunto (peças e bônus ativos) com o bloco inteiro na dica; arma lendária embaixo.
+func _char_sets(p: SimEntity, side: VBoxContainer) -> void:
+	var s := p.stats
+	if s.active_sets.is_empty() and s.legend.is_empty():
+		side.add_child(UiKit.para("Nenhuma peça de conjunto. Lendários caem a cada 5 níveis (chefes dropam mais).", 12, UiKit.MUTED))
+		return
+	for set_id in s.active_sets:
+		var sd: SetDef = GameData.sets.get(set_id)
+		if sd == null:
+			continue
+		var n := int(s.active_sets[set_id])
+		var card := PanelContainer.new()
+		var sb := UiKit.panel_style(Color(0.1, 0.08, 0.13, 0.9), UiKit.rarity_color(4) if n >= sd.armor.size() else UiKit.SLOT_EDGE, 4, 1)
+		sb.set_content_margin_all(5)
+		card.add_theme_stylebox_override("panel", sb)
+		side.add_child(card)
 		var v := VBoxContainer.new()
 		v.add_theme_constant_override("separation", 1)
-		col.add_child(v)
-		var box := PanelContainer.new()
-		var border: Color = UiKit.rarity_color(it.rarity) if it else Color(0.3, 0.28, 0.35)
-		var sb := UiKit.panel_style(Color(0.06, 0.05, 0.08, 0.95), border, 6, 3 if it and it.is_legendary() else 2)
-		sb.set_content_margin_all(6)
-		box.add_theme_stylebox_override("panel", sb)
-		box.custom_minimum_size = Vector2(76, 76)
-		v.add_child(box)
-		if it:
-			var icon := UiKit.item_icon(it, 64)
-			box.add_child(icon)
-			if icon is ColorRect:            # sem ícone: sigla por cima da cor
-				var tag := UiKit.label(_slot_glyph(it), 15, Color(0.08, 0.06, 0.1), false)
-				tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-				tag.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-				tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
-				box.add_child(tag)
-			box.mouse_entered.connect(func(): show_tip(UiKit.item_tooltip(it) + "\n[color=#9f9]Clique ou arraste para a bolsa: desequipar[/color]"))
-			box.mouse_exited.connect(hide_tip)
-			box.gui_input.connect(_on_slot_input.bind(slot))
-		box.mouse_filter = Control.MOUSE_FILTER_STOP
-		box.set_drag_forwarding(_drag_from_slot.bind(slot) if it else Callable(), _can_drop_on_slot.bind(slot), _drop_on_slot.bind(slot))
-		var nm := UiKit.label(UiKit.slot_name(slot), 10, UiKit.rarity_color(it.rarity) if it else UiKit.MUTED)
-		nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		nm.custom_minimum_size.x = 76
-		v.add_child(nm)
-	return col
+		v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.add_child(v)
+		var t := UiKit.label("%s  (%d/%d)" % [sd.name, n, sd.armor.size()], 12, UiKit.rarity_color(4))
+		t.clip_text = true
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.add_child(t)
+		var on := 0
+		var total := 0
+		for k in sd.bonuses:
+			total += 1
+			if n >= int(k):
+				on += 1
+		var sub := UiKit.label("%d de %d bônus ativos%s" % [on, total, "  ·  Fusão" if sd.is_hybrid() else ""], 11, UiKit.MUTED)
+		sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.add_child(sub)
+		_tip_on(card, UiKit.set_block(set_id).strip_edges())
+	if not s.legend.is_empty():
+		var lt := UiKit.label("Arma lendária: %s" % str(s.legend.get("name", "?")), 12, UiKit.rarity_color(4))
+		lt.clip_text = true
+		side.add_child(lt)
+		_tip_on(lt, "[b]Arma lendária[/b]
+" + UiKit.legend_effect_text(s.legend))
 
 func _on_slot_input(ev: InputEvent, slot: int) -> void:
 	if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:
@@ -487,7 +615,7 @@ func _slot_glyph(it: ItemDef) -> String:
 ## Prévia 3D do personagem com o equipamento atual (SubViewport com mundo próprio).
 ## Gira devagar sozinho; arrastar com o mouse gira na mão.
 func _preview(p: SimEntity) -> Control:
-	var cont := UiKit.preview_stage(Vector2(250, 360), Vector3(0, 1.25, 4.9), Vector3(0, 0.86, 0), true)
+	var cont := UiKit.preview_stage(CHAR_PREVIEW, Vector3(0, 1.25, 4.9), Vector3(0, 0.86, 0), true)
 	var vp: SubViewport = cont.get_child(0)
 	# chão: disco escuro suave sob os pés
 	var disc := MeshInstance3D.new()
@@ -533,24 +661,34 @@ const C_TALENT_TAG := Color(0.86, 0.72, 1.0)
 const STAT_COLORS := {"def": Color(0.55, 0.75, 1.0), "atk": Color(1.0, 0.62, 0.38), "mag": Color(0.78, 0.6, 1.0),
 	"heal": Color(0.5, 0.95, 0.6), "move": Color(0.45, 0.9, 0.9)}
 
-var _skills_tab := "tree"          # "tree" (árvore por ramo) | "picks" (talentos de escolha)
+var _skills_tab := "tree"          # "tree" (árvore por ramo) | "picks" (talentos de escolha) | "asc" (teia de ascensão)
+var _web_asc := false              # a teia desenhada agora é a de ascensão (GameData.asc_trees; nós em p.asc_tree)
 
 func _skills(body: VBoxContainer) -> void:
 	var p: SimEntity = Sim.player
 	var top := HBoxContainer.new()
 	top.add_theme_constant_override("separation", 6)
 	body.add_child(top)
-	var pts := UiKit.label("Pontos de skill: %d" % p.mastery_points, 16, UiKit.GOLD)
+	var has_asc: bool = GameData.asc_trees.has(p.class_def.id)
+	if _skills_tab == "asc" and not has_asc:
+		_skills_tab = "tree"
+	var pts := UiKit.label("Pontos de ascensão: %d" % Sim.asc_points(p) if _skills_tab == "asc" else "Pontos de skill: %d" % p.mastery_points, 16, UiKit.GOLD)
 	top.add_child(pts)
 	var gap := Control.new()
 	gap.custom_minimum_size.x = 18
 	top.add_child(gap)
 	var open_picks := _picks_open(p)
-	for t in [["tree", "Teia"], ["picks", "Talentos" + (" (%d)" % open_picks if open_picks > 0 else "")]]:
+	var tabs: Array = [["tree", "Teia"], ["picks", "Talentos" + (" (%d)" % open_picks if open_picks > 0 else "")]]
+	if has_asc:                       # classe com conteúdo de ascensão: aba própria (pontos e nós separados da teia comum)
+		var asc_left: int = Sim.asc_points(p)
+		tabs.append(["asc", "Ascensão" + (" (%d)" % asc_left if asc_left > 0 else "")])
+	for t in tabs:
 		var tb := UiKit.button(t[1], _set_skills_tab.bind(t[0]), 110)
 		tb.toggle_mode = true
 		tb.button_pressed = _skills_tab == t[0]
 		if t[0] == "picks" and open_picks > 0 and _skills_tab != "picks":
+			tb.add_theme_color_override("font_color", C_CAN)
+		elif t[0] == "asc" and Sim.asc_points(p) > 0 and _skills_tab != "asc":
 			tb.add_theme_color_override("font_color", C_CAN)
 		top.add_child(tb)
 	var fill := Control.new()
@@ -558,16 +696,21 @@ func _skills(body: VBoxContainer) -> void:
 	top.add_child(fill)
 	if _skills_tab == "tree":
 		top.add_child(UiKit.label("■ skill  ◆ evolução  ● maestria  ◉ notável  · atributo    dourado = comprado  verde = disponível", 12, UiKit.MUTED))
+	elif _skills_tab == "asc":
+		var why := "" if Sim.has_ascension(p) else "  · liberada no nível %d com a missão de ascensão" % Balance.ASC_LEVEL
+		top.add_child(UiKit.label("%d pontos por nível (%d-%d) + %d da missão · skills vão nas teclas 7 8 9 0%s" % [Balance.ASC_POINTS_PER_LEVEL,
+			Balance.ASC_LEVEL, Balance.ASC_MAX_LEVEL, Balance.ASC_QUEST_POINTS, why], 12, UiKit.MUTED))
 	else:
 		top.add_child(UiKit.label("Talentos de classe: um por linha (a cada 5 níveis) · grátis · trocar: na cidade", 12, UiKit.MUTED))
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 12)
 	body.add_child(row)
-	row.add_child(_tree_view(p) if _skills_tab == "tree" else _picks_view(p))
+	row.add_child(_tree_view(p, _skills_tab == "asc") if _skills_tab != "picks" else _picks_view(p))
 	row.add_child(_known_skills(p))
 
 func _set_skills_tab(t: String) -> void:
 	_skills_tab = t
+	_picks_jump = true
 	_rebuild("skills")
 
 ## Linhas de talento liberadas pelo nível e ainda sem escolha (o número na aba).
@@ -591,6 +734,8 @@ func _picks_open(p: SimEntity) -> int:
 const KIND_COLORS := {"permanente": Color(1.0, 0.8, 0.4), "aura": Color(0.45, 0.85, 1.0), "invocação": Color(0.7, 0.95, 0.55),
 	"sobrevivência": Color(0.55, 0.95, 0.75), "dano": Color(1.0, 0.55, 0.45), "utilidade": Color(0.82, 0.72, 1.0)}
 
+var _picks_jump := true          # aba Talentos recém-aberta: rola a janela até a linha liberada mais nova
+
 func _picks_view(p: SimEntity) -> Control:
 	var frame := PanelContainer.new()
 	frame.add_theme_stylebox_override("panel", UiKit.panel_style(Color(0.03, 0.03, 0.05, 0.95), Color(0.3, 0.26, 0.36), 6, 1))
@@ -612,6 +757,7 @@ func _picks_view(p: SimEntity) -> Control:
 			rows[n["group"]].append(n)
 	var keys := rows.keys()
 	keys.sort_custom(func(a, b): return int(str(a).get_slice("_", 1)) < int(str(b).get_slice("_", 1)))
+	var newest: Control = null          # 9 linhas (5..45) não cabem na janela: abre na liberada mais nova
 	for g in keys:
 		var opts: Array = rows[g]
 		opts.sort_custom(func(a, b): return a["pos"].x < b["pos"].x)
@@ -619,13 +765,23 @@ func _picks_view(p: SimEntity) -> Control:
 		var line := HBoxContainer.new()
 		line.add_theme_constant_override("separation", 8)
 		v.add_child(line)
+		if p.level >= lv:
+			newest = line
 		var lvl := UiKit.label("Nv %d" % lv, 14, UiKit.GOLD if p.level >= lv else Color(1.0, 0.62, 0.5))
 		lvl.custom_minimum_size.x = 50
 		lvl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		line.add_child(lvl)
 		for n in opts:
 			line.add_child(_pick_card(p, n))
+	if _picks_jump and newest:
+		_picks_jump = false
+		_show_pick_row.call_deferred(newest)
 	return frame
+
+func _show_pick_row(line: Control) -> void:
+	await get_tree().process_frame
+	if is_instance_valid(line) and wins.has("skills") and is_instance_valid(wins["skills"]["scroll"]):
+		(wins["skills"]["scroll"] as ScrollContainer).ensure_control_visible(line)
 
 func _pick_card(p: SimEntity, n: Dictionary) -> Control:
 	var owned := p.tree.has(n["id"])
@@ -675,7 +831,8 @@ func _pick_card(p: SimEntity, n: Dictionary) -> Control:
 ## Teia (estilo Path of Exile): arrastar move, a roda dá zoom, a busca acende os nós que batem. Lembra posição e zoom
 ## entre as recompras (a janela é refeita a cada compra).
 const WEB_UNIT := 58.0           # px por unidade da teia no zoom 1
-const WEB_ZOOM := Vector2(0.45, 1.6)
+const WEB_ZOOM := Vector2(0.35, 1.6)     # 0,35: a teia inteira com a Fronteira do Ato II (raio ~32) cabe na tela
+const WEB_RIM := {"keystone": Color(0.85, 0.35, 0.4, 0.9), "apex": Color(1.0, 0.82, 0.35, 0.95)}
 var _web_pan := Vector2.ZERO     # deslocamento do centro da teia em relação ao meio da tela
 var _web_zoom := 0.8
 var _web_query := ""
@@ -685,8 +842,9 @@ var _web_moved := 0.0           # quanto o mouse andou desde o clique: arrasto n
 var _web_view: Control = null   # área e teia da janela aberta (revisão automática: --web_click_check)
 var _web_node: Control = null
 
-func _tree_view(p: SimEntity) -> Control:
-	var tr: Dictionary = GameData.trees.get(p.class_def.id, {})
+func _tree_view(p: SimEntity, asc: bool = false) -> Control:
+	_web_asc = asc
+	var tr: Dictionary = (GameData.asc_trees if asc else GameData.trees).get(p.class_def.id, {})
 	var frame := PanelContainer.new()
 	frame.add_theme_stylebox_override("panel", UiKit.panel_style(Color(0.03, 0.03, 0.05, 0.95), Color(0.3, 0.26, 0.36), 6, 1))
 	frame.size_flags_vertical = Control.SIZE_SHRINK_BEGIN      # não estica com a lista de skills ao lado: a teia pulava ~400 px a cada compra
@@ -719,26 +877,28 @@ func _tree_view(p: SimEntity) -> Control:
 			var cc: Vector2 = (cl["center"] as Vector2) * WEB_UNIT
 			var rr: float = float(cl["r"]) * WEB_UNIT
 			lines.draw_circle(cc, rr + 26.0, Color(0.09, 0.075, 0.11, 0.85))
-			lines.draw_arc(cc, rr + 26.0, 0.0, TAU, 64, Color(0.42, 0.34, 0.22, 0.75), 2.0, true)
+			var rim: Color = WEB_RIM.get(cl["kind"], Color(0.42, 0.34, 0.22, 0.75))     # Fronteira: pedra-angular e Ápice com aro próprio
+			lines.draw_arc(cc, rr + 26.0, 0.0, TAU, 64, rim, 3.0 if WEB_RIM.has(cl["kind"]) else 2.0, true)
 			lines.draw_arc(cc, rr, 0.0, TAU, 64, Color(0.3, 0.26, 0.34, 0.55), 1.5, true)
 		for nid in nodes:
 			for l in nodes[nid]["links"]:
 				if nid < l and nodes.has(l):
-					var a: bool = p.tree.has(nid)
-					var b: bool = p.tree.has(l)
+					var a: bool = _web_owned(p, nid)
+					var b: bool = _web_owned(p, l)
 					var col := C_OWNED if a and b else (Color(C_CAN, 0.6) if a or b else Color(C_LOCK, 0.85))
 					lines.draw_line((nodes[nid]["pos"] as Vector2) * WEB_UNIT, (nodes[l]["pos"] as Vector2) * WEB_UNIT, col, 4.0 if a and b else 2.0, true))
 	# nome de cada braço na ponta, com os pontos gastos nele
+	var origin: Vector2 = tr.get("offset", Vector2.ZERO)          # início da teia (a de ascensão vem centralizada)
 	for pane in tr.get("panes", []):
 		var spent := 0
 		var reach := 0.0
 		for nid in nodes:
 			if nodes[nid]["branch"] == pane["id"]:
-				reach = maxf(reach, (nodes[nid]["pos"] as Vector2).length())
-				if p.tree.has(nid):
-					spent += int(nodes[nid]["cost"])
+				reach = maxf(reach, ((nodes[nid]["pos"] as Vector2) - origin).length())
+				if _web_owned(p, nid):
+					spent += int(nodes[nid]["cost"]) * (p.mastery_of(nodes[nid]["ref"]) if nodes[nid]["kind"] == "mastery" else 1)
 		var ang: float = pane["angle"]
-		var at := Vector2(cos(ang), sin(ang)) * (reach + 1.1) * WEB_UNIT
+		var at := (origin + Vector2(cos(ang), sin(ang)) * (reach + 1.1)) * WEB_UNIT
 		var role: String = {"tank": "tanque", "dps": "dano", "ranged": "distância", "caster": "magia", "healer": "cura"}.get(pane["role"], "classe")
 		var lb := UiKit.label("%s\n%s · %d pts" % [pane["name"], role, spent], 18, UiKit.GOLD if spent > 0 else UiKit.TEXT)
 		lb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -769,8 +929,8 @@ func _tree_view(p: SimEntity) -> Control:
 		var arrow: String = ["→", "↘", "↓", "↙", "←", "↖", "↑", "↗"][posmod(roundi(a / (PI * 0.25)), 8)]
 		var spent := 0
 		for nid in nodes:
-			if nodes[nid]["branch"] == pane["id"] and p.tree.has(nid):
-				spent += int(nodes[nid]["cost"])
+			if nodes[nid]["branch"] == pane["id"] and _web_owned(p, nid):
+				spent += int(nodes[nid]["cost"]) * (p.mastery_of(nodes[nid]["ref"]) if nodes[nid]["kind"] == "mastery" else 1)
 		arms.append("%s %s (%d)" % [arrow, pane["name"], spent])
 	bar_v.add_child(UiKit.label("Braços:  " + "   ".join(arms) + "   · arraste para mover, roda = zoom", 11, UiKit.MUTED))
 	var q := LineEdit.new()
@@ -817,11 +977,17 @@ func _web_search(t: String) -> void:
 		(m[0] as Control).visible = q.length() >= 2 and str(m[1]).contains(q)
 
 ## Nó da teia (no espaço da teia, sem zoom). Os botões deixam o mouse passar para a tela (arrastar e zoom em cima dos nós).
+## Nó comprado na teia que está aberta (comum: p.tree; ascensão: p.asc_tree, o início conta como comprado).
+func _web_owned(p: SimEntity, nid: String) -> bool:
+	if _web_asc:
+		return p.asc_tree.has(nid) or nid.ends_with("_a_start")
+	return p.tree.has(nid)
+
 func _tree_node(p: SimEntity, n: Dictionary, at: Vector2) -> Control:
 	var kind: String = n["kind"]
 	var px: int = NODE_PX.get(kind, 16)
-	var owned := p.tree.has(n["id"])
-	var why := Sim.tree_block_reason(p, n["id"])
+	var owned := _web_owned(p, n["id"])
+	var why: String = "" if owned and kind == "start" else Sim.tree_block_reason(p, n["id"])
 	var can := why == ""
 	var col := Color(0.55, 0.55, 0.6)
 	var st: Dictionary = n.get("stats", {})
@@ -890,6 +1056,14 @@ func _tree_node(p: SimEntity, n: Dictionary, at: Vector2) -> Control:
 		tag.modulate.a = 1.0 if owned or can else 0.55
 		tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(tag)
+		if kind == "notable" and (n.has("keystone") or n.get("apex", false)):
+			var halo := Panel.new()           # pedra-angular (vermelho) e Ápice (ouro): aro a mais em volta
+			halo.position = Vector2(-5, -5)
+			halo.size = Vector2(px + 10, px + 10)
+			halo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			halo.add_theme_stylebox_override("panel", UiKit.panel_style(Color(0, 0, 0, 0), WEB_RIM["apex" if n.get("apex", false) else "keystone"], px, 2))
+			holder.add_child(halo)
+			holder.move_child(halo, 0)
 		if kind == "notable":
 			var gem := Panel.new()            # pedra no meio do notável
 			gem.position = Vector2(px * 0.3, px * 0.3)
@@ -984,13 +1158,15 @@ func _known_skills(p: SimEntity) -> Control:
 	var col := VBoxContainer.new()
 	col.custom_minimum_size.x = 300
 	col.add_theme_constant_override("separation", 6)
-	col.add_child(UiKit.label("Barra (1-6)", 14, UiKit.GOLD))
+	col.add_child(UiKit.label("Barra (1-6)" if p.skills.size() <= Balance.SKILL_SLOTS else "Barra (1-6 · ascensão 7 8 9 0)", 14, UiKit.GOLD))
 	var bar := GridContainer.new()
 	bar.columns = 3
 	col.add_child(bar)
-	for i in range(Balance.SKILL_SLOTS):
+	for i in range(maxi(Balance.SKILL_SLOTS, p.skills.size())):
 		var sk: SkillDef = p.skills[i] if i < p.skills.size() else null
-		var b := UiKit.button("%d  %s" % [i + 1, sk.name if sk else "—"], func(): Sim.set_skill_slot(p, i, ""), 96)
+		var b := UiKit.button("%s  %s" % [ActionBar.key_of(i), sk.name if sk else "—"], func(): Sim.set_skill_slot(p, i, ""), 96)
+		if i >= Balance.SKILL_SLOTS:
+			b.add_theme_color_override("font_color", Color(1.0, 0.85, 0.45))
 		b.add_theme_font_size_override("font_size", 11)
 		b.clip_text = true
 		b.disabled = sk == null
@@ -998,7 +1174,7 @@ func _known_skills(p: SimEntity) -> Control:
 		b.set_drag_forwarding(Callable(), _can_drop_skill, _drop_skill.bind(i))
 		drag_sources["bar_%d" % i] = b
 		bar.add_child(b)
-	col.add_child(UiKit.para("Arraste uma skill para a barra 1-6 (aqui ou no HUD); botão direito na barra tira. Trocar a barra: só na cidade. ✖ = a arma equipada não serve.", 11, UiKit.MUTED))
+	col.add_child(UiKit.para("Arraste uma skill para a barra 1-6 (aqui ou no HUD; as de ascensão vão em 7 8 9 0); botão direito na barra tira. Trocar a barra: só na cidade. ✖ = a arma equipada não serve.", 11, UiKit.MUTED))
 	col.add_child(UiKit.hsep(4))
 	col.add_child(UiKit.label("Skills conhecidas", 14, UiKit.GOLD))
 	for sid in p.class_def.skill_ids:
@@ -1024,8 +1200,8 @@ func _known_skills(p: SimEntity) -> Control:
 		var slots := HBoxContainer.new()
 		v.add_child(slots)
 		var cur := p.slot_of(sid)
-		for i in range(Balance.SKILL_SLOTS):
-			var sb := UiKit.button(str(i + 1), func(): Sim.set_skill_slot(p, i, sid), 26)
+		for i in (range(Balance.SKILL_SLOTS, p.skills.size()) if sk.ascension else range(Balance.SKILL_SLOTS)):     # ascensão: só 7 8 9 0
+			var sb := UiKit.button(ActionBar.key_of(i), func(): Sim.set_skill_slot(p, i, sid), 26)
 			sb.add_theme_font_size_override("font_size", 11)
 			if i == cur:
 				sb.add_theme_color_override("font_color", UiKit.GOLD)
@@ -1051,8 +1227,10 @@ func _drop_skill(_at: Vector2, data: Variant, i: int) -> void:
 
 # ---------------------------------------------------------------------------
 var _quests_tab := "quests"         # "quests" (ativas/concluídas) | "roteiro" (guia de cada andar, docs/roteiro_*.md)
-var _roteiro_band := ""             # "1_10" | "10_20" | "20_30" (vazio: o do nível do personagem)
-const ROTEIROS := [["1_10", "1-10 Aldara"], ["10_20", "10-20 Floresta"], ["20_30", "20-30 Bastião"]]
+var _roteiro_band := ""             # "1_10" | "10_20" | "20_30" | "30_35" | "35_40" (vazio: o do nível do personagem)
+## [faixa, rótulo, nível em que a faixa começa]
+const ROTEIROS := [["1_10", "1-10 Aldara", 1], ["10_20", "10-20 Floresta", 10], ["20_30", "20-30 Bastião", 20],
+	["30_35", "30-35 Costa", 30], ["35_40", "35-40 Estepes", 35]]
 
 func _set_quests_tab(t: String) -> void:
 	_quests_tab = t
@@ -1066,11 +1244,11 @@ func _set_roteiro_band(b: String) -> void:
 func _roteiro(body: VBoxContainer, p: SimEntity) -> void:
 	var band := _roteiro_band
 	if band == "":
-		band = "1_10" if p.level < 10 else ("10_20" if p.level < 20 else "20_30")
+		band = roteiro_band_for(p.level)
 	var row := HBoxContainer.new()
 	body.add_child(row)
 	for b in ROTEIROS:
-		var bb := UiKit.button(b[1], _set_roteiro_band.bind(b[0]), 150)
+		var bb := UiKit.button(b[1], _set_roteiro_band.bind(b[0]), 112)
 		bb.toggle_mode = true
 		bb.button_pressed = band == b[0]
 		row.add_child(bb)
@@ -1090,14 +1268,21 @@ func _roteiro(body: VBoxContainer, p: SimEntity) -> void:
 	rt.text = roteiro_bbcode(md)
 	body.add_child(rt)
 
+## Faixa do roteiro de um nível: a última que já começou.
+static func roteiro_band_for(level: int) -> String:
+	var band: String = ROTEIROS[0][0]
+	for b in ROTEIROS:
+		if level >= int(b[2]):
+			band = b[0]
+	return band
+
 ## Markdown simples -> BBCode: títulos, tabelas (uma linha por item, 1ª coluna em destaque), listas, **negrito** e `código`.
 static func roteiro_bbcode(md: String) -> String:
 	var out := PackedStringArray()
 	var gold := UiKit.GOLD.to_html(false)
 	var muted := UiKit.MUTED.to_html(false)
 	var header_seen := false
-	for raw in md.split("\n"):
-		var line := raw.strip_edges()
+	for line in roteiro_lines(md):
 		if line.begins_with("|---") or line.begins_with("| ---") or line.begins_with("|:"):
 			continue
 		line = _inline_md(line)
@@ -1121,6 +1306,23 @@ static func roteiro_bbcode(md: String) -> String:
 		else:
 			out.append("[color=#%s]%s[/color]" % [muted, line] if line.begins_with("Tema") or line.begins_with("Os níveis") else line)
 	return "\n".join(out)
+
+## Linhas lógicas do markdown: a quebra no meio de um parágrafo (o .md quebra a ~120 colunas; a janela tem a
+## própria largura) vira espaço. Título, linha de tabela, item de lista e linha em branco começam bloco novo;
+## linha comum ou recuada continua o parágrafo/item anterior. Sem espaços nas pontas.
+static func roteiro_lines(md: String) -> PackedStringArray:
+	var out := PackedStringArray()
+	var joinable := false               # a última linha aceita continuação (parágrafo ou item de lista)
+	for raw in md.split("\n"):
+		var line := raw.strip_edges()
+		var block := line == "" or line.begins_with("#") or line.begins_with("|") or line.begins_with("- ") \
+			or line.begins_with("* ") or line.get_slice(". ", 0).is_valid_int()
+		if not block and joinable:
+			out[out.size() - 1] += " " + line
+			continue
+		out.append(line)
+		joinable = line != "" and not line.begins_with("#") and not line.begins_with("|")
+	return out
 
 static func _inline_md(s: String) -> String:
 	var r := s

@@ -131,10 +131,12 @@ func _relic(body: VBoxContainer) -> void:
 	if relic_tab == "shields":
 		_relic_shields(body, shields)
 		return
-	for lv in Balance.LEGENDARY_LEVELS:
+	for lv in ItemSystem.relic_levels():
 		var sd: SetDef = GameData.sets.get(GameData.set_id_for(p.class_def.id, relic_tab, lv))
 		if sd:
 			_relic_set_row(body, sd)
+		for hsd in GameData.hybrid_sets_for(p.class_def, relic_tab, lv):     # híbridos em que a build entra (R7.1)
+			_relic_set_row(body, hsd)
 
 func _set_relic_tab(tab: String) -> void:
 	relic_tab = tab
@@ -145,7 +147,10 @@ func _relic_set_row(body: VBoxContainer, sd: SetDef) -> void:
 	var p: SimEntity = Sim.player
 	var cost: int = Sim.relic_cost(GameData.items[sd.armor[0]])
 	var reach := p.level >= sd.level
-	body.add_child(UiKit.label("Nível %d — %s · %d moeda%s por peça" % [sd.level, sd.name, cost, "s" if cost > 1 else ""], 14, UiKit.GOLD if reach else Color(1.0, 0.62, 0.5)))
+	var mix := ""
+	if sd.is_hybrid():
+		mix = " · híbrido %s + %s" % [p.class_def.build_by_id(sd.pair[0]).get("name", ""), p.class_def.build_by_id(sd.pair[1]).get("name", "")]
+	body.add_child(UiKit.label("Nível %d — %s%s · %d moeda%s por peça" % [sd.level, sd.name, mix, cost, "s" if cost > 1 else ""], 14, UiKit.GOLD if reach else Color(1.0, 0.62, 0.5)))
 	var ks := sd.bonuses.keys()
 	ks.sort()
 	var lines: Array = []
@@ -372,7 +377,7 @@ func _dialog(body: VBoxContainer) -> void:
 				var here: String = GameData.maps[Sim.home_of(p)["map"]].name
 				body.add_child(UiKit.para("Ponto de retorno atual: %s. Vincular aqui muda o destino do G e onde você renasce." % here, 12, UiKit.MUTED))
 				actions.add_child(UiKit.button("Vincular aqui", func(): Sim.bind_crystal(p, npc_id); _rebuild(), 150))
-		"board":
+		"board" when npc_id == "board":           # só o quadro de Aldara fala das faixas do Ato I
 			body.add_child(UiKit.para("Campina (Lv 1-10): fora dos portões · Floresta (Lv 10-20): desfiladeiro leste · Ruínas (Lv 20-30): passagem oeste", 11, UiKit.MUTED))
 	actions.add_child(UiKit.button("Fechar", close, 100))
 

@@ -6,9 +6,26 @@ extends Node
 
 var main: Node                    # game/main.gd
 
+## Paradas nas fortalezas: já no mapa girado (zone_lib.FORT_TURN; o desenho original tem a chegada ao sul).
 const TOURS := {
+	# Ato II, fase 1: Costa Partida, Porto Esperança e Grutas Goblin
+	"field_coast": [["ponte_costa", Vector3(-62.2, 0, 38.9)], ["encruzilhada", Vector3(4, 0, 6)], ["praia", Vector3(-12, 0, 62)], ["mae_das_mares", Vector3(4, 0, 60)], ["farol", Vector3(54, 0, 74)],
+		["santuario", Vector3(86, 0, 26)], ["ginetes", Vector3(62, 0, -50)], ["falesias", Vector3(-6, 0, -74)], ["palafitas", Vector3(-78, 0, 18)],
+		["grutas", Vector3(-70, 0, -28)], ["ponte_mangue", Vector3(-52, 0, -10)], ["chegada", Vector3(92, 0, 12)], ["passo_estepes", Vector3(28, 0, -72)]],
+	"city_port": [["chegada_navio", Vector3(-3, 0, 52)], ["praca", Vector3(0, 0, 18)], ["portao_norte", Vector3(0, 0, -30)], ["cais", Vector3(4, 0, 58)],
+		["farolete", Vector3(45, 0, 56)], ["taverna", Vector3(-21, 0, 14)], ["garganta", Vector3(40, 0, -60)],
+		["estaleiro", Vector3(-40, 0, 58)], ["hortas", Vector3(-62, 0, 2)], ["posto", Vector3(57, 0, -26)], ["portao_oeste", Vector3(-40, 0, 8)], ["garganta_costa", Vector3(-72, 0, -25)]],
+	# Ato II, fase 2: Estepes de Cinza e os três acampamentos de guerra
+	"field_steppe": [["posto_caravana", Vector3(0, 0, 4)], ["vao_oeste", Vector3(-24, 0, 0)], ["ponte_oeste", Vector3(-45, 0, -5)], ["front_trolls", Vector3(-80, 0, 2)],
+		["front_ghar", Vector3(58, 0, -32)], ["front_fogo", Vector3(66, 0, 46)], ["mamutes", Vector3(-84, 0, 52)], ["desertores", Vector3(-34, 0, -78)],
+		["totem_partido", Vector3(34, 0, -68)], ["totem_ventos", Vector3(22, 0, -58)], ["passo_kharzun", Vector3(0, 0, -92)], ["chegada_costa", Vector3(-15, 0, 88)],
+		["cabana_marfim", Vector3(-56, 0, 78)], ["ravina_leste", Vector3(96, 0, 22)]],
+	"fort_trolls": [["chegada", Vector3(90, 0, 0)], ["ponte_fenda", Vector3(44, 0, -13)], ["portao", Vector3(4, 0, 0)], ["toca", Vector3(-30, 0, 0)]],
+	"fort_fire": [["chegada", Vector3(-73.7, 0, -51.6)], ["torres", Vector3(-41, 0, -28.7)], ["portao", Vector3(-3.3, 0, -2.3)], ["pira", Vector3(27.9, 0, 19.5)]],
+	"fort_war": [["chegada", Vector3(-77.9, 0, 45)], ["posto", Vector3(-59.6, 0, -23.3)], ["portao", Vector3(-3.5, 0, 2)], ["arena", Vector3(24.2, 0, -14)]],
+	"dg_goblin": [["entrada", Vector3(0, 0, 40)], ["lamacal", Vector3(0, 0, 26)], ["forja", Vector3(-36, 0, -4)], ["tambores", Vector3(34, 0, -18)], ["selo", Vector3(0, 0, -42)]],
 	"dg_gruta": [["entrada", Vector3(0, 0, 40)], ["salao", Vector3(-20, 0, 22)], ["chefe", Vector3(8, 0, -30)]],
-	"dg_catacumbas": [["entrada", Vector3(0, 0, 40)], ["vestibulo", Vector3(0, 0, 22)], ["oeste", Vector3(-30, 0, 18)], ["capitao", Vector3(-24, 0, -32)], ["alcova", Vector3(30, 0, 40)], ["viuva", Vector3(24, 0, -32)], ["selo", Vector3(0, 0, -6)]],
+	"dg_catacumbas": [["entrada", Vector3(0, 0, 40)], ["vestibulo", Vector3(0, 0, 22)], ["oeste", Vector3(-30, 0, 18)], ["capitao", Vector3(-24, 0, -32)], ["alcova", Vector3(40, 0, 38)], ["viuva", Vector3(24, 0, -32)], ["selo", Vector3(0, 0, -6)]],
 	"dg_catacumbas_trono": [["galeria", Vector3(0, 0, 18)], ["trono", Vector3(0, 0, -14)]],
 	"dg_coracao": [["entrada", Vector3(0, 0, 40)], ["raizes", Vector3(0, 0, 24)], ["seiva", Vector3(-30, 0, -8)], ["trono", Vector3(8, 0, -40)]],
 	"dg_pedreira": [["entrada", Vector3(0, 0, 40)], ["mineiros", Vector3(0, 0, 26)], ["musgo", Vector3(-36, 0, 18)], ["ancestral", Vector3(-30, 0, -38)],
@@ -16,27 +33,28 @@ const TOURS := {
 	"dg_pedreira_coracao": [["galeria", Vector3(0, 0, 22)], ["coracao", Vector3(0, 0, -16)]],
 	"dg_ninho": [["entrada", Vector3(0, 0, 40)], ["salao", Vector3(20, 0, 22)], ["chefe", Vector3(-8, 0, -30)]],
 	"dg_cripta": [["entrada", Vector3(0, 0, 40)], ["salao", Vector3(-20, 0, 22)], ["chefe", Vector3(8, 0, -30)]],
-	"field_forest": [["cristal_posto", Vector3(-2.5, 0, -1.5)], ["herborista", Vector3(-41, 0, 38)], ["cacador", Vector3(62, 0, -14)], ["emboscada", Vector3(38, 0, 88)], ["circulo", Vector3(-27, 0, -92)], ["ninho", Vector3(-60, 0, 86)], ["pedreira", Vector3(-74, 0, -26)],
+	"field_forest": [["ponte_leste", Vector3(32.2, 0, -2)], ["cristal_posto", Vector3(-2.5, 0, -1.5)], ["herborista", Vector3(-41, 0, 38)], ["cacador", Vector3(62, 0, -14)], ["emboscada", Vector3(38, 0, 88)], ["circulo", Vector3(-27, 0, -92)], ["ninho", Vector3(-60, 0, 86)], ["pedreira", Vector3(-74, 0, -26)],
 		["hub", Vector3(0, 0, 5)], ["chegada", Vector3(-100, 0, 9)], ["ponte", Vector3(26, 0, -6)],
 		["bandidos_portao", Vector3(52, 0, -40)], ["bandidos_centro", Vector3(66, 0, -56)], ["aranhas", Vector3(-50, 0, -50)],
 		["ents", Vector3(56, 0, 54)], ["arvore_mae", Vector3(8, 0, -76)], ["pantano", Vector3(-30, 0, 66)],
 		["borda_norte", Vector3(-18, 0, -104)], ["borda_leste", Vector3(94, 0, 25)]],
-	"fort_ghoul": [["chegada", Vector3(0, 0, 90)], ["lagoa", Vector3(-14, 0, 74)], ["ninho_oeste", Vector3(-52, 0, 58)], ["ponte_oeste", Vector3(-46, 0, 38)], ["ponte_leste", Vector3(42, 0, 42)], ["ninho_leste", Vector3(50, 0, 18)], ["brecha", Vector3(0, 0, 6)], ["patio", Vector3(4, 0, -22)], ["cranio", Vector3(0, 0, -50)]],
+	"fort_ghoul": [["chegada", Vector3(90, 0, 0)], ["lagoa", Vector3(74, 0, 14)], ["ninho_oeste", Vector3(58, 0, 52)], ["ponte_oeste", Vector3(42.7, 0, 52.7)], ["ponte_leste", Vector3(38.3, 0, -42.5)], ["ninho_leste", Vector3(18, 0, -50)], ["brecha", Vector3(6, 0, 0)], ["patio", Vector3(-22, 0, -4)], ["cranio", Vector3(-50, 0, 0)]],
 	"fort_bones": [["chegada", Vector3(0, 0, 90)], ["cemiterio", Vector3(-60, 0, 84)], ["ponte_ossos", Vector3(-6, 0, 50)], ["cripta_oeste", Vector3(-50, 0, 66)], ["cripta_leste", Vector3(52, 0, 16)], ["patamar", Vector3(-20, 0, 0)], ["portao", Vector3(0, 0, 4)], ["patio", Vector3(4, 0, -22)]],
-	"fort_frost": [["chegada", Vector3(0, 0, 90)], ["lago", Vector3(-12, 0, 56)], ["navio", Vector3(-30, 0, 84)], ["acamp_oeste", Vector3(-54, 0, 40)], ["acamp_leste", Vector3(52, 0, 30)], ["ponte_gelo", Vector3(0, 0, 10)], ["patio", Vector3(4, 0, -22)]],
-	"lich_citadel": [["chegada", Vector3(0, 0, 88)], ["portao_cidade", Vector3(-4, 0, 66)], ["avenida", Vector3(-4, 0, 44)], ["rua_oeste", Vector3(-54, 0, 40)],
-		["posto_oeste", Vector3(-62, 0, 28)], ["posto_leste", Vector3(60, 0, 18)], ["ossuario", Vector3(4, 0, 16)], ["anel_leste", Vector3(46, 0, -16)],
-		["portao_palacio", Vector3(0, 0, 2)], ["trono", Vector3(4, 0, -26)], ["cemiterio", Vector3(-36, 0, -70)]],
-	"field_ruins": [["front_oeste", Vector3(-84, 0, -6)], ["torre", Vector3(-66, 0, 24)], ["praca_catedral", Vector3(0, 0, 18)], ["mercado", Vector3(26, 0, 30)], ["quartel", Vector3(-26, 0, -30)], ["portao_oeste", Vector3(-46, 0, 0)],
+	"fort_frost": [["chegada", Vector3(0, 0, -90)], ["lago", Vector3(12, 0, -56)], ["navio", Vector3(30, 0, -84)], ["acamp_oeste", Vector3(54, 0, -40)], ["acamp_leste", Vector3(-52, 0, -30)], ["ponte_gelo", Vector3(0, 0, -10)], ["patio", Vector3(-4, 0, 22)]],
+	"lich_citadel": [["chegada", Vector3(-58.9, 0, 65.4)], ["portao_cidade", Vector3(-47.1, 0, 46.4)], ["avenida", Vector3(-32.4, 0, 30)], ["rua_oeste", Vector3(-66.9, 0, -6.4)],
+		["posto_oeste", Vector3(-64.8, 0, -20.7)], ["posto_leste", Vector3(32.5, 0, 53.5)], ["ossuario", Vector3(-7.7, 0, 14.6)], ["anel_leste", Vector3(44.9, 0, 18.9)],
+		["portao_palacio", Vector3(-1.3, 0, 1.5)], ["trono", Vector3(20.4, 0, -16.6)], ["cemiterio", Vector3(20.1, 0, -76.1)]],
+	"field_ruins": [["cais_bren", Vector3(86, 0, -22)], ["front_oeste", Vector3(-78, 0, -13)], ["torre", Vector3(-66, 0, 24)], ["praca_catedral", Vector3(0, 0, 18)], ["mercado", Vector3(26, 0, 30)], ["quartel", Vector3(-26, 0, -30)], ["portao_oeste", Vector3(-46, 0, 0)],
 		["portao_norte", Vector3(0, 0, -46)], ["portao_sul", Vector3(0, 0, 46)], ["front_carnical", Vector3(-76, 0, -6)], ["front_ossos", Vector3(8, 0, -80)],
 		["front_gelo", Vector3(-6, 0, 80)], ["cripta", Vector3(20, 0, -80)], ["chegada", Vector3(94, 0, -5)], ["dragonete", Vector3(64, 0, 44)], ["capela", Vector3(90, 0, 18)],
 		["ninho", Vector3(-66, 0, 36)], ["coveiro", Vector3(70, 0, -32)]],
 	"elf_city": [["praca_arvore", Vector3(12, 0, 14)], ["mercado", Vector3(30, 0, 30)], ["quartel", Vector3(40, 0, -20)], ["jardim", Vector3(-30, 0, 30)],
 		["anel_externo", Vector3(-42, 0, -4)], ["casas_norte", Vector3(-6, 0, -46)], ["portao_sul", Vector3(0, 0, 66)], ["chegada", Vector3(0, 0, 92)],
 		["forte_matilha", Vector3(16, 0, -76)], ["forte_ninho", Vector3(-40, 0, -68)], ["forte_seiva", Vector3(76, 0, 14)], ["bosque", Vector3(60, 0, -50)],
-		["poco", Vector3(-84, 0, 18)], ["cerco", Vector3(30, 0, 74)]],
+		["poco", Vector3(-90, 0, 8)], ["cerco", Vector3(30, 0, 74)],
+		["ponte_oeste", Vector3(-80.9, 0, 1.7)], ["ponte_sudoeste", Vector3(-53.1, 0, 83.6)], ["margem_oeste", Vector3(-76, 0, 60)]],
 }
-const TOUR := [["anciao", Vector3(2, 0, -8)], ["lenhador", Vector3(-92, 0, -46)], ["eremita", Vector3(47, 0, 96)], ["covil", Vector3(-20, 0, -48)], ["marco", Vector3(-54, 0, 78)], ["gruta", Vector3(84, 0, -29)],
+const TOUR := [["ponte_lago", Vector3(-15.5, 0, 70)], ["anciao", Vector3(2, 0, -8)], ["lenhador", Vector3(-92, 0, -46)], ["eremita", Vector3(47, 0, 96)], ["covil", Vector3(-20, 0, -48)], ["marco", Vector3(-54, 0, 78)], ["gruta", Vector3(84, 0, -29)],
 	["hub", Vector3(0, 0, 4)], ["portao_sul", Vector3(0, 0, 38)], ["lago", Vector3(6, 0, 58)],
 	["bosque", Vector3(66, 0, 8)], ["colinas", Vector3(-4, 0, -68)], ["clareira", Vector3(-70, 0, 26)],
 	["castelo", Vector3(28, 0, -38)], ["ponte", Vector3(-47, 0, 9)], ["fazenda", Vector3(-48, 0, 58)],
@@ -51,6 +69,10 @@ var _tour_dir := ""          # --tour=<pasta>: screenshots pelos POIs da zona e 
 var _tour_i := 0
 var _tour_t := 0.0
 var _tour_map := "city_aldara"
+var _water_dir := ""         # --water_tour=<pasta>: foto da água em vários mapas (rio, ponte, lago, mar...) e sai
+var _water_i := 0
+var _water_t := 0.0
+var _tour_k := 0                         # foto da parada atual (--tour_seq)
 var showcase: Showcase = null     # --showcase=<classe|all> [--skill=<id>] --out=<pasta> [--check]: bancada de skills
 var _playtest_dir := ""
 var _playtest: Playtest = null
@@ -77,6 +99,9 @@ func before_start(returning: bool) -> String:
 	_tour_map = DevArgs.value("--tour_map", _tour_map)
 	if DevArgs.flag("--tour"):
 		_tour_dir = DevArgs.value("--tour")
+		autostart = "paladin"
+	if DevArgs.flag("--water_tour"):
+		_water_dir = DevArgs.value("--water_tour")
 		autostart = "paladin"
 	if DevArgs.has("--autostart") or DevArgs.flag("--autostart"):
 		autostart = DevArgs.value("--autostart", "paladin")
@@ -164,6 +189,8 @@ func after_start() -> void:
 		MapBuilder.apply_conquest(main.map_node)
 	if DevArgs.has("--mount"):      # começa a cavalo (revisar a montaria)
 		Sim.player.mounted = true
+	if DevArgs.has("--ascend") and not DevArgs.flag("--bag_shot"):     # ascendido (nível 35 ou --level): teias gastas como bot, barra de 10
+		_ascend_player()
 	if DevArgs.has("--loot_demo"):  # amostra de drops ao lado do jogador (revisar o baú)
 		_smoke_test = false
 		_loot_demo()
@@ -193,6 +220,9 @@ func after_start() -> void:
 	if DevArgs.flag("--elf_shot"):      # --elf_shot=<png>: leva élfica parada ao lado do jogador (batedor, batedor com arco, mago, lince, grifo, espírito)
 		_smoke_test = false
 		_elf_shot(DevArgs.value("--elf_shot"))
+	if DevArgs.flag("--aura_shot"):     # --aura_shot=<png>: bando da Horda com Agitador ao lado do jogador (anel do raio da aura no chão, buffados marcados)
+		_smoke_test = false
+		_aura_shot(DevArgs.value("--aura_shot"))
 	if DevArgs.flag("--quest_shot"):    # --quest_shot=<png>: seta amarela do minimapa (objetivo neste mapa / noutro mapa) e sai
 		_smoke_test = false
 		_quest_shot(DevArgs.value("--quest_shot"))
@@ -202,6 +232,24 @@ func after_start() -> void:
 	if DevArgs.flag("--buff_shot"):     # --buff_shot=<pasta> [--only=<id>,...] [--close]: cada buff num boneco (ao lado de um sem buff), câmera do jogo
 		_smoke_test = false
 		_buff_shot(DevArgs.value("--buff_shot"), DevArgs.value("--only"))
+	if DevArgs.flag("--spot_shot"):     # --spot_shot=<png> --spot=<mapa>:<x>,<z> [--dist=14] [--wait=3] [--hide] [--form=<forma>]: foto de um ponto do mapa (adereços, vida)
+		_smoke_test = false
+		_spot_shot.call_deferred(DevArgs.value("--spot_shot"))
+	if DevArgs.flag("--ride_shot"):     # --ride_shot=<pasta>: Paladino ascendido a cavalo: básico, Carga, Pisotear e Modo Arcano (asas)
+		_smoke_test = false
+		_ride_shot(DevArgs.value("--ride_shot"))
+	if DevArgs.flag("--choir_shot"):    # --choir_shot=<png>: Bispo ascendido: Barreira Sagrada + Anjo Guardião (_cupula) e a bênção (_bencao)
+		_smoke_test = false
+		_choir_shot.call_deferred(DevArgs.value("--choir_shot"))
+	if DevArgs.flag("--asc_shot"):      # --asc_shot=<png>: Ranger ascendido: torreta (_torreta) e Salto Dracônico (_salto, _queda); Assassino: clone (_clone, _golpe) e Execução (_execucao)
+		_smoke_test = false
+		_asc_shot.call_deferred(DevArgs.value("--asc_shot"))
+	if DevArgs.flag("--lord_shot"):     # --lord_shot=<png>: Necromante ascendido: Pacto + Miasma (_miasma), Marca da Cova (_cova), Forma de Lich (_lich)
+		_smoke_test = false
+		_lord_shot.call_deferred(DevArgs.value("--lord_shot"))
+	if DevArgs.flag("--falcon_shot"):   # --falcon_shot=<png>: Caçador ascendido: falcão planando (_falcao), mergulho (_mergulho) e Revoada (_revoada)
+		_smoke_test = false
+		_falcon_shot.call_deferred(DevArgs.value("--falcon_shot"))
 	if DevArgs.flag("--buff_cast"):     # --buff_cast=<skill_id> [--buff_hold]: o jogador lança o buff no início (com --buff_hold dura até o --screenshot)
 		_cast_buff_at_start.call_deferred(DevArgs.value("--buff_cast"))
 
@@ -232,7 +280,9 @@ func tick(delta: float) -> void:
 		return
 	if _soak_left > 0.0:
 		_soak(delta)
-	if _tour_dir != "":
+	if _water_dir != "":
+		_water_tour(delta)
+	elif _tour_dir != "":
 		_tour(delta)
 	elif _smoke_test:
 		_smoke(delta)
@@ -347,6 +397,36 @@ func _elf_shot(path: String) -> void:
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(path)
 	print("ELF_SHOT " + path)
+	get_tree().quit()
+
+## Bando com Agitador parado (e o Agitador-Mor mais longe): anel do raio no chão, quem está dentro com a marca do buff
+## e um de fora sem ela. Fotos <png> (Agitador) e <png>_boss.png (Agitador-Mor).
+func _aura_shot(path: String) -> void:
+	var p: SimEntity = Sim.player
+	p.brain = null
+	Sim._change_map(p, "field_coast", Vector3(4, 0, 6))
+	await get_tree().create_timer(1.0).timeout
+	for e in Sim.map_entities("field_coast").duplicate():
+		if e.kind == SimEntity.Kind.MONSTER:
+			Sim.despawn(e)
+	Sim.maps["field_coast"]["spawners"].clear()
+	var shots := [["goblin_agitator", Vector3(0, 0, -7), path], ["boss_agitator_lord", Vector3(60, 0, -9), path.replace(".png", "_boss.png")]]
+	for sh in shots:
+		var c: Vector3 = p.position + sh[1]
+		var reach := FxManager.mob_aura_reach(GameData.monsters[sh[0]])
+		var pack := [[sh[0], Vector3.ZERO], ["goblin_lancer", Vector3(-3, 0, 2)], ["goblin_lancer", Vector3(3.5, 0, 1.5)], ["orc_recruit", Vector3(0, 0, 4)],
+			["goblin_impaler", Vector3(-reach * 0.8, 0, -1)], ["goblin_lancer", Vector3(reach + 2.5, 0, 2)]]      # o último fica fora do raio
+		for it in pack:
+			var e := Sim.spawn_monster(GameData.monsters[it[0]], "field_coast", c + it[1])
+			e.brain = null
+			e.facing = 0.0
+	main.camera.distance = main.camera.max_distance
+	for sh in shots:
+		p.position = p.position + Vector3(sh[1].x, 0, 0)
+		await get_tree().create_timer(2.5).timeout
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png(sh[2])
+		print("AURA_SHOT " + str(sh[2]))
 	get_tree().quit()
 
 ## Fotos da seta da quest: rastreia uma quest com alvo neste mapa (<png>_aqui.png) e outra noutro mapa
@@ -584,6 +664,422 @@ func _buff_crop(at: Vector3) -> Image:
 	r = r.intersection(Rect2i(0, 0, img.get_width(), img.get_height()))
 	return img.get_region(r)
 
+## --ascend: o jogador ascendido (nível >= ASC_LEVEL, missão hx_asc_<classe>), com a teia comum e a de ascensão gastas como
+## um bot da build e a barra de 10 montada (7-0 = ascensão). Revisar a barra e a aba Ascensão da janela K.
+func _ascend_player() -> void:
+	var ap: SimEntity = Sim.player
+	ap.level = maxi(ap.level, Balance.ASC_LEVEL)
+	if ap.build_id == "" and not ap.class_def.builds.is_empty():
+		ap.build_id = ap.class_def.builds[int(DevArgs.value("--build_i", "0"))]["id"]
+	if not ap.quests_completed.has("hx_asc_" + ap.class_def.id):
+		ap.quests_completed.append("hx_asc_" + ap.class_def.id)
+	if not DevArgs.flag("--level"):
+		ProgressionSystem.bot_spend(Sim, ap, true)
+	ProgressionSystem.bot_spend_asc(Sim, ap)
+	Sim._slot_bot(ap)
+	ap.recompute_stats()
+	ap.heal_full()
+	Events.equipment_changed.emit(ap.id)
+
+## --spot_shot=<png>: leva o jogador (parado) a um ponto de um mapa e fotografa com a câmera do jogo. Revisar adereços de
+## zona, NPCs que carregam carga, rebanho; --form=<forma> põe o jogador na forma (ex.: lich) antes da foto.
+func _spot_shot(path: String) -> void:
+	var p: SimEntity = Sim.player
+	p.brain = null
+	var spot := DevArgs.value("--spot", "city_aldara:0,0")
+	var xz := spot.get_slice(":", 1).split(",")
+	Sim._change_map(p, spot.get_slice(":", 0), Vector3(float(xz[0]), 0, float(xz[1])))
+	main.camera.distance = float(DevArgs.value("--dist", "14"))
+	if DevArgs.flag("--form"):
+		Sim._apply_effects(p, p, {"form": DevArgs.value("--form")}, 1.0)
+	await get_tree().create_timer(1.0).timeout
+	Sim.sync()
+	p.position = Vector3(float(xz[0]), 0, float(xz[1]))
+	p.stats.max_hp = 1.0e9
+	p.hp = 1.0e9
+	if DevArgs.has("--hide") and main.views.has(p.id):
+		main.views[p.id].visible = false
+	await get_tree().create_timer(float(DevArgs.value("--wait", "3"))).timeout
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(path)
+	print("SPOT_SHOT %s %s draws=%d" % [spot, path, int(RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME))])
+	get_tree().quit()
+
+## --ride_shot=<pasta>: Combate Montado (ascensão do Paladino). Um bot paladino ascendido a cavalo, de 3/4 para a câmera,
+## golpeia um boneco: fotos no impacto do básico, da Carga Montada e do Pisotear, e do Modo Arcano (desce, rajada, asas).
+## Por último a Muralha a Cavalo (escudo erguido; --shield_turn=<graus> gira o inimigo a partir da câmera) e sai.
+func _ride_shot(dir: String) -> void:
+	DirAccess.make_dir_recursive_absolute(dir)
+	var p: SimEntity = Sim.player
+	p.brain = null
+	Sim._change_map(p, "city_aldara", Vector3(4, 0, 34))
+	main.camera.distance = 11.0
+	await get_tree().create_timer(1.2).timeout
+	Sim.sync()
+	if main.views.has(p.id):
+		main.views[p.id].model_root.visible = false
+		main.views[p.id].nameplate.visible = false
+	var r: SimEntity = Sim.spawn_bot(GameData.classes["paladin"], "Cavaleiro", p.map_id, p.position + Vector3(-1.5, 0, 0), 30)
+	r.brain = null
+	r.level = Balance.ASC_LEVEL
+	r.quests_completed.append("hx_asc_paladin")
+	for sid in ProgressionSystem.ascension_skills(r):
+		r.learned[sid] = true
+	r.ensure_slots()
+	for i in 3:
+		r.skills[Balance.SKILL_SLOTS + i] = GameData.skills[["pal_mounted_charge", "pal_trample", "pal_arcane_mode"][i]]     # barra 7-9
+	r.recompute_stats()
+	r.heal_full()
+	r.mounted = true
+	var dummy: SimEntity = Sim.spawn_monster(GameData.monsters["slime"], p.map_id, r.position + Vector3(2.4, 0, 0.6))
+	dummy.brain = null
+	dummy.stats.max_hp = 1.0e9
+	dummy.hp = 1.0e9
+	r.face_towards(dummy.position)
+	var home: Vector3 = r.position
+	await get_tree().create_timer(1.0).timeout
+	var shots: Array = []
+	for step in [["basico", -1], ["pisotear", 1], ["carga", 0], ["asas", 2]]:
+		Sim.sync()
+		r.set_state(SimEntity.State.IDLE)
+		r.current_skill = null
+		r.cooldowns.clear()
+		r.mp = r.stats.max_mp
+		r.position = home
+		dummy.position = home + (Vector3(7.0, 0, 0.6) if step[0] == "carga" else Vector3(2.4, 0, 0.6))
+		r.face_towards(dummy.position)
+		var startup := 0.15
+		if int(step[1]) < 0:
+			var bs: SkillDef = MountedCombat.mounted_basic(Sim, r.basic_skill)
+			Sim._start_skill(r, bs, -1, dummy.position)
+			startup = bs.startup
+		else:
+			Sim.try_cast(r, Balance.SKILL_SLOTS + int(step[1]), dummy.position, Sim.maps[r.map_id])
+			startup = r.current_skill.startup if r.current_skill else 0.15
+		await get_tree().create_timer(maxf(0.05, startup * 0.9) if step[0] != "asas" else 0.9).timeout
+		await RenderingServer.frame_post_draw
+		var img := _buff_crop(r.position)
+		img.save_png(dir.path_join("montado_%s.png" % step[0]))
+		shots.append(img)
+		print("RIDE_SHOT %s montado=%s asas=%s pos=%s img=%dx%d" % [step[0], str(r.mounted), str(Sim.arcane_on(r)), str(r.position), img.get_width(), img.get_height()])
+		await get_tree().create_timer(0.6).timeout
+		Sim.sync()
+		if step[0] != "asas":
+			r.mounted = true
+	# Muralha a Cavalo (Guardião 45): escudo erguido na sela
+	Sim.sync()
+	MountedCombat.arcane_off(Sim, r, "")
+	r.build_id = "guardiao"
+	Sim._gear_bot(r)
+	r.recompute_stats()
+	r.set_state(SimEntity.State.IDLE)
+	r.current_skill = null
+	r.position = home
+	r.mounted = true
+	# o escudo encara o inimigo: com o inimigo de lado para a câmera ele aparece de perfil (fino). Inimigo a 3/4 entre
+	# a câmera e o lado, para a face do escudo aparecer por cima do pescoço do cavalo.
+	var to_cam: Vector3 = main.camera.cam.global_position - home
+	to_cam.y = 0.0
+	dummy.position = home + to_cam.normalized().rotated(Vector3.UP, deg_to_rad(float(DevArgs.value("--shield_turn", "-35")))) * 2.6
+	r.face_towards(dummy.position)
+	r.is_blocking = true
+	r.set_state(SimEntity.State.BLOCKING)
+	await get_tree().create_timer(0.8).timeout
+	await RenderingServer.frame_post_draw
+	var bimg := _buff_crop(r.position)
+	bimg.save_png(dir.path_join("montado_escudo.png"))
+	shots.append(bimg)
+	print("RIDE_SHOT escudo montado=%s bloqueando=%s escudo=%s" % [str(r.mounted), str(r.is_blocking), str(r.stats.has_shield)])
+	if shots.size() > 1:
+		var w: int = shots[0].get_width()
+		var h: int = shots[0].get_height()
+		var sheet := Image.create(w * shots.size(), h, false, shots[0].get_format())
+		for i in shots.size():
+			sheet.blit_rect(shots[i], Rect2i(0, 0, mini(w, shots[i].get_width()), mini(h, shots[i].get_height())), Vector2i(i * w, 0))
+		sheet.save_png(dir.path_join("montado_folha.png"))
+	print("RIDE_SHOT_END %d" % shots.size())
+	get_tree().quit()
+## Ascensão do Bispo (Ato II, Coro Celeste): ascende o jogador com dois aliados de grupo e um boneco inimigo, chama o
+## Anjo Guardião, ergue a Barreira Sagrada e fotografa; depois lança as bênçãos e fotografa. Sai no fim.
+func _choir_shot(path: String) -> void:
+	await get_tree().create_timer(1.0).timeout
+	Sim.sync()
+	var p := Sim.player
+	p.level = maxi(p.level, Balance.RES_LEVEL)
+	if not p.quests_completed.has("hx_asc_bishop"):
+		p.quests_completed.append("hx_asc_bishop")
+	var m: Dictionary = Sim.maps[p.map_id]
+	var def: MapDef = m["def"]
+	p.position = MapGeometry.random_walkable(Sim, def, def.town_center + Vector3(-9, 0, 9), 1.0)
+	p.facing = PI * 0.75
+	var fwd := p.forward()
+	var side := Vector3(-fwd.z, 0, fwd.x)
+	var mates: Array = []
+	for row in [["paladin", "guardiao", fwd * 3.0 + side * 1.5], ["berserker", "carniceiro", fwd * 2.0 - side * 2.0]]:
+		var b := Sim.spawn_bot(GameData.classes[row[0]], "Aliado", p.map_id, p.position + row[2], 35)
+		b.brain = null
+		b.hp = b.stats.max_hp * 0.45
+		b.facing = p.facing
+		Sim.party_invite(p, b)
+		Sim.party_accept(b)
+		mates.append(b)
+	var d := Sim.spawn_monster(GameData.monsters["golem"], p.map_id, p.position + fwd * 9.0)
+	d.brain = null
+	d.stats.max_hp = 1.0e7
+	d.hp = d.stats.max_hp
+	p.ensure_slots()
+	var ids := ["bis_choir_angel", "bis_choir_barrier", "bis_choir_wings", "bis_choir_aegis"]
+	for i in ids.size():
+		p.learned[ids[i]] = true              # (sem teia de ascensão comprada: só a foto)
+		p.skills[Balance.SKILL_SLOTS + i] = GameData.skills[ids[i]]
+	p.mp = p.stats.max_mp
+	p.cooldowns.clear()
+	await get_tree().create_timer(0.4).timeout
+	Sim.sync()
+	print("CHOIR_SHOT anjo cast=%s" % str(Sim.try_cast(p, Balance.SKILL_SLOTS, p.position, m)))
+	await get_tree().create_timer(1.0).timeout
+	Sim.sync()
+	print("CHOIR_SHOT barreira cast=%s" % str(Sim.try_cast(p, Balance.SKILL_SLOTS + 1, p.position + fwd * 2.0, m)))
+	await get_tree().create_timer(2.0).timeout
+	Sim.sync()
+	print("CHOIR_SHOT anjos=%d cupulas=%d" % [ChoirSystem.angels_of(Sim, p).size(), ChoirSystem.barriers(m).size()])
+	get_viewport().get_texture().get_image().save_png(path.trim_suffix(".png") + "_cupula.png")
+	for i in [2, 3]:
+		Sim.sync()
+		p.mp = p.stats.max_mp
+		print("CHOIR_SHOT bencao cast=%s" % str(Sim.try_cast(p, Balance.SKILL_SLOTS + i, p.position, m)))
+		await get_tree().create_timer(0.9).timeout
+	get_viewport().get_texture().get_image().save_png(path.trim_suffix(".png") + "_bencao.png")
+	print("CHOIR_SHOT done")
+	get_tree().quit()
+
+## Ascensão do Ranger (Ato II): ascende o jogador, monta a torreta perto de dois bonecos e fotografa; depois troca para a
+## lança, salta e fotografa no alto e no pouso. Sai no fim.
+func _asc_shot(path: String) -> void:
+	await get_tree().create_timer(1.0).timeout
+	Sim.sync()
+	var p := Sim.player
+	if p.class_def.id == "assassin":
+		_asc_shot_assassin(path)
+		return
+	p.level = maxi(p.level, Balance.ASC_LEVEL)
+	if not p.quests_completed.has("hx_asc_ranger"):
+		p.quests_completed.append("hx_asc_ranger")
+	var m: Dictionary = Sim.maps[p.map_id]
+	var def: MapDef = m["def"]
+	p.position = MapGeometry.random_walkable(Sim, def, def.town_center + Vector3(-9, 0, 9), 1.0)     # praça aberta, longe de porta/portal
+	p.facing = PI * 0.75
+	var fwd := p.forward()
+	var dummies: Array = []
+	for off in [Vector3(-1.5, 0, 0), Vector3(1.5, 0, 0)]:
+		var d := Sim.spawn_monster(GameData.monsters["golem"], p.map_id, p.position + fwd * 9.0 + off)
+		d.brain = null
+		d.stats.max_hp = 1.0e7
+		d.hp = d.stats.max_hp
+		dummies.append(d)
+	var shots := {"rifle": ["ran_turret", fwd * 3.5 + Vector3(-2.0, 0, 0)], "spear": ["ran_dragon_jump", fwd * 7.5]}
+	for w in ["rifle", "spear"]:
+		Sim.sync()
+		var it: ItemDef = GameData.items.get(w + "_t3", GameData.items.get(w + "_t0"))
+		p.equipment[ItemDef.Slot.WEAPON] = it
+		p.equipment.erase(ItemDef.Slot.OFFHAND)
+		p.recompute_stats()
+		p.hp = p.stats.max_hp
+		p.mp = p.stats.max_mp
+		Events.equipment_changed.emit(p.id)
+		await get_tree().create_timer(0.5).timeout
+		Sim.sync()
+		var sid: String = shots[w][0]
+		p.ensure_slots()
+		p.learned[sid] = true                 # (sem teia de ascensão comprada: só a foto)
+		p.skills[Balance.SKILL_SLOTS] = GameData.skills[sid]     # vaga 7: só skills de ascensão
+		p.cooldowns.clear()
+		var ok := Sim.try_cast(p, Balance.SKILL_SLOTS, p.position + shots[w][1], m)
+		print("ASC_SHOT %s cast=%s" % [sid, str(ok)])
+		if sid == "ran_turret":
+			await get_tree().create_timer(2.2).timeout
+			get_viewport().get_texture().get_image().save_png(path.trim_suffix(".png") + "_torreta.png")
+		else:
+			var s: SkillDef = GameData.skills[sid]
+			while p.sky_left <= 0.0 or p.state_time < s.startup + s.active * 0.3:
+				await get_tree().process_frame
+			get_viewport().get_texture().get_image().save_png(path.trim_suffix(".png") + "_salto.png")
+			while p.sky_left > 0.0:
+				await get_tree().process_frame
+			await get_tree().create_timer(0.08).timeout
+			get_viewport().get_texture().get_image().save_png(path.trim_suffix(".png") + "_queda.png")
+	print("ASC_SHOT done")
+	get_tree().quit()
+
+## Ascensão do Necromante (Senhor dos Mortos): ascende o jogador (45), ergue cães, lança o Pacto e o Miasma em dois bonecos
+## (_miasma), marca e derruba um bando de lobos (_cova) e entra na Forma de Lich (_lich).
+func _lord_shot(path: String) -> void:
+	await get_tree().create_timer(1.0).timeout
+	Sim.sync()
+	var p := Sim.player
+	p.brain = null
+	p.level = maxi(p.level, Balance.ASC_MAX_LEVEL)
+	if not p.quests_completed.has("hx_asc_necromancer"):
+		p.quests_completed.append("hx_asc_necromancer")
+	p.recompute_stats()
+	p.heal_full()
+	var m: Dictionary = Sim.maps[p.map_id]
+	var def: MapDef = m["def"]
+	p.position = MapGeometry.random_walkable(Sim, def, def.town_center + Vector3(-9, 0, 9), 1.0)
+	p.facing = PI * 0.75
+	var fwd := p.forward()
+	var side := Vector3(fwd.z, 0, -fwd.x)
+	for off in [-1.5, 1.5]:
+		var d := Sim.spawn_monster(GameData.monsters["golem"], p.map_id, p.position + fwd * 6.0 + side * off)
+		d.brain = null
+		d.stats.max_hp = 1.0e7
+		d.hp = d.stats.max_hp
+	var base := path.trim_suffix(".png")
+	var cast := func(sid: String, aim: Vector3) -> void:
+		Sim.sync()
+		p.learned[sid] = true                 # (sem teia comprada: só a foto)
+		p.skill_aim = aim
+		p.face_towards(aim)
+		Sim._apply_skill(p, Sim.resolve_skill(p, GameData.skills[sid]), m)
+	cast.call("nec_bone_hound", p.position + fwd)
+	cast.call("nec_bone_hound", p.position + fwd)
+	await get_tree().create_timer(0.8).timeout
+	cast.call("nec_asc_pact", p.position + fwd)
+	cast.call("nec_asc_miasma", p.position + fwd * 6.0)
+	await get_tree().create_timer(1.6).timeout
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(base + "_miasma.png")
+	print("LORD_SHOT miasma invocações=%d nuvem=%s" % [NecroAscension.minions_of(Sim, p).size(), str(not NecroAscension.miasma_of(Sim, p).is_empty())])
+	Sim.sync()
+	var wolves: Array = []
+	for i in range(3):
+		var w := Sim.spawn_monster(GameData.monsters["wolf"], p.map_id, p.position + side * 5.0 + fwd * (1.2 * i))
+		w.brain = null
+		wolves.append(w)
+	await get_tree().create_timer(0.4).timeout
+	cast.call("nec_asc_grave_mark", p.position + side * 5.0 + fwd * 1.2)
+	await get_tree().create_timer(0.5).timeout
+	Sim.sync()
+	for w in wolves:
+		Sim._deal_damage(p, w, int(w.stats.max_hp) + 10, false, false, "magical")
+	await get_tree().create_timer(1.0).timeout
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(base + "_cova.png")
+	print("LORD_SHOT cova erguidos=%d" % NecroAscension.graves_of(Sim, p).size())
+	Sim.sync()
+	Sim._apply_effects(p, p, {"form": "lich"}, 1.0)
+	cast.call("nec_bone_hound", p.position + fwd)
+	await get_tree().create_timer(1.6).timeout
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(base + "_lich.png")
+	print("LORD_SHOT lich forma=%s invocações=%d" % [p.form, NecroAscension.minions_of(Sim, p).size()])
+## Ascensão do Assassino (Sombras Gêmeas): ascende o jogador, chama o clone ao lado de um boneco (_clone), golpeia com o
+## clone repetindo (_golpe) e executa o boneco abaixo de 25% (_execucao). Sai no fim.
+func _asc_shot_assassin(path: String) -> void:
+	var p := Sim.player
+	p.level = maxi(p.level, Balance.ASC_LEVEL)
+	if not p.quests_completed.has("hx_asc_assassin"):
+		p.quests_completed.append("hx_asc_assassin")
+	var m: Dictionary = Sim.maps[p.map_id]
+	var def: MapDef = m["def"]
+	p.position = MapGeometry.random_walkable(Sim, def, def.town_center + Vector3(2, 0, 7), 0.5)      # praça aberta, à frente do chafariz
+	p.facing = PI * 0.75
+	var d := Sim.spawn_monster(GameData.monsters["golem"], p.map_id, p.position + p.forward() * 1.7)
+	d.brain = null
+	d.stats.max_hp = 1.0e6
+	d.hp = d.stats.max_hp
+	p.ensure_slots()
+	var i := 0
+	for sid in [Balance.SHADOW_SKILL, Balance.EXECUTION_SKILL]:
+		p.learned[sid] = true                 # (sem teia de ascensão comprada: só a foto)
+		p.skills[Balance.SKILL_SLOTS + i] = GameData.skills[sid]
+		i += 1
+	p.cooldowns.clear()
+	p.mp = p.stats.max_mp
+	print("ASC_SHOT %s cast=%s" % [Balance.SHADOW_SKILL, str(Sim.try_cast(p, Balance.SKILL_SLOTS, d.position, m))])
+	await get_tree().create_timer(0.9).timeout
+	get_viewport().get_texture().get_image().save_png(path.trim_suffix(".png") + "_clone.png")
+	Sim.sync()
+	var c := ShadowSystem.clone_of(Sim, p)
+	Sim._start_skill(p, p.basic_skill, -1, d.position)
+	var guard := 0
+	while c != null and guard < 240 and not (c.state == SimEntity.State.CASTING and c.skill_applied):
+		guard += 1
+		await get_tree().process_frame
+	await get_tree().create_timer(0.05).timeout
+	get_viewport().get_texture().get_image().save_png(path.trim_suffix(".png") + "_golpe.png")
+	await get_tree().create_timer(0.5).timeout
+	Sim.sync()
+	d.hp = d.stats.max_hp * 0.2
+	p.mp = p.stats.max_mp
+	print("ASC_SHOT %s cast=%s" % [Balance.EXECUTION_SKILL, str(Sim.try_cast(p, Balance.SKILL_SLOTS + 1, d.position, m))])
+	await get_tree().create_timer(GameData.skills[Balance.EXECUTION_SKILL].startup + 0.12).timeout
+	get_viewport().get_texture().get_image().save_png(path.trim_suffix(".png") + "_execucao.png")
+	print("ASC_SHOT done")
+	get_tree().quit()
+
+## Ascensão do Caçador (Falcoeiro): ascende o jogador com arco, chama o falcão e fotografa planando, no meio de um
+## Mergulho e na Revoada (Olhos do Céu com o refino 45). Sai no fim.
+func _falcon_shot(path: String) -> void:
+	await get_tree().create_timer(1.0).timeout
+	Sim.sync()
+	var p := Sim.player
+	p.level = Balance.ASC_MAX_LEVEL
+	if not p.quests_completed.has("hx_asc_ranger"):
+		p.quests_completed.append("hx_asc_ranger")
+	var m: Dictionary = Sim.maps[p.map_id]
+	var def: MapDef = m["def"]
+	p.position = MapGeometry.random_walkable(Sim, def, def.town_center + Vector3(-5, 0, 5), 1.0)
+	p.facing = PI * 1.25
+	var fwd := p.forward()
+	p.equipment[ItemDef.Slot.WEAPON] = GameData.items.get("bow_dragon", GameData.items.get("bow_short"))
+	p.equipment.erase(ItemDef.Slot.OFFHAND)
+	p.recompute_stats()
+	p.heal_full()
+	Events.equipment_changed.emit(p.id)
+	var dummies: Array = []
+	for off in [Vector3(-2.5, 0, 0), Vector3(0, 0, 0), Vector3(2.5, 0, 0)]:
+		var d := Sim.spawn_monster(GameData.monsters["golem"], p.map_id, p.position + fwd * 7.0 + off)
+		d.brain = null
+		d.stats.max_hp = 1.0e7
+		d.hp = d.stats.max_hp
+		d.aggro_target = p.id
+		dummies.append(d)
+	p.ensure_slots()
+	var ids := ["ran_falcon", "ran_dive", "ran_sky_eyes"]
+	for i in range(ids.size()):
+		p.learned[ids[i]] = true              # (sem teia de ascensão comprada: só a foto)
+		p.skills[Balance.SKILL_SLOTS + i] = GameData.skills[ids[i]]
+	p.asc_tree["ranger_a_x_falcon_flock"] = true
+	p.cooldowns.clear()
+	await get_tree().create_timer(0.5).timeout
+	Sim.sync()
+	p.mp = p.stats.max_mp
+	print("FALCON_SHOT chamado=%s" % str(Sim.try_cast(p, Balance.SKILL_SLOTS, p.position, m)))
+	await get_tree().create_timer(1.6).timeout
+	get_viewport().get_texture().get_image().save_png(path.trim_suffix(".png") + "_falcao.png")
+	Sim.sync()
+	p.falcon_cd = 99.0                        # só os mergulhos pedidos aparecem
+	print("FALCON_SHOT mergulho=%s" % str(Sim.try_cast(p, Balance.SKILL_SLOTS + 1, dummies[1].position, m)))
+	var guard := 0
+	while p.falcon_dive_pos.is_empty() and guard < 240:
+		guard += 1
+		await get_tree().process_frame
+	await get_tree().create_timer(Balance.FALCON_DIVE_SHOW * 0.3).timeout
+	get_viewport().get_texture().get_image().save_png(path.trim_suffix(".png") + "_mergulho.png")
+	await get_tree().create_timer(1.5).timeout
+	Sim.sync()
+	var seen := p.falcon_dive_time
+	print("FALCON_SHOT olhos=%s" % str(Sim.try_cast(p, Balance.SKILL_SLOTS + 2, p.position, m)))
+	guard = 0
+	while p.falcon_dive_time == seen and guard < 240:
+		guard += 1
+		await get_tree().process_frame
+	await get_tree().create_timer(Balance.FALCON_DIVE_SHOW * 0.3).timeout
+	get_viewport().get_texture().get_image().save_png(path.trim_suffix(".png") + "_revoada.png")
+	print("FALCON_SHOT presas=%d buff=%s" % [dummies.filter(func(d): return Combat.has_prey(d)).size(), str(p.buffs.any(func(b): return b.get("id") == FalconSystem.EYES_BUFF))])
+	get_tree().quit()
+
 ## --buff_cast=<skill>: lança o buff no jogador logo no início (o --screenshot do smoke sai com ele).
 func _cast_buff_at_start(sid: String) -> void:
 	await get_tree().create_timer(0.6).timeout
@@ -803,7 +1299,11 @@ func _wear_set(set_id: String) -> void:
 	if sd == null:
 		return
 	Sim.player.level = maxi(Sim.player.level, sd.level)
-	for iid in sd.pieces:
+	var wear: Array = sd.pieces.duplicate()
+	if sd.is_hybrid():           # híbrido: armas da build A (ou B com --face=b)
+		var side: String = sd.pair[1] if DevArgs.value("--face") == "b" else sd.pair[0]
+		wear.append_array(sd.alt_pieces.filter(func(x): return x.contains("_%s_weapon" % side) or x.contains("_%s_offhand" % side)))
+	for iid in wear:
 		Sim.player.add_item(iid)
 		Sim.equip(Sim.player, iid, iid.ends_with("_offhand") and GameData.items[iid].weapon_type != "shield")
 	if DevArgs.flag("--form"):      # --form=wolf|bear: já começa transformado (revisar a forma do Druida)
@@ -1259,6 +1759,15 @@ func _bag_shot(path: String) -> void:
 			Sim.player.build_id = Sim.player.class_def.builds[int(DevArgs.value("--build_i", "0"))]["id"]
 		ProgressionSystem.bot_spend(Sim, Sim.player, true)       # teia gasta como um bot da build (--build_i=N escolhe a build)
 		Sim.player.mastery_points += int(DevArgs.value("--spare", "4"))     # sobra para ver nós verdes
+	if DevArgs.has("--asc") or DevArgs.has("--ascend"):             # ascensão feita (precisa de --level=35+): Elementalista chama o elemental (--elem_stage=N, --elem_xp=N)
+		var ap: SimEntity = Sim.player
+		_ascend_player()
+		if DevArgs.has("--asc_tab"):    # janela K na aba Ascensão (com --wins=skills)
+			main.hud.windows_script._skills_tab = "asc"
+		ap.elem_stage = int(DevArgs.value("--elem_stage", "0"))
+		ap.elem_xp = int(DevArgs.value("--elem_xp", "0"))
+		ap.mp = ap.stats.max_mp
+		Sim.elem_command(ap, ElementalSystem.default_form(ap), "")
 	if DevArgs.has("--status_demo"):     # buffs e debuffs de amostra na barra (revisar ícones e tempos)
 		Sim.player.buffs.append({"id": "elixir", "remaining": 44.0, "atk_pct": 20})
 		Sim.player.buffs.append({"id": "frost_armor", "remaining": 7.2, "def_pct": 30})
@@ -1270,8 +1779,14 @@ func _bag_shot(path: String) -> void:
 	if DevArgs.flag("--roteiro"):        # janela L na aba Roteiro: --roteiro=1_10|10_20|20_30 (com --wins=quests)
 		main.hud.windows_script._quests_tab = "roteiro"
 		main.hud.windows_script._roteiro_band = DevArgs.value("--roteiro")
+	if DevArgs.flag("--char_tab"):       # janela C numa aba: --char_tab=status|sets
+		main.hud.windows_script._char_tab = DevArgs.value("--char_tab")
 	if DevArgs.has("--picks"):           # janela K na aba Talentos (revisar as escolhas)
 		main.hud.windows_script._skills_tab = "picks"
+	if DevArgs.flag("--web_zoom"):       # teia: zoom e deslocamento iniciais (--web_pan=x,y em px), p.ex. a Fronteira inteira
+		main.hud.windows_script._web_zoom = float(DevArgs.value("--web_zoom"))
+		var pan := DevArgs.value("--web_pan", "0,0").split(",")
+		main.hud.windows_script._web_pan = Vector2(float(pan[0]), float(pan[1]))
 	if DevArgs.has("--dnd_check"):      # arrastar e soltar pelos mesmos métodos da janela
 		_dnd_check()
 	await get_tree().create_timer(0.5).timeout
@@ -1341,6 +1856,10 @@ func _bag_shot(path: String) -> void:
 		main.hud.npc_ui.mode = "storage"
 		main.hud.npc_ui._rebuild()
 	await get_tree().create_timer(1.0).timeout
+	if DevArgs.has("--relic_end"):        # Relicária rolada até o fim (híbridos 35/40 ficam embaixo)
+		for sc in main.hud.npc_ui.win.find_children("*", "ScrollContainer", true, false):
+			sc.scroll_vertical = 100000
+		await get_tree().create_timer(0.3).timeout
 	if DevArgs.has("--fps"):              # média de FPS por 3 s com a janela aberta (custo da UI)
 		var t0 := Time.get_ticks_msec()
 		var frames := 0
@@ -1348,6 +1867,10 @@ func _bag_shot(path: String) -> void:
 			await get_tree().process_frame
 			frames += 1
 		print("BAG_FPS %.1f" % (frames / 3.0))
+	var cw: Dictionary = main.hud.windows_script.wins.get("character", {})
+	if not cw.is_empty():               # tamanho da janela C (unidades da tela base 1600×900)
+		var cr: Rect2 = (cw["panel"] as Control).get_global_rect()
+		print("CHARWIN size=%dx%d pos=%d,%d vp=%s" % [cr.size.x, cr.size.y, cr.position.x, cr.position.y, get_viewport().get_visible_rect().size])
 	get_viewport().get_texture().get_image().save_png(path)
 	print("bag_shot: " + path)
 	get_tree().quit()
@@ -1377,6 +1900,72 @@ func _block_shot(path: String) -> void:
 	get_viewport().get_texture().get_image().save_png(path.replace(".png", "_arco.png"))
 	get_tree().quit()
 
+## Paradas da revisão da água: [nome, mapa, tipo (bridge|river|lake|fixed), índice ou ponto].
+const WATER_STOPS := [
+	["aldara_ponte", "city_aldara", "bridge", 0], ["aldara_rio", "city_aldara", "river", 0], ["aldara_lago", "city_aldara", "lake", 0],
+	["floresta_lago", "field_forest", "lake", 0], ["floresta_rio", "field_forest", "river", 0],
+	["costa_mar", "field_coast", "lake", 0], ["costa_mangue", "field_coast", "river", 0],
+	["porto_cais", "city_port", "fixed", Vector3(4, 0, 58)], ["porto_mar", "city_port", "lake", 0],
+	["elfos_riacho", "elf_city", "river", 0], ["elfos_poco", "elf_city", "lake", 1],
+	["gelo_lago", "fort_frost", "lake", 0], ["gelo_rio", "fort_frost", "river", 0],
+	["lich_poco", "lich_citadel", "lake", 0], ["bile_lago", "fort_ghoul", "lake", 0],
+]
+
+func _water_stop_pos(def: MapDef, kind: String, arg) -> Vector3:
+	if kind == "fixed":
+		return arg
+	if kind == "bridge":
+		var cr := MapGeometry.water_crossings(def)
+		return Vector3(cr[0]["pos"].x, 0, cr[0]["pos"].y) if not cr.is_empty() else Vector3.ZERO
+	var n := 0
+	for w in def.water:
+		if w["kind"] != kind:
+			continue
+		if n == int(arg):
+			if kind == "lake":
+				var c: Vector2 = w["pos"]
+				var toward := (-c).normalized() if c.length() > 1.0 else Vector2.RIGHT
+				var q := c + toward * (float(w["r"]) + 1.5)
+				return Vector3(q.x, 0, q.y)
+			var pts: PackedVector2Array = w["pts"]
+			var i := pts.size() / 2
+			var d := (pts[mini(i + 1, pts.size() - 1)] - pts[i]).normalized()
+			var q := pts[i] + Vector2(-d.y, d.x) * (float(w["w"]) * 0.5 + 1.2)
+			return Vector3(q.x, 0, q.y)
+		n += 1
+	return Vector3.ZERO
+
+func _water_tour(delta: float) -> void:
+	_water_t += delta
+	var p := Sim.player
+	p.hp = p.stats.max_hp
+	if _water_t < 2.0:
+		return
+	if _water_i >= WATER_STOPS.size():
+		get_tree().quit()
+		return
+	var st: Array = WATER_STOPS[_water_i]
+	if DevArgs.flag("--water_only") and not str(st[0]).contains(DevArgs.value("--water_only")):
+		_water_i += 1
+		return
+	var def: MapDef = GameData.maps[st[1]]
+	var pos := _water_stop_pos(def, st[2], st[3])
+	if p.map_id != st[1]:
+		Sim._change_map(p, st[1], pos)
+		_water_t = 0.5
+		return
+	if not has_meta("water_moved"):
+		set_meta("water_moved", true)
+		p.position = pos
+		_water_t = 2.0
+	elif _water_t > 4.0:
+		get_viewport().get_texture().get_image().save_png("%s/%02d_%s.png" % [_water_dir, _water_i, st[0]])
+		if DevArgs.has("--water_mask") and main.map_node and main.map_node.has_meta("water_fx"):     # a textura de margem como PNG
+			var wf: WaterFx = main.map_node.get_meta("water_fx")
+			Image.create_from_data(wf._bake_size.x, wf._bake_size.y, false, Image.FORMAT_L8, wf._bake_bytes).save_png("%s/%02d_%s_mask.png" % [_water_dir, _water_i, st[0]])
+		_water_i += 1
+		remove_meta("water_moved")
+
 func _tour(delta: float) -> void:
 	_tour_t += delta
 	var p := Sim.player
@@ -1403,10 +1992,15 @@ func _tour(delta: float) -> void:
 		set_meta("tour_moved", true)
 		p.position = stops[_tour_i][1]
 		_tour_t = 2.0
-	elif _tour_t > 3.6:
-		get_viewport().get_texture().get_image().save_png("%s/tour_%s_%02d_%s.png" % [_tour_dir, _tour_map, _tour_i, stops[_tour_i][0]])
-		_tour_i += 1
-		remove_meta("tour_moved")
+	elif _tour_t > 3.6 + _tour_k * float(DevArgs.value("--tour_gap", "1.5")):
+		var seq := int(DevArgs.value("--tour_seq", "1"))     # --tour_seq=N: N fotos por parada (ver movimento), --tour_gap s entre elas
+		var suffix := "" if seq <= 1 else "_%d" % _tour_k
+		get_viewport().get_texture().get_image().save_png("%s/tour_%s_%02d_%s%s.png" % [_tour_dir, _tour_map, _tour_i, stops[_tour_i][0], suffix])
+		_tour_k += 1
+		if _tour_k >= seq:
+			_tour_k = 0
+			_tour_i += 1
+			remove_meta("tour_moved")
 
 func _soak_fight(p: SimEntity) -> void:
 	p.hp = p.stats.max_hp
@@ -1522,6 +2116,10 @@ func _soak(delta: float) -> void:
 		keys.sort_custom(func(a, b): return Sim.prof[a] > Sim.prof[b])
 		for k in keys.slice(0, 14):
 			print("SOAK   %-24s %.3f ms/tick" % [k, Sim.prof[k] / nt / 1000.0])
+		print("SMOKE SOM: " + Sfx.played_summary())          # o que soou e tocou no mapa visitado (--soak_map)
+		var mus: Music = main.get_node_or_null("Music")
+		if mus:
+			print("SMOKE MUSICA: atual=%s tocadas=%s" % [mus.current, mus.played])
 		get_tree().quit()
 
 func _smoke(delta: float) -> void:

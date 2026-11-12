@@ -645,9 +645,13 @@ static func ricochet(root: Node, pos: Vector3, theme: String) -> void:
 	tw.tween_property(m, "albedo_color:a", 0.0, 0.22).set_delay(0.06)
 	tw.chain().tween_callback(mi.queue_free)
 
+const REACH_INNER_BOLD := 0.97       # círculo do alcance `bold`: 3% do raio de largura (0,3 m em 10 m)
+const REACH_ALPHA_BOLD := 0.6
+
 ## Aura ligada: anel girando no pé e, se `reach` > 0, o círculo fino do alcance no chão, pulsando.
-## Fica até o FxManager apagar (fade_out) quando o buff sair.
-static func aura_ring(root: Node, follow: Node3D, theme: String, reach: float, radius: float = 0.75) -> Node3D:
+## Fica até o FxManager apagar (fade_out) quando o buff sair. `bold` = círculo do alcance mais largo e forte
+## (aura de inimigo que o grupo precisa ler de cima: Agitador).
+static func aura_ring(root: Node, follow: Node3D, theme: String, reach: float, radius: float = 0.75, bold: bool = false) -> Node3D:
 	var holder := Node3D.new()
 	follow.add_child(holder)
 	var mi := MeshInstance3D.new()
@@ -694,21 +698,22 @@ static func aura_ring(root: Node, follow: Node3D, theme: String, reach: float, r
 	if reach > 0.0:
 		var big := MeshInstance3D.new()
 		var bt := TorusMesh.new()
-		bt.inner_radius = 0.985
+		bt.inner_radius = REACH_INNER_BOLD if bold else 0.985
 		bt.outer_radius = 1.0
 		bt.rings = 64
 		bt.ring_segments = 3
 		big.mesh = bt
 		var bm := _mat(col(theme, 1))
-		bm.albedo_color = Color(col(theme, 1), 0.22)
+		var a_hi := REACH_ALPHA_BOLD if bold else 0.22
+		bm.albedo_color = Color(col(theme, 0 if bold else 1), a_hi)
 		big.material_override = bm
 		big.scale = Vector3(reach, 0.2, reach)
 		big.position = Vector3(0, 0.06, 0)
 		big.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		holder.add_child(big)
 		var pulse := holder.create_tween().set_loops()
-		pulse.tween_property(bm, "albedo_color:a", 0.08, 1.2)
-		pulse.tween_property(bm, "albedo_color:a", 0.22, 1.2)
+		pulse.tween_property(bm, "albedo_color:a", a_hi * 0.5 if bold else 0.08, 1.2)
+		pulse.tween_property(bm, "albedo_color:a", a_hi, 1.2)
 	return holder
 
 ## Apaga um efeito persistente (aura) aos poucos.

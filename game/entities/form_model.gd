@@ -4,6 +4,8 @@ extends Node3D
 ## (malhas frm_<estilo>_<slot>_<osso>). Mostra as peças dos slots equipados, pintadas pela cor do item (como o KitModel).
 
 const LOOPS := ["idle", "walk", "run"]
+## Forma sem modelo próprio usa outro GLB (hoje nenhuma: a Forma de Lich tem form_lich.glb, mob_kit `form_lich`).
+const FORM_PATHS := {}
 var anim: AnimationPlayer = null
 var skeleton: Skeleton3D = null
 var mats: Array = []                 # materiais toon (hit flash)
@@ -14,7 +16,7 @@ var fade: PoseFade = null            # troca de clipe sem tranco
 var legs: LegOverlay = null          # patas correndo por cima do golpe (bicho que ataca andando não desliza)
 
 static func path_for(form: String) -> String:
-	return "res://assets/models/form_%s.glb" % form
+	return str(FORM_PATHS.get(form, "res://assets/models/form_%s.glb" % form))
 
 static func exists(form: String) -> bool:
 	return form != "" and ResourceLoader.exists(path_for(form))

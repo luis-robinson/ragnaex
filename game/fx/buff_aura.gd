@@ -34,10 +34,17 @@ var _shell_sent := Color(-1, -1, -1, -1)
 var _halo_t := 0.0
 var _halo := 0.0
 var _halo_col := Color.WHITE
+var _wings_t := 0.0
+var _wings := 0.0
+var _wings_col := Color.WHITE
+var _wing_time := 0.0
 var active := false          # algo à mostra (o EntityView para de chamar quando some tudo)
 
 var _shell_mi: MeshInstance3D = null
 var _halo_mi: MeshInstance3D = null
+var _wings_node: Node3D = null          # asas do Modo Arcano: duas malhas de penas de luz (uma por lado)
+var _wing_l: MeshInstance3D = null
+var _wing_r: MeshInstance3D = null
 var _emit: Array = [null, null]
 var _emit_key: Array = ["", ""]
 var _emit_off: Array = [0.0, 0.0]
@@ -47,6 +54,13 @@ static var _glow_mat: ShaderMaterial = null
 static var _shell_mesh: Mesh = null
 static var _crystal_mesh: Mesh = null
 static var _halo_mesh: Mesh = null
+static var _wing_mesh: Mesh = null
+## Asas: penas em leque saindo do ombro (m, unidades do boneco de 1,9 m). Batem devagar (WING_FLAP rad, WING_RATE Hz).
+const WING_FEATHERS := 7
+const WING_SPAN := 1.2
+const WING_ROOT := Vector3(0.16, 1.18, -0.3)
+const WING_FLAP := 0.32
+const WING_RATE := 0.9
 static var _pmats: Dictionary = {}      # "preset:tema" -> ParticleProcessMaterial
 static var _pmeshes: Dictionary = {}    # "malha:add" -> Mesh com material
 
@@ -100,6 +114,7 @@ func _scan() -> void:
 	var p2_th := ""
 	var popped := false
 	var moving := e.state == SimEntity.State.MOVING or e.state == SimEntity.State.DASHING
+	var wings_t := 0.0
 	if not hide:
 		for b in e.buffs:
 			var id: String = b.get("id", "")
@@ -141,6 +156,9 @@ func _scan() -> void:
 			elif int(lk["shell"]) == 3:
 				flame_t = 1.0 * fade        # o mais recente manda na cor
 				flame_col = lk["color"]
+			if fam == "wings":
+				wings_t = maxf(wings_t, fade)
+				_wings_col = lk["accent"]
 			if lk["halo"]:
 				halo_t = maxf(halo_t, fade)
 				_halo_col = lk["accent"] if lk["theme"] == "holy" else lk["color"]
@@ -173,15 +191,17 @@ func _scan() -> void:
 	_rim_style = rim_style
 	_shell_t = shell_t
 	_halo_t = halo_t
+	_wings_t = wings_t
 	var f := maxf(0.4, view._status_head() / 1.9)
 	scale = Vector3.ONE * f
 	position.y = view.model_root.position.y + (EntityView.SADDLE_Y if e.mounted else 0.0)
 	rotation.y = view.model_root.rotation.y
 	_set_emitter(0, p1, p1_th, moving)
 	_set_emitter(1, p2, p2_th, moving)
-	active = rim_t > 0.0 or shell_t > 0.0 or halo_t > 0.0 or _rim > 0.005 or _shell > 0.005 or _halo > 0.005 or p1 != ""
+	active = rim_t > 0.0 or shell_t > 0.0 or halo_t > 0.0 or wings_t > 0.0 or _rim > 0.005 or _shell > 0.005 or _halo > 0.005 or _wings > 0.005 or p1 != ""
 
 func _blend(delta: float) -> void:
+	_blend_wings(delta)
 	if _emit_key[0] != "" or _emit_key[1] != "":
 		rotation.y = view.model_root.rotation.y     # rastros/gotas acompanham a frente do boneco
 	# parado no alvo (o caso comum: buff longo, permanente): nada a mandar para a GPU neste quadro
@@ -282,6 +302,68 @@ func _set_emitter(i: int, preset: String, theme: String, moving: bool) -> void:
 	if not is_equal_approx(em.amount_ratio, ratio):
 		em.amount_ratio = ratio
 
+## Asas do Modo Arcano: abrem (escala 0 -> 1, com o estouro) e batem devagar enquanto ligado; fecham ao desligar.
+func _blend_wings(delta: float) -> void:
+	if _wings_t <= 0.0 and _wings <= 0.004:
+		if _wings_node and _wings_node.visible:
+			_wings_node.visible = false
+		return
+	if _wings_node == null:
+		_make_wings()
+	_wings = move_toward(_wings, _wings_t, delta * 3.0)
+	_wing_time += delta
+	_wings_node.visible = _wings > 0.004
+	_wings_node.rotation.y = view.model_root.rotation.y - rotation.y
+	var flap := sin(_wing_time * TAU * WING_RATE) * WING_FLAP
+	var open := lerpf(0.15, 1.0, _wings)
+	_wing_l.scale = Vector3.ONE * open
+	_wing_r.scale = Vector3(-1, 1, 1) * open
+	_wing_l.rotation = Vector3(0, -0.35 - flap, 0)
+	_wing_r.rotation = Vector3(0, 0.35 + flap, 0)
+	var amt := _wings * 0.85 + _pop * 0.4
+	_wing_l.set_instance_shader_parameter("glow_amount", amt)
+	_wing_r.set_instance_shader_parameter("glow_amount", amt)
+	_wing_l.set_instance_shader_parameter("glow_color", _wings_col)
+	_wing_r.set_instance_shader_parameter("glow_color", _wings_col)
+
+func _make_wings() -> void:
+	_ensure_glow()
+	if _wing_mesh == null:
+		_wing_mesh = _build_wing_mesh()
+	_wings_node = Node3D.new()
+	_wings_node.name = "ArcaneWings"
+	add_child(_wings_node)
+	for side in [1.0, -1.0]:
+		var mi := MeshInstance3D.new()
+		mi.mesh = _wing_mesh
+		mi.material_override = _glow_mat
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.position = Vector3(WING_ROOT.x * side, WING_ROOT.y, WING_ROOT.z)
+		_wings_node.add_child(mi)
+		if side > 0.0:
+			_wing_l = mi
+		else:
+			_wing_r = mi
+
+## Uma asa (lado +X; o outro lado é a mesma malha espelhada): penas em losango, em leque do ombro para fora e
+## para cima, as de fora mais longas. Plano levemente inclinado para trás (lê de cima e de lado).
+static func _build_wing_mesh() -> Mesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in WING_FEATHERS:
+		var u := float(i) / float(WING_FEATHERS - 1)
+		var ang := lerpf(deg_to_rad(-15.0), deg_to_rad(55.0), u)       # de um pouco abaixo da horizontal (fora) até o alto
+		var length := WING_SPAN * lerpf(0.6, 1.0, sin(u * PI * 0.5 + 0.3))    # as do meio/de cima mais longas: lê como asa
+		var dir := Vector3(cos(ang), sin(ang), -0.25).normalized()
+		var side := Vector3(-sin(ang), cos(ang), 0.0).normalized() * length * 0.16
+		var base := dir * 0.05
+		var tip := dir * length
+		var mid := dir * length * 0.55
+		for tri in [[base, mid + side, tip], [base, tip, mid - side]]:
+			for v in tri:
+				st.add_vertex(v)
+	return st.commit()
+
 # --- recursos compartilhados ------------------------------------------------------------------------------------
 func _make_shell() -> MeshInstance3D:
 	if _shell_mat == null:
@@ -301,10 +383,14 @@ func _make_shell() -> MeshInstance3D:
 	add_child(mi)
 	return mi
 
-func _make_halo() -> MeshInstance3D:
+static func _ensure_glow() -> void:
 	if _glow_mat == null:
 		_glow_mat = ShaderMaterial.new()
 		_glow_mat.shader = preload("res://shaders/buff_glow.gdshader")
+
+func _make_halo() -> MeshInstance3D:
+	_ensure_glow()
+	if _halo_mesh == null:
 		var tm := TorusMesh.new()
 		tm.inner_radius = 0.24; tm.outer_radius = 0.31; tm.rings = 24; tm.ring_segments = 6
 		_halo_mesh = tm

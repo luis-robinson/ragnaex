@@ -35,13 +35,23 @@ static func build(def: MapDef) -> Node3D:
 
 	var has_model := ResourceLoader.exists("res://assets/models/%s.glb" % def.model) if def.model != "" else false
 	var zone := not def.roads.is_empty()        # zona do Blender: GLB (terreno/muralha/água) + props do JSON
+	var tall: Array = []                        # peças altas do GLB (palmeira do dress.py): somem na frente do jogador
 	if has_model:
 		var scene: PackedScene = load("res://assets/models/%s.glb" % def.model)
 		var model := scene.instantiate()
+		_water = null
+		if zone and not DevArgs.has("--old_water"):        # --old_water: água toon lisa de antes (comparar FPS)
+			_water = WaterFx.create(model, def)
 		if zone:
 			_zone_materials(model, def)
 		root.add_child(model)
+		if _water != null:
+			root.add_child(_water)
+			root.set_meta("water_fx", _water)
 		set_vis_range(model)
+		for mi in model.find_children("*det_alto*", "MeshInstance3D", true, false):
+			mi.set_meta("occluder_h", (mi as MeshInstance3D).get_aabb().size.y)
+			tall.append(mi)
 		var tagged: Array = []                  # front sujo/limpo (MapDef.conquest_vis): pelo nome da peça
 		if not def.conquest_vis.is_empty():
 			for n in model.find_children("*", "Node3D", true, false):
@@ -66,6 +76,7 @@ static func build(def: MapDef) -> Node3D:
 				if size.y > 1.6:
 					n.set_meta("occluder_h", size.y)
 					obs_nodes.append(n)
+		obs_nodes.append_array(tall)
 		root.set_meta("occluders", obs_nodes)
 	for d in def.decor:
 		var n := _decor(d)
@@ -328,7 +339,7 @@ static func _zone_mask(def: MapDef) -> Dictionary:
 					mark.call(q.x, q.y, half_w)
 		elif l.get("kind", "") == "lake":
 			var lp: Vector2 = l["pos"]
-			mark.call(lp.x, lp.y, float(l["r"]) + 2.2)
+			mark.call(lp.x, lp.y, float(l["r"]) + float(l.get("shore", 2.2)))     # mar: a praia toda sem grama
 	for ob in def.obstacles:
 		var op: Vector3 = ob["pos"]
 		var sz: Vector3 = ob.get("size", Vector3.ONE)
@@ -362,6 +373,18 @@ static func _mask_blocked(mask: Dictionary, p: Vector3) -> bool:
 		return true
 	return mask["cells"][iz * int(mask["w"]) + ix] == 1
 
+static var _vcol_mats := {}
+
+## Toon branco que lê a cor do vértice (sRGB): o material único dos lotes de detalhe da zona (tools/blender/zones/dress.py).
+static func _vcol_material(outline: bool) -> ShaderMaterial:
+	if not _vcol_mats.has(outline):
+		var m: ShaderMaterial = Materials.toon(Color.WHITE, outline).duplicate()
+		m.set_shader_parameter("vcol_srgb", true)
+		_vcol_mats[outline] = m
+	return _vcol_mats[outline]
+
+static var _water: WaterFx = null        # água do mapa em construção (materiais + margem)
+
 ## Troca os materiais do GLB da zona pelos do jogo (toon, chão de terra/paralelepípedo, água).
 static func _zone_materials(node: Node, def: MapDef) -> void:
 	if node is MeshInstance3D:
@@ -379,6 +402,23 @@ static func _zone_materials(node: Node, def: MapDef) -> void:
 				mi.set_surface_override_material(i, _ground_material(c.lightened(0.05), c.darkened(0.05), c.darkened(0.14),
 					0.0 if paved else 0.25, float(mname.hash() % 97), 1.0 if paved else 0.0, 1.0, c))
 				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				continue
+			if mname.begins_with("det_vcol"):      # lotes do dress.py: a cor vem no vértice, um material por zona
+				var flat := mname == "det_vcol_chao"                 # manchas de chão: sem contorno e sem sombra
+				mi.set_surface_override_material(i, _vcol_material(not flat))
+				if flat or mname == "det_vcol_mini":                 # miudeza (capim, seixo, flor): contorno sim, sombra não
+					mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				continue
+			if mname.begins_with("glow_"):        # brasa, runa, cogumelo, cristal (dress.py / horde.py): brilha, sem sombra
+				mi.set_surface_override_material(i, Materials.glow(base.srgb_to_linear(), 1.5))
+				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				continue
+			if _water != null and WaterFx.is_water(mname):      # água: shader próprio (ondas, margem, espuma)
+				var wbase := base if (mname == "water" or mname == "water_dark" or mname.begins_with("agua_")) else base.srgb_to_linear()
+				mi.set_surface_override_material(i, _water.material_for(mname, wbase))
+				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				if mname.begins_with("agua_funda"):
+					mi.sorting_offset = 0.5      # desenha depois da água rasa
 				continue
 			match mname:
 				"road":
@@ -403,7 +443,10 @@ static func _zone_materials(node: Node, def: MapDef) -> void:
 					mat = Materials.toon(base.srgb_to_linear(), false, 0.12)
 					mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				"water", "water_dark":
-					mat = Materials.toon(base.lerp(Color(0.4, 0.66, 0.86), 0.25), false, 0.25)
+					if def.water_tints.has(mname):      # cor própria da zona (mangue): a do Blender, sem puxar para o azul
+						mat = Materials.toon(def.water_tints[mname], false, 0.25)
+					else:
+						mat = Materials.toon(base.lerp(Color(0.4, 0.66, 0.86), 0.25), false, 0.25)
 					mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				"fire":
 					mat = Materials.glow(Color(1.0, 0.6, 0.2), 2.5)

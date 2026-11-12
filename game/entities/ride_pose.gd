@@ -49,3 +49,40 @@ static func ensure_clip(anim: AnimationPlayer, sk: Skeleton3D) -> bool:
 		anim.add_animation_library("", lib)
 	lib.add_animation("ride", a)
 	return true
+
+## Guarda montada (Muralha a Cavalo): a guarda de escudo a pé deixa o escudo na altura do peito, atrás do pescoço do
+## cavalo. Na sela o braço do escudo sobe e vai à frente (giro somado no eixo do osso em repouso), o tronco fica ereto.
+## Graus por osso, somados a cada chave do "block_shield"; vira o clipe GUARD_CLIP.
+const GUARD_CLIP := "block_ride"
+const GUARD_DELTA := {
+	"upper_arm.L": Vector3(-34, 0, -16), "forearm.L": Vector3(14, 0, 0),
+	"spine": Vector3(-9, 0, 0),
+}
+
+## Cria (uma vez por AnimationPlayer) o clipe da guarda montada a partir do "block_shield".
+static func ensure_guard_clip(anim: AnimationPlayer, sk: Skeleton3D) -> bool:
+	if anim == null or sk == null:
+		return false
+	if anim.has_animation(GUARD_CLIP):
+		return true
+	if not anim.has_animation("block_shield"):
+		return false
+	var a: Animation = anim.get_animation("block_shield").duplicate(true)
+	a.loop_mode = Animation.LOOP_LINEAR
+	for t in range(a.get_track_count()):
+		if a.track_get_type(t) != Animation.TYPE_ROTATION_3D:
+			continue
+		var bname := String(a.track_get_path(t)).get_slice(":", 1)
+		if not GUARD_DELTA.has(bname):
+			continue
+		var idx := sk.find_bone(bname)
+		if idx < 0:
+			continue
+		var e: Vector3 = GUARD_DELTA[bname]
+		var rest: Quaternion = sk.get_bone_rest(idx).basis.get_rotation_quaternion()
+		var d := Quaternion(Basis.from_euler(Vector3(deg_to_rad(e.x), deg_to_rad(e.y), deg_to_rad(e.z)), EULER_ORDER_ZYX))
+		var turn: Quaternion = rest * d * rest.inverse()
+		for k in range(a.track_get_key_count(t)):
+			a.track_set_key_value(t, k, turn * (a.track_get_key_value(t, k) as Quaternion))
+	anim.get_animation_library("").add_animation(GUARD_CLIP, a)
+	return true

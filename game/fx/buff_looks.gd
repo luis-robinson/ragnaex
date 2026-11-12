@@ -14,6 +14,7 @@ extends RefCounted
 ##   poison lâmina envenenada: gotas verdes pingando da arma
 ##   dark   pacto sombrio: sombra subindo pelo corpo + fumaça roxa
 ##   aura   aura de liga/desliga (anel no chão do FxManager) + borda; quem recebe vê só a borda, fraca
+##   wings  Modo Arcano (Paladino ascendido): asas de luz nas costas que batem devagar + motas + borda sagrada
 ##   form   forma/furtividade: o próprio boneco muda (EntityView: bicho, fantasma, transparência)
 ## Buff novo sem linha aqui = falha no teste (_check_buff_visuals): nada de buff invisível.
 const LOOKS := {
@@ -32,39 +33,71 @@ const LOOKS := {
 	"frenzy": ["power", "blood"], "legend_frenzy": ["power", "blood"], "elixir": ["power", "fire"],
 	"valor": ["power", "holy"], "zeal": ["power", "holy"], "fervor": ["power", "holy"], "battle_hymn": ["power", "holy"],
 	"mark": ["power", "physical"], "deadeye": ["power", "physical"], "focus": ["power", "physical"], "duel_focus": ["power", "physical"],
+	"shout_flame": ["power", "fire"], "shout_flame_ally": ["power", "fire"], "shout_frost": ["power", "ice"],
+	"shout_thunder": ["speed", "lightning"], "shout_thunder_ally": ["speed", "lightning"],
+	"sky_eyes": ["speed", "wind"],          # Olhos do Céu (Falcoeiro): o grupo corre mais e acerta a Presa
 	"pack": ["power", "nature"], "overload": ["power", "lightning"], "blood_instinct": ["power", "blood"], "black_flag": ["power", "fire"], "fist_fury": ["power", "blood"],
+	"horde_fury": ["power", "blood"], "war_cry": ["power", "blood"],
+	"troll_regen": ["holy", "nature"],
+	"glory": ["power", "fire"],
+	"elem_ember": ["power", "fire"], "elem_fusion": ["power", "lightning"],
+	"fus_aurora": ["power", "holy"],          # Aurora (Fusão Martelo da Aurora)
 	# bênçãos
+	"choir_wings": ["speed", "holy"], "choir_aegis": ["armor", "holy"],        # bênçãos do Coro Celeste (Bispo ascendido)
 	"blessing": ["holy", "holy"], "angel": ["holy", "holy"], "avenging_wrath": ["holy", "holy"], "grove": ["holy", "nature"],
 	# movimento
-	"swift": ["speed", "wind"], "reflexes": ["speed", "wind"], "counter_stance": ["speed", "wind"], "wild_run": ["speed", "nature"],
+	"swift": ["speed", "wind"], "elem_gale": ["speed", "lightning"], "reflexes": ["speed", "wind"], "counter_stance": ["speed", "wind"], "wild_run": ["speed", "nature"],
 	"smoke": ["smoke", "shadow"],
 	# arma / sombra
 	"plague_blade": ["poison", "poison"],
-	"dark_pact": ["dark", "shadow"],
+	"dark_pact": ["dark", "shadow"], "twin_shadow": ["dark", "shadow"], "exec_ready": ["power", "physical"], "horde_dismay": ["dark", "shadow"],
+	# ascensão do Necromante: pacto no mago e nas invocações
+	"lord_pact": ["dark", "shadow"], "lord_pact_minion": ["power", "shadow"],
 	# auras de liga/desliga
-	"bastion_aura": ["aura", "holy"],
+	"bastion_aura": ["aura", "holy"], "gladiator": ["aura", "blood"],
+	# ascensão do Paladino: asas do Modo Arcano; caiu do cavalo (imune a controle)
+	"arcane_wings": ["wings", "holy"], "unhorsed": ["armor", "physical"], "arcane_ward": ["armor", "holy"],      # Asas Protetoras no grupo
 	# o boneco muda (EntityView)
 	"stealth": ["form", "shadow"], "form_wolf": ["form", "nature"], "form_bear": ["form", "nature"],
-	"form_phantom": ["form", "lunar"], "form_demon": ["form", "fire"],
+	"form_phantom": ["form", "lunar"], "form_demon": ["form", "fire"], "form_lich": ["form", "ice"],
+	# ascensão do Druida (Forma Ancestral): as formas e os buffs de grupo delas
+	"form_ent": ["form", "nature"], "form_alpha": ["form", "nature"], "form_bird": ["form", "lightning"],
+	"ent_grove": ["armor", "nature"], "alpha_howl": ["speed", "nature"], "bird_flock": ["speed", "holy"],
 }
-const FAMILIES := ["armor", "shield", "power", "holy", "speed", "smoke", "poison", "dark", "aura", "form"]
+const FAMILIES := ["armor", "shield", "power", "holy", "speed", "smoke", "poison", "dark", "aura", "wings", "form"]
 
 ## Buffs que a sim põe direto no código (sem catálogo): id -> onde.
 const SYSTEM_BUFFS := {
 	"legend_frenzy": "LegendEffects (arma lendária: frenesi)",
+	"lord_pact_minion": "NecroAscension (Pacto dos Mortos nas invocações)",
+	"shout_flame_ally": "RangerAscension (Brado das Chamas no grupo)",
+	"shout_thunder_ally": "RangerAscension (Brado do Trovão no grupo)",
+	"twin_shadow": "ShadowSystem (Sombra Gêmea: clone de sombra ativo)",
+	"exec_ready": "ShadowSystem (Contra-Ataque em Cadeia: Execução preparada pela esquiva)",
 	"fist_fury": "FistSystem (Punhos de Fúria: esquivar dá Fúria do Punho)",
+	"glory": "GladiatorSystem (Modo Gladiador: Glória por crítico, abate e Brado da Arena)",
 	"bastion": "RaidSystem (sentinela: reunir)",
 	"juramento": "ShieldSystem (Juramento ao bloquear)",
 	"shield": "WorldSim (efeito shield, Égide lendária)",
 	"boss_ward": "MobSystem (chefe protegido pelos lacaios: fase com ward)",
 	"boss_berserk": "MobSystem (chefe enlouquecido: berserk_after)",
+	"horde_fury": "AuraSystem.mob_aura (aura do Agitador nos monstros da Horda)",
+	"horde_dismay": "AuraSystem.on_mob_death (bando desanimado: Agitador morto)",
+	"war_cry": "MobSystem.rally (grito de guerra do Guerreiro Orc / Ghar no bando da Horda)",
+	"troll_regen": "MobSystem.update_regen (troll regenerando: some quando queima ou está envenenado)",
+	"unhorsed": "MountedCombat (derrubado do cavalo: imune a controle)",
+	"arcane_ward": "MountedCombat.ward_tick (Asas Protetoras: redução de dano no grupo perto do Templário)",
+	"elem_ember": "ElementalSystem (elemental de fogo no modo apoiar)",
+	"elem_gale": "ElementalSystem (elemental de raio no modo apoiar)",
+	"elem_fusion": "ElementalSystem (Fusão Elemental)",
+	"fus_aurora": "FusionEffects.on_cast (Martelo da Aurora: magia sagrada dá Aurora)",
 }
 
 ## Padrão na pele (uniform buff_style do toon) por tema.
 const RIM_STYLE := {"ice": 1, "earth": 2, "bone": 2, "blood": 3, "fire": 3, "lightning": 3, "nature": 4, "holy": 5, "shadow": 6}
 ## Partículas da família armor por tema (as outras famílias têm uma só).
 const ARMOR_PARTS := {"ice": "snow", "earth": "dust", "nature": "leaves", "bone": "bone", "holy": "motes"}
-const FAMILY_PARTS := {"holy": "motes", "speed": "streaks", "smoke": "smoke", "poison": "drip", "dark": "shadow"}
+const FAMILY_PARTS := {"holy": "motes", "wings": "motes", "speed": "streaks", "smoke": "smoke", "poison": "drip", "dark": "shadow"}
 ## Escudo de HP: tema pela classe de quem tem (ossos do necro, gelo do mago...)
 const SHIELD_THEME := {"necromancer": "bone", "elementalist": "ice", "druid": "nature"}
 

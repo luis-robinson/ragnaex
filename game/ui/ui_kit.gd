@@ -323,6 +323,8 @@ static func rarity_color(r: int) -> Color:
 ## Texto de um bônus de conjunto (ver SetDef).
 static func set_bonus_text(b: Dictionary) -> String:
 	var parts: Array = []
+	if b.get("fusion") is Dictionary:
+		return fusion_text(b["fusion"])
 	var attrs: Dictionary = b.get("attrs", {})
 	for a in attrs:
 		parts.append("%s +%d" % [a, int(attrs[a])])
@@ -341,6 +343,17 @@ static func set_bonus_text(b: Dictionary) -> String:
 		var s: SkillDef = GameData.skills.get(sid)
 		parts.append("%s -%d%% de recarga" % [s.name if s else sid, int(cdr[sid])])
 	return ", ".join(parts)
+
+## Fusão do híbrido (5 peças): nome e o que cada face faz; a face ligada (arma na mão do jogador) em destaque.
+static func fusion_text(f: Dictionary) -> String:
+	var fu: Dictionary = GearCatalog.FUSIONS.get(str(f.get("id", "")), {})
+	var on: String = str(Sim.player.stats.fusion.get("face", "")) if Sim.player and Sim.player.stats and str(Sim.player.stats.fusion.get("id", "")) == str(f.get("id", "")) else "-"
+	var txt: Dictionary = fu.get("text", {})
+	var parts: Array = []
+	for k in txt:
+		var who: String = "" if k == "all" else "com a arma do %s: " % str(Sim.player.class_def.build_by_id(k).get("name", k)) if Sim.player and Sim.player.class_def else ""
+		parts.append(("» " if on == k or (k == "all" and on != "" and on != "-") else "") + who + str(txt[k]))
+	return "Fusão %s — %s" % [fu.get("name", "?"), "; ".join(parts)]
 
 ## Bloco de conjunto para tooltips: peças (✔ equipadas) e bônus (ativos em destaque).
 static func set_block(set_id: String) -> String:

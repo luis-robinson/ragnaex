@@ -24,6 +24,10 @@ const VOL := {
 	"pickup": -8.0, "coins": -8.0, "gem": -4.0, "potion": -6.0, "equip": -8.0, "craft": -6.0, "gather": -6.0,
 	"door": -8.0, "click": -10.0, "page": -8.0, "ui_open": -14.0, "ui_close": -16.0, "level_up": -3.0,
 	"quest_accept": -5.0, "quest_done": -3.0, "recall": -6.0, "recall_done": -5.0, "death": -3.0, "firework": -7.0,
+	# Ato II (A Horda)
+	"war_drum": -3.0, "drum_beat": -11.0, "net": -6.0, "wolf_howl": -7.0, "wolf_snarl": -8.0, "orc": -7.0,
+	"goblin": -9.0, "goblin_shriek": -9.0, "naga": -8.0, "tide": -5.0,
+	"troll_growl": -6.0, "troll_grunt": -7.0, "troll_die": -4.0, "troll_slam": -3.0, "troll_regen": -12.0,
 }
 ## Tema visual (FxManager.theme_of) -> som da skill. Físico não tem: quem soa é o golpe (swing/hit).
 const THEME_SOUND := {
@@ -32,6 +36,28 @@ const THEME_SOUND := {
 	"heal": "heal", "summon": "summon",
 }
 const RANGED_SOUND := {"bow": "bow", "rifle": "gun", "pistol": "gun"}
+## Voz de monstro pelo id (ou prefixo dele): [ao entrar em luta, ao lançar skill, ao morrer]; "" = nada.
+## Ginete = lobo + goblin: uiva ao ver você, rosna no bote e o goblin guincha ao cair.
+const MOB_VOICE := {
+	"boss_tide_mother": ["tide", "naga", "tide"], "boss_agitator_lord": ["war_drum", "goblin", "goblin_shriek"],
+	"goblin_": ["goblin", "goblin", "goblin_shriek"], "wolf_": ["wolf_howl", "wolf_snarl", "goblin_shriek"],
+	"orc_": ["orc", "orc", ""], "naga_": ["naga", "naga", ""],
+	"troll": ["troll_growl", "troll_grunt", "troll_die"], "boss_troll_king": ["troll_growl", "troll_grunt", "troll_die"],
+	"boss_crossbow_master": ["orc", "orc", ""], "boss_ghar": ["orc", "orc", ""],
+}
+## Skill com som próprio na fase ativa (no lugar do vento da arma) e no impacto (no lugar do som do tema).
+const CAST_SOUND := {"mob_drum_beat": "war_drum", "mob_war_drum": "war_drum", "mob_net_throw": "net"}
+const EFFECT_SOUND := {"mob_tide_pull": "tide", "mob_tide_wave": "tide", "mob_tide_geysers": "tide",
+	"mob_troll_slam": "troll_slam", "mob_rock_quake": "troll_slam"}
+## Aura de monstro (MonsterDef.aura) que soa em laço enquanto o dono vive: o tambor do Agitador.
+const AURA_SOUND := {"agitator": "drum_beat", "agitator_boss": "drum_beat"}
+const AURA_BEAT := 0.6           # s entre batidas do laço da aura
+## Buff de monstro que pulsa enquanto dura: a carne do troll se fechando (MobSystem.update_regen). Um pulso por
+## vez no mapa (o mais perto), a cada BUFF_BEAT s.
+const BUFF_SOUND := {"troll_regen": "troll_regen"}
+const BUFF_BEAT := 1.6
+const SCAN_EVERY := 0.2          # s entre varreduras dos monstros do mapa (quem entrou em luta, auras)
+const VOICE_GAP := 0.5           # s entre duas vozes iguais (bando que acorda junto não vira coro)
 
 static var _inst: Sfx = null
 
@@ -45,6 +71,11 @@ var _last_at: Dictionary = {}              # nome -> tempo (s) do último toque
 var _quiet_until := 0.0                    # equipar/itens do carregamento não soam
 var _gold := -1
 var played: Dictionary = {}                # nome -> vezes que tocou (o smoke imprime)
+var _scan := 0.0
+var _beat := 0.0
+var _buff_beat := 0.0
+var _angry: Dictionary = {}                # id do monstro -> true (já em luta na última varredura)
+var _voice_at: Dictionary = {}             # voz -> tempo (s) da última
 
 ## Toca um som de interface (cliques, janelas). Sem Sfx na árvore (testes, ferramentas), não faz nada.
 ## Contagem do que tocou nesta partida (smoke/revisão).
@@ -95,6 +126,7 @@ func _ready() -> void:
 	Events.gathered.connect(func(_m: String, _n: int, id: int): _player_sound(id, "gather"))
 	Events.recall_cast.connect(_on_recall)
 	Events.entity_changed_map.connect(_on_changed_map)
+	Events.monster_emerged.connect(_on_emerged)
 
 func _exit_tree() -> void:
 	if _inst == self:
@@ -212,6 +244,13 @@ func _on_skill_cast(id: int, skill_id: String, phase: String) -> void:
 	var s: SkillDef = GameData.skill_or_basic(skill_id)
 	if s == null:
 		return
+	if e.kind == SimEntity.Kind.MONSTER:
+		if phase == "startup" and GameData.skills.has(skill_id):      # skill de verdade, não o golpe básico
+			_mob_voice(e, 1)
+		if CAST_SOUND.has(skill_id):
+			if phase == "active":
+				play_at(CAST_SOUND[skill_id], e.position)
+			return
 	var ranged := e.stats != null and RANGED_SOUND.has(e.stats.weapon_type)
 	if phase == "startup" and s.kind != SkillDef.Kind.PHYSICAL and s.kind != SkillDef.Kind.HEAL and s.startup >= 0.2:
 		play_at("cast", e.position, _mine(e))
@@ -223,7 +262,7 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, _radius: 
 	if not GameData.skills.has(skill_id):
 		return
 	var s: SkillDef = GameData.skills[skill_id]
-	var snd: String = THEME_SOUND.get(FxManager.theme_of(s), "")
+	var snd: String = EFFECT_SOUND.get(skill_id, THEME_SOUND.get(FxManager.theme_of(s), ""))
 	if snd == "" and s.kind == SkillDef.Kind.MAGICAL:
 		snd = "arcane"
 	if snd == "":
@@ -281,6 +320,7 @@ func _on_died(id: int, _killer: int) -> void:
 	elif e.kind == SimEntity.Kind.MONSTER:
 		var boss := e.monster_def != null and e.monster_def.is_boss
 		play_at("die_boss" if boss else "die_monster", e.position, true)
+		_mob_voice(e, 2)
 
 func _on_level_up(id: int, _lv: int) -> void:
 	_player_sound(id, "level_up", true)
@@ -311,11 +351,83 @@ func _on_changed_map(id: int, map_id: String) -> void:
 	if (m and m.interior) or (prev and prev.interior):
 		play_ui("door")
 
+## Chefe que sai da água (MobSystem): respingo no lugar.
+func _on_emerged(map_id: String, pos: Vector3) -> void:
+	if main != null and map_id == main.current_map_id:
+		play_at("tide", pos)
+
+# ---------------------------------------------------------------- vozes de monstro
+## Linha de MOB_VOICE do monstro: id exato, depois prefixo (a elite fala como o monstro de origem).
+static func voice_of(def: MonsterDef) -> Array:
+	if def == null:
+		return []
+	var id: String = def.elite_of if def.elite_of != "" else def.id
+	if MOB_VOICE.has(id):
+		return MOB_VOICE[id]
+	for k in MOB_VOICE:
+		if id.begins_with(k):
+			return MOB_VOICE[k]
+	return []
+
+## `slot`: 0 = entrou em luta, 1 = lança skill, 2 = morreu.
+func _mob_voice(e: SimEntity, slot: int) -> void:
+	var v := voice_of(e.monster_def)
+	if v.is_empty() or str(v[slot]) == "":
+		return
+	var snd := str(v[slot])
+	var t := _now()
+	if t - float(_voice_at.get(snd, -10.0)) < VOICE_GAP:
+		return
+	_voice_at[snd] = t
+	play_at(snd, e.position)
+
+## Varre os monstros do mapa: quem acabou de ganhar alvo solta a voz; aura viva bate o tambor no ritmo.
+func _scan_mobs(delta: float) -> void:
+	_scan -= delta
+	_beat -= delta
+	_buff_beat -= delta
+	if _scan > 0.0 or main == null:
+		return
+	_scan = SCAN_EVERY
+	var p: SimEntity = Sim.player
+	var beat := _beat <= 0.0
+	if beat:
+		_beat = AURA_BEAT
+	var pulse := _buff_beat <= 0.0
+	var pulse_at: SimEntity = null
+	var pulse_d := FAR
+	var pulse_snd := ""
+	var angry := {}
+	for e: SimEntity in Sim.map_entities(main.current_map_id):
+		if e.kind != SimEntity.Kind.MONSTER or e.monster_def == null or e.dormant or not e.is_alive():
+			continue
+		if e.position.distance_to(p.position) >= FAR:
+			continue
+		if beat and AURA_SOUND.has(e.monster_def.aura):
+			play_at(AURA_SOUND[e.monster_def.aura], e.position)
+		if pulse and not e.buffs.is_empty():
+			var d: float = e.position.distance_to(p.position)
+			if d < pulse_d:
+				for b in BUFF_SOUND:
+					if e.buff_stacks(b) > 0:
+						pulse_at = e
+						pulse_d = d
+						pulse_snd = BUFF_SOUND[b]
+		if e.aggro_target >= 0:
+			angry[e.id] = true
+			if not _angry.has(e.id):
+				_mob_voice(e, 0)
+	_angry = angry
+	if pulse_at != null:
+		_buff_beat = BUFF_BEAT
+		play_at(pulse_snd, pulse_at.position)
+
 ## Ouro só sobe por venda, quest ou saque: moedas.
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	var p: SimEntity = Sim.player
 	if p == null:
 		return
+	_scan_mobs(delta)
 	if _gold >= 0 and p.gold > _gold and _now() >= _quiet_until:
 		play_ui("coins")
 	_gold = p.gold
