@@ -214,6 +214,79 @@ static func build(classes: Dictionary) -> Array:
 		 "effects": {"boss_summon": {"id": "bone_raised", "count": 2, "max": 5}}},
 		{"id": "mob_raise_wraiths", "name": "Erguer Espectros", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 26.0, "radius": 0.0, "startup": 0.9, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.6, 0.9, 1.0),
 		 "effects": {"boss_summon": {"id": "frost_wraith", "count": 2, "max": 4, "pick": "far"}}},
+		# ---- Ato II, a Horda (30-35): goblins, ginetes, orcs e nagas ----
+		# Empalador: estocada em linha que atravessa todos no caminho (sem avanço)
+		{"id": "mob_impale", "name": "Empalar", "clip": "atk_thrust", "target": T_DIR, "kind": K_PHYS, "power": 1.6, "cooldown": 8.0, "range": 5.5, "radius": 0.9, "startup": 0.6, "active": 0.1, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(0.7, 0.75, 0.45)},
+		# Agitador: batida do tambor (empurra o bando a cercar: lentidão em volta)
+		{"id": "mob_drum_beat", "name": "Batida de Guerra", "clip": "shout", "target": T_SELF, "kind": K_PHYS, "power": 0.8, "cooldown": 10.0, "radius": 4.0, "startup": 0.7, "active": 0.2, "recovery": 0.5, "hit_stop_frames": 3, "icon_color": Color(0.8, 0.3, 0.2),
+		 "effects": {"slow": {"pct": 30, "duration": 2.5}}},
+		# Saqueador: rede (projétil visível; prende e, com dano, derruba de quem está montado)
+		{"id": "mob_net_throw", "name": "Rede do Saqueador", "clip": "atk_throw", "target": T_TARGET, "kind": K_PHYS, "power": 0.6, "cooldown": 11.0, "range": 9.0, "radius": 0.0, "max_targets": 1, "startup": 0.5, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 2, "icon_color": Color(0.75, 0.65, 0.45), "mob_pick": "soft",
+		 "effects": {"root": {"duration": 2.0}}},
+		# Recruta Orc: talho largo
+		{"id": "mob_orc_chop", "name": "Talho Orc", "target": T_CONE, "kind": K_PHYS, "power": 1.5, "cooldown": 7.0, "radius": 2.8, "cone_angle_deg": 100, "startup": 0.55, "active": 0.15, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(0.5, 0.6, 0.35)},
+		# Nagas: puxam para a beira d'água (onde ficam) e golpeiam em linha
+		{"id": "mob_tide_pull", "name": "Laço da Maré", "clip": "atk_throw", "target": T_TARGET, "kind": K_MAG, "power": 0.7, "cooldown": 12.0, "range": 10.0, "radius": 0.0, "max_targets": 1, "startup": 0.55, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.3, 0.8, 0.8), "mob_pick": "far", "vfx": "ice",
+		 "effects": {"pull": {"gap": 0.6}, "slow": {"pct": 30, "duration": 2.0}}},
+		{"id": "mob_tide_lance", "name": "Lança das Marés", "clip": "atk_thrust", "target": T_DIR, "kind": K_PHYS, "power": 1.7, "cooldown": 7.0, "range": 6.0, "radius": 0.9, "startup": 0.6, "active": 0.1, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(0.35, 0.85, 0.8)},
+		# Mãe das Marés: onda em volta, gêiseres avisados e chamar a ninhada
+		{"id": "mob_tide_wave", "name": "Onda Quebrada", "clip": "shout", "target": T_SELF, "kind": K_MAG, "power": 1.2, "cooldown": 11.0, "radius": 5.5, "startup": 0.9, "active": 0.2, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(0.35, 0.75, 0.95), "vfx": "ice",
+		 "effects": {"slow": {"pct": 40, "duration": 2.5}}},
+		{"id": "mob_tide_geysers", "name": "Gêiseres", "clip": "cast_ground", "target": T_GROUND, "kind": K_MAG, "power": 1.1, "cooldown": 13.0, "range": 14.0, "radius": 2.2, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.4, 0.85, 0.95), "mob_pick": "far", "vfx": "ice",
+		 "effects": {"barrage": {"count": 4, "radius": 2.2, "delay": 1.4, "spread": 9.0}, "slow": {"pct": 40, "duration": 2.0}}},
+		{"id": "mob_call_brood", "name": "Chamar a Ninhada", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 26.0, "radius": 0.0, "startup": 0.8, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.35, 0.8, 0.75), "vfx": "summon",
+		 "effects": {"boss_summon": {"id": "naga_spawn", "count": 2, "max": 4, "pick": "soft"}}},
+		# Agitador-Mor: tambor que atordoa, chuva de lanças e chamar a turba
+		{"id": "mob_war_drum", "name": "Tambor do Agitador", "clip": "shout", "target": T_SELF, "kind": K_PHYS, "power": 1.0, "cooldown": 14.0, "radius": 5.0, "startup": 1.0, "active": 0.2, "recovery": 0.5, "hit_stop_frames": 5, "icon_color": Color(0.85, 0.25, 0.2),
+		 "effects": {"stun": {"duration": 0.8}}},
+		{"id": "mob_spear_rain", "name": "Chuva de Lanças", "clip": "cast_ground", "target": T_GROUND, "kind": K_PHYS, "power": 1.2, "cooldown": 13.0, "range": 14.0, "radius": 2.0, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.75, 0.7, 0.45), "mob_pick": "far",
+		 "effects": {"barrage": {"count": 4, "radius": 2.0, "delay": 1.3, "spread": 9.0}}},
+		{"id": "mob_call_rabble", "name": "Chamar a Turba", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 24.0, "radius": 0.0, "startup": 0.8, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.6, 0.7, 0.35), "vfx": "summon",
+		 "effects": {"boss_summon": {"id": "goblin_rabble", "count": 3, "max": 5}}},
+		# ---- Ato II, a Horda (35-40): trolls, arqueiros, guerreiro orc e os chefes dos acampamentos das Estepes ----
+		# Troll: pancada no chão em volta (retarda)
+		{"id": "mob_troll_slam", "name": "Pancada de Troll", "target": T_SELF, "kind": K_PHYS, "power": 1.5, "cooldown": 9.0, "radius": 3.4, "startup": 0.8, "active": 0.2, "recovery": 0.6, "hit_stop_frames": 4, "icon_color": Color(0.5, 0.6, 0.7),
+		 "effects": {"slow": {"pct": 35, "duration": 2.5}}},
+		# Arqueiro/Besteiro: chuva de flechas de fogo em círculos avisados (queima) e virote em linha que atravessa
+		{"id": "mob_fire_arrows", "name": "Flechas de Fogo", "target": T_GROUND, "kind": K_PHYS, "power": 0.9, "cooldown": 10.0, "range": 11.0, "radius": 2.0, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(1.0, 0.5, 0.2), "vfx": "fire",
+		 "effects": {"barrage": {"count": 2, "radius": 2.0, "delay": 1.5, "spread": 5.0}, "dot": {"dps": 4, "duration": 3}}},
+		{"id": "mob_bolt_pierce", "name": "Virote Perfurante", "clip": "atk_throw", "target": T_DIR, "kind": K_PHYS, "power": 1.3, "cooldown": 10.0, "range": 11.0, "radius": 0.8, "startup": 0.7, "active": 0.1, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(0.75, 0.72, 0.6), "mob_pick": "far"},
+		# Guerreiro Orc: grito de guerra (buff do bando da Horda em volta; renova, não soma)
+		{"id": "mob_war_cry", "name": "Grito de Guerra", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 18.0, "radius": 6.0, "startup": 0.6, "active": 0.1, "recovery": 0.4, "icon_color": Color(0.85, 0.3, 0.2), "vfx": "blood",
+		 "effects": {"rally": {"id": "war_cry", "radius": 9.0, "duration": 8.0, "atk_pct": 15.0, "speed_pct": 10.0}}},
+		# Troll Rei-da-Rocha: abalo que atordoa e chamar as crias (a Chuva de Pedras é a mob_boulder_barrage)
+		{"id": "mob_rock_quake", "name": "Abalo da Rocha", "clip": "shout", "target": T_SELF, "kind": K_PHYS, "power": 1.3, "cooldown": 13.0, "radius": 5.5, "startup": 1.0, "active": 0.2, "recovery": 0.6, "hit_stop_frames": 5, "icon_color": Color(0.55, 0.6, 0.7), "vfx": "earth",
+		 "effects": {"stun": {"duration": 0.8}}},
+		{"id": "mob_call_trolls", "name": "Chamar as Crias", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 26.0, "radius": 0.0, "startup": 0.8, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.5, 0.65, 0.75), "vfx": "summon",
+		 "effects": {"boss_summon": {"id": "troll_runt", "count": 2, "max": 3}}},
+		# Mestre Besteiro: chuva e tempestade de flechas de fogo, chamar os atiradores
+		{"id": "mob_fire_rain", "name": "Chuva de Flechas de Fogo", "clip": "cast_ground", "target": T_GROUND, "kind": K_PHYS, "power": 1.2, "cooldown": 11.0, "range": 16.0, "radius": 2.2, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(1.0, 0.45, 0.15), "mob_pick": "far", "vfx": "fire",
+		 "effects": {"barrage": {"count": 5, "radius": 2.2, "delay": 1.4, "spread": 10.0}, "dot": {"dps": 5, "duration": 3}}},
+		{"id": "mob_fire_storm", "name": "Tempestade de Fogo", "clip": "cast_ground", "target": T_GROUND, "kind": K_PHYS, "power": 1.4, "cooldown": 17.0, "range": 16.0, "radius": 2.6, "startup": 0.8, "active": 0.1, "recovery": 0.6, "icon_color": Color(1.0, 0.35, 0.1), "mob_pick": "random", "vfx": "fire",
+		 "effects": {"barrage": {"count": 6, "radius": 2.6, "delay": 1.7, "spread": 13.0}, "dot": {"dps": 6, "duration": 4}}},
+		{"id": "mob_call_marksmen", "name": "Chamar os Atiradores", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 26.0, "radius": 0.0, "startup": 0.8, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.8, 0.5, 0.3), "vfx": "summon",
+		 "effects": {"boss_summon": {"id": "orc_marksman", "count": 2, "max": 3, "pick": "far"}}},
+		# Senhor da Guerra Ghar: brado (buff do bando), talho largo, terra rachada e chamar a vanguarda
+		{"id": "mob_ghar_cry", "name": "Brado de Ghar", "clip": "shout", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 20.0, "radius": 0.0, "startup": 0.8, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.9, 0.25, 0.15), "vfx": "blood",
+		 "effects": {"rally": {"id": "war_cry", "radius": 14.0, "duration": 10.0, "atk_pct": 20.0, "speed_pct": 10.0}}},
+		{"id": "mob_ghar_cleave", "name": "Talho de Ghar", "clip": "atk_sweep", "target": T_CONE, "kind": K_PHYS, "power": 1.7, "cooldown": 7.0, "radius": 3.6, "cone_angle_deg": 120, "startup": 0.65, "active": 0.15, "recovery": 0.5, "hit_stop_frames": 5, "icon_color": Color(0.6, 0.6, 0.4)},
+		{"id": "mob_ghar_quake", "name": "Terra Rachada", "clip": "cast_ground", "target": T_GROUND, "kind": K_PHYS, "power": 1.3, "cooldown": 13.0, "range": 14.0, "radius": 2.4, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.65, 0.5, 0.35), "mob_pick": "far", "vfx": "earth",
+		 "effects": {"barrage": {"count": 5, "radius": 2.4, "delay": 1.4, "spread": 10.0}, "slow": {"pct": 40, "duration": 2.0}}},
+		{"id": "mob_call_vanguard", "name": "Chamar a Vanguarda", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 26.0, "radius": 0.0, "startup": 0.8, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.6, 0.65, 0.4), "vfx": "summon",
+		 "effects": {"boss_summon": {"id": "orc_vanguard", "count": 2, "max": 4}}},
+		# ---- elemental que evolui (ascensão do Elementalista): Maior (1) e Ancestral (2) por forma; área x ELEM_STAGE_MULT ----
+		{"id": "elem_salamander_spit", "name": "Cuspe da Salamandra", "vfx": "fire", "target": T_CONE, "kind": K_MAG, "power": 1.5, "cooldown": 5.0, "radius": _elem_area(5.0, 1), "cone_angle_deg": 60, "startup": 0.35, "active": 0.15, "recovery": 0.4, "hit_stop_frames": 3, "icon_color": Color(1, 0.45, 0.15),
+		 "effects": {"dot": {"dps": 8, "duration": 3}}},
+		{"id": "elem_golem_stomp", "name": "Pisão do Golem", "vfx": "ice", "target": T_SELF, "kind": K_MAG, "power": 1.2, "cooldown": 7.0, "radius": _elem_area(3.0, 1), "startup": 0.4, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 4, "icon_color": Color(0.55, 0.85, 1.0),
+		 "effects": {"slow": {"pct": 40, "duration": 2.5}, "taunt": {"duration": 2.0}}},
+		{"id": "elem_sylph_arc", "name": "Arco do Silfo", "vfx": "lightning", "target": T_TARGET, "kind": K_MAG, "power": 1.3, "cooldown": 5.0, "range": 8.0, "radius": _elem_area(3.0, 1), "max_targets": 4, "startup": 0.3, "active": 0.1, "recovery": 0.35, "hit_stop_frames": 3, "icon_color": Color(0.8, 0.8, 1.0),
+		 "effects": {"stun": {"duration": 0.3}}},
+		{"id": "elem_ifrit_pyre", "name": "Pira do Ifrit", "vfx": "fire", "target": T_SELF, "kind": K_MAG, "power": 1.8, "cooldown": 9.0, "radius": _elem_area(3.5, 2), "startup": 0.5, "active": 0.15, "recovery": 0.5, "hit_stop_frames": 5, "icon_color": Color(1, 0.35, 0.1),
+		 "effects": {"dot": {"dps": 12, "duration": 4}}},
+		{"id": "elem_undine_tide", "name": "Maré da Ondina", "description": "Escudo de água nos aliados do dono em volta.", "vfx": "ice", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 14.0, "radius": _elem_area(8.0, 2), "startup": 0.5, "active": 0.1, "recovery": 0.4, "icon_color": Color(0.5, 0.8, 1.0),
+		 "effects": {"shield": {"amount_pct_hp": 10, "duration": 6}}},
+		{"id": "elem_tempest_chain", "name": "Corrente da Tempestade", "vfx": "lightning", "target": T_TARGET, "kind": K_MAG, "power": 1.6, "cooldown": 6.0, "range": 9.0, "radius": _elem_area(4.0, 2), "max_targets": 6, "startup": 0.3, "active": 0.1, "recovery": 0.35, "hit_stop_frames": 3, "icon_color": Color(0.75, 0.75, 1.0),
+		 "effects": {"stun": {"duration": 0.4}}},
 	]:
 		d["mp_cost"] = 0
 		d["mastery"] = _mastery()
@@ -247,7 +320,32 @@ const BOSS_RANGE := {"mob_blood_mark": 12.0, "mob_grave_touch": 12.0, "mob_acid_
 
 ## Elementos das skills do Elementalista: o ramo dá o elemento; as gerais e as combinações dizem aqui.
 const ELEMENTALS := ["fire_elemental", "frost_elemental", "storm_elemental"]     # um por vez (o novo substitui)
-const ELEMENTS := {"ele_fireball": ["fire"], "ele_spark": ["storm"], "ele_blink": [],
+## Elemental que evolui (ascensão do Elementalista, ElementalSystem): monstro, skill de invocação e nome de cada estágio por forma.
+const ELEM_FORMS := ["fire", "frost", "storm"]
+const ELEM_MODES := ["attack", "protect", "support"]
+const ELEM_MODE_LABELS := {"attack": "atacar", "protect": "proteger", "support": "apoiar"}
+const ELEM_FORM_LABELS := {"fire": "fogo", "frost": "gelo", "storm": "raio"}
+const ELEM_FORM_MONSTER := {"fire": "fire_elemental", "frost": "frost_elemental", "storm": "storm_elemental"}
+const ELEM_FORM_SKILL := {"fire": "ele_summon_fire", "frost": "ele_summon_ice", "storm": "ele_summon_storm"}
+const ELEM_STAGE_NAMES := {"fire": ["Elemental de Fogo", "Salamandra", "Ifrit"], "frost": ["Elemental de Gelo", "Golem de Gelo", "Ondina"],
+	"storm": ["Elemental de Raio", "Silfo", "Tempestade"]}
+const ELEM_STAGE_LABELS := ["Básico", "Maior", "Ancestral"]
+## skills que o elemental ganha em cada estágio (somam com as do monstro; o estágio de cima leva as de baixo)
+const ELEM_STAGE_SKILLS := {"fire": [[], ["elem_salamander_spit"], ["elem_ifrit_pyre"]], "frost": [[], ["elem_golem_stomp"], ["elem_undine_tide"]],
+	"storm": [[], ["elem_sylph_arc"], ["elem_tempest_chain"]]}
+
+static func elem_stage_skills(form: String, stage: int) -> Array:
+	var out: Array = []
+	var by: Array = ELEM_STAGE_SKILLS.get(form, [])
+	for i in range(mini(stage + 1, by.size())):
+		out.append_array(by[i])
+	return out
+
+## raio de skill do elemental no estágio (Balance.ELEM_STAGE_MULT "area")
+static func _elem_area(r: float, stage: int) -> float:
+	return snappedf(r * float(Balance.ELEM_STAGE_MULT[stage]["area"]), 0.05)
+
+const ELEMENTS := {"ele_fireball": ["fire"], "ele_spark": ["storm"], "ele_blink": [], "ele_asc_fusion": ["fire", "frost", "storm"],
 	"ele_firestorm": ["fire", "storm"], "ele_frost_flare": ["fire", "frost"], "ele_hailstorm": ["frost", "storm"], "ele_prism": ["fire", "frost", "storm"]}
 
 ## Tema visual de cada skill (FxManager desenha cor + partículas + forma por tema). Ordem: palavra no id → classe → tipo.
@@ -294,8 +392,14 @@ static func _req(a: Array) -> Array[String]:
 
 const KIND_COLORS := [Color(1, 0.7, 0.5), Color(0.6, 0.7, 1), Color(0.7, 1, 0.7), Color(1, 0.9, 0.5), Color(0.7, 0.9, 0.7), Color(0.8, 0.8, 1)]
 
+## Skills existentes que saem montadas no Combate Montado (escudo, aura, bênçãos e cura do Paladino; GDD ato2-horda R6.1).
+const MOUNTABLE := ["pal_blessed_armor", "pal_shield_wall", "pal_bastion_aura", "pal_divine_shield", "pal_lay_hands",
+	"pal_valor", "pal_zeal", "pal_avenging_wrath"]
+
 static func _finish(d: Dictionary, cls_id: String) -> SkillDef:
 	d["class_id"] = cls_id
+	if d["id"] in MOUNTABLE:
+		d["mountable"] = true
 	if not d.has("mastery"):
 		d["mastery"] = _mastery()
 	if not d.has("icon_color"):
@@ -324,6 +428,37 @@ const FORM_MODS := {
 	"dru_rampage": {"wolf": {"name": "Redemoinho de Presas", "mult": {"radius": 1.2, "startup": 0.8}}},
 	"dru_savage": {"wolf": {"name": "Golpe da Matilha", "effects": {"heal_pct_of_dmg": 0.35}}},
 }
+## Forma Ancestral (Druida ascendido, DruidAscension): variantes do Ent, do Lobo Alfa e do Pássaro Arcano. Entram em
+## conta de `form_variants`; skill sem entrada aqui usa a variante da forma de base (Balance.ANC_FORM_BASE). Cura das penas e
+## empurrão da rajada: Balance.ANC_FEATHER_HEAL / ANC_GUST_PUSH.
+const ANCESTRAL_MODS := {
+	# Ent (Urso): raízes e galhos, áreas maiores, provoca e prende
+	"dru_maul": {"ent": {"name": "Golpe de Galho", "mult": {"radius": 1.35, "power": 1.18}, "set": {"cone_angle_deg": 150.0}}},
+	"dru_bellow": {"ent": {"name": "Chamado do Bosque", "mult": {"radius": 1.5}}},
+	"dru_earth_slam": {"ent": {"name": "Tremor de Raízes", "mult": {"radius": 1.3, "power": 1.15}, "effects": {"stun": {"duration": 0.9}, "root": {"duration": 1.5}}}},
+	"dru_stampede": {"ent": {"name": "Marcha do Ent", "mult": {"power": 1.22}, "effects": {"dash": 6.0}}},
+	"dru_mountain": {"ent": {"name": "Chuva de Troncos", "mult": {"radius": 1.25, "power": 1.12}}},
+	"dru_oak_skin": {"ent": {"name": "Casca Milenar", "effects": {"shield": {"amount_pct_hp": 40, "duration": 8}}}},
+	# Lobo Alfa (Lobo): os golpes do lobo, mais fortes
+	"dru_claw": {"alpha": {"name": "Mordida do Alfa", "mult": {"startup": 0.7, "power": 1.16}, "effects": {"dot": {"dps": 7, "duration": 4}}}},
+	"dru_pounce": {"alpha": {"name": "Salto do Alfa", "mult": {"range": 1.4, "power": 1.2}, "effects": {"dash": 7.0}}},
+	"dru_maim": {"alpha": {"name": "Dilacerar do Alfa", "mult": {"power": 1.06}, "effects": {"slow": {"pct": 50, "duration": 2.5}}}},
+	"dru_frenzy": {"alpha": {"name": "Uivo da Matilha", "set": {"radius": 8.0}}},
+	"dru_rampage": {"alpha": {"name": "Redemoinho do Alfa", "mult": {"radius": 1.25, "startup": 0.8, "power": 1.06}}},
+	"dru_savage": {"alpha": {"name": "Bote da Matilha", "mult": {"power": 1.06}, "effects": {"heal_pct_of_dmg": 0.4}}},
+	# Pássaro Arcano (Xamã): raio em cadeia, chuva de penas de luz que cura, rajada de vento que empurra
+	"dru_thorns": {"bird": {"name": "Pena Cortante", "mult": {"power": 1.08}}},
+	"dru_moonfire": {"bird": {"name": "Raio em Cadeia", "set": {"projectile_speed": 0.0}, "effects": {"chain": {"count": 3, "radius": 5.0, "falloff": 0.6}}}},
+	"dru_starfall": {"bird": {"name": "Chuva de Penas de Luz", "mult": {"radius": 1.2}, "effects": {"area_heal": {}}}},
+	"dru_cyclone": {"bird": {"name": "Rajada de Vento", "mult": {"radius": 1.15}, "effects": {"knockback": {}}}},
+	"dru_storm": {"bird": {"name": "Tempestade de Raios", "mult": {"power": 1.06}, "effects": {"chain": {"count": 2, "radius": 5.0, "falloff": 0.5}}}},
+}
+
+## Variantes de uma skill por forma: FORM_MODS + ANCESTRAL_MODS (sem a forma de base: isso é de DruidAscension.form_mods).
+static func form_variants(skill_id: String) -> Dictionary:
+	var out: Dictionary = FORM_MODS.get(skill_id, {})
+	var anc: Dictionary = ANCESTRAL_MODS.get(skill_id, {})
+	return out.merged(anc) if not anc.is_empty() else out
 
 static func _s(id: String, name: String, lvl: int, build: String, req: Array, tgt: int, kind: int,
 		power: float, mp: float, cd: float, desc: String, ext: Dictionary = {}) -> Dictionary:
@@ -398,13 +533,29 @@ static func _more() -> Dictionary:
 		_s("pal_flame_pyre", "Pira Sagrada", 16, "templario", ["shield"], T_SELF, K_PHYS, 2.2, 18, 10, "Ergue chamas sagradas à sua volta: dano e queimadura em quem estiver perto.", {"radius": 3.4, "startup": 0.2, "dot": _dot(7, 4)}),
 		_buff("pal_avenging_wrath", "Ira Vingadora", 19, "templario", ["shield"], 20, 24, "+25% ATK, +25% MATK e +8 crit por 10s.", {"id": "avenging_wrath", "duration": 10, "atk_pct": 25, "matk_pct": 25, "crit": 8}),
 		_s("pal_sun_strike", "Golpe Solar", 25, "templario", ["shield"], T_CONE, K_PHYS, 4.0, 28, 15, "Golpe de luz solar em leque: dano enorme, atordoa 0.8s e cura 20% do dano.", {"radius": 3.2, "cone_angle_deg": 110, "startup": 0.25, "stun": _dur(0.8), "heal_pct_of_dmg": 0.2, "hit_stop_frames": 6}),
+		# Ascensão (35): Combate Montado + Modo Arcano (GDD ato2-horda R6.1, F8, F9b); liberadas pela missão, fora da teia
+		_s("pal_mounted_charge", "Carga Montada", Balance.ASC_LEVEL, "", [], T_DIR, K_PHYS, Balance.MOUNT_CHARGE_POWER, 16, Balance.MOUNT_CHARGE_CD,
+			"Só montado. O corcel dispara %.1f m em linha reta e atropela todos no caminho; para em parede ou água." % Balance.MOUNT_CHARGE_DIST,
+			{"range": Balance.MOUNT_CHARGE_DIST, "radius": 1.2, "dash": Balance.MOUNT_CHARGE_DIST, "startup": 0.2, "active": 0.15, "recovery": 0.3,
+			 "cancel_after": 0.12, "hit_stop_frames": 4, "mountable": true, "mount_only": true, "ascension": true, "clip": "atk_thrust", "vfx": "holy",
+			 "icon_color": Color(1, 0.85, 0.45)}),
+		_s("pal_trample", "Pisotear", Balance.ASC_LEVEL, "", [], T_SELF, K_PHYS, float(Balance.MOUNT_TRAMPLE["power"]), 12, float(Balance.MOUNT_TRAMPLE["cd"]),
+			"Só montado. O corcel empina e pisoteia em volta (%.1f m): dano e lentidão de %d%% por %.0f s." % [float(Balance.MOUNT_TRAMPLE["radius"]), int(Balance.MOUNT_TRAMPLE["slow_pct"]), float(Balance.MOUNT_TRAMPLE["slow_time"])],
+			{"radius": float(Balance.MOUNT_TRAMPLE["radius"]), "startup": 0.18, "active": 0.1, "recovery": 0.3, "cancel_after": 0.12, "hit_stop_frames": 3,
+			 "slow": _slow(float(Balance.MOUNT_TRAMPLE["slow_pct"]), float(Balance.MOUNT_TRAMPLE["slow_time"])),
+			 "mountable": true, "mount_only": true, "ascension": true, "clip": "atk_finisher", "vfx": "earth", "icon_color": Color(0.85, 0.7, 0.45)}),
+		_s("pal_arcane_mode", "Modo Arcano", Balance.ASC_LEVEL, "", [], T_SELF, K_BUFF, 0.0, 10, Balance.ARCANE_TOGGLE_CD,
+			"Liga/desliga. Asas de luz brotam nas costas: +%d%% de dano e +%d%% DEF/MDEF enquanto durar a MP (%.0f MP/s e metade da regeneração). Ao ligar, uma rajada de penas fere e empurra quem está a %.0f m. Montado, desce do cavalo. Desligar (ou ficar sem MP) dá %.0f s de recarga." % [
+				int(Balance.ARCANE_WINGS["atk_pct"]), int(Balance.ARCANE_WINGS["def_pct"]), Balance.ARCANE_MP_PER_S, float(Balance.ARCANE_BURST["radius"]), Balance.ARCANE_CD],
+			{"buff": ({"id": "arcane_wings", "toggle": true} as Dictionary).merged(Balance.ARCANE_WINGS), "arcane": {},
+			 "startup": 0.2, "active": 0.1, "recovery": 0.25, "ascension": true, "clip": "buff_power", "vfx": "holy", "icon_color": Color(0.75, 0.85, 1)}),
 	],
 	"berserker": [
 		_buff("ber_bloodlust", "Sede de Sangue", 1, "", [], 10, 18, "+15% ATK por 10s.", {"id": "bloodlust", "duration": 10, "atk_pct": 15}),
 		# Armas Gêmeas (duas armas de 1 mão)
-		_s("ber_hack", "Talho Duplo", 2, "carniceiro", ["dual"], T_TARGET, K_PHYS, 1.7, 8, 3, "Dois talhos com as duas armas: sangramento por 4s.", {"dot": _dot(4, 4)}),
-		_s("ber_rend", "Dilacerar", 8, "carniceiro", ["dual"], T_CONE, K_PHYS, 1.4, 12, 7, "Dilacera em cone: sangramento forte.", {"radius": 2.6, "cone_angle_deg": 110, "dot": _dot(6, 5)}),
-		_s("ber_axe_storm", "Tempestade de Aço", 13, "carniceiro", ["dual"], T_SELF, K_PHYS, 2.4, 20, 11, "Tempestade de golpes ao redor: tudo sangra por 4s.", {"radius": 3.2, "active": 0.3, "dot": _dot(6, 4)}),
+		_s("ber_hack", "Talho Duplo", 2, "carniceiro", ["dual"], T_TARGET, K_PHYS, 1.7, 8, 3, "Dois talhos com as duas armas: sangramento por 4s (conta como veneno: corta a regeneração do troll).", {"dot": _dot(4, 4)}),
+		_s("ber_rend", "Dilacerar", 8, "carniceiro", ["dual"], T_CONE, K_PHYS, 1.4, 12, 7, "Dilacera em cone: sangramento forte (conta como veneno: corta a regeneração do troll).", {"radius": 2.6, "cone_angle_deg": 110, "dot": _dot(6, 5)}),
+		_s("ber_axe_storm", "Tempestade de Aço", 13, "carniceiro", ["dual"], T_SELF, K_PHYS, 2.4, 20, 11, "Tempestade de golpes ao redor: tudo sangra por 4s (conta como veneno: corta a regeneração do troll).", {"radius": 3.2, "active": 0.3, "dot": _dot(6, 4)}),
 		_s("ber_throw_axe", "Arremesso Brutal", 16, "carniceiro", ["dual"], T_DIR, K_PHYS, 1.9, 14, 8, "Arremessa a arma da mão secundária: dano e lentidão.", {"range": 9.0, "radius": 0.5, "projectile_speed": 18.0, "slow": _slow(35, 2)}),
 		_s("ber_butcher", "Carnificina", 24, "carniceiro", ["dual"], T_TARGET, K_PHYS, 3.6, 26, 14, "Golpe brutal em um alvo; cura 25% do dano.", {"heal_pct_of_dmg": 0.25, "hit_stop_frames": 6}),
 		# Armas Gêmeas: golpes rápidos
@@ -436,6 +587,33 @@ static func _more() -> Dictionary:
 			{"fury_spend": {"power_pct": 30}, "hit_stop_frames": 7, "vfx": "blood"}),
 		_s("ber_hundred_fists", "Cem Punhos", 27, "punhos", ["dual_claw"], T_SELF, K_PHYS, 3.0, 30, 16, "Tempestade de socos ao redor; se acertar alguém, +2 de Fúria do Punho.",
 			{"radius": 3.2, "active": 0.4, "fury_gain": 2, "vfx": "blood"}),
+		# Ascensão (35, ProgressionSystem.has_ascension): Empunhadura de Titã e Modo Gladiador (TitanSystem, GladiatorSystem).
+		# Fora da teia comum (SkillDef.ascension: teia de ascensão própria), todas as builds. Glória: crítico, abate, Brado.
+		_s("ber_titan_cyclone", "Ciclone de Titã", Balance.ASC_LEVEL, "", ["titan", "dual", "dual_claw"], T_SELF, K_PHYS, 0.6, 18, 12,
+			"Gira com as duas armas por 2s: 4 giros em tudo a 3 m (com dois machados de duas mãos, cada giro bate com os dois).",
+			{"ascension": true, "radius": 3.0, "channel": {"ticks": 4}, "active": 2.0, "startup": 0.15, "recovery": 0.2, "titan_hit": true, "vfx": "wind", "hit_stop_frames": 2}),
+		_s("ber_gladiator", "Modo Gladiador", Balance.ASC_LEVEL, "", [], T_SELF, K_BUFF, 0.0, 10, 6,
+			"Liga/desliga a postura de arena: +%d%% de dano e %d%% de defesa. Na postura a Fúria vira Glória (até %d): golpe crítico e abate dão 1. Desligar zera a Glória." % [Balance.GLADIATOR_STANCE["atk_pct"], Balance.GLADIATOR_STANCE["def_pct"], Balance.GLORY_MAX],
+			{"ascension": true, "buff": Balance.GLADIATOR_STANCE.merged({"id": Balance.GLADIATOR_BUFF, "toggle": true}), "aura": {"radius": 0.0, "ally": {}},
+			 "startup": 0.1, "recovery": 0.2, "vfx": "blood"}),
+		_s("ber_glad_fire", "Lâmina Ígnea", Balance.ASC_LEVEL, "", ["gladiator"], T_CONE, K_PHYS, Balance.GLADIATOR_BLADE_POWER, 12, 8,
+			"Golpe de arena com a arma em chamas (Modo Gladiador): queima por 4s; +%.1f de poder por Glória." % Balance.GLORY_STEP,
+			{"ascension": true, "radius": 3.0, "cone_angle_deg": 110, "startup": 0.18, "dot": _dot(8, 4), "glory_scale": true, "titan_hit": true, "vfx": "fire", "hit_stop_frames": 4}),
+		_s("ber_glad_frost", "Lâmina Gélida", Balance.ASC_LEVEL, "", ["gladiator"], T_CONE, K_PHYS, Balance.GLADIATOR_BLADE_POWER, 12, 8,
+			"Golpe de arena com a arma congelada (Modo Gladiador): lentidão de 40%% e estilhaça quem já está lento; +%.1f de poder por Glória." % Balance.GLORY_STEP,
+			{"ascension": true, "radius": 3.0, "cone_angle_deg": 110, "startup": 0.18, "slow": _slow(40, 2.5), "glory_scale": true, "titan_hit": true, "vfx": "ice", "hit_stop_frames": 4}),
+		_s("ber_glad_storm", "Lâmina Trovejante", Balance.ASC_LEVEL, "", ["gladiator"], T_DIR, K_PHYS, Balance.GLADIATOR_BLADE_POWER, 12, 8,
+			"Estocada de arena com a arma eletrizada (Modo Gladiador): o raio salta para 2 vizinhos; +%.1f de poder por Glória." % Balance.GLORY_STEP,
+			{"ascension": true, "range": 4.0, "radius": 1.0, "startup": 0.16, "chain": {"count": 2, "radius": 4.5, "falloff": 0.6}, "glory_scale": true, "titan_hit": true, "vfx": "lightning", "hit_stop_frames": 4}),
+		_s("ber_glad_rush", "Investida do Gladiador", Balance.ASC_LEVEL, "", ["gladiator"], T_DIR, K_PHYS, 1.6, 12, 10,
+			"Avança 7m (Modo Gladiador) e derruba o primeiro que atingir (atordoa 0.8s).",
+			{"ascension": true, "range": 7.0, "radius": 1.0, "dash": 7.0, "max_targets": 1, "stun": _dur(0.8), "startup": 0.12, "vfx": "blood", "hit_stop_frames": 5}),
+		_s("ber_arena_shout", "Brado da Arena", Balance.ASC_LEVEL, "", ["gladiator"], T_SELF, K_BUFF, 0.0, 14, 25,
+			"Brado para a plateia (Modo Gladiador): provoca os inimigos a 8 m por 2s e dá +1 de Glória por inimigo provocado (até %d)." % Balance.GLORY_SHOUT_MAX,
+			{"ascension": true, "radius": 8.0, "taunt": _dur(2.0), "glory_gain": true, "startup": 0.15, "vfx": "blood"}),
+		_s("ber_glad_finale", "Golpe Final", Balance.ASC_LEVEL, "", ["glory_full"], T_CONE, K_PHYS, Balance.GLADIATOR_FINALE_POWER, 20, 6,
+			"Gasta %d de Glória: golpe com as duas armas em leque de 3 m na frente." % Balance.GLORY_MAX,
+			{"ascension": true, "radius": 3.0, "cone_angle_deg": 120, "startup": 0.3, "recovery": 0.4, "glory_spend": true, "titan_hit": true, "clip": "atk_finisher", "vfx": "blood", "hit_stop_frames": 7}),
 	],
 	"bishop": [
 		_s("bis_light", "Luz Sagrada", 1, "", [], T_DIR, K_MAG, 1.2, 6, 1.8, "Pequeno projétil de luz.", {"range": 9.0, "radius": 0.4, "projectile_speed": 20.0}),
@@ -462,6 +640,25 @@ static func _more() -> Dictionary:
 		_s("bis_holy_quake", "Tremor Sagrado", 14, "batalha", ["mace"], T_SELF, K_PHYS, 3.4, 18, 9, "Bate a maça no chão: dano ao redor, lentidão e 20% do dano cura o aliado mais ferido.", {"radius": 3.2, "startup": 0.2, "slow": _slow(30, 2), "mend_pct_of_dmg": 0.2, "hit_stop_frames": 5}),
 		_s("bis_faith_leap", "Salto da Fé", 20, "batalha", ["mace"], T_GROUND, K_PHYS, 3.6, 20, 12, "Salta até o cursor e esmaga o chão: dano, atordoa 0.6s e 20% do dano cura o aliado mais ferido.", {"range": 6.0, "radius": 2.4, "startup": 0.12, "dash": 5.5, "stun": _dur(0.6), "mend_pct_of_dmg": 0.2}),
 		_s("bis_divine_hammer", "Martelo Divino", 26, "batalha", ["mace"], T_TARGET, K_PHYS, 5.5, 30, 16, "Golpe divino num alvo: dano enorme, atordoa 1s e 35% do dano cura o aliado mais ferido.", {"startup": 0.25, "stun": _dur(1.0), "mend_pct_of_dmg": 0.35, "hit_stop_frames": 6}),
+		# Ascensão (Ato II, 35 + missão hx_asc_bishop): Coro Celeste. Fora da teia comum, compradas na teia de ascensão
+		# (SkillDef.ascension); valem para as 3 builds. Regras em ChoirSystem, números em Balance.BARRIER_*/ANGEL_*/BLESS_*/RES_*.
+		_s("bis_choir_angel", "Anjo Guardião", Balance.ASC_LEVEL, "", [], T_SELF, K_SUMMON, 0.0, 30, Balance.ANGEL_CD,
+			"Chama um anjo que voa atrás de você por 30 s: a cada 1,5 s ele cura quem mais precisa a 12 m (o tanque primeiro). Monstros não o miram; quando o tempo acaba, a Luz de Partida cura o grupo em volta dele. Um por vez. A maestria fortalece a cura do anjo.",
+			{"startup": 0.25, "recovery": 0.3, "cancel_after": 0.1, "choir_angel": {}, "clip": "summon", "vfx": "holy", "ascension": true}),
+		_s("bis_choir_barrier", "Barreira Sagrada", Balance.ASC_LEVEL, "", [], T_GROUND, K_BUFF, 0.0, 32, Balance.BARRIER_CD,
+			"Ergue uma cúpula de luz de 5 m por 8 s no ponto mirado: quem é do grupo e está dentro recebe 30% menos dano, e projéteis e chuvas vindos de fora param na borda. A cúpula anda com você, 2 m/s mais devagar: o grupo precisa andar junto.",
+			{"range": Balance.BARRIER_RANGE, "radius": Balance.BARRIER_RADIUS, "startup": 0.2, "recovery": 0.25, "cancel_after": 0.1,
+			 "choir_barrier": {}, "vfx": "holy", "ascension": true}),
+		_buff("bis_choir_wings", "Asas da Aurora", Balance.ASC_LEVEL, "", [], 22, Balance.BLESS_CD,
+			"Bênção em você e nos aliados a 12 m por 20 s: +15% de velocidade de movimento e de ataque.",
+			{"id": "choir_wings", "duration": Balance.BLESS_TIME}.merged(Balance.BLESS_WINGS), {"radius": Balance.BLESS_RADIUS, "vfx": "holy", "ascension": true}),
+		_buff("bis_choir_aegis", "Égide Coral", Balance.ASC_LEVEL, "", [], 22, Balance.BLESS_CD,
+			"Bênção em você e nos aliados a 12 m por 20 s: +12% de DEF e MDEF, e cada golpe recebido cura 4% da vida (uma vez por segundo).",
+			{"id": "choir_aegis", "duration": Balance.BLESS_TIME}.merged(Balance.BLESS_AEGIS), {"radius": Balance.BLESS_RADIUS, "vfx": "holy", "ascension": true}),
+		_s("bis_choir_return", "Retorno", Balance.RES_LEVEL, "", [], T_GROUND, K_BUFF, 0.0, 60, Balance.RES_CD,
+			"Conjura por 2,5 s e levanta um aliado caído do grupo a até 15 m (o mais perto do ponto mirado) com 35% da vida, ali mesmo. Cada aliado só volta uma vez por luta.",
+			{"range": Balance.RES_RANGE, "radius": 1.5, "startup": Balance.RES_CAST, "recovery": 0.3, "cancel_after": 0.1,
+			 "choir_return": {}, "clip": "cast_channel", "vfx": "holy", "ascension": true}),
 	],
 	"druid": [
 		_buff("dru_bark", "Pele de Casca", 1, "", [], 10, 18, "+20% DEF por 10s.", {"id": "bark", "duration": 10, "def_pct": 20}),
@@ -494,6 +691,42 @@ static func _more() -> Dictionary:
 		_s("dru_prowl", "Espreitar", 5, "fera", ["dual_mace"], T_SELF, K_BUFF, 0.0, 14, 12, "Só na forma de lobo: some da vista dos inimigos por 8s. O primeiro golpe sai da sombra com +60% de dano.",
 			{"stealth": 8.0, "startup": 0.15, "requires_form": "wolf"}),
 		_s("dru_storm", "Tempestade da Natureza", 27, "xama", ["staff"], T_GROUND, K_MAG, 3.4, 36, 18, "Tempestade enorme: dano e lentidão.", {"range": 9.0, "radius": 3.5, "slow": _slow(40, 3)}),
+		# Ascensão (Ato II, 35 + missão hx_asc_druid): Forma Ancestral (DruidAscension). Fora da teia comum (SkillDef.ascension:
+		# teia de ascensão, barra 7-0). Cada build ganha a 3ª forma (liga/desliga) e duas skills que só saem nela.
+		_s("dru_ent_form", "Forma de Ent", Balance.ASC_LEVEL, "guardiao_verde", ["mace2h"], T_SELF, K_BUFF, 0.0, 14, 1.5,
+			"Ascensão. Vira um Ent ancestral (lance de novo para voltar): +%d%% DEF, +%d%% HP, +%d%% ATK, 5%% menos dano recebido, mais ameaça, mais lento. As skills do Guardião viram golpes de galho e raiz." % [Balance.FORM_STATS["ent"]["def_pct"], Balance.FORM_STATS["ent"]["hp_pct"], Balance.FORM_STATS["ent"]["atk_pct"]],
+			{"ascension": true, "form": "ent", "radius": 0.0, "startup": 0.25, "active": 0.05, "recovery": 0.25, "vfx": "earth", "icon_color": Color(0.45, 0.6, 0.3)}),
+		_s("dru_ent_roots", "Raízes Ancestrais", Balance.ASC_LEVEL, "guardiao_verde", ["mace2h"], T_SELF, K_PHYS, Balance.ANC_ROOTS_POWER, 18, 14,
+			"Só como Ent: raízes brotam em volta (6 m): ferem, prendem por 2,5 s e provocam por 4 s (chefes: metade) quem estiver na área.",
+			{"ascension": true, "requires_form": "ent", "radius": Balance.ANC_ROOTS_RADIUS, "root": _dur(Balance.ANC_ROOTS_ROOT), "provoke": _dur(Balance.ANC_ROOTS_TAUNT),
+			 "startup": 0.28, "recovery": 0.3, "cancel_after": 0.15, "vfx": "nature", "hit_stop_frames": 5}),
+		_buff("dru_ent_grove", "Bosque Protetor", Balance.ASC_LEVEL, "guardiao_verde", ["mace2h"], 20, 20,
+			"Só como Ent: a copa cobre o grupo. Você e os aliados a 8 m recebem %d%% menos dano por %d s." % [Balance.ANC_GROVE_DR, Balance.ANC_GROVE_TIME],
+			{"id": "ent_grove", "duration": Balance.ANC_GROVE_TIME, "dr_pct": Balance.ANC_GROVE_DR},
+			{"ascension": true, "requires_form": "ent", "radius": Balance.ANC_GROVE_RADIUS, "vfx": "nature"}),
+		_s("dru_alpha_form", "Lobo Alfa", Balance.ASC_LEVEL, "fera", ["dual_mace"], T_SELF, K_BUFF, 0.0, 14, 1.5,
+			"Ascensão. Vira o Lobo Alfa (lance de novo para voltar): +%d%% velocidade de ataque, +%d%% velocidade, +%d%% ATK, +%d crítico. Vale como forma de lobo (Espreitar) e os golpes da Fera ficam mais fortes." % [Balance.FORM_STATS["alpha"]["aspd_pct"], Balance.FORM_STATS["alpha"]["speed_pct"], Balance.FORM_STATS["alpha"]["atk_pct"], Balance.FORM_STATS["alpha"]["crit"]],
+			{"ascension": true, "form": "alpha", "radius": 0.0, "startup": 0.25, "active": 0.05, "recovery": 0.25, "vfx": "lunar", "icon_color": Color(0.8, 0.84, 0.95)}),
+		_s("dru_alpha_pack", "Chamar a Matilha", Balance.ASC_LEVEL, "fera", ["dual_mace"], T_SELF, K_SUMMON, 0.0, 22, 30,
+			"Só como Lobo Alfa: uiva e chama 2 lobos da matilha por 15 s. Eles têm parte da sua vida e do seu ataque e caçam o seu alvo.",
+			{"ascension": true, "requires_form": "alpha", "pack": {"monster_id": Balance.ANC_PACK_MONSTER, "count": Balance.ANC_PACK_COUNT},
+			 "startup": 0.3, "recovery": 0.25, "cancel_after": 0.1, "vfx": "nature"}),
+		_buff("dru_alpha_howl", "Uivo do Alfa", Balance.ASC_LEVEL, "fera", ["dual_mace"], 16, 22,
+			"Só como Lobo Alfa: o uivo apressa o grupo. Você e os aliados a 10 m ganham +%d%% de velocidade e +%d%% de velocidade de ataque por %d s." % [Balance.ANC_HOWL_SPEED, Balance.ANC_HOWL_ASPD, Balance.ANC_HOWL_TIME],
+			{"id": "alpha_howl", "duration": Balance.ANC_HOWL_TIME, "speed_pct": Balance.ANC_HOWL_SPEED, "aspd_pct": Balance.ANC_HOWL_ASPD},
+			{"ascension": true, "requires_form": "alpha", "radius": Balance.ANC_HOWL_RADIUS, "vfx": "wind"}),
+		_s("dru_bird_form", "Pássaro Arcano", Balance.ASC_LEVEL, "xama", ["staff"], T_SELF, K_BUFF, 0.0, 14, 1.5,
+			"Ascensão. Vira um pássaro arcano que voa por cima do chão (lance de novo para voltar): +%d%% velocidade, +%d%% MATK. Fogo Lunar vira Raio em Cadeia, Chuva Estelar vira Chuva de Penas de Luz (cura o grupo embaixo) e Ciclone vira Rajada de Vento (empurra). Golpes no chão ainda o acertam." % [Balance.FORM_STATS["bird"]["speed_pct"], Balance.FORM_STATS["bird"]["matk_pct"]],
+			{"ascension": true, "form": "bird", "radius": 0.0, "startup": 0.25, "active": 0.05, "recovery": 0.25, "vfx": "lightning", "icon_color": Color(0.6, 0.75, 1.0)}),
+		_s("dru_bird_bolt", "Relâmpago Arcano", Balance.ASC_LEVEL, "xama", ["staff"], T_GROUND, K_MAG, Balance.ANC_BOLT_POWER, 20, 9,
+			"Só como Pássaro Arcano: um raio cai no ponto mirado (2 m) e salta para até 2 inimigos a 5 m com metade do dano.",
+			{"ascension": true, "requires_form": "bird", "range": 10.0, "radius": 2.0, "chain": Balance.ANC_BOLT_CHAIN,
+			 "startup": 0.25, "recovery": 0.3, "cancel_after": 0.12, "vfx": "lightning", "hit_stop_frames": 4}),
+		_s("dru_bird_flock", "Revoada de Luz", Balance.ASC_LEVEL, "xama", ["staff"], T_SELF, K_HEAL, Balance.ANC_FLOCK_POWER, 24, 16,
+			"Só como Pássaro Arcano: penas de luz caem em volta (8 m): curam você e o grupo e dão +10% de velocidade por 6 s.",
+			{"ascension": true, "requires_form": "bird", "radius": Balance.ANC_FLOCK_RADIUS,
+			 "buff": {"id": "bird_flock", "duration": Balance.ANC_FLOCK_TIME, "speed_pct": Balance.ANC_FLOCK_SPEED},
+			 "startup": 0.25, "recovery": 0.3, "cancel_after": 0.12, "vfx": "holy"}),
 	],
 	"ranger": [
 		_s("ran_anchor", "Flecha Âncora", 6, "", ["bow", "rifle"], T_DIR, K_PHYS, 1.3, 9, 8, "Disparo que prende o alvo no chão por 1.5s.",
@@ -552,6 +785,39 @@ static func _more() -> Dictionary:
 			"Avança 5 m com a lança à frente atravessando a fila: dano alto, atordoa 0.6s e faz sangrar (20% do ATK por segundo, 4 s).",
 			{"range": 6.0, "radius": 1.0, "dash": 5.0, "startup": 0.28, "stun": _dur(0.6), "dot": {"atk_pct": 20, "duration": 4.0},
 			 "clip": "atk_charge", "vfx": "blood", "hit_stop_frames": 6}),
+		# Ascensão (Ato II, 35 + missão hx_asc_ranger): fora da teia comum, compradas na teia de ascensão (SkillDef.ascension).
+		_s("ran_turret", "Torreta de Campo", Balance.ASC_LEVEL, "atirador", ["rifle"], T_GROUND, K_SUMMON, 0.0, 24, 18,
+			"Monta uma torreta no ponto mirado: ela fica ali e atira sozinha no inimigo mais perto (11 m) por 15 s, com parte da sua vida e do seu ataque. Uma por vez.",
+			{"range": 8.0, "radius": Balance.TURRET_AREA, "startup": 0.2, "recovery": 0.25, "cancel_after": 0.1,
+			 "turret": {"monster_id": Balance.TURRET_MONSTER}, "clip": "atk_throw", "vfx": "earth", "ascension": true}),
+		_s("ran_dragon_jump", "Salto Dracônico", Balance.ASC_LEVEL, "lanceiro", ["spear"], T_GROUND, K_PHYS, Balance.DRAGON_JUMP_POWER, 18, 14,
+			"Salta alto e some do chão por 1,2 s (golpes, projéteis e chuva não o pegam; quem o mirava volta para o tanque) e cai no ponto mirado com a lança: dano forte no centro (1,5 m) e menor na borda (3 m). Com um Brado ativo, a queda leva o elemento.",
+			{"range": 9.0, "radius": 3.0, "startup": 0.12, "active": Balance.DRAGON_JUMP_AIR, "recovery": 0.25, "cancel_after": 0.05,
+			 "dragon_jump": {}, "clip": "atk_leap", "vfx": "earth", "hit_stop_frames": 5, "ascension": true}),
+		_buff("ran_shout_flame", "Brado das Chamas", Balance.ASC_LEVEL, "lanceiro", ["spear"], 14, Balance.SHOUT_CD,
+			"Grito de guerra (12 s, um Brado por vez): a lança queima quem acerta; o grupo a 10 m ganha +10% de dano de fogo. Provoca por 1 s os monstros a 4 m.",
+			{"id": "shout_flame", "duration": Balance.SHOUT_TIME, "fire_pct": Balance.SHOUT_BUFF},
+			{"shout": {"element": "fire"}, "clip": "shout", "vfx": "fire", "ascension": true}),
+		_buff("ran_shout_frost", "Brado da Geada", Balance.ASC_LEVEL, "lanceiro", ["spear"], 14, Balance.SHOUT_CD,
+			"Grito de guerra (12 s, um Brado por vez): a lança deixa lento quem acerta; inimigos a 6 m atacam 10% mais devagar. Provoca por 1 s os monstros a 4 m.",
+			{"id": "shout_frost", "duration": Balance.SHOUT_TIME, "frost_pct": Balance.SHOUT_BUFF},
+			{"shout": {"element": "frost"}, "clip": "shout", "vfx": "ice", "ascension": true}),
+		_buff("ran_shout_thunder", "Brado do Trovão", Balance.ASC_LEVEL, "lanceiro", ["spear"], 14, Balance.SHOUT_CD,
+			"Grito de guerra (12 s, um Brado por vez): o golpe da lança salta para 1 vizinho; o grupo a 10 m fica 10% mais rápido. Provoca por 1 s os monstros a 4 m.",
+			{"id": "shout_thunder", "duration": Balance.SHOUT_TIME, "speed_pct": Balance.SHOUT_BUFF},
+			{"shout": {"element": "storm"}, "clip": "shout", "vfx": "lightning", "ascension": true}),
+		# Caçador — Falcoeiro: Olhos do Céu (FalconSystem). O falcão é intocável e mergulha sozinho a cada FALCON_DIVE_CD.
+		_s("ran_falcon", "Chamado do Falcão", Balance.ASC_LEVEL, "cacador", ["bow"], T_SELF, K_SUMMON, 0.0, 20, 20,
+			"Chama o seu falcão: ele voa sobre você (ninguém o atinge) e fica até você cair. A cada 6 s mergulha no inimigo que você está acertando e o marca como Presa: por 8 s ele recebe +6% de dano de todos.",
+			{"falcon_call": true, "startup": 0.3, "recovery": 0.25, "cancel_after": 0.1, "clip": "summon", "vfx": "wind", "ascension": true}),
+		_s("ran_dive", "Mergulho", Balance.ASC_LEVEL, "cacador", ["bow"], T_TARGET, K_PHYS, Balance.FALCON_STOOP_POWER, 14, Balance.FALCON_STOOP_CD,
+			"O falcão mergulha no alvo, de longe: dano, atordoa 0,6 s, marca a Presa e manda o lince saltar no mesmo alvo.",
+			{"range": Balance.FALCON_RANGE, "startup": 0.12, "recovery": 0.2, "cancel_after": 0.08, "stun": _dur(Balance.FALCON_STOOP_STUN),
+			 "falcon_dive": true, "clip": "cast_target", "vfx": "wind", "hit_stop_frames": 4, "ascension": true}),
+		_buff("ran_sky_eyes", "Olhos do Céu", Balance.ASC_LEVEL, "cacador", ["bow"], 22, Balance.FALCON_EYES_CD,
+			"O falcão mostra a luta de cima por 10 s: você e os aliados do grupo a 15 m ganham +8 de crítico contra a Presa e +10% de velocidade de movimento.",
+			{"id": "sky_eyes", "duration": Balance.FALCON_EYES_TIME, "prey_crit": Balance.FALCON_EYES_CRIT, "speed_pct": Balance.FALCON_EYES_SPEED},
+			{"radius": Balance.FALCON_EYES_RADIUS, "falcon_eyes": true, "cancel_after": 0.05, "clip": "shout", "vfx": "wind", "ascension": true}),
 	],
 	"assassin": [
 		_s("ass_quick_stab", "Estocada Rápida", 1, "", [], T_CONE, K_PHYS, 1.2, 5, 2, "Estocada curta em até 2 alvos.", {"radius": 2.2, "cone_angle_deg": 70, "max_targets": 2}),
@@ -613,6 +879,17 @@ static func _more() -> Dictionary:
 			"Saca as pistolas de reserva e descarrega tudo num leque de 6 m à frente (até 5 inimigos). +2 Bravata.",
 			{"radius": 6.0, "cone_angle_deg": 50, "max_targets": 5, "startup": 0.24, "recovery": 0.32, "cancel_after": 0.15, "hit_stop_frames": 5, "combo_gain": 2,
 			 "shot": true, "vfx": "fire", "clip": "atk_pistol"}),
+		# Ascensão (Ato II, 35 + missão hx_asc_assassin): Sombras Gêmeas (ShadowSystem). Fora da teia comum, todas as builds.
+		_s(Balance.SHADOW_SKILL, "Sombra Gêmea", Balance.ASC_LEVEL, "", [], T_SELF, K_BUFF, 0.0, 20, Balance.SHADOW_CD,
+			"Chama um clone de sombra por 6 s: ele fica ao seu lado e repete cada golpe seu (skills, básico e tiros) com 50% do dano. Monstros o ignoram; ele some se você cair.",
+			{"shadow_clone": {}, "startup": 0.1, "recovery": 0.15, "cancel_after": 0.05, "clip": "buff_power", "vfx": "shadow", "ascension": true, "icon_color": Color(0.45, 0.3, 0.7)}),
+		_s(Balance.EXECUTION_SKILL, "Execução", Balance.ASC_LEVEL, "", [], T_TARGET, K_PHYS, Balance.EXECUTION_POWER, 16, Balance.EXECUTION_CD,
+			"Golpe de misericórdia: dano enorme em alvo abaixo de 25% da vida; acima disso, só um corte fraco.",
+			{"execute": {}, "startup": 0.16, "recovery": 0.28, "cancel_after": 0.12, "hit_stop_frames": 7, "clip": "atk_finisher", "vfx": "shadow", "ascension": true, "icon_color": Color(0.7, 0.2, 0.3)}),
+		_s("ass_hand_cannon", "Canhão de Mão", 40, "corsario", ["pistol"], T_DIR, K_PHYS, Balance.HAND_CANNON_POWER, 20, Balance.HAND_CANNON_CD,
+			"Tiro pesado em linha (9 m) que atravessa e empurra 3 m quem acerta (chefes não saem do lugar). +2 Bravata.",
+			{"range": Balance.HAND_CANNON_RANGE, "radius": 0.7, "projectile_speed": 34.0, "projectile_pierce": true, "knockback": {"dist": Balance.HAND_CANNON_PUSH},
+			 "startup": 0.22, "recovery": 0.32, "cancel_after": 0.15, "hit_stop_frames": 5, "combo_gain": 2, "shot": true, "vfx": "fire", "clip": "atk_pistol", "ascension": true}),
 	],
 	"elementalist": [
 		# Combinações (geral: qualquer foco usa; o dano soma a média dos bônus dos dois elementos)
@@ -632,6 +909,13 @@ static func _more() -> Dictionary:
 		_s("ele_summon_storm", "Elemental de Raio", 17, "raio", ["staff"], T_SELF, K_SUMMON, 0.0, 30, 24, "Invoca um elemental de raio por 25s que solta descargas que atordoam (um elemental por vez: substitui o anterior).",
 			{"summon": {"monster_id": "storm_elemental", "count": 1, "duration": 25, "max": 1, "replaces": ELEMENTALS}, "startup": 0.45}),
 		_s("ele_spark", "Faísca", 1, "", [], T_DIR, K_MAG, 1.0, 4, 1.5, "Faísca instantânea em linha.", {"range": 8.0, "radius": 0.6, "max_targets": 1}),
+		# Ascensão (35, missão O Núcleo Elemental): o elemental vira companheiro que evolui (ElementalSystem)
+		_s("ele_asc_command", "Comando Elemental", Balance.ASC_LEVEL, "", [], T_SELF, K_BUFF, 0.0, 0, 0,
+			"Ascensão. Sem elemental: chama o seu (na forma escolhida, com o estágio que ele alcançou). Com ele: troca o modo — atacar (segue o seu alvo), proteger (provoca quem bate em você e ganha defesa) ou apoiar (fogo dá ataque, gelo dá escudo, raio dá velocidade ao grupo).",
+			{"elem_command": true, "ascension": true, "startup": 0.1, "recovery": 0.15, "cancel_after": 0.05, "vfx": "summon", "clip": "summon"}),
+		_s("ele_asc_fusion", "Fusão Elemental", Balance.ASC_LEVEL, "", [], T_TARGET, K_MAG, 3.0, 8, 40,
+			"Ascensão. Você solta a magia-assinatura da forma do seu elemental no alvo (fogo queima, gelo retarda, raio atordoa; até 5 inimigos a 2.5 m) e por 8s ganha +MATK e bônus no elemento dele (maior com o estágio).",
+			{"elem_fusion": true, "ascension": true, "vfx": "lightning", "range": 9.0, "radius": 2.5, "max_targets": 5, "startup": 0.3, "recovery": 0.3, "cancel_after": 0.15, "hit_stop_frames": 4}),
 		# Fogo (orbe)
 		_s("ele_flame_wave", "Onda de Chamas", 5, "fogo", ["staff"], T_CONE, K_MAG, 1.6, 14, 6, "Chamas em cone que queimam.", {"radius": 4.0, "cone_angle_deg": 80, "dot": _dot(5, 3)}),
 		_s("ele_combustion", "Combustão", 9, "fogo", ["staff"], T_TARGET, K_MAG, 2.1, 18, 9, "Marca o alvo sob o cursor e o faz explodir (2.6 m): suas queimaduras nos atingidos detonam na hora (125% do que faltava) e o fogo reacende em todos por 4s.",
@@ -694,6 +978,26 @@ static func _more() -> Dictionary:
 		_s("nec_swarm", "Enxame de Moscas", 11, "pestilento", ["scythe"], T_GROUND, K_MAG, 0.8, 16, 10, "Moscas: dano contínuo e lentidão.", {"range": 8.0, "radius": 2.5, "dot": _dot(9, 5), "slow": _slow(30, 3)}),
 		_s("nec_decay", "Decadência", 17, "pestilento", ["scythe"], T_CONE, K_MAG, 1.4, 18, 8, "Cone de decadência que corrói.", {"radius": 4.5, "cone_angle_deg": 70, "dot": _dot(8, 5)}),
 		_s("nec_pandemic", "Pandemia", 24, "pestilento", ["scythe"], T_GROUND, K_MAG, 1.4, 32, 18, "Doença em área enorme por 6s.", {"range": 9.0, "radius": 3.5, "dot": _dot(18, 6)}),
+		# Ascensão (Ato II, 35 + missão hx_asc_necromancer): Senhor dos Mortos (NecroAscension). Fora da teia comum (teia de
+		# ascensão, barra 7-0), de todas as builds. Com a ascensão as invocações já duram x1,5 e cabe +1 por tipo.
+		_buff("nec_asc_pact", "Pacto dos Mortos", Balance.ASC_LEVEL, "", ["scythe"], 24, Balance.LORD_PACT_CD,
+			"Pacto sombrio com os seus mortos: por 12 s as invocações a 15 m causam +25% de dano, andam 20% mais rápido e 10% do dano delas cura você. Só as que estão perto ao lançar.",
+			{"id": "lord_pact", "duration": Balance.LORD_PACT_TIME},
+			{"summon_pact": {"dmg_pct": Balance.LORD_PACT_DMG_PCT, "speed_pct": Balance.LORD_PACT_SPEED_PCT, "leech_pct": Balance.LORD_PACT_LEECH_PCT},
+			 "startup": 0.2, "recovery": 0.25, "cancel_after": 0.1, "clip": "summon", "vfx": "shadow", "icon_color": Color(0.6, 0.35, 0.85), "ascension": true}),
+		_s("nec_asc_miasma", "Miasma", Balance.ASC_LEVEL, "", ["scythe"], T_GROUND, K_MAG, 0.0, 22, Balance.LORD_MIASMA_CD,
+			"Nuvem podre no ponto mirado por 8 s: inimigos dentro causam 20% menos dano e andam 15% mais devagar. Soma com as maldições. Uma nuvem por vez.",
+			{"range": 9.0, "radius": Balance.LORD_MIASMA_RADIUS, "startup": 0.25, "recovery": 0.3, "cancel_after": 0.1,
+			 "miasma": {"duration": Balance.LORD_MIASMA_TIME, "weaken_pct": Balance.LORD_MIASMA_WEAKEN_PCT, "slow_pct": Balance.LORD_MIASMA_SLOW_PCT},
+			 "clip": "cast_ground", "vfx": "poison", "icon_color": Color(0.55, 0.75, 0.35), "ascension": true}),
+		_s("nec_asc_grave_mark", "Marca da Cova", Balance.ASC_LEVEL, "", ["scythe"], T_GROUND, K_MAG, 0.0, 26, Balance.LORD_GRAVE_CD,
+			"Marca os inimigos na área por 10 s: monstro comum que morrer marcado levanta como esqueleto aliado por 15 s (até 4 de pé). Chefes e elites não levantam.",
+			{"range": 9.0, "radius": Balance.LORD_GRAVE_RADIUS, "startup": 0.25, "recovery": 0.3, "cancel_after": 0.1,
+			 "grave_mark": {"duration": Balance.LORD_GRAVE_MARK_TIME, "raise": Balance.LORD_GRAVE_RAISE_TIME},
+			 "clip": "cast_ground", "vfx": "bone", "icon_color": Color(0.8, 0.8, 0.7), "ascension": true}),
+		_s("nec_asc_lich_form", "Forma de Lich", Balance.ASC_MAX_LEVEL, "", ["scythe"], T_SELF, K_BUFF, 0.0, 40, Balance.LORD_LICH_CD,
+			"Vira um lich por 15 s: +30% MATK, as maldições que você lança passam para os inimigos a 4 m do alvo e cabe +1 invocação de cada tipo. Ao sair, as invocações a mais somem, da mais antiga para a mais nova.",
+			{"form": "lich", "startup": 0.3, "recovery": 0.3, "clip": "buff_power", "vfx": "ice", "icon_color": Color(0.55, 0.85, 1.0), "ascension": true}),
 	],
 	}
 
@@ -751,7 +1055,7 @@ static func _originals() -> Dictionary:
 			{"radius": 4.0, "startup": 0.3, "active": 0.05, "recovery": 0.3, "icon_color": Color(0.6, 1, 0.6)}),
 		_s("dru_swarm", "Enxame", 10, "xama", ["staff"], T_CONE, K_MAG, 1.0, 20, 9.0, "Insetos devoram inimigos em cone (dano contínuo).",
 			{"radius": 5.0, "cone_angle_deg": 70, "startup": 0.2, "active": 0.05, "recovery": 0.3, "icon_color": Color(0.7, 0.6, 0.2), "dot": {"dps": 7, "duration": 5}, "slow": {"pct": 25, "duration": 3}}),
-		_s("dru_bear_form", "Forma de Urso", 3, "guardiao_verde", ["mace2h"], T_SELF, K_BUFF, 0.0, 10, 1.5, "Vira urso (lance de novo para voltar): +40% DEF, +25% HP, +10% ATK, um pouco mais lento. As skills do Guardião viram golpes de urso.",
+		_s("dru_bear_form", "Forma de Urso", 3, "guardiao_verde", ["mace2h"], T_SELF, K_BUFF, 0.0, 10, 1.5, "Vira urso (lance de novo para voltar): +40% DEF, +25% HP, +10% ATK, 150% mais ameaça, um pouco mais lento. As skills do Guardião viram golpes de urso.",
 			{"radius": 0.0, "startup": 0.25, "active": 0.05, "recovery": 0.25, "icon_color": Color(0.55, 0.4, 0.25), "form": "bear"}),
 		_s("dru_wild_growth", "Crescimento Selvagem", 20, "xama", ["staff"], T_GROUND, K_MAG, 2.6, 34, 20.0, "Floresta explode no cursor: dano alto + raízes.",
 			{"range": 9.0, "radius": 3.2, "startup": 0.4, "active": 0.05, "recovery": 0.4, "icon_color": Color(0.3, 0.9, 0.4), "root": {"duration": 1.5}}),

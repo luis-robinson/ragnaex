@@ -1,7 +1,8 @@
 extends Node
 ## Todas as constantes de balanceamento num lugar só (autoload `Balance`).
 
-const MAX_LEVEL := 30
+const MAX_LEVEL := 40                # Ato II fase 2 (design/gdd/ato2-horda.md R7): 40; o GDD vai a 45
+const ASC_LEVEL := 35                # ascensão de classe libera neste nível (com a missão hx_asc_<classe>)
 const ATTRS := ["FOR", "AGI", "VIT", "WILL", "INT"]
 ## Escala dos atributos: cada ponto vale 1/ATTR_SCALE do antigo (a teia dá +1 na estrada e +5..+10 nos círculos).
 ## Os catálogos de equipamento e conjuntos seguem na escala antiga e são multiplicados ao carregar (GameData.load_all).
@@ -153,17 +154,22 @@ const XP_KILLS_PER_MIN := 3.0            # solo, contando o caminho entre um e o
 const XP_MOB_BASE := 6.0
 const XP_MOB_PER_LEVEL := 4.5
 const XP_QUEST_SHARE := 0.45             # quests (não repetíveis) dão ~45% da faixa; abates, caçadas e quadros o resto
-const XP_QUEST_SHARE_BAND := {1: 0.5, 10: 0.55, 20: 0.65}   # 20-30: a guarnição e o grupo matam muito, então a guerra paga mais por quest   # 1-10: mais quests no 6-7; faixa do meio (10-20): quests pedem mais abates e pagam mais
+## 1-10: mais quests no 6-7; 10-20: quests pedem mais abates e pagam mais; 20-30: a guarnição e o grupo matam muito,
+## então a guerra paga mais por quest; 30-35 e 35-40 (Ato II, (H) do GDD F1)
+const XP_QUEST_SHARE_BAND := {1: 0.5, 10: 0.55, 20: 0.65, 30: 0.55, 35: 0.55}
+## Ato II (GDD F1, "achatar"): do nível XP_ACT2_FROM em diante o tempo por nível cresce XP_MIN_PER_LEVEL_ACT2 por nível
+const XP_ACT2_FROM := 30
+const XP_MIN_PER_LEVEL_ACT2 := 0.75
 
 ## Parte da XP da faixa que começa em `band_start` que vem de quests.
 static func quest_share(band_start: int) -> float:
 	return float(XP_QUEST_SHARE_BAND.get(band_start, XP_QUEST_SHARE))
-const XP_BANDS := [[1, 10], [10, 20], [20, 30]]
+const XP_BANDS := [[1, 10], [10, 20], [20, 30], [30, 35], [35, 40]]
 const DEATH_XP_PENALTY := 0.03
-# pontos da teia (estilo Path of Exile): skills, maestria, evoluções, atributos e notáveis. 8 por nível (+1 no 10/20/30)
-# = 235 no 30, numa teia de ~250-360 nós (+ maestrias): muita liberdade, mas não dá para pegar tudo.
+# pontos da teia (estilo Path of Exile): skills, maestria, evoluções, atributos e notáveis. 8 por nível (+1 no 10/20/30/40)
+# = 235 no 30, 275 no 35 e 316 no 40, numa teia de ~250-360 nós (+ maestrias): muita liberdade, mas não dá para pegar tudo.
 const MASTERY_POINTS_PER_LEVEL := 8
-const MASTERY_BONUS_LEVELS := [10, 20, 30]  # +1 ponto extra
+const MASTERY_BONUS_LEVELS := [10, 20, 30, 40]  # +1 ponto extra (40: Ato II, GDD R7)
 const MASTERY_MAX := 5
 const MASTERY_BONUS_PCT := 0.1     # cada nível de maestria: +10% nos bônus de buff e forma (só os positivos; tempo não muda)
 const SKILL_LEARN_COST := 1
@@ -172,6 +178,34 @@ const SKILL_LEARN_COST := 1
 const WEB_GAIN_ATK := [1.25, 1.5]          # 1,3 -> 1,25 (2026-11-10): anel/capa/amuleto mais fortes, a teia rende um pouco menos em proporção
 const WEB_GAIN_HP := [1.1, 1.3]
 const WEB_GAIN_BUILD := [1.2, 2.3]
+const WEB_GAIN_LEVEL := 30                 # nível em que as faixas acima foram calibradas (Ato I); o Ato II mede à parte (web_probe --level=35 / --level=40)
+## Faixas do Ato II (Fronteira da teia), mesmas regras do 30 nos níveis 40 e 45: crescem pouco (o equipamento do tier novo
+## também cresce, e a razão é teia sobre o resto). F5 (ato2-horda): a ascensão (+14,5% no 40, +21,5% no 45) fica abaixo de
+## um terço do ganho da teia medido em ATK×HP (média >= x1,45 no 40 e >= x1,65 no 45).
+const WEB_GAIN_LATE := {
+	40: {"atk": [1.3, 1.6], "hp": [1.12, 1.35], "build": [1.25, 2.5]},
+	45: {"atk": [1.35, 1.7], "hp": [1.12, 1.4], "build": [1.3, 2.8]},
+}
+## Fronteira (data/catalog/tree_catalog.gd `_outer_web`): casas livres até WEB_OUTER_GRID_K (a teia do 30 vai até 5), tudo do 31 em diante.
+const WEB_OUTER_GRID_K := 7
+const WEB_OUTER_CELLS := 6                 # casas por setor de build: 2 notáveis da build, 1 de elo, 1 de elo/papel, pedra-angular, Ápice
+const WEB_OUTER_GERAL_CELLS := 3           # Geral (VIT): 2 notáveis + pedra-angular (o Geral já é o depósito de VIT)
+const WEB_OUTER_LEVEL := [31, 38]          # nível exigido: borda de dentro -> fundo
+const WEB_OUTER_EDGE_KEEP := 0.5           # estradas além da árvore mínima (rotas)
+const WEB_OUTER_RING_ATTR := 4             # 2 dos 5 nós do anel de cada círculo da Fronteira dão o atributo da build (2 outros: +1); os do 30 dão +5..+10
+const WEB_OUTER_RING_ATTR2 := 3            # e 1 nó dá o 2º atributo da build (VIT no 2º não vira tanque de graça)
+const WEB_OUTER_NOTABLE_ATTR := 8         # atributo principal nos notáveis da Fronteira (os do 30 dão +6..+12)
+const WEB_OUTER_PASSIVE_MULT := 0.5        # notável da build = passivo da build x isto
+const WEB_OUTER_ARM_SCALE := 0.3           # notável de papel "Maior" = ARM_NOTABLES x isto (os do 30: x0,2)
+const WEB_HYBRID_ATTR := 6                 # notável de elo: +6 de cada atributo principal das duas builds
+const WEB_HYBRID_EDGE := 0.35              # 4ª casa a mais disto da meia-largura do setor = divisa (elo com a vizinha; a 3ª é sempre elo)
+const WEB_KEYSTONE_LEVEL := 40
+const WEB_KEYSTONE_ATTR := 6
+const WEB_KEYSTONE_SCALE := 1.0
+const WEB_APEX_LEVEL := 45
+const WEB_APEX_ATTR := 12
+const WEB_APEX_MULT := 1.0                 # Ápice = todos os passivos da build x isto
+const BOT_WEB_SPEND_GUARD := 500           # compras de passivo por chamada do bot_spend (era 200: no 45 sobravam pontos)
 const SKILL_SLOTS := 6
 const LOADOUT_TOWN_ONLY := true             # trocar skills da barra só na cidade
 
@@ -188,12 +222,21 @@ const BIG_SWING_MAX_TARGETS := 4           # acerta até 4 (o normal é 2)
 const BUFF_DURATION_CAP := 80.0            # % máximo de duração extra das bênçãos
 const RADIANCE_CAP := 40.0                 # % máximo de Radiância
 const RADIANCE_RANGE := 10.0               # m: alcance da cura da Radiância
+## Postura de tanque: ameaça a mais gerada pelo dano na forma de Urso (o mesmo papel da Aura do Bastião do Guardião, +150%);
+## o Ent soma +30. Sem isto o grupo do Urso passava 32-40% do tempo segurando skills pela ameaça (boss_probe "freio").
+const BEAR_THREAT_PCT := 150
 ## Druida: formas de animal (buff enquanto transformado) e a arma que cada forma exige
-const FORM_STATS := {"wolf": {"aspd_pct": 25, "speed_pct": 20, "atk_pct": 10, "crit": 5}, "bear": {"def_pct": 40, "hp_pct": 25, "atk_pct": 10, "speed_pct": -10},
+const FORM_STATS := {"wolf": {"aspd_pct": 25, "speed_pct": 20, "atk_pct": 10, "crit": 5}, "bear": {"def_pct": 40, "hp_pct": 25, "atk_pct": 10, "speed_pct": -10, "threat_pct": BEAR_THREAT_PCT},
 	"phantom": {"speed_pct": 25, "evasion": 20, "matk_pct": 10},          # Necromancer: forma fantasma (rápida, difícil de acertar)
-	"demon": {"matk_pct": 20, "hp_pct": 25, "def_pct": 20, "lifesteal": 6}}   # Necromancer: demônio (grande, aguenta e drena)
-const FORM_REQUIRES := {"wolf": "dual_mace", "bear": "mace2h", "phantom": "scythe", "demon": "scythe"}
-const FORM_DURATION := {"phantom": 10.0}     # s; forma fora daqui fica até desligar (lobo, urso, demônio)
+	"demon": {"matk_pct": 20, "hp_pct": 25, "def_pct": 20, "lifesteal": 6},   # Necromancer: demônio (grande, aguenta e drena)
+	"lich": {"matk_pct": LORD_LICH_MATK_PCT},                             # Necromante ascendido (45): Forma de Lich
+	# Druida ascendido (Forma Ancestral, DruidAscension): a 3ª forma de cada build (H; F5)
+	"ent": {"def_pct": 55, "hp_pct": 35, "atk_pct": 10, "speed_pct": -12, "threat_pct": BEAR_THREAT_PCT + 30, "dr_pct": 5},     # Urso -> Ent: aguenta mais e segura o aggro
+	"alpha": {"aspd_pct": 28, "speed_pct": 22, "atk_pct": 12, "crit": 6},                       # Lobo -> Lobo Alfa
+	"bird": {"speed_pct": 25, "matk_pct": 3}}                                                   # Xamã -> Pássaro Arcano (voa: só desenho)
+const FORM_REQUIRES := {"wolf": "dual_mace", "bear": "mace2h", "phantom": "scythe", "demon": "scythe", "lich": "scythe",
+	"ent": "mace2h", "alpha": "dual_mace", "bird": "staff"}
+const FORM_DURATION := {"phantom": 10.0, "lich": LORD_LICH_TIME}     # s; forma fora daqui fica até desligar (lobo, urso, demônio)
 const AMBUSH_MULT := 1.6                  # golpe que sai da furtividade
 ## Ranger Atirador: o mosquete atira mais devagar e bate muito mais forte que o arco
 const RIFLE_COOLDOWN_MULT := 1.8
@@ -219,6 +262,89 @@ const SUMMON_MATK_SHARE := 0.45
 # efeito-assinatura da build (LegendEffects.signature_on_hit): magia de graça ao acertar, sem depender de arma
 const ESCORT_RING := 2.6               # m do líder até a vaga da escolta
 const ESCORT_RESPAWN := 25.0           # s para repor um da escolta que caiu (com o líder vivo)
+
+# --- Ato II, a Horda (design/gdd/ato2-horda.md F2/F4) ---
+## F2: atributos dos monstros 30-45 por papel. stat(papel, L) = ANCHOR30 × (1 + k × (L − 30)) × mod_unidade;
+## DEF/MDEF somam d × (L − 30) (comum: HORDE_D_DEF_COMMON). mdef é hipótese (H): o GDD só fixa HP/ATK/DEF.
+const HORDE_ANCHOR30 := {
+	"comum": {"hp": 720.0, "atk": 60.0, "def": 12.0, "mdef": 10.0},
+	"bruto": {"hp": 1200.0, "atk": 88.0, "def": 38.0, "mdef": 16.0},
+	"elite": {"hp": 3600.0, "atk": 75.0, "def": 42.0, "mdef": 28.0},
+	"chefe": {"hp": 90000.0, "atk": 100.0, "def": 34.0, "mdef": 32.0},
+}
+const HORDE_K_HP := 0.065              # HP × 1,975 no 45
+const HORDE_K_ATK := 0.04              # ATK × 1,6 no 45
+const HORDE_D_DEF := 1.8               # DEF por nível (bruto/elite/chefe)
+const HORDE_D_DEF_COMMON := 0.8        # DEF por nível do comum
+## Decisão do autor (2026-11-12): os comuns/brutos 35+ batiam 0-10% da vida do bot do nível (band_probe "trivial");
+## o ATK deles ganha este fator por papel (a vida fica: o TTK já estava no alvo). Chefes/elites não mudam (calibrados no
+## boss_probe). O bruto (corpo a corpo, físico) bate na DEF do bot 35+ quase no piso: precisa de fator maior que o comum.
+const HORDE_ATK_35_LEVEL := 35
+## Medido 2026-11-12 (band_probe --hits/duelo, boss_probe, raid_probe): com {comum 1,3, bruto 1,6} o golpe dos brutos 35+ vai a
+## 16-21% da vida, mas o duelo continua "trivial" (o bot mata em 1,3-2,5 s antes do golpe: 0% de vida perdida no guerreiro/troll)
+## e o que estava calibrado cai: porto C1 sozinho 17 -> 12/20, Mestre Besteiro sorteado 70% -> 55%. Em 1,0 até o autor decidir.
+const HORDE_ATK_35 := {"comum": 1.0, "bruto": 1.0}
+## Decisão do autor (2026-11-12, 2ª): o ATK fica 1,0; os 35+ ganham vida e golpe mais rápido. Medido (band_probe --trace): o bruto
+## ABRIA com a skill lenta (grito 0,6 s, de que o bot foge; pancada 0,8 s) e o bot esquiva o golpe básico de 0,4-0,5 s
+## (`BotBrain._danger_escape`); a luta acabava em ~1,5 s com 0-0,1 golpe por monstro. A partir de HORDE_ATK_35_LEVEL o papel ganha:
+## `hp` × vida, `startup`/`cooldown` × preparação/intervalo do golpe BÁSICO (skills não mudam) e `skill_delay` = s antes da 1ª skill
+## especial (MonsterDef.skill_delay: abre no básico). Chefes/elites fora (calibrados no boss_probe).
+const HORDE_LATE_35 := {
+	"bruto": {"hp": 1.3, "startup": 0.5, "cooldown": 0.75, "skill_delay": 2.0},
+	"comum": {"startup": 0.75, "cooldown": 0.85, "skill_delay": 2.0},
+}
+## F4: aura de facção de monstro (MonsterDef.aura = chave daqui). Receptores = monstros da mesma MonsterDef.faction
+## a `radius` m; o buff renova pelo id (não soma) a cada AURA_TICK e some AURA_KEEP s depois. Morto o dono, quem está a
+## `demoralize.radius` m recebe o desânimo por `duration` s.
+const MOB_AURAS := {
+	"agitator": {"id": "horde_fury", "radius": 10.0, "ally": {"atk_pct": 20.0, "aspd_pct": 10.0, "speed_pct": 10.0},
+		"demoralize": {"id": "horde_dismay", "atk_pct": -15.0, "speed_pct": -10.0, "duration": 8.0, "radius": 12.0}},
+	"agitator_boss": {"id": "horde_fury", "radius": 14.0, "ally": {"atk_pct": 30.0, "aspd_pct": 10.0, "speed_pct": 10.0},
+		"demoralize": {"id": "horde_dismay", "atk_pct": -15.0, "speed_pct": -10.0, "duration": 8.0, "radius": 12.0}},
+}
+
+## F3: regeneração do troll (MonsterDef.regen × isto × vida máxima por segundo; MobSystem.update_regen). Zero enquanto queima
+## ou está envenenado (qualquer dano no tempo que não seja sangramento) e por TROLL_REGEN_LINGER s depois do último efeito.
+const TROLL_REGEN_PCT := 0.015         # fração da vida por segundo
+const TROLL_REGEN_LINGER := 2.0        # s sem regenerar depois do fogo/veneno
+const BOT_REGEN_CUT_SCORE := 1.6       # bot: peso da skill de fogo/veneno contra troll que está regenerando (BotBrain._best_skill)
+const BOT_FUSION_SCORE := 2.5           # bot: peso da skill que dispara a Fusão na hora certa (E1 Vapor: gelo em alvo que queima; FusionEffects.bot_skill_mult)
+const TROLL_REGEN_BUFF := "troll_regen"   # brilho verde enquanto regenera (BuffLooks); some quando queima
+
+## Foco dos bots num bando (GDD ato2-horda AC-20, pergunta 7; BotBrain._focus): quem emite aura de facção (Agitador), quem
+## dá grito de guerra (rally) e, para quem tem fogo/veneno, o troll que regenera. Vale só fora de luta de chefe; o tanque
+## do grupo não troca (segura o bando). Candidato: monstro em luta (ou a até BOT_FOCUS_PACK m do alvo atual) a até
+## BOT_FOCUS_RANGE m do bot. Peso maior ganha; troca só se o candidato vale mais que o alvo atual.
+const BOT_FOCUS_EVERY := 0.5           # s entre reavaliações (custo: 1 varredura do mapa por bot em luta)
+const BOT_FOCUS_RANGE := 11.0          # m do bot até o candidato
+const BOT_FOCUS_PACK := 7.0            # m do alvo atual: mesmo bando, mesmo se ainda não entrou na luta
+const BOT_FOCUS_REGEN := 3.0           # troll que regenera, para quem tem fogo/veneno
+const BOT_FOCUS_AURA := 2.0            # emissor de aura (Agitador)
+const BOT_FOCUS_RALLY := 1.0           # quem tem grito de guerra (Guerreiro Orc)
+
+## F3: tempo efetivo para matar um troll que regenera, dado T = vida ÷ DPS (s). INF = o DPS não vence a regeneração.
+static func troll_ttk(t_no_regen: float, regen_mult: float = 1.0) -> float:
+	var rt := TROLL_REGEN_PCT * regen_mult * t_no_regen
+	return INF if rt >= 1.0 else t_no_regen / (1.0 - rt)
+
+## Fator dos 35+ (HORDE_LATE_35) do papel: `key` = hp | startup | cooldown; 1.0 abaixo de HORDE_ATK_35_LEVEL ou sem entrada.
+static func horde_late(role: String, key: String, level: int, fallback: float = 1.0) -> float:
+	if level < HORDE_ATK_35_LEVEL:
+		return fallback
+	return float((HORDE_LATE_35.get(role, {}) as Dictionary).get(key, fallback))
+
+## F2: um atributo de monstro da Horda. `stat` = hp | atk | def | mdef; `mods` = mod_unidade (só hp/atk; 1.0 se faltar).
+static func horde_stat(role: String, stat: String, level: int, mods: Dictionary = {}) -> float:
+	var base: float = float(HORDE_ANCHOR30[role][stat])
+	var dl := float(level - 30)
+	match stat:
+		"hp":
+			return base * (1.0 + HORDE_K_HP * dl) * float(mods.get("hp", 1.0)) * horde_late(role, "hp", level)
+		"atk":
+			var late: float = float(HORDE_ATK_35.get(role, 1.0)) if level >= HORDE_ATK_35_LEVEL else 1.0
+			return base * (1.0 + HORDE_K_ATK * dl) * float(mods.get("atk", 1.0)) * late
+		_:
+			return base + (HORDE_D_DEF_COMMON if role == "comum" else HORDE_D_DEF) * dl
 const PATROL_PACE := 0.45              # líder em ronda anda devagar (a escolta acompanha)
 const LEGEND_COIN_PRICE := 500         # Relicária vende uma Moeda Lendária por isto em ouro
 const SKILL_RESET_NPCS := ["elder", "high_priest"]   # quem reseta a árvore (Ancião Ravi; Alta Sacerdotisa no Bastião)
@@ -243,11 +369,96 @@ const PET_COMMAND_FOCUS := 4.0          # s que o companheiro segura o alvo mand
 const SUMMON_ATK_REF := 12.0
 const SUMMON_ATK_MIN := 0.6
 const SUMMON_ATK_MAX := 2.5
+## Ascensões (Ato II, GDD ato2-horda R6): nível mínimo; a missão `hx_asc_<classe>` libera (ProgressionSystem.has_ascension).
+const ASC_MAX_LEVEL := 45                # teto do Ato II (pontos de ascensão até aqui)
+## Teia e barra de ascensão (R6, decisão do autor 2026-11-11): pontos próprios por nível do ASC_LEVEL ao ASC_MAX_LEVEL
+## (inclusive) + bônus da missão hx_asc_<classe>; a barra ganha ASC_SLOTS vagas (7, 8, 9, 0) só para skills de ascensão.
+## Orçamento no 35: 3 + 3 = 6 pontos (uma skill com entrada e 4 de maestria); no 45: 33 + 3 = 36.
+const ASC_POINTS_PER_LEVEL := 3
+const ASC_QUEST_POINTS := 3
+const ASC_SLOTS := 4
+const ASC_WEB_ENTRY_ATTR := 8             # atributo da build no nó de entrada de cada skill da teia de ascensão
+## Elemental que evolui (Elementalista ascendido; GDD ato2-horda F6). ElementalSystem.
+const ELEM_XP_RADIUS := 13.0             # m do mago: abate que dá XP aqui dentro alimenta o elemental (= SUMMON_ASSIST_RANGE)
+const ELEM_XP_MAX := 400                 # teto do elem_xp
+const ELEM_STAGE_XP := [0, 120, 400]     # Básico, Maior, Ancestral (acumulado)
+const ELEM_STAGE_LEVEL := [0, 35, 40]    # nível do mago para o estágio (Ancestral só aos 40)
+const ELEM_STAGE_FLAG := ["", "", "elem_ancestral"]     # portão da teia de ascensão por estágio (AscensionCatalog.NODES)
+## HP/ATK/área por estágio; o ATK do estágio vale DEPOIS do limite SUMMON_ATK_MAX (senão some no 35+)
+const ELEM_STAGE_MULT := [{"hp": 1.0, "atk": 1.0, "area": 1.0}, {"hp": 1.6, "atk": 1.2, "area": 1.15}, {"hp": 2.4, "atk": 2.0, "area": 1.3}]
+const ELEM_STAGE_SCALE := [1.0, 1.25, 1.5]   # tamanho do corpo por estágio (só visual)
+const ELEM_SWAP_CD := 20.0               # s: troca de forma (mantém estágio e % de vida); também a volta depois de morrer
+const ELEM_DEATH_LOSS := 0.10            # parte do elem_xp perdida quando o elemental morre (o estágio nunca cai) (H)
+const ELEM_SUMMON_MP := 30.0             # MP para chamar o elemental sem skill de invocação (Comando Elemental, quadro do HUD)
+const ELEM_THINK := 0.25                # s entre pulsos do modo do elemental (por mapa)
+const ELEM_FOCUS_HOLD := 1.0             # s que o elemental (modo atacar) segura o alvo do mago
+const ELEM_PROTECT_TAUNT := 2.0          # s de provocação no que bate no mago (modo proteger)
+const ELEM_PROTECT_DEF_PCT := 50.0       # +% DEF/MDEF do elemental no modo proteger
+const ELEM_SUPPORT_EVERY := 3.0          # s entre pulsos do modo apoiar
+const ELEM_SUPPORT_RANGE := 12.0         # m do elemental: o grupo que recebe o apoio
+## apoio por forma (x ELEM_SUPPORT_STAGE do estágio): fogo = ataque, gelo = escudo (% do HP), raio = velocidade
+const ELEM_SUPPORT := {"fire": {"atk_pct": 6.0, "matk_pct": 6.0}, "frost": {"shield_pct_hp": 4.0}, "storm": {"speed_pct": 8.0, "aspd_pct": 6.0}}
+const ELEM_SUPPORT_STAGE := [1.0, 1.4, 2.0]
+## Fusão (8 s): MATK do mago e o bônus do elemento da forma do elemental (x ELEM_SUPPORT_STAGE do estágio) (H)
+const ELEM_FUSION_MATK_PCT := 8.0
+const ELEM_FUSION_ELEMENT_PCT := 8.0
+const ELEM_FUSION_TIME := 8.0
+## Efeito que o golpe da Fusão leva, pela forma do elemental
+const ELEM_FUSION_HIT := {"fire": {"dot": {"dps": 10, "duration": 4, "fire": true}}, "frost": {"slow": {"pct": 45, "duration": 3}}, "storm": {"stun": {"duration": 0.5}}}
+## Peso F5 da Fusão por forma do elemental (golpe e buff): a mesma Fusão rende mais no raio (magia rápida, lutas curtas) que
+## no gelo. boss_probe --tank_lock 2026-11-11 com peso 1,0 nas três: gelo x1,09, fogo x1,11, raio x1,19-1,20.
+const ELEM_FUSION_FORM := {"fire": 0.85, "frost": 1.0, "storm": 0.4}
+## Refino do 40 por elemento (Salamandra / Golem de Gelo / Silfo; portões elem_refine_<forma> da teia): o elemental NAQUELA forma
+const ELEM_FORM_REFINE := {"atk": 0.15, "hp": 0.15}
+const ELEM_FORM_REFINE_FLAG := "elem_refine_"        # + forma (fire, frost, storm)
+## Ifrit (Ancestral de fogo) explode ao morrer: raio e poder (x MATK do elemental)
+const ELEM_IFRIT_BLAST_RADIUS := 4.0
+const ELEM_IFRIT_BLAST_POWER := 2.0
 ## Montaria (H): só fora de combate; atacar, usar skill, dash, bloquear ou levar dano desmonta
 const MOUNT_SPEED_MULT := 1.7
 const MOUNT_COMBAT_LOCK := 3.0            # s de "em combate" depois do último golpe/dano (bots não montam nisso; o jogador pode)
 const MOUNT_CAST_TIME := 1.5              # s de conjuração para montar (H); dá para andar; agir ou levar golpe interrompe
 const BOT_MOUNT_CHANCE := 0.04            # por pensamento, bot andando fora de combate monta
+## Combate Montado (ascensão do Paladino, GDD ato2-horda F8): montado ele bate e usa skills `mountable`
+const MOUNT_FIGHT_CLASSES := ["paladin"]
+const ARCANE_SKILL := "pal_arcane_mode"
+const ARCANE_BUFF := "arcane_wings"
+const MOUNT_FIGHT_SPEED_MULT := 1.3      # velocidade montado em combate (fora de combate MOUNT_SPEED_MULT)
+const MOUNT_REACH_BONUS := 0.8            # m a mais no alcance do básico montado
+const MOUNT_CHARGE_DIST := 11.2           # m da Carga Montada (DASH_DISTANCE × 3,5); para em parede/água
+const MOUNT_CHARGE_POWER := 1.6           # (H) × ATK, atropela todos na linha
+const MOUNT_CHARGE_CD := 14.0             # (H) s
+const MOUNT_LANCE_MULT := 1.3             # Lança Pesada (Cruzado 40, portão pal_long_lance): alcance da Carga Montada
+const MOUNT_LANCE_FLAG := "pal_long_lance"
+const MOUNT_TRAMPLE := {"radius": 3.5, "power": 0.9, "cd": 8.0, "slow_pct": 30, "slow_time": 2.0}     # Pisotear (H)
+const MOUNT_CC_IMMUNE := 2.0              # (H) s imune a controle depois de cair do cavalo (atordoar/prender/gancho)
+## Modo Arcano (asas de luz, F9b): liga/desliga; gasta MP por segundo e desliga com MP 0
+const ARCANE_MP_PER_S := 3.0              # (H) MP/s ligado
+const ARCANE_REGEN_MULT := 0.5            # (H) regeneração de MP com as asas (a MP acaba de verdade quando as skills gastam)
+## (H) bônus das asas (def_pct vale DEF e MDEF). GDD F9b propõe +12% de dano; com +12% a ascensão saía no zero ou abaixo
+## (o Modo Arcano ocupa 1 das 6 vagas: sem bônus, -13% de tempo no Cavaleiro da Morte); +20% só devolve o empate. Ver relatório.
+const ARCANE_WINGS := {"atk_pct": 24, "matk_pct": 24, "def_pct": 15}
+const ARCANE_CD := 20.0                   # s de recarga ao desligar (ou quando a MP acaba)
+const ARCANE_BURST := {"radius": 4.0, "power": 0.8, "push": 2.0}         # rajada de penas ao ligar (m, × ATK, m de empurrão)
+const ARCANE_TOGGLE_CD := 1.0             # s mínimos entre ligar e poder desligar
+## bots (BotBrain): Carga a esta distância do alvo (linha livre); Modo Arcano em chefe, desligam abaixo disto de MP
+const BOT_CHARGE_MIN := 6.0
+const BOT_CHARGE_MAX := 11.0
+const BOT_ARCANE_OFF_MP := 0.2
+const BOT_ARCANE_ON_MP := 0.5             # bot só liga as asas com pelo menos isto de MP
+const MOUNT_CHARGE_SKILL := "pal_mounted_charge"
+const MOUNT_TRAMPLE_SKILL := "pal_trample"
+const BOT_MOUNT_FIGHT_RANGE := 14.0       # bot ascendido monta ao ver o alvo a até isto (campo aberto)
+## Refinos do Paladino (portões da teia de ascensão, AscensionCatalog.NODES["paladin"]; GDD R6.1)
+const ARCANE_GUARD_FLAG := "pal_wing_guard"       # Guardião 40, Asas com Bloqueio: as asas dão +bloqueio (só com escudo)
+const ARCANE_GUARD_BLOCK := 10.0                  # +% de chance de bloqueio nas asas
+const ARCANE_WARD_FLAG := "pal_wing_ward"         # Templário 40, Asas Protetoras
+const ARCANE_WARD_MP_MULT := 0.5                  # o Modo Arcano gasta metade da MP por segundo
+const ARCANE_WARD := {"id": "arcane_ward", "radius": 6.0, "dr_pct": 10}     # redução de dano no grupo a 6 m (aura, renova a cada AURA_TICK)
+const MOUNT_WALL_FLAG := "pal_mounted_wall"       # Guardião 45, Muralha a Cavalo: provoca e bloqueia montado
+const MOUNT_WALL_SKILLS := ["pal_taunt"]          # skills que passam a sair montadas com a Muralha a Cavalo
+const MOUNT_BANNER_FLAG := "pal_banner"           # Templário 45, Estandarte
+const MOUNT_BANNER_MULT := 1.5                    # montado: raio das auras de grupo × isto
 ## Otimização: mapa sem o jogador simula a cada N ticks (passo N vezes maior)
 const AWAY_MAP_EVERY := 4
 ## Densidade de monstros (multiplica os spawners exportados do Blender, sem mexer nas zonas)
@@ -274,6 +485,44 @@ const FIST_FURY_ATK_PCT := 6.0            # +% ATK por carga
 const FIST_FURY_ASPD_PCT := 5.0           # +% velocidade de ataque por carga
 const FIST_COUNTER_PCT := 60.0            # contra-ataque ao esquivar: % do ATK (a arma lendária soma)
 const FIST_COUNTER_RANGE := 3.2           # m: só devolve em quem está perto
+## Berserker — Empunhadura de Titã (F7, TitanSystem): machado de 2 mãos também na mão secundária (Executor e Gêmeos);
+## golpe duplo = a 2ª arma bate junto com TITAN_OFFHAND_MULT do dano; o básico fica (PEN − RELIEF × nós) mais lento.
+## razão_dps = (1 + MULT) × (1 − (PEN − RELIEF × n)): 1,0875 (n = 0) .. 1,218 (n = 3)
+const TITAN_OFFHAND_MULT := 0.45          # (H) dano da 2ª arma de 2 mãos (× ATK dela ÷ ATK da principal, no máx. 1)
+const TITAN_ASPD_PEN := 0.25              # perda de velocidade do básico com as duas armas
+const TITAN_WEB_RELIEF := 0.03            # quanto cada nó "titan_relief" da teia devolve
+const TITAN_RELIEF_NODES := 3             # nós de alívio na teia (o 4º não conta)
+const TITAN_OFFHAND_ATTR_MULT := 0.0      # (H) atributos da 2ª arma de 2 mãos que contam (o peso dela vai no golpe duplo)
+const TITAN_WEAPONS := ["axe2h"]          # o que vai na mão secundária com a Empunhadura de Titã
+const TITAN_BUILDS := ["executor"]       # bots desta build empunham dois machados de 2 mãos ascendidos (os Gêmeos ficam com
+                                          # as machadinhas: trocar o par de 1 mão pelo de 2 mãos não compensa sem a teia de Titã)
+## Punhos de Fúria ascendidos: Garras de Titã (perfil de arma pesada nas duas garras)
+const TITAN_CLAW_POWER := 0.9             # +90% no básico das garras. F5 2026-11-12 (--tank_lock, 80 lutas/braço): com 0,45 x0,978 (no Modo Gladiador a Fúria vira Glória: o Punhos perde a Fúria); com 0,9 x1,091±0,03
+const TITAN_CLAW_ASPD_PEN := 0.10         # −10% de velocidade do básico (com 0,20 o boneco parava 0,18 s entre golpes e com 0,15 0,12 s: FLAG do combat_probe)
+const TITAN_CLAW_PUSH := 0.7              # m de empurrão no golpe básico (chefe não é empurrado)
+## Berserker — Modo Gladiador (F9b, GladiatorSystem): postura liga/desliga; Glória = cargas
+const GLADIATOR_BUFF := "gladiator"
+const GLORY_BUFF := "glory"
+const GLORY_MAX := 5
+const GLORY_STEP := 0.2                   # +power das Lâminas Elementais por Glória que você tem
+const GLORY_TIME := 12.0                  # s sem ganhar Glória até ela esfriar (renova a cada ganho)
+const GLORY_KEEP_FISTS := 6.0             # Punhos: ao sair da postura a Glória fica por isto (os outros zeram)
+const GLORY_SHOUT_MAX := 3                # Brado da Arena: +1 Glória por inimigo provocado, até isto
+const GLADIATOR_STANCE := {"atk_pct": 7, "def_pct": -5}     # a postura: +7% de dano, −5% de defesa (F5 2026-11-11: com +5% Executor x1,052 e Gêmeos x1,050, na beira de baixo) (GDD: +10/−10; boss_probe F5: a defesa a menos fazia o bot fugir e morrer)
+const GLADIATOR_BLADE_POWER := 1.3        # (H) Lâminas Elementais
+const GLADIATOR_FINALE_POWER := 3.5       # (H) Golpe Final com 5 de Glória
+## Refinos do Berserker (portões da teia de ascensão, AscensionCatalog.NODES["berserker"]; GDD R6.1)
+const TITAN_CYCLONE_SKILL := "ber_titan_cyclone"
+const CYCLONE_LONG_FLAG := "ber_cyclone_long"     # Gêmeos 40, Giro dos Dois Machados
+const CYCLONE_LONG_MULT := 1.5                    # Ciclone de Titã: giros e duração × isto (4 → 6 giros, 2 → 3 s)
+const SECOND_AXE_FLAG := "ber_second_axe"         # Executor 40, Segundo Machado
+const SECOND_AXE_BELOW := 0.2                     # alvo abaixo disto da vida: toda skill bate com as duas armas (golpe duplo)
+const FURY_LIT_FLAG := "ber_fury_lit"             # Punhos 40, Fúria Acesa
+const FURY_LIT_TIME := 6.0                        # s a mais no tempo da Fúria (e da Glória, na postura) ao lançar o Ciclone
+const ARENA_FINALE_FLAG := "ber_arena_finale"     # Executor 45, Golpe Final da Arena
+const ARENA_FINALE := {"power": 1.2, "stun": 1.0} # Golpe Final: poder × 1,2 e atordoa 1 s (chefe: 40%, como todo atordoar)
+const GLORY_KEEP_FLAG := "ber_glory_keep"         # Punhos 45, Glória que Não Esfria
+const GLORY_KEEP_TIME := 6.0                      # s a mais até a Glória esfriar (e ao sair da postura)
 const STORM_STUN_CHANCE := 15.0            # % de chance de skill de raio atordoar no golpe direto (a que já atordoa não rola)
 const STORM_STUN_TIME := 0.5              # s (chefes: 40%, como todo atordoar)
 const FROST_SHATTER_MULT := 1.3            # skill de gelo em alvo retardado/preso/atordoado: +30% de dano ("estilhaço")
@@ -319,6 +568,15 @@ const STORAGE_SLOTS := 48                  # tipos de item no depósito (cada um
 const NPC_WALK_SPEED := 1.9                # m/s dos moradores que passeiam
 const NPC_WAIT_MIN := 3.0                  # s parado entre um passeio e outro
 const NPC_WAIT_MAX := 10.0
+## Barks (game/world/ambient_life.gd): fala curta sobre a cabeça do NPC quando o jogador passa perto (só apresentação)
+const BARK_RANGE := 9.0                    # m do jogador
+const BARK_SCAN := 0.25                    # s entre procuras
+const BARK_CHANCE := 0.35                  # chance por procura de um NPC perto falar
+const BARK_TIME := 3.4                     # s na tela
+const BARK_COOLDOWN_MIN := 14.0            # s até o mesmo NPC falar de novo
+const BARK_COOLDOWN_MAX := 30.0
+const BARK_MAX_ACTIVE := 2                 # falas ao mesmo tempo
+const AMBIENT_CULL := 70.0                 # m além do raio do bando: bichos de ambiente somem e param de animar
 const NPC_TALK_HOLD := 1.5                 # s que o NPC fica parado depois da conversa
 ## Aprimoramento (ferreiro): +1 a +9, sem quebrar. Armadura: % de DEF/MDEF e dos atributos; arma: % de ATK/MATK e dos atributos.
 const PLUS_MAX := 9
@@ -408,7 +666,7 @@ const GEAR_REF_LEVEL := 24.0
 const GEAR_LEVEL_OFFSET := 4.0
 const GEAR_ATTR_PRIMARY_PER_LEVEL := 0.62     # pontos do atributo principal por nível (peça de peso 1)
 const GEAR_ATTR_SECONDARY_PER_LEVEL := 0.3
-const COMMON_TIER_LEVELS := [1, 8, 16, 24]
+const COMMON_TIER_LEVELS := [1, 8, 16, 24, 32, 40]     # 32 e 40: Ato II (GDD F10)
 ## Preços e números dos catálogos (antes soltos em gear/items/skills_catalog, game_data e stats; mesmos valores)
 const STARTER_WEAPON_PRICES := [40, 220, 700, 1800]     # armas comuns escritas à mão, por tier (COMMON_TIER_LEVELS)
 const STARTER_ARMOR_PRICES := [30, 180, 600, 1500]
@@ -431,7 +689,7 @@ const OFFHAND_WEAPON_ATK_MULT := 0.6          # empunhando duas: a 2ª arma soma
 const GEAR_DROP_CHANCE := 0.02                # calça/capa/amuleto/anel comum, por monstro morto
 const GEAR_DROP_CHANCE_BOSS := 0.5
 const GEAR_SHOP_TIERS := 2                    # mercador vende esses tiers; os de cima só caem de monstro
-const LEGENDARY_LEVELS := [5, 10, 15, 20, 25, 30]
+const LEGENDARY_LEVELS := [5, 10, 15, 20, 25, 30, 35, 40]     # 35 e 40: Ato II (GDD F10; o 45 na próxima fase)
 const LEGENDARY_MULT := 1.2                   # ATK/DEF/atributos vs. item comum do mesmo nível
 const LEGENDARY_DROP_CHANCE := 0.01           # por monstro morto (1 em 100); cada membro do grupo rola o seu
 const LEGENDARY_DROP_CHANCE_BOSS := 0.4
@@ -458,7 +716,10 @@ const LEGENDARY_COINS_BOSS := 2              # chefe (e Rei) solta 2 moedas lend
 const LEGENDARY_START_MAP := "city_aldara"     # primeiro mapa: o 1º conjunto (tier de LEGENDARY_LEVELS[0]) cai mais
 const LEGENDARY_START_MAP_CHANCE := 0.04       # por monstro comum (1 em 25) no primeiro mapa, só no 1º tier
 const LEGENDARY_LEVEL_SLACK := 2              # monstro nível N dropa o tier mais alto <= N + slack
-# bônus de conjunto (tier = índice em LEGENDARY_LEVELS, 0..5)
+# bônus de conjunto (tier = índice em LEGENDARY_LEVELS). Atributos lineares no tier; os percentuais (4 e 5 peças,
+# "favor") usam set_pct_tier: acima de SET_PCT_FULL_TIERS crescem SET_PCT_LATE_RATE por tier (GDD Ato II F10)
+const SET_PCT_FULL_TIERS := 5
+const SET_PCT_LATE_RATE := 0.5
 const SET_2PC_ATTR_BASE := 1                  # 2 peças: +atributo secundário
 const SET_2PC_ATTR_PER_TIER := 1
 const SET_3PC_ATTR_BASE := 2                  # 3 peças: +atributo principal (ex.: INT +2)
@@ -469,6 +730,99 @@ const SET_5PC_STAT_PCT_BASE := 6.0            # 5 peças: +% no stat da classe
 const SET_5PC_STAT_PCT_PER_TIER := 2.0
 const SET_5PC_CDR_BASE := 10.0                # 5 peças: -% de recarga de outra skill
 const SET_5PC_CDR_PER_TIER := 2.0
+## Conjuntos híbridos (GDD Ato II R7.1; Fusões: design/gdd/ato2-proposals-2026-11-11.md §1). Um por par de builds da
+## classe (A+B, B+C, C+A) em cada nível abaixo; o índice do tier segue LEGENDARY_LEVELS (35 = 6, 40 = 7, 45 = 8: legend_tier).
+## O 45 existe nos dados antes do MAX_LEVEL chegar lá (não cai nem aparece na Relicária até o nível existir).
+const HYBRID_LEVELS := [35, 40, 45]
+const HYBRID_4PC_SHARE := 0.5                 # 4 peças: a skill de A e a de B, cada uma com esta fração do bônus de 4 peças
+## Fusão (5 peças do híbrido, no lugar do 5 peças normal). Números F-FUS1: valor(i) = v35 + passo × (i − 6).
+## Orçamento F-FUS2: |G_fus − G_5n| ≤ FUSION_TOL e G_fus ≤ FUSION_GAIN_MAX (G medido com boss_probe --set).
+const FUSION_TOL := 0.02
+const FUSION_GAIN_MAX := 0.12
+const FUSION_AMBUSH_MAX := 2.0                # A1 Passo Fantasma: teto do golpe "furtivo"
+const FUSION_POST_RADIUS := 5.0               # R2 Trincheira: raio do posto (torreta / estaca)
+const FUSION_POST_TIME := 6.0                 # R2: s da Estaca do Dardo de Caça
+const FUSION_OVH_RANGE := 8.0                 # Bi1 Luz que Julga: inimigo mais perto do aliado sobrecurado
+const FUSION_AURORA_TIME := 4.0               # Bi2 Martelo da Aurora: s da Aurora depois de cada magia sagrada
+const FUSION_FRENZY_MAX := 5                  # B1/B3: cargas de Frenesi da Fusão
+const FUSION_WEIGHT_MAX := 3                  # B2: cargas de Peso
+const FUSION_WEIGHT_ICD := 0.5
+const FUSION_EXEC_BASE := 30.0                # B1: limiar de execução (% da vida) + exec_step por carga de Frenesi
+const FUSION_EXEC_STEP := 2.0
+const FUSION_COUNTER_ICD := 1.0               # B2/B3: contra-ataque ao esquivar
+const FUSION_GHOST_TIME := 3.0                # A1: s que a próxima facada fica "furtiva"
+const FUSION_BRAVADO_ICD := 1.0               # A2: crítico com espada dá Bravata no máximo a cada isto
+const FUSION_PEN_ICD := 0.65                  # P2: carga de Penitência por alvo no máximo a cada isto
+const FUSION_PEN_STUN_ICD := 8.0
+const FUSION_PEN_MAX := 5                     # P2: cargas de Penitência que contam no dano (a 5ª explode)
+const FUSION_PEN_KEEP := 2                    # P2: cargas que ficam depois da explosão
+const FUSION_BLOCK_ICD := 1.0                 # P3: Penitência no atacante ao bloquear
+const FUSION_OATH_FROM_PEN := 2               # P3: a Penitência que explode dá isto de Juramento
+const FUSION_OATH_TAUNT_STACKS := 3           # P1: skill sagrada que gasta 3+ cargas provoca
+const FUSION_STUN_ICD := 6.0                  # P1 face escudo
+const FUSION_GRACE_HITS := 3                  # Bi3: a cada isto de golpes de maça a Graça dispara
+const FUSION_WARD_TIME := 4.0
+const FUSION_WOLF_COUNT := 2                  # D1: lobos do Urro
+const FUSION_PACK_RANGE := 10.0               # D1: Frenesi do Urro no grupo a esta distância
+const FUSION_TAUNT_RANGE := 5.0               # D1 face Lobo
+const FUSION_TAUNT_TIME := 1.5
+const FUSION_MOON_TIME := 4.0                 # D2: s da marca do Fogo Lunar (= a queimadura lunar) e do sangramento da face cajado
+const FUSION_BURST_RADIUS := 2.5              # D2 face Xamã / P2 / E1 (área do vapor: 2 m)
+const FUSION_ENT_RADIUS := 6.0                # D3 face Xamã: alvo "dentro da área do Ent" (decisão do coordenador: chefe é imune a prender)
+const FUSION_BARK_RANGE := 12.0               # D3 face Urso
+const FUSION_WOUND_ICD := 1.5                 # R3 face arco: o companheiro abre uma Ferida a cada isto
+const FUSION_AGONY_POWER := 0.5               # N3: Agonia das invocações a esta fração
+const FUSION_CURSE_MAX := 3                   # N2/N3: maldições que contam
+const FUSION_PLAGUE_TIME := 6.0               # N2: s da Praga Menor (golpe de foice)
+const FUSION_PLAGUE_MAX := 3                  # N2: cargas da Praga Menor
+const FUSION_POISON_MAX := 3                  # A3
+const FUSION_SHOCK_TIME := 2.0                # E2/E3: alvo "eletrificado" por isto depois de um golpe de raio
+const FUSION_SPREAD_RANGE := 4.0              # E3: queimadura espalha para inimigos a esta distância
+const FUSION_SPREAD_MAX := 3
+const FUSION_VAPOR_SLOW := 30.0               # E1: vapor deixa 30% mais lento por 2 s
+const FUSION_MINION_MEND_RANGE := 13.0        # N1
+const FUSION_TAUNT_WINDOW := 2.0              # P1: s em que os golpes da skill sagrada que gastou 3+ cargas provocam
+const FUSION_WEIGHT_TIME := 10.0              # B2: s das cargas de Peso
+const FUSION_FOCUS_TIME := 6.0                # A2 face duas espadas: s do Foco
+const FUSION_BLOCK_STUN := 0.8                # P1 face escudo: s de atordoar
+const FUSION_JUMP_RANGE := 5.0                # E2: salto extra do raio
+const FUSION_VAPOR_RADIUS := 2.0              # E1
+const FUSION_VAPOR_TIME := 2.0
+const FUSION_STATE_MAX := 64                  # chaves de estado da Fusão por personagem antes de limpar as vencidas
+## [v35, passo] por Fusão (id "<build A>+<build B>"); número solto = fixo. Chaves lidas em FusionEffects.
+const FUSION_NUMBERS := {
+	"guardiao+cruzado": {"oath_icd": [1.5, -0.15], "taunt": [2.0, 0.25], "stun_ch": [12.0, 1.5]},
+	"cruzado+templario": {"pen_pct": [90.0, 6.0], "pen_dmg": [2.75, 0.25], "pen_stun": [0.6, 0.05]},
+	"templario+guardiao": {"pen_pct": [80.0, 6.0]},
+	"carniceiro+executor": {"frenzy": [1.6, 0.2], "exec_dmg": [20.0, 2.0]},
+	"executor+punhos": {"weight": [12.0, 1.0], "eva": [6.0, 1.0], "counter": [25.0, 3.0]},
+	"punhos+carniceiro": {"frenzy": [1.6, 0.2], "eva2": [6.0, 1.0], "counter": [25.0, 3.0]},
+	"sacerdote+inquisidor": {"ovh": [40.0, 5.0], "ovh_cap": [1.0, 0.1]},
+	"inquisidor+batalha": {"aurora": [14.0, 1.4], "heal": [3.0, 0.3]},
+	"batalha+sacerdote": {"ward": [6.0, 0.6]},
+	"guardiao_verde+fera": {"wolf_t": [8.0, 1.0], "fr_str": [40.0, 4.0]},
+	"fera+xama": {"hunt": [10.0, 1.0], "bleed": [5.0, 0.5]},
+	"xama+guardiao_verde": {"bark_icd": [16.0, -1.0], "root_dmg": [15.0, 1.5]},
+	"cacador+atirador": {"t2_pwr": [60.0, 5.0], "trap_taken": [8.0, 1.0]},
+	"atirador+lanceiro": {"regen": [0.8, 0.1]},
+	"lanceiro+cacador": {"pct": [2.0, 0.4], "max": 5, "bleed": [6.0, 1.0], "pack": [3.0, 0.3]},
+	"laminas+duelista": {"ghost_icd": [5.0, -0.25]},
+	"duelista+corsario": {"shot": [45.0, 4.0], "focus": [60.0, 5.0]},
+	"corsario+laminas": {"poison": [8.0, 0.8], "per": [6.0, 0.6]},
+	"fogo+gelo": {"quench": [150.0, 10.0]},
+	"gelo+raio": {"super": [10.0, 1.0]},
+	"raio+fogo": {"spread": [60.0, 5.0], "plasma": [15.0, 1.5]},
+	"invocador+ceifador": {"reap": [3.0, 0.3], "mend": [20.0, 2.0]},
+	"ceifador+pestilento": {"curse_dmg": [3.2, 0.32], "curse_ls": [2.0, 0.2], "ce": [60.0, 5.0]},
+	"pestilento+invocador": {"agony_icd": [8.0, -0.5], "minion_curse": [5.0, 0.5]},
+}
+
+## Índice do tier lendário de um nível (LEGENDARY_LEVELS; acima do último segue de 5 em 5: 45 = 8).
+static func legend_tier(level: int) -> int:
+	var i := LEGENDARY_LEVELS.find(level)
+	if i >= 0:
+		return i
+	return LEGENDARY_LEVELS.size() - 1 + int(ceil(float(level - int(LEGENDARY_LEVELS[-1])) / 5.0))
 
 # --- bots ---
 const BOT_CHAT_MIN := 25.0
@@ -476,7 +830,7 @@ const BOT_CHAT_MAX := 90.0
 const BOT_CHAT_PLACE := 0.5                # conversa solta: chance de falar do lugar (senão da classe/build)
 ## Bot druida entra na forma (Lobo/Urso) quando há inimigo a BOT_FORM_RANGE m; antes nunca se transformava e lutava
 ## como humano com as skills da forma (Lobo e Urso 0/40 solo). Formas do Necromante seguem fora (têm hora certa).
-const BOT_AUTO_FORMS := ["wolf", "bear"]
+const BOT_AUTO_FORMS := ["wolf", "bear", "ent", "alpha", "bird"]     # as ancestrais (ascensão) entram pela mesma regra
 const BOT_FORM_RANGE := 12.0
 const BOT_FORM_SCORE := 9.0                # acima de qualquer golpe: a forma vem primeiro
 ## Abertura furtiva do bot (Sumir): só fora de combate, com o alvo ainda sem mirá-lo e a até BOT_STEALTH_RANGE m (no meio
@@ -502,6 +856,8 @@ const PARTY_CHAT_SCAN := 1.0               # s entre olhadas do grupo (vida, che
 # --- grupo (party) ---
 const THREAT_SWITCH := 1.1                 # monstro troca de alvo quando outro passa 110% da ameaça do alvo atual
 const TAUNT_DURATION := 4.0                # s presos em quem provocou (chefes: metade)
+const TAUNT_THREAT_LEAD := 1.5             # provocar deixa a ameaça de quem provocou em × isto a maior da tabela (antes THREAT_SWITCH, 1.1:
+                                           # o dps ficava a 91% do tanque, acima de BOT_THREAT_HOLD, e segurava as skills)
 const DR_CAP := 40.0                       # % máx de redução de dano por buff/aura (Stats.dr_pct)
 const AURA_TICK := 0.5                     # s entre renovações da aura do tanque nos aliados (AuraSystem)
 const AURA_PULSE_EVERY := 1.0             # s entre pulsos de dano da aura do tanque (AuraSystem.pulse)
@@ -515,6 +871,12 @@ const ASSAULT_ROUTE_STEP := 1.0            # m entre amostras ao conferir que a 
 const ASSAULT_FORT_MAX := 4
 const ASSAULT_FORT_EVERY := 90.0
 const ASSAULT_FORT_POWER := 0.5            # vida e ataque dos soldados dessas levas (WorldState.assault_def)
+## Sentinelas do Posto da Caravana (Estepes 35-40): os soldados da Aurora (nv 26-27) com vida e ataque x isto (veteranos
+## mais bem armados). Regra: o povoado segura as levas sozinho em >= 75% (raid_probe --map=field_steppe --bots=0).
+const STEPPE_GUARD_POWER := 2.5
+## Guarnição de Porto Esperança (Ato II, 30-35; muro e besteiros do C1): vida e ataque x isto. Regra: o porto segura o cerco (C0)
+## e a muralha (C1) sozinho em >= 75% (raid_probe --map=city_port --bots=0 --level=32 --raid_level=32, 40 levas).
+const PORT_GUARD_POWER := 1.2
 const PARTY_MAX := 5                       # membros por grupo
 const PARTY_NEARBY_RANGE := 40.0          # m: janela P lista quem dá para convidar até esta distância
 const PARTY_SHARE_RANGE := 45.0            # m: membros vivos no mesmo mapa e dentro disto dividem XP e quests de abate
@@ -542,6 +904,9 @@ const BOT_PLACE_COOL := 4.0                # ... e luta de onde está por isto
 ## de BOT_THREAT_STOP para de bater até o tanque abrir distância (troca de alvo = THREAT_SWITCH).
 const BOT_THREAT_HOLD := 0.85
 const BOT_THREAT_STOP := 1.0
+## Tanque bot: provoca de novo o chefe/elite que segura quando alguém do grupo chega a isto × a ameaça dele (antes de
+## BOT_THREAT_HOLD; a provocação o deixa em TAUNT_THREAT_LEAD × o maior).
+const BOT_TANK_RETAUNT := 0.75
 ## Cura: o tanque é curado abaixo de BOT_HEAL_TANK_HP, os outros abaixo de BOT_HEAL_HP; o tanque vem primeiro, menos quando
 ## alguém está quase morrendo (BOT_HEAL_CRIT_HP) e o tanque está fora de perigo (BOT_HEAL_TANK_SAFE).
 const BOT_HEAL_TANK_HP := 0.75
@@ -553,6 +918,269 @@ const BOT_HEAL_RANGE := 16.0               # m: membros mais longe que isto não
 const BOT_PEEL_RANGE := 10.0
 const BOT_DODGE_PAD := 1.0                 # m de folga ao sair de círculo/área telegrafada (antes 0.5)
 
+## Ascensão do Ranger (RangerAscension). (H) = calibrado na fase 1 (boss_probe --comp, F5: razão 1,06-1,10).
+## F5: peso da ascensão por build (padrão 1,0) — multiplica a força das mecânicas dela (torreta, salto, queimadura/arco do Brado)
+const ASC_BUILD_POWER := {"lanceiro": 1.0, "atirador": 3.5, "laminas": 0.9, "duelista": 0.92, "corsario": 1.0,
+	"guardiao_verde": 1.0, "fera": 1.0, "xama": 1.0, "cacador": 0.3}       # assassino, F5 2026-11-12 (--tank_lock, 80/braço): Lâminas 1,3 x1,144 / 1,0 x1,118 / 0,9 x1,084 / 0,8 x1,038; Duelista 0,7 x1,045 / 0,85 x1,059 / 0,92 x1,082 / 1,15 x1,155; Corsário 1,0 x1,076
+## Ascensão do Assassino — Sombras Gêmeas (ShadowSystem; GDD R6.1). (H) = hipótese, calibrar com boss_probe --comp.
+## O clone repete os golpes diretos do dono (skill, básico, projétil) com SHADOW_SHARE% do dano, um instante depois;
+## monstros o ignoram (não é hostil a ninguém), o dano e a ameaça são do dono; some no fim do tempo ou se o dono morrer.
+const SHADOW_SKILL := "ass_twin_shadow"
+const SHADOW_BUFF := "twin_shadow"        # buff no dono enquanto o clone vive (HUD e visual)
+const SHADOW_TIME := 6.0                  # s de clone (H)
+const SHADOW_CD := 30.0                   # s de recarga (H)
+const SHADOW_SHARE := 50.0                # % do dano do golpe que o clone repete (H; F5 × ASC_BUILD_POWER da build)
+const SHADOW_ECHO_MAX := 0.3              # s no máximo entre o golpe do dono e o do clone (o preparo da skill, limitado)
+const SHADOW_SIDE := 1.1                  # m ao lado do dono
+const SHADOW_SNAP := 5.0                  # m: mais longe que isto do lugar dele, o clone aparece lá
+const SHADOW_STEALTH_TIME := 3.0          # s do clone que sai da furtividade junto (refino Lâminas 40) (H)
+const SHADOW_TIME_NODE := 1.0             # s a mais por nó "shadow_time" da teia de ascensão
+const SHADOW_SHARE_NODE := 5.0            # pontos de % a mais por nó "shadow_share"
+## Execução: dano enorme em alvo abaixo de EXECUTION_BELOW da vida; acima, golpe fraco. Chefe: vale igual (o dano dele já
+## é cortado por ward/fase; a regra é o limiar, AC-31).
+const EXECUTION_SKILL := "ass_execution"
+const EXECUTION_BELOW := 0.25             # fração da vida do alvo
+const EXECUTION_POWER := 3.0              # poder abaixo do limiar (H)
+const EXECUTION_WEAK := 0.8               # poder acima do limiar
+const EXECUTION_CD := 10.0
+const EXECUTION_NODE_PCT := 10.0          # % a mais de dano da Execução por nó "execute_pct"
+## Contra-Ataque em Cadeia (refino Duelista 40): cada esquiva prepara a próxima Execução sem recarga (1 carga).
+const CHAIN_COUNTER_BUFF := "exec_ready"
+const CHAIN_COUNTER_TIME := 8.0           # s que a carga espera (H)
+## Canhão de Mão (refino Corsário 40): tiro pesado em linha que empurra (chefe não é empurrado).
+const HAND_CANNON_POWER := 2.6            # (H)
+const HAND_CANNON_CD := 12.0
+const HAND_CANNON_RANGE := 9.0
+const HAND_CANNON_PUSH := 3.0             # m de empurrão
+## Bots: Sombra Gêmea ao abrir a luta (alvo a até BOT_SHADOW_RANGE m) e sempre que recarrega; Execução só abaixo do limiar.
+const BOT_SHADOW_SCORE := 5.0
+const BOT_SHADOW_RANGE := 4.0
+const BOT_EXECUTION_SCORE := 6.0
+## Torreta de campo (Atirador): fica parada onde foi posta e atira sozinha no inimigo mais perto.
+const TURRET_MONSTER := "ranger_turret"   # MonsterDef da torreta (alcance/cadência do tiro)
+const TURRET_MAX := 1                     # torretas vivas por ranger (stat `turret_max` soma; a mais antiga some)
+const TURRET_TIME := 15.0                 # s de vida útil (H)
+## Refino 40/45 da torreta (decisão do autor 2026-11-11; só dado, a linha de talento chega com o nível 40):
+## +4 s de vida útil e -20% de recarga (não é torreta dupla; a 2ª torreta vem de conjunto híbrido via stat `turret_max`)
+const TURRET_REFINE_TIME := 4.0
+const TURRET_REFINE_CD_PCT := 20.0
+const TURRET_REFINE_FLAGS := ["ran_turret_firm", "ran_turret_vet"]      # portões da teia de ascensão (40 e 45)
+const TURRET_HP_SHARE := 0.45             # vida = vida máx. do dono x isto (H)
+const TURRET_ATK_SHARE := 0.55            # ATK = ATK do dono x isto (H; F5)
+const TURRET_SHOT_CD := 1.4               # s entre tiros (tiro pesado: a DEF do alvo não engole)
+const TURRET_DEF_SHARE := 0.6             # DEF = DEF do dono x isto
+const TURRET_RANGE := 11.0                # m: alcance do tiro (o inimigo mais perto dentro disto)
+const TURRET_AREA := 4.0                  # m em volta da torreta que efeitos podem ler (RangerAscension.near_turret; conjuntos futuros)
+const BOT_TURRET_SCORE := 4.0             # bot: nota da torreta (sem torreta viva, luta perto) — abre a luta com ela
+const BOT_TURRET_REACH := 18.0            # m do alvo: o bot monta a torreta a até isto (o atirador luta longe)
+const BOT_TURRET_GAP := 3.0               # m: o bot põe a torreta a isto do tanque, do lado de cá do chefe
+const BOT_JUMP_MIN := 6.0                 # m: o bot só salta (fora da esquiva) para fechar distância a partir disto
+const BOT_JUMP_GAP := 0.3                 # m: o bot cai do salto a isto da borda do alvo (no centro da queda)
+## Lanceiro Dracônico: Salto Dracônico (F9b) e Brados Elementais
+const DRAGON_JUMP_AIR := 1.2              # s fora do chão (intocável; o chefe perde o alvo)
+const DRAGON_JUMP_POWER := 2.2            # poder no centro da queda (raio DRAGON_JUMP_INNER)
+const DRAGON_JUMP_EDGE := 1.0             # poder na borda (até o raio da skill)
+const DRAGON_JUMP_INNER := 1.5            # m do centro
+const DRAGON_JUMP_HEIGHT := 9.0           # m de altura do salto (só desenho: a sim é plana)
+const UNTOUCHABLE_MAX := 0.25             # combat_probe: dash + salto não deixam o lanceiro intocável mais que isto da luta
+const SHOUT_TIME := 12.0                  # s do Brado
+const SHOUT_CD := 20.0                    # s de recarga de cada Brado
+const SHOUT_BUFF := 10.0                  # % do bônus do grupo (fogo, velocidade) e da perda de velocidade de ataque (geada)
+const SHOUT_ALLY_RADIUS := 10.0           # m: grupo que recebe o Brado
+const SHOUT_FROST_RADIUS := 6.0           # m: inimigos que a Geada deixa mais lentos para atacar
+const SHOUT_TAUNT_RADIUS := 4.0           # m: o grito provoca os monstros perto
+const SHOUT_TAUNT_TIME := 1.0             # s de provocação do grito
+const SHOUT_BURN_PCT := 60.0              # Chamas: a lança queima (% do ATK por segundo)
+const SHOUT_BURN_TIME := 3.0
+const SHOUT_CHILL_PCT := 25.0             # Geada: a lança deixa lento (%)
+const SHOUT_CHILL_TIME := 1.5
+const SHOUT_ARC_PCT := 35.0               # Trovão: o golpe salta para 1 vizinho com isto do dano
+const SHOUT_ARC_RANGE := 4.0              # m do alvo até o vizinho
+## Refinos do Lanceiro (portões da teia de ascensão; GDD R6.1)
+const DRAGON_JUMP_SKILL := "ran_dragon_jump"
+const DOUBLE_JUMP_FLAG := "ran_double_jump"       # 40, Salto Duplo
+const DOUBLE_JUMP_WINDOW := 1.0                   # s depois do pouso para o 2º salto (sem recarga); a recarga começa depois
+const DOUBLE_JUMP_CD_MULT := 2.0                  # recarga depois do 2º salto × isto (combat_probe --asc --level=45: com 1,0 o lanceiro ficava intocável 30% da luta, com 1,5 24-26%; máx 25%)
+const SHOUT_COMBO_FLAG := "ran_shout_combo"       # 45, Brado Combinado
+const SHOUT_COMBO_TIME := 8.0                     # s com dois Brados ativos (o anterior fica até isto)
+const SHOUT_COMBO_CD := 40.0                      # s de recarga do combinado
+const SHOUT_COMBO_KEY := "shout_combo"            # chave da recarga em SimEntity.cooldowns (não é skill)
+
+## Ascensão do Necromante: Senhor dos Mortos (NecroAscension; GDD ato2-horda R6.1, AC-30b). (H) = hipótese a calibrar.
+## De graça com a ascensão: invocações temporárias duram mais e cabe +1 por tipo.
+const LORD_SUMMON_TIME_MULT := 1.5        # duração das invocações temporárias (AC-30b)
+const LORD_SUMMON_EXTRA := 1              # vagas a mais por tipo de invocação (AC-30b)
+## Pacto dos Mortos (o "Pacto Sombrio" do GDD): buff nas invocações que estão perto ao lançar
+const LORD_PACT_RADIUS := 15.0            # m do necromante (AC-30b)
+const LORD_PACT_TIME := 12.0              # s
+const LORD_PACT_CD := 20.0                # s de recarga
+const LORD_PACT_DMG_PCT := 25.0           # dano das invocações (AC-30b)
+const LORD_PACT_SPEED_PCT := 20.0         # velocidade de movimento das invocações
+const LORD_PACT_LEECH_PCT := 10.0         # do dano delas cura o necromante
+## Miasma: nuvem no chão; quem está dentro causa menos dano e anda mais devagar (soma com as maldições, teto CURSE_WEAKEN_CAP)
+const LORD_MIASMA_RADIUS := 4.0           # m
+const LORD_MIASMA_TIME := 8.0             # s de nuvem
+const LORD_MIASMA_CD := 16.0
+const LORD_MIASMA_WEAKEN_PCT := 20.0      # dano a menos de quem está dentro (AC-30b)
+const LORD_MIASMA_SLOW_PCT := 15.0
+const LORD_MIASMA_PULSE := 0.5            # s entre pulsos da nuvem (ritmo do AuraSystem)
+const LORD_MIASMA_KEEP := 1.3             # s que o efeito dura em quem saiu da nuvem (= AURA_KEEP)
+## Marca da Cova: monstro comum (não chefe/elite) que morre marcado levanta como esqueleto aliado
+const LORD_GRAVE_RADIUS := 3.5
+const LORD_GRAVE_MARK_TIME := 10.0        # s de marca
+const LORD_GRAVE_RAISE_TIME := 15.0       # s do esqueleto erguido (AC-30b; não leva o x1,5)
+const LORD_GRAVE_CD := 24.0
+const LORD_GRAVE_MAX := 4                 # esqueletos da Marca vivos por necromante (H; segura o nº de entidades)
+const LORD_GRAVE_MONSTER := "skeleton_minion"
+const LORD_GRAVE_SKILL := "nec_asc_grave_mark"
+## Forma de Lich (45): liga por LORD_LICH_TIME s
+const LORD_LICH_TIME := 15.0
+const LORD_LICH_CD := 60.0
+const LORD_LICH_MATK_PCT := 30.0          # magias mais fortes na forma
+const LORD_LICH_SPREAD := 4.0             # m do amaldiçoado: a maldição lançada na forma passa para quem está aqui
+const LORD_LICH_SUMMON_EXTRA := 1         # vagas a mais por tipo enquanto dura (ao sair, o excesso some da mais antiga) (H)
+## Refinos 40/45 (nós da teia de ascensão, AscensionCatalog.NODES; todos (H))
+const LORD_ARMY_EXTRA := 1                # Exército (Invocador): +1 invocação por tipo
+const LORD_ARMY_HP_SHARE := 0.2           # ... e as invocações ganham isto da vida do mago
+const LORD_COMMAND_FOCUS := 4.0           # Foice que Comanda (Ceifador): s que as invocações seguram o alvo do golpe (= PET_COMMAND_FOCUS)
+const LORD_COMMAND_EVERY := 0.5           # s entre ordens (golpe em área não manda uma ordem por atingido)
+const LORD_WIDE_MULT := 1.5               # Miasma Largo (Sombras): raio do Miasma e da Marca da Cova
+const LORD_BOND_TIME := 3.0               # Vínculo Sombrio: s a mais de Pacto
+const LORD_FOG_TIME := 2.0                # Névoa Espessa: s a mais de Miasma
+const LORD_DEEP_GRAVE_TIME := 5.0         # Cova Funda: s a mais do esqueleto erguido
+const LORD_BLOOD_PACT_MULT := 2.0         # Pacto de Sangue (Invocador): roubo de vida do Pacto x isto
+const LORD_LICH_REAPER_TIME := 5.0        # Ceifa do Lich (Ceifador): s a mais de Forma de Lich
+const LORD_LICH_PLAGUE_MULT := 1.5        # Praga do Lich (Sombras): alcance do espalhar das maldições
+## Bots (NecroAscension.bot_score)
+const BOT_LORD_SCORE := 5.0               # nota do Pacto/Miasma/Marca na hora certa (acima dos golpes comuns)
+const BOT_LORD_PACT_MIN := 2              # invocações vivas a LORD_PACT_RADIUS para valer o Pacto
+const BOT_LORD_PACK := 3                  # inimigos juntos para Miasma / Forma de Lich fora de chefe
+const BOT_LORD_GRAVE_PACK := 2            # monstros comuns na área para a Marca da Cova
+const BOT_LORD_GRAVE_HP := 0.5            # ... e algum deles com a vida abaixo disto
+
+## Ascensão do Bispo: Coro Celeste (ChoirSystem; GDD Ato II R6.1 + F9). (H) = hipótese calibrada na fase 1
+## (ascensão de utilidade: F5 = queda relativa de mortes por luta sob `boss_probe --comp --dmg=6`, alvo 6-10% aos 35).
+## Barreira Sagrada: cúpula que anda com o Bispo
+const BARRIER_TIME := 8.0                 # s de cúpula
+const BARRIER_RADIUS := 5.0               # m
+const BARRIER_CD := 30.0                  # s de recarga
+const BARRIER_RANGE := 6.0                # m: até onde o Bispo pode pôr o centro da cúpula
+const BARRIER_DR := 30.0                  # % a menos de dano em aliado dentro (duas cúpulas não somam)
+const BARRIER_LAG := 2.0                  # m/s: a cúpula anda isto mais devagar que o Bispo (Barreira em Marcha: 0)
+const BARRIER_HOLD := 3.0                 # s depois de lançar em que ninguém dentro cai abaixo de 1 de vida (nó dos 45)
+const BARRIER_BURN_POWER := 0.4           # Barreira que Fere (Iluminado): poder mágico por segundo em inimigo dentro
+const BARRIER_BURN_EVERY := 1.0           # s entre as queimaduras da cúpula
+const BARRIER_MARCH_SHIELD := 10.0        # Barreira em Marcha (Batalha): escudo (% do HP) em quem está dentro ao lançar
+const BARRIER_MARCH_SHIELD_TIME := 6.0    # s desse escudo
+## Anjo Guardião: voa atrás do Bispo e cura o grupo (tanque primeiro, como os bots)
+const ANGEL_MONSTER := "choir_angel"      # MonsterDef do anjo (só nome/cor: vida e cura vêm do Bispo)
+const ANGEL_TIME := 30.0                  # s
+const ANGEL_CD := 40.0                    # s de recarga
+const ANGEL_HEAL := 0.6                   # poder da cura (pela WILL do Bispo: Combat.calc_heal) (H)
+const ANGEL_HEAL_EVERY := 1.5             # s entre as curas
+const ANGEL_RANGE := 12.0                 # m do anjo: quem ele alcança
+const ANGEL_HEAL_BELOW := 0.95            # só cura quem está abaixo disto da vida
+const ANGEL_TANK_BELOW := 0.7             # tanque abaixo disto passa na frente do mais ferido (ordem dos bots)
+const ANGEL_PARTING_HEAL := 1.5           # Luz de Partida: poder da cura em área quando o tempo do anjo acaba
+const ANGEL_PARTING_RADIUS := 8.0         # m da Luz de Partida
+const ANGEL_STRONG_PCT := 50.0            # Anjo Forte (Sacerdote 40): % a mais de cura
+const ANGEL_MAX := 1                      # anjos vivos (Dois Anjos, Sacerdote 45: +1)
+const ANGEL_FOLLOW_DIST := 1.6            # m atrás do Bispo
+const ANGEL_FLY_SPEED := 9.0              # m/s (voa por cima de tudo; passou de SUMMON_LEASH, aparece ao lado)
+const ANGEL_HOVER := 1.9                  # m de altura (só desenho)
+## Bênçãos de grupo (renovam pelo id, não somam com elas mesmas) (H)
+const BLESS_RADIUS := 12.0                # m
+const BLESS_TIME := 20.0                  # s
+const BLESS_CD := 25.0                    # s de recarga
+const BLESS_WINGS := {"speed_pct": 15.0, "aspd_pct": 15.0}        # Asas da Aurora
+const BLESS_AEGIS := {"def_pct": 12.0}                            # Égide Coral (DEF e MDEF)
+const BLESS_AEGIS_HEAL := 4.0             # Égide Coral: % do HP máximo curado por golpe recebido
+const BLESS_AEGIS_HEAL_ICD := 1.0         # s entre essas curas no mesmo aliado (chuva de golpes não vira cura infinita) (H)
+## Retorno: ressurreição em combate (45), uma por aliado por luta (H)
+const RES_LEVEL := 45
+const RES_HP_PCT := 0.35                  # volta com isto da vida (e da mana)
+const RES_CAST := 2.5                     # s de conjuração
+const RES_RANGE := 15.0                   # m
+const RES_CD := 120.0                     # s de recarga
+const RES_PICK_RADIUS := 4.0              # m do ponto mirado: o caído mais perto dentro disto (senão o mais perto do Bispo)
+const RES_HOLD_PAD := 1.0                 # s a mais que o caído espera o Retorno antes de renascer na cidade
+const RES_BATTLE_SHIELD := 20.0           # Retorno Blindado (Batalha 45): escudo (% do HP) em quem volta
+const RES_BATTLE_SHIELD_TIME := 6.0       # s desse escudo
+## Bots do Coro (BotBrain)
+const BOT_BARRIER_HURT := 0.5             # barreira: 2+ membros abaixo disto da vida...
+const BOT_BARRIER_HURT_N := 2
+const BOT_BARRIER_NEAR := 12.0            # ...ou chuva/golpe avisado de chefe a até isto de alguém do grupo
+const BOT_BARRIER_STAY := 0.8             # bot do grupo fica a até isto do raio da cúpula (por dentro)
+const BOT_ANGEL_HURT := 0.7               # fora de chefe: anjo só com alguém do grupo abaixo disto
+
+## Ascensão do Druida (DruidAscension): Forma Ancestral — a 3ª forma de cada build. (H) = calibrado na fase 1
+## (boss_probe --comp; F5: Lobo Alfa e Pássaro Arcano razão 1,06-1,10; Ent = queda de mortes a --dmg=6).
+## Bônus de cada forma em FORM_STATS (ent, alpha, bird); arma exigida em FORM_REQUIRES.
+const ANC_FORM_BASE := {"ent": "bear", "alpha": "wolf"}      # a ancestral vale pela forma de base (Espreitar como Lobo Alfa; variantes que ela não tem)
+const ANC_FORM_BUILD := {"ent": "guardiao_verde", "alpha": "fera", "bird": "xama"}
+const ANC_ROOTS_POWER := 1.3              # Raízes Ancestrais (Ent): dano em volta (H)
+const ANC_ROOTS_RADIUS := 6.0             # m
+const ANC_ROOTS_ROOT := 2.5               # s presos
+const ANC_ROOTS_TAUNT := 4.0              # s provocados (chefes: metade, MobSystem.taunt)
+const ANC_GROVE_DR := 15.0                # Bosque Protetor (Ent): % a menos de dano no grupo (H; utilidade do F5)
+const ANC_GROVE_TIME := 8.0
+const ANC_GROVE_RADIUS := 8.0
+const ANC_PACK_MONSTER := "pack_wolf"     # MonsterDef do lobo da matilha (Lobo Alfa)
+const ANC_PACK_COUNT := 2                 # lobos por chamado (também o máximo vivo)
+const ANC_PACK_TIME := 20.0               # s (F5 2026-11-11: 15 -> 20; recarga da skill 30 s)
+const ANC_PACK_HP_SHARE := 0.4            # vida = vida máx. do dono x isto
+const ANC_PACK_ATK_SHARE := 0.9           # ATK = ATK do dono x isto (F5 2026-11-11: 0,4 dava x1,02-1,04 em grupo; 144 lutas por braço)
+const ANC_PACK_DEF_SHARE := 0.6
+const ANC_HOWL_SPEED := 15.0              # Uivo do Alfa: % de velocidade do grupo
+const ANC_HOWL_ASPD := 10.0               # e % de velocidade de ataque
+const ANC_HOWL_TIME := 8.0
+const ANC_HOWL_RADIUS := 10.0
+const ANC_BOLT_POWER := 2.0               # Relâmpago Arcano (Pássaro): raio no ponto mirado (H; F5)
+const ANC_BOLT_CHAIN := {"count": 2, "radius": 5.0, "falloff": 0.5}
+const ANC_FLOCK_POWER := 1.1              # Revoada de Luz: cura do grupo (x MATK, como as outras curas)
+const ANC_FLOCK_SPEED := 10.0             # e % de velocidade
+const ANC_FLOCK_TIME := 6.0
+const ANC_FLOCK_RADIUS := 8.0
+const ANC_FEATHER_HEAL := 0.7             # Chuva de Penas de Luz (variante da Chuva Estelar): cura quem está embaixo (x MATK)
+const ANC_GUST_PUSH := 4.0                # m: Rajada de Vento (variante do Ciclone) empurra para longe do centro
+const ANC_BIRD_LIFT := 1.1                # m: altura do voo do Pássaro Arcano (só desenho: a sim é plana)
+## Refinos 40 e 45 (nós da teia de ascensão com portão de nível): na forma ancestral, as variantes e as skills da forma
+## ganham força e duração por refino comprado (1 ou 2).
+const ANC_REFINE_FLAGS := {"ent": ["anc_ent", "anc_ent_2"], "alpha": ["anc_alpha", "anc_alpha_2"], "bird": ["anc_bird", "anc_bird_2"]}
+const ANC_REFINE_POWER := 0.06            # + poder por refino (F5: 0,06 por tier)
+const ANC_REFINE_TIME := 0.2              # + duração (prender, atordoar, lentidão, provocar, buff, matilha) por refino
+
+## Ascensão do Caçador — Falcoeiro: Olhos do Céu (FalconSystem; design/gdd/ato2-proposals-2026-11-11.md §2 opção A).
+## O falcão é intocável (estado no dono, sem entidade): mergulha sozinho no alvo do caçador e marca a Presa.
+const FALCON_DIVE_CD := 6.0               # s entre mergulhos automáticos
+const FALCON_DIVE_POWER := 0.8            # poder do mergulho automático (ATK do caçador; peso ASC_BUILD_POWER["cacador"])
+const FALCON_RANGE := 14.0                # m do caçador: até onde o falcão mergulha e alcance do Mergulho (x ARCHER_RANGE_MULT, como toda skill de arco)
+const FALCON_PREY_ID := "falcon_prey"     # maldição Presa (marca: entra no teto MARK_TAKEN_CAP)
+const FALCON_TAKEN := 3.0                 # % de dano a mais que a Presa recebe de todos (H; F5 ~1,06 no grupo)
+const FALCON_PREY_TIME := 8.0             # s da Presa
+const FALCON_STOOP_POWER := 1.6           # skill Mergulho: poder
+const FALCON_STOOP_CD := 12.0             # skill Mergulho: recarga
+const FALCON_STOOP_STUN := 0.6            # skill Mergulho: atordoa (em chefe vale a regra de controle: x0,4)
+const FALCON_EYES_TIME := 10.0            # Olhos do Céu: duração
+const FALCON_EYES_CD := 30.0              # Olhos do Céu: recarga
+const FALCON_EYES_RADIUS := 15.0          # m: grupo que recebe
+const FALCON_EYES_CRIT := 4.0             # crítico a mais contra alvo com Presa (stat `prey_crit`)
+const FALCON_EYES_SPEED := 10.0           # % de velocidade de movimento
+const FALCON_ROYAL_RANGE := 8.0           # refino 40 (Falcão Real): a Presa de quem morre passa ao inimigo mais perto a isto
+const FALCON_FLOCK := 3                   # refino 45 (Revoada): falcões/alvos de Olhos do Céu
+const FALCON_WEB_PCT := 15.0              # % de dano do mergulho por nó "falcon_pct" da teia de ascensão
+const FALCON_FLAG_ROYAL := "falcon_royal" # portões da teia de ascensão (AscensionCatalog.NODES)
+const FALCON_FLAG_FLOCK := "falcon_flock"
+const FALCON_HOVER := 3.2                 # m acima do caçador (só desenho: a sim é plana)
+const FALCON_DIVE_SHOW := 0.7             # s que o desenho leva no mergulho (ida e volta)
+## Teto do "dano recebido" somado das MARCAS num alvo (várias fontes/caçadores): Marca do Predador (Lanceiro), Presa,
+## arma lendária `mark` (Marca do Caçador). As outras maldições (Necromante, Assassino, Paladino) somam por fora, como antes.
+const MARK_TAKEN_CAP := 25.0
+const MARK_CURSES := ["predator", "legend_mark", "falcon_prey"]
+const BOT_FALCON_CALL_SCORE := 5.0        # bot: chama o falcão antes de tudo (uma vez; fica até o dono cair)
+const BOT_FALCON_DIVE_SCORE := 3.6        # bot: Mergulho sempre que sai da recarga (no alvo do tanque)
+const BOT_FALCON_EYES_SCORE := 3.2        # bot: Olhos do Céu em chefe (abertura e a cada recarga) e quando aparece barragem
+
 ## Pontos da teia ganhos ao chegar no nível `level`.
 static func points_at(level: int) -> int:
 	return MASTERY_POINTS_PER_LEVEL + (1 if level in MASTERY_BONUS_LEVELS else 0)
@@ -560,13 +1188,19 @@ static func points_at(level: int) -> int:
 static func xp_for_level(level: int) -> int:
 	if level >= MAX_LEVEL:
 		return 0
-	var minutes := XP_MIN_BASE + XP_MIN_PER_LEVEL * (level - 1)
 	var mob_xp := XP_MOB_BASE + XP_MOB_PER_LEVEL * level
-	return int(round(minutes * XP_KILLS_PER_MIN * mob_xp / (1.0 - XP_QUEST_SHARE)) / 10.0) * 10
+	return int(round(level_minutes(level) * XP_KILLS_PER_MIN * mob_xp / (1.0 - XP_QUEST_SHARE)) / 10.0) * 10
 
-## Minutos de jogo planejados no nível (o teste do orçamento de XP usa).
+## XP de um monstro comum do nível (base da curva e da experiência do elemental, F6).
+static func mob_xp(level: int) -> float:
+	return XP_MOB_BASE + XP_MOB_PER_LEVEL * level
+
+## Minutos de jogo planejados no nível (o teste do orçamento de XP usa). Do XP_ACT2_FROM em diante cresce
+## XP_MIN_PER_LEVEL_ACT2 por nível a partir do valor do Ato I nesse nível (GDD Ato II F1).
 static func level_minutes(level: int) -> float:
-	return XP_MIN_BASE + XP_MIN_PER_LEVEL * (level - 1)
+	if level < XP_ACT2_FROM:
+		return XP_MIN_BASE + XP_MIN_PER_LEVEL * (level - 1)
+	return XP_MIN_BASE + XP_MIN_PER_LEVEL * (XP_ACT2_FROM - 1) + XP_MIN_PER_LEVEL_ACT2 * (level - XP_ACT2_FROM)
 
 ## XP total para atravessar a faixa [de, até).
 static func band_xp(from_lv: int, to_lv: int) -> int:
@@ -574,6 +1208,10 @@ static func band_xp(from_lv: int, to_lv: int) -> int:
 	for lv in range(from_lv, to_lv):
 		t += xp_for_level(lv)
 	return t
+
+## Tier efetivo dos bônus percentuais de conjunto: i_ef = min(i, 5) + 0,5 × max(0, i − 5) (GDD Ato II F10).
+static func set_pct_tier(tier: int) -> float:
+	return float(mini(tier, SET_PCT_FULL_TIERS)) + SET_PCT_LATE_RATE * float(maxi(0, tier - SET_PCT_FULL_TIERS))
 
 static func mastery_cost(current_level: int) -> int:
 	return current_level + 1

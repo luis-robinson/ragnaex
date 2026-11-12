@@ -15,6 +15,13 @@ extends Resource
 @export var alt_pieces: Array[String] = []
 @export var armor: Array[String] = []        ## as peças de armadura (são elas que contam para os bônus; a arma tem efeito próprio)
 @export var bonuses: Dictionary = {}        ## nº de peças (int) -> bônus (Dictionary)
+## conjunto híbrido (GDD Ato II R7.1): [build A, build B]; vazio = conjunto da build. O 5 peças dele é a Fusão
+## ({"fusion": {...}} em bonuses[5], FusionEffects).
+@export var pair: Array[String] = []
+@export var fusion: String = ""             ## id da Fusão ("<A>+<B>", chave de Balance.FUSION_NUMBERS)
+
+func is_hybrid() -> bool:
+	return not pair.is_empty()
 
 ## Bônus ativos com `count` peças equipadas, em ordem crescente de peças.
 func bonuses_for(count: int) -> Array:

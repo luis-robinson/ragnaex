@@ -93,7 +93,7 @@ static func invitable_near(sim: WorldSim, e: SimEntity, range: float = Balance.P
 	var out: Array = []
 	if not sim.maps.has(e.map_id) or invite_blocked(sim, e) != "":
 		return out
-	for o in sim.maps[e.map_id]["entities"]:
+	for o: SimEntity in sim.maps[e.map_id]["entities"]:
 		if o != e and o.is_character() and o.is_alive() and o.position.distance_to(e.position) <= range \
 				and party_invite_error(sim, e, o) == "":
 			out.append(o)
@@ -208,7 +208,7 @@ static func party_seek_start(sim: WorldSim, e: SimEntity) -> int:
 	if not cd.is_empty() and sim.time < float(cd.get("until", 0.0)):
 		return -2
 	var cands: Array = []
-	for o in sim.maps[e.map_id]["entities"]:
+	for o: SimEntity in sim.maps[e.map_id]["entities"]:
 		if o.kind != SimEntity.Kind.BOT or not o.is_alive() or sim.invites.has(o.id):
 			continue
 		if absi(o.level - e.level) > Balance.PARTY_LEVEL_GAP:

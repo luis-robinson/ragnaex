@@ -21,12 +21,22 @@ static func can_accept(e: SimEntity, q: QuestDef) -> bool:
 		return false
 	if e.level < q.level_req:
 		return false
+	var cls := QuestsCatalog.class_of(q.id)      # ascensão: só a classe do mestre
+	if cls != "" and (e.class_def == null or cls != e.class_def.id):
+		return false
 	if q.prereq_quest != "" and not (q.prereq_quest in e.quests_completed):
 		return false
 	for pid in q.prereq_all:
 		if not (pid in e.quests_completed):
 			return false
-	return true
+	return not shut_out(e, q)
+
+## Escolha (QuestDef.excludes): a outra ponta já foi aceita ou concluída, esta não é mais oferecida. Desistir reabre.
+static func shut_out(e: SimEntity, q: QuestDef) -> bool:
+	for xid in q.excludes:
+		if e.quests_active.has(xid) or xid in e.quests_completed:
+			return true
+	return false
 
 static func accept(e: SimEntity, q: QuestDef) -> void:
 	if not can_accept(e, q):
@@ -128,7 +138,7 @@ static func npc_marker(e: SimEntity, npc_id: String) -> String:
 		return REPEAT               # só repetíveis: marcador próprio (azul), diferente do "!" de história
 	for qid in GameData.quests:
 		var q: QuestDef = GameData.quests[qid]
-		if q.giver_npc == npc_id and not q.repeatable and not e.quests_active.has(qid) and not (qid in e.quests_completed):
+		if q.giver_npc == npc_id and not q.repeatable and not e.quests_active.has(qid) and not (qid in e.quests_completed) and not shut_out(e, q):
 			return LOCKED
 	return ""
 
@@ -302,6 +312,13 @@ static func complete(e: SimEntity, q: QuestDef, sim) -> void:
 	if not (q.id in e.quests_completed):
 		e.quests_completed.append(q.id)
 	sim.gain_xp(e, q.reward_xp)
+	if q.id.begins_with("hx_asc_") and ProgressionSystem.has_ascension(e):
+		e.ensure_slots()                  # barra 7-0 e pontos da teia de ascensão
+		if e.kind == SimEntity.Kind.BOT:
+			ProgressionSystem.bot_spend_asc(sim, e)
+			sim._slot_bot(e)
+		elif e == sim.player:
+			Events.post(&"notification", "Ascensão! %d pontos na teia de ascensão (tecla K) e as teclas 7, 8, 9 e 0 na barra" % ProgressionSystem.asc_points(e))
 	e.gold += q.reward_gold
 	for item_id in q.reward_items:
 		e.add_item(item_id, int(q.reward_items[item_id]))

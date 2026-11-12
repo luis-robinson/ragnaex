@@ -21,6 +21,7 @@ enum Type { KILL, COLLECT, TALK, CRAFT, REACH }
 @export var repeatable: bool = false       ## recompensa de quadro: pode repetir
 @export var prereq_quest: String = ""
 @export var prereq_all: Array[String] = [] ## quests extras exigidas (ramos que se juntam)
+@export var excludes: Array[String] = []   ## escolha: fechada enquanto alguma destas está ativa ou concluída
 @export var map_hint: String = ""          ## onde o objetivo está (texto)
 @export var dialog_offer: String = ""
 @export var dialog_progress: String = ""

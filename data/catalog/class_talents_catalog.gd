@@ -1,6 +1,6 @@
 class_name ClassTalentsCatalog
 extends RefCounted
-## Talentos de classe (aba "Talentos" da janela K): a cada 5 níveis (5..30) uma linha com 3 escolhas que mudam o
+## Talentos de classe (aba "Talentos" da janela K): a cada 5 níveis (5..45) uma linha com 3 escolhas que mudam o
 ## jeito de jogar a classe. Escolhe-se UMA por linha, é grátis (liberada pelo nível) e trocar é na cidade.
 ## A sim lê só os ganchos abaixo (ClassTalentSystem); o resto é texto. Números iniciais, calibrados pelos probes.
 ##
@@ -24,8 +24,12 @@ extends RefCounted
 ##   trap_max, oath_max                 limites de armadilhas e de cargas de Juramento
 ##   form_time {forma: x}               duração das formas com tempo (Fantasma)
 ## (o teto da Radiância sobe com stats.radiance_cap)
+## Ato II (design/gdd/ato2-horda.md R6/R7): linhas 35, 40 e 45, uma opção pensada para cada build (`build`, sem trava:
+## só diz qual o bot da build escolhe). 35 = identidade da build nas lutas do Ato II (bandos com líder, trolls,
+## assassinos, investidas), sem depender da ascensão. 40/45 = refinos sobre skills que já existem; os refinos de R6.1
+## que precisavam da mecânica de ascensão viraram portões da teia de ascensão (AscensionCatalog.NODES); ASC_REFINES_PENDING ficou vazio.
 
-const ROW_LEVELS := [5, 10, 15, 20, 25, 30]
+const ROW_LEVELS := [5, 10, 15, 20, 25, 30, 35, 40, 45]
 const AURA_RADIUS := 15.0
 ## Selo do cartão (cor) pelo gancho principal
 const KINDS := ["permanente", "aura", "invocação", "sobrevivência", "dano", "utilidade"]
@@ -38,6 +42,27 @@ static func _o(id: String, name: String, text: String, kind: String, hooks: Dict
 	d["kind"] = kind
 	if d.has("aura") and not d.has("radius"):
 		d["radius"] = AURA_RADIUS
+	return d
+
+## Refinos de ascensão (R6.1) que AINDA NÃO SÃO TALENTOS: dependem de mecânica que não existe nesta fase.
+## Hoje vazio: todos viraram portões da teia de ascensão (AscensionCatalog.NODES, `flag`).
+## {classe: [{level, build, name, text, needs}]}; `needs` = a mecânica de ascensão que falta. Quando ela entrar, o refino
+## vira opção da linha (troca ou soma com a opção da mesma build). Nada aqui é lido pela sim nem aparece na janela.
+const ASC_REFINES_PENDING := {
+	"paladin": [],          # viraram portões da teia de ascensão (AscensionCatalog.NODES: Asas com Bloqueio, Asas Protetoras, Muralha a Cavalo, Estandarte)
+	"berserker": [],        # viraram portões da teia de ascensão (Giro dos Dois Machados, Segundo Machado, Fúria Acesa, Golpe Final da Arena, Glória que Não Esfria)
+	"bishop": [],      # Coro Celeste feito: os refinos viraram nós da teia de ascensão (AscensionCatalog.NODES)
+	"ranger": [],           # Salto Duplo e Brado Combinado (Lanceiro) e as torretas viraram portões da teia de ascensão
+	"assassin": [],          # Sombras Gêmeas entrou: os 3 refinos viraram nós da teia de ascensão (AscensionCatalog.NODES / ass_hand_cannon)
+	"druid": [],            # Forma Ancestral feita: os refinos são nós da teia de ascensão (AscensionCatalog.NODES)
+	"elementalist": [],     # Salamandra, Golem de Gelo e Silfo viraram portões da teia de ascensão (AscensionCatalog.NODES: elem_refine_*)
+	"necromancer": [],          # viraram nós da teia de ascensão (AscensionCatalog.NODES: Exército, Foice que Comanda, Miasma Largo)
+}
+
+## Opção pensada para uma build (linhas 35+): igual a `_o`, mais `build` (o bot da build escolhe esta).
+static func _b(build_id: String, id: String, name: String, text: String, kind: String, hooks: Dictionary) -> Dictionary:
+	var d := _o(id, name, text, kind, hooks)
+	d["build"] = build_id
 	return d
 
 ## {class_id: [[nível, [opção, opção, opção]], ...]}
@@ -66,6 +91,15 @@ static func build() -> Dictionary:
 			[30, [_o("pal_c_last", "Último Bastião", "Golpe fatal: fica com 1 HP e imortal por 5 s (uma vez a cada 90 s).", "sobrevivência", {"cheat_death": {"cd": 90.0, "dur": 5.0}}),
 				_o("pal_c_light", "Luz Final", "Aura: você e o grupo a 15 m regeneram 1% do HP por segundo.", "aura", {"regen": {"pct": 1.0, "aura": true}}),
 				_o("pal_c_avatar", "Avatar", "+12% de ATK e MATK e +60 de FOR.", "dano", {"stats": {"atk_pct": 12, "matk_pct": 12, "attr_FOR": 60}})]],
+			[35, [_b("guardiao", "pal_c_shield_line", "Linha de Escudos", "Provocar alcança 30% mais longe e recarrega 25% mais rápido.", "utilidade", {"skill_mods": {"pal_taunt": {"mult": {"radius": 1.3, "cooldown": 0.75}}}}),
+				_b("cruzado", "pal_c_breaker", "Quebra-Fileiras", "Golpe do Cruzado e Giro do Cruzado +25% de dano.", "dano", {"skill_mods": {"pal_crusader_strike": {"mult": {"power": 1.25}}, "pal_blade_dance": {"mult": {"power": 1.25}}}}),
+				_b("templario", "pal_c_ember", "Fogo que Não Apaga", "A queimadura da Chama Sagrada e da Pira Sagrada é 50% mais forte e dura 6 s (eram 4 s).", "dano", {"skill_mods": {"pal_sacred_flame": {"effects": {"dot": {"dps": 7.5, "duration": 6}}}, "pal_flame_pyre": {"effects": {"dot": {"dps": 10.5, "duration": 6}}}}})]],
+			[40, [_b("guardiao", "pal_c_rebound", "Escudo que Volta", "Escudo Ricochete +25% de dano e recarrega 25% mais rápido.", "dano", {"skill_mods": {"pal_shield_throw": {"mult": {"power": 1.25, "cooldown": 0.75}}}}),
+				_b("cruzado", "pal_c_charge", "Investida do Cruzado", "Estocada Sagrada +25% de dano e recarrega 30% mais rápido.", "dano", {"skill_mods": {"pal_lunge": {"mult": {"power": 1.25, "cooldown": 0.7}}}}),
+				_b("templario", "pal_c_long_wrath", "Ira Prolongada", "Ira Vingadora dura 50% a mais e recarrega 15% mais rápido.", "dano", {"skill_mods": {"pal_avenging_wrath": {"mult": {"duration": 1.5, "cooldown": 0.85}}}})]],
+			[45, [_b("guardiao", "pal_c_unbroken", "Guarda Inabalável", "−6% de dano sofrido e +20% de ameaça.", "sobrevivência", {"stats": {"dr_pct": 6, "threat_pct": 20}}),
+				_b("cruzado", "pal_c_sentence", "Sentença Final", "Sentença e Lâmina do Juízo +30% de dano.", "dano", {"skill_mods": {"pal_flurry": {"mult": {"power": 1.3}}, "pal_judgement_blade": {"mult": {"power": 1.3}}}}),
+				_b("templario", "pal_c_sunrise", "Sol Nascente", "Golpe Solar +30% de dano e cura 35% do dano causado (eram 20%).", "dano", {"skill_mods": {"pal_sun_strike": {"mult": {"power": 1.3}, "effects": {"heal_pct_of_dmg": 0.35}}}})]],
 		],
 		"berserker": [
 			[5, [_o("ber_c_undying", "Recusa a Morrer", "Golpe fatal: fica com 1 HP e imortal por 6 s (uma vez a cada 60 s).", "sobrevivência", {"cheat_death": {"cd": 60.0, "dur": 6.0}}),
@@ -87,6 +121,15 @@ static func build() -> Dictionary:
 			[30, [_o("ber_c_ancient", "Ira Ancestral", "Fúria fica sempre ativa em você (40% da força).", "permanente", {"permanent": ["ber_fury"], "strength": 0.4}),
 				_o("ber_c_bloodbath", "Banho de Sangue", "Cada abate cura 6% do HP.", "sobrevivência", {"on_kill": {"heal_pct": 6}}),
 				_o("ber_c_giant", "Gigante", "+10% de HP, +80 de FOR e +80 de VIT.", "sobrevivência", {"stats": {"hp_pct": 10, "attr_FOR": 80, "attr_VIT": 80}})]],
+			[35, [_b("carniceiro", "ber_c_reaper", "Ceifa-Bando", "Tempestade de Aço e Tempestade de Lâminas 25% maiores e +15% de dano.", "dano", {"skill_mods": {"ber_axe_storm": {"mult": {"radius": 1.25, "power": 1.15}}, "ber_bladestorm": {"mult": {"radius": 1.25, "power": 1.15}}}}),
+				_b("executor", "ber_c_breaker", "Quebra-Líder", "Golpe Avassalador atordoa 1 s (era 0,5 s) e +20% de dano.", "utilidade", {"skill_mods": {"ber_overhead": {"mult": {"power": 1.2}, "effects": {"stun": {"duration": 1.0}}}}}),
+				_b("punhos", "ber_c_street", "Guarda Alta", "Postura do Contra-Golpe dura 50% a mais e recarrega 15% mais rápido.", "sobrevivência", {"skill_mods": {"ber_counter_stance": {"mult": {"duration": 1.5, "cooldown": 0.85}}}})]],
+			[40, [_b("carniceiro", "ber_c_twin_spin", "Giro Gêmeo", "Turbilhão de Aço e Tempestade de Aço recarregam 30% mais rápido.", "dano", {"skill_mods": {"ber_steel_whirl": {"mult": {"cooldown": 0.7}}, "ber_axe_storm": {"mult": {"cooldown": 0.7}}}}),
+				_b("executor", "ber_c_headsman", "Lâmina do Carrasco", "Executar +30% de dano e recarrega 15% mais rápido.", "dano", {"skill_mods": {"ber_execute": {"mult": {"power": 1.3, "cooldown": 0.85}}}}),
+				_b("punhos", "ber_c_ki", "Ki Inesgotável", "Chakra recarrega 30% mais rápido e Punho Final +20% de dano.", "sobrevivência", {"skill_mods": {"ber_chakra": {"mult": {"cooldown": 0.7}}, "ber_final_fist": {"mult": {"power": 1.2}}}})]],
+			[45, [_b("carniceiro", "ber_c_red_storm", "Tormenta Rubra", "Rajada Rubra e Carnificina +30% de dano.", "dano", {"skill_mods": {"ber_crimson_flurry": {"mult": {"power": 1.3}}, "ber_butcher": {"mult": {"power": 1.3}}}}),
+				_b("executor", "ber_c_arena", "Golpe de Arena", "Decapitar +30% de dano e recarrega 20% mais rápido.", "dano", {"skill_mods": {"ber_decapitate": {"mult": {"power": 1.3, "cooldown": 0.8}}}}),
+				_b("punhos", "ber_c_thousand", "Mil Punhos", "Cem Punhos +30% de dano e 20% maior.", "dano", {"skill_mods": {"ber_hundred_fists": {"mult": {"power": 1.3, "radius": 1.2}}}})]],
 		],
 		"bishop": [
 			[5, [_o("bis_c_blessing", "Bênção Eterna", "Bênção vira aura: você e o grupo a 15 m (50% da força).", "aura", {"aura": ["bis_blessing"], "strength": 0.5}),
@@ -111,6 +154,15 @@ static func build() -> Dictionary:
 				_o("bis_c_ascend", "Ascensão", "+20% de cura e +10% de MATK.", "sobrevivência", {"stats": {"heal_pct": 20, "matk_pct": 10}}),
 				_o("bis_c_wrath", "Juízo", "Ira Divina, Condenar e Martelo Divino +30% de dano.", "dano",
 					{"skill_mods": {"bis_wrath": {"mult": {"power": 1.3}}, "bis_condemn": {"mult": {"power": 1.3}}, "bis_divine_hammer": {"mult": {"power": 1.3}}}})]],
+			[35, [_b("sacerdote", "bis_c_field_mend", "Hospital de Campo", "Remendo Sagrado 40% maior e +20% de cura.", "sobrevivência", {"skill_mods": {"bis_mend": {"mult": {"radius": 1.4, "power": 1.2}}}}),
+				_b("inquisidor", "bis_c_cauterize", "Luz que Cauteriza", "Condenar 20% maior; o chão queima 50% mais forte por 7 s (eram 5 s).", "dano", {"skill_mods": {"bis_condemn": {"mult": {"radius": 1.2}, "effects": {"dot": {"dps": 10.5, "duration": 7}}}}}),
+				_b("batalha", "bis_c_front", "Frente Unida", "Hino de Batalha vira aura: você e o grupo a 15 m (40% da força).", "aura", {"aura": ["bis_battle_hymn"], "strength": 0.4})]],
+			[40, [_b("sacerdote", "bis_c_fervent", "Prece Fervorosa", "Prece +25% de cura e recarrega 20% mais rápido.", "sobrevivência", {"skill_mods": {"bis_prayer": {"mult": {"power": 1.25, "cooldown": 0.8}}}}),
+				_b("inquisidor", "bis_c_scorch", "Chão Sagrado", "Cruzada e Julgamento +25% de dano.", "dano", {"skill_mods": {"bis_crusade": {"mult": {"power": 1.25}}, "bis_judgement": {"mult": {"power": 1.25}}}}),
+				_b("batalha", "bis_c_charge", "Carga do Clérigo", "Castigo do Escudo +25% de dano e recarrega 25% mais rápido.", "dano", {"skill_mods": {"bis_shield_smite": {"mult": {"power": 1.25, "cooldown": 0.75}}}})]],
+			[45, [_b("sacerdote", "bis_c_great_miracle", "Milagre Maior", "Milagre +30% de cura e 25% maior.", "sobrevivência", {"skill_mods": {"bis_miracle": {"mult": {"power": 1.3, "radius": 1.25}}}}),
+				_b("inquisidor", "bis_c_exorcist", "Exorcista", "Exorcismo e Purificar +30% de dano.", "dano", {"skill_mods": {"bis_exorcism": {"mult": {"power": 1.3}}, "bis_purify": {"mult": {"power": 1.3}}}}),
+				_b("batalha", "bis_c_heavy_hand", "Mão Pesada", "Tremor Sagrado e Salto da Fé +15% de dano e curam o aliado mais ferido em 35% do dano (eram 20%).", "sobrevivência", {"skill_mods": {"bis_holy_quake": {"mult": {"power": 1.15}, "effects": {"mend_pct_of_dmg": 0.35}}, "bis_faith_leap": {"mult": {"power": 1.15}, "effects": {"mend_pct_of_dmg": 0.35}}}})]],
 		],
 		"druid": [
 			[5, [_o("dru_c_pack", "Matilha Fiel", "Os Lobos Espirituais ficam para sempre.", "invocação", {"summon_permanent": ["dru_spirit_wolves"]}),
@@ -131,6 +183,15 @@ static func build() -> Dictionary:
 			[30, [_o("dru_c_avatar", "Avatar da Natureza", "+10% de ATK e MATK, +8% de HP e +60 de VIT.", "dano", {"stats": {"atk_pct": 10, "matk_pct": 10, "hp_pct": 8, "attr_VIT": 60}}),
 				_o("dru_c_cycle", "Ciclo", "Cada abate cura 4% do HP e devolve 4% do MP.", "sobrevivência", {"on_kill": {"heal_pct": 4, "mp_pct": 4}}),
 				_o("dru_c_forest", "Floresta Eterna", "Bênção do Bosque fica sempre ativa em você.", "permanente", {"permanent": ["dru_grove"], "strength": 1.0})]],
+			[35, [_b("guardiao_verde", "dru_c_thick_hide", "Couro Grosso", "Pele de Carvalho recarrega 30% mais rápido.", "sobrevivência", {"skill_mods": {"dru_oak_skin": {"mult": {"cooldown": 0.7}}}}),
+				_b("fera", "dru_c_leader_hunt", "Caça ao Líder", "Dilacerar +25% de dano e recarrega 20% mais rápido.", "dano", {"skill_mods": {"dru_maim": {"mult": {"power": 1.25, "cooldown": 0.8}}}}),
+				_b("xama", "dru_c_mangrove", "Raízes do Mangue", "Ciclone 30% maior e prende por 50% mais tempo.", "utilidade", {"skill_mods": {"dru_cyclone": {"mult": {"radius": 1.3, "duration": 1.5}}}})]],
+			[40, [_b("guardiao_verde", "dru_c_living_mountain", "Montanha Viva", "Golpe da Terra e Estouro +25% de dano.", "dano", {"skill_mods": {"dru_earth_slam": {"mult": {"power": 1.25}}, "dru_stampede": {"mult": {"power": 1.25}}}}),
+				_b("fera", "dru_c_lone_pack", "Matilha de Um", "Fúria Selvagem +25% de dano e recarrega 20% mais rápido.", "dano", {"skill_mods": {"dru_rampage": {"mult": {"power": 1.25, "cooldown": 0.8}}}}),
+				_b("xama", "dru_c_high_moon", "Lua Alta", "Fogo Lunar e Chuva Estelar +20% de dano.", "dano", {"skill_mods": {"dru_moonfire": {"mult": {"power": 1.2}}, "dru_starfall": {"mult": {"power": 1.2}}}})]],
+			[45, [_b("guardiao_verde", "dru_c_avalanche", "Avalanche", "Fúria da Montanha +30% de dano e recarrega 20% mais rápido.", "dano", {"skill_mods": {"dru_mountain": {"mult": {"power": 1.3, "cooldown": 0.8}}}}),
+				_b("fera", "dru_c_final_fang", "Presa Final", "Golpe Feral +30% de dano e recarrega 20% mais rápido.", "dano", {"skill_mods": {"dru_savage": {"mult": {"power": 1.3, "cooldown": 0.8}}}}),
+				_b("xama", "dru_c_storm_eye", "Olho da Tempestade", "Tempestade da Natureza e Crescimento Selvagem +25% de dano.", "dano", {"skill_mods": {"dru_storm": {"mult": {"power": 1.25}}, "dru_wild_growth": {"mult": {"power": 1.25}}}})]],
 		],
 		"ranger": [
 			[5, [_o("ran_c_bond", "Laço de Sangue", "O lince tem +40% de força.", "invocação", {"stats": {"pet_pct": 40}}),
@@ -153,6 +214,15 @@ static func build() -> Dictionary:
 			[30, [_o("ran_c_alpha", "Alfa", "O lince tem +100% de força.", "invocação", {"stats": {"pet_pct": 100}}),
 				_o("ran_c_ghost", "Tiro Fantasma", "Tiro na Cabeça atravessa e +30% de dano.", "dano", {"skill_mods": {"ran_headshot": {"set": {"projectile_pierce": true}, "mult": {"power": 1.3}}}}),
 				_o("ran_c_survivor", "Sobrevivente", "Golpe fatal: fica com 1 HP e imortal por 4 s (uma vez a cada 90 s).", "sobrevivência", {"cheat_death": {"cd": 90.0, "dur": 4.0}})]],
+			[35, [_b("cacador", "ran_c_hunting_net", "Rede de Caça", "Rede 40% maior e recarrega 25% mais rápido.", "utilidade", {"skill_mods": {"ran_net": {"mult": {"radius": 1.4, "cooldown": 0.75}}}}),
+				_b("atirador", "ran_c_leader_shot", "Tiro no Líder", "Tiro na Cabeça atordoa 1 s (era 0,5 s) e recarrega 20% mais rápido.", "utilidade", {"skill_mods": {"ran_headshot": {"mult": {"cooldown": 0.8}, "effects": {"stun": {"duration": 1.0}}}}}),
+				_b("lanceiro", "ran_c_wide_sweep", "Giro Largo", "Lança Giratória 20% maior e +25% de dano.", "dano", {"skill_mods": {"ran_spear_sweep": {"mult": {"radius": 1.2, "power": 1.25}}}})]],
+			[40, [_b("cacador", "ran_c_marked_prey", "Presa Marcada", "Ataque da Fera +20% de dano e recarrega 30% mais rápido.", "dano", {"skill_mods": {"ran_sic": {"mult": {"power": 1.2, "cooldown": 0.7}}}}),
+				_b("atirador", "ran_c_quick_reload", "Recarga Rápida", "Tiro Certeiro e Tiro de Dispersão recarregam 25% mais rápido.", "dano", {"skill_mods": {"ran_snipe": {"mult": {"cooldown": 0.75}}, "ran_scatter": {"mult": {"cooldown": 0.75}}}}),
+				_b("lanceiro", "ran_c_long_leap", "Salto Certeiro", "Salto do Predador recarrega 30% mais rápido e cai numa área 25% maior.", "utilidade", {"skill_mods": {"ran_spear_leap": {"mult": {"cooldown": 0.7, "radius": 1.25}}}})]],
+			[45, [_b("cacador", "ran_c_endless_rain", "Chuva sem Fim", "Chuva de Flechas +30% de dano e recarrega 20% mais rápido.", "dano", {"skill_mods": {"ran_rain": {"mult": {"power": 1.3, "cooldown": 0.8}}}}),
+				_b("atirador", "ran_c_steady_eye", "Olho Firme", "Olho de Águia dura 50% a mais e recarrega 15% mais rápido.", "dano", {"skill_mods": {"ran_deadeye": {"mult": {"duration": 1.5, "cooldown": 0.85}}}}),
+				_b("lanceiro", "ran_c_long_instinct", "Instinto Duradouro", "Instinto do Predador dura 50% a mais e Empalar +20% de dano.", "dano", {"skill_mods": {"ran_blood_instinct": {"mult": {"duration": 1.5}}, "ran_impale": {"mult": {"power": 1.2}}}})]],
 		],
 		"assassin": [
 			[5, [_o("ass_c_venom", "Lâmina Envenenada", "Lâmina Pestilenta fica sempre ativa em você (veneno em todo golpe).", "permanente", {"permanent": ["ass_plague_blade"], "strength": 0.8}),
@@ -173,6 +243,15 @@ static func build() -> Dictionary:
 			[30, [_o("ass_c_death", "Morte Certa", "+50% de dano em alvos abaixo de 25% do HP.", "dano", {"execute": {"below": 0.25, "dmg_pct": 50}}),
 				_o("ass_c_phantom", "Fantasma", "Golpe fatal: fica com 1 HP, imortal e invisível por 4 s (uma vez a cada 90 s).", "sobrevivência", {"cheat_death": {"cd": 90.0, "dur": 4.0, "stealth": true}}),
 				_o("ass_c_thousand", "Mil Cortes", "Mil Cortes e Rajada de Lâminas +30% de dano.", "dano", {"skill_mods": {"ass_thousand": {"mult": {"power": 1.3}}, "ass_blade_flurry": {"mult": {"power": 1.3}}}})]],
+			[35, [_b("laminas", "ass_c_epidemic", "Epidemia", "Virulência 20% maior e recarrega 30% mais rápido.", "dano", {"skill_mods": {"ass_virulence": {"mult": {"radius": 1.2, "cooldown": 0.7}}}}),
+				_b("duelista", "ass_c_counter_ambush", "Contra-Emboscada", "Guarda do Duelista dura 50% a mais e recarrega 30% mais rápido.", "sobrevivência", {"skill_mods": {"ass_guard": {"mult": {"duration": 1.5, "cooldown": 0.7}}}}),
+				_b("corsario", "ass_c_boarding", "Abordagem", "Gancho de Abordagem +25% de dano e recarrega 30% mais rápido.", "utilidade", {"skill_mods": {"ass_grapple": {"mult": {"power": 1.25, "cooldown": 0.7}}}})]],
+			[40, [_b("laminas", "ass_c_shadow_dance", "Dança Sombria", "Dança da Morte +25% de dano e recarrega 20% mais rápido.", "dano", {"skill_mods": {"ass_dance": {"mult": {"power": 1.25, "cooldown": 0.8}}}}),
+				_b("duelista", "ass_c_sharp_riposte", "Resposta Afiada", "Lâmina Carmesim +25% de dano e cura 40% do dano causado (eram 25%).", "sobrevivência", {"skill_mods": {"ass_crimson": {"mult": {"power": 1.25}, "effects": {"heal_pct_of_dmg": 0.4}}}}),
+				_b("corsario", "ass_c_double_powder", "Pólvora Dobrada", "Bordada +25% de dano e leque 20% mais longo.", "dano", {"skill_mods": {"ass_broadside": {"mult": {"power": 1.25, "radius": 1.2}}}})]],
+			[45, [_b("laminas", "ass_c_tireless", "Lâminas Incansáveis", "Golpe Gêmeo e Leque de Facas +25% de dano.", "dano", {"skill_mods": {"ass_twin_strike": {"mult": {"power": 1.25}}, "ass_fan": {"mult": {"power": 1.25}}}}),
+				_b("duelista", "ass_c_weapon_master", "Mestre de Armas", "Avanço do Duelista e Turbilhão de Aço +25% de dano.", "dano", {"skill_mods": {"ass_lunge": {"mult": {"power": 1.25}}, "ass_steel_whirl": {"mult": {"power": 1.25}}}}),
+				_b("corsario", "ass_c_flag", "Bandeira no Mastro", "Bandeira Negra dura 50% a mais e recarrega 15% mais rápido.", "utilidade", {"skill_mods": {"ass_black_flag": {"mult": {"duration": 1.5, "cooldown": 0.85}}}})]],
 		],
 		"elementalist": [
 			[5, [_o("ele_c_bound", "Elemental Vinculado", "O elemental fica para sempre (invocar outro troca de elemento).", "invocação",
@@ -196,6 +275,15 @@ static func build() -> Dictionary:
 				_o("ele_c_avatar", "Avatar Elemental", "+15% de MATK e +6% de crítico.", "dano", {"stats": {"matk_pct": 15, "crit": 6.0}}),
 				_o("ele_c_cataclysm", "Cataclismo", "Meteoro, Inferno e Zero Absoluto recarregam 40% mais rápido.", "dano",
 					{"skill_mods": {"ele_meteor": {"mult": {"cooldown": 0.6}}, "ele_inferno": {"mult": {"cooldown": 0.6}}, "ele_absolute_zero": {"mult": {"cooldown": 0.6}}}})]],
+			[35, [_b("fogo", "ele_c_scorched", "Terra Queimada", "Muralha de Fogo 30% maior e queima por 40% mais tempo.", "dano", {"skill_mods": {"ele_fire_wall": {"mult": {"radius": 1.3, "duration": 1.4}}}}),
+				_b("gelo", "ele_c_deep_ice", "Gelo Fundo", "Geleira 30% maior e prende por 50% mais tempo.", "utilidade", {"skill_mods": {"ele_glacier": {"mult": {"radius": 1.3, "duration": 1.5}}}}),
+				_b("raio", "ele_c_rod", "Para-Raios", "Campo Estático 30% maior e +20% de dano.", "dano", {"skill_mods": {"ele_static": {"mult": {"radius": 1.3, "power": 1.2}}}})]],
+			[40, [_b("fogo", "ele_c_furnace", "Fornalha", "Onda de Chamas e Inferno +25% de dano.", "dano", {"skill_mods": {"ele_flame_wave": {"mult": {"power": 1.25}}, "ele_inferno": {"mult": {"power": 1.25}}}}),
+				_b("gelo", "ele_c_hoarfrost", "Geada Funda", "Nova de Gelo e Nevasca +25% de dano.", "dano", {"skill_mods": {"ele_frost_nova": {"mult": {"power": 1.25}}, "ele_blizzard": {"mult": {"power": 1.25}}}}),
+				_b("raio", "ele_c_voltage", "Alta Tensão", "Relâmpago e Trovão +25% de dano.", "dano", {"skill_mods": {"ele_lightning": {"mult": {"power": 1.25}}, "ele_thunder": {"mult": {"power": 1.25}}}})]],
+			[45, [_b("fogo", "ele_c_reborn", "Fênix Renascida", "Fênix +30% de dano e recarrega 20% mais rápido.", "dano", {"skill_mods": {"ele_phoenix": {"mult": {"power": 1.3, "cooldown": 0.8}}}}),
+				_b("gelo", "ele_c_ice_age", "Era do Gelo", "Zero Absoluto +30% de dano e 20% maior.", "dano", {"skill_mods": {"ele_absolute_zero": {"mult": {"power": 1.3, "radius": 1.2}}}}),
+				_b("raio", "ele_c_hurricane", "Olho do Furacão", "Senhor da Tempestade +30% de dano e recarrega 20% mais rápido.", "dano", {"skill_mods": {"ele_storm_lord": {"mult": {"power": 1.3, "cooldown": 0.8}}}})]],
 		],
 		"necromancer": [
 			[5, [_o("nec_c_army", "Exército Eterno", "Os esqueletos do Erguer Mortos ficam para sempre.", "invocação", {"summon_permanent": ["nec_raise"]}),
@@ -219,5 +307,14 @@ static func build() -> Dictionary:
 				_o("nec_c_phylactery", "Filactério", "Golpe fatal: fica com 1 HP e imortal por 5 s (uma vez a cada 120 s).", "sobrevivência", {"cheat_death": {"cd": 120.0, "dur": 5.0}}),
 				_o("nec_c_plague", "Praga", "Podridão, Enxame e Pandemia +30% de dano.", "dano",
 					{"skill_mods": {"nec_rot": {"mult": {"power": 1.3}}, "nec_swarm": {"mult": {"power": 1.3}}, "nec_pandemic": {"mult": {"power": 1.3}}}})]],
+			[35, [_b("invocador", "nec_c_kennel", "Canil dos Mortos", "+1 Cão de Ossos no máximo.", "invocação", {"summon_extra": {"nec_bone_hound": 1}}),
+				_b("ceifador", "nec_c_wide_reap", "Ceifa Larga", "Ceifar e Colheita Sombria 25% maiores.", "dano", {"skill_mods": {"nec_reap": {"mult": {"radius": 1.25}}, "nec_harvest": {"mult": {"radius": 1.25}}}}),
+				_b("pestilento", "nec_c_deep_rot", "Podridão Funda", "Praga e Decadência +30% de dano.", "dano", {"skill_mods": {"nec_plague": {"mult": {"power": 1.3}}, "nec_decay": {"mult": {"power": 1.3}}}})]],
+			[40, [_b("invocador", "nec_c_quick_call", "Chamado Rápido", "Exército dos Mortos recarrega 30% mais rápido.", "invocação", {"skill_mods": {"nec_army": {"mult": {"cooldown": 0.7}}}}),
+				_b("ceifador", "nec_c_hungry_scythe", "Foice Faminta", "Rasgar Alma +25% de dano e recarrega 20% mais rápido.", "dano", {"skill_mods": {"nec_soul_rend": {"mult": {"power": 1.25, "cooldown": 0.8}}}}),
+				_b("pestilento", "nec_c_wide_shadows", "Sombras Largas", "Enxame de Moscas e Pandemia 30% maiores.", "utilidade", {"skill_mods": {"nec_swarm": {"mult": {"radius": 1.3}}, "nec_pandemic": {"mult": {"radius": 1.3}}}})]],
+			[45, [_b("invocador", "nec_c_court", "Corte dos Mortos", "Erguer Lich e Rei Esqueleto recarregam 30% mais rápido.", "invocação", {"skill_mods": {"nec_lich": {"mult": {"cooldown": 0.7}}, "nec_skeleton_king": {"mult": {"cooldown": 0.7}}}}),
+				_b("ceifador", "nec_c_supreme", "Ceifeiro Supremo", "Ceifeiro Sinistro +30% de dano e recarrega 20% mais rápido.", "dano", {"skill_mods": {"nec_grim": {"mult": {"power": 1.3, "cooldown": 0.8}}}}),
+				_b("pestilento", "nec_c_hungry_void", "Vazio Faminto", "Açoite Mental e Raio do Vazio +30% de dano.", "dano", {"skill_mods": {"nec_mind_flay": {"mult": {"power": 1.3}}, "nec_void_beam": {"mult": {"power": 1.3}}}})]],
 		],
 	}

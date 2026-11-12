@@ -29,6 +29,26 @@ static func curse_sum(e: SimEntity, key: String) -> float:
 			s += float(d.get(key, 0.0))
 	return s
 
+## % de dano a mais que o alvo recebe pelas maldições: as MARCAS (curse com `mark`: Marca do Predador, Presa, arma
+## lendária `mark`; de qualquer fonte) somam até Balance.MARK_TAKEN_CAP; as outras maldições somam por fora.
+static func taken_pct(e: SimEntity) -> float:
+	var marks := 0.0
+	var rest := 0.0
+	for d in e.debuffs:
+		if d.get("kind") == "curse":
+			if d.get("mark", false):
+				marks += float(d.get("taken_pct", 0.0))
+			else:
+				rest += float(d.get("taken_pct", 0.0))
+	return rest + minf(marks, Balance.MARK_TAKEN_CAP)
+
+## Alvo marcado como Presa pelo falcão (FalconSystem.mark)?
+static func has_prey(e: SimEntity) -> bool:
+	for d in e.debuffs:
+		if d.get("prey", false):
+			return true
+	return false
+
 ## Atacante está atrás do alvo (pelas costas)?
 static func is_behind(attacker: SimEntity, target: SimEntity) -> bool:
 	var to := attacker.position - target.position
@@ -62,6 +82,8 @@ static func calc_damage(attacker: SimEntity, target: SimEntity, power: float, ki
 	var def := target.stats.mdef if magical else target.stats.pdef
 	var crit_chance := attacker.stats.crit_mag if magical else attacker.stats.crit_phys
 	var behind := attacker.stats.backstab > 0.0 and is_behind(attacker, target)
+	if attacker.stats.prey_crit > 0.0 and not target.debuffs.is_empty() and has_prey(target):
+		crit_chance += attacker.stats.prey_crit      # Olhos do Céu: o grupo acerta a Presa no ponto fraco
 	if behind:              # Assassino pelas costas: mais crítico e mais dano
 		crit_chance += Balance.BACKSTAB_CRIT
 		power *= 1.0 + attacker.stats.backstab / 100.0
@@ -109,7 +131,7 @@ static func select_targets(caster: SimEntity, skill: SkillDef, aim: Vector3, ent
 				out.append(caster)
 			# cura/buff em área ao redor do caster atinge o grupo por perto; dano, os inimigos em volta
 			if skill.radius > 0.0:
-				for e in entities:
+				for e: SimEntity in entities:
 					if e == caster or not _valid(caster, e, friendly):
 						continue
 					if e.position.distance_to(caster.position) <= skill.radius + (0.0 if friendly else e.radius):
@@ -118,7 +140,7 @@ static func select_targets(caster: SimEntity, skill: SkillDef, aim: Vector3, ent
 			var dir := caster.forward()
 			var start: Vector3 = caster.position if from == null else from
 			var length: float = skill.range if reach < 0.0 else reach
-			for e in entities:
+			for e: SimEntity in entities:
 				if not _valid(caster, e, friendly):
 					continue
 				var rel: Vector3 = e.position - start
@@ -132,7 +154,7 @@ static func select_targets(caster: SimEntity, skill: SkillDef, aim: Vector3, ent
 			out.sort_custom(func(a, b): return _lane_rank(a, start, dir) < _lane_rank(b, start, dir))
 		SkillDef.Target.GROUND:
 			var center := clamp_aim(caster, aim, skill.range)
-			for e in entities:
+			for e: SimEntity in entities:
 				if not _valid(caster, e, friendly):
 					continue
 				if Vector2(e.position.x, e.position.z).distance_to(Vector2(center.x, center.z)) <= skill.radius + e.radius:
@@ -140,7 +162,7 @@ static func select_targets(caster: SimEntity, skill: SkillDef, aim: Vector3, ent
 		SkillDef.Target.CONE:
 			var dir := caster.forward()
 			var half_angle := deg_to_rad(skill.cone_angle_deg * 0.5)
-			for e in entities:
+			for e: SimEntity in entities:
 				if not _valid(caster, e, friendly):
 					continue
 				var rel: Vector3 = e.position - caster.position
@@ -153,7 +175,7 @@ static func select_targets(caster: SimEntity, skill: SkillDef, aim: Vector3, ent
 		SkillDef.Target.TARGET:
 			var best: SimEntity = null
 			var best_d := 1.6
-			for e in entities:
+			for e: SimEntity in entities:
 				if not _valid(caster, e, friendly):
 					continue
 				if e.position.distance_to(caster.position) > skill.range + e.radius:
@@ -167,7 +189,7 @@ static func select_targets(caster: SimEntity, skill: SkillDef, aim: Vector3, ent
 			if best:
 				out.append(best)
 				if skill.radius > 0.0:
-					for e in entities:
+					for e: SimEntity in entities:
 						if e != best and _valid(caster, e, friendly) and e.position.distance_to(best.position) <= skill.radius + e.radius:
 							out.append(e)
 	if out.size() > skill.max_targets:
@@ -196,12 +218,12 @@ static func nearest_hostile(from: SimEntity, entities: Array, max_dist: float) -
 	var best: SimEntity = null
 	var best_d := max_dist
 	var at := from.position
-	for e in entities:
+	for e: SimEntity in entities:
 		# longe primeiro (o barato): a maioria do mapa cai aqui sem chamar is_hostile_to; folga de 0,1% mantém o resultado exato
 		var reach: float = best_d + e.radius
 		if e.position.distance_squared_to(at) > reach * reach * 1.001 + 0.0001:
 			continue
-		if e == from or not e.is_alive() or not from.is_hostile_to(e) or e.stealth_left > 0.0:     # furtivo: ninguém acha
+		if e == from or not e.is_alive() or not from.is_hostile_to(e) or e.stealth_left > 0.0 or e.sky_left > 0.0:     # furtivo / no ar (Salto Dracônico): ninguém acha
 			continue
 		var d: float = e.position.distance_to(at) - e.radius
 		if d < best_d:

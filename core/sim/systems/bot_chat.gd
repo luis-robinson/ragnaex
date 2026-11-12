@@ -34,7 +34,7 @@ static func near_boss(sim, e: SimEntity) -> SimEntity:
 	var m: Dictionary = sim.maps.get(e.map_id, {})
 	if m.is_empty():
 		return null
-	for o in m["entities"]:
+	for o: SimEntity in m["entities"]:
 		if o.kind == SimEntity.Kind.MONSTER and o.is_alive() and o.monster_def.is_boss and o.boss_id < 0 \
 				and o.position.distance_to(e.position) < Balance.BOT_CHAT_BOSS_RANGE:
 			return o

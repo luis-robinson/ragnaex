@@ -6,7 +6,7 @@ extends RefCounted
 static func hold_npc(sim: WorldSim, npc_id: String) -> void:
 	if sim.player == null or not sim.maps.has(sim.player.map_id):
 		return
-	for o in sim.maps[sim.player.map_id]["entities"]:
+	for o: SimEntity in sim.maps[sim.player.map_id]["entities"]:
 		if o.kind == SimEntity.Kind.NPC and o.npc_data.get("id", "") == npc_id:
 			if o.npc_hold <= 0.0:
 				o.face_towards(sim.player.position)

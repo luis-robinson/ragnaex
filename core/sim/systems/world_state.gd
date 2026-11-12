@@ -4,6 +4,8 @@ extends RefCounted
 ## - Spawner, NPC, rota de investida e assalto aceitam `if` (quest feita) e `unless` (quest ainda não feita);
 ##   valor = id de quest ou lista de ids (todas). Sem jogador (testes/servidor) nenhuma quest conta como feita.
 ## - Spawner que deixa de valer recolhe os monstros dele (fortaleza retomada esvazia); NPC condicional nasce/some.
+## - Obstáculo com `if`/`unless`: prop que o jogo mostra/esconde; se for `solid`, a colisão só vale no estágio
+##   (MapGeometry.sync_stage refaz a grade quando muda).
 ## - Assalto aliado (`MapDef.assaults`): levas de NPCs lutadores (`fighter`) nascem em `from`, sobem a `route` até
 ##   `target` e brigam lá (GuardBrain, modo marcha); quem cai não volta, a leva se repõe a cada `every` s até `max`.
 
@@ -41,6 +43,7 @@ static func update(sim: WorldSim, m: Dictionary, dt: float) -> void:
 	if float(m["ws_t"]) > 0.0:
 		return
 	m["ws_t"] = SYNC_EVERY
+	MapGeometry.sync_stage(sim, m)             # obstáculo sólido com `if`/`unless` (paliçada nova): a colisão acompanha
 	sync_npcs(sim, m)
 	for sp in m["spawners"]:
 		if active(sim, sp["def"]):

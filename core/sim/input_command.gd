@@ -14,6 +14,8 @@ var jump: bool = false              ## Espaço
 var dash: bool = false              ## Shift
 var mount: bool = false             ## H: montar/desmontar
 var recall: bool = false            ## G: voltar à cidade
+var elem_form: String = ""          ## Elementalista ascendido: chamar/trocar o elemental para esta forma (1 vez; "" = nada)
+var elem_mode: String = ""          ## Elementalista ascendido: modo do elemental (attack/protect/support; 1 vez)
 
 func has_action() -> bool:
 	return attack or skill_slot >= 0 or potion_slot >= 0 or interact or dash

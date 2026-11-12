@@ -16,6 +16,7 @@ var return_time: float = 0.0
 var calm: float = 0.0          # s sem puxar briga nova (acabou de largar um alvo longe da rota)
 var was_retreat := false
 var fought := false
+var opened := false                    # já entrou nesta briga (MonsterDef.skill_delay conta a partir daqui)
 var water_path: Array = []
 var water_goal := Vector3.INF
 var water_timer: float = 0.0
@@ -115,6 +116,11 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 		e.taunt_left = 0.0
 		target = null
 
+	if target == null:
+		opened = false
+	elif not opened:                   # começo da briga: skill especial só depois de skill_delay s (abre no golpe básico)
+		opened = true
+		skill_timer = maxf(skill_timer, mdef.skill_delay)
 	if target != null:
 		state = S.CHASE
 		fought = true
@@ -219,7 +225,7 @@ static func _style_def(e: SimEntity) -> MonsterDef:
 
 ## Nenhum outro invasor vivo a `r` m.
 static func _alone(e: SimEntity, m: Dictionary, r: float) -> bool:
-	for o in m["entities"]:
+	for o: SimEntity in m["entities"]:
 		if o != e and o.raid_id >= 0 and o.is_alive() and o.position.distance_to(e.position) < r:
 			return false
 	return true
@@ -235,7 +241,7 @@ func _raid_target(e: SimEntity, sim, m: Dictionary, cur: SimEntity, dt: float) -
 	var best: SimEntity = null
 	var best_s := -INF
 	var aggro: float = e.monster_def.aggro_range
-	for o in chars:
+	for o: SimEntity in chars:
 		if o == e or not o.is_alive() or not e.is_hostile_to(o) or o.stealth_left > 0.0:
 			continue
 		var d: float = o.position.distance_to(e.position) - o.radius
@@ -271,7 +277,7 @@ static func _isolated(o: SimEntity, m: Dictionary) -> bool:
 			var cell = grid.get(Vector2i(cx + dx, cz + dz))
 			if cell == null:
 				continue
-			for f in cell:
+			for f: SimEntity in cell:
 				if f != o and f.kind != SimEntity.Kind.MONSTER and f.is_alive() and o.is_friend(f) and f.position.distance_to(o.position) < 5.0:
 					return false
 	return true
@@ -292,7 +298,7 @@ func _summon_target(e: SimEntity, sim, m: Dictionary, owner: SimEntity, cur: Sim
 	skill_rethink = Balance.SUMMON_RETHINK
 	var best: SimEntity = null
 	var best_s := -INF
-	for o in m["entities"]:
+	for o: SimEntity in m["entities"]:
 		if o.kind != SimEntity.Kind.MONSTER or not o.is_alive() or o.stealth_left > 0.0 or not e.is_hostile_to(o):
 			continue
 		var d_owner: float = o.position.distance_to(owner.position)

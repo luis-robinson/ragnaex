@@ -4,10 +4,15 @@ extends RefCounted
 
 static func check_portals(sim: WorldSim, e: SimEntity, m: Dictionary) -> void:
 	var def: MapDef = m["def"]
-	for pt in def.portals:
+	var ex := e.position.x
+	var ez := e.position.z
+	for pt: Dictionary in def.portals:
+		var pos: Vector3 = pt["pos"]
+		var reach: float = float(pt.get("radius", 2.0))
+		if (ex - pos.x) * (ex - pos.x) + (ez - pos.z) * (ez - pos.z) > reach * reach * 1.001 + 0.0001:
+			continue                      # longe (o caso comum; folga de 0,1%: o teste exato vem abaixo)
 		if pt.get("player_only", false) and e != sim.player:
 			continue                      # porta de casa: só o jogador entra
-		var pos: Vector3 = pt["pos"]
 		if Vector2(e.position.x, e.position.z).distance_to(Vector2(pos.x, pos.z)) <= float(pt.get("radius", 2.0)):
 			var blocked := portal_block_reason(sim, e, pt)
 			if blocked == "":
@@ -27,6 +32,13 @@ static func portal_block_reason(sim: WorldSim, e: SimEntity, pt: Dictionary) -> 
 	var q: String = g.get("quest", "")
 	if q != "" and not (q in e.quests_completed):
 		return g.get("text", "%s: ainda fechado." % pt["label"])
+	var missing := 0                      # `quests`: todas exigidas (em qualquer ordem)
+	for qq in g.get("quests", []):
+		if not (str(qq) in e.quests_completed):
+			missing += 1
+	if missing > 0:
+		var all: int = (g["quests"] as Array).size()
+		return "%s (%d de %d)" % [g.get("text", "%s: ainda fechado." % pt["label"]), all - missing, all]
 	for boss in g.get("bosses", []):
 		if not e.bosses_killed.has(boss):
 			return g.get("text", "%s: ainda fechado." % pt["label"])
@@ -86,7 +98,7 @@ static func home_of(e: SimEntity) -> Dictionary:
 ## Vincula o cristal `npc` (NPC de role "crystal" do mapa atual): o retorno passa a ser na frente dele.
 static func bind_crystal(sim: WorldSim, e: SimEntity, npc_id: String) -> bool:
 	var npc: SimEntity = null
-	for o in sim.maps[e.map_id]["entities"] if sim.maps.has(e.map_id) else []:
+	for o: SimEntity in sim.maps[e.map_id]["entities"] if sim.maps.has(e.map_id) else []:
 		if o.kind == SimEntity.Kind.NPC and o.npc_data.get("id", "") == npc_id:
 			npc = o
 	if npc == null or npc.npc_data.get("role", "") != "crystal":
@@ -233,6 +245,9 @@ static func change_map(sim: WorldSim, e: SimEntity, map_id: String, pos: Vector3
 			BotChat.party_event(sim, e, "enter_dungeon" if nd.parent_map != "" else "enter_map", {"map": nd.name}, null, 1.0 if nd.parent_map != "" else 0.6)
 	for o in sim.entities.values():
 		if o.kind == SimEntity.Kind.SUMMON and o.owner_id == e.id and o.map_id != map_id:
+			if RangerAscension.is_turret(o):          # torreta fica onde foi montada: o dono saiu do mapa, ela some
+				sim.despawn(o)
+				continue
 			sim.maps[o.map_id]["entities"].erase(o)
 			o.map_id = map_id
 			o.position = pos + Vector3(1, 0, 1)

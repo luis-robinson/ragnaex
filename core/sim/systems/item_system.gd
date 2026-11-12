@@ -95,8 +95,10 @@ static func roll_legendary(sim: WorldSim, killer: SimEntity, mob: SimEntity) -> 
 ## Relicária: peças lendárias que a classe pode trocar (todos os conjuntos das builds, a maça do conjunto e os escudos nomeados).
 static func relic_offer(sim: WorldSim, e: SimEntity) -> Array:
 	var out: Array = []
-	for lv in Balance.LEGENDARY_LEVELS:
-		out.append_array(GameData.legendary_pool(e.class_def, lv))
+	for lv in relic_levels():
+		for iid in GameData.legendary_pool(e.class_def, lv):
+			if not (iid in out):
+				out.append(iid)
 	if "shield" in e.class_def.offhand_types:
 		for iid in GameData.items:
 			var it: ItemDef = GameData.items[iid]
@@ -106,8 +108,39 @@ static func relic_offer(sim: WorldSim, e: SimEntity) -> Array:
 
 ## Preço em moedas: tier i de LEGENDARY_LEVELS custa i+1 (nível 5 = 1, nível 10 = 2, ...).
 static func relic_cost(sim: WorldSim, it: ItemDef) -> int:
-	var i := Balance.LEGENDARY_LEVELS.find(it.level_req)
-	return (i if i >= 0 else Balance.LEGENDARY_LEVELS.size() - 1) + 1
+	return Balance.legend_tier(it.level_req) + 1
+
+## Níveis que a Relicária troca: os lendários e os híbridos que o MAX_LEVEL alcança (o 45 espera o nível existir).
+static func relic_levels() -> Array:
+	var out: Array = Balance.LEGENDARY_LEVELS.duplicate()
+	for lv in Balance.HYBRID_LEVELS:
+		if lv <= Balance.MAX_LEVEL and not (lv in out):
+			out.append(lv)
+	return out
+
+## Bot escolhendo lendário (R7.1, AC-32c): no nível dos híbridos, o par que inclui a build dele, com a outra build que
+## a teia dele mais comprou (empate: a ordem dos pares). Abaixo do 35, ou sem híbrido, o conjunto da build. "" = nenhum.
+static func bot_legendary_set(sim: WorldSim, e: SimEntity, level: int) -> String:
+	if e.class_def == null or e.build_id == "":
+		return ""
+	var hyb: Array = GameData.hybrid_sets_for(e.class_def, e.build_id, level)
+	if hyb.is_empty():
+		var sd: SetDef = GameData.sets.get(GameData.set_id_for(e.class_def.id, e.build_id, level))
+		return sd.id if sd else ""
+	var nodes: Dictionary = ProgressionSystem.tree_of(sim, e)["nodes"]
+	var bought := {}
+	for nid in e.tree:
+		var br: String = str(nodes.get(nid, {}).get("branch", ""))
+		bought[br] = int(bought.get(br, 0)) + 1
+	var best: SetDef = null
+	var best_n := -1
+	for sd: SetDef in hyb:
+		var other: String = sd.pair[1] if sd.pair[0] == e.build_id else sd.pair[0]
+		var n := int(bought.get(other, 0))
+		if n > best_n:
+			best_n = n
+			best = sd
+	return best.id
 
 ## Por que não troca ("" = pode): perto da Relicária, peça da classe, nível e moedas.
 static func relic_block_reason(sim: WorldSim, e: SimEntity, item_id: String) -> String:
@@ -276,6 +309,8 @@ static func equip_error(sim: WorldSim, e: SimEntity, item: ItemDef, to_offhand: 
 		return "Requer nível %d" % item.level_req
 	if item.class_restriction.size() > 0 and not (e.class_def.id in item.class_restriction):
 		return "Sua classe não pode usar isso"
+	if to_offhand and item.weapon_type in ItemDef.TWO_HANDED:
+		return TitanSystem.offhand_error(e, item)         # Empunhadura de Titã (ascensão do Berserker)
 	if to_offhand:
 		if not (item.weapon_type in ItemDef.ONE_HANDED_MELEE) or not (item.weapon_type in e.class_def.offhand_types):
 			return "Sua classe não usa isso na mão secundária"
@@ -306,12 +341,16 @@ static func equip(sim: WorldSim, e: SimEntity, item_id: String, to_offhand: bool
 		e.add_item(e.equipment[slot].id, 1)
 	e.equipment[slot] = item
 	var main: ItemDef = e.equipment.get(ItemDef.Slot.WEAPON)
-	if main and main.is_two_handed() and e.equipment.get(ItemDef.Slot.OFFHAND) != null:
+	if main and main.is_two_handed() and e.equipment.get(ItemDef.Slot.OFFHAND) != null and not TitanSystem.pair_ok(e):
 		var bump: int = ItemDef.Slot.WEAPON if slot == ItemDef.Slot.OFFHAND else ItemDef.Slot.OFFHAND
 		e.add_item(e.equipment[bump].id, 1)
 		e.equipment.erase(bump)
 		if e == sim.player:
 			Events.post(&"notification", "Arma de duas mãos: a outra mão foi liberada")
+	var off_now: ItemDef = e.equipment.get(ItemDef.Slot.OFFHAND)
+	if off_now and off_now.weapon_type in ItemDef.TWO_HANDED and not TitanSystem.pair_ok(e):
+		e.add_item(off_now.id, 1)                 # trocou a principal por uma de 1 mão: o machado de 2 mãos volta à bolsa
+		e.equipment.erase(ItemDef.Slot.OFFHAND)
 	e.recompute_stats()
 	Events.post(&"equipment_changed", e.id)
 	return true
@@ -323,8 +362,9 @@ static func unequip(sim: WorldSim, e: SimEntity, slot: int) -> void:
 		e.recompute_stats()
 		Events.post(&"equipment_changed", e.id)
 
-static func first_free_slot(sim: WorldSim, e: SimEntity) -> int:
-	for i in range(e.skills.size()):
+## 1º slot vazio da barra: 1-6 para skill comum, 7-0 para skill de ascensão (`asc`).
+static func first_free_slot(sim: WorldSim, e: SimEntity, asc: bool = false) -> int:
+	for i in range(Balance.SKILL_SLOTS if asc else 0, e.skills.size() if asc else mini(e.skills.size(), Balance.SKILL_SLOTS)):
 		if e.skills[i] == null:
 			return i
 	return -1

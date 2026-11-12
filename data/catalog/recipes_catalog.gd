@@ -33,24 +33,27 @@ static func build() -> Array:
 
 ## Joias e capas de cada tier e tema (GearCatalog.THEME_PIECES x THEMES): anel e amuleto no ferreiro, capa na alquimista.
 ## Material principal e secundário do tier (das zonas daquele nível) + um do tema. Bolsas Ampliadas também saem daqui.
-const TIER_LEVELS := [1, 8, 16, 24]
-const JEWEL_MATS := [["iron_ore", "crab_shell"], ["spider_silk", "grave_dust"], ["bone_shard", "bandit_badge"], ["star_ore", "ancient_relic"]]
-const CAPE_MATS := [["wolf_pelt", "slime_gel"], ["spider_silk", "wolf_pelt"], ["ent_bark", "forest_mushroom"], ["ghost_essence", "ancient_relic"]]
-const THEME_MAT := {"guerreiro": ["boar_tusk", "boar_tusk", "bandit_badge", "golem_core"], "cacador": ["wolf_pelt", "spider_silk", "ent_bark", "bone_shard"],
-	"sabio": ["herb_blue", "herb_blue", "forest_mushroom", "ghost_essence"]}
+## Um tier por Balance.COMMON_TIER_LEVELS (1, 8, 16, 24 e, no Ato II, 32 Costa Partida e 40 Estepes de Cinza); há check.
+const JEWEL_MATS := [["iron_ore", "crab_shell"], ["spider_silk", "grave_dust"], ["bone_shard", "bandit_badge"], ["star_ore", "ancient_relic"],
+	["orc_tusk", "goblin_fang"], ["orc_steel", "troll_tusk"]]
+const CAPE_MATS := [["wolf_pelt", "slime_gel"], ["spider_silk", "wolf_pelt"], ["ent_bark", "forest_mushroom"], ["ghost_essence", "ancient_relic"],
+	["rider_pelt", "horde_badge"], ["troll_hide", "horde_badge"]]
+const THEME_MAT := {"guerreiro": ["boar_tusk", "boar_tusk", "bandit_badge", "golem_core", "horde_badge", "orc_tusk"],
+	"cacador": ["wolf_pelt", "spider_silk", "ent_bark", "bone_shard", "rider_pelt", "ember_feather"],
+	"sabio": ["herb_blue", "herb_blue", "forest_mushroom", "ghost_essence", "naga_scale", "naga_scale"]}
 const BAG_RECIPES := [[3, 40, {"wolf_pelt": 4, "slime_gel": 4}], [10, 150, {"spider_silk": 6, "wolf_pelt": 4}],
 	[16, 300, {"ent_bark": 6, "bandit_badge": 4}], [24, 600, {"ghost_essence": 5, "ancient_relic": 3}]]
 
 static func gear_recipes() -> Array:
 	var out: Array = []
-	for tier in range(TIER_LEVELS.size()):
+	for tier in range(Balance.COMMON_TIER_LEVELS.size()):
 		for piece in GearCatalog.THEME_PIECES:
 			var mats: Array = CAPE_MATS[tier] if piece == "cape" else JEWEL_MATS[tier]
 			for theme in GearCatalog.THEMES:
 				var ing := {mats[0]: 3 + tier, mats[1]: 2 + tier}
 				var tm: String = THEME_MAT[theme][tier]
 				ing[tm] = int(ing.get(tm, 0)) + 2
-				out.append(_r("%s_%s_t%d" % [piece, theme, tier], 1, "alchemy" if piece == "cape" else "smith", TIER_LEVELS[tier],
+				out.append(_r("%s_%s_t%d" % [piece, theme, tier], 1, "alchemy" if piece == "cape" else "smith", int(Balance.COMMON_TIER_LEVELS[tier]),
 					20 * (tier + 1) * (tier + 1), ing))
 	for i in range(BAG_RECIPES.size()):
 		var b: Array = BAG_RECIPES[i]

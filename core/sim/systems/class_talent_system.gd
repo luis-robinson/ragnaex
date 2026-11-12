@@ -131,7 +131,7 @@ static func tick(sim: WorldSim, m: Dictionary, dt: float) -> void:
 		return
 	var step: float = m["ct_t"]
 	m["ct_t"] = 0.0
-	for e in m["entities"]:
+	for e: SimEntity in m["entities"]:
 		if e.immortal_left > 0.0:
 			e.immortal_left = maxf(0.0, e.immortal_left - step)
 		if e.ct.is_empty() or not e.is_alive() or not e.is_character():
@@ -158,8 +158,9 @@ static func tick(sim: WorldSim, m: Dictionary, dt: float) -> void:
 static func _receivers(sim: WorldSim, e: SimEntity, m: Dictionary, R: float) -> Array:
 	if R <= 0.0:
 		return [e]
+	R *= MountedCombat.banner_mult(e)            # Estandarte (Templário 45): montado, a aura alcança mais longe
 	var out: Array = []
-	for t in m["entities"]:
+	for t: SimEntity in m["entities"]:
 		if not t.is_alive() or t.position.distance_to(e.position) > R:
 			continue
 		if t == e or (t.is_character() and e.party_id >= 0 and t.party_id == e.party_id) or (t.kind == SimEntity.Kind.SUMMON and t.owner_id == e.id):
@@ -216,7 +217,7 @@ static func before_hit(sim: WorldSim, target: SimEntity, amount: int) -> int:
 	if not cd.is_empty() and sim.time >= target.ct_ready_at:
 		_save(sim, target, target, float(cd["cd"]), float(cd["dur"]), cd.get("stealth", false))
 		return maxi(0, int(target.hp) - 1)
-	for o in sim.maps[target.map_id]["entities"] if sim.maps.has(target.map_id) else []:
+	for o: SimEntity in sim.maps[target.map_id]["entities"] if sim.maps.has(target.map_id) else []:
 		if o == target or not o.is_alive() or o.ct.is_empty() or o.party_id < 0 or o.party_id != target.party_id:
 			continue
 		var al: Dictionary = o.ct.get("ally_save", {})
@@ -260,7 +261,8 @@ static func on_kill(sim: WorldSim, killer: SimEntity, victim: SimEntity) -> void
 				sim._apply_effects(e, e, {"buff": sk.effects["buff"]}, 0.0)
 
 # --- bots ---------------------------------------------------------------------------------------------------------
-## Bot escolhe uma opção por linha liberada: de preferência a que fala de uma skill da build (ou genérica).
+## Bot escolhe uma opção por linha liberada: a marcada para a build dele (`build`, linhas 35+) ou, sem marca, a que
+## fala de uma skill da build (ou genérica).
 static func bot_pick(sim: WorldSim, e: SimEntity) -> void:
 	if not bot_picks:
 		return
@@ -270,8 +272,8 @@ static func bot_pick(sim: WorldSim, e: SimEntity) -> void:
 	for row in rows:
 		if int(row[0]) > e.level:
 			continue
-		var good: Array = []
-		for o in row[1]:
+		var good: Array = (row[1] as Array).filter(func(x): return x.get("build", "") == e.build_id)    # linhas 35+: a da build
+		for o in row[1] if good.is_empty() else []:
 			var refs: Array = o.get("permanent", []) + o.get("aura", []) + o.get("summon_permanent", []) + o.get("skill_mods", {}).keys() + o.get("summon_extra", {}).keys()
 			if refs.is_empty() or refs.any(func(r): return r in mine):
 				good.append(o)

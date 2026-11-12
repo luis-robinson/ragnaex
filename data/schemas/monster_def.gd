@@ -37,4 +37,10 @@ extends Resource
 @export var swap: Dictionary = {}           ## troca de arma com pouca vida: {hp (0-1), as: id do monstro cujo ataque/alcance passa a usar, stance}
 @export var front_guard: float = 0.0         ## escudo de frente (Guardião de Ossos): corta esta fração do golpe físico que vem da frente; costas e magia passam
 @export var berserk_after: float = 0.0     ## chefe: s de luta até enlouquecer (dano × Balance.BOSS_BERSERK_MULT); 0 = nunca
+@export var faction: String = ""            ## facção (ex.: "horde"): quem recebe a aura de outro monstro da mesma facção
+@export var aura: String = ""               ## aura de facção que este monstro emite: chave de Balance.MOB_AURAS (Agitador)
+@export var stat_role: String = ""          ## Ato II: papel da fórmula F2 (comum/bruto/elite/chefe; Balance.horde_stat); "" = números à mão
+@export var unit_mods: Dictionary = {}      ## Ato II: mod_unidade da F2 ({hp, atk}) sobre o papel
+@export var skill_delay: float = 0.0       ## s depois de entrar na briga antes da 1ª skill especial (abre no golpe básico); Ato II 35+: Balance.HORDE_LATE_35
+@export var regen: float = 0.0            ## Ato II (F3): regeneração de troll = isto × Balance.TROLL_REGEN_PCT × vida máxima por s; fogo/veneno param
 @export var phases: Array = []            ## chefe, em ordem de HP: {hp (0-1), say, skills, summon: {id, count, max, pick}, enrage, ward (0-1: corte de dano com lacaio vivo)}

@@ -35,11 +35,22 @@ var hp: float = 100.0
 var mp: float = 50.0
 var shield_hp: float = 0.0           # escudo temporário
 var form_mult: float = 1.0             # bônus da forma x maestria da skill que transformou (Balance.MASTERY_BONUS_PCT)
-var form: String = ""                 # forma de animal do Druida: "" | "wolf" | "bear" (skill de forma liga/desliga)
+var form: String = ""                 # forma de animal do Druida: "" | "wolf" | "bear" | ancestral "ent" | "alpha" | "bird" (skill de forma liga/desliga)
 var form_left: float = 0.0             # s até a forma acabar sozinha (0 = até desligar; Balance.FORM_DURATION)
 var stealth_left: float = 0.0         # s de furtividade (monstros não enxergam); qualquer golpe quebra
 var ambush: bool = false              # o golpe que quebrou a furtividade ganha bônus
 var summon_hp: float = 0.0            # invocação que herda a vida do dono (companheiro); 0 = do monstro
+# Elemental que evolui (Elementalista ascendido, ElementalSystem). No mago: experiência, forma e modo (salvos);
+# na invocação: elem_form/elem_stage dizem que é o elemental persistente (vazio = invocação comum).
+var elem_xp: int = 0
+var elem_stage: int = 0               # maior estágio alcançado (0 Básico, 1 Maior, 2 Ancestral); só sobe
+var elem_form: String = ""            # "fire" | "frost" | "storm"
+var grave: bool = false               # invocação: esqueleto erguido pela Marca da Cova (NecroAscension; não ocupa vaga do tipo)
+var elem_mode: String = "attack"      # "attack" | "protect" | "support"
+var elem_swap_at: float = 0.0         # Sim.time em que trocar de forma / chamar de novo volta
+var elem_support_at: float = 0.0      # invocação: Sim.time do próximo pulso de apoio
+var elem_uses: int = 0                # vezes que o mago usou a ascensão (chamar, trocar, modo, Fusão): sondas/testes
+var last_target_id: int = -1          # último inimigo que este personagem acertou (modo atacar do elemental)
 var buffs: Array = []                # [{id, duration, remaining, atk_pct, ...}]
 var debuffs: Array = []              # [{id, remaining, kind:"dot|slow|stun|root", ...}]
 
@@ -57,6 +68,7 @@ var basic_cd: float = 0.0
 var basic_skill: SkillDef = null     # ataque básico (gerado por classe/monstro)
 var mounted := false                 # a cavalo (mais rápido; só fora de combate)
 var combat_timer: float = 0.0        # >0 = "em combate" (sem regen)
+var regen_hold: float = 0.0         # troll (F3): s até a regeneração voltar depois do fogo/veneno
 var bag_bonus: int = 0               # Bolsas Ampliadas usadas (0..Balance.BAG_UPGRADES)
 var gather_left: float = 0.0        # >0 = colhendo (F perto de um ponto): andar/atacar/levar dano cancela
 var gather_node: Dictionary = {}
@@ -81,12 +93,32 @@ var dash_charges_used: int = 0       # evolução "2 cargas": dashes já usados 
 var dash_params: Dictionary = {}     # dash resolvido no início (distância, fantasma, atordoa...)
 var is_blocking: bool = false
 var parry_left: float = 0.0          # s restantes da janela de aparar
+var cc_immune_left: float = 0.0      # s imune a controle (caiu do cavalo: Combate Montado)
 var mount_left: float = 0.0          # s até montar (conjuração do H; 0 = não está montando)
 var iframe_left: float = 0.0         # s de invulnerabilidade do dash (golpe direto e efeitos de inimigo não pegam)
+var sky_left: float = 0.0            # s no ar do Salto Dracônico (fora do chão: intocável, ninguém mira)
+var sky: Dictionary = {}             # salto em curso: {from, to, power, effects} (RangerAscension)
+var jump_window: float = 0.0         # Salto Duplo: s que ainda dá para o 2º Salto Dracônico sem recarga (RangerAscension)
+var jump_window_cd: float = 0.0      # a recarga do salto que entra quando a janela fecha sem o 2º salto
+var jump_second: bool = false        # o salto em curso é o 2º (não abre outra janela)
+var shade := false                   # clone de sombra (ShadowSystem): não é hostil a ninguém, monstros o ignoram
+var echo: Array = []                 # clone: golpes do dono à espera de repetir ({target, amount, crit})
+var spirit := false                  # espírito (Anjo Guardião): ninguém mira nem acerta, não empurra, não conta como aliado de área
+var choir_t: float = 0.0             # anjo: s até a próxima cura (ChoirSystem)
+var aegis_cd: float = 0.0            # Égide Coral: s até a próxima cura por golpe recebido
+var res_hold: float = 0.0            # caído: s que espera o Retorno em vez de renascer na cidade
+var res_target: int = -1             # Bispo conjurando o Retorno: id do caído
+var returned := false                # já voltou pelo Retorno nesta luta (um por aliado por luta)
+var falcon: bool = false             # falcão do Caçador ascendido voando sobre ele (FalconSystem; não é entidade)
+var falcon_cd: float = 0.0           # s até o próximo mergulho automático
+var falcon_target: int = -1          # último inimigo que o caçador acertou (alvo do falcão)
+var falcon_dive_time: float = -1000.0  # Sim.time do último mergulho (o desenho lê)
+var falcon_dive_pos: Array = []      # onde os falcões mergulharam nesse instante (Revoada: até 3)
 var parry_cd: float = 0.0
 var shield_react_cd: float = 0.0
 var guard_broken: bool = false       # MP zerou segurando a guarda: só volta soltando o botão
 var grace_cd: float = 0.0            # recarga da Graça (escudo de bispo)
+var fus: Dictionary = {}             # estado da Fusão do conjunto híbrido (FusionEffects: recargas, contadores)
 var buffered_cmd: InputCommand = null
 var buffered_ticks: int = 0
 var last_cmd: InputCommand = InputCommand.new()
@@ -125,6 +157,7 @@ var skills: Array[SkillDef] = []
 var learned: Dictionary = {}         # skill_id -> true (aprendidas com pontos)
 var talents: Dictionary = {}         # talent_id -> true (evoluções compradas)
 var tree: Dictionary = {}            # node_id -> true (nós comprados na árvore de pontos)
+var asc_tree: Dictionary = {}        # node_id -> true (teia de ascensão; pontos próprios, ProgressionSystem.asc_points)
 var tree_bonus: Dictionary = {}      # soma dos passivos da árvore (formato de buff: atk_pct, hp_pct...)
 var ct: Dictionary = {}              # ganchos dos talentos de classe escolhidos (ClassTalentSystem.refresh)
 var ct_ready_at: float = 0.0         # Sim.time em que "recusa a morrer"/Intercessão volta
@@ -174,8 +207,8 @@ func is_character() -> bool:
 	return kind == Kind.PLAYER or kind == Kind.BOT
 
 func is_hostile_to(other: SimEntity) -> bool:
-	if other == null or other == self:
-		return false
+	if other == null or other == self or shade or other.shade or spirit or other.spirit:
+		return false                        # clone de sombra / espírito (Anjo Guardião): ninguém os mira nem acerta, e eles não miram ninguém
 	var a_mob := kind == Kind.MONSTER
 	var b_mob := other.kind == Kind.MONSTER
 	if (other.kind == Kind.NPC and not other.guard) or (kind == Kind.NPC and not guard):
@@ -222,6 +255,8 @@ func is_friend(other: SimEntity) -> bool:
 		return false
 	if other == self:
 		return true
+	if spirit or other.spirit:
+		return false                        # espírito: cura e buff de área não gastam alvo nele
 	if kind == Kind.MONSTER or other.kind == Kind.MONSTER:
 		return kind == other.kind
 	if kind == Kind.NPC or other.kind == Kind.NPC:
@@ -249,6 +284,12 @@ func recompute_stats() -> void:
 		stats = Stats.from_monster(monster_def)
 		stats.patk *= dmg_mult
 		stats.matk *= dmg_mult
+		for b in buffs:                      # aura/desânimo de facção (AuraSystem.mob_aura): só os marcados mexem no monstro
+			if b.get("mob_stat", false):
+				stats.patk *= 1.0 + float(b.get("atk_pct", 0)) / 100.0
+				stats.matk *= 1.0 + float(b.get("atk_pct", 0)) / 100.0
+				stats.move_speed *= 1.0 + float(b.get("speed_pct", 0)) / 100.0
+				stats.attack_speed += float(b.get("aspd_pct", 0))
 		if kind == Kind.SUMMON:
 			stats.max_hp *= 1.0 + 0.1 * level
 			if summon_patk > 0.0:            # ataque do dono vale para golpe e magia da invocação
@@ -264,6 +305,7 @@ func recompute_stats() -> void:
 		if form != "" and not stats.meets([Balance.FORM_REQUIRES[form]]):
 			form = ""                # trocou de arma: volta à forma humana
 			stats = Stats.compute(class_def, level, equipment, buffs + ([tree_bonus] if not tree_bonus.is_empty() else []))
+		TitanSystem.apply(self, stats)          # Garras de Titã (Punhos ascendido)
 		if class_def:
 			basic_skill = GameData.basic_skill_for_class(class_def, stats.weapon_type, stats.offhand_type, LegendEffects.signature_build(self))
 	hp = minf(hp, stats.max_hp)
@@ -335,7 +377,7 @@ func inventory_weight() -> int:
 	return n
 
 func knows(skill_id: String) -> bool:
-	return learned.has(skill_id)
+	return learned.has(skill_id)          # skill de ascensão também: comprada na teia de ascensão
 
 func has_talent(talent_id: String) -> bool:
 	return talents.has(talent_id)
@@ -347,10 +389,17 @@ func slot_of(skill_id: String) -> int:
 			return i
 	return -1
 
-## Garante a barra com SKILL_SLOTS posições (personagens).
+## Garante a barra (personagens): SKILL_SLOTS posições, + ASC_SLOTS (7, 8, 9, 0) com a ascensão.
 func ensure_slots() -> void:
-	while skills.size() < Balance.SKILL_SLOTS:
+	var n := slot_count()
+	while skills.size() < n:
 		skills.append(null)
+	if skills.size() > n:
+		skills.resize(n)
+
+## Tamanho da barra: 6, ou 10 com a ascensão da classe.
+func slot_count() -> int:
+	return Balance.SKILL_SLOTS + (Balance.ASC_SLOTS if ProgressionSystem.has_ascension(self) else 0)
 
 func display_title() -> String:
 	if class_def:

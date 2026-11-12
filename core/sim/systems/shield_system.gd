@@ -8,6 +8,7 @@ static func shield_reaction(sim: WorldSim, target: SimEntity, attacker: SimEntit
 	var off: ItemDef = target.equipment.get(ItemDef.Slot.OFFHAND)
 	var fx: Dictionary = off.shield_effect if off else {}
 	var theme: String = fx.get("theme", "physical")
+	FusionEffects.on_block(sim, target, attacker)        # Fusões de escudo (P1 face escudo, P3)
 	if parried and attacker.is_alive() and attacker.position.distance_to(target.position) <= Balance.PARRY_MELEE_RANGE:
 		sim._apply_effects(target, attacker, {"stun": {"duration": Balance.PARRY_STUN}}, 1.0)
 	if target.shield_react_cd > 0.0 and not parried:

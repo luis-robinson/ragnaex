@@ -122,7 +122,7 @@ static func legend_on_hit(sim: WorldSim, e: SimEntity, t: SimEntity, s: SkillDef
 		"chain":
 			if single and not own_cast:
 				var left: int = int(le.get("targets", 1))
-				for o in sim.maps[e.map_id]["entities"]:
+				for o: SimEntity in sim.maps[e.map_id]["entities"]:
 					if left <= 0:
 						break
 					if o != t and o.is_alive() and e.is_hostile_to(o) and o.position.distance_to(t.position) <= Balance.LEG_CHAIN_RANGE:
@@ -130,7 +130,7 @@ static func legend_on_hit(sim: WorldSim, e: SimEntity, t: SimEntity, s: SkillDef
 						left -= 1
 		"splash":
 			if single and not own_cast:
-				for o in sim.maps[e.map_id]["entities"]:
+				for o: SimEntity in sim.maps[e.map_id]["entities"]:
 					if o != t and o.is_alive() and e.is_hostile_to(o) and o.position.distance_to(t.position) <= float(le.get("radius", 2.5)):
 						sim._deal_damage(e, o, maxi(1, int(amount * float(le["pct"]) / 100.0)), false, false, "splash")
 		"stun":
@@ -183,8 +183,9 @@ static func penance_hit(sim: WorldSim, e: SimEntity, t: SimEntity, le: Dictionar
 		return
 	t.debuffs = t.debuffs.filter(func(d): return d.get("id") != did)
 	var at := t.position
+	FusionEffects.on_penance_burst(sim, e, t)       # Sentença Ardente (atordoa) / Égide Ardente (Juramento)
 	Events.post(&"skill_effect", "pal_sun_strike", at, at, float(le.get("radius", 2.5)))
-	for o in sim.maps[e.map_id]["entities"].duplicate():
+	for o: SimEntity in sim.maps[e.map_id]["entities"].duplicate():
 		if o.is_alive() and e.is_hostile_to(o) and o.position.distance_to(at) <= float(le.get("radius", 2.5)) + o.radius:
 			var r := Combat.calc_damage(e, o, float(le["pct"]) / 100.0, SkillDef.Kind.PHYSICAL, sim.rng, at)
 			sim._deal_damage(e, o, r["amount"], r["crit"], false, "penance", at)

@@ -14,7 +14,9 @@ static func _mk(d: Dictionary) -> QuestDef:
 	return q
 
 const HUNT_GIVERS := {"city_aldara": "board", "field_forest": "stone_druid", "field_ruins": "dawn_board", "elf_city": "moon_altar",
-	"fort_ghoul": "dawn_board", "fort_bones": "dawn_board", "fort_frost": "dawn_board", "lich_citadel": "dawn_board"}
+	"fort_ghoul": "dawn_board", "fort_bones": "dawn_board", "fort_frost": "dawn_board", "lich_citadel": "dawn_board",
+	"field_coast": "ptav_board", "city_port": "ptav_board",
+	"field_steppe": "wind_totem", "fort_trolls": "wind_totem", "fort_fire": "wind_totem", "fort_war": "wind_totem"}
 
 ## Quests da história e laterais dão Balance.quest_share da XP de cada faixa de nível (o meio, 10-20, dá mais): o peso relativo entre elas
 ## fica (o número escrito em cada uma), o total da faixa é escalado. Repetíveis (caçadas e quadros) ficam como estão.
@@ -586,7 +588,487 @@ static func build() -> Array:
 		 "reward_xp": 16000, "reward_gold": 1300, "map_hint": "Ruínas: pedreira (SO)",
 		 "description": "Quebre 6 Golens de Pedra.", "dialog_offer": "As runas brilham quando os mortos caem.", "dialog_progress": "Pedreira a sudoeste.", "dialog_complete": "As runas se apagam, por enquanto."},
 	]
+	L.append_array(act2())
+	L.append_array(act2_steppe())
+	L.append_array(ascensions())
 	var out: Array = []
 	for d in L:
 		out.append(_mk(d))
+	return out
+
+# ======== Ato II, Costa Partida / Porto Esperança (30-35): o cenário cresce com as missões (C0-C4 do GDD) ========
+## Linha principal (Governadora Alba) e as paralelas da Costa. Os ids hx_palisade/hx_lighthouse/hx_riders_camp/hx_goblin_boss
+## mudam o estágio (MapsCatalog.Q_*); as últimas de cada paralela fazem um NPC aparecer (`if` no MapsCatalog).
+static func act2() -> Array:
+	return [
+		# ---- linha principal ----
+		{"id": "hx_crossing", "title": "Terra à Vista", "giver_npc": "port_sailor", "turnin_npc": "port_governor", "type": TALK, "target_id": "port_governor", "count": 1, "level_req": 30, "prereq_quest": "dw_epilogue",
+		 "reward_xp": 600, "reward_gold": 300, "reward_items": {"potion_hp_m": 3}, "map_hint": "Porto Esperança: a Governadora Alba, na praça",
+		 "description": "Apresente-se à Governadora Alba Ventura, na praça de Porto Esperança.",
+		 "dialog_offer": "Bem-vindo a Kharzun! Antes de qualquer coisa, fale com a Governadora Alba, na praça. Ela anda contando espadas.",
+		 "dialog_progress": "A praça fica subindo o cais, no centro da paliçada. Siga a seta do mapa.", "dialog_complete": "Do Bastião? Então você é quem derrubou o Lich. Ótimo: aqui o problema tem lobo e tem lança."},
+		{"id": "hx_first_wave", "title": "Os Ginetes no Portão", "giver_npc": "port_governor", "type": KILL, "target_id": "wolf_rider", "count": 12, "level_req": 30, "prereq_quest": "hx_crossing",
+		 "also_counts": ["wolf_raider", "goblin_lancer"],
+		 "reward_xp": 3000, "reward_gold": 500, "reward_items": {"potion_hp_m": 3}, "map_hint": "Porto Esperança: investidas no portão norte; Costa: estrada nordeste",
+		 "description": "Derrube 12 ginetes de lobo, saqueadores ou lanceiros goblins que atacam o porto.",
+		 "dialog_offer": "A cada poucos minutos os ginetes descem o morro e entram pelos vãos da paliçada. Doze a menos e os carpinteiros voltam ao muro.",
+		 "dialog_progress": "Quando o uivo soar, corra para o portão norte. Bloqueie (botão direito) a investida do lobo e bata no goblin.", "dialog_complete": "Doze! Os carpinteiros já pegaram o martelo. Fale comigo de novo: falta material."},
+		{"id": "hx_stakes", "title": "Cavilhas de Presa", "giver_npc": "port_governor", "turnin_npc": "port_vil_builder", "type": COLLECT, "target_id": "orc_tusk", "count": 6, "level_req": 30, "prereq_quest": "hx_first_wave",
+		 "reward_xp": 2400, "reward_gold": 420, "reward_items": {"elixir_stone": 1}, "map_hint": "Costa Partida: recrutas orcs nas falésias (norte) → Carpinteiro Bruno",
+		 "description": "Traga 6 Presas de Orc para o Carpinteiro Bruno fazer as cavilhas da paliçada.",
+		 "dialog_offer": "O Bruno diz que prego de ferro enferruja no sal e presa de orc não. Os recrutas orcs acampam nas falésias ao norte da Costa.",
+		 "dialog_progress": "Recruta orc bate forte e devagar: espere o golpe, desvie com Shift e responda.", "dialog_complete": "Presa boa, dura como pedra. Agora eu fecho esse muro. Só preciso que ninguém me fure enquanto isso."},
+		{"id": "hx_palisade", "title": "Fechar a Paliçada", "giver_npc": "port_vil_builder", "turnin_npc": "port_governor", "type": KILL, "target_id": "goblin_lancer", "count": 15, "level_req": 31, "prereq_quest": "hx_stakes",
+		 "also_counts": ["goblin_impaler", "wolf_rider", "wolf_raider"],
+		 "reward_xp": 4000, "reward_gold": 600, "reward_items": {"potion_hp_m": 3, "legend_coin": 1}, "map_hint": "Costa: mangue (oeste) e estrada nordeste; Porto: investidas",
+		 "description": "Segure os goblins longe dos carpinteiros: derrube 15 lanceiros, empaladores ou ginetes. Depois, avise a Governadora.",
+		 "dialog_offer": "Eu fecho o muro, você segura quem vem furar. Quinze goblins a menos e a paliçada fica de pé. Depois conte à Governadora.",
+		 "dialog_progress": "O empalador avisa antes de estocar: saia da linha da lança. Lanceiro sozinho é fraco, em bando cerca.",
+		 "dialog_complete": "Paliçada fechada e portões de terra prontos! Os besteiros já sobem no muro. Agora os ginetes param no portão."},
+		{"id": "hx_scout", "title": "Olhos na Costa", "giver_npc": "port_governor", "turnin_npc": "coast_scout", "type": TALK, "target_id": "coast_scout", "count": 1, "level_req": 31, "prereq_quest": "hx_palisade",
+		 "reward_xp": 800, "reward_gold": 200, "map_hint": "Costa Partida: a Batedora Nádia, na encruzilhada (portão sul do porto)",
+		 "description": "Saia pelo portão sul e encontre a Batedora Nádia na encruzilhada da Costa.",
+		 "dialog_offer": "Com o muro de pé, dá para olhar para fora. A Nádia vigia a Costa desde que chegamos. Ela sabe de onde os ginetes vêm.",
+		 "dialog_progress": "O portão sul leva à Costa. Nádia fica na encruzilhada, no meio do caminho.", "dialog_complete": "A Governadora te mandou? Então vamos ao trabalho: o mangue primeiro."},
+		{"id": "hx_mangrove", "title": "O Mangue dos Lanceiros", "giver_npc": "coast_scout", "type": KILL, "target_id": "goblin_lancer", "count": 15, "level_req": 31, "prereq_quest": "hx_scout",
+		 "also_counts": ["goblin_impaler"],
+		 "reward_xp": 3200, "reward_gold": 520, "reward_items": {"potion_mp_m": 3}, "map_hint": "Costa Partida: mangue e aldeia de palafitas (oeste)",
+		 "description": "Derrube 15 lanceiros ou empaladores goblins no mangue a oeste.",
+		 "dialog_offer": "O mangue a oeste está cheio de goblin. Eles não guerreiam por gosto: alguém bate o tambor e eles marcham. Afine o bando.",
+		 "dialog_progress": "Se ouvir tambor, procure o Agitador: com ele vivo o bando bate mais forte. Derrube ele primeiro.", "dialog_complete": "Menos lança no mangue. E olha o que eles carregavam: pano vermelho com um punho."},
+		{"id": "hx_banners", "title": "Punhos Vermelhos", "giver_npc": "coast_scout", "turnin_npc": "port_governor", "type": COLLECT, "target_id": "horde_badge", "count": 8, "level_req": 32, "prereq_quest": "hx_mangrove",
+		 "reward_xp": 2800, "reward_gold": 480, "reward_items": {"elixir_might": 1}, "map_hint": "Costa: goblins e orcs (mangue, falésias) → Governadora Alba",
+		 "description": "Junte 8 Insígnias da Horda e leve à Governadora Alba.",
+		 "dialog_offer": "Goblins, orcs, ginetes: todos com o mesmo punho vermelho. Junte oito insígnias. A Governadora precisa ver isso com os próprios olhos.",
+		 "dialog_progress": "Goblins e recrutas orcs carregam. Os Agitadores carregam mais.",
+		 "dialog_complete": "Oito clãs sob um punho só... A Horda não está atacando, está se mudando. Do leste. Do que eles fogem?"},
+		{"id": "hx_riders_camp", "title": "O Acampamento dos Ginetes", "giver_npc": "port_governor", "type": KILL, "target_id": "wolf_raider", "count": 4, "level_req": 32, "prereq_quest": "hx_banners",
+		 "prereq_all": ["hx_palisade"] as Array[String],
+		 "reward_xp": 6000, "reward_gold": 900, "reward_gear_tier": 4, "reward_items": {"legend_coin": 1}, "map_hint": "Costa Partida: Acampamento dos Ginetes (nordeste): leve um grupo",
+		 "description": "Derrube 4 Saqueadores Goblins no Acampamento dos Ginetes, a nordeste da Costa, e quebre o acampamento.",
+		 "dialog_offer": "Os ginetes saem todos de um acampamento a nordeste. Os saqueadores mandam lá: sem eles, os lobos se espalham. Quebre o acampamento.",
+		 "dialog_progress": "O saqueador joga rede: se prender você, bata na rede ou espere. E derrube os ginetes da escolta antes.",
+		 "dialog_complete": "O acampamento caiu! Os colonos já pediram a terra para plantar. As investidas vão virar patrulha. Isto é do arsenal do porto."},
+		{"id": "hx_caves", "title": "A Boca das Grutas", "giver_npc": "coast_scout", "type": REACH, "target_id": "dg_goblin", "count": 1, "level_req": 33, "prereq_quest": "hx_riders_camp",
+		 "reward_xp": 1200, "reward_gold": 300, "reward_items": {"potion_hp_m": 3}, "map_hint": "Grutas Goblin (entrada a noroeste da Costa, perto do rio)",
+		 "description": "Entre nas Grutas Goblin, a noroeste da Costa, e volte para contar à Nádia o que há lá.",
+		 "dialog_offer": "Sem os ginetes, sobra o tambor. Ele vem de baixo da terra, nas Grutas a noroeste. Entre, olhe e volte inteiro.",
+		 "dialog_progress": "A entrada fica perto do rio, a noroeste da aldeia de palafitas.",
+		 "dialog_complete": "Três salões e um tambor do tamanho de uma carroça? É o Agitador-Mor. Enquanto ele bater, o mangue não para."},
+		{"id": "hx_goblin_boss", "title": "O Tambor de Grukk", "giver_npc": "coast_scout", "turnin_npc": "port_governor", "type": KILL, "target_id": "boss_agitator_lord", "count": 1, "level_req": 34, "prereq_quest": "hx_caves",
+		 "reward_xp": 9000, "reward_gold": 1500, "reward_gear_tier": 4, "reward_items": {"legend_coin": 2}, "map_hint": "Grutas Goblin: o último salão (leve um grupo)",
+		 "description": "Derrote o Agitador-Mor Grukk no fundo das Grutas Goblin. Depois, conte à Governadora.",
+		 "dialog_offer": "O Agitador-Mor bate o tambor e o bando inteiro fica bravo. Cale o tambor. Leve um grupo: a escolta dele não é pequena.",
+		 "dialog_progress": "Derrube os Agitadores do caminho primeiro: a aura deles soma raiva ao bando. Quando o tambor rufar, saia de perto.",
+		 "dialog_complete": "Grukk caiu e os goblins do mangue... estão pescando? Uma tal de Nikki abriu banca na aldeia. E a passagem para as Estepes está livre."},
+		# ---- O Farol Apagado (Ilda, a Faroleira): a última acende o farol (C2) ----
+		{"id": "hx_lh_oil", "title": "Quem Levou o Óleo", "giver_npc": "keeper_ilda", "type": KILL, "target_id": "goblin_lancer", "count": 10, "level_req": 30,
+		 "also_counts": ["goblin_impaler"],
+		 "reward_xp": 2000, "reward_gold": 360, "reward_items": {"potion_hp_m": 2}, "map_hint": "Costa Partida: mangue (oeste)",
+		 "description": "Derrube 10 goblins do mangue, os que levaram o óleo do farol.",
+		 "dialog_offer": "Os goblins levaram os barris de óleo para o mangue. Óleo eles já queimaram, mas eu quero que saibam que não se rouba a Ilda.",
+		 "dialog_progress": "O mangue fica a oeste. Os lanceiros andam em bando: puxe um de cada vez.", "dialog_complete": "Bem feito. Mas óleo de baleia não volta. Preciso de outra coisa para a luz."},
+		{"id": "hx_lh_lens", "title": "A Lente de Escamas", "giver_npc": "keeper_ilda", "type": COLLECT, "target_id": "naga_scale", "count": 8, "level_req": 31, "prereq_quest": "hx_lh_oil",
+		 "reward_xp": 2200, "reward_gold": 380, "reward_items": {"potion_mp_m": 2}, "map_hint": "Costa Partida: nagas da praia (sul)",
+		 "description": "Traga 8 Escamas de Naga para Ilda polir a lente do farol.",
+		 "dialog_offer": "A lente rachou quando os goblins subiram. Escama de naga, bem polida, reflete melhor que vidro. Oito, da praia.",
+		 "dialog_progress": "As nagas sobem com a maré. Ataque quando a água recua e fique fora do puxão da lança.", "dialog_complete": "Olha como brilham! A lente está pronta. Agora falta o fogo."},
+		{"id": "hx_lighthouse", "title": "Uma Gota que Não Apaga", "giver_npc": "keeper_ilda", "type": COLLECT, "target_id": "tide_essence", "count": 1, "level_req": 32, "prereq_quest": "hx_lh_lens",
+		 "reward_xp": 3400, "reward_gold": 600, "reward_items": {"legend_coin": 1}, "map_hint": "Costa Partida: a Mãe das Marés, no meio da praia (leve um grupo)",
+		 "description": "Traga 1 Essência da Maré da Mãe das Marés para acender o farol.",
+		 "dialog_offer": "Os velhos do porto juram: a essência que a Mãe das Marés guarda no peito queima sem acabar. Uma gota acende o farol por um ano.",
+		 "dialog_progress": "Ela fica no meio da praia, com as filhas em volta. Leve um grupo e saia da onda quando ela levantar os braços.",
+		 "dialog_complete": "Acendeu! Olhe a baía: o segundo navio já achou o caminho. E do alto da torre eu vejo de novo... fogueiras no leste. Muitas."},
+		# ---- Náufragos (Tomás): a última traz a cozinheira Lia de volta à cabana ----
+		{"id": "hx_nf_beach", "title": "Os Outros do Gaivota", "giver_npc": "castaway_tomas", "type": KILL, "target_id": "naga_tide", "count": 10, "level_req": 30,
+		 "reward_xp": 2000, "reward_gold": 360, "reward_items": {"potion_hp_m": 2}, "map_hint": "Costa Partida: praia (sul)",
+		 "description": "Afaste 10 Nagas das Marés da praia onde o Gaivota encalhou.",
+		 "dialog_offer": "Os destroços do Gaivota estão na praia, e as nagas estão em cima deles. Afaste dez. Eu quero procurar os meus.",
+		 "dialog_progress": "Elas puxam com a água. Não fique na beira quando a maré subir.", "dialog_complete": "Achei o baú do cozinheiro... vazio. Mas o barco de resgate ainda está inteiro. Quase."},
+		{"id": "hx_nf_shells", "title": "Remendo de Casco", "giver_npc": "castaway_tomas", "type": COLLECT, "target_id": "crab_shell", "count": 6, "level_req": 31, "prereq_quest": "hx_nf_beach",
+		 "reward_xp": 1800, "reward_gold": 320, "reward_items": {"potion_mp_m": 2}, "map_hint": "Costa Partida: conchas na areia da praia (F)",
+		 "description": "Colha 6 Cascos na areia da praia para Tomás remendar o barco de resgate.",
+		 "dialog_offer": "O barco de resgate tem um furo do tamanho da minha cabeça. Casco de caranguejo tapa melhor que piche. Seis, da areia.",
+		 "dialog_progress": "Os cascos brilham na areia. Chegue perto e aperte F.", "dialog_complete": "Pronto, flutua. Agora eu remo até o recife. E depois... alguém precisa saber."},
+		{"id": "hx_nf_names", "title": "Os Nomes do Gaivota", "giver_npc": "castaway_tomas", "turnin_npc": "port_vil_monk", "type": TALK, "target_id": "port_vil_monk", "count": 1, "level_req": 31, "prereq_quest": "hx_nf_shells",
+		 "reward_xp": 1200, "reward_gold": 200, "map_hint": "Porto Esperança: Irmão Celso, perto da praça",
+		 "description": "Leve ao Irmão Celso, no porto, os nomes dos que Tomás ainda procura.",
+		 "dialog_offer": "O Irmão Celso reza pelos do Gaivota. Diga a ele: Tomás vivo, Lia sumida no recife, o resto com o mar. Ele vai querer saber.",
+		 "dialog_progress": "O Irmão Celso anda perto da praça do porto.", "dialog_complete": "Lia, a cozinheira? Dizem que as nagas levam os vivos para o recife. Se ela estiver lá, vá buscá-la."},
+		{"id": "hx_nf_rescue", "title": "Lia no Recife", "giver_npc": "castaway_tomas", "type": KILL, "target_id": "naga_warrior", "count": 6, "level_req": 33, "prereq_quest": "hx_nf_names",
+		 "reward_xp": 3000, "reward_gold": 520, "reward_gear_tier": 4, "map_hint": "Costa Partida: recife das guerreiras nagas (sudeste da praia)",
+		 "description": "Derrube 6 Guerreiras Nagas no recife e traga a cozinheira Lia de volta.",
+		 "dialog_offer": "O Irmão tinha razão: vi fumaça no recife a sudeste. As guerreiras guardam alguém lá. Seis delas e a Lia está livre.",
+		 "dialog_progress": "A guerreira puxa com a lança e anda com duas nagas. Derrube as pequenas primeiro.",
+		 "dialog_complete": "LIA! Ela já está na cabana reclamando do fogo. Tome: era do capitão, e ele não vai precisar."},
+		# ---- Pérolas das Marés (Pescadora Iara): a última traz a mergulhadora Naia para a praia ----
+		{"id": "hx_pe_scales", "title": "Escamas Turquesa", "giver_npc": "port_vil_fisher", "type": COLLECT, "target_id": "naga_scale", "count": 10, "level_req": 31,
+		 "reward_xp": 2000, "reward_gold": 380, "reward_items": {"potion_hp_m": 2}, "map_hint": "Costa Partida: nagas da praia (sul)",
+		 "description": "Traga 10 Escamas de Naga para a Pescadora Iara.",
+		 "dialog_offer": "Onde tem naga, tem ostra. Elas guardam o recife das pérolas. Me traz dez escamas e eu te conto onde mergulhar.",
+		 "dialog_progress": "Praia ao sul. Nem toda naga deixa escama boa.", "dialog_complete": "Turquesa de verdade! As ostras grandes ficam onde as guerreiras nadam."},
+		{"id": "hx_pe_reef", "title": "As Guardiãs do Recife", "giver_npc": "port_vil_fisher", "type": KILL, "target_id": "naga_warrior", "count": 8, "level_req": 32, "prereq_quest": "hx_pe_scales",
+		 "reward_xp": 2600, "reward_gold": 440, "reward_items": {"elixir_stone": 1}, "map_hint": "Costa Partida: recife das guerreiras nagas (sudeste da praia)",
+		 "description": "Derrube 8 Guerreiras Nagas que guardam o recife das pérolas.",
+		 "dialog_offer": "As guerreiras não deixam ninguém entrar na água. Oito a menos e o recife respira.",
+		 "dialog_progress": "Quando ela erguer a lança, saia da linha: o golpe atravessa.", "dialog_complete": "O recife está quieto... quieto demais. Alguém maior manda nelas."},
+		{"id": "hx_pe_mother", "title": "A Mãe das Marés", "giver_npc": "port_vil_fisher", "type": KILL, "target_id": "boss_tide_mother", "count": 1, "level_req": 33, "prereq_quest": "hx_pe_reef",
+		 "reward_xp": 4400, "reward_gold": 800, "reward_gear_tier": 4, "reward_items": {"legend_coin": 1}, "map_hint": "Costa Partida: o meio da praia (leve um grupo)",
+		 "description": "Derrote a Mãe das Marés no meio da praia.",
+		 "dialog_offer": "A Mãe das Marés sobe à praia com as filhas. Enquanto ela viver, ninguém mergulha. Leve um grupo.",
+		 "dialog_progress": "Quando ela levantar os braços, a onda vem: saia de perto. Derrube as filhas que ela chama.",
+		 "dialog_complete": "Caiu! A Naia, minha prima, já está na praia com a cesta de mergulho. Pérola de Kharzun no mercado, quem diria."},
+		# ---- O Diário do Capitão (Marujo Lino, na taverna): a última ergue o memorial do primeiro navio no porto ----
+		{"id": "hx_dc_shrine", "title": "A Inscrição do Santuário", "giver_npc": "ptav_sailor", "type": REACH, "target_id": "santuario_afogado", "count": 1, "level_req": 31,
+		 "reward_xp": 1400, "reward_gold": 260, "map_hint": "Costa Partida: Santuário Afogado (leste, na beira do mar)",
+		 "description": "Vá ao Santuário Afogado e volte para contar ao Marujo Lino o que está gravado lá.",
+		 "dialog_offer": "Meu avô veio no primeiro navio, o Estrela, quarenta anos atrás. Ninguém voltou. Dizem que o nome do capitão está no Santuário Afogado. Vá ver?",
+		 "dialog_progress": "O santuário fica a leste da Costa, na beira da água. Siga a seta do mapa.",
+		 "dialog_complete": "'Odran, do Estrela'... era ele. Se o santuário tem o nome, o navio afundou perto. Nas falésias, talvez."},
+		{"id": "hx_dc_cliffs", "title": "O Estrela nas Falésias", "giver_npc": "ptav_sailor", "type": KILL, "target_id": "orc_recruit", "count": 12, "level_req": 32, "prereq_quest": "hx_dc_shrine",
+		 "reward_xp": 2600, "reward_gold": 440, "reward_items": {"potion_hp_m": 2}, "map_hint": "Costa Partida: falésias dos orcs (norte)",
+		 "description": "Derrube 12 Recrutas Orcs nas falésias, onde estão os restos do Estrela.",
+		 "dialog_offer": "Os orcs acampam bem em cima do casco do Estrela, nas falésias ao norte. Doze a menos e eu procuro o diário do capitão.",
+		 "dialog_progress": "Os recrutas batem devagar e forte: espere o golpe e desvie com Shift.",
+		 "dialog_complete": "Achei! O diário do Odran, inteiro, embrulhado em couro. Leia comigo... não. Leve à Governadora."},
+		{"id": "hx_dc_diary", "title": "O Diário de Odran", "giver_npc": "ptav_sailor", "turnin_npc": "port_governor", "type": TALK, "target_id": "port_governor", "count": 1, "level_req": 32, "prereq_quest": "hx_dc_cliffs",
+		 "reward_xp": 1600, "reward_gold": 400, "reward_items": {"elixir_might": 1}, "map_hint": "Porto Esperança: a Governadora Alba, na praça",
+		 "description": "Leve o diário do Capitão Odran à Governadora Alba.",
+		 "dialog_offer": "A última página é para quem vier depois. Isso é para a Governadora, não para um marujo de taverna.",
+		 "dialog_progress": "A Governadora fica na praça do porto.",
+		 "dialog_complete": "'Os orcs não desceram da montanha. Subiram para ela, fugindo do leste.' Quarenta anos atrás... Vamos erguer um memorial ao Estrela."},
+		# ---- Goblin Comerciante (Nikki, depois do Agitador-Mor): a última põe um tambor de feira na aldeia ----
+		{"id": "hx_nk_shiny", "title": "Coisa Brilhante", "giver_npc": "goblin_nikki", "type": COLLECT, "target_id": "horde_badge", "count": 8, "level_req": 34, "prereq_quest": "hx_goblin_boss",
+		 "reward_xp": 2000, "reward_gold": 500, "reward_items": {"potion_hp_m": 3}, "map_hint": "Grutas Goblin e falésias: goblins e orcs",
+		 "description": "Traga 8 Insígnias da Horda para Nikki derreter em moedas de feira.",
+		 "dialog_offer": "Punho vermelho não vale nada para goblin livre. Nikki derrete e faz moeda de feira! Traz oito. Nikki paga em ouro de verdade.",
+		 "dialog_progress": "Nas Grutas ainda tem goblin bravo. Nas falésias, orc. Os dois carregam insígnia.", "dialog_complete": "Oito! Nikki faz moeda bonita. Agora falta o barulho da feira."},
+		{"id": "hx_nk_drum", "title": "Um Tambor para a Feira", "giver_npc": "goblin_nikki", "type": COLLECT, "target_id": "war_drum_hide", "count": 1, "level_req": 34, "prereq_quest": "hx_nk_shiny",
+		 "reward_xp": 2400, "reward_gold": 700, "reward_items": {"legend_coin": 1}, "map_hint": "Grutas Goblin: o Agitador-Mor (leve um grupo)",
+		 "description": "Traga 1 Couro do Tambor de Guerra para Nikki fazer um tambor de feira.",
+		 "dialog_offer": "Tambor de guerra chama goblin para brigar. Tambor de feira chama goblin para comprar! Traz o couro do tambor do Agitador. Nikki estica e pinta.",
+		 "dialog_progress": "O Agitador-Mor voltou para o salão do fundo. Leve grupo, ele ainda bate forte.",
+		 "dialog_complete": "Bum, bum! Ouviu? Ninguém brigou. Todo mundo veio comprar. O Tum-Tum vai tocar na aldeia todo dia."},
+	]
+
+# ======== Ato II, Estepes de Cinza (35-40): três acampamentos em qualquer ordem (E0-E5 do GDD) ========
+## Linha principal (Mestre da Caravana Horácio), a escolha dos Desertores (E4) e as paralelas. hx_fort_trolls/_fire/_war
+## retomam os acampamentos (MapsCatalog.Q_FORT_*); as três juntas abrem o passo de Kharzun (E5). hx_deserters_help e
+## hx_deserters_turn se excluem (`excludes`). Os alvos são os ids do contrato de monstros: enquanto o pacote não chega,
+## `MapsCatalog.mob` troca pelo substituto (o mesmo que nasce nos mapas).
+const STEPPE_MAIN := ["hx_steppe_arrive", "hx_steppe_hold", "hx_steppe_scout", "hx_trolls_bridge", "hx_fort_trolls",
+	"hx_fire_road", "hx_fort_fire", "hx_war_drums", "hx_fort_war", "hx_steppe_pass"]
+## Paralelas das Estepes: quem abre -> última missão (a que muda o lugar: NPC novo com `if` no MapsCatalog.STEPPE_NPCS).
+const STEPPE_CHAINS := {"steppe_merchant": "hx_cv_goods", "ivory_hunter": "hx_mi_bulls", "wind_totem": "hx_tv_east", "wolf_racer": "hx_cl_scouts"}
+
+static func act2_steppe() -> Array:
+	var L := [
+		# ---- linha principal ----
+		{"id": "hx_steppe_arrive", "title": "Cinza no Horizonte", "giver_npc": "port_governor", "turnin_npc": "caravan_master", "type": TALK, "target_id": "caravan_master", "count": 1, "level_req": 35, "prereq_quest": "hx_goblin_boss",
+		 "reward_xp": 800, "reward_gold": 400, "reward_items": {"potion_hp_m": 3}, "map_hint": "Estepes de Cinza: Posto da Caravana (garganta ao norte da Costa)",
+		 "description": "Atravesse a garganta ao norte da Costa e apresente-se ao Mestre da Caravana Horácio, no Posto da Caravana.",
+		 "dialog_offer": "A caravana do Horácio saiu para as Estepes e parou no meio do caminho. Ele manda dizer que está cercado. Vá ver de quê.",
+		 "dialog_progress": "A garganta fica ao norte da Costa. O Posto é o anel de carroças no meio das Estepes: siga a estrada.",
+		 "dialog_complete": "A Alba mandou UM? Serve. Olhe em volta: fumaça a oeste, a nordeste e a sudeste. Três acampamentos, e nós no meio."},
+		{"id": "hx_steppe_hold", "title": "Três Lados, Um Posto", "giver_npc": "caravan_master", "type": KILL, "target_id": "troll_whelp", "count": 15, "level_req": 35, "prereq_quest": "hx_steppe_arrive",
+		 "also_counts": ["troll", "orc_warrior", "orc_archer", "orc_crossbow", "wolf_raider"],
+		 "reward_xp": 3600, "reward_gold": 600, "reward_items": {"potion_hp_m": 3}, "map_hint": "Posto da Caravana: investidas pelos vãos oeste, nordeste e sudeste",
+		 "description": "Segure o Posto da Caravana: derrube 15 atacantes da Horda (trolls, orcs ou saqueadores).",
+		 "dialog_offer": "Eles vêm de três lados, cada lado de uma vez. Quinze a menos e os carroceiros conseguem fechar os vãos com as carroças.",
+		 "dialog_progress": "Fique perto das sentinelas dos vãos e deixe a leva chegar. Arqueiro primeiro: feche a distância com Shift.",
+		 "dialog_complete": "Vãos fechados. Agora dá para pensar. Preciso saber o que cada fumaça daquelas esconde."},
+		{"id": "hx_steppe_scout", "title": "O Totem Partido", "giver_npc": "caravan_master", "type": REACH, "target_id": "totem_ventos", "count": 1, "level_req": 35, "prereq_quest": "hx_steppe_hold",
+		 "reward_xp": 1400, "reward_gold": 300, "reward_items": {"potion_mp_m": 3}, "map_hint": "Estepes de Cinza: Totem Partido (norte do Posto)",
+		 "description": "Suba até o Totem Partido, ao norte do Posto, olhe os três acampamentos e volte para contar ao Horácio.",
+		 "dialog_offer": "Do pé do Totem Partido, ao norte, se vê a estepe inteira. Suba, conte as fumaças e volte. Não brigue com o que não precisa.",
+		 "dialog_progress": "Saia pelo vão norte e siga a seta. Há besteiros no caminho: contorne pelo capim alto.",
+		 "dialog_complete": "Trolls a oeste, depois da ponte. Flechas de fogo a sudeste. A tropa de Ghar a nordeste. Escolha um e comece: os três têm de cair."},
+		{"id": "hx_trolls_bridge", "title": "A Ponte da Fenda", "giver_npc": "caravan_master", "type": KILL, "target_id": "troll_whelp", "count": 12, "level_req": 35, "prereq_quest": "hx_steppe_scout",
+		 "also_counts": ["troll"],
+		 "reward_xp": 3200, "reward_gold": 560, "reward_items": {"elixir_might": 1}, "map_hint": "Estepes de Cinza: frente dos trolls (oeste, depois da ponte)",
+		 "description": "Derrube 12 trolls na frente oeste, do outro lado da ponte.",
+		 "dialog_offer": "A ponte do oeste é o único caminho para a Toca, e os trolls sabem. Doze a menos e a gente atravessa sem virar jantar.",
+		 "dialog_progress": "Troll machucado se fecha sozinho. Fogo e veneno seguram a ferida aberta: use os dois ou bata sem parar.",
+		 "dialog_complete": "A ponte é nossa por hoje. O grandão que manda neles dorme na Toca, no fim da garganta."},
+		{"id": "hx_fort_trolls", "title": "O Rei-da-Rocha", "giver_npc": "caravan_master", "type": KILL, "target_id": "boss_troll_king", "count": 1, "level_req": 36, "prereq_quest": "hx_trolls_bridge",
+		 "reward_xp": 8000, "reward_gold": 1400, "reward_gear_tier": 4, "reward_items": {"legend_coin": 2}, "map_hint": "Toca do Rei-da-Rocha (garganta a oeste das Estepes): leve um grupo",
+		 "description": "Entre na Toca do Rei-da-Rocha e derrote o rei dos trolls. Os colonos presos saem com você.",
+		 "dialog_offer": "O Rei-da-Rocha guarda três dos meus na Toca. Derrube o rei e a Toca vira posto nosso. Leve um grupo.",
+		 "dialog_progress": "Ele se cura como os outros, só que mais. Guarde fogo e veneno para ele (o sangramento do Carniceiro também serve) e saia de baixo quando erguer a pedra.",
+		 "dialog_complete": "A Toca caiu! O Elói já está medindo a pedra para o nosso muro. Mas ouça: os outros acampamentos vão bater com mais raiva agora."},
+		{"id": "hx_fire_road", "title": "Flechas na Estrada", "giver_npc": "caravan_master", "type": KILL, "target_id": "orc_archer", "count": 12, "level_req": 36, "prereq_quest": "hx_steppe_scout",
+		 "also_counts": ["orc_crossbow"],
+		 "reward_xp": 3400, "reward_gold": 580, "reward_items": {"elixir_stone": 1}, "map_hint": "Estepes de Cinza: estrada do sudeste, até a Paliçada",
+		 "description": "Derrube 12 arqueiros ou besteiros orcs na estrada do sudeste.",
+		 "dialog_offer": "Nenhuma carroça passa na estrada do sudeste: os arqueiros acendem a flecha e queimam a lona de longe. Doze a menos.",
+		 "dialog_progress": "Círculo vermelho no chão é flecha de fogo caindo: saia. Chegue neles com Shift e não deixe mirar parado.",
+		 "dialog_complete": "A estrada respira. As torres deles ficam na Paliçada, e quem ensina a mirar mora lá dentro."},
+		{"id": "hx_fort_fire", "title": "O Mestre Besteiro", "giver_npc": "caravan_master", "type": KILL, "target_id": "boss_crossbow_master", "count": 1, "level_req": 37, "prereq_quest": "hx_fire_road",
+		 "reward_xp": 8600, "reward_gold": 1500, "reward_gear_tier": 4, "reward_items": {"legend_coin": 2}, "map_hint": "Paliçada das Flechas de Fogo (sudeste das Estepes): leve um grupo",
+		 "description": "Entre na Paliçada das Flechas de Fogo e derrote o Mestre Besteiro.",
+		 "dialog_offer": "O Mestre Besteiro não erra parado, dizem os presos. Então não deixe ele parado. Tome a Paliçada e a estrada do sudeste é nossa.",
+		 "dialog_progress": "Fique colado nele e bloqueie (botão direito) o virote carregado. Quando o chão acender, saia do círculo.",
+		 "dialog_complete": "A Paliçada caiu! Agora as flechas que cobrem a estrada são as do Sargento Simão. Uma frente a menos para vigiar."},
+		{"id": "hx_war_drums", "title": "Os Tambores de Ghar", "giver_npc": "caravan_master", "type": KILL, "target_id": "orc_warrior", "count": 12, "level_req": 37, "prereq_quest": "hx_steppe_scout",
+		 "also_counts": ["goblin_agitator"],
+		 "reward_xp": 3600, "reward_gold": 600, "reward_items": {"elixir_might": 1}, "map_hint": "Estepes de Cinza: frente de Ghar (nordeste)",
+		 "description": "Derrube 12 guerreiros orcs ou Agitadores na frente nordeste.",
+		 "dialog_offer": "A tropa de Ghar é a que marcha em fila, a nordeste. Guerreiro de verdade, com tambor atrás. Doze a menos antes de subir ao Arraial.",
+		 "dialog_progress": "Com o Agitador vivo o bando bate mais forte: derrube o tambor primeiro. Guerreiro orc avisa o golpe pesado: desvie com Shift.",
+		 "dialog_complete": "Menos tambor na estepe. Os presos dizem que Ghar luta na arena, no fundo do Arraial, e só com quem ele respeita."},
+		{"id": "hx_fort_war", "title": "Ghar, o Punho", "giver_npc": "caravan_master", "type": KILL, "target_id": "boss_ghar", "count": 1, "level_req": 38, "prereq_quest": "hx_war_drums",
+		 "reward_xp": 9400, "reward_gold": 1600, "reward_gear_tier": 4, "reward_items": {"legend_coin": 2}, "map_hint": "Arraial de Ghar (nordeste das Estepes): leve um grupo",
+		 "description": "Entre no Arraial de Ghar e derrote o chefe de guerra na arena.",
+		 "dialog_offer": "Ghar comanda as três frentes. Enquanto ele gritar, a Horda não sai da estepe. Entre no Arraial e cale o grito. Leve um grupo.",
+		 "dialog_progress": "Quando ele gritar, o bando inteiro bate mais forte: derrube os Agitadores antes e guarde o atordoamento para o grito.",
+		 "dialog_complete": "Ghar caiu e a tropa dele não ficou para vingar: pegou a estrada da montanha. Quem luta assim e depois corre?"},
+		{"id": "hx_steppe_pass", "title": "O Caminho da Montanha", "giver_npc": "caravan_master", "turnin_npc": "fort_war_settler_0", "type": TALK, "target_id": "fort_war_settler_0", "count": 1, "level_req": 39, "prereq_quest": "hx_fort_war",
+		 "prereq_all": ["hx_fort_trolls", "hx_fort_fire"] as Array[String],
+		 "reward_xp": 2400, "reward_gold": 1200, "reward_items": {"legend_coin": 2}, "map_hint": "Arraial de Ghar: Capitão Otávio (posto aliado)",
+		 "description": "Com os três acampamentos retomados, fale com o Capitão Otávio no Arraial sobre o passo de Kharzun.",
+		 "dialog_offer": "Três acampamentos, três postos nossos. O Capitão Otávio achou alguma coisa na tenda de Ghar e quer mostrar a você antes de subir.",
+		 "dialog_progress": "O Capitão fica no Arraial de Ghar, a nordeste, agora com o estandarte da Aurora.",
+		 "dialog_complete": "Os mapas de Ghar. Todas as setas saem do leste e nenhuma volta. Ele não guardava a estepe: guardava a retirada. O passo de Kharzun está aberto."},
+		# ---- Os Desertores (Urzog): a escolha E4. Ajudar = acampamento aliado (Brakka e Gruk); entregar = ouro e moedas, o acampamento some ----
+		{"id": "hx_ds_hunted", "title": "Caçados pelos Seus", "giver_npc": "deserter_chief", "type": KILL, "target_id": "orc_crossbow", "count": 10, "level_req": 36,
+		 "also_counts": ["orc_warrior", "wolf_raider"],
+		 "reward_xp": 2800, "reward_gold": 480, "reward_items": {"potion_hp_m": 2}, "map_hint": "Estepes de Cinza: em volta do acampamento dos Desertores (noroeste)",
+		 "description": "Derrube 10 besteiros, guerreiros ou saqueadores da Horda que rondam o acampamento dos Desertores.",
+		 "dialog_offer": "Humano. Não erga a arma. Nós largamos o estandarte de Ghar, e Ghar mandou besteiros atrás de nós. Dez a menos e Urzog conversa.",
+		 "dialog_progress": "Eles rondam a estrada ao sul e a leste daqui. Besteiro recarrega devagar: chegue perto logo depois do tiro.",
+		 "dialog_complete": "Você matou orc para orc. Urzog não esquece. Agora leve uma palavra ao seu chefe das carroças."},
+		{"id": "hx_ds_offer", "title": "A Palavra de Urzog", "giver_npc": "deserter_chief", "turnin_npc": "caravan_master", "type": TALK, "target_id": "caravan_master", "count": 1, "level_req": 36, "prereq_quest": "hx_ds_hunted",
+		 "reward_xp": 1200, "reward_gold": 300, "map_hint": "Posto da Caravana: Mestre da Caravana Horácio",
+		 "description": "Leve a proposta de Urzog ao Mestre da Caravana: os Desertores querem ficar na estepe, em paz.",
+		 "dialog_offer": "Diga a ele: os Desertores não querem a estepe nem a montanha. Querem ficar longe do que vem atrás da Horda. Trocamos lobo e ferro por paz.",
+		 "dialog_progress": "O Mestre da Caravana fica no meio do Posto, perto da fogueira.",
+		 "dialog_complete": "Orc pedindo paz? A Aurora paga bem por um acampamento de orcs entregue. Ou eu confio. Você viu os olhos deles, eu não: você decide."},
+		{"id": "hx_deserters_help", "title": "Sem Estandarte", "giver_npc": "deserter_chief", "type": KILL, "target_id": "wolf_raider", "count": 8, "level_req": 37, "prereq_quest": "hx_ds_offer",
+		 "also_counts": ["wolf_rider"], "excludes": ["hx_deserters_turn"] as Array[String],
+		 "reward_xp": 4000, "reward_gold": 500, "reward_gear_tier": 4, "reward_items": {"legend_coin": 1}, "map_hint": "Estepes de Cinza: acampamento dos batedores (leste) e estradas",
+		 "description": "ESCOLHA: fique do lado dos Desertores. Derrube 8 saqueadores ou ginetes, os rastreadores de Ghar. (Fecha \"O Preço de um Desertor\".)",
+		 "dialog_offer": "Os saqueadores acham a gente pelo faro dos lobos. Oito a menos e o rastro esfria. Fique do nosso lado e o acampamento é seu também.",
+		 "dialog_progress": "O saqueador joga rede: bata na rede ou espere soltar. Os batedores acampam a leste do Posto.",
+		 "dialog_complete": "O rastro esfriou. Brakka abre a banca para você, e Gruk... Gruk está pensando no preço dos lobos. Urzog diz: amigo."},
+		{"id": "hx_deserters_turn", "title": "O Preço de um Desertor", "giver_npc": "caravan_master", "type": REACH, "target_id": "desertores", "count": 1, "level_req": 37, "prereq_quest": "hx_ds_offer",
+		 "excludes": ["hx_deserters_help"] as Array[String],
+		 "reward_xp": 4000, "reward_gold": 3000, "reward_items": {"legend_coin": 3}, "map_hint": "Estepes de Cinza: acampamento dos Desertores (noroeste)",
+		 "description": "ESCOLHA: entregue os Desertores. Leve os soldados da Aurora até o acampamento e volte ao Horácio. (Fecha \"Sem Estandarte\".)",
+		 "dialog_offer": "Se você não confia, eu também não. Mostre o caminho aos soldados e a Aurora paga por cabeça. Depois disso não tem volta.",
+		 "dialog_progress": "O acampamento fica a noroeste, atrás das pedras. Os soldados seguem você: chegue até as tendas e volte.",
+		 "dialog_complete": "Levaram todos. Urzog não ergueu a mão. Só disse: 'Vocês vão entender quando chegar a vez de vocês.' Aqui está a sua parte."},
+		# ---- A Caravana (Mercadora Noêmia): a última traz a segunda caravana ao Posto ----
+		{"id": "hx_cv_wheels", "title": "Aro de Roda", "giver_npc": "steppe_merchant", "turnin_npc": "steppe_smith", "type": COLLECT, "target_id": "iron_ore", "count": 8, "level_req": 35,
+		 "reward_xp": 2000, "reward_gold": 400, "reward_items": {"potion_hp_m": 2}, "map_hint": "Estepes de Cinza: veios de ferro (noroeste e nordeste, F) → Ferreiro Baltazar",
+		 "description": "Colha 8 Minérios de Ferro nas Estepes e leve ao Ferreiro Baltazar, para os aros das rodas.",
+		 "dialog_offer": "Quatro carroças sem aro. Sem aro não tem roda, sem roda não tem caravana. O Baltazar forja se alguém trouxer oito minérios.",
+		 "dialog_progress": "Os veios brilham no chão, a noroeste e a nordeste do Posto. Chegue perto e aperte F.",
+		 "dialog_complete": "Ferro de estepe, cheio de cinza. Dá aro. Diga à Noêmia que as rodas saem hoje."},
+		{"id": "hx_cv_road", "title": "A Estrada do Sul", "giver_npc": "steppe_merchant", "type": KILL, "target_id": "wolf_raider", "count": 6, "level_req": 36, "prereq_quest": "hx_cv_wheels",
+		 "also_counts": ["wolf_rider"],
+		 "reward_xp": 2600, "reward_gold": 460, "reward_items": {"potion_mp_m": 2}, "map_hint": "Estepes de Cinza: estrada do sul, entre o Posto e a garganta da Costa",
+		 "description": "Derrube 6 saqueadores ou ginetes de lobo na estrada do sul.",
+		 "dialog_offer": "Roda eu tenho. Estrada, não: os saqueadores esperam a carroça na estrada do sul, a que desce para a Costa. Seis a menos.",
+		 "dialog_progress": "Eles rondam a oeste da estrada. Bloqueie (botão direito) o bote do lobo e bata no goblin.",
+		 "dialog_complete": "Estrada limpa! Agora só falta alguém corajoso levar a primeira carga."},
+		{"id": "hx_cv_goods", "title": "Carga para o Porto", "giver_npc": "steppe_merchant", "turnin_npc": "port_merchant", "type": COLLECT, "target_id": "caravan_goods", "count": 1, "level_req": 37, "prereq_quest": "hx_cv_road",
+		 "give_items": {"caravan_goods": 1}, "reward_xp": 2400, "reward_gold": 700, "reward_items": {"legend_coin": 1}, "map_hint": "Porto Esperança: o mercador da praça",
+		 "description": "Leve o Fardo da Caravana ao mercador de Porto Esperança.",
+		 "dialog_offer": "Sal, couro e presa de troll. Leve este fardo ao mercador do porto: se a primeira carga chegar, a segunda caravana sai de lá amanhã.",
+		 "dialog_progress": "Desça pela garganta do sul até a Costa e entre no porto. O cristal de retorno encurta o caminho.",
+		 "dialog_complete": "Carga das Estepes, inteira? Então a rota existe. A Lívia já estava com a caravana pronta: ela sobe para o Posto hoje."},
+		# ---- Marfim de Mamute (Sabá, a Caçadora): a última traz o entalhador para a cabana ----
+		{"id": "hx_mi_gnawers", "title": "Roedores de Osso", "giver_npc": "ivory_hunter", "type": KILL, "target_id": "troll_whelp", "count": 10, "level_req": 35,
+		 "also_counts": ["troll"],
+		 "reward_xp": 2400, "reward_gold": 420, "reward_items": {"potion_hp_m": 2}, "map_hint": "Estepes de Cinza: Cemitério dos Mamutes (oeste da cabana)",
+		 "description": "Derrube 10 trolls que roem as presas no Cemitério dos Mamutes.",
+		 "dialog_offer": "Os mamutes vinham morrer aqui antes de ter Horda. Agora os trolls roem as presas como cachorro rói osso. Dez a menos.",
+		 "dialog_progress": "O cemitério fica a oeste daqui. Os filhotes jogam pedra de longe: chegue neles antes dos grandes.",
+		 "dialog_complete": "Menos dente no meu marfim. Agora dá para catar o que sobrou inteiro."},
+		{"id": "hx_mi_tusks", "title": "Presa Inteira", "giver_npc": "ivory_hunter", "type": COLLECT, "target_id": "mammoth_tusk", "count": 5, "level_req": 36, "prereq_quest": "hx_mi_gnawers",
+		 "reward_xp": 2400, "reward_gold": 520, "reward_items": {"elixir_stone": 1}, "map_hint": "Estepes de Cinza: Cemitério dos Mamutes (presas no chão, F)",
+		 "description": "Colha 5 Presas de Mamute inteiras no Cemitério dos Mamutes.",
+		 "dialog_offer": "Presa inteira vale uma carroça. Roída, vale um cabo de faca. Traga cinco das inteiras, antes que os trolls voltem.",
+		 "dialog_progress": "As presas saem da cinza, brancas. Chegue perto e aperte F. Os trolls voltam sempre: colha entre uma leva e outra.",
+		 "dialog_complete": "Cinco, e sem um risco! Tem uma marca nesta aqui... não é dente de troll. É grande demais. E velha. Deixa para lá."},
+		{"id": "hx_mi_bulls", "title": "Os Grandes Roedores", "giver_npc": "ivory_hunter", "type": KILL, "target_id": "troll", "count": 5, "level_req": 37, "prereq_quest": "hx_mi_tusks",
+		 "reward_xp": 3200, "reward_gold": 600, "reward_gear_tier": 4, "map_hint": "Estepes de Cinza: Cemitério dos Mamutes (os trolls adultos, a sudoeste)",
+		 "description": "Derrube 5 trolls adultos, os que quebram as presas grandes.",
+		 "dialog_offer": "Filhote rói. Adulto quebra a presa no joelho para chupar o tutano. Cinco adultos a menos e o cemitério descansa.",
+		 "dialog_progress": "Troll adulto se cura depressa: fogo, veneno ou o sangramento do Carniceiro nele, e não pare de bater. Sozinho é duro, leve alguém.",
+		 "dialog_complete": "O cemitério está quieto. O Tobias, o entalhador da caravana, já montou a bancada aqui do lado. Marfim de Kharzun, quem diria."},
+		# ---- Totem dos Ventos (o toco entalhado): a última traz a velha Morga ao totem ----
+		{"id": "hx_tv_smoke", "title": "Fumaça para o Vento", "giver_npc": "wind_totem", "type": COLLECT, "target_id": "herb_blue", "count": 6, "level_req": 35,
+		 "reward_xp": 1800, "reward_gold": 340, "reward_items": {"potion_mp_m": 2}, "map_hint": "Estepes de Cinza: erva azul no capim (sudoeste do Posto, F)",
+		 "description": "Colha 6 Ervas Azuis e queime ao pé do Totem dos Ventos.",
+		 "dialog_offer": "Riscado na base, em traço de criança: uma erva, um fogo, um vento. Alguém queimava erva aqui para o totem falar.",
+		 "dialog_progress": "A erva azul cresce no capim a sudoeste do Posto. Chegue perto e aperte F.",
+		 "dialog_complete": "A fumaça sobe reta e, de repente, deita para o oeste. O vento assobia pelos olhos do totem. Vem do leste. Sempre do leste."},
+		{"id": "hx_tv_drums", "title": "Tambor Contra o Vento", "giver_npc": "wind_totem", "type": KILL, "target_id": "goblin_agitator", "count": 2, "level_req": 36, "prereq_quest": "hx_tv_smoke",
+		 "reward_xp": 2400, "reward_gold": 440, "reward_items": {"elixir_might": 1}, "map_hint": "Estepes de Cinza: Agitadores (sudoeste do Posto e frente de Ghar)",
+		 "description": "Cale 2 Agitadores Goblins: com o tambor batendo, ninguém ouve o totem.",
+		 "dialog_offer": "O assobio some toda vez que um tambor bate na estepe. Riscado mais acima: um tambor com um traço por cima.",
+		 "dialog_progress": "O Agitador anda com escolta: derrube os empaladores ou puxe o tambor para longe deles. Um fica a sudoeste do Posto.",
+		 "dialog_complete": "Sem tambor, o assobio volta, mais grave. Parece voz. Alguém que leia orc antigo precisa ver estes riscos."},
+		{"id": "hx_tv_east", "title": "O que o Vento Traz", "giver_npc": "wind_totem", "turnin_npc": "steppe_alchemist", "type": TALK, "target_id": "steppe_alchemist", "count": 1, "level_req": 38, "prereq_quest": "hx_tv_drums",
+		 "reward_xp": 2200, "reward_gold": 500, "reward_items": {"legend_coin": 1}, "map_hint": "Posto da Caravana: Alquimista Jandira",
+		 "description": "Leve os riscos do totem à Alquimista Jandira, no Posto da Caravana.",
+		 "dialog_offer": "Os riscos do alto são fundos, feitos com pressa. A Alquimista Jandira, no Posto, lê orc antigo. Copie e leve a ela.",
+		 "dialog_progress": "Jandira fica no Posto da Caravana, ao lado do caldeirão.",
+		 "dialog_complete": "'O que quebrou o grande veio do leste. Não dê nome. Não olhe para trás.' Isso não é praga de xamã: é aviso. Uma velha orc subiu ao totem hoje. Fale com ela."},
+		# ---- Corrida dos Lobos (Dinho, o Corredor): a última traz uma corredora para o canil ----
+		{"id": "hx_cl_scent", "title": "Cheiro de Matilha", "giver_npc": "wolf_racer", "type": COLLECT, "target_id": "rider_pelt", "count": 6, "level_req": 35,
+		 "reward_xp": 2000, "reward_gold": 380, "reward_items": {"potion_hp_m": 2}, "map_hint": "Estepes de Cinza: ginetes da escolta dos saqueadores (estradas)",
+		 "description": "Traga 6 Peles de Lobo de Guerra para Dinho forrar a cama do filhote.",
+		 "dialog_offer": "O filhote não dorme: sente falta do cheiro da matilha. Seis peles de lobo de guerra na cama e ele sossega. Os ginetes carregam.",
+		 "dialog_progress": "Os ginetes andam de escolta dos saqueadores. Derrube os ginetes primeiro: sem eles a rede do saqueador não te pega cercado.",
+		 "dialog_complete": "Olha ele! Deitou, rodou três vezes e dormiu. Amanhã ele corre."},
+		{"id": "hx_cl_race", "title": "Daqui ao Totem", "giver_npc": "wolf_racer", "type": REACH, "target_id": "totem_ventos", "count": 1, "level_req": 36, "prereq_quest": "hx_cl_scent",
+		 "reward_xp": 1600, "reward_gold": 320, "reward_items": {"potion_mp_m": 2}, "map_hint": "Estepes de Cinza: Totem Partido (norte) e de volta ao canil",
+		 "description": "Corra do canil até o Totem Partido e volte: o filhote vai atrás de você.",
+		 "dialog_offer": "Daqui ao Totem e de volta antes do sol mexer: essa é a corrida. Vá na frente, ele segue quem corre. Montado vale (H).",
+		 "dialog_progress": "Atravesse o Posto e saia pelo vão norte: é o caminho mais curto. A montaria (H) ajuda.",
+		 "dialog_complete": "Ele chegou com a língua de fora e querendo mais. Nenhum lobo da Horda corre assim por vontade."},
+		{"id": "hx_cl_scouts", "title": "Sem Medo de Fumaça", "giver_npc": "wolf_racer", "type": REACH, "target_id": "batedores", "count": 1, "level_req": 37, "prereq_quest": "hx_cl_race",
+		 "reward_xp": 2600, "reward_gold": 520, "reward_gear_tier": 4, "map_hint": "Estepes de Cinza: acampamento dos batedores (leste do Posto)",
+		 "description": "Corra até o acampamento dos batedores, a leste, e volte: o filhote precisa perder o medo do cheiro dos saqueadores.",
+		 "dialog_offer": "Ele ainda encolhe o rabo quando sente fumaça de saqueador. Corra até o acampamento dos batedores, a leste, e volte. Passe perto e não pare.",
+		 "dialog_progress": "O acampamento fica a leste do Posto. Não precisa brigar: chegue perto das tendas e volte. A rede prende: desvie com Shift.",
+		 "dialog_complete": "Passou pela fumaça de cabeça erguida! A Zuri viu de longe e veio pedir para correr também. Agora isto aqui é uma pista."},
+	]
+	for d in L:                      # ids do contrato -> o que existe hoje (MapsCatalog.STAND_INS)
+		if d["type"] != KILL:
+			continue
+		d["target_id"] = MapsCatalog.mob(d["target_id"])
+		var also: Array[String] = []
+		for id in d.get("also_counts", []):
+			var m: String = MapsCatalog.mob(id)
+			if m != d["target_id"] and not also.has(m):
+				also.append(m)
+		d["also_counts"] = also
+	return L
+
+## Mestres de ascensão (Porto Esperança, nível 35): classe -> [npc, título da missão, dica, [prova], [busca], [desafio]].
+## Passo = [tipo, alvo, quantos, título, descrição, oferta, progresso, conclusão, onde]. A última é `hx_asc_<classe>`
+## (ProgressionSystem.has_ascension); as duas primeiras são `hx_asc1_`/`hx_asc2_<classe>`. Só a classe do mestre recebe.
+const ASC_MASTERS := {
+	"paladin": "master_paladin", "elementalist": "master_elementalist", "berserker": "master_berserker", "bishop": "master_bishop",
+	"druid": "master_druid", "ranger": "master_ranger", "assassin": "master_assassin", "necromancer": "master_necromancer",
+}
+const ASC_STEPS := {
+	"paladin": [
+		[KILL, "goblin_impaler", 10, "Provar a Lança", "Derrube 10 Empaladores Goblins para Sir Aldwin ver como você enfrenta uma lança.",
+		 "Um cavaleiro montado vive ou morre contra a lança. Derrube dez empaladores e eu vejo se você merece uma sela.",
+		 "Saia da linha da estocada e bata de lado.", "Firme. Agora o cavalo precisa de ferraduras que aguentem a pedra de Kharzun.", "Grutas Goblin; mangue da Costa"],
+		[COLLECT, "orc_tusk", 6, "Ferraduras de Presa", "Traga 6 Presas de Orc para as ferraduras do corcel.",
+		 "Ferro racha nessa pedra. Presa de orc não. Seis, e o ferreiro faz as ferraduras.",
+		 "Recrutas orcs, nas falésias e nas Grutas.", "Ferraduras prontas. Falta o corcel. Ele está preso nas Grutas.", "Falésias da Costa (norte); Grutas Goblin"],
+		[KILL, "goblin_agitator", 4, "O Corcel de Guerra", "Derrube 4 Agitadores Goblins nas Grutas e liberte o corcel de guerra da frota. Volte a Sir Aldwin.",
+		 "Os Agitadores acorrentaram o corcel da frota nas Grutas, para o tambor ter plateia. Derrube quatro e o cavalo é seu. Domar é outra história.",
+		 "Derrube a escolta antes: a aura do Agitador deixa o bando mais forte.",
+		 "Ele baixou a cabeça para você. Agora você luta montado, e a Luz luta com você: corrente, asas, tudo. Levante-se, cavaleiro.", "Grutas Goblin"]],
+	"elementalist": [
+		[KILL, "naga_warrior", 8, "A Maré Responde", "Derrube 8 Guerreiras Nagas para Ysolde medir a magia da maré.",
+		 "As nagas puxam a água com magia. Derrube oito guerreiras e me diga como a maré respondeu.",
+		 "Fique fora do puxão da lança.", "A maré respondeu a você. Agora as essências.", "Costa Partida: recife (sudeste da praia)"],
+		[COLLECT, "tide_essence", 3, "Três Essências", "Junte 3 Essências da Maré para o núcleo elemental.",
+		 "O núcleo precisa de três essências. Só a Mãe das Marés guarda essência assim. Junte três.",
+		 "A Mãe das Marés fica no meio da praia. Leve grupo.", "Três. O núcleo pulsa. Leve-o ao Santuário Afogado.", "Costa Partida: Mãe das Marés (leve um grupo)"],
+		[REACH, "santuario_afogado", 1, "O Núcleo Elemental", "Leve o núcleo ao Santuário Afogado e desperte-o. Volte a Ysolde.",
+		 "O altar do Santuário Afogado é mais velho que a frota. Leve o núcleo até lá e ele acorda.",
+		 "O santuário fica a leste da Costa, na beira do mar.",
+		 "Ele acordou e já tem forma. Agora o seu elemental cresce com você: fogo, gelo ou raio, quando quiser.", "Costa Partida: Santuário Afogado (leste)"]],
+	"berserker": [
+		[KILL, "orc_recruit", 15, "Músculo de Orc", "Derrube 15 Recrutas Orcs para Gorm ver a sua força.",
+		 "Quer erguer os machados do campeão? Primeiro derrube quinze orcs. No braço.",
+		 "Falésias ao norte e Grutas Goblin.", "Nada mal. Agora os cabos.", "Falésias da Costa (norte); Grutas Goblin"],
+		[COLLECT, "orc_tusk", 8, "Cabos de Presa", "Traga 8 Presas de Orc para os cabos dos machados do campeão.",
+		 "Os machados do campeão perderam o cabo. Presa de orc aguenta o peso. Oito.",
+		 "Recrutas orcs carregam.", "Cabos firmes. Falta tirar os machados de quem guarda.", "Falésias da Costa (norte)"],
+		[KILL, "naga_warrior", 10, "O Peso do Titã", "Derrube 10 Guerreiras Nagas que guardam os machados do campeão caído no recife. Volte a Gorm.",
+		 "O campeão caiu no recife com um machado em cada mão. As guerreiras nagas guardam os dois como troféu. Tire-os delas.",
+		 "Recife a sudeste da praia. Saia da linha da lança.",
+		 "Dois machados de duas mãos, um em cada braço. Ninguém ergue isso. Você ergueu. Agora a arena é sua.", "Costa Partida: recife (sudeste da praia)"]],
+	"bishop": [
+		[KILL, "naga_warrior", 8, "Água Turva", "Derrube 8 Guerreiras Nagas que cercam o Santuário Afogado.",
+		 "As guerreiras nagas sujam a água do Santuário. Oito a menos e o altar respira.",
+		 "Recife a sudeste da praia.", "A água clareou. Agora o incenso.", "Costa Partida: recife (sudeste da praia)"],
+		[COLLECT, "herb_blue", 8, "Incenso de Mangue", "Colha 8 Ervas Azuis no mangue para o incenso do altar.",
+		 "Erva azul do mangue queima com fumaça clara. Oito ramos e o altar pode ser aceso.",
+		 "Ervas azuis brilham no mangue a oeste. Aperte F.", "Cheiro de capela. Agora acenda a chama.", "Costa Partida: mangue (oeste, F)"],
+		[REACH, "santuario_afogado", 1, "A Chama do Coro", "Reacenda o altar do Santuário Afogado e chame o anjo. Volte à Madre Celene.",
+		 "Leve o incenso ao Santuário Afogado e reze. Se a chama pegar, o Coro responde.",
+		 "O santuário fica a leste da Costa, na beira do mar.",
+		 "O Coro respondeu! Um anjo voa atrás de você agora, e a barreira da Luz vai com o grupo aonde você for.", "Costa Partida: Santuário Afogado (leste)"]],
+	"druid": [
+		[KILL, "goblin_impaler", 8, "Quem Queima o Mangue", "Derrube 8 Empaladores Goblins que cortam o mangue.",
+		 "Os goblins cortam o mangue para fazer lança. Oito empaladores a menos e as raízes param de sangrar.",
+		 "Grutas Goblin e mangue da Costa.", "As raízes agradecem. Agora a terra.", "Grutas Goblin; mangue da Costa"],
+		[COLLECT, "herb_blue", 10, "Terra Doce", "Colha 10 Ervas Azuis para adoçar a terra salgada do mangue.",
+		 "Semente ancestral não pega em terra salgada. Erva azul adoça o chão. Dez.",
+		 "Ervas azuis no mangue a oeste. Aperte F.", "A terra está pronta. Falta calar quem a fere.", "Costa Partida: mangue (oeste, F)"],
+		[KILL, "goblin_agitator", 3, "Raízes no Sal", "Cale 3 Agitadores Goblins e plante a semente ancestral. Volte ao Ancião Bhoran.",
+		 "Enquanto o tambor bater, a semente não dorme. Cale três Agitadores e plante.",
+		 "Agitadores nas Grutas Goblin. Derrube a escolta antes.",
+		 "Brotou! A semente fala com você agora: a terceira forma da sua linhagem acordou.", "Grutas Goblin"]],
+	"ranger": [
+		[KILL, "orc_recruit", 12, "Quem Caça o Mesmo Bicho", "Derrube 12 Recrutas Orcs que caçam o Dente-de-Sabre.",
+		 "Os orcs caçam o mesmo tigre que eu. Doze a menos e o rastro fica só nosso.",
+		 "Falésias ao norte.", "Pegadas frescas. Agora a isca.", "Falésias da Costa (norte)"],
+		[COLLECT, "naga_scale", 10, "Isca de Maré", "Traga 10 Escamas de Naga: o cheiro de maré atrai o tigre.",
+		 "Tigre de costa gosta de peixe e de naga. Dez escamas, e ele vem.",
+		 "Nagas da praia.", "Ele veio farejar... e fugiu para as Grutas. Os goblins o prenderam.", "Costa Partida: praia (sul)"],
+		[KILL, "goblin_agitator", 3, "O Rastro do Dente-de-Sabre", "Derrube 3 Agitadores Goblins nas Grutas e solte o filhote. Volte a Kaya.",
+		 "Os Agitadores prenderam o filhote de Dente-de-Sabre para assustar o bando. Três deles e a jaula abre. Lanceiros: o salto que você quer aprender começa aí.",
+		 "Grutas Goblin. Derrube a escolta antes.",
+		 "Ele te seguiu até aqui! Caçador, Atirador ou Lanceiro: o que você é agora vai mais longe.", "Grutas Goblin"]],
+	"assassin": [
+		[KILL, "goblin_impaler", 10, "Sem Testemunhas", "Derrube 10 Empaladores Goblins sem que o Ninguém precise saber como.",
+		 "Eu não existo. Você também não, se quiser aprender. Dez empaladores, e ninguém viu.",
+		 "Grutas Goblin; mangue.", "Ninguém viu. Bom.", "Grutas Goblin; mangue da Costa"],
+		[COLLECT, "horde_badge", 8, "Papéis da Horda", "Traga 8 Insígnias da Horda: Ninguém lê nelas quem manda.",
+		 "Cada insígnia tem costura de clã. Oito, e eu sei quem paga quem.",
+		 "Goblins e orcs carregam.", "Sei quem paga. Agora a sombra.", "Costa e Grutas Goblin"],
+		[KILL, "goblin_agitator", 4, "A Sombra que Anda Sozinha", "Derrube 4 Agitadores Goblins nas Grutas. Volte ao Ninguém.",
+		 "Quatro Agitadores. Quando o último cair, olhe para o chão: a sua sombra vai demorar a acompanhar.",
+		 "Grutas Goblin. Ataque pelas costas.",
+		 "Viu? A sombra bateu antes de você. Agora ela anda sozinha. E quem cai abaixo de um quarto, cai de vez.", "Grutas Goblin"]],
+	"necromancer": [
+		[KILL, "naga_warrior", 8, "Afogados", "Derrube 8 Guerreiras Nagas: o Escriba quer os afogados que elas guardam.",
+		 "As nagas guardam os afogados do recife. Derrube oito guerreiras e os mortos ficam sem dona.",
+		 "Recife a sudeste da praia.", "Os afogados ouvem você. Agora o selo.", "Costa Partida: recife (sudeste da praia)"],
+		[COLLECT, "war_drum_hide", 2, "Couro que Vibra", "Traga 2 Couros do Tambor de Guerra para selar o filactério.",
+		 "O filactério vazio precisa de algo que ainda vibra. O couro do tambor do Agitador-Mor serve. Dois.",
+		 "O Agitador-Mor, no fundo das Grutas. Leve grupo.", "Vibra. Azhar nunca usou couro de tambor. Eu teria usado.", "Grutas Goblin: o Agitador-Mor (leve um grupo)"],
+		[COLLECT, "tide_essence", 2, "O Filactério Vazio", "Traga 2 Essências da Maré: as almas do recife moram nelas. Volte ao Escriba.",
+		 "A Mãe das Marés guarda as almas do recife na essência do peito. Duas gotas, e o filactério se enche.",
+		 "Leve um grupo. Saia da onda.",
+		 "Cheio. Os seus mortos agora duram mais e vêm em maior número. Use melhor do que Azhar usou.", "Costa Partida: o meio da praia (leve um grupo)"]],
+}
+const ASC_TITLES := {"paladin": "Paladino", "elementalist": "Elementalista", "berserker": "Berserker", "bishop": "Bispo",
+	"druid": "Druida", "ranger": "Ranger", "assassin": "Assassino", "necromancer": "Necromante"}
+
+## Classe dona de uma missão de ascensão (vazio = qualquer classe).
+static func class_of(quest_id: String) -> String:
+	if not quest_id.begins_with("hx_asc"):
+		return ""
+	for c in ASC_MASTERS:
+		if quest_id.ends_with("_" + c):
+			return c
+	return ""
+
+## As 3 missões de ascensão de cada classe (provar, buscar, enfrentar), nível Balance.ASC_LEVEL, com o mestre do porto.
+static func ascensions() -> Array:
+	var out: Array = []
+	for c in ASC_STEPS:
+		var steps: Array = ASC_STEPS[c]
+		var ids := ["hx_asc1_" + c, "hx_asc2_" + c, "hx_asc_" + c]
+		for i in steps.size():
+			var s: Array = steps[i]
+			var d := {"id": ids[i], "title": "%s (%s)" % [s[3], ASC_TITLES[c]], "giver_npc": ASC_MASTERS[c], "type": s[0], "target_id": s[1], "count": s[2],
+				"level_req": Balance.ASC_LEVEL, "reward_xp": 0, "reward_gold": 600 + 300 * i, "reward_items": {"potion_hp_m": 2} if i < 2 else {"legend_coin": 1},
+				"map_hint": s[8], "description": s[4], "dialog_offer": s[5], "dialog_progress": s[6], "dialog_complete": s[7]}
+			if i > 0:
+				d["prereq_quest"] = ids[i - 1]
+			out.append(d)
 	return out

@@ -224,13 +224,34 @@ static func fits_class(sim: WorldSim, e: SimEntity, it: ItemDef) -> bool:
 
 static func update_loot(sim: WorldSim, m: Dictionary, dt: float) -> void:
 	var loot: Array = m["loot"]
+	if loot.is_empty():
+		return
+	# Quem pode pegar, por célula de 1 m (as 9 em volta de cada um; o alcance é 0,9 m): cada item olha só a célula
+	# dele, com os personagens na mesma ordem da lista do tick (era itens x personagens todo tick).
+	var near := {}
+	for c: SimEntity in m.get("chars", m["entities"]):
+		if not c.is_character() or not c.is_alive():
+			continue
+		var cx := floori(c.position.x)
+		var cz := floori(c.position.z)
+		for ox in range(-1, 2):
+			for oz in range(-1, 2):
+				var k := Vector2i(cx + ox, cz + oz)
+				var cell = near.get(k)
+				if cell != null:
+					cell.append(c)
+				else:
+					near[k] = [c]
 	for l in loot.duplicate():
 		l["timer"] -= dt
 		if l["timer"] <= 0.0:
 			loot.erase(l)
 			continue
 		var lp: Vector3 = l["pos"]
-		for e in m.get("chars", m["entities"]):       # só personagens pegam (lista do tick, não todas as entidades)
+		var who = near.get(Vector2i(floori(lp.x), floori(lp.z)))
+		if who == null:
+			continue
+		for e: SimEntity in who:
 			var dx: float = e.position.x - lp.x
 			var dz: float = e.position.z - lp.z
 			if dx * dx + dz * dz > 0.81 or not e.is_character() or not e.is_alive() or not can_loot(sim, e, l):

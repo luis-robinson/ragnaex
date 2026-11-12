@@ -1,7 +1,7 @@
 class_name ItemsCatalog
 extends RefCounted
 ## Materiais, consumíveis e equipamentos. Equipamento = pontos de atributo.
-## rarity 0..3 também é o "tier" (lv 1 / 8 / 16 / 24).
+## rarity 0..3 também é o "tier" (lv 1 / 8 / 16 / 24); o tier 4 (lv 32, Ato II) só tem itens gerados (GearCatalog), raridade 3.
 
 const MAT := ItemDef.Type.MATERIAL
 const CON := ItemDef.Type.CONSUMABLE
@@ -137,6 +137,25 @@ static func build() -> Array:
 		_mat("golem_core", "Núcleo de Golem", 60, "Pulsa com magia antiga.", Color(0.9, 0.6, 0.2)),
 		_mat("stone_core", "Núcleo de Pedra", 22, "Coração de um golem da Pedreira; ainda morno.", Color(0.66, 0.58, 0.46)),
 		_mat("dragon_scale", "Escama de Dragonete", 80, "Rara. Quase indestrutível.", Color(0.8, 0.2, 0.3)),
+		# Ato II, a Horda (30-35): Costa Partida e Grutas Goblin
+		_mat("goblin_fang", "Dente de Goblin", 26, "Amarelo e torto. O Porto Esperança paga por prova de abate.", Color(0.92, 0.86, 0.55)),
+		_mat("horde_badge", "Insígnia da Horda", 34, "Pano vermelho com o punho da Horda. Os oficiais do porto querem saber de onde vêm.", Color(0.78, 0.16, 0.14)),
+		_mat("rider_pelt", "Pele de Lobo de Guerra", 30, "Pelo grosso, cheira a fumaça de acampamento.", Color(0.45, 0.42, 0.4)),
+		_mat("orc_tusk", "Presa de Orc", 36, "Pesada como pedra. Os ferreiros do porto fazem cabos com ela.", Color(0.9, 0.88, 0.75)),
+		_mat("naga_scale", "Escama de Naga", 32, "Turquesa, ainda molhada. Brilha no sol.", Color(0.3, 0.8, 0.75)),
+		_mat("tide_essence", "Essência da Maré", 95, "Água que não escorre. A Mãe das Marés guardava no peito.", Color(0.4, 0.85, 0.95)),
+		_mat("war_drum_hide", "Couro do Tambor de Guerra", 95, "O couro do tambor do Agitador-Mor. Ainda vibra.", Color(0.65, 0.35, 0.25)),
+		# Ato II, Estepes de Cinza (35-40): missões das paralelas
+		_mat("mammoth_tusk", "Presa de Mamute", 48, "Inteira, branca, mais velha que a Horda. Sai da cinza do Cemitério dos Mamutes.", Color(0.96, 0.93, 0.82)),
+		_mat("caravan_goods", "Fardo da Caravana", 0, "Sal, couro e presa de troll. Encomenda da Mercadora Noêmia para o porto.", Color(0.74, 0.58, 0.38)),
+		# Ato II, Estepes de Cinza (35-40): trolls, arqueiros de fogo, guerreiros orcs e os chefes dos acampamentos
+		_mat("troll_hide", "Couro de Troll", 40, "Cinza-azulado e grosso. Um corte nele fecha sozinho por horas.", Color(0.5, 0.6, 0.72)),
+		_mat("troll_tusk", "Presa de Troll", 46, "Dá um cabo que não racha, diz o Ferreiro Baltazar.", Color(0.86, 0.88, 0.8)),
+		_mat("ember_feather", "Pena de Flecha de Fogo", 38, "Empenagem untada de piche. Ainda cheira a fumaça.", Color(0.95, 0.5, 0.2)),
+		_mat("orc_steel", "Aço Negro Orc", 44, "Ferro escuro batido na Forja Negra de Kharzun.", Color(0.32, 0.32, 0.38)),
+		_mat("rock_core", "Coração de Rocha", 110, "O Rei-da-Rocha tinha pedra onde devia ter coração. Ainda pulsa, devagar.", Color(0.5, 0.62, 0.8)),
+		_mat("ember_essence", "Brasa do Mestre Besteiro", 110, "A brasa que acendia cada virote do Mestre Besteiro. Não apaga.", Color(1.0, 0.45, 0.15)),
+		_mat("ghar_badge", "Insígnia de Ghar", 120, "O punho da Horda em ferro negro. Só um Senhor da Guerra usa.", Color(0.6, 0.12, 0.1)),
 		{"id": "letter_sealed", "name": "Carta Lacrada", "type": QST, "price": 0, "icon_color": Color(0.9, 0.85, 0.6), "description": "Carta do Ancião para a Capitã da guarda."},
 		# ---------------- armas tier 0 (lv1) ----------------
 		_weapon("sword_rusty", "Espada Enferrujada", "sword", 0, 8, 0, {"FOR": 3, "VIT": 1}, Color(0.6, 0.6, 0.6)),

@@ -12,9 +12,14 @@ static func build_collider_grid(sim: WorldSim, m: Dictionary) -> void:
 	var def: MapDef = m["def"]
 	var cols: Array = []
 	var grid: Dictionary = {}
+	var stage_obs: Array = []          # colisores de estágio (sólido com `if`/`unless`): só entram enquanto valem
 	for ob in def.obstacles:
 		if not ob.get("solid", true):
 			continue
+		if ob.has("if") or ob.has("unless"):
+			stage_obs.append(ob)
+			if not WorldState.active(sim, ob):
+				continue
 		var kind: String = ob.get("kind", "house")
 		if kind == "water":
 			continue            # o lago vem de def.water (círculo, não o quadrado antigo)
@@ -36,13 +41,20 @@ static func build_collider_grid(sim: WorldSim, m: Dictionary) -> void:
 			var a := pts[i]
 			var b := pts[i + 1]
 			var seg_len := a.distance_to(b)
-			var n := maxi(1, ceili(seg_len / RIVER_PIECE))
+			# perto de ponte as caixas são curtas: o vão fica do tamanho do tabuleiro (com caixa de 1,5 m sobrava até
+			# 1,5 m de água andável ao lado da ponte, conforme onde a emenda caía)
+			var piece := RIVER_PIECE
+			for br in bridges:
+				if br["pos"].distance_to(Geometry2D.get_closest_point_to_segment(br["pos"], a, b)) < br["half"] + RIVER_PIECE * 2.0:
+					piece = RIVER_PIECE_BRIDGE
+					break
+			var n := maxi(1, ceili(seg_len / piece))
 			var dir := (b - a) / seg_len if seg_len > 0.001 else Vector2.RIGHT
 			for k in range(n):
 				var c := a.lerp(b, (k + 0.5) / n)
 				var on_bridge := false
 				for br in bridges:
-					if br["pos"].distance_to(c) < BRIDGE_HALF + seg_len / n * 0.5 + 0.35:
+					if br["pos"].distance_to(c) < br["half"] + seg_len / n * 0.5 + 0.35:
 						on_bridge = true
 						break
 				if on_bridge:
@@ -52,13 +64,35 @@ static func build_collider_grid(sim: WorldSim, m: Dictionary) -> void:
 					"rot": -dir.angle(), "tall": false})
 	m["colliders"] = cols
 	m["grid"] = grid
+	m["stage_obs"] = stage_obs
+	m["stage_sig"] = stage_signature(sim, stage_obs)
 	build_water_graph(sim, m)
+
+## Quais colisores de estágio valem agora, num número (compara sem alocar).
+static func stage_signature(sim: WorldSim, stage_obs: Array) -> int:
+	var sig := 0
+	for ob in stage_obs:
+		sig = (sig * 31 + (2 if WorldState.active(sim, ob) else 1)) & 0x7FFFFFFF
+	return sig
+
+## Conquista mudou o que é sólido (ex.: a paliçada de Porto Esperança fecha os vãos com `hx_palisade`)? Refaz a grade.
+## Chamado pelo WorldState.update (1x por s por mapa); mapa sem colisor de estágio sai na hora. Devolve se refez.
+## Quem ficou dentro de um colisor novo é empurrado para o lado mais perto no próximo passo (resolve_obstacles).
+static func sync_stage(sim: WorldSim, m: Dictionary) -> bool:
+	var stage_obs: Array = m.get("stage_obs", [])
+	if stage_obs.is_empty() or stage_signature(sim, stage_obs) == int(m.get("stage_sig", 0)):
+		return false
+	build_collider_grid(sim, m)
+	return true
 
 const WATER_SHORE := 0.5      # m de água rasa andável na beirada
 
 const RIVER_PIECE := 1.5      # comprimento de cada caixa do rio
+const RIVER_PIECE_BRIDGE := 0.5   # idem, nos trechos que encostam numa ponte (vão justo)
 
 const BRIDGE_HALF := 2.7      # meia-largura do vão da ponte (tabuleiro = estrada + 0,6 m)
+
+const BRIDGE_LANE := 1.1      # folga (raio de quem anda + sobra) para o meio da estrada passar numa ponte enviesada
 
 static func add_collider(sim: WorldSim, cols: Array, grid: Dictionary, c: Dictionary) -> void:
 	var idx := cols.size()
@@ -74,7 +108,9 @@ static func add_collider(sim: WorldSim, cols: Array, grid: Dictionary, c: Dictio
 				grid[key] = []
 			grid[key].append(idx)
 
-## Pontes: onde cada estrada cruza cada rio. {"pos": Vector2 (no eixo do rio), "dir": Vector2 (ao longo do rio)}.
+## Pontes: onde cada estrada cruza cada rio. {"pos": Vector2 (no eixo do rio), "dir": Vector2 (ao longo do rio),
+## "road": Vector2 (ao longo da estrada), "half": meio-vão ao longo do rio}. O vão é reto (atravessado ao rio): numa ponte
+## de frente vale BRIDGE_HALF; numa enviesada abre o bastante para o meio da estrada passar sem bater na água.
 static func water_crossings(def: MapDef) -> Array:
 	var out: Array = []
 	for w in def.water:
@@ -89,7 +125,11 @@ static func water_crossings(def: MapDef) -> Array:
 				for j in range(qp.size() - 1):
 					var hit = Geometry2D.segment_intersects_segment(rp[i], rp[i + 1], qp[j], qp[j + 1])
 					if hit != null:
-						out.append({"pos": hit, "dir": (rp[i + 1] - rp[i]).normalized(), "w": float(w["w"])})
+						var dir := (rp[i + 1] - rp[i]).normalized()
+						var road := (qp[j + 1] - qp[j]).normalized()
+						var skew := absf(dir.dot(road)) / maxf(absf(dir.cross(road)), 0.2)      # 1 / tan do ângulo do cruzamento
+						out.append({"pos": hit, "dir": dir, "road": road, "w": float(w["w"]),
+							"half": maxf(BRIDGE_HALF, (float(w["w"]) * 0.5 - WATER_SHORE) * skew + BRIDGE_LANE)})
 	return out
 
 ## Caminho (pontos no chão) de `from` até `to` sem atravessar rio fora das pontes; vazio = linha reta serve.

@@ -46,6 +46,12 @@ var my_role := ""              # papel da build (ProgressionSystem.role_of), lid
 const TANK_RECHECK := 2.0
 var place_t := 0.0             # s seguidos indo para o lugar do papel (lugar inalcançável: desiste por um tempo)
 var place_cool := 0.0
+var focus_t := 0.0             # próxima reavaliação do foco no bando (_focus)
+
+## MonsterDef.id → tem skill com grito de guerra (`rally`)? Cache (os catálogos não mudam durante o jogo).
+static var _rally_cache: Dictionary = {}
+## Sonda (band_probe --pack --no_focus): desliga o foco para comparar.
+static var focus_enabled := true
 
 ## Um convite ao jogador por vez no servidor inteiro (não vira spam).
 static var next_player_invite: float = 60.0
@@ -78,6 +84,7 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 	recall_retry -= dt
 	tank_t -= dt
 	place_cool -= dt
+	focus_t -= dt
 	var def: MapDef = m["def"]
 	cur_def = def
 	cur_sim = sim
@@ -105,7 +112,7 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 			return _follow(e, sim, m, leader, cmd, dt)
 		if not in_town:
 			var members: Array = sim.party_members(e)
-			if _heal_party(e, sim, members, cmd, dt) or _taunt_party(e, m, members, cmd):
+			if _heal_party(e, sim, members, cmd, dt) or _taunt_party(e, sim, m, members, cmd):
 				return cmd
 			var loose := _loose_big(e, sim, m, members)
 			if loose:
@@ -219,11 +226,69 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 	return cmd
 
 # ---------------------------------------------------------------------------
+## Luta + regra da Barreira Sagrada: com uma cúpula do grupo no mapa, o bot entra e fica nela enquanto existir
+## (segue a cúpula, não o Bispo). O tanque segurando o alvo fica onde está (andar traria o chefe para cima do grupo).
 func _fight(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCommand) -> InputCommand:
+	cmd = _fight_core(e, sim, m, mob, cmd)
+	if (m.get("barriers", []) as Array).is_empty():
+		return cmd
+	var dome: Dictionary = ChoirSystem.party_barrier(sim, e)
+	if dome.is_empty() or mob.aggro_target == e.id or int(dome["owner"]) == e.id:
+		return cmd                                        # o dono é a referência da cúpula: ela é que vem atrás dele
+	var c: Vector3 = dome["pos"]
+	var keep: float = float(dome["radius"]) * Balance.BOT_BARRIER_STAY - e.radius
+	if Vector2(e.position.x - c.x, e.position.z - c.z).length() > keep:
+		if e.can_act():
+			cmd.move = _steer(e, c, 0.0)                  # fora: entra primeiro (o golpe em andamento termina antes)
+			cmd.skill_slot = -1
+			cmd.attack = false
+			cmd.dash = false
+			engaged = false
+	elif cmd.move != Vector2.ZERO:
+		var nxt := e.position + Vector3(cmd.move.x, 0.0, cmd.move.y) * 0.6
+		if Vector2(nxt.x - c.x, nxt.z - c.z).length() > keep:
+			cmd.move = Vector2.ZERO                       # dentro: não sai (nem para o lugar do papel, nem recuando)
+			cmd.dash = false
+	return cmd
+
+## Coro Celeste (Bispo ascendido): true = já decidiu o comando. Retorno em quem caiu; Barreira quando o chefe avisa
+## chuva/golpe de longe ou há feridos (ChoirSystem.wants_barrier), no meio do grupo; Anjo sempre que pronto em luta
+## de chefe (fora dela, só com alguém ferido).
+func _choir(e: SimEntity, sim, m: Dictionary, members: Array, cmd: InputCommand) -> bool:
+	if e.class_def == null or e.class_def.id != "bishop" or e.skills.size() <= Balance.SKILL_SLOTS or not e.can_act() or not sim.has_ascension(e):
+		return false
+	var i := e.slot_of(ChoirSystem.RETURN_SKILL)
+	if i >= 0 and _ready_to_cast(e, e.skills[i]):
+		var f: SimEntity = ChoirSystem.fallen(sim, e, e.position)
+		if f != null:
+			cmd.skill_slot = i
+			cmd.aim = f.position
+			return true
+	if e.combat_timer <= 0.0 and not members.any(func(o): return o.combat_timer > 0.0 and o.is_alive() and o.map_id == e.map_id):
+		return false
+	i = e.slot_of(ChoirSystem.BARRIER_SKILL)
+	if i >= 0 and _ready_to_cast(e, e.skills[i]) and (m.get("barriers", []) as Array).is_empty() and ChoirSystem.wants_barrier(sim, e, m, members):
+		cmd.skill_slot = i
+		cmd.aim = ChoirSystem.barrier_spot(e, members)
+		return true
+	i = e.slot_of(ChoirSystem.ANGEL_SKILL)
+	if i >= 0 and _ready_to_cast(e, e.skills[i]) and ChoirSystem.angels_of(sim, e).size() < ChoirSystem.angel_max(e) and ChoirSystem.wants_angel(sim, e, m, members):
+		cmd.skill_slot = i
+		cmd.aim = e.position + e.forward()
+		return true
+	return false
+
+func _fight_core(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCommand) -> InputCommand:
+	if focus_t <= 0.0 and focus_enabled:
+		focus_t = Balance.BOT_FOCUS_EVERY
+		var f := _focus(e, sim, m, mob)
+		if f:
+			mob = f
 	if mob.id != hunt_target_id:
 		engaged = false
 	hunt_target_id = mob.id
 	cmd.aim = mob.position
+	ElementalSystem.bot_orders(e, sim, mob, cmd)       # ascensão do Elementalista: forma e modo do elemental (só o comando)
 	var dist := e.position.distance_to(mob.position) - mob.radius - e.radius
 	var cls := e.class_def
 	var melee: bool = cls == null or not cls.basic_attack_is_ranged or (e.basic_skill != null and e.basic_skill.target == SkillDef.Target.CONE)     # lança do Ranger: básico em cone = corpo a corpo
@@ -232,6 +297,15 @@ func _fight(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCommand)
 	if away != Vector2.ZERO:
 		cmd.move = away
 		cmd.aim = e.position + Vector3(away.x, 0, away.y) * 3.0
+		var jump := _dodge_jump(e)            # Lanceiro ascendido: o Salto Dracônico é a esquiva do golpe grande
+		if jump >= 0 and e.can_act() and e.position.distance_to(mob.position) <= e.skills[jump].range:
+			cmd.skill_slot = jump                 # no ar o golpe passa; cai de volta colado no alvo depois dele
+			cmd.aim = RangerAscension.jump_spot(e, mob)
+			return cmd
+		var eyes := FalconSystem.bot_eyes_slot(e, m)       # Falcoeiro: barragem no chão = Olhos do Céu (o grupo sai mais rápido)
+		if eyes >= 0 and e.can_act():
+			cmd.skill_slot = eyes
+			return cmd
 		if e.dash_cd <= 0.0 and rng.randf() < 0.6:
 			cmd.dash = true
 		engaged = false
@@ -249,7 +323,7 @@ func _fight(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCommand)
 	if e.hp < e.stats.max_hp * 0.5:
 		for i in range(e.skills.size()):
 			var s := e.skills[i]
-			if s and s.kind == SkillDef.Kind.HEAL and e.level >= s.unlock_level and e.stats.meets(s.requires) and _ready_to_cast(e, s):
+			if s and s.kind == SkillDef.Kind.HEAL and e.level >= s.unlock_level and e.stats.meets(s.requires) and _ready_to_cast(e, s) and DruidAscension.form_ok(e, s.requires_form):
 				cmd.skill_slot = i
 				cmd.aim = e.position
 				return cmd
@@ -279,6 +353,12 @@ func _fight(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCommand)
 		cmd.move = _steer(e, spot, 0.0)
 		return cmd
 	stealth_peak = 0.0
+	# ascensão do Bispo: Retorno, Barreira e Anjo têm hora certa
+	if _choir(e, sim, m, sim.party_members(e), cmd):
+		return cmd
+	# ascensão do Paladino: Modo Arcano em chefe, monta para abrir com a Carga, desce quando ela recarrega
+	if MountedCombat.fights_mounted(e) and _ascension(e, sim, m, mob, dist, cmd):
+		return cmd
 	# Corpo a corpo é um cone: o alcance do básico é o raio dele (não o "range", que no cone não vale).
 	var basic_reach := 1.8
 	if e.basic_skill:
@@ -313,6 +393,12 @@ func _fight(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCommand)
 	var pick := -1 if hold_skills else _best_skill(e, sim, m, mob, dist)
 	if pick >= 0:
 		cmd.skill_slot = pick
+		if e.skills[pick].effects.has("turret"):
+			cmd.aim = RangerAscension.turret_spot(e, mob, tank)
+		elif e.skills[pick].effects.has("dragon_jump"):
+			cmd.aim = RangerAscension.jump_spot(e, mob)      # cai colado no alvo, do lado de onde saiu (não em cima dele)
+		elif e.skills[pick].effects.has("falcon_dive"):
+			cmd.aim = FalconSystem.bot_dive_aim(e, mob, tank, m)     # Mergulho no alvo do tanque
 		return cmd
 	# ataque básico, com histerese: entra a 75% do alcance e só sai depois de 95% (não fica entrando e saindo).
 	var in_range := dist <= basic_reach * (0.95 if engaged else 0.75)
@@ -357,6 +443,51 @@ func _fight(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCommand)
 	cmd.move = _steer(e, spot, 0.0)
 	return cmd
 
+## Ascensão (Combate Montado + Modo Arcano): true = já decidiu o comando. Liga as asas em luta de chefe (Guardião
+## quando segura o aggro; os outros ao abrir dano) e desliga com MP < Balance.BOT_ARCANE_OFF_MP; em campo aberto monta
+## para abrir com a Carga (alvo a BOT_CHARGE_MIN..BOT_MOUNT_FIGHT_RANGE) e desce quando ela está recarregando.
+func _ascension(e: SimEntity, sim, m: Dictionary, mob: SimEntity, dist: float, cmd: InputCommand) -> bool:
+	var arc := e.slot_of(Balance.ARCANE_SKILL)
+	var arc_on: bool = sim.arcane_on(e)
+	if arc >= 0 and float(e.cooldowns.get(Balance.ARCANE_SKILL, 0.0)) <= 0.0:
+		if arc_on and e.mp < e.stats.max_mp * Balance.BOT_ARCANE_OFF_MP:
+			cmd.skill_slot = arc
+			return true
+		var boss: bool = mob.monster_def != null and mob.monster_def.is_boss
+		var ready: bool = mob.aggro_target == e.id if e.build_id == "guardiao" else dist < 4.0
+		if not arc_on and boss and ready and e.mp >= e.stats.max_mp * Balance.BOT_ARCANE_ON_MP and e.mount_left <= 0.0:
+			cmd.skill_slot = arc
+			return true
+	if arc_on:
+		return false
+	var ch := e.slot_of(Balance.MOUNT_CHARGE_SKILL)
+	if ch < 0:
+		return false
+	var ch_ready: bool = float(e.cooldowns.get(Balance.MOUNT_CHARGE_SKILL, 0.0)) <= 0.0
+	if e.mount_left > 0.0:
+		cmd.move = Vector2.ZERO          # montando: parado (agir interromperia)
+		return true
+	if not e.mounted and ch_ready and m["def"].parent_map == "" and dist >= Balance.BOT_CHARGE_MIN and dist <= Balance.BOT_MOUNT_FIGHT_RANGE \
+			and mob.aggro_target != e.id and e.combat_timer <= 0.0:          # só para abrir a luta (no meio dela a montaria custa 1,5 s)
+		cmd.mount = true
+		return true
+	if e.mounted and (not ch_ready or dist < Balance.BOT_CHARGE_MIN):
+		var tr := e.slot_of(Balance.MOUNT_TRAMPLE_SKILL)
+		if tr >= 0 and _ready_to_cast(e, e.skills[tr]) and dist <= float(Balance.MOUNT_TRAMPLE["radius"]):
+			cmd.skill_slot = tr
+			return true
+		cmd.mount = true                 # Carga gasta: desce para usar as skills da build
+		return true
+	return false
+
+## Slot do Salto Dracônico pronto para esquivar (-1 = nenhum).
+func _dodge_jump(e: SimEntity) -> int:
+	for i in range(e.skills.size()):
+		var s := e.skills[i]
+		if s != null and s.effects.has("dragon_jump") and e.knows(s.id) and e.stats.meets(s.requires) and _ready_to_cast(e, s):
+			return i
+	return -1
+
 ## Melhor skill pronta para usar agora (-1 = nenhuma): pontua cada uma em vez de sortear.
 func _best_skill(e: SimEntity, sim, m: Dictionary, mob: SimEntity, dist: float) -> int:
 	var near := -1                     # inimigos a 4 m: só conta se alguma skill de área estiver na disputa
@@ -376,15 +507,47 @@ func _best_skill(e: SimEntity, sim, m: Dictionary, mob: SimEntity, dist: float) 
 			continue
 		if (s.effects.has("aura") and AuraSystem.aura_on(e, s)) or (str(s.effects.get("form", "")) != "" and e.form == str(s.effects["form"])):
 			continue                        # aura ligada / já na forma: bot não desliga
+		if DruidAscension.bot_skips(e, s):
+			continue                        # Druida ascendido: fica na forma ancestral (não volta à de base); skill de outra forma não sai
 		if e.is_character() and not e.knows(s.id):
 			continue
+		if s.effects.has("choir_angel") or s.effects.has("choir_barrier") or s.effects.has("choir_return"):
+			continue                        # Coro Celeste: hora certa em _choir
+		if s.effects.has("arcane") or sim.mount_block(e, s) != "":
+			continue                        # Modo Arcano tem hora certa (_ascension); a cavalo só as montáveis
+		if s.mount_only and s.is_charge() and dist < Balance.BOT_CHARGE_MIN:
+			continue                        # Carga Montada só de longe (abre a luta)
 		if s.effects.has("channel") and mob.monster_def and mob.monster_def.is_boss and mob.aggro_target == e.id:
 			continue                        # canalizar parado com o chefe em cima = morrer (Pestilento solo: 2/40)
 		if e.stealth_left > 0.0 and not (s.kind in [SkillDef.Kind.PHYSICAL, SkillDef.Kind.MAGICAL]):
 			continue                        # na sombra: só golpe (o resto quebraria a furtividade sem o bônus)
 		var score := 0.0
-		if s.effects.has("stealth"):
-			if e.stealth_left > 0.0 or dist > Balance.BOT_STEALTH_RANGE or (s.requires_form != "" and e.form != s.requires_form):
+		if FalconSystem.is_skill(s):         # Falcoeiro: chama o falcão, Mergulho na recarga, Olhos do Céu em chefe/barragem
+			score = FalconSystem.bot_score(e, s, mob, dist, m)
+			if score <= 0.0:
+				continue
+		elif NecroAscension.is_mine(s):      # Senhor dos Mortos: Pacto, Miasma, Marca da Cova e Forma de Lich têm hora certa
+			score = NecroAscension.bot_score(sim, e, s, mob, dist, m)
+			if score <= 0.0:
+				continue
+		elif s.effects.has("turret"):          # Atirador ascendido: torreta no começo da luta (uma viva por vez)
+			if dist > Balance.BOT_TURRET_REACH or RangerAscension.turrets_of(sim, e).size() >= RangerAscension.turret_max(e):
+				continue
+			score = Balance.BOT_TURRET_SCORE
+		elif s.effects.has("shout") and RangerAscension.shouting(e) and not RangerAscension.can_combo(e, s):
+			continue                         # um Brado por vez (Brado Combinado pronto: o 2º elemento)
+		elif s.effects.has("dragon_jump") and dist < Balance.BOT_JUMP_MIN:
+			continue                         # Salto Dracônico: fecha distância (6-9 m) ou esquiva (_danger_escape); colado, o básico rende mais
+		elif s.effects.has("shadow_clone"):  # Assassino ascendido: Sombra Gêmea ao colar no alvo e sempre que recarrega
+			if not ShadowSystem.bot_wants_clone(sim, e, dist):
+				continue
+			score = Balance.BOT_SHADOW_SCORE
+		elif s.effects.has("execute"):       # Execução: só com o alvo abaixo do limiar (acima é um corte fraco)
+			if not ShadowSystem.executable(mob) or dist > s.range + 0.3:
+				continue
+			score = Balance.BOT_EXECUTION_SCORE
+		elif s.effects.has("stealth"):
+			if e.stealth_left > 0.0 or dist > Balance.BOT_STEALTH_RANGE or not DruidAscension.form_ok(e, s.requires_form):
 				continue
 			if e.combat_timer > 0.0 or mob.aggro_target == e.id:
 				continue                    # só abertura: no meio da luta o chefe perde o alvo e pode resetar
@@ -398,6 +561,10 @@ func _best_skill(e: SimEntity, sim, m: Dictionary, mob: SimEntity, dist: float) 
 				score = Balance.BOT_FORM_SCORE if dist < Balance.BOT_FORM_RANGE else 0.0     # Lobo/Urso: entra na forma antes de bater
 			elif s.effects.has("form") or s.effects.has("taunt"):
 				continue                    # outras formas e provocar têm hora certa (fora daqui)
+			elif s.ascension and s.radius >= Balance.BLESS_RADIUS:
+				score = 2.5                 # bênção de grupo da ascensão (Asas da Aurora, Égide Coral): vale de longe também
+			elif s.ascension and b is Dictionary and b.get("toggle", false):
+				score = Balance.BOT_FORM_SCORE if dist < Balance.BOT_FORM_RANGE else 0.0     # postura (Modo Gladiador): liga antes de bater
 			else:
 				score = 2.5 if dist < 6.0 else 0.0
 		elif s.kind == SkillDef.Kind.MOVEMENT or (s.effects.has("dash") and s.power <= 0.0):
@@ -417,17 +584,84 @@ func _best_skill(e: SimEntity, sim, m: Dictionary, mob: SimEntity, dist: float) 
 			if area:
 				if near < 0:
 					near = 0
-					for o in m["entities"]:
+					for o: SimEntity in m["entities"]:
 						if o.kind == SimEntity.Kind.MONSTER and o.is_alive() and o.position.distance_to(e.position) <= 4.0:
 							near += 1
 				score *= 0.8 + 0.45 * maxi(0, near - 1)
 			if mob.hp < mob.stats.max_hp * 0.35:
 				score *= 1.15
+			if mob.monster_def and mob.monster_def.regen > 0.0 and cuts_regen(s) and not MobSystem.regen_blocked(mob):
+				score *= Balance.BOT_REGEN_CUT_SCORE     # troll regenerando: fogo/veneno primeiro (GDD ato2-horda F3, pergunta 7)
+			score *= FusionEffects.bot_skill_mult(e, mob, s)     # Fusão que pede uma skill na hora certa (E1 Vapor: gelo no alvo que queima)
 		score *= rng.randf_range(0.85, 1.15)
 		if score > best_score:
 			best_score = score
 			best = i
 	return best
+
+## A skill põe fogo ou veneno (dano no tempo que não é sangramento): corta a regeneração do troll (MobSystem.regen_blocked).
+static func cuts_regen(s: SkillDef) -> bool:
+	var d = s.effects.get("dot")
+	return d is Dictionary and not (d as Dictionary).has("atk_pct")
+
+## Foco no bando (GDD ato2-horda AC-20): troca o alvo por quem pesa mais na luta: troll que regenera (só para quem tem
+## fogo/veneno), emissor de aura (Agitador), quem dá grito de guerra. null = continua no alvo. Fora de luta de chefe, e o
+## tanque do grupo não troca (segura o bando). Pesos em Balance.BOT_FOCUS_*.
+func _focus(e: SimEntity, sim, m: Dictionary, mob: SimEntity) -> SimEntity:
+	if mob.monster_def == null or mob.monster_def.is_boss:
+		return null
+	if e.party_id >= 0 and _role(e, sim) == "tank":
+		return null
+	var cut := _has_regen_cut(e)
+	var best: SimEntity = null
+	var best_v := focus_value(mob.monster_def, cut)
+	var best_d := INF
+	var r2 := Balance.BOT_FOCUS_RANGE * Balance.BOT_FOCUS_RANGE
+	var p2 := Balance.BOT_FOCUS_PACK * Balance.BOT_FOCUS_PACK
+	for o in m["entities"]:
+		if o.kind != SimEntity.Kind.MONSTER or o == mob:
+			continue
+		var d2: float = o.position.distance_squared_to(e.position)
+		if d2 > r2 or not o.is_alive() or o.monster_def == null or o.monster_def.is_boss:
+			continue
+		if o.aggro_target < 0 and o.position.distance_squared_to(mob.position) > p2:
+			continue                       # bando de outro lugar, ainda quieto: não puxa
+		if not e.is_hostile_to(o) or o.stealth_left > 0.0:
+			continue
+		var v := focus_value(o.monster_def, cut)
+		if v > best_v or (best != null and v == best_v and d2 < best_d):
+			best_v = v
+			best_d = d2
+			best = o
+	return best
+
+## Peso de foco de um monstro (0 = comum). `regen_cut` = o bot tem skill de fogo/veneno pronta para usar.
+static func focus_value(d: MonsterDef, regen_cut: bool) -> float:
+	if regen_cut and d.regen > 0.0:
+		return Balance.BOT_FOCUS_REGEN
+	if d.aura != "":
+		return Balance.BOT_FOCUS_AURA
+	if rallies(d):
+		return Balance.BOT_FOCUS_RALLY
+	return 0.0
+
+## O monstro tem grito de guerra (skill com `rally`)?
+static func rallies(d: MonsterDef) -> bool:
+	if not _rally_cache.has(d.id):
+		var yes := false
+		for sid in d.skill_ids:
+			var s: SkillDef = GameData.skills.get(sid)
+			if s and s.effects.has("rally"):
+				yes = true
+		_rally_cache[d.id] = yes
+	return bool(_rally_cache[d.id])
+
+## O bot sabe e pode usar alguma skill de fogo/veneno (cuts_regen)?
+func _has_regen_cut(e: SimEntity) -> bool:
+	for s in e.skills:
+		if s and cuts_regen(s) and e.level >= s.unlock_level and e.stats.meets(s.requires) and (not e.is_character() or e.knows(s.id)):
+			return true
+	return false
 
 ## Para onde sair de uma área de golpe de monstro que está começando (Vector2.ZERO = seguro).
 ## Tanque (`tank`): não foge do golpe de frente/em volta do monstro que está segurando (ele viria atrás e o grupo
@@ -439,12 +673,14 @@ func _danger_escape(e: SimEntity, m: Dictionary, tank: bool = false) -> Vector2:
 		var mine := Vector2(e.position.x, e.position.z)
 		if mine.distance_to(hc) < float(h["radius"]) + e.radius + Balance.BOT_DODGE_PAD:
 			return (mine - hc).normalized() if mine.distance_to(hc) > 0.05 else Vector2.RIGHT
-	for o in m["entities"]:
+	for o: SimEntity in m["entities"]:
 		if o.state != SimEntity.State.CASTING or o.kind != SimEntity.Kind.MONSTER or o.current_skill == null:       # o barato primeiro
 			continue
 		if o.skill_phase != "startup" or o.position.distance_to(e.position) > 14.0:
 			continue
 		var s: SkillDef = o.current_skill
+		if s == o.basic_skill or s.kind == SkillDef.Kind.BUFF:
+			continue                             # golpe básico (curto: bloqueia ou aguenta) e grito/buff do próprio monstro não são área de perigo
 		if tank and o.aggro_target == e.id and s.target != SkillDef.Target.GROUND:
 			continue
 		if (s.radius < Balance.BOT_DODGE_MIN_RADIUS and not s.is_charge()) or s.target == SkillDef.Target.TARGET or s.effects.has("barrage"):
@@ -475,7 +711,7 @@ func _danger_escape(e: SimEntity, m: Dictionary, tank: bool = false) -> Vector2:
 func _pick_monster(e: SimEntity, m: Dictionary) -> SimEntity:
 	var best: SimEntity = null
 	var best_score := INF
-	for o in m["entities"]:
+	for o: SimEntity in m["entities"]:
 		if o.kind != SimEntity.Kind.MONSTER or not o.is_alive():
 			continue
 		if o.monster_def.is_boss and e.level < o.level + 2 and personality < 0.7:
@@ -759,6 +995,8 @@ func _follow(e: SimEntity, sim, m: Dictionary, leader: SimEntity, cmd: InputComm
 			cmd.aim = portal["pos"]
 		return cmd
 	var members: Array = sim.party_members(e)
+	if _choir(e, sim, m, members, cmd):          # Bispo ascendido: Retorno/Barreira/Anjo passam na frente da cura
+		return cmd
 	if _heal_party(e, sim, members, cmd, dt):
 		return cmd
 	var foe := _loose_big(e, sim, m, members) if not in_town else null      # tanque: chefe que largou dele
@@ -771,7 +1009,7 @@ func _follow(e: SimEntity, sim, m: Dictionary, leader: SimEntity, cmd: InputComm
 	if foe == null:
 		foe = _party_threat(e, m, members, leader)
 	if foe and not in_town:
-		if _taunt_party(e, m, members, cmd):
+		if _taunt_party(e, sim, m, members, cmd):
 			return cmd
 		return _fight(e, sim, m, foe, cmd)
 	# na vila: vende e reabastece de tempos em tempos (o líder decide quando voltar)
@@ -792,23 +1030,41 @@ func _follow(e: SimEntity, sim, m: Dictionary, leader: SimEntity, cmd: InputComm
 		cmd.aim = e.position + leader.forward() * 3.0
 	return cmd
 
-## Tanque: provoca quando há monstro por perto batendo em outro membro do grupo.
-func _taunt_party(e: SimEntity, m: Dictionary, members: Array, cmd: InputCommand) -> bool:
+## Tanque: provoca quando há monstro por perto batendo em outro membro do grupo. O tanque também provoca de novo o
+## chefe/elite que já segura quando alguém do grupo chega a BOT_TANK_RETAUNT × a ameaça dele (antes de o dps frear).
+func _taunt_party(e: SimEntity, sim, m: Dictionary, members: Array, cmd: InputCommand) -> bool:
 	if not e.can_act():
 		return false
+	var tank := _role(e, sim) == "tank"
+	var ptank: SimEntity = null if tank else _tank_of(e, sim)   # quem não é o tanque não rouba o que o tanque do grupo segura
 	for i in range(e.skills.size()):
 		var s := e.skills[i]
 		if s == null or not s.effects.has("taunt") or e.level < s.unlock_level or not e.stats.meets(s.requires):
 			continue
 		if not _ready_to_cast(e, s):
 			continue
-		for o in m["entities"]:
-			if o.kind != SimEntity.Kind.MONSTER or not o.is_alive() or o.aggro_target < 0 or o.aggro_target == e.id:
+		for o: SimEntity in m["entities"]:
+			if o.kind != SimEntity.Kind.MONSTER or not o.is_alive() or o.aggro_target < 0:
 				continue
-			if o.position.distance_to(e.position) <= s.radius and members.any(func(x): return x.id == o.aggro_target):
+			if o.position.distance_to(e.position) > s.radius:
+				continue
+			if ptank != null and o.aggro_target == ptank.id:
+				continue
+			var mine: bool = o.aggro_target == e.id
+			if (not mine and members.any(func(x): return x.id == o.aggro_target)) or (mine and tank and _threat_close(e, o, members)):
 				cmd.skill_slot = i
 				cmd.aim = o.position
 				return true
+	return false
+
+## Chefe/elite preso em `e` (sem provocação valendo) com alguém do grupo a BOT_TANK_RETAUNT × a ameaça de `e` ou mais.
+static func _threat_close(e: SimEntity, o: SimEntity, members: Array) -> bool:
+	if not _is_big(o) or o.taunt_left > 0.0:
+		return false
+	var lim := float(o.threat.get(e.id, 0.0)) * Balance.BOT_TANK_RETAUNT
+	for x in members:
+		if x != e and float(o.threat.get(x.id, 0.0)) >= lim and float(o.threat.get(x.id, 0.0)) > 0.0:
+			return true
 	return false
 
 ## Cura o membro mais ferido (< 60% HP) com a primeira skill de cura pronta; anda até ele se precisar.
@@ -843,7 +1099,7 @@ func _heal_party(e: SimEntity, sim, members: Array, cmd: InputCommand, dt: float
 		return false
 	for i in range(e.skills.size()):
 		var base := e.skills[i]
-		if base == null or base.kind != SkillDef.Kind.HEAL or e.level < base.unlock_level or not e.stats.meets(base.requires):
+		if base == null or base.kind != SkillDef.Kind.HEAL or e.level < base.unlock_level or not e.stats.meets(base.requires) or not DruidAscension.form_ok(e, base.requires_form):
 			continue
 		if not _ready_to_cast(e, base):
 			continue
@@ -868,7 +1124,7 @@ func _party_threat(e: SimEntity, m: Dictionary, members: Array, leader: SimEntit
 		ids[o.id] = true
 	var best: SimEntity = null
 	var best_d := Balance.PARTY_ASSIST_RANGE
-	for o in m["entities"]:
+	for o: SimEntity in m["entities"]:
 		if o.kind != SimEntity.Kind.MONSTER or not o.is_alive():
 			continue
 		var d: float = o.position.distance_to(leader.position)
@@ -954,7 +1210,7 @@ func _loose_big(e: SimEntity, sim, m: Dictionary, members: Array) -> SimEntity:
 	var ids := {}
 	for o in members:
 		ids[o.id] = true
-	for o in m["entities"]:
+	for o: SimEntity in m["entities"]:
 		if o.kind != SimEntity.Kind.MONSTER or not o.is_alive() or o.position.distance_to(e.position) > Balance.PARTY_ASSIST_RANGE:
 			continue
 		if _is_big(o) and o.aggro_target >= 0 and o.aggro_target != e.id and ids.has(o.aggro_target):
@@ -971,7 +1227,7 @@ func _peel_target(e: SimEntity, sim, m: Dictionary, members: Array) -> SimEntity
 			soft[o.id] = o
 	if soft.is_empty():
 		return null
-	for o in m["entities"]:
+	for o: SimEntity in m["entities"]:
 		if o.kind != SimEntity.Kind.MONSTER or not o.is_alive() or _is_big(o) or not soft.has(o.aggro_target):
 			continue
 		if o.position.distance_to((soft[o.aggro_target] as SimEntity).position) > Balance.BOT_PEEL_RANGE:

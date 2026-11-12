@@ -14,6 +14,7 @@ var loot_tables: Dictionary = {} # id -> LootTable
 var sets: Dictionary = {}        # id -> SetDef (conjuntos lendários)
 var talents: Dictionary = {}     # id -> TalentDef (evoluções de skills/dash)
 var trees: Dictionary = {}       # class_id -> {"start", "nodes"} (teia de pontos de skill, TreeCatalog)
+var asc_trees: Dictionary = {}   # class_id -> teia de ascensão (AscensionCatalog; classe sem conteúdo fica fora)
 var class_talents: Dictionary = {}   # id da opção -> dicionário do ClassTalentsCatalog (aba Talentos)
 var bot_names: Array = []
 var bot_lines: Dictionary = {}
@@ -47,6 +48,7 @@ func load_all() -> void:
 			for o in row[1]:
 				class_talents[o["id"]] = o
 	trees = TreeCatalog.build(classes, skills, talents)
+	asc_trees = AscensionCatalog.build(classes, skills)
 	for i in ItemsCatalog.build():
 		items[i.id] = i
 	var gear := GearCatalog.build(classes, skills)
@@ -152,6 +154,21 @@ func legendary_pool(cls: ClassDef, level: int, build_id: String = "") -> Array:
 		if sd:
 			out.append_array(sd.pieces)
 			out.append_array(sd.alt_pieces)       # a maça do conjunto também cai
+	for sd in hybrid_sets_for(cls, build_id, level):     # híbridos (R7.1): caem e trocam como os da build
+		for iid in sd.pieces + sd.alt_pieces:
+			if not (iid in out):
+				out.append(iid)
+	return out
+
+## Conjuntos híbridos da classe no nível (build_id != "": só os pares em que ela entra, A ou B).
+func hybrid_sets_for(cls: ClassDef, build_id: String, level: int) -> Array:
+	var out: Array = []
+	for pair in GearCatalog.hybrid_pairs(cls):
+		if build_id != "" and not (build_id in pair):
+			continue
+		var sd: SetDef = sets.get(GearCatalog.hybrid_set_id(cls.id, pair[0], pair[1], level))
+		if sd:
+			out.append(sd)
 	return out
 
 static func set_id_for(class_id: String, build_id: String, level: int) -> String:

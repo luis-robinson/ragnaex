@@ -2,12 +2,12 @@ class_name MobSystem
 extends RefCounted
 ## Monstros: provocação/troca de alvo, chamar a matilha, fases de chefe (lacaios, enrage, reset) e spawners.
 
-## Provocar: quem provoca vira o topo da ameaça e o monstro fica preso nele por um tempo.
+## Provocar: quem provoca vira o topo da ameaça com folga (TAUNT_THREAT_LEAD) e o monstro fica preso nele por um tempo.
 static func taunt(sim: WorldSim, mob: SimEntity, src: SimEntity, duration: float) -> void:
 	var top := 0.0
 	for id in mob.threat:
 		top = maxf(top, float(mob.threat[id]))
-	mob.threat[src.id] = top * Balance.THREAT_SWITCH + 1.0
+	mob.threat[src.id] = top * Balance.TAUNT_THREAT_LEAD + 1.0
 	mob.aggro_target = src.id
 	mob.aggro_timer = Balance.AGGRO_LOSE_TIME
 	mob.taunt_left = duration * (0.5 if mob.monster_def.is_boss else 1.0)
@@ -30,14 +30,14 @@ static func pack_call(sim: WorldSim, mob: SimEntity, attacker: SimEntity) -> voi
 		return
 	var lid: int = mob.leader_id if mob.leader_id >= 0 else (mob.id if not mob.monster_def.escort.is_empty() else -1)
 	if lid >= 0:
-		for o in sim.maps[mob.map_id]["entities"]:
+		for o: SimEntity in sim.maps[mob.map_id]["entities"]:
 			if o != mob and o.is_alive() and o.aggro_target < 0 and (o.id == lid or o.leader_id == lid):
 				o.aggro_target = attacker.id
 				o.aggro_timer = Balance.AGGRO_LOSE_TIME
 	if mob.monster_def.is_boss:
 		return
 	var r2 := Balance.PACK_AGGRO_RADIUS * Balance.PACK_AGGRO_RADIUS
-	for o in sim.maps[mob.map_id]["entities"]:
+	for o: SimEntity in sim.maps[mob.map_id]["entities"]:
 		if o == mob or o.kind != SimEntity.Kind.MONSTER or o.monster_def != mob.monster_def or not o.is_alive() or o.aggro_target >= 0:
 			continue
 		if o.position.distance_squared_to(mob.position) <= r2:
@@ -56,7 +56,8 @@ static func spawn_escort(sim: WorldSim, leader: SimEntity, sp: Dictionary) -> vo
 		var o: SimEntity = sim.entities.get(id)
 		if o and o.is_alive() and o.leader_id == leader.id:
 			have[o.escort_slot] = true
-	var out: Array = (sp.get("escort", []) as Array).filter(func(id): return sim.entities.has(id) and sim.entities[id].leader_id == leader.id)
+	# a lista é do spawner inteiro (vários líderes): guarda a escolta viva de TODOS, senão a dos outros era reposta de novo
+	var out: Array = (sp.get("escort", []) as Array).filter(func(id): return sim.entities.has(id) and sim.entities[id].is_alive())
 	for i in range(int(es.get("count", 0))):
 		if have.has(i):
 			continue
@@ -79,7 +80,7 @@ static func spawn_adds(sim: WorldSim, boss: SimEntity, sm: Dictionary) -> void:
 		return
 	var m: Dictionary = sim.maps[boss.map_id]
 	var alive := 0
-	for o in m["entities"]:
+	for o: SimEntity in m["entities"]:
 		if o.boss_id == boss.id and o.is_alive():
 			alive += 1
 	for i in range(int(sm.get("count", 1))):
@@ -177,7 +178,7 @@ static func crowd_of(sim: WorldSim, boss: SimEntity) -> int:
 				parties[o.party_id] = true
 	var n := 0
 	var r2 := Balance.BOSS_CROWD_RANGE * Balance.BOSS_CROWD_RANGE
-	for o in sim.maps[boss.map_id]["entities"]:          # 1×/s por chefe: a lista completa (a "chars" é do tick)
+	for o: SimEntity in sim.maps[boss.map_id]["entities"]:          # 1×/s por chefe: a lista completa (a "chars" é do tick)
 		if o.kind == SimEntity.Kind.MONSTER or o.position.distance_squared_to(boss.position) > r2 or not o.is_character() or not o.is_alive():
 			continue
 		if hit.has(o.id) or (o.party_id >= 0 and parties.has(o.party_id)):
@@ -193,7 +194,7 @@ static func adds_alive(sim: WorldSim, boss: SimEntity) -> int:
 	if not sim.maps.has(boss.map_id):
 		return 0
 	var n := 0
-	for o in sim.maps[boss.map_id]["entities"]:
+	for o: SimEntity in sim.maps[boss.map_id]["entities"]:
 		if o.boss_id == boss.id and o.is_alive():
 			n += 1
 	return n
@@ -241,10 +242,10 @@ static func victims(sim: WorldSim, boss: SimEntity, max_d: float = Balance.BOSS_
 		return out
 	var m: Dictionary = sim.maps[boss.map_id]
 	var d2 := max_d * max_d
-	for o in m.get("chars", m["entities"]):
+	for o: SimEntity in m.get("chars", m["entities"]):
 		if o == boss or not o.is_alive() or o.map_id != boss.map_id or o.position.distance_squared_to(boss.position) > d2:
 			continue
-		if o.kind == SimEntity.Kind.MONSTER or not boss.is_hostile_to(o) or o.stealth_left > 0.0 or o.is_perched():
+		if o.kind == SimEntity.Kind.MONSTER or not boss.is_hostile_to(o) or o.stealth_left > 0.0 or o.sky_left > 0.0 or o.is_perched():
 			continue
 		out.append(o)
 	return out
@@ -342,18 +343,72 @@ static func update_hazards(sim: WorldSim, m: Dictionary) -> void:
 		hz.erase(h)
 		var pos: Vector3 = h["pos"]
 		var kind: int = h["kind"]
-		for o in m["entities"].duplicate():
+		for o: SimEntity in m["entities"].duplicate():
 			if o.is_alive() and owner.is_hostile_to(o) and Vector3(o.position.x, 0, o.position.z).distance_to(pos) <= float(h["radius"]) + o.radius:
+				if ChoirSystem.shelters(sim, owner, o):
+					continue                     # Barreira Sagrada: a chuva de fora não entra na cúpula
 				var r := Combat.calc_damage(owner, o, float(h["power"]), kind, sim.rng, pos)
 				sim._deal_damage(owner, o, r["amount"], r["crit"], false, "magical" if kind == SkillDef.Kind.MAGICAL else "physical", pos)
 				sim._apply_effects(owner, o, h["effects"], float(h["power"]))
 		Events.post(&"skill_effect", h["skill"], pos, pos, float(h["radius"]))
 
+## Queimando ou envenenado (F3): qualquer dano no tempo que não seja sangramento.
+static func regen_blocked(e: SimEntity) -> bool:
+	for d in e.debuffs:
+		if d.get("kind") == "dot" and not d.get("bleed", false):
+			return true
+	return false
+
+## Regeneração do troll (F3): MonsterDef.regen × TROLL_REGEN_PCT × vida máxima por segundo, em luta ou não. Fogo/veneno
+## param (uma vez só, mesmo juntos) e ela volta TROLL_REGEN_LINGER s depois do último efeito acabar. Enquanto cura, o
+## troll leva o buff TROLL_REGEN_BUFF (brilho verde); ele some quando a regeneração para.
+static func update_regen(sim: WorldSim, e: SimEntity, dt: float) -> void:
+	var t := dt                          # parte do passo em que ele regenera
+	if regen_blocked(e):
+		e.regen_hold = Balance.TROLL_REGEN_LINGER
+		t = 0.0
+	elif e.regen_hold > 0.0:
+		var used := minf(e.regen_hold, dt)
+		e.regen_hold -= used
+		t = dt - used
+	var healing: bool = t > 0.0 and e.hp < e.stats.max_hp
+	if healing:
+		e.hp = minf(e.stats.max_hp, e.hp + e.stats.max_hp * Balance.TROLL_REGEN_PCT * e.monster_def.regen * t)
+	var lit: bool = e.buff_stacks(Balance.TROLL_REGEN_BUFF) > 0
+	if healing and not lit:
+		e.put_buff({"id": Balance.TROLL_REGEN_BUFF, "remaining": 1.0e9, "stacks": 1})
+		Events.post(&"buff_applied", e.id, Balance.TROLL_REGEN_BUFF, 0.0)
+	elif lit and not healing:
+		e.drop_buff(Balance.TROLL_REGEN_BUFF)
+
+## Grito de guerra (efeito "rally"): quem lança e os monstros vivos da mesma facção a `radius` m ganham o buff (renova
+## pelo id, não soma com outro grito). Só buff marcado `mob_stat` mexe nos atributos do monstro.
+static func rally(sim: WorldSim, e: SimEntity, d: Dictionary) -> void:
+	if e.monster_def == null or not sim.maps.has(e.map_id):
+		return
+	var r2: float = float(d.get("radius", 9.0)) * float(d.get("radius", 9.0))
+	var dur: float = float(d.get("duration", 8.0))
+	var bid: String = str(d.get("id", "war_cry"))
+	for t in sim.maps[e.map_id]["entities"]:
+		if t.kind != SimEntity.Kind.MONSTER or not t.is_alive() or t.position.distance_squared_to(e.position) > r2:
+			continue
+		if t != e and (e.monster_def.faction == "" or t.monster_def.faction != e.monster_def.faction):
+			continue
+		t.put_buff({"id": bid, "remaining": dur, "duration": dur, "atk_pct": float(d.get("atk_pct", 0.0)), "aspd_pct": float(d.get("aspd_pct", 0.0)),
+			"speed_pct": float(d.get("speed_pct", 0.0)), "mob_stat": true})
+		t.recompute_stats()
+		Events.post(&"buff_applied", t.id, bid, dur)
+
 static func update_spawners(sim: WorldSim, m: Dictionary, dt: float) -> void:
 	var def: MapDef = m["def"]
+	var epoch := sim.despawn_epoch
 	for sp in m["spawners"]:
 		var sdef: Dictionary = sp["def"]
-		sp["alive"] = sp["alive"].filter(func(id): return sim.entities.has(id))
+		if int(sp.get("epoch", -1)) != epoch:          # só depois de alguém sumir do mundo (era uma lista nova por spawner por tick)
+			sp["epoch"] = epoch
+			sp["alive"] = sp["alive"].filter(func(id): return sim.entities.has(id))
+		if not sp.has("escort") and sp["alive"].size() >= int(sdef.get("count", 1)):
+			continue                             # cheio e sem escolta: nada a fazer (o caso comum)
 		if not WorldState.active(sim, sdef):    # fortaleza retomada (if/unless): o spawner fica calado
 			continue
 		if sp.has("escort"):                 # líder vivo e fora de combate: repõe quem caiu da escolta
@@ -378,12 +433,18 @@ static func update_spawners(sim: WorldSim, m: Dictionary, dt: float) -> void:
 					var mob := sim.spawn_monster(mdef, def.id, pos, sp)
 					if sdef.has("route"):
 						mob.patrol_route = sdef["route"]
-					if not mdef.escort.is_empty():         # líder novo: a escolta órfã do anterior some e nasce a dele
+					if not mdef.escort.is_empty():         # líder novo: a escolta órfã (líder morto) some e nasce a dele
+						var keep: Array = []
 						for id in sp.get("escort", []):
 							var old: SimEntity = sim.entities.get(id)
-							if old and old.leader_id != mob.id and old.aggro_target < 0:
+							if old == null:
+								continue
+							var ld: SimEntity = sim.entities.get(old.leader_id)
+							if (ld == null or not ld.is_alive()) and old.aggro_target < 0:
 								sim.despawn(old)
-						sp["escort"] = []
+							else:
+								keep.append(id)            # escolta de outro líder vivo do mesmo spawner (ou órfã em luta)
+						sp["escort"] = keep
 						spawn_escort(sim, mob, sp)
 						sp["escort_t"] = Balance.ESCORT_RESPAWN
 					if em is Array and em.size() >= 3:

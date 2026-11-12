@@ -5,7 +5,7 @@ extends Node
 const PATH := "user://save.json"          # save antigo (um só); migra para o espaço 0
 const SLOTS := 5
 var slot := 0
-const VERSION := 4      # 2 = portões de progressão e chefes abatidos; 3 = Rei Élfico guarda as Ruínas; 4 = teia de passivos (reembolso)
+const VERSION := 5      # 2 = portões de progressão e chefes abatidos; 3 = Rei Élfico guarda as Ruínas; 4 = teia de passivos (reembolso); 5 = Ato II: elemental que evolui, teia de ascensão (asc_tree) e barra de 10 (loadout 7-0)
 
 ## Itens de build que saiu do jogo (save antigo): prefixo antigo -> [prefixo novo da peça, prefixo novo da arma]; o resto
 ## do id (nível, peça e o "+N" do aprimoramento) segue junto. Único lugar das migrações de id de item.
@@ -93,13 +93,14 @@ func save_player(p: SimEntity) -> void:
 	var data := {
 		"name": p.name, "class": p.class_def.id, "look": p.look, "level": p.level, "xp": p.xp, "gold": p.gold,
 		"hp": p.hp, "mp": p.mp, "map": p.map_id, "pos": [p.position.x, p.position.z],
-		"inventory": p.inventory, "storage": p.storage, "equipment": eq, "mastery": p.mastery, "mastery_points": p.mastery_points, "tree": p.tree.keys(),
+		"inventory": p.inventory, "storage": p.storage, "equipment": eq, "mastery": p.mastery, "mastery_points": p.mastery_points, "tree": p.tree.keys(), "asc_tree": p.asc_tree.keys(),
 		"potion_slots": p.potion_slots,
 		"learned": p.learned.keys(), "talents": p.talents.keys(),
 		"loadout": p.skills.map(func(s): return s.id if s else ""),
 		"quests_active": p.quests_active, "quests_completed": p.quests_completed,
 		"bind": [p.bind_map, p.bind_pos.x, p.bind_pos.z],
 		"save_version": VERSION, "bosses_killed": p.bosses_killed.keys(), "gates_open": p.gates_open.keys(), "bag_bonus": p.bag_bonus,
+		"elemental": ElementalSystem.to_save(p),
 	}
 	var f := FileAccess.open(path_of(slot), FileAccess.WRITE)
 	if f:
@@ -204,13 +205,6 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 			p.mastery_points = points_for_level(p.level)
 			Events.post(&"notification", "A teia de skills mudou: seus %d pontos foram devolvidos (tecla K)." % p.mastery_points)
 	Sim.recompute_tree_bonus(p)
-	var loadout: Array = d.get("loadout", p.learned.keys())
-	p.skills.clear()
-	p.ensure_slots()
-	for i in range(mini(loadout.size(), Balance.SKILL_SLOTS)):
-		var s: SkillDef = GameData.skills.get(str(loadout[i]))
-		if s and p.learned.has(s.id):
-			p.skills[i] = s
 	var ps: Array[String] = []
 	for s in d.get("potion_slots", ["", "", ""]):
 		ps.append(str(s))
@@ -223,6 +217,29 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 	p.quests_completed.clear()
 	for q in d.get("quests_completed", []):
 		p.quests_completed.append(str(q))
+	ElementalSystem.from_save(p, d)            # save antigo (< 5): experiência 0, forma = a do último elemental
+	# teia de ascensão (save < 5: vazia). Nó que não existe mais: a teia volta ao início (os pontos são calculados)
+	p.asc_tree = {}
+	var atr: Dictionary = GameData.asc_trees.get(p.class_def.id, {})
+	var asc_saved: Array = d.get("asc_tree", [])
+	if not atr.is_empty() and asc_saved.all(func(nid): return atr["nodes"].has(str(nid))):
+		for nid in asc_saved:
+			p.asc_tree[str(nid)] = true
+	elif not asc_saved.is_empty():
+		Events.post(&"notification", "A teia de ascensão mudou: seus pontos de ascensão foram devolvidos (tecla K).")
+	for sid in ProgressionSystem.ascension_skills(p):          # skill de ascensão só vem da teia dela
+		if not p.asc_tree.has("%s_a_s_%s" % [p.class_def.id, sid]):
+			p.learned.erase(sid)
+			p.mastery.erase(sid)
+	Sim.recompute_tree_bonus(p)
+	# barra: 1-6 (teia comum) e, com a ascensão (missões já lidas), 7-0 só com skills de ascensão
+	var loadout: Array = d.get("loadout", p.learned.keys())
+	p.skills.clear()
+	p.ensure_slots()
+	for i in range(mini(loadout.size(), p.skills.size())):
+		var s: SkillDef = GameData.skills.get(str(loadout[i]))
+		if s and p.learned.has(s.id) and s.ascension == (i >= Balance.SKILL_SLOTS):
+			p.skills[i] = s
 	for b in d.get("bosses_killed", []):
 		p.bosses_killed[str(b)] = true
 	for g in d.get("gates_open", []):

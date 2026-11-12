@@ -39,7 +39,18 @@ const WEAPON_NAMES := {
 }
 ## tipos que ganham versão comum gerada (os outros já existem em items_catalog)
 const NEW_COMMON_TYPES := ["sword2h", "mace", "mace2h", "axe", "orb", "scepter", "rifle", "spear", "pistol", "claw"]
-const COMMON_TIER_NAMES := ["de Bronze", "de Ferro", "de Mitril", "de Obsidiana"]
+const COMMON_TIER_NAMES := ["de Bronze", "de Ferro", "de Mitril", "de Obsidiana", "de Adamante", "de Oricalco"]
+## Cor própria de um tier comum (sem entrada = a mistura de sempre): o 32 e o 40 dividem a raridade épica e a mistura
+## para no tier 3, então o tier do 40 (Oricalco) ganha o dourado-cobre dele para não sair igual ao de Adamante.
+const COMMON_TIER_TINT := {5: Color(0.93, 0.7, 0.42)}
+## Tiers comuns sem armas/armaduras escritas à mão (items_catalog só vai até o tier 3): ganham TODAS as armas
+## (WEAPONS) e cabeça/peito/luvas/botas por tipo de armadura geradas aqui (Ato II: tiers do 32 e do 40).
+const HAND_WRITTEN_TIERS := 4
+const FULL_PIECES := ["head", "body", "gloves", "boots"]
+
+## Raridade de um item comum do tier: o tier, no máximo épico (raridade 4 = lendário, ItemDef.RARITY_LEGENDARY).
+static func common_rarity(tier: int) -> int:
+	return mini(tier, ItemDef.RARITY_LEGENDARY - 1)
 
 ## armaduras: peso da peça + [def, mdef] da peça de corpo no nível de referência
 const PIECES := ["head", "body", "legs", "gloves", "boots"]     # peças de armadura do conjunto lendário (contam nos bônus 2-5)
@@ -86,8 +97,11 @@ const SHIELD_AFFINITY := {"bastiao": "paladin", "juramento": "paladin", "sol": "
 	"pal1": "paladin", "pal_g10": "paladin", "pal_g15": "paladin", "pal_g20": "paladin", "pal_g25": "paladin", "pal_g30": "paladin",
 	"pal_t5": "paladin", "pal_t10": "paladin", "pal_t15": "paladin", "pal_t20": "paladin", "pal_t25": "paladin", "pal_t30": "paladin",
 	"bis_b5": "bishop", "bis_b10": "bishop", "bis_b15": "bishop", "bis_b20": "bishop", "bis_b25": "bishop", "bis_b30": "bishop"}     # escudos de conjunto
-## epíteto por nível lendário (5..30)
-const TIER_EPITHETS := ["da Alvorada", "do Juramento", "da Vanguarda", "da Glória", "da Lenda", "da Eternidade"]
+## epíteto por nível lendário (5..30; Ato II: 35 e 40)
+const TIER_EPITHETS := ["da Alvorada", "do Juramento", "da Vanguarda", "da Glória", "da Lenda", "da Eternidade", "da Ascensão", "do Triunfo"]
+## Último nível lendário com visual próprio por build (SET_VISUALS). Acima (Ato II, fatia 1) o conjunto reaproveita o
+## visual do último nível com visual (visual_of), com o nome genérico da regra; modelos próprios vêm no polimento.
+const OWN_VISUALS_UNTIL := 30
 const LEGENDARY_COLOR := Color(1.0, 0.6, 0.15)
 ## Conjuntos lendários com visual próprio (kit: tools/blender/chibi_kit.py SET_STYLES; ícones: assets/icons/<icon>_<peça>.png).
 ## Referência de arte em reference/<classe>/set_N. Peças sem slot próprio no RagnaEx (polainas) vêm junto do corpo.
@@ -209,6 +223,25 @@ static func bid_of_set(sid: String) -> String:
 static func set_piece_name(vis: Dictionary, bid: String, piece: String, armor: String) -> String:
 	var noun: String = ARMOR_NAMES[armor]["legs"] if piece == "legs" else str(vis.get("nouns", {}).get(piece, PIECE_NOUNS[bid].get(piece, "")))
 	return noun_with(vis, noun)
+
+## Visual de um conjunto: o próprio (SET_VISUALS) ou, acima de OWN_VISUALS_UNTIL, o do maior nível da build que tem
+## visual, marcado com "reuse" (estilo, ícones, cor e "favor" iguais; nomes ficam os genéricos). {} = sem visual.
+static func visual_of(sid: String) -> Dictionary:
+	if SET_VISUALS.has(sid):
+		return SET_VISUALS[sid]
+	var lv := int(sid.get_slice("_", sid.get_slice_count("_") - 1))
+	if lv <= OWN_VISUALS_UNTIL:
+		return {}
+	var base := "set_%s_" % bid_of_set(sid)
+	for i in range(Balance.LEGENDARY_LEVELS.size() - 1, -1, -1):
+		var olv: int = Balance.LEGENDARY_LEVELS[i]
+		if olv < lv and SET_VISUALS.has(base + str(olv)):
+			var v: Dictionary = (SET_VISUALS[base + str(olv)] as Dictionary).duplicate()
+			for k in ["names", "suffix", "adj", "nouns", "set_name"]:
+				v.erase(k)
+			v["reuse"] = base + str(olv)
+			return v
+	return {}
 
 ## Substantivo + complemento do conjunto (o adjetivo concorda com ele). "" = "".
 static func noun_with(vis: Dictionary, noun: String) -> String:
@@ -584,13 +617,15 @@ static func wearables(tier: int) -> Array:
 	var lv: int = Balance.COMMON_TIER_LEVELS[tier]
 	for armor in LEGS:
 		var l: Array = LEGS[armor]
-		var col := Color(0.42, 0.36, 0.3).lerp(Color(0.72, 0.72, 0.8), tier / 3.0)
-		out.append(armor_item("legs_%s_t%d" % [armor, tier], "%s %s" % [l[0], COMMON_TIER_NAMES[tier]], "legs", armor, l[1], l[2], lv, tier, 1.0, col))
+		var col := Color(0.42, 0.36, 0.3).lerp(Color(0.72, 0.72, 0.8), minf(1.0, tier / 3.0))
+		if COMMON_TIER_TINT.has(tier):
+			col = (COMMON_TIER_TINT[tier] as Color).darkened(0.15)
+		out.append(armor_item("legs_%s_t%d" % [armor, tier], "%s %s" % [l[0], COMMON_TIER_NAMES[tier]], "legs", armor, l[1], l[2], lv, common_rarity(tier), 1.0, col))
 	for piece in THEME_PIECES:
 		for theme in THEMES:
 			var t: Array = THEMES[theme]
 			var col: Color = (t[3] as Color).lightened(tier * 0.08)
-			var it := armor_item("%s_%s_t%d" % [piece, theme, tier], "%s %s %s" % [THEME_PIECES[piece], t[0], COMMON_TIER_NAMES[tier]], piece, "leather", t[1], t[2], lv, tier, 1.0, col)
+			var it := armor_item("%s_%s_t%d" % [piece, theme, tier], "%s %s %s" % [THEME_PIECES[piece], t[0], COMMON_TIER_NAMES[tier]], piece, "leather", t[1], t[2], lv, common_rarity(tier), 1.0, col)
 			it.armor_style = "cape" if piece == "cape" else ""
 			if piece != "cape":
 				it.def = 0.0
@@ -681,11 +716,12 @@ static func legend_effect(build: Dictionary, tier: int) -> Dictionary:
 
 static func set_bonuses(build: Dictionary, dmg_skill: String, cdr_skill: String, tier: int) -> Dictionary:
 	var b := {}
+	var tf := Balance.set_pct_tier(tier)       # bônus percentuais: acima do tier 5 crescem pela metade (GDD Ato II F10)
 	b[2] = {"attrs": {build["attr2"]: Balance.SET_2PC_ATTR_BASE + Balance.SET_2PC_ATTR_PER_TIER * tier}}
 	b[3] = {"attrs": {build["attr"]: Balance.SET_3PC_ATTR_BASE + Balance.SET_3PC_ATTR_PER_TIER * tier}}
-	b[4] = {"skill_dmg": {dmg_skill: Balance.SET_4PC_SKILL_DMG_BASE + Balance.SET_4PC_SKILL_DMG_PER_TIER * tier}}
-	b[5] = {build["stat"]: Balance.SET_5PC_STAT_PCT_BASE + Balance.SET_5PC_STAT_PCT_PER_TIER * tier,
-		"skill_cdr": {cdr_skill: Balance.SET_5PC_CDR_BASE + Balance.SET_5PC_CDR_PER_TIER * tier}}
+	b[4] = {"skill_dmg": {dmg_skill: Balance.SET_4PC_SKILL_DMG_BASE + Balance.SET_4PC_SKILL_DMG_PER_TIER * tf}}
+	b[5] = {build["stat"]: Balance.SET_5PC_STAT_PCT_BASE + Balance.SET_5PC_STAT_PCT_PER_TIER * tf,
+		"skill_cdr": {cdr_skill: Balance.SET_5PC_CDR_BASE + Balance.SET_5PC_CDR_PER_TIER * tf}}
 	# extra da build (ex.: roubo de vida, vida/defesa): {peças: {stat: [base, por tier]}}
 	var extra: Dictionary = build.get("set_extra", {})
 	for n in extra:
@@ -694,18 +730,230 @@ static func set_bonuses(build: Dictionary, dmg_skill: String, cdr_skill: String,
 	return b
 
 
+## Conjuntos híbridos (GDD Ato II R7.1): um por par de builds da classe (A+B, B+C, C+A) em Balance.HYBRID_LEVELS.
+## Armadura, atributo principal e visual (estilo) de A, atributo secundário e cor de B; as armas das duas builds como
+## peças alternativas (não contam). Bônus: 2 = o 2 de A, 3 = o 3 de B, 4 = metade do 4 de A e de B, 5 = a Fusão.
+## Fusões: nome, complemento das peças e texto de cada face (chave = build cuja arma liga a face; "all" = uma face só).
+const FUSIONS := {
+	"guardiao+cruzado": {"name": "Juramento Rubro", "of": "do Juramento Rubro", "text": {
+		"cruzado": "golpes diretos dão Juramento; skill sagrada que gasta 3+ cargas provoca quem acerta",
+		"guardiao": "com Juramento cheio, bloquear pode atordoar quem bateu"}},
+	"cruzado+templario": {"name": "Sentença Ardente", "of": "da Sentença Ardente", "text": {
+		"cruzado": "golpes diretos põem Penitência; cada carga no alvo aumenta todo o seu dano nele; na 5ª explode e volta a 2",
+		"templario": "golpes diretos põem Penitência (cada carga aumenta seu dano no alvo; na 5ª explode e volta a 2); a explosão atordoa"}},
+	"templario+guardiao": {"name": "Égide Ardente", "of": "da Égide Ardente", "text": {
+		"all": "bloquear põe Penitência no atacante; a explosão dá 2 de Juramento"}},
+	"carniceiro+executor": {"name": "Carrasco Frenético", "of": "do Carrasco Frenético", "text": {
+		"all": "golpes dão Frenesi; o limiar de execução sobe com o Frenesi"}},
+	"executor+punhos": {"name": "Peso do Titã", "of": "do Peso do Titã", "text": {
+		"executor": "crítico ou esquiva dá Peso (próxima skill mais forte); +esquiva e contra-ataque com o machado",
+		"punhos": "crítico ou esquiva dá Peso: a próxima skill de golpe bate mais forte"}},
+	"punhos+carniceiro": {"name": "Turbilhão Feroz", "of": "do Turbilhão Feroz", "text": {
+		"all": "crítico ou esquiva dá 2 de Frenesi; com Frenesi cheio, +esquiva e contra-ataque"}},
+	"sacerdote+inquisidor": {"name": "Luz que Julga", "of": "da Luz que Julga", "text": {
+		"all": "a cura que passa do máximo vira dano sagrado no inimigo mais perto do aliado"}},
+	"inquisidor+batalha": {"name": "Martelo da Aurora", "of": "do Martelo da Aurora", "text": {
+		"all": "magia sagrada dá Aurora (+ATK e +MATK por 4 s); golpes de arma curam o aliado mais ferido"}},
+	"batalha+sacerdote": {"name": "Graça em Combate", "of": "da Graça em Combate", "text": {
+		"all": "a cada 3 golpes de maça a Graça dispara e o aliado curado ganha uma Égide"}},
+	"guardiao_verde+fera": {"name": "Bramido da Matilha", "of": "do Bramido da Matilha", "text": {
+		"guardiao_verde": "o Urro da Mata chama 2 lobos espirituais e dá Frenesi ao grupo",
+		"fera": "o Frenesi provoca os inimigos perto de você"}},
+	"fera+xama": {"name": "Lua Caçadora", "of": "da Lua Caçadora", "text": {
+		"fera": "todo o seu dano em alvo sangrando (a Mordida conta) ou com Fogo Lunar é maior",
+		"xama": "Fogo Lunar também faz sangrar; suas magias em alvo sangrando causam mais dano"}},
+	"xama+guardiao_verde": {"name": "Casca Partilhada", "of": "da Casca Partilhada", "text": {
+		"guardiao_verde": "ao ser atingido, a Pele de Carvalho também cobre o aliado mais ferido",
+		"xama": "magias em alvo preso ou na área do Ent causam mais dano"}},
+	"cacador+atirador": {"name": "Posto de Caça", "of": "do Posto de Caça", "text": {
+		"atirador": "+1 torreta ativa",
+		"cacador": "o Ataque da Fera arma uma Armadilha de Gelo; o companheiro bate mais em alvo retardado"}},
+	"atirador+lanceiro": {"name": "Trincheira", "of": "da Trincheira", "text": {
+		"atirador": "aliados perto da sua torreta regeneram vida",
+		"lanceiro": "o Dardo de Caça crava uma Estaca: aliados perto dela regeneram vida"}},
+	"lanceiro+cacador": {"name": "Caça em Dupla", "of": "da Caça em Dupla", "text": {
+		"lanceiro": "golpes abrem Feridas (2 em alvo retardado ou preso)",
+		"cacador": "o companheiro abre Feridas e bate mais por Ferida no alvo"}},
+	"laminas+duelista": {"name": "Passo Fantasma", "of": "do Passo Fantasma", "text": {
+		"all": "avançar ou esquivar deixa o próximo golpe furtivo"}},
+	"duelista+corsario": {"name": "Duelo de Pólvora", "of": "do Duelo de Pólvora", "text": {
+		"corsario": "crítico dá Bravata; Bravata cheia dispara a pistola de graça",
+		"duelista": "crítico dá Bravata; Bravata cheia vira Foco do Duelista"}},
+	"corsario+laminas": {"name": "Pólvora Envenenada", "of": "da Pólvora Envenenada", "text": {
+		"corsario": "tiros envenenam; cada veneno seu no alvo fortalece o próximo tiro",
+		"laminas": "Dardo Venenoso e Leque de Facas dão Bravata por alvo envenenado"}},
+	"fogo+gelo": {"name": "Vapor", "of": "do Vapor", "text": {
+		"all": "gelo em alvo queimando apaga a queimadura e causa o dano dela na hora"}},
+	"gelo+raio": {"name": "Supercondutor", "of": "do Supercondutor", "text": {
+		"all": "raio em alvo retardado salta para +1 alvo; gelo em alvo eletrificado bate mais"}},
+	"raio+fogo": {"name": "Plasma", "of": "do Plasma", "text": {
+		"all": "raio em alvo queimando espalha a queimadura; fogo em alvo eletrificado bate mais"}},
+	"invocador+ceifador": {"name": "Ceifa Partilhada", "of": "da Ceifa Partilhada", "text": {
+		"all": "abates das invocações curam você; golpes curam a invocação mais ferida"}},
+	"ceifador+pestilento": {"name": "Colheita da Praga", "of": "da Colheita da Praga", "text": {
+		"all": "golpes de foice põem Praga Menor (maldição, até 3); cada maldição sua no alvo dá dano e roubo de vida à foice; amaldiçoado que morre explode"}},
+	"pestilento+invocador": {"name": "Pestilência Viva", "of": "da Pestilência Viva", "text": {
+		"all": "invocações aplicam Agonia; cada maldição no alvo fortalece as invocações"}},
+}
+const HYBRID_NUMERALS := ["I", "II", "III", "IV", "V"]
+
+## Pares de builds da classe: [A, B] na ordem A+B, B+C, C+A.
+static func hybrid_pairs(cls: ClassDef) -> Array:
+	var out: Array = []
+	var n := cls.builds.size()
+	if n < 2:
+		return out
+	for i in range(n if n > 2 else 1):
+		out.append([str(cls.builds[i]["id"]), str(cls.builds[(i + 1) % n]["id"])])
+	return out
+
+static func hybrid_set_id(class_id: String, a: String, b: String, level: int) -> String:
+	return "set_%s_mix_%s_%s_%d" % [class_id, a, b, level]
+
+## Números da Fusão no tier (F-FUS1): v35 + passo × (i − 6).
+static func fusion_numbers(fid: String, tier: int) -> Dictionary:
+	var out := {}
+	var nums: Dictionary = Balance.FUSION_NUMBERS.get(fid, {})
+	for k in nums:
+		var v = nums[k]
+		out[k] = snappedf(float(v[0]) + float(v[1]) * (tier - 6), 0.01) if v is Array else v
+	return out
+
+## Bônus do híbrido A+B no tier (R7.1).
+static func hybrid_bonuses(ba: Dictionary, bb: Dictionary, skills: Dictionary, lv: int, tier: int, fid: String) -> Dictionary:
+	var pa := set_skills(ba, skills, lv, tier)
+	var pb := set_skills(bb, skills, lv, tier)
+	var na := set_bonuses(ba, pa[0], pa[1], tier)
+	var nb := set_bonuses(bb, pb[0], pb[1], tier)
+	var b := {}
+	b[2] = (na[2] as Dictionary).duplicate(true)
+	b[3] = (nb[3] as Dictionary).duplicate(true)
+	var d4 := {}
+	for src in [na[4], nb[4]]:
+		var sd: Dictionary = src.get("skill_dmg", {})
+		for sid in sd:
+			d4[sid] = round((float(d4.get(sid, 0.0)) + float(sd[sid]) * Balance.HYBRID_4PC_SHARE) * 10.0) / 10.0
+	b[4] = {"skill_dmg": d4}
+	var f := fusion_numbers(fid, tier)
+	f["id"] = fid
+	b[5] = {"fusion": f}
+	return b
+
+## O 5 peças normal que a Fusão substitui (do lado A): referência de orçamento (F-FUS2, boss_probe --set=h5n).
+static func hybrid_normal_five(sd: SetDef, classes: Dictionary, skills: Dictionary) -> Dictionary:
+	var cls: ClassDef = classes[sd.class_id]
+	var ba: Dictionary = cls.build_by_id(sd.pair[0])
+	var tier := Balance.legend_tier(sd.level)
+	var pa := set_skills(ba, skills, sd.level, tier)
+	return set_bonuses(ba, pa[0], pa[1], tier)[5]
+
+static func hybrid_sets(classes: Dictionary, skills: Dictionary) -> Dictionary:
+	var items: Array = []
+	var sets: Array = []
+	var mult: float = Balance.LEGENDARY_MULT
+	for cid in classes:
+		var cls: ClassDef = classes[cid]
+		var restrict: Array[String] = [cid]
+		for pair in hybrid_pairs(cls):
+			var ba: Dictionary = cls.build_by_id(pair[0])
+			var bb: Dictionary = cls.build_by_id(pair[1])
+			var fid := "%s+%s" % pair
+			var fu: Dictionary = FUSIONS[fid]
+			for hi in range(Balance.HYBRID_LEVELS.size()):
+				var lv: int = Balance.HYBRID_LEVELS[hi]
+				var tier := Balance.legend_tier(lv)
+				var tail := "%s %s" % [fu["of"], HYBRID_NUMERALS[hi]]
+				var sd := SetDef.new()
+				sd.id = hybrid_set_id(cid, pair[0], pair[1], lv)
+				sd.name = "Conjunto %s %s" % [fu["name"], HYBRID_NUMERALS[hi]]
+				sd.class_id = cid
+				sd.level = lv
+				sd.pair.assign(pair)
+				sd.fusion = fid
+				var base := "leg_%s_mix_%s_%s_%d" % [cid, pair[0], pair[1], lv]
+				# visual: o conjunto de A no maior nível com visual, na cor do conjunto de B (fatia 1; modelos no polimento)
+				var va := visual_of("set_%s_%s_%d" % [cid, pair[0], OWN_VISUALS_UNTIL])
+				var vb := visual_of("set_%s_%s_%d" % [cid, pair[1], OWN_VISUALS_UNTIL])
+				var col: Color = vb.get("color", cls.color.lerp(LEGENDARY_COLOR, 0.35))
+				var made: Array = []
+				for piece in PIECES:
+					var noun: String = ARMOR_NAMES[ba["armor"]]["legs"] if piece == "legs" else str(PIECE_NOUNS["%s_%s" % [cid, pair[0]]].get(piece, ARMOR_NAMES[ba["armor"]][piece]))
+					var it := armor_item("%s_%s" % [base, piece], "%s %s" % [noun, tail], piece, ba["armor"], ba["attr"], bb["attr"], lv, ItemDef.RARITY_LEGENDARY, mult, col)
+					if piece != "legs" and va.has("style"):
+						it.armor_style = va["style"]
+						it.icon = "%s_%s" % [va["icon"], piece] if va.has("icon") else ""
+					sd.armor.append(it.id)
+					sd.pieces.append(it.id)
+					made.append(it)
+				# armas: as das duas builds, cada uma com o efeito lendário da própria build
+				var names := {}
+				for bd in [ba, bb]:
+					var bid: String = bd["id"]
+					var other: String = bb["attr"] if bid == pair[0] else ba["attr"]
+					var vw := visual_of("set_%s_%s_%d" % [cid, bid, OWN_VISUALS_UNTIL])
+					var wl: Array = []
+					var main_t: String = bd["main"][0]
+					var nouns: Dictionary = PIECE_NOUNS["%s_%s" % [cid, bid]]
+					var wpn := weapon_item("%s_%s_weapon" % [base, bid], "%s %s" % [str(nouns.get("weapon", WEAPON_NAMES[main_t])), tail], main_t, lv, ItemDef.RARITY_LEGENDARY, mult, col)
+					wpn.attributes = _attrs(bd["attr"], other, lv, PIECE_WEIGHT["weapon"], mult)
+					if bd["stat"] == "matk_pct":
+						wpn.matk = maxf(wpn.matk, round(wpn.atk * Balance.LEGEND_MATK_FROM_ATK))
+					wpn.legend_effect = legend_effect(bd, tier)
+					wl.append(wpn)
+					if bd["off"].size() > 0:
+						var off_t: String = bd["off"][0]
+						var off := weapon_item("%s_%s_offhand" % [base, bid], "%s %s" % [str(nouns.get("offhand", WEAPON_NAMES[off_t])), tail], off_t, lv, ItemDef.RARITY_LEGENDARY, mult, col, PIECE_WEIGHT["offhand"])
+						off.attributes = _attrs(bd["attr"], other, lv, PIECE_WEIGHT["offhand"], mult)
+						wl.append(off)
+					for w in wl:
+						var piece: String = "offhand" if w.id.ends_with("_offhand") else "weapon"
+						if vw.has("style"):
+							if w.weapon_type == "shield":
+								w.shield_style = vw["style"]
+							elif w.slot == S.WEAPON or w.weapon_type == "pistol":
+								w.weapon_style = vw["style"]
+							if vw.has("icon"):
+								w.icon = "%s_%s" % [vw["icon"], piece]
+						if names.has(w.name):          # mesma arma nas duas builds: o nome leva o efeito lendário
+							w.name = "%s (%s)" % [w.name, str(bd["legend"]["name"])]
+						names[w.name] = true
+						sd.alt_pieces.append(w.id)
+						made.append(w)
+				for it in made:
+					it.set_id = sd.id
+					it.class_restriction = restrict
+					var hands := "Duas mãos. " if it.is_two_handed() else ""
+					if it.id.ends_with("_offhand") and it.slot == S.WEAPON:
+						hands = "Mão secundária (Shift+clique na bolsa). "
+					if it.slot in [S.WEAPON, S.OFFHAND]:
+						it.description = "%sArma do %s (%s, híbrido %s + %s): não conta nas peças; tem efeito lendário próprio." % [hands, sd.name, cls.name, ba["name"], bb["name"]]
+					else:
+						it.description = "Peça do %s (%s, híbrido %s + %s)." % [sd.name, cls.name, ba["name"], bb["name"]]
+				items.append_array(made)
+				sd.bonuses = hybrid_bonuses(ba, bb, skills, lv, tier, fid)
+				sets.append(sd)
+	return {"items": items, "sets": sets}
+
 ## Gera tudo. Retorna {"items": [ItemDef], "sets": [SetDef]}.
 static func build(classes: Dictionary, skills: Dictionary) -> Dictionary:
 	var items: Array = []
 	var sets: Array = []
-	# 1) armas comuns dos tipos novos (tiers 0..3)
-	for wtype in NEW_COMMON_TYPES:
-		for tier in range(Balance.COMMON_TIER_LEVELS.size()):
-			var lv: int = Balance.COMMON_TIER_LEVELS[tier]
-			var nm := "%s %s" % [WEAPON_NAMES[wtype], COMMON_TIER_NAMES[tier]]
-			var col := Color(0.6, 0.55, 0.45).lerp(Color(0.85, 0.85, 0.95), tier / 3.0)
-			items.append(weapon_item("%s_t%d" % [wtype, tier], nm, wtype, lv, tier, 1.0, col))
+	# 1) armas comuns dos tipos novos em todos os tiers; nos tiers sem itens à mão, todos os tipos e as armaduras
 	for tier in range(Balance.COMMON_TIER_LEVELS.size()):
+		var lv: int = Balance.COMMON_TIER_LEVELS[tier]
+		var full := tier >= HAND_WRITTEN_TIERS
+		var col := Color(0.6, 0.55, 0.45).lerp(Color(0.85, 0.85, 0.95), minf(1.0, tier / 3.0))
+		if COMMON_TIER_TINT.has(tier):
+			col = COMMON_TIER_TINT[tier]
+		for wtype in (WEAPONS.keys() if full else NEW_COMMON_TYPES):
+			var nm := "%s %s" % [WEAPON_NAMES[wtype], COMMON_TIER_NAMES[tier]]
+			items.append(weapon_item("%s_t%d" % [wtype, tier], nm, wtype, lv, common_rarity(tier), 1.0, col,
+				PIECE_WEIGHT["offhand"] if wtype in ItemDef.OFFHAND_ONLY else -1.0))
+		if full:
+			for armor in ARMOR:
+				for piece in FULL_PIECES:
+					items.append(armor_item("%s_%s_t%d" % [piece, armor, tier], "%s %s" % [ARMOR_NAMES[armor][piece], COMMON_TIER_NAMES[tier]],
+						piece, armor, LEGS[armor][1], LEGS[armor][2], lv, common_rarity(tier), 1.0, col))
 		items.append_array(wearables(tier))
 	items.append_array(named_shields())
 	# 2) conjuntos lendários: classe × build × nível
@@ -739,7 +987,8 @@ static func build(classes: Dictionary, skills: Dictionary) -> Dictionary:
 				made.append(wpn)
 				var alts := {}
 				# conjunto com visual próprio e build de duas armas (espada ou maça): a outra também vira peça do conjunto
-				if SET_VISUALS.has(sd.id) and build["main"].size() > 1:
+				var vis: Dictionary = visual_of(sd.id)
+				if not vis.is_empty() and build["main"].size() > 1:
 					var alt_t: String = build["main"][1]
 					var alt := weapon_item("leg_%s_%s_%d_%s" % [cid, bid, lv, alt_t], "%s %s" % [WEAPON_NAMES[alt_t], tail], alt_t, lv, ItemDef.RARITY_LEGENDARY, mult, col)
 					alt.attributes = wpn.attributes.duplicate()
@@ -754,13 +1003,14 @@ static func build(classes: Dictionary, skills: Dictionary) -> Dictionary:
 					var off := weapon_item("leg_%s_%s_%d_offhand" % [cid, bid, lv], "%s %s" % [off_name, tail], off_t, lv, ItemDef.RARITY_LEGENDARY, mult, col, PIECE_WEIGHT["offhand"])
 					off.attributes = _attrs(build["attr"], build["attr2"], lv, PIECE_WEIGHT["offhand"], mult)     # serve à build (escudo do Sacerdote dá WILL, não FOR)
 					made.append(off)
-				var vis: Dictionary = SET_VISUALS.get(sd.id, {})
-				if not vis.is_empty():
+				if vis.has("set_name"):
 					sd.name = vis["set_name"]
 				for it in made:
 					if not vis.is_empty():
 						var piece: String = it.id.get_slice("_", it.id.get_slice_count("_") - 1)
-						if vis.has("names"):          # conjunto escrito à mão
+						if vis.has("reuse"):          # visual reaproveitado (Ato II): nome genérico da regra
+							pass
+						elif vis.has("names"):          # conjunto escrito à mão
 							it.name = vis["names"].get(piece, it.name)
 							if piece == "legs" and not vis["names"].has("legs"):      # calça do conjunto: nome tirado do peito (mesmo "do X")
 								var bn: String = vis["names"].get("body", "")
@@ -770,7 +1020,7 @@ static func build(classes: Dictionary, skills: Dictionary) -> Dictionary:
 							var nm := set_piece_name(vis, bid_of_set(sd.id), piece, build["armor"])
 							if nm != "":
 								it.name = nm
-						if alts.has(it.id):         # maça do conjunto: mesmo nome da espada, trocando a arma
+						if alts.has(it.id) and not vis.has("reuse"):         # maça do conjunto: mesmo nome da espada, trocando a arma
 							if vis.has("names"):
 								it.name = (vis["names"].get("weapon", it.name) as String).replace("Espada", WEAPON_NAMES[it.weapon_type])
 							else:
@@ -802,8 +1052,11 @@ static func build(classes: Dictionary, skills: Dictionary) -> Dictionary:
 						sd.pieces.append(it.id)
 				var picks := set_skills(build, skills, lv, tier)
 				sd.bonuses = set_bonuses(build, picks[0], picks[1], tier)
-				var favor: String = SET_VISUALS.get(sd.id, {}).get("favor", "")
+				var favor: String = vis.get("favor", "")
 				if favor != "":         # conjunto de combinação (Elementalista): 4 peças dão o segundo elemento
-					sd.bonuses[4][favor + "_pct"] = round((Balance.SET_FAVOR_BASE + Balance.SET_FAVOR_PER_TIER * tier) * 10.0) / 10.0
+					sd.bonuses[4][favor + "_pct"] = round((Balance.SET_FAVOR_BASE + Balance.SET_FAVOR_PER_TIER * Balance.set_pct_tier(tier)) * 10.0) / 10.0
 				sets.append(sd)
+	var hyb := hybrid_sets(classes, skills)          # 3) conjuntos híbridos 35/40/45 (R7.1)
+	items.append_array(hyb["items"])
+	sets.append_array(hyb["sets"])
 	return {"items": items, "sets": sets}

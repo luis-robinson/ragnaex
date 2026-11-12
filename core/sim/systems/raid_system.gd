@@ -107,7 +107,9 @@ static func start_raid(sim: WorldSim, m: Dictionary, i: int = 0) -> Array:
 	groups = scaled + elites
 	if k > int(st.get("seen_reclaimed", 0)):
 		st["seen_reclaimed"] = k
-		if r.has("say_reclaim"):
+		if last and r.has("say_last"):       # último front: conteúdo de grupo, o aviso pede aliados
+			Events.post(&"chat_message", "Sistema", str(r["say_last"]), "system")
+		elif r.has("say_reclaim"):
 			Events.post(&"chat_message", "Sistema", str(r["say_reclaim"]), "system")
 	var top := 0
 	for mobs in groups:
@@ -236,7 +238,7 @@ static func _rally(sim: WorldSim, m: Dictionary, st: Dictionary, dt: float, i: i
 	var r := route_def(m["def"], i)
 	var target: Vector3 = r["target"]
 	var reach: float = float(r.get("radius", 25.0)) + Balance.RAID_RALLY_MARGIN
-	for e in m["entities"]:
+	for e: SimEntity in m["entities"]:
 		if e.guard and e.is_alive() and e.position.distance_to(target) <= reach:
 			e.hp = minf(e.stats.max_hp, e.hp + e.stats.max_hp * Balance.RAID_RALLY_REGEN * 0.5)    # sentinela: só a regeneração
 			continue

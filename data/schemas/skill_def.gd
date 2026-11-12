@@ -10,7 +10,13 @@ enum Kind { PHYSICAL, MAGICAL, HEAL, BUFF, SUMMON, MOVEMENT }
 const EFFECT_KEYS := ["dot", "slow", "stun", "root", "buff", "shield", "dash", "summon", "heal_pct_of_dmg", "taunt",
 	"boss_summon", "wither", "form", "stealth", "trap", "pet_command", "pet_buff", "curse", "channel", "mend_pct_of_dmg",
 	"combust", "bounce", "aura", "barrage", "pull", "combo_gain", "combo_spend", "dice", "dash_to_aim", "shot", "fury_gain",
-	"fury_spend", "heal_pct", "mana_pct"]
+	"fury_spend", "heal_pct", "mana_pct", "arcane", "glory_gain", "glory_spend", "glory_scale", "titan_hit", "chain",
+	"elem_command", "elem_fusion",
+	"turret", "dragon_jump", "shout",
+	"summon_pact", "miasma", "grave_mark", "shadow_clone", "execute", "knockback",
+	"choir_angel", "choir_barrier", "choir_return",
+	"provoke", "area_heal", "pack",
+	"falcon_call", "falcon_dive", "falcon_eyes", "rally"]
 
 @export var id: String = ""
 @export var name: String = ""
@@ -56,8 +62,16 @@ const EFFECT_KEYS := ["dot", "slow", "stun", "root", "buff", "shield", "dash", "
 @export var mob_pick: String = ""
 ## só lança nesta forma ("wolf", "bear"...; "" = qualquer). Ex.: Espreitar do Druida só como lobo.
 @export var requires_form: String = ""
+## Combate Montado (ascensão do Paladino): `mountable` = sai montado (as outras ficam apagadas na barra a cavalo);
+## `mount_only` = só montado (Carga Montada, Pisotear).
+@export var mountable: bool = false
+@export var mount_only: bool = false
+## skill de ascensão (Ato II, 35+): fica fora da teia normal (vai para a teia de ascensão da classe, barra 7-0) e só sai
+## com a ascensão (ProgressionSystem.has_ascension).
+@export var ascension: bool = false
 ## nome da forma nos avisos ("só na forma de lobo")
-const FORM_LABELS := {"wolf": "lobo", "bear": "urso", "phantom": "fantasma", "demon": "demônio"}
+const FORM_LABELS := {"wolf": "lobo", "bear": "urso", "phantom": "fantasma", "demon": "demônio", "lich": "lich",
+	"ent": "Ent", "alpha": "Lobo Alfa", "bird": "Pássaro Arcano"}
 
 ## efeitos extra: {"dot": {"dps": 5, "duration": 4}, "slow": {"pct": 40, "duration": 2},
 ## "dot": {"atk_pct": 12, "duration": 4} → sangramento: % do ATK físico por segundo (o `dps` comum escala com o MATK);
@@ -75,7 +89,51 @@ const FORM_LABELS := {"wolf": "lobo", "bear": "urso", "phantom": "fantasma", "de
 ##     em você; enquanto ele durar, o grupo a `radius` m recebe `ally` com o mesmo id (AuraSystem). Lançar de novo desliga.
 ## "barrage": {"count": 4, "radius": 2.2, "delay": 1.3, "spread": 8}  → (chefe, GROUND) N círculos avisados no chão:
 ##     um em cada inimigo por perto, o resto em volta do chefe; caem depois de `delay` s (MobSystem.place_barrage).
+## "rally": {"id": "war_cry", "radius": 9, "duration": 8, "atk_pct": 15, "speed_pct": 10}  → (monstro) grito de guerra: quem
+##     lança e os monstros da mesma facção a `radius` m ganham o buff por `duration` s (renova pelo id; MobSystem.rally).
+## "arcane": {}  → Modo Arcano (Paladino ascendido): liga/desliga o `buff` (toggle) das asas; ao ligar desmonta e solta a
+##     rajada de penas (Balance.ARCANE_BURST); ligado gasta Balance.ARCANE_MP_PER_S e desliga com MP 0 (MountedCombat).
+## "turret": {"monster_id": "ranger_turret"}  → (GROUND) põe uma torreta parada no ponto mirado que atira sozinha no
+##     inimigo mais perto (RangerAscension.place_turret; números em Balance.TURRET_*; limite TURRET_MAX + stat turret_max).
+## Falcoeiro (Caçador ascendido, FalconSystem; números em Balance.FALCON_*):
+## "falcon_call": true  → chama o falcão (estado no dono, sem entidade); recusada se ele já está no ar.
+## "falcon_dive": true  → depois do golpe no alvo: Presa nele, o falcão passa a segui-lo e os linces saltam nele. Pede o falcão.
+## "falcon_eyes": true  → com o portão Revoada, FALCON_FLOCK falcões mergulham em alvos diferentes. Pede o falcão.
+## "curse" com id em Balance.MARK_CURSES é MARCA: o "dano recebido" das marcas somadas para em MARK_TAKEN_CAP (Combat.taken_pct).
+## "dragon_jump": {}  → (GROUND) Salto Dracônico: some do chão por Balance.DRAGON_JUMP_AIR s (intocável, quem o mirava volta
+##     ao maior de ameaça) e cai no ponto mirado (chão andável mais perto): power no centro, DRAGON_JUMP_EDGE na borda.
+## "shout": {"element": "fire|frost|storm"}  → Brado Elemental (SELF, com `buff`): um por vez; a lança ganha o elemento,
+##     o grupo/inimigos perto recebem o efeito e os monstros a SHOUT_TAUNT_RADIUS são provocados (RangerAscension.shout).
+## Necromante ascendido (NecroAscension): "summon_pact": {"dmg_pct", "speed_pct", "leech_pct"} → (SELF, com `buff`) as invocações
+##     a Balance.LORD_PACT_RADIUS m ganham dano, velocidade e roubo de vida para o dono pela duração do buff;
+##     "miasma": {"duration", "weaken_pct", "slow_pct"} → (GROUND) nuvem que fica no chão: inimigos dentro causam menos dano e
+##     andam mais devagar (uma por necromante); "grave_mark": {"duration", "raise"} → (GROUND) marca os inimigos na área:
+##     monstro comum que morrer marcado levanta como esqueleto aliado por `raise` s (até Balance.LORD_GRAVE_MAX).
+##     "form": "lich" → Forma de Lich (Balance.FORM_STATS/FORM_DURATION): maldições espalham e cabe +1 invocação por tipo.
+## "shadow_clone": {}  → (SELF) Sombra Gêmea (Assassino ascendido): clone de sombra por Balance.SHADOW_TIME s que repete os
+##     golpes diretos do dono com SHADOW_SHARE% do dano; monstros o ignoram; some com o dono (ShadowSystem).
+## "execute": {}  → Execução: poder cheio só em alvo abaixo de Balance.EXECUTION_BELOW da vida; acima, EXECUTION_WEAK.
+## Bispo ascendido (ChoirSystem): "choir_angel": {} → chama o Anjo Guardião (espírito que cura o grupo, Balance.ANGEL_*);
+##     "choir_barrier": {} → (GROUND) Barreira Sagrada: cúpula de `radius` m que anda com o Bispo (Balance.BARRIER_*);
+##     "choir_return": {} → (GROUND) Retorno: no fim do preparo levanta o caído do grupo mais perto do ponto (Balance.RES_*).
 ## "pull": {"gap": 0.6}  → puxa o atingido para o lado de quem lançou (gancho; chefe nunca é puxado).
+## Druida ascendido (DruidAscension, Forma Ancestral):
+## "provoke": {"duration": 4}  → cada monstro atingido fica preso em quem lançou (MobSystem.taunt; chefes: metade). Ao
+##     contrário de "taunt" (grito: só o buff em você), a skill continua causando dano e efeitos nos atingidos.
+## "knockback": {"dist": 4}  → empurra o atingido para longe do centro do golpe (ponto mirado no GROUND, senão de quem
+##     lançou), parando em parede/água; chefe e quem está em torre não são empurrados (DruidAscension.knockback; o Canhão
+##     de Mão do Corsário usa o mesmo efeito).
+## "area_heal": {"power": 0.7}  → além do dano, cura (x MATK) os aliados dentro da área do golpe.
+## "pack": {"monster_id": "pack_wolf", "count": 2}  → chama a matilha por Balance.ANC_PACK_TIME s: vida/ataque/defesa são
+##     parte dos do dono (ANC_PACK_*); um chamado novo dispensa os lobos antigos.
+## Berserker ascendido (TitanSystem/GladiatorSystem): "titan_hit": true → bate com as duas armas (× 1 + Stats.titan_hit);
+##     "glory_scale": true → power + Balance.GLORY_STEP por Glória; "glory_spend": true → gasta toda a Glória (Golpe Final);
+##     "glory_gain": true (com "taunt") → +1 Glória por inimigo provocado (até GLORY_SHOUT_MAX);
+## "chain": {"count": 2, "radius": 4.5, "falloff": 0.6} → depois do golpe, o raio salta do 1º atingido para até `count`
+##     inimigos a `radius` m com power × falloff (WorldSim._chain).
+## "elem_command": true  → (ascensão do Elementalista) sem elemental chama o persistente; com ele, troca o modo (ElementalSystem).
+## "elem_fusion": true   → (ascensão do Elementalista) o golpe ganha o efeito da forma do elemental e o mago o buff
+##     `elem_fusion` (MATK + elemento da forma, x estágio). Skills com estes efeitos exigem a ascensão.
 @export var effects: Dictionary = {}
 
 ## Maestria: array de 6 dicionários {power_mult, mp_mult, cd_mult, extra:Dictionary}

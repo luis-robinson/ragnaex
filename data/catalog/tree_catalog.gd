@@ -63,6 +63,10 @@ const STAT_NAMES := {"def_pct": "%+d%% DEF", "hp_pct": "%+d%% HP máximo", "atk_
 	"lifesteal": "%+d%% roubo de vida", "aspd_pct": "%+d%% velocidade de ataque", "buff_pct": "%+d%% duração das bênçãos", "radiance": "%+d%% Radiância",
 	"pet_pct": "%+d%% força do companheiro", "evasion": "%+.1f%% esquiva", "backstab": "%+d%% dano pelas costas",
 	"fire_pct": "%+d%% dano de fogo", "frost_pct": "%+d%% dano de gelo", "storm_pct": "%+d%% dano de raio", "cdr": "-%d%% recarga das skills",
+	"titan_relief": "Empunhadura de Titã: +%d nó de alívio (3%% de velocidade do básico)",
+	"shadow_time": "Sombra Gêmea: +%d s de clone", "shadow_share": "Sombra Gêmea: +%d nó de força (5%% do dano)", "execute_pct": "Execução: +%d nó de dano (10%%)",
+	"falcon_pct": "%+d%% dano do mergulho do falcão", "prey_crit": "%+d crítico contra a Presa",
+	"threat_pct": "%+d%% ameaça gerada", "dr_pct": "%+d%% redução de todo dano recebido",
 	"attr_FOR": "%+d FOR", "attr_AGI": "%+d AGI", "attr_VIT": "%+d VIT", "attr_WILL": "%+d WILL", "attr_INT": "%+d INT"}
 
 ## Rótulo curto embaixo do losango da evolução: o que ela muda na skill (ou no dash), lido dos mods. Até 2 partes.
@@ -102,11 +106,16 @@ const STAT_SHORT := {"def_pct": "%+d%% DEF", "hp_pct": "%+d%% HP", "atk_pct": "%
 	"lifesteal": "%+d%% Roubo", "aspd_pct": "%+d%% Vel. atq", "buff_pct": "%+d%% Bênção", "radiance": "%+d%% Radiân.",
 	"pet_pct": "%+d%% Pet", "evasion": "%+.1f%% Esquiva", "backstab": "%+d%% Costas",
 	"fire_pct": "%+d%% Fogo", "frost_pct": "%+d%% Gelo", "storm_pct": "%+d%% Raio", "cdr": "-%d%% Recarga",
+	"titan_relief": "+%d Titã", "shadow_time": "+%d s Sombra", "shadow_share": "+%d Sombra", "execute_pct": "+%d Execução",
+	"falcon_pct": "%+d%% Falcão", "prey_crit": "%+d Crít Presa",
+	"threat_pct": "%+d%% Ameaça", "dr_pct": "%+d%% Redução",
 	"attr_FOR": "%+d FOR", "attr_AGI": "%+d AGI", "attr_VIT": "%+d VIT", "attr_WILL": "%+d WILL", "attr_INT": "%+d INT"}
 ## família do passivo (cor do rótulo): defesa, ataque, magia, cura, mobilidade
 const STAT_FAMILY := {"def_pct": "def", "hp_pct": "def", "evasion": "def", "atk_pct": "atk", "crit": "atk", "lifesteal": "atk",
 	"aspd_pct": "atk", "backstab": "atk", "pet_pct": "atk", "matk_pct": "mag", "mp_pct": "mag", "fire_pct": "mag", "frost_pct": "mag",
-	"storm_pct": "mag", "heal_pct": "heal", "buff_pct": "heal", "radiance": "heal", "speed_pct": "move", "cdr": "move",
+	"storm_pct": "mag", "heal_pct": "heal", "buff_pct": "heal", "radiance": "heal", "speed_pct": "move", "cdr": "move", "titan_relief": "atk", "shadow_time": "atk", "shadow_share": "atk", "execute_pct": "atk",
+	"falcon_pct": "atk", "prey_crit": "atk",
+	"threat_pct": "def", "dr_pct": "def",
 	"attr_FOR": "atk", "attr_AGI": "move", "attr_VIT": "def", "attr_WILL": "heal", "attr_INT": "mag"}
 
 static func stat_short(stats: Dictionary) -> String:
@@ -194,7 +203,7 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 		var list: Array = []
 		for sid in cls.skill_ids:
 			var sk: SkillDef = skills[sid]
-			if sk.build == br["id"]:
+			if sk.build == br["id"] and not sk.ascension:     # ascensão: teia própria (ascension_tree), fora desta
 				list.append(sk)
 		list.sort_custom(func(a, b): return _order(cls, a) < _order(cls, b))
 		var k := 0
@@ -393,8 +402,305 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 
 			nodes[tnid]["branch"] = "start"
 			_link(nodes, start if i == 0 else "%s_t_%s" % [cls.id, dash_talents[i - 1].id], tnid)
+	_outer_web(cls, nodes, branches, hubs, used_cells, sector_of, out_clusters, far)
 	_class_picks(cls, nodes)
 	return {"start": start, "nodes": nodes, "panes": panes, "clusters": out_clusters}
+
+## --- Fronteira (Ato II, níveis 31-45; GDD ato2-horda R7) ---
+## Região de fora da teia do 30: casas livres até Balance.WEB_OUTER_GRID_K, por setor, sempre encostadas na malha (sem ilha).
+## Tudo exige nível >= 31, então a teia do 30 não muda (ids, posições, valores e o gasto dos bots). Sorteio próprio
+## (`<classe>_teia_ato2`): nada do sorteio da teia antiga anda. Por setor de build: notáveis da build (nomes abaixo, bônus
+## dos passivos da build), notáveis de elo na divisa com a build vizinha (as builds ficam híbridas, R7.1), um círculo de
+## pedra-angular (duas opções que se excluem, nível 40) e o Ápice da build (nível 45) no fundo. O Geral ganha poucas casas.
+## Nomes dos notáveis da Fronteira por build: [notável 1, notável 2, Ápice].
+const OUTER_BUILD_NAMES := {
+	"guardiao": ["Escudo de Aldara", "Voto de Ferro", "Égide Imortal"], "cruzado": ["Lâmina Sagrada", "Carga Santa", "Juízo Final"],
+	"templario": ["Chama do Templo", "Selo Ardente", "Sol Inquebrável"], "carniceiro": ["Redemoinho Rubro", "Fio Duplo", "Tempestade de Machados"],
+	"executor": ["Golpe do Carrasco", "Couro de Titã", "Sentença"], "punhos": ["Punho Sombrio", "Dança da Fúria", "Mil Punhos"],
+	"sacerdote": ["Prece Longa", "Mão Santa", "Milagre"], "inquisidor": ["Luz Implacável", "Radiância Viva", "Aurora"],
+	"batalha": ["Martelo da Fé", "Hino de Guerra", "Cruzada Viva"], "guardiao_verde": ["Casca de Carvalho", "Raiz Funda", "Ancião da Mata"],
+	"fera": ["Presas Afiadas", "Uivo da Matilha", "Rei Lobo"], "xama": ["Canto da Chuva", "Espírito do Bosque", "Voz da Floresta"],
+	"cacador": ["Laço do Lince", "Trilha Fresca", "Mestre da Caçada"], "atirador": ["Pólvora Fina", "Mira de Cano", "Último Tiro"],
+	"lanceiro": ["Ponta de Osso", "Arremesso Selvagem", "Lança do Primeiro Caçador"], "laminas": ["Veneno Lento", "Sombra Rápida", "Mil Cortes"],
+	"duelista": ["Esgrima Fina", "Parada e Resposta", "Mestre de Armas"], "corsario": ["Pólvora e Aço", "Lei do Convés", "Terror dos Mares"],
+	"fogo": ["Brasa Viva", "Coração de Fogo", "Inferno"], "gelo": ["Geada Funda", "Coração de Gelo", "Inverno Eterno"],
+	"raio": ["Faísca", "Céu Carregado", "Fúria dos Céus"], "invocador": ["Legião", "Ossos Fortes", "Senhor dos Mortos"],
+	"ceifador": ["Colheita", "Fome da Foice", "Ceifa Final"], "pestilento": ["Miasma", "Sombra Densa", "Noite Sem Fim"],
+}
+## Pedras-angulares por papel: duas opções que se excluem (comprar uma tranca a outra até o reset). [nome, bônus, lado];
+## lado "atk" = ofensiva (bots de dano), "def" = segura (bots de tanque e cura). "power" = ATK ou MATK da build.
+const KEYSTONES := {
+	"tank": [["Fúria do Protetor", {"power": 7, "threat_pct": 30, "def_pct": -6}, "atk"], ["Baluarte Eterno", {"hp_pct": 7, "dr_pct": 3, "speed_pct": -5}, "def"]],
+	"dps": [["Sede de Sangue", {"power": 7, "lifesteal": 2, "hp_pct": -6}, "atk"], ["Guarda Alta", {"def_pct": 10, "hp_pct": 5, "aspd_pct": -4}, "def"]],
+	"ranged": [["Tiro Paciente", {"crit": 4.0, "power": 5, "speed_pct": -6}, "atk"], ["Caçador Nômade", {"speed_pct": 8, "evasion": 3.0, "power": -3}, "def"]],
+	"caster": [["Sobrecarga Arcana", {"power": 8, "mp_pct": -15}, "atk"], ["Mente Contínua", {"cdr": 6, "mp_pct": 12, "power": -3}, "def"]],
+	"healer": [["Fé Militante", {"power": 7, "heal_pct": -5}, "atk"], ["Mártir", {"heal_pct": 10, "hp_pct": 5, "power": -6}, "def"]],
+	"": [["Andarilho", {"speed_pct": 6, "cdr": 4, "hp_pct": -4}, "atk"], ["Colosso", {"hp_pct": 6, "def_pct": 5, "speed_pct": -5}, "def"]],
+}
+const KEYSTONE_R := 0.45          # pedras-angulares: dentro do anel, uma de cada lado do centro
+
+## "power" vira o ataque da build (MATK para INT, magia e cura; ATK para o resto). No Geral vale _power (classe).
+static func _build_power(st: Dictionary, br: Dictionary, cls: ClassDef) -> Dictionary:
+	if br["id"] == "":
+		return _power(st, cls)
+	var key := "matk_pct" if (br["attr"] == "INT" or br["role"] in ["caster", "healer"]) else "atk_pct"
+	var out := {}
+	for k in st:
+		var kk: String = key if k == "power" else k
+		out[kk] = st[k]
+	return out
+
+## Passivos da build x mult (soma por stat), para os notáveis e o Ápice da Fronteira.
+static func _build_stats(br: Dictionary, cls: ClassDef, picks: Array, mult: float) -> Dictionary:
+	var smalls: Array = br["passives"] if not br.get("passives", []).is_empty() else ROLE_STATS.get(br["role"], ROLE_STATS[""])
+	var acc := {}
+	for i in picks:
+		var st: Dictionary = _build_power(smalls[int(i) % smalls.size()], br, cls)
+		for k in st:
+			acc[k] = float(acc.get(k, 0.0)) + float(st[k]) * mult
+	var out := {}
+	for k in acc:
+		out[k] = snappedf(acc[k], 0.5) if k in ["crit", "evasion"] else maxi(1, roundi(acc[k]))
+	return out
+
+static func _outer_web(cls: ClassDef, nodes: Dictionary, branches: Array, hubs: Dictionary, used_cells: Dictionary,
+		sector_of: Callable, out_clusters: Array, far: float) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(cls.id + "_teia_ato2")
+	var n_br := branches.size()
+	var k2: int = Balance.WEB_OUTER_GRID_K
+	var r_out := k2 * CELL
+	var lv_span: Array = Balance.WEB_OUTER_LEVEL
+	var level_at := func(p: Vector2) -> int:
+		return roundi(lerpf(lv_span[0], lv_span[1], clampf((p.length() - far) / maxf(1.0, r_out - far), 0.0, 1.0)))
+	# casas livres por setor, perto -> longe
+	var cand: Array = []
+	for bi in range(n_br):
+		cand.append([])
+	for i in range(-k2, k2):
+		for j in range(-k2, k2):
+			var key := Vector2i(i, j)
+			var c := Vector2((i + 0.5) * CELL, (j + 0.5) * CELL)
+			if used_cells.has(key) or c.length() > r_out or c.length() < CELL * 2.0:
+				continue
+			cand[sector_of.call(c)].append({"i": i, "j": j, "c": c, "d": c.length() + rng.randf() * CELL * 0.35})
+	for bi in range(n_br):
+		cand[bi].sort_custom(func(a, b): return float(a["d"]) < float(b["d"]))
+	# escolhe as casas: em rodízio, cada setor pega a mais perto que encosta na malha (sem ilha)
+	var plan: Array = []              # {cell, branch, slot}
+	var took: Array = []
+	for bi in range(n_br):
+		took.append(0)
+	var new_hubs := {}
+	var progress := true
+	while progress:
+		progress = false
+		for bi in range(n_br):
+			if took[bi] >= _outer_cells(bi):
+				continue
+			for cell in cand[bi]:
+				var key := Vector2i(cell["i"], cell["j"])
+				if used_cells.has(key) or not _touches(hubs, key):
+					continue
+				used_cells[key] = true
+				plan.append({"cell": cell, "branch": bi, "slot": took[bi]})
+				took[bi] += 1
+				progress = true
+				for dx in [0, 1]:
+					for dy in [0, 1]:
+						var h := Vector2i(key.x + dx, key.y + dy)
+						if hubs.has(h):
+							continue
+						var hp := Vector2(h.x, h.y) * CELL + Vector2(rng.randf_range(-1, 1), rng.randf_range(-1, 1)) * JITTER_HUB
+						var br: Dictionary = branches[sector_of.call(hp)]
+						var hid := "%s_h_%d_%d" % [cls.id, h.x + 50, h.y + 50]
+						var hst := {"attr_" + str(br["attr"]): ROAD_ATTR}
+						nodes[hid] = _node(hid, "stat", "", "Junção", "Junção da Fronteira: %s." % stat_text(hst), level_at.call(hp), 1, hp)
+						nodes[hid]["stats"] = hst
+						nodes[hid]["branch"] = "ring"
+						hubs[h] = hid
+						new_hubs[h] = true
+				break
+	# estradas novas: árvore mínima ligando as junções novas à malha (a antiga já é um bloco só) + parte das outras
+	var hub_keys: Array = hubs.keys()
+	hub_keys.sort()
+	var edges: Array = []
+	for h in hub_keys:
+		for d in [Vector2i(1, 0), Vector2i(0, 1)]:
+			if hubs.has(h + d) and (new_hubs.has(h) or new_hubs.has(h + d)):
+				edges.append([h, h + d, rng.randf()])
+	edges.sort_custom(func(a, b): return float(a[2]) < float(b[2]))
+	var parent := {}
+	var root := Vector2i(0, 0)
+	for h in hub_keys:
+		parent[h] = h if new_hubs.has(h) else root
+	parent[root] = root
+	for e in edges:
+		var ra: Vector2i = _find(parent, e[0])
+		var rb: Vector2i = _find(parent, e[1])
+		if ra != rb:
+			parent[ra] = rb
+		elif rng.randf() >= Balance.WEB_OUTER_EDGE_KEEP:
+			continue
+		var a: Vector2i = e[0]
+		var b: Vector2i = e[1]
+		var mid := ((nodes[hubs[a]]["pos"] as Vector2) + (nodes[hubs[b]]["pos"] as Vector2)) * 0.5
+		var br: Dictionary = branches[sector_of.call(mid)]
+		var tid := "%s_e_%d_%d_%d_%d" % [cls.id, a.x + 50, a.y + 50, b.x + 50, b.y + 50]
+		var est := {"attr_" + str(br["attr"]): ROAD_ATTR}
+		nodes[tid] = _node(tid, "stat", "", "Passagem", "Passagem da Fronteira: %s." % stat_text(est), level_at.call(mid), 1, mid)
+		nodes[tid]["stats"] = est
+		nodes[tid]["branch"] = "ring"
+		_link(nodes, hubs[a], tid)
+		_link(nodes, tid, hubs[b])
+	# círculos: no setor de build o último é o Ápice e o penúltimo a pedra-angular; o Geral fecha com a pedra-angular
+	var arm_i := rng.randi() % 4
+	var elo_done := {}                # Vector2i(ramo, vizinho) já com elo
+	for pl in plan:
+		var cell: Dictionary = pl["cell"]
+		var bi: int = pl["branch"]
+		var br: Dictionary = branches[bi]
+		var slot: int = pl["slot"]
+		var last := _outer_cells(bi) - 1
+		var kind := "notable"
+		if slot == last:
+			kind = "keystone" if bi == 0 else "apex"
+		elif bi > 0 and slot == last - 1:
+			kind = "keystone"
+		var c: Vector2 = cell["c"] + Vector2(rng.randf_range(-1, 1), rng.randf_range(-1, 1)) * JITTER_CELL
+		var tag: String = br["id"] if br["id"] != "" else "geral"
+		var corner := Vector2i(cell["i"] + (1 if c.x < 0 else 0), cell["j"] + (1 if c.y < 0 else 0))
+		var far_corner := Vector2i(cell["i"] + (0 if c.x < 0 else 1), cell["j"] + (0 if c.y < 0 else 1))
+		var base_a := (Vector2(corner.x, corner.y) * CELL - c).normalized().angle()
+		var cid := "%s_%d_%d" % [tag, cell["i"] + 50, cell["j"] + 50]
+		var lv: int = level_at.call(c)
+		var main := "attr_" + str(br["attr"])
+		var ring: Array = []
+		for s in range(5):
+			var a := base_a + TAU * s / 5.0
+			var sid := "%s_n_%s_%d" % [cls.id, cid, s]
+			var ra := "attr_" + str(br["attr"] if s % 4 == 0 else br["attr2"])
+			var st := {ra: (Balance.WEB_OUTER_RING_ATTR if s != 2 else Balance.WEB_OUTER_RING_ATTR2) if s % 2 == 0 else ROAD_ATTR}
+			nodes[sid] = _node(sid, "stat", "", stat_text(st), "Passivo da Fronteira: %s." % stat_text(st), lv, 1, c + Vector2(cos(a), sin(a)) * WHEEL_R)
+			nodes[sid]["stats"] = st
+			nodes[sid]["branch"] = br["id"]
+			ring.append(sid)
+		for s in range(5):
+			_link(nodes, ring[s], ring[(s + 1) % 5])
+		_link(nodes, ring[0], hubs[corner])           # entrada no canto perto (a casa encosta na malha: existe)
+		if hubs.has(far_corner):                        # 2ª entrada (atalho) pelo nó do anel virado para o outro canto
+			var a_far := (Vector2(far_corner.x, far_corner.y) * CELL - c).angle()
+			var best := 0
+			var bd := INF
+			for s in range(5):
+				var d := absf(angle_difference(base_a + TAU * s / 5.0, a_far))
+				if d < bd:
+					bd = d
+					best = s
+			_link(nodes, ring[best], hubs[far_corner])
+		if kind == "keystone":
+			var opts: Array = KEYSTONES.get(br["role"], KEYSTONES[""])
+			var ids: Array = ["%s_n_%s_k0" % [cls.id, cid], "%s_n_%s_k1" % [cls.id, cid]]
+			for o in range(2):
+				var ks: Array = opts[o]
+				var st := _build_power(_mult(ks[1], Balance.WEB_KEYSTONE_SCALE), br, cls)
+				st[main] = int(st.get(main, 0)) + Balance.WEB_KEYSTONE_ATTR
+				var a := base_a + PI * 0.5 + PI * o          # de lado em relação à entrada, cada uma junto de 2 nós do anel
+				var at := c + Vector2(cos(a), sin(a)) * KEYSTONE_R
+				nodes[ids[o]] = _node(ids[o], "notable", "", ks[0], "Pedra-angular: %s.\nExclui %s (só o reset desfaz)." % [stat_text(st), opts[1 - o][0]],
+					Balance.WEB_KEYSTONE_LEVEL, 1, at)
+				nodes[ids[o]]["stats"] = st
+				nodes[ids[o]]["branch"] = br["id"]
+				nodes[ids[o]]["keystone"] = ks[2]
+				nodes[ids[o]]["excludes"] = [ids[1 - o]]
+				var near: Array = range(5)
+				near.sort_custom(func(x, y): return (nodes[ring[x]]["pos"] as Vector2).distance_to(at) < (nodes[ring[y]]["pos"] as Vector2).distance_to(at))
+				_link(nodes, ids[o], ring[near[0]])
+				_link(nodes, ids[o], ring[near[1]])
+			out_clusters.append({"center": c, "r": WHEEL_R, "kind": "keystone", "branch": br["id"]})
+			continue
+		var nn := "%s_n_%s_x" % [cls.id, cid]
+		var nname := ""
+		var nst := {}
+		var nlv := lv
+		var names: Array = OUTER_BUILD_NAMES.get(br["id"], [])
+		var other := -1                   # 3ª casa: sempre elo com a build vizinha; 4ª: só na divisa e com a outra vizinha
+		if kind == "notable" and bi > 0 and slot >= 2:
+			other = _neighbor_build(c, bi, branches, slot == 2)
+			if other >= 0 and elo_done.has(Vector2i(bi, other)):
+				other = -1
+			elif other >= 0:
+				elo_done[Vector2i(bi, other)] = true
+		if kind == "apex":
+			nname = "Ápice: " + (str(names[2]) if names.size() > 2 else str(br["name"]))
+			nst = _build_stats(br, cls, range(maxi(1, (br.get("passives", []) as Array).size())), Balance.WEB_APEX_MULT)
+			nst[main] = int(nst.get(main, 0)) + Balance.WEB_APEX_ATTR
+			nlv = Balance.WEB_APEX_LEVEL
+		elif bi > 0 and slot < 2 and names.size() > slot:
+			nname = names[slot]
+			nst = _build_stats(br, cls, [slot], Balance.WEB_OUTER_PASSIVE_MULT)
+			nst[main] = int(nst.get(main, 0)) + Balance.WEB_OUTER_NOTABLE_ATTR
+		elif other >= 0:
+			var ob: Dictionary = branches[other]
+			nname = "Elo: %s e %s" % [br["name"], ob["name"]]
+			nst = _build_stats(ob, cls, [0], Balance.WEB_OUTER_PASSIVE_MULT)
+			nst[main] = int(nst.get(main, 0)) + Balance.WEB_HYBRID_ATTR
+			var om := "attr_" + str(ob["attr"])
+			nst[om] = int(nst.get(om, 0)) + Balance.WEB_HYBRID_ATTR
+		else:
+			var arm: Array = ARM_NOTABLES.get(br["role"], ARM_NOTABLES[""])
+			var pick: Array = arm[arm_i % arm.size()]
+			arm_i += 1
+			nname = str(pick[0]) + " Maior"
+			nst = _build_power(_scaled(pick[1], Balance.WEB_OUTER_ARM_SCALE), br, cls)
+			nst[main] = int(nst.get(main, 0)) + Balance.WEB_OUTER_NOTABLE_ATTR
+		nodes[nn] = _node(nn, "notable", "", nname, "%s: %s." % ["Ápice" if kind == "apex" else "Notável da Fronteira", stat_text(nst)], nlv, 1, c)
+		nodes[nn]["stats"] = nst
+		nodes[nn]["branch"] = br["id"]
+		if kind == "apex":
+			nodes[nn]["apex"] = true
+		_link(nodes, nn, ring[2])
+		_link(nodes, nn, ring[3])
+		out_clusters.append({"center": c, "r": WHEEL_R, "kind": kind, "branch": br["id"]})
+
+## Quantas casas da Fronteira o ramo `bi` ganha (0 = Geral).
+static func _outer_cells(bi: int) -> int:
+	return Balance.WEB_OUTER_GERAL_CELLS if bi == 0 else Balance.WEB_OUTER_CELLS
+
+## A casa encosta na malha (algum canto já é junção)?
+static func _touches(hubs: Dictionary, key: Vector2i) -> bool:
+	for dx in [0, 1]:
+		for dy in [0, 1]:
+			if hubs.has(Vector2i(key.x + dx, key.y + dy)):
+				return true
+	return false
+
+static func _find(parent: Dictionary, x: Vector2i) -> Vector2i:
+	while parent[x] != x:
+		x = parent[x]
+	return x
+
+## Build vizinha (índice do ramo) do lado para onde a casa pende; sem `always`, só perto da divisa do setor (senão -1).
+static func _neighbor_build(c: Vector2, bi: int, branches: Array, always: bool) -> int:
+	var n_br := branches.size()
+	if bi == 0 or n_br < 3:
+		return -1
+	var w := TAU / float(n_br)
+	var a := wrapf(c.angle() + PI * 0.5, 0.0, TAU)
+	var off := angle_difference(bi * w, a)                 # quanto a casa sai do meio do setor (radianos, com sinal)
+	if not always and absf(off) < w * 0.5 * Balance.WEB_HYBRID_EDGE:
+		return -1
+	var nb := posmod(bi + (1 if off > 0 else -1), n_br)
+	if nb == 0:                                            # do lado do Geral: elo com a build do outro lado
+		nb = posmod(bi + (-1 if off > 0 else 1), n_br)
+	return nb if nb != 0 else -1
+
+## Bônus x mult (atributo fica).
+static func _mult(st: Dictionary, mult: float) -> Dictionary:
+	var out := {}
+	for k in st:
+		out[k] = st[k] if str(k).begins_with("attr_") else (snappedf(float(st[k]) * mult, 0.5) if st[k] is float else roundi(float(st[k]) * mult))
+	return out
 
 ## Talentos de classe (ClassTalentsCatalog) como nós "pick" fora da teia: um grupo por linha, grátis, liberados
 ## pelo nível; os `stats` da opção entram pelo tree_bonus, o resto pelo ClassTalentSystem.

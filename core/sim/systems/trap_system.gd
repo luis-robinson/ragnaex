@@ -35,14 +35,14 @@ static func update_traps(sim: WorldSim, m: Dictionary) -> void:
 			continue
 		var pos: Vector3 = t["pos"]
 		var stepped := false
-		for o in m["entities"]:
+		for o: SimEntity in m["entities"]:
 			if o.is_alive() and owner.is_hostile_to(o) and Vector3(o.position.x, 0, o.position.z).distance_to(pos) <= float(t["hit_radius"]) + o.radius:
 				stepped = true
 				break
 		if not stepped:
 			continue
 		traps.erase(t)
-		for o in m["entities"]:        # dispara: dano e efeito em quem estiver na área
+		for o: SimEntity in m["entities"]:        # dispara: dano e efeito em quem estiver na área
 			if o.is_alive() and owner.is_hostile_to(o) and Vector3(o.position.x, 0, o.position.z).distance_to(pos) <= float(t["radius"]) + o.radius:
 				var r := Combat.calc_damage(owner, o, float(t["power"]), SkillDef.Kind.PHYSICAL, sim.rng, pos)
 				sim._deal_damage(owner, o, r["amount"], r["crit"], false, "physical", pos)

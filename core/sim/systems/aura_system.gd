@@ -27,9 +27,15 @@ static func tick(sim: WorldSim, m: Dictionary, dt: float) -> void:
 	if float(m["aura_t"]) < Balance.AURA_TICK:
 		return
 	m["aura_t"] = 0.0
-	for e in m["entities"].duplicate():          # o pulso pode matar (a lista muda)
+	for e: SimEntity in m["entities"].duplicate():          # o pulso pode matar (a lista muda)
+		if e.kind == SimEntity.Kind.MONSTER:
+			if e.monster_def.aura != "" and e.is_alive():
+				mob_aura(sim, e, m)
+			continue
 		if not e.is_alive() or e.buffs.is_empty() or not e.is_character():
 			continue
+		if not MountedCombat.ward_buff(e).is_empty():
+			MountedCombat.ward_tick(sim, e, m)            # Asas Protetoras (Templário): redução de dano no grupo perto
 		for b in e.buffs:
 			if not b.get("toggle", false) or not (b.get("aura") is Dictionary):
 				continue
@@ -42,14 +48,14 @@ static func tick(sim: WorldSim, m: Dictionary, dt: float) -> void:
 			var ally: Dictionary = au.get("ally", {}).duplicate()
 			ally["id"] = b["id"]
 			ally["aura_from"] = e.id
-			for t in receivers(sim, e, m, float(au.get("radius", 12.0))):
+			for t in receivers(sim, e, m, float(au.get("radius", 12.0)) * MountedCombat.banner_mult(e)):     # Estandarte: montado, mais longe
 				_keep(t, ally)
 
 ## Pulso da aura (Juízo do Bastião): dano sagrado nos inimigos a `radius` m, `power` × ATK por pulso.
 ## Sai do tanque, então gera ameaça (× threat_pct): segura um bando inteiro, não só o alvo.
 static func pulse(sim: WorldSim, e: SimEntity, m: Dictionary, pu: Dictionary) -> void:
 	var R := float(pu.get("radius", 3.5))
-	for t in m["entities"].duplicate():
+	for t: SimEntity in m["entities"].duplicate():
 		if not t.is_alive() or not e.is_hostile_to(t) or t.position.distance_to(e.position) > R + t.radius:
 			continue
 		var r := Combat.calc_damage(e, t, float(pu.get("power", 0.4)), SkillDef.Kind.MAGICAL if e.stats.matk > e.stats.patk else SkillDef.Kind.PHYSICAL, sim.rng, e.position)
@@ -58,7 +64,7 @@ static func pulse(sim: WorldSim, e: SimEntity, m: Dictionary, pu: Dictionary) ->
 ## Quem recebe a aura: o grupo de `e` e as invocações dele a até R metros (sem ele: o dele é o buff da skill).
 static func receivers(sim: WorldSim, e: SimEntity, m: Dictionary, R: float) -> Array:
 	var out: Array = []
-	for t in m["entities"]:
+	for t: SimEntity in m["entities"]:
 		if t == e or not t.is_alive() or t.position.distance_to(e.position) > R:
 			continue
 		if (t.is_character() and e.party_id >= 0 and t.party_id == e.party_id) or (t.kind == SimEntity.Kind.SUMMON and t.owner_id == e.id):
@@ -78,3 +84,45 @@ static func _keep(t: SimEntity, ally: Dictionary) -> void:
 	t.put_buff(nb)
 	t.recompute_stats()
 	Events.post(&"buff_applied", t.id, nb["id"], Balance.AURA_KEEP)
+
+# ---------------------------------------------------------------------------
+# Aura de facção de monstro (Agitador da Horda, design/gdd/ato2-horda.md F4)
+# ---------------------------------------------------------------------------
+
+## Aura do monstro `e` (MonsterDef.aura -> Balance.MOB_AURAS): monstros vivos da mesma facção a `radius` m recebem o
+## buff (renova pelo id; duas auras não somam). Ele mesmo não recebe.
+static func mob_aura(sim: WorldSim, e: SimEntity, m: Dictionary) -> void:
+	var au: Dictionary = Balance.MOB_AURAS.get(e.monster_def.aura, {})
+	if au.is_empty() or e.monster_def.faction == "":
+		return
+	var R: float = float(au["radius"])
+	var r2 := R * R
+	for t: SimEntity in m["entities"]:
+		if t == e or t.kind != SimEntity.Kind.MONSTER or t.position.distance_squared_to(e.position) > r2:
+			continue
+		if not t.is_alive() or t.monster_def.faction != e.monster_def.faction:
+			continue
+		var ally: Dictionary = (au["ally"] as Dictionary).duplicate()
+		ally["id"] = au["id"]
+		ally["aura_from"] = e.id
+		ally["mob_stat"] = true
+		_keep(t, ally)
+
+## Dono de aura de facção morreu: quem da facção está a `demoralize.radius` m fica desanimado (renova, não soma).
+static func on_mob_death(sim: WorldSim, e: SimEntity) -> void:
+	if e.monster_def == null or e.monster_def.aura == "" or not sim.maps.has(e.map_id):
+		return
+	var au: Dictionary = Balance.MOB_AURAS.get(e.monster_def.aura, {})
+	var dm: Dictionary = au.get("demoralize", {})
+	if dm.is_empty():
+		return
+	var r2: float = float(dm["radius"]) * float(dm["radius"])
+	for t: SimEntity in sim.maps[e.map_id]["entities"]:
+		if t == e or t.kind != SimEntity.Kind.MONSTER or not t.is_alive() or t.monster_def.faction != e.monster_def.faction:
+			continue
+		if t.position.distance_squared_to(e.position) > r2:
+			continue
+		t.put_buff({"id": dm["id"], "remaining": float(dm["duration"]), "duration": float(dm["duration"]), "atk_pct": float(dm["atk_pct"]),
+			"speed_pct": float(dm["speed_pct"]), "mob_stat": true})
+		t.recompute_stats()
+		Events.post(&"buff_applied", t.id, str(dm["id"]), float(dm["duration"]))

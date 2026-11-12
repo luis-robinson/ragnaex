@@ -8,11 +8,12 @@ extends RefCounted
 ## Chave nova = ler aqui embaixo em `compute()` E acrescentar na lista.
 const STAT_KEYS := ["atk_pct", "matk_pct", "def_pct", "speed_pct", "heal_pct", "hp_pct", "mp_pct", "crit", "lifesteal",
 	"aspd_pct", "buff_pct", "radiance", "radiance_cap", "pet_pct", "evasion", "hit_poison", "backstab", "cdr", "threat_pct",
-	"dr_pct", "fire_pct", "frost_pct", "storm_pct"]
+	"dr_pct", "fire_pct", "frost_pct", "storm_pct", "titan_relief", "turret_max", "shadow_time", "shadow_share", "execute_pct",
+	"prey_crit", "falcon_pct", "block"]
 ## Chaves de buff que não são stat: id (renova, não acumula), duração e aura de ligar/desligar.
 const BUFF_META := ["id", "duration", "toggle"]
 ## Chaves de bônus de conjunto que não são stat (SetDef: atributos e bônus por skill).
-const SET_BONUS_META := ["attrs", "skill_dmg", "skill_cdr"]
+const SET_BONUS_META := ["attrs", "skill_dmg", "skill_cdr", "fusion"]
 
 var max_hp: float = 100.0
 var max_mp: float = 50.0
@@ -27,6 +28,12 @@ var block_chance: float = 0.0  # % (passivo, só com escudo)
 var block_reduction: float = 0.0 # %
 var move_speed: float = 5.5
 var lifesteal: float = 0.0       # % do dano causado que volta como vida (golpes diretos; dano no tempo não conta)
+var shadow_time: float = 0.0    # nós "shadow_time" da teia de ascensão (Assassino): cada um +Balance.SHADOW_TIME_NODE s de clone
+var shadow_share: float = 0.0   # nós "shadow_share": cada um +Balance.SHADOW_SHARE_NODE pontos de % no dano do clone
+var execute_pct: float = 0.0    # nós "execute_pct": cada um +Balance.EXECUTION_NODE_PCT% de dano da Execução
+var prey_crit: float = 0.0      # crítico a mais contra alvo com Presa (Olhos do Céu, Falcoeiro)
+var falcon_pct: float = 0.0     # % de dano a mais do mergulho do falcão (nós da teia de ascensão do Caçador)
+var turret_max: float = 0.0     # torretas a mais (Atirador ascendido; conjuntos futuros) além de Balance.TURRET_MAX
 var attack_speed: float = 0.0    # % a mais de velocidade do ataque básico (recarga menor)
 var buff_duration: float = 0.0   # % a mais de duração nas bênçãos e escudos que você lança (em você e nos aliados)
 var radiance: float = 0.0        # % do dano mágico direto que cura o aliado mais ferido por perto (você incluso)
@@ -45,6 +52,7 @@ var echo_pct: float = 0.0        # ... com esta % do dano
 var thorns_pct: float = 0.0      # arma lendária (tanque): % do dano corpo a corpo recebido devolvido
 var ward_pct: float = 0.0        # arma lendária (cura): % da cura que vira barreira
 var legend: Dictionary = {}      # efeito da arma lendária equipada (GearCatalog.legend_effect); vazio = nenhum
+var fusion: Dictionary = {}      # Fusão do híbrido com 5 peças (números do tier + "face" = build da arma na mão; FusionEffects)
 var attrs := {"FOR": 0, "AGI": 0, "VIT": 0, "WILL": 0, "INT": 0}
 var has_shield: bool = false
 var weapon_type: String = ""     # mão principal
@@ -54,6 +62,14 @@ var is_magic_weapon: bool = false
 var skill_dmg_pct: Dictionary = {}   # skill_id -> % de poder extra (conjuntos)
 var skill_cdr_pct: Dictionary = {}   # skill_id -> % de recarga a menos (conjuntos)
 var active_sets: Dictionary = {}     # set_id -> nº de peças equipadas
+## Berserker ascendido (TitanSystem / GladiatorSystem)
+var titan_pair: bool = false     # Empunhadura de Titã: machado de 2 mãos nas duas mãos
+var titan_claws: bool = false    # Garras de Titã (Punhos ascendido; TitanSystem.apply liga)
+var titan_hit: float = 0.0       # fração a mais de dano no golpe duplo (2ª arma / garra pesada)
+var titan_speed: float = 1.0     # multiplicador da velocidade do básico (F7: 1 − (PEN − RELIEF × n))
+var titan_relief: int = 0        # nós "titan_relief" da teia comprados
+var gladiator: bool = false      # Modo Gladiador ligado
+var glory: int = 0               # cargas de Glória
 
 
 ## Arma exigida por uma skill/evolução (alternativas; vazio = sempre). Ver SkillDef.requires.
@@ -70,9 +86,15 @@ func _meets_one(r: String) -> bool:
 		"shield", "orb", "pistol":
 			return offhand_type == r
 		"dual":
-			return weapon_type in ItemDef.ONE_HANDED_MELEE and offhand_type in ItemDef.ONE_HANDED_MELEE
+			return (weapon_type in ItemDef.ONE_HANDED_MELEE and offhand_type in ItemDef.ONE_HANDED_MELEE) or titan_pair
 		"two_handed":
 			return weapon_type in ItemDef.TWO_HANDED
+		"titan":                       # duas armas de 2 mãos (Empunhadura de Titã)
+			return titan_pair
+		"gladiator":                   # só no Modo Gladiador
+			return gladiator
+		"glory_full":                  # Glória cheia (Golpe Final)
+			return gladiator and glory >= Balance.GLORY_MAX
 	if r.begins_with("dual_"):
 		var t := r.substr(5)
 		return weapon_type == t and offhand_type == t
@@ -120,13 +142,21 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 		var item: ItemDef = equipment[slot]
 		if item == null:
 			continue
+		var am := 1.0
+		if slot == ItemDef.Slot.OFFHAND and item.weapon_type in ItemDef.TWO_HANDED:
+			am = Balance.TITAN_OFFHAND_ATTR_MULT      # 2ª arma de 2 mãos: o peso dela vai no golpe duplo
 		for a in Balance.ATTRS:
-			s.attrs[a] += item.attr(a)
+			s.attrs[a] += int(item.attr(a) * am)
 		if slot == ItemDef.Slot.WEAPON:
 			s.weapon_type = item.weapon_type
 		elif slot == ItemDef.Slot.OFFHAND:
 			s.offhand_type = item.weapon_type
 	s.has_shield = s.offhand_type == "shield"
+	s.titan_pair = s.weapon_type in Balance.TITAN_WEAPONS and s.offhand_type in Balance.TITAN_WEAPONS
+	if s.titan_pair:
+		var w_main: ItemDef = equipment[ItemDef.Slot.WEAPON]
+		var w_off: ItemDef = equipment[ItemDef.Slot.OFFHAND]
+		s.titan_hit = Balance.TITAN_OFFHAND_MULT * (clampf(w_off.atk / w_main.atk, 0.0, 1.0) if w_main.atk > 0.0 else 1.0)
 	for b in buffs:
 		for a in Balance.ATTRS:
 			s.attrs[a] += int(b.get("attr_" + a, 0))
@@ -156,6 +186,8 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 			continue
 		# segunda arma (empunhando duas) soma só parte do ATK
 		var k := Balance.OFFHAND_WEAPON_ATK_MULT if (slot == ItemDef.Slot.OFFHAND and item.weapon_type in ItemDef.ONE_HANDED_MELEE) else 1.0
+		if slot == ItemDef.Slot.OFFHAND and item.weapon_type in ItemDef.TWO_HANDED:
+			k = 0.0                     # 2ª arma de 2 mãos: bate à parte (golpe duplo), não soma no ATK
 		eq_atk += item.atk * k; eq_matk += item.matk; eq_def += item.def; eq_mdef += item.mdef     # versão +N já vem com o bônus
 
 	# 3) base por classe e nível
@@ -219,6 +251,22 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 		s.fire_pct += float(b.get("fire_pct", 0))
 		s.frost_pct += float(b.get("frost_pct", 0))
 		s.storm_pct += float(b.get("storm_pct", 0))
+		s.titan_relief += int(b.get("titan_relief", 0))
+		if b.get("id") == Balance.GLADIATOR_BUFF:
+			s.gladiator = true
+		elif b.get("id") == Balance.GLORY_BUFF:
+			s.glory = int(b.get("stacks", 0))
+		s.turret_max += float(b.get("turret_max", 0))
+		s.shadow_time += float(b.get("shadow_time", 0))
+		s.shadow_share += float(b.get("shadow_share", 0))
+		s.execute_pct += float(b.get("execute_pct", 0))
+		s.prey_crit = maxf(s.prey_crit, float(b.get("prey_crit", 0)))      # dois falcoeiros no grupo não somam
+		s.falcon_pct += float(b.get("falcon_pct", 0))
+		if s.has_shield:
+			s.block_chance += float(b.get("block", 0))           # +% de bloqueio (Asas com Bloqueio); sem escudo não vale
+	for b in set_bonus:
+		if b.has("fusion"):
+			FusionEffects.apply_stats(s, cls, b["fusion"])      # 5 peças do híbrido: liga a face da arma na mão
 	s.lifesteal = minf(s.lifesteal, Balance.LIFESTEAL_CAP)
 	s.attack_speed = minf(s.attack_speed, Balance.ATTACK_SPEED_CAP)
 	s.buff_duration = minf(s.buff_duration, Balance.BUFF_DURATION_CAP)
@@ -228,11 +276,21 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 	s.fire_pct = minf(s.fire_pct, Balance.ELEMENT_CAP)
 	s.frost_pct = minf(s.frost_pct, Balance.ELEMENT_CAP)
 	s.storm_pct = minf(s.storm_pct, Balance.ELEMENT_CAP)
+	if s.titan_pair:
+		s.titan_speed = titan_speed_mult(s.titan_relief)
 	return s
+
+## F7: velocidade do básico com a Empunhadura de Titã e `n` nós de alívio da teia (até Balance.TITAN_RELIEF_NODES).
+static func titan_speed_mult(n: int) -> float:
+	return 1.0 - (Balance.TITAN_ASPD_PEN - Balance.TITAN_WEB_RELIEF * clampi(n, 0, Balance.TITAN_RELIEF_NODES))
+
+## F7: razão de DPS do básico com as duas armas de 2 mãos iguais (1,0875 com n = 0 .. 1,218 com n = 3).
+static func titan_dps_ratio(n: int) -> float:
+	return (1.0 + Balance.TITAN_OFFHAND_MULT) * titan_speed_mult(n)
 
 ## Recarga do ataque básico com a velocidade de ataque.
 func basic_cooldown(base_cd: float) -> float:
-	return base_cd / (1.0 + attack_speed / 100.0)
+	return base_cd / ((1.0 + attack_speed / 100.0) * titan_speed)
 
 ## Multiplicador de poder de uma skill vindo de conjuntos (1.0 = nada).
 func skill_power_mult(skill_id: String) -> float:

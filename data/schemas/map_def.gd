@@ -41,7 +41,8 @@ extends Resource
 @export var hub: bool = false                      ## povoado com cristal (Posto): troca de skills dentro de town_radius, sem ser `is_town`
 ## estradas/água só para o visual (grama evita): {"kind":"road|street","w":4.2,"pts":PackedVector2Array,"r":float}
 @export var roads: Array = []
-@export var water: Array = []                      ## {"kind":"river","w":7,"pts":...} | {"kind":"lake","pos":Vector2,"r":13}
+@export var water: Array = []                      ## {"kind":"river","w":7,"pts":...} | {"kind":"lake","pos":Vector2,"r":13} (+ "material" se a água tem cor própria)
+@export var water_tints: Dictionary = {}           ## material de água do GLB ("water_dark") -> Color: cor própria nesta zona (malha e minimapa); sem entrada = azul padrão
 ## investida periódica (RaidSystem): {"from":Vector3, "route":[Vector3...], "target":Vector3, "radius":float,
 ##   "every":s, "first":s, "jitter":s, "lifetime":s, "waves":[{"mobs":{"id":n}, "every_nth":int}], "name":"..."}
 @export var raid: Dictionary = {}

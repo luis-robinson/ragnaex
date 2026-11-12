@@ -25,6 +25,9 @@ static func on_dodge(sim: WorldSim, target: SimEntity, attacker: SimEntity, kind
 static func gain_fury(sim: WorldSim, e: SimEntity, n: int) -> void:
 	if n <= 0 or e == null or not e.is_alive():
 		return
+	if GladiatorSystem.stance_on(e):           # Modo Gladiador: a Fúria vira Glória
+		GladiatorSystem.gain_glory(sim, e, n)
+		return
 	var cur := e.buff_stacks(Balance.FIST_FURY_BUFF)
 	var now := mini(Balance.FIST_FURY_MAX, cur + n)
 	e.put_buff({"id": Balance.FIST_FURY_BUFF, "remaining": Balance.FIST_FURY_TIME, "stacks": now,
