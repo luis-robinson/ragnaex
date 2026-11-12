@@ -37,6 +37,8 @@ extends Resource
 @export var swap: Dictionary = {}           ## troca de arma com pouca vida: {hp (0-1), as: id do monstro cujo ataque/alcance passa a usar, stance}
 @export var front_guard: float = 0.0         ## escudo de frente (Guardião de Ossos): corta esta fração do golpe físico que vem da frente; costas e magia passam
 @export var berserk_after: float = 0.0     ## chefe: s de luta até enlouquecer (dano × Balance.BOSS_BERSERK_MULT); 0 = nunca
+@export var crowd_skills: Array[String] = []  ## chefe: skills que entram quando a luta chega a Balance.BOSS_CROWD_EXTRA_FROM pessoas (pico; valem até o reset)
+@export var crowd_say: String = ""          ## chefe: fala quando as crowd_skills entram
 @export var faction: String = ""            ## facção (ex.: "horde"): quem recebe a aura de outro monstro da mesma facção
 @export var aura: String = ""               ## aura de facção que este monstro emite: chave de Balance.MOB_AURAS (Agitador)
 @export var stat_role: String = ""          ## Ato II: papel da fórmula F2 (comum/bruto/elite/chefe; Balance.horde_stat); "" = números à mão

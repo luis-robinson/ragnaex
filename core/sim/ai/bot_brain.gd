@@ -47,11 +47,18 @@ const TANK_RECHECK := 2.0
 var place_t := 0.0             # s seguidos indo para o lugar do papel (lugar inalcançável: desiste por um tempo)
 var place_cool := 0.0
 var focus_t := 0.0             # próxima reavaliação do foco no bando (_focus)
+var threat_room := INF          # ameaça que cabe antes de passar o tanque (_threat_budget); _best_skill pula a skill que estoura
+var threat_boss: SimEntity = null
+var opener_id := -1            # chefe/elite da abertura (_opener): quando o vi e desde quando está firme no tanque
+var opener_seen := 0.0
+var opener_held := -1.0
 
 ## MonsterDef.id → tem skill com grito de guerra (`rally`)? Cache (os catálogos não mudam durante o jogo).
 static var _rally_cache: Dictionary = {}
 ## Sonda (band_probe --pack --no_focus): desliga o foco para comparar.
 static var focus_enabled := true
+## Sonda (boss_probe --no_opener): desliga a abertura (BotBrain._opener) para comparar.
+static var opener_enabled := true
 
 ## Um convite ao jogador por vez no servidor inteiro (não vira spam).
 static var next_player_invite: float = 60.0
@@ -117,6 +124,13 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 			var loose := _loose_big(e, sim, m, members)
 			if loose:
 				return _fight(e, sim, m, loose, cmd)
+			var web := _cocoon_target(e, sim, members)      # líder dps também quebra o casulo de um aliado
+			if web:
+				return _fight(e, sim, m, web, cmd)
+	elif not in_town and sim.player != null and not sim.player.debuffs.is_empty():
+		var web := _cocoon_target(e, sim, [sim.player])     # sozinho: casulo segurando o jogador por perto
+		if web:
+			return _fight(e, sim, m, web, cmd)
 
 	# --- investida no mapa: defende o portão do povoado ---
 	var dcmd := _defend(e, sim, m, cmd, dt)
@@ -306,8 +320,8 @@ func _fight_core(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCom
 		if eyes >= 0 and e.can_act():
 			cmd.skill_slot = eyes
 			return cmd
-		if e.dash_cd <= 0.0 and rng.randf() < 0.6:
-			cmd.dash = true
+		if e.dash_cd <= 0.0 and rng.randf() < 0.6 and not (_dash_hits(e, sim) and _opener(e, sim, m, mob, _tank_of(e, sim)) != null):
+			cmd.dash = true                   # dash que bate em área não sai na abertura: tirava o chefe do tanque a ~1 s (sai andando)
 		engaged = false
 		return cmd
 	# pouca vida e sem poção: recua um pouco (para o líder, se houver grupo) e volta
@@ -367,6 +381,7 @@ func _fight_core(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCom
 	var tank := _tank_of(e, sim)
 	var held: bool = tank != null and tank != e and mob.aggro_target == tank.id and _is_big(mob)
 	var hold_skills := false
+	var hold_basic_t := false
 	if held:
 		var spot := _role_spot(e, sim, mob, melee, basic_reach, tank)
 		var off_spot := Vector2(spot.x - e.position.x, spot.z - e.position.z).length()
@@ -383,14 +398,31 @@ func _fight_core(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCom
 			engaged = false
 			return cmd
 		place_t = 0.0
-		var mine := float(mob.threat.get(e.id, 0.0))
+		var mine := float(mob.threat.get(e.id, 0.0)) + _pending_threat(e, mob)     # + o dano no tempo que ainda vai cair
 		var theirs := float(mob.threat.get(tank.id, 0.0))
 		if mob.monster_def.is_boss and mine >= theirs * Balance.BOT_THREAT_STOP:
 			cmd.move = Vector2.ZERO           # passou o tanque: espera ele abrir distância (senão o chefe vira)
 			return cmd
 		hold_skills = mob.monster_def.is_boss and mine >= theirs * Balance.BOT_THREAT_HOLD
+		# básico pesado (Executor, Fogo) também passava de uma vez: segura o que levaria além de BOT_THREAT_STOP
+		hold_basic_t = mob.monster_def.is_boss and e.basic_skill != null and mine + (_skill_threat(e, e.basic_skill, mob, true) + _signature_threat(e, sim, mob)) * Balance.BOT_THREAT_PREDICT >= theirs * Balance.BOT_THREAT_STOP
+	# abertura: chefe/elite ainda não firme no tanque do grupo → sem skills; básico só se ficar abaixo de RATIO × a ameaça do tanque
+	var hold_basic := hold_basic_t
+	var big := _opener(e, sim, m, mob, tank)
+	if big != null:
+		var mine_o := float(big.threat.get(e.id, 0.0)) + _pending_threat(e, big)
+		if e.basic_skill != null:
+			mine_o += _skill_threat(e, e.basic_skill, big, true) + _signature_threat(e, sim, big)     # básico: crítico + assinatura
+		hold_basic = hold_basic or big.aggro_target != tank.id or mine_o >= float(big.threat.get(tank.id, 0.0)) * Balance.BOT_OPENER_RATIO
 	# skill: a melhor disponível (buff que não está ativo, área quando há vários, a mais forte no resto)
-	var pick := -1 if hold_skills else _best_skill(e, sim, m, mob, dist)
+	var pick := -1
+	if not hold_skills:
+		_threat_budget(e, m, mob, tank)
+		pick = _best_skill(e, sim, m, mob, dist)
+		threat_room = INF
+		threat_boss = null
+	if pick >= 0 and big != null and not _self_buff(e.skills[pick]):
+		pick = -1                          # na abertura só buff em si (não gera ameaça no chefe)
 	if pick >= 0:
 		cmd.skill_slot = pick
 		if e.skills[pick].effects.has("turret"):
@@ -425,7 +457,7 @@ func _fight_core(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCom
 		stall_hp = -1.0
 	engaged = in_range
 	if in_range:
-		if e.basic_cd <= 0.0:
+		if e.basic_cd <= 0.0 and not hold_basic:
 			cmd.attack = true
 		if not melee and dist < basic_reach * 0.4:      # distância: recua um pouco
 			cmd.move = -_steer(e, mob.position, 0.0)
@@ -438,7 +470,8 @@ func _fight_core(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCom
 		var side := Vector3(e.position.x - mob.position.x, 0, e.position.z - mob.position.z).normalized().rotated(Vector3.UP, (float(e.id % 5) - 2.0) * 0.35)
 		spot = mob.position + side * (mob.radius + e.radius + basic_reach * 0.5)
 	if melee:
-		if dist > 5.0 and dist < 9.0 and e.dash_cd <= 0.0 and rng.randf() < 0.12:
+		# segurando o básico (abertura/ameaça): dash que bate em área também fica (somaria ameaça no chefe)
+		if dist > 5.0 and dist < 9.0 and e.dash_cd <= 0.0 and rng.randf() < 0.12 and not (hold_basic and _dash_hits(e, sim)):
 			cmd.dash = true
 	cmd.move = _steer(e, spot, 0.0)
 	return cmd
@@ -499,6 +532,8 @@ func _best_skill(e: SimEntity, sim, m: Dictionary, mob: SimEntity, dist: float) 
 			continue
 		if not _ready_to_cast(e, s):
 			continue
+		if threat_boss != null and _skill_threat(e, s, threat_boss) * Balance.BOT_THREAT_PREDICT > threat_room:
+			continue                        # um golpe só passaria o tanque (Meteoro, Executar): espera a ameaça dele crescer
 		# a sim recusaria (try_cast): sem companheiro para mandar, ou invocações no limite. Escolher assim travava o
 		# bot inteiro (pedia a mesma skill todo tick e nunca atacava nem andava: Caçador com o lince morto).
 		if (s.effects.has("pet_command") or s.effects.get("pet_buff", false)) and sim.pet_of(e) == null:
@@ -743,7 +778,7 @@ func _plan_trip(e: SimEntity, sim) -> void:
 	state = S.TRAVEL
 	timer = 60.0
 	if rng.randf() < 0.3:
-		Events.post(&"chat_message", e.name, GameData.random_bot_line("leaving") % GameData.maps[dest_map].name, "global")
+		Events.post(&"chat_message", e.name, GameData.random_bot_line("leaving").format(BotsCatalog.place_words(GameData.maps[dest_map].name)), "global")
 	_gather_party(e, sim)
 
 func _go_home() -> void:
@@ -977,7 +1012,7 @@ func _gather_party(e: SimEntity, sim) -> void:
 			and absi(pl.level - e.level) <= 5 and pl.position.distance_to(e.position) < 25.0 and rng.randf() < Balance.BOT_INVITE_PLAYER_CHANCE:
 		next_player_invite = sim.time + PLAYER_INVITE_COOLDOWN
 		if sim.party_invite(e, pl):
-			Events.post(&"chat_message", e.name, "bora caçar na %s? te mandei convite" % GameData.maps[dest_map].name, "whisper")
+			Events.post(&"chat_message", e.name, "bora caçar %s? te mandei convite" % BotsCatalog.place_words(GameData.maps[dest_map].name)["em"], "whisper")
 
 func _party_has_player(e: SimEntity, sim) -> bool:
 	return sim.player != null and sim.same_party(e, sim.player)
@@ -1000,6 +1035,8 @@ func _follow(e: SimEntity, sim, m: Dictionary, leader: SimEntity, cmd: InputComm
 	if _heal_party(e, sim, members, cmd, dt):
 		return cmd
 	var foe := _loose_big(e, sim, m, members) if not in_town else null      # tanque: chefe que largou dele
+	if foe == null and not in_town:
+		foe = _cocoon_target(e, sim, members)                                  # casulo da Rainha segurando um aliado: quebra
 	if foe == null and not in_town:
 		foe = _peel_target(e, sim, m, members)                                 # dps de perto: lacaio em cima de quem cura/atira
 	if foe == null:
@@ -1147,6 +1184,13 @@ func _sticky(e: SimEntity, m: Dictionary, max_d: float) -> SimEntity:
 	engaged = false
 	return null
 
+## Casulo de Seda (GDD spider-queen-4p): casulo vivo segurando alguém de `allies` a até BOT_COCOON_RANGE m. Só quem não é
+## tanque (segue no chefe) nem curandeiro (segue curando) quebra; vale para líder, seguidor e bot sozinho perto do jogador.
+func _cocoon_target(e: SimEntity, sim, allies: Array) -> SimEntity:
+	if _role(e, sim) in ["tank", "healer"]:
+		return null
+	return MobSystem.cocoon_of(sim, e, allies, Balance.BOT_COCOON_RANGE)
+
 ## Papel da build (tank, healer, dps, caster, ranged), lido uma vez.
 func _role(e: SimEntity, sim) -> String:
 	if my_role == "":
@@ -1202,6 +1246,110 @@ func _role_spot(e: SimEntity, sim, mob: SimEntity, melee: bool, reach: float, ta
 	if _role(e, sim) == "healer" and spot.distance_to(tank.position) > Balance.BOT_HEALER_LEASH:
 		spot = tank.position + (spot - tank.position).limit_length(Balance.BOT_HEALER_LEASH - 1.0)
 	return spot
+
+## Dash com evolução que causa dano (DashParams.power > 0): conta como golpe para a abertura/ameaça.
+static func _dash_hits(e: SimEntity, sim) -> bool:
+	return float(sim.dash_params(e)["power"]) > 0.0
+
+## Abertura (quem não é o tanque): chefe/elite (o alvo ou um a BOT_OPENER_AOE_RANGE m dele: a área no lacaio pega o chefe) que
+## ainda não está preso no tanque do grupo há BOT_OPENER_TIME s. Devolve esse monstro (segura skills) ou null (luta normal).
+## Sem tanque, tanque longe do monstro ou tanque que não chega em BOT_OPENER_WAIT s: null (não trava o grupo).
+func _opener(e: SimEntity, sim, m: Dictionary, mob: SimEntity, tank: SimEntity) -> SimEntity:
+	if not opener_enabled or tank == null or tank == e:
+		return null
+	var big: SimEntity = mob if _is_big(mob) else null
+	if big == null:
+		var r2 := Balance.BOT_OPENER_AOE_RANGE * Balance.BOT_OPENER_AOE_RANGE
+		for o: SimEntity in m["entities"]:
+			if o.kind == SimEntity.Kind.MONSTER and o.position.distance_squared_to(mob.position) <= r2 and o.is_alive() and _is_big(o):
+				big = o
+				break
+	if big == null or big.position.distance_to(tank.position) > Balance.PARTY_ASSIST_RANGE:
+		return null
+	if big.id != opener_id:
+		opener_id = big.id
+		opener_seen = sim.time
+		opener_held = -1.0
+	if big.aggro_target == tank.id and float(big.threat.get(tank.id, 0.0)) > 0.0:
+		if opener_held < 0.0:
+			opener_held = sim.time
+	else:
+		opener_held = -1.0          # largou o tanque: a abertura recomeça quando ele o pegar de volta
+	if opener_held >= 0.0:
+		return big if sim.time - opener_held < Balance.BOT_OPENER_TIME else null
+	return big if sim.time - opener_seen < Balance.BOT_OPENER_WAIT else null
+
+## Orçamento de ameaça (chefe preso no tanque do grupo: o alvo ou, para área no lacaio, o chefe a BOT_OPENER_AOE_RANGE m dele):
+## threat_room = BOT_THREAT_HOLD × ameaça do tanque − a minha (com o dano no tempo pendente). Sem chefe preso: INF.
+func _threat_budget(e: SimEntity, m: Dictionary, mob: SimEntity, tank: SimEntity) -> void:
+	threat_room = INF
+	threat_boss = null
+	if tank == null or tank == e:
+		return
+	var boss: SimEntity = mob if mob.monster_def != null and mob.monster_def.is_boss else null
+	if boss == null:
+		var r2 := Balance.BOT_OPENER_AOE_RANGE * Balance.BOT_OPENER_AOE_RANGE
+		for o: SimEntity in m["entities"]:
+			if o.kind == SimEntity.Kind.MONSTER and o.position.distance_squared_to(mob.position) <= r2 and o.monster_def != null and o.monster_def.is_boss and o.is_alive():
+				boss = o
+				break
+	if boss == null or boss.aggro_target != tank.id:
+		return
+	threat_boss = boss
+	threat_room = float(boss.threat.get(tank.id, 0.0)) * Balance.BOT_THREAT_HOLD - float(boss.threat.get(e.id, 0.0)) - _pending_threat(e, boss)
+
+## Ameaça que o dano no tempo deste bot ainda vai dar no monstro (queimadura, sangramento, praga).
+static func _pending_threat(e: SimEntity, mob: SimEntity) -> float:
+	var left := 0.0
+	for d in mob.debuffs:
+		if d.get("kind") == "dot" and int(d.get("src", -1)) == e.id:
+			left += float(d.get("dps", 0.0)) * maxf(0.0, float(d.get("remaining", 0.0))) + float(d.get("acc", 0.0))
+	return left * (1.0 + e.stats.threat_pct / 100.0)
+
+## Ameaça estimada de uma skill num alvo (golpe + dano no tempo, crítico médio, talento ferido/execução e marcas no alvo): o
+## bastante para saber se um golpe só passa o tanque. Skill sem dano: 0. `crit_hit` (básico, que sai muitas vezes): com
+## crítico a partir de Balance.BOT_THREAT_CRIT_CHANCE %, conta o golpe crítico no teto da variação, não o crítico médio.
+static func _skill_threat(e: SimEntity, s: SkillDef, mob: SimEntity, crit_hit := false) -> float:
+	var total := 0.0
+	if s.power > 0.0 and s.kind in [SkillDef.Kind.PHYSICAL, SkillDef.Kind.MAGICAL]:
+		var magical := s.kind == SkillDef.Kind.MAGICAL
+		var atk: float = e.stats.matk if magical else e.stats.patk
+		var def: float = mob.stats.mdef if magical else mob.stats.pdef
+		var crit: float = (e.stats.crit_mag if magical else e.stats.crit_phys) / 100.0
+		var cm := 1.0 + clampf(crit, 0.0, 1.0) * (Balance.CRIT_MULT - 1.0)
+		if crit_hit and crit * 100.0 >= Balance.BOT_THREAT_CRIT_CHANCE:
+			cm = Balance.CRIT_MULT * (1.0 + Balance.DMG_VARIANCE)
+		total = maxf(atk * s.power - def * Balance.DEF_FACTOR, atk * s.power * 0.15) * cm
+		total *= ClassTalentSystem.damage_mult(e, mob)          # ferido / execução (o golpe de verdade leva)
+		if not mob.debuffs.is_empty():
+			total *= 1.0 + Combat.taken_pct(mob) / 100.0       # marcas no alvo
+	var d = s.effects.get("dot")
+	if d is Dictionary:
+		if d.has("atk_pct"):
+			total += e.stats.patk * float(d["atk_pct"]) / 100.0 * float(d.get("duration", Balance.BLEED_TIME_DEFAULT))
+		else:
+			total += float(d.get("dps", 5)) * (e.stats.matk / 20.0) * float(d.get("duration", 4))
+	return total * (1.0 + e.stats.threat_pct / 100.0)
+
+## Ameaça da magia-assinatura que o básico pode lançar junto (Golpe Avassalador do Executor: 17% no nível 39, 0,6 × o poder):
+## com chance a partir de Balance.BOT_THREAT_CRIT_CHANCE % e fora da recarga dela, conta como certa (o básico sai muitas vezes).
+static func _signature_threat(e: SimEntity, sim, mob: SimEntity) -> float:
+	if not sim.signatures_on or not e.is_character() or e.class_def == null or sim.time < e.sig_ready_at:
+		return 0.0
+	var sid := LegendEffects.signature_skill(e)
+	var sk: SkillDef = GameData.skills.get(sid) if sid != "" else null
+	if sk == null or LegendEffects.signature_chance(e, true, sid) < Balance.BOT_THREAT_CRIT_CHANCE:
+		return 0.0
+	return _skill_threat(e, sk, mob) * Balance.SIGNATURE_POWER * float(Balance.SIGNATURE_BUILD_POWER.get(LegendEffects.signature_build(e), 1.0))
+
+## Buff só em si, sem dano nem provocação/invocação/aura (forma, Sede de Sangue): não gera ameaça no chefe.
+static func _self_buff(s: SkillDef) -> bool:
+	if s.target != SkillDef.Target.SELF or s.power > 0.0:
+		return false
+	for k in ["taunt", "summon", "aura", "dot", "stun", "slow", "root"]:
+		if s.effects.has(k):
+			return false
+	return s.effects.has("buff") or s.effects.has("shield")
 
 ## Tanque: chefe/elite por perto que largou dele e está batendo em outro do grupo (vai buscar; _taunt_party provoca).
 func _loose_big(e: SimEntity, sim, m: Dictionary, members: Array) -> SimEntity:

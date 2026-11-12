@@ -60,8 +60,13 @@ static func on_monster_killed(sim: WorldSim, mob: SimEntity, killer: SimEntity) 
 				if c == sim.player:
 					Events.post(&"notification", "✦ %d Moeda%s Lendária%s! Troque com a Relicária em Aldara" % [coins, "s" if coins > 1 else "", "s" if coins > 1 else ""])
 					BotChat.party_event(sim, c, "loot_legend")
-				elif c.kind == SimEntity.Kind.BOT:
+				elif c.kind == SimEntity.Kind.BOT and loot_shout_ok(sim, mob.map_id):
 					Events.post(&"chat_message", c.name, "DROPOU MOEDA LENDÁRIA!!!", "global")
+		if mob.monster_def.is_boss and lt:       # coleta ativa de item de chefe: 1 garantido para quem precisa (ascensões do Ato II)
+			for c in sharers:
+				for item_id in quest_needs(c, lt):
+					if not (c == looter and drops.has(item_id)) and not (c == sim.player and mine.has(item_id)):
+						personal.append([item_id, c, 1])
 		var i := 0
 		for item_id in drops:
 			drop(m, mob, i, 0.5, item_id, int(drops[item_id]), 45.0, looter.id, sim.time + Balance.LOOT_LOCK_TIME)
@@ -78,6 +83,27 @@ static func on_monster_killed(sim: WorldSim, mob: SimEntity, killer: SimEntity) 
 	if credit and credit.is_character():
 		count_kill(sim, m, mob)
 		LegendEffects.legend_on_kill(sim, credit, mob)
+
+## Itens desta tabela que `c` ainda precisa para uma quest de coleta ativa (o chefe garante 1 por abate; o número pedido não muda).
+static func quest_needs(c: SimEntity, lt: LootTable) -> Array:
+	var out: Array = []
+	for qid in c.quests_active:
+		var q: QuestDef = GameData.quests.get(qid)
+		if q == null or q.type != QuestDef.Type.COLLECT or q.target_id in out or QuestSystem.progress(c, q) >= q.count:
+			continue
+		for en in lt.entries:
+			if str(en["item"]) == q.target_id:
+				out.append(q.target_id)
+				break
+	return out
+
+## Grito de moeda lendária dos bots: no máximo 1 por mapa a cada Balance.BOT_LOOT_SHOUT_GAP s (vários bots no mesmo abate não enchem o chat).
+static func loot_shout_ok(sim: WorldSim, map_id: String) -> bool:
+	var m: Dictionary = sim.maps[map_id]
+	if sim.time < float(m.get("loot_shout_at", -1e9)) + Balance.BOT_LOOT_SHOUT_GAP:
+		return false
+	m["loot_shout_at"] = sim.time
+	return true
 
 ## Muitos abates do mesmo monstro comum num mapa: surge o Rei dele (5x mais forte, lendário garantido).
 ## Baú no chão em volta do monstro (`i` = posição na roda; `free_at` = quando qualquer um pode pegar).

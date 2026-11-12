@@ -181,6 +181,9 @@ static func build(classes: Dictionary) -> Array:
 		 "effects": {"barrage": {"count": 4, "radius": 2.2, "delay": 1.3, "spread": 9.0}, "wither": {"pct": 30, "duration": 5}}},
 		{"id": "mob_thorn_barrage", "name": "Espinhos do Chão", "target": T_GROUND, "kind": K_MAG, "power": 1.1, "cooldown": 13.0, "range": 14.0, "radius": 2.0, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.5, 0.85, 0.4), "mob_pick": "far",
 		 "effects": {"barrage": {"count": 4, "radius": 2.0, "delay": 1.3, "spread": 9.0}, "root": {"duration": 0.8}}},
+		# Rainha Aranha com 4+ (MonsterDef.crowd_skills): prende um frágil num casulo que o grupo precisa quebrar (MobSystem.cocoon)
+		{"id": "mob_cocoon", "name": "Casulo de Seda", "clip": "atk_throw", "target": T_TARGET, "kind": K_PHYS, "power": 0.3, "cooldown": 13.0, "range": 14.0, "radius": 0.0, "max_targets": 1, "startup": 0.7, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.92, 0.92, 0.95), "mob_pick": "soft", "vfx": "poison",
+		 "effects": {"cocoon": {"id": "web_cocoon"}}},
 		{"id": "mob_venom_barrage", "name": "Chuva de Bile", "target": T_GROUND, "kind": K_MAG, "power": 1.0, "cooldown": 12.0, "range": 14.0, "radius": 2.4, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.55, 0.85, 0.25), "mob_pick": "far",
 		 "effects": {"barrage": {"count": 4, "radius": 2.4, "delay": 1.4, "spread": 9.0}, "dot": {"dps": 6, "duration": 4}}},
 		{"id": "mob_flame_barrage", "name": "Chamas da Cripta", "target": T_GROUND, "kind": K_MAG, "power": 1.2, "cooldown": 12.0, "range": 14.0, "radius": 2.2, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.7, 0.4, 1.0), "mob_pick": "far",

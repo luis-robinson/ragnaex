@@ -28,6 +28,26 @@ static func form_mods(skill_id: String, form: String) -> Dictionary:
 	var base := base_of(form)
 	return by.get(base, {}) if base != "" else {}
 
+## Tanque do grupo: sem grupo, ou o primeiro membro vivo no mapa com papel "tank" (a mesma regra do BotBrain._tank_of) é ele, ou não há nenhum.
+static func is_group_tank(sim: WorldSim, e: SimEntity) -> bool:
+	if e.party_id < 0:
+		return true
+	for o: SimEntity in sim.party_members(e):
+		if o.is_alive() and o.map_id == e.map_id and sim.role_of(o) == "tank":
+			return o == e
+	return true
+
+## Provocação em área (Raízes Ancestrais): o Ent só provoca quando é o tanque do grupo; ao lado de outro tanque as raízes ferem e prendem, sem puxar o chefe (2026-11-12).
+static func may_provoke(sim: WorldSim, e: SimEntity) -> bool:
+	return e.form != "ent" or is_group_tank(sim, e)
+
+## % de ameaça a mais que `e` gera (Stats.threat_pct). A ameaça extra do Ent (FORM_STATS) só vale se ele for o tanque do grupo:
+## como 2º membro ao lado de outro tanque ele não rouba o chefe (decisão do autor, 2026-11-12).
+static func threat_pct(sim: WorldSim, e: SimEntity) -> float:
+	if e.form != "ent" or is_group_tank(sim, e):
+		return e.stats.threat_pct
+	return e.stats.threat_pct - float(SimEntity.scaled_bonus(Balance.FORM_STATS["ent"], e.form_mult).get("threat_pct", 0.0))
+
 ## Peso F5 da ascensão da build (Balance.ASC_BUILD_POWER; padrão 1,0).
 static func asc_power(build: String) -> float:
 	return float(Balance.ASC_BUILD_POWER.get(build, 1.0))

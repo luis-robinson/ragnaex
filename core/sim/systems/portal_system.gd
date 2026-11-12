@@ -103,20 +103,43 @@ static func bind_crystal(sim: WorldSim, e: SimEntity, npc_id: String) -> bool:
 			npc = o
 	if npc == null or npc.npc_data.get("role", "") != "crystal":
 		return false
-	var def: MapDef = sim.maps[e.map_id]["def"]
-	var to_center := def.town_center - npc.position
-	to_center.y = 0.0
-	var dir := to_center.normalized() if to_center.length() > 0.5 else Vector3(0, 0, 1)
-	var pos := npc.position + dir * Balance.CRYSTAL_ARRIVE
-	for i in range(8):                     # frente do cristal livre (banco, barraca): gira até achar chão
-		if sim.is_walkable(pos, def, 0.5):
-			break
-		pos = npc.position + dir.rotated(Vector3.UP, PI * 0.25 * (i + 1)) * Balance.CRYSTAL_ARRIVE
-	e.bind_map = e.map_id
-	e.bind_pos = pos
+	_bind_at(sim, e, e.map_id, npc.position)
 	if e == sim.player:
 		Events.post(&"notification", "Ponto de retorno: %s. O G e o renascer trazem você aqui." % npc.name)
 	return true
+
+## Vincula o cristal de `map_id` pela posição do catálogo (sem o NPC carregado): retorno automático de quest e save antigo.
+static func bind_map_crystal(sim: WorldSim, e: SimEntity, map_id: String) -> bool:
+	if not MapsCatalog.CRYSTALS.has(map_id) or not GameData.maps.has(map_id):
+		return false
+	var c: Array = MapsCatalog.CRYSTALS[map_id]
+	_bind_at(sim, e, map_id, Vector3(float(c[0]), 0.0, float(c[1])))
+	return true
+
+## Quest que muda o ponto de retorno (MapsCatalog.QUEST_BIND; só o jogador chama): ao concluir, ou no load de save que já passou dela sem cristal.
+static func quest_bind(sim: WorldSim, e: SimEntity, quest_id: String, announce: bool) -> bool:
+	if not MapsCatalog.QUEST_BIND.has(quest_id):
+		return false
+	var map_id: String = MapsCatalog.QUEST_BIND[quest_id]
+	if not bind_map_crystal(sim, e, map_id):
+		return false
+	if announce:
+		Events.post(&"notification", "Ponto de retorno: Cristal de Retorno de %s. O G e o renascer trazem você aqui." % GameData.maps[map_id].name)
+	return true
+
+## Frente do cristal (lado da praça) em chão livre; grava o retorno.
+static func _bind_at(sim: WorldSim, e: SimEntity, map_id: String, crystal: Vector3) -> void:
+	var def: MapDef = GameData.maps[map_id]
+	var to_center := def.town_center - crystal
+	to_center.y = 0.0
+	var dir := to_center.normalized() if to_center.length() > 0.5 else Vector3(0, 0, 1)
+	var pos := crystal + dir * Balance.CRYSTAL_ARRIVE
+	for i in range(8):                     # frente do cristal livre (banco, barraca): gira até achar chão
+		if sim.is_walkable(pos, def, 0.5):
+			break
+		pos = crystal + dir.rotated(Vector3.UP, PI * 0.25 * (i + 1)) * Balance.CRYSTAL_ARRIVE
+	e.bind_map = map_id
+	e.bind_pos = pos
 
 ## `map_id` é `area` ou fica dentro dela (dungeon da zona).
 static func map_within(sim: WorldSim, map_id: String, area: String) -> bool:

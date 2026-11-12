@@ -40,8 +40,24 @@ const LINES := {
 		"no fim ele perde a compostura, segura"],
 	"death": ["morri", "F", "respawn...", "esse golem não é brincadeira", "ok vou tankar menos"],
 	"levelup": ["LV %d!!", "upei pro %d", "lv %d finalmente", "%d, bora pro próximo"],
-	"leaving": ["indo pra %s, alguém vem?", "partiu %s", "vou caçar na %s"],
+	# {pra} = "pro Vale de Aldara"/"pras Estepes de Cinza", {em} = "no Vale"/"nas Grutas" (place_words)
+	"leaving": ["indo {pra}, alguém vem?", "partiu {nome}", "vou caçar {em}"],
 }
+
+## 1ª palavra de lugar masculino (o resto é feminino; terminada em "s" é plural): "no Vale", "na Floresta", "nas Estepes".
+const MASC_PLACE_WORDS := ["Vale", "Bastião", "Porto", "Arraial", "Covil", "Ninho", "Coração", "Trono", "Armazém", "Posto",
+	"Acampamento", "Santuário", "Farol", "Passo", "Forte", "Templo", "Pântano", "Mangue"]
+
+## Artigo do nome de um lugar: "o", "a", "os" ou "as".
+static func place_article(place: String) -> String:
+	var first := place.get_slice(" ", 0)
+	var art := "o" if first in MASC_PLACE_WORDS else "a"
+	return art + "s" if first.ends_with("s") else art
+
+## Marcas de lugar para as falas de viagem: {nome}, {pra} ("pro Vale de Aldara") e {em} ("no Vale de Aldara").
+static func place_words(place: String) -> Dictionary:
+	var art := place_article(place)
+	return {"nome": place, "pra": "pr%s %s" % [art, place], "em": "n%s %s" % [art, place]}
 
 # ---------------------------------------------------------------------------
 # CONVERSA POR CONTEXTO (BotChat): onde o bot está, classe/build e se está no grupo do jogador.

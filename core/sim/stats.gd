@@ -211,6 +211,7 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 	s.pdef = eq_def + VIT * Balance.PDEF_PER_VIT
 	s.mdef = eq_mdef + WILL * Balance.MDEF_PER_WILL
 	s.crit_phys = Balance.CRIT_BASE + AGI * Balance.CRIT_PER_AGI
+	s.evasion = agi_evasion(AGI)          # esquiva passiva da AGI; buffs/passivos somam depois, teto no fim
 	s.crit_mag = Balance.CRIT_BASE + INT * Balance.MCRIT_PER_INT
 	s.heal_power = 1.0 + WILL * Balance.HEAL_PER_WILL
 	if s.has_shield:
@@ -287,6 +288,11 @@ static func titan_speed_mult(n: int) -> float:
 ## F7: razão de DPS do básico com as duas armas de 2 mãos iguais (1,0875 com n = 0 .. 1,218 com n = 3).
 static func titan_dps_ratio(n: int) -> float:
 	return (1.0 + Balance.TITAN_OFFHAND_MULT) * titan_speed_mult(n)
+
+## Esquiva passiva (% de evitar um golpe direto inteiro) pela AGI na escala antiga (atributo / ATTR_SCALE); curva em Balance.EVASION_AGI_*.
+## Só personagens usam: monstro não passa por compute e a sim só testa esquiva em is_character().
+static func agi_evasion(agi: float) -> float:
+	return Balance.EVASION_AGI_REF_PCT * pow(maxf(0.0, agi) / Balance.EVASION_AGI_REF, Balance.EVASION_AGI_EXP)
 
 ## Recarga do ataque básico com a velocidade de ataque.
 func basic_cooldown(base_cd: float) -> float:

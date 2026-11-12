@@ -14,10 +14,14 @@ static func hold_npc(sim: WorldSim, npc_id: String) -> void:
 			npc_stop(sim, o)
 
 ## Morador que passeia: `wander` = raio em volta de casa, `route` = ronda por pontos [[x, z], ...].
-## Sem nenhum dos dois o NPC fica no posto (serviços).
+## Sem nenhum dos dois o NPC fica no posto (serviços, pescador na vara): depois da conversa volta a olhar para `facing`.
 static func update_npc(sim: WorldSim, e: SimEntity, m: Dictionary, dt: float) -> void:
 	var nd := e.npc_data
 	if not nd.has("wander") and not nd.has("route"):
+		if e.npc_hold > 0.0:
+			e.npc_hold -= dt
+			if e.npc_hold <= 0.0 and nd.has("facing"):
+				e.facing = deg_to_rad(float(nd["facing"]))
 		return
 	if e.npc_hold > 0.0:
 		e.npc_hold -= dt

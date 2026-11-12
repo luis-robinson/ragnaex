@@ -231,7 +231,7 @@ const FORM_STATS := {"wolf": {"aspd_pct": 25, "speed_pct": 20, "atk_pct": 10, "c
 	"demon": {"matk_pct": 20, "hp_pct": 25, "def_pct": 20, "lifesteal": 6},   # Necromancer: demônio (grande, aguenta e drena)
 	"lich": {"matk_pct": LORD_LICH_MATK_PCT},                             # Necromante ascendido (45): Forma de Lich
 	# Druida ascendido (Forma Ancestral, DruidAscension): a 3ª forma de cada build (H; F5)
-	"ent": {"def_pct": 55, "hp_pct": 35, "atk_pct": 10, "speed_pct": -12, "threat_pct": BEAR_THREAT_PCT + 30, "dr_pct": 5},     # Urso -> Ent: aguenta mais e segura o aggro
+	"ent": {"def_pct": 55, "hp_pct": 35, "atk_pct": 10, "speed_pct": -12, "threat_pct": BEAR_THREAT_PCT + 30, "dr_pct": 2},     # Urso -> Ent: aguenta mais e segura o aggro
 	"alpha": {"aspd_pct": 28, "speed_pct": 22, "atk_pct": 12, "crit": 6},                       # Lobo -> Lobo Alfa
 	"bird": {"speed_pct": 25, "matk_pct": 3}}                                                   # Xamã -> Pássaro Arcano (voa: só desenho)
 const FORM_REQUIRES := {"wolf": "dual_mace", "bear": "mace2h", "phantom": "scythe", "demon": "scythe", "lich": "scythe",
@@ -477,6 +477,12 @@ const SET_FAVOR_BASE := 5.0               # conjunto que favorece uma combinaç�
 const SET_FAVOR_PER_TIER := 1.5
 ## Assassino: esquiva, veneno na lâmina e golpe pelas costas
 const EVASION_CAP := 45.0                 # % máximo de esquiva
+## Esquiva passiva da AGI (decisão do autor, 2026-11-12): esquiva = REF_PCT × (AGI / REF)^EXP, AGI na escala antiga (atributo / ATTR_SCALE).
+## Build toda em AGI aos 45 (~140) ~10%; força com AGI de passagem (~25-40) ~1-2%; Carniceiro (~78) ~4,7%. Linear (expoente 1) dava 5,5% ao
+## Carniceiro com o mesmo topo: a curva leve segura quem só tem AGI de passagem. Soma com a do Assassino/fusão sob EVASION_CAP.
+const EVASION_AGI_REF := 140.0            # AGI (escala antiga) de uma build toda em AGI no 45
+const EVASION_AGI_REF_PCT := 10.0         # % de esquiva nessa AGI
+const EVASION_AGI_EXP := 1.25             # curva: > 1 = pouca esquiva com pouca AGI
 ## Punhos de Fúria (Berserker de duas garras, FistSystem): esquivar dá Fúria do Punho e contra-ataca
 const FIST_FURY_BUFF := "fist_fury"
 const FIST_FURY_MAX := 5
@@ -556,6 +562,16 @@ const BOSS_BERSERK_MULT := 1.6              # dano do chefe que passou de berser
 ## pessoas): dano × BOSS_CROWD_MULT[pessoas] (índice 0..PARTY_MAX). Grupo cheio com tanque e cura sente a luta (antes nem a
 ## 4× ninguém ficava abaixo de 35% de vida); solo e dupla não mudam. Medido com boss_probe (8 chefes de grupo × 6).
 const BOSS_CROWD_MULT := [1.0, 1.0, 1.0, 2.0, 3.5, 5.0]
+## Chefe que o grupo de 4+ sorteado vence demais (alvo 65-85%) com o contrato solo 20-40% / trio 75-100% certo: × a mais no
+## dano a partir de BOSS_CROWD_EXTRA_FROM pessoas (MobSystem.crowd_mult). Calibrado com boss_probe --party=4 sorteado.
+const BOSS_CROWD_EXTRA_FROM := 4
+const BOSS_CROWD_EXTRA := {"spider_queen": 1.8, "elf_king": 1.3}
+## Casulo de Seda (Rainha Aranha com 4+, MonsterDef.crowd_skills; efeito "cocoon", MobSystem.cocoon): a vítima fica presa até o casulo
+## cair ou COCOON_TIME s; esgotado o tempo, o casulo aperta COCOON_BURST × a vida máxima. GDD design/gdd/spider-queen-4p.md.
+const COCOON_TIME := 7.0
+const COCOON_BURST := 0.45
+## Bot (não tanque, não curandeiro) quebra o casulo de um aliado a até isto (m).
+const BOT_COCOON_RANGE := 16.0
 const BOSS_CROWD_RANGE := 20.0
 const BOSS_CROWD_CHECK := 1.0               # s entre recontagens
 const BOSS_WARD_CHECK := 0.5                # s entre conferências dos lacaios vivos (ward)
@@ -788,6 +804,7 @@ const FUSION_BLOCK_STUN := 0.8                # P1 face escudo: s de atordoar
 const FUSION_JUMP_RANGE := 5.0                # E2: salto extra do raio
 const FUSION_VAPOR_RADIUS := 2.0              # E1
 const FUSION_VAPOR_TIME := 2.0
+const FUSION_VAPOR_ICD := 2.0               # E1: s entre Vapores disparados por FOGO em alvo retardado (o de gelo não tem recarga)
 const FUSION_STATE_MAX := 64                  # chaves de estado da Fusão por personagem antes de limpar as vencidas
 ## [v35, passo] por Fusão (id "<build A>+<build B>"); número solto = fixo. Chaves lidas em FusionEffects.
 const FUSION_NUMBERS := {
@@ -809,7 +826,7 @@ const FUSION_NUMBERS := {
 	"laminas+duelista": {"ghost_icd": [5.0, -0.25]},
 	"duelista+corsario": {"shot": [45.0, 4.0], "focus": [60.0, 5.0]},
 	"corsario+laminas": {"poison": [8.0, 0.8], "per": [6.0, 0.6]},
-	"fogo+gelo": {"quench": [150.0, 10.0]},
+	"fogo+gelo": {"quench": [670.0, 30.0]},
 	"gelo+raio": {"super": [10.0, 1.0]},
 	"raio+fogo": {"spread": [60.0, 5.0], "plasma": [15.0, 1.5]},
 	"invocador+ceifador": {"reap": [3.0, 0.3], "mend": [20.0, 2.0]},
@@ -862,6 +879,7 @@ const DR_CAP := 40.0                       # % máx de redução de dano por buf
 const AURA_TICK := 0.5                     # s entre renovações da aura do tanque nos aliados (AuraSystem)
 const AURA_PULSE_EVERY := 1.0             # s entre pulsos de dano da aura do tanque (AuraSystem.pulse)
 const AURA_KEEP := 1.3                     # s que o buff da aura dura no aliado sem renovar (saiu do raio = some logo)
+const BOT_LOOT_SHOUT_GAP := 60.0           # s entre dois "DROPOU MOEDA LENDÁRIA" de bots no mesmo mapa
 const LOOT_LOCK_TIME := 20.0               # s em que só o dono pega o item; depois fica livre
 const PORTAL_NOTICE_CD := 4.0              # s entre avisos de portal bloqueado
 const PORTAL_ARRIVE_GAP := 1.0             # m mínimos entre a chegada e a borda de qualquer portal do mapa (check)
@@ -907,6 +925,24 @@ const BOT_THREAT_STOP := 1.0
 ## Tanque bot: provoca de novo o chefe/elite que segura quando alguém do grupo chega a isto × a ameaça dele (antes de
 ## BOT_THREAT_HOLD; a provocação o deixa em TAUNT_THREAT_LEAD × o maior).
 const BOT_TANK_RETAUNT := 0.75
+## Ameaça prevista (BotBrain._skill_threat × isto): com o chefe preso no tanque, a skill cujo golpe (+ dano no tempo) passaria
+## BOT_THREAT_HOLD × a ameaça do tanque espera (as menores seguem). A estimativa não vê variação nem bônus de talento: folga.
+## Antes o Meteoro/Executar saíam a 0,6-0,8 da ameaça do tanque e passavam dele de uma vez (maioria das perdas no meio da luta).
+const BOT_THREAT_PREDICT := 1.2
+## Básico previsto (BotBrain._skill_threat com crit_hit, BotBrain._signature_threat): evento do básico com chance a partir disto
+## (%) conta como certo — o crítico (CRIT_MULT × (1 + DMG_VARIANCE) em vez do crítico médio) e a magia-assinatura que ele
+## lança junto (fora da recarga dela): o básico sai muitas vezes e acaba saindo. Antes o básico do Executor (+ Golpe Avassalador
+## de assinatura) passava o tanque na abertura do Besteiro (~6 em 40 lutas). 101 desliga.
+const BOT_THREAT_CRIT_CHANCE := 5.0
+## Abertura (BotBrain._opener): com tanque no grupo, o chefe/elite (ou o que está a BOT_OPENER_AOE_RANGE m do alvo) só leva
+## skill depois de BOT_OPENER_TIME s preso no tanque (com ameaça dele); até lá o resto só usa o básico (e buff em si), e só abaixo
+## de BOT_OPENER_RATIO × a ameaça do tanque. Tanque que não pega em BOT_OPENER_WAIT s: luta normal. O tanque NÃO abre com a
+## provocação (12 s de recarga: gasta na abertura, faltava para tirar o chefe do dps que estoura logo depois).
+## Antes o Fogo tirava o chefe do tanque nos 5 s de abertura em quase toda luta do Ato II (13-28 perdas em 20) e morria.
+const BOT_OPENER_TIME := 3.0
+const BOT_OPENER_RATIO := 0.5
+const BOT_OPENER_AOE_RANGE := 6.0
+const BOT_OPENER_WAIT := 6.0
 ## Cura: o tanque é curado abaixo de BOT_HEAL_TANK_HP, os outros abaixo de BOT_HEAL_HP; o tanque vem primeiro, menos quando
 ## alguém está quase morrendo (BOT_HEAL_CRIT_HP) e o tanque está fora de perigo (BOT_HEAL_TANK_SAFE).
 const BOT_HEAL_TANK_HP := 0.75
@@ -1122,7 +1158,7 @@ const ANC_ROOTS_POWER := 1.3              # Raízes Ancestrais (Ent): dano em vo
 const ANC_ROOTS_RADIUS := 6.0             # m
 const ANC_ROOTS_ROOT := 2.5               # s presos
 const ANC_ROOTS_TAUNT := 4.0              # s provocados (chefes: metade, MobSystem.taunt)
-const ANC_GROVE_DR := 15.0                # Bosque Protetor (Ent): % a menos de dano no grupo (H; utilidade do F5)
+const ANC_GROVE_DR := 9.0                 # Bosque Protetor (Ent): % a menos de dano no grupo (H; utilidade do F5; 2026-11-12: 15 -> 9, mortes -19,8% -> alvo -6 a -10%)
 const ANC_GROVE_TIME := 8.0
 const ANC_GROVE_RADIUS := 8.0
 const ANC_PACK_MONSTER := "pack_wolf"     # MonsterDef do lobo da matilha (Lobo Alfa)

@@ -11,7 +11,7 @@ const EFFECT_KEYS := ["dot", "slow", "stun", "root", "buff", "shield", "dash", "
 	"boss_summon", "wither", "form", "stealth", "trap", "pet_command", "pet_buff", "curse", "channel", "mend_pct_of_dmg",
 	"combust", "bounce", "aura", "barrage", "pull", "combo_gain", "combo_spend", "dice", "dash_to_aim", "shot", "fury_gain",
 	"fury_spend", "heal_pct", "mana_pct", "arcane", "glory_gain", "glory_spend", "glory_scale", "titan_hit", "chain",
-	"elem_command", "elem_fusion",
+	"elem_command", "elem_fusion", "cocoon",
 	"turret", "dragon_jump", "shout",
 	"summon_pact", "miasma", "grave_mark", "shadow_clone", "execute", "knockback",
 	"choir_angel", "choir_barrier", "choir_return",

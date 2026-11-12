@@ -241,6 +241,7 @@ static func build() -> Array:
 			{"hp": 0.25, "say": "BLUUUB!", "summon": {"id": "slimeling", "count": 2, "max": 4}, "enrage": 1.3}]},
 		{"id": "spider_queen", "name": "Rainha Aranha", "level": 20, "hp": 46000, "atk": 66, "def": 18, "mdef": 15, "move_speed": 4.6, "attack_range": 2.4, "attack_cooldown": 1.2, "attack_startup": 0.35, "xp": 800, "aggro_range": 10.0, "leash_range": 25.0,
 		 "radius": 1.0, "scale": 1.9, "color": Color(0.45, 0.2, 0.55), "shape": "box", "is_boss": true, "berserk_after": 180, "loot_table": "lt_spider_queen", "gold_min": 90, "gold_max": 170, "skill_ids": ["mob_raise_spiderlings", "mob_whirl", "mob_venom_pool", "mob_web_pull"] as Array[String], "model": "mob_spider",
+		 "crowd_skills": ["mob_cocoon"] as Array[String], "crowd_say": "Tanta carne... vou guardar um pouco para depois.",
 		 "intro": "Carne quente no meu ninho... que gentileza.", "last_words": "Meus... filhotes...",
 		 "phases": [{"hp": 0.7, "say": "Filhotes... o jantar chegou.", "skills": ["mob_web", "mob_queen_leap"], "summon": {"id": "spiderling", "count": 3, "max": 5}},
 			{"hp": 0.4, "say": "Protejam a mãe!", "skills": ["mob_venom_barrage"], "ward": 0.5, "summon": {"id": "spiderling", "count": 3, "max": 5, "pick": "far"}},
@@ -330,6 +331,9 @@ static func build() -> Array:
 		 "radius": 0.4, "scale": 0.75, "color": Color(0.35, 0.6, 1.0), "shape": "sphere", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_slime"},
 		{"id": "spiderling", "name": "Filhote de Aranha", "level": 18, "hp": 280, "atk": 36, "def": 9, "mdef": 7, "move_speed": 5.0, "attack_range": 1.5, "attack_cooldown": 1.1, "xp": 0, "aggro_range": 14.0, "leash_range": 40.0,
 		 "radius": 0.4, "scale": 0.7, "color": Color(0.5, 0.3, 0.6), "shape": "box", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_spider"},
+		# casulo da Rainha Aranha (MobSystem.cocoon): não anda nem bate; quebrar solta o aliado preso
+		{"id": "web_cocoon", "name": "Casulo de Seda", "level": 18, "hp": 2200, "atk": 1, "def": 8, "mdef": 8, "move_speed": 0.0, "attack_range": 0.0, "attack_cooldown": 60.0, "xp": 0, "aggro_range": 0.0, "leash_range": 40.0,
+		 "radius": 0.5, "scale": 1.1, "color": Color(0.93, 0.93, 0.9), "shape": "sphere", "loot_table": "", "gold_min": 0, "gold_max": 0},
 		{"id": "crypt_thrall", "name": "Servo da Cripta", "level": 26, "hp": 260, "atk": 32, "def": 14, "mdef": 10, "move_speed": 4.2, "attack_range": 1.7, "attack_cooldown": 1.3, "xp": 0, "aggro_range": 14.0, "leash_range": 40.0,
 		 "radius": 0.45, "scale": 0.9, "color": Color(0.7, 0.6, 0.85), "shape": "capsule", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_skeleton"},
 		{"id": "pack_lynx", "name": "Filhote da Matilha", "level": 18, "hp": 240, "atk": 30, "def": 6, "mdef": 5, "move_speed": 6.4, "attack_range": 1.5, "attack_cooldown": 0.9, "xp": 0, "aggro_range": 14.0, "leash_range": 40.0,

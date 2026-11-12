@@ -58,6 +58,8 @@ static func build() -> Array:
 	return out
 
 ## Cristais de retorno (role "crystal", modelo prop_crystal): vincular = G e renascer ali. Posição (x, z) na praça.
+## Quest que vincula o jogador ao cristal do mapa ao ser concluída (Ato II: morrer não manda de volta a Aldara).
+const QUEST_BIND := {"hx_crossing": "city_port"}
 const CRYSTALS := {"city_aldara": [-7.5, 0.0], "field_forest": [-5.5, -5.5], "field_ruins": [25.6, 4.6], "city_port": [6.5, 13.0], "field_steppe": [-6.9, 4.0]}
 const CRYSTAL_LINES := ["Uma pedra azul que zumbe baixinho. Toque para lembrar deste lugar.", "Os viajantes juram que o cristal os puxa de volta para casa."]
 
@@ -336,6 +338,10 @@ static func villagers(table: Dictionary = VILLAGERS) -> Array:
 		var d := _npc(vid, v[0], float(v[3][0]), float(v[3][1]), "villager", v[1], v[2], float((seed * 47) % 360))
 		if v[4] is Array:
 			d["route"] = v[4]
+		elif v[4] is Dictionary:          # no posto (pescador na vara): extras de LIVING_NPCS (`facing`, `perch`, `reach`)
+			for k in ["facing", "perch", "reach"]:
+				if v[4].has(k):
+					d[k] = v[4][k]
 		else:
 			d["wander"] = float(v[4])
 		d["look_seed"] = seed
@@ -757,10 +763,11 @@ const PORT_EXTRA_NPCS := {
 	"master_necromancer": ["O Último Escriba de Azhar", "quest", Color(0.55, 0.8, 0.65), ["Eu escrevia os decretos do Lich. Agora escrevo o meu arrependimento.", "Aos 35, um necromante pode aprender o que Azhar sabia, e usar melhor."], -15.6, -1.0, 60.0, {}],
 	"port_memorial": ["Memorial do Estrela", "board", Color(0.8, 0.82, 0.85), ["'Ao Estrela e ao Capitão Odran, que chegaram primeiro.'", "Embaixo, a última linha do diário: 'Eles fogem do leste.'"], -10.4, 14.0, 120.0, {"if": "hx_dc_diary", "model": "prop_statue"}],
 }
-## Colonos que passeiam no porto (formato de VILLAGERS).
+## Colonos que passeiam no porto (formato de VILLAGERS; no lugar do passeio, um dicionário `{stay, facing, perch, reach}` = fica no posto).
 const PORT_VILLAGERS := {
 	"port_vil_builder": ["Carpinteiro Bruno", Color(0.6, 0.45, 0.3), ["Cada estaca dessa paliçada passou pela minha mão. Faltam trezentas.", "Se os ginetes derrubarem de novo, eu levanto de novo."], [-12.0, 2.0], 5.0],
-	"port_vil_fisher": ["Pescadora Iara", Color(0.4, 0.6, 0.75), ["Peixe aqui é grande e bravo. Igual a tudo em Kharzun.", "As nagas roubam a rede. Eu roubo de volta."], [8.0, 46.0], 3.0],
+	"port_vil_fisher": ["Pescadora Iara", Color(0.4, 0.6, 0.75), ["Peixe aqui é grande e bravo. Igual a tudo em Kharzun.", "As nagas roubam a rede. Eu roubo de volta."], [-7.8, 71.0],
+		{"stay": true, "facing": 90.0, "perch": PIER_DECK, "reach": PIER_REACH}],     # vara do cais oeste, a 1ª da margem (dá quest: fala da margem)
 	"port_vil_kid": ["Chico", Color(0.95, 0.75, 0.35), ["Eu vi um goblin! Ele era menor que eu!", "Minha mãe disse que lobo com goblin em cima é pior que lobo sozinho."], [3.0, 14.0], 6.0],
 	"port_vil_nurse": ["Enfermeira Rute", Color(0.92, 0.88, 0.8), ["Mordida de lobo, flecha goblin, insolação. O porto inteiro passa por mim.", "Se for à praia, volte antes da maré."], [10.0, 2.0], 3.0],
 	"port_vil_porter": ["Estivador Gil", Color(0.6, 0.45, 0.35), ["Caixa do navio pro mercado, do mercado pro muro, do muro pro navio...", "O segundo navio? Só quando acenderem o farol."], [0.0, 30.0], [[0.0, 30.0], [-2.0, 50.0], [0.0, 30.0], [8.0, 14.0]]],
@@ -871,10 +878,17 @@ const STEPPE_RAIDS := {
 # ---------------------------------------------------------------------------
 ## Vida dos mapas do Ato II (estivadores, pescadores, caravana, pastores, cativos, guarnição depois da retomada).
 ## mapa -> id -> [nome, cor, falas, barks, casa [x, z], passeio m | rota [[x, z]...] | {"ring": [cx, cz, raio, pontos, fase°]}, extras].
-## Extras: `carry` (carga no ombro `carry_crate|carry_sack|carry_log|carry_rock` ou `cart` = puxa a carroça; só visual,
+## Extras: `carry` (carga no ombro `carry_crate|carry_sack|carry_log|carry_rock` ou `cart` = puxa a carroça, `cart_draft` = anda ao lado do cavalo que a puxa; só visual,
 ## CarryPose), `if`/`unless` (quest), `model` (monstro/cavalo no lugar do kit humano), `fighter` (sentinela que luta: atributos do
 ## monstro `guard_*`, GuardBrain), `power` (vida/ataque x), `role` (padrão "villager"). Barks = falas soltas sobre a cabeça
 ## quando o jogador passa perto (só apresentação, game/world/ambient_life.gd).
+## Altura do tabuleiro dos cais do Porto (sea.pier, y0 das varas em act2_dress.port).
+const PIER_DECK := 0.7
+## Cais é água na sim: o jogador fala com o pescador da margem (alcance de conversa + este tanto, m).
+const PIER_REACH := 2.0
+## `stay` = fica no posto (sem passeio: pescador na vara), `facing` = para onde olha (graus), `perch` = altura visual do piso
+## (pescador no cais: a sim é plana e o cais é só visual, então o posto fica fora da água andável e o boneco sobe ao tabuleiro).
+## Postos dos pescadores = varas de `act2_dress.port/coast` (fishing_pole): atrás do cabo, olhando para a água.
 const LIVING_NPCS := {
 	"city_port": {
 		"port_vil_docker_a": ["Estivador Ramiro", Color(0.62, 0.46, 0.34), ["Do navio pro mercado, do mercado pro navio. O mar não descansa, eu também não.", "Caixa com furo é da Celina. Caixa inteira é do Jonas. Não troque."],
@@ -884,9 +898,11 @@ const LIVING_NPCS := {
 		"port_vil_docker_c": ["Carregador Bastos", Color(0.58, 0.5, 0.38), ["Estaca nova pro portão norte. Cada uma pesa um marujo.", "O Bruno conta as estacas. Eu conto as farpas."],
 			["Estaca pro portão!", "Uf... falta pouco.", "Sai da frente que isso é madeira de lei!"], [-1.0, 48.0], [[-1.0, 48.0], [0.0, 38.0], [-3.0, 24.0], [-14.0, 10.0], [-2.0, -10.0], [2.0, -20.0], [-2.0, -10.0], [-14.0, 10.0], [-3.0, 24.0], [0.0, 38.0]], {"carry": "carry_log"}],
 		"port_vil_fisher_b": ["Pescador Duarte", Color(0.4, 0.55, 0.7), ["Robalo de Kharzun tem dente. Robalo de casa não tinha.", "Se a linha puxar pra baixo, é peixe. Se puxar pra cima, é naga. Solte."],
-			["Hoje tá dando...", "Shhh, espanta o peixe.", "Mais um! Pequeno, mas é um."], [11.0, 55.0], 1.5, {}],
+			["Hoje tá dando...", "Shhh, espanta o peixe.", "Mais um! Pequeno, mas é um."], [14.2, 69.5], 0.0, {"stay": true, "facing": 90.0, "perch": PIER_DECK, "reach": PIER_REACH}],
 		"port_vil_fisher_c": ["Velho Anselmo", Color(0.5, 0.55, 0.62), ["Pesco desde menino. Do outro lado do mar o peixe era mais educado.", "Gaivota esperta rouba da cesta. Gaivota burra rouba do anzol."],
-			["Xô, gaivota!", "No meu tempo...", "A maré vira já, já."], [-12.0, 54.0], 1.0, {}],
+			["Xô, gaivota!", "No meu tempo...", "A maré vira já, já."], [-13.1, 65.5], 0.0, {"stay": true, "facing": 7.0}],      # vara da praia (act2_dress.PORT_SHORE_POLE): em chão seco, fala-se de perto
+		"port_vil_carter": ["Carroceiro Miguel", Color(0.6, 0.48, 0.36), ["Do cais pro mercado, do mercado pro cais. A carroça range, mas chega.", "Roda de carroça gasta mais que bota. Pergunte ao ferreiro."],
+			["Olha a roda!", "Devagar na ladeira...", "Carga do navio, passando!"], [0.0, 40.0], [[0.0, 40.0], [3.0, 24.0], [13.0, 12.0], [3.0, 24.0], [0.0, 40.0], [2.0, 52.0]], {"carry": "cart"}],
 		"port_vil_hawker_a": ["Peixeira Joana", Color(0.75, 0.5, 0.45), ["Peixe de manhã, ensopado de tarde, sopa de espinha de noite. Nada se perde.", "O porto come o que o mar dá. E o mar anda generoso."],
 			["Peixe fresco! Fresquinho!", "Leva dois, paga um e meio!", "Olha o robalo, freguês!"], [9.0, 27.0], 2.0, {}],
 		"port_vil_hawker_b": ["Vendedor Quim", Color(0.8, 0.68, 0.4), ["Corda, rede, anzol, vela de sebo. O que o navio trouxe, eu revendo.", "Pechinchar é permitido. Ganhar a pechincha, não."],
@@ -919,7 +935,11 @@ const LIVING_NPCS := {
 		"coast_cook": ["Cozinheiro Valdo", Color(0.88, 0.78, 0.58), ["Sopa de alga, sopa de peixe, sopa de alga com peixe. Cardápio da encruzilhada.", "Quem passa pela estrada come. Quem fica, ajuda a mexer."],
 			["Sopa quente!", "Mexe, mexe...", "Mais sal, menos areia."], [-6.0, -4.0], 2.0, {}],
 		"coast_fisher_shore": ["Pescador Isaías", Color(0.42, 0.58, 0.72), ["A Ilda me deixa pescar perto do farol. Em troca, eu levo o óleo.", "Naga não gosta de luz. Desde que o farol acendeu, durmo melhor."],
-			["Peixe no balde!", "Olha a onda...", "Hoje o mar tá manso."], [44.0, 52.0], 2.0, {}],
+			["Peixe no balde!", "Olha a onda...", "Hoje o mar tá manso."], [47.1, 74.1], 0.0, {"stay": true, "facing": 352.0}],
+		"coast_fisher_b": ["Pescadora Marta", Color(0.48, 0.6, 0.66), ["O Isaías pesca de manhã, eu de tarde. Assim a gente não briga pelo peixe.", "Caranguejo grande na rede é sinal de naga perto. Recolho e vou embora."],
+			["Hoje tá dando...", "Shhh, espanta o peixe.", "Mais um! Pequeno, mas é um."], [54.2, 75.3], 0.0, {"stay": true, "facing": 349.0}],
+		"coast_fisher_c": ["Pescador Tonho", Color(0.55, 0.5, 0.42), ["Do lado de cá do farol o mar é mais manso. Do lado de lá, é das nagas.", "Isca de alga não presta. Isca de caranguejo presta, se você pegar o caranguejo antes."],
+			["Xô, gaivota!", "A maré vira já, já.", "Peixe no balde!"], [38.1, 73.2], 0.0, {"stay": true, "facing": 356.4}],
 		"coast_shell_a": ["Catadora Rosa", Color(0.78, 0.6, 0.5), ["Concha de caranguejo vira prato, colher e botão. O Tomás me ensinou.", "Não pise na areia molhada perto das pedras: é onde elas dormem."],
 			["Mais uma concha...", "Essa tá inteira!", "Ai, belisca!"], [-70.0, 40.0], 3.0, {}],
 		"coast_shell_b": ["Catador Zé", Color(0.6, 0.52, 0.42), ["Sem a Mãe das Marés, a praia é de quem chega cedo.", "Pérola pequena eu vendo. Pérola grande eu escondo."],
@@ -957,9 +977,9 @@ const LIVING_NPCS := {
 		"steppe_vil_clerk": ["Contadora Hilda", Color(0.7, 0.66, 0.8), ["Sal, pano, ferro, flecha. Anoto tudo que entra e tudo que a Horda leva.", "O Horácio manda. Eu conto. Quem conta, manda um pouco também."],
 			["Doze sacos, treze barris...", "Isso não bate.", "Quem mexeu no meu livro?"], [4.0, -10.0], 2.0, {}],
 		"steppe_caravan_a": ["Carroceiro Alcides", Color(0.62, 0.5, 0.36), ["Do passo da Costa até o Posto: meio dia, se o lobo deixar.", "Sal pra cá, ferro pra lá. A estrada é o que segura essa terra junta."],
-			["Eia! Eia!", "Estrada ruim, carga boa.", "Mais um morro..."], [-15.0, 88.0], [[-15.0, 88.0], [-9.0, 82.0], [3.0, 70.0], [6.0, 60.0], [4.0, 48.0], [2.0, 32.0], [0.0, 14.0], [2.0, 32.0], [4.0, 48.0], [6.0, 60.0], [3.0, 70.0], [-9.0, 82.0]], {"carry": "cart"}],
+			["Eia! Eia!", "Estrada ruim, carga boa.", "Mais um morro..."], [-15.0, 88.0], [[-15.0, 88.0], [-9.0, 82.0], [3.0, 70.0], [6.0, 60.0], [4.0, 48.0], [2.0, 32.0], [0.0, 14.0], [2.0, 32.0], [4.0, 48.0], [6.0, 60.0], [3.0, 70.0], [-9.0, 82.0]], {"carry": "cart_draft"}],
 		"steppe_caravan_b": ["Carroceira Nena", Color(0.7, 0.52, 0.4), ["Meu pai puxava carroça em Aldara. Eu puxo em Kharzun. A carroça é a mesma.", "Ouviu tambor, para. Ouviu uivo, corre."],
-			["Segura a carga!", "Falta pouco pro Posto.", "Ê, burro teimoso!"], [2.0, 30.0], [[2.0, 30.0], [4.0, 48.0], [6.0, 60.0], [3.0, 70.0], [-9.0, 82.0], [-15.0, 88.0], [-9.0, 82.0], [3.0, 70.0], [6.0, 60.0], [4.0, 48.0], [2.0, 32.0], [0.0, 14.0]], {"carry": "cart"}],
+			["Segura a carga!", "Falta pouco pro Posto.", "Ê, burro teimoso!"], [2.0, 30.0], [[2.0, 30.0], [4.0, 48.0], [6.0, 60.0], [3.0, 70.0], [-9.0, 82.0], [-15.0, 88.0], [-9.0, 82.0], [3.0, 70.0], [6.0, 60.0], [4.0, 48.0], [2.0, 32.0], [0.0, 14.0]], {"carry": "cart_draft"}],
 		"steppe_caravan_guard": ["Escolta Rui", Color(0.6, 0.62, 0.7), ["Escolto a caravana da Costa até o Posto. Ida e volta, todo dia.", "Saqueador ataca a última carroça. Eu ando atrás."],
 			["Caravana passando!", "Olho no capim!", "Mantenham a fila!"], [-9.0, 82.0], [[-9.0, 82.0], [3.0, 70.0], [6.0, 60.0], [4.0, 48.0], [2.0, 32.0], [4.0, 48.0], [6.0, 60.0], [3.0, 70.0], [-9.0, 82.0], [-15.0, 88.0]],
 			{"fighter": "guard_spearman", "power": Balance.STEPPE_GUARD_POWER}],
@@ -1089,13 +1109,15 @@ static func living_npcs(table: Dictionary, prefix: String = "", cond: Dictionary
 		var d := _npc(prefix + vid, v[0], float(v[4][0]), float(v[4][1]), "guard" if fighter != "" else str(ex.get("role", "villager")), v[1], v[2],
 			float(ex.get("facing", (seed * 47) % 360)))
 		var r: Variant = _route_of(v[5])
-		if r is Array:
+		if ex.get("stay", false):
+			pass                                 # no posto (pescador na vara): nem passeio nem ronda
+		elif r is Array:
 			d["route"] = r
 		else:
 			d["wander"] = float(r)
 		if not (v[3] as Array).is_empty():
 			d["barks"] = v[3]
-		for k in ["if", "unless", "model", "power", "carry"]:
+		for k in ["if", "unless", "model", "power", "carry", "perch", "reach"]:
 			if ex.has(k):
 				d[k] = ex[k]
 		for k in cond:
@@ -1520,7 +1542,7 @@ static func _port() -> MapDef:
 	z.erase("npc_pos")
 	z.merge({"id": "city_port", "name": "Porto Esperança", "is_town": false, "hub": true, "level_range": Vector2i(30, 35),
 		"conquest_vis": PORT_CONQUEST_VIS,
-		"ground_color": Color(0.5, 0.64, 0.4), "ground_color_alt": Color(0.46, 0.6, 0.37), "ambient": Color(0.92, 0.95, 0.98), "sun_energy": 1.2,
+		"ground_color": Color(0.62, 0.62, 0.44), "ground_color_alt": Color(0.57, 0.57, 0.41), "ambient": Color(0.92, 0.95, 0.98), "sun_energy": 1.2,     # chão de porto: capim salgado e areia, não o verde de Aldara
 		"bot_population": 9, "npcs": npcs})
 	return _mk(z)
 
@@ -1546,7 +1568,7 @@ static func _coast() -> MapDef:
 	z.erase("npc_pos")
 	z.merge({"id": "field_coast", "name": "Costa Partida", "is_town": false, "level_range": Vector2i(30, 35),
 		"conquest_vis": COAST_CONQUEST_VIS,
-		"ground_color": Color(0.5, 0.64, 0.4), "ground_color_alt": Color(0.46, 0.6, 0.37), "ambient": Color(0.95, 0.96, 0.95), "sun_energy": 1.25,
+		"ground_color": Color(0.64, 0.66, 0.46), "ground_color_alt": Color(0.58, 0.61, 0.42), "ambient": Color(0.95, 0.96, 0.95), "sun_energy": 1.25,     # capim de duna (areia e sal)
 		"bot_population": 6, "npcs": npcs})
 	return _mk(z)
 

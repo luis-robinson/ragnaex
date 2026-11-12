@@ -248,6 +248,10 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 		Sim.grandfather_gates(p, str(d.get("map", "")))
 	if int(d.get("save_version", 0)) < 3 and "q11_chief" in p.quests_completed:
 		p.gates_open["to_ruins"] = true          # já liberou as Ruínas pelo Chefe dos Bandidos (antes do cerco élfico)
+	if p.bind_map == "":                         # save de antes do retorno automático: já chegou ao porto, renasce lá
+		for qid in MapsCatalog.QUEST_BIND:
+			if qid in p.quests_completed:
+				PortalSystem.quest_bind(Sim, p, qid, false)
 	p.recompute_stats()
 	p.hp = clampf(float(d.get("hp", p.stats.max_hp)), 1.0, p.stats.max_hp)
 	p.mp = clampf(float(d.get("mp", p.stats.max_mp)), 0.0, p.stats.max_mp)

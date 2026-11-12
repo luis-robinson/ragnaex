@@ -143,11 +143,12 @@ static func update_boss(sim: WorldSim, e: SimEntity, dt: float = 0.0) -> void:
 		var n := crowd_of(sim, e)
 		if n != e.crowd:
 			e.crowd = n
-			e.crowd_mult = crowd_mult(n)
+			e.crowd_mult = crowd_mult(n, e.monster_def.id)
 			_apply_fury(e)
 			if n > e.crowd_peak and e.crowd_mult > 1.0:
 				boss_say(sim, e, "Tantos contra mim? Fico mais forte! (%d lutando: dano ×%s)" % [n, String.num(e.crowd_mult, 1)])
 			e.crowd_peak = maxi(e.crowd_peak, n)
+			_crowd_skills(sim, e)
 	if e.ward_base > 0.0:
 		e.ward_t -= dt
 		if e.ward_t <= 0.0:
@@ -185,9 +186,13 @@ static func crowd_of(sim: WorldSim, boss: SimEntity) -> int:
 			n += 1
 	return mini(n, Balance.PARTY_MAX)
 
-## Dano do chefe por quem luta contra ele (Balance.BOSS_CROWD_MULT por número de pessoas).
-static func crowd_mult(n: int) -> float:
-	return float(Balance.BOSS_CROWD_MULT[clampi(n, 0, Balance.BOSS_CROWD_MULT.size() - 1)])
+## Dano do chefe por quem luta contra ele (Balance.BOSS_CROWD_MULT por número de pessoas). Chefe em BOSS_CROWD_EXTRA
+## ganha mais × a partir de BOSS_CROWD_EXTRA_FROM pessoas (solo e trio intactos).
+static func crowd_mult(n: int, boss_id: String = "") -> float:
+	var k := float(Balance.BOSS_CROWD_MULT[clampi(n, 0, Balance.BOSS_CROWD_MULT.size() - 1)])
+	if n >= Balance.BOSS_CROWD_EXTRA_FROM and Balance.BOSS_CROWD_EXTRA.has(boss_id):
+		k *= float(Balance.BOSS_CROWD_EXTRA[boss_id])
+	return k
 
 ## Lacaios vivos deste chefe.
 static func adds_alive(sim: WorldSim, boss: SimEntity) -> int:
@@ -449,9 +454,80 @@ static func update_spawners(sim: WorldSim, m: Dictionary, dt: float) -> void:
 						sp["escort_t"] = Balance.ESCORT_RESPAWN
 					if em is Array and em.size() >= 3:
 						Events.post(&"monster_emerged", def.id, pos)
-						if sim.player and sim.player.map_id == def.id:
+						if sim.player and sim.player.map_id == def.id and sp.get("primed", false):     # 1º enchimento (mapa carregando, jogador ainda de passagem): sem aviso
 							Events.post(&"chat_message", "Sistema", "%s emerge do lago!" % mob.monster_def.name, "system")
 				if sp["alive"].size() >= int(sdef.get("count", 1)):
 					sp["primed"] = true
 				# enche rápido na 1ª vez (mapa recém-carregado) e quando esvazia; depois, um por vez no tempo de respawn
 				sp["timer"] = float(sdef.get("respawn", 10.0)) if sp["alive"].size() > 0 and sp["primed"] else 0.5
+
+## Mecânica de grupo grande (MonsterDef.crowd_skills): entra quando o PICO da luta chega a BOSS_CROWD_EXTRA_FROM e fica até o reset
+## (a 1ª morte do grupo não a desliga, ao contrário do reforço de dano, que segue quem está vivo).
+static func _crowd_skills(sim: WorldSim, e: SimEntity) -> void:
+	var ids: Array[String] = e.monster_def.crowd_skills
+	if ids.is_empty() or e.crowd_peak < Balance.BOSS_CROWD_EXTRA_FROM:
+		return
+	var s: SkillDef = GameData.skills.get(ids[0])
+	if s == null or s in e.skills:
+		return
+	sim._add_skills(e, ids)
+	if e.monster_def.crowd_say != "":
+		boss_say(sim, e, e.monster_def.crowd_say)
+
+# ---------------------------------------------------------------------------
+# Casulo de Seda (efeito "cocoon"): prende um inimigo num lacaio-casulo do chefe
+# ---------------------------------------------------------------------------
+
+## Envolve `t`: atordoado até o casulo (monstro `id`, lacaio de `src`) cair; esgotado o tempo, aperta (burst × vida máxima).
+static func cocoon(sim: WorldSim, src: SimEntity, t: SimEntity, cd: Dictionary) -> void:
+	if not t.is_character() or not t.is_alive() or t.has_debuff("cocoon") or not sim.maps.has(t.map_id):
+		return
+	var mdef: MonsterDef = GameData.monsters.get(str(cd.get("id", "web_cocoon")))
+	if mdef == null:
+		return
+	var dur := float(cd.get("duration", Balance.COCOON_TIME))
+	var add := sim.spawn_monster(mdef, t.map_id, t.position)
+	add.boss_id = src.id if src.monster_def and src.monster_def.is_boss else -1
+	add.adds_epoch = src.adds_epoch
+	add.aggro_target = t.id
+	add.aggro_timer = Balance.AGGRO_LOSE_TIME
+	t.is_blocking = false
+	t.current_skill = null
+	t.velocity = Vector3.ZERO
+	t.set_state(SimEntity.State.STUNNED, dur)
+	t.debuffs.append({"kind": "cocoon", "remaining": dur + 1.0, "add": add.id, "src": src.id, "burst": float(cd.get("burst", Balance.COCOON_BURST))})
+	if sim.player and sim.player.map_id == t.map_id:
+		Events.post(&"notification", "%s foi envolvido num casulo! Quebrem o casulo." % t.name)
+
+## Vítima presa (estado STUNNED com debuff "cocoon"): casulo quebrado solta; tempo esgotado com o casulo inteiro aperta e solta.
+static func cocoon_tick(sim: WorldSim, t: SimEntity) -> void:
+	var d: Dictionary = {}
+	for x in t.debuffs:
+		if x.get("kind") == "cocoon":
+			d = x
+			break
+	if d.is_empty():
+		return
+	var add: SimEntity = sim.entities.get(int(d["add"]))
+	var broken := add == null or not add.is_alive()
+	if not broken and t.state_time < t.state_duration:
+		return
+	t.debuffs.erase(d)
+	if not broken:
+		var src: SimEntity = sim.entities.get(int(d["src"]))
+		sim.despawn(add)
+		var dmg := int(round(t.stats.max_hp * float(d["burst"])))
+		sim._deal_damage(src if src else t, t, dmg, false, false, "dot_cocoon")
+	t.set_state(SimEntity.State.IDLE)
+
+## Casulo de um aliado (vivo, segurando alguém do grupo) a até `max_d` m de `e`.
+static func cocoon_of(sim: WorldSim, e: SimEntity, members: Array, max_d: float) -> SimEntity:
+	for o in members:
+		if o == e or o.map_id != e.map_id or o.debuffs.is_empty():
+			continue
+		for d in o.debuffs:
+			if d.get("kind") == "cocoon":
+				var add: SimEntity = sim.entities.get(int(d["add"]))
+				if add and add.is_alive() and add.position.distance_to(e.position) <= max_d:
+					return add
+	return null

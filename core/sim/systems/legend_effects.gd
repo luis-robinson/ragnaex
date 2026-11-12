@@ -76,6 +76,14 @@ static func signature_skill(e: SimEntity) -> String:
 		return ""
 	return str(e.class_def.build_by_id(signature_build(e)).get("signature", {}).get("skill", ""))
 
+## Chance (%) de o golpe (básico ou skill) lançar a magia-assinatura `sid` (a arma lendária com a mesma magia soma).
+static func signature_chance(e: SimEntity, basic: bool, sid: String) -> float:
+	var chance: float = Balance.SIGNATURE_BASIC_PCT + floorf(e.level / 5.0) * Balance.SIGNATURE_BASIC_PER5 if basic else Balance.SIGNATURE_SKILL_PCT
+	var le: Dictionary = e.stats.legend if e.stats else {}
+	if str(le.get("kind", "")) == "cast_on_basic" and str(le.get("skill", "")) == sid:
+		chance += float(le.get("chance", 0.0))       # arma lendária com a mesma magia: soma no ataque e nas habilidades
+	return chance
+
 ## Efeito-assinatura: ao acertar com o básico (ou, menos, com skills), chance de lançar de graça a magia da build,
 ## com poder reduzido (SIGNATURE_POWER) e recarga própria. Arma lendária com a mesma magia (Brasa Viva) soma chance.
 ## O que a assinatura acerta não dispara outra (nem a própria magia, quando lançada pelo jogador, dispara a si mesma).
@@ -87,11 +95,7 @@ static func signature_on_hit(sim: WorldSim, e: SimEntity, t: SimEntity, s: Skill
 	var sid := signature_skill(e)
 	if sid == "" or s.id == sid:
 		return
-	var basic := s.id.begins_with("basic_")
-	var chance: float = Balance.SIGNATURE_BASIC_PCT + floorf(e.level / 5.0) * Balance.SIGNATURE_BASIC_PER5 if basic else Balance.SIGNATURE_SKILL_PCT
-	var le: Dictionary = e.stats.legend if e.stats else {}
-	if str(le.get("kind", "")) == "cast_on_basic" and str(le.get("skill", "")) == sid:
-		chance += float(le.get("chance", 0.0))       # arma lendária com a mesma magia: soma no ataque e nas habilidades
+	var chance := signature_chance(e, s.id.begins_with("basic_"), sid)
 	if not sim.signature_force and sim.rng.randf() * 100.0 >= chance:
 		return
 	e.sig_ready_at = sim.time + Balance.SIGNATURE_ICD

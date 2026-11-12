@@ -328,5 +328,7 @@ static func complete(e: SimEntity, q: QuestDef, sim) -> void:
 		if e == sim.player:
 			Events.post(&"notification", "Recompensa: %s" % GameData.items[gear].name)
 	Events.post(&"quest_completed", e.id, q.id)
+	if e == sim.player:
+		PortalSystem.quest_bind(sim, e, q.id, true)   # Terra à Vista: o retorno passa a ser no porto (bots não)
 	var again := "  —  " + repeat_note(q) if q.repeatable else ""
 	Events.post(&"notification", "Quest concluída: %s (+%d XP, +%d ouro)%s" % [q.title, q.reward_xp, q.reward_gold, again])

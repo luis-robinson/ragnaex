@@ -783,7 +783,7 @@ const FUSIONS := {
 		"corsario": "tiros envenenam; cada veneno seu no alvo fortalece o próximo tiro",
 		"laminas": "Dardo Venenoso e Leque de Facas dão Bravata por alvo envenenado"}},
 	"fogo+gelo": {"name": "Vapor", "of": "do Vapor", "text": {
-		"all": "gelo em alvo queimando apaga a queimadura e causa o dano dela na hora"}},
+		"all": "gelo em alvo queimando, ou fogo em alvo retardado, apaga a queimadura e causa o dano dela na hora"}},
 	"gelo+raio": {"name": "Supercondutor", "of": "do Supercondutor", "text": {
 		"all": "raio em alvo retardado salta para +1 alvo; gelo em alvo eletrificado bate mais"}},
 	"raio+fogo": {"name": "Plasma", "of": "do Plasma", "text": {

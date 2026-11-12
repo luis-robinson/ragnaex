@@ -870,7 +870,7 @@ func _interact(e: SimEntity, m: Dictionary) -> void:
 	var best_d := 2.6
 	for o: SimEntity in m["entities"]:
 		if o.kind == SimEntity.Kind.NPC:
-			var d: float = o.position.distance_to(e.position)
+			var d: float = o.position.distance_to(e.position) - float(o.npc_data.get("reach", 0.0))     # `reach`: alcance a mais (pescador no cais)
 			if d < best_d:
 				best_d = d
 				best = o
@@ -1362,7 +1362,7 @@ func _apply_effects(src: SimEntity, t: SimEntity, effects: Dictionary, power: fl
 			_charge(t, to.normalized() * want, maps[t.map_id])
 	if effects.get("knockback") is Dictionary and t != src:
 		DruidAscension.knockback(self, src, t, effects["knockback"])
-	if effects.get("provoke") is Dictionary and t.kind == SimEntity.Kind.MONSTER and src.is_hostile_to(t):
+	if effects.get("provoke") is Dictionary and t.kind == SimEntity.Kind.MONSTER and src.is_hostile_to(t) and DruidAscension.may_provoke(self, src):
 		MobSystem.taunt(self, t, src, float(effects["provoke"].get("duration", Balance.TAUNT_DURATION)))
 	if effects.get("root") != null:
 		t.debuffs.append({"kind": "root", "remaining": float(effects["root"].get("duration", 2))})
@@ -1373,6 +1373,8 @@ func _apply_effects(src: SimEntity, t: SimEntity, effects: Dictionary, power: fl
 		t.is_blocking = false
 		t.current_skill = null
 		t.set_state(SimEntity.State.STUNNED, dur)
+	if effects.get("cocoon") is Dictionary and t != src and src.is_hostile_to(t):
+		MobSystem.cocoon(self, src, t, effects["cocoon"])
 	if effects.get("curse") != null:          # maldição (Necromancer): recebe mais dano e/ou causa menos; a mesma maldição renova
 		var cu: Dictionary = effects["curse"]
 		var cid: String = "curse_%s_%d" % [cu.get("id", "curse"), src.id]
@@ -1669,7 +1671,7 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 	target.last_damage_from = attacker.id
 	if attacker.is_character() and target.kind == SimEntity.Kind.MONSTER and not kind.begins_with("dot"):
 		attacker.last_target_id = target.id      # o elemental (modo atacar) segue este alvo
-	target.threat[attacker.id] = float(target.threat.get(attacker.id, 0.0)) + amount * (1.0 + attacker.stats.threat_pct / 100.0)     # aura do tanque: mais ameaça
+	target.threat[attacker.id] = float(target.threat.get(attacker.id, 0.0)) + amount * (1.0 + (attacker.stats.threat_pct if attacker.form != "ent" else DruidAscension.threat_pct(self, attacker)) / 100.0)     # aura do tanque: mais ameaça (Ent só se for o tanque)
 	if target.kind == SimEntity.Kind.MONSTER:
 		var who: int = attacker.owner_id if attacker.kind == SimEntity.Kind.SUMMON else attacker.id   # invocação conta para o dono, mesmo depois de expirar
 		if not attacker.guard:              # sentinela não rouba o abate: XP e saque ficam com quem lutou junto
@@ -1753,7 +1755,7 @@ func _kill(e: SimEntity, killer: SimEntity) -> void:
 	elif e.kind == SimEntity.Kind.SUMMON and e.elem_form != "":
 		ElementalSystem.on_died(self, e)
 	elif e.kind == SimEntity.Kind.PLAYER:
-		Events.post(&"notification", "Você morreu. Renascendo em %s..." % map_def(PortalSystem.home_of(e)["map"]).name)
+		Events.post(&"notification", "Você morreu. Renascendo %s..." % BotsCatalog.place_words(map_def(PortalSystem.home_of(e)["map"]).name)["em"])
 		var loss := int(e.xp * Balance.DEATH_XP_PENALTY)
 		e.xp = maxi(0, e.xp - loss)
 		BotChat.party_event(self, e, "player_died")
@@ -1914,7 +1916,9 @@ func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 				e.set_state(SimEntity.State.IDLE)
 				_dash_arrive(e, dp, m)
 		SimEntity.State.STUNNED:
-			if e.state_time >= e.state_duration:
+			if not e.debuffs.is_empty() and e.has_debuff("cocoon"):
+				MobSystem.cocoon_tick(self, e)          # casulo da Rainha: solta quando quebra, aperta quando o tempo acaba
+			if e.state == SimEntity.State.STUNNED and e.state_time >= e.state_duration:
 				e.set_state(SimEntity.State.IDLE)
 		_:
 			pass

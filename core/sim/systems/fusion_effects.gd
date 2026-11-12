@@ -387,11 +387,19 @@ static func on_hit(sim: WorldSim, e: SimEntity, t: SimEntity, s: SkillDef, amoun
 					e.fus["a3_n"] = int(e.fus["a3_n"]) + 1
 					sim.gain_bravado(e, 1)
 		"fogo+gelo":
-			if _is_frost(s) and t.is_alive() and not _own_dot(e, t, "fire").is_empty():
-				var left := sim.consume_burns(e, t)
-				_burst(sim, e, t.position, int(left * num(e, "quench") / 100.0), Balance.FUSION_VAPOR_RADIUS)
-				sim._apply_effects(e, t, {"slow": {"pct": Balance.FUSION_VAPOR_SLOW, "duration": Balance.FUSION_VAPOR_TIME}}, 0.0)
-				count(e, "vapor")
+			# gelo em alvo que queima com o seu fogo, ou fogo em alvo retardado/gelado (este com recarga: o vapor retarda e não pode se encadear)
+			if t.is_alive() and not _own_dot(e, t, "fire").is_empty():
+				var by_frost := _is_frost(s)
+				var by_fire := not by_frost and _is_fire(s) and Combat.is_chilled(t) and sim.time >= float(e.fus.get("vapor_at", -1.0))
+				if by_frost or by_fire:
+					if by_fire:
+						e.fus["vapor_at"] = sim.time + Balance.FUSION_VAPOR_ICD
+					var left := sim.consume_burns(e, t)
+					_burst(sim, e, t.position, int(left * num(e, "quench") / 100.0), Balance.FUSION_VAPOR_RADIUS)
+					sim._apply_effects(e, t, {"slow": {"pct": Balance.FUSION_VAPOR_SLOW, "duration": Balance.FUSION_VAPOR_TIME}}, 0.0)
+					count(e, "vapor")
+					var sub := "n_vapor_fire" if by_fire else "n_vapor_frost"      # só para a sonda (não conta em "fired")
+					e.fus[sub] = int(e.fus.get(sub, 0)) + 1
 		"gelo+raio":
 			if _is_storm(s):
 				if Combat.is_chilled(t) and float(e.fus.get("e2_t", -1.0)) != sim.time:
