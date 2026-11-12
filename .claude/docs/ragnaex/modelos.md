@@ -28,6 +28,8 @@ e cor; o 2º (`SECOND`, igual ao `favor` do `SET_VISUALS`) dá ombros, orbes e a
 revisar monstros: `lineup.tscn -- --mobs=<modelo>,<modelo> [--anim=idle]`.
 Conjuntos do Necromancer: `tools/blender/necromancer_sets.py` (`NEC_SETS` por foco × nível: Invocador ossos/caveiras, Ceifador capuz rasgado/manto/cravos,
 Sombras capuz alto/olho/aletas; `build_scythe`). Cão de ossos, Rei Esqueleto e a forma demoníaca (`form_demon`) saem de `mob_kit.build_all`.
+Casulo de Seda (lacaio da Rainha Aranha, monstro `web_cocoon`): `mob_kit.web_cocoon` gera `mob_web_cocoon.glb` (peças rígidas nos ossos `body`/`core`/`head`/`arm_r`/`arm_l`;
+clipes `idle run attack hit die`, no `die` as metades da casca tombam e o miolo some); refazer só ele: `mob_kit.build_all(out, only=["mob_web_cocoon"])`.
 Conjuntos do Druida: `tools/blender/druid_sets.py` (`DRU_SETS` humano; `DRU_STAFFS`, `DRU_MACES` com a 2ª maça na esquerda; formas: `build_forms`
 gera `form_wolf.glb`/`form_bear.glb` com `frm_<estilo>_<slot>_<osso>`, lidos por `FormModel`). Revisar formas: `lineup.tscn -- --strip=druid --set=<build> --form=<wolf|bear>`
 e no jogo `-- --autostart=druid --gear=<set_id> --form=<wolf|bear>`. Mudou um conjunto do Lobo/Urso: refaça o kit E as formas.
@@ -58,6 +60,13 @@ Lendário com visual próprio: referência em `reference/<classe>/set_N/` → fu
 (revisar em loop com `look` frente/costas contra a referência), entrada em `GearCatalog.SET_VISUALS` (estilo, cor, `suffix`/`adj` do nome, ícone; substantivos da build em `PIECE_NOUNS`)
 e ícones 128 px em `assets/icons/<icone>_<peça>.png`. Revisar no jogo: `lineup.tscn -- --strip=<classe> --set=<build> --level=<lv>`
 e `-- --autostart=<classe> --gear=<set_id> --screenshot=<png>` (janela C com ícones).
+Carga dos NPCs que trabalham (`carry` em `MapsCatalog.LIVING_NPCS`, só visual): `tools/blender/life_props.py` → `prop_<carry>.glb` em tamanho real
+(`carry_crate|carry_sack|carry_log|carry_rock` no ombro, `cart` puxada à mão, `cart_draft` puxada por animal); pose dos braços e ajustes em `CarryPose`
+(`game/entities/carry_pose.gd`). `CarryPose.DRAFT` = animal de tiro: `EntityView._attach_draft` põe o `mob_horse` entre os varais sem a sela (`strip`, fusão
+própria no `RigidMerge`) e `_animate_draft` atrasa o nó `cart` na curva (peça com `node`/`pivot`/`under` sai em nó à parte: `prop_kit.export_scene`).
+Rodas: o nó `wheels` (origem no eixo) gira pela distância andada nas duas carroças (`EntityView._animate_wheels`; raio em `CarryPose.WHEELS` / `DRAFT.wheel_r`).
+Refazer: `prop_kit.build_all(out, only=["cart", "cart_draft"])`; revisar: `-- --autostart=paladin --carry_shot=<png> [--carry=cart|cart_draft]`.
+Costas/lado de um monstro: `lineup.tscn -- --mobs=<m>,<m>,<m> --yaws=180,115,270 [--cam_dist=5.6]` (peça nas costas tem de passar por fora da cabeça chibi).
 Auditoria de clipes: `tools/lineup/film_all.sh` filma tudo e `--headless --path . tools/tests/anim_probe.tscn` mede emenda do laço, giro por quadro,
 quadros parados e cabeça no chão (notas em `docs/animations_review.md`). Força das skills: `--headless --path . tools/tests/skill_audit.tscn` (`WEAK` < 60% da mediana).
 Revisão em loop: `.\tools\godot.ps1 --path . tools/lineup/lineup.tscn -- --shot=<png> --anim=<clipe>` (todas as classes,

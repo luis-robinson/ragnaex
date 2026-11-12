@@ -34,6 +34,13 @@ Referência: `C:\Users\luisf\Desktop\projects\erenpg` (`blender/scripts/build_va
   Peça grande só nasce onde `Dress.ok()` deixa e ganha colisor oculto com `Dress.solid()`; enfeite de conquista (`tag`) nunca colide.
   Usa Random próprio: a sim da zona não muda (só acrescenta colisores no fim). Check `_check_zone_dress`.
   `Zone.arrival()` faz o largo de chegada; `Zone.patch(y=)` separa manchas grandes (duas no mesmo plano brigam: faixas em leque).
+- **Conquista no acabamento** (acampamentos da Horda, `act2_dress.fort`): o que troca de dono vai em dois lotes com `tag`, no mesmo ponto:
+  `Dress(z, seed, tag="estandarte_horda_det")` (some na retomada) e `tag="estandarte_aurora_det"` (aparece), via `MapDef.conquest_vis`; hoje tendas do pátio,
+  bonecos de treino, crânio/pano do pórtico e flâmulas. O colisor fica no lote neutro (um só, vale para os dois). Ao mover uma peça do lote neutro para um
+  com tag, gaste no `d.rnd` os sorteios que ela gastava (cada `cyl` sorteia `segs` vezes): `data/zones/<zona>.json` tem de sair byte a byte igual.
+  Check `_check_fort_tents`; refazer: `run_zone.py -- build_steppe_forts <pasta> --export --only=fort_trolls,fort_fire,fort_war --no_render`.
+  Bonecos de treino: candidatos `[recuo, ângulo]` em `act2_dress.FORT_DRILL` (espelhados em `run_tests.FORT_DRILL`). Quadrantes longe da estrada:
+  `act2_dress.fort_far` (rodízio `FAR_KINDS`: fogueira apagada, escaramuça, rastro, monturo, queimado, roda), tudo baixo, sem colisor, no fim do lote neutro.
 - A dispersão de uma zona muda quando lugares/trilhas mudam: chegadas de portal precisam estar reservadas (`block`/`spots`).
 - Água e morros colidem na sim (`MapGeometry.build_collider_grid`): o rio só tem vão nas pontes, que nascem onde uma estrada
   (`kind: "road"`) cruza o rio. Bots usam `water_path`; mudou rio/ponte, rode os testes de travessia (`_cross_river`).

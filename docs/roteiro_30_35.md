@@ -28,7 +28,7 @@ Quem chega: o navio do Capitão Bren sai do cais leste do Bastião depois de "De
 | Quest | Quem dá | O que é |
 |---|---|---|
 | Fechar a Paliçada | Carpinteiro Bruno → Alba | 15 lanceiros, empaladores ou ginetes. **Muda para C1.** Rende Moeda Lendária. |
-| Olhos na Costa | Alba → Batedora Nádia | Sair pelo portão sul até a encruzilhada. |
+| Olhos na Costa | Alba → Batedora Nádia | Sair pelo portão oeste até a encruzilhada. |
 | O Mangue dos Lanceiros | Batedora Nádia | 15 lanceiros ou empaladores no mangue (dica: derrube o Agitador primeiro). |
 | A Lente de Escamas (Farol) | Ilda | 8 Escamas de Naga. |
 | Remendo de Casco / Os Nomes do Gaivota (Náufragos) | Tomás → Irmão Celso | Colher 6 cascos na areia (F); levar a notícia ao porto. |

@@ -28,10 +28,13 @@ Os coeficientes valem por `Balance.ATTR_SCALE` (10) pontos de atributo: "/pt" na
 | Atributo | Efeito |
 |---|---|
 | FOR | ATK físico (×2/pt); com escudo: +0.6%/pt chance de bloqueio (usa o maior entre FOR e WILL); com arma física: redução ao bloquear 30% + 0.5%/pt (cap 60%) |
-| AGI | arco: substitui FOR (×2.2/pt); adaga: +1/pt; outras ×0.25; crit físico +0.4%/pt |
+| AGI | arco: substitui FOR (×2.2/pt); adaga: +1/pt; outras ×0.25; crit físico +0.4%/pt; **esquiva passiva** 10% × (AGI/140)^1,25 (só personagens, só golpe direto; soma com a do Assassino sob o teto de 45%) |
 | VIT | HP +12/pt; DEF física +1.5/pt |
 | WILL | cura +3%/pt; MP +8/pt; DEF mágica +1.5/pt |
 | INT | MATK ×2.5/pt; crit mágico +0.4%/pt |
+
+Esquiva da AGI (decisão do autor, 2026-11-12; `Stats.agi_evasion`, `Balance.EVASION_AGI_REF/REF_PCT/EXP`): AGI 140 (escala antiga, build toda em
+AGI no 45) = 10%; 40 (força com AGI de passagem) = 2%; 78 (Carniceiro) = 4,8%; magos 0%. Monstros não esquivam; dano no tempo não é esquivado.
 
 Dano = (ATK × poder − DEF × 0.5, mín. 15% do bruto) × variação ±10% × crit 1.5. Bloqueio ativo (RMB) sempre bloqueia e soma +25% de redução
 (+10% com escudo), custa 2 MP/s e reduz velocidade a 50%. Bloqueio passivo só com escudo (chance).
@@ -782,9 +785,130 @@ por linha com `--seed`, completo = Guardião, Sacerdote, Executor, Fogo; mortes 
 | Senhor da Guerra Ghar | 75%, 1,9, 39 s | 100%, 0,30, 40 s |
 | Rainha Aranha / Senhor da Cripta / Conde Vargo | 98% / 85% / 79% | 100% (0,00 / 0,70 / 0,47) |
 | Rei Élfico / Coração da Pedreira / Lich-Rei | 100% / 82% / 88% | 100% (0,00 / 0,03 / 0,15) |
-No Ato II o Fogo tira o chefe do tanque nos 5 s de abertura em quase toda luta (`PERDAS` do `--why`): é dele a maioria das mortes do
-grupo completo (no Besteiro, que bate forte de perto, passa de 1). Rainha Aranha e Rei Élfico ficam acima de 85% com 4 sorteados
+No Ato II o Fogo tirava o chefe do tanque nos 5 s de abertura em quase toda luta (`PERDAS` do `--why`): era dele a maioria das mortes do
+grupo completo (no Besteiro, que bate forte de perto, passava de 1). Rainha Aranha e Rei Élfico ficavam acima de 85% com 4 sorteados
 (o contrato do Ato I é solo/trio, tabela acima).
+
+**Abertura do grupo** (2026-11-12, `BotBrain._opener`, `Balance.BOT_OPENER_*`; check `_check_bot_opener`; A/B com `boss_probe --no_opener`):
+com tanque no grupo, quem não é o tanque não usa skill de dano no chefe/elite (nem área num lacaio a `BOT_OPENER_AOE_RANGE` 6 m dele)
+até o chefe ficar `BOT_OPENER_TIME` 3 s preso no tanque com ameaça dele; até lá só o básico (e buff em si: forma, Sede de Sangue), e só
+abaixo de `BOT_OPENER_RATIO` 0,5 × a ameaça do tanque. Tanque que não pega em `BOT_OPENER_WAIT` 6 s: luta normal. O tanque NÃO abre com a
+provocação (1ª versão abria: com 12 s de recarga ela faltava quando o dps estourava logo depois, e o Executor passou a tirar o chefe).
+Ato II, 5 chefes × 20 lutas (sem → com):
+| Grupo | Vitórias | Mortes/luta | Perdas na abertura (5 s) | Perdas no total | Tempo médio |
+|---|---|---|---|---|---|
+| 4 completo (Guardião, Sacerdote, Executor, Fogo) | 99 → 99/100 | 0,34 → 0,54 | 97 → 14 | 121 → 59 | 44,6 → 51,2 s |
+| 4 sorteados | 57 → 68/100 | 2,28 → 1,94 | — | — | 46,9 → 49,5 s (vitórias) |
+O grupo completo já vencia tudo: as mortes a mais ficam no ruído de 20 lutas (0,1-0,4 por chefe) e a luta fica ~6 s mais longa (o grupo
+espera o tanque pegar o chefe). Onde o grupo perde (sorteado), vence 11 pontos a mais.
+
+**Ameaça prevista** (2026-11-12, `BotBrain._threat_budget/_skill_threat/_pending_threat`, `Balance.BOT_THREAT_PREDICT` 1,2; check
+`_check_bot_threat_budget`; `boss_probe --why` imprime `PERDAS_COMO`: com o quê cada membro tirou o chefe do tanque). Depois da abertura as
+perdas vinham de UM golpe grande saindo abaixo de `BOT_THREAT_HOLD` (Meteoro 13, Executar 5, Tempestade de Brasas, Redemoinho; ameaça
+antes do golpe 0,6-0,8 da do tanque) e de queimadura caindo depois de o Fogo parar. Agora, com o chefe preso no tanque, a skill cuja
+ameaça estimada (golpe com crítico médio + dano no tempo, × `BOT_THREAT_PREDICT`) passaria `BOT_THREAT_HOLD` × a do tanque espera (as
+menores seguem), o básico que passaria `BOT_THREAT_STOP` também, e o dano no tempo que ainda vai cair conta como ameaça já feita (também
+na abertura). Área num lacaio a 6 m do chefe preso usa o orçamento do chefe. `BOT_THREAT_PREDICT` 0 desliga.
+Grupo completo, 5 chefes × 20 lutas (mesma semente):
+| Versão | Perdas no total | Vitórias | Mortes/luta | Tempo médio |
+|---|---|---|---|---|
+| sem abertura (master) | 121 | 99/100 | 0,34 | 44,6 s |
+| abertura | 51-59 (2 rodadas) | 99/100 | 0,46-0,54 | 51,2 s |
+| + skill prevista | 30 | 100/100 | 0,42 | 51,4 s |
+| + básico previsto (final) | 16 | 100/100 | 0,44 | 50,6 s |
+As 16 que sobram são quase todas o básico do Executor na abertura do Besteiro (crítico acima da média estimada).
+
+**Sonda com o código final** (2026-11-12, 40 lutas por linha = semente padrão + `--seed=7`; completo = Guardião, Sacerdote, Executor, Fogo;
+mortes contam quem caiu ou saiu do mapa). Substitui a tabela "Nova sonda" acima:
+| Chefe | 4 sorteados | 4 completo |
+|---|---|---|
+| Mãe das Marés | 67,5%, 2,2 mortes, 37 s | 100%, 0,35, 38 s |
+| Agitador-Mor Grukk | 70%, 2,0, 40 s | 100%, 0,15, 46 s |
+| Troll Rei-da-Rocha | 70%, 1,65, 70 s | 100%, 0,25, 61 s |
+| Mestre Besteiro Vorgul | 75%, 2,0, 52 s | 100%, 0,95, 63 s |
+| Senhor da Guerra Ghar | 72,5%, 2,0, 45 s | 97,5%, 0,5, 48 s |
+| Rainha Aranha / Senhor da Cripta / Conde Vargo | 80% / 80% / 85% | — |
+| Rei Élfico / Coração da Pedreira / Lich-Rei | 52,5% (× 1,5) → 80% (× 1,3, sozinho na sonda) / 90% / 87,5% | — |
+O sorteio da sonda reveza as classes pela ordem dos chefes: o Rei Élfico deu 75% (× 1,5) rodando só com a Rainha e 52,5% no meio dos 6
+chefes do Ato I (outros grupos). Com × 1,3: 80% rodando sozinho; a média esperada entre os dois sorteios fica ~65-75%.
+
+**Reforço extra por chefe** (`Balance.BOSS_CROWD_EXTRA`, a partir de `BOSS_CROWD_EXTRA_FROM` 4 pessoas; `MobSystem.crowd_mult(n, id)`;
+solo e trio não mudam): Rainha Aranha × 1,8 e Rei Élfico × 1,3 por cima do `BOSS_CROWD_MULT` (4 sorteados):
+| Chefe | 4 sorteados antes | × 1,3 (20) | × 1,6 (40) | × 1,8 / × 1,5 (40) | Final |
+|---|---|---|---|---|---|
+| Rainha Aranha | 95-98% | 90% | 82,5% | 82,5% | × 1,8: 80-82,5%, 1,5 morte, 27 s |
+| Rei Élfico | 95-100% | 85% | 67,5% | 75% (52,5% no meio do Ato I) | × 1,3: 80%, 1,5 morte, 38 s |
+Solo e trio com o código da abertura (20 lutas): Rainha 35% / 90%, Rei Élfico 45% / 100% (no ruído da tabela do Ato I).
+
+**Sorteio justo da sonda** (2026-11-12, `boss_probe.random_comp/fight_seed`; check `_check_probe_sampler`): antes as classes
+se revezavam por luta e a build e a luta saíam do rng da sim, que vinha das lutas dos chefes anteriores (o mesmo chefe dava
+75% numa lista e 52,5% noutra). Agora cada luta sorteia 4 classes distintas + build e ressemeia a sim só por (chefe, luta,
+semente): o mesmo chefe dá o mesmo grupo sozinho ou numa lista (`--show_comp` imprime).
+Baralho (2026-11-12): o sorteio livre deixava a cobertura torta por chefe (numa rodada de 40 lutas uma classe saía 6 vezes e
+outra 13). Agora as classes saem de baralhos embaralhados por (chefe, baralho, semente), `party` cartas por luta (carta repetida
+na virada troca com uma adiante do mesmo baralho), e a build de cada classe de um baralho das builds dela: em qualquer prefixo
+de lutas cada classe aparece por igual ±1 e cada build da classe na sua vez ±1 (check `_check_probe_sampler`). `--rotation`
+roda o rodízio antigo das classes (A/B) e `--comp_stats` só imprime a cobertura (sem lutar). São 8 classes; tanque = Guardião ou
+Guardião Verde, cura = Sacerdote. Nos 11 chefes abaixo × 2 sementes × 20 lutas (440 grupos):
+| Sorteio | Vezes por classe (mín-máx) | Com tanque | Com cura | Com os dois |
+|---|---|---|---|---|
+| rodízio antigo | 176-264 (o Paladino mais, o Ranger menos) | 32,3% | 17,7% | 5,0% |
+| livre (anterior) | 207-232 | 29,1% | 17,0% | 4,3% |
+| baralho (atual) | 220-220 | 30,0% | 17,0% | 3,9% |
+A média de tanque/cura é a mesma nos três (só a forma de distribuir muda): a queda da tabela anterior não veio da composição.
+4 sorteados, 40 lutas por chefe (semente padrão + `--seed=7`), baralho, com o dash da abertura corrigido (abaixo):
+| Chefe | 4 sorteados (baralho) | antes (livre) | rodízio antigo, mesmo código | Mortes/luta | Tempo médio |
+|---|---|---|---|---|---|
+| Rainha Aranha | 85% | 60% | — | 1,35 | 30 s |
+| Senhor da Cripta | 75% | 67,5% | — | 1,65 | 31 s |
+| Conde Vargo | 70% | 82,5% | — | 1,55 | 25 s |
+| Rei Élfico | 72,5% | 70% | — | 1,75 | 35 s |
+| Coração da Pedreira | **90%** | 77,5% | — | 0,75 | 46 s |
+| Lich-Rei | 85% | 87,5% | — | 1,1 | 39 s |
+| Mãe das Marés | **60%** | 60% | 72,5% | 2,2 | 37 s |
+| Agitador-Mor Grukk | 77,5% | 67,5% | 62,5% | 1,65 | 37 s |
+| Troll Rei-da-Rocha | **52,5%** | 52,5% | 70% | 2,1 | 54 s |
+| Mestre Besteiro Vorgul | 75% | 47,5% | 72,5% | 1,95 | 52 s |
+| Senhor da Guerra Ghar | 70% | 42,5% | 52,5% | 2,05 | 36 s |
+Em negrito: fora de 65-85% no baralho (não reajustado). Com 40 lutas o erro é ±7 pontos (1 desvio) e o rodízio, no mesmo
+código, vai para os dois lados (Marés +12,5, Troll +17,5, Ghar −17,5, Agitador −15): somados os 5 do Ato II, baralho 66,5% e
+rodízio 66%. A diferença de sorteio é ruído; o Ato II fica no piso da faixa com 4 sorteados (Marés e Troll abaixo), a Pedreira
+acima. Vorgul e Ghar no sorteio livre estavam no azar das 40 lutas (e o Vorgul ainda tinha o dash da abertura).
+
+**Básico previsto com crítico e assinatura** (2026-11-12, `BotBrain._skill_threat(..., crit_hit)`, `BotBrain._signature_threat`,
+`Balance.BOT_THREAT_CRIT_CHANCE` 5%; checks em `_check_bot_threat_budget`): o básico (abertura e `BOT_THREAT_STOP`) conta o
+golpe crítico no teto da variação e a magia-assinatura que ele pode lançar junto (Golpe Avassalador do Executor: 17% no 39,
+fora da recarga dela), não a média; toda estimativa leva também o talento ferido/execução e as marcas no alvo.
+Mestre Besteiro, grupo completo (Guardião, Sacerdote, Executor, Fogo), 20 lutas × 2 sementes:
+| Versão | Vitórias | Perdas (abertura, Executor no básico) | Perdas no total | Mortes/luta | Tempo médio |
+|---|---|---|---|---|---|
+| antes | 40/40 | 8 (5) | 9 | 0,8 | 61,9 s |
+| só crítico | 40/40 | 11 (7) | 15 | 0,85 | 63,5 s |
+| crítico + assinatura (final) | 40/40 | 5 (5) | 5 | 0,9 | 62,3 s |
+O que sobra (`--why`, linha `PERDA`: t, ameaça antes, golpe ÷ tanque, crítico, assinatura, alvo do bot): o Executor bate no
+Arqueiro Orc da escolta colado no Besteiro a ~0,9 s, com o tanque ainda sem ameaça, e o cone pega o chefe — mesmo com a abertura
+ativa. Procurar o chefe a 6 m do próprio bot (além do alvo) não mudou (5 perdas, +3 s) e foi desfeito.
+Causa (2026-11-12, `--why` agora mostra o último lance do membro, "decisao"): não era o básico, era o **dash da fuga**. O
+Arqueiro marca área, o Executor sai dela com dash (`BotBrain._danger_escape`) e o Avanço Brutal (`ber_t_crash`) fere em volta
+da chegada, colada no Besteiro; a abertura só olhava básico e skills. Agora dash que fere (`BotBrain._dash_hits`: evolução com
+`power`) não sai na fuga durante a abertura (sai andando) nem para encostar quando o básico está seguro (check em `_check_bot_opener`).
+| Versão | s1337 | s7 | Perdas na abertura (Executor) | Perdas no total | Tempo médio |
+|---|---|---|---|---|---|
+| antes | 20/20, 64,7 s | 20/20, 59,9 s | 5 | 5 | 62,3 s |
+| dash da fuga segurado | 20/20, 62,7 s | 20/20, 61,7 s | 1 (dash: Arqueiro a 6,1 m, fora dos 6 m) | 6 | 62,2 s |
+O total oscila: 3 das perdas novas são skills do Executor depois da abertura (t 4,5-5,9 s), luta que divergiu.
+
+**Casulo de Seda** (Rainha Aranha com 4+, 2026-11-12; GDD `design/gdd/spider-queen-4p.md`): o × 1,8 parou de responder porque o reforço
+segue quem está vivo: na 1ª morte o grupo vira trio (× 6,3 → × 2) e o trio termina a luta. Mecânica nova que vale pelo PICO da luta
+(`MonsterDef.crowd_skills`/`crowd_say`, `MobSystem._crowd_skills`; entra quando `crowd_peak` chega a `BOSS_CROWD_EXTRA_FROM` e só sai no
+reset): `mob_cocoon` (alvo, `mob_pick` "soft", recarga 13 s) prende um frágil num casulo (`web_cocoon`, 2200 de vida, lacaio da Rainha:
+conta para o `ward`) até ele cair; esgotados `Balance.COCOON_TIME` 7 s, aperta `COCOON_BURST` 0,45 da vida máxima (efeito `cocoon`,
+`MobSystem.cocoon/cocoon_tick`). Bots que não são tanque nem curandeiro quebram o casulo de um aliado a até `BOT_COCOON_RANGE` 16 m
+(`MobSystem.cocoon_of`). Check `_check_boss_crowd_cocoon`. Sonda (× 1,8 mantido):
+| Rainha Aranha | 4 sorteados (40) | Solo (20) | Trio (20) | 4 completo (20) |
+|---|---|---|---|---|
+| antes | 80% (15/20 + 17/20), 1,5 morte, 27 s | 35% | 100% | — |
+| com Casulo | 77,5% (17/20 + 14/20), 1,85 morte, 38 s | 35% (casulo nunca entra) | 100% | 100%, 0,9 morte (o Fogo é quem vai para o casulo), 50 s |
 
 Monstros comuns (`band_probe --from=35 --to=40 --only=duel --trials=12 --seed=N`, 6 sementes): antes os 35+ eram "triviais" (o bot
 matava em ~1,5 s com 0-0,1 golpe levado por monstro): o bot fugia do golpe BÁSICO e do grito do monstro como se fossem telegrafia

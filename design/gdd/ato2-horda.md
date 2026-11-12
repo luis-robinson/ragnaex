@@ -240,7 +240,7 @@ descrita; números em `Balance.ASC_*` dentro do orçamento F5. Skills/mecânicas
   grupo); Xamã → **Pássaro Arcano** (forma mágica alada, como Lobo/Urso hoje: voa acima do chão — o visual sobe, a sim continua plana —,
   ganha velocidade, troca as magias por variantes: raio em cadeia, chuva de penas de luz que cura o grupo embaixo, rajada de
   vento que empurra). Modelos em `tools/blender/druid_ancestral.py` (`form_ent.glb`, `form_alpha.glb`, `form_bird.glb`).
-- **Como ficou (fase 1, `DruidAscension`)**: Ent = *Raízes Ancestrais* (dano, prende e provoca em área; chefes pela metade) +
+- **Como ficou (fase 1, `DruidAscension`)**: Ent = *Raízes Ancestrais* (dano, prende e provoca em área; chefes pela metade; **a provocação só vale quando o druida é o tanque do grupo**, `DruidAscension.may_provoke`: ao lado de outro tanque as raízes ferem e prendem sem puxar o chefe, 2026-11-12) +
   *Bosque Protetor* (redução de dano no grupo a 8 m); Lobo Alfa = *Chamar a Matilha* + *Uivo do Alfa*; Pássaro Arcano = variantes
   Raio em Cadeia / Chuva de Penas de Luz / Rajada de Vento + *Relâmpago Arcano* e *Revoada de Luz*. A forma não é salva e cai ao
   morrer ou ao trocar de arma.
@@ -334,7 +334,7 @@ fica pura usa o da build; quem mistura usa o híbrido ou combina os dois tipos.
   e espada de 2 mãos.
 - **Bônus**: 2 peças = o bônus de 2 peças de A · 3 peças = o de 3 peças de B · 4 peças = a skill-assinatura de A **e** a de B,
   cada uma com metade do bônus de 4 peças normal · 5 peças = **Fusão**: um efeito que liga as duas builds (ex.: Guardião+Cruzado —
-  golpes de 2 mãos geram cargas de Juramento; Fogo+Gelo — gelo estilhaça as queimaduras; Lâminas+Duelista — esquiva deixa a
+  golpes de 2 mãos geram cargas de Juramento; Fogo+Gelo — gelo estilhaça as queimaduras, e fogo em alvo retardado também (Vapor, 2026-11-12: `quench` [670, 30], G 0,164 ± 0,022 contra G_5n 0,164); Lâminas+Duelista — esquiva deixa a
   próxima facada furtiva).
 - **Regra da Fusão** (decisões do autor, 2026-11-11): a Fusão **substitui** o bônus de 5 peças normal (`SET_5PC_STAT_PCT` +
   `SET_5PC_CDR`), com o mesmo orçamento: `|G_fus − G_5n| ≤ 0,02` e teto de 0,12. Par com **armas diferentes tem duas faces** (uma
@@ -508,7 +508,7 @@ para L ≥ 35 com a missão feita → **6** no 35, **21** no 40, **36** no 45.
 34–39% do tempo e escondia o ganho (Cruzado com +20% de ATK media ×1,00). Medir com `boss_probe --comp ... --tank_lock` (ameaça do tanque
 presa em 3× a do segundo; freio ~1%), 80+ lutas por braço, contra `--asc_base`. Elementalista com `--hp=2.5` (mata cedo demais com hp 1).
 **Ameaça do tanque (decisão do autor, 2026-11-12):** em vez de afrouxar o freio dos DPS, o tanque gera mais ameaça: forma de Urso
-+150% (`BEAR_THREAT_PCT`, o mesmo papel da Aura do Bastião; Ent +180%), provocar deixa o tanque em 1,5× a maior ameaça
++150% (`BEAR_THREAT_PCT`, o mesmo papel da Aura do Bastião; Ent +180%, **só quando o druida é o tanque do grupo** — sem grupo, ou o 1º membro vivo com papel tanque; ao lado de outro tanque a forma não dá ameaça extra: `DruidAscension.threat_pct`, decisão do autor 2026-11-12), provocar deixa o tanque em 1,5× a maior ameaça
 (`TAUNT_THREAT_LEAD`) e o tanque bot provoca de novo quando alguém chega a 0,75× a ameaça dele (`BOT_TANK_RETAUNT`). Freio dos grupos
 de 32–40% (Urso) e 5–18% (Guardião) para 1,5–6,5%, com menos perdas de aggro e as mesmas mortes (check `_check_tank_threat`).
 
@@ -524,7 +524,7 @@ de 32–40% (Urso) e 5–18% (Guardião) para 1,5–6,5%, com menos perdas de ag
 | Elementalista Fogo / Gelo / Raio | ×1,099 / ×1,074 / ×1,089 | dentro (o "fogo ~1,01" era o freio) | fusão e Maior ajustados |
 | Druida Xamã | ×1,079 | dentro | pássaro `matk_pct` 6 → 3, `ANC_BOLT_POWER` 2,4 → 2,0 |
 | Druida Lobo Alfa | ×1,066 | dentro | matilha 20 s, `ATK_SHARE` 0,9 |
-| Druida Ent | −38% de mortes a `--dmg=1.5` (2026-11-12) | **acima?** medir com 200+ lutas (Pergunta aberta 12) | — |
+| Druida Ent | −19,8% [−28, −10] de mortes a `--dmg=2` com `ANC_GROVE_DR` 15 e `dr_pct` 5; depois (2026-11-12, Agitador, Ent tanque, 200 lutas/braço, base `--asc_base` única): grove 8 −4,6% [−14, +4] · 9 −12,9% [−22, −4] · 10 −10,5% [−20, −1]; reta pelos três = **−9,3% no 9**; Ent como 2º membro (Paladino Guardião tanque, grove 9): −0,6% [−19, +18], 195/200 nos dois braços; com a ameaça extra só no tanque: −6,3% [−24, +11], 196/200, mas o chefe segue no Paladino só 73% do tempo (84% sem o Ent; `frente` 44% contra 37%): quem puxa é a provocação das Raízes Ancestrais, não a ameaça da forma | dentro (ruído ±9 p.p. por braço) | `ANC_GROVE_DR` 15 → 9, Ent `dr_pct` 5 → 2 |
 | Ranger Caçador (Falcoeiro) | ×1,091 | dentro | `ASC_BUILD_POWER` 0,3, `FALCON_TAKEN` 3, `FALCON_EYES_CRIT` 4 |
 | Ranger Atirador | ×1,074 | dentro | `ASC_BUILD_POWER` 3,5 (escondido; talvez virar `TURRET_ATK_SHARE`) |
 | Ranger Lanceiro | ×1,080 (40 lutas) | dentro | — |

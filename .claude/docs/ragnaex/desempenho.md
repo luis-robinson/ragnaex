@@ -6,12 +6,15 @@
   não com `find_children` (só acha as ligadas). Mapas sem o jogador simulam a cada `Balance.AWAY_MAP_EVERY` ticks (`Sim.away_every`).
 - Draw calls: peças ligadas do kit viram 1 malha (`KitModel._remerge`) e monstros/cavalo de peças rígidas também (`RigidMerge`, malha guardada por modelo);
   bonecos a mais de 58 m somem e param de processar (`main._cull_views`), props têm distância de desenho (`MapBuilder.set_vis_range`).
+  Bonecos nascem pela **fila de views** (`ViewQueue`, `main._drain_views`): cada quadro cria até `main.view_budget_ms` (3,5 ms), grupo/alvo e
+  invocações primeiro, depois o mais perto; além de 58 + 8 m esperam chegar perto (o jogador nasce na hora). `main.views` pode não ter a
+  entidade: sempre `views.has/get`. Fotos de revisão (`*shot*`, `*film*`, `--tour`...) criam tudo de uma vez; `--view_budget=<ms>` (0 = como antes).
   Ação de 1 vez no `InputCommand` (montar, voltar) precisa ser zerada no comando repetido entre pensamentos (`WorldSim.tick`).
 - Lentidão que só aparece jogando: `PerfWatch` (game/dev/perf_watch.gd) grava em `user://perf_log.txt` (AppData/Roaming/Godot/app_userdata/RagnaEx) cada trecho < 25 FPS com
   mapa, monstros acordados, draws, GPU e as fases da sim; reproduzir com `-- --soak=<s> [--soak_map=<dungeon>]` (joga sozinho e imprime FPS a cada 5 s).
 - Qualidade de imagem: `GraphicsSettings` (game/visual/graphics_settings.gd, menu Esc → Gráficos, salvo em `user://settings.cfg`): Nítido (125%, 100% em tela grande)
   ou FSR 2 Qualidade/Equilibrado/Desempenho. Comparar sem mexer no salvo: `-- --perf --gfx=<n>`.
-- Medir: `.\tools\godot.ps1 --path . -- --perf [--perf_at=x,z] [--no_merge] [--cull_test=hide|noproc] [--no_prune] [--no_away]` (cidade cheia ~8 s: FPS, draw calls, nós, memória, custo do tick).
+- Medir (espera os spawners encherem e a fila de bonecos esvaziar, `PERF settle_s`; `sync_step` = média/pior espera do `Sim.sync` por passo; `physics_max1s_ms` = pior passo de cada segundo, não média): `.\tools\godot.ps1 --path . -- --perf [--perf_at=x,z] [--no_merge] [--cull_test=hide|noproc] [--no_prune] [--no_away]` (cidade cheia ~8 s: FPS, draw calls, nós, memória, custo do tick).
   Draws por passada (`canvas_pass` = HUD 2D, `visible_pass`, `shadow_pass`) e `entity_surfaces`; experimentos `--hide_minimap`, `--hide_props=<prefixo,...>`, `--no_prop_shadow`, `--shadow_max=<m>`, `--no_vcol_merge`.
 - Fusões com cor no vértice: peças que só mudam de cor dividem a superfície (cor sRGB + `spec_strength` no alfa do `COLOR`; material branco com
   `vcol_srgb`, que é o do grupo e fica em `kit.mats`/`_mats` para o hit flash). Parâmetro novo no toon que varia por peça = entra em `KitModel._shared_key`/`RigidMerge.mat_key`.

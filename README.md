@@ -43,7 +43,7 @@ cursor (limitado ao alcance), `CONE` à frente, `TARGET` no inimigo sob o cursor
 
 ## Regras
 
-* **Atributos vêm só do equipamento**: FOR (ATK físico, bloqueio), AGI (arco/adagas, crit), VIT (HP, DEF),
+* **Atributos vêm só do equipamento**: FOR (ATK físico, bloqueio), AGI (arco/adagas, crit, esquiva), VIT (HP, DEF),
   WILL (cura, MP, DEF mágica), INT (dano/crit mágico). Fórmulas em `core/sim/stats.gd`; constantes em `data/balance.gd`.
 * **8 classes**, 2-3 **builds** cada (ex.: Paladino tank de escudo, cruzado de duas mãos ou templário de fogo sagrado; Bispo sacerdote, iluminado ou clérigo de batalha; Elementalista de fogo, gelo ou raio; Ranger caçador com lince, atirador de mosquete ou lanceiro que caça de perto com a lança e faz a presa sangrar),
   **20+ skills por classe**, 6 na barra. **Pontos de skill** (8 por nível, 235 no 30, numa teia por classe) aprendem skills, sobem maestria 0–5 e

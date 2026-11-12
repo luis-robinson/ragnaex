@@ -296,7 +296,8 @@ Formato: **Nome** (par) · Regra · Números `[v35, passo]` (F-FUS1) · Ganho es
 **E1. Vapor** (Fogo + Gelo) — *exemplo do autor: "gelo estilhaça as queimaduras"*
 - Skill de gelo em alvo **queimando** apaga a queimadura e causa **na hora** `quench`% do dano que ela ainda faria (vapor, área
   2 m) e deixa o alvo 30% mais lento por 2 s (a próxima skill de gelo estilhaça: `FROST_SHATTER_MULT`).
-- Números: `quench` [150, 10] %.
+- **Também (decisão do autor, 2026-11-12):** golpe de **fogo** em alvo retardado/gelado (`Combat.is_chilled`: lentidão, raiz ou atordoado) que queima com o seu fogo faz o mesmo Vapor, com recarga `FUSION_VAPOR_ICD` 2 s (o Vapor retarda: sem a recarga ele se encadearia sozinho); o de gelo segue sem recarga.
+- Números: `quench` [150, 10] % na proposta; calibrado **[670, 30]** (ver §1.9).
 - Ganho: queimadura ~20% do dano, consumida a ~150% do restante (+25% dela) ≈ 0,05 + estilhaço habilitado ≈ 0,03 → **~0,08**.
 - Gancho: **reuso** — queimadura (`dot` de fogo), `Combat.frost_mult`, condição de alvo.
 - Bots: com o conjunto, a skill de gelo sobe na prioridade quando o alvo está queimando.
@@ -434,6 +435,7 @@ Números iniciais acima = v35; o passo por tier segue F-FUS1. Calibrar com mais 
 **Calibrado (2026-11-12, Ghar 40, 60–90 lutas):** P2 +0,125 (`pen_dmg` 2,75, `pen_pct` 90, ICD 0,65 s) · Bi2 ~0,12 com Aurora
 **+14%** (40% acima do v35; aprovado pelo autor) · D2 +0,132 (a Mordida do Lobo conta como sangramento; aprovado) · N2 +0,096
 (`curse_dmg` 3,2) · E1 agora dispara com bots (regra de gelo em alvo queimando) e rende +0,065 (abaixo do G_5n 0,164; ajuste à parte).
+**E1 Vapor (2026-11-12, Ghar 40, `--hp=2 --tank_lock`, 2 Fogo com h5 par Gelo; h4 300 lutas):** com só o gatilho de gelo, `quench` 160/210/535% (v40) davam G ≈ 0 / +0,016 / +0,048 (o Vapor disparava ~2 vezes por mago por luta: o Fogo só tem o Choque Térmico de gelo). Regra nova do autor: fogo em alvo retardado também faz Vapor (recarga 2 s) → ~10 Vapores por mago por luta (2/3 pelo fogo). Calibragem do `quench` (v40): 160% +0,028 · 450% +0,091 · 790% +0,214 · 650% +0,146 ± 0,026 (300 lutas) · **700% (`[670, 30]`) +0,164 ± 0,022 (300 lutas)** contra G_5n 0,164. Cada Vapor é um estouro de ~7× o que a queimadura ainda faria.
 
 ---
 
