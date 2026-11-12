@@ -28,6 +28,12 @@ Referência: `C:\Users\luisf\Desktop\projects\erenpg` (`blender/scripts/build_va
   dispersão; e `nature.py`: `scatter`, `shore`, `fix_trees`, `woodland_floor`, `mountain_ring`) constrói a zona inteira por
   loops (nada objeto a objeto) dentro da Collection `Z_<zona>` e exporta o visual para `assets/models/map_<zona>.glb`
   (`MapDef.model = "map_<zona>"`). Sem janela: `blender -b --factory-startup --python <script>` chamando `build(export=True)`.
+- **Acabamento** (Ato II): `zones/dress.py` (`Dress`) junta detalhe de chão e adereços em lotes por célula de 36 m com a cor no
+  vértice (materiais `det_vcol_chao` sem sombra/contorno, `det_vcol`, `det_vcol_mini` sem sombra; `glow_*` brilha) e
+  `zones/act2_dress.py` tem a função de cada zona (`coast`, `port`, `steppe`, `fort`, `goblin`), chamada logo antes do `z.finish`.
+  Peça grande só nasce onde `Dress.ok()` deixa e ganha colisor oculto com `Dress.solid()`; enfeite de conquista (`tag`) nunca colide.
+  Usa Random próprio: a sim da zona não muda (só acrescenta colisores no fim). Check `_check_zone_dress`.
+  `Zone.arrival()` faz o largo de chegada; `Zone.patch(y=)` separa manchas grandes (duas no mesmo plano brigam: faixas em leque).
 - A dispersão de uma zona muda quando lugares/trilhas mudam: chegadas de portal precisam estar reservadas (`block`/`spots`).
 - Água e morros colidem na sim (`MapGeometry.build_collider_grid`): o rio só tem vão nas pontes, que nascem onde uma estrada
   (`kind: "road"`) cruza o rio. Bots usam `water_path`; mudou rio/ponte, rode os testes de travessia (`_cross_river`).

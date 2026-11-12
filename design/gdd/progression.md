@@ -57,7 +57,19 @@ Out of scope: damage and attribute formulas (`design/gdd/combat-skills.md`), bos
     centre with a bonus ×0.2 (`NOTABLE_SCALE`) from `ARM_NOTABLES` (by role) or
     `RING_NOTABLES`, plus +6..+12 of the main attribute; two entrances.
   - The first general cell holds the dash evolutions, chained from the start.
-  - 200–480 nodes and at least 40 attribute nodes per class (tested).
+  - 200–650 nodes and at least 40 attribute nodes per class (tested).
+  - **Frontier (Act II, levels 31–45)** — `TreeCatalog._outer_web`, own seed `hash(class + "_teia_ato2")`
+    so the level-30 web keeps every id, position and value (save-safe; `web_probe --dump` diff = 0).
+    Free cells up to `WEB_OUTER_GRID_K` (7), always touching the existing mesh; every node needs level
+    31–38 by depth (`WEB_OUTER_LEVEL`). Per build sector `WEB_OUTER_CELLS` (6): two **build notables**
+    (names in `OUTER_BUILD_NAMES`, build passives ×0.5 + main attribute), an **Elo** notable with the
+    neighbouring build (its passive + both main attributes; the R7.1 hybrid direction), an Elo or a role
+    "Maior" notable, a **keystone** circle (level 40: two options that exclude each other until respec,
+    `excludes`; one offensive, one safe, by role in `KEYSTONES`) and the build **Apex** (level 45, all build
+    passives ×1 + 12 attribute). The General sector gets `WEB_OUTER_GERAL_CELLS` (3) with its own keystone.
+    Ring nodes give +4 main / +3 secondary / +1. ~190 nodes per class.
+  - **Bots** (`bot_spend`) take the keystone of their role (tank/healer "def", others "atk"); the
+    leftover-point loop is capped by `BOT_WEB_SPEND_GUARD` (500; 200 left 20–70 points unspent at 45).
 - **Bar**: a learned skill goes to the first free bar slot; the bar changes only in town.
 
 ### 2.3 Mastery
@@ -167,7 +179,13 @@ Example: 3 players, mob XP 100, all same level → each 100 × 1.3 ÷ 3 ≈ 43.
 - [ ] Quests give each band's share ±5% and there are 10+ quests per band (`_check_xp_budget`).
 - [ ] Every level 2–19 gets at least 35% of its XP from quests (`_check_xp_budget`).
 - [ ] Level 25 needs 100–400 skeleton kills (`_check_xp_budget`).
-- [ ] Each class web has 200–480 nodes and 40+ attribute nodes (`run_tests`).
+- [ ] Each class web has 200–650 nodes and 40+ attribute nodes (`run_tests`).
+- [ ] Frontier: only nodes above level 30, one keystone pair (exclusive, atk/def, level 40) per sector and
+      one Apex (level 45) per build; bots take their role's keystone (`_check_web_frontier`).
+- [ ] **(Act II proposal, pending author approval)** At 40 and 45 the same measure lands in
+      `Balance.WEB_GAIN_LATE` (40: ATK ×1.3–1.6, HP ×1.12–1.35, builds ×1.25–2.5; 45: ATK ×1.35–1.7,
+      HP ×1.12–1.4, builds ×1.3–2.8) with no unspent points (`_check_web_strength`).
+      On 2026-11-11: 40 average ATK ×1.42, HP ×1.22, builds ×1.29–2.31; 45 ATK ×1.54, HP ×1.25, builds ×1.33–2.74.
 - [ ] A node can only be bought when it links to a bought node and the level is met.
 - [ ] Respec works only near the Elder or High Priest, refunds every point and keeps class talents.
 - [x] **(Requirement, confirmed by the author)** At level 30 the web's gain over no web,

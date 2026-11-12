@@ -10,10 +10,17 @@
   sorteio fixo por classe, parte das estradas sai = escolha de rota) com círculos nas casas: de skill (maestria/evoluções/passivos em volta) e de
   notável (`ARM_NOTABLES`/`RING_NOTABLES`, duas entradas). Setores por ramo; skill de nível alto mais longe. Há check de folga (`windows.NODE_PX`/`WEB_UNIT`). 8 pontos por nível (`Balance.points_at`); estradas/junções só caminho. Quanto a teia dá: `--headless --path . tools/tests/web_probe.tscn -- [--level=30]` (alvo: média das builds ATK x1,3-1,5 e HP x1,1-1,3, cada build ATK×HP x1,2-2,3; `Balance.WEB_GAIN_*`, check `_check_web_strength`). Bots compram
   caminho na teia (`ProgressionSystem.bot_spend`). Revisar: `--bag_shot=<png> --wins=skills --level=<n> [--build_i=N]` (arrastar/zoom/busca na janela K).
-  **Talentos de classe** (aba Talentos): `data/catalog/class_talents_catalog.gd`, 6 linhas (5..30) × 3 por classe, um por linha (nós `pick` `<classe>_c_<id>`,
+  **Talentos de classe** (aba Talentos): `data/catalog/class_talents_catalog.gd`, 9 linhas (`ROW_LEVELS` 5..45) × 3 por classe, um por linha (nós `pick` `<classe>_c_<id>`;
+  35/40/45 têm uma opção por build com a chave `build`, sem trava: só diz qual o bot da build escolhe; os refinos de ascensão viraram portões na teia de ascensão (`AscensionCatalog.NODES`),
   `WorldSim.pick_sibling`, troca na cidade). Ganchos: `permanent`/`aura` (buff da skill sempre ativo / em você e no grupo), `summon_permanent`/`summon_extra`,
   `skill_mods`, `stats`, `form_mult`/`form_time`, `cheat_death`, `ally_save`, `on_kill`, `low_hp`, `execute`, `regen`, `mana_shield`, `ambush_mult`, `trap_max`, `oath_max`;
   regras em `core/sim/systems/class_talent_system.gd` (há check que todo gancho/skill citado existe). Revisar `--bag_shot=<png> --wins=skills --picks --level=30`.
+  **Ascensão** (35/40/45, missão `hx_asc_<classe>`; GDD `ato2-horda` R6): skill com `SkillDef.ascension` entra sozinha na **teia de ascensão** da classe
+  (`data/catalog/ascension_catalog.gd`: `NODES[<classe>]` passivos/portões por ramo de build, ids `<classe>_a_*`, `flag` lido pela regra via
+  `ProgressionSystem.asc_flag`; pontos próprios `Balance.ASC_POINTS_PER_LEVEL`/`ASC_QUEST_POINTS` = 6/21/36). A barra ganha `Balance.ASC_SLOTS` vagas
+  (7, 8, 9, 0) só para skills de ascensão; 1-6 recusam ascensão. Bots: `AscensionCatalog.BOT_ORDER` (+ `BOT_NO_SLOT`), `ProgressionSystem.bot_spend_asc`.
+  Peso F5 por build em `Balance.ASC_BUILD_POWER`. Checks `_check_ascensions`, `_check_asc_web_fill`, `_check_ascension_bots`. Revisar: `-- --autostart=<c> --ascend --level=40`
+  e `--bag_shot=<png> --wins=skills --asc_tab --ascend --level=45`.
   Ícone: adicione o id em `GLYPHS` (`tools/icons/make_icons.gd`) e rode `.\tools\godot.ps1 --path . tools/icons/make_icons.tscn` + `--import`.
   Fundo vem do tema, marcas (área, cone, avanço) finas ATRÁS do símbolo e selos (buff, dano no tempo, dreno) em discos nos cantos de baixo,
   todos dos dados; símbolo fino/cheio se equilibra em `GLYPH_WEIGHT`. Sombreado toon (`_toon`) e sombra projetada (`_flush` desenha as sombras de todos os símbolos antes) saem sozinhos de `_p`/`_c`/`_l`;
@@ -81,7 +88,7 @@
   (`GatherSystem.spread_gather`), F colhe (`GatherSystem.start_gather/update_gather`), visual em `game/world/gather_view.gd`. Item novo precisa de arte (`item_icons`).
 - **Entrega**: quest COLLECT com `give_items` (o pacote) e `turnin_npc` diferente do `giver_npc`. XP de quest é escalada por faixa (`QuestsCatalog.scale_xp`):
   o número escrito vale como peso; o teste confere 40-50% da faixa e 10+ quests por faixa.
-- **Portão de progressão**: `MapsCatalog.PORTAL_GATES` (id do portal → `level`, `quest`, `bosses`, `text`); vale só para o jogador. Save sem `save_version` passa por `grandfather_gates`.
+- **Portão de progressão**: `MapsCatalog.PORTAL_GATES` (id do portal → `level`, `quest`, `quests` = várias, todas exigidas, `bosses`, `text`); vale só para o jogador. Save sem `save_version` passa por `grandfather_gates`.
 - **Investida / sentinela**: rota em `z.data["raid"]` no `build_<zona>.py` (from, route, target, radius) + levas/ritmo/falas em `MapsCatalog.RAIDS`;
   `RaidSystem` (relógio só com o jogador no mapa) e a marcha em `MonsterBrain._march`. Sentinela = NPC com `fighter` (monstro `guard_*` dá
   atributos), `gear` e `route`, em `MapsCatalog.FOREST_NPCS`; `GuardBrain`. Calibrar: `--headless --path . tools/tests/raid_probe.tscn -- [--trials=20] [--bots=0,1,3]`
@@ -96,7 +103,9 @@
   (obstáculos = colisão, portais, spawners, NPCs); o visual da zona vem do Blender (`map_<zona>.glb`).
 - **Som**: banco em `assets/audio/sfx/<nome>_<n>.<ogg|wav>`, todo gerado por `python tools/audio/build_sfx.py` (+ `--import`): `CC0` = arquivos dos pacotes
   do OpenGameArt (baixados para `.godot/sfx_cache`), `SYNTH` = funções `s_<nome>` (biblioteca padrão, semente fixa). Nome novo precisa de volume em `Sfx.VOL`
-  (`game/audio/sfx.gd`; há check) e de um gancho em evento lá. Tema de skill novo = entrada em `Sfx.THEME_SOUND`. O smoke imprime `SMOKE SOM:` (o que tocou).
+  (`game/audio/sfx.gd`; há check) e de um gancho em evento lá. Tema de skill novo = entrada em `Sfx.THEME_SOUND`. Monstros: `Sfx.MOB_VOICE` (id ou prefixo → [entrar em luta, lançar skill, morrer]),
+  `CAST_SOUND` (skill com som próprio na fase ativa), `EFFECT_SOUND` (no impacto), `AURA_SOUND` (aura de `MonsterDef.aura` em laço, ex. tambor do Agitador), `BUFF_SOUND` (buff de monstro que pulsa enquanto dura, ex. regeneração do troll).
+  O smoke imprime `SMOKE SOM:` (o que tocou).
 - **Música**: `game/audio/music.gd` (`Music`, criado no `main`, barramento `Music`): tema do lugar (`Music.MAP_THEME` / `theme_for`: masmorras,
   fortalezas, interiores por família), por cima "chefe" (chefe de verdade em luta a 32 m) e "investida" (leva no mapa). Faixas CC0 do OpenGameArt
   em `assets/audio/music/<tema>.<ogg|mp3>`, geradas por `python tools/audio/build_music.py` (licença conferida na página de cada faixa; créditos

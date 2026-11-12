@@ -75,6 +75,19 @@ placa) = tanque de apoio: passivos e conjunto com vida e defesa sem perder ATK. 
 Postura do Contra-Golpe (+25% esquiva), Bote do Tigre (avanço que atordoa), Punho Final (gasta toda a Fúria: +30% de dano por carga), Cem Punhos
 (+2 Fúria se acertar); mistura Dilacerar/Investida de Lâminas dos Gêmeos e os gritos gerais. Arma lendária: Punho Vingativo (contra-ataque mais forte).
 Números em `Balance.FIST_*`; save antigo do Arremessador vira as peças do mesmo nível (`SaveSystem.RENAMED_ITEMS`). Tetos: `Balance.LIFESTEAL_CAP` 20%, `ATTACK_SPEED_CAP` 60%.
+**Ascensão do Berserker (Ato II, 35; `design/gdd/ato2-horda.md` R6.1/F7/F9b)** — liberada por `ProgressionSystem.has_ascension` (nível
+`Balance.ASC_LEVEL` + missão `hx_asc_berserker`), vale nas 3 builds. As skills de ascensão (`SkillDef.ascension`) ficam FORA da teia comum
+(vão para a teia de ascensão, com pontos próprios) e na barra só nas vagas extras 7-0 (`Balance.ASC_SLOTS`). **Empunhadura de Titã**
+(`TitanSystem`): Executor/Gêmeos põem machado de 2 mãos também na secundária (sem ascensão: "Requer Empunhadura de Titã"; principal de 1 mão
+devolve o de 2 mãos à bolsa). A 2ª arma não soma ATK nem atributos: o básico e as skills com `titan_hit` batem com as duas (× 1 + 0,45 × ATK
+dela ÷ ATK da principal) e o básico fica 25% mais lento; cada nó "titan_relief" (3, teia de ascensão) devolve 3% (F7: 1,0875 → 1,218). Valem as
+skills de duas armas e de 2 mãos. **Garras de Titã** (Punhos ascendido): básico +90% (F5 2026-11-12: com +45% o Punhos dava ×0,98, porque no Modo Gladiador a Fúria vira Glória), empurra, −10% de velocidade. **Modo Gladiador**
+(`GladiatorSystem`, liga/desliga): +7% de dano, −5% de defesa (a sonda pediu menos que os 10% do GDD; recalibrado no F5 de 2026-11-11); na postura crítico e abate dão
+**Glória** (até 5, esfria em 12 s), a Fúria do Punho vira Glória; Lâminas Ígnea/Gélida/Trovejante (cone/linha, power 1,3 + 0,2 por Glória,
+queima / lentidão e estilhaço / raio salta para 2), Investida do Gladiador (7 m, derruba), Brado da Arena (provoca a 8 m, +1 Glória por
+provocado até 3), Golpe Final (gasta 5, power 3,5). Sair zera a Glória (Punhos guarda 6 s). Ciclone de Titã: 4 giros em 2 s.
+Bots ascendidos aprendem e põem nas vagas extras postura + Lâmina Ígnea + Golpe Final (`AscensionCatalog.BOT_ORDER`); o Executor usa dois
+machados de 2 mãos (`Balance.TITAN_BUILDS`). Números em `Balance.TITAN_*`/`GLORY_*`/`GLADIATOR_*`.
 Toda arma corpo a corpo de duas mãos (montante, malho, machado; `Balance.BIG_SWING_WEAPONS`) tem golpe básico largo: alcance x1,4,
 arco de 150° e até 4 alvos (`Balance.BIG_SWING_*`). Vale para Executor, Cruzado e Inquisidor; arco e cajado não mudam.
 
@@ -143,6 +156,16 @@ Cada skill tem `SkillDef.elements` (o ramo dá; gerais e combinações em `Skill
 de Brasas (fogo+raio), Choque Térmico (fogo+gelo), Granizo Trovejante (gelo+raio), Prisma Elemental (os três). Elementais de fogo/gelo/raio
 (um por ramo): **um vivo por vez**, invocar outro substitui (`summon.replaces`). Conjuntos: 3 peças dão o elemento do foco; os de
 combinação (`SET_VISUALS.favor`) dão o 2º elemento com 4 peças. Save com varinha/orbe: vão para a bolsa e o cajado inicial entra.
+**Ascensão (35, missão `hx_asc_elementalist`; `ElementalSystem`, GDD `ato2-horda` R6.1/F6)**: o elemental vira companheiro persistente
+(um só), ganha `elem_xp` = max(1, XP do abate ÷ `Balance.mob_xp(nível)`) em abates que dão XP a até `ELEM_XP_RADIUS` do mago (com ele
+vivo; teto 400) e sobe Básico → Maior (120, nível 35) → Ancestral (400, nível 40) — nomes por forma: Salamandra/Ifrit, Golem de
+Gelo/Ondina, Silfo/Tempestade; HP/ATK/área × `ELEM_STAGE_MULT` (ATK depois do `SUMMON_ATK_MAX`), skill nova por estágio, corpo maior.
+Trocar de forma (skill da outra forma, quadro do HUD ou `InputCommand.elem_form`) mantém estágio e % de vida, recarga `ELEM_SWAP_CD`.
+Morrer tira `ELEM_DEATH_LOSS` da experiência (estágio nunca cai) e a volta espera a mesma recarga; o Ifrit explode. Modos (Comando
+Elemental, HUD, `elem_mode`): atacar (segue `last_target_id` do mago), proteger (provoca quem bate no mago, +DEF), apoiar (fogo ATK,
+gelo escudo, raio velocidade no grupo). Fusão Elemental (40 s): golpe com o efeito da forma + buff `elem_fusion` (`ELEM_FUSION_*_PCT` 8% de MATK e do elemento × estágio; peso por forma em `ELEM_FUSION_FORM`: fogo 0,85, gelo 1,0, raio 0,4, vale no golpe e no buff). Refino do 40 por elemento (Salamandra / Golem de Gelo / Silfo, portões `elem_refine_<forma>`): o elemental naquela forma com +15% de ataque e vida. Bots: forma do
+elemento da build, proteger se o chefe está neles, Fusão numa vaga extra (7+). Skills de ascensão têm `SkillDef.ascension`: ficam
+fora da teia normal (teia de ascensão e barra 7-0: ver "Teia e barra de ascensão"; o estágio Ancestral pede o nó Chamado Ancestral, 40). Save v5: campo `elemental` (antigo: 0 de experiência, forma da barra).
 **Efeitos por elemento** (valem para qualquer classe, pelo elemento ou pelo tema visual da skill): **fogo queima** — todo dano no tempo
 de skill de fogo é queimadura (número laranja, brasas no alvo); **gelo estilhaça** — skill de gelo em alvo retardado, preso ou atordoado
 causa ×`Balance.FROST_SHATTER_MULT` (1,3; número azul com ❄), então vale abrir com Nova de Gelo/Lança e emendar; **raio atordoa** —
@@ -171,13 +194,208 @@ Rosto: tom de pele (9), sobrancelhas, boca e marcas (cicatriz, sardas, pintura d
 peça restrita só para a classe dela; poções e materiais para todos) e `can_craft` recusa o resto.
 **Ícones dos conjuntos** (`tools/icons/set_icons.tscn`): enquadramento automático pelos vértices; arma vista pela face larga em diagonal
 (eixos principais), uma luva só, cabeça com o rosto do boneco como manequim.
-**Montaria (H)**: conjuração de `Balance.MOUNT_CAST_TIME` (1,5 s; vale em combate e andando; barra de conjuração e leque no botão H); agir, pular, bloquear, começar a volta (G), ser atordoado ou levar golpe interrompe; H de novo cancela. Fora de forma animal; `Balance.MOUNT_SPEED_MULT` 1,7. Bots só montam fora de combate.
+**Montaria (H)**: conjuração de `Balance.MOUNT_CAST_TIME` (1,5 s; vale em combate e andando; barra de conjuração e leque no botão H); agir, pular, bloquear, começar a volta (G), ser atordoado ou levar golpe interrompe; H de novo cancela. Fora de forma animal; `Balance.MOUNT_SPEED_MULT` 1,7. Bots só montam fora de combate. Não monta em masmorra nem em interior (`MapDef.parent_map`).
+
+**Ascensão do Paladino (Ato II, 35; `ProgressionSystem.has_ascension` = nível `Balance.ASC_LEVEL` + missão `hx_asc_paladin`)** — `MountedCombat` (core/sim/systems/mounted_combat.gd):
+- As skills da ascensão (Carga Montada, Pisotear, Modo Arcano; `SkillDef.ascension`) ficam **fora da teia comum**: são compradas na teia de ascensão (com maestria) e vão na barra só nas vagas 7-0 (ver "Teia e barra de ascensão").
+- **Combate Montado**: montado, o básico (+`MOUNT_REACH_BONUS` 0,8 m) e as skills `mountable` (escudo/aura/bênçãos/cura: `SkillsCatalog.MOUNTABLE`) saem a cavalo; as outras ficam apagadas na barra e são recusadas; Carga Montada e Pisotear são `mount_only`. Velocidade montado em combate `MOUNT_FIGHT_SPEED_MULT` 1,3 (fora 1,7). Golpe comum e lentidão não derrubam; atordoar, prender (rede) e gancho derrubam e dão `MOUNT_CC_IMMUNE` 2 s imune a controle (buff `unhorsed`). Dash e bloqueio descem. Visual: o boneco golpeia da sela (`RideLegs` prende as pernas, o clipe mexe braços/tronco).
+- **Modo Arcano** (liga/desliga, efeito `arcane`): asas de luz (`ARCANE_WINGS` +24% ATK/MATK, +15% DEF/MDEF; família `wings` da `BuffAura`), gasta `ARCANE_MP_PER_S` (3 MP/s, além das skills) e a regeneração de MP cai para `ARCANE_REGEN_MULT` (metade); desliga com MP 0, ao lançar de novo ou ao montar (recarga `ARCANE_CD` 20 s); ligar desmonta e solta a rajada de penas (`ARCANE_BURST`: 4 m, 0,8, empurra 2 m; chefe não é empurrado).
+- Bots (`BotBrain._ascension`): Modo Arcano em chefe (Guardião quando segura o aggro, os outros colados), desligam abaixo de `BOT_ARCANE_OFF_MP`; com a Carga na barra, em campo aberto montam para abrir a luta (antes do primeiro golpe, alvo a 6–14 m sem mirá-los) e descem com ela em recarga. Barra do bot ascendido: vagas 7-0 na ordem de `AscensionCatalog.BOT_ORDER`.
+- Medir: `combat_probe -- --class=paladin --asc`; `boss_probe -- --comp=... --asc_level [--asc]` (linha `ASC` = usos por luta); evidência `-- --autostart=paladin --ride_shot=<pasta>`.
 Atacar, usar skill, dash ou bloquear desmonta e a ação acontece; levar golpe derruba (`WorldSim.dismount`, evento `mount_changed`).
 Bots montam às vezes andando fora de combate. Visual: `mob_horse.glb` (`mob_kit.horse`, pelagem "tint" com cor por entidade) e o boneco
 no clipe "ride" gerado do idle (`RidePose.ensure_clip`, pernas/braços fixos). Revisar: `lineup.tscn -- --mounted [--front] [--nohorse]`.
 **Drops no chão**: baú de tesouro chibi (`game/fx/loot_chest.gd`: madeira, aros dourados, gema na cor do item, brilho pela raridade,
 facho de luz em épico/lendário) e moedas para ouro; malhas compartilhadas. Revisar: `-- --autostart=<classe> --loot_demo --screenshot=<png>`.
 Save com nó de árvore que não existe mais (build removida): a árvore volta ao início e os pontos voltam (`SaveSystem.points_for_level`).
+
+## Teia e barra de ascensão (Ato II, GDD `ato2-horda` R6)
+Uma só regra para todas as classes: `ProgressionSystem.has_ascension` (nível `Balance.ASC_LEVEL` 35 + missão `hx_asc_<classe>`).
+- **Skills**: `SkillDef.ascension = true`, `unlock_level` de `ASC_LEVEL` a `ASC_MAX_LEVEL` (45). Ficam fora da teia comum.
+- **Teia** (`data/catalog/ascension_catalog.gd` → `GameData.asc_trees[<classe>]`, mesma forma da teia comum: `start`, `nodes`, `panes`,
+  `clusters`): um ramo por build com conteúdo (+ Geral), em espinhas a partir do início; cada skill ganha entrada de atributo
+  (`<classe>_a_in_<skill>`, `ASC_WEB_ENTRY_ATTR`), nó de skill (`_a_s_`) e maestria 0-5 (`_a_m_`); passivos e portões da classe em
+  `AscensionCatalog.NODES` (`_a_x_<id>`; `stats` ou `flag`, lido por `ProgressionSystem.asc_flag`). Classe sem skill nem nó = sem teia.
+- **Pontos próprios**, calculados (não salvos): `ASC_POINTS_PER_LEVEL` por nível do 35 ao 45 + `ASC_QUEST_POINTS` da missão
+  (`ProgressionSystem.asc_points*`). Comprar/checar passa pelos mesmos `Sim.tree_allocate`/`tree_block_reason`; o reset de skills (Ancião)
+  zera as duas teias, e `asc_reset` só a de ascensão.
+- **Barra**: 6 vagas + `ASC_SLOTS` (4) com a ascensão (`SimEntity.slot_count`); teclas 7, 8, 9, 0 (`skill_7..skill_10`). Vagas 1-6 só
+  aceitam skill comum, 7-0 só skill de ascensão (`set_skill_slot`, `try_cast`). Skill comprada cai na 1ª vaga livre de 7-0.
+- **Save v5**: `asc_tree` (ids dos nós) e loadout de 10; save antigo ou nó que sumiu = teia de ascensão no início (pontos voltam).
+- **Bots**: `ProgressionSystem.bot_spend_asc` (skills na ordem de `AscensionCatalog.BOT_ORDER`, chave `<classe>` ou `<classe>/<build>`,
+  maestria, portões/passivos) e `WorldSim._slot_bot` (7-0 nessa ordem, menos `BOT_NO_SLOT`); nunca tiram skill da build.
+- **UI**: aba "Ascensão" da janela K (mesma vista da teia, pontos de ascensão); a barra do HUD mostra 10 botões quando ascendido.
+- **Revisar**: `-- --autostart=<classe> --ascend [--level=N] [--build_i=N]` (jogador ascendido, teias gastas como bot);
+  `--bag_shot=<png> --wins=skills --ascend --asc_tab` (aba Ascensão); `--asc_shot=<png>` (Ranger: torreta e salto); `--choir_shot=<png>` (Bispo: cúpula, anjo e bênçãos);
+  `combat_probe -- --class=<c> --asc`; `boss_probe -- --asc[=classe] | --asc_base=classe | --asc_level | --lvl=N` (F5: com/sem a ascensão no mesmo nível).
+- **Como medir o F5** (rodada de 2026-11-11): grupo `tanque + cura + 2× a build`, nível 35, `--tank_lock` e 80+ lutas por braço (`--seed=N` soma rodadas independentes; a linha `TIME` dá média, mediana, erro-padrão e `freio`). **Sem `--tank_lock` a medida mente**: o bot que passa de `BOT_THREAT_HOLD` × a ameaça do tanque só usa o básico, e no grupo de 4 a dupla de dano fica 34-39% do tempo nesse freio — +20% de ATK aparecia como ×1,00 (Paladino) e a Fusão do fogo como ×1,01. Lutas de 20-30 s medem a abertura: use `--hp=2.5` nas builds que derrubam o chefe rápido (Elementalista). Mortes sob `--dmg` têm ruído de ±13-15% em 80 lutas: não resolvem 6-10% (300+ lutas por braço, no `--dmg` em que a base morre 1-2 por luta: ×1,5 com Urso tanque, ×3 com Guardião). `--why` imprime `BUFFS` (tempo de cada buff por membro), `INV` (invocações mortas) e `DPS ...+inv` (dano das invocações). Com `--comp` passe também `--party=4`: sem ele a sonda roda os tamanhos padrão 1 e 3 (só os primeiros membros da composição). Rodada de 2026-11-12 (depois do retrabalho da ameaça e dos portões da teia de ascensão comprados antes das maestrias): Lâminas ×1,084 (`ASC_BUILD_POWER` 0,9), Duelista ×1,082 (0,92), Corsário ×1,076, Punhos ×1,091 (`TITAN_CLAW_POWER` 0,9); Necromante só no tempo ×1,01-1,02; utilidade sob pressão (80 lutas por braço): Bispo `--dmg=3` −18% de mortes, Ent `--dmg=1.5` −38%, Necromante Invocador `--dmg=3` −31%.
+
+## Ascensão do Ranger (Ato II, 35) — `RangerAscension` (core/sim/systems/ranger_ascension.gd)
+Liberada por `ProgressionSystem.has_ascension` (nível `Balance.ASC_LEVEL` + missão `hx_asc_ranger`); as skills de ascensão
+(`SkillDef.ascension`, nível `ASC_LEVEL`) ficam fora da teia comum: são compradas na teia de ascensão do Ranger (ramos Atirador e Lanceiro,
+com maestria) e vão na barra só nas vagas 7/8/9/0. O Caçador é o Falcoeiro (seção seguinte).
+Bots: `AscensionCatalog.BOT_ORDER` (Atirador: torreta; Lanceiro: salto, Chamas e depois os outros Brados; Caçador: falcão, Mergulho, Olhos do Céu). Peso F5 por build: `Balance.ASC_BUILD_POWER` (Atirador 3,5: a torreta com 0,55 do ATK a cada 1,4 s rendia 4% e as 3 montagens custavam 5% ao atirador — ×0,98 em grupo). Refinos da torreta como portões da teia: **Torreta Firme** (40, `ran_turret_firm`) e **Torreta Veterana** (45, `ran_turret_vet`), cada um +`TURRET_REFINE_TIME` 4 s e −`TURRET_REFINE_CD_PCT` 20% de recarga.
+- **Torreta de Campo** (Atirador, GROUND): invocação parada no ponto mirado (chão andável mais perto) que atira sozinha no inimigo
+  mais perto a `TURRET_RANGE` m por `TURRET_TIME` s; vida/ATK/DEF = do dono × `TURRET_*_SHARE`; monstros podem atacá-la; não teletransporta
+  nem segue o dono para outro mapa (some). Exatamente `TURRET_MAX` = 1 (a mais antiga some); stat `turret_max` soma (conjunto híbrido futuro);
+  `RangerAscension.near_turret` lê a área `TURRET_AREA` em volta (conjuntos futuros). Refino 40/45 (só dado): `TURRET_REFINE_TIME`/`_CD_PCT`.
+  Bot: abre a luta com ela, do lado de cá do tanque (`BOT_TURRET_GAP`).
+- **Salto Dracônico** (Lanceiro, GROUND 9 m): decola no fim do preparo e fica `DRAGON_JUMP_AIR` s fora do chão (sem golpe, projétil, chuva
+  nem mira — `sky_left`; quem o mirava volta ao maior de ameaça, e sem outro na ameaça fica nele sem largar a luta), cai no ponto mirado (ajustado para chão andável): `DRAGON_JUMP_POWER` no centro
+  (`DRAGON_JUMP_INNER` m), `DRAGON_JUMP_EDGE` na borda (3 m); com Brado ativo a queda leva o elemento. Dash + salto sem parar: ≤ `UNTOUCHABLE_MAX`
+  do tempo (combat_probe). Bot: fecha distância a `BOT_JUMP_MIN`-9 m e esquiva golpe avisado caindo colado no alvo (`jump_spot`).
+- **Brados Elementais** (Lanceiro, SELF, `SHOUT_TIME` s, recarga `SHOUT_CD`, um por vez; provocam `SHOUT_TAUNT_TIME` s a `SHOUT_TAUNT_RADIUS` m):
+  o grito não provoca chefe. Chamas (a lança queima `SHOUT_BURN_PCT`% do ATK/s; grupo a 10 m +`SHOUT_BUFF`% de fogo), Geada (a lança deixa lento; inimigos a 6 m atacam `SHOUT_BUFF`% mais devagar),
+  Trovão (o golpe salta para 1 vizinho com `SHOUT_ARC_PCT`%; grupo +`SHOUT_BUFF`% de velocidade). Bot compra Chamas primeiro e nunca grita com outro Brado ativo.
+
+## Ascensão do Necromante (Ato II, 35) — Senhor dos Mortos, `NecroAscension` (core/sim/systems/necro_ascension.gd)
+Liberada por `ProgressionSystem.has_ascension` (nível 35 + missão `hx_asc_necromancer`). Vale para as 3 builds (skills sem build, de foice);
+números em `Balance.LORD_*` (GDD `ato2-horda` R6.1, AC-30b). Check `_check_lord_of_dead` / `_check_lord_of_dead_bots`.
+- **De graça com a ascensão**: invocações temporárias duram × `LORD_SUMMON_TIME_MULT` (1,5) e cabe +`LORD_SUMMON_EXTRA` (1) por tipo
+  (soma com talentos; as permanentes só ganham a vaga).
+- **Pacto dos Mortos** (o "Pacto Sombrio" do GDD; o nome mudou porque o Invocador já tem a skill Pacto Sombrio — SELF, 12 s, recarga 20 s,
+  efeito `summon_pact`): as invocações que estão a `LORD_PACT_RADIUS` (15 m) ao lançar ganham +25% de dano (no golpe, `_deal_damage`),
+  +20% de velocidade de movimento e 10% do dano delas cura o necromante; quem chega depois não recebe. Buffs `lord_pact` (mago) e `lord_pact_minion`.
+- **Miasma** (GROUND 9 m, raio 4 m, 8 s, recarga 16 s, efeito `miasma`): nuvem em `m["lord_zones"]` (uma por necromante) que pulsa a cada
+  `LORD_MIASMA_PULSE` s: inimigo dentro causa 20% menos dano (maldição `weaken_pct`, soma com as outras até `CURSE_WEAKEN_CAP`) e anda 15% mais
+  devagar; fora da nuvem o efeito some em `LORD_MIASMA_KEEP` s. O desenho usa o canal das armadilhas (`trap_placed` com `kind` "miasma").
+- **Marca da Cova** (GROUND 9 m, raio 3,5 m, recarga 24 s, efeito `grave_mark`): marca os inimigos da área por 10 s; monstro comum (não chefe,
+  não elite) que morre marcado levanta onde caiu como esqueleto aliado por 15 s (`SimEntity.grave`: não ocupa vaga do Erguer Mortos, não leva o
+  × 1,5; até `LORD_GRAVE_MAX` 4 de pé).
+- **Forma de Lich** (nível 45, forma `lich`, 15 s, recarga 60 s): +30% MATK (`FORM_STATS`), a maldição lançada passa para os inimigos a
+  `LORD_LICH_SPREAD` (4 m) do alvo e cabe +1 invocação por tipo; ao sair (tempo, troca de forma ou morte) o que passa do limite normal some da
+  mais antiga para a mais nova (`trim_summons`). Visual provisório: o modelo do Lich-Rei (`FormModel.FORM_PATHS`), até existir `form_lich.glb`.
+- **Teia de ascensão** (40 pontos de conteúdo para 36 aos 45): 4 skills com maestria no ramo Geral + nós `AscensionCatalog.NODES["necromancer"]`
+  (`flag` lido por `ProgressionSystem.asc_flag`): Geral — Vínculo Sombrio (37, Pacto +3 s), Névoa Espessa (39, Miasma +2 s), Cova Funda
+  (42, erguidos +5 s); Invocador — **Exército** (40, custo 2: +1 invocação por tipo e +20% da vida do mago nelas), Pacto de Sangue (45, roubo de
+  vida × 2); Ceifador — **Foice que Comanda** (40, custo 2: o golpe manda as invocações no mesmo alvo por 4 s), Ceifa do Lich (45, forma +5 s);
+  Sombras — **Miasma Largo** (40, custo 2: Miasma e Marca com +50% de raio), Praga do Lich (45, espalha a 6 m). Os três refinos do GDD saíram
+  de `ASC_REFINES_PENDING`. Os nós de raio/duração entram em `ProgressionSystem.resolve_skill` (`NecroAscension.resolve`).
+- **Bots** (`NecroAscension.bot_score`, chamado em `BotBrain._best_skill`): Pacto com `BOT_LORD_PACT_MIN` (2)+ invocações a 15 m em luta; Miasma
+  no chefe/elite ou onde há `BOT_LORD_PACK` (3)+ inimigos (uma nuvem por vez); Marca da Cova no bando comum (2+) com alguém abaixo de 50% de vida,
+  nunca no chefe; Forma de Lich contra chefe/elite ou bando. Ordem de compra: `AscensionCatalog.BOT_ORDER` (Invocador: Pacto primeiro; os outros: Miasma).
+- Revisar: `-- --autostart=necromancer --ascend [--level=45]`, `combat_probe -- --class=necromancer --asc`, `boss_probe -- --asc=necromancer | --asc_base=necromancer`.
+
+## Ascensão do Assassino (Ato II, 35) — Sombras Gêmeas, `ShadowSystem` (core/sim/systems/shadow_system.gd)
+Liberada por `ProgressionSystem.has_ascension` (nível `Balance.ASC_LEVEL` + missão `hx_asc_assassin`). As três skills (`SkillDef.ascension`)
+ficam fora da teia comum, compradas na teia de ascensão do Assassino (Geral + Lâminas, Duelista, Corsário), nas vagas 7/8/9/0.
+- **Sombra Gêmea** (SELF, recarga `SHADOW_CD` 30 s, efeito `shadow_clone`): clone de sombra por `SHADOW_TIME` 6 s. É uma invocação com a
+  classe, o visual e o equipamento do dono e `SimEntity.shade`: **não é hostil a ninguém** (`is_hostile_to`): monstros não o miram nem o
+  acertam, ele não entra na ameaça e não segura aggro. Fica ao lado do dono (`SHADOW_SIDE`; longe demais, aparece do lado). Cada **golpe
+  direto** do dono que causa dano (`WorldSim._strike`: skill, básico, projétil; dano no tempo não) entra na fila `echo` do clone, que faz o
+  mesmo gesto e, no impacto dele (preparo da skill, no máximo `SHADOW_ECHO_MAX` 0,3 s depois), causa `SHADOW_SHARE` 50% do dano **em nome
+  do dono** (tipo `shadow`: ameaça, abate, roubo de vida e talentos são do dono). Golpe novo antes do anterior sair: a fila sai na hora.
+  Some no fim do tempo (soltando o que estava na fila) ou na hora se o dono cair/trocar de mapa. Um clone por dono (lançar de novo renova).
+  Buff `twin_shadow` no dono enquanto dura. Visual: o kit do dono no `ghost.gdshader` escuro com borda violeta (`EntityView`, sem GLB novo).
+- **Execução** (TARGET corpo a corpo, recarga `EXECUTION_CD` 10 s, efeito `execute`): poder `EXECUTION_POWER` 3,0 em alvo **abaixo de
+  `EXECUTION_BELOW` 25%** da vida, `EXECUTION_WEAK` 0,8 acima. Chefe segue a mesma regra (o limiar; o corte de fase/ward dele continua valendo).
+- **Refinos 40** (nós da teia de ascensão, saíram do `ASC_REFINES_PENDING`): Lâminas — **Sombra Furtiva** (portão `ass_shadow_stealth`): sair
+  da furtividade golpeando chama o clone por `SHADOW_STEALTH_TIME` 3 s sem gastar a recarga; Duelista — **Contra-Ataque em Cadeia**
+  (`ass_chain_counter`): cada esquiva deixa a Execução pronta e a próxima sai sem recarga (buff `exec_ready`, 1 carga, `CHAIN_COUNTER_TIME` 8 s);
+  Corsário — **Canhão de Mão** (skill, nível 40, pistola, DIRECTION 9 m): tiro que atravessa, `HAND_CANNON_POWER` 2,6, empurra
+  `HAND_CANNON_PUSH` 3 m (efeito `knockback`; chefe não é empurrado), +2 Bravata.
+- **Teia** (custo total 36 = os pontos do 45): 3 skills com entrada e maestria 0-5; Geral: Sombra Persistente (+1 s), Sombra Afiada (+5% no
+  clone), Golpe de Misericórdia (+10% Execução), Fio Gêmeo; cada build: 2-3 passivos e o refino dela (stats `shadow_time`, `shadow_share`, `execute_pct`).
+- **Bots** (`AscensionCatalog.BOT_ORDER["assassin"]`, `BotBrain._best_skill`): Sombra Gêmea ao colar no alvo (`BOT_SHADOW_RANGE`) e sempre
+  que recarrega; Execução só com o alvo abaixo de 25%. Peso F5 por build em `Balance.ASC_BUILD_POWER` (multiplica o dano do clone e a Execução cheia).
+- Revisar: `-- --autostart=assassin --asc_shot=<png>` (`_clone`, `_golpe`, `_execucao`); `combat_probe -- --class=assassin --asc`;
+  `boss_probe -- --comp=paladin:guardiao,bishop:sacerdote,assassin:<build>,assassin:<build> --party=4 --asc_level --asc=assassin | --asc_base=assassin`.
+
+## Ascensão do Bispo (Ato II, 35) — Coro Celeste, `ChoirSystem` (core/sim/systems/choir_system.gd)
+Liberada por `ProgressionSystem.has_ascension` (nível 35 + missão `hx_asc_bishop`); vale para as 3 builds (skills com `build: ""`).
+Ascensão de **utilidade**: o F5 dela é a queda de mortes do grupo sob pressão (`boss_probe --comp ... --dmg=6`), não o tempo de luta.
+Números em `Balance.BARRIER_*` / `ANGEL_*` / `BLESS_*` / `RES_*` (GDD `ato2-horda` R6.1 e F9).
+- **Anjo Guardião** (`bis_choir_angel`, SELF, `ANGEL_TIME` s, recarga `ANGEL_CD`): entidade SUMMON com `SimEntity.spirit` — ninguém a mira
+  nem acerta (`is_hostile_to` falso nos dois sentidos), não empurra, cura/buff de área não gastam alvo nela, sem cérebro. `ChoirSystem.tick`
+  a faz voar atrás do Bispo (por cima de tudo) e, a cada `ANGEL_HEAL_EVERY` s, curar com `ANGEL_HEAL` × maestria pela cura do Bispo
+  (`Combat.calc_heal` do dono): o tanque abaixo de `ANGEL_TANK_BELOW` primeiro, senão o mais ferido a `ANGEL_RANGE` m. No fim do tempo a
+  **Luz de Partida** cura em área (`ANGEL_PARTING_*`). Some com o Bispo (morte, troca de mapa). Um por vez (chamar de novo troca).
+- **Barreira Sagrada** (`bis_choir_barrier`, GROUND a `BARRIER_RANGE` m, raio `BARRIER_RADIUS`, `BARRIER_TIME` s, recarga `BARRIER_CD`):
+  cúpula em `m["barriers"]`. Aliado dentro recebe −`BARRIER_DR`% de dano (`ChoirSystem.damage_in`, em `_deal_damage`; duas cúpulas não somam,
+  vale a de maior tempo restante); projétil de inimigo que veio de fora para na borda (`stops_projectile`) e a chuva de chefe (`barrage`)
+  não cai em quem está dentro se o chefe está fora (`shelters`). A cúpula **anda com o Bispo**: persegue (Bispo + deslocamento do
+  lançamento) `BARRIER_LAG` m/s mais devagar que ele — se ele corre, ela fica para trás e o grupo tem de andar junto.
+- **Bênçãos de grupo** (`BLESS_RADIUS` m, `BLESS_TIME` s, recarga `BLESS_CD`; renovam pelo id): **Asas da Aurora** (`BLESS_WINGS`: movimento
+  e velocidade de ataque) e **Égide Coral** (`BLESS_AEGIS`: DEF e MDEF; golpe direto recebido cura `BLESS_AEGIS_HEAL`% da vida, no máximo
+  uma vez a cada `BLESS_AEGIS_HEAL_ICD` s por aliado).
+- **Retorno** (`bis_choir_return`, nível `RES_LEVEL` 45, GROUND, conjuração `RES_CAST`, alcance `RES_RANGE`, recarga `RES_CD`): levanta ali
+  mesmo o caído do grupo mais perto do ponto mirado com `RES_HP_PCT` da vida. Enquanto o Bispo conjura, o caído não renasce na cidade
+  (`SimEntity.res_hold`). **Um por aliado por luta** (`SimEntity.returned`, limpo quando ninguém do grupo está em combate): a 2ª vez é
+  recusada com "já voltou nesta luta".
+- **Nós da teia** (`AscensionCatalog.NODES["bishop"]`, portões lidos por `asc_flag`): Geral — Santuário da Barreira (45: nos primeiros
+  `BARRIER_HOLD` s da cúpula ninguém dentro cai abaixo de 1 de vida); Sacerdote — Anjo Forte (40, +`ANGEL_STRONG_PCT`% de cura) e Dois
+  Anjos (45); Iluminado — Barreira que Fere (40, `BARRIER_BURN_POWER` por segundo em inimigo dentro); Batalha — Barreira em Marcha (40: a
+  cúpula anda colada nele, até na investida, e dá escudo de `BARRIER_MARCH_SHIELD`% ao lançar) e Retorno Blindado (45, escudo de
+  `RES_BATTLE_SHIELD`%). Conteúdo: 36 pontos no ramo Geral + 1-2 da build para 36 ganhos aos 45.
+- **Bots** (`BotBrain._choir`, antes da cura): Retorno em quem caiu; Barreira no meio do grupo quando há chuva/golpe avisado de chefe
+  por perto ou `BOT_BARRIER_HURT_N` membros abaixo de `BOT_BARRIER_HURT`; Anjo sempre que pronto em luta de chefe (fora dela, com alguém
+  ferido); bênçãos pelo `_best_skill`. Os outros bots do grupo **entram e ficam na cúpula** enquanto ela existir (`BotBrain._fight`;
+  seguem a cúpula, não o Bispo) — menos quem está com o aggro do alvo (o tanque não arrasta o chefe) e o próprio dono.
+- **Visual**: cúpula de luz com aro no chão (`FxManager._update_domes`, lê `m["barriers"]`; brilha mais durante o Santuário), anjo
+  procedural que paira e bate asas (`EntityView`, forma `angel`), fio de luz na cura, `BuffLooks` `choir_wings`/`choir_aegis`.
+  Revisar: `-- --autostart=bishop --choir_shot=<png>`.
+
+## Ascensão do Druida (Ato II, 35) — Forma Ancestral, `DruidAscension` (core/sim/systems/druid_ascension.gd)
+Liberada por `ProgressionSystem.has_ascension` (nível `Balance.ASC_LEVEL` + missão `hx_asc_druid`). Cada build ganha uma **3ª forma**
+(skill de ligar/desligar como Lobo/Urso: `SimEntity.form` = `ent` | `alpha` | `bird`, bônus em `Balance.FORM_STATS`, arma em `FORM_REQUIRES`)
+e duas skills que só saem nela (`SkillDef.requires_form`); tudo `SkillDef.ascension` (teia de ascensão, barra 7/8/9/0). Na forma, as skills
+da build viram as variantes de `SkillsCatalog.ANCESTRAL_MODS` (mesmo formato de `FORM_MODS`; skill sem variante própria usa a da forma de
+base, `Balance.ANC_FORM_BASE`: Ent → urso, Lobo Alfa → lobo, e a ancestral vale pela base em `requires_form`, ex. Espreitar como Lobo Alfa).
+A forma não é salva, cai ao morrer e ao trocar a arma; trocar Urso → Ent (ou Lobo → Alfa) é direto. Números em `Balance.ANC_*` (H).
+- **Ent** (Urso, malho): tanque — mais DEF/HP que o Urso e +ameaça. *Raízes Ancestrais* (SELF 6 m): dano, prende `ANC_ROOTS_ROOT` s e
+  **provoca em área** `ANC_ROOTS_TAUNT` s (efeito `provoke`: como `taunt`, mas a skill ainda fere e prende; chefes metade). *Bosque Protetor*:
+  o grupo a 8 m recebe `ANC_GROVE_DR`% menos dano por `ANC_GROVE_TIME` s. Variantes: Golpe de Galho, Chamado do Bosque (grito 50% maior),
+  Tremor de Raízes (atordoa e prende), Marcha do Ent, Chuva de Troncos, Casca Milenar.
+- **Lobo Alfa** (Lobo, duas maças): *Chamar a Matilha* (efeito `pack`): `ANC_PACK_COUNT` lobos (`pack_wolf`) por `ANC_PACK_TIME` s com
+  vida/ATK/DEF = do dono × `ANC_PACK_*_SHARE` (20 s, ATK 0,9: com 15 s e 0,4 a ascensão dava ×1,02-1,04 em grupo); chamar de novo troca a matilha. *Uivo do Alfa*: grupo a 10 m com +`ANC_HOWL_SPEED`% de
+  velocidade e +`ANC_HOWL_ASPD`% de velocidade de ataque. Variantes: os golpes do lobo mais fortes (Mordida/Salto/Dilacerar do Alfa...).
+- **Pássaro Arcano** (Xamã, cajado): voa por cima do chão — **só desenho** (`ANC_BIRD_LIFT` na `EntityView`; a sim é plana e golpe de chão
+  o acerta normalmente), +velocidade e MATK (+3%). Variantes: Fogo Lunar → **Raio em Cadeia** (`chain`), Chuva Estelar → **Chuva de Penas de Luz**
+  (efeito `area_heal`: além do dano, cura × MATK os aliados embaixo), Ciclone → **Rajada de Vento** (efeito `knockback`: empurra
+  `ANC_GUST_PUSH` m para longe do centro; chefe e quem está em torre não), Tempestade de Raios, Pena Cortante. Skills da forma:
+  *Relâmpago Arcano* (GROUND, poder `ANC_BOLT_POWER` 2,0, raio + 2 saltos) e *Revoada de Luz* (cura o grupo a 8 m + velocidade).
+- **Teia** (`AscensionCatalog.NODES["druid"]`, um ramo por build, 36 pontos cada aos 45): 3 skills com maestria (21) + 2 passivos (36, 38),
+  refino do 40 (`anc_<forma>`), passivo (43) e refino do 45 (`anc_<forma>_2`). Cada refino comprado: na forma ancestral, variantes e skills
+  da forma com +`ANC_REFINE_POWER` de poder e +`ANC_REFINE_TIME` de duração (prender, atordoar, lentidão, provocar, buffs, matilha).
+  Os refinos saíram de `ASC_REFINES_PENDING`.
+- **Bots** (`BOT_ORDER` por build; `Balance.BOT_AUTO_FORMS`): entram na forma ancestral com inimigo perto (antes de bater), não voltam para a
+  forma de base enquanto têm a ancestral na barra e não pedem skill de outra forma (`DruidAscension.bot_skips`).
+- **Modelos**: `tools/blender/druid_ancestral.py` → `form_ent.glb`, `form_alpha.glb`, `form_bird.glb` (rig dos monstros, gestos
+  `maul/pounce/slam/roar/brace` como Lobo/Urso, armadura `frm_<estilo>_<slot>_<osso>` de cada conjunto da build). Revisar:
+  `lineup.tscn -- --strip=druid --set=<build> --form=<ent|alpha|bird>` e `lineup.tscn -- --mob_strip=form_<forma> --anim=<clipe>`.
+  Checks `_check_ancestral_forms` / `_check_ancestral_bots`.
+
+## Ascensão do Caçador — Falcoeiro: Olhos do Céu — `FalconSystem` (core/sim/systems/falcon_system.gd)
+Proposta aprovada: `design/gdd/ato2-proposals-2026-11-11.md` §2 opção A. O lince continua; o falcão é o segundo companheiro.
+- **Falcão intocável**: não é entidade (sem vida, sem aggro, sem chão): é estado do dono (`SimEntity.falcon`, `falcon_cd`,
+  `falcon_target`), 1 por caçador, fica até o dono cair (não é salvo: chamar de novo). A cada `FALCON_DIVE_CD` (6 s) mergulha no
+  **alvo do caçador** = o último inimigo que o caçador acertou com golpe direto (`_strike`), se estiver a `FalconSystem.reach()`
+  (`FALCON_RANGE` 14 m × `ARCHER_RANGE_MULT`, como toda skill de arco): poder `FALCON_DIVE_POWER` 0,8 com o ATK do caçador
+  (vem de cima e por trás: guarda de frente não bloqueia) e marca a **Presa**. Sem alvo válido o mergulho espera (não gasta a recarga).
+- **Presa** (maldição-marca `falcon_prey`, `FALCON_PREY_TIME` 8 s, renova): o alvo recebe +`FALCON_TAKEN` 3% de dano **de todos**.
+  Cada caçador tem a sua Presa no alvo. Desenho: quatro garras âmbar girando sobre a cabeça (não os fiapos roxos de maldição).
+- **Teto das marcas** (`MARK_TAKEN_CAP` 25%, `Combat.taken_pct`): as maldições de `MARK_CURSES` (Marca do Predador do Lanceiro,
+  Presa, arma lendária `mark` "Marca do Caçador"; de qualquer fonte) somam "dano recebido" até 25%; as outras maldições (Necromante,
+  Assassino, Paladino) somam por fora, como antes. Efeito colateral: a evolução "Presa Escolhida" (Predador 26%) sozinha vale 25%.
+- **Skills** (teia de ascensão, ramo Caçador, arco): **Chamado do Falcão** (SELF; recusado com o falcão no ar) · **Mergulho**
+  (TARGET, alcance do falcão, recarga `FALCON_STOOP_CD` 12 s: poder `FALCON_STOOP_POWER` 1,6, atordoa `FALCON_STOOP_STUN` 0,6 s — em chefe
+  vale a regra de controle ×0,4 —, marca a Presa, o falcão passa a seguir esse alvo e os linces saltam nele e o seguram
+  `PET_COMMAND_FOCUS` s, sem a mordida extra do Ataque da Fera) · **Olhos do Céu** (SELF, `FALCON_EYES_TIME` 10 s, recarga 30 s: você e o
+  grupo a `FALCON_EYES_RADIUS` 15 m ganham o buff `sky_eyes`: +`FALCON_EYES_CRIT` 4 de crítico contra alvo com Presa — stat `prey_crit`,
+  não soma entre falcoeiros — e +10% de velocidade de movimento). Mergulho e Olhos do Céu pedem o falcão chamado.
+- **Refinos como portões da teia** (saíram de `ASC_REFINES_PENDING`): **Falcão Real** (40, `falcon_royal`): quando a Presa morre, passa
+  para o inimigo mais perto a `FALCON_ROYAL_RANGE` 8 m que ainda não tem a Presa desse caçador (duração cheia) · **Revoada** (45,
+  `falcon_flock`): Olhos do Céu solta `FALCON_FLOCK` 3 falcões que mergulham (poder do mergulho automático + Presa) em 3 alvos
+  diferentes: o do caçador primeiro, depois os mais perto já em luta (monstro quieto não é puxado).
+- **Teia** (36 pontos aos 45, o ramo inteiro): 3 skills × (entrada + skill + maestria 0-5) = 21; Luva de Falcoaria (35, +16 AGI, 2),
+  Garras Afiadas/de Aço/do Céu (36/38/43, +`FALCON_WEB_PCT` 15% de dano do mergulho cada, stat `falcon_pct`, 1 cada), Caçada a Três
+  (37, +15% lince, 2), Falcão Real (40, 3), Vista Aguçada (42, +2% crítico, 2), Revoada (45, 3).
+- **Bots** (`FalconSystem.bot_score/bot_eyes_slot/bot_dive_aim`, ganchos em `BotBrain._fight/_best_skill`): chamam o falcão ao entrar
+  em luta; Mergulho sempre que sai da recarga, no alvo do tanque; Olhos do Céu em chefe (abertura e a cada recarga) e na hora em que
+  há círculos de barragem no chão (mesmo fugindo deles).
+- **Desenho**: `game/entities/falcon_view.gd` (ave procedural que plana em círculo a `FALCON_HOVER` m sobre o dono e desce a cada
+  mergulho anotado pela sim em `falcon_dive_time/_pos`; na Revoada aparecem 3). Revisar: `-- --autostart=ranger --falcon_shot=<png>`
+  (`_falcao`, `_mergulho`, `_revoada`). Peso F5: `ASC_BUILD_POWER["cacador"]` 0,3 (multiplica só o dano dos mergulhos; com 1,0, Presa 6% e crítico 8 o Falcoeiro dava ×1,18 sem o freio da ameaça).
 
 ## Pontos de skill: teia (estilo Path of Exile)
 Regras completas, fórmulas e critérios em `design/gdd/progression.md` (a teia está descrita em "Teia de skills" mais abaixo). A barra 1-6 só se troca na cidade; resetar a teia é grátis perto do Ancião ou do Sumo Sacerdote (`SKILL_RESET_NPCS`).
@@ -196,12 +414,14 @@ Cada classe começa com arma(s) + elmo, corpo, luvas e botas próprios (estilo e
 Bosque, Batedor, Sombras, Aprendiz Arcano, Acólito). O corpo tem os atributos da antiga peça única; o resto só dá defesa.
 
 ## Equipamento lendário e conjuntos (`data/catalog/gear_catalog.gd`, gerado por loops)
-A cada 5 níveis (5/10/15/20/25/30) cada **build** tem um conjunto lendário: elmo, corpo, luvas, botas, arma (+ secundária).
+A cada 5 níveis (5/10/15/20/25/30, e 35/40 no Ato II) cada **build** tem um conjunto lendário: elmo, corpo, luvas, botas, arma (+ secundária).
+Os conjuntos do 35 e do 40 reaproveitam o visual do 30 (`GearCatalog.visual_of`, nomes genéricos "... da Ascensão" e "... do Triunfo") até ganharem modelos próprios.
 Bônus: (2) +atributo secundário · (3) +atributo principal (ex. INT +2) · (4) +20% na skill assinatura (ex. Bola de Fogo) ·
-(5) +% no stat da build e −% de recarga de outra skill. Os números crescem por tier (`Balance.SET_*`).
+(5) +% no stat da build e −% de recarga de outra skill. Os números crescem por tier (`Balance.SET_*`); os percentuais, acima do tier 5,
+crescem pela metade (`Balance.set_pct_tier`: 4 peças 42% no 35 e 44% no 40; 5 peças 17/18%, recarga 21/22%). Equipamento comum: tiers 1/8/16/24/32/40 (o do 32, "de Adamante", e o do 40, "de Oricalco", só gerados; raridade épica; o de Oricalco tem cor própria, `GearCatalog.COMMON_TIER_TINT`).
 Drop: o lendário cai como **Moeda Lendária** (1 em 100 monstros; chefes 40% e 2 moedas; Reis sempre). **Iara, a Relicária** (praça de Aldara)
 troca moedas por qualquer peça lendária da sua classe (conjuntos das builds, maça do conjunto, escudos nomeados): tier i de
-`LEGENDARY_LEVELS` custa i+1 moedas (nível 5 = 1, nível 10 = 2 ... nível 30 = 6), até o seu nível (`WorldSim.relic_*`). A janela tem uma aba por build (abre na do conjunto que você veste, senão na do braço da teia com mais nós) e uma linha
+`LEGENDARY_LEVELS` custa i+1 moedas (nível 5 = 1, nível 10 = 2 ... nível 30 = 6, nível 35 = 7, nível 40 = 8), até o seu nível (`WorldSim.relic_*`). A janela tem uma aba por build (abre na do conjunto que você veste, senão na do braço da teia com mais nós) e uma linha
 por conjunto (bônus, armadura | arma, maça, escudo; ✓ = já tem, vestida, na bolsa ou no depósito); **Trocar o que falta** leva de uma vez as peças
 de armadura que você ainda não tem (moedas × peças; a arma troca à parte). Escudos nomeados ficam na aba Escudos. Ela também vende
 Moeda Lendária por ouro (`Balance.LEGEND_COIN_PRICE` = 500, `ItemSystem.buy_legend_coin`). **Reset das skills** com o Ancião Ravi
@@ -220,15 +440,24 @@ sorteio fixo por classe; parte das estradas some, então há várias rotas) com 
 centro; maestria, evoluções e passivos da build em volta) e o de notável (anel de atributos com o notável no meio, duas entradas =
 atalho). Cada ramo (Geral + builds) tem o seu setor em volta do início, como as regiões do PoE; skill de nível alto fica mais longe.
 Estradas e junções custam 1 ponto e dão +1 do atributo do setor; os atributos maiores e os bônus ficam nos círculos. 8 pontos por nível
-(+1 no 10/20/30) = 235 no 30, numa teia de ~250-360 nós (+ maestrias). Medido com `tools/tests/web_probe.tscn`: no 30 a teia dá
-~x1,4 de ataque e ~x1,2 de HP a um bot da build.
+(+1 no 10/20/30/40) = 235 no 30, 275 no 35 e 316 no 40, numa teia de ~250-360 nós (+ maestrias). Medido com `tools/tests/web_probe.tscn`: no 30 a teia dá
+~x1,4 de ataque e ~x1,2 de HP a um bot da build. No 40 (`-- --level=40`, medido 2026-11-11): média ATK x1,31 e HP x1,32 (HP 0,02 acima da faixa do 30), builds com ATK×HP de 1,30 a 2,10.
 Save antigo recebe os pontos de volta. Bots compram o caminho mais curto até as skills da build e depois notáveis/atributos
 (`ProgressionSystem.bot_spend`).
-**Talentos de classe** (aba "Talentos"): a cada 5 níveis (5 a 30) uma linha com 3 escolhas que mudam o jeito de jogar
+**Talentos de classe** (aba "Talentos"): a cada 5 níveis (5 a 45) uma linha com 3 escolhas que mudam o jeito de jogar
 (`ClassTalentsCatalog`): buffs que ficam **permanentes** ou viram **aura** para o grupo (15 m), invocações que **ficam para sempre**
 (elemental, esqueletos, lobos, Ent), **recusa a morrer** (1 HP e imortal por alguns segundos, com recarga), execução, emboscada mais forte,
 mana como escudo, cura no abate etc. Um por linha, grátis (liberado pelo nível), trocar na cidade (`Balance.PICK_SWAP_TOWN_ONLY`); o reset
-das skills mantém as escolhas. Buff de talento aparece com ∞ na barra e não acumula com o lançado (mesmo id; o lançado vale enquanto dura).
+das skills mantém as escolhas. **Ato II**: linhas novas aos **35, 40 e 45** (9 linhas no total), com uma escolha pensada para cada
+build da classe (`build` na opção, sem trava; o bot fica com a da build dele). A 35 reforça a identidade da build para as lutas do Ato II
+(bandos com líder, trolls, assassinos, investidas) sem depender da ascensão; 40/45 são refinos de skills que já existem. Os refinos de
+ascensão do GDD (R6.1) que precisam de mecânica ainda não feita ficam listados em `ClassTalentsCatalog.ASC_REFINES_PENDING` (só dados). Em 2026-11-11 saíram de lá para portões da teia de ascensão: Lança Pesada (Cruzado 40, `pal_long_lance`: Carga Montada ×`MOUNT_LANCE_MULT` 1,3), Torreta Firme/Veterana e Salamandra/Golem de Gelo/Silfo; o refino da Corrente de Luz (skill cortada) foi removido. Em 2026-11-12 saíram os últimos (a lista está vazia; check `_check_asc_refines`), todos portões de custo 3:
+  - Paladino: **Asas com Bloqueio** (Guardião 40, `pal_wing_guard`; substitui o refino cortado da Corrente: as asas dão +`ARCANE_GUARD_BLOCK` 10% de bloqueio, stat `block`, só com escudo), **Asas Protetoras** (Templário 40, `pal_wing_ward`: Modo Arcano gasta ×`ARCANE_WARD_MP_MULT` 0,5 de MP e o grupo a 6 m ganha `arcane_ward` −10% de dano, renovado no `AuraSystem.tick`), **Muralha a Cavalo** (Guardião 45, `pal_mounted_wall`: Provocar sai montado e bloquear não desce), **Estandarte** (Templário 45, `pal_banner`: montado, raio das auras de grupo ×`MOUNT_BANNER_MULT` 1,5, `MountedCombat.banner_mult`). Guardião e Templário ficam com 42 pontos de conteúdo para 36: a build escolhe o que deixa de fora.
+  - Berserker: **Giro dos Dois Machados** (Gêmeos 40: Ciclone de Titã com 6 giros em 3 s, `TitanSystem.resolve`), **Segundo Machado** (Executor 40: com dois machados de 2 mãos, alvo abaixo de 20% da vida apanha o golpe duplo em toda skill, `TitanSystem.second_axe_mult` no `_strike`), **Fúria Acesa** (Punhos 40: lançar o Ciclone soma 6 s ao tempo da Fúria do Punho e da Glória), **Golpe Final da Arena** (Executor 45: Golpe Final ×1,2 e atordoa 1 s, `GladiatorSystem.resolve`), **Glória que Não Esfria** (Punhos 45: a Glória esfria em 18 s em vez de 12, e fica 12 s ao sair da postura).
+  - Lanceiro: **Salto Duplo** (40: no pouso a recarga zera e abre 1 s para o 2º salto; sem uso, a recarga cheia começa quando a janela fecha; depois do 2º salto a recarga é ×`DOUBLE_JUMP_CD_MULT` 2 — com ×1 o `combat_probe --asc --level=45` dava 30% de luta intocável, máx 25%), **Brado Combinado** (45: gritar um Brado com outro ativo mantém os dois, o anterior até 8 s, recarga 40 s em `cooldowns["shout_combo"]`; a lança aplica os dois elementos; o bot usa).
+  - Bots compram os portões da build (e do Geral) logo depois das skills, antes das maestrias (`ProgressionSystem.bot_spend_asc`). `combat_probe -- --asc --level=45` mede com a teia gasta.
+  As teias de ascensão do Paladino e do Elementalista têm 36+ pontos de conteúdo por build aos 45 (passivos por build + Geral; check `_check_asc_web_fill`).
+A aba abre rolada na linha liberada mais nova. Buff de talento aparece com ∞ na barra e não acumula com o lançado (mesmo id; o lançado vale enquanto dura).
 Todo buff ativo aparece **no boneco** enquanto dura (borda/padrão na pele, bolha de escudo, cristal de gelo, chama, auréola, rastros, gotas,
 fumaça; buff de talento ou aura do grupo só com a borda fraca) — tabela e revisão em `docs/buffs_visual.md`; buff novo precisa de linha em `BuffLooks.LOOKS`.
 Nível 30 só cai do Dragonete. Raridades: comum, incomum, raro, épico, **lendário** (laranja).
@@ -268,7 +497,8 @@ a `Balance.DORMANT_RANGE` (40 m) dorme (não pensa/anda/atualiza). Separação u
 procuram alvo só na lista de personagens do tick. Dungeons do mapa (`build_dungeons.py`): bando no meio de cada corredor (menos o da
 chegada), salões com área de spawn do tamanho do salão.
 Ritmo (MVP até o 30, ~15 h): `Balance.xp_for_level` sai do tempo planejado no nível (6,5 + 1,75×(lv−1) min) × 3 abates/min ×
-XP de um monstro do nível (6 + 4,5×lv) ÷ 0,55. Quests não repetíveis dão 50% / 55% / 65% de cada faixa (1-10, 10-20, 20-30; `XP_QUEST_SHARE_BAND`; a curva conta 45%, então quem faz quest sobe mais rápido que o tempo planejado):
+XP de um monstro do nível (6 + 4,5×lv) ÷ 0,55. Ato II (nível máximo 40, fase 2): do 30 em diante os minutos crescem só 0,75 por nível
+(`XP_MIN_PER_LEVEL_ACT2`; 30→31 = 44 030, 34→35 = 52 250, 35→36 = 54 400, 39→40 = 63 360; faixa 35-40 = 294 200 de XP, ~5,2 h); faixas 30-35 e 35-40 com 55% de quest; +1 ponto de teia também no 40; pontos de ascensão: 21 no 40. Quests não repetíveis dão 50% / 55% / 65% de cada faixa (1-10, 10-20, 20-30; `XP_QUEST_SHARE_BAND`; a curva conta 45%, então quem faz quest sobe mais rápido que o tempo planejado):
 `QuestsCatalog.scale_xp` mantém o peso relativo escrito em cada quest e escala o total da faixa. Caçadas pagam no NPC da zona do monstro.
 A faixa 1-10 dá 50% (`XP_QUEST_SHARE_BAND`) e cada nível de 2 a 19 tem quests valendo ≥ 35% do nível (há check): o 6-7 ganhou 7 laterais
 de moradores de Aldara (`v1_tico`..`v7_marco`: javalis, chá do Ancião, peles e bando de lobos da Caçadora Ivy, Gruta, recibo para o Nils, Marco).
@@ -501,10 +731,101 @@ aos 40% fica protegido (ward) enquanto um filhote vive e chama a ninhada; fúria
 no modelo (`mob_kit.quad_dragon_gestures`: cast_fire, atk_sweep, atk_charge, shout, cast_ground, summon). Antes: 4.200 de vida e só o bafo.
 A sonda agora para as investidas no mapa do chefe (os bots largavam o chefe para defender o portão do Bastião).
 
+**Ato II, a Horda 30-35** (2026-11-11, `design/gdd/ato2-horda.md` R3/F2/F4): atributos pela fórmula F2 (`Balance.horde_stat`,
+`MonsterDef.stat_role` + `unit_mods`; check `_check_horde_stats`). Linhas: Lanceiro Goblin 30 → Empalador 33 (estocada em linha que
+atravessa) → Agitador 36; Ginete de Lobo 31 → Saqueador 35 (rede: prende 2 s e, com o dano, derruba do cavalo); Recruta Orc 32; Naga das
+Marés 31 → Guerreira Naga 34 (laço que puxa até ela, lança em linha). O estágio de cima nasce com escolta dos de baixo.
+**Aura de facção** (`MonsterDef.faction`/`aura` → `Balance.MOB_AURAS`, `AuraSystem.mob_aura`): o Agitador dá +20% ATK, +10% vel. de
+ataque e de movimento aos monstros da Horda a 10 m (chefe: +30%, 14 m), renovando pelo id (duas não somam; some 1,3 s depois);
+morto, quem está a 12 m fica 8 s desanimado (−15% ATK, −10% movimento). Em monstro, só buff marcado `mob_stat` mexe nos atributos.
+Chefes (sonda `boss_probe --party=4 --trials=40`, bots no nível do chefe com equipamento de tier 3; arena provisória nas Ruínas):
+| Chefe | 4 sorteados | 4 completo (Guardião, Sacerdote, Machados, Fogo) |
+|---|---|---|
+| Mãe das Marés (33, campo da Costa) | 72%, 1,4 morte, 40 s | 100%, 0,3 morte, 39 s |
+| Agitador-Mor Grukk (36, Grutas) | 75%, 1,6 morte, 57 s | 100%, 0,3 morte, 51 s |
+
+**Ato II, a Horda 35-40: Estepes de Cinza** (2026-11-11, `design/gdd/ato2-horda.md` R3/F2/F3; checks `_check_steppe_horde`, `_check_troll_regen`).
+Linhas (todas da facção `horde`, números pela F2): Trollzinho 35 → Troll 38 (bruto, vida ×1,8 = 3283/116/52, pancada que retarda;
+lidera 2 Trollzinhos); Arqueiro Orc 35 → Besteiro Orc 38 (à distância, 9-10 m; lidera 2 Arqueiros; virote em linha que atravessa);
+Guerreiro Orc 37 (lidera 1 Recruta; talho + grito de guerra). O Agitador 36 e o Saqueador 35 da fase 1 também nascem nas Estepes.
+**Regeneração do troll** (`MonsterDef.regen` × `Balance.TROLL_REGEN_PCT` 1,5% da vida máxima por segundo, em luta ou não;
+`MobSystem.update_regen`): para enquanto o troll **queima ou está envenenado** e por `TROLL_REGEN_LINGER` 2 s depois do último efeito
+(os dois juntos param uma vez só). "Envenenado" = qualquer dano no tempo que não seja sangramento (veneno, maldição, praga); sangramento
+sozinho não corta. Tempo efetivo: `Balance.troll_ttk(T)` = T ÷ (1 − r × T): T = 10 s → 11,8 s; T = 33 s → ~66 s; r × T ≥ 1 = não morre.
+Regenerando, o troll leva o buff `troll_regen` (brilho verde, `BuffLooks`), que some quando queima. Bots dão peso ×1,6
+(`Balance.BOT_REGEN_CUT_SCORE`) à skill de fogo/veneno contra troll regenerando (`BotBrain.cuts_regen`); trocar de alvo para o troll
+ainda não existe.
+**Chuva de flechas de fogo**: `mob_fire_arrows` (Arqueiro/Besteiro: 2 círculos avisados de 2 m que caem 1,5 s depois e queimam 3 s);
+no chefe, `mob_fire_rain` (5 círculos) e `mob_fire_storm` (6 círculos de 2,6 m, fase 2). **Grito de guerra**: efeito novo `rally`
+(`MobSystem.rally`): quem grita e os monstros da mesma facção a 9 m ganham +15% ATK e +10% movimento por 8 s (Ghar: 14 m, +20%, 10 s);
+renova pelo id `war_cry`, não soma com outro grito (soma com a aura do Agitador, que é outro id).
+Chefes dos acampamentos (3 fases, lacaios de 0 XP, ward 0,5 na fase 2, berserk aos 180 s, `BOSS_CROWD_MULT` sem mudança):
+Troll Rei-da-Rocha 38 (Toca; regeneração ×0,3; pancada, chuva de pedras, pedregulho no mais longe, abalo que atordoa; Crias da Rocha que
+regeneram; fase 2 desabamento), Mestre Besteiro Vorgul 39 (Paliçada; bate de perto e atira de longe: virote, barris, chuva e tempestade de
+fogo; Atiradores da Paliçada em quem está longe), Senhor da Guerra Ghar 40 (Arraial; escolta de 2 Guerreiros, brado, investida, talho de
+120°, terra rachada na fase 2; Vanguarda de Ghar).
+Sonda `boss_probe --party=4 --trials=40` nos mapas dos acampamentos, bots no nível do chefe (38-40, acima do `MAX_LEVEL` 35 de hoje):
+| Chefe | 4 sorteados | 4 completo (Guardião, Sacerdote, Carniceiro, Fogo) |
+|---|---|---|
+| Troll Rei-da-Rocha (38, `fort_trolls`) | 80% (20/25: a rodada de 40 não terminou; a sonda fica lenta a cada luta perdida), ~1 morte, ~55 s | 100%, 0,4 morte, 57 s |
+| Mestre Besteiro Vorgul (39, `fort_fire`) | 87%, 0,9 morte, 43 s | 100%, 0,3 morte, 45 s |
+| Senhor da Guerra Ghar (40, `fort_war`) | 82%, 1,1 morte, 55 s | 100%, 0,8 morte, 57 s |
+
+**Nova sonda depois da correção do `_danger_escape`** (2026-11-12; bot não foge mais do golpe básico nem de buff do monstro; 40 lutas
+por linha com `--seed`, completo = Guardião, Sacerdote, Executor, Fogo; mortes contam quem caiu ou saiu do mapa):
+| Chefe | 4 sorteados | 4 completo |
+|---|---|---|
+| Mãe das Marés | 65%, 2,2 mortes, 36 s | 100%, 0,17, 36 s |
+| Agitador-Mor Grukk | 72%, 1,8, 38 s | 100%, 0,20, 39 s |
+| Troll Rei-da-Rocha | 75%, 1,6, 57 s | 100%, 0,35, 56 s |
+| Mestre Besteiro Vorgul (ATK 1,25 → 1,1) | 58% → 65%, 2,5 → 2,2, 54 s | 100%, 1,18 → 1,05, 60 s |
+| Senhor da Guerra Ghar | 75%, 1,9, 39 s | 100%, 0,30, 40 s |
+| Rainha Aranha / Senhor da Cripta / Conde Vargo | 98% / 85% / 79% | 100% (0,00 / 0,70 / 0,47) |
+| Rei Élfico / Coração da Pedreira / Lich-Rei | 100% / 82% / 88% | 100% (0,00 / 0,03 / 0,15) |
+No Ato II o Fogo tira o chefe do tanque nos 5 s de abertura em quase toda luta (`PERDAS` do `--why`): é dele a maioria das mortes do
+grupo completo (no Besteiro, que bate forte de perto, passa de 1). Rainha Aranha e Rei Élfico ficam acima de 85% com 4 sorteados
+(o contrato do Ato I é solo/trio, tabela acima).
+
+Monstros comuns (`band_probe --from=35 --to=40 --only=duel --trials=12 --seed=N`, 6 sementes): antes os 35+ eram "triviais" (o bot
+matava em ~1,5 s com 0-0,1 golpe levado por monstro): o bot fugia do golpe BÁSICO e do grito do monstro como se fossem telegrafia
+(`BotBrain._danger_escape`, corrigido: só foge de skill de verdade) e o bruto abria com a skill lenta. Ajuste de 2026-11-12
+(`Balance.HORDE_LATE_35`, ATK sem mudar): brutos 35+ vida ×1,3, preparação ×0,5 e intervalo ×0,75 do básico; comuns 35+ preparação
+×0,75 e intervalo ×0,85; os dois só usam skill especial 2 s depois de entrar na briga (`MonsterDef.skill_delay`). Resultado: vida
+perdida 16% (30-34: 17%), tempo por abate 1,69 s (30-34: 1,60 s), 6 de 7 não triviais (o Saqueador segue leve, 5%). `--trace` mostra
+o estado do monstro a cada mudança e `--late_<papel>=hp:..,startup:..,cooldown:..,skill_delay:..` experimenta o fator sem mexer no Balance. Investidas das Estepes (`raid_probe --map=field_steppe --route=0|1|2 --level=37`): `presos` 0
+nos três lados; 3 bots repelem 100%; só as sentinelas perdem os lados 0 e 1 (a calibrar com as missões).
+Investidas de Porto Esperança (`raid_probe --map=city_port --level=32 --raid_level=32`, 40 levas): depois da correção de IA e dos 35+
+a guarnição sozinha caiu para 28/40 (C0) e 29/40 (C1); `Balance.PORT_GUARD_POWER` 1,2 (vida e ataque da guarnição e dos besteiros do
+muro, como o `STEPPE_GUARD_POWER`): C0 35/40, C1 38/40, 1 bot 40/40 nos dois, 3 bots 40/40, presos 0 (1,15 dava 27/40 e 35/40; 1,25, 36 e 39).
+Materiais novos: Couro de Troll, Presa de Troll, Pena de Flecha de Fogo, Aço Negro Orc; dos chefes: Coração de Rocha, Brasa do Mestre
+Besteiro, Insígnia de Ghar. Modelos em `mob_kit.horde_parts` (trolls cinza-azulados com pedras incrustadas; orcs de elmo de ferro; Ghar
+com chifres e estandarte). Besteiros empunham besta de verdade (`act2_bosses.crossbow`, clipe do mosquete) e os trolls têm corpo próprio (`chibi_kit.BODIES["troll"]`: ombros largos, braços compridos) e postura curvada somada a todos os clipes (`act2_bosses.posture`); os chefes do Ato II ganham peças grandes em `act2_bosses.boss_extras`. Pendente: som próprio do troll (usa a voz orc).
+
 ## Quests (cadeia)
 q01 bem-vindo (TALK) → q02 slimes → q03 gel → q04 primeira poção (CRAFT) → q05 presas → q06 lobos → q07 rei javali →
 c1 terra revirada (TALK) → c2 descida (REACH) → c3 Capitão + c4 Viúva (ramos) → c5 aviso à Capitã → q08 floresta (TALK) → q09 seda → q10 bandidos →
 q10b Rainha Aranha → el1 trompas → el2 segurar o portão (investidas) → el3 além da garganta → el4 trents → el5 Guardiões → el6 Rei Élfico → q12 Bastião → dw_gates segurar os portões → postos e Carniçal Gigante → assentamento → postos e Vorhag → postos e Morvath → Ofensiva da Aurora (Lich-Rei) → De Volta a Aldara (epílogo, fim do Ato I); laterais: núcleos, Cripta, Dragonete. c6 (Conde Vargo) é opcional e pede grupo; q11 (Chefe dos Bandidos) e a linha do Dario viraram laterais.
+
+**Ato II, 30-35** (`docs/roteiro_30_35.md`, `QuestsCatalog.act2`): Terra à Vista (Marinheira Dora, no cais da chegada) → Os Ginetes no Portão →
+Cavilhas de Presa → Fechar a Paliçada (C1) → Olhos na Costa → O Mangue dos Lanceiros → Punhos Vermelhos → O Acampamento dos Ginetes (C3, exige C1)
+→ A Boca das Grutas → O Tambor de Grukk (C4). Paralelas: O Farol Apagado (a última acende o farol, C2), Náufragos, Pérolas das Marés, O Diário do
+Capitão, Goblin Comerciante (Nikki); a última de cada uma faz um NPC aparecer (`if` em `MapsCatalog`). Caçadas da Costa no Quadro da Taverna da Âncora.
+**Ascensão** (35): 8 mestres na praça do porto (`QuestsCatalog.ASC_MASTERS`), cadeia de 3 (`hx_asc1_`/`hx_asc2_`/`hx_asc_<classe>`);
+só a classe do mestre recebe (`QuestsCatalog.class_of` em `QuestSystem.can_accept`). Check `_check_act2_quests`.
+
+**Ato II, Estepes de Cinza 35-40 — zonas** (2026-11-11, fase 2, só layout e dados de mapa; `design/gdd/ato2-horda.md` R2/R4 E0-E5):
+`field_steppe` (`tools/blender/zones/build_field_steppe.py`, peças em `horde.py`) + três acampamentos de guerra como mapas próprios
+(`fort_trolls`, `fort_fire`, `fort_war`: `build_steppe_forts.py`, em `MapsCatalog.FORT_DEFS`/`FORT_NPCS` como as fortalezas do Bastião).
+Hub = Posto da Caravana (anel de carroças, quatro vãos; serviços, cristal, `caravan_master`). Entrada pela Costa (`to_field_steppe`, garganta
+norte-nordeste; portão nível 35 + `hx_goblin_boss` = estágio C4); os acampamentos entram só por nível (35/36/37), em qualquer ordem.
+Estágios pelas quests `hx_fort_trolls` / `hx_fort_fire` / `hx_fort_war`: a Horda do lado some, estandartes vermelhos viram branco-dourados
+(`conquest_vis`), nasce o posto aliado (sentinelas `steppe_p_<lado>_*`, reforço `reforco_<lado>`), a investida daquele lado cala e as outras
+crescem (`Balance.RAID_RECLAIM_MULT`, a regra do Bastião). Desertores: `unless hx_deserters_turn` (acampamento e chefe) e `if hx_deserters_help`
+(mercadora orc, tratador de lobos, curral). Passo de Kharzun (E5): só visual, fechado na sim; a posição do portal futuro fica em
+`future_portals` no JSON (o mapa `field_kharzun` ainda não existe). Monstros 35-40 ainda não existem: os spawners usam os ids do contrato
+(`troll_whelp`, `troll`, `orc_archer`, `orc_crossbow`, `orc_warrior`, `boss_troll_king`, `boss_crossbow_master`, `boss_ghar`) e
+`MapsCatalog.STAND_INS` troca por monstros da faixa 30-35 até o pacote chegar; as cabanas (`ivory_hunter`, `wolf_racer`) estão em
+`PENDING_GIVERS` até o pacote de missões. Check: `_check_act2_steppe`.
 
 Faixa do meio (10-20): monstros 1-2 níveis acima do antigo, quests de abate pedem 1,5x e a faixa toda paga mais em quest (`Balance.XP_QUEST_SHARE_BAND`: 55% em vez de 45%).
 

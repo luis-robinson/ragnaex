@@ -97,3 +97,57 @@ As views leem o estado do tick anterior (1 quadro a mais de atraso visual; o com
 Próximo passo se precisar: a sim só sobrepõe o desenho; views/HUD (que leem a sim) ainda esperam o tick. Sobrepor também o
 `_process` exigiria um retrato (snapshot) do estado para as views.
 
+## Sim com o Ato II carregado (2026-11-11)
+
+Pedido: o teste longo (`performance da simulação`, 3000 ticks, limite 32 s) ficou no limite com Costa/Porto/Grutas/Estepes
+e as 3 fortalezas (1287 → 1747 entidades). Decisão do autor: otimizar a sim, sem cortar conteúdo nem mexer no limite.
+
+**Onde estava o custo** (perfil com cronômetros temporários, mundo do teste): não nos sistemas novos. Auras de facção
+(`mob_aura`), `sync_stage`, ascensões e investidas somam < 0,2 ms/tick. O custo é espalhado e por entidade acordada:
+o mapa em foco (cidade com investida: ~60 monstros + 21 bots + 135 itens no chão) leva mais da metade do tick.
+ms/tick antes: comandos 4,9 (pensar 1,6; aplicar 1,8), entidades 2,6, `_index_map` 0,84, loot 0,60, spawners 0,44.
+
+**Como medir o mundo do teste sem rodar a suíte**: `sim_probe.tscn -- --suite --warm=0 --ticks=3000 [--phases] [--census]`
+(`--suite` = jogador berserker na cidade, bots em rodízio de classe no ponto de entrada, como o `run_all`; `--census` =
+entidades por mapa e tipo, monstros dormindo, loot). O mundo padrão da sonda é bem mais leve que o do teste.
+
+### Aplicado (soma de conferência idêntica em tudo: sonda padrão 1200 e 3000 ticks, `--suite` 2000 e 3000, e o estado
+### do mundo logo depois dos 3000 ticks dentro do próprio teste)
+
+1. **Variável de laço tipada** (`for e: SimEntity in ...`) nos laços de entidade de `core/sim` (tick, `_index_map`,
+   `_separate_from`, `Combat.nearest_hostile`, cérebros, sistemas): acesso a campo e chamada deixam de ser por nome.
+   `_index_map` com uma busca no dicionário por entidade (era `has` + índice).
+2. **Loot** (`LootSystem.update_loot`): era itens × personagens todo tick. Agora os personagens vivos entram num índice de
+   células de 1 m (as 9 em volta; o alcance é 0,9 m) e cada item olha só a célula dele, na mesma ordem da lista do tick.
+3. **Spawners** (`MobSystem.update_spawners`): a lista `alive` só é refeita quando alguém sumiu do mundo
+   (`WorldSim.despawn_epoch`, sobe em `despawn`; era um `filter` com lambda por spawner por tick); spawner cheio e sem
+   escolta sai antes do resto.
+4. **Caminho comum sem chamadas** em `WorldSim`: monstro dormindo sai do laço de comandos sem chamar `_dormant`;
+   `update_recall`/`update_gather` só são chamados com volta/colheita em curso (o primeiro montava um dicionário por
+   personagem por tick); movimento sem `has_debuff`/`slow_factor`/`move_mult` quando não há debuff nem montaria;
+   `_move` com o `clamp_inside` embutido; recargas só descontam o que está contando; MP cheio não recalcula;
+   `_separate` sem o `{}` padrão por chamada.
+5. **Portais** (`PortalSystem.check_portals`): descarte por distância (folga de 0,1%) antes do teste exato.
+
+### Números (máquina com outros Godot rodando: só valem pares alternados base/otimizado)
+
+| O quê | antes | depois |
+|---|---|---|
+| `sim_probe` padrão, 1200 ticks (máquina calma) | 7,07 / 7,27 / 8,18 ms/tick | 4,94 ms/tick |
+| `sim_probe --suite`, 3000 ticks (máquina calma) | 9,6 ms/tick | 6,5 / 6,8 ms/tick (itens 1-4) |
+| `sim_probe --suite`, 3000 ticks (carregada, alternado) | 10,6 / 11,4 / 10,9 ms/tick | 8,8 / 8,6 ms/tick |
+| os 3000 ticks do teste (carregada, alternado) | 31,8 / 35,2 s | 28,9 / 26,9 s |
+
+Ganho por passo no `--suite` (máquina calma): 1 → 9,6 para 8,7; 2-3 → 8,4; 4 → 6,5-6,8; 5 e a tipagem do resto dos
+laços ficaram dentro do ruído.
+
+### Considerado e não aplicado
+
+- **Descarte por listas compactas no `MapGeometry.resolve_obstacles`** (centro/raio em `PackedFloat64Array`): mesma soma,
+  sem ganho medível; revertido.
+- **Lista só de monstros por mapa** para `nearest_hostile`/`_pick_monster` dos bots (o `nearest_hostile` de 9 m dos bots
+  é ~0,35 ms/tick): precisa valer também para quem nasce no meio do tick e para teste que chama o cérebro direto.
+- **Reaproveitar a grade de vizinhos em mapa onde todos dormem**: ganho estimado < 0,1 ms/tick (esses mapas já rodam
+  a cada 4 ticks).
+- **Grade exata para os alvos dos bots**: a grade do tick fica velha depois que as entidades andam; não dá a mesma soma.
+
