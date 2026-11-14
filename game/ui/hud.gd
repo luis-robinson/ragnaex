@@ -1036,8 +1036,20 @@ func _on_died(id: int, _k: int) -> void:
 func _on_act_quest(id: int, qid: String) -> void:
 	if Sim.player and id == Sim.player.id and qid == MapsCatalog.ACT_END_QUEST:
 		show_act_end()
+	elif Sim.player and id == Sim.player.id and qid == MapsCatalog.ACT2_END_QUEST:
+		show_act_end(2)
 
-func show_act_end() -> void:
+## Texto da tela de fim de ato: [título, subtítulo, história (%s = nome), agradecimento, depois].
+const ACT_END_TEXT := {
+	1: ["FIM DO ATO I", "A Noite de Azhar",
+		"Do portão de Aldara com uma arma de treino até o trono da Cidadela: a Floresta foi salva do cerco, as três fortalezas voltaram para a Aurora e Azhar, o Lich-Rei, virou pó. A praça canta o nome de %s.",
+		"Você completou o MVP do RagnaEx. Obrigado por jogar!", "O mundo continua: caçadas repetíveis, lendários e os chefes esperam por você."],
+	2: ["FIM DO ATO II", "A Horda",
+		"Da praia da Costa Partida ao trono de Kharzun: o porto ganhou muralha, as Estepes voltaram a ter estrada, os escravos das Minas saíram livres e Durgash, o Grão-Senhor da Guerra, caiu. A Horda largou as armas. Mas ela não subiu a montanha para conquistar: fugia de algo a leste. Porto Esperança canta o nome de %s.",
+		"Você completou o Ato II do RagnaEx. Obrigado por jogar!", "O mundo continua: caçadas, lendários de 45, a Prova dos Mestres e os chefes esperam por você."],
+}
+
+func show_act_end(act: int = 1) -> void:
 	if act_end_panel or Sim.player == null:
 		return
 	if npc_ui.is_open():
@@ -1058,21 +1070,22 @@ func show_act_end() -> void:
 	v.add_theme_constant_override("separation", 10)
 	v.custom_minimum_size.x = 560
 	panel.add_child(v)
-	for row in [["FIM DO ATO I", 38, UiKit.GOLD], ["A Noite de Azhar", 18, UiKit.TEXT]]:
+	var txt: Array = ACT_END_TEXT.get(act, ACT_END_TEXT[1])
+	for row in [[txt[0], 38, UiKit.GOLD], [txt[1], 18, UiKit.TEXT]]:
 		var l := UiKit.label(row[0], row[1], row[2])
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(l)
-	var story := UiKit.label("Do portão de Aldara com uma arma de treino até o trono da Cidadela: a Floresta foi salva do cerco, as três fortalezas voltaram para a Aurora e Azhar, o Lich-Rei, virou pó. A praça canta o nome de %s." % p.name, 14, UiKit.TEXT)
+	var story := UiKit.label(str(txt[2]) % p.name, 14, UiKit.TEXT)
 	story.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	story.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(story)
 	var stats := UiKit.label("%s — %s Lv.%d   ·   %d quests concluídas   ·   %d de ouro" % [p.name, p.class_def.name if p.class_def else "", p.level, p.quests_completed.size(), p.gold], 13, UiKit.MUTED)
 	stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(stats)
-	var thanks := UiKit.label("Você completou o MVP do RagnaEx. Obrigado por jogar!", 15, UiKit.GOLD)
+	var thanks := UiKit.label(str(txt[3]), 15, UiKit.GOLD)
 	thanks.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(thanks)
-	var after := UiKit.label("O mundo continua: caçadas repetíveis, lendários e os chefes esperam por você.", 12, UiKit.MUTED)
+	var after := UiKit.label(str(txt[4]), 12, UiKit.MUTED)
 	after.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(after)
 	var btn := UiKit.button("Continuar jogando", close_act_end, 220)

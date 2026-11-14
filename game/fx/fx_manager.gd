@@ -7,6 +7,7 @@ var main                          # Main (para saber o mapa atual)
 var _projectiles: Dictionary = {}   # id -> Node3D
 var _loot_nodes: Array = []
 var _hit_stop_left := 0.0
+var floats: FloatText            # textos flutuantes (pool, faixas por alvo, "Esquiva! ×N")
 var reticle: MeshInstance3D
 var dir_reticle: MeshInstance3D
 var cone_reticle: MeshInstance3D
@@ -24,6 +25,8 @@ func _on_node_added(n: Node) -> void:
 
 func _ready() -> void:
 	get_tree().node_added.connect(_on_node_added)
+	floats = FloatText.new()
+	add_child(floats)
 	_reticle_shader = load("res://shaders/ground_reticle.gdshader")
 	reticle = _make_reticle(0)
 	dir_reticle = _make_reticle(1)
@@ -47,6 +50,9 @@ func _ready() -> void:
 	Events.skill_cast.connect(_on_skill_cast)
 	Events.entity_died.connect(_on_died)
 	Events.buff_applied.connect(_on_buff)
+	var sig := BossSigView.new()             # avisos das assinaturas de chefe (lê o estado da sim a cada quadro)
+	sig.fx = self
+	add_child(sig)
 
 func _make_reticle(shape: int) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
@@ -77,6 +83,8 @@ func _process(delta: float) -> void:
 	_update_auras(delta)
 	_update_mob_auras(delta)
 	_update_domes(delta)
+	if main != null:
+		_update_target_ring()
 
 ## Retículo de mira estilo MOBA: mostra alcance/forma da skill cujo número está sendo segurado,
 ## senão um pequeno cursor no chão.
@@ -183,7 +191,7 @@ func _on_damage(attacker_id: int, target_id: int, amount: int, crit: bool, block
 		col = Color(1.0, 0.88, 0.45)
 		SkillFx.burst(self, t.position + Vector3(0, 0.6, 0), "holy", 8, Vector3.UP, 0.25)
 	if kind == "interrupt":                # escudo arremessado cortou a preparação do golpe
-		_float_text(t.position + Vector3(0, 2.0 * t.scale, 0), "Interrompido!", Color(1.0, 0.9, 0.45), 1.1)
+		_float_text(t.position + Vector3(0, 2.0 * t.scale, 0), "Interrompido!", Color(1.0, 0.9, 0.45), 1.1, t.id, true)
 		return
 	if kind == "shatter":                  # gelo em alvo retardado/preso: estilhaço
 		col = Color(0.55, 0.95, 1.0)
@@ -196,7 +204,7 @@ func _on_damage(attacker_id: int, target_id: int, amount: int, crit: bool, block
 	if blocked:
 		txt = "⛨ " + txt
 		col = Color(0.75, 0.8, 1)
-	_float_text(t.position + Vector3(randf_range(-0.3, 0.3), 1.6 * t.scale, 0), txt, col, size)
+	_float_text(t.position + Vector3(0, 1.6 * t.scale, 0), txt, col, size, t.id)
 	# flash na câmera quando o jogador leva dano forte
 	if t == Sim.player and amount > t.stats.max_hp * 0.12:
 		camera.add_shake(0.12)
@@ -216,7 +224,7 @@ func _mine(id: int) -> bool:
 func _on_heal(_src: int, target_id: int, amount: int) -> void:
 	var t: SimEntity = Sim.get_entity(target_id)
 	if t and t.map_id == main.current_map_id and amount > 0:
-		_float_text(t.position + Vector3(0, 1.7 * t.scale, 0), "+%d" % amount, Color(0.5, 1, 0.5), 1.1)
+		_float_text(t.position + Vector3(0, 1.7 * t.scale, 0), "+%d" % amount, Color(0.5, 1, 0.5), 1.1, t.id)
 		SkillFx.burst(self, t.position + Vector3(0, 0.3, 0), "heal", 14, Vector3.UP, 0.35)
 
 func _on_block(target_id: int) -> void:
@@ -228,7 +236,7 @@ func _on_block(target_id: int) -> void:
 func _on_guard_flanked(target_id: int) -> void:
 	var t: SimEntity = Sim.get_entity(target_id)
 	if t and t.map_id == main.current_map_id and t == Sim.player:
-		_float_text(t.position + Vector3(0, 2.6 * t.scale, 0), "FLANQUEADO!", Color(1.0, 0.45, 0.3), 1.2)
+		_float_text(t.position + Vector3(0, 2.6 * t.scale, 0), "FLANQUEADO!", Color(1.0, 0.45, 0.3), 1.2, t.id, true)
 
 ## Impacto no escudo: leque na direção do golpe e faíscas na cor do escudo; aparar acende em dourado e congela um instante.
 func _on_shield_block(target_id: int, attacker_id: int, theme: String, parried: bool, from: Vector3) -> void:
@@ -248,7 +256,7 @@ func _on_shield_block(target_id: int, attacker_id: int, theme: String, parried: 
 	if parried:
 		_ring(at, 1.5, Color(1.0, 0.9, 0.5), 0.35, true)
 		SkillFx.slash_x(self, at, "holy", 2.0)
-		_float_text(t.position + Vector3(0, 3.0 * t.scale, 0), "APARADO!", Color(1.0, 0.86, 0.3), 1.6)
+		_float_text(t.position + Vector3(0, 3.0 * t.scale, 0), "APARADO!", Color(1.0, 0.86, 0.3), 1.6, t.id, true)
 		if t == Sim.player or a == Sim.player:
 			_on_hit_stop(5)
 
@@ -278,6 +286,10 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: f
 	if s == null:
 		return
 	var th := theme_of(s)
+	if th == "physical" and skill_id.begins_with("mob_"):    # golpe físico de monstro: impacto quente (leque branco lia como aviso "neutro")
+		th = MOB_HIT_THEME
+	# área no chão de golpe de monstro é sempre carmim (verde/branco nunca é golpe); o tema fica só nas partículas
+	var area_th := MOB_HIT_THEME if skill_id.begins_with("mob_") and s.kind != SkillDef.Kind.BUFF and s.kind != SkillDef.Kind.HEAL else th
 	if skill_id == ChoirSystem.ANGEL_SKILL and origin.distance_to(aim) > 0.5 and radius <= 0.0:      # o anjo cura: fio de luz até o aliado
 		_beam(origin + Vector3(0, Balance.ANGEL_HOVER, 0), aim + Vector3(0, 1.0, 0), origin.distance_to(aim), DOME_COLOR, 0.35)
 		SkillFx.burst(self, aim + Vector3(0, 1.0, 0), th, 10, Vector3.UP, 0.4)
@@ -296,7 +308,7 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: f
 		SkillDef.Target.GROUND:
 			if s.effects.get("dash_to_aim", false):      # gancho: a corda vai da mão até onde ele chegou
 				SkillFx.rope(self, origin + Vector3(0, 1.0, 0) - dir * 0.4, aim + Vector3(0, 1.0, 0))
-			_ground_impact(s, th, aim, radius)
+			_ground_impact(s, th, aim, radius, area_th)
 		SkillDef.Target.SELF:
 			if s.kind == SkillDef.Kind.BUFF or s.kind == SkillDef.Kind.HEAL or s.effects.has("shield"):
 				SkillFx.burst(self, origin + Vector3(0, 0.8, 0), th, 18, Vector3.UP, 0.4)
@@ -308,10 +320,10 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: f
 					SkillFx.circle(self, origin, radius, th, 0.6)
 			else:
 				# golpe em volta de si (giro, nova, provocar): aro que abre até o raio real + partículas em anel
-				SkillFx.circle(self, origin, maxf(radius, 1.0), th, 0.5)
+				SkillFx.circle(self, origin, maxf(radius, 1.0), area_th, 0.5)
 				SkillFx.burst(self, origin + Vector3(0, 0.5, 0), th, 30, Vector3.UP, maxf(radius, 1.0) * 0.6)
 				if s.kind == SkillDef.Kind.PHYSICAL:
-					SkillFx.sector(self, origin, dir, maxf(radius, 1.0) * 0.9, 360.0, th, 0.3)
+					SkillFx.sector(self, origin, dir, maxf(radius, 1.0) * 0.9, 360.0, area_th, 0.3)
 				else:
 					SkillFx.flash(self, origin + Vector3(0, 1, 0), th, 1.8, maxf(radius, 1.0) * 1.6)
 		SkillDef.Target.CONE:
@@ -320,7 +332,7 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: f
 					SkillFx.sector(self, origin, dir, radius, s.cone_angle_deg, th, 0.26)
 					SkillFx.burst(self, origin + dir * radius * 0.75 + Vector3(0, 0.7, 0), th, 12, dir + Vector3.UP * 0.5, 0.35)
 			else:
-				SkillFx.sector(self, origin, dir, radius, s.cone_angle_deg, th, 0.32)
+				SkillFx.sector(self, origin, dir, radius, s.cone_angle_deg, area_th, 0.32)
 				SkillFx.burst(self, origin + dir * radius * 0.7 + Vector3(0, 0.6, 0), th, 18, dir + Vector3.UP * 0.4, 0.4)
 		SkillDef.Target.DIRECTION:
 			if s.effects.has("dash"):
@@ -328,7 +340,7 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: f
 				SkillFx.streak(self, origin, dir, minf(path, float(s.effects["dash"])), th)
 				SkillFx.decal_line(self, origin, dir, path, s.radius * 2.0, th, 0.45)
 			elif s.projectile_speed <= 0.0:
-				SkillFx.wave(self, origin, dir, s.range, maxf(s.radius * 2.0, 0.6), th, 0.35)
+				SkillFx.wave(self, origin, dir, s.range, maxf(s.radius * 2.0, 0.6), th, 0.35, area_th)
 		SkillDef.Target.TARGET:
 			if s.effects.has("pull"):            # gancho de chefe: a corda vai de quem puxa até quem foi puxado
 				SkillFx.rope(self, origin + Vector3(0, 1.0, 0) + dir * 0.4, aim + Vector3(0, 1.0, 0))
@@ -395,8 +407,8 @@ func _pistol_fx(s: SkillDef, origin: Vector3, aim: Vector3, dir: Vector3, radius
 				camera.add_shake(0.12)
 
 ## Impacto no chão por tema (o círculo sempre tem o raio real).
-func _ground_impact(s: SkillDef, th: String, at: Vector3, radius: float) -> void:
-	SkillFx.circle(self, at, radius, th, 0.6)
+func _ground_impact(s: SkillDef, th: String, at: Vector3, radius: float, area_th: String = "") -> void:
+	SkillFx.circle(self, at, radius, area_th if area_th != "" else th, 0.6)
 	match th:
 		"fire":
 			if "meteor" in s.id or "phoenix" in s.id:
@@ -440,7 +452,7 @@ func _on_skill_cast(entity_id: int, skill_id: String, phase: String) -> void:
 		SkillFx.gather(self, e.position + Vector3(0, 1.0, 0) + e.forward() * 0.35, s.vfx, s.startup)
 	elif s and s.startup >= 0.3 and e.kind != SimEntity.Kind.MONSTER:
 		_ring(e.position, 0.7, SkillFx.col(s.vfx), s.startup, false, true)
-	if s and e.kind == SimEntity.Kind.MONSTER and s.startup >= 0.25 and s.kind != SkillDef.Kind.BUFF and not s.effects.has("barrage"):
+	if s and e.kind == SimEntity.Kind.MONSTER and s.startup >= 0.25 and s.kind != SkillDef.Kind.BUFF and not s.effects.has("barrage") 			and not (s.boss_signature and s.target == SkillDef.Target.SELF):     # assinatura em volta: BossSigView
 		_telegraph(e, s)          # chuva de chefe: cada círculo avisa sozinho (_on_hazard_placed)
 
 ## Inimigo que a magia TARGET vai pegar (o mesmo critério de Combat.select_targets, só leitura).
@@ -448,61 +460,129 @@ func _foe_under(e: SimEntity, s: SkillDef) -> SimEntity:
 	var picked: Array = Combat.select_targets(e, s, e.skill_aim, Sim.map_entities(e.map_id))
 	return picked[0] if not picked.is_empty() and picked[0] != e else null
 
-## Aviso de golpe de monstro: a área de verdade (círculo no chão, cone na frente, faixa da investida) em vermelho,
-## enchendo do centro para a borda até o instante do impacto. Chefe: borda mais grossa.
+## Gramática única de perigo (golpe de monstro, chuva de chefe; BossSigView usa as mesmas cores): área quente bem fraca,
+## borda forte e um miolo que ENCHE do centro (faixa: da origem) até o instante do impacto. Verde/branco nunca é golpe.
+## Lava é laranja com crosta escura e SEM borda: o aviso é carmim com borda creme que pulsa (nunca confunde com a lava).
+const DANGER := Color(0.9, 0.08, 0.16)              # carmim: dano (mais vermelho que a lava laranja)
+const DANGER_BASE_A := 0.14                          # área inteira desde o começo
+const DANGER_FILL_A := 0.30                          # miolo que cresce (base + miolo ~ 0,4 no fim: o boneco continua visível)
+const DANGER_FILL_START := 0.2                       # escala do miolo no quadro 0 (nunca só a borda creme)
+const DANGER_RIM := Color(1.0, 0.95, 0.8, 0.95)      # borda creme (a lava não tem borda)
+const DANGER_RIM_LOW_A := 0.45                       # alfa mínimo do pulso da borda
+const DANGER_RIM_PULSE := 0.16                       # s de cada meia-batida do pulso
+const DANGER_RIM_W := 0.14                           # m (chefe: × 1,6)
+const MOB_HIT_THEME := "blood"                       # tema do impacto de golpe físico de monstro (SkillFx.PALETTE)
+
+## Aviso de golpe de monstro: a área de verdade (círculo no chão, cone na frente, faixa da investida) na gramática de perigo.
 func _telegraph(e: SimEntity, s: SkillDef) -> void:
-	var col := Color(1.0, 0.25, 0.18, 0.32)
 	var dur := maxf(0.2, s.startup)
 	var root := Node3D.new()
 	add_child(root)
-	var outline: MeshInstance3D
+	var rw := DANGER_RIM_W * (1.6 if e.monster_def and e.monster_def.is_boss else 1.0)
+	var base: MeshInstance3D
 	var fill: MeshInstance3D
+	var rim: MeshInstance3D
 	match s.target:
 		SkillDef.Target.CONE:
 			root.position = e.position + Vector3(0, 0.05, 0)
 			root.rotation.y = e.facing
-			outline = _fan(s.radius, deg_to_rad(s.cone_angle_deg), col)
-			fill = _fan(s.radius, deg_to_rad(s.cone_angle_deg), Color(col.r, col.g, col.b, 0.42))
+			var ang := deg_to_rad(s.cone_angle_deg)
+			base = _fan(s.radius, ang, Color(DANGER, DANGER_BASE_A))
+			fill = _fan(s.radius, ang, Color(DANGER, DANGER_FILL_A))
+			rim = _danger_rim("fan", s.radius, ang, 0.0, rw)
 		SkillDef.Target.DIRECTION:
 			var length := float(s.effects.get("dash", s.range))
 			var w := maxf(1.2, s.radius * 2.0)
 			root.position = e.position + Vector3(0, 0.05, 0)
 			root.rotation.y = e.facing
-			outline = _strip(length, w, col)
-			fill = _strip(length, w, Color(col.r, col.g, col.b, 0.42))
+			base = _strip(length, w, Color(DANGER, DANGER_BASE_A))
+			fill = _strip(length, w, Color(DANGER, DANGER_FILL_A))
+			rim = _danger_rim("strip", w * 0.5, 0.0, length, rw)
 		_:
 			var r := s.radius if s.radius > 0.0 else 1.6
 			root.position = (e.skill_aim if s.target in [SkillDef.Target.GROUND, SkillDef.Target.TARGET] else e.position) + Vector3(0, 0.05, 0)     # alvo único: a marca fica em quem vai levar
-			outline = _disc(r, col)
-			fill = _disc(r, Color(col.r, col.g, col.b, 0.42))
-	root.add_child(outline)
-	root.add_child(fill)
-	fill.position.y = 0.01
-	fill.scale = Vector3(0.05, 1, 0.05) if s.target != SkillDef.Target.DIRECTION else Vector3(1, 1, 0.05)
-	if e.monster_def and e.monster_def.is_boss:
-		outline.scale = Vector3.ONE * 1.04
-	var tw := create_tween()
-	tw.tween_property(fill, "scale", Vector3.ONE, dur)
-	tw.tween_callback(root.queue_free)
+			if s.target == SkillDef.Target.TARGET and not (e.monster_def and e.monster_def.is_boss):
+				if _spot_taken(root.position, r):       # matilha batendo no mesmo alvo: 1 marca (6 empilhadas viravam disco opaco)
+					root.queue_free()
+					return
+				_tele_spots.append([root, root.position, r])
+			base = _disc(r, Color(DANGER, DANGER_BASE_A))
+			fill = _disc(r, Color(DANGER, DANGER_FILL_A))
+			rim = _danger_rim("disc", r, 0.0, 0.0, rw)
+	_danger_grow(root, base, fill, rim, s.target == SkillDef.Target.DIRECTION, dur)
 
-## Chuva de chefe (MobSystem.place_barrage): círculo vermelho que enche até a hora da queda, como o aviso de golpe.
+var _tele_spots: Array = []                          # [nó, posição, raio] das marcas em alvo único ainda vivas
+
+func _spot_taken(at: Vector3, r: float) -> bool:
+	_tele_spots = _tele_spots.filter(func(t: Array) -> bool: return is_instance_valid(t[0]))
+	for t: Array in _tele_spots:
+		if (t[1] as Vector3).distance_to(at) < 0.6 and absf(float(t[2]) - r) < 0.3:
+			return true
+	return false
+
+## Chuva de chefe (MobSystem.place_barrage): círculo de perigo que enche até a hora da queda, como o aviso de golpe.
 func _on_hazard_placed(map_id: String, pos: Vector3, radius: float, delay: float, _skill_id: String) -> void:
 	if map_id != main.current_map_id:
 		return
-	var col := Color(1.0, 0.25, 0.18, 0.32)
 	var root := Node3D.new()
 	add_child(root)
 	root.position = pos + Vector3(0, 0.05, 0)
-	var outline := _disc(radius, col)
-	var fill := _disc(radius, Color(col.r, col.g, col.b, 0.42))
-	root.add_child(outline)
+	_danger_grow(root, _disc(radius, Color(DANGER, DANGER_BASE_A)), _disc(radius, Color(DANGER, DANGER_FILL_A)),
+		_danger_rim("disc", radius, 0.0, 0.0, DANGER_RIM_W * 1.6), false, maxf(0.2, delay))
+
+## Monta base + miolo + borda em `root`, o miolo cresce em `dur` s e o aviso some.
+func _danger_grow(root: Node3D, base: MeshInstance3D, fill: MeshInstance3D, rim: MeshInstance3D, line: bool, dur: float) -> void:
+	root.add_child(base)
 	root.add_child(fill)
+	root.add_child(rim)
 	fill.position.y = 0.01
-	fill.scale = Vector3(0.05, 1, 0.05)
-	outline.scale = Vector3.ONE * 1.04
+	rim.position.y = 0.02
+	fill.scale = Vector3(1, 1, DANGER_FILL_START) if line else Vector3(DANGER_FILL_START, 1, DANGER_FILL_START)     # já nasce com miolo carmim
 	var tw := create_tween()
-	tw.tween_property(fill, "scale", Vector3.ONE, maxf(0.2, delay))
+	tw.tween_property(fill, "scale", Vector3.ONE, dur)
 	tw.tween_callback(root.queue_free)
+	var rm := rim.material_override as StandardMaterial3D      # borda pisca enquanto carrega (morre junto com o root)
+	var pulse := root.create_tween().set_loops()
+	pulse.tween_property(rm, "albedo_color:a", DANGER_RIM_LOW_A, DANGER_RIM_PULSE)
+	pulse.tween_property(rm, "albedo_color:a", DANGER_RIM.a, DANGER_RIM_PULSE)
+
+## Borda do aviso (`w` m de largura): "disc" raio r; "fan" arco r de abertura `ang` + os dois lados; "strip" retângulo
+## de meia-largura r e `length` para +z.
+func _danger_rim(kind: String, r: float, ang: float, length: float, w: float) -> MeshInstance3D:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	match kind:
+		"strip":
+			var x := r
+			_rim_quad(st, Vector3(-x, 0, 0), Vector3(-x + w, 0, 0), Vector3(-x + w, 0, length), Vector3(-x, 0, length))
+			_rim_quad(st, Vector3(x - w, 0, 0), Vector3(x, 0, 0), Vector3(x, 0, length), Vector3(x - w, 0, length))
+			_rim_quad(st, Vector3(-x, 0, length - w), Vector3(x, 0, length - w), Vector3(x, 0, length), Vector3(-x, 0, length))
+			_rim_quad(st, Vector3(-x, 0, 0), Vector3(x, 0, 0), Vector3(x, 0, w), Vector3(-x, 0, w))
+		_:
+			var full := kind == "disc"
+			var a0 := 0.0 if full else -ang * 0.5
+			var span := TAU if full else ang
+			var n := maxi(8, int(48.0 * span / TAU))
+			for i in range(n):
+				var t0 := a0 + span * i / n
+				var t1 := a0 + span * (i + 1) / n
+				var d0 := Vector3(sin(t0), 0, cos(t0))
+				var d1 := Vector3(sin(t1), 0, cos(t1))
+				_rim_quad(st, d0 * (r - w), d0 * r, d1 * r, d1 * (r - w))
+			if not full:
+				for t in [a0, a0 + span]:
+					var d := Vector3(sin(t), 0, cos(t))
+					var sd := Vector3(d.z, 0, -d.x) * (w * 0.5)
+					_rim_quad(st, -sd, sd, d * r + sd, d * r - sd)
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = _flat_mat(DANGER_RIM)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return mi
+
+static func _rim_quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
+	for v: Vector3 in [a, b, c, a, c, d]:
+		st.add_vertex(v)
 
 func _flat_mat(col: Color) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
@@ -562,11 +642,11 @@ func _on_buff(entity_id: int, buff_id: String, duration: float) -> void:
 		return
 	if buff_id == Balance.BRAVADO_BUFF:          # Bravata: só o número subindo em cima da cabeça (o HUD mostra as cargas)
 		if _mine(entity_id):
-			_float_text(e.position + Vector3(0, 2.3 * e.scale, 0), "Bravata %d" % e.buff_stacks(buff_id), Color(1.0, 0.8, 0.4), 0.6)
+			_float_text(e.position + Vector3(0, 2.3 * e.scale, 0), "Bravata %d" % e.buff_stacks(buff_id), Color(1.0, 0.8, 0.4), 0.6, e.id)
 		return
 	for b in e.buffs:                            # Dados da Sorte: o que saiu nos dados
 		if b.get("id") == buff_id and b.has("label") and _mine(entity_id):
-			_float_text(e.position + Vector3(0, 2.6 * e.scale, 0), "Dados: %s!" % b["label"], Color(1.0, 0.92, 0.5), 1.2)
+			_float_text(e.position + Vector3(0, 2.6 * e.scale, 0), "Dados: %s!" % b["label"], Color(1.0, 0.92, 0.5), 1.2, e.id)
 	if buff_id.begins_with("form_"):
 		_transform_fx(e, buff_id.substr(5))
 		return
@@ -679,6 +759,8 @@ func _aura_ring(e: SimEntity, buff_id: String, th: String, b: Dictionary) -> voi
 	var key := "%d:%s" % [e.id, buff_id]
 	if _auras.has(key) and is_instance_valid(_auras[key]):
 		return
+	if hostile_mob(e):              # inimigo buffado não ganha anel no pé (uma dúzia de anéis vermelhos lia como áreas de dano)
+		return
 	var R: float = float((b.get("aura", {}) as Dictionary).get("radius", 0.0)) if b.get("toggle", false) else 0.0
 	_auras[key] = SkillFx.aura_ring(self, main.views[e.id], th, R, 0.75 * e.scale)
 
@@ -698,8 +780,8 @@ func _update_auras(delta: float) -> void:
 			SkillFx.fade_out(self, n as Node3D, 0.35)
 			_auras.erase(key)
 
-## Aura de facção de monstro (Agitador da Horda): quem emite ganha o anel no pé e o círculo do raio no chão, no tema
-## do buff que ela dá; some quando ele morre. Os buffados já ganham o anel no pé pelo _on_buff (buff com `aura_from`).
+## Aura de facção de monstro (Agitador da Horda): quem emite ganha fagulhas e o círculo do raio no chão (fino, dessaturado:
+## não é aviso de dano); some quando ele morre. Os buffados NÃO ganham anel no pé (hostile_mob; o anel creme é só do alvo).
 var _mob_auras: Dictionary = {}       # id do monstro -> nó
 var _mob_aura_poll := 0.0
 
@@ -735,6 +817,41 @@ func _update_mob_auras(delta: float) -> void:
 			SkillFx.fade_out(self, n as Node3D, 0.35)
 			_mob_auras.erase(id)
 
+## Monstro inimigo do jogador (não é invocação de ninguém): não ganha anel de aura no pé.
+static func hostile_mob(e: SimEntity) -> bool:
+	return e != null and e.kind == SimEntity.Kind.MONSTER and e.owner_id < 0
+
+## Anel do alvo: só sob o alvo atual do jogador (último inimigo que ele acertou, o mesmo do NameplateCrowd),
+## fino e creme (não é cor de perigo). Some se o alvo morreu, trocou de mapa ou ficou longe.
+const TARGET_RING_COL := Color(1.0, 0.95, 0.82, 0.85)
+const TARGET_RING_MAX_DIST := 30.0            # m
+var _target_ring: MeshInstance3D = null
+
+func _update_target_ring() -> void:
+	var p: SimEntity = Sim.player
+	var t: SimEntity = Sim.get_entity(p.last_target_id) if p != null and p.last_target_id >= 0 else null
+	var show: bool = t != null and t.is_alive() and t.map_id == main.current_map_id and t != p and not t.is_friend(p) \
+		and t.position.distance_to(p.position) <= TARGET_RING_MAX_DIST
+	if not show:
+		if _target_ring:
+			_target_ring.visible = false
+		return
+	if _target_ring == null:
+		_target_ring = MeshInstance3D.new()
+		var tm := TorusMesh.new()
+		tm.inner_radius = 0.93
+		tm.outer_radius = 1.0
+		tm.rings = 48
+		tm.ring_segments = 3
+		_target_ring.mesh = tm
+		_target_ring.material_override = _flat_mat(TARGET_RING_COL)
+		_target_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(_target_ring)
+	var r := maxf(0.6, t.radius * 1.25 + 0.15)
+	_target_ring.visible = true
+	_target_ring.position = Vector3(t.position.x, 0.07, t.position.z)
+	_target_ring.scale = Vector3(r, 0.15, r)
+
 ## Transformação (liga ou desliga uma forma): estouro de partículas, coluna de luz e clarão no tema da forma
 ## (fantasma = névoa lunar, demônio = fogo, lobo/urso = natureza). O aperto/estouro do boneco é da EntityView._morph.
 const FORM_FX_THEME := {"phantom": "lunar", "demon": "fire", "wolf": "nature", "bear": "nature", "lich": "ice",
@@ -763,27 +880,14 @@ func _on_died(entity_id: int, _killer: int) -> void:
 func _on_level_up(entity_id: int, new_level: int) -> void:
 	var e: SimEntity = Sim.get_entity(entity_id)
 	if e and e.map_id == main.current_map_id:
-		_float_text(e.position + Vector3(0, 2.2, 0), "LEVEL %d!" % new_level, Color(1, 0.9, 0.3), 1.8)
+		_float_text(e.position + Vector3(0, 2.2, 0), "LEVEL %d!" % new_level, Color(1, 0.9, 0.3), 1.8, e.id)
 		_pillar(e.position, 0.8, Color(1, 0.9, 0.3), 1.2)
 
 # ---------------------------------------------------------------------------
-func _float_text(pos: Vector3, text: String, color: Color, size: float = 1.0) -> void:
-	var l := Label3D.new()
-	l.text = text
-	l.modulate = color
-	l.outline_size = 14
-	l.font_size = int(44 * size)
-	l.pixel_size = 0.012
-	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	l.no_depth_test = true
-	l.position = pos
-	add_child(l)
-	var tw := create_tween()
-	tw.set_parallel(true)
-	tw.tween_property(l, "position", pos + Vector3(randf_range(-0.4, 0.4), 1.4, 0), 0.9).set_ease(Tween.EASE_OUT)
-	tw.tween_property(l, "modulate:a", 0.0, 0.9).set_delay(0.4)
-	tw.tween_property(l, "scale", Vector3.ONE * 0.6, 0.9).set_delay(0.3)
-	tw.chain().tween_callback(l.queue_free)
+## Texto flutuante: vai para o FloatText (faixas por alvo, teto, Label3D reaproveitados). `key` = id do alvo;
+## `merge` = repetição do mesmo texto no alvo vira "texto ×N".
+func _float_text(pos: Vector3, text: String, color: Color, size: float = 1.0, key: int = -1, merge: bool = false) -> void:
+	floats.pop(pos, text, color, size, key, merge)
 
 func _ring(pos: Vector3, radius: float, color: Color, duration: float, raised: bool = false, shrink: bool = false) -> void:
 	var mi := MeshInstance3D.new()
@@ -1164,8 +1268,11 @@ func _on_trap_removed(id: int, triggered: bool) -> void:
 
 func _on_dodged(id: int) -> void:
 	var t: SimEntity = Sim.get_entity(id)
-	if t and t.map_id == main.current_map_id:
-		_float_text(t.position + Vector3(0, 2.4 * t.scale, 0), "Esquiva!", Color(0.75, 0.9, 1.0), 1.0)
+	if t == null or t.map_id != main.current_map_id:
+		return
+	if not _mine(id) and (Sim.player == null or t.position.distance_to(Sim.player.position) > 16.0):
+		return                          # esquiva dos outros só de perto (a briga grande enchia a tela)
+	_float_text(t.position + Vector3(0, 2.4 * t.scale, 0), "Esquiva!", Color(0.75, 0.9, 1.0), 1.0, t.id, true)
 
 func sync_traps_for_map() -> void:
 	for id in _traps:

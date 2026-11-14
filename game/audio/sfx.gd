@@ -28,6 +28,11 @@ const VOL := {
 	"war_drum": -3.0, "drum_beat": -11.0, "net": -6.0, "wolf_howl": -7.0, "wolf_snarl": -8.0, "orc": -7.0,
 	"goblin": -9.0, "goblin_shriek": -9.0, "naga": -8.0, "tide": -5.0,
 	"troll_growl": -6.0, "troll_grunt": -7.0, "troll_die": -4.0, "troll_slam": -3.0, "troll_regen": -12.0,
+	# Monte Kharzun (40-45)
+	"lava_bubble": -12.0, "forge_hammer": -12.0, "chain_break": -4.0, "smoke_vanish": -6.0, "dire_howl": -6.0,
+	"salamander_hiss": -8.0, "salamander_die": -7.0, "golem_rumble": -5.0, "golem_crumble": -3.0, "boulder": -4.0, "banner_plant": -4.0,
+	# assinaturas dos chefes
+	"sig_warn": -4.0, "drum_tear": -3.0,
 }
 ## Tema visual (FxManager.theme_of) -> som da skill. Físico não tem: quem soa é o golpe (swing/hit).
 const THEME_SOUND := {
@@ -44,18 +49,67 @@ const MOB_VOICE := {
 	"orc_": ["orc", "orc", ""], "naga_": ["naga", "naga", ""],
 	"troll": ["troll_growl", "troll_grunt", "troll_die"], "boss_troll_king": ["troll_growl", "troll_grunt", "troll_die"],
 	"boss_crossbow_master": ["orc", "orc", ""], "boss_ghar": ["orc", "orc", ""],
+	# Monte Kharzun (40-45): goblin_/orc_/troll cobrem os da Horda pelo prefixo; nativos com voz própria
+	"dire_wolf_rider": ["dire_howl", "wolf_snarl", "goblin_shriek"], "dire_": ["dire_howl", "wolf_snarl", ""],
+	"lava_salamander": ["salamander_hiss", "salamander_hiss", "salamander_die"], "basalt_golem": ["golem_rumble", "golem_rumble", "golem_crumble"],
+	"clan_guard": ["orc", "orc", ""],
+	# Chefes de Kharzun (WP7): vozes de lobo atroz do WP11 onde há; o resto reaproveita as da Horda
+	"boss_dire_mother": ["dire_howl", "wolf_snarl", "dire_howl"],
+	"boss_shazka": ["goblin", "goblin", "goblin_shriek"], "shadow_apprentice": ["goblin", "goblin", "goblin_shriek"], "shazka_decoy": ["goblin", "goblin", "smoke_vanish"],
+	"boss_ulgra": ["dire_howl", "orc", ""], "ulgra_rider": ["dire_howl", "wolf_snarl", "goblin_shriek"],
+	"boss_gorbash": ["troll_growl", "troll_grunt", "troll_die"], "stone_shaman": ["troll_growl", "troll_grunt", "troll_die"],
+	"boss_kragmar": ["orc", "orc", ""], "forge_golemling": ["orc", "", ""], "boss_durgash": ["orc", "orc", ""], "throne_guard": ["orc", "orc", ""],
+	"banner_": ["", "", ""],
 }
 ## Skill com som próprio na fase ativa (no lugar do vento da arma) e no impacto (no lugar do som do tema).
-const CAST_SOUND := {"mob_drum_beat": "war_drum", "mob_war_drum": "war_drum", "mob_net_throw": "net"}
+const CAST_SOUND := {"mob_drum_beat": "war_drum", "mob_war_drum": "war_drum", "mob_net_throw": "net",
+	# Kharzun: a fumaça avisa o Assassino/Matador antes do bote (aviso curto do plano, §7)
+	"mob_shadow_step": "smoke_vanish", "mob_slayer_vanish": "smoke_vanish", "mob_slayer_execute": "smoke_vanish",
+	# Estandartes de Clã (Pedra e Forja): o pé do mastro batendo na pedra ao pulsar
+	"mob_stone_mend": "banner_plant", "mob_forge_embers": "banner_plant"}
 const EFFECT_SOUND := {"mob_tide_pull": "tide", "mob_tide_wave": "tide", "mob_tide_geysers": "tide",
-	"mob_troll_slam": "troll_slam", "mob_rock_quake": "troll_slam"}
+	"mob_troll_slam": "troll_slam", "mob_rock_quake": "troll_slam",
+	"mob_boulder_toss": "boulder", "mob_basalt_stomp": "troll_slam", "mob_brute_quake": "troll_slam"}
 ## Aura de monstro (MonsterDef.aura) que soa em laço enquanto o dono vive: o tambor do Agitador.
-const AURA_SOUND := {"agitator": "drum_beat", "agitator_boss": "drum_beat"}
+## Assinaturas dos chefes (design/gdd/act2-boss-signatures.md): aviso quando o desenho aparece no chão.
+## skill -> [fase do skill_cast em que o desenho aparece, sons...]. Toca cheio: o aviso é para o grupo todo.
+## Três Botes avisa só no 1º bote (os outros já têm o rosnado da voz).
+const SIG_WARN := {
+	"mob_tide_flood": ["active", "sig_warn", "tide"],              # ilhas aparecem
+	"mob_drum_frenzy": ["active", "sig_warn", "war_drum"],         # o canal começa
+	"mob_troll_avalanche": ["startup", "sig_warn", "golem_rumble"],   # 2,5 s de preparo: a montanha ronca
+	"mob_marksman_brand": ["active", "sig_warn"],                  # marcas nas vítimas
+	"mob_ghar_wall": ["active", "sig_warn", "block"],              # os escudos travam
+	"mob_dire_pounce": ["startup", "sig_warn"],                    # faixa do 1º bote
+	"mob_shazka_twins": ["active", "sig_warn", "smoke_vanish"],    # some na fumaça (as cópias saem dela)
+	"mob_ulgra_stampede": ["active", "sig_warn", "wolf_howl"],     # faixas do estouro no chão
+	"mob_gorbash_waves": ["active", "sig_warn", "golem_rumble"],   # anéis das pisadas no chão
+	"mob_kragmar_temper": ["active", "sig_warn", "forge_hammer"],  # círculos das poças no chão (o martelo bate na lava)
+	"mob_durgash_throneaxe": ["active", "sig_warn", "war_drum"],   # círculo dourado na vítima (o trono chama o machado)
+}
+## Impacto/quebra das assinaturas (id do skill_effect, inclusive os que não são skill: BossSignatures.*_FX).
+const SIG_EFFECT := {
+	"mob_tide_flood": "tide", "mob_troll_avalanche": "troll_slam",
+	BossSignatures.COVER_BREAK_FX: "golem_crumble", BossSignatures.CHANNEL_BREAK_FX: "drum_tear",
+	BossSignatures.COUNTER_FX: "troll_slam",
+	"mob_ulgra_stampede": "earth", "mob_gorbash_waves": "troll_slam", BossSignatures.DECOY_FX: "smoke_vanish",
+	"mob_kragmar_temper": "lava_bubble",
+	"mob_durgash_throneaxe": "troll_slam",
+}
+const AURA_SOUND := {"agitator": "drum_beat", "agitator_boss": "drum_beat", "clan_wolf": "drum_beat"}
 const AURA_BEAT := 0.6           # s entre batidas do laço da aura
 ## Buff de monstro que pulsa enquanto dura: a carne do troll se fechando (MobSystem.update_regen). Um pulso por
 ## vez no mapa (o mais perto), a cada BUFF_BEAT s.
 const BUFF_SOUND := {"troll_regen": "troll_regen"}
 const BUFF_BEAT := 1.6
+## Laços do lugar (Kharzun): lava borbulhando no ponto de lava mais perto e martelo na bigorna dos ferreiros/fundidores.
+const LAVA_RANGE := 16.0         # m da borda da lava ao jogador
+const LAVA_BEAT := 1.7
+const HAMMER_NPCS := {"dwarf_smith": true, "kharzun_smith": true, "forge_dwarf_a": true, "forge_dwarf_b": true}
+const HAMMER_RANGE := 18.0
+const HAMMER_BEAT := 2.6
+## Missão concluída que soa no mundo (a corrente das Minas parte quando os escravos são soltos).
+const QUEST_SOUND := {"hx_mines": "chain_break"}
 const SCAN_EVERY := 0.2          # s entre varreduras dos monstros do mapa (quem entrou em luta, auras)
 const VOICE_GAP := 0.5           # s entre duas vozes iguais (bando que acorda junto não vira coro)
 
@@ -74,6 +128,8 @@ var played: Dictionary = {}                # nome -> vezes que tocou (o smoke im
 var _scan := 0.0
 var _beat := 0.0
 var _buff_beat := 0.0
+var _lava_beat := 0.0
+var _hammer_beat := 0.0
 var _angry: Dictionary = {}                # id do monstro -> true (já em luta na última varredura)
 var _voice_at: Dictionary = {}             # voz -> tempo (s) da última
 
@@ -121,7 +177,7 @@ func _ready() -> void:
 	Events.potion_used.connect(func(id: int, _s: int): _player_sound(id, "potion"))
 	Events.equipment_changed.connect(_on_equipment_changed)
 	Events.quest_accepted.connect(func(id: int, _q: String): _player_sound(id, "quest_accept", true))
-	Events.quest_completed.connect(func(id: int, _q: String): _player_sound(id, "quest_done", true))
+	Events.quest_completed.connect(_on_quest_completed)
 	Events.crafted.connect(func(id: int, _i: String, _c: int): _player_sound(id, "craft"))
 	Events.gathered.connect(func(_m: String, _n: int, id: int): _player_sound(id, "gather"))
 	Events.recall_cast.connect(_on_recall)
@@ -247,6 +303,8 @@ func _on_skill_cast(id: int, skill_id: String, phase: String) -> void:
 	if e.kind == SimEntity.Kind.MONSTER:
 		if phase == "startup" and GameData.skills.has(skill_id):      # skill de verdade, não o golpe básico
 			_mob_voice(e, 1)
+		if SIG_WARN.has(skill_id):
+			_sig_warn(e, skill_id, phase)
 		if CAST_SOUND.has(skill_id):
 			if phase == "active":
 				play_at(CAST_SOUND[skill_id], e.position)
@@ -259,6 +317,10 @@ func _on_skill_cast(id: int, skill_id: String, phase: String) -> void:
 
 ## Impacto de skill (não do básico, que soa no golpe): som do tema no ponto mirado.
 func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, _radius: float) -> void:
+	if SIG_EFFECT.has(skill_id):
+		if main != null and (Sim.ticking_map == "" or Sim.ticking_map == main.current_map_id):
+			play_at(SIG_EFFECT[skill_id], origin)
+		return
 	if not GameData.skills.has(skill_id):
 		return
 	var s: SkillDef = GameData.skills[skill_id]
@@ -271,6 +333,16 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, _radius: 
 	var at := aim if s.target in [SkillDef.Target.GROUND, SkillDef.Target.TARGET] else origin
 	var mine := p != null and origin.distance_to(p.position) < 1.5
 	play_at(snd, at, mine or p == null)
+
+## Aviso de assinatura de chefe (SIG_WARN) na fase em que o desenho aparece.
+func _sig_warn(e: SimEntity, skill_id: String, phase: String) -> void:
+	var row: Array = SIG_WARN[skill_id]
+	if phase != str(row[0]):
+		return
+	if e.sig.has("seq") and str(e.sig["seq"].get("skill", "")) == skill_id:
+		return                         # bote seguinte da sequência: só o 1º avisa
+	for i in range(1, row.size()):
+		play_at(str(row[i]), e.position)
 
 func _on_projectile(pr: SimProjectile) -> void:
 	var e: SimEntity = Sim.get_entity(pr.owner_id)
@@ -422,12 +494,74 @@ func _scan_mobs(delta: float) -> void:
 		_buff_beat = BUFF_BEAT
 		play_at(pulse_snd, pulse_at.position)
 
+func _on_quest_completed(id: int, quest_id: String) -> void:
+	_player_sound(id, "quest_done", true)
+	var p: SimEntity = Sim.player
+	if QUEST_SOUND.has(quest_id) and p != null and p.id == id:
+		play_at(QUEST_SOUND[quest_id], p.position)
+
+## Ponto de lava mais perto de `pos` no mapa (borda do rio/lago); Vector3.INF se não houver lava.
+static func nearest_lava(def: MapDef, pos: Vector3) -> Vector3:
+	var best := Vector3.INF
+	var bd := INF
+	var p2 := Vector2(pos.x, pos.z)
+	for w in def.water:
+		if not (bool(w.get("lava", false)) or str(w.get("material", "")) == "glow_lava"):
+			continue
+		var q := Vector2.INF
+		var d := INF
+		if w["kind"] == "lake":
+			var c: Vector2 = w["pos"]
+			var r := float(w["r"])
+			q = c + (p2 - c).limit_length(r)
+			d = maxf(0.0, p2.distance_to(c) - r)
+		else:
+			var pts: PackedVector2Array = w["pts"]
+			for i in range(pts.size() - 1):
+				var s := Geometry2D.get_closest_point_to_segment(p2, pts[i], pts[i + 1])
+				var sd := maxf(0.0, s.distance_to(p2) - float(w["w"]) * 0.5)
+				if sd < d:
+					d = sd
+					q = s
+		if d < bd:
+			bd = d
+			best = Vector3(q.x, 0.0, q.y)
+	return best
+
+## Laços do lugar: lava perto e martelo da forja (um de cada por vez, no mais perto).
+func _place_loops(delta: float) -> void:
+	_lava_beat -= delta
+	_hammer_beat -= delta
+	if main == null or not Sim.maps.has(main.current_map_id):
+		return
+	var p: SimEntity = Sim.player
+	var m: Dictionary = Sim.maps[main.current_map_id]
+	if _lava_beat <= 0.0:
+		_lava_beat = LAVA_BEAT
+		var q := nearest_lava(m["def"], p.position)
+		if q != Vector3.INF and q.distance_to(p.position) < LAVA_RANGE:
+			play_at("lava_bubble", q)
+	if _hammer_beat <= 0.0:
+		_hammer_beat = HAMMER_BEAT
+		var best: SimEntity = null
+		var bd := HAMMER_RANGE
+		for e: SimEntity in m["entities"]:
+			if e.kind != SimEntity.Kind.NPC or not HAMMER_NPCS.has(str(e.npc_data.get("id", ""))):
+				continue
+			var d := e.position.distance_to(p.position)
+			if d < bd:
+				bd = d
+				best = e
+		if best != null:
+			play_at("forge_hammer", best.position)
+
 ## Ouro só sobe por venda, quest ou saque: moedas.
 func _process(delta: float) -> void:
 	var p: SimEntity = Sim.player
 	if p == null:
 		return
 	_scan_mobs(delta)
+	_place_loops(delta)
 	if _gold >= 0 and p.gold > _gold and _now() >= _quiet_until:
 		play_ui("coins")
 	_gold = p.gold

@@ -10,7 +10,7 @@ const FADE := 1.6                      # s da troca entre temas
 const CHECK_EVERY := 0.5
 const BOSS_RANGE := 32.0               # m: chefe em luta até aqui troca para o tema de chefe
 const THEMES := ["aldara", "taverna", "campo", "elfos", "bastiao", "masmorra", "caverna", "catacumbas", "trevas", "cidadela", "chefe", "investida",
-	"porto", "costa", "goblins", "horda"]
+	"porto", "costa", "goblins", "horda", "kharzun", "kharzun_citadel"]
 ## mapa -> tema; o resto sai de theme_for() (masmorras, fortalezas, interiores)
 const MAP_THEME := {"city_aldara": "aldara", "in_tavern": "taverna", "field_forest": "campo", "elf_city": "elfos",
 	"field_ruins": "bastiao", "lich_citadel": "cidadela", "dg_catacumbas": "catacumbas", "dg_catacumbas_trono": "catacumbas",
@@ -18,7 +18,9 @@ const MAP_THEME := {"city_aldara": "aldara", "in_tavern": "taverna", "field_fore
 	# Ato II: Porto Esperança, Costa Partida e Grutas Goblin (tambores); a taverna do porto usa a do Ato I
 	"city_port": "porto", "in_port_tavern": "taverna", "in_port_warehouse": "porto", "field_coast": "costa", "dg_goblin": "goblins",
 	# Ato II (fase 2): Estepes e os três acampamentos da Horda (os "fort_" do Ato I seguem em "trevas")
-	"field_steppe": "horda", "fort_trolls": "horda", "fort_fire": "horda", "fort_war": "horda"}
+	"field_steppe": "horda", "fort_trolls": "horda", "fort_fire": "horda", "fort_war": "horda",
+	# Ato II (fase 3): Monte Kharzun e Salão dos Matadores (tambores de guerra); a Cidadela com coro grave (raide)
+	"field_kharzun": "kharzun", "dg_slayers": "kharzun", "kharzun_citadel": "kharzun_citadel"}
 
 var main                                # Main
 var current := ""

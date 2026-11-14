@@ -22,6 +22,15 @@ const TOURS := {
 		["front_ghar", Vector3(58, 0, -32)], ["front_fogo", Vector3(66, 0, 46)], ["mamutes", Vector3(-84, 0, 52)], ["desertores", Vector3(-34, 0, -78)],
 		["totem_partido", Vector3(34, 0, -68)], ["totem_ventos", Vector3(22, 0, -58)], ["passo_kharzun", Vector3(0, 0, -92)], ["chegada_costa", Vector3(-15, 0, 88)],
 		["cabana_marfim", Vector3(-56, 0, 78)], ["ravina_leste", Vector3(96, 0, 22)]],
+	# Ato II, fase 3: Monte Kharzun
+	"field_kharzun": [["acampamento", Vector3(0, 0, 4)], ["chegada", Vector3(0, 0, 88)], ["portao_leste", Vector3(30, 0, 0)], ["canil", Vector3(84, 0, 6)],
+		["minas", Vector3(-76, 0, -2)], ["cabana_xama", Vector3(-44, 0, 20)], ["santuario_anoes", Vector3(-72, 0, 42)], ["libertos", Vector3(32, 0, 56)],
+		["ponte_norte", Vector3(1.6, 0, -50)], ["forja", Vector3(56, 0, -68)], ["matadores", Vector3(-66, 0, -60)], ["portao_cidadela", Vector3(0, 0, -84)]],
+	# Salão dos Matadores e Cidadela de Kharzun (masmorras do Monte Kharzun)
+	"dg_slayers": [["entrada", Vector3(0, 0, 40)], ["vestibulo", Vector3(0, 0, 29)], ["galeria", Vector3(-15, 0, -8)], ["venenos", Vector3(30, 0, -13)], ["mestre", Vector3(5, 0, -46)]],
+	"kharzun_citadel": [["chegada", Vector3(0, 0, 94)], ["barbaca", Vector3(0, 0, 74)], ["patio", Vector3(0, 0, 40)], ["canis", Vector3(-44, 0, 46)], ["rampa", Vector3(-72, 0, 26)],
+		["arena_lobo", Vector3(-78, 0, -6)], ["caverna", Vector3(44, 0, 46)], ["pocas", Vector3(72, 0, 26)], ["arena_pedra", Vector3(78, 0, -6)], ["fundicao", Vector3(34, 0, 4)],
+		["arena_forja", Vector3(50, 0, -40)], ["selo", Vector3(0, 0, -4)], ["porta_trono", Vector3(0, 0, -20)], ["trono", Vector3(0, 0, -48)]],
 	"fort_trolls": [["chegada", Vector3(90, 0, 0)], ["ponte_fenda", Vector3(44, 0, -13)], ["portao", Vector3(4, 0, 0)], ["toca", Vector3(-30, 0, 0)]],
 	"fort_fire": [["chegada", Vector3(-73.7, 0, -51.6)], ["torres", Vector3(-41, 0, -28.7)], ["portao", Vector3(-3.3, 0, -2.3)], ["pira", Vector3(27.9, 0, 19.5)]],
 	"fort_war": [["chegada", Vector3(-77.9, 0, 45)], ["posto", Vector3(-59.6, 0, -23.3)], ["portao", Vector3(-3.5, 0, 2)], ["arena", Vector3(24.2, 0, -14)]],
@@ -201,6 +210,12 @@ func after_start() -> void:
 			if not Sim.player.quests_completed.has(qid):
 				Sim.player.quests_completed.append(qid)
 		MapBuilder.apply_conquest(main.map_node)
+	if DevArgs.flag("--mount_kind"):    # --mount_kind=dire_wolf: libera (missão) e escolhe o bicho (revisar a montaria)
+		var mk := DevArgs.value("--mount_kind")
+		var mq: String = Balance.MOUNT_KINDS.get(mk, {}).get("quest", "")
+		if mq != "" and not Sim.player.quests_completed.has(mq):
+			Sim.player.quests_completed.append(mq)
+		Sim.set_mount_kind(Sim.player, mk)
 	if DevArgs.has("--mount"):      # começa a cavalo (revisar a montaria)
 		Sim.player.mounted = true
 	if DevArgs.has("--ascend") and not DevArgs.flag("--bag_shot"):     # ascendido (nível 35 ou --level): teias gastas como bot, barra de 10
@@ -249,6 +264,9 @@ func after_start() -> void:
 	if DevArgs.flag("--spot_shot"):     # --spot_shot=<png> --spot=<mapa>:<x>,<z> [--dist=14] [--wait=3] [--hide] [--form=<forma>]: foto de um ponto do mapa (adereços, vida)
 		_smoke_test = false
 		_spot_shot.call_deferred(DevArgs.value("--spot_shot"))
+	if DevArgs.flag("--sig_shot"):      # --sig_shot=<pasta> [--boss=<id>,...]: aviso de cada assinatura de chefe (GDD act2-boss-signatures)
+		_smoke_test = false
+		_sig_shot.call_deferred(DevArgs.value("--sig_shot"))
 	if DevArgs.flag("--carry_shot"):    # --carry_shot=<png>: um morador com cada carga (caixa, saco, estaca, pedra), de 3/4 (_jogo) e de lado (_lado)
 		_smoke_test = false
 		_carry_shot.call_deferred(DevArgs.value("--carry_shot"))
@@ -532,7 +550,7 @@ func _buff_shot(dir: String, only: String) -> void:
 	if main.views.has(p.id):            # o jogador fica no meio (a câmera o segue), invisível
 		var pv: EntityView = main.views[p.id]
 		pv.model_root.visible = false
-		pv.nameplate.visible = false
+		pv.hide_name_dev()
 		if pv.hp_bar:
 			pv.hp_bar.visible = false
 	var ids: Array = []
@@ -564,7 +582,7 @@ func _buff_shot(dir: String, only: String) -> void:
 			var ev: EntityView = v
 			if not pair.has(ev.entity):
 				ev.model_root.visible = false
-				ev.nameplate.visible = false
+				ev.hide_name_dev()
 				if ev.hp_bar:
 					ev.hp_bar.visible = false
 		var t: SimEntity = pair[1]
@@ -704,27 +722,94 @@ func _ascend_player() -> void:
 
 ## --spot_shot=<png>: leva o jogador (parado) a um ponto de um mapa e fotografa com a câmera do jogo. Revisar adereços de
 ## zona, NPCs que carregam carga, rebanho; --form=<forma> põe o jogador na forma (ex.: lich) antes da foto.
+## Com --autostart: --level=N (teia gasta como bot da build, igual ao --tour) e --mount (fica montado: o jogador
+## não leva golpe direto durante a espera, senão cai do cavalo). --spot ausente ou mapa inválido = erro e sai
+## (antes caía calado em Aldara, nível 1).
 func _spot_shot(path: String) -> void:
+	var spot := DevArgs.value("--spot")
+	var xz := spot.get_slice(":", 1).split(",")
+	var map_id := spot.get_slice(":", 0)
+	if not GameData.maps.has(map_id) or xz.size() < 2:
+		push_error("SPOT_SHOT: use --spot=<mapa>:<x>,<z> (veio '%s')" % spot)
+		get_tree().quit(1)
+		return
+	var at := Vector3(float(xz[0]), 0, float(xz[1]))
+	Sim.sync()                                  # o tick pode estar rodando na thread (SimSync)
 	var p: SimEntity = Sim.player
 	p.brain = null
-	var spot := DevArgs.value("--spot", "city_aldara:0,0")
-	var xz := spot.get_slice(":", 1).split(",")
-	Sim._change_map(p, spot.get_slice(":", 0), Vector3(float(xz[0]), 0, float(xz[1])))
+	var form := DevArgs.value("--form")
+	if DevArgs.flag("--level"):
+		p.level = int(DevArgs.value("--level"))
+		if p.build_id == "" and form != "":
+			p.build_id = _build_for_form(p, form)       # --form=wolf: teia gasta como a build do Lobo, não a 1ª
+		if p.build_id == "" and not p.class_def.builds.is_empty():
+			p.build_id = p.class_def.builds[0]["id"]
+		ProgressionSystem.bot_spend(Sim, p, true)
+		p.recompute_stats()
+		Events.equipment_changed.emit(p.id)
+	Sim._change_map(p, map_id, at)
+	if DevArgs.has("--mount") and not GameData.maps[map_id].no_mount():     # o after_start só liga a flag; o boneco precisa do aviso
+		p.mounted = true
+		Events.post(&"mount_changed", p.id, true)
+	p.iframe_left = 2.0                         # cobre a chegada (1 s) até o laço da espera
 	main.camera.distance = float(DevArgs.value("--dist", "14"))
-	if DevArgs.flag("--form"):
-		Sim._apply_effects(p, p, {"form": DevArgs.value("--form")}, 1.0)
+	if form != "":
+		_arm_for_form(p, form)      # a forma exige arma (FORM_REQUIRES): sem ela o recompute_stats volta à forma humana
+		if p.form != form:          # liga/desliga: não desligar a que o --gear já ligou
+			Sim._apply_effects(p, p, {"form": form}, 1.0)
 	await get_tree().create_timer(1.0).timeout
 	Sim.sync()
-	p.position = Vector3(float(xz[0]), 0, float(xz[1]))
+	p.position = at
 	p.stats.max_hp = 1.0e9
 	p.hp = 1.0e9
 	if DevArgs.has("--hide") and main.views.has(p.id):
 		main.views[p.id].visible = false
-	await get_tree().create_timer(float(DevArgs.value("--wait", "3"))).timeout
+	var wait_end := Time.get_ticks_msec() + int(float(DevArgs.value("--wait", "3")) * 1000.0)
+	while Time.get_ticks_msec() < wait_end:     # turista: golpe direto passa (não cai do cavalo, foto sem tela de morte)
+		Sim.sync()
+		p.iframe_left = 1.0
+		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(path)
 	print("SPOT_SHOT %s %s draws=%d" % [spot, path, int(RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME))])
 	get_tree().quit()
+
+## Build da classe cuja arma serve à forma (lobo -> Fera, urso -> Guardião); "" se nenhuma.
+func _build_for_form(p: SimEntity, form: String) -> String:
+	var req: String = str(Balance.FORM_REQUIRES.get(form, ""))
+	var t := req.substr(5) if req.begins_with("dual_") else req
+	for b in p.class_def.builds:
+		if (b["main"] as Array).has(t):
+			return str(b["id"])
+	return ""
+
+## Veste a arma (e a 2ª, se dupla) que a forma exige: da bolsa se tiver, senão a comum de menor nível do tipo.
+func _arm_for_form(p: SimEntity, form: String) -> void:
+	var req: String = str(Balance.FORM_REQUIRES.get(form, ""))
+	if req == "" or p.stats.meets([req]):
+		return
+	var dual := req.begins_with("dual_")
+	var t := req.substr(5) if dual else req
+	for to_off in ([false, true] if dual else [false]):
+		var pick := ""
+		for iid in p.inventory:
+			var it: ItemDef = GameData.items.get(iid)
+			if it and it.weapon_type == t and int(p.inventory[iid]) > 0:
+				pick = iid
+				break
+		if pick == "":
+			var best_lv := 1 << 30
+			for iid in GameData.items:
+				var it: ItemDef = GameData.items[iid]
+				if it.weapon_type == t and it.slot == ItemDef.Slot.WEAPON and not it.is_legendary() and it.set_id == "" and it.level_req < best_lv:
+					best_lv = it.level_req
+					pick = iid
+			if pick == "":
+				return
+			p.add_item(pick)
+		Sim.equip(p, pick, to_off)
+	p.recompute_stats()
+	Events.equipment_changed.emit(p.id)
 
 ## --carry_shot=<png>: moradores parados com cada carga de CarryPose lado a lado (altura da carga no ombro/braços).
 ## Duas fotos: câmera do jogo de perto (_jogo) e quase de lado (_lado).
@@ -749,7 +834,7 @@ func _carry_shot(path: String) -> void:
 	Sim.sync()
 	if main.views.has(p.id):
 		main.views[p.id].model_root.visible = false
-		main.views[p.id].nameplate.visible = false
+		main.views[p.id].hide_name_dev()
 	main.camera.distance = 11.0 if DevArgs.flag("--carry") else 7.0
 	for shot in [["_jogo", 52.0], ["_lado", 12.0]]:
 		main.camera.pitch_deg = float(shot[1])
@@ -772,11 +857,14 @@ func _ride_shot(dir: String) -> void:
 	Sim.sync()
 	if main.views.has(p.id):
 		main.views[p.id].model_root.visible = false
-		main.views[p.id].nameplate.visible = false
+		main.views[p.id].hide_name_dev()
 	var r: SimEntity = Sim.spawn_bot(GameData.classes["paladin"], "Cavaleiro", p.map_id, p.position + Vector3(-1.5, 0, 0), 30)
 	r.brain = null
 	r.level = Balance.ASC_LEVEL
 	r.quests_completed.append("hx_asc_paladin")
+	if DevArgs.flag("--mount_kind"):      # --mount_kind=dire_wolf: o cavaleiro monta o lobo atroz
+		r.quests_completed.append(str(Balance.MOUNT_KINDS.get(DevArgs.value("--mount_kind"), {}).get("quest", "")))
+		Sim.set_mount_kind(r, DevArgs.value("--mount_kind"))
 	for sid in ProgressionSystem.ascension_skills(r):
 		r.learned[sid] = true
 	r.ensure_slots()
@@ -1272,7 +1360,7 @@ func _boss_film(ids: Array, out: String) -> void:
 		var far := Sim.spawn_bot(GameData.classes["ranger"], "Longe", mid, at + Vector3(-9.0, 0, 6.0), md.level)
 		far.brain = null
 		p.brain = null
-		var kit: Array = Array(md.skill_ids)
+		var kit: Array = md.skill_ids.duplicate()      # cópia: Array(tipado) devolve o MESMO array (append mexeria no MonsterDef)
 		for ph in md.phases:
 			for sid in ph.get("skills", []):
 				if not kit.has(sid):
@@ -1497,14 +1585,15 @@ func _tip_shot(path: String) -> void:
 ## Lich morto: festeiros nascem e os fogos começam (foto <png>_festa.png); depois a tela do fim do ato (<png>).
 func _act_end_shot(path: String) -> void:
 	Sim.sync()
-	Sim.player.quests_completed.append(MapsCatalog.VICTORY_QUEST)
+	var act := int(DevArgs.value("--act", "1"))           # --act=2: fim do Ato II (vá ao porto/acampamento com --map)
+	Sim.player.quests_completed.append(MapsCatalog.VICTORY2_QUEST if act == 2 else MapsCatalog.VICTORY_QUEST)
 	await get_tree().create_timer(3.0).timeout
 	var fest: FestivalFx = main.world_root.get_node("FestivalFx")
 	for i in 3:
 		fest.launch()
 	await get_tree().create_timer(fest.RISE + 0.25).timeout
 	get_viewport().get_texture().get_image().save_png(path.get_basename() + "_festa.png")
-	main.hud.show_act_end()
+	main.hud.show_act_end(act)
 	await get_tree().create_timer(1.0).timeout
 	get_viewport().get_texture().get_image().save_png(path)
 	get_tree().quit()
@@ -1909,11 +1998,21 @@ func _bag_shot(path: String) -> void:
 		Sim.player.add_item("iron_ore", 1)                  # item do jogador: reconstrói e mantém a rolagem
 		await get_tree().create_timer(0.3).timeout
 		print("CRAFT_CHECK start=%d after_bots=%d after_rebuild=%d" % [at0, at1, main.hud.npc_ui._scroll.scroll_vertical])
-	if DevArgs.has("--enhance"):          # ferreiro: aprimorar; arma +9 e peito +5 para ver o brilho
+	if DevArgs.has("--enhance") or DevArgs.flag("--enhance"):          # ferreiro: aprimorar; arma +9 e peito +5 para ver o brilho (--enhance=dwarf_smith: Thrain e lendário 40+)
 		var pp := Sim.player
+		var smith_id := DevArgs.value("--enhance")
+		smith_id = smith_id if smith_id != "" else "smith"
 		pp.gold = 5000
 		pp.add_item("iron_ore", 30)
 		pp.add_item("star_ore", 6)
+		if smith_id in Balance.PLUS_KHARZUN_SMITHS:
+			pp.gold = 200000
+			pp.add_item(Balance.PLUS_KHARZUN_STEEL, 20)
+			pp.add_item(Balance.PLUS_KHARZUN_EMBER, 4)
+			var lp: Array = GameData.legendary_pool(pp.class_def, Balance.PLUS_KHARZUN_LEVEL)
+			if not lp.is_empty():                # vestido: aparece no topo da lista (o +N vem do laço abaixo)
+				var li: ItemDef = GameData.items[lp[0]]
+				pp.equipment[li.slot] = li
 		for sl in pp.equipment:
 			var eit: ItemDef = pp.equipment[sl]
 			if eit:
@@ -1926,7 +2025,7 @@ func _bag_shot(path: String) -> void:
 			main.hud.root.visible = false
 			await get_tree().create_timer(0.8).timeout
 		else:
-			main.hud.npc_ui.open("smith")
+			main.hud.npc_ui.open(smith_id)
 			main.hud.npc_ui.mode = "enhance"
 			main.hud.npc_ui._rebuild()
 	if DevArgs.has("--shop"):             # loja do mercador com a bolsa de amostra (revisar compra/venda)
@@ -1953,6 +2052,9 @@ func _bag_shot(path: String) -> void:
 		main.hud.npc_ui.open("storage")
 		main.hud.npc_ui.mode = "storage"
 		main.hud.npc_ui._rebuild()
+	if DevArgs.has("--mount_keeper"):     # tratadora de montarias (Kharzun): --quests=hx_ov_hatch libera o lobo, --mount_kind=dire_wolf já o escolhe
+		main.hud.windows_script.close_all()
+		main.hud.npc_ui.open(Balance.MOUNT_KEEPER_NPCS[0])
 	await get_tree().create_timer(1.0).timeout
 	if DevArgs.has("--relic_end"):        # Relicária rolada até o fim (híbridos 35/40 ficam embaixo)
 		for sc in main.hud.npc_ui.win.find_children("*", "ScrollContainer", true, false):
@@ -2336,3 +2438,122 @@ func _smoke_party(p: SimEntity) -> void:
 	main.hud.windows_script.toggle("party")
 	main.hud.windows_script.close("party")
 	print("SMOKE party: %d membros, líder=%s" % [Sim.party_members(p).size(), Sim.party_leader(p).name])
+
+## --sig_shot=<pasta> [--boss=<id>,...]: aviso de cada assinatura de chefe (GDD act2-boss-signatures) visto da câmera do jogo.
+## Leva o jogador (imortal) ao chefe, dois aliados parados ao lado, lança a assinatura e fotografa no meio do aviso.
+const BOSS_SIG_SHOTS := {"boss_tide_mother": ["mob_tide_flood", 1.9, 30.0], "boss_agitator_lord": ["mob_drum_frenzy", 2.4, 20.0],
+	"boss_troll_king": ["mob_troll_avalanche", 1.4, 30.0], "boss_crossbow_master": ["mob_marksman_brand", 2.2, 20.0],
+	"boss_ghar": ["mob_ghar_wall", 1.2, 18.0], "boss_dire_mother": ["mob_dire_pounce", 0.45, 20.0],
+	"boss_shazka": ["mob_shazka_twins", 2.7, 20.0], "boss_ulgra": ["mob_ulgra_stampede", 1.7, 30.0], "boss_gorbash": ["mob_gorbash_waves", 2.2, 30.0],
+	"boss_kragmar": ["mob_kragmar_temper", 4.6, 22.0], "boss_durgash": ["mob_durgash_throneaxe", 3.0, 22.0]}
+
+func _sig_shot(dir: String) -> void:
+	DirAccess.make_dir_recursive_absolute(dir)
+	var only := DevArgs.value("--boss")
+	var p: SimEntity = Sim.player
+	p.brain = null
+	var shots: Dictionary = BOSS_SIG_SHOTS.duplicate()
+	# --sig_skill=<skill> [--sig_wait=<s>] [--sig_dist=<m>] [--sig_map=<mapa>] [--sig_burst=N]: filma qualquer skill de
+	# qualquer monstro (--boss=<monstro>); burst = N quadros seguidos a partir da espera (_1.._N)
+	if DevArgs.flag("--sig_skill"):
+		shots = {only: [DevArgs.value("--sig_skill"), float(DevArgs.value("--sig_wait", "0.45")), float(DevArgs.value("--sig_dist", "14"))]}
+	var want_map := DevArgs.value("--sig_map")
+	for bid in shots:
+		if only != "" and not bid in only.split(","):
+			continue
+		var map_id := ""
+		var home := Vector3.ZERO
+		for mid in GameData.maps:
+			if want_map != "" and mid != want_map:
+				continue
+			for sp in GameData.maps[mid].spawners:
+				if sp["monster_id"] == bid and map_id == "":
+					map_id = mid
+					home = sp["pos"]
+		if map_id == "":
+			push_error("SIG_SHOT: %s sem spawner" % bid)
+			continue
+		Sim.sync()
+		Sim._change_map(p, map_id, home + Vector3(7, 0, 0))
+		var arrive := Time.get_ticks_msec() + 2000
+		while Time.get_ticks_msec() < arrive:      # chegada: imortal antes da escolta do chefe chegar
+			Sim.sync()
+			p.iframe_left = 1.0
+			p.stats.max_hp = 1.0e9
+			p.hp = 1.0e9
+			await get_tree().process_frame
+		Sim.sync()
+		var boss: SimEntity = null
+		for e: SimEntity in Sim.maps[map_id]["entities"]:
+			if e.monster_def != null and e.monster_def.id == bid and e.is_alive():
+				boss = e
+		if boss == null and bid == "boss_durgash":         # o spawner do trono tem condição (os três clãs): põe direto
+			boss = Sim.spawn_monster(GameData.monsters[bid], map_id, home)
+		if boss == null:
+			push_error("SIG_SHOT: %s não nasceu em %s" % [bid, map_id])
+			continue
+		var keep_brain = boss.brain
+		boss.brain = null
+		p.stats.max_hp = 1.0e9
+		p.hp = 1.0e9
+		p.position = boss.position + Vector3(0, 0, 3.0)
+		var allies: Array = []
+		for i in 2:
+			var b: SimEntity = Sim.spawn_bot(GameData.classes[["paladin", "bishop"][i]], "Aliado %d" % i, map_id, boss.position + Vector3(-3.0 + 6.0 * i, 0, -3.5), boss.level)
+			b.brain = null
+			b.stats.max_hp = 1.0e9
+			b.hp = 1.0e9
+			allies.append(b)
+		boss.aggro_target = p.id
+		p.last_target_id = boss.id            # como em luta: o anel creme do alvo fica sob o chefe
+		boss.crowd = 3
+		boss.face_towards(p.position)
+		main.camera.distance = float(shots[bid][2])
+		await get_tree().create_timer(1.0).timeout
+		Sim.sync()
+		var s: SkillDef = GameData.skills[shots[bid][0]]
+		Sim._add_skills(boss, [s.id])
+		if bid == "boss_troll_king":
+			for i in 2:                       # chuva de pedras antes: pedregulhos no chão
+				BossSignatures.add_cover(Sim, Sim.maps[map_id], boss, boss.position + Vector3(6.0 * (1 - 2 * i), 0, 4.0))
+		Sim._start_skill(boss, s, boss.skills.find(s), p.position if bid != "boss_dire_mother" else p.position + Vector3(0, 0, 5))
+		if bid == "boss_dire_mother":
+			p.position = boss.position + Vector3(0, 0, 8)
+		var wait_end := Time.get_ticks_msec() + int(float(shots[bid][1]) * 1000.0)
+		while Time.get_ticks_msec() < wait_end:
+			Sim.sync()
+			p.iframe_left = 1.0
+			if bid == "boss_kragmar" and BossSignatures.in_empower_pool(Sim.maps[map_id], boss):
+				if boss.buff_stacks(BossSignatures.TEMPER_BUFF) < 3:       # foto: já temperado (anel e brasas da Têmpera)
+					boss.put_buff({"id": BossSignatures.TEMPER_BUFF, "remaining": 1.0e9, "stacks": 3})
+					MobSystem._apply_fury(boss)
+			if bid == "boss_durgash":                       # Machado do Trono: o grupo junta na vítima (as vagas acendem)
+				for h in Sim.maps[map_id].get("hazards", []):
+					if str(h.get("mode", "")) == "soak" and not h.has("posed"):
+						h["posed"] = true
+						var c: Vector3 = h["pos"]
+						var k := 0
+						for o in [p] + allies:
+							if o.id != int(h["victim"]):
+								o.position = c + Vector3(1.2 * (k * 2 - 1), 0, 0.9)
+								k += 1
+			if bid == "boss_ghar" and boss.sig.has("wall") and int(boss.sig["wall"]["fury"]) < 4:
+				Sim._deal_damage(p, boss, 5, false, false, "physical")      # golpes de frente: fúria contida (pips)
+			await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		var path := dir.path_join("%s.png" % bid)
+		get_viewport().get_texture().get_image().save_png(path)
+		print("SIG_SHOT %s %s" % [bid, path])
+		for i in int(DevArgs.value("--sig_burst", "0")):        # quadros seguidos (golpe curto: impacto some em ~0,4 s)
+			Sim.sync()
+			p.iframe_left = 1.0
+			await RenderingServer.frame_post_draw
+			var bp := dir.path_join("%s_%d.png" % [bid, i + 1])
+			get_viewport().get_texture().get_image().save_png(bp)
+			print("SIG_SHOT %s %s" % [bid, bp])
+		Sim.sync()
+		for b in allies:
+			Sim.despawn(b)
+		Sim.reset_boss(boss)
+		boss.brain = keep_brain
+	get_tree().quit()

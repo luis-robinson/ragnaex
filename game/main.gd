@@ -143,7 +143,14 @@ func start_game(cls: ClassDef, char_name: String, load_save: bool, look: Diction
 	Sim.running = true
 	started = true
 	hud.on_game_started()
-	if preset > 1 and not load_save:
+	# boas-vindas: a de Aldara só no personagem novo (nasce na praça, nível 1); save carregado pode estar em qualquer
+	# mapa e nível. Partida de revisão (--autostart) não mostra (a foto vai a outro mapa/nível), salvo com --welcome
+	var review := SaveSystem.slot == -1 and DevArgs.any() and not DevArgs.has("--welcome")
+	if load_save:
+		Events.notification.emit("Bem-vindo de volta, %s!" % char_name)
+	elif review:
+		pass
+	elif preset > 1:
 		Events.notification.emit(str(StartCatalog.PRESETS.get(preset, {}).get("welcome", "Começo rápido (nível %d)." % p.level)))
 	else:
 		Events.notification.emit("Bem-vindo a Aldara, %s! Fale com o Ancião Ravi (F) para começar." % char_name)
@@ -161,6 +168,7 @@ func _process(delta: float) -> void:
 	if _cull_t <= 0.0:
 		_cull_t = 0.2
 		_cull_views()
+		NameplateCrowd.update(views, Sim.player, controller.aim_point if controller else Vector3.INF)     # matilha densa: nomes dos comuns somem
 	_follow_torch()
 	_autosave += delta
 	if _autosave > 60.0:

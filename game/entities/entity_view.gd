@@ -12,11 +12,16 @@ var kit: KitModel = null                # personagens/NPCs: kit modular com as p
 var form_view: FormModel = null
 var horse: FormModel = null              # montado: o cavalo (o boneco senta na sela)
 var _horse_kept: FormModel = null        # o mesmo cavalo volta a cada montada (criar um é caro)
+var _horse_kind := ""                     # tipo do bicho guardado (SimEntity.mount_kind)
 var _shown_mount := false
 var _ride_legs: RideLegs = null           # pernas presas na sela enquanto golpeia montado (Combate Montado)
 const HORSE_SCALE := 1.75
 const SADDLE_Y := 1.06                   # quanto o boneco sobe (sela do cavalo escalado − quadril do boneco)
 const HORSE_COATS := [Color(0.55, 0.38, 0.24), Color(0.25, 0.18, 0.14), Color(0.9, 0.88, 0.84), Color(0.7, 0.45, 0.25), Color(0.5, 0.5, 0.52), Color(0.85, 0.7, 0.45)]         # Druida transformado: o bicho (o kit fica escondido)
+## Lobo atroz (Kharzun, hx_ov_hatch): pelagens cinzentas (cinza-chumbo, cinza-cinza, quase preto, prata, cinza-pardo)
+const WOLF_COATS := [Color(0.56, 0.56, 0.6), Color(0.68, 0.67, 0.66), Color(0.36, 0.36, 0.4), Color(0.82, 0.83, 0.86), Color(0.6, 0.57, 0.53)]
+## Modelo e pelagens por tipo de montaria (SimEntity.mount_kind, Balance.MOUNT_KINDS)
+const MOUNT_LOOKS := {"horse": ["mob_horse", HORSE_COATS], "dire_wolf": ["mob_dire_wolf_mount", WOLF_COATS]}
 const FORM_SCALE := {"wolf": 1.15, "bear": 1.4, "demon": 1.3, "lich": 1.2,     # o bicho do druida é maior que o lobo comum
 	"ent": 1.2, "alpha": 1.4, "bird": 1.3}                         # formas ancestrais (ascensão do Druida)
 var _fly := 0.0                      # Pássaro Arcano: altura do voo no desenho (a sim é plana)
@@ -82,6 +87,8 @@ func setup(e: SimEntity, is_player: bool) -> void:
 	_smooth_pos = e.position
 	_base_scale = e.scale
 	_build_model()
+	if e.monster_def and e.monster_def.decoy:
+		_decoy_look()
 	_build_ui()
 	if e.monster_def and e.monster_def.elite_of != "":
 		_add_crown()
@@ -131,7 +138,7 @@ func _build_model() -> void:
 		anim = _find_anim(inst)
 		if anim:
 			# glTF chega sem loop; ciclos contínuos precisam de LOOP_LINEAR (recurso compartilhado, basta 1x)
-			for a in ["idle", "run", "block", "block_shield"]:
+			for a in ["idle", "run", "block", "block_shield", "guard_wall"]:
 				if anim.has_animation(a):
 					anim.get_animation(a).loop_mode = Animation.LOOP_LINEAR
 		_apply_toon_recursive(inst)
@@ -141,6 +148,28 @@ func _build_model() -> void:
 		model_root.scale = Vector3.ONE * _base_scale
 		return
 	_build_placeholder()
+
+## Cópia do Shazka (Sombras Gêmeas, R-F): clone de sombra de propósito, não falha de desenho: pele puxada para roxo
+## escuro (uniform `status` do toon, que fica de base quando não há estado), borda roxa (buff_rim estilo 0),
+## sólida (com transparência virava silhueta preta) e sem sombra projetada; a fumaça embaixo vem da BossSigView. O verdadeiro é o único com sombra no chão.
+# cópia do Shazka: cor, borda, mistura e brilho em Balance.SHAZKA_DECOY_*
+var _decoy := false
+
+## Cor de estado da cópia: roxo médio (TINT + borda), força do TINT.
+static func decoy_status() -> Color:
+	var c: Color = Balance.SHAZKA_DECOY_TINT.lerp(Balance.SHAZKA_DECOY_RIM, Balance.SHAZKA_DECOY_RIM_MIX)
+	return Color(c.r, c.g, c.b, Balance.SHAZKA_DECOY_TINT.a)
+
+func _decoy_look() -> void:
+	_decoy = true
+	_last_status = Color(-1, -1, -1, -1)                 # o laço de estados aplica SHAZKA_DECOY_TINT no próximo quadro
+	for n in model_root.find_children("*", "GeometryInstance3D", true, false):
+		var g := n as GeometryInstance3D
+		g.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF      # sólida: com `transparency` o toon ia para a passada
+		# transparente e a cópia virava silhueta preta; quem diz "cópia" é a pele roxa
+	set_buff_rim(Balance.SHAZKA_DECOY_RIM, 0)
+	for m in (_mats if not _mats.is_empty() else ([mat] if mat else [])):
+		(m as ShaderMaterial).set_shader_parameter("emission_amount", maxf(Balance.SHAZKA_DECOY_GLOW, float((m as ShaderMaterial).get_shader_parameter("emission_amount"))))
 
 ## Vida dos mapas: NPC com `carry` (MapsCatalog.LIVING_NPCS) leva a carga no ombro ou puxa a carroça. O prop tem tamanho
 ## real e segue o boneco; CarryPose segura os braços. Só apresentação.
@@ -271,6 +300,34 @@ static func monster_tint(mdef: MonsterDef, col: Color, mat_name: String) -> Colo
 	var v := clampf(col.v * (mdef.color.v / maxf(0.05, base.color.v)), 0.0, 1.0)
 	return Color.from_hsv(mdef.color.h, lerpf(col.s, mdef.color.s, 0.75), v, col.a)
 
+## Brilho de peça de modelo (.glb): material com emissão de verdade (energia > GLOW_MIN_ENERGY, cor não preta) ou nome `glow_*`.
+## O m_white e os corpos de elemental exportam emissão 1,0 só para clarear: ficam de fora. Devolve o emission_amount do toon
+## (0 = sem brilho), em degraus de GLOW_STEP para peças parecidas dividirem a superfície na fusão (RigidMerge.mat_key).
+const GLOW_MIN_ENERGY := 1.05
+const GLOW_SCALE := 0.6         # energia do Blender (2,2-3,0) -> emission_amount do toon (1,25-1,75; o bloom começa em 1,0)
+const GLOW_MAX := 1.75
+const GLOW_STEP := 0.25
+const GLOW_NAMED := 1.5         # `glow_*` sem emissão: como os props do mapa (Materials.glow 1,5)
+
+static func mob_glow(base: Material) -> float:
+	if not (base is BaseMaterial3D):
+		return 0.0
+	var bm := base as BaseMaterial3D
+	var e := 0.0
+	if bm.emission_enabled and bm.emission_energy_multiplier > GLOW_MIN_ENERGY and bm.emission.get_luminance() > 0.02:
+		e = bm.emission_energy_multiplier * GLOW_SCALE
+	elif bm.resource_name.begins_with("glow_"):
+		e = GLOW_NAMED
+	if e <= 0.0:
+		return 0.0
+	return clampf(snappedf(e, GLOW_STEP), GLOW_STEP, GLOW_MAX)
+
+## Cor da peça que brilha: a da emissão (ou do albedo) de volta ao tom do Blender, como o MapBuilder faz com `glow_*`.
+static func glow_color(base: Material) -> Color:
+	var bm := base as BaseMaterial3D
+	var c := bm.emission if bm.emission_enabled and bm.emission.get_luminance() > 0.02 else bm.albedo_color
+	return c.srgb_to_linear()
+
 func _apply_toon_recursive(n: Node) -> void:
 	if n is MeshInstance3D:
 		var mi := n as MeshInstance3D
@@ -283,7 +340,12 @@ func _apply_toon_recursive(n: Node) -> void:
 				col = monster_tint(entity.monster_def, col, base.resource_name if base else "")
 			elif entity and entity.kind == SimEntity.Kind.NPC and base and base.resource_name.ends_with("_cloth"):
 				col = Color(entity.npc_data.get("color", col))       # cidadão de modelo próprio: roupa na cor dele
+			var glow := mob_glow(base)
+			if glow > 0.0:
+				col = glow_color(base)      # brasa/runa/olho: o tom do Blender (o import clareia), sem tingir pela variante
 			var tm := Materials.toon_unique(col)
+			if glow > 0.0:
+				tm.set_shader_parameter("emission_amount", glow)
 			if base is BaseMaterial3D and base.albedo_texture:
 				tm.set_shader_parameter("albedo_tex", base.albedo_texture)
 			mi.set_surface_override_material(i, tm)
@@ -590,16 +652,36 @@ func _quad(w: float, h: float, color: Color, layer: int = 0) -> MeshInstance3D:
 	mi.material_override = m
 	return mi
 
+## "Mestre Paladino · " quando o personagem tem título de honra (SimEntity.honor_title).
+func _honor_prefix() -> String:
+	var t := entity.honor_title()
+	return (t + " · ") if t != "" else ""
+
+## Matilha densa (NameplateCrowd): esconde só o nome, a barra fica. Só escreve na troca (fotos de revisão escondem nomes por conta própria).
+var crowd_hidden := false
+func set_crowd_hidden(h: bool) -> void:
+	if h == crowd_hidden or nameplate == null:
+		return
+	crowd_hidden = h
+	nameplate.visible = not h and not dev_name_hidden
+
+## Foto de revisão (dev_runner) escondeu o nome: a passada da matilha não o mostra de volta (revisão m8). Só dev.
+var dev_name_hidden := false
+func hide_name_dev() -> void:
+	dev_name_hidden = true
+	if nameplate:
+		nameplate.visible = false
+
 func _refresh_nameplate() -> void:
 	var txt := entity.name
 	var col := Color.WHITE
 	match entity.kind:
 		SimEntity.Kind.PLAYER:
 			col = Color(1, 0.95, 0.6)
-			txt = "%s\n%s" % [entity.name, entity.display_title()]
+			txt = "%s\n%s" % [entity.name, _honor_prefix() + entity.display_title()]
 		SimEntity.Kind.BOT:
 			col = Color(0.55, 1.0, 0.6) if _is_party_mate() else Color(0.75, 0.9, 1.0)
-			txt = "%s\n%s" % [entity.name, entity.display_title()]
+			txt = "%s\n%s" % [entity.name, _honor_prefix() + entity.display_title()]
 		SimEntity.Kind.MONSTER:
 			col = level_color(entity.level, Sim.player.level if Sim.player else entity.level) if not entity.monster_def.is_boss else Color(1, 0.8, 0.3)
 			txt = "%s %s" % [entity.name, entity.display_title()]
@@ -669,14 +751,21 @@ func _swap_mount() -> void:
 	kit.transform = Transform3D.IDENTITY
 	if not _shown_mount:
 		return
+	var look: Array = MOUNT_LOOKS.get(entity.mount_kind, MOUNT_LOOKS["horse"])
+	if _horse_kept != null and _horse_kind != entity.mount_kind:      # trocou de bicho no tratador: o guardado sai
+		_horse_kept.queue_free()
+		_horse_kept = null
 	if _horse_kept == null:
-		_horse_kept = FormModel.create_from("res://assets/models/mob_horse.glb")
+		var mount_model: String = DevArgs.value("--mount_model", look[0])      # revisão: --mount_model=<modelo> força outro bicho
+		_horse_kept = FormModel.create_from("res://assets/models/%s.glb" % mount_model)
 		if _horse_kept == null:
 			return
+		_horse_kind = entity.mount_kind
 		_horse_kept.scale = Vector3.ONE * HORSE_SCALE / maxf(_base_scale, 0.01)
 		# o bicho já olha para +Z (frente do boneco)
-		_horse_kept.paint(HORSE_COATS[entity.id % HORSE_COATS.size()])
-		RigidMerge.merge(_horse_kept, "mob_horse")
+		var coats: Array = look[1]
+		_horse_kept.paint(coats[entity.id % coats.size()])
+		RigidMerge.merge(_horse_kept, mount_model)
 		model_root.add_child(_horse_kept)
 	horse = _horse_kept
 	horse.visible = true
@@ -891,6 +980,7 @@ func _anim_lod(delta: float) -> void:
 		anim.advance(_anim_acc)
 		_anim_acc = 0.0          # --perf: soma do tempo de _process de todos os bonecos
 
+var _np_q := -1                      # missões concluídas (título de honra)
 var _np_lv := -1                     # o que a placa de nome mostra (refaz o texto só quando muda)
 var _np_ally := false
 var _np_plv := -1
@@ -1023,7 +1113,9 @@ func _process_view(delta: float) -> void:
 		buff_aura.update(delta)
 	var ally := _is_party_mate()
 	var plv: int = Sim.player.level if Sim.player else 0
-	if entity.level != _np_lv or ally != _np_ally or plv != _np_plv:     # campos, não meta (3 buscas por boneco por quadro)
+	var nq: int = entity.quests_completed.size()          # missão nova pode dar título de honra
+	if entity.level != _np_lv or ally != _np_ally or plv != _np_plv or nq != _np_q:     # campos, não meta (3 buscas por boneco por quadro)
+		_np_q = nq
 		_np_plv = plv
 		_np_lv = entity.level
 		_np_ally = ally
@@ -1085,7 +1177,9 @@ func _update_status() -> void:
 		if chill > 0:
 			(_chill_fx.material_override as StandardMaterial3D).albedo_color.a = 0.4 if chill == 1 else 0.75
 	var st := Color(0, 0, 0, 0)
-	if chill > 0:
+	if _decoy:
+		st = decoy_status()          # a cópia é sempre roxa: veneno/fogo/gelo/maldição não trocam a pele dela
+	elif chill > 0:
 		st = Color(0.55, 0.85, 1.0, 0.35 if chill == 1 else 0.55)
 	elif burning:
 		st = Color(1.0, 0.45, 0.12, 0.22 + 0.12 * sin(Time.get_ticks_msec() * 0.018))
@@ -1103,6 +1197,9 @@ func _update_status() -> void:
 
 ## Borda/padrão de buff na pele (BuffAura): uniform buff_rim do toon em todos os materiais do boneco.
 func set_buff_rim(c: Color, style: int) -> void:
+	if _decoy and c.a < Balance.SHAZKA_DECOY_RIM.a:      # buff que acaba (BuffAura manda 0) não apaga a borda roxa da cópia
+		c = Balance.SHAZKA_DECOY_RIM
+		style = 0
 	_rim_shown = c
 	_rim_style_shown = style
 	if not _mats.is_empty():
@@ -1402,7 +1499,9 @@ const IMPACT_FRAME := {"maul": 7, "pounce": 9, "slam": 8, "roar": 7, "brace": 6,
 	"cast_ground": 10, "cast_channel": 14, "cast_target": 8, "atk_leap": 12, "atk_charge": 5, "atk_throw": 7,
 	"atk_shoot_multi": 8, "summon": 11, "atk_pistol": 6, "atk_slash_shot": 9, "atk_sweep": 8, "atk_finisher": 10, "atk_flurry": 5, "atk_claw": 6, "shout": 7,
 	"cast_fire": 8, "cast_ice": 8, "cast_bolt": 7, "cast_holy": 8, "cast_shadow": 8, "cast_nature": 9,
-	"buff_power": 7, "buff_guard": 6, "buff_focus": 8}
+	"buff_power": 7, "buff_guard": 6, "buff_focus": 8, "wall_counter": 10}
+## clipes só de modelo de monstro (não existem nos kits): wall_counter = contragolpe da Muralha (mob_ghar)
+const MOB_ONLY_CLIPS := {"wall_counter": "mob_ghar"}
 const RUN_REF_SPEED := 5.2            # m/s em que o ciclo "run" do kit casa com o chão
 const TWO_HANDED_MELEE := ["sword2h", "mace2h", "axe2h", "scythe"]
 var manual_anim := false             # combat_probe: animação andada à mão, quadro a quadro
@@ -1412,6 +1511,27 @@ var _act_time := 0.0
 var _combo := 0                       # alterna golpe A/B (combo de 2) e mão direita/esquerda
 var _act_speed := 1.0                 # velocidade do clipe na preparação
 var _retimed := false                 # depois do impacto o resto do clipe cabe no resto da skill
+var _sig_hold := 0.0                  # s que o clipe de assinatura (contragolpe da Muralha) ainda segura antes de voltar ao idle
+
+## Muralha de Escudos do Ghar (mob_ghar): enquanto ela dura, guard_wall no lugar de idle/corrida/guarda; no fim, o
+## wall_counter uma vez, alinhado ao início do contragolpe da sim (o golpe cai no quadro IMPACT_FRAME, Balance.GHAR_COUNTER_DELAY).
+func _sig_base(base: String) -> String:
+	_sig_hold = maxf(0.0, _sig_hold - _dt)
+	if not base in ["idle", "run", "block"] or entity.kind != SimEntity.Kind.MONSTER:
+		_sig_hold = 0.0
+		return base
+	if not entity.sig.is_empty() and entity.sig.has("counter") and _clip("wall_counter") != "":
+		if anim.current_animation != "wall_counter":
+			_play("wall_counter", 0.06)
+			anim.seek(clampf(Sim.time - float(entity.sig["counter"].get("start", Sim.time)), 0.0, 0.3), true)
+			_sig_hold = anim.current_animation_length - anim.current_animation_position
+		return "wall_counter"
+	if _sig_hold > 0.0 and anim.current_animation == "wall_counter" and anim.is_playing() and base != "run":
+		return "wall_counter"                 # resto do golpe (acomodação) antes do idle
+	_sig_hold = 0.0
+	if not entity.sig.is_empty() and entity.sig.has("wall") and _clip("guard_wall") != "":
+		return "guard_wall"
+	return base
 
 ## Clip de golpe/magia para a skill: primeiro pela FORMA da skill (salto, investida, arremesso, magia no chão,
 ## canalizada, no alvo, invocação, leque de flechas), depois pela família da arma empunhada.
@@ -1718,6 +1838,7 @@ func _animate_glb(st: int) -> void:
 			if _flinch > 0.0 and _clip("hit") != "":
 				base = "hit"
 		SimEntity.State.DEAD: base = "die"
+	base = _sig_base(base)
 	var want := _clip(base)
 	# idle próprio da arma: arco baixo na mão esquerda, cajado/varinha/foice em pé
 	if base == "idle":

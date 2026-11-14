@@ -250,6 +250,9 @@ static func _ground(def: MapDef) -> Node3D:
 	return n
 
 ## Grama e flores espalhadas por ruído (manchas), longe de obstáculos, caminhos e portais.
+## Zonas de rocha e cinza (Kharzun): quase sem grama (fração da densidade normal).
+const BARREN_GRASS := {"field_kharzun": 0.12}
+
 static func _grass(def: MapDef) -> Node3D:
 	var n := Node3D.new()
 	n.name = "Grass"
@@ -264,6 +267,7 @@ static func _grass(def: MapDef) -> Node3D:
 	var mask := _zone_mask(def) if not def.roads.is_empty() else {}
 	if not mask.is_empty():
 		density = 0.62
+	density *= float(BARREN_GRASS.get(def.id, 1.0))
 	var count := int(def.size.x * def.size.y * density)
 	var blocked := func(p: Vector3) -> bool:
 		if not mask.is_empty():
@@ -337,6 +341,8 @@ static func _zone_mask(def: MapDef) -> Dictionary:
 				for k in range(steps + 1):
 					var q := pts[i] + seg * (float(k) / steps)
 					mark.call(q.x, q.y, half_w)
+			if l.get("kind", "") == "road" and pts.size() > 1 and _ends_at_portal(def, pts[-1]):
+				_mask_portal_end(mark, pts, float(l.get("w", 4.0)))
 		elif l.get("kind", "") == "lake":
 			var lp: Vector2 = l["pos"]
 			mark.call(lp.x, lp.y, float(l["r"]) + float(l.get("shore", 2.2)))     # mar: a praia toda sem grama
@@ -348,6 +354,32 @@ static func _zone_mask(def: MapDef) -> Dictionary:
 		mark.call(op.x, op.z, minf(maxf(sz.x, sz.z) * 0.5 + 0.3, 14.0))
 	return {"cells": cells, "w": w, "d": d, "h": h, "town_c": def.town_center, "town_r": def.town_radius + 1.5,
 		"rim": _rim_radius(def)}
+
+## Estrada que acaba num portal (até 6 m dele: a mesma regra do build_<zona>.py).
+static func _ends_at_portal(def: MapDef, end: Vector2) -> bool:
+	for pt in def.portals:
+		var pp: Vector3 = pt["pos"]
+		if Vector2(pp.x - end.x, pp.z - end.y).length() <= 6.0:
+			return true
+	return false
+
+## Fim de estrada no portal: no Blender só a MALHA ondula (largura +16%, desvio 0,5 m nos últimos ~43 m) e ganha um
+## terreiro de terra (raio ~0,95 w com borda irregular + borrão de lado); a polilinha da sim não muda. Sem isto a grama
+## nascia na parte larga e no terreiro, e a ponta da estrada parecia rala, com capim por cima.
+const PORTAL_ROAD_TAIL := 43.0
+static func _mask_portal_end(mark: Callable, pts: PackedVector2Array, w: float) -> void:
+	var half_w := w * 0.5 * 1.16 + 0.5 + 0.4
+	var left := PORTAL_ROAD_TAIL
+	var i := pts.size() - 1
+	while i > 0 and left > 0.0:
+		var seg := pts[i - 1] - pts[i]
+		var steps := maxi(1, int(seg.length() / 0.8))
+		for k in range(steps + 1):
+			var q := pts[i] + seg * (float(k) / steps)
+			mark.call(q.x, q.y, half_w)
+		left -= seg.length()
+		i -= 1
+	mark.call(pts[-1].x, pts[-1].y, w * 1.25)
 
 ## Raio aproximado do andável (o anel de penhascos vem como obstáculos "cliff").
 static func _rim_radius(def: MapDef) -> float:
@@ -385,6 +417,21 @@ static func _vcol_material(outline: bool) -> ShaderMaterial:
 
 static var _water: WaterFx = null        # água do mapa em construção (materiais + margem)
 
+static var _cloth_mats := {}
+const CLOTH_BAND_SOFT := 0.3            # pano (bandeira/estandarte): terminador bem largo, as dobras do Blender viram degradê
+const CLOTH_SHADOW := 0.55              # pano: sombra um pouco mais funda que o toon comum (dobra lê de cima)
+
+## Toon do pano das bandeiras (`pano_*`, `bandeira_*` do horde.cloth): com o terminador estreito do toon as dobras
+## (±35°) caíam todas no mesmo tom e a bandeira lia como placa chapada; aqui a transição é larga.
+static func _cloth_material(c: Color) -> ShaderMaterial:
+	var key := c.to_html()
+	if not _cloth_mats.has(key):
+		var m: ShaderMaterial = Materials.toon(c).duplicate()
+		m.set_shader_parameter("band_softness", CLOTH_BAND_SOFT)
+		m.set_shader_parameter("shadow_strength", CLOTH_SHADOW)
+		_cloth_mats[key] = m
+	return _cloth_mats[key]
+
 ## Troca os materiais do GLB da zona pelos do jogo (toon, chão de terra/paralelepípedo, água).
 static func _zone_materials(node: Node, def: MapDef) -> void:
 	if node is MeshInstance3D:
@@ -417,6 +464,9 @@ static func _zone_materials(node: Node, def: MapDef) -> void:
 				mi.set_surface_override_material(i, Materials.glow(base.srgb_to_linear(), 1.5))
 				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				continue
+			if mname.begins_with("pano_") or mname.begins_with("bandeira_"):     # pano dobrado (horde.cloth): degradê nas dobras
+				mi.set_surface_override_material(i, _cloth_material(base))
+				continue
 			if _water != null and WaterFx.is_water(mname):      # água: shader próprio (ondas, margem, espuma)
 				var wbase := base if (mname == "water" or mname == "water_dark" or mname.begins_with("agua_")) else base.srgb_to_linear()
 				mi.set_surface_override_material(i, _water.material_for(mname, wbase))
@@ -426,7 +476,11 @@ static func _zone_materials(node: Node, def: MapDef) -> void:
 				continue
 			match mname:
 				"road":
-					mat = _ground_material(_dirt_color(def).lightened(0.08), _dirt_color(def), _dirt_color(def).darkened(0.1), 0.0, 3.0)
+					if _blender_road(def):      # zona aberta: a cor da estrada do Blender (como os patch_), terra firme
+						var rc := base.srgb_to_linear()
+						mat = _ground_material(rc.lightened(0.05), rc.darkened(0.05), rc.darkened(0.12), 0.0, 3.0)
+					else:
+						mat = _ground_material(_dirt_color(def).lightened(0.08), _dirt_color(def), _dirt_color(def).darkened(0.1), 0.0, 3.0)
 					mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				"street":
 					mat = _ground_material(Color(0.74, 0.7, 0.62), Color(0.68, 0.64, 0.56), Color(0.6, 0.55, 0.47), 0.0, 5.0, 1.0, 0.9, Color(0.8, 0.77, 0.7))
@@ -466,6 +520,11 @@ static func _zone_materials(node: Node, def: MapDef) -> void:
 			mi.set_surface_override_material(i, mat)
 	for c in node.get_children():
 		_zone_materials(c, def)
+
+## Estrada na cor do Blender: zonas abertas (vales, cidades). Dungeons, fortalezas e cidadelas seguem com a terra
+## derivada do chão (`_dirt_color`): lá o material `road` é piso de pátio/corredor.
+static func _blender_road(def: MapDef) -> bool:
+	return not is_dungeon(def) and not def.id.begins_with("fort_") and not def.id.ends_with("_citadel")
 
 static func _multimesh(mesh: Mesh, material: Material, xforms: Array, colors: Array) -> MultiMeshInstance3D:
 	var mm := MultiMesh.new()
@@ -583,6 +642,10 @@ static var _moss := Color(0.45, 0.62, 0.34)
 ## Lona da barraca: a cor do obstáculo clareada (lados) e um tom mais escuro no fundo.
 static func tent_cloth(c: Color, back: bool) -> Color:
 	return c.darkened(0.18) if back else c.lightened(0.25)
+
+## Público: instancia prop_<kind>.glb no tamanho `size` (toon + contorno), ou null sem o modelo (BossSigView usa).
+static func prop_model(kind: String, size: Vector3, ob: Dictionary = {}) -> Node3D:
+	return _prop_model(kind, size, ob)
 
 ## Instancia assets/models/prop_<kind>.glb ajustado ao tamanho do obstáculo.
 ## Materiais com nome especial recebem as cores do MapDef: "tint" = cor do obstáculo, "roof" = cor do telhado.

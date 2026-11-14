@@ -404,6 +404,11 @@ func _character(body: VBoxContainer) -> void:
 	var il := UiKit.label(info + "  ·  quests %d" % p.quests_completed.size(), 12, UiKit.MUTED)
 	head.add_child(il)
 	_tip_on(il, "Função da classe · pontos de skill para gastar na teia (K)%s · quests completadas" % (" · pontos de ascensão" if Sim.has_ascension(p) else ""))
+	var honor := p.honor_title()
+	if honor != "":                  # título de honra (Prova 45): só fama, 0 poder
+		var tl := UiKit.label("Título: %s" % honor, 13, Color(1.0, 0.85, 0.45))
+		body.add_child(tl)
+		_tip_on(tl, "Título de honra ganho numa prova. Não muda atributos.")
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	body.add_child(row)
@@ -1351,10 +1356,10 @@ func _drop_skill(_at: Vector2, data: Variant, i: int) -> void:
 
 # ---------------------------------------------------------------------------
 var _quests_tab := "quests"         # "quests" (ativas/concluídas) | "roteiro" (guia de cada andar, docs/roteiro_*.md)
-var _roteiro_band := ""             # "1_10" | "10_20" | "20_30" | "30_35" | "35_40" (vazio: o do nível do personagem)
+var _roteiro_band := ""             # "1_10" | "10_20" | "20_30" | "30_35" | "35_40" | "40_45" (vazio: o do nível do personagem)
 ## [faixa, rótulo, nível em que a faixa começa]
 const ROTEIROS := [["1_10", "1-10 Aldara", 1], ["10_20", "10-20 Floresta", 10], ["20_30", "20-30 Bastião", 20],
-	["30_35", "30-35 Costa", 30], ["35_40", "35-40 Estepes", 35]]
+	["30_35", "30-35 Costa", 30], ["35_40", "35-40 Estepes", 35], ["40_45", "40-45 Kharzun", 40]]
 
 func _set_quests_tab(t: String) -> void:
 	_quests_tab = t

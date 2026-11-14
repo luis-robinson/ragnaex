@@ -114,6 +114,7 @@ func _toon(n: Node) -> void:
 			var col: Color = base.albedo_color if base is BaseMaterial3D else Color(0.8, 0.8, 0.8)
 			var tm := Materials.toon_unique(col)
 			tm.set_shader_parameter("paint", 1.0)
+			tm.set_shader_parameter("spec_strength", 0.0)     # bicho/montaria fosco (pelo, sem brilho de verniz)
 			if base is BaseMaterial3D and base.emission_enabled:
 				tm.set_shader_parameter("emission_amount", minf(base.emission_energy_multiplier, 2.0))
 			mi.set_surface_override_material(i, tm)

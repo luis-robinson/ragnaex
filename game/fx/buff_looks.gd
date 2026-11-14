@@ -37,7 +37,9 @@ const LOOKS := {
 	"shout_thunder": ["speed", "lightning"], "shout_thunder_ally": ["speed", "lightning"],
 	"sky_eyes": ["speed", "wind"],          # Olhos do Céu (Falcoeiro): o grupo corre mais e acerta a Presa
 	"pack": ["power", "nature"], "overload": ["power", "lightning"], "blood_instinct": ["power", "blood"], "black_flag": ["power", "fire"], "fist_fury": ["power", "blood"],
-	"horde_fury": ["power", "blood"], "war_cry": ["power", "blood"],
+	"horde_fury": ["power", "blood"], "war_cry": ["power", "blood"], "clan_wolf": ["speed", "blood"],
+	"mob_frenzy": ["power", "blood"], "boss_channel": ["power", "blood"], "boss_temper": ["power", "fire"],     # assinaturas de chefe
+	"ghar_wall": ["armor", "earth"],
 	"troll_regen": ["holy", "nature"],
 	"glory": ["power", "fire"],
 	"elem_ember": ["power", "fire"], "elem_fusion": ["power", "lightning"],
@@ -86,7 +88,12 @@ const SYSTEM_BUFFS := {
 	"boss_berserk": "MobSystem (chefe enlouquecido: berserk_after)",
 	"horde_fury": "AuraSystem.mob_aura (aura do Agitador nos monstros da Horda)",
 	"horde_dismay": "AuraSystem.on_mob_death (bando desanimado: Agitador morto)",
+	"clan_wolf": "AuraSystem.mob_aura (Estandarte do Clã do Lobo do Durgash: a Horda corre e golpeia mais rápido)",
 	"war_cry": "MobSystem.rally (grito de guerra do Guerreiro Orc / Ghar no bando da Horda)",
+	"boss_channel": "BossSignatures.channel_start (canal interrompível do chefe: Rufar da Turba)",
+	"mob_frenzy": "BossSignatures._channel_done (Frenesi da turba: o tambor tocou até o fim)",
+	"ghar_wall": "BossSignatures.wall_start (Muralha de Escudos do Ghar)",
+	"boss_temper": "BossSignatures._empower (Têmpera: chefe fortalecido dentro da poça)",
 	"troll_regen": "MobSystem.update_regen (troll regenerando: some quando queima ou está envenenado)",
 	"unhorsed": "MountedCombat (derrubado do cavalo: imune a controle)",
 	"arcane_ward": "MountedCombat.ward_tick (Asas Protetoras: redução de dano no grupo perto do Templário)",

@@ -58,9 +58,11 @@ func _rebuild() -> void:
 		keep = _scroll.scroll_vertical
 	if win:
 		win.queue_free()
-	win = UiKit.panel()
-	win.custom_minimum_size = Vector2(680, 320)
+	var compact := _is_compact()
+	win = UiKit.panel(Color(UiKit.BG, 0.97))     # quase opaco: placas de nome do mundo não vazam pelo painel
+	win.custom_minimum_size = Vector2(680, 0 if compact else 320)
 	add_child(win)
+	move_to_front()                            # acima dos avisos de item pego / dicas do HUD (irmãos no mesmo root)
 	var v := VBoxContainer.new()
 	win.add_child(v)
 	var header := HBoxContainer.new()
@@ -73,7 +75,7 @@ func _rebuild() -> void:
 	_scroll = scroll
 	_scroll_mode = mode
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.custom_minimum_size = Vector2(650, 340)
+	scroll.custom_minimum_size = Vector2(650, 0 if compact else 340)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	v.add_child(scroll)
 	var body := VBoxContainer.new()
@@ -88,8 +90,25 @@ func _rebuild() -> void:
 		"relic": _relic(body)
 	win.reset_size()
 	win.position = (get_viewport_rect().size - win.size) * 0.5
+	if compact:
+		win.modulate.a = 0.0                   # mede depois de um quadro (texto quebrado só tem altura com largura)
+		_fit_compact.call_deferred(win, scroll, body)
 	if keep > 0:
 		_restore_scroll.call_deferred(scroll, keep)
+
+## Diálogo curto (tratador de montarias): sem cartões de quest a janela fica do tamanho do conteúdo, até a altura
+## normal da lista (340); antes eram 680×470 fixos com 70% vazio.
+func _is_compact() -> bool:
+	return mode == "dialog" and npc_id in Balance.MOUNT_KEEPER_NPCS
+
+func _fit_compact(w: PanelContainer, scroll: ScrollContainer, body: VBoxContainer) -> void:
+	await get_tree().process_frame
+	if not is_instance_valid(w) or w != win:
+		return
+	scroll.custom_minimum_size.y = minf(body.get_combined_minimum_size().y, 340.0)
+	w.reset_size()
+	w.position = (get_viewport_rect().size - w.size) * 0.5
+	w.modulate.a = 1.0
 
 func _restore_scroll(scroll: ScrollContainer, v: int) -> void:
 	await get_tree().process_frame          # a lista nova só tem altura depois de um quadro
@@ -340,6 +359,10 @@ func _dialog(body: VBoxContainer) -> void:
 		cv.add_child(UiKit.button("Aceitar", func(): QuestSystem.accept(p, q); _rebuild(), 120))
 	# falas
 	var lines: Array = npc.get("dialog", [])
+	var after: Dictionary = npc.get("dialog_after", {})      # falas novas depois de uma missão (a última da lista que vale)
+	for qid in after:
+		if qid in p.quests_completed:
+			lines = after[qid]
 	if lines.size() > 0:
 		body.add_child(UiKit.hsep())
 		body.add_child(UiKit.para('"%s"' % lines[randi() % lines.size()], 13, Color(0.9, 0.9, 0.95)))
@@ -347,6 +370,17 @@ func _dialog(body: VBoxContainer) -> void:
 	body.add_child(UiKit.hsep())
 	var actions := HBoxContainer.new()
 	body.add_child(actions)
+	if npc_id in Balance.MOUNT_KEEPER_NPCS:     # tratador: troca a montaria (H) entre as liberadas
+		for o in mount_options(Sim, p):
+			var mk: String = o["kind"]
+			var mb := UiKit.button(o["text"], func(): pick_mount(Sim, p, mk); _rebuild(), 190)
+			mb.disabled = o["disabled"]
+			mb.tooltip_text = o["tip"]
+			actions.add_child(mb)
+			if o["locked"]:      # travado: o porquê fica à vista, não só na dica
+				var lock_note := UiKit.para("%s: %s" % [Balance.MOUNT_KINDS[mk]["name"], o["tip"]], 12, UiKit.MUTED)
+				body.add_child(lock_note)
+				body.move_child(lock_note, actions.get_index())
 	if npc_id in Balance.SKILL_RESET_NPCS:      # reset das skills: segundo clique confirma
 		var note := UiKit.para("Posso apagar o que você aprendeu: a árvore volta ao início e todos os %d pontos voltam para você distribuir de novo (os talentos de escolha ficam)." % ProgressionSystem.points_for_level(p.level), 12, UiKit.MUTED)
 		body.add_child(note)
@@ -469,6 +503,29 @@ func _shop_tab_has(it: ItemDef) -> bool:
 		"gear": return it.slot != ItemDef.Slot.NONE
 	return true
 
+## Botões do tratador de montarias (Balance.MOUNT_KEEPER_NPCS): um por tipo, na ordem de Balance.MOUNT_KINDS.
+## Cada um: {kind, text, disabled, locked, tip}; travado = missão não entregue, desligado também o que já está em uso.
+static func mount_options(sim: WorldSim, p: SimEntity) -> Array:
+	var out: Array = []
+	for kind in Balance.MOUNT_KINDS:
+		var mk: String = kind
+		var mname: String = Balance.MOUNT_KINDS[mk]["name"]
+		var free: bool = sim.mount_unlocked(p, mk)
+		var using: bool = p.mount_kind == mk
+		var text := "Em uso: %s" % mname if using else "Trocar para: %s" % mname
+		var tip := "A tecla H chama esta montaria."
+		if not free:
+			var qid: String = Balance.MOUNT_KINDS[mk]["quest"]
+			var qd: QuestDef = GameData.quests.get(qid)
+			text = "%s (travado)" % mname
+			tip = "Libera com a missão \"%s\"." % qd.title if qd else "Ainda não liberada."
+		out.append({"kind": mk, "text": text, "disabled": using or not free, "locked": not free, "tip": tip})
+	return out
+
+## Clique no botão do tratador: pede a troca à sim (ela recusa o que não está liberado).
+static func pick_mount(sim: WorldSim, p: SimEntity, kind: String) -> bool:
+	return sim.set_mount_kind(p, kind)
+
 static func _sellable(it: ItemDef) -> bool:
 	return it.price > 0 and it.type != ItemDef.Type.QUEST
 
@@ -540,6 +597,10 @@ func _enhance(body: VBoxContainer) -> void:
 	var p: SimEntity = Sim.player
 	win.custom_minimum_size = Vector2(760, 420)
 	body.add_child(UiKit.label("Ouro: %d   ·   Minério de Ferro: %d   ·   Minério Estelar: %d" % [p.gold, int(p.inventory.get("iron_ore", 0)), int(p.inventory.get("star_ore", 0))], 13, UiKit.GOLD))
+	if npc_id in Balance.PLUS_KHARZUN_SMITHS:     # Ferreiro Anão: lendário 40+ com Aço Anão (+1..+5) e Brasa de Kharzun (+6..+9)
+		body.add_child(UiKit.label("Aço Anão: %d   ·   Brasa de Kharzun: %d   ·   lendário %d+: Aço Anão até +%d, Brasa de Kharzun do +%d em diante" % [
+			int(p.inventory.get(Balance.PLUS_KHARZUN_STEEL, 0)), int(p.inventory.get(Balance.PLUS_KHARZUN_EMBER, 0)), Balance.PLUS_KHARZUN_LEVEL,
+			Balance.PLUS_STAR_FROM - 1, Balance.PLUS_STAR_FROM], 12, Color(1.0, 0.62, 0.35)))
 	body.add_child(UiKit.para("Sem chance de quebrar. Armadura: +%d%% de DEF e MDEF por nível; arma: +%d%% de ATK e MATK; e +%d%% dos atributos da peça. +%d brilha leve, +%d brilha forte. De +%d em diante pede Minério Estelar." % [
 		int(Balance.PLUS_ARMOR_PCT * 100), int(Balance.PLUS_WEAPON_PCT * 100), int(Balance.PLUS_ATTR_PCT * 100), Balance.PLUS_GLOW_LOW, Balance.PLUS_GLOW_HIGH, Balance.PLUS_STAR_FROM], 11, UiKit.MUTED))
 	var list: Array = []          # [item, onde, slot (-1 = bolsa)]
@@ -569,7 +630,7 @@ func _enhance(body: VBoxContainer) -> void:
 			continue
 		var c := Sim.enhance_cost(it, cur)
 		h.add_child(UiKit.label("%d ouro · %d %s" % [int(c["gold"]), int(c["count"]), GameData.items[c["item"]].name], 12, UiKit.TEXT))
-		var err := Sim.enhance_error(p, it.id, int(row[2]))
+		var err := Sim.enhance_error(p, it.id, int(row[2]), npc_id)
 		var b := UiKit.button("→ +%d" % (cur + 1), _do_enhance.bind(it.id, int(row[2])), 80)
 		b.disabled = err != ""
 		b.tooltip_text = err
@@ -578,7 +639,7 @@ func _enhance(body: VBoxContainer) -> void:
 	body.add_child(UiKit.button("← Voltar", func(): mode = "dialog"; _rebuild(), 100))
 
 func _do_enhance(item_id: String, slot: int) -> void:
-	if Sim.enhance(Sim.player, item_id, slot) != null:
+	if Sim.enhance(Sim.player, item_id, slot, npc_id) != null:
 		hud.windows_script.hide_tip()
 		_rebuild()
 

@@ -340,13 +340,15 @@ static func flash(root: Node, pos: Vector3, theme: String, energy: float = 3.0, 
 	tw.tween_callback(l.queue_free)
 
 ## Faixa no chão que corre do caster até o alcance, na largura real (onda/feixe sem projétil).
-static func wave(root: Node, origin: Vector3, dir: Vector3, length: float, width: float, theme: String, duration: float = 0.35) -> void:
+## `area_theme` (opcional) pinta a onda e a faixa no chão; as partículas ficam no `theme` (golpe de monstro: área carmim).
+static func wave(root: Node, origin: Vector3, dir: Vector3, length: float, width: float, theme: String, duration: float = 0.35, area_theme: String = "") -> void:
+	var at := area_theme if area_theme != "" else theme
 	var mi := MeshInstance3D.new()
 	var bm := BoxMesh.new()
 	bm.size = Vector3(width, 0.5, 1.2)
 	mi.mesh = bm
-	var m := _mat(col(theme, 1))
-	m.albedo_color = Color(col(theme, 1), 0.75)
+	var m := _mat(col(at, 1))
+	m.albedo_color = Color(col(at, 1), 0.75)
 	mi.material_override = m
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mi.position = origin + dir * 0.6 + Vector3(0, 0.45, 0)
@@ -357,7 +359,7 @@ static func wave(root: Node, origin: Vector3, dir: Vector3, length: float, width
 	tw.tween_property(mi, "position", origin + dir * length + Vector3(0, 0.45, 0), duration).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	tw.tween_property(m, "albedo_color:a", 0.0, duration).set_delay(duration * 0.5)
 	tw.chain().tween_callback(mi.queue_free)
-	decal_line(root, origin, dir, length, width, theme, duration * 1.3)
+	decal_line(root, origin, dir, length, width, at, duration * 1.3)
 	for k in range(3):
 		burst(root, origin + dir * length * (0.35 + 0.3 * k), theme, 8, Vector3.UP, width * 0.4)
 
@@ -645,16 +647,19 @@ static func ricochet(root: Node, pos: Vector3, theme: String) -> void:
 	tw.tween_property(m, "albedo_color:a", 0.0, 0.22).set_delay(0.06)
 	tw.chain().tween_callback(mi.queue_free)
 
-const REACH_INNER_BOLD := 0.97       # círculo do alcance `bold`: 3% do raio de largura (0,3 m em 10 m)
-const REACH_ALPHA_BOLD := 0.6
+const REACH_INNER_BOLD := 0.98       # círculo do alcance `bold`: 2% do raio de largura (0,2 m em 10 m)
+const REACH_ALPHA_BOLD := 0.38
+const REACH_DESAT_BOLD := 0.6        # quanto o círculo do inimigo puxa para o cinza (vermelho forte = só aviso de dano)
+const REACH_GREY := Color(0.72, 0.68, 0.64)
 
 ## Aura ligada: anel girando no pé e, se `reach` > 0, o círculo fino do alcance no chão, pulsando.
-## Fica até o FxManager apagar (fade_out) quando o buff sair. `bold` = círculo do alcance mais largo e forte
-## (aura de inimigo que o grupo precisa ler de cima: Agitador).
+## Fica até o FxManager apagar (fade_out) quando o buff sair. `bold` = aura de inimigo (Agitador): sem anel no pé
+## (anel sob monstro é só o do alvo) e círculo do alcance dessaturado, que lê de cima sem parecer área de dano.
 static func aura_ring(root: Node, follow: Node3D, theme: String, reach: float, radius: float = 0.75, bold: bool = false) -> Node3D:
 	var holder := Node3D.new()
 	follow.add_child(holder)
 	var mi := MeshInstance3D.new()
+	mi.visible = not bold
 	var tm := TorusMesh.new()
 	tm.inner_radius = 0.82
 	tm.outer_radius = 1.0
@@ -705,7 +710,8 @@ static func aura_ring(root: Node, follow: Node3D, theme: String, reach: float, r
 		big.mesh = bt
 		var bm := _mat(col(theme, 1))
 		var a_hi := REACH_ALPHA_BOLD if bold else 0.22
-		bm.albedo_color = Color(col(theme, 0 if bold else 1), a_hi)
+		var rc := col(theme, 0).lerp(REACH_GREY, REACH_DESAT_BOLD) if bold else col(theme, 1)
+		bm.albedo_color = Color(rc, a_hi)
 		big.material_override = bm
 		big.scale = Vector3(reach, 0.2, reach)
 		big.position = Vector3(0, 0.06, 0)

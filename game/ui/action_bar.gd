@@ -19,9 +19,10 @@ var potion_slots: Array = []
 var util_slots: Array = []          # [montaria (H), volta à cidade (G)]
 ## [tecla, ícone (assets/icons/action_<id>.png), dica]
 const UTIL := [["H", "mount", "Montar / desmontar (H)
-Cavalo: anda %d%% mais rápido. Não dá para montar em combate."],
+%s: anda %d%% mais rápido. Não dá para montar em combate."],
 	["G", "recall", "Voltar à cidade (G)
 Conjura %.1f s, também em combate. Andar ou agir cancela; levar dano interrompe."]]
+var _mount_kind := ""                # montaria mostrada no H (só troca quando o tipo muda)
 var xp: XpBar
 var level_cap: Crest
 ## [tecla, nome, janela que abre (@map/@menu = mapa grande / menu do Esc)]
@@ -79,9 +80,11 @@ func build() -> void:
 		s["tex"].texture = UiKit.icon_texture("action_" + u[1])
 		s["bevel"].set_empty(false)
 		s["id"] = u[1]
-		s["root"].tooltip_text = u[2] % (roundi((Balance.MOUNT_SPEED_MULT - 1.0) * 100.0) if u[1] == "mount" else Balance.RECALL_TIME)
+		if u[1] != "mount":
+			s["root"].tooltip_text = u[2] % Balance.RECALL_TIME
 		row.add_child(s["root"])
 		util_slots.append(s)
+	set_mount_kind(Balance.MOUNT_DEFAULT)
 	row.add_child(_divider())
 	var grid := GridContainer.new()
 	grid.columns = 4
@@ -97,6 +100,27 @@ func build() -> void:
 	xp = XpBar.new()
 	xp.custom_minimum_size = Vector2(0, 14)
 	col.add_child(xp)
+
+func _process(_delta: float) -> void:
+	if Sim.player:
+		set_mount_kind(Sim.player.mount_kind)
+
+## Ícone do H para o tipo de montaria (Balance.MOUNT_KINDS): action_mount = cavalo, action_mount_<tipo> = os outros
+## (tools/icons/make_icons.gd ACTION_ICONS); tipo sem arte usa o do cavalo.
+static func mount_icon(kind: String) -> String:
+	var f := "action_mount" if kind == Balance.MOUNT_DEFAULT else "action_mount_" + kind
+	return f if ResourceLoader.exists("res://assets/icons/%s.png" % f) else "action_mount"
+
+## O H mostra a montaria escolhida (SimEntity.mount_kind): ícone e dica. Só mexe quando o tipo muda.
+func set_mount_kind(kind: String) -> void:
+	if kind == _mount_kind:
+		return
+	_mount_kind = kind
+	var mname: String = Balance.MOUNT_KINDS.get(kind, {}).get("name", "Montaria")
+	for s in util_slots:
+		if s["id"] == "mount":
+			s["tex"].texture = UiKit.icon_texture(mount_icon(kind))
+			s["root"].tooltip_text = UTIL[0][2] % [mname, roundi((Balance.MOUNT_SPEED_MULT - 1.0) * 100.0)]
 
 ## Tecla da vaga i da barra (0-9): "1".."9", e "0" na décima.
 static func key_of(i: int) -> String:

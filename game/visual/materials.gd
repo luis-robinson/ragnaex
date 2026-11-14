@@ -69,16 +69,26 @@ render_mode unshaded, cull_disabled, shadows_disabled;
 uniform vec4 base_color : source_color = vec4(1.0, 0.56, 0.2, 1.0);
 uniform float energy = 1.3;
 varying float seed;
+varying float up;
+varying vec2 wxz;
 void vertex() {
 	vec3 wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	seed = dot(floor(wp.xz * 0.6), vec2(12.9898, 78.233));
+	wxz = wp.xz;
+	// quanto a face aponta para cima no mundo (chao de lava = 1)
+	up = abs(normalize(mat3(MODEL_MATRIX) * NORMAL).y);
 }
 void fragment() {
 	float core = pow(clamp(abs(dot(NORMAL, VIEW)), 0.0, 1.0), 1.5);
+	// superficie plana: sem o miolo amarelo palido (some de cor de areia), fica laranja saturado
+	float k = 1.0 - smoothstep(0.75, 0.95, up);
+	core *= k;
 	float flick = 0.82 + 0.1 * sin(TIME * 7.3 + seed) + 0.08 * sin(TIME * 13.1 + seed * 1.7);
+	// correnteza lenta de brilho no chao de lava
+	float flow = 1.0 + (1.0 - k) * 0.22 * sin(wxz.x * 0.7 + TIME * 1.1) * sin(wxz.y * 0.7 - TIME * 0.8);
 	vec3 col = mix(base_color.rgb, vec3(1.0, 0.9, 0.5), core * 0.85);
-	ALBEDO = col;
-	EMISSION = col * energy * flick;
+	ALBEDO = col * flow;
+	EMISSION = col * energy * flick * mix(0.3, 1.0, k);
 }
 """
 

@@ -1,7 +1,7 @@
 class_name FestivalFx
 extends Node3D
 ## Fogos de artifício da vitória (fim do Ato I): depois que o Lich cai (MapsCatalog.VICTORY_QUEST), as praças de
-## Aldara e do Bastião (MapsCatalog.FESTIVAL) soltam um foguete a cada poucos segundos sobre o centro da vila.
+## Aldara e do Bastião (MapsCatalog.FESTIVAL; no Ato II, porto e acampamento de Kharzun, FESTIVAL_ACT2) soltam um foguete a cada poucos segundos sobre o centro da vila.
 ## Só apresentação: lê a quest feita do jogador e o mapa atual.
 
 const EVERY := Vector2(0.9, 2.2)       # s entre foguetes
@@ -23,9 +23,11 @@ func _ready() -> void:
 ## Vale festa no mapa atual?
 func active() -> bool:
 	var p: SimEntity = Sim.player
-	if p == null or main == null or not MapsCatalog.FESTIVAL.has(main.current_map_id):
+	if p == null or main == null:
 		return false
-	return p.quests_completed.has(MapsCatalog.VICTORY_QUEST)
+	if MapsCatalog.FESTIVAL.has(main.current_map_id) and p.quests_completed.has(MapsCatalog.VICTORY_QUEST):
+		return true
+	return MapsCatalog.FESTIVAL_ACT2.has(main.current_map_id) and p.quests_completed.has(MapsCatalog.VICTORY2_QUEST)   # fim do Ato II
 
 func _process(delta: float) -> void:
 	_t -= delta

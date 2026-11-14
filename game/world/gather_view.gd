@@ -45,7 +45,7 @@ func _refresh() -> void:
 		return
 	var list: Array = Sim.maps[map_id].get("gather", [])
 	for i in range(mini(list.size(), _nodes.size())):
-		_nodes[i].visible = float(list[i]["ready_at"]) <= Sim.time
+		_nodes[i].visible = Sim.gather_ready(list[i])      # rebrotou e vale no estágio (brasa de Kharzun só depois do K1c)
 
 func _mesh(m: Mesh, col: Color, pos: Vector3, scl: Vector3 = Vector3.ONE, glow := false) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
