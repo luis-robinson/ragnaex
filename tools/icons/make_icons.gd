@@ -96,7 +96,8 @@ const STATUS_ICONS := {"burn": ["fire", "flame"], "poison": ["poison", "drop"], 
 	"stun": ["lightning", "star"], "curse": ["shadow", "skull"], "wither": ["bone", "bone"], "shield": ["holy", "shield"],
 	"juramento": ["holy", "cross"], "buff": ["heal", "sun"]}
 ## ações fixas da barra (action_<chave>.png): montaria (H) e volta à cidade (G). [tema, símbolo]
-const ACTION_ICONS := {"mount": ["earth", "horse"], "recall": ["lunar", "portal"]}
+## montaria que não é o cavalo: action_mount_<Balance.MOUNT_KINDS> (ActionBar.mount_icon)
+const ACTION_ICONS := {"mount": ["earth", "horse"], "mount_dire_wolf": ["earth", "wolf"], "recall": ["lunar", "portal"]}
 ## classe: [tema, símbolo, símbolo de trás (ou "")]
 const CLASS_ICONS := {
 	"paladin": ["holy", "shield", "sword"], "berserker": ["blood", "axe", "axe"], "bishop": ["heal", "cross", ""], "druid": ["nature", "leaf", "paw"],
@@ -122,7 +123,8 @@ func _ready() -> void:
 		for sid in GLYPHS[g]:
 			glyph_of[sid] = g
 	for cid in CLASS_ICONS:
-		_queue.append({"file": "class_" + cid, "cls": cid})
+		if not (only in ["action", "status"]):      # --only=action/status: só esses arquivos
+			_queue.append({"file": "class_" + cid, "cls": cid})
 	if only == "" or only == "status":
 		for k in STATUS_ICONS:
 			_queue.append({"file": "status_" + k, "status": k})
@@ -334,7 +336,7 @@ func _disc_gradient(c: Vector2, r: float, a: Color, b: Color) -> void:
 const GLYPH_SIZE := 160.0
 ## peso visual: símbolos finos/diagonais crescem, os cheios (sol, chama) encolhem, para todos parecerem do mesmo tamanho
 const GLYPH_WEIGHT := {"sword": 1.16, "dagger": 1.22, "arrow": 1.14, "spear": 1.12, "bone": 1.1, "crystal": 1.12, "chain": 1.2,
-	"scythe": 1.2, "horse": 1.08, "portal": 0.98, "axe": 1.06, "hammer": 1.04, "sun": 0.9, "flame": 0.94, "star": 0.94, "snowflake": 0.94, "cloud": 0.94, "heart": 0.96}
+	"scythe": 1.2, "horse": 1.08, "wolf": 1.08, "portal": 0.98, "axe": 1.06, "hammer": 1.04, "sun": 0.9, "flame": 0.94, "star": 0.94, "snowflake": 0.94, "cloud": 0.94, "heart": 0.96}
 
 ## Área no chão: duas elipses claras embaixo do símbolo.
 func _ground() -> void:
@@ -917,6 +919,25 @@ func _g_horse() -> void:
 	_c(0.09, -0.33, 0.035, Color(1, 1, 1), 0.0)
 	_l([0.44, -0.24, 0.42, 0.36], 4, 0.07)                                     # cabresto
 	_l([-0.3, -0.5, 0.42, -0.16], 4, 0.06)
+
+## Cabeça de lobo atroz de perfil (virada para a direita, como o cavalo): orelhas em pé, focinho comprido, juba atrás, olho âmbar.
+func _g_wolf() -> void:
+	var grey := Color(0.56, 0.57, 0.62)
+	var ruff := Color(0.3, 0.31, 0.36)
+	var pale := Color(0.86, 0.86, 0.88)
+	# juba: tufos atrás da nuca (desenhada antes: fica por trás)
+	_p([-0.28, -0.5, -0.6, -0.36, -0.68, -0.08, -0.9, 0.08, -0.74, 0.3, -0.92, 0.5, -0.72, 0.66, -0.84, 0.94, -0.4, 0.94, -0.36, -0.1], ruff)
+	_p([-0.56, 0.96, -0.62, 0.4, -0.56, -0.06, -0.44, -0.44, -0.36, -0.98, -0.08, -0.56, 0.1, -0.92, 0.22, -0.4, 0.4, -0.26,
+		0.9, -0.04, 0.98, 0.1, 0.88, 0.22, 0.5, 0.3, 0.32, 0.46, 0.12, 0.56, 0.16, 0.96], grey)
+	_p([0.38, -0.08, 0.9, -0.04, 0.98, 0.1, 0.88, 0.22, 0.5, 0.3, 0.26, 0.36, 0.28, 0.1], pale, 0.0)      # focinho claro
+	_p([-0.32, -0.8, -0.14, -0.56, -0.36, -0.5], ruff, 0.0)                    # dentro das orelhas
+	_p([0.08, -0.74, 0.16, -0.46, 0.0, -0.5], ruff, 0.0)
+	_c(0.93, 0.05, 0.07, INK, 0.0)                                             # nariz
+	_l([0.6, 0.22, 0.86, 0.2], INK, 0.04)                                      # boca
+	_p([0.04, -0.24, 0.26, -0.22, 0.12, -0.12], Color(1.0, 0.72, 0.2), 0.03)   # olho âmbar, puxado
+	_c(0.13, -0.2, 0.03, INK, 0.0)
+	_l([0.4, -0.22, 0.4, 0.34], 4, 0.07)                                       # cabresto
+	_l([-0.3, -0.42, 0.4, -0.12], 4, 0.06)
 
 ## Volta à cidade: portal em arco de pedra com redemoinho de luz dentro e degrau embaixo (desenho próprio).
 func _g_portal() -> void:

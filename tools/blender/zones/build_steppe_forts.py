@@ -27,9 +27,11 @@ DRY = [(0.52, 0.44, 0.3), (0.46, 0.4, 0.3), (0.58, 0.5, 0.34)]
 AURORA_BLUE = (0.36, 0.48, 0.78)
 
 FORTS = {
+    # pátio (arena do Rei-da-Rocha): terra/pedra cinza-quente apagada. O cinza neutro (0.44, 0.42, 0.42) saía ardósia azulada
+    # no jogo (0.36/0.38/0.46 no tour); o tom quente compensa. Vermelho no chão desta arena é só aviso de golpe.
     "fort_trolls": {
         "name": "Toca do Rei-da-Rocha", "seed": 61, "quest": "hx_fort_trolls", "boss": "boss_troll_king",
-        "ground": (0.56, 0.52, 0.46), "patio": (0.44, 0.42, 0.42), "wall": (0.46, 0.44, 0.44), "road": (0.46, 0.42, 0.38), "trail": (0.47, 0.41, 0.33),      # terra pisada quente (cinza frio lia como asfalto no chão bege)
+        "ground": (0.56, 0.52, 0.46), "patio": (0.5, 0.44, 0.37), "wall": (0.46, 0.44, 0.44), "road": (0.46, 0.42, 0.38), "trail": (0.47, 0.41, 0.33),      # terra pisada quente (cinza frio lia como asfalto no chão bege)
         "outside": [("troll_whelp", 5, 20.0), ("troll_whelp", 4, 20.0), ("troll", 2, 28.0), ("troll", 2, 28.0)],
         "inside": [("troll", 3, 28.0), ("troll_whelp", 4, 20.0)], "posts": [("troll_whelp", 4), ("troll", 2)],
         "road_pts": [(-16, 74), (12, 60), (13, 50), (11, 36), (-4, 24), (4, 12)],      # cruza a fenda de frente (ponte reta)
@@ -41,9 +43,11 @@ FORTS = {
         "inside": [("orc_crossbow", 4, 24.0), ("orc_archer", 4, 20.0)], "posts": [("orc_archer", 4), ("orc_crossbow", 3)],
         "road_pts": [(14, 76), (-12, 56), (10, 34), (-4, 14)],
     },
+    # pátio de Ghar: terra batida cinza-quente, como o da Toca. O castanho-avermelhado (0.5, 0.34, 0.28) saía bordô no jogo
+    # (o anel entre as duas paliçadas); vermelho no chão deste arraial é só pano da Horda, risco da arena e aviso de golpe.
     "fort_war": {
         "name": "Arraial de Ghar", "seed": 71, "quest": "hx_fort_war", "boss": "boss_ghar",
-        "ground": (0.6, 0.48, 0.34), "patio": (0.5, 0.34, 0.28), "wall": horde.STAKE_DARK, "road": (0.5, 0.4, 0.32), "trail": (0.5, 0.38, 0.29),
+        "ground": (0.6, 0.48, 0.34), "patio": (0.5, 0.42, 0.34), "wall": horde.STAKE_DARK, "road": (0.5, 0.4, 0.32), "trail": (0.5, 0.38, 0.29),
         "outside": [("orc_warrior", 5, 20.0), ("wolf_raider", 2, 30.0), ("orc_warrior", 4, 20.0), ("goblin_agitator", 1, 90.0)],
         "inside": [("orc_warrior", 5, 20.0), ("goblin_agitator", 1, 90.0)], "posts": [("orc_warrior", 4), ("orc_warrior", 3)],
         "road_pts": [(-12, 78), (16, 58), (-10, 36), (2, 14)],
@@ -73,14 +77,16 @@ def landmark(z, fid, cfg, q):
         cyl(z.coll, z.P + "toca_pico", (c[0] - 2, c[1] - 21), 6.0, 2.0, 5.0, rock, 6.0, 9, 0.25, 5)
         box(z.coll, z.P + "toca_boca", (c[0], c[1] - 9.4), (6.0, 3.6, 2.4), 0.0, mat("dungeon_boca", (0.03, 0.03, 0.05)))
         z.ob("hill", c[0], c[1] - 19, (20.0, 8.0, 20.0), visible=False)
-        horde.ribcage(z, "toca_ossada", (c[0] - 13, c[1] + 4), 1.2, 5)
-        horde.skull(z, "toca_cranio", (c[0] + 14, c[1] + 2), 2.4, 1.1)
+        # ossada e crânio baixos: no pátio do chefe nada alto entre a câmera e a luta (art review 2026-11-13, item 11)
+        horde.ribcage(z, "toca_ossada", (c[0] - 13, c[1] + 4), 1.2, 5, height=2.4)
+        horde.skull(z, "toca_cranio", (c[0] + 14, c[1] + 2), 2.4, 1.1, low=True)
         for k in range(7):
             a = math.tau * k / 7 + 0.3
             z.ob("rock", c[0] + math.cos(a) * 20.0, c[1] + math.sin(a) * 19.0, (2.8 + (k % 3) * 0.6, 2.0, 2.6), k * 40.0, color=(0.5, 0.48, 0.48))
     elif fid == "fort_fire":                          # pira de sinal no meio, braseiros em roda, alvos de treino
-        cyl(z.coll, z.P + "pira_base", (c[0], c[1] - 12), 3.4, 2.8, 2.4, mat("braseiro", (0.22, 0.2, 0.2)), 0.0, 10)
-        cyl(z.coll, z.P + "pira_chama", (c[0], c[1] - 12), 2.4, 0.2, 5.0, mat("glow_brasa", (1.0, 0.56, 0.2)), 2.4, 8)
+        # pira baixa (era 7,4 m: tapava um quarto da tela na luta do Mestre Besteiro); a pegada e o colisor não mudam
+        cyl(z.coll, z.P + "pira_base", (c[0], c[1] - 12), 3.4, 3.0, 1.2, mat("braseiro", (0.22, 0.2, 0.2)), 0.0, 10)
+        cyl(z.coll, z.P + "pira_chama", (c[0], c[1] - 12), 2.3, 0.2, 2.4, mat("glow_brasa", (1.0, 0.56, 0.2)), 1.2, 8)
         z.ob("pillar", c[0], c[1] - 12, (6.6, 7.0, 6.6), visible=False)
         for k in range(6):
             a = math.tau * k / 6 + 0.5
@@ -115,7 +121,7 @@ def build_one(fid, export=False):
     portal = polar(z, 90, 7)
     z.data["spawn"] = list(ARRIVE)
     z.portal("to_steppe", portal, "field_steppe", BACK[fid], "Estepes de Cinza")
-    z.patch("chao", (0, 0), 110, cfg["ground"], grass=True)
+    z.patch("chao", (0, 0), 110, cfg["ground"], grass=True, y=0.0010)      # abaixo das manchas do dry_ground (1,8/2,6/3,4 mm; o padrão 4,5 as cobriria)
     c = FORT_C
     gate_pt = (c[0], c[1] + FORT_R)
     road = [ARRIVE] + cfg["road_pts"] + [(gate_pt[0], gate_pt[1] + 2), (c[0], c[1] + 16.0)]

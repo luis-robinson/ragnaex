@@ -57,7 +57,8 @@ def poly_dist(p, poly):
 # quem sai do Bastião pelo oeste chega na fortaleza pelo LESTE dela. O desenho de toda fortaleza é "chegada ao sul" (0, 96);
 # Zone.apply_turn gira dados e malhas no fim do build. O teste `_check_world_layout` confere saída x chegada de todo portal.
 FORT_TURN = {"fort_ghoul": 270.0, "fort_bones": 0.0, "fort_frost": 180.0, "lich_citadel": 42.0,
-             "fort_trolls": 270.0, "fort_war": 60.0, "fort_fire": 125.0}
+             "fort_trolls": 270.0, "fort_war": 60.0, "fort_fire": 125.0,
+             "kharzun_citadel": 0.0}      # Monte Kharzun sai pelo norte (build_kharzun.py): a cidadela não gira
 
 
 def turned(p, deg):
@@ -100,6 +101,18 @@ def mat(name, color, rough=0.9):
     bsdf.inputs["Roughness"].default_value = rough
     m.diffuse_color = (*color, 1.0)
     return m
+
+
+def mat_c(name, color, rough=0.9):
+    """`mat` para nome montado com parte dos canais da cor (ex.: pano_<r>_<b>): se o nome já existe com OUTRA cor, a nova
+    ganha nome próprio (`_g<verde>`) em vez de repintar a antiga (o `mat` repinta: a última cor valia para todas)."""
+    base, k = name, 0
+    while True:
+        m = bpy.data.materials.get(name)
+        if m is None or all(abs(m.diffuse_color[i] - color[i]) < 1e-4 for i in range(3)):
+            return mat(name, color, rough)
+        name = "%s_g%d" % (base, int(color[1] * 100)) if k == 0 else "%s_g%d_%d" % (base, int(color[1] * 100), k)
+        k += 1
 
 
 # ---------------------------------------------------------------------------
@@ -593,6 +606,7 @@ class Zone:
             cd = bpy.data.cameras.new(name)
             cd.lens_unit = "FOV"
             cd.angle = math.radians(56)
+            cd.clip_start = 2.0            # só a foto: com 0,1 m o z-buffer do Workbench lista camadas de chão a < 0,4 mm (falso z-fight)
             co = bpy.data.objects.new(name, cd)
             tgt = B(tx, tz, 0.8)
             co.location = tgt + Vector((0, -math.cos(math.radians(52)) * 24, math.sin(math.radians(52)) * 24))
@@ -630,7 +644,7 @@ class Zone:
             else:
                 box(pc, "PV_o%d" % i, (x, z), (sx, sy, sz), o["rot"], tm[key])
         red = mat("pv_spawn", (0.9, 0.3, 0.3))
-        for s in self.data["spawners"]:
+        for s in self.data["spawners"] if os.environ.get("ZONE_PV_SPAWN", "1") != "0" else []:      # ZONE_PV_SPAWN=0: foto sem os discos
             disc(pc, "PV_sp", s["pos"], s["radius"], 0.03, red, 16)
 
     def apply_turn(self, poi):

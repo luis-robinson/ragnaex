@@ -1883,8 +1883,8 @@ def horde_parts(cid, kind, skin):
         elif troll:
             king = kind == "troll_king"
             whelp = kind == "troll_whelp"
-            stone = ck.mat("m_%s_stone" % cid, (0.52, 0.5, 0.48), 0.9)
-            stone2 = ck.mat("m_%s_stone2" % cid, (0.4, 0.4, 0.42), 0.9)
+            stone = ck.mat("m_%s_stone" % cid, act2_bosses.KING_STONE[0] if king else (0.52, 0.5, 0.48), 0.9)
+            stone2 = ck.mat("m_%s_stone2" % cid, act2_bosses.KING_STONE[1] if king else (0.4, 0.4, 0.42), 0.9)
             head.append(ck.ball(cid + "_nose", r * 0.3, c + V((0, -r * 0.95, -r * 0.08)), sk, (0.9, 1.2, 1.1)))       # narigão
             for sx in (-1, 1):                  # orelhas caídas
                 head.append(ck.blade("%s_ear%d" % (cid, sx), c + V((sx * r * 0.88, 0, r * 0.05)), c + V((sx * r * 1.5, r * 0.15, -r * 0.35)), r * 0.5, r * 0.07, sk, (0, 0, 1), 0.4))
@@ -1977,11 +1977,14 @@ def goblin_rider(cid, raider=False):
 SK_BONE = (0.92, 0.9, 0.82)
 # bichos que são (ou vestem) chefes: gestos maul/pounce/slam/roar/brace (boss_gestures), para as skills especiais não
 # repetirem o "attack"
-BOSS_GESTURES = {"mob_boar": "quad", "mob_crab": "crab", "mob_slime": "slime", "mob_spider": "spider", "mob_ghost": "ghost", "mob_trent": "biped4",
+BOSS_GESTURES = {"mob_boar": "quad", "mob_dire_mother": "quad", "mob_crab": "crab", "mob_slime": "slime", "mob_spider": "spider", "mob_ghost": "ghost", "mob_trent": "biped4",
                  "mob_golem_ancient": "biped", "mob_crystal_warden": "biped", "mob_quarry_heart": "biped"}
 
 
 TROLL_STANCE = (act2_bosses.TROLL_POSTURE, act2_bosses.TROLL_HIPS)
+# postura de troll + marreta de 2 mãos: o golpe de cima e a queda enterravam a arma (act2_bosses.clear_ground; no "die" o corpo afunda ~0,2 m na queda)
+TROLL_KING_SKIN = (0.21, 0.32, 0.54)     # azul-ardósia fundo: o (0.42, 0.5, 0.66) de antes saía lavado no toon
+TROLL_MAUL_CLEAR = {"attack": 0.03, "die": -0.2}
 
 
 def build_all(out_dir, only=None):
@@ -2117,22 +2120,24 @@ def build_all(out_dir, only=None):
         # Ato II, Estepes de Cinza (35-40): trolls (grandes; a escala vem do MonsterDef), arqueiros/besteiros e o Guerreiro Orc
         "mob_troll_whelp": lambda: humanoid("mob_troll_whelp", "leather", (0.4, 0.3, 0.22), "mace", skin=(0.5, 0.6, 0.72), eye=(0.95, 0.85, 0.3), hide_hair=True, head="none",
                                             extra=horde_parts("mob_troll_whelp", "troll_whelp", (0.5, 0.6, 0.72)), body="troll", posture=TROLL_STANCE),
-        "mob_troll": lambda: humanoid("mob_troll", "leather", (0.36, 0.28, 0.2), "mace2h", skin=(0.45, 0.55, 0.68), eye=(0.95, 0.75, 0.2), hide_hair=True, head="none",
+        "mob_troll": lambda: act2_bosses.clear_ground(humanoid("mob_troll", "leather", (0.36, 0.28, 0.2), "mace2h", skin=(0.45, 0.55, 0.68), eye=(0.95, 0.75, 0.2), hide_hair=True, head="none",
                                       extra=horde_parts("mob_troll", "troll", (0.45, 0.55, 0.68)), body="troll", posture=TROLL_STANCE),
-        "mob_troll_king": lambda: humanoid("mob_troll_king", "leather", (0.3, 0.24, 0.2), "mace2h", skin=(0.42, 0.5, 0.66), eye=(1.0, 0.55, 0.15), hide_hair=True, head="none",
-                                           extra=horde_parts("mob_troll_king", "troll_king", (0.42, 0.5, 0.66)), body="troll", posture=TROLL_STANCE,
+                                                          TROLL_MAUL_CLEAR, "hand.R", ("wpn_main_",), front=True),
+        "mob_troll_king": lambda: act2_bosses.clear_ground(humanoid("mob_troll_king", "leather", (0.3, 0.24, 0.2), "mace2h", skin=TROLL_KING_SKIN, eye=(1.0, 0.55, 0.15), hide_hair=True, head="none",
+                                           extra=horde_parts("mob_troll_king", "troll_king", TROLL_KING_SKIN), body="troll", posture=TROLL_STANCE,
                                            after=act2_bosses.boss_extras("mob_troll_king", "troll_king")),
+                                                               dict(TROLL_MAUL_CLEAR, **{"*": 0.0}), "hand.R", ("mob_troll_king_maul", "wpn_main_"), front=True),     # a marreta-pedregulho entrava 1 m no chão no golpe
         "mob_orc_archer": lambda: humanoid("mob_orc_archer", "leather", (0.4, 0.34, 0.22), "bow", skin=(0.45, 0.55, 0.4), eye=(0.95, 0.7, 0.2), hide_hair=True, head="none",
                                            extra=horde_parts("mob_orc_archer", "orc_archer", (0.45, 0.55, 0.4))),
         "mob_orc_crossbow": lambda: humanoid("mob_orc_crossbow", "leather", (0.3, 0.26, 0.24), "crossbow", skin=(0.43, 0.52, 0.38), eye=(0.95, 0.55, 0.2), hide_hair=True, head="none",
                                              extra=horde_parts("mob_orc_crossbow", "orc_crossbow", (0.43, 0.52, 0.38))),
         "mob_orc_warrior": lambda: humanoid("mob_orc_warrior", "plate", (0.5, 0.18, 0.14), "axe", skin=(0.43, 0.53, 0.38), eye=(0.95, 0.5, 0.2), hide_hair=True, head="none",
                                             extra=horde_parts("mob_orc_warrior", "orc_warrior", (0.43, 0.53, 0.38))),
-        "mob_crossbow_master": lambda: humanoid("mob_crossbow_master", "leather", (0.55, 0.16, 0.12), "crossbow", skin=(0.43, 0.52, 0.38), eye=(1.0, 0.45, 0.15), hide_hair=True, head="none",
+        "mob_crossbow_master": lambda: act2_bosses.carry(humanoid("mob_crossbow_master", "leather", (0.55, 0.16, 0.12), "crossbow", skin=(0.43, 0.52, 0.38), eye=(1.0, 0.45, 0.15), hide_hair=True, head="none",
                                                 extra=horde_parts("mob_crossbow_master", "crossbow_master", (0.43, 0.52, 0.38)), xbow={"heavy": True},
-                                                after=act2_bosses.boss_extras("mob_crossbow_master", "crossbow_master")),
-        "mob_ghar": lambda: humanoid("mob_ghar", "plate", (0.6, 0.14, 0.1), "axe2h", skin=(0.4, 0.5, 0.34), eye=(1.0, 0.35, 0.12), hide_hair=True, head="none",
-                                     extra=horde_parts("mob_ghar", "ghar", (0.4, 0.5, 0.34)), body="brute", after=act2_bosses.boss_extras("mob_ghar", "ghar")),
+                                                after=act2_bosses.boss_extras("mob_crossbow_master", "crossbow_master")), act2_bosses.VORGUL_CARRY),
+        "mob_ghar": lambda: act2_bosses.ghar_wall_clips(humanoid("mob_ghar", "plate", (0.6, 0.14, 0.1), "axe2h", skin=(0.4, 0.5, 0.34), eye=(1.0, 0.35, 0.12), hide_hair=True, head="none",
+                                     extra=horde_parts("mob_ghar", "ghar", (0.4, 0.5, 0.34)), body="brute", after=act2_bosses.boss_extras("mob_ghar", "ghar"))),     # + guard_wall / wall_counter (Muralha de Escudos)
         "mob_naga_tide": lambda: humanoid("mob_naga_tide", "cloth", (0.2, 0.5, 0.55), "spear", skin=(0.32, 0.72, 0.68), eye=(0.95, 0.9, 0.3), hide_hair=True, head="none", sex="female", attack="atk_thrust",
                                           extra=horde_parts("mob_naga_tide", "naga_tide", (0.32, 0.72, 0.68))),
         "mob_naga_warrior": lambda: humanoid("mob_naga_warrior", "plate", (0.25, 0.55, 0.55), "spear", skin=(0.32, 0.72, 0.68), eye=(0.95, 0.5, 0.2), hide_hair=True, head="none", sex="female", attack="atk_thrust",
@@ -2143,6 +2148,10 @@ def build_all(out_dir, only=None):
         "mob_wolf_raider": lambda: quadruped("mob_wolf_raider", (0.32, 0.3, 0.3), (0.16, 0.14, 0.14), (0.68, 0.64, 0.6), "wolf", rider=goblin_rider("mob_wolf_raider", raider=True)),
         "mob_lich": lambda: humanoid("mob_lich", "cloth", (0.3, 0.16, 0.42), "staff", skin=(0.86, 0.84, 0.8), eye=(0.5, 0.9, 1.0), hide_hair=True, head="leather", crown=8),
     }
+    # Ato II fase 3, Monte Kharzun (40-45) e a montaria lobo atroz: kharzun_mobs.py (importa este módulo: só aqui dentro)
+    import kharzun_mobs
+    importlib.reload(kharzun_mobs)
+    builders.update(kharzun_mobs.BUILDERS)
     for name, fn in builders.items():
         if only and name not in only:
             continue
@@ -2157,7 +2166,7 @@ def build_all(out_dir, only=None):
                                                                               "mob_frost_mage", "mob_lich_king", "mob_skeleton", "mob_zombie", "mob_lich", "mob_skeleton_king", "form_demon", "form_lich",
                     "mob_elf_warrior", "mob_elf_archer", "mob_elf_warden", "mob_elf_king", "mob_elf_mage",
                     "mob_elf_captain_hunter", "mob_elf_captain_sky", "mob_elf_captain_sap", "mob_elf_citizen", "mob_elf_citizen_f",
-                    "mob_elf_fighter", "mob_elf_bowman") or name.startswith(("mob_goblin_", "mob_orc_", "mob_naga_", "mob_troll")) or name in ("mob_tide_mother", "mob_agitator_lord", "mob_crossbow_master", "mob_ghar"):
+                    "mob_elf_fighter", "mob_elf_bowman") or name.startswith(("mob_goblin_", "mob_orc_", "mob_naga_", "mob_troll")) or name in ("mob_tide_mother", "mob_agitator_lord", "mob_crossbow_master", "mob_ghar") or name in kharzun_mobs.HUMANOIDS:
             ck.export_glb(arm, os.path.join(out_dir, name + ".glb"))
         else:
             lp.export_glb(os.path.join(out_dir, name + ".glb"), [arm])

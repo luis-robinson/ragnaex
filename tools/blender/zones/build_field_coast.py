@@ -152,7 +152,7 @@ def crossroads(z):
     for a in (0.5, 2.05, 3.65, 5.2):
         z.ob("lamp", math.cos(a) * 16.0, math.sin(a) * 16.0, (0.4, 3.0, 0.4))
     cyl(z.coll, z.P + "encruzilhada_mastro", (0.0, 0.0), 0.16, 0.12, 8.0, wood, 0.0, 6)      # estandarte da Aurora: acha-se o posto de longe
-    box(z.coll, z.P + "encruzilhada_bandeira", (1.3, 0.0), (2.4, 1.5, 0.06), 0.0, mat("bandeira_aurora", (0.95, 0.88, 0.55)), 6.3)
+    horde.cloth(z.coll, z.P + "encruzilhada_bandeira", (0.1, 0.0), 2.4, 1.5, 0.0, mat("bandeira_aurora", (0.95, 0.88, 0.55)), 6.3, tail=None)
     disc(z.coll, z.P + "encruzilhada_roseta", (0.0, 0.0), 3.2, 0.018, mat("pave_roseta", (0.9, 0.84, 0.66)), 16)
     z.ob("pillar", 0.0, 0.0, (0.6, 8.0, 0.6), visible=False)
     z.npc("coast_scout", 3.0, -6.0, 200.0)
@@ -165,7 +165,7 @@ def crossroads(z):
 def mangrove_band(z):
     """Mangue lido de cima: faixa de lama verde-escura dos dois lados do braço de mar (só cor, não colide)."""
     z.M["patch_mangue_faixa"] = mat("patch_mangue_faixa", (0.3, 0.43, 0.25))
-    zone_lib.ribbon(z.coll, z.P + "chao_mangue_faixa", zone_lib.catmull(MANGROVE, 2.0), 24.0, 0.005, z.M["patch_mangue_faixa"])
+    zone_lib.ribbon(z.coll, z.P + "chao_mangue_faixa", zone_lib.catmull(MANGROVE, 2.0), 24.0, 0.0046, z.M["patch_mangue_faixa"])      # pilha da Costa: ver act2_dress.coast
 
 
 def drowned_shrine(z, c):

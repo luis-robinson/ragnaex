@@ -863,12 +863,68 @@ def crystal(m):
     return parts
 
 
+def _hull(name, pts, mat, cap=None, cap_z=1e9, cap_nz=0.3):
+    """Pedra facetada: casco convexo dos pontos (faces planas, sem suavizar). Face alta e virada para cima ganha `cap`."""
+    me = bpy.data.meshes.new(name)
+    bm = bmesh.new()
+    for p in pts:
+        bm.verts.new(p)
+    res = bmesh.ops.convex_hull(bm, input=bm.verts)
+    junk = list({e for e in res.get("geom_interior", []) + res.get("geom_unused", []) if isinstance(e, bmesh.types.BMVert)})
+    if junk:
+        bmesh.ops.delete(bm, geom=junk, context="VERTS")
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    for f in bm.faces:
+        if cap and f.normal.z > cap_nz and f.calc_center_median().z > cap_z:
+            f.material_index = 1
+    bm.to_mesh(me)
+    bm.free()
+    o = bpy.data.objects.new(name, me)
+    bpy.context.scene.collection.objects.link(o)
+    o.data.materials.append(mat)
+    if cap:
+        o.data.materials.append(cap)
+    return o
+
+
+def avalanche_stone(m, seed=7):
+    """Pedregulho da Avalanche do Rei Troll (cobertura: MonsterDef.cover radius 1,2): bloco facetado de ~1,2 m de raio
+    e ~2,5 m de altura, base chata em z = 0, origem no centro do chão, capa de neve no topo (de cima lê como
+    mancha branca sobre pedra cinza) e lascas no pé. Materiais p_boulder / p_boulder_d / p_snow (cor fixa)."""
+    rnd = random.Random(seed)
+    body = ck.mat("p_boulder", (0.5, 0.48, 0.5), 0.95)
+    dark = ck.mat("p_boulder_d", (0.36, 0.35, 0.39), 0.95)
+    snow = ck.mat("p_snow", (0.93, 0.96, 1.0), 0.9)
+    R, H = 1.2, 2.6
+    lean = (rnd.uniform(-0.12, 0.12), rnd.uniform(-0.12, 0.12))
+    pts = []
+    # anéis: (altura, raio, nº de pontos); mais largo perto do ombro, pé firme, topo torto
+    for z, r, n in ((0.0, 0.9, 6), (0.16, 1.0, 6), (0.56, 1.0, 5), (0.84, 0.8, 5), (0.97, 0.46, 4)):
+        a0 = rnd.uniform(0, math.tau)
+        for i in range(n):
+            a = a0 + (i + rnd.uniform(-0.28, 0.28)) * math.tau / n
+            rr = R * r * rnd.uniform(0.74, 1.0)
+            zz = 0.0 if z == 0.0 else H * (z + rnd.uniform(-0.05, 0.05))
+            pts.append((math.cos(a) * rr + lean[0] * z * H, math.sin(a) * rr + lean[1] * z * H, zz))
+    parts = [_hull("stone_a", pts, body, snow, H * 0.74, 0.22)]
+    for i in range(5):                       # lascas no pé (dentro do raio da cobertura)
+        a = rnd.uniform(0, math.tau)
+        d = R
+        s = rnd.uniform(0.3, 0.46)
+        c = (math.cos(a) * (d - s * 0.7), math.sin(a) * (d - s * 0.7))
+        chip = [(c[0] + rnd.uniform(-0.7, 0.7) * s, c[1] + rnd.uniform(-0.7, 0.7) * s, 0.0) for _ in range(5)]
+        chip += [(c[0] + rnd.uniform(-0.6, 0.6) * s, c[1] + rnd.uniform(-0.6, 0.6) * s, s * rnd.uniform(0.9, 1.6)) for _ in range(3)]
+        parts.append(_hull("chip%d" % i, chip, dark if i % 2 else body))
+    return parts
+
+
 BUILDERS = {"house": house, "tree": tree, "rock": rock, "pillar": pillar, "wall": wall, "well": well,
             "fountain": fountain, "lamp": lamp, "stall": stall, "crate": crate, "tent": tent, "ruin": ruin,
             "statue": statue, "fence": fence, "bench": bench, "pine": pine, "bush": bush, "dead_tree": dead_tree,
             "log": log, "stump": stump, "flowers": flowers, "reeds": reeds,
             "iwall": iwall, "table": table, "stool": stool, "bed": bed, "counter": counter, "shelf": shelf,
-            "fireplace": fireplace, "barrel": barrel, "rug": rug, "anvil": anvil, "cauldron": cauldron, "door": door, "crystal": crystal}
+            "fireplace": fireplace, "barrel": barrel, "rug": rug, "anvil": anvil, "cauldron": cauldron, "door": door, "crystal": crystal,
+            "avalanche_stone": avalanche_stone}
 import elf_props                       # arquitetura élfica (Cidade Élfica): casa-árvore, casulo, lanterna, portal
 importlib.reload(elf_props)
 BUILDERS.update(elf_props.BUILDERS)

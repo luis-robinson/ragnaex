@@ -43,7 +43,37 @@ BARK = (0.36, 0.25, 0.16)
 def _mats(ck, cfg):
     return {"fur": ck.mat("m_dru_fur_" + cfg["fur"], FUR[cfg["fur"]], 0.95), "bone": ck.mat("m_dru_bone", BONE, 0.7),
             "leaf": ck.mat("m_dru_leaf", LEAF, 0.7), "bark": ck.mat("m_dru_bark", BARK, 0.9),
-            "glow": ck.mat("m_dru_glow_%d" % int(sum(cfg["glow"]) * 100), cfg["glow"], 0.3, 2.6) if cfg.get("glow") else None}
+            "glow": ck.mat(glow_name(cfg["glow"]), cfg["glow"], 0.3, 2.6) if cfg.get("glow") else None}
+
+
+def glow_name(color):
+    """Nome do material de brilho pela cor INTEIRA (r_g_b em centésimos). Antes era a soma dos canais: dru_x20 (0.55, 1.0, 0.7)
+    e dru_b30 (0.7, 1.0, 0.55) davam os dois `m_dru_glow_225` e o 2º saía com a cor do 1º (dependia da ordem do build)."""
+    return "m_dru_glow_%d_%d_%d" % tuple(int(round(c * 100)) for c in color[:3])
+
+
+def form_tints(ck):
+    """`tint`/`tint2` das formas com a base FIXA (ck.TINT_BASE, rugosidade 0.6), mesmo se a sessão já tem um `tint` de outro
+    modelo (o cavalo deixa a pelagem 0.55/0.38/0.24): rodar só as formas dá o mesmo GLB que o build inteiro.
+    Devolve (tint, tint2, guardado); chame `restore_tints(guardado)` depois do export para devolver o que havia."""
+    out, saved = [], []
+    for name in ("tint", "tint2"):
+        m = ck.mat(name, ck.TINT_BASE, 0.6)
+        b = next(n for n in m.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+        saved.append((m, tuple(b.inputs["Base Color"].default_value), b.inputs["Roughness"].default_value, tuple(m.diffuse_color)))
+        b.inputs["Base Color"].default_value = (*ck.TINT_BASE, 1.0)
+        b.inputs["Roughness"].default_value = 0.6
+        m.diffuse_color = (*ck.TINT_BASE, 1.0)
+        out.append(m)
+    return out[0], out[1], saved
+
+
+def restore_tints(saved):
+    for m, col, rough, dif in saved:
+        b = next(n for n in m.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+        b.inputs["Base Color"].default_value = col
+        b.inputs["Roughness"].default_value = rough
+        m.diffuse_color = dif
 
 
 def _antlers(ck, P, base_l, base_r, size, material):
@@ -436,20 +466,49 @@ def form_clips(lp, arm, kind):
         "leg_bl": [(1, z, z), (3, r(10), z), (6, r(12, 0, -14), z), (12, r(12, 0, -14), z), (e, z, z)]}, e, loop=False)
 
 
-def build_forms(out_dir):
-    """form_wolf.glb e form_bear.glb: o bicho do druida + armadura de animal de cada conjunto do Lobo/Urso."""
+def _wolf_light(ck, lp, mob_kit, arm):
+    """Tom claro que se lê de cima (52°) SÓ no lobo do druida: a barriga clara do quadrúpede fica escondida sob o tronco.
+    Faixa clara no flanco baixo, peitoral, bochechas e meias + patas claras (m_form_wolf_light). Uma malha por osso."""
+    V = Vector
+    ml = ck.mat("m_form_wolf_light", (0, 0, 0))            # já existe (mob_kit.quadruped)
+    bulk, hip, hc = _form_geom("wolf")
+    groups = {"body": [], "head": []}
+    for sx in (-1, 1):
+        groups["body"].append(mob_kit.blob("lt_flank%d" % sx, 0.1, (sx * 0.16, 0.03, hip + 0.0), ml, (0.72, 3.5, 1.25)))
+        groups["head"].append(mob_kit.blob("lt_cheek%d" % sx, 0.09, hc + V((sx * 0.145, -0.07, -0.07)), ml, (0.85, 1.15, 0.8), 2))
+    groups["body"].append(mob_kit.blob("lt_chest", 0.17, (0, -0.42, hip - 0.07), ml, (1.2, 1.0, 0.95)))
+    for name, objs in groups.items():
+        obj = ck._join(objs, "fur_light_" + name)
+        ck._smooth(obj.data)
+        lp.attach(obj, arm, name)
+    leg_r = 0.09
+    for bone, sx, sy in (("leg_fr", 1, -1), ("leg_fl", -1, -1), ("leg_br", 1, 1), ("leg_bl", -1, 1)):       # mesmas medidas do quadruped
+        top, foot = V((sx * 0.17, sy * 0.36, hip)), V((sx * 0.19, sy * 0.38, 0.07))
+        sock = ck.tube("fur_light_" + bone, top.lerp(foot, 0.5), foot, leg_r * 1.02, leg_r * 0.9, ml, 8)
+        ck._smooth(sock.data)
+        lp.attach(sock, arm, bone)
+        paw = next(o for o in arm.children if o.name == "paw_" + bone)
+        paw.data.materials[0] = ml
+
+
+def build_forms(out_dir, only=None):
+    """form_wolf.glb e form_bear.glb: o bicho do druida + armadura de animal de cada conjunto do Lobo/Urso.
+    only = lista de formas ("wolf"/"bear") para refazer só essas (sem as ancestrais); None = tudo, como antes."""
     import os
     import bpy
     import chibi_kit as ck
     import lowpoly_lib as lp
     import mob_kit
-    tint = ck.mat("tint", ck.TINT_BASE, 0.6)
     for prefix, kind in FORM_OF.items():
+        if only is not None and kind not in only:
+            continue
         ck.clear()
-        tint = ck.mat("tint", ck.TINT_BASE, 0.6)
-        tint2 = ck.mat("tint2", ck.TINT_BASE, 0.6)
+        tint, tint2, saved = form_tints(ck)          # base fixa: não herda o `tint` que outro modelo deixou na sessão
         if kind == "wolf":
-            arm = mob_kit.quadruped("form_wolf", (0.5, 0.52, 0.5), (0.28, 0.3, 0.28), (0.82, 0.84, 0.8), "wolf")
+            # pelo cinza-castanho médio, barriga/focinho claros, juba e patas escuras. O cinza (0.5, 0.52, 0.5) saía quase branco
+            # no jogo: o FormModel usa a cor do glTF sem voltar de sRGB (0.5 vira ~0.74), então os números aqui são mais escuros.
+            arm = mob_kit.quadruped("form_wolf", (0.29, 0.235, 0.18), (0.13, 0.105, 0.09), (0.66, 0.58, 0.45), "wolf")
+            _wolf_light(ck, lp, mob_kit, arm)
         else:
             arm = mob_kit.quadruped("form_bear", (0.42, 0.29, 0.18), (0.24, 0.16, 0.1), (0.66, 0.52, 0.38), "bear")
         for style, cfg in DRU_SETS.items():
@@ -461,7 +520,10 @@ def build_forms(out_dir):
             if "." in o.name:
                 o.name = o.name.replace(".", "_")
         lp.export_glb(os.path.join(out_dir, "form_%s.glb" % kind), [arm])
+        restore_tints(saved)
     print("forms done")
+    if only is not None:
+        return
     import druid_ancestral          # ascensão: Ent, Lobo Alfa e Pássaro Arcano (form_ent/alpha/bird.glb)
     druid_ancestral.build(out_dir)
 

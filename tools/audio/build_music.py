@@ -1,5 +1,5 @@
 """Banco de música do RagnaEx: faixas CC0 do OpenGameArt (licença conferida na página de cada uma em 2026-11-10: só "CC0",
-nenhuma com licença dupla; as do Ato II — porto, costa, goblins — em 2026-11-11; horda em 2026-11-12). Baixa para .godot/music_cache, copia para assets/audio/music/<tema>.<ext> e escreve
+nenhuma com licença dupla; as do Ato II — porto, costa, goblins — em 2026-11-11; horda, kharzun e kharzun_citadel em 2026-11-12). Baixa para .godot/music_cache, copia para assets/audio/music/<tema>.<ext> e escreve
 assets/audio/music/CREDITS.md. Os temas são os de game/audio/music.gd (Music.MAP_THEME, "chefe", "investida").
 
     python tools/audio/build_music.py        (depois: godot --headless --path . --import)
@@ -35,6 +35,9 @@ TRACKS = {
     "goblins": ("Krakatoa_0.ogg", "", "Krakatoa", "Kistol", "krakatoa"),
     # Ato II (fase 2): acampamentos da Horda e Estepes (CC0 conferida 2026-11-12)
     "horda": ("orcs_victorious_2024.ogg", "", "Orcs Victorious (2024)", "Bobjt", "orcs-victorious"),
+    # Ato II (fase 3): Monte Kharzun e Salão dos Matadores (tambores e tímpanos de guerra) e a Cidadela (coro grave); CC0 conferida 2026-11-12
+    "kharzun": ("war%20theme_0.ogg", "", "War Theme", "Spring Spring", "war-theme"),
+    "kharzun_citadel": ("Fantasy%20Choir%202.mp3", "", "Fantasy Choir 2 (Fantasy Choir: 3 Orchestral Pieces)", "cesisco", "fantasy-choir-3-orchestral-pieces"),
 }
 
 

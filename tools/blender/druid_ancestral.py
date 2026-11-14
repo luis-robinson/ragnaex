@@ -426,8 +426,7 @@ def build(out_dir, only=None):
         if only and kind not in only:
             continue
         ck.clear()
-        tint = ck.mat("tint", ck.TINT_BASE, 0.6)
-        tint2 = ck.mat("tint2", ck.TINT_BASE, 0.6)
+        tint, tint2, saved = ds.form_tints(ck)          # base fixa (ver druid_sets.form_tints)
         if kind == "ent":
             arm = ent(ck, lp, mk, bm)
         elif kind == "alpha":
@@ -454,4 +453,5 @@ def build(out_dir, only=None):
             if "." in o.name:
                 o.name = o.name.replace(".", "_")
         lp.export_glb(os.path.join(out_dir, "form_%s.glb" % kind), [arm])
+        ds.restore_tints(saved)
     print("ancestral forms done")

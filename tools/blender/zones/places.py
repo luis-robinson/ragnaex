@@ -8,6 +8,8 @@ from mathutils import Vector
 from zone_lib import along, box, catmull, cyl, disc, mat, poly_dist, ribbon
 
 TRAIL_W = 2.4
+TRAIL_Y = 0.0108        # abaixo da estrada (0.012) e das pontas dela (0.011-0.0115), acima das manchas de chão
+TRAIL_COL = (0.6, 0.5, 0.36)       # areia; a zona troca com `z.trail_color = (r, g, b)` antes de places.build
 GATE_R = 5.5            # raio do morro da entrada de dungeon
 
 # Vale de Aldara cresceu ~20%: tudo fora da muralha se afasta do centro (a vila não muda). Uma função só, usada
@@ -136,21 +138,52 @@ DUNGEONS["dg_goblin"] = {
     "layout": {
         "rooms": {
             # cada salão tem a sua cor de chão e o seu miolo, para se saber onde se está só de olhar de cima:
-            # lamaçal verde com poça turva, forja laranja com lava, tambores roxo-vinho com a pele do tambor pintada no chão,
+            # lamaçal verde com poça turva, forja de basalto escuro com lava laranja, tambores roxo-vinho com a pele do tambor pintada no chão,
             # selo vermelho-sangue com a brasa do Agitador-Mor
             # `mob_off` (metros, depois da escala): o bando do lamaçal nasce 7 m para dentro, fora do alcance de quem acabou
             # de chegar (antes a borda do bando ficava a 7 m da chegada e os lanceiros de nível 30 atacavam em 2 s);
             # a entrada é dos Empaladores (33), o bicho da gruta: 3, cada um com 2 lanceiros de escolta (~9 bichos)
             "lamacal": {"pos": (0, 20), "r": 12, "mobs": [("goblin_impaler", 3)], "mob_off": (0.0, -7.0), "floor": (0.3, 0.46, 0.3), "pool": (0.36, 0.6, 0.52),
                         "decor": GOBLIN_DECOR + [("stump", 4, (1.0, 0.8, 1.0), (0.36, 0.3, 0.2))]},
-            "forja": {"pos": (-30, -4), "r": 10, "mobs": [("goblin_impaler", 3), ("goblin_lancer", 3)], "floor": (0.62, 0.36, 0.2),
+            # forja: basalto fuliginoso cinza-quente (era laranja-ferrugem: a lava laranja sumia no chão; art review 2026-11-13, item 3)
+            "forja": {"pos": (-30, -4), "r": 10, "mobs": [("goblin_impaler", 3), ("goblin_lancer", 3)], "floor": (0.34, 0.3, 0.29),
                       "pool": (1.0, 0.5, 0.2), "decor": [("anvil", 3, (1.0, 1.0, 0.6), (0.4, 0.4, 0.42)), ("cauldron", 2, (1.1, 1.0, 1.1), (0.3, 0.3, 0.32))] + GOBLIN_DECOR[:2]},
             "tambores": {"pos": (28, -16), "r": 10, "mobs": [("orc_recruit", 3), ("goblin_agitator", 1)], "floor": (0.48, 0.26, 0.4),
-                         "pool": (0.9, 0.78, 0.52), "decor": [("barrel", 7, (1.5, 1.2, 1.5), (0.74, 0.24, 0.2))]},
-            "selo": {"pos": (0, -40), "r": 15, "boss": "boss_agitator_lord", "floor": (0.62, 0.22, 0.2), "pool": (1.0, 0.62, 0.25),
+                         # pele do tambor no centro: tinta fosca num tom do chão (`pool_glow` False), menor; o disco creme que
+                         # brilhava lia-se como aviso de golpe (cone/área brancos)
+                         "pool": (0.6, 0.4, 0.47), "pool_r": 0.16, "pool_glow": False, "decor": [("barrel", 7, (1.5, 1.2, 1.5), (0.74, 0.24, 0.2))]},
+            # chão de pedra cinza-quente (era vermelho-sangue: os avisos vermelhos do Agitador-Mor sumiam nele) e a brasa do
+            # centro pequena (`pool_r`), só um acento (art review 2026-11-13, item 3)
+            "selo": {"pos": (0, -40), "r": 15, "boss": "boss_agitator_lord", "floor": (0.42, 0.35, 0.32), "pool": (1.0, 0.55, 0.22), "pool_r": 0.09,
                      "decor": [("tent", 3, (3.0, 2.2, 3.0), (0.6, 0.2, 0.16)), ("barrel", 4, (1.5, 1.2, 1.5), (0.74, 0.24, 0.2))]},
         },
         "edges": [("chegada", "lamacal"), ("lamacal", "forja"), ("forja", "tambores"), ("tambores", "selo")],
+    },
+}
+# Salão dos Matadores (Monte Kharzun, Ato II 42-44): boca num paredão a noroeste. Três salões em linha (vestíbulo,
+# galeria de treino, salão do Mestre) + a cripta de venenos de lado (plano Kharzun 2.2). Aqui o grupo aprende a proteger
+# quem cura: Assassinos em furtividade no vestíbulo, Matadores (cada um com 2 Assassinos) e Arcos de Fogo na galeria.
+# Cada salão tem a sua cor: vestíbulo roxo-noite, galeria de palha e madeira, cripta verde-veneno, arena vinho do Mestre.
+# O acabamento (bonecos de treino, alvos, caldeirões, panos dos Matadores) vem de act2_dress.slayers.
+SLAYER_NIGHT = (0.3, 0.2, 0.4)
+SLAYER_DECOR = [("crate", 3, (1.0, 1.0, 1.0), None), ("barrel", 3, (0.8, 1.0, 0.8), None), ("pillar", 4, (0.6, 2.6, 0.6), (0.3, 0.26, 0.34))]
+DUNGEONS["dg_slayers"] = {
+    "zone": "field_kharzun", "gate": (-76.0, -72.0), "face": 43.0, "name": "Salão dos Matadores", "seed": 31,
+    "rock": (0.24, 0.22, 0.27), "floor": (0.34, 0.3, 0.36), "glow": (0.7, 0.35, 0.9),
+    "layout": {
+        "rooms": {
+            # `mob_off`: os Assassinos do vestíbulo nascem 7 m para dentro (fora do alcance de quem acabou de chegar)
+            "vestibulo": {"pos": (0, 22), "r": 11, "mobs": [("goblin_assassin", 4)], "mob_off": (0.0, -7.0), "floor": (0.3, 0.26, 0.38), "decor": SLAYER_DECOR},
+            "galeria": {"pos": (-12, -8), "r": 12, "mobs": [("orc_fire_archer", 1), ("goblin_slayer", 2)], "floor": (0.5, 0.42, 0.3),
+                        "decor": SLAYER_DECOR[:2]},
+            "venenos": {"pos": (24, -12), "r": 9, "mobs": [("goblin_assassin", 3)], "floor": (0.26, 0.4, 0.3), "pool": (0.55, 0.95, 0.4),
+                        "decor": [("cauldron", 3, (1.1, 1.0, 1.1), (0.3, 0.3, 0.32)), ("barrel", 3, (0.8, 1.0, 0.8), None)]},
+            "mestre": {"pos": (4, -40), "r": 15, "boss": "boss_shazka", "floor": (0.38, 0.22, 0.36),
+                       "decor": [("tent", 2, (3.0, 2.2, 3.0), SLAYER_NIGHT)]},
+        },
+        "edges": [("chegada", "vestibulo"), ("vestibulo", "galeria"), ("galeria", "venenos"), ("galeria", "mestre")],
+        # bando do corredor por ligação (sem isto: o 1º bicho de um dos salões das pontas): a porta do Mestre é dos Assassinos
+        "packs": {"galeria>mestre": ("goblin_assassin", 3)},
     },
 }
 DUNGEON_ARRIVE = (0.0, 44.0)   # chegada dentro de toda dungeon; a saída fica em DUNGEON_EXIT
@@ -217,13 +250,19 @@ def _trail(s, name, c, end):
         if not bad(cand) and (q - end).length < (starts[0] - end).length * 2.5 + 12.0:
             poly = cand
             break
-    if bad(poly):
+    # `s.trail_ok` = trilhas conferidas à mão que a zona dispensa do aviso (a rota não muda: `bad` continua igual)
+    if bad(poly) and name not in getattr(s, "trail_ok", ()):
         print("PLACE_CONFLICT trilha de %s entra em área sólida" % name)
     for river in s.rivers:
         if any(poly_dist(p, river) < s.river_w * 0.5 for p in poly):
             print("PLACE_CONFLICT trilha de %s entra no rio" % name)
     s.road_polys["trilha_" + name] = poly
-    ribbon(s.coll, s.P + "estrada_trilha_" + name, poly, TRAIL_W, 0.012, mat("patch_trilha", (0.6, 0.5, 0.36)))
+    # a fita fica abaixo da estrada (que cobre a junção: no mesmo plano a ponta reta brigava em cima dela) e cada ponta
+    # ganha um borrão arredondado; `disc` tem Random próprio (o sorteio da zona não muda). Cor: `s.trail_color` da zona.
+    m = mat("patch_trilha", getattr(s, "trail_color", TRAIL_COL))
+    ribbon(s.coll, s.P + "estrada_trilha_" + name, poly, TRAIL_W, TRAIL_Y, m)
+    for k, (tag, q) in enumerate((("ini", poly[0]), ("fim", poly[-1]))):
+        disc(s.coll, s.P + "estrada_trilha_%s_%s" % (name, tag), (q.x, q.y), TRAIL_W * (0.62, 0.85)[k], TRAIL_Y - 0.0002, m, 16, 0.16, len(name) + k)
     s.data["roads"].append({"kind": "trail", "w": TRAIL_W, "pts": [[round(p.x, 2), round(p.y, 2)] for p in poly[::2] + [poly[-1]]]})
 
 

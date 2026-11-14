@@ -5,7 +5,7 @@ Tudo em coordenadas do jogo (x, z); nomes com `tag` no meio para o MapBuilder.ap
 import math
 import bmesh
 import zone_lib
-from zone_lib import B, _obj, along, box, catmull, cone, cyl, disc, mat, ribbon
+from zone_lib import B, _obj, along, box, catmull, cone, cyl, disc, mat, mat_c, ribbon
 
 HORDE_RED = (0.72, 0.16, 0.13)
 AURORA_GOLD = (0.96, 0.9, 0.62)
@@ -18,7 +18,7 @@ def wagon(z, name, c, rot, canvas=CANVAS, solid=True, length=5.2):
     """Carroça coberta: caixa de madeira, lona clara por cima (o que se lê da câmera alta) e quatro rodas escuras."""
     wood = mat("carroca_madeira", (0.46, 0.33, 0.22))
     wheel = mat("carroca_roda", (0.24, 0.19, 0.15))
-    cloth = mat("carroca_lona_%d" % int(canvas[0] * 100 + canvas[2] * 10), canvas)
+    cloth = mat_c("carroca_lona_%d" % int(canvas[0] * 100 + canvas[2] * 10), canvas)
     a = math.radians(rot)
     ux, uz = math.cos(a), -math.sin(a)                 # eixo comprido da carroça no jogo
     vx, vz = -uz, ux
@@ -55,12 +55,65 @@ def wagon_ring(z, name, c, r, gate_angles, gate_half=4.6, canvases=(CANVAS,)):
     z.block(c, r + 2)
 
 
-def banner(z, name, p, color, h=5.0, rot=0.0, pole=(0.3, 0.24, 0.2)):
-    """Estandarte: mastro + pano (o pano é o que muda de cor na retomada)."""
-    cyl(z.coll, z.P + name + "_mastro", p, 0.14, 0.1, h, mat("mastro_%d" % int(pole[0] * 100), pole), 0.0, 6)
+def cloth_mesh(w, drop, tail="swallow", nx=6, ny=3, thick=0.05, amp=None):
+    """Pano com dobras (um plano liso sai de um tom só no toon: lia como placa; art review 2026-11-13, item 8): grade
+    nx x ny em onda, mais solta embaixo, com espessura (casca fechada: o contorno pega). Barra: "swallow" = rabo de
+    andorinha, "teeth" = dentes rasgados, None = reta. Devolve (verts, faces, hem): verts locais (x a partir do mastro,
+    yb = fora do plano, up = 0 na barra .. drop no topo); hem = quantas faces do começo da lista são a barra."""
+    amp = min(w, drop) * 0.11 if amp is None else amp
+    verts, faces, rest = [], [], []
+    for i in range(ny + 1):
+        t = i / ny
+        for j in range(nx + 1):
+            u = j / nx
+            if tail == "teeth":
+                bot = drop * 0.17 if j % 2 else 0.0
+            elif tail == "swallow":
+                bot = drop * 0.24 * (1.0 - abs(2.0 * u - 1.0))
+            else:
+                bot = 0.0
+            yb = amp * math.sin(u * math.pi * 1.7 + 0.6) * (0.3 + 0.7 * (1.0 - t)) + amp * 0.7 * u * (1.0 - t) ** 2
+            up = bot + (drop - bot) * t
+            verts.append((u * w, yb + thick * 0.5, up))
+            verts.append((u * w, yb - thick * 0.5, up))
+    k = lambda i, j, s: (i * (nx + 1) + j) * 2 + s
+    for i in range(ny):
+        for j in range(nx):
+            (faces if i == 0 else rest).append((k(i, j, 0), k(i, j + 1, 0), k(i + 1, j + 1, 0), k(i + 1, j, 0)))
+            (faces if i == 0 else rest).append((k(i, j, 1), k(i + 1, j, 1), k(i + 1, j + 1, 1), k(i, j + 1, 1)))
+    hem = len(faces)
+    faces += rest
+    for j in range(nx):                                   # fecha a borda de baixo e a de cima
+        faces.append((k(0, j, 0), k(0, j, 1), k(0, j + 1, 1), k(0, j + 1, 0)))
+        faces.append((k(ny, j, 0), k(ny, j + 1, 0), k(ny, j + 1, 1), k(ny, j, 1)))
+    for i in range(ny):                                   # e os dois lados
+        faces.append((k(i, 0, 0), k(i + 1, 0, 0), k(i + 1, 0, 1), k(i, 0, 1)))
+        faces.append((k(i, nx, 0), k(i, nx, 1), k(i + 1, nx, 1), k(i + 1, nx, 0)))
+    return verts, faces, hem
+
+
+def cloth(coll, name, p, w, drop, rot, material, y0, x0=0.0, tail="swallow", hem=None):
+    """Pano dobrado pendurado em `p` (x, z do jogo; o pano sai na direção de `rot`), barra em y0. `hem` = material da barra
+    (um tom abaixo); sem ele o pano inteiro leva `material`."""
+    verts, faces, nh = cloth_mesh(w, drop, tail)
     a = math.radians(rot)
-    q = (p[0] + math.cos(a) * 0.9, p[1] - math.sin(a) * 0.9)
-    box(z.coll, z.P + name + "_pano", q, (1.7, 2.3, 0.08), rot, mat("pano_%d_%d" % (int(color[0] * 100), int(color[2] * 100)), color), h - 2.6)
+    ca, sa = math.cos(a), math.sin(a)
+    bm = bmesh.new()
+    vs = [bm.verts.new((p[0] + (x0 + x) * ca - yb * sa, -p[1] + (x0 + x) * sa + yb * ca, y0 + up)) for x, yb, up in verts]
+    for n, f in enumerate(faces):
+        fa = bm.faces.new([vs[i] for i in f])
+        fa.material_index = 1 if (hem is not None and n < nh) else 0
+    bm.normal_update()
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    return _obj(coll, name, bm, [material, hem] if hem is not None else material)
+
+
+def banner(z, name, p, color, h=5.0, rot=0.0, pole=(0.3, 0.24, 0.2)):
+    """Estandarte: mastro + pano (o pano é o que muda de cor na retomada). Pano dobrado, barra em rabo de andorinha."""
+    cyl(z.coll, z.P + name + "_mastro", p, 0.14, 0.1, h, mat_c("mastro_%d" % int(pole[0] * 100), pole), 0.0, 6)
+    key = (int(color[0] * 100), int(color[2] * 100))
+    cloth(z.coll, z.P + name + "_pano", p, 1.7, 2.3, rot, mat_c("pano_%d_%d" % key, color), h - 2.6, 0.05,
+          hem=mat_c("pano_%d_%d_barra" % key, tuple(k * 0.8 for k in color)))
 
 
 def rib(coll, name, base, out_ang, height, curl, r0, r1, material, steps=7, sides=6):
@@ -95,7 +148,8 @@ def rib(coll, name, base, out_ang, height, curl, r0, r1, material, steps=7, side
 
 
 def ribcage(z, name, c, ang, n=5, width=3.4, height=4.2, spacing=2.2):
-    """Carcaça de mamute: espinha no chão e pares de costelas em arco; passa-se por fora (colisão baixa no meio)."""
+    """Carcaça de mamute: espinha no chão e pares de costelas em arco; passa-se por fora (colisão baixa no meio).
+    `height` só muda o que se vê (o colisor vem de n/width/spacing): em arena de chefe use baixo (~2.4)."""
     bone = mat("osso_mamute", BONE)
     ux, uz = math.cos(ang), math.sin(ang)
     vx, vz = -uz, ux
@@ -111,15 +165,16 @@ def ribcage(z, name, c, ang, n=5, width=3.4, height=4.2, spacing=2.2):
     z.block(c, max(L, width * 2) * 0.5 + 3.0)
 
 
-def skull(z, name, c, ang, s=1.0):
-    """Crânio de mamute com duas presas curvas para a frente."""
+def skull(z, name, c, ang, s=1.0, low=False):
+    """Crânio de mamute com duas presas curvas para a frente. `low` = meio enterrado, presas curtas (arena de chefe: o
+    crânio inteiro tapava um quarto da tela, art review 2026-11-13 item 11); a pegada e o colisor são os mesmos."""
     bone = mat("osso_mamute", BONE)
-    zone_lib.blob(z.coll, z.P + name + "_cranio", c, 1.7 * s, 1.1 * s, bone, 3, 0.8)
+    zone_lib.blob(z.coll, z.P + name + "_cranio", c, 1.7 * s, (0.28 if low else 1.1) * s, bone, 3, 0.58 if low else 0.8)
     ux, uz = math.cos(ang), math.sin(ang)
     vx, vz = -uz, ux
     for k in (-1, 1):
         base = (c[0] + ux * 1.2 * s + vx * k * 1.0 * s, c[1] + uz * 1.2 * s + vz * k * 1.0 * s)
-        rib(z.coll, z.P + "%s_presa_%d" % (name, k), base, ang + math.pi + k * 0.5, 3.4 * s, 2.6 * s, 0.32 * s, 0.06, mat("marfim", (0.96, 0.93, 0.8)))
+        rib(z.coll, z.P + "%s_presa_%d" % (name, k), base, ang + math.pi + k * 0.5, (1.7 if low else 3.4) * s, 2.6 * s, 0.32 * s, 0.06, mat("marfim", (0.96, 0.93, 0.8)))
     z.ob("rock", c[0], c[1], (3.6 * s, 2.2, 3.6 * s), visible=False)
     z.block(c, 4.0 * s)
 
@@ -150,7 +205,7 @@ def watchtower(z, name, c, roof, h=6.0):
         for dz in (-1.3, 1.3):
             cyl(z.coll, z.P + "%s_poste_%d_%d" % (name, dx > 0, dz > 0), (c[0] + dx, c[1] + dz), 0.22, 0.2, h, wood, 0.0, 6)
     box(z.coll, z.P + name + "_plataforma", c, (3.6, 0.3, 3.6), 0.0, wood, h)
-    cone(z.coll, z.P + name + "_teto", c, 2.7, 1.7, mat("teto_%d_%d" % (int(roof[0] * 100), int(roof[2] * 100)), roof), h + 1.5, 4)
+    cone(z.coll, z.P + name + "_teto", c, 2.7, 1.7, mat_c("teto_%d_%d" % (int(roof[0] * 100), int(roof[2] * 100)), roof), h + 1.5, 4)
     z.ob("pillar", c[0], c[1], (3.4, h, 3.4), visible=False)
 
 

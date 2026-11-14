@@ -18,3 +18,5 @@
 | costa | Song of the Sea | Kistol | https://opengameart.org/content/song-of-the-sea |
 | goblins | Krakatoa | Kistol | https://opengameart.org/content/krakatoa |
 | horda | Orcs Victorious (2024) | Bobjt | https://opengameart.org/content/orcs-victorious |
+| kharzun | War Theme | Spring Spring | https://opengameart.org/content/war-theme |
+| kharzun_citadel | Fantasy Choir 2 (Fantasy Choir: 3 Orchestral Pieces) | cesisco | https://opengameart.org/content/fantasy-choir-3-orchestral-pieces |

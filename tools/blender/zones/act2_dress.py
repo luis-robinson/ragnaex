@@ -24,9 +24,11 @@ def P(c, r, deg):
 # ----------------------------------------------------------------------------------------------------------------
 # praia e mar (Costa e Porto)
 # ----------------------------------------------------------------------------------------------------------------
-def shoreline(d, c, r, beach, palms=10, boats=3, rocks=10):
+def shoreline(d, c, r, beach, palms=10, boats=3, rocks=10, tongue_y=0.0046):
     """Borda do mar lida de cima: areia molhada, espuma em gomos, linhas de onda, baixios claros, pedras com espuma,
-    conchas, algas, capim de duna na passagem areia/grama e palmeiras no fundo da praia."""
+    conchas, algas, capim de duna na passagem areia/grama e palmeiras no fundo da praia.
+    `tongue_y`: altura das línguas de areia na passagem areia/grama (a areia do mar fica a 4,0 mm: a língua pode ir por cima
+    ou por baixo dela, desde que a 0,5 mm+ e longe das outras camadas que cruzam a praia)."""
     z = d.z
     rnd = d.rnd
     wet = d.m("patch_areia_molhada", WET)
@@ -94,7 +96,7 @@ def shoreline(d, c, r, beach, palms=10, boats=3, rocks=10):
     while a < a1:                                          # passagem areia -> grama: línguas de areia e capim de duna
         rr = r + beach + rnd.uniform(-1.0, 1.6)
         p = (c[0] + math.cos(a) * rr, c[1] + math.sin(a) * rr)
-        d.blob("praia", d.m("patch_areia_mar", SAND), p, rnd.uniform(1.6, 3.6), 0.0046, 0.35, sx=1.6, rot=rnd.uniform(0, 180))
+        d.blob("praia", d.m("patch_areia_mar", SAND), p, rnd.uniform(1.6, 3.6), tongue_y, 0.35, sx=1.6, rot=rnd.uniform(0, 180))
         if d.ok(p[0], p[1], 0.5, road=0.3, water=0.0):
             for _ in range(rnd.randint(2, 5)):
                 d.tuft("praia3d", dune, (p[0] + rnd.uniform(-1.2, 1.2), p[1] + rnd.uniform(-1.2, 1.2)), 0.45, rnd.uniform(0.7, 1.1), 6, (0.12, -0.05))
@@ -230,13 +232,18 @@ def coast(z, sea_c, sea_r, village, nests, beach, lighthouse, shrine, hub_r, hub
     d = Dress(z, 131)
     rnd = d.rnd
     # ---- chão: campo em três tons, beira de estrada, mata mais escura ao norte ----
+    # pilha (mm): campo 0,8/1,6/2,4 < mata 3,2 (não chega à praia) e línguas de areia 3,4 < areia do mar 4,0 (sea.py) < faixa
+    # do mangue 4,6 (build_field_coast.mangrove_band) < lama 5,2/5,6 < manchas e lugares 6,0. Entre a areia e os 6,0 mm só
+    # cabem 3 camadas: 0,6 mm onde a sobreposição é grande (areia/faixa, faixa/lama; com 0,4 listrava na foto) e 0,4 mm onde
+    # é pouca (os dois tons de lama entre si e a lama sob os lugares), não 0,8.
+    # Antes: campo 4,8/5,0/5,2, mata 5,4/5,6/5,8 e lama 5,6/5,8/6,0 (0,2 mm e planos repetidos entre mata, lama e lugares)
     d.mottle([("campo_claro", (0.6, 0.71, 0.43)), ("campo_escuro", (0.47, 0.6, 0.37)), ("campo_seco", (0.6, 0.68, 0.42))],
-             [((0, -10), 112, 130)], rmin=3.0, rmax=8.5)
-    d.mottle([("mata_sombra", (0.43, 0.56, 0.35))], [((0, -62), 50, 26), ((70, -22), 30, 12), ((-90, -60), 26, 10)], y=0.0054, rmin=5.0, rmax=11.0, group="mata")
+             [((0, -10), 112, 130)], y=0.0008, rmin=3.0, rmax=8.5, step=0.0008)
+    d.mottle([("mata_sombra", (0.43, 0.56, 0.35))], [((0, -62), 50, 26), ((70, -22), 30, 12), ((-90, -60), 26, 10)], y=0.0032, rmin=5.0, rmax=11.0, group="mata")
     d.road_edges((0.58, 0.54, 0.4))
     d.roadside(d.m("seixo_estrada", (0.62, 0.58, 0.5)), d.m("capim_beira", (0.5, 0.62, 0.34)), every=6.0, lean=(0.1, 0.04))
     d.reserve(4.0, 68.0, 15.0)          # arena da Mãe das Marés: nada de palmeira nem bote no meio da luta
-    shoreline(d, sea_c, sea_r, 18.0, palms=14, boats=4, rocks=14)
+    shoreline(d, sea_c, sea_r, 18.0, palms=14, boats=4, rocks=14, tongue_y=0.0034)
     # ---- Encruzilhada: carga, feno, carroça, cavalete de armas e alvos, flâmulas nos vãos, placas nas saídas ----
     for a, r, n in ((0.2, 13.5, 5), (3.0, 14.0, 6), (4.45, 13.0, 4)):
         p = (math.cos(a) * r, math.sin(a) * r)
@@ -316,7 +323,8 @@ def coast(z, sea_c, sea_r, village, nests, beach, lighthouse, shrine, hub_r, hub
             d.solid(q[0], q[1], 2.6, 0.5, 1.7, i * 60.0)
     mangrove_roots(d, mangrove_cols)
     d.mottle([("lama_mangue", (0.36, 0.42, 0.3)), ("lama_clara", (0.44, 0.5, 0.34))], [((-56, -92), 12, 5), ((-50, -64), 12, 6), ((-50, -32), 11, 5),
-             ((-58, 24), 12, 6), ((-52, 58), 12, 6), ((-42, 90), 10, 4)], y=0.0056, rmin=2.0, rmax=4.5, group="mangue")
+             ((-58, 24), 12, 6), ((-52, 58), 12, 6), ((-42, 90), 10, 4)], y=0.0052, rmin=2.0, rmax=4.5, group="mangue",
+             step=0.0004)       # 2 tons = 2 planos, entre a faixa do mangue (4,6) e as manchas/lugares (6,0)
     # ---- Falésias dos Ninhos: agulhas de rocha, penas e ossos; a vanguarda orc com barricadas e estandartes ----
     outcrops(d, [((-15, -92), 24, 9)], (0.62, 0.58, 0.52), r=(1.6, 2.8), hmul=2.4)
     for k in range(8):
@@ -384,8 +392,10 @@ def port(z, sea_c, sea_r, town_c, town_r, plaza_r, gates, gate_half, farm, shipy
     rnd = d.rnd
     H = lambda r, a: P(town_c, r, a)
     avs = tuple(n for n in z.road_polys if n.startswith("av_"))
-    d.mottle([("campo_claro", (0.6, 0.71, 0.43)), ("campo_escuro", (0.47, 0.6, 0.37)), ("campo_seco", (0.6, 0.68, 0.42))], [((0, -20), 96, 90)], rmin=3.0, rmax=8.0)
-    d.mottle([("mata_sombra", (0.43, 0.56, 0.35))], [((0, -62), 36, 18), ((-70, -40), 24, 10), ((72, 8), 20, 8)], y=0.0054, rmin=5.0, rmax=10.0, group="mata")
+    # pilha (mm), como na Costa: campo 0,8/1,6/2,4 < mata 3,2 < areia do mar 4,0 < manchas e lugares 6,0+
+    d.mottle([("campo_claro", (0.6, 0.71, 0.43)), ("campo_escuro", (0.47, 0.6, 0.37)), ("campo_seco", (0.6, 0.68, 0.42))], [((0, -20), 96, 90)],
+             y=0.0008, rmin=3.0, rmax=8.0, step=0.0008)
+    d.mottle([("mata_sombra", (0.43, 0.56, 0.35))], [((0, -62), 36, 18), ((-70, -40), 24, 10), ((72, 8), 20, 8)], y=0.0032, rmin=5.0, rmax=10.0, group="mata")
     d.road_edges((0.58, 0.54, 0.4), skip=avs)
     d.roadside(d.m("seixo_estrada", (0.62, 0.58, 0.5)), d.m("capim_beira", (0.5, 0.62, 0.34)), every=6.0, lean=(0.1, 0.04), skip=avs)
     shoreline(d, sea_c, sea_r, 12.0, palms=9, boats=4, rocks=9)
@@ -579,10 +589,17 @@ STEPPE_GRASS = (0.74, 0.58, 0.24)
 MESA_ROCK = (0.56, 0.4, 0.3)
 
 
-def dry_ground(d, tones, n, r=108, streaks=110, streak_col=(0.84, 0.74, 0.46), ruts=(0.42, 0.37, 0.31), edge=(0.5, 0.44, 0.35), c=(0, 0)):
-    """Chão de estepe: manchas em três tons, riscos claros de vento todos no mesmo rumo, acostamento pisado e sulcos de roda."""
+def dry_ground(d, tones, n, r=108, streaks=110, streak_col=(0.84, 0.74, 0.46), ruts=(0.42, 0.37, 0.31), edge=(0.5, 0.44, 0.35), c=(0, 0), streak_soft=False,
+               mottle_y=0.0018, mottle_step=0.0008, streak_y=0.0042):
+    """Chão de estepe: manchas em três tons, riscos claros de vento todos no mesmo rumo, acostamento pisado e sulcos de roda.
+    `streak_soft`: o risco vira uma língua de cinza soprada (arco suave de 9 pontos, mais larga no meio, as duas pontas em
+    bico). O risco padrão é uma fita de 3 pontos com as pontas cortadas retas: some no capim claro da estepe, mas no chão
+    escuro e aberto de Kharzun lia-se como ripa reta de ponta quadrada. Gasta os mesmos sorteios do `d.rnd` (a sim não muda).
+    `mottle_y`/`mottle_step`/`streak_y`: alturas das manchas (3 planos) e dos riscos; planos a 0,2 mm brigam (faixas).
+    Padrão (Estepes e acampamentos): manchas 1,8/2,6/3,4 mm e risco 4,2 mm, tudo abaixo do chão limpo das frentes (5,0),
+    das manchas `Zone.patch` e do chão dos lugares (6,0+). Antes: 4,8/5,0/5,2 e risco 6,2 (por cima dos lugares, a 0,2 mm)."""
     rnd = d.rnd
-    d.mottle(tones, [(c, r, n)], rmin=3.0, rmax=9.0)
+    d.mottle(tones, [(c, r, n)], y=mottle_y, rmin=3.0, rmax=9.0, step=mottle_step)
     sm = d.m("patch_risco_vento", streak_col)
     wd = Vector((1.0, 0.3)).normalized()
     for _ in range(streaks):
@@ -592,7 +609,13 @@ def dry_ground(d, tones, n, r=108, streaks=110, streak_col=(0.84, 0.74, 0.46), r
             continue
         L = rnd.uniform(4.0, 11.0)
         side = Vector((-wd.y, wd.x)) * rnd.uniform(-0.5, 0.5)
-        d.strip("vento", sm, [p - wd * L * 0.5, p + side, p + wd * L * 0.5], rnd.uniform(0.22, 0.5), 0.0062, 0.3, taper=True)
+        w = rnd.uniform(0.22, 0.5)
+        if streak_soft:
+            a0, ctrl, a1 = p - wd * L * 0.5, p + side * 4.0, p + wd * L * 0.5          # Bézier: barriga de até 1 m no meio
+            pts = [a0 * (1 - t) ** 2 + ctrl * 2 * t * (1 - t) + a1 * t ** 2 for t in (k / 8 for k in range(9))]
+            d.strip("vento", sm, pts, w * 1.7, streak_y, 0.3, taper="point")
+        else:
+            d.strip("vento", sm, [p - wd * L * 0.5, p + side, p + wd * L * 0.5], w, streak_y, 0.3, taper=True)
     if edge:
         d.road_edges(edge, extra=1.3)
     if ruts:
@@ -615,7 +638,8 @@ def dry_ground(d, tones, n, r=108, streaks=110, streak_col=(0.84, 0.74, 0.46), r
 def steppe(z, hub_r, hub_gates, fronts, camp_r, graveyard, deserters, totem, shrine, fort_q):
     d = Dress(z, 307)
     rnd = d.rnd
-    dry_ground(d, [("estepe_ouro", (0.82, 0.68, 0.36)), ("estepe_queimado", (0.62, 0.5, 0.3)), ("estepe_palha", (0.78, 0.7, 0.44))], 150)
+    dry_ground(d, [("estepe_ouro", (0.82, 0.68, 0.36)), ("estepe_queimado", (0.62, 0.5, 0.3)), ("estepe_palha", (0.78, 0.7, 0.44))], 150,
+               streak_soft=True)
     d.roadside(d.m("seixo_estepe", (0.56, 0.48, 0.42)), d.m("capim_estepe", STEPPE_GRASS), every=5.0, lean=WIND, tuft_h=1.0)
     meadow(d, [((0, 0), 108, 150)], STEPPE_GRASS, flowers=((0.86, 0.36, 0.2), ), lean=WIND, h=1.25, every=5)
     outcrops(d, [((0, 0), 104, 16), ((-90, -6), 22, 4), ((40, -84), 20, 3)], MESA_ROCK, (0.74, 0.58, 0.4), r=(1.8, 3.6), hmul=1.3)
@@ -770,7 +794,7 @@ def fort(z, fid, c, R, gate_pt, arrive, posts, quest):
     ad = Dress(z, 419, tag="estandarte_aurora_det")                                  # pano da Aurora: aparece na retomada
     rnd = d.rnd
     dry_ground(d, look["tones"], 120, r=108, streaks=60 if fid != "fort_fire" else 0, ruts=look["ruts"], edge=look["edge"],
-               streak_col=tuple(min(1.0, k * 1.1) for k in look["tones"][0][1]))      # risco de vento no tom do chão de cada acampamento
+               streak_col=tuple(min(1.0, k * 1.1) for k in look["tones"][0][1]), streak_soft=True)      # risco de vento no tom do chão de cada acampamento
     d.roadside(d.m("seixo_%s" % fid, look["rock"]), d.m("capim_%s" % fid, look["grass"]), every=5.0, lean=WIND, tuft_h=0.9)
     meadow(d, [((0, 30), 100, 70)], look["grass"], flowers=(), lean=WIND, h=1.1)
     outcrops(d, [((0, 30), 100, 12)], look["rock"], r=(1.8, 3.4), hmul=1.5 if fid == "fort_trolls" else 1.1)
@@ -1279,12 +1303,12 @@ def goblin(z, rooms, edges):
     # ---- tambores: anéis pintados no chão, tambores e flâmulas na borda ----
     x, y = rooms["tambores"]["pos"]
     r = rooms["tambores"]["r"]
-    paint = [d.m("patch_tinta_osso", (0.86, 0.8, 0.62)), d.m("patch_tinta_sangue", (0.7, 0.2, 0.2))]
+    paint = list(floor_tones(d, "tambores", rooms["tambores"]["floor"]))     # tinta em tons do chão (não lê como aviso)
     for k, rr in enumerate((r * 0.36, r * 0.52, r * 0.7)):
         n = 8 + k * 4
         for j in range(n):
             a = math.tau * j / n
-            d.arc("tambores", paint[(k + j) % 2], (x, y), rr, a + 0.04, a + math.tau / n - 0.04, 0.34, 0.0225, 0.25, 0.9)
+            d.arc("tambores", paint[(k + j) % 2], (x, y), rr, a + 0.04, a + math.tau / n - 0.04, 0.24, 0.0225, 0.25, 0.9)
     for j, (p, a) in enumerate(rim_spots("tambores", 12, 0.88, 0.95)):
         if not d.ok(p[0], p[1], 0.8, road=0.2):
             continue
@@ -1294,19 +1318,19 @@ def goblin(z, rooms, edges):
         else:
             d.solid(p[0], p[1], 0.4, 0.4, 4.0)
             d.flag(p, [HORDE_RED, (0.86, 0.6, 0.2)][j % 4 // 2], 4.6, math.degrees(-a) + 90.0, w=0.9, drop=1.5)
-    # ---- selo: círculo de runas em brasa, raios, totens, crânios e braseiros ----
+    # ---- selo: círculo de runas e raios entalhados (tons do chão: brasa e vermelho no chão são do aviso de golpe),
+    #      totens, crânios e braseiros na borda ----
     x, y = rooms["selo"]["pos"]
     r = rooms["selo"]["r"]
-    rune = d.m("glow_runa_selo", (1.0, 0.4, 0.16))
-    blood = d.m("patch_tinta_sangue", (0.7, 0.2, 0.2))
-    for rr, n, w in ((r * 0.34, 10, 0.3), (r * 0.56, 14, 0.36)):
+    rune, blood = floor_tones(d, "selo", rooms["selo"]["floor"])
+    for rr, n, w in ((r * 0.34, 10, 0.22), (r * 0.56, 14, 0.26)):
         for j in range(n):
             a = math.tau * j / n
             d.arc("selo", rune, (x, y), rr, a + 0.05, a + math.tau / n - 0.05, w, 0.0232, 0.15, 0.8)
     for j in range(10):
         a = math.degrees(math.tau * j / 10 + 0.1)
         d.strip("selo", blood if j % 2 else rune, [Vector(P((x, y), r * 0.37, a)), Vector(P((x, y), r * 0.45, a + 3)), Vector(P((x, y), r * 0.53, a))],
-                0.4 if j % 2 else 0.2, 0.0228, 0.2, taper=True)
+                0.3 if j % 2 else 0.2, 0.0228, 0.2, taper=True)
     for j, (p, a) in enumerate(rim_spots("selo", 16, 0.89, 0.95)):
         k = j % 4
         if not d.ok(p[0], p[1], 0.8, road=0.2):
@@ -1454,3 +1478,767 @@ def setpieces(d, centers, kinds, spacing=26.0, **kw):
         d.reserve(x, z, 8.0)
         n += 1
     return n
+
+
+# ----------------------------------------------------------------------------------------------------------------
+# Monte Kharzun (field_kharzun, 40-45): basalto, cinza e lava. Chamado por build_kharzun.py antes do z.finish.
+# Peças de estágio (K0-K4) saem em lotes com `tag` (MapDef.conquest_vis); o colisor delas é fixo e vem ANTES, por
+# z.ob(..., visible=False): o que muda com a missão é só o que se vê em cima do mesmo chão.
+# ----------------------------------------------------------------------------------------------------------------
+KH_BASALT = (0.3, 0.28, 0.31)
+KH_BASALT_TOP = (0.42, 0.4, 0.44)
+KH_BASALT_DARK = (0.31, 0.29, 0.38)    # basalto dos Matadores (era 0.24/0.22/0.28: preto chapado na masmorra escura)
+KH_LAVA = (1.0, 0.46, 0.14)
+KH_CORE = (1.0, 0.8, 0.32)
+KH_CRUST = (0.31, 0.27, 0.33)          # placa de crosta na lava: ardósia (era 0.2/0.15/0.14 chapado: lia como buraco; art review 2026-11-13, item 9)
+KH_CRUST_TOP = (0.45, 0.4, 0.46)
+KH_COAL = (0.27, 0.25, 0.32)           # carvão/escória do monte: o mais escuro que ainda mostra os 3 tons do toon
+KH_NIGHT = (0.3, 0.2, 0.4)             # pano dos Matadores
+
+
+def basalt_columns(d, c, n=6, r=1.6, h=(1.2, 3.4), color=KH_BASALT, g="basalto"):
+    """Feixe de colunas hexagonais de basalto (mais altas no meio), tampo mais claro: lê-se de cima como favo escuro."""
+    rk = d.m("basalto_%d" % int(color[0] * 100), color)
+    tp = d.m("basalto_topo_%d" % int(color[0] * 100), tuple(min(1.0, k * 1.35) for k in color))
+    rnd = d.rnd
+    for i in range(n):
+        a, dd = rnd.uniform(0, math.tau), (0.0 if i == 0 else rnd.uniform(0.3, r))
+        p = (c[0] + math.cos(a) * dd, c[1] + math.sin(a) * dd)
+        hh = rnd.uniform(*h) * (1.0 - 0.55 * dd / max(r, 0.1))
+        rr = rnd.uniform(0.45, 0.72)
+        rot = rnd.uniform(0, 60)
+        d.cyl(g, rk, p, rr, rr, hh, -0.1, 6, rot)
+        d.cyl(g, tp, p, rr * 0.96, rr * 0.9, 0.07, hh - 0.1, 6, rot)
+
+
+def lava_detail(d, w, lakes):
+    """Vida da lava: miolo claro que serpenteia, placas de crosta boiando, rachaduras em brasa saindo das margens,
+    chão chamuscado. Tudo chato (não colide: quem fecha a lava é o rio/lago da sim)."""
+    z = d.z
+    rnd = d.rnd
+    crust = d.m("lava_placa", KH_CRUST)                      # placa com volume (Dress.slab): borda em talude + tampo claro
+    crust_top = d.m("lava_placa_topo", KH_CRUST_TOP)
+    core = d.m("glow_lava_miolo", KH_CORE)
+    crack = d.m("glow_lava", KH_LAVA)
+    burnt = d.m("patch_chamuscado", (0.24, 0.2, 0.2))
+    roads = [poly for name, poly in z.road_polys.items() if not name.startswith("trilha_")]
+    far = lambda p, m: all(zone_lib.poly_dist(p, rd) > m for rd in roads)
+
+    def cracks(p, out, n=1):
+        for _ in range(n):
+            a = math.atan2(out.y, out.x) + rnd.uniform(-0.7, 0.7)
+            L = rnd.uniform(2.5, 6.5)
+            pts = [p]
+            for k in range(1, 5):
+                a += rnd.uniform(-0.45, 0.45)
+                pts.append(pts[-1] + Vector((math.cos(a), math.sin(a))) * L / 4)
+            if far(pts[-1], 4.0) and far(pts[2], 4.0):
+                d.strip("lava", crack, pts, rnd.uniform(0.22, 0.4), 0.0112, 0.3, taper=True)
+                if rnd.random() < 0.5:
+                    d.blob("lava", burnt, (pts[2].x, pts[2].y), rnd.uniform(1.2, 2.4), 0.0076, 0.35)
+
+    heat = d.m("patch_lava_calor", (0.52, 0.25, 0.2))
+    for k, poly in enumerate(z.rivers):
+        n = len(poly)
+        d.strip("lava", heat, poly, w + 9.0, 0.0071, 0.5)
+        nrm = []
+        for i in range(n):
+            t = (poly[min(n - 1, i + 1)] - poly[max(0, i - 1)]).normalized()
+            nrm.append((t, Vector((-t.y, t.x))))
+        i = 1
+        while i < n - 4:                                     # miolo claro em trechos, serpenteando
+            m = rnd.randint(6, 12)
+            pts = [poly[j] + nrm[j][1] * math.sin(j * 0.55 + k) * w * 0.2 for j in range(i, min(n - 1, i + m))]
+            d.strip("lava", core, pts, w * rnd.uniform(0.16, 0.26), 0.0206, 0.5, taper=True)
+            i += m + rnd.randint(1, 3)
+        for i in range(1, n - 1):
+            t, nr = nrm[i]
+            if far(poly[i], w * 0.5 + 3.5):
+                for _ in range(1):
+                    if rnd.random() < 0.45:
+                        q = poly[i] + nr * rnd.uniform(-w * 0.38, w * 0.38) + t * rnd.uniform(-0.8, 0.8)
+                        d.slab("mini", crust, crust_top, (q.x, q.y), rnd.uniform(0.4, 0.95), 0.14, 0.3, sx=rnd.uniform(1.0, 2.2), rot=zone_lib.along(t.x, t.y), y=0.012)
+            if i % 2 == 0 and far(poly[i], w * 0.5 + 5.0):
+                s = 1 if rnd.random() < 0.5 else -1
+                cracks(poly[i] + nr * s * (w * 0.5 - 0.3), nr * s, 1)
+    for c, r in lakes:
+        d.blob("lava", heat, c, r + 6.5, 0.0071, 0.2)
+        d.blob("lava", core, c, r * 0.5, 0.0256, 0.3)
+        for _ in range(int(r * 0.9)):
+            a, rr = rnd.uniform(0, math.tau), r * rnd.uniform(0.3, 0.9)
+            d.slab("mini", crust, crust_top, (c[0] + math.cos(a) * rr, c[1] + math.sin(a) * rr), rnd.uniform(0.5, 1.4), 0.16, 0.3, sx=rnd.uniform(1.0, 2.0), rot=math.degrees(-a) + 90.0, y=0.012)
+        for i in range(int(r * 1.2)):
+            a = math.tau * i / int(r * 1.2) + rnd.uniform(-0.2, 0.2)
+            o = Vector((math.cos(a), math.sin(a)))
+            cracks(Vector(c) + o * (r - 0.3), o, 1)
+
+
+def _watchtower(d, c, h=6.4, roof=AURORA_BLUE, g="torre"):
+    w = d.m("torre_aurora", (0.62, 0.48, 0.32))
+    w2 = d.m("torre_aurora_tabua", (0.74, 0.6, 0.4))
+    for dx in (-1.3, 1.3):
+        for dz in (-1.3, 1.3):
+            d.cyl(g, w, (c[0] + dx, c[1] + dz), 0.2, 0.18, h, 0.0, 6)
+    d.box(g, w2, c, (3.5, 0.25, 3.5), 0.0, h)
+    for k in range(4):
+        q = P(c, 1.7, k * 90.0)
+        d.box(g, w, q, (0.14, 0.9, 3.5), k * 90.0, h + 0.25)
+    for dx in (-1.3, 1.3):
+        for dz in (-1.3, 1.3):
+            d.cyl(g, w, (c[0] + dx, c[1] + dz), 0.12, 0.12, 2.0, h + 0.25, 5)
+    d.cyl(g, d.m("torre_teto_%d" % int(roof[2] * 100), roof), c, 2.7, 0.1, 1.8, h + 2.25, 4, 45.0)
+    d.cyl(g, d.m("lona_ouro_96", AURORA_GOLD), c, 0.16, 0.0, 0.5, h + 4.05, 4)
+    for k, yy in enumerate((1.6, 3.6)):                      # travas em X (lado da frente)
+        d.tube(g, w, [(c[0] - 1.3, yy - 1.2, c[1] + 1.3), (c[0] + 1.3, yy + 1.2, c[1] + 1.3)], 0.06, 0.06, 4)
+        d.tube(g, w, [(c[0] + 1.3, yy - 1.2, c[1] + 1.3), (c[0] - 1.3, yy + 1.2, c[1] + 1.3)], 0.06, 0.06, 4)
+
+
+def _catapult(d, c, rot, g="cerco"):
+    """Catapulta da Aurora: chassi de toras com quatro rodas, cavalete, braço armado com a colher, contrapeso azul."""
+    w = d.m("cerco_madeira", (0.56, 0.42, 0.28))
+    iron = d.m("ferro", (0.6, 0.62, 0.66))
+    a = math.radians(rot)
+    ux, uz = math.cos(a), -math.sin(a)
+    vx, vz = math.sin(a), math.cos(a)
+    for s in (-1, 1):
+        d.log(g, w, (c[0] + vx * s * 1.0, c[1] + vz * s * 1.0), 0.2, 4.0, rot, 0.6)
+        for e in (-1, 1):
+            p = (c[0] + ux * e * 1.4 + vx * s * 1.35, c[1] + uz * e * 1.4 + vz * s * 1.35)
+            d.cyl(g, d.m("carreta_roda", (0.26, 0.2, 0.16)), p, 0.6, 0.6, 0.16, 0.6, 8, rot, tilt=(90, 0))
+        d.tube(g, w, [(c[0] + vx * s * 1.0 - ux * 0.9, 0.7, c[1] + vz * s * 1.0 - uz * 0.9), (c[0] + vx * s * 0.6, 3.2, c[1] + vz * s * 0.6)], 0.14, 0.12, 5)
+        d.tube(g, w, [(c[0] + vx * s * 1.0 + ux * 0.9, 0.7, c[1] + vz * s * 1.0 + uz * 0.9), (c[0] + vx * s * 0.6, 3.2, c[1] + vz * s * 0.6)], 0.14, 0.12, 5)
+    d.tube(g, w, [(c[0] - vx * 0.7, 3.2, c[1] - vz * 0.7), (c[0] + vx * 0.7, 3.2, c[1] + vz * 0.7)], 0.13, 0.13, 5)
+    d.tube(g, w, [(c[0] + ux * 1.2, 4.2, c[1] + uz * 1.2), (c[0], 3.2, c[1]), (c[0] - ux * 2.6, 1.3, c[1] - uz * 2.6)], 0.15, 0.1, 5)
+    d.cyl(g, iron, (c[0] - ux * 2.7, c[1] - uz * 2.7), 0.2, 0.42, 0.3, 1.1, 7)
+    d.box(g, d.m("cerco_contrapeso", AURORA_BLUE), (c[0] + ux * 1.3, c[1] + uz * 1.3), (0.9, 1.0, 0.9), rot, 3.5)
+    d.rock(g, d.m("cerco_pedra", (0.5, 0.48, 0.5)), (c[0] - ux * 2.7, c[1] - uz * 2.7), 0.3, 1.3, 0.9)
+
+
+def _ram(d, c, rot, g="cerco"):
+    """Aríete coberto: telhado de duas águas com couro azul, tora de cabeça de ferro pendurada, quatro rodas."""
+    w = d.m("cerco_madeira", (0.56, 0.42, 0.28))
+    a = math.radians(rot)
+    ux, uz = math.cos(a), -math.sin(a)
+    vx, vz = math.sin(a), math.cos(a)
+    for s in (-1, 1):
+        for e in (-1, 1):
+            p = (c[0] + ux * e * 2.0 + vx * s * 0.95, c[1] + uz * e * 2.0 + vz * s * 0.95)
+            d.cyl(g, w, p, 0.12, 0.11, 2.2, 0.0, 5)
+            d.cyl(g, d.m("carreta_roda", (0.26, 0.2, 0.16)), (p[0] + vx * s * 0.2, p[1] + vz * s * 0.2), 0.55, 0.55, 0.14, 0.55, 8, rot, tilt=(90, 0))
+        d.box(g, d.m("cerco_couro", AURORA_BLUE), (c[0] + vx * s * 0.55, c[1] + vz * s * 0.55), (5.0, 0.1, 1.5), rot, 2.5, tilt=(-s * 32.0, 0))
+    d.log(g, w, c, 0.1, 5.0, rot, 3.0)
+    d.log(g, d.m("cerco_tora", (0.44, 0.32, 0.22)), (c[0] + ux * 0.5, c[1] + uz * 0.5), 0.3, 5.6, rot, 1.2)
+    d.cyl(g, d.m("ferro", (0.6, 0.62, 0.66)), (c[0] + ux * 3.3, c[1] + uz * 3.3), 0.36, 0.2, 0.7, 1.2, 6, rot, tilt=(0, 90))
+
+
+def _cage(d, c, rot, open_door=False, g="jaula"):
+    """Jaula de ferro (2,6 m): quatro cantos, tampo, grades; aberta = a frente no chão."""
+    iron = d.m("jaula_ferro", (0.28, 0.27, 0.3))
+    S, Hh = 1.3, 2.4
+    a = math.radians(rot)
+    ux, uz = math.cos(a), -math.sin(a)
+    vx, vz = math.sin(a), math.cos(a)
+    for s in (-1, 1):
+        for e in (-1, 1):
+            d.cyl(g, iron, (c[0] + ux * e * S + vx * s * S, c[1] + uz * e * S + vz * s * S), 0.1, 0.1, Hh, 0.0, 4)
+    d.box(g, iron, c, (2 * S + 0.2, 0.12, 2 * S + 0.2), rot, Hh)
+    d.box(g, d.m("jaula_chao", (0.36, 0.3, 0.26)), c, (2 * S, 0.08, 2 * S), rot, 0.0)
+    for side in range(4):
+        if open_door and side == 0:
+            continue
+        for k in (-0.6, -0.2, 0.2, 0.6):
+            if side == 0:
+                p = (c[0] + ux * k * 2 * S * 0.5 * 1.6 + vx * S, c[1] + uz * k * 2 * S * 0.5 * 1.6 + vz * S)
+            elif side == 1:
+                p = (c[0] + ux * k * 2 * S * 0.5 * 1.6 - vx * S, c[1] + uz * k * 2 * S * 0.5 * 1.6 - vz * S)
+            elif side == 2:
+                p = (c[0] + ux * S + vx * k * 2 * S * 0.5 * 1.6, c[1] + uz * S + vz * k * 2 * S * 0.5 * 1.6)
+            else:
+                p = (c[0] - ux * S + vx * k * 2 * S * 0.5 * 1.6, c[1] - uz * S + vz * k * 2 * S * 0.5 * 1.6)
+            d.cyl(g, iron, p, 0.045, 0.045, Hh, 0.0, 4)
+    if open_door:
+        q = (c[0] + vx * (S + 1.5), c[1] + vz * (S + 1.5))
+        d.box(g, iron, q, (2 * S, 0.08, 2.2), rot, 0.02)
+        d.box(g, d.m("jaula_corrente", (0.5, 0.5, 0.54)), (q[0] + ux * 0.6, q[1] + uz * 0.6), (0.9, 0.06, 0.14), rot + 30.0, 0.1)
+
+
+def kharzun(z, k):
+    q_ = k["q"]
+    d = Dress(z, 409)
+    rnd = d.rnd
+    hub_r = k["hub_r"]
+    lots = []                  # (tag, when, função) desenhados no fim, cada um no seu lote de estágio
+
+    # ---- colisores fixos das peças de estágio (antes de tudo: o d.ok() já os vê) ----
+    towers = [P((0, 0), hub_r + 3.2, deg) for deg in (-90.0 - 21.0, -90.0 + 21.0, -21.0, 21.0)]
+    for q in towers:
+        z.ob("pillar", q[0], q[1], (3.4, 6.0, 3.4), visible=False)
+    dwarf = P((0, 0), 20.0, -73.0)
+    z.ob("pillar", dwarf[0], dwarf[1], (3.2, 2.4, 2.6), visible=False)
+    sg = k["siege"]
+    siege = [((sg[0] + 5.2, sg[1] - 1.5), 20.0, (4.4, 2.0, 3.4)), ((sg[0] - 5.2, sg[1] - 2.0), -30.0, (4.4, 2.0, 3.4)), ((sg[0] + 0.5, sg[1] + 5.6), 0.0, (6.0, 2.0, 2.6))]
+    for c, rot, size in siege:
+        z.ob("wall", c[0], c[1], size, rot, visible=False)
+    mc = k["mines"]
+    cages = [((mc[0] - 3.0, mc[1] - 12.8), 0.0), ((mc[0] + 2.8, mc[1] - 13.8), 0.0), ((mc[0] - 8.0, mc[1] + 12.8), 180.0)]
+    for c, rot in cages:
+        z.ob("wall", c[0], c[1], (2.9, 2.4, 2.9), rot, visible=False)
+    fr = k["freed"]
+    freed_tents = [P(fr, 11.5, deg) for deg in (20.0, 95.0, 160.0)]
+    for q in freed_tents:
+        z.ob("pillar", q[0], q[1], (3.2, 2.6, 3.2), visible=False)
+
+    # ---- chão: basalto, cinza e ferrugem; riscos de cinza soprada; acostamento e sulcos ----
+    dry_ground(d, [("kh_basalto", (0.29, 0.25, 0.28)), ("kh_cinza", (0.5, 0.44, 0.42)), ("kh_ferrugem", (0.5, 0.33, 0.28))], 170, streaks=90,
+               streak_col=(0.6, 0.56, 0.54), ruts=(0.46, 0.42, 0.4), edge=(0.52, 0.47, 0.44), streak_soft=True,
+               # manchas a 3,0/3,8/4,6 mm e risco a 6,4 mm: os três tons ficavam a 0,2 mm um do outro (4,8/5,0/5,2) e o risco a
+               # 0,2 mm do chão dos lugares (6,0): faixas listradas no Santuário dos Anões (art review 2026-11-13, item 13)
+               mottle_y=0.0030, mottle_step=0.0008, streak_y=0.0064)
+    d.roadside(d.m("seixo_basalto", (0.26, 0.25, 0.28)), d.m("capim_cinza", (0.52, 0.42, 0.34)), every=6.0, tuft_h=0.7)
+    lava_detail(d, k["lava_w"], k["lakes"])
+
+    # ---- pontes de basalto: quatro pilones com runa de brasa em cada uma ----
+    for b in z.data.get("bridges", []):
+        a = math.radians(b["rot"])
+        t = Vector((math.cos(a), -math.sin(a)))
+        nr = Vector((-t.y, t.x))
+        for s in (-1, 1):
+            for e in (-1, 1):
+                p = Vector(b["pos"]) + t * e * (b["len"] * 0.5 - 0.4) + nr * s * (b["w"] * 0.5 + 0.75)
+                d.cyl("ponte", d.m("basalto_30", KH_BASALT), (p.x, p.y), 0.62, 0.5, 2.5, 0.0, 6)
+                d.cyl("ponte", d.m("basalto_topo_30", KH_BASALT_TOP), (p.x, p.y), 0.66, 0.66, 0.2, 2.5, 6)
+                d.cyl("ponte", d.m("glow_lava", KH_LAVA), (p.x, p.y), 0.34, 0.0, 0.7, 2.7, 5)
+                d.solid(p.x, p.y, 1.1, 1.1, 2.6)
+
+    # ---- hub: tapetes, tendas da Aurora, treino, carga, tochas, flâmulas nas carroças ----
+    for o in list(z.data["obstacles"]):
+        if math.hypot(*o["pos"]) > hub_r or not o.get("visible", True):
+            continue
+        if o["kind"] == "stall":
+            d.rug(o["pos"], 4.2, 3.0, o["rot"], (0.74, 0.3, 0.26), (0.94, 0.84, 0.6))
+        elif o["kind"] == "tent":
+            ang = math.atan2(o["pos"][1], o["pos"][0])
+            q = (o["pos"][0] - math.cos(ang) * 2.9, o["pos"][1] - math.sin(ang) * 2.9)
+            d.rug(q, 2.6, 1.8, math.degrees(-ang) + 90.0, (0.3, 0.44, 0.7), (0.94, 0.86, 0.66))
+    for kk in range(12):
+        d.blob("hub", d.m("patch_hub_pedra", (0.46, 0.43, 0.42)), P((0, 0), 4.3, kk * 30.0 + 15.0), 0.4, 0.0185, 0.2, 7)
+    n = 0
+    for deg in (-22.0, -163.0, 73.0, 110.0, -112.0, 24.0, 150.0):
+        q = P((0, 0), 21.0, deg)
+        if n < 4 and d.ok(q[0], q[1], 2.0, road=0.5):
+            d.tent_aurora(q, 90.0 - deg, 1.05)
+            d.solid(q[0], q[1], 3.3, 3.3, 2.6)
+            d.rug(P((0, 0), 18.0, deg), 2.4, 1.6, -deg + 90.0, (0.3, 0.44, 0.7), (0.94, 0.86, 0.66))
+            n += 1
+    for deg in (199.0, 208.0, 217.0):                        # bonecos de treino da Aurora (lado oeste)
+        q = P((0, 0), 19.5, deg)
+        if d.ok(q[0], q[1], 0.7, road=0.5):
+            d.drill_post(q, -deg, shield=AURORA_BLUE, boss=AURORA_GOLD, crest=AURORA_GOLD)
+            d.solid(q[0], q[1], 0.9, 0.9, 1.8)
+    for deg in (-62.0, -118.0):
+        q = P((0, 0), 22.0, deg)
+        if d.ok(q[0], q[1], 1.2, road=0.5):
+            d.weapon_rack(q, -deg + 90.0)
+            d.solid(q[0], q[1], 2.4, 0.8, 1.6, -deg + 90.0)
+    for deg, cnt in ((14.0, 5), (46.0, 4), (136.0, 5), (-30.0, 4), (-146.0, 4), (66.0, 3)):
+        q = P((0, 0), 21.5, deg)
+        if d.ok(q[0], q[1], 1.3, road=0.6):
+            d.cargo(q, cnt, 1.2)
+            d.solid(q[0], q[1], 2.4, 2.4, 1.3)
+    q = P((0, 0), 10.5, 122.0)
+    if d.ok(q[0], q[1], 1.2, road=0.4):
+        d.cookfire(q, 1.0, 30.0)
+        d.solid(q[0], q[1], 1.6, 1.6, 1.2)
+    for i in range(0, 360, 15):                              # tochas por dentro das estacas (arco norte)
+        if math.sin(math.radians(i)) > 0.3 or any(zone_lib.angdiff(math.radians(i), math.radians(g)) * hub_r < k["gate_half"] + 1.5 for g in k["gates"]):
+            continue
+        d.torch(P((0, 0), hub_r - 1.5, float(i)), 2.4)
+    nw = int(math.tau * hub_r / 6.4)
+    for i in range(nw):                                      # flâmulas nas carroças do arco sul
+        am = math.tau * (i + 0.5) / nw
+        if math.sin(am) < 0.4 or i % 2 or any(zone_lib.angdiff(am, math.radians(g)) * hub_r < k["gate_half"] + 3.4 for g in k["gates"]):
+            continue
+        q = (math.cos(am) * (hub_r + 1.7), math.sin(am) * (hub_r + 1.7))
+        d.flag(q, [AURORA_BLUE, AURORA_GOLD, (0.86, 0.5, 0.26)][(i // 2) % 3], 5.6, math.degrees(-am), (0.5, 0.38, 0.26), w=1.0, drop=1.5)
+    for s in (-1, 1):                                        # cavalos de frisa por fora dos vãos norte e leste
+        for g in (-90.0, 0.0):
+            q = P((0, 0), hub_r + 7.0, g + s * 17.0)
+            if d.ok(q[0], q[1], 2.0, road=1.0):
+                d.spikes(q, -g + 90.0, 3.8, color=(0.56, 0.44, 0.3))
+                d.solid(q[0], q[1], 3.8, 1.0, 1.2, -g + 90.0)
+
+    # K0 -> K1: obra vira torre; lote vazio vira a forja anã
+    def k0(dd):
+        for q in towers:
+            dd.woodpile(q, rnd.uniform(0, 180), 3, 2.6)
+            for kk in range(2):
+                dd.cyl("obra", dd.m("torre_aurora", (0.62, 0.48, 0.32)), (q[0] - 1.2 + kk * 2.4, q[1] + 1.2), 0.2, 0.18, 2.2 + kk * 1.2, 0.0, 6)
+        dd.cargo(dwarf, 4, 1.0, "obra")
+        for q in freed_tents:                                # posto dos libertos antes de K1: casebres anões caídos
+            dd.outcrop(q, 1.7, 4, (0.5, 0.48, 0.5), g="obra", hmul=0.7)
+
+    def k1_towers(dd):
+        for q in towers:
+            _watchtower(dd, q)
+
+    def k1_dwarves(dd):
+        st = dd.m("anao_pedra", (0.56, 0.56, 0.6))
+        ang = math.degrees(math.atan2(dwarf[1], dwarf[0]))
+        rot = -ang + 90.0
+        dd.box("anoes", st, dwarf, (2.6, 1.7, 1.9), rot, 0.0)
+        dd.box("anoes", dd.m("glow_brasa", (1.0, 0.56, 0.2)), P(dwarf, 0.9, ang + 180.0), (1.2, 0.7, 0.2), rot, 0.35)
+        dd.cyl("anoes", st, P(dwarf, 0.5, ang), 0.5, 0.4, 2.0, 1.7, 6)
+        dd.cyl("anoes", dd.m("glow_brasa", (1.0, 0.56, 0.2)), P(dwarf, 0.5, ang), 0.3, 0.0, 0.7, 3.7, 5)
+        a2 = P(dwarf, 2.6, ang + 150.0)
+        dd.box("anoes", dd.m("ferro", (0.6, 0.62, 0.66)), a2, (0.9, 0.3, 0.4), rot + 20.0, 0.6)
+        dd.cyl("anoes", dd.m("cavalete", (0.4, 0.3, 0.22)), a2, 0.3, 0.26, 0.6, 0.0, 6)
+        dd.flag(P(dwarf, 2.4, ang - 60.0), (0.5, 0.56, 0.7), 4.4, rot, (0.4, 0.4, 0.44), tatter=False, w=1.0, drop=1.6)
+
+    def k1_freed(dd):
+        for i, q in enumerate(freed_tents):
+            ang = math.degrees(math.atan2(q[1] - fr[1], q[0] - fr[0]))
+            dd.tent_aurora(q, 90.0 - ang, 0.95, color=(0.84, 0.8, 0.72), trim=(0.44, 0.5, 0.62))
+        dd.cookfire(P(fr, 8.0, 60.0), 0.9, 20.0)
+        dd.cargo(P(fr, 9.5, 130.0), 4, 1.1)
+        dd.laundry(P(fr, 13.5, 35.0), P(fr, 13.5, 75.0), 2.4)
+
+    lots += [("k0_obra", {"unless": q_["mines"]}, k0), ("k1_torre", {"if": q_["mines"]}, k1_towers), ("k1_anoes", {"if": q_["mines"]}, k1_dwarves),
+             ("k1_libertos", {"if": q_["mines"]}, k1_freed)]
+
+    # K2: madeira empilhada vira máquinas de cerco
+    def k2_wood(dd):
+        for c, rot, size in siege:
+            dd.woodpile(c, rot, 3, 3.4)
+            dd.blob("obra", dd.m("patch_serragem", (0.66, 0.56, 0.42)), c, 2.6, 0.0075, 0.3)
+
+    def k2_siege(dd):
+        _catapult(dd, siege[0][0], siege[0][1])
+        _catapult(dd, siege[1][0], siege[1][1])
+        _ram(dd, siege[2][0], siege[2][1])
+        for s in (-1, 1):
+            dd.flag((sg[0] + s * 8.5, sg[1] + 3.0), AURORA_GOLD, 5.4, 90.0, (0.82, 0.68, 0.48), tatter=False)
+
+    lots += [("k2_madeira", {"unless": q_["gate"]}, k2_wood), ("k2_cerco", {"if": q_["gate"]}, k2_siege)]
+
+    # K4: festa (varais de bandeirolas em volta do braseiro, tapetes, barris)
+    def k4(dd):
+        fest = ((0.96, 0.9, 0.62), (0.36, 0.48, 0.78), (0.9, 0.5, 0.4), (0.96, 0.96, 0.92))
+        for i in range(4):
+            dd.laundry(P((0, 0), 11.0, 45.0 + i * 90.0), P((0, 0), 11.0, 135.0 + i * 90.0), 3.6, cols=fest)
+        for deg in (60.0, 120.0, 240.0, 300.0):
+            dd.rug(P((0, 0), 8.6, deg), 2.6, 1.6, -deg + 90.0, (0.82, 0.3, 0.26), (0.96, 0.9, 0.62))
+            dd.barrel(P((0, 0), 10.2, deg + 8.0), 1.0, 0.0, "festa")
+
+    lots.append(("k4_festa", {"if": q_["warlord"]}, k4))
+
+    # ---- Minas de Escravos: trilhos, vagonetes, minério, picaretas, tenda dos capatazes, frisas ----
+    mouth = k["mouth"]
+    rail = zone_lib.catmull([(mouth[0] + 1.4, mouth[1]), (mc[0] - 9.0, mc[1] - 2.5), (mc[0] - 4.0, mc[1] - 5.5), (mc[0] - 1.0, mc[1] - 8.0)], 1.5)
+    d.rails([(p.x, p.y) for p in rail])
+    for i, t in enumerate((0.3, 0.72)):
+        p = rail[int(len(rail) * t)]
+        nx = rail[min(len(rail) - 1, int(len(rail) * t) + 1)]
+        d.ore_cart((p.x, p.y), zone_lib.along((nx - p).x, (nx - p).y), full=i == 0)
+    for q in ((mc[0] + 2.5, mc[1] - 8.5), (mc[0] - 12.0, mc[1] + 5.5), (mc[0] - 6.5, mc[1] - 9.0)):
+        if d.ok(q[0], q[1], 1.0, road=0.5):
+            d.ore_pile(q, 6)
+            d.solid(q[0], q[1], 1.9, 1.9, 1.0)
+            d.pickaxe((q[0] + 1.3, q[1] + 0.4), rnd.uniform(0, 360))
+    for q, deg in (((mc[0] + 8.5, mc[1] + 12.5), 230.0), ((mc[0] + 3.0, mc[1] + 14.5), 260.0)):
+        if d.ok(q[0], q[1], 2.0, road=0.8):
+            d.tent_hide(q, 90.0 - deg, 1.05)
+            d.solid(q[0], q[1], 3.2, 3.2, 2.4)
+    for q, rot in (((mc[0] + 14.5, mc[1] + 4.0), 80.0), ((mc[0] + 14.0, mc[1] - 9.0), 100.0)):
+        if d.ok(q[0], q[1], 2.0, road=1.0):
+            d.spikes(q, rot, 3.6)
+            d.solid(q[0], q[1], 1.0, 3.6, 1.2, rot + 90.0)
+    for q in ((mc[0] + 4.5, mc[1] - 16.0), (mc[0] - 14.0, mc[1] + 13.0)):
+        if d.ok(q[0], q[1], 0.7, road=0.6):
+            d.totem(q, rnd.uniform(3.8, 4.6), rnd.uniform(0, 180))
+            d.solid(q[0], q[1], 0.9, 0.9, 4.0)
+
+    def cages_closed(dd):
+        for c, rot in cages:
+            _cage(dd, c, rot, False)
+
+    def cages_open(dd):
+        for c, rot in cages:
+            _cage(dd, c, rot, True)
+
+    lots += [("k1_jaula_fechada", {"unless": q_["mines"]}, cages_closed), ("k1_jaula_aberta", {"if": q_["mines"]}, cages_open)]
+
+    # ---- Canil: dois currais, ninhos com ovos, ossadas, cocho ----
+    kc, kr = k["kennel"], k["kennel_r"]
+    straw = d.m("patch_palha", (0.7, 0.58, 0.34))
+    egg = d.m("ovo_lobo", (0.86, 0.84, 0.78))
+    for deg in (-135.0, 135.0):
+        pc = P(kc, 8.0, deg)
+        cs = [(pc[0] + sx * 3.0, pc[1] + sz * 3.0) for sx, sz in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
+        for i in range(4):
+            a, b = cs[i], cs[(i + 1) % 4]
+            if i == (1 if deg < 0 else 0):
+                continue                                     # lado aberto virado para o meio
+            d.fence_run(a, b, 1.5, color=(0.3, 0.24, 0.2), gap=1.2)
+            m = ((a[0] + b[0]) * 0.5, (a[1] + b[1]) * 0.5)
+            z.ob("wall", m[0], m[1], (6.2, 1.5, 0.5), zone_lib.along(b[0] - a[0], b[1] - a[1]), visible=False)      # caixa fina (d.solid vira círculo)
+            d.reserve(m[0], m[1], 3.2)
+        d.blob("canil", straw, pc, 2.2, 0.0078, 0.3)
+        d.bones((pc[0] + 0.8, pc[1] - 0.6), 4, 1.3)
+    for q in (P(kc, 8.5, -42.0), P(kc, 10.5, 62.0), P(kc, 5.5, -70.0)):       # ninhos
+        d.blob("canil", straw, q, 1.5, 0.0078, 0.3)
+        for kk in range(3):
+            d.rock("mini", egg, P(q, 0.5, kk * 120.0 + 20.0), 0.26, 0.0, 1.1)
+    d.log("canil", d.m("cocho", (0.34, 0.26, 0.2)), P(kc, 4.6, 160.0), 0.34, 3.0, 20.0, 0.34)
+    for _ in range(10):
+        q = P(kc, rnd.uniform(kr + 2.0, kr + 12.0), rnd.uniform(0, 360))
+        if d.ok(q[0], q[1], 1.0, road=0.5):
+            d.bones(q, rnd.randint(3, 6), 1.3)
+
+    # ---- Forja Negra: calha de lava da poça à fornalha, carvão, escória, cavaletes de armas ----
+    fc, frr = k["forge"], k["forge_r"]
+    gutter = d.m("patch_calha", (0.14, 0.13, 0.15))
+    lv = d.m("glow_lava", KH_LAVA)
+    pool = Vector((fc[0] - 7.5, fc[1] - 6.5))
+    ch = zone_lib.catmull([(pool.x + 2.6, pool.y - 0.6), (fc[0] - 3.0, fc[1] - 8.8), (fc[0] - 0.9, fc[1] - 8.2)], 0.9)
+    d.strip("forja", gutter, ch, 1.0, 0.0205)
+    d.strip("forja", lv, ch, 0.42, 0.0215)
+    coal = d.m("carvao_kh", KH_COAL)
+    for q in (P(fc, 9.5, 75.0), P(fc, 10.0, 118.0), P(fc, 9.5, -20.0)):
+        if d.ok(q[0], q[1], 1.2, road=0.6):
+            for kk in range(6):
+                d.rock("forja3d", coal, P(q, rnd.uniform(0, 1.0), kk * 60.0), rnd.uniform(0.3, 0.6), 0.0, 0.8)
+            d.blob("forja", d.m("glow_brasa_chao", (1.0, 0.45, 0.14)), q, 0.35, 0.3, 0.3, 7)
+            d.solid(q[0], q[1], 2.0, 2.0, 1.0)
+    for q, rot in ((P(fc, 9.0, 150.0), 60.0), (P(fc, 6.5, 95.0), 0.0)):
+        if d.ok(q[0], q[1], 1.2, road=0.6):
+            d.weapon_rack(q, rot)
+            d.solid(q[0], q[1], 2.4, 0.8, 1.6, rot)
+    for _ in range(9):                                       # escória fora do anel
+        q = P(fc, rnd.uniform(frr + 2.5, frr + 12.0), rnd.uniform(0, 360))
+        if d.ok(q[0], q[1], 1.6, road=1.0):
+            d.outcrop(q, rnd.uniform(1.0, 1.6), 3, (0.3, 0.28, 0.34), (0.44, 0.4, 0.45), hmul=0.7)      # escória: ardósia (era quase preta)
+            d.blob("forja", d.m("glow_brasa_chao", (1.0, 0.45, 0.14)), q, 0.3, 0.012, 0.3, 7)
+            d.solid(q[0], q[1], 2.0, 2.0, 1.0)
+
+    # ---- Portão da Cidadela: braseiros de lava, frisas, totens de caveira ----
+    bc = k["barbican"]
+    for s in (-1, 1):
+        q = (bc[0] + s * 4.9, bc[1] + 4.6)
+        d.brazier(q, 1.3, fire="glow_lava", color=KH_LAVA)
+        d.solid(q[0], q[1], 1.2, 1.2, 1.4)
+        for q, rot in (((bc[0] + s * 8.5, bc[1] + 12.0), s * 25.0), ((bc[0] + s * 7.5, bc[1] + 19.0), -s * 20.0)):
+            if d.ok(q[0], q[1], 2.0, road=1.0):
+                d.spikes(q, rot, 3.8)
+                d.solid(q[0], q[1], 3.8, 1.0, 1.2, rot)
+        q = (bc[0] + s * 11.5, bc[1] + 15.5)
+        if d.ok(q[0], q[1], 0.7, road=0.8):
+            d.totem(q, 4.8, 90.0)
+            d.solid(q[0], q[1], 0.9, 0.9, 4.0)
+    for kk in range(8):                                      # colunas de basalto ao pé da Presa
+        q = P(k["fang"], 14.0, kk * 45.0 + 10.0)
+        if d.ok(q[0], q[1], 1.8, road=1.5):
+            basalt_columns(d, q, 5, 1.3, (1.6, 4.0))
+            d.solid(q[0], q[1], 2.8, 2.8, 2.5)
+
+    # ---- Salão dos Matadores: panos escuros na trilha, bonecos de treino esfaqueados ----
+    sl = k["slayers"]
+    for kk, (dx, dz) in enumerate(((5.0, -4.0), (-4.0, 5.0), (9.0, 1.0), (1.0, 9.0))):
+        q = (sl[0] + dx, sl[1] + dz)
+        if d.ok(q[0], q[1], 0.6, road=0.5):
+            d.flag(q, KH_NIGHT, 5.2, 45.0 + kk * 90.0, (0.2, 0.18, 0.22), w=1.1, drop=2.2)
+            d.solid(q[0], q[1], 0.6, 0.6, 4.0)
+    for kk, (dx, dz) in enumerate(((12.0, -6.0), (14.5, -3.0), (-6.0, 12.0))):
+        q = (sl[0] + dx, sl[1] + dz)
+        if d.ok(q[0], q[1], 0.8, road=0.6):
+            d.drill_post(q, rnd.uniform(0, 360), shield=KH_NIGHT)
+            d.solid(q[0], q[1], 0.9, 0.9, 1.8)
+
+    # ---- Santuário Partido dos Anões: menires de runa azul (dois tombados), laje rachada ----
+    sh = k["shrine"]
+    dw = (0.56, 0.56, 0.62)
+    d.blob("santuario", d.m("patch_laje_ana", (0.6, 0.6, 0.66)), sh, 3.4, 0.0079, 0.12, 8)
+    # a racha passa NA FRENTE da pedra rúnica (o NPC fica no centro: por baixo dele a fenda fina virava dois riscos pretos soltos):
+    # borda lascada larga em tom médio + miolo escuro, pontas em bico, um ramo. Só a 1ª fita gasta sorteio (json igual).
+    crack = [Vector((sh[0] + dx, sh[1] + dz)) for dx, dz in ((-2.9, -0.2), (-1.9, 1.0), (-1.1, 0.8), (-0.3, 1.6), (0.6, 1.35), (1.4, 2.0), (2.2, 1.9))]
+    branch = [Vector((sh[0] + dx, sh[1] + dz)) for dx, dz in ((-0.3, 1.6), (-0.65, 2.2), (-0.3, 2.75))]
+    chip, core = d.m("patch_racha_borda", (0.44, 0.44, 0.5)), d.m("patch_racha", (0.22, 0.22, 0.27))
+    d.strip("santuario", chip, crack, 0.7, 0.0084, 0.5, taper="point")
+    keep = d.rnd.getstate()
+    d.strip("santuario", chip, branch, 0.5, 0.0084, 0.5, taper="point")
+    d.strip("santuario", core, crack, 0.26, 0.0089, 0.4, taper="point")
+    d.strip("santuario", core, branch, 0.18, 0.0089, 0.4, taper="point")
+    d.rnd.setstate(keep)
+    for kk in range(6):
+        q = P(sh, 11.0, 15.0 + kk * 60.0)
+        if not d.ok(q[0], q[1], 0.9, road=0.8):
+            continue
+        if kk % 3 == 2:
+            d.log("santuario", d.m("menir_56", dw), q, 0.5, 3.2, rnd.uniform(0, 180), 0.4)
+            d.solid(q[0], q[1], 3.2, 1.0, 1.0)
+        else:
+            d.standing_stone(q, rnd.uniform(2.8, 4.2), dw, (0.5, 0.75, 1.0))
+            d.solid(q[0], q[1], 1.1, 1.1, 3.0)
+
+    # ---- Cabana do Xamã Exilado: totem desbotado, ossos, marco; chegada: placa, carroça de suprimento ----
+    sm = k["shaman"]
+    for q, what in ((P(sm, 10.5, 150.0), "totem"), (P(sm, 10.5, 30.0), "cairn"), (P(sm, 11.0, 210.0), "bones")):
+        if d.ok(q[0], q[1], 0.8, road=0.6):
+            if what == "totem":
+                d.totem(q, 4.0, 30.0, cols=((0.44, 0.36, 0.34), (0.8, 0.78, 0.7), (0.5, 0.56, 0.44)))
+                d.solid(q[0], q[1], 0.9, 0.9, 4.0)
+            elif what == "cairn":
+                d.cairn(q, 1.3, (0.4, 0.38, 0.4))
+                d.solid(q[0], q[1], 1.0, 1.0, 1.2)
+            else:
+                d.bones(q, 5, 1.2)
+    sp = z.data["spawn"]
+    for q, what in (((sp[0] + 6.5, sp[1] - 3.0), "cart"), ((sp[0] - 5.5, sp[1] - 5.0), "sign")):
+        if d.ok(q[0], q[1], 1.6, road=0.6):
+            if what == "cart":
+                d.cart(q, 70.0, load=(0.88, 0.84, 0.72))
+                d.solid(q[0], q[1], 2.2, 3.2, 1.4)
+            else:
+                d.signpost(q, 20.0, n=3)
+                d.solid(q[0], q[1], 0.5, 0.5, 2.0)
+    for q in ((4.0 + 4.5, 44.0 + 3.0), (-40.0 - 3.0, -5.0 + 4.5), (-1.0 + 5.0, -63.0 + 3.0), (-4.0 - 5.0, 64.0 + 3.0)):   # placas nas bifurcações
+        if d.ok(q[0], q[1], 0.5, road=0.5):
+            d.signpost(q, rnd.uniform(0, 90))
+            d.solid(q[0], q[1], 0.5, 0.5, 2.0)
+
+    # ---- campo: afloramentos e feixes de basalto, ossadas, conjuntos ----
+    outcrops(d, [((0, 0), 104, 12), ((-88, -12), 24, 4), ((30, -90), 26, 4)], KH_BASALT, KH_BASALT_TOP, r=(1.8, 3.4), hmul=1.5)
+    for x, zz in d.spots([((0, 0), 104, 20), ((10, -84), 38, 8), ((84, -66), 20, 4), ((-56, 70), 22, 5)], r=2.6, spacing=11.0, road=2.2, water=1.6, blocked=True):
+        basalt_columns(d, (x, zz), rnd.randint(5, 9), rnd.uniform(1.3, 2.0), (1.4, 4.2))
+        d.solid(x, zz, 3.2, 3.2, 2.5)
+        d.reserve(x, zz, 3.4)
+    setpieces(d, [((0, 0), 104, 10)], ("crater", "bonefield", "ruin", "crater", "camp", "circle"), spacing=30.0, stone=(0.36, 0.34, 0.38), rune=(1.0, 0.5, 0.2))
+    for kk in range(14):
+        for x, zz in d.spots([((0, 0), 100, 1)], r=1.2, spacing=1.0, road=1.0, blocked=True):
+            if kk % 3 == 0:
+                d.cairn((x, zz), rnd.uniform(0.9, 1.4), (0.36, 0.34, 0.38))
+                d.solid(x, zz, 1.0, 1.0, 1.2)
+            else:
+                d.bones((x, zz), rnd.randint(3, 6), 1.4)
+    total = d.flush()
+    for i, (tag, when, fn) in enumerate(lots):
+        dd = Dress(z, 421 + i * 2, tag, when)
+        fn(dd)
+        total += dd.flush()
+    return total
+
+
+# ----------------------------------------------------------------------------------------------------------------
+# masmorras de Kharzun (Salão dos Matadores e a Cidadela): salões redondos ligados por corredor (layout de dados)
+# ----------------------------------------------------------------------------------------------------------------
+KH_SHADOW = (0.7, 0.35, 0.9)           # chama roxa dos Matadores
+KH_POISON = (0.55, 0.95, 0.4)
+
+
+def floor_tones(d, key, floor, k=0.13):
+    """Tinta de chão de arena (anéis, raios): dois tons do PRÓPRIO chão (claro, escuro), a ±k de valor e puxados para o
+    cinza. Cor viva, anel cheio e brilho no chão ficam só para os avisos de golpe (art review 2026-11-13, item 1)."""
+    light, dark = floor_tone_colors(floor, k)
+    return (d.m("patch_tom_%s_claro" % key, light), d.m("patch_tom_%s_esc" % key, dark))
+
+
+def floor_tone_colors(floor, k=0.13):
+    """(claro, escuro) em cor: os dois tons de floor_tones, para quem pinta por cor (Dress.rug) e não por material."""
+    g = sum(floor[:3]) / 3.0
+    base = [c * 0.8 + g * 0.2 for c in floor[:3]]
+    return tuple(min(1.0, c * (1.0 + k)) for c in base), tuple(c * (1.0 - k) for c in base)
+
+
+class Halls:
+    """Ajuda a vestir salões redondos: bocas (rumo de cada corredor), pontos na borda longe das bocas, anéis pintados."""
+
+    def __init__(self, d, rooms, edges):
+        self.d, self.rooms, self.edges = d, rooms, edges
+
+    def mouths(self, name):
+        x, y = self.rooms[name]["pos"]
+        out = []
+        for e in self.edges:
+            a, b = e[0], e[1]
+            if name in (a, b):
+                ox, oy = self.rooms[b if a == name else a]["pos"]
+                out.append(math.atan2(oy - y, ox - x))
+        return out
+
+    def rim(self, name, n, k0=0.88, k1=0.95, gap=0.5):
+        """[(ponto, ângulo)] na borda do salão (fração k0..k1 do raio), fora das bocas."""
+        x, y = self.rooms[name]["pos"]
+        r = self.rooms[name]["r"]
+        ms = self.mouths(name)
+        rnd = self.d.rnd
+        out = []
+        for i in range(n):
+            a = math.tau * (i + rnd.uniform(0.25, 0.75)) / n
+            if any(abs(math.atan2(math.sin(a - m), math.cos(a - m))) < gap for m in ms):
+                continue
+            rr = r * rnd.uniform(k0, k1)
+            out.append(((x + math.cos(a) * rr, y + math.sin(a) * rr), a))
+        return out
+
+    def rings(self, name, mats, fracs, y=0.0226, w=0.34, group="anel"):
+        """Anéis tracejados pintados no chão (arena, selo): mats alterna por traço."""
+        x, y0 = self.rooms[name]["pos"]
+        r = self.rooms[name]["r"]
+        for k, f in enumerate(fracs):
+            n = 8 + k * 4
+            for j in range(n):
+                a = math.tau * j / n
+                self.d.arc(group, mats[(k + j) % len(mats)], (x, y0), r * f, a + 0.04, a + math.tau / n - 0.04, w, y, 0.2, 0.9)
+
+    def tones(self, name, k=0.13):
+        """[claro, escuro] do chão do salão (floor_tones): a tinta de arena nunca usa a cor dos avisos."""
+        return list(floor_tones(self.d, name, self.rooms[name]["floor"], k))
+
+    def basalt(self, name, per_m=1.9, color=KH_BASALT):
+        """Feixes de basalto colados na parede (por fora do chão do salão): a borda deixa de ser um círculo liso."""
+        rnd = self.d.rnd
+        for (p, a) in self.rim(name, int(self.rooms[name]["r"] * per_m), 0.98, 1.08, 0.42):
+            basalt_columns(self.d, p, rnd.randint(3, 6), rnd.uniform(0.9, 1.5), (1.0, 3.2), color)
+
+    def put(self, p, r=0.8, road=0.2):
+        return self.d.ok(p[0], p[1], r, road=road)
+
+    def corridor(self, fn, every=3.4, w=6.75):
+        """Chama fn(q, rumo) em pontos alternados da beira de cada corredor, fora dos salões."""
+        rnd = self.d.rnd
+        for name, poly in self.d.z.road_polys.items():
+            acc = 0.0
+            for i in range(2, len(poly) - 2):
+                acc += (poly[i] - poly[i - 1]).length
+                if acc < every:
+                    continue
+                acc = 0.0
+                t = (poly[i + 1] - poly[i - 1]).normalized()
+                s = 1 if rnd.random() < 0.5 else -1
+                q = poly[i] + Vector((-t.y, t.x)) * s * (w * 0.5 - rnd.uniform(0.1, 0.5))
+                if any((q - Vector(r["pos"])).length < r["r"] + 0.5 for r in self.rooms.values()):
+                    continue
+                fn((q.x, q.y), math.atan2(t.y, t.x))
+
+
+def slayers(z, rooms, edges):
+    """Salão dos Matadores: roxo-noite e chama roxa. Vestíbulo com panos e fumaça, galeria com bonecos de treino e alvos,
+    cripta com caldeirões e cogumelos de veneno, arena do Mestre com anéis pintados, lâminas fincadas e braseiros."""
+    d = Dress(z, 547)
+    rnd = d.rnd
+    h = Halls(d, rooms, edges)
+    night = KH_NIGHT
+    shadow = d.m("glow_sombra", KH_SHADOW)
+    for name in rooms:
+        h.basalt(name, 1.7, KH_BASALT_DARK)
+        for (p, a) in h.rim(name, int(rooms[name]["r"] * 0.9), 0.8, 0.92):
+            d.pebbles("gruta", d.m("seixo_matadores", (0.3, 0.27, 0.33)), p, rnd.randint(3, 5), 1.0, (0.12, 0.28))
+
+    def side(q, ang):
+        k = rnd.random()
+        if k < 0.35:
+            d.torch(q, 2.3, fire="glow_sombra")
+        elif k < 0.6:
+            for _ in range(rnd.randint(2, 4)):
+                d.mushroom((q[0] + rnd.uniform(-0.5, 0.5), q[1] + rnd.uniform(-0.5, 0.5)), rnd.uniform(0.6, 1.2), (0.7, 0.4, 0.95))
+        elif k < 0.8:
+            basalt_columns(d, q, 3, 0.7, (0.6, 1.6), KH_BASALT_DARK)
+        else:
+            d.bones(q, 3, 0.7)
+    h.corridor(side)
+    cx, cy = rooms["chegada"]["pos"]
+    for s in (-1, 1):
+        d.torch((cx + s * 4.6, cy + 2.0), 2.4, fire="glow_sombra")
+        d.flag((cx + s * 5.4, cy - 3.0), night, 5.0, 90.0, w=1.0, drop=1.8)
+    # ---- vestíbulo: tapetes em tons do chão (roxo vivo no chão é dos avisos de controle: art review r2, item 3),
+    #      manchas de fumaça, flâmulas dos Matadores e cavaletes de facas ----
+    x, y = rooms["vestibulo"]["pos"]
+    r = rooms["vestibulo"]["r"]
+    smoke = [d.m("patch_fumaca_a", (0.24, 0.21, 0.3)), d.m("patch_fumaca_b", (0.36, 0.3, 0.44))]
+    for i in range(14):
+        q = P((x, y), rnd.uniform(2.0, r * 0.82), rnd.uniform(0, 360))
+        d.blob("vestibulo", smoke[i % 2], q, rnd.uniform(1.2, 2.8), 0.0222 + (i % 2) * 0.0004, 0.4)
+    rug_light, rug_dark = floor_tone_colors(rooms["vestibulo"]["floor"])
+    for deg in (40.0, 140.0, 220.0, 320.0):
+        q = P((x, y), r * 0.5, deg)
+        d.rug(q, 3.4, 2.2, -deg, rug_dark, rug_light)
+    for j, (p, a) in enumerate(h.rim("vestibulo", 14)):
+        if not h.put(p):
+            continue
+        if j % 3 == 0:
+            d.flag(p, night, 5.2, math.degrees(-a) + 90.0, w=1.1, drop=2.0)
+            d.solid(p[0], p[1], 0.4, 0.4, 4.0)
+        elif j % 3 == 1:
+            d.brazier(p, 1.1, fire="glow_sombra", color=KH_SHADOW)
+            d.solid(p[0], p[1], 1.1, 1.1, 1.4)
+        else:
+            d.weapon_rack(p, math.degrees(-a) + 90.0)
+            d.solid(p[0], p[1], 2.4, 0.8, 1.6, math.degrees(-a) + 90.0)
+    # ---- galeria de treino: roda de bonecos no meio, alvos e cavaletes na borda, palha no chão, círculo de luta ----
+    x, y = rooms["galeria"]["pos"]
+    r = rooms["galeria"]["r"]
+    straw = [d.m("patch_palha_a", (0.72, 0.6, 0.36)), d.m("patch_palha_b", (0.6, 0.5, 0.32))]
+    for i in range(18):
+        q = P((x, y), rnd.uniform(1.0, r * 0.84), rnd.uniform(0, 360))
+        d.blob("galeria", straw[i % 2], q, rnd.uniform(1.0, 2.2), 0.0222 + (i % 2) * 0.0004, 0.4)
+    h.rings("galeria", h.tones("galeria"), (0.3,), w=0.22)
+    for k in range(7):
+        q = P((x, y), r * 0.56, k * 360.0 / 7 + 12.0)
+        if h.put(q, 0.7, 0.6):
+            d.drill_post(q, -(k * 360.0 / 7 + 12.0), shield=night, boss=KH_SHADOW)
+            d.solid(q[0], q[1], 0.9, 0.9, 1.8)
+    for j, (p, a) in enumerate(h.rim("galeria", 16)):
+        if not h.put(p):
+            continue
+        if j % 3 == 0:
+            d.target(p, math.degrees(-a) + 90.0)
+            d.solid(p[0], p[1], 1.0, 1.0, 1.6)
+        elif j % 3 == 1:
+            d.weapon_rack(p, math.degrees(-a) + 90.0)
+            d.solid(p[0], p[1], 2.4, 0.8, 1.6, math.degrees(-a) + 90.0)
+        else:
+            d.hay(p, rnd.uniform(0.9, 1.3))
+            d.solid(p[0], p[1], 1.4, 1.4, 1.0)
+    # ---- cripta de venenos: poças verdes, cogumelos que brilham, cristais, barris e a mesa do alquimista ----
+    x, y = rooms["venenos"]["pos"]
+    r = rooms["venenos"]["r"]
+    ooze = [d.m("patch_veneno_esc", (0.2, 0.34, 0.24)), d.m("patch_veneno", (0.34, 0.56, 0.32)), d.m("glow_veneno", KH_POISON)]
+    for i in range(14):
+        q = P((x, y), rnd.uniform(3.0, r * 0.84), rnd.uniform(0, 360))
+        d.blob("venenos", ooze[i % 2], q, rnd.uniform(0.8, 2.0), 0.0222 + (i % 2) * 0.0004, 0.35)
+        if i % 4 == 0:
+            d.blob("venenos", ooze[2], q, 0.4, 0.0234, 0.2, 8)
+    for j, (p, a) in enumerate(h.rim("venenos", 14, 0.84, 0.95)):
+        if j % 3 == 0:
+            for _ in range(rnd.randint(3, 5)):
+                d.mushroom((p[0] + rnd.uniform(-0.7, 0.7), p[1] + rnd.uniform(-0.7, 0.7)), rnd.uniform(0.7, 1.5), (0.5, 0.95, 0.45))
+        elif j % 3 == 1:
+            d.crystal(p, rnd.uniform(0.7, 1.1), KH_POISON)
+        elif h.put(p, 1.0):
+            d.cargo(p, 3, 0.8)
+            d.solid(p[0], p[1], 1.8, 1.8, 1.2)
+    # ---- arena do Mestre: anéis e raios em tons do chão (roxo vivo no chão é dos avisos do Shazka), lâminas fincadas
+    #      num círculo, braseiros roxos, panos ----
+    x, y = rooms["mestre"]["pos"]
+    r = rooms["mestre"]["r"]
+    tones = h.tones("mestre")
+    h.rings("mestre", tones, (0.3, 0.5, 0.7), w=0.24)
+    blood = tones[1]
+    for j in range(12):
+        a = j * 30.0 + 8.0
+        d.strip("mestre", blood, [Vector(P((x, y), r * 0.33, a)), Vector(P((x, y), r * 0.41, a + 3)), Vector(P((x, y), r * 0.48, a))], 0.3, 0.0228, 0.2, taper=True)
+    iron = d.m("ferro", (0.6, 0.62, 0.66))
+    for j in range(16):                                      # lâminas fincadas (baixas: não tapam a luta, não colidem)
+        q = P((x, y), r * 0.78, j * 22.5 + 5.0)
+        d.cyl("mestre3d", iron, q, 0.07, 0.0, 0.9, 0.0, 4, rnd.uniform(0, 90), (rnd.uniform(-14, 14), rnd.uniform(-14, 14)))
+    for j, (p, a) in enumerate(h.rim("mestre", 18, 0.9, 0.96)):
+        if not h.put(p):
+            continue
+        if j % 3 == 0:
+            d.brazier(p, 1.3, fire="glow_sombra", color=KH_SHADOW)
+            d.solid(p[0], p[1], 1.2, 1.2, 1.4)
+        elif j % 3 == 1:
+            d.flag(p, night, 5.6, math.degrees(-a) + 90.0, w=1.2, drop=2.2)
+            d.solid(p[0], p[1], 0.4, 0.4, 4.0)
+        else:
+            d.bones(p, 5, 0.9)
+    return d.flush()

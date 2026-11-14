@@ -90,11 +90,11 @@ def build_one(did, g, export):
     return z.finish(export, poi=boss, ground=g["floor"])
 
 
-def _rock_fill(z, did, g_walls=""):
+def _rock_fill(z, did, g_walls="", rim=RIM_R):
     """Preenche com rocha tudo que não é chão: é isso que sela as alas. Grade hexagonal cheia (círculos se sobrepõem)."""
     step, r = 5.6, 4.0
     spots = []
-    n = int(RIM_R / step) + 3             # cobre até a borda (sem anel de chão solto entre a rocha e o penhasco)
+    n = int(rim / step) + 3             # cobre até a borda (sem anel de chão solto entre a rocha e o penhasco)
     for row in range(-n, n + 1):
         y = row * step * 0.87
         for col in range(-n, n + 1):
@@ -103,7 +103,7 @@ def _rock_fill(z, did, g_walls=""):
                 spots.append((round(x, 1), round(y, 1)))
     # anel junto à borda: a grade para 3 m antes do penhasco (e a borda ondula), sobrava um corredor em volta do mapa
     # que ligava as alas. Rocha em toda a volta, menos onde há chão de verdade (salão, corredor).
-    k = int(math.tau * RIM_R / 3.2)
+    k = int(math.tau * rim / 3.2)
     for i in range(k):
         a = math.tau * i / k
         rr = z.rim_r(a) - 1.8
@@ -143,10 +143,10 @@ def _room_dress(z, name, room, rooms, edges):
             mouths.append(math.atan2(oy - y, ox - x))
     rnd = random.Random(len(name) * 97 + int(x * 3 + y))
     if "pool" in room:                       # poça brilhante no centro (seiva, lava...)
-        pm = "glow_pool_" + name
+        pm = ("glow_pool_" if room.get("pool_glow", True) else "patch_pool_") + name      # `pool_glow` False = tinta fosca (não brilha)
         if pm not in z.M:
             z.M[pm] = mat(pm, room["pool"])
-        disc(z.coll, z.P + "poca_" + name, (x, y), r * 0.22, 0.03, z.M[pm], 24, 0.2, len(name) + 1)
+        disc(z.coll, z.P + "poca_" + name, (x, y), r * room.get("pool_r", 0.22), 0.03, z.M[pm], 24, 0.2, len(name) + 1)
     rings = [(k, n, sz, col, 0.66, 0.84) for k, n, sz, col in room.get("decor", [])] + [(k, n, sz, col, 0.3, 0.55) for k, n, sz, col in room.get("inner", [])]
     for kind, n, size, color, r_in, r_out in rings:
         placed, tries = 0, 0
@@ -182,8 +182,11 @@ def build_graph(did, g, export):
         # bando no meio do corredor: bicho de um dos salões das pontas; corredor que sai da chegada fica livre
         if "chegada" in (a, b) or "vestibulo" in (a, b):
             continue
+        pack = L.get("packs", {}).get("%s>%s" % (a, b))           # bando escolhido para esta ligação (places.DUNGEONS)
         mobs = rooms[b].get("mobs") or rooms[a].get("mobs")
-        if mobs:
+        if pack:
+            z.spawner(pack[0], mid[0], mid[1], CORRIDOR_PACK_R, pack[1], 30.0)
+        elif mobs:
             z.spawner(mobs[i % len(mobs)][0], mid[0], mid[1], CORRIDOR_PACK_R, CORRIDOR_PACK_N, 30.0)
     for name, room in rooms.items():
         x, y = room["pos"]
@@ -219,6 +222,8 @@ def build_graph(did, g, export):
     z.data["hangouts"] = []
     if did == "dg_goblin":                # acabamento do Ato II (estalagmites, cogumelos, lava, runas): act2_dress.goblin
         act2_dress.goblin(z, rooms, L["edges"])
+    if did == "dg_slayers":               # Salão dos Matadores: bonecos de treino, alvos, venenos, panos roxos, arena do Mestre
+        act2_dress.slayers(z, rooms, L["edges"])
     boss_pos = next(r["pos"] for r in L["rooms"].values() if "boss" in r)
     return z.finish(export, poi=boss_pos, ground=g["floor"])
 

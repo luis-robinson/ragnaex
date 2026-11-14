@@ -8,6 +8,8 @@ rio, portal, chegada, NPC, ponto de bot e do que já é sólido.
 Materiais (o jogo decide pelo nome, MapBuilder._zone_materials):
   patch_*   chão pintado na cor exata do Blender, sem sombra nem contorno (manchas, espuma, riscos)
   glow_*    brilha (brasa, cogumelo, runa), sem sombra
+  bandeira_* pano dobrado do `cloth()`/`flag()`: toon de pano (terminador largo, MapBuilder._cloth_material); a cor vai
+            no MATERIAL (um por cor), não no vértice, numa malha `det_[<tag>_]pano_<cx>_<cz>` por célula
   outros    toon com contorno e sombra
 Nome dos objetos: `Z_<zona>_det_<grupo>_<cx>_<cz>_<material>` — nunca use num grupo/material um pedaço de nome que o
 MapDef.conquest_vis procura (estandarte_horda, limpo_, andaime, navio2_, farol_luz...).
@@ -20,7 +22,7 @@ import bpy
 from mathutils import Vector, noise
 
 import zone_lib
-from zone_lib import B, catmull, mat, poly_dist
+from zone_lib import B, catmull, mat, mat_c, poly_dist
 
 CELL = 36.0
 # grupos de miudeza (capim, seixo, flor, osso): malha própria por célula, SEM sombra (cada malha com sombra custa um
@@ -47,10 +49,12 @@ class _Buf:
         def new(self, idx):
             self.b.f.append(tuple(idx))
             self.b.c.append(self.b.col)
+            self.b.mt.append(self.b.mat)
 
     def __init__(self):
-        self.v, self.f, self.c = [], [], []
+        self.v, self.f, self.c, self.mt = [], [], [], []
         self.col = (1.0, 1.0, 1.0)
+        self.mat = None              # nome da cor da face (só o lote de pano usa: um material por cor)
         self.verts = _Buf._V(self)
         self.faces = _Buf._F(self)
 
@@ -65,6 +69,7 @@ class Dress:
         self.rnd = random.Random(seed * 7919 + 13)
         self.bufs = {}
         self.colors = {}
+        self._dups = set()           # cores que colidiram no nome (m())
         self._solid = None
         self._tall = None            # lote da peça alta em construção (tall())
         self._talls = 0
@@ -73,8 +78,17 @@ class Dress:
     def m(self, name, color):
         """Registra a cor `name` e devolve o nome. A cor vai no vértice (sRGB, como se vê no jogo): todas as cores de uma
         célula dividem UMA malha e um material (`det_vcol` / `det_vcol_chao`); só `glow_*` vira material próprio."""
-        if name not in self.colors:
-            self.colors[name] = tuple(color[:3])
+        col = tuple(color[:3])
+        # os ajudantes montam `name` com parte dos canais (ex.: laje_<r>_<b>): duas cores que só diferem no canal que ficou
+        # de fora davam o mesmo nome e a 2ª sumia (tampo musgoso igual ao corpo). Cor diferente = nome próprio; o nome
+        # de quem não colide não muda, e o prefixo (`glow_`, `patch_`) fica.
+        base, k = name, 0
+        while self.colors.setdefault(name, col) != col:
+            name = "%s_g%d" % (base, int(col[1] * 100)) if k == 0 else "%s_g%d_%d" % (base, int(col[1] * 100), k)
+            k += 1
+        if name != base and base not in self._dups:          # um aviso por nome (cor sorteada por peça repete muito)
+            self._dups.add(base)
+            print("DRESS_COR %s: '%s' ja era %s, %s virou '%s'" % (self.z.zone, base, self.colors[base], col, name))
         return name
 
     def tall(self, c=None):
@@ -100,6 +114,20 @@ class Dress:
         b.col = self.colors[m]
         return b
 
+    def _bm_cloth(self, m, x, z):
+        """Lote do pano (cloth/flag): malha própria por célula, um material `bandeira_<cor>` por cor. O jogo dá o toon de
+        pano pelo nome do material; no lote `det_vcol` a bandeira saía com o toon comum, chapada. Não sorteia."""
+        if self._tall is not None:
+            self._tall.col = self.colors[m]
+            return self._tall
+        key = ("pano", int(math.floor(x / CELL)), int(math.floor(z / CELL)))
+        b = self.bufs.get(key)
+        if b is None:
+            b = self.bufs[key] = _Buf()
+        b.col = self.colors[m]
+        b.mat = m
+        return b
+
     def flush(self):
         """Cria os objetos (chame uma vez, antes do z.finish)."""
         n = 0
@@ -119,6 +147,17 @@ class Dress:
             bm.free()
             if kind.startswith("glow_"):
                 me.materials.append(mat(kind, self.colors[kind]))
+            elif kind == "pano":
+                # o jogo usa a cor do material como veio do glTF (sem linearizar, como no horde.cloth); para a bandeira
+                # sair do MESMO tom que tinha no lote de cor no vértice, o material leva a cor escolhida já linearizada
+                lin = lambda v: v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
+                slots = {}
+                for poly in me.polygons:
+                    nm = b.mt[poly.index]
+                    if nm not in slots:
+                        slots[nm] = len(me.materials)
+                        me.materials.append(mat_c("bandeira_" + nm, tuple(lin(k) for k in self.colors[nm])))
+                    poly.material_index = slots[nm]
             else:
                 # a cor escolhida é sRGB e vai crua no COLOR_0: o toon (vcol_srgb) lineariza. Medido no jogo: mancha de
                 # chão (0.86, 0.80, 0.66) aparece (0.85, 0.82, 0.72); gravar o valor linear escurece tudo.
@@ -241,7 +280,8 @@ class Dress:
             bm.faces.new((cv, ring[i], ring[(i + 1) % segs]))
 
     def strip(self, g, m, pts, w, y=0.0074, wvar=0.0, taper=False):
-        """Fita no chão ao longo de `pts` (Vector 2D do jogo); wvar = irregularidade da largura (0..1); taper afina as pontas."""
+        """Fita no chão ao longo de `pts` (Vector 2D do jogo); wvar = irregularidade da largura (0..1); taper afina as pontas
+        (True: a ponta fica com ~1/3 a 1/2 da largura, corte reto; "point": fecha em bico, para risco solto no chão aberto)."""
         if len(pts) < 2:
             return
         bm = self._bm(g, m, pts[len(pts) // 2].x, pts[len(pts) // 2].y)
@@ -256,7 +296,9 @@ class Dress:
             t.normalize()
             nr = Vector((-t.y, t.x))
             k = 1.0
-            if taper:
+            if taper == "point":
+                k = max(0.03, math.sin(math.pi * i / (n - 1)) ** 0.85)
+            elif taper:
                 k = math.sin(math.pi * (i + 0.35) / (n - 0.3)) ** 0.6
             wl = w * 0.5 * k * (1.0 + wvar * noise.noise(Vector((p.x * 0.21 + ph, p.y * 0.21, 1.0))))
             wr = w * 0.5 * k * (1.0 + wvar * noise.noise(Vector((p.x * 0.21, p.y * 0.21 + ph, 7.0))))
@@ -360,10 +402,14 @@ class Dress:
             for q in (poly[0], poly[-1]):                    # pontas redondas (a faixa acabava num corte reto)
                 self.blob("beira", m, (q.x, q.y), (zone_lib.ROAD_W + extra) * 0.56, 0.0097, 0.14)
 
-    def mottle(self, tones, centers, y=0.0048, rmin=3.0, rmax=9.0, group="mancha"):
+    def mottle(self, tones, centers, y=0.0008, rmin=3.0, rmax=9.0, group="mancha", step=0.0008):
         """Manchas largas de 2-3 tons no campo (ficam por baixo de estrada e manchas de região): o chão deixa de ser liso.
-        tones = [(nome, cor)], centers = [((x, z), raio, quantas)]."""
+        tones = [(nome, cor)], centers = [((x, z), raio, quantas)]. `step` = degrau de altura entre os tons (cada tom no seu
+        plano, até 3; 0,2 mm some na foto do Blender e fica no limite do z-buffer: use 0,8 mm). 1 tom = 1 plano, 2 tons = 2
+        planos (com 1-2 tons o rodízio de 3 planos punha o mesmo tom em alturas diferentes, coladas nas camadas vizinhas).
+        Confira a pilha da zona: tudo abaixo das manchas `Zone.patch` (4,5-6,8 mm) e do chão dos lugares (6,0 mm)."""
         ms = [self.m("patch_" + n, c) for n, c in tones]
+        planes = min(3, len(ms))
         rnd = self.rnd
         for (cx, cz), cr, cnt in centers:
             for i in range(cnt):
@@ -373,7 +419,7 @@ class Dress:
                 if Vector((x, z)).length > self.z.rim_r(math.atan2(z, x)) - 2.0:
                     continue
                 r = rnd.uniform(rmin, rmax)
-                self.blob(group, ms[i % len(ms)], (x, z), r, y + 0.0002 * (i % 3), 0.28, sx=rnd.uniform(1.0, 1.9), rot=rnd.uniform(0, 180))
+                self.blob(group, ms[i % len(ms)], (x, z), r, y + step * (i % planes), 0.28, sx=rnd.uniform(1.0, 1.9), rot=rnd.uniform(0, 180))
 
     def pebbles(self, g, m, c, n=5, spread=1.2, r=(0.12, 0.3)):
         for _ in range(n):
@@ -464,13 +510,47 @@ class Dress:
         """Flâmula: mastro fino e pano (com a barra rasgada em dentes se tatter)."""
         self.cyl(g, self.m("mastro_fl_%d" % int(pole[0] * 100), pole), c, 0.09, 0.06, h, 0.0, 5)
         cm = self.m("pano_fl_%d_%d" % (int(col[0] * 100), int(col[2] * 100)), col)
-        a = math.radians(rot)
-        q = (c[0] + math.cos(a) * (w * 0.5 + 0.08), c[1] - math.sin(a) * (w * 0.5 + 0.08))
-        self.box(g, cm, q, (w, drop, 0.06), rot, h - drop - 0.1)
-        if tatter:
-            for k in (-0.33, 0.0, 0.33):
-                qq = (q[0] + math.cos(a) * k * w, q[1] - math.sin(a) * k * w)
-                self.cyl(g, cm, qq, w * 0.17, 0.0, -0.5, h - drop - 0.1, 4, rot + 45.0)
+        hm = self.m("pano_fl_%d_%d_barra" % (int(col[0] * 100), int(col[2] * 100)), tuple(k * 0.8 for k in col))
+        if tatter:                                           # barra em dentes: desce 0,5 m abaixo do pano, como os cones de antes
+            self.cloth(g, cm, c, w, drop + 0.5, rot, h - drop - 0.6, 0.08, "teeth", hm)
+            for _ in range(12):                              # os 3 dentes eram cones com sorteio: gasta os mesmos 12 (a sim da zona não muda)
+                self.rnd.random()
+        else:
+            self.cloth(g, cm, c, w, drop, rot, h - drop - 0.1, 0.08, "swallow", hm)
+
+    def cloth(self, g, m, c, w, drop, rot, y0, x0=0.0, tail="swallow", hem=None):
+        """Pano dobrado (horde.cloth_mesh) pendurado em `c`, saindo na direção de `rot`; `hem` = cor da barra. Não sorteia."""
+        import horde
+        verts, faces, nh = horde.cloth_mesh(w, drop, tail)
+        bm = self._bm_cloth(m, c[0], c[1])
+        f = self._xf(c, rot, (0, 0))
+        vs = [bm.verts.new(f(x0 + x, yb, up, y0)) for x, yb, up in verts]
+        if hem is not None:
+            bm = self._bm_cloth(hem, c[0], c[1])
+        for fa in faces[:nh]:
+            bm.faces.new([vs[i] for i in fa])
+        bm = self._bm_cloth(m, c[0], c[1])
+        for fa in faces[nh:]:
+            bm.faces.new([vs[i] for i in fa])
+
+    def slab(self, g, side, top, c, r, h=0.16, jitter=0.2, sx=1.0, rot=0.0, y=0.0, inset=0.82):
+        """Placa de rocha baixa (crosta boiando na lava): contorno orgânico como o `blob` (gasta os mesmos 3 sorteios),
+        mas com borda escura em talude e tampo mais claro: tem volume para o toon, não lê como buraco."""
+        rnd = self.rnd
+        ph = [rnd.uniform(0, math.tau) for _ in range(3)]
+        segs = max(8, min(14, int(r * 8)))
+        f = self._xf(c, rot, (0, 0))
+        bm = self._bm(g, side, c[0], c[1])
+        bot, up = [], []
+        for i in range(segs):
+            a = math.tau * i / segs
+            rr = r * (1.0 + jitter * (0.6 * math.sin(2 * a + ph[0]) + 0.35 * math.sin(3 * a + ph[1]) + 0.25 * math.sin(5 * a + ph[2])))
+            bot.append(bm.verts.new(f(math.cos(a) * rr * sx, math.sin(a) * rr, 0.0, y)))
+            up.append(bm.verts.new(f(math.cos(a) * rr * sx * inset, math.sin(a) * rr * inset, h, y)))
+        for i in range(segs):
+            bm.faces.new((bot[i], bot[(i + 1) % segs], up[(i + 1) % segs], up[i]))
+        bm = self._bm(g, top, c[0], c[1])
+        bm.faces.new(up)
 
     def torch(self, c, h=2.2, g="tocha", fire="glow_brasa"):
         self.cyl(g, self.m("tocha_haste", (0.3, 0.24, 0.2)), c, 0.09, 0.07, h, 0.0, 5)
@@ -829,7 +909,7 @@ class Dress:
             self.box(g, w, q, (0.14, 0.14, L * 0.3), -rot, 2.4 + h * 0.3 - 0.1)
             self.box(g, w, q, (0.14, 0.14, L * 0.24), -rot, 2.4 + h * 0.85)
             fm = self.m("pano_fl_%d_%d" % (int((flag if i == 0 else flag2)[0] * 100), int((flag if i == 0 else flag2)[2] * 100)), flag if i == 0 else flag2)
-            self.box(g, fm, (q[0] - fx * 0.75, q[1] - fz * 0.75), (1.5, 0.8, 0.06), -rot, top - 0.9)
+            self.cloth(g, fm, q, 1.5, 0.8, 180.0 - rot, top - 0.9, 0.0, None)
         (q0, t0), (q1, t1) = tops
         stern = (c[0] - fx * L * 0.5, c[1] - fz * L * 0.5)
         for pa, pb in (((q0[0], t0, q0[1]), (bow[0] + fx * 3.4, 4.5, bow[1] + fz * 3.4)), ((q0[0], t0 - 0.5, q0[1]), (q1[0], t1 - 0.5, q1[1])), ((q1[0], t1, q1[1]), (stern[0], 4.2, stern[1]))):

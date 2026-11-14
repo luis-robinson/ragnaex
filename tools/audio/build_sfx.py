@@ -545,6 +545,167 @@ def s_troll_regen(rng):
 	return out
 
 
+# ---------------------------------------------------------------- Monte Kharzun (40-45)
+def s_lava_bubble(rng):
+	"""Lava borbulhando (laço perto da lava): bolhas grossas e lentas que estouram, com chiado de calor por baixo."""
+	out = zeros(1.4)
+	add(out, swell(lowpass(noise(1.3, rng, decay=0.9), 420), 0.5), 0.0, 0.5)
+	for _ in range(rng.randint(3, 5)):
+		f = rng.uniform(55, 110)
+		at = rng.uniform(0.0, 1.0)
+		add(out, tone(0.22, f, f * 2.4, decay=12, attack=0.02, harm=[(2.0, 0.25)]), at, rng.uniform(0.5, 0.8))
+		add(out, lowpass(noise(0.05, rng, decay=60), 1500), at + 0.18, 0.35)
+	add(out, highpass(noise(1.2, rng, decay=1.2, attack=0.2), 4500), 0.1, 0.05)
+	return out
+
+
+def s_forge_hammer(rng):
+	"""Martelo na bigorna: clangue metálico agudo com o zumbido da bigorna; às vezes dois golpes."""
+	out = zeros(1.2)
+	hits = [(0.0, 1.0)] if rng.random() < 0.5 else [(0.0, 0.8), (0.42, 1.0)]
+	for at, g in hits:
+		f = rng.uniform(820, 980)
+		add(out, bell(0.9, f, decay=5.0), at, g * 0.6)
+		add(out, tone(0.6, f * 2.76, decay=7, harm=[(1.47, 0.4)]), at, g * 0.25)
+		add(out, highpass(noise(0.04, rng, decay=80, attack=0.0005), 2500), at, g * 0.8)
+	return out
+
+
+def s_chain_break(rng):
+	"""Corrente partindo: elo estala, os pedaços tilintam e caem no chão de pedra."""
+	out = zeros(1.0)
+	add(out, highpass(noise(0.05, rng, decay=70, attack=0.0005), 1800), 0.0, 1.0)
+	add(out, bell(0.4, rng.uniform(1300, 1600), decay=9), 0.0, 0.5)
+	for _ in range(9):
+		f = rng.uniform(1800, 4200)
+		add(out, tone(0.08, f, f * 0.97, decay=45), rng.uniform(0.08, 0.7), rng.uniform(0.15, 0.35))
+	add(out, lowpass(noise(0.15, rng, decay=25), 900), 0.55, 0.4)
+	return out
+
+
+def s_smoke_vanish(rng):
+	"""Bomba de fumaça (Assassino/Matador some ou salta): estalo seco, sopro que se espalha e um assobio que some."""
+	out = zeros(0.8)
+	add(out, lowpass(noise(0.04, rng, decay=90, attack=0.0005), 2500), 0.0, 0.9)
+	add(out, swell(bandpass(noise(0.6, rng, decay=2.5), 300, 2200), 0.15), 0.01, 0.8)
+	f = rng.uniform(1600, 2000)
+	add(out, tone(0.35, f, f * 0.5, kind="sine", decay=6), 0.05, 0.12)
+	return out
+
+
+def s_dire_howl(rng):
+	"""Uivo do lobo atroz: mais grave e mais rouco que o do lobo comum, com rosnado embaixo."""
+	dur = rng.uniform(1.6, 1.9)
+	n = n_of(dur)
+	lo = rng.uniform(190, 220)
+	hi = lo * rng.uniform(1.6, 1.8)
+	out, ph = [], 0.0
+	for i in range(n):
+		u = i / n
+		if u < 0.25:
+			f = lo * (hi / lo) ** (u / 0.25)
+		elif u < 0.68:
+			f = hi * (1 + 0.018 * math.sin(2 * math.pi * 4.5 * i / SR))
+		else:
+			f = hi * 0.68 ** ((u - 0.68) / 0.32)
+		ph += 2 * math.pi * f / SR
+		v = math.sin(ph) + 0.55 * math.sin(2 * ph) + 0.3 * math.sin(3 * ph) + 0.12 * math.sin(5 * ph)
+		out.append(v * min(1.0, u / 0.1) * min(1.0, (1 - u) / 0.3))
+	growl = lowpass(noise(dur, rng, decay=0.4), 300)
+	rate = 38.0
+	out = [a + 0.5 * g * (0.5 + 0.5 * math.sin(i / SR * 2 * math.pi * rate)) for i, (a, g) in enumerate(zip(out, growl))]
+	return lowpass(out, 2200)
+
+
+def s_salamander_hiss(rng):
+	"""Salamandra de lava: chiado de vapor com estalos de brasa e um gorgolejo grave."""
+	dur = rng.uniform(0.6, 0.8)
+	out = swell(bandpass(noise(dur, rng, decay=1.0, attack=0.03), 2500, 7000), 0.25)
+	for _ in range(8):
+		add(out, highpass(noise(0.01, rng, decay=200), 3000), rng.uniform(0.0, dur * 0.9), rng.uniform(0.2, 0.45))
+	add(out, tone(0.25, 140, 70, decay=10, harm=[(2.0, 0.3)]), 0.0, 0.35)
+	return out
+
+
+def s_salamander_die(rng):
+	"""Salamandra apagando: chiado longo de água em brasa que esfria e um último estalo."""
+	out = zeros(1.2)
+	add(out, lowpass(highpass(noise(1.1, rng, decay=2.2, attack=0.01), 1800), 9000, 2500), 0.0, 0.8)
+	add(out, tone(0.4, 120, 45, decay=6), 0.0, 0.4)
+	add(out, highpass(noise(0.02, rng, decay=150), 2500), rng.uniform(0.7, 0.95), 0.4)
+	return out
+
+
+def s_golem_rumble(rng):
+	"""Golem de basalto: pedra moendo pedra, ronco grave e fundo."""
+	dur = rng.uniform(0.9, 1.1)
+	out = swell(lowpass(noise(dur, rng, decay=0.8, attack=0.05), 260), 0.4)
+	gr = bandpass(noise(dur, rng, decay=1.2), 400, 1600)
+	rate = rng.uniform(11, 15)
+	add(out, [x * max(0.0, math.sin(i / SR * 2 * math.pi * rate)) for i, x in enumerate(gr)], 0.0, 0.45)
+	add(out, tone(dur, 48, 40, decay=2.0, harm=[(1.5, 0.3)]), 0.0, 0.6)
+	return out
+
+
+def s_golem_crumble(rng):
+	"""Golem desmoronando: estalo da rocha partindo e uma avalanche de blocos e cascalho."""
+	out = zeros(1.6)
+	add(out, lowpass(noise(0.12, rng, decay=30, attack=0.0005), 1400), 0.0, 1.0)
+	add(out, tone(0.8, 52, 24, decay=4), 0.0, 0.8)
+	for _ in range(10):
+		at = rng.uniform(0.1, 1.1)
+		add(out, tone(0.25, rng.uniform(60, 120), 35, decay=12), at, rng.uniform(0.3, 0.6))
+		add(out, lowpass(noise(0.08, rng, decay=40), 1200), at, rng.uniform(0.2, 0.4))
+	for _ in range(18):
+		add(out, bandpass(noise(0.03, rng, decay=90), 900, 4000), rng.uniform(0.2, 1.4), rng.uniform(0.08, 0.2))
+	return out
+
+
+def s_boulder(rng):
+	"""Pedregulho do Lança-Pedras caindo: baque surdo pesado e a pedra rolando até parar."""
+	out = zeros(1.2)
+	add(out, tone(0.5, 70, 32, decay=7, harm=[(1.7, 0.2)]), 0.0, 1.0)
+	add(out, lowpass(noise(0.2, rng, decay=22, attack=0.001), 1100), 0.0, 0.9)
+	roll = lowpass(noise(0.8, rng, decay=3.0), 500)
+	rate = 9.0
+	add(out, [x * (0.5 + 0.5 * math.sin(i / SR * 2 * math.pi * rate)) for i, x in enumerate(roll)], 0.15, 0.4)
+	return out
+
+
+def s_banner_plant(rng):
+	"""Estandarte fincado no chão: a haste rasga a terra (baque + rangido) e o pano estala ao vento."""
+	out = zeros(1.0)
+	add(out, tone(0.35, 95, 50, decay=9), 0.0, 0.9)
+	add(out, lowpass(noise(0.18, rng, decay=20, attack=0.001), 1300), 0.0, 0.8)
+	add(out, bandpass(tone(0.25, 180, 140, kind="saw", decay=8), 300, 1400), 0.05, 0.25)
+	for k in range(3):
+		add(out, bandpass(noise(0.07, rng, decay=30), 700, 3000), 0.35 + k * 0.14 + rng.uniform(0, 0.04), 0.4)
+	return out
+
+
+def s_sig_warn(rng):
+	"""Aviso de assinatura de chefe (o desenho apareceu no chão): gongo grave batido + trompa curta que sobe."""
+	out = zeros(1.2)
+	f = rng.uniform(150, 170)
+	add(out, tone(1.2, f, f * 0.97, decay=2.6, attack=0.002, harm=[(2.41, 0.4), (3.9, 0.18), (5.2, 0.07)]), 0.0, 0.8)
+	add(out, lowpass(noise(0.06, rng, decay=60, attack=0.0005), 2200), 0.0, 0.5)
+	horn = lowpass(tone(0.55, f * 1.5, f * 2.0, kind="saw", decay=1.5, attack=0.06), 1400)
+	add(out, swell(horn, 0.3), 0.08, 0.45)
+	return out
+
+
+def s_drum_tear(rng):
+	"""Tambor rasgado (canal do Rufar quebrado): última batida oca, a pele rasgando e o aro chacoalhando."""
+	out = zeros(1.1)
+	_drum_hit(out, rng, rng.uniform(62, 72), 0.0, 0.9, ring=0.35)
+	rip = bandpass(noise(0.45, rng, decay=4.0, attack=0.004), 500, 3200)
+	rate = rng.uniform(55, 75)
+	add(out, [x * (0.35 + 0.65 * abs(math.sin(i / SR * math.pi * rate))) for i, x in enumerate(lowpass(rip, 3200, 700))], 0.06, 0.8)
+	for k in range(4):
+		add(out, bandpass(noise(0.05, rng, decay=50), 1500, 5000), 0.45 + k * 0.09 + rng.uniform(0, 0.03), 0.25)
+	return out
+
+
 def s_ui_open(rng):
 	return tone(0.09, 520, 820, decay=30, attack=0.002)
 
@@ -565,6 +726,13 @@ SYNTH = {
 	"war_drum": (s_war_drum, 2), "drum_beat": (s_drum_beat, 3), "net": (s_net, 2), "wolf_howl": (s_wolf_howl, 3),
 	"goblin": (s_goblin, 3), "goblin_shriek": (s_goblin_shriek, 2), "naga": (s_naga, 3), "tide": (s_tide, 3),
 	"troll_slam": (s_troll_slam, 3), "troll_regen": (s_troll_regen, 3),
+	# Monte Kharzun (40-45): lava, forja, correntes, fumaça dos Assassinos, nativos da montanha, pedregulho, estandarte
+	"lava_bubble": (s_lava_bubble, 3), "forge_hammer": (s_forge_hammer, 3), "chain_break": (s_chain_break, 2),
+	"smoke_vanish": (s_smoke_vanish, 3), "dire_howl": (s_dire_howl, 3), "salamander_hiss": (s_salamander_hiss, 3),
+	"salamander_die": (s_salamander_die, 2), "golem_rumble": (s_golem_rumble, 2), "golem_crumble": (s_golem_crumble, 2),
+	"boulder": (s_boulder, 3), "banner_plant": (s_banner_plant, 2),
+	# assinaturas dos chefes (design/gdd/act2-boss-signatures.md): aviso do desenho no chão e o tambor que rasga
+	"sig_warn": (s_sig_warn, 2), "drum_tear": (s_drum_tear, 2),
 }
 
 

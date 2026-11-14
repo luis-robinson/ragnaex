@@ -25,6 +25,8 @@ from zone_lib import Zone, box, cyl, cone, disc, mat
 ZONE = "field_steppe"
 COAST_ARRIVE = (27.6, -85.0)            # chegada em field_coast (build_field_coast.STEPPE_ARRIVE)
 FORT_ARRIVE = (0.0, 96.0)               # chegada em todo mapa de acampamento (build_steppe_forts.ARRIVE)
+KHARZUN_ARRIVE = (0.0, 92.6)            # chegada em field_kharzun (build_kharzun.py: "BACK steppe")
+KHARZUN_READY = True                    # INTEGRAÇÃO (WP5): True quando field_kharzun estiver no MapsCatalog; refaça o JSON das Estepes
 HUB_R = 22.0
 HUB_GATES = [0.0, 90.0, 180.0, -90.0]   # graus: leste (Ghar e flechas), sul (Costa), oeste (trolls), norte (Kharzun)
 CAMP_R = 13.0                           # anel de estacas de cada acampamento de guerra
@@ -90,7 +92,7 @@ def caravan_post(z):
             z.ob("lamp", lq[0], lq[1], (0.4, 3.0, 0.4))
     horde.campfire(z, "posto_fogueira", (0.0, 0.0), 1.5)
     cyl(z.coll, z.P + "posto_mastro", (2.6, -2.6), 0.18, 0.12, 9.0, mat("vigia", (0.52, 0.38, 0.24)), 0.0, 6)
-    box(z.coll, z.P + "posto_bandeira", (3.9, -2.6), (2.6, 1.7, 0.06), 0.0, mat("bandeira_aurora", horde.AURORA_GOLD), 7.1)
+    horde.cloth(z.coll, z.P + "posto_bandeira", (2.6, -2.6), 2.6, 1.7, 0.0, mat("bandeira_aurora", horde.AURORA_GOLD), 7.1, tail=None)
     z.ob("pillar", 2.6, -2.6, (0.7, 9.0, 0.7), visible=False)
     # nordeste: forja de campo (carroça-forja + bigorna)
     horde.wagon(z, "posto_forja", H(15.0, -45.0), 45.0, (0.5, 0.36, 0.3), length=4.6)
@@ -262,6 +264,9 @@ def kharzun_pass(z):
         horde.banner(z, "passo_fechado_estandarte_%d" % k, (inn[0] + sx, inn[1] - 3.0), horde.HORDE_RED, 7.0, 0.0)
         horde.banner(z, "passo_aberto_estandarte_%d" % k, (inn[0] + sx, inn[1] - 3.0), horde.AURORA_GOLD, 7.0, 0.0, pole=(0.82, 0.68, 0.48))
         z.ob("pillar", inn[0] + sx, inn[1] - 3.0, (0.6, 7.0, 0.6), visible=False)
+    if KHARZUN_READY:      # o mapa existe: portal de verdade (quem tranca é o MapsCatalog.PORTAL_GATES: nível 40 + os três fortes)
+        z.portal("to_field_kharzun", out, "field_kharzun", KHARZUN_ARRIVE, "Monte Kharzun (Lv 40-45)")
+        return inn, out
     z.ob("wall", inn[0], inn[1] - 4.0, (16.0, 5.0, 1.6), 0.0, visible=False)       # fechado na sim até o mapa existir
     z.data["future_portals"] = [{"id": "to_field_kharzun", "pos": list(out), "arrive": list(inn), "target_map": "field_kharzun",
                                  "label": "Monte Kharzun (Lv 40-45)", "if": ALL_FORTS}]
