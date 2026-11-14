@@ -30,6 +30,12 @@ Conjuntos do Necromancer: `tools/blender/necromancer_sets.py` (`NEC_SETS` por fo
 Sombras capuz alto/olho/aletas; `build_scythe`). Cão de ossos, Rei Esqueleto e a forma demoníaca (`form_demon`) saem de `mob_kit.build_all`.
 Casulo de Seda (lacaio da Rainha Aranha, monstro `web_cocoon`): `mob_kit.web_cocoon` gera `mob_web_cocoon.glb` (peças rígidas nos ossos `body`/`core`/`head`/`arm_r`/`arm_l`;
 clipes `idle run attack hit die`, no `die` as metades da casca tombam e o miolo some); refazer só ele: `mob_kit.build_all(out, only=["mob_web_cocoon"])`.
+Muralha de Escudos do Ghar: `act2_bosses.ghar_wall_clips` soma ao `mob_ghar` os clipes `guard_wall` (laço, escudo-torre fincado à frente) e `wall_counter` (pancada de escudo + machado, impacto em `GHAR_COUNTER_IMPACT`); poses em `GHAR_TORSO` + `GHAR_SOLVED`, este achado por `tools/blender/ghar_wall_solve.py -- solve`. Refazer: `mob_kit.build_all(out, only=["mob_ghar"])`.
+No jogo: `guard_wall` em laço durante a muralha e `wall_counter` no contragolpe (`EntityView.IMPACT_FRAME` 10 = `Balance.GHAR_COUNTER_DELAY` 0,375 s; clipes só de monstro em `EntityView.MOB_ONLY_CLIPS`).
+Chefes e monstros do Ato II: corpo/peças em `act2_bosses.py` (Troll Rei, Besteiro, Ghar) e `kharzun_mobs.py` (Ulgra, Kragmar, Mãe-Loba, assassino, atirador de pedra, guarda de clã).
+Arma/escudo que fura o chão num clipe: `act2_bosses.clear_ground(rig, clip, bone, prefixes, front=True)` depois de `mob_clips`/`posture` (gira o osso pela frente; `"*"` = todos os clipes; no `die` margem -0,2).
+Conferir rente ao chão: `lineup.tscn -- --mob_strip=<modelo> --anim=<clipe> [--gap=3] [--cam_h=0.12] [--toon] [--no_glow]` (`--toon` = material do jogo; `--no_glow` = sem emissão).
+Modelos das assinaturas dos chefes: `tools/blender/sig_props_a.py`/`_b.py`/`_c.py` → `prop_<chefe>_<peça>.glb` (peças `glow_*` brilham; ligados em `BossSigView._sig_model`).
 Conjuntos do Druida: `tools/blender/druid_sets.py` (`DRU_SETS` humano; `DRU_STAFFS`, `DRU_MACES` com a 2ª maça na esquerda; formas: `build_forms`
 gera `form_wolf.glb`/`form_bear.glb` com `frm_<estilo>_<slot>_<osso>`, lidos por `FormModel`). Revisar formas: `lineup.tscn -- --strip=druid --set=<build> --form=<wolf|bear>`
 e no jogo `-- --autostart=druid --gear=<set_id> --form=<wolf|bear>`. Mudou um conjunto do Lobo/Urso: refaça o kit E as formas.

@@ -35,6 +35,7 @@ Os coeficientes valem por `Balance.ATTR_SCALE` (10) pontos de atributo: "/pt" na
 
 Esquiva da AGI (decisão do autor, 2026-11-12; `Stats.agi_evasion`, `Balance.EVASION_AGI_REF/REF_PCT/EXP`): AGI 140 (escala antiga, build toda em
 AGI no 45) = 10%; 40 (força com AGI de passagem) = 2%; 78 (Carniceiro) = 4,8%; magos 0%. Monstros não esquivam; dano no tempo não é esquivado.
+Zona avisada no chão (assinaturas e perigos de chefe: ilhas, marca, chuva, anel, avalanche, contragolpe) não é esquivada pela AGI: só sair dela salva (decisão 2026-11-13; `BossSignatures._hit` → `_deal_damage(..., dodgeable=false)`).
 
 Dano = (ATK × poder − DEF × 0.5, mín. 15% do bruto) × variação ±10% × crit 1.5. Bloqueio ativo (RMB) sempre bloqueia e soma +25% de redução
 (+10% com escudo), custa 2 MP/s e reduz velocidade a 50%. Bloqueio passivo só com escudo (chance).
@@ -197,7 +198,7 @@ Rosto: tom de pele (9), sobrancelhas, boca e marcas (cicatriz, sardas, pintura d
 peça restrita só para a classe dela; poções e materiais para todos) e `can_craft` recusa o resto.
 **Ícones dos conjuntos** (`tools/icons/set_icons.tscn`): enquadramento automático pelos vértices; arma vista pela face larga em diagonal
 (eixos principais), uma luva só, cabeça com o rosto do boneco como manequim.
-**Montaria (H)**: conjuração de `Balance.MOUNT_CAST_TIME` (1,5 s; vale em combate e andando; barra de conjuração e leque no botão H); agir, pular, bloquear, começar a volta (G), ser atordoado ou levar golpe interrompe; H de novo cancela. Fora de forma animal; `Balance.MOUNT_SPEED_MULT` 1,7. Bots só montam fora de combate. Não monta em masmorra nem em interior (`MapDef.parent_map`).
+**Montaria (H)**: conjuração de `Balance.MOUNT_CAST_TIME` (1,5 s; vale em combate e andando; barra de conjuração e leque no botão H); agir, pular, bloquear, começar a volta (G), ser atordoado ou levar golpe interrompe; H de novo cancela. Fora de forma animal; `Balance.MOUNT_SPEED_MULT` 1,7. Bots só montam fora de combate. Não monta em masmorra nem em interior (`MapDef.parent_map`), exceto masmorra com `MapDef.mounts_ok` (só a Cidadela de Kharzun: pátios abertos; `MapDef.no_mount()`).
 
 **Ascensão do Paladino (Ato II, 35; `ProgressionSystem.has_ascension` = nível `Balance.ASC_LEVEL` + missão `hx_asc_paladin`)** — `MountedCombat` (core/sim/systems/mounted_combat.gd):
 - As skills da ascensão (Carga Montada, Pisotear, Modo Arcano; `SkillDef.ascension`) ficam **fora da teia comum**: são compradas na teia de ascensão (com maestria) e vão na barra só nas vagas 7-0 (ver "Teia e barra de ascensão").
@@ -232,6 +233,24 @@ Uma só regra para todas as classes: `ProgressionSystem.has_ascension` (nível `
   `--bag_shot=<png> --wins=skills --ascend --asc_tab` (aba Ascensão); `--asc_shot=<png>` (Ranger: torreta e salto); `--choir_shot=<png>` (Bispo: cúpula, anjo e bênçãos);
   `combat_probe -- --class=<c> --asc`; `boss_probe -- --asc[=classe] | --asc_base=classe | --asc_level | --lvl=N` (F5: com/sem a ascensão no mesmo nível).
 - **Como medir o F5** (rodada de 2026-11-11): grupo `tanque + cura + 2× a build`, nível 35, `--tank_lock` e 80+ lutas por braço (`--seed=N` soma rodadas independentes; a linha `TIME` dá média, mediana, erro-padrão e `freio`). **Sem `--tank_lock` a medida mente**: o bot que passa de `BOT_THREAT_HOLD` × a ameaça do tanque só usa o básico, e no grupo de 4 a dupla de dano fica 34-39% do tempo nesse freio — +20% de ATK aparecia como ×1,00 (Paladino) e a Fusão do fogo como ×1,01. Lutas de 20-30 s medem a abertura: use `--hp=2.5` nas builds que derrubam o chefe rápido (Elementalista). Mortes sob `--dmg` têm ruído de ±13-15% em 80 lutas: não resolvem 6-10% (300+ lutas por braço, no `--dmg` em que a base morre 1-2 por luta: ×1,5 com Urso tanque, ×3 com Guardião). `--why` imprime `BUFFS` (tempo de cada buff por membro), `INV` (invocações mortas) e `DPS ...+inv` (dano das invocações). Com `--comp` passe também `--party=4`: sem ele a sonda roda os tamanhos padrão 1 e 3 (só os primeiros membros da composição). Rodada de 2026-11-12 (depois do retrabalho da ameaça e dos portões da teia de ascensão comprados antes das maestrias): Lâminas ×1,084 (`ASC_BUILD_POWER` 0,9), Duelista ×1,082 (0,92), Corsário ×1,076, Punhos ×1,091 (`TITAN_CLAW_POWER` 0,9); Necromante só no tempo ×1,01-1,02; utilidade sob pressão (80 lutas por braço): Bispo `--dmg=3` −18% de mortes, Ent `--dmg=1.5` −38%, Necromante Invocador `--dmg=3` −31%.
+
+- **F5 aos 35 com fator por nível** (decisão do usuário, 2026-11-13): os pesos do 45 (`ASC_BUILD_POWER`, `TITAN_CLAW_POWER` das Garras) passaram
+  aos 35 de x1,32 (Lanceiro), x1,17 (Atirador), x1,12 (Caçador) e ficaram abaixo nos Assassinos/Punhos (x1,01-1,05). Agora todo peso de ascensão
+  passa por `Balance.asc_power(build, nível)` (`asc_level_mult`): vale × `ASC_POWER_35_MULT[build]` no 35 e vai em linha reta até 1,0 no 45
+  (no 45 e acima é exatamente 1,0: a calibragem do 45 não muda). Caminhos: torreta/salto/Brados (`RangerAscension`), falcão (`FalconSystem`),
+  clone e Execução (`ShadowSystem`), matilha e penas (`DruidAscension`), Garras de Titã (`TitanSystem`). Check `_check_asc_power_35`.
+  Medido (Agitador-Mor, nível 35, `--tank_lock`, 80 lutas por braço; razão base/asc): Lanceiro 0,1 → x1,078; Atirador 0,3 → x1,089;
+  Caçador 0,6 → x1,097; Corsário 2,3 → x1,068; Duelista 1,4 → x1,077; Lâminas 1,2 → x1,099; Punhos 1,6 → x1,087; Xamã sem fator x1,069 (fatores da rodada do 35, antes do reajuste do 45 abaixo; o produto peso × fator no 35 ficou igual).
+  **F5 no 45 na sala real do Kragmar** (2026-11-13; antes era a arena provisória do Ghar; cidadela com montaria, ward e golens, assinatura ligada;
+  80 lutas por braço, razão base/asc ± erro): todo o quadro subiu ~0,1 (média 1,29 contra 1,194). Sem a assinatura (`--no_sig`) Cruzado 1,365
+  (com 1,499) e Lanceiro 1,251 (com 1,249): a sala pesa mais que a assinatura. Reajustados pelo peso do 45 (`ASC_BUILD_POWER`), com o fator do 35
+  compensado para o produto do 35 ficar igual (o 35 acima não muda): Lanceiro 3,3→2,35 x1,172; Atirador 6,5→4,0 x1,197 (2 sementes);
+  Caçador 0,7→0,82 x1,175; Corsário 0,45→0,33 x1,201; Duelista 0,73→0,46 x1,222; Lâminas 0,9→0,51 x1,213; Fera 1,0→0,74 x1,218;
+  Punhos (Garras 0,8) x1,202, Executor x1,222 sem mudança. Média desses 9: 1,203.
+  **Pendente: medido na arena real do Kragmar, precisa de split por nível; ajustar depois** (usuário 2026-11-13: "commit agora, ajusta depois") —
+  Cruzado x1,499, Templário x1,336, Fogo x1,399, Gelo x1,305, Raio x1,272, Xamã x1,260, Gêmeos (Carniceiro) x1,252. O ganho deles vem da
+  mecânica do 35 (Combate Montado, elemental, Pássaro Arcano/`ANC_BOLT_POWER`, Empunhadura de Titã), que também vale no 35; os nós do 45 (+5,5% etc.)
+  não bastam.
 
 ## Ascensão do Ranger (Ato II, 35) — `RangerAscension` (core/sim/systems/ranger_ascension.gd)
 Liberada por `ProgressionSystem.has_ascension` (nível `Balance.ASC_LEVEL` + missão `hx_asc_ranger`); as skills de ascensão
@@ -417,14 +436,14 @@ Cada classe começa com arma(s) + elmo, corpo, luvas e botas próprios (estilo e
 Bosque, Batedor, Sombras, Aprendiz Arcano, Acólito). O corpo tem os atributos da antiga peça única; o resto só dá defesa.
 
 ## Equipamento lendário e conjuntos (`data/catalog/gear_catalog.gd`, gerado por loops)
-A cada 5 níveis (5/10/15/20/25/30, e 35/40 no Ato II) cada **build** tem um conjunto lendário: elmo, corpo, luvas, botas, arma (+ secundária).
-Os conjuntos do 35 e do 40 reaproveitam o visual do 30 (`GearCatalog.visual_of`, nomes genéricos "... da Ascensão" e "... do Triunfo") até ganharem modelos próprios.
+A cada 5 níveis (5/10/15/20/25/30, e 35/40/45 no Ato II) cada **build** tem um conjunto lendário: elmo, corpo, luvas, botas, arma (+ secundária).
+Os conjuntos do 35, do 40 e do 45 reaproveitam o visual do 30 (`GearCatalog.visual_of`, nomes genéricos "... da Ascensão", "... do Triunfo" e "... do Apogeu") até ganharem modelos próprios.
 Bônus: (2) +atributo secundário · (3) +atributo principal (ex. INT +2) · (4) +20% na skill assinatura (ex. Bola de Fogo) ·
 (5) +% no stat da build e −% de recarga de outra skill. Os números crescem por tier (`Balance.SET_*`); os percentuais, acima do tier 5,
-crescem pela metade (`Balance.set_pct_tier`: 4 peças 42% no 35 e 44% no 40; 5 peças 17/18%, recarga 21/22%). Equipamento comum: tiers 1/8/16/24/32/40 (o do 32, "de Adamante", e o do 40, "de Oricalco", só gerados; raridade épica; o de Oricalco tem cor própria, `GearCatalog.COMMON_TIER_TINT`).
+crescem pela metade (`Balance.set_pct_tier`: 4 peças 42% no 35, 44% no 40 e 46% no 45; 5 peças 17/18/19%, recarga 21/22/23%). Equipamento comum: tiers 1/8/16/24/32/40 (o do 32, "de Adamante", e o do 40, "de Oricalco", só gerados; raridade épica; o de Oricalco tem cor própria, `GearCatalog.COMMON_TIER_TINT`).
 Drop: o lendário cai como **Moeda Lendária** (1 em 100 monstros; chefes 40% e 2 moedas; Reis sempre). **Iara, a Relicária** (praça de Aldara)
 troca moedas por qualquer peça lendária da sua classe (conjuntos das builds, maça do conjunto, escudos nomeados): tier i de
-`LEGENDARY_LEVELS` custa i+1 moedas (nível 5 = 1, nível 10 = 2 ... nível 30 = 6, nível 35 = 7, nível 40 = 8), até o seu nível (`WorldSim.relic_*`). A janela tem uma aba por build (abre na do conjunto que você veste, senão na do braço da teia com mais nós) e uma linha
+`LEGENDARY_LEVELS` custa i+1 moedas (nível 5 = 1, nível 10 = 2 ... nível 30 = 6, nível 35 = 7, nível 40 = 8, nível 45 = 9), até o seu nível (`WorldSim.relic_*`). A janela tem uma aba por build (abre na do conjunto que você veste, senão na do braço da teia com mais nós) e uma linha
 por conjunto (bônus, armadura | arma, maça, escudo; ✓ = já tem, vestida, na bolsa ou no depósito); **Trocar o que falta** leva de uma vez as peças
 de armadura que você ainda não tem (moedas × peças; a arma troca à parte). Escudos nomeados ficam na aba Escudos. Ela também vende
 Moeda Lendária por ouro (`Balance.LEGEND_COIN_PRICE` = 500, `ItemSystem.buy_legend_coin`). **Reset das skills** com o Ancião Ravi
@@ -494,14 +513,14 @@ Nível 30 só cai do Dragonete. Raridades: comum, incomum, raro, épico, **lend�
   Raio 17, Sacerdote 17, Guardião Verde 16, Atirador 16, Lâminas 14 (antes do retrabalho dos chefes; histórico).
 
 ## Progressão (lenta)
-Lv 1-30 (fórmula no parágrafo "Ritmo" abaixo e em `design/gdd/progression.md`).
+Lv 1-45 (Ato I até o 30, Ato II 30-45; fórmula no parágrafo "Ritmo" abaixo e em `design/gdd/progression.md`).
 Spawners enchem de uma vez ao carregar o mapa (`primed`); depois cada abate volta no tempo de respawn. Monstro sem alvo e sem personagem
 a `Balance.DORMANT_RANGE` (40 m) dorme (não pensa/anda/atualiza). Separação usa grade de 3 m por tick (`WorldSim._index_map`) e monstros
 procuram alvo só na lista de personagens do tick. Dungeons do mapa (`build_dungeons.py`): bando no meio de cada corredor (menos o da
 chegada), salões com área de spawn do tamanho do salão.
 Ritmo (MVP até o 30, ~15 h): `Balance.xp_for_level` sai do tempo planejado no nível (6,5 + 1,75×(lv−1) min) × 3 abates/min ×
-XP de um monstro do nível (6 + 4,5×lv) ÷ 0,55. Ato II (nível máximo 40, fase 2): do 30 em diante os minutos crescem só 0,75 por nível
-(`XP_MIN_PER_LEVEL_ACT2`; 30→31 = 44 030, 34→35 = 52 250, 35→36 = 54 400, 39→40 = 63 360; faixa 35-40 = 294 200 de XP, ~5,2 h); faixas 30-35 e 35-40 com 55% de quest; +1 ponto de teia também no 40; pontos de ascensão: 21 no 40. Quests não repetíveis dão 50% / 55% / 65% de cada faixa (1-10, 10-20, 20-30; `XP_QUEST_SHARE_BAND`; a curva conta 45%, então quem faz quest sobe mais rápido que o tempo planejado):
+XP de um monstro do nível (6 + 4,5×lv) ÷ 0,55. Ato II (nível máximo 45, Monte Kharzun 40-45): do 30 em diante os minutos crescem só 0,75 por nível
+(`XP_MIN_PER_LEVEL_ACT2`; 30→31 = 44 030, 34→35 = 52 250, 35→36 = 54 400, 39→40 = 63 360, 44→45 = 75 390; faixa 35-40 = 294 200 de XP, ~5,2 h; faixa 40-45 ~5,5 h); faixas 30-35 e 35-40 com 55% de quest, 40-45 com 50%; +1 ponto de teia também no 40 (356 pontos no 45); pontos de ascensão: 21 no 40, 36 no 45. Quests não repetíveis dão 50% / 55% / 65% de cada faixa (1-10, 10-20, 20-30; `XP_QUEST_SHARE_BAND`; a curva conta 45%, então quem faz quest sobe mais rápido que o tempo planejado):
 `QuestsCatalog.scale_xp` mantém o peso relativo escrito em cada quest e escala o total da faixa. Caçadas pagam no NPC da zona do monstro.
 A faixa 1-10 dá 50% (`XP_QUEST_SHARE_BAND`) e cada nível de 2 a 19 tem quests valendo ≥ 35% do nível (há check): o 6-7 ganhou 7 laterais
 de moradores de Aldara (`v1_tico`..`v7_marco`: javalis, chá do Ancião, peles e bando de lobos da Caçadora Ivy, Gruta, recibo para o Nils, Marco).
@@ -525,6 +544,7 @@ paliçadas/muros em anel, morros em patamares, dispersão de vegetação) e `nat
 chão de bosque, anel de montanhas com neve) e são lidas por `MapsCatalog.load_zone`.
 Rios, lagos e morros colidem na sim (`MapGeometry.build_collider_grid`; rio tem vão só nas pontes, com 0,5 m de beirada rasa andável).
 Margens têm corredor livre de 2 m (`nature.clear_banks`).
+Estradas (material `road`) nas zonas abertas usam a cor do Blender (`MapBuilder._blender_road`; dungeons/fortalezas/cidadelas seguem com a terra do chão) e a ponta que chega num portal fica sem grama até a largura da malha (`_mask_portal_end`).
 
 **Lugares** (`places.py`, lista `PLACES` de cada zona): cabanas com NPC de quest lateral, acampamentos de monstros, santuários (a pedra
 central é um NPC de lore; o vão do círculo olha para a estrada) e entradas de dungeon, ligados à estrada por trilhas estreitas.
@@ -789,6 +809,63 @@ No Ato II o Fogo tirava o chefe do tanque nos 5 s de abertura em quase toda luta
 grupo completo (no Besteiro, que bate forte de perto, passava de 1). Rainha Aranha e Rei Élfico ficavam acima de 85% com 4 sorteados
 (o contrato do Ato I é solo/trio, tabela acima).
 
+**Monte Kharzun (Ato II fase 3, 40-45; `design/gdd/kharzun-fase3-plan.md` §4, WP7)** — seis chefes em
+`MonstersCatalog._kharzun_bosses` (`KHARZUN_BOSSES`, `KHARZUN_BANNERS`, `KHARZUN_MODELS` = modelo pretendido do WP4; hoje
+substitutos `mob_*` de chefe que têm os gestos das skills, check `_check_anim_review`). Lacaios são do chefe (0 XP, sem loot). Falas = placeholder (narrative-director).
+| Chefe | Onde / nível | F2 / F3 / F4 | Substituto → modelo pretendido |
+|---|---|---|---|
+| Presa-de-Cinza, a Mãe-Loba (`boss_dire_mother`, campo) | Canil, 41 (chefe F2 hp ×0,6, atk ×0,7) | 60%: uivo + 2 Crias; 30%: fúria ×1,3. Sem berserk (campo) | `mob_boar` cinza (tem os gestos de chefe quadrúpede) → `mob_dire_mother` |
+| Mestre Matador Shazka (`boss_shazka`) | `dg_slayers`, 43 | 70%: some (furtividade 1,5 s), Passo nas Costas no frágil, 2 Sombras-Aprendizes no frágil, ward 0,5; 35%: Nuvens de Veneno + Golpe de Misericórdia (frágil); 15%: fúria | `mob_agitator_lord` → `mob_shazka` |
+| Ulgra Presa-Atroz (`boss_ulgra`) | cidadela W, 44 | 70%: Ginetes; 40%: ward 0,5 + Ginetes no mais longe; 15%: Chuva de Lanças + fúria. Investida 9 m, Corrente de Caça (puxa o mais longe) | `mob_ghar` → `mob_ulgra` |
+| Gorbash Pele-de-Rocha (`boss_gorbash`) | cidadela E, 44 (regen ×0,3) | 70%: 2 Xamãs-Pedra que CURAM o chefe (`mob_stone_mend`), ward 0,5; 40%: abalo que atordoa + desabamento; 15%: fúria | `mob_troll_king` → `mob_gorbash` |
+| Kragmar Martelo-Negro (`boss_kragmar`) | cidadela N-NE, 44 | 70%: Golens de Forja; 40%: ward 0,4; 15%: fúria ×1,35. Ondas de Lava (6 círculos), berserk aos 150 s | `mob_crossbow_master` → `mob_kragmar` |
+| Durgash, o Grão-Senhor da Guerra (`boss_durgash`) | trono, 45, **raide de 5** (hp ×3,0, atk ×1,5) | 100%: Machado do Trono (assinatura, juntar para dividir); 70%: finca 3 Estandartes de Clã (três fases no mesmo limiar; ward 0,6 enquanto um vive; Lobo = aura `clan_wolf` +25% movimento/+20% vel. de ataque na Horda, Pedra = cura o chefe, Forja = brasas em volta); 40%: Corrente, Terra Rachada, Guarda do Trono a cada 30 s, ward 0,3; 15%: fúria ×1,35; berserk 240 s | `mob_ghar` → `mob_durgash`; estandartes = cone → `mob_clan_banner_*` |
+Estandarte: vida ~4% da do Durgash, parado (velocidade 0, não golpeia). Check `_check_kharzun_bosses` (fases em ordem, falas, lacaios
+0 XP, os 3 estandartes, ward 0,6 com um vivo e 0 com os três caídos na sim).
+Sonda em **ARENA PROVISÓRIA** (`boss_probe.ARENA_AT`: forte do Ghar, no lugar dele) com bots no nível do chefe (41-45, acima do
+`MAX_LEVEL` 40 desta base; equipamento até 40) — **refazer no mapa final e depois do teto 45 (WP1)**. 20 lutas por linha:
+| Chefe | Alvo | Completo (Guardião, Sacerdote, Executor, Fogo [+ Bispo Batalha]) | Sorteados | Notas |
+|---|---|---|---|---|
+| Presa-de-Cinza (campo, `--bands`) | solo 60-100%, trio 90-100% | — | solo 18/20 (90%, 50 s), trio 20/20 (13 s), kite 6/6 | BAND OK |
+| Shazka (hp ×1,8, atk ×0,95) | completo ≥ 95%, 4 sorteados 65-85% | 20/20, 1,1 morte, 58 s (números anteriores, mais fortes) | 30/40 (75%), 1,8 morte, 43 s | |
+| Ulgra (hp ×1,85, atk ×1,3; ×1,15 com a assinatura, ver Assinaturas) | idem | 20/20, 0,7 morte, 51 s (atk 1,4) | 28/40 (70%), 2,0, 45 s | |
+| Gorbash (hp ×1,85, atk ×1,3; Xamã matk 50) | idem | 20/20, 0,2 morte, 60 s (atk 1,6) | 26/40 (65%), 1,8, 51 s | no piso |
+| Kragmar (hp ×1,7, atk ×1,25) | idem | 20/20, 0,1 morte, 38 s (atk 1,45) | 27/40 (68%), 1,6, 38 s | |
+| Durgash (hp ×3,0, atk ×1,0, berserk 120 s) | 5 completo ≥ 90%, 0,5-1,5 morte, 90-150 s; 5 sorteados 60-80%; 4 completo ≤ 85% | 5: 20/20, 1,4 morte, 88 s · **4: 20/20, 0,9 morte, 108 s (ALARME)** | 5 sorteados: 6/20 (30%), 4,1 mortes | **FORA**: ver abaixo |
+Durgash fora do alvo em duas linhas, e o ATK não as resolve (atk 1,5 → 1,0: o 5 completo foi de 1,8 para 1,4 morte, o 4 completo continuou
+20/20 e os 5 sorteados ficaram em 20-30%). O grupo de 4 com tanque e cura sobrevive ao berserk ×1,6 (`BOSS_BERSERK_MULT`, igual para
+todos os chefes); um corte de DPS de verdade pede regra nova (ex.: berserk por chefe mais forte, ou um limite de tempo), decisão do autor.
+Os 5 sorteados perdem por falta de tanque/cura contra o reforço ×5,0 de 5 pessoas e pelos estandartes que os bots ainda não miram (WP8).
+
+**Kharzun no mapa final + IA de raide (WP8, 2026-11-13)**. A sonda agora luta na arena de verdade de cada chefe (`boss_probe.BOSSES`:
+Canil no Monte Kharzun, `dg_slayers`, cidadela) e imprime `WARD` (lutas com ward, tempo até o 1º lacaio cair, quantas em 30 s).
+IA de raide (`BotBrain`, números `Balance.BOT_*`, check `_check_bot_raid`): com ward ligado, quem não tanca nem cura vai no lacaio de ward
+(estandarte primeiro, depois o mais perto, a até `BOT_WARD_RANGE` m: `_ward_add`); o tanque provoca de novo quando um chefe de golpe curto
+em quem é frágil (Shazka: Misericórdia, Passo nas Costas) está em cima de quem cura (`soft_in_danger`), e quem cura sai do alcance dele
+(`_evade_boss`, `BOT_HEALER_EVADE`); a frente do chefe é o cone mais largo dele (`front_arc`: talho de 150° do Durgash + `BOT_FRONT_ARC_PAD`),
+cada membro ganha uma vaga própria em volta (`_slot`, `BOT_RANGED_SPREAD_STEP`) e o tanque vira o chefe de costas para o grupo quando
+`BOT_TANK_TURN_MIN`+ estão na frente (`_turn_spot`).
+**Durgash, raide de 5**: vida `unit_mods.hp` ×4,3 (era ×3,0: o grupo cheio leva ~100 s, decisão do autor 2026-11-13) e berserk próprio
+(`MonsterDef.berserk_mult`; 0 = `Balance.BOSS_BERSERK_MULT`) aos **128 s, dano ×20** (o grupo cai
+em 5-20 s) e reforço próprio de raide (`Balance.BOSS_CROWD_RAID`, no lugar de `BOSS_CROWD_MULT`; solo/dupla/trio iguais ao comum):
+**×4,9 com 4, ×3,25 com 5** (tabela de raide aprovada pelo autor em 2026-11-13). Só o berserk não separava o 4 do 5 (o 4 leva ~16 s a mais, desvio de 10-13 s por luta: com berserk ×8-20
+aos 80-95 s o 4 completo ficava em 35-90% e o 5 completo caía junto); com o reforço por tamanho, o grupo de 4 sofre mais e não chega ao
+berserk. Varredura (20 lutas): ×1,6/120 s → 4 completo 20/20; ×20/85 s → 10/20; ×20/80 s → 7/20; reforço 4,9/4,2 → 5 sorteados 18/40;
+3,5 → 23/40; 3,0 → 32/40; 3,25 escolhido (com vida ×3,0 e berserk 90 s: completo de 5 40/40 em 70 s, 5 sorteados 31/40,
+completo de 4 6/40). Depois a vida subiu ×1,43 e o berserk foi junto (90 → 128 s) para a luta do grupo cheio ficar em ~100 s.
+Os estandartes ficaram em 21.300 de vida (~2,8% do Durgash, era ~4%): com vida ×1,43 também neles (30.500) os 5 sorteados caíam
+para 20/40 (e 21/40 com reforço 2,9 com 5).
+Sonda, 20 lutas por linha (Durgash 40), bots no nível do chefe (Durgash `--lvl=45`); completo = Guardião, Sacerdote, Executor, Fogo, Bispo Batalha:
+| Chefe | Completo de 5 | 5 sorteados | Completo de 4 |
+|---|---|---|---|
+| Presa-de-Cinza (campo, 41) | 20/20, 0,0 morte, 19 s | 20/20, 0,1, 12 s | — (campo: contrato solo/trio, BAND OK) |
+| Mestre Matador Shazka (43) | 20/20, 0,4, 40 s | 15/20 (75%), 2,2, 29 s | — |
+| Ulgra Presa-Atroz (44) | 20/20, 1,1, 48 s | 13/20 (65%), 2,8, 35 s | — |
+| Gorbash Pele-de-Rocha (44) | 20/20, 0,0, 39 s | 15/20 (75%), 1,4, 28 s | — |
+| Kragmar Martelo-Negro (44) | 20/20, 0,2, 32 s | 14/20 (70%), 1,8, 23 s | — |
+| **Durgash (45, raide)** | **40/40, 0,8, 95 s** | **26/40 (65%), 2,8, 72 s** | **7/40 (18%), 3,5, 121 s** |
+Fora do que se esperava: os quatro chefes da cidadela com 5 sorteados ficam em 65-75% (o alvo de 65-85% era para 4 sorteados; não medido com 4 nesta rodada).
+
 **Abertura do grupo** (2026-11-12, `BotBrain._opener`, `Balance.BOT_OPENER_*`; check `_check_bot_opener`; A/B com `boss_probe --no_opener`):
 com tanque no grupo, quem não é o tanque não usa skill de dano no chefe/elite (nem área num lacaio a `BOT_OPENER_AOE_RANGE` 6 m dele)
 até o chefe ficar `BOT_OPENER_TIME` 3 s preso no tanque com ameaça dele; até lá só o básico (e buff em si: forma, Sede de Sangue), e só
@@ -863,7 +940,7 @@ A média de tanque/cura é a mesma nos três (só a forma de distribuir muda): a
 | Senhor da Cripta | 75% | 67,5% | — | 1,65 | 31 s |
 | Conde Vargo | 70% | 82,5% | — | 1,55 | 25 s |
 | Rei Élfico | 72,5% | 70% | — | 1,75 | 35 s |
-| Coração da Pedreira | **90%** | 77,5% | — | 0,75 | 46 s |
+| Coração da Pedreira | 70% (ATK/MATK 50 → 66; era 90%) | 77,5% | — | 1,8 | 46 s |
 | Lich-Rei | 85% | 87,5% | — | 1,1 | 39 s |
 | Mãe das Marés | **60%** | 60% | 72,5% | 2,2 | 37 s |
 | Agitador-Mor Grukk | 77,5% | 67,5% | 62,5% | 1,65 | 37 s |
@@ -873,7 +950,7 @@ A média de tanque/cura é a mesma nos três (só a forma de distribuir muda): a
 Em negrito: fora de 65-85% no baralho (não reajustado). Com 40 lutas o erro é ±7 pontos (1 desvio) e o rodízio, no mesmo
 código, vai para os dois lados (Marés +12,5, Troll +17,5, Ghar −17,5, Agitador −15): somados os 5 do Ato II, baralho 66,5% e
 rodízio 66%. A diferença de sorteio é ruído; o Ato II fica no piso da faixa com 4 sorteados (Marés e Troll abaixo), a Pedreira
-acima. Vorgul e Ghar no sorteio livre estavam no azar das 40 lutas (e o Vorgul ainda tinha o dash da abertura).
+acima (reajustada em 2026-11-13: ATK/MATK 50 → 66 deu 70% em 40 lutas; 60 deu 77,5%). Vorgul e Ghar no sorteio livre estavam no azar das 40 lutas (e o Vorgul ainda tinha o dash da abertura).
 
 **Básico previsto com crítico e assinatura** (2026-11-12, `BotBrain._skill_threat(..., crit_hit)`, `BotBrain._signature_threat`,
 `Balance.BOT_THREAT_CRIT_CHANCE` 5%; checks em `_check_bot_threat_budget`): o básico (abertura e `BOT_THREAT_STOP`) conta o
@@ -921,9 +998,75 @@ nos três lados; 3 bots repelem 100%; só as sentinelas perdem os lados 0 e 1 (a
 Investidas de Porto Esperança (`raid_probe --map=city_port --level=32 --raid_level=32`, 40 levas): depois da correção de IA e dos 35+
 a guarnição sozinha caiu para 28/40 (C0) e 29/40 (C1); `Balance.PORT_GUARD_POWER` 1,2 (vida e ataque da guarnição e dos besteiros do
 muro, como o `STEPPE_GUARD_POWER`): C0 35/40, C1 38/40, 1 bot 40/40 nos dois, 3 bots 40/40, presos 0 (1,15 dava 27/40 e 35/40; 1,25, 36 e 39).
+Investidas de Kharzun (`raid_probe --map=field_kharzun --level=42 --raid_level=42`): o elenco 40+ mais forte (rodada de balanço de 2026-11-13)
+derrubou a guarnição sozinha de 9/10 para 36/50 repelidas e 1 bot de 10/10 para 24/30. Decisão do usuário (2026-11-13): força só da investida,
+`Balance.RAID_MAP_POWER` (vida/ATK/MATK dos invasores × isto, por mapa, em `RaidSystem.scaled_def`; os comuns do campo não mudam; check em
+`_check_raid_scaling`). Kharzun 0,85: sem bots 46/50 (92%), 1 bot 30/30, presos 0.
 Materiais novos: Couro de Troll, Presa de Troll, Pena de Flecha de Fogo, Aço Negro Orc; dos chefes: Coração de Rocha, Brasa do Mestre
 Besteiro, Insígnia de Ghar. Modelos em `mob_kit.horde_parts` (trolls cinza-azulados com pedras incrustadas; orcs de elmo de ferro; Ghar
 com chifres e estandarte). Besteiros empunham besta de verdade (`act2_bosses.crossbow`, clipe do mosquete) e os trolls têm corpo próprio (`chibi_kit.BODIES["troll"]`: ombros largos, braços compridos) e postura curvada somada a todos os clipes (`act2_bosses.posture`); os chefes do Ato II ganham peças grandes em `act2_bosses.boss_extras`. Pendente: som próprio do troll (usa a voz orc).
+
+**Assinaturas dos chefes** (2026-11-13, GDD `design/gdd/act2-boss-signatures.md`; regras em `BossSignatures`, avisos em
+`BossSigView`, bots em `BotBrain._sig_spot`, checks `_check_boss_signatures`/`_check_boss_sig_rules`/`_check_boss_sig_bots`).
+Cada chefe do Ato II ganha UMA mecânica própria por cima do kit (nada saiu); números globais em `Balance.BOSS_SIG_*`/`BOT_SIG_*`,
+os de cada uma no efeito da skill (`SkillDef.boss_signature`). Bots sempre fazem a resposta certa.
+| Chefe | Assinatura (desde) | Regra | Resposta |
+|---|---|---|---|
+| Mãe das Marés | Maré Cheia (100%, 30 s) | `islands`: N = max(2, ⌈grupo/2⌉) ilhas de 2,5 m (uma no tanque); 3 s depois, fora delas a 22 m do chefe = 1,6 + lento | juntar numa ilha (bots: a longe do chefe) |
+| Agitador-Mor Grukk | Rufar da Turba (70%, 35 s) | `boss_channel` 4 s; atordoar ou 6% da vida quebra (3 s atordoado, +25% de dano 6 s); completo = Frenesi +40% na turba, cura 30%, +2 Turbas | interromper (todo mundo no chefe, atordoar guardado) |
+| Troll Rei-da-Rocha | Avalanche (70%, 30 s) | Chuva de Pedras deixa pedregulho (`MonsterDef.cover`, máx. 3, 40 s; modelo `prop_avalanche_stone`); preparo 2,5 s; onda de 18 m 2,2 + atordoa em quem não tem pedra entre si e ele; a pedra que protegeu racha; sem pedra, ele joga 2 antes | atrás da pedra |
+| Mestre Besteiro Vorgul | Marca do Atirador (100%, 18 s) | `mark` spread: 1 (solo) / 2 marcas que seguem a vítima 4 s, explodem 4 m (0,9) e deixam fogo 4 s | espalhar |
+| Senhor da Guerra Ghar | Muralha de Escudos (100%, 25 s) | `wall` 6 s: golpe da frente (120°, físico e mágico) perde 90% e soma fúria; no fim, contragolpe em cone 150° = 1,0 + 0,15 × fúria (teto 2,5), que cai `Balance.GHAR_COUNTER_DELAY` 0,375 s depois (quadro 10 do clipe `wall_counter`; durante a muralha ele repete `guard_wall`) | quem ele mira fica de guarda parado; o resto nas costas |
+| Presa-de-Cinza (campo) | Três Botes (60%, 20 s) | `repeat`: 3 investidas re-miradas na mesma vítima (aviso 0,8 s, 0,6 s entre elas); root/stun cortam | sair da faixa |
+| Mestre Matador Shazka | Sombras Gêmeas (70%, 24 s) | some na fumaça 1,5 s e volta com 2 cópias (`decoys`, monstro `shazka_decoy` com `MonsterDef.decoy`): mesmo nome, modelo e vida, dano 30% (`Balance.SHAZKA_DECOY_DMG`), 10 s; cópia morre com 1 golpe e solta nuvem de veneno 2 m (0,4 + veneno, fica 4 s); golpe direto no verdadeiro desfaz as cópias; só ele projeta sombra; a cópia é roxo escuro com borda roxa e quase sólida (`EntityView.DECOY_TINT/DECOY_RIM/DECOY_FADE` 0,15; antes 0,35 de transparência lia como bug) | achar o verdadeiro (bots sempre; área mata cópia) |
+| Ulgra Presa-Atroz | Estouro da Matilha (70%, 28 s) | `barrage.shape: line`: 3 faixas de 3 m × 30 m na direção dela→tanque (uma no tanque), vãos de 3 m, caem 2,0/2,6/3,2 s: 1,6 + derruba 0,8 s | sair de lado para o vão |
+| Gorbash Pele-de-Rocha | Ondas da Montanha (70%, 24 s) | `barrage.shape: ring` com `pulses`: 3 pisadas (1,2 s), cada uma 3 anéis de 2 m (2-4, 7-9, 12-14; a 2ª pisada 2 m para fora, até 16 m) que caem a cada 0,5 s depois de 1,5 s de aviso; 1,1 por anel; o próximo anel fica aceso | entra-sai no ritmo |
+| Kragmar Martelo-Negro | Têmpera na Lava (100%, 18 s) | `barrage` com `on_self` + `linger` + `empower`: círculo de 2,4 m embaixo dele (aviso 1,6 s, 1,0) vira poça por 20 s (modelo `prop_kragmar_lavapool`; 0,15/s em quem pisa); dentro dela ele ganha 1 Têmpera a cada 2 s (+8% de dano, máx. 6) e cura 0,5%/s (uma vez, mesmo com poças sobrepostas); fora perde 1 a cada 3 s (`Balance.KRAGMAR_TEMPER_*`) | o tanque arrasta (bots: quem ele mira anda ao ponto livre de poça mais perto a ≥ 4 m, `BOT_SIG_DRAG_DIST`; os outros saem da lava) |
+| Durgash (raide de 5) | Machado do Trono (100%, 34 s) | `mark.mode: soak`: círculo de 4 m segue 5 s uma vítima que não é o tanque; 2,0 dividido por quem está dentro (`Balance.DURGASH_AXE_*`; a DEF sai de cada pedaço); `prop_durgash_throneaxe` desce sobre o círculo | juntar no marcado (bots: tanque fica; os 2 mais perto a até 15 m partem na hora certa e voltam ao estandarte; o marcado só para nos últimos 2,5 s; `BotBrain.soak_spot`) |
+Durgash usa a marca de dividir (`mark.mode: soak`; check `_check_boss_sig_durgash`). Números finais da assinatura: power 2,0 / 34 s / raio 4,0 m
+(`Balance.DURGASH_AXE_*`). `unit_mods` do Durgash ficam hp ×4,3, atk ×1,0: nenhum ATK/HP leva 5 sorteados a 62-65% sem o completo de 4
+passar de 20% (varredura logo acima); o usuário aceitou 5 sorteados em 57,5% (2026-11-13). Poça que fica: bots saem para o ponto livre
+mais perto (não para outra poça) e o lugar do papel no grupo não cai dentro dela (`BotBrain._free_near`). Uma mecânica de chão por vez: a chuva espera as ilhas caírem. Bots em faixa/anel: fogem do que cai primeiro,
+para o lado que fica livre por mais tempo (`BotBrain._side_escape`, folga `BOT_SIG_PAD` 0,3 m, `BOT_SIG_LOOKAHEAD` 1,5 s); cópia do
+Shazka: o bot troca o alvo pelo verdadeiro (`BotBrain._decoy_real`). Check `_check_boss_sig_kharzun`; Kragmar `_check_boss_sig_kragmar`.
+Rever: `-- --sig_shot=<pasta> [--boss=<id>]` (foto do aviso de cada uma, câmera do jogo); `boss_probe -- --no_sig` = sem assinatura.
+Modelos das assinaturas (só apresentação, `BossSigView._sig_model/_prop`: `MapBuilder._prop_model` + peças `glow_*` brilham; somem quando
+a regra acaba; feitos em `tools/blender/sig_props_a/b/c.py`): Maré = `prop_tide_island` + `prop_tide_floodring` por ilha; Grukk =
+`prop_grukk_wardrum` plantado ao lado dele no canal (`GRUKK_DRUM_GAP`); Troll = `prop_avalanche_stone`; Vorgul = `prop_vorgul_brand`
+na vítima (escala pelo raio); Ghar = só `prop_ghar_shieldwall` dos lados (`GHAR_SIDE_SHIELDS`; o escudo da frente é o do braço do
+modelo); Shazka = `prop_shazka_decoy_smoke` sob as cópias (`SHAZKA_SMOKE_ALPHA`); Ulgra = `prop_ulgra_stampede` ao longo de cada
+faixa (cor quente/fria; `ULGRA_LANE_SINK`); Gorbash = `prop_gorbash_shockshard` só no anel aceso; Kragmar = `prop_kragmar_lavapool`.
+Som: `Sfx.SIG_WARN` (aviso, `sig_warn`) e `SIG_EFFECT` (ex. `drum_tear` no canal quebrado).
+**Gramática de cor dos avisos** (2026-11-13; `FxManager.DANGER*` em `game/fx/fx_manager.gd`, cabeçalho de `game/fx/boss_sig_view.gd`):
+dano = vermelho-laranja (`DANGER`): área inteira fraca (`DANGER_BASE_A` 0,12) + borda forte (`DANGER_RIM`, 0,12 m, × 1,6 em chefe) +
+miolo que cresce até o impacto (`DANGER_FILL_A` 0,30; o boneco continua visível); lugar seguro = frio/areia (ilhas da maré, sombra do
+pedregulho); dividir = dourado (`GOLD` 0,30); sombra/controle = roxo (nuvem das cópias do Shazka, `VENOM`, com borda quente porque machuca).
+A identidade do chefe vem da forma, nunca de cor contrária (as lascas do Gorbash, verdes no .glb, ganham `SHARD_GLOW` quente).
+Golpe físico de monstro (`mob_*`) usa o tema de impacto quente `blood` (`MOB_HIT_THEME`), não o branco `physical`. Marcas TARGET
+empilhadas no mesmo ponto (matilha no mesmo alvo) viram uma só (`_spot_taken`; seis empilhadas viravam disco opaco).
+
+Sonda com a assinatura ligada (`boss_probe`, 4 sorteados, 40 lutas = semente padrão + `--seed=7`; completo = Guardião, Sacerdote,
+Executor, Fogo, 20 lutas). Recalibrado só `unit_mods.atk` e o `power` da marca (nunca o crowd):
+| Chefe | Antes (sem assinatura) | Com assinatura, 1ª medida (20) | Ajuste | Final 4 sorteados | Completo | Métrica da assinatura |
+|---|---|---|---|---|---|---|
+| Mãe das Marés | 60% | 40% (sem a regra da ilha longe) | bots preferem ilha longe; atk 1,6 → 1,5 | 62,5% | 100% | 0,2-0,4 atingidos por maré |
+| Agitador-Mor Grukk | 77,5% | 75% | — | 75% | 100% | canal quebrado 92-100% |
+| Troll Rei-da-Rocha | 52,5% | 55% (sem: 45%) | atk 1,75 → 1,35 | 67,5% | 100% | 0,05-0,15 atingidos por Avalanche |
+| Mestre Besteiro Vorgul | 75% | 40% | marca 1,5 → 0,9; atk 1,1 → 1,0 → 0,9 | 72,5% (lutas 60-80 s, antes 52 s); **60%** (24/40, 51-68 s) depois que os bots passaram a sair de toda poça que fica (Kragmar) — na borda; próximo botão atk 0,9 → 0,85 | 100% | 0,01-0,04 aliados por marca |
+| Senhor da Guerra Ghar | 70% | 45% | guarda parada do alvo; atk 1,45 → 1,3 | 80% | 100% | fúria média 2,8-4,0 |
+| Presa-de-Cinza (campo) | — | solo 95%, trio 100% | — | solo 95%, trio 100% | — | 0,3 sequências cortadas (solo) |
+
+Kharzun (Shazka, Ulgra, Gorbash): faixa do usuário = **5 sorteados 60-80%**, completo de 5 (Guardião, Sacerdote, Executor, Fogo,
+Bispo Batalha) ≥ 90%. 40 lutas = semente padrão + `--seed=7`; antes = `--no_sig` na mesma base:
+| Chefe | Antes (5 sorteados, sem assinatura) | Com assinatura, 1ª medida | Ajuste | Final 5 sorteados | Completo de 5 | Métrica da assinatura |
+|---|---|---|---|---|---|---|
+| Mestre Matador Shazka | 77,5% (31/40) | 70% (28/40) | — | 70%, 30 s; **67,5%** (27/40, 29-53 s) depois da regra de poça do Kragmar | 20/20, 0,7 morte, 42 s | cópias vivas 0,8-1,4 s por uso (alvo ≤ 4 s); 0,2-0,5 cópias mortas por uso |
+| Ulgra Presa-Atroz | 55% (22/40) | 47,5% (19/40) | atk 1,3 → 1,15 | 70% (28/40), 33-35 s | 20/20, 0,6 morte, 41 s | 0,5-0,7 atingidos por estouro (≈ 0,13 por pessoa) |
+| Gorbash Pele-de-Rocha | 75% (30/40) | 70% (28/40) | bots só fogem do anel que cai em ≤ 1 s (sem isso 88 s de luta) | 70%, 41-50 s | 20/20, 0,3 morte, 45 s | 2,1-2,6 anéis por série no grupo (≈ 0,5 por pessoa; alvo ≤ 1) |
+| Kragmar Martelo-Negro | 72,5% (29/40), 24-30 s | 52,5% (21/40), 46-58 s (3 poças: 1 nele + 2 nos alvos, 0,25/s) | bots saem da poça para o ponto livre; 3 → 1 poça (só a dele), tique 0,25 → 0,15 | 65% (26/40), 27-28 s | 20/20, 0,5 morte, 37 s | Têmpera média 0,06-0,14 (alvo ≤ 2); chefe na poça 4-8% da luta |
+| Durgash (raide de 5) | 65% (52/80), 70-73 s | 15% (6/40), 1,2 morte por machado (power 6,0, 26 s, 3,5 m; completo de 5 34/40, 115 s) | power 6,0 → 2,0, 26 → 34 s, 3,5 → 4,0 m; só 2 ajudantes; marcado só para no fim | **57,5% (46/80), 68-74 s (abaixo da faixa; aceito pelo autor 2026-11-13)** | 40/40, 0,7 morte, 93 s; completo de 4 7/40 (18%), 3,6 mortes, 133 s | 2,8-3,7 dentro por machado; 0,02-0,13 morte por machado |
+Durgash, varredura de `unit_mods` (2026-11-13, pedido do autor: 5 sorteados 62-65% sem passar o completo de 4 de 20%; `boss_probe --dmg/--hp`, 40 lutas, semente padrão): atk ×1,0 → 5 sorteados 23/40, completo de 4 7/40 · ×0,95 + vida ×1,04 → 23/40, 3/40 · ×0,92 → 23/40 · ×0,85 → 24/40 · ×0,85 + vida ×1,04 → 24/40, **13/40** · ×0,83 → 30/40, **18/40** · ×0,80 → 59/80 · ×0,75 → 31/40. O ATK do chefe solta o completo de 4 antes de mexer nos sorteados (o 4 perde no berserk dos 128 s; menos dano = chega vivo), então nenhum `unit_mods` cumpre as duas metas: ficou atk 1,0 / vida 4,3. O que separa 4 de 5 é o reforço de raide (`BOSS_CROWD_RAID`), decisão do autor.
+
 
 ## Quests (cadeia)
 q01 bem-vindo (TALK) → q02 slimes → q03 gel → q04 primeira poção (CRAFT) → q05 presas → q06 lobos → q07 rei javali →
@@ -950,6 +1093,29 @@ crescem (`Balance.RAID_RECLAIM_MULT`, a regra do Bastião). Desertores: `unless 
 (`troll_whelp`, `troll`, `orc_archer`, `orc_crossbow`, `orc_warrior`, `boss_troll_king`, `boss_crossbow_master`, `boss_ghar`) e
 `MapsCatalog.STAND_INS` troca por monstros da faixa 30-35 até o pacote chegar; as cabanas (`ivory_hunter`, `wolf_racer`) estão em
 `PENDING_GIVERS` até o pacote de missões. Check: `_check_act2_steppe`.
+
+**Ato II, Monte Kharzun 40-45 (fase 3)** — **plano aprovado em 2026-11-12, ainda não implementado**: [`design/gdd/kharzun-fase3-plan.md`](../design/gdd/kharzun-fase3-plan.md)
+(decisões D1-D12, zonas, monstros, chefes, missões, estágios K0-K4, pacotes WP0-WP12, critérios KAC-01..17; regras-mãe em `design/gdd/ato2-horda.md` R2/R4/R5).
+Em resumo: `MAX_LEVEL` 45; 3 mapas (`field_kharzun` com o Acampamento Avançado da Aurora como hub, `dg_slayers`, `kharzun_citadel`);
+Contra-ataque da Horda em 2 frentes até K2, depois a Ofensiva da Aurora na cidadela; portão da cidadela nível 43 + `hx_citadel_gate`;
+três Chefes de Clã como alas da cidadela (qualquer ordem) e o Grão-Senhor (provisório: Durgash) como raide de 5; Ferreiro Anão aprimora
+lendários 40+; montaria lobo atroz com a velocidade do cavalo; Prova 45 opcional (título + moedas, 0 poder); *Ecos da Noite* mínimo.
+
+**Recompensas de Kharzun (WP10, feito):**
+- **Ferreiro Anão Thrain** (`dwarf_smith`, aparece no K1): só ele aprimora lendário **40+** (`ItemSystem.kharzun_tier`, `Balance.PLUS_KHARZUN_*`):
+  Aço Anão no +1..+5 (2, 2, 3, 3, 4) e Brasa de Kharzun no +6..+9 (1, 2, 3, 4), ouro × 0,6 como a Aurora; os outros ferreiros recusam
+  (`enhance_error(..., smith)`). Lendário 25-35 continua com Prata Consagrada/Fragmento da Aurora. Fala nova depois de `hx_dw_forge` (`dialog_after`).
+- **Lobo atroz** (D5): `SimEntity.mount_kind` (`Balance.MOUNT_KINDS`, salvo como `mount`; save antigo = cavalo), mesma velocidade do cavalo.
+  Entregar `hx_ov_hatch` libera e já troca; a **Tratadora Nara** (`kharzun_wolf_keeper`, acampamento, `if: hx_ov_hatch`) troca entre os liberados.
+  Visual: `EntityView.MOUNT_LOOKS` (`mob_dire_wolf_mount`, pelagens cinza `WOLF_COATS`).
+- **Joias e capas 45** (`GearCatalog.kharzun_jewels`, `RecipesCatalog.kharzun_recipes`): `<anel|amuleto|capa>_<tema>_k45`, épicas, nível 45, × 1,1;
+  anel/amuleto (ferreiro) = 8 Aço Anão + 6 Basalto Rúnico + 1 Brasa + troféu do tema; capa (alquimia) = 8 Pele de Lobo Atroz + 6 Escamas +
+  Estandarte de Durgash + troféu do tema; 1500 ouro. Troféus: Martelo Partido (Kragmar, guerreiro), Presa de Ulgra (caçador),
+  Coração de Basalto (Gorbash, sábio), Estandarte de Durgash (capas). Os troféus caem dos chefes (loot do WP7).
+- **Título da Prova 45**: `QuestDef.reward_title` ("Mestre <Classe>" em `hx_asc45_<classe>`), lido de `SimEntity.honor_title()` (sem campo no save):
+  aparece na placa de nome e na janela do personagem. 0 poder.
+- **Colheita por estágio**: entrada de `MapsCatalog.GATHER` aceita `{"if"/"unless": quest}` (WorldState); Brasa de Kharzun na Forja Negra só depois do K1c.
+- Check: `_check_kharzun_rewards`. Evidência: `production/qa/evidence/kharzun/wp10_*`.
 
 Faixa do meio (10-20): monstros 1-2 níveis acima do antigo, quests de abate pedem 1,5x e a faixa toda paga mais em quest (`Balance.XP_QUEST_SHARE_BAND`: 55% em vez de 45%).
 
@@ -1071,6 +1237,19 @@ Janela C: boneco 3D (KitModel em SubViewport) com o equipamento, slots dos lados
 Props/construções em `tools/blender/prop_kit.py` (casas enxaimel com telhas, árvores, poço, chafariz...; materiais `tint`/`tint_l`/`roof`
 recebem a cor do obstáculo no `MapDef`). Ruas de paralelepípedo e restos de calçamento nas ruínas vêm do `ground.gdshader` (voronoi). Câmera perspectiva FOV 35, pitch 52°, yaw em 45°.
 Obstáculos entre câmera e jogador ficam 72% transparentes. Chibi: cabeça ≈ 1/3 da altura. Paleta: pedra creme, telhados terracota/azul, verdes suaves.
+**Texto de combate** (`FloatText`, game/fx/float_text.gd, 2026-11-13): pool de Label3D (teto `MAX_TOTAL` 48; a briga grande chegava a
+383 num quadro), 4 faixas por alvo (centro, esquerda, direita, centro alto), o mesmo texto no mesmo alvo dentro de 0,6 s soma no pop
+("Esquiva! ×5", repique), no máximo 4 pops vivos por alvo (o 5º apressa o mais velho); vida 1,3 s (sobe 1,4 m em 0,9 s). "Esquiva!" de
+outros só a até 16 m. **Nomes na multidão** (`NameplateCrowd`, game/ui/nameplate_crowd.gd): monstro comum com ≥ 4 comuns a até 4 m
+(contando ele) esconde o NOME (a barra fica); voltam o do mouse em cima (1,4 m), o alvo do jogador e os 2 agressores do jogador mais
+perto; chefe, elite, NPC, bot e jogador sempre mostram. Passada única a cada 0,2 s em `main._cull_views`. Check `_check_float_text_crowd`.
+**Brilho de monstro** (2026-11-13): o toon do monstro respeita a emissão do .glb (`EntityView.mob_glow/glow_color`): energia > 1,05 e cor
+não preta, ou material `glow_*`, vira `emission_amount` (energia × 0,6 em degraus de 0,25, 0,25-1,75); o `m_white` (energia 1,0) não brilha.
+Check `_check_mob_glow`. **Lava**: o `FIRE_SHADER` (game/visual/materials.gd) tira o miolo amarelo-claro das faces viradas para cima
+(lava plana = cor base, emissão × 0,3-1, brilho que corre devagar); chamas, cones e braseiros não mudam.
+**Aves e bichos do ar** (`game/world/ambient_life.gd`): asa com cor no vértice; aves grandes ganham corpo (meio fuso dentro da malha da asa,
+1 draw), a gaivota tem ponta escura, corpo claro e mancha no chão (1 MultiMesh de sombra por bando, alfa pela altura 0,5-0,22); morcegos
+ficam planos, mariposa/brasa sem corpo nem sombra. Check em `_check_living_act2`.
 
 ## Som — `Sfx` (game/audio/sfx.gd) e `Music` (game/audio/music.gd), volumes em `AudioSettings` (Esc → Volume geral / Música / Efeitos / Interface)
 Música (2026-11-10): 12 faixas CC0 do OpenGameArt (`tools/audio/build_music.py`, créditos em `assets/audio/music/CREDITS.md`): Aldara, taverna,

@@ -48,6 +48,10 @@
   Loja do mercador (`npc_ui._shop`): grade da mercadoria e da bolsa, abas, clique/Shift, "vender materiais" (`junk_of`); revisar `--bag_shot=<png> --wins= --shop`.
   Bolsa ↔ boneco por arrastar e soltar (`windows._drag_from_bag/_drop_on_slot/_drop_on_bag`; clique = soltar sem arrastar); conferir com `--bag_shot=<png> --dnd_check`.
   Barra do HUD: poção da bolsa → F1-F3 e skill da janela K → 1-6 por arrastar (`hud._drop_potion_slot/_drop_skill_slot`, botão direito esvazia); mouse simulado: `--bag_shot=<png> --wins= --hotbar_drag_check`. A barra (moldura, recarga em leque, atalhos, XP em 20 gomos) é `game/ui/action_bar.gd`; revisar com `-- --autostart=<c> [--preset=20] --screenshot=<png>`.
+  Montaria (H): o ícone segue o tipo escolhido (`ActionBar.mount_icon/set_mount_kind`, `action_mount_<kind>.png`, fallback cavalo); tipo novo =
+  entrada `mount_<kind>` em `ACTION_ICONS` do `make_icons.gd` (+ glifo, ex. `_g_wolf`) e `make_icons.tscn -- --only=action` + `--import` (check em `_check_action_bar`).
+  Cuidador de montarias (`npc_ui.mount_options/pick_mount`, estáticos; botões "Em uso / Trocar para / (travado)" + linha com a quest que destrava;
+  check `_check_mount_keeper_ui`): revisar `--bag_shot=<png> --wins= --mount_keeper [--quests=hx_ov_hatch | --mount_kind=dire_wolf]`.
   Barra de buffs/debuffs do HUD: ícone da skill/item que deu (`hud._buff_source`) ou `status_<estado>.png` (`make_icons.tscn -- --only=status`),
   tempo embaixo; revisar com `--bag_shot=<png> --status_demo --wins=`.
   A mesma arte boia sobre o baú no chão (`LootChest`) e aparece no aviso de item pego (`hud._on_item_gained`); revisar com `-- --loot_demo --screenshot=<png>`.
@@ -79,6 +83,11 @@
   Chefe sem alvo reseta (`reset_boss`). Calibre rodando a luta com bots: eles têm ATK de equipamento do nível, bem acima do inicial.
   Sonda: `--headless --path . tools/tests/boss_probe.tscn -- [--party=1,3] [--trials=20] [--boss=<id>,...]` (vitórias, tempo, mortes).
   Use 20+ lutas (solo oscila ±10 pontos com 20; confirme com 40). Tabela calibrada em `docs/DESIGN.md` (Chefes).
+  Aviso de skill nova de chefe segue a gramática de cor (`FxManager.DANGER*`, cabeçalho do `BossSigView`): dano = vermelho-laranja (área fraca
+  + borda + miolo que cresce), seguro = frio/areia, dividir = dourado, sombra/controle = roxo; identidade do chefe pela FORMA, nunca por cor
+  contrária (`glow_*` verde/ciano de prop de aviso vira quente, ex. `SHARD_GLOW`). Golpe físico de monstro = tema `blood`, não `physical`.
+  Dano de zona avisada no chão (assinatura/perigo de chefe) NÃO é esquivado pela AGI (decisão 2026-11-13): passa por `BossSignatures._hit` →
+  `_deal_damage(..., dodgeable=false)`; só sair da zona salva. Mecânica nova de chão de chefe usa o mesmo caminho (check em `_check_boss_sig_rules`).
 - **Resposta/fluidez do combate**: `--headless --path . tools/tests/combat_probe.tscn -- [--class=<id>,...] [--verbose]` (nível 30, cada build, bonecos parados):
   latência do comando, trava, encadear no básico, buffer, dash cancela, impacto do clipe no tick do dano, golpe que para antes da fase ativa
   e quanto o boneco fica parado entre básicos segurados. `FLAG` = problema; mexeu em timing de skill ou clipe, rode e deixe em 0 (o Cruzado tem 0,16 s de ritmo de arma pesada, aceito).
@@ -105,6 +114,8 @@
   do OpenGameArt (baixados para `.godot/sfx_cache`), `SYNTH` = funções `s_<nome>` (biblioteca padrão, semente fixa). Nome novo precisa de volume em `Sfx.VOL`
   (`game/audio/sfx.gd`; há check) e de um gancho em evento lá. Tema de skill novo = entrada em `Sfx.THEME_SOUND`. Monstros: `Sfx.MOB_VOICE` (id ou prefixo → [entrar em luta, lançar skill, morrer]),
   `CAST_SOUND` (skill com som próprio na fase ativa), `EFFECT_SOUND` (no impacto), `AURA_SOUND` (aura de `MonsterDef.aura` em laço, ex. tambor do Agitador), `BUFF_SOUND` (buff de monstro que pulsa enquanto dura, ex. regeneração do troll).
+  Assinaturas de chefe: `SIG_WARN` (skill `boss_signature` → [fase em que o desenho aparece, sons]; toda assinatura precisa, há check) e `SIG_EFFECT`
+  (impacto/quebra, inclusive ids que não são skill: `BossSignatures.*_FX`).
   O smoke imprime `SMOKE SOM:` (o que tocou).
 - **Música**: `game/audio/music.gd` (`Music`, criado no `main`, barramento `Music`): tema do lugar (`Music.MAP_THEME` / `theme_for`: masmorras,
   fortalezas, interiores por família), por cima "chefe" (chefe de verdade em luta a 32 m) e "investida" (leva no mapa). Faixas CC0 do OpenGameArt

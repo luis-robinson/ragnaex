@@ -1,8 +1,9 @@
 # Ato II — A Horda
 
-> **Status**: Em implementação — fase 1 (Costa, 30–35) integrada em `wt/p1-int`, sem commit; aguarda `/design-review`
+> **Status**: Em implementação — fases 1–2 (Costa 30–35, Estepes 35–40) no master; **fase 3 (Monte Kharzun, 40–45) com plano
+> aprovado em 2026-11-12** ([`kharzun-fase3-plan.md`](kharzun-fase3-plan.md), decisões D1–D12 = Recomendado); aguarda `/design-review`
 > **Author**: Luis Robinson + Claude
-> **Last Updated**: 2026-11-11
+> **Last Updated**: 2026-11-12 (Kharzun alinhado ao plano da fase 3)
 > **Last Verified**: 2026-11-11
 > **Implements Pillar**: 4 (Mundo vivo) e o foco em grupo (bots + chefes que escalam com o grupo); 3 (Equipamento é poder, build é escolha)
 > **Origem**: plano aprovado em 2026-11-10 (`~/.claude/plans/goofy-yawning-charm.md`). Sistema fora de índice (o projeto não tem `systems-index.md`; o design legado vive em `docs/DESIGN.md`).
@@ -61,7 +62,7 @@ grupo. Sem ele, o progresso de build para no 30 e as builds novas (montado, elem
 |---|---|---|---|---|
 | 30–35 | `field_coast` — Costa Partida | `city_port` — Porto Esperança | `dg_goblin` — Grutas Goblin (3 salões + selo) | Mãe das Marés (naga, campo), Agitador-Mor (grutas) |
 | 35–40 | `field_steppe` — Estepes de Cinza | Posto da Caravana (dentro do campo, muralha de carroças) | `fort_trolls`, `fort_fire`, `fort_war` (acampamentos de guerra, conquistáveis) | Troll Rei-da-Rocha, Mestre Besteiro, Senhor da Guerra Ghar |
-| 40–45 | `field_kharzun` — Monte Kharzun | (acampamento avançado da Aurora no sopé) | `dg_slayers` — Salão dos Matadores; `kharzun_citadel` — a cidadela | Mestre Matador, três Chefes de Clã (cidadela), **Grão-Senhor da Guerra** (raide de 5) |
+| 40–45 | `field_kharzun` — Monte Kharzun | **Acampamento Avançado da Aurora** (dentro do campo, paliçada de estacas + carroças; cresce por estágio) | `dg_slayers` — Salão dos Matadores (42–44); `kharzun_citadel` — a Cidadela (44–45, mapa próprio) | Presa-de-Cinza (campo, opcional), Mestre Matador Shazka (masmorra), três **Chefes de Clã** = três alas da cidadela em qualquer ordem, **Grão-Senhor da Guerra** (nome provisório *Durgash*; raide de 5) |
 
 Toda zona segue o layout do Ato I (vale ~240 m, hub, 3–5 POIs a 60–120 m, estradas curvas, marco visível de qualquer
 ponto, borda natural) e os quatro tipos de lugar por zona (`_check_places`: cabana com NPC, acampamento, santuário, entrada
@@ -69,6 +70,20 @@ de masmorra). Os POIs de cada zona são os do plano: Costa = Praia dos Naufrági
 Ninhos, Acampamento dos Ginetes, Santuário Afogado (marco: o farol); Estepes = os três acampamentos, Cemitério dos Mamutes,
 Acampamento dos Desertores (marco: o Totem Partido); Kharzun = Minas de Escravos, Canil dos Lobos Atrozes, Forja Negra, Salão
 dos Matadores, Portão da Cidadela (marco: a cidadela no pico).
+
+**Monte Kharzun (fase 3, decidido no plano aprovado em 2026-11-12 — detalhe em [`kharzun-fase3-plan.md`](kharzun-fase3-plan.md))**:
+- **3 mapas**: o campo `field_kharzun`, a masmorra `dg_slayers` (mapa compartilhado, `parent_map: field_kharzun`) e a cidadela
+  `kharzun_citadel` (mapa próprio, gerado por laço como a Cidadela do Lich). Sem segundo campo (D2).
+- **Hub** (D1): Acampamento Avançado da Aurora no centro do vale (raio ~26 m, 2 portões, cristal, serviços, Arauto dos Mestres);
+  cumpre "hub murado no centro" de `zonas.md` e cresce por estágio (K0–K4).
+- **Chefes de Clã** (D3): Lobo (W), Pedra (E) e Forja (N-NE) são **alas** da cidadela (masmorra ramificada, `layout` em
+  `places.DUNGEONS`), em qualquer ordem; os três abrem a sala do trono (K3).
+- **Chefe final** (D4): o Grão-Senhor é afinado para **grupo de 5** (tabela própria `BOSS_CROWD_RAID`, berserk ×20, `PARTY_MAX` 5;
+  usuário 2026-11-13); grupo completo de 4 **perde** (≤ ~20%), o 5 completo vence ≥ 90% em ~100 s. Todo chefe do Ato II ganha uma
+  assinatura por cima do kit ([`act2-boss-signatures.md`](act2-boss-signatures.md)). Nome **provisório** "Durgash, o Grão-Senhor da Guerra" (D12) até o narrative-director.
+- **Portão da cidadela** (D9): `PORTAL_GATES["to_kharzun_citadel"]` = nível **43** + `hx_citadel_gate`. Entrada do `dg_slayers`
+  sem nível (portão de missão `hx_slayers_open`). `to_field_kharzun` segue nível 40 + os 3 fortes das Estepes.
+- **Lava** colide como água (só pontes de basalto nas estradas); a sim continua plana.
 
 #### R3. A Horda — linhas de evolução
 Cada linha tem 2–3 estágios em faixas crescentes; o estágio de cima sempre aparece **liderando** os de baixo (escolta,
@@ -79,7 +94,7 @@ Cada linha tem 2–3 estágios em faixas crescentes; o estágio de cima sempre a
 | Goblins | Lanceiro Goblin (30) → Empalador (33) → **Agitador** (36) | 30–40 | bando barato / estocada que atravessa | o Agitador dá **aura** de dano e velocidade aos aliados perto; morto, o bando desanima (perde a aura) |
 | Ginetes | Ginete de Lobo (31) → Saqueador (35) → Ginete do Lobo Atroz (41) | 30–45 | rápidos, flanqueiam quem cura/atira | Saqueador joga **rede** (prende); são o grosso das investidas |
 | Orcs | Recruta Orc (32) → Guerreiro Orc (37) → Senhor da Guerra (42) | 30–45 | corpo a corpo pesado | o Senhor lidera escolta e dá grito de guerra (buff do bando) |
-| Trolls | Trollzinho (35) → Troll (38) → Lança-Pedras / Brutamontes (41) | 35–45 | tanques inimigos | **regeneração** de vida; fogo e veneno cortam a regeneração enquanto queimam |
+| Trolls | Trollzinho (35) → Troll (38) → Lança-Pedras (41) / Brutamontes (44) | 35–45 | tanques inimigos | **regeneração** de vida; fogo e veneno cortam a regeneração enquanto queimam |
 | Arqueiros | Arqueiro Orc (35) → Besteiro (38) → Arco de Fogo (42) | 35–45 | à distância | chuva de flechas de fogo em círculos avisados (`barrage`) |
 | Assassinos | Assassino Goblin (40) → Matador (43) | 40–45 | caçadores de quem fica isolado | **somem** (furtividade simples) e aparecem pelas costas com faca envenenada |
 | Nagas | Naga das Marés (31) → Guerreira Naga (34) | 30–35 | costa | puxam para a água, golpe em linha |
@@ -89,13 +104,26 @@ Cada zona tem **estágios** lidos de `quests_completed` (`WorldState`): monstros
 a missão que os controla é concluída — sem campo novo no save. As cadeias paralelas também mexem no mundo. O detalhe por
 zona está em States and Transitions.
 
+**Investidas de Kharzun** (D8): até K2, o **Contra-ataque da Horda** ataca o acampamento por **2 frentes** (Canil → portão leste,
+Cidadela → portão norte; `MapsCatalog.RAIDS["field_kharzun"]`, relógio só com o jogador no mapa, ~240 s ±20%); K1b cala a
+frente do Canil e a restante recebe `RAID_RECLAIM_MULT` com líder. A guarnição (`KHARZUN_GUARD_POWER`, como `PORT_GUARD_POWER`)
+repele ≥ 75% com 0 bots. Depois de K2 a **Ofensiva da Aurora** sobe a avenida da cidadela (`ASSAULTS`, apoio, não limpeza).
+
 #### R5. Missões
 - **Linha principal**: 8–10 missões por faixa (padrão do Ato I), cada uma mudando o cenário ao terminar.
 - **Paralelas que crescem**: toda cabana/acampamento abre uma cadeia de 2–4 missões; a última muda o lugar (NPC novo, serviço
   novo, aliado, montaria). As do plano: Costa — *O Farol Apagado*, *Náufragos*, *Pérolas das Marés*, *Goblin Comerciante*
   (Nikki), *O Diário do Capitão*, quadro de caçadas da taverna; Estepes — *A Caravana*, *Os Desertores* (escolha: ajudar ou
   entregar — muda NPC e recompensa), *Marfim de Mamute*, *Totem dos Ventos*, *Corrida dos Lobos*; Kharzun — *Correntes
-  Quebradas*, *O Ferreiro Anão*, *Ecos da Noite* (gancho do Ato III), *Ovos do Lobo Atroz* (montaria lobo atroz).
+  Quebradas*, *O Ferreiro Anão*, *Ecos da Noite* (gancho do Ato III), *Ovos do Lobo Atroz* (montaria lobo atroz), *O Xamã
+  Exilado*, *Brasas da Forja* (quadro). Kharzun tem 11 principais + epílogo (`hx_act2_epilogue`); lista no plano da fase 3 §5.
+- **Kharzun, decisões do plano (2026-11-12)**: *Ecos da Noite* é **mínimo** (D6): inscrições nas Minas + visão no trono depois do
+  Grão-Senhor ("a noite que anda do leste"), **sem nomear** a ameaça; texto final do narrative-director. A montaria **lobo
+  atroz** tem a **mesma velocidade do cavalo**, só visual próprio (D5; F8 não muda). O **Ferreiro Anão** (K1) aprimora
+  lendários 40+ com Aço Anão (+1..+5) e Brasa de Kharzun (+6..+9), `PLUS_KHARZUN_*` espelhando `PLUS_DAWN_*` (D11).
+- **Prova 45** (D7): opcional. O Arauto dos Mestres no acampamento dá `hx_asc45_<classe>` (nível 45 + `hx_asc_<classe>`; matar um
+  Chefe de Clã usando a ascensão) → moedas + título; 0 XP, 0 ponto de ascensão, 0 poder. Os refinos 45 continuam nós-portão da
+  teia de ascensão (R6) e não dependem dela.
 - **Ascensão de classe**: uma cadeia de 3 passos por classe aos 35 (`hx_asc1_`/`hx_asc2_`/`hx_asc_<classe>`), com os 8 mestres
   na praça de Porto Esperança (`QuestsCatalog.ASC_MASTERS`); só a classe do mestre recebe. O Ranger tem **uma cadeia só** para as
   3 builds (decisão do autor, 2026-11-11). Dá 0 XP, moedas e `ASC_QUEST_POINTS` (3) pontos de ascensão. Os refinos de 40 e 45 são
@@ -361,7 +389,7 @@ Nada fecha sem passar pelo loop medido da sua categoria:
   com 0 bots a defesa repele ≥ 75%. Calibrado: C0 Cerco 15/20 (leva de 3 ginetes + 3 lanceiros, +1 saqueador a cada 3ª leva),
   C1 Muralha 17/20 (5 ginetes + 4 lanceiros + 1 saqueador), C3 patrulha de 3 ginetes.
 - **Ascensão**: build com e sem a ascensão no `boss_probe --comp` e no `combat_probe` (0 FLAG); o ganho entra no orçamento de F5.
-- **Desempenho**: `sim_probe` ≤ 5 ms/tick em média com Kharzun carregado (regra do projeto) e o porto em investida com 10+ bots sem trecho < 25 FPS no `PerfWatch`.
+- **Desempenho**: `sim_probe` ≤ 10 ms/tick em média com Kharzun carregado (era 5; elevado pelo usuário em 2026-11-13) e o porto em investida com 10+ bots sem trecho < 25 FPS no `PerfWatch`.
   Decisão do autor (2026-11-11): quando o limite aperta, **otimiza-se a sim**; não se corta conteúdo nem se muda o limite
   (passada de hoje: sim ~17–20% mais rápida, mesmas somas de conferência; mais margem listada em `docs/otimizacao.md`).
 - **Missões**: auditoria do `band_probe` (XP 40–50% da faixa), checks de cadeia (pré-requisitos, NPCs existem).
@@ -390,11 +418,14 @@ Estágios de cada cenário (lidos de `quests_completed` pelo `WorldState`; cada 
 **Monte Kharzun**
 | Estágio | Gatilho | O que muda |
 |---|---|---|
-| K0 Sopé | chegada | acampamento avançado da Aurora, Minas e Forja controladas pela Horda |
-| K1 Correntes | `hx_mines` (*Correntes Quebradas*) | escravos libertados viram ferreiros (o Ferreiro Anão melhora lendários 40+) e aliados que lutam no acampamento |
-| K2 Portão | `hx_citadel_gate` | cidadela abre (portão de progressão) |
-| K3 Clãs | os três Chefes de Clã | sala do trono abre |
-| K4 Fim do Ato II | `hx_warlord` | Grão-Senhor cai; a Horda se rende em parte (festival no porto, como o do Bastião), *Ecos da Noite* revela o que vem do leste; tela "Fim do Ato II" |
+| K0 Sopé | chegada | Acampamento Avançado da Aurora só com tendas; Contra-ataque de 2 frentes (Canil e Cidadela) a cada ~240 s ±20%; Minas, Canil e Forja da Horda |
+| K1 Correntes | `hx_mines` (*Correntes Quebradas*) | escravos libertados (anões e humanos) no posto dos libertos; **Ferreiro Anão** aprimora lendários 40+; guardas libertos no muro |
+| K1b Canil | `hx_kennel` | frente do Canil cala; a restante × `RAID_RECLAIM_MULT` com líder; Ovos do Lobo Atroz disponíveis |
+| K1c Forja | `hx_black_forge` | Forja vira aliada (estandartes trocam, anões trabalham, mercador de armas 40); Brasa de Kharzun cai |
+| K1d Matadores | `hx_slayers` | emboscadas de Assassinos nas estradas param |
+| K2 Portão | `hx_citadel_gate` | portão da cidadela abre (nível 43 + a missão); Contra-ataque para; máquinas de cerco no acampamento; Ofensiva da Aurora sobe |
+| K3 Clãs | `hx_clan_wolf` + `hx_clan_stone` + `hx_clan_forge` (qualquer ordem) | sala do trono abre |
+| K4 Fim do Ato II | `hx_warlord` | Grão-Senhor (provisório: Durgash) cai; a Horda se rende em parte (orcs desarmados no acampamento), festival no porto e no acampamento; *Ecos da Noite* mostra só a visão "a noite que anda do leste", sem nomear; tela "Fim do Ato II" |
 
 **Ascensão (por personagem)**: `bloqueada` (nível < 35) → `disponível` (35, mestre no porto) → `concluída` (missão feita: mecânica liberada) → refinos 40/45 por nó da teia de ascensão. Conta como missão concluída (sem campo novo no save), exceto o estágio do elemental (ver Edge Cases) e `asc_tree` + loadout de 10 (save v5).
 
@@ -404,12 +435,12 @@ Estágios de cada cenário (lidos de `quests_completed` pelo `WorldState`; cada 
 |---|---|---|---|
 | Progression (`progression.md`) | `MAX_LEVEL` 45, faixas novas de XP, talentos 35/40/45, teia e pontos de ascensão, barra de 10 | nível, pontos, ascensão liberada | Progression; este doc define os números das faixas novas |
 | Bosses (`bosses.md`) | chefes novos com fases, `mob_pick`, `barrage`, lacaios | — | Bosses (regras); este doc define quem são e onde estão |
-| Reforço por pessoas (`Balance.BOSS_CROWD_MULT`) | vale para todos os chefes novos sem mudança | — | Bosses |
+| Reforço por pessoas (`Balance.BOSS_CROWD_MULT`) | vale para todos os chefes novos sem mudança, exceto Durgash (`BOSS_CROWD_RAID`, aprovado 2026-11-13) | — | Bosses |
 | Combat & Skills (`combat-skills.md`) | skills das ascensões, regen/aura/furtividade de monstro | dano, cura, estados | Combat |
 | `RaidSystem` + `GuardBrain` | rotas de investida das zonas novas, `MapsCatalog.RAIDS` | ondas, defesa | Raid (sem mudança de regra) |
 | `WorldState` | condições `if`/`unless` de missão nos spawners/NPCs/investidas novos | estágios da zona | WorldState (sem mudança de regra) |
 | Party / IA de bots | papéis, posição, cura; **uso das ascensões** e leitura das mecânicas novas (aura do Agitador = alvo prioritário, troll = foco com fogo/veneno, assassino = proteger quem cura) | comandos dos bots | BotBrain |
-| Itens / Relicária | tiers 32/40, lendários 35/40/45, montaria lobo atroz | — | Gear |
+| Itens / Relicária | tiers 32/40, lendários 35/40/45, montaria lobo atroz (velocidade do cavalo), aprimoramento 40+ do Ferreiro Anão (`PLUS_KHARZUN_*`) | — | Gear |
 | Save | ascensões e cenários por `quests_completed`; estágio/forma do elemental, `asc_tree` e loadout de 10 são campos novos (save v5) | — | SaveSystem |
 | Música / Som | temas por mapa novo (`Music.MAP_THEME`), sons de orc/troll/lobo | — | Audio |
 
@@ -660,7 +691,7 @@ Atributos continuam lineares. Preço em moedas `i + 1` = **7 / 8 / 9** (decisão
 
 **Ascensões**
 - **Se o Paladino montado é atordoado**: cai, fica 2 s imune a controle, e remontar leva 1,5 s.
-- **Se o Paladino tenta montar dentro de masmorra**: proibido (regra atual de montaria); a ascensão vale onde montar vale.
+- **Se o Paladino tenta montar dentro de masmorra**: proibido (regra atual de montaria), exceto na Cidadela de Kharzun (`MapDef.mounts_ok`, decisão do usuário 2026-11-13); a ascensão vale onde montar vale.
 - **Se o elemental morre**: perde 10% do `elem_xp` mas nunca cai de estágio (o estágio só sobe).
 - **Se o mago troca de forma com o elemental ferido**: a nova forma nasce com a mesma % de vida; recarga 20 s.
 - **Se o save é de antes do Ato II**: `elem_xp` = 0, forma = a do último elemental; `save_version` sobe e a migração preenche o padrão.
@@ -777,6 +808,7 @@ Fase 1: temas do porto, da costa e dos goblins e 10 sons já entraram; falta a p
 | conquista por `WorldState`, investidas, fortes | `docs/DESIGN.md` / `docs/roteiro_20_30.md` | Mundo / Bastião |
 | linha de foras da lei estilo Wesnoth (precedente de arquétipo) | memória outlaw-line, `mob_kit.outlaw_parts` | — |
 | IA de grupo por papel, `boss_probe --comp` | `docs/DESIGN.md` | IA dos bots no combate |
+| Monte Kharzun 40–45: zonas, monstros, chefes, missões, estágios K, pacotes de trabalho, KAC-01..17 | `design/gdd/kharzun-fase3-plan.md` (aprovado 2026-11-12) | 0–12 |
 
 ## Acceptance Criteria
 
@@ -813,17 +845,17 @@ Fase 1: temas do porto, da costa e dos goblins e 10 sons já entraram; falta a p
 - **AC-21 (R8)** **GIVEN** a faixa 30–45, **THEN** `band_probe` dá 0 `travou` e tempo por abate a ±25% da faixa 20–30. — sonda `band_probe -- --from=30 --to=45 --trials=16 --why`.
 
 ### Chefes
-- **AC-22 (R8)** **GIVEN** cada chefe novo, **THEN** grupo completo de 4 vence ≥ 95% com 0,3–1 morte por luta e grupo de 4 sorteado vence 65–85%, com `BOSS_CROWD_MULT` sem mudança. — sonda `boss_probe -- --comp=<...> --trials=40 --boss=<id>`.
-- **AC-23 (K4)** **GIVEN** `hx_warlord` concluída, **THEN** festival no porto e tela "Fim do Ato II". — check do estágio + evidência: screenshot.
+- **AC-22 (R8)** **GIVEN** cada chefe novo, **THEN** grupo completo de 4 vence ≥ 95% com 0,3–1 morte por luta e grupo de 4 sorteado vence 65–85%, com `BOSS_CROWD_MULT` sem mudança. Medido com a assinatura ligada (`act2-boss-signatures.md`). Exceções (usuário 2026-11-13): Mãe das Marés e Troll Rei com sorteados **60–80%**; Durgash = raide de 5 (KAC-11, `BOSS_CROWD_RAID`). — sonda `boss_probe -- --comp=<...> --trials=40 --boss=<id>`.
+- **AC-23 (K4)** **GIVEN** `hx_warlord` concluída, **THEN** festival no porto e no acampamento e tela "Fim do Ato II". — check do estágio + evidência: screenshot. O detalhe de Kharzun (raide de 5, chefes de clã, Prova 45, Ferreiro Anão, Contra-ataque) está em KAC-01..17 do plano da fase 3.
 
 ### Ascensões
 - **AC-24 (R6)** **GIVEN** classe nível 35 sem a missão, **THEN** a mecânica fica travada; concluída a missão, liberada em todas as builds; o respec não a tira. — check `_check_ascensions`.
 - **AC-24b (R6, barra e teia)** **GIVEN** personagem ascendido, **THEN** tem 6 / 21 / 36 pontos de ascensão aos 35 / 40 / 45; a barra tem 10 vagas, as 1–6 recusam skill de ascensão e as 7–0 recusam skill comum; o reset do Ancião zera as duas teias e `asc_reset` só a de ascensão; o save v5 guarda `asc_tree` e o loadout de 10, e save antigo (ou nó que sumiu) volta com a teia de ascensão no início e os pontos de volta. — check `_check_ascensions`.
 - **AC-25 (R6, bots)** **GIVEN** bot ascendido de cada classe, **WHEN** luta 60 s contra um chefe, **THEN** usa a ascensão ≥ 1 vez; ele compra na teia de ascensão e ocupa 7–0 sem tirar skill da build. — check `_check_ascension_bots`.
-- **AC-26 (F5)** **GIVEN** cada build com e sem a ascensão, **THEN** razão de tempo 1,06–1,10 aos 35 e ≤ 1,215 aos 45; o ganho de cada build a ±3 p.p. da média; utilidade (Bispo, Necromante, Druida) medida pela queda de mortes a `--dmg=6` no mesmo alvo; `combat_probe` 0 FLAG. — sonda `boss_probe --comp` (+ `--dmg=6`, `--asc` contra `--asc_base`) e `combat_probe -- --class=<id> --asc`. Estado em 2026-11-11 (tabela em F5): dentro — Necromante, Assassino, Bispo, Xamã, Caçador, Atirador/Lanceiro (solo); **abaixo** — Lobo Alfa (×1,04); **pendentes** — Paladino, Berserker, Elementalista; método do Ent em aberto.
+- **AC-26 (F5)** **GIVEN** cada build com e sem a ascensão, **THEN** razão de tempo 1,06–1,10 aos 35 e ≤ 1,215 aos 45; o ganho de cada build a ±3 p.p. da média; utilidade (Bispo, Necromante, Druida) medida pela queda de mortes a `--dmg=6` no mesmo alvo; `combat_probe` 0 FLAG. — sonda `boss_probe --comp` (+ `--dmg=6`, `--asc` contra `--asc_base`) e `combat_probe -- --class=<id> --asc`. Estado em 2026-11-11 (tabela em F5): dentro — Necromante, Assassino, Bispo, Xamã, Caçador, Atirador/Lanceiro (solo); **abaixo** — Lobo Alfa (×1,04); **pendentes** — Paladino, Berserker, Elementalista; método do Ent em aberto. Aos 45 (rodada 2026-11-13, Kragmar, 80 lutas por braço): Gêmeos ×1,078 sem botão → nó-portão 45 **Fúria Gêmea** (`TWIN_FURY_ASPD`) + Ciclone de Titã no `BOT_ORDER` (usuário 2026-11-13; check `_check_twin_fury`); demais builds reajustadas pelos botões de ascensão (`ASC_BUILD_POWER` etc.), medição final no merge. Aos 35 (usuário 2026-11-13): fator por nível `ASC_POWER_35_MULT` (× no 35, 1,0 no 45; `Balance.asc_power`), todas as builds de dano medidas em 1,068–1,099 (tabela em `docs/DESIGN.md`, Ascensões).
 - **AC-27 (F6)** **GIVEN** 30 comuns nível 36 + 2 chefes mortos a ≤ 13 m do mago, **THEN** `elem_xp` = 74 e Básico; aos 120, Maior; lacaio/escolta com 0 XP não soma; morte perde 10% sem cair de estágio; trocar de forma mantém estágio e % de vida, recarga 20 s; o ATK do estágio vem depois de `SUMMON_ATK_MAX`. — check `_check_elemental_evolution`.
 - **AC-28 (F7)** **GIVEN** machado de 2 mãos com 100 de DPS, **THEN** 108,75 com n = 0 e 121,8 com n = 3; sem a ascensão, a mão secundária recusa com "requer Empunhadura de Titã". — check `_check_titan_grip`.
-- **AC-29 (F8)** **GIVEN** paladino a 5,5 m/s, **THEN** 9,35 montado fora de combate e 7,15 em combate; Carga anda 11,2 m e para em parede/água; atordoar/prender/gancho derrubam, lentidão não; 2 s imune depois de cair; remontar 1,5 s; não monta em masmorra. — check `_check_mounted_combat`.
+- **AC-29 (F8)** **GIVEN** paladino a 5,5 m/s, **THEN** 9,35 montado fora de combate e 7,15 em combate; Carga anda 11,2 m e para em parede/água; atordoar/prender/gancho derrubam, lentidão não; 2 s imune depois de cair; remontar 1,5 s; não monta em masmorra, exceto na Cidadela de Kharzun (`MapDef.mounts_ok`, usuário 2026-11-13). — checks `_check_mounted_combat`, `_check_mount`.
 - **AC-30 (F9)** **GIVEN** grupo dentro da Barreira Sagrada, **THEN** o dano recebido cai 30%, projétil vindo de fora para na borda, a cúpula anda 2 m/s mais devagar que o Bispo (Batalha: igual) e duas barreiras não somam; aos 45, ao lançar, ninguém dentro cai abaixo de 1 por 3 s, inclusive no tick da expiração; o Anjo cura o tanque primeiro e não é mirado; ressuscitar o mesmo aliado 2× na mesma luta é recusado; bots do grupo entram e ficam na cúpula. — check `_check_choir`.
 - **AC-30b (R6.1)** **GIVEN** Necromante ascendido, **THEN** invocações temporárias duram ×1,5 e cabe +1 por tipo; Pacto dos Mortos dá +25% de dano e +20% de velocidade de movimento às invocações a 15 m; Miasma tira 20% de ATK de quem está dentro; Marca da Cova levanta comum (não chefe/elite) como aliado por 15 s, até 4 de pé. — checks `_check_lord_of_dead` / `_check_lord_of_dead_bots`.
 - **AC-30c (R6.1)** **GIVEN** Xamã ascendido, **WHEN** entra no Pássaro Arcano, **THEN** troca as magias pelas variantes da forma, como Lobo/Urso hoje, e o golpe de chão o atinge normalmente. — check `_check_ancestral_forms` + evidência `lineup --strip=druid --set=xama --form=bird`.
@@ -843,7 +875,7 @@ Fase 1: temas do porto, da costa e dos goblins e 10 sons já entraram; falta a p
 ### Desempenho / Qualidade
 - **AC-34** **GIVEN** testes completos + `--autostart` com classe ascendida, **THEN** 0 failed e 0 `SCRIPT ERROR`.
 - **AC-35** **GIVEN** kits com as peças novas, **THEN** cada kit < 200 malhas. — check existente.
-- **AC-36** **GIVEN** Kharzun carregado e o porto em investida com 10+ bots, **THEN** `sim_probe` ≤ 5 ms/tick em média e nenhum trecho < 25 FPS no `PerfWatch`. — sondas `sim_probe -- --phases` e `--perf --perf_at=<porto>`. O limite não muda: se apertar, otimiza-se a sim, sem cortar conteúdo (decisão do autor, 2026-11-11).
+- **AC-36** **GIVEN** Kharzun carregado e o porto em investida com 10+ bots, **THEN** `sim_probe` ≤ 10 ms/tick em média e nenhum trecho < 25 FPS no `PerfWatch`. — sondas `sim_probe -- --phases` e `--perf --perf_at=<porto>`. Limite elevado de 5 para 10 ms pelo usuário em 2026-11-13 (Kharzun carregado mede ~10 ms); se passar disso, otimiza-se a sim, sem cortar conteúdo (decisão do autor, 2026-11-11).
 
 Valores **(H)** de Formulas (F3 66 s, Carga/Pisotear, `RES_*`, `ELEM_DEATH_LOSS`, poder do jogador ×2) são hipóteses: os critérios
 checam a mecânica, e cada número é calibrado pela sonda na fase em que entra.
@@ -852,11 +884,11 @@ checam a mecânica, e cada número é calibrado pela sonda na fase em que entra.
 
 | # | Pergunta | Dono | Quando resolver |
 |---|---|---|---|
-| 1 | O que exatamente vem do leste (a "noite" de Azhar, outra coisa)? Só o suficiente para *Ecos da Noite* — o Ato III decide o resto | autor | antes das missões de Kharzun (fase 3) |
+| 1 | ~~O que exatamente vem do leste?~~ — **resolvida** (2026-11-12, plano da fase 3 D6): *Ecos da Noite* fica no **mínimo** — inscrições nas Minas + visão no trono depois do Grão-Senhor ("a noite que anda do leste"), sem nomear Azhar nem outra ameaça; o Ato III decide o resto. Texto final = narrative-director | autor | — |
 | 2 | Visual próprio dos 72 conjuntos lendários: ordem por classe e quanto reaproveitar dos conjuntos de nível 30 | autor + art-director | fase 4 (polimento) |
 | 3 | Valores marcados **(H)** em Formulas (quest share das faixas novas, poder do jogador ×2, tempo do troll solo, perda de `elem_xp`, Carga/Pisotear, ressurreição, imunidade depois de cair) | systems-designer + sondas | cada um na fase em que a mecânica entra |
 | 4 | Combate montado vale para outras classes depois (ex.: Ranger atirador montado)? Hoje é só a ascensão do Paladino | autor | depois da fatia 1 |
-| 5 | Montaria lobo atroz (*Ovos do Lobo Atroz*): só visual ou mais rápida que o cavalo? | autor | fase 3 |
+| 5 | ~~Montaria lobo atroz: só visual ou mais rápida?~~ — **resolvida** (2026-11-12, plano da fase 3 D5): **mesma velocidade do cavalo**, visual próprio (nenhuma montaria domina; F8 não muda) | autor | — |
 | 6 | ~~As cinco ascensões propostas~~ — **resolvida** (2026-11-10): Assassino aprovado; Necromante → invocações mais longas + Pacto + debuffs em área; Druida aprovado + Pássaro Arcano no Xamã; Bispo → Coro Celeste (anjo, barreira móvel, bênçãos). Ranger: **Lanceiro Dracônico** (salto + brados). **Fechada em 2026-11-11**: Caçador = **Falcoeiro** (no lugar do tigre), Atirador = **1 torreta** (refino +4 s / −20% de recarga), Necromante com o nome **Pacto dos Mortos**; Paladino com Modo Arcano de asas, sem skill de puxar; Berserker com Modo Gladiador. As 8 ascensões estão implementadas | autor | — |
 | 10 | ~~Leitura do Paladino~~ — **resolvida** (2026-11-11): "puxar asas" = brotar asas; Modo Arcano dá dano + defesa; sem skill de puxar | autor | — |
 | 9 | ~~Híbridos substituem ou coexistem?~~ — **resolvida**: coexistem (144 conjuntos). **Fechada em 2026-11-11**: as 24 Fusões estão em `ato2-proposals-2026-11-11.md` §1; a Fusão substitui o 5 peças e tem duas faces com armas diferentes. A implementação segue na Pergunta 15 | autor + systems-designer | — |
@@ -868,3 +900,4 @@ checam a mecânica, e cada número é calibrado pela sonda na fase em que entra.
 | 14 | Recalibragem F5 feita para as builds de dano (tabela em F5). Ascensões de utilidade (Bispo −18%, Ent −38%, Invocador −31% de mortes) parecem fortes demais, mas o ruído é ±13–15% com 80 lutas: **medir com 200+ lutas por braço antes de mexer** (decisão do autor, 2026-11-12) | systems-designer + sondas | antes do 40–45 |
 | 15 | Conjuntos híbridos ainda não implementados: as 24 Fusões (medir `G_5n` primeiro), a face Xamã da D3 e a revisão fina das fichas pelo autor | autor + systems-designer | lendário 35 |
 | 16 | Estepes (fase 2): layout, monstros 35–40, 3 chefes de forte, 26 missões (desertores com `QuestDef.excludes`), progressão até 40 e teia externa 31–45 feitos (2026-11-11, integração em andamento). Faltam o portão E5 (várias missões), as investidas da estepe com 0 bots e o Mestre Besteiro (90%, faixa 65–85%) | fase 2 | loops de qualidade |
+| 17 | Kharzun (fase 3): nomes finais dos chefes (Durgash, Shazka, Ulgra, Gorbash, Kragmar, Presa-de-Cinza são provisórios), Prova 45 com algo visível além do título, porto e acampamento como hubs de fim de jogo — ver `kharzun-fase3-plan.md` §12 | autor + narrative-director | antes do WP9 fechar |

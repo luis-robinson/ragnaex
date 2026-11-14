@@ -55,7 +55,8 @@ cursor (limitado ao alcance), `CONE` à frente, `TARGET` no inimigo sob o cursor
 * **Equipamento**: espada/montante, maça/martelo, machadinha/machado de guerra, adaga, arco, cajado, varinha, foice,
   escudo, orbe e pistola (mão secundária do Corsário: os tiros saem das skills); duas armas de 1 mão (Shift+clique na bolsa). **Lendários a cada 5 níveis** com bônus de conjunto
   (3 peças: INT +2; 4 peças: Bola de Fogo +20%…).
-* **Nível máximo 30, progressão lenta** (~3800 kills). Morrer custa 3 % do XP e você renasce em Aldara.
+* **Nível máximo 45** (Ato I até o 30, Ato II 30-45 com ascensões aos 35/40/45), **progressão lenta**. Morrer custa 3 % do XP e você renasce em Aldara.
+* **Monte Kharzun (40-45)**: o Ferreiro Anão Thrain aprimora lendários 40+ (Aço Anão até +5, Brasa de Kharzun do +6 ao +9); joias e capas 45 com troféus dos chefes; o filhote de lobo atroz (`hx_ov_hatch`) vira montaria (mesma velocidade do cavalo; a Tratadora troca); a Prova 45 dá o título "Mestre <classe>" (só fama).
 * **Vale de Aldara** (zona estilo Erenshor feita no Blender): vila murada no centro (NPCs: Ancião, Capitã, Ferreiro,
   Alquimista, Mercador, Quadro) cercada pela **Campina** (1–10: lago, bosque, colinas, clareira, fazenda), rio com pontes,
   castelo na colina e penhascos; desfiladeiros levam à **Floresta Sombria** (10–20: Posto dos Caçadores murado sob **investidas élficas** periódicas, defendido por sentinelas que lutam; paliçada dos bandidos, Árvore-Mãe; a garganta norte leva à **Cidade Élfica** (17–21: Árvore-Mãe Ancestral, trents, grifos, Guardiões e o Rei Élfico no Coração da Árvore)) e às

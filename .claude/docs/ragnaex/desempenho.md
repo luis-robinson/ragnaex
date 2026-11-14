@@ -18,12 +18,17 @@
   Draws por passada (`canvas_pass` = HUD 2D, `visible_pass`, `shadow_pass`) e `entity_surfaces`; experimentos `--hide_minimap`, `--hide_props=<prefixo,...>`, `--no_prop_shadow`, `--shadow_max=<m>`, `--no_vcol_merge`.
 - Fusões com cor no vértice: peças que só mudam de cor dividem a superfície (cor sRGB + `spec_strength` no alfa do `COLOR`; material branco com
   `vcol_srgb`, que é o do grupo e fica em `kit.mats`/`_mats` para o hit flash). Parâmetro novo no toon que varia por peça = entra em `KitModel._shared_key`/`RigidMerge.mat_key`.
+- Monstro com brilho: o toon do monstro mantém a emissão do GLB (`EntityView.mob_glow/glow_color`: energia > 1,05 ou nome `glow_*`; `m_white`
+  e pinturas com energia 1,0 não brilham). `emission_amount` vai em degraus de 0,25 (0,25-1,75) para o `RigidMerge` não abrir uma malha por valor; check `_check_mob_glow`.
   `RigidMerge` guarda a geometria por forma (`_geo_cache`) e a malha por forma + cores.
 - 2D: desenho de muitos itens por quadro (`draw_circle` etc.) é 1 draw call cada; o minimapa estático é assado numa `SubViewport` (`Minimap._bake_static`).
+- Texto de combate só por `FxManager._float_text` → `FloatText` (pool de Label3D, teto 48, fusão "×N", 4 por alvo; briga dos outros só a
+  16 m e por amostra); nunca `Label3D.new()` + tween por pop. Nomes em matilha: uma passada `NameplateCrowd.update` a cada 0,2 s em
+  `main._cull_views` (não por boneco); `EntityView.set_crowd_hidden` só escreve na troca.
 - **Sim na thread** (jogo; `SimSync`, game/world/sim_sync.gd): o physics só agenda o tick (com o comando do passo), o tick roda numa WorkerThreadPool
   enquanto o quadro desenha (`Sim.start_async` no `frame_pre_draw`) e quem toca a sim espera antes (`Sim.sync`: input, physics_frame, process_frame).
   A sim emite por `Events.post(&"sinal", ...)` (nunca `Events.x.emit` em `core/`): na thread o evento vai para a fila e sai no sync. Código que toca a sim
   fora desses momentos (thread própria, callback de render) chama `Sim.sync()` antes. `--sim_sync` desliga para comparar; testes chamam `tick()` direto.
 - Sim sem tela: `--headless --path . tools/tests/sim_probe.tscn -- [--phases] [--map=<id>] [--at=x,z] [--suite] [--census]` (ms/tick + soma de conferência: otimização da sim tem de dar a mesma soma;
-  `--suite` = o mundo do teste longo do run_tests, `--census` = por mapa: entidades por tipo, monstros dormindo, loot no chão). Orçamento: ≤ 5 ms/tick com Kharzun carregado (GDD `ato2-horda` AC-36).
+  `--suite` = o mundo do teste longo do run_tests, `--census` = por mapa: entidades por tipo, monstros dormindo, loot no chão). Orçamento: ≤ 10 ms/tick com Kharzun carregado (GDD `ato2-horda` AC-36).
   Laço sobre `m["entities"]`: teste a distância antes de chamar métodos (`Combat.nearest_hostile`); nada de alocar por entidade por tick. Notas e números: `docs/otimizacao.md`.
