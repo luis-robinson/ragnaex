@@ -203,8 +203,9 @@ def obj(coll, name, bm, material, smooth=False):
     return o
 
 
-def ribbon(coll, name, poly, w, y, material):
-    """Faixa (estrada/rio) ao longo de uma polilinha do jogo."""
+def ribbon(coll, name, poly, w, y, material, shape=None):
+    """Faixa (estrada/rio) ao longo de uma polilinha do jogo. `shape(i)` -> (desvio lateral em m, fator da largura) no
+    ponto i: só a malha ondula, a polilinha (que vai para o JSON da sim) fica como está."""
     bm = bmesh.new()
     left, right = [], []
     for i, p in enumerate(poly):
@@ -212,8 +213,11 @@ def ribbon(coll, name, poly, w, y, material):
         b = poly[min(len(poly) - 1, i + 1)]
         t = (b - a).normalized()
         n = Vector((-t.y, t.x))
-        left.append(bm.verts.new(B(p.x + n.x * w / 2, p.y + n.y * w / 2, y)))
-        right.append(bm.verts.new(B(p.x - n.x * w / 2, p.y - n.y * w / 2, y)))
+        off, wm = shape(i) if shape else (0.0, 1.0)
+        p = p + n * off
+        hw = w / 2 * wm
+        left.append(bm.verts.new(B(p.x + n.x * hw, p.y + n.y * hw, y)))
+        right.append(bm.verts.new(B(p.x - n.x * hw, p.y - n.y * hw, y)))
     for i in range(len(poly) - 1):
         bm.faces.new((left[i], right[i], right[i + 1], left[i + 1]))
     bm.normal_update()
@@ -356,12 +360,34 @@ def build(export=False):
     for name, pts in ROADS:
         poly = catmull(pts, 1.6)
         road_polys[name] = poly
-        ribbon(coll, P + "estrada_" + name, poly, ROAD_W, 0.012, M["road"])
+        end = poly[-1]
+        to_portal = any((end - Vector(pp["pos"])).length <= 6 for pp in PORTALS.values())
+        shape = None
+        if to_portal:
+            # os últimos ~40 m até o portal são quase colineares: de cima lia-se uma régua larga de ponta quadrada. Só a
+            # MALHA ganha margem irregular (largura +-16%, desvio de até 0,5 m que zera nas duas pontas do trecho); a
+            # polilinha da sim (data["roads"]: grama, minimapa, limpeza da estrada) não muda.
+            k0 = max(0, len(poly) - 27)
+
+            def shape(i, k0=k0, n=len(poly), ph=float(len(name))):
+                if i < k0:
+                    return 0.0, 1.0
+                t = (i - k0) / (n - 1 - k0)
+                env = math.sin(math.pi * t) ** 0.7
+                return 0.5 * env * math.sin(t * 9.0 + ph), 1.0 + 0.16 * env * math.sin(t * 15.0 + ph * 1.7)
+        ribbon(coll, P + "estrada_" + name, poly, ROAD_W, 0.012, M["road"], shape)
         data["roads"].append({"kind": "road", "w": ROAD_W, "pts": [[round(p.x, 2), round(p.y, 2)] for p in poly[::2] + [poly[-1]]]})
         # fim de estrada sem portal/vila: clareira de terra redonda (nunca termina em quina)
-        end = poly[-1]
-        if end.length > TOWN_R + 2 and all((end - Vector(pp["pos"])).length > 6 for pp in PORTALS.values()):
+        if end.length > TOWN_R + 2 and not to_portal:
             disc(coll, P + "estrada_fim_" + name, (end.x, end.y), ROAD_W * 1.1, 0.011, M["road"], 20, 0.12, len(name))
+        elif to_portal:
+            # no portal a fita acabava num corte reto que sobrava atrás do anel: terreiro irregular sob o portal (só visual,
+            # como o `largo_*_portal` do Zone.arrival) e um borrão menor de lado, para a boca não ficar redonda de compasso
+            back = (end - poly[-4]).normalized()
+            side = Vector((-back.y, back.x))
+            disc(coll, P + "estrada_ponta_" + name, (end.x, end.y), ROAD_W * 0.95, 0.0114, M["road"], 20, 0.16, len(name) + 1)
+            q = end - back * 2.6 + side * 1.5
+            disc(coll, P + "estrada_ponta_" + name + "_b", (q.x, q.y), ROAD_W * 0.6, 0.0113, M["road"], 16, 0.2, len(name) + 4)
     river = catmull(RIVER, 2.0)
     ribbon(coll, P + "agua_rio", river, RIVER_W, 0.02, M["water"])
     ribbon(coll, P + "margem_rio", river, RIVER_W + 2.4, 0.008, M["road"])
@@ -524,8 +550,10 @@ def build(export=False):
     spots = [(Vector(G((-98.3, -30.2))), 4.0), (Vector(G((98.3, -32.1))), 4.0)]
     fxz = POIS["fazenda"]
     avoid = [(LAKE[0], LAKE[1] + 3.0), (fxz, 18.5), (CASTLE[0], CASTLE[1] + 2.0)]       # fazenda inteira, com o moinho (15 m) + [(c, r + 1.5) for c, r, _ in HILLS]
+    # trail_ok: a trilha do marco sai do fim da estrada lago_fazenda (já dentro do círculo da fazenda) e chega 5 cm dentro da
+    # margem; contorna cercas, feno e moinho sem tocar em nada sólido (conferido em production/qa/evidence/trails-all)
     places.build(types.SimpleNamespace(data=data, ob=ob, coll=coll, P=P, road_polys=road_polys, rivers=[river], river_w=RIVER_W,
-                                       avoid=avoid, block=lambda c, r: spots.append((Vector(c), r))), PLACES)
+                                       avoid=avoid, block=lambda c, r: spots.append((Vector(c), r)), trail_ok={"marco"}), PLACES)
     blocked_polys = list(road_polys.values()) + [river]
 
     def free(x, z, margin):

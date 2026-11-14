@@ -16,6 +16,7 @@ import sea
 import zone_lib
 importlib.reload(zone_lib)
 from zone_lib import Zone, cyl, box, disc
+import horde
 
 ZONE = "field_ruins"
 RING_R = 56.0
@@ -103,7 +104,7 @@ def wall_towers(z, gate_deg):
             b = math.tau * m / 8
             box(z.coll, z.P + "torre_%d_ameia_%d" % (k, m), (p[0] + math.cos(b) * 2.4, p[1] + math.sin(b) * 2.4), (1.0, 1.0, 0.7), math.degrees(-b), stone, 8.0)
         cyl(z.coll, z.P + "torre_%d_mastro" % k, (p[0] + 1.6, p[1]), 0.08, 0.08, 4.0, z.M["cathedral_trim"], 8.0, 4)
-        box(z.coll, z.P + "torre_%d_flamula" % k, (p[0] + 2.2, p[1]), (1.2, 0.8, 0.06), 0.0, roof, 10.8)
+        horde.cloth(z.coll, z.P + "torre_%d_flamula" % k, (p[0] + 1.6, p[1]), 1.2, 1.0, 0.0, roof, 10.6, 0.06)   # pano dobrado (era caixa lisa); não sorteia
         z.ob("pillar", p[0], p[1], (6.0, 8.0, 6.0), visible=False)
         z.npc("dawn_g_tower_wall_%d" % k, p[0], p[1], round(math.degrees(math.atan2(math.cos(math.radians(a)), math.sin(math.radians(a)))), 1))
 
@@ -216,9 +217,12 @@ def build(export=False):
             x, y = H(72.0, a)
             z.ob("fence", x, y, (4.4, 1.3, 0.5), face(a) + 90.0, color=(0.46, 0.36, 0.26))
         if side == "ghoul":                               # poças de bile no pântano do Carniçal
+            # mancha de chão (`patch_`: mesmo material do terreno, tom apagado) ABAIXO da margem do rio (0.008) e das estradas
+            # (0.012): estava na altura da água (0.02) com o material comum, verde-limão chapado por cima do rio
+            bile = z.M.setdefault("patch_bile_ghoul", zone_lib.mat("patch_bile_ghoul", (0.4, 0.48, 0.25)))
             for q in range(7):
                 pp = H(78.0 + (q % 3) * 7.0, g - 16.0 + q * 5.5)
-                disc(z.coll, z.P + "chao_front_ghoul_bile_%d" % q, pp, 2.2 + (q % 2), 0.02, z.M["putrid"], 14, 0.3, q)
+                disc(z.coll, z.P + "chao_front_ghoul_bile_%d" % q, pp, 2.2 + (q % 2), 0.0072, bile, 14, 0.3, q)
         # front limpo (aparece quando a fortaleza do lado cai): grama, flores e um acampamento da Aurora no caminho do reforço
         disc(z.coll, z.P + "limpo_%s_chao" % side, H(84.0, g), 25.0, 0.004, z.M["clean_grass"], 36, 0.1, len(side))     # abaixo das estradas
         cw = {"if": f["quest"]}
@@ -292,7 +296,7 @@ def build(export=False):
         z.ob("lamp", *D(dock_portal, -2.5, sd), (0.4, 3.0, 0.4))
     mast = D(dock_arrive, -4.0, -7.5)                       # estandarte da Aurora: acha-se o cais da estrada leste
     cyl(z.coll, z.P + "cais_mastro", mast, 0.14, 0.1, 7.5, z.M["wood"], 0.0, 6)
-    box(z.coll, z.P + "cais_bandeira", (mast[0] + 1.2, mast[1]), (2.2, 1.4, 0.06), 0.0, z.M["banner"], 5.9)
+    horde.cloth(z.coll, z.P + "cais_bandeira", mast, 2.2, 1.6, 0.0, z.M["banner"], 5.7, 0.1)   # pano dobrado (era caixa lisa); não sorteia
     z.ob("pillar", mast[0], mast[1], (0.5, 7.5, 0.5), visible=False)
     z.block(dock_arrive, 11.0)
 
