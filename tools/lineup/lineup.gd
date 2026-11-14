@@ -281,7 +281,9 @@ func _build_mobs() -> void:
 			continue
 		var n: Node3D = ps.instantiate()
 		add_child(n)
-		n.position = Vector3((i - (ids.size() - 1) * 0.5) * 2.2, 0, 0)
+		if ("--toon" in OS.get_cmdline_user_args()):
+			_mob_toon(n)
+		n.position = Vector3((i - (ids.size() - 1) * 0.5) * float(DevArgs.value("--gap", "2.2")), 0, 0)
 		n.rotation.y = 0.5
 		var yaws := DevArgs.value("--yaws")      # --yaws=<graus>,<graus>: giro de cada cópia (0 = de frente, 180 = de costas)
 		if yaws != "":
@@ -298,6 +300,27 @@ func _build_mobs() -> void:
 	cam.look_at_from_position(Vector3(0, 0.9 + dist * 0.233, dist), Vector3(0, 0.9, 0), Vector3.UP)
 	_side = true
 
+## --toon: material do jogo no monstro (como EntityView._apply_toon_recursive: toon_unique com a cor do albedo; peça que brilha mantém a emissão).
+func _mob_toon(n: Node) -> void:
+	if n is MeshInstance3D:
+		var mi := n as MeshInstance3D
+		for i in range(mi.get_surface_override_material_count()):
+			var base := mi.get_active_material(i)
+			var col := Color(0.8, 0.8, 0.8)
+			if base is BaseMaterial3D:
+				col = base.albedo_color
+			var glow := 0.0 if ("--no_glow" in OS.get_cmdline_user_args()) else EntityView.mob_glow(base)      # brasa/runa/olho brilham como no jogo (--no_glow = como antes)
+			if glow > 0.0:
+				col = EntityView.glow_color(base)
+			var tm := Materials.toon_unique(col)
+			if glow > 0.0:
+				tm.set_shader_parameter("emission_amount", glow)
+			if base is BaseMaterial3D and base.albedo_texture:
+				tm.set_shader_parameter("albedo_tex", base.albedo_texture)
+			mi.set_surface_override_material(i, tm)
+	for c in n.get_children():
+		_mob_toon(c)
+
 ## --mob_strip=<modelo> --anim=<clipe>: filme de um clipe de monstro/forma — 8 cópias, cada uma num instante, de perfil.
 func _build_mob_strip(model: String) -> void:
 	var ps: PackedScene = load("res://assets/models/%s.glb" % model)
@@ -307,7 +330,9 @@ func _build_mob_strip(model: String) -> void:
 	for i in range(8):
 		var n: Node3D = ps.instantiate()
 		add_child(n)
-		n.position = Vector3((i - 3.5) * 2.0, 0, 0)
+		if ("--toon" in OS.get_cmdline_user_args()):
+			_mob_toon(n)
+		n.position = Vector3((i - 3.5) * float(DevArgs.value("--gap", "2.0")), 0, 0)      # --gap=<m>: espaço entre cópias (modelo grande)
 		n.rotation.y = PI * 0.5
 		var ap: AnimationPlayer = n.find_child("AnimationPlayer", true, false)
 		if ap and ap.has_animation(_anim):
@@ -317,7 +342,8 @@ func _build_mob_strip(model: String) -> void:
 	var cam := Camera3D.new()
 	cam.fov = 30.0
 	add_child(cam)
-	cam.look_at_from_position(Vector3(0, 2.2, 16.0), Vector3(0, 0.6, 0), Vector3.UP)
+	var ch := float(DevArgs.value("--cam_h", "2.2"))      # --cam_h=<m>: câmera baixa (rente ao chão) mostra peça que fura o chão
+	cam.look_at_from_position(Vector3(0, ch, 16.0 * float(DevArgs.value("--gap", "2.0")) / 2.0), Vector3(0, minf(0.6, ch), 0), Vector3.UP)
 	_side = true
 
 ## Aprimoramento: a classe (--strip, padrão paladino) com o equipamento inicial em +0, +5 e +9, de 3/4.
