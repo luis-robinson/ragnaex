@@ -13,7 +13,7 @@ const DT := 1.0 / 20.0
 const LIMIT := 45.0
 const CHAIN := 4              # monstros seguidos por caçada
 const ELITE_HP := 1500.0      # monstro com mais vida que isto é elite: luta sozinho (1 por caçada)
-const BAND_MAPS := ["field_forest", "dg_ninho", "elf_city", "dg_coracao", "dg_catacumbas", "dg_catacumbas_trono", "dg_pedreira", "dg_pedreira_coracao", "field_ruins", "fort_ghoul", "fort_bones", "fort_frost", "lich_citadel", "field_coast", "field_steppe", "fort_trolls", "fort_fire", "fort_war", "dg_goblin"]
+const BAND_MAPS := ["field_forest", "dg_ninho", "elf_city", "dg_coracao", "dg_catacumbas", "dg_catacumbas_trono", "dg_pedreira", "dg_pedreira_coracao", "field_ruins", "fort_ghoul", "fort_bones", "fort_frost", "lich_citadel", "field_coast", "field_steppe", "fort_trolls", "fort_fire", "fort_war", "dg_goblin", "field_kharzun"]
 
 var _trace := false
 var _trace_last := ""
@@ -209,6 +209,7 @@ func _duels(trials: int) -> void:
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--mob="):
 			only_mobs = Array(a.get_slice("=", 1).split(","))
+	var jobs: Array = []
 	for mid in BAND_MAPS:
 		if not GameData.maps.has(mid):
 			continue
@@ -222,6 +223,28 @@ func _duels(trials: int) -> void:
 			if md == null or md.is_boss or md.xp <= 0 or seen.has(mon_id) or md.level < lv_from or md.level > lv_to + 1:
 				continue
 			seen[mon_id] = true
+			jobs.append([mid, sp])
+	# arena de teste (só da sonda): monstro da faixa sem spawner em mapa nenhum (ex.: Kharzun 40-45 antes do WP5) duela
+	# num ponto andável conhecido das Estepes; quando o mapa dele existir, o spawner de verdade ganha (seen).
+	var arena: Dictionary = {}
+	for sp in GameData.maps["field_steppe"].spawners:
+		if sp["monster_id"] == "troll":
+			arena = sp
+	for mon_id in GameData.monsters:
+		var md: MonsterDef = GameData.monsters[mon_id]
+		if arena.is_empty() or seen.has(mon_id) or md.is_boss or md.xp <= 0 or md.level < lv_from or md.level > lv_to + 1 or md.stat_role == "":
+			continue
+		if not only_mobs.is_empty() and not (mon_id in only_mobs):
+			continue
+		seen[mon_id] = true
+		jobs.append(["field_steppe", {"monster_id": mon_id, "pos": arena["pos"], "radius": 4.0, "arena": true}])
+	for job in jobs:
+		var mid: String = job[0]
+		var sp: Dictionary = job[1]
+		var m: Dictionary = Sim.maps[mid]
+		var mon_id: String = sp["monster_id"]
+		var md: MonsterDef = GameData.monsters[mon_id]
+		if true:
 			var wins := 0
 			var ttk := 0.0
 			var lost := 0.0
@@ -301,7 +324,7 @@ func _duels(trials: int) -> void:
 				note += "  FLAG trivial"
 			if note != "":
 				flags += 1
-			print("DUEL %-18s %-20s nv=%-2d vitorias=%d/%d mortes=%d ttk=%.1fs vida_perdida=%.0f%% golpes/monstro=%.2f 1o_golpe=%.1fs%s" % [mon_id, mid, md.level, wins, trials, died, avg_ttk, avg_lost * 100.0,
+			print("DUEL %-18s %-20s nv=%-2d vitorias=%d/%d mortes=%d ttk=%.1fs vida_perdida=%.0f%% golpes/monstro=%.2f 1o_golpe=%.1fs%s" % [mon_id, mid + (" (arena)" if sp.get("arena", false) else ""), md.level, wins, trials, died, avg_ttk, avg_lost * 100.0,
 				float(blows) / maxf(1.0, trials * chain), first_sum / maxf(1.0, first_n), note])
 
 var _pack_n := 4

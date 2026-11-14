@@ -42,6 +42,10 @@ extends Node
 ##   com --why, "INV" conta quantas invocações de bot morreram por luta antes do prazo.
 ##   com --why, cada "PERDA" (chefe largou o tanque) traz o golpe [tipo estado skill] e "decisao": o último lance do membro
 ##   (skill/fase, t, distância alvo-chefe, aggro/ameaça do tanque, a minha, a prevista, abertura). Assim achou-se o dash da fuga.
+##     [--no_sig]                  (sem a assinatura do chefe: base para comparar; GDD act2-boss-signatures)
+##     [--sig_tune=<skill>:power=X,cooldown=Y,radius=Z,time=T]   (botões da assinatura só nesta rodada: varrer sem editar o Balance)
+## "SIG <chefe>": assinaturas por uso (maré atingidos, marca em aliados, canal quebrado/completo, avalanche atingidos, fúria
+##   média da Muralha, contragolpe, botes cortados, dividir_n = quantos dentro do Machado do Trono, dividir_mortes) — métricas do AC-S5.
 ## Saída: "PROBE <chefe> grupo=N vitorias=V/T tempo_medio=Ss mortes=M cast/min=C act=A% adds=N off=O% longe/min=F"
 ##   cast/min = skills do chefe por minuto; act = parte da luta golpeando/lançando (o resto é andando);
 ##   adds = lacaios por luta; off = dano do chefe e dos lacaios fora do alvo do chefe; longe/min = skills do chefe miradas
@@ -62,9 +66,15 @@ const BOSSES := {"bandit_chief": "field_forest", "crab_king": "city_aldara", "sl
 	"dragonling": "field_ruins",
 	# Ato II (30-35): a sala de verdade (field_coast, dg_goblin) vem do pacote das zonas; até lá lutam nas Ruínas
 	"boss_tide_mother": "field_coast", "boss_agitator_lord": "dg_goblin",
-	"boss_troll_king": "fort_trolls", "boss_crossbow_master": "fort_fire", "boss_ghar": "fort_war"}
+	"boss_troll_king": "fort_trolls", "boss_crossbow_master": "fort_fire", "boss_ghar": "fort_war",
+	# Kharzun (40-45): arenas de verdade (Canil no campo, Salão dos Matadores, alas e trono da cidadela). O spawner do Durgash
+	# tem `if` (os três clãs): a sonda o põe direto no lugar do spawner, sem a condição.
+	"boss_dire_mother": "field_kharzun", "boss_shazka": "dg_slayers", "boss_ulgra": "kharzun_citadel", "boss_gorbash": "kharzun_citadel",
+	"boss_kragmar": "kharzun_citadel", "boss_durgash": "kharzun_citadel"}
+## Chefe sem spawner no mapa da sonda luta no lugar deste (arena provisória). Vazio: todos têm a sala deles.
+const ARENA_AT := {}
 ## field = chefe de campo (dá para solar); elite = monstro forte de missão (sem fases); group = conteúdo de grupo.
-const GROUPS := {"crab_king": "field", "boar_brute": "field", "boar_king": "field", "slime_king": "field",
+const GROUPS := {"boss_dire_mother": "field", "crab_king": "field", "boar_brute": "field", "boar_king": "field", "slime_king": "field",
 	"trent": "elite", "elf_warden": "elite"}          # o resto: group
 ## Faixas que o chefe precisa cumprir (`--bands`). win = fração de vitórias; time = s de luta do trio; o resto são pisos.
 ## kite_far: skills miradas a 9 m+ por minuto contra um atirador que kita; passa também se o atirador perde a maioria.
@@ -92,6 +102,7 @@ var _asc_base: Array = []
 var _elem_stage := 0
 var _tank_lock := false
 var _hp := 1.0
+var _berserk: Array = []
 var _set := ""
 var _set_who: Array = []
 var _set_lv := 0
@@ -281,11 +292,23 @@ func _ready() -> void:
 		if a == "--tank_lock": _tank_lock = true
 		if a == "--no_opener": BotBrain.opener_enabled = false     # A/B da abertura (BotBrain._opener)
 		if a.begins_with("--hp="): _hp = float(a.get_slice("=", 1))
+		if a.begins_with("--berserk="):     # --berserk=<s>,<mult>: berserk_after e berserk_mult do chefe (calibrar a raide)
+			_berserk = Array(a.get_slice("=", 1).split(",")).map(func(x): return float(x))
 		if a.begins_with("--set="): _set = a.get_slice("=", 1)
 		if a.begins_with("--set_who="): _set_who = Array(a.get_slice("=", 1).split(",")).map(func(x): return int(x))
 		if a.begins_with("--set_lv="): _set_lv = int(a.get_slice("=", 1))
 		if a.begins_with("--pair="): _pair = a.get_slice("=", 1)
 		if a == "--why": _why = true          # imprime de onde veio o dano que o grupo levou
+		if a.begins_with("--sig_tune="):    # --sig_tune=<skill>:power=X,cooldown=Y,radius=Z,time=T (marca): varrer botões de assinatura sem editar o Balance
+			var sk: SkillDef = GameData.skills[a.get_slice("=", 1).get_slice(":", 0)]
+			for kv in a.substr(a.find(":") + 1).split(","):
+				var k := kv.get_slice("=", 0)
+				var val := float(kv.get_slice("=", 1))
+				if k in ["power", "cooldown"]:
+					sk.set(k, val)
+				elif sk.effects.get("mark") is Dictionary:
+					sk.effects["mark"][k] = val
+			print("SIG_TUNE %s power=%.2f cooldown=%.0f mark=%s" % [sk.id, sk.power, sk.cooldown, str(sk.effects.get("mark", {}))])
 	if OS.get_cmdline_user_args().has("--comp_stats"):      # só o sorteio, sem luta: cobertura de cada sorteador
 		for bid in BOSSES:
 			if only.is_empty() or bid in only:
@@ -347,6 +370,15 @@ func _print(bid: String, n: int, trials: int, r: Dictionary) -> void:
 		print("TIME %s grupo=%d n=%d med=%.1fs media=%.1fs dp=%.1fs ep=%.2fs todas=%.1fs freio=%.0f%%" % [bid, n, nt, med, mean, sd, sd / sqrt(maxf(1.0, nt)), float(r.get("fight_t", 0.0)) / maxf(1.0, trials), float(r.get("hold", 0.0))])
 	if _why and (_asc_on or _lvl > 0):
 		print("INV %s invocacoes de bot mortas/luta=%.1f" % [bid, float(r.get("inv_dead", 0)) / maxf(1.0, trials)])
+	var sg: Dictionary = r.get("sig", {})
+	if not sg.is_empty():                       # assinaturas (AC-S5): por luta e por uso
+		var per := func(k: String, by: String) -> String: return "%.2f" % (float(sg.get(k, 0.0)) / maxf(1.0, float(sg.get(by, 0.0))))
+		print("SIG %s grupo=%d usos/luta=%s maré_atingidos/uso=%s marca_aliados/marca=%s canal_quebrado=%s canal_completo=%s avalanche_atingidos/uso=%s furia_med=%s contragolpe/uso=%s botes_cortados=%s faixas=%.1f faixas/estouro=%s aneis/serie=%s copias_s/uso=%s copias_mortas/uso=%s tempera_med=%s tempera_cura/luta=%.0f na_poca=%s dividir_n/marca=%s dividir_mortes/marca=%s bruto=%s" % [
+			bid, n, "%.1f" % ((float(sg.get("islands", 0)) + float(sg.get("marks", 0)) + float(sg.get("channels", 0)) + float(sg.get("avalanches", 0)) + float(sg.get("walls", 0)) + float(sg.get("seqs", 0)) + float(sg.get("stampedes", 0)) + float(sg.get("ring_series", 0)) + float(sg.get("twins", 0)) + float(sg.get("temper_uses", 0))) / maxf(1.0, trials)),
+			per.call("islands_hit", "islands"), per.call("mark_ally_hits", "marks"), per.call("channel_breaks", "channels"), per.call("channel_done", "channels"),
+			per.call("avalanche_hits", "avalanches"), per.call("wall_fury", "walls"), per.call("counter_hits", "walls"), per.call("seq_cut", "seqs"),
+			float(sg.get("line_hits", 0)) / maxf(1.0, trials), per.call("line_hits", "stampedes"), per.call("ring_hits", "ring_series"), per.call("decoy_life", "twins"), per.call("decoy_kills", "twins"),
+			per.call("temper_sum", "temper_time"), float(sg.get("temper_heal", 0)) / maxf(1.0, trials), per.call("pool_time", "temper_time"), per.call("soak_n", "marks"), per.call("soak_kills", "marks"), str(sg)])
 	print("PROBE %-18s grupo=%d%s vitorias=%d/%d tempo_medio=%.1fs mortes=%.1f cast/min=%.1f act=%.0f%% adds=%.1f off=%.0f%% longe/min=%.1f%s" % [
 		bid, n, (" kite" if r["kite"] else ""), r["wins"], trials, r["time"], r["deaths"], r["casts"], r["act"], r["adds"], r["off"], r["far"],
 		("" if _lead == "" and _comp.is_empty() else " aggro=%.0f%% area=%.0f%% cura_tq=%.0f%% baixa=%.1fs frente=%.0f%% ritmo=%.0f%% baixa_tq=%.1fs pocoes=%.1f perdas=%.2f freio=%.0f%%" % [r["aggro"], r["area"], r["heal_tank"], r["low"], r["stray"], r["busy"], r["low_tank"], r["pots"], r["drops"], r["hold"]])])
@@ -387,13 +419,30 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 		if base == GameData.monsters[bid]:
 			base = base.duplicate()
 		base.hp *= _hp
+	if not _berserk.is_empty():
+		if base == GameData.monsters[bid]:
+			base = base.duplicate()
+		base.berserk_after = float(_berserk[0])
+		if _berserk.size() > 1:
+			base.berserk_mult = float(_berserk[1])
+	if OS.get_cmdline_user_args().has("--no_sig"):     # sem a assinatura (GDD act2-boss-signatures): base para comparar
+		base = base.duplicate()
+		base.skill_ids = Array(base.skill_ids).filter(func(id): return not (GameData.skills.has(id) and GameData.skills[id].boss_signature)) as Array[String]
+		var phs: Array = []
+		for ph in base.phases:
+			var c: Dictionary = (ph as Dictionary).duplicate(true)
+			c["skills"] = (c.get("skills", []) as Array).filter(func(id): return not (GameData.skills.has(id) and GameData.skills[id].boss_signature))
+			phs.append(c)
+		base.phases = phs
+		base.cover = {}
+	Sim.sig_stats.clear()
 	var m: Dictionary = Sim.load_map(GameData.maps[mid])
 	m["spawners"].clear()
 	for ri in RaidSystem.routes(m["def"]).size():
 		RaidSystem.state(m, ri)["timer"] = INF       # investidas paradas (Bastião): os bots largavam o chefe para defender o portão
 	var at := Vector3.ZERO
 	for sp in m["def"].spawners:
-		if sp["monster_id"] == bid:
+		if sp["monster_id"] == bid or (sp["monster_id"] == ARENA_AT.get(bid, "") and at == Vector3.ZERO):
 			at = sp["pos"]
 	var wins := 0
 	var times: Array = []
@@ -410,6 +459,9 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 	var low_sum := 0.0
 	var busy_sum := 0.0
 	var low_tank := 0.0
+	var ward_n := 0                # lutas em que o ward ligou (lacaio de escudo vivo)
+	var ward_sum := 0.0            # s do ward ligar até o 1º lacaio dele cair
+	var ward_fast := 0             # ... em até 30 s (KAC-11: estandarte antes de 30 s)
 	var acc := {"pots": 0, "stray": 0.0, "area": 0.0, "heal": 0.0, "heal_tank": 0.0, "lead": -1, "casts": 0, "dmg": 0.0, "off": 0.0, "far": 0, "boss": -1, "bots": {}, "from": Vector3.ZERO, "why": {}, "why_t": {}, "states": {}, "asc": {}, "dealt": {}, "drop_by": {}, "last_hit": {}, "drop_how": {}, "decide": {}}
 	var on_cast := func(id: int, sid: String, ph: String):
 		if _why and acc["bots"].has(id) and Sim.entities.has(acc["boss"]):     # último lance de cada membro (PERDA: "decisao")
@@ -586,9 +638,17 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 		var adds := {}
 		var inv := {}
 		var prev_tgt: int = boss.aggro_target
+		var ward_at := -1.0
+		var ward_kill := -1.0
+		var temper_boss: bool = boss.skills.any(func(s): return s != null and s.effects.get("barrage") is Dictionary and (s.effects["barrage"] as Dictionary).has("empower"))
 		while t < LIMIT and boss.is_alive():
 			Sim.tick(DT)
 			t += DT
+			if temper_boss:              # Têmpera do Kragmar (AC-S5 tempera_med): acúmulos médios no tempo de luta
+				BossSignatures.stat(Sim, "temper_time", DT)
+				BossSignatures.stat(Sim, "temper_sum", boss.buff_stacks(BossSignatures.TEMPER_BUFF) * DT)
+				if BossSignatures.in_empower_pool(m, boss):
+					BossSignatures.stat(Sim, "pool_time", DT)          # chefe dentro da poça (o tanque devia tirá-lo)
 			if _why:                     # tempo de cada buff nos bots (BUFFS: % do tempo de luta, por membro) e de montaria/MP
 				for b in bots:
 					if not b.is_alive():
@@ -654,6 +714,14 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 			for o in m["entities"]:
 				if o.boss_id == boss.id:
 					adds[o.id] = true
+			if ward_at < 0.0 and boss.ward > 0.0:
+				ward_at = t
+			if ward_at >= 0.0 and ward_kill < 0.0:
+				for aid in adds:
+					var ao: SimEntity = Sim.entities.get(aid)
+					if ao == null or not ao.is_alive():
+						ward_kill = t - ward_at
+						break
 			for bi in range(bots.size()):
 				if bots[bi] == tank_bot:
 					if tank_bot.is_alive() and tank_bot.hp < tank_bot.stats.max_hp * 0.35:
@@ -675,6 +743,11 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 			if dead.size() == party:
 				break
 		deaths += dead.size()
+		if ward_at >= 0.0:
+			ward_n += 1
+			var wk: float = ward_kill if ward_kill >= 0.0 else t - ward_at
+			ward_sum += wk
+			ward_fast += 1 if ward_kill >= 0.0 and ward_kill <= 30.0 else 0
 		if _why:
 			print("TRIAL %s #%d %s t=%.0fs hp_chefe=%.0f%% caidos=%s grupo=%s" % [bid, trial, ("WIN" if not boss.is_alive() else "LOSS"), t, 100.0 * maxf(0.0, boss.hp) / boss.stats.max_hp,
 				",".join(bots.filter(func(b): return dead.has(b.id)).map(func(b): return "%s/%s:%s" % [b.class_def.id, b.build_id, ("morto" if not b.is_alive() else "saiu->" + b.map_id)])), ",".join(bots.map(func(b): return "%s/%s" % [b.class_def.id, b.build_id]))])
@@ -710,12 +783,14 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 		print("PERDAS %s %s" % [bid, str(acc["drop_by"])])
 		print("PERDAS_COMO %s %s" % [bid, str(acc["drop_how"])])
 		print("WHY %s grupo=%d %s" % [bid, party, ", ".join(keys.slice(0, 8).map(func(k): return "%s=%.0f%%" % [k, 100.0 * acc["why"][k] / maxf(1.0, acc["dmg"])]))])
+	if ward_n > 0:
+		print("WARD %s grupo=%d lutas_com_ward=%d 1o_lacaio_caiu_em=%.1fs ate_30s=%d/%d" % [bid, party, ward_n, ward_sum / ward_n, ward_fast, ward_n])
 	Events.skill_cast.disconnect(on_cast)
 	Events.damage_dealt.disconnect(on_dmg)
 	Events.healed.disconnect(on_heal)
 	Events.potion_used.disconnect(on_pot)
 	var mins := maxf(0.01, fight_sum / 60.0)
-	return {"wins": wins, "time": t_sum / maxf(1, wins), "deaths": float(deaths) / trials, "aggro": 100.0 * agg_sum / trials,
+	return {"sig": Sim.sig_stats.duplicate(), "wins": wins, "time": t_sum / maxf(1, wins), "deaths": float(deaths) / trials, "aggro": 100.0 * agg_sum / trials,
 		"casts": acc["casts"] / mins, "act": 100.0 * act_sum / maxf(0.01, fight_sum), "adds": float(adds_sum) / trials,
 		"off": 100.0 * acc["off"] / maxf(1.0, acc["dmg"]), "far": acc["far"] / mins, "kite": kite != "",
 		"area": 100.0 * acc["area"] / maxf(1.0, acc["dmg"]), "heal_tank": 100.0 * acc["heal_tank"] / maxf(1.0, acc["heal"]), "low": low_sum / trials,

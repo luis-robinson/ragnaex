@@ -42,7 +42,7 @@ static func check_boss(bid: String, parent: Node) -> Dictionary:
 		v.queue_free()
 		return {"lines": ["ANIM %-18s sem AnimationPlayer FLAG" % bid], "flags": 1}
 	var basic := v._clip("attack")
-	var kit: Array = Array(md.skill_ids)
+	var kit: Array = md.skill_ids.duplicate()      # cópia: Array(tipado) devolve o MESMO array (append mexeria no MonsterDef)
 	for ph in md.phases:
 		for sid in ph.get("skills", []):
 			if not kit.has(sid):

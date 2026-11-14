@@ -33,6 +33,62 @@ class FakeMain:
 	var views := {}
 	var current_map_id := ""
 
+## Texto flutuante (FloatText) e nomes de matilha (NameplateCrowd), arte 2026-11-13 itens 4 e 5:
+## repetição vira "Esquiva! ×N", teto por alvo, faixas distintas, Label3D reaproveitados; comum em matilha esconde o nome.
+func _check_float_text_crowd(gd) -> void:
+	var ft := FloatText.new()
+	add_child(ft)
+	for i in 5:
+		ft.pop(Vector3.ZERO, "Esquiva!", Color.WHITE, 1.0, 7, true)
+	check(ft.live_count() == 1 and (ft._live[0]["label"] as Label3D).text == "Esquiva! ×5", "texto flutuante: 5 esquivas no mesmo alvo = 1 pop ×5")
+	ft._process(FloatText.MERGE_WINDOW + 0.05)
+	ft.pop(Vector3.ZERO, "Esquiva!", Color.WHITE, 1.0, 7, true)
+	check(ft.live_count() == 2, "texto flutuante: fora da janela de fusão abre pop novo")
+	for i in 6:
+		ft.pop(Vector3.ZERO, str(100 + i), Color.WHITE, 1.0, 8)
+	var whole := ft._live.filter(func(r: Dictionary) -> bool: return int(r["key"]) == 8 and float(r["life"]) >= FloatText.LIFE)
+	check(whole.size() == FloatText.MAX_PER_TARGET, "texto flutuante: no máximo %d pops inteiros por alvo" % FloatText.MAX_PER_TARGET)
+	var lanes := {}
+	for r: Dictionary in whole:
+		lanes[int(r["lane"])] = true
+	check(lanes.size() == whole.size(), "texto flutuante: pops vivos do alvo em faixas diferentes")
+	ft._process(FloatText.EVICT_LEFT + 0.02)
+	check(ft._live.filter(func(r: Dictionary) -> bool: return int(r["key"]) == 8).size() == FloatText.MAX_PER_TARGET, "texto flutuante: o mais velho sai rápido")
+	ft._process(FloatText.LIFE + 0.1)
+	var kids := ft.get_child_count()
+	check(ft.live_count() == 0 and ft.pooled_count() == kids, "texto flutuante: tudo volta para o pool")
+	for i in 3:
+		ft.pop(Vector3.ZERO, "x", Color.WHITE, 1.0, 9)
+	check(ft.get_child_count() == kids, "texto flutuante: reaproveita Label3D (sem nó novo)")
+	for i in FloatText.MAX_TOTAL + 10:
+		ft.pop(Vector3.ZERO, str(i), Color.WHITE, 1.0, 1000 + i)
+	check(ft.live_count() <= FloatText.MAX_TOTAL and ft.get_child_count() <= FloatText.MAX_TOTAL + 1, "texto flutuante: teto geral de Label3D")
+	check(FloatText.merged_text("Esquiva!", 1) == "Esquiva!", "texto flutuante: sem contador quando é 1")
+	remove_child(ft)
+	ft.free()
+	# matilha: 5 comuns colados + 1 longe; o 0 é o alvo do jogador
+	var pts: Array[Vector3] = [Vector3(0, 0, 0), Vector3(1, 0, 0), Vector3(0, 0, 1), Vector3(1, 0, 1), Vector3(0.5, 0, 0.5), Vector3(30, 0, 0)]
+	var keep: Array[bool] = [true, false, false, false, false, false]
+	var hid := NameplateCrowd.hidden_names(pts, keep)
+	check(not hid[0] and hid[1] and hid[4] and not hid[5], "nomes da matilha: alvo mostra, comum na matilha esconde, sozinho mostra")
+	var few: Array[Vector3] = [Vector3.ZERO, Vector3(1, 0, 0)]
+	var nk: Array[bool] = [false, false]
+	check(not NameplateCrowd.hidden_names(few, nk).has(true), "nomes da matilha: par pequeno mostra os dois")
+	var near := NameplateCrowd.nearest(pts, [5, 1, 3] as Array[int], Vector3.ZERO, 2)
+	check(near.size() == 2 and near.has(1) and not near.has(5), "nomes da matilha: agressores mais perto do jogador mantêm o nome")
+	var boss_ok := false
+	var trash_ok := false
+	for mid in gd.monsters:
+		var md: MonsterDef = gd.monsters[mid]
+		var e := SimEntity.new()
+		e.kind = SimEntity.Kind.MONSTER
+		e.monster_def = md
+		if md.is_boss:
+			boss_ok = not NameplateCrowd.is_trash(e)
+		elif md.stat_role == "comum":
+			trash_ok = NameplateCrowd.is_trash(e)
+	check(boss_ok and trash_ok, "nomes da matilha: chefe nunca esconde, comum esconde")
+
 ## View criada tarde (fila de views, chegada no mapa): nasce na forma atual sem metamorfose e com o anel da aura ligada
 ## que o _on_buff teria posto (EntityView.snap_visual_state + FxManager.sync_entity_visuals, chamados no main._create_view).
 func _check_late_view_state(gd, sim) -> void:
@@ -585,6 +641,7 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_form_clips()
 	_check_view_queue()
 	_check_late_view_state(GameData, Sim)
+	_check_float_text_crowd(GameData)
 	_check_windup_timing()
 	_check_pose_fade()
 	_check_hand_twist()
@@ -807,7 +864,7 @@ func _check_zone(gd, sim) -> void:
 	check(wall_ok, "muralha bloqueia todo o anel fora dos portões")
 	for g in md.town_gates:
 		check(sim.is_walkable(g, md, 0.45), "portão %s passável" % [g])
-	for zid in ["city_aldara", "field_forest", "field_ruins", "elf_city", "field_coast", "field_steppe"]:
+	for zid in ["city_aldara", "field_forest", "field_ruins", "elf_city", "field_coast", "field_steppe", "field_kharzun"]:
 		_check_zone_layout(gd, sim, gd.maps[zid])
 		_check_places(gd, sim, gd.maps[zid])
 	_check_dungeons(gd, sim)
@@ -838,6 +895,7 @@ func _check_zone(gd, sim) -> void:
 	_check_water_shader(gd)
 	_check_zone_dress(gd)
 	_check_model_leaks()
+	_check_mob_glow(gd, sim)
 	_check_repeatable_labels(gd)
 	_check_reset_and_coin(gd, sim)
 	_check_escort(gd, sim)
@@ -1089,6 +1147,7 @@ func _check_guard_arc(gd, sim) -> void:
 	check(d.stats.block_chance > 0.0 and passive == 0, "chance passiva não cobre as costas")
 	d.is_blocking = true
 	d.parry_left = 0.2
+	d.stats.evasion = 0.0                               # sem a esquiva passiva da AGI (sorteio): o teste é do aparo
 	var hp: float = d.hp
 	sim._deal_damage(foe, d, 100, false, false, "physical", at.call(180.0))
 	check(d.parry_left > 0.0 and hp - d.hp >= 99.0, "aparo não vale pelas costas")
@@ -1133,6 +1192,7 @@ func _check_guard_arc(gd, sim) -> void:
 		wolf.skill_aim = at.call(deg)
 		sim._apply_skill(wolf, meteor, m)
 		return [d.hp < d.stats.max_hp, blocks["n"]]
+	d.stats.evasion = 0.0      # esquiva (AGI, sorteio) não entra aqui: o teste é de bloqueio por lado
 	var back_fall: Array = fall.call(180.0)
 	var front_fall: Array = fall.call(0.0)
 	check(back_fall[0] and back_fall[1] == 0 and front_fall[1] == 1, "área no chão vale pelo ponto de impacto (%s, %s)" % [back_fall, front_fall])
@@ -1450,6 +1510,7 @@ func _check_shields(gd, sim) -> void:
 		return e
 	var foe: SimEntity = sim.spawn_bot(gd.classes["berserker"], "Bate", "city_aldara", Vector3(1.5, 0, 6), 30)
 	foe.brain = null
+	foe.stats.evasion = 0.0       # o reflexo tem de pegar: a esquiva da AGI de quem bate sortearia no sim.rng compartilhado
 	# bloqueio simples: cura, barreira, reflexo
 	var a: SimEntity = mk.call("shield_asa_angelical")
 	a.hp = 100.0
@@ -1512,12 +1573,22 @@ func _check_skill_clips() -> void:
 	for body in ["male", "female"]:
 		var k := KitModel.create(body, Color.WHITE)
 		for clip in EntityView.IMPACT_FRAME:
-			if clip != "attack" and not (clip in EntityView.FORM_CLIP.values()):     # gestos de bicho ficam nas formas (_check_form_clips)
+			if clip != "attack" and not (clip in EntityView.FORM_CLIP.values()) and not EntityView.MOB_ONLY_CLIPS.has(clip):     # gestos de bicho ficam nas formas (_check_form_clips)
 				check(k.resolve(clip) != "", "kit_%s: clipe %s" % [body, clip])
 				if k.anim.has_animation(clip):
 					check(float(EntityView.IMPACT_FRAME[clip] - 1) / 24.0 < k.anim.get_animation(clip).length, "%s: impacto dentro do clipe" % clip)
 		check(k.legs != null and k.legs._tracks.size() >= 6, "kit_%s: pernas por cima do golpe" % body)
 		k.free()
+	for clip in EntityView.MOB_ONLY_CLIPS:            # clipe próprio de monstro: existe no modelo e o impacto cabe nele
+		var ps: PackedScene = load("res://assets/models/%s.glb" % EntityView.MOB_ONLY_CLIPS[clip])
+		var inst := ps.instantiate()
+		var ap: Array = inst.find_children("*", "AnimationPlayer", true, false)
+		var ok: bool = not ap.is_empty() and (ap[0] as AnimationPlayer).has_animation(clip)
+		check(ok and float(EntityView.IMPACT_FRAME[clip] - 1) / 24.0 < (ap[0] as AnimationPlayer).get_animation(clip).length,
+			"%s: clipe %s existe e o impacto cabe nele" % [EntityView.MOB_ONLY_CLIPS[clip], clip])
+		if clip == "wall_counter":
+			check(ok and (ap[0] as AnimationPlayer).has_animation("guard_wall"), "mob_ghar: clipe guard_wall (Muralha)")
+		inst.free()
 
 ## Feel de combate: anda durante o golpe, dash interrompe, buffer sobrevive ao ataque segurado, reacerta a mira.
 ## Dash: invulnerável a golpe direto e a efeito de inimigo por Balance.DASH_IFRAMES (o dash inteiro), também
@@ -1663,14 +1734,23 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_bot_form(gd, sim)
 	_check_bot_stealth(gd, sim)
 	_check_bot_group(gd, sim)
+	_check_bot_raid(gd, sim)
 	_check_bot_opener(gd, sim)
 	_check_bot_threat_budget(gd, sim)
 	_check_probe_sampler(gd)
 	_check_tank_threat(gd, sim)
 	_check_boss_crowd(gd, sim)
 	_check_boss_crowd_cocoon(gd, sim)
+	_check_boss_signatures(gd)
+	_check_boss_sig_idempotent(gd)
+	_check_boss_sig_rules(gd)
+	_check_boss_sig_bots(gd)
+	_check_boss_sig_kharzun(gd)
+	_check_boss_sig_kragmar(gd)
+	_check_boss_sig_durgash(gd)
 	_check_horde_lines(gd)
 	_check_horde_stats(gd)
+	_check_kharzun_roster(gd, sim)
 	_check_agitator_aura(gd, sim)
 	_check_horde_late(gd, sim)
 	_check_horde_mechanics(gd, sim)
@@ -1689,6 +1769,10 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_stage_obstacles(gd)
 	_check_mob_aura_ring(gd)
 	_check_act2_steppe(gd, sim)
+	_check_kharzun_map(gd, sim)
+	_check_kharzun_quests(gd, sim)
+	_check_kharzun_citadel(gd, sim)
+	_check_kharzun_rewards(gd, sim)
 	_check_act2_quests(gd, sim)
 	_check_act2_steppe_quests(gd, sim)
 	_check_set_names(gd)
@@ -1696,6 +1780,8 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_elemental_evolution(gd, sim, save_ref)
 	_check_ascension_web(gd, sim, save_ref)
 	_check_asc_web_fill(gd, sim)
+	_check_twin_fury(gd, sim)
+	_check_asc_power_35(gd, sim)
 	_check_asc_refines(gd, sim)
 	_check_choir(gd, sim)
 	_check_choir_bots(gd, sim)
@@ -1704,6 +1790,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_layout_conflicts(gd, sim)
 	_check_villagers(gd, sim)
 	_check_living_act2(gd, sim)
+	_check_living_kharzun(gd, sim)
 	_check_creatures_act2(gd, sim)
 	_check_raids(gd, sim)
 	_check_elf_loot(gd, sim)
@@ -1732,6 +1819,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_monster_polish(gd, sim)
 	_check_dungeon_density(gd, sim)
 	_check_shop_rules(gd, sim)
+	_check_mount_keeper_ui(gd, sim)
 	_check_forge(gd, sim)
 	_check_legend_weapons_and_attrs(gd, sim)
 	_check_item_descriptions(gd)
@@ -1856,6 +1944,15 @@ func _check_mount(gd, sim) -> void:
 	mob.brain = null
 	sim._deal_damage(mob, e, 5, false, false, "physical")
 	check(not e.mounted, "levar golpe derruba do cavalo")
+	# masmorra = a pé, exceto as que aceitam montaria (Cidadela de Kharzun)
+	var ride_ok: Array = []
+	for mid in gd.maps:
+		var md: MapDef = gd.maps[mid]
+		check(md.no_mount() == (md.parent_map != "" and not md.mounts_ok), "no_mount segue parent_map/mounts_ok em %s" % mid)
+		if md.parent_map != "" and md.mounts_ok:
+			ride_ok.append(mid)
+	check(ride_ok == ["kharzun_citadel"], "só a Cidadela de Kharzun aceita montaria entre as masmorras (%s)" % str(ride_ok))
+	check(gd.maps.has("dg_slayers") and gd.maps["dg_slayers"].no_mount(), "outras masmorras continuam a pé")
 	sim.despawn(mob)
 	sim.despawn(e)
 	_check_horse_model()
@@ -2079,7 +2176,7 @@ func _check_mounted_combat(gd, sim) -> void:
 	# masmorra: não monta
 	var dg := ""
 	for mid in gd.maps:
-		if gd.maps[mid].parent_map != "" and not gd.maps[mid].interior and sim.maps.has(mid):
+		if gd.maps[mid].no_mount() and not gd.maps[mid].interior and sim.maps.has(mid):
 			dg = mid
 			break
 	if dg != "":
@@ -2090,6 +2187,14 @@ func _check_mounted_combat(gd, sim) -> void:
 		sim._apply_command(d, c, sim.maps[dg], dt)
 		check(d.mount_left == 0.0 and not d.mounted, "masmorra (%s): não monta" % dg)
 		sim.despawn(d)
+	if sim.maps.has("kharzun_citadel"):
+		var k := _asc_paladin(gd, sim, "kharzun_citadel", gd.maps["kharzun_citadel"].spawn_point, "guardiao", ["pal_holy_strike"])
+		var kc := InputCommand.new()
+		kc.mount = true
+		kc.aim = k.position + Vector3(0, 0, 2)
+		sim._apply_command(k, kc, sim.maps["kharzun_citadel"], dt)
+		check(k.mount_left > 0.0, "Cidadela de Kharzun: H começa a montar (mounts_ok)")
+		sim.despawn(k)
 	_check_mounted_charge(gd, sim)
 
 ## Carga Montada: 11,2 m em linha reta, atropela todos na linha, para na borda/parede.
@@ -3317,6 +3422,64 @@ func _check_elementalist_builds(gd, sim) -> void:
 ## próprios do 35 ao 45 + missão, barra de 10 (7-0 só ascensão), save (asc_tree + loadout) e bots.
 ## Pergunta aberta 13 (teias pequenas): Paladino e Elementalista com 36+ pontos de conteúdo por build aos 45, e os refinos
 ## que saíram de ASC_REFINES_PENDING para portões da teia (Lança Pesada, Torreta Firme/Veterana, Salamandra/Golem/Silfo).
+## Gêmeos 45 (decisão do autor 2026-11-13): nó Fúria Gêmea no ramo da build e o Ciclone de Titã na barra do bot.
+## F5 aos 35 (usuário 2026-11-13): ASC_POWER_35_MULT vale inteiro no 35, vira 1,0 no 45 em linha reta; todo peso de ascensão passa por Balance.asc_power.
+func _check_asc_power_35(gd, sim) -> void:
+	var span := Balance.ASC_MAX_LEVEL - Balance.ASC_LEVEL
+	for b in Balance.ASC_POWER_35_MULT:
+		var m35 := float(Balance.ASC_POWER_35_MULT[b])
+		check(m35 > 0.0 and is_equal_approx(Balance.asc_level_mult(b, Balance.ASC_LEVEL), m35), "F5 35: %s vale x%.2f no 35" % [b, m35])
+		check(is_equal_approx(Balance.asc_level_mult(b, Balance.ASC_MAX_LEVEL), 1.0) and is_equal_approx(Balance.asc_level_mult(b, Balance.ASC_MAX_LEVEL + 5), 1.0), "F5 35: %s = x1,0 no 45 (o peso do 45 não muda)" % b)
+		var mono := true
+		for lv in range(Balance.ASC_LEVEL, Balance.ASC_MAX_LEVEL):
+			var a := Balance.asc_level_mult(b, lv)
+			var c := Balance.asc_level_mult(b, lv + 1)
+			mono = mono and (c >= a - 0.0001 if m35 <= 1.0 else c <= a + 0.0001)
+		check(mono, "F5 35: %s anda sem voltar do 35 ao 45" % b)
+		check(is_equal_approx(Balance.asc_level_mult(b, Balance.ASC_LEVEL + span / 2), lerpf(m35, 1.0, float(span / 2) / span)), "F5 35: %s em linha reta" % b)
+		check(is_equal_approx(Balance.asc_power(b, Balance.ASC_LEVEL), float(Balance.ASC_BUILD_POWER.get(b, 1.0)) * m35), "F5 35: asc_power(%s) = peso do 45 x fator" % b)
+	check(is_equal_approx(Balance.asc_level_mult("build_sem_entrada", Balance.ASC_LEVEL), 1.0), "F5 35: build sem entrada = x1,0")
+	# os caminhos de cada ascensão usam o fator do nível do dono
+	for lv in [Balance.ASC_LEVEL, 40, Balance.ASC_MAX_LEVEL]:
+		check(is_equal_approx(RangerAscension.asc_power("lanceiro", lv), Balance.asc_power("lanceiro", lv)) and is_equal_approx(DruidAscension.asc_power("xama", lv), Balance.asc_power("xama", lv)), "F5 35: Ranger/Druida pelo Balance.asc_power (nv %d)" % lv)
+		var a: SimEntity = sim.spawn_bot(gd.classes["assassin"], "F5_sombra", "city_aldara", Vector3(60, 0, -64), lv)
+		a.brain = null
+		a.build_id = "corsario"
+		check(is_equal_approx(ShadowSystem.asc_power(sim, a), Balance.asc_power("corsario", lv)), "F5 35: clone/Execução pelo nível do dono (nv %d)" % lv)
+		var f: SimEntity = sim.spawn_bot(gd.classes["berserker"], "F5_garra", "city_aldara", Vector3(62, 0, -64), lv)
+		f.brain = null
+		f.equipment[ItemDef.Slot.WEAPON] = gd.items["claw_t3"]
+		f.equipment[ItemDef.Slot.OFFHAND] = gd.items["claw_t3"]
+		_ascend(f)
+		check(f.stats.titan_claws and is_equal_approx(f.stats.titan_hit, Balance.TITAN_CLAW_POWER * Balance.asc_level_mult(TitanSystem.CLAW_BUILD, lv)), "F5 35: Garras de Titã no nível %d = x%.2f" % [lv, f.stats.titan_hit])
+		sim.despawn(a)
+		sim.despawn(f)
+	# ninguém em core/ lê o peso cru: tudo passa por Balance.asc_power / asc_level_mult
+	for path in ["ranger_ascension", "druid_ascension", "shadow_system", "falcon_system", "titan_system"]:
+		var src := FileAccess.get_file_as_string("res://core/sim/systems/%s.gd" % path)
+		check(not src.contains("ASC_BUILD_POWER") and (src.contains("Balance.asc_power(") or src.contains("RangerAscension.asc_power(BUILD, e.level)") or src.contains("asc_level_mult(")), "F5 35: %s usa o fator do nível" % path)
+		for line in src.split("
+"):
+			if line.contains("TITAN_CLAW_POWER") and not line.strip_edges().begins_with("#"):
+				check(line.contains("asc_level_mult("), "F5 35: TITAN_CLAW_POWER só com o fator do nível")
+
+func _check_twin_fury(gd, sim) -> void:
+	var nd: Dictionary = gd.asc_trees["berserker"]["nodes"].get("berserker_a_x_twin_fury", {})
+	check(not nd.is_empty() and int(nd["level"]) == 45 and str(nd["branch"]) == "carniceiro" and int(nd["cost"]) == 3
+		and is_equal_approx(float((nd.get("stats", {}) as Dictionary).get("atk_pct", 0.0)), float(Balance.TWIN_FURY_ATK)), "Gêmeos: Fúria Gêmea (45, +%d%% de dano) no ramo da build" % Balance.TWIN_FURY_ATK)
+	var order: Array = AscensionCatalog.bot_order(gd.classes["berserker"], "carniceiro", gd.skills)
+	check(order.has("ber_titan_cyclone") and not AscensionCatalog.BOT_NO_SLOT.has("ber_titan_cyclone") and order.find("ber_titan_cyclone") < Balance.ASC_SLOTS, "Gêmeos: Ciclone de Titã na ordem de ascensão do bot (barra 7-0)")
+	var e: SimEntity = sim.spawn_character(SimEntity.Kind.BOT, gd.classes["berserker"], "Web_twin", "city_aldara", Vector3(60, 0, -60), Balance.ASC_MAX_LEVEL)
+	e.build_id = "carniceiro"
+	e.quests_completed.append("hx_asc_berserker")
+	sim._gear_bot(e)
+	sim._skill_bot(e)
+	e.brain = null
+	e.recompute_stats()
+	check(e.asc_tree.has("berserker_a_x_twin_fury"), "bot Gêmeos no 45 compra a Fúria Gêmea (%s)" % ",".join(PackedStringArray(e.asc_tree.keys())))
+	check(e.skills.any(func(s): return s != null and s.id == "ber_titan_cyclone"), "bot Gêmeos no 45 põe o Ciclone de Titã na barra (%s; arma %s+%s)" % [",".join(PackedStringArray(e.skills.map(func(s): return s.id if s != null else "-"))), e.stats.weapon_type, e.stats.offhand_type])
+	sim.despawn(e)
+
 func _check_asc_web_fill(gd, sim) -> void:
 	var budget: int = Balance.ASC_POINTS_PER_LEVEL * (Balance.ASC_MAX_LEVEL - Balance.ASC_LEVEL + 1) + Balance.ASC_QUEST_POINTS
 	for cid in ["paladin", "elementalist"]:
@@ -3350,7 +3513,7 @@ func _check_asc_web_fill(gd, sim) -> void:
 	# bots no 45 gastam a teia inteira e compram os portões da build
 	for row in [["paladin", "cruzado", [Balance.MOUNT_LANCE_FLAG]], ["paladin", "guardiao", [Balance.ARCANE_GUARD_FLAG, Balance.MOUNT_WALL_FLAG]],
 			["paladin", "templario", [Balance.ARCANE_WARD_FLAG, Balance.MOUNT_BANNER_FLAG]],
-			["berserker", "carniceiro", [Balance.CYCLONE_LONG_FLAG]], ["berserker", "executor", [Balance.SECOND_AXE_FLAG, Balance.ARENA_FINALE_FLAG]],
+			["berserker", "carniceiro", [Balance.CYCLONE_LONG_FLAG, Balance.TWIN_FURY_FLAG]], ["berserker", "executor", [Balance.SECOND_AXE_FLAG, Balance.ARENA_FINALE_FLAG]],
 			["berserker", "punhos", [Balance.FURY_LIT_FLAG, Balance.GLORY_KEEP_FLAG]], ["ranger", "lanceiro", [Balance.DOUBLE_JUMP_FLAG, Balance.SHOUT_COMBO_FLAG]],
 			["ranger", "atirador", Balance.TURRET_REFINE_FLAGS], ["elementalist", "fogo", [Balance.ELEM_FORM_REFINE_FLAG + "fire"]],
 			["elementalist", "gelo", [Balance.ELEM_FORM_REFINE_FLAG + "frost"]], ["elementalist", "raio", [Balance.ELEM_FORM_REFINE_FLAG + "storm"]]]:
@@ -4254,7 +4417,7 @@ func _check_titan_grip(gd, sim) -> void:
 	f.recompute_stats()
 	check(not f.stats.titan_claws and is_equal_approx(TitanSystem.power_mult(f, f.basic_skill), 1.0), "garras sem ascensão: normais")
 	_ascend(f)
-	check(f.stats.titan_claws and is_equal_approx(TitanSystem.power_mult(f, f.basic_skill), 1.0 + Balance.TITAN_CLAW_POWER) and is_equal_approx(f.stats.titan_speed, 1.0 - Balance.TITAN_CLAW_ASPD_PEN), "Garras de Titã: básico +%d%% e %d%% mais lento" % [roundi(Balance.TITAN_CLAW_POWER * 100), roundi(Balance.TITAN_CLAW_ASPD_PEN * 100)])
+	check(f.stats.titan_claws and is_equal_approx(TitanSystem.power_mult(f, f.basic_skill), 1.0 + Balance.TITAN_CLAW_POWER * Balance.asc_level_mult(TitanSystem.CLAW_BUILD, f.level)) and is_equal_approx(f.stats.titan_speed, 1.0 - Balance.TITAN_CLAW_ASPD_PEN), "Garras de Titã: básico +%d%% e %d%% mais lento" % [roundi(Balance.TITAN_CLAW_POWER * 100), roundi(Balance.TITAN_CLAW_ASPD_PEN * 100)])
 	var foe: SimEntity = sim.spawn_monster(gd.monsters["golem"], "city_aldara", f.position + Vector3(0, 0, 1.5))
 	foe.brain = null
 	var p0: Vector3 = foe.position
@@ -6113,6 +6276,39 @@ func _check_repeatable_labels(gd) -> void:
 
 ## Modelo de monstro/prop/kit não carrega pedaço de zona: objeto marcado numa coleção escondida do Blender ia junto
 ## no GLB (centenas de chãos de dungeon dentro de cada elfo/grifo/casa élfica).
+## Peça que brilha no GLB do monstro (brasa, runa, olho: emissão > 1) continua brilhando depois do toon e da fusão
+## (EntityView.mob_glow -> emission_amount); m_white (emissão 1,0 só para clarear) não brilha. O hit flash segue nos materiais.
+func _check_mob_glow(gd, sim) -> void:
+	var white := StandardMaterial3D.new()
+	white.resource_name = "m_white"
+	white.emission_enabled = true
+	white.emission = Color(0.8, 0.8, 0.8)
+	white.emission_energy_multiplier = 1.0
+	check(EntityView.mob_glow(white) == 0.0, "m_white (emissão 1,0) não vira brilho")
+	var ember := StandardMaterial3D.new()
+	ember.emission_enabled = true
+	ember.emission = Color(1.0, 0.68, 0.31)
+	ember.emission_energy_multiplier = 2.2
+	var ec := EntityView.glow_color(ember)
+	check(EntityView.mob_glow(ember) >= 1.0 and ec.r > 0.9 and ec.g < 0.5 * ec.r, "brasa: brilha e volta ao laranja do Blender (%s)" % ec.to_html(false))
+	var boss: SimEntity = sim.spawn_monster(gd.monsters["boss_kragmar"], "city_aldara", Vector3(5, 0, 8))
+	var v := EntityView.new()
+	add_child(v)
+	v.setup(boss, false)
+	var lit := 0
+	var flash_ok := true
+	for mi in v.find_children("*", "MeshInstance3D", true, false):
+		var m3 := mi as MeshInstance3D
+		for si in m3.get_surface_override_material_count():
+			var m := m3.get_surface_override_material(si) as ShaderMaterial
+			if m and m.get_shader_parameter("emission_amount") != null and float(m.get_shader_parameter("emission_amount")) >= 1.0:
+				lit += 1
+				flash_ok = flash_ok and v._mats.has(m)
+	check(lit >= 1, "Kragmar: peça de brasa/martelo continua emissiva depois do toon e da fusão (%d)" % lit)
+	check(flash_ok, "Kragmar: superfície que brilha recebe o hit flash")
+	v.free()
+	sim.despawn(boss)
+
 func _check_model_leaks() -> void:
 	var dir := DirAccess.open("res://assets/models")
 	var bad: Array = []
@@ -6197,7 +6393,7 @@ func _check_water_shader(gd) -> void:
 
 ## Acabamento das zonas do Ato II (tools/blender/zones/dress.py): o detalhe vem em lotes por célula com a cor no vértice.
 ## Lote sem COLOR_0 apareceria branco no jogo; lote por peça (em vez de por célula) estouraria os draw calls.
-const DRESSED_MAPS := ["field_coast", "city_port", "dg_goblin", "field_steppe", "fort_trolls", "fort_fire", "fort_war"]
+const DRESSED_MAPS := ["field_coast", "city_port", "dg_goblin", "field_steppe", "fort_trolls", "fort_fire", "fort_war", "field_kharzun"]
 const DRESS_MAX_MESHES := 260
 func _check_zone_dress(gd) -> void:
 	for mid in DRESSED_MAPS:
@@ -6405,6 +6601,18 @@ func _check_action_bar(_gd, _sim) -> void:
 	check(bar.util_slots.size() == 2 and bar.util_slots[0]["id"] == "mount" and bar.util_slots[1]["id"] == "recall", "barra: H (montaria) e G (volta) com slot próprio")
 	for u in bar.util_slots:
 		check(ResourceLoader.exists("res://assets/icons/action_%s.png" % u["id"]) and str(u["root"].tooltip_text).contains("(%s)" % ("H" if u["id"] == "mount" else "G")), "barra: %s tem ícone e dica com a tecla" % u["id"])
+	# H segue a montaria escolhida (SimEntity.mount_kind): ícone próprio por tipo e nome na dica
+	for k in Balance.MOUNT_KINDS:
+		check(ResourceLoader.exists("res://assets/icons/%s.png" % ActionBar.mount_icon(k)) and (k == Balance.MOUNT_DEFAULT) == (ActionBar.mount_icon(k) == "action_mount"),
+			"barra: montaria %s tem ícone próprio no H (%s; make_icons -- --only=action)" % [k, ActionBar.mount_icon(k)])
+	var h: Dictionary = bar.util_slots[0]
+	var horse_tex: Texture2D = h["tex"].texture
+	check(str(h["root"].tooltip_text).contains(Balance.MOUNT_KINDS[Balance.MOUNT_DEFAULT]["name"]), "barra: dica do H começa com o cavalo")
+	bar.set_mount_kind("dire_wolf")
+	check(h["tex"].texture != horse_tex and h["tex"].texture == UiKit.icon_texture("action_mount_dire_wolf") and str(h["root"].tooltip_text).contains(Balance.MOUNT_KINDS["dire_wolf"]["name"]), "barra: lobo atroz troca o ícone e a dica do H")
+	bar.set_mount_kind(Balance.MOUNT_DEFAULT)
+	check(h["tex"].texture == horse_tex, "barra: volta ao cavalo no H")
+	check(ActionBar.mount_icon("xyz") == "action_mount", "barra: montaria sem arte usa o ícone do cavalo")
 	bar.set_xp(12, 250, 1000)
 	check(is_equal_approx(bar.xp.frac, 0.25) and bar.xp.text.contains("25%") and bar.level_cap.value == "12", "barra: XP 25% e nível 12 no brasão")
 	bar.set_xp(30, 0, 0)
@@ -6491,10 +6699,10 @@ func _check_character_window(gd, sim) -> void:
 func _check_roteiro(gd, sim) -> void:
 	var W = load("res://game/ui/windows.gd")
 	var bands: Array = W.ROTEIROS.map(func(b): return b[0])
-	for band in ["1_10", "10_20", "20_30", "30_35", "35_40"]:
+	for band in ["1_10", "10_20", "20_30", "30_35", "35_40", "40_45"]:
 		check(bands.has(band), "aba Roteiro tem a faixa %s" % band)
 	check(W.roteiro_band_for(1) == "1_10" and W.roteiro_band_for(19) == "10_20" and W.roteiro_band_for(30) == "30_35"
-		and W.roteiro_band_for(38) == "35_40" and W.roteiro_band_for(45) == "35_40", "roteiro abre na faixa do nível")
+		and W.roteiro_band_for(38) == "35_40" and W.roteiro_band_for(42) == "40_45" and W.roteiro_band_for(45) == "40_45", "roteiro abre na faixa do nível")
 	# quebra no meio do parágrafo vira espaço; título, tabela, lista e linha em branco continuam separados
 	var soft: PackedStringArray = W.roteiro_lines("# T\nTema: um\ndois **ne\ngrito**\n\n- item\n  segue\n- outro\n| a | b |\nfim\n1. passo\nmais")
 	check(Array(soft) == ["# T", "Tema: um dois **ne grito**", "", "- item segue", "- outro", "| a | b |", "fim", "1. passo mais"],
@@ -6718,6 +6926,21 @@ func _check_sfx_bank(gd) -> void:
 		check(sfx.bank.has(Sfx.BUFF_SOUND[b]) and BuffLooks.LOOKS.has(b), "Sfx.BUFF_SOUND: buff '%s' existe e o som está no banco" % b)
 	for sid in ["mob_troll_slam", "mob_rock_quake"]:
 		check(Sfx.EFFECT_SOUND.get(sid, "") == "troll_slam", "skill de troll '%s' bate com a pancada de troll" % sid)
+	# assinaturas dos chefes: toda skill boss_signature avisa com som quando o desenho aparece; impactos/quebras no banco
+	for sid in gd.skills:
+		if (gd.skills[sid] as SkillDef).boss_signature:
+			check(Sfx.SIG_WARN.has(sid), "assinatura '%s' tem som de aviso (Sfx.SIG_WARN)" % sid)
+	for sid in Sfx.SIG_WARN:
+		var row: Array = Sfx.SIG_WARN[sid]
+		check(gd.skills.has(sid) and (gd.skills[sid] as SkillDef).boss_signature, "Sfx.SIG_WARN cita assinatura que existe (%s)" % sid)
+		check(row.size() >= 2 and str(row[0]) in ["startup", "active"], "Sfx.SIG_WARN '%s' = [fase, sons...]" % sid)
+		for n in row.slice(1):
+			check(sfx.bank.has(n) and Sfx.VOL.has(n), "aviso de assinatura '%s': som '%s' no banco" % [sid, n])
+	var sig_fx := [BossSignatures.CHANNEL_BREAK_FX, BossSignatures.COUNTER_FX, BossSignatures.COVER_BREAK_FX, BossSignatures.DECOY_FX]
+	for k in sig_fx:
+		check(Sfx.SIG_EFFECT.has(k), "quebra/contragolpe de assinatura '%s' tem som (Sfx.SIG_EFFECT)" % k)
+	for k in Sfx.SIG_EFFECT:
+		check(sfx.bank.has(Sfx.SIG_EFFECT[k]) and (gd.skills.has(k) or k in sig_fx), "Sfx.SIG_EFFECT '%s' cita skill/efeito que existe e som do banco" % k)
 	sfx.free()
 	AudioSettings.load_and_apply()
 	for b in AudioSettings.BUSES:
@@ -7062,6 +7285,7 @@ func _check_act2_gear(gd, sim) -> void:
 	var fire30: SetDef = gd.sets["set_elementalist_fogo_30"]
 	check(is_equal_approx(fire30.bonuses[4]["skill_dmg"].values()[0], 40.0), "Ato I sem mudança: 4 peças do 30 = 40%")
 	_check_act2_gear_40(gd, sim)
+	_check_kharzun_cap(gd, sim)
 	var sword35: ItemDef = gd.items["sword_t%d" % t4]
 	var f35 := GearCatalog.level_factor(35)
 	check(absf(f35 - 39.0 / 28.0) < 0.001, "F10: fator do nível 35 = 1,393 (%.3f)" % f35)
@@ -7450,12 +7674,92 @@ func _check_act2_gear_40(gd, sim) -> void:
 	check(n40 == 24, "24 conjuntos lendários do 40, um por build (%d)" % n40)
 	check(absf(GearCatalog.level_factor(40) - 44.0 / 28.0) < 0.001, "F10: fator do nível 40 = 1,571 (%.3f)" % GearCatalog.level_factor(40))
 
+## Teto 45 (Monte Kharzun, design/gdd/kharzun-fase3-plan.md WP1/KAC-03/KAC-13): faixa de XP 40-45, lendários e híbridos
+## do 45 na Relicária (9 moedas, i_ef 6,5), linha de talento 45, pontos de teia e de ascensão no 45, bots no 45.
+func _check_kharzun_cap(gd, sim) -> void:
+	check(Balance.MAX_LEVEL == 45 and Balance.ASC_MAX_LEVEL == Balance.MAX_LEVEL, "teto do Ato II: nível 45 (%d), ascensão até o teto" % Balance.MAX_LEVEL)
+	check(Balance.XP_BANDS[-1] == [40, 45] and is_equal_approx(Balance.quest_share(40), 0.5), "faixa 40-45 com 50%% de XP de missão (F1)")
+	check(absf(Balance.xp_for_level(44) - 75390.0) <= 753.9, "F1: 44 -> 45 ≈ 75 390 ±1%% (%d)" % Balance.xp_for_level(44))
+	var h := 0.0
+	for l in range(40, 45):
+		h += Balance.level_minutes(l) / 60.0
+	check(absf(h - 5.5) < 0.1, "F1: faixa 40-45 ≈ 5,5 h (%.2f)" % h)
+	var web_points := 0
+	for l in range(2, 46):
+		web_points += Balance.points_at(l)
+	check(web_points == 356 and Balance.points_at(45) == 8, "teia: 356 pontos no 45 (%d), sem bônus no 45" % web_points)
+	var asc := SimEntity.new()
+	asc.class_def = gd.classes["paladin"]
+	asc.level = 45
+	asc.quests_completed.append("hx_asc_paladin")
+	check(ProgressionSystem.asc_points_total(asc) == 36, "ascensão: 36 pontos no 45 (%d)" % ProgressionSystem.asc_points_total(asc))
+	# lendários do 45: índice 8, 9 moedas, epíteto próprio, bônus % pelo i_ef 6,5 (F10: 46% / 19% / 23%)
+	check(Balance.LEGENDARY_LEVELS[-1] == 45 and Balance.legend_tier(45) == 8 and is_equal_approx(Balance.set_pct_tier(8), 6.5), "lendário 45 no índice 8 (i_ef 6,5)")
+	check(GearCatalog.TIER_EPITHETS.size() == Balance.LEGENDARY_LEVELS.size() and not GearCatalog.TIER_EPITHETS.slice(0, 8).has(GearCatalog.TIER_EPITHETS[8]), "epíteto próprio do 45 (%s)" % GearCatalog.TIER_EPITHETS[-1])
+	check(ItemSystem.relic_levels().has(45), "Relicária troca o 45")
+	var n45 := 0
+	var n45h := 0
+	for sid in gd.sets:
+		var sd: SetDef = gd.sets[sid]
+		if sd.level != 45:
+			continue
+		if sd.is_hybrid():
+			n45h += 1
+			continue
+		n45 += 1
+		var v4: float = sd.bonuses[4]["skill_dmg"].values()[0]
+		var cdr: float = sd.bonuses[5]["skill_cdr"].values()[0]
+		check(is_equal_approx(v4, 46.0) and is_equal_approx(cdr, 23.0), "%s: 4 peças 46%% e recarga 23%% (%.1f, %.1f)" % [sid, v4, cdr])
+		var w: ItemDef = gd.items[sid.replace("set_", "leg_") + "_weapon"]
+		check(sim.relic_cost(w) == 9 and w.level_req == 45, "%s: arma do 45 custa 9 moedas" % sid)
+		var w40: ItemDef = gd.items[(sid.trim_suffix("_45") + "_40").replace("set_", "leg_") + "_weapon"]
+		check(w.atk > w40.atk or w.matk > w40.matk, "%s: arma acima da do 40" % sid)
+		var head: ItemDef = gd.items[sd.armor[0]]
+		check(head.name.ends_with(GearCatalog.TIER_EPITHETS[8]) and head.level_req == 45 and not GearCatalog.visual_of(sid).is_empty(), "%s: peça com nome do 45 e visual reaproveitado (%s)" % [sid, head.name])
+	check(n45 == 24 and n45h == 24, "24 conjuntos de build e 24 híbridos do 45 (%d, %d)" % [n45, n45h])
+	for cid in gd.classes:
+		var p := SimEntity.new()
+		p.class_def = gd.classes[cid]
+		p.level = 45
+		var offer: Array = sim.relic_offer(p)
+		check(offer.any(func(iid): return gd.items[iid].level_req == 45 and gd.items[iid].set_id != "" and not gd.sets[gd.items[iid].set_id].is_hybrid()), "%s: Relicária oferece conjunto da build do 45" % cid)
+		check(offer.any(func(iid): return gd.items[iid].level_req == 45 and gd.items[iid].set_id != "" and gd.sets[gd.items[iid].set_id].is_hybrid()), "%s: Relicária oferece híbrido do 45" % cid)
+	# linha de talento 45: fechada no 44, abre no 45 (uma opção por classe)
+	var cat: Dictionary = ClassTalentsCatalog.build()
+	var at: Vector3 = sim.maps["city_aldara"]["def"].town_center
+	# save do teto antigo (40, XP zerada no teto): carrega igual e volta a subir
+	var old: SimEntity = sim.spawn_bot(gd.classes["paladin"], "K40", "city_aldara", at, 40)
+	old.xp = 0
+	ProgressionSystem.gain_xp(sim, old, Balance.xp_for_level(40))
+	check(Balance.xp_for_level(40) > 0 and old.level == 41 and old.xp == 0, "save no 40 (teto antigo) sobe para o 41 (nv %d)" % old.level)
+	sim.despawn(old)
+	for cid in gd.classes:
+		var row45: Array = (cat[cid] as Array).filter(func(r): return int(r[0]) == 45)
+		check(row45.size() == 1, "%s: linha de talento 45" % cid)
+		if row45.is_empty():
+			continue
+		var nid: String = "%s_c_%s" % [cid, row45[0][1][0]["id"]]
+		var b: SimEntity = sim.spawn_bot(gd.classes[cid], "K45", "city_aldara", at, 44)
+		check(sim.tree_block_reason(b, nid) == "requer nível 45", "%s: talento 45 fechado no 44 (%s)" % [cid, sim.tree_block_reason(b, nid)])
+		# sobe do 44 ao 45 pela XP: para no 45 com XP 0, ganha os 8 pontos e o talento abre; bot veste o tier comum do 40
+		ProgressionSystem.gain_xp(sim, b, Balance.xp_for_level(44) + 500)
+		check(b.level == 45 and b.xp == 0, "%s: 44 -> 45 pela XP e para (nv %d, xp %d)" % [cid, b.level, b.xp])
+		ProgressionSystem.gain_xp(sim, b, 100000)
+		check(b.level == 45 and b.xp == 0, "%s: no 45 a XP não acumula" % cid)
+		check(not sim.tree_block_reason(b, nid).begins_with("requer nível"), "%s: talento 45 abre no 45 (%s)" % [cid, sim.tree_block_reason(b, nid)])
+		sim.despawn(b)
+		var b45: SimEntity = sim.spawn_bot(gd.classes[cid], "K45b", "city_aldara", at, 45)
+		var w: ItemDef = b45.equipment.get(ItemDef.Slot.WEAPON)
+		check(w != null and w.level_req == 40, "bot %s nível 45 veste o tier comum do 40" % cid)
+		check(b45.mastery_points <= Balance.MASTERY_POINTS_PER_LEVEL, "bot %s nível 45 gasta a teia (sobra %d)" % [cid, b45.mastery_points])
+		sim.despawn(b45)
+
 ## Níveis lendários com visual próprio (até GearCatalog.OWN_VISUALS_UNTIL); acima o conjunto reaproveita (visual_of).
 func _own_visual_levels() -> Array:
 	return Balance.LEGENDARY_LEVELS.filter(func(l): return l <= GearCatalog.OWN_VISUALS_UNTIL)
 
 ## Faixas de XP abertas antes das missões delas chegarem (outra árvore de trabalho). Tire a entrada depois do merge.
-const QUEST_PENDING_BANDS := []
+const QUEST_PENDING_BANDS := [40]
 
 ## Ritmo: ~15 h até o 30 e as quests dando ~45% de cada faixa.
 func _check_xp_budget(gd) -> void:
@@ -7475,7 +7779,7 @@ func _check_xp_budget(gd) -> void:
 		# faixa cujas missões ainda não entraram nesta árvore (QUEST_PENDING_BANDS): pula só enquanto nenhuma missão da faixa
 		# dá XP (as de ascensão do 35 dão 0); com a primeira missão de XP a faixa passa a ser cobrada sozinha
 		if qx == 0 and band[0] in QUEST_PENDING_BANDS:
-			print("  PENDENTE: faixa %d-%d sem missões de XP nesta árvore (entram no merge das Estepes); parte de quest não conferida" % [band[0], band[1]])
+			print("  PENDENTE: faixa %d-%d sem missões de XP nesta árvore (entram com o Monte Kharzun, WP9); parte de quest não conferida" % [band[0], band[1]])
 			continue
 		var share := float(qx) / maxf(1.0, need)
 		var want := Balance.quest_share(band[0])
@@ -7644,6 +7948,9 @@ func _check_quest_variety(gd, sim) -> void:
 	var kinds := {}
 	var boss_quests := {}
 	var dup: Array = []
+	var kh_ids := {}
+	for kd in QuestsCatalog.act2_kharzun():
+		kh_ids[kd["id"]] = true
 	for qid in gd.quests:
 		var q: QuestDef = gd.quests[qid]
 		if not q.give_items.is_empty():
@@ -7656,7 +7963,9 @@ func _check_quest_variety(gd, sim) -> void:
 						kinds["colheita"] = int(kinds.get("colheita", 0)) + 1
 		if qid in MapsCatalog.Q_STEPPE_FORTS and MapsCatalog.FORT_DEFS[str(qid).replace("hx_", "")]["boss"] != q.target_id:
 			continue          # chefe dos acampamentos ainda é substituto (MapsCatalog.STAND_INS): os três caem no mesmo id
-		if q.type == QuestDef.Type.KILL and gd.monsters.has(q.target_id) and gd.monsters[q.target_id].is_boss and not q.repeatable:
+		if MapsCatalog.STAND_INS.values().has(q.target_id) and kh_ids.has(qid):
+			continue          # chefes de Kharzun ainda são substitutos de chefes da Horda (STAND_INS): o id cai no mesmo
+		if q.type == QuestDef.Type.KILL and gd.monsters.has(q.target_id) and gd.monsters[q.target_id].is_boss and not q.repeatable and not str(qid).begins_with("hx_asc45_"):
 			if boss_quests.has(q.target_id):
 				dup.append(q.target_id)
 			boss_quests[q.target_id] = true
@@ -7753,6 +8062,34 @@ func _check_shop_rules(gd, sim) -> void:
 	var g0 := e.gold
 	check(CraftSystem.sell(e, "slime_gel", 4) and e.gold == g0 + int(gd.items["slime_gel"].price * 0.5) * 4, "vende a pilha pela metade do preço")
 	sim.despawn(e)
+
+## Tratadora de montarias (npc_ui, Kharzun WP10): um botão por tipo; travado sem a missão; em uso desligado; clique troca na sim.
+func _check_mount_keeper_ui(gd, sim) -> void:
+	var ui: GDScript = load("res://game/ui/npc_ui.gd")
+	var e: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Montaria", "city_aldara", Vector3(0, 0, 6), 45)
+	e.brain = null
+	var opts: Array = ui.mount_options(sim, e)
+	check(opts.size() == Balance.MOUNT_KINDS.size() and opts.all(func(o): return o["text"] != "" and o["tip"] != ""), "tratador: um botão com texto e dica por montaria (%d)" % opts.size())
+	var h0: Dictionary = _mount_opt(opts, "horse")
+	var w0: Dictionary = _mount_opt(opts, "dire_wolf")
+	check(h0.get("disabled", false) and str(h0.get("text", "")).contains("Em uso"), "tratador: cavalo em uso fica desligado (%s)" % h0.get("text", ""))
+	check(w0.get("disabled", false) and str(w0.get("text", "")).contains("travado") and str(w0.get("tip", "")).contains(gd.quests["hx_ov_hatch"].title), "tratador: lobo travado sem hx_ov_hatch, dica diz a missão (%s)" % w0.get("tip", ""))
+	check(not ui.pick_mount(sim, e, "dire_wolf") and e.mount_kind == "horse", "tratador: clicar no lobo travado não troca")
+	e.quests_completed.append("hx_ov_hatch")
+	var w1: Dictionary = _mount_opt(ui.mount_options(sim, e), "dire_wolf")
+	check(not w1.get("disabled", true) and str(w1.get("text", "")).contains("Trocar para"), "tratador: com hx_ov_hatch o lobo libera (%s)" % w1.get("text", ""))
+	e.mounted = true
+	check(ui.pick_mount(sim, e, "dire_wolf") and e.mount_kind == "dire_wolf" and not e.mounted, "tratador: clicar troca para o lobo e desce do cavalo")
+	var opts2: Array = ui.mount_options(sim, e)
+	check(_mount_opt(opts2, "dire_wolf").get("disabled", false) and not _mount_opt(opts2, "horse").get("disabled", true), "tratador: depois da troca o lobo fica em uso e o cavalo volta a ser clicável")
+	check(ui.pick_mount(sim, e, "horse") and e.mount_kind == "horse", "tratador: troca de volta para o cavalo")
+	sim.despawn(e)
+
+func _mount_opt(opts: Array, kind: String) -> Dictionary:
+	for o in opts:
+		if o["kind"] == kind:
+			return o
+	return {}
 
 ## Material que dá para conseguir: cai de alguma tabela de saque ou se colhe em algum mapa.
 func _dropped_somewhere(gd, iid: String) -> bool:
@@ -7931,7 +8268,7 @@ func _check_interiors(gd, sim) -> void:
 	sim.player = saved
 
 func _check_layout_conflicts(gd, sim) -> void:
-	for mid in ["city_aldara", "field_forest", "field_ruins", "elf_city", "field_coast", "city_port", "field_steppe"]:
+	for mid in ["city_aldara", "field_forest", "field_ruins", "elf_city", "field_coast", "city_port", "field_steppe", "field_kharzun"]:
 		var z: Dictionary = MapsCatalog.load_zone(mid)
 		var roads: Array = z["roads"].filter(func(r): return r["kind"] in ["road", "trail"])
 		var bad: Array = []
@@ -8624,8 +8961,8 @@ func _check_skill_visuals(gd) -> void:
 	check(themes_used.size() >= 10, "skills usam temas variados (%d)" % themes_used.size())
 	# cada clipe que a EntityView pode escolher existe nos dois kits e o impacto cabe nele
 	for clip in impacts:
-		if clip in EntityView.FORM_CLIP.values():
-			continue                     # gesto de bicho: só nas formas (_check_form_clips)
+		if clip in EntityView.FORM_CLIP.values() or EntityView.MOB_ONLY_CLIPS.has(clip):
+			continue                     # gesto de bicho: só nas formas (_check_form_clips); de monstro: _check_skill_clips
 		for k in kits:
 			var name: String = k.resolve(clip)
 			check(name != "", "clipe %s existe no kit" % clip)
@@ -8684,6 +9021,8 @@ func _check_bot_chat(gd, sim) -> void:
 	check(BotsCatalog.place_words("Vale de Aldara")["em"] == "no Vale de Aldara" and BotsCatalog.place_words("Estepes de Cinza")["pra"] == "pras Estepes de Cinza"
 		and BotsCatalog.place_words("Floresta Sombria")["em"] == "na Floresta Sombria" and BotsCatalog.place_words("Arraial de Ghar")["pra"] == "pro Arraial de Ghar",
 		"falas de viagem: artigo do lugar (no/na/nas/pro)")
+	check(BotsCatalog.place_words("Monte Kharzun")["em"] == "no Monte Kharzun" and BotsCatalog.place_words("Salão dos Matadores")["pra"] == "pro Salão dos Matadores",
+		"falas de viagem: Monte e Salão são masculinos (no Monte Kharzun, pro Salão dos Matadores)")
 	for mid in gd.maps:
 		for line in gd.bot_lines["leaving"]:
 			var s := str(line).format(BotsCatalog.place_words(gd.maps[mid].name))
@@ -8810,7 +9149,7 @@ func _check_effect_map(gd, sim) -> void:
 	var e: SimEntity = sim.spawn_bot(gd.classes["berserker"], "Efeito", mid, Vector3(-60, 0, 20), 10)
 	e.brain = null
 	var seen: Array = []
-	var grab := func(_sid: String, o: Vector3, _a: Vector3, _r: float): seen.append([sim.ticking_map, o])
+	var grab := func(sid: String, o: Vector3, _a: Vector3, _r: float): seen.append([sim.ticking_map, o, sid])
 	Events.skill_effect.connect(grab)
 	var c := InputCommand.new()
 	c.attack = true
@@ -8823,9 +9162,10 @@ func _check_effect_map(gd, sim) -> void:
 		sim.tick(1.0 / 60.0)
 	sim.away_every = old_away
 	Events.skill_effect.disconnect(grab)
-	# os outros mapas também têm brigas (bots, guardas): olha só os efeitos que saíram do bot do teste
-	var mine: Array = seen.filter(func(x): return x[0] != "" and (x[1] as Vector3).distance_to(e.position) < 3.0)
-	check(not mine.is_empty() and mine.all(func(x): return x[0] == mid), "efeito de skill sai marcado com o mapa de quem lançou (%d efeitos)" % mine.size())
+	# os outros mapas também têm brigas (bots, guardas; um forte tem luta perto de (-60, 20)): só o básico do bot do teste
+	var bsid: String = e.basic_skill.id if e.basic_skill else ""
+	var mine: Array = seen.filter(func(x): return x[0] != "" and x[2] == bsid and (x[1] as Vector3).distance_to(e.position) < 3.0)
+	check(not mine.is_empty() and mine.all(func(x): return x[0] == mid), "efeito de skill sai marcado com o mapa de quem lançou (%d efeitos: %s)" % [mine.size(), str(mine)])
 	check(sim.ticking_map == "", "fora do tick nenhum mapa está rodando")
 	sim.despawn(e)
 
@@ -9135,7 +9475,7 @@ func _check_review_fixes(gd, sim) -> void:
 	for mid in gd.maps:
 		for pt in gd.maps[mid].portals:
 			if pt.has("gate"):
-				check(pt["id"].begins_with("to_") and gd.maps[pt["target_map"]].parent_map != "" and pt["target_map"] != gd.maps[mid].parent_map or pt["target_map"] in ["city_port", "field_forest", "field_ruins", "elf_city", "fort_ghoul", "fort_bones", "fort_frost", "lich_citadel", "field_steppe", "fort_trolls", "fort_fire", "fort_war"], "portão %s só na ida" % pt["id"])
+				check(pt["id"].begins_with("to_") and gd.maps[pt["target_map"]].parent_map != "" and pt["target_map"] != gd.maps[mid].parent_map or pt["target_map"] in ["city_port", "field_forest", "field_ruins", "elf_city", "fort_ghoul", "fort_bones", "fort_frost", "lich_citadel", "field_steppe", "fort_trolls", "fort_fire", "fort_war", "field_kharzun"], "portão %s só na ida" % pt["id"])
 	for x in [chief, near, mob, other, nec, ber, pal, bis]:
 		sim.despawn(x)
 
@@ -9431,7 +9771,7 @@ func _check_progression(gd, sim) -> void:
 	check(gd.quests["q11_chief"].prereq_quest == "q10b_nest" and gd.quests["q14_dragon"].prereq_quest == "q13b_crypt", "Ninho e Cripta fazem parte da história")
 	for pid in MapsCatalog.PORTAL_GATES:
 		var g: Dictionary = MapsCatalog.PORTAL_GATES[pid]
-		check(g.get("quest", "") == "" or gd.quests.has(g["quest"]), "portão %s: quest existe" % pid)
+		check(g.get("quest", "") == "" or gd.quests.has(g["quest"]) or g["quest"] in MapsCatalog.PENDING_GATE_QUESTS, "portão %s: quest existe (ou vem no pacote de missões)" % pid)
 		for gq in g.get("quests", []):
 			check(gd.quests.has(gq), "portão %s: quest %s (de várias) existe" % [pid, gq])
 		for b in g.get("bosses", []):
@@ -9440,7 +9780,7 @@ func _check_progression(gd, sim) -> void:
 		for mid in gd.maps:
 			for pt in gd.maps[mid].portals:
 				if pt["id"] == pid:
-					found = pt.has("gate")
+					found = found or pt.has("gate")      # o mesmo id pode voltar sem portão em outro mapa (Kharzun -> Estepes)
 		if not found:                     # passagem marcada para um mapa que ainda não existe (future_portals do JSON da zona)
 			for mid in gd.maps:
 				var zp := MapsCatalog.ZONE_PATH % mid
@@ -9659,7 +9999,7 @@ func _check_portal_gates() -> void:
 	check(shut and old.gates_open.has("to_field_kharzun"), "save antigo: portão de várias quests abre pelo nível, como os outros")
 
 func _check_water(gd, sim) -> void:
-	for mid in ["city_aldara", "field_forest", "field_ruins", "elf_city", "field_coast"]:
+	for mid in ["city_aldara", "field_forest", "field_ruins", "elf_city", "field_coast", "field_kharzun"]:
 		var def: MapDef = gd.maps[mid]
 		if not sim.maps.has(mid):
 			sim.load_map(def)
@@ -9948,7 +10288,7 @@ const WORLD := {
 	"field_ruins": Vector2(-1.0, 0.0), "city_aldara": Vector2(0.0, 0.0), "field_forest": Vector2(1.0, 0.0), "elf_city": Vector2(1.0, -1.0),
 	"fort_ghoul": Vector2(-2.0, 0.0), "fort_bones": Vector2(-1.0, -1.0), "fort_frost": Vector2(-1.0, 1.0), "lich_citadel": Vector2(-0.35, -0.7),
 	"field_coast": Vector2(9.0, 0.0), "city_port": Vector2(10.0, 0.1), "field_steppe": Vector2(9.3, -1.0),
-	"fort_trolls": Vector2(8.3, -1.0), "fort_war": Vector2(10.15, -1.5), "fort_fire": Vector2(10.1, -0.4),
+	"fort_trolls": Vector2(8.3, -1.0), "fort_war": Vector2(10.15, -1.5), "fort_fire": Vector2(10.1, -0.4), "field_kharzun": Vector2(9.3, -2.0),
 }
 const WORLD_SEA_LINKS := ["to_city_port", "ship_field_ruins"]      # portais de navio (Bastião <-> Porto Esperança)
 const WORLD_PAIR_TOL := 30.0       # graus: rumo da chegada x oposto do rumo da saída
@@ -10445,6 +10785,33 @@ func _check_raid_scaling(gd, sim) -> void:
 		"investida: força 0 = base x RAID_POWER (HP/ATK) e aggro maior")
 	check(RaidSystem.scaled_def(ws, base, 3) == RaidSystem.scaled_def(ws, base, 3), "investida: reforço guardado por passo")
 	check(base.level == 16 and base.hp == gd.monsters["elf_raider"].hp, "investida: monstro base não muda")
+	# Kharzun (usuário 2026-11-13): RAID_MAP_POWER só na leva do mapa dela; o monstro do campo não muda
+	var kmp: float = float(Balance.RAID_MAP_POWER.get("field_kharzun", 1.0))
+	var kz := RaidSystem.scaled_def(ws, base, 0, "field_kharzun")
+	check(is_equal_approx(kz.hp, base.hp * Balance.RAID_POWER * kmp) and is_equal_approx(kz.atk, base.atk * Balance.RAID_POWER * kmp) and is_equal_approx(kz.matk, base.matk * Balance.RAID_POWER * kmp)
+		and is_equal_approx(kz.def, s0.def), "investida de Kharzun: vida/ATK x RAID_MAP_POWER %.2f (defesa igual)" % kmp)
+	check(is_equal_approx(RaidSystem.scaled_def(ws, base, 0, "field_forest").hp, s0.hp) and (kz != s0 or is_equal_approx(kmp, 1.0)), "investida: mapa sem RAID_MAP_POWER = x1, guardado por mapa")
+	var kdef: MapDef = gd.maps["field_kharzun"]
+	var km: Dictionary = ws.load_map(kdef)
+	var kids: Array = RaidSystem.start_raid(ws, km)
+	var k_ok := kids.size() > 0
+	for id in kids:
+		var ke: SimEntity = ws.entities.get(id)
+		if ke != null and ke.monster_def != null and not ke.monster_def.id.begins_with("boss_"):
+			var wild: MonsterDef = gd.monsters[ke.monster_def.id]
+			k_ok = k_ok and (ke.monster_def == RaidSystem.scaled_def(ws, wild, RaidSystem.power_step(ws, km), kdef.id) or ke.monster_def.elite_of != "")
+		if ke != null:
+			ws.despawn(ke)
+	check(k_ok, "investida de Kharzun: a leva nasce com a força do mapa (%d invasores)" % kids.size())
+	for _i in range(3):
+		MobSystem.update_spawners(ws, km, 100.0)       # enche os spawners do campo
+	var wild_n := 0
+	var wild_ok := true
+	for o: SimEntity in km["entities"]:
+		if o.kind == SimEntity.Kind.MONSTER and o.raid_id < 0 and o.monster_def != null and gd.monsters.has(o.monster_def.id):
+			wild_n += 1
+			wild_ok = wild_ok and not ws._raid_defs.values().has(o.monster_def)
+	check(wild_n > 0 and wild_ok, "comuns do campo de Kharzun sem RAID_MAP_POWER (%d)" % wild_n)
 	ws.player.level = 10
 	var weak: Array = RaidSystem.start_raid(ws, m)
 	var n_weak := weak.size()
@@ -10466,6 +10833,1020 @@ func _check_raid_scaling(gd, sim) -> void:
 
 ## Faixa 10-20: chefes com repertório (3+ golpes somando as fases), fala de abertura uma vez por luta e fala ao cair;
 ## capanga do Chefe dos Bandidos sem XP; skills novas existem e estão no tema certo.
+## Assinaturas dos chefes (GDD design/gdd/act2-boss-signatures.md, AC-S1/S2): 1 por chefe com assinatura, aviso mínimo,
+## efeitos conhecidos. Hoje: os 6 chefes fora de Kharzun + Shazka, Ulgra, Gorbash e Kragmar (Durgash num trabalho à parte).
+const SIG_BOSSES := {"boss_tide_mother": "mob_tide_flood", "boss_agitator_lord": "mob_drum_frenzy", "boss_troll_king": "mob_troll_avalanche",
+	"boss_crossbow_master": "mob_marksman_brand", "boss_ghar": "mob_ghar_wall", "boss_dire_mother": "mob_dire_pounce",
+	"boss_shazka": "mob_shazka_twins", "boss_ulgra": "mob_ulgra_stampede", "boss_gorbash": "mob_gorbash_waves", "boss_kragmar": "mob_kragmar_temper",
+	"boss_durgash": "mob_durgash_throneaxe"}
+
+## Aviso (s) que a assinatura dá antes do dano, lido dos dados.
+static func _sig_warn(s: SkillDef) -> float:
+	var fx := s.effects
+	if fx.has("islands"):
+		return float(fx["islands"].get("delay", 0.0))
+	if fx.has("mark"):
+		return float(fx["mark"].get("time", Balance.BOSS_MARK_TIME))
+	if fx.has("boss_channel"):
+		return s.active
+	if fx.has("avalanche"):
+		return s.startup
+	if fx.has("wall"):
+		return float(fx["wall"].get("time", 0.0))
+	if fx.has("decoys"):
+		return float(fx.get("stealth", 0.0))          # a fumaça antes das cópias (elas não dão dano de área; a nuvem só morrendo)
+	if fx.get("barrage") is Dictionary:
+		return float(fx["barrage"].get("delay", Balance.BOSS_HAZARD_DELAY))
+	return s.startup
+
+func _check_boss_signatures(gd) -> void:
+	for k in ["islands", "mark", "boss_channel", "repeat", "avalanche", "wall", "decoys"]:
+		check(k in SkillDef.EFFECT_KEYS, "assinaturas: efeito %s em SkillDef.EFFECT_KEYS" % k)
+	var owners := {}
+	for mid in gd.monsters:
+		var md: MonsterDef = gd.monsters[mid]
+		var ids: Array = md.skill_ids.duplicate()      # cópia: Array(tipado) devolve o MESMO array (append mexeria no MonsterDef)
+		for ph in md.phases:
+			ids.append_array(ph.get("skills", []))
+		var sigs: Array = ids.filter(func(id): return gd.skills.has(id) and (gd.skills[id] as SkillDef).boss_signature)
+		for id in sigs:
+			owners[id] = int(owners.get(id, 0)) + 1
+		if SIG_BOSSES.has(mid):
+			check(sigs.size() == 1 and sigs[0] == SIG_BOSSES[mid], "AC-S1 %s: exatamente 1 assinatura (%s)" % [mid, ", ".join(sigs)])
+		elif not sigs.is_empty():
+			check(md.is_boss, "assinatura só em chefe (%s)" % mid)
+	for id in gd.skills:
+		var s: SkillDef = gd.skills[id]
+		if not s.boss_signature:
+			continue
+		check(int(owners.get(id, 0)) == 1, "assinatura %s pertence a um chefe só (%d)" % [id, int(owners.get(id, 0))])
+		var warn := _sig_warn(s)
+		var need := Balance.BOSS_SIG_REPEAT_WARN_MIN if s.effects.has("repeat") else Balance.BOSS_SIG_WARN_MIN
+		check(warn >= need - 0.001, "AC-S2 %s avisa %.1f s (mín. %.1f)" % [id, warn, need])
+		check(s.cooldown >= 15.0 and s.cooldown <= 40.0, "%s: intervalo %.0f s na faixa 15-40 (GDD §7)" % [id, s.cooldown])
+	var troll: MonsterDef = gd.monsters["boss_troll_king"]
+	check(float(troll.cover.get("radius", 0.0)) > 0.0 and "mob_boulder_barrage" in troll.cover.get("skills", []), "Troll Rei: a Chuva de Pedras deixa pedregulho (MonsterDef.cover)")
+	# soma ao kit (OQ-1): nada do kit atual saiu
+	for mid in SIG_BOSSES:
+		var md: MonsterDef = gd.monsters[mid]
+		var kit: Array = md.skill_ids.duplicate()      # cópia: Array(tipado) devolve o MESMO array (append mexeria no MonsterDef)
+		for ph in md.phases:
+			kit.append_array(ph.get("skills", []))
+		kit = kit.filter(func(id): return not (gd.skills[id] as SkillDef).boss_signature)
+		# Mãe Atroz e Kragmar têm 3 no kit atual (GDD 3.6/3.10; o >= 4 do Kragmar só passava com o vazamento que dobrava as fases)
+		check(kit.size() >= (3 if mid in ["boss_dire_mother", "boss_kragmar"] else 4), "%s: kit atual mantido (%d skills)" % [mid, kit.size()])
+
+## Conferir o kit dos chefes não mexe no MonsterDef (Array(tipado) devolve o MESMO array: o append das fases ia para
+## skill_ids e, rodando duas vezes (--only=boss_sig,zone), a assinatura aparecia 3 vezes). Roda as conferências 2x e compara.
+func _check_boss_sig_idempotent(gd) -> void:
+	var before := {}
+	for mid in gd.monsters:
+		var md: MonsterDef = gd.monsters[mid]
+		before[mid] = [md.skill_ids.duplicate(), md.phases.map(func(ph): return Array(ph.get("skills", [])).duplicate())]
+	var bap = load("res://tools/tests/boss_anim_probe.gd")
+	for i in 2:
+		_check_boss_signatures(gd)
+		bap.check_boss("boss_gorbash", self)      # assinatura na fase: o caso que vazava
+	var changed: Array = []
+	for mid in gd.monsters:
+		var md: MonsterDef = gd.monsters[mid]
+		var now := [md.skill_ids.duplicate(), md.phases.map(func(ph): return Array(ph.get("skills", [])).duplicate())]
+		if now != before[mid]:
+			changed.append(mid)
+	check(changed.is_empty(), "conferir assinaturas 2x não muda skill_ids/fases dos monstros (%s)" % ", ".join(changed))
+	for mid in SIG_BOSSES:
+		var md: MonsterDef = gd.monsters[mid]
+		var n := Array(md.skill_ids).count(SIG_BOSSES[mid])
+		for ph in md.phases:
+			n += Array(ph.get("skills", [])).count(SIG_BOSSES[mid])
+		check(n == 1, "%s: assinatura %s uma vez só no kit depois de conferir 2x (%d)" % [mid, SIG_BOSSES[mid], n])
+
+## Regras compartilhadas R-A..R-D e únicas R-E/R-G (AC-S3, AC-S4), com um mundo só para o teste.
+func _check_boss_sig_rules(gd) -> void:
+	var ws := WorldSim.new()
+	ws.load_map(gd.maps[GameData.town_map_id()])
+	var m: Dictionary = ws.load_map(gd.maps["dg_ninho"])
+	m["spawners"].clear()
+	for e in m["entities"].duplicate():
+		ws.despawn(e)
+	var at := Vector3.ZERO
+	for sp in gd.maps["dg_ninho"].spawners:
+		if sp["monster_id"] == "spider_queen":
+			at = sp["pos"]
+	at.y = 0.0
+	var mkboss := func(id: String, pos: Vector3) -> SimEntity:
+		var d: MonsterDef = gd.monsters[id].duplicate()
+		d.phases = []
+		d.berserk_after = 0.0
+		d.aggro_range = 0.0
+		d.escort = {}
+		var b: SimEntity = ws.spawn_monster(d, "dg_ninho", pos)
+		b.brain = null
+		return b
+	var mkbot := func(cname: String, pos: Vector3) -> SimEntity:
+		var b: SimEntity = ws.spawn_bot(gd.classes[cname], cname, "dg_ninho", pos, 40)
+		b.brain = null
+		b.stats.max_hp = 100000.0              # ninguém morre no meio do teste (morto não leva efeito)
+		b.hp = b.stats.max_hp
+		return b
+	var tank: SimEntity = mkbot.call("paladin", at + Vector3(2, 0, 0))
+	var dps: SimEntity = mkbot.call("berserker", at + Vector3(-2, 0, 0))
+	var far: SimEntity = mkbot.call("ranger", at + Vector3(0, 0, 8))
+	var heal := func() -> void:
+		for o in [tank, dps, far]:
+			o.hp = o.stats.max_hp
+			o.debuffs.clear()
+			o.set_state(SimEntity.State.IDLE)
+	# --- R-A formas: faixa e anel ---
+	var line := {"pos": at, "dir": Vector3(1, 0, 0), "length": 10.0, "width": 2.0, "shape": "line"}
+	check(BossSignatures.inside(line, at + Vector3(5, 0, 0.9)) and not BossSignatures.inside(line, at + Vector3(5, 0, 1.6)) and not BossSignatures.inside(line, at + Vector3(11, 0, 0)),
+		"R-A faixa: acerta dentro da largura, não ao lado nem além do fim")
+	check(BossSignatures.escape(line, at + Vector3(5, 0, 0.5), 0.5).is_equal_approx(Vector2(0, 1)), "R-A faixa: o desvio é de lado (para o vão)")
+	var ring := {"pos": at, "inner": 4.0, "radius": 6.0, "shape": "ring"}
+	check(BossSignatures.inside(ring, at + Vector3(5, 0, 0)) and not BossSignatures.inside(ring, at + Vector3(2, 0, 0)) and not BossSignatures.inside(ring, at + Vector3(8, 0, 0)),
+		"R-A anel: acerta entre inner e radius, não dentro nem fora")
+	check(BossSignatures.escape(ring, at + Vector3(4.5, 0, 0), 0.0).x < 0.0 and BossSignatures.escape(ring, at + Vector3(5.6, 0, 0), 0.0).x > 0.0, "R-A anel: sai pelo lado mais perto")
+	var boss: SimEntity = mkboss.call("boss_ulgra", at)
+	boss.aggro_target = tank.id
+	var lb := {"shape": "line", "count": 3, "width": 3.0, "gap": 3.0, "length": 24.0, "delay": 2.0, "stagger": 0.6}
+	var ls: SkillDef = gd.skills["mob_ghar_quake"]
+	tank.position = at + Vector3(0, 0, 6)
+	dps.position = at + Vector3(3.0, 0, 6)                 # no vão entre a 1ª e a 2ª faixa
+	tank.stats.evasion = 100.0                             # esquiva total: a zona avisada pega mesmo assim (decisão 2026-11-13)
+	MobSystem.place_barrage(ws, boss, ls, tank.position, 1.5, {"barrage": lb})
+	var hz: Array = m["hazards"]
+	check(hz.size() == 3 and hz.all(func(h): return h["shape"] == "line") and float(hz[2]["at"]) > float(hz[0]["at"]), "R-A barrage line: 3 faixas em sequência")
+	var hp_t: float = tank.hp
+	var hp_d: float = dps.hp
+	ws.time += 2.0 + 1.3
+	MobSystem.update_hazards(ws, m)
+	check(tank.hp < hp_t and is_equal_approx(dps.hp, hp_d) and hz.is_empty(), "R-A faixa cai: o tanque sob ela leva, quem está no vão não")
+	check(tank.hp < hp_t, "zona avisada: alvo com 100% de esquiva leva o dano da faixa (só sair dela salva)")
+	hp_t = tank.hp
+	BossSignatures._hit(ws, boss, tank, 1.0, SkillDef.Kind.MAGICAL, {}, boss.position)
+	check(tank.hp < hp_t, "zona avisada: golpe de assinatura (BossSignatures._hit) ignora a esquiva passiva")
+	hp_t = tank.hp
+	ws._deal_damage(boss, tank, 50, false, false, "physical")
+	check(is_equal_approx(tank.hp, hp_t), "esquiva 100%: golpe direto comum continua esquivado")
+	tank.recompute_stats()
+	tank.stats.max_hp = 100000.0
+	ws.despawn(boss)
+	heal.call()
+	# --- R-A invertido: Maré Cheia ---
+	tank.position = at + Vector3(2, 0, 0)
+	dps.position = at + Vector3(-5, 0, 0)
+	far.position = at + Vector3(0, 0, 8)
+	var tide: SimEntity = mkboss.call("boss_tide_mother", at)
+	tide.aggro_target = tank.id
+	tide.crowd = 3
+	var fs: SkillDef = gd.skills["mob_tide_flood"]
+	BossSignatures.place_islands(ws, tide, fs, fs.power, fs.effects)
+	var isl: Array = m["hazards"].filter(func(h): return h.get("invert", false))
+	check(isl.size() >= Balance.TIDE_ISLAND_MIN and isl.any(func(h): return BossSignatures.inside(h, tank.position)), "Maré Cheia: %d ilhas, uma no tanque" % isl.size())
+	check(BossSignatures.ground_busy(m, tide), "Maré Cheia pendente: a chuva espera (uma mecânica de chão por vez)")
+	for h in isl:
+		check(not BossSignatures.inside(h, dps.position), "dps fora das ilhas")
+	far.position = Vector3(isl[-1]["pos"].x, 0, isl[-1]["pos"].z)          # far correu para uma ilha
+	hp_t = tank.hp
+	hp_d = dps.hp
+	var hp_f: float = far.hp
+	MobSystem.update_hazards(ws, m)
+	check(tank.hp == hp_t and dps.hp == hp_d, "Maré Cheia: nada antes do aviso acabar")
+	ws.time += float(fs.effects["islands"]["delay"]) + 0.1
+	MobSystem.update_hazards(ws, m)
+	check(tank.hp == hp_t and far.hp == hp_f, "AC Maré: dentro da ilha leva 0")
+	check(dps.hp < hp_d and dps.debuffs.any(func(d): return d.get("kind") == "slow"), "AC Maré: fora leva dano e fica lento")
+	check(m["hazards"].is_empty(), "Maré Cheia: todas as ilhas do grupo somem juntas")
+	ws.despawn(tide)
+	heal.call()
+	# --- R-B marca que segue (spread) + chão que fica ---
+	var vor: SimEntity = mkboss.call("boss_crossbow_master", at)
+	vor.aggro_target = tank.id
+	tank.position = at + Vector3(2, 0, 0)
+	far.position = at + Vector3(0, 0, 8)
+	dps.position = at + Vector3(-12, 0, 0)
+	var ms: SkillDef = gd.skills["mob_marksman_brand"]
+	var one: Dictionary = ms.effects.duplicate(true)
+	one["mark"]["count"] = 1
+	ws.rng.seed = 7
+	dps.position = at + Vector3(0, 0, -40)                  # fora: só tanque e far na mira (sem o tanque)
+	BossSignatures.place_marks(ws, vor, ms, ms.power, one)
+	var mk: Array = m["hazards"].filter(func(h): return h.get("mark", false))
+	check(mk.size() == 1 and int(mk[0]["victim"]) == far.id, "Marca do Atirador: não marca o tanque se há outro")
+	far.position = at + Vector3(4, 0, 8)
+	MobSystem.update_hazards(ws, m)
+	check((mk[0]["pos"] as Vector3).distance_to(Vector3(far.position.x, 0, far.position.z)) < 0.01, "AC-S3 follow: a marca segue a vítima")
+	dps.position = far.position + Vector3(1.5, 0, 0)        # aliado colado na marca
+	hp_d = dps.hp
+	hp_f = far.hp
+	hp_t = tank.hp
+	ws.time += float(ms.effects["mark"]["time"]) + 0.05
+	MobSystem.update_hazards(ws, m)
+	check(far.hp < hp_f and dps.hp < hp_d and tank.hp == hp_t, "AC Vorgul: a marca explode em quem está no raio (e só neles)")
+	check(m["hazards"].size() == 1 and m["hazards"][0].get("landed", false), "marca deixa fogo no chão (linger)")
+	hp_d = dps.hp
+	ws.time += Balance.BOSS_LINGER_TICK + 0.01
+	MobSystem.update_hazards(ws, m)
+	check(dps.hp < hp_d, "chão que fica: tique em quem pisa")
+	ws.time += 10.0
+	MobSystem.update_hazards(ws, m)
+	check(m["hazards"].is_empty(), "chão que fica some depois de linger")
+	# vítima some: a marca fica onde estava
+	BossSignatures.place_marks(ws, vor, ms, ms.power, one)
+	var mk2: Dictionary = m["hazards"][-1]
+	var v2: SimEntity = ws.entities.get(int(mk2["victim"]))
+	var stay: Vector3 = mk2["pos"]
+	v2.stealth_left = 5.0
+	v2.position += Vector3(6, 0, 0)
+	MobSystem.update_hazards(ws, m)
+	check((mk2["pos"] as Vector3).is_equal_approx(stay) and not mk2.has("follow"), "vítima furtiva: a marca fica parada onde estava")
+	v2.stealth_left = 0.0
+	m["hazards"].clear()
+	ws.despawn(vor)
+	heal.call()
+	# --- R-B soak: dividido por quem está dentro (F-S1) ---
+	var dur: SimEntity = mkboss.call("boss_ulgra", at)
+	dur.aggro_target = tank.id
+	var soak := {"mark": {"mode": "soak", "count": 1, "radius": 3.5, "time": 5.0, "no_tank": false}}
+	var solo_dmg := 0.0
+	ws.rng.seed = 11
+	var group_dmg := 0.0
+	for trial in range(6):
+		for o in [tank, dps, far]:
+			o.hp = o.stats.max_hp
+		far.position = at + Vector3(0, 0, 8)
+		tank.position = at + Vector3(0, 0, 30)
+		dps.position = at + Vector3(0, 0, 31)
+		var with_group: bool = trial % 2 == 1
+		if with_group:
+			tank.position = far.position + Vector3(1, 0, 0)
+			dps.position = far.position + Vector3(-1, 0, 0)
+		BossSignatures.add_hazard(m, {"owner": dur.id, "pos": far.position, "radius": 3.5, "at": ws.time, "power": 6.0, "kind": SkillDef.Kind.PHYSICAL,
+			"effects": {}, "skill": "mob_ghar_quake", "follow": far.id, "victim": far.id, "mode": "soak", "mark": true}, ws.time)
+		ws.sig_stats.clear()
+		MobSystem.update_hazards(ws, m)
+		if with_group:
+			group_dmg += far.stats.max_hp - far.hp
+			check(int(ws.sig_stats.get("soak_n", 0)) == 3, "soak: 3 dentro")
+		else:
+			solo_dmg += far.stats.max_hp - far.hp
+	check(group_dmg > 0.0 and group_dmg < solo_dmg * 0.5 and group_dmg > solo_dmg * 0.2, "AC-S3 soak: 3 dentro levam ~1/3 cada (%.0f vs %.0f sozinho)" % [group_dmg, solo_dmg])
+	ws.despawn(dur)
+	heal.call()
+	# --- R-C canal (Grukk) ---
+	var gru: SimEntity = mkboss.call("boss_agitator_lord", at)
+	gru.aggro_target = tank.id
+	tank.position = at + Vector3(2, 0, 0)
+	var cs: SkillDef = gd.skills["mob_drum_frenzy"]
+	ws._add_skills(gru, [cs.id])
+	var slot := gru.skills.find(cs)
+	var start_channel := func() -> void:
+		ws._start_skill(gru, cs, slot, gru.position)
+		gru.state_time = cs.startup
+		ws._apply_skill(gru, cs, m)
+	start_channel.call()
+	check(gru.sig.has("channel") and gru.buffs.any(func(b): return b.get("id") == BossSignatures.CHANNEL_BUFF), "canal começa: estado + buff (aviso)")
+	ws._deal_damage(tank, gru, int(gru.stats.max_hp * (Balance.BOSS_CHANNEL_BREAK_PCT + 0.01)), false, false, "physical")
+	BossSignatures.update(ws, gru, 0.05)
+	check(not gru.sig.has("channel") and gru.state == SimEntity.State.STUNNED and gru.state_duration >= Balance.BOSS_CHANNEL_STAGGER - 0.01 and gru.has_debuff("curse"),
+		"AC Grukk: 6%% da vida no canal quebra (atordoado + Tambor Rasgado)")
+	check(Combat.taken_pct(gru) >= Balance.BOSS_CHANNEL_VULN - 0.01, "Tambor Rasgado: +%d%% de dano recebido" % int(Balance.BOSS_CHANNEL_VULN))
+	gru.set_state(SimEntity.State.IDLE)
+	gru.debuffs.clear()
+	gru.hp = gru.stats.max_hp
+	start_channel.call()
+	ws._apply_effects(tank, gru, {"stun": {"duration": 1.0}}, 1.0)
+	BossSignatures.update(ws, gru, 0.05)
+	check(not gru.sig.has("channel") and gru.state_duration >= Balance.BOSS_CHANNEL_STAGGER - 0.01, "AC-S3 canal: atordoar quebra")
+	gru.set_state(SimEntity.State.IDLE)
+	gru.debuffs.clear()
+	var add: SimEntity = ws.spawn_monster(gd.monsters["goblin_rabble"], "dg_ninho", at + Vector3(3, 0, 3))
+	add.brain = null
+	add.boss_id = gru.id
+	add.hp = add.stats.max_hp * 0.5
+	var rab0 := MobSystem.adds_alive(ws, gru)
+	start_channel.call()
+	ws._deal_damage(tank, gru, int(gru.stats.max_hp * Balance.BOSS_CHANNEL_BREAK_PCT * 0.5), false, false, "physical")
+	ws.time += cs.active + 0.01
+	BossSignatures.update(ws, gru, 0.05)
+	check(not gru.sig.has("channel") and gru.state != SimEntity.State.STUNNED and add.buffs.any(func(b): return b.get("id") == BossSignatures.FRENZY_BUFF),
+		"AC Grukk: sem dano bastante o canal completa e a turba ganha Frenesi")
+	check(add.hp > add.stats.max_hp * 0.75 and MobSystem.adds_alive(ws, gru) > rab0, "canal completo: a turba cura e chegam mais Turbas")
+	for o in m["entities"].duplicate():
+		if o.boss_id == gru.id:
+			ws.despawn(o)
+	ws.despawn(gru)
+	heal.call()
+	# --- R-D sequência (Mãe-Loba) ---
+	var wolf: SimEntity = mkboss.call("boss_dire_mother", at)
+	wolf.aggro_target = tank.id
+	var ps: SkillDef = gd.skills["mob_dire_pounce"]
+	ws._add_skills(wolf, [ps.id])
+	var ws_slot := wolf.skills.find(ps)
+	far.position = at + Vector3(0, 0, 8)
+	tank.position = at + Vector3(2, 0, 0)
+	var casts := 0
+	var aims: Array = []
+	ws._start_skill(wolf, ps, ws_slot, far.position)
+	for step in range(3):
+		casts += 1
+		aims.append(wolf.skill_aim)
+		ws._apply_skill(wolf, ps, m)
+		ws._end_skill(wolf)
+		far.position = wolf.position + Vector3(4, 0, 4 + step)       # a vítima anda: o próximo bote re-mira
+		if wolf.sig.has("seq"):
+			ws.time = float(wolf.sig["seq"]["next"]) + 0.01
+			BossSignatures.update(ws, wolf, 0.05)
+			if wolf.current_skill != ps:
+				break
+	check(casts == 3 and not wolf.sig.has("seq"), "AC Mãe-Loba: 3 botes e a sequência acaba (%d)" % casts)
+	check(aims.size() == 3 and (aims[1] as Vector3).distance_to(aims[2]) > 0.5, "AC Mãe-Loba: cada bote re-mira a vítima")
+	ws._end_skill(wolf)
+	ws._start_skill(wolf, ps, ws_slot, far.position)
+	ws._apply_skill(wolf, ps, m)
+	ws._end_skill(wolf)
+	ws._apply_effects(tank, wolf, {"root": {"duration": 2.0}}, 1.0)
+	BossSignatures.update(ws, wolf, 0.05)
+	check(not wolf.sig.has("seq"), "AC-S3 repeat: root corta a sequência")
+	wolf.debuffs.clear()
+	ws.despawn(wolf)
+	heal.call()
+	# --- R-E cobertura (Troll Rei) ---
+	var troll: SimEntity = mkboss.call("boss_troll_king", at)
+	troll.aggro_target = tank.id
+	var av: SkillDef = gd.skills["mob_troll_avalanche"]
+	BossSignatures.avalanche_prep(ws, troll, av)
+	var cv: Array = BossSignatures.covers_of(m, troll.id)
+	check(cv.size() == int(av.effects["avalanche"]["guarantee"]), "Avalanche sem pedra no chão: arremessa %d antes (garantia)" % cv.size())
+	var c0: Dictionary = cv[0]
+	var cp: Vector3 = c0["pos"]
+	var dirc := Vector3(cp.x - troll.position.x, 0, cp.z - troll.position.z).normalized()
+	tank.position = cp + dirc * (float(c0["radius"]) + 0.8)
+	dps.position = troll.position - dirc * 5.0
+	far.position = troll.position + Vector3(0, 0, 40)               # fora do alcance
+	check(not BossSignatures.cover_between(m, troll, tank.position).is_empty() and BossSignatures.cover_between(m, troll, dps.position).is_empty(), "cobertura: pedra entre o chefe e o alvo")
+	hp_t = tank.hp
+	hp_d = dps.hp
+	ws.time += 0.1
+	var fx_ids: Array = []
+	var grab_fx := func(sid: String, _o: Vector3, _a: Vector3, _r: float): fx_ids.append(sid)
+	Events.skill_effect.connect(grab_fx)
+	BossSignatures.avalanche(ws, troll, av, av.power, av.effects)
+	Events.skill_effect.disconnect(grab_fx)
+	check(fx_ids.has(BossSignatures.COVER_BREAK_FX) and fx_ids.has(av.id), "Avalanche avisa a pedra rachada (som %s) e o impacto" % BossSignatures.COVER_BREAK_FX)
+	check(tank.hp == hp_t and dps.hp < hp_d and dps.state == SimEntity.State.STUNNED, "AC Troll: atrás da pedra leva 0; no aberto leva e cai")
+	check(not BossSignatures.covers_of(m, troll.id).has(c0) and BossSignatures.covers_of(m, troll.id).size() == cv.size() - 1, "AC Troll: a pedra que protegeu racha e some")
+	var bs: SkillDef = gd.skills["mob_boulder_barrage"]
+	var nc := BossSignatures.covers_of(m, troll.id).size()
+	MobSystem.place_barrage(ws, troll, bs, tank.position, bs.power, bs.effects)
+	check(m["hazards"].filter(func(h): return h.get("cover", false)).size() == 1, "Chuva de Pedras do Troll Rei: um círculo deixa pedregulho")
+	ws.time += 5.0
+	MobSystem.update_hazards(ws, m)
+	check(BossSignatures.covers_of(m, troll.id).size() == nc + 1, "pedregulho no chão depois da chuva")
+	for i in range(5):
+		BossSignatures.add_cover(ws, m, troll, at + Vector3(i * 3, 0, -6))
+	check(BossSignatures.covers_of(m, troll.id).size() == Balance.TROLL_COVER_MAX, "no máximo %d pedregulhos" % Balance.TROLL_COVER_MAX)
+	# reset limpa tudo (AC-S4)
+	troll.sig["channel"] = {"skill": "x", "until": 0.0, "start": 0.0, "dmg": 0.0, "need": 1.0, "cfg": {}}
+	troll.sig["seq"] = {"left": 1}
+	troll.sig["wall"] = {"until": 0.0, "fury": 0}
+	troll.put_buff({"id": BossSignatures.TEMPER_BUFF, "remaining": 1.0e9, "stacks": 3})
+	BossSignatures.add_hazard(m, {"owner": troll.id, "pos": at, "radius": 3.0, "at": ws.time + 3.0, "power": 1.0, "kind": 0, "effects": {}, "skill": "x", "follow": tank.id, "mark": true}, ws.time)
+	ws.reset_boss(troll)
+	check(troll.sig.is_empty() and troll.buff_stacks(BossSignatures.TEMPER_BUFF) == 0 and BossSignatures.covers_of(m, troll.id).is_empty() and m["hazards"].is_empty(),
+		"AC-S4 reset_boss limpa marcas, canal, sequência, Muralha, Têmpera e pedregulhos")
+	ws.despawn(troll)
+	heal.call()
+	# --- R-G Muralha (Ghar) ---
+	var ghar: SimEntity = mkboss.call("boss_ghar", at)
+	ghar.aggro_target = tank.id
+	tank.position = at + Vector3(0, 0, 2.5)
+	dps.position = at + Vector3(0, 0, -2.5)
+	ghar.face_towards(tank.position)
+	var wl: SkillDef = gd.skills["mob_ghar_wall"]
+	BossSignatures.wall_start(ws, ghar, wl, wl.effects)
+	var g0: float = ghar.hp
+	ws._deal_damage(tank, ghar, 1000, false, false, "physical")
+	var front: float = g0 - ghar.hp
+	g0 = ghar.hp
+	ws._deal_damage(tank, ghar, 1000, false, false, "magical")
+	var front_m: float = g0 - ghar.hp
+	g0 = ghar.hp
+	ws._deal_damage(dps, ghar, 1000, false, false, "physical")
+	var back: float = g0 - ghar.hp
+	check(is_equal_approx(front, 1000.0 * (1.0 - Balance.GHAR_WALL_CUT)) and is_equal_approx(front_m, front) and is_equal_approx(back, 1000.0),
+		"AC Ghar: de frente perde 90%% (física e mágica), de costas passa inteiro (%.0f/%.0f/%.0f)" % [front, front_m, back])
+	check(int(ghar.sig["wall"]["fury"]) == 2, "Muralha: cada golpe bloqueado soma 1 fúria")
+	check(is_equal_approx(BossSignatures.counter_power(wl.effects["wall"]["counter"], 2), 1.3) and is_equal_approx(BossSignatures.counter_power(wl.effects["wall"]["counter"], 99), 2.5),
+		"F-S5: contragolpe 1,0 + 0,15 × fúria, teto 2,5")
+	hp_t = tank.hp
+	hp_d = dps.hp
+	ws.time += float(wl.effects["wall"]["time"]) + 0.01
+	BossSignatures.update(ws, ghar, 0.05)
+	check(not ghar.sig.has("wall") and ghar.sig.has("counter") and tank.hp == hp_t,
+		"Muralha acaba: o contragolpe arma (clipe wall_counter) e ainda não bateu")
+	ws.time += Balance.GHAR_COUNTER_DELAY + 0.01
+	BossSignatures.update(ws, ghar, 0.05)
+	check(is_equal_approx(Balance.GHAR_COUNTER_DELAY, float(int(EntityView.IMPACT_FRAME.get("wall_counter", 0)) - 1) / 24.0),
+		"contragolpe do Ghar cai no quadro de impacto do clipe wall_counter (EntityView.IMPACT_FRAME)")
+	check(not ghar.sig.has("counter") and tank.hp < hp_t and dps.hp == hp_d and not ghar.buffs.any(func(b): return b.get("id") == BossSignatures.WALL_BUFF),
+		"Muralha acaba: contragolpe em cone na frente (tanque leva, quem está nas costas não)")
+	ws.despawn(ghar)
+	heal.call()
+	# --- R-A empower (Têmpera, pronto para o Kragmar) ---
+	var kr: SimEntity = mkboss.call("boss_ulgra", at)
+	var dm0: float = kr.dmg_mult
+	BossSignatures.add_hazard(m, {"owner": kr.id, "pos": at + Vector3(10, 0, 0), "radius": 2.0, "at": ws.time, "power": 0.5, "kind": 0, "effects": {}, "skill": "x",
+		"linger": 20.0, "tick_power": 0.0, "empower": {"id": BossSignatures.TEMPER_BUFF, "max": Balance.KRAGMAR_TEMPER_MAX}}, ws.time)
+	MobSystem.update_hazards(ws, m)
+	for i in range(3):
+		ws.time += Balance.BOSS_LINGER_TICK + 0.01
+		MobSystem.update_hazards(ws, m)
+	check(kr.buff_stacks(BossSignatures.TEMPER_BUFF) == 0, "AC-S3 Têmpera: fora da poça não sobe")
+	kr.position = at + Vector3(10, 0, 0)
+	for i in range(6):                                  # 1 acúmulo a cada KRAGMAR_TEMPER_EVERY (2 s)
+		ws.time += Balance.BOSS_LINGER_TICK + 0.01
+		MobSystem.update_hazards(ws, m)
+	check(kr.buff_stacks(BossSignatures.TEMPER_BUFF) == 3 and kr.dmg_mult > dm0 * (1.0 + Balance.KRAGMAR_TEMPER_STEP * 3) - 0.001, "AC-S3 Têmpera: dentro da poça sobe e dá dano (F-S3)")
+	m["hazards"].clear()
+	ws.despawn(kr)
+
+## Bots nas assinaturas (sempre perfeitos, decisão do usuário 2026-11-13).
+func _check_boss_sig_bots(gd) -> void:
+	var ws := WorldSim.new()
+	ws.load_map(gd.maps[GameData.town_map_id()])
+	var m: Dictionary = ws.load_map(gd.maps["dg_ninho"])
+	m["spawners"].clear()
+	for e in m["entities"].duplicate():
+		ws.despawn(e)
+	var at := Vector3.ZERO
+	for sp in gd.maps["dg_ninho"].spawners:
+		if sp["monster_id"] == "spider_queen":
+			at = sp["pos"]
+	at.y = 0.0
+	var mkbot := func(cname: String, pos: Vector3) -> SimEntity:
+		var b: SimEntity = ws.spawn_bot(gd.classes[cname], cname, "dg_ninho", pos, 40)
+		b.brain = null
+		return b
+	var d: MonsterDef = gd.monsters["boss_ghar"].duplicate()
+	d.phases = []
+	d.escort = {}
+	d.aggro_range = 0.0
+	var boss: SimEntity = ws.spawn_monster(d, "dg_ninho", at)
+	boss.brain = null
+	var tank: SimEntity = mkbot.call("paladin", at + Vector3(0, 0, 2.5))
+	var dps: SimEntity = mkbot.call("berserker", at + Vector3(1.0, 0, 2.6))
+	var bt := BotBrain.new()
+	bt.setup(tank, ws.rng)
+	bt.my_role = "tank"
+	var bd := BotBrain.new()
+	bd.setup(dps, ws.rng)
+	bd.my_role = "dps"
+	boss.aggro_target = tank.id
+	boss.face_towards(tank.position)
+	# Muralha: o tanque guarda; o dps de frente vai para as costas
+	BossSignatures.wall_start(ws, boss, gd.skills["mob_ghar_wall"], gd.skills["mob_ghar_wall"].effects)
+	check(bt._sig_spot(tank, ws, m, boss, true) == Vector3.INF and bt.sig_guard, "bot no alvo da Muralha: guarda parado de frente, sem golpe")
+	var spot := bd._sig_spot(dps, ws, m, boss, true)
+	check(spot != Vector3.INF and not BossSignatures.wall_blocks(boss, spot), "bot dps de frente na Muralha: vai para as costas")
+	dps.position = at + Vector3(0, 0, -2.0)
+	check(bd._sig_spot(dps, ws, m, boss, true) == Vector3.INF, "bot dps já nas costas: segue batendo")
+	boss.sig.erase("wall")
+	# ilhas: fora → centro da ilha mais perto; dentro → fica; o desvio comum não foge da ilha
+	BossSignatures.add_hazard(m, {"owner": boss.id, "pos": at + Vector3(6, 0, 0), "radius": 2.5, "at": ws.time + 3.0, "power": 1.0, "kind": 0, "effects": {}, "skill": "x",
+		"invert": true, "group": -1, "center": at}, ws.time)
+	m["hazards"][-1]["group"] = m["hazards"][-1]["id"]
+	dps.position = at + Vector3(0, 0, -3)
+	check((bd._sig_spot(dps, ws, m, boss, true) as Vector3).distance_to(at + Vector3(6, 0, 0)) < 0.01, "bot fora da ilha corre para ela")
+	dps.position = at + Vector3(6.2, 0, 0)
+	check(bd._sig_spot(dps, ws, m, boss, true) == dps.position and bd._danger_escape(dps, m) == Vector2.ZERO, "bot dentro da ilha fica (a ilha não é perigo)")
+	m["hazards"].clear()
+	# marca de espalhar em mim: ponto longe dos aliados; soak: o grupo vai até o marcado
+	dps.position = at + Vector3(0, 0, -3)
+	tank.position = at + Vector3(0.8, 0, -3)
+	BossSignatures.add_hazard(m, {"owner": boss.id, "pos": dps.position, "radius": 4.0, "at": ws.time + 4.0, "power": 1.0, "kind": 0, "effects": {}, "skill": "x",
+		"follow": dps.id, "victim": dps.id, "mode": "spread", "mark": true}, ws.time)
+	var sp2: Vector3 = bd._sig_spot(dps, ws, m, boss, true)
+	check(sp2 != Vector3.INF and Vector2(sp2.x - tank.position.x, sp2.z - tank.position.z).length() > 4.0 + 1.0, "bot marcado (espalhar) se afasta do grupo (%.1f m)" % Vector2(sp2.x - tank.position.x, sp2.z - tank.position.z).length())
+	check(bt._danger_escape(tank, m) != Vector2.ZERO, "aliado foge da marca do outro (perigo móvel)")
+	m["hazards"].clear()
+	var heal: SimEntity = mkbot.call("bishop", at + Vector3(-8, 0, -3))
+	var bh := BotBrain.new()
+	bh.setup(heal, ws.rng)
+	bh.my_role = "healer"
+	BossSignatures.add_hazard(m, {"owner": boss.id, "pos": dps.position, "radius": 3.5, "at": ws.time + 1.0, "power": 6.0, "kind": 0, "effects": {}, "skill": "x",
+		"follow": dps.id, "victim": dps.id, "mode": "soak", "mark": true}, ws.time)
+	check(bd._sig_spot(dps, ws, m, boss, true) == dps.position, "soak: o marcado para")
+	check((bh._sig_spot(heal, ws, m, boss, false) as Vector3).distance_to(m["hazards"][0]["pos"]) < 0.01 and bt._sig_spot(tank, ws, m, boss, true) == Vector3.INF,
+		"soak: quem não é tanque a 15 m vai dividir; o tanque segura o chefe")
+	m["hazards"].clear()
+	# Avalanche: atrás da pedra (a pedra fica entre o bot e o chefe)
+	var td: MonsterDef = gd.monsters["boss_troll_king"].duplicate()
+	td.phases = []
+	td.escort = {}
+	var troll: SimEntity = ws.spawn_monster(td, "dg_ninho", at + Vector3(0, 0, 10))
+	troll.brain = null
+	var av: SkillDef = gd.skills["mob_troll_avalanche"]
+	ws._add_skills(troll, [av.id])
+	ws._start_skill(troll, av, troll.skills.find(av), troll.position)
+	var cv: Array = BossSignatures.covers_of(m, troll.id)
+	check(not cv.is_empty() and troll.skill_phase == "startup", "Avalanche começa com pedra no chão")
+	var cs: Vector3 = bd._sig_spot(dps, ws, m, troll, true)
+	check(cs != Vector3.INF and not BossSignatures.cover_between(m, troll, cs).is_empty(), "bot na Avalanche: corre para trás da pedra")
+	# canal: guarda o atordoar quando o Rufar está para voltar
+	var gd2: MonsterDef = gd.monsters["boss_agitator_lord"].duplicate()
+	gd2.phases = []
+	gd2.escort = {}
+	var gru: SimEntity = ws.spawn_monster(gd2, "dg_ninho", at + Vector3(0, 0, -10))
+	gru.brain = null
+	ws._add_skills(gru, ["mob_drum_frenzy"])
+	gru.cooldowns["mob_drum_frenzy"] = 1.0
+	check(BotBrain._save_stun(ws, gru), "bot guarda o atordoar: o Rufar volta logo")
+	gru.cooldowns["mob_drum_frenzy"] = 30.0
+	check(not BotBrain._save_stun(ws, gru), "Rufar longe: o atordoar sai normal")
+	# faixa: o desvio comum sai de lado
+	BossSignatures.add_hazard(m, {"owner": boss.id, "pos": dps.position - Vector3(5, 0, 0), "dir": Vector3(1, 0, 0), "length": 10.0, "width": 3.0, "shape": "line", "radius": 10.0,
+		"at": ws.time + 2.0, "power": 1.0, "kind": 0, "effects": {}, "skill": "x"}, ws.time)
+	var esc := bd._danger_escape(dps, m)
+	check(absf(esc.x) < 0.01 and absf(esc.y) > 0.9, "bot sai da faixa de lado (para o vão)")
+	m["hazards"].clear()
+
+## Kragmar — Têmpera na Lava (GDD act2-boss-signatures 3.10): poças de 20 s, Têmpera só dentro (1 a cada 2 s, teto,
+## cura 1 vez por segundo mesmo com poças sobrepostas), perde fora, reset limpa; o bot que ele mira arrasta ele para fora.
+func _check_boss_sig_kragmar(gd) -> void:
+	var ws := WorldSim.new()
+	ws.load_map(gd.maps[GameData.town_map_id()])
+	var m: Dictionary = ws.load_map(gd.maps["dg_ninho"])
+	m["spawners"].clear()
+	for e in m["entities"].duplicate():
+		ws.despawn(e)
+	var at := Vector3.ZERO
+	for sp in gd.maps["dg_ninho"].spawners:
+		if sp["monster_id"] == "spider_queen":
+			at = sp["pos"]
+	at.y = 0.0
+	var mkbot := func(cname: String, pos: Vector3) -> SimEntity:
+		var b: SimEntity = ws.spawn_bot(gd.classes[cname], cname, "dg_ninho", pos, 44)
+		b.brain = null
+		b.stats.max_hp = 100000.0
+		b.hp = b.stats.max_hp
+		return b
+	var ks: SkillDef = gd.skills["mob_kragmar_temper"]
+	var kb: Dictionary = ks.effects["barrage"]
+	var kdef: MonsterDef = gd.monsters["boss_kragmar"]
+	check(ks.boss_signature and "mob_kragmar_temper" in Array(kdef.skill_ids) and "mob_lava_waves" in Array(kdef.skill_ids) and kb.get("on_self", false)
+		and is_equal_approx(float(kb["linger"]), 20.0) and kb.get("empower") is Dictionary and float(kb["tick_power"]) > 0.0,
+		"Kragmar: Têmpera na Lava soma ao kit (Ondas de Lava ficam), 1ª poça embaixo dele, 20 s, tique e fortalecer (GDD 3.10)")
+	var d: MonsterDef = kdef.duplicate()
+	d.phases = []
+	d.berserk_after = 0.0
+	d.aggro_range = 0.0
+	d.escort = {}
+	var kr: SimEntity = ws.spawn_monster(d, "dg_ninho", at)
+	kr.brain = null
+	var tank: SimEntity = mkbot.call("paladin", at + Vector3(0, 0, 3.2))
+	var dps: SimEntity = mkbot.call("berserker", at + Vector3(-3.5, 0, 0))
+	kr.aggro_target = tank.id
+	MobSystem.place_barrage(ws, kr, ks, kr.position, ks.power, ks.effects)
+	var hz: Array = m["hazards"]
+	check(hz.size() == int(kb["count"]) and int(kb["count"]) >= 1 and (hz[0]["pos"] as Vector3).distance_to(at) < 0.01, "Têmpera na Lava: %d círculos, o 1º embaixo do Kragmar" % int(kb["count"]))
+	var ids: Array = hz.map(func(h): return int(h["id"]))
+	kr.position = at + Vector3(0, 0, -8)                        # fora das poças
+	ws.time += float(kb["delay"]) + 0.01
+	MobSystem.update_hazards(ws, m)
+	check(hz.size() == int(kb["count"]) and hz.all(func(h): return h.get("landed", false)), "Têmpera na Lava: os círculos caem e viram poça")
+	var t_land := ws.time
+	tank.position = at                                          # pisa na poça dele
+	var hp_t := tank.hp + dps.hp
+	for i in range(2):
+		ws.time += Balance.BOSS_LINGER_TICK + 0.01
+		MobSystem.update_hazards(ws, m)
+	check(tank.hp + dps.hp < hp_t, "poça de lava queima quem pisa (tique)")
+	tank.position = at + Vector3(0, 0, 3.2)
+	check(kr.buff_stacks(BossSignatures.TEMPER_BUFF) == 0 and not BossSignatures.in_empower_pool(m, kr), "AC-S3 Têmpera: Kragmar fora da poça não ganha acúmulo")
+	# dentro (com uma 2ª poça por cima da 1ª: conta uma vez só)
+	BossSignatures.add_hazard(m, {"owner": kr.id, "pos": at + Vector3(0.5, 0, 0), "radius": 2.4, "at": ws.time, "power": 0.5, "kind": 0, "effects": {}, "skill": "mob_kragmar_temper",
+		"linger": 20.0, "tick_power": 0.0, "empower": {"id": BossSignatures.TEMPER_BUFF}}, ws.time)
+	MobSystem.update_hazards(ws, m)
+	kr.position = at
+	kr.hp = kr.stats.max_hp * 0.5
+	var hp0 := kr.hp
+	var dm0 := kr.dmg_mult
+	ws.time += Balance.BOSS_LINGER_TICK + 0.01
+	MobSystem.update_hazards(ws, m)
+	check(kr.buff_stacks(BossSignatures.TEMPER_BUFF) == 0 and BossSignatures.in_empower_pool(m, kr), "Têmpera: 1 s na poça ainda não dá acúmulo (1 a cada %.0f s)" % Balance.KRAGMAR_TEMPER_EVERY)
+	ws.time += Balance.BOSS_LINGER_TICK + 0.01
+	MobSystem.update_hazards(ws, m)
+	var heal: float = kr.hp - hp0
+	var want: float = kr.stats.max_hp * Balance.KRAGMAR_TEMPER_HEAL * Balance.BOSS_LINGER_TICK * 2.0
+	check(kr.buff_stacks(BossSignatures.TEMPER_BUFF) == 1, "Têmpera: 2 s na poça = 1 acúmulo, mesmo com 2 poças sobrepostas")
+	check(absf(heal - want) < want * 0.1, "Têmpera: cura %.1f%%/s dentro da poça, uma vez só com poças sobrepostas (%.0f, quer %.0f)" % [Balance.KRAGMAR_TEMPER_HEAL * 100.0, heal, want])
+	for i in range(12):
+		ws.time += Balance.BOSS_LINGER_TICK + 0.01
+		MobSystem.update_hazards(ws, m)
+	check(kr.buff_stacks(BossSignatures.TEMPER_BUFF) == Balance.KRAGMAR_TEMPER_MAX, "Têmpera: teto de %d acúmulos" % Balance.KRAGMAR_TEMPER_MAX)
+	check(is_equal_approx(kr.dmg_mult, dm0 * (1.0 + Balance.KRAGMAR_TEMPER_STEP * Balance.KRAGMAR_TEMPER_MAX)), "F-S3: dano × (1 + %.2f × acúmulos) no teto" % Balance.KRAGMAR_TEMPER_STEP)
+	kr.position = at + Vector3(0, 0, -8)
+	BossSignatures.update(ws, kr, Balance.KRAGMAR_TEMPER_DECAY - 0.2)
+	check(kr.buff_stacks(BossSignatures.TEMPER_BUFF) == Balance.KRAGMAR_TEMPER_MAX, "Têmpera: fora há menos de %.0f s, não perde ainda" % Balance.KRAGMAR_TEMPER_DECAY)
+	BossSignatures.update(ws, kr, 0.3)
+	check(kr.buff_stacks(BossSignatures.TEMPER_BUFF) == Balance.KRAGMAR_TEMPER_MAX - 1 and kr.dmg_mult < dm0 * (1.0 + Balance.KRAGMAR_TEMPER_STEP * Balance.KRAGMAR_TEMPER_MAX) - 0.001,
+		"Têmpera: fora da poça perde 1 acúmulo a cada %.0f s" % Balance.KRAGMAR_TEMPER_DECAY)
+	# vida da poça: 20 s depois de cair
+	ws.time = t_land + float(kb["linger"]) - 0.05
+	MobSystem.update_hazards(ws, m)
+	check(hz.filter(func(h): return int(h["id"]) in ids).size() == int(kb["count"]), "poça ainda viva pouco antes de %.0f s" % float(kb["linger"]))
+	ws.time = t_land + float(kb["linger"]) + 0.05
+	MobSystem.update_hazards(ws, m)
+	check(hz.filter(func(h): return int(h["id"]) in ids).is_empty(), "poça some depois de %.0f s" % float(kb["linger"]))
+	# reset (AC-S4)
+	kr.put_buff({"id": BossSignatures.TEMPER_BUFF, "remaining": 1.0e9, "stacks": 4})
+	MobSystem._apply_fury(kr)
+	MobSystem.reset_boss(ws, kr)
+	check(kr.buff_stacks(BossSignatures.TEMPER_BUFF) == 0 and not kr.sig.has("temper_in") and is_equal_approx(kr.dmg_mult, 1.0)
+		and (m.get("hazards", []) as Array).filter(func(h): return int(h["owner"]) == kr.id).is_empty(), "AC-S4 reset do Kragmar: Têmpera e poças somem")
+	# bots: quem ele mira arrasta para o ponto livre de poça mais perto; os outros só saem da lava
+	kr.position = at
+	kr.aggro_target = tank.id
+	tank.position = at + Vector3(0, 0, 2.6)
+	dps.position = at + Vector3(-1.5, 0, 0)
+	BossSignatures.add_hazard(m, {"owner": kr.id, "pos": at, "radius": 2.4, "at": ws.time, "power": 0.5, "kind": 0, "effects": {}, "skill": "mob_kragmar_temper",
+		"linger": 20.0, "tick_power": 0.25, "empower": {"id": BossSignatures.TEMPER_BUFF}}, ws.time)
+	MobSystem.update_hazards(ws, m)
+	kr.aggro_target = tank.id                                  # a poça caiu batendo nos dois (reflexo/acerto podia virar o aggro)
+	var bt := BotBrain.new()
+	bt.setup(tank, ws.rng)
+	bt.my_role = "tank"
+	var bd := BotBrain.new()
+	bd.setup(dps, ws.rng)
+	bd.my_role = "dps"
+	var spot: Vector3 = bt._sig_spot(tank, ws, m, kr, true)
+	var pool: Dictionary = m["hazards"][-1]
+	var to := Vector3(kr.position.x - spot.x, 0, kr.position.z - spot.z)
+	var q: Vector3 = spot + to.normalized() * minf(to.length(), d.attack_range + kr.radius)
+	check(spot != Vector3.INF and tank.position.distance_to(spot) >= Balance.BOT_SIG_DRAG_DIST - 0.01 and not BossSignatures.inside(pool, spot, tank.radius)
+		and not BossSignatures.inside(pool, q, kr.radius), "bot tanque: Kragmar na poça -> anda %.1f m para um ponto onde ele chega fora da lava" % tank.position.distance_to(spot))
+	check(bd._sig_spot(dps, ws, m, kr, true) == Vector3.INF and bd._danger_escape(dps, m) != Vector2.ZERO, "bot dps: não arrasta (não é o alvo), só sai da poça")
+	kr.position = q
+	check(bt._sig_spot(tank, ws, m, kr, true) == Vector3.INF and bt.drag_to == Vector3.INF, "bot tanque: Kragmar fora da poça -> volta a lutar")
+	m["hazards"].clear()
+	ws.despawn(kr)
+
+## Durgash — Machado do Trono (GDD act2-boss-signatures 3.11, F-S1): marca de dividir na vítima (não o tanque) que a segue,
+## golpe dividido por N dentro, hora de cair, reset; bots entram a tempo (seguem lutando até a hora) e voltam depois.
+func _check_boss_sig_durgash(gd) -> void:
+	var ws := WorldSim.new()
+	ws.load_map(gd.maps[GameData.town_map_id()])
+	var m: Dictionary = ws.load_map(gd.maps["dg_ninho"])
+	m["spawners"].clear()
+	for e in m["entities"].duplicate():
+		ws.despawn(e)
+	var at := Vector3.ZERO
+	for sp in gd.maps["dg_ninho"].spawners:
+		if sp["monster_id"] == "spider_queen":
+			at = sp["pos"]
+	at.y = 0.0
+	var mkbot := func(cname: String, pos: Vector3) -> SimEntity:
+		var bot: SimEntity = ws.spawn_bot(gd.classes[cname], cname, "dg_ninho", pos, 45)
+		bot.brain = null
+		bot.stats.max_hp = 1.0e7
+		bot.hp = bot.stats.max_hp
+		return bot
+	var s: SkillDef = gd.skills["mob_durgash_throneaxe"]
+	var mk: Dictionary = s.effects.get("mark", {})
+	var ddef: MonsterDef = gd.monsters["boss_durgash"]
+	check(s.boss_signature and "mob_durgash_throneaxe" in Array(ddef.skill_ids) and str(mk.get("mode", "")) == "soak" and bool(mk.get("no_tank", false))
+		and is_equal_approx(s.power, Balance.DURGASH_AXE_POWER) and is_equal_approx(float(mk["radius"]), Balance.DURGASH_AXE_RADIUS)
+		and is_equal_approx(float(mk["time"]), Balance.DURGASH_AXE_TIME) and is_equal_approx(s.cooldown, Balance.DURGASH_AXE_EVERY),
+		"Durgash: Machado do Trono desde 100%, marca de dividir fora do tanque, números em Balance.DURGASH_AXE_* (GDD 3.11)")
+	check(Sfx.SIG_WARN.has(s.id) and Sfx.SIG_EFFECT.has(s.id), "Machado do Trono: som de aviso e de impacto")
+	var d: MonsterDef = ddef.duplicate()
+	d.phases = []
+	d.berserk_after = 0.0
+	d.aggro_range = 0.0
+	d.escort = {}
+	var du: SimEntity = ws.spawn_monster(d, "dg_ninho", at)
+	du.brain = null
+	var tank: SimEntity = mkbot.call("paladin", at + Vector3(0, 0, 2.5))
+	var a: SimEntity = mkbot.call("berserker", at + Vector3(2.0, 0, 0))
+	var b: SimEntity = mkbot.call("bishop", at + Vector3(-2.0, 0, 0))
+	var c: SimEntity = mkbot.call("elementalist", at + Vector3(0, 0, -2.0))
+	var dd: SimEntity = mkbot.call("ranger", at + Vector3(1.5, 0, -1.5))
+	var crew: Array = [a, b, c, dd]
+	du.aggro_target = tank.id
+	# --- a marca: 1 vítima que não é o tanque, segue, cai na hora ---
+	ws.rng.seed = 5
+	for trial in range(6):
+		BossSignatures.place_marks(ws, du, s, s.power, s.effects)
+		var hz: Array = (m.get("hazards", []) as Array).filter(func(x): return x.get("mark", false))
+		check(hz.size() == 1 and int(hz[0]["victim"]) != tank.id, "Machado do Trono: 1 marca, nunca no tanque (#%d)" % trial)
+		m["hazards"].clear()
+	BossSignatures.place_marks(ws, du, s, s.power, s.effects)
+	var h: Dictionary = m["hazards"][0]
+	var v: SimEntity = ws.entities[int(h["victim"])]
+	check(is_equal_approx(float(h["at"]) - ws.time, Balance.DURGASH_AXE_TIME) and float(h["at"]) - ws.time >= Balance.BOSS_SIG_WARN_MIN,
+		"Machado do Trono: cai %.1f s depois (aviso >= %.1f)" % [Balance.DURGASH_AXE_TIME, Balance.BOSS_SIG_WARN_MIN])
+	var v0 := v.position
+	v.position = v0 + Vector3(3, 0, 0)
+	ws.time += 1.0
+	MobSystem.update_hazards(ws, m)
+	check((h["pos"] as Vector3).distance_to(Vector3(v.position.x, 0, v.position.z)) < 0.01 and m["hazards"].size() == 1, "Machado do Trono: o círculo segue a vítima")
+	ws.time = float(h["at"]) - 0.05
+	MobSystem.update_hazards(ws, m)
+	check(m["hazards"].size() == 1, "Machado do Trono: ainda não caiu antes da hora")
+	MobSystem.reset_boss(ws, du)
+	check((m.get("hazards", []) as Array).filter(func(x): return int(x["owner"]) == du.id).is_empty(), "AC-S4 reset do Durgash: o machado some")
+	du.aggro_target = tank.id
+	v.position = v0
+	# --- F-S1: dividido por N dentro (média de 8 golpes por N; o mesmo sorteio para cada N) ---
+	# determinístico: sem esquiva (AGI), bloqueio passivo nem crítico; mede sempre o mesmo personagem (a, sempre dentro)
+	for o in crew + [tank]:
+		o.stats.evasion = 0.0
+		o.stats.block_chance = 0.0
+	du.stats.crit_phys = 0.0
+	du.stats.crit_mag = 0.0
+	var per := {}
+	var spot := at + Vector3(-12, 0, -6)
+	for n in [1, 2, 4]:
+		var tot := 0.0
+		for trial in range(8):
+			for i in range(crew.size()):
+				var o: SimEntity = crew[i]
+				o.hp = o.stats.max_hp
+				o.position = (spot + Vector3(0.6 * (i % 2), 0, 0.6 * (i / 2))) if i < n else (at + Vector3(10 + 3 * i, 0, 10))
+			tank.position = at + Vector3(0, 0, 2.5)
+			tank.hp = tank.stats.max_hp
+			for o in crew + [tank]:                      # a cada golpe (stats podem ser recalculados)
+				o.stats.evasion = 0.0
+				o.stats.block_chance = 0.0
+			du.stats.crit_phys = 0.0
+			du.stats.crit_mag = 0.0
+			ws.rng.seed = 100 + trial
+			BossSignatures.add_hazard(m, {"owner": du.id, "pos": spot, "radius": Balance.DURGASH_AXE_RADIUS, "at": ws.time, "power": 6.0, "kind": s.kind,      # power fixo: a regra, não o número
+				"effects": {}, "skill": s.id, "follow": a.id, "victim": a.id, "mode": "soak", "mark": true}, ws.time)
+			ws.sig_stats.clear()
+			MobSystem.update_hazards(ws, m)
+			if int(ws.sig_stats.get("soak_n", 0)) != n:            # diagnóstico se falhar
+				for o2 in crew: print("soak diag %s vivo=%s hp=%.0f pos=%s mapa=%s" % [o2.class_def.id, o2.is_alive(), o2.hp, o2.position, o2.map_id])
+			check(int(ws.sig_stats.get("soak_n", 0)) == n, "F-S1: %d dentro contados (%d)" % [n, int(ws.sig_stats.get("soak_n", 0))])
+			for i in range(n):
+				check((crew[i] as SimEntity).hp < (crew[i] as SimEntity).stats.max_hp, "F-S1: todo mundo dentro leva a sua parte (%d dentro)" % n)
+			tot += a.stats.max_hp - a.hp
+			check(tank.hp == tank.stats.max_hp, "F-S1: quem está fora não leva nada")
+		per[n] = tot / 8.0
+	# a DEF sai do pedaço de cada um: a parte fica em até 1/N (variação ±10% na média de 8 golpes) e sempre cai com N
+	check(per[2] < per[1] * 0.5 * 1.15 and per[4] < per[1] * 0.25 * 1.15 and per[4] > per[1] * 0.05 and per[1] > per[2] and per[2] > per[4],
+		"AC-S3 F-S1: cada um leva até ~1/N (1: %.0f, 2: %.0f, 4: %.0f)" % [per[1], per[2], per[4]])
+	# --- bots: o marcado para; tanque segura; os outros seguem no que faziam até a hora e entram a tempo; depois voltam ---
+	var brains := {}
+	var roles := {tank.id: "tank", a.id: "dps", b.id: "healer", c.id: "caster", dd.id: "ranged"}
+	for o in [tank, a, b, c, dd]:
+		var br := BotBrain.new()
+		br.setup(o, ws.rng)
+		br.my_role = roles[o.id]
+		br.cur_sim = ws
+		brains[o.id] = br
+		o.hp = o.stats.max_hp
+	tank.position = at + Vector3(0, 0, 2.5)
+	a.position = at + Vector3(0, 0, -4)          # a vítima
+	b.position = a.position + Vector3(6, 0, 0)
+	c.position = a.position + Vector3(-9, 0, 0)
+	dd.position = a.position + Vector3(0, 0, -12)
+	var walk := {}
+	for o in [b, c, dd]:
+		walk[o.id] = maxf(0.0, Vector2(o.position.x - a.position.x, o.position.z - a.position.z).length() - (Balance.DURGASH_AXE_RADIUS - o.radius - Balance.BOT_SIG_SOAK_PAD)) / o.stats.move_speed
+	BossSignatures.add_hazard(m, {"owner": du.id, "pos": a.position, "radius": Balance.DURGASH_AXE_RADIUS, "at": ws.time + Balance.DURGASH_AXE_TIME, "power": s.power, "kind": s.kind,
+		"effects": {}, "skill": s.id, "follow": a.id, "victim": a.id, "mode": "soak", "mark": true}, ws.time)
+	var mark: Dictionary = m["hazards"][-1]
+	check((brains[a.id] as BotBrain)._sig_spot(a, ws, m, du, true) == Vector3.INF, "bot marcado pelo machado: com tempo, segue no que fazia")
+	ws.time += Balance.DURGASH_AXE_TIME - Balance.BOT_SIG_SOAK_VICTIM_HOLD + 0.01
+	check((brains[a.id] as BotBrain)._sig_spot(a, ws, m, du, true) == a.position, "bot marcado pelo machado: para nos últimos %.1f s (o grupo vem)" % Balance.BOT_SIG_SOAK_VICTIM_HOLD)
+	ws.time -= Balance.DURGASH_AXE_TIME - Balance.BOT_SIG_SOAK_VICTIM_HOLD + 0.01
+	check((brains[tank.id] as BotBrain).soak_spot(tank, ws, mark) == Vector3.INF, "tanque não sai do Durgash para dividir")
+	check((brains[b.id] as BotBrain).soak_spot(b, ws, mark) == Vector3.INF, "bot a 6 m com 5 s: segue no que fazia (ainda dá tempo)")
+	var started := {}
+	var dt := 0.1
+	var t0 := ws.time
+	var landed_n := -1
+	for step in range(int(Balance.DURGASH_AXE_TIME / dt) + 3):
+		for o in [b, c, dd]:
+			var cmd := InputCommand.new()
+			var br: BotBrain = brains[o.id]
+			if br._soak_move(o, ws, m, cmd) and cmd.move != Vector2.ZERO:
+				if not started.has(o.id):
+					started[o.id] = ws.time - t0
+				var mv: Vector2 = cmd.move.normalized() * o.stats.move_speed * dt
+				o.position += Vector3(mv.x, 0, mv.y)
+		ws.time += dt
+		ws.sig_stats.clear()
+		var had: bool = m["hazards"].has(mark)
+		MobSystem.update_hazards(ws, m)
+		if had and not m["hazards"].has(mark):
+			landed_n = int(ws.sig_stats.get("soak_n", 0))
+			break
+	var helpers: Array = [b, c, dd].slice(0, Balance.BOT_SIG_SOAK_HELPERS)       # os mais perto (6 e 9 m); o de 12 m segue no que fazia
+	check(landed_n == 1 + helpers.size(), "bots entram no Machado do Trono a tempo: %d dentro quando cai (%d)" % [1 + helpers.size(), landed_n])
+	for o in [b, c, dd]:
+		if not o in helpers:
+			check(not started.has(o.id), "bot %s (mais longe que os %d ajudantes) não sai do lugar" % [roles[o.id], Balance.BOT_SIG_SOAK_HELPERS])
+			continue
+		var lead: float = Balance.DURGASH_AXE_TIME - float(started.get(o.id, 0.0))
+		check(started.has(o.id) and lead <= float(walk[o.id]) + Balance.BOT_SIG_SOAK_MARGIN + 0.25 and lead >= float(walk[o.id]),
+			"bot %s parte só na hora (%.1f s antes de cair; precisa %.1f)" % [roles[o.id], lead, float(walk[o.id])])
+		var cmd2 := InputCommand.new()
+		var br2: BotBrain = brains[o.id]
+		check(not br2._soak_move(o, ws, m, cmd2) and not br2.soak_pin and br2._sig_spot(o, ws, m, du, true) == Vector3.INF,
+			"bot %s volta ao que fazia depois do machado" % roles[o.id])
+	# longe demais (> BOT_SIG_SOAK_RANGE): não vem
+	BossSignatures.add_hazard(m, {"owner": du.id, "pos": a.position, "radius": Balance.DURGASH_AXE_RADIUS, "at": ws.time + 0.5, "power": s.power, "kind": s.kind,
+		"effects": {}, "skill": s.id, "follow": a.id, "victim": a.id, "mode": "soak", "mark": true}, ws.time)
+	dd.position = a.position + Vector3(0, 0, -(Balance.BOT_SIG_SOAK_RANGE + 2.0))
+	check((brains[dd.id] as BotBrain).soak_spot(dd, ws, m["hazards"][-1]) == Vector3.INF, "bot a mais de %.0f m não atravessa a arena" % Balance.BOT_SIG_SOAK_RANGE)
+	m["hazards"].clear()
+	ws.despawn(du)
+
+## Assinaturas de Kharzun (GDD act2-boss-signatures 3.7-3.9): faixas do Estouro da Matilha, anéis das Ondas da Montanha,
+## cópias das Sombras Gêmeas (R-F) e a resposta dos bots (lado da faixa/anel no ritmo, sempre o Shazka verdadeiro).
+func _check_boss_sig_kharzun(gd) -> void:
+	var ws := WorldSim.new()
+	ws.load_map(gd.maps[GameData.town_map_id()])
+	var m: Dictionary = ws.load_map(gd.maps["dg_ninho"])
+	m["spawners"].clear()
+	for e in m["entities"].duplicate():
+		ws.despawn(e)
+	var at := Vector3.ZERO
+	for sp in gd.maps["dg_ninho"].spawners:
+		if sp["monster_id"] == "spider_queen":
+			at = sp["pos"]
+	at.y = 0.0
+	var mkboss := func(id: String, pos: Vector3) -> SimEntity:
+		var d: MonsterDef = gd.monsters[id].duplicate()
+		d.phases = []
+		d.berserk_after = 0.0
+		d.aggro_range = 0.0
+		d.escort = {}
+		var b: SimEntity = ws.spawn_monster(d, "dg_ninho", pos)
+		b.brain = null
+		return b
+	var mkbot := func(cname: String, pos: Vector3) -> SimEntity:
+		var b: SimEntity = ws.spawn_bot(gd.classes[cname], cname, "dg_ninho", pos, 40)
+		b.brain = null
+		b.stats.max_hp = 100000.0
+		b.hp = b.stats.max_hp
+		return b
+	var tank: SimEntity = mkbot.call("paladin", at + Vector3(0, 0, 3))
+	var dps: SimEntity = mkbot.call("berserker", at + Vector3(-3, 0, 0))
+	var heal := func() -> void:
+		for o in [tank, dps]:
+			o.hp = o.stats.max_hp
+			o.debuffs.clear()
+			o.set_state(SimEntity.State.IDLE)
+	# --- Ulgra: Estouro da Matilha (3 faixas paralelas, uma no tanque, vãos seguros) ---
+	var ul: SimEntity = mkboss.call("boss_ulgra", at)
+	ul.aggro_target = tank.id
+	var us: SkillDef = gd.skills["mob_ulgra_stampede"]
+	var lb: Dictionary = us.effects["barrage"]
+	check(lb["shape"] == "line" and int(lb["count"]) == 3 and is_equal_approx(float(lb["width"]), 3.0) and is_equal_approx(float(lb["gap"]), 3.0), "Ulgra: 3 faixas de 3 m com vãos de 3 m (GDD 3.8)")
+	tank.position = at + Vector3(0, 0, 3)
+	dps.position = at + Vector3(3.0, 0, 3)                        # no vão ao lado da faixa do tanque (faixas correm em z)
+	MobSystem.place_barrage(ws, ul, us, tank.position, us.power, us.effects)
+	var hz: Array = m["hazards"]
+	check(hz.size() == 3 and hz.all(func(h): return h["shape"] == "line" and h.get("sig_line", false)), "Ulgra: o estouro marca 3 faixas")
+	var ats: Array = hz.map(func(h): return snappedf(float(h["at"]) - ws.time, 0.01))
+	check(ats == [2.0, 2.6, 3.2], "Ulgra: faixas caem em 2,0 / 2,6 / 3,2 s (%s)" % [ats])
+	check(BossSignatures.inside(hz[0], tank.position) and not hz.any(func(h): return BossSignatures.inside(h, dps.position, dps.radius)), "Ulgra: uma faixa sobre o tanque, o vão livre")
+	# bot: sai da faixa de lado para o vão (não atravessa para a faixa seguinte)
+	var bt := BotBrain.new()
+	bt.setup(tank, ws.rng)
+	bt.my_role = "tank"
+	var esc: Vector2 = bt._danger_escape(tank, m, true)
+	var exit := tank.position + Vector3(esc.x, 0, esc.y) * (1.5 + tank.radius + Balance.BOT_SIG_PAD + 0.05)
+	check(esc != Vector2.ZERO and absf(esc.y) < 0.01 and not hz.any(func(h): return BossSignatures.inside(h, exit, tank.radius)), "bot sai da faixa do estouro para o vão (%s)" % esc)
+	var hp_t: float = tank.hp
+	var hp_d: float = dps.hp
+	ws.time += 3.3
+	MobSystem.update_hazards(ws, m)
+	check(tank.hp < hp_t and tank.state == SimEntity.State.STUNNED and is_equal_approx(dps.hp, hp_d) and hz.is_empty(), "AC Ulgra: faixa acerta e derruba; o vão não leva")
+	ws.despawn(ul)
+	heal.call()
+	# --- Gorbash: Ondas da Montanha (3 pisadas × 3 anéis, a 2ª pisada anda para fora) ---
+	var go: SimEntity = mkboss.call("boss_gorbash", at)
+	go.aggro_target = tank.id
+	var gs: SkillDef = gd.skills["mob_gorbash_waves"]
+	var gb: Dictionary = gs.effects["barrage"]
+	MobSystem.place_barrage(ws, go, gs, at, gs.power, gs.effects)
+	hz = m["hazards"]
+	check(hz.size() == int(gb["count"]) * int(gb["pulses"]) and hz.all(func(h): return h["shape"] == "ring"), "Gorbash: %d anéis (3 pisadas × 3)" % hz.size())
+	check(hz.all(func(h): return float(h["radius"]) <= 16.0 + 0.01) and hz.any(func(h): return float(h["radius"]) >= 15.99), "Gorbash: anéis até 16 m")
+	check(is_equal_approx(float(hz[0]["at"]) - ws.time, float(gb["delay"])) and is_equal_approx(float(hz[1]["at"]) - float(hz[0]["at"]), float(gb["stagger"]))
+		and is_equal_approx(float(hz[3]["at"]) - float(hz[0]["at"]), float(gb["pulse_gap"])), "Gorbash: anel a cada 0,5 s, pisada a cada 1,2 s")
+	check(is_equal_approx(float(hz[3]["inner"]) - float(hz[0]["inner"]), float(gb["pulse_shift"])) and is_equal_approx(float(hz[6]["inner"]), float(hz[0]["inner"])), "Gorbash: 2ª pisada anda para fora (o lugar seguro muda)")
+	# bot no 1º anel: para dentro esbarra no chefe -> sai para fora; depois que ele cai, foge do anel seguinte pelo lado livre mais tempo
+	tank.position = at + Vector3(0, 0, 3)
+	check(bt._danger_escape(tank, m, true, ws.time) == Vector2.ZERO and bt._danger_escape(tank, m, true, float(hz[0]["at"]) - 0.5) != Vector2.ZERO,
+		"bot segue lutando enquanto o anel demora mais de %.1f s; perto da queda, sai" % Balance.BOT_SIG_REACT)
+	esc = bt._danger_escape(tank, m, true)
+	check(esc.y > 0.9, "bot no anel colado no Gorbash sai para fora (para dentro esbarra nele) (%s)" % esc)
+	dps.position = at + Vector3(0, 0, -20.0)                       # longe: além dos 16 m
+	hp_t = tank.hp
+	hp_d = dps.hp
+	ws.time = float(hz[0]["at"]) + 0.01
+	MobSystem.update_hazards(ws, m)
+	check(tank.hp < hp_t and is_equal_approx(dps.hp, hp_d), "AC Gorbash: anel acerta entre inner e radius; além de 16 m não")
+	check(hz.size() == 8, "anel que caiu sai da lista")
+	tank.hp = tank.stats.max_hp
+	tank.position = at + Vector3(0, 0, 4.0 + tank.radius + Balance.BOT_SIG_PAD + 0.1)   # saiu para fora: agora no anel da 2ª pisada
+	esc = bt._danger_escape(tank, m, true)
+	var dest := tank.position + Vector3(esc.x, 0, esc.y) * 2.6
+	var land_t: float = 0.0
+	for h in hz:
+		if BossSignatures.inside(h, tank.position, tank.radius + Balance.BOT_SIG_PAD):
+			land_t = float(h["at"])
+			break
+	var soon := hz.filter(func(h): return BossSignatures.inside(h, dest, tank.radius) and float(h["at"]) < land_t + 1.0)
+	check(esc != Vector2.ZERO and soon.is_empty(), "bot no ritmo: foge do anel seguinte para onde nada cai logo (%s)" % esc)
+	ws.time += 10.0
+	MobSystem.update_hazards(ws, m)
+	check(m["hazards"].is_empty() and int(ws.sig_stats.get("ring_hits", 0)) >= 1, "Gorbash: série acaba; sonda conta anéis que acertaram")
+	ws.despawn(go)
+	heal.call()
+	# --- Shazka: Sombras Gêmeas (R-F) ---
+	var sz: SimEntity = mkboss.call("boss_shazka", at)
+	sz.aggro_target = tank.id
+	sz.stats.max_hp *= 1.37                           # vida escalada (raide/grupo) diferente da do def da cópia
+	sz.hp = sz.stats.max_hp
+	tank.position = at + Vector3(0, 0, 2.5)
+	var ts: SkillDef = gd.skills["mob_shazka_twins"]
+	ws._add_skills(sz, [ts.id])
+	ws._start_skill(sz, ts, sz.skills.find(ts), sz.position)
+	sz.state_time = ts.startup
+	ws._apply_skill(sz, ts, m)
+	check(sz.stealth_left > 0.0 and sz.sig.has("twins") and BossSignatures.decoys_of(ws, sz).is_empty(), "Sombras Gêmeas: some na fumaça; cópias só no fim dela")
+	ws.time += float(ts.effects["stealth"]) + 0.01
+	BossSignatures.update(ws, sz, 0.05)
+	var cps: Array = BossSignatures.decoys_of(ws, sz)
+	check(cps.size() == int(ts.effects["decoys"]["count"]) and sz.stealth_left <= 0.0, "Sombras Gêmeas: volta com %d cópias" % cps.size())
+	if cps.size() < 2:
+		return
+	var c0: SimEntity = cps[0]
+	check(c0.name == sz.name and c0.monster_def.model == sz.monster_def.model and c0.monster_def.decoy and not c0.monster_def.is_boss, "cópia: mesmo nome e modelo, marcada decoy, não é chefe")
+	check(c0.monster_def.xp == 0 and c0.monster_def.loot_table == "" and c0.boss_id < 0, "AC Shazka: cópia sem XP, sem loot e sem boss_id (não conta como chefe nem lacaio do ward)")
+	check(is_equal_approx(c0.hp, sz.hp) and absf(c0.stats.patk - sz.stats.patk * Balance.SHAZKA_DECOY_DMG) < sz.stats.patk * 0.02, "cópia: vida igual à dele, dano %d%%" % int(Balance.SHAZKA_DECOY_DMG * 100))
+	c0.put_buff({"id": "test_decoy_buff", "remaining": 1.0, "atk_pct": 10.0, "mob_stat": true})
+	c0.recompute_stats()                              # buff/debuff recalcula: a vida máxima segue a do chefe (barra <= 100%)
+	check(is_equal_approx(c0.stats.max_hp, sz.stats.max_hp) and c0.hp <= c0.stats.max_hp, "cópia: vida máxima do chefe sobrevive ao recompute_stats (%.0f/%.0f)" % [c0.hp, c0.stats.max_hp])
+	c0.drop_buff("test_decoy_buff")
+	c0.recompute_stats()
+	check(cps.all(func(c): return c.position.distance_to(sz.position) > 1.0), "cópias e o verdadeiro em lugares diferentes")
+	check(BotBrain._decoy_real(ws, c0) == sz and BotBrain._decoy_real(ws, sz) == sz, "bot mira o Shazka verdadeiro, nunca a cópia")
+	# 1 golpe mata e solta veneno
+	var n0: int = m["hazards"].size()
+	ws._deal_damage(dps, c0, 1, false, false, "physical")
+	check(not c0.is_alive(), "AC Shazka: cópia morre com 1 golpe")
+	var cl: Array = m["hazards"].filter(func(h): return h.get("decoy_cloud", false))
+	check(m["hazards"].size() == n0 + 1 and cl.size() == 1 and int(cl[0]["owner"]) == sz.id, "AC Shazka: cópia morrendo solta nuvem de veneno")
+	if cl.size() == 1:
+		dps.position = Vector3(cl[0]["pos"].x, 0, cl[0]["pos"].z)
+		hp_d = dps.hp
+		for i in range(6):                    # tique da nuvem pode ser esquivado (AGI): alguns tiques
+			ws.time += 0.5
+			MobSystem.update_hazards(ws, m)
+			if dps.hp < hp_d and dps.debuffs.any(func(d): return d.get("kind") == "dot"):
+				break
+		check(dps.hp < hp_d and dps.debuffs.any(func(d): return d.get("kind") == "dot"), "nuvem da cópia: dano + veneno em quem ficou")
+	m["hazards"].clear()
+	# dano no tempo no verdadeiro não desfaz; golpe direto desfaz as cópias
+	var c1: SimEntity = cps[1]
+	ws._deal_damage(dps, sz, 10, false, false, "dot")
+	check(c1.is_alive() and sz.sig.has("decoys"), "dano no tempo no verdadeiro não desfaz as cópias")
+	ws._deal_damage(dps, sz, 10, false, false, "physical")
+	BossSignatures.update_decoy(ws, c1)
+	check(not ws.entities.has(c1.id) and not sz.sig.has("decoys") and m["hazards"].is_empty(), "AC Shazka: golpe no verdadeiro = as cópias somem (sem veneno)")
+	# tempo acaba, reset e morte limpam
+	var recast := func() -> void:
+		BossSignatures.decoys_start(ws, sz, ts, ts.effects)
+		sz.stealth_left = 0.0
+		BossSignatures.update(ws, sz, 0.05)
+	recast.call()
+	cps = BossSignatures.decoys_of(ws, sz)
+	ws.time += float(ts.effects["decoys"]["time"]) + 0.01
+	BossSignatures.update(ws, sz, 0.05)
+	for c in cps:
+		BossSignatures.update_decoy(ws, c)
+	check(cps.size() == 2 and cps.all(func(c): return not ws.entities.has(c.id)), "cópias somem depois de %.0f s" % float(ts.effects["decoys"]["time"]))
+	recast.call()
+	cps = BossSignatures.decoys_of(ws, sz)
+	ws.reset_boss(sz)
+	for c in cps:
+		BossSignatures.update_decoy(ws, c)
+	check(cps.size() == 2 and cps.all(func(c): return not ws.entities.has(c.id)) and sz.sig.is_empty(), "AC-S4 reset_boss: cópias somem")
+	recast.call()
+	cps = BossSignatures.decoys_of(ws, sz)
+	ws._deal_damage(tank, sz, int(sz.hp) + 10, false, false, "magical")
+	for c in cps:
+		BossSignatures.update_decoy(ws, c)
+	check(not sz.is_alive() and cps.size() == 2 and cps.all(func(c): return not ws.entities.has(c.id)) and m["hazards"].is_empty(), "chefe morre: cópias somem junto (sem veneno)")
+
 ## Chefes: mira em quem está longe (mob_pick), lacaios a qualquer distância, chuva avisada (barrage), gancho (pull),
 ## fúria por tempo (berserk_after), escudo dos lacaios (ward) e o kit mínimo de todo chefe da sonda.
 func _check_boss_mechanics(gd) -> void:
@@ -10550,6 +11931,7 @@ func _check_boss_mechanics(gd) -> void:
 	MobSystem.update_hazards(ws, m)
 	check(far.hp == hp0 and not hz.is_empty(), "chuva: nada cai antes do atraso")
 	ws.time += float(hs.effects["barrage"]["delay"]) + 0.1
+	far.stats.evasion = 0.0                  # a esquiva da AGI apagava o golpe inteiro às vezes (sorteio do rng compartilhado)
 	MobSystem.update_hazards(ws, m)
 	check(far.hp < hp0 and far.debuffs.any(func(d): return d.get("kind") == "slow") and m["hazards"].is_empty(), "chuva cai: dano e lentidão")
 	MobSystem.place_barrage(ws, boss, hs, far.position, hs.power, hs.effects)
@@ -10592,7 +11974,7 @@ func _check_boss_mechanics(gd) -> void:
 	for bid in probe.BOSSES:
 		var md: MonsterDef = gd.monsters[bid]
 		var grp: String = probe.GROUPS.get(bid, "group")
-		var kit: Array = Array(md.skill_ids)
+		var kit: Array = md.skill_ids.duplicate()      # cópia: Array(tipado) devolve o MESMO array (append mexeria no MonsterDef)
 		for ph in md.phases:
 			kit.append_array(ph.get("skills", []))
 		var ranged_answer := false
@@ -10963,6 +12345,15 @@ func _check_boss_crowd(gd, sim) -> void:
 			same = same and MobSystem.crowd_mult(n, bid) == MobSystem.crowd_mult(n)
 		check(same, "reforço extra de %s não vale abaixo de %d pessoas" % [bid, Balance.BOSS_CROWD_EXTRA_FROM])
 		check(is_equal_approx(MobSystem.crowd_mult(Balance.BOSS_CROWD_EXTRA_FROM, bid), MobSystem.crowd_mult(Balance.BOSS_CROWD_EXTRA_FROM) * x), "reforço extra de %s vale com %d" % [bid, Balance.BOSS_CROWD_EXTRA_FROM])
+	# chefe de raide (BOSS_CROWD_RAID): tabela própria, uma entrada por tamanho de grupo, igual ao comum até o trio
+	for bid in Balance.BOSS_CROWD_RAID:
+		var tb: Array = Balance.BOSS_CROWD_RAID[bid]
+		check(gd.monsters.has(bid) and gd.monsters[bid].is_boss and tb.size() == Balance.PARTY_MAX + 1 and not Balance.BOSS_CROWD_EXTRA.has(bid), "raide %s: chefe, tabela 0..PARTY_MAX, fora do BOSS_CROWD_EXTRA" % bid)
+		var own := true
+		for n in tb.size():
+			own = own and is_equal_approx(MobSystem.crowd_mult(n, bid), float(tb[n])) and (n > 3 or is_equal_approx(float(tb[n]), MobSystem.crowd_mult(n)))
+		check(own, "raide %s: usa a tabela própria; solo/dupla/trio como o comum" % bid)
+	check(MobSystem.crowd_mult(4, "boss_durgash") > MobSystem.crowd_mult(5, "boss_durgash") and MobSystem.crowd_mult(5, "boss_durgash") < MobSystem.crowd_mult(5), "Durgash (raide de 5): com 4 bate mais que com 5; com 5, menos que o comum")
 	check(not Balance.BOSS_CROWD_EXTRA.has("bandit_chief") and MobSystem.crowd_mult(Balance.PARTY_MAX, "bandit_chief") == MobSystem.crowd_mult(Balance.PARTY_MAX), "chefe fora da lista: só o reforço comum")
 	var at := Vector3(-40, 0, 40)
 	var boss: SimEntity = sim.spawn_monster(gd.monsters["bandit_chief"], "city_aldara", at)
@@ -11388,6 +12779,186 @@ func _check_bot_group(gd, sim) -> void:
 			sim.despawn(o)
 	for o in [tank, heal, dps, gun]:
 		sim.despawn(o)
+
+## WP8 (design/gdd/kharzun-fase3-plan.md §4, §9, KAC-02/KAC-11): IA de raide. Lacaio de `ward` (estandarte primeiro), proteger
+## quem cura do Matador (tanque provoca de novo, quem cura sai do alcance, dps de perto tira o aprendiz), 5 no lugar contra o
+## talho de 150°, tanque vira o chefe, berserk por chefe (MonsterDef.berserk_mult) e viagem a Kharzun.
+func _check_bot_raid(gd, sim) -> void:
+	var mid := "city_aldara"
+	var at := Vector3(-30, 0, -30)
+	var m: Dictionary = sim.maps[mid]
+	var mk := func(cid: String, bid: String, name: String, pos: Vector3) -> SimEntity:
+		var b = sim.spawn_character(SimEntity.Kind.BOT, gd.classes[cid], name, mid, pos, 45)
+		b.build_id = bid
+		sim._gear_bot(b)
+		sim._skill_bot(b)
+		b.brain = null
+		return b
+	var tank: SimEntity = mk.call("paladin", "guardiao", "RTq", at + Vector3(0, 0, 3.0))
+	var heal: SimEntity = mk.call("bishop", "sacerdote", "RCura", at + Vector3(6, 0, -6))
+	var dps: SimEntity = mk.call("berserker", "executor", "RDps", at + Vector3(0, 0, -3.0))
+	var fire: SimEntity = mk.call("elementalist", "fogo", "RFogo", at + Vector3(-7, 0, -5))
+	var bat: SimEntity = mk.call("bishop", "batalha", "RBat", at + Vector3(2, 0, -3.0))
+	var all: Array = [tank, heal, dps, fire, bat]
+	for o in all.slice(1):
+		sim.party_invite(tank, o)
+		sim.party_accept(o)
+	var members: Array = sim.party_members(tank)
+	check(members.size() == 5, "raide: grupo de 5 (%d)" % members.size())
+	var brains := {}
+	for o in all:
+		var b := BotBrain.new()
+		b.setup(o, RandomNumberGenerator.new())
+		brains[o.id] = b
+	var bd: BotBrain = brains[dps.id]
+	var bf: BotBrain = brains[fire.id]
+	var bt: BotBrain = brains[tank.id]
+	var bh: BotBrain = brains[heal.id]
+	# --- 1. estandartes do Durgash: sem ward fica no chefe; com ward, dps e atirador vão no estandarte mais perto ---
+	var boss: SimEntity = sim.spawn_monster(gd.monsters["boss_durgash"], mid, at)
+	boss.brain = null
+	boss.aggro_target = tank.id
+	boss.aggro_timer = 5.0
+	boss.threat = {tank.id: 1.0e7}
+	bd._fight(dps, sim, m, boss, InputCommand.new())
+	check(bd.hunt_target_id == boss.id, "raide: sem ward o dps fica no chefe")
+	boss.hp = boss.stats.max_hp * 0.69
+	MobSystem.update_boss(sim, boss, Balance.BOSS_WARD_CHECK + 0.1)
+	var banners: Array = (m["entities"] as Array).filter(func(o): return o.boss_id == boss.id and o.is_alive())
+	for o in banners:
+		o.brain = null
+	check(boss.ward > 0.0 and banners.size() == 3 and banners.all(func(o): return BotBrain.is_banner(o)), "raide: Durgash a 69%% finca 3 estandartes e liga o ward")
+	var guard: SimEntity = sim.spawn_monster(gd.monsters["throne_guard"], mid, dps.position + Vector3(0.8, 0, 0))
+	guard.brain = null
+	guard.boss_id = boss.id
+	var near_of := func(e: SimEntity) -> SimEntity:
+		var best: SimEntity = null
+		for o in banners:
+			if best == null or o.position.distance_to(e.position) < best.position.distance_to(e.position):
+				best = o
+		return best
+	bd._fight(dps, sim, m, boss, InputCommand.new())
+	check(bd.hunt_target_id == near_of.call(dps).id, "raide: ward ligado = dps de perto vai no estandarte mais perto (não no guarda colado nele)")
+	bf._fight(fire, sim, m, boss, InputCommand.new())
+	check(bf.hunt_target_id == near_of.call(fire).id, "raide: quem luta de longe também mira estandarte")
+	bd._fight(dps, sim, m, guard, InputCommand.new())
+	check(bd.hunt_target_id != guard.id and BotBrain.is_banner(sim.entities[bd.hunt_target_id]), "raide: lacaio que anda perde para o estandarte")
+	bt._fight(tank, sim, m, boss, InputCommand.new())
+	check(bt.hunt_target_id == boss.id, "raide: o tanque segura o chefe com ward")
+	check(bh._ward_add(heal, sim, m, boss) == null, "raide: quem cura não larga a cura pelo estandarte")
+	for o in banners:
+		sim.despawn(o)
+	bd._fight(dps, sim, m, boss, InputCommand.new())
+	check(bd.hunt_target_id == guard.id, "raide: sem estandarte, o lacaio de ward que sobrou")
+	sim.despawn(guard)
+	MobSystem.update_boss(sim, boss, Balance.BOSS_WARD_CHECK + 0.1)
+	bd._fight(dps, sim, m, boss, InputCommand.new())
+	check(boss.ward == 0.0 and bd.hunt_target_id == boss.id, "raide: lacaios caídos = de volta ao chefe")
+	# --- 3. raide de 5 no lugar: frente do talho de 150°, cada um numa vaga, tanque vira o chefe ---
+	var cleave: SkillDef = gd.skills["mob_durgash_cleave"]
+	check(BotBrain.front_arc(boss) >= cleave.cone_angle_deg * 0.5 + 5.0, "raide: frente do Durgash cobre o talho de %d° (%.0f°)" % [cleave.cone_angle_deg, BotBrain.front_arc(boss)])
+	var side80 := Vector3(sin(deg_to_rad(80.0)), 0, cos(deg_to_rad(80.0))) * 3.0      # 80° da direção do tanque (+z)
+	dps.position = at + side80
+	check(BotBrain._in_front(dps, boss, tank), "raide: a 80° do tanque ainda é frente do Durgash (talho pega)")
+	var spots := {}
+	for o in all.slice(1):
+		var reach: float = o.basic_skill.radius if o.basic_skill and o.basic_skill.target == SkillDef.Target.CONE else (o.basic_skill.range if o.basic_skill else 1.8)
+		var melee: bool = not o.class_def.basic_attack_is_ranged or (o.basic_skill != null and o.basic_skill.target == SkillDef.Target.CONE)
+		spots[o.id] = brains[o.id]._role_spot(o, sim, boss, melee, reach, tank)
+	var keep := {}
+	for o in all.slice(1):
+		keep[o.id] = o.position
+		o.position = spots[o.id]
+	check(all.slice(1).all(func(o): return not BotBrain._in_front(o, boss, tank)), "raide: as 4 vagas ficam fora da frente do Durgash")
+	var min_gap := INF
+	for i in range(1, all.size()):
+		for j in range(i + 1, all.size()):
+			min_gap = minf(min_gap, (spots[all[i].id] as Vector3).distance_to(spots[all[j].id]))
+	check(min_gap >= 1.5, "raide: vagas separadas (menor vão %.1f m)" % min_gap)
+	check(bt._turn_spot(tank, sim, boss, 2.0) == Vector3.INF, "raide: grupo nas costas = tanque não mexe")
+	for o in all.slice(1):
+		o.position = at + Vector3(0.5 * (all.find(o) - 2), 0, 2.2)
+	var turn: Vector3 = bt._turn_spot(tank, sim, boss, 2.0)
+	check(turn != Vector3.INF and (turn - boss.position).z < 0.0, "raide: grupo na frente do chefe = tanque dá a volta para o outro lado")
+	for o in all.slice(1):
+		o.position = keep[o.id]
+	sim.despawn(boss)
+	# --- 2. Shazka: tanque provoca de novo, quem cura sai do alcance da Misericórdia, dps de perto tira o aprendiz ---
+	var sz: SimEntity = sim.spawn_monster(gd.monsters["boss_shazka"], mid, at)
+	sz.brain = null
+	sz.aggro_target = tank.id
+	sz.threat = {tank.id: 1.0e7}
+	sim._add_skills(sz, ["mob_shazka_mercy"])
+	check(BotBrain.soft_striker(sz) and not BotBrain.soft_striker(sim.spawn_monster(gd.monsters["boss_ulgra"], mid, at + Vector3(40, 0, 40))), "Shazka (Misericórdia) é golpe curto em quem cura; Ulgra não")
+	for o in (m["entities"] as Array).duplicate():
+		if o.monster_def and o.monster_def.id == "boss_ulgra":
+			sim.despawn(o)
+	tank.position = at + Vector3(0, 0, 2.5)
+	heal.position = at + Vector3(10, 0, 10)
+	check(not BotBrain.soft_in_danger(sz, members), "Shazka longe de quem cura: sem provocação extra")
+	var c0 := InputCommand.new()
+	check(not bh._evade_boss(heal, sim, m, c0), "quem cura longe do Matador não foge")
+	heal.position = at + Vector3(2.5, 0, -1.5)
+	check(BotBrain.soft_in_danger(sz, members), "Shazka colado em quem cura = perigo")
+	tank.cooldowns.clear()
+	tank.mp = tank.stats.max_mp
+	var ct := InputCommand.new()
+	var taunted: bool = bt._taunt_party(tank, sim, m, members, ct)
+	check(taunted and ct.skill_slot >= 0 and tank.skills[ct.skill_slot].effects.has("taunt"), "Shazka em cima de quem cura: o tanque provoca de novo")
+	var ch := InputCommand.new()
+	check(bh._evade_boss(heal, sim, m, ch) and Vector2(heal.position.x - sz.position.x, heal.position.z - sz.position.z).dot(ch.move) > 0.0, "quem cura sai para longe do Matador (fora da Misericórdia)")
+	heal.position = at + Vector3(9, 0, 9)
+	sz.state = SimEntity.State.CASTING
+	sz.current_skill = gd.skills["mob_shazka_step"]
+	sz.skill_aim = heal.position
+	check(BotBrain.soft_in_danger(sz, members), "Passo nas Costas mirado em quem cura = o tanque provoca")
+	sz.state = SimEntity.State.IDLE
+	sz.current_skill = null
+	var ap: SimEntity = sim.spawn_monster(gd.monsters["shadow_apprentice"], mid, heal.position + Vector3(1.2, 0, 0))
+	ap.brain = null
+	ap.boss_id = sz.id
+	ap.aggro_target = heal.id
+	check(bd._peel_target(dps, sim, m, members) == ap, "aprendiz em cima de quem cura: o dps de perto vai nele")
+	sim.despawn(ap)
+	sim.despawn(sz)
+	# --- 5. berserk por chefe ---
+	var dd: MonsterDef = gd.monsters["boss_durgash"]
+	check(dd.berserk_mult > Balance.BOSS_BERSERK_MULT and dd.berserk_after > 0.0, "Durgash: berserk próprio (×%.2f aos %.0f s) acima do padrão ×%.1f" % [dd.berserk_mult, dd.berserk_after, Balance.BOSS_BERSERK_MULT])
+	check(is_equal_approx(MobSystem.berserk_mult(gd.monsters["boss_ghar"]), Balance.BOSS_BERSERK_MULT), "chefe sem berserk_mult usa Balance.BOSS_BERSERK_MULT")
+	var db: SimEntity = sim.spawn_monster(dd, mid, at)
+	db.brain = null
+	db.aggro_target = tank.id
+	db.fight_time = dd.berserk_after
+	MobSystem.update_boss(sim, db, 0.05)
+	check(db.berserk and is_equal_approx(db.dmg_mult, db.enrage_mult * dd.berserk_mult * db.crowd_mult), "Durgash enlouquecido: dano × berserk_mult dele (%.2f)" % db.dmg_mult)
+	sim.despawn(db)
+	for o in (m["entities"] as Array).duplicate():
+		if o.boss_id >= 0 and not sim.entities.has(o.boss_id):
+			sim.despawn(o)
+	for o in all.slice(1):
+		sim.party_leave(o)
+	for o in all:
+		sim.despawn(o)
+	# --- 4. viagem: 41 caça em Kharzun sozinho, 38 nunca; masmorras só seguindo o grupo (portal pelo campo) ---
+	var trip := func(lv: int) -> Dictionary:
+		var b = sim.spawn_character(SimEntity.Kind.BOT, gd.classes["berserker"], "RViaja", mid, at, lv)
+		var br := BotBrain.new()
+		var r := RandomNumberGenerator.new()
+		r.seed = 4507
+		br.setup(b, r)
+		var seen := {}
+		for i in 80:
+			br._plan_trip(b, sim)
+			seen[br.dest_map] = true
+		sim.despawn(b)
+		return seen
+	var s41: Dictionary = trip.call(41)
+	var s38: Dictionary = trip.call(38)
+	check(s41.has("field_kharzun") and not s41.has("dg_slayers") and not s41.has("kharzun_citadel"), "bot 41 sozinho caça no Monte Kharzun, nunca nas masmorras (%s)" % str(s41.keys()))
+	check(not s38.has("field_kharzun"), "bot 38 nunca escolhe Kharzun (%s)" % str(s38.keys()))
+	for dg in ["dg_slayers", "kharzun_citadel"]:
+		check(gd.maps[dg].parent_map == "field_kharzun" and PortalSystem.portal_towards(gd.maps["field_kharzun"], dg).get("target_map", "") == dg, "%s: seguidor acha o portal no Monte Kharzun" % dg)
+		check(not PortalSystem.portal_towards(gd.maps[GameData.town_map_id()], dg).is_empty(), "%s: da cidade o seguidor acha o caminho" % dg)
 
 ## Abertura do grupo (BotBrain._opener): com tanque no grupo, quem não é o tanque segura as skills no chefe/elite até ele
 ## ficar BOT_OPENER_TIME s preso no tanque (com ameaça dele) e só usa o básico abaixo de BOT_OPENER_RATIO × a ameaça do
@@ -11861,6 +13432,10 @@ func _check_music(gd) -> void:
 		"música: porto, costa e grutas goblin têm tema próprio")
 	check(["fort_trolls", "fort_fire", "fort_war", "field_steppe"].all(func(m): return Music.theme_for(m) == "horda") 		and ["fort_bones", "fort_frost", "fort_ghoul"].all(func(m): return Music.theme_for(m) == "trevas"),
 		"música: acampamentos da Horda e Estepes com tema da Horda; fortes do Lich seguem em trevas")
+	# Monte Kharzun (WP11): tambores de guerra no campo e no Salão dos Matadores, coro grave na Cidadela (ids por tabela:
+	# os mapas dg_slayers/kharzun_citadel podem ainda não existir neste ramo)
+	check(Music.theme_for("field_kharzun") == "kharzun" and Music.theme_for("dg_slayers") == "kharzun" and Music.theme_for("kharzun_citadel") == "kharzun_citadel",
+		"música: Monte Kharzun e Salão dos Matadores com 'kharzun', Cidadela com 'kharzun_citadel'")
 	var credits := FileAccess.get_file_as_string(Music.DIR + "CREDITS.md")
 	check(Music.THEMES.all(func(th): return credits.contains("| %s |" % th)), "música: CREDITS.md cita cada tema")
 	check("Music" in AudioSettings.BUSES and AudioSettings.LABELS.has("Music") and AudioSettings.DEFAULTS.has("Music"), "música: barramento Music com volume no menu")
@@ -11988,6 +13563,62 @@ func _check_horde_lines(gd) -> void:
 		var first: Dictionary = gd.loot_tables[lt].entries[0]
 		check(float(first["chance"]) == 1.0 and gd.items.has(first["item"]), "%s: chefe garante %s" % [lt, first["item"]])
 
+## Monte Kharzun (kharzun-fase3-plan.md §3, WP3): os 11 monstros 40-45 com nível/papel do plano, escolta de estágio mais baixo
+## nos estágios de cima, skills e loot que existem, materiais novos 0,3-0,7, voz, modelo stand-in (ou o pretendido, quando o
+## WP4 o criar) e a Salamandra que não queima.
+func _check_kharzun_roster(gd, sim) -> void:
+	var plan := {"goblin_assassin": [40, "comum"], "dire_wolf": [40, "comum"], "dire_wolf_rider": [41, "bruto"], "troll_thrower": [41, "bruto"],
+		"orc_fire_archer": [42, "comum"], "orc_warlord": [42, "elite"], "goblin_slayer": [43, "elite"], "lava_salamander": [43, "comum"],
+		"troll_brute": [44, "bruto"], "clan_guard": [44, "elite"], "basalt_golem": [45, "elite"]}
+	var tops := {"dire_wolf_rider": "wolf_raider", "troll_thrower": "troll_whelp", "orc_fire_archer": "orc_crossbow", "orc_warlord": "orc_warrior",
+		"goblin_slayer": "goblin_assassin", "troll_brute": "troll"}
+	check(plan.keys().all(func(k): return MonstersCatalog.KHARZUN_MODELS.has(k)), "Kharzun: modelo pretendido de cada um dos %d monstros" % plan.size())
+	for id in plan:
+		var md: MonsterDef = gd.monsters.get(id)
+		check(md != null, "Kharzun: %s existe" % id)
+		if md == null:
+			continue
+		check(md.level == plan[id][0] and md.stat_role == plan[id][1] and md.level >= 40 and md.level <= 45, "Kharzun: %s nível %d papel %s (plano: %s)" % [id, md.level, md.stat_role, str(plan[id])])
+		check(md.xp > 0 and not md.is_boss and md.aggro_range > 0.0 and md.leash_range > md.aggro_range, "Kharzun: %s dá XP, não é chefe e tem aggro/leash" % id)
+		for sid in md.skill_ids:
+			check(gd.skills.has(sid), "Kharzun: %s usa skill %s que existe" % [id, sid])
+		check(gd.loot_tables.has(md.loot_table), "Kharzun: %s tem tabela de loot %s" % [id, md.loot_table])
+		if gd.loot_tables.has(md.loot_table):
+			for en in gd.loot_tables[md.loot_table].entries:
+				check(gd.items.has(en["item"]), "Kharzun: loot de %s cita item %s que existe" % [id, en["item"]])
+			var first: Dictionary = gd.loot_tables[md.loot_table].entries[0]
+			check(float(first["chance"]) >= 0.3 and float(first["chance"]) <= 1.0, "Kharzun: %s material principal %s ≥ 0,3" % [id, first["item"]])
+		check(not Sfx.voice_of(md).is_empty(), "Kharzun: %s tem voz (Sfx.MOB_VOICE)" % id)
+		var want: String = MonstersCatalog.KHARZUN_MODELS.get(id, "")
+		var has_want := ResourceLoader.exists("res://assets/models/%s.glb" % want)
+		check(md.model == want if has_want else (md.model.begins_with("mob_") and ResourceLoader.exists("res://assets/models/%s.glb" % md.model)),
+			"Kharzun: %s usa %s (pretendido %s%s)" % [id, md.model, want, " já existe: troque" if has_want and md.model != want else ""])
+		check(md.faction == ("" if id in ["dire_wolf", "lava_salamander", "basalt_golem"] else "horde"), "Kharzun: %s facção certa (nativo fora da Horda)" % id)
+	for top in tops:
+		var es: Dictionary = gd.monsters[top].escort
+		check(str(es.get("id", "")) == tops[top] and int(es.get("count", 0)) >= 2, "Kharzun: %s lidera 2+ %s (AC-15)" % [top, tops[top]])
+		check(gd.monsters.has(tops[top]) and gd.monsters[tops[top]].level < gd.monsters[top].level, "Kharzun: escolta de %s é de estágio mais baixo" % top)
+	for it in ["dire_pelt", "salamander_scale", "basalt_ore", "dwarf_steel", "kharzun_ember_core", "orc_steel"]:
+		check(gd.items.has(it) and gd.items[it].type == ItemDef.Type.MATERIAL, "Kharzun: material %s existe" % it)
+	check(gd.monsters["clan_guard"].front_guard > 0.0, "Kharzun: Guarda de Clã bloqueia de frente")
+	check(gd.monsters["troll_brute"].regen > 0.0 and gd.monsters["troll_thrower"].regen > 0.0, "Kharzun: trolls de cima regeneram (F3)")
+	check(gd.skills["mob_slayer_execute"].effects.has("execute") and gd.skills["mob_slayer_vanish"].effects.has("stealth"), "Kharzun: Matador executa e some")
+	# Salamandra de Lava: fogo dói, mas a queimadura não pega; num monstro comum pega
+	var at := Vector3(-48, 0, -70)
+	var src: SimEntity = sim.spawn_monster(gd.monsters["orc_fire_archer"], "city_aldara", at)
+	src.brain = null
+	var sal: SimEntity = sim.spawn_monster(gd.monsters["lava_salamander"], "city_aldara", at + Vector3(2, 0, 0))
+	sal.brain = null
+	var tr: SimEntity = sim.spawn_monster(gd.monsters["troll"], "city_aldara", at + Vector3(0, 0, 2))
+	tr.brain = null
+	var burn := {"dot": {"dps": 5, "duration": 3, "fire": true}}
+	sim._apply_effects(src, sal, burn, 0.0)
+	sim._apply_effects(src, tr, burn, 0.0)
+	check(not sal.debuffs.any(func(d): return d.get("kind") == "dot" and d.get("fire", false)), "Kharzun: Salamandra de Lava não queima")
+	check(tr.debuffs.any(func(d): return d.get("kind") == "dot" and d.get("fire", false)), "Kharzun: a queimadura pega num monstro comum")
+	for o in [src, sal, tr]:
+		sim.despawn(o)
+
 ## AC-16: HP/ATK/DEF dos monstros 30-45 = fórmula F2 com mod_unidade (±2%); exemplo do Troll 38 = 3283/116/52.
 func _check_horde_stats(gd) -> void:
 	var l38: float = Balance.horde_late("bruto", "hp", 38)              # vida 35+ (decisão do autor 2026-11-12, 2ª) sobre o exemplo do GDD
@@ -12014,7 +13645,9 @@ func _check_horde_stats(gd) -> void:
 		check(absf(md.hp - hp) <= hp * 0.02 and absf(md.atk - atk) <= atk * 0.02 and absf(md.def - df) <= maxf(1.0, df * 0.02),
 			"F2: %s (%s %d) = %.0f/%.1f/%.1f (fórmula %.0f/%.1f/%.1f)" % [id, md.stat_role, md.level, md.hp, md.atk, md.def, hp, atk, df])
 		for k in md.unit_mods:
-			check(k in ["hp", "atk"] and float(md.unit_mods[k]) >= 0.6 and float(md.unit_mods[k]) <= 2.0, "%s: mod_unidade %s em 0,6-2,0" % [id, k])
+			# raide de 5 (Durgash, kharzun-fase3-plan D4/§4: ponto de partida hp ×2,4; luta de ~100 s do grupo cheio, decisão do autor 2026-11-13) pode ir a 4,5
+			var top := 4.5 if id == "boss_durgash" and k == "hp" else 2.0
+			check(k in ["hp", "atk"] and float(md.unit_mods[k]) >= 0.6 and float(md.unit_mods[k]) <= top, "%s: mod_unidade %s em 0,6-%s" % [id, k, str(top)])
 	check(n >= 10, "F2 cobre os 8 monstros e 2 chefes da faixa 30-35 (%d)" % n)
 
 ## Decisão do autor 2026-11-12 (2ª): comuns/brutos 35+ com mais vida, golpe básico mais rápido e skill especial só depois de
@@ -12671,9 +14304,9 @@ func _check_act2_quests(gd, sim) -> void:
 		for nid in npc_def:
 			changes = changes or str(npc_def[nid].get("if", "")) == last
 		check(changes, "Ato II: %s muda o lugar (NPC novo ou estágio)" % last)
-	# fase 1 fechada; só as cabanas das Estepes (fase 2) esperam o pacote de missões
-	var steppe_givers: Array = MapsCatalog.PLACE_NPCS["field_steppe"].keys()
-	check(MapsCatalog.PENDING_GIVERS.all(func(id): return id in steppe_givers), "Ato II: só cabanas das Estepes esperam missão (PENDING_GIVERS %s)" % [MapsCatalog.PENDING_GIVERS])
+	# fases 1 e 2 fechadas; só as cabanas de Kharzun (fase 3) esperam o pacote de missões (WP9)
+	var kh_givers: Array = MapsCatalog.PLACE_NPCS["field_kharzun"].keys()
+	check(MapsCatalog.PENDING_GIVERS.all(func(id): return id in kh_givers), "Ato II: só cabanas de Kharzun esperam missão (PENDING_GIVERS %s)" % [MapsCatalog.PENDING_GIVERS])
 	for id in MapsCatalog.PENDING_GIVERS:
 		check(not gd.quests.values().any(func(o): return o.giver_npc == id), "Ato II: %s já dá missão, tire de PENDING_GIVERS" % id)
 	var tavern_hunts := 0
@@ -12780,7 +14413,7 @@ func _check_ranger_ascension(gd, sim) -> void:
 	if tur.size() == 1:
 		var t: SimEntity = tur[0]
 		check(t.position.distance_to(spot) < 0.3 and t.kind == SimEntity.Kind.SUMMON and t.brain is RangerAscension.TurretBrain, "torreta no ponto mirado, invocação com cérebro próprio")
-		check(absf(t.stats.max_hp - g.stats.max_hp * Balance.TURRET_HP_SHARE) < 1.0 and absf(t.stats.patk - g.stats.patk * Balance.TURRET_ATK_SHARE * RangerAscension.asc_power("atirador")) < 0.5, "torreta: vida e ATK vêm do dono")
+		check(absf(t.stats.max_hp - g.stats.max_hp * Balance.TURRET_HP_SHARE) < 1.0 and absf(t.stats.patk - g.stats.patk * Balance.TURRET_ATK_SHARE * RangerAscension.asc_power("atirador", g.level)) < 0.5, "torreta: vida e ATK vêm do dono")
 		check(absf(t.summon_expires - sim.time - Balance.TURRET_TIME) < 1.0, "torreta dura %.0f s" % Balance.TURRET_TIME)
 		var lone: SimEntity = _ranger_asc_dummy(gd, sim, at + Vector3(-30, 0, 0))
 		check(RangerAscension.near_turret(sim, g) == t and RangerAscension.near_turret(sim, lone) == null, "área perto da torreta (TURRET_AREA) é legível por efeitos")
@@ -13227,7 +14860,7 @@ func _check_ancestral_forms(gd, sim) -> void:
 	check(pack.size() == Balance.ANC_PACK_COUNT, "matilha: %d lobos (%d)" % [Balance.ANC_PACK_COUNT, pack.size()])
 	if not pack.is_empty():
 		var pw: SimEntity = pack[0]
-		check(is_equal_approx(pw.stats.patk, f.stats.patk * Balance.ANC_PACK_ATK_SHARE) and is_equal_approx(pw.stats.max_hp, f.stats.max_hp * Balance.ANC_PACK_HP_SHARE), "matilha: ataque e vida são parte dos do dono")
+		check(is_equal_approx(pw.stats.patk, f.stats.patk * Balance.ANC_PACK_ATK_SHARE * DruidAscension.asc_power("fera", f.level)) and is_equal_approx(pw.stats.max_hp, f.stats.max_hp * Balance.ANC_PACK_HP_SHARE), "matilha: ataque e vida são parte dos do dono")
 		check(is_equal_approx(pw.summon_expires - sim.time, Balance.ANC_PACK_TIME) and f.is_friend(pw), "matilha: dura %d s e é aliada" % int(Balance.ANC_PACK_TIME))
 	check(_anc_cast(sim, f, "dru_alpha_pack", f.position, m) and DruidAscension.pack_of(sim, f).size() == Balance.ANC_PACK_COUNT, "chamar de novo troca a matilha (não soma)")
 	# a matilha caça: 10 s contra um boneco parado, cada lobo bate de verdade (dano em ATKs do dono por segundo)
@@ -13448,9 +15081,10 @@ func _check_water_tints(gd) -> void:
 	check(coast.water_tints.has("water_dark"), "Costa: o braço do mangue tem cor própria (water_tints)")
 	for mid in gd.maps:
 		var md: MapDef = gd.maps[mid]
-		check(md.water_tints.is_empty() or mid == "field_coast", "%s: água no azul padrão (sem water_tints)" % mid)
-		for k in md.water_tints:
-			check(k in ["water", "water_dark"], "%s: water_tints.%s é material de água do MapBuilder" % [mid, k])
+		check(md.water_tints.is_empty() or mid in ["field_coast", "field_kharzun"], "%s: água no azul padrão (sem water_tints)" % mid)
+		for k in md.water_tints:      # Kharzun: rios de lava (glow_lava brilha como fogo; a cor é a do minimapa)
+			check(k in ["water", "water_dark"] or mid == "field_kharzun" and k == "glow_lava", "%s: water_tints.%s é material de água do MapBuilder" % [mid, k])
+			check(md.water.any(func(w): return str(w.get("material", "")) == k), "%s: water_tints.%s é usado por um rio/lago da zona" % [mid, k])
 			check(md.water_tints[k] is Color, "%s: water_tints.%s é cor" % [mid, k])
 			check(md.water.any(func(w): return w.get("material", "") == k), "%s: algum rio/lago usa o material %s (minimapa)" % [mid, k])
 	if coast.water_tints.has("water_dark"):
@@ -13466,7 +15100,9 @@ func _check_stage_obstacles(gd) -> void:
 		if mid == "city_port":
 			continue
 		for ob in (gd.maps[mid] as MapDef).obstacles:
-			check(not ((ob.has("if") or ob.has("unless")) and ob.get("solid", true)), "%s: prop de conquista sem colisão (colisor de estágio só no Porto)" % mid)
+			if mid == MapsCatalog.CITADEL_ID and ob.get("unless", "") is Array and Array(ob["unless"]) == Array(MapsCatalog.Q_KH_CLANS):
+				continue                    # porta do trono da Cidadela de Kharzun: o outro colisor de estágio (`_check_kharzun_citadel`)
+			check(not ((ob.has("if") or ob.has("unless")) and ob.get("solid", true)), "%s: prop de conquista sem colisão (colisor de estágio só no Porto e na porta do trono)" % mid)
 	var port: MapDef = gd.maps["city_port"]
 	var gaps: Array = port.obstacles.filter(func(ob): return ob.get("if", "") == MapsCatalog.Q_PALISADE and ob.get("solid", true))
 	check(gaps.size() >= 20, "Porto: vãos da paliçada têm colisor de estágio (%d)" % gaps.size())
@@ -13551,7 +15187,7 @@ func _check_act2_steppe_quests(gd, sim) -> void:
 	var forts: Array = MapsCatalog.Q_STEPPE_FORTS
 	var ids: Array = QuestsCatalog.act2_steppe().map(func(d): return d["id"])
 	check(main.size() >= 8 and main.size() <= 10 and main.all(func(id): return id in ids), "Estepes: 8-10 missões principais (%d)" % main.size())
-	check(MapsCatalog.PENDING_GIVERS.is_empty(), "Estepes: nenhuma cabana espera missão (PENDING_GIVERS %s)" % [MapsCatalog.PENDING_GIVERS])
+	check(not MapsCatalog.PLACE_NPCS["field_steppe"].keys().any(func(n): return n in MapsCatalog.PENDING_GIVERS), "Estepes: nenhuma cabana espera missão (PENDING_GIVERS %s)" % [MapsCatalog.PENDING_GIVERS])
 	var spawns := {}
 	for mid in ["field_steppe", "fort_trolls", "fort_fire", "fort_war"]:
 		for sp in gd.maps[mid].spawners:
@@ -13718,8 +15354,8 @@ func _check_act2_steppe(gd, sim) -> void:
 		contract[sp["monster_id"]] = true
 	for id in ["troll_whelp", "troll", "orc_archer", "orc_crossbow", "orc_warrior", "goblin_agitator", "wolf_raider"]:
 		check(contract.has(id), "Estepes: spawner com o id do contrato %s" % id)
-	check((z.get("future_portals", []) as Array).size() == 1 and not steppe.portals.any(func(p): return p["target_map"] == "field_kharzun"),
-		"Estepes: passo de Kharzun só marcado (future_portals), sem portal para mapa que não existe")
+	check((z.get("future_portals", []) as Array).is_empty() and steppe.portals.filter(func(p): return p["target_map"] == "field_kharzun").size() == 1,
+		"Estepes: passo de Kharzun é portal de verdade (field_kharzun existe; o futuro saiu)")
 	# passagem C4: Costa -> Estepes com portão (nível 35 + Agitador-Mor); a volta é livre
 	var go: Array = coast.portals.filter(func(p): return p["target_map"] == "field_steppe")
 	var back: Array = steppe.portals.filter(func(p): return p["target_map"] == "field_coast")
@@ -15350,13 +16986,71 @@ func _check_falconer_bots(gd, sim) -> void:
 const LIVING_MIN := {
 	"city_port": [17, 4, 2, 20, 10, 0], "field_coast": [12, 2, 2, 15, 15, 0], "field_steppe": [14, 2, 1, 15, 10, 0],
 	"dg_goblin": [3, 1, 0, 3, 10, 1], "fort_trolls": [5, 3, 2, 10, 4, 1], "fort_fire": [5, 2, 2, 10, 4, 1], "fort_war": [5, 2, 2, 10, 4, 1],
+	"field_kharzun": [13, 8, 1, 25, 60, 0],
 }
 ## Melhor mapa do Ato I por tipo (para o "pelo menos tão vivo quanto").
 const LIVING_REF := {"city_port": "city_aldara", "field_coast": "field_forest", "field_steppe": "field_forest", "fort_trolls": "fort_ghoul",
-	"fort_fire": "fort_ghoul", "fort_war": "fort_ghoul", "dg_goblin": "dg_catacumbas"}
+	"fort_fire": "fort_ghoul", "fort_war": "fort_ghoul", "dg_goblin": "dg_catacumbas", "field_kharzun": "field_forest"}
 
 func _living_moving(def: MapDef) -> int:
 	return def.npcs.filter(func(n): return not n.has("fighter") and (n.has("route") or n.has("wander"))).size()
+
+## Monte Kharzun (WP11): gente do acampamento por estágio, sons do lugar, bichos/brasas e conversa dos bots.
+func _check_living_kharzun(gd, sim) -> void:
+	var def: MapDef = gd.maps["field_kharzun"]
+	var by_id := {}
+	for n in def.npcs:
+		by_id[str(n["id"])] = n
+	# vida: carroças da garganta sul com escolta, recrutas no treino, feridos na enfermaria; libertos com K1, orc carregador com K4
+	var carts: Array = def.npcs.filter(func(n): return str(n.get("carry", "")) == "cart" and n.has("route"))
+	check(carts.size() >= 2, "Kharzun: carroças de suprimento subindo das Estepes (%d)" % carts.size())
+	check(by_id.has("kh_carter_escort") and by_id["kh_carter_escort"].has("fighter") and by_id["kh_carter_escort"].has("route"), "Kharzun: escolta armada acompanha as carroças")
+	for nid in ["kh_drill_a", "kh_drill_b", "kh_drill_sergeant", "kh_wounded_a", "kh_wounded_b", "kh_smith_apprentice", "kh_cook"]:
+		check(by_id.has(nid) and not by_id[nid].has("if") and not by_id[nid].has("unless"), "Kharzun: %s no acampamento desde K0" % nid)
+	for nid in ["kh_freed_carrier_a", "kh_freed_carrier_b", "kh_freed_anvil"]:
+		check(by_id.has(nid) and str(by_id[nid].get("if", "")) == MapsCatalog.Q_KH_MINES, "Kharzun: liberto %s só depois das Minas (K1)" % nid)
+	check(by_id.has("kh_orc_porter") and str(by_id["kh_orc_porter"].get("if", "")) == MapsCatalog.Q_KH_WARLORD, "Kharzun: orc rendido carregando só depois de Durgash (K4)")
+	for n in def.npcs:
+		for k in ["if", "unless"]:
+			if n.has(k) and not (n["id"] in Balance.MOUNT_KEEPER_NPCS):   # a tratadora (WP10) abre com hx_ov_hatch, a quest do lobo
+				check(str(n[k]) in MapsCatalog.KHARZUN_STAGE_QUESTS, "Kharzun: %s usa só gatilhos de estágio (%s)" % [n["id"], n[k]])
+	# falas de rua: todo serviço/morador do acampamento tem bark
+	for nid in MapsCatalog.KHARZUN_NPCS:
+		if nid != "kharzun_board":
+			check(by_id.has(nid) and not (by_id[nid].get("barks", []) as Array).is_empty(), "Kharzun: %s tem falas de rua (BARKS)" % nid)
+	# bichos e brasas: brasa é tipo conhecido e fica sobre a lava (perto de lava de verdade)
+	check(AmbientLife.KINDS.has("ember") and bool(AmbientLife.KINDS["ember"]["fly"]), "ambiente: brasa no ar existe")
+	var embers := 0
+	for g in MapsCatalog.AMBIENT_LIFE["field_kharzun"]:
+		if str(g[0]) == "ember":
+			embers += int(g[3])
+			var c := Vector3(float(g[1][0]), 0, float(g[1][1]))
+			var q := Sfx.nearest_lava(def, c)
+			check(q != Vector3.INF and q.distance_to(c) <= float(g[2]), "Kharzun: brasas em (%.0f, %.0f) sobre a lava" % [c.x, c.z])
+	check(embers >= 40, "Kharzun: brasas no ar sobre a lava (%d)" % embers)
+	# sons do lugar: lava perto da ponte norte, nada em Aldara; martelo nos ferreiros; corrente das Minas
+	var bridge := Vector3(2.23, 0, -49.9)
+	var lq := Sfx.nearest_lava(def, bridge + Vector3(0, 0, 8))
+	check(lq != Vector3.INF and lq.distance_to(bridge + Vector3(0, 0, 8)) < Sfx.LAVA_RANGE, "Kharzun: lava borbulha perto da ponte norte")
+	check(Sfx.nearest_lava(gd.maps["city_aldara"], Vector3.ZERO) == Vector3.INF, "som de lava só onde há lava (Aldara não)")
+	check(Sfx.HAMMER_NPCS.keys().all(func(k): return by_id.has(k)), "martelo da forja: todos os ferreiros/fundidores existem no Kharzun")
+	check(Sfx.QUEST_SOUND.get(MapsCatalog.Q_KH_MINES, "") == "chain_break" and Sfx.VOL.has("chain_break"), "corrente parte quando as Minas são libertadas")
+	var sfx := Sfx.new()
+	sfx._load_bank()
+	for mid in ["dire_wolf", "lava_salamander", "basalt_golem"]:
+		var v := Sfx.voice_of(gd.monsters[mid])
+		check(v.size() == 3 and str(v[0]) in ["dire_howl", "salamander_hiss", "golem_rumble"] and sfx.bank.has(str(v[0])), "Kharzun: %s tem voz própria (%s)" % [mid, v])
+	check(Sfx.voice_of(gd.monsters["dire_wolf_rider"])[2] == "goblin_shriek", "Ginete do Lobo Atroz: o goblin guincha ao cair")
+	for sid in ["mob_shadow_step", "mob_slayer_vanish", "mob_slayer_execute"]:
+		check(Sfx.CAST_SOUND.get(sid, "") == "smoke_vanish", "Assassino/Matador: %s avisa com fumaça" % sid)
+	for n in ["lava_bubble", "forge_hammer", "chain_break", "smoke_vanish", "dire_howl", "salamander_hiss", "salamander_die", "golem_rumble", "golem_crumble", "boulder", "banner_plant"]:
+		check(sfx.bank.has(n) and Sfx.VOL.has(n), "som do Kharzun '%s' no banco com volume" % n)
+	sfx.free()
+	# conversa dos bots: tipos de lugar do Kharzun, acampamento murado, vitória depois de Durgash
+	for k in ["place:kharzun", "place:kharzun_town", "place:slayers", "place:kharzun_citadel", "place:kharzun_victory"]:
+		check(not (GameData.bot_chat.get(k, []) as Array).is_empty(), "falas de bot '%s'" % k)
+	check(BotChat.place_kind(def, Vector3(2, 0, 3)) == "kharzun_town" and BotChat.place_kind(def, Vector3(0, 0, 80)) == "kharzun",
+		"bots: dentro da paliçada é o acampamento, fora é a montanha")
 
 ## Carroça de tiro (CarryPose.DRAFT, tools/blender/life_props.cart_draft): a caravana das Estepes anda ao lado do cavalo que
 ## puxa a carroça. O cavalo fica entre os varais (rodas atrás dos cascos, varal até o ombro), é 1 malha fundida como a
@@ -15565,6 +17259,25 @@ func _check_living_act2(gd, sim) -> void:
 		check(gd.maps.has(mid), "bichos de ambiente em mapa que existe (%s)" % mid)
 		for g in MapsCatalog.AMBIENT_LIFE[mid]:
 			check(AmbientLife.KINDS.has(str(g[0])) and int(g[3]) > 0 and float(g[2]) > 0.0, "%s: bicho %s válido" % [mid, g[0]])
+	# bicho que voa: asa recortada com cor no vértice; ave grande tem corpo; gaivota de dorso claro e ponta escura (não um quadrado branco)
+	for kid in AmbientLife.KINDS:
+		var ak: Dictionary = AmbientLife.KINDS[kid]
+		if not bool(ak["fly"]):
+			check(not bool(ak.get("shadow", false)), "ambiente: %s no chão não tem mancha de voo" % kid)
+			continue
+		var wm := AmbientLife.wing_mesh(ak)
+		var arr: Array = wm.surface_get_arrays(0)
+		var nv := (arr[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()
+		check(arr[Mesh.ARRAY_COLOR] != null and nv >= 15, "ambiente: asa de %s recortada com cor no vértice (%d vértices)" % [kid, nv])
+		if float(ak["span"]) >= AmbientLife.BODY_MIN_SPAN:
+			check(nv >= 27, "ambiente: %s tem corpo (%d vértices)" % [kid, nv])
+		if kid == "gull":
+			var lo := 9.0
+			var hi := 0.0
+			for col: Color in (arr[Mesh.ARRAY_COLOR] as PackedColorArray):
+				lo = minf(lo, col.get_luminance())
+				hi = maxf(hi, col.get_luminance())
+			check(lo < 0.4 and hi > 0.9 and bool(ak.get("shadow", false)), "ambiente: gaivota com ponta escura, corpo claro e mancha no chão (%.2f..%.2f)" % [lo, hi])
 	# barks curtos e não vazios; modelo de NPC existe; rotas e casas em chão seco e livre, pernas da rota andáveis
 	var bad: Array = []
 	var legs := 0
@@ -15727,3 +17440,626 @@ func _check_act2_playtest(gd, sim, save) -> void:
 	m.erase("loot_shout_at")
 	for x in [e, b, old, kept, fresh]:
 		sim.despawn(x)
+
+## Monte Kharzun (Ato II, 40-45; WP5): mapa na sim. Serviços do acampamento, cristal, portal real das Estepes (portão E5)
+## com volta livre, estágios K0-K4 só por quests da lista, Contra-ataque de duas frentes, Ofensiva do aríete, guarnição.
+## Missões de Kharzun (WP9): linha K0-K4 completável na ordem do plano, givers nos mapas, ids de estágio cobertos,
+## cadeias das cabanas, Prova 45 (0 XP), epílogo e a festa do fim do Ato II.
+func _check_kharzun_quests(gd, sim) -> void:
+	var npc_map := {}
+	for mid in gd.maps:
+		for n in gd.maps[mid].npcs:
+			npc_map[n["id"]] = mid
+	var all_ids: Array = []
+	for d in QuestsCatalog.act2_kharzun() + QuestsCatalog.trials45():
+		all_ids.append(d["id"])
+	for qid in QuestsCatalog.KHARZUN_MAIN + [QuestsCatalog.ACT2_EPILOGUE]:
+		check(gd.quests.has(qid), "Kharzun: missão %s existe" % qid)
+	check(QuestsCatalog.KHARZUN_MAIN.size() == 11, "Kharzun: 11 missões principais (%d)" % QuestsCatalog.KHARZUN_MAIN.size())
+	for qid in MapsCatalog.KHARZUN_STAGE_QUESTS:
+		check(gd.quests.has(qid) and qid in QuestsCatalog.KHARZUN_MAIN, "Kharzun: estágio %s é missão principal" % qid)
+	# fontes
+	var spawns := {}
+	var drops := {}
+	for mid in gd.maps:
+		for sp in gd.maps[mid].spawners:
+			spawns[sp["monster_id"]] = true
+	for mon in spawns:
+		var md: MonsterDef = gd.monsters.get(mon)
+		if md and gd.loot_tables.has(md.loot_table):
+			for en in gd.loot_tables[md.loot_table].entries:
+				drops[en["item"]] = true
+	var gather := {}
+	for mid in MapsCatalog.GATHER:
+		for g in MapsCatalog.GATHER[mid]:
+			gather[g[0]] = true
+	var kh: MapDef = gd.maps["field_kharzun"]
+	for qid in all_ids:
+		var q: QuestDef = gd.quests.get(qid)
+		if q == null:
+			check(false, "Kharzun: %s carregou" % qid)
+			continue
+		check(npc_map.has(q.giver_npc) and npc_map.has(q.turnin()), "Kharzun: %s com giver/entrega em algum mapa (%s/%s)" % [qid, q.giver_npc, q.turnin()])
+		check(q.dialog_offer != "" and q.dialog_progress != "" and q.dialog_complete != "" and q.map_hint != "", "Kharzun: %s tem falas e dica" % qid)
+		match q.type:
+			QuestDef.Type.KILL:
+				check(gd.monsters.has(q.target_id) and spawns.has(q.target_id) and Array(q.also_counts).all(func(m): return gd.monsters.has(m)), "Kharzun: %s caça %s, que nasce" % [qid, q.target_id])
+			QuestDef.Type.COLLECT:
+				check(gd.items.has(q.target_id) and (gather.has(q.target_id) or drops.has(q.target_id) or q.give_items.has(q.target_id)), "Kharzun: %s junta %s, que tem fonte" % [qid, q.target_id])
+			QuestDef.Type.CRAFT:
+				check(gd.recipes.values().any(func(r): return r.result_item == q.target_id), "Kharzun: %s forja %s, que tem receita" % [qid, q.target_id])
+			QuestDef.Type.TALK:
+				check(q.turnin() == q.target_id and npc_map.has(q.target_id), "Kharzun: %s conversa com quem recebe (%s)" % [qid, q.target_id])
+			QuestDef.Type.REACH:
+				check(gd.maps.has(q.target_id) or q.target_id in QuestsCatalog.KHARZUN_PENDING_MAPS or kh.places.any(func(pl): return pl["id"] == q.target_id),
+					"Kharzun: %s chega a um lugar/mapa (%s)" % [qid, q.target_id])
+	# fluxo K0 -> K4: com nível 45 e o passado das Estepes, tudo libera numa ordem só (Prova 45 pede a ascensão)
+	var ws := WorldSim.new()
+	ws.load_map(gd.maps[GameData.town_map_id()])
+	var pl: SimEntity = ws.spawn_player(gd.classes["paladin"], "Kharzun", GameData.town_map_id())
+	pl.level = 45
+	pl.quests_completed.append_array(["hx_steppe_pass", "hx_deserters_help", "hx_asc_paladin"])
+	var order: Array = []
+	var moved := true
+	while moved:
+		moved = false
+		for qid in all_ids:
+			if gd.quests.has(qid) and not (qid in pl.quests_completed) and QuestSystem.can_accept(pl, gd.quests[qid]):
+				pl.quests_completed.append(qid)
+				order.append(qid)
+				moved = true
+	var missing: Array = all_ids.filter(func(id): return not (id in order) and not (str(id).begins_with("hx_asc45_") and id != "hx_asc45_paladin"))
+	check(missing.is_empty(), "Kharzun: toda missão é alcançável (faltam %s)" % [missing])
+	check(order.find("hx_mines") < order.find("hx_kennel") and order.find("hx_mines") < order.find("hx_black_forge")
+		and order.find("hx_slayers_open") < order.find("hx_slayers") and order.find("hx_kennel") < order.find("hx_slayers")
+		and order.find("hx_black_forge") < order.find("hx_slayers") and order.find("hx_slayers") < order.find("hx_citadel_gate")
+		and order.find("hx_warlord") < order.find(QuestsCatalog.ACT2_EPILOGUE),
+		"Kharzun: K1 -> K1b/K1c -> K1d (porta do Xamã) -> K2 -> ... -> K4 -> epílogo (%s)" % [order])
+	for c in MapsCatalog.Q_KH_CLANS:
+		check(gd.quests[c].prereq_quest == MapsCatalog.Q_KH_GATE, "Kharzun: %s abre com o Portão (qualquer ordem)" % c)
+	var wl: QuestDef = gd.quests[MapsCatalog.Q_KH_WARLORD]
+	var need: Array = [wl.prereq_quest] + Array(wl.prereq_all)
+	check(MapsCatalog.Q_KH_CLANS.all(func(c): return c in need), "Kharzun: o Trono pede os três clãs (K3)")
+	var pl2: SimEntity = ws.spawn_player(gd.classes["paladin"], "Kharzun2", GameData.town_map_id())
+	pl2.level = 45
+	pl2.quests_completed.append_array(["hx_clan_wolf", "hx_clan_stone"])
+	check(not QuestSystem.can_accept(pl2, wl), "Kharzun: com dois clãs o Trono não abre")
+	check(gd.quests["hx_xs_brakka"].prereq_all.has("hx_deserters_help"), "Kharzun: o passo extra do Xamã só para quem ajudou os Desertores")
+	# cadeias das cabanas (2-4) e PENDING vazio
+	for giver in QuestsCatalog.KHARZUN_CHAINS:
+		var n := 0
+		var cur: String = QuestsCatalog.KHARZUN_CHAINS[giver]
+		while cur != "" and gd.quests.has(cur) and not (cur in QuestsCatalog.KHARZUN_MAIN) and not cur.begins_with("hx_steppe") and not cur.begins_with("hx_kh_"):
+			n += 1
+			cur = gd.quests[cur].prereq_quest
+		check(n >= 2 and n <= 4, "Kharzun: cadeia de %s tem 2-4 missões (%d)" % [giver, n])
+	for cab in ["exiled_shaman", "freed_foreman"]:
+		check(gd.quests.values().any(func(o): return o.giver_npc == cab and not o.repeatable), "Kharzun: a cabana %s dá missão" % cab)
+	check(MapsCatalog.PENDING_GIVERS.is_empty(), "Kharzun: nenhuma cabana espera missão")
+	# quadro de caçadas e Brasas
+	check(QuestsCatalog.HUNT_GIVERS.get("field_kharzun", "") == "kharzun_board", "Kharzun: o quadro do acampamento paga as caçadas")
+	check(gd.quests.has("h_dire_wolf") and gd.quests["h_dire_wolf"].giver_npc == "kharzun_board", "Kharzun: caçada de Lobo Atroz no quadro")
+	check(gd.quests["hx_bf_embers"].repeatable and gd.quests["hx_bf_embers"].prereq_quest == MapsCatalog.Q_KH_FORGE, "Kharzun: Brasas da Forja repetível depois da Forja")
+	# XP: peso da faixa 40-45 (a fração 40-50% vale quando Balance.XP_BANDS tiver [40, 45])
+	var sum := 0
+	var cnt := 0
+	for qid in all_ids:
+		var q: QuestDef = gd.quests[qid]
+		if not q.repeatable and q.level_req >= 40 and q.level_req < 45:
+			sum += q.reward_xp
+			cnt += 1
+	check(cnt >= 10 and sum > 0, "Kharzun: %d missões com XP na faixa 40-45" % cnt)
+	if Balance.XP_BANDS.any(func(bd): return bd[0] == 40):
+		var share: float = sum / float(Balance.band_xp(40, 45))
+		check(share >= 0.38 and share <= 0.53, "Kharzun: missões dão %.0f%% da XP 40-45" % (share * 100.0))
+	# Prova 45: uma por classe, só a classe, 0 XP, depois da ascensão
+	for cid in gd.classes:
+		var q: QuestDef = gd.quests.get("hx_asc45_" + cid)
+		check(q != null and q.reward_xp == 0 and q.level_req == Balance.ASC_MAX_LEVEL and q.prereq_quest == "hx_asc_" + cid and q.giver_npc == "masters_herald"
+			and QuestsCatalog.class_of(q.id) == cid and q.reward_items.has("legend_coin"), "Prova 45 de %s: Arauto, 45, ascensão, 0 XP, moedas" % cid)
+	var bp: SimEntity = ws.spawn_player(gd.classes["bishop"], "Bispo", GameData.town_map_id())
+	bp.level = 45
+	bp.quests_completed.append_array(["hx_asc_paladin", "hx_asc_bishop"])
+	check(not QuestSystem.can_accept(bp, gd.quests["hx_asc45_paladin"]) and QuestSystem.can_accept(bp, gd.quests["hx_asc45_bishop"]), "Prova 45: só a classe dela")
+	# epílogo e fim do Ato II
+	var ep: QuestDef = gd.quests[QuestsCatalog.ACT2_EPILOGUE]
+	check(MapsCatalog.ACT2_END_QUEST == ep.id and ep.prereq_quest == MapsCatalog.VICTORY2_QUEST and MapsCatalog.VICTORY2_QUEST == MapsCatalog.Q_KH_WARLORD
+		and ep.giver_npc == "kharzun_commander" and ep.turnin_npc == "port_governor" and npc_map.get("port_governor", "") == "city_port",
+		"Fim do Ato II: epílogo sai da Comandante depois do Trono e volta à Governadora no porto")
+	var H = load("res://game/ui/hud.gd")
+	check(H.ACT_END_TEXT.has(1) and H.ACT_END_TEXT.has(2) and str(H.ACT_END_TEXT[2][0]) == "FIM DO ATO II" and str(H.ACT_END_TEXT[2][2]).count("%s") == 1, "Fim do Ato II: tela com texto próprio")
+	for mid in MapsCatalog.FESTIVAL_ACT2:
+		var def: MapDef = gd.maps[mid]
+		var fest: Array = def.npcs.filter(func(n): return str(n["id"]).begins_with("fest2_"))
+		check(fest.size() == (MapsCatalog.FESTIVAL_ACT2[mid] as Dictionary).size() and fest.all(func(n): return n.get("if", "") == MapsCatalog.VICTORY2_QUEST),
+			"%s: festeiros do Ato II só depois do Trono (%d)" % [mid, fest.size()])
+		var ws3 := WorldSim.new()
+		ws3.load_map(gd.maps[GameData.town_map_id()])
+		var m: Dictionary = ws3.load_map(def)
+		for n in fest:
+			check(ws3.is_walkable(n["pos"], def, 0.4) and (n["pos"] as Vector3).distance_to(def.town_center) < def.town_radius, "%s: festeiro %s em chão andável na praça (%s)" % [mid, n["id"], n["pos"]])
+		ws3.player = ws3.spawn_player(gd.classes["paladin"], "Festa", def.id)
+		var live := func() -> int:
+			return m["entities"].filter(func(e): return str(e.npc_data.get("id", "")).begins_with("fest2_")).size()
+		WorldState.sync_npcs(ws3, m)
+		check(live.call() == 0, "%s: antes do Trono ninguém festeja" % mid)
+		ws3.player.quests_completed.append(MapsCatalog.VICTORY2_QUEST)
+		WorldState.sync_npcs(ws3, m)
+		check(live.call() == fest.size(), "%s: Durgash caído, os festeiros aparecem (%d)" % [mid, live.call()])
+
+func _check_kharzun_map(gd, sim) -> void:
+	check(gd.maps.has("field_kharzun"), "Kharzun: mapa existe")
+	if not gd.maps.has("field_kharzun"):
+		return
+	var kh: MapDef = gd.maps["field_kharzun"]
+	var steppe: MapDef = gd.maps["field_steppe"]
+	check(kh.level_range == Vector2i(40, 45) and kh.hub and not kh.is_town and kh.parent_map == "" and kh.bot_population > 0, "Kharzun: campo 40-45 com acampamento e bots")
+	check(kh.has_hunting() and kh.spawners.size() >= 30, "Kharzun: campo de caça (%d spawners)" % kh.spawners.size())
+	check(kh.model == "map_field_kharzun" and Music.theme_for("field_kharzun") != "", "Kharzun: modelo e tema de música")
+	var ids := {}
+	for n in kh.npcs:
+		ids[n["id"]] = n
+	for id in ["kharzun_commander", "kharzun_smith", "kharzun_alchemist", "kharzun_merchant", "kharzun_storage", "kharzun_board", "masters_herald", "crystal_field_kharzun"]:
+		check(ids.has(id) and not ids[id].has("if") and not ids[id].has("unless"), "Kharzun: %s no acampamento desde o K0" % id)
+	check(MapsCatalog.CRYSTALS.has("field_kharzun") and Vector2(MapsCatalog.CRYSTALS["field_kharzun"][0], MapsCatalog.CRYSTALS["field_kharzun"][1]).length() < kh.town_radius, "Kharzun: cristal dentro do acampamento")
+	check(ids.get("dwarf_smith", {}).get("if", "") == MapsCatalog.Q_KH_MINES and ids.get("kharzun_arms_merchant", {}).get("if", "") == MapsCatalog.Q_KH_FORGE
+		and ids.get("mine_slave_a", {}).get("unless", "") == MapsCatalog.Q_KH_MINES and ids.get("kharzun_orc_surrendered_a", {}).get("if", "") == MapsCatalog.Q_KH_WARLORD,
+		"Kharzun: Ferreiro Anão (K1), armeira da Forja (K1c), escravos até K1 e orcs rendidos (K4)")
+	var guards: Array = kh.npcs.filter(func(n): return n.has("fighter"))
+	check(guards.size() >= 9 and guards.all(func(n): return is_equal_approx(float(n.get("power", 1.0)), Balance.KHARZUN_GUARD_POWER)), "Kharzun: guarnição de %d com KHARZUN_GUARD_POWER" % guards.size())
+	# toda regra de estágio cita uma quest K0-K4 conhecida
+	var rules: Array = kh.spawners + kh.npcs + kh.conquest_vis + kh.raids + kh.assaults + kh.obstacles + ([kh.raid] if not kh.raid.is_empty() else [])
+	var bad: Array = []
+	for r in rules:
+		for k in ["if", "unless"]:
+			if r.has(k):
+				for q in (r[k] if r[k] is Array else [r[k]]):
+					if not q in MapsCatalog.KHARZUN_STAGE_QUESTS and not (q in MapsCatalog.KHARZUN_SIDE_QUESTS and r in kh.npcs):
+						bad.append(str(q))
+	check(bad.is_empty(), "Kharzun: estágios só por quests K0-K4 (%s)" % [bad])
+	check(kh.conquest_vis.size() >= 15, "Kharzun: peças do GLB trocam com o estágio (%d)" % kh.conquest_vis.size())
+	for sp in kh.spawners:
+		check(gd.monsters.has(sp["monster_id"]), "Kharzun: spawner de monstro que existe (%s)" % sp["monster_id"])
+	# portal real das Estepes (E5) e volta livre
+	var go: Array = steppe.portals.filter(func(p): return p["target_map"] == "field_kharzun")
+	var back: Array = kh.portals.filter(func(p): return p["target_map"] == "field_steppe")
+	check(go.size() == 1 and back.size() == 1, "Kharzun: um portal de ida nas Estepes e um de volta")
+	if go.size() == 1 and back.size() == 1:
+		check(go[0]["id"] == "to_field_kharzun" and go[0].get("gate", {}) == MapsCatalog.PORTAL_GATES["to_field_kharzun"], "Kharzun: a ida tem o portão E5")
+		check((back[0] as Dictionary).get("gate", {}).is_empty(), "Kharzun: a volta para as Estepes não tem portão")
+		check((go[0]["target_pos"] as Vector3).distance_to(kh.spawn_point) < 1.0, "Kharzun: chega das Estepes no ponto de chegada")
+		var d: float = (back[0]["target_pos"] as Vector3).distance_to(go[0]["pos"])
+		check(d > 5.0 and d < 16.0, "Estepes: quem volta de Kharzun aparece na frente do passo, fora do portal (%.1f m)" % d)
+		var ws := WorldSim.new()
+		ws.load_map(gd.maps[GameData.town_map_id()])
+		ws.load_map(steppe)
+		var pl: SimEntity = ws.spawn_player(gd.classes["paladin"], "Passo", "field_steppe")
+		pl.level = 40
+		check(PortalSystem.portal_block_reason(ws, pl, go[0]) != "", "KAC-01: nível 40 sem os acampamentos não passa")
+		pl.quests_completed.append_array(MapsCatalog.Q_STEPPE_FORTS)
+		pl.level = 39
+		check(PortalSystem.portal_block_reason(ws, pl, go[0]) != "", "KAC-01: nível 39 com os acampamentos não passa")
+		pl.level = 40
+		check(PortalSystem.portal_block_reason(ws, pl, go[0]) == "", "KAC-01: nível 40 com os três acampamentos passa")
+	check(not (steppe.obstacles.any(func(o): return o.get("kind", "") == "wall" and not o.get("visible", true) and (o["pos"] as Vector3).distance_to(Vector3(0, 0, -106.2)) < 1.0)),
+		"Estepes: o muro provisório do passo saiu")
+	# Contra-ataque: Canil e Cidadela, calados em K1b/K2; Ofensiva do aríete depois do K2
+	var routes: Array = RaidSystem.routes(kh)
+	var km: Dictionary = sim.maps["field_kharzun"] if sim.maps.has("field_kharzun") else sim.load_map(kh)
+	var sides := {}
+	for r in routes:
+		sides[str(r.get("side", ""))] = str(r.get("unless", ""))
+		for w in r.get("waves", []):
+			for k in w["mobs"]:
+				check(gd.monsters.has(k), "Kharzun: leva %s com monstro que existe (%s)" % [r.get("side", ""), k])
+		for q in r["route"]:
+			check(not MapGeometry.point_in_solid(sim, q, km), "Kharzun: rota %s passa por chão livre em %s" % [r.get("side", ""), q])
+	check(sides == {"kennel": MapsCatalog.Q_KH_KENNEL, "citadel": MapsCatalog.Q_KH_GATE}, "Kharzun: Contra-ataque de Canil (até K1b) e Cidadela (até K2): %s" % [sides])
+	check(kh.assaults.size() == 1 and kh.assaults[0].get("if", "") == MapsCatalog.Q_KH_GATE and kh.assaults[0].has("fighters"), "Kharzun: Ofensiva do aríete sobe depois do K2")
+	# estágio de verdade (WorldState): portão da cidadela guardado até K2; Forja da Horda até K1c
+	var ws2 := WorldSim.new()
+	ws2.load_map(gd.maps[GameData.town_map_id()])
+	ws2.load_map(kh)
+	ws2.player = ws2.spawn_player(gd.classes["paladin"], "Estagio", "field_kharzun")
+	var gate_sp: Array = kh.spawners.filter(func(sp): return sp["monster_id"] == "clan_guard" and str(sp.get("unless", "")) == MapsCatalog.Q_KH_GATE)
+	var forge_sp: Array = kh.spawners.filter(func(sp): return str(sp.get("unless", "")) == MapsCatalog.Q_KH_FORGE)
+	check(gate_sp.size() == 1 and forge_sp.size() >= 2 and WorldState.active(ws2, gate_sp[0]) and WorldState.active(ws2, forge_sp[0]), "Kharzun K0: Horda no portão e na Forja")
+	ws2.player.quests_completed.append_array([MapsCatalog.Q_KH_FORGE, MapsCatalog.Q_KH_GATE])
+	if gate_sp.size() == 1 and forge_sp.size() >= 2:
+		check(not WorldState.active(ws2, gate_sp[0]) and not WorldState.active(ws2, forge_sp[0]), "Kharzun K1c/K2: Forja e portão retomados")
+	# bots: 41 caça aqui, 38 não escolhe Kharzun (faixa de _plan_trip)
+	check(41 >= kh.level_range.x - 1 and 38 < kh.level_range.x - 1, "KAC-02: bot 41 entra na faixa de Kharzun, 38 não")
+	# atravessar a lava pela ponte (água que colide, como o rio)
+	var m: Dictionary = ws2.maps["field_kharzun"]
+	check((m["bridges"] as Array).size() >= 2, "Kharzun: pontes de basalto sobre a lava (%d)" % (m["bridges"] as Array).size())
+	for br in m["bridges"]:
+		check(ws2.is_walkable(Vector3(br["pos"].x, 0, br["pos"].y), kh, 0.45), "Kharzun: ponte andável em %s" % br["pos"])
+
+## Salão dos Matadores e Cidadela de Kharzun (KAC-05): portões (missão / nível 43 + K2), masmorras do Monte Kharzun, as
+## três alas alcançáveis em qualquer ordem, trono fechado até os três clãs (K3) e aberto depois, Ofensiva chega ao pátio.
+func _check_kharzun_citadel(gd, sim) -> void:
+	check(gd.maps.has(MapsCatalog.CITADEL_ID) and gd.maps.has("dg_slayers"), "Cidadela e Salão dos Matadores: mapas existem")
+	if not (gd.maps.has(MapsCatalog.CITADEL_ID) and gd.maps.has("dg_slayers")):
+		return
+	var kh: MapDef = gd.maps["field_kharzun"]
+	var cd: MapDef = gd.maps[MapsCatalog.CITADEL_ID]
+	var sl: MapDef = gd.maps["dg_slayers"]
+	check(cd.parent_map == "field_kharzun" and cd.level_range == Vector2i(44, 45) and MapBuilder.is_dungeon(cd) and cd.bot_population == 0,
+		"Cidadela: masmorra 44-45 do Monte Kharzun (sem montaria, bots só com o grupo)")
+	check(sl.parent_map == "field_kharzun" and sl.level_range == Vector2i(42, 44), "Matadores: masmorra 42-44 do Monte Kharzun")
+	check(Music.theme_for(cd.id) != "" and Music.theme_for(sl.id) != "", "Cidadela e Matadores: tema de música")
+	check(FileAccess.file_exists("res://assets/models/map_%s.glb" % cd.id), "Cidadela: GLB existe")
+	var z: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(MapsCatalog.ZONE_PATH % "field_kharzun"))
+	check(not z.has("future_portals"), "Kharzun: os portais do Salão e da Cidadela viraram portais de verdade")
+	# ---- portões: ida com portão, volta livre e junto da entrada ----
+	var ws := WorldSim.new()
+	ws.load_map(gd.maps[GameData.town_map_id()])
+	ws.load_map(kh)
+	var pl: SimEntity = ws.spawn_player(gd.classes["paladin"], "Portao", "field_kharzun")
+	for row in [[cd, "to_kharzun_citadel"], [sl, "to_dg_slayers"]]:
+		var md: MapDef = row[0]
+		var go: Array = kh.portals.filter(func(p): return p["target_map"] == md.id)
+		var back: Array = md.portals.filter(func(p): return p["target_map"] == "field_kharzun")
+		check(go.size() == 1 and back.size() == 1 and go[0]["id"] == row[1], "%s: um portal de ida (%s) e um de volta" % [md.id, row[1]])
+		if go.size() != 1 or back.size() != 1:
+			continue
+		check(go[0].get("gate", {}) == MapsCatalog.PORTAL_GATES[row[1]] and (back[0] as Dictionary).get("gate", {}).is_empty(), "%s: portão só na ida" % md.id)
+		check((go[0]["target_pos"] as Vector3).distance_to(md.spawn_point) < 1.0, "%s: chega no ponto de chegada" % md.id)
+		var d: float = (back[0]["target_pos"] as Vector3).distance_to(go[0]["pos"])
+		check(d > 3.0 and d < 16.0 and ws.is_walkable(back[0]["target_pos"], kh, 0.45), "%s: a volta aparece diante da entrada (%.1f m)" % [md.id, d])
+	var go_c: Dictionary = kh.portals.filter(func(p): return p["target_map"] == cd.id)[0]
+	var go_s: Dictionary = kh.portals.filter(func(p): return p["target_map"] == sl.id)[0]
+	var gate_c: Dictionary = MapsCatalog.PORTAL_GATES["to_kharzun_citadel"]
+	check(int(gate_c.get("level", 0)) == 43 and gate_c.get("quest", "") == MapsCatalog.Q_KH_GATE, "Cidadela: portão pede nível 43 e o aríete (K2)")
+	check(not MapsCatalog.PORTAL_GATES["to_dg_slayers"].has("level") and MapsCatalog.PORTAL_GATES["to_dg_slayers"].get("quest", "") == "hx_slayers_open", "Matadores: portão de missão, sem nível")
+	pl.level = 44
+	check(PortalSystem.portal_block_reason(ws, pl, go_c) != "", "Cidadela: nível 44 sem o aríete não entra")
+	check(PortalSystem.portal_block_reason(ws, pl, go_s) != "", "Matadores: sem a palavra do Xamã não entra")
+	pl.quests_completed.append_array([MapsCatalog.Q_KH_GATE, "hx_slayers_open"])
+	pl.level = 42
+	check(PortalSystem.portal_block_reason(ws, pl, go_c) != "", "Cidadela: nível 42 com o aríete não entra")
+	check(PortalSystem.portal_block_reason(ws, pl, go_s) == "", "Matadores: com a palavra do Xamã entra em qualquer nível")
+	pl.level = 43
+	check(PortalSystem.portal_block_reason(ws, pl, go_c) == "", "Cidadela: nível 43 com o aríete entra")
+	for q in MapsCatalog.PENDING_GATE_QUESTS:
+		check(not gd.quests.has(q), "portões: %s já existe, tire de PENDING_GATE_QUESTS" % q)
+	# ---- Salão dos Matadores: quatro salões, elenco do plano, chefe no fundo ----
+	var sl_ids := {}
+	for sp in sl.spawners:
+		sl_ids[sp["monster_id"]] = int(sl_ids.get(sp["monster_id"], 0)) + int(sp["count"])
+		check(gd.monsters.has(sp["monster_id"]), "Matadores: spawner de monstro que existe (%s)" % sp["monster_id"])
+	check(sl_ids.has("goblin_slayer") and sl_ids.has("goblin_assassin") and sl_ids.has("orc_fire_archer") and sl_ids.has(MapsCatalog.mob("boss_shazka")),
+		"Matadores: Assassinos, Matadores, Arcos de Fogo e o Mestre (%s)" % [sl_ids])
+	var sz: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(MapsCatalog.ZONE_PATH % "dg_slayers"))
+	check((sz["roads"] as Array).filter(func(r): return r["kind"] == "street").size() >= 5, "Matadores: chegada + 4 salões")
+	# ---- Cidadela: dados das arenas e das alas ----
+	var data := MapsCatalog.citadel_data()
+	var arenas: Dictionary = data.get("arenas", {})
+	var wings: Dictionary = data.get("wings", {})
+	var chiefs := ["boss_ulgra", "boss_gorbash", "boss_kragmar"]
+	check(chiefs.all(func(b): return arenas.has(b)) and arenas.has("boss_durgash"), "Cidadela: arena de cada chefe de clã e do trono no JSON (%s)" % [arenas.keys()])
+	check(wings.size() == 3 and wings.values().map(func(w): return w["quest"]) == Array(MapsCatalog.Q_KH_CLANS), "Cidadela: três alas (Lobo, Pedra, Forja) com a quest do clã")
+	if not (chiefs.all(func(b): return arenas.has(b)) and arenas.has("boss_durgash") and wings.size() == 3):
+		return
+	var at := func(a: Array) -> Vector3: return Vector3(float(a[0]), 0, float(a[1]))
+	var throne: Vector3 = at.call(arenas["boss_durgash"]["pos"])
+	var door: Vector3 = at.call(arenas["boss_durgash"]["door"])
+	var door_front := door + Vector3(0, 0, 8.0)                 # antecâmara, do lado de quem chega
+	var banners: Array = (arenas["boss_durgash"]["banners"] as Dictionary).values().map(func(a): return at.call(a))
+	check(banners.size() == 3 and banners.all(func(b): return b.distance_to(throne) < float(arenas["boss_durgash"]["r"]) - 4.0)
+		and banners[0].distance_to(banners[1]) > 10.0 and banners[1].distance_to(banners[2]) > 10.0 and banners[0].distance_to(banners[2]) > 10.0,
+		"Cidadela: três soquetes de Estandarte de Clã dentro da sala do trono, afastados")
+	check(float(arenas["boss_durgash"]["r"]) >= 20.0 and chiefs.all(func(b): return float(arenas[b]["r"]) >= 14.0), "Cidadela: arenas largas (clãs >= 14 m, trono >= 20 m)")
+	var mobs := 0
+	var bosses := 0
+	for sp in cd.spawners:
+		check(gd.monsters.has(sp["monster_id"]), "Cidadela: spawner de monstro que existe (%s)" % sp["monster_id"])
+		var md2: MonsterDef = gd.monsters.get(sp["monster_id"])
+		if md2 == null:
+			continue
+		bosses += 1 if md2.is_boss else 0
+		mobs += int(sp["count"]) * (1 + int(md2.escort.get("count", 0)) if not md2.escort.is_empty() else 1)
+	check(bosses == 4, "Cidadela: três chefes de clã e o Grão-Senhor (%d)" % bosses)
+	check(mobs >= 50 and mobs <= 120, "Cidadela: %d monstros com as escoltas (orçamento: até 120)" % mobs)
+	for id in ["clan_guard", "orc_warlord", "troll_brute", "basalt_golem", "dire_wolf_rider", "lava_salamander"]:
+		check(cd.spawners.any(func(sp): return sp["monster_id"] == id), "Cidadela: %s no elenco" % id)
+	# regras de estágio só com quests K
+	var bad: Array = []
+	for r in cd.spawners + cd.conquest_vis + cd.assaults + cd.obstacles:
+		for k in ["if", "unless"]:
+			if r.has(k):
+				for q in (r[k] if r[k] is Array else [r[k]]):
+					if not q in MapsCatalog.KHARZUN_STAGE_QUESTS:
+						bad.append(str(q))
+	check(bad.is_empty(), "Cidadela: estágios só por quests K0-K4 (%s)" % [bad])
+	var seals: Array = cd.obstacles.filter(func(ob): return ob.get("solid", true) and ob.has("unless"))
+	check(seals.size() == 1 and Array(seals[0]["unless"]) == Array(MapsCatalog.Q_KH_CLANS) and (seals[0]["pos"] as Vector3).distance_to(door) < 1.0,
+		"Cidadela: a porta do trono é o único colisor de estágio (até os três clãs)")
+	var dsp: Array = cd.spawners.filter(func(sp): return sp["monster_id"] == MapsCatalog.mob("boss_durgash") and sp.has("if"))
+	check(dsp.size() == 1 and Array(dsp[0]["if"]) == Array(MapsCatalog.Q_KH_CLANS) and (dsp[0]["pos"] as Vector3).distance_to(throne) < 1.0, "Cidadela: Durgash só nasce no trono com os três clãs caídos")
+	# peças do GLB que trocam existem com o nome da regra
+	var f := FileAccess.open("res://assets/models/map_%s.glb" % cd.id, FileAccess.READ)
+	if f != null:
+		f.seek(12)
+		var n := f.get_32()
+		f.get_32()
+		var doc: Dictionary = JSON.parse_string(f.get_buffer(n).get_string_from_utf8())
+		var names: Array = (doc.get("nodes", []) as Array).map(func(nd): return str(nd.get("name", "")))
+		for cv in cd.conquest_vis:
+			check(names.any(func(nm): return nm.contains(str(cv["tag"]))), "Cidadela: peça %s existe no GLB" % cv["tag"])
+	check(cd.conquest_vis.size() == 8, "Cidadela: porta do trono e um braseiro por clã trocam com o estágio")
+	# ---- alcance (sem jogador nenhuma quest vale: porta fechada) ----
+	sim.load_map(cd)
+	var seen := _reach(sim, cd, cd.spawn_point)
+	for sp in cd.spawners:
+		if not sp.has("if"):
+			check(_reached(seen, sp["pos"]), "Cidadela: spawner %s alcançável a pé" % sp["monster_id"])
+	for pt in cd.portals:
+		check(_reached(seen, pt["pos"]), "Cidadela: portal %s alcançável" % pt["id"])
+	for b in chiefs:
+		check(_reached(seen, at.call(arenas[b]["pos"])), "Cidadela: arena de %s alcançável" % b)
+	check(_reached(seen, door_front), "Cidadela: antecâmara do trono alcançável")
+	check(not _reached(seen, throne) and banners.all(func(b): return not _reached(seen, b)), "Cidadela: sala do trono fechada antes dos três clãs")
+	for w in wings:                              # fechar uma ala (boca do 1º corredor) não fecha as outras nem a antecâmara
+		var cut := _reach(sim, cd, cd.spawn_point, at.call(wings[w]["mouth"]), 8.0)
+		check(not _reached(cut, at.call(arenas[wings[w]["boss"]]["pos"])), "Cidadela: a ala %s só tem a boca do pátio" % w)
+		for o in wings:
+			if o != w:
+				check(_reached(cut, at.call(arenas[wings[o]["boss"]]["pos"])), "Cidadela: com a ala %s fechada, a ala %s continua alcançável" % [w, o])
+		check(_reached(cut, door_front), "Cidadela: com a ala %s fechada, a porta do trono continua alcançável" % w)
+	# ---- K3 de verdade (WorldState): dois clãs não abrem, três abrem; Durgash nasce ----
+	var w2 := WorldSim.new()
+	w2.load_map(gd.maps[GameData.town_map_id()])
+	var m: Dictionary = w2.load_map(cd)
+	w2.player = w2.spawn_player(gd.classes["paladin"], "Trono", cd.id)
+	check(not _reached(_reach(w2, cd, cd.spawn_point), throne) and not WorldState.active(w2, dsp[0] if dsp.size() == 1 else {"if": "x"}), "Cidadela K2: trono fechado e vazio")
+	w2.player.quests_completed.append_array(["hx_clan_wolf", "hx_clan_forge"])
+	MapGeometry.sync_stage(w2, m)
+	check(not _reached(_reach(w2, cd, cd.spawn_point), throne), "Cidadela: com dois clãs o trono continua fechado")
+	w2.player.quests_completed.append("hx_clan_stone")
+	MapGeometry.sync_stage(w2, m)
+	var open := _reach(w2, cd, cd.spawn_point)
+	check(_reached(open, throne) and banners.all(func(b): return _reached(open, b)), "Cidadela K3: com os três clãs o trono abre (KAC-05)")
+	check(dsp.size() == 1 and WorldState.active(w2, dsp[0]), "Cidadela K3: Durgash nasce")
+	for w in wings:
+		var cut := _reach(w2, cd, cd.spawn_point, at.call(wings[w]["mouth"]), 8.0)
+		check(_reached(cut, throne), "Cidadela K3: com a ala %s fechada, o trono continua alcançável" % w)
+	# ---- Ofensiva da Aurora: nasce com o K2, some com o K4, anda até o pátio ----
+	check(cd.assaults.size() == 1 and cd.assaults[0].get("if", "") == MapsCatalog.Q_KH_GATE and cd.assaults[0].get("unless", "") == MapsCatalog.Q_KH_WARLORD
+		and cd.assaults[0].has("fighters"), "Cidadela: Ofensiva da Aurora do K2 ao K4")
+	if cd.assaults.size() != 1:
+		return
+	var patio := Vector3(float(data["town"]["center"][0]), 0, float(data["town"]["center"][1]))
+	check((cd.assaults[0]["target"] as Vector3).distance_to(patio) < 12.0, "Cidadela: a Ofensiva mira o pátio de armas")
+	var w3 := WorldSim.new()
+	w3.load_map(gd.maps[GameData.town_map_id()])
+	var m3: Dictionary = w3.load_map(cd)
+	w3.player = w3.spawn_player(gd.classes["paladin"], "Marcha", cd.id)
+	w3.player.quests_completed.append(MapsCatalog.Q_KH_GATE)
+	var first: Array = []
+	for i in int(70.0 * 20):
+		for e in m3["entities"].duplicate():
+			if e.kind == SimEntity.Kind.MONSTER and not e.guard:
+				w3.despawn(e)                     # caminho livre: só a rota está em teste
+		w3.tick(0.05)
+		if first.is_empty():
+			first = m3["entities"].filter(func(e): return e.guard and str(e.npc_data.get("id", "")).begins_with("assault_"))
+	var last_leg: int = cd.assaults[0]["route"].size()
+	var stuck: Array = []
+	for e in first:
+		if is_instance_valid(e) and e.is_alive() and (e.raid_leg < last_leg or e.position.distance_to(patio) > 22.0):
+			stuck.append("%s leg %d em (%.0f, %.0f)" % [e.npc_data.get("id", "?"), e.raid_leg, e.position.x, e.position.z])
+	check(not first.is_empty() and first.size() <= Balance.ASSAULT_FORT_MAX and stuck.is_empty(), "Cidadela: a primeira leva da Ofensiva (%d) chega ao pátio em 70 s (%s)" % [first.size(), stuck])
+
+## Kharzun WP10 (KAC-14): Ferreiro Anão aprimora lendário 40+ (Aço Anão / Brasa), lobo atroz, joias 45, título da Prova 45, brasa colhível no K1c.
+func _check_kharzun_rewards(gd, sim) -> void:
+	var cls: ClassDef = gd.classes["berserker"]
+	var l40: ItemDef = gd.items[gd.legendary_pool(cls, 40)[0]]
+	var l35: ItemDef = gd.items[gd.legendary_pool(cls, 35)[0]]
+	var c1: Dictionary = sim.enhance_cost(l40, 0)
+	var c6: Dictionary = sim.enhance_cost(l40, Balance.PLUS_STAR_FROM - 1)
+	check(c1["item"] == "dwarf_steel" and c6["item"] == "kharzun_ember_core", "Kharzun: lendário 40 aprimora com Aço Anão e, do +6, Brasa (%s, %s)" % [c1["item"], c6["item"]])
+	check(sim.enhance_cost(l35, 0)["item"] == "holy_silver", "Kharzun: lendário 35 continua na Prata Consagrada")
+	var l45ids: Array = gd.legendary_pool(cls, 45)
+	check(not l45ids.is_empty() and sim.enhance_cost(gd.items[l45ids[0]], 0)["item"] == "dwarf_steel", "Kharzun: lendário 45 também usa Aço Anão")
+	var steel := 0
+	var ember := 0
+	for i in range(Balance.PLUS_MAX):
+		var c: Dictionary = sim.enhance_cost(l40, i)
+		if c["item"] == "dwarf_steel":
+			steel += int(c["count"])
+		else:
+			ember += int(c["count"])
+	check(steel >= 10 and ember >= 8, "Kharzun: +9 custa %d Aço Anão e %d Brasas" % [steel, ember])
+	var ws := WorldSim.new()
+	ws.load_map(gd.maps[GameData.town_map_id()])
+	ws.load_map(gd.maps["field_kharzun"])
+	var p: SimEntity = ws.spawn_player(cls, "Anao", "field_kharzun")
+	p.level = 45
+	p.gold = 10_000_000
+	p.add_item("dwarf_steel", steel)
+	p.add_item("kharzun_ember_core", ember)
+	p.add_item(l40.id, 1)
+	check(ws.enhance_error(p, l40.id) != "" and ws.enhance_error(p, l40.id, -1, "kharzun_smith") != "", "Kharzun: lendário 40 recusado fora do Ferreiro Anão")
+	check(ws.enhance_error(p, l40.id, -1, "dwarf_smith") == "", "Kharzun: Thrain aprimora lendário 40 (%s)" % ws.enhance_error(p, l40.id, -1, "dwarf_smith"))
+	var cur: ItemDef = l40
+	for i in range(Balance.PLUS_MAX):
+		var nx: ItemDef = ws.enhance(p, cur.id, -1, "dwarf_smith")
+		if nx == null:
+			break
+		cur = nx
+	check(cur.plus == Balance.PLUS_MAX and int(p.inventory.get("dwarf_steel", 0)) == 0 and int(p.inventory.get("kharzun_ember_core", 0)) == 0, "Kharzun: Thrain leva o lendário 40 a +9 (+%d)" % cur.plus)
+	var thrain: Dictionary = {}
+	var keeper: Dictionary = {}
+	for n in gd.maps["field_kharzun"].npcs:
+		if n["id"] == "dwarf_smith":
+			thrain = n
+		if n["id"] == "kharzun_wolf_keeper":
+			keeper = n
+	check(thrain.get("role", "") == "smith" and (thrain.get("dialog_after", {}) as Dictionary).has("hx_dw_forge"), "Kharzun: Thrain fala do aprimoramento depois de hx_dw_forge")
+	# tratadora: falas de base = lobo travado (citam a missão), dialog_after da missão do lobo = liberado
+	var wolf_q: String = Balance.MOUNT_KINDS["dire_wolf"]["quest"]
+	var keeper_base: Array = keeper.get("dialog", [])
+	var keeper_after: Array = (keeper.get("dialog_after", {}) as Dictionary).get(wolf_q, [])
+	check(not keeper_base.is_empty() and keeper_base.all(func(l): return not str(l).contains("escolheu você")) and str(keeper_base[0]).contains(gd.quests[wolf_q].title),
+		"tratadora: travado, a fala aponta para \"%s\" (%s)" % [gd.quests[wolf_q].title, keeper_base])
+	check(keeper_after.any(func(l): return str(l).contains("escolheu você")), "tratadora: com %s a fala é do lobo liberado" % wolf_q)
+	# lobo atroz (D5)
+	check(Balance.MOUNT_KINDS.has("dire_wolf") and Balance.MOUNT_KINDS["dire_wolf"]["quest"] == "hx_ov_hatch" and gd.quests.has("hx_ov_hatch"), "Kharzun: lobo atroz liberado por hx_ov_hatch")
+	for k in Balance.MOUNT_KINDS:
+		check(EntityView.MOUNT_LOOKS.has(k) and ResourceLoader.exists("res://assets/models/%s.glb" % EntityView.MOUNT_LOOKS[k][0]), "montaria %s: modelo" % k)
+	check(EntityView.WOLF_COATS.all(func(c): return absf(c.r - c.g) < 0.08 and absf(c.g - c.b) < 0.08), "lobo atroz: pelagens cinzentas")
+	check(p.mount_kind == "horse" and not ws.set_mount_kind(p, "dire_wolf") and p.mount_kind == "horse", "lobo atroz: sem a missão, só cavalo")
+	check(MountSystem.from_save(p, "dire_wolf") == "horse" and MountSystem.from_save(p, "xyz") == "horse", "lobo atroz: save sem a missão (ou antigo) volta ao cavalo")
+	p.mounted = true
+	var sp_horse := MountedCombat.move_mult(p)
+	var q: QuestDef = gd.quests["hx_ov_hatch"]
+	for pre in ["hx_ov_nest", "hx_ov_warm", "hx_kennel"]:
+		p.quests_completed.append(pre)
+	QuestSystem.accept(p, q)
+	p.add_item(q.target_id, q.count)
+	var mount_notes: Array = [0]
+	var on_mount_note := func(t: String) -> void: mount_notes[0] += int(t.contains("ontaria"))
+	Events.notification.connect(on_mount_note)
+	QuestSystem.complete(p, q, ws)
+	Events.notification.disconnect(on_mount_note)
+	check("hx_ov_hatch" in p.quests_completed and p.mount_kind == "dire_wolf" and not p.mounted, "lobo atroz: entregar hx_ov_hatch troca para o lobo (desce do cavalo)")
+	check(ws.player == p and mount_notes[0] == 1, "lobo atroz: a entrega dá um aviso de montaria só (%d)" % mount_notes[0])
+	p.mounted = true
+	check(is_equal_approx(MountedCombat.move_mult(p), sp_horse), "lobo atroz: mesma velocidade do cavalo (D5)")
+	p.mounted = false
+	check(MountSystem.from_save(p, "dire_wolf") == "dire_wolf" and ws.set_mount_kind(p, "horse") and p.mount_kind == "horse", "lobo atroz: salva e troca de volta no tratador")
+	check(keeper.get("if", "") == "hx_ov_hatch" and "kharzun_wolf_keeper" in Balance.MOUNT_KEEPER_NPCS, "Kharzun: tratadora aparece com hx_ov_hatch")
+	if not keeper.is_empty():
+		var kp: Vector3 = keeper["pos"]
+		check(Vector2(kp.x, kp.z).length() < gd.maps["field_kharzun"].town_radius - 3.0 and MapGeometry.is_walkable(ws, kp, gd.maps["field_kharzun"], 0.6),
+			"Kharzun: tratadora dentro do acampamento, em chão livre (%s)" % kp)
+		for n in gd.maps["field_kharzun"].npcs:
+			if n["id"] != keeper["id"]:
+				check((n["pos"] as Vector3).distance_to(kp) > 1.6, "Kharzun: tratadora não sobrepõe %s" % n["id"])
+	# joias e capas 45
+	var n45 := 0
+	for piece in GearCatalog.THEME_PIECES:
+		for theme in GearCatalog.THEMES:
+			var rid := "rec_%s_%s_k45" % [piece, theme]
+			var rec: RecipeDef = gd.recipes.get(rid)
+			check(rec != null, "Kharzun: receita %s" % rid)
+			if rec == null:
+				continue
+			n45 += 1
+			var it: ItemDef = gd.items.get(rec.result_item)
+			var t5: ItemDef = gd.items.get("%s_%s_t5" % [piece, theme])
+			check(it != null and it.level_req == 45 and rec.level_req == 45 and rec.station == ("alchemy" if piece == "cape" else "smith"), "%s: nível 45 e estação" % rid)
+			if it and t5:
+				var a45: float = it.attributes.values().reduce(func(x, y): return x + y, 0.0)
+				var a40: float = t5.attributes.values().reduce(func(x, y): return x + y, 0.0)
+				check(a45 > a40 and it.rarity == ItemDef.RARITY_LEGENDARY - 1 and not it.is_legendary(), "%s: épica e mais forte que a do 40 (%.0f > %.0f)" % [rid, a45, a40])
+				check(UiKit.item_texture(it) != null, "%s: ícone" % rid)
+				check(not sim.gear_pool(Balance.COMMON_TIER_LEVELS.size() - 1).has(it), "%s: não cai de monstro" % rid)
+			var trophies := 0
+			for mat in rec.ingredients:
+				var pending: bool = RecipesCatalog.KHARZUN_TROPHIES.has(mat) and MapsCatalog.STAND_INS.has(RecipesCatalog.KHARZUN_TROPHIES[mat])
+				check(gd.items.has(mat) and (_dropped_somewhere(gd, mat) or pending), "%s: material %s existe e cai (ou o chefe ainda é substituto)" % [rid, mat])
+				if RecipesCatalog.KHARZUN_TROPHIES.has(mat):
+					trophies += 1
+			check(trophies == (2 if piece == "cape" else 1), "%s: troféu de chefe na receita" % rid)
+	check(n45 == 9, "Kharzun: 9 joias/capas 45 (%d)" % n45)
+	var b45: SimEntity = sim.spawn_bot(gd.classes["bishop"], "Joia45", "city_aldara", Vector3(0, 0, 6), 45)
+	check(not b45.equipment.values().any(func(x): return x != null and GearCatalog.craft_only(x)), "Kharzun: bot 45 não nasce com joia de troféu")
+	sim.despawn(b45)
+	for t in RecipesCatalog.KHARZUN_TROPHIES:
+		check(gd.items.has(t) and UiKit.item_texture(gd.items[t]) != null, "troféu %s: item e ícone" % t)
+	# título da Prova 45
+	for c in QuestsCatalog.ASC_MASTERS:
+		var tq: QuestDef = gd.quests.get("hx_asc45_" + c)
+		check(tq != null and tq.reward_title == "Mestre " + QuestsCatalog.TRIAL45_TITLES[c] and tq.reward_xp == 0, "Prova 45 (%s): título e 0 XP" % c)
+	check(p.honor_title() == "", "título: ninguém nasce Mestre")
+	p.quests_completed.append("hx_asc45_berserker")
+	check(p.honor_title() == "Mestre Berserker", "título: a Prova 45 dá Mestre Berserker (%s)" % p.honor_title())
+	# brasa de Kharzun colhível só depois da Forja Negra (K1c)
+	var embers: Array = (ws.maps["field_kharzun"]["gather"] as Array).filter(func(g): return g["item"] == "kharzun_ember_core")
+	check(embers.size() >= 3 and embers.all(func(g): return g.get("if", "") == MapsCatalog.Q_KH_FORGE), "Kharzun: brasa colhível com regra do K1c (%d)" % embers.size())
+	if not embers.is_empty():
+		p.position = embers[0]["pos"] + Vector3(0.5, 0, 0)
+		check(not ws.gather_ready(embers[0]) and GatherSystem.nearest_gather(ws, p).get("item", "") != "kharzun_ember_core", "Kharzun: sem a Forja Negra, a brasa não colhe")
+		p.quests_completed.append(MapsCatalog.Q_KH_FORGE)
+		check(ws.gather_ready(embers[0]) and GatherSystem.nearest_gather(ws, p).get("item", "") == "kharzun_ember_core", "Kharzun: com a Forja Negra, a brasa colhe")
+	var plain: Array = (ws.maps["field_kharzun"]["gather"] as Array).filter(func(g): return not g.has("if"))
+	check(not plain.is_empty() and ws.gather_ready(plain[0]), "colheita sem regra continua valendo")
+	ws.free()
+
+## Ato II fase 3 (Kharzun, kharzun-fase3-plan §4 / WP7): seis chefes com fases, falas pt-BR, lacaios 0 XP e os
+## Estandartes de Clã do Durgash (o ward vale enquanto um vive; os três mortos, o chefe volta a levar dano cheio).
+func _check_kharzun_bosses(gd) -> void:
+	for bid in MonstersCatalog.KHARZUN_BOSSES:
+		check(gd.monsters.has(bid), "Kharzun: chefe %s existe" % bid)
+		if not gd.monsters.has(bid):
+			continue
+		var b: MonsterDef = gd.monsters[bid]
+		check(b.is_boss and b.level >= 41 and b.level <= 45 and b.intro != "" and b.last_words != "", "%s: chefe 41-45 com intro e last_words" % bid)
+		check((b.berserk_after == 0.0) == (bid == "boss_dire_mother"), "%s: berserk só nos chefes de grupo (campo dá para solar)" % bid)
+		check(gd.loot_tables.has(b.loot_table) and b.xp > 0 and b.coin_chance >= 1.0, "%s: loot próprio, XP e moedas" % bid)
+		check(MonstersCatalog.KHARZUN_MODELS.has(bid) and b.model.begins_with("mob_") and ResourceLoader.exists("res://assets/models/%s.glb" % b.model), "%s: substituto %s existe e modelo pretendido anotado" % [bid, b.model])
+		check(not Sfx.voice_of(b).is_empty(), "%s: voz (Sfx.MOB_VOICE)" % bid)
+		var last := 1.01
+		for ph in b.phases:
+			check(float(ph["hp"]) > 0.0 and float(ph["hp"]) <= last, "%s: fases em ordem de HP" % bid)
+			last = float(ph["hp"])
+			if ph.has("say"):
+				check(str(ph["say"]).strip_edges() != "", "%s: fala de fase não vazia" % bid)
+			for sid in ph.get("skills", []):
+				check(gd.skills.has(sid), "%s: skill de fase %s existe" % [bid, sid])
+			if ph.has("summon"):
+				var ad: MonsterDef = gd.monsters.get(str(ph["summon"]["id"]))
+				check(ad != null and ad.xp == 0 and ad.loot_table == "" and not ad.is_boss and absi(ad.level - b.level) <= 4, "%s: lacaio %s 0 XP, sem loot, do nível" % [bid, str(ph["summon"]["id"])])
+		for sid in b.skill_ids:
+			check(gd.skills.has(sid), "%s: skill %s existe" % [bid, sid])
+			for e in [gd.skills.get(sid)]:
+				if e and e.effects.has("boss_summon"):
+					var ad2: MonsterDef = gd.monsters.get(str(e.effects["boss_summon"]["id"]))
+					check(ad2 != null and ad2.xp == 0, "%s: invocação %s 0 XP" % [bid, sid])
+		check(b.phases.size() >= (2 if bid == "boss_dire_mother" else 3), "%s: fases suficientes" % bid)
+	# Durgash: os três estandartes na F2, cada um com o seu efeito de clã
+	var d: MonsterDef = gd.monsters["boss_durgash"]
+	var planted: Array = []
+	for ph in d.phases:
+		if ph.has("summon"):
+			planted.append(str(ph["summon"]["id"]))
+	check(planted == MonstersCatalog.KHARZUN_BANNERS, "Durgash finca os 3 estandartes de clã (%s)" % str(planted))
+	check(d.phases[0].get("ward", 0.0) == 0.6, "Durgash F2: ward 0,6 com estandarte vivo")
+	for bn in MonstersCatalog.KHARZUN_BANNERS:
+		var bd: MonsterDef = gd.monsters[bn]
+		# ~4% no plano; o Durgash ganhou vida (luta de ~100 s, autor 2026-11-13) e os estandartes não (com vida junto, 5 sorteados caíam a 50%)
+		check(bd.move_speed == 0.0 and bd.xp == 0 and absf(bd.hp - d.hp * 0.028) < d.hp * 0.01, "%s: parado, 0 XP, vida ~3%% do Durgash (%d)" % [bn, bd.hp])
+	check(Balance.MOB_AURAS.has(gd.monsters["banner_wolf"].aura), "Estandarte do Lobo: aura de velocidade")
+	check(gd.skills["mob_stone_mend"].kind == SkillDef.Kind.HEAL and "mob_stone_mend" in gd.monsters["banner_stone"].skill_ids, "Estandarte da Pedra: cura o chefe")
+	check(gd.skills["mob_forge_embers"].effects.has("dot") and "mob_forge_embers" in gd.monsters["banner_forge"].skill_ids, "Estandarte da Forja: brasas em volta")
+	# regra do ward na sim: estandarte vivo = corte; os três mortos = sem corte
+	var ws := WorldSim.new()
+	ws.load_map(gd.maps[GameData.town_map_id()])
+	var m: Dictionary = ws.load_map(gd.maps["fort_war"])
+	m["spawners"].clear()
+	for e in m["entities"].duplicate():
+		ws.despawn(e)
+	var at := Vector3.ZERO
+	for sp in gd.maps["fort_war"].spawners:
+		if sp["monster_id"] == "boss_ghar":
+			at = sp["pos"]
+	var boss: SimEntity = ws.spawn_monster(d, "fort_war", at)
+	var foe: SimEntity = ws.spawn_bot(gd.classes["paladin"], "Alvo", "fort_war", at + Vector3(2, 0, 0), 40)
+	boss.aggro_target = foe.id
+	boss.hp = boss.stats.max_hp * 0.69
+	MobSystem.update_boss(ws, boss, 1.0)
+	var banners: Array = (m["entities"] as Array).filter(func(o): return o.boss_id == boss.id and o.is_alive())
+	check(banners.size() == 3 and boss.phase == 3, "Durgash a 69%%: 3 estandartes fincados de uma vez (%d)" % banners.size())
+	MobSystem.update_boss(ws, boss, Balance.BOSS_WARD_CHECK + 0.1)
+	check(is_equal_approx(boss.ward, 0.6), "estandarte vivo: ward 0,6 (%.2f)" % boss.ward)
+	for o in banners.slice(0, 2):
+		ws.despawn(o)
+	MobSystem.update_boss(ws, boss, Balance.BOSS_WARD_CHECK + 0.1)
+	check(is_equal_approx(boss.ward, 0.6), "um estandarte de pé ainda protege (%.2f)" % boss.ward)
+	ws.despawn(banners[2])
+	MobSystem.update_boss(ws, boss, Balance.BOSS_WARD_CHECK + 0.1)
+	check(boss.ward == 0.0, "os três estandartes caídos: sem ward (%.2f)" % boss.ward)
+	ws.despawn(boss)
+	ws.despawn(foe)
