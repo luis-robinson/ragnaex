@@ -27,6 +27,7 @@ var power_scale := 1.0              # efeitos de graça (assinatura) lançam com
 var signatures_on := true
 var signature_force := false      # revisão visual: a assinatura dispara sempre (com a recarga)          # sondas: desliga a assinatura para comparar
 var signature_casting := false     # assinatura em andamento: o que ela acertar não dispara outra
+var sig_stats: Dictionary = {}       # assinaturas de chefe: contagens para as sondas (BossSignatures.stat; boss_probe zera)
 var parties: Dictionary = {}       # party_id -> {"id", "leader": entity_id, "members": Array[int]}
 var invites: Dictionary = {}       # entity_id convidado -> {"from", "expires", "decide_at"}
 var _next_party_id: int = 1
@@ -347,7 +348,7 @@ func _gear_bot(b: SimEntity) -> void:
 	b.equipment.clear()
 	for item_id in GameData.items:
 		var it: ItemDef = GameData.items[item_id]
-		if not it.is_equipment() or it.rarity != rarity:
+		if not it.is_equipment() or it.rarity != rarity or GearCatalog.craft_only(it):     # joia/capa 45 de troféu: só por receita
 			continue
 		if rarity == ItemDef.RARITY_LEGENDARY - 1:          # épico: vários tiers dividem a raridade, separa pelo nível
 			var it_tier := ItemSystem.item_tier(self, it)
@@ -607,7 +608,7 @@ func _apply_command(e: SimEntity, cmd: InputCommand, m: Dictionary, dt: float) -
 		elif e.state == SimEntity.State.CASTING or e.airborne() or e.form != "":
 			if e == player:
 				Events.post(&"notification", "Não dá para montar agora")
-		elif m["def"].parent_map != "":
+		elif m["def"].no_mount():
 			if e == player:
 				Events.post(&"notification", "Não dá para montar aqui")      # masmorra: só a pé
 		else:
@@ -980,6 +981,8 @@ func _start_skill(e: SimEntity, s: SkillDef, slot: int, aim: Vector3) -> void:
 	e.face_towards(aim)
 	e.set_state(SimEntity.State.CASTING, s.startup + s.active + s.recovery)
 	Events.post(&"skill_cast", e.id, s.id, "startup")
+	if s.effects.has("avalanche") and maps.has(e.map_id):
+		BossSignatures.avalanche_prep(self, e, s)     # Troll Rei: sem pedra no chão, arremessa as da garantia antes
 
 func _end_skill(e: SimEntity) -> void:
 	e.current_skill = null
@@ -1173,6 +1176,26 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 	if effects.has("barrage"):            # chefe: círculos avisados no chão que caem depois (MobSystem.update_hazards)
 		MobSystem.place_barrage(self, e, s, aim, power, effects)
 		return
+	# assinaturas de chefe (BossSignatures; GDD act2-boss-signatures)
+	if effects.has("islands"):
+		BossSignatures.place_islands(self, e, s, power, effects)
+		return
+	if effects.has("mark"):
+		BossSignatures.place_marks(self, e, s, power, effects)
+		return
+	if effects.has("boss_channel"):
+		BossSignatures.channel_start(self, e, s, effects)
+		return
+	if effects.has("avalanche"):
+		BossSignatures.avalanche(self, e, s, power, effects)
+		return
+	if effects.has("wall"):
+		BossSignatures.wall_start(self, e, s, effects)
+		return
+	if effects.has("decoys") and e.kind == SimEntity.Kind.MONSTER:
+		BossSignatures.decoys_start(self, e, s, effects)     # Sombras Gêmeas: a fumaça (stealth) segue normal; cópias no fim dela
+	if effects.has("repeat") and e.kind == SimEntity.Kind.MONSTER:
+		BossSignatures.on_repeat_apply(self, e, s, effects)     # Três Botes: abre/fecha a sequência; o golpe segue normal
 	if effects.get("taunt") != null:
 		var taunted := 0
 		for o: SimEntity in m["entities"]:
@@ -1348,7 +1371,7 @@ func _apply_effects(src: SimEntity, t: SimEntity, effects: Dictionary, power: fl
 			var bid := "bleed_%d" % src.id
 			t.debuffs = t.debuffs.filter(func(dd): return dd.get("id") != bid)
 			t.debuffs.append({"kind": "dot", "id": bid, "remaining": float(d.get("duration", Balance.BLEED_TIME_DEFAULT)), "dps": maxf(1.0, src.stats.patk * float(d["atk_pct"]) / 100.0), "src": src.id, "bleed": true})
-		else:
+		elif not (bool(d.get("fire", false)) and t.monster_def != null and t.monster_def.burn_immune):   # Salamandra de Lava: não queima
 			t.debuffs.append({"kind": "dot", "id": "dot_%d" % src.id, "remaining": float(d.get("duration", 4)), "dps": float(d.get("dps", 5)) * (src.stats.matk / 20.0), "src": src.id, "fire": bool(d.get("fire", false))})
 	if effects.get("slow") != null:
 		var d: Dictionary = effects["slow"]
@@ -1594,7 +1617,8 @@ func consume_burns(src: SimEntity, t: SimEntity) -> float:
 # ----------------------------------------------------------------------------
 # DANO / CURA / MORTE
 # ----------------------------------------------------------------------------
-func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: bool, blocked: bool, kind: String, from: Variant = null) -> void:
+## `dodgeable` = false: zona avisada no chão (assinatura/perigo de chefe); a esquiva passiva (AGI) não salva, só sair dela.
+func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: bool, blocked: bool, kind: String, from: Variant = null, dodgeable := true) -> void:
 	if not target.is_alive() or target.is_perched() or target.shade:
 		return
 	if target.iframe_left > 0.0 and attacker != target and not kind.begins_with("dot"):     # dash: invulnerável a golpe direto
@@ -1611,6 +1635,9 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 	elif target.monster_def != null and target.monster_def.front_guard > 0.0 and kind == "physical" and attacker != target 			and Combat.in_guard_arc(target, attacker.position if from == null else from):
 		blocked = true                          # escudo de frente: pelas costas (ou com magia) o golpe passa inteiro
 		amount = maxi(1, int(round(amount * (1.0 - target.monster_def.front_guard))))
+	elif not target.sig.is_empty() and target.sig.has("wall") and attacker != target and not kind.begins_with("dot") 			and BossSignatures.wall_blocks(target, attacker.position if from == null else from):
+		blocked = true                          # Muralha de Escudos (Ghar): física e mágica da frente; soma fúria
+		amount = BossSignatures.wall_cut(target, amount)
 	# levou um golpe (não dano no tempo): cai do cavalo (Combate Montado: só controle derruba, MountedCombat.filter_cc)
 	if target.mounted and not kind.begins_with("dot") and attacker != target and not MountedCombat.fights_mounted(target):
 		dismount(target)
@@ -1634,8 +1661,8 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 	if target.stats.dr_pct > 0.0 and attacker != target:      # aura do tanque: menos dano em quem está no grupo dele
 		amount = maxi(1, int(round(amount * (1.0 - minf(target.stats.dr_pct, Balance.DR_CAP) / 100.0))))
 	amount = ChoirSystem.damage_in(self, attacker, target, amount)      # Barreira Sagrada: menos dano dentro (45: segura em 1)
-	# esquiva (Assassino): o golpe direto não pega
-	if not kind.begins_with("dot") and attacker != target and target.is_character() and target.stats.evasion > 0.0 and rng.randf() * 100.0 < target.stats.evasion:
+	# esquiva (Assassino): o golpe direto não pega (zona avisada no chão não: decisão 2026-11-13)
+	if dodgeable and not kind.begins_with("dot") and attacker != target and target.is_character() and target.stats.evasion > 0.0 and rng.randf() * 100.0 < target.stats.evasion:
 		if kind != "riposte" and str(target.stats.legend.get("kind", "")) == "riposte" and attacker.is_alive() and attacker.position.distance_to(target.position) <= Balance.LEG_RIPOSTE_RANGE:
 			_deal_damage(target, attacker, maxi(1, int(target.stats.patk * float(target.stats.legend["pct"]) / 100.0)), false, false, "riposte")     # Duelista: esquivou, contra-ataca
 		FistSystem.on_dodge(self, target, attacker, kind)          # Punhos de Fúria: esquiva vira Fúria e contra-ataque
@@ -1657,7 +1684,14 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 	amount = ClassTalentSystem.before_hit(self, target, amount)       # imortal / recusa a morrer
 	if amount > 0 and target.recall_left > 0.0:
 		PortalSystem.interrupt_recall(self, target)                   # levou dano (o que a barreira segurou não conta)
+	if amount > 0 and attacker != target and target.monster_def != null and target.monster_def.decoy:
+		amount = maxi(amount, int(ceil(target.hp)))   # cópia do Shazka (R-F): morre com 1 golpe
 	target.hp -= amount
+	if amount > 0 and not target.sig.is_empty() and attacker != target:
+		if target.sig.has("channel"):
+			BossSignatures.on_damage(target, amount)     # canal do chefe: dano aplicado (depois do ward) quebra
+		if target.sig.has("decoys") and not kind.begins_with("dot"):
+			BossSignatures.on_real_hit(self, target)     # golpe no Shazka verdadeiro: as cópias somem
 	if amount > 0 and attacker.kind == SimEntity.Kind.SUMMON and not attacker.buffs.is_empty():
 		NecroAscension.pact_leech(self, attacker, amount)           # Pacto dos Mortos: o que ela causa cura o necromante
 	if amount > 0 and not kind.begins_with("dot") and attacker != target and attacker.is_character() and attacker.is_alive() and attacker.stats.lifesteal > 0.0:
@@ -1725,6 +1759,8 @@ func end_form(e: SimEntity) -> void:
 	Events.post(&"buff_applied", e.id, "form_human", 0.0)
 
 func _kill(e: SimEntity, killer: SimEntity) -> void:
+	if not e.sig.is_empty():
+		BossSignatures.on_death(self, e)          # cópia solta veneno; chefe leva as cópias junto (R-F)
 	NecroAscension.on_death(self, e)          # Marca da Cova (levanta) e fim da Forma de Lich; antes de limpar debuffs/forma
 	FusionEffects.on_kill(self, e, killer)     # Fusões: Ceifa Partilhada, Colheita da Praga (lê as maldições do morto)
 	e.mounted = false
@@ -1766,7 +1802,7 @@ func _kill(e: SimEntity, killer: SimEntity) -> void:
 			Events.post(&"chat_message", e.name, GameData.random_bot_line("death"), "global")
 
 var _elite_defs: Dictionary = {}
-var _raid_defs: Dictionary = {}      # "<id>@<passo>" -> MonsterDef da investida reforçada (RaidSystem.scaled_def)
+var _raid_defs: Dictionary = {}      # "<id>@<passo>@<mapa>" -> MonsterDef da investida reforçada (RaidSystem.scaled_def)
 
 var _gear_pools: Dictionary = {}
 
@@ -1779,6 +1815,8 @@ func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 	if e.kind == SimEntity.Kind.NPC and not e.guard:
 		NpcSystem.update_npc(self, e, m, dt)
 		return
+	if not e.sig.is_empty() and e.sig.has("decoy_of") and BossSignatures.update_decoy(self, e):
+		return                                       # cópia do Shazka desfeita (R-F)
 	# cooldowns
 	# (só o que está contando: quase tudo está em zero quase sempre)
 	if e.basic_cd > 0.0:
@@ -2205,10 +2243,10 @@ func _shield_power(e: SimEntity, s: SkillDef) -> float:
 # ItemSystem
 func enhance_cost(it: ItemDef, current: int) -> Dictionary:
 	return ItemSystem.enhance_cost(self, it, current)
-func enhance_error(e: SimEntity, item_id: String, slot: int = -1) -> String:
-	return ItemSystem.enhance_error(self, e, item_id, slot)
-func enhance(e: SimEntity, item_id: String, slot: int = -1) -> ItemDef:
-	return ItemSystem.enhance(self, e, item_id, slot)
+func enhance_error(e: SimEntity, item_id: String, slot: int = -1, smith: String = "") -> String:
+	return ItemSystem.enhance_error(self, e, item_id, slot, smith)
+func enhance(e: SimEntity, item_id: String, slot: int = -1, smith: String = "") -> ItemDef:
+	return ItemSystem.enhance(self, e, item_id, slot, smith)
 func use_bag_upgrade(e: SimEntity, item_id: String) -> bool:
 	return ItemSystem.use_bag_upgrade(self, e, item_id)
 func roll_legendary(killer: SimEntity, mob: SimEntity) -> String:
@@ -2350,3 +2388,10 @@ func elem_command(e: SimEntity, form: String, mode: String) -> void:
 	ElementalSystem.command(self, e, form, mode)
 func elemental_of(e: SimEntity) -> SimEntity:
 	return ElementalSystem.elemental_of(self, e)
+# MountSystem
+func mount_unlocked(e: SimEntity, kind: String) -> bool:
+	return MountSystem.unlocked(e, kind)
+func set_mount_kind(e: SimEntity, kind: String) -> bool:
+	return MountSystem.set_kind(self, e, kind)
+func gather_ready(node: Dictionary) -> bool:
+	return GatherSystem.node_ready(self, node)

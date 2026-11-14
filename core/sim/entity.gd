@@ -39,7 +39,7 @@ var form: String = ""                 # forma de animal do Druida: "" | "wolf" |
 var form_left: float = 0.0             # s até a forma acabar sozinha (0 = até desligar; Balance.FORM_DURATION)
 var stealth_left: float = 0.0         # s de furtividade (monstros não enxergam); qualquer golpe quebra
 var ambush: bool = false              # o golpe que quebrou a furtividade ganha bônus
-var summon_hp: float = 0.0            # invocação que herda a vida do dono (companheiro); 0 = do monstro
+var summon_hp: float = 0.0            # vida máxima fixa: invocação que herda a do dono, cópia do Shazka (a do chefe); 0 = do monstro
 # Elemental que evolui (Elementalista ascendido, ElementalSystem). No mago: experiência, forma e modo (salvos);
 # na invocação: elem_form/elem_stage dizem que é o elemental persistente (vazio = invocação comum).
 var elem_xp: int = 0
@@ -67,6 +67,7 @@ var skill_aim: Vector3 = Vector3.ZERO
 var basic_cd: float = 0.0
 var basic_skill: SkillDef = null     # ataque básico (gerado por classe/monstro)
 var mounted := false                 # a cavalo (mais rápido; só fora de combate)
+var mount_kind: String = "horse"     # qual bicho o H chama (Balance.MOUNT_KINDS; salvo; save antigo = cavalo). Mesma velocidade.
 var combat_timer: float = 0.0        # >0 = "em combate" (sem regen)
 var regen_hold: float = 0.0         # troll (F3): s até a regeneração voltar depois do fogo/veneno
 var bag_bonus: int = 0               # Bolsas Ampliadas usadas (0..Balance.BAG_UPGRADES)
@@ -147,6 +148,7 @@ var patrol_route: Array = []         # líder em ronda: pontos (Vector3) que ele
 var patrol_i: int = 0
 var boss_spoke := false             # chefe já disse a fala de abertura nesta luta (MonsterDef.intro)
 var adds_epoch: int = 0              # chefe: sobe ao resetar; lacaios de época antiga somem
+var sig: Dictionary = {}             # chefe: estado da assinatura (canal, sequência, muralha; BossSignatures). reset_boss limpa
 var dead_time: float = 0.0
 var home_position: Vector3 = Vector3.ZERO
 var hit_flash: float = 0.0
@@ -295,8 +297,8 @@ func recompute_stats() -> void:
 			if summon_patk > 0.0:            # ataque do dono vale para golpe e magia da invocação
 				stats.patk = summon_patk
 				stats.matk = summon_patk
-			if summon_hp > 0.0:
-				stats.max_hp = summon_hp
+		if summon_hp > 0.0:                  # invocação que herda a vida do dono, ou cópia do Shazka (vida do chefe)
+			stats.max_hp = summon_hp
 	else:
 		var extra: Array = [tree_bonus] if not tree_bonus.is_empty() else []
 		if form != "":
@@ -400,6 +402,15 @@ func ensure_slots() -> void:
 ## Tamanho da barra: 6, ou 10 com a ascensão da classe.
 func slot_count() -> int:
 	return Balance.SKILL_SLOTS + (Balance.ASC_SLOTS if ProgressionSystem.has_ascension(self) else 0)
+
+## Título de honra (Prova 45 e afins): o `reward_title` da última missão concluída que dá título ("" = nenhum).
+## Sai das missões concluídas (sem campo novo no save).
+func honor_title() -> String:
+	for i in range(quests_completed.size() - 1, -1, -1):
+		var q = GameData.quests.get(quests_completed[i])
+		if q != null and q.reward_title != "":
+			return q.reward_title
+	return ""
 
 func display_title() -> String:
 	if class_def:

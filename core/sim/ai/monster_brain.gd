@@ -126,6 +126,11 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 		fought = true
 		var dist := e.position.distance_to(target.position) - target.radius    # o acerto mede do centro de quem bate até a borda do alvo
 		cmd.aim = target.position
+		if not e.sig.is_empty() and e.sig.has("seq"):
+			return cmd                     # Três Botes em andamento: a sim re-mira e relança; nada de golpe no meio
+		if not e.sig.is_empty() and e.sig.has("counter"):
+			cmd.aim = e.position + e.forward()
+			return cmd                     # contragolpe da Muralha armando: fica parado, de frente para onde estava
 		# skill especial? As últimas da lista são as mais novas (fases de chefe)
 		# Chefe: skill com mob_pick mira outra vítima (longe, curandeiro...) sem tirar o aggro do tanque.
 		if skill_timer <= 0.0 and e.can_act():
@@ -134,6 +139,8 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 				var s: SkillDef = e.skills[i]
 				if float(e.cooldowns.get(s.id, 0.0)) > 0.0:
 					continue
+				if boss and s.effects.has("barrage") and BossSignatures.ground_busy(m, e):
+					continue                   # uma mecânica de chão por vez: a chuva espera as ilhas caírem
 				var v := target
 				if boss and s.mob_pick != "":
 					var pv: SimEntity = MobSystem.pick_victim(sim, e, s.mob_pick)
@@ -209,8 +216,8 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 
 ## Até onde a skill alcança o alvo. Chefe: invocar lacaios e se proteger valem a qualquer distância (vêm no ritmo do recarga).
 static func _skill_reach(s: SkillDef, boss: bool) -> float:
-	if boss and (s.effects.has("boss_summon") or s.kind == SkillDef.Kind.BUFF):
-		return INF
+	if boss and (s.effects.has("boss_summon") or s.kind == SkillDef.Kind.BUFF or (s.boss_signature and s.target == SkillDef.Target.SELF)):
+		return INF                         # assinatura em volta dele / marca / canal: sai no ritmo da recarga
 	if s.target == SkillDef.Target.SELF:
 		return s.radius - 0.3
 	return maxf(s.range, s.radius) + (0.0 if s.effects.has("dash") else 0.5)

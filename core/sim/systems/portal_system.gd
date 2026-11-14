@@ -244,7 +244,7 @@ static func stop_recall(sim: WorldSim, e: SimEntity, why: String) -> void:
 		Events.post(&"notification", "Retorno à cidade interrompido!" if why == "interrupted" else "Retorno à cidade cancelado")
 
 static func change_map(sim: WorldSim, e: SimEntity, map_id: String, pos: Vector3) -> void:
-	if e.mounted and GameData.maps.has(map_id) and GameData.maps[map_id].parent_map != "":
+	if e.mounted and GameData.maps.has(map_id) and GameData.maps[map_id].no_mount():
 		sim.dismount(e)                    # dungeon: entra a pé
 	if not sim.maps.has(map_id):
 		var def: MapDef = GameData.maps.get(map_id)

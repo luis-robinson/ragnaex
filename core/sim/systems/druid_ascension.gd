@@ -48,9 +48,9 @@ static func threat_pct(sim: WorldSim, e: SimEntity) -> float:
 		return e.stats.threat_pct
 	return e.stats.threat_pct - float(SimEntity.scaled_bonus(Balance.FORM_STATS["ent"], e.form_mult).get("threat_pct", 0.0))
 
-## Peso F5 da ascensão da build (Balance.ASC_BUILD_POWER; padrão 1,0).
-static func asc_power(build: String) -> float:
-	return float(Balance.ASC_BUILD_POWER.get(build, 1.0))
+## Peso F5 da ascensão da build no nível do dono (Balance.asc_power).
+static func asc_power(build: String, level: int) -> float:
+	return Balance.asc_power(build, level)
 
 ## Refinos comprados (0-2) da forma ancestral em que `e` está: nós da teia de ascensão com portão de nível 40 e 45.
 static func refines(e: SimEntity) -> int:
@@ -118,7 +118,7 @@ static func call_pack(sim: WorldSim, e: SimEntity, s: SkillDef, pk: Dictionary) 
 			pos = e.position
 		var w := sim.spawn_summon(e, mdef, pos, dur, false)
 		w.summon_hp = e.stats.max_hp * Balance.ANC_PACK_HP_SHARE
-		w.summon_patk = e.stats.patk * Balance.ANC_PACK_ATK_SHARE * asc_power(s.build)
+		w.summon_patk = e.stats.patk * Balance.ANC_PACK_ATK_SHARE * asc_power(s.build, e.level)
 		w.recompute_stats()
 		w.stats.pdef = e.stats.pdef * Balance.ANC_PACK_DEF_SHARE
 		w.stats.mdef = e.stats.mdef * Balance.ANC_PACK_DEF_SHARE
@@ -135,7 +135,7 @@ static func call_pack(sim: WorldSim, e: SimEntity, s: SkillDef, pk: Dictionary) 
 ## Cura (x MATK) quem lançou e os aliados dentro da área do golpe (centro = ponto mirado no GROUND, senão quem lançou).
 static func area_heal(sim: WorldSim, e: SimEntity, s: SkillDef, aim: Vector3, ah: Dictionary, m: Dictionary) -> int:
 	var center: Vector3 = aim if s.target == SkillDef.Target.GROUND else e.position
-	var pw := float(ah.get("power", Balance.ANC_FEATHER_HEAL)) * asc_power(s.build)
+	var pw := float(ah.get("power", Balance.ANC_FEATHER_HEAL)) * asc_power(s.build, e.level)
 	var healed := 0
 	for o in m["entities"]:
 		if not o.is_alive() or not (o == e or e.is_friend(o)) or o.kind == SimEntity.Kind.NPC:

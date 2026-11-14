@@ -17,6 +17,7 @@ enum Type { KILL, COLLECT, TALK, CRAFT, REACH }
 @export var reward_gold: int = 20
 @export var reward_items: Dictionary = {}  ## {item_id: count}
 @export var give_items: Dictionary = {}    ## entrega: o NPC entrega isto ao aceitar (sai da bolsa se desistir)
+@export var reward_title: String = ""      ## título de honra ao concluir (SimEntity.honor_title; janela do personagem e nome)
 @export var reward_gear_tier: int = -1    ## >= 0: uma peça comum desse tier (GearCatalog.wearables) que a classe pode usar
 @export var repeatable: bool = false       ## recompensa de quadro: pode repetir
 @export var prereq_quest: String = ""

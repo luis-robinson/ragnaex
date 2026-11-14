@@ -310,7 +310,7 @@ static func build() -> Array:
 		 "phases": [{"hp": 0.7, "say": "Estilhacem!", "skills": ["mob_crystal_ward"], "summon": {"id": "crystal_shardling", "count": 3, "max": 4}},
 			{"hp": 0.4, "say": "O veio me protege!", "ward": 0.5, "summon": {"id": "crystal_shardling", "count": 2, "max": 4, "pick": "far"}},
 			{"hp": 0.15, "say": "Brilho... TOTAL!", "skills": ["mob_rockfall"], "enrage": 1.3}]},
-		{"id": "quarry_heart", "name": "Coração da Pedreira", "level": 15, "hp": 46000, "atk": 50, "matk": 50, "def": 20, "mdef": 16, "move_speed": 3.4, "attack_range": 3.0, "attack_cooldown": 1.5, "attack_startup": 0.5, "xp": 950, "aggro_range": 13.0, "leash_range": 30.0,
+		{"id": "quarry_heart", "name": "Coração da Pedreira", "level": 15, "hp": 46000, "atk": 66, "matk": 66, "def": 20, "mdef": 16, "move_speed": 3.4, "attack_range": 3.0, "attack_cooldown": 1.5, "attack_startup": 0.5, "xp": 950, "aggro_range": 13.0, "leash_range": 30.0,
 		 "radius": 1.4, "scale": 1.9, "color": Color(0.85, 0.45, 0.25), "shape": "box", "is_boss": true, "berserk_after": 150, "loot_table": "lt_quarry_heart", "gold_min": 110, "gold_max": 220, "model": "mob_quarry_heart",
 		 "skill_ids": ["mob_raise_moss", "mob_quarry_slam", "mob_boulder_toss", "mob_rockfall", "mob_magnet_pull"] as Array[String],
 		 "intro": "Vocês mataram meus filhos. Eu sou a montanha.", "last_words": "O veio... se cala...",
@@ -389,6 +389,8 @@ static func build() -> Array:
 		 "radius": 0.4, "scale": 0.9, "color": Color(0.8, 0.95, 0.85), "shape": "capsule", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_skeleton"},
 	]
 	L.append_array(_horde())
+	L.append_array(_kharzun())
+	L.append_array(_kharzun_bosses())
 	var out: Array = []
 	for d in L:
 		out.append(_mk(_f2(d)))
@@ -456,10 +458,10 @@ static func _horde() -> Array:
 		 "radius": 0.55, "scale": 1.15, "color": Color(0.25, 0.65, 0.62), "shape": "capsule", "loot_table": "lt_naga", "gold_min": 28, "gold_max": 56, "model": "mob_naga_warrior",
 		 "skill_ids": ["mob_tide_pull", "mob_tide_lance"] as Array[String], "escort": {"id": "naga_tide", "count": 2}},
 		# ---- chefes da faixa 30-35 ----
-		{"id": "boss_tide_mother", "name": "Mãe das Marés", "level": 33, "stat_role": "chefe", "unit_mods": {"hp": 1.65, "atk": 1.6}, "matk_mult": 0.9,
+		{"id": "boss_tide_mother", "name": "Mãe das Marés", "level": 33, "stat_role": "chefe", "unit_mods": {"hp": 1.65, "atk": 1.5}, "matk_mult": 0.9,
 		 "move_speed": 4.4, "attack_range": 2.8, "attack_cooldown": 1.3, "attack_startup": 0.45, "xp": 3600, "aggro_range": 12.0, "leash_range": 30.0,
 		 "radius": 0.9, "scale": 1.8, "color": Color(0.25, 0.7, 0.75), "shape": "capsule", "is_boss": true, "berserk_after": 180, "loot_table": "lt_tide_mother", "gold_min": 320, "gold_max": 520, "model": "mob_tide_mother",
-		 "skill_ids": ["mob_call_brood", "mob_tide_lance", "mob_tide_pull", "mob_tide_wave"] as Array[String], "coin_chance": 1.0, "coin_min": 5, "coin_max": 7,
+		 "skill_ids": ["mob_call_brood", "mob_tide_lance", "mob_tide_pull", "mob_tide_wave", "mob_tide_flood"] as Array[String], "coin_chance": 1.0, "coin_min": 5, "coin_max": 7,
 		 "intro": "A maré sempre volta. E sempre leva alguém.", "last_words": "O mar... me chama... de volta...",
 		 "phases": [{"hp": 0.7, "say": "Filhos da espuma, subam!", "summon": {"id": "naga_spawn", "count": 3, "max": 4}},
 			{"hp": 0.4, "say": "A maré me cobre!", "skills": ["mob_tide_geysers"], "ward": 0.5, "summon": {"id": "naga_spawn", "count": 2, "max": 4, "pick": "far"}},
@@ -470,7 +472,7 @@ static func _horde() -> Array:
 		 "skill_ids": ["mob_call_rabble", "mob_impale", "mob_net_throw", "mob_war_drum"] as Array[String], "coin_chance": 1.0, "coin_min": 5, "coin_max": 8,
 		 "escort": {"id": "goblin_impaler", "count": 2},
 		 "intro": "Ouçam o tambor! Cada batida é um de vocês caindo!", "last_words": "O tambor... para...",
-		 "phases": [{"hp": 0.7, "say": "Turba! Para cima deles!", "summon": {"id": "goblin_rabble", "count": 3, "max": 5}},
+		 "phases": [{"hp": 0.7, "say": "Turba! Para cima deles!", "skills": ["mob_drum_frenzy"], "summon": {"id": "goblin_rabble", "count": 3, "max": 5}},
 			{"hp": 0.4, "say": "Escudem o chefe, vermes!", "skills": ["mob_spear_rain"], "ward": 0.5, "summon": {"id": "goblin_rabble", "count": 2, "max": 5, "pick": "soft"}},
 			{"hp": 0.15, "say": "MAIS FORTE! MAIS RÁPIDO!", "enrage": 1.3}]},
 		# ---- Ato II, Estepes de Cinza (35-40; R3): trolls (regeneram: F3), arqueiros (chuva de flechas de fogo) e o Guerreiro Orc ----
@@ -494,28 +496,29 @@ static func _horde() -> Array:
 		 "radius": 0.58, "scale": 1.25, "color": Color(0.42, 0.52, 0.36), "shape": "capsule", "loot_table": "lt_orc_warrior", "gold_min": 34, "gold_max": 68, "model": "mob_orc_warrior",
 		 "skill_ids": ["mob_orc_chop", "mob_war_cry"] as Array[String], "escort": {"id": "orc_recruit", "count": 1}},
 		# ---- chefes dos acampamentos das Estepes (35-40) ----
-		{"id": "boss_troll_king", "name": "Troll Rei-da-Rocha", "level": 38, "stat_role": "chefe", "unit_mods": {"hp": 2.0, "atk": 1.75}, "faction": H, "regen": 0.3,
+		{"id": "boss_troll_king", "name": "Troll Rei-da-Rocha", "level": 38, "stat_role": "chefe", "unit_mods": {"hp": 2.0, "atk": 1.35}, "faction": H, "regen": 0.3,
 		 "move_speed": 4.2, "attack_range": 3.0, "attack_cooldown": 1.4, "attack_startup": 0.5, "xp": 4800, "aggro_range": 12.0, "leash_range": 30.0,
 		 "radius": 1.0, "scale": 2.1, "color": Color(0.42, 0.5, 0.66), "shape": "capsule", "is_boss": true, "berserk_after": 180, "loot_table": "lt_troll_king", "gold_min": 420, "gold_max": 680, "model": "mob_troll_king",
 		 "skill_ids": ["mob_call_trolls", "mob_troll_slam", "mob_boulder_barrage", "mob_boulder_toss", "mob_rock_quake"] as Array[String], "coin_chance": 1.0, "coin_min": 5, "coin_max": 8,
 		 "escort": {"id": "troll_whelp", "count": 2},
 		 "intro": "Pedra não sangra. Pedra não cansa. Pedra ESMAGA!", "last_words": "A rocha... racha...",
-		 "phases": [{"hp": 0.7, "say": "Crias! Saiam da toca!", "summon": {"id": "troll_runt", "count": 2, "max": 3}},
+		 "cover": {"radius": 1.2, "time": 40.0, "skills": ["mob_boulder_barrage"]},
+		 "phases": [{"hp": 0.7, "say": "Crias! Saiam da toca!", "skills": ["mob_troll_avalanche"], "summon": {"id": "troll_runt", "count": 2, "max": 3}},
 			{"hp": 0.4, "say": "A carne fecha! A pedra cresce!", "skills": ["mob_rockfall"], "ward": 0.5, "summon": {"id": "troll_runt", "count": 2, "max": 3}},
 			{"hp": 0.15, "say": "EU SOU A MONTANHA!", "enrage": 1.3}]},
-		{"id": "boss_crossbow_master", "name": "Mestre Besteiro Vorgul", "level": 39, "stat_role": "chefe", "unit_mods": {"hp": 1.6, "atk": 1.1}, "matk_mult": 0.5, "faction": H,
+		{"id": "boss_crossbow_master", "name": "Mestre Besteiro Vorgul", "level": 39, "stat_role": "chefe", "unit_mods": {"hp": 1.6, "atk": 0.9}, "matk_mult": 0.5, "faction": H,
 		 "move_speed": 4.6, "attack_range": 2.8, "attack_cooldown": 1.3, "attack_startup": 0.45, "xp": 5000, "aggro_range": 13.0, "leash_range": 32.0,
 		 "radius": 0.8, "scale": 1.7, "color": Color(0.5, 0.42, 0.3), "shape": "capsule", "is_boss": true, "berserk_after": 180, "loot_table": "lt_crossbow_master", "gold_min": 440, "gold_max": 700, "model": "mob_crossbow_master",
-		 "skill_ids": ["mob_call_marksmen", "mob_fire_kegs", "mob_bolt_pierce", "mob_fire_rain"] as Array[String], "coin_chance": 1.0, "coin_min": 5, "coin_max": 8,
+		 "skill_ids": ["mob_call_marksmen", "mob_fire_kegs", "mob_bolt_pierce", "mob_fire_rain", "mob_marksman_brand"] as Array[String], "coin_chance": 1.0, "coin_min": 5, "coin_max": 8,
 		 "escort": {"id": "orc_archer", "count": 2},
 		 "intro": "Fiquem bem aí. Parado queima melhor.", "last_words": "Errei... um só... tiro...",
 		 "phases": [{"hp": 0.7, "say": "Atiradores, nos telhados!", "summon": {"id": "orc_marksman", "count": 2, "max": 3, "pick": "far"}},
 			{"hp": 0.4, "say": "Acendam tudo! O céu é meu!", "skills": ["mob_fire_storm"], "ward": 0.5, "summon": {"id": "orc_marksman", "count": 2, "max": 3, "pick": "far"}},
 			{"hp": 0.15, "say": "QUEIMEM COMIGO!", "enrage": 1.3}]},
-		{"id": "boss_ghar", "name": "Senhor da Guerra Ghar", "level": 40, "stat_role": "chefe", "unit_mods": {"hp": 1.9, "atk": 1.45}, "faction": H,
+		{"id": "boss_ghar", "name": "Senhor da Guerra Ghar", "level": 40, "stat_role": "chefe", "unit_mods": {"hp": 1.9, "atk": 1.3}, "faction": H,
 		 "move_speed": 4.8, "attack_range": 2.9, "attack_cooldown": 1.3, "attack_startup": 0.45, "xp": 5600, "aggro_range": 12.0, "leash_range": 30.0,
 		 "radius": 0.9, "scale": 1.85, "color": Color(0.4, 0.5, 0.32), "shape": "capsule", "is_boss": true, "berserk_after": 180, "loot_table": "lt_ghar", "gold_min": 480, "gold_max": 760, "model": "mob_ghar",
-		 "skill_ids": ["mob_call_vanguard", "mob_charge", "mob_ghar_cleave", "mob_ghar_cry"] as Array[String], "coin_chance": 1.0, "coin_min": 6, "coin_max": 9,
+		 "skill_ids": ["mob_call_vanguard", "mob_charge", "mob_ghar_cleave", "mob_ghar_cry", "mob_ghar_wall"] as Array[String], "coin_chance": 1.0, "coin_min": 6, "coin_max": 9,
 		 "escort": {"id": "orc_warrior", "count": 2},
 		 "intro": "Três acampamentos, um só machado. Venham ver de quem é a estepe.", "last_words": "Kharzun... vai cobrar... por mim...",
 		 "phases": [{"hp": 0.7, "say": "Vanguarda! Escudos à frente!", "summon": {"id": "orc_vanguard", "count": 2, "max": 4}},
@@ -533,6 +536,175 @@ static func _horde() -> Array:
 		 "radius": 0.38, "scale": 0.75, "color": Color(0.55, 0.62, 0.32), "shape": "capsule", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_goblin_lancer"},
 		{"id": "naga_spawn", "name": "Cria da Maré", "level": 31, "hp": 480, "atk": 40, "def": 10, "mdef": 10, "move_speed": 5.0, "attack_range": 1.8, "attack_cooldown": 1.1, "xp": 0, "aggro_range": 14.0, "leash_range": 40.0,
 		 "radius": 0.38, "scale": 0.75, "color": Color(0.35, 0.8, 0.75), "shape": "capsule", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_naga_tide"},
+	]
+
+## Ato II, fase 3 — Monte Kharzun (40-45; design/gdd/kharzun-fase3-plan.md §3): estágios de cima das linhas da Horda
+## (escolta dos de baixo), elites e os nativos da montanha. Números pela F2. Modelos próprios (WP4:
+## tools/blender/kharzun_mobs.py), um por monstro, listados em KHARZUN_MODELS; `color` = a cor principal do modelo.
+## Spawners ficam com o mapa (WP5); a band_probe duela os sem spawner numa arena de teste.
+const KHARZUN_MODELS := {
+	"goblin_assassin": "mob_goblin_assassin", "dire_wolf": "mob_dire_wolf", "dire_wolf_rider": "mob_dire_wolf_rider",
+	"troll_thrower": "mob_troll_thrower", "orc_fire_archer": "mob_orc_fire_archer", "orc_warlord": "mob_orc_warlord",
+	"goblin_slayer": "mob_goblin_slayer", "lava_salamander": "mob_lava_salamander", "troll_brute": "mob_troll_brute",
+	"clan_guard": "mob_clan_guard", "basalt_golem": "mob_basalt_golem",
+	# chefes, lacaios e estandartes (WP7)
+	"boss_dire_mother": "mob_dire_mother", "boss_shazka": "mob_shazka", "boss_ulgra": "mob_ulgra",
+	"boss_gorbash": "mob_gorbash", "boss_kragmar": "mob_kragmar", "boss_durgash": "mob_durgash",
+	"banner_wolf": "mob_clan_banner_wolf", "banner_stone": "mob_clan_banner_stone", "banner_forge": "mob_clan_banner_forge",
+	"dire_pup": "mob_dire_wolf", "shadow_apprentice": "mob_goblin_assassin", "ulgra_rider": "mob_dire_wolf_rider",
+	"stone_shaman": "mob_stone_shaman", "forge_golemling": "mob_forge_golem", "throne_guard": "mob_clan_guard",
+	"shazka_decoy": "mob_shazka"
+}
+
+static func _kharzun() -> Array:
+	var H := "horde"
+	return [
+		# Assassinos: Assassino Goblin (aparece pelas costas, faca envenenada) → Matador (some na fumaça, executa quem cai)
+		{"id": "goblin_assassin", "name": "Assassino Goblin", "level": 40, "stat_role": "comum", "unit_mods": {"hp": 1.15, "atk": 1.6}, "matk_mult": 0.5, "faction": H,
+		 "move_speed": 5.6, "attack_range": 1.8, "attack_cooldown": 0.9, "attack_startup": 0.25, "xp": 820, "aggro_range": 10.0, "leash_range": 24.0,
+		 "radius": 0.4, "scale": 0.85, "color": Color(0.25, 0.21, 0.32), "shape": "capsule", "loot_table": "lt_goblin_assassin", "gold_min": 44, "gold_max": 88, "model": "mob_goblin_assassin",
+		 "skill_ids": ["mob_shadow_step", "mob_venom_knives"] as Array[String]},
+		{"id": "goblin_slayer", "name": "Matador", "level": 43, "stat_role": "elite", "unit_mods": {"hp": 0.8, "atk": 2.0}, "matk_mult": 0.5, "faction": H,
+		 "move_speed": 5.6, "attack_range": 2.0, "attack_cooldown": 0.95, "attack_startup": 0.3, "xp": 2400, "aggro_range": 11.0, "leash_range": 26.0,
+		 "radius": 0.48, "scale": 1.15, "color": Color(0.16, 0.14, 0.18), "shape": "capsule", "loot_table": "lt_goblin_slayer", "gold_min": 110, "gold_max": 220, "model": "mob_goblin_slayer",
+		 "skill_ids": ["mob_slayer_vanish", "mob_slayer_execute", "mob_shadow_step"] as Array[String], "escort": {"id": "goblin_assassin", "count": 2}},
+		# Ginetes (topo): Ginete do Lobo Atroz — investida em linha + rede; lidera 2 Saqueadores
+		{"id": "dire_wolf_rider", "name": "Ginete do Lobo Atroz", "level": 41, "stat_role": "bruto", "unit_mods": {"hp": 1.3, "atk": 1.0}, "faction": H,
+		 "move_speed": 6.2, "attack_range": 2.2, "attack_cooldown": 1.2, "attack_startup": 0.4, "xp": 1000, "aggro_range": 12.0, "leash_range": 26.0,
+		 "radius": 0.7, "scale": 1.15, "color": Color(0.3, 0.29, 0.31), "shape": "box", "loot_table": "lt_dire_wolf_rider", "gold_min": 52, "gold_max": 104, "model": "mob_dire_wolf_rider",
+		 "skill_ids": ["mob_dire_charge", "mob_net_throw"] as Array[String], "escort": {"id": "wolf_raider", "count": 2}},
+		# Trolls (topo A e B): Lança-Pedras (pedregulho de longe) e Brutamontes (armadura de ferro, abalo que atordoa)
+		{"id": "troll_thrower", "name": "Lança-Pedras", "level": 41, "stat_role": "bruto", "unit_mods": {"hp": 1.15, "atk": 1.25}, "faction": H, "regen": 1.0, "ranged": true,
+		 "move_speed": 4.2, "attack_range": 9.0, "attack_cooldown": 1.8, "attack_startup": 0.6, "xp": 1050, "aggro_range": 12.0, "leash_range": 24.0,
+		 "radius": 0.75, "scale": 1.45, "color": Color(0.45, 0.55, 0.68), "shape": "capsule", "loot_table": "lt_troll_big", "gold_min": 52, "gold_max": 104, "model": "mob_troll_thrower",
+		 "skill_ids": ["mob_boulder_toss", "mob_troll_slam"] as Array[String], "escort": {"id": "troll_whelp", "count": 2}},
+		{"id": "troll_brute", "name": "Brutamontes", "level": 44, "stat_role": "bruto", "unit_mods": {"hp": 1.8, "atk": 1.05}, "faction": H, "regen": 1.0,
+		 "move_speed": 4.0, "attack_range": 2.7, "attack_cooldown": 1.6, "attack_startup": 0.55, "xp": 1700, "aggro_range": 9.0, "leash_range": 24.0,
+		 "radius": 0.9, "scale": 1.85, "color": Color(0.4, 0.48, 0.62), "shape": "capsule", "loot_table": "lt_troll_brute", "gold_min": 70, "gold_max": 140, "model": "mob_troll_brute",
+		 "skill_ids": ["mob_troll_slam", "mob_brute_quake"] as Array[String], "escort": {"id": "troll", "count": 2}},
+		# Arqueiros (topo): Arco de Fogo — três círculos de brasa; lidera 2 Besteiros
+		{"id": "orc_fire_archer", "name": "Arco de Fogo", "level": 42, "stat_role": "comum", "unit_mods": {"hp": 1.4, "atk": 1.45}, "matk_mult": 0.5, "faction": H, "ranged": true,
+		 "move_speed": 4.4, "attack_range": 10.0, "attack_cooldown": 1.8, "attack_startup": 0.5, "xp": 1150, "aggro_range": 12.0, "leash_range": 24.0,
+		 "radius": 0.55, "scale": 1.2, "color": Color(0.36, 0.2, 0.14), "shape": "capsule", "loot_table": "lt_orc_fire_archer", "gold_min": 56, "gold_max": 112, "model": "mob_orc_fire_archer",
+		 "skill_ids": ["mob_ember_volley", "mob_bolt_pierce"] as Array[String], "escort": {"id": "orc_crossbow", "count": 2}},
+		# Orcs (topo): Senhor da Guerra — grito (rally) e talho largo; lidera 2 Guerreiros
+		{"id": "orc_warlord", "name": "Senhor da Guerra", "level": 42, "stat_role": "elite", "unit_mods": {"hp": 1.3, "atk": 2.0}, "faction": H,
+		 "move_speed": 4.6, "attack_range": 2.6, "attack_cooldown": 1.3, "attack_startup": 0.45, "xp": 2300, "aggro_range": 10.0, "leash_range": 26.0,
+		 "radius": 0.7, "scale": 1.5, "color": Color(0.21, 0.2, 0.24), "shape": "capsule", "loot_table": "lt_orc_warlord", "gold_min": 110, "gold_max": 220, "model": "mob_orc_warlord",
+		 "skill_ids": ["mob_war_cry", "mob_warlord_cleave"] as Array[String], "escort": {"id": "orc_warrior", "count": 2}},
+		# cidadela: Guarda de Clã — escudo-torre (front_guard: golpe físico de frente perde metade)
+		{"id": "clan_guard", "name": "Guarda de Clã", "level": 44, "stat_role": "elite", "unit_mods": {"hp": 0.85, "atk": 1.6}, "faction": H, "front_guard": 0.5,
+		 "move_speed": 4.4, "attack_range": 2.3, "attack_cooldown": 1.3, "attack_startup": 0.45, "xp": 2500, "aggro_range": 9.0, "leash_range": 24.0,
+		 "radius": 0.7, "scale": 1.4, "color": Color(0.5, 0.34, 0.2), "shape": "capsule", "loot_table": "lt_clan_guard", "gold_min": 120, "gold_max": 240, "model": "mob_clan_guard",
+		 "skill_ids": ["mob_shield_bash", "mob_orc_chop"] as Array[String]},
+		# nativos da montanha: Lobo Atroz (matilha de 3 pelo spawner), Salamandra de Lava (não queima), Golem de Basalto (elite rara)
+		{"id": "dire_wolf", "name": "Lobo Atroz", "level": 40, "stat_role": "comum", "unit_mods": {"hp": 1.2, "atk": 1.3},
+		 "move_speed": 6.0, "attack_range": 1.9, "attack_cooldown": 1.0, "attack_startup": 0.3, "xp": 820, "aggro_range": 11.0, "leash_range": 24.0,
+		 "radius": 0.6, "scale": 1.3, "color": Color(0.44, 0.44, 0.48), "shape": "box", "loot_table": "lt_dire_wolf", "gold_min": 30, "gold_max": 60, "model": "mob_dire_wolf",
+		 "skill_ids": ["mob_pounce", "mob_dire_charge"] as Array[String]},
+		{"id": "lava_salamander", "name": "Salamandra de Lava", "level": 43, "stat_role": "comum", "unit_mods": {"hp": 1.45, "atk": 1.4}, "matk_mult": 1.0, "burn_immune": true,
+		 "move_speed": 4.6, "attack_range": 2.0, "attack_cooldown": 1.2, "attack_startup": 0.35, "xp": 1250, "aggro_range": 10.0, "leash_range": 22.0,
+		 "radius": 0.55, "scale": 1.1, "color": Color(1.0, 0.45, 0.15), "shape": "capsule", "loot_table": "lt_lava_salamander", "gold_min": 50, "gold_max": 100, "model": "mob_lava_salamander",
+		 "skill_ids": ["mob_lava_spit"] as Array[String]},
+		{"id": "basalt_golem", "name": "Golem de Basalto", "level": 45, "stat_role": "elite", "unit_mods": {"hp": 1.7, "atk": 2.0}, "matk_mult": 0.5,
+		 "move_speed": 3.0, "attack_range": 2.8, "attack_cooldown": 1.9, "attack_startup": 0.6, "xp": 3000, "aggro_range": 8.0, "leash_range": 22.0,
+		 "radius": 1.0, "scale": 1.6, "color": Color(0.23, 0.22, 0.26), "shape": "capsule", "loot_table": "lt_basalt_golem", "gold_min": 140, "gold_max": 280, "model": "mob_basalt_golem",
+		 "skill_ids": ["mob_basalt_stomp", "mob_lava_crack"] as Array[String]},
+	]
+
+## Ato II fase 3, Monte Kharzun (40-45; design/gdd/kharzun-fase3-plan.md §4): seis chefes. Modelos próprios do WP4
+## (tools/blender/kharzun_mobs.py), listados em KHARZUN_MODELS. Falas = placeholder
+## até o narrative-director. Lacaios são do chefe (0 XP, sem loot), não do rol do WP3.
+const KHARZUN_BOSSES := ["boss_dire_mother", "boss_shazka", "boss_ulgra", "boss_gorbash", "boss_kragmar", "boss_durgash"]
+## Estandartes de Clã do Durgash (F2): lacaios parados; o ward vale enquanto um vive.
+const KHARZUN_BANNERS := ["banner_wolf", "banner_stone", "banner_forge"]
+## id -> modelo pretendido (WP4: act2_bosses.boss_extras / prop do estandarte). Hoje `model` aponta um substituto.
+
+static func _kharzun_bosses() -> Array:
+	var H := "horde"
+	return [
+		# ---- Presa-de-Cinza, a Mãe-Loba (Canil, 41; chefe de CAMPO: dá para solar) ----
+		{"id": "boss_dire_mother", "name": "Presa-de-Cinza, a Mãe-Loba", "level": 41, "stat_role": "chefe", "unit_mods": {"hp": 0.6, "atk": 0.7},
+		 "move_speed": 5.6, "attack_range": 2.6, "attack_cooldown": 1.2, "attack_startup": 0.35, "xp": 2600, "aggro_range": 12.0, "leash_range": 28.0,
+		 "radius": 0.9, "scale": 1.7, "color": Color(0.42, 0.4, 0.4), "shape": "box", "is_boss": true, "loot_table": "lt_dire_mother", "gold_min": 260, "gold_max": 420, "model": "mob_dire_mother",
+		 "skill_ids": ["mob_dire_leap", "mob_dire_bite"] as Array[String], "coin_chance": 1.0, "coin_min": 2, "coin_max": 4,
+		 "intro": "(a loba cinzenta arreganha os dentes e o canil inteiro uiva junto)", "last_words": "(um último uivo, longo, para a montanha)",
+		 "phases": [{"hp": 0.6, "say": "(Presa-de-Cinza uiva: a matilha responde!)", "skills": ["mob_dire_howl", "mob_dire_pounce"], "summon": {"id": "dire_pup", "count": 2, "max": 3}},
+			{"hp": 0.3, "say": "(a Mãe-Loba se eriça, os olhos em brasa)", "enrage": 1.3}]},
+		# ---- Mestre Matador Shazka (dg_slayers, 43): protege quem cura ----
+		{"id": "boss_shazka", "name": "Mestre Matador Shazka", "level": 43, "stat_role": "chefe", "unit_mods": {"hp": 1.8, "atk": 0.95}, "faction": H,
+		 "move_speed": 5.4, "attack_range": 2.4, "attack_cooldown": 1.0, "attack_startup": 0.3, "xp": 6400, "aggro_range": 12.0, "leash_range": 30.0,
+		 "radius": 0.7, "scale": 1.5, "color": Color(0.28, 0.24, 0.34), "shape": "capsule", "is_boss": true, "berserk_after": 210, "loot_table": "lt_shazka", "gold_min": 520, "gold_max": 820, "model": "mob_shazka",
+		 "skill_ids": ["mob_shazka_knife"] as Array[String], "coin_chance": 1.0, "coin_min": 6, "coin_max": 9,
+		 "intro": "Vocês protegem o curandeiro? Eu ensinei cem alunos a achar as costas dele.", "last_words": "Bom... aluno...",
+		 "phases": [{"hp": 0.7, "say": "Aprendizes! Mostrem o que eu ensinei!", "skills": ["mob_call_apprentices", "mob_shazka_vanish", "mob_shazka_step", "mob_shazka_twins"], "ward": 0.5, "summon": {"id": "shadow_apprentice", "count": 2, "max": 2, "pick": "soft"}},
+			{"hp": 0.35, "say": "Respirem fundo. É o último ar que vocês têm.", "skills": ["mob_shazka_venom_rain", "mob_shazka_mercy"]},
+			{"hp": 0.15, "say": "SEM PRESSA. SEM PIEDADE.", "enrage": 1.3}]},
+		# ---- três Chefes de Clã (cidadela, 44; qualquer ordem) ----
+		{"id": "boss_ulgra", "name": "Ulgra Presa-Atroz", "level": 44, "stat_role": "chefe", "unit_mods": {"hp": 1.85, "atk": 1.15}, "faction": H,
+		 "move_speed": 6.0, "attack_range": 2.8, "attack_cooldown": 1.2, "attack_startup": 0.4, "xp": 6800, "aggro_range": 12.0, "leash_range": 32.0,
+		 "radius": 0.9, "scale": 1.35, "color": Color(0.5, 0.42, 0.36), "shape": "box", "is_boss": true, "berserk_after": 210, "loot_table": "lt_ulgra", "gold_min": 560, "gold_max": 860, "model": "mob_ulgra",
+		 "skill_ids": ["mob_ulgra_charge", "mob_ulgra_chain"] as Array[String], "coin_chance": 1.0, "coin_min": 6, "coin_max": 9,
+		 "intro": "O Clã do Lobo não espera. O Clã do Lobo CAÇA.", "last_words": "Corra... minha matilha... corra...",
+		 "phases": [{"hp": 0.7, "say": "Ginetes! Cerquem a presa!", "skills": ["mob_call_riders", "mob_ulgra_stampede"], "summon": {"id": "ulgra_rider", "count": 2, "max": 3}},
+			{"hp": 0.4, "say": "A matilha me cobre!", "ward": 0.5, "summon": {"id": "ulgra_rider", "count": 2, "max": 3, "pick": "far"}},
+			{"hp": 0.15, "say": "LANÇAS! TODAS!", "skills": ["mob_ulgra_spears"], "enrage": 1.3}]},
+		{"id": "boss_gorbash", "name": "Gorbash Pele-de-Rocha", "level": 44, "stat_role": "chefe", "unit_mods": {"hp": 1.85, "atk": 1.3}, "faction": H, "regen": 0.3,
+		 "move_speed": 4.2, "attack_range": 3.0, "attack_cooldown": 1.4, "attack_startup": 0.5, "xp": 6800, "aggro_range": 12.0, "leash_range": 30.0,
+		 "radius": 1.0, "scale": 2.2, "color": Color(0.38, 0.44, 0.52), "shape": "capsule", "is_boss": true, "berserk_after": 210, "loot_table": "lt_gorbash", "gold_min": 560, "gold_max": 860, "model": "mob_gorbash",
+		 "skill_ids": ["mob_troll_slam", "mob_boulder_toss"] as Array[String], "coin_chance": 1.0, "coin_min": 6, "coin_max": 9,
+		 "intro": "O Rei-da-Rocha era meu filho. Eu sou a pedra de onde ele saiu.", "last_words": "A montanha... fica... sem mim...",
+		 "phases": [{"hp": 0.7, "say": "Xamãs! Cantem para a pedra!", "skills": ["mob_call_shamans", "mob_gorbash_waves"], "ward": 0.5, "summon": {"id": "stone_shaman", "count": 2, "max": 2}},
+			{"hp": 0.4, "say": "O teto é meu também!", "skills": ["mob_rock_quake", "mob_rockfall"]},
+			{"hp": 0.15, "say": "PEDRA NÃO MORRE!", "enrage": 1.3}]},
+		{"id": "boss_kragmar", "name": "Kragmar Martelo-Negro", "level": 44, "stat_role": "chefe", "unit_mods": {"hp": 1.7, "atk": 1.25}, "faction": H,
+		 "move_speed": 4.4, "attack_range": 3.0, "attack_cooldown": 1.4, "attack_startup": 0.5, "xp": 6800, "aggro_range": 12.0, "leash_range": 30.0,
+		 "radius": 0.95, "scale": 1.85, "color": Color(0.3, 0.26, 0.24), "shape": "capsule", "is_boss": true, "berserk_after": 150, "loot_table": "lt_kragmar", "gold_min": 560, "gold_max": 860, "model": "mob_kragmar",
+		 "skill_ids": ["mob_kragmar_hammer", "mob_lava_waves", "mob_kragmar_temper"] as Array[String], "coin_chance": 1.0, "coin_min": 6, "coin_max": 9,
+		 "intro": "Esta forja fez cada machado da Horda. Hoje ela faz vocês em cinza.", "last_words": "O fogo... apaga...",
+		 "phases": [{"hp": 0.7, "say": "Golens! Saiam do molde!", "skills": ["mob_call_forge_golems"], "summon": {"id": "forge_golemling", "count": 2, "max": 3}},
+			{"hp": 0.4, "say": "Abram as comportas!", "ward": 0.4, "summon": {"id": "forge_golemling", "count": 2, "max": 3, "pick": "soft"}},
+			{"hp": 0.15, "say": "A FORJA SUPERAQUECE!", "enrage": 1.35}]},
+		# ---- Durgash, o Grão-Senhor da Guerra (trono, 45; RAIDE DE 5: afinado com --party=5) ----
+		# F2: três fases no mesmo limiar fincam um estandarte cada (MobSystem entra em todas as fases abaixo do HP de uma vez).
+		{"id": "boss_durgash", "name": "Durgash, o Grão-Senhor da Guerra", "level": 45, "stat_role": "chefe", "unit_mods": {"hp": 4.3, "atk": 1.0}, "faction": H,
+		 "move_speed": 4.8, "attack_range": 3.0, "attack_cooldown": 1.3, "attack_startup": 0.45, "xp": 9000, "aggro_range": 12.0, "leash_range": 34.0,
+		 "radius": 1.0, "scale": 2.1, "color": Color(0.34, 0.4, 0.28), "shape": "capsule", "is_boss": true, "berserk_after": 128, "berserk_mult": 20.0, "loot_table": "lt_durgash", "gold_min": 900, "gold_max": 1400, "model": "mob_durgash",
+		 "skill_ids": ["mob_durgash_cleave", "mob_durgash_charge", "mob_durgash_axe", "mob_durgash_cry", "mob_durgash_throneaxe"] as Array[String], "coin_chance": 1.0, "coin_min": 8, "coin_max": 12,
+		 "intro": "Ghar, Grukk, Vorgul... todos caíram para vocês chegarem aqui. Então venham. A montanha é o meu trono.", "last_words": "A Horda... se ajoelha... mas não esquece...",
+		 "phases": [{"hp": 0.7, "say": "Clãs! Fincem os estandartes!", "ward": 0.6, "summon": {"id": "banner_wolf", "count": 1, "max": 1}},
+			{"hp": 0.7, "summon": {"id": "banner_stone", "count": 1, "max": 2}},
+			{"hp": 0.7, "summon": {"id": "banner_forge", "count": 1, "max": 3}},
+			{"hp": 0.4, "say": "Guarda do Trono! A mim!", "skills": ["mob_durgash_chain", "mob_durgash_quake", "mob_call_throne_guard"], "ward": 0.3},
+			{"hp": 0.15, "say": "EU SOU A HORDA!", "enrage": 1.35}]},
+		# ---- lacaios dos chefes de Kharzun (0 XP, sem loot) ----
+		# Cópia do Shazka (Sombras Gêmeas, R-F): mesmo nome, modelo e vida dele; morre com 1 golpe; dano = Balance.SHAZKA_DECOY_DMG
+		{"id": "shazka_decoy", "name": "Mestre Matador Shazka", "level": 43, "stat_role": "chefe", "unit_mods": {"hp": 1.8, "atk": 0.95}, "faction": H, "decoy": true,
+		 "move_speed": 5.4, "attack_range": 2.4, "attack_cooldown": 1.0, "attack_startup": 0.3, "xp": 0, "aggro_range": 16.0, "leash_range": 40.0,
+		 "radius": 0.7, "scale": 1.5, "color": Color(0.28, 0.24, 0.34), "shape": "capsule", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_shazka"},
+		{"id": "dire_pup", "name": "Cria de Presa-de-Cinza", "level": 40, "hp": 2600, "atk": 82, "def": 28, "mdef": 16, "move_speed": 6.0, "attack_range": 1.9, "attack_cooldown": 1.0, "xp": 0, "aggro_range": 14.0, "leash_range": 40.0,
+		 "radius": 0.5, "scale": 0.95, "color": Color(0.5, 0.48, 0.47), "shape": "box", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_dire_wolf"},
+		{"id": "shadow_apprentice", "name": "Sombra-Aprendiz", "level": 42, "hp": 3200, "atk": 80, "def": 22, "mdef": 18, "faction": H, "move_speed": 5.8, "attack_range": 2.0, "attack_cooldown": 1.0, "attack_startup": 0.3, "xp": 0, "aggro_range": 16.0, "leash_range": 40.0,
+		 "radius": 0.42, "scale": 0.9, "color": Color(0.3, 0.26, 0.38), "shape": "capsule", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_goblin_assassin"},
+		{"id": "ulgra_rider", "name": "Ginete de Ulgra", "level": 43, "hp": 3800, "atk": 100, "def": 30, "mdef": 18, "faction": H, "move_speed": 6.2, "attack_range": 2.0, "attack_cooldown": 1.1, "attack_startup": 0.3, "xp": 0, "aggro_range": 16.0, "leash_range": 40.0,
+		 "radius": 0.6, "scale": 1.05, "color": Color(0.46, 0.42, 0.38), "shape": "box", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_dire_wolf_rider",
+		 "skill_ids": ["mob_pounce"] as Array[String]},
+		{"id": "stone_shaman", "name": "Xamã-Pedra", "level": 43, "hp": 3400, "atk": 70, "matk": 50, "def": 24, "mdef": 30, "faction": H, "ranged": true, "move_speed": 4.4, "attack_range": 9.0, "attack_cooldown": 1.8, "attack_startup": 0.45, "xp": 0, "aggro_range": 16.0, "leash_range": 40.0,
+		 "radius": 0.5, "scale": 1.1, "color": Color(0.5, 0.62, 0.6), "shape": "capsule", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_stone_shaman",
+		 "skill_ids": ["mob_stone_mend"] as Array[String]},
+		{"id": "forge_golemling", "name": "Golem de Forja", "level": 43, "hp": 4400, "atk": 92, "def": 44, "mdef": 20, "faction": H, "move_speed": 4.4, "attack_range": 2.0, "attack_cooldown": 1.4, "attack_startup": 0.45, "xp": 0, "aggro_range": 16.0, "leash_range": 40.0,
+		 "radius": 0.55, "scale": 0.85, "color": Color(0.85, 0.42, 0.18), "shape": "box", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_forge_golem"},
+		{"id": "throne_guard", "name": "Guarda do Trono", "level": 44, "hp": 6400, "atk": 118, "def": 52, "mdef": 26, "faction": H, "front_guard": 0.4, "move_speed": 4.6, "attack_range": 2.2, "attack_cooldown": 1.3, "attack_startup": 0.4, "xp": 0, "aggro_range": 16.0, "leash_range": 40.0,
+		 "radius": 0.6, "scale": 1.3, "color": Color(0.36, 0.42, 0.3), "shape": "capsule", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_clan_guard"},
+		# Estandartes de Clã (parados: velocidade 0, não golpeiam; a vida é ~4% da do Durgash)
+		{"id": "banner_wolf", "name": "Estandarte do Clã do Lobo", "level": 45, "hp": 21300, "atk": 1, "def": 40, "mdef": 36, "faction": H, "aura": "clan_wolf", "move_speed": 0.0, "attack_range": 0.5, "attack_cooldown": 999.0, "xp": 0, "aggro_range": 30.0, "leash_range": 60.0,
+		 "radius": 0.6, "scale": 1.6, "color": Color(0.55, 0.5, 0.45), "shape": "cone", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_clan_banner_wolf"},
+		{"id": "banner_stone", "name": "Estandarte do Clã da Pedra", "level": 45, "hp": 21300, "atk": 1, "matk": 900, "def": 40, "mdef": 36, "faction": H, "move_speed": 0.0, "attack_range": 0.5, "attack_cooldown": 999.0, "xp": 0, "aggro_range": 30.0, "leash_range": 60.0,
+		 "radius": 0.6, "scale": 1.6, "color": Color(0.45, 0.55, 0.62), "shape": "cone", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_clan_banner_stone",
+		 "skill_ids": ["mob_stone_mend"] as Array[String]},
+		{"id": "banner_forge", "name": "Estandarte do Clã da Forja", "level": 45, "hp": 21300, "atk": 1, "matk": 160, "def": 40, "mdef": 36, "faction": H, "move_speed": 0.0, "attack_range": 0.5, "attack_cooldown": 999.0, "xp": 0, "aggro_range": 30.0, "leash_range": 60.0,
+		 "radius": 0.6, "scale": 1.6, "color": Color(0.9, 0.45, 0.15), "shape": "cone", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_clan_banner_forge",
+		 "skill_ids": ["mob_forge_embers"] as Array[String]},
 	]
 
 static func build_loot() -> Array:
@@ -605,5 +777,23 @@ static func build_loot() -> Array:
 		_lt("lt_troll_king", [{"item": "rock_core", "chance": 1.0, "min": 2, "max": 3}, {"item": "troll_tusk", "chance": 1.0, "min": 4, "max": 6}, {"item": "elixir_stone", "chance": 1.0}]),
 		_lt("lt_crossbow_master", [{"item": "ember_essence", "chance": 1.0, "min": 2, "max": 3}, {"item": "ember_feather", "chance": 1.0, "min": 4, "max": 6}, {"item": "elixir_might", "chance": 1.0}]),
 		_lt("lt_ghar", [{"item": "ghar_badge", "chance": 1.0, "min": 2, "max": 3}, {"item": "orc_steel", "chance": 1.0, "min": 4, "max": 6}, {"item": "elixir_might", "chance": 1.0}]),
+		# Ato II, Monte Kharzun (40-45): Pele de Lobo Atroz, Escama de Salamandra, Basalto Rúnico, Aço Negro Orc, Aço Anão, Brasa de Kharzun
+		_lt("lt_goblin_assassin", [{"item": "goblin_fang", "chance": 0.5, "min": 1, "max": 2}, {"item": "horde_badge", "chance": 0.35}, {"item": "potion_hp_m", "chance": 0.12}]),
+		_lt("lt_goblin_slayer", [{"item": "horde_badge", "chance": 1.0, "min": 2, "max": 3}, {"item": "dwarf_steel", "chance": 0.4}, {"item": "elixir_might", "chance": 0.05}]),
+		_lt("lt_dire_wolf", [{"item": "dire_pelt", "chance": 0.6, "min": 1, "max": 2}, {"item": "potion_hp_m", "chance": 0.12}]),
+		_lt("lt_dire_wolf_rider", [{"item": "dire_pelt", "chance": 0.6, "min": 1, "max": 2}, {"item": "rider_pelt", "chance": 0.4}, {"item": "horde_badge", "chance": 0.3}]),
+		_lt("lt_troll_brute", [{"item": "troll_hide", "chance": 0.7, "min": 1, "max": 2}, {"item": "dwarf_steel", "chance": 0.45}, {"item": "troll_tusk", "chance": 0.5}, {"item": "elixir_stone", "chance": 0.05}]),
+		_lt("lt_orc_fire_archer", [{"item": "ember_feather", "chance": 0.6, "min": 1, "max": 2}, {"item": "orc_steel", "chance": 0.3}, {"item": "potion_hp_m", "chance": 0.1}]),
+		_lt("lt_orc_warlord", [{"item": "orc_steel", "chance": 0.7, "min": 1, "max": 3}, {"item": "horde_badge", "chance": 1.0, "min": 2, "max": 3}, {"item": "elixir_might", "chance": 0.05}]),
+		_lt("lt_clan_guard", [{"item": "orc_steel", "chance": 0.7, "min": 1, "max": 3}, {"item": "dwarf_steel", "chance": 0.5}, {"item": "elixir_stone", "chance": 0.05}]),
+		_lt("lt_lava_salamander", [{"item": "salamander_scale", "chance": 0.6, "min": 1, "max": 2}, {"item": "kharzun_ember_core", "chance": 0.08}, {"item": "potion_mp_m", "chance": 0.12}]),
+		_lt("lt_basalt_golem", [{"item": "basalt_ore", "chance": 0.7, "min": 2, "max": 3}, {"item": "kharzun_ember_core", "chance": 0.35}, {"item": "elixir_stone", "chance": 0.05}]),
+		# Ato II fase 3, Kharzun (40-45): materiais da montanha (Pele de Lobo Atroz, Basalto Rúnico, Brasa de Kharzun) e o troféu de cada chefe (WP10)
+		_lt("lt_dire_mother", [{"item": "dire_pelt", "chance": 1.0, "min": 3, "max": 5}, {"item": "goblin_fang", "chance": 1.0, "min": 2, "max": 3}, {"item": "elixir_might", "chance": 0.4}]),
+		_lt("lt_shazka", [{"item": "horde_badge", "chance": 1.0, "min": 4, "max": 6}, {"item": "goblin_fang", "chance": 1.0, "min": 3, "max": 5}, {"item": "elixir_might", "chance": 1.0}, {"item": "legend_coin", "chance": 0.3}]),
+		_lt("lt_ulgra", [{"item": "dire_pelt", "chance": 1.0, "min": 4, "max": 6}, {"item": "orc_steel", "chance": 1.0, "min": 2, "max": 4}, {"item": "elixir_might", "chance": 1.0}, {"item": "ulgra_fang", "chance": 1.0}, {"item": "legend_coin", "chance": 0.3}]),
+		_lt("lt_gorbash", [{"item": "basalt_ore", "chance": 1.0, "min": 2, "max": 4}, {"item": "basalt_heart", "chance": 1.0}, {"item": "troll_tusk", "chance": 1.0, "min": 4, "max": 6}, {"item": "elixir_stone", "chance": 1.0}, {"item": "legend_coin", "chance": 0.3}]),
+		_lt("lt_kragmar", [{"item": "kharzun_ember_core", "chance": 1.0, "min": 2, "max": 4}, {"item": "broken_hammer", "chance": 1.0}, {"item": "orc_steel", "chance": 1.0, "min": 4, "max": 6}, {"item": "elixir_might", "chance": 1.0}, {"item": "legend_coin", "chance": 0.3}]),
+		_lt("lt_durgash", [{"item": "durgash_banner", "chance": 1.0}, {"item": "ghar_badge", "chance": 1.0, "min": 3, "max": 5}, {"item": "orc_steel", "chance": 1.0, "min": 6, "max": 9}, {"item": "elixir_might", "chance": 1.0, "min": 1, "max": 2}, {"item": "legend_coin", "chance": 1.0, "min": 1, "max": 2}]),
 		_lt("lt_dragonling", [{"item": "dragon_scale", "chance": 1.0, "min": 2, "max": 4}, {"item": "golem_core", "chance": 1.0, "min": 1, "max": 2}, {"item": "amulet_golem", "chance": 0.5}, {"item": "elixir_might", "chance": 1.0, "min": 1, "max": 2}, {"item": "crown_spectral", "chance": 0.4}]),
 	]

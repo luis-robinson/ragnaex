@@ -16,7 +16,8 @@ static func _mk(d: Dictionary) -> QuestDef:
 const HUNT_GIVERS := {"city_aldara": "board", "field_forest": "stone_druid", "field_ruins": "dawn_board", "elf_city": "moon_altar",
 	"fort_ghoul": "dawn_board", "fort_bones": "dawn_board", "fort_frost": "dawn_board", "lich_citadel": "dawn_board",
 	"field_coast": "ptav_board", "city_port": "ptav_board",
-	"field_steppe": "wind_totem", "fort_trolls": "wind_totem", "fort_fire": "wind_totem", "fort_war": "wind_totem"}
+	"field_steppe": "wind_totem", "fort_trolls": "wind_totem", "fort_fire": "wind_totem", "fort_war": "wind_totem",
+	"field_kharzun": "kharzun_board", "dg_slayers": "kharzun_board", "kharzun_citadel": "kharzun_board"}
 
 ## Quests da história e laterais dão Balance.quest_share da XP de cada faixa de nível (o meio, 10-20, dá mais): o peso relativo entre elas
 ## fica (o número escrito em cada uma), o total da faixa é escalado. Repetíveis (caçadas e quadros) ficam como estão.
@@ -590,10 +591,229 @@ static func build() -> Array:
 	]
 	L.append_array(act2())
 	L.append_array(act2_steppe())
+	L.append_array(act2_kharzun())
 	L.append_array(ascensions())
+	L.append_array(trials45())
 	var out: Array = []
 	for d in L:
 		out.append(_mk(d))
+	return out
+
+# ======== Ato II, Monte Kharzun (40-45): K0-K4 (design/gdd/kharzun-fase3-plan.md §2.4 e §5) ========
+## Linha principal (Comandante Isolda Brasa). Os ids de estágio são os que a sim lê (MapsCatalog.Q_KH_*). Fluxo:
+## chegada -> olhos -> Minas (K1) -> Canil (K1b) e Forja (K1c), qualquer ordem -> Matadores (K1d, porta do Xamã) ->
+## Aríete (K2) -> três clãs, qualquer ordem (K3) -> Trono (K4) -> epílogo no porto (tela "Fim do Ato II").
+const KHARZUN_MAIN := ["hx_kh_arrival", "hx_kh_scouts", "hx_mines", "hx_kennel", "hx_black_forge", "hx_slayers",
+	"hx_citadel_gate", "hx_clan_wolf", "hx_clan_stone", "hx_clan_forge", "hx_warlord"]
+const ACT2_EPILOGUE := "hx_act2_epilogue"
+## Paralelas de Kharzun: quem abre -> última missão (a que muda o lugar ou fecha a cadeia).
+const KHARZUN_CHAINS := {"dwarf_smith": "hx_dw_forge", "exiled_shaman": "hx_xs_brakka", "freed_foreman": "hx_ov_hatch", "dwarf_runestone": "hx_ec_vision"}
+## Mapas de Kharzun que ainda não existem neste ramo (WP6): quests podem citar o id (REACH/dica) antes de o mapa chegar.
+const KHARZUN_PENDING_MAPS := []
+
+static func act2_kharzun() -> Array:
+	var L := [
+		# ---- linha principal ----
+		{"id": "hx_kh_arrival", "title": "A Ponta de Lança", "giver_npc": "fort_war_settler_0", "turnin_npc": "kharzun_commander", "type": REACH, "target_id": "field_kharzun", "count": 1, "level_req": 40, "prereq_quest": "hx_steppe_pass",
+		 "reward_xp": 1600, "reward_gold": 1200, "reward_items": {"potion_hp_m": 4}, "map_hint": "Monte Kharzun (passo ao norte das Estepes): Comandante Isolda Brasa, no acampamento",
+		 "description": "Suba o passo de Kharzun e apresente-se à Comandante Isolda Brasa, no Acampamento Avançado da Aurora.",
+		 "dialog_offer": "O passo está aberto e a Aurora já fincou estaca no sopé. A Comandante Isolda Brasa pediu gente que não corre. Suba.",
+		 "dialog_progress": "O passo fica no norte das Estepes. Do outro lado, siga a estrada até a paliçada de estacas.",
+		 "dialog_complete": "Mais um. Ótimo. Aqui ninguém dorme duas noites no mesmo lugar: a montanha desce contra nós a cada poucos minutos."},
+		{"id": "hx_kh_scouts", "title": "Olhos no Escuro", "giver_npc": "kharzun_commander", "type": KILL, "target_id": "goblin_assassin", "count": 10, "level_req": 40, "prereq_quest": "hx_kh_arrival",
+		 "reward_xp": 4200, "reward_gold": 900, "reward_items": {"potion_hp_m": 3}, "map_hint": "Monte Kharzun: estradas em volta do acampamento",
+		 "description": "Derrube 10 Assassinos Goblins que vigiam as estradas do acampamento.",
+		 "dialog_offer": "Cada carroça que sobe perde um carroceiro. Ninguém vê quem mata. Os Assassinos andam sumidos: dez a menos e a estrada abre.",
+		 "dialog_progress": "Eles somem e reaparecem pelas costas de quem cura ou atira. Ande junto do grupo e bloqueie (botão direito) a faca.",
+		 "dialog_complete": "A estrada respira. Agora as Minas: lá embaixo tem gente nossa acorrentada."},
+		{"id": "hx_mines", "title": "Correntes Quebradas", "giver_npc": "kharzun_commander", "turnin_npc": "mine_slave_a", "type": KILL, "target_id": "orc_warrior", "count": 10, "level_req": 40, "prereq_quest": "hx_kh_scouts",
+		 "also_counts": ["goblin_agitator", "troll_thrower", "troll"],
+		 "reward_xp": 7000, "reward_gold": 1300, "reward_gear_tier": 5, "reward_items": {"legend_coin": 1}, "map_hint": "Monte Kharzun: Minas de Escravos (oeste) → Escravo Anão Borin",
+		 "description": "Derrube 10 capatazes das Minas (guerreiros orcs, Agitadores ou trolls) e fale com o Escravo Anão Borin para soltar as correntes.",
+		 "dialog_offer": "Anões e gente da caravana de Aldara quebram pedra a oeste daqui, de corrente no pé. Tire os capatazes e solte todos.",
+		 "dialog_progress": "Derrube o Agitador primeiro: com o tambor batendo o bando bate mais forte. Lança-Pedras mira quem está longe.",
+		 "dialog_complete": "A corrente caiu! Quinze anos... Vamos para o acampamento. E o Thrain, o nosso ferreiro, vai com a gente."},
+		{"id": "hx_kennel", "title": "O Canil", "giver_npc": "kharzun_commander", "type": KILL, "target_id": "boss_dire_mother", "count": 1, "level_req": 41, "prereq_quest": "hx_mines",
+		 "reward_xp": 8200, "reward_gold": 1500, "reward_gear_tier": 5, "reward_items": {"legend_coin": 2}, "map_hint": "Monte Kharzun: Canil dos Lobos Atrozes (leste), a toca da Presa-de-Cinza",
+		 "description": "Entre no Canil dos Lobos Atrozes e derrube Presa-de-Cinza, a Mãe-Loba. Sem ela, a frente do leste cala.",
+		 "dialog_offer": "Todo ginete que bate no portão leste saiu do Canil, e toda matilha sai da mesma loba. Derrube a Mãe-Loba e o leste cala.",
+		 "dialog_progress": "Ela uiva e chama dois lobos atrozes: tire os lobos ou fique de costas para a parede. No fim ela enlouquece; segure firme.",
+		 "dialog_complete": "O leste está quieto pela primeira vez. O Bráulio, dos libertos, já perguntou dos ovos. Fale com ele."},
+		{"id": "hx_black_forge", "title": "A Forja Negra", "giver_npc": "kharzun_commander", "type": KILL, "target_id": "orc_warlord", "count": 2, "level_req": 42, "prereq_quest": "hx_mines",
+		 "also_counts": ["orc_fire_archer"],
+		 "reward_xp": 8600, "reward_gold": 1600, "reward_gear_tier": 5, "reward_items": {"legend_coin": 2}, "map_hint": "Monte Kharzun: Forja Negra (nordeste, do outro lado da lava: só pelas pontes)",
+		 "description": "Atravesse a lava pela ponte de basalto e derrube os 2 Senhores da Guerra que guardam a Forja Negra.",
+		 "dialog_offer": "Todo machado da Horda sai da Forja Negra, do outro lado da lava. Derrube os Senhores da Guerra que guardam as bigornas.",
+		 "dialog_progress": "Lava não se atravessa: só as pontes de basalto. Senhor da Guerra grita e o bando bate mais: guarde o atordoamento para o grito.",
+		 "dialog_complete": "A Forja é nossa! O Thrain chorou na bigorna. A Dagna já está vendendo machado, ainda quente."},
+		{"id": "hx_slayers", "title": "O Salão dos Matadores", "giver_npc": "kharzun_commander", "type": KILL, "target_id": "boss_shazka", "count": 1, "level_req": 43, "prereq_quest": "hx_slayers_open",
+		 "prereq_all": ["hx_kennel", "hx_black_forge"] as Array[String],
+		 "reward_xp": 10400, "reward_gold": 1800, "reward_gear_tier": 5, "reward_items": {"legend_coin": 2}, "map_hint": "Salão dos Matadores (paredão a noroeste de Kharzun): leve um grupo",
+		 "description": "Entre no Salão dos Matadores e derrote o Mestre Matador Shazka. Sem ele, as emboscadas nas estradas param.",
+		 "dialog_offer": "O Ushka abriu a porta do paredão. Lá dentro o Mestre Matador Shazka ensina os goblins a matar quem cura. Acabe com a escola.",
+		 "dialog_progress": "Quando ele some, chama duas Sombras: mate as Sombras para tirar o escudo dele. Fique perto de quem cura; ele aparece nas costas.",
+		 "dialog_complete": "Shazka caiu e as estradas estão limpas. Agora só sobra a montanha inteira: o portão da Cidadela."},
+		{"id": "hx_citadel_gate", "title": "O Aríete", "giver_npc": "kharzun_commander", "type": KILL, "target_id": "clan_guard", "count": 6, "level_req": 43, "prereq_quest": "hx_slayers",
+		 "also_counts": ["troll_brute", "goblin_slayer"],
+		 "reward_xp": 9800, "reward_gold": 1800, "reward_gear_tier": 5, "reward_items": {"legend_coin": 2}, "map_hint": "Monte Kharzun: Portão da Cidadela (norte, a avenida acima do acampamento)",
+		 "description": "Limpe o Portão da Cidadela para o aríete da Aurora passar: derrube 6 Guardas de Clã, Brutamontes ou Matadores na avenida.",
+		 "dialog_offer": "O Valério montou um aríete. Só falta o caminho: a avenida do norte é dos Guardas de Clã. Seis a menos e o aríete sobe.",
+		 "dialog_progress": "Guarda de Clã bloqueia golpe de frente com o escudo-torre: rodeie e bata nas costas, ou use magia. Brutamontes atordoa: saia do abalo.",
+		 "dialog_complete": "O aríete passou e o portão cedeu! As trompas da Ofensiva já sobem a avenida. Lá em cima, três clãs e um trono."},
+		{"id": "hx_clan_wolf", "title": "O Clã do Lobo", "giver_npc": "kharzun_commander", "type": KILL, "target_id": "boss_ulgra", "count": 1, "level_req": 44, "prereq_quest": "hx_citadel_gate",
+		 "reward_xp": 11600, "reward_gold": 2000, "reward_gear_tier": 5, "reward_items": {"legend_coin": 2}, "map_hint": "Cidadela de Kharzun: Ala do Lobo (oeste). Leve um grupo",
+		 "description": "Na Ala do Lobo da Cidadela, derrote Ulgra Presa-Atroz, chefe do Clã do Lobo.",
+		 "dialog_offer": "Três clãs seguram a sala do trono. Qualquer ordem serve, mas os três têm de cair. Ulgra monta o maior lobo que já vi.",
+		 "dialog_progress": "Ela puxa com a corrente quem está mais longe: o tanque fica perto de quem cura. Quando chover lança, saia dos círculos.",
+		 "dialog_complete": "O Clã do Lobo não tem mais chefe. Um estandarte a menos em volta do trono."},
+		{"id": "hx_clan_stone", "title": "O Clã da Pedra", "giver_npc": "kharzun_commander", "type": KILL, "target_id": "boss_gorbash", "count": 1, "level_req": 44, "prereq_quest": "hx_citadel_gate",
+		 "reward_xp": 11600, "reward_gold": 2000, "reward_gear_tier": 5, "reward_items": {"legend_coin": 2}, "map_hint": "Cidadela de Kharzun: Ala da Pedra (leste). Leve um grupo",
+		 "description": "Na Ala da Pedra da Cidadela, derrote Gorbash Pele-de-Rocha, chefe do Clã da Pedra.",
+		 "dialog_offer": "Gorbash é troll, e troll se fecha sozinho. Leve fogo ou veneno para a ferida não fechar, e alguém para os xamãs.",
+		 "dialog_progress": "Enquanto um Xamã-Pedra vive, Gorbash quase não sente dano: mate os xamãs. Fogo e veneno cortam a cura dele.",
+		 "dialog_complete": "A pedra rachou. O Clã da Pedra se espalhou pelas cavernas sem chefe."},
+		{"id": "hx_clan_forge", "title": "O Clã da Forja", "giver_npc": "kharzun_commander", "type": KILL, "target_id": "boss_kragmar", "count": 1, "level_req": 44, "prereq_quest": "hx_citadel_gate",
+		 "reward_xp": 11600, "reward_gold": 2000, "reward_gear_tier": 5, "reward_items": {"legend_coin": 2}, "map_hint": "Cidadela de Kharzun: Ala da Forja (norte-nordeste). Leve um grupo",
+		 "description": "Na Ala da Forja da Cidadela, derrote Kragmar Martelo-Negro, chefe do Clã da Forja.",
+		 "dialog_offer": "Kragmar batia o aço da Horda antes de a Forja ser nossa. Agora bate em quem entra na fundição dele. Seja rápido.",
+		 "dialog_progress": "As ondas de lava vêm em linha: saia de lado. A forja dele superaquece cedo: bata forte desde o começo.",
+		 "dialog_complete": "O martelo caiu da mão dele. O Thrain vai querer esse martelo. E a sala do trono não tem mais quem a guarde."},
+		{"id": "hx_warlord", "title": "O Trono de Kharzun", "giver_npc": "kharzun_commander", "type": KILL, "target_id": "boss_durgash", "count": 1, "level_req": 44, "prereq_quest": "hx_clan_wolf",
+		 "prereq_all": ["hx_clan_stone", "hx_clan_forge"] as Array[String],
+		 "reward_xp": 16000, "reward_gold": 3500, "reward_gear_tier": 5, "reward_items": {"legend_coin": 4}, "map_hint": "Cidadela de Kharzun: a sala do trono (norte). Raide de 5",
+		 "description": "Suba à sala do trono com um grupo de cinco e derrote Durgash, o Grão-Senhor da Guerra.",
+		 "dialog_offer": "Os três clãs caíram. Só sobra Durgash. Leve cinco: alguém que segure, alguém que cure e quem derrube os estandartes.",
+		 "dialog_progress": "Quando ele fincar os três estandartes, o escudo dele só cai com eles: derrube os estandartes. Depois, corrente e chão rachado.",
+		 "dialog_complete": "Durgash caiu. A Horda... larga as armas. Pela primeira vez desde Aldara, ninguém desce a montanha contra nós."},
+		# Epílogo do Ato II: voltar a Porto Esperança. Entregar = fim do Ato II (tela do HUD, MapsCatalog.ACT2_END_QUEST).
+		{"id": "hx_act2_epilogue", "title": "A Festa no Porto", "giver_npc": "kharzun_commander", "turnin_npc": "port_governor", "type": TALK, "target_id": "port_governor", "count": 1, "level_req": 44, "prereq_quest": "hx_warlord",
+		 "reward_xp": 800, "reward_gold": 3000, "reward_items": {"legend_coin": 3}, "map_hint": "Porto Esperança: Governadora Alba Ventura, na praça (o cristal, G, encurta a viagem)",
+		 "description": "Durgash caiu. Desça a Porto Esperança e conte à Governadora Alba que a Horda se rendeu.",
+		 "dialog_offer": "A Horda se rendeu e o acampamento vai virar vila. Mas quem tem de ouvir isso é a Alba, lá embaixo. Vá: o porto espera você.",
+		 "dialog_progress": "Porto Esperança fica longe daqui. O cristal (G) te leva num instante; a Governadora fica na praça.",
+		 "dialog_complete": "Três semanas de paliçada pela metade, e agora isto. Ouça a praça: estão soltando fogos com o óleo do farol. Obrigada."},
+		# ---- O Ferreiro Anão (Thrain, pós-K1): aço anão, basalto rúnico e a primeira peça na bigorna dele ----
+		{"id": "hx_dw_tools", "title": "As Ferramentas de Thrain", "giver_npc": "dwarf_smith", "type": COLLECT, "target_id": "dwarf_steel", "count": 6, "level_req": 41, "prereq_quest": "hx_mines",
+		 "reward_xp": 3000, "reward_gold": 700, "reward_items": {"potion_hp_m": 2}, "map_hint": "Monte Kharzun: veios de Aço Anão nas Minas (oeste, F)",
+		 "description": "Colha 6 Aços Anões nos veios das Minas para Thrain refazer as ferramentas.",
+		 "dialog_offer": "Os orcs ficaram com o meu martelo e com a minha tenaz. Aço anão sobrou nas Minas, nos veios claros. Seis, e eu recomeço.",
+		 "dialog_progress": "Os veios claros brilham nas Minas, a oeste. Chegue perto e aperte F. Trolls ainda rondam a boca da mina.",
+		 "dialog_complete": "Martelo novo, tenaz nova. Agora a pedra que cante para mim, e não para o orc."},
+		{"id": "hx_dw_basalt", "title": "Pedra que Lembra", "giver_npc": "dwarf_smith", "type": COLLECT, "target_id": "basalt_ore", "count": 4, "level_req": 42, "prereq_quest": "hx_dw_tools",
+		 "reward_xp": 3400, "reward_gold": 800, "reward_items": {"elixir_stone": 1}, "map_hint": "Monte Kharzun: Basalto Rúnico no Santuário Partido (sudoeste, F) ou nos Golens de Basalto",
+		 "description": "Traga 4 Basaltos Rúnicos para a bigorna de Thrain.",
+		 "dialog_offer": "Bigorna boa é de basalto rúnico: a pedra lembra o golpe. Tem perto do Santuário Partido, onde a pedra rúnica rachou.",
+		 "dialog_progress": "As pedras com fenda brilhante ficam perto do Santuário, a sudoeste. Golem de Basalto também carrega, se tiver coragem.",
+		 "dialog_complete": "Ouça só. Toc. Ela lembra. Agora falta a primeira peça, e quem bate é você."},
+		{"id": "hx_dw_forge", "title": "A Primeira Peça", "giver_npc": "dwarf_smith", "type": CRAFT, "target_id": "ring_guerreiro_t5", "count": 1, "level_req": 42, "prereq_quest": "hx_dw_basalt",
+		 "reward_xp": 3600, "reward_gold": 900, "reward_items": {"dwarf_steel": 3, "legend_coin": 1}, "map_hint": "Monte Kharzun: qualquer forja (Thrain ou Galdino, no acampamento)",
+		 "description": "Forje um Anel do Guerreiro de nível 40 (aço negro orc e presa de troll) na bigorna nova.",
+		 "dialog_offer": "Bigorna nova pede peça nova, e a primeira é de quem trouxe a pedra. Um anel de aço negro: o aço deles, a mão sua.",
+		 "dialog_progress": "Abra a forja (\"Usar a forja\"). Aço negro cai dos Senhores da Guerra e dos Guardas de Clã; presa, dos trolls.",
+		 "dialog_complete": "Bom anel. Agora traga lendário e Brasa de Kharzun: o que ferro humano não leva, Aço Anão leva."},
+		# ---- O Xamã Exilado (Ushka, cabana): erva de cinza, a palavra da porta dos Matadores e, se os Desertores foram ajudados, Brakka ----
+		{"id": "hx_xs_herbs", "title": "Ervas para o Fogo", "giver_npc": "exiled_shaman", "type": COLLECT, "target_id": "herb_blue", "count": 6, "level_req": 41, "prereq_quest": "hx_kh_arrival",
+		 "reward_xp": 2800, "reward_gold": 640, "reward_items": {"potion_mp_m": 3}, "map_hint": "Monte Kharzun: erva azul na cinza, entre a cabana do Xamã e as Minas (F)",
+		 "description": "Colha 6 Ervas Azuis que nascem na cinza para o fogo do Xamã Ushka.",
+		 "dialog_offer": "Ushka precisa de fogo para ver. Fogo de xamã quer erva azul, a que nasce na cinza. Seis. Durgash quebrou o cajado, não o fogo.",
+		 "dialog_progress": "A erva cresce na cinza entre esta cabana e as Minas. Chegue perto e aperte F.",
+		 "dialog_complete": "A fumaça sobe e deita para o oeste, como nas Estepes. O vento vem do leste. Ushka viu. Ushka sabe a palavra da porta."},
+		{"id": "hx_slayers_open", "title": "A Palavra da Porta", "giver_npc": "exiled_shaman", "type": REACH, "target_id": "matadores", "count": 1, "level_req": 42, "prereq_quest": "hx_xs_herbs",
+		 "reward_xp": 2600, "reward_gold": 600, "reward_items": {"elixir_might": 1}, "map_hint": "Monte Kharzun: a porta no paredão a noroeste (Salão dos Matadores)",
+		 "description": "Leve a palavra do Xamã Ushka até a porta do Salão dos Matadores, no paredão a noroeste, e volte.",
+		 "dialog_offer": "A porta dos Matadores só ouve orc. Ushka ensina a palavra; você fala de perto. Depois volta, e a Comandante manda o grupo.",
+		 "dialog_progress": "O paredão fica a noroeste, depois das Minas. Assassinos esperam no caminho: ande junto de alguém.",
+		 "dialog_complete": "A porta ouviu. Ushka sentiu daqui. Agora diga à sua Comandante: o Salão está aberto. Leve quem cura no meio."},
+		{"id": "hx_xs_brakka", "title": "Notícia para os Desertores", "giver_npc": "exiled_shaman", "turnin_npc": "deserter_merchant", "type": TALK, "target_id": "deserter_merchant", "count": 1, "level_req": 42, "prereq_quest": "hx_slayers_open",
+		 "prereq_all": ["hx_deserters_help"] as Array[String],
+		 "reward_xp": 2200, "reward_gold": 900, "reward_items": {"legend_coin": 1}, "map_hint": "Estepes de Cinza: Brakka, no acampamento dos Desertores (noroeste)",
+		 "description": "Você ajudou os Desertores nas Estepes. Leve a Brakka a notícia do Xamã Ushka: o vento do leste está mais perto.",
+		 "dialog_offer": "Você ajudou Urzog. Ushka conhece Urzog. Diga a Brakka: o vento do leste chegou à montanha. Eles vão entender.",
+		 "dialog_progress": "Brakka fica no acampamento dos Desertores, a noroeste das Estepes. O cristal ajuda.",
+		 "dialog_complete": "Ushka vive? Brakka achou que Durgash tinha comido. Vento do leste... Brakka vende mais barato para quem traz aviso."},
+		# ---- Ovos do Lobo Atroz (Bráulio, posto dos libertos, pós-K1b): o filhote é a montaria lobo atroz (WP10) ----
+		{"id": "hx_ov_nest", "title": "O Ninho Vazio", "giver_npc": "freed_foreman", "type": KILL, "target_id": "dire_wolf", "count": 8, "level_req": 41, "prereq_quest": "hx_kennel",
+		 "reward_xp": 3200, "reward_gold": 720, "reward_items": {"potion_hp_m": 2}, "map_hint": "Monte Kharzun: Canil dos Lobos Atrozes (leste)",
+		 "description": "Derrube 8 Lobos Atrozes que ainda rondam os ninhos do Canil, para o Bráulio pegar os ovos.",
+		 "dialog_offer": "A Mãe-Loba caiu, mas a matilha ronda os ninhos. Oito a menos e eu entro de mansinho atrás dos ovos.",
+		 "dialog_progress": "Lobo atroz anda em três e investe em linha: desvie com Shift e bata no que ficou para trás.",
+		 "dialog_complete": "Três ovos, mornos ainda! Agora precisam de calor e cheiro de matilha, senão não chocam."},
+		{"id": "hx_ov_warm", "title": "Cheiro de Matilha", "giver_npc": "freed_foreman", "type": COLLECT, "target_id": "dire_pelt", "count": 6, "level_req": 42, "prereq_quest": "hx_ov_nest",
+		 "reward_xp": 3200, "reward_gold": 720, "reward_items": {"potion_mp_m": 2}, "map_hint": "Monte Kharzun: Lobos Atrozes e Ginetes (Canil e estradas do leste)",
+		 "description": "Traga 6 Peles de Lobo Atroz para forrar o ninho dos ovos.",
+		 "dialog_offer": "Ovo de lobo atroz não choca em palha. Quer pele de matilha em volta. Seis peles, e a gente tenta.",
+		 "dialog_progress": "Lobos atrozes e ginetes carregam a pele. Os ginetes vêm com saqueador: tire o goblin da rede primeiro.",
+		 "dialog_complete": "Ninho pronto. Falta o calor de verdade: o da montanha."},
+		{"id": "hx_ov_hatch", "title": "Calor de Montanha", "giver_npc": "freed_foreman", "type": COLLECT, "target_id": "salamander_scale", "count": 4, "level_req": 43, "prereq_quest": "hx_ov_warm",
+		 "reward_xp": 3800, "reward_gold": 900, "reward_items": {"legend_coin": 1}, "map_hint": "Monte Kharzun: Salamandras de Lava (Forja Negra e Lago de Fogo, nordeste)",
+		 "description": "Traga 4 Escamas de Salamandra: mornas, elas chocam os ovos sem queimar.",
+		 "dialog_offer": "Escama de salamandra fica morna dias. Quatro em volta do ninho e os ovos racham. Cuidado: salamandra não pega fogo, você pega.",
+		 "dialog_progress": "As salamandras moram perto da lava, a nordeste. O cone de fogo queima: saia da frente e bata de lado.",
+		 "dialog_complete": "Racharam! Três filhotes, e um já morde a minha bota. Quando crescer, aguenta sela. Esse aqui é seu."},
+		# ---- Ecos da Noite (Pedra Rúnica + Faroleira, D6 mínimo): inscrições, fogos a leste, a visão no trono, sem nome.
+		# hx_ec_vision é REACH "kharzun_citadel" (a Cidadela chegou com o WP6). ----
+		{"id": "hx_ec_runes", "title": "Riscos Sobre as Runas", "giver_npc": "dwarf_runestone", "turnin_npc": "exiled_shaman", "type": TALK, "target_id": "exiled_shaman", "count": 1, "level_req": 41, "prereq_quest": "hx_mines",
+		 "reward_xp": 2400, "reward_gold": 560, "reward_items": {"potion_mp_m": 2}, "map_hint": "Monte Kharzun: cabana do Xamã Ushka (entre as Minas e o acampamento)",
+		 "description": "Copie as inscrições da Pedra Rúnica Partida e leve ao Xamã Ushka, que lê o que não é anão nem orc.",
+		 "dialog_offer": "Embaixo das runas e do risco orc há uma terceira escrita, fina como unha. O Borin disse que tem igual no fundo das Minas.",
+		 "dialog_progress": "Ushka mora na cabana entre as Minas e o acampamento.",
+		 "dialog_complete": "Ushka conhece. É o que a Horda riscava antes de subir: 'não olhe para o leste'. Alguém do mar viu fogo lá. Pergunte."},
+		{"id": "hx_ec_fires", "title": "Fogos a Leste", "giver_npc": "exiled_shaman", "turnin_npc": "keeper_ilda", "type": TALK, "target_id": "keeper_ilda", "count": 1, "level_req": 42, "prereq_quest": "hx_ec_runes",
+		 "reward_xp": 2400, "reward_gold": 600, "reward_items": {"elixir_stone": 1}, "map_hint": "Costa Partida: Ilda, a Faroleira (farol)",
+		 "description": "Desça à Costa Partida e pergunte a Ilda, a Faroleira, sobre os fogos que ela viu a leste.",
+		 "dialog_offer": "Do farol se vê longe. Ushka quer saber o que a mulher do farol viu a leste. Não diga a palavra. Só pergunte.",
+		 "dialog_progress": "O farol fica na Costa Partida. O cristal leva ao porto; o farol é a torre na ponta.",
+		 "dialog_complete": "Fogos, sim. Toda noite, um pouco mais perto. E não se mexem como fogueira: andam. Volte quando a montanha calar."},
+		{"id": "hx_ec_vision", "title": "A Noite que Anda", "giver_npc": "keeper_ilda", "turnin_npc": "exiled_shaman", "type": REACH, "target_id": "kharzun_citadel", "count": 1, "level_req": 44, "prereq_quest": "hx_ec_fires",
+		 "prereq_all": ["hx_warlord"] as Array[String],
+		 "reward_xp": 2800, "reward_gold": 1000, "reward_items": {"legend_coin": 1}, "map_hint": "Cidadela de Kharzun: suba ao trono vazio e depois volte ao Ushka",
+		 "description": "Com Durgash caído, suba à Cidadela e olhe para o leste do alto do trono. Depois conte ao Xamã Ushka o que viu.",
+		 "dialog_offer": "Do farol eu vejo os fogos. Do trono de Durgash se veria de onde eles vêm. Suba quando puder e volte ao seu xamã.",
+		 "dialog_progress": "A sala do trono fica no alto da Cidadela. Não precisa brigar: chegue e olhe.",
+		 "dialog_complete": "Você viu. Uma noite que anda, a leste, sem lua. A Horda fugiu dela. Ushka não dá nome. Ninguém deve dar, ainda."},
+		# ---- Brasas da Forja (quadro, pós-K1c): repetível ----
+		{"id": "hx_bf_embers", "title": "Brasas da Forja", "giver_npc": "kharzun_board", "type": COLLECT, "target_id": "kharzun_ember_core", "count": 3, "level_req": 42, "prereq_quest": "hx_black_forge", "repeatable": true,
+		 "reward_xp": 9000, "reward_gold": 1400, "reward_items": {"dwarf_steel": 2}, "map_hint": "Monte Kharzun: Golens de Basalto e Salamandras (Forja e encosta)",
+		 "description": "Traga 3 Brasas de Kharzun para os braseiros do acampamento. Repetível.",
+		 "dialog_offer": "Bilhete torto na estaca: 'brasa da Forja para o braseiro. Três e tem cama perto do fogo, e aço do Thrain'.",
+		 "dialog_progress": "Golem de Basalto carrega brasa no peito; salamandra, às vezes. Golem é lento: não fique na área do chão.",
+		 "dialog_complete": "O braseiro arde três dias. Alguém deixou aço anão embaixo da estaca."},
+	]
+	for d in L:                      # ids do contrato -> o que existe hoje (MapsCatalog.STAND_INS)
+		if d["type"] != KILL:
+			continue
+		d["target_id"] = MapsCatalog.mob(d["target_id"])
+		var also: Array[String] = []
+		for id in d.get("also_counts", []):
+			var m: String = MapsCatalog.mob(id)
+			if m != d["target_id"] and not also.has(m):
+				also.append(m)
+		d["also_counts"] = also
+	return L
+
+## Prova 45 (D7, opcional): Arauto dos Mestres no acampamento, nível 45 + ascensão feita; derrubar um Chefe de Clã.
+## Só moedas + título de honra (`reward_title`, nome e janela do personagem): 0 XP, 0 ponto de ascensão, 0 poder. "Usando a ascensão" ainda não é contado
+## pela sim (pendência: contagem de acerto de skill `ascension` no chefe).
+const TRIAL45_TITLES := {"paladin": "Paladino", "elementalist": "Elementalista", "berserker": "Berserker", "bishop": "Bispo",
+	"druid": "Druida", "ranger": "Ranger", "assassin": "Assassino", "necromancer": "Necromante"}
+static func trials45() -> Array:
+	var out: Array = []
+	var target: String = MapsCatalog.mob("boss_ulgra")
+	var also: Array[String] = []
+	for id in ["boss_gorbash", "boss_kragmar"]:
+		var m: String = MapsCatalog.mob(id)
+		if m != target and not also.has(m):
+			also.append(m)
+	for c in ASC_MASTERS:
+		out.append({"id": "hx_asc45_" + c, "title": "Prova do Mestre (%s)" % TRIAL45_TITLES[c], "giver_npc": "masters_herald", "type": KILL,
+			"target_id": target, "also_counts": also.duplicate(),
+			"count": 1, "level_req": Balance.ASC_MAX_LEVEL, "prereq_quest": "hx_asc_" + c, "reward_xp": 0, "reward_gold": 2000, "reward_items": {"legend_coin": 3},
+			"reward_title": "Mestre %s" % TRIAL45_TITLES[c],
+			"map_hint": "Cidadela de Kharzun: qualquer Chefe de Clã (leve um grupo)",
+			"description": "Prova opcional: derrube um Chefe de Clã da Cidadela lutando com a sua ascensão. Título: Mestre %s." % TRIAL45_TITLES[c],
+			"dialog_offer": "Os mestres do porto querem saber se a ascensão é sua ou emprestada. Derrube um chefe de clã com ela e volte.",
+			"dialog_progress": "Qualquer um dos três clãs serve. Leve a skill de ascensão na barra (7, 8, 9 ou 0) e use.",
+			"dialog_complete": "Visto. Os mestres vão gravar o seu nome na pedra do porto: Mestre %s. Não muda a sua força, só a sua fama." % TRIAL45_TITLES[c]})
 	return out
 
 # ======== Ato II, Costa Partida / Porto Esperança (30-35): o cenário cresce com as missões (C0-C4 do GDD) ========

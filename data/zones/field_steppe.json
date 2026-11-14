@@ -882,21 +882,6 @@
   {
    "kind": "wall",
    "pos": [
-    0.0,
-    -106.2
-   ],
-   "size": [
-    16.0,
-    5.0,
-    1.6
-   ],
-   "rot": 0.0,
-   "visible": false,
-   "solid": true
-  },
-  {
-   "kind": "wall",
-   "pos": [
     -69.79,
     5.35
    ],
@@ -22854,6 +22839,20 @@
     -55.06
    ],
    "label": "Paliçada das Flechas de Fogo"
+  },
+  {
+   "id": "to_field_kharzun",
+   "pos": [
+    0.0,
+    -113.2
+   ],
+   "radius": 2.0,
+   "target_map": "field_kharzun",
+   "target_pos": [
+    0.0,
+    92.6
+   ],
+   "label": "Monte Kharzun (Lv 40-45)"
   }
  ],
  "spawners": [
@@ -25300,26 +25299,6 @@
      -40.0,
      125.0
     ]
-   ]
-  }
- ],
- "future_portals": [
-  {
-   "id": "to_field_kharzun",
-   "pos": [
-    0.0,
-    -113.2
-   ],
-   "arrive": [
-    0.0,
-    -102.2
-   ],
-   "target_map": "field_kharzun",
-   "label": "Monte Kharzun (Lv 40-45)",
-   "if": [
-    "hx_fort_trolls",
-    "hx_fort_fire",
-    "hx_fort_war"
    ]
   }
  ],

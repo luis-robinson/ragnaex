@@ -52,6 +52,12 @@ var threat_boss: SimEntity = null
 var opener_id := -1            # chefe/elite da abertura (_opener): quando o vi e desde quando está firme no tanque
 var opener_seen := 0.0
 var opener_held := -1.0
+var sig_pin := false            # assinatura de chefe: chegou no lugar da mecânica (ilha, pedra, marca): luta sem sair dali
+var soak_pin := false           # Machado do Trono: já dentro do círculo de dividir: cura/luta dali, sem sair
+var sig_guard := false          # Muralha do Ghar e eu sou o alvo dele: parado, de guarda, sem golpe (ele não vira e não junta fúria)
+var spread_id := -1             # marca de espalhar em mim: para onde decidi correr (uma vez por marca)
+var drag_to := Vector3.INF      # Têmpera na Lava: para onde levo o Kragmar (fica até ele sair da poça)
+var spread_to := Vector3.INF
 
 ## MonsterDef.id → tem skill com grito de guerra (`rally`)? Cache (os catálogos não mudam durante o jogo).
 static var _rally_cache: Dictionary = {}
@@ -119,7 +125,7 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 			return _follow(e, sim, m, leader, cmd, dt)
 		if not in_town:
 			var members: Array = sim.party_members(e)
-			if _heal_party(e, sim, members, cmd, dt) or _taunt_party(e, sim, m, members, cmd):
+			if _soak_move(e, sim, m, cmd) or _evade_boss(e, sim, m, cmd) or _heal_party(e, sim, members, cmd, dt) or _taunt_party(e, sim, m, members, cmd):
 				return cmd
 			var loose := _loose_big(e, sim, m, members)
 			if loose:
@@ -243,7 +249,11 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 ## Luta + regra da Barreira Sagrada: com uma cúpula do grupo no mapa, o bot entra e fica nela enquanto existir
 ## (segue a cúpula, não o Bispo). O tanque segurando o alvo fica onde está (andar traria o chefe para cima do grupo).
 func _fight(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCommand) -> InputCommand:
+	sig_pin = false
 	cmd = _fight_core(e, sim, m, mob, cmd)
+	if sig_pin:
+		cmd.move = Vector2.ZERO                       # no lugar da mecânica: bate/lança dali, sem sair
+		cmd.dash = false
 	if (m.get("barriers", []) as Array).is_empty():
 		return cmd
 	var dome: Dictionary = ChoirSystem.party_barrier(sim, e)
@@ -298,6 +308,17 @@ func _fight_core(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCom
 		var f := _focus(e, sim, m, mob)
 		if f:
 			mob = f
+	var wa := _ward_add(e, sim, m, mob)        # raide: chefe protegido por lacaio (ward) = vai no lacaio
+	if wa:
+		mob = wa
+	# Sombras Gêmeas (R-F): bot sempre acha o Shazka verdadeiro (a sombra no chão); cópia só morre de área
+	mob = _decoy_real(sim, mob)
+	# assinatura de chefe (GDD act2-boss-signatures; bots sempre perfeitos): canal = todo mundo no chefe
+	var sboss := _sig_boss(sim, mob)
+	var burst := false
+	if sboss != null and sboss.sig.has("channel") and sboss.position.distance_to(e.position) <= Balance.BOSS_CROWD_RANGE:
+		mob = sboss
+		burst = true
 	if mob.id != hunt_target_id:
 		engaged = false
 	hunt_target_id = mob.id
@@ -306,8 +327,27 @@ func _fight_core(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCom
 	var dist := e.position.distance_to(mob.position) - mob.radius - e.radius
 	var cls := e.class_def
 	var melee: bool = cls == null or not cls.basic_attack_is_ranged or (e.basic_skill != null and e.basic_skill.target == SkillDef.Target.CONE)     # lança do Ranger: básico em cone = corpo a corpo
+	sig_guard = false
+	var sig := _sig_spot(e, sim, m, sboss, melee)
+	if sig_guard:
+		cmd.block = true
+		return cmd
+	if sig != Vector3.INF:
+		var off := Vector2(sig.x - e.position.x, sig.z - e.position.z)
+		if off.length() > Balance.BOT_SIG_HOLD:
+			cmd.move = _steer(e, sig, 0.0)
+			if off.length() > Balance.BOT_SIG_DASH_DIST and e.dash_cd <= 0.0 and not _dash_hits(e, sim):
+				cmd.dash = true
+			engaged = false
+			return cmd
+		sig_pin = true
+	if burst:
+		var stun := _stun_skill(e, mob, dist)
+		if stun >= 0 and e.can_act():
+			cmd.skill_slot = stun            # canal do chefe: o atordoar quebra na hora
+			return cmd
 	# perigo: área telegrafada de monstro (chão, em volta dele, cone, linha) → sai dela (com dash se der)
-	var away := _danger_escape(e, m, e.party_id >= 0 and _role(e, sim) == "tank")
+	var away := _danger_escape(e, m, e.party_id >= 0 and _role(e, sim) == "tank", sim.time)
 	if away != Vector2.ZERO:
 		cmd.move = away
 		cmd.aim = e.position + Vector3(away.x, 0, away.y) * 3.0
@@ -380,6 +420,17 @@ func _fight_core(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCom
 	# grupo contra chefe/elite preso no tanque: cada um no seu lugar (fora da frente dele) e de olho na ameaça
 	var tank := _tank_of(e, sim)
 	var held: bool = tank != null and tank != e and mob.aggro_target == tank.id and _is_big(mob)
+	# tanque de raide: o grupo ficou na frente do chefe (parede, chegada) -> dá a volta e vira o chefe de costas para eles
+	if tank == e and mob.aggro_target == e.id and _is_big(mob) and place_cool <= 0.0:
+		var turn := _turn_spot(e, sim, mob, basic_reach)
+		if turn != Vector3.INF and Vector2(turn.x - e.position.x, turn.z - e.position.z).length() > 1.2:
+			place_t += 0.05
+			if place_t > Balance.BOT_PLACE_GIVEUP:
+				place_t = 0.0
+				place_cool = Balance.BOT_PLACE_COOL
+			cmd.move = _steer(e, turn, 0.0)
+			engaged = false
+			return cmd
 	var hold_skills := false
 	var hold_basic_t := false
 	if held:
@@ -400,15 +451,17 @@ func _fight_core(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCom
 		place_t = 0.0
 		var mine := float(mob.threat.get(e.id, 0.0)) + _pending_threat(e, mob)     # + o dano no tempo que ainda vai cair
 		var theirs := float(mob.threat.get(tank.id, 0.0))
-		if mob.monster_def.is_boss and mine >= theirs * Balance.BOT_THREAT_STOP:
+		if mob.monster_def.is_boss and mine >= theirs * Balance.BOT_THREAT_STOP and not burst:
 			cmd.move = Vector2.ZERO           # passou o tanque: espera ele abrir distância (senão o chefe vira)
 			return cmd
 		hold_skills = mob.monster_def.is_boss and mine >= theirs * Balance.BOT_THREAT_HOLD
 		# básico pesado (Executor, Fogo) também passava de uma vez: segura o que levaria além de BOT_THREAT_STOP
 		hold_basic_t = mob.monster_def.is_boss and e.basic_skill != null and mine + (_skill_threat(e, e.basic_skill, mob, true) + _signature_threat(e, sim, mob)) * Balance.BOT_THREAT_PREDICT >= theirs * Balance.BOT_THREAT_STOP
 	# abertura: chefe/elite ainda não firme no tanque do grupo → sem skills; básico só se ficar abaixo de RATIO × a ameaça do tanque
-	var hold_basic := hold_basic_t
-	var big := _opener(e, sim, m, mob, tank)
+	var hold_basic := hold_basic_t and not burst
+	var big: SimEntity = null if burst else _opener(e, sim, m, mob, tank)
+	if burst:
+		hold_skills = false                  # canal: o maior dano pronto no chefe agora (quebrar vale mais que a ameaça)
 	if big != null:
 		var mine_o := float(big.threat.get(e.id, 0.0)) + _pending_threat(e, big)
 		if e.basic_skill != null:
@@ -500,7 +553,7 @@ func _ascension(e: SimEntity, sim, m: Dictionary, mob: SimEntity, dist: float, c
 	if e.mount_left > 0.0:
 		cmd.move = Vector2.ZERO          # montando: parado (agir interromperia)
 		return true
-	if not e.mounted and ch_ready and m["def"].parent_map == "" and dist >= Balance.BOT_CHARGE_MIN and dist <= Balance.BOT_MOUNT_FIGHT_RANGE \
+	if not e.mounted and ch_ready and not m["def"].no_mount() and dist >= Balance.BOT_CHARGE_MIN and dist <= Balance.BOT_MOUNT_FIGHT_RANGE \
 			and mob.aggro_target != e.id and e.combat_timer <= 0.0:          # só para abrir a luta (no meio dela a montaria custa 1,5 s)
 		cmd.mount = true
 		return true
@@ -554,6 +607,8 @@ func _best_skill(e: SimEntity, sim, m: Dictionary, mob: SimEntity, dist: float) 
 			continue                        # Carga Montada só de longe (abre a luta)
 		if s.effects.has("channel") and mob.monster_def and mob.monster_def.is_boss and mob.aggro_target == e.id:
 			continue                        # canalizar parado com o chefe em cima = morrer (Pestilento solo: 2/40)
+		if s.effects.has("stun") and _save_stun(sim, mob):
+			continue                        # guarda o atordoar para o canal do chefe que está para vir
 		if e.stealth_left > 0.0 and not (s.kind in [SkillDef.Kind.PHYSICAL, SkillDef.Kind.MAGICAL]):
 			continue                        # na sombra: só golpe (o resto quebraria a furtividade sem o bônus)
 		var score := 0.0
@@ -701,13 +756,30 @@ func _has_regen_cut(e: SimEntity) -> bool:
 ## Para onde sair de uma área de golpe de monstro que está começando (Vector2.ZERO = seguro).
 ## Tanque (`tank`): não foge do golpe de frente/em volta do monstro que está segurando (ele viria atrás e o grupo
 ## inteiro teria de se mexer): bloqueia e aguenta. Círculos no chão e golpes de outros monstros ele evita como todos.
-func _danger_escape(e: SimEntity, m: Dictionary, tank: bool = false) -> Vector2:
-	for h in m.get("hazards", []):           # círculos de chefe (barrage) já marcados no chão
-		var hp: Vector3 = h["pos"]
-		var hc := Vector2(hp.x, hp.z)
-		var mine := Vector2(e.position.x, e.position.z)
-		if mine.distance_to(hc) < float(h["radius"]) + e.radius + Balance.BOT_DODGE_PAD:
-			return (mine - hc).normalized() if mine.distance_to(hc) > 0.05 else Vector2.RIGHT
+## `now` (>= 0): faixa/anel que ainda demora mais de BOT_SIG_REACT s para cair não tira o bot da luta.
+func _danger_escape(e: SimEntity, m: Dictionary, tank: bool = false, now: float = -1.0) -> Vector2:
+	var first: Dictionary = {}
+	for h in m.get("hazards", []):           # círculos de chefe (barrage) já marcados no chão; faixas e anéis (BossSignatures)
+		if h.get("invert", false) or (h.get("mark", false) and (int(h.get("victim", -1)) == e.id or str(h.get("mode", "")) == "soak")):
+			continue                             # ilha é o lugar seguro; marca minha/de dividir: _sig_spot decide
+		if str(h.get("shape", "circle")) != "circle":
+			if now >= 0.0 and float(h["at"]) - now > Balance.BOT_SIG_REACT:
+				continue
+			if (first.is_empty() or float(h["at"]) < float(first["at"])) and not h.get("landed", false) and BossSignatures.inside(h, e.position, e.radius + Balance.BOT_SIG_PAD):
+				first = h                             # faixa/anel: foge do que cai primeiro (vãos de 3 m, folga curta)
+			continue
+		var esc := BossSignatures.escape(h, e.position, e.radius + Balance.BOT_DODGE_PAD)
+		if esc != Vector2.ZERO:
+			if h.get("landed", false):                # poça que fica (Têmpera na Lava): sai para o ponto livre mais perto, não para outra poça
+				var out := _free_near(m, e.position, e.radius + Balance.BOT_DODGE_PAD, 8.0)
+				if out != Vector3.INF:
+					var v := Vector2(out.x - e.position.x, out.z - e.position.z)
+					if v.length() > 0.05:
+						return v.normalized()
+			return esc
+	if not first.is_empty():
+		var sp: float = e.radius + Balance.BOT_SIG_PAD
+		return _side_escape(e, m, first, BossSignatures.escape(first, e.position, sp), sp)
 	for o: SimEntity in m["entities"]:
 		if o.state != SimEntity.State.CASTING or o.kind != SimEntity.Kind.MONSTER or o.current_skill == null:       # o barato primeiro
 			continue
@@ -742,6 +814,284 @@ func _danger_escape(e: SimEntity, m: Dictionary, tank: bool = false) -> Vector2:
 				if along > 0.0 and along < maxf(s.range, 2.0) + pad and absf(f.cross(to)) < s.radius + pad:
 					return Vector2(-f.y, f.x) if f.cross(to) >= 0.0 else Vector2(f.y, -f.x)
 	return Vector2.ZERO
+
+## Cópia do Shazka (R-F) → o verdadeiro (visível); qualquer outro alvo fica como está.
+static func _decoy_real(sim, mob: SimEntity) -> SimEntity:
+	if mob.monster_def != null and mob.monster_def.decoy:
+		var real: SimEntity = sim.entities.get(int(mob.sig.get("decoy_of", -1)))
+		if real != null and real.is_alive() and real.stealth_left <= 0.0:
+			return real
+	return mob
+
+## Faixa/anel: dos dois lados de saída, o que fica livre por mais tempo depois que este cai (até BOT_SIG_LOOKAHEAD s;
+## Ondas da Montanha: entra-sai no ritmo das pisadas) e, empatado, o mais perto. Anel: para dentro só se cabe fora do chefe.
+func _side_escape(e: SimEntity, m: Dictionary, h: Dictionary, esc: Vector2, pad: float) -> Vector2:
+	var best := esc
+	var best_s := -INF
+	var c: Vector3 = h["pos"]
+	for dir: Vector2 in [esc, -esc]:
+		var p := e.position
+		var d := 0.0
+		while d < 20.0 and BossSignatures.inside(h, p, pad):
+			d += 0.5
+			p = e.position + Vector3(dir.x, 0, dir.y) * d
+		if d >= 20.0:
+			continue
+		if str(h["shape"]) == "ring" and Vector2(p.x - c.x, p.z - c.z).length() < float(h.get("core", 0.0)) + e.radius:
+			continue                                 # para dentro esbarra no chefe
+		var free := INF
+		for o in m.get("hazards", []):
+			if o == h or o.get("landed", false) or o.get("invert", false) or o.get("mark", false):
+				continue
+			if BossSignatures.inside(o, p, pad):           # o que cai antes deste dá nota negativa (não fuja para ele)
+				free = minf(free, float(o["at"]))
+		var sc := minf(free - float(h["at"]), Balance.BOT_SIG_LOOKAHEAD) * 10.0 - d
+		if sc > best_s:
+			best_s = sc
+			best = dir
+	return best
+
+# ---------------------------------------------------------------------------
+# Assinaturas de chefe (GDD design/gdd/act2-boss-signatures.md): resposta perfeita de cada regra
+# ---------------------------------------------------------------------------
+
+## Chefe da luta: o próprio alvo, o chefe do lacaio ou o líder da escolta.
+static func _sig_boss(sim, mob: SimEntity) -> SimEntity:
+	if mob == null or mob.monster_def == null:
+		return null
+	if mob.monster_def.is_boss:
+		return mob
+	var b: SimEntity = sim.entities.get(mob.boss_id if mob.boss_id >= 0 else mob.leader_id)
+	return b if b != null and b.is_alive() and b.monster_def != null and b.monster_def.is_boss else null
+
+## Onde ficar por causa de uma assinatura (Vector3.INF = nada). Ordem: ilhas, marca, cobertura, Muralha.
+func _sig_spot(e: SimEntity, sim, m: Dictionary, boss: SimEntity, melee: bool) -> Vector3:
+	var hz: Array = m.get("hazards", [])
+	if not hz.is_empty():
+		# Maré Cheia: dentro de uma ilha (o golpe é para quem está fora). Quem não é o tanque prefere ilha longe do chefe
+		# (a do tanque fica embaixo dele: golpe em volta e cone); só sobra ela, vai nela.
+		var best := Vector3.INF
+		var bd := INF
+		var tanky := _role(e, sim) == "tank"
+		for pass_i in 2:
+			for h in hz:
+				if not h.get("invert", false):
+					continue
+				var ow: SimEntity = sim.entities.get(h["owner"])
+				if ow == null or not ow.is_hostile_to(e):
+					continue
+				var c: Vector3 = h["pos"]
+				if pass_i == 0 and not tanky and Vector2(c.x - ow.position.x, c.z - ow.position.z).length() < Balance.BOT_SIG_ISLAND_AVOID:
+					continue
+				var d := Vector2(c.x - e.position.x, c.z - e.position.z).length()
+				if d <= float(h["radius"]) - e.radius - 0.4:
+					return e.position                   # já dentro: fica
+				if d < bd:
+					bd = d
+					best = c
+			if best != Vector3.INF:
+				return best
+		# marcas
+		for h in hz:
+			if not h.get("mark", false) or h.get("landed", false):
+				continue
+			var ow: SimEntity = sim.entities.get(h["owner"])
+			if ow == null or not ow.is_hostile_to(e):
+				continue
+			var c: Vector3 = h["pos"]
+			if str(h.get("mode", "")) == "soak":
+				var sp := soak_spot(e, sim, h)
+				if sp != Vector3.INF:
+					return sp
+			elif int(h.get("victim", -1)) == e.id:
+				if spread_id != int(h["id"]):
+					spread_id = int(h["id"])
+					spread_to = _spread_spot(e, sim, m, hz)
+				return spread_to
+	# Têmpera na Lava: quem o chefe mira leva ele para o ponto livre de poça mais perto (ele vem atrás e sai da lava)
+	if boss != null and boss.aggro_target == e.id and BossSignatures.in_empower_pool(m, boss):
+		if drag_to == Vector3.INF or not _drag_ok(e, m, boss, drag_to):
+			drag_to = _drag_spot(e, sim, m, boss)
+		if drag_to != Vector3.INF:
+			return drag_to
+	else:
+		drag_to = Vector3.INF
+	# Avalanche: atrás da pedra mais perto (a pedra entre mim e o chefe)
+	if boss != null and boss.current_skill != null and boss.skill_phase == "startup" and boss.current_skill.effects.has("avalanche"):
+		var r := float((boss.current_skill.effects["avalanche"] as Dictionary).get("radius", 18.0))
+		if e.position.distance_to(boss.position) <= r + e.radius + 2.0:
+			var spot := Vector3.INF
+			var sd := INF
+			for c in BossSignatures.covers_of(m, boss.id):
+				var cp: Vector3 = c["pos"]
+				var dir := Vector3(cp.x - boss.position.x, 0, cp.z - boss.position.z)
+				dir = dir.normalized() if dir.length() > 0.05 else Vector3.FORWARD
+				var p: Vector3 = cp + dir * (float(c["radius"]) + Balance.BOT_SIG_COVER_GAP)
+				var d := p.distance_to(e.position)
+				if d < sd:
+					sd = d
+					spot = p
+			if spot != Vector3.INF:
+				return spot
+	# Muralha: quem o chefe mira fica de guarda parado na frente (golpe bloqueado = fúria; andar fazia ele virar para o
+	# grupo); os outros vão para as costas e não batem de frente
+	if boss != null and (boss.sig.has("wall") or boss.sig.has("counter")):         # contragolpe armando: idem até o golpe sair
+		if boss.aggro_target == e.id:
+			sig_guard = true
+			return Vector3.INF
+		if BossSignatures.wall_blocks(boss, e.position):
+			return boss.position - boss.forward() * (boss.radius + e.radius + (Balance.BOT_SIG_WALL_MELEE if melee else minf(Balance.BOT_RANGED_DIST, Balance.BOT_SIG_WALL_RANGED)))
+	return Vector3.INF
+
+## Machado do Trono (marca de dividir, GDD act2-boss-signatures 3.11): onde ficar por causa da marca `h`. O marcado para nos
+## últimos BOT_SIG_SOAK_VICTIM_HOLD s (o grupo vem até ele); antes segue no que fazia. Quem não é o tanque, a até BOT_SIG_SOAK_RANGE m, segue o que fazia (estandarte, vaga, cura) até
+## o tempo que falta mal dar para chegar (distância até a borda de dentro ÷ velocidade + BOT_SIG_SOAK_MARGIN s) e aí vai ao
+## centro; já dentro (BOT_SIG_SOAK_PAD m da borda), fica. Depois que cai, a marca some e ele volta. INF = não é comigo.
+func soak_spot(e: SimEntity, sim, h: Dictionary) -> Vector3:
+	if int(h.get("victim", -1)) == e.id:          # o marcado segue no que fazia e só para nos últimos segundos (o grupo chega nele)
+		return e.position if float(h["at"]) - sim.time <= Balance.BOT_SIG_SOAK_VICTIM_HOLD else Vector3.INF
+	if _role(e, sim) == "tank":
+		return Vector3.INF
+	var c: Vector3 = h["pos"]
+	var d := Vector2(c.x - e.position.x, c.z - e.position.z).length()
+	if d > Balance.BOT_SIG_SOAK_RANGE:
+		return Vector3.INF
+	var inner: float = maxf(0.0, float(h["radius"]) - e.radius - Balance.BOT_SIG_SOAK_PAD)
+	if d <= inner:
+		return e.position
+	if not _soak_helper(e, sim, h, d):
+		return Vector3.INF
+	var speed: float = maxf(1.0, e.stats.move_speed if e.stats else 5.0)
+	var need := (d - inner) / speed + Balance.BOT_SIG_SOAK_MARGIN
+	return c if float(h["at"]) - sim.time <= need else Vector3.INF
+
+## Sou um dos BOT_SIG_SOAK_HELPERS personagens mais perto do círculo (fora a vítima, o alvo do chefe e quem já está dentro, que
+## conta como ajuda)? Os outros seguem no que faziam: com 3 dentro o golpe já cai a 1/3 e cada um tira a própria DEF.
+func _soak_helper(e: SimEntity, sim, h: Dictionary, d: float) -> bool:
+	var m: Dictionary = sim.maps.get(e.map_id, {})
+	var ow: SimEntity = sim.entities.get(h["owner"])
+	var c: Vector3 = h["pos"]
+	var ahead := 0
+	for o: SimEntity in m.get("chars", m.get("entities", [])):
+		if o == e or not o.is_alive() or not o.is_character() or o.id == int(h.get("victim", -1)) or (ow != null and o.id == ow.aggro_target):
+			continue
+		if ow != null and not ow.is_hostile_to(o):
+			continue
+		var od := Vector2(c.x - o.position.x, c.z - o.position.z).length()
+		if od <= float(h["radius"]) or od < d or (is_equal_approx(od, d) and o.id < e.id):
+			ahead += 1
+	return ahead < Balance.BOT_SIG_SOAK_HELPERS
+
+## Marca de dividir ativa que me chama (vale para quem cura/segue o líder, antes da cura): anda até ela. Já no lugar =
+## soak_pin (a cura não o tira de lá) e false (cura/luta dali). true = andou.
+func _soak_move(e: SimEntity, sim, m: Dictionary, cmd: InputCommand) -> bool:
+	soak_pin = false
+	for h in m.get("hazards", []):
+		if not h.get("mark", false) or h.get("landed", false) or str(h.get("mode", "")) != "soak":
+			continue
+		var ow: SimEntity = sim.entities.get(h["owner"])
+		if ow == null or not ow.is_hostile_to(e):
+			continue
+		var sp := soak_spot(e, sim, h)
+		if sp == Vector3.INF:
+			continue
+		var off := Vector2(sp.x - e.position.x, sp.z - e.position.z)
+		if off.length() <= Balance.BOT_SIG_HOLD:
+			soak_pin = true
+			return false
+		if not e.can_act():
+			return false
+		cmd.move = _steer(e, sp, 0.0)
+		cmd.aim = sp
+		if off.length() > Balance.BOT_SIG_DASH_DIST and e.dash_cd <= 0.0 and float(h["at"]) - sim.time < off.length() / maxf(1.0, e.stats.move_speed) + 0.5:
+			cmd.dash = true
+		engaged = false
+		return true
+	return false
+
+## Têmpera na Lava: ponto a BOT_SIG_DRAG_DIST m+ de mim (16 direções, anéis de 2 m), fora das poças do chefe, onde ele
+## também para fora delas (chega pelo lado dele, a alcance de golpe). Empate: o mais longe das poças. INF = nenhum.
+func _drag_spot(e: SimEntity, sim, m: Dictionary, boss: SimEntity) -> Vector3:
+	for ring in range(6):
+		var dist := Balance.BOT_SIG_DRAG_DIST + 2.0 * ring
+		var best := Vector3.INF
+		var best_s := -INF
+		for k in range(16):
+			var a := TAU * k / 16.0
+			var p := e.position + Vector3(cos(a), 0, sin(a)) * dist
+			if not MapGeometry.is_walkable(sim, p, m["def"], e.radius) or not _drag_ok(e, m, boss, p):
+				continue
+			var sc := INF
+			for h in m.get("hazards", []):
+				if h.get("landed", false) and h.get("empower") is Dictionary and int(h["owner"]) == boss.id:
+					var c: Vector3 = h["pos"]
+					sc = minf(sc, Vector2(c.x - p.x, c.z - p.z).length() - float(h["radius"]))
+			if sc > best_s:
+				best_s = sc
+				best = p
+		if best != Vector3.INF:
+			return best
+	return Vector3.INF
+
+## O ponto `p` serve para arrastar: eu fora das poças dele e o chefe, chegando em mim, também.
+func _drag_ok(e: SimEntity, m: Dictionary, boss: SimEntity, p: Vector3) -> bool:
+	var to := Vector3(boss.position.x - p.x, 0, boss.position.z - p.z)
+	var q := p + (to.normalized() if to.length() > 0.05 else Vector3.RIGHT) * minf(to.length(), boss.monster_def.attack_range + boss.radius)
+	for h in m.get("hazards", []):
+		if not h.get("landed", false) or not (h.get("empower") is Dictionary) or int(h["owner"]) != boss.id:
+			continue
+		if BossSignatures.inside(h, p, e.radius + Balance.BOT_DODGE_PAD) or BossSignatures.inside(h, q, boss.radius):
+			return false
+	return true
+
+## Marca de espalhar em mim: das 8 direções (até BOT_SIG_SPREAD_DIST m), o ponto andável mais longe dos aliados e das outras marcas.
+func _spread_spot(e: SimEntity, sim, m: Dictionary, hz: Array) -> Vector3:
+	var others: Array = []
+	for o: SimEntity in m.get("chars", m["entities"]):
+		if o != e and o.is_alive() and o.is_character() and not o.is_hostile_to(e) and o.position.distance_to(e.position) < Balance.BOT_SIG_SPREAD_SCAN:
+			others.append(o.position)
+	for h in hz:
+		if h.get("mark", false) and int(h.get("victim", -1)) != e.id:
+			others.append(h["pos"])
+	var best := e.position
+	var best_s := -INF
+	for k in range(8):
+		var a := TAU * k / 8.0
+		var p := e.position + Vector3(cos(a), 0, sin(a)) * Balance.BOT_SIG_SPREAD_DIST
+		if not MapGeometry.is_walkable(sim, p, m["def"], e.radius):
+			continue
+		var sc := INF
+		for q: Vector3 in others:
+			sc = minf(sc, Vector2(q.x - p.x, q.z - p.z).length())
+		if sc > best_s:
+			best_s = sc
+			best = p
+	return best
+
+## Skill de atordoar pronta que alcança o alvo (-1 = nenhuma).
+func _stun_skill(e: SimEntity, mob: SimEntity, dist: float) -> int:
+	for i in range(e.skills.size()):
+		var s := e.skills[i]
+		if s == null or not s.effects.has("stun") or e.level < s.unlock_level or not e.stats.meets(s.requires) or not _ready_to_cast(e, s):
+			continue
+		if e.is_character() and not e.knows(s.id):
+			continue
+		var reach := s.range if s.target != SkillDef.Target.SELF else s.radius
+		if s.target == SkillDef.Target.CONE:
+			reach = s.radius
+		if dist <= maxf(reach, 1.5) + 0.3:
+			return i
+	return -1
+
+## Guardar o atordoar: o chefe por perto tem canal que volta em menos de BOT_SIG_STUN_SAVE da recarga.
+static func _save_stun(sim, mob: SimEntity) -> bool:
+	var b := _sig_boss(sim, mob)
+	if b == null or b.sig.has("channel"):
+		return false
+	for s: SkillDef in b.skills:
+		if s != null and s.effects.has("boss_channel"):
+			return float(b.cooldowns.get(s.id, 0.0)) < s.cooldown * Balance.BOT_SIG_STUN_SAVE
+	return false
 
 func _pick_monster(e: SimEntity, m: Dictionary) -> SimEntity:
 	var best: SimEntity = null
@@ -1030,7 +1380,11 @@ func _follow(e: SimEntity, sim, m: Dictionary, leader: SimEntity, cmd: InputComm
 			cmd.aim = portal["pos"]
 		return cmd
 	var members: Array = sim.party_members(e)
+	if not in_town and _soak_move(e, sim, m, cmd):      # Machado do Trono: entra no círculo a tempo (passa na frente da cura)
+		return cmd
 	if _choir(e, sim, m, members, cmd):          # Bispo ascendido: Retorno/Barreira/Anjo passam na frente da cura
+		return cmd
+	if _evade_boss(e, sim, m, cmd):              # quem cura sai do alcance do Matador (Golpe de Misericórdia)
 		return cmd
 	if _heal_party(e, sim, members, cmd, dt):
 		return cmd
@@ -1088,7 +1442,7 @@ func _taunt_party(e: SimEntity, sim, m: Dictionary, members: Array, cmd: InputCo
 			if ptank != null and o.aggro_target == ptank.id:
 				continue
 			var mine: bool = o.aggro_target == e.id
-			if (not mine and members.any(func(x): return x.id == o.aggro_target)) or (mine and tank and _threat_close(e, o, members)):
+			if (not mine and members.any(func(x): return x.id == o.aggro_target)) or (mine and tank and (_threat_close(e, o, members) or soft_in_danger(o, members))):
 				cmd.skill_slot = i
 				cmd.aim = o.position
 				return true
@@ -1149,6 +1503,8 @@ func _heal_party(e: SimEntity, sim, members: Array, cmd: InputCommand, dt: float
 			cmd.skill_slot = i
 			cmd.aim = hurt.position
 			return true
+		if soak_pin:
+			continue                           # dentro do Machado do Trono: não sai para curar de perto
 		cmd.move = _steer(e, hurt.position, dt)
 		cmd.aim = hurt.position
 		return true
@@ -1231,18 +1587,61 @@ static func _in_front(e: SimEntity, mob: SimEntity, tank: SimEntity) -> bool:
 	if to.length() > mob.radius + e.radius + Balance.BOT_FRONT_RANGE or to.length() < 0.01:
 		return false
 	var f3 := _front_dir(mob, tank)
-	return absf(Vector2(f3.x, f3.z).angle_to(to)) < deg_to_rad(Balance.BOT_FRONT_ARC_DEG)
+	return absf(Vector2(f3.x, f3.z).angle_to(to)) < deg_to_rad(front_arc(mob))
+
+## Meia-abertura da frente do monstro em graus: BOT_FRONT_ARC_DEG ou, se ele tem golpe em cone mais largo (talho de 150° do
+## Durgash), metade do cone + BOT_FRONT_ARC_PAD. Cone de 240°+ é giro (ninguém escapa ficando de lado): não conta.
+static func front_arc(mob: SimEntity) -> float:
+	var arc := Balance.BOT_FRONT_ARC_DEG
+	for s in mob.skills:
+		if s and s.target == SkillDef.Target.CONE and s.cone_angle_deg < 240.0:
+			arc = maxf(arc, s.cone_angle_deg * 0.5 + Balance.BOT_FRONT_ARC_PAD)
+	return minf(arc, Balance.BOT_FRONT_ARC_MAX)
 
 ## Lugar do papel com o tanque segurando o monstro: perto = costas (espalhados por id); longe = flanco de trás a
 ## BOT_RANGED_DIST m; quem cura fica a até BOT_HEALER_LEASH m do tanque.
 func _role_spot(e: SimEntity, sim, mob: SimEntity, melee: bool, reach: float, tank: SimEntity) -> Vector3:
+	var spot := _role_spot_raw(e, sim, mob, melee, reach, tank)
+	var m: Dictionary = sim.maps.get(e.map_id, {})
+	if m.is_empty() or _pool_free(m, spot, e.radius + Balance.BOT_DODGE_PAD, true):
+		return spot
+	var out := _free_near(m, spot, e.radius + Balance.BOT_DODGE_PAD, 6.0, true)      # lugar caiu numa poça: o ponto livre mais perto dele
+	return out if out != Vector3.INF else spot
+
+## Fora de toda poça que fica (hazard `landed`, círculo) e (sem `landed_only`) de todo círculo ainda por cair, com folga `pad`.
+static func _pool_free(m: Dictionary, p: Vector3, pad: float, landed_only: bool = false) -> bool:
+	for h in m.get("hazards", []):
+		if str(h.get("shape", "circle")) != "circle" or h.get("invert", false) or h.get("mark", false):
+			continue
+		if landed_only and not h.get("landed", false):
+			continue
+		if BossSignatures.inside(h, p, pad):
+			return false
+	return true
+
+## Ponto livre (_pool_free) mais perto de `p`: 16 direções em passos de 0,75 m até `maxd`. INF = nenhum.
+static func _free_near(m: Dictionary, p: Vector3, pad: float, maxd: float, landed_only: bool = false) -> Vector3:
+	var d := 0.75
+	while d <= maxd:
+		for k in range(16):
+			var a := TAU * k / 16.0
+			var q := p + Vector3(cos(a), 0, sin(a)) * d
+			if _pool_free(m, q, pad, landed_only):
+				return q
+		d += 0.75
+	return Vector3.INF
+
+func _role_spot_raw(e: SimEntity, sim, mob: SimEntity, melee: bool, reach: float, tank: SimEntity) -> Vector3:
 	var back := -_front_dir(mob, tank)
+	var slot := _slot(e, sim, melee)           # vaga entre os do mesmo jeito (perto/longe) no grupo: raide de 5 sem dois no mesmo lugar
 	if melee:
-		var ang := (float(e.id % 3) - 1.0) * Balance.BOT_BACK_SPREAD
+		var ang := 0.0 if slot.y <= 1 else lerpf(-Balance.BOT_BACK_SPREAD, Balance.BOT_BACK_SPREAD, float(slot.x) / float(slot.y - 1))
 		return mob.position + back.rotated(Vector3.UP, ang) * (mob.radius + e.radius + reach * 0.6)
-	var side := 1.0 if e.id % 2 == 0 else -1.0
+	var side := 1.0 if slot.x % 2 == 0 else -1.0
 	var d := minf(Balance.BOT_RANGED_DIST, maxf(reach * 0.8, 3.0))
-	var spot := mob.position + back.rotated(Vector3.UP, side * Balance.BOT_RANGED_SPREAD) * (mob.radius + d)
+	var ang_r := Balance.BOT_RANGED_SPREAD + float(slot.x / 2) * Balance.BOT_RANGED_SPREAD_STEP
+	ang_r = minf(ang_r, PI - deg_to_rad(front_arc(mob)) - 0.1)     # nunca entra na frente do chefe
+	var spot := mob.position + back.rotated(Vector3.UP, side * ang_r) * (mob.radius + d)
 	if _role(e, sim) == "healer" and spot.distance_to(tank.position) > Balance.BOT_HEALER_LEASH:
 		spot = tank.position + (spot - tank.position).limit_length(Balance.BOT_HEALER_LEASH - 1.0)
 	return spot
@@ -1383,3 +1782,107 @@ func _peel_target(e: SimEntity, sim, m: Dictionary, members: Array) -> SimEntity
 		if o.id == hunt_target_id or not members.any(func(x): return x != e and x.brain is BotBrain and x.brain.hunt_target_id == o.id):
 			return o
 	return null
+
+## Vaga de `e` entre os membros vivos (fora o tanque) do mesmo jeito de lutar (perto = true): Vector2i(índice, quantos).
+func _slot(e: SimEntity, sim, melee: bool) -> Vector2i:
+	var i := 0
+	var n := 0
+	for o in sim.party_members(e):
+		if o.map_id != e.map_id or not o.is_alive() or sim.role_of(o) == "tank":
+			continue
+		var om: bool = o.class_def == null or not o.class_def.basic_attack_is_ranged or (o.basic_skill != null and o.basic_skill.target == SkillDef.Target.CONE)
+		if om != melee:
+			continue
+		if o == e:
+			i = n
+		n += 1
+	return Vector2i(i, maxi(n, 1))
+
+## Tanque de raide (BOT_TANK_TURN_MIN+ vivos no grupo): onde ficar para o chefe ficar de costas para o grupo, quando o meio do
+## grupo está dentro da frente dele (front_arc). Vector3.INF = o grupo já está fora da frente.
+func _turn_spot(e: SimEntity, sim, mob: SimEntity, reach: float) -> Vector3:
+	var c := Vector3.ZERO
+	var n := 0
+	for o in sim.party_members(e):
+		if o != e and o.is_alive() and o.map_id == e.map_id and o.position.distance_to(mob.position) < Balance.BOT_GROUP_CENTROID:
+			c += o.position
+			n += 1
+	if n + 1 < Balance.BOT_TANK_TURN_MIN:
+		return Vector3.INF
+	c /= float(n)
+	var to_c := Vector2(c.x - mob.position.x, c.z - mob.position.z)
+	var f3 := _front_dir(mob, e)
+	if to_c.length() < 0.5 or absf(Vector2(f3.x, f3.z).angle_to(to_c)) >= deg_to_rad(front_arc(mob)):
+		return Vector3.INF
+	var away := -Vector3(to_c.x, 0.0, to_c.y).normalized()
+	return mob.position + away * (mob.radius + e.radius + reach * 0.7)
+
+## Lacaio de `ward` (raide, GDD kharzun §4): o alvo é um chefe (ou lacaio dele) com o escudo dos lacaios ligado. Quem não é
+## tanque nem cura vai no lacaio vivo do chefe a até BOT_WARD_RANGE m: estandarte (lacaio parado) primeiro, o mais perto.
+## null = segue no alvo (sem grupo, sem ward, ou já num lacaio do mesmo tipo).
+func _ward_add(e: SimEntity, sim, m: Dictionary, mob: SimEntity) -> SimEntity:
+	if e.party_id < 0 or mob.monster_def == null:
+		return null
+	var boss: SimEntity = mob if mob.monster_def.is_boss else sim.entities.get(mob.boss_id)
+	if boss == null or not boss.is_alive() or boss.ward <= 0.0 or _role(e, sim) in ["tank", "healer"]:
+		return null
+	var best: SimEntity = null
+	var best_v := INF
+	var r2 := Balance.BOT_WARD_RANGE * Balance.BOT_WARD_RANGE
+	for o: SimEntity in m["entities"]:
+		if o.boss_id != boss.id or o.kind != SimEntity.Kind.MONSTER or not o.is_alive() or o.stealth_left > 0.0:
+			continue
+		var d2: float = o.position.distance_squared_to(e.position)
+		if d2 > r2:
+			continue
+		var v := d2 + (0.0 if is_banner(o) else 10000.0)       # estandarte antes de qualquer lacaio que anda
+		if v < best_v:
+			best_v = v
+			best = o
+	if best == null or best == mob or (mob != boss and is_banner(mob) == is_banner(best)):
+		return null                          # já num lacaio do mesmo tipo: não fica trocando
+	return best
+
+## Lacaio parado (Estandarte de Clã): velocidade 0.
+static func is_banner(o: SimEntity) -> bool:
+	return o.monster_def != null and o.monster_def.move_speed <= 0.0
+
+## Chefe/elite (sem provocação valendo) a até BOT_GUARD_SOFT m de quem cura no grupo, ou mirando nele uma skill de mob_pick
+## (faca, Passo nas Costas do Matador): o tanque provoca de novo (_taunt_party).
+static func soft_in_danger(o: SimEntity, members: Array) -> bool:
+	if not _is_big(o) or o.taunt_left > 0.0:
+		return false
+	var aim_soft: bool = o.state == SimEntity.State.CASTING and o.current_skill != null and o.current_skill.mob_pick != ""
+	for x in members:
+		if x.id == o.aggro_target or not x.is_alive() or x.map_id != o.map_id or MobSystem.role_of(x) != "healer":
+			continue
+		if o.position.distance_to(x.position) < Balance.BOT_GUARD_SOFT + o.radius:
+			return true
+		if aim_soft and Vector2(o.skill_aim.x - x.position.x, o.skill_aim.z - x.position.z).length() < Balance.BOT_SOFT_AIM:
+			return true
+	return false
+
+## Quem cura: chefe com golpe curto que escolhe quem cura (soft_striker: Golpe de Misericórdia) a menos de BOT_HEALER_EVADE m
+## e sem me ter por alvo -> sai para longe dele (um passo; o tanque o leva de volta). true = andou.
+func _evade_boss(e: SimEntity, sim, m: Dictionary, cmd: InputCommand) -> bool:
+	if e.party_id < 0 or not e.can_act() or _role(e, sim) != "healer":
+		return false
+	for o: SimEntity in m["entities"]:
+		if o.kind != SimEntity.Kind.MONSTER or o.monster_def == null or not o.monster_def.is_boss or o.aggro_target == e.id or o.aggro_target < 0:
+			continue
+		var to := Vector2(e.position.x - o.position.x, e.position.z - o.position.z)
+		if to.length() > Balance.BOT_HEALER_EVADE + o.radius + e.radius or not o.is_alive() or not soft_striker(o):
+			continue
+		var dir := to.normalized() if to.length() > 0.05 else Vector2.RIGHT
+		cmd.move = dir
+		cmd.aim = e.position + Vector3(dir.x, 0.0, dir.y) * 3.0
+		engaged = false
+		return true
+	return false
+
+## O chefe tem golpe curto que escolhe quem cura (mob_pick "soft", alcance até BOT_HEALER_EVADE m)?
+static func soft_striker(o: SimEntity) -> bool:
+	for s in o.skills:
+		if s and s.mob_pick == "soft" and s.target == SkillDef.Target.TARGET and s.range <= Balance.BOT_HEALER_EVADE:
+			return true
+	return false

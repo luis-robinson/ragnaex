@@ -18,8 +18,16 @@ static func spread_gather(sim: WorldSim, def: MapDef) -> Array:
 				p = at + Vector3(cos(a) * d, 0, sin(a) * d)
 				if MapGeometry.is_walkable(sim, p, def, 0.6):
 					break
-			out.append({"item": rule["item"], "kind": rule.get("kind", "herb"), "pos": p, "ready_at": 0.0, "min": int(rule.get("min", 1)), "max": int(rule.get("max", 2))})
+			var node := {"item": rule["item"], "kind": rule.get("kind", "herb"), "pos": p, "ready_at": 0.0, "min": int(rule.get("min", 1)), "max": int(rule.get("max", 2))}
+			for k in ["if", "unless"]:                # estágio (WorldState): brasa só depois da Forja Negra
+				if rule.has(k):
+					node[k] = rule[k]
+			out.append(node)
 	return out
+
+## O ponto está para colher agora (rebrotou e vale no estágio do mundo)?
+static func node_ready(sim: WorldSim, node: Dictionary) -> bool:
+	return float(node["ready_at"]) <= sim.time and WorldState.active(sim, node)
 
 ## Ponto pronto mais perto de `e` dentro do alcance (ou {}).
 static func nearest_gather(sim: WorldSim, e: SimEntity) -> Dictionary:
@@ -28,7 +36,7 @@ static func nearest_gather(sim: WorldSim, e: SimEntity) -> Dictionary:
 	var best: Dictionary = {}
 	var bd := Balance.GATHER_RANGE
 	for node in sim.maps[e.map_id].get("gather", []):
-		if float(node["ready_at"]) > sim.time:
+		if not node_ready(sim, node):
 			continue
 		var d: float = Vector2(node["pos"].x - e.position.x, node["pos"].z - e.position.z).length()
 		if d < bd:
@@ -60,7 +68,7 @@ static func update_gather(sim: WorldSim, e: SimEntity, cmd: InputCommand, action
 		return
 	var node := e.gather_node
 	if not e.is_alive() or cmd.move.length_squared() > 0.04 or action_cmd.attack or action_cmd.skill_slot >= 0 or action_cmd.dash \
-			or action_cmd.jump or cmd.block or e.hp < e.gather_hp - 0.5 or e.combat_timer > 0.0 or float(node.get("ready_at", 0.0)) > sim.time:
+			or action_cmd.jump or cmd.block or e.hp < e.gather_hp - 0.5 or e.combat_timer > 0.0 or float(node.get("ready_at", 0.0)) > sim.time or not WorldState.active(sim, node):
 		e.gather_left = 0.0                  # andou, atacou, apanhou ou alguém colheu antes
 		e.gather_node = {}
 		return

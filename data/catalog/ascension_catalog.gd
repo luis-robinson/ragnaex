@@ -19,10 +19,13 @@ const NODES := {
 		# refinos 40/45 por build (GDD R6.1), portões lidos por TitanSystem/GladiatorSystem
 		{"id": "twin_spin", "name": "Giro dos Dois Machados", "level": 40, "branch": "carniceiro", "cost": 3, "flag": Balance.CYCLONE_LONG_FLAG,
 			"desc": "Ciclone de Titã: os dois machados giram juntos — 6 giros em 3 s (eram 4 em 2 s)."},
+		# Gêmeos 45 (decisão do autor 2026-11-13: a build não tinha refino no 45 e dava F5 x1,078 contra Kragmar)
+		{"id": "twin_fury", "name": "Fúria Gêmea", "level": 45, "branch": "carniceiro", "cost": 3, "flag": Balance.TWIN_FURY_FLAG, "stats": {"atk_pct": Balance.TWIN_FURY_ATK},
+			"desc": "Os dois machados não param: +%d%% de dano." % Balance.TWIN_FURY_ATK},
 		{"id": "second_axe", "name": "Segundo Machado", "level": 40, "branch": "executor", "cost": 3, "flag": Balance.SECOND_AXE_FLAG,
 			"desc": "Com dois machados de 2 mãos: em alvo abaixo de 20% da vida toda skill bate também com o 2º machado (golpe duplo)."},
 		{"id": "arena_finale", "name": "Golpe Final da Arena", "level": 45, "branch": "executor", "cost": 3, "flag": Balance.ARENA_FINALE_FLAG,
-			"desc": "Golpe Final (gasta 5 de Glória): +20% de poder e atordoa 1 s quem atinge."},
+			"desc": "Golpe Final (gasta 5 de Glória): +%d%% de poder e atordoa 1 s quem atinge." % ((Balance.ARENA_FINALE["power"] - 1.0) * 100.0 + 0.5)},
 		{"id": "fury_lit", "name": "Fúria Acesa", "level": 40, "branch": "punhos", "cost": 3, "flag": Balance.FURY_LIT_FLAG,
 			"desc": "Ao lançar o Ciclone de Titã, a Fúria do Punho (e a Glória, na postura) demora 6 s a mais para esfriar."},
 		{"id": "glory_keep", "name": "Glória que Não Esfria", "level": 45, "branch": "punhos", "cost": 3, "flag": Balance.GLORY_KEEP_FLAG,
@@ -105,12 +108,12 @@ const NODES := {
 		{"id": "fire_refine", "name": "Salamandra", "level": 40, "branch": "fogo", "cost": 3, "flag": "elem_refine_fire",
 			"desc": "O elemental na forma de fogo ganha +15% de ataque e de vida."},
 		{"id": "fire_heart", "name": "Coração de Brasa", "level": 43, "branch": "fogo", "cost": 3, "stats": {"crit": 2.0}},
-		{"id": "fire_lord", "name": "Senhor das Chamas", "level": 45, "branch": "fogo", "cost": 5, "stats": {"fire_pct": 6}},
+		{"id": "fire_lord", "name": "Senhor das Chamas", "level": 45, "branch": "fogo", "cost": 5, "stats": {"fire_pct": Balance.ASC_FIRE_LORD_PCT}},
 		{"id": "frost_rime", "name": "Geada Fina", "level": 37, "branch": "gelo", "cost": 2, "stats": {"frost_pct": 4}},
 		{"id": "frost_refine", "name": "Golem de Gelo", "level": 40, "branch": "gelo", "cost": 3, "flag": "elem_refine_frost",
 			"desc": "O elemental na forma de gelo ganha +15% de ataque e de vida."},
 		{"id": "frost_shell", "name": "Casca de Gelo", "level": 43, "branch": "gelo", "cost": 3, "stats": {"def_pct": 4}},
-		{"id": "frost_lord", "name": "Senhora do Inverno", "level": 45, "branch": "gelo", "cost": 5, "stats": {"frost_pct": 6}},
+		{"id": "frost_lord", "name": "Senhora do Inverno", "level": 45, "branch": "gelo", "cost": 5, "stats": {"frost_pct": Balance.ASC_FROST_LORD_PCT}},
 		{"id": "storm_spark", "name": "Faísca Solta", "level": 37, "branch": "raio", "cost": 2, "stats": {"storm_pct": 4}},
 		{"id": "storm_refine", "name": "Silfo", "level": 40, "branch": "raio", "cost": 3, "flag": "elem_refine_storm",
 			"desc": "O elemental na forma de raio ganha +15% de ataque e de vida."},
@@ -135,16 +138,16 @@ const NODES := {
 		{"id": "cru_lance", "name": "Lança Pesada", "level": 40, "branch": "cruzado", "cost": 3, "flag": "pal_long_lance",
 			"desc": "Carga Montada vai 30% mais longe."},
 		{"id": "cru_arm", "name": "Braço do Cruzado", "level": 43, "branch": "cruzado", "cost": 3, "stats": {"attr_FOR": 16}, "desc": "Notável: +16 FOR."},
-		{"id": "cru_wrath", "name": "Ira Sagrada", "level": 45, "branch": "cruzado", "cost": 5, "stats": {"atk_pct": 5}},
+		{"id": "cru_wrath", "name": "Ira Sagrada", "level": 45, "branch": "cruzado", "cost": 5, "stats": {"atk_pct": Balance.ASC_CRU_WRATH_ATK}},
 		{"id": "tem_seal", "name": "Selo do Templo", "level": 36, "branch": "templario", "cost": 2, "stats": {"atk_pct": 3}},
 		{"id": "tem_well", "name": "Fonte de Luz", "level": 38, "branch": "templario", "cost": 2, "stats": {"mp_pct": 6}},
-		{"id": "tem_rune", "name": "Runa do Templo", "level": 40, "branch": "templario", "cost": 3, "stats": {"attr_INT": 16}, "desc": "Notável: +16 INT."},
+		{"id": "tem_rune", "name": "Runa do Templo", "level": 40, "branch": "templario", "cost": 3, "stats": {"attr_INT": Balance.ASC_TEM_RUNE_INT}, "desc": "Notável: +%d INT." % Balance.ASC_TEM_RUNE_INT},
 		{"id": "tem_wings", "name": "Asas Protetoras", "level": 40, "branch": "templario", "cost": 3, "flag": Balance.ARCANE_WARD_FLAG,
 			"desc": "Modo Arcano gasta metade da MP; as asas dão 10% de redução de dano ao grupo a 6 m."},
 		{"id": "tem_banner", "name": "Estandarte", "level": 45, "branch": "templario", "cost": 3, "flag": Balance.MOUNT_BANNER_FLAG,
 			"desc": "Montado, as suas auras de grupo alcançam 50% mais longe."},
 		{"id": "tem_guard", "name": "Guarda Erguida", "level": 43, "branch": "templario", "cost": 3, "stats": {"def_pct": 4}},
-		{"id": "tem_dawn", "name": "Aurora do Templo", "level": 45, "branch": "templario", "cost": 5, "stats": {"matk_pct": 5, "atk_pct": 2}},
+		{"id": "tem_dawn", "name": "Aurora do Templo", "level": 45, "branch": "templario", "cost": 5, "stats": {"matk_pct": Balance.ASC_TEM_DAWN_MATK}},
 	],
 	# Druida (Forma Ancestral, DruidAscension): por build, 2 passivos, o refino do 40, 1 passivo e o refino do 45
 	# (Balance.ANC_REFINE_*: na forma ancestral, variantes e skills da forma com mais poder e duração por refino).
@@ -206,6 +209,7 @@ const NODES := {
 const BOT_ORDER := {
 	"paladin": ["pal_arcane_mode", "pal_mounted_charge", "pal_trample"],
 	"berserker": ["ber_gladiator", "ber_glad_fire", "ber_glad_finale"],
+	"berserker/carniceiro": ["ber_gladiator", "ber_glad_fire", "ber_glad_finale", "ber_titan_cyclone"],     # Gêmeos: o Ciclone de Titã na barra (F5 2026-11-13)
 	"elementalist": ["ele_asc_fusion", "ele_asc_command"],
 	"bishop": ["bis_choir_angel", "bis_choir_barrier", "bis_choir_return", "bis_choir_aegis", "bis_choir_wings"],     # Retorno só aos 45 (antes: as duas bênçãos)
 	"ranger/atirador": ["ran_turret"],

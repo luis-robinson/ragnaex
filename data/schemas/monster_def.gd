@@ -36,7 +36,14 @@ extends Resource
 @export var escort: Dictionary = {}         ## líder com escolta: {id, count} nascem junto e o seguem (capitão e bestas)
 @export var swap: Dictionary = {}           ## troca de arma com pouca vida: {hp (0-1), as: id do monstro cujo ataque/alcance passa a usar, stance}
 @export var front_guard: float = 0.0         ## escudo de frente (Guardião de Ossos): corta esta fração do golpe físico que vem da frente; costas e magia passam
+## Troll Rei (R-E, GDD act2-boss-signatures 3.3): as skills listadas deixam um pedregulho (cobertura) no chão.
+## {"radius": 1.2, "time": 40, "skills": ["mob_boulder_barrage"]}; máximo Balance.TROLL_COVER_MAX.
+@export var cover: Dictionary = {}
+## Shazka (R-F, GDD act2-boss-signatures 3.7): cópia de chefe. Morre com 1 golpe, não projeta sombra, não conta como chefe;
+## morrendo solta a nuvem de veneno do dono (BossSignatures.on_death).
+@export var decoy: bool = false
 @export var berserk_after: float = 0.0     ## chefe: s de luta até enlouquecer (dano × Balance.BOSS_BERSERK_MULT); 0 = nunca
+@export var berserk_mult: float = 0.0      ## chefe: dano × isto depois de berserk_after; 0 = Balance.BOSS_BERSERK_MULT (Durgash: a raide pede 5)
 @export var crowd_skills: Array[String] = []  ## chefe: skills que entram quando a luta chega a Balance.BOSS_CROWD_EXTRA_FROM pessoas (pico; valem até o reset)
 @export var crowd_say: String = ""          ## chefe: fala quando as crowd_skills entram
 @export var faction: String = ""            ## facção (ex.: "horde"): quem recebe a aura de outro monstro da mesma facção
@@ -45,4 +52,5 @@ extends Resource
 @export var unit_mods: Dictionary = {}      ## Ato II: mod_unidade da F2 ({hp, atk}) sobre o papel
 @export var skill_delay: float = 0.0       ## s depois de entrar na briga antes da 1ª skill especial (abre no golpe básico); Ato II 35+: Balance.HORDE_LATE_35
 @export var regen: float = 0.0            ## Ato II (F3): regeneração de troll = isto × Balance.TROLL_REGEN_PCT × vida máxima por s; fogo/veneno param
+@export var burn_immune: bool = false ## Ato II (Kharzun): queimadura (dot de fogo) não pega (Salamandra de Lava); o golpe de fogo ainda dói
 @export var phases: Array = []            ## chefe, em ordem de HP: {hp (0-1), say, skills, summon: {id, count, max, pick}, enrage, ward (0-1: corte de dano com lacaio vivo)}

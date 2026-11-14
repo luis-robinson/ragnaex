@@ -84,6 +84,9 @@ static func ambient_choice(sim, e: SimEntity, situation: bool = true) -> Array:
 			return [pool("place:boss"), {"boss": boss.monster_def.name}]
 	if kind.ends_with("_town") and WorldState.done(sim).has(MapsCatalog.VICTORY_QUEST) and sim.rng.randf() < Balance.BOT_CHAT_VICTORY:
 		return [pool("place:victory"), {}]       # fim do Ato I: a cidade comemora
+	if (kind in BotsCatalog.KHARZUN_VICTORY_KINDS or def.id == "city_port") and WorldState.done(sim).has(MapsCatalog.Q_KH_WARLORD) \
+			and sim.rng.randf() < Balance.BOT_CHAT_VICTORY:
+		return [pool("place:kharzun_victory"), {}]       # fim do Ato II: o acampamento e o porto comemoram
 	if e.class_def == null or sim.rng.randf() < Balance.BOT_CHAT_PLACE:
 		var inside := kind.ends_with("_town")
 		return [pool("place:" + kind) + pool("map:%s_%s" % ["town" if inside else "hunt", def.id]), {}]

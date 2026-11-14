@@ -277,6 +277,133 @@ static func build(classes: Dictionary) -> Array:
 		 "effects": {"barrage": {"count": 5, "radius": 2.4, "delay": 1.4, "spread": 10.0}, "slow": {"pct": 40, "duration": 2.0}}},
 		{"id": "mob_call_vanguard", "name": "Chamar a Vanguarda", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 26.0, "radius": 0.0, "startup": 0.8, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.6, 0.65, 0.4), "vfx": "summon",
 		 "effects": {"boss_summon": {"id": "orc_vanguard", "count": 2, "max": 4}}},
+		# ---- Ato II, Monte Kharzun (40-45): estágios de cima da Horda e nativos da montanha ----
+		# Assassino Goblin / Matador: passo sombrio (avanço curto, faca envenenada), sumir na fumaça e execução de quem está caído
+		{"id": "mob_shadow_step", "name": "Passo Sombrio", "target": T_DIR, "kind": K_PHYS, "power": 1.3, "cooldown": 9.0, "range": 6.0, "radius": 1.0, "startup": 0.4, "active": 0.1, "recovery": 0.5, "hit_stop_frames": 3, "icon_color": Color(0.4, 0.3, 0.5),
+		 "effects": {"dash": 5.0, "dot": {"dps": 6, "duration": 4}}},
+		{"id": "mob_slayer_vanish", "name": "Sumir na Fumaça", "clip": "shout", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 16.0, "radius": 0.0, "startup": 0.4, "active": 0.1, "recovery": 0.3, "icon_color": Color(0.5, 0.5, 0.55), "vfx": "poison",
+		 "effects": {"stealth": 1.5}},
+		{"id": "mob_slayer_execute", "name": "Execução do Matador", "target": T_DIR, "kind": K_PHYS, "power": 2.4, "cooldown": 10.0, "range": 5.0, "radius": 1.0, "startup": 0.5, "active": 0.1, "recovery": 0.5, "hit_stop_frames": 5, "icon_color": Color(0.55, 0.2, 0.3), "vfx": "shadow",
+		 "effects": {"dash": 4.0, "execute": {}}},
+		# Lobo Atroz / Ginete do Lobo Atroz: investida em linha
+		{"id": "mob_dire_charge", "name": "Investida Atroz", "target": T_DIR, "kind": K_PHYS, "power": 1.5, "cooldown": 9.0, "range": 8.0, "radius": 1.1, "startup": 0.6, "active": 0.15, "recovery": 0.55, "hit_stop_frames": 4, "icon_color": Color(0.6, 0.6, 0.62), "vfx": "earth",
+		 "effects": {"dash": 7.0}},
+		# Arco de Fogo: três círculos de brasa avisados (queimam)
+		{"id": "mob_ember_volley", "name": "Saraivada de Brasas", "target": T_GROUND, "kind": K_PHYS, "power": 1.0, "cooldown": 10.0, "range": 12.0, "radius": 2.0, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(1.0, 0.45, 0.15), "vfx": "fire",
+		 "effects": {"barrage": {"count": 3, "radius": 2.0, "delay": 1.5, "spread": 6.0}, "dot": {"dps": 5, "duration": 3}}},
+		# Senhor da Guerra: talho largo
+		{"id": "mob_warlord_cleave", "name": "Talho do Senhor da Guerra", "clip": "atk_sweep", "target": T_CONE, "kind": K_PHYS, "power": 1.6, "cooldown": 8.0, "radius": 3.4, "cone_angle_deg": 130, "startup": 0.6, "active": 0.15, "recovery": 0.5, "hit_stop_frames": 5, "icon_color": Color(0.6, 0.5, 0.35)},
+		# Brutamontes: abalo que atordoa (menor que o do Rei-da-Rocha)
+		{"id": "mob_brute_quake", "name": "Abalo do Brutamontes", "clip": "shout", "target": T_SELF, "kind": K_PHYS, "power": 1.3, "cooldown": 13.0, "radius": 4.5, "startup": 0.9, "active": 0.2, "recovery": 0.6, "hit_stop_frames": 5, "icon_color": Color(0.45, 0.5, 0.6), "vfx": "earth",
+		 "effects": {"stun": {"duration": 0.7}}},
+		# Guarda de Clã: golpe de escudo
+		{"id": "mob_shield_bash", "name": "Golpe de Escudo-Torre", "target": T_DIR, "kind": K_PHYS, "power": 1.3, "cooldown": 9.0, "range": 2.6, "radius": 1.1, "startup": 0.45, "active": 0.1, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(0.6, 0.4, 0.3), "vfx": "earth",
+		 "effects": {"stun": {"duration": 0.5}}},
+		# Salamandra de Lava: cuspe de lava em cone (queima)
+		{"id": "mob_lava_spit", "name": "Cuspe de Lava", "target": T_CONE, "kind": K_MAG, "power": 1.3, "cooldown": 7.0, "radius": 5.0, "cone_angle_deg": 60, "startup": 0.6, "active": 0.15, "recovery": 0.5, "hit_stop_frames": 3, "icon_color": Color(1.0, 0.4, 0.1), "vfx": "fire",
+		 "effects": {"dot": {"dps": 8, "duration": 3}}},
+		# Golem de Basalto: pisão em volta (retarda) e fendas de lava avisadas no chão
+		{"id": "mob_basalt_stomp", "name": "Pisão de Basalto", "clip": "shout", "target": T_SELF, "kind": K_PHYS, "power": 1.5, "cooldown": 10.0, "radius": 4.0, "startup": 0.9, "active": 0.2, "recovery": 0.6, "hit_stop_frames": 5, "icon_color": Color(0.35, 0.32, 0.35), "vfx": "earth",
+		 "effects": {"slow": {"pct": 40, "duration": 2.5}}},
+		{"id": "mob_lava_crack", "name": "Fendas de Lava", "clip": "cast_ground", "target": T_GROUND, "kind": K_PHYS, "power": 1.1, "cooldown": 12.0, "range": 11.0, "radius": 2.2, "startup": 0.7, "active": 0.1, "recovery": 0.5, "icon_color": Color(1.0, 0.4, 0.12), "vfx": "fire",
+		 "effects": {"barrage": {"count": 3, "radius": 2.2, "delay": 1.5, "spread": 6.0}, "dot": {"dps": 6, "duration": 3}}},
+		# ---- Assinaturas dos chefes (design/gdd/act2-boss-signatures.md; regras em BossSignatures; somam ao kit) ----
+		# Mãe das Marés — Maré Cheia (3.1): ilhas; quem fica fora leva o golpe e fica lento
+		{"id": "mob_tide_flood", "name": "Maré Cheia", "clip": "shout", "target": T_SELF, "kind": K_MAG, "power": 1.6, "cooldown": 30.0, "radius": 0.0, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.3, 0.6, 0.95), "vfx": "ice", "boss_signature": true,
+		 "effects": {"islands": {"radius": 2.5, "delay": 3.0, "near_min": 6.0, "near_max": 12.0, "slow": {"pct": 40, "duration": 3.0}, "say": "A maré sobe! Só as pedras ficam secas!"}}},
+		# Agitador-Mor Grukk — Rufar da Turba (3.2): canal de 4 s; quebra com atordoar ou 6% da vida
+		{"id": "mob_drum_frenzy", "name": "Rufar da Turba", "clip": "shout", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 35.0, "radius": 0.0, "startup": 0.5, "active": 4.0, "recovery": 0.4, "icon_color": Color(0.9, 0.3, 0.15), "vfx": "blood", "boss_signature": true,
+		 "effects": {"boss_channel": {"say": "Ouçam o rufar! Quando ele parar, a turba vira TUMULTO!", "warn": "INTERROMPAM O TAMBOR!", "break_say": "O tambor rasgou!", "break_radius": 2.5,
+			"on_done": {"buff": {"id": "mob_frenzy", "atk_pct": 40.0, "duration": 12.0}, "radius": 20.0, "heal_pct": 0.3, "summon": {"id": "goblin_rabble", "count": 2, "max": 7}, "say": "TUMULTO!"}}}},
+		# Troll Rei-da-Rocha — Avalanche (3.3): onda em volta; quem tem pedregulho entre si e ele não leva (MonsterDef.cover)
+		{"id": "mob_troll_avalanche", "name": "Avalanche", "clip": "shout", "target": T_SELF, "kind": K_PHYS, "power": 2.2, "cooldown": 30.0, "radius": 0.0, "startup": 2.5, "active": 0.2, "recovery": 0.8, "hit_stop_frames": 6, "icon_color": Color(0.6, 0.6, 0.66), "vfx": "earth", "boss_signature": true,
+		 "effects": {"avalanche": {"radius": 18.0, "stun": 1.0, "guarantee": 2, "near_min": 5.0, "near_max": 9.0}}},
+		# Mestre Besteiro Vorgul — Marca do Atirador (3.4): mira que segue a vítima; explode e deixa fogo no chão
+		{"id": "mob_marksman_brand", "name": "Marca do Atirador", "clip": "cast_ground", "target": T_SELF, "kind": K_PHYS, "power": 0.9, "cooldown": 18.0, "radius": 0.0, "startup": 0.5, "active": 0.1, "recovery": 0.4, "icon_color": Color(1.0, 0.3, 0.2), "vfx": "fire", "boss_signature": true,
+		 "effects": {"mark": {"mode": "spread", "count": 2, "solo_count": 1, "radius": 4.0, "time": 4.0, "linger": 4.0, "tick_power": 0.15, "no_tank": true}}},
+		# Senhor da Guerra Ghar — Muralha de Escudos (3.5): frente perde 90% e soma fúria; contragolpe em cone no fim
+		{"id": "mob_ghar_wall", "name": "Muralha de Escudos", "clip": "shout", "target": T_SELF, "kind": K_PHYS, "power": 1.0, "cooldown": 25.0, "radius": 0.0, "startup": 0.6, "active": 0.1, "recovery": 0.3, "icon_color": Color(0.9, 0.65, 0.2), "vfx": "earth", "boss_signature": true,
+		 "effects": {"wall": {"time": 6.0, "say": "Escudos! Pela frente ninguém passa!", "counter": {"base": 1.0, "step": 0.15, "cap": 2.5, "cone": 150.0, "range": 5.5}}}},
+		# Presa-de-Cinza — Três Botes (3.6): 3 investidas seguidas na mesma vítima, re-miradas; root/stun cortam
+		{"id": "mob_dire_pounce", "name": "Três Botes", "target": T_DIR, "kind": K_PHYS, "power": 1.2, "cooldown": 20.0, "range": 10.0, "radius": 0.8, "startup": 0.8, "active": 0.15, "recovery": 0.35, "hit_stop_frames": 3, "icon_color": Color(0.7, 0.4, 0.35), "mob_pick": "far", "boss_signature": true,
+		 "effects": {"dash": 10.0, "repeat": {"times": 3, "gap": 0.6}}},
+		# Mestre Matador Shazka — Sombras Gêmeas (3.7): some na fumaça e volta com 2 cópias (MonsterDef.decoy) que morrem com
+		# 1 golpe e soltam veneno; só ele projeta sombra; golpe nele desfaz as cópias
+		{"id": "mob_shazka_twins", "name": "Sombras Gêmeas", "clip": "shout", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 24.0, "radius": 0.0, "startup": 0.5, "active": 0.1, "recovery": 0.2, "icon_color": Color(0.3, 0.25, 0.42), "vfx": "shadow", "boss_signature": true,
+		 "effects": {"stealth": 1.5, "decoys": {"id": "shazka_decoy", "count": 2, "time": 10.0, "spread": 2.6, "say": "Qual de nós é o mestre?",
+			"cloud": {"radius": 2.0, "delay": 0.4, "power": 0.4, "linger": 4.0, "tick_power": 0.15, "dot": {"dps": 10, "duration": 3}}}}},
+		# Ulgra Presa-Atroz — Estouro da Matilha (3.8): 3 faixas paralelas de 3 m (uma no tanque), vãos de 3 m, caem 2,0/2,6/3,2 s
+		{"id": "mob_ulgra_stampede", "name": "Estouro da Matilha", "clip": "shout", "target": T_GROUND, "kind": K_PHYS, "power": 1.6, "cooldown": 28.0, "range": 40.0, "radius": 1.5, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.6, 0.45, 0.3), "vfx": "earth", "boss_signature": true,
+		 "effects": {"barrage": {"shape": "line", "count": 3, "width": 3.0, "gap": 3.0, "length": 30.0, "delay": 2.0, "stagger": 0.6, "say": "A MATILHA INTEIRA! ATROPELEM!"}, "stun": {"duration": 0.8}}},
+		# Gorbash Pele-de-Rocha — Ondas da Montanha (3.9): 3 pisadas; cada uma solta 3 anéis de 2 m (até 16 m) que caem a cada 0,5 s
+		{"id": "mob_gorbash_waves", "name": "Ondas da Montanha", "clip": "shout", "target": T_SELF, "kind": K_PHYS, "power": 1.1, "cooldown": 24.0, "radius": 0.0, "startup": 0.8, "active": 3.4, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(0.45, 0.5, 0.58), "vfx": "earth", "boss_signature": true,
+		 "effects": {"barrage": {"shape": "ring", "count": 3, "width": 2.0, "inner": 2.0, "spacing": 5.0, "delay": 1.5, "stagger": 0.5, "pulses": 3, "pulse_gap": 1.2, "pulse_shift": 2.0, "say": "A MONTANHA ANDA!"}}},
+		# ---- Ato II fase 3, chefes de Kharzun (40-45; design/gdd/kharzun-fase3-plan.md §4) ----
+		# Presa-de-Cinza: mordida que sangra e uivo que chama as crias
+		{"id": "mob_dire_bite", "name": "Mordida da Mãe-Loba", "target": T_CONE, "kind": K_PHYS, "power": 1.6, "cooldown": 6.0, "radius": 2.8, "cone_angle_deg": 80, "startup": 0.45, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 4, "icon_color": Color(0.6, 0.55, 0.5), "vfx": "blood",
+		 "effects": {"dot": {"dps": 12, "duration": 4}}},
+		{"id": "mob_dire_leap", "name": "Salto da Mãe-Loba", "target": T_DIR, "kind": K_PHYS, "power": 1.4, "cooldown": 10.0, "range": 10.0, "radius": 1.6, "startup": 0.5, "active": 0.15, "recovery": 0.5, "hit_stop_frames": 3, "icon_color": Color(0.55, 0.52, 0.5), "mob_pick": "far",
+		 "effects": {"dash": 9.0, "slow": {"pct": 40, "duration": 2}}},
+		{"id": "mob_call_apprentices", "name": "Chamar os Aprendizes", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 30.0, "radius": 0.0, "startup": 0.7, "active": 0.1, "recovery": 0.4, "icon_color": Color(0.35, 0.3, 0.45), "vfx": "summon",
+		 "effects": {"boss_summon": {"id": "shadow_apprentice", "count": 2, "max": 2, "pick": "soft"}}},
+		{"id": "mob_dire_howl", "name": "Uivo da Matilha", "clip": "shout", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 28.0, "radius": 0.0, "startup": 0.8, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.55, 0.55, 0.6), "vfx": "summon",
+		 "effects": {"boss_summon": {"id": "dire_pup", "count": 2, "max": 3, "pick": "soft"}}},
+		# Shazka: faca envenenada em quem cura, some, reaparece nas costas do frágil, nuvens de veneno e golpe de misericórdia
+		{"id": "mob_shazka_knife", "name": "Faca Envenenada", "clip": "atk_throw", "target": T_TARGET, "kind": K_PHYS, "power": 1.0, "cooldown": 9.0, "range": 13.0, "radius": 0.0, "max_targets": 1, "startup": 0.5, "active": 0.1, "recovery": 0.4, "hit_stop_frames": 2, "icon_color": Color(0.5, 0.85, 0.3), "mob_pick": "soft", "vfx": "poison",
+		 "effects": {"dot": {"dps": 10, "duration": 4}, "slow": {"pct": 25, "duration": 2.0}}},
+		{"id": "mob_shazka_vanish", "name": "Sumir na Fumaça", "clip": "shout", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 18.0, "radius": 0.0, "startup": 0.5, "active": 0.1, "recovery": 0.2, "icon_color": Color(0.35, 0.3, 0.45), "vfx": "shadow",
+		 "effects": {"stealth": 1.5}},
+		{"id": "mob_shazka_step", "name": "Passo nas Costas", "target": T_DIR, "kind": K_PHYS, "power": 1.6, "cooldown": 18.0, "range": 12.0, "radius": 1.4, "startup": 0.5, "active": 0.15, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(0.4, 0.3, 0.55), "mob_pick": "soft", "vfx": "shadow",
+		 "effects": {"dash": 11.0, "stun": {"duration": 0.5}}},
+		{"id": "mob_shazka_venom_rain", "name": "Nuvens de Veneno", "clip": "cast_ground", "target": T_GROUND, "kind": K_MAG, "power": 1.1, "cooldown": 13.0, "range": 14.0, "radius": 2.4, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.5, 0.85, 0.3), "mob_pick": "far", "vfx": "poison",
+		 "effects": {"barrage": {"count": 4, "radius": 2.4, "delay": 1.4, "spread": 9.0}, "dot": {"dps": 10, "duration": 4}}},
+		{"id": "mob_shazka_mercy", "name": "Golpe de Misericórdia", "clip": "atk_thrust", "target": T_TARGET, "kind": K_PHYS, "power": 2.0, "cooldown": 16.0, "range": 3.5, "radius": 0.0, "max_targets": 1, "startup": 0.7, "active": 0.1, "recovery": 0.5, "hit_stop_frames": 6, "icon_color": Color(0.7, 0.2, 0.3), "mob_pick": "soft", "vfx": "shadow"},
+		# Ulgra: investida montada, corrente no mais longe, ginetes e chuva de lanças
+		{"id": "mob_ulgra_charge", "name": "Investida do Lobo Atroz", "target": T_DIR, "kind": K_PHYS, "power": 1.8, "cooldown": 9.0, "range": 9.0, "radius": 1.3, "startup": 0.6, "active": 0.15, "recovery": 0.6, "hit_stop_frames": 4, "icon_color": Color(0.6, 0.5, 0.4),
+		 "effects": {"dash": 9.0, "stun": {"duration": 0.6}}},
+		{"id": "mob_ulgra_chain", "name": "Corrente de Caça", "clip": "atk_throw", "target": T_TARGET, "kind": K_PHYS, "power": 0.8, "cooldown": 12.0, "range": 16.0, "radius": 0.0, "max_targets": 1, "startup": 0.6, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.7, 0.7, 0.72), "mob_pick": "far",
+		 "effects": {"pull": {"gap": 0.8}, "root": {"duration": 0.8}}},
+		{"id": "mob_call_riders", "name": "Chamar os Ginetes", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 28.0, "radius": 0.0, "startup": 0.8, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.55, 0.5, 0.45), "vfx": "summon",
+		 "effects": {"boss_summon": {"id": "ulgra_rider", "count": 2, "max": 3, "pick": "far"}}},
+		{"id": "mob_ulgra_spears", "name": "Chuva de Lanças do Clã", "clip": "cast_ground", "target": T_GROUND, "kind": K_PHYS, "power": 1.3, "cooldown": 12.0, "range": 15.0, "radius": 2.2, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.75, 0.7, 0.45), "mob_pick": "far",
+		 "effects": {"barrage": {"count": 5, "radius": 2.2, "delay": 1.3, "spread": 10.0}}},
+		# Gorbash: xamãs que curam o chefe (e o Estandarte da Pedra do Durgash)
+		{"id": "mob_stone_mend", "name": "Canto da Pedra", "clip": "shout", "target": T_SELF, "kind": K_HEAL, "power": 1.0, "cooldown": 6.0, "radius": 16.0, "startup": 0.8, "active": 0.1, "recovery": 0.4, "icon_color": Color(0.5, 0.75, 0.6), "vfx": "nature"},
+		{"id": "mob_call_shamans", "name": "Chamar os Xamãs", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 30.0, "radius": 0.0, "startup": 0.8, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.5, 0.62, 0.6), "vfx": "summon",
+		 "effects": {"boss_summon": {"id": "stone_shaman", "count": 2, "max": 2}}},
+		# Kragmar: martelo largo, ondas de lava (círculos avisados) e golens do molde
+		{"id": "mob_kragmar_hammer", "name": "Martelo Negro", "clip": "atk_sweep", "target": T_CONE, "kind": K_PHYS, "power": 1.8, "cooldown": 7.0, "radius": 3.6, "cone_angle_deg": 110, "startup": 0.7, "active": 0.15, "recovery": 0.5, "hit_stop_frames": 5, "icon_color": Color(0.3, 0.28, 0.26),
+		 "effects": {"stun": {"duration": 0.4}}},
+		{"id": "mob_lava_waves", "name": "Ondas de Lava", "clip": "cast_ground", "target": T_GROUND, "kind": K_PHYS, "power": 1.2, "cooldown": 12.0, "range": 15.0, "radius": 2.4, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(1.0, 0.45, 0.1), "mob_pick": "random", "vfx": "fire",
+		 "effects": {"barrage": {"count": 6, "radius": 2.4, "delay": 1.5, "spread": 12.0}, "dot": {"dps": 10, "duration": 3}}},
+		# Kragmar — Têmpera na Lava (GDD act2-boss-signatures 3.10): círculo embaixo dele vira poça por 20 s; dentro
+		# delas ele ganha Têmpera (+dano, cura); o tanque tem de arrastá-lo para fora (BossSignatures._empower)
+		{"id": "mob_kragmar_temper", "name": "Têmpera na Lava", "clip": "cast_ground", "target": T_SELF, "kind": K_PHYS, "power": 1.0, "cooldown": 18.0, "radius": 0.0, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(1.0, 0.38, 0.08), "vfx": "fire", "boss_signature": true,
+		 "effects": {"barrage": {"count": 1, "radius": 2.4, "delay": 1.6, "spread": 8.0, "on_self": true, "linger": 20.0, "tick_power": 0.15,
+			"empower": {"id": "boss_temper"}, "say": "A lava tempera o aço!"}}},
+		{"id": "mob_call_forge_golems", "name": "Abrir os Moldes", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 28.0, "radius": 0.0, "startup": 0.8, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.85, 0.42, 0.18), "vfx": "summon",
+		 "effects": {"boss_summon": {"id": "forge_golemling", "count": 2, "max": 3}}},
+		# Durgash: talho de 150°, investida, machado arremessado, brado, corrente, Terra Rachada e a Guarda do Trono
+		{"id": "mob_durgash_cleave", "name": "Talho do Grão-Senhor", "clip": "atk_sweep", "target": T_CONE, "kind": K_PHYS, "power": 1.8, "cooldown": 7.0, "radius": 4.0, "cone_angle_deg": 150, "startup": 0.7, "active": 0.15, "recovery": 0.5, "hit_stop_frames": 5, "icon_color": Color(0.6, 0.55, 0.4)},
+		{"id": "mob_durgash_charge", "name": "Avanço do Trono", "target": T_DIR, "kind": K_PHYS, "power": 1.7, "cooldown": 11.0, "range": 8.0, "radius": 1.3, "startup": 0.6, "active": 0.15, "recovery": 0.6, "hit_stop_frames": 4, "icon_color": Color(1, 0.6, 0.3),
+		 "effects": {"dash": 8.0, "stun": {"duration": 0.6}}},
+		{"id": "mob_durgash_axe", "name": "Machado Arremessado", "clip": "atk_throw", "target": T_TARGET, "kind": K_PHYS, "power": 1.0, "cooldown": 10.0, "range": 16.0, "radius": 0.0, "max_targets": 1, "startup": 0.7, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 4, "icon_color": Color(0.7, 0.65, 0.55), "mob_pick": "far",
+		 "effects": {"slow": {"pct": 35, "duration": 2.0}}},
+		{"id": "mob_durgash_cry", "name": "Brado do Grão-Senhor", "clip": "shout", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 22.0, "radius": 0.0, "startup": 0.8, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.9, 0.25, 0.15), "vfx": "blood",
+		 "effects": {"rally": {"id": "war_cry", "radius": 18.0, "duration": 10.0, "atk_pct": 20.0, "speed_pct": 10.0}}},
+		# Durgash — Machado do Trono (GDD act2-boss-signatures 3.11): círculo de 3,5 m segue uma vítima (não o tanque) 5 s;
+		# o golpe é dividido por quem está dentro (BossSignatures._land, mode soak). Números em Balance.DURGASH_AXE_*
+		{"id": "mob_durgash_throneaxe", "name": "Machado do Trono", "clip": "shout", "target": T_SELF, "kind": K_PHYS, "power": Balance.DURGASH_AXE_POWER, "cooldown": Balance.DURGASH_AXE_EVERY, "radius": 0.0, "startup": 0.6, "active": 0.1, "recovery": 0.4, "hit_stop_frames": 6, "icon_color": Color(0.95, 0.75, 0.3), "vfx": "earth", "boss_signature": true,
+		 "effects": {"mark": {"mode": "soak", "count": 1, "solo_count": 1, "radius": Balance.DURGASH_AXE_RADIUS, "time": Balance.DURGASH_AXE_TIME, "no_tank": true, "say": "O Machado do Trono cai! Ajoelhem-se juntos... ou morram sozinhos!"}}},
+		{"id": "mob_durgash_chain", "name": "Corrente do Trono", "clip": "atk_throw", "target": T_TARGET, "kind": K_PHYS, "power": 0.9, "cooldown": 13.0, "range": 16.0, "radius": 0.0, "max_targets": 1, "startup": 0.6, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.7, 0.7, 0.72), "mob_pick": "far",
+		 "effects": {"pull": {"gap": 0.8}, "stun": {"duration": 0.5}}},
+		{"id": "mob_durgash_quake", "name": "Terra Rachada do Trono", "clip": "cast_ground", "target": T_GROUND, "kind": K_PHYS, "power": 1.3, "cooldown": 12.0, "range": 15.0, "radius": 2.4, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.65, 0.5, 0.35), "mob_pick": "random", "vfx": "earth",
+		 "effects": {"barrage": {"count": 6, "radius": 2.4, "delay": 1.4, "spread": 12.0}, "slow": {"pct": 40, "duration": 2.0}}},
+		{"id": "mob_call_throne_guard", "name": "Chamar a Guarda do Trono", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 30.0, "radius": 0.0, "startup": 0.9, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.36, 0.42, 0.3), "vfx": "summon",
+		 "effects": {"boss_summon": {"id": "throne_guard", "count": 1, "max": 2}}},
+		# Estandarte da Forja: brasas em volta (queima quem bate nele de perto)
+		{"id": "mob_forge_embers", "name": "Brasas do Clã", "target": T_SELF, "kind": K_MAG, "power": 0.6, "cooldown": 3.0, "radius": 5.0, "startup": 0.3, "active": 0.1, "recovery": 0.3, "icon_color": Color(1.0, 0.45, 0.1), "vfx": "fire",
+		 "effects": {"dot": {"dps": 10, "duration": 3}}},
 		# ---- elemental que evolui (ascensão do Elementalista): Maior (1) e Ancestral (2) por forma; área x ELEM_STAGE_MULT ----
 		{"id": "elem_salamander_spit", "name": "Cuspe da Salamandra", "vfx": "fire", "target": T_CONE, "kind": K_MAG, "power": 1.5, "cooldown": 5.0, "radius": _elem_area(5.0, 1), "cone_angle_deg": 60, "startup": 0.35, "active": 0.15, "recovery": 0.4, "hit_stop_frames": 3, "icon_color": Color(1, 0.45, 0.15),
 		 "effects": {"dot": {"dps": 8, "duration": 3}}},

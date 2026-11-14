@@ -24,13 +24,15 @@ static func pair_ok(e: SimEntity) -> bool:
 	return main != null and off != null and main.weapon_type in Balance.TITAN_WEAPONS and off.weapon_type in Balance.TITAN_WEAPONS \
 		and ProgressionSystem.has_ascension(e)
 
+const CLAW_BUILD := "punhos"          # build das Garras de Titã (chave do ASC_POWER_35_MULT)
+
 ## Depois de Stats.compute (SimEntity.recompute_stats): Garras de Titã no Punhos ascendido.
 static func apply(e: SimEntity, st: Stats) -> void:
 	if st.titan_pair or not e.is_character() or e.class_def == null or e.class_def.id != "berserker":
 		return
 	if st.weapon_type == "claw" and st.offhand_type == "claw" and ProgressionSystem.has_ascension(e):
 		st.titan_claws = true
-		st.titan_hit = Balance.TITAN_CLAW_POWER
+		st.titan_hit = Balance.TITAN_CLAW_POWER * Balance.asc_level_mult(CLAW_BUILD, e.level)     # F5: fator do 35 (ASC_POWER_35_MULT)
 		st.titan_speed = 1.0 - Balance.TITAN_CLAW_ASPD_PEN
 
 ## O golpe bate com as duas armas? Básico sempre; skill só com o efeito "titan_hit".

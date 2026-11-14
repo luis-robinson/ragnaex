@@ -99,7 +99,7 @@ func save_player(p: SimEntity) -> void:
 		"loadout": p.skills.map(func(s): return s.id if s else ""),
 		"quests_active": p.quests_active, "quests_completed": p.quests_completed,
 		"bind": [p.bind_map, p.bind_pos.x, p.bind_pos.z],
-		"save_version": VERSION, "bosses_killed": p.bosses_killed.keys(), "gates_open": p.gates_open.keys(), "bag_bonus": p.bag_bonus,
+		"save_version": VERSION, "bosses_killed": p.bosses_killed.keys(), "gates_open": p.gates_open.keys(), "bag_bonus": p.bag_bonus, "mount": p.mount_kind,
 		"elemental": ElementalSystem.to_save(p),
 	}
 	var f := FileAccess.open(path_of(slot), FileAccess.WRITE)
@@ -217,6 +217,7 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 	p.quests_completed.clear()
 	for q in d.get("quests_completed", []):
 		p.quests_completed.append(str(q))
+	p.mount_kind = MountSystem.from_save(p, str(d.get("mount", Balance.MOUNT_DEFAULT)))     # save antigo: cavalo
 	ElementalSystem.from_save(p, d)            # save antigo (< 5): experiência 0, forma = a do último elemental
 	# teia de ascensão (save < 5: vazia). Nó que não existe mais: a teia volta ao início (os pontos são calculados)
 	p.asc_tree = {}

@@ -327,6 +327,10 @@ static func complete(e: SimEntity, q: QuestDef, sim) -> void:
 		e.add_item(gear)
 		if e == sim.player:
 			Events.post(&"notification", "Recompensa: %s" % GameData.items[gear].name)
+	MountSystem.on_quest_done(sim, e, q.id)          # montaria nova (lobo atroz: hx_ov_hatch)
+	if q.reward_title != "":
+		if e == sim.player:
+			Events.post(&"notification", "Título: %s" % q.reward_title)
 	Events.post(&"quest_completed", e.id, q.id)
 	if e == sim.player:
 		PortalSystem.quest_bind(sim, e, q.id, true)   # Terra à Vista: o retorno passa a ser no porto (bots não)

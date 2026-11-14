@@ -42,7 +42,7 @@ static func _sp(monster: String, x: float, z: float, radius: float, count: int, 
 	return {"monster_id": monster, "pos": Vector3(x, 0, z), "radius": radius, "count": count, "respawn": respawn}
 
 static func build() -> Array:
-	var out: Array = [_aldara(), _forest(), _ruins(), _elf_city(), _port(), _coast(), _steppe()]
+	var out: Array = [_aldara(), _forest(), _ruins(), _elf_city(), _port(), _coast(), _steppe(), _kharzun(), _kharzun_citadel()]
 	for fid in FORT_DEFS:
 		out.append(_fort(fid))
 	for did in DUNGEON_DEFS:
@@ -60,7 +60,7 @@ static func build() -> Array:
 ## Cristais de retorno (role "crystal", modelo prop_crystal): vincular = G e renascer ali. Posição (x, z) na praça.
 ## Quest que vincula o jogador ao cristal do mapa ao ser concluída (Ato II: morrer não manda de volta a Aldara).
 const QUEST_BIND := {"hx_crossing": "city_port"}
-const CRYSTALS := {"city_aldara": [-7.5, 0.0], "field_forest": [-5.5, -5.5], "field_ruins": [25.6, 4.6], "city_port": [6.5, 13.0], "field_steppe": [-6.9, 4.0]}
+const CRYSTALS := {"city_aldara": [-7.5, 0.0], "field_forest": [-5.5, -5.5], "field_ruins": [25.6, 4.6], "city_port": [6.5, 13.0], "field_steppe": [-6.9, 4.0], "field_kharzun": [-12.79, 5.69]}
 const CRYSTAL_LINES := ["Uma pedra azul que zumbe baixinho. Toque para lembrar deste lugar.", "Os viajantes juram que o cristal os puxa de volta para casa."]
 
 static func crystal_npc(map_id: String) -> Array:
@@ -118,16 +118,33 @@ const FESTIVAL := {
 	},
 }
 
-static func festival(map_id: String) -> Array:
+static func festival(map_id: String, table: Dictionary = FESTIVAL, quest: String = VICTORY_QUEST) -> Array:
 	var out: Array = []
-	var t: Dictionary = FESTIVAL.get(map_id, {})
+	var t: Dictionary = table.get(map_id, {})
 	for nid in t:
 		var v: Array = t[nid]
 		var d := _npc(nid, v[0], float(v[4]), float(v[5]), v[1], v[2], v[3], 180.0)
 		d["wander"] = float(v[6])
-		d["if"] = VICTORY_QUEST
+		d["if"] = quest
 		out.append(d)
 	return out
+
+## Fim do Ato II (K4): Durgash cai (`hx_warlord`) e o porto e o acampamento festejam (fogos do FestivalFx, mesmo formato
+## do FESTIVAL). Entregar o epílogo à Governadora Alba = tela "Fim do Ato II" (hud.show_act_end(2)).
+const VICTORY2_QUEST := "hx_warlord"
+const ACT2_END_QUEST := "hx_act2_epilogue"
+const FESTIVAL_ACT2 := {
+	"city_port": {
+		"fest2_bard": ["Bardo Tadeu do Cais", "villager", Color(0.55, 0.8, 0.5), ["♪ Subiu a montanha, desceu o Grão-Senhor! ♪", "Rima com \"Durgash\"? Só \"cachaça\", e olhe lá."], -6.0, 14.0, 3.0],
+		"fest2_sailor": ["Marujo Fred", "villager", Color(0.45, 0.62, 0.85), ["O óleo do farol virou fogo de festa. A Ilda deixou!", "Três semanas de paliçada e hoje ninguém sobe no muro."], 6.0, 14.0, 4.0],
+		"fest2_dancer": ["Dançarina Lis", "villager", Color(0.95, 0.6, 0.55), ["Dança comigo! A Horda largou o machado!", "Hoje o porto não dorme."], 0.0, 20.0, 4.0],
+	},
+	"field_kharzun": {
+		"fest2_soldier": ["Soldado Joel", "guard", Color(0.85, 0.85, 0.9), ["Acampamento? Isto aqui vai virar vila.", "Dormi a noite inteira. A primeira desde as Estepes."], 8.0, 8.0, 3.0],
+		"fest2_dwarf": ["Anã Frerin", "villager", Color(0.66, 0.5, 0.4), ["Cerveja de pedra! Receita anã, quinze anos guardada.", "O Thrain dançou. Ninguém vai acreditar."], -6.0, -8.0, 3.0],
+		"fest2_freed": ["Liberta Joana", "villager", Color(0.7, 0.6, 0.5), ["Sem corrente, sem chicote, com fogos. Que dia.", "Vou voltar para Aldara. Depois da festa."], 8.0, -8.0, 3.0],
+	},
+}
 
 static func dawn_garrison(npc_pos: Dictionary, prefix: String = "dawn_g_") -> Array:
 	var out: Array = []
@@ -448,6 +465,13 @@ const GATHER := {
 	# Estepes de Cinza: ferro nas duas pontas do norte, erva azul no capim e as presas do Cemitério dos Mamutes (entre os trolls do sudoeste)
 	"field_steppe": [["iron_ore", "ore", [-70.0, -34.0], 9.0, 4], ["herb_blue", "herb_blue", [-38.0, 40.0], 8.0, 4], ["iron_ore", "ore", [54.0, -78.0], 9.0, 4],
 		["mammoth_tusk", "relic", [-78.0, 63.0], 9.0, 5]],
+	# Monte Kharzun: Aço Anão na boca das Minas, Basalto Rúnico perto do santuário anão, erva azul no caminho da cabana do xamã
+	# (Erva de Cinza, Ovo do Lobo Atroz e Brasa de Kharzun com estágio = WP10; gather_hint no JSON)
+	"field_kharzun": [["dwarf_steel", "ore", [-86.0, -6.0], 12.0, 6], ["basalt_ore", "ore", [-74.0, 52.0], 9.0, 4], ["herb_blue", "herb_blue", [-42.0, 32.0], 12.0, 6],
+		["kharzun_ember_core", "star", [72.0, -52.0], 9.0, 4, {"if": Q_KH_FORGE}]],     # K1c: brasa na Forja Negra retomada
+	# Salão dos Matadores: ervas da cripta de venenos (sala lateral). Cidadela: basalto na caverna dos trolls, aço anão na fundição
+	"dg_slayers": [["herb_blue", "herb_blue", [30.0, -15.0], 7.0, 4]],
+	"kharzun_citadel": [["basalt_ore", "ore", [44.0, 44.0], 7.0, 3], ["dwarf_steel", "ore", [34.0, 2.0], 7.0, 3]],
 	"elf_city": [["herb_blue", "herb_blue", [-70.0, 30.0], 12.0, 5], ["forest_mushroom", "mushroom", [58.0, -40.0], 14.0, 5],
 		["star_ore", "star", [-40.0, -92.0], 12.0, 5], ["elf_steel", "crate", [70.0, 64.0], 10.0, 4]],
 }
@@ -463,12 +487,24 @@ const AMBIENT_LIFE := {
 	"fort_trolls": [["vulture", [-30.0, 0.0], 16.0, 4], ["crow", [13.0, 0.0], 12.0, 3]],
 	"fort_fire": [["crow", [24.6, 17.2], 15.0, 5], ["vulture", [-20.0, -40.0], 18.0, 2]],
 	"fort_war": [["vulture", [26.0, -15.0], 16.0, 4], ["crow", [-21.0, 8.0], 12.0, 4]],
+	# Monte Kharzun: corvos de cinza sobre a paliçada e as Minas, abutres no Canil e na encosta, brasas no ar sobre a lava
+	"field_kharzun": [["crow", [0.0, 0.0], 22.0, 4], ["crow", [-80.0, -4.0], 12.0, 4], ["vulture", [88.0, 10.0], 16.0, 4], ["vulture", [0.0, -93.0], 18.0, 3],
+		["hawk", [-40.0, 40.0], 26.0, 2], ["ember", [20.0, -49.0], 12.0, 10], ["ember", [60.0, -47.0], 12.0, 10], ["ember", [-25.0, -64.0], 10.0, 8],
+		["ember", [100.0, -41.0], 10.0, 8], ["ember", [-60.0, 73.0], 10.0, 8], ["ember", [56.0, -76.0], 7.0, 8]],
+	"dg_slayers": [["bat", [0.0, 27.5], 9.0, 4], ["bat", [-15.0, -10.0], 9.0, 4], ["bat", [5.0, -50.0], 9.0, 3]],
+	"kharzun_citadel": [["bat", [0.0, 36.0], 12.0, 5], ["bat", [72.0, 24.0], 7.0, 4], ["bat", [0.0, -54.0], 12.0, 4]],
 }
 
+## Ponto de colheita: [item, forma, centro, raio, quantos, (opcional) {"if"/"unless": quest}] (estágio por WorldState).
 static func gather_rules(map_id: String) -> Array:
 	var out: Array = []
 	for g in GATHER.get(map_id, []):
-		out.append({"item": g[0], "kind": g[1], "at": Vector3(g[2][0], 0, g[2][1]), "radius": g[3], "count": g[4]})
+		var r := {"item": g[0], "kind": g[1], "at": Vector3(g[2][0], 0, g[2][1]), "radius": g[3], "count": g[4]}
+		if g.size() > 5:
+			for k in ["if", "unless"]:
+				if (g[5] as Dictionary).has(k):
+					r[k] = g[5][k]
+		out.append(r)
 	return out
 
 ## Porta de cada casa que abre: centro da casa no JSON (a mais perto de `house`), direção da frente e ponto da porta.
@@ -706,16 +742,27 @@ const ASSAULTS := {
 		"reforco_fire": {"fighters": {"guard_knight": 1, "guard_spearman": 1, "guard_crossbow": 1}, "every": 120.0, "max": Balance.REINFORCE_MAX, "first": 60.0,
 			"power": Balance.STEPPE_GUARD_POWER, "if": Q_FORT_FIRE, "say": "Reforços da Paliçada chegam pela estrada do sudeste!"},
 	},
+	# Monte Kharzun K2-K3: a Ofensiva da Aurora sobe a avenida do acampamento até o portão da cidadela (apoio, não limpeza)
+	"field_kharzun": {
+		"ariete": {"fighters": {"guard_knight": 2, "guard_spearman": 1, "guard_priest": 1}, "every": Balance.ASSAULT_FORT_EVERY, "max": Balance.ASSAULT_FORT_MAX, "first": 8.0,
+			"power": Balance.ASSAULT_FORT_POWER, "if": Q_KH_GATE, "unless": Q_KH_WARLORD, "say": "Trompas da Aurora: a Ofensiva sobe a avenida rumo ao portão da Cidadela!"},
+	},
+	# Cidadela de Kharzun K2-K3: a mesma Ofensiva entra pela garganta, atravessa a barbacã e briga no pátio de armas (apoio)
+	"kharzun_citadel": {
+		"aurora": {"fighters": {"guard_knight": 2, "guard_paladin": 1, "guard_priest": 1}, "every": Balance.ASSAULT_FORT_EVERY, "max": Balance.ASSAULT_FORT_MAX, "first": 6.0,
+			"power": Balance.ASSAULT_FORT_POWER, "if": Q_KH_GATE, "unless": Q_KH_WARLORD, "say": "A Ofensiva da Aurora rompe a barbacã: ao pátio de armas!"},
+	},
 }
 
 # ---------------------------------------------------------------------------
 ## Ato II (Costa Partida / Porto Esperança / Grutas Goblin). Monstros com id do contrato que ainda não existem no catálogo
 ## nascem como o substituto daqui (nível 25-30 parecido). INTEGRAÇÃO: quando o pacote de monstros entrar, esvazie STAND_INS.
 ## Fase 2 (Estepes de Cinza, 35-40): trolls, arqueiros, guerreiro orc e os três chefes já existem (sem substituto).
-const STAND_INS := {
-}
+const STAND_INS := {}   # Kharzun: os chefes reais chegaram (WP7/WP4); nada mais é substituto
+## Quests que abrem portões e ainda não existem neste ramo (pacote de missões, WP9). INTEGRAÇÃO: esvazie quando chegarem.
+const PENDING_GATE_QUESTS := []
 ## NPCs de cabana cujas quests vêm do pacote de missões (ainda fora deste ramo). INTEGRAÇÃO: esvazie quando as quests chegarem.
-const PENDING_GIVERS := []   # vazio: as cabanas das Estepes já têm missão (QuestsCatalog.act2_steppe)
+const PENDING_GIVERS := []   # Kharzun: as cadeias do Xamã Exilado e dos Libertos chegaram (WP9)
 
 ## Id de monstro que existe no jogo: o do contrato ou, enquanto ele não chega, o substituto.
 static func mob(id: String) -> String:
@@ -1013,6 +1060,41 @@ const LIVING_NPCS := {
 		"deserter_wolf_b": ["Loba Cinzenta", Color(0.55, 0.52, 0.5), ["(A loba fareja seu cinto. Você tinha carne seca. Tinha.)"],
 			[], [-44.0, -78.0], 3.0, {"if": Q_DESERTERS_HELP, "model": "mob_wolf"}],
 	},
+	# Monte Kharzun: o Acampamento Avançado da Aurora (praça radial, enfermaria na tenda do oeste, bonecos de treino a oeste,
+	# bigorna a leste) e a estrada das carroças até a garganta sul. Libertos (K1) e orcs rendidos (K4) entram por estágio.
+	"field_kharzun": {
+		"kh_drill_a": ["Recruta Tobias", Color(0.62, 0.62, 0.72), ["O sargento manda dar mil golpes no boneco. O boneco ainda não caiu.", "Nas Estepes eu era tropeiro. Aqui me deram lança e pressa."],
+			["Um! Dois! Três!", "Escudo alto, escudo alto...", "Esse boneco tem cara de orc."], [-13.5, -2.5], [[-13.5, -2.5], [-14.5, -6.5]], {}],
+		"kh_drill_b": ["Recruta Marta", Color(0.66, 0.6, 0.72), ["Lobo atroz pula no pescoço. O sargento diz: escudo antes do medo.", "Treino de manhã, ronda à tarde, carta pra casa de noite."],
+			["Golpe, giro, golpe!", "De novo!", "Ai, meu ombro..."], [-15.5, -1.5], [[-15.5, -1.5], [-16.5, -4.0]], {}],
+		"kh_drill_sergeant": ["Sargento Bráulio", Color(0.6, 0.6, 0.68), ["Recruta que treina não morre no portão. Recruta que reclama, às vezes.", "Assassino goblin vem pelas costas de quem cura. Por isso a gente olha pra trás."],
+			["Mais firme, recruta!", "Isso é golpe ou aceno?", "Fileira! Agora!"], [-12.5, 0.5], 0.6, {}],
+		"kh_wounded_a": ["Soldado Ferido Caio", Color(0.7, 0.62, 0.55), ["Uma salamandra cuspiu na minha perna. A Cecília diz que fico bom. A perna não tem tanta certeza.", "Não vá à Forja sem poção. Eu fui."],
+			["Ai...", "Água, por favor.", "Já volto pra linha, já volto."], [-10.0, -15.8], 0.5, {}],
+		"kh_wounded_b": ["Batedora Ferida Lena", Color(0.68, 0.6, 0.58), ["O Matador sumiu na fumaça e apareceu atrás do nosso clérigo. Eu me joguei na frente.", "Quando vir fumaça, proteja quem cura. Foi o que aprendi."],
+			["Fumaça... olha a fumaça.", "Tô bem, tô bem.", "Cadê o clérigo?"], [-15.8, -16.6], 0.4, {}],
+		"kh_smith_apprentice": ["Aprendiz Tião", Color(0.66, 0.5, 0.36), ["Carvão da montanha queima azul. O Galdino diz que é bom sinal.", "Afio dez lanças por dia. A montanha cega onze."],
+			["Mais carvão!", "Fole, fole...", "Quente, quente!"], [12.5, -5.0], [[12.5, -5.0], [12.8, -9.5]], {"carry": "carry_sack"}],
+		"kh_cook": ["Cozinheiro Josué", Color(0.88, 0.78, 0.58), ["Pão duro das Estepes e caldo de cabrito. Na montanha nada cresce, então tudo sobe de carroça.", "Braseiro aceso a noite toda: frio de montanha mata mais que orc."],
+			["Caldo quente!", "Quem quer pão?", "Fila, fila!"], [-2.0, -6.5], 1.0, {}],
+		"kh_carter_a": ["Carroceiro Severino", Color(0.62, 0.5, 0.36), ["Das Estepes até aqui é uma subida só. A carroça reclama, o burro reclama, eu reclamo.", "Flecha, pão e atadura. Volto com ferido e carta."],
+			["Eia! Eia!", "Abre o portão!", "Carga das Estepes!"], [1.0, 16.0], [[1.0, 16.0], [0.5, 24.0], [3.0, 34.0], [4.0, 44.0], [0.0, 53.0], [-4.0, 63.0], [-2.0, 72.0], [3.0, 81.0], [0.5, 86.0], [3.0, 81.0], [-2.0, 72.0], [-4.0, 63.0], [0.0, 53.0], [4.0, 44.0], [3.0, 34.0], [0.5, 24.0]], {"carry": "cart"}],
+		"kh_carter_b": ["Carroceira Zélia", Color(0.7, 0.52, 0.4), ["Lobo atroz não ataca carroça com escolta. Ataca a de trás. Eu vou na frente.", "Da garganta sul à paliçada: meio dia, se a cinza deixar."],
+			["Segura a carga!", "Falta pouco pro acampamento.", "Cinza, sempre cinza..."], [0.5, 86.0], [[0.5, 86.0], [3.0, 81.0], [-2.0, 72.0], [-4.0, 63.0], [0.0, 53.0], [4.0, 44.0], [3.0, 34.0], [0.5, 24.0], [1.0, 16.0], [0.5, 24.0], [3.0, 34.0], [4.0, 44.0], [0.0, 53.0], [-4.0, 63.0], [-2.0, 72.0], [3.0, 81.0]], {"carry": "cart"}],
+		"kh_carter_escort": ["Escolta Ademar", Color(0.6, 0.62, 0.7), ["Escolto as carroças da garganta sul até a paliçada. Ida e volta, todo dia.", "Ginete ataca a última carroça. Eu ando atrás."],
+			["Carroça passando!", "Olho na encosta!", "Mantenham a fila!"], [0.5, 24.0], [[0.5, 24.0], [3.0, 34.0], [4.0, 44.0], [0.0, 53.0], [-4.0, 63.0], [-2.0, 72.0], [3.0, 81.0], [0.5, 86.0], [3.0, 81.0], [-2.0, 72.0], [-4.0, 63.0], [0.0, 53.0], [4.0, 44.0], [3.0, 34.0]],
+			{"fighter": "guard_spearman", "power": Balance.KHARZUN_GUARD_POWER}],
+		# K1 (Minas libertadas): anões e humanos soltos carregam o que salvaram, do posto dos libertos até a praça
+		"kh_freed_carrier_a": ["Liberto Anão Nori", Color(0.6, 0.48, 0.38), ["Quinze anos carregando pedra para orc. Agora carrego para mim. Pesa menos.", "O posto dos libertos tem cama e sopa. A Aurora tem lança. Bom negócio."],
+			["Pra praça!", "Sem corrente, sem capataz!", "Mais uma caixa."], [31.0, 55.0], [[31.0, 55.0], [33.0, 47.0], [23.0, 43.0], [12.0, 42.0], [4.0, 44.0], [3.0, 34.0], [0.5, 24.0], [1.0, 17.0], [0.5, 24.0], [3.0, 34.0], [4.0, 44.0], [12.0, 42.0], [23.0, 43.0], [33.0, 47.0]], {"if": "hx_mines", "carry": "carry_crate"}],
+		"kh_freed_carrier_b": ["Liberta Joaquina", Color(0.66, 0.56, 0.48), ["Vim com a caravana de Aldara e fiquei na corrente. Volto com a próxima, se a montanha deixar.", "Carrego o que sobrou das Minas. Ferro é ferro, mesmo roubado."],
+			["Ferro pro Thrain!", "Devagar, devagar...", "Liberdade cansa também."], [12.0, 42.0], [[12.0, 42.0], [4.0, 44.0], [3.0, 34.0], [0.5, 24.0], [1.0, 17.0], [0.5, 24.0], [3.0, 34.0], [4.0, 44.0], [12.0, 42.0], [23.0, 43.0], [33.0, 47.0], [23.0, 43.0]], {"if": "hx_mines", "carry": "carry_rock"}],
+		"kh_freed_anvil": ["Fole Anão Bifur", Color(0.62, 0.48, 0.36), ["O Thrain bate, eu sopro o fole. Quinze anos de corrente e ainda sei o ritmo.", "Aço Anão não se apressa. Nem anão."],
+			["Fole! Fole!", "Mais quente, mais quente.", "Hah! Esse ficou bom."], [6.0, -11.5], 0.8, {"if": "hx_mines"}],
+		# K4 (Durgash caiu): orc rendido carrega sacos na praça
+		"kh_orc_porter": ["Orc Rendido Ugluk", Color(0.5, 0.58, 0.42), ["Durgash caiu. Ugluk carrega saco. Saco não grita com Ugluk.", "Humano dá comida se Ugluk carrega. Durgash dava chicote."],
+			["Saco pro humano.", "Ugluk carrega!", "Hmpf."], [-3.0, 10.5], [[-3.0, 10.5], [-1.5, 18.0], [4.0, 18.5], [3.5, 12.0]], {"if": "hx_warlord", "carry": "carry_sack", "model": "mob_orc_recruit"}],
+	},
 }
 
 ## Acampamentos da Horda (fort_trolls/fire/war): cativos que carregam antes da retomada; a vida da Aurora depois.
@@ -1058,6 +1140,24 @@ const MOB_PATROLS := {
 
 ## Falas soltas (barks) de NPCs que já existiam: id -> falas curtas que aparecem sobre a cabeça quando o jogador passa.
 const BARKS := {
+	# Monte Kharzun: serviços e gente do acampamento (os de estágio só aparecem quando o estágio chega)
+	"kharzun_commander": ["Ninguém sai sozinho!", "Minas, Canil, Forja. Nessa ordem.", "A montanha é nossa até o pico."],
+	"kharzun_smith": ["Bigorna livre!", "Lâmina cega? Traz aqui.", "Carvão de montanha, fogo bom."],
+	"kharzun_alchemist": ["Poção antes da trilha!", "Antídoto pro veneno goblin!", "Não toque na retorta."],
+	"kharzun_merchant": ["Atadura, poção, flecha!", "Carroça nova chegou!", "Preço de linha de frente."],
+	"kharzun_storage": ["Baú seguro aqui.", "Guardo tudo, até brasa.", "Próximo!"],
+	"masters_herald": ["Os mestres observam.", "No 45 eu te espero.", "Ascender é só o começo."],
+	"dwarf_smith": ["Aço Anão não perdoa pressa.", "Lendário 40? Traga aqui.", "Clang! Clang! Hah!"],
+	"kharzun_arms_merchant": ["Machado ainda quente!", "Arma de 40, da Forja!", "A Horda pagava pior."],
+	"kharzun_wolf_keeper": ["Quieto, lobo.", "Sela firme, escudo alto.", "Ele escolheu você."],
+	"kharzun_siege_engineer": ["Catapulta pronta!", "Mais pedra morro acima!", "Mira na muralha de cima!"],
+	"kharzun_orc_surrendered_a": ["Gorbag carrega caixa.", "Machado? Gorbag largou.", "Hmpf."],
+	"kharzun_orc_surrendered_b": ["Fogos a leste...", "A montanha está quieta.", "Shagra observa."],
+	"mine_slave_a": ["Corrente pesada...", "Psst! Tire o capataz!", "Mais pedra, mais pedra."],
+	"mine_slave_b": ["Socorro! Aqui!", "O tambor de novo não...", "Leve-nos daqui!"],
+	"mine_slave_c": ["Inscrição antiga ali...", "Silêncio, o capataz!", "Bato devagar, de propósito."],
+	"forge_dwarf_a": ["A Forja é nossa!", "Brasa! Pinça, pinça!", "Fogo bom, vizinho ruim."],
+	"forge_dwarf_b": ["Martelo pra cada clã!", "Lava no canal, cuidado!", "Bigorna de basalto!"],
 	"port_governor": ["Mais estacas no norte!", "Porto Esperança não cai.", "Alguém viu o Bruno?"],
 	"port_sailor": ["O navio sai quando você pisar.", "Vento bom hoje!"],
 	"port_merchant": ["Poção nova do último navio!", "Ataduras, ataduras!"],
@@ -1172,6 +1272,8 @@ const RAIDS := {
 		"say_strong": "As trompas soam mais graves: a investida veio reforçada!"},
 	# Porto Esperança (Ato II): os ginetes descem a garganta nordeste (rotas cerco/muralha/patrulha = C0/C1/C3)
 	"city_port": PORT_RAIDS,
+	# Monte Kharzun (Ato II, 40-45): Contra-ataque da Horda em duas frentes (Canil e Cidadela), até K1b/K2
+	"field_kharzun": KHARZUN_RAIDS,
 	# Estepes de Cinza (Ato II): três lados, regra do Bastião
 	"field_steppe": STEPPE_RAIDS,
 	# Bastião da Aurora: três fronts, cada um com a leva do seu lado (a rota é calada pela quest do chefe da fortaleza)
@@ -1257,6 +1359,11 @@ const PLACE_NPCS := {
 		"wolf_racer": ["Dinho, o Corredor de Lobos", "quest", Color(0.62, 0.56, 0.44), ["Peguei um filhote dos saqueadores. Agora ele corre para mim, não para eles.", "Daqui ao Totem e de volta antes do sol mexer: essa é a corrida."]],
 		"wind_totem": ["Totem dos Ventos", "board", Color(0.6, 0.78, 0.78), ["Um toco entalhado ao pé do Totem Partido. O vento assobia pelos olhos dele.", "Riscado na madeira, em orc antigo: 'O que quebrou o grande veio do leste'."], "prop_statue"],
 	},
+	"field_kharzun": {
+		"exiled_shaman": ["Ushka, o Xamã Exilado", "quest", Color(0.46, 0.56, 0.4), ["Ushka foi xamã de Durgash. Ushka falou o que via no fogo e Durgash quebrou o cajado de Ushka.", "Os Matadores entram no paredão do noroeste. Ushka sabe a palavra que abre a porta. Ainda não."], "mob_orc_recruit"],
+		"freed_foreman": ["Capataz Liberto Bráulio", "quest", Color(0.66, 0.56, 0.44), ["Quinze anos batendo pedra para a Horda. Agora bato para quem me soltou.", "O Canil fica a leste. Os lobos atrozes uivam a noite inteira; quando calarem, vou buscar os ovos."]],
+		"dwarf_runestone": ["Pedra Rúnica Partida", "board", Color(0.62, 0.6, 0.66), ["Runas anãs rachadas ao meio. A metade de cima fala de uma forja; a de baixo, de correntes.", "Alguém gravou por cima, em orc: 'a montanha é nossa'. As runas brilham mais forte que o risco."], "prop_statue"],
+	},
 	"dg_pedreira": {
 		"miner_tadeu": ["Mestre Tadeu, o Mineiro", "quest", Color(0.7, 0.55, 0.35), ["Abrimos a pedreira atrás de ferro e acordamos a montanha.", "A oeste o musgo anda; a leste o cristal canta. O veio do fundo só abre quando os dois guardiões caírem."]],
 		"miner_rosa": ["Rosa, a Cartógrafa", "quest", Color(0.6, 0.7, 0.8), ["Eu mapeio, eles quebram. Não é uma boa parceria.", "Golem de cristal atira de longe. Chegue perto ou procure cobertura."]],
@@ -1277,6 +1384,8 @@ const DUNGEON_DEFS := {
 	"dg_coracao": {"name": "Coração da Árvore", "parent": "elf_city", "levels": Vector2i(19, 22), "ground": Color(0.4, 0.34, 0.26), "ambient": Color(0.7, 0.92, 0.7), "sun": 0.65},
 	"dg_cripta": {"name": "Cripta de Vel'Thar", "parent": "field_ruins", "levels": Vector2i(25, 30), "ground": Color(0.3, 0.28, 0.32), "ambient": Color(0.66, 0.58, 0.82), "sun": 0.6},
 	"dg_goblin": {"name": "Grutas Goblin", "parent": "field_coast", "levels": Vector2i(32, 35), "ground": Color(0.34, 0.32, 0.24), "ambient": Color(0.85, 0.7, 0.6), "sun": 0.65},
+	# Salão dos Matadores (Monte Kharzun): vestíbulo, galeria de treino, cripta de venenos (lateral) e a arena do Mestre Matador
+	"dg_slayers": {"name": "Salão dos Matadores", "parent": "field_kharzun", "levels": Vector2i(42, 44), "ground": Color(0.26, 0.23, 0.29), "ambient": Color(0.74, 0.62, 0.9), "sun": 0.6},
 }
 ## Portões de progressão por id de portal (só o jogador; ver WorldSim.portal_block_reason). `bosses` = selo: save antigo não abre.
 const PORTAL_GATES := {
@@ -1300,6 +1409,9 @@ const PORTAL_GATES := {
 	# E5 Caminho da montanha: os três acampamentos retomados (`quests` = todas, qualquer ordem). O portal `to_field_kharzun`
 	# ainda não existe (data/zones/field_steppe.json, chave future_portals): ganha este portão quando field_kharzun existir.
 	"to_field_kharzun": {"level": 40, "quests": Q_STEPPE_FORTS, "text": "O caminho da montanha segue fechado: a Horda ainda segura acampamentos na estepe. Retome os três antes de subir para Kharzun."},
+	# Monte Kharzun: o Salão dos Matadores abre com a palavra do Xamã Exilado (sem nível); a Cidadela, com o aríete no portão (K2)
+	"to_dg_slayers": {"quest": "hx_slayers_open", "text": "A pedra do paredão não cede. O Xamã Exilado sabe a palavra que abre o Salão dos Matadores."},
+	"to_kharzun_citadel": {"level": 43, "quest": Q_KH_GATE, "text": "O portão da Cidadela está trancado por dentro. Leve o aríete da Aurora até ele antes de subir."},
 }
 const MERCHANT_SHOP := ["potion_hp_s", "potion_mp_s", "potion_hp_m", "potion_mp_m", "elixir_might", "elixir_stone", "cap_leather", "boots_leather"]
 const ZONE_PATH := "res://data/zones/%s.json"
@@ -1526,6 +1638,7 @@ static func _port() -> MapDef:
 			d["model"] = ex["model"]
 		d["look_seed"] = 500 + nid.length() * 11
 		npcs.append(d)
+	npcs.append_array(festival("city_port", FESTIVAL_ACT2, VICTORY2_QUEST))   # fim do Ato II
 	for d in dawn_garrison(npc_pos, "port_g_"):           # guarnição: Balance.PORT_GUARD_POWER
 		if not is_equal_approx(Balance.PORT_GUARD_POWER, 1.0):
 			d["power"] = Balance.PORT_GUARD_POWER
@@ -1605,4 +1718,149 @@ static func _steppe() -> MapDef:
 		"conquest_vis": steppe_conquest_vis(),
 		"ground_color": Color(0.74, 0.62, 0.34), "ground_color_alt": Color(0.68, 0.56, 0.31), "ambient": Color(0.98, 0.92, 0.82), "sun_energy": 1.2,
 		"bot_population": 6, "npcs": npcs})
+	return _mk(z)
+
+# ---------------------------------------------------------------------------
+## Monte Kharzun (Ato II, fase 3, 40-45): tools/blender/zones/build_kharzun.py. Acampamento Avançado da Aurora no centro
+## (paliçada + carroças), Minas a oeste, Canil a leste, Forja Negra a nordeste além da lava, Salão dos Matadores a noroeste,
+## Portão da Cidadela ao norte. Estágios K0-K4 (design/gdd/kharzun-fase3-plan.md §2.4) pelas quests abaixo; as missões são do WP9.
+const Q_KH_MINES := "hx_mines"              # K1 Correntes: escravos libertados, Ferreiro Anão, lanceiros libertos no muro
+const Q_KH_KENNEL := "hx_kennel"            # K1b Canil: a frente do Canil cala
+const Q_KH_FORGE := "hx_black_forge"        # K1c Forja: a Forja Negra vira aliada (mercador de armas, anões)
+const Q_KH_SLAYERS := "hx_slayers"          # K1d Matadores: emboscadas de Assassinos nas estradas param
+const Q_KH_GATE := "hx_citadel_gate"        # K2 Portão: Contra-ataque para, máquinas de cerco, Ofensiva sobe
+const Q_KH_CLANS := ["hx_clan_wolf", "hx_clan_stone", "hx_clan_forge"]   # K3: sala do trono (cidadela, WP6)
+const Q_KH_WARLORD := "hx_warlord"          # K4 Fim do Ato II: orcs rendidos no acampamento, festa
+## Toda regra if/unless do Kharzun (spawners, peças, NPCs, levas) só cita estas (check `_check_kharzun_map`).
+## Missões laterais que só fazem aparecer um NPC (não mudam o estágio): a tratadora do lobo atroz (WP10).
+const KHARZUN_SIDE_QUESTS := ["hx_ov_hatch"]
+const KHARZUN_STAGE_QUESTS := [Q_KH_MINES, Q_KH_KENNEL, Q_KH_FORGE, Q_KH_SLAYERS, Q_KH_GATE, "hx_clan_wolf", "hx_clan_stone", "hx_clan_forge", Q_KH_WARLORD]
+
+## Acampamento: serviços e gente por estágio. id -> [nome, papel, cor, falas, extras {shop, model}] (posição do JSON;
+## o estágio de cada um vem de `stage_npcs` do JSON). Falas de rua em BARKS; a gente que anda em LIVING_NPCS["field_kharzun"].
+const KHARZUN_NPCS := {
+	"kharzun_commander": ["Comandante Isolda Brasa", "quest", Color(0.86, 0.78, 0.52), ["Bem-vindo à ponta da lança. Atrás de nós, as Estepes. À frente, uma montanha inteira de orcs que não tem para onde correr.", "Minas a oeste, Canil a leste, a Forja do outro lado da lava. Quem fica para trás é caçado: andem em grupo."], {}],
+	"kharzun_smith": ["Ferreiro Galdino, da Aurora", "smith", Color(0.7, 0.52, 0.38), ["Bigorna de campo, carvão de montanha. O calor daqui faz metade do meu trabalho.", "Aprimoro e faço joias. Para mais que isso, procure quem conhece o aço desta pedra."], {}],
+	"kharzun_alchemist": ["Alquimista Cecília", "alchemy", Color(0.52, 0.76, 0.6), ["Escama de salamandra ferve sozinha na retorta. Útil, se você tiver luva.", "Contra o veneno dos Assassinos, poção antes de entrar na trilha, não depois."], {}],
+	"kharzun_merchant": ["Intendente Rogério", "merchant", Color(0.86, 0.72, 0.46), ["Poção, atadura e flecha. A carroça das Estepes sobe duas vezes por dia, se o lobo deixar.",
+		"Venda o que a montanha te deu: escama, pele, minério. Eu revendo nas Estepes pelo dobro e ninguém reclama."], {"shop": "merchant"}],
+	"kharzun_storage": ["Guarda-volumes Amélia", "storage", Color(0.45, 0.6, 0.75), ["O baú do acampamento é o mesmo de Aldara, do porto e da caravana. Não me pergunte como.",
+		"Deixe aqui o que não vai usar na subida. Bolsa leve, pé ligeiro."], {}],
+	"kharzun_board": ["Quadro de Caçadas", "board", Color(0.72, 0.62, 0.46), ["Pedidos pregados numa estaca: lobos atrozes, salamandras, golens de basalto.", "Um bilhete torto: quem trouxer brasa da Forja tem cama perto do braseiro."], {"model": "prop_statue"}],
+	"masters_herald": ["Arauto dos Mestres", "quest", Color(0.95, 0.85, 0.55), ["Os mestres do porto mandaram eu esperar aqui. Dizem que no topo da montanha se vê quem aprendeu de verdade.", "Volte aos 45. Tenho uma prova para quem já ascendeu."], {}],
+	"dwarf_smith": ["Ferreiro Anão Thrain", "smith", Color(0.72, 0.5, 0.34), ["Quinze anos batendo aço para orc. Agora bato para mim, e para quem me tirou da corrente.", "Aço Anão leva lendário onde o ferro humano não chega. Brasa de Kharzun, mais longe ainda."],
+		{"dialog_after": {"hx_dw_forge": ["Lendário de nível 40 ou mais? Traga Aço Anão até o +5. Do +6 em diante, só Brasa de Kharzun segura o encanto.", "Brasa sai da Forja Negra e dos golens. Aço, das Minas. O resto é martelo, e martelo eu tenho."]}}],
+	# falas de base = lobo ainda travado (dica da missão); dialog_after hx_ov_hatch = lobo liberado (MOUNT_KINDS.dire_wolf.quest)
+	"kharzun_wolf_keeper": ["Tratadora Nara, dos Lobos", "villager", Color(0.6, 0.6, 0.64), ["Lobo atroz só aceita sela de quem viu nascer. O Capataz Bráulio guarda os ovos: faça \"Calor de Montanha\" com ele e volte aqui.",
+		"Por enquanto, só cavalo. Os ovos precisam de escama de salamandra morna, e salamandra mora na Forja Negra."],
+		{"if": "hx_ov_hatch", "pos": [-12.5, 8.0, 70.0],
+		 "dialog_after": {"hx_ov_hatch": ["O filhote do Bráulio cresceu rápido. Já aguenta sela, e já escolheu você.", "Lobo atroz anda o mesmo que cavalo. Só assusta mais. Quer trocar de montaria, é comigo."]}}],
+	"kharzun_arms_merchant": ["Armeira Dagna", "merchant", Color(0.74, 0.56, 0.4), ["A Forja Negra fazia machado para a Horda. Agora faz para quem paga.", "Arma de nível 40, recém-saída da bigorna. Ainda quente."], {"shop": "merchant"}],
+	"kharzun_siege_engineer": ["Engenheiro Valério", "villager", Color(0.66, 0.6, 0.5), ["O aríete passou. Agora as catapultas cuidam das muralhas de cima.", "Cada pedra que jogo na cidadela, carrego primeiro morro acima."], {}],
+	"kharzun_orc_surrendered_a": ["Orc Rendido Gorbag", "villager", Color(0.5, 0.58, 0.42), ["Durgash caiu. Gorbag largou o machado. Gorbag não sabe fazer outra coisa ainda.", "Humano manda carregar caixa. Gorbag carrega caixa."], {"model": "mob_orc_recruit"}],
+	"kharzun_orc_surrendered_b": ["Orc Rendida Shagra", "villager", Color(0.52, 0.6, 0.44), ["A montanha não empurra mais. Agora é o leste que empurra.", "Shagra viu fogos a leste. Não eram nossos."], {"model": "mob_orc_recruit"}],
+	"mine_slave_a": ["Escravo Anão Borin", "villager", Color(0.6, 0.48, 0.38), ["A corrente é curta e o capataz é comprido. Tire o capataz.", "Os trolls carregam a pedra. Nós quebramos."], {}],
+	"mine_slave_b": ["Escrava Inês", "villager", Color(0.66, 0.56, 0.48), ["Vim com a caravana de Aldara. Fiquei com a corrente.", "O Agitador bate o tambor e o chicote vem junto."], {}],
+	"mine_slave_c": ["Escravo Anão Dwalin", "villager", Color(0.58, 0.46, 0.36), ["Lá no fundo tem inscrição antiga. Não é anã, não é orc.", "Se nos soltar, a Forja Negra fica sem mão de obra. Pense nisso."], {}],
+	"forge_dwarf_a": ["Fundidor Anão Kili", "villager", Color(0.62, 0.48, 0.36), ["A Forja é nossa de novo. O fogo nunca soube de quem era.", "Brasa de Kharzun arde três dias. Pegue com pinça."], {}],
+	"forge_dwarf_b": ["Fundidora Anã Dís", "villager", Color(0.66, 0.5, 0.4), ["Lava canalizada, bigorna de basalto. Melhor forja do mundo, pior vizinhança.", "Martelo novo para cada clã que cair."], {}],
+}
+const KHARZUN_RESPAWN := 12.0
+
+## Contra-ataque da Horda sobre o acampamento (K0): Canil pelo portão leste (calado em K1b), Cidadela pelo portão norte
+## (calada em K2). Rotas no JSON (Blender); a frente que sobra engrossa (Balance.RAID_RECLAIM_MULT).
+const KHARZUN_RAIDS := {
+	"kennel": {"every": 240.0, "first": 90.0, "jitter": 48.0, "lifetime": 200.0,
+		"waves": [{"mobs": {"dire_wolf_rider": 2, "dire_wolf": 3}}, {"mobs": {"orc_warlord": 1}, "every_nth": 3}],
+		"say_start": "Uivos no leste: os ginetes do Canil descem contra o acampamento!",
+		"say_arrived": "Os lobos atrozes bateram no portão leste!",
+		"say_repelled": "Os ginetes do Canil foram rechaçados no portão leste!",
+		"say_retreat": "Os lobos que sobraram voltam uivando para o Canil.",
+		"reclaim_extra": {1: {"dire_wolf_rider": 1}},
+		"say_reclaim": "O Canil uiva mais alto: a montanha joga mais ginetes contra o acampamento!",
+		"say_last": "Só o Canil ainda ataca, e com tudo: chame aliados (forme um grupo) antes de defender o portão leste!"},
+	"citadel": {"every": 260.0, "first": 170.0, "jitter": 52.0, "lifetime": 210.0,
+		"waves": [{"mobs": {"goblin_assassin": 3, "dire_wolf_rider": 2}}, {"mobs": {"orc_warlord": 1}, "every_nth": 3}],
+		"say_start": "Tambores na encosta: a Cidadela manda uma leva pela avenida do norte!",
+		"say_arrived": "Assassinos e ginetes chegaram ao portão norte! Protejam quem cura!",
+		"say_repelled": "A leva da Cidadela quebrou no portão norte!",
+		"say_retreat": "Os orcs recuam encosta acima.",
+		"reclaim_extra": {1: {"goblin_assassin": 1, "dire_wolf_rider": 1}},
+		"say_reclaim": "Durgash responde ao Canil perdido: a leva da Cidadela vem maior!",
+		"say_last": "Só a Cidadela ainda ataca e despeja a encosta inteira: chame aliados (forme um grupo) antes de defender o portão norte!"},
+}
+
+## Regras de estágio do JSON (peças do GLB e NPCs), exportadas pelo build_kharzun.py.
+static func kharzun_stage_data() -> Dictionary:
+	var raw: Variant = JSON.parse_string(FileAccess.get_file_as_string(ZONE_PATH % "field_kharzun"))
+	return raw if raw is Dictionary else {}
+
+static func _kharzun() -> MapDef:
+	var z := load_zone("field_kharzun")
+	var raw := kharzun_stage_data()
+	var npc_pos: Dictionary = z["npc_pos"]
+	var npcs := _place_npcs("field_kharzun", npc_pos)
+	for nid in KHARZUN_NPCS:
+		var n: Array = KHARZUN_NPCS[nid]
+		var ex: Dictionary = n[4]
+		var p: Array = ex.get("pos", npc_pos.get(nid, [0.0, 0.0, 180.0]))      # sem marcador no JSON: posição escrita aqui
+		var d := _npc(nid, n[0], float(p[0]), float(p[1]), n[1], n[2], n[3], float(p[2]),
+			MERCHANT_SHOP + GearCatalog.shop_ids() + GearCatalog.starter_weapon_ids(GameData.items) if ex.get("shop", "") == "merchant" else [])
+		if ex.has("model"):
+			d["model"] = ex["model"]
+		for k in ["dialog_after", "if"]:              # falas depois de missão; NPC de missão lateral (tratadora: hx_ov_hatch)
+			if ex.has(k):
+				d[k] = ex[k]
+		d["look_seed"] = 900 + nid.length() * 11
+		npcs.append(d)
+	for d in dawn_garrison(npc_pos, "kharzun_g_") + dawn_garrison(npc_pos, "kharzun_f_"):   # guarnição (veteranos) e lanceiros libertos (K1)
+		d["power"] = Balance.KHARZUN_GUARD_POWER
+		d["respawn"] = KHARZUN_RESPAWN
+		npcs.append(d)
+	npcs.append_array(crystal_npc("field_kharzun"))
+	npcs.append_array(festival("field_kharzun", FESTIVAL_ACT2, VICTORY2_QUEST))   # K4: festa no acampamento
+	for pt in z["portals"]:                          # a volta às Estepes é livre (o id to_field_steppe é o portão da Costa)
+		if pt["target_map"] == "field_steppe":
+			pt.erase("gate")
+	var stage: Dictionary = raw.get("stage_npcs", {})
+	for d in npcs:                                   # quem aparece/some com o estágio (JSON)
+		var rule: Dictionary = stage.get(d["id"], {})
+		for k in ["if", "unless"]:
+			if rule.has(k):
+				d[k] = rule[k]
+	npcs.append_array(living_npcs(LIVING_NPCS["field_kharzun"]))     # gente que anda (WP11); o estágio vem no extra de cada um
+	z.erase("npc_pos")
+	z.merge({"id": "field_kharzun", "name": "Monte Kharzun", "is_town": false, "hub": true, "level_range": Vector2i(40, 45),
+		"conquest_vis": (raw.get("stage_tags", []) as Array).duplicate(true),
+		"ground_color": Color(0.38, 0.31, 0.31), "ground_color_alt": Color(0.34, 0.28, 0.28), "ambient": Color(0.98, 0.84, 0.76), "sun_energy": 1.0,
+		"bot_population": 6, "npcs": npcs})
+	return _mk(z)
+
+# ---------------------------------------------------------------------------
+## Cidadela de Kharzun (Ato II, fase 3, 44-45): tools/blender/zones/build_kharzun_citadel.py. Mapa de masmorra (`parent_map`
+## field_kharzun: sem montaria, bots só com o grupo do jogador) entalhado no pico: barbacã, pátio de armas, três alas com
+## um chefe de clã cada (Lobo a oeste, Pedra a leste, Forja a nordeste; qualquer ordem) e a sala do trono ao norte.
+## A porta do trono é um colisor de estágio: fechada até os três clãs caírem (Q_KH_CLANS, K3); Durgash só nasce com ela aberta.
+const CITADEL_ID := "kharzun_citadel"
+## Peças do GLB que trocam: folhas da porta do trono e o braseiro de cada clã na antecâmara (apagado -> aceso na cor do clã).
+const CITADEL_CONQUEST_VIS := [
+	{"tag": "trono_fechado", "unless": Q_KH_CLANS}, {"tag": "trono_aberto", "if": Q_KH_CLANS},
+	{"tag": "cla_lobo_vivo", "unless": "hx_clan_wolf"}, {"tag": "cla_lobo_caido", "if": "hx_clan_wolf"},
+	{"tag": "cla_pedra_vivo", "unless": "hx_clan_stone"}, {"tag": "cla_pedra_caido", "if": "hx_clan_stone"},
+	{"tag": "cla_forja_vivo", "unless": "hx_clan_forge"}, {"tag": "cla_forja_caido", "if": "hx_clan_forge"},
+]
+
+## Dados do JSON da cidadela para sondas, IA e missões: `arenas` (chefe -> pos, r, salão; Durgash: soquetes dos três
+## Estandartes de Clã, porta, estrado), `wings` (ala -> boca, chefe, quest, salões) e `throne` (porta, quests, chefe).
+static func citadel_data() -> Dictionary:
+	var raw: Variant = JSON.parse_string(FileAccess.get_file_as_string(ZONE_PATH % CITADEL_ID))
+	return raw if raw is Dictionary else {}
+
+static func _kharzun_citadel() -> MapDef:
+	var z := load_zone(CITADEL_ID)
+	z.erase("npc_pos")
+	var col := Color(0.3, 0.27, 0.29)
+	z.merge({"id": CITADEL_ID, "name": "Cidadela de Kharzun", "is_town": false, "level_range": Vector2i(44, 45), "parent_map": "field_kharzun", "mounts_ok": true,
+		"conquest_vis": CITADEL_CONQUEST_VIS.duplicate(true),
+		"ground_color": col, "ground_color_alt": col.darkened(0.08), "ambient": Color(0.98, 0.74, 0.62), "sun_energy": 0.65, "bot_population": 0, "npcs": []})
 	return _mk(z)

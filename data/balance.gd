@@ -1,7 +1,7 @@
 extends Node
 ## Todas as constantes de balanceamento num lugar só (autoload `Balance`).
 
-const MAX_LEVEL := 40                # Ato II fase 2 (design/gdd/ato2-horda.md R7): 40; o GDD vai a 45
+const MAX_LEVEL := 45                # Ato II fase 3 (design/gdd/ato2-horda.md R7; Monte Kharzun 40-45): teto do Ato II
 const ASC_LEVEL := 35                # ascensão de classe libera neste nível (com a missão hx_asc_<classe>)
 const ATTRS := ["FOR", "AGI", "VIT", "WILL", "INT"]
 ## Escala dos atributos: cada ponto vale 1/ATTR_SCALE do antigo (a teia dá +1 na estrada e +5..+10 nos círculos).
@@ -155,8 +155,8 @@ const XP_MOB_BASE := 6.0
 const XP_MOB_PER_LEVEL := 4.5
 const XP_QUEST_SHARE := 0.45             # quests (não repetíveis) dão ~45% da faixa; abates, caçadas e quadros o resto
 ## 1-10: mais quests no 6-7; 10-20: quests pedem mais abates e pagam mais; 20-30: a guarnição e o grupo matam muito,
-## então a guerra paga mais por quest; 30-35 e 35-40 (Ato II, (H) do GDD F1)
-const XP_QUEST_SHARE_BAND := {1: 0.5, 10: 0.55, 20: 0.65, 30: 0.55, 35: 0.55}
+## então a guerra paga mais por quest; 30-35, 35-40 e 40-45 (Ato II, (H) do GDD F1)
+const XP_QUEST_SHARE_BAND := {1: 0.5, 10: 0.55, 20: 0.65, 30: 0.55, 35: 0.55, 40: 0.5}
 ## Ato II (GDD F1, "achatar"): do nível XP_ACT2_FROM em diante o tempo por nível cresce XP_MIN_PER_LEVEL_ACT2 por nível
 const XP_ACT2_FROM := 30
 const XP_MIN_PER_LEVEL_ACT2 := 0.75
@@ -164,10 +164,10 @@ const XP_MIN_PER_LEVEL_ACT2 := 0.75
 ## Parte da XP da faixa que começa em `band_start` que vem de quests.
 static func quest_share(band_start: int) -> float:
 	return float(XP_QUEST_SHARE_BAND.get(band_start, XP_QUEST_SHARE))
-const XP_BANDS := [[1, 10], [10, 20], [20, 30], [30, 35], [35, 40]]
+const XP_BANDS := [[1, 10], [10, 20], [20, 30], [30, 35], [35, 40], [40, 45]]
 const DEATH_XP_PENALTY := 0.03
 # pontos da teia (estilo Path of Exile): skills, maestria, evoluções, atributos e notáveis. 8 por nível (+1 no 10/20/30/40)
-# = 235 no 30, 275 no 35 e 316 no 40, numa teia de ~250-360 nós (+ maestrias): muita liberdade, mas não dá para pegar tudo.
+# = 235 no 30, 275 no 35, 316 no 40 e 356 no 45, numa teia de ~250-360 nós (+ maestrias): muita liberdade, mas não dá para pegar tudo.
 const MASTERY_POINTS_PER_LEVEL := 8
 const MASTERY_BONUS_LEVELS := [10, 20, 30, 40]  # +1 ponto extra (40: Ato II, GDD R7)
 const MASTERY_MAX := 5
@@ -301,6 +301,8 @@ const MOB_AURAS := {
 		"demoralize": {"id": "horde_dismay", "atk_pct": -15.0, "speed_pct": -10.0, "duration": 8.0, "radius": 12.0}},
 	"agitator_boss": {"id": "horde_fury", "radius": 14.0, "ally": {"atk_pct": 30.0, "aspd_pct": 10.0, "speed_pct": 10.0},
 		"demoralize": {"id": "horde_dismay", "atk_pct": -15.0, "speed_pct": -10.0, "duration": 8.0, "radius": 12.0}},
+	# Estandarte do Clã do Lobo (Durgash F2, kharzun-fase3-plan §4): a Horda em volta corre e golpeia mais rápido
+	"clan_wolf": {"id": "clan_wolf", "radius": 30.0, "ally": {"atk_pct": 0.0, "aspd_pct": 20.0, "speed_pct": 25.0}},
 }
 
 ## F3: regeneração do troll (MonsterDef.regen × isto × vida máxima por segundo; MobSystem.update_regen). Zero enquanto queima
@@ -327,11 +329,21 @@ static func troll_ttk(t_no_regen: float, regen_mult: float = 1.0) -> float:
 	var rt := TROLL_REGEN_PCT * regen_mult * t_no_regen
 	return INF if rt >= 1.0 else t_no_regen / (1.0 - rt)
 
+## Decisão (2026-11-12, Kharzun WP3, mesma linha da 2ª decisão dos 35+): no 40+ os bots matam o comum em ~1 s mesmo com
+## mod_unidade no teto (band_probe 40-45: vida perdida 7-9%); a vida do papel ganha este fator por cima do HORDE_LATE_35
+## (luta mais longa, golpe normal). Chefes/elites fora (boss_probe / caçada única).
+const HORDE_LATE_40_LEVEL := 40
+const HORDE_LATE_40 := {"comum": {"hp": 4.4, "cooldown": 0.8}, "bruto": {"hp": 1.3, "cooldown": 0.8}}
+
 ## Fator dos 35+ (HORDE_LATE_35) do papel: `key` = hp | startup | cooldown; 1.0 abaixo de HORDE_ATK_35_LEVEL ou sem entrada.
+## No 40+ a mesma chave multiplica também HORDE_LATE_40 (vida e ritmo do golpe).
 static func horde_late(role: String, key: String, level: int, fallback: float = 1.0) -> float:
 	if level < HORDE_ATK_35_LEVEL:
 		return fallback
-	return float((HORDE_LATE_35.get(role, {}) as Dictionary).get(key, fallback))
+	var v := float((HORDE_LATE_35.get(role, {}) as Dictionary).get(key, fallback))
+	if level >= HORDE_LATE_40_LEVEL:
+		v *= float((HORDE_LATE_40.get(role, {}) as Dictionary).get(key, 1.0))
+	return v
 
 ## F2: um atributo de monstro da Horda. `stat` = hp | atk | def | mdef; `mods` = mod_unidade (só hp/atk; 1.0 se faltar).
 static func horde_stat(role: String, stat: String, level: int, mods: Dictionary = {}) -> float:
@@ -357,6 +369,9 @@ const SIGNATURE_ICD := 1.5             # s entre disparos do mesmo personagem
 const SIGNATURE_POWER := 0.6           # poder da magia disparada (x o da skill)
 const SIGNATURE_BASIC_TRIM := 0.94     # o básico perde isto para o DPS total ficar parecido
 const RAID_POWER := 1.5                 # invasores: HP/ATK/MATK x isto (centro do 2º mapa)
+## Força da investida só neste mapa (vida/ATK/MATK dos invasores x isto, sobre RAID_POWER); comuns do campo não mudam.
+## Kharzun (usuário 2026-11-13): o elenco 40+ ficou mais forte; a leva sem bots voltou a ~9/10 repelidas.
+const RAID_MAP_POWER := {"field_kharzun": 0.85}
 const RAID_SMART := 1.5                 # invasores: alcance de aggro x isto e skills isto vezes mais seguidas
 const RAID_FLEE_HP := 0.25              # invasor sozinho abaixo disto recua para se juntar à leva
 const CRYSTAL_ARRIVE := 2.4             # m na frente do cristal onde o G/renascer deixa você
@@ -419,6 +434,12 @@ const MOUNT_SPEED_MULT := 1.7
 const MOUNT_COMBAT_LOCK := 3.0            # s de "em combate" depois do último golpe/dano (bots não montam nisso; o jogador pode)
 const MOUNT_CAST_TIME := 1.5              # s de conjuração para montar (H); dá para andar; agir ou levar golpe interrompe
 const BOT_MOUNT_CHANCE := 0.04            # por pensamento, bot andando fora de combate monta
+## Tipos de montaria (por personagem, `SimEntity.mount_kind`, salvo). Todas com a MESMA velocidade (Kharzun D5:
+## o lobo atroz é visual, não poder). `quest` = missão que libera ("" = desde o começo); quem a entrega já sai montando
+## o bicho novo e troca no tratador (MOUNT_KEEPER_NPCS). Modelo e pelagem: EntityView.MOUNT_LOOKS.
+const MOUNT_KINDS := {"horse": {"name": "Cavalo", "quest": ""}, "dire_wolf": {"name": "Lobo Atroz", "quest": "hx_ov_hatch"}}
+const MOUNT_DEFAULT := "horse"
+const MOUNT_KEEPER_NPCS := ["kharzun_wolf_keeper"]     # quem troca a montaria (Tratadora de Lobos, acampamento de Kharzun)
 ## Combate Montado (ascensão do Paladino, GDD ato2-horda F8): montado ele bate e usa skills `mountable`
 const MOUNT_FIGHT_CLASSES := ["paladin"]
 const ARCANE_SKILL := "pal_arcane_mode"
@@ -503,7 +524,7 @@ const TITAN_WEAPONS := ["axe2h"]          # o que vai na mão secundária com a 
 const TITAN_BUILDS := ["executor"]       # bots desta build empunham dois machados de 2 mãos ascendidos (os Gêmeos ficam com
                                           # as machadinhas: trocar o par de 1 mão pelo de 2 mãos não compensa sem a teia de Titã)
 ## Punhos de Fúria ascendidos: Garras de Titã (perfil de arma pesada nas duas garras)
-const TITAN_CLAW_POWER := 0.9             # +90% no básico das garras. F5 2026-11-12 (--tank_lock, 80 lutas/braço): com 0,45 x0,978 (no Modo Gladiador a Fúria vira Glória: o Punhos perde a Fúria); com 0,9 x1,091±0,03
+const TITAN_CLAW_POWER := 0.8             # +80% no básico das garras (F5 no 45, 2026-11-13: 0,9 dava x1,221 contra Kragmar). F5 2026-11-12 (--tank_lock, 80 lutas/braço): com 0,45 x0,978 (no Modo Gladiador a Fúria vira Glória: o Punhos perde a Fúria); com 0,9 x1,091±0,03
 const TITAN_CLAW_ASPD_PEN := 0.10         # −10% de velocidade do básico (com 0,20 o boneco parava 0,18 s entre golpes e com 0,15 0,12 s: FLAG do combat_probe)
 const TITAN_CLAW_PUSH := 0.7              # m de empurrão no golpe básico (chefe não é empurrado)
 ## Berserker — Modo Gladiador (F9b, GladiatorSystem): postura liga/desliga; Glória = cargas
@@ -520,13 +541,15 @@ const GLADIATOR_FINALE_POWER := 3.5       # (H) Golpe Final com 5 de Glória
 ## Refinos do Berserker (portões da teia de ascensão, AscensionCatalog.NODES["berserker"]; GDD R6.1)
 const TITAN_CYCLONE_SKILL := "ber_titan_cyclone"
 const CYCLONE_LONG_FLAG := "ber_cyclone_long"     # Gêmeos 40, Giro dos Dois Machados
-const CYCLONE_LONG_MULT := 1.5                    # Ciclone de Titã: giros e duração × isto (4 → 6 giros, 2 → 3 s)
+const TWIN_FURY_FLAG := "ber_twin_fury"         # Gêmeos 45, Fúria Gêmea (portão da teia de ascensão: o bot da build compra antes das maestrias)
+const TWIN_FURY_ATK := 15                         # +% de dano da Fúria Gêmea (F5 no 45; era velocidade, mas o Gêmeos já bate no ATTACK_SPEED_CAP)
+const CYCLONE_LONG_MULT := 1.5                   # Ciclone de Titã: giros e duração × isto (4 → 6 giros, 2 → 3 s)
 const SECOND_AXE_FLAG := "ber_second_axe"         # Executor 40, Segundo Machado
 const SECOND_AXE_BELOW := 0.2                     # alvo abaixo disto da vida: toda skill bate com as duas armas (golpe duplo)
 const FURY_LIT_FLAG := "ber_fury_lit"             # Punhos 40, Fúria Acesa
 const FURY_LIT_TIME := 6.0                        # s a mais no tempo da Fúria (e da Glória, na postura) ao lançar o Ciclone
 const ARENA_FINALE_FLAG := "ber_arena_finale"     # Executor 45, Golpe Final da Arena
-const ARENA_FINALE := {"power": 1.2, "stun": 1.0} # Golpe Final: poder × 1,2 e atordoa 1 s (chefe: 40%, como todo atordoar)
+const ARENA_FINALE := {"power": 1.1, "stun": 1.0} # Golpe Final: poder × 1,1 e atordoa 1 s (chefe: 40%, como todo atordoar)
 const GLORY_KEEP_FLAG := "ber_glory_keep"         # Punhos 45, Glória que Não Esfria
 const GLORY_KEEP_TIME := 6.0                      # s a mais até a Glória esfriar (e ao sair da postura)
 const STORM_STUN_CHANCE := 15.0            # % de chance de skill de raio atordoar no golpe direto (a que já atordoa não rola)
@@ -566,6 +589,11 @@ const BOSS_CROWD_MULT := [1.0, 1.0, 1.0, 2.0, 3.5, 5.0]
 ## dano a partir de BOSS_CROWD_EXTRA_FROM pessoas (MobSystem.crowd_mult). Calibrado com boss_probe --party=4 sorteado.
 const BOSS_CROWD_EXTRA_FROM := 4
 const BOSS_CROWD_EXTRA := {"spider_queen": 1.8, "elf_king": 1.3}
+## Chefe de raide (feito para 5): tabela própria no lugar de BOSS_CROWD_MULT (BOSS_CROWD_EXTRA não vale). O Durgash é medido
+## para 5: com 4 bate MAIS (4,9) que com 5 (3,25), o grupo de 4 sofre e não vence antes do berserk (90 s × 20, MonsterDef); o de 5
+## fica folgado. Calibrado com boss_probe --boss=boss_durgash --lvl=45 (completo de 5 >= 90%, 5 sorteados 60-80%, completo de 4
+## <= ~20%; tabela em DESIGN.md, Chefes). Até o trio vale o comum.
+const BOSS_CROWD_RAID := {"boss_durgash": [1.0, 1.0, 1.0, 2.0, 4.9, 3.25]}
 ## Casulo de Seda (Rainha Aranha com 4+, MonsterDef.crowd_skills; efeito "cocoon", MobSystem.cocoon): a vítima fica presa até o casulo
 ## cair ou COCOON_TIME s; esgotado o tempo, o casulo aperta COCOON_BURST × a vida máxima. GDD design/gdd/spider-queen-4p.md.
 const COCOON_TIME := 7.0
@@ -577,6 +605,87 @@ const BOSS_CROWD_CHECK := 1.0               # s entre recontagens
 const BOSS_WARD_CHECK := 0.5                # s entre conferências dos lacaios vivos (ward)
 const BOSS_FOLLOW := 5.0                    # m: skill de alvo de chefe (mob_pick) segue a vítima que andou até isto na preparação
 const BOSS_PULL_GAP := 0.6                  # m entre o chefe e quem ele puxa
+## Assinaturas dos chefes (GDD design/gdd/act2-boss-signatures.md; regras em BossSignatures). Intervalo, power e raio de
+## cada uma ficam no dicionário de efeito da skill (catálogo); aqui os números globais (§7).
+const BOSS_SIG_WARN_MIN := 1.5              # s: aviso mínimo de qualquer assinatura (check _check_boss_signatures)
+const BOSS_SIG_REPEAT_WARN_MIN := 0.8       # s: aviso de cada golpe de uma sequência (repeat; GDD 3.6 pede 0,8 por bote)
+const BOSS_SIG_OPEN_DELAY := 6.0            # s do começo da luta até a 1ª assinatura de quem a tem desde 100%
+const BOSS_SIG_PHASE_DELAY := 4.0           # s da entrada na fase até a 1ª assinatura que chega com ela
+const BOSS_MARK_TIME := 4.0                 # s da marca (segue a vítima) até cair (mark sem "time")
+const BOSS_SOAK_MIN := 1                    # divisor mínimo da marca de dividir (soak)
+const BOSS_CHANNEL_BREAK_PCT := 0.06        # dano aplicado no canal (× vida máxima) que quebra o canal
+const BOSS_CHANNEL_STAGGER := 3.0           # s atordoado quando o canal quebra (não passa pelo corte de chefe)
+const BOSS_CHANNEL_VULN := 25.0             # % de dano a mais que ele recebe depois da quebra
+const BOSS_CHANNEL_VULN_TIME := 6.0
+const BOSS_LINGER_TICK := 1.0               # s entre os tiques do chão que fica (linger)
+const BOSS_INVERT_RANGE := 22.0             # m do chefe: quem está a até isto e fora das ilhas leva o golpe invertido
+const KRAGMAR_TEMPER_STEP := 0.08           # dano × (1 + passo × acúmulos) do chefe dentro da poça (empower)
+const KRAGMAR_TEMPER_MAX := 6
+const KRAGMAR_TEMPER_EVERY := 2.0           # s dentro da poça por acúmulo de Têmpera (GDD 3.10)
+const KRAGMAR_TEMPER_DECAY := 3.0           # s fora da poça para perder 1 acúmulo
+const KRAGMAR_TEMPER_HEAL := 0.005          # vida máxima por segundo que ele cura dentro da poça (uma vez, mesmo com poças sobrepostas)
+const GHAR_WALL_CUT := 0.9                  # corte do golpe vindo da frente com a Muralha de Escudos
+const GHAR_WALL_ARC_DEG := 120.0            # arco frontal da Muralha
+const GHAR_COUNTER_DELAY := 0.375          # s do fim da Muralha ao golpe do contragolpe (quadro 10 do clipe wall_counter do mob_ghar)
+# modelos das assinaturas (só apresentação, game/fx/boss_sig_view.gd)
+const GHAR_SIDE_SHIELDS := true             # Muralha: prop_ghar_shieldwall em volta do Ghar (o escudo da frente é o do modelo)
+const GHAR_SHIELDWALL_SCALE := 1.0
+const GRUKK_DRUM_GAP := 1.0                 # m do corpo do Grukk ao tambor plantado
+const ULGRA_LANE_SINK := 0.0                # y do prop_ulgra_stampede (negativo afunda o pó para o aviso aparecer)
+const SHAZKA_SMOKE_ALPHA := 0.55            # opacidade da fumaça sob as cópias
+const TIDE_ISLAND_MIN := 2                  # ilhas mínimas da Maré Cheia (N = max(isto, ceil(crowd/2)))
+const TROLL_COVER_MAX := 3                  # pedregulhos do Troll Rei ao mesmo tempo
+const SHAZKA_DECOY_DMG := 0.3               # dano das cópias do Shazka (× o dele; Sombras Gêmeas, R-F)
+const SHAZKA_DECOY_TINT := Color(0.2, 0.08, 0.32, 0.68)   # apresentação: roxo escuro + força da mistura na pele da cópia
+const SHAZKA_DECOY_RIM := Color(0.68, 0.42, 1.0, 0.6)     # apresentação: borda da cópia (cor + força)
+const SHAZKA_DECOY_RIM_MIX := 0.5           # apresentação: pele da cópia = TINT puxado para a cor da borda (o TINT puro, em sRGB, virava preto no toon)
+const SHAZKA_DECOY_GLOW := 0.6             # apresentação: brilho próprio da pele da cópia (emission_amount); sem ele fica preta fora da luz. Sólida e sem sombra
+## Revisão 2026-11-13 (m1/m2): padrões das assinaturas quando a skill não diz (o catálogo sempre diz; isto evita número
+## solto no core) e números das manobras dos bots nas assinaturas.
+const BOSS_CHANNEL_BREAK_RADIUS := 2.5       # m do efeito da quebra do canal (effects.boss_channel.break_radius)
+const BOSS_SIG_DEFAULTS := {
+	"avalanche": {"guarantee": 2, "near_min": 5.0, "near_max": 9.0, "radius": 18.0},
+	"channel_done": {"radius": 20.0, "duration": 12.0, "atk_pct": 40.0, "heal_pct": 0.3},
+	"wall": {"time": 6.0},
+	"counter": {"base": 1.0, "step": 0.15, "cap": 2.5, "cone": 150.0, "range": 5.5},
+	"decoys": {"count": 2, "spread": 2.6, "time": 10.0},
+}
+const BOT_SIG_DASH_DIST := 5.0               # m: longe disto do lugar da mecânica (ou da saída da faixa), o bot usa o dash
+const BOT_SIG_WALL_MELEE := 1.2              # m atrás do Ghar (além dos raios) para quem bate de perto na Muralha
+const BOT_SIG_WALL_RANGED := 6.0             # m máx. atrás do Ghar para quem atira (menor que BOT_RANGED_DIST)
+const BOT_SIG_SPREAD_SCAN := 25.0            # m: aliados até isto contam para escolher o lado ao espalhar
+const BOT_FRONT_ARC_MAX := 100.0             # graus: teto do meio-arco da frente do monstro que o bot evita
+const BOT_GROUP_CENTROID := 16.0             # m do monstro: aliados até isto entram no centro do grupo
+const BOT_SOFT_AIM := 2.0                    # m: mira de skill a até isto de quem é frágil conta como perigo para ele
+## Revisão 2026-11-13 (m3): nós de ascensão retunados (F5 no 45), número aqui e `%d` na descrição (padrão TWIN_FURY_ATK)
+const ASC_FIRE_LORD_PCT := 9                 # Senhor das Chamas (Elementalista fogo 45): +% de dano de fogo (era 6)
+const ASC_FROST_LORD_PCT := 9                # Senhora do Inverno (Elementalista gelo 45): +% de dano de gelo (era 6)
+const ASC_CRU_WRATH_ATK := 5.5               # Ira Sagrada (Paladino Cruzado 45): +% de ATK (era 5)
+const ASC_TEM_RUNE_INT := 10                 # Runa do Templo (Paladino Templário 40): +INT (era 16)
+const ASC_TEM_DAWN_MATK := 3                 # Aurora do Templo (Paladino Templário 45): +% de MATK (era 5 + 2 ATK)
+## Durgash — Machado do Trono (GDD act2-boss-signatures 3.11, F-S1): marca de dividir (mark soak) numa vítima que não é o tanque
+const DURGASH_AXE_POWER := 2.0              # power TOTAL (× ATK do chefe, × fúria/berserk/reforço de raide), dividido por quem está dentro.
+## Calibrado 2026-11-13 (boss_probe 40 lutas, 5 sorteados): 6,0/26 s/3,5 m -> 15%; 3,0/30/4 -> 35%; 2,5/34/4 -> 35%; 2,0/34/4 -> 60%
+## (sem assinatura 65%); 1 morte pelo machado a cada ~16 usos. O degrau 2,0 -> 2,5 é íngreme: o golpe não mata, mas deixa o grupo baixo.
+const DURGASH_AXE_RADIUS := 4.0             # m do círculo que segue a vítima
+const DURGASH_AXE_TIME := 5.0               # s do círculo até o machado cair (aviso)
+const DURGASH_AXE_EVERY := 34.0             # s entre machados (recarga da skill; o 1º sai BOSS_SIG_OPEN_DELAY depois do começo)
+const DURGASH_AXE_HOVER := 3.2              # apresentação: altura (m) do prop_durgash_throneaxe sobre o círculo antes de cair
+## Bots nas assinaturas (sempre perfeitos, decisão do usuário 2026-11-13)
+const BOT_SIG_COVER_GAP := 0.8              # m atrás da pedra (além do raio dela) na Avalanche
+const BOT_SIG_SPREAD_DIST := 8.0            # m: até onde o marcado anda para espalhar (8 direções)
+const BOT_SIG_SOAK_RANGE := 15.0            # m: bot não tanque a até isto vai dividir a marca
+const BOT_SIG_SOAK_MARGIN := 1.2            # s de folga: o bot parte para a marca de dividir quando o que falta mal dá para chegar + isto
+const BOT_SIG_SOAK_PAD := 0.8               # m para dentro da borda do círculo de dividir (chegou = fica)
+const BOT_SIG_SOAK_HELPERS := 2            # quantos (os mais perto, fora a vítima e o tanque) vão dividir; os outros seguem no estandarte/cura
+const BOT_SIG_SOAK_VICTIM_HOLD := 2.5       # s: o marcado pelo Machado do Trono só para nos últimos isto (antes cura/bate normal)
+const BOT_SIG_STUN_SAVE := 0.5              # guarda o atordoar quando o canal do chefe está a menos desta fração da recarga
+const BOT_SIG_ISLAND_AVOID := 6.0           # m: quem não é tanque evita a ilha a menos disto do chefe (golpe em volta dele)
+const BOT_SIG_HOLD := 0.5                   # m: chegou no lugar da mecânica (para de andar e luta dali)
+const BOT_SIG_PAD := 0.3                    # m de folga ao sair de faixa/anel de assinatura (vãos de 3 m: a folga dos círculos fecharia o vão)
+const BOT_SIG_REACT := 1.0                  # s: bot só sai de faixa/anel que cai até isto (antes, segue lutando)
+const BOT_SIG_DRAG_DIST := 4.0             # m: Têmpera na Lava, quem o Kragmar mira leva ele ao ponto livre de poça a pelo menos isto
+const BOT_SIG_LOOKAHEAD := 1.5              # s: faixa/anel que cai até isto depois do perigo atual conta para escolher o lado da fuga
 const BOT_DODGE_MIN_RADIUS := 1.2          # telegrafia menor que isto (golpe curto) não dá para fugir: bloqueia ou aguenta (investida: sempre foge da linha)
 const PARTY_SEEK_MAX := 3                  # /party: quantos bots do mapa oferecem grupo (um convite por vez)
 const PARTY_SEEK_COOLDOWN := 20.0          # s entre dois /party
@@ -705,7 +814,7 @@ const OFFHAND_WEAPON_ATK_MULT := 0.6          # empunhando duas: a 2ª arma soma
 const GEAR_DROP_CHANCE := 0.02                # calça/capa/amuleto/anel comum, por monstro morto
 const GEAR_DROP_CHANCE_BOSS := 0.5
 const GEAR_SHOP_TIERS := 2                    # mercador vende esses tiers; os de cima só caem de monstro
-const LEGENDARY_LEVELS := [5, 10, 15, 20, 25, 30, 35, 40]     # 35 e 40: Ato II (GDD F10; o 45 na próxima fase)
+const LEGENDARY_LEVELS := [5, 10, 15, 20, 25, 30, 35, 40, 45]     # 35, 40 e 45: Ato II (GDD F10)
 const LEGENDARY_MULT := 1.2                   # ATK/DEF/atributos vs. item comum do mesmo nível
 const LEGENDARY_DROP_CHANCE := 0.01           # por monstro morto (1 em 100); cada membro do grupo rola o seu
 const LEGENDARY_DROP_CHANCE_BOSS := 0.4
@@ -727,6 +836,14 @@ const PLUS_ELF_LEVEL := 20                  # lendário deste nível (Glória) a
 const PLUS_ELF_GOLD_MULT := 0.6
 const PLUS_DAWN_LEVEL := 25                 # lendário 25+ (Bastião da Aurora) aprimora com Prata Consagrada e Fragmento da Aurora
 const PLUS_DAWN_GOLD_MULT := 0.6
+const PLUS_KHARZUN_LEVEL := 40              # lendário 40+ (Monte Kharzun, D11): Aço Anão até +5 e Brasa de Kharzun do +6 em diante
+const PLUS_KHARZUN_GOLD_MULT := 0.6
+const PLUS_KHARZUN_STEEL := "dwarf_steel"
+const PLUS_KHARZUN_EMBER := "kharzun_ember_core"
+const KHARZUN_JEWEL_LEVEL := 45              # joias/capas de Kharzun (receita com troféu de chefe)
+const KHARZUN_JEWEL_MULT := 1.1               # sobre a peça comum do mesmo nível: o troféu pesa
+const KHARZUN_JEWEL_GOLD := 1500              # ouro da receita (tier 40 cobra 720)
+const PLUS_KHARZUN_SMITHS := ["dwarf_smith"]   # só o Ferreiro Anão Thrain aprimora o lendário 40+ (os outros ferreiros recusam)
 const LEGENDARY_COINS_BOSS := 2              # chefe (e Rei) solta 2 moedas lendárias; monstro comum, 1
 ## O lendário cai como Moeda Lendária; a Relicária troca: peça do tier i (LEGENDARY_LEVELS) custa i+1 moedas
 const LEGENDARY_START_MAP := "city_aldara"     # primeiro mapa: o 1º conjunto (tier de LEGENDARY_LEVELS[0]) cai mais
@@ -748,7 +865,7 @@ const SET_5PC_CDR_BASE := 10.0                # 5 peças: -% de recarga de outra
 const SET_5PC_CDR_PER_TIER := 2.0
 ## Conjuntos híbridos (GDD Ato II R7.1; Fusões: design/gdd/ato2-proposals-2026-11-11.md §1). Um por par de builds da
 ## classe (A+B, B+C, C+A) em cada nível abaixo; o índice do tier segue LEGENDARY_LEVELS (35 = 6, 40 = 7, 45 = 8: legend_tier).
-## O 45 existe nos dados antes do MAX_LEVEL chegar lá (não cai nem aparece na Relicária até o nível existir).
+## Nível acima do MAX_LEVEL fica nos dados mas não cai nem aparece na Relicária (ItemSystem.relic_levels).
 const HYBRID_LEVELS := [35, 40, 45]
 const HYBRID_4PC_SHARE := 0.5                 # 4 peças: a skill de A e a de B, cada uma com esta fração do bônus de 4 peças
 ## Fusão (5 peças do híbrido, no lugar do 5 peças normal). Números F-FUS1: valor(i) = v35 + passo × (i − 6).
@@ -895,6 +1012,9 @@ const STEPPE_GUARD_POWER := 2.5
 ## Guarnição de Porto Esperança (Ato II, 30-35; muro e besteiros do C1): vida e ataque x isto. Regra: o porto segura o cerco (C0)
 ## e a muralha (C1) sozinho em >= 75% (raid_probe --map=city_port --bots=0 --level=32 --raid_level=32, 40 levas).
 const PORT_GUARD_POWER := 1.2
+## Guarnição do Acampamento Avançado (Kharzun 40-45): vida e ataque dos soldados da Aurora x isto. Regra: o acampamento segura
+## o Contra-ataque (K0, Canil + Cidadela) sozinho em >= 75% (raid_probe --map=field_kharzun --bots=0).
+const KHARZUN_GUARD_POWER := 3.6
 const PARTY_MAX := 5                       # membros por grupo
 const PARTY_NEARBY_RANGE := 40.0          # m: janela P lista quem dá para convidar até esta distância
 const PARTY_SHARE_RANGE := 45.0            # m: membros vivos no mesmo mapa e dentro disto dividem XP e quests de abate
@@ -952,12 +1072,43 @@ const BOT_HEAL_TANK_SAFE := 0.5            # ... se o tanque estiver acima disto
 const BOT_HEAL_RANGE := 16.0               # m: membros mais longe que isto não entram na conta
 ## Lacaio batendo em quem cura/luta de longe a até BOT_PEEL_RANGE m dele: um dps de perto larga o chefe e vai nele.
 const BOT_PEEL_RANGE := 10.0
+## Raide (WP8, design/gdd/kharzun-fase3-plan.md §4): chefe com `ward` ligado por lacaio vivo (estandartes do Durgash, aprendizes
+## do Shazka): quem não é tanque nem cura vai no lacaio dele a até BOT_WARD_RANGE m (estandarte primeiro, o mais perto).
+const BOT_WARD_RANGE := 24.0
+## Proteger quem cura: chefe a até BOT_GUARD_SOFT m de quem cura (ou mirando nele) = o tanque provoca de novo; quem cura
+## sai para longe do chefe que não o tem por alvo até BOT_HEALER_EVADE m (fora do alcance do Golpe de Misericórdia).
+const BOT_GUARD_SOFT := 5.0
+const BOT_HEALER_EVADE := 5.0
+## Frente do chefe: além de BOT_FRONT_ARC_DEG, metade do cone mais largo dele + isto (talho de 150° do Durgash = 87°).
+const BOT_FRONT_ARC_PAD := 12.0
+const BOT_RANGED_SPREAD_STEP := 0.35      # rad: 3º/4º de longe no mesmo flanco ficam mais para o lado (um círculo da chuva não pega dois)
+## Tanque de raide (4+ no grupo): o grupo na frente do chefe = o tanque dá a volta para virar o chefe de costas para eles.
+const BOT_TANK_TURN_MIN := 4
 const BOT_DODGE_PAD := 1.0                 # m de folga ao sair de círculo/área telegrafada (antes 0.5)
 
 ## Ascensão do Ranger (RangerAscension). (H) = calibrado na fase 1 (boss_probe --comp, F5: razão 1,06-1,10).
 ## F5: peso da ascensão por build (padrão 1,0) — multiplica a força das mecânicas dela (torreta, salto, queimadura/arco do Brado)
-const ASC_BUILD_POWER := {"lanceiro": 1.0, "atirador": 3.5, "laminas": 0.9, "duelista": 0.92, "corsario": 1.0,
-	"guardiao_verde": 1.0, "fera": 1.0, "xama": 1.0, "cacador": 0.3}       # assassino, F5 2026-11-12 (--tank_lock, 80/braço): Lâminas 1,3 x1,144 / 1,0 x1,118 / 0,9 x1,084 / 0,8 x1,038; Duelista 0,7 x1,045 / 0,85 x1,059 / 0,92 x1,082 / 1,15 x1,155; Corsário 1,0 x1,076
+const ASC_BUILD_POWER := {"lanceiro": 2.35, "atirador": 4.0, "laminas": 0.51, "duelista": 0.46, "corsario": 0.33,
+	"guardiao_verde": 1.0, "fera": 0.74, "xama": 1.0, "cacador": 0.82}       # assassino, F5 2026-11-12 (--tank_lock, 80/braço): Lâminas 1,3 x1,144 / 1,0 x1,118 / 0,9 x1,084 / 0,8 x1,038; Duelista 0,7 x1,045 / 0,85 x1,059 / 0,92 x1,082 / 1,15 x1,155; Corsário 1,0 x1,076
+## F5 no 45 na sala real do Kragmar (2026-11-13, 80/braço): Lanceiro 3,3->2,35 x1,172; Atirador 6,5->4,0 x1,197; Caçador 0,7->0,82 x1,175;
+## Corsário 0,45->0,33 x1,201; Duelista 0,73->0,46 x1,222; Lâminas 0,9->0,51 x1,213; Fera 1,0->0,74 x1,218 (o fator do 35 abaixo compensa: o 35 não muda).
+## F5 aos 35 (usuário 2026-11-13): o peso acima é o do 45; aos 35 ele vale × ASC_POWER_35_MULT[build], e o fator vai
+## em linha reta até 1,0 no ASC_MAX_LEVEL (asc_level_mult). Build sem entrada = 1,0. "punhos" multiplica TITAN_CLAW_POWER.
+## Medido 2026-11-13 (Agitador-Mor, nv 35, --tank_lock, 80/braço, razão base/asc): Lanceiro x1,078, Atirador x1,089, Caçador x1,097,
+## Corsário x1,068, Duelista x1,077, Lâminas x1,099, Punhos x1,087 (sem o fator: 1,322 / 1,172 / 1,116 / 1,014 / 1,046 / 1,032 / 1,043).
+const ASC_POWER_35_MULT := {"lanceiro": 0.1404, "atirador": 0.4875, "cacador": 0.512, "laminas": 2.12, "duelista": 2.22, "corsario": 3.136, "punhos": 1.6, "fera": 1.351}
+
+## Fator de nível do peso F5 da build: ASC_POWER_35_MULT no ASC_LEVEL (e abaixo), 1,0 no ASC_MAX_LEVEL (e acima).
+static func asc_level_mult(build: String, level: int) -> float:
+	if level >= ASC_MAX_LEVEL:
+		return 1.0                          # exato: o 45 fica como estava
+	var t := clampf(float(level - ASC_LEVEL) / float(ASC_MAX_LEVEL - ASC_LEVEL), 0.0, 1.0)
+	return lerpf(float(ASC_POWER_35_MULT.get(build, 1.0)), 1.0, t)
+
+## Peso F5 da ascensão da build no nível do dono (ASC_BUILD_POWER × asc_level_mult). Único caminho das ascensões.
+static func asc_power(build: String, level: int) -> float:
+	return float(ASC_BUILD_POWER.get(build, 1.0)) * asc_level_mult(build, level)
+
 ## Ascensão do Assassino — Sombras Gêmeas (ShadowSystem; GDD R6.1). (H) = hipótese, calibrar com boss_probe --comp.
 ## O clone repete os golpes diretos do dono (skill, básico, projétil) com SHADOW_SHARE% do dano, um instante depois;
 ## monstros o ignoram (não é hostil a ninguém), o dano e a ameaça são do dono; some no fim do tempo ou se o dono morrer.
@@ -1171,7 +1322,7 @@ const ANC_HOWL_SPEED := 15.0              # Uivo do Alfa: % de velocidade do gru
 const ANC_HOWL_ASPD := 10.0               # e % de velocidade de ataque
 const ANC_HOWL_TIME := 8.0
 const ANC_HOWL_RADIUS := 10.0
-const ANC_BOLT_POWER := 2.0               # Relâmpago Arcano (Pássaro): raio no ponto mirado (H; F5)
+const ANC_BOLT_POWER := 2.6               # Relâmpago Arcano (Pássaro): raio no ponto mirado (H; F5)
 const ANC_BOLT_CHAIN := {"count": 2, "radius": 5.0, "falloff": 0.5}
 const ANC_FLOCK_POWER := 1.1              # Revoada de Luz: cura do grupo (x MATK, como as outras curas)
 const ANC_FLOCK_SPEED := 10.0             # e % de velocidade

@@ -32,6 +32,7 @@ extends Resource
 @export var gather: Array = []                     ## pontos de colheita: {"item", "kind", "at": Vector3, "radius", "count"} (a sim espalha)
 @export var interior: bool = false               ## dentro de uma casa da cidade (luz quente, sem grama/névoa, chão só da sala)
 @export var parent_map: String = ""               ## dungeon: zona onde fica a entrada (bots não vão caçar aqui sozinhos)
+@export var mounts_ok: bool = false               ## dungeon que aceita montaria (Cidadela: pátios abertos)
 ## lugares do mapa (tools/blender/zones/places.py): {"id":"lenhador","type":"cabin|camp|shrine|dungeon","pos":Vector3}
 @export var places: Array = []
 ## zona estilo Erenshor (data/zones/<id>.json): vila murada como região dentro do mapa
@@ -69,6 +70,10 @@ func in_hub(p: Vector3) -> bool:
 ## Tem área de caça (spawners) — campo puro ou zona com vila + campina.
 func has_hunting() -> bool:
 	return spawners.size() > 0
+
+## Masmorra que obriga a andar a pé (dungeon sem `mounts_ok`).
+func no_mount() -> bool:
+	return parent_map != "" and not mounts_ok
 
 func half() -> Vector2:
 	return size * 0.5

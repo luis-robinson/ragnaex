@@ -19,6 +19,11 @@ static func enhance_cost(sim: WorldSim, it: ItemDef, current: int) -> Dictionary
 		var elf_mat := "mother_sap" if nxt >= Balance.PLUS_STAR_FROM else "elf_steel"
 		var elf_n := (nxt - Balance.PLUS_STAR_FROM + 1) if nxt >= Balance.PLUS_STAR_FROM else int((nxt + 1) / 2.0) + 1
 		return {"gold": int(Balance.PLUS_GOLD_BASE * (tier + 1) * pow(nxt, 1.5) * Balance.PLUS_ELF_GOLD_MULT), "item": elf_mat, "count": elf_n}
+	if kharzun_tier(it):
+		# lendários 40/45 (Monte Kharzun, D11): Aço Anão e, do +6 em diante, Brasa de Kharzun; só no Ferreiro Anão
+		var kh_mat: String = Balance.PLUS_KHARZUN_EMBER if nxt >= Balance.PLUS_STAR_FROM else Balance.PLUS_KHARZUN_STEEL
+		var kh_n := (nxt - Balance.PLUS_STAR_FROM + 1) if nxt >= Balance.PLUS_STAR_FROM else int((nxt + 1) / 2.0) + 1
+		return {"gold": int(Balance.PLUS_GOLD_BASE * (tier + 1) * pow(nxt, 1.5) * Balance.PLUS_KHARZUN_GOLD_MULT), "item": kh_mat, "count": kh_n}
 	if it.is_legendary() and it.level_req >= Balance.PLUS_DAWN_LEVEL:
 		# lendários 25/30 (terceiro andar): Prata Consagrada e, do +6 em diante, Fragmento da Aurora
 		var dawn_mat := "dawn_shard" if nxt >= Balance.PLUS_STAR_FROM else "holy_silver"
@@ -28,11 +33,18 @@ static func enhance_cost(sim: WorldSim, it: ItemDef, current: int) -> Dictionary
 	var n := (nxt - Balance.PLUS_STAR_FROM + 1) + tier if nxt >= Balance.PLUS_STAR_FROM else nxt + 1 + tier
 	return {"gold": int(Balance.PLUS_GOLD_BASE * (tier + 1) * pow(nxt, 1.5)), "item": mat, "count": n}
 
+## Lendário 40+ (Monte Kharzun): aprimora só no Ferreiro Anão, com Aço Anão e Brasa de Kharzun.
+static func kharzun_tier(it: ItemDef) -> bool:
+	return it != null and it.is_legendary() and it.level_req >= Balance.PLUS_KHARZUN_LEVEL
+
 ## Por que não dá para aprimorar ("" = dá). slot >= 0: a peça vestida nesse slot; senão uma cópia da bolsa.
-static func enhance_error(sim: WorldSim, e: SimEntity, item_id: String, slot: int = -1) -> String:
+## smith = id do NPC ferreiro (a janela passa o dela); lendário 40+ só em Balance.PLUS_KHARZUN_SMITHS.
+static func enhance_error(sim: WorldSim, e: SimEntity, item_id: String, slot: int = -1, smith: String = "") -> String:
 	var it: ItemDef = GameData.items.get(item_id)
 	if it == null or not it.is_equipment():
 		return "Só equipamento pode ser aprimorado"
+	if kharzun_tier(it) and not smith in Balance.PLUS_KHARZUN_SMITHS:
+		return "Só o Ferreiro Anão Thrain (Monte Kharzun) aprimora lendário de nível %d+" % Balance.PLUS_KHARZUN_LEVEL
 	var owned: bool = (e.equipment.get(slot) != null and e.equipment[slot].id == item_id) if slot >= 0 else e.has_item(item_id)
 	if not owned:
 		return "Você não tem esse item"
@@ -48,8 +60,8 @@ static func enhance_error(sim: WorldSim, e: SimEntity, item_id: String, slot: in
 
 ## Aprimora UMA cópia em +1 (nunca quebra): ela vira a versão "+N" (as outras cópias não mudam).
 ## slot >= 0: a peça vestida nesse slot; senão uma cópia da bolsa. Devolve a versão nova (ou null).
-static func enhance(sim: WorldSim, e: SimEntity, item_id: String, slot: int = -1) -> ItemDef:
-	if enhance_error(sim, e, item_id, slot) != "":
+static func enhance(sim: WorldSim, e: SimEntity, item_id: String, slot: int = -1, smith: String = "") -> ItemDef:
+	if enhance_error(sim, e, item_id, slot, smith) != "":
 		return null
 	var it: ItemDef = GameData.items[item_id]
 	var base: ItemDef = GameData.items.get(it.base_id, it) if it.base_id != "" else it
@@ -110,7 +122,7 @@ static func relic_offer(sim: WorldSim, e: SimEntity) -> Array:
 static func relic_cost(sim: WorldSim, it: ItemDef) -> int:
 	return Balance.legend_tier(it.level_req) + 1
 
-## Níveis que a Relicária troca: os lendários e os híbridos que o MAX_LEVEL alcança (o 45 espera o nível existir).
+## Níveis que a Relicária troca: os lendários e os híbridos que o MAX_LEVEL alcança.
 static func relic_levels() -> Array:
 	var out: Array = Balance.LEGENDARY_LEVELS.duplicate()
 	for lv in Balance.HYBRID_LEVELS:

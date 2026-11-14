@@ -11,9 +11,9 @@ const SHOUT_BUILD := "lanceiro"          # build dos Brados (peso F5)
 # ---------------------------------------------------------------------------
 # Torreta
 # ---------------------------------------------------------------------------
-## Peso F5 da ascensão da build (Balance.ASC_BUILD_POWER; padrão 1,0). A build vem da skill (jogador não tem build_id).
-static func asc_power(build: String) -> float:
-	return float(Balance.ASC_BUILD_POWER.get(build, 1.0))
+## Peso F5 da ascensão da build no nível do dono (Balance.asc_power). A build vem da skill (jogador não tem build_id).
+static func asc_power(build: String, level: int) -> float:
+	return Balance.asc_power(build, level)
 
 static func is_turret(e: SimEntity) -> bool:
 	return e != null and e.kind == SimEntity.Kind.SUMMON and e.monster_def != null and e.monster_def.id == Balance.TURRET_MONSTER
@@ -76,7 +76,7 @@ static func place_turret(sim: WorldSim, e: SimEntity, s: SkillDef, aim: Vector3,
 	var pos := land_point(sim, e, Combat.clamp_aim(e, aim, s.range))
 	var t := sim.spawn_summon(e, mdef, pos, Balance.TURRET_TIME + Balance.TURRET_REFINE_TIME * turret_refines(e), false)
 	t.summon_hp = e.stats.max_hp * Balance.TURRET_HP_SHARE
-	t.summon_patk = e.stats.patk * Balance.TURRET_ATK_SHARE * asc_power(s.build)
+	t.summon_patk = e.stats.patk * Balance.TURRET_ATK_SHARE * asc_power(s.build, e.level)
 	t.recompute_stats()
 	t.stats.pdef = e.stats.pdef * Balance.TURRET_DEF_SHARE
 	t.stats.mdef = e.stats.mdef * Balance.TURRET_DEF_SHARE
@@ -119,7 +119,7 @@ class TurretBrain:
 ## Decolagem (no fim do preparo): some do chão por DRAGON_JUMP_AIR s; quem o mirava volta ao maior de ameaça.
 static func take_off(sim: WorldSim, e: SimEntity, s: SkillDef, aim: Vector3, power: float, m: Dictionary) -> void:
 	var to := land_point(sim, e, Combat.clamp_aim(e, aim, s.range))
-	e.sky = {"from": e.position, "to": to, "power": power * asc_power(s.build)}
+	e.sky = {"from": e.position, "to": to, "power": power * asc_power(s.build, e.level)}
 	e.sky_left = Balance.DRAGON_JUMP_AIR
 	e.iframe_left = maxf(e.iframe_left, Balance.DRAGON_JUMP_AIR)        # golpe, projétil e chuva passam (sky_left: ninguém o escolhe)
 	for o: SimEntity in m["entities"]:
@@ -304,7 +304,7 @@ static func _strike_element(sim: WorldSim, e: SimEntity, t: SimEntity, amount: i
 		"fire":
 			if t.is_alive():
 				t.put_debuff({"kind": "dot", "id": "shout_burn_%d" % e.id, "remaining": Balance.SHOUT_BURN_TIME,
-					"dps": maxf(1.0, e.stats.patk * Balance.SHOUT_BURN_PCT / 100.0 * asc_power(SHOUT_BUILD)), "src": e.id, "fire": true})
+					"dps": maxf(1.0, e.stats.patk * Balance.SHOUT_BURN_PCT / 100.0 * asc_power(SHOUT_BUILD, e.level)), "src": e.id, "fire": true})
 		"frost":
 			if t.is_alive():
 				t.put_debuff({"kind": "slow", "id": "shout_chill_%d" % e.id, "remaining": Balance.SHOUT_CHILL_TIME, "pct": Balance.SHOUT_CHILL_PCT})
@@ -313,7 +313,7 @@ static func _strike_element(sim: WorldSim, e: SimEntity, t: SimEntity, amount: i
 				return
 			for o: SimEntity in sim.maps[e.map_id]["entities"]:
 				if o != t and o.is_alive() and e.is_hostile_to(o) and o.position.distance_to(t.position) <= Balance.SHOUT_ARC_RANGE:
-					sim._deal_damage(e, o, maxi(1, int(amount * Balance.SHOUT_ARC_PCT / 100.0 * asc_power(SHOUT_BUILD))), false, false, "chain", t.position)
+					sim._deal_damage(e, o, maxi(1, int(amount * Balance.SHOUT_ARC_PCT / 100.0 * asc_power(SHOUT_BUILD, e.level))), false, false, "chain", t.position)
 					break
 
 ## Recarga do ataque básico de quem está sob a Geada (curse com `aspd_down`).

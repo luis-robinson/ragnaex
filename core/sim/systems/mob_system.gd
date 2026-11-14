@@ -120,6 +120,7 @@ static func update_boss(sim: WorldSim, e: SimEntity, dt: float = 0.0) -> void:
 		if ph.has("say"):
 			boss_say(sim, e, str(ph["say"]))
 		sim._add_skills(e, ph.get("skills", []))
+		BossSignatures.arm(e, ph.get("skills", []), Balance.BOSS_SIG_PHASE_DELAY)     # assinatura que chega com a fase
 		if ph.has("ward"):
 			e.ward_base = float(ph["ward"])
 			e.ward_t = 0.0
@@ -158,11 +159,16 @@ static func update_boss(sim: WorldSim, e: SimEntity, dt: float = 0.0) -> void:
 			e.put_buff({"id": "boss_ward", "remaining": Balance.BOSS_WARD_CHECK + 0.2})
 		else:
 			e.drop_buff("boss_ward")
+	BossSignatures.update(sim, e, dt)
 
 ## Fúria = fúria da fase × enlouquecer por tempo × gente lutando contra (um não apaga o outro).
 static func _apply_fury(e: SimEntity) -> void:
-	e.dmg_mult = e.enrage_mult * (Balance.BOSS_BERSERK_MULT if e.berserk else 1.0) * e.crowd_mult
+	e.dmg_mult = e.enrage_mult * (berserk_mult(e.monster_def) if e.berserk else 1.0) * e.crowd_mult * BossSignatures.fury_mult(e)
 	e.recompute_stats()
+
+## Dano a mais do chefe enlouquecido: MonsterDef.berserk_mult do chefe, senão Balance.BOSS_BERSERK_MULT.
+static func berserk_mult(d: MonsterDef) -> float:
+	return d.berserk_mult if d != null and d.berserk_mult > 0.0 else Balance.BOSS_BERSERK_MULT
 
 ## Quantos lutam contra o chefe: personagens vivos a até BOSS_CROWD_RANGE m que já o atingiram (ameaça) e os
 ## companheiros de grupo deles (quem só cura conta; quem só passa perto, não). Máximo PARTY_MAX.
@@ -189,6 +195,9 @@ static func crowd_of(sim: WorldSim, boss: SimEntity) -> int:
 ## Dano do chefe por quem luta contra ele (Balance.BOSS_CROWD_MULT por número de pessoas). Chefe em BOSS_CROWD_EXTRA
 ## ganha mais × a partir de BOSS_CROWD_EXTRA_FROM pessoas (solo e trio intactos).
 static func crowd_mult(n: int, boss_id: String = "") -> float:
+	if Balance.BOSS_CROWD_RAID.has(boss_id):         # chefe de raide: tabela própria
+		var raid: Array = Balance.BOSS_CROWD_RAID[boss_id]
+		return float(raid[clampi(n, 0, raid.size() - 1)])
 	var k := float(Balance.BOSS_CROWD_MULT[clampi(n, 0, Balance.BOSS_CROWD_MULT.size() - 1)])
 	if n >= Balance.BOSS_CROWD_EXTRA_FROM and Balance.BOSS_CROWD_EXTRA.has(boss_id):
 		k *= float(Balance.BOSS_CROWD_EXTRA[boss_id])
@@ -230,6 +239,7 @@ static func reset_boss(sim: WorldSim, e: SimEntity) -> void:
 	e.threat.clear()
 	e.damage_by.clear()
 	e.taunt_left = 0.0
+	BossSignatures.reset(sim, e)                 # marcas, canal, sequência, Muralha, Têmpera, pedregulhos (AC-S4)
 	if sim.maps.has(e.map_id):
 		var hz: Array = sim.maps[e.map_id].get("hazards", [])
 		sim.maps[e.map_id]["hazards"] = hz.filter(func(h): return h["owner"] != e.id)
@@ -315,7 +325,18 @@ static func place_barrage(sim: WorldSim, e: SimEntity, s: SkillDef, aim: Vector3
 	for k in ["root", "slow", "stun", "dot", "wither"]:
 		if effects.has(k):
 			fx[k] = effects[k]
+	match str(bd.get("shape", "circle")):         # R-A: faixas e anéis (BossSignatures)
+		"line":
+			BossSignatures.place_lines(sim, e, s, aim, power, bd, fx)
+			return
+		"ring":
+			BossSignatures.place_rings(sim, e, s, power, bd, fx)
+			return
 	var spots: Array = [Vector3(aim.x, 0, aim.z)]
+	if bd.get("on_self", false):                    # Têmpera na Lava: o 1º círculo (poça) cai embaixo do chefe
+		spots = [Vector3(e.position.x, 0, e.position.z)]
+	if bd.has("say"):
+		boss_say(sim, e, str(bd["say"]))
 	for o in victims(sim, e):
 		if spots.size() >= count:
 			break
@@ -329,33 +350,23 @@ static func place_barrage(sim: WorldSim, e: SimEntity, s: SkillDef, aim: Vector3
 		p.y = 0.0
 		if spots.all(func(q): return q.distance_to(p) > r * 1.2):
 			spots.append(p)
-	for p in spots:
-		m["hazards"].append({"owner": e.id, "pos": p, "radius": r, "at": sim.time + delay, "power": power, "kind": s.kind, "effects": fx, "skill": s.id})
+	var cover: bool = not e.monster_def.cover.is_empty() and s.id in e.monster_def.cover.get("skills", [])
+	var extra := BossSignatures.barrage_extra(bd)
+	if extra.has("empower"):
+		BossSignatures.stat(sim, "temper_uses")         # sonda: Têmpera na Lava lançada
+	for i in range(spots.size()):
+		var p: Vector3 = spots[i]
+		var h := {"owner": e.id, "pos": p, "radius": r, "at": sim.time + delay, "power": power, "kind": s.kind, "effects": fx, "skill": s.id}
+		h.merge(extra)
+		if cover and i == spots.size() - 1:
+			h["cover"] = true                         # Troll Rei: o último círculo (em volta dele) deixa um pedregulho (R-E)
+		BossSignatures.add_hazard(m, h, sim.time)
 		Events.post(&"hazard_placed", e.map_id, p, r, delay, s.id)
 
 ## Círculos de chefe: caem na hora marcada (dano + efeito em quem ficou dentro); somem se o dono morreu ou saiu.
+## Formas, ilhas, marcas e chão que fica: BossSignatures.update_hazards.
 static func update_hazards(sim: WorldSim, m: Dictionary) -> void:
-	var hz: Array = m.get("hazards", [])
-	if hz.is_empty():
-		return
-	for h in hz.duplicate():
-		var owner: SimEntity = sim.entities.get(h["owner"])
-		if owner == null or not owner.is_alive() or owner.map_id != m["def"].id:
-			hz.erase(h)
-			continue
-		if sim.time < float(h["at"]):
-			continue
-		hz.erase(h)
-		var pos: Vector3 = h["pos"]
-		var kind: int = h["kind"]
-		for o: SimEntity in m["entities"].duplicate():
-			if o.is_alive() and owner.is_hostile_to(o) and Vector3(o.position.x, 0, o.position.z).distance_to(pos) <= float(h["radius"]) + o.radius:
-				if ChoirSystem.shelters(sim, owner, o):
-					continue                     # Barreira Sagrada: a chuva de fora não entra na cúpula
-				var r := Combat.calc_damage(owner, o, float(h["power"]), kind, sim.rng, pos)
-				sim._deal_damage(owner, o, r["amount"], r["crit"], false, "magical" if kind == SkillDef.Kind.MAGICAL else "physical", pos)
-				sim._apply_effects(owner, o, h["effects"], float(h["power"]))
-		Events.post(&"skill_effect", h["skill"], pos, pos, float(h["radius"]))
+	BossSignatures.update_hazards(sim, m)
 
 ## Queimando ou envenenado (F3): qualquer dano no tempo que não seja sangramento.
 static func regen_blocked(e: SimEntity) -> bool:

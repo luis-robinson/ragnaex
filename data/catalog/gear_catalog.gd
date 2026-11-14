@@ -98,7 +98,7 @@ const SHIELD_AFFINITY := {"bastiao": "paladin", "juramento": "paladin", "sol": "
 	"pal_t5": "paladin", "pal_t10": "paladin", "pal_t15": "paladin", "pal_t20": "paladin", "pal_t25": "paladin", "pal_t30": "paladin",
 	"bis_b5": "bishop", "bis_b10": "bishop", "bis_b15": "bishop", "bis_b20": "bishop", "bis_b25": "bishop", "bis_b30": "bishop"}     # escudos de conjunto
 ## epíteto por nível lendário (5..30; Ato II: 35 e 40)
-const TIER_EPITHETS := ["da Alvorada", "do Juramento", "da Vanguarda", "da Glória", "da Lenda", "da Eternidade", "da Ascensão", "do Triunfo"]
+const TIER_EPITHETS := ["da Alvorada", "do Juramento", "da Vanguarda", "da Glória", "da Lenda", "da Eternidade", "da Ascensão", "do Triunfo", "do Apogeu"]
 ## Último nível lendário com visual próprio por build (SET_VISUALS). Acima (Ato II, fatia 1) o conjunto reaproveita o
 ## visual do último nível com visual (visual_of), com o nome genérico da regra; modelos próprios vêm no polimento.
 const OWN_VISUALS_UNTIL := 30
@@ -633,6 +633,28 @@ static func wearables(tier: int) -> Array:
 			out.append(it)
 	return out
 
+## Joias e capas de Kharzun (nível 45, só por receita com troféu de chefe: RecipesCatalog.kharzun_recipes).
+## Mesmo tema/atributos das comuns, no nível 45 e com Balance.KHARZUN_JEWEL_MULT; raridade épica. Ids `<peça>_<tema>_k45`.
+static func kharzun_jewels() -> Array:
+	var out: Array = []
+	var lv: int = Balance.KHARZUN_JEWEL_LEVEL
+	for piece in THEME_PIECES:
+		for theme in THEMES:
+			var t: Array = THEMES[theme]
+			var col: Color = (t[3] as Color).lerp(Color(1.0, 0.45, 0.15), 0.3)        # brasa da montanha na cor do tema
+			var it := armor_item("%s_%s_k45" % [piece, theme], "%s %s de Kharzun" % [THEME_PIECES[piece], t[0]], piece, "leather", t[1], t[2], lv,
+				ItemDef.RARITY_LEGENDARY - 1, Balance.KHARZUN_JEWEL_MULT, col)
+			it.armor_style = "cape" if piece == "cape" else ""
+			if piece != "cape":
+				it.def = 0.0
+				it.mdef = 0.0
+			out.append(it)
+	return out
+
+## Peça que só sai da forja (joias/capas 45 com troféu): bots não a recebem de graça ao nascer.
+static func craft_only(it: ItemDef) -> bool:
+	return it.id.ends_with("_k45")
+
 ## Escudos nomeados como itens lendários (peso da mão secundária).
 ## Para quem é o escudo nomeado: "paladin", "bishop" ou "both" (SHIELD_AFFINITY; sem entrada = ambos).
 static func shield_affinity(shield_key: String) -> String:
@@ -955,6 +977,7 @@ static func build(classes: Dictionary, skills: Dictionary) -> Dictionary:
 					items.append(armor_item("%s_%s_t%d" % [piece, armor, tier], "%s %s" % [ARMOR_NAMES[armor][piece], COMMON_TIER_NAMES[tier]],
 						piece, armor, LEGS[armor][1], LEGS[armor][2], lv, common_rarity(tier), 1.0, col))
 		items.append_array(wearables(tier))
+	items.append_array(kharzun_jewels())
 	items.append_array(named_shields())
 	# 2) conjuntos lendários: classe × build × nível
 	var mult: float = Balance.LEGENDARY_MULT

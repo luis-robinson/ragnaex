@@ -156,6 +156,17 @@ static func build() -> Array:
 		_mat("rock_core", "Coração de Rocha", 110, "O Rei-da-Rocha tinha pedra onde devia ter coração. Ainda pulsa, devagar.", Color(0.5, 0.62, 0.8)),
 		_mat("ember_essence", "Brasa do Mestre Besteiro", 110, "A brasa que acendia cada virote do Mestre Besteiro. Não apaga.", Color(1.0, 0.45, 0.15)),
 		_mat("ghar_badge", "Insígnia de Ghar", 120, "O punho da Horda em ferro negro. Só um Senhor da Guerra usa.", Color(0.6, 0.12, 0.1)),
+		# Ato II, Monte Kharzun (40-45): materiais dos monstros (receitas/aprimoramento 45 no WP10)
+		_mat("dire_pelt", "Pele de Lobo Atroz", 58, "Cinza-chumbo, pesada como um cobertor de inverno. Os ginetes dormem embaixo dela.", Color(0.55, 0.55, 0.58)),
+		_mat("salamander_scale", "Escama de Salamandra", 64, "Ainda morna. Na mão, solta um chiado quando cai água.", Color(1.0, 0.5, 0.2)),
+		_mat("basalt_ore", "Basalto Rúnico", 70, "Pedra negra com fendas que brilham. Os anões juram que as runas são deles.", Color(0.28, 0.26, 0.3)),
+		_mat("dwarf_steel", "Aço Anão", 76, "Liga clara e dura, batida por escravos anões na Forja Negra. Pertence a eles.", Color(0.72, 0.74, 0.8)),
+		_mat("kharzun_ember_core", "Brasa de Kharzun", 120, "Carvão do coração da montanha. Arde dias sem apagar.", Color(1.0, 0.36, 0.1)),
+		# troféus dos chefes de Kharzun (joias e capas 45, RecipesCatalog.KHARZUN_TROPHIES; caem dos chefes, WP7)
+		_mat("ulgra_fang", "Presa de Ulgra", 160, "Presa do lobo de Ulgra, gasta de morder escudo. O Clã do Lobo jurava por ela.", Color(0.9, 0.86, 0.74)),
+		_mat("basalt_heart", "Coração de Basalto", 160, "A pedra que Gorbash carregava no peito. Bate uma vez por minuto.", Color(0.36, 0.3, 0.34)),
+		_mat("broken_hammer", "Martelo Partido", 160, "A cabeça do martelo de Kragmar, rachada ao meio. Ainda quente por dentro.", Color(0.25, 0.22, 0.24)),
+		_mat("durgash_banner", "Estandarte de Durgash", 240, "O estandarte do Grão-Senhor. Rasgado, chamuscado, e ainda pesado de tanta guerra.", Color(0.62, 0.12, 0.1)),
 		{"id": "letter_sealed", "name": "Carta Lacrada", "type": QST, "price": 0, "icon_color": Color(0.9, 0.85, 0.6), "description": "Carta do Ancião para a Capitã da guarda."},
 		# ---------------- armas tier 0 (lv1) ----------------
 		_weapon("sword_rusty", "Espada Enferrujada", "sword", 0, 8, 0, {"FOR": 3, "VIT": 1}, Color(0.6, 0.6, 0.6)),

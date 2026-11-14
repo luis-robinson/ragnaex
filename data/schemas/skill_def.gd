@@ -16,7 +16,8 @@ const EFFECT_KEYS := ["dot", "slow", "stun", "root", "buff", "shield", "dash", "
 	"summon_pact", "miasma", "grave_mark", "shadow_clone", "execute", "knockback",
 	"choir_angel", "choir_barrier", "choir_return",
 	"provoke", "area_heal", "pack",
-	"falcon_call", "falcon_dive", "falcon_eyes", "rally"]
+	"falcon_call", "falcon_dive", "falcon_eyes", "rally",
+	"islands", "mark", "boss_channel", "repeat", "avalanche", "wall", "decoys"]
 
 @export var id: String = ""
 @export var name: String = ""
@@ -60,6 +61,9 @@ const EFFECT_KEYS := ["dot", "slow", "stun", "root", "buff", "shield", "dash", "
 ## monstro CHEFE: em quem mira esta skill (o aggro continua no tanque). "" = alvo atual; "far" = o mais longe;
 ## "random" = qualquer um por perto; "soft" = curandeiro/conjurador/atirador (senão o mais longe). MobSystem.pick_victim.
 @export var mob_pick: String = ""
+## assinatura de chefe (GDD act2-boss-signatures): a mecânica própria dele; 1 por chefe (check _check_boss_signatures).
+## Recarga inicial ao entrar na luta/fase: Balance.BOSS_SIG_OPEN_DELAY / BOSS_SIG_PHASE_DELAY (BossSignatures.arm).
+@export var boss_signature: bool = false
 ## só lança nesta forma ("wolf", "bear"...; "" = qualquer). Ex.: Espreitar do Druida só como lobo.
 @export var requires_form: String = ""
 ## Combate Montado (ascensão do Paladino): `mountable` = sai montado (as outras ficam apagadas na barra a cavalo);
@@ -89,6 +93,21 @@ const FORM_LABELS := {"wolf": "lobo", "bear": "urso", "phantom": "fantasma", "de
 ##     em você; enquanto ele durar, o grupo a `radius` m recebe `ally` com o mesmo id (AuraSystem). Lançar de novo desliga.
 ## "barrage": {"count": 4, "radius": 2.2, "delay": 1.3, "spread": 8}  → (chefe, GROUND) N círculos avisados no chão:
 ##     um em cada inimigo por perto, o resto em volta do chefe; caem depois de `delay` s (MobSystem.place_barrage).
+## Assinaturas de chefe (BossSignatures; números globais em Balance.BOSS_SIG_*):
+## "barrage" ganha formas e chão vivo (R-A): {"shape": "circle|line|ring", "width", "inner", "length", "linger": s,
+##     "tick_power", "empower": {"id", "step", "max", "every"}} (line: do chefe até o ponto, `width` de largura; ring: entre
+##     `inner` e `radius` em volta do chefe; linger: fica no chão depois de cair e bate tick_power a cada BOSS_LINGER_TICK s).
+## "islands": {"count_min", "radius", "delay", "near_min", "near_max", "slow": {...}} → Maré Cheia (R-A invertido): N ilhas;
+##     quem estiver a BOSS_INVERT_RANGE m do chefe e FORA de todas leva o golpe (power da skill).
+## "mark": {"mode": "spread|soak", "count", "solo_count", "radius", "time", "linger", "tick_power", "no_tank"} → (R-B) mira que
+##     segue a vítima e cai depois de `time` s; spread = power em cada um dentro; soak = power dividido por quantos dentro.
+## "boss_channel": {"on_done": {"buff": {...}, "radius", "heal_pct", "summon": {...}}} → (R-C) canal interrompível (dura o
+##     `active` da skill); quebra com atordoar ou dano ≥ BOSS_CHANNEL_BREAK_PCT × vida.
+## "repeat": {"times": 3, "gap": 0.6} → (R-D) a skill sai `times` vezes seguidas, re-mirando a mesma vítima; root/stun cortam.
+## "avalanche": {"radius": 18, "stun": 1.0, "guarantee": 2} → (R-E) onda em volta; quem tem pedregulho (MonsterDef.cover)
+##     entre si e o chefe não leva, e a pedra racha. Sem pedra no chão no começo, arremessa `guarantee` antes.
+## "wall": {"time": 6, "counter": {"base", "step", "cap", "cone", "range"}} → (R-G) Muralha: golpe da frente perde
+##     GHAR_WALL_CUT e soma fúria; no fim, contragolpe em cone com power base + step × fúria (teto cap).
 ## "rally": {"id": "war_cry", "radius": 9, "duration": 8, "atk_pct": 15, "speed_pct": 10}  → (monstro) grito de guerra: quem
 ##     lança e os monstros da mesma facção a `radius` m ganham o buff por `duration` s (renova pelo id; MobSystem.rally).
 ## "arcane": {}  → Modo Arcano (Paladino ascendido): liga/desliga o `buff` (toggle) das asas; ao ligar desmonta e solta a

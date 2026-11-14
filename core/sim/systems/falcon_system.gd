@@ -6,7 +6,7 @@ extends RefCounted
 ## inimigo que o caçador acertou) e marca a Presa (maldição `falcon_prey`: o alvo recebe +FALCON_TAKEN% de todos).
 ## Regras sem estado próprio; números em Balance.FALCON_* / MARK_*.
 
-const BUILD := "cacador"                 # build do Falcoeiro (peso F5: Balance.ASC_BUILD_POWER)
+const BUILD := "cacador"                 # build do Falcoeiro (peso F5: Balance.asc_power)
 const EYES_BUFF := "sky_eyes"            # buff de Olhos do Céu (grupo)
 const DIVE_FX := "ran_dive"              # skill cujo efeito visual o mergulho usa (Events skill_effect)
 
@@ -64,7 +64,7 @@ static func can_dive(e: SimEntity, t: SimEntity) -> bool:
 ## Mergulho do falcão em `t`: dano com o ATK do caçador (vem de cima e por trás: guarda de frente não pega) e Presa.
 static func dive(sim: WorldSim, e: SimEntity, t: SimEntity, power: float) -> void:
 	var from := t.position - t.forward() * (t.radius + 0.5)
-	var p := power * (1.0 + e.stats.falcon_pct / 100.0) * RangerAscension.asc_power(BUILD)
+	var p := power * (1.0 + e.stats.falcon_pct / 100.0) * RangerAscension.asc_power(BUILD, e.level)
 	var r := Combat.calc_damage(e, t, p, SkillDef.Kind.PHYSICAL, sim.rng, from)
 	sim._deal_damage(e, t, r["amount"], r["crit"], r["blocked"], "physical", from)
 	if t.is_alive():

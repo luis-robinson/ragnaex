@@ -11,10 +11,10 @@ extends RefCounted
 const FLAG_STEALTH := "ass_shadow_stealth"      # Lâminas 40: o clone sai da furtividade junto
 const FLAG_CHAIN := "ass_chain_counter"         # Duelista 40: esquiva prepara a Execução
 
-## Peso F5 da ascensão pela build do dono (bot: build_id; jogador: a build das armas).
+## Peso F5 da ascensão pela build do dono (bot: build_id; jogador: a build das armas), no nível dele (Balance.asc_power).
 static func asc_power(sim: WorldSim, e: SimEntity) -> float:
 	var b: String = e.build_id if e.build_id != "" else sim.main_build(e)
-	return float(Balance.ASC_BUILD_POWER.get(b, 1.0))
+	return Balance.asc_power(b, e.level)
 
 static func is_clone(e: SimEntity) -> bool:
 	return e != null and e.shade

@@ -26,6 +26,7 @@ static func build() -> Array:
 		_r("amulet_golem", 1, "smith", 26, 500, {"golem_core": 2, "dragon_scale": 1}),
 	]
 	L.append_array(gear_recipes())
+	L.append_array(kharzun_recipes())
 	var out: Array = []
 	for d in L:
 		out.append(_mk(d))
@@ -43,6 +44,23 @@ const THEME_MAT := {"guerreiro": ["boar_tusk", "boar_tusk", "bandit_badge", "gol
 	"sabio": ["herb_blue", "herb_blue", "forest_mushroom", "ghost_essence", "naga_scale", "naga_scale"]}
 const BAG_RECIPES := [[3, 40, {"wolf_pelt": 4, "slime_gel": 4}], [10, 150, {"spider_silk": 6, "wolf_pelt": 4}],
 	[16, 300, {"ent_bark": 6, "bandit_badge": 4}], [24, 600, {"ghost_essence": 5, "ancient_relic": 3}]]
+
+## Joias e capas 45 (Monte Kharzun, GearCatalog.kharzun_jewels): materiais da montanha + um troféu de chefe por tema
+## (capas pedem também o Estandarte de Durgash). Troféu -> chefe que o solta (loot do chefe: WP7).
+const KHARZUN_TROPHIES := {"broken_hammer": "boss_kragmar", "ulgra_fang": "boss_ulgra", "basalt_heart": "boss_gorbash", "durgash_banner": "boss_durgash"}
+const KHARZUN_THEME_TROPHY := {"guerreiro": "broken_hammer", "cacador": "ulgra_fang", "sabio": "basalt_heart"}
+const KHARZUN_JEWEL_MATS := {"dwarf_steel": 8, "basalt_ore": 6, "kharzun_ember_core": 1}
+const KHARZUN_CAPE_MATS := {"dire_pelt": 8, "salamander_scale": 6, "durgash_banner": 1}
+
+static func kharzun_recipes() -> Array:
+	var out: Array = []
+	for piece in GearCatalog.THEME_PIECES:
+		for theme in GearCatalog.THEMES:
+			var ing: Dictionary = (KHARZUN_CAPE_MATS if piece == "cape" else KHARZUN_JEWEL_MATS).duplicate()
+			ing[KHARZUN_THEME_TROPHY[theme]] = 1
+			out.append(_r("%s_%s_k45" % [piece, theme], 1, "alchemy" if piece == "cape" else "smith", Balance.KHARZUN_JEWEL_LEVEL,
+				Balance.KHARZUN_JEWEL_GOLD, ing))
+	return out
 
 static func gear_recipes() -> Array:
 	var out: Array = []

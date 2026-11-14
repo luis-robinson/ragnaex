@@ -114,7 +114,7 @@ static func start_raid(sim: WorldSim, m: Dictionary, i: int = 0) -> Array:
 	var top := 0
 	for mobs in groups:
 		for mid in mobs:
-			var mdef: MonsterDef = scaled_def(sim, GameData.monsters.get(mid), step)
+			var mdef: MonsterDef = scaled_def(sim, GameData.monsters.get(mid), step, def.id)
 			if mdef == null:
 				continue
 			top = maxi(top, mdef.level)
@@ -195,18 +195,19 @@ static func power_step(sim: WorldSim, m: Dictionary) -> int:
 	return clampi(mini(lv, Balance.RAID_SCALE_TO) - Balance.RAID_SCALE_FROM, 0, Balance.RAID_SCALE_TO - Balance.RAID_SCALE_FROM)
 
 ## Monstro da investida: x RAID_POWER (vida/ataque) e x RAID_SMART (aggro) sobre o base, mais `step` passos de nível
-## (mesmo id: quests, loot e abates contam igual). Guardado por id e passo.
-static func scaled_def(sim: WorldSim, base: MonsterDef, step: int) -> MonsterDef:
+## (mesmo id: quests, loot e abates contam igual), x RAID_MAP_POWER do mapa da investida. Guardado por id, passo e mapa.
+static func scaled_def(sim: WorldSim, base: MonsterDef, step: int, map_id: String = "") -> MonsterDef:
 	if base == null:
 		return base
-	var key := "%s@%d" % [base.id, step]
+	var key := "%s@%d@%s" % [base.id, step, map_id]
+	var mp: float = float(Balance.RAID_MAP_POWER.get(map_id, 1.0))
 	if sim._raid_defs.has(key):
 		return sim._raid_defs[key]
 	var d: MonsterDef = base.duplicate()
 	d.level = base.level + step
-	d.hp = base.hp * (1.0 + step * Balance.RAID_SCALE_HP_PCT / 100.0) * Balance.RAID_POWER
-	d.atk = base.atk * (1.0 + step * Balance.RAID_SCALE_ATK_PCT / 100.0) * Balance.RAID_POWER
-	d.matk = base.matk * (1.0 + step * Balance.RAID_SCALE_ATK_PCT / 100.0) * Balance.RAID_POWER
+	d.hp = base.hp * (1.0 + step * Balance.RAID_SCALE_HP_PCT / 100.0) * Balance.RAID_POWER * mp
+	d.atk = base.atk * (1.0 + step * Balance.RAID_SCALE_ATK_PCT / 100.0) * Balance.RAID_POWER * mp
+	d.matk = base.matk * (1.0 + step * Balance.RAID_SCALE_ATK_PCT / 100.0) * Balance.RAID_POWER * mp
 	d.aggro_range = base.aggro_range * Balance.RAID_SMART
 	d.def = base.def * (1.0 + step * Balance.RAID_SCALE_DEF_PCT / 100.0)
 	d.mdef = base.mdef * (1.0 + step * Balance.RAID_SCALE_DEF_PCT / 100.0)

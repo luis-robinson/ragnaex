@@ -46,7 +46,7 @@ const LINES := {
 
 ## 1ª palavra de lugar masculino (o resto é feminino; terminada em "s" é plural): "no Vale", "na Floresta", "nas Estepes".
 const MASC_PLACE_WORDS := ["Vale", "Bastião", "Porto", "Arraial", "Covil", "Ninho", "Coração", "Trono", "Armazém", "Posto",
-	"Acampamento", "Santuário", "Farol", "Passo", "Forte", "Templo", "Pântano", "Mangue"]
+	"Acampamento", "Santuário", "Farol", "Passo", "Forte", "Templo", "Pântano", "Mangue", "Monte", "Salão"]
 
 ## Artigo do nome de um lugar: "o", "a", "os" ou "as".
 static func place_article(place: String) -> String:
@@ -69,14 +69,22 @@ static func place_words(place: String) -> Dictionary:
 const MAP_KIND := {
 	"city_aldara": "aldara", "field_forest": "forest", "elf_city": "elf_city", "field_ruins": "dawn",
 	"fort_ghoul": "fort", "fort_bones": "fort", "fort_frost": "fort", "lich_citadel": "citadel",
+	"field_kharzun": "kharzun", "dg_slayers": "slayers", "kharzun_citadel": "kharzun_citadel",
 }
-const WALLED := ["aldara", "forest", "dawn"]     # tipos com vila/povoado murado (variante <tipo>_town)
+const WALLED := ["aldara", "forest", "dawn", "kharzun"]     # tipos com vila/povoado murado (variante <tipo>_town)
 
 ## Depois que o Lich cai (MapsCatalog.VICTORY_QUEST feita): a cidade e o Bastião comemoram no chat.
 const VICTORY_LINES := ["O LICH CAIU!!! festa na praça", "{p} matou o Azhar, alguém viu?? lendário", "GG {p}, a noite acabou de vez",
 	"cerveja de graça na taverna, é o que dizem", "olha os fogos em cima do chafariz", "três dias de festa, nem vou caçar hoje",
 	"alguém tira print dos fogos", "o bardo já fez música pro {p}", "valeu {p}, Aldara te deve uma", "a Aurora venceu \\o/",
 	"saudade do medo que dava a Cidadela kkk", "e agora? farmar lendário até o próximo ato"]
+
+## Depois que Durgash cai (MapsCatalog.Q_KH_WARLORD, fim do Ato II): o acampamento e o porto comemoram no chat.
+const KHARZUN_VICTORY_LINES := ["DURGASH CAIU!!! a montanha é nossa", "{p} derrubou o Senhor da Guerra, alguém viu??", "GG {p}, fim do Ato II",
+	"orc desarmado carregando caixa, nunca pensei que ia ver isso", "festa no acampamento e no porto, bora", "olha os fogos em cima do braseiro",
+	"a Horda se rendeu, mas a Shagra disse que tem fogo a leste...", "valeu {p}, a Aurora chegou no pico", "três clãs e um Senhor da Guerra, que campanha",
+	"agora é farmar lendário 45 em paz kkk"]
+const KHARZUN_VICTORY_KINDS := ["kharzun_town", "kharzun", "slayers"]     # e o Porto (city_port), pelo id do mapa
 
 const PLACE_LINES := {
 	"aldara_town": ["o chafariz da praça é o melhor ponto de afk", "a taverna do Gus tá lotada hoje", "a Relicária troca moeda lendária, só lembrando",
@@ -107,6 +115,18 @@ const PLACE_LINES := {
 	"field": ["xp boa nesse mapa", "alguém de grupo por aqui?", "bolsa quase cheia", "esse mapa é maior do que parece"],
 	"boss": ["{boss} tá de pé, quem vem?", "não puxa sem tank, {boss} bate muito", "olha {boss} ali, cuidado", "guarda poção, {boss} não perdoa",
 		"alguém já decorou o padrão de {boss}?"],
+	# Monte Kharzun (40-45)
+	"kharzun_town": ["o braseiro da praça esquenta mais que poção", "vincula o cristal do acampamento com G, a descida é longa", "o Thrain aprimora lendário 40, corre lá",
+		"alguém pras Minas? sozinho não dá", "a carroça das Estepes chegou, poção barata", "o sargento tá treinando recruta de novo kkk",
+		"quem tem antídoto? veneno de goblin é chato", "contra-ataque vem pelo portão leste ou norte, fica esperto", "a Comandante Isolda não dorme, juro",
+		"bora fechar grupo pro Salão dos Matadores?"],
+	"kharzun": ["essa lava não perdoa, só passa pela ponte", "lobo atroz em matilha de três, puxa um de cada vez", "viu fumaça? protege o healer",
+		"salamandra não queima, nem tenta fogo nela", "golem de basalto é lento, kita ele", "o Canil uiva a noite toda", "Forja Negra do outro lado da lava, quem vem?",
+		"pedregulho do troll vem no mais longe, cuidado atirador", "cinza até na bota", "Senhor da Guerra grita e a matilha fica forte, mata ele primeiro"],
+	"slayers": ["Salão dos Matadores... fica junto do healer", "assassino aparece pelas costas de quem cura", "fumaça = vira e bate", "boneco de treino aqui dentro tem sangue",
+		"não corre na frente, tem Matador escondido"],
+	"kharzun_citadel": ["a Cidadela de Durgash, chegamos", "três clãs e depois o trono", "estandarte no chão? quebra primeiro", "se cair aqui eu choro kkk",
+		"guarda de clã bloqueia de frente, vai pelo lado"],
 	"raid": ["INVESTIDA! todo mundo pro portão", "eles tão vindo, segura a muralha", "defende o portão, não persegue longe", "mais uma leva, aguenta!",
 		"quem tem área, solta agora", "a sentinela não segura sozinha, ajuda aí"],
 }
@@ -250,6 +270,7 @@ static func pools() -> Dictionary:
 	(out["place:aldara_town"] as Array).append_array(LINES["town"])     # papo de cidade antigo é de Aldara
 	(out["place:aldara_field"] as Array).append_array(LINES["hunt"])
 	out["place:victory"] = VICTORY_LINES.duplicate()
+	out["place:kharzun_victory"] = KHARZUN_VICTORY_LINES.duplicate()
 	for cid in CLASS_VOICE:
 		var v: Dictionary = CLASS_VOICE[cid]
 		var arr: Array = (v["lines"] as Array).duplicate()
