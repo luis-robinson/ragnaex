@@ -4,6 +4,10 @@
   blender -b --factory-startup --python tools/blender/shield_mount.py -- --guard   -> braço da guarda (block_shield)
   blender -b --factory-startup --python tools/blender/shield_mount.py -- --check   -> toques fora do braço esquerdo
 
+Esta é a montagem COMUM (afastada), que hoje só vale para escudo de monstro e como rotação de referência. Os escudos do
+jogador usam a montagem rente por estilo (ck.SHIELD_MOUNTS): mesma rotação, OFFSET achado por shield_mount_study.py e
+gravado por shield_mount_apply.py; a alça vem soldada na malha do escudo (ck.kit_shield). O --check confere os dois.
+
 Montagem: no idle o antebraço atravessa as costas do escudo; escudo de pé, ponta para baixo, face para fora
 (um pouco para cima, a câmera é alta), afastado GAP do osso e descido DROP na própria altura (a cabeça chibi é enorme).
 O kit é montado no repouso: a pose desejada no idle volta para o repouso pela transformação do osso forearm.L.
@@ -21,6 +25,10 @@ import shield_kit
 FACE = Vector((1.0, -0.2, 0.32))     # direção da face no idle (fora, frente, cima)
 GAP = 0.29                            # do eixo do antebraço até o centro do escudo
 DROP = 0.32                           # centro abaixo do antebraço, na altura do escudo
+# Montagem própria por estilo (vira ck.SHIELD_MOUNTS): face/gap/drop como acima; free = a face é a pedida, sem cair no plano
+# do antebraço (o escudo vira para a frente no idle); upright = 0 topo perpendicular ao antebraço .. 1 topo na vertical;
+# along = centro deslocado ao longo do antebraço (+ = punho).
+STYLE_MOUNT = {"tabuas": {"face": (0.86, -0.45, 0.25), "gap": 0.12, "drop": 0.22, "free": True, "upright": 0.0, "along": 0.0}}
 GUARD_FACE = Vector((0.15, -0.95, 0.25))     # guarda: face para o golpe
 GUARD_CENTER = Vector((0.16, -0.46, 0.5))    # na frente do peito esquerdo, longe da cara (a cabeça chibi avança)
 ARGS = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
@@ -38,23 +46,37 @@ def _bone_delta(rig, name):
     return (rig.matrix_world @ pb.matrix) @ (rig.matrix_world @ pb.bone.matrix_local).inverted()
 
 
+def solve(base, rig, face=FACE, gap=GAP, drop=DROP, free=False, upright=0.0, along=0.0):
+    """(TURN, TILT, SPIN, OFFSET) no repouso para a pose desejada no quadro atual (o idle)."""
+    D = _bone_delta(rig, "forearm.L")
+    f = (rig.pose.bones["forearm.L"].matrix.to_3x3() @ Vector((0, 1, 0))).normalized()
+    face = Vector(face)
+    n = (face - f * face.dot(f)).normalized()
+    U = f.cross(n).normalized()
+    if U.z < 0:
+        U = -U
+    if free:
+        n = face.normalized()
+        up = Vector((0, 0, 1))
+        U = U.lerp((up - n * up.dot(n)).normalized(), upright)
+        U = (U - n * U.dot(n)).normalized()
+    s = (-n).cross(U).normalized()
+    e = (D.to_3x3().inverted() @ Matrix((s, -n, U)).transposed()).to_euler("YXZ")     # Rz @ Rx @ Ry
+    arm = Vector(ck._shield_anchor(base)[0])
+    off = D.inverted() @ (D @ arm + n * gap - U * drop + f * along) - arm
+    return (round(math.degrees(e.z), 1), round(math.degrees(e.x), 1), round(math.degrees(e.y), 1), tuple(round(x, 3) for x in off))
+
+
 def solve_mount():
     base = ck.build_kit("male")
     rig = base["rig"]
     rig.animation_data.action = _actions(rig)["idle"]
     bpy.context.scene.frame_set(1)
-    D = _bone_delta(rig, "forearm.L")
-    f = (rig.pose.bones["forearm.L"].matrix.to_3x3() @ Vector((0, 1, 0))).normalized()
-    n = (FACE - f * FACE.dot(f)).normalized()
-    U = f.cross(n).normalized()
-    if U.z < 0:
-        U = -U
-    s = (-n).cross(U).normalized()
-    e = (D.to_3x3().inverted() @ Matrix((s, -n, U)).transposed()).to_euler("YXZ")     # Rz @ Rx @ Ry
-    arm = Vector(ck._shield_anchor(base)[0])
-    off = D.inverted() @ (D @ arm + n * GAP - U * DROP) - arm
-    print("MOUNT SHIELD_TURN = %.1f  SHIELD_TILT = %.1f  SHIELD_SPIN = %.1f  SHIELD_OFFSET = (%.3f, %.3f, %.3f)"
-          % (math.degrees(e.z), math.degrees(e.x), math.degrees(e.y), off.x, off.y, off.z))
+    t = solve(base, rig)
+    print("MOUNT SHIELD_TURN = %.1f  SHIELD_TILT = %.1f  SHIELD_SPIN = %.1f  SHIELD_OFFSET = (%.3f, %.3f, %.3f)" % (t[0], t[1], t[2], *t[3]))
+    for st, cf in STYLE_MOUNT.items():
+        t = solve(base, rig, **cf)
+        print('MOUNT SHIELD_MOUNTS["%s"] = (%.1f, %.1f, %.1f, (%.3f, %.3f, %.3f))' % (st, t[0], t[1], t[2], *t[3]))
 
 
 def _tree(o, dg):
@@ -157,10 +179,11 @@ def guard():
         print("GUARD toques=%d score=%.3f upper_arm.L=%s forearm.L=_rolled((%s, 0, 0), %s) face=%s" % (h, r[0], r[1], r[2][0], r[2][1], r[3]))
 
 
-if "--guard" in ARGS:
-    guard()
-elif "--check" in ARGS:
-    check()
-else:
-    solve_mount()
-print("SHIELD_MOUNT_END")
+if __name__ == "__main__":
+    if "--guard" in ARGS:
+        guard()
+    elif "--check" in ARGS:
+        check()
+    else:
+        solve_mount()
+    print("SHIELD_MOUNT_END")

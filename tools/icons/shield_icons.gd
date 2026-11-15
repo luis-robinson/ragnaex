@@ -1,10 +1,12 @@
 extends Node
 ## Ícones dos escudos fotografados do próprio modelo: ícone e escudo nunca divergem.
-##   godot --path . tools/icons/shield_icons.tscn   (com janela; depois rode --import)
+##   godot --path . tools/icons/shield_icons.tscn [-- --only=<estilo>,<estilo>]   (com janela; depois rode --import)
+##   --only = só os escudos desses estilos (ItemDef.shield_style), para não regravar os outros
 
 const TURN := 88.1     # iguais a chibi_kit SHIELD_TURN/SHIELD_TILT/SHIELD_SPIN
 const TILT := -12.2
 const SPIN := -86.4
+const MOUNTS := {"tabuas": [78.9, 1.8, -88.3]}     # iguais a chibi_kit SHIELD_MOUNTS (montagem própria do estilo)
 const SIZE := 128
 var NORMAL: Vector3
 var UP: Vector3
@@ -55,9 +57,15 @@ func _ready() -> void:
 	var sun := DirectionalLight3D.new()
 	sun.light_energy = 1.1
 	vp.add_child(sun)
+	var only := PackedStringArray()
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--only="):
+			only = a.trim_prefix("--only=").split(",")
 	for iid in GameData.items:
 		var it: ItemDef = GameData.items[iid]
 		if it.shield_style == "":
+			continue
+		if not only.is_empty() and not only.has(it.shield_style):
 			continue
 		var kit := KitModel.create("male", Color.WHITE, 0.025, "bishop" if it.shield_style.begins_with("bis") else "paladin")     # escudo de conjunto fica no kit da classe
 		add_child(kit)
@@ -69,7 +77,8 @@ func _ready() -> void:
 		for s in range(src.mesh.get_surface_count()):
 			mi.set_surface_override_material(s, src.get_active_material(s))
 		vp.add_child(mi)
-		var b := Basis(Vector3(0, 0, 1), deg_to_rad(TURN)) * Basis(Vector3(1, 0, 0), deg_to_rad(TILT)) * Basis(Vector3(0, 1, 0), deg_to_rad(SPIN))
+		var mt: Array = MOUNTS.get(it.shield_style, [TURN, TILT, SPIN])
+		var b := Basis(Vector3(0, 0, 1), deg_to_rad(mt[0])) * Basis(Vector3(1, 0, 0), deg_to_rad(mt[1])) * Basis(Vector3(0, 1, 0), deg_to_rad(mt[2]))
 		NORMAL = _godot(b * Vector3(0, -1, 0))
 		UP = _godot(b * Vector3(0, 0, 1))
 		var c := _frame(mi.mesh, cam)

@@ -75,7 +75,7 @@ func _ready() -> void:
 			var pts := PackedVector3Array()
 			for mi in kit.find_children("*", "MeshInstance3D", true, false):
 				var m := mi as MeshInstance3D
-				var want := m.visible and m.name.begins_with(keep) and m.name != "wpn_off_grip"
+				var want := m.visible and m.name.begins_with(keep) and not m.name.begins_with("wpn_off_grip")
 				# cabeça: o rosto do boneco fica como manequim (aro, coroa e chapéu aparecem "vestidos")
 				var mannequin := piece == "head" and (m.name == "base_head" or m.name == "base_eyes_round")
 				m.visible = want or mannequin

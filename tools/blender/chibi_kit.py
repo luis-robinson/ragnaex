@@ -597,11 +597,12 @@ def weapon(base, kind, accent=(0.4, 0.7, 1.0)):
                 vert.co = rot @ vert.co + c
             made.append((shield, "forearm.L"))
     elif kind == "axe2h":
-        up = Vector((0, -0.25, 1)).normalized()
-        g = hr
-        parts = [tube("shaft", g - up * 0.18, g + up * 0.75, 0.024, 0.024, m_wood, 6),
-                 ball("axehead", 0.2, g + up * 0.66 + Vector((0, -0.12, 0)), m_metal, (0.18, 1.0, 0.85)),
-                 box("socket", (0.06, 0.07, 0.12), g + up * 0.66, m_gold, 0.01)]
+        import axe_kit
+        up = Vector(axe_kit.COMMON_2H_AXIS).normalized()
+        side = Vector((1, 0, 0))
+        parts = axe_kit.axe_parts(sys.modules[__name__], "w_axe_", Vector(hr), up, -up.cross(side).normalized(), side,
+                                  {"tint": m_accent, "tint2": m_accent, "trim": m_gold, "wood": m_wood, "metal": m_metal, "leather": m_leather},
+                                  axe_kit.COMMON["axe2h"], True)
         made.append((_join(parts, "w_axe"), "hand.R"))
     elif kind in ("staff", "wand"):
         ln = 1.15 if kind == "staff" else 0.42
@@ -1533,6 +1534,506 @@ def _fcurves(act):
 
 
 # ---------------------------------------------------------------------------
+# chão: a ponta da arma (ou a pata de uma forma) não pode atravessar o plano z = 0 num golpe
+# ---------------------------------------------------------------------------
+GROUND_MARGIN = 0.03            # folga da arma sobre o chão (m)
+GROUND_TURN = 100.0             # giro máximo da mão por quadro depois da correção (graus; run_tests._check_hand_twist pede < 112)
+GROUND_PITCH = 110.0            # modo "pitch" (pata/cabeça de forma): giro máximo a partir da pose original (graus)
+GROUND_PITCH_STEP = 40.0        # ... e quanto esse giro pode mudar de um quadro para o outro (graus por quadro de 24)
+GROUND_EASE_END = ("dash",)     # clipes em que a correção da mão sai em rampa nos últimos quadros (ver clear_ground, "Saída da correção")
+GROUND_EASE_FRAMES = 4          # ... em quantos quadros
+GROUND_EASE_MIN = 20.0          # ... e só quando o último quadro está girado mais que isto (graus) além do menor giro que livra o chão
+GROUND_TRACE = {}               # (clipe, osso) -> ([giro da correção por quadro, graus], [folga da pose original por quadro, m]) da última passada
+GROUND_SKIP = ("idle", "run", "block", "hit", "die", "attack")     # prefixos de clipe que a folga não toca (laços, tranco, morte, v1)
+
+
+# Classes cujo kit leva TODAS as armas comuns (fora de CLASS_WEAPONS): na folga do chão só contam as que a classe empunha
+# (ClassDef.weapon_types / offhand_types), senão a lança que o Druida nunca usa mandava nos clipes dele.
+CLASS_WIELDS = {"druid": (("staff", "mace", "mace2h"), ("mace",)), "elementalist": (("staff",), ()), "necromancer": (("scythe",), ())}
+
+
+def kit_weapon_pieces(rig, class_id=None):
+    """[(osso da mão, [malhas wpn_* presas só nele], "turn")] do kit montado (escudo e alça ficam no antebraço: shield_mount)."""
+    out = {}
+    wields = CLASS_WIELDS.get(class_id)
+    for o in rig.children:
+        if o.type != "MESH" or not o.name.startswith("wpn_"):
+            continue
+        part = o.name.split("_")
+        if wields and len(part) > 2 and part[2] not in wields[0 if part[1] == "main" else 1]:
+            continue
+        groups = [g.name for g in o.vertex_groups]
+        if len(groups) == 1 and groups[0] in QUAT_BONES:
+            out.setdefault(groups[0], []).append(o)
+    return [(b, out[b], "turn") for b in QUAT_BONES if b in out]
+
+
+def _qangle(a, b):
+    """Ângulo pelo caminho curto entre dois quaterniões (q e -q são a mesma rotação), em radianos."""
+    return 2.0 * math.acos(min(1.0, abs(a.dot(b))))
+
+
+def clear_ground(rig, spec, clips, margin=GROUND_MARGIN, sub=4, step=2.0, limit=120.0, sweeps=40):
+    """Folga do chão para peças rígidas, sem mexer em duração, impacto ou no resto do corpo.
+    spec = [(osso, [malhas presas só nele: peso 1 ou parenteadas], modo)], pai antes de filho. Modos:
+      "turn"  gira o osso em volta da própria junta pelo menor giro que livra o chão (arma na mão);
+      "pitch" idem, mas só no eixo X do rig, para o lado que pede menos (cabeça); "pitch-" prefere levar a ponta para a
+              frente (pata dianteira) e "pitch+" para trás (pata traseira): o outro lado só ganha se pedir 20° a menos;
+      "lift"  sobe o osso (corpo que afunda).
+    A folga de cada peça é min(margin, altura dela no quadro 1 do "idle"): o que já encosta no chão parado (pata, arco
+    comprido) continua encostando, só não desce mais.
+    O glTF sai amostrado por quadro e o Godot interpola entre as amostras: a conta é feita nessas amostras (cinemática
+    direta própria, `sub` passos por quadro), porque uma arma comprida atravessava o chão ENTRE dois quadros bons. O osso
+    corrigido fica com chave em todo quadro do clipe. Devolve {clipe: {osso: (quadros mexidos, pior resto em m, pior giro
+    por quadro em graus)}}."""
+    import numpy as np
+    ad = rig.animation_data
+    tracks = _tracks(rig)
+    sc = bpy.context.scene
+    bones = rig.data.bones
+    frame0 = sc.frame_current
+
+    def zero():
+        for pb in rig.pose.bones:
+            pb.rotation_euler = (0, 0, 0)
+            pb.rotation_quaternion = (1, 0, 0, 0)
+            pb.location = (0, 0, 0)
+
+    zero()
+    ad.action = None
+    muted = [(t, t.mute) for t in ad.nla_tracks]
+    for t, _m in muted:
+        t.mute = True
+    bpy.context.view_layer.update()
+    inv = np.array(rig.matrix_world.inverted())
+    local, owner, chain = {}, {}, {}
+    for bone, objs, _mode in spec:               # pontos no espaço do osso, medidos no repouso
+        pts, own = [], []
+        for i, o in enumerate(objs):
+            co = np.empty(len(o.data.vertices) * 3, dtype=np.float64)
+            o.data.vertices.foreach_get("co", co)
+            mw = inv @ np.array(o.matrix_world)
+            pts.append(co.reshape(-1, 3) @ mw[:3, :3].T + mw[:3, 3])
+            own.append(np.full(len(o.data.vertices), i))
+        p = np.concatenate(pts)
+        bi = np.array(bones[bone].matrix_local.inverted())
+        local[bone] = p @ bi[:3, :3].T + bi[:3, 3]
+        owner[bone] = np.concatenate(own)
+        ch, b = [], bones[bone]
+        while b:
+            ch.insert(0, b.name)
+            b = b.parent
+        chain[bone] = ch
+    need = []
+    for ch in chain.values():
+        need += [b for b in ch if b not in need]
+    rel = {b: (bones[b].parent.matrix_local.inverted() @ bones[b].matrix_local) if bones[b].parent else bones[b].matrix_local.copy() for b in need}
+    ref = {}                                     # altura de cada peça parada (quadro 1 do idle; sem idle, o repouso)
+    if "idle" in tracks:
+        ad.action = tracks["idle"].strips[0].action
+        try:
+            if ad.action.slots:
+                ad.action_slot = ad.action.slots[0]
+        except Exception:
+            pass
+        sc.frame_set(1)
+    for bone, _objs, _mode in spec:
+        m = np.array(rig.pose.bones[bone].matrix)
+        z = local[bone] @ m[2, :3] + m[2, 3]
+        ref[bone] = np.array([min(margin, float(z[owner[bone] == i].min())) for i in range(int(owner[bone].max()) + 1)])[owner[bone]]
+    report = {}
+    for clip in clips:
+        if clip not in tracks:
+            continue
+        act = tracks[clip].strips[0].action
+        ad.action = act
+        try:
+            if act.slots:
+                ad.action_slot = act.slots[0]
+        except Exception:
+            pass
+        end = int(round(act.frame_range[1]))
+        Bq = {b: [None] for b in need}           # amostras por quadro (índice = quadro)
+        Bl = {b: [None] for b in need}
+        for f in range(1, end + 1):
+            sc.frame_set(f)
+            for b in need:
+                mb = rig.pose.bones[b].matrix_basis
+                Bq[b].append(mb.to_quaternion())
+                Bl[b].append(mb.to_translation())
+        L0 = {b: [l.copy() if l else None for l in Bl[b]] for b in need}
+        samples = [(f, k / sub) for f in range(1, end) for k in range(sub)] + [(end, 0.0)]
+
+        def basis(b, f, t):
+            if t == 0.0:
+                return Bq[b][f], Bl[b][f]
+            return Bq[b][f].slerp(Bq[b][f + 1], t), Bl[b][f].lerp(Bl[b][f + 1], t)
+
+        def parent_frame(bone, f, t):            # matriz do pai × repouso relativo: onde a base do osso é aplicada
+            P = Matrix.Identity(4)
+            for c in chain[bone]:
+                A = P @ rel[c]
+                if c != bone:
+                    q, l = basis(c, f, t)
+                    P = A @ Matrix.Translation(l) @ q.to_matrix().to_4x4()
+            return A
+
+        Q0 = {b: [q.copy() if q else None for q in Bq[b]] for b, _o, _m in spec}
+        lifter = next((b for b, _o, m in spec if m == "lift"), None)
+        for _round in range(4):                  # osso que não livra só girando (junta baixa demais): o corpo sobe o que falta e refaz
+            short = {}
+            report.pop(clip, None)
+            for b, _o, m in spec:
+                if m != "lift":
+                    Bq[b] = [q.copy() if q else None for q in Q0[b]]
+            for bone, _objs, mode in spec:
+                pts = local[bone]
+                A = {s: parent_frame(bone, *s) for s in samples}
+
+                def world(s):
+                    q, l = basis(bone, *s)
+                    return np.array(A[s] @ Matrix.Translation(l) @ q.to_matrix().to_4x4())
+
+                floor = ref[bone]
+
+                def gap(m3, pz):                      # (pior folga, índice do ponto) com a rotação m3 e a junta na altura pz
+                    d = pts @ m3[2] + pz - floor
+                    i = int(d.argmin())
+                    return float(d[i]), i
+
+                def lean(arm):                        # para onde a peça sobe: o lado para o qual já pende; reto para baixo = frente
+                    h = Vector((arm.x, arm.y, 0.0))
+                    return h if h.length >= 0.15 * arm.length else Vector((0, -1, 0))
+
+                order = [s for s in samples if s[1] == 0.0] + [s for s in samples if s[1] != 0.0]      # quadros primeiro, depois os meios
+                touched = set()
+                def slew():
+                    """Giro da mão por quadro limitado a GROUND_TURN (o teste mede 45° por passo de 60 Hz = 112° por quadro de
+                    24): onde a correção entra ou sai de uma vez, o quadro MENOS corrigido cede para o vizinho, e a folga se
+                    espalha em rampa pelos quadros antes e depois do trecho corrigido. O 1º e o último quadro não cedem."""
+                    q, q0 = Bq[bone], Q0[bone]
+                    mag = [0.0] + [_qangle(q[f], q0[f]) for f in range(1, end + 1)]
+                    mag[1] = mag[end] = 1e9
+                    cap, moved = math.radians(GROUND_TURN), False
+                    for _n in range(60):
+                        again = False
+                        for f in list(range(1, end)) + list(range(end - 1, 0, -1)):
+                            a = _qangle(q[f], q[f + 1])
+                            if a <= cap + 1e-4:
+                                continue
+                            v, o = (f + 1, f) if mag[f + 1] <= mag[f] else (f, f + 1)
+                            if mag[v] > 1e8:
+                                continue
+                            q[v] = q[o].slerp(q[v], cap / a)
+                            mag[v] = _qangle(q[v], q0[v])
+                            touched.add(v)
+                            again = moved = True
+                        if not again:
+                            break
+                    return moved
+
+                if mode.startswith("pitch"):
+                    # Um ângulo por quadro, sempre para o MESMO lado no clipe inteiro e medido a partir da pose original. A passada
+                    # por amostra (abaixo, usada no "turn") somava giro sobre giro nos dois quadros de cada meio-passo: a pata do
+                    # lobo dava 150-170° de um quadro para o outro (anim_probe: 69°/passo no pounce) e o clipe acabava virado.
+                    def rot(f, ax, a):
+                        a3 = A[(f, 0.0)].to_3x3()
+                        return (a3.inverted() @ Matrix.Rotation(math.radians(a), 3, ax) @ a3).to_quaternion() @ Q0[bone][f]
+
+                    def g_at(s):
+                        m = world(s)
+                        return gap(m[:3, :3], m[2, 3])[0]
+
+                    def put(ax, th):
+                        for f in range(1, end + 1):
+                            Bq[bone][f] = rot(f, ax, th[f]) if th[f] else Q0[bone][f].copy()
+
+                    def solve(ax):
+                        th = [0.0] * (end + 2)
+                        put(ax, th)
+                        for f in range(1, end + 1):   # menor giro que livra cada quadro; sem solução, o que mais levanta
+                            if g_at((f, 0.0)) >= -0.004:
+                                continue
+                            top, a = (-1e9, 0.0), 0.0
+                            while a < GROUND_PITCH:
+                                a += step
+                                Bq[bone][f] = rot(f, ax, a)
+                                g = g_at((f, 0.0))
+                                if g > top[0]:
+                                    top = (g, a)
+                                if g >= 0.0:
+                                    break
+                            th[f] = top[1]
+                        for _n in range(40):
+                            for _k in range(end):         # rampa: vizinhos a no máximo GROUND_PITCH_STEP um do outro (o menor sobe)
+                                again = False
+                                for f in range(1, end):
+                                    lo, hi = (f, f + 1) if th[f] < th[f + 1] else (f + 1, f)
+                                    if th[hi] - th[lo] > GROUND_PITCH_STEP + 1e-6:
+                                        th[lo] = th[hi] - GROUND_PITCH_STEP
+                                        again = True
+                                if not again:
+                                    break
+                            put(ax, th)
+                            bad = False
+                            for s in samples:             # meio-passos (e quadros que a rampa encostou): sobe o lado menos girado
+                                if g_at(s) >= -0.004:
+                                    continue
+                                v = min((s[0],) if s[1] == 0.0 else (s[0], s[0] + 1), key=lambda x: th[x])
+                                if th[v] < GROUND_PITCH:
+                                    th[v] = min(GROUND_PITCH, th[v] + 4.0)
+                                    bad = True
+                            if not bad:
+                                break
+                        put(ax, th)
+                        worst = min(0.0, min(g_at(s) for s in samples) + 0.004)
+                        return th, round(-worst, 2)
+
+                    axes = [Vector((-1 if mode == "pitch-" else 1, 0, 0)), Vector((1 if mode == "pitch-" else -1, 0, 0))]
+                    best = None
+                    for n, ax in enumerate(axes):
+                        th, miss = solve(ax)
+                        cand = (miss, max(th) + (20.0 if n and mode != "pitch" else 0.0), n, th, ax)
+                        if best is None or cand[:3] < best[:3]:
+                            best = cand
+                        if not miss and max(th) == 0.0:
+                            break
+                    put(best[4], best[3])
+                    touched.update(f for f in range(1, end + 1) if best[3][f] > 0.0)
+                for _ease in range(0 if mode.startswith("pitch") else 10):               # folga -> rampa -> folga...: a rampa pode encostar um quadro vizinho no chão
+                    for _sweep in range(sweeps):
+                        changed = False
+                        for s in order:
+                            m = world(s)
+                            m3, piv = m[:3, :3], m[:3, 3]
+                            g, i = gap(m3, piv[2])
+                            if g >= -0.004:
+                                continue
+                            f, t = s
+                            ends = (f,) if t == 0.0 else (f, f + 1)
+                            a3 = A[s].to_3x3()
+                            if mode == "lift":
+                                d = a3.inverted() @ Vector((0, 0, -g))
+                                for e in ends:
+                                    Bl[bone][e] = Bl[bone][e] + d
+                            else:
+                                pre = Matrix.Identity(3)
+                                if mode == "turn" and t == 0.0 and f > 1:
+                                    # o quadro anterior está rente ao chão (já corrigido): a peça fica na direção que tinha lá. Com um
+                                    # giro novo por quadro a arma sambava de lado enquanto a mão seguia girando para baixo.
+                                    mp = world((f - 1, 0.0))
+                                    if -0.004 <= gap(mp[:3, :3], mp[2, 3])[0] < 0.06:
+                                        pre = Matrix(mp[:3, :3].tolist()) @ Matrix(m3.tolist()).inverted()
+                                        m3 = mp[:3, :3]
+                                        g, i = gap(m3, piv[2])
+                                axes = [Vector((-1 if mode == "pitch-" else 1, 0, 0)), Vector((1 if mode == "pitch-" else -1, 0, 0))] if mode.startswith("pitch") else [lean(Vector(m3 @ pts[i])).cross(Vector((0, 0, 1)))]
+                                best = None                # (livrou, graus, folga, eixo): o menor giro que livra; senão o que mais levanta
+                                for n, ax in enumerate(axes if g < 0.0 else ()):
+                                    ax = ax.normalized()
+                                    top, a, ok = (g, 0.0), 0.0, False
+                                    while a < limit:
+                                        a += step
+                                        g2 = gap(np.array(Matrix.Rotation(math.radians(a), 3, ax)) @ m3, piv[2])[0]
+                                        if g2 > top[0]:
+                                            top = (g2, a)
+                                        if g2 >= 0.0:
+                                            ok = True
+                                            break
+                                    cand = (ok, top[1], top[0], ax, top[1] + (20.0 if n and mode != "pitch" else 0.0))
+                                    if best is None or (cand[0], -cand[4] if cand[0] else cand[2]) > (best[0], -best[4] if best[0] else best[2]):
+                                        best = cand
+                                if (best is None or best[1] <= 0.0) and g < 0.0 and pre == Matrix.Identity(3):
+                                    continue
+                                rw = (Matrix.Rotation(math.radians(best[1]), 3, best[3]) if best else Matrix.Identity(3)) @ pre
+                                d = (a3.inverted() @ rw @ a3).to_quaternion()
+                                for e in ends:
+                                    Bq[bone][e] = d @ Bq[bone][e]
+                            touched.update(ends)
+                            changed = True
+                        if not changed:
+                            break
+                    if mode != "turn" or not slew():
+                        break
+                if touched and mode == "turn":
+                    # encurta o caminho: quadro corrigido vai para o meio dos vizinhos enquanto a folga deixar (a correção quadro a
+                    # quadro deixava um zigue-zague: a mão girava 10% a mais no atk_flurry, e o teste limita o total do clipe)
+                    for _n in range(4):
+                        for f in sorted(touched):
+                            if f <= 1 or f >= end:
+                                continue
+                            old = Bq[bone][f]
+                            Bq[bone][f] = old.slerp(Bq[bone][f - 1].slerp(Bq[bone][f + 1], 0.5), 0.5)
+                            near = [x for x in samples if f - 1 <= x[0] + x[1] <= f + 1]
+                            if min(gap(world(x)[:3, :3], world(x)[2, 3])[0] for x in near) < -0.004:
+                                Bq[bone][f] = old
+                if touched and mode == "turn" and clip in GROUND_EASE_END:
+                    # Saída da correção no fim do clipe. A passada acima segura a direção da arma de um quadro para o outro
+                    # (`pre`), então a arma fica onde foi posta enquanto a pose original segue no chão: no dash o braço volta
+                    # para a frente nos últimos quadros e a arma continuava apontada para trás/para o lado (mão do Berserker a
+                    # 152° da pose desenhada no último quadro, 171° do primeiro; a do Paladino a 37° num quadro que nem
+                    # precisava de correção, depois de um tranco de 100°). Aqui os últimos GROUND_EASE_FRAMES quadros levam a
+                    # arma, em rampa, até a pose original do último quadro com o MENOR giro que livra o chão (zero se ela já
+                    # livra). O caminho mais curto entre as duas orientações passa com a ponta por baixo do chão, então a volta
+                    # é em dois giros: a PONTA vai de lado (rumo e inclinação, cada um na sua rampa: rasante, por fora do corpo)
+                    # e o resto é rolagem em torno do próprio eixo da arma. Onde ainda encostar, o menor giro que levanta
+                    # (quadro e meios-passos); se nem assim couber no limite de giro por quadro, a rampa encurta (x0,95...).
+                    # Só entra quando sobra giro no último quadro (GROUND_EASE_MIN): kit cuja mão já acaba rente não muda.
+                    tip = Vector(pts[int((pts * pts).sum(1).argmax())]).normalized()       # eixo da arma: o vértice mais longe da junta
+
+                    def rig_rot(f, q):                # orientação do osso no espaço do rig com a base q no quadro f
+                        return A[(f, 0.0)].to_3x3() @ q.to_matrix()
+
+                    def turn_rig(f, r):               # aplica no quadro f um giro r dado no espaço do rig
+                        a3 = A[(f, 0.0)].to_3x3()
+                        Bq[bone][f] = (a3.inverted() @ r @ a3).to_quaternion() @ Bq[bone][f]
+
+                    tip_np = np.array(tip)
+
+                    def climb(s, frames):             # sobe a amostra s girando `frames` aos poucos, sempre pelo giro que mais levanta
+                        for _k in range(40):          # (lado, frente ou rolagem no eixo da arma: a lâmina do machado também desce)
+                            m = world(s)
+                            g = gap(m[:3, :3], m[2, 3])[0]
+                            if g >= -0.002:
+                                return True
+                            t_now = Vector(m[:3, :3] @ tip_np)
+                            keep = {e: Bq[bone][e] for e in frames}
+                            best = None
+                            for ax in (Vector((1, 0, 0)), Vector((-1, 0, 0)), Vector((0, 1, 0)), Vector((0, -1, 0)), t_now, -t_now):
+                                r = Matrix.Rotation(math.radians(3.0), 3, ax)
+                                for e in frames:
+                                    turn_rig(e, r)
+                                m2 = world(s)
+                                g2 = gap(m2[:3, :3], m2[2, 3])[0]
+                                for e in frames:
+                                    Bq[bone][e] = keep[e]
+                                if best is None or g2 > best[0]:
+                                    best = (g2, r)
+                            if best[0] <= g + 1e-5:
+                                return False
+                            for e in frames:
+                                turn_rig(e, best[1])
+                        return False
+
+                    def raise_at(s):                  # menor giro que livra a amostra s; False = não deu. Meio-passo: primeiro só o quadro
+                        if s[1] == 0.0:               # de ANTES cede (o de depois está mais perto do fim, a pose que se quer), depois os dois
+                            return climb(s, (s[0],))
+                        return climb(s, (s[0],)) or climb(s, (s[0], s[0] + 1))
+
+                    saved = [q.copy() if q else None for q in Bq[bone]]
+                    cap = math.radians(GROUND_TURN)
+                    n_ease = min(GROUND_EASE_FRAMES, end - 2)
+                    first = end - n_ease + 1
+                    Bq[bone][end] = Q0[bone][end].copy()
+                    done = raise_at((end, 0.0))
+                    goal_q = Bq[bone][end]            # último quadro: pose original + o menor giro que livra
+                    Bq[bone][end] = saved[end].copy()
+                    if done and _qangle(saved[end], Q0[bone][end]) - _qangle(goal_q, Q0[bone][end]) > math.radians(GROUND_EASE_MIN):
+                        # cada quadro da rampa anda uma fração do giro (no rig) que leva a arma de onde ELE a tem até a
+                        # orientação final: ponta pelo arco (swing) + rolagem no eixo da arma (twist)
+                        r_goal = rig_rot(end, goal_q)
+                        t_goal = r_goal @ tip
+                        ok = False
+                        for scale in (1.0, 0.95, 0.9, 0.85, 0.8, 0.7, 0.6, 0.5, 0.4):
+                            Bq[bone] = [q.copy() if q else None for q in saved]
+                            for f in range(first, end + 1):
+                                w = scale * float(f - first + 1) / n_ease
+                                r_cur = rig_rot(f, Bq[bone][f])
+                                t_cur = r_cur @ tip
+                                # a ponta vai de lado, não pelo arco mais curto (que entre duas direções quase rasantes
+                                # e distantes mergulha): rumo e inclinação andam cada um na sua rampa
+                                az0, az1 = math.atan2(t_cur.y, t_cur.x), math.atan2(t_goal.y, t_goal.x)
+                                daz = (az1 - az0 + math.pi) % (2.0 * math.pi) - math.pi
+                                el0, el1 = math.asin(max(-1.0, min(1.0, t_cur.z))), math.asin(max(-1.0, min(1.0, t_goal.z)))
+                                az, el = az0 + daz * w, el0 + (el1 - el0) * w
+                                t_w = Vector((math.cos(el) * math.cos(az), math.cos(el) * math.sin(az), math.sin(el)))
+                                full = t_cur.rotation_difference(t_goal).to_matrix()
+                                twist = (r_goal @ (full @ r_cur).inverted()).to_quaternion()
+                                tw_an = twist.angle if twist.angle <= math.pi else twist.angle - 2.0 * math.pi
+                                if Vector(twist.axis).dot(t_goal) < 0.0:
+                                    tw_an = -tw_an
+                                turn_rig(f, Matrix.Rotation(tw_an * w, 3, t_w) @ t_cur.rotation_difference(t_w).to_matrix())
+                            good = True
+                            for _n in range(12):
+                                good = all([raise_at(s) for s in samples if first - 1 <= s[0] + s[1] <= end])
+                                if all(gap(world(s)[:3, :3], world(s)[2, 3])[0] >= -0.004 for s in samples if first - 1 <= s[0] + s[1] <= end):
+                                    break
+                            else:
+                                good = False
+                            if good and max(_qangle(Bq[bone][f], Bq[bone][f + 1]) for f in range(max(1, first - 2), end)) <= cap + 1e-4:
+                                ok = True
+                                break
+                        print("clear_ground ease", rig.name, clip, bone, "fim: %.0f -> %.0f graus da pose original (menor giro %.0f), rampa x%.2f%s" % (
+                            math.degrees(_qangle(saved[end], Q0[bone][end])), math.degrees(_qangle(Bq[bone][end], Q0[bone][end])) if ok else -1.0,
+                            math.degrees(_qangle(goal_q, Q0[bone][end])), scale, "" if ok else " SEM SAIDA"))
+                        if ok:
+                            touched.update(range(first, end + 1))
+                            if first > 1 and _qangle(Bq[bone][first - 1], saved[first - 1]) > 1e-5:
+                                touched.add(first - 1)
+                        else:
+                            Bq[bone] = saved
+                if touched and mode == "turn":
+                    cur = [q.copy() if q else None for q in Bq[bone]]
+                    Bq[bone] = [q.copy() if q else None for q in Q0[bone]]
+                    raw_gap = [round(min(gap(world(x)[:3, :3], world(x)[2, 3])[0] for x in samples if abs(x[0] + x[1] - f) < 0.6), 3) for f in range(1, end + 1)]
+                    Bq[bone] = cur
+                    GROUND_TRACE[(clip, bone)] = ([round(math.degrees(_qangle(Bq[bone][f], Q0[bone][f]))) for f in range(1, end + 1)], raw_gap)
+                if touched:
+                    rest = 0.0
+                    for s in samples:
+                        m = world(s)
+                        g = gap(m[:3, :3], m[2, 3])[0]
+                        rest = min(rest, g)
+                        if g < -0.006 and mode != "lift":
+                            for e in ((s[0],) if s[1] == 0.0 else (s[0], s[0] + 1)):
+                                short[e] = max(short.get(e, 0.0), -g)
+                    turn = max(_qangle(Bq[bone][f], Bq[bone][f + 1]) for f in range(1, end)) if mode == "turn" else 0.0
+                    report.setdefault(clip, {})[bone] = (len(touched), round(rest, 3), round(math.degrees(turn)))
+            if not short or lifter is None or _round == 3:
+                break
+            for f, dz in short.items():
+                Bl[lifter][f] = Bl[lifter][f] + parent_frame(lifter, f, 0.0).to_3x3().inverted() @ Vector((0, 0, dz))
+            report.setdefault(clip, {})
+        dirty = [(b, m) for b, _o, m in spec if (m == "lift" and any((Bl[b][f] - L0[b][f]).length > 1e-6 for f in range(1, end + 1)))
+                 or (m != "lift" and any(_qangle(Bq[b][f], Q0[b][f]) > 1e-5 for f in range(1, end + 1)))]
+        for bone, mode in dirty:                  # grava o osso corrigido em todo quadro (é o que o glTF amostra)
+            pb = rig.pose.bones[bone]
+            quat = pb.rotation_mode == "QUATERNION"
+            prev = None
+            for f in range(1, end + 1):
+                if mode == "lift":
+                    pb.location = Bl[bone][f]
+                    pb.keyframe_insert("location", frame=f)
+                    continue
+                q = Bq[bone][f].copy()
+                if quat:
+                    if prev is not None and prev.dot(q) < 0.0:
+                        q.negate()
+                    pb.rotation_quaternion = q
+                    pb.keyframe_insert("rotation_quaternion", frame=f)
+                    prev = q
+                else:
+                    e = q.to_euler("XYZ", prev) if prev is not None else q.to_euler("XYZ")
+                    pb.rotation_euler = e
+                    pb.keyframe_insert("rotation_euler", frame=f)
+                    prev = e
+    ad.action = None
+    for t, m in muted:
+        t.mute = m
+    zero()
+    sc.frame_set(frame0)                         # o próximo modelo da sessão é montado no quadro em que a cena estava
+    for clip, d in report.items():
+        print("clear_ground", rig.name, clip, d)
+    return report
+
+
+def clear_weapons(rig, class_id=None):
+    """Passada do kit do jogador: nenhum vértice de arma abaixo de GROUND_MARGIN nos golpes, magias, dash e pouso (tudo menos
+    GROUND_SKIP). Vale para TODAS as armas do kit de uma vez (o clipe é um só por kit): a mais comprida manda, então o kit
+    com lança ou montante levanta mais a mão."""
+    return clear_ground(rig, kit_weapon_pieces(rig, class_id), [n for n in _tracks(rig) if not n.startswith(GROUND_SKIP)])
+
+
+# ---------------------------------------------------------------------------
 # monstros humanoides (bandidos, elfos, esqueletos, lich...): o mesmo rig do kit, mas só 7 clipes com os nomes do bicho
 # (idle run attack cast hit die block). Antes eram os clipes v1 de animate() (3 chaves, golpe de cima sem preparo).
 # ---------------------------------------------------------------------------
@@ -1871,59 +2372,232 @@ def kit_head(base, style, mats):
 
 
 
-# Montagem do escudo (resolvida no rig por tools/blender/shield_mount.py): no idle o antebraço atravessa as costas,
-# escudo de pé com a ponta para baixo e a face para fora (um pouco para cima: a câmera é alta).
+# Montagem do escudo no antebraço esquerdo. A COMUM (resolvida no rig por tools/blender/shield_mount.py) é a afastada de
+# antes: escudo de pé com a ponta para baixo e a face para fora (um pouco para cima: a câmera é alta), 0,29 m para fora
+# do antebraço e 0,32 m abaixo dele. Hoje só os monstros com escudo próprio a usam (kharzun_mobs.tower_shield).
 SHIELD_TURN = 88.1      # graus em Z
 SHIELD_TILT = -12.2     # graus em X
 SHIELD_SPIN = -86.4     # graus em Y (no plano do escudo)
 SHIELD_OFFSET = (0.298, 0.310, 0.042)     # centro do escudo a partir do antebraço, no repouso
 SHIELD_SCALE = 1.16     # chibi pede equipamento exagerado
 SHIELD_OUTLINE = 0.016  # espessura do contorno soldado (shield_kit.hull)
+# Montagem RENTE por estilo: (TURN, TILT, SPIN, OFFSET). Todo escudo do jogador tem a dele (decisão 2026-11-15): a placa
+# encosta no antebraço até onde o tamanho dela deixa sem tocar o corpo em idle/corrida/guarda (escudo grande fica mais
+# afastado: na guarda a cabeça chibi avança sobre o peito). Mesma rotação da comum, muda só o OFFSET, achado por
+# tools/blender/shield_mount_study.py (procura gap/drop/along por estilo, mede e fotografa antes/depois) e gravado aqui
+# por shield_mount_apply.py. O escudo de recruta ("tabuas", chato e pequeno) tem face própria, virada um pouco para a
+# frente (shield_mount.STYLE_MOUNT): espelhe a rotação dele em tools/icons/shield_icons.gd (MOUNTS).
+# Escudo novo: rode o estudo (-- --out=<pasta> --only=<estilo>) e o apply; sem entrada ele cai na comum, afastado.
+# SHIELD_MOUNTS: início (gerado por shield_mount_apply.py a partir de shield_mount_study.py; não edite à mão)
+SHIELD_MOUNTS = {
+    "bastiao": (88.1, -12.2, -86.4, (0.156, 0.329, -0.072)),     # gap 0.127 drop 0.34 along 0.08
+    "juramento": (88.1, -12.2, -86.4, (0.135, 0.335, 0.005)),   # gap 0.122 drop 0.34 along 0.00
+    "asa": (88.1, -12.2, -86.4, (0.192, 0.328, -0.064)),         # gap 0.163 drop 0.34 along 0.08
+    "sol": (88.1, -12.2, -86.4, (0.150, 0.335, 0.009)),         # gap 0.138 drop 0.34 along -0.00
+    "presa": (88.1, -12.2, -86.4, (0.248, 0.246, -0.046)),       # gap 0.225 drop 0.26 along 0.08
+    "relicario": (88.1, -12.2, -86.4, (0.296, 0.330, 0.040)),   # gap 0.287 drop 0.34 along 0.00
+    "prisma": (88.1, -12.2, -86.4, (0.153, 0.334, 0.009)),      # gap 0.141 drop 0.34 along 0.00
+    "gaia": (88.1, -12.2, -86.4, (0.119, 0.296, 0.005)),        # gap 0.108 drop 0.30 along -0.00
+    "tabuas": (78.9, 1.8, -88.3, (0.160, 0.193, -0.010)),      # face própria (shield_mount.STYLE_MOUNT)
+    "ferro": (88.1, -12.2, -86.4, (0.146, 0.212, -0.025)),       # gap 0.130 drop 0.22 along 0.04
+    "ossario": (88.1, -12.2, -86.4, (0.093, 0.257, 0.002)),     # gap 0.083 drop 0.26 along -0.00
+    "escama": (88.1, -12.2, -86.4, (0.206, 0.328, -0.061)),      # gap 0.178 drop 0.34 along 0.08
+    "coluna": (88.1, -12.2, -86.4, (0.170, 0.334, 0.013)),      # gap 0.158 drop 0.34 along -0.00
+    "perdao": (88.1, -12.2, -86.4, (0.239, 0.332, 0.028)),      # gap 0.229 drop 0.34 along -0.00
+    "veredito": (88.1, -12.2, -86.4, (0.296, 0.285, -0.039)),    # gap 0.272 drop 0.30 along 0.08
+    "serpente": (88.1, -12.2, -86.4, (0.251, 0.326, -0.051)),    # gap 0.224 drop 0.34 along 0.08
+    "cruel": (88.1, -12.2, -86.4, (0.185, 0.328, -0.066)),       # gap 0.156 drop 0.34 along 0.08
+    "asa_negra": (88.1, -12.2, -86.4, (0.289, 0.330, 0.039)),   # gap 0.280 drop 0.34 along -0.00
+    "suspiros": (88.1, -12.2, -86.4, (0.290, 0.330, 0.039)),    # gap 0.281 drop 0.34 along -0.00
+    "pal1": (88.1, -12.2, -86.4, (0.147, 0.212, -0.024)),        # gap 0.132 drop 0.22 along 0.04
+    "pal_g10": (88.1, -12.2, -86.4, (0.147, 0.212, -0.024)),     # gap 0.132 drop 0.22 along 0.04
+    "pal_g15": (88.1, -12.2, -86.4, (0.128, 0.293, -0.034)),     # gap 0.108 drop 0.30 along 0.04
+    "pal_g20": (88.1, -12.2, -86.4, (0.119, 0.296, 0.005)),     # gap 0.108 drop 0.30 along -0.00
+    "pal_g25": (88.1, -12.2, -86.4, (0.209, 0.328, -0.060)),     # gap 0.181 drop 0.34 along 0.08
+    "pal_g30": (88.1, -12.2, -86.4, (0.231, 0.327, -0.056)),     # gap 0.203 drop 0.34 along 0.08
+    "pal_t5": (88.1, -12.2, -86.4, (0.147, 0.212, -0.024)),      # gap 0.132 drop 0.22 along 0.04
+    "pal_t10": (88.1, -12.2, -86.4, (0.147, 0.212, -0.024)),     # gap 0.132 drop 0.22 along 0.04
+    "pal_t15": (88.1, -12.2, -86.4, (0.117, 0.336, 0.001)),     # gap 0.104 drop 0.34 along 0.00
+    "pal_t20": (88.1, -12.2, -86.4, (0.235, 0.332, 0.027)),     # gap 0.225 drop 0.34 along -0.00
+    "pal_t25": (88.1, -12.2, -86.4, (0.117, 0.336, 0.001)),     # gap 0.104 drop 0.34 along 0.00
+    "pal_t30": (88.1, -12.2, -86.4, (0.273, 0.328, -0.006)),     # gap 0.255 drop 0.34 along 0.04
+    "bis_s5": (88.1, -12.2, -86.4, (0.129, 0.213, -0.028)),      # gap 0.113 drop 0.22 along 0.04
+    "bis_s10": (88.1, -12.2, -86.4, (0.147, 0.212, -0.024)),     # gap 0.132 drop 0.22 along 0.04
+    "bis_s15": (88.1, -12.2, -86.4, (0.131, 0.213, -0.028)),     # gap 0.115 drop 0.22 along 0.04
+    "bis_s20": (88.1, -12.2, -86.4, (0.138, 0.210, -0.067)),     # gap 0.114 drop 0.22 along 0.08
+    "bis_s25": (88.1, -12.2, -86.4, (0.152, 0.290, -0.070)),     # gap 0.124 drop 0.30 along 0.08
+    "bis_s30": (88.1, -12.2, -86.4, (0.252, 0.246, -0.045)),     # gap 0.229 drop 0.26 along 0.08
+    "bis_b5": (88.1, -12.2, -86.4, (0.138, 0.210, -0.067)),      # gap 0.114 drop 0.22 along 0.08
+    "bis_b10": (88.1, -12.2, -86.4, (0.147, 0.212, -0.024)),     # gap 0.132 drop 0.22 along 0.04
+    "bis_b15": (88.1, -12.2, -86.4, (0.234, 0.287, -0.052)),     # gap 0.208 drop 0.30 along 0.08
+    "bis_b20": (88.1, -12.2, -86.4, (0.159, 0.209, -0.063)),     # gap 0.135 drop 0.22 along 0.08
+    "bis_b25": (88.1, -12.2, -86.4, (0.133, 0.290, -0.074)),     # gap 0.105 drop 0.30 along 0.08
+    "bis_b30": (88.1, -12.2, -86.4, (0.155, 0.329, -0.072)),     # gap 0.126 drop 0.34 along 0.08
+}
+# SHIELD_MOUNTS: fim
 
 
-def _shield_rot():
+def _shield_mount(style=None):
+    return SHIELD_MOUNTS.get(style, (SHIELD_TURN, SHIELD_TILT, SHIELD_SPIN, SHIELD_OFFSET))
+
+
+def _shield_rot(style=None):
     """Rotação do escudo no repouso (face = -Y do modelo, topo = +Z)."""
-    return (Matrix.Rotation(math.radians(SHIELD_TURN), 3, "Z") @ Matrix.Rotation(math.radians(SHIELD_TILT), 3, "X")
-            @ Matrix.Rotation(math.radians(SHIELD_SPIN), 3, "Y"))
+    turn, tilt, spin, _ = _shield_mount(style)
+    return (Matrix.Rotation(math.radians(turn), 3, "Z") @ Matrix.Rotation(math.radians(tilt), 3, "X")
+            @ Matrix.Rotation(math.radians(spin), 3, "Y"))
 
 
-def _shield_anchor(base):
+def _shield_anchor(base, style=None):
     """Ponto do antebraço e centro do escudo: o suporte liga um ao outro."""
     arm = Vector(base["j"]["wrist.L"]) * 0.55 + Vector(base["j"]["elbow.L"]) * 0.45
-    return arm, arm + Vector(SHIELD_OFFSET)     # colado no lado de fora do antebraço
+    return arm, arm + Vector(_shield_mount(style)[3])     # colado no lado de fora do antebraço
 
 
-def kit_shield_grip(base, mats):
-    """Suporte do escudo, peça própria: braçadeira no antebraço e duas hastes que afinam até a placa."""
-    import shield_kit
-    arm, c = _shield_anchor(base)
-    ouro = mat("m_escudo_ouro", (0.95, 0.66, 0.16), 0.32)
+STRAP_CLIP = True               # a alça é aparada na silhueta da placa (False = alça inteira, para comparar em foto)
+STRAP_MARGIN = 0.012            # recuo da alça para dentro da borda da placa, no lado aparado (o contorno soldado das duas é igual)
+STRAP_STEP = 0.006              # passo da grade que procura a borda
+STRAP_HOLES = ("pal_g30",)      # escudos com um vão grande bem na frente do braço (argola): a alça aparecia por dentro dele
+
+
+def _strap_window(tree, arm, n, a_p, u, box, holes=False):
+    """Maior retângulo (s0, s1, u0, u1) da caixa da alça que a placa cobre vista de frente (ao longo de n).
+    s = ao longo do antebraço, u = atravessado, os dois no plano da placa. Furo no meio da placa (costela, anel) conta
+    como coberto: só a borda de fora apara a alça; holes=True (STRAP_HOLES) = o furo também apara."""
+    st = STRAP_STEP
+    far = 1.0                                         # varre além da caixa para achar a silhueta de fora
+    i0, i1 = int(math.floor((box[0] - far) / st)), int(math.ceil((box[1] + far) / st))
+    j0, j1 = int(math.floor((box[2] - far) / st)), int(math.ceil((box[3] + far) / st))
+    ni, nj = i1 - i0 + 1, j1 - j0 + 1
+    hit = [[tree.ray_cast(arm + a_p * ((i0 + i) * st) + u * ((j0 + j) * st) + n * 3.0, -n)[0] is not None for j in range(nj)]
+           for i in range(ni)]
+    lo_j, hi_j = [nj] * ni, [-1] * ni                 # por linha de s: primeiro e último u cobertos
+    lo_i, hi_i = [ni] * nj, [-1] * nj
+    for i in range(ni):
+        for j in range(nj):
+            if hit[i][j]:
+                lo_j[i], hi_j[i] = min(lo_j[i], j), max(hi_j[i], j)
+                lo_i[j], hi_i[j] = min(lo_i[j], i), max(hi_i[j], i)
+    ok = (lambda i, j: hit[i][j]) if holes else (lambda i, j: lo_j[i] <= j <= hi_j[i] and lo_i[j] <= i <= hi_i[j])
+    # grade só da caixa: pontos de dentro para fora, o retângulo vale se todos os pontos dele estão cobertos
+    a0, a1 = int(math.ceil(box[0] / st)) - i0, int(math.floor(box[1] / st)) - i0
+    b0, b1 = int(math.ceil(box[2] / st)) - j0, int(math.floor(box[3] / st)) - j0
+    best = None
+    for ia in range(a0, a1 + 1):
+        row = [True] * (b1 - b0 + 1)
+        for ib in range(ia, a1 + 1):
+            row = [row[k] and ok(ib, b0 + k) for k in range(len(row))]
+            k = 0
+            while k < len(row):
+                if not row[k]:
+                    k += 1
+                    continue
+                k2 = k
+                while k2 + 1 < len(row) and row[k2 + 1]:
+                    k2 += 1
+                area = (ib - ia) * (k2 - k)
+                if best is None or area > best[0]:
+                    best = (area, ia, ib, b0 + k, b0 + k2)
+                k = k2 + 1
+            if not any(row):
+                break
+    inside = lambda s, uu: ok(min(max(int(round(s / st)) - i0, 0), ni - 1), min(max(int(round(uu / st)) - j0, 0), nj - 1))
+    if best is None or best[0] == 0:
+        return None, None, inside
+    full = (best[1] == a0, best[2] == a1, best[3] == b0, best[4] == b1)     # lado que chegou à borda da caixa: sem corte
+    return ((i0 + best[1]) * st, (i0 + best[2]) * st, (j0 + best[3]) * st, (j0 + best[4]) * st), full, inside
+
+
+def _strap_cut(obj, co, no):
+    """Tira da alça o que fica além do plano (co, no) e fecha o corte."""
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    r = bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], dist=1e-5, plane_co=co, plane_no=no, clear_outer=True)
+    edges = [e for e in r["geom_cut"] if isinstance(e, bmesh.types.BMEdge) and e.is_boundary]
+    if edges:
+        for f in bmesh.ops.holes_fill(bm, edges=edges, sides=0)["faces"]:
+            near = [g for e in f.edges for g in e.link_faces if g is not f]
+            if near:
+                f.material_index = near[0].material_index
+    if bm.faces:
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    bm.to_mesh(obj.data)
+    bm.free()
+
+
+STRAP_LOG = {}                  # estilo -> o que foi aparado (lido por quem monta os kits, para saber que ícones refazer)
+STRAP_OUT = {}                  # estilo -> vértices da alça fora da silhueta da placa vista de frente (antes de aparar, depois, total)
+
+
+def kit_shield_strap(base, style, mats, plate=None):
+    """Alça do escudo: tira de couro no antebraço e dois calços curtos de ferro até as costas da placa. kit_shield solda
+    esta peça na malha do escudo (SHIELD_STRAP_JOINED): nenhum nó a mais no kit e o jogo não precisa ligar suporte nenhum.
+    plate = a placa já no lugar: a alça é aparada na silhueta dela (escudo estreito ou com o braço perto da borda: a tira
+    passava da placa e aparecia de frente e no ícone); vira meia braçadeira ou fica mais curta, sempre atrás da placa."""
+    arm, c = _shield_anchor(base, style)
     wrist, elbow = Vector(base["j"]["wrist.L"]), Vector(base["j"]["elbow.L"])
-    # a alça sai reta do antebraço até as costas do escudo (pela normal), não até o centro: o escudo fica abaixo do braço
-    n = (_shield_rot() @ Vector((0, -1, 0))).normalized()
-    back = arm + n * ((c - arm).dot(n) - 0.04)
+    n = (_shield_rot(style) @ Vector((0, -1, 0))).normalized()
+    back = arm + n * ((c - arm).dot(n) + 0.01)          # um pouco para dentro da placa: sem fresta
     along = (wrist - elbow).normalized()
-    parts = [tube("grip_faixa", arm + (wrist - arm) * 0.5, arm + (elbow - arm) * 0.5, 0.088, 0.092, ouro, 10)]
+    parts = [tube("strap_faixa", arm + (wrist - arm) * 0.45, arm + (elbow - arm) * 0.45, 0.083, 0.086, mats["leather"], 10)]
     for k in (-1, 1):
-        parts.append(tube("grip_haste_%d" % k, arm + along * k * 0.07, back + along * k * 0.09, 0.045, 0.035, ouro, 6))
-    obj = _join(parts, "wpn_off_grip")
-    shield_kit.hull(obj, SHIELD_OUTLINE, mat("m_contorno", (0.12, 0.1, 0.16), 0.9))
-    skin_rigid(obj, base["rig"], "forearm.L")
-    return obj
+        parts.append(tube("strap_calco_%d" % k, arm + along * k * 0.06, back + along * k * 0.06, 0.04, 0.045, mats["metal"], 6))
+    if plate is None:
+        return _join(parts, "wpn_off_strap_" + style)
+    from mathutils.bvhtree import BVHTree
+    tree = BVHTree.FromPolygons([v.co for v in plate.data.vertices], [tuple(pl.vertices) for pl in plate.data.polygons])
+    outside = lambda: sum(1 for o in parts for v in o.data.vertices if tree.ray_cast(v.co + n * 3.0, -n)[0] is None)
+    before = outside()
+    a_p = (along - n * along.dot(n)).normalized()
+    u = n.cross(a_p).normalized()
+    m = STRAP_MARGIN                                    # só apara o lado em que a peça passa da placa; aí recua m da borda
+    cuts = []
+    for o in parts if STRAP_CLIP else ():               # cada peça (tira, calços) contra a silhueta, na própria caixa
+        ss = [(v.co - arm).dot(a_p) for v in o.data.vertices]
+        us = [(v.co - arm).dot(u) for v in o.data.vertices]
+        win, full, inside = _strap_window(tree, arm, n, a_p, u, (min(ss), max(ss), min(us), max(us)), style in STRAP_HOLES)
+        if all(inside(a, b) for a, b in zip(ss, us)):   # a peça inteira já fica atrás da placa (a caixa dela tem canto vazio)
+            continue
+        if win is None:                                 # nada desta peça cabe atrás da placa
+            o.data.clear_geometry()
+            cuts.append("%s some" % o.name[6:])
+            continue
+        s0, s1, u0, u1 = win
+        for lim, ax, sign, whole, tag in ((s0, a_p, -1, full[0], "cotovelo"), (s1, a_p, 1, full[1], "punho"), (u0, u, -1, full[2], "u-"), (u1, u, 1, full[3], "u+")):
+            if not whole:
+                _strap_cut(o, arm + ax * (lim - sign * m), ax * sign)
+                cuts.append("%s %s %.3f" % (o.name[6:], tag, lim - sign * m))
+    STRAP_OUT[style] = (before, outside(), sum(len(o.data.vertices) for o in parts))
+    if cuts:
+        STRAP_LOG[style] = ", ".join(cuts)
+        print("STRAP", style, STRAP_LOG[style], flush=True)
+    return _join(parts, "wpn_off_strap_" + style)
 
 
-def kit_shield(base, style, name, mats):
-    """Escudo de uma família de shield_kit.py, preso no antebraço esquerdo."""
+SHIELD_STRAP_JOINED = True      # a alça mora dentro da malha do escudo (lido por shield_mount_study.py)
+
+
+def kit_shield(base, style, name, mats, close=True):
+    """Escudo de uma família de shield_kit.py, preso no antebraço esquerdo, com a alça dele na mesma malha.
+    close=False (monstros humanoides, mob_kit.humanoid): a montagem comum afastada e sem alça, como sempre foi; a rente
+    foi medida no corpo do jogador (shield_mount_study.py), não nos corpos dos monstros."""
     import shield_kit
     gold = dict(mats, trim=mat("m_escudo_ouro", (0.95, 0.66, 0.16), 0.32))     # ouro mais fundo que o filete das armaduras
     obj = _join(shield_kit.FAMILIES[style](sys.modules[__name__], name, gold), name)
-    rot = _shield_rot().to_4x4()
-    c = _shield_anchor(base)[1]
+    mount = style if close else None
+    rot = _shield_rot(mount).to_4x4()
+    c = _shield_anchor(base, mount)[1]
     inner = shield_kit.INNER.get(style, 1.0)
     for vert in obj.data.vertices:
         co = vert.co * SHIELD_SCALE * shield_kit.SIZES.get(style, 1.0)
         co.x *= inner if co.x < 0.0 else 1.0
         vert.co = rot @ co + c
+    if close:
+        strap = kit_shield_strap(base, style, mats, obj)
+        if len(strap.data.vertices):
+            obj = _join([obj, strap], name)
+        else:                                               # nada da alça cabe atrás da placa
+            bpy.data.objects.remove(strap, do_unlink=True)
     shield_kit.hull(obj, SHIELD_OUTLINE, mat("m_contorno", (0.12, 0.1, 0.16), 0.9))
     skin_rigid(obj, base["rig"], "forearm.L")
     return obj
@@ -1979,8 +2653,11 @@ def _flange(name, c, fwd, d, out, length, thick, material):
     return mesh_from(name, bm, material)
 
 
-def kit_weapon(base, wtype, hand, mats):
-    """Arma do kit na mão principal (.R; arco na .L) ou secundária (.L; escudo no antebraço)."""
+def kit_weapon(base, wtype, hand, mats, cfg=None):
+    """Arma do kit na mão principal (.R; arco na .L) ou secundária (.L; escudo no antebraço). cfg: só machados (axe_kit)."""
+    if wtype in ("axe", "axe2h"):
+        import axe_kit
+        return axe_kit.kit_axe(sys.modules[__name__], base, mats, wtype, hand, cfg)
     side = ".L" if (hand == "off" or wtype == "bow") else ".R"
     sx = 1.0 if side == ".L" else -1.0
     g = hand_center(base, side)
@@ -1998,14 +2675,6 @@ def kit_weapon(base, wtype, hand, mats):
         parts = _mace_1h(g, fwd, mm, mg, ml, mt)
     elif wtype == "mace2h":
         parts = _maul_2h(g, fwd, mm, mg, ml, mt)
-    elif wtype == "axe":
-        parts = [tube("shaft", g - fwd * 0.1, g + fwd * 0.5, 0.024, 0.024, mw, 6),
-                 ball("axehead", 0.13, g + fwd * 0.44 + Vector((0, -0.08, 0)), mm, (0.18, 0.8, 0.7))]
-    elif wtype == "axe2h":
-        up = Vector((0, -0.25, 1)).normalized()
-        parts = [tube("shaft", g - up * 0.18, g + up * 0.75, 0.024, 0.024, mw, 6),
-                 ball("axehead", 0.2, g + up * 0.66 + Vector((0, -0.12, 0)), mm, (0.18, 1.0, 0.85)),
-                 box("socket", (0.06, 0.07, 0.12), g + up * 0.66, mg, 0.01)]
     elif wtype == "dagger":
         f2 = Vector((0, -1, 0.3)).normalized()
         parts = [tube("grip", g - f2 * 0.05, g + f2 * 0.05, 0.018, 0.018, ml, 6), box("guard", (0.1, 0.03, 0.03), g + f2 * 0.06, mg, 0.006),
@@ -2046,7 +2715,7 @@ def kit_weapon(base, wtype, hand, mats):
             prev = p
     elif wtype == "shield":
         bone = "forearm.L"
-        return kit_shield(base, "juramento", "wpn_%s_shield" % hand, mats)
+        return kit_shield(base, "juramento", "wpn_%s_shield" % hand, mats, close=base.get("player_kit", False))
     elif wtype == "pistol":
         import assassin_sets
         parts = assassin_sets.pistol_parts(sys.modules[__name__], "ps_", g, mats, {})
@@ -2224,6 +2893,7 @@ def build_kit(sex, out_dir=None, class_id=None):
     import os
     clear()
     base = build_base("base", sex, 0.0, KIT_HAIR, "hair")
+    base["player_kit"] = True             # escudo sem estilo também vai rente ao antebraço (kit_weapon -> kit_shield)
     import looks                          # cabelos, barbas e olhos da criação de personagem
     looks.build_looks(sys.modules[__name__], base)
     mats = _kit_mats()
@@ -2250,10 +2920,10 @@ def build_kit(sex, out_dir=None, class_id=None):
         for style in shield_kit.FAMILIES:
             if style_class(style) in (None, class_id):
                 kit_shield(base, style, "wpn_off_shield_" + style, mats)
-        kit_shield_grip(base, mats)
     animate(base["rig"], "all")
     animate_combat(base["rig"])
     animate_v3(base["rig"])
+    clear_weapons(base["rig"], class_id)  # golpes de cima cravavam a ponta no chão (espada -0,2 m, montante -0,5 m, lança -0,9 m)
     # Godot não aceita "." em nome de nó
     for o in bpy.context.scene.objects:
         if "." in o.name:

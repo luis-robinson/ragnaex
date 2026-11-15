@@ -323,7 +323,7 @@ func _prepare(mi: MeshInstance3D) -> void:
 			mi.set_surface_override_material(i, Materials.flat(Color(0.12, 0.1, 0.16)))     # mesma cor do outline.gdshader
 			continue
 		var tm := Materials.toon_unique(col, outline_width)
-		if mi.name.begins_with("wpn_off_shield") or mi.name == "wpn_off_grip" or DevArgs.has("--no_char_outline"):
+		if mi.name.begins_with("wpn_off_shield") or DevArgs.has("--no_char_outline"):
 			tm.next_pass = null
 		tm.set_shader_parameter("paint", 1.0)
 		tm.set_shader_parameter("shadow_strength", 0.58)
@@ -403,8 +403,7 @@ func apply_equipment(eq: Dictionary, bare_body: Color = Color(0.55, 0.42, 0.3), 
 		var off_node := off_node_of(off)
 		weapons[off_node] = off.icon_color
 		_glow_of[off_node] = _plus_of.get(ItemDef.Slot.OFFHAND, 0)
-		if off.weapon_type == "shield":
-			weapons["wpn_off_grip"] = Color.WHITE       # suporte que prende o escudo ao braço
+		# escudo: a alça vem soldada na malha dele (chibi_kit.kit_shield), não há suporte à parte para ligar
 	_setup_trails(main, off)
 	for n in _nodes:
 		var vis := false

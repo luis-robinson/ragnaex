@@ -6,6 +6,7 @@ extends Node3D
 ##   --shields: as 8 famílias de escudo vistas da câmera do jogo, com paladino (fila de trás) e bispo (fila da frente)
 ##   --strip=<classe>: filme de um clipe — 8 cópias da classe, cada uma num instante do clipe, vistas de lado
 ##     [--titan[=<item>]]: Berserker com machado de 2 mãos nas duas mãos (Empunhadura de Titã)
+##   --body=<male|female>: troca o corpo da classe nos filmes e fileiras (revisar o kit do outro sexo)
 ## Salva a screenshot e sai.
 
 var _shot := ""
@@ -120,7 +121,7 @@ func _build_block_film() -> void:
 	var times := [0.0, 0.03, 0.06, 0.09, 0.14, 0.22, 0.4]
 	for row in range(3):
 		for i in range(times.size()):
-			var k := KitModel.create(cls.body_type, cls.hair_color, 0.025, cls.id)
+			var k := KitModel.create(DevArgs.value("--body", cls.body_type), cls.hair_color, 0.025, cls.id)
 			add_child(k)
 			k.position = Vector3((i - 3) * 1.9, 0, row * 2.2 - 2.2)
 			k.apply_equipment(eq)
@@ -151,7 +152,7 @@ func _build_shields() -> void:
 			eq[GameData.items[iid].slot] = GameData.items[iid]
 		eq[ItemDef.Slot.WEAPON] = GameData.items["sword_rusty"]
 		eq[ItemDef.Slot.OFFHAND] = GameData.items[list[i]]
-		var k := KitModel.create(cls.body_type, cls.hair_color, 0.025, cls.id)
+		var k := KitModel.create(DevArgs.value("--body", cls.body_type), cls.hair_color, 0.025, cls.id)
 		add_child(k)
 		k.position = Vector3((i % cols - (cols - 1) * 0.5) * dx - 0.2, 0, (i / cols) * 2.2 - 1.1)
 		k.apply_equipment(eq)
@@ -183,7 +184,7 @@ func _build_strip() -> void:
 			eq[ItemDef.Slot.WEAPON] = w
 			eq[ItemDef.Slot.OFFHAND] = w
 	for i in range(8):
-		var k := KitModel.create(cls.body_type, cls.hair_color, 0.025, cls.id)
+		var k := KitModel.create(DevArgs.value("--body", cls.body_type), cls.hair_color, 0.025, cls.id)
 		add_child(k)
 		k.position = Vector3(-7.0 + i * 2.0, 0, 0)
 		k.rotation.y = 0.0 if _front else PI * 0.5            # de frente ou de perfil para a câmera
@@ -207,7 +208,7 @@ func _build_mounted() -> void:
 		add_child(root)
 		root.position = Vector3(-4.5 + i * 3.0, 0, 0)
 		root.rotation.y = (0.0 if _front else (PI * 0.5 if i % 2 == 0 else 0.6))
-		var k := KitModel.create(cls.body_type, cls.hair_color, 0.025, cls.id)
+		var k := KitModel.create(DevArgs.value("--body", cls.body_type), cls.hair_color, 0.025, cls.id)
 		root.add_child(k)
 		k.apply_look(LooksCatalog.default_look(cls))
 		var eq := {}
@@ -356,7 +357,7 @@ func _build_plus_demo() -> void:
 		var veq := {}
 		for sl in eq:
 			veq[sl] = GameData.plus_item(eq[sl], [0, Balance.PLUS_GLOW_LOW, Balance.PLUS_GLOW_HIGH][i])
-		var k := KitModel.create(cls.body_type, cls.hair_color, 0.025, cls.id)
+		var k := KitModel.create(DevArgs.value("--body", cls.body_type), cls.hair_color, 0.025, cls.id)
 		add_child(k)
 		k.position = Vector3(-2.4 + i * 2.4, 0, 0)
 		k.rotation.y = 0.5
@@ -374,6 +375,8 @@ func _build_plus_demo() -> void:
 func _build_tiers() -> void:
 	var cls: ClassDef = GameData.classes[_strip]
 	var levels: Array = Balance.LEGENDARY_LEVELS
+	if DevArgs.flag("--levels"):                 # --levels=20,30: só esses níveis (revisar um detalhe de perto)
+		levels = Array(DevArgs.value("--levels").split(",")).map(func(s): return int(s))
 	for i in range(levels.size()):
 		var eq := {}
 		for iid in GameData.legendary_pool(cls, int(levels[i]), _set):
@@ -381,9 +384,9 @@ func _build_tiers() -> void:
 			var slot: int = ItemDef.Slot.OFFHAND if iid.ends_with("_offhand") else it.slot     # 2ª arma (Gêmeos, garras) vai na outra mão
 			if not eq.has(slot):
 				eq[slot] = it
-		var k := KitModel.create(cls.body_type, cls.hair_color, 0.025, cls.id)
+		var k := KitModel.create(DevArgs.value("--body", cls.body_type), cls.hair_color, 0.025, cls.id)
 		add_child(k)
-		k.position = Vector3(-5.0 + i * 2.0, 0, 0)
+		k.position = Vector3((-5.0 if levels.size() > 4 else -float(levels.size() - 1)) + i * 2.0, 0, 0)
 		k.rotation.y = PI + 0.5 if _front else 0.5
 		k.apply_equipment(eq)
 		var clip := k.resolve(_anim)
@@ -395,6 +398,12 @@ func _build_tiers() -> void:
 	cam.fov = 30.0
 	add_child(cam)
 	cam.look_at_from_position(Vector3(0, 4.0, 13.0), Vector3(0, 0.8, 0), Vector3.UP)
+	var view := DevArgs.value("--view")          # --view=game: a câmera do jogo (52°, 24 m, fov 35); --view=close: de perto
+	if view == "game":
+		cam.fov = 35.0
+		cam.look_at_from_position(Vector3(0, 0.8 + 24.0 * sin(deg_to_rad(52.0)), 24.0 * cos(deg_to_rad(52.0))), Vector3(0, 0.8, 0), Vector3.UP)
+	elif view == "close":
+		cam.look_at_from_position(Vector3(0, 2.6, 6.2), Vector3(0, 1.0, 0), Vector3.UP)
 	_side = true
 
 ## Forma de animal do Druida: uma por tier lendário (5..30), cada uma com a armadura de animal do conjunto daquele nível.
@@ -423,7 +432,7 @@ func _build_forms() -> void:
 	cam.look_at_from_position(Vector3(0, 6.0, 14.0), Vector3(0, 0.5, 0), Vector3.UP)
 
 func _spawn(cls: ClassDef, eq: Dictionary, pos: Vector3, seed_i: int) -> void:
-	var k := KitModel.create(cls.body_type, cls.hair_color, 0.025, cls.id)
+	var k := KitModel.create(DevArgs.value("--body", cls.body_type), cls.hair_color, 0.025, cls.id)
 	if k == null:
 		return
 	add_child(k)
