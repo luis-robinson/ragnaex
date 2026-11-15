@@ -145,9 +145,56 @@ func _build_model() -> void:
 		_find_stance_weapons(inst)
 		if RigidMerge.merge(inst, model_name) == null and (entity.kind != SimEntity.Kind.NPC or entity.guard):  # peças rígidas -> 1 malha (draw calls); guarnição da Aurora também
 			RigidMerge.merge_skinned(inst, model_name)     # humanoide do kit (elfos, bandidos): peças com pele -> 1 malha por material
+		_model_top = model_top(inst, model_name, model_root)
 		model_root.scale = Vector3.ONE * _base_scale
 		return
 	_build_placeholder()
+
+## Topo do modelo .glb (m, sem a escala da entidade): o nome e a barra sobem acima dele (Ulgra, chefes altos). 0 = kit/placeholder.
+var _model_top := 0.0
+## Folga entre o topo do modelo e a barra de vida (m, já na escala do mundo).
+const PLATE_MARGIN := 0.15
+static var _model_tops: Dictionary = {}      # model id -> topo na pose de descanso (as malhas não mudam por instância)
+
+## Topo (y máximo) das malhas visíveis de `inst` no espaço de `stop`, na pose de descanso: peças presas a osso
+## (BoneAttachment3D) usam o descanso do osso; a malha fundida (RigidMerge) já está no espaço do esqueleto. Cache por modelo.
+static func model_top(inst: Node3D, model_name: String, stop: Node) -> float:
+	if _model_tops.has(model_name):
+		return _model_tops[model_name]
+	var top := 0.0
+	for n in inst.find_children("*", "MeshInstance3D", true, false):
+		var mi := n as MeshInstance3D
+		if mi.mesh == null:
+			continue
+		var xf := Transform3D.IDENTITY
+		var p: Node = mi
+		var shown := true
+		while p != null and p != stop:
+			if p is Node3D and not (p as Node3D).visible:
+				shown = false
+				break
+			if p is BoneAttachment3D and p.get_parent() is Skeleton3D:
+				var sk := p.get_parent() as Skeleton3D
+				var bone := sk.find_bone((p as BoneAttachment3D).bone_name)
+				if bone >= 0:
+					xf = sk.get_bone_global_rest(bone) * xf
+					p = sk
+					continue
+			if p is Node3D:
+				xf = (p as Node3D).transform * xf
+			p = p.get_parent()
+		if shown:
+			top = maxf(top, (xf * mi.mesh.get_aabb()).end.y)
+	_model_tops[model_name] = top
+	return top
+
+## Altura da barra de vida (base do nome): o valor de sempre (1,95 × escala; 1,4 nas formas baixas) é o mínimo,
+## e um modelo mais alto empurra para o topo dele + folga. Personagens (kit) ficam como estavam.
+static func plate_top(base_scale: float, low_shape: bool, top_of_model: float) -> float:
+	var top := (1.4 if low_shape else 1.95) * base_scale
+	if top_of_model > 0.0:
+		top = maxf(top, top_of_model * base_scale + PLATE_MARGIN)
+	return top
 
 ## Cópia do Shazka (Sombras Gêmeas, R-F): clone de sombra de propósito, não falha de desenho: pele puxada para roxo
 ## escuro (uniform `status` do toon, que fica de base quando não há estado), borda roxa (buff_rim estilo 0),
@@ -578,18 +625,17 @@ func _build_monster(color: Color) -> void:
 
 # ---------------------------------------------------------------------------
 func _build_ui() -> void:
-	var top := 1.95 * _base_scale
-	if entity.monster_def and entity.monster_def.shape in ["sphere", "box"]:
-		top = 1.4 * _base_scale
+	var top := plate_top(_base_scale, entity.monster_def != null and entity.monster_def.shape in ["sphere", "box"], _model_top)
 	if entity.spirit:
 		top += Balance.ANGEL_HOVER - 0.9          # o anjo paira: o nome sobe junto
 	nameplate = Label3D.new()
 	nameplate.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	nameplate.no_depth_test = true
-	nameplate.font_size = 52
-	nameplate.pixel_size = 0.003
+	nameplate.font_size = NAME_FONT
+	nameplate.pixel_size = name_px
 	nameplate.outline_size = 14
-	nameplate.position.y = top + 0.45
+	nameplate.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM    # cresce para cima: 2 linhas não descem na barra
+	nameplate.position.y = top + 0.32
 	nameplate.fixed_size = false
 	add_child(nameplate)
 	_refresh_nameplate()
@@ -657,13 +703,38 @@ func _honor_prefix() -> String:
 	var t := entity.honor_title()
 	return (t + " · ") if t != "" else ""
 
+## Tamanho do nome na tela (R2 #21): pixel_size acompanha a distância da câmera (main._sync_name_size), então o nome
+## fica com ~15 px de 20 a 34 m (zoom máximo, chefes) e cresce pouco no zoom mais perto (14 m: ~19 px).
+const NAME_FONT := 52
+const NAME_PX := 0.004              # pixel_size na câmera padrão (24 m)
+const NAME_REF_DIST := 24.0
+const NAME_SCALE_MIN := 0.75
+const NAME_SCALE_MAX := 1.45
+static var name_px := NAME_PX
+
+## pixel_size do nome para a câmera a `cam_dist` m.
+static func name_pixel_size(cam_dist: float) -> float:
+	return NAME_PX * clampf(cam_dist / NAME_REF_DIST, NAME_SCALE_MIN, NAME_SCALE_MAX)
+
+func apply_name_size() -> void:
+	if nameplate:
+		nameplate.pixel_size = name_px
+
+## Nome por baixo da HUD (barra, quadro, chat, quests: main._hide_labels_under_hud, R2 #16) some até sair de lá.
+var hud_hidden := false
+func set_hud_hidden(h: bool) -> void:
+	if h == hud_hidden or nameplate == null:
+		return
+	hud_hidden = h
+	nameplate.visible = not h and not crowd_hidden and not dev_name_hidden
+
 ## Matilha densa (NameplateCrowd): esconde só o nome, a barra fica. Só escreve na troca (fotos de revisão escondem nomes por conta própria).
 var crowd_hidden := false
 func set_crowd_hidden(h: bool) -> void:
 	if h == crowd_hidden or nameplate == null:
 		return
 	crowd_hidden = h
-	nameplate.visible = not h and not dev_name_hidden
+	nameplate.visible = not h and not dev_name_hidden and not hud_hidden
 
 ## Foto de revisão (dev_runner) escondeu o nome: a passada da matilha não o mostra de volta (revisão m8). Só dev.
 var dev_name_hidden := false
@@ -1563,7 +1634,7 @@ static func _has_token(id: String, tokens: Array) -> bool:
 	return tokens.any(func(t): return t in id)
 
 ## Buff por intenção: guardar, sagrado, força ou foco.
-func _buff_clip(s: SkillDef) -> String:
+static func _buff_clip(s: SkillDef) -> String:
 	if s.effects.has("shield") or _has_token(s.id, GUARD_IDS):
 		return "buff_guard"
 	if s.vfx == "holy":
@@ -1575,14 +1646,23 @@ func _buff_clip(s: SkillDef) -> String:
 	return "buff_focus"
 const THROW_IDS := ["throw", "dart", "fan", "net", "trap"]
 func _action_clip(s: SkillDef) -> String:
+	var w := entity.stats.weapon_type if entity.stats else ""
+	var off := entity.stats.offhand_type if entity.stats else ""
+	var form := form_view != null
+	return clip_for_skill(s, w, off, _combo, form, form and anim.has_animation("atk_1h_a"))
+
+## Clipe (nome lógico, antes do `KitModel.resolve`) que um golpe/skill toca, sem entidade da sim: a mesma regra do jogo,
+## usada também pela tela de Criação (skill-assinatura da classe). `weapon`/`offhand` = `Stats.weapon_type/offhand_type`;
+## `combo` alterna os golpes A/B; `form` = forma de bicho (`form_humanoid` = a forma tem os golpes humanos).
+static func clip_for_skill(s: SkillDef, weapon := "", offhand := "", combo := 0, form := false, form_humanoid := false) -> String:
 	if s == null:
 		return "attack"
 	var basic := s.id.begins_with("basic_")
-	if basic and form_view and not anim.has_animation("atk_1h_a"):
+	if basic and form and not form_humanoid:
 		return "attack"                   # bicho: o básico é a mordida dele
-	var w := entity.stats.weapon_type if entity.stats else ""
-	var off := entity.stats.offhand_type if entity.stats else ""
-	if not basic and s.clip != "" and form_view == null:
+	var w := weapon
+	var off := offhand
+	if not basic and s.clip != "" and not form:
 		return s.clip                 # clipe escrito na skill (a palavra do id enganava a regra)
 	if not basic:
 		if "disengage" in s.id:
@@ -1655,10 +1735,10 @@ func _action_clip(s: SkillDef) -> String:
 	if w in TWO_HANDED_MELEE:
 		return "atk_2h"
 	if off in ItemDef.ONE_HANDED_MELEE:
-		return "atk_dual_a" if _combo % 2 == 0 else "atk_dual_b"
+		return "atk_dual_a" if combo % 2 == 0 else "atk_dual_b"
 	if w == "dagger":
 		return "atk_dagger"
-	return "atk_1h_a" if _combo % 2 == 0 else "atk_1h_b"
+	return "atk_1h_a" if combo % 2 == 0 else "atk_1h_b"
 
 ## Nome real do clip ("" se o modelo não tiver).
 ## Forma de bicho (lobo/urso): o gesto humano pedido vira o do animal (tools/blender/druid_sets.form_clips).
