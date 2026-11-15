@@ -1672,24 +1672,14 @@ def durgash_parts(cid):
     return add
 
 
-def durgash_axe(cid):
-    """Depois das armas: o machado do kit vira machado de guerra de dois gumes com espigão de ouro."""
-    def add(base, mats):
-        gold = ck.mat("m_%s_gold" % cid, (0.92, 0.7, 0.26), 0.35)
-        g = V(ck.hand_center(base, ".R"))
-        up = V((0, -0.25, 1)).normalized()
-        hc = g + up * 0.66
-        parts = [ck.ball(cid + "_axehead2", 0.22, hc + V((0, 0.13, 0)), mats["metal"], (0.18, 1.0, 0.9)),
-                 ck.tube(cid + "_axecollar", hc - up * 0.09, hc + up * 0.09, 0.05, 0.05, gold, 8),
-                 cone(cid + "_axespike", hc + up * 0.08, hc + up * 0.36, 0.045, gold, 6),
-                 ck.ball(cid + "_axepommel", 0.045, g - up * 0.2, gold)]
-        _rigid(parts, base["rig"], "hand.R")
-    return add
+# Machado do Durgash (axe_kit): duplo de guerra com espigão, guarnição de ouro e cinta vermelha
+DURGASH_AXE = {"head": "double", "spike": True, "gem": True, "S": 1.3, "shaft": 0.72, "butt": 0.14,
+               "colors": {"trim": (0.92, 0.7, 0.26), "tint2": (0.62, 0.1, 0.08)}}
 
 
 def durgash(cid="mob_durgash"):
     return mk.humanoid(cid, "plate", (0.34, 0.1, 0.09), "axe2h", skin=(0.36, 0.45, 0.3), eye=(1.0, 0.35, 0.1), hide_hair=True, head="none",
-                       extra=durgash_parts(cid), after=durgash_axe(cid), body="brute")
+                       extra=durgash_parts(cid), axe=DURGASH_AXE, body="brute")
 
 
 # ---------------------------------------------------------------------------

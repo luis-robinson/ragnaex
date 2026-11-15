@@ -576,16 +576,7 @@ def boss_extras(cid, kind):
                 h0 = c + V((sx * r * 0.85, 0, r * 0.55))
                 head.append(ck.tube("%s_hornring%d" % (cid, sx), h0 + V((sx * r * 0.2, 0, r * 0.09)), h0 + V((sx * r * 0.34, 0, r * 0.155)), r * 0.2, r * 0.19, red, 7))
             head.append(ck.blade(cid + "_helmpupil", c + V((0, -r * 1.04, r * 0.46)), c + V((0, -r * 1.04, r * 0.78)), r * 0.09, r * 0.06, dark, (1, 0, 0), 0.5))
-            # machado de guerra de verdade por cima do machado do kit: duas lâminas largas e espigão (lido de cima)
-            steel = ck.mat("m_%s_axesteel" % cid, (0.66, 0.67, 0.74), 0.4)
-            g = V(ck.hand_center(base, ".R"))
-            up = V((0, -0.25, 1)).normalized()
-            hc = g + up * 0.66
-            hand.append(ck.blade(cid + "_axeblade_f", hc + V((0, -0.02, 0)), hc + V((0, -0.44, -0.02)), 0.66, 0.04, steel, up, 0.82))
-            hand.append(ck.blade(cid + "_axeblade_b", hc + V((0, 0.02, 0)), hc + V((0, 0.3, -0.01)), 0.42, 0.04, steel, up, 0.8))
-            hand.append(ck.box(cid + "_axesocket", (0.085, 0.16, 0.2), hc, iron, 0.012))
-            hand.append(ck.tube(cid + "_axeband", hc - up * 0.15, hc - up * 0.11, 0.04, 0.04, red, 6))
-            hand.append(cone(cid + "_axespike", hc + up * 0.08, hc + up * 0.36, 0.045, steel, 5))
+            # o machado de guerra (duas lâminas, a de trás menor, e espigão) é o do kit com a cabeça GHAR_AXE (mob_kit: axe=)
             # Muralha de Escudos: escudo-torre no antebraço esquerdo (pendurado ao lado do corpo no idle), o mesmo do prop
             from mathutils import Matrix
             wrist, elbow = V(base["j"]["wrist.L"]), V(base["j"]["elbow.L"])
@@ -680,11 +671,18 @@ def ghar_counter_keys():
             (23, "ready", dict(ck.READY), (0.0, 0.0, 0.0))]
 
 
+# Machado do Ghar (axe_kit): duplo com a lâmina de trás menor e espigão, cinta vermelha da Horda. As medidas seguem o machado
+# antigo (cabeça a 0,66 m da mão, fio a 0,44 m do cabo): as poses da Muralha (GHAR_SOLVED) foram resolvidas com elas.
+GHAR_AXE = {"head": "double", "back_scale": 0.7, "spike": True, "S": 1.15, "shaft": 0.72, "butt": 0.14,
+            "colors": {"tint2": (0.62, 0.1, 0.08), "trim": (0.2, 0.2, 0.24)}}
+
+
 def ghar_wall_clips(rig):
     """guard_wall + wall_counter no rig do Ghar (depois de mob_clips: os clipes do kit ficam como estão)."""
     ck._cycle(rig, "guard_wall", 28, _ghar_guard_pose, step=2)
     ck._pose_action(rig, "wall_counter", [(f, p, h) for f, _n, p, h in ghar_counter_keys()], 23, base={})
-    return rig
+    # a lâmina nova (axe_kit) é ~3 cm mais alta que a antiga: no golpe a ponta de baixo roçava o chão
+    return clear_ground(rig, {"wall_counter": 0.0}, "hand.R", ("wpn_main_",))
 
 
 # ---------------------------------------------------------------------------

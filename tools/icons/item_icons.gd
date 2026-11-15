@@ -416,29 +416,62 @@ func _a_dagger() -> void:
 	if _r >= 2:
 		_gem(0, 0.26, 0.08)
 
+## Lâmina de machado como a do modelo (tools/blender/axe_kit.py): olho estreito no cabo, pescoço côncavo que abre até o bico
+## (`up`) e o calcanhar/barba (`dn`), fio em arco com as pontas recuadas (`sag`) e bisel claro largo. hy = altura do olho.
+func _axe_blade(hy: float, eye: float, reach: float, up: float, dn: float, sag: float, flare: float, bevel: float = 0.26) -> void:
+	var face: Array = []
+	var strip_in: Array = []
+	var strip_out: Array = []
+	var n := 10
+	for i in range(n + 1):                  # de cima (bico) para baixo (calcanhar), pelo fio
+		var t := 1.0 - float(i) / n
+		var k := 2.0 * t - 1.0
+		var ve := reach - sag * k * k
+		var ue := lerpf(-dn, up, t)
+		var u0 := lerpf(-eye, eye, t)
+		var sb := 1.0 - bevel
+		strip_out.append_array([ve, hy - ue])
+		strip_in.append_array([ve * sb, hy - (u0 + (ue - u0) * pow(sb, flare))])
+	for j in range(7):                       # borda de cima: do cabo ao bico
+		var sj := float(j) / 6.0 * (1.0 - bevel)
+		face.append_array([(reach - sag) * sj, hy - (eye + (up - eye) * pow(sj, flare))])
+	face.append_array(strip_in)
+	for j in range(7):                       # borda de baixo: do calcanhar ao cabo
+		var sj := (1.0 - float(j) / 6.0) * (1.0 - bevel)
+		face.append_array([(reach - sag) * sj, hy + (eye + (dn - eye) * pow(sj, flare))])
+	_poly(face, "dark" if _r == 0 else "blade", 0.055, 0.1)
+	var strip: Array = strip_out.duplicate()
+	var m := strip_in.size() / 2
+	for j in range(m):
+		strip.append_array([strip_in[(m - 1 - j) * 2], strip_in[(m - 1 - j) * 2 + 1]])
+	var edge_col: Color = PAL["steel"][0]
+	_poly(strip, edge_col.darkened(0.1), 0.05, 0.05)
+
 func _a_axe() -> void:
-	_grip(0, -0.82, 1.02, 0.07, "wood")
-	_poly([0.04, -0.78, 0.46, -0.96, 0.78, -0.52, 0.74, 0.0, 0.46, -0.14, 0.04, -0.26], "blade", 0.055, 0.14)
-	_mark([0.7, -0.6, 0.66, -0.06], _pal("blade")[0], 0.05)
-	_poly([-0.06, -0.72, -0.24, -0.62, -0.22, -0.4, -0.06, -0.32], "metal", 0.05, 0.06)
-	_poly([-0.1, -0.86, 0.1, -0.86, 0.1, -0.2, -0.1, -0.2], "trim", 0.05, 0.06)
-	_grip(0, 0.5, 0.92, 0.085, "tint_dark")
+	_grip(0, -0.86, 1.0, 0.065, "wood")
+	_axe_blade(-0.5, 0.13, 0.84, 0.44, 0.52, 0.12, 2.0)
+	_poly([-0.07, -0.62, -0.2, -0.56, -0.2, -0.44, -0.07, -0.38], "metal", 0.05, 0.06)
+	_poly([-0.11, -0.68, 0.13, -0.66, 0.13, -0.34, -0.11, -0.32], "tint", 0.05, 0.06)
+	_poly([-0.09, -0.3, 0.09, -0.3, 0.07, -0.02, -0.07, -0.02], "metal", 0.04, 0.04)
+	_grip(0, 0.46, 0.84, 0.085, "leather")
+	_poly([-0.11, 0.84, 0.11, 0.84, 0.09, 0.98, -0.09, 0.98], "trim", 0.05, 0.05)
 	if _r >= 2:
-		_gem(0.0, -0.53, 0.08)
+		_gem(0.01, -0.5, 0.075)
 
 func _a_axe2h() -> void:
-	_grip(0, -0.92, 1.05, 0.075, "wood")
-	for s in [1.0, -1.0]:
-		_ox = s
-		_poly([0.08, -0.78, 0.5, -0.98, 0.84, -0.48, 0.8, 0.06, 0.48, -0.08, 0.08, -0.22], "blade", 0.055, 0.14)
-		_mark([0.76, -0.56, 0.72, -0.02], _pal("blade")[0], 0.05)
-	_ox = 1.0
-	_poly([-0.12, -0.9, 0.12, -0.9, 0.12, -0.14, -0.12, -0.14], "trim", 0.05, 0.07)
+	_grip(0, -0.9, 1.06, 0.07, "wood")
+	_axe_blade(-0.52, 0.15, 0.9, 0.5, 0.6, 0.14, 2.1)
+	_poly([-0.08, -0.64, -0.5, -0.52, -0.08, -0.4], "metal", 0.05, 0.06)          # cravo atrás
+	_poly([-0.12, -0.72, 0.14, -0.7, 0.14, -0.34, -0.12, -0.32], "tint", 0.05, 0.07)
+	_poly([-0.14, -0.8, 0.14, -0.8, 0.12, -0.72, -0.12, -0.72], "trim", 0.045, 0.04)
+	_poly([-0.14, -0.32, 0.14, -0.32, 0.12, -0.24, -0.12, -0.24], "trim", 0.045, 0.04)
+	_poly([-0.09, -0.24, 0.09, -0.24, 0.07, 0.08, -0.07, 0.08], "metal", 0.04, 0.04)
 	if _r >= 1:
-		_poly([0, -1.18, 0.08, -0.9, -0.08, -0.9], "metal", 0.04, 0.04)
+		_poly([0, -1.16, 0.09, -0.86, -0.09, -0.86], "metal", 0.04, 0.04)
 	if _r >= 2:
-		_gem(0, -0.52, 0.09)
-	_grip(0, 0.46, 0.96, 0.09, "leather")
+		_gem(0.01, -0.52, 0.085)
+	_grip(0, 0.4, 0.92, 0.09, "leather")
+	_poly([-0.12, 0.92, 0.12, 0.92, 0.1, 1.08, -0.1, 1.08], "trim", 0.05, 0.05)
 
 func _a_mace() -> void:
 	_grip(0, -0.3, 0.95, 0.07, "wood")

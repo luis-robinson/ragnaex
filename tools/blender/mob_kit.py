@@ -1667,9 +1667,10 @@ BOSS_HUMANOIDS = {"mob_bandit_chief", "mob_elf_king", "mob_elf_warden", "mob_elf
 
 
 def humanoid(cid, style, cloth, weapon, skin=None, eye=None, offhand=None, hide_hair=False, head=None, crown=0, extra=None, after=None, sex="male", hair=(0.25, 0.18, 0.14), attack=None, keep=(),
-             body=None, posture=None, xbow=None):
+             body=None, posture=None, xbow=None, axe=None):
     """body = corpo de monstro de chibi_kit.BODIES ("troll", "brute"); posture = (graus por osso, quadril) somados a todos os
-    clipes (act2_bosses.posture); weapon "crossbow" = besta de verdade (xbow = opções de act2_bosses.crossbow)."""
+    clipes (act2_bosses.posture); weapon "crossbow" = besta de verdade (xbow = opções de act2_bosses.crossbow);
+    axe = cabeça própria do machado (cfg de axe_kit; chefes)."""
     ck.clear()
     base = ck.build_base(cid, body or sex, 0.0, hair)
     mats = ck._kit_mats()
@@ -1701,7 +1702,7 @@ def humanoid(cid, style, cloth, weapon, skin=None, eye=None, offhand=None, hide_
         act2_bosses.crossbow(base, mats, **(xbow or {}))
         attack = attack or "atk_rifle"
     elif weapon:
-        ck.kit_weapon(base, weapon, "main", mats)
+        ck.kit_weapon(base, weapon, "main", mats, axe)
     if offhand:
         ck.kit_weapon(base, offhand, "off", mats)
     if after:
@@ -2137,7 +2138,7 @@ def build_all(out_dir, only=None):
                                                 extra=horde_parts("mob_crossbow_master", "crossbow_master", (0.43, 0.52, 0.38)), xbow={"heavy": True},
                                                 after=act2_bosses.boss_extras("mob_crossbow_master", "crossbow_master")), act2_bosses.VORGUL_CARRY),
         "mob_ghar": lambda: act2_bosses.ghar_wall_clips(humanoid("mob_ghar", "plate", (0.6, 0.14, 0.1), "axe2h", skin=(0.4, 0.5, 0.34), eye=(1.0, 0.35, 0.12), hide_hair=True, head="none",
-                                     extra=horde_parts("mob_ghar", "ghar", (0.4, 0.5, 0.34)), body="brute", after=act2_bosses.boss_extras("mob_ghar", "ghar"))),     # + guard_wall / wall_counter (Muralha de Escudos)
+                                     extra=horde_parts("mob_ghar", "ghar", (0.4, 0.5, 0.34)), body="brute", axe=act2_bosses.GHAR_AXE, after=act2_bosses.boss_extras("mob_ghar", "ghar"))),     # + guard_wall / wall_counter (Muralha de Escudos)
         "mob_naga_tide": lambda: humanoid("mob_naga_tide", "cloth", (0.2, 0.5, 0.55), "spear", skin=(0.32, 0.72, 0.68), eye=(0.95, 0.9, 0.3), hide_hair=True, head="none", sex="female", attack="atk_thrust",
                                           extra=horde_parts("mob_naga_tide", "naga_tide", (0.32, 0.72, 0.68))),
         "mob_naga_warrior": lambda: humanoid("mob_naga_warrior", "plate", (0.25, 0.55, 0.55), "spear", skin=(0.32, 0.72, 0.68), eye=(0.95, 0.5, 0.2), hide_hair=True, head="none", sex="female", attack="atk_thrust",

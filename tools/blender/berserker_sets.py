@@ -239,99 +239,35 @@ def build(ck, base, mats, style, cfg):
 
 
 # ---------------------------------------------------------------------------
-# Machados. head: bearded | crescent | cleaver | double | fang ; motivos: spike (ponta no topo), back (cravo atrás),
-# fur (pele no cabo), skull (no colar), gem, glow (fio aceso), dark (lâmina escura)
+# Machados (formas em axe_kit.HEADS). head: bearded | crescent | cleaver | double | fang ; motivos: spike (ponta no topo), back (cravo atrás),
+# fur (pele no cabo), skull (no colar), gem, glow (fio aceso: a COR do brilho, própria de cada conjunto e tirada da paleta
+# dele em GearCatalog.SET_VISUALS; emissão em axe_kit.EDGE_GLOW_ENERGY), dark (lâmina escura)
+AXE_GLOW = {
+    "ber_g20": (0.10, 0.01, 0.24),     # Ceifador Veloz (conjunto cinza-violeta): violeta escuro
+    "ber_g30": (0.85, 0.03, 0.03),     # Senhor da Carnificina (vermelho-sangue escuro): sangue
+    "ber_e20": (0.14, 0.50, 0.95),     # Gigante do Inverno (azul-gelo): gelo
+    "ber_e30": (0.95, 0.26, 0.02),     # Titã Escarlate (escarlate, runas âmbar): ouro em brasa
+}
 BER_AXES = {
     "ber_g5": {"type": "axe", "head": "bearded", "fur": True},
     "ber_g10": {"type": "axe", "head": "bearded", "back": True},
     "ber_g15": {"type": "axe", "head": "fang", "skull": True},
-    "ber_g20": {"type": "axe", "head": "crescent", "dark": True, "glow": True},
+    "ber_g20": {"type": "axe", "head": "crescent", "dark": True, "glow": AXE_GLOW["ber_g20"]},
     "ber_g25": {"type": "axe", "head": "fang", "back": True, "gem": True},
-    "ber_g30": {"type": "axe", "head": "crescent", "dark": True, "glow": True, "skull": True, "spike": True},
+    "ber_g30": {"type": "axe", "head": "crescent", "dark": True, "glow": AXE_GLOW["ber_g30"], "skull": True, "spike": True},
     "ber_e5": {"type": "axe2h", "head": "bearded", "fur": True},
     "ber_e10": {"type": "axe2h", "head": "double", "spike": True},
     "ber_e15": {"type": "axe2h", "head": "cleaver", "skull": True, "back": True},
-    "ber_e20": {"type": "axe2h", "head": "crescent", "glow": True, "fur": True},
+    "ber_e20": {"type": "axe2h", "head": "crescent", "glow": AXE_GLOW["ber_e20"], "fur": True},
     "ber_e25": {"type": "axe2h", "head": "double", "dark": True, "spike": True, "gem": True},
-    "ber_e30": {"type": "axe2h", "head": "double", "glow": True, "skull": True, "spike": True, "gem": True},
+    "ber_e30": {"type": "axe2h", "head": "double", "glow": AXE_GLOW["ber_e30"], "skull": True, "spike": True, "gem": True},
 }
-HEADS = {
-    "bearded": [(0.12, 0.0), (0.2, 0.08), (0.24, 0.22), (0.18, 0.36), (0.02, 0.4), (-0.2, 0.36), (-0.3, 0.22), (-0.16, 0.12), (-0.08, 0.0)],
-    "crescent": [(0.1, 0.0), (0.3, 0.14), (0.38, 0.32), (0.26, 0.42), (0.1, 0.34), (0.0, 0.4), (-0.1, 0.34), (-0.26, 0.42), (-0.38, 0.32), (-0.3, 0.14), (-0.1, 0.0)],
-    "cleaver": [(0.14, 0.0), (0.2, 0.38), (0.06, 0.44), (-0.22, 0.42), (-0.16, 0.0)],
-    "tomahawk": [(0.07, 0.0), (0.1, 0.2), (0.17, 0.36), (0.08, 0.4), (-0.08, 0.4), (-0.12, 0.34), (-0.05, 0.2), (-0.06, 0.0)],
-    "francisca": [(0.06, 0.0), (0.14, 0.1), (0.3, 0.28), (0.36, 0.4), (0.16, 0.38), (0.0, 0.32), (-0.07, 0.16), (-0.06, 0.0)],
-    "fang": [(0.1, 0.0), (0.22, 0.1), (0.3, 0.3), (0.2, 0.33), (0.18, 0.4), (0.06, 0.38), (0.0, 0.44), (-0.08, 0.37), (-0.18, 0.4), (-0.22, 0.32),
-             (-0.32, 0.3), (-0.24, 0.1), (-0.1, 0.0)],
-}
-
-
-def _prism(ck, name, outline, ctr, u, v, w, thick, material):
-    """Placa a partir de um contorno 2D (u ao longo do cabo, v para fora), com espessura no eixo w."""
-    import bmesh
-    bm = bmesh.new()
-    f = [bm.verts.new(ctr + u * a + v * c + w * thick * 0.5) for a, c in outline]
-    k = [bm.verts.new(ctr + u * a + v * c - w * thick * 0.5) for a, c in outline]
-    bm.faces.new(f)
-    bm.faces.new(list(reversed(k)))
-    for i in range(len(outline)):
-        n = (i + 1) % len(outline)
-        bm.faces.new((f[i], f[n], k[n], k[i]))
-    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
-    return ck.mesh_from(name, bm, material)
-
-
 def build_axe(ck, base, mats, style, cfg, hand):
-    """Machado do conjunto na mão (main = direita, off = esquerda), 1 malha."""
-    V = Vector
-    side_tag = ".R" if hand == "main" else ".L"
-    g = V(ck.hand_center(base, side_tag))
-    fwd = V((0, -0.55, 0.83)).normalized()
-    side = V((1, 0, 0))
-    out = -fwd.cross(side).normalized()          # a lâmina aponta para a frente do boneco
-    t, t2, gold = mats["tint"], mats["tint2"], mats["trim"]
-    metal = mats["dark"] if cfg.get("dark") else mats["metal"]
-    bone = ck.mat("m_ber_bone", BONE, 0.7)
-    big = cfg["type"] == "axe2h"
-    S = 1.45 if big else 0.72                    # duas mãos: cabeça enorme (o golpe também é mais largo); uma mão: compacto
-    shaft = (0.95 if big else 0.52)
-    hc = g + fwd * (shaft - 0.06)
-    n = "a_%s_%s_" % (style, hand)
-    parts = [ck.tube(n + "shaft", g - fwd * (0.32 if big else 0.12), g + fwd * (shaft + 0.06), 0.032 if big else 0.027, 0.03 if big else 0.025, mats["wood"], 8),
-             ck.ball(n + "pommel", 0.045, g - fwd * (0.35 if big else 0.14), gold)]
-    for k in range(4 if big else 3):
-        z = (-0.26 if big else -0.08) + k * (0.12 if big else 0.07)
-        parts.append(ck.tube(n + "wrap%d" % k, g + fwd * z, g + fwd * (z + 0.022), 0.036, 0.036, t2, 8))
-    head = HEADS["bearded" if cfg["head"] == "double" else cfg["head"]]
-    outline = [(a * S, c * S) for a, c in head]
-    sides = (1, -1) if cfg["head"] == "double" else (1,)
-    for sg in sides:
-        vv = out * sg
-        parts.append(_prism(ck, n + "blade%d" % sg, outline, hc + vv * 0.03, fwd, vv, side, 0.04 if big else 0.032, metal))
-        edge = [(a * 1.04, c * 1.05) for a, c in outline if c > 0.2 * S]       # fio: faixa clara na borda de corte
-        if len(edge) >= 3:
-            em = ck.mat("m_ber_edge_glow", (1.0, 0.25, 0.15), 0.3, 2.4) if cfg.get("glow") else mats["metal"]
-            parts.append(_prism(ck, n + "edge%d" % sg, edge + [(edge[-1][0] * 0.95, edge[-1][1] * 0.9), (edge[0][0] * 0.95, edge[0][1] * 0.9)],
-                                hc + vv * 0.03, fwd, vv, side, 0.018, em))
-    parts.append(ck.tube(n + "socket", hc - fwd * 0.12 * S, hc + fwd * 0.12 * S, 0.045 * S, 0.045 * S, t, 8))
-    if cfg.get("back") and cfg["head"] != "double":       # cravo atrás da cabeça
-        parts.append(ck.tube(n + "back", hc - out * 0.04, hc - out * 0.2 * S, 0.04 * S, 0.004, metal, 8))
-    if cfg.get("spike"):                                   # ponta no topo do cabo
-        parts.append(ck.tube(n + "spike", hc + fwd * 0.12 * S, hc + fwd * 0.3 * S, 0.035 * S, 0.004, gold, 8))
-    if cfg.get("fur"):
-        parts.append(ck.tube(n + "fur", hc - fwd * 0.2 * S, hc - fwd * 0.13 * S, 0.06 * S, 0.055 * S, ck.mat("m_ber_fur_brown", FUR["brown"], 0.95), 10))
-    if cfg.get("skull"):
-        parts.append(ck.ball(n + "skull", 0.05 * S, hc - fwd * 0.18 * S + out * 0.02, bone, (1, 0.85, 1.05)))
-    if cfg.get("gem"):
-        for sg in (-1, 1):
-            parts.append(ck.ball(n + "gem%d" % sg, 0.032 * S, hc + side * sg * 0.025, t2, (0.5, 1, 1)))
-    if cfg.get("tassel"):                                  # fita de pano pendurada abaixo da cabeça (machadinha de arremesso)
-        parts.append(ck.blade(n + "tassel", hc - fwd * 0.16 * S - out * 0.03, hc - fwd * 0.16 * S - out * 0.1 - fwd * 0.16, 0.045, 0.012, t2, side, 0.25))
-    wt = cfg["type"]
-    obj = ck._join(parts, ("wpn_main_%s_%s" % (wt, style)) if hand == "main" else ("wpn_off_axe_%s" % style))
-    ck._smooth(obj.data)
-    ck.skin_rigid(obj, base["rig"], "hand" + side_tag)
-    return obj
+    """Machado do conjunto na mão (main = direita, off = esquerda), 1 malha. A forma vem de axe_kit (cabeça em leque, face
+    fina de aço escuro, bisel claro, olho na cor do item, talas no cabo)."""
+    import axe_kit
+    name = ("wpn_main_%s_%s" % (cfg["type"], style)) if hand == "main" else ("wpn_off_axe_%s" % style)
+    return axe_kit.build(ck, base, mats, name, cfg, hand, cfg["type"] == "axe2h")
 
 
 # ---------------------------------------------------------------------------

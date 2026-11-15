@@ -250,26 +250,13 @@ def kragmar_lavapool(m=None):
 # 2. Durgash: Machado do Trono
 # ---------------------------------------------------------------------------
 def _axe_blade(name, sx, cz, m):
-    """Lâmina em crescente no plano XZ: raiz grossa na cabeça, miolo de ferro, fio de aço claro (y = 0)."""
-    n = 6
-    verts, faces, idx = [], [], []
-    for i in range(n):
-        t = i / (n - 1)
-        th = math.radians(-74.0 + 132.0 * t)
-        root = (sx * 0.13, cz - 0.2 + 0.4 * t)
-        mid = (sx * (0.13 + 0.6 * math.cos(th)), cz + 0.66 * math.sin(th))
-        edge = (sx * (0.13 + 0.98 * math.cos(th) + 0.04), cz + 0.9 * math.sin(th))
-        verts += [(root[0], -0.09, root[1]), (root[0], 0.09, root[1]), (mid[0], -0.06, mid[1]), (mid[0], 0.06, mid[1]), (edge[0], 0.0, edge[1])]
-    for i in range(n - 1):
-        a, b = i * 5, (i + 1) * 5
-        faces += [(a, b, b + 2, a + 2), (a + 1, a + 3, b + 3, b + 1)]
-        idx += [0, 0]
-        faces += [(a + 2, b + 2, b + 4, a + 4), (a + 3, a + 4, b + 4, b + 3)]
-        idx += [1, 1]
-    for a in (0, (n - 1) * 5):
-        faces += [(a, a + 2, a + 3, a + 1), (a + 2, a + 4, a + 3)]
-        idx += [0, 1]
-    return _mesh(name, verts, faces, [m["iron"], m["steel"]], idx, recalc=True)
+    """Lâmina da família nova (axe_kit.blade_parts, cabeça "double" como a do machado do Durgash, kharzun_mobs.DURGASH_AXE):
+    olho estreito, leque até o fio, face de ferro escuro e bisel largo de aço claro. Plano XZ, cabeça para baixo.
+    Escala 3,03: o fio fica a 1,15 m do cabo, como antes (a caixa do prop não muda em X). 6 fileiras: o prop tem teto de tris."""
+    import axe_kit
+    shape = dict(axe_kit.HEADS["double"], rows=6)
+    return axe_kit.blade_parts(ck, name + "_", Vector((0, 0, cz)), Vector((0, 0, -1)), Vector((sx, 0, 0)), Vector((0, 1, 0)), 3.03, shape,
+                               m["iron"], m["steel"])
 
 
 def durgash_throneaxe(m=None):
@@ -280,7 +267,7 @@ def durgash_throneaxe(m=None):
     parts = [_cone("ponta", (0, 0, cz - 0.28), (0, 0, 0.0), 0.15, m["iron"], 4),
              pk.B("cabeca", (0.3, 0.3, 0.62), (0, 0, cz), m["iron"], 0.04)]
     for sx in (-1, 1):
-        parts.append(_axe_blade("lamina%d" % sx, sx, cz, m))
+        parts += _axe_blade("lamina%d" % sx, sx, cz, m)
         # runa dourada na lâmina (dos dois lados)
         for sy in (-1, 1):
             parts.append(_slab("runa%d_%d" % (sx, sy), [(sx * 0.36, cz - 0.26), (sx * 0.66, cz), (sx * 0.36, cz + 0.26), (sx * 0.5, cz)],

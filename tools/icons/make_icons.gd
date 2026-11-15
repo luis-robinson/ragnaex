@@ -534,10 +534,41 @@ func _g_dagger() -> void:
 	_c(0, 0.82, 0.1, 4, 0.06)
 
 func _g_axe() -> void:
-	_p([-0.07, -0.85, 0.07, -0.85, 0.07, 1.0, -0.07, 1.0], Color(0.5, 0.33, 0.2))
-	_p([0.05, -0.72, 0.42, -0.86, 0.78, -0.42, 0.72, 0.1, 0.42, -0.08, 0.05, -0.18])
-	_p([0.78, -0.42, 0.72, 0.1, 0.56, 0.0, 0.6, -0.6], 3, 0.0)
-	_p([-0.05, -0.68, -0.34, -0.8, -0.56, -0.44, -0.52, -0.08, -0.32, -0.2, -0.05, -0.22], 3)
+	# a mesma receita do modelo (tools/blender/axe_kit.py): olho estreito, pescoço côncavo que abre em leque, bisel claro no fio
+	var hy := -0.4
+	var eye := 0.14
+	var reach := 0.86
+	var up := 0.52
+	var dn := 0.6
+	var sag := 0.15
+	var flare := 2.0
+	var sb := 0.72                              # o bisel ocupa os 28% de fora
+	var face: Array = []
+	var edge_in: Array = []
+	var edge_out: Array = []
+	for i in range(11):                         # do bico (em cima) ao calcanhar, pelo fio
+		var t := 1.0 - i / 10.0
+		var k := 2.0 * t - 1.0
+		var ve := reach - sag * k * k
+		var ue := lerpf(-dn, up, t)
+		var u0 := lerpf(-eye, eye, t)
+		edge_out.append_array([ve, hy - ue])
+		edge_in.append_array([ve * sb, hy - (u0 + (ue - u0) * pow(sb, flare))])
+	for j in range(7):
+		var sj := j / 6.0 * sb
+		face.append_array([(reach - sag) * sj, hy - (eye + (up - eye) * pow(sj, flare))])
+	face.append_array(edge_in)
+	for j in range(7):
+		var sj := (1.0 - j / 6.0) * sb
+		face.append_array([(reach - sag) * sj, hy + (eye + (dn - eye) * pow(sj, flare))])
+	var strip: Array = edge_out.duplicate()
+	for j in range(11):
+		strip.append_array([edge_in[(10 - j) * 2], edge_in[(10 - j) * 2 + 1]])
+	_p([-0.07, -0.88, 0.07, -0.88, 0.07, 1.0, -0.07, 1.0], Color(0.5, 0.33, 0.2))
+	_p([-0.06, hy - 0.13, -0.46, hy, -0.06, hy + 0.13], 3)       # cravo atrás
+	_p(face, 3)
+	_p(strip, 2)
+	_p([-0.11, hy - 0.2, 0.13, hy - 0.2, 0.13, hy + 0.2, -0.11, hy + 0.2], 4, 0.06)
 
 func _g_hammer() -> void:
 	_p([-0.08, -0.5, 0.08, -0.5, 0.08, 1.0, -0.08, 1.0], Color(0.5, 0.33, 0.2))
