@@ -1,0 +1,205 @@
+rows 436 436 missing set()
+form_bear                attack         seam +0.0 peak 23>35 (leg_fr>leg_fr) handpk 7.23>7.23 hf 5>5 hold 0.17>0.17 head 99.00>99.00  <<<
+form_bear                maul           seam +0.0 peak 25>32 (leg_fr>leg_fr) handpk 7.48>6.45 hf 7>7 hold 0.00>0.00 head 99.00>99.00  <<<
+form_bear                pounce         seam +20.0 peak 21>30 (leg_bl>leg_fr) handpk 15.76>13.11 hf 9>9 hold 0.07>0.07 head 99.00>99.00  <<<
+form_bear                slam           seam +32.0 peak 22>36 (leg_fl>leg_fl) handpk 9.38>9.38 hf 7>7 hold 0.03>0.03 head 99.00>99.00  <<<
+form_wolf                attack         seam +0.0 peak 9>13 (leg_fr>leg_br) handpk 5.41>5.41 hf 4>4 hold 0.02>0.02 head 99.00>99.00
+form_wolf                maul           seam +23.5 peak 22>26 (leg_fr>leg_fr) handpk 8.13>6.43 hf 7>6 hold 0.00>0.00 head 99.00>99.00  <<<
+form_wolf                pounce         seam +11.9 peak 21>32 (leg_bl>leg_fr) handpk 16.21>14.56 hf 9>9 hold 0.03>0.03 head 99.00>99.00  <<<
+form_wolf                slam           seam +18.0 peak 19>32 (leg_fl>leg_fl) handpk 10.42>9.24 hf 7>7 hold 0.00>0.00 head 99.00>99.00  <<<
+kit_assassin_male        atk_1h_b       seam +0.0 peak 34>28 (hand.R>hand.R) handpk 8.10>8.10 hf 3>3 hold 0.00>0.00 head 0.96>0.96
+kit_assassin_male        atk_claw       seam +0.0 peak 37>37 (upper_arm.L>upper_arm.L) handpk 14.50>14.50 hf 5>5 hold 0.00>0.00 head 0.85>0.85
+kit_assassin_male        atk_finisher   seam +0.0 peak 64>64 (upper_arm.L>upper_arm.L) handpk 29.47>29.47 hf 9>9 hold 0.03>0.03 head 0.75>0.75  <<<
+kit_assassin_male        atk_flurry     seam +0.0 peak 47>47 (upper_arm.R>upper_arm.R) handpk 19.53>19.53 hf 12>12 hold 0.00>0.00 head 0.87>0.87  <<<
+kit_assassin_male        atk_leap       seam +0.0 peak 37>37 (upper_arm.R>upper_arm.R) handpk 16.44>16.44 hf 11>11 hold 0.10>0.10 head 0.79>0.79
+kit_assassin_male        atk_slash_shot seam +0.0 peak 34>34 (upper_arm.R>upper_arm.R) handpk 11.62>11.62 hf 4>4 hold 0.10>0.10 head 0.90>0.90
+kit_assassin_male        atk_throw      seam +0.0 peak 32>37 (upper_arm.R>hand.R) handpk 17.93>17.93 hf 6>6 hold 0.00>0.13 head 0.92>0.92  <<<
+kit_assassin_male        atk_thrust     seam +0.0 peak 32>32 (upper_arm.R>upper_arm.R) handpk 19.90>19.90 hf 5>5 hold 0.08>0.08 head 0.90>0.90
+kit_assassin_male        cast_bolt      seam +0.0 peak 34>34 (upper_arm.R>upper_arm.R) handpk 15.19>15.19 hf 6>6 hold 0.00>0.00 head 0.86>0.86
+kit_assassin_male        cast_ground    seam +0.0 peak 37>37 (upper_arm.L>upper_arm.L) handpk 13.70>13.70 hf 9>9 hold 0.10>0.10 head 0.85>0.85
+kit_assassin_male        cast_nature    seam +0.0 peak 32>32 (hand.L>hand.L) handpk 8.85>8.85 hf 8>8 hold 0.10>0.03 head 0.74>0.74
+kit_assassin_male        dash           seam +0.0 peak 18>28 (thigh.L>hand.R) handpk 3.07>3.07 hf 3>3 hold 0.00>0.00 head 0.78>0.78  <<<
+kit_assassin_male        summon         seam +0.0 peak 43>43 (upper_arm.L>upper_arm.L) handpk 12.67>12.67 hf 10>10 hold 0.17>0.17 head 0.92>0.92
+kit_berserker_male       atk_1h_a       seam +0.0 peak 20>17 (hand.R>hand.R) handpk 10.75>10.75 hf 6>6 hold 0.00>0.00 head 0.96>0.96
+kit_berserker_male       atk_1h_b       seam +0.0 peak 34>28 (hand.R>hand.R) handpk 8.10>8.10 hf 3>3 hold 0.00>0.00 head 0.96>0.96
+kit_berserker_male       atk_2h         seam +0.0 peak 20>18 (hand.R>upper_arm.L) handpk 10.74>10.74 hf 9>9 hold 0.18>0.08 head 0.85>0.85
+kit_berserker_male       atk_bow        seam +0.0 peak 38>38 (forearm.R>forearm.R) handpk 5.71>5.71 hf 5>5 hold 0.00>0.00 head 0.95>0.95
+kit_berserker_male       atk_claw       seam +8.0 peak 37>37 (upper_arm.L>upper_arm.L) handpk 14.50>14.50 hf 5>5 hold 0.00>0.00 head 0.85>0.85  <<<
+kit_berserker_male       atk_dagger     seam +0.0 peak 32>32 (upper_arm.R>upper_arm.R) handpk 18.01>18.01 hf 5>5 hold 0.00>0.00 head 0.91>0.91
+kit_berserker_male       atk_dual_b     seam +0.0 peak 33>33 (upper_arm.L>upper_arm.L) handpk 8.62>8.62 hf 2>2 hold 0.00>0.00 head 0.94>0.94
+kit_berserker_male       atk_finisher   seam +4.0 peak 64>64 (upper_arm.L>upper_arm.L) handpk 29.47>29.47 hf 9>9 hold 0.03>0.00 head 0.75>0.75  <<<
+kit_berserker_male       atk_flurry     seam +0.0 peak 47>47 (upper_arm.R>upper_arm.R) handpk 19.53>19.53 hf 12>12 hold 0.00>0.00 head 0.87>0.87  <<<
+kit_berserker_male       atk_leap       seam +0.0 peak 37>37 (upper_arm.R>upper_arm.R) handpk 16.44>16.44 hf 11>11 hold 0.10>0.07 head 0.79>0.79
+kit_berserker_male       atk_pistol     seam +0.0 peak 18>18 (upper_arm.L>upper_arm.L) handpk 5.46>5.46 hf 3>3 hold 0.13>0.03 head 0.97>0.97
+kit_berserker_male       atk_shoot_multi seam +0.0 peak 38>38 (forearm.R>forearm.R) handpk 4.83>4.83 hf 8>8 hold 0.00>0.00 head 0.96>0.96
+kit_berserker_male       atk_slash_shot seam +0.0 peak 34>34 (upper_arm.R>upper_arm.R) handpk 11.62>11.62 hf 4>4 hold 0.10>0.00 head 0.90>0.90
+kit_berserker_male       atk_sweep      seam +0.0 peak 41>41 (upper_arm.R>upper_arm.R) handpk 18.66>18.66 hf 7>7 hold 0.00>0.00 head 0.89>0.89
+kit_berserker_male       atk_throw      seam +0.7 peak 32>32 (upper_arm.R>upper_arm.R) handpk 17.93>17.93 hf 6>6 hold 0.00>0.00 head 0.92>0.92
+kit_berserker_male       atk_thrust     seam +0.0 peak 32>32 (upper_arm.R>upper_arm.R) handpk 19.90>19.90 hf 5>5 hold 0.08>0.08 head 0.90>0.90
+kit_berserker_male       buff_focus     seam +0.0 peak 34>36 (upper_arm.R>hand.R) handpk 11.04>11.04 hf 7>7 hold 0.20>0.20 head 0.88>0.88
+kit_berserker_male       buff_power     seam +0.0 peak 36>37 (hand.L>hand.L) handpk 8.48>8.48 hf 5>5 hold 0.17>0.17 head 0.84>0.84
+kit_berserker_male       cast           seam +0.0 peak 51>51 (upper_arm.L>upper_arm.L) handpk 15.87>15.87 hf 9>9 hold 0.07>0.07 head 0.93>0.93  <<<
+kit_berserker_male       cast_bolt      seam +0.0 peak 34>34 (upper_arm.R>upper_arm.R) handpk 15.19>15.19 hf 6>6 hold 0.00>0.00 head 0.86>0.86
+kit_berserker_male       cast_buff      seam +5.1 peak 31>31 (hand.R>hand.R) handpk 7.60>7.60 hf 6>6 hold 0.13>0.13 head 0.96>0.96  <<<
+kit_berserker_male       cast_channel   seam +0.0 peak 29>29 (hand.R>hand.R) handpk 3.65>3.65 hf 13>13 hold 0.30>0.30 head 0.94>0.94
+kit_berserker_male       cast_fire      seam +0.0 peak 40>40 (upper_arm.R>upper_arm.R) handpk 17.36>17.36 hf 7>7 hold 0.00>0.00 head 0.88>0.88
+kit_berserker_male       cast_ground    seam +4.5 peak 37>37 (upper_arm.L>upper_arm.L) handpk 13.70>13.70 hf 9>9 hold 0.10>0.10 head 0.85>0.85  <<<
+kit_berserker_male       cast_holy      seam +0.0 peak 39>39 (upper_arm.L>upper_arm.L) handpk 14.30>14.30 hf 7>7 hold 0.27>0.17 head 0.85>0.85
+kit_berserker_male       cast_nature    seam +0.0 peak 32>32 (hand.L>hand.L) handpk 8.85>8.85 hf 8>8 hold 0.10>0.03 head 0.74>0.74
+kit_berserker_male       cast_shadow    seam +0.0 peak 31>22 (hand.L>upper_arm.L) handpk 7.00>7.00 hf 6>6 hold 0.13>0.00 head 0.81>0.81
+kit_berserker_male       cast_target    seam +0.0 peak 41>41 (upper_arm.R>upper_arm.R) handpk 15.32>15.32 hf 7>7 hold 0.13>0.10 head 0.97>0.97
+kit_berserker_male       dash           seam +92.3 peak 18>19 (thigh.L>hand.R) handpk 3.07>3.07 hf 3>3 hold 0.00>0.00 head 0.78>0.78  <<<
+kit_berserker_male       shout          seam +0.0 peak 36>36 (hand.L>hand.L) handpk 8.21>8.21 hf 5>5 hold 0.10>0.10 head 0.86>0.86
+kit_berserker_male       summon         seam +6.1 peak 43>43 (upper_arm.L>upper_arm.L) handpk 12.67>12.67 hf 10>10 hold 0.17>0.20 head 0.92>0.92  <<<
+kit_bishop_female        atk_1h_a       seam +0.0 peak 20>20 (hand.R>hand.R) handpk 10.52>10.52 hf 6>6 hold 0.00>0.00 head 0.96>0.96
+kit_bishop_female        atk_1h_b       seam +0.0 peak 34>28 (hand.R>hand.R) handpk 8.09>8.09 hf 3>3 hold 0.00>0.00 head 0.96>0.96
+kit_bishop_female        atk_2h         seam +0.0 peak 20>18 (hand.R>upper_arm.L) handpk 10.70>10.70 hf 9>9 hold 0.18>0.08 head 0.85>0.85
+kit_bishop_female        atk_claw       seam +6.0 peak 37>37 (upper_arm.L>upper_arm.L) handpk 14.50>14.50 hf 5>5 hold 0.00>0.03 head 0.85>0.85  <<<
+kit_bishop_female        atk_dagger     seam +0.0 peak 32>32 (upper_arm.R>upper_arm.R) handpk 17.59>17.59 hf 5>5 hold 0.00>0.00 head 0.91>0.91
+kit_bishop_female        atk_dual_b     seam +0.0 peak 33>33 (upper_arm.L>upper_arm.L) handpk 8.42>8.42 hf 2>2 hold 0.00>0.00 head 0.94>0.94
+kit_bishop_female        atk_finisher   seam +0.0 peak 64>64 (upper_arm.L>upper_arm.L) handpk 29.47>29.47 hf 9>9 hold 0.03>0.03 head 0.75>0.75  <<<
+kit_bishop_female        atk_flurry     seam +0.0 peak 47>47 (upper_arm.R>upper_arm.R) handpk 19.32>19.32 hf 12>12 hold 0.00>0.00 head 0.87>0.87  <<<
+kit_bishop_female        atk_leap       seam +0.0 peak 37>37 (upper_arm.R>upper_arm.R) handpk 16.44>16.44 hf 11>11 hold 0.10>0.10 head 0.79>0.79
+kit_bishop_female        atk_slash_shot seam +0.0 peak 34>34 (upper_arm.R>upper_arm.R) handpk 11.70>11.70 hf 4>4 hold 0.10>0.00 head 0.90>0.90
+kit_bishop_female        atk_sweep      seam +0.0 peak 41>41 (upper_arm.R>upper_arm.R) handpk 18.35>18.35 hf 7>7 hold 0.00>0.00 head 0.89>0.89
+kit_bishop_female        atk_throw      seam +0.0 peak 32>32 (upper_arm.R>upper_arm.R) handpk 17.63>17.63 hf 6>6 hold 0.00>0.13 head 0.92>0.92  <<<
+kit_bishop_female        atk_thrust     seam +0.0 peak 32>32 (upper_arm.R>upper_arm.R) handpk 19.43>19.43 hf 5>5 hold 0.08>0.08 head 0.90>0.90
+kit_bishop_female        buff_focus     seam +0.0 peak 34>34 (upper_arm.R>upper_arm.R) handpk 11.07>11.07 hf 7>7 hold 0.20>0.20 head 0.88>0.88
+kit_bishop_female        buff_power     seam +0.0 peak 36>36 (hand.L>hand.L) handpk 8.48>8.48 hf 5>5 hold 0.17>0.17 head 0.84>0.84
+kit_bishop_female        cast           seam +0.0 peak 51>51 (upper_arm.L>upper_arm.L) handpk 15.87>15.87 hf 9>9 hold 0.07>0.07 head 0.93>0.93  <<<
+kit_bishop_female        cast_bolt      seam +0.0 peak 34>34 (upper_arm.R>upper_arm.R) handpk 15.08>15.08 hf 6>6 hold 0.00>0.07 head 0.86>0.86  <<<
+kit_bishop_female        cast_buff      seam +0.0 peak 31>28 (hand.R>hand.R) handpk 7.60>7.60 hf 6>6 hold 0.13>0.13 head 0.96>0.96
+kit_bishop_female        cast_channel   seam +0.0 peak 29>29 (hand.R>hand.R) handpk 3.65>3.65 hf 13>13 hold 0.30>0.30 head 0.94>0.94
+kit_bishop_female        cast_fire      seam +0.0 peak 40>40 (upper_arm.R>upper_arm.R) handpk 17.12>17.12 hf 7>7 hold 0.00>0.00 head 0.88>0.88
+kit_bishop_female        cast_ground    seam +0.0 peak 37>37 (upper_arm.L>upper_arm.L) handpk 13.70>13.70 hf 9>9 hold 0.10>0.10 head 0.85>0.85
+kit_bishop_female        cast_holy      seam +0.0 peak 39>39 (upper_arm.L>upper_arm.L) handpk 14.30>14.30 hf 7>7 hold 0.27>0.20 head 0.85>0.85
+kit_bishop_female        cast_nature    seam +0.0 peak 32>32 (hand.L>hand.L) handpk 8.85>8.85 hf 8>8 hold 0.10>0.10 head 0.74>0.74
+kit_bishop_female        cast_shadow    seam +0.0 peak 31>31 (hand.L>hand.L) handpk 7.00>7.00 hf 6>6 hold 0.13>0.13 head 0.81>0.81
+kit_bishop_female        cast_target    seam +0.0 peak 41>41 (upper_arm.R>upper_arm.R) handpk 15.19>15.19 hf 7>7 hold 0.13>0.13 head 0.97>0.97
+kit_bishop_female        dash           seam +0.0 peak 18>18 (thigh.L>thigh.L) handpk 3.07>3.07 hf 3>3 hold 0.00>0.00 head 0.78>0.78
+kit_bishop_female        shout          seam +0.0 peak 36>36 (hand.L>hand.L) handpk 8.21>8.21 hf 5>5 hold 0.10>0.10 head 0.86>0.86
+kit_bishop_female        summon         seam +0.0 peak 43>43 (upper_arm.L>upper_arm.L) handpk 12.67>12.67 hf 10>10 hold 0.17>0.17 head 0.92>0.92
+kit_druid_male           atk_1h_b       seam +0.0 peak 34>28 (hand.R>hand.R) handpk 8.10>8.10 hf 3>3 hold 0.00>0.00 head 0.96>0.96
+kit_druid_male           atk_2h         seam +0.0 peak 20>18 (hand.R>upper_arm.L) handpk 10.74>10.74 hf 9>9 hold 0.18>0.08 head 0.85>0.85
+kit_druid_male           atk_claw       seam +4.0 peak 37>37 (upper_arm.L>upper_arm.L) handpk 14.50>14.50 hf 5>5 hold 0.00>0.00 head 0.85>0.85  <<<
+kit_druid_male           atk_finisher   seam +0.0 peak 64>64 (upper_arm.L>upper_arm.L) handpk 29.47>29.47 hf 9>9 hold 0.03>0.03 head 0.75>0.75  <<<
+kit_druid_male           atk_flurry     seam +0.0 peak 47>47 (upper_arm.R>upper_arm.R) handpk 19.53>19.53 hf 12>12 hold 0.00>0.00 head 0.87>0.87  <<<
+kit_druid_male           atk_leap       seam +0.0 peak 37>37 (upper_arm.R>upper_arm.R) handpk 16.44>16.44 hf 11>11 hold 0.10>0.07 head 0.79>0.79
+kit_druid_male           atk_slash_shot seam +0.0 peak 34>34 (upper_arm.R>upper_arm.R) handpk 11.62>11.62 hf 4>4 hold 0.10>0.00 head 0.90>0.90
+kit_druid_male           atk_sweep      seam +0.0 peak 41>41 (upper_arm.R>upper_arm.R) handpk 18.66>18.66 hf 7>7 hold 0.00>0.00 head 0.89>0.89
+kit_druid_male           atk_throw      seam +0.0 peak 32>32 (upper_arm.R>upper_arm.R) handpk 17.93>17.93 hf 6>6 hold 0.00>0.00 head 0.92>0.92
+kit_druid_male           atk_thrust     seam +0.0 peak 32>32 (upper_arm.R>upper_arm.R) handpk 19.90>19.90 hf 5>5 hold 0.08>0.08 head 0.90>0.90
+kit_druid_male           buff_focus     seam +0.0 peak 34>34 (upper_arm.R>upper_arm.R) handpk 11.04>11.04 hf 7>7 hold 0.20>0.20 head 0.88>0.88
+kit_druid_male           buff_power     seam +0.0 peak 36>36 (hand.L>hand.L) handpk 8.48>8.48 hf 5>5 hold 0.17>0.17 head 0.84>0.84
+kit_druid_male           cast           seam +0.0 peak 51>51 (upper_arm.L>upper_arm.L) handpk 15.87>15.87 hf 9>9 hold 0.07>0.07 head 0.93>0.93  <<<
+kit_druid_male           cast_bolt      seam +0.0 peak 34>34 (upper_arm.R>upper_arm.R) handpk 15.19>15.19 hf 6>6 hold 0.00>0.00 head 0.86>0.86
+kit_druid_male           cast_fire      seam +0.0 peak 40>40 (upper_arm.R>upper_arm.R) handpk 17.36>17.36 hf 7>7 hold 0.00>0.00 head 0.88>0.88
+kit_druid_male           cast_ground    seam +0.0 peak 37>37 (upper_arm.L>upper_arm.L) handpk 13.70>13.70 hf 9>9 hold 0.10>0.10 head 0.85>0.85
+kit_druid_male           cast_holy      seam +0.0 peak 39>39 (upper_arm.L>upper_arm.L) handpk 14.30>14.30 hf 7>7 hold 0.27>0.20 head 0.85>0.85
+kit_druid_male           cast_nature    seam +0.0 peak 32>32 (hand.L>hand.L) handpk 8.85>8.85 hf 8>8 hold 0.10>0.03 head 0.74>0.74
+kit_druid_male           cast_shadow    seam +0.0 peak 31>32 (hand.L>hand.R) handpk 7.00>7.00 hf 6>6 hold 0.13>0.13 head 0.81>0.81
+kit_druid_male           cast_target    seam +0.0 peak 41>41 (upper_arm.R>upper_arm.R) handpk 15.32>15.32 hf 7>7 hold 0.13>0.13 head 0.97>0.97
+kit_druid_male           dash           seam +42.6 peak 18>40 (thigh.L>hand.R) handpk 3.07>3.07 hf 3>3 hold 0.00>0.00 head 0.78>0.78  <<<
+kit_druid_male           shout          seam +0.0 peak 36>36 (hand.L>hand.L) handpk 8.21>8.21 hf 5>5 hold 0.10>0.10 head 0.86>0.86
+kit_druid_male           summon         seam +0.0 peak 43>43 (upper_arm.L>upper_arm.L) handpk 12.67>12.67 hf 10>10 hold 0.17>0.17 head 0.92>0.92
+kit_elementalist_male    atk_1h_a       seam +0.0 peak 20>17 (hand.R>hand.R) handpk 10.75>10.75 hf 6>6 hold 0.00>0.00 head 0.96>0.96
+kit_elementalist_male    atk_1h_b       seam +0.0 peak 34>28 (hand.R>hand.R) handpk 8.10>8.10 hf 3>3 hold 0.00>0.00 head 0.96>0.96
+kit_elementalist_male    atk_2h         seam +0.0 peak 20>18 (hand.R>upper_arm.L) handpk 10.74>10.74 hf 9>9 hold 0.18>0.05 head 0.85>0.85
+kit_elementalist_male    atk_claw       seam +0.0 peak 37>37 (upper_arm.L>upper_arm.L) handpk 14.50>14.50 hf 5>5 hold 0.00>0.00 head 0.85>0.85
+kit_elementalist_male    atk_dagger     seam +0.0 peak 32>32 (upper_arm.R>upper_arm.R) handpk 18.01>18.01 hf 5>5 hold 0.00>0.00 head 0.91>0.91
+kit_elementalist_male    atk_dual_b     seam +0.0 peak 33>33 (upper_arm.L>upper_arm.L) handpk 8.62>8.62 hf 2>2 hold 0.00>0.00 head 0.94>0.94
+kit_elementalist_male    atk_finisher   seam +0.0 peak 64>64 (upper_arm.L>upper_arm.L) handpk 29.47>29.47 hf 9>9 hold 0.03>0.03 head 0.75>0.75  <<<
+kit_elementalist_male    atk_flurry     seam +0.0 peak 47>47 (upper_arm.R>upper_arm.R) handpk 19.53>19.53 hf 12>12 hold 0.00>0.00 head 0.87>0.87  <<<
+kit_elementalist_male    atk_leap       seam +0.0 peak 37>37 (upper_arm.R>upper_arm.R) handpk 16.44>16.44 hf 11>11 hold 0.10>0.10 head 0.79>0.79
+kit_elementalist_male    atk_slash_shot seam +0.0 peak 34>34 (upper_arm.R>upper_arm.R) handpk 11.62>11.62 hf 4>4 hold 0.10>0.00 head 0.90>0.90
+kit_elementalist_male    atk_sweep      seam +0.0 peak 41>41 (upper_arm.R>upper_arm.R) handpk 18.66>18.66 hf 7>7 hold 0.00>0.00 head 0.89>0.89
+kit_elementalist_male    atk_throw      seam +0.0 peak 32>32 (upper_arm.R>upper_arm.R) handpk 17.93>17.93 hf 6>6 hold 0.00>0.00 head 0.92>0.92
+kit_elementalist_male    atk_thrust     seam +0.0 peak 32>32 (upper_arm.R>upper_arm.R) handpk 19.90>19.90 hf 5>5 hold 0.08>0.08 head 0.90>0.90
+kit_elementalist_male    buff_focus     seam +0.0 peak 34>34 (upper_arm.R>upper_arm.R) handpk 11.04>11.04 hf 7>7 hold 0.20>0.20 head 0.88>0.88
+kit_elementalist_male    buff_power     seam +0.0 peak 36>36 (hand.L>hand.L) handpk 8.48>8.48 hf 5>5 hold 0.17>0.17 head 0.84>0.84
+kit_elementalist_male    cast           seam +0.0 peak 51>51 (upper_arm.L>upper_arm.L) handpk 15.87>15.87 hf 9>9 hold 0.07>0.07 head 0.93>0.93  <<<
+kit_elementalist_male    cast_bolt      seam +0.0 peak 34>34 (upper_arm.R>upper_arm.R) handpk 15.19>15.19 hf 6>6 hold 0.00>0.07 head 0.86>0.86  <<<
+kit_elementalist_male    cast_buff      seam +0.0 peak 31>28 (hand.R>hand.R) handpk 7.60>7.60 hf 6>6 hold 0.13>0.13 head 0.96>0.96
+kit_elementalist_male    cast_channel   seam +0.0 peak 29>29 (hand.R>hand.R) handpk 3.65>3.65 hf 13>13 hold 0.30>0.23 head 0.94>0.94
+kit_elementalist_male    cast_fire      seam +0.0 peak 40>40 (upper_arm.R>upper_arm.R) handpk 17.36>17.36 hf 7>7 hold 0.00>0.00 head 0.88>0.88
+kit_elementalist_male    cast_ground    seam +0.0 peak 37>37 (upper_arm.L>upper_arm.L) handpk 13.70>13.70 hf 9>9 hold 0.10>0.10 head 0.85>0.85
+kit_elementalist_male    cast_holy      seam +0.0 peak 39>39 (upper_arm.L>upper_arm.L) handpk 14.30>14.30 hf 7>7 hold 0.27>0.20 head 0.85>0.85
+kit_elementalist_male    cast_nature    seam +0.0 peak 32>32 (hand.L>hand.L) handpk 8.85>8.85 hf 8>8 hold 0.10>0.03 head 0.74>0.74
+kit_elementalist_male    cast_shadow    seam +0.0 peak 31>31 (hand.L>hand.L) handpk 7.00>7.00 hf 6>6 hold 0.13>0.13 head 0.81>0.81
+kit_elementalist_male    cast_target    seam +0.0 peak 41>41 (upper_arm.R>upper_arm.R) handpk 15.32>15.32 hf 7>7 hold 0.13>0.13 head 0.97>0.97
+kit_elementalist_male    dash           seam +0.0 peak 18>20 (thigh.L>hand.R) handpk 3.07>3.07 hf 3>3 hold 0.00>0.00 head 0.78>0.78
+kit_elementalist_male    shout          seam +0.0 peak 36>36 (hand.L>hand.L) handpk 8.21>8.21 hf 5>5 hold 0.10>0.10 head 0.86>0.86
+kit_elementalist_male    summon         seam +0.0 peak 43>43 (upper_arm.L>upper_arm.L) handpk 12.67>12.67 hf 10>10 hold 0.17>0.17 head 0.92>0.92
+kit_necromancer_male     atk_1h_b       seam +0.0 peak 34>22 (hand.R>upper_arm.R) handpk 8.10>8.10 hf 3>3 hold 0.00>0.00 head 0.96>0.96
+kit_necromancer_male     atk_2h         seam +0.0 peak 20>18 (hand.R>upper_arm.L) handpk 10.74>10.74 hf 9>9 hold 0.18>0.08 head 0.85>0.85
+kit_necromancer_male     atk_bow        seam +0.0 peak 38>38 (forearm.R>forearm.R) handpk 5.71>5.71 hf 5>5 hold 0.00>0.00 head 0.95>0.95
+kit_necromancer_male     atk_claw       seam +0.0 peak 37>37 (upper_arm.L>upper_arm.L) handpk 14.50>14.50 hf 5>5 hold 0.00>0.00 head 0.85>0.85
+kit_necromancer_male     atk_finisher   seam +0.0 peak 64>64 (upper_arm.L>upper_arm.L) handpk 29.47>29.47 hf 9>9 hold 0.03>0.03 head 0.75>0.75  <<<
+kit_necromancer_male     atk_flurry     seam +0.0 peak 47>47 (upper_arm.R>upper_arm.R) handpk 19.53>19.53 hf 12>12 hold 0.00>0.00 head 0.87>0.87  <<<
+kit_necromancer_male     atk_leap       seam +0.0 peak 37>37 (upper_arm.R>upper_arm.R) handpk 16.44>16.44 hf 11>11 hold 0.10>0.07 head 0.79>0.79
+kit_necromancer_male     atk_shoot_multi seam +0.0 peak 38>38 (forearm.R>forearm.R) handpk 4.83>4.83 hf 8>8 hold 0.00>0.00 head 0.96>0.96
+kit_necromancer_male     atk_slash_shot seam +0.0 peak 34>34 (upper_arm.R>upper_arm.R) handpk 11.62>11.62 hf 4>4 hold 0.10>0.00 head 0.90>0.90
+kit_necromancer_male     atk_throw      seam +0.0 peak 32>32 (upper_arm.R>upper_arm.R) handpk 17.93>17.93 hf 6>6 hold 0.00>0.07 head 0.92>0.92  <<<
+kit_necromancer_male     atk_thrust     seam +0.0 peak 32>32 (upper_arm.R>upper_arm.R) handpk 19.90>19.90 hf 5>5 hold 0.08>0.08 head 0.90>0.90
+kit_necromancer_male     buff_focus     seam +0.0 peak 34>34 (upper_arm.R>upper_arm.R) handpk 11.04>11.04 hf 7>7 hold 0.20>0.20 head 0.88>0.88
+kit_necromancer_male     cast           seam +0.0 peak 51>51 (upper_arm.L>upper_arm.L) handpk 15.87>15.87 hf 9>9 hold 0.07>0.07 head 0.93>0.93  <<<
+kit_necromancer_male     cast_bolt      seam +0.0 peak 34>34 (upper_arm.R>upper_arm.R) handpk 15.19>15.19 hf 6>6 hold 0.00>0.00 head 0.86>0.86
+kit_necromancer_male     cast_buff      seam +0.0 peak 31>31 (hand.R>hand.R) handpk 7.60>7.60 hf 6>6 hold 0.13>0.13 head 0.96>0.96
+kit_necromancer_male     cast_ground    seam +0.0 peak 37>37 (upper_arm.L>upper_arm.L) handpk 13.70>13.70 hf 9>9 hold 0.10>0.10 head 0.85>0.85
+kit_necromancer_male     cast_holy      seam +0.0 peak 39>39 (upper_arm.L>upper_arm.L) handpk 14.30>14.30 hf 7>7 hold 0.27>0.27 head 0.85>0.85
+kit_necromancer_male     cast_nature    seam +0.0 peak 32>32 (hand.L>hand.L) handpk 8.85>8.85 hf 8>8 hold 0.10>0.03 head 0.74>0.74
+kit_necromancer_male     cast_target    seam +0.0 peak 41>41 (upper_arm.R>upper_arm.R) handpk 15.32>15.32 hf 7>7 hold 0.13>0.13 head 0.97>0.97
+kit_necromancer_male     dash           seam +27.5 peak 18>40 (thigh.L>hand.R) handpk 3.07>3.07 hf 3>3 hold 0.00>0.00 head 0.78>0.78  <<<
+kit_necromancer_male     summon         seam +0.0 peak 43>43 (upper_arm.L>upper_arm.L) handpk 12.67>12.67 hf 10>10 hold 0.17>0.17 head 0.92>0.92
+kit_paladin_male         atk_1h_b       seam +0.0 peak 34>28 (hand.R>hand.R) handpk 8.10>8.10 hf 3>3 hold 0.00>0.00 head 0.96>0.96
+kit_paladin_male         atk_2h         seam +0.0 peak 20>18 (hand.R>upper_arm.L) handpk 10.74>10.74 hf 9>9 hold 0.18>0.08 head 0.85>0.85
+kit_paladin_male         atk_claw       seam +0.0 peak 37>37 (upper_arm.L>upper_arm.L) handpk 14.50>14.50 hf 5>5 hold 0.00>0.00 head 0.85>0.85
+kit_paladin_male         atk_finisher   seam +0.0 peak 64>64 (upper_arm.L>upper_arm.L) handpk 29.47>29.47 hf 9>9 hold 0.03>0.03 head 0.75>0.75  <<<
+kit_paladin_male         atk_flurry     seam +0.0 peak 47>47 (upper_arm.R>upper_arm.R) handpk 19.53>19.53 hf 12>12 hold 0.00>0.00 head 0.87>0.87  <<<
+kit_paladin_male         atk_leap       seam +0.0 peak 37>37 (upper_arm.R>upper_arm.R) handpk 16.44>16.44 hf 11>11 hold 0.10>0.07 head 0.79>0.79
+kit_paladin_male         atk_slash_shot seam +0.0 peak 34>34 (upper_arm.R>upper_arm.R) handpk 11.62>11.62 hf 4>4 hold 0.10>0.00 head 0.90>0.90
+kit_paladin_male         atk_throw      seam +0.0 peak 32>32 (upper_arm.R>upper_arm.R) handpk 17.93>17.93 hf 6>6 hold 0.00>0.00 head 0.92>0.92
+kit_paladin_male         atk_thrust     seam +0.0 peak 32>32 (upper_arm.R>upper_arm.R) handpk 19.90>19.90 hf 5>5 hold 0.08>0.08 head 0.90>0.90
+kit_paladin_male         cast_bolt      seam +0.0 peak 34>34 (upper_arm.R>upper_arm.R) handpk 15.19>15.19 hf 6>6 hold 0.00>0.00 head 0.86>0.86
+kit_paladin_male         cast_ground    seam +0.0 peak 37>40 (upper_arm.L>hand.R) handpk 13.70>13.70 hf 9>9 hold 0.10>0.10 head 0.85>0.85
+kit_paladin_male         cast_nature    seam +0.0 peak 32>32 (hand.L>hand.L) handpk 8.85>8.85 hf 8>8 hold 0.10>0.10 head 0.74>0.74
+kit_paladin_male         cast_target    seam +0.0 peak 41>41 (upper_arm.R>upper_arm.R) handpk 15.32>15.32 hf 7>7 hold 0.13>0.13 head 0.97>0.97
+kit_paladin_male         dash           seam +42.6 peak 18>40 (thigh.L>hand.R) handpk 3.07>3.07 hf 3>3 hold 0.00>0.00 head 0.78>0.78  <<<
+kit_paladin_male         summon         seam +0.0 peak 43>43 (upper_arm.L>upper_arm.L) handpk 12.67>12.67 hf 10>10 hold 0.17>0.17 head 0.92>0.92
+kit_ranger_male          atk_1h_a       seam +0.0 peak 20>20 (hand.R>hand.R) handpk 10.75>10.75 hf 6>6 hold 0.00>0.00 head 0.96>0.96
+kit_ranger_male          atk_1h_b       seam +0.0 peak 34>27 (hand.R>hand.R) handpk 8.10>8.10 hf 3>3 hold 0.00>0.00 head 0.96>0.96
+kit_ranger_male          atk_2h         seam +0.0 peak 20>18 (hand.R>upper_arm.L) handpk 10.74>10.74 hf 9>9 hold 0.18>0.08 head 0.85>0.85
+kit_ranger_male          atk_bow        seam +44.3 peak 38>38 (forearm.R>forearm.R) handpk 5.71>5.71 hf 5>5 hold 0.00>0.00 head 0.95>0.95  <<<
+kit_ranger_male          atk_charge     seam +0.0 peak 30>30 (hand.R>hand.R) handpk 2.48>2.48 hf 2>2 hold 0.23>0.10 head 0.85>0.85
+kit_ranger_male          atk_claw       seam +21.9 peak 37>37 (upper_arm.L>upper_arm.L) handpk 14.50>14.50 hf 5>5 hold 0.00>0.10 head 0.85>0.85  <<<
+kit_ranger_male          atk_dagger     seam +0.0 peak 32>32 (upper_arm.R>upper_arm.R) handpk 18.01>18.01 hf 5>5 hold 0.00>0.00 head 0.91>0.91
+kit_ranger_male          atk_dual_a     seam +0.0 peak 30>30 (upper_arm.R>upper_arm.R) handpk 14.25>14.25 hf 5>5 hold 0.00>0.00 head 0.94>0.94
+kit_ranger_male          atk_dual_b     seam +0.0 peak 33>33 (upper_arm.L>upper_arm.L) handpk 8.62>8.62 hf 2>2 hold 0.00>0.00 head 0.94>0.94
+kit_ranger_male          atk_finisher   seam +5.3 peak 64>64 (upper_arm.L>upper_arm.L) handpk 29.47>29.47 hf 9>9 hold 0.03>0.03 head 0.75>0.75  <<<
+kit_ranger_male          atk_flurry     seam +0.0 peak 47>47 (upper_arm.R>upper_arm.R) handpk 19.53>19.53 hf 12>12 hold 0.00>0.00 head 0.87>0.87  <<<
+kit_ranger_male          atk_leap       seam +6.0 peak 37>40 (upper_arm.R>hand.R) handpk 16.44>16.44 hf 11>11 hold 0.10>0.07 head 0.79>0.79  <<<
+kit_ranger_male          atk_rifle      seam +0.0 peak 11>15 (hand.R>hand.R) handpk 9.13>9.13 hf 6>6 hold 0.00>0.00 head 0.98>0.98
+kit_ranger_male          atk_shoot_multi seam +0.0 peak 38>38 (forearm.R>forearm.R) handpk 4.83>4.83 hf 8>8 hold 0.00>0.00 head 0.96>0.96
+kit_ranger_male          atk_slash_shot seam +0.0 peak 34>34 (upper_arm.R>upper_arm.R) handpk 11.62>11.62 hf 4>4 hold 0.10>0.00 head 0.90>0.90
+kit_ranger_male          atk_sweep      seam +0.0 peak 41>41 (upper_arm.R>upper_arm.R) handpk 18.66>18.66 hf 7>7 hold 0.00>0.00 head 0.89>0.89
+kit_ranger_male          atk_throw      seam +34.4 peak 32>32 (upper_arm.R>upper_arm.R) handpk 17.93>17.93 hf 6>6 hold 0.00>0.03 head 0.92>0.92  <<<
+kit_ranger_male          atk_thrust     seam +0.0 peak 32>32 (upper_arm.R>upper_arm.R) handpk 19.90>19.90 hf 5>5 hold 0.08>0.05 head 0.90>0.90
+kit_ranger_male          buff_focus     seam +0.0 peak 34>34 (upper_arm.R>upper_arm.R) handpk 11.04>11.04 hf 7>7 hold 0.20>0.20 head 0.88>0.88
+kit_ranger_male          buff_guard     seam +0.0 peak 27>27 (hand.R>hand.R) handpk 1.82>1.82 hf 5>5 hold 0.20>0.03 head 0.81>0.81
+kit_ranger_male          buff_power     seam +0.0 peak 36>29 (hand.L>hand.L) handpk 8.48>8.48 hf 5>5 hold 0.17>0.17 head 0.84>0.84
+kit_ranger_male          cast           seam +0.0 peak 51>51 (upper_arm.L>upper_arm.L) handpk 15.87>15.87 hf 9>9 hold 0.07>0.07 head 0.93>0.93  <<<
+kit_ranger_male          cast_bolt      seam +0.0 peak 34>34 (upper_arm.R>upper_arm.R) handpk 15.19>15.19 hf 6>6 hold 0.00>0.00 head 0.86>0.86
+kit_ranger_male          cast_buff      seam +29.0 peak 31>31 (hand.R>hand.R) handpk 7.60>7.60 hf 6>6 hold 0.13>0.13 head 0.96>0.96  <<<
+kit_ranger_male          cast_channel   seam +0.0 peak 29>29 (hand.R>hand.R) handpk 3.65>3.65 hf 13>13 hold 0.30>0.23 head 0.94>0.94
+kit_ranger_male          cast_fire      seam +0.0 peak 40>40 (upper_arm.R>upper_arm.R) handpk 17.36>17.36 hf 7>7 hold 0.00>0.00 head 0.88>0.88
+kit_ranger_male          cast_ground    seam +23.7 peak 37>37 (upper_arm.L>upper_arm.L) handpk 13.70>13.70 hf 9>9 hold 0.10>0.10 head 0.85>0.85  <<<
+kit_ranger_male          cast_holy      seam +21.0 peak 39>39 (upper_arm.L>upper_arm.L) handpk 14.30>14.30 hf 7>7 hold 0.27>0.17 head 0.85>0.85  <<<
+kit_ranger_male          cast_ice       seam +0.0 peak 24>24 (hand.R>hand.R) handpk 6.23>6.23 hf 6>6 hold 0.13>0.03 head 0.92>0.92
+kit_ranger_male          cast_nature    seam +0.0 peak 32>32 (hand.L>hand.L) handpk 8.85>8.85 hf 8>8 hold 0.10>0.03 head 0.74>0.74
+kit_ranger_male          cast_shadow    seam +0.0 peak 31>28 (hand.L>hand.L) handpk 7.00>7.00 hf 6>6 hold 0.13>0.13 head 0.81>0.81
+kit_ranger_male          cast_target    seam +27.1 peak 41>41 (upper_arm.R>upper_arm.R) handpk 15.32>15.32 hf 7>7 hold 0.13>0.03 head 0.97>0.97  <<<
+kit_ranger_male          dash           seam +35.7 peak 18>40 (thigh.L>hand.R) handpk 3.07>3.07 hf 3>3 hold 0.00>0.00 head 0.78>0.78  <<<
+kit_ranger_male          land           seam -8.9 peak 38>23 (hand.R>hand.R) handpk 1.77>1.77 hf 6>6 hold 0.07>0.00 head 0.77>0.77  <<<
+kit_ranger_male          shout          seam +0.0 peak 36>29 (hand.L>hand.L) handpk 8.21>8.21 hf 5>5 hold 0.10>0.10 head 0.86>0.86
+kit_ranger_male          summon         seam +33.5 peak 43>43 (upper_arm.L>upper_arm.L) handpk 12.67>12.67 hf 10>10 hold 0.17>0.17 head 0.92>0.92  <<<
+changed 203 worst peak now (64.0, ('kit_assassin_male', 'atk_finisher'), 'upper_arm.L')

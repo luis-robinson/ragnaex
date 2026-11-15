@@ -1,0 +1,115 @@
+anim_probe (tools/tests/anim_probe.tscn -- --models=<18 kits>), 936 rows before and after; rows that differ: 12, all 'dash'.
+columns: model;clip;len;loop;seam;peak;peak_bone;travel;hand_peak;hand_frame;hold;head_min;head_rest
+seam = largest bone rotation between first and last frame (deg); peak = largest bone turn per 60 Hz step (deg)
+
+== BEFORE (dash rows)
+kit_male;dash;0.38;-;44.6;40;hand.R;1122;3.07;3;0.00;0.78;0.99
+kit_female;dash;0.38;-;44.6;40;hand.R;1121;3.07;3;0.00;0.78;0.99
+kit_paladin_male;dash;0.38;-;49.6;40;hand.R;1063;3.07;3;0.00;0.78;0.99
+kit_paladin_female;dash;0.38;-;49.6;40;hand.R;1063;3.07;3;0.00;0.78;0.99
+kit_berserker_male;dash;0.38;-;171.2;18;hand.R;1106;3.07;3;0.00;0.78;0.99
+kit_berserker_female;dash;0.38;-;171.2;18;hand.R;1105;3.07;3;0.00;0.78;0.99
+kit_bishop_male;dash;0.38;-;7.0;18;thigh.L;926;3.07;3;0.00;0.78;0.99
+kit_bishop_female;dash;0.38;-;7.0;18;thigh.L;926;3.07;3;0.00;0.78;0.99
+kit_druid_male;dash;0.38;-;49.6;40;hand.R;1063;3.07;3;0.00;0.78;0.99
+kit_druid_female;dash;0.38;-;49.6;40;hand.R;1063;3.07;3;0.00;0.78;0.99
+kit_ranger_male;dash;0.38;-;42.7;40;hand.R;1080;3.07;3;0.00;0.78;0.99
+kit_ranger_female;dash;0.38;-;42.7;40;hand.R;1079;3.07;3;0.00;0.78;0.99
+kit_assassin_male;dash;0.38;-;7.0;28;hand.R;1030;3.07;3;0.00;0.78;0.99
+kit_assassin_female;dash;0.38;-;7.0;28;hand.R;1029;3.07;3;0.00;0.78;0.99
+kit_elementalist_male;dash;0.38;-;7.0;20;hand.R;921;3.07;3;0.00;0.78;0.99
+kit_elementalist_female;dash;0.38;-;7.0;20;hand.R;921;3.07;3;0.00;0.78;0.99
+kit_necromancer_male;dash;0.38;-;34.5;40;hand.R;1046;3.07;3;0.00;0.78;0.99
+kit_necromancer_female;dash;0.38;-;34.5;40;hand.R;1046;3.07;3;0.00;0.78;0.99
+
+== AFTER (dash rows)
+kit_male;dash;0.38;-;14.6;31;hand.R;1069;3.07;3;0.00;0.78;0.99
+kit_female;dash;0.38;-;14.6;31;hand.R;1069;3.07;3;0.00;0.78;0.99
+kit_paladin_male;dash;0.38;-;7.0;18;thigh.L;1010;3.07;3;0.00;0.78;0.99
+kit_paladin_female;dash;0.38;-;7.0;18;thigh.L;1010;3.07;3;0.00;0.78;0.99
+kit_berserker_male;dash;0.38;-;52.6;19;hand.R;1133;3.07;3;0.00;0.78;0.99
+kit_berserker_female;dash;0.38;-;52.6;19;hand.R;1132;3.07;3;0.00;0.78;0.99
+kit_bishop_male;dash;0.38;-;7.0;18;thigh.L;926;3.07;3;0.00;0.78;0.99
+kit_bishop_female;dash;0.38;-;7.0;18;thigh.L;926;3.07;3;0.00;0.78;0.99
+kit_druid_male;dash;0.38;-;7.0;18;thigh.L;1011;3.07;3;0.00;0.78;0.99
+kit_druid_female;dash;0.38;-;7.0;18;thigh.L;1010;3.07;3;0.00;0.78;0.99
+kit_ranger_male;dash;0.38;-;10.4;18;thigh.L;1018;3.07;3;0.00;0.78;0.99
+kit_ranger_female;dash;0.38;-;10.4;18;thigh.L;1017;3.07;3;0.00;0.78;0.99
+kit_assassin_male;dash;0.38;-;7.0;28;hand.R;1030;3.07;3;0.00;0.78;0.99
+kit_assassin_female;dash;0.38;-;7.0;28;hand.R;1029;3.07;3;0.00;0.78;0.99
+kit_elementalist_male;dash;0.38;-;7.0;20;hand.R;921;3.07;3;0.00;0.78;0.99
+kit_elementalist_female;dash;0.38;-;7.0;20;hand.R;921;3.07;3;0.00;0.78;0.99
+kit_necromancer_male;dash;0.38;-;7.0;18;thigh.L;963;3.07;3;0.00;0.78;0.99
+kit_necromancer_female;dash;0.38;-;7.0;18;thigh.L;962;3.07;3;0.00;0.78;0.99
+
+== DIFF (all clips)
+rows 936 936 missing set()
+kit_berserker_female     dash           seam -118.6 peak 18>19 (hand.R>hand.R) handpk 3.07>3.07 hf 3>3 hold 0.00>0.00 head 0.78>0.78  <<<
+kit_berserker_male       dash           seam -118.6 peak 18>19 (hand.R>hand.R) handpk 3.07>3.07 hf 3>3 hold 0.00>0.00 head 0.78>0.78  <<<
+kit_druid_female         dash           seam -42.6 peak 40>18 (hand.R>thigh.L) handpk 3.07>3.07 hf 3>3 hold 0.00>0.00 head 0.78>0.78  <<<
+kit_druid_male           dash           seam -42.6 peak 40>18 (hand.R>thigh.L) handpk 3.07>3.07 hf 3>3 hold 0.00>0.00 head 0.78>0.78  <<<
+kit_female               dash           seam -30.0 peak 40>31 (hand.R>hand.R) handpk 3.07>3.07 hf 3>3 hold 0.00>0.00 head 0.78>0.78  <<<
+kit_male                 dash           seam -30.0 peak 40>31 (hand.R>hand.R) handpk 3.07>3.07 hf 3>3 hold 0.00>0.00 head 0.78>0.78  <<<
+kit_necromancer_female   dash           seam -27.5 peak 40>18 (hand.R>thigh.L) handpk 3.07>3.07 hf 3>3 hold 0.00>0.00 head 0.78>0.78  <<<
+kit_necromancer_male     dash           seam -27.5 peak 40>18 (hand.R>thigh.L) handpk 3.07>3.07 hf 3>3 hold 0.00>0.00 head 0.78>0.78  <<<
+kit_paladin_female       dash           seam -42.6 peak 40>18 (hand.R>thigh.L) handpk 3.07>3.07 hf 3>3 hold 0.00>0.00 head 0.78>0.78  <<<
+kit_paladin_male         dash           seam -42.6 peak 40>18 (hand.R>thigh.L) handpk 3.07>3.07 hf 3>3 hold 0.00>0.00 head 0.78>0.78  <<<
+kit_ranger_female        dash           seam -32.3 peak 40>18 (hand.R>thigh.L) handpk 3.07>3.07 hf 3>3 hold 0.00>0.00 head 0.78>0.78  <<<
+kit_ranger_male          dash           seam -32.3 peak 40>18 (hand.R>thigh.L) handpk 3.07>3.07 hf 3>3 hold 0.00>0.00 head 0.78>0.78  <<<
+changed 12 worst peak now (64.0, ('kit_assassin_female', 'atk_finisher'), 'upper_arm.L')
+
+== clear_ground log of the build (hand angle from the authored pose per frame, deg)
+KITBEGIN None male
+clear_ground ease base_rig dash hand.R fim: 33 -> 0 graus da pose original (menor giro 0), rampa x1.00
+TRACE None male dash hand.L ini 0 fim 18 max 18 [0, 0, 0, 0, 0, 0, 0, 0, 0, 18]
+TRACE None male dash hand.R ini 4 fim 0 max 89 [4, 46, 89, 51, 46, 52, 63, 58, 33, 0]
+KITBEGIN None female
+clear_ground ease base_rig dash hand.R fim: 33 -> 0 graus da pose original (menor giro 0), rampa x1.00
+TRACE None female dash hand.L ini 0 fim 18 max 18 [0, 0, 0, 0, 0, 0, 0, 0, 0, 18]
+TRACE None female dash hand.R ini 4 fim 0 max 89 [4, 46, 89, 51, 46, 52, 63, 58, 33, 0]
+KITBEGIN paladin male
+clear_ground ease base_rig dash hand.R fim: 37 -> 0 graus da pose original (menor giro 0), rampa x1.00
+TRACE paladin male dash hand.R ini 4 fim 0 max 67 [4, 45, 63, 50, 45, 52, 67, 62, 35, 0]
+KITBEGIN paladin female
+clear_ground ease base_rig dash hand.R fim: 37 -> 0 graus da pose original (menor giro 0), rampa x1.00
+TRACE paladin female dash hand.R ini 4 fim 0 max 67 [4, 45, 63, 50, 45, 52, 67, 62, 35, 0]
+KITBEGIN berserker male
+clear_ground ease base_rig dash hand.R fim: 152 -> 43 graus da pose original (menor giro 12), rampa x0.95
+TRACE berserker male dash hand.L ini 24 fim 35 max 35 [24, 11, 0, 0, 0, 0, 0, 0, 20, 35]
+TRACE berserker male dash hand.R ini 24 fim 43 max 85 [24, 54, 79, 72, 45, 51, 77, 85, 83, 43]
+KITBEGIN berserker female
+clear_ground ease base_rig dash hand.R fim: 152 -> 43 graus da pose original (menor giro 12), rampa x0.95
+TRACE berserker female dash hand.L ini 24 fim 35 max 35 [24, 11, 0, 0, 0, 0, 0, 0, 20, 35]
+TRACE berserker female dash hand.R ini 24 fim 43 max 85 [24, 54, 79, 72, 45, 51, 77, 85, 83, 43]
+KITBEGIN bishop male
+TRACE bishop male dash hand.R ini 0 fim 0 max 66 [0, 18, 30, 22, 18, 25, 43, 66, 27, 0]
+KITBEGIN bishop female
+TRACE bishop female dash hand.R ini 0 fim 0 max 66 [0, 18, 30, 22, 18, 25, 43, 66, 27, 0]
+KITBEGIN druid male
+clear_ground ease base_rig dash hand.R fim: 37 -> 0 graus da pose original (menor giro 0), rampa x1.00
+TRACE druid male dash hand.R ini 4 fim 0 max 67 [4, 45, 63, 50, 45, 52, 67, 62, 35, 0]
+KITBEGIN druid female
+clear_ground ease base_rig dash hand.R fim: 37 -> 0 graus da pose original (menor giro 0), rampa x1.00
+TRACE druid female dash hand.R ini 4 fim 0 max 67 [4, 45, 63, 50, 45, 52, 67, 62, 35, 0]
+KITBEGIN ranger male
+clear_ground ease base_rig dash hand.R fim: 29 -> 0 graus da pose original (menor giro 0), rampa x1.00
+TRACE ranger male dash hand.L ini 6 fim 20 max 20 [6, 0, 0, 0, 0, 0, 0, 0, 0, 20]
+TRACE ranger male dash hand.R ini 8 fim 0 max 59 [8, 51, 59, 47, 42, 48, 59, 56, 33, 0]
+KITBEGIN ranger female
+clear_ground ease base_rig dash hand.R fim: 29 -> 0 graus da pose original (menor giro 0), rampa x1.00
+TRACE ranger female dash hand.L ini 6 fim 20 max 20 [6, 0, 0, 0, 0, 0, 0, 0, 0, 20]
+TRACE ranger female dash hand.R ini 8 fim 0 max 59 [8, 51, 59, 47, 42, 48, 59, 56, 33, 0]
+KITBEGIN assassin male
+TRACE assassin male dash hand.R ini 0 fim 0 max 84 [0, 28, 59, 18, 0, 22, 50, 84, 25, 0]
+KITBEGIN assassin female
+TRACE assassin female dash hand.R ini 0 fim 0 max 84 [0, 28, 59, 18, 0, 22, 50, 84, 25, 0]
+KITBEGIN elementalist male
+TRACE elementalist male dash hand.R ini 0 fim 0 max 50 [0, 0, 42, 25, 17, 19, 27, 50, 0, 0]
+KITBEGIN elementalist female
+TRACE elementalist female dash hand.R ini 0 fim 0 max 50 [0, 0, 42, 25, 17, 19, 27, 50, 0, 0]
+KITBEGIN necromancer male
+clear_ground ease base_rig dash hand.R fim: 22 -> 0 graus da pose original (menor giro 0), rampa x1.00
+TRACE necromancer male dash hand.R ini 2 fim 0 max 58 [2, 43, 58, 48, 42, 45, 55, 51, 29, 0]
+KITBEGIN necromancer female
+clear_ground ease base_rig dash hand.R fim: 22 -> 0 graus da pose original (menor giro 0), rampa x1.00
+TRACE necromancer female dash hand.R ini 2 fim 0 max 58 [2, 43, 58, 48, 42, 45, 55, 51, 29, 0]

@@ -1,0 +1,64 @@
+MIN HEIGHT m, before -> after. kit | atk_finisher | atk_leap | atk_claw | atk_2h | atk_flurry | worst other clip in pass | still < 0.02 after
+kit_assassin_female | -0.38 -> 0.04 | -0.30 -> 0.03 | -0.26 -> 0.04 | 0.03 -> 0.03 | -0.13 -> 0.03 | cast_nature -0.35 -> 0.04 | {}
+kit_assassin_male | -0.38 -> 0.04 | -0.30 -> 0.03 | -0.26 -> 0.04 | 0.03 -> 0.03 | -0.13 -> 0.03 | cast_nature -0.35 -> 0.04 | {}
+kit_berserker_female | -0.87 -> -0.06 | -0.83 -> -0.06 | -0.77 -> -0.04 | -0.38 -> -0.06 | -0.70 -> -0.04 | atk_throw -1.02 -> -0.06 | {'claw': '-0.065..-0.042'}
+kit_berserker_male | -0.87 -> -0.06 | -0.83 -> -0.06 | -0.77 -> -0.04 | -0.38 -> -0.06 | -0.70 -> -0.04 | atk_throw -1.02 -> -0.06 | {'claw': '-0.065..-0.042'}
+kit_bishop_female | -0.82 -> 0.03 | -0.78 -> 0.04 | -0.73 -> 0.04 | -0.38 -> 0.03 | -0.68 -> 0.03 | cast_nature -0.83 -> 0.04 | {}
+kit_bishop_male | -0.82 -> 0.03 | -0.78 -> 0.04 | -0.73 -> 0.04 | -0.38 -> 0.03 | -0.68 -> 0.03 | cast_nature -0.83 -> 0.04 | {}
+kit_druid_female | -0.73 -> 0.03 | -0.69 -> 0.04 | -0.63 -> 0.03 | -0.30 -> 0.05 | -0.56 -> 0.03 | cast_nature -0.74 -> 0.04 | {}
+kit_druid_male | -0.73 -> 0.03 | -0.69 -> 0.04 | -0.63 -> 0.03 | -0.30 -> 0.05 | -0.56 -> 0.03 | cast_nature -0.74 -> 0.04 | {}
+kit_elementalist_female | -0.91 -> 0.02 | -0.87 -> 0.02 | -0.81 -> 0.01 | -0.37 -> 0.01 | -0.74 -> 0.03 | cast_nature -0.92 -> 0.03 | {'staff': '0.007..0.018'}
+kit_elementalist_male | -0.91 -> 0.02 | -0.87 -> 0.02 | -0.81 -> 0.01 | -0.37 -> 0.01 | -0.74 -> 0.03 | cast_nature -0.92 -> 0.03 | {'staff': '0.007..0.018'}
+kit_female | -1.05 -> 0.03 | -0.93 -> 0.03 | -0.95 -> 0.03 | -0.56 -> 0.03 | -0.73 -> 0.03 | atk_throw -1.01 -> 0.05 | {}
+kit_male | -1.05 -> 0.03 | -0.93 -> 0.03 | -0.95 -> 0.03 | -0.56 -> 0.03 | -0.74 -> 0.04 | atk_throw -1.01 -> 0.04 | {}
+kit_necromancer_female | -0.87 -> 0.04 | -0.83 -> 0.04 | -0.77 -> 0.03 | -0.22 -> 0.04 | -0.74 -> 0.04 | cast_nature -0.88 -> 0.03 | {}
+kit_necromancer_male | -0.87 -> 0.04 | -0.83 -> 0.04 | -0.77 -> 0.03 | -0.22 -> 0.04 | -0.74 -> 0.04 | cast_nature -0.88 -> 0.03 | {}
+kit_paladin_female | -0.81 -> 0.06 | -0.72 -> 0.04 | -0.69 -> 0.04 | -0.30 -> 0.04 | -0.51 -> 0.07 | atk_throw -0.79 -> 0.03 | {}
+kit_paladin_male | -0.81 -> 0.06 | -0.72 -> 0.04 | -0.69 -> 0.04 | -0.30 -> 0.04 | -0.51 -> 0.07 | atk_throw -0.79 -> 0.03 | {}
+kit_ranger_female | -1.31 -> -0.09 | -1.16 -> -0.08 | -1.20 -> -0.08 | -0.76 -> -0.09 | -0.95 -> -0.08 | atk_throw -1.27 -> -0.08 | {'bow': '-0.090..-0.078'}
+kit_ranger_male | -1.31 -> -0.09 | -1.16 -> -0.08 | -1.20 -> -0.08 | -0.76 -> -0.09 | -0.95 -> -0.08 | atk_throw -1.27 -> -0.09 | {'bow': '-0.089..-0.078'}
+
+family | atk_finisher | atk_leap | atk_claw | atk_2h | atk_flurry
+sword (kit_paladin_male) | -0.39 -> 0.14 | -0.33 -> 0.15 | -0.28 -> 0.21 | 0.01 -> 0.23 | -0.15 -> 0.25
+sword2h (kit_paladin_male) | -0.81 -> 0.10 | -0.72 -> 0.09 | -0.69 -> 0.14 | -0.27 -> 0.15 | -0.51 -> 0.19
+mace2h (kit_paladin_male) | -0.72 -> 0.06 | -0.64 -> 0.04 | -0.61 -> 0.04 | -0.30 -> 0.04 | -0.45 -> 0.07
+spear (kit_ranger_male) | -1.31 -> 0.04 | -1.16 -> 0.04 | -1.20 -> 0.04 | -0.76 -> 0.03 | -0.95 -> 0.04
+axe2h (kit_berserker_male) | -0.87 -> 0.04 | -0.83 -> 0.06 | -0.77 -> 0.04 | -0.38 -> 0.05 | -0.70 -> 0.06
+scythe (kit_necromancer_male) | -0.87 -> 0.04 | -0.83 -> 0.04 | -0.77 -> 0.03 | -0.22 -> 0.04 | -0.74 -> 0.04
+staff (kit_elementalist_male) | -0.91 -> 0.02 | -0.87 -> 0.02 | -0.81 -> 0.01 | -0.37 -> 0.01 | -0.74 -> 0.03
+scepter (kit_bishop_male) | -0.82 -> 0.03 | -0.78 -> 0.04 | -0.73 -> 0.04 | -0.38 -> 0.03 | -0.68 -> 0.03
+
+MAX HAND TURN deg per 1/60 s step (test limit 45). kit | hand.R before (clip) -> after (clip) | hand.L before -> after | clips >= 45 after
+kit_assassin_female | 42.4 (atk_1h_b) -> 41.9 (atk_1h_b) | 37.9 (buff_power) -> 37.9 (buff_power) | none
+kit_assassin_male | 42.4 (atk_1h_b) -> 41.9 (atk_1h_b) | 37.9 (buff_power) -> 37.9 (buff_power) | none
+kit_berserker_female | 42.4 (atk_1h_b) -> 41.9 (atk_1h_b) | 37.9 (buff_power) -> 41.9 (cast_shadow) | none
+kit_berserker_male | 42.4 (atk_1h_b) -> 41.9 (atk_1h_b) | 37.9 (buff_power) -> 41.9 (cast_shadow) | none
+kit_bishop_female | 42.4 (atk_1h_b) -> 41.9 (atk_1h_b) | 37.9 (buff_power) -> 37.9 (buff_power) | none
+kit_bishop_male | 42.4 (atk_1h_b) -> 41.9 (atk_1h_b) | 37.9 (buff_power) -> 37.9 (buff_power) | none
+kit_druid_female | 42.4 (atk_1h_b) -> 41.9 (atk_1h_b) | 37.9 (buff_power) -> 37.9 (buff_power) | none
+kit_druid_male | 42.4 (atk_1h_b) -> 41.9 (atk_1h_b) | 37.9 (buff_power) -> 37.9 (buff_power) | none
+kit_elementalist_female | 42.4 (atk_1h_b) -> 41.9 (atk_1h_b) | 37.9 (buff_power) -> 37.9 (buff_power) | none
+kit_elementalist_male | 42.4 (atk_1h_b) -> 41.9 (atk_1h_b) | 37.9 (buff_power) -> 37.9 (buff_power) | none
+kit_female | 42.4 (atk_1h_b) -> 41.9 (atk_1h_b) | 37.9 (buff_power) -> 37.9 (buff_power) | none
+kit_male | 42.4 (atk_1h_b) -> 41.9 (atk_1h_b) | 37.9 (buff_power) -> 37.9 (buff_power) | none
+kit_necromancer_female | 42.4 (atk_1h_b) -> 41.9 (atk_claw) | 37.9 (buff_power) -> 37.9 (buff_power) | none
+kit_necromancer_male | 42.4 (atk_1h_b) -> 41.9 (atk_claw) | 37.9 (buff_power) -> 37.9 (buff_power) | none
+kit_paladin_female | 42.4 (atk_1h_b) -> 41.9 (atk_1h_b) | 37.9 (buff_power) -> 37.9 (buff_power) | none
+kit_paladin_male | 42.4 (atk_1h_b) -> 41.9 (atk_1h_b) | 37.9 (buff_power) -> 37.9 (buff_power) | none
+kit_ranger_female | 42.4 (atk_1h_b) -> 41.9 (atk_1h_b) | 37.9 (buff_power) -> 41.9 (buff_power) | none
+kit_ranger_male | 42.4 (atk_1h_b) -> 41.9 (atk_1h_b) | 37.9 (buff_power) -> 41.9 (buff_power) | none
+
+per clip, paladin male (the kit the test loads), hand.R / hand.L before -> after, clips changed by > 0.5 deg:
+  atk_2h          R 20.6 -> 20.0 | L 0.0 -> 0.0
+  atk_claw        R 36.8 -> 41.9 | L 32.6 -> 32.6
+  atk_finisher    R 30.8 -> 41.9 | L 30.8 -> 30.8
+  atk_flurry      R 33.5 -> 35.9 | L 0.0 -> 0.0
+  atk_leap        R 38.8 -> 41.9 | L 32.4 -> 32.4
+  atk_slash_shot  R 33.2 -> 38.3 | L 14.0 -> 14.0
+  atk_throw       R 31.9 -> 40.5 | L 0.0 -> 0.0
+  cast_bolt       R 32.1 -> 41.9 | L 0.0 -> 0.0
+  cast_ground     R 32.4 -> 41.9 | L 32.6 -> 32.6
+  cast_nature     R 22.3 -> 24.6 | L 32.6 -> 32.6
+  dash            R 0.0 -> 41.9 | L 0.0 -> 0.0
+  summon          R 30.9 -> 41.9 | L 31.7 -> 31.7
+meshes: {'form_bear': 57, 'form_wolf': 65, 'assassin_female': 165, 'assassin_male': 165, 'berserker_female': 159, 'berserker_male': 159, 'bishop_female': 178, 'bishop_male': 178, 'druid_female': 170, 'druid_male': 170, 'elementalist_female': 164, 'elementalist_male': 164, 'female': 74, 'male': 74, 'necromancer_female': 164, 'necromancer_male': 164, 'paladin_female': 198, 'paladin_male': 198, 'ranger_female': 145, 'ranger_male': 145}
