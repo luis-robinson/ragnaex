@@ -2,6 +2,7 @@ extends Node
 ## Testes headless da simulação:
 ##   godot --headless --path . tools/tests/tests.tscn
 ## Cobre catálogo, fórmulas, bloqueio, XP, loot, quests, crafting, mira de skills e 3000 ticks de mundo com bots.
+## Determinismo: `-- --count_per_check` imprime `COUNT <função> <aprovados>` por função; compare duas execuções (diff) para achar check que roda número variável de vezes.
 ## Só uma parte (iterar rápido):  ... tools/tests/tests.tscn -- --only=party,shield
 ##   roda cada `_check_*` cujo nome contém um dos pedaços (com o que ele chama dentro); o run completo continua obrigatório.
 
@@ -9,8 +10,19 @@ var fails := 0
 var passes := 0
 var gd_ref
 var save_ref
+var per_fn := {}           # --count_per_check: checks aprovados por função (diagnóstico de determinismo)
+var count_per := false
+
+## RNG de teste com semente fixa: `RandomNumberGenerator.new()` nasce aleatório e fazia a contagem de checks mudar entre execuções.
+func _seeded_rng(seed_value: int = 4242) -> RandomNumberGenerator:
+	var r := RandomNumberGenerator.new()
+	r.seed = seed_value
+	return r
 
 func check(cond: bool, msg: String) -> void:
+	if count_per:
+		var fn: String = get_stack()[1]["function"]
+		per_fn[fn] = int(per_fn.get(fn, 0)) + (1 if cond else 0)
 	if cond:
 		passes += 1
 	else:
@@ -21,11 +33,17 @@ func check(cond: bool, msg: String) -> void:
 func _ready() -> void:
 	Sim.running = false
 	ClassTalentSystem.bot_picks = false        # bots de teste sem talentos de classe sorteados (_check_class_talents escolhe os seus)
+	count_per = DevArgs.has("--count_per_check")
 	var only := DevArgs.value("--only")
 	if only != "":
 		run_only(Array(only.split(",")), GameData, Sim, SaveSystem)
 	else:
 		run_all(GameData, Sim, Balance, SaveSystem)
+	if count_per:
+		var ks := per_fn.keys()
+		ks.sort()
+		for k in ks:
+			print("COUNT %s %d" % [k, per_fn[k]])
 	print("\n=== %d passed, %d failed ===" % [passes, fails])
 	get_tree().quit(1 if fails > 0 else 0)
 
@@ -88,6 +106,97 @@ func _check_float_text_crowd(gd) -> void:
 		elif md.stat_role == "comum":
 			trash_ok = NameplateCrowd.is_trash(e)
 	check(boss_ok and trash_ok, "nomes da matilha: chefe nunca esconde, comum esconde")
+
+## Revisão de arte R2 (ui-polish): "Esquiva!" soma enquanto o pop ainda se vê (sem fantasma ao lado do ×N); aura de monstro
+## inimigo não desenha o círculo grande; golpe em linha de monstro não deixa faixa no chão; corvo/morcego/urubu em valor médio;
+## chat e painel de quests quase opacos.
+func _check_ui_polish_r2(gd, sim) -> void:
+	var ft := FloatText.new()
+	add_child(ft)
+	ft.pop(Vector3.ZERO, "Esquiva!", Color.WHITE, 1.0, 7, true)
+	ft._process(1.0)                       # ~1 s depois (ritmo de ataque de monstro): o pop ainda aparece
+	ft.pop(Vector3.ZERO, "Esquiva!", Color.WHITE, 1.0, 7, true)
+	check(ft.live_count() == 1, "ui-polish: esquiva 1 s depois soma no mesmo pop (sem fantasma)")
+	check(FloatText.MERGE_WINDOW < FloatText.LIFE, "ui-polish: janela de fusão cabe na vida do pop")
+	remove_child(ft)
+	ft.free()
+	for mid in gd.monsters:
+		var md: MonsterDef = gd.monsters[mid]
+		if md.aura == "":
+			continue
+		var e := SimEntity.new()
+		e.kind = SimEntity.Kind.MONSTER
+		e.monster_def = md
+		e.owner_id = -1
+		check(FxManager.mob_ring_reach(e) == 0.0 and FxManager.mob_aura_reach(md) > 0.0, "ui-polish: %s inimigo sem círculo de aura no chão" % mid)
+	check(FxManager.mob_hit_ground_free("mob_impale") and not FxManager.mob_hit_ground_free("pal_charge"), "ui-polish: golpe em linha de monstro sem faixa no chão")
+	for kid in ["crow", "bat", "vulture"]:
+		var c: Color = AmbientLife.KINDS[kid]["color"]
+		check(c.get_luminance() >= 0.3 and bool(AmbientLife.KINDS[kid].get("lit", false)), "ui-polish: %s em valor médio e sombreado (%.2f)" % [kid, c.get_luminance()])
+	check(Hud.PANEL_BG_A >= 0.85, "ui-polish: chat e quests quase opacos (%.2f)" % Hud.PANEL_BG_A)
+	# R2 #17: capacho da porta = tapete opaco sem brilho, virado da casa para fora
+	var hd := MapDef.new()
+	hd.obstacles = [{"kind": "house", "pos": Vector3(10, 0, 10), "size": Vector3(5, 4, 4)}]
+	var fr := MapBuilder.door_front(Vector3(7, 0, 7), hd)
+	check(fr.distance_to(Vector3(-1, 0, -1).normalized()) < 0.01, "ui-polish: capacho virado da casa para a porta (%s)" % fr)
+	check(MapBuilder.door_front(Vector3(0, 0, 4), MapDef.new()) == Vector3(0, 0, 1), "ui-polish: porta sem casa perto (interior) olha para +z")
+	var dm := MapBuilder._door_marker({"id": "t", "pos": Vector3(7, 0, 7), "label": "Botica"}, hd)
+	var glow := 0
+	for c in dm.get_children():
+		if c is MeshInstance3D:
+			var m: Material = (c as MeshInstance3D).material_override
+			if m is BaseMaterial3D and ((m as BaseMaterial3D).emission_enabled or (m as BaseMaterial3D).transparency != BaseMaterial3D.TRANSPARENCY_DISABLED):
+				glow += 1
+	check(glow == 0 and dm.get_child(dm.get_child_count() - 1) is Label3D, "ui-polish: capacho sem disco brilhante/translúcido, nome é o último filho")
+	check(absf(dm.rotation.y - atan2(fr.x, fr.z)) < 0.01, "ui-polish: capacho gira com a frente da porta")
+	dm.free()
+	# R2 #21: nome com o mesmo tamanho na tela de 20 a 34 m, sem crescer muito perto
+	var px_at := func(dist: float) -> float: return EntityView.name_pixel_size(dist) / dist
+	var ref: float = px_at.call(24.0)
+	for dist in [20.0, 28.0, 34.0]:
+		check(absf(px_at.call(dist) / ref - 1.0) < 0.05, "ui-polish: nome do mesmo tamanho na tela a %.0f m" % dist)
+	check(px_at.call(14.0) / ref < 1.35, "ui-polish: nome no zoom mais perto cresce pouco (x%.2f)" % (px_at.call(14.0) / ref))
+	check(EntityView.NAME_FONT * EntityView.NAME_PX * 1080.0 / (2.0 * 24.0 * tan(deg_to_rad(17.5))) >= 13.0, "ui-polish: nome legível (>= 13 px) na câmera padrão")
+	# R2 #12/#16: fala de chefe na faixa própria; nomes do mundo sob a HUD somem
+	check(Hud.boss_speaker("Ulgra Presa-Atroz: A MATILHA!", ["Lobo", "Ulgra Presa-Atroz"]) == "Ulgra Presa-Atroz", "ui-polish: fala de chefe reconhecida pelo nome")
+	check(Hud.boss_speaker("Ulgra emerge do lago!", ["Ulgra"]) == "" and Hud.boss_speaker("Pegou: Poção", []) == "", "ui-polish: aviso comum não vai para a faixa do chefe")
+	check(Hud.NOTIF_TOP > Hud.BOSS_LANE_TOP + 40.0, "ui-polish: notificações abaixo da faixa do chefe")
+	var rs: Array[Rect2] = [Rect2(420, 950, 1070, 110)]
+	check(Hud.covered(Vector2(900, 1000), rs) and not Hud.covered(Vector2(900, 500), rs), "ui-polish: ponto sob a barra conta como coberto")
+	# nome/barra acima do topo real do modelo (Ulgra tinha o nome sobre o corpo); 1,95 × escala segue como mínimo
+	check(EntityView.plate_top(1.0, false, 0.0) == 1.95 and EntityView.plate_top(2.0, true, 0.0) == 2.8, "ui-polish: sem modelo .glb a barra fica onde estava")
+	check(EntityView.plate_top(1.0, false, 1.2) == 1.95, "ui-polish: modelo baixo não mexe na barra (mínimo 1,95)")
+	check(is_equal_approx(EntityView.plate_top(1.5, true, 2.0), 2.0 * 1.5 + EntityView.PLATE_MARGIN), "ui-polish: modelo alto empurra a barra para o topo + folga")
+	for mid in ["boss_ulgra", "boss_troll_king", "boss_kragmar", "boss_durgash", "trent", "ghoul_giant", "boss_gorbash", "troll_brute", "troll"]:
+		var md: MonsterDef = gd.monsters.get(mid)
+		if md == null or not ResourceLoader.exists("res://assets/models/%s.glb" % md.model):
+			check(md == null and not mid.begins_with("boss_"), "ui-polish: %s existe com modelo .glb" % mid)
+			continue
+		var me: SimEntity = sim.spawn_monster(md, "city_aldara", Vector3(0, 0, 30))
+		me.brain = null
+		var mv := EntityView.new()
+		add_child(mv)
+		mv.setup(me, false)
+		var head: float = mv._model_top * me.scale
+		var bar_y: float = mv.hp_bar.position.y
+		print("  placa %s: topo do modelo %.2f m, barra %.2f m (antes %.2f)" % [mid, head, bar_y, (1.4 if md.shape in ["sphere", "box"] else 1.95) * me.scale + 0.2])
+		check(mv._model_top > 0.5 and bar_y >= head + EntityView.PLATE_MARGIN - 0.001, "ui-polish: barra de %s acima do topo do modelo (%.2f >= %.2f)" % [mid, bar_y, head])
+		check(mv.nameplate.position.y > bar_y and bar_y >= EntityView.plate_top(me.scale, md.shape in ["sphere", "box"], 0.0) + 0.2 - 0.001, "ui-polish: nome de %s acima da barra, nunca abaixo do mínimo" % mid)
+		remove_child(mv)
+		mv.free()
+		sim.despawn(me)
+	var pc: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Placa", "city_aldara", Vector3(0, 0, 30), 30)
+	pc.brain = null
+	var pv := EntityView.new()
+	add_child(pv)
+	pv.setup(pc, false)
+	check(pv._model_top == 0.0 and is_equal_approx(pv.hp_bar.position.y, 1.95 * pc.scale + 0.2) and is_equal_approx(pv.nameplate.position.y, 1.95 * pc.scale + 0.32), "ui-polish: personagem (kit) com a barra e o nome onde estavam")
+	remove_child(pv)
+	pv.free()
+	sim.despawn(pc)
+	# R2 #13: fala de multidão do chefe sem o número cru (fica só no log --verbose)
+	var ms := FileAccess.get_file_as_string("res://core/sim/systems/mob_system.gd")
+	check(ms.contains("Tantos contra mim?") and not ms.contains("lutando: dano ×"), "ui-polish: fala de multidão do chefe sem 'N lutando: dano ×' para o jogador")
 
 ## View criada tarde (fila de views, chegada no mapa): nasce na forma atual sem metamorfose e com o anel da aura ligada
 ## que o _on_buff teria posto (EntityView.snap_visual_state + FxManager.sync_entity_visuals, chamados no main._create_view).
@@ -308,6 +417,302 @@ func _check_hand_twist() -> void:
 	check(flurry > 0.0 and flurry < 1000.0, "mão: atk_flurry não dá voltas (%.0f° no clipe)" % flurry)
 	inst.free()
 
+## Pata da frente sem salto nas formas do Druida (druid_sets.clear_form_ground, FORM_GROUND_CLIPS): o 1º acerto do chão
+## empilhava giro e a perna virava 145-173° entre quadros (pico 69° por passo de 60 Hz em slam/pounce/maul).
+## `-- --form_dir=<pasta>` mede GLBs de outra pasta (fora do projeto, lidos sem importar) para conferir uma versão antiga.
+func _check_form_leg_twist() -> void:
+	var dir := DevArgs.value("--form_dir", "")
+	for form in ["wolf", "bear"]:
+		var inst: Node
+		if dir == "":
+			inst = (load("res://assets/models/form_%s.glb" % form) as PackedScene).instantiate()
+		else:
+			var doc := GLTFDocument.new()
+			var st := GLTFState.new()
+			if doc.append_from_file(dir.path_join("form_%s.glb" % form), st) != OK:
+				check(false, "forma %s: lê %s" % [form, dir])
+				continue
+			inst = doc.generate_scene(st)
+		var ap: AnimationPlayer = inst.find_children("*", "AnimationPlayer", true, false)[0]
+		var worst := 0.0
+		var where := ""
+		var seen := 0
+		for clip in ["slam", "pounce", "maul", "attack"]:
+			if not ap.has_animation(clip):
+				check(false, "forma %s: tem o clipe %s" % [form, clip])
+				continue
+			var an := ap.get_animation(clip)
+			for t in range(an.get_track_count()):
+				var bone := String(an.track_get_path(t).get_subname(0))
+				if an.track_get_type(t) != Animation.TYPE_ROTATION_3D or not bone.begins_with("leg_f"):
+					continue
+				seen += 1
+				var prev := an.rotation_track_interpolate(t, 0.0)
+				var tt := 1.0 / 60.0
+				while tt <= an.length + 0.0001:
+					var q := an.rotation_track_interpolate(t, tt)
+					var d := rad_to_deg(prev.angle_to(q))
+					if d > worst:
+						worst = d
+						where = "%s %s" % [clip, bone]
+					prev = q
+					tt += 1.0 / 60.0
+		check(seen >= 8, "forma %s: patas da frente animadas nos 4 golpes (%d trilhas)" % [form, seen])
+		if DevArgs.has("--verbose"):
+			print("  FORMA %s: pata da frente, pior %.1f° em %s" % [form, worst, where])
+		check(worst < 45.0, "forma %s: pata da frente gira no máximo 45°/quadro a 60 Hz (pior %.0f° em %s)" % [form, worst, where])
+		inst.free()
+
+## Malhas de um kit (GLB): nome -> MeshInstance3D. Instancia a cena crua (sem KitModel/poda); quem chama libera `inst`.
+func _kit_meshes(kit: String) -> Dictionary:
+	var out := {}
+	var path := "res://assets/models/%s.glb" % kit
+	if not ResourceLoader.exists(path):
+		return out
+	var inst: Node = (load(path) as PackedScene).instantiate()
+	for mi in inst.find_children("*", "MeshInstance3D", true, false):
+		out[String(mi.name)] = mi
+	out["__inst"] = inst
+	return out
+
+## Escudos presos ao braço (2026-11-15): a alça vem soldada na malha do escudo (chibi_kit.kit_shield) e o suporte à parte
+## `wpn_off_grip` saiu. Todo estilo de escudo dos itens (GearCatalog.SHIELDS + escudos de conjunto) tem de existir como
+## `wpn_off_shield_<estilo>` nos kits de quem empunha escudo (paladino/bispo); escudo de conjunto só no kit da classe dele.
+func _check_shield_mounts() -> void:
+	var styles := {}           # estilo -> classes que podem usar ([] = todas as de escudo)
+	var plain := false
+	for iid in GameData.items:
+		var it: ItemDef = GameData.items[iid]
+		if it.weapon_type != "shield" or it.base_id != "":
+			continue
+		if it.shield_style == "":
+			plain = true
+			continue
+		var cls: Array = styles.get(it.shield_style, [])
+		for c in it.class_restriction:
+			if not cls.has(c):
+				cls.append(c)
+		styles[it.shield_style] = cls
+	check(styles.size() >= 18, "escudos: estilos dos itens (%d)" % styles.size())
+	for cid in ["paladin", "bishop"]:
+		for sex in ["male", "female"]:
+			var kit := "kit_%s_%s" % [cid, sex]
+			var meshes := _kit_meshes(kit)
+			check(not meshes.is_empty(), "escudos: %s existe" % kit)
+			if meshes.is_empty():
+				continue
+			if plain:
+				check(meshes.has("wpn_off_shield"), "escudos: %s tem o escudo comum" % kit)
+			var missing: Array = []
+			for st in styles:
+				var cls: Array = styles[st]
+				var mine: bool = cls.is_empty() or cls.has(cid)
+				if mine and not meshes.has("wpn_off_shield_" + st):
+					missing.append(st)
+			check(missing.is_empty(), "escudos: %s tem a malha de todo estilo da classe (faltam %s)" % [kit, missing])
+			(meshes["__inst"] as Node).free()
+	# o suporte à parte não volta: nenhum kit tem wpn_off_grip* e o KitModel não liga mais nada com esse nome
+	var grips: Array = []
+	var kits: Array = ["kit_male", "kit_female"]
+	for cid in GameData.classes:
+		kits.append_array(["kit_%s_male" % cid, "kit_%s_female" % cid])
+	for kit in kits:
+		var meshes := _kit_meshes(kit)
+		check(not meshes.is_empty(), "escudos: %s existe" % kit)
+		for n in meshes:
+			if String(n).begins_with("wpn_off_grip"):
+				grips.append("%s:%s" % [kit, n])
+		if meshes.has("__inst"):
+			(meshes["__inst"] as Node).free()
+	check(grips.is_empty(), "escudos: nenhum kit tem wpn_off_grip (%s)" % [grips])
+	var src := FileAccess.get_file_as_string("res://game/entities/kit_model.gd")
+	check(src != "" and not src.contains("wpn_off_grip"), "escudos: kit_model.gd não cita wpn_off_grip")
+
+## Mede um machado. O eixo do cabo sai dos eixos principais dos vértices: entre os três, é aquele em que as fatias
+## são mais finas (1º quartil; no machado duplo a lâmina de ponta a ponta é mais comprida que o cabo, então "o maior eixo" falha).
+## Fatia ao longo do eixo; a largura de cada fatia é o maior vão no plano perpendicular. Cabo = 1º quartil das larguras
+## (o cabo ocupa a maior parte do comprimento), lâmina = maior largura (a fatia que corta a cabeça mede olho + fio).
+## Volta [lâmina, cabo] em metros.
+func _axe_profile(mesh: Mesh) -> Array:
+	# pontos ao longo das arestas dos triângulos a cada 2 cm: o cabo é um tubo com vértices só nas pontas, então
+	# fatiar só vértices deixava o meio do cabo vazio (largura 0) ou só com o que está preso nele (talas, pele)
+	var pts := PackedVector3Array()
+	for s in mesh.get_surface_count():
+		var arr := mesh.surface_get_arrays(s)
+		var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+		var idx: PackedInt32Array = arr[Mesh.ARRAY_INDEX] if arr[Mesh.ARRAY_INDEX] != null else PackedInt32Array(range(vs.size()))
+		for t in range(0, idx.size() - 2, 3):
+			for k in 3:
+				var p0 := vs[idx[t + k]]
+				var p1 := vs[idx[t + (k + 1) % 3]]
+				var steps := maxi(1, ceili(p0.distance_to(p1) / 0.02))
+				for j in steps:
+					pts.append(p0.lerp(p1, float(j) / steps))
+	if pts.size() < 8:
+		return [0.0, 1.0, 1.0]
+	var c := Vector3.ZERO
+	for p in pts:
+		c += p
+	c /= pts.size()
+	var cov := Basis(Vector3.ZERO, Vector3.ZERO, Vector3.ZERO)
+	for p in pts:
+		var d := p - c
+		cov.x += d * d.x
+		cov.y += d * d.y
+		cov.z += d * d.z
+	var a1 := _power_axis(cov, Vector3(0.3, 0.8, 0.5).normalized())
+	var lam := (cov * a1).dot(a1)
+	var defl := Basis(cov.x - a1 * (lam * a1.x), cov.y - a1 * (lam * a1.y), cov.z - a1 * (lam * a1.z))
+	var seed := a1.cross(Vector3.RIGHT if absf(a1.x) < 0.9 else Vector3.UP).normalized()
+	var a2 := _power_axis(defl, seed)
+	a2 = (a2 - a1 * a2.dot(a1)).normalized()
+	var best := [0.0, INF, 1.0]
+	for a in [a1, a2, a1.cross(a2).normalized()]:
+		var pr := _slice_profile(pts, c, a)
+		if float(pr[1]) < float(best[1]):
+			best = pr
+	return best
+
+## Iteração de potência: autovetor dominante da matriz simétrica m.
+func _power_axis(m: Basis, start: Vector3) -> Vector3:
+	var a := start
+	for i in 60:
+		var n := m * a
+		if n.length() < 1e-9:
+			return a
+		a = n.normalized()
+	return a
+
+## Fatias ao longo do eixo a: [maior largura, 1º quartil das larguras]. O quartil e não a mediana: a barba do machado
+## barbado e a pele descem pelo cabo e engrossariam a mediana.
+func _slice_profile(pts: PackedVector3Array, c: Vector3, a: Vector3) -> Array:
+	var b := a.cross(Vector3.RIGHT if absf(a.x) < 0.9 else Vector3.UP).normalized()
+	var e := a.cross(b)
+	var lo := INF
+	var hi := -INF
+	for p in pts:
+		var t := (p - c).dot(a)
+		lo = minf(lo, t)
+		hi = maxf(hi, t)
+	const BINS := 24
+	var mins: Array = []
+	var maxs: Array = []
+	for i in BINS:
+		mins.append(Vector2(INF, INF))
+		maxs.append(Vector2(-INF, -INF))
+	for p in pts:
+		var d := p - c
+		var i := clampi(int((d.dot(a) - lo) / maxf(hi - lo, 0.0001) * BINS), 0, BINS - 1)
+		var q := Vector2(d.dot(b), d.dot(e))
+		mins[i] = (mins[i] as Vector2).min(q)
+		maxs[i] = (maxs[i] as Vector2).max(q)
+	var widths: Array = []
+	for i in BINS:
+		if (mins[i] as Vector2).x == INF:
+			continue
+		var span: Vector2 = maxs[i] - mins[i]
+		widths.append(maxf(span.x, span.y))
+	var top := -1
+	for i in BINS:
+		if (mins[i] as Vector2).x != INF and (top < 0 or _bin_w(mins, maxs, i) > _bin_w(mins, maxs, top)):
+			top = i
+	widths.sort()
+	return [widths[widths.size() - 1], widths[widths.size() / 4], _flatness(pts, c, a, b, e, lo, hi, BINS, top)]
+
+func _bin_w(mins: Array, maxs: Array, i: int) -> float:
+	var span: Vector2 = maxs[i] - mins[i]
+	return maxf(span.x, span.y)
+
+## Achatamento da fatia mais larga (a cabeça): vão no eixo principal da fatia / vão no perpendicular. Lâmina de machado é
+## chapa (vão grande para fora, fino de lado); cabeça de clava/maça é redonda (~1).
+func _flatness(pts: PackedVector3Array, c: Vector3, a: Vector3, b: Vector3, e: Vector3, lo: float, hi: float, bins: int, top: int) -> float:
+	var q2: Array = []
+	var m := Vector2.ZERO
+	for p in pts:
+		var d := p - c
+		if clampi(int((d.dot(a) - lo) / maxf(hi - lo, 0.0001) * bins), 0, bins - 1) == top:
+			var q := Vector2(d.dot(b), d.dot(e))
+			q2.append(q)
+			m += q
+	if q2.size() < 3:
+		return 1.0
+	m /= q2.size()
+	var sxx := 0.0
+	var syy := 0.0
+	var sxy := 0.0
+	for q: Vector2 in q2:
+		var d := q - m
+		sxx += d.x * d.x
+		syy += d.y * d.y
+		sxy += d.x * d.y
+	var ang := 0.5 * atan2(2.0 * sxy, sxx - syy)
+	var u := Vector2(cos(ang), sin(ang))
+	var v := Vector2(-u.y, u.x)
+	var ul := INF
+	var uh := -INF
+	var vl := INF
+	var vh := -INF
+	for q: Vector2 in q2:
+		ul = minf(ul, q.dot(u))
+		uh = maxf(uh, q.dot(u))
+		vl = minf(vl, q.dot(v))
+		vh = maxf(vh, q.dot(v))
+	return maxf(uh - ul, vh - vl) / maxf(minf(uh - ul, vh - vl), 0.0001)
+
+## Machados (redesenho 2026-11-15, tools/blender/axe_kit.py): todo estilo de machado dos itens (conjuntos do Berserker,
+## e a 2ª arma dos Gêmeos na mão esquerda) tem malha em kit_berserker_*, e o machado comum (1 e 2 mãos) está em todo kit
+## que o arma. A cabeça tem de ler como machado e não como porrete/maça, por duas medidas (_axe_profile):
+##  - alcance: a fatia mais larga (olho + fio) passa de AXE_BLADE_MIN vezes a espessura do cabo;
+##  - chapa: essa fatia é achatada (vão para fora / vão de lado >= AXE_FLAT_MIN); cabeça redonda dá ~1.
+## Medido nos GLB de 2026-11-15: os 21 machados novos dão alcance 5,7-14,5x e chapa 4,7-14,3; o machado comum antigo
+## (cabeça = bola achatada, HEAD 39b41b8) dava alcance 3,8x; maça comum 6,2x mas chapa 1,1; maça de 2 mãos 8,1x / 2,0;
+## cetro 4,2x / 1,0. Limites abaixo do pior machado novo com ~20-35% de folga e acima de clava/maça/cetro.
+## Não pega o defeito de COR dos machados de conjunto antigos (face e fio da mesma cor): a silhueta deles já passava.
+const AXE_BLADE_MIN := 4.5
+const AXE_FLAT_MIN := 3.0
+func _check_axe_kit() -> void:
+	var main_styles := {}      # nó esperado na mão direita -> item
+	var off_styles := {}       # nó esperado na mão esquerda -> item
+	for iid in GameData.items:
+		var it: ItemDef = GameData.items[iid]
+		if not it.weapon_type in ["axe", "axe2h"] or it.weapon_style == "" or it.base_id != "":
+			continue
+		main_styles["wpn_main_%s_%s" % [it.weapon_type, it.weapon_style]] = iid
+		if it.weapon_type == "axe":      # Gêmeos: o machado de 1 mão vai também para a esquerda (ItemSystem, to_offhand)
+			off_styles["wpn_off_axe_%s" % it.weapon_style] = iid
+	check(main_styles.size() >= 12 and off_styles.size() >= 6, "machados: estilos dos itens (%d na direita, %d na esquerda)" % [main_styles.size(), off_styles.size()])
+	var worst := INF
+	var worst_at := ""
+	var flat := INF
+	var flat_at := ""
+	for kit in ["kit_berserker_male", "kit_berserker_female", "kit_male", "kit_female"]:
+		var meshes := _kit_meshes(kit)
+		check(not meshes.is_empty(), "machados: %s existe" % kit)
+		if meshes.is_empty():
+			continue
+		var want: Array = ["wpn_main_axe", "wpn_main_axe2h"]
+		if kit.begins_with("kit_berserker"):
+			want.append("wpn_off_axe")
+			want.append_array(main_styles.keys())
+			want.append_array(off_styles.keys())
+		var missing := want.filter(func(n): return not meshes.has(n))
+		check(missing.is_empty(), "machados: %s tem todas as malhas (faltam %s)" % [kit, missing])
+		for n in want:
+			if not meshes.has(n):
+				continue
+			var mi: MeshInstance3D = meshes[n]
+			var pr := _axe_profile(mi.mesh)
+			var ratio: float = float(pr[0]) / maxf(float(pr[1]), 0.0001)
+			if ratio < worst:
+				worst = ratio
+				worst_at = "%s:%s (lâmina %.3f m, cabo %.3f m)" % [kit, n, pr[0], pr[1]]
+			if float(pr[2]) < flat:
+				flat = float(pr[2])
+				flat_at = "%s:%s" % [kit, n]
+		(meshes["__inst"] as Node).free()
+	check(worst >= AXE_BLADE_MIN, "machados: cabeça lê como machado, lâmina >= %.1fx o cabo (pior %.2fx em %s)" % [AXE_BLADE_MIN, worst, worst_at])
+	check(flat >= AXE_FLAT_MIN, "machados: cabeça é chapa, não bola (achatamento >= %.1f; pior %.2f em %s)" % [AXE_FLAT_MIN, flat, flat_at])
+
 ## Maestria: a descrição diz o que cada nível melhora naquela skill (tirada dos dados), não um "+1 nível" genérico.
 func _check_mastery_desc() -> void:
 	var bad: Array = []
@@ -335,6 +740,534 @@ func _check_graphics_settings() -> void:
 	for p in ps.slice(1):
 		check(p[1] == Viewport.SCALING_3D_MODE_FSR2 and float(p[2]) > 0.3 and float(p[2]) < 1.0, "gráficos: %s renderiza abaixo da tela" % p[0])
 	check(GraphicsSettings.preset == 0 or FileAccess.file_exists(GraphicsSettings.PATH), "gráficos: sem arquivo salvo começa no padrão")
+
+## Tela inicial (design/ux/start-flow.md §8, §10): é a cena principal; só as flags de autostart pulam o menu
+## (direto ao main.tscn); parâmetros sozinhos e a volta pelo Esc não; montar o menu não carrega nada na sim.
+func _check_start_flow() -> void:
+	check(str(ProjectSettings.get_setting("application/run/main_scene")) == "res://game/menu/start.tscn", "início: run/main_scene = start.tscn")
+	check(ResourceLoader.exists("res://game/menu/start.tscn") and ResourceLoader.exists("res://game/main.tscn"), "início: start.tscn e main.tscn existem")
+	var cases := [
+		[[], false, ""], [["--autostart=druid"], false, "druid"], [["--autostart"], false, "paladin"],
+		[["--autostart=berserker", "--preset=20"], false, "berserker"], [["--tour=x"], false, "paladin"],
+		[["--water_tour=x"], false, "paladin"], [["--showcase=ranger", "--out=x"], false, "ranger"],
+		[["--showcase=nada"], false, "paladin"], [["--playtest=x"], false, "paladin"], [["--soak=30"], false, "berserker"],
+		[["--soak=30", "--autostart=bishop"], false, "bishop"], [["--perf"], false, "paladin"],
+		[["--preset=20"], false, ""], [["--level=30"], false, ""], [["--ascend", "--gear=x"], false, ""],
+		[["--select_shot=x.png"], false, ""], [["--look=druid:male:a:b:c:d:e"], false, ""],
+		[["--autostart=druid"], true, ""], [["--perf"], true, ""], [["--tour=x"], true, ""],
+	]
+	for c in cases:
+		var got := DevRunner.autostart_class(PackedStringArray(c[0]), c[1])
+		check(got == c[2], "início: autostart_class(%s, returning=%s) = '%s' (veio '%s')" % [str(c[0]), str(c[1]), c[2], got])
+	# pedido: ida e volta pelo estático, `returning` vale uma vez
+	var req := StartRequest.new_character("druid", "Lyra", {"sex": "female"}, 10, 3)
+	StartRequest.pending = req
+	var got_req := StartRequest.take()
+	check(got_req == req and StartRequest.pending == null and got_req.slot == 3 and got_req.preset == 10 and not got_req.dev
+		and got_req.look.get("sex") == "female", "início: StartRequest entregue uma vez com espaço/preset/visual")
+	check(StartRequest.dev_start("paladin", 1).slot == -1 and StartRequest.dev_start("paladin", 1).dev, "início: partida de dev no espaço -1")
+	StartRequest.returning = true
+	check(StartRequest.take_returning() and not StartRequest.take_returning(), "início: returning limpo depois do uso")
+	# o menu montado não toca na sim (nem mapa, nem entidade, nem grupo)
+	var maps0: int = Sim.maps.size()
+	var ents0: int = Sim.entities.size()
+	var parties0: int = Sim.parties.size()
+	var start: Node = load("res://game/menu/start.tscn").instantiate()
+	start.set("apply_settings", false)
+	start.set("dev_routing", false)
+	add_child(start)
+	check(start.get("state") == &"title" and start.get("screen") is TitleScreen, "início: abre no Título")
+	check(Sim.maps.size() == maps0 and Sim.entities.size() == ents0 and Sim.parties.size() == parties0, "início: o menu não carrega mapa nem entidade na sim")
+	check(StartRequest.pending == null, "início: o menu sozinho não pede partida")
+	start.call("show_create", SaveSystem.first_free_slot())
+	var cc: Node = start.get("screen")
+	check(start.get("state") == &"create" and cc is CharCreate, "início: Criação abre")
+	cc.emit_signal("back_requested")
+	check(start.get("state") == (&"list" if CharList.has_any() else &"title"), "início: voltar da Criação vai à lista (ou ao Título sem personagens)")
+	check(Sim.maps.size() == maps0 and Sim.entities.size() == ents0 and StartRequest.pending == null, "início: trocar de tela não toca na sim")
+	_check_start_routing(start)
+	start.free()
+
+## Tela inicial: Jogar/voltar da Criação seguem a fonte da lista (`CharList.has_any`, inclusive --menu_saves), excluir o
+## último personagem abre a Criação, e `launch` vale uma vez (2º Enter não abre outro Carregamento; tela sem entrada).
+func _check_start_routing(start: Node) -> void:
+	var keep_src: CharList.Slots = CharList.source
+	CharList.source = CharList.FakeSlots.new("o")          # 1 personagem só na fonte da lista (saves reais à parte)
+	start.call("_on_title_play")
+	check(start.get("state") == &"list", "início: Jogar com personagem na fonte da lista = Personagens")
+	start.call("show_create", TEST_SLOT + 1)
+	start.call("_on_create_back")
+	check(start.get("state") == &"list", "início: voltar da Criação com personagem na fonte da lista = Personagens")
+	CharList.source = CharList.FakeSlots.new("0")          # 0 personagens na fonte da lista
+	start.call("_on_title_play")
+	check(start.get("state") == &"create", "início: Jogar sem personagem na fonte da lista = Criação")
+	start.call("_on_create_back")
+	check(start.get("state") == &"title", "início: voltar da Criação sem personagem na fonte da lista = Título")
+	# excluir o último: Personagens -> Criação no 1º espaço livre (design/ux/start-flow.md §5)
+	CharList.source = CharList.FakeSlots.new("o")
+	start.call("show_list", TEST_SLOT)
+	var l: CharList = start.get("screen")
+	l.request_delete()
+	l.dialog().confirm()
+	var cc: Variant = start.get("screen")
+	check(start.get("state") == &"create" and cc is CharCreate and (cc as CharCreate).target_slot == TEST_SLOT,
+		"início: excluir o último personagem abre a Criação no 1º espaço livre")
+	# launch duas vezes (Enter repetido nos 2 quadros de espera): um Carregamento só, tela sem entrada
+	start.set("overlay_parent", self)                     # a raiz está ocupada no _ready do runner
+	var old_ls := get_children().filter(func(n: Node) -> bool: return n is LoadingScreen)
+	var req := StartRequest.new_character("paladin", "Teste", {}, 1, TEST_SLOT)
+	var req2 := StartRequest.new_character("druid", "Outro", {}, 1, TEST_SLOT)
+	start.call("launch", req)
+	(cc as CharCreate).create_confirmed.emit(req2)
+	var shown := get_children().filter(func(n: Node) -> bool: return n is LoadingScreen and not old_ls.has(n))
+	check(shown.size() == 1 and StartRequest.pending == req and start.get("state") == &"loading",
+		"início: launch vale uma vez (%d Carregamento(s) novos)" % shown.size())
+	check(not (cc as Node).can_process() and not start.is_processing_input(), "início: Carregamento pedido = tela e menu sem entrada")
+	# falha no Carregamento antes do main consumir: as cargas em thread são soltas (main._fail -> drop_loads)
+	var asked := req.load_paths.duplicate()
+	var t_wait := Time.get_ticks_msec()
+	var busy := true
+	while busy and Time.get_ticks_msec() - t_wait < 30000:     # o get no _ready do runner não pode terminar carga na thread principal
+		busy = false
+		for p in asked:
+			busy = busy or ResourceLoader.load_threaded_get_status(p) == ResourceLoader.THREAD_LOAD_IN_PROGRESS
+		if busy:
+			OS.delay_msec(20)
+	var dropped := req.drop_loads()
+	var left := 0
+	for p in asked:
+		if ResourceLoader.load_threaded_get_status(p) != ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+			left += 1
+	check(asked.size() > 0 and dropped == asked.size() and req.load_paths.is_empty() and left == 0,
+		"início: drop_loads solta as cargas em thread (%d/%d, sobraram %d)" % [dropped, asked.size(), left])
+	check(req.drop_loads() == 0, "início: drop_loads de novo não faz nada")
+	for n in shown:
+		(n as Node).free()
+	StartRequest.pending = null
+	CharList.source = keep_src
+
+## Tela Criação (design/ux/start-flow.md §3-§5, P5): passos e ordem do Esc, API de revisão (select_class/show_step/show_tab),
+## pedido com classe/nome/visual/espaço (TEST_SLOT), nome vazio = "Herói", assinatura com clipe por classe (helper estático
+## `EntityView.clip_for_skill`), boneco no pedestal tocando a demonstração, começos rápidos escondidos e a sim intocada.
+func _check_char_create() -> void:
+	var maps0: int = Sim.maps.size()
+	var ents0: int = Sim.entities.size()
+	var parties0: int = Sim.parties.size()
+	var cc := CharCreate.new()
+	cc.setup(TEST_SLOT)
+	var got := {"req": null, "back": 0}
+	cc.create_confirmed.connect(func(r: StartRequest) -> void: got["req"] = r)
+	cc.back_requested.connect(func() -> void: got["back"] = int(got["back"]) + 1)
+	add_child(cc)
+	check(cc.step == CharCreate.STEP_CLASS and cc.selected != null, "criação: abre no passo Classe com uma classe escolhida")
+	check(cc._preset_box == null and cc.preset == 1, "criação: começos rápidos escondidos fora do dev (nível 1)")
+	cc.select_class("druid")
+	var druid: ClassDef = GameData.classes["druid"]
+	check(cc.selected == druid and cc.demo_clip != "" and cc.demo_clip == CharCreate.signature_clip(druid), "criação: select_class troca a classe e a demonstração")
+	cc.show_tab("hair")
+	check(cc.step == CharCreate.STEP_LOOK and cc.tab == "hair" and cc._rows.has("hair") and cc._swatch_btns.has("hair_color"), "criação: show_tab abre o Visual na aba Cabelo")
+	cc.show_tab("nada")
+	check(cc.tab == "hair", "criação: aba desconhecida não muda nada")
+	cc.show_step(CharCreate.STEP_CLASS)
+	check(cc.step == CharCreate.STEP_CLASS and cc._cards.size() == GameData.class_list().size(), "criação: show_step volta à grade de classes")
+	cc.show_step(CharCreate.STEP_LOOK)
+	var esc := InputEventKey.new()
+	esc.keycode = KEY_ESCAPE
+	esc.pressed = true
+	cc._input(esc)
+	check(cc.step == CharCreate.STEP_CLASS and int(got["back"]) == 0, "criação: Esc no Visual volta à Classe")
+	cc._input(esc)
+	check(int(got["back"]) == 1, "criação: Esc na Classe pede voltar (back_requested)")
+	# visual sobrevive à troca de classe e vai no pedido
+	cc.show_tab("hair")
+	cc._set_look("hair", "spiky")
+	cc._set_look("hair_color", "b8322e")
+	cc.select_class("paladin")
+	check(cc.look.get("hair") == "spiky" and cc.look.get("hair_color") == "b8322e", "criação: trocar de classe mantém o visual")
+	cc.name_edit.text = "  Kaelor  "
+	cc.show_step(CharCreate.STEP_LOOK)
+	cc._primary()
+	var req: StartRequest = got["req"]
+	check(req != null and req.class_id == "paladin" and req.char_name == "Kaelor" and req.slot == TEST_SLOT and not req.load_save
+		and req.look.get("hair") == "spiky" and req.preset == 1, "criação: Começar aventura leva classe, nome, visual e espaço")
+	cc.name_edit.text = "   "
+	check(cc.chosen_name() == CharCreate.DEFAULT_NAME and cc.build_request().char_name == "Herói", "criação: nome vazio vira Herói")
+	cc.name_edit.text = "Abcdefghijklmnopqrstu"
+	check(cc.chosen_name().length() <= CharCreate.NAME_MAX, "criação: nome cortado em 16 letras")
+	got["req"] = null
+	cc.show_step(CharCreate.STEP_CLASS)
+	cc._primary()
+	check(cc.step == CharCreate.STEP_LOOK and got["req"] == null, "criação: Enter na Classe = Próximo (não cria)")
+	cc.free()
+	# assinatura de cada classe: skill existe e o helper estático dá um clipe (o mesmo do jogo)
+	for cls in GameData.class_list():
+		var s := CharCreate.signature_skill(cls)
+		var clip := CharCreate.signature_clip(cls)
+		check(s != null and clip != "" and clip != "attack", "criação: %s mostra a assinatura %s (clipe %s)" % [cls.id, s.id if s else "?", clip])
+	var basic := SkillDef.new()
+	basic.id = "basic_x"
+	check(EntityView.clip_for_skill(basic, "sword", "", 0, true, false) == "attack" and EntityView.clip_for_skill(null) == "attack"
+		and EntityView.clip_for_skill(basic, "bow") == "atk_bow" and EntityView.clip_for_skill(basic, "sword", "", 1) == "atk_1h_b",
+		"criação: clip_for_skill sem entidade (bicho morde, arco, alternância A/B)")
+	# boneco no pedestal: kit da classe, demonstração tocando, idle no Visual
+	var ms := MenuSet.new()
+	add_child(ms)
+	ms.set_shot(&"create", false)
+	var pv := PedestalPreview.create(ms)
+	add_child(pv)
+	var c2 := CharCreate.new()
+	c2.setup(TEST_SLOT)
+	c2.attach(ms, pv)
+	add_child(c2)
+	c2.select_class("berserker")
+	var k := c2.kit
+	check(k != null and ms.character() == k and pv.kit() == k, "criação: boneco da classe no pedestal")
+	if k and k.anim:
+		var want := k.resolve(c2.demo_clip)
+		check(want != "" and k.anim.current_animation == want, "criação: demonstração toca o clipe da assinatura (%s -> %s, tocando %s)"
+			% [c2.demo_clip, want, k.anim.current_animation])
+		c2.show_step(CharCreate.STEP_LOOK)
+		check(not k.anim.current_animation.begins_with("atk") and c2._demo_left <= 0.0, "criação: Visual volta ao idle (%s)" % k.anim.current_animation)
+	c2.free()
+	pv.free()
+	ms.free()
+	check(Sim.maps.size() == maps0 and Sim.entities.size() == ents0 and Sim.parties.size() == parties0, "criação: a sim fica vazia (nenhum mapa/entidade/grupo)")
+
+## Tela Personagens (design/ux/start-flow.md §3-§5): cards ok/vazio/danificado, barra de ações, exclusão com confirmação
+## (apaga save e retrato), ordem do teclado e retrato sem tela. Espaços 90-94 (SaveSlots(90)) e saves falsos na memória:
+## nunca toca em save_0..4.
+func _check_char_list(sim, save) -> void:
+	var keep: int = save.slot
+	var base := TEST_SLOT
+	for i in range(5):
+		_wipe_save(save, base + i)
+		if FileAccess.file_exists(Portrait.path(base + i)):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(Portrait.path(base + i)))
+	save.slot = base
+	save.save_player(sim.player)                 # 90 = ok
+	_write_raw(save.path_of(base + 1), "{\"na")   # 91 = danificado; 92-94 vazios
+	var img := Image.create(8, 8, false, Image.FORMAT_RGBA8)
+	img.fill(Color.RED)
+	img.save_png(Portrait.path(base))
+	check(Portrait.path(base) == "user://portrait_%d.png" % base and Portrait.path(base) == save.PORTRAIT_PATH % base and Portrait.texture(base) != null,
+		"personagens: retrato salvo vira textura (caminho = SaveSystem.PORTRAIT_PATH, o que o delete_slot apaga)")
+	check(Portrait.texture(base + 2) == null and Portrait.texture(-1) == null, "personagens: sem retrato = null (card usa o ícone da classe)")
+	CharList.source = CharList.SaveSlots.new(base)
+	var list := CharList.new()
+	var got := {"play": -9, "create": -9, "back": 0, "sel": -9}
+	list.play_requested.connect(func(s: int) -> void: got["play"] = s)
+	list.create_requested.connect(func(s: int) -> void: got["create"] = s)
+	list.back_requested.connect(func() -> void: got["back"] = int(got["back"]) + 1)
+	list.select_slot(base + 1)
+	add_child(list)
+	check(list.card_count() == 5 and list.card_kind(0) == "ok" and list.card_kind(1) == "corrupt" and list.card_kind(2) == "empty"
+		and list.card_kind(4) == "empty", "personagens: 5 cards ok/danificado/vazios")
+	var cls: ClassDef = sim.player.class_def
+	check(list.card_text(0).contains(sim.player.name) and list.card_text(0).contains(cls.name) and list.card_text(0).contains("Nível %d" % sim.player.level),
+		"personagens: card ok com nome, classe e nível (%s)" % list.card_text(0))
+	check(list.card_text(1).contains("Save danificado") and list.card_text(1).contains("save_%d.json" % (base + 1)), "personagens: card danificado com o arquivo")
+	check(list.card_text(2).contains("Novo personagem"), "personagens: card vazio = Novo personagem")
+	check(list.selected_slot() == base + 1, "personagens: select_slot antes de abrir vale")
+	var st: Dictionary = list.action_state()
+	check(not st["play"] and st["delete"] and st["create"], "personagens: danificado = sem Jogar, com Excluir")
+	check(list.notice_text() != "", "personagens: aviso do danificado na barra")
+	# teclado: ordem esquerda→direita, Tab dá a volta, ←/→ param nas pontas
+	check(list.neighbor_index(0, "right") == 1 and list.neighbor_index(4, "right") == 4 and list.neighbor_index(0, "left") == 0
+		and list.neighbor_index(4, "next") == 0 and list.neighbor_index(0, "previous") == 4, "personagens: vizinhos de foco em ordem")
+	list.press_key(KEY_LEFT)
+	check(list.selected_slot() == base, "personagens: ← vai ao card anterior")
+	list.press_key(KEY_LEFT)
+	check(list.selected_slot() == base, "personagens: ← para no primeiro")
+	list.press_key(KEY_TAB, true)
+	check(list.selected_slot() == base + 4, "personagens: Shift+Tab no primeiro vai ao último")
+	list.press_key(KEY_TAB)
+	check(list.selected_slot() == base, "personagens: Tab no último volta ao primeiro")
+	st = list.action_state()
+	check(st["play"] and st["delete"], "personagens: card ok = Jogar e Excluir")
+	list.press_key(KEY_ENTER)
+	check(int(got["play"]) == base, "personagens: Enter no ok = Jogar o espaço")
+	list.press_key(KEY_END)
+	list.press_key(KEY_ENTER)
+	check(int(got["create"]) == base + 4, "personagens: Enter no vazio = Novo nesse espaço")
+	list.press_key(KEY_DELETE)
+	check(list.dialog() == null, "personagens: Delete no vazio não abre nada")
+	list.press_key(KEY_ESCAPE)
+	check(int(got["back"]) == 1, "personagens: Esc volta")
+	# exclusão: cancelar mantém, confirmar apaga save e retrato
+	list.press_key(KEY_HOME)
+	list.press_key(KEY_DELETE)
+	var dlg := list.dialog()
+	check(dlg != null and dlg.message().contains(sim.player.name) and dlg.message().contains("não pode ser desfeito"), "personagens: Delete abre a confirmação com o nome")
+	check(dlg != null and dlg.default_button() != null and dlg.default_button().text == "Cancelar", "personagens: Cancelar é o botão padrão")
+	list.press_key(KEY_ENTER)
+	check(int(got["play"]) == base and list.dialog() == dlg, "personagens: com o diálogo aberto a lista não recebe teclas")
+	dlg.cancel()
+	check(list.dialog() == null and save.has_slot(base) and FileAccess.file_exists(Portrait.path(base)), "personagens: cancelar não apaga")
+	list.press_key(KEY_DELETE)
+	list.dialog().confirm()
+	check(list.dialog() == null and not save.has_slot(base) and not FileAccess.file_exists(Portrait.path(base)), "personagens: excluir apaga o save e o retrato")
+	check(list.card_kind(0) == "empty" and list.selected_slot() == base, "personagens: card excluído vira vazio e fica selecionado")
+	check(int(got["create"]) == base + 4, "personagens: excluir com outro personagem na lista não abre a Criação")
+	list.select_slot(base + 1)
+	list.request_delete()
+	check(list.dialog() != null and list.dialog().message().contains("save_%d.json" % (base + 1)), "personagens: confirmação do danificado diz o arquivo")
+	list.dialog().confirm()
+	check(not save.has_slot(base + 1) and list.card_kind(1) == "empty" and not CharList.has_any(), "personagens: danificado excluído")
+	check(int(got["create"]) == base, "personagens: excluir o último abre a Criação no 1º espaço livre (veio %d)" % int(got["create"]))
+	list.free()
+	# 5 cheios: Novo some, aviso na barra
+	CharList.source = CharList.FakeSlots.new("5")
+	list = CharList.new()
+	add_child(list)
+	check(CharList.has_any() and list.card_kind(4) == "ok" and not list.action_state()["create"] and list.notice_text().contains("5 espaços"),
+		"personagens: 5 ocupados = sem Novo e com aviso")
+	check(CharList.FakeSlots.new("oc").state(1) == "corrupt" and CharList.FakeSlots.new("oc").state(2) == "empty"
+		and CharList.FakeSlots.new("2").slot_of(0) == TEST_SLOT, "personagens: --menu_saves (padrão e número) só nos espaços de teste")
+	list.free()
+	CharList.source = null
+	# retrato: sem tela não fotografa (nem espaço -1)
+	var dummy := EntityView.new()
+	Portrait.capture(dummy, base)
+	Portrait.capture(null, -1)
+	check(not Portrait.can_capture() and not FileAccess.file_exists(Portrait.path(base)), "retrato: headless não grava nada")
+	dummy.free()
+	for i in range(5):
+		_wipe_save(save, base + i)
+	save.slot = keep
+
+## Cenário 3D da tela inicial (spec `design/ux/start-flow.md` §3/§9, MenuSet): nós do GLB, extras das câmeras, as 3 telas,
+## boneco no pedestal girado na criação, materiais toon/brilho, DUSK igual ao do Blender, headless sem partículas e sem sim.
+func _check_menu_set() -> void:
+	check(ResourceLoader.exists(MenuSet.PATH), "menu_set: GLB existe")
+	if not ResourceLoader.exists(MenuSet.PATH):
+		return
+	var maps_before: int = Sim.maps.size()
+	var ms := MenuSet.new()
+	add_child(ms)
+	for n in ["SPOT_pedestal", "CAM_title", "CAM_list", "CAM_create", "LIGHT_fire", "LIGHT_lantern", "MS_flames", "MS_sparks", "MS_ground", "MS_camp", "MS_backdrop"]:
+		check(ms.node(n) != null, "menu_set: nó %s no GLB" % n)
+	check(ms.node("MS_flames") != null and ms.node("MS_flames").get_child_count() == 3, "menu_set: 3 chamas sob MS_flames")
+	for c in ["CAM_title", "CAM_list", "CAM_create"]:
+		var f := float(MenuSet.extra(ms.node(c), "fov", -1.0))
+		check(f > 20.0 and f < 70.0, "menu_set: %s tem o extra fov (%.1f)" % [c, f])
+	check(absf(float(MenuSet.extra(ms.node("CAM_create"), "subject_yaw", 0.0)) - MenuSet.SUBJECT_YAW) < 0.5, "menu_set: subject_yaw do GLB = reserva do código")
+	check(ms.fire_light != null and ms.lantern_light != null and ms.fire_light.omni_range > 5.0, "menu_set: luz da fogueira e da lanterna")
+	check(ms.find_children("*", "GPUParticles3D", true, false).is_empty() == ms.headless, "menu_set: fagulhas só com tela")
+	check(ms.find_children("*", "WorldEnvironment", true, false).size() == 1 and ms.sun != null, "menu_set: céu/ambiente e sol do entardecer")
+	var bad := 0
+	var glow := 0
+	for mi in ms.model.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		for i in m.mesh.get_surface_count():
+			var o := m.get_surface_override_material(i)
+			var src := m.mesh.surface_get_material(i)
+			if o == null:
+				bad += 1
+			elif src and src.resource_name.begins_with("glow_"):
+				glow += 1
+				if not (o is ShaderMaterial and (o as ShaderMaterial).shader != Materials.toon_shader()) and not (o is StandardMaterial3D and (o as StandardMaterial3D).emission_enabled):
+					bad += 1
+	check(bad == 0 and glow >= 4, "menu_set: toda superfície com material do jogo, glow_* brilhando (%d ruins, %d brilhos)" % [bad, glow])
+	var dummy := Node3D.new()
+	ms.place_character(dummy)
+	for sname in MenuSet.SHOTS:
+		ms.go_to(sname, true)
+		var cn := ms.node(MenuSet.CAM_OF[sname])
+		var want_t := ms.shot_transform(sname)
+		var nudge: Dictionary = MenuSet.SHOT_NUDGE.get(sname, {})
+		var off := Vector3(float(nudge.get("right", 0.0)), 0.0, float(nudge.get("back", 0.0)))
+		check(ms.current_shot() == sname and ms.camera.global_position.distance_to(want_t.origin) < 0.01
+			and ms.camera.global_basis.z.dot(cn.global_basis.z.normalized()) > 0.999, "menu_set: câmera da tela %s" % sname)
+		check(want_t.origin.distance_to(cn.global_position + cn.global_basis.orthonormalized() * off + Vector3.DOWN * float(nudge.get("down", 0.0))) < 0.01,
+			"menu_set: câmera da tela %s = vazio do GLB + SHOT_NUDGE" % sname)
+	# criação: recuo moderado (pés e pedestal acima da barra do nome sem encolher demais o boneco)
+	var cn_nudge: Dictionary = MenuSet.SHOT_NUDGE.get(&"create", {})
+	check(float(cn_nudge.get("back", 0.0)) > 0.5 and float(cn_nudge.get("back", 0.0)) < 3.0 and float(cn_nudge.get("down", 0.0)) >= 0.0,
+		"menu_set: criação recua a câmera e não sobe (%s)" % [cn_nudge])
+	for sname in MenuSet.SHOTS:
+		ms.go_to(sname, true)
+		var yaw := rad_to_deg(dummy.global_basis.get_euler().y)
+		var want := MenuSet.SUBJECT_YAW if sname == &"create" else 0.0
+		check(absf(yaw - want) < 0.5 and dummy.global_position.distance_to(ms.node("SPOT_pedestal").global_position) < 0.01,
+			"menu_set: boneco no pedestal, giro %.1f na tela %s" % [yaw, sname])
+	ms.set_shot(&"list", false)
+	check(ms.pedestal() == dummy.get_parent(), "menu_set: boneco é filho do pedestal()")
+	ms.go_to(&"nada", true)
+	check(ms.current_shot() == &"list", "menu_set: tela desconhecida não muda nada")
+	# DUSK espelha tools/blender/menu_set.py
+	var py := FileAccess.get_file_as_string("res://tools/blender/menu_set.py")
+	for k in MenuSet.DUSK:
+		var rx := RegEx.create_from_string('"%s":\\s*\\(?([-0-9., ]+)\\)?' % k)
+		var mt := rx.search(py)
+		var nums: Array = []
+		if mt:
+			for t in mt.get_string(1).split(","):
+				if t.strip_edges() != "":
+					nums.append(float(t))
+		var v: Variant = MenuSet.DUSK[k]
+		var mine: Array = [v.r, v.g, v.b] if v is Color else ([v.x, v.y, v.z] if v is Vector3 else [float(v)])
+		var same := nums.size() == mine.size()
+		for i in mini(nums.size(), mine.size()):
+			same = same and absf(float(nums[i]) - float(mine[i])) < 0.001
+		check(same, "menu_set: DUSK.%s igual ao do Blender (%s vs %s)" % [k, nums, mine])
+	check(Sim.maps.size() == maps_before, "menu_set: o cenário não carrega mapa na sim")
+	ms.free()
+
+## Configurações compartilhadas (SettingsPanel): Gráficos + 4 volumes + Dicas; o menu Esc do HUD usa o painel;
+## sem `Tips` (título) grava tips/enabled no arquivo que a `Tips` lê.
+func _check_settings_panel(_gd, sim) -> void:
+	var old := Tips.cfg_path
+	Tips.cfg_path = "user://test_settings_panel.cfg"
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(Tips.cfg_path))
+	var sp := SettingsPanel.create()
+	add_child(sp)
+	check(sp.gfx_button != null and sp.gfx_button.text == "Gráficos: " + GraphicsSettings.name(), "settings: botão de Gráficos com o preset atual")
+	check(sp.sliders.size() == AudioSettings.BUSES.size(), "settings: uma barra por barramento")
+	for b in AudioSettings.BUSES:
+		check(is_equal_approx((sp.sliders[b] as HSlider).value, float(AudioSettings.volume[b])), "settings: barra %s começa no volume salvo" % b)
+	check(sp.tips_button.text == "Dicas: ligadas" and SettingsPanel.saved_tips_enabled(), "settings: sem arquivo, dicas ligadas")
+	sp.tips_button.pressed.emit()
+	check(not SettingsPanel.saved_tips_enabled() and sp.tips_button.text == "Dicas: desligadas", "settings: título desliga as dicas no arquivo")
+	var t := Tips.new()
+	t.load_state()
+	check(not t.enabled, "settings: a Tips do jogo lê o que o título gravou")
+	t.free()
+	sp.tips_button.pressed.emit()
+	check(SettingsPanel.saved_tips_enabled(), "settings: e liga de volta")
+	sp.free()
+	var host := Control.new()
+	add_child(host)
+	var closed := [false]
+	var dim := SettingsPanel.overlay(host, null, func(): closed[0] = true)
+	check(dim.find_children("*", "SettingsPanel", true, false).size() == 1 and dim.find_child("Close", true, false) != null, "settings: painel sobreposto com Fechar")
+	(dim.find_child("Close", true, false) as Button).pressed.emit()
+	check(closed[0] and dim.is_queued_for_deletion(), "settings: Fechar fecha e avisa")
+	host.free()
+	# HUD: o menu Esc continua abrindo, agora com o painel compartilhado
+	var had_player = sim.player
+	var fake := SimEntity.new()            # fora de qualquer mapa: só o nome/classe/nível que o menu mostra
+	fake.name = "Menu"
+	fake.class_def = GameData.classes["paladin"]
+	sim.player = fake
+	var hud = load("res://game/ui/hud.gd").new()
+	add_child(hud)
+	hud.open_game_menu()
+	check(hud.game_menu != null and hud.game_menu.find_children("*", "SettingsPanel", true, false).size() == 1, "settings: Esc do HUD abre com o SettingsPanel")
+	var sp2: SettingsPanel = hud.game_menu.find_children("*", "SettingsPanel", true, false)[0] if hud.game_menu else null
+	check(sp2 != null and sp2.tips == hud.tips, "settings: no jogo o painel usa a Tips do HUD")
+	hud.close_game_menu()
+	check(hud.game_menu == null, "settings: Esc do HUD fecha")
+	hud.free()
+	sim.player = had_player
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(Tips.cfg_path))
+	Tips.cfg_path = old
+## Carregamento (design/ux/start-flow.md §7, §10): etapas com pesos somando 1 e textos, dica de Tips.TIPS, barra que não
+## volta, destino do pedido (cidade / começo rápido), cargas em thread que existem e degradê quando falta a arte da zona.
+func _check_loading_steps() -> void:
+	var total := 0.0
+	var ids := {}
+	for s in LoadingScreen.STEPS:
+		total += float(s["w"])
+		check(str(s["text"]).strip_edges() != "" and float(s["w"]) > 0.0 and not ids.has(s["id"]), "carregamento: etapa %s com texto, peso e id único" % str(s["id"]))
+		ids[s["id"]] = true
+	check(absf(total - 1.0) < 0.001, "carregamento: pesos somam 1 (%.3f)" % total)
+	for id in [&"prepare", &"sim_maps", &"bots", &"player", &"assets", &"map_build", &"views"]:
+		check(ids.has(id), "carregamento: etapa %s que o main usa existe" % str(id))
+	check(LoadingScreen.step_range(&"views").y > 0.999 and LoadingScreen.step_range(&"prepare").x == 0.0, "carregamento: etapas cobrem 0..1")
+	for i in 8:
+		check(Tips.TIPS.values().has(LoadingScreen.pick_tip()), "carregamento: dica sorteada é de Tips.TIPS")
+	check(LoadingScreen.art_for("mapa_que_nao_existe") is GradientTexture2D, "carregamento: sem arte da zona = degradê")
+	var ls := LoadingScreen.new()
+	add_child(ls)
+	ls.set_progress(0.5)
+	ls.set_progress(0.3)
+	ls.set_step(&"prepare", 0.0)
+	check(is_equal_approx(ls.progress(), 0.5), "carregamento: barra nunca anda para trás")
+	ls.show_zone(GameData.town_map_id())
+	ls.free()
+	var town := GameData.town_map_id()
+	check(StartRequest.new_character("paladin", "X", {}, 1, -1).destination_map() == town, "carregamento: personagem novo vai à cidade")
+	for pid in StartCatalog.PRESETS:
+		var pm := str(StartCatalog.PRESETS[pid].get("map", ""))
+		var want := pm if GameData.maps.has(pm) else town
+		check(StartRequest.new_character("paladin", "X", {}, int(pid), -1).destination_map() == want, "carregamento: começo rápido %s vai a %s" % [str(pid), want])
+	var pl := StartRequest.new_character("druid", "X", {"sex": "female"}, 1, -1).preload_list(LoadingScreen.MAIN_SCENE)
+	check(pl.has(LoadingScreen.MAIN_SCENE) and pl.size() >= 2, "carregamento: main.tscn e o kit na carga em thread")
+	for p in pl:
+		check(ResourceLoader.exists(p), "carregamento: carga em thread existe (%s)" % p)
+
+## Arte do carregamento: todo mapa com cenário (fora os interiores) tem `assets/ui/loading/<mapa>.jpg` (como
+## `LoadingScreen.art_for` resolve), e `ZONES`/`BOSSES` de `tools/blender/loading_art.py` (espelho à mão) batem com
+## o catálogo: nome e chão do mapa, chefe da masmorra no mapa, modelo e escala do chefe. Lê o .py como texto.
+func _check_loading_art(gd) -> void:
+	var missing: Array = []
+	for mid in gd.maps:
+		var md: MapDef = gd.maps[mid]
+		if md.model != "" and not md.interior and not ResourceLoader.exists(LoadingScreen.ART_PATH % mid):
+			missing.append(mid)
+	check(missing.is_empty(), "loading_art: mapa com cenário sem .jpg em assets/ui/loading (%s)" % [missing])
+	var py := FileAccess.get_file_as_string("res://tools/blender/loading_art.py")
+	check(py != "", "loading_art: loading_art.py lido")
+	if py == "":
+		return
+	# BOSSES: "id": {"model": "mob_x", "scale": 1.5, ...}
+	var b0 := py.find("\nBOSSES = {")
+	var b1 := py.find("\n}\n", b0)
+	var bosses := {}
+	var bad_boss: Array = []
+	if b0 >= 0 and b1 > b0:
+		var rb := RegEx.create_from_string('\\n    "(\\w+)": \\{"model": "(\\w+)", "scale": ([0-9.]+)')
+		for mt in rb.search_all(py.substr(b0, b1 - b0)):
+			var bid := mt.get_string(1)
+			bosses[bid] = true
+			var mdef: MonsterDef = gd.monsters.get(bid)
+			if mdef == null:
+				bad_boss.append("%s: monstro não existe" % bid)
+				continue
+			if mdef.model != mt.get_string(2):
+				bad_boss.append("%s: modelo %s no .py, %s no catálogo" % [bid, mt.get_string(2), mdef.model])
+			if absf(mdef.scale - float(mt.get_string(3))) > 0.001:
+				bad_boss.append("%s: escala %s no .py, %.2f no catálogo" % [bid, mt.get_string(3), mdef.scale])
+	check(bosses.size() >= 5, "loading_art: BOSSES lido do .py (%d)" % bosses.size())
+	check(bad_boss.is_empty(), "loading_art: BOSSES igual a monsters_catalog (%s)" % [bad_boss])
+	# ZONES: "id": {"name": "...", "ground": (r, g, b), ... "boss": {"id": "x" ...}
+	var z0 := py.find("\nZONES = {")
+	var z1 := py.find("\n}\n", z0)
+	var bad_zone: Array = []
+	var zones := {}
+	if z0 >= 0 and z1 > z0:
+		var block := py.substr(z0, z1 - z0)
+		var rz := RegEx.create_from_string('\\n    "(\\w+)": \\{"name": "([^"]*)", "ground": \\(([-0-9., ]+)\\)')
+		var rboss := RegEx.create_from_string('"boss": \\{"id": "(\\w+)"')
+		var hits := rz.search_all(block)
+		for i in hits.size():
+			var mt: RegExMatch = hits[i]
+			var zid := mt.get_string(1)
+			zones[zid] = true
+			var md: MapDef = gd.maps.get(zid)
+			if md == null:
+				bad_zone.append("%s: mapa não existe" % zid)
+				continue
+			if md.model == "" or md.interior:
+				bad_zone.append("%s: mapa sem cenário ou interior" % zid)
+			if md.name != mt.get_string(2):
+				bad_zone.append("%s: nome '%s' no .py, '%s' no catálogo" % [zid, mt.get_string(2), md.name])
+			var g: Array = Array(mt.get_string(3).split(",")).map(func(t): return float(t))
+			var c := md.ground_color
+			if g.size() != 3 or absf(g[0] - c.r) > 0.002 or absf(g[1] - c.g) > 0.002 or absf(g[2] - c.b) > 0.002:
+				bad_zone.append("%s: chão %s no .py, (%.2f, %.2f, %.2f) no catálogo" % [zid, g, c.r, c.g, c.b])
+			var end := hits[i + 1].get_start() if i + 1 < hits.size() else block.length()
+			var bm := rboss.search(block.substr(mt.get_start(), end - mt.get_start()))
+			if bm:
+				var bid := bm.get_string(1)
+				if not bosses.has(bid):
+					bad_zone.append("%s: chefe %s fora de BOSSES" % [zid, bid])
+				if not md.spawners.any(func(s): return str(s.get("monster_id", "")) == bid):
+					bad_zone.append("%s: chefe %s não tem spawner no mapa" % [zid, bid])
+	check(zones.size() >= 10, "loading_art: ZONES lido do .py (%d)" % zones.size())
+	check(bad_zone.is_empty(), "loading_art: ZONES igual a maps_catalog (%s)" % [bad_zone])
+	var no_zone: Array = gd.maps.keys().filter(func(mid): return gd.maps[mid].model != "" and not gd.maps[mid].interior and not zones.has(mid))
+	check(no_zone.is_empty(), "loading_art: todo mapa com cenário está em ZONES (%s)" % [no_zone])
 
 ## `--only`: chama direto os `_check_*` que batem com algum pedaço, montando os argumentos pelo nome (gd, sim, save).
 func run_only(tokens: Array, gd, sim, save) -> void:
@@ -365,7 +1298,182 @@ func run_only(tokens: Array, gd, sim, save) -> void:
 	save.delete_slot(TEST_SLOT)
 	print("--only: %d grupos" % ran)
 
-const HOSTILE_HUBS := ["elf_city"]      # zonas cujo hub é a cidade inimiga (sem serviços; spawners dentro do muro)
+## Espaços de save (UX start-flow §5): vazio/ok/danificado, excluir o danificado, espaço livre e gravação atômica
+## (.tmp + renomear). Só nos espaços 90 e 91 (fora da tela inicial): nunca toca em save_0..4.
+func _check_save_slots(sim, save) -> void:
+	var keep: int = save.slot
+	var a := TEST_SLOT
+	var b := TEST_SLOT + 1
+	_wipe_save(save, a)
+	_wipe_save(save, b)
+	check(_slot_state(save, a) == "empty" and save.slot_summary(a).is_empty(), "save: espaço sem arquivo = vazio")
+	# danificado: JSON truncado, {}, sem classe, não-dicionário
+	var bad := {"truncado": "{\n  \"name\": \"Tes", "vazio {}": "{}", "sem classe": "{\"name\": \"X\", \"level\": 3}",
+		"classe vazia": "{\"name\": \"X\", \"class\": \"\"}", "lista": "[1, 2]"}
+	for k in bad:
+		_write_raw(save.path_of(a), str(bad[k]))
+		check(_slot_state(save, a) == "corrupt", "save %s = danificado (%s)" % [k, _slot_state(save, a)])
+		check(save.has_slot(a) and save.slot_summary(a).is_empty() and save.load_data(a).is_empty(), "save %s: ocupa o espaço, sem resumo e não carrega" % k)
+		check(save.first_free_slot(a, 2) == b, "save %s: espaço danificado não é livre, o seguinte é" % k)
+		save.delete_slot(a)
+		check(_slot_state(save, a) == "empty" and not FileAccess.file_exists(save.path_of(a)), "save %s: excluir apaga o danificado" % k)
+	check(save.first_free_slot(a, 2) == a, "save: espaço vazio não é pulado")
+	# ok: grava, resume, carrega; a gravação não deixa .tmp
+	save.slot = a
+	save.save_player(sim.player)
+	var cls: String = sim.player.class_def.id
+	check(_slot_state(save, a) == "ok" and save.slot_summary(a).get("class") == cls and save.load_data(a).get("class") == cls, "save: gravado = ok com resumo")
+	check(not FileAccess.file_exists(save.path_of(a) + ".tmp"), "save: gravar não deixa .tmp")
+	check(save.first_free_slot(a, 2) == b, "save: espaço ok não é livre")
+	var good := FileAccess.get_file_as_string(save.path_of(a))
+	# gravação interrompida: .tmp pela metade ao lado do save bom -> o bom fica e o .tmp sai
+	_write_raw(save.path_of(a) + ".tmp", good.substr(0, int(good.length() * 0.5)))
+	check(_slot_state(save, a) == "ok" and FileAccess.get_file_as_string(save.path_of(a)) == good, "save: .tmp truncado não estraga o save anterior")
+	check(not FileAccess.file_exists(save.path_of(a) + ".tmp"), "save: .tmp truncado é apagado")
+	# .tmp inteiro ao lado de save bom: o save bom vence (o .tmp é descartado)
+	_write_raw(save.path_of(a) + ".tmp", good.replace("\"level\"", "\"level_x\""))
+	check(_slot_state(save, a) == "ok" and FileAccess.get_file_as_string(save.path_of(a)) == good, "save: com o principal bom, o .tmp não o substitui")
+	# só o .tmp (caiu entre apagar e renomear): recupera se é save válido, senão apaga
+	var tmp_txt := good
+	save.delete_slot(a)
+	_write_raw(save.path_of(a) + ".tmp", tmp_txt)
+	check(_slot_state(save, a) == "ok" and FileAccess.file_exists(save.path_of(a)) and not FileAccess.file_exists(save.path_of(a) + ".tmp"), "save: só o .tmp válido = recuperado")
+	save.delete_slot(a)
+	_write_raw(save.path_of(a) + ".tmp", "{\"name\": ")
+	check(_slot_state(save, a) == "empty" and not FileAccess.file_exists(save.path_of(a) + ".tmp"), "save: só o .tmp quebrado = espaço vazio, .tmp apagado")
+	check(save.first_free_slot(a, 2) == a, "save: .tmp quebrado sozinho não ocupa o espaço")
+	# principal danificado + .tmp válido: o .tmp entra no lugar
+	_write_raw(save.path_of(a), "{}")
+	_write_raw(save.path_of(a) + ".tmp", tmp_txt)
+	check(_slot_state(save, a) == "ok" and save.load_data(a).get("class") == cls, "save: principal danificado + .tmp válido = recuperado")
+	# gravar por cima de um danificado conserta; excluir apaga também um .tmp solto
+	_write_raw(save.path_of(a), "{\"na")
+	save.save_player(sim.player)
+	check(_slot_state(save, a) == "ok", "save: gravar por cima do danificado conserta")
+	_write_raw(save.path_of(a) + ".tmp", "x")
+	save.delete_slot(a)
+	check(not FileAccess.file_exists(save.path_of(a)) and not FileAccess.file_exists(save.path_of(a) + ".tmp"), "save: excluir apaga o principal e o .tmp")
+	check(_slot_state(save, -1) == "empty" and not save.has_slot(-1), "save: espaço -1 = vazio")
+	_wipe_save(save, a)
+	_wipe_save(save, b)
+	save.slot = keep
+
+func _slot_state(save, i: int) -> String:
+	return str(save.slot_state(i))
+
+func _write_raw(path: String, txt: String) -> void:
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	f.store_string(txt)
+	f.close()
+
+## Título e montagem da tela inicial (B2, design/ux/start-flow.md §3 Título/§4/§9): sinais e confirmação de Sair,
+## câmera do cenário por tela, Configurações abre/fecha (Esc), boneco do card no pedestal (ok = kit, vazio/danificado =
+## sem kit), kit guardado por classe+sexo, e nada disso toca na sim. Saves: só FakeSlots e o TEST_SLOT.
+func _check_title_screen(sim, save) -> void:
+	var maps0: int = Sim.maps.size()
+	var ents0: int = Sim.entities.size()
+	var parties0: int = Sim.parties.size()
+	var t := TitleScreen.new()
+	var got := {"play": 0, "cfg": 0, "quit": 0}
+	t.play_requested.connect(func() -> void: got["play"] = int(got["play"]) + 1)
+	t.settings_requested.connect(func() -> void: got["cfg"] = int(got["cfg"]) + 1)
+	t.quit_requested.connect(func() -> void: got["quit"] = int(got["quit"]) + 1)
+	add_child(t)
+	var bs := t.buttons()
+	check(bs.size() == 3 and bs[0].text == "Jogar" and bs[1].text == "Configurações" and bs[2].text == "Sair", "título: Jogar / Configurações / Sair")
+	check(not bs[1].disabled and bs.all(func(b: Button) -> bool: return b.focus_mode == Control.FOCUS_ALL and b.custom_minimum_size.y >= 40),
+		"título: Configurações ligado, botões focáveis e com 40+ px")
+	check(bs[0].focus_neighbor_top == bs[0].get_path_to(bs[2]) and bs[2].focus_neighbor_bottom == bs[2].get_path_to(bs[0]), "título: ↑/↓ dão a volta")
+	check(t.find_child("Logo", true, false) is TextureRect and t.find_child("Subtitle", true, false) is TextureRect, "título: logo e subtítulo da arte")
+	check(TitleScreen.version_text().begins_with("RagnaEx"), "título: linha da versão")
+	bs[0].pressed.emit()
+	bs[1].pressed.emit()
+	check(int(got["play"]) == 1 and int(got["cfg"]) == 1, "título: Jogar e Configurações emitem")
+	bs[2].pressed.emit()
+	check(t.quit_confirm_open() and int(got["quit"]) == 0, "título: Sair pede confirmação")
+	t.cancel_quit()
+	check(not t.quit_confirm_open() and int(got["quit"]) == 0, "título: cancelar não sai")
+	t.request_quit()
+	t.confirm_quit()
+	check(not t.quit_confirm_open() and int(got["quit"]) == 1, "título: confirmar sai")
+	t.free()
+	# tela inicial: câmera por tela, Configurações, pedestal
+	CharList.source = CharList.FakeSlots.new("oc")
+	var start: Node = load("res://game/menu/start.tscn").instantiate()
+	start.set("apply_settings", false)
+	start.set("dev_routing", false)
+	add_child(start)
+	var ms: MenuSet = start.get("menu_set")
+	var pv: PedestalPreview = start.get("preview")
+	check(ms != null and ms.current_shot() == &"title" and pv != null and pv.kit() == null, "título: câmera CAM_title e pedestal vazio")
+	start.call("_on_settings")
+	var ov: Control = start.get("settings")
+	check(ov != null and ov.find_child("SettingsPanel", true, false) is SettingsPanel and not (start.get("screen") as TitleScreen).buttons()[0].focus_mode == Control.FOCUS_ALL,
+		"título: Configurações abre o painel e tira o foco dos botões")
+	var esc := InputEventKey.new()
+	esc.keycode = KEY_ESCAPE
+	esc.pressed = true
+	start.call("_input", esc)
+	check(start.get("settings") == null and ov.is_queued_for_deletion() and (start.get("screen") as TitleScreen).buttons()[0].focus_mode == Control.FOCUS_ALL,
+		"título: Esc fecha as Configurações")
+	start.call("show_list", -1)
+	check(start.get("state") == &"list" and ms.current_shot() == &"list", "título: lista = CAM_list")
+	check(pv.kit() != null and ms.character() == pv.kit() and pv.slot == TEST_SLOT and pv.equipment_count() > 0,
+		"pedestal: card ok selecionado = boneco com equipamento no pedestal")
+	var first := pv.kit()
+	pv.show_slot(TEST_SLOT + 1)
+	check(pv.kind == "corrupt" and pv.kit() == null and (ms.character() == null or ms.character() == pv.silhouette()), "pedestal: danificado = sem boneco")
+	pv.show_slot(TEST_SLOT + 2)
+	check(pv.kind == "empty" and pv.kit() == null and (ms.character() == null or ms.character() == pv.silhouette()), "pedestal: vazio = sem boneco")
+	check(pv.silhouette() == null or not ResourceLoader.exists(PedestalPreview.SILHOUETTE_PATH) or ms.character() == pv.silhouette(),
+		"pedestal: vulto da silhueta quando a malha existe")
+	if pv.silhouette() != null:
+		var aps := pv.silhouette().find_children("*", "AnimationPlayer", true, false)
+		check(not aps.is_empty() and (aps[0] as AnimationPlayer).current_animation == "idle"
+			and (aps[0] as AnimationPlayer).get_animation("idle").loop_mode == Animation.LOOP_LINEAR, "pedestal: silhueta toca o idle em laço")
+	pv.show_slot(TEST_SLOT)
+	check(pv.kit() == first and first.get_parent() == ms.pedestal(), "pedestal: kit guardado por classe+sexo (não instancia de novo)")
+	start.call("show_create", TEST_SLOT + 2)
+	var cc_scr: Variant = start.get("screen")
+	check(ms.current_shot() == &"create" and pv.slot == -1 and cc_scr is CharCreate and pv.kit() == (cc_scr as CharCreate).kit,
+		"título: Criação = CAM_create, sem o card no pedestal (o boneco é o da Criação)")
+	start.call("show_title")
+	check(ms.current_shot() == &"title", "título: voltar ao Título = CAM_title")
+	check(Sim.maps.size() == maps0 and Sim.entities.size() == ents0 and Sim.parties.size() == parties0 and StartRequest.pending == null,
+		"título: a tela inicial (cenário, pedestal, Configurações) não toca na sim")
+	start.free()
+	# save de verdade (TEST_SLOT): visual e equipamento do arquivo
+	var keep: int = save.slot
+	_wipe_save(save, TEST_SLOT)
+	save.slot = TEST_SLOT
+	save.save_player(sim.player)
+	CharList.source = CharList.SaveSlots.new(TEST_SLOT)
+	var pv2 := PedestalPreview.create(null)
+	add_child(pv2)
+	pv2.show_slot(TEST_SLOT)
+	var want_eq := 0
+	for s in sim.player.equipment:
+		if sim.player.equipment[s] != null:
+			want_eq += 1
+	check(pv2.kind == "ok" and pv2.kit() != null and pv2.equipment_count() == want_eq, "pedestal: save do TEST_SLOT veste o equipamento salvo (%d/%d)" % [pv2.equipment_count(), want_eq])
+	var ghost := {"class": "nao_existe", "equipment": {"0": "item_que_sumiu"}}
+	pv2.show_data(ghost)
+	check(pv2.kit() != null and pv2.equipment_count() > 0, "pedestal: classe/item que saíram do jogo = classe padrão com o equipamento inicial")
+	for cid in ["berserker", "druid", "ranger", "bishop", "assassin"]:     # mais classes que MAX_MODELS: a cena do kit sai com o boneco
+		pv2.show_data({"class": cid})
+	check(pv2._scenes.size() <= PedestalPreview.MAX_MODELS and pv2._scenes.keys().all(func(k: String) -> bool: return pv2._models.has(k)),
+		"pedestal: cenas de kit guardadas só dos bonecos guardados (%d cenas, máx %d)" % [pv2._scenes.size(), PedestalPreview.MAX_MODELS])
+	pv2.queue_free()
+	_wipe_save(save, TEST_SLOT)
+	save.slot = keep
+	CharList.source = null
+
+func _wipe_save(save, i: int) -> void:
+	for pth in [save.path_of(i), save.path_of(i) + ".tmp"]:
+		if FileAccess.file_exists(pth):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(pth))
+
+const HOSTILE_HUBS := ["elf_city"]     # zonas cujo hub é a cidade inimiga (sem serviços; spawners dentro do muro)
 const TEST_SLOT := 90       # espaço só dos testes (fora dos SLOTS da tela inicial): nunca toca nos personagens do jogador
 # performance da simulação: 3000 ticks levam ~25,6 s com a máquina quieta; o limite pega uma regressão de 2x (~51 s)
 const PERF_SIM_LIMIT_MS := 32000.0
@@ -507,7 +1615,7 @@ func run_all(gd, sim, balance, save) -> void:
 	var c := Combat.clamp_aim(p, aim, 6.0)
 	check(absf(c.distance_to(p.position) - 6.0) < 0.01, "clamp de mira no alcance")
 	# bloqueio reduz dano
-	var rng := RandomNumberGenerator.new(); rng.seed = 5
+	var rng := _seeded_rng(); rng.seed = 5
 	var wolf = sim.spawn_monster(gd.monsters["wolf"], "city_aldara", p.position + Vector3(0, 0, 8))
 	p.is_blocking = false
 	var d_open := 0; var d_block := 0
@@ -609,11 +1717,13 @@ func run_all(gd, sim, balance, save) -> void:
 	save.slot = keep_slot
 	save.delete_slot(TEST_SLOT)
 	check(not save.has_slot(TEST_SLOT), "excluir espaço apaga só ele")
+	_check_save_slots(sim, save)
 	_check_zone(gd, sim)
 	_check_character_models(gd, sim)
 	_check_jump(gd, sim)
 	_check_tree(gd, sim, save)
 	_check_class_talents(gd, sim)
+	_check_bot_spawn_cache(gd, sim)
 	_check_skill_visuals(gd)
 	_check_party(gd, sim)
 	_check_bot_chat(gd, sim)
@@ -638,13 +1748,26 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_world_layout(gd)
 	_check_outdoor(gd)
 	_check_graphics_settings()
+	_check_start_flow()
+	_check_char_create()
+	_check_char_list(sim, save)
+
+	_check_menu_set()
+	_check_settings_panel(gd, sim)
+	_check_loading_steps()
+	_check_loading_art(gd)
+	_check_title_screen(sim, save)
 	_check_form_clips()
 	_check_view_queue()
 	_check_late_view_state(GameData, Sim)
 	_check_float_text_crowd(GameData)
+	_check_ui_polish_r2(GameData, Sim)
 	_check_windup_timing()
 	_check_pose_fade()
 	_check_hand_twist()
+	_check_form_leg_twist()
+	_check_shield_mounts()
+	_check_axe_kit()
 	_check_anim_review()
 	_check_mastery_desc()
 	# builds: paladino = tanque (escudo) ou 2 mãos; berserker = 2 mãos ou duas armas de 1 mão (machado/espada misturados)
@@ -1118,7 +2241,7 @@ func _check_charge_path(gd, sim) -> void:
 ## Guarda direcional: bloqueio, chance passiva, aparo e reação só valem no arco da frente.
 func _check_guard_arc(gd, sim) -> void:
 	var m: Dictionary = sim.maps["city_aldara"]
-	var rng := RandomNumberGenerator.new()
+	var rng := _seeded_rng()
 	var d: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Arc", "city_aldara", Vector3(0, 0, 6), 30)
 	var foe: SimEntity = sim.spawn_bot(gd.classes["berserker"], "ArcF", "city_aldara", Vector3(0, 0, 8), 30)
 	d.brain = null
@@ -1743,6 +2866,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_boss_crowd_cocoon(gd, sim)
 	_check_boss_signatures(gd)
 	_check_boss_sig_idempotent(gd)
+	_check_sim_rng_fresh()
 	_check_boss_sig_rules(gd)
 	_check_boss_sig_bots(gd)
 	_check_boss_sig_kharzun(gd)
@@ -1764,6 +2888,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_assault_routes(gd, sim)
 	_check_assault_march(gd)
 	_check_music(gd)
+	_check_boot_splash()
 	_check_act2_maps(gd, sim)
 	_check_water_tints(gd)
 	_check_stage_obstacles(gd)
@@ -2470,7 +3595,7 @@ func _check_looks(gd, sim) -> void:
 	check(d["sex"] == cls.body_type and LooksCatalog.HAIR.has(d["hair"]) and d["beard"] == "none", "visual padrão da classe")
 	var bad := LooksCatalog.normalized({"sex": "x", "hair": "nope", "eyes": "big", "eye_color": "3a6ab0"}, cls)
 	check(bad["sex"] == cls.body_type and bad["hair"] == "short" and bad["eyes"] == "big" and bad["eye_color"] == "3a6ab0", "look inválido vira padrão, o válido fica")
-	var rng := RandomNumberGenerator.new()
+	var rng := _seeded_rng()
 	rng.seed = 3
 	var sexes := {}
 	for i in range(40):
@@ -3467,6 +4592,14 @@ func _check_twin_fury(gd, sim) -> void:
 	var nd: Dictionary = gd.asc_trees["berserker"]["nodes"].get("berserker_a_x_twin_fury", {})
 	check(not nd.is_empty() and int(nd["level"]) == 45 and str(nd["branch"]) == "carniceiro" and int(nd["cost"]) == 3
 		and is_equal_approx(float((nd.get("stats", {}) as Dictionary).get("atk_pct", 0.0)), float(Balance.TWIN_FURY_ATK)), "Gêmeos: Fúria Gêmea (45, +%d%% de dano) no ramo da build" % Balance.TWIN_FURY_ATK)
+	# F5 no 45 (usuário 2026-11-14: build abaixo de 1,30 sobe): nós do 45 que carregam a subida, com portão para o bot comprar
+	var asc45 := [["berserker", "berserker_a_x_arena_finale", "executor", "atk_pct", float(Balance.ARENA_FINALE_ATK)],
+		["paladin", "paladin_a_x_tem_dawn", "templario", "atk_pct", float(Balance.ASC_TEM_DAWN_ATK)],
+		["elementalist", "elementalist_a_x_frost_lord", "gelo", "matk_pct", float(Balance.ASC_FROST_LORD_MATK)]]
+	for row in asc45:
+		var n45: Dictionary = gd.asc_trees[row[0]]["nodes"].get(row[1], {})
+		check(not n45.is_empty() and int(n45["level"]) == 45 and str(n45["branch"]) == row[2] and str(n45.get("flag", "")) != ""
+			and is_equal_approx(float((n45.get("stats", {}) as Dictionary).get(row[3], 0.0)), row[4]), "F5 45: %s (45, %s %+.0f, com portão) no ramo %s" % [row[1], row[3], row[4], row[2]])
 	var order: Array = AscensionCatalog.bot_order(gd.classes["berserker"], "carniceiro", gd.skills)
 	check(order.has("ber_titan_cyclone") and not AscensionCatalog.BOT_NO_SLOT.has("ber_titan_cyclone") and order.find("ber_titan_cyclone") < Balance.ASC_SLOTS, "Gêmeos: Ciclone de Titã na ordem de ascensão do bot (barra 7-0)")
 	var e: SimEntity = sim.spawn_character(SimEntity.Kind.BOT, gd.classes["berserker"], "Web_twin", "city_aldara", Vector3(60, 0, -60), Balance.ASC_MAX_LEVEL)
@@ -3512,11 +4645,11 @@ func _check_asc_web_fill(gd, sim) -> void:
 		return e
 	# bots no 45 gastam a teia inteira e compram os portões da build
 	for row in [["paladin", "cruzado", [Balance.MOUNT_LANCE_FLAG]], ["paladin", "guardiao", [Balance.ARCANE_GUARD_FLAG, Balance.MOUNT_WALL_FLAG]],
-			["paladin", "templario", [Balance.ARCANE_WARD_FLAG, Balance.MOUNT_BANNER_FLAG]],
+			["paladin", "templario", [Balance.ARCANE_WARD_FLAG, Balance.MOUNT_BANNER_FLAG, Balance.TEM_DAWN_FLAG]],
 			["berserker", "carniceiro", [Balance.CYCLONE_LONG_FLAG, Balance.TWIN_FURY_FLAG]], ["berserker", "executor", [Balance.SECOND_AXE_FLAG, Balance.ARENA_FINALE_FLAG]],
 			["berserker", "punhos", [Balance.FURY_LIT_FLAG, Balance.GLORY_KEEP_FLAG]], ["ranger", "lanceiro", [Balance.DOUBLE_JUMP_FLAG, Balance.SHOUT_COMBO_FLAG]],
 			["ranger", "atirador", Balance.TURRET_REFINE_FLAGS], ["elementalist", "fogo", [Balance.ELEM_FORM_REFINE_FLAG + "fire"]],
-			["elementalist", "gelo", [Balance.ELEM_FORM_REFINE_FLAG + "frost"]], ["elementalist", "raio", [Balance.ELEM_FORM_REFINE_FLAG + "storm"]]]:
+			["elementalist", "gelo", [Balance.ELEM_FORM_REFINE_FLAG + "frost", Balance.FROST_LORD_FLAG]], ["elementalist", "raio", [Balance.ELEM_FORM_REFINE_FLAG + "storm"]]]:
 		var e: SimEntity = mk.call(row[0], row[1], Balance.ASC_MAX_LEVEL)
 		for flag in row[2]:
 			check(ProgressionSystem.asc_flag(e, flag), "bot %s no 45 compra o portão %s" % [row[1], flag])
@@ -4238,7 +5371,7 @@ func _check_assassin_builds(gd, sim) -> void:
 	check(Combat.is_behind(a, mob), "atacante atrás do alvo é pelas costas")
 	mob.facing = PI
 	check(not Combat.is_behind(a, mob), "de frente não é pelas costas")
-	var rng := RandomNumberGenerator.new()
+	var rng := _seeded_rng()
 	var front := 0.0
 	var back := 0.0
 	a.buffs.append({"id": "t_bs", "duration": 99, "remaining": 99, "backstab": 40})
@@ -8572,6 +9705,85 @@ func _buy_path(sim, e, target: String) -> int:
 # árvore de pontos de skill (TreeCatalog): forma, regras e um "jogador" por build do 1 ao 30 (loops)
 # ---------------------------------------------------------------------------
 ## Talentos de classe (aba Talentos): 6 linhas × 3 por classe, ganchos válidos e o comportamento dos principais.
+## Spawn de bot com cache (passo 4 ordenado, atributos no fim, equipamento por chave) = caminho antigo, nó a nó.
+func _check_bot_spawn_cache(gd, sim) -> void:
+	var at: Vector3 = sim.maps["city_aldara"]["def"].town_center
+	var rng_state: int = sim.rng.state
+	ClassTalentSystem.bot_picks = true
+	var cases: Array = []          # [classe, build, nível, ascendido]
+	var ci := 0
+	for cid in gd.classes:
+		var bl: Array = gd.classes[cid].builds
+		if bl.is_empty():
+			continue
+		cases.append([cid, bl[ci % bl.size()]["id"], 8, false])
+		cases.append([cid, bl[(ci + 1) % bl.size()]["id"], 27, false])
+		cases.append([cid, bl[(ci + 2) % bl.size()]["id"], 45, true])
+		cases.append([cid, bl[ci % bl.size()]["id"], 38, true])
+		ci += 1
+	for b in Balance.TITAN_BUILDS:                 # Empunhadura de Titã: chave do equipamento com titã
+		for cid in gd.classes:
+			if not gd.classes[cid].build_by_id(b).is_empty():
+				cases.append([cid, b, 45, true])
+	var bad := 0
+	for c in cases:
+		var outs: Array = []
+		for r in 3:                                # antigo, cache vazio, cache cheio
+			var fast: bool = r > 0
+			if r == 1:                             # cache vazio de verdade (o antigo e casos anteriores já encheram)
+				sim._bot_gear_cache.clear()
+				ProgressionSystem._web_cache.clear()
+				check(sim._bot_gear_cache.is_empty() and ProgressionSystem._web_cache.is_empty(), "spawn de bot: 2ª rodada começa com o cache vazio")
+			sim.rng.state = 4242 + int(c[2])
+			ProgressionSystem.bot_spawn_cache = fast
+			var e: SimEntity = sim.spawn_character(SimEntity.Kind.BOT, gd.classes[c[0]], "BS", "city_aldara", at, int(c[2]))
+			e.build_id = c[1]
+			if c[3]:
+				e.quests_completed.append("hx_asc_" + str(c[0]))
+			sim._gear_bot(e)
+			sim._skill_bot(e, fast)
+			e.heal_full()
+			var d := _bot_state(e)
+			ProgressionSystem.gain_xp(sim, e, Balance.xp_for_level(e.level))     # subir de nível: bot_spend sem lote
+			d += "|lvup=" + _bot_state(e)
+			outs.append(d)
+			sim.despawn(e)
+		ProgressionSystem.bot_spawn_cache = true
+		if outs[0] != outs[1] or outs[0] != outs[2]:
+			bad += 1
+			print("BOT_SPAWN_CACHE diff %s
+ old=%s
+ new=%s
+ hit=%s" % [str(c), outs[0], outs[1], outs[2]])
+		check(outs[0] == outs[1] and outs[0] == outs[2], "spawn de bot com cache igual ao antigo: %s" % str(c))
+	check(cases.size() >= 30 and bad == 0, "spawn de bot com cache: %d casos, %d diferentes" % [cases.size(), bad])
+	# ClassTalentsCatalog: build() entrega cópia (mexer nela não suja o cache) e bate com as linhas em cache
+	var cat: Dictionary = ClassTalentsCatalog.build()
+	check(not ClassTalentsCatalog._cache.is_empty() and FileAccess.get_file_as_string("res://data/game_data.gd").contains("ClassTalentsCatalog.warm()"),
+		"ClassTalentsCatalog: cache montado no GameData._ready (warm), antes da sim ir para a thread")
+	check(str(cat["paladin"]) == str(ClassTalentsCatalog.rows_of("paladin")), "ClassTalentsCatalog: build() = cache")
+	(cat["paladin"][0][1] as Array).clear()
+	check((ClassTalentsCatalog.rows_of("paladin")[0][1] as Array).size() == 3, "ClassTalentsCatalog: build() é cópia (cache intacto)")
+	ClassTalentSystem.bot_picks = false
+	sim.rng.state = rng_state
+
+## Estado do bot que o spawn decide (ordem da teia incluída: a soma dos passivos segue essa ordem).
+func _bot_state(e: SimEntity) -> String:
+	var eq: Array = []
+	for sl in e.equipment:
+		eq.append("%d:%s" % [sl, (e.equipment[sl] as ItemDef).id if e.equipment[sl] else "-"])
+	var sk: Array = []
+	for s in e.skills:
+		sk.append(s.id if s else "-")
+	var st: Array = []
+	for pr in e.stats.get_property_list():
+		if pr["usage"] & PROPERTY_USAGE_SCRIPT_VARIABLE:
+			st.append("%s=%s" % [pr["name"], str(e.stats.get(pr["name"]))])
+	return "lv%d eq=%s tree=%s asc=%s learned=%s m=%s tal=%s pts=%d asc_pts=%d sk=%s tb=%s ct=%s basic=%s hp=%.4f mp=%.4f st=%s" % [
+		e.level, ",".join(eq), ",".join(e.tree.keys()), ",".join(e.asc_tree.keys()), ",".join(e.learned.keys()), str(e.mastery), str(e.talents),
+		e.mastery_points, ProgressionSystem.asc_points(e), ",".join(sk), str(e.tree_bonus), str(e.ct), e.basic_skill.id if e.basic_skill else "-",
+		e.hp, e.mp, ",".join(st)]
+
 func _check_class_talents(gd, sim) -> void:
 	var known_hooks := ["id", "name", "text", "kind", "permanent", "aura", "strength", "radius", "summon_permanent", "summon_extra",
 		"skill_mods", "stats", "form_mult", "form_time", "cheat_death", "ally_save", "ambush_mult", "on_kill", "low_hp", "execute",
@@ -10921,6 +12133,19 @@ func _check_boss_sig_idempotent(gd) -> void:
 			n += Array(ph.get("skills", [])).count(SIG_BOSSES[mid])
 		check(n == 1, "%s: assinatura %s uma vez só no kit depois de conferir 2x (%d)" % [mid, SIG_BOSSES[mid], n])
 
+## WorldSim.new() fora da árvore (testes, sondas) não roda _ready: a semente tem de vir do _init.
+## Sem isso o RNG nasce com semente aleatória e testes que sorteiam (ilhas da Maré Cheia) falham às vezes.
+func _check_sim_rng_fresh() -> void:
+	var a := WorldSim.new()
+	var b := WorldSim.new()
+	check(a.rng.seed == WorldSim.RNG_SEED and b.rng.seed == WorldSim.RNG_SEED, "WorldSim.new(): RNG com a semente fixa (%d / %d)" % [a.rng.seed, b.rng.seed])
+	var same := true
+	for i in range(8):
+		same = same and a.rng.randf() == b.rng.randf()
+	check(same, "WorldSim.new(): dois mundos novos sorteiam a mesma sequência")
+	a.free()
+	b.free()
+
 ## Regras compartilhadas R-A..R-D e únicas R-E/R-G (AC-S3, AC-S4), com um mundo só para o teste.
 func _check_boss_sig_rules(gd) -> void:
 	var ws := WorldSim.new()
@@ -12297,7 +13522,7 @@ func _check_bot_skill_reject(gd, sim) -> void:
 	var m: Dictionary = sim.maps["city_aldara"]
 	check(sim.pet_of(r) == null, "bot sem companheiro para o teste")
 	var brain := BotBrain.new()
-	brain.setup(r, RandomNumberGenerator.new())
+	brain.setup(r, _seeded_rng())
 	var pick: int = brain._best_skill(r, sim, m, mob, r.position.distance_to(mob.position))
 	check(pick != 0, "bot sem companheiro não escolhe Ataque da Fera (a sim recusaria e o bot travava)")
 	mob.hp = 0
@@ -12316,7 +13541,7 @@ func _check_bot_form(gd, sim) -> void:
 		var mob = sim.spawn_monster(gd.monsters["slime"], "city_aldara", d.position + Vector3(0, 0, 3.0))
 		var m: Dictionary = sim.maps["city_aldara"]
 		var brain := BotBrain.new()
-		brain.setup(d, RandomNumberGenerator.new())
+		brain.setup(d, _seeded_rng())
 		check(d.stats.meets(fs.requires), "%s: equipamento do bot permite a forma" % row[0])
 		var pick: int = brain._best_skill(d, sim, m, mob, d.position.distance_to(mob.position))
 		check(pick == 0, "%s: bot com inimigo perto escolhe entrar na forma (%d)" % [row[0], pick])
@@ -12515,7 +13740,7 @@ func _cocoon_breakers(gd, sim) -> void:
 		var add: SimEntity = cocoon_on.call(v, q)
 		var role: String = sim.role_of(lead)
 		var bb := BotBrain.new()
-		bb.setup(lead, RandomNumberGenerator.new())
+		bb.setup(lead, _seeded_rng())
 		var cmd: InputCommand = bb.think(lead, sim, m, 0.05)
 		var tag := "%s %s (%s)" % ["sozinho perto do jogador" if solo else "líder do grupo", row[0], role]
 		check(add != null and (solo or sim.party_leader(lead) == lead) and not def.in_town(lead.position), "%s: casulo de pé e fora da vila" % tag)
@@ -12618,7 +13843,7 @@ func _check_tank_threat(gd, sim) -> void:
 		check(boss.aggro_target == tank.id and is_equal_approx(float(boss.threat[tank.id]), 1000.0 * Balance.TAUNT_THREAT_LEAD + 1.0), "%s: provocar deixa a ameaça em %.1f x a maior" % [pair[1], Balance.TAUNT_THREAT_LEAD])
 		# tanque bot provoca de novo o chefe que segura quando o dps chega perto da ameaça dele (antes do freio)
 		var bt := BotBrain.new()
-		bt.setup(tank, RandomNumberGenerator.new())
+		bt.setup(tank, _seeded_rng())
 		var m: Dictionary = sim.maps["city_aldara"]
 		tank.cooldowns.clear()
 		tank.mp = tank.stats.max_mp
@@ -12631,7 +13856,7 @@ func _check_tank_threat(gd, sim) -> void:
 		check(not bt._taunt_party(tank, sim, m, sim.party_members(tank), cmd), "%s: com folga na ameaça não gasta a provocação" % pair[1])
 		# dps com provocação (ex.: Brado da Arena do Executor) não rouba o chefe que o tanque do grupo segura
 		var bd := BotBrain.new()
-		bd.setup(dps, RandomNumberGenerator.new())
+		bd.setup(dps, _seeded_rng())
 		var dslot := dps.skills.size()
 		var tsk: SkillDef = tank.skills[taunt_slot].duplicate(true)
 		tsk.requires.clear()
@@ -12687,14 +13912,14 @@ func _check_bot_group(gd, sim) -> void:
 	boss.threat = {tank.id: 1000.0}
 	var m: Dictionary = sim.maps["city_aldara"]
 	var bd := BotBrain.new()
-	bd.setup(dps, RandomNumberGenerator.new())
+	bd.setup(dps, _seeded_rng())
 	check(bd._tank_of(dps, sim) == tank, "dps acha o tanque do grupo")
 	check(BotBrain._in_front(dps, boss, tank) == false and BotBrain._in_front(mk.call("berserker", "carniceiro", "Frente", at + Vector3(0, 0, 1.0)), boss, tank), "frente do chefe = lado do tanque (costas não são frente)")
 	var reach: float = dps.basic_skill.radius if dps.basic_skill else 1.8
 	var spot: Vector3 = bd._role_spot(dps, sim, boss, true, reach, tank)
 	check(not BotBrain._in_front(dps, boss, tank) and (spot - boss.position).dot(tank.position - boss.position) < 0.0, "corpo a corpo: lugar nas costas do chefe")
 	var bg := BotBrain.new()
-	bg.setup(gun, RandomNumberGenerator.new())
+	bg.setup(gun, _seeded_rng())
 	var gspot: Vector3 = bg._role_spot(gun, sim, boss, false, 14.0, tank)
 	check((gspot - boss.position).dot(tank.position - boss.position) < 0.0 and gspot.distance_to(boss.position) >= Balance.BOT_RANGED_DIST, "longe: flanco de trás a %.0f m+" % Balance.BOT_RANGED_DIST)
 	# na frente: sai antes de bater
@@ -12714,7 +13939,7 @@ func _check_bot_group(gd, sim) -> void:
 	check(cmd.attack or cmd.skill_slot >= 0 or cmd.move != Vector2.ZERO, "dps nas costas com pouca ameaça luta")
 	# cura: tanque primeiro
 	var bh := BotBrain.new()
-	bh.setup(heal, RandomNumberGenerator.new())
+	bh.setup(heal, _seeded_rng())
 	heal.cooldowns.clear()
 	heal.mp = heal.stats.max_mp
 	tank.hp = tank.stats.max_hp * (Balance.BOT_HEAL_TANK_HP - 0.05)
@@ -12739,7 +13964,7 @@ func _check_bot_group(gd, sim) -> void:
 	boss.skill_phase = "startup"
 	boss.skill_aim = boss.position
 	var bt := BotBrain.new()
-	bt.setup(tank, RandomNumberGenerator.new())
+	bt.setup(tank, _seeded_rng())
 	check(bt._danger_escape(tank, m, true) == Vector2.ZERO and bt._danger_escape(tank, m, false) != Vector2.ZERO, "tanque no grupo aguenta o giro do chefe que segura (sozinho, foge)")
 	check(bd._danger_escape(dps, m) != Vector2.ZERO, "dps foge do giro")
 	# investida: foge da linha mesmo estreita
@@ -12808,7 +14033,7 @@ func _check_bot_raid(gd, sim) -> void:
 	var brains := {}
 	for o in all:
 		var b := BotBrain.new()
-		b.setup(o, RandomNumberGenerator.new())
+		b.setup(o, _seeded_rng())
 		brains[o.id] = b
 	var bd: BotBrain = brains[dps.id]
 	var bf: BotBrain = brains[fire.id]
@@ -12943,7 +14168,7 @@ func _check_bot_raid(gd, sim) -> void:
 	var trip := func(lv: int) -> Dictionary:
 		var b = sim.spawn_character(SimEntity.Kind.BOT, gd.classes["berserker"], "RViaja", mid, at, lv)
 		var br := BotBrain.new()
-		var r := RandomNumberGenerator.new()
+		var r := _seeded_rng()
 		r.seed = 4507
 		br.setup(b, r)
 		var seen := {}
@@ -12988,7 +14213,7 @@ func _check_bot_opener(gd, sim) -> void:
 	boss.threat = {tank.id: 1000.0}
 	var m: Dictionary = sim.maps["city_aldara"]
 	var bf := BotBrain.new()
-	bf.setup(fire, RandomNumberGenerator.new())
+	bf.setup(fire, _seeded_rng())
 	check(bf._opener(fire, sim, m, boss, tank) == boss, "abertura: chefe recém-preso no tanque segura as skills do Fogo")
 	check(bf._opener(tank, sim, m, boss, tank) == null and bf._opener(fire, sim, m, boss, null) == null, "abertura: não vale para o tanque nem sem tanque")
 	sim.time = t0 + Balance.BOT_OPENER_TIME + 0.1
@@ -13015,7 +14240,7 @@ func _check_bot_opener(gd, sim) -> void:
 	BotBrain.opener_enabled = true
 	# no comando: o dps de perto nas costas só usa o básico, e nem ele acima da razão
 	var bd := BotBrain.new()
-	bd.setup(dps, RandomNumberGenerator.new())
+	bd.setup(dps, _seeded_rng())
 	var reach: float = dps.basic_skill.radius if dps.basic_skill else 1.8
 	dps.position = bd._role_spot(dps, sim, boss, true, reach, tank)
 	dps.cooldowns.clear()
@@ -13044,7 +14269,7 @@ func _check_bot_opener(gd, sim) -> void:
 		sim.time += 0.0 if k == 0 else Balance.BOT_OPENER_TIME + 0.1
 		for i in range(12):
 			var bz := BotBrain.new()
-			var rz := RandomNumberGenerator.new()
+			var rz := _seeded_rng()
 			rz.seed = 31 + i
 			bz.setup(dps, rz)
 			if k == 1:
@@ -13061,7 +14286,7 @@ func _check_bot_opener(gd, sim) -> void:
 	check(BotBrain._self_buff(bl) and not BotBrain._self_buff(gd.skills["pal_taunt"]) and not BotBrain._self_buff(gd.skills["ele_fireball"]), "abertura: Sede de Sangue pode, Provocar e Bola de Fogo esperam")
 	# o tanque guarda a provocação (recarga longa) para quando o dps estourar: não provoca o chefe que já mira nele
 	var bt := BotBrain.new()
-	bt.setup(tank, RandomNumberGenerator.new())
+	bt.setup(tank, _seeded_rng())
 	tank.cooldowns.clear()
 	tank.mp = tank.stats.max_mp
 	boss.threat = {}
@@ -13101,7 +14326,7 @@ func _check_bot_threat_budget(gd, sim) -> void:
 	boss.aggro_timer = 5.0
 	var m: Dictionary = sim.maps["city_aldara"]
 	var bf := BotBrain.new()
-	bf.setup(fire, RandomNumberGenerator.new())
+	bf.setup(fire, _seeded_rng())
 	var meteor: float = BotBrain._skill_threat(fire, gd.skills["ele_meteor"], boss)
 	var ball: float = BotBrain._skill_threat(fire, gd.skills["ele_fireball"], boss)
 	check(meteor > ball and ball > 0.0 and BotBrain._skill_threat(fire, gd.skills["ber_bloodlust"], boss) == 0.0, "ameaça prevista: Meteoro > Bola de Fogo > 0; buff = 0 (%.0f / %.0f)" % [meteor, ball])
@@ -13152,7 +14377,7 @@ func _check_bot_threat_budget(gd, sim) -> void:
 	check(marked > eb_mean * 1.05, "ameaça prevista: marca no alvo (+%% de dano levado) entra na estimativa (%.0f vs %.0f)" % [marked, eb_mean])
 	# abertura: o básico que só passaria RATIO × o tanque com o crítico espera (com o médio, sairia)
 	var bex := BotBrain.new()
-	bex.setup(ex, RandomNumberGenerator.new())
+	bex.setup(ex, _seeded_rng())
 	sim.party_invite(tank, ex)
 	sim.party_accept(ex)
 	ex.position = bex._role_spot(ex, sim, boss, true, ex.basic_skill.range, tank)
@@ -13175,7 +14400,7 @@ func _check_bot_threat_budget(gd, sim) -> void:
 	sim.party_leave(ex)
 	sim.despawn(ex)
 	var bfire := BotBrain.new()
-	bfire.setup(fire, RandomNumberGenerator.new())
+	bfire.setup(fire, _seeded_rng())
 	fire.position = bfire._role_spot(fire, sim, boss, false, fire.basic_skill.range, tank)
 	fire.cooldowns.clear()
 	fire.basic_cd = 0.0
@@ -13286,7 +14511,7 @@ func _check_bot_stealth(gd, sim) -> void:
 	var mob = sim.spawn_monster(gd.monsters["slime"], "city_aldara", d.position + Vector3(0, 0, 6.0))
 	var m: Dictionary = sim.maps["city_aldara"]
 	var brain := BotBrain.new()
-	brain.setup(d, RandomNumberGenerator.new())
+	brain.setup(d, _seeded_rng())
 	var dist: float = d.position.distance_to(mob.position)
 	check(vs >= 0 and brain._best_skill(d, sim, m, mob, dist) == vs, "Lâminas: alvo ainda solto a 6 m, o bot abre com Sumir")
 	mob.aggro_target = d.id
@@ -13954,7 +15179,7 @@ func _check_horde_ai(gd, sim) -> void:
 		return b
 	var fire: SimEntity = mkb.call("elementalist", "fogo", "Fogo", at)
 	var bf := BotBrain.new()
-	bf.setup(fire, RandomNumberGenerator.new())
+	bf.setup(fire, _seeded_rng())
 	var bb := BotBrain.new()
 	# dps sem fogo/veneno (os "sangramentos" de _dot cortam a regeneração na sim: o Carniceiro conta como fogo/veneno)
 	var blade: SimEntity = null
@@ -13968,7 +15193,7 @@ func _check_horde_ai(gd, sim) -> void:
 	if blade == null:
 		sim.despawn(fire)
 		return
-	bb.setup(blade, RandomNumberGenerator.new())
+	bb.setup(blade, _seeded_rng())
 	check(bf._has_regen_cut(fire), "AC-20: Elementalista de fogo tem fogo pronto")
 	var mobs: Array = []
 	var mk := func(mid: String, pos: Vector3) -> SimEntity:
@@ -14004,7 +15229,7 @@ func _check_horde_ai(gd, sim) -> void:
 	sim.party_invite(tank, blade)
 	sim.party_accept(blade)
 	var bt := BotBrain.new()
-	bt.setup(tank, RandomNumberGenerator.new())
+	bt.setup(tank, _seeded_rng())
 	agit.state = SimEntity.State.IDLE
 	agit.hp = agit.stats.max_hp
 	check(bt._focus(tank, sim, m, recruit) == null and bb._focus(blade, sim, m, recruit) == agit, "AC-20: o tanque do grupo não troca; o dps do grupo foca o Agitador")
@@ -14773,7 +15998,8 @@ func _check_ancestral_forms(gd, sim) -> void:
 	check(ProgressionSystem.asc_points_total(x) == 36 and ProgressionSystem.asc_points(x) == 0, "aos 45 o bot gasta os 36 pontos no ramo dele (sobra %d)" % ProgressionSystem.asc_points(x))
 	check(DruidAscension.refines(x) == 2, "aos 45: os dois refinos comprados (%d)" % DruidAscension.refines(x))
 	var cyc2: SkillDef = sim.resolve_skill(x, gd.skills["dru_cyclone"])
-	check(is_equal_approx(sim.resolve_skill(x, bolt).power, p0 * (1.0 + 2.0 * Balance.ANC_REFINE_POWER)), "refino: skill da forma com +poder")
+	check(is_equal_approx(sim.resolve_skill(x, bolt).power, p0 * (1.0 + Balance.ANC_REFINE_POWER + float(Balance.ANC_REFINE_POWER_NODE.get("anc_bird_2", Balance.ANC_REFINE_POWER))))
+		and is_equal_approx(DruidAscension.refine_power(x), Balance.ANC_REFINE_POWER + float(Balance.ANC_REFINE_POWER_NODE.get("anc_bird_2", Balance.ANC_REFINE_POWER))), "refino: skill da forma com +poder (o do 45 com peso próprio)")
 	check(is_equal_approx(float(cyc2.talent_effects["root"]["duration"]), root0 * (1.0 + 2.0 * Balance.ANC_REFINE_TIME)) and cyc2.talent_effects.has("knockback"), "refino: variante com +duração (e mantém o empurrão)")
 	x.form = ""
 	check(is_equal_approx(sim.resolve_skill(x, gd.skills["dru_cyclone"]).power, gd.skills["dru_cyclone"].power_at(0)) or sim.resolve_skill(x, gd.skills["dru_cyclone"]).name == "Ciclone", "fora da forma: sem variante nem refino")
@@ -14912,7 +16138,7 @@ func _check_ancestral_bots(gd, sim) -> void:
 	var brains := {}
 	for b in bots:
 		var br := BotBrain.new()
-		br.setup(b, RandomNumberGenerator.new())
+		br.setup(b, _seeded_rng())
 		brains[b.id] = br
 	var dt := 0.05
 	for i in range(int(60.0 / dt)):
@@ -14984,7 +16210,7 @@ func _check_ancestral_dps(gd, sim) -> void:
 				var b: SimEntity = _druid_asc(gd, sim, row[0], at + row[1], asc)
 				var dummy: SimEntity = _ranger_asc_dummy(gd, sim, at)
 				var br := BotBrain.new()
-				var brng := RandomNumberGenerator.new()
+				var brng := _seeded_rng()
 				brng.seed = seed_i
 				br.setup(b, brng)
 				for i in range(int(90.0 / dt)):
@@ -15043,7 +16269,7 @@ func _check_ranger_ascension_bots(gd, sim) -> void:
 	var brains := {}
 	for b in [gun, ln]:
 		var br := BotBrain.new()
-		br.setup(b, RandomNumberGenerator.new())
+		br.setup(b, _seeded_rng())
 		brains[b.id] = br
 	for i in range(int(60.0 / dt)):
 		sim.time += dt                       # o relógio da sim (prazo da torreta) anda como no tick
@@ -15915,7 +17141,7 @@ func _check_lord_of_dead_bots(gd, sim) -> void:
 	var brains := {}
 	for b in [inv, rea, sha]:
 		var br := BotBrain.new()
-		br.setup(b, RandomNumberGenerator.new())
+		br.setup(b, _seeded_rng())
 		brains[b.id] = br
 		used[b.id] = {}
 	var most := 0
@@ -16247,7 +17473,7 @@ func _check_assassin_ascension_bots(gd, sim) -> void:
 	var first_clone := {}
 	for b in bots:
 		var br := BotBrain.new()
-		br.setup(b, RandomNumberGenerator.new())
+		br.setup(b, _seeded_rng())
 		brains[b.id] = br
 		clone_casts[b.id] = 0
 	for step in range(int(60.0 / dt)):
@@ -16656,7 +17882,7 @@ func _check_choir_bots(gd, sim) -> void:
 	var brains := {}
 	for o in [bis, dps]:
 		var br := BotBrain.new()
-		br.setup(o, RandomNumberGenerator.new())
+		br.setup(o, _seeded_rng())
 		brains[o.id] = br
 	var used := {}
 	var step := func(o: SimEntity) -> void:
@@ -16861,7 +18087,7 @@ func _check_falconer(gd, sim) -> void:
 	FalconSystem.mark(h, d)
 	ally.stats.crit_phys = 0.0
 	ally.stats.prey_crit = 100.0
-	var crng := RandomNumberGenerator.new()
+	var crng := _seeded_rng()
 	check(Combat.calc_damage(ally, d, 1.0, SkillDef.Kind.PHYSICAL, crng)["crit"] and not Combat.calc_damage(ally, clean, 1.0, SkillDef.Kind.PHYSICAL, crng)["crit"], "o crítico de Olhos do Céu só vale contra a Presa")
 	ally.recompute_stats()
 	check(not Combat.has_prey(clean), "sem a Revoada, Olhos do Céu não mergulha em ninguém")
@@ -16923,7 +18149,7 @@ func _check_falconer_bots(gd, sim) -> void:
 	boss.aggro_target = tank.id
 	boss.threat = {tank.id: 1.0e7}
 	var br := BotBrain.new()
-	br.setup(hun, RandomNumberGenerator.new())
+	br.setup(hun, _seeded_rng())
 	var used := {}
 	var first := ""
 	var prey_ticks := 0
@@ -18063,3 +19289,25 @@ func _check_kharzun_bosses(gd) -> void:
 	check(boss.ward == 0.0, "os três estandartes caídos: sem ward (%.2f)" % boss.ward)
 	ws.despawn(boss)
 	ws.despawn(foe)
+
+## Splash de boot (tools/splash/make_splash.gd): cobre motor + autoloads + primeira cena. Imagem existe, fundo = cor de limpeza
+## do projeto e a borda da imagem tem a mesma cor (sem costura nas faixas de 21:9), stretch Keep com filtro.
+func _check_boot_splash() -> void:
+	var ms = load("res://tools/splash/make_splash.gd")
+	var path: String = ProjectSettings.get_setting("application/boot_splash/image", "")
+	check(path != "" and ResourceLoader.exists(path), "splash: application/boot_splash/image aponta para um PNG que existe (%s)" % path)
+	var bg: Color = ProjectSettings.get_setting("application/boot_splash/bg_color", Color.BLACK)
+	check(bg.is_equal_approx(ms.bg_color()), "splash: bg_color = rendering/environment/defaults/default_clear_color")
+	check(int(ProjectSettings.get_setting("application/boot_splash/stretch_mode", -1)) == 1 and bool(ProjectSettings.get_setting("application/boot_splash/use_filter", false)),
+		"splash: stretch Keep (escala pela altura em tela larga) com filtro")
+	var tex := load(path) as Texture2D if ResourceLoader.exists(path) else null
+	var img := tex.get_image() if tex != null else null
+	check(img != null and img.get_size() == ms.SIZE, "splash: imagem %s" % [ms.SIZE])
+	if img == null:
+		return
+	var off: Array[String] = []
+	for p in [Vector2i(0, 0), Vector2i(img.get_width() - 1, 0), Vector2i(0, img.get_height() - 1), Vector2i(img.get_width() - 1, img.get_height() - 1)]:
+		var c := img.get_pixel(p.x, p.y)
+		if absf(c.r - bg.r) > 0.006 or absf(c.g - bg.g) > 0.006 or absf(c.b - bg.b) > 0.006:
+			off.append("%s=%s" % [p, c])
+	check(off.is_empty(), "splash: cantos da imagem na cor de fundo (%s)" % [off])
