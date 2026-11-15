@@ -147,7 +147,8 @@ static func update_boss(sim: WorldSim, e: SimEntity, dt: float = 0.0) -> void:
 			e.crowd_mult = crowd_mult(n, e.monster_def.id)
 			_apply_fury(e)
 			if n > e.crowd_peak and e.crowd_mult > 1.0:
-				boss_say(sim, e, "Tantos contra mim? Fico mais forte! (%d lutando: dano ×%s)" % [n, String.num(e.crowd_mult, 1)])
+				boss_say(sim, e, "Tantos contra mim? Fico mais forte contra o grupo!")
+				print_verbose("crowd %s: %d lutando, dano x%s" % [e.monster_def.id, n, String.num(e.crowd_mult, 1)])   # número só no log (--verbose)
 			e.crowd_peak = maxi(e.crowd_peak, n)
 			_crowd_skills(sim, e)
 	if e.ward_base > 0.0:

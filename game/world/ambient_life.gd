@@ -18,12 +18,13 @@ const KINDS := {
 		"w": 0.45, "flap": 2.2, "fly": true, "lit": true, "shadow": true},
 	"hawk": {"color": Color(0.5, 0.36, 0.24), "tip": Color(0.24, 0.17, 0.12), "body": Color(0.62, 0.5, 0.38), "span": 1.4, "h": [16.0, 21.0],
 		"w": 0.22, "flap": 0.6, "fly": true, "lit": true, "shadow": true},
-	"vulture": {"color": Color(0.22, 0.2, 0.2), "tip": Color(0.1, 0.09, 0.09), "body": Color(0.3, 0.27, 0.26), "span": 1.6, "h": [11.0, 15.0],
+	# urubu, corvo e morcego: valor médio (ardósia/violeta), ponta mais escura; quase preto lia como caco/buraco no chão (arte R2 #20)
+	"vulture": {"color": Color(0.4, 0.36, 0.34), "tip": Color(0.2, 0.18, 0.17), "body": Color(0.5, 0.44, 0.4), "span": 1.6, "h": [11.0, 15.0],
 		"w": 0.28, "flap": 0.5, "fly": true, "lit": true, "shadow": true},
-	"crow": {"color": Color(0.1, 0.1, 0.12), "tip": Color(0.05, 0.05, 0.07), "span": 0.7, "h": [5.0, 8.0], "w": 0.7, "flap": 3.2, "fly": true,
+	"crow": {"color": Color(0.36, 0.37, 0.46), "tip": Color(0.16, 0.16, 0.21), "body": Color(0.28, 0.28, 0.35), "span": 0.7, "h": [5.0, 8.0], "w": 0.7, "flap": 3.2, "fly": true,
 		"lit": true, "shadow": true},
-	"bat": {"color": Color(0.24, 0.18, 0.28), "tip": Color(0.14, 0.1, 0.17), "span": 0.55, "h": [2.6, 4.6], "w": 1.3, "flap": 7.0, "fly": true,
-		"shadow": true},
+	"bat": {"color": Color(0.5, 0.38, 0.56), "tip": Color(0.27, 0.2, 0.32), "body": Color(0.4, 0.3, 0.38), "span": 0.55, "h": [2.6, 4.6], "w": 1.3, "flap": 7.0, "fly": true,
+		"lit": true, "shadow": true},
 	"moth": {"color": Color(0.98, 0.92, 0.7), "span": 0.18, "h": [0.5, 1.6], "w": 0.9, "flap": 9.0, "fly": true},
 	"crab": {"color": Color(0.9, 0.42, 0.26), "span": 0.4, "h": [0.0, 0.0], "w": 0.0, "flap": 0.0, "fly": false},
 	# brasa no ar sobre a lava (Kharzun): fagulha laranja que sobe e desce sem rumo; "asa" mínima, quase sem bater
@@ -96,6 +97,9 @@ func _build_group(kind: String, center: Vector3, radius: float, n: int) -> void:
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	var flat := fly and not bool(k.get("lit", false))
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED if flat else BaseMaterial3D.SHADING_MODE_PER_PIXEL
+	if not flat:                    # toon: luz em degraus, sem brilho especular (combina com o resto do mundo)
+		mat.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
+		mat.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
 	var node := MultiMeshInstance3D.new()
 	node.multimesh = mm
 	node.material_override = mat

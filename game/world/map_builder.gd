@@ -83,8 +83,13 @@ static func build(def: MapDef) -> Node3D:
 		if n:
 			root.add_child(n)
 			set_vis_range(n)
+	var door_labels: Array = []
 	for p in def.portals:
-		root.add_child(_portal(p))
+		var pn := _portal(p, def)
+		root.add_child(pn)
+		if p.get("door", false):
+			door_labels.append(pn.get_child(pn.get_child_count() - 1))   # o Label3D é o último filho do capacho
+	root.set_meta("door_labels", door_labels)
 	apply_conquest(root)
 	return root
 
@@ -192,15 +197,28 @@ static func _interior_lights(def: MapDef, root: Node3D) -> void:
 			f.position = (ob["pos"] as Vector3) + Vector3(0, 0.9, 0.8)
 			root.add_child(f)
 
-## Porta de casa: capacho iluminado no chão e o nome por cima (sem o arco azul dos portais de zona).
-static func _door_marker(p: Dictionary) -> Node3D:
+## Porta de casa: capacho (tapete retangular, sem brilho) virado para a frente da casa e o nome por cima
+## (sem o arco azul dos portais de zona). O disco luminoso antigo virava uma mancha amarela na praça (R2 #17).
+const DOORMAT_SIZE := Vector2(1.5, 0.9)          # largura ao longo da parede x profundidade
+const DOORMAT_COLOR := Color(0.56, 0.42, 0.32)   # tapete de lã crua, terroso (valor perto do calçamento, pouca saturação)
+const DOORMAT_BORDER := Color(0.4, 0.3, 0.23)
+
+static func _door_marker(p: Dictionary, def: MapDef = null) -> Node3D:
 	var n := Node3D.new()
 	n.name = "Door_" + p["id"]
 	n.position = p["pos"]
-	var r: float = p.get("radius", 0.8)
-	var mat := _cyl(r, r, 0.04, Color(1.0, 0.85, 0.5), 20)
-	mat.position.y = 0.03
-	mat.material_override = Materials.glow(Color(1.0, 0.82, 0.45, 0.45), 1.2)
+	var front := door_front(p["pos"], def)
+	n.rotation.y = atan2(front.x, front.z)
+	var rim := _box(Vector3(DOORMAT_SIZE.x + 0.14, 0.03, DOORMAT_SIZE.y + 0.14), DOORMAT_BORDER)
+	rim.name = "Doormat"
+	rim.position.y = 0.015
+	rim.material_override = Materials.toon(DOORMAT_BORDER, false)
+	rim.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	n.add_child(rim)
+	var mat := _box(Vector3(DOORMAT_SIZE.x, 0.035, DOORMAT_SIZE.y), DOORMAT_COLOR)
+	mat.position.y = 0.0175
+	mat.material_override = Materials.toon(DOORMAT_COLOR, false)
+	mat.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	n.add_child(mat)
 	var label := Label3D.new()
 	label.text = p.get("label", "")
@@ -212,6 +230,24 @@ static func _door_marker(p: Dictionary) -> Node3D:
 	label.modulate = Color(1.0, 0.9, 0.65)
 	n.add_child(label)
 	return n
+
+## Frente da porta: da casa mais perto (até 8 m) para a porta; sem casa (saída de interior) = +z.
+static func door_front(pos: Vector3, def: MapDef) -> Vector3:
+	var best := Vector3.ZERO
+	var bd := 8.0
+	if def:
+		for ob in def.obstacles:
+			if ob.get("kind", "") != "house":
+				continue
+			var d: float = (ob["pos"] as Vector3).distance_to(pos)
+			if d < bd:
+				bd = d
+				best = ob["pos"]
+	if bd >= 8.0:
+		return Vector3(0, 0, 1)
+	var f := pos - best
+	f.y = 0.0
+	return f.normalized() if f.length() > 0.01 else Vector3(0, 0, 1)
 
 ## stones: 0 = sem calçamento, 0..1 = manchas de lajes, 1 = calçado inteiro (ruas).
 static func _ground_material(a: Color, b: Color, dirt: Color, dirt_amount: float, seed: float,
@@ -862,9 +898,9 @@ static func _decor(d: Dictionary) -> Node3D:
 			return null
 	return n
 
-static func _portal(p: Dictionary) -> Node3D:
+static func _portal(p: Dictionary, def: MapDef = null) -> Node3D:
 	if p.get("door", false):
-		return _door_marker(p)
+		return _door_marker(p, def)
 	var n := Node3D.new()
 	n.name = "Portal_" + p["id"]
 	n.position = p["pos"]

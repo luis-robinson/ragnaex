@@ -341,8 +341,12 @@ static func flash(root: Node, pos: Vector3, theme: String, energy: float = 3.0, 
 
 ## Faixa no chão que corre do caster até o alcance, na largura real (onda/feixe sem projétil).
 ## `area_theme` (opcional) pinta a onda e a faixa no chão; as partículas ficam no `theme` (golpe de monstro: área carmim).
-static func wave(root: Node, origin: Vector3, dir: Vector3, length: float, width: float, theme: String, duration: float = 0.35, area_theme: String = "") -> void:
+static func wave(root: Node, origin: Vector3, dir: Vector3, length: float, width: float, theme: String, duration: float = 0.35, area_theme: String = "", ground: bool = true) -> void:
 	var at := area_theme if area_theme != "" else theme
+	if not ground:                 # golpe de monstro: só as faíscas na linha (bloco e faixa rosa liam como aviso sem borda)
+		for k in range(3):
+			burst(root, origin + dir * length * (0.35 + 0.3 * k), theme, 8, Vector3.UP, width * 0.4)
+		return
 	var mi := MeshInstance3D.new()
 	var bm := BoxMesh.new()
 	bm.size = Vector3(width, 0.5, 1.2)

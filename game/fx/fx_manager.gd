@@ -338,9 +338,10 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: f
 			if s.effects.has("dash"):
 				var path := Vector2(aim.x - origin.x, aim.z - origin.z).length()    # investida barrada desenha só o que andou
 				SkillFx.streak(self, origin, dir, minf(path, float(s.effects["dash"])), th)
-				SkillFx.decal_line(self, origin, dir, path, s.radius * 2.0, th, 0.45)
+				if not mob_hit_ground_free(skill_id):
+					SkillFx.decal_line(self, origin, dir, path, s.radius * 2.0, th, 0.45)
 			elif s.projectile_speed <= 0.0:
-				SkillFx.wave(self, origin, dir, s.range, maxf(s.radius * 2.0, 0.6), th, 0.35, area_th)
+				SkillFx.wave(self, origin, dir, s.range, maxf(s.radius * 2.0, 0.6), th, 0.35, area_th, not mob_hit_ground_free(skill_id))
 		SkillDef.Target.TARGET:
 			if s.effects.has("pull"):            # gancho de chefe: a corda vai de quem puxa até quem foi puxado
 				SkillFx.rope(self, origin + Vector3(0, 1.0, 0) + dir * 0.4, aim + Vector3(0, 1.0, 0))
@@ -378,6 +379,11 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: f
 
 ## Pistola (skills com "shot"): o tiro sai da mão esquerda. Alvo único = um rastro; leque (Bordada) = vários rastros
 ## espalhados no cone; Tiro Entre os Olhos = tiro grosso e tremida de câmera.
+## Golpe em linha de monstro (Empalar, Estocada): depois do impacto não deixa faixa no chão. A faixa rosa sem borda
+## ficava 0,45 s e lia como um aviso fora da gramática (arte R2 #6); o aviso de verdade é o _telegraph, antes do golpe.
+static func mob_hit_ground_free(skill_id: String) -> bool:
+	return skill_id.begins_with("mob_")
+
 func _pistol_fx(s: SkillDef, origin: Vector3, aim: Vector3, dir: Vector3, radius: float) -> void:
 	var left := Vector3.UP.cross(dir).normalized()
 	var muzzle := origin + Vector3(0, 0.95, 0) + dir * 0.6 + left * 0.22
@@ -801,8 +807,8 @@ func _update_mob_auras(delta: float) -> void:
 			continue
 		if _mob_auras.has(e.id) and is_instance_valid(_mob_auras[e.id]):
 			continue
-		var reach := mob_aura_reach(e.monster_def)
-		if reach <= 0.0 or not main.views.has(e.id):
+		var reach := mob_ring_reach(e)
+		if not main.views.has(e.id):
 			continue
 		var buff_id := str(Balance.MOB_AURAS[e.monster_def.aura]["id"])
 		var th: String = BuffLooks.look(buff_id, e).get("theme", "blood")
@@ -816,6 +822,13 @@ func _update_mob_auras(delta: float) -> void:
 		if e == null or not e.is_alive():
 			SkillFx.fade_out(self, n as Node3D, 0.35)
 			_mob_auras.erase(id)
+
+## Raio do círculo grande desenhado no chão para a aura deste monstro: inimigo = 0 (só as fagulhas no emissor e a marca
+## nos buffados). O círculo de 10-30 m sempre ligado lia como área de dano (arte R2 #7: minas, Rei Troll).
+static func mob_ring_reach(e: SimEntity) -> float:
+	if e == null or hostile_mob(e):
+		return 0.0
+	return mob_aura_reach(e.monster_def)
 
 ## Monstro inimigo do jogador (não é invocação de ninguém): não ganha anel de aura no pé.
 static func hostile_mob(e: SimEntity) -> bool:

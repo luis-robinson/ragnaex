@@ -6,7 +6,7 @@ extends Node3D
 
 const MAX_PER_TARGET := 4       # pops vivos por alvo; o 5º apressa o mais velho
 const MAX_TOTAL := 48           # teto geral (a briga grande chegava a 383 Label3D num quadro)
-const MERGE_WINDOW := 0.6       # s desde o último repique para somar no mesmo pop
+const MERGE_WINDOW := 1.2       # s desde o último repique: soma enquanto o pop ainda se vê (0,6 deixava um "Esquiva!" fantasma ao lado do ×2)
 const LIFE := 1.3               # tempo de vida (igual ao tween antigo: sobe 0,9 s, apaga de 0,4 a 1,3 s)
 const RISE := 1.4               # m que sobe
 const RISE_TIME := 0.9
