@@ -30,6 +30,8 @@ var loot_box: VBoxContainer        # "pegou" com ícone, acima da barra de skill
 var _loot_rows: Dictionary = {}    # item_id -> {row, count, tween}
 var _loot_from_ms := 0             # ignora os itens iniciais do personagem
 var quest_tracker: RichTextLabel
+## Fundo do chat e do painel de quests: quase opaco (nomes e placas do mundo apareciam através; arte R2 #16 e novo #5).
+const PANEL_BG_A := 0.9
 var hint_label: Label
 var buffs_box: HBoxContainer
 var game_menu: Control = null       # menu do Esc (salvar, voltar ao menu, sair)
@@ -50,7 +52,6 @@ var invite_from := -1
 var windows: Dictionary = {}    # nome -> Control
 var windows_script
 var npc_ui
-var class_select: CanvasLayer = null
 var death_panel: Control = null
 var act_end_panel: Control = null
 var tips: Tips = null
@@ -68,6 +69,14 @@ var fps_label: Label                 # contador de FPS (canto direito, embaixo d
 var gather_label: Label              # "[F] Colher ..." perto de um ponto; "Colhendo..." durante
 var raid_banner: PanelContainer      # faixa no topo durante uma investida no mapa do jogador (Sim.raid_status)
 var raid_label: Label
+## Fala de chefe (abertura/fase/queda): faixa própria, opaca, abaixo da investida; não divide a linha das notificações
+## nem fica solta por cima do nome do chefe no mundo (R2: grito sobre o nome). Nomes do mundo sob a faixa somem (label_blockers).
+var boss_banner: PanelContainer
+var boss_label: Label
+var _boss_left := 0.0
+const BOSS_LINE_TIME := 4.0
+const BOSS_LANE_TOP := 84.0
+const NOTIF_TOP := 132.0                # notificações começam abaixo da faixa do chefe
 var _raid_t := 0.0
 var _fps_t := 0.0
 
@@ -353,7 +362,7 @@ func _slot_right_click(event: InputEvent, kind: String, i: int) -> void:
 	get_viewport().set_input_as_handled()
 
 func _build_chat() -> PanelContainer:
-	var p := UiKit.panel(Color(0.05, 0.05, 0.08, 0.6), Color(0.3, 0.28, 0.35))
+	var p := UiKit.panel(Color(0.05, 0.05, 0.08, PANEL_BG_A), Color(0.3, 0.28, 0.35))
 	p.custom_minimum_size = Vector2(SIDE_W, BOTTOM_H)
 	var v := VBoxContainer.new()
 	p.add_child(v)
@@ -400,10 +409,20 @@ func _build_notifications() -> void:
 	root.add_child(raid_banner)
 	notif_box = VBoxContainer.new()
 	notif_box.anchor_left = 0.5; notif_box.anchor_right = 0.5
-	notif_box.offset_left = -300; notif_box.offset_right = 300; notif_box.offset_top = 90
+	notif_box.offset_left = -300; notif_box.offset_right = 300; notif_box.offset_top = NOTIF_TOP
 	notif_box.alignment = BoxContainer.ALIGNMENT_BEGIN
 	notif_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(notif_box)
+	boss_banner = UiKit.panel(Color(0.12, 0.06, 0.05, 0.92), Color(0.85, 0.55, 0.3))
+	boss_banner.anchor_left = 0.5; boss_banner.anchor_right = 0.5
+	boss_banner.offset_left = -360; boss_banner.offset_right = 360; boss_banner.offset_top = BOSS_LANE_TOP
+	boss_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	boss_banner.visible = false
+	boss_label = UiKit.label("", 17, Color(1.0, 0.86, 0.6))
+	boss_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	boss_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	boss_banner.add_child(boss_label)
+	root.add_child(boss_banner)
 
 ## Coluna da direita: minimapa (com o nome do mapa embaixo) e o rastreador de quests.
 func _build_top_right() -> void:
@@ -424,7 +443,7 @@ func _build_top_right() -> void:
 	fps_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	fps_label.size_flags_horizontal = Control.SIZE_SHRINK_END
 	col.add_child(fps_label)
-	var p := UiKit.panel(Color(0.05, 0.05, 0.08, 0.55), Color(0.3, 0.28, 0.35))
+	var p := UiKit.panel(Color(0.05, 0.05, 0.08, PANEL_BG_A), Color(0.3, 0.28, 0.35))      # quests: opaco (placas do mundo vazavam)
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(p)
 	quest_tracker = RichTextLabel.new()
@@ -469,6 +488,11 @@ func _hud_process(_delta: float) -> void:
 	if _raid_t <= 0.0:
 		_raid_t = 0.2
 		_update_raid_banner(p)
+	if _boss_left > 0.0:
+		_boss_left -= _delta
+		boss_banner.modulate.a = clampf(_boss_left / 0.6, 0.0, 1.0)
+		if _boss_left <= 0.0:
+			boss_banner.visible = false
 	name_label.text = "%s — %s Lv.%d" % [p.name, p.class_def.name, p.level]
 	hp_bar.max_value = p.stats.max_hp
 	hp_bar.value = p.hp
@@ -842,10 +866,12 @@ func toggle_world_map() -> void:
 
 func _update_blocking() -> void:
 	if main and main.controller:
-		main.controller.ui_blocking = _chat_focus or npc_ui.is_open() or (death_panel != null) or (class_select != null) or (game_menu != null) or (act_end_panel != null)
+		main.controller.ui_blocking = _chat_focus or npc_ui.is_open() or (death_panel != null) or (game_menu != null) or (act_end_panel != null)
 
 # ---------------------------------------------------------------------------
 func _notify(text: String) -> void:
+	if _boss_line(text):
+		return
 	var l := UiKit.label(text, 16, Color(1, 0.95, 0.75))
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	notif_box.add_child(l)
@@ -855,6 +881,59 @@ func _notify(text: String) -> void:
 	tw.tween_callback(l.queue_free)
 	if notif_box.get_child_count() > 5:
 		notif_box.get_child(0).queue_free()
+
+## Quem fala, se `text` é "<nome>: ..." de um chefe em `names` ("" se não é fala de chefe).
+static func boss_speaker(text: String, names: Array) -> String:
+	for n in names:
+		if text.begins_with(str(n) + ": "):
+			return str(n)
+	return ""
+
+## Fala de chefe no mapa do jogador vai para a faixa própria (substitui a anterior, some sozinha).
+func _boss_line(text: String) -> bool:
+	var p: SimEntity = Sim.player
+	if p == null or boss_banner == null or not Sim.maps.has(p.map_id):
+		return false
+	var names: Array = []
+	for e: SimEntity in Sim.maps[p.map_id]["entities"]:
+		if e.kind == SimEntity.Kind.MONSTER and e.monster_def and e.monster_def.is_boss:
+			names.append(e.name)
+	var who := boss_speaker(text, names)
+	if who == "":
+		return false
+	boss_label.text = text
+	boss_banner.visible = true
+	boss_banner.modulate.a = 1.0
+	_boss_left = BOSS_LINE_TIME
+	return true
+
+## Retângulos da HUD (tela) onde nome do mundo não aparece: quadro do personagem, barra, chat, minimapa, quests, faixas.
+func label_blockers() -> Array[Rect2]:
+	var out: Array[Rect2] = []
+	if root == null or not root.visible:
+		return out
+	var cs: Array[Control] = [player_frame, action_bar, minimap, boss_banner, raid_banner]
+	if quest_tracker:
+		cs.append(quest_tracker.get_parent() as Control)
+	if chat_log:
+		var up: Node = chat_log
+		while up and not (up is PanelContainer):
+			up = up.get_parent()
+		cs.append(up as Control)
+	for c in cs:
+		if c and c.is_visible_in_tree():
+			out.append(c.get_global_rect().grow(4.0))
+	return out
+
+## Ponto da tela por baixo de algum retângulo da HUD. O nome cresce para cima do ponto (alinhado embaixo):
+## confere também `LABEL_UP` px acima.
+const LABEL_UP := 22.0
+static func covered(pt: Vector2, rects: Array[Rect2]) -> bool:
+	var up := pt - Vector2(0, LABEL_UP)
+	for r in rects:
+		if r.has_point(pt) or r.has_point(up):
+			return true
+	return false
 
 ## Item novo na bolsa do jogador: linha com a arte, o nome na cor da raridade e a quantidade (o mesmo item soma).
 func _on_item_gained(entity_id: int, item_id: String, count: int) -> void:
@@ -1135,42 +1214,11 @@ func open_game_menu() -> void:
 		var btn := UiKit.button(b[0], b[1], 240)
 		btn.add_theme_font_size_override("font_size", 15)
 		v.add_child(btn)
-	var gfx := UiKit.button("", Callable(), 240)
-	gfx.text = "Gráficos: " + GraphicsSettings.name()
-	gfx.tooltip_text = "Nítido: imagem mais limpa (padrão).
-FSR 2: renderiza menor e reconstrói — mais FPS em PC fraco, contorno pode tremular."
-	gfx.pressed.connect(func(): gfx.text = "Gráficos: " + GraphicsSettings.cycle(get_viewport()))
-	gfx.add_theme_font_size_override("font_size", 13)
-	v.add_child(gfx)
-	for bus in AudioSettings.BUSES:
-		v.add_child(_volume_row(bus))
-	var tip_btn := UiKit.button("", Callable(), 240)
-	tip_btn.text = "Dicas: " + ("ligadas" if tips.enabled else "desligadas")
-	tip_btn.tooltip_text = "Cartões curtos que explicam cada mecânica na primeira vez que ela aparece."
-	tip_btn.pressed.connect(func(): tips.set_enabled(not tips.enabled); tip_btn.text = "Dicas: " + ("ligadas" if tips.enabled else "desligadas"))
-	tip_btn.add_theme_font_size_override("font_size", 13)
-	v.add_child(tip_btn)
+	v.add_child(SettingsPanel.create(tips))     # Gráficos, volumes, Dicas (o mesmo painel da tela de título)
 	var hint := UiKit.label("O jogo também salva sozinho a cada minuto e ao fechar a janela.", 10, UiKit.MUTED)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(hint)
 	_update_blocking()
-
-## Linha do menu: nome do barramento + barra de volume (salva ao soltar).
-func _volume_row(bus: String) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	var l := UiKit.label(AudioSettings.LABELS[bus], 12)
-	l.custom_minimum_size.x = 96
-	row.add_child(l)
-	var sl := HSlider.new()
-	sl.min_value = 0.0
-	sl.max_value = 1.0
-	sl.step = 0.05
-	sl.value = AudioSettings.volume[bus]
-	sl.custom_minimum_size.x = 140
-	sl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	sl.value_changed.connect(func(x: float): AudioSettings.set_volume(bus, x))
-	row.add_child(sl)
-	return row
 
 func close_game_menu() -> void:
 	if game_menu:
@@ -1179,7 +1227,7 @@ func close_game_menu() -> void:
 	_update_blocking()
 
 func _menu_save() -> void:
-	SaveSystem.save_player(Sim.player)
+	main.save_game()
 	close_game_menu()
 
 func _menu_to_title() -> void:
@@ -1187,27 +1235,8 @@ func _menu_to_title() -> void:
 	main.return_to_menu()
 
 func _menu_quit() -> void:
-	SaveSystem.save_player(Sim.player)
+	main.save_game()
 	get_tree().quit()
-
-func reopen_class_select() -> void:
-	if class_select:
-		class_select.queue_free()
-		class_select = null
-	show_class_select(SaveSystem.has_save())
-
-func show_class_select(has_save: bool) -> void:
-	class_select = load("res://game/ui/class_select.gd").new()
-	class_select.hud = self
-	class_select.has_save = has_save
-	add_child(class_select)
-
-func on_class_chosen(cls: ClassDef, char_name: String, load_save: bool, look: Dictionary = {}, preset: int = 1) -> void:
-	if class_select:
-		class_select.queue_free()
-		class_select = null
-	main.start_game(cls, char_name, load_save, look, preset)
-	_update_blocking()
 
 # ---------------------------------------------------------------------------
 # GRUPO

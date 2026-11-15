@@ -1,6 +1,17 @@
 extends Node
 ## Main: liga simulação (Sim) e apresentação. Cria o mundo visual do mapa atual,
 ## views de entidades, câmera, controle do jogador, FX e UI.
+## Entra pela tela inicial (game/menu/start.tscn), que deixa um `StartRequest`; Esc → volta para ela (design/ux/start-flow.md).
+## Caminho do jogador: montagem em etapas, um pedaço por quadro, com progresso no Carregamento (§7);
+## dev/autostart: montagem síncrona, sem nenhum `await` (o DevRunner arma corrotinas que contam com o mundo pronto).
+
+const START_SCENE := "res://game/menu/start.tscn"
+const DEV_RUNNER_SCRIPT := "res://game/dev/dev_runner.gd"   # carregado só com argumentos de dev (o grafo dele não compila no jogo normal)
+const PORTRAIT_SCRIPT := "res://game/menu/portrait.gd"     # retrato do card (etapa C); pode não existir ainda
+const PORTRAIT_FRAMES := 3            # Portrait.capture leva 2 quadros; +1 de folga antes de trocar de cena
+const LOAD_VIEW_BUDGET_MS := 14.0     # ms/quadro de views durante o Carregamento (o overlay cobre o tranco)
+const LOAD_VIEW_FRAMES := 120         # teto de quadros esperando as views de perto
+const LOAD_MAP_BUDGET_MS := 24.0      # ms/quadro de Sim.load_map e de bots no Carregamento (vários por quadro)
 
 var world_root: Node3D
 var map_node: Node3D = null
@@ -13,27 +24,19 @@ var fx: FxManager
 var hud                          # Hud (CanvasLayer)
 var current_map_id: String = ""
 var started := false
-static var returning := false     # voltou ao menu pelo Esc: não repete o --autostart da linha de comando
+var start_req: StartRequest = null     # quem entra e como (vindo da tela inicial)
 var _autosave := 0.0
-var dev: DevRunner = null         # modos de revisão/medição (só com argumentos depois de `--`)
+var dev = null                    # DevRunner: modos de revisão/medição (só com argumentos depois de `--`); sem tipo de propósito (boot)
 var perf_watch := PerfWatch.new()
 var _vignette: ColorRect = null
-
-const WINDOWED_SIZE := Vector2i(1920, 1080)
-
-## F11: janela 1920x1080 centralizada <-> tela cheia (começa em janela, ver project.godot).
-func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F11:
-		if DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_WINDOWED:
-			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
-		else:
-			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
-			DisplayServer.window_set_size(WINDOWED_SIZE)
-			var screen := DisplayServer.screen_get_usable_rect()
-			DisplayServer.window_set_position(screen.position + (screen.size - WINDOWED_SIZE) / 2)
-		get_viewport().set_input_as_handled()
+var _failed := false
+var _leaving := false             # return_to_menu em andamento (espera o retrato)
+var boot_ms: Dictionary = {}      # etapa -> ms de trabalho da última montagem (BOOT; medição)
 
 func _ready() -> void:
+	var t0 := Time.get_ticks_msec()
+	_boot("main_enter", t0)          # desde o início do processo: autoloads + tela inicial + main.tscn
+	WindowKeys.install(get_tree())   # F11 (vale também no menu e no Carregamento)
 	Events.quest_completed.connect(_on_quest_done_visual)
 	Engine.max_physics_steps_per_frame = 2     # quadro lento não vira bola de neve de ticks (a sim desacelera um pouco na batalha grande)
 	SimSync.install(get_tree(), not DevArgs.has("--sim_sync"))     # sim numa thread enquanto o quadro desenha
@@ -76,43 +79,133 @@ func _ready() -> void:
 	hud.main = self
 	add_child(hud)
 
-	# carrega todos os mapas na simulação (o "servidor" simula tudo)
-	for mid in GameData.maps:
-		Sim.load_map(GameData.maps[mid])
-	_populate_bots()
-
+	start_req = StartRequest.take()
+	if start_req == null:                    # main.tscn aberto direto: decide como a tela inicial decidiria
+		var cls: String = load(DEV_RUNNER_SCRIPT).autostart_class(DevArgs.all(), false) if DevArgs.any() else ""
+		if cls == "":
+			get_tree().change_scene_to_file.call_deferred(START_SCENE)
+			return
+		start_req = StartRequest.dev_start(cls, int(DevArgs.value("--preset", "1")))
 	Events.entity_spawned.connect(_on_spawned)
 	Events.entity_despawned.connect(_on_despawned)
 	Events.entity_changed_map.connect(_on_changed_map)
 	Events.equipment_changed.connect(_on_equipment_changed)
-
-	# mostra a cidade de fundo enquanto escolhe a classe
-	_show_map(GameData.town_map_id())
-	camera.global_position = Vector3(0, 0, 4)
+	_boot("main_nodes", Time.get_ticks_msec() - t0)
 	if DevArgs.any():
-		dev = DevRunner.new()
+		dev = load(DEV_RUNNER_SCRIPT).new()
 		dev.name = "Dev"
 		dev.main = self
 		add_child(dev)
-	# partida automática (smoke/revisão):  godot --headless --path . -- --autostart=berserker [--screenshot=/tmp/x.png]
-	var autostart := dev.before_start(returning) if dev else ""
-	if autostart != "":
-		SaveSystem.slot = -1                 # partida de teste/revisão nunca grava por cima de um personagem
-		start_game(GameData.classes.get(autostart, GameData.classes["paladin"]), "Smoke", false, {}, int(DevArgs.value("--preset", "1")))     # --preset=10: começo rápido
-		dev.after_start()
-		return
-	hud.show_class_select(SaveSystem.has_save())
-	if dev:
-		dev.at_title(returning)
+	if start_req.dev:
+		_enter_sync()
+	else:
+		_enter_staged()                      # corrotina: o _ready volta já, o resto sai quadro a quadro
 
-func _populate_bots() -> void:
+## Partida automática de dev/smoke: tudo neste quadro, como antes (nenhum `await` aqui dentro).
+func _enter_sync() -> void:
+	var t0 := Time.get_ticks_msec()
+	build_world(false)
+	if dev:
+		dev.before_start(false)     # chaves de medição; tour/bancada só na partida automática
+	SaveSystem.slot = start_req.slot         # -1 = partida de teste/revisão: nunca grava por cima de um personagem
+	var cls_def: ClassDef = GameData.classes.get(start_req.class_id, GameData.classes["paladin"])
+	start_game(cls_def, start_req.char_name, start_req.load_save, start_req.look, start_req.preset)     # preset 10...: começo rápido
+	_boot("world_total", Time.get_ticks_msec() - t0)
+	_ready_done()
+	if dev:
+		dev.after_start()
+
+## Caminho do jogador: etapas com progresso (LoadingScreen.STEPS); falha volta a Personagens.
+func _enter_staged() -> void:
+	var t0 := Time.get_ticks_msec()
+	if dev:
+		dev.before_start(true)               # não é partida automática: só as chaves de medição
+	_progress(&"prepare", 0.0)
+	await get_tree().process_frame
+	await build_world(true)
+	if _failed:
+		return
+	SaveSystem.slot = start_req.slot
+	var data := {}
+	if start_req.load_save:
+		data = SaveSystem.load_data()
+		if data.is_empty():
+			_fail("save do espaço %d vazio ou danificado" % start_req.slot)
+			return
+	if DevArgs.has("--loading_fail"):        # revisão: força a falha (volta a Personagens com a faixa vermelha)
+		_fail("falha forçada (--loading_fail)")
+		return
+	var t := Time.get_ticks_msec()
+	_progress(&"player", 0.0)
+	var cls_def: ClassDef = GameData.classes.get(start_req.class_id, GameData.classes["paladin"])
+	var p := _spawn_player(cls_def, start_req.char_name, start_req.load_save, start_req.look, start_req.preset, data)
+	_boot("player", Time.get_ticks_msec() - t)
+	_progress(&"assets", 0.0)
+	await _await_loads()                     # GLB do mapa/kit e main.tscn (em thread desde o começo do Carregamento)
+	if _failed:
+		return
+	if not GameData.maps.has(p.map_id):
+		_fail("mapa '%s' não existe" % p.map_id)
+		return
+	_progress(&"map_build", 0.0)
+	await get_tree().process_frame           # o texto da etapa aparece antes do quadro pesado
+	t = Time.get_ticks_msec()
+	_show_map(p.map_id)
+	_boot("map_build", Time.get_ticks_msec() - t)
+	if map_node == null:
+		_fail("mapa '%s' não montou" % p.map_id)
+		return
+	await _settle_views()
+	_go_live(p, start_req.char_name, start_req.load_save, start_req.preset)
+	_boot("world_total", Time.get_ticks_msec() - t0, "wall")
+	_ready_done()
+
+## Mundo pronto: o Carregamento segura 100% e some; as cargas em thread já foram usadas.
+func _ready_done() -> void:
+	if start_req.loading and is_instance_valid(start_req.loading):
+		start_req.loading.call("finish")
+	start_req.held.clear()
+
+## Monta o mundo: todos os mapas na sim (o "servidor" simula tudo) e os bots.
+## `staged` = caminho do jogador: vários quadros (mapas da sim em fatias de LOAD_MAP_BUDGET_MS), progresso no Carregamento.
+## Use com `await` quando staged; sem staged roda inteira na hora, sem `await`.
+func build_world(staged: bool) -> void:
+	var t0 := Time.get_ticks_msec()
+	var work := 0
+	var ids: Array = GameData.maps.keys()
+	var slice := Time.get_ticks_msec()
+	for i in ids.size():
+		var tm := Time.get_ticks_msec()
+		Sim.load_map(GameData.maps[ids[i]])
+		work += Time.get_ticks_msec() - tm
+		if staged and Time.get_ticks_msec() - slice >= LOAD_MAP_BUDGET_MS:
+			_progress(&"sim_maps", float(i + 1) / ids.size())
+			await get_tree().process_frame
+			slice = Time.get_ticks_msec()
+	_boot("sim_maps", work, "wall=%d mapas=%d" % [Time.get_ticks_msec() - t0, ids.size()])
+	if staged:
+		_progress(&"bots", 0.0)
+		await get_tree().process_frame
+	var t := Time.get_ticks_msec()
+	var bot_work: int = await _populate_bots(staged)
+	_boot("bots", bot_work, "wall=%d entidades=%d" % [Time.get_ticks_msec() - t, Sim.entities.size()])
+
+## Bots de todos os mapas (o passo mais caro da montagem: ~17 s headless com 380 bots). `staged` = fatias de
+## LOAD_MAP_BUDGET_MS por quadro com progresso. Devolve os ms de trabalho (sem as esperas de quadro).
+func _populate_bots(staged: bool = false) -> int:
 	var names: Array = GameData.bot_names.duplicate()
 	names.shuffle()
 	var classes: Array = GameData.class_list()
+	var total := 0
+	for mid in GameData.maps:
+		total += (GameData.maps[mid] as MapDef).bot_population
 	var k := 0
+	var work := 0
+	var slice := Time.get_ticks_msec()
 	for mid in GameData.maps:
 		var md: MapDef = GameData.maps[mid]
 		for i in range(md.bot_population):
+			var tm := Time.get_ticks_msec()
 			var cls: ClassDef = classes[randi() % classes.size()]
 			var lv := randi_range(md.level_range.x, md.level_range.y)
 			if md.is_town:
@@ -120,11 +213,90 @@ func _populate_bots() -> void:
 			var pos := Sim.random_walkable(md, md.spawn_point if not md.is_town else md.town_center, 10.0)
 			Sim.spawn_bot(cls, names[k % names.size()], mid, pos, lv)
 			k += 1
+			work += Time.get_ticks_msec() - tm
+			if staged and Time.get_ticks_msec() - slice >= LOAD_MAP_BUDGET_MS:
+				_progress(&"bots", float(k) / maxi(1, total))
+				await get_tree().process_frame
+				slice = Time.get_ticks_msec()
+	return work
+
+## Espera as cargas em thread do pedido (LoadingScreen.begin) e guarda os Resources em `held` até o "pronto":
+## MapBuilder.build/KitModel.create chamam `load()` e só acertam o cache enquanto há referência viva.
+func _await_loads() -> void:
+	var t0 := Time.get_ticks_msec()
+	var paths: PackedStringArray = start_req.load_paths
+	for i in paths.size():
+		var path := paths[i]
+		var progress := []
+		var st := ResourceLoader.load_threaded_get_status(path, progress)
+		while st == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+			var sub := (float(i) + (float(progress[0]) if progress.size() > 0 else 0.0)) / paths.size()
+			_progress(&"assets", sub)
+			await get_tree().process_frame
+			st = ResourceLoader.load_threaded_get_status(path, progress)
+		if st == ResourceLoader.THREAD_LOAD_LOADED:
+			start_req.held.append(ResourceLoader.load_threaded_get(path))
+		elif st == ResourceLoader.THREAD_LOAD_FAILED:
+			_fail("carga em thread falhou: %s" % path)
+			return
+		# INVALID_RESOURCE: nunca foi pedido (ou já foi entregue): o `load()` normal cuida
+	_progress(&"assets", 1.0)
+	_boot("assets_wait", Time.get_ticks_msec() - t0, "arquivos=%d" % paths.size())
+
+## Cria as views de perto com orçamento maior (o overlay cobre); para quando não há mais ninguém perto na fila.
+func _settle_views() -> void:
+	var t0 := Time.get_ticks_msec()
+	var keep := view_budget_ms
+	if view_budget_ms > 0.0:
+		view_budget_ms = maxf(view_budget_ms, LOAD_VIEW_BUDGET_MS)
+	var total := maxi(1, views_pending_near())
+	for f in LOAD_VIEW_FRAMES:
+		var left := views_pending_near()
+		_progress(&"views", 1.0 - float(left) / total)
+		if left == 0:
+			break
+		_queue_dirty = true
+		await get_tree().process_frame      # _process -> _drain_views
+	view_budget_ms = keep
+	_boot("views", Time.get_ticks_msec() - t0, "views=%d fila=%d" % [views.size(), view_queue.size()])
+
+## Progresso da etapa `id` (LoadingScreen.STEPS) com `sub` 0..1 dentro dela.
+func _progress(id: StringName, sub: float) -> void:
+	if start_req and start_req.loading and is_instance_valid(start_req.loading):
+		start_req.loading.call("set_step", id, sub)
+
+## Montagem falhou: nada é gravado, a sim volta a vazia e o Carregamento leva de volta a Personagens.
+func _fail(msg: String) -> void:
+	_failed = true
+	started = false
+	push_error("Carregamento: %s" % msg)
+	Sim.reset_world()
+	start_req.held.clear()
+	start_req.drop_loads()                   # falha antes de _await_loads: as cargas em thread não ficam presas no ResourceLoader
+	if start_req.loading and is_instance_valid(start_req.loading):
+		start_req.loading.call("fail", msg)
+	else:
+		LoadingScreen.back_to_menu(get_tree(), msg, start_req)
+
+## Marca de tempo da montagem: `BOOT <etapa> <ms> [extra]` (os pesos da barra saem daqui; design/ux/start-flow.md §7).
+func _boot(step: String, ms: int, extra: String = "") -> void:
+	boot_ms[step] = ms
+	print("BOOT %s %d%s" % [step, ms, (" " + extra) if extra != "" else ""])
 
 
-## Chamado pela UI de seleção de classe
+## Chamado pela UI de seleção de classe (e pela partida automática): tudo de uma vez.
 func start_game(cls: ClassDef, char_name: String, load_save: bool, look: Dictionary = {}, preset: int = 1) -> void:
 	var data := SaveSystem.load_data() if load_save else {}
+	var t := Time.get_ticks_msec()
+	var p := _spawn_player(cls, char_name, load_save, look, preset, data)
+	_boot("player", Time.get_ticks_msec() - t)
+	t = Time.get_ticks_msec()
+	_show_map(p.map_id)
+	_boot("map_build", Time.get_ticks_msec() - t, "views=%d fila=%d" % [views.size(), view_queue.size()])
+	_go_live(p, char_name, load_save, preset)
+
+## Nasce o jogador na sim (save aplicado ou começo rápido), ainda sem visual.
+func _spawn_player(cls: ClassDef, char_name: String, load_save: bool, look: Dictionary, preset: int, data: Dictionary) -> SimEntity:
 	var map_id := GameData.town_map_id()
 	if load_save and data.has("class"):
 		cls = GameData.classes.get(data["class"], cls)
@@ -138,11 +310,18 @@ func start_game(cls: ClassDef, char_name: String, load_save: bool, look: Diction
 		Sim.place_loaded(p, map_id, Vector3(float(pos[0]), 0, float(pos[1])))
 	elif preset > 1:
 		Sim.apply_start_preset(p, preset)        # começo rápido (criação de personagem, MVP)
-	_show_map(p.map_id)
+	return p
+
+## O jogo começa: controle, sim rodando, HUD e boas-vindas.
+func _go_live(p: SimEntity, char_name: String, load_save: bool, preset: int) -> void:
+	if current_map_id != p.map_id:
+		_show_map(p.map_id)
 	controller.set_physics_process(true)
 	Sim.running = true
 	started = true
 	hud.on_game_started()
+	if load_save:
+		char_name = p.name
 	# boas-vindas: a de Aldara só no personagem novo (nasce na praça, nível 1); save carregado pode estar em qualquer
 	# mapa e nível. Partida de revisão (--autostart) não mostra (a foto vai a outro mapa/nível), salvo com --welcome
 	var review := SaveSystem.slot == -1 and DevArgs.any() and not DevArgs.has("--welcome")
@@ -155,6 +334,31 @@ func start_game(cls: ClassDef, char_name: String, load_save: bool, look: Diction
 	else:
 		Events.notification.emit("Bem-vindo a Aldara, %s! Fale com o Ancião Ravi (F) para começar." % char_name)
 	Events.chat_message.emit("Sistema", "%s entrou no jogo." % char_name, "system")
+
+## Salva o personagem em jogo e tira o retrato do card (pontos de salvar: autosave, Esc → Salvar/Sair, fechar).
+## O hud chama isto no lugar de `SaveSystem.save_player(Sim.player)`. O retrato leva 2 quadros e não é esperado aqui:
+## antes de trocar de cena use `return_to_menu` (que espera).
+func save_game() -> void:
+	if Sim.player == null:
+		return
+	_portrait()
+	SaveSystem.save_player(Sim.player)
+
+## Gancho do retrato (game/menu/portrait.gd, etapa C): `Portrait.capture(view, slot)`, corrotina de 2 quadros. Sem o
+## arquivo, sem a função, em partida de teste (espaço -1) ou sem tela (headless), não faz nada. true = pediu a foto.
+func _portrait() -> bool:
+	if SaveSystem.slot < 0 or Sim.player == null or not views.has(Sim.player.id) or DisplayServer.get_name() == "headless":
+		return false
+	if not ResourceLoader.exists(PORTRAIT_SCRIPT):
+		return false
+	var s: Script = load(PORTRAIT_SCRIPT)
+	if s == null:
+		return false
+	for m in s.get_script_method_list():
+		if str(m.get("name", "")) == "capture":
+			s.call("capture", views[Sim.player.id], SaveSystem.slot)
+			return true
+	return false
 
 func _process(delta: float) -> void:
 	_drain_views()
@@ -169,11 +373,13 @@ func _process(delta: float) -> void:
 		_cull_t = 0.2
 		_cull_views()
 		NameplateCrowd.update(views, Sim.player, controller.aim_point if controller else Vector3.INF)     # matilha densa: nomes dos comuns somem
+		_hide_labels_under_hud()
+	_sync_name_size()
 	_follow_torch()
 	_autosave += delta
 	if _autosave > 60.0:
 		_autosave = 0.0
-		SaveSystem.save_player(Sim.player)
+		save_game()
 
 # ---------------------------------------------------------------------------
 ## Bonecos longe do jogador (fora da tela) somem e param de processar (animação, placa de nome, barra);
@@ -213,6 +419,34 @@ func _cull_views() -> void:
 			if near:
 				v._smooth_pos = e.position       # sem deslizar de onde sumiu
 				v.position = e.position
+
+## Zoom mudou: pixel_size dos nomes acompanha (EntityView.name_pixel_size); só escreve na troca.
+var _name_dist := -1.0
+func _sync_name_size() -> void:
+	if camera == null or is_equal_approx(camera.distance, _name_dist):
+		return
+	_name_dist = camera.distance
+	EntityView.name_px = EntityView.name_pixel_size(_name_dist)
+	for id in views:
+		(views[id] as EntityView).apply_name_size()
+
+## Nomes do mundo (bonecos e portas de casa) cujo ponto na tela cai sob a HUD somem (R2 #16). Passada a cada 0,2 s.
+func _hide_labels_under_hud() -> void:
+	if hud == null or camera == null or camera.cam == null:
+		return
+	var rects: Array[Rect2] = hud.label_blockers()
+	var cam: Camera3D = camera.cam
+	for id in views:
+		var v: EntityView = views[id]
+		if not v.visible or v.nameplate == null:
+			continue
+		var gp := v.nameplate.global_position
+		v.set_hud_hidden(not cam.is_position_behind(gp) and Hud.covered(cam.unproject_position(gp), rects))
+	if map_node and map_node.has_meta("door_labels"):
+		for l in map_node.get_meta("door_labels"):
+			var dl := l as Label3D
+			if is_instance_valid(dl):
+				dl.visible = cam.is_position_behind(dl.global_position) or not Hud.covered(cam.unproject_position(dl.global_position), rects)
 
 # ---------------------------------------------------------------------------
 ## Obstáculos altos entre a câmera e o jogador ficam translúcidos (estilo ToS/RO).
@@ -413,15 +647,24 @@ func _on_equipment_changed(id: int) -> void:
 	if views.has(id):
 		views[id].refresh_equipment()
 
-## Esc → "Salvar e voltar ao menu": salva, zera a sim e recarrega a cena (a tela inicial lista os personagens).
+## Esc → "Salvar e voltar ao menu": retrato (espera os quadros dele com o boneco vivo), salva, zera a sim e troca para
+## a tela inicial (abre em Personagens).
 func return_to_menu() -> void:
+	if _leaving:
+		return
+	_leaving = true
 	if started:
+		controller.set_physics_process(false)
+		if _portrait():
+			for i in PORTRAIT_FRAMES:
+				await get_tree().process_frame
 		SaveSystem.save_player(Sim.player)
 	started = false
-	returning = true
+	StartRequest.returning = true
+	StartRequest.last_slot = SaveSystem.slot
 	Sim.reset_world()
-	get_tree().reload_current_scene()
+	get_tree().change_scene_to_file(START_SCENE)
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST and started:
-		SaveSystem.save_player(Sim.player)
+		save_game()

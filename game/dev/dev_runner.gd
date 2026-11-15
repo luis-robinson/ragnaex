@@ -1,7 +1,8 @@
 class_name DevRunner
 extends Node
 ## Modos de revisão e medição da linha de comando (`-- --autostart`, `--bag_shot`, `--tour`, `--soak`, `--perf`...).
-## Só existe quando há argumentos depois de `--`; o Main chama `before_start`, `after_start`/`at_title` e `tick`.
+## Só existe quando há argumentos depois de `--`; o Main chama `before_start`, `after_start` e `tick`.
+## Fotos da tela inicial (RETURN_CHECK, --select_shot, --title_shot) ficam em game/menu/start.gd.
 ## Pode mexer direto no estado da sim (montar cenas de revisão) — o jogo normal nunca passa por aqui.
 
 var main: Node                    # game/main.gd
@@ -102,23 +103,59 @@ var _soak_rcpu := 0.0
 var _soak_phys := 0.0
 var _soak_draws := 0.0
 
-## Antes do jogo: liga as chaves de medição e decide a partida automática. Devolve a classe ("" = tela inicial).
-## `returning` = voltou ao menu pelo Esc: não repete o --autostart.
-func before_start(returning: bool) -> String:
+## Só a DECISÃO da partida automática, sem efeito nenhum (a tela inicial chama antes de montar o menu; design/ux/start-flow.md §8).
+## Devolve a classe ("" = tela inicial). Decidem: --autostart, --tour, --water_tour, --showcase, --playtest, --soak, --perf;
+## --preset/--level/--ascend/--gear são parâmetros e nunca disparam. `returning` (voltou pelo Esc) cancela tudo.
+static func autostart_class(args: PackedStringArray, returning: bool) -> String:
+	if returning:
+		return ""
 	var autostart := ""
+	if _arg_flag(args, "--tour"):
+		autostart = "paladin"
+	if _arg_flag(args, "--water_tour"):
+		autostart = "paladin"
+	if "--autostart" in args or _arg_flag(args, "--autostart"):
+		autostart = _arg_value(args, "--autostart", "paladin")
+	if _arg_flag(args, "--showcase"):
+		var sc_cls := _arg_value(args, "--showcase")
+		autostart = sc_cls if GameData.classes.has(sc_cls) else "paladin"
+	if _arg_flag(args, "--playtest"):
+		autostart = "paladin" if autostart == "" else autostart
+	if _arg_flag(args, "--soak"):
+		autostart = "berserker" if autostart == "" else autostart
+	if "--perf" in args:
+		autostart = "paladin"
+	return autostart
+
+## `--x=<valor>` está em `args` (como DevArgs.flag, mas sobre uma lista dada).
+static func _arg_flag(args: PackedStringArray, name: String) -> bool:
+	for a in args:
+		if a.begins_with(name + "="):
+			return true
+	return false
+
+## Valor de `--x=<valor>` em `args` (o último); `default` se não veio.
+static func _arg_value(args: PackedStringArray, name: String, default: String = "") -> String:
+	var out := default
+	var pre := name + "="
+	for a in args:
+		if a.begins_with(pre):
+			out = a.substr(pre.length())
+	return out
+
+## Antes do jogo (no main): liga as chaves de medição e monta o que a partida automática pede. A decisão em si é
+## `autostart_class` (a tela inicial já a tomou); devolve a mesma classe ("" = partida do jogador).
+## `returning` = não é partida automática (voltou pelo Esc / veio do menu): não arma tour nem bancada.
+func before_start(returning: bool) -> String:
+	var autostart := autostart_class(DevArgs.all(), returning)
 	_shot_path = DevArgs.value("--screenshot")
 	_tour_map = DevArgs.value("--tour_map", _tour_map)
 	if DevArgs.flag("--tour"):
 		_tour_dir = DevArgs.value("--tour")
-		autostart = "paladin"
 	if DevArgs.flag("--water_tour"):
 		_water_dir = DevArgs.value("--water_tour")
-		autostart = "paladin"
-	if DevArgs.has("--autostart") or DevArgs.flag("--autostart"):
-		autostart = DevArgs.value("--autostart", "paladin")
-	if DevArgs.flag("--showcase"):
+	if DevArgs.flag("--showcase") and not returning:
 		var sc_cls := DevArgs.value("--showcase")
-		autostart = sc_cls if GameData.classes.has(sc_cls) else "paladin"
 		showcase = Showcase.new()
 		showcase.setup(main, sc_cls, DevArgs.value("--skill"), DevArgs.value("--out"), DevArgs.has("--check"))
 	if DevArgs.flag("--gfx"):        # --gfx=<n>: preset de GraphicsSettings só nesta partida (não salva); comparar FPS/imagem
@@ -156,19 +193,14 @@ func before_start(returning: bool) -> String:
 				if sp["monster_id"] == _soak_boss:
 					_soak_map = mid
 	if DevArgs.flag("--playtest"):    # playtest: segue a cadeia principal como jogador e grava log/fotos (game/dev/playtest.gd)
-		autostart = "paladin" if autostart == "" else autostart
 		_playtest_dir = DevArgs.value("--playtest")
 	if DevArgs.flag("--soak"):        # joga sozinho (cérebro de bot) por N s e imprime FPS/nós/memória a cada 5 s
 		_soak_left = float(DevArgs.value("--soak"))
-		autostart = "berserker" if autostart == "" else autostart
 	if DevArgs.flag("--gather_shot"):   # colhendo minério e erva (fotos <png>_ore.png / <png>_herb.png)
 		_gather_shot.call_deferred(DevArgs.value("--gather_shot"))
 	if DevArgs.flag("--recall_shot"):   # --recall_shot=<png> [--recall_close]: barreira nas barras, F1-F3 com recargas próprias, volta à cidade (quadros) e interrupção
 		_recall_shot.call_deferred(DevArgs.value("--recall_shot"))
-	if DevArgs.flag("--title_shot"):    # foto da tela de criação com uma classe escolhida (revisar o layout)
-		_title_shot.call_deferred(DevArgs.value("--title_shot"))
-	if DevArgs.has("--perf"):                 # mede a cidade cheia por ~8 s e sai (FPS, draw calls, nós, tempo da sim)
-		autostart = "paladin"
+	if DevArgs.has("--perf") and not returning:     # mede a cidade cheia por ~8 s e sai (FPS, draw calls, nós, tempo da sim)
 		_perf_run()
 	if returning:
 		autostart = ""
@@ -199,6 +231,9 @@ func after_start() -> void:
 	if DevArgs.flag("--block_shot"):      # fotos do bloqueio e do aparar (escudo: --shield=<id>)
 		_smoke_test = false
 		_block_shot(DevArgs.value("--block_shot"))
+	if DevArgs.flag("--probe_px") or DevArgs.flag("--probe_at"):   # lista o que se desenha perto de um ponto (pixel 1920x1080 ou x,z) e sai
+		_smoke_test = false
+		_probe_near.call_deferred()
 	if showcase:
 		main.camera.distance = 9.0
 		main.add_child(showcase)
@@ -287,20 +322,6 @@ func after_start() -> void:
 		_falcon_shot.call_deferred(DevArgs.value("--falcon_shot"))
 	if DevArgs.flag("--buff_cast"):     # --buff_cast=<skill_id> [--buff_hold]: o jogador lança o buff no início (com --buff_hold dura até o --screenshot)
 		_cast_buff_at_start.call_deferred(DevArgs.value("--buff_cast"))
-
-## Tela inicial (sem partida automática): fotos da tela de classes.
-func at_title(returning: bool) -> void:
-	if returning and DevArgs.has("--return_check"):     # revisão: foto da tela inicial depois de voltar
-		await get_tree().create_timer(1.5).timeout
-		var shot := DevArgs.value("--return_shot")
-		if shot != "":
-			get_viewport().get_texture().get_image().save_png(shot)
-		print("RETURN_CHECK ok entities=%d maps=%d player=%s" % [Sim.entities.size(), Sim.maps.size(), str(Sim.player != null)])
-		get_tree().quit()
-	if DevArgs.flag("--select_shot"):      # --select_shot=<png>: foto da tela de classes e sai
-		await get_tree().create_timer(2.0).timeout
-		get_viewport().get_texture().get_image().save_png(DevArgs.value("--select_shot"))
-		get_tree().quit()
 
 ## Chamado pelo _process do Main com o jogo rodando.
 func tick(delta: float) -> void:
@@ -1551,24 +1572,6 @@ func _place(p: SimEntity, at: Vector3) -> void:
 	main.views[p.id].position = at
 	main.views[p.id]._smooth_pos = at
 
-func _title_shot(path: String) -> void:
-	await get_tree().create_timer(2.5).timeout
-	var cs = main.hud.class_select
-	if cs:
-		var cid := DevArgs.value("--title_class", "druid")
-		var step := DevArgs.value("--title_step")      # slots | class | look
-		var tab := DevArgs.value("--title_tab")        # body | hair | face
-		if step != "slots" and step != "":
-			if cs._page != "create":
-				cs._go_create()
-			cs._select(GameData.classes[cid])
-			if tab != "":
-				cs._look_tab = tab
-			cs._set_step(step)
-	await get_tree().create_timer(1.0).timeout
-	get_viewport().get_texture().get_image().save_png(path)
-	get_tree().quit()
-
 func _tip_shot(path: String) -> void:
 	await get_tree().create_timer(1.0).timeout
 	var tips: Tips = main.hud.tips
@@ -2100,6 +2103,61 @@ func _block_shot(path: String) -> void:
 	get_viewport().get_texture().get_image().save_png(path.replace(".png", "_arco.png"))
 	get_tree().quit()
 
+## Investigar mancha na tela: `--probe_px=X,Y` (pixel numa tela 1920x1080, levado ao chão y=0 pela câmera) ou
+## `--probe_at=x,z`; `--probe_r=<m>` (6). Imprime `PROBE` de cada MeshInstance3D/Decal/Sprite3D/Label3D/luz
+## nesse raio (nome, caminho, malha, material, cor, transparência, script do dono) e salva `--screenshot`.
+func _probe_near() -> void:
+	await get_tree().create_timer(2.5).timeout
+	var cam := get_viewport().get_camera_3d()
+	var at := Vector3.ZERO
+	if DevArgs.flag("--probe_at"):
+		var v := DevArgs.value("--probe_at").split(",")
+		at = Vector3(float(v[0]), 0, float(v[1]))
+	else:
+		var v := DevArgs.value("--probe_px").split(",")
+		var vs := get_viewport().get_visible_rect().size
+		var px := Vector2(float(v[0]) * vs.x / 1920.0, float(v[1]) * vs.y / 1080.0)
+		var o := cam.project_ray_origin(px)
+		var d := cam.project_ray_normal(px)
+		if absf(d.y) > 0.0001:
+			at = o + d * (-o.y / d.y)
+	var r := float(DevArgs.value("--probe_r", "6"))
+	print("PROBE ponto=", at, " jogador=", Sim.player.position if Sim.player else Vector3.ZERO, " raio=", r)
+	for n in get_tree().root.find_children("*", "VisualInstance3D", true, false):
+		var vi := n as Node3D
+		if not vi.is_visible_in_tree():
+			continue
+		var gp := vi.global_position
+		if Vector2(gp.x - at.x, gp.z - at.z).length() > r:
+			continue
+		var info := "PROBE %s pos=%s path=%s" % [vi.get_class(), gp, vi.get_path()]
+		var owner_script := ""
+		var up: Node = vi
+		while up and owner_script == "":
+			if up.get_script():
+				owner_script = (up.get_script() as Script).resource_path
+			up = up.get_parent()
+		info += " script=" + owner_script
+		if vi is MeshInstance3D:
+			var mi := vi as MeshInstance3D
+			info += " mesh=%s aabb=%s" % [mi.mesh.get_class() if mi.mesh else "-", mi.get_aabb().size]
+			var mat: Material = mi.material_override
+			if mat == null and mi.mesh and mi.mesh.get_surface_count() > 0:
+				mat = mi.get_active_material(0)
+			if mat is BaseMaterial3D:
+				var bm := mat as BaseMaterial3D
+				info += " mat=Base albedo=%s transp=%d emis=%s" % [bm.albedo_color, bm.transparency, bm.emission if bm.emission_enabled else Color.BLACK]
+			elif mat is ShaderMaterial:
+				info += " mat=Shader " + ((mat as ShaderMaterial).shader.resource_path if (mat as ShaderMaterial).shader else "")
+		elif vi is Label3D:
+			info += " text=" + (vi as Label3D).text.replace("\n", "|")
+		elif vi is Light3D:
+			info += " light=%s" % (vi as Light3D).light_color
+		print(info)
+	if _shot_path != "":
+		get_viewport().get_texture().get_image().save_png(_shot_path)
+	get_tree().quit()
+
 ## Paradas da revisão da água: [nome, mapa, tipo (bridge|river|lake|fixed), índice ou ponto].
 const WATER_STOPS := [
 	["aldara_ponte", "city_aldara", "bridge", 0], ["aldara_rio", "city_aldara", "river", 0], ["aldara_lago", "city_aldara", "lake", 0],
@@ -2508,7 +2566,7 @@ func _sig_shot(dir: String) -> void:
 		p.last_target_id = boss.id            # como em luta: o anel creme do alvo fica sob o chefe
 		boss.crowd = 3
 		boss.face_towards(p.position)
-		main.camera.distance = float(shots[bid][2])
+		main.camera.distance = float(DevArgs.value("--sig_cam", str(shots[bid][2])))     # --sig_cam=<m>: zoom da foto (nomes a 24/34 m)
 		await get_tree().create_timer(1.0).timeout
 		Sim.sync()
 		var s: SkillDef = GameData.skills[shots[bid][0]]
