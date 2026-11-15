@@ -65,8 +65,29 @@ static func _b(build_id: String, id: String, name: String, text: String, kind: S
 	d["build"] = build_id
 	return d
 
-## {class_id: [[nível, [opção, opção, opção]], ...]}
+## Catálogo montado uma vez (montar custa ~1,3 ms; bot_pick pedia a cada bot). Nunca entregue sem copiar.
+static var _cache := {}
+
+## {class_id: [[nível, [opção, opção, opção]], ...]}. Cópia funda: quem chama pode mexer à vontade.
+## Ex.: `for row in ClassTalentsCatalog.build()["paladin"]: print(row[0])`.
+## Monta o cache já no `GameData._ready` (thread principal): o `_built` preguiçoso não tem trava e a sim roda
+## numa WorkerThreadPool (SimSync), onde dois bots montariam o catálogo ao mesmo tempo.
+static func warm() -> void:
+	_built()
+
 static func build() -> Dictionary:
+	return _built().duplicate(true)
+
+## Linhas da classe SÓ PARA LEITURA (o mesmo array do cache: não altere). Ex.: `ClassTalentsCatalog.rows_of("bishop")`.
+static func rows_of(class_id: String) -> Array:
+	return _built().get(class_id, [])
+
+static func _built() -> Dictionary:
+	if _cache.is_empty():
+		_cache = _make()
+	return _cache
+
+static func _make() -> Dictionary:
 	return {
 		"paladin": [
 			[5, [_o("pal_c_oath", "Voto do Escudo", "Juramento acumula até 8 cargas (eram 5).", "dano", {"oath_max": 8}),

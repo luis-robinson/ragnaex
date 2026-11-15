@@ -6,6 +6,7 @@ extends Node
 
 const TICK_RATE := 60.0
 const AI_EVERY := 3
+const RNG_SEED := 1337
 var tick_usec := 0.0                 # custo médio de um tick (µs)
 var away_every: int = Balance.AWAY_MAP_EVERY     # mapas sem o jogador: 1 = ritmo cheio (--no_away, para medir)
 
@@ -33,8 +34,13 @@ var invites: Dictionary = {}       # entity_id convidado -> {"from", "expires", 
 var _next_party_id: int = 1
 var party_seek: Dictionary = {}    # /party: entity_id -> {"queue": [ids de bots], "next_at", "until"}
 
+## Semente fixa já na criação: WorldSim.new() fora da árvore (testes, sondas) nunca roda _ready,
+## e um RandomNumberGenerator novo nasce com semente aleatória (sorteios mudavam de uma execução para outra).
+func _init() -> void:
+	rng.seed = RNG_SEED
+
 func _ready() -> void:
-	rng.seed = 1337
+	rng.seed = RNG_SEED
 	set_physics_process(true)
 	process_priority = -1000
 	process_physics_priority = -1000
@@ -325,9 +331,14 @@ func spawn_bot(cls: ClassDef, bot_name: String, map_id: String, pos: Vector3, le
 	if cls.builds.size() > 0:
 		b.build_id = cls.builds[rng.randi() % cls.builds.size()]["id"]
 	_gear_bot(b)
-	_skill_bot(b)
+	_skill_bot(b, true)               # atributos refeitos uma vez no fim (o heal_full abaixo acerta o HP)
 	b.heal_full()                     # a teia mexe no HP máximo: nasce cheio
 	return b
+
+## Equipamento de bot pronto por "<classe>|<build>|<tier>|<raridade>|<secundária>|<titã>" -> [[slot, ItemDef], ...] na ordem
+## em que a varredura de GameData.items os pôs. Refeito se GameData.items crescer (peças +N do aprimoramento).
+var _bot_gear_cache: Dictionary = {}
+var _bot_gear_items := -1
 
 ## Equipamento de bot: tier comum pelo nível; armas da build (principal + secundária).
 func _gear_bot(b: SimEntity) -> void:
@@ -346,6 +357,28 @@ func _gear_bot(b: SimEntity) -> void:
 	if "shield" in off_types and off_types.size() > 1:
 		off_types = [off_types[rng.randi() % off_types.size()]]     # orbe ou escudo: cada bot escolhe
 	b.equipment.clear()
+	var key := "%s|%s|%d|%d|%s|%s" % [b.class_def.id, b.build_id, tier, rarity, off_types[0] if off_types.size() > 0 else "", titan]
+	if _bot_gear_items != GameData.items.size():
+		_bot_gear_cache.clear()
+		_bot_gear_items = GameData.items.size()
+	if ProgressionSystem.bot_spawn_cache and _bot_gear_cache.has(key):
+		for pair in _bot_gear_cache[key]:
+			b.equipment[pair[0]] = pair[1]
+	else:
+		_gear_scan(b, build, tier, rarity, main_types, off_types)
+		var picked: Array = []
+		for slot in b.equipment:
+			picked.append([slot, b.equipment[slot]])
+		_bot_gear_cache[key] = picked
+	var w: ItemDef = b.equipment.get(ItemDef.Slot.WEAPON)
+	if w and w.is_two_handed() and not (titan and TitanSystem.pair_ok(b)):
+		b.equipment.erase(ItemDef.Slot.OFFHAND)
+	b.recompute_stats()
+	b.heal_full()
+	Events.post(&"equipment_changed", b.id)   # a view já existe (spawn emite antes)
+
+## Varredura de GameData.items do _gear_bot (sem o corte da 2ª mão de arma de duas mãos).
+func _gear_scan(b: SimEntity, build: Dictionary, tier: int, rarity: int, main_types: Array, off_types: Array) -> void:
 	for item_id in GameData.items:
 		var it: ItemDef = GameData.items[item_id]
 		if not it.is_equipment() or it.rarity != rarity or GearCatalog.craft_only(it):     # joia/capa 45 de troféu: só por receita
@@ -377,17 +410,12 @@ func _gear_bot(b: SimEntity) -> void:
 			b.equipment[it.slot] = it
 	if b.equipment.has(ItemDef.Slot.RING) and not b.equipment.has(ItemDef.Slot.RING2):
 		b.equipment[ItemDef.Slot.RING2] = b.equipment[ItemDef.Slot.RING]
-	var w: ItemDef = b.equipment.get(ItemDef.Slot.WEAPON)
-	if w and w.is_two_handed() and not (titan and TitanSystem.pair_ok(b)):
-		b.equipment.erase(ItemDef.Slot.OFFHAND)
-	b.recompute_stats()
-	b.heal_full()
-	Events.post(&"equipment_changed", b.id)   # a view já existe (spawn emite antes)
 
 ## Skills de bot: gasta os pontos do nível na teia como um jogador da build (ProgressionSystem.bot_spend) e
 ## equipa as 6 primeiras skills da build que aprendeu e que a arma permite.
-func _skill_bot(b: SimEntity) -> void:
-	ProgressionSystem.bot_spend(self, b, true)
+## `batch` = atributos refeitos uma vez no fim (só quem dá heal_full depois: spawn_bot).
+func _skill_bot(b: SimEntity, batch: bool = false) -> void:
+	ProgressionSystem.bot_spend(self, b, true, batch and ProgressionSystem.bot_spawn_cache)
 	ProgressionSystem.bot_spend_asc(self, b)      # teia de ascensão (só ascendido)
 	_slot_bot(b)
 

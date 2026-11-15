@@ -23,6 +23,7 @@ var _basic_cache: Dictionary = {}
 var basic_skills: Dictionary = {}   # id -> SkillDef dos básicos gerados (o FX acha o tema por aqui)
 
 func _ready() -> void:
+	ClassTalentsCatalog.warm()     # cache do catálogo pronto antes de a sim ir para a thread (o _built não tem trava)
 	load_all()
 
 func load_all() -> void:

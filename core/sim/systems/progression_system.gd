@@ -429,7 +429,9 @@ static func pick_sibling(sim: WorldSim, e: SimEntity, node_id: String) -> String
 	return ""
 
 ## Compra um nó da árvore e aplica: skill nova (vai pro 1º slot livre), evolução, +1 maestria ou passivo.
-static func tree_allocate(sim: WorldSim, e: SimEntity, node_id: String) -> bool:
+## `batch` = não refaz os atributos a cada passivo (quem chama refaz uma vez no fim; ex.: bot_spend de bot novo).
+## Ex.: `ProgressionSystem.tree_allocate(sim, e, "paladin_m_pal_holy_strike")`.
+static func tree_allocate(sim: WorldSim, e: SimEntity, node_id: String, batch: bool = false) -> bool:
 	if is_asc_node(e, node_id):
 		return _asc_allocate(sim, e, node_id)
 	var why := tree_block_reason(sim, e, node_id)
@@ -458,14 +460,22 @@ static func tree_allocate(sim: WorldSim, e: SimEntity, node_id: String) -> bool:
 		"mastery":
 			e.mastery[ref] = mini(Balance.MASTERY_MAX, e.mastery_of(ref) + 1)
 		"stat", "notable", "pick":
-			recompute_tree_bonus(sim, e)
+			if not batch:
+				recompute_tree_bonus(sim, e)
 	Events.post(&"mastery_changed", e.id, ref, e.mastery_of(ref))
 	return true
+
+## Nó cuja compra refaz os atributos (só estes têm `stats`).
+static func _changes_stats(n: Dictionary) -> bool:
+	return n["kind"] in ["stat", "notable", "pick"]
 
 ## Bot gasta os pontos na teia como um jogador da build: caminho mais curto até cada skill da build (na ordem da
 ## build), maestria nas skills da barra (nível/6), evoluções às vezes, e o resto em notáveis e atributos do próprio
 ## braço (depois dos anéis). `fresh` = recomeça do início (troca de build / bot novo).
-static func bot_spend(sim: WorldSim, e: SimEntity, fresh: bool = false) -> void:
+## `batch` = refaz os atributos uma vez no fim, não a cada passivo (bot novo, que nasce com heal_full: o HP no meio
+## do caminho, que as pedras-angulares com hp_pct < 0 cortariam, não importa). Subir de nível usa o padrão.
+## Ex.: `ProgressionSystem.bot_spend(sim, bot, true, true)`.
+static func bot_spend(sim: WorldSim, e: SimEntity, fresh: bool = false, batch: bool = false) -> void:
 	var tr := tree_of(sim, e)
 	if tr.is_empty():
 		return
@@ -482,7 +492,7 @@ static func bot_spend(sim: WorldSim, e: SimEntity, fresh: bool = false) -> void:
 		e.mastery_points = points_for_level(e.level)
 	var build := e.class_def.build_by_id(e.build_id)
 	var wanted: Array = build.get("skills", e.class_def.skill_ids)
-	ClassTalentSystem.bot_pick(sim, e)        # talentos de classe (grátis, pelo nível)
+	var dirty := ClassTalentSystem.bot_pick(sim, e, batch)        # talentos de classe (grátis, pelo nível)
 	# 1) skills da build (que o nível já libera), pelo caminho mais curto
 	for sid in wanted:
 		var target := "%s_s_%s" % [cid, sid]
@@ -492,24 +502,40 @@ static func bot_spend(sim: WorldSim, e: SimEntity, fresh: bool = false) -> void:
 		if path.is_empty() or path.size() > e.mastery_points:
 			continue
 		for nid in path:
-			if not tree_allocate(sim, e, nid):
+			if not tree_allocate(sim, e, nid, batch):
 				break
+			dirty = dirty or _changes_stats(nodes[nid])
 	# 2) maestria das skills da build aprendidas, até nível/6
 	var want_m := clampi(e.level / 6, 0, Balance.MASTERY_MAX)
 	for sid in wanted:
 		if not e.learned.has(sid):
 			continue
 		while e.mastery_of(sid) < want_m and e.mastery_points > 0:
-			if not tree_allocate(sim, e, "%s_m_%s" % [cid, sid]):
+			if not tree_allocate(sim, e, "%s_m_%s" % [cid, sid], batch):
 				break
 	# 3) evoluções das skills aprendidas (metade, como antes)
 	for nid in nodes:
 		var n: Dictionary = nodes[nid]
 		if n["kind"] == "talent" and not e.tree.has(nid) and sim.rng.randf() < 0.5 and tree_block_reason(sim, e, nid) == "":
-			tree_allocate(sim, e, nid)
+			tree_allocate(sim, e, nid, batch)
 	# 4) o resto: notáveis e atributos vizinhos, primeiro do braço da build, depois anéis e Geral
 	var guard := 0
 	var lean := "def" if build.get("role", "") in ["tank", "healer"] else "atk"     # pedra-angular que o bot escolhe
+	if bot_spawn_cache:
+		var order := _web_order(nodes, cid, e.build_id, lean)
+		while e.mastery_points > 0 and guard < Balance.BOT_WEB_SPEND_GUARD:
+			guard += 1
+			var best := ""
+			for nid in order:           # 1º livre na ordem de nota = o mesmo que a varredura escolheria
+				if not e.tree.has(nid) and _web_open(e, nodes[nid]):
+					best = nid
+					break
+			if best == "" or not tree_allocate(sim, e, best, batch):
+				break
+			dirty = dirty or _changes_stats(nodes[best])
+		if batch and dirty:
+			recompute_tree_bonus(sim, e)
+		return
 	while e.mastery_points > 0 and guard < Balance.BOT_WEB_SPEND_GUARD:
 		guard += 1
 		var best := ""
@@ -527,8 +553,57 @@ static func bot_spend(sim: WorldSim, e: SimEntity, fresh: bool = false) -> void:
 			if score > best_score:
 				best_score = score
 				best = nid
-		if best == "" or not tree_allocate(sim, e, best):
+		if best == "" or not tree_allocate(sim, e, best, batch):
 			break
+		dirty = dirty or _changes_stats(nodes[best])
+	if batch and dirty:
+		recompute_tree_bonus(sim, e)
+
+## Cache do passo 4 do bot_spend: "<classe>|<build>|<lean>" -> {"nodes": dicionário da teia, "order": ids}.
+## Só leitura de dados fixos (GameData.trees); uso na thread da sim, uma de cada vez.
+static var _web_cache := {}
+## false = caminho antigo (varre a teia toda a cada ponto; equipamento de bot sem cache). Só o teste desliga.
+static var bot_spawn_cache := true
+
+## Nós stat/notável que o bot da build compraria no passo 4, por nota decrescente; empate na ordem da teia
+## (o `>` estrito da varredura antiga fica com o primeiro). Ex.: `for nid in _web_order(nodes, "paladin", "cruzado", "atk")`.
+static func _web_order(nodes: Dictionary, cid: String, build_id: String, lean: String) -> PackedStringArray:
+	var key := "%s|%s|%s" % [cid, build_id, lean]
+	var c: Dictionary = _web_cache.get(key, {})
+	if not c.is_empty() and is_same(c["nodes"], nodes):
+		return c["order"]
+	var rows: Array = []
+	var idx := 0
+	for nid in nodes:
+		var n: Dictionary = nodes[nid]
+		idx += 1
+		if not (n["kind"] in ["stat", "notable"]) or n.get("keystone", lean) != lean:
+			continue
+		var score := 2.0 if n["kind"] == "notable" else 1.0       # mesma conta do caminho antigo (mesmo float)
+		if n["branch"] == build_id:
+			score += 3.0
+		elif n["branch"] == "ring":
+			score += 1.0
+		score -= (n["pos"] as Vector2).length() * 0.05
+		rows.append([score, idx, nid])
+	rows.sort_custom(func(a, b): return a[0] > b[0] or (a[0] == b[0] and a[1] < b[1]))
+	var order := PackedStringArray()
+	for r in rows:
+		order.append(r[2])
+	_web_cache[key] = {"nodes": nodes, "order": order}
+	return order
+
+## Mesmo resultado de tree_block_reason(...) == "" para nó stat/notável ainda não comprado (sem as strings).
+static func _web_open(e: SimEntity, n: Dictionary) -> bool:
+	for x in n.get("excludes", []):
+		if e.tree.has(x):
+			return false
+	var linked := false
+	for l in n["links"]:
+		if e.tree.has(l):
+			linked = true
+			break
+	return linked and e.level >= int(n["level"]) and e.mastery_points >= int(n["cost"])
 
 ## Caminho (nós a comprar, em ordem) do pedaço já comprado até `target`, por BFS; nós acima do nível não entram.
 static func _path_to(e: SimEntity, nodes: Dictionary, target: String) -> Array:

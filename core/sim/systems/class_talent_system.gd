@@ -263,10 +263,12 @@ static func on_kill(sim: WorldSim, killer: SimEntity, victim: SimEntity) -> void
 # --- bots ---------------------------------------------------------------------------------------------------------
 ## Bot escolhe uma opção por linha liberada: a marcada para a build dele (`build`, linhas 35+) ou, sem marca, a que
 ## fala de uma skill da build (ou genérica).
-static func bot_pick(sim: WorldSim, e: SimEntity) -> void:
+## `batch` = sem refazer os atributos a cada escolha (ProgressionSystem.bot_spend refaz no fim). Devolve se comprou algo.
+static func bot_pick(sim: WorldSim, e: SimEntity, batch: bool = false) -> bool:
+	var bought := false
 	if not bot_picks:
-		return
-	var rows: Array = ClassTalentsCatalog.build().get(e.class_def.id, [])
+		return bought
+	var rows: Array = ClassTalentsCatalog.rows_of(e.class_def.id)        # só leitura
 	var build := e.class_def.build_by_id(e.build_id)
 	var mine: Array = build.get("skills", e.class_def.skill_ids)
 	for row in rows:
@@ -282,4 +284,6 @@ static func bot_pick(sim: WorldSim, e: SimEntity) -> void:
 		var o: Dictionary = good[sim.rng.randi() % good.size()]
 		var nid := "%s_c_%s" % [e.class_def.id, o["id"]]
 		if not e.tree.has(nid) and ProgressionSystem.pick_sibling(sim, e, nid) == "":
-			ProgressionSystem.tree_allocate(sim, e, nid)
+			if ProgressionSystem.tree_allocate(sim, e, nid, batch):
+				bought = true
+	return bought
