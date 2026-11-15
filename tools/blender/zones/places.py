@@ -145,9 +145,12 @@ DUNGEONS["dg_goblin"] = {
             # a entrada é dos Empaladores (33), o bicho da gruta: 3, cada um com 2 lanceiros de escolta (~9 bichos)
             "lamacal": {"pos": (0, 20), "r": 12, "mobs": [("goblin_impaler", 3)], "mob_off": (0.0, -7.0), "floor": (0.3, 0.46, 0.3), "pool": (0.36, 0.6, 0.52),
                         "decor": GOBLIN_DECOR + [("stump", 4, (1.0, 0.8, 1.0), (0.36, 0.3, 0.2))]},
-            # forja: basalto fuliginoso cinza-quente (era laranja-ferrugem: a lava laranja sumia no chão; art review 2026-11-13, item 3)
-            "forja": {"pos": (-30, -4), "r": 10, "mobs": [("goblin_impaler", 3), ("goblin_lancer", 3)], "floor": (0.34, 0.3, 0.29),
-                      "pool": (1.0, 0.5, 0.2), "decor": [("anvil", 3, (1.0, 1.0, 0.6), (0.4, 0.4, 0.42)), ("cauldron", 2, (1.1, 1.0, 1.1), (0.3, 0.3, 0.32))] + GOBLIN_DECOR[:2]},
+            # forja: basalto fuliginoso (era laranja-ferrugem: a lava laranja sumia no chão; art review 2026-11-13, item 3).
+            # r5: albedo cinza-AZULADO (era 0.34/0.3/0.29, que sob a tocha quente saía marrom como caixotes, goblins e rocha) e a
+            # poça de lava do centro vira só a brasa do miolo (`pool_r` 0.1; era 0.22 = 2,75 m de laranja aceso bem onde o bando
+            # luta: goblin creme/oliva em cima de laranja não se lia). A crosta escura em volta sai de act2_dress.goblin.
+            "forja": {"pos": (-30, -4), "r": 10, "mobs": [("goblin_impaler", 3), ("goblin_lancer", 3)], "floor": (0.36, 0.37, 0.43),
+                      "pool": (1.0, 0.5, 0.2), "pool_r": 0.1, "decor": [("anvil", 3, (1.0, 1.0, 0.6), (0.4, 0.4, 0.42)), ("cauldron", 2, (1.1, 1.0, 1.1), (0.3, 0.3, 0.32))] + GOBLIN_DECOR[:2]},
             "tambores": {"pos": (28, -16), "r": 10, "mobs": [("orc_recruit", 3), ("goblin_agitator", 1)], "floor": (0.48, 0.26, 0.4),
                          # pele do tambor no centro: tinta fosca num tom do chão (`pool_glow` False), menor; o disco creme que
                          # brilhava lia-se como aviso de golpe (cone/área brancos)

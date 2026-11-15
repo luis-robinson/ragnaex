@@ -46,6 +46,10 @@ BONE = (0.86, 0.8, 0.62)
 # cor de cada clã (estandartes, anéis no chão, braseiros da antecâmara)
 CLAN = {"wolf": (0.84, 0.86, 0.92), "stone": (0.42, 0.78, 0.5), "forge": (1.0, 0.56, 0.2)}
 CLAN_PT = {"wolf": "lobo", "stone": "pedra", "forge": "forja"}
+# cor do PANO de cada clã (flâmulas das alas e pano dos braseiros da antecâmara). Lobo: o branco-gelo (0.84, 0.86, 0.92) do
+# brilho saía creme/pêssego no pano sob a luz quente da cidadela (cor no jogo ~ albedo x (0.98, 0.74, 0.62)); o pano leva um
+# azul-aço bem mais azul que o tom desejado para ler azul-gelo frio na tela (~0.41/0.50/0.62). Brilho e braseiro seguem CLAN.
+CLAN_CLOTH = {"wolf": (0.42, 0.67, 1.0), "stone": CLAN["stone"], "forge": CLAN["forge"]}
 # cor do clã apagada (sem brilho) para a lasca na pedra do soquete: diz qual estandarte vai onde sem pintar o chão da luta
 # (lobo: azul-gelo claro com aro escuro por baixo; o cinza-azulado antigo sumia na pedra do soquete vista a 52°).
 # Lobo bem mais azul que o tom desejado: a luz do trono (ambiente quente + braseiros de lava) come o azul e o (0.74, 0.85, 0.98)
@@ -302,7 +306,7 @@ def _dress(z, rooms):
             rack(p, a)
     rimset("patio", 24, patio_rim, 0.86, 0.93)
     # ---- Ala do Lobo: canis (cercados, jaulas, palha, ossos), rampa (selas e lanças), arena (anéis cinza, crânios) ----
-    wolf = CLAN["wolf"]
+    wolf = CLAN_CLOTH["wolf"]
     x, y = rooms["canis"]["pos"]
     r = rooms["canis"]["r"]
     mottle("canis", [(0.72, 0.6, 0.36), (0.6, 0.5, 0.32)], 16)
@@ -469,7 +473,7 @@ def _dress(z, rooms):
                         dd.arc("cla", dd.m("patch_cla_brasa", (0.58, 0.42, 0.33)), q, 1.0, a0 + 0.12, a0 + math.tau / 4 - 0.12, 0.2, 0.0238, 0.1, 0.5)
             else:
                 dd.cyl("cla", dd.m("cla_cinza", (0.26, 0.24, 0.29)), q, 0.6, 0.3, 0.3, y0 + 1.2, 6)
-            dd.cloth("cla", dd.m("pano_cla_" + CLAN_PT[clan], CLAN[clan] if not lit else (0.3, 0.28, 0.3)), (q[0] - 0.5, q[1] + 0.95), 1.0, 1.5, 0.0, 4.6 if top else 0.05)
+            dd.cloth("cla", dd.m("pano_cla_" + CLAN_PT[clan], CLAN_CLOTH[clan] if not lit else (0.3, 0.28, 0.3)), (q[0] - 0.5, q[1] + 0.95), 1.0, 1.5, 0.0, 4.6 if top else 0.05)
             total += dd.flush()
     return total
 

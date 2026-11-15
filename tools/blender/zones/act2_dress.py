@@ -590,15 +590,19 @@ MESA_ROCK = (0.56, 0.4, 0.3)
 
 
 def dry_ground(d, tones, n, r=108, streaks=110, streak_col=(0.84, 0.74, 0.46), ruts=(0.42, 0.37, 0.31), edge=(0.5, 0.44, 0.35), c=(0, 0), streak_soft=False,
-               mottle_y=0.0018, mottle_step=0.0008, streak_y=0.0042):
+               mottle_y=0.0018, mottle_step=0.0008, streak_y=0.0042, clear_places=False):
     """Chão de estepe: manchas em três tons, riscos claros de vento todos no mesmo rumo, acostamento pisado e sulcos de roda.
     `streak_soft`: o risco vira uma língua de cinza soprada (arco suave de 9 pontos, mais larga no meio, as duas pontas em
     bico). O risco padrão é uma fita de 3 pontos com as pontas cortadas retas: some no capim claro da estepe, mas no chão
     escuro e aberto de Kharzun lia-se como ripa reta de ponta quadrada. Gasta os mesmos sorteios do `d.rnd` (a sim não muda).
     `mottle_y`/`mottle_step`/`streak_y`: alturas das manchas (3 planos) e dos riscos; planos a 0,2 mm brigam (faixas).
     Padrão (Estepes e acampamentos): manchas 1,8/2,6/3,4 mm e risco 4,2 mm, tudo abaixo do chão limpo das frentes (5,0),
-    das manchas `Zone.patch` e do chão dos lugares (6,0+). Antes: 4,8/5,0/5,2 e risco 6,2 (por cima dos lugares, a 0,2 mm)."""
+    das manchas `Zone.patch` e do chão dos lugares (6,0+). Antes: 4,8/5,0/5,2 e risco 6,2 (por cima dos lugares, a 0,2 mm).
+    `clear_places`: com o risco ACIMA do chão dos lugares (Kharzun, 6,4 mm) a língua de cinza atravessava o piso claro das
+    praças e dos lugares (Santuário dos Anões: duas linhas diagonais finas; art review r2, item 13). O risco que toca um
+    disco de praça/lugar (`roads` com `r`) não é desenhado, mas gasta o sorteio que a fita gastaria (a sim não muda)."""
     rnd = d.rnd
+    discs = [(Vector(rd["pts"][0]), rd["r"]) for rd in d.z.data["roads"] if clear_places and "r" in rd and len(rd["pts"]) == 1]
     d.mottle(tones, [(c, r, n)], y=mottle_y, rmin=3.0, rmax=9.0, step=mottle_step)
     sm = d.m("patch_risco_vento", streak_col)
     wd = Vector((1.0, 0.3)).normalized()
@@ -613,6 +617,9 @@ def dry_ground(d, tones, n, r=108, streaks=110, streak_col=(0.84, 0.74, 0.46), r
         if streak_soft:
             a0, ctrl, a1 = p - wd * L * 0.5, p + side * 4.0, p + wd * L * 0.5          # Bézier: barriga de até 1 m no meio
             pts = [a0 * (1 - t) ** 2 + ctrl * 2 * t * (1 - t) + a1 * t ** 2 for t in (k / 8 for k in range(9))]
+            if any((q - dc).length < dr * 1.12 + 1.2 for q in pts for dc, dr in discs):      # borda do disco ondula 10%
+                rnd.uniform(0, 50)                           # o sorteio de fase do Dress.strip
+                continue
             d.strip("vento", sm, pts, w * 1.7, streak_y, 0.3, taper="point")
         else:
             d.strip("vento", sm, [p - wd * L * 0.5, p + side, p + wd * L * 0.5], w, streak_y, 0.3, taper=True)
@@ -1277,6 +1284,13 @@ def goblin(z, rooms, edges):
     r = rooms["forja"]["r"]
     lava = d.m("glow_lava", (1.0, 0.46, 0.14))
     soot = d.m("patch_fuligem", (0.26, 0.2, 0.18))
+    # crosta de lava fria em volta da brasa do centro (a poça acesa de 2,75 m virou um miolo de 1,25 m: places.DUNGEONS):
+    # disco escuro fosco onde o bando luta, com os veios de lava das rachaduras entrando até a brasa. Só desenho: guarda e
+    # devolve o estado do Random a cada peça nova (dispersão, colisores e JSON da gruta não mudam).
+    st = rnd.getstate()
+    crust = d.m("patch_crosta_forja", (0.2, 0.19, 0.23))
+    d.blob("forja", crust, (x, y), r * 0.27, 0.0227, 0.16, 16)
+    rnd.setstate(st)
     for k in range(9):
         a = math.tau * k / 9 + rnd.uniform(-0.2, 0.2)
         L = r * rnd.uniform(0.4, 0.8)
@@ -1286,6 +1300,10 @@ def goblin(z, rooms, edges):
             pts.append(Vector((x + math.cos(aa) * (r * 0.2 + L * j / 4), y + math.sin(aa) * (r * 0.2 + L * j / 4))))
         d.strip("forja", soot, pts, 0.9, 0.0222, 0.4, taper=True)
         d.strip("forja", lava, pts, 0.26, 0.0232, 0.3, taper=True)
+        st = rnd.getstate()                                  # veio fino da ponta da rachadura até a brasa, por cima da crosta
+        d.strip("forja", lava, [Vector((x + math.cos(a) * r * 0.07, y + math.sin(a) * r * 0.07)), Vector((x + math.cos(a + 0.12) * r * 0.14, y + math.sin(a + 0.12) * r * 0.14)), pts[0]],
+                0.16, 0.0232, 0.2)
+        rnd.setstate(st)
     coal = d.m("carvao", (0.16, 0.15, 0.16))
     for (p, a) in rim_spots("forja", 10, 0.86, 0.95):
         k = rnd.random()
@@ -1693,8 +1711,10 @@ def kharzun(z, k):
                streak_col=(0.6, 0.56, 0.54), ruts=(0.46, 0.42, 0.4), edge=(0.52, 0.47, 0.44), streak_soft=True,
                # manchas a 3,0/3,8/4,6 mm e risco a 6,4 mm: os três tons ficavam a 0,2 mm um do outro (4,8/5,0/5,2) e o risco a
                # 0,2 mm do chão dos lugares (6,0): faixas listradas no Santuário dos Anões (art review 2026-11-13, item 13)
-               mottle_y=0.0030, mottle_step=0.0008, streak_y=0.0064)
-    d.roadside(d.m("seixo_basalto", (0.26, 0.25, 0.28)), d.m("capim_cinza", (0.52, 0.42, 0.34)), every=6.0, tuft_h=0.7)
+               mottle_y=0.0030, mottle_step=0.0008, streak_y=0.0064, clear_places=True)
+    # seixo da beira: era (0.26, 0.25, 0.28) e no lote sem sombra saía azul-quase-preto, "cacos escuros" soltos no chão
+    # (art review 2026-11-13, item 20); agora um tom acima do basalto, ainda mais escuro que a estrada
+    d.roadside(d.m("seixo_basalto", (0.4, 0.38, 0.44)), d.m("capim_cinza", (0.52, 0.42, 0.34)), every=6.0, tuft_h=0.7)
     lava_detail(d, k["lava_w"], k["lakes"])
 
     # ---- pontes de basalto: quatro pilones com runa de brasa em cada uma ----
@@ -1961,7 +1981,7 @@ def kharzun(z, k):
     # borda lascada larga em tom médio + miolo escuro, pontas em bico, um ramo. Só a 1ª fita gasta sorteio (json igual).
     crack = [Vector((sh[0] + dx, sh[1] + dz)) for dx, dz in ((-2.9, -0.2), (-1.9, 1.0), (-1.1, 0.8), (-0.3, 1.6), (0.6, 1.35), (1.4, 2.0), (2.2, 1.9))]
     branch = [Vector((sh[0] + dx, sh[1] + dz)) for dx, dz in ((-0.3, 1.6), (-0.65, 2.2), (-0.3, 2.75))]
-    chip, core = d.m("patch_racha_borda", (0.44, 0.44, 0.5)), d.m("patch_racha", (0.22, 0.22, 0.27))
+    chip, core = d.m("patch_racha_borda", (0.44, 0.44, 0.5)), d.m("patch_racha", (0.32, 0.32, 0.39))
     d.strip("santuario", chip, crack, 0.7, 0.0084, 0.5, taper="point")
     keep = d.rnd.getstate()
     d.strip("santuario", chip, branch, 0.5, 0.0084, 0.5, taper="point")
