@@ -4,6 +4,8 @@ extends Node
 
 const PATH := "user://save.json"          # save antigo (um só); migra para o espaço 0
 const SLOTS := 5
+## Retrato do card do espaço (`PORTRAIT_PATH % n`): grava o game/menu/portrait.gd (Portrait.path), apaga o delete_slot.
+const PORTRAIT_PATH := "user://portrait_%d.png"
 var slot := 0
 const VERSION := 5      # 2 = portões de progressão e chefes abatidos; 3 = Rei Élfico guarda as Ruínas; 4 = teia de passivos (reembolso); 5 = Ato II: elemental que evolui, teia de ascensão (asc_tree) e barra de 10 (loadout 7-0)
 
@@ -52,36 +54,94 @@ static func points_for_level(level: int) -> int:
 func _ready() -> void:
 	if FileAccess.file_exists(PATH) and not FileAccess.file_exists(path_of(0)):
 		DirAccess.rename_absolute(ProjectSettings.globalize_path(PATH), ProjectSettings.globalize_path(path_of(0)))
+	for i in range(SLOTS):
+		_settle_tmp(i)
 
 func path_of(i: int) -> String:
 	return "user://save_%d.json" % i
 
-func has_slot(i: int) -> bool:
-	return i >= 0 and FileAccess.file_exists(path_of(i))
+## Arquivo da gravação em andamento (save_<n>.json.tmp); só vira o save depois de inteiro.
+func tmp_of(i: int) -> String:
+	return path_of(i) + ".tmp"
 
-## Algum personagem salvo?
+## Estado do espaço (UX start-flow §5): "empty" (sem arquivo), "ok" ou "corrupt" (o arquivo existe, mas o JSON
+## não lê, é `{}`, não é dicionário ou não tem `class`). Um .tmp solto é resolvido antes (ver `_settle_tmp`).
+## Ex.: `if SaveSystem.slot_state(i) == "corrupt": card "Save danificado" só com Excluir`.
+func slot_state(i: int) -> String:
+	if i < 0:
+		return "empty"
+	_settle_tmp(i)
+	if not FileAccess.file_exists(path_of(i)):
+		return "empty"
+	return "ok" if _is_valid(_read_json(path_of(i))) else "corrupt"
+
+## Espaço ocupado (ok OU danificado): não é livre, aparece na lista e pode ser excluído.
+func has_slot(i: int) -> bool:
+	return slot_state(i) != "empty"
+
+## Algum personagem salvo (ok ou danificado: o danificado também aparece, para ser excluído)?
 func has_save() -> bool:
 	for i in range(SLOTS):
 		if has_slot(i):
 			return true
 	return false
 
-func first_free_slot() -> int:
-	for i in range(SLOTS):
-		if not has_slot(i):
+## Primeiro espaço vazio (danificado não é livre: só sai pelo Excluir). `from`/`count` só para os testes (90+).
+func first_free_slot(from: int = 0, count: int = SLOTS) -> int:
+	for i in range(from, from + count):
+		if slot_state(i) == "empty":
 			return i
 	return -1
 
-## Resumo para a tela inicial: {name, class, level, map} (vazio = espaço livre).
+## Resumo para a tela inicial: {name, class, level, map}; vazio = espaço livre OU danificado (ver `slot_state`).
 func slot_summary(i: int) -> Dictionary:
 	var d := load_data(i)
 	if d.is_empty():
 		return {}
 	return {"name": d.get("name", "?"), "class": d.get("class", "paladin"), "level": int(d.get("level", 1)), "map": d.get("map", "")}
 
+## Apaga o espaço em qualquer estado (inclusive danificado), um .tmp que tenha ficado e o retrato do card.
 func delete_slot(i: int) -> void:
-	if has_slot(i):
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(path_of(i)))
+	if i < 0:
+		return
+	for pth in [path_of(i), tmp_of(i), PORTRAIT_PATH % i]:
+		if FileAccess.file_exists(pth):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(pth))
+
+## Save que dá para carregar: dicionário não vazio com `class` (classe que saiu do jogo ainda conta: vira a padrão).
+static func _is_valid(d: Variant) -> bool:
+	return d is Dictionary and not (d as Dictionary).is_empty() and str((d as Dictionary).get("class", "")) != ""
+
+## JSON do arquivo (null se não abre/não lê).
+static func _read_json(pth: String) -> Variant:
+	if not FileAccess.file_exists(pth):
+		return null
+	var json := JSON.new()          # sem o JSON.parse_string: ele loga erro a cada leitura do espaço danificado
+	return json.data if json.parse(FileAccess.get_file_as_string(pth)) == OK else null
+
+## .tmp solto = gravação interrompida. Regra: o principal bom sempre vence (o .tmp é apagado). Sem principal, ou com o
+## principal danificado, um .tmp válido entra no lugar (a queda foi entre terminar o .tmp e renomear); .tmp inválido é apagado.
+func _settle_tmp(i: int) -> void:
+	var tmp := tmp_of(i)
+	if not FileAccess.file_exists(tmp):
+		return
+	var main_ok := _is_valid(_read_json(path_of(i)))
+	if not main_ok and _is_valid(_read_json(tmp)):
+		if _replace(tmp, path_of(i)) == OK:
+			push_warning("SaveSystem: espaço %d recuperado do .tmp de uma gravação interrompida" % i)
+			return
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(tmp))
+
+## Renomeia `src` por cima de `dst`. Se o renomear não substitui o destino, apaga o destino e tenta de novo
+## (se cair entre os dois, só o .tmp inteiro fica e `_settle_tmp` o recupera).
+static func _replace(src: String, dst: String) -> Error:
+	var s := ProjectSettings.globalize_path(src)
+	var d := ProjectSettings.globalize_path(dst)
+	var err := DirAccess.rename_absolute(s, d)
+	if err != OK and FileAccess.file_exists(dst):
+		DirAccess.remove_absolute(d)
+		err = DirAccess.rename_absolute(s, d)
+	return err
 
 func save_player(p: SimEntity) -> void:
 	if p == null or slot < 0:
@@ -102,24 +162,33 @@ func save_player(p: SimEntity) -> void:
 		"save_version": VERSION, "bosses_killed": p.bosses_killed.keys(), "gates_open": p.gates_open.keys(), "bag_bonus": p.bag_bonus, "mount": p.mount_kind,
 		"elemental": ElementalSystem.to_save(p),
 	}
-	var f := FileAccess.open(path_of(slot), FileAccess.WRITE)
-	if f:
-		f.store_string(JSON.stringify(data, "  "))
-		f.close()
-		Events.post(&"notification", "Jogo salvo")
+	# gravação atômica: escreve o .tmp inteiro, fecha e só então renomeia por cima do save (fechar no meio não trunca o save bom)
+	var tmp := tmp_of(slot)
+	var f := FileAccess.open(tmp, FileAccess.WRITE)
+	if f == null:
+		push_error("SaveSystem: não abriu %s (%s)" % [tmp, error_string(FileAccess.get_open_error())])
+		return
+	var wrote := f.store_string(JSON.stringify(data, "  "))
+	f.flush()
+	wrote = wrote and f.get_error() == OK
+	f.close()
+	if not wrote:
+		push_error("SaveSystem: falha ao gravar %s; o save anterior ficou" % tmp)
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(tmp))
+		return
+	var err := _replace(tmp, path_of(slot))
+	if err != OK:
+		push_error("SaveSystem: falha ao renomear %s (%s)" % [tmp, error_string(err)])
+		return
+	Events.post(&"notification", "Jogo salvo")
 
+## Save do espaço `i` (padrão: o em jogo); `{}` se vazio ou danificado (`slot_state`).
 func load_data(i: int = -2) -> Dictionary:
 	if i == -2:
 		i = slot
-	if not has_slot(i):
+	if slot_state(i) != "ok":
 		return {}
-	var f := FileAccess.open(path_of(i), FileAccess.READ)
-	if f == null:
-		return {}
-	var txt := f.get_as_text()
-	f.close()
-	var parsed = JSON.parse_string(txt)
-	return parsed if parsed is Dictionary else {}
+	return _read_json(path_of(i)) as Dictionary
 
 ## Aplica o save numa entidade recém-criada (depois do spawn).
 func apply_to(p: SimEntity, d: Dictionary) -> void:
