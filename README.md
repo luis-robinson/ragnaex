@@ -8,10 +8,12 @@ Drakantos (combate de ação: personagem encara o cursor, skillshots, mira estil
 
 1. Instale o [Godot 4.7.2](https://godotengine.org/download) (versão padrão, sem .NET).
 2. Abra o Godot → *Importar* → selecione `project.godot` desta pasta.
-3. Pressione **F5**. Escolha uma classe, dê um nome e jogue.
+3. Pressione **F5**. Fluxo: Título → Personagens → Criação (classe, visual, nome) → Carregamento → jogo. Tela de início em `game/menu/start.tscn`.
 
 Até 5 personagens salvos (`user://save_<n>.json`; o `save.json` antigo vira o 1º): a tela inicial lista cada um com Jogar/Excluir e o novo vai
 para um espaço livre. Salva sozinho a cada 60 s e ao fechar; **Esc** (sem janela aberta) abre o menu: Salvar, Salvar e voltar ao menu, Salvar e sair.
+A gravação é atômica (`save_<n>.json.tmp` + renomear): fechar no meio não trunca o save. Arquivo ilegível aparece como card "Save danificado" (só Excluir).
+O card mostra o retrato do personagem (`user://portrait_<n>.png`, tirado ao salvar). F11 alterna janela/tela cheia em qualquer tela.
 
 ### Testes (sem janela)
 
@@ -82,6 +84,7 @@ core/            SIMULAÇÃO (sem nós 3D) — o futuro "servidor"
   save_system.gd     espaços de save (user://save_<n>.json)
 data/            dados do jogo (Resources construídos em data/catalog/*.gd; schemas em data/schemas/)
 game/            APRESENTAÇÃO — só lê a sim e manda InputCommand
+  menu/              tela inicial (cena principal): start.gd, título, lista de personagens, criação, carregamento, cenário 3D do acampamento
   main.gd            liga tudo, troca de mapa, fade de obstáculos
   dev/               modos de revisão/medição da linha de comando: dev_args.gd (DevArgs), dev_runner.gd
                      (smoke, --bag_shot, --tour, --soak, --perf...), perf_watch.gd, showcase.gd (bancada de skills)

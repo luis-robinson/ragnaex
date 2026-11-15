@@ -251,6 +251,35 @@ Uma só regra para todas as classes: `ProgressionSystem.has_ascension` (nível `
   Cruzado x1,499, Templário x1,336, Fogo x1,399, Gelo x1,305, Raio x1,272, Xamã x1,260, Gêmeos (Carniceiro) x1,252. O ganho deles vem da
   mecânica do 35 (Combate Montado, elemental, Pássaro Arcano/`ANC_BOLT_POWER`, Empunhadura de Titã), que também vale no 35; os nós do 45 (+5,5% etc.)
   não bastam.
+- **F5 no 45 com alvo ~1,30** (decisão do usuário, 2026-11-14: quem estava abaixo de 1,30 SOBE até ~1,30; nada é cortado: Fogo,
+  Raio e Cruzado ficam acima). Medida: Kragmar na sala real, `--lvl=45 --tank_lock`, grupo `druid:guardiao_verde + bishop:sacerdote + 2× build`
+  (tanque neutro, sem a ascensão do Guardião; Fera/Xamã com `paladin:guardiao`, senão `--asc=druid` ascende o tanque), Elementalista com
+  `--elem_stage=2 --hp=2.5` (o mago 45 tem o Ancestral); 80 lutas por braço em 2 sementes (1337 + `--seed=7`), razão = média base / média asc,
+  erro ~±0,03-0,05. O 35 não muda: os pesos do Ranger/Assassino/Fera/Garras mantêm o produto peso × `ASC_POWER_35_MULT`, e os outros botões são nós do 40/45.
+
+  | build | botão (Balance) | antes | agora | F5@45 |
+  |---|---|---|---|---|
+  | Lanceiro | `ASC_BUILD_POWER` | 2,35 | 3,5 | 1,37 |
+  | Atirador | `ASC_BUILD_POWER` | 4,0 | 11,5 | 1,33 |
+  | Caçador | `ASC_BUILD_POWER` | 0,82 | 3,0 | 1,32 |
+  | Lâminas | `ASC_BUILD_POWER` | 0,51 | 1,03 | 1,33 |
+  | Duelista | `ASC_BUILD_POWER` | 0,46 | 1,0 | 1,30 |
+  | Corsário | `ASC_BUILD_POWER` | 0,33 | 0,85 | 1,33 |
+  | Fera | `ASC_BUILD_POWER` (só a matilha) | 0,74 | 1,6 | 1,32 |
+  | Punhos | `TITAN_CLAW_POWER` | 0,8 | 1,35 | 1,36 |
+  | Carniceiro (Gêmeos) | `TWIN_FURY_ATK` (nó 45) | 15 | 28 | 1,30 |
+  | Executor | `ARENA_FINALE_ATK` (nó 45, novo `atk_pct`) | — | 16 | 1,31 |
+  | Templário | `ASC_TEM_DAWN_ATK` (nó 45, novo `atk_pct`; MATK 3 fica) | — | 26 | 1,32 |
+  | Gelo | `ASC_FROST_LORD_MATK` (nó 45, novo `matk_pct`; +% de gelo 9 fica) | — | 15 | 1,30 |
+  | Xamã | `ANC_BIRD_ELDER_POWER` (2º refino do Pássaro, 45) | 0,06 | 0,21 | 1,31 |
+  | Cruzado / Fogo / Raio | sem mudança | | | 1,30 / 1,72 / 1,46 |
+
+  Achados: o MATK do nó Aurora do Templo não move o Templário (3 → 12 deu a mesma luta) e o +% de gelo não move o Gelo (já no `ELEMENT_CAP`),
+  por isso os botões novos em ATK/MATK. Os nós de 5 pontos do 45 (Aurora do Templo, Senhora do Inverno) não eram comprados pelo bot (sobrava
+  ~5 pontos na teia de ascensão): ganharam portão (`TEM_DAWN_FLAG`, `FROST_LORD_FLAG`, como a Fúria Gêmea; check `_check_asc_web_fill`).
+  O Xamã ganhou peso próprio por refino (`ANC_REFINE_POWER_NODE`, `DruidAscension.refine_power`): só o refino do 45 sobe, o 35/40 ficam 0,06.
+  O peso da Fera só multiplica a matilha (0,94-1,15 davam ~1,24 sem diferença). Bases medidas (s): Lanceiro 44,5, Atirador 39,9, Caçador 46,7,
+  Lâminas 54,4, Duelista 54,7, Corsário 53,1, Fera 47,6, Punhos 48,5, Carniceiro 57,0, Executor 69,2, Templário 46,4, Gelo 88,4, Xamã 39,4.
 
 ## Ascensão do Ranger (Ato II, 35) — `RangerAscension` (core/sim/systems/ranger_ascension.gd)
 Liberada por `ProgressionSystem.has_ascension` (nível `Balance.ASC_LEVEL` + missão `hx_asc_ranger`); as skills de ascensão
@@ -1267,6 +1296,16 @@ Começo guiado sem tutorial travado: um cartão acima da barra aparece UMA vez q
 skills, dash/guarda ao levar dano, poção com vida baixa, colheita perto, quest, bolsa ao ganhar peça, teia no nível 2, cavalo no 3, talentos no 5,
 voltar à cidade longe de casa, grupo no convite, câmera/mapa, morte). Some em 9 s ou no clique; vistas em `user://settings.cfg` (todos os personagens),
 Esc → "Dicas" liga/desliga; partida automática não grava. Revisar: `-- --autostart=<c> --tip_shot=<png> [--tip=<id>]`.
+
+## Tela inicial e fluxo de início (2026-11-14; spec e implementação em `design/ux/start-flow.md`)
+Cena principal `game/menu/start.tscn`. Fluxo: **Título** (Jogar / Configurações / Sair, logo, música de Aldara) → **Personagens** (5 espaços, card com retrato,
+Jogar/Excluir; sem personagem cai direto na Criação) → **Criação** (classe com a skill-assinatura em ação no pedestal, depois visual em 3 abas e nome) → **Carregamento**
+(arte da zona + barra por etapas) → jogo. Cenário: acampamento de fogueira na beira de Aldara ao entardecer (`assets/models/menu_set.glb`), câmeras por tela.
+- A sim fica vazia no menu (`Sim.maps/entities/parties` = 0); o mundo só é montado no Carregamento (`main.build_world(staged)`, etapas com barra).
+- Save: `SaveSystem.slot_state(i)` = `empty|ok|corrupt`; gravação em `.tmp` + renomear; espaço danificado ocupa o lugar até ser excluído.
+  Retrato do card em `user://portrait_<n>.png` (fotografado ao salvar; some com o personagem). `main.save_game()` é o ponto de salvar do HUD.
+- Esc → "Salvar e voltar ao menu" volta direto a Personagens com o card do personagem selecionado. Falha no Carregamento também (faixa vermelha).
+- Começos rápidos (`--preset=N`) e saves falsos só existem como flags de dev (`--dev_presets`, `--menu_saves`). Esc → Configurações é o mesmo `SettingsPanel` do Título.
 
 ## Fora de escopo (por enquanto)
 Rede real, PvP, guildas, dungeons instanciadas, música e som ambiente.

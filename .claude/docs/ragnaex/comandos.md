@@ -44,3 +44,19 @@ Scripts novos com `class_name` só são vistos pelos outros scripts depois de `-
   O fim do `world_sim.gd` repassa (`Sim.equip`, `Sim.party_invite`...) o que jogo/testes/brains usam: API nova pública = um repasse lá.
 - Buff/debuff por id: `SimEntity.put_buff/put_debuff/drop_buff/buff_stacks` (renova, não acumula).
   Buff novo precisa de visual no corpo: entrada em `BuffLooks.LOOKS` (`game/fx/buff_looks.gd`; há check); revisar com `-- --autostart=<c> --buff_shot=<pasta> [--only=<id>]`.
+
+- **Início do jogo**: cena principal `game/menu/start.tscn` (`start.gd`, máquina de telas), fluxo Título (`title_screen.gd`) → Personagens (`char_list.gd`,
+  `delete_dialog.gd`) → Criação (`char_create.gd`, pedestal em `pedestal_preview.gd`) → Carregamento (`loading_screen.gd`, overlay `CanvasLayer` 100 na raiz, não é autoload) → `main.tscn`.
+  Cenário 3D `menu_set.gd`, som `menu_audio.gd` (tema `aldara`, barramentos Music/UI), `settings_panel.gd` (Título e Esc do HUD), retrato `portrait.gd`, F11 em `window_keys.gd`.
+  Dados entre cenas: `StartRequest` (estático; `new_character(...)`, `returning`, `last_slot`, `error`). No menu a `Sim` fica vazia (nada de `load_map` antes do Carregamento).
+  `main.build_world(staged)`: `true` = caminho do jogador, em etapas com `await` (`LoadingScreen.STEPS` = pesos da barra; mapas e bots em fatias de `LOAD_MAP_BUDGET_MS`);
+  `false` = autostart/dev, síncrono como antes. Quem decide o autostart: `DevRunner.autostart_class(args, returning)` (pura). `class_select.gd` foi removido (o HUD não tem mais `show_class_select`).
+  Ponto de salvar do jogo: `main.save_game()` (retrato + `SaveSystem.save_player`); o HUD chama isso, nunca `save_player` direto.
+- **Revisar o início** (com janela, flags depois de `--`; saves de teste só em memória/`TEST_SLOT`, nunca `save_0..4`): `--select_shot=<png> [--title_settings]` (foto da tela em que o início abre; `--title_settings` = Configurações sobre o Título);
+  `--title_shot=<png> [--title_step=title|slots|class|look|loading] [--title_class=<id>] [--title_tab=body|hair|face] [--title_wait=<s>]` (`slots` pede personagem, real ou `--menu_saves`; `--title_wait=0.3` pega a skill da classe no meio; `--look` abre direto a Criação);
+  `--loading_shot=<png> [--loading_map=<id>]` (overlay com a arte da zona, sem montar mundo); `--loading_fail` (força a falha da montagem: volta a Personagens com a faixa vermelha);
+  `--path_shot=<pasta> [--path_class=<id>]` (título → Jogar → Criação → Carregamento pelos sinais, espaço -1; grava `a_title/a_create/a_loading.png`; com `--loading_fail` grava `a_fail.png`);
+  `--menu_saves=<n|padrão>` (saves falsos, ids 90+: `n` cards ok, ou um char por espaço, `o` ok / `c` danificado / `-` vazio, ex. `oc-o`); `--menu_delete` (abre a confirmação de excluir);
+  `--dev_presets` (seletor de começo rápido na Criação, só dev; `--preset=N` continua valendo); `-- --autostart=<c> --return_check [--menu_shot=<png> --return_shot=<png>]` (imprime
+  `RETURN_CHECK ok entities=0 maps=0 parties=0 player=false screen=list`); cenário sem a cena de início: `.\tools\godot.ps1 --path . tools/menu_set_view.tscn -- --menu_set_shot=<png> [--shot_cam=title|list|create] [--settings] [--class=<id>]`.
+  Checks: `_check_start_flow`, `_check_char_create`, `_check_char_list`, `_check_menu_set`, `_check_settings_panel`, `_check_loading_steps`, `_check_save_slots`, `_check_title_screen`.

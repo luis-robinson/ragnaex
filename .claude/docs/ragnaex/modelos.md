@@ -43,6 +43,8 @@ Conjuntos do Bispo: `tools/blender/bishop_sets.py` (`BIS_SETS` túnicas, véu/to
 `BIS_SHIELDS` em `shield_kit.FAMILIES`; `BIS_SCEPTERS` e `scepter_parts`, que também desenha o cetro comum do kit).
 Conjuntos do Berserker: `tools/blender/berserker_sets.py` (`BER_SETS` armadura bárbara: capuz/elmo, chifres, pele, tiras, saiote; `BER_AXES`
 machados, o 2º machado dos Gêmeos vira `wpn_off_axe_<estilo>` via `KitModel.off_node_of`). Build pode ter `passives` (árvore) e `set_extra` (bônus).
+Machados: `tools/blender/axe_kit.py` (`HEADS`, `COMMON`, `kit_axe`); chefes passam a cabeça por `mob_kit.humanoid(axe=...)`.
+Fio aceso do machado: `glow` = cor em `berserker_sets.AXE_GLOW`, emissão `axe_kit.EDGE_GLOW_ENERGY`; fim do dash: `chibi_kit.GROUND_EASE_*` (saída da correção de chão).
 Conjuntos do Paladino (menos pal1): uma linha em `PAL_SETS` (`tools/blender/paladin_sets.py`, construtor paramétrico: elmo, enfeites,
 ombreiras em camadas, tabardo, emblema, elmos fechados `closed` com fenda/grade/bico) + entrada em `GearCatalog.SET_VISUALS`.
 Ícones: `"icon"` = estilo e `tools/icons/set_icons.tscn` (com janela) fotografa cada peça do kit; sem `icon` = símbolo do tipo.
@@ -55,6 +57,9 @@ Maça de conjunto: build com 2 armas principais ganha a 2ª como `SetDef.alt_pie
 lendário); modelo em `paladin_sets.PAL_MACES`. Revisar: `-- --autostart=paladin --gear=<set_id> --mace`.
 Escudo de conjunto: família em `paladin_sets.SET_SHIELDS` (entra em `shield_kit.FAMILIES`; `shield_style` = estilo do conjunto, afinidade em
 `SHIELD_AFFINITY`); ícone por `shield_icons.tscn`, contato por `shield_mount.py -- --check`.
+Montagem dos escudos: rente ao antebraço, uma entrada por estilo em `chibi_kit.SHIELD_MOUNTS` (todos os estilos; achada por `shield_mount_study.py`, gravada por
+`shield_mount_apply.py`); a alça vai soldada na malha do escudo (`kit_shield_strap`, 0 malhas a mais) e é aparada na silhueta da placa (`STRAP_CLIP`; `STRAP_HOLES` =
+escudos em que um vão da placa também apara). Monstros com escudo ficam na montagem afastada, sem alça (`kit_shield(close=False)`). Ícone de alguns estilos: `shield_icons.tscn -- --only=<estilo>,...`.
 Kits por classe: `build_kits` gera `kit_<classe>_<male|female>.glb` (os dois sexos: criação de personagem) (corpo + peças comuns + SÓ os conjuntos/armas/escudos dela, pelo prefixo em
 `chibi_kit.CLASS_PREFIX`; escudos só em `SHIELD_CLASSES`) e `kit_<male|female>` genéricos para NPCs; `KitModel.create(..., class_id)`.
 Classe nova com conjuntos: adicione o prefixo em `CLASS_PREFIX`.

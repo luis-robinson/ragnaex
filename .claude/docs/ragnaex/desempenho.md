@@ -32,3 +32,9 @@
 - Sim sem tela: `--headless --path . tools/tests/sim_probe.tscn -- [--phases] [--map=<id>] [--at=x,z] [--suite] [--census]` (ms/tick + soma de conferência: otimização da sim tem de dar a mesma soma;
   `--suite` = o mundo do teste longo do run_tests, `--census` = por mapa: entidades por tipo, monstros dormindo, loot no chão). Orçamento: ≤ 10 ms/tick com Kharzun carregado (GDD `ato2-horda` AC-36).
   Laço sobre `m["entities"]`: teste a distância antes de chamar métodos (`Combat.nearest_hostile`); nada de alocar por entidade por tick. Notas e números: `docs/otimizacao.md`.
+
+- **Carregamento do início** (`main.build_world(staged=true)`; `BOOT <etapa> <ms> [extra]` no log, de `main._boot`, guardado em `main.boot_ms`; `StartDev.boot` marca `start_enter` = motor + autoloads + `start.tscn`): medido em 2026-11-14,
+  depois dos caches do spawn de bots (`ProgressionSystem` ranking/lote, `ClassTalentsCatalog` uma vez, `_gear_bot`; mundo idêntico, check `_check_bot_spawn_cache`): `start_enter` ~5,5-7 s (autoloads + `GameData.load_all`, antes de qualquer cena),
+  `sim_maps` ~0,25-0,35 s (33 mapas), `bots` ~1,0-1,4 s (66 bots; antes 17-20 s), `map_build` ~0,6-1,0 s, `world_total` ~1,7-2,8 s; clique → mundo ~7,5 s na janela.
+  `LOAD_MAP_BUDGET_MS` (24 ms/quadro) fatia mapas e bots para a barra andar; os pesos de `LoadingScreen.STEPS` saem desses números (refazer se uma etapa mudar muito). Dev/autostart (`staged=false`) continua síncrono, sem `await`.
+  A/B com o master (2026-11-14): FPS/draws/tick iguais; `map_build_ms` ~+250 ms (suspeita: `EntityView.model_top` na 1ª vista de cada modelo) — a confirmar.

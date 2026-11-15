@@ -35,6 +35,10 @@
 - **Escudo**: linha em `GearCatalog.SHIELDS` (modelo próprio em `tools/blender/shield_kit.py`, um por escudo; afinidade em `GearCatalog.SHIELD_AFFINITY` dá Juramento/Graça; ícone é foto do modelo: `tools/icons/shield_icons.tscn`; `shield_effect` = reação ao bloquear).
   Rode `build_kits` e `tools/icons/shield_icons.tscn` (com janela) + `--import`. Revisar: `-- --autostart=paladin --block_shot=<png> [--shield=<id>]`, `lineup.tscn -- --shields [--page=N] --anim=block_shield`, `--block_film`; montagem e guarda: `tools/blender/shield_mount.py` (sem args resolve `SHIELD_*` no idle; `-- --guard` acha o braço do
   `block_shield`; `-- --check` conta toques fora do braço esquerdo em idle/corrida/guarda, os 18 escudos). Mudou montagem ou pose: rode `--check`.
+  Montagem rente (2026-11-15): todo escudo do jogador tem entrada em `chibi_kit.SHIELD_MOUNTS` (placa encostada no antebraço até onde o tamanho deixa)
+  e a alça vai soldada na malha dele (não existe mais `wpn_off_grip`). Escudo novo ou pose de guarda/corrida mudada:
+  `blender -b --factory-startup --python tools/blender/shield_mount_study.py -- --out=<pasta> [--only=<estilo>]` (procura, mede, fotografa antes/depois;
+  `--kit_mounts` só confere as do kit, `--wear=<estilo de conjunto>` veste um conjunto na foto) e `python tools/blender/shield_mount_apply.py <pasta>/study.json`.
 - **Build**: uma entrada `_b(...)` em `classes_catalog.gd` diz tudo da build: armas, armadura, atributos, skills em prioridade,
   `passives`/`set_extra`, `of` ("do X" das peças), `signature` (magia-assinatura + `look` do básico), `legend` (kind/name/skill
   da arma lendária) e, no Elementalista, `element`. Números por build ficam em `Balance` (`BUILD_POWER`, `SIGNATURE_BUILD_POWER`,
@@ -127,3 +131,9 @@
   em `Stats.compute` E pôr na lista); efeito de skill só de `SkillDef.EFFECT_KEYS` (efeito novo = entra na lista e o `_s` o manda para `effects`).
 - **Refatorar catálogo sem mudar dado**: `--headless --path . tools/tests/catalog_dump.tscn -- --out=<arquivo>` antes e depois
   (skills, itens, conjuntos, classes, monstros, quests, receitas, mapas, evoluções; dicionários em ordem) e `diff` vazio.
+
+- **Arte do início** (tela inicial; spec `design/ux/start-flow.md`): cenário 3D `tools/blender/menu_set.py` → `assets/models/menu_set.glb` (acampamento de Aldara ao entardecer; vazios `SPOT_pedestal`, `CAM_title/list/create`, `LIGHT_fire`, `LIGHT_lantern`,
+  `MS_flames`, `MS_sparks`; cores em `menu_set.DUSK`; revisar com `tools/menu_set_view.tscn -- --menu_set_shot=<png>`); `tools/blender/menu_silhouette.py` → `assets/models/menu_silhouette.glb` (manequim do pedestal do espaço vazio, clipe `idle`);
+  `tools/blender/menu_logo.py` → `assets/ui/logo_ragnaex.png` + `logo_subtitle_ato2.png`. Carregamento: `tools/blender/loading_art.py` (`blender -b --factory-startup --python tools/blender/loading_art.py -- [--only=a,b] [--scale=0.5] [--top] [--sheet]`)
+  tira uma foto por zona do modelo real (`map_<zona>.glb` + `data/zones/<zona>.json`) e grava `assets/ui/loading/<mapa>.jpg` (1600x900; 26 hoje); `LoadingScreen` lê `res://assets/ui/loading/<mapa>.jpg` e sem arquivo usa o degradê de entardecer.
+  **`ZONES` (nome, chão, clima, câmera) e `BOSSES` (modelo do chefe por masmorra) em `loading_art.py` espelham o catálogo À MÃO**: mapa novo, mudança de `ground_color` ou chefe novo de masmorra = atualizar lá e refazer o `.jpg` (check `_check_loading_art`: `.jpg` de todo mapa com cenário fora os interiores, nome/chão de `ZONES`, modelo/escala de `BOSSES`, chefe com spawner no mapa).
