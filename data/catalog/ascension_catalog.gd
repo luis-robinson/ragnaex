@@ -24,8 +24,8 @@ const NODES := {
 			"desc": "Os dois machados não param: +%d%% de dano." % Balance.TWIN_FURY_ATK},
 		{"id": "second_axe", "name": "Segundo Machado", "level": 40, "branch": "executor", "cost": 3, "flag": Balance.SECOND_AXE_FLAG,
 			"desc": "Com dois machados de 2 mãos: em alvo abaixo de 20% da vida toda skill bate também com o 2º machado (golpe duplo)."},
-		{"id": "arena_finale", "name": "Golpe Final da Arena", "level": 45, "branch": "executor", "cost": 3, "flag": Balance.ARENA_FINALE_FLAG,
-			"desc": "Golpe Final (gasta 5 de Glória): +%d%% de poder e atordoa 1 s quem atinge." % ((Balance.ARENA_FINALE["power"] - 1.0) * 100.0 + 0.5)},
+		{"id": "arena_finale", "name": "Golpe Final da Arena", "level": 45, "branch": "executor", "cost": 3, "flag": Balance.ARENA_FINALE_FLAG, "stats": {"atk_pct": Balance.ARENA_FINALE_ATK},
+			"desc": "+%d%% de dano. Golpe Final (gasta 5 de Glória): +%d%% de poder e atordoa 1 s quem atinge." % [Balance.ARENA_FINALE_ATK, (Balance.ARENA_FINALE["power"] - 1.0) * 100.0 + 0.5]},
 		{"id": "fury_lit", "name": "Fúria Acesa", "level": 40, "branch": "punhos", "cost": 3, "flag": Balance.FURY_LIT_FLAG,
 			"desc": "Ao lançar o Ciclone de Titã, a Fúria do Punho (e a Glória, na postura) demora 6 s a mais para esfriar."},
 		{"id": "glory_keep", "name": "Glória que Não Esfria", "level": 45, "branch": "punhos", "cost": 3, "flag": Balance.GLORY_KEEP_FLAG,
@@ -113,7 +113,7 @@ const NODES := {
 		{"id": "frost_refine", "name": "Golem de Gelo", "level": 40, "branch": "gelo", "cost": 3, "flag": "elem_refine_frost",
 			"desc": "O elemental na forma de gelo ganha +15% de ataque e de vida."},
 		{"id": "frost_shell", "name": "Casca de Gelo", "level": 43, "branch": "gelo", "cost": 3, "stats": {"def_pct": 4}},
-		{"id": "frost_lord", "name": "Senhora do Inverno", "level": 45, "branch": "gelo", "cost": 5, "stats": {"frost_pct": Balance.ASC_FROST_LORD_PCT}},
+		{"id": "frost_lord", "name": "Senhora do Inverno", "level": 45, "branch": "gelo", "cost": 5, "flag": Balance.FROST_LORD_FLAG, "stats": {"frost_pct": Balance.ASC_FROST_LORD_PCT, "matk_pct": Balance.ASC_FROST_LORD_MATK}},
 		{"id": "storm_spark", "name": "Faísca Solta", "level": 37, "branch": "raio", "cost": 2, "stats": {"storm_pct": 4}},
 		{"id": "storm_refine", "name": "Silfo", "level": 40, "branch": "raio", "cost": 3, "flag": "elem_refine_storm",
 			"desc": "O elemental na forma de raio ganha +15% de ataque e de vida."},
@@ -147,7 +147,7 @@ const NODES := {
 		{"id": "tem_banner", "name": "Estandarte", "level": 45, "branch": "templario", "cost": 3, "flag": Balance.MOUNT_BANNER_FLAG,
 			"desc": "Montado, as suas auras de grupo alcançam 50% mais longe."},
 		{"id": "tem_guard", "name": "Guarda Erguida", "level": 43, "branch": "templario", "cost": 3, "stats": {"def_pct": 4}},
-		{"id": "tem_dawn", "name": "Aurora do Templo", "level": 45, "branch": "templario", "cost": 5, "stats": {"matk_pct": Balance.ASC_TEM_DAWN_MATK}},
+		{"id": "tem_dawn", "name": "Aurora do Templo", "level": 45, "branch": "templario", "cost": 5, "flag": Balance.TEM_DAWN_FLAG, "stats": {"matk_pct": Balance.ASC_TEM_DAWN_MATK, "atk_pct": Balance.ASC_TEM_DAWN_ATK}},
 	],
 	# Druida (Forma Ancestral, DruidAscension): por build, 2 passivos, o refino do 40, 1 passivo e o refino do 45
 	# (Balance.ANC_REFINE_*: na forma ancestral, variantes e skills da forma com mais poder e duração por refino).
@@ -172,7 +172,7 @@ const NODES := {
 			"desc": "Como Pássaro Arcano: as variantes das magias e as skills da forma ganham +6% de poder; prender, lentidão e a Revoada duram 20% mais."},
 		{"id": "bird_wind", "name": "Vento Alto", "level": 43, "branch": "xama", "cost": 3, "stats": {"mp_pct": 6}},
 		{"id": "bird_elder", "name": "Ave do Trovão", "level": 45, "branch": "xama", "cost": 5, "flag": "anc_bird_2",
-			"desc": "Como Pássaro Arcano: mais +6% de poder e +20% de duração (soma com Pássaro Arcano)."},
+			"desc": "Como Pássaro Arcano: mais +%d%% de poder e +20%% de duração (soma com Pássaro Arcano)." % (Balance.ANC_BIRD_ELDER_POWER * 100.0 + 0.5)},
 	],
 	# Caçador — Falcoeiro (FalconSystem): refinos 40/45 como portões, garras (dano do mergulho) e laço com o lince.
 	# Atirador: os dois refinos da torreta (Balance.TURRET_REFINE_*, RangerAscension.turret_refines).

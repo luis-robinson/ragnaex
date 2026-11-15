@@ -62,6 +62,17 @@ static func refines(e: SimEntity) -> int:
 			n += 1
 	return n
 
+## Poder somado dos refinos comprados da forma ancestral de `e` (ANC_REFINE_POWER por nó; o do 45 pode ter
+## peso próprio em ANC_REFINE_POWER_NODE, F5 no 45 sem mexer no 35/40).
+static func refine_power(e: SimEntity) -> float:
+	if not is_ancestral(e.form) or not e.is_character() or e.asc_tree.is_empty():
+		return 0.0
+	var p := 0.0
+	for flag in Balance.ANC_REFINE_FLAGS.get(e.form, []):
+		if ProgressionSystem.asc_flag(e, flag):
+			p += float(Balance.ANC_REFINE_POWER_NODE.get(flag, Balance.ANC_REFINE_POWER))
+	return p
+
 ## Refino (40/45): na forma ancestral, as variantes (`variant`) e as skills só da forma ganham poder e duração.
 ## `base` = a skill do catálogo; `out` = a resolvida até aqui. Sem refino devolve `out` (sem alocação).
 static func refine(e: SimEntity, base: SkillDef, out: SkillDef, variant: bool) -> SkillDef:
@@ -74,7 +85,7 @@ static func refine(e: SimEntity, base: SkillDef, out: SkillDef, variant: bool) -
 		var te: Dictionary = out.talent_effects        # duplicate() não leva variável sem @export
 		out = out.duplicate()
 		out.talent_effects = te.duplicate()
-	out.power *= 1.0 + Balance.ANC_REFINE_POWER * n
+	out.power *= 1.0 + refine_power(e)
 	var longer := 1.0 + Balance.ANC_REFINE_TIME * n
 	for k in ["root", "stun", "slow", "provoke", "taunt", "buff"]:
 		var fx = out.talent_effects.get(k, out.effects.get(k))

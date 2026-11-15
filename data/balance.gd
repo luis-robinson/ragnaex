@@ -524,7 +524,7 @@ const TITAN_WEAPONS := ["axe2h"]          # o que vai na mão secundária com a 
 const TITAN_BUILDS := ["executor"]       # bots desta build empunham dois machados de 2 mãos ascendidos (os Gêmeos ficam com
                                           # as machadinhas: trocar o par de 1 mão pelo de 2 mãos não compensa sem a teia de Titã)
 ## Punhos de Fúria ascendidos: Garras de Titã (perfil de arma pesada nas duas garras)
-const TITAN_CLAW_POWER := 0.8             # +80% no básico das garras (F5 no 45, 2026-11-13: 0,9 dava x1,221 contra Kragmar). F5 2026-11-12 (--tank_lock, 80 lutas/braço): com 0,45 x0,978 (no Modo Gladiador a Fúria vira Glória: o Punhos perde a Fúria); com 0,9 x1,091±0,03
+const TITAN_CLAW_POWER := 1.35             # +135% no básico das garras (F5 no 45, alvo ~1,30 do usuário 2026-11-14: 1,2 x1,28, 1,35 x1,36±0,05; 2026-11-13: 0,9 dava x1,221 contra Kragmar). F5 2026-11-12 (--tank_lock, 80 lutas/braço): com 0,45 x0,978 (no Modo Gladiador a Fúria vira Glória: o Punhos perde a Fúria); com 0,9 x1,091±0,03
 const TITAN_CLAW_ASPD_PEN := 0.10         # −10% de velocidade do básico (com 0,20 o boneco parava 0,18 s entre golpes e com 0,15 0,12 s: FLAG do combat_probe)
 const TITAN_CLAW_PUSH := 0.7              # m de empurrão no golpe básico (chefe não é empurrado)
 ## Berserker — Modo Gladiador (F9b, GladiatorSystem): postura liga/desliga; Glória = cargas
@@ -542,7 +542,7 @@ const GLADIATOR_FINALE_POWER := 3.5       # (H) Golpe Final com 5 de Glória
 const TITAN_CYCLONE_SKILL := "ber_titan_cyclone"
 const CYCLONE_LONG_FLAG := "ber_cyclone_long"     # Gêmeos 40, Giro dos Dois Machados
 const TWIN_FURY_FLAG := "ber_twin_fury"         # Gêmeos 45, Fúria Gêmea (portão da teia de ascensão: o bot da build compra antes das maestrias)
-const TWIN_FURY_ATK := 15                         # +% de dano da Fúria Gêmea (F5 no 45; era velocidade, mas o Gêmeos já bate no ATTACK_SPEED_CAP)
+const TWIN_FURY_ATK := 28                         # +% de dano da Fúria Gêmea (F5 no 45, alvo ~1,30 2026-11-14: 19 x1,23, 25 x1,28, 28 x1,30; era velocidade, mas o Gêmeos já bate no ATTACK_SPEED_CAP)
 const CYCLONE_LONG_MULT := 1.5                   # Ciclone de Titã: giros e duração × isto (4 → 6 giros, 2 → 3 s)
 const SECOND_AXE_FLAG := "ber_second_axe"         # Executor 40, Segundo Machado
 const SECOND_AXE_BELOW := 0.2                     # alvo abaixo disto da vida: toda skill bate com as duas armas (golpe duplo)
@@ -550,6 +550,7 @@ const FURY_LIT_FLAG := "ber_fury_lit"             # Punhos 40, Fúria Acesa
 const FURY_LIT_TIME := 6.0                        # s a mais no tempo da Fúria (e da Glória, na postura) ao lançar o Ciclone
 const ARENA_FINALE_FLAG := "ber_arena_finale"     # Executor 45, Golpe Final da Arena
 const ARENA_FINALE := {"power": 1.1, "stun": 1.0} # Golpe Final: poder × 1,1 e atordoa 1 s (chefe: 40%, como todo atordoar)
+const ARENA_FINALE_ATK := 16                # Golpe Final da Arena (Executor 45): +% de dano do nó (F5 no 45, usuário 2026-11-14: build abaixo de 1,30 sobe; 12 x1,26, 16 x1,31, 20 x1,36)
 const GLORY_KEEP_FLAG := "ber_glory_keep"         # Punhos 45, Glória que Não Esfria
 const GLORY_KEEP_TIME := 6.0                      # s a mais até a Glória esfriar (e ao sair da postura)
 const STORM_STUN_CHANCE := 15.0            # % de chance de skill de raio atordoar no golpe direto (a que já atordoa não rola)
@@ -660,9 +661,16 @@ const BOT_SOFT_AIM := 2.0                    # m: mira de skill a até isto de q
 ## Revisão 2026-11-13 (m3): nós de ascensão retunados (F5 no 45), número aqui e `%d` na descrição (padrão TWIN_FURY_ATK)
 const ASC_FIRE_LORD_PCT := 9                 # Senhor das Chamas (Elementalista fogo 45): +% de dano de fogo (era 6)
 const ASC_FROST_LORD_PCT := 9                # Senhora do Inverno (Elementalista gelo 45): +% de dano de gelo (era 6)
+const ASC_FROST_LORD_MATK := 15              # Senhora do Inverno: +% de MATK (F5 no 45, usuário 2026-11-14: o gelo já bate no ELEMENT_CAP, +% de gelo não movia a luta; 15 -> x1,30 com --elem_stage=2)
 const ASC_CRU_WRATH_ATK := 5.5               # Ira Sagrada (Paladino Cruzado 45): +% de ATK (era 5)
 const ASC_TEM_RUNE_INT := 10                 # Runa do Templo (Paladino Templário 40): +INT (era 16)
 const ASC_TEM_DAWN_MATK := 3                 # Aurora do Templo (Paladino Templário 45): +% de MATK (era 5 + 2 ATK)
+## F5 no 45 (usuário 2026-11-14, build abaixo de 1,30 sobe): o MATK não move o Templário (3 -> 12 deu a mesma luta, dígito a dígito); a subida vai no ATK
+const ASC_TEM_DAWN_ATK := 26                # Aurora do Templo: +% de ATK (10 x1,27, 18 x1,27, 26 x1,32; 80/braço, tanque druida)
+## Portões só para o bot comprar (como TWIN_FURY_FLAG): sem eles o nó de 5 pontos do 45 sobrava fora da teia gasta pelo bot
+## (o F5 do Templário não mexia com o MATK/ATK do nó). Usuário 2026-11-14.
+const TEM_DAWN_FLAG := "pal_tem_dawn"
+const FROST_LORD_FLAG := "ele_frost_lord"
 ## Durgash — Machado do Trono (GDD act2-boss-signatures 3.11, F-S1): marca de dividir (mark soak) numa vítima que não é o tanque
 const DURGASH_AXE_POWER := 2.0              # power TOTAL (× ATK do chefe, × fúria/berserk/reforço de raide), dividido por quem está dentro.
 ## Calibrado 2026-11-13 (boss_probe 40 lutas, 5 sorteados): 6,0/26 s/3,5 m -> 15%; 3,0/30/4 -> 35%; 2,5/34/4 -> 35%; 2,0/34/4 -> 60%
@@ -1088,15 +1096,18 @@ const BOT_DODGE_PAD := 1.0                 # m de folga ao sair de círculo/áre
 
 ## Ascensão do Ranger (RangerAscension). (H) = calibrado na fase 1 (boss_probe --comp, F5: razão 1,06-1,10).
 ## F5: peso da ascensão por build (padrão 1,0) — multiplica a força das mecânicas dela (torreta, salto, queimadura/arco do Brado)
-const ASC_BUILD_POWER := {"lanceiro": 2.35, "atirador": 4.0, "laminas": 0.51, "duelista": 0.46, "corsario": 0.33,
-	"guardiao_verde": 1.0, "fera": 0.74, "xama": 1.0, "cacador": 0.82}       # assassino, F5 2026-11-12 (--tank_lock, 80/braço): Lâminas 1,3 x1,144 / 1,0 x1,118 / 0,9 x1,084 / 0,8 x1,038; Duelista 0,7 x1,045 / 0,85 x1,059 / 0,92 x1,082 / 1,15 x1,155; Corsário 1,0 x1,076
+const ASC_BUILD_POWER := {"lanceiro": 3.5, "atirador": 11.5, "laminas": 1.03, "duelista": 1.0, "corsario": 0.85,
+	"guardiao_verde": 1.0, "fera": 1.6, "xama": 1.0, "cacador": 3.0}       # assassino, F5 2026-11-12 (--tank_lock, 80/braço): Lâminas 1,3 x1,144 / 1,0 x1,118 / 0,9 x1,084 / 0,8 x1,038; Duelista 0,7 x1,045 / 0,85 x1,059 / 0,92 x1,082 / 1,15 x1,155; Corsário 1,0 x1,076
 ## F5 no 45 na sala real do Kragmar (2026-11-13, 80/braço): Lanceiro 3,3->2,35 x1,172; Atirador 6,5->4,0 x1,197; Caçador 0,7->0,82 x1,175;
 ## Corsário 0,45->0,33 x1,201; Duelista 0,73->0,46 x1,222; Lâminas 0,9->0,51 x1,213; Fera 1,0->0,74 x1,218 (o fator do 35 abaixo compensa: o 35 não muda).
+## Alvo novo do 45 = ~1,30 (usuário 2026-11-14: quem estava abaixo sobe, nada é cortado; tanque druida neutro, 80/braço, 2 sementes):
+## Lanceiro 3,5 x1,37; Atirador 11,5 x1,33; Caçador 3,0 x1,32; Lâminas 1,03 x1,33; Duelista 1,0 x1,30; Corsário 0,85 x1,33; Fera 1,6 x1,32
+## (Fera com tanque Guardião; o peso só mexe na matilha: 0,94-1,15 davam ~1,24). O produto peso × fator no 35 não mudou.
 ## F5 aos 35 (usuário 2026-11-13): o peso acima é o do 45; aos 35 ele vale × ASC_POWER_35_MULT[build], e o fator vai
 ## em linha reta até 1,0 no ASC_MAX_LEVEL (asc_level_mult). Build sem entrada = 1,0. "punhos" multiplica TITAN_CLAW_POWER.
 ## Medido 2026-11-13 (Agitador-Mor, nv 35, --tank_lock, 80/braço, razão base/asc): Lanceiro x1,078, Atirador x1,089, Caçador x1,097,
 ## Corsário x1,068, Duelista x1,077, Lâminas x1,099, Punhos x1,087 (sem o fator: 1,322 / 1,172 / 1,116 / 1,014 / 1,046 / 1,032 / 1,043).
-const ASC_POWER_35_MULT := {"lanceiro": 0.1404, "atirador": 0.4875, "cacador": 0.512, "laminas": 2.12, "duelista": 2.22, "corsario": 3.136, "punhos": 1.6, "fera": 1.351}
+const ASC_POWER_35_MULT := {"lanceiro": 0.0943, "atirador": 0.1696, "cacador": 0.1399, "laminas": 1.0497, "duelista": 1.0212, "corsario": 1.2175, "punhos": 0.9481, "fera": 0.6248}
 
 ## Fator de nível do peso F5 da build: ASC_POWER_35_MULT no ASC_LEVEL (e abaixo), 1,0 no ASC_MAX_LEVEL (e acima).
 static func asc_level_mult(build: String, level: int) -> float:
@@ -1335,6 +1346,10 @@ const ANC_BIRD_LIFT := 1.1                # m: altura do voo do Pássaro Arcano 
 ## ganham força e duração por refino comprado (1 ou 2).
 const ANC_REFINE_FLAGS := {"ent": ["anc_ent", "anc_ent_2"], "alpha": ["anc_alpha", "anc_alpha_2"], "bird": ["anc_bird", "anc_bird_2"]}
 const ANC_REFINE_POWER := 0.06            # + poder por refino (F5: 0,06 por tier)
+## Peso próprio de um refino (flag -> + poder), no lugar de ANC_REFINE_POWER. F5 no 45 (usuário 2026-11-14: build abaixo de 1,30 sobe):
+## o 2º refino do Pássaro (Ave do Trovão, 45) carrega a subida do Xamã; o 35 e o 40 não mudam.
+const ANC_BIRD_ELDER_POWER := 0.21        # Ave do Trovão (Xamã 45): + poder do 2º refino (0,06 x1,24, 0,30 x1,33, 0,21 x1,31)
+const ANC_REFINE_POWER_NODE := {"anc_bird_2": ANC_BIRD_ELDER_POWER}
 const ANC_REFINE_TIME := 0.2              # + duração (prender, atordoar, lentidão, provocar, buff, matilha) por refino
 
 ## Ascensão do Caçador — Falcoeiro: Olhos do Céu (FalconSystem; design/gdd/ato2-proposals-2026-11-11.md §2 opção A).
