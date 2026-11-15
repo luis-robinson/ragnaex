@@ -491,6 +491,25 @@ def _wolf_light(ck, lp, mob_kit, arm):
         paw.data.materials[0] = ml
 
 
+FORM_GROUND_CLIPS = ("maul", "pounce", "slam", "attack")     # só os golpes; guarda/rugido afundam de propósito (ver nota abaixo)
+
+
+def clear_form_ground(ck, arm):
+    """Pernas de um osso só: quando o corpo desaba (pisão, patada, bote, guarda) a pata atravessava o chão 0,15-0,3 m e o
+    peito do lobo uns 0,1 m. Passada de chibi_kit.clear_ground: o corpo sobe o que falta, a cabeça ergue o focinho e cada
+    perna abre (dianteiras para a frente, traseiras para trás) até a pata voltar à altura em que pisa parada.
+    Só rotação/posição desses ossos: duração e quadro de impacto dos clipes não mudam.
+    Fora da passada: "brace"/"roar"/"hit" (a guarda do urso agacha 0,22 m com pernas de 0,3 m: livrar o chão deitava o bicho
+    de barriga, é escolha de pose e não de folga), os laços e o "die"."""
+    by_bone = {}
+    for o in arm.children:
+        if o.type == "MESH" and o.parent_type == "BONE":
+            by_bone.setdefault(o.parent_bone, []).append(o)
+    modes = (("body", "lift"), ("head", "pitch"), ("leg_fr", "pitch-"), ("leg_fl", "pitch-"), ("leg_br", "pitch+"), ("leg_bl", "pitch+"))
+    spec = [(b, by_bone[b], m) for b, m in modes if b in by_bone]
+    return ck.clear_ground(arm, spec, [n for n in FORM_GROUND_CLIPS if n in ck._tracks(arm)], margin=0.0)
+
+
 def build_forms(out_dir, only=None):
     """form_wolf.glb e form_bear.glb: o bicho do druida + armadura de animal de cada conjunto do Lobo/Urso.
     only = lista de formas ("wolf"/"bear") para refazer só essas (sem as ancestrais); None = tudo, como antes."""
@@ -515,6 +534,7 @@ def build_forms(out_dir, only=None):
             if style.startswith("dru_" + prefix):
                 form_armor(ck, lp, arm, kind, style, cfg, tint, tint2)
         form_clips(lp, arm, kind)
+        clear_form_ground(ck, arm)
         bpy.ops.object.mode_set(mode="OBJECT")
         for o in bpy.context.scene.objects:
             if "." in o.name:
