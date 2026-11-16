@@ -8,7 +8,8 @@ Misto (decisão de 2026-11-09):
 Nome no banco: <evento>_<n>.<ogg|wav> — game/audio/sfx.gd acha as variações pelo prefixo.
 WAVs saem mono 16 bits (os dos pacotes vinham estéreo 24 bits); OGGs são copiados como vieram.
 
-Uso: python tools/audio/build_sfx.py [--cache <pasta dos pacotes>]
+Uso: python tools/audio/build_sfx.py [--cache <pasta dos pacotes>] [--only=<nome>,<nome>]
+(--only refaz só esses nomes e não mexe no resto do banco nem no CREDITS.md)
 Depois: godot --headless --path . --import
 """
 import io, math, os, random, shutil, struct, sys, urllib.request, wave, zipfile
@@ -339,9 +340,20 @@ def s_hurt(rng):
 
 
 def s_bow(rng):
-	out = zeros(0.4)
-	add(out, lowpass(pluck(0.4, rng.uniform(95, 120), rng, damp=0.993), 2500), 0, 0.9)
-	add(out, s_dodge(rng)[:n_of(0.2)], 0.01, 0.35)
+	"""Soltura do arco, quase só ruído (playtest 2026-11-16: o Karplus-Strong antigo soava como nota de teclado).
+	Estalo da corda + baque grave + vibração que morre em ~50 ms (áspera, sem nota) + sopro da flecha saindo."""
+	out = zeros(0.34)
+	snap = bandpass(noise(0.03, rng, decay=140, attack=0.0005), 1800, 7000)          # dedos soltam a corda
+	thump = lowpass(lowpass(noise(0.1, rng, decay=50, attack=0.001), 420), 420)       # o arco devolve a energia
+	f = rng.uniform(70, 95)
+	grit = lowpass(noise(0.08, rng, decay=0.0), 600)
+	m = max(1e-9, max(abs(x) for x in grit))
+	thr = [a * (0.35 + 0.65 * abs(g) / m) for a, g in zip(tone(0.08, f * 1.7, f, decay=55, attack=0.001), grit)]
+	whoosh = swell(bandpass(lowpass(noise(0.26, rng, decay=5), 4500, 900), 350, 9000), 0.22)
+	add(out, thump, 0.002, 7.0)
+	add(out, snap, 0, 0.6)
+	add(out, thr, 0.001, 0.5)
+	add(out, whoosh, 0.012, 0.5)
 	return out
 
 
@@ -719,7 +731,7 @@ SYNTH = {
 	"poison": (s_poison, 3), "nature": (s_nature, 2), "wind": (s_wind, 2), "earth": (s_earth, 2),
 	"blood": (s_blood, 3), "lunar": (s_lunar, 2), "summon": (s_summon, 2), "heal": (s_heal, 2),
 	"bone": (s_bone, 3), "cast": (s_cast, 3), "dodge": (s_dodge, 3), "crit": (s_crit, 3),
-	"hurt": (s_hurt, 2), "bow": (s_bow, 3), "gun": (s_gun, 2), "level_up": (s_level_up, 1),
+	"hurt": (s_hurt, 2), "bow": (s_bow, 4), "gun": (s_gun, 2), "level_up": (s_level_up, 1),
 	"quest_accept": (s_quest_accept, 1), "quest_done": (s_quest_done, 1), "recall": (s_recall, 1),
 	"recall_done": (s_recall_done, 1), "death": (s_death, 1), "firework": (s_firework, 3), "ui_open": (s_ui_open, 1), "ui_close": (s_ui_close, 1),
 	# Ato II (A Horda)
@@ -740,13 +752,22 @@ def main():
 	cache = os.path.join(ROOT, ".godot", "sfx_cache")      # .godot/ é ignorado pelo git e pelo export
 	if "--cache" in sys.argv:
 		cache = sys.argv[sys.argv.index("--cache") + 1]
+	only = set()                                            # --only=bow,gun: refaz só esses nomes, o resto fica intacto
+	for a in sys.argv:
+		if a.startswith("--only="):
+			only = {x for x in a[7:].split(",") if x}
+	unknown = only - set(CC0) - set(SYNTH)
+	if unknown:
+		sys.exit("nomes desconhecidos: %s" % ", ".join(sorted(unknown)))
 	os.makedirs(OUT, exist_ok=True)
 	for f in os.listdir(OUT):                               # o banco é todo gerado aqui
-		if f.endswith((".wav", ".ogg")):
+		if f.endswith((".wav", ".ogg")) and (not only or os.path.splitext(f)[0].rsplit("_", 1)[0] in only):
 			os.remove(os.path.join(OUT, f))
-	zips = fetch(cache)
+	zips = fetch(cache) if not only or only & set(CC0) else {}
 	count = 0
 	for ev, srcs in CC0.items():
+		if only and ev not in only:
+			continue
 		for i, (pk, inner) in enumerate(srcs, 1):
 			data = zips[pk].read(zip_member(zips[pk], inner))
 			if inner.endswith(".ogg"):
@@ -756,10 +777,15 @@ def main():
 				write_wav(os.path.join(OUT, "%s_%d.wav" % (ev, i)), s, rate, peak=0.9)
 			count += 1
 	for ev, (fn, n) in SYNTH.items():
+		if only and ev not in only:
+			continue
 		for i in range(1, n + 1):
 			rng = random.Random("%s:%d" % (ev, i))
 			write_wav(os.path.join(OUT, "%s_%d.wav" % (ev, i)), fn(rng))
 			count += 1
+	if only:
+		print("banco:", count, "arquivos refeitos em", OUT, "(--only)")
+		return
 	with open(os.path.join(ROOT, "assets", "audio", "CREDITS.md"), "w", encoding="utf-8") as f:
 		f.write("# Créditos de áudio\n\nGerado por `tools/audio/build_sfx.py`. Sons sintetizados pelo script são do projeto.\n\n")
 		f.write("Pacotes de domínio público (CC0 1.0, sem atribuição obrigatória; creditados por cortesia):\n\n")
