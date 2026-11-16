@@ -1,6 +1,6 @@
 extends Node
 ## Teste de jogo de uma faixa de nível (padrão 10-20): auditoria das quests e duelos de bot contra cada monstro da faixa.
-##   godot --headless --path . tools/tests/band_probe.tscn -- [--from=10] [--to=20] [--trials=6] [--only=audit|duel] [--mob=<id>,...] [--class=<id>,...] [--why]
+##   godot --headless --path . tools/tests/band_probe.tscn -- [--from=10] [--to=20] [--trials=6] [--only=audit|duel] [--mob=<id>,...] [--class=<id>,...] [--build=<id>,...] [--why]
 ## AUDIT: quest sem NPC, alvo que não nasce em mapa nenhum, nível do alvo fora da quest, item de coleta sem fonte, abates esperados.
 ## DUEL <monstro> nv=N vitorias=V/T ttk=Ss vida_perdida=P% (bot do nível do monstro, classes se revezam; CHAIN monstros
 ##   seguidos sem descanso nem poção: ttk = média por monstro; vida perdida = o ponto mais baixo da caçada).
@@ -197,6 +197,15 @@ func _audit() -> void:
 		need += Balance.xp_for_level(lv)
 	print("AUDIT xp das quests %d de %d para subir %d->%d (%.0f%%); quests por nível %s" % [xp_band, need, lv_from, lv_to, 100.0 * xp_band / maxf(1, need), str(per_level)])
 
+## --build=<build>[,...]: nos duelos, o bot da classe usa essa build (se a classe a tiver); "" = a sorteada.
+func _arg_build(cid: String) -> String:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--build="):
+			for bid in a.get_slice("=", 1).split(","):
+				if not GameData.classes[cid].build_by_id(bid).is_empty():
+					return bid
+	return ""
+
 func _duels(trials: int) -> void:
 	var src := _sources()
 	var classes: Array = GameData.classes.keys()
@@ -261,6 +270,11 @@ func _duels(trials: int) -> void:
 				var cid: String = classes[(trial * 5 + mon_id.length()) % classes.size()]
 				var area: float = minf(float(sp.get("radius", 4.0)), 4.0)       # todos dentro da área do spawner (sala de verdade)
 				var bot = Sim.spawn_bot(GameData.classes[cid], "Duelo", mid, Sim.random_walkable(GameData.maps[mid], sp["pos"], area), md.level)
+				var want_build := _arg_build(cid)
+				if want_build != "" and bot.build_id != want_build:      # --build=<build>: só essa build da classe
+					bot.build_id = want_build
+					Sim._gear_bot(bot)
+					Sim._skill_bot(bot)
 				for i in 3:
 					bot.potion_slots[i] = ""              # caçada limpa: sem poção
 				bot.brain.state = BotBrain.S.TOWN_IDLE    # parado; o combate reativo do bot responde ao monstro

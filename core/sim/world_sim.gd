@@ -1137,7 +1137,7 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 						alive += 1
 			var n := int(sm.get("count", 1))
 			var cap := int(sm.get("max", 3)) + ClassTalentSystem.summon_extra(e, s.id) + NecroAscension.summon_extra(e)     # Senhor dos Mortos: +1 por tipo
-			var dur := 0.0 if ClassTalentSystem.summon_permanent(e, s.id) else float(sm.get("duration", 20)) * NecroAscension.summon_time_mult(e)     # talento: fica para sempre; Senhor dos Mortos: dura mais
+			var dur := 0.0 if ClassTalentSystem.summon_permanent(e, s.id) else float(sm.get("duration", 20)) * NecroAscension.summon_time_mult(e) * ClassTalentSystem.summon_time(e)     # talento: fica para sempre / Mortos sem Pressa; Senhor dos Mortos: dura mais
 			for i in range(n):
 				if alive >= cap:
 					break
@@ -1400,7 +1400,8 @@ func _apply_effects(src: SimEntity, t: SimEntity, effects: Dictionary, power: fl
 			t.debuffs = t.debuffs.filter(func(dd): return dd.get("id") != bid)
 			t.debuffs.append({"kind": "dot", "id": bid, "remaining": float(d.get("duration", Balance.BLEED_TIME_DEFAULT)), "dps": maxf(1.0, src.stats.patk * float(d["atk_pct"]) / 100.0), "src": src.id, "bleed": true})
 		elif not (bool(d.get("fire", false)) and t.monster_def != null and t.monster_def.burn_immune):   # Salamandra de Lava: não queima
-			t.debuffs.append({"kind": "dot", "id": "dot_%d" % src.id, "remaining": float(d.get("duration", 4)), "dps": float(d.get("dps", 5)) * (src.stats.matk / 20.0), "src": src.id, "fire": bool(d.get("fire", false))})
+			var db := ClassTalentSystem.dot_boost(src)          # Podridão Lenta (necromante nv 5): dura e bate mais
+			t.debuffs.append({"kind": "dot", "id": "dot_%d" % src.id, "remaining": float(d.get("duration", 4)) * float(db[0]), "dps": float(d.get("dps", 5)) * (src.stats.matk / 20.0) * float(db[1]), "src": src.id, "fire": bool(d.get("fire", false))})
 	if effects.get("slow") != null:
 		var d: Dictionary = effects["slow"]
 		t.debuffs.append({"kind": "slow", "remaining": float(d.get("duration", 2)), "pct": float(d.get("pct", 30))})

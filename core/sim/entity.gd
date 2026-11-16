@@ -303,6 +303,8 @@ func recompute_stats() -> void:
 		var extra: Array = [tree_bonus] if not tree_bonus.is_empty() else []
 		if form != "":
 			extra.append(scaled_bonus(Balance.FORM_STATS[form], form_mult))
+			if ct.has("form_stats"):
+				extra.append(ct["form_stats"])          # talento que só vale na forma (Uivo da Lua)
 		stats = Stats.compute(class_def, level, equipment, buffs + extra)
 		if form != "" and not stats.meets([Balance.FORM_REQUIRES[form]]):
 			form = ""                # trocou de arma: volta à forma humana

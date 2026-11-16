@@ -207,7 +207,7 @@ const WEB_APEX_ATTR := 12
 const WEB_APEX_MULT := 1.0                 # Ápice = todos os passivos da build x isto
 const BOT_WEB_SPEND_GUARD := 500           # compras de passivo por chamada do bot_spend (era 200: no 45 sobravam pontos)
 const SKILL_SLOTS := 6
-const LOADOUT_TOWN_ONLY := true             # trocar skills da barra só na cidade
+const LOADOUT_TOWN_ONLY := false            # true = trocar skills da barra só na cidade (2026-11-16: liberado em qualquer lugar)
 
 # --- combate / game feel ---
 const INPUT_BUFFER_TICKS := 15              # 0,25 s: apertar durante o golpe não se perde
@@ -504,6 +504,14 @@ const EVASION_CAP := 45.0                 # % máximo de esquiva
 const EVASION_AGI_REF := 140.0            # AGI (escala antiga) de uma build toda em AGI no 45
 const EVASION_AGI_REF_PCT := 10.0         # % de esquiva nessa AGI
 const EVASION_AGI_EXP := 1.25             # curva: > 1 = pouca esquiva com pouca AGI
+## Lanceiro (decisão do autor, 2026-11-16, opção B): esquiva própria da build, ganha na teia (não de graça no nível 1).
+## A curva da AGI acima não muda; só o Lanceiro ganha isto, somado sob EVASION_CAP.
+const LANCEIRO_EVASION_PCT := 5.0
+## Notável-assinatura da build: o 1º notável do setor da build na teia (TreeCatalog._class_tree) troca o bônus sorteado por
+## este (mantém o atributo do círculo e o sorteio da teia). {build: [nome, {stats}]}; stats só de Stats.STAT_KEYS.
+const BUILD_WEB_NOTABLES := {
+	"lanceiro": ["Passo do Caçador", {"evasion": LANCEIRO_EVASION_PCT}],
+}
 ## Punhos de Fúria (Berserker de duas garras, FistSystem): esquivar dá Fúria do Punho e contra-ataca
 const FIST_FURY_BUFF := "fist_fury"
 const FIST_FURY_MAX := 5
@@ -730,6 +738,42 @@ const GATHER_RESPAWN := 75.0               # s até o ponto voltar
 const STATION_RANGE := 6.0                 # m até o NPC de serviço (depósito) para usar
 const CDR_CAP := 25.0                       # % máximo de recarga a menos em todas as skills (talentos de escolha)
 const PICK_SWAP_TOWN_ONLY := true           # trocar a escolha de uma linha de talentos: só na cidade (de graça)
+## Necromante nv 5 (pedido do jogador 2026-11-16): "Mortos sem Pressa" e "Podridão Lenta"
+const NEC_TALENT_SUMMON_TIME := 2.0         # invocações com tempo duram x2 (as permanentes seguem permanentes)
+const NEC_TALENT_DOT_TIME := 1.25           # dano no tempo (mágico) do necromante dura x1,25
+const NEC_TALENT_DOT_DPS := 1.15            # ... e bate x1,15 por segundo (x1,44 no total por aplicação)
+## Talentos de classe, auditoria aplicada 2026-11-16 (design/balance/class-talents-audit-2026-11-16.md): trocas das linhas 5-30
+const CT_SKILL_POWER := 1.2                 # "+20% de dano" das trocas por skill de nível baixo (Golpe Ardente, Arco da Fé, Garras, Lança Leve...)
+const CT_OPENER_POWER := 1.25               # Faísca Viva e Tiro de Abertura (skill de nível 1-2, a linha 5 inteira dela)
+const CT_PIERCE_POWER := 1.15               # Lança Fria (o atravessar já vale muito em bando)
+const CT_OPENER_CD := 0.8                   # Tiro de Abertura: recarga x0,8
+const CT_LUNGE_CD := 0.75                   # Investida Firme (15): Estocada x0,75 (a linha 40 dá x0,7: juntas x0,525)
+const CT_AREA_MULT := 1.3                   # Bastião Vivo (raio da aura e do pulso), Nova Radiante, Brasa Viva
+const CT_SPLIT_RADIUS := 1.25               # Terra Partida: Racha-Terra mais largo
+const CT_SPLIT_STUN := 0.5                  # ... e atordoa (s)
+const CT_SPARK_TARGETS := 3                 # Faísca Viva: atravessa até 3
+const CT_ANCHOR_ROOT := 2.5                 # Âncora Pesada: Flecha Âncora prende 2,5 s (era 1,5)
+const CT_PREY_TIME := 1.5                   # Presa Escolhida: Marca do Predador dura x1,5
+const CT_PREY_CD := 0.8                     # ... e recarrega x0,8
+const CT_DOT_EXTRA_S := 2.0                 # Garras Afiadas / Lua Crescente / Bola Ardente: dano no tempo dura +2 s (CT_DOTS)
+const CT_CURSE_EXTRA_S := 2.0               # Maldição Contagiosa: +2 s (CT_CURSES)
+const CT_CURSE_MULT := 1.3                  # ... e 30% mais forte
+## Dano no tempo trocado pelo talento (dicionário inteiro: o efeito do talento substitui o da skill).
+const CT_DOTS := {
+	"pal_sacred_flame": {"dps": 5, "duration": 5},                  # Golpe Ardente: 4 s -> 5 s
+	"dru_claw": {"dps": 4, "duration": 4 + CT_DOT_EXTRA_S},          # Garras Afiadas
+	"dru_moonfire": {"dps": 5, "duration": 4 + CT_DOT_EXTRA_S},      # Lua Crescente
+	"ele_fireball": {"dps": 5, "duration": 3 + CT_DOT_EXTRA_S},      # Bola Ardente
+	"ass_cross_slash": {"atk_pct": 12, "duration": 4.0},           # Corte em X: sangra 12% do ATK/s (como a Estocada Dupla do lanceiro)
+}
+const CT_CURSES := {   # Maldição Contagiosa: curse da skill x CT_CURSE_MULT e + CT_CURSE_EXTRA_S
+	"nec_curse_doom": {"id": "doom", "duration": 10.0 + CT_CURSE_EXTRA_S, "taken_pct": 20 * CT_CURSE_MULT},
+	"nec_curse_weakness": {"id": "weakness", "duration": 8.0 + CT_CURSE_EXTRA_S, "weaken_pct": 25 * CT_CURSE_MULT},
+}
+const CT_SCYTHE_HEAL := {"nec_reap": 0.3, "nec_death_spin": 0.2}    # Foice Sedenta: cura do dano em dobro (0,15 / 0,10)
+const CT_FORM_HOWL := {"aspd_pct": 15}      # Uivo da Lua (form_stats): só na forma
+const CT_CRUSADE_AURA := 0.6                # Aura de Cruzada (Paladino 20): força do Zelo em aura (era 0,35). Sobe porque o Cruzado perdeu
+                                            # Lâmina da Fé (Zelo 50%) e Valor Eterno (Valor 40%), mortos até 18/22: death_knight solo 40/60 -> 7/40
 const ATTACK_SPEED_CAP := 60.0              # % máximo de velocidade de ataque
 const CHAIN_AFTER_IMPACT := 0.05            # depois do impacto, outra skill/ataque já pode sair (o quadro do golpe ainda aparece)
 const HIT_STOP_FRAMES_BASIC := 2

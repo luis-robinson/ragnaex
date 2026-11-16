@@ -294,6 +294,7 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 		far = maxf(far, (cl["cell"]["c"] as Vector2).length())
 	var notable_i := rng.randi() % 7
 	var small_i := {}                 # por ramo: anda pela lista de passivos da build
+	var sig_done := {}                # ramos que já têm o notável-assinatura (Balance.BUILD_WEB_NOTABLES)
 	var out_clusters: Array = []
 	for cl in clusters:
 		var cell: Dictionary = cl["cell"]
@@ -361,6 +362,10 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 			notable_i += 1
 			var nn := "%s_n_%s_x" % [cls.id, cid]
 			var nst := _power(_scaled(pick[1]), cls)
+			if Balance.BUILD_WEB_NOTABLES.has(br["id"]) and not sig_done.has(br["id"]):     # notável-assinatura da build (sorteio igual)
+				sig_done[br["id"]] = true
+				pick = Balance.BUILD_WEB_NOTABLES[br["id"]]
+				nst = (pick[1] as Dictionary).duplicate()
 			var na := "attr_" + str(br["attr"])
 			nst[na] = int(nst.get(na, 0)) + _depth(c, NOTABLE_ATTR, far)
 			nodes[nn] = _node(nn, "notable", "", pick[0], "Notável: %s." % stat_text(nst), 1, 1, c)

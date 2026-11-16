@@ -20,8 +20,30 @@ static func picked(e: SimEntity) -> Array:
 	for nid in e.tree:
 		var n: Dictionary = tr["nodes"].get(nid, {})
 		if n.get("kind", "") == "pick" and GameData.class_talents.has(n["ref"]):
-			out.append(GameData.class_talents[n["ref"]])
-	return out
+			out.append([int(n.get("level", 0)), GameData.class_talents[n["ref"]]])
+	out.sort_custom(func(a, b): return a[0] < b[0])         # na ordem das linhas (a ordem de compra não muda nada)
+	return out.map(func(x): return x[1])
+
+## Escolhas que não cabem mais (talento mudou de linha): acima do nível ou a 2ª da mesma linha saem. Devolve quantas saíram.
+## Chamado ao carregar o save (SaveSystem). Escolha custa 0: nada a devolver.
+static func sanitize_picks(e: SimEntity) -> int:
+	if e.class_def == null:
+		return 0
+	var nodes: Dictionary = GameData.trees.get(e.class_def.id, {}).get("nodes", {})
+	var seen := {}
+	var drop: Array = []
+	for nid in e.tree:
+		var n: Dictionary = nodes.get(nid, {})
+		if n.get("kind", "") != "pick":
+			continue
+		var g: String = n.get("group", "")
+		if int(n.get("level", 0)) > e.level or seen.has(g):
+			drop.append(nid)
+		else:
+			seen[g] = true
+	for nid in drop:
+		e.tree.erase(nid)
+	return drop.size()
 
 ## Junta os ganchos das escolhas em e.ct (chamado sempre que a teia muda: compra, troca, reset, carregar).
 static func refresh(e: SimEntity) -> void:
@@ -45,6 +67,10 @@ static func refresh(e: SimEntity) -> void:
 			ct["skill_mods"] = sm
 		if o.has("form_mult"):
 			ct["form_mult"] = float(ct.get("form_mult", 1.0)) * float(o["form_mult"])
+		for k in o.get("form_stats", {}):
+			var fs: Dictionary = ct.get("form_stats", {})
+			fs[k] = float(fs.get(k, 0.0)) + float(o["form_stats"][k])
+			ct["form_stats"] = fs
 		for f in o.get("form_time", {}):
 			var ft: Dictionary = ct.get("form_time", {})
 			ft[f] = float(o["form_time"][f])
@@ -54,13 +80,16 @@ static func refresh(e: SimEntity) -> void:
 				ct[k] = o[k]
 		if o.has("on_kill"):
 			ct["on_kill"] = ct.get("on_kill", []) + [o["on_kill"]]
-		for k in ["ambush_mult", "trap_max", "oath_max"]:
+		if o.has("summon_time"):
+			ct["summon_time"] = float(ct.get("summon_time", 1.0)) * float(o["summon_time"])
+		for k in ["ambush_mult", "trap_max", "oath_max", "dot_boost"]:
 			if o.has(k):
 				ct[k] = o[k]
 	e.ct = ct
 
 # --- skills -----------------------------------------------------------------------------------------------------
-## Skill com os mods das escolhas (set/mult/effects; "duration" multiplica as durações dos efeitos).
+## Skill com os mods das escolhas: primeiro `set`/`effects` de todas, depois os `mult` ("duration" multiplica as durações dos
+## efeitos; "radius" numa skill de aura estica também o raio do grupo e do pulso). Assim a ordem das escolhas não importa.
 static func apply_mods(e: SimEntity, s: SkillDef) -> SkillDef:
 	var list: Array = e.ct.get("skill_mods", {}).get(s.id, [])
 	if list.is_empty():
@@ -70,14 +99,24 @@ static func apply_mods(e: SimEntity, s: SkillDef) -> SkillDef:
 	for md in list:
 		for k in md.get("set", {}):
 			out.set(k, md["set"][k])
+		for k in md.get("effects", {}):
+			out.talent_effects[k] = (md["effects"][k] as Dictionary).duplicate(true) if md["effects"][k] is Dictionary else md["effects"][k]
+	for md in list:
 		for k in md.get("mult", {}):
 			if k == "duration":
 				_scale_durations(out, float(md["mult"][k]))
 			else:
 				out.set(k, float(out.get(k)) * float(md["mult"][k]))
-		for k in md.get("effects", {}):
-			out.talent_effects[k] = md["effects"][k]
+				if k == "radius" and s.effects.get("aura") is Dictionary:
+					_scale_aura(out, float(md["mult"][k]))
 	return out
+
+static func _scale_aura(s: SkillDef, f: float) -> void:
+	var au: Dictionary = (s.talent_effects.get("aura", s.effects["aura"]) as Dictionary).duplicate(true)
+	au["radius"] = float(au.get("radius", 12.0)) * f
+	if au.get("pulse") is Dictionary:
+		au["pulse"]["radius"] = float(au["pulse"].get("radius", 3.5)) * f
+	s.talent_effects["aura"] = au
 
 static func _scale_durations(s: SkillDef, f: float) -> void:
 	for k in s.effects:
@@ -95,11 +134,26 @@ static func summon_permanent(e: SimEntity, skill_id: String) -> bool:
 static func summon_extra(e: SimEntity, skill_id: String) -> int:
 	return int(e.ct.get("summon_extra", {}).get(skill_id, 0))
 
+## Bônus que só vale na forma (Uivo da Lua); SimEntity.recompute_stats soma junto com o bônus da forma.
+static func form_stats(e: SimEntity) -> Dictionary:
+	return e.ct.get("form_stats", {})
+
 static func form_mult(e: SimEntity) -> float:
 	return float(e.ct.get("form_mult", 1.0))
 
 static func form_time(e: SimEntity, form: String) -> float:
 	return float(e.ct.get("form_time", {}).get(form, 1.0))
+
+## Duração das invocações com tempo (Mortos sem Pressa). Ex.: `dur * ClassTalentSystem.summon_time(e)`.
+static func summon_time(e: SimEntity) -> float:
+	return float(e.ct.get("summon_time", 1.0))
+
+## Dano no tempo mágico de quem lança (Podridão Lenta): [× duração, × dps]. Sem o talento, [1, 1].
+static func dot_boost(e: SimEntity) -> Array:
+	var b: Dictionary = e.ct.get("dot_boost", {})
+	if b.is_empty():
+		return [1.0, 1.0]
+	return [float(b.get("time", 1.0)), float(b.get("dps", 1.0))]
 
 static func ambush_mult(e: SimEntity) -> float:
 	return float(e.ct.get("ambush_mult", Balance.AMBUSH_MULT))
@@ -260,9 +314,92 @@ static func on_kill(sim: WorldSim, killer: SimEntity, victim: SimEntity) -> void
 			if sk and sk.effects.get("buff") is Dictionary:
 				sim._apply_effects(e, e, {"buff": sk.effects["buff"]}, 0.0)
 
+## A skill tem o que o gancho genérico mexe? (summon_time: invocação com tempo; dot_boost: dano no tempo mágico;
+## form_stats/form_mult: skill de forma; form_time: a forma citada; stats.pet_pct: invocação)
+static func _hook_fits(o: Dictionary, skill_id: String) -> bool:
+	var sk: SkillDef = GameData.skills.get(skill_id)
+	if sk == null:
+		return false
+	if o.has("summon_time") and sk.effects.get("summon") is Dictionary and float(sk.effects["summon"].get("duration", 0)) > 0.0:
+		return true
+	if (o.has("form_stats") or o.has("form_mult")) and sk.effects.has("form"):
+		return true
+	if o.get("form_time") is Dictionary and (o["form_time"] as Dictionary).has(sk.effects.get("form", "")):
+		return true
+	if (o.get("stats", {}) as Dictionary).has("pet_pct") and sk.effects.get("summon") is Dictionary:
+		return true
+	return o.has("dot_boost") and sk.effects.get("dot") is Dictionary and not (sk.effects["dot"] as Dictionary).has("atk_pct")
+
+## Gancho genérico que só serve a quem tem um tipo de skill (o bot e a regra dos talentos vivos olham `_hook_fits`).
+static func _typed_hook(o: Dictionary) -> bool:
+	return o.has("summon_time") or o.has("dot_boost") or o.has("form_stats") or o.has("form_mult") or o.has("form_time") or (o.get("stats", {}) as Dictionary).has("pet_pct")
+
 # --- bots ---------------------------------------------------------------------------------------------------------
-## Bot escolhe uma opção por linha liberada: a marcada para a build dele (`build`, linhas 35+) ou, sem marca, a que
-## fala de uma skill da build (ou genérica).
+## Chaves da opção que não são gancho (o resto é efeito).
+const _META_KEYS := ["id", "name", "text", "kind", "strength", "radius", "build"]
+## Tipo de talento que cada papel de build prefere no desempate (`ClassDef.role`/`build.role`).
+const _ROLE_KINDS := {"tank": ["sobrevivência", "aura", "utilidade"], "healer": ["aura", "sobrevivência", "utilidade"]}
+
+## Skills que a opção cita pelo id (permanente, aura, invocação, skill_mods).
+static func _skill_refs(o: Dictionary) -> Array:
+	return o.get("permanent", []) + o.get("aura", []) + o.get("summon_permanent", []) + o.get("skill_mods", {}).keys() + o.get("summon_extra", {}).keys()
+
+## Nota da opção para a build do bot (maior = melhor; decisão 2026-11-16, sem sorteio):
+## marcada para a build (`build`, linhas 35+) 5000 > cita skill da build 4000 (+ quanto mais cedo na lista de prioridade
+## `mine`) > gancho genérico que serve (tipado por `_hook_fits`: 3000; sem tipo, ex. cheat_death/execute: 2000)
+## > só números (`stats`) 1000 (+500 se o número é do elemento da build) > de outra build / gancho sem uso 0.
+## Sem uso: gancho tipado sem skill do tipo, Juramento sem escudo, armadilhas sem skill de armadilha, elemento de outra build.
+## Desempate: tipo que o papel da build prefere (+0..2), depois a ordem do catálogo.
+## `build` = entrada de `ClassDef.builds` (id, role, off, element); `mine` = skills da build em prioridade.
+static func bot_score(o: Dictionary, build: Dictionary, mine: Array) -> int:
+	var fit := _kind_fit(o, str(build.get("role", "dps")))
+	if o.has("build"):
+		return (5000 if o["build"] == build.get("id", "") else 0) + fit
+	var refs := _skill_refs(o)
+	if not refs.is_empty():
+		var best := mine.size()
+		for r in refs:
+			var i := mine.find(r)
+			if i >= 0:
+				best = mini(best, i)
+		return (4000 + (mine.size() - best) * 10 if best < mine.size() else 0) + fit
+	if _typed_hook(o):
+		return (3000 if mine.any(func(r): return _hook_fits(o, str(r))) else 0) + fit
+	if o.has("oath_max") and not ("shield" in build.get("off", [])):
+		return fit
+	if o.has("trap_max") and not mine.any(func(r): return GameData.skills.has(r) and (GameData.skills[r] as SkillDef).effects.has("trap")):
+		return fit
+	var hooks: Array = o.keys().filter(func(k): return not (k in _META_KEYS))
+	if hooks != ["stats"]:
+		return 2000 + fit
+	var els: Array = ["fire", "frost", "storm"].filter(func(el): return (o["stats"] as Dictionary).has(el + "_pct"))
+	if els.is_empty():
+		return 1000 + fit
+	return (1500 if els.any(func(el): return el in build.get("element", [])) else 0) + fit
+
+static func _kind_fit(o: Dictionary, role: String) -> int:
+	var pref: Array = _ROLE_KINDS.get(role, ["dano", "aura", "permanente"])
+	var i := pref.find(o.get("kind", ""))
+	return 0 if i < 0 else 2 - mini(i, 2)
+
+## A opção da linha `level` imposta para a build em `ClassTalentsCatalog.BOT_PREFER`, senão a de maior `bot_score`;
+## empate = a primeira do catálogo (determinístico). `level` 0 = só a nota (sem exceção).
+static func bot_choice(options: Array, build: Dictionary, mine: Array, level: int = 0) -> Dictionary:
+	var want: String = ClassTalentsCatalog.BOT_PREFER.get(build.get("id", ""), {}).get(level, "")
+	if want != "":
+		for o in options:
+			if o["id"] == want:
+				return o
+	var best: Dictionary = options[0]
+	var best_s := -1
+	for o in options:
+		var sc := bot_score(o, build, mine)
+		if sc > best_s:
+			best_s = sc
+			best = o
+	return best
+
+## Bot escolhe uma opção por linha liberada: a de maior `bot_score` para a build dele (sem sorteio: o rng da sim não anda).
 ## `batch` = sem refazer os atributos a cada escolha (ProgressionSystem.bot_spend refaz no fim). Devolve se comprou algo.
 static func bot_pick(sim: WorldSim, e: SimEntity, batch: bool = false) -> bool:
 	var bought := false
@@ -270,18 +407,13 @@ static func bot_pick(sim: WorldSim, e: SimEntity, batch: bool = false) -> bool:
 		return bought
 	var rows: Array = ClassTalentsCatalog.rows_of(e.class_def.id)        # só leitura
 	var build := e.class_def.build_by_id(e.build_id)
+	if build.is_empty():
+		build = {"id": e.build_id, "role": e.class_def.role}
 	var mine: Array = build.get("skills", e.class_def.skill_ids)
 	for row in rows:
 		if int(row[0]) > e.level:
 			continue
-		var good: Array = (row[1] as Array).filter(func(x): return x.get("build", "") == e.build_id)    # linhas 35+: a da build
-		for o in row[1] if good.is_empty() else []:
-			var refs: Array = o.get("permanent", []) + o.get("aura", []) + o.get("summon_permanent", []) + o.get("skill_mods", {}).keys() + o.get("summon_extra", {}).keys()
-			if refs.is_empty() or refs.any(func(r): return r in mine):
-				good.append(o)
-		if good.is_empty():
-			good = row[1]
-		var o: Dictionary = good[sim.rng.randi() % good.size()]
+		var o: Dictionary = bot_choice(row[1], build, mine, int(row[0]))
 		var nid := "%s_c_%s" % [e.class_def.id, o["id"]]
 		if not e.tree.has(nid) and ProgressionSystem.pick_sibling(sim, e, nid) == "":
 			if ProgressionSystem.tree_allocate(sim, e, nid, batch):

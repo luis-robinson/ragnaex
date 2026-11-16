@@ -624,7 +624,9 @@ static func _kharzun_bosses() -> Array:
 	var H := "horde"
 	return [
 		# ---- Presa-de-Cinza, a Mãe-Loba (Canil, 41; chefe de CAMPO: dá para solar) ----
-		{"id": "boss_dire_mother", "name": "Presa-de-Cinza, a Mãe-Loba", "level": 41, "stat_role": "chefe", "unit_mods": {"hp": 0.6, "atk": 0.7},
+		# hp 0,6 -> 1,85 (2026-11-16): com 0,6 o grupo de 4-5 do 41 a derrubava em ~10 s (pares da faixa 30-50 s). 2,0 tirava o solo da
+		# faixa campo (57%); 1,85 = solo 70%, grupo --asc 25-28 s (o teto do campo: mais vida pede virar chefe de grupo)
+		{"id": "boss_dire_mother", "name": "Presa-de-Cinza, a Mãe-Loba", "level": 41, "stat_role": "chefe", "unit_mods": {"hp": 1.85, "atk": 0.7},
 		 "move_speed": 5.6, "attack_range": 2.6, "attack_cooldown": 1.2, "attack_startup": 0.35, "xp": 2600, "aggro_range": 12.0, "leash_range": 28.0,
 		 "radius": 0.9, "scale": 1.7, "color": Color(0.42, 0.4, 0.4), "shape": "box", "is_boss": true, "loot_table": "lt_dire_mother", "gold_min": 260, "gold_max": 420, "model": "mob_dire_mother",
 		 "skill_ids": ["mob_dire_leap", "mob_dire_bite"] as Array[String], "coin_chance": 1.0, "coin_min": 2, "coin_max": 4,

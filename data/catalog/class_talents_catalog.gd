@@ -12,6 +12,7 @@ extends RefCounted
 ##   skill_mods: {skill: {set, mult, effects}}   como as evoluções (TalentsCatalog)
 ##   stats: {...}                       bônus fixo (formato de buff: atk_pct, crit, attr_FOR...)
 ##   form_mult                          multiplica os bônus das formas (lobo, urso, demônio, fantasma)
+##   form_stats {...}                   bônus fixo (formato de buff) que só vale na forma (Uivo da Lua)
 ## Ganchos especiais (cada um no seu ponto da sim):
 ##   cheat_death {cd, dur, stealth?}    golpe fatal: fica com 1 HP e imortal por `dur` s (uma vez a cada `cd` s)
 ##   ally_save {cd, radius}             o mesmo, num aliado do grupo perto (o primeiro que cairia)
@@ -23,7 +24,12 @@ extends RefCounted
 ##   mana_shield {pct}                  pct% do dano recebido sai do MP
 ##   trap_max, oath_max                 limites de armadilhas e de cargas de Juramento
 ##   form_time {forma: x}               duração das formas com tempo (Fantasma)
+##   summon_time x                      invocações com tempo duram x vezes (as permanentes seguem permanentes)
+##   dot_boost {time, dps}              seus danos no tempo mágicos (não sangramento) duram time× e batem dps× por segundo
 ## (o teto da Radiância sobe com stats.radiance_cap)
+## Regra (check _check_talent_unlock_levels): toda opção da linha N cita skill aberta até N; gancho genérico
+## (summon_time, dot_boost, form_*, stats.pet_pct) precisa de skill da classe do tipo aberta até N. Números das trocas de
+## 2026-11-16 em Balance.CT_* (design/balance/class-talents-audit-2026-11-16.md).
 ## Ato II (design/gdd/ato2-horda.md R6/R7): linhas 35, 40 e 45, uma opção pensada para cada build (`build`, sem trava:
 ## só diz qual o bot da build escolhe). 35 = identidade da build nas lutas do Ato II (bandos com líder, trolls,
 ## assassinos, investidas), sem depender da ascensão. 40/45 = refinos sobre skills que já existem; os refinos de R6.1
@@ -57,6 +63,16 @@ const ASC_REFINES_PENDING := {
 	"druid": [],            # Forma Ancestral feita: os refinos são nós da teia de ascensão (AscensionCatalog.NODES)
 	"elementalist": [],     # Salamandra, Golem de Gelo e Silfo viraram portões da teia de ascensão (AscensionCatalog.NODES: elem_refine_*)
 	"necromancer": [],          # viraram nós da teia de ascensão (AscensionCatalog.NODES: Exército, Foice que Comanda, Miasma Largo)
+}
+
+## Escolha do bot imposta por build x linha (vence a nota de `ClassTalentSystem.bot_score`): onde a opção de
+## sobrevivência carrega a build e a regra pegaria a de skill. {build_id: {nível: id da opção}}; o id tem de existir
+## naquela linha da classe da build (check `_check_bot_talent_prefs`). Medição em design/balance/class-talents-audit-2026-11-16.md
+## ("Bots: exceções por build").
+const BOT_PREFER := {
+	"cruzado": {5: "pal_c_resolve"},        # Determinação: solo x death_knight 3/40 -> 34/40; grupo igual
+	"laminas": {25: "ass_c_leech"},         # Lâmina Sedenta (no lugar da Fuga): solo x death_knight 5/40 -> 40/40; grupo igual ou melhor
+	"gelo": {25: "ele_c_shield"},           # Escudo de Mana (no lugar da Fonte de Mana): solo x death_knight 24/40 -> 36/40; grupo igual ou melhor
 }
 
 ## Opção pensada para uma build (linhas 35+): igual a `_o`, mais `build` (o bot da build escolhe esta).
@@ -95,14 +111,13 @@ static func _make() -> Dictionary:
 				_o("pal_c_resolve", "Determinação", "+8% de HP e +60 de VIT.", "sobrevivência", {"stats": {"hp_pct": 8, "attr_VIT": 60}})]],
 			[10, [_o("pal_c_bulwark", "Baluarte", "Armadura Abençoada e Muralha de Escudo ficam sempre ativas em você (60% da força, sem a lentidão).", "permanente",
 					{"permanent": ["pal_blessed_armor", "pal_shield_wall"], "strength": 0.6}),
-				_o("pal_c_aura_prot", "Aura de Proteção", "Armadura Abençoada e Muralha de Escudo viram aura: você e o grupo a 15 m (40% da força).", "aura",
-					{"aura": ["pal_blessed_armor", "pal_shield_wall"], "strength": 0.4}),
-				_o("pal_c_zeal", "Lâmina da Fé", "Zelo fica sempre ativo em você (50% da força).", "permanente", {"permanent": ["pal_zeal"], "strength": 0.5})]],
-			[15, [_o("pal_c_aegis", "Égide", "Escudo Divino cobre o grupo a 8 m.", "aura", {"skill_mods": {"pal_divine_shield": {"set": {"radius": 8.0}}}}),
+				_o("pal_c_flame_strike", "Golpe Ardente", "Chama Sagrada +20% de dano e queima 1 s a mais.", "dano", {"skill_mods": {"pal_sacred_flame": {"mult": {"power": Balance.CT_SKILL_POWER}, "effects": {"dot": Balance.CT_DOTS["pal_sacred_flame"]}}}}),
+				_o("pal_c_faith_arc", "Arco da Fé", "Arco Radiante e Martelo de Luz +20% de dano.", "dano", {"skill_mods": {"pal_twin_slash": {"mult": {"power": Balance.CT_SKILL_POWER}}, "pal_hammer_light": {"mult": {"power": Balance.CT_SKILL_POWER}}}})]],
+			[15, [_o("pal_c_steady_lunge", "Investida Firme", "Estocada Sagrada recarrega 25% mais rápido.", "dano", {"skill_mods": {"pal_lunge": {"mult": {"cooldown": Balance.CT_LUNGE_CD}}}}),
 				_o("pal_c_hands", "Mãos Rápidas", "Imposição de Mãos recarrega 40% mais rápido.", "sobrevivência", {"skill_mods": {"pal_lay_hands": {"mult": {"cooldown": 0.6}}}}),
 				_o("pal_c_taunt_heal", "Desafio Sagrado", "Provocar cura 8% do seu HP.", "sobrevivência", {"skill_mods": {"pal_taunt": {"effects": {"heal_pct": 8}}}})]],
-			[20, [_o("pal_c_aura_crusade", "Aura de Cruzada", "Zelo vira aura: você e o grupo a 15 m (35% da força).", "aura", {"aura": ["pal_zeal"], "strength": 0.35}),
-				_o("pal_c_valor", "Valor Eterno", "Valor fica sempre ativo em você (40% da força).", "permanente", {"permanent": ["pal_valor"], "strength": 0.4}),
+			[20, [_o("pal_c_aura_crusade", "Aura de Cruzada", "Zelo vira aura: você e o grupo a 15 m (60% da força).", "aura", {"aura": ["pal_zeal"], "strength": Balance.CT_CRUSADE_AURA}),
+				_o("pal_c_living_bastion", "Bastião Vivo", "Aura do Bastião alcança 30% mais longe (o grupo e a queimadura em volta).", "aura", {"skill_mods": {"pal_bastion_aura": {"mult": {"radius": Balance.CT_AREA_MULT}}}}),
 				_o("pal_c_judge", "Juiz", "+30% de dano em alvos abaixo de 30% do HP.", "dano", {"execute": {"below": 0.3, "dmg_pct": 30}})]],
 			[25, [_o("pal_c_retri", "Retribuição Plena", "Retribuição +40% de dano e cura 50% do dano causado.", "dano", {"skill_mods": {"pal_retribution": {"mult": {"power": 1.4}, "effects": {"heal_pct_of_dmg": 0.5}}}}),
 				_o("pal_c_wall_cd", "Muralha Rápida", "Muralha de Escudo e Escudo Divino recarregam 35% mais rápido.", "sobrevivência",
@@ -131,7 +146,7 @@ static func _make() -> Dictionary:
 				_o("ber_c_twin", "Machado Gêmeo", "Talho Duplo, Presas Gêmeas e Socos Repetidos +20% de dano.", "dano", {"skill_mods": {"ber_hack": {"mult": {"power": 1.2}}, "ber_twin_fang": {"mult": {"power": 1.2}}, "ber_fist_flurry": {"mult": {"power": 1.2}}}})]],
 			[15, [_o("ber_c_cleave", "Rachar Amplo", "Rachar e Redemoinho 25% maiores.", "dano", {"skill_mods": {"ber_cleave": {"mult": {"radius": 1.25}}, "ber_whirlwind": {"mult": {"radius": 1.25}}}}),
 				_o("ber_c_massacre", "Massacre", "Matar renova a Sede de Sangue.", "dano", {"on_kill": {"buff": "ber_bloodlust"}}),
-				_o("ber_c_titan", "Pele de Titã", "Pegada de Titã fica sempre ativa (50% da força, sem perder DEF).", "permanente", {"permanent": ["ber_titan_grip"], "strength": 0.5})]],
+				_o("ber_c_split", "Terra Partida", "Racha-Terra 25% mais largo e atordoa 0,5 s.", "utilidade", {"skill_mods": {"ber_earthsplitter": {"mult": {"radius": Balance.CT_SPLIT_RADIUS}, "effects": {"stun": {"duration": Balance.CT_SPLIT_STUN}}}}})]],
 			[20, [_o("ber_c_leech", "Carnificina", "+5% de roubo de vida.", "sobrevivência", {"stats": {"lifesteal": 5}}),
 				_o("ber_c_hot", "Sangue Quente", "+10% de velocidade de ataque.", "dano", {"stats": {"aspd_pct": 10}}),
 				_o("ber_c_exec", "Executor", "+30% de dano em alvos abaixo de 30% do HP.", "dano", {"execute": {"below": 0.3, "dmg_pct": 30}})]],
@@ -153,26 +168,26 @@ static func _make() -> Dictionary:
 				_b("punhos", "ber_c_thousand", "Mil Punhos", "Cem Punhos +30% de dano e 20% maior.", "dano", {"skill_mods": {"ber_hundred_fists": {"mult": {"power": 1.3, "radius": 1.2}}}})]],
 		],
 		"bishop": [
-			[5, [_o("bis_c_blessing", "Bênção Eterna", "Bênção vira aura: você e o grupo a 15 m (50% da força).", "aura", {"aura": ["bis_blessing"], "strength": 0.5}),
-				_o("bis_c_ward", "Proteção Eterna", "Égide Divina vira aura: você e o grupo a 15 m (50% da força).", "aura", {"aura": ["bis_ward"], "strength": 0.5}),
+			[5, [_o("bis_c_heal", "Cura Ampla", "Curar atinge 2 alvos a mais.", "sobrevivência", {"skill_mods": {"bis_heal": {"set": {"radius": 6.0}}}}),
+				_o("bis_c_wound_light", "Luz que Fere", "Luz Sagrada atravessa inimigos e +20% de dano.", "dano", {"skill_mods": {"bis_light": {"set": {"projectile_pierce": true}, "mult": {"power": Balance.CT_SKILL_POWER}}}}),
 				_o("bis_c_radiant", "Radiante", "+10% de Radiância.", "sobrevivência", {"stats": {"radiance": 10}})]],
-			[10, [_o("bis_c_angel", "Anjo Guardião", "Asas Angelicais duram o dobro e recarregam 40% mais rápido.", "sobrevivência", {"skill_mods": {"bis_angel": {"mult": {"cooldown": 0.6, "duration": 2.0}}}}),
-				_o("bis_c_zealot", "Fervor Eterno", "Fervor fica sempre ativo em você (60% da força).", "permanente", {"permanent": ["bis_zealot"], "strength": 0.6}),
-				_o("bis_c_heal", "Cura Ampla", "Curar atinge 2 alvos a mais.", "sobrevivência", {"skill_mods": {"bis_heal": {"set": {"radius": 6.0}}}})]],
-			[15, [_o("bis_c_martyr", "Martírio Partilhado", "Mártir cobre o grupo a 8 m.", "aura", {"skill_mods": {"bis_martyr": {"set": {"radius": 8.0}}}}),
+			[10, [_o("bis_c_blessing", "Bênção Eterna", "Bênção vira aura: você e o grupo a 15 m (50% da força).", "aura", {"aura": ["bis_blessing"], "strength": 0.5}),
+				_o("bis_c_prayer", "Coro", "Prece 40% maior.", "sobrevivência", {"skill_mods": {"bis_prayer": {"mult": {"radius": 1.4}}}}),
+				_o("bis_c_inq_hand", "Mão do Inquisidor", "Castigar e Martelo de Luz +20% de dano.", "dano", {"skill_mods": {"bis_smite": {"mult": {"power": Balance.CT_SKILL_POWER}}, "bis_hammer": {"mult": {"power": Balance.CT_SKILL_POWER}}}})]],
+			[15, [_o("bis_c_blessed_mace", "Martelo Abençoado", "Martelada da Fé e Castigo do Escudo +20% de dano.", "dano", {"skill_mods": {"bis_holy_blow": {"mult": {"power": Balance.CT_SKILL_POWER}}, "bis_shield_smite": {"mult": {"power": Balance.CT_SKILL_POWER}}}}),
 				_o("bis_c_sanct", "Santuário Maior", "Santuário 50% maior.", "sobrevivência", {"skill_mods": {"bis_sanctuary": {"mult": {"radius": 1.5}}}}),
-				_o("bis_c_renew", "Renovação", "Aura: você e o grupo a 15 m regeneram 0,8% do HP por segundo.", "aura", {"regen": {"pct": 0.8, "aura": true}})]],
+				_o("bis_c_zealot", "Fervor Eterno", "Fervor fica sempre ativo em você (60% da força).", "permanente", {"permanent": ["bis_zealot"], "strength": 0.6})]],
 			[20, [_o("bis_c_full_rad", "Radiância Plena", "Radiância pode chegar a 60% (o limite era 40%) e +8% de Radiância.", "sobrevivência", {"stats": {"radiance": 8, "radiance_cap": 20}}),
-				_o("bis_c_miracle", "Milagre Frequente", "Milagre recarrega 40% mais rápido.", "sobrevivência", {"skill_mods": {"bis_miracle": {"mult": {"cooldown": 0.6}}}}),
-				_o("bis_c_light", "Mão Firme", "Luz Sagrada atravessa inimigos; Luz Sagrada e Martelada da Fé +15% de dano.", "dano",
-					{"skill_mods": {"bis_light": {"set": {"projectile_pierce": true}, "mult": {"power": 1.15}}, "bis_holy_blow": {"mult": {"power": 1.15}}}})]],
+				_o("bis_c_radiant_nova", "Nova Radiante", "Nova Sagrada 30% maior e +20% de dano.", "dano", {"skill_mods": {"bis_holy_nova": {"mult": {"radius": Balance.CT_AREA_MULT, "power": Balance.CT_SKILL_POWER}}}}),
+				_o("bis_c_light", "Mão Firme", "Luz Sagrada e Martelada da Fé +15% de dano.", "dano",
+					{"skill_mods": {"bis_light": {"mult": {"power": 1.15}}, "bis_holy_blow": {"mult": {"power": 1.15}}}})]],
 			[25, [_o("bis_c_smite", "Castigo", "Castigar e Martelo de Luz atordoam 0,6 s.", "utilidade",
 					{"skill_mods": {"bis_smite": {"effects": {"stun": {"duration": 0.6}}}, "bis_hammer": {"effects": {"stun": {"duration": 0.6}}}}}),
-				_o("bis_c_prayer", "Coro", "Prece 40% maior.", "sobrevivência", {"skill_mods": {"bis_prayer": {"mult": {"radius": 1.4}}}}),
+				_o("bis_c_angel", "Anjo Guardião", "Asas Angelicais duram o dobro e recarregam 40% mais rápido.", "sobrevivência", {"skill_mods": {"bis_angel": {"mult": {"cooldown": 0.6, "duration": 2.0}}}}),
 				_o("bis_c_mind", "Mente Clara", "+15% de MP e −10% de recarga.", "utilidade", {"stats": {"mp_pct": 15, "cdr": 10}})]],
 			[30, [_o("bis_c_intercede", "Intercessão", "Um aliado do grupo a 15 m que cairia fica com 1 HP e imortal por 4 s (uma vez a cada 120 s).", "sobrevivência",
 					{"ally_save": {"cd": 120.0, "dur": 4.0, "radius": 15.0}}),
-				_o("bis_c_ascend", "Ascensão", "+20% de cura e +10% de MATK.", "sobrevivência", {"stats": {"heal_pct": 20, "matk_pct": 10}}),
+				_o("bis_c_miracle", "Milagre Frequente", "Milagre recarrega 40% mais rápido.", "sobrevivência", {"skill_mods": {"bis_miracle": {"mult": {"cooldown": 0.6}}}}),
 				_o("bis_c_wrath", "Juízo", "Ira Divina, Condenar e Martelo Divino +30% de dano.", "dano",
 					{"skill_mods": {"bis_wrath": {"mult": {"power": 1.3}}, "bis_condemn": {"mult": {"power": 1.3}}, "bis_divine_hammer": {"mult": {"power": 1.3}}}})]],
 			[35, [_b("sacerdote", "bis_c_field_mend", "Hospital de Campo", "Remendo Sagrado 40% maior e +20% de cura.", "sobrevivência", {"skill_mods": {"bis_mend": {"mult": {"radius": 1.4, "power": 1.2}}}}),
@@ -186,20 +201,20 @@ static func _make() -> Dictionary:
 				_b("batalha", "bis_c_heavy_hand", "Mão Pesada", "Tremor Sagrado e Salto da Fé +15% de dano e curam o aliado mais ferido em 35% do dano (eram 20%).", "sobrevivência", {"skill_mods": {"bis_holy_quake": {"mult": {"power": 1.15}, "effects": {"mend_pct_of_dmg": 0.35}}, "bis_faith_leap": {"mult": {"power": 1.15}, "effects": {"mend_pct_of_dmg": 0.35}}}})]],
 		],
 		"druid": [
-			[5, [_o("dru_c_pack", "Matilha Fiel", "Os Lobos Espirituais ficam para sempre.", "invocação", {"summon_permanent": ["dru_spirit_wolves"]}),
-				_o("dru_c_grove_guard", "Guardião do Bosque", "O Ent fica para sempre.", "invocação", {"summon_permanent": ["dru_treant"]}),
+			[5, [_o("dru_c_crescent", "Lua Crescente", "Fogo Lunar +20% de dano e queima 2 s a mais.", "dano", {"skill_mods": {"dru_moonfire": {"mult": {"power": Balance.CT_SKILL_POWER}, "effects": {"dot": Balance.CT_DOTS["dru_moonfire"]}}}}),
+				_o("dru_c_sharp_claws", "Garras Afiadas", "Garras e Dilacerar +20% de dano; Garras sangram 2 s a mais.", "dano", {"skill_mods": {"dru_claw": {"mult": {"power": Balance.CT_SKILL_POWER}, "effects": {"dot": Balance.CT_DOTS["dru_claw"]}}, "dru_maim": {"mult": {"power": Balance.CT_SKILL_POWER}}}}),
 				_o("dru_c_bark", "Pele Eterna", "Pele de Casca fica sempre ativa em você.", "permanente", {"permanent": ["dru_bark"], "strength": 1.0})]],
 			[10, [_o("dru_c_forms", "Instinto", "As formas dão 40% a mais de bônus.", "dano", {"form_mult": 1.4}),
 				_o("dru_c_grove", "Bosque Vivo", "Bênção do Bosque vira aura: você e o grupo a 15 m (50% da força).", "aura", {"aura": ["dru_grove"], "strength": 0.5}),
-				_o("dru_c_regrowth", "Rebrotar Amplo", "Rebrotar alcança 60% mais longe.", "sobrevivência", {"skill_mods": {"dru_regrowth": {"mult": {"radius": 1.6}}}})]],
+				_o("dru_c_pack", "Matilha Fiel", "Os Lobos Espirituais ficam para sempre.", "invocação", {"summon_permanent": ["dru_spirit_wolves"]})]],
 			[15, [_o("dru_c_bellow", "Rugido do Bosque", "Urro da Mata cura 8% do HP e +20% de área.", "sobrevivência", {"skill_mods": {"dru_bellow": {"mult": {"radius": 1.2}, "effects": {"heal_pct": 8}}}}),
 				_o("dru_c_frenzy", "Uivo Eterno", "Frenesi fica sempre ativo em você (40% da força).", "permanente", {"permanent": ["dru_frenzy"], "strength": 0.4}),
 				_o("dru_c_thorns", "Espinhos Fundos", "Espinhos atravessam inimigos e +20% de dano.", "dano", {"skill_mods": {"dru_thorns": {"set": {"projectile_pierce": true}, "mult": {"power": 1.2}}}})]],
-			[20, [_o("dru_c_primal", "Fera Primordial", "As formas dão 60% a mais de bônus.", "dano", {"form_mult": 1.6}),
+			[20, [_o("dru_c_moon_howl", "Uivo da Lua", "Na forma (Lobo ou Urso): +15% de velocidade de ataque.", "dano", {"form_stats": Balance.CT_FORM_HOWL}),
 				_o("dru_c_roots", "Raízes Fundas", "Enredar prende por 2 s a mais.", "utilidade", {"skill_mods": {"dru_entangle": {"mult": {"duration": 2.0}}}}),
 				_o("dru_c_wolves", "Alcateia", "+1 Lobo Espiritual no máximo.", "invocação", {"summon_extra": {"dru_spirit_wolves": 1}})]],
 			[25, [_o("dru_c_prowl", "Caçador Noturno", "Espreitar dura o dobro e o bote saindo dele dá 2,0× de dano.", "dano", {"skill_mods": {"dru_prowl": {"mult": {"duration": 2.0}}}, "ambush_mult": 2.0}),
-				_o("dru_c_ent", "Raiz Profunda", "O Ent tem +60% de força.", "invocação", {"stats": {"pet_pct": 60}}),
+				_o("dru_c_ent", "Raiz Profunda", "Suas invocações (Ent e lobos) têm +60% de força.", "invocação", {"stats": {"pet_pct": 60}}),
 				_o("dru_c_regen", "Sangue Selvagem", "Na forma: regenera 1,5% do HP por segundo.", "sobrevivência", {"regen": {"pct": 1.5, "form": true}})]],
 			[30, [_o("dru_c_avatar", "Avatar da Natureza", "+10% de ATK e MATK, +8% de HP e +60 de VIT.", "dano", {"stats": {"atk_pct": 10, "matk_pct": 10, "hp_pct": 8, "attr_VIT": 60}}),
 				_o("dru_c_cycle", "Ciclo", "Cada abate cura 4% do HP e devolve 4% do MP.", "sobrevivência", {"on_kill": {"heal_pct": 4, "mp_pct": 4}}),
@@ -219,9 +234,9 @@ static func _make() -> Dictionary:
 				_o("ran_c_trapper", "Armadilheiro", "Até 5 armadilhas (eram 3), que recarregam 30% mais rápido.", "utilidade",
 					{"trap_max": 5, "skill_mods": {"ran_trap": {"mult": {"cooldown": 0.7}}, "ran_mine": {"mult": {"cooldown": 0.7}}, "ran_frost_trap": {"mult": {"cooldown": 0.7}}}}),
 				_o("ran_c_eye", "Olho Treinado", "+6% de crítico e +60 de AGI.", "dano", {"stats": {"crit": 6.0, "attr_AGI": 60}})]],
-			[10, [_o("ran_c_pack", "Matilha", "Instinto da Matilha fica sempre ativo em você e no lince (60% da força).", "permanente", {"permanent": ["ran_pack"], "strength": 0.6}),
-				_o("ran_c_deadeye", "Mira Certeira", "Olho de Águia fica sempre ativo em você (50% da força).", "permanente", {"permanent": ["ran_deadeye"], "strength": 0.5}),
-				_o("ran_c_mark", "Marca do Bando", "Marca do Caçador vira aura: você e o grupo a 15 m (40% da força).", "aura", {"aura": ["ran_mark"], "strength": 0.4})]],
+			[10, [_o("ran_c_heavy_anchor", "Âncora Pesada", "Flecha Âncora +20% de dano e prende 1 s a mais.", "utilidade", {"skill_mods": {"ran_anchor": {"mult": {"power": Balance.CT_SKILL_POWER}, "effects": {"root": {"duration": Balance.CT_ANCHOR_ROOT}}}}}),
+				_o("ran_c_fan_arrows", "Flechas em Leque", "Tiro Múltiplo e Flecha Explosiva +20% de dano.", "dano", {"skill_mods": {"ran_multishot": {"mult": {"power": Balance.CT_SKILL_POWER}}, "ran_explosive": {"mult": {"power": Balance.CT_SKILL_POWER}}}}),
+				_o("ran_c_light_spear", "Lança Leve", "Estocada Dupla e Dardo de Caça +20% de dano.", "dano", {"skill_mods": {"ran_double_thrust": {"mult": {"power": Balance.CT_SKILL_POWER}}, "ran_javelin": {"mult": {"power": Balance.CT_SKILL_POWER}}}})]],
 			[15, [_o("ran_c_twin", "Segundo Lince", "Pode ter 2 linces.", "invocação", {"summon_extra": {"ran_companion": 1}}),
 				_o("ran_c_pierce", "Alcance Longo", "Tiro Certeiro, Flecha Perfurante e Empalar +20% de dano e alcance.", "dano",
 					{"skill_mods": {"ran_snipe": {"mult": {"power": 1.2, "range": 1.2}}, "ran_piercing": {"mult": {"power": 1.2, "range": 1.2}}, "ran_impale": {"mult": {"power": 1.2, "range": 1.2}}}}),
@@ -232,9 +247,9 @@ static func _make() -> Dictionary:
 			[25, [_o("ran_c_lynx_heal", "Laço Vital", "Aura: você e o lince regeneram 1% do HP por segundo.", "sobrevivência", {"regen": {"pct": 1.0, "aura": true}}),
 				_o("ran_c_cdr", "Fôlego", "−15% de recarga em todas as skills.", "utilidade", {"stats": {"cdr": 15}}),
 				_o("ran_c_volley", "Chuva de Flechas", "Saraivada e Barragem +25% de dano.", "dano", {"skill_mods": {"ran_volley": {"mult": {"power": 1.25}}, "ran_barrage": {"mult": {"power": 1.25}}}})]],
-			[30, [_o("ran_c_alpha", "Alfa", "O lince tem +100% de força.", "invocação", {"stats": {"pet_pct": 100}}),
+			[30, [_o("ran_c_chosen_prey", "Presa Escolhida", "Marca do Predador dura 50% a mais e recarrega 20% mais rápido.", "utilidade", {"skill_mods": {"ran_predator": {"mult": {"duration": Balance.CT_PREY_TIME, "cooldown": Balance.CT_PREY_CD}}}}),
 				_o("ran_c_ghost", "Tiro Fantasma", "Tiro na Cabeça atravessa e +30% de dano.", "dano", {"skill_mods": {"ran_headshot": {"set": {"projectile_pierce": true}, "mult": {"power": 1.3}}}}),
-				_o("ran_c_survivor", "Sobrevivente", "Golpe fatal: fica com 1 HP e imortal por 4 s (uma vez a cada 90 s).", "sobrevivência", {"cheat_death": {"cd": 90.0, "dur": 4.0}})]],
+				_o("ran_c_pack", "Matilha", "Instinto da Matilha fica sempre ativo em você e no lince (60% da força).", "permanente", {"permanent": ["ran_pack"], "strength": 0.6})]],
 			[35, [_b("cacador", "ran_c_hunting_net", "Rede de Caça", "Rede 40% maior e recarrega 25% mais rápido.", "utilidade", {"skill_mods": {"ran_net": {"mult": {"radius": 1.4, "cooldown": 0.75}}}}),
 				_b("atirador", "ran_c_leader_shot", "Tiro no Líder", "Tiro na Cabeça atordoa 1 s (era 0,5 s) e recarrega 20% mais rápido.", "utilidade", {"skill_mods": {"ran_headshot": {"mult": {"cooldown": 0.8}, "effects": {"stun": {"duration": 1.0}}}}}),
 				_b("lanceiro", "ran_c_wide_sweep", "Giro Largo", "Lança Giratória 20% maior e +25% de dano.", "dano", {"skill_mods": {"ran_spear_sweep": {"mult": {"radius": 1.2, "power": 1.25}}}})]],
@@ -247,10 +262,10 @@ static func _make() -> Dictionary:
 		],
 		"assassin": [
 			[5, [_o("ass_c_venom", "Lâmina Envenenada", "Lâmina Pestilenta fica sempre ativa em você (veneno em todo golpe).", "permanente", {"permanent": ["ass_plague_blade"], "strength": 0.8}),
-				_o("ass_c_reflex", "Reflexos Natos", "Reflexos ficam sempre ativos em você (40% da força).", "permanente", {"permanent": ["ass_reflexes"], "strength": 0.4}),
+				_o("ass_c_pistol_open", "Tiro de Abertura", "Tiro de Pistola +25% de dano e recarrega 20% mais rápido.", "dano", {"skill_mods": {"ass_pistol_shot": {"mult": {"power": Balance.CT_OPENER_POWER, "cooldown": Balance.CT_OPENER_CD}}}}),
 				_o("ass_c_ambush", "Emboscada", "O golpe saindo da furtividade dá 2,0× de dano (era 1,6×).", "dano", {"ambush_mult": 2.0})]],
 			[10, [_o("ass_c_vanish", "Sombra Rápida", "Sumir recarrega 40% mais rápido e dura 50% a mais.", "utilidade", {"skill_mods": {"ass_vanish": {"mult": {"cooldown": 0.6, "duration": 1.5}}}}),
-				_o("ass_c_focus", "Foco Absoluto", "Foco do Duelista fica sempre ativo em você (50% da força).", "permanente", {"permanent": ["ass_focus"], "strength": 0.5}),
+				_o("ass_c_x_cut", "Corte em X", "Corte Cruzado +20% de dano e faz sangrar (12% do ATK por segundo, 4 s).", "dano", {"skill_mods": {"ass_cross_slash": {"mult": {"power": Balance.CT_SKILL_POWER}, "effects": {"dot": Balance.CT_DOTS["ass_cross_slash"]}}}}),
 				_o("ass_c_evade", "Bailarino", "+6% de esquiva e +60 de AGI.", "sobrevivência", {"stats": {"evasion": 6.0, "attr_AGI": 60}})]],
 			[15, [_o("ass_c_guard", "Duelista", "Guarda do Duelista fica sempre ativa em você (50% da força).", "permanente", {"permanent": ["ass_guard"], "strength": 0.5}),
 				_o("ass_c_backstab", "Pelas Costas", "+20% de dano pelas costas.", "dano", {"stats": {"backstab": 20}}),
@@ -275,19 +290,19 @@ static func _make() -> Dictionary:
 				_b("corsario", "ass_c_flag", "Bandeira no Mastro", "Bandeira Negra dura 50% a mais e recarrega 15% mais rápido.", "utilidade", {"skill_mods": {"ass_black_flag": {"mult": {"duration": 1.5, "cooldown": 0.85}}}})]],
 		],
 		"elementalist": [
-			[5, [_o("ele_c_bound", "Elemental Vinculado", "O elemental fica para sempre (invocar outro troca de elemento).", "invocação",
-					{"summon_permanent": ["ele_summon_fire", "ele_summon_ice", "ele_summon_storm"]}),
-				_o("ele_c_overload", "Sobrecarga Contínua", "Sobrecarga fica sempre ativa em você (50% da força).", "permanente", {"permanent": ["ele_overload"], "strength": 0.5}),
-				_o("ele_c_armor", "Armadura Gélida", "Armadura de Gelo fica sempre ativa em você (DEF, 60% da força; o escudo segue só ao lançar).", "permanente", {"permanent": ["ele_frost_armor"], "strength": 0.6})]],
+			[5, [_o("ele_c_blazing_ball", "Bola Ardente", "Bola de Fogo +20% de dano e queima 2 s a mais.", "dano", {"skill_mods": {"ele_fireball": {"mult": {"power": Balance.CT_SKILL_POWER}, "effects": {"dot": Balance.CT_DOTS["ele_fireball"]}}}}),
+				_o("ele_c_live_spark", "Faísca Viva", "Faísca +25% de dano e atravessa (até 3 inimigos).", "dano", {"skill_mods": {"ele_spark": {"set": {"max_targets": Balance.CT_SPARK_TARGETS}, "mult": {"power": Balance.CT_OPENER_POWER}}}}),
+				_o("ele_c_cold_lance", "Lança Fria", "Lança de Gelo atravessa inimigos e +15% de dano.", "dano", {"skill_mods": {"ele_ice_lance": {"set": {"projectile_pierce": true}, "mult": {"power": Balance.CT_PIERCE_POWER}}}})]],
 			[10, [_o("ele_c_fire", "Coração de Fogo", "+10% de dano de fogo.", "dano", {"stats": {"fire_pct": 10}}),
 				_o("ele_c_frost", "Coração de Gelo", "+10% de dano de gelo.", "dano", {"stats": {"frost_pct": 10}}),
 				_o("ele_c_storm", "Coração de Raio", "+10% de dano de raio.", "dano", {"stats": {"storm_pct": 10}})]],
-			[15, [_o("ele_c_elemental", "Elemental Forte", "O elemental tem +50% de força.", "invocação", {"stats": {"pet_pct": 50}}),
+			[15, [_o("ele_c_bound", "Elemental Vinculado", "O elemental fica para sempre (invocar outro troca de elemento).", "invocação",
+					{"summon_permanent": ["ele_summon_fire", "ele_summon_ice", "ele_summon_storm"]}),
 				_o("ele_c_combo", "Fusão", "Combos (Brasas, Choque Térmico, Granizo, Prisma) +25% de dano.", "dano",
 					{"skill_mods": {"ele_firestorm": {"mult": {"power": 1.25}}, "ele_frost_flare": {"mult": {"power": 1.25}}, "ele_hailstorm": {"mult": {"power": 1.25}}, "ele_prism": {"mult": {"power": 1.25}}}}),
 				_o("ele_c_blink", "Piscar Rápido", "Piscar recarrega 40% mais rápido.", "utilidade", {"skill_mods": {"ele_blink": {"mult": {"cooldown": 0.6}}}})]],
 			[20, [_o("ele_c_shatter", "Estilhaço", "Estilhaçar e Lança de Gelo +30% de dano.", "dano", {"skill_mods": {"ele_shatter": {"mult": {"power": 1.3}}, "ele_ice_lance": {"mult": {"power": 1.3}}}}),
-				_o("ele_c_burn", "Brasa Viva", "Bola de Fogo e Combustão +25% de área.", "dano", {"skill_mods": {"ele_fireball": {"mult": {"radius": 1.25}}, "ele_combustion": {"mult": {"radius": 1.25}}}}),
+				_o("ele_c_burn", "Brasa Viva", "Combustão 30% maior e +20% de dano.", "dano", {"skill_mods": {"ele_combustion": {"mult": {"radius": Balance.CT_AREA_MULT, "power": Balance.CT_SKILL_POWER}}}}),
 				_o("ele_c_chain", "Corrente Longa", "Corrente Elétrica acerta 2 alvos a mais.", "dano", {"skill_mods": {"ele_chain": {"set": {"max_targets": 6}}}})]],
 			[25, [_o("ele_c_mana", "Fonte de Mana", "Cada abate devolve 5% do MP.", "utilidade", {"on_kill": {"mp_pct": 5}}),
 				_o("ele_c_shield", "Escudo de Mana", "20% do dano recebido sai do MP.", "sobrevivência", {"mana_shield": {"pct": 20}}),
@@ -308,16 +323,17 @@ static func _make() -> Dictionary:
 		],
 		"necromancer": [
 			[5, [_o("nec_c_army", "Exército Eterno", "Os esqueletos do Erguer Mortos ficam para sempre.", "invocação", {"summon_permanent": ["nec_raise"]}),
-				_o("nec_c_hounds", "Cão Fiel", "Os Cães de Ossos ficam para sempre.", "invocação", {"summon_permanent": ["nec_bone_hound"]}),
-				_o("nec_c_pact", "Pacto Eterno", "Pacto Sombrio fica sempre ativo em você (60% da força).", "permanente", {"permanent": ["nec_dark_pact"], "strength": 0.6})]],
+				_o("nec_c_slow_dead", "Mortos sem Pressa", "Mortos-vivos com tempo (cães, lich, rei, exército) duram o dobro.", "invocação", {"summon_time": Balance.NEC_TALENT_SUMMON_TIME}),
+				_o("nec_c_slow_rot", "Podridão Lenta", "Seus danos no tempo (Podridão, Praga, Enxame, Agonia...) duram 25% a mais e causam 15% a mais por segundo.", "dano",
+					{"dot_boost": {"time": Balance.NEC_TALENT_DOT_TIME, "dps": Balance.NEC_TALENT_DOT_DPS}})]],
 			[10, [_o("nec_c_more", "Legião", "+1 esqueleto no máximo do Erguer Mortos.", "invocação", {"summon_extra": {"nec_raise": 1}}),
 				_o("nec_c_curses", "Maldições Amplas", "Maldições 40% maiores.", "utilidade",
 					{"skill_mods": {"nec_curse_weakness": {"mult": {"radius": 1.4}}, "nec_curse_doom": {"mult": {"radius": 1.4}}, "nec_curse_agony": {"mult": {"radius": 1.4}}}}),
-				_o("nec_c_bones", "Ossos Vivos", "Armadura de Ossos fica sempre ativa em você (DEF, 50% da força).", "permanente", {"permanent": ["nec_bone_armor"], "strength": 0.5})]],
-			[15, [_o("nec_c_king", "Rei Eterno", "O Rei Esqueleto fica para sempre.", "invocação", {"summon_permanent": ["nec_skeleton_king"]}),
+				_o("nec_c_death_blade", "Lâmina da Morte", "Ceifar +20% de dano.", "dano", {"skill_mods": {"nec_reap": {"mult": {"power": Balance.CT_SKILL_POWER}}}})]],
+			[15, [_o("nec_c_thirsty_scythe", "Foice Sedenta", "Ceifar e Giro da Morte curam o dobro (30% e 20% do dano).", "sobrevivência", {"skill_mods": {"nec_reap": {"effects": {"heal_pct_of_dmg": Balance.CT_SCYTHE_HEAL["nec_reap"]}}, "nec_death_spin": {"effects": {"heal_pct_of_dmg": Balance.CT_SCYTHE_HEAL["nec_death_spin"]}}}}),
 				_o("nec_c_lich", "Lich Eterno", "O Lich fica para sempre.", "invocação", {"summon_permanent": ["nec_lich"]}),
 				_o("nec_c_drain", "Sede de Almas", "Sugar Alma +30% de dano e cura.", "sobrevivência", {"skill_mods": {"nec_drain_soul": {"mult": {"power": 1.3}}}})]],
-			[20, [_o("nec_c_demon", "Demônio Desperto", "As formas (Demoníaca e Fantasma) dão 50% a mais de bônus.", "dano", {"form_mult": 1.5}),
+			[20, [_o("nec_c_spreading_curse", "Maldição Contagiosa", "Condenação e Maldição da Fraqueza 30% mais fortes e duram 2 s a mais.", "utilidade", {"skill_mods": {"nec_curse_doom": {"effects": {"curse": Balance.CT_CURSES["nec_curse_doom"]}}, "nec_curse_weakness": {"effects": {"curse": Balance.CT_CURSES["nec_curse_weakness"]}}}}),
 				_o("nec_c_phantom", "Fantasma Longo", "Forma Fantasma dura o dobro.", "utilidade", {"form_time": {"phantom": 2.0}}),
 				_o("nec_c_reap", "Ceifador", "Ceifar e Giro da Morte recarregam 30% mais rápido.", "dano", {"skill_mods": {"nec_reap": {"mult": {"cooldown": 0.7}}, "nec_death_spin": {"mult": {"cooldown": 0.7}}}})]],
 			[25, [_o("nec_c_harvest", "Colheita", "Cada abate (seu ou dos servos) cura 3% do HP.", "sobrevivência", {"on_kill": {"heal_pct": 3, "minions": true}}),

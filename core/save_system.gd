@@ -261,6 +261,11 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 	var tr: Dictionary = GameData.trees.get(p.class_def.id, {})
 	if not tr.is_empty():
 		p.tree[tr["start"]] = true
+		# talento de classe que saiu do catálogo (escolha grátis da aba Talentos): só some, a teia fica
+		for nid in p.tree.keys():
+			if str(nid).begins_with("%s_c_" % p.class_def.id) and not tr["nodes"].has(nid):
+				p.tree.erase(nid)
+		ClassTalentSystem.sanitize_picks(p)      # talento que mudou de linha: acima do nível ou 2º na mesma linha sai
 		# nó que não existe mais (skill/build removida): a árvore volta ao início e os pontos voltam todos
 		if int(d.get("save_version", 0)) < 4 or p.tree.keys().any(func(nid): return not tr["nodes"].has(nid)):
 			p.tree = {tr["start"]: true}
