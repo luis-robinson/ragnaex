@@ -61,7 +61,7 @@ func _probe(model: String, only_clips: Array) -> void:
 		if not only_clips.is_empty() and not (clip in only_clips):
 			continue
 		var an := ap.get_animation(clip)
-		var loop: bool = clip in ["idle", "idle_bow", "idle_staff", "run", "block", "block_shield", "fall"]
+		var loop: bool = clip in ["idle", "idle_bow", "idle_staff", "run", "block", "block_shield", "fall", "run_shield_tall", "block_shield_tall"]
 		ap.play(clip)
 		var prev: Array = []
 		var prev_hand := Vector3.ZERO

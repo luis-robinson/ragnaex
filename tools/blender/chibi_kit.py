@@ -1171,6 +1171,37 @@ def _shield_guard_pose(ph):
     return p, (0, -0.05 - 0.006 * s, 0)
 
 
+# Escudos altos (shield_kit.TALL): guarda com o braço 15 graus mais baixo e a placa mais inclinada (as cristas dos elmos
+# de conjunto ficam livres) e corrida com o braço do escudo quieto e mais à frente (balanço de 15 graus em vez de 46: o
+# canto de cima da placa não entra no elmo). Só o braço esquerdo muda; poses achadas em
+# production/qa/tall-shield-guard-study-2026-11-15.md. No jogo: KitModel.TALL_CLIPS.
+TALL_SHIELD_CLIPS = {"run": "run_shield_tall", "block_shield": "block_shield_tall"}
+
+
+def _shield_guard_tall_pose(ph):
+    p, hips = _shield_guard_pose(ph)
+    return dict(p, **{"upper_arm.L": (-45 + 2 * math.sin(ph), 22.5, -37.5), "forearm.L": _rolled((-67.5, 0, 0), -30)}), hips
+
+
+def _run_shield_tall_pose(ph):
+    p, hips = _run_pose(ph)
+    s, c = math.sin(ph), math.cos(ph)
+    return dict(p, **{"upper_arm.L": (-15 * s - 38, -14, 0), "forearm.L": (-62 - 16 * 15 / 46 * c, 0, 0)}), hips
+
+
+def animate_tall_shield(rig):
+    """Clipes dos escudos altos. Fora do animate_v3 de propósito: só os kits de quem empunha escudo (build_kit) ganham,
+    os outros kits e os monstros (mob_clips) não mudam."""
+    _cycle(rig, "block_shield_tall", 32, _shield_guard_tall_pose, step=4)
+    _cycle(rig, "run_shield_tall", 16, _run_shield_tall_pose, step=1)
+
+
+def shield_clip(style, clip):
+    """Clipe que o escudo de estilo `style` toca no lugar de `clip` (as medidas de montagem conferem nesse)."""
+    import shield_kit
+    return TALL_SHIELD_CLIPS.get(clip, clip) if style in shield_kit.TALL else clip
+
+
 def animate_v3(rig):
     """Chama depois de animate(rig, 'all') e animate_combat(rig): substitui/adiciona clipes."""
     R = READY
@@ -2392,44 +2423,44 @@ SHIELD_OUTLINE = 0.016  # espessura do contorno soldado (shield_kit.hull)
 SHIELD_MOUNTS = {
     "bastiao": (88.1, -12.2, -86.4, (0.156, 0.329, -0.072)),     # gap 0.127 drop 0.34 along 0.08
     "juramento": (88.1, -12.2, -86.4, (0.135, 0.335, 0.005)),   # gap 0.122 drop 0.34 along 0.00
-    "asa": (88.1, -12.2, -86.4, (0.192, 0.328, -0.064)),         # gap 0.163 drop 0.34 along 0.08
+    "asa": (88.1, -12.2, -86.4, (0.156, 0.249, -0.066)),         # gap 0.130 drop 0.26 along 0.08
     "sol": (88.1, -12.2, -86.4, (0.150, 0.335, 0.009)),         # gap 0.138 drop 0.34 along -0.00
-    "presa": (88.1, -12.2, -86.4, (0.248, 0.246, -0.046)),       # gap 0.225 drop 0.26 along 0.08
-    "relicario": (88.1, -12.2, -86.4, (0.296, 0.330, 0.040)),   # gap 0.287 drop 0.34 along 0.00
+    "presa": (88.1, -12.2, -86.4, (0.169, 0.249, -0.063)),       # gap 0.144 drop 0.26 along 0.08
+    "relicario": (88.1, -12.2, -86.4, (0.140, 0.335, 0.006)),   # gap 0.127 drop 0.34 along 0.00
     "prisma": (88.1, -12.2, -86.4, (0.153, 0.334, 0.009)),      # gap 0.141 drop 0.34 along 0.00
     "gaia": (88.1, -12.2, -86.4, (0.119, 0.296, 0.005)),        # gap 0.108 drop 0.30 along -0.00
     "tabuas": (78.9, 1.8, -88.3, (0.160, 0.193, -0.010)),      # face própria (shield_mount.STYLE_MOUNT)
     "ferro": (88.1, -12.2, -86.4, (0.146, 0.212, -0.025)),       # gap 0.130 drop 0.22 along 0.04
     "ossario": (88.1, -12.2, -86.4, (0.093, 0.257, 0.002)),     # gap 0.083 drop 0.26 along -0.00
-    "escama": (88.1, -12.2, -86.4, (0.206, 0.328, -0.061)),      # gap 0.178 drop 0.34 along 0.08
-    "coluna": (88.1, -12.2, -86.4, (0.170, 0.334, 0.013)),      # gap 0.158 drop 0.34 along -0.00
-    "perdao": (88.1, -12.2, -86.4, (0.239, 0.332, 0.028)),      # gap 0.229 drop 0.34 along -0.00
-    "veredito": (88.1, -12.2, -86.4, (0.296, 0.285, -0.039)),    # gap 0.272 drop 0.30 along 0.08
-    "serpente": (88.1, -12.2, -86.4, (0.251, 0.326, -0.051)),    # gap 0.224 drop 0.34 along 0.08
-    "cruel": (88.1, -12.2, -86.4, (0.185, 0.328, -0.066)),       # gap 0.156 drop 0.34 along 0.08
-    "asa_negra": (88.1, -12.2, -86.4, (0.289, 0.330, 0.039)),   # gap 0.280 drop 0.34 along -0.00
-    "suspiros": (88.1, -12.2, -86.4, (0.290, 0.330, 0.039)),    # gap 0.281 drop 0.34 along -0.00
+    "escama": (88.1, -12.2, -86.4, (0.167, 0.329, -0.069)),      # gap 0.138 drop 0.34 along 0.08
+    "coluna": (88.1, -12.2, -86.4, (0.151, 0.295, 0.011)),      # gap 0.140 drop 0.30 along 0.00
+    "perdao": (88.1, -12.2, -86.4, (0.142, 0.335, 0.007)),      # gap 0.129 drop 0.34 along -0.00
+    "veredito": (88.1, -12.2, -86.4, (0.161, 0.329, -0.071)),    # gap 0.132 drop 0.34 along 0.08
+    "serpente": (88.1, -12.2, -86.4, (0.173, 0.329, -0.068)),    # gap 0.144 drop 0.34 along 0.08
+    "cruel": (88.1, -12.2, -86.4, (0.151, 0.255, 0.014)),       # gap 0.142 drop 0.26 along 0.00
+    "asa_negra": (88.1, -12.2, -86.4, (0.169, 0.249, -0.063)),   # gap 0.144 drop 0.26 along 0.08
+    "suspiros": (88.1, -12.2, -86.4, (0.170, 0.329, -0.069)),    # gap 0.141 drop 0.34 along 0.08
     "pal1": (88.1, -12.2, -86.4, (0.147, 0.212, -0.024)),        # gap 0.132 drop 0.22 along 0.04
     "pal_g10": (88.1, -12.2, -86.4, (0.147, 0.212, -0.024)),     # gap 0.132 drop 0.22 along 0.04
     "pal_g15": (88.1, -12.2, -86.4, (0.128, 0.293, -0.034)),     # gap 0.108 drop 0.30 along 0.04
     "pal_g20": (88.1, -12.2, -86.4, (0.119, 0.296, 0.005)),     # gap 0.108 drop 0.30 along -0.00
-    "pal_g25": (88.1, -12.2, -86.4, (0.209, 0.328, -0.060)),     # gap 0.181 drop 0.34 along 0.08
-    "pal_g30": (88.1, -12.2, -86.4, (0.231, 0.327, -0.056)),     # gap 0.203 drop 0.34 along 0.08
+    "pal_g25": (88.1, -12.2, -86.4, (0.151, 0.330, -0.073)),     # gap 0.121 drop 0.34 along 0.08
+    "pal_g30": (88.1, -12.2, -86.4, (0.172, 0.329, -0.068)),     # gap 0.143 drop 0.34 along 0.08
     "pal_t5": (88.1, -12.2, -86.4, (0.147, 0.212, -0.024)),      # gap 0.132 drop 0.22 along 0.04
     "pal_t10": (88.1, -12.2, -86.4, (0.147, 0.212, -0.024)),     # gap 0.132 drop 0.22 along 0.04
     "pal_t15": (88.1, -12.2, -86.4, (0.117, 0.336, 0.001)),     # gap 0.104 drop 0.34 along 0.00
-    "pal_t20": (88.1, -12.2, -86.4, (0.235, 0.332, 0.027)),     # gap 0.225 drop 0.34 along -0.00
+    "pal_t20": (88.1, -12.2, -86.4, (0.119, 0.296, 0.005)),     # gap 0.108 drop 0.30 along -0.00
     "pal_t25": (88.1, -12.2, -86.4, (0.117, 0.336, 0.001)),     # gap 0.104 drop 0.34 along 0.00
-    "pal_t30": (88.1, -12.2, -86.4, (0.273, 0.328, -0.006)),     # gap 0.255 drop 0.34 along 0.04
+    "pal_t30": (88.1, -12.2, -86.4, (0.135, 0.330, -0.076)),     # gap 0.105 drop 0.34 along 0.08
     "bis_s5": (88.1, -12.2, -86.4, (0.129, 0.213, -0.028)),      # gap 0.113 drop 0.22 along 0.04
     "bis_s10": (88.1, -12.2, -86.4, (0.147, 0.212, -0.024)),     # gap 0.132 drop 0.22 along 0.04
     "bis_s15": (88.1, -12.2, -86.4, (0.131, 0.213, -0.028)),     # gap 0.115 drop 0.22 along 0.04
     "bis_s20": (88.1, -12.2, -86.4, (0.138, 0.210, -0.067)),     # gap 0.114 drop 0.22 along 0.08
     "bis_s25": (88.1, -12.2, -86.4, (0.152, 0.290, -0.070)),     # gap 0.124 drop 0.30 along 0.08
-    "bis_s30": (88.1, -12.2, -86.4, (0.252, 0.246, -0.045)),     # gap 0.229 drop 0.26 along 0.08
+    "bis_s30": (88.1, -12.2, -86.4, (0.172, 0.329, -0.068)),     # gap 0.143 drop 0.34 along 0.08
     "bis_b5": (88.1, -12.2, -86.4, (0.138, 0.210, -0.067)),      # gap 0.114 drop 0.22 along 0.08
     "bis_b10": (88.1, -12.2, -86.4, (0.147, 0.212, -0.024)),     # gap 0.132 drop 0.22 along 0.04
-    "bis_b15": (88.1, -12.2, -86.4, (0.234, 0.287, -0.052)),     # gap 0.208 drop 0.30 along 0.08
+    "bis_b15": (88.1, -12.2, -86.4, (0.139, 0.295, 0.009)),     # gap 0.128 drop 0.30 along -0.00
     "bis_b20": (88.1, -12.2, -86.4, (0.159, 0.209, -0.063)),     # gap 0.135 drop 0.22 along 0.08
     "bis_b25": (88.1, -12.2, -86.4, (0.133, 0.290, -0.074)),     # gap 0.105 drop 0.30 along 0.08
     "bis_b30": (88.1, -12.2, -86.4, (0.155, 0.329, -0.072)),     # gap 0.126 drop 0.34 along 0.08
@@ -2591,6 +2622,8 @@ def kit_shield(base, style, name, mats, close=True):
     for vert in obj.data.vertices:
         co = vert.co * SHIELD_SCALE * shield_kit.SIZES.get(style, 1.0)
         co.x *= inner if co.x < 0.0 else 1.0
+        if close:
+            co = shield_kit.elbow_trim(style, co)       # canto do cotovelo aparado (só alguns escudos altos)
         vert.co = rot @ co + c
     if close:
         strap = kit_shield_strap(base, style, mats, obj)
@@ -2923,6 +2956,8 @@ def build_kit(sex, out_dir=None, class_id=None):
     animate(base["rig"], "all")
     animate_combat(base["rig"])
     animate_v3(base["rig"])
+    if class_id in SHIELD_CLASSES:
+        animate_tall_shield(base["rig"])      # corrida e guarda dos escudos altos (shield_kit.TALL)
     clear_weapons(base["rig"], class_id)  # golpes de cima cravavam a ponta no chão (espada -0,2 m, montante -0,5 m, lança -0,9 m)
     # Godot não aceita "." em nome de nó
     for o in bpy.context.scene.objects:

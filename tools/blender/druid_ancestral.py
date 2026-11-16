@@ -414,6 +414,32 @@ def clips(lp, arm, kind):
 
 
 # ---------------------------------------------------------------------------
+ENT_GROUND_CLIPS = ("maul", "pounce", "slam", "attack")      # só os golpes, como druid_sets.FORM_GROUND_CLIPS
+ENT_ARM_BONE, ENT_ARM_CLIPS = "arm_l", ("maul", "attack")    # braço que furava o chão e em que clipes (ver clear_ent_ground)
+GROUND_REPORT = {}                                           # forma -> relatório da última passada de chão (chibi_kit.clear_ground)
+
+
+def clear_ent_ground(ck, arm):
+    """Raízes-pés do Ent: são filhas do tronco, então quando ele tomba/afunda no golpe as raízes iam junto para baixo do chão
+    (até 0,47 m no slam; 0,15-0,40 em attack/maul/pounce, e as de trás no recuo). Passada de chibi_kit.clear_ground SÓ nos
+    quatro ossos das pernas (dianteiras abrem para a frente, traseiras para trás) até a raiz voltar à altura em que pisa parada.
+    O tronco NÃO sobe (sem modo "lift") e o braço direito não entra: o contato dos punhos (slam f8, maul f7 do braço +X) fica
+    igual, ao mm. O braço esquerdo só é erguido em maul/attack, onde furava o chão."""
+    by_bone = {}
+    for o in arm.children:
+        if o.type == "MESH" and o.parent_type == "BONE":
+            by_bone.setdefault(o.parent_bone, []).append(o)
+    modes = (("leg_fr", "pitch-"), ("leg_fl", "pitch-"), ("leg_br", "pitch+"), ("leg_bl", "pitch+"))
+    spec = [(b, by_bone[b], m) for b, m in modes if b in by_bone]
+    rep = ck.clear_ground(arm, spec, [n for n in ENT_GROUND_CLIPS if n in ck._tracks(arm)], margin=0.0)
+    # braço esquerdo (-X do modelo): o gancho baixo do maul entrava 0,12 m no chão (f7-f10) e a volta do attack 0,06 m (f7-f8).
+    # Só esse osso, só nesses dois clipes, girando no eixo X o mínimo que livra: para rente ao chão. O braço direito não entra.
+    if ENT_ARM_BONE in by_bone:
+        for clip, d in ck.clear_ground(arm, [(ENT_ARM_BONE, by_bone[ENT_ARM_BONE], "pitch")], [n for n in ENT_ARM_CLIPS if n in ck._tracks(arm)], margin=0.0).items():
+            rep.setdefault(clip, {}).update(d)
+    return rep
+
+
 def build(out_dir, only=None):
     """form_ent.glb, form_alpha.glb e form_bird.glb com a armadura de cada conjunto da build."""
     import bpy
@@ -444,10 +470,18 @@ def build(out_dir, only=None):
                 bird_armor(ck, lp, ds, arm, style, cfg, tint, tint2)
         if kind == "alpha":
             ds.form_clips(lp, arm, "wolf")
+            # Mesmos clipes do lobo, mesma passada. As garras acesas (alpha_leg_*, malhas nos ossos das pernas) ENTRAM na conta:
+            # sem elas as chaves saem iguais às do form_wolf, mas as garras furam o chão 24-30 mm em maul/pounce/slam. Com elas
+            # nada desce do chão; o preço é a perna dianteira já sair girada 34-42° no 1º quadro (lobo: 12-24°).
+            # Folga própria para as garras (paradas ficam 19 mm acima do chão) foi testada e recusada: o bote acabava com a
+            # perna 48° fora da pose (tranco na volta ao idle).
+            GROUND_REPORT[kind] = ds.clear_form_ground(ck, arm)
         else:
             if kind == "bird":
                 bird_loops(lp, arm)
             clips(lp, arm, kind)
+            if kind == "ent":
+                GROUND_REPORT[kind] = clear_ent_ground(ck, arm)
         bpy.ops.object.mode_set(mode="OBJECT")
         for o in bpy.context.scene.objects:
             if "." in o.name:
