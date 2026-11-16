@@ -1,0 +1,7 @@
+CHECK paladin   idle         pior=0 {} onde={}
+CHECK paladin   run          pior=0 {} onde={}
+CHECK paladin   block_shield pior=0 {} onde={}
+CHECK bishop    idle         pior=0 {} onde={}
+CHECK bishop    run          pior=0 {} onde={}
+CHECK bishop    block_shield pior=0 {} onde={}
+CHECK escudos sem kit: nenhum

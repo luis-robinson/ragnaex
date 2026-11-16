@@ -1,0 +1,254 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+--- _check_tall_shields
+ERROR: FAIL: kit paladin_male: tem o clipe run_shield_tall
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2700)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: kit paladin_male: tem o clipe run_shield_tall
+ERROR: FAIL: kit paladin_male: tem o clipe block_shield_tall
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2700)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: kit paladin_male: tem o clipe block_shield_tall
+ERROR: FAIL: kit paladin_male: guarda montada do escudo alto criada
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2735)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: kit paladin_male: guarda montada do escudo alto criada
+ERROR: FAIL: kit paladin_female: tem o clipe run_shield_tall
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2700)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: kit paladin_female: tem o clipe run_shield_tall
+ERROR: FAIL: kit paladin_female: tem o clipe block_shield_tall
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2700)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: kit paladin_female: tem o clipe block_shield_tall
+ERROR: FAIL: kit paladin_female: guarda montada do escudo alto criada
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2735)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: kit paladin_female: guarda montada do escudo alto criada
+ERROR: FAIL: kit bishop_male: tem o clipe run_shield_tall
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2700)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: kit bishop_male: tem o clipe run_shield_tall
+ERROR: FAIL: kit bishop_male: tem o clipe block_shield_tall
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2700)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: kit bishop_male: tem o clipe block_shield_tall
+ERROR: FAIL: kit bishop_male: guarda montada do escudo alto criada
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2735)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: kit bishop_male: guarda montada do escudo alto criada
+ERROR: FAIL: kit bishop_female: tem o clipe run_shield_tall
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2700)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: kit bishop_female: tem o clipe run_shield_tall
+ERROR: FAIL: kit bishop_female: tem o clipe block_shield_tall
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2700)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: kit bishop_female: tem o clipe block_shield_tall
+ERROR: FAIL: kit bishop_female: guarda montada do escudo alto criada
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2735)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: kit bishop_female: guarda montada do escudo alto criada
+ERROR: FAIL: escudo escama: clipes de escudo alto
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2749)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: escudo escama: clipes de escudo alto
+ERROR: FAIL: escudo coluna: clipes de escudo alto
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2749)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: escudo coluna: clipes de escudo alto
+ERROR: FAIL: escudo relicario: clipes de escudo alto
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2749)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: escudo relicario: clipes de escudo alto
+ERROR: FAIL: escudo presa: clipes de escudo alto
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2749)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: escudo presa: clipes de escudo alto
+ERROR: FAIL: escudo perdao: clipes de escudo alto
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2749)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: escudo perdao: clipes de escudo alto
+ERROR: FAIL: escudo veredito: clipes de escudo alto
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2749)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: escudo veredito: clipes de escudo alto
+ERROR: FAIL: escudo serpente: clipes de escudo alto
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2749)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: escudo serpente: clipes de escudo alto
+ERROR: FAIL: escudo asa: clipes de escudo alto
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2749)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: escudo asa: clipes de escudo alto
+ERROR: FAIL: escudo cruel: clipes de escudo alto
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2749)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: escudo cruel: clipes de escudo alto
+ERROR: FAIL: escudo asa_negra: clipes de escudo alto
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2749)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: escudo asa_negra: clipes de escudo alto
+ERROR: FAIL: escudo suspiros: clipes de escudo alto
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2749)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: escudo suspiros: clipes de escudo alto
+ERROR: FAIL: escudo pal_g25: clipes de escudo alto
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2749)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: escudo pal_g25: clipes de escudo alto
+ERROR: FAIL: escudo pal_g30: clipes de escudo alto
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2749)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: escudo pal_g30: clipes de escudo alto
+ERROR: FAIL: escudo pal_t20: clipes de escudo alto
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2749)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: escudo pal_t20: clipes de escudo alto
+ERROR: FAIL: escudo pal_t30: clipes de escudo alto
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2749)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: escudo pal_t30: clipes de escudo alto
+ERROR: FAIL: escudo bis_s30: clipes de escudo alto
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2749)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: escudo bis_s30: clipes de escudo alto
+ERROR: FAIL: escudo bis_b15: clipes de escudo alto
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2749)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: escudo bis_b15: clipes de escudo alto
+ERROR: FAIL: boneco com escudo veredito corre em run_shield_tall no ritmo do chão (run, x0.96)
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2773)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: boneco com escudo veredito corre em run_shield_tall no ritmo do chão (run, x0.96)
+ERROR: FAIL: boneco com escudo veredito bloqueia em block_shield_tall (block_shield)
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_tall_shields (res://tools/tests/run_tests.gd:2774)
+       [2] run_only (res://tools/tests/run_tests.gd:1406)
+       [3] _ready (res://tools/tests/run_tests.gd:39)
+FAIL: boneco com escudo veredito bloqueia em block_shield_tall (block_shield)
+--only: 1 grupos
+
+=== 53 passed, 31 failed ===

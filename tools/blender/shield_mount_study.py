@@ -2,6 +2,13 @@
 
   blender -b --factory-startup --python tools/blender/shield_mount_study.py -- --out=<pasta de rascunho> [--evid=<pasta das folhas>]
       [--only=<estilo>,...] [--no_render] [--mounts=<json de uma rodada anterior>] [--kit_mounts] [--target_drop=0.22]
+      [--trim=<estilo>:<k>:<x0>:<z0>,...]
+
+Cada escudo é medido nos clipes que ele toca no jogo (ck.shield_clip): os altos (shield_kit.TALL) em run_shield_tall e
+block_shield_tall, os outros em run e block_shield. As chaves do json continuam "run"/"block_shield".
+--trim experimenta um corte do canto do cotovelo sem editar shield_kit.ELBOW (x0/z0: a linha "STUDY braço" de uma rodada
+sem corte dá o cotovelo e a linha do antebraço; x0 = cotovelo + 0,06, z0 = linha + 0,09). Com --only=<n estilos> o json só
+traz esses: o shield_mount_apply.py mantém as outras entradas do kit.
 
 O que faz:
   1. mede a montagem atual de cada escudo (folga do antebraço até as costas da placa, quanto do antebraço fica atrás da
@@ -47,7 +54,13 @@ TARGET_DROP = float(arg("target_drop", "0.22"))
 LEFT_ARM = ("upper_arm.L", "forearm.L", "hand.L")
 STRAP = 0.012                    # espessura da tira entre o braço e as costas da placa
 CHECK_FRAMES = (("idle", (1, 25)), ("run", (1, 5, 9, 13)), ("block_shield", (1, 9, 17)))       # iguais ao shield_mount.check
-DENSE = (("block_shield", (1, 9, 17, 25)), ("idle", (1, 13, 25)), ("run", (1, 3, 5, 7, 9, 11, 13, 15)))
+DENSE = (("block_shield", (1, 9, 17, 25)), ("idle", (1, 13, 25)), ("run", (1, 3, 5, 7, 9, 11, 13, 15)),
+         ("block_shield_tall", (1, 9, 17, 25)), ("run_shield_tall", (1, 3, 5, 7, 9, 11, 13, 15)))
+BASE_CLIP = {v: k for k, v in ck.TALL_SHIELD_CLIPS.items()}       # variante do escudo alto -> nome comum (chaves do json)
+for _t in (arg("trim") or "").split(","):                         # --trim: corte de rascunho por cima do shield_kit.ELBOW
+    if _t:
+        _p = _t.split(":")
+        shield_kit.ELBOW[_p[0]] = (float(_p[1]), float(_p[2]), float(_p[3]))
 VIEWS = ("idle_frente", "idle_lado", "idle_jogo", "guarda_frente", "guarda_lado")
 CELL = (200, 260)
 ORTHO = 2.3
@@ -75,6 +88,11 @@ def np3(m):
     return np.array([list(r) for r in m])
 
 
+def clip_of(st, anim):
+    """Clipe que o escudo toca no jogo no lugar de `anim` (os altos têm corrida e guarda próprias)."""
+    return ck.shield_clip(style_of(st), anim)
+
+
 def shield_name(st):
     return "wpn_off_shield" if st == "_comum" else "wpn_off_shield_" + st
 
@@ -95,6 +113,8 @@ def body_frames(rig, act, objs, sets, frames=DENSE):
         dom = [ck.dominant_bone(o, v) in LEFT_ARM for v in o.data.vertices]
         sleeve[o.name] = np.array([sum(dom[k] for k in pl.vertices) * 2 >= len(pl.vertices) for pl in o.data.polygons], dtype=bool)
     for anim, frs in frames:
+        if anim not in act:
+            continue
         for fr in frs:
             set_clip(rig, act, anim, fr)
             dg = bpy.context.evaluated_depsgraph_get()
@@ -366,9 +386,10 @@ def render_cells(rig, act, styles, tag, cam, txt, folder):
         if o.type == "MESH":
             o.hide_render = o.name not in show
     for view in VIEWS:
-        set_clip(rig, act, "idle" if view.startswith("idle") else "block_shield", 1 if view.startswith("idle") else 9)
         aim(cam, view)
         for st in styles:
+            clip = "idle" if view.startswith("idle") else ("block_shield" if tag == "antes" else clip_of(st, "block_shield"))
+            set_clip(rig, act, clip, 1 if view.startswith("idle") else 9)
             shown = [bpy.data.objects[shield_name(st)]]
             if tag == "antes":
                 shown.append(bpy.data.objects.get("wpn_off_grip_" + st) or bpy.data.objects["wpn_off_grip"])
@@ -434,6 +455,8 @@ def legacy_shield(base, style, name, mats, close=True):
     for vert in obj.data.vertices:
         co = vert.co * ck.SHIELD_SCALE * shield_kit.SIZES.get(style, 1.0)
         co.x *= inner if co.x < 0.0 else 1.0
+        if close:
+            co = shield_kit.elbow_trim(style, co)       # o mesmo corte do ck.kit_shield: a busca roda na placa que vai para o kit
         vert.co = rot @ co + c
     shield_kit.hull(obj, ck.SHIELD_OUTLINE, ck.mat("m_contorno", (0.12, 0.1, 0.16), 0.9))
     ck.skin_rigid(obj, base["rig"], "forearm.L")
@@ -484,20 +507,22 @@ def rule_check(rig, act, styles):
     body = sm._body()
     out = {st: {} for st in styles}
     for anim, frs in CHECK_FRAMES:
-        for fr in frs:
-            set_clip(rig, act, anim, fr)
-            for st in styles:
-                out[st][anim] = max(out[st].get(anim, 0), sm.contacts(rig, body, bpy.data.objects[shield_name(st)]))
+        for clip in sorted({clip_of(st, anim) for st in styles}):
+            for fr in frs:
+                set_clip(rig, act, clip, fr)
+                for st in styles:
+                    if clip_of(st, anim) == clip:
+                        out[st][anim] = max(out[st].get(anim, 0), sm.contacts(rig, body, bpy.data.objects[shield_name(st)]))
     sm.WHERE.clear()
     return out
 
 
-def face_angles(rig, act, mount):
+def face_angles(rig, act, mount, st):
     """Para onde a face aponta em cada clipe: (graus para fora a partir da frente, graus para cima)."""
     out = {}
     n0 = rot_of(mount) @ Vector((0, -1, 0))
     for anim, fr in (("idle", 1), ("run", 5), ("block_shield", 9)):
-        set_clip(rig, act, anim, fr)
+        set_clip(rig, act, clip_of(st, anim), fr)
         n = (sm._bone_delta(rig, "forearm.L").to_3x3() @ n0).normalized()
         out[anim] = (round(math.degrees(math.atan2(n.x, -n.y))), round(math.degrees(math.asin(max(-1, min(1, n.z))))))
     return out
@@ -552,7 +577,7 @@ def main():
             obj = bpy.data.objects[shield_name(st)]
             model[st] = local_model(obj, mount, arm) + (cid,)
             order.append(st)
-            data["styles"][st] = {"kit": cid, "regra_antes": rule[st], "face": face_angles(rig, act, mount), "verts": len(model[st][0]),
+            data["styles"][st] = {"kit": cid, "regra_antes": rule[st], "face": face_angles(rig, act, mount, st), "verts": len(model[st][0]),
                                   "alt": round(float(model[st][0][:, 2].max() - model[st][0][:, 2].min()), 3),
                                   "larg": round(float(model[st][0][:, 0].max() - model[st][0][:, 0].min()), 3)}
             old[st] = mount
@@ -562,7 +587,7 @@ def main():
         P("STUDY fase 1 %s %s: %d malhas, %d estilos, %.0f s" % (cid, sex, nmesh, len(styles), time.time() - t0))
     for st in order:
         Lv, polys, plate, _cid = model[st]
-        data["styles"][st]["antes"] = describe(st, Lv, polys, plate, old[st], joints, basis, bodyf, arms())
+        data["styles"][st]["antes"] = describe(st, Lv, polys, plate, old[st], joints, basis, bodyf, arms(), common=True)
     if joined:
         ck.SHIELD_MOUNTS.clear()
         ck.SHIELD_MOUNTS.update(new_mounts)
@@ -624,6 +649,9 @@ def main():
                     s = data["styles"][st]
                     s["depois"] = describe(st, Lv, polys, model[st][2], mount, joints, basis, bodyf, arms(), plate_v=model[st][0])
                     s["verts_depois"] = len(Lv)
+                    P("STUDY braço %-10s ar %s cotovelo x %.3f linha z %.3f (corte: x0 %.3f z0 %.3f) regra %s" % (
+                        st, s["depois"]["ar"], s["depois"]["braco"][0], s["depois"]["braco"][1], s["depois"]["braco"][0] + 0.06,
+                        s["depois"]["braco"][1] + 0.09, rule[st]))
                 if do_render and mine:
                     cam, txt = render_setup()
                     render_cells(rig, act, mine, "depois", cam, txt, cells)
@@ -644,13 +672,25 @@ def decompose(off, basis):
     return round(float(g), 3), round(float(d), 3), round(float(a), 3)
 
 
-def frames_for(st, bodyf):
-    """Corpos contra os quais o estilo é conferido: escudo comum = os dois kits; de conjunto = o kit da classe."""
+def frames_for(st, bodyf, common=False):
+    """Corpos e quadros contra os quais o estilo é conferido: escudo comum = os dois kits; de conjunto = o kit da classe.
+    Só os clipes que o escudo toca (common=True: os comuns, como era antes dos clipes de escudo alto)."""
     cid = ck.style_class(style_of(st))
-    return [(k, v) for k, v in bodyf.items() if cid is None or k[0] == cid]
+    clips = {a if common else clip_of(st, a) for a in ("idle", "run", "block_shield")}
+    return [(k, {fk: bf for fk, bf in v.items() if fk[0] in clips}) for k, v in bodyf.items() if cid is None or k[0] == cid]
 
 
-def describe(st, Lv, polys, plate, mount, joints, basis, bodyf, arm, plate_v=None):
+def area_of(pv, ptree, step=0.01):
+    """Área da placa vista de frente (m2), por grade de raios: para dizer quanto um corte (shield_kit.ELBOW) tira."""
+    x0, x1, z0, z1 = pv[:, 0].min(), pv[:, 0].max(), pv[:, 2].min(), pv[:, 2].max()
+    n = 0
+    for i in range(int((x1 - x0) / step) + 1):
+        for j in range(int((z1 - z0) / step) + 1):
+            n += ptree.ray_cast(Vector((x0 + i * step, 2.0, z0 + j * step)), Vector((0, -1, 0)))[0] is not None
+    return n * step * step
+
+
+def describe(st, Lv, polys, plate, mount, joints, basis, bodyf, arm, plate_v=None, common=False):
     """Números de uma montagem. plate = faces da placa (sem braçadeira/alça/contorno), para a folga até as costas dela."""
     arm_r = basis["arm_r"]
     pts = arm_points(joints["male"], mount)
@@ -661,9 +701,13 @@ def describe(st, Lv, polys, plate, mount, joints, basis, bodyf, arm, plate_v=Non
            "gda": decompose(mount[3], basis) if max(abs(mount[i] - basis["rot"][i]) for i in range(3)) < 0.5 else None,
            "ar": None if air is None else round(air, 3), "cobre": round(cover_of(ptree, pts[:11]), 2),
            "perto": round(near_of(pv, pts[:11], arm_r), 3), "tira_fora": strap_out(ptree, pts), "folga": {}, "toques": {}, "elmo": {}, "conj": {}, "manga": {}, "onde": {}}
-    for (cid, sex), frames in frames_for(st, bodyf):
+    out["braco"] = [round(float(pts[0].x), 3), round(float(pts[0].z), 3)]      # cotovelo (x) e linha do antebraço (z) no modelo
+    out["area"] = round(area_of(pv, ptree), 4)
+    out["alt"], out["larg"] = round(float(pv[:, 2].max() - pv[:, 2].min()), 3), round(float(pv[:, 0].max() - pv[:, 0].min()), 3)
+    for (cid, sex), frames in frames_for(st, bodyf, common):
         for (anim, fr), bf in frames.items():
             tree = BVHTree.FromPolygons(place(Lv, mount, arm[sex], bf[1]).tolist(), polys)
+            anim = BASE_CLIP.get(anim, anim)
             key = "%s_%s" % (anim, sex)
             b, h, c, a = hits_of(tree, bf, out["onde"])
             out["elmo"][key] = max(out["elmo"].get(key, 0), h)

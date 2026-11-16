@@ -1,0 +1,3565 @@
+{
+ "styles": {
+  "asa": {
+   "kit": "paladin",
+   "regra_antes": {
+    "idle": 0,
+    "run": 0,
+    "block_shield": 0
+   },
+   "face": {
+    "idle": [
+     79,
+     18
+    ],
+    "run": [
+     70,
+     -3
+    ],
+    "block_shield": [
+     28,
+     -13
+    ]
+   },
+   "verts": 340,
+   "alt": 1.033,
+   "larg": 1.066,
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.298,
+      0.31,
+      0.042
+     ]
+    ],
+    "gda": [
+     0.29,
+     0.32,
+     -0.0
+    ],
+    "ar": 0.197,
+    "cobre": 1.0,
+    "perto": 0.143,
+    "tira_fora": 5,
+    "folga": {
+     "block_shield": 0.261,
+     "idle": 0.171,
+     "run": 0.122
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 36
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "onde": {
+     "arm_bis_b30_body_all": 12,
+     "arm_bis_i30_body_all": 12,
+     "arm_bis_s30_body_all": 12
+    },
+    "braco": [
+     0.079,
+     0.32
+    ],
+    "area": 0.5638,
+    "alt": 1.033,
+    "larg": 1.066
+   },
+   "busca": "gap 0.130 drop 0.26 along 0.08 extra 0.02 | corpo m 0 f 0, elmo 0, conj 866",
+   "regra_depois": {
+    "paladin_male": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "bishop_male": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "paladin_female": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "bishop_female": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    }
+   },
+   "depois": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.156,
+      0.249,
+      -0.066
+     ]
+    ],
+    "gda": [
+     0.13,
+     0.26,
+     0.08
+    ],
+    "ar": 0.032,
+    "cobre": 1.0,
+    "perto": -0.021,
+    "tira_fora": 2,
+    "folga": {
+     "idle": 0.035,
+     "block_shield": 0.025,
+     "run": 0.06
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "block_shield_male": 736,
+     "run_male": 268,
+     "idle_female": 0,
+     "block_shield_female": 350,
+     "run_female": 117
+    },
+    "manga": {
+     "idle_male": 7623,
+     "block_shield_male": 378,
+     "run_male": 6855,
+     "idle_female": 6526,
+     "block_shield_female": 96,
+     "run_female": 6167
+    },
+    "onde": {
+     "arm_bis_i15_body_all": 340,
+     "arm_bis_i30_body_all": 656,
+     "arm_bis_s10_body_all": 396,
+     "arm_bis_s25_body_all": 448,
+     "arm_bis_i20_body_all": 544,
+     "arm_bis_s20_body_all": 454,
+     "arm_bis_s15_body_all": 408,
+     "arm_bis_s30_body_all": 514,
+     "arm_bis_i25_body_all": 530,
+     "arm_bis_s5_body_all": 114,
+     "arm_bis_b25_body_all": 114,
+     "arm_bis_i5_body_all": 114,
+     "arm_bis_b30_body_all": 114,
+     "arm_bis_i10_body_all": 176,
+     "arm_bis_b20_body_all": 114
+    },
+    "braco": [
+     0.159,
+     0.26
+    ],
+    "area": 0.5638,
+    "alt": 1.033,
+    "larg": 1.066
+   },
+   "verts_depois": 428
+  },
+  "presa": {
+   "kit": "paladin",
+   "regra_antes": {
+    "idle": 0,
+    "run": 0,
+    "block_shield": 0
+   },
+   "face": {
+    "idle": [
+     79,
+     18
+    ],
+    "run": [
+     70,
+     -3
+    ],
+    "block_shield": [
+     28,
+     -13
+    ]
+   },
+   "verts": 324,
+   "alt": 1.199,
+   "larg": 0.789,
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.298,
+      0.31,
+      0.042
+     ]
+    ],
+    "gda": [
+     0.29,
+     0.32,
+     -0.0
+    ],
+    "ar": 0.204,
+    "cobre": 0.45,
+    "perto": 0.166,
+    "tira_fora": 5,
+    "folga": {
+     "block_shield": 0.118,
+     "idle": 0.109,
+     "run": 0.107
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 6,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "onde": {
+     "arm_pal_g20_head_all": 6
+    },
+    "braco": [
+     0.079,
+     0.32
+    ],
+    "area": 0.287,
+    "alt": 1.199,
+    "larg": 0.789
+   },
+   "busca": "gap 0.144 drop 0.26 along 0.08 extra 0.04 | corpo m 0 f 0, elmo 1056, conj 16",
+   "regra_depois": {
+    "paladin_male": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "bishop_male": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "paladin_female": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "bishop_female": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    }
+   },
+   "depois": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.169,
+      0.249,
+      -0.063
+     ]
+    ],
+    "gda": [
+     0.144,
+     0.26,
+     0.08
+    ],
+    "ar": 0.052,
+    "cobre": 0.82,
+    "perto": 0.014,
+    "tira_fora": 5,
+    "folga": {
+     "idle": 0.012,
+     "block_shield": 0.049,
+     "run": 0.03
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "idle_male": 120,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 144,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "block_shield_male": 401,
+     "run_male": 121,
+     "idle_female": 0,
+     "block_shield_female": 345,
+     "run_female": 72
+    },
+    "manga": {
+     "idle_male": 2198,
+     "block_shield_male": 180,
+     "run_male": 2741,
+     "idle_female": 2473,
+     "block_shield_female": 54,
+     "run_female": 2528
+    },
+    "onde": {
+     "arm_pal_g10_head_all": 102,
+     "arm_pal_g15_head_all": 102,
+     "arm_pal_g20_head_all": 102,
+     "arm_pal_g30_head_all": 102,
+     "arm_pal_g25_head_all": 102,
+     "arm_pal_c25_head_all": 102,
+     "arm_bis_b5_head_all": 74,
+     "arm_bis_b15_head_all": 74,
+     "arm_bis_b25_head_all": 74,
+     "arm_bis_b30_head_all": 74,
+     "arm_bis_b10_head_all": 74,
+     "arm_bis_b20_head_all": 74,
+     "arm_bis_s15_body_all": 311,
+     "arm_bis_s10_body_all": 305,
+     "arm_bis_i15_body_all": 195,
+     "arm_bis_s25_body_all": 311,
+     "arm_bis_s20_body_all": 313,
+     "arm_bis_s30_body_all": 319,
+     "arm_bis_i30_body_all": 320,
+     "arm_bis_i25_body_all": 319,
+     "arm_bis_i20_body_all": 322,
+     "arm_bis_b25_body_all": 118,
+     "arm_bis_b30_body_all": 118,
+     "arm_bis_b20_body_all": 118,
+     "arm_bis_s5_body_all": 118,
+     "arm_bis_i10_body_all": 131,
+     "arm_bis_i5_body_all": 118
+    },
+    "braco": [
+     0.158,
+     0.26
+    ],
+    "area": 0.287,
+    "alt": 1.199,
+    "larg": 0.789
+   },
+   "verts_depois": 392
+  },
+  "relicario": {
+   "kit": "paladin",
+   "regra_antes": {
+    "idle": 0,
+    "run": 0,
+    "block_shield": 0
+   },
+   "face": {
+    "idle": [
+     79,
+     18
+    ],
+    "run": [
+     70,
+     -3
+    ],
+    "block_shield": [
+     28,
+     -13
+    ]
+   },
+   "verts": 680,
+   "alt": 1.415,
+   "larg": 0.989,
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.298,
+      0.31,
+      0.042
+     ]
+    ],
+    "gda": [
+     0.29,
+     0.32,
+     -0.0
+    ],
+    "ar": 0.194,
+    "cobre": 1.0,
+    "perto": 0.161,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.132,
+     "idle": 0.16,
+     "run": 0.182
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 40,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 168,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "onde": {
+     "arm_pal_t15_head_all": 96,
+     "arm_pal_t30_head_all": 96,
+     "arm_pal_t20_head_all": 96,
+     "arm_pal_t5_head_all": 96,
+     "arm_pal1_head_all": 92,
+     "arm_pal_g20_head_all": 8,
+     "arm_pal_g25_head_all": 8,
+     "arm_pal_g30_head_all": 8,
+     "arm_pal_g15_head_all": 8,
+     "arm_pal_g10_head_all": 8,
+     "arm_pal_c25_head_all": 8
+    },
+    "braco": [
+     0.079,
+     0.32
+    ],
+    "area": 0.3855,
+    "alt": 1.415,
+    "larg": 0.989
+   },
+   "busca": "gap 0.127 drop 0.34 along 0.00 extra 0.02 | corpo m 0 f 0, elmo 0, conj 577",
+   "regra_depois": {
+    "paladin_male": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "bishop_male": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "paladin_female": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "bishop_female": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    }
+   },
+   "depois": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.14,
+      0.335,
+      0.006
+     ]
+    ],
+    "gda": [
+     0.127,
+     0.34,
+     0.0
+    ],
+    "ar": 0.033,
+    "cobre": 1.0,
+    "perto": 0.045,
+    "tira_fora": 0,
+    "folga": {
+     "idle": 0.058,
+     "block_shield": 0.036,
+     "run": 0.055
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "idle_male": 24,
+     "block_shield_male": 566,
+     "run_male": 141,
+     "idle_female": 57,
+     "block_shield_female": 344,
+     "run_female": 117
+    },
+    "manga": {
+     "idle_male": 3607,
+     "block_shield_male": 1362,
+     "run_male": 3101,
+     "idle_female": 3042,
+     "block_shield_female": 700,
+     "run_female": 2408
+    },
+    "onde": {
+     "arm_bis_i30_body_all": 617,
+     "arm_bis_s30_body_all": 511,
+     "arm_bis_b30_body_all": 167,
+     "arm_bis_i20_body_all": 458,
+     "arm_bis_i10_body_all": 142,
+     "arm_bis_i25_body_all": 460,
+     "arm_bis_s20_body_all": 420,
+     "arm_bis_i15_body_all": 306,
+     "arm_bis_s25_body_all": 414,
+     "arm_bis_s10_body_all": 396,
+     "arm_bis_s15_body_all": 400,
+     "arm_bis_b25_body_all": 114,
+     "arm_bis_b20_body_all": 114,
+     "arm_bis_s5_body_all": 114,
+     "arm_bis_i5_body_all": 114
+    },
+    "braco": [
+     0.079,
+     0.34
+    ],
+    "area": 0.3855,
+    "alt": 1.415,
+    "larg": 0.989
+   },
+   "verts_depois": 768
+  },
+  "escama": {
+   "kit": "paladin",
+   "regra_antes": {
+    "idle": 0,
+    "run": 0,
+    "block_shield": 0
+   },
+   "face": {
+    "idle": [
+     79,
+     18
+    ],
+    "run": [
+     70,
+     -3
+    ],
+    "block_shield": [
+     28,
+     -13
+    ]
+   },
+   "verts": 444,
+   "alt": 1.322,
+   "larg": 0.882,
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.298,
+      0.31,
+      0.042
+     ]
+    ],
+    "gda": [
+     0.29,
+     0.32,
+     -0.0
+    ],
+    "ar": 0.203,
+    "cobre": 1.0,
+    "perto": 0.161,
+    "tira_fora": 4,
+    "folga": {
+     "block_shield": 0.161,
+     "idle": 0.101,
+     "run": 0.121
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 13,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "onde": {
+     "arm_pal_g25_head_all": 25
+    },
+    "braco": [
+     0.079,
+     0.32
+    ],
+    "area": 0.4793,
+    "alt": 1.322,
+    "larg": 0.882
+   },
+   "busca": "gap 0.138 drop 0.34 along 0.08 extra 0.04 | corpo m 0 f 0, elmo 0, conj 484",
+   "regra_depois": {
+    "paladin_male": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "bishop_male": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "paladin_female": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "bishop_female": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    }
+   },
+   "depois": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.167,
+      0.329,
+      -0.069
+     ]
+    ],
+    "gda": [
+     0.138,
+     0.34,
+     0.079
+    ],
+    "ar": 0.052,
+    "cobre": 1.0,
+    "perto": 0.064,
+    "tira_fora": 5,
+    "folga": {
+     "idle": 0.036,
+     "block_shield": 0.041,
+     "run": 0.058
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "block_shield_male": 622,
+     "run_male": 119,
+     "idle_female": 0,
+     "block_shield_female": 372,
+     "run_female": 90
+    },
+    "manga": {
+     "idle_male": 3504,
+     "block_shield_male": 90,
+     "run_male": 2582,
+     "idle_female": 3135,
+     "block_shield_female": 12,
+     "run_female": 2102
+    },
+    "onde": {
+     "arm_bis_i15_body_all": 271,
+     "arm_bis_i30_body_all": 523,
+     "arm_bis_s10_body_all": 369,
+     "arm_bis_s25_body_all": 389,
+     "arm_bis_i20_body_all": 475,
+     "arm_bis_s20_body_all": 389,
+     "arm_bis_s15_body_all": 375,
+     "arm_bis_s30_body_all": 471,
+     "arm_bis_i25_body_all": 477,
+     "arm_bis_b25_body_all": 118,
+     "arm_bis_b30_body_all": 118,
+     "arm_bis_b20_body_all": 118,
+     "arm_bis_s5_body_all": 118,
+     "arm_bis_i10_body_all": 143,
+     "arm_bis_i5_body_all": 118
+    },
+    "braco": [
+     0.158,
+     0.34
+    ],
+    "area": 0.4793,
+    "alt": 1.322,
+    "larg": 0.882
+   },
+   "verts_depois": 528
+  },
+  "coluna": {
+   "kit": "paladin",
+   "regra_antes": {
+    "idle": 0,
+    "run": 0,
+    "block_shield": 0
+   },
+   "face": {
+    "idle": [
+     79,
+     18
+    ],
+    "run": [
+     70,
+     -3
+    ],
+    "block_shield": [
+     28,
+     -13
+    ]
+   },
+   "verts": 644,
+   "alt": 1.369,
+   "larg": 0.751,
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.298,
+      0.31,
+      0.042
+     ]
+    ],
+    "gda": [
+     0.29,
+     0.32,
+     -0.0
+    ],
+    "ar": 0.203,
+    "cobre": 1.0,
+    "perto": 0.163,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.142,
+     "idle": 0.137,
+     "run": 0.129
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 64,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "onde": {
+     "arm_pal1_head_all": 20,
+     "arm_pal_t15_head_all": 30,
+     "arm_pal_t30_head_all": 30,
+     "arm_pal_t20_head_all": 30,
+     "arm_pal_t5_head_all": 30
+    },
+    "braco": [
+     0.079,
+     0.32
+    ],
+    "area": 0.6343,
+    "alt": 1.369,
+    "larg": 0.751
+   },
+   "busca": "gap 0.140 drop 0.30 along 0.00 extra 0.04 | corpo m 0 f 0, elmo 0, conj 116",
+   "regra_depois": {
+    "paladin_male": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "bishop_male": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "paladin_female": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "bishop_female": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    }
+   },
+   "depois": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.151,
+      0.295,
+      0.011
+     ]
+    ],
+    "gda": [
+     0.14,
+     0.3,
+     0.0
+    ],
+    "ar": 0.052,
+    "cobre": 1.0,
+    "perto": 0.035,
+    "tira_fora": 0,
+    "folga": {
+     "idle": 0.022,
+     "block_shield": 0.05,
+     "run": 0.031
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "block_shield_male": 454,
+     "run_male": 133,
+     "idle_female": 0,
+     "block_shield_female": 344,
+     "run_female": 117
+    },
+    "manga": {
+     "idle_male": 6767,
+     "block_shield_male": 1444,
+     "run_male": 7874,
+     "idle_female": 6767,
+     "block_shield_female": 594,
+     "run_female": 7054
+    },
+    "onde": {
+     "arm_bis_i30_body_all": 480,
+     "arm_bis_i20_body_all": 412,
+     "arm_bis_i25_body_all": 412,
+     "arm_bis_s30_body_all": 412,
+     "arm_bis_i10_body_all": 118,
+     "arm_bis_s10_body_all": 396,
+     "arm_bis_s20_body_all": 400,
+     "arm_bis_b25_body_all": 114,
+     "arm_bis_s5_body_all": 114,
+     "arm_bis_b30_body_all": 114,
+     "arm_bis_b20_body_all": 114,
+     "arm_bis_i5_body_all": 114,
+     "arm_bis_s15_body_all": 400,
+     "arm_bis_s25_body_all": 400,
+     "arm_bis_i15_body_all": 286
+    },
+    "braco": [
+     0.079,
+     0.3
+    ],
+    "area": 0.6343,
+    "alt": 1.369,
+    "larg": 0.751
+   },
+   "verts_depois": 732
+  },
+  "perdao": {
+   "kit": "paladin",
+   "regra_antes": {
+    "idle": 0,
+    "run": 0,
+    "block_shield": 0
+   },
+   "face": {
+    "idle": [
+     79,
+     18
+    ],
+    "run": [
+     70,
+     -3
+    ],
+    "block_shield": [
+     28,
+     -13
+    ]
+   },
+   "verts": 392,
+   "alt": 1.43,
+   "larg": 1.175,
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.298,
+      0.31,
+      0.042
+     ]
+    ],
+    "gda": [
+     0.29,
+     0.32,
+     -0.0
+    ],
+    "ar": 0.192,
+    "cobre": 1.0,
+    "perto": 0.152,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.199,
+     "idle": 0.168,
+     "run": 0.083
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 30,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 72
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "onde": {
+     "arm_bis_s30_body_all": 46,
+     "arm_bis_b30_body_all": 46,
+     "arm_bis_i30_body_all": 46
+    },
+    "braco": [
+     0.079,
+     0.32
+    ],
+    "area": 0.4787,
+    "alt": 1.43,
+    "larg": 1.175
+   },
+   "busca": "gap 0.129 drop 0.34 along 0.00 extra 0.02 | corpo m 0 f 0, elmo 0, conj 566",
+   "regra_depois": {
+    "paladin_male": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "bishop_male": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "paladin_female": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "bishop_female": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    }
+   },
+   "depois": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.142,
+      0.335,
+      0.007
+     ]
+    ],
+    "gda": [
+     0.129,
+     0.34,
+     -0.0
+    ],
+    "ar": 0.033,
+    "cobre": 1.0,
+    "perto": 0.05,
+    "tira_fora": 0,
+    "folga": {
+     "idle": 0.058,
+     "block_shield": 0.035,
+     "run": 0.06
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "block_shield_male": 614,
+     "run_male": 153,
+     "idle_female": 18,
+     "block_shield_female": 350,
+     "run_female": 117
+    },
+    "manga": {
+     "idle_male": 2237,
+     "block_shield_male": 294,
+     "run_male": 1285,
+     "idle_female": 1838,
+     "block_shield_female": 228,
+     "run_female": 657
+    },
+    "onde": {
+     "arm_bis_i15_body_all": 312,
+     "arm_bis_i30_body_all": 616,
+     "arm_bis_s10_body_all": 396,
+     "arm_bis_s25_body_all": 420,
+     "arm_bis_i20_body_all": 490,
+     "arm_bis_s20_body_all": 426,
+     "arm_bis_s15_body_all": 400,
+     "arm_bis_s30_body_all": 472,
+     "arm_bis_i25_body_all": 476,
+     "arm_bis_s5_body_all": 114,
+     "arm_bis_b25_body_all": 114,
+     "arm_bis_i5_body_all": 114,
+     "arm_bis_b30_body_all": 120,
+     "arm_bis_i10_body_all": 152,
+     "arm_bis_b20_body_all": 114
+    },
+    "braco": [
+     0.078,
+     0.34
+    ],
+    "area": 0.4787,
+    "alt": 1.43,
+    "larg": 1.175
+   },
+   "verts_depois": 480
+  },
+  "veredito": {
+   "kit": "paladin",
+   "regra_antes": {
+    "idle": 0,
+    "run": 0,
+    "block_shield": 0
+   },
+   "face": {
+    "idle": [
+     79,
+     18
+    ],
+    "run": [
+     70,
+     -3
+    ],
+    "block_shield": [
+     28,
+     -13
+    ]
+   },
+   "verts": 364,
+   "alt": 1.338,
+   "larg": 0.898,
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.298,
+      0.31,
+      0.042
+     ]
+    ],
+    "gda": [
+     0.29,
+     0.32,
+     -0.0
+    ],
+    "ar": 0.21,
+    "cobre": 1.0,
+    "perto": 0.17,
+    "tira_fora": 5,
+    "folga": {
+     "block_shield": 0.115,
+     "idle": 0.099,
+     "run": 0.135
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 10,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 8,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "onde": {
+     "arm_pal_g25_head_all": 72
+    },
+    "braco": [
+     0.079,
+     0.32
+    ],
+    "area": 0.5469,
+    "alt": 1.338,
+    "larg": 0.898
+   },
+   "busca": "gap 0.132 drop 0.34 along 0.08 extra 0.04 | corpo m 0 f 0, elmo 72, conj 609",
+   "regra_depois": {
+    "paladin_male": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "bishop_male": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "paladin_female": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "bishop_female": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    }
+   },
+   "depois": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.161,
+      0.329,
+      -0.071
+     ]
+    ],
+    "gda": [
+     0.132,
+     0.34,
+     0.08
+    ],
+    "ar": 0.052,
+    "cobre": 0.91,
+    "perto": 0.052,
+    "tira_fora": 4,
+    "folga": {
+     "idle": 0.032,
+     "block_shield": 0.039,
+     "run": 0.059
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 24,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "block_shield_male": 673,
+     "run_male": 134,
+     "idle_female": 0,
+     "block_shield_female": 372,
+     "run_female": 99
+    },
+    "manga": {
+     "idle_male": 3036,
+     "block_shield_male": 66,
+     "run_male": 2910,
+     "idle_female": 4330,
+     "block_shield_female": 12,
+     "run_female": 2312
+    },
+    "onde": {
+     "arm_bis_i15_body_all": 305,
+     "arm_bis_i30_body_all": 574,
+     "arm_bis_s10_body_all": 383,
+     "arm_bis_s25_body_all": 399,
+     "arm_bis_i20_body_all": 505,
+     "arm_bis_s20_body_all": 423,
+     "arm_bis_s15_body_all": 389,
+     "arm_bis_s30_body_all": 477,
+     "arm_bis_i25_body_all": 505,
+     "arm_bis_b25_body_all": 118,
+     "arm_bis_b30_body_all": 118,
+     "arm_bis_b20_body_all": 118,
+     "arm_bis_s5_body_all": 118,
+     "arm_bis_i10_body_all": 164,
+     "arm_bis_i5_body_all": 118,
+     "arm_bis_b5_head_all": 12,
+     "arm_bis_b15_head_all": 12,
+     "arm_bis_b25_head_all": 12,
+     "arm_bis_b30_head_all": 12,
+     "arm_bis_b10_head_all": 12,
+     "arm_bis_b20_head_all": 12
+    },
+    "braco": [
+     0.159,
+     0.34
+    ],
+    "area": 0.5469,
+    "alt": 1.338,
+    "larg": 0.898
+   },
+   "verts_depois": 440
+  },
+  "serpente": {
+   "kit": "paladin",
+   "regra_antes": {
+    "idle": 0,
+    "run": 0,
+    "block_shield": 0
+   },
+   "face": {
+    "idle": [
+     79,
+     18
+    ],
+    "run": [
+     70,
+     -3
+    ],
+    "block_shield": [
+     28,
+     -13
+    ]
+   },
+   "verts": 444,
+   "alt": 1.33,
+   "larg": 0.958,
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.298,
+      0.31,
+      0.042
+     ]
+    ],
+    "gda": [
+     0.29,
+     0.32,
+     -0.0
+    ],
+    "ar": 0.197,
+    "cobre": 1.0,
+    "perto": 0.159,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.198,
+     "idle": 0.109,
+     "run": 0.067
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 39,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 48
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "onde": {
+     "arm_bis_s30_body_all": 49,
+     "arm_bis_i30_body_all": 49,
+     "arm_bis_b30_body_all": 49
+    },
+    "braco": [
+     0.079,
+     0.32
+    ],
+    "area": 0.5,
+    "alt": 1.33,
+    "larg": 0.958
+   },
+   "busca": "gap 0.144 drop 0.34 along 0.08 extra 0.04 | corpo m 0 f 0, elmo 0, conj 428",
+   "regra_depois": {
+    "paladin_male": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "bishop_male": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "paladin_female": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "bishop_female": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    }
+   },
+   "depois": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.173,
+      0.329,
+      -0.068
+     ]
+    ],
+    "gda": [
+     0.144,
+     0.34,
+     0.08
+    ],
+    "ar": 0.052,
+    "cobre": 1.0,
+    "perto": 0.056,
+    "tira_fora": 2,
+    "folga": {
+     "idle": 0.021,
+     "block_shield": 0.047,
+     "run": 0.047
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "block_shield_male": 624,
+     "run_male": 130,
+     "idle_female": 0,
+     "block_shield_female": 344,
+     "run_female": 117
+    },
+    "manga": {
+     "idle_male": 7288,
+     "block_shield_male": 726,
+     "run_male": 6619,
+     "idle_female": 7865,
+     "block_shield_female": 300,
+     "run_female": 5013
+    },
+    "onde": {
+     "arm_bis_i15_body_all": 290,
+     "arm_bis_i30_body_all": 578,
+     "arm_bis_s10_body_all": 396,
+     "arm_bis_s25_body_all": 408,
+     "arm_bis_i20_body_all": 478,
+     "arm_bis_s20_body_all": 404,
+     "arm_bis_s15_body_all": 400,
+     "arm_bis_s30_body_all": 472,
+     "arm_bis_i25_body_all": 480,
+     "arm_bis_s5_body_all": 114,
+     "arm_bis_b25_body_all": 114,
+     "arm_bis_i5_body_all": 114,
+     "arm_bis_b30_body_all": 114,
+     "arm_bis_i10_body_all": 122,
+     "arm_bis_b20_body_all": 114
+    },
+    "braco": [
+     0.158,
+     0.34
+    ],
+    "area": 0.5,
+    "alt": 1.33,
+    "larg": 0.958
+   },
+   "verts_depois": 532
+  },
+  "cruel": {
+   "kit": "paladin",
+   "regra_antes": {
+    "idle": 0,
+    "run": 0,
+    "block_shield": 0
+   },
+   "face": {
+    "idle": [
+     79,
+     18
+    ],
+    "run": [
+     70,
+     -3
+    ],
+    "block_shield": [
+     28,
+     -13
+    ]
+   },
+   "verts": 496,
+   "alt": 1.503,
+   "larg": 0.974,
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.298,
+      0.31,
+      0.042
+     ]
+    ],
+    "gda": [
+     0.29,
+     0.32,
+     -0.0
+    ],
+    "ar": 0.205,
+    "cobre": 0.73,
+    "perto": 0.143,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.142,
+     "idle": 0.135,
+     "run": 0.132
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 4,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 4,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 30
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "onde": {
+     "arm_pal_g25_head_all": 24,
+     "arm_bis_b30_body_all": 15,
+     "arm_bis_i30_body_all": 15,
+     "arm_bis_s30_body_all": 15
+    },
+    "braco": [
+     0.079,
+     0.32
+    ],
+    "area": 0.5908,
+    "alt": 1.503,
+    "larg": 0.974
+   },
+   "busca": "gap 0.142 drop 0.26 along 0.00 extra 0.04 | corpo m 0 f 0, elmo 396, conj 188",
+   "regra_depois": {
+    "paladin_male": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "bishop_male": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "paladin_female": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "bishop_female": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    }
+   },
+   "depois": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.151,
+      0.255,
+      0.014
+     ]
+    ],
+    "gda": [
+     0.142,
+     0.26,
+     0.0
+    ],
+    "ar": 0.053,
+    "cobre": 1.0,
+    "perto": -0.013,
+    "tira_fora": 0,
+    "folga": {
+     "idle": 0.015,
+     "block_shield": 0.043,
+     "run": 0.06
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "idle_male": 60,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 96,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "block_shield_male": 522,
+     "run_male": 118,
+     "idle_female": 0,
+     "block_shield_female": 344,
+     "run_female": 117
+    },
+    "manga": {
+     "idle_male": 4780,
+     "block_shield_male": 174,
+     "run_male": 4130,
+     "idle_female": 3598,
+     "block_shield_female": 48,
+     "run_female": 2153
+    },
+    "onde": {
+     "arm_pal_g25_head_all": 66,
+     "arm_pal_g10_head_all": 66,
+     "arm_pal_g30_head_all": 66,
+     "arm_pal_g20_head_all": 66,
+     "arm_pal_c25_head_all": 66,
+     "arm_pal_g15_head_all": 66,
+     "arm_bis_i15_body_all": 286,
+     "arm_bis_i30_body_all": 472,
+     "arm_bis_s10_body_all": 396,
+     "arm_bis_s25_body_all": 400,
+     "arm_bis_i20_body_all": 440,
+     "arm_bis_s20_body_all": 400,
+     "arm_bis_s15_body_all": 400,
+     "arm_bis_s30_body_all": 434,
+     "arm_bis_i25_body_all": 442,
+     "arm_bis_b25_body_all": 114,
+     "arm_bis_b30_body_all": 114,
+     "arm_bis_b20_body_all": 114,
+     "arm_bis_s5_body_all": 114,
+     "arm_bis_i10_body_all": 118,
+     "arm_bis_i5_body_all": 114
+    },
+    "braco": [
+     0.079,
+     0.26
+    ],
+    "area": 0.5908,
+    "alt": 1.503,
+    "larg": 0.974
+   },
+   "verts_depois": 580
+  },
+  "asa_negra": {
+   "kit": "paladin",
+   "regra_antes": {
+    "idle": 0,
+    "run": 0,
+    "block_shield": 0
+   },
+   "face": {
+    "idle": [
+     79,
+     18
+    ],
+    "run": [
+     70,
+     -3
+    ],
+    "block_shield": [
+     28,
+     -13
+    ]
+   },
+   "verts": 1012,
+   "alt": 1.504,
+   "larg": 1.078,
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.298,
+      0.31,
+      0.042
+     ]
+    ],
+    "gda": [
+     0.29,
+     0.32,
+     -0.0
+    ],
+    "ar": 0.201,
+    "cobre": 1.0,
+    "perto": 0.156,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.156,
+     "idle": 0.12,
+     "run": 0.104
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 36,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 30
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "onde": {
+     "arm_bis_s30_body_all": 37,
+     "arm_bis_i30_body_all": 37,
+     "arm_bis_b30_body_all": 37
+    },
+    "braco": [
+     0.079,
+     0.32
+    ],
+    "area": 0.5797,
+    "alt": 1.504,
+    "larg": 1.078
+   },
+   "busca": "gap 0.144 drop 0.26 along 0.08 extra 0.04 | corpo m 0 f 0, elmo 288, conj 82",
+   "regra_depois": {
+    "paladin_male": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "bishop_male": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "paladin_female": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "bishop_female": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    }
+   },
+   "depois": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.169,
+      0.249,
+      -0.063
+     ]
+    ],
+    "gda": [
+     0.144,
+     0.26,
+     0.08
+    ],
+    "ar": 0.051,
+    "cobre": 1.0,
+    "perto": 0.004,
+    "tira_fora": 0,
+    "folga": {
+     "idle": 0.036,
+     "block_shield": 0.045,
+     "run": 0.028
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "idle_male": 24,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 72,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "block_shield_male": 446,
+     "run_male": 117,
+     "idle_female": 12,
+     "block_shield_female": 344,
+     "run_female": 117
+    },
+    "manga": {
+     "idle_male": 10988,
+     "block_shield_male": 762,
+     "run_male": 10105,
+     "idle_female": 11792,
+     "block_shield_female": 364,
+     "run_female": 7916
+    },
+    "onde": {
+     "arm_bis_b5_head_all": 48,
+     "arm_bis_b15_head_all": 48,
+     "arm_bis_b25_head_all": 48,
+     "arm_bis_b30_head_all": 48,
+     "arm_bis_b10_head_all": 48,
+     "arm_bis_b20_head_all": 48,
+     "arm_bis_i30_body_all": 432,
+     "arm_bis_i10_body_all": 118,
+     "arm_bis_s10_body_all": 396,
+     "arm_bis_s20_body_all": 400,
+     "arm_bis_b25_body_all": 114,
+     "arm_bis_i25_body_all": 412,
+     "arm_bis_s30_body_all": 416,
+     "arm_bis_i20_body_all": 418,
+     "arm_bis_s5_body_all": 114,
+     "arm_bis_b30_body_all": 118,
+     "arm_bis_b20_body_all": 114,
+     "arm_bis_i5_body_all": 114,
+     "arm_bis_s15_body_all": 400,
+     "arm_bis_s25_body_all": 400,
+     "arm_bis_i15_body_all": 286
+    },
+    "braco": [
+     0.158,
+     0.26
+    ],
+    "area": 0.5797,
+    "alt": 1.504,
+    "larg": 1.078
+   },
+   "verts_depois": 1100
+  },
+  "suspiros": {
+   "kit": "paladin",
+   "regra_antes": {
+    "idle": 0,
+    "run": 0,
+    "block_shield": 0
+   },
+   "face": {
+    "idle": [
+     79,
+     18
+    ],
+    "run": [
+     70,
+     -3
+    ],
+    "block_shield": [
+     28,
+     -13
+    ]
+   },
+   "verts": 600,
+   "alt": 1.63,
+   "larg": 1.055,
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.298,
+      0.31,
+      0.042
+     ]
+    ],
+    "gda": [
+     0.29,
+     0.32,
+     -0.0
+    ],
+    "ar": 0.2,
+    "cobre": 1.0,
+    "perto": 0.156,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.058,
+     "idle": 0.097,
+     "run": 0.065
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 70,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 238,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 33,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 42
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "onde": {
+     "arm_pal_g25_head_all": 170,
+     "arm_pal_g20_head_all": 340,
+     "arm_pal_g15_head_all": 100,
+     "arm_pal_g30_head_all": 124,
+     "arm_pal_g10_head_all": 124,
+     "arm_pal_c25_head_all": 100,
+     "arm_bis_s30_body_all": 45,
+     "arm_bis_i30_body_all": 45,
+     "arm_bis_b30_body_all": 45
+    },
+    "braco": [
+     0.079,
+     0.32
+    ],
+    "area": 0.6827,
+    "alt": 1.63,
+    "larg": 1.055
+   },
+   "busca": "gap 0.141 drop 0.34 along 0.08 extra 0.04 | corpo m 0 f 0, elmo 532, conj 454",
+   "regra_depois": {
+    "paladin_male": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "bishop_male": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "paladin_female": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "bishop_female": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    }
+   },
+   "depois": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.17,
+      0.329,
+      -0.069
+     ]
+    ],
+    "gda": [
+     0.141,
+     0.34,
+     0.08
+    ],
+    "ar": 0.052,
+    "cobre": 1.0,
+    "perto": 0.06,
+    "tira_fora": 0,
+    "folga": {
+     "idle": 0.022,
+     "block_shield": 0.042,
+     "run": 0.06
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "idle_male": 24,
+     "block_shield_male": 60,
+     "run_male": 0,
+     "idle_female": 48,
+     "block_shield_female": 68,
+     "run_female": 24
+    },
+    "conj": {
+     "idle_male": 24,
+     "block_shield_male": 524,
+     "run_male": 144,
+     "idle_female": 51,
+     "block_shield_female": 344,
+     "run_female": 117
+    },
+    "manga": {
+     "idle_male": 7213,
+     "block_shield_male": 542,
+     "run_male": 6016,
+     "idle_female": 4745,
+     "block_shield_female": 280,
+     "run_female": 4960
+    },
+    "onde": {
+     "arm_pal_g25_head_all": 28,
+     "arm_pal_g10_head_all": 28,
+     "arm_pal_g30_head_all": 28,
+     "arm_pal_g20_head_all": 28,
+     "arm_pal_c25_head_all": 28,
+     "arm_pal_g15_head_all": 28,
+     "arm_pal1_head_all": 68,
+     "arm_pal_t15_head_all": 68,
+     "arm_pal_t30_head_all": 68,
+     "arm_pal_t20_head_all": 68,
+     "arm_pal_t5_head_all": 68,
+     "arm_bis_i30_body_all": 568,
+     "arm_bis_b30_body_all": 168,
+     "arm_bis_s30_body_all": 506,
+     "arm_bis_i20_body_all": 464,
+     "arm_bis_i25_body_all": 462,
+     "arm_bis_s10_body_all": 396,
+     "arm_bis_i10_body_all": 118,
+     "arm_bis_s15_body_all": 400,
+     "arm_bis_s20_body_all": 400,
+     "arm_bis_b25_body_all": 114,
+     "arm_bis_b20_body_all": 114,
+     "arm_bis_s5_body_all": 114,
+     "arm_bis_i5_body_all": 114,
+     "arm_bis_s25_body_all": 400,
+     "arm_bis_i15_body_all": 286,
+     "arm_pal_t25_head_all": 12,
+     "arm_pal_t10_head_all": 12
+    },
+    "braco": [
+     0.159,
+     0.34
+    ],
+    "area": 0.6827,
+    "alt": 1.63,
+    "larg": 1.055
+   },
+   "verts_depois": 688
+  },
+  "pal_g25": {
+   "kit": "paladin",
+   "regra_antes": {
+    "idle": 0,
+    "run": 0,
+    "block_shield": 0
+   },
+   "face": {
+    "idle": [
+     79,
+     18
+    ],
+    "run": [
+     70,
+     -3
+    ],
+    "block_shield": [
+     28,
+     -13
+    ]
+   },
+   "verts": 568,
+   "alt": 1.096,
+   "larg": 0.943,
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.298,
+      0.31,
+      0.042
+     ]
+    ],
+    "gda": [
+     0.29,
+     0.32,
+     -0.0
+    ],
+    "ar": 0.2,
+    "cobre": 1.0,
+    "perto": 0.152,
+    "tira_fora": 5,
+    "folga": {
+     "block_shield": 0.265,
+     "idle": 0.121,
+     "run": 0.139
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "onde": {},
+    "braco": [
+     0.079,
+     0.32
+    ],
+    "area": 0.4409,
+    "alt": 1.096,
+    "larg": 0.943
+   },
+   "busca": "gap 0.121 drop 0.34 along 0.08 extra 0.02 | corpo m 0 f 0, elmo 0, conj 0",
+   "regra_depois": {
+    "paladin_male": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "paladin_female": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    }
+   },
+   "depois": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.151,
+      0.33,
+      -0.073
+     ]
+    ],
+    "gda": [
+     0.121,
+     0.341,
+     0.08
+    ],
+    "ar": 0.032,
+    "cobre": 0.73,
+    "perto": 0.042,
+    "tira_fora": 5,
+    "folga": {
+     "idle": 0.036,
+     "block_shield": 0.021,
+     "run": 0.058
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "idle_male": 4060,
+     "block_shield_male": 240,
+     "run_male": 2483,
+     "idle_female": 3236,
+     "block_shield_female": 120,
+     "run_female": 2158
+    },
+    "onde": {},
+    "braco": [
+     0.159,
+     0.341
+    ],
+    "area": 0.4409,
+    "alt": 1.096,
+    "larg": 0.943
+   },
+   "verts_depois": 628
+  },
+  "pal_g30": {
+   "kit": "paladin",
+   "regra_antes": {
+    "idle": 0,
+    "run": 0,
+    "block_shield": 0
+   },
+   "face": {
+    "idle": [
+     79,
+     18
+    ],
+    "run": [
+     70,
+     -3
+    ],
+    "block_shield": [
+     28,
+     -13
+    ]
+   },
+   "verts": 516,
+   "alt": 1.122,
+   "larg": 1.055,
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.298,
+      0.31,
+      0.042
+     ]
+    ],
+    "gda": [
+     0.29,
+     0.32,
+     -0.0
+    ],
+    "ar": 0.198,
+    "cobre": 1.0,
+    "perto": 0.152,
+    "tira_fora": 5,
+    "folga": {
+     "block_shield": 0.207,
+     "idle": 0.126,
+     "run": 0.105
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "onde": {},
+    "braco": [
+     0.079,
+     0.32
+    ],
+    "area": 0.5473,
+    "alt": 1.122,
+    "larg": 1.055
+   },
+   "busca": "gap 0.143 drop 0.34 along 0.08 extra 0.04 | corpo m 0 f 0, elmo 0, conj 0",
+   "regra_depois": {
+    "paladin_male": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "paladin_female": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    }
+   },
+   "depois": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.172,
+      0.329,
+      -0.068
+     ]
+    ],
+    "gda": [
+     0.143,
+     0.34,
+     0.08
+    ],
+    "ar": 0.052,
+    "cobre": 1.0,
+    "perto": 0.057,
+    "tira_fora": 4,
+    "folga": {
+     "idle": 0.052,
+     "block_shield": 0.043,
+     "run": 0.059
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "idle_male": 8600,
+     "block_shield_male": 234,
+     "run_male": 4848,
+     "idle_female": 6789,
+     "block_shield_female": 96,
+     "run_female": 1887
+    },
+    "onde": {},
+    "braco": [
+     0.158,
+     0.34
+    ],
+    "area": 0.5473,
+    "alt": 1.122,
+    "larg": 1.055
+   },
+   "verts_depois": 600
+  },
+  "pal_t20": {
+   "kit": "paladin",
+   "regra_antes": {
+    "idle": 0,
+    "run": 0,
+    "block_shield": 0
+   },
+   "face": {
+    "idle": [
+     79,
+     18
+    ],
+    "run": [
+     70,
+     -3
+    ],
+    "block_shield": [
+     28,
+     -13
+    ]
+   },
+   "verts": 344,
+   "alt": 1.13,
+   "larg": 0.941,
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.298,
+      0.31,
+      0.042
+     ]
+    ],
+    "gda": [
+     0.29,
+     0.32,
+     -0.0
+    ],
+    "ar": 0.196,
+    "cobre": 1.0,
+    "perto": 0.152,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.161,
+     "idle": 0.132,
+     "run": 0.143
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 12,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 12,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "onde": {
+     "arm_pal_g25_head_all": 40,
+     "arm_pal_g20_head_all": 4
+    },
+    "braco": [
+     0.079,
+     0.32
+    ],
+    "area": 0.6963,
+    "alt": 1.13,
+    "larg": 0.941
+   },
+   "busca": "gap 0.108 drop 0.30 along 0.00 extra 0.00 | corpo m 0 f 0, elmo 48, conj 0",
+   "regra_depois": {
+    "paladin_male": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "paladin_female": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    }
+   },
+   "depois": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.119,
+      0.296,
+      0.005
+     ]
+    ],
+    "gda": [
+     0.108,
+     0.3,
+     -0.0
+    ],
+    "ar": 0.012,
+    "cobre": 1.0,
+    "perto": 0.005,
+    "tira_fora": 0,
+    "folga": {
+     "idle": 0.006,
+     "block_shield": 0.013,
+     "run": 0.036
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 48,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "idle_male": 6992,
+     "block_shield_male": 1512,
+     "run_male": 7640,
+     "idle_female": 5618,
+     "block_shield_female": 880,
+     "run_female": 6120
+    },
+    "onde": {
+     "arm_pal_g25_head_all": 8,
+     "arm_pal_g20_head_all": 8,
+     "arm_pal_g15_head_all": 8,
+     "arm_pal_g10_head_all": 8,
+     "arm_pal_g30_head_all": 8,
+     "arm_pal_c25_head_all": 8
+    },
+    "braco": [
+     0.078,
+     0.3
+    ],
+    "area": 0.6963,
+    "alt": 1.13,
+    "larg": 0.941
+   },
+   "verts_depois": 432
+  },
+  "pal_t30": {
+   "kit": "paladin",
+   "regra_antes": {
+    "idle": 0,
+    "run": 0,
+    "block_shield": 0
+   },
+   "face": {
+    "idle": [
+     79,
+     18
+    ],
+    "run": [
+     70,
+     -3
+    ],
+    "block_shield": [
+     28,
+     -13
+    ]
+   },
+   "verts": 448,
+   "alt": 1.193,
+   "larg": 0.681,
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.298,
+      0.31,
+      0.042
+     ]
+    ],
+    "gda": [
+     0.29,
+     0.32,
+     -0.0
+    ],
+    "ar": 0.195,
+    "cobre": 1.0,
+    "perto": 0.152,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.141,
+     "idle": 0.133,
+     "run": 0.167
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 8,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 4,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "onde": {
+     "arm_pal_g20_head_all": 4,
+     "arm_pal_g25_head_all": 8
+    },
+    "braco": [
+     0.079,
+     0.32
+    ],
+    "area": 0.6123,
+    "alt": 1.193,
+    "larg": 0.681
+   },
+   "busca": "gap 0.105 drop 0.34 along 0.08 extra 0.00 | corpo m 0 f 0, elmo 0, conj 95",
+   "regra_depois": {
+    "paladin_male": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "paladin_female": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    }
+   },
+   "depois": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.135,
+      0.33,
+      -0.076
+     ]
+    ],
+    "gda": [
+     0.105,
+     0.34,
+     0.08
+    ],
+    "ar": 0.012,
+    "cobre": 1.0,
+    "perto": 0.041,
+    "tira_fora": 0,
+    "folga": {
+     "idle": 0.032,
+     "block_shield": 0.005,
+     "run": 0.049
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "block_shield_male": 33,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 21,
+     "run_female": 0
+    },
+    "manga": {
+     "idle_male": 4550,
+     "block_shield_male": 1712,
+     "run_male": 5639,
+     "idle_female": 4053,
+     "block_shield_female": 834,
+     "run_female": 4915
+    },
+    "onde": {
+     "arm_pal_t25_body_all": 18,
+     "arm_pal_t20_body_all": 18,
+     "arm_pal_t30_body_all": 29,
+     "arm_pal_t10_body_all": 11,
+     "arm_pal_t5_body_all": 8,
+     "arm_pal_t15_body_all": 11
+    },
+    "braco": [
+     0.158,
+     0.34
+    ],
+    "area": 0.6123,
+    "alt": 1.193,
+    "larg": 0.681
+   },
+   "verts_depois": 536
+  },
+  "bis_s30": {
+   "kit": "bishop",
+   "regra_antes": {
+    "idle": 0,
+    "run": 0,
+    "block_shield": 0
+   },
+   "face": {
+    "idle": [
+     79,
+     18
+    ],
+    "run": [
+     70,
+     -3
+    ],
+    "block_shield": [
+     28,
+     -13
+    ]
+   },
+   "verts": 468,
+   "alt": 1.111,
+   "larg": 1.073,
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.298,
+      0.31,
+      0.042
+     ]
+    ],
+    "gda": [
+     0.29,
+     0.32,
+     -0.0
+    ],
+    "ar": 0.198,
+    "cobre": 1.0,
+    "perto": 0.152,
+    "tira_fora": 5,
+    "folga": {
+     "block_shield": 0.213,
+     "idle": 0.128,
+     "run": 0.104
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 9
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "onde": {
+     "arm_bis_b30_body_all": 3,
+     "arm_bis_i30_body_all": 3,
+     "arm_bis_s30_body_all": 3
+    },
+    "braco": [
+     0.079,
+     0.32
+    ],
+    "area": 0.5544,
+    "alt": 1.111,
+    "larg": 1.073
+   },
+   "busca": "gap 0.143 drop 0.34 along 0.08 extra 0.04 | corpo m 0 f 0, elmo 0, conj 760",
+   "regra_depois": {
+    "bishop_male": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "bishop_female": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    }
+   },
+   "depois": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.172,
+      0.329,
+      -0.068
+     ]
+    ],
+    "gda": [
+     0.143,
+     0.34,
+     0.08
+    ],
+    "ar": 0.052,
+    "cobre": 1.0,
+    "perto": 0.057,
+    "tira_fora": 4,
+    "folga": {
+     "idle": 0.056,
+     "block_shield": 0.043,
+     "run": 0.06
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "block_shield_male": 718,
+     "run_male": 144,
+     "idle_female": 0,
+     "block_shield_female": 344,
+     "run_female": 117
+    },
+    "manga": {
+     "idle_male": 2015,
+     "block_shield_male": 0,
+     "run_male": 511,
+     "idle_female": 1187,
+     "block_shield_female": 0,
+     "run_female": 208
+    },
+    "onde": {
+     "arm_bis_i15_body_all": 310,
+     "arm_bis_i30_body_all": 648,
+     "arm_bis_s10_body_all": 396,
+     "arm_bis_s25_body_all": 424,
+     "arm_bis_i20_body_all": 548,
+     "arm_bis_s20_body_all": 424,
+     "arm_bis_s15_body_all": 400,
+     "arm_bis_s30_body_all": 518,
+     "arm_bis_i25_body_all": 550,
+     "arm_bis_b25_body_all": 114,
+     "arm_bis_b30_body_all": 114,
+     "arm_bis_b20_body_all": 114,
+     "arm_bis_s5_body_all": 114,
+     "arm_bis_i10_body_all": 142,
+     "arm_bis_i5_body_all": 114
+    },
+    "braco": [
+     0.158,
+     0.34
+    ],
+    "area": 0.5544,
+    "alt": 1.111,
+    "larg": 1.073
+   },
+   "verts_depois": 556
+  },
+  "bis_b15": {
+   "kit": "bishop",
+   "regra_antes": {
+    "idle": 0,
+    "run": 0,
+    "block_shield": 0
+   },
+   "face": {
+    "idle": [
+     79,
+     18
+    ],
+    "run": [
+     70,
+     -3
+    ],
+    "block_shield": [
+     28,
+     -13
+    ]
+   },
+   "verts": 392,
+   "alt": 0.952,
+   "larg": 1.154,
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.298,
+      0.31,
+      0.042
+     ]
+    ],
+    "gda": [
+     0.29,
+     0.32,
+     -0.0
+    ],
+    "ar": 0.196,
+    "cobre": 1.0,
+    "perto": 0.152,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.262,
+     "idle": 0.18,
+     "run": 0.107
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 36
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "onde": {
+     "arm_bis_b30_body_all": 15,
+     "arm_bis_i30_body_all": 15,
+     "arm_bis_s30_body_all": 15
+    },
+    "braco": [
+     0.079,
+     0.32
+    ],
+    "area": 0.6816,
+    "alt": 0.952,
+    "larg": 1.154
+   },
+   "busca": "gap 0.128 drop 0.30 along 0.00 extra 0.02 | corpo m 0 f 0, elmo 0, conj 2448",
+   "regra_depois": {
+    "bishop_male": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    },
+    "bishop_female": {
+     "idle": 0,
+     "run": 0,
+     "block_shield": 0
+    }
+   },
+   "depois": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.139,
+      0.295,
+      0.009
+     ]
+    ],
+    "gda": [
+     0.128,
+     0.3,
+     -0.0
+    ],
+    "ar": 0.032,
+    "cobre": 1.0,
+    "perto": 0.015,
+    "tira_fora": 0,
+    "folga": {
+     "idle": 0.021,
+     "block_shield": 0.034,
+     "run": 0.05
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "block_shield_male": 0,
+     "run_male": 0,
+     "idle_female": 0,
+     "block_shield_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "block_shield_male": 1254,
+     "run_male": 219,
+     "idle_female": 48,
+     "block_shield_female": 352,
+     "run_female": 117
+    },
+    "manga": {
+     "idle_male": 2307,
+     "block_shield_male": 0,
+     "run_male": 541,
+     "idle_female": 1567,
+     "block_shield_female": 0,
+     "run_female": 269
+    },
+    "onde": {
+     "arm_bis_s15_body_all": 436,
+     "arm_bis_i15_body_all": 450,
+     "arm_bis_i25_body_all": 738,
+     "arm_bis_s25_body_all": 554,
+     "arm_bis_s10_body_all": 432,
+     "arm_bis_i20_body_all": 748,
+     "arm_bis_s30_body_all": 768,
+     "arm_bis_s20_body_all": 564,
+     "arm_bis_i30_body_all": 1016,
+     "arm_bis_i10_body_all": 290,
+     "arm_bis_b25_body_all": 114,
+     "arm_bis_b30_body_all": 130,
+     "arm_bis_b20_body_all": 114,
+     "arm_bis_s5_body_all": 114,
+     "arm_bis_i5_body_all": 150
+    },
+    "braco": [
+     0.079,
+     0.3
+    ],
+    "area": 0.6816,
+    "alt": 0.952,
+    "larg": 1.154
+   },
+   "verts_depois": 480
+  }
+ },
+ "kits": {
+  "paladin_male_antes": 197,
+  "bishop_male_antes": 177,
+  "paladin_female_antes": 197,
+  "bishop_female_antes": 177,
+  "paladin_male_depois": 195,
+  "bishop_male_depois": 175,
+  "paladin_female_depois": 195,
+  "bishop_female_depois": 175
+ },
+ "mounts": {
+  "asa": [
+   88.1,
+   -12.2,
+   -86.4,
+   [
+    0.156,
+    0.249,
+    -0.066
+   ]
+  ],
+  "presa": [
+   88.1,
+   -12.2,
+   -86.4,
+   [
+    0.169,
+    0.249,
+    -0.063
+   ]
+  ],
+  "relicario": [
+   88.1,
+   -12.2,
+   -86.4,
+   [
+    0.14,
+    0.335,
+    0.006
+   ]
+  ],
+  "escama": [
+   88.1,
+   -12.2,
+   -86.4,
+   [
+    0.167,
+    0.329,
+    -0.069
+   ]
+  ],
+  "coluna": [
+   88.1,
+   -12.2,
+   -86.4,
+   [
+    0.151,
+    0.295,
+    0.011
+   ]
+  ],
+  "perdao": [
+   88.1,
+   -12.2,
+   -86.4,
+   [
+    0.142,
+    0.335,
+    0.007
+   ]
+  ],
+  "veredito": [
+   88.1,
+   -12.2,
+   -86.4,
+   [
+    0.161,
+    0.329,
+    -0.071
+   ]
+  ],
+  "serpente": [
+   88.1,
+   -12.2,
+   -86.4,
+   [
+    0.173,
+    0.329,
+    -0.068
+   ]
+  ],
+  "cruel": [
+   88.1,
+   -12.2,
+   -86.4,
+   [
+    0.151,
+    0.255,
+    0.014
+   ]
+  ],
+  "asa_negra": [
+   88.1,
+   -12.2,
+   -86.4,
+   [
+    0.169,
+    0.249,
+    -0.063
+   ]
+  ],
+  "suspiros": [
+   88.1,
+   -12.2,
+   -86.4,
+   [
+    0.17,
+    0.329,
+    -0.069
+   ]
+  ],
+  "pal_g25": [
+   88.1,
+   -12.2,
+   -86.4,
+   [
+    0.151,
+    0.33,
+    -0.073
+   ]
+  ],
+  "pal_g30": [
+   88.1,
+   -12.2,
+   -86.4,
+   [
+    0.172,
+    0.329,
+    -0.068
+   ]
+  ],
+  "pal_t20": [
+   88.1,
+   -12.2,
+   -86.4,
+   [
+    0.119,
+    0.296,
+    0.005
+   ]
+  ],
+  "pal_t30": [
+   88.1,
+   -12.2,
+   -86.4,
+   [
+    0.135,
+    0.33,
+    -0.076
+   ]
+  ],
+  "bis_s30": [
+   88.1,
+   -12.2,
+   -86.4,
+   [
+    0.172,
+    0.329,
+    -0.068
+   ]
+  ],
+  "bis_b15": [
+   88.1,
+   -12.2,
+   -86.4,
+   [
+    0.139,
+    0.295,
+    0.009
+   ]
+  ]
+ },
+ "basis": {
+  "rot": [
+   88.1,
+   -12.2,
+   -86.4
+  ],
+  "n": [
+   0.977,
+   -0.032,
+   0.212
+  ],
+  "d": [
+   0.046,
+   0.997,
+   -0.061
+  ],
+  "a": [
+   0.209,
+   -0.07,
+   -0.975
+  ],
+  "arm_r": 0.08
+ },
+ "sheets": [
+  "C:/Users/luisf/Desktop/projects/ragnaex/.claude/worktrees/post-int2/production/qa/evidence/tall-shield-guard/impl/blender\\shields_01.png",
+  "C:/Users/luisf/Desktop/projects/ragnaex/.claude/worktrees/post-int2/production/qa/evidence/tall-shield-guard/impl/blender\\shields_02.png",
+  "C:/Users/luisf/Desktop/projects/ragnaex/.claude/worktrees/post-int2/production/qa/evidence/tall-shield-guard/impl/blender\\shields_03.png"
+ ]
+}

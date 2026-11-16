@@ -47,6 +47,16 @@ A montagem afastada deixava 0,16-0,22 m de ar entre o antebraço e as costas da 
 
 Números por escudo, folhas antes/depois e o que ficou em aberto: `production/qa/shields-mount-2026-11-15.md` e `production/qa/evidence/shields-mount/`. As notas das seções acima são da montagem antiga; a rente não passou por revisor independente.
 
+## Escudos altos (2026-11-16)
+
+Os 17 estilos que tinham ficado a meio caminho ou afastados na montagem rente (`shield_kit.TALL`, placas de 0,95 m a 1,6 m) ganharam corrida e guarda próprias: `run_shield_tall` (o braço do escudo balança 15 graus em vez de 46 e vai mais à frente: o canto de cima da placa não entra mais no elmo) e `block_shield_tall` (braço 15 graus mais baixo, placa mais inclinada: as cristas dos elmos de conjunto ficam livres). Só o braço esquerdo muda. Os clipes existem só nos kits de paladino e bispo (+17 KB por kit, 0 malhas); os outros kits, os monstros e os 26 escudos que já estavam rentes não mudaram (nos 4 kits refeitos só mudaram as 17 malhas de escudo e os 2 clipes novos). No jogo quem escolhe é o `KitModel` (`TALL_SHIELDS`, `tall_clip`); montado, `block_ride_tall`.
+
+- Com os clipes, 12 dos 17 chegaram a rente sem mexer na placa. Os outros 5 levaram um corte leve no canto de cima do lado do cotovelo (`shield_kit.ELBOW`, só no kit do jogador), o mais leve que chegou a rente: `pal_g25` 1% da área de frente, `suspiros` 2%, `veredito` 5%, `asa` 6%, `asa_negra` 11%. Os ícones desses 5 foram refeitos.
+- Resultado: 17 de 17 rentes (0,01-0,05 m de ar; eram 0,07-0,19 m). Toque no corpo comum: 0 nos dois sexos (o `asa_negra` tinha 13 no corpo feminino na corrida). `shield_mount.py -- --check`: 0.
+- Custo conhecido: a placa mais perto entra mais em peitoral e saia de conjunto (atrás da própria placa) e os escudos altos continuam passando do chão em 0,1-0,6 m, como antes.
+
+Números por escudo e fotos antes/depois: `production/qa/tall-shield-guard-study-2026-11-15.md` (estudo) e `production/qa/evidence/tall-shield-guard/impl/`. Não passou por revisor independente.
+
 ## Animação do bloqueio
 
 Clipes separados: `block_shield` (guarda com escudo) e `block` (sem escudo, arma à frente do rosto). A face do escudo aponta para o cotovelo: erguer o antebraço a vira para o chão, então a pose saiu de uma busca por cinemática direta, não de tentativa. Andando, `LegOverlay` mexe as pernas. Filme real: `lineup.tscn -- --block_film --shot=<png>` (erguer, soltar e andar, com a mesma mistura da `EntityView`).

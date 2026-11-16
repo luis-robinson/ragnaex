@@ -1,0 +1,27 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+PROBE paladin/guardiao skills=12 latencia_media=0.0 ticks basico=1.50 golpes/s buraco_max=13 ticks parado_na_tela=0.00s
+PROBE paladin/cruzado skills=15 latencia_media=0.0 ticks basico=1.50 golpes/s buraco_max=13 ticks parado_na_tela=0.00s
+PROBE paladin/templario skills=10 latencia_media=0.0 ticks basico=1.50 golpes/s buraco_max=13 ticks parado_na_tela=0.00s
+PROBE berserker/carniceiro skills=15 latencia_media=0.0 ticks basico=1.50 golpes/s buraco_max=14 ticks parado_na_tela=0.00s
+PROBE berserker/executor skills=11 latencia_media=0.0 ticks basico=1.50 golpes/s buraco_max=14 ticks parado_na_tela=0.00s
+PROBE berserker/punhos skills=13 latencia_media=0.0 ticks basico=1.50 golpes/s buraco_max=14 ticks parado_na_tela=0.00s
+PROBE bishop/sacerdote skills=12 latencia_media=0.0 ticks basico=1.50 golpes/s buraco_max=14 ticks parado_na_tela=0.00s
+PROBE bishop/inquisidor skills=14 latencia_media=0.0 ticks basico=1.50 golpes/s buraco_max=11 ticks parado_na_tela=0.00s
+PROBE bishop/batalha skills=11 latencia_media=0.0 ticks basico=1.50 golpes/s buraco_max=14 ticks parado_na_tela=0.00s
+PROBE druid/guardiao_verde (forma bear) skills=10 latencia_media=0.0 ticks basico=1.50 golpes/s buraco_max=13 ticks parado_na_tela=0.00s
+PROBE druid/fera (forma wolf) skills=11 latencia_media=0.0 ticks basico=2.25 golpes/s buraco_max=0 ticks parado_na_tela=0.00s
+PROBE druid/xama skills=13 latencia_media=0.0 ticks basico=1.75 golpes/s buraco_max=6 ticks parado_na_tela=0.00s
+PROBE ranger/cacador skills=14 latencia_media=0.0 ticks basico=2.00 golpes/s buraco_max=5 ticks parado_na_tela=0.00s
+PROBE ranger/atirador skills=11 latencia_media=0.0 ticks basico=1.00 golpes/s buraco_max=17 ticks parado_na_tela=0.00s
+PROBE ranger/lanceiro skills=9 latencia_media=0.0 ticks basico=1.75 golpes/s buraco_max=10 ticks parado_na_tela=0.00s
+PROBE assassin/laminas skills=20 latencia_media=0.0 ticks basico=2.75 golpes/s buraco_max=1 ticks parado_na_tela=0.00s
+PROBE assassin/duelista skills=15 latencia_media=0.0 ticks basico=3.00 golpes/s buraco_max=1 ticks parado_na_tela=0.00s
+PROBE assassin/corsario skills=14 latencia_media=0.0 ticks basico=2.75 golpes/s buraco_max=2 ticks parado_na_tela=0.00s
+PROBE elementalist/fogo skills=14 latencia_media=0.0 ticks basico=1.75 golpes/s buraco_max=8 ticks parado_na_tela=0.00s
+PROBE elementalist/gelo skills=15 latencia_media=0.0 ticks basico=1.75 golpes/s buraco_max=8 ticks parado_na_tela=0.00s
+PROBE elementalist/raio skills=14 latencia_media=0.0 ticks basico=1.75 golpes/s buraco_max=8 ticks parado_na_tela=0.00s
+PROBE necromancer/invocador skills=10 latencia_media=0.0 ticks basico=1.50 golpes/s buraco_max=9 ticks parado_na_tela=0.00s
+PROBE necromancer/ceifador skills=9 latencia_media=0.0 ticks basico=1.50 golpes/s buraco_max=9 ticks parado_na_tela=0.00s
+PROBE necromancer/pestilento skills=15 latencia_media=0.0 ticks basico=1.50 golpes/s buraco_max=9 ticks parado_na_tela=0.00s
+PROBE_END flags=0

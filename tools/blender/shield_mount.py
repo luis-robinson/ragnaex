@@ -3,6 +3,7 @@
   blender -b --factory-startup --python tools/blender/shield_mount.py              -> SHIELD_TURN/TILT/SPIN/OFFSET (idle)
   blender -b --factory-startup --python tools/blender/shield_mount.py -- --guard   -> braço da guarda (block_shield)
   blender -b --factory-startup --python tools/blender/shield_mount.py -- --check   -> toques fora do braço esquerdo
+      (cada escudo no clipe que ele toca: os altos, shield_kit.TALL, em run_shield_tall / block_shield_tall)
 
 Esta é a montagem COMUM (afastada), que hoje só vale para escudo de monstro e como rotação de referência. Os escudos do
 jogador usam a montagem rente por estilo (ck.SHIELD_MOUNTS): mesma rotação, OFFSET achado por shield_mount_study.py e
@@ -39,6 +40,18 @@ def _actions(rig):
     for t in rig.animation_data.nla_tracks:
         t.mute = True
     return act
+
+
+def set_clip(rig, act, name, frame):
+    ad = rig.animation_data
+    ad.action = act[name]
+    try:
+        if act[name].slots:
+            ad.action_slot = act[name].slots[0]
+    except Exception:
+        pass
+    bpy.context.scene.frame_set(frame)
+    bpy.context.view_layer.update()
 
 
 def _bone_delta(rig, name):
@@ -123,12 +136,13 @@ def check():
         styles = [st for st in shield_kit.FAMILIES if st not in seen and bpy.data.objects.get("wpn_off_shield_" + st)]
         seen.update(styles)
         for anim, frames in (("idle", (1, 25)), ("run", (1, 5, 9, 13)), ("block_shield", (1, 9, 17))):
-            rig.animation_data.action = act[anim]
             per = {}
-            for fr in frames:
-                bpy.context.scene.frame_set(fr)
-                for st in styles:
-                    per[st] = max(per.get(st, 0), contacts(rig, body, bpy.data.objects["wpn_off_shield_" + st]))
+            for clip in sorted({ck.shield_clip(st, anim) for st in styles}):     # cada escudo no clipe que ele toca (altos: *_tall)
+                mine = [st for st in styles if ck.shield_clip(st, anim) == clip]
+                for fr in frames:
+                    set_clip(rig, act, clip, fr)
+                    for st in mine:
+                        per[st] = max(per.get(st, 0), contacts(rig, body, bpy.data.objects["wpn_off_shield_" + st]))
             print("CHECK %-9s %-12s pior=%d %s onde=%s" % (cid, anim, max(per.values() or [0]), {k: v for k, v in per.items() if v}, dict(WHERE)))
             WHERE.clear()
     missing = [st for st in shield_kit.FAMILIES if st not in seen]

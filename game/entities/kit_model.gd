@@ -7,7 +7,13 @@ extends Node3D
 ##  - armas:    wpn_main_<tipo> / wpn_off_<tipo>
 ##  - material "tint" = cor do item · "hair" = cor do cabelo · elmo/capuz escondem o cabelo
 
-const LOOPS := ["idle", "idle_bow", "idle_staff", "run", "block", "block_shield", "fall"]
+const LOOPS := ["idle", "idle_bow", "idle_staff", "run", "block", "block_shield", "fall", "run_shield_tall", "block_shield_tall"]
+## Escudos altos (espelho de shield_kit.TALL, tools/blender): a placa de 1,1 m+ só fica rente ao antebraço com a guarda
+## mais baixa e a corrida de braço quieto. A montagem deles é medida nesses clipes, então quem empunha um sempre os toca.
+const TALL_SHIELDS := ["presa", "perdao", "serpente", "pal_t20", "bis_s30", "pal_t30", "relicario", "veredito", "asa_negra",
+	"suspiros", "asa", "escama", "coluna", "cruel", "pal_g25", "pal_g30", "bis_b15"]
+## clipe comum -> variante do escudo alto (block_ride_tall é criado por RidePose.ensure_guard_clip)
+const TALL_CLIPS := {"run": "run_shield_tall", "block_shield": "block_shield_tall", "block_ride": "block_ride_tall"}
 
 const TRAIL_TIME := 0.2             # duração do rastro do golpe (s)
 
@@ -40,6 +46,7 @@ var _prepared: Dictionary = {}       # nome -> true quando os materiais toon já
 var _outline := 0.025
 var _cols := {}                      # cores do visual guardadas para peças que aparecem depois (hair, beard, iris, m_skin, mark)
 var legs: LegOverlay = null          # pernas correndo por cima do golpe
+var tall_shield := false             # escudo alto na mão esquerda (apply_equipment): corrida e guarda próprias
 var fade: PoseFade = null            # troca de clipe sem tranco (desliza da pose da tela)
 var _accents: Dictionary = {}        # nome do nó -> [ShaderMaterial] com material "tint2" (capa, manto, faixa)
 var _plus_of: Dictionary = {}        # slot -> aprimoramento da peça (brilho)
@@ -155,6 +162,24 @@ func _make_trail_node() -> void:
 ## Nome real do clip ("" se o kit não tiver).
 func resolve(clip: String) -> String:
 	return clip if anim and anim.has_animation(clip) else ""
+
+## Variante do clipe para o escudo alto empunhado ("" = toca o comum: sem escudo alto, clipe sem variante ou kit antigo).
+func tall_clip(clip: String) -> String:
+	return resolve(TALL_CLIPS.get(clip, "")) if tall_shield else ""
+
+## Corrida de quem está com este equipamento ("run", ou a do escudo alto).
+func run_clip() -> String:
+	var t := tall_clip("run")
+	return t if t != "" else resolve("run")
+
+## Guarda de escudo de quem está com este equipamento ("block_shield", ou a do escudo alto).
+func guard_clip() -> String:
+	var t := tall_clip("block_shield")
+	return t if t != "" else resolve("block_shield")
+
+## O estilo de escudo pede os clipes de escudo alto?
+static func is_tall_shield(off: ItemDef) -> bool:
+	return off != null and off.weapon_type == "shield" and off.shield_style in TALL_SHIELDS
 
 func _find_anim(n: Node) -> AnimationPlayer:
 	if n is AnimationPlayer:
@@ -394,6 +419,7 @@ func apply_equipment(eq: Dictionary, bare_body: Color = Color(0.55, 0.42, 0.3), 
 	var weapons := {}
 	var main: ItemDef = eq.get(ItemDef.Slot.WEAPON)
 	var off: ItemDef = eq.get(ItemDef.Slot.OFFHAND)
+	tall_shield = is_tall_shield(off)
 	if main:
 		weapons[main_node(main)] = main.icon_color
 		_glow_of[main_node(main)] = _plus_of.get(ItemDef.Slot.WEAPON, 0)

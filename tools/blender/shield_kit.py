@@ -499,6 +499,39 @@ SIZES = {"tabuas": 0.9, "ferro": 0.92, "coluna": 0.94, "ossario": 0.95, "gaia": 
          "asa": 1.06, "cruel": 1.06, "sol": 1.06, "asa_negra": 0.98, "suspiros": 0.98, "presa": 0.92, "relicario": 0.95, "escama": 0.95}
 ## lado do braço mais curto (só X negativo): tira o contato com ombreira e peitoral sem perder o tamanho do escudo
 INNER = {"veredito": 0.75, "asa_negra": 0.6, "presa": 0.8, "suspiros": 0.85}
+## Escudos altos (placa de 0,95 m a 1,6 m): com a guarda e a corrida comuns a placa só cabia longe do antebraço (na corrida o
+## canto de cima do lado do cotovelo entra no elmo; na guarda, as cristas dos elmos de conjunto). Quem empunha um toca os
+## clipes block_shield_tall / run_shield_tall (chibi_kit.animate_tall_shield, só nos kits de SHIELD_CLASSES) e a montagem
+## deles é medida nesses clipes (shield_mount_study.py). Espelhado em KitModel.TALL_SHIELDS (game/entities/kit_model.gd).
+TALL = ("presa", "perdao", "serpente", "pal_t20", "bis_s30", "pal_t30", "relicario", "veredito", "asa_negra", "suspiros",
+        "asa", "escama", "coluna", "cruel", "pal_g25", "pal_g30", "bis_b15")
+## Canto de cima do lado do cotovelo (+X) puxado para dentro, só nos escudos que nem com os clipes próprios chegam rente:
+## estilo -> (k, x0, z0). k = quanto do canto fica (1 = inteiro); x0/z0 = onde o corte começa, no espaço do modelo já em
+## escala (x0 = 6 cm além do cotovelo, z0 = 9 cm acima da linha do antebraço na montagem medida sem corte). Só no kit do
+## jogador (kit_shield(close=True)); os monstros ficam com a placa inteira. Mudou aqui: refaça montagem, kits e ícones.
+## Valores de 2026-11-16: o corte mais leve que chegou a rente (até 0,06 m de ar) em cima dos clipes de escudo alto; área de
+## frente perdida: suspiros 2%, pal_g25 1%, veredito 5%, asa 6%, asa_negra 11%.
+ELBOW = {"asa": (0.78, 0.179, 0.350), "veredito": (0.66, 0.219, 0.390), "asa_negra": (0.47, 0.139, 0.430),
+         "suspiros": (0.85, 0.219, 0.430), "pal_g25": (0.85, 0.219, 0.430)}
+
+
+def _sstep(t):
+    t = max(0.0, min(1.0, t))
+    return t * t * (3 - 2 * t)
+
+
+def elbow_trim(style, co):
+    """Aplica o corte de ELBOW a um ponto do modelo (já em escala). Sem entrada, devolve o ponto como veio."""
+    t = ELBOW.get(style)
+    if t is None:
+        return co
+    k, x0, z0 = t
+    x, z = co.x, co.z
+    if x > x0:
+        co.x = x0 + (x - x0) * (1 - (1 - k) * _sstep((z - (z0 - 0.19)) / 0.15))
+    if z > z0:
+        co.z = z0 + (z - z0) * (1 - (1 - k) * _sstep((x - (x0 - 0.16)) / 0.15))
+    return co
 
 
 def hull(obj, width, material):
