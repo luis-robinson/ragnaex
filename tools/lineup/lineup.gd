@@ -4,6 +4,11 @@ extends Node3D
 ##   godot --path . tools/lineup/lineup.tscn -- --shot=<png> [--anim=idle|run|atk_1h_a|cast...] [--level=30] [--t=0.6]
 ##   --block_film: a guarda como o jogo toca: erguer, soltar e andar bloqueando, quadro a quadro
 ##   --shields: as 8 famílias de escudo vistas da câmera do jogo, com paladino (fila de trás) e bispo (fila da frente)
+##     [--styles=<estilo>,...]: só esses estilos (shield_style), de perto, cada um no kit da classe dona e no clipe que o
+##     escudo toca no jogo (--anim=run|block_shield vira a variante do escudo alto); [--phase=<0..1>] para o clipe nesse ponto;
+##     [--shield_view=game|front|side] câmera; [--yaw=<graus>] gira os bonecos; [--plain] ignora as variantes (comparar com o clipe comum)
+##   --strip=<classe> --shield=<item>: o filme com esse escudo na mão (corrida/guarda na variante dele)
+##   --mounted --guard=<item>,<item>: paladinos a cavalo na guarda montada (Muralha a Cavalo), um por escudo
 ##   --strip=<classe>: filme de um clipe — 8 cópias da classe, cada uma num instante do clipe, vistas de lado
 ##     [--titan[=<item>]]: Berserker com machado de 2 mãos nas duas mãos (Empunhadura de Titã)
 ##   --body=<male|female>: troca o corpo da classe nos filmes e fileiras (revisar o kit do outro sexo)
@@ -56,7 +61,7 @@ func _ready() -> void:
 	def.sun_energy = 1.28
 	var map := MapBuilder.build(def)
 	add_child(map)
-	if _strip != "" or DevArgs.flag("--mob_strip"):
+	if _strip != "" or DevArgs.flag("--mob_strip") or DevArgs.flag("--styles"):
 		var g := map.get_node_or_null("Grass")
 		if g:
 			g.queue_free()                    # filme: pernas à mostra
@@ -125,7 +130,7 @@ func _build_block_film() -> void:
 			add_child(k)
 			k.position = Vector3((i - 3) * 1.9, 0, row * 2.2 - 2.2)
 			k.apply_equipment(eq)
-			k.anim.play(k.resolve("idle") if row != 1 else k.resolve("block_shield"))
+			k.anim.play(k.resolve("idle") if row != 1 else _worn_clip(k, "block_shield"))
 			_film_items.append({"k": k, "row": row, "at": FILM_SHOT - times[i], "done": false})
 	var cam := Camera3D.new()
 	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
@@ -134,8 +139,61 @@ func _build_block_film() -> void:
 	cam.look_at_from_position(Vector3(0.3, 13.0, 10.2), Vector3(0.3, 0.6, 0.0), Vector3.UP)
 	_side = true
 
+## Clipe que o boneco toca com o equipamento dele: a variante do escudo alto se houver (--plain = sempre o comum).
+func _worn_clip(k: KitModel, clip: String) -> String:
+	var tall := "" if DevArgs.has("--plain") else k.tall_clip(clip)
+	return tall if tall != "" else k.resolve(clip)
+
+## --shields --styles=a,b: um boneco por estilo de escudo, no kit da classe dona, de perto.
+func _build_shield_styles(styles: PackedStringArray) -> void:
+	var by_style := {}
+	for iid in GameData.items:
+		var it: ItemDef = GameData.items[iid]
+		if it.weapon_type == "shield" and it.shield_style != "" and it.plus == 0 and not by_style.has(it.shield_style):
+			by_style[it.shield_style] = it
+	var view := DevArgs.value("--shield_view", "game")
+	var dx := 1.9
+	for i in range(styles.size()):
+		var off: ItemDef = by_style.get(styles[i])
+		if off == null:
+			print("LINEUP sem item para o estilo ", styles[i])
+			continue
+		var cls: ClassDef = GameData.classes["bishop" if styles[i].begins_with("bis") else "paladin"]
+		var eq := {}
+		for iid in cls.starting_equipment:
+			eq[GameData.items[iid].slot] = GameData.items[iid]
+		eq[ItemDef.Slot.OFFHAND] = off
+		var k := KitModel.create(DevArgs.value("--body", cls.body_type), cls.hair_color, 0.025, cls.id)
+		add_child(k)
+		k.position = Vector3((i - (styles.size() - 1) * 0.5) * dx, 0, 0)
+		k.rotation.y = deg_to_rad(float(DevArgs.value("--yaw", "0")))
+		if view == "side":
+			k.rotation.y = -PI * 0.5              # lado do escudo para a câmera
+		k.apply_equipment(eq)
+		var clip := _worn_clip(k, _anim)
+		if clip != "":
+			k.anim.play(clip)
+			if DevArgs.flag("--phase"):
+				k.anim.seek(k.anim.current_animation_length * float(DevArgs.value("--phase")), true)
+				k.anim.pause()
+		print("LINEUP %s %s clipe=%s" % [styles[i], off.id, clip])
+		_kits.append(k)
+	var cam := Camera3D.new()
+	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
+	cam.size = maxf(3.2, styles.size() * dx * 9.0 / 16.0)     # a largura da tela cabe todos
+	add_child(cam)
+	if view == "game":
+		cam.look_at_from_position(Vector3(0.0, 13.0, 10.2), Vector3(0.0, 0.75, 0.0), Vector3.UP)
+	else:
+		cam.look_at_from_position(Vector3(0.0, 0.85, 14.0), Vector3(0.0, 0.85, 0.0), Vector3.UP)
+	if DevArgs.flag("--phase"):
+		_side = true                             # já parado no ponto pedido
+
 ## Folha de escudos: páginas de 6 no ângulo do jogo, de perto (--page=0..3). Sem página, todos juntos de longe.
 func _build_shields() -> void:
+	if DevArgs.flag("--styles"):
+		_build_shield_styles(DevArgs.value("--styles").split(",", false))
+		return
 	var all := ["shield_wood", "shield_iron", "shield_bone", "shield_dragon"]
 	for d in GearCatalog.SHIELDS:
 		all.append("shield_" + d[0])
@@ -183,13 +241,15 @@ func _build_strip() -> void:
 		if w and w.weapon_type in Balance.TITAN_WEAPONS:
 			eq[ItemDef.Slot.WEAPON] = w
 			eq[ItemDef.Slot.OFFHAND] = w
+	if DevArgs.flag("--shield") and GameData.items.has(DevArgs.value("--shield")):     # --shield=<item>: esse escudo na mão esquerda
+		eq[ItemDef.Slot.OFFHAND] = GameData.items[DevArgs.value("--shield")]
 	for i in range(8):
 		var k := KitModel.create(DevArgs.value("--body", cls.body_type), cls.hair_color, 0.025, cls.id)
 		add_child(k)
 		k.position = Vector3(-7.0 + i * 2.0, 0, 0)
 		k.rotation.y = 0.0 if _front else PI * 0.5            # de frente ou de perfil para a câmera
 		k.apply_equipment(eq)
-		var clip := k.resolve(_anim)
+		var clip := _worn_clip(k, _anim)
 		if clip != "":
 			k.anim.play(clip)
 			k.anim.seek(k.anim.current_animation_length * float(i) / 8.0, true)
@@ -202,28 +262,44 @@ func _build_strip() -> void:
 
 func _build_mounted() -> void:
 	var cls_ids := ["paladin", "ranger", "elementalist", "berserker"]
+	var guard: PackedStringArray = DevArgs.value("--guard").split(",", false)     # --guard: só paladinos, cada um com um escudo, bloqueando
+	if not guard.is_empty():
+		cls_ids.clear()
+		for g in guard:
+			cls_ids.append("paladin")
 	for i in range(cls_ids.size()):
 		var cls: ClassDef = GameData.classes[cls_ids[i]]
 		var root := Node3D.new()
 		add_child(root)
 		root.position = Vector3(-4.5 + i * 3.0, 0, 0)
 		root.rotation.y = (0.0 if _front else (PI * 0.5 if i % 2 == 0 else 0.6))
+		if not guard.is_empty() and DevArgs.has("--shield_side"):
+			root.rotation.y = -PI * 0.5              # lado do escudo para a câmera
 		var k := KitModel.create(DevArgs.value("--body", cls.body_type), cls.hair_color, 0.025, cls.id)
 		root.add_child(k)
 		k.apply_look(LooksCatalog.default_look(cls))
 		var eq := {}
 		for iid in cls.starting_equipment:
 			eq[GameData.items[iid].slot] = GameData.items[iid]
+		if not guard.is_empty() and GameData.items.has(guard[i]):
+			eq[ItemDef.Slot.OFFHAND] = GameData.items[guard[i]]
 		k.apply_equipment(eq)
 		var h := FormModel.create_from("res://assets/models/mob_horse.glb")
 		h.scale = Vector3.ONE * EntityView.HORSE_SCALE
 
-		h.paint(EntityView.HORSE_COATS[i])
+		h.paint(EntityView.HORSE_COATS[i % EntityView.HORSE_COATS.size()])
 		root.add_child(h)
 		h.visible = not ("--nohorse" in OS.get_cmdline_user_args())     # só o boneco: conferir a pose
 		k.position.y = EntityView.SADDLE_Y
 		RidePose.ensure_clip(k.anim, k.skeleton)
 		var clip := k.resolve("ride")
+		if not guard.is_empty() and RidePose.ensure_guard_clip(k.anim, k.skeleton):      # como no jogo: guarda montada + pernas na sela
+			clip = _worn_clip(k, RidePose.GUARD_CLIP)
+			var legs := RideLegs.new()
+			legs.setup(k.skeleton)
+			k.skeleton.add_child(legs)
+			legs.active = true
+			print("LINEUP montado %s clipe=%s" % [guard[i], clip])
 		if clip != "":
 			k.anim.play(clip)
 			k.anim.seek(0.2, true)
@@ -452,7 +528,7 @@ func _process(delta: float) -> void:
 				it["k"].legs.drive(delta, true, 2.6, 5.5)
 			if not it["done"] and _time >= it["at"]:
 				it["done"] = true
-				it["k"].anim.play(it["k"].resolve("idle" if it["row"] == 1 else "block_shield"), 0.12 if it["row"] == 1 else 0.07)
+				it["k"].anim.play(it["k"].resolve("idle") if it["row"] == 1 else _worn_clip(it["k"], "block_shield"), 0.12 if it["row"] == 1 else 0.07)
 		if _time >= FILM_SHOT:
 			_save_shot()
 			get_tree().quit()

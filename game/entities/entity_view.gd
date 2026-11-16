@@ -30,6 +30,11 @@ var _stealth_shown := false
 var _alpha_shown := 0.0              # transparência aplicada (furtivo 0.7, forma fantasma 0.45)
 var _last_flash := 0.0
 var _flinch := 0.0
+var _stop_left := 0.0                # hit-stop local (WeaponArcs): s com a animação parada
+var _push := Vector3.ZERO            # empurrão de desenho do golpe (WeaponArcs); a sim não se mexe
+var _push_t := 1.0
+const PUSH_IN := 0.035               # s até o empurrão chegar no máximo
+const PUSH_OUT := 0.16               # s para voltar
 var _gather_shown := ""                  # forma do ponto que está colhendo (mostrado no boneco)                       # monstro apanhou: encolhe no clipe "hit" por um instante
 var _fade_meshes: Array = []             # corpo some: malhas guardadas na hora da morte
 var _last_status := Color(0, 0, 0, 0)
@@ -1019,6 +1024,12 @@ var _lod_anim: AnimationMixer = null
 func _anim_lod(delta: float) -> void:
 	if anim == null:
 		return
+	if _stop_left > 0.0 and not manual_anim:     # hit-stop local: o mixer fica parado (o tempo parado não volta)
+		_stop_left -= delta
+		if anim.callback_mode_process != AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL:
+			anim.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
+		_anim_acc = 0.0
+		return
 	if manual_anim:                  # sonda: quem chama _process_view anda a animação no passo dela
 		anim.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
 		anim.advance(delta)
@@ -1128,10 +1139,17 @@ func _process_view(delta: float) -> void:
 		lift = sin(_arc_t * PI) * minf(2.2, _arc_from.distance_to(entity.position) * 0.35)
 	else:
 		_smooth_pos = _smooth_pos.lerp(entity.position, minf(1.0, delta * 28.0))
+	if _form_land != "" and _arc_t >= 1.0:
+		WeaponArcs.form_hook(entity, _form_land, true)     # pousou (ou avanço curto, sem arco): o derrape das patas
+		_form_land = ""
 	lift += sky_lift(entity)
 	_fly = lerpf(_fly, Balance.ANC_BIRD_LIFT if entity.form == "bird" and entity.is_alive() else 0.0, minf(1.0, delta * 5.0))
 	lift += _fly                     # Pássaro Arcano voa por cima do chão (só desenho)
 	position = _smooth_pos + Vector3(0, entity.jump_h + lift, 0)   # pulo: a sim guarda só a altura
+	if _push_t < PUSH_IN + PUSH_OUT:
+		_push_t += delta
+		var k := clampf(_push_t / PUSH_IN, 0.0, 1.0) * (1.0 - smoothstep(PUSH_IN, PUSH_IN + PUSH_OUT, _push_t))
+		position += _push * k
 	if entity.falcon != (falcon_view != null):
 		_swap_falcon()
 	if falcon_view:
@@ -1582,6 +1600,19 @@ var _act_time := 0.0
 var _combo := 0                       # alterna golpe A/B (combo de 2) e mão direita/esquerda
 var _act_speed := 1.0                 # velocidade do clipe na preparação
 var _retimed := false                 # depois do impacto o resto do clipe cabe no resto da skill
+var _slash_done := false              # Corte e Tiro: o arco do sabre já saiu nesta ação (WeaponArcs.slash_hook); true = ação sem corte
+var _slash_clip := ""                 # Corte e Tiro: o clipe da ação, guardado quando ela começa (não procura o clipe por quadro)
+var _ribbon_key: SkillDef = null      # WeaponArcs.ribbon_off guardado por ação: skill, forma e armas de quando foi calculado
+var _ribbon_form := ""
+var _ribbon_w := ""
+var _ribbon_off_w := ""
+var _ribbon_off := false
+var _form_hook := 0                   # forma de bicho: quadro do clipe da 2ª garra que ainda vai sair (WeaponArcs.form_hook; 0 = nada)
+var _form_land := ""                  # bote/investida de bicho: clipe cujas garras saem quando o salto de desenho pousa
+
+## WeaponArcs: o bote saiu na sim (que teleporta); as garras esperam o boneco pousar no fim do arco de desenho.
+func form_land_marks(clip: String) -> void:
+	_form_land = clip
 var _sig_hold := 0.0                  # s que o clipe de assinatura (contragolpe da Muralha) ainda segura antes de voltar ao idle
 
 ## Muralha de Escudos do Ghar (mob_ghar): enquanto ela dura, guard_wall no lugar de idle/corrida/guarda; no fim, o
@@ -1767,6 +1798,13 @@ func _shield_in_flight() -> bool:
 			return true
 	return false
 
+## Golpe com arco (WeaponArcs): empurrão de desenho na direção `push` (m) e/ou animação parada por `stop` s.
+func hit_react(push: Vector3, stop: float) -> void:
+	if push != Vector3.ZERO:
+		_push = push
+		_push_t = 0.0
+	_stop_left = maxf(_stop_left, stop)
+
 ## Rastro da arma só na parte "rápida" do golpe/magia (fim da preparação até logo depois do impacto).
 func _update_trail(st: int) -> void:
 	var s := entity.current_skill
@@ -1776,10 +1814,24 @@ func _update_trail(st: int) -> void:
 		on = t >= s.startup * 0.35 and t <= s.startup + s.active + 0.12
 		if s.effects.get("shot", false) and s.range > 3.0:
 			on = false                     # tiro de pistola: o sabre fica parado, sem rastro
+		if _arc_ribbon_off(s):
+			on = false                     # família com arco (WeaponArcs.FAMILIES): o crescente substitui a fita
 		var th := FxManager.theme_of(s)
 		var magic := s.kind != SkillDef.Kind.PHYSICAL and th != "physical" and th != ""
 		kit.trail_tint = SkillFx.col(th, 0) if magic else Color(0, 0, 0, 0)     # magia: o rastro do cajado/cetro na cor do tema
 	kit.trail_on = on
+
+## WeaponArcs.ribbon_off da ação: recalcula só quando a skill, a forma ou as armas mudam (não a cada quadro).
+func _arc_ribbon_off(s: SkillDef) -> bool:
+	var w := entity.stats.weapon_type if entity.stats else ""
+	var off := entity.stats.offhand_type if entity.stats else ""
+	if s != _ribbon_key or entity.form != _ribbon_form or w != _ribbon_w or off != _ribbon_off_w:
+		_ribbon_key = s
+		_ribbon_form = entity.form
+		_ribbon_w = w
+		_ribbon_off_w = off
+		_ribbon_off = WeaponArcs.ribbon_off(entity, s)
+	return _ribbon_off
 
 ## Modificador de troca de clipe do modelo mostrado (kit ou bicho).
 func pose_fade() -> PoseFade:
@@ -1852,7 +1904,10 @@ func _animate_glb(st: int) -> void:
 		elif s and not fresh and looping and not anim.is_playing() and entity.state_time < s.startup + s.active - 0.1:
 			_play(anim.assigned_animation, 0.05, _act_speed)          # fase ativa longa: o gesto repete
 			anim.seek(0.0, true)
+			if form_view and WeaponArcs.draws_arc(entity, s):
+				_form_hook = -int(IMPACT_FRAME.get(anim.assigned_animation, 5))     # pisão que repete: as garras de novo no impacto
 		if fresh:
+			_slash_done = true                 # sem clipe de Corte e Tiro nesta ação: nada a soltar
 			var want_clip := _action_clip(s)
 			var clip := _clip(want_clip)
 			if clip == "":
@@ -1866,9 +1921,20 @@ func _animate_glb(st: int) -> void:
 				anim.speed_scale = 1.0
 				_act_speed = wt.y
 				_retimed = false
+				_slash_clip = clip if clip == _clip("atk_slash_shot") else ""
+				_slash_done = _slash_clip == ""
+				_form_hook = WeaponArcs.form_hook_frame(clip, entity.form) if form_view and WeaponArcs.draws_arc(entity, s) else 0
 				_play(clip, 0.06, wt.y)
 				anim.seek(wt.x, true)
 				_combo += 1
+		# Corte e Tiro: o golpe do sabre passa antes do tiro (o tick do dano) -> o arco sai no quadro do corte
+		if not _slash_done and s and anim.assigned_animation == _slash_clip and anim.current_animation_position >= float(WeaponArcs.SLASH_FRAME - 1) / 24.0:
+			_slash_done = true
+			WeaponArcs.slash_hook(entity, s)
+		# forma de bicho (onda 6): a 2ª garra do maul no quadro dela; < 0 = repetição do pisão (as do tick de novo)
+		if _form_hook != 0 and form_view and anim.current_animation_position >= float(absi(_form_hook) - 1) / 24.0:
+			WeaponArcs.form_hook(entity, anim.assigned_animation, _form_hook < 0)
+			_form_hook = 0
 		return
 	_act_skill = null
 	# colheita: agacha e puxa (planta, concha...) ou picareta (minério); armas somem enquanto colhe
@@ -1920,6 +1986,8 @@ func _animate_glb(st: int) -> void:
 		SimEntity.State.DEAD: base = "die"
 	base = _sig_base(base)
 	var want := _clip(base)
+	if kit and form_view == null and kit.tall_clip(base) != "":
+		want = kit.tall_clip(base)           # escudo alto: corrida de braço quieto e guarda mais baixa (KitModel.TALL_CLIPS)
 	# idle próprio da arma: arco baixo na mão esquerda, cajado/varinha/foice em pé
 	if base == "idle":
 		var w := entity.stats.weapon_type if entity.stats else ""

@@ -12,6 +12,7 @@ var reticle: MeshInstance3D
 var dir_reticle: MeshInstance3D
 var cone_reticle: MeshInstance3D
 var _reticle_shader: Shader
+var arcs: WeaponArcs             # arcos de golpe por família de arma + faíscas + hit-stop local
 
 var show_reticle := true      # bancada de skills desliga (o cursor do mouse não interessa nas fotos)
 
@@ -33,7 +34,10 @@ func _ready() -> void:
 	cone_reticle = _make_reticle(2)
 	Events.damage_dealt.connect(_on_damage)
 	Events.healed.connect(_on_heal)
-	Events.hit_stop.connect(_on_hit_stop)
+	Events.hit_stop.connect(_on_hit_stop_event)
+	arcs = WeaponArcs.new()
+	arcs.fx = self
+	add_child(arcs)
 	Events.skill_effect.connect(_on_skill_effect)
 	Events.projectile_spawned.connect(_on_projectile)
 	Events.projectile_removed.connect(_on_projectile_removed)
@@ -146,6 +150,7 @@ func _on_damage(attacker_id: int, target_id: int, amount: int, crit: bool, block
 	var t: SimEntity = Sim.get_entity(target_id)
 	if t == null or t.map_id != main.current_map_id:
 		return
+	arcs.on_damage(attacker_id, target_id, _mine(attacker_id) or _mine(target_id))
 	if not _mine(attacker_id) and not _mine(target_id):
 		# briga dos outros (guarnição x investida): número só de perto e por amostra, senão a batalha grande trava o quadro
 		if Sim.player == null or t.position.distance_to(Sim.player.position) > 16.0 or randf() > 0.25:
@@ -260,6 +265,13 @@ func _on_shield_block(target_id: int, attacker_id: int, theme: String, parried: 
 		if t == Sim.player or a == Sim.player:
 			_on_hit_stop(5)
 
+## hit_stop da sim: golpe de família com arco congela só quem bateu e quem apanhou (WeaponArcs); o resto, global.
+func _on_hit_stop_event(frames: int) -> void:
+	if arcs.on_hit_stop(frames):
+		camera.add_shake(0.03 * frames)
+		return
+	_on_hit_stop(frames)
+
 func _on_hit_stop(frames: int) -> void:
 	Engine.time_scale = 0.05
 	_hit_stop_left = frames / 60.0
@@ -309,6 +321,8 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: f
 			if s.effects.get("dash_to_aim", false):      # gancho: a corda vai da mão até onde ele chegou
 				SkillFx.rope(self, origin + Vector3(0, 1.0, 0) - dir * 0.4, aim + Vector3(0, 1.0, 0))
 			_ground_impact(s, th, aim, radius, area_th)
+			if s.kind == SkillDef.Kind.PHYSICAL:
+				arcs.swing(skill_id, s, th, origin, dir)     # salto de arma corpo a corpo: crescente onde caiu (WeaponArcs)
 		SkillDef.Target.SELF:
 			if s.kind == SkillDef.Kind.BUFF or s.kind == SkillDef.Kind.HEAL or s.effects.has("shield"):
 				SkillFx.burst(self, origin + Vector3(0, 0.8, 0), th, 18, Vector3.UP, 0.4)
@@ -320,14 +334,21 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: f
 					SkillFx.circle(self, origin, radius, th, 0.6)
 			else:
 				# golpe em volta de si (giro, nova, provocar): aro que abre até o raio real + partículas em anel
-				SkillFx.circle(self, origin, maxf(radius, 1.0), area_th, 0.5)
-				SkillFx.burst(self, origin + Vector3(0, 0.5, 0), th, 30, Vector3.UP, maxf(radius, 1.0) * 0.6)
-				if s.kind == SkillDef.Kind.PHYSICAL:
+				var drew := s.kind == SkillDef.Kind.PHYSICAL and arcs.swing(skill_id, s, th, origin, dir)
+				if WeaponArcs.self_ring(drew, arcs.last_form_id if drew else ""):
+					SkillFx.circle(self, origin, maxf(radius, 1.0), area_th, 0.5)     # pisão das formas de bicho (QUIET_FORMS): só as marcas (impacto, não aviso)
+				if drew:
+					pass                           # giro de família com arco: o aro do golpe substitui leque e partículas
+				elif s.kind == SkillDef.Kind.PHYSICAL:
+					SkillFx.burst(self, origin + Vector3(0, 0.5, 0), th, 30, Vector3.UP, maxf(radius, 1.0) * 0.6)
 					SkillFx.sector(self, origin, dir, maxf(radius, 1.0) * 0.9, 360.0, area_th, 0.3)
 				else:
+					SkillFx.burst(self, origin + Vector3(0, 0.5, 0), th, 30, Vector3.UP, maxf(radius, 1.0) * 0.6)
 					SkillFx.flash(self, origin + Vector3(0, 1, 0), th, 1.8, maxf(radius, 1.0) * 1.6)
 		SkillDef.Target.CONE:
-			if basic:                          # básico: o tema da build num rastro curto (não compete com as skills)
+			if arcs.swing(skill_id, s, th, origin, dir):
+				pass                           # família com arco: o crescente do tamanho do cone substitui leque e partículas
+			elif basic:                        # básico: o tema da build num rastro curto (não compete com as skills)
 				if th != "physical":
 					SkillFx.sector(self, origin, dir, radius, s.cone_angle_deg, th, 0.26)
 					SkillFx.burst(self, origin + dir * radius * 0.75 + Vector3(0, 0.7, 0), th, 12, dir + Vector3.UP * 0.5, 0.35)
@@ -340,6 +361,8 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: f
 				SkillFx.streak(self, origin, dir, minf(path, float(s.effects["dash"])), th)
 				if not mob_hit_ground_free(skill_id):
 					SkillFx.decal_line(self, origin, dir, path, s.radius * 2.0, th, 0.45)
+				if s.kind == SkillDef.Kind.PHYSICAL:
+					arcs.swing(skill_id, s, th, origin, dir, -1.0, aim)     # bote/investida de bicho: garras onde pousou (WeaponArcs)
 			elif s.projectile_speed <= 0.0:
 				SkillFx.wave(self, origin, dir, s.range, maxf(s.radius * 2.0, 0.6), th, 0.35, area_th, not mob_hit_ground_free(skill_id))
 		SkillDef.Target.TARGET:
@@ -349,8 +372,8 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: f
 				SkillFx.column(self, aim, 0.7, th, 0.55)
 				SkillFx.burst(self, aim + Vector3(0, 0.4, 0), th, 18, Vector3.UP, 0.4)
 			else:
-				if s.kind == SkillDef.Kind.PHYSICAL:
-					SkillFx.slash_x(self, aim, th, 1.5)
+				if s.kind == SkillDef.Kind.PHYSICAL and (not arcs.swing(skill_id, s, th, origin, dir, clampf(origin.distance_to(aim) + 0.4, 1.2, 3.0)) or arcs.last_form):
+					SkillFx.slash_x(self, aim, th, 1.5)     # forma de bicho: garras no chão E o corte no alvo (decisão 2026-11-15)
 				SkillFx.burst(self, aim + Vector3(0, 0.8, 0), th, 22, Vector3.UP, 0.3)
 				if th == "fire" and s.radius > 1.0:          # Combustão, Choque Térmico: o alvo explode
 					SkillFx.explosion(self, aim, s.radius, th)

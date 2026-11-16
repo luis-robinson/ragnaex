@@ -10,7 +10,7 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 mkdir -p "$OUT"
 
 # clipe:classe[:build]
-CHAR_CLIPS="idle:paladin idle:bishop idle_bow:ranger idle_staff:elementalist run:paladin run:ranger block:berserker block_shield:paladin
+CHAR_CLIPS="idle:paladin idle:bishop idle_bow:ranger idle_staff:elementalist run:paladin run:ranger block:berserker block_shield:paladin run_shield_tall:paladin block_shield_tall:paladin
 jump:paladin fall:paladin land:paladin dash:assassin hit:paladin die:paladin die:bishop
 atk_1h_a:paladin atk_1h_b:paladin atk_2h:paladin:cruzado atk_dual_a:assassin:laminas atk_dual_b:assassin:laminas atk_dagger:assassin atk_thrust:assassin
 atk_bow:ranger atk_shoot_multi:ranger atk_rifle:ranger:atirador atk_staff:elementalist atk_spin:berserker atk_leap:berserker:executor atk_charge:paladin
