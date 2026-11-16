@@ -23,7 +23,10 @@ var menu_audio: MenuAudio = null    # só com apply_settings (mexe nos barrament
 var preview: PedestalPreview
 var settings: Control = null        # painel de Configurações aberto (null = fechado)
 
+var _quitting: bool = false
+
 func _ready() -> void:
+	get_tree().auto_accept_quit = false
 	StartDev.boot(get_tree())         # BOOT + F11 na raiz (etapa A)
 	returning = StartRequest.take_returning()
 	if dev_routing and DevArgs.any():
@@ -61,13 +64,33 @@ func _ready() -> void:
 	if dev_routing:
 		StartDev.attach(self)            # revisão: RETURN_CHECK, --select_shot, --title_shot, --loading_shot, --path_shot
 
+## Fechar a janela (X) no menu = mesmo caminho do botão Sair. `auto_accept_quit` fica desligado só enquanto o menu existe;
+## o `main` (no jogo) volta a ter o padrão e salva sozinho ao fechar.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		quit_game()
+	elif what == NOTIFICATION_EXIT_TREE and is_inside_tree():
+		get_tree().auto_accept_quit = true
+
+## Sair do jogo: solta o tema antes. O AudioServer só larga o playback do mp3 no próximo passo de mixagem; com `quit()`
+## direto o fim do processo imprimia "resources still in use" (AudioStreamMP3 do tema vazado).
+func quit_game() -> void:
+	if _quitting:
+		return
+	_quitting = true
+	if menu_audio and is_instance_valid(menu_audio):
+		menu_audio.release_streams()
+		await get_tree().process_frame
+		await get_tree().process_frame
+	get_tree().quit()
+
 # ---------------------------------------------------------------------------
 # telas
 func show_title() -> void:
 	var t := TitleScreen.new()
 	t.play_requested.connect(_on_title_play)
 	t.settings_requested.connect(_on_settings)
-	t.quit_requested.connect(get_tree().quit)
+	t.quit_requested.connect(quit_game)
 	_swap(t, SCREEN_TITLE)
 
 ## Lista de personagens; `selected` = espaço já selecionado (-1 = nenhum).

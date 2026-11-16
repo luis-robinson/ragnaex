@@ -38,6 +38,15 @@ func _ready() -> void:
 		add_child(p)
 		_voices.append(p)
 
+## Solta os streams (saída do jogo / troca de cena): o AudioServer só larga o playback no próximo passo de mixagem.
+func release_streams() -> void:
+	for v in _voices:
+		v.stop()
+		v.stream = null
+
+func _exit_tree() -> void:
+	release_streams()
+
 ## Tema de um mapa: tabela, depois por família (masmorra, fortaleza, interior da vila); "" = silêncio.
 static func theme_for(map_id: String) -> String:
 	if MAP_THEME.has(map_id):

@@ -40,7 +40,7 @@ func _run() -> void:
 			_shot(DevArgs.value("--return_shot"))
 		print("RETURN_CHECK ok entities=%d maps=%d parties=%d player=%s screen=%s" % [Sim.entities.size(), Sim.maps.size(),
 			Sim.parties.size(), str(Sim.player != null), str(start.get("state"))])
-		get_tree().quit()
+		await _quit()
 	elif DevArgs.flag("--loading_shot"):
 		var mid := DevArgs.value("--loading_map", GameData.town_map_id())
 		await _wait(1.0)
@@ -48,14 +48,14 @@ func _run() -> void:
 		await _wait(1.2)
 		_shot(DevArgs.value("--loading_shot"))
 		print("LOADING_SHOT map=%s" % mid)
-		get_tree().quit()
+		await _quit()
 	elif DevArgs.flag("--select_shot"):
 		if DevArgs.has("--title_settings") and start.has_method("_on_settings") and str(start.get("state")) == "title":
 			start.call("_on_settings")     # foto das Configurações sobre o Título
 		await _wait(2.0)
 		print("SELECT_SHOT screen=%s maps=%d entities=%d" % [str(start.get("state")), Sim.maps.size(), Sim.entities.size()])
 		_shot(DevArgs.value("--select_shot"))
-		get_tree().quit()
+		await _quit()
 	elif DevArgs.flag("--title_shot"):
 		await _title_shot(DevArgs.value("--title_shot"))
 	elif DevArgs.flag("--path_shot") and not returning:
@@ -65,7 +65,7 @@ func _run() -> void:
 		_shot(DevArgs.value("--path_shot").path_join("a_fail.png"))
 		print("PATH_SHOT voltou screen=%s error=%s maps=%d entities=%d" % [str(start.get("state")), StartRequest.error,
 			Sim.maps.size(), Sim.entities.size()])
-		get_tree().quit()
+		await _quit()
 
 ## Foto de uma tela do início. Criação: usa as funções de teste `select_class(id)`, `show_step(step)` e `show_tab(tab)`
 ## da tela (etapa P5); sem elas a foto sai no estado padrão (aviso no log).
@@ -85,7 +85,7 @@ func _title_shot(path: String) -> void:
 	await _wait(float(DevArgs.value("--title_wait", "1.0")))      # P5: --title_wait=0.3 pega a demonstração da classe no meio
 	_shot(path)
 	print("TITLE_SHOT step=%s screen=%s" % [step, str(start.get("state"))])
-	get_tree().quit()
+	await _quit()
 
 ## Caminho do jogador de ponta a ponta, só pelos sinais das telas. Personagem no espaço -1 (nunca grava).
 func _path_shot(dir: String) -> void:
@@ -136,7 +136,14 @@ func _path_shot(dir: String) -> void:
 	_shot(dir.path_join("a_world.png"))
 	var views: Variant = main.get("views")
 	print("PATH_SHOT fim player=%s views=%d" % [str(Sim.player != null), (views as Dictionary).size() if views is Dictionary else 0])
-	get_tree().quit()
+	await _quit()
+
+## Sai pelo mesmo caminho do botão Sair (solta o tema antes: sem vazamento no fim do processo).
+func _quit() -> void:
+	if start.has_method("quit_game"):
+		await start.call("quit_game")
+	else:
+		get_tree().quit()
 
 func _preview_loading(mid: String) -> void:
 	var ls := LoadingScreen.new()

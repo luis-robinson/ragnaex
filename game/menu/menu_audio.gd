@@ -52,6 +52,19 @@ func _ready() -> void:
 	if _auto_wire:
 		get_tree().node_added.connect(_on_node_added)
 
+## Sai da árvore (troca de cena ou fim do jogo): solta os streams. Sem isso o AudioServer segura o playback do tema
+## e o fim do processo imprime "resources still in use" (AudioStreamMP3 + playback vazados).
+func _exit_tree() -> void:
+	release_streams()
+
+func release_streams() -> void:
+	if music:
+		music.stop()
+		music.stream = null
+	for u in _ui:
+		u.stop()
+		u.stream = null
+
 ## Mesmo laço do `Music._stream`: ogg ou mp3 em `Music.DIR`, em loop.
 static func theme_stream(theme: String) -> AudioStream:
 	for ext in ["ogg", "mp3"]:
