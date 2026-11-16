@@ -292,7 +292,7 @@ func _check_form_clips() -> void:
 ## Revisão de animação (docs/animations_review.md, tools/tests/anim_probe.tscn): costura dos loops sem quadro parado,
 ## cabeça fora do chão na morte, golpe dos monstros com pose de impacto no quadro 5 e morte que tomba.
 func _check_anim_review() -> void:
-	var loops := ["idle", "idle_bow", "idle_staff", "run", "block", "block_shield", "fall"]
+	var loops := ["idle", "idle_bow", "idle_staff", "run", "block", "block_shield", "fall", "run_shield_tall", "block_shield_tall"]
 	for model in ["kit_paladin_male", "kit_bishop_female", "mob_wolf", "mob_bandit", "mob_elf_bowman", "mob_golem", "mob_ghost", "form_bear"]:
 		var ps: PackedScene = load("res://assets/models/%s.glb" % model)
 		if ps == null:
@@ -350,6 +350,713 @@ func _check_anim_review() -> void:
 		check(int(r["flags"]) == 0, "anim %s: toda skill do chefe tem gesto próprio (%s)" % [bid, ", ".join((r["lines"] as Array).filter(func(l): return l.ends_with("FLAG")))])
 
 ## Preparo curto: o clipe começa no meio da preparação (não corre mais que WINDUP_MAX_SPEED) e o impacto cai no fim do preparo.
+## Pool dos arcos (revisão 2026-11-16): golpe dos outros nunca toma as MINE_RESERVE últimas vagas nem o nó vivo do
+## jogador; o do jogador toma primeiro o nó dos outros; nó segurando a parada só é reaproveitado se não houver outro.
+func _check_arc_pool_rules(arcs: WeaponArcs) -> void:
+	for shape in arcs._pools:
+		for slot in arcs._pools[shape]:
+			slot["on"] = false
+			slot["hold"] = 0.0
+	var cap := WeaponArcs.POOL_SIZE
+	var mine := []
+	arcs._for_mine = true
+	for i in range(WeaponArcs.MINE_RESERVE):
+		var sl := arcs._take(0)
+		sl["on"] = true
+		mine.append(sl)
+	arcs._for_mine = false
+	var theirs := 0
+	for i in range(cap * 2):
+		var sl := arcs._take(0)
+		check(not mine.has(sl), "arcos pool: golpe dos outros não toma nó vivo do jogador (%d)" % i)
+		sl["on"] = true
+		sl["t"] = 0.01 * i
+		theirs += 1
+	var live_theirs := 0
+	for sl in arcs._pools[0]:
+		if sl["on"] and not sl.get("mine", true):
+			live_theirs += 1
+	check(live_theirs == cap - WeaponArcs.MINE_RESERVE * 2 or live_theirs == cap - WeaponArcs.MINE_RESERVE,
+		"arcos pool: os outros ficam fora da reserva (%d nós dos outros vivos de %d)" % [live_theirs, cap])
+	var their_slots := []
+	for sl in arcs._pools[0]:
+		if sl["on"] and not sl.get("mine", true):
+			their_slots.append(sl)
+	arcs._for_mine = true
+	while arcs._free(0) > 0:
+		arcs._take(0)["on"] = true
+	var took := arcs._take(0)
+	check(their_slots.has(took), "arcos pool: pool cheio, o jogador toma o nó de um golpe dos outros")
+	# parada: o nó que segura não é o escolhido enquanto houver outro
+	for sl in arcs._pools[0]:
+		sl["on"] = true
+		sl["mine"] = true
+		sl["t"] = 0.0
+		sl["hold"] = 0.0
+	var old: Dictionary = arcs._pools[0][0]
+	old["t"] = 0.15
+	old["hold"] = 0.1
+	check(arcs._take(0) != old, "arcos pool: nó segurando a parada não é reaproveitado")
+	for shape in arcs._pools:
+		for slot in arcs._pools[shape]:
+			slot["on"] = false
+			slot["hold"] = 0.0
+			slot["mine"] = true
+
+## Vista falsa para o WeaponArcs.swing ler o clipe tocado (view.anim.assigned_animation, view._combo)
+class FakeAnim:
+	var assigned_animation := ""
+class FakeView:
+	var anim := FakeAnim.new()
+	var _combo := 0
+
+class FakeFx:
+	var main
+	var others := {}                     # ids que não são do jogador/grupo (FxManager._mine falso)
+	func _mine(id: int) -> bool:
+		return not others.has(id)
+
+## Arcos de golpe por família (auditoria 2026-11-14, opção B, piloto espada 1 mão): tabela de famílias, lado do golpe
+## por clipe, pool limitado, só famílias de corpo a corpo trocam a fita pelo arco, e o hit-stop do básico é local.
+func _check_weapon_arcs(gd, sim) -> void:
+	check(WeaponArcs.FAMILIES.has("sword"), "arcos: família sword na tabela")
+	for fam in WeaponArcs.FAMILIES:
+		check(fam in ItemDef.MELEE_TYPES or fam in WeaponArcs.EXTRA_FAMILIES, "arcos: família %s é arma corpo a corpo (ou exceção de EXTRA_FAMILIES; cajado/cetro/arco mantêm a fita)" % fam)
+		if not (WeaponArcs.FAMILIES[fam] as Dictionary).get("on", true):
+			check((WeaponArcs.FAMILIES[fam] as Dictionary).has_all(WeaponArcs.COLOUR_KEYS), "arcos: %s (só cor) tem faixa e brilho" % fam)
+			continue
+		var keys: Array = ["angle_pad", "inner", "tilt", "height", "life", "stop_mult", "push", "glow", "band"]
+		if (WeaponArcs.FAMILIES[fam] as Dictionary).has("k_len"):
+			keys = ["life", "stop_mult", "push", "glow", "band"] + WeaponArcs.K_KEYS     # forma K (garras no chão): medidas próprias
+		for k in keys:
+			check((WeaponArcs.FAMILIES[fam] as Dictionary).has(k), "arcos: %s tem %s" % [fam, k])
+		var life: float = WeaponArcs.FAMILIES[fam]["life"]
+		check(life >= 0.12 and life <= 0.18, "arcos: %s vive 0,12-0,18 s (%.2f)" % [fam, life])
+	for key in WeaponArcs.CLIP_ARC:
+		var c: String = key.get_slice("|", 0)
+		var f: String = key.get_slice("|", 1)
+		var row: Array = WeaponArcs.CLIP_ARC[key]
+		check(EntityView.IMPACT_FRAME.has(c), "arcos: clipe %s existe em IMPACT_FRAME" % c)
+		check(f == "*" or WeaponArcs.FAMILIES.has(f), "arcos: %s é de uma família da tabela" % key)
+		check(row.size() in [2, 3] and str(row[1]) in ["F", "S", "W", "R"], "arcos: %s tem [lado, forma F/S/W/R(, progresso inicial)]" % key)
+		check(row.size() < 3 or (float(row[2]) > 0.0 and float(row[2]) <= 0.4), "arcos: %s nasce andado no máximo 40%%" % key)
+		check(str(row[1]) != "S" or float(row[0]) == 0.0, "arcos: %s em pé (de cima) não tem lado" % key)
+	check(WeaponArcs.sweep_of("atk_1h_a", 0) == -WeaponArcs.sweep_of("atk_1h_b", 1), "arcos: golpe A e B espelhados")
+	_check_weapon_arcs_wave1(gd)
+	_check_weapon_arcs_wave3(gd)
+	_check_weapon_arcs_wave2(gd)
+	_check_weapon_arcs_wave4(gd)
+	_check_weapon_arcs_wave5(gd)
+	_check_weapon_arcs_wave6(gd)
+	check(load("res://shaders/smear_arc.gdshader") is Shader, "arcos: shader smear_arc carrega")
+	var cls: ClassDef = gd.classes["paladin"]
+	var basic: SkillDef = gd.basic_skill_for_class(cls, "sword", "shield", "guardiao")
+	var e := SimEntity.new()
+	e.stats.weapon_type = "sword"
+	e.stats.offhand_type = "shield"
+	check(WeaponArcs.draws_arc(e, basic) and WeaponArcs.ribbon_off(e, basic), "arcos: espada+escudo, básico = arco sem fita")
+	check(WeaponArcs.draws_arc(e, gd.skills["pal_holy_strike"]), "arcos: Golpe Sagrado (cone físico) = arco")
+	check(not WeaponArcs.draws_arc(e, gd.skills["pal_shield_bash"]), "arcos: investida (não cone) fica sem arco")
+	e.stats.weapon_type = "staff"
+	e.stats.offhand_type = ""
+	check(not WeaponArcs.ribbon_off(e, basic) and WeaponArcs.family_of(e) == "", "arcos: cajado mantém a fita")
+	e.stats.weapon_type = "sword"
+	e.stats.offhand_type = "sword"
+	check(WeaponArcs.family_of(e) == "" and WeaponArcs.dual_families(e) == ["sword", "sword"], "arcos: duas espadas = par (lascas por mão), não uma família só")
+	# pool: muitos golpes reaproveitam os mesmos nós (golpes vivos: o pool enche até o teto e para)
+	var arcs := WeaponArcs.new()
+	add_child(arcs)
+	for i in range(40):
+		arcs._take(i % 3)["on"] = true
+	check(arcs.pool_count() == WeaponArcs.POOL_SIZE * 3, "arcos: pool limitado (%d nós)" % arcs.pool_count())
+	_check_arc_pool_rules(arcs)
+	# hit-stop do básico é local: não toca no Engine.time_scale; um golpe consome UM hit_stop (o 2º do quadro é global)
+	var fake := FakeMain.new()
+	var ffx := FakeFx.new()
+	ffx.main = fake
+	arcs.fx = ffx
+	var p: SimEntity = sim.player
+	var ts := Engine.time_scale
+	var fm := FxManager.new()
+	var rig := CameraRig.new()
+	fm.camera = rig
+	fm.arcs = arcs
+	arcs._swings[p.id] = {"frame": Engine.get_process_frames(), "fam": WeaponArcs.FAMILIES["sword"], "targets": [], "slot": {}}
+	fm._on_hit_stop_event(Balance.HIT_STOP_FRAMES_BASIC)
+	check(Engine.time_scale == ts, "arcos: hit-stop do básico com arco é local (FxManager não mexe no time_scale)")
+	fm._on_hit_stop_event(4)
+	check(Engine.time_scale < ts, "arcos: 2º hit_stop no mesmo quadro (outro golpe) cai no global, o arco não engole")
+	Engine.time_scale = ts
+	check(not arcs.on_hit_stop(4), "arcos: golpe com arco consome um hit_stop só")
+	fm.free()
+	rig.free()
+	arcs.free()
+
+## Onda 1 dos arcos (2026-11-15): maça + espada/maça de duas mãos. Lados conferidos contra a tabela medida nos kits,
+## todo clipe que o Paladino toca com essas armas tem linha, arco em pé nunca entra no chão, parada com teto, forma
+## de bicho e machado (onda 2, modelos em refação) fora.
+func _check_weapon_arcs_wave1(gd) -> void:
+	for fam in ["mace", "sword2h", "mace2h"]:
+		check(WeaponArcs.FAMILIES.has(fam), "arcos onda 1: família %s na tabela" % fam)
+	# cores aprovadas (production/qa/attack-arc-colours.md): metal de pouca saturação, valor claro; invertidas com contorno claro
+	var want := {"sword": "#BDD4F2", "sword2h": "#D6E3F5", "mace": "#D1CCC4", "mace2h": "#D9D4CC", "claw": "#DBC9CF", "axe": "#453F3D", "axe2h": "#453F3D", "spear": "#E6EBF2", "dagger": "#EDF2FF", "scythe": "#3A4150"}
+	for fam in want:
+		var c: Color = WeaponArcs.FAMILIES[fam]["band"]
+		var w := Color.html(want[fam])
+		check(absf(c.r - w.r) < 0.012 and absf(c.g - w.g) < 0.012 and absf(c.b - w.b) < 0.012, "arcos: faixa de %s = %s" % [fam, want[fam]])
+		var inv: bool = c.v < 0.5
+		check(c.s <= 0.25 or c.v < 0.35, "arcos: faixa de %s em espaço de metal (saturação %.2f; invertida escura pode ter um pouco mais)" % [fam, c.s])
+		check(inv == (WeaponArcs.FAMILIES[fam] as Dictionary).has("rim"), "arcos: %s invertida <=> traz contorno claro" % fam)
+	# sangue nos arcos puxado para o branco (decisão 2026-11-15): menos saturado que o tema cru e que o aviso de dano
+	var blood := WeaponArcs.theme_band("blood")
+	check(blood.is_equal_approx(SkillFx.col("blood", 0).lerp(Color.WHITE, 0.35)), "arcos: faixa de sangue = tema + 35% de branco")
+	check(blood.s < SkillFx.col("blood", 0).lerp(Color.WHITE, 0.15).s - 0.1 and blood.s < FxManager.DANGER.s, "arcos: sangue mais claro que o tema cru e que o aviso de dano (sat %.2f)" % blood.s)
+	check(WeaponArcs.theme_band("holy").is_equal_approx(SkillFx.col("holy", 0).lerp(Color.WHITE, 0.15)), "arcos: outros temas seguem com 15% de branco")
+	check(WeaponArcs.MARK_ALPHA <= 0.6 and WeaponArcs.MARK_GLOW <= 1.0 and WeaponArcs.MARK_LIFE_MAX <= 0.2, "arcos: marca no chão com teto (alfa 0,6, brilho 1,0, 0,2 s)")
+	check(FileAccess.get_file_as_string("res://shaders/smear_arc.gdshader").contains("instance uniform float alpha"), "arcos: shader tem opacidade por instância")
+	for fam in WeaponArcs.FAMILIES:
+		var row: Dictionary = WeaponArcs.FAMILIES[fam]
+		var has_s := row.has("s_pivot")
+		check(not has_s or row.has_all(WeaponArcs.S_KEYS), "arcos: %s tem todas as medidas do arco em pé" % fam)
+	# lados = tabela medida (mão principal do kit do Paladino); tipo de cima (O) ou ambíguo = em pé sem lado
+	var txt := FileAccess.get_file_as_string("res://production/qa/evidence/attack-arcs/swing_table.json")
+	var tab = JSON.parse_string(txt)
+	check(tab is Dictionary and (tab as Dictionary).has("rows"), "arcos onda 1: tabela de golpes legível")
+	var seen := 0
+	if tab is Dictionary:
+		for r in tab["rows"]:
+			if not str(r["kit"]).begins_with("kit_") or str(r["hand"]) != "main" or not (str(r["role"]) in ["basic", "skill"]):
+				continue
+			var fam: String = r["weapon_family"]
+			var e := WeaponArcs.arc_entry(str(r["clip"]), fam)
+			if str(r["offhand"]) in ItemDef.ONE_HANDED_MELEE or str(r["clip"]) == "atk_slash_shot":
+				continue                         # par: DUAL_ARC (onda 4); Corte e Tiro: o corte é no quadro 5, medido à parte (onda 5)
+			if not WeaponArcs.FAMILIES.has(fam) or not (WeaponArcs.FAMILIES[fam] as Dictionary).get("on", true) or e.is_empty():
+				continue
+			seen += 1
+			var over := str(r["type"]) == "overhead" or bool(r["sweep_ambiguous"])
+			if over:
+				check(WeaponArcs.shape_of(str(r["clip"]), fam) == "S" and float(e[0]) == 0.0,
+					"arcos: %s|%s é de cima na tabela -> em pé sem lado" % [r["clip"], fam])
+			else:
+				check(str(e[1]) in ["F", "W", "R"] and float(e[0]) == float(r["sweep"]),
+					"arcos: %s|%s lado %+d como a tabela (%+.0f)" % [r["clip"], fam, int(e[0]), float(r["sweep"])])
+	check(seen >= 12, "arcos onda 1: %d linhas da tabela conferidas" % seen)
+	check(WeaponArcs.shape_of("atk_2h", "sword2h") == "S" and WeaponArcs.shape_of("atk_2h", "mace2h") == "S", "arcos: básico de duas mãos em pé")
+	check(WeaponArcs.shape_of("atk_1h_a", "mace") == "F" and WeaponArcs.sweep_of("atk_1h_b", 0, "mace") == -1.0, "arcos: maça deitada, A/B como a espada")
+	# todo golpe em cone que o Paladino solta com essas armas tem linha (nada cai no lado sorteado pelo combo)
+	var cls: ClassDef = gd.classes["paladin"]
+	for fam in ["mace", "sword2h", "mace2h"]:
+		var off := "shield" if fam == "mace" else ""
+		var list: Array = [gd.basic_skill_for_class(cls, fam, off, ""), gd.basic_skill_for_class(cls, fam, off, "cruzado" if off == "" else "guardiao")]
+		for sid in cls.skill_ids:
+			list.append(gd.skills[sid])
+		for s in list:
+			if s.target != SkillDef.Target.CONE or s.kind != SkillDef.Kind.PHYSICAL:
+				continue
+			if not ("shield" in s.requires and off == "shield" or "two_handed" in s.requires and off == "" or s.requires.is_empty()):
+				continue
+			for combo in [0, 1]:
+				var clip := EntityView.clip_for_skill(s, fam, off, combo)
+				check(not WeaponArcs.arc_entry(clip, fam).is_empty(), "arcos: %s com %s toca %s, que tem linha" % [s.id, fam, clip])
+	# arco em pé: a cabeça termina rente ao chão (nunca abaixo) e a cauda passa por cima da cabeça do boneco
+	for fam in ["sword2h", "mace2h"]:
+		var row: Dictionary = WeaponArcs.FAMILIES[fam]
+		for cam in [Vector3.ZERO, Vector3(0, 18, 14), Vector3(14, 18, 0), Vector3(0, 18, -14)]:
+			for d in [Vector3(0, 0, 1), Vector3(1, 0, 0), Vector3(-0.6, 0, -0.8)]:
+				var st := WeaponArcs.standing_xf(Vector3.ZERO, d, 2.66, row, cam)
+				var xf: Transform3D = st[0]
+				var a := deg_to_rad(float(st[1]))
+				var low := 99.0
+				var high := -99.0
+				for u in [0.0, 0.5, 1.0]:
+					for rr in [float(row["inner"]), 1.0]:
+						var th: float = a * (float(u) - 0.5)
+						var y: float = (xf * Vector3(sin(th) * float(rr), 0, cos(th) * float(rr))).y
+						low = minf(low, y)
+						high = maxf(high, y)
+				check(low >= 0.0 and low < 0.25, "arcos: %s em pé toca o chão sem entrar (%.2f m)" % [fam, low])
+				check(high > 1.7, "arcos: %s em pé sobe acima da cabeça (%.2f m)" % [fam, high])
+	# parada: stop_mult com teto em toda skill de cone do catálogo
+	for sid in gd.skills:
+		var s: SkillDef = gd.skills[sid]
+		for fam in WeaponArcs.FAMILIES:
+			check(WeaponArcs.stop_frames(s.hit_stop_frames, fam) <= WeaponArcs.STOP_CAP_FRAMES, "arcos: parada de %s com %s no teto" % [sid, fam])
+	check(WeaponArcs.stop_frames(5, "sword2h") == WeaponArcs.STOP_CAP_FRAMES, "arcos: Golpe do Cruzado (5 x 2,0) para no teto")
+	check(WeaponArcs.stop_frames(2, "mace2h") == 4.0, "arcos: básico de duas mãos para 4 quadros")
+	# forma de bicho (urso com malho): onda 6 = garras no chão da forma, nunca o crescente do malho
+	var ent := SimEntity.new()
+	ent.stats.weapon_type = "mace2h"
+	var b2: SkillDef = gd.basic_skill_for_class(cls, "mace2h", "", "")
+	check(WeaponArcs.draws_arc(ent, b2) and WeaponArcs.family_of(ent) == "mace2h", "arcos: malho de duas mãos (humano) = arco")
+	ent.form = "bear"
+	check(WeaponArcs.draws_arc(ent, b2) and WeaponArcs.family_of(ent) == "form_bear", "arcos: urso (forma) = família form_bear, não o malho")
+
+## Onda 3 dos arcos (2026-11-15): lança = cunha W na estocada. A cunha cabe no cone da sim, todo golpe em cone do
+## Lanceiro tem linha, o pool da cunha tem teto e o shader tem a forma 3.
+func _check_weapon_arcs_wave3(gd) -> void:
+	check(WeaponArcs.FAMILIES.has("spear") and (WeaponArcs.FAMILIES["spear"] as Dictionary).has_all(WeaponArcs.W_KEYS), "arcos onda 3: lança na tabela com as medidas da cunha")
+	check(WeaponArcs.shape_of("atk_thrust", "spear") == "W", "arcos onda 3: estocada da lança = cunha")
+	check(WeaponArcs.shape_of("atk_thrust", "sword") == "W", "arcos onda 5: estocada de toda família = cunha")
+	var half: float = tan(deg_to_rad(Balance.SPEAR_ARC_DEG) * 0.5) * 0.7 * Balance.SPEAR_REACH
+	check(float(WeaponArcs.FAMILIES["spear"]["w_width"]) <= half, "arcos onda 3: cunha (%.2f m) cabe no cone da estocada (%.2f m)" % [WeaponArcs.FAMILIES["spear"]["w_width"], half])
+	var cls: ClassDef = gd.classes["ranger"]
+	var list: Array = [gd.basic_skill_for_class(cls, "spear", "", ""), gd.basic_skill_for_class(cls, "spear", "", "lanceiro")]
+	for sid in cls.skill_ids:
+		var s: SkillDef = gd.skills[sid]
+		if s.build == "lanceiro" or "spear" in s.requires:
+			list.append(s)
+	var n := 0
+	for s in list:
+		if s.target != SkillDef.Target.CONE or s.kind != SkillDef.Kind.PHYSICAL:
+			continue
+		n += 1
+		var clip := EntityView.clip_for_skill(s, "spear", "", 0)
+		check(not WeaponArcs.arc_entry(clip, "spear").is_empty(), "arcos onda 3: %s com lança toca %s, que tem linha" % [s.id, clip])
+	check(n >= 2, "arcos onda 3: %d golpes em cone do Lanceiro conferidos" % n)
+	var e := SimEntity.new()
+	e.stats.weapon_type = "spear"
+	check(WeaponArcs.draws_arc(e, list[0]), "arcos onda 3: básico de lança = arco")
+	var arcs := WeaponArcs.new()
+	add_child(arcs)
+	for i in range(30):
+		arcs._take(3)["on"] = true
+	check(arcs.pool_count() == WeaponArcs.POOL_SIZE, "arcos onda 3: pool da cunha limitado (%d nós)" % arcs.pool_count())
+	arcs.free()
+	check(FileAccess.get_file_as_string("res://shaders/smear_arc.gdshader").contains("shape == 3"), "arcos onda 3: shader tem a cunha (forma 3)")
+
+## Onda 2 dos arcos (2026-11-15, machados refeitos): machado de 2 mãos e o par da Empunhadura de Titã com arco de ferro
+## negro invertido; o talho nasce andado (pico antes do impacto na tabela); par de machadinhas fica para a onda das duas armas.
+func _check_weapon_arcs_wave2(gd) -> void:
+	for fam in ["axe", "axe2h"]:
+		var row: Dictionary = WeaponArcs.FAMILIES[fam]
+		check(row.get("on", true), "arcos onda 2: %s ligado" % fam)
+		check(row.has("rim") and (row["rim"] as Color).v > 0.8 and (row["band"] as Color).v < 0.35, "arcos onda 2: %s invertido (faixa escura, contorno claro)" % fam)
+	var e := SimEntity.new()
+	e.stats.weapon_type = "axe2h"
+	check(WeaponArcs.family_of(e) == "axe2h", "arcos onda 2: machado de 2 mãos = família axe2h")
+	e.stats.offhand_type = "axe2h"
+	check(WeaponArcs.family_of(e) == "axe2h", "arcos onda 2: par da Empunhadura de Titã (2 machados de 2 mãos) = axe2h")
+	e.stats.weapon_type = "axe"
+	e.stats.offhand_type = "axe"
+	check(WeaponArcs.family_of(e) == "", "arcos onda 2: machadinhas gêmeas ainda na fita (onda das duas armas)")
+	check(WeaponArcs.shape_of("atk_sweep", "axe2h") == "F" and WeaponArcs.sweep_of("atk_sweep", 1, "axe2h") == 1.0, "arcos onda 2: talho do machado deitado, lado +1")
+	check(WeaponArcs.shape_of("atk_claw", "axe2h") == "S", "arcos onda 2: atk_claw do machado de 2 mãos é de cima")
+	# o talho tem o pico antes do impacto na tabela -> nasce andado; o da espada não
+	var tab = JSON.parse_string(FileAccess.get_file_as_string("res://production/qa/evidence/attack-arcs/swing_table.json"))
+	var off_peak := false
+	if tab is Dictionary:
+		for r in tab["rows"]:
+			if str(r["weapon_family"]) == "axe2h" and str(r["clip"]) == "atk_sweep" and str(r["hand"]) == "main":
+				off_peak = bool(r["impact_off_peak"])
+	check(off_peak and WeaponArcs.peak_off_of("atk_sweep", "axe2h") > 0.0, "arcos onda 2: talho do machado (pico antes do impacto) nasce andado")
+	check(WeaponArcs.peak_off_of("atk_sweep", "sword") == 0.0, "arcos onda 2: talho da espada nasce inteiro")
+	# todo golpe em cone do Executor (e os gerais) com machado de 2 mãos tem linha
+	var cls: ClassDef = gd.classes["berserker"]
+	var list: Array = [gd.basic_skill_for_class(cls, "axe2h", "", ""), gd.basic_skill_for_class(cls, "axe2h", "", "executor")]
+	for sid in cls.skill_ids:
+		var s: SkillDef = gd.skills[sid]
+		if s.build in ["executor", ""] and (s.requires.is_empty() or "two_handed" in s.requires or "axe2h" in s.requires):
+			list.append(s)
+	var n := 0
+	for s in list:
+		if s.target != SkillDef.Target.CONE or s.kind != SkillDef.Kind.PHYSICAL:
+			continue
+		n += 1
+		for off in ["", "axe2h"]:
+			var clip := EntityView.clip_for_skill(s, "axe2h", off, 0)
+			check(not WeaponArcs.arc_entry(clip, "axe2h").is_empty(), "arcos onda 2: %s com machado de 2 mãos (%s) toca %s, que tem linha" % [s.id, off, clip])
+	check(n >= 2, "arcos onda 2: %d golpes em cone do Executor conferidos" % n)
+	check(WeaponArcs.stop_frames(4, "axe2h") == WeaponArcs.STOP_CAP_FRAMES, "arcos onda 2: Rachar (4 x 2,0) para no teto")
+
+## Onda 4 dos arcos (2026-11-15): duas armas = uma lasca por mão (ou a estocada da mão de trás) na cor da família dela.
+## Lados conferidos contra a tabela de golpes (pares iguais, as duas mãos), todo golpe em cone dos pares tem lasca ou é
+## de cima (rastro até a onda 5), adaga para menos, Titã ganha a lasca da 2ª arma.
+const DUAL_LATER := ["atk_flurry", "atk_finisher", "atk_leap", "atk_thrust"]
+func _check_weapon_arcs_wave4(gd) -> void:
+	for fam in ["claw", "dagger"]:
+		check(WeaponArcs.FAMILIES.has(fam) and (WeaponArcs.FAMILIES[fam] as Dictionary).get("on", true), "arcos onda 4: %s ligado" % fam)
+	var e := SimEntity.new()
+	for pair in [["axe", "axe"], ["mace", "mace"], ["sword", "sword"], ["dagger", "dagger"], ["claw", "claw"], ["axe", "claw"]]:
+		e.stats.weapon_type = pair[0]
+		e.stats.offhand_type = pair[1]
+		check(WeaponArcs.dual_families(e) == pair, "arcos onda 4: %s + %s = par" % pair)
+	for pair in [["sword", "shield"], ["sword", "pistol"], ["axe2h", "axe2h"], ["staff", ""]]:
+		e.stats.weapon_type = pair[0]
+		e.stats.offhand_type = pair[1]
+		check(WeaponArcs.dual_families(e).is_empty(), "arcos onda 4: %s + %s não é par de lascas" % pair)
+	for key in WeaponArcs.DUAL_ARC:
+		var c: String = key.get_slice("|", 0)
+		check(EntityView.IMPACT_FRAME.has(c) and WeaponArcs.FAMILIES.has(key.get_slice("|", 1)), "arcos onda 4: %s é clipe e família conhecidos" % key)
+		for hand in [0, 1]:
+			var en: Array = WeaponArcs.DUAL_ARC[key][hand]
+			check(en.is_empty() or (en.size() == 2 and str(en[1]) in ["F", "W", "S"]), "arcos onda 4: %s mão %d = [] ou [lado, F/W/S]" % [key, hand])
+	# lados = tabela (pares iguais, as duas mãos; atk_dual_a/b pelo passo mais rápido)
+	var tab = JSON.parse_string(FileAccess.get_file_as_string("res://production/qa/evidence/attack-arcs/swing_table.json"))
+	var seen := 0
+	if tab is Dictionary:
+		for r in tab["rows"]:
+			var fam: String = r["weapon_family"]
+			if str(r["offhand"]) != fam or not (fam in ["axe", "mace", "sword", "dagger", "claw"]) or not (str(r["role"]) in ["basic", "skill"]):
+				continue
+			var clip: String = r["clip"]
+			if not WeaponArcs.DUAL_ARC.has(clip + "|" + fam):
+				continue
+			var hand := 0 if str(r["hand"]) == "main" else 1
+			var en := WeaponArcs.dual_entry(clip, fam, hand)
+			var want: float = float(r["sweep_fast"]) if clip.begins_with("atk_dual") else float(r["sweep"])
+			seen += 1
+			if en.is_empty():
+				check(str(r["type"]) in ["static", "overhead", "thrust"] or want == 0.0, "arcos onda 4: %s|%s mão %d sem lasca (%s)" % [clip, fam, hand, r["type"]])
+			elif str(en[1]) == "W":
+				check(str(r["type"]) == "thrust" or clip == "atk_thrust", "arcos onda 4: %s|%s mão %d estocada = thrust na tabela" % [clip, fam, hand])
+			elif str(en[1]) == "S":
+				check(str(r["type"]) == "overhead" or bool(r["sweep_ambiguous"]) or want == 0.0, "arcos onda 5: %s|%s mão %d em pé = de cima na tabela" % [clip, fam, hand])
+			else:
+				check(float(en[0]) == want, "arcos onda 4: %s|%s mão %d lado %+d como a tabela (%+d)" % [clip, fam, hand, int(en[0]), int(want)])
+	check(seen >= 30, "arcos onda 4: %d mãos da tabela conferidas" % seen)
+	# todo golpe em cone dos pares (básico A/B e skills) tem lasca, ou é de cima e fica no rastro até a onda 5
+	for spec in [["assassin", "dagger", "dagger", "laminas"], ["assassin", "sword", "sword", "duelista"], ["berserker", "axe", "axe", "carniceiro"],
+			["berserker", "claw", "claw", "punhos"], ["druid", "mace", "mace", "fera"]]:
+		var cls: ClassDef = gd.classes[spec[0]]
+		e.stats.weapon_type = spec[1]
+		e.stats.offhand_type = spec[2]
+		var basic: SkillDef = gd.basic_skill_for_class(cls, spec[1], spec[2], "")
+		for combo in [0, 1]:
+			var bc := EntityView.clip_for_skill(basic, spec[1], spec[2], combo)
+			var any := not WeaponArcs.dual_entry(bc, spec[1], 0).is_empty() or not WeaponArcs.dual_entry(bc, spec[2], 1).is_empty()
+			check(any, "arcos onda 4: básico %s (%s) tem lasca" % [spec[3], bc])
+		check(WeaponArcs.draws_arc(e, basic), "arcos onda 4: básico %s desenha arco" % spec[3])
+		for sid in cls.skill_ids:
+			var s: SkillDef = gd.skills[sid]
+			if s.target != SkillDef.Target.CONE or s.kind != SkillDef.Kind.PHYSICAL or not (s.build in [spec[3], ""]):
+				continue
+			var c := EntityView.clip_for_skill(s, spec[1], spec[2], 0)
+			var has := not WeaponArcs.dual_entry(c, spec[1], 0).is_empty() or not WeaponArcs.dual_entry(c, spec[2], 1).is_empty()
+			check(has or c in DUAL_LATER, "arcos onda 4: %s com %s toca %s: lasca ou de cima (onda 5)" % [sid, spec[3], c])
+			check(WeaponArcs.draws_arc(e, s) == has, "arcos onda 4: %s desenha arco só se tem lasca" % sid)
+	# adaga: a mão de trás parada no golpe A (1 lasca); espada/maça/machado: golpe B = só a estocada da mão de trás
+	check(WeaponArcs.dual_entry("atk_dual_a", "dagger", 1).is_empty() and not WeaponArcs.dual_entry("atk_dual_a", "dagger", 0).is_empty(), "arcos onda 4: adagas golpe A = 1 lasca")
+	for fam in ["axe", "mace", "sword"]:
+		check(WeaponArcs.dual_entry("atk_dual_b", fam, 0).is_empty() and str(WeaponArcs.dual_entry("atk_dual_b", fam, 1)[1]) == "W", "arcos onda 4: %s golpe B = estocada da mão de trás" % fam)
+	check(not WeaponArcs.dual_entry("atk_sweep", "axe2h", 1).is_empty(), "arcos onda 4: Empunhadura de Titã ganha a lasca da 2ª arma")
+	check(WeaponArcs.dual_stop_mult("dagger") == 0.5 and WeaponArcs.dual_stop_mult("axe") == 0.75, "arcos onda 4: parada de duas armas 0,75 (adaga 0,5)")
+	check(float(WeaponArcs.DUAL["off_alpha"]) < 1.0 and float(WeaponArcs.DUAL["peak_off"]) > 0.0, "arcos onda 4: mão de trás mais fraca, lascas nascem andadas")
+
+## Onda 5 dos arcos (2026-11-15): golpes de skill de toda família (giro = aro, salto/execução/rajada = em pé, estocada =
+## cunha), gatilhos fora do cone (giro, salto, golpe no alvo), foice (fora de MELEE_TYPES de propósito), gancho do Corte e Tiro.
+const ARC_SKILL_CLIPS := ["atk_spin", "atk_leap", "atk_finisher", "atk_flurry", "atk_thrust"]
+func _check_weapon_arcs_wave5(gd) -> void:
+	var sc: Dictionary = WeaponArcs.FAMILIES["scythe"]
+	check(sc.get("on", true) and sc.has("rim") and (sc["band"] as Color).v < 0.35, "arcos onda 5: foice ligada, invertida")
+	check("scythe" in WeaponArcs.EXTRA_FAMILIES and not ("scythe" in ItemDef.MELEE_TYPES), "arcos onda 5: foice é exceção do arco, o tipo de jogo não muda")
+	for fam in ["sword", "axe2h", "spear", "mace"]:
+		check(WeaponArcs.shape_of("atk_spin", fam) == "R" and WeaponArcs.sweep_of("atk_spin", 0, fam) == -1.0, "arcos onda 5: giro de %s = aro horário" % fam)
+	check(WeaponArcs.shape_of("atk_leap", "axe2h") == "S" and WeaponArcs.shape_of("atk_leap", "sword2h") == "F", "arcos onda 5: salto de cima; com montante é de lado (tabela)")
+	check(WeaponArcs.shape_of("atk_finisher", "sword") == "S" and WeaponArcs.shape_of("atk_finisher", "claw") == "F", "arcos onda 5: execução de cima; da garra é de lado")
+	check(WeaponArcs.shape_of("atk_flurry", "dagger") == "S", "arcos onda 5: rajada de cima")
+	check(WeaponArcs.shape_params(WeaponArcs.FAMILIES["sword"], "S").has_all(WeaponArcs.S_KEYS), "arcos onda 5: família sem medidas usa S_DEFAULT")
+	check(WeaponArcs.shape_params(WeaponArcs.FAMILIES["sword2h"], "S")["s_up"] == WeaponArcs.FAMILIES["sword2h"]["s_up"], "arcos onda 5: medida própria vence o padrão")
+	# gatilhos: giro, salto e golpe no alvo do Executor desenham; buff e básico de magia não
+	var cls: ClassDef = gd.classes["berserker"]
+	var e := SimEntity.new()
+	e.stats.weapon_type = "axe2h"
+	for sid in ["ber_whirlwind", "ber_leap", "ber_overhead"]:
+		check(WeaponArcs.draws_arc(e, gd.skills[sid]), "arcos onda 5: %s com machado de 2 mãos desenha arco" % sid)
+	for sid in cls.skill_ids:
+		var s: SkillDef = gd.skills[sid]
+		if s.kind != SkillDef.Kind.PHYSICAL:
+			check(not WeaponArcs.draws_arc(e, s), "arcos onda 5: %s (não físico) fica sem arco" % sid)
+	var nec: ClassDef = gd.classes["necromancer"]
+	e.stats.weapon_type = "scythe"
+	check(not WeaponArcs.draws_arc(e, gd.basic_skill_for_class(nec, "scythe", "", "")), "arcos onda 5: básico de magia com foice mantém a fita")
+	# toda skill física (fora do cone) que toca giro/salto/execução/rajada/estocada com arma de uma família tem linha
+	var n := 0
+	for cid in gd.classes:
+		var c: ClassDef = gd.classes[cid]
+		for b in c.builds:
+			var w: String = b["main"][0]
+			var off: String = b["off"][0] if b["off"].size() > 0 else ""
+			if not WeaponArcs.FAMILIES.has(w) or off in ItemDef.ONE_HANDED_MELEE:
+				continue
+			for sid in c.skill_ids:
+				var s: SkillDef = gd.skills[sid]
+				if s.kind != SkillDef.Kind.PHYSICAL or not (s.build in [b["id"], ""]) or not (s.target in WeaponArcs.ARC_TARGETS):
+					continue
+				var clip := EntityView.clip_for_skill(s, w, off, 0)
+				if clip in ARC_SKILL_CLIPS:
+					n += 1
+					check(not WeaponArcs.arc_entry(clip, w).is_empty(), "arcos onda 5: %s (%s) toca %s com %s: tem linha" % [sid, b["id"], clip, w])
+	check(n >= 8, "arcos onda 5: %d golpes de skill conferidos" % n)
+	# Empunhadura de Titã medida: a mão esquerda vai junto (+X); Corte e Tiro: gancho no quadro do corte
+	check(float(WeaponArcs.dual_entry("atk_sweep", "axe2h", 1)[0]) == 1.0, "arcos onda 5: mão de trás da Titã = +1 (medida)")
+	check(WeaponArcs.SLASH_FRAME < int(EntityView.IMPACT_FRAME["atk_slash_shot"]) and not WeaponArcs.arc_entry("atk_slash_shot", "sword").is_empty(), "arcos onda 5: Corte e Tiro tem linha e sai antes do tiro")
+	check(FileAccess.get_file_as_string("res://game/entities/entity_view.gd").contains("WeaponArcs.slash_hook(entity, s)"), "arcos onda 5: EntityView chama o gancho do corte")
+	var fxs := FileAccess.get_file_as_string("res://game/fx/fx_manager.gd")
+	check(fxs.count("arcs.swing(") >= 4, "arcos onda 5: FxManager chama o arco no cone, giro, salto e golpe no alvo")
+
+## Onda 6 dos arcos (2026-11-15): formas de bicho do Druida (lobo, urso, Lobo Alfa, Ent) = garras no chão (forma K); o galho
+## do Ent = crescente em pé. Todo golpe das builds Fera/Guardião Verde cai num clipe do bicho com marca (ou é um clipe
+## medido sem contato no chão); buffs no rugido/guarda sem arco; formas sem tabela fora; teto de alfa/vida/brilho; nunca aro
+## ou disco; contagem por clipe; pool K próprio; impacto medido; cor da forma mesmo com tema de terra ou sangue (decisão D1).
+const ARC6_STRIKES := {"wolf": ["dru_claw", "dru_pounce", "dru_maim", "dru_rampage", "dru_savage"],
+	"bear": ["dru_maul", "dru_earth_slam", "dru_stampede", "dru_mountain"]}
+const ARC6_BUFFS := {"wolf": ["dru_frenzy", "dru_prowl", "dru_wolf_form", "dru_alpha_howl"], "bear": ["dru_bellow", "dru_oak_skin", "dru_bear_form", "dru_ent_grove"]}
+## Ent: o ataque e a marcha (pounce) não tocam o chão na frente (medido) -> sem marca, de propósito
+const ARC6_NO_MARK := {"ent": ["attack", "pounce"]}
+## contato medido (spec da onda 6, seção 2; ancestrais no JSON): quadro do clipe em que a pata/punho bate
+const ARC6_CONTACT := {"attack": 5, "maul": 7, "pounce": 9, "slam": 8}
+const ARC6_CLIP_LEN := {"wolf": {"maul": 16}, "alpha": {"maul": 16}, "bear": {"maul": 20}, "ent": {"maul": 20}}
+## marcas K no tick / no gancho, por clipe e forma
+const ARC6_COUNT := {"attack": {"wolf": [1, 0], "alpha": [1, 0], "bear": [1, 0], "ent": [0, 0]},
+	"maul": {"wolf": [2, 1], "alpha": [2, 1], "bear": [1, 1], "ent": [1, 0]},
+	"pounce": {"wolf": [2, 0], "alpha": [2, 0], "bear": [2, 0], "ent": [0, 0]},
+	"slam": {"wolf": [2, 0], "alpha": [2, 0], "bear": [2, 0], "ent": [2, 0]}}
+func _check_weapon_arcs_wave6(gd) -> void:
+	var cls: ClassDef = gd.classes["druid"]
+	var gear := {"wolf": ["mace", "mace", "fera"], "alpha": ["mace", "mace", "fera"], "bear": ["mace2h", "", "guardiao_verde"], "ent": ["mace2h", "", "guardiao_verde"]}
+	var want_band := {"form_wolf": "#CFD1D6", "form_bear": "#D1CCC4", "form_ent": "#D4D8CC"}
+	for fid in want_band:
+		var row: Dictionary = WeaponArcs.FAMILIES[fid]
+		var w := Color.html(want_band[fid])
+		var c: Color = row["band"]
+		check(absf(c.r - w.r) < 0.012 and absf(c.g - w.g) < 0.012 and absf(c.b - w.b) < 0.012, "arcos onda 6: faixa de %s = %s" % [fid, want_band[fid]])
+		check(c.s <= 0.15 and c.v >= 0.7, "arcos onda 6: faixa de %s neutra e clara (sat %.2f)" % [fid, c.s])
+		check(row.has_all(WeaponArcs.K_KEYS) and float(row["alpha"]) <= 0.6 and float(row["life"]) <= 0.2 and float(row["glow"]) == 1.0 and float(row["k_y"]) > 0.0,
+			"arcos onda 6: %s no chão com teto (alfa <= 0,6, vida <= 0,2 s, brilho 1,0, acima do chão)" % fid)
+	check(WeaponArcs.MARK_ALPHA <= 0.6 and WeaponArcs.MARK_LIFE_MAX <= 0.2, "arcos onda 6: tetos da marca no chão")
+	for key in WeaponArcs.FORM_ARC:
+		check(ARC6_CONTACT.has(key.get_slice("|", 0)) and WeaponArcs.FORM_FAMILY.has(key.get_slice("|", 1)), "arcos onda 6: %s é clipe de golpe e forma da tabela" % key)
+		for mk in WeaponArcs.FORM_ARC[key]:
+			check(WeaponArcs.K_KIND.has(str(mk[0])) and mk.size() in [4, 5], "arcos onda 6: %s marca [tipo, x, z, quadro(, alfa)] de tipo conhecido (riscos, nunca aro/disco)" % key)
+			check(mk.size() < 5 or float(mk[4]) <= 1.0, "arcos onda 6: %s alfa da marca só para menos" % key)
+	# Lobo Alfa = o lobo (mesmo corpo e clipes, escala da forma)
+	for c in ARC6_CONTACT:
+		check(WeaponArcs.form_marks(c, "alpha") == WeaponArcs.form_marks(c, "wolf"), "arcos onda 6: %s do Alfa = linhas do lobo" % c)
+	# Ent: galho em pé (crescente S) e pisão K nos punhos medidos
+	check(WeaponArcs.FORM_STANDING.has("maul|ent") and WeaponArcs.form_marks("maul", "ent").size() == 1 and float(WeaponArcs.form_marks("maul", "ent")[0][2]) == 1.19,
+		"arcos onda 6: Golpe de Galho do Ent = crescente em pé + o gancho -X no chão (-1,08; 1,19 medido, rodada 6)")
+	check(WeaponArcs.form_marks("slam", "ent").size() == 2 and absf(float(WeaponArcs.form_marks("slam", "ent")[0][1])) == 0.94, "arcos onda 6: pisão do Ent nos punhos (±0,94; 1,31)")
+	var ent_row := WeaponArcs.shape_params(WeaponArcs.FAMILIES["form_ent"], "S")
+	var esc := float(EntityView.FORM_SCALE["ent"])
+	ent_row = ent_row.merged({"s_pivot": float(ent_row["s_pivot"]) * esc, "s_up": float(ent_row["s_up"]) * esc}, true)
+	for cam in [Vector3.ZERO, Vector3(0, 18, 14), Vector3(14, 18, 0)]:
+		var st := WeaponArcs.standing_xf(Vector3.ZERO, Vector3(0, 0, 1), 2.8, ent_row, cam)
+		var xf: Transform3D = st[0]
+		var a := deg_to_rad(float(st[1]))
+		var low := 99.0
+		for u in [0.0, 0.5, 1.0]:
+			for rr in [float(ent_row["inner"]), 1.0]:
+				var th: float = a * (float(u) - 0.5)
+				low = minf(low, (xf * Vector3(sin(th) * float(rr), 0, cos(th) * float(rr))).y)
+		check(low >= 0.0 and low < 0.3 and float(st[2]) > 0.8 and float(st[2]) < 2.2, "arcos onda 6: galho do Ent toca o chão sem entrar (%.2f m), a %.2f m à frente" % [low, float(st[2])])
+	# impacto do clipe = contato medido; gancho depois do impacto e dentro do clipe
+	for c in ARC6_CONTACT:
+		check(int(EntityView.IMPACT_FRAME[c]) == int(ARC6_CONTACT[c]), "arcos onda 6: IMPACT_FRAME de %s = contato medido (%d)" % [c, ARC6_CONTACT[c]])
+	for form in ARC6_CLIP_LEN:
+		var hf := WeaponArcs.form_hook_frame("maul", form)
+		check(hf == 0 or (hf > int(EntityView.IMPACT_FRAME["maul"]) and hf <= int(ARC6_CLIP_LEN[form]["maul"])), "arcos onda 6: 2ª garra do maul (%s) no quadro %d, depois do impacto" % [form, hf])
+	# todo golpe das builds cai num clipe do bicho com marca (ou sem contato medido); buffs no rugido/guarda, sem arco
+	var e := SimEntity.new()
+	for form in gear:
+		var g: Array = gear[form]
+		e.stats.weapon_type = g[0]
+		e.stats.offhand_type = g[1]
+		e.form = form
+		var base: String = str(Balance.ANC_FORM_BASE.get(form, form))
+		check(WeaponArcs.family_of(e) == WeaponArcs.FORM_FAMILY[form] and WeaponArcs.dual_families(e).is_empty(), "arcos onda 6: %s com %s = família %s (a forma vence a arma)" % [form, g[0], WeaponArcs.FORM_FAMILY[form]])
+		var strikes: Array = [gd.basic_skill_for_class(cls, g[0], g[1], g[2])]
+		for sid in ARC6_STRIKES[base]:
+			strikes.append(gd.skills[sid])
+		if form == "ent":
+			strikes.append(gd.skills["dru_ent_roots"])
+		for s in strikes:
+			var fc := WeaponArcs.form_clip(e, s)
+			check(fc in ARC6_CONTACT, "arcos onda 6: %s em %s toca um clipe de golpe (%s)" % [s.id, form, fc])
+			if fc in ARC6_NO_MARK.get(form, []):
+				check(not WeaponArcs.draws_arc(e, s), "arcos onda 6: %s em %s (%s não toca o chão) sem marca" % [s.id, form, fc])
+			else:
+				check((not WeaponArcs.form_marks(fc, form).is_empty() or WeaponArcs.FORM_STANDING.has(fc + "|" + form)) and WeaponArcs.draws_arc(e, s), "arcos onda 6: %s em %s toca %s, que tem marca" % [s.id, form, fc])
+		for sid in ARC6_BUFFS[base]:
+			var s: SkillDef = gd.skills[sid]
+			var fc := WeaponArcs.form_clip(e, s)
+			check(fc in ["roar", "brace"] and not WeaponArcs.draws_arc(e, s), "arcos onda 6: %s em %s (não é golpe) = %s, sem arco" % [sid, form, fc])
+	for form in ["phantom", "demon", "lich", "bird"]:
+		e.form = form
+		e.stats.weapon_type = "mace2h"
+		e.stats.offhand_type = ""
+		check(WeaponArcs.family_of(e) == "" and not WeaponArcs.draws_arc(e, gd.skills["dru_maul"]) and not WeaponArcs.draws_arc(e, gd.basic_skill_for_class(cls, "mace2h", "", "")),
+			"arcos onda 6: forma %s sem arco" % form)
+	# malhas: riscos finos e separados (nunca aro ou disco)
+	for fid in ["form_wolf", "form_bear", "form_ent"]:
+		for kind in ["rake", "bite"]:
+			var m := WeaponArcs.k_mesh(fid, kind)
+			var vs: PackedVector3Array = m.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+			var n := WeaponArcs.K_STREAKS if kind == "rake" else 2
+			var widest := 0.0
+			for i in range(0, vs.size(), 2):
+				widest = maxf(widest, vs[i].distance_to(vs[i + 1]))
+			check(vs.size() == n * (WeaponArcs.K_SEGS + 1) * 2 and widest <= 2.0 * float(WeaponArcs.FAMILIES[fid]["k_width"]) + 0.001,
+				"arcos onda 6: %s %s = %d riscos finos (largura %.3f m)" % [fid, kind, n, widest])
+	# contagem por clipe, pool K próprio com teto, nada nos pools do crescente
+	var arcs := WeaponArcs.new()
+	add_child(arcs)
+	var fake := FakeMain.new()
+	var ffx := FakeFx.new()
+	ffx.main = fake
+	arcs.fx = ffx
+	for clip in ARC6_COUNT:
+		for form in ARC6_COUNT[clip]:
+			e.form = form
+			for hooked in [false, true]:
+				for slot in arcs._pools[4]:
+					slot["on"] = false
+				arcs._form_marks(e, clip, Vector3(0, 0, 1), hooked)
+				var want: int = ARC6_COUNT[clip][form][1 if hooked else 0]
+				check(arcs.k_live() == want, "arcos onda 6: %s do %s solta %d marcas %s (%d)" % [clip, form, want, "no gancho" if hooked else "no tick", arcs.k_live()])
+	e.form = "wolf"
+	e.stats.weapon_type = "mace"
+	e.stats.offhand_type = "mace"
+	for i in range(20):
+		arcs._form_marks(e, "maul", Vector3(0, 0, 1), false)
+	check(arcs._pools[4].size() <= WeaponArcs.K_POOL and arcs.k_live() <= WeaponArcs.K_POOL, "arcos onda 6: pool das garras com teto (%d nós)" % arcs._pools[4].size())
+	check(arcs._pools[0].is_empty() and arcs._pools[3].is_empty(), "arcos onda 6: garras não soltam crescente, aro nem cunha")
+	# D1: tema de terra (dru_maul, dru_earth_slam) e de sangue (dru_savage) -> cor da forma, nunca a do tema
+	for shape in [0, 4]:
+		for slot in arcs._pools[shape]:
+			slot["on"] = false
+	for pair in [["bear", "mace2h", "", "dru_maul"], ["wolf", "mace", "mace", "dru_savage"], ["ent", "mace2h", "", "dru_earth_slam"], ["ent", "mace2h", "", "dru_maul"]]:
+		e.form = pair[0]
+		e.stats.weapon_type = pair[1]
+		e.stats.offhand_type = pair[2]
+		var s: SkillDef = gd.skills[pair[3]]
+		check(FxManager.theme_of(s) not in ["", "physical"], "arcos onda 6: %s tem tema próprio (%s)" % [pair[3], FxManager.theme_of(s)])
+		check(arcs._swing_form(e, s, Vector3(0, 0, 1)), "arcos onda 6: %s em %s solta marca" % [pair[3], pair[0]])
+		var fid := WeaponArcs.family_of(e)
+		var band: Color = (WeaponArcs.FAMILIES[fid]["band"] as Color).srgb_to_linear()
+		var ok := true
+		var seen := 0
+		for shape in [0, 4]:
+			for slot in arcs._pools[shape]:
+				if not slot["on"]:
+					continue
+				seen += 1
+				var mi: MeshInstance3D = slot["mi"]
+				ok = ok and (mi.get_instance_shader_parameter("band_col") as Color).is_equal_approx(band)
+				if shape == 4:
+					ok = ok and float(mi.get_instance_shader_parameter("alpha")) <= 0.6 + 0.0001
+		check(ok and seen > 0, "arcos onda 6: %s em %s (tema %s) na cor da forma, nunca a do tema; garras com alfa <= 0,6" % [pair[3], pair[0], FxManager.theme_of(s)])
+		for shape in [0, 4]:
+			for slot in arcs._pools[shape]:
+				slot["on"] = false
+	# cone: garras além do alvo (K_CONE_PAST x raio); golpe no alvo: no pé do bicho (decisão do usuário 2026-11-15)
+	for pair in [["bear", "mace2h", "", "dru_maul", "maul", true], ["wolf", "mace", "mace", "dru_savage", "maul", false]]:
+		e.form = pair[0]
+		e.stats.weapon_type = pair[1]
+		e.stats.offhand_type = pair[2]
+		e.position = Vector3.ZERO
+		e.current_skill = gd.skills[pair[3]]
+		for shape in [0, 4]:
+			for slot in arcs._pools[shape]:
+				slot["on"] = false
+		arcs._form_marks(e, pair[4], Vector3(0, 0, 1), false)
+		var near := 99.0
+		for slot in arcs._pools[4]:
+			if slot["on"]:
+				near = minf(near, (slot["mi"] as MeshInstance3D).global_transform.origin.z)
+		var want: float = (e.current_skill as SkillDef).radius * WeaponArcs.K_CONE_PAST
+		check(near >= want - 0.01 if pair[5] else near < 1.0, "arcos onda 6: %s em %s: garras %s (%.2f m à frente; cone pede %.2f)" % [pair[3], pair[0], "além do alvo" if pair[5] else "no pé do bicho", near, want])
+		e.current_skill = null
+	for shape in [0, 4]:
+		for slot in arcs._pools[shape]:
+			slot["on"] = false
+	check(FileAccess.get_file_as_string("res://game/fx/fx_manager.gd").contains("or arcs.last_form):"), "arcos onda 6: golpe no alvo na forma mantém o corte no alvo")
+	check(WeaponArcs.stop_frames(6, "form_bear") == WeaponArcs.STOP_CAP_FRAMES and WeaponArcs.stop_frames(2, "form_bear") == 3.0, "arcos onda 6: parada do urso 1,5x com teto (Avalanche 6 x 1,5 -> 8)")
+	var evs := FileAccess.get_file_as_string("res://game/entities/entity_view.gd")
+	check(evs.contains("WeaponArcs.form_hook(entity"), "arcos onda 6: EntityView chama o gancho da 2ª garra")
+	check(evs.contains("WeaponArcs.form_hook(entity, _form_land, true)"), "arcos onda 6: garras do bote saem quando o boneco pousa (a sim teleporta)")
+	check(FileAccess.get_file_as_string("res://shaders/smear_arc.gdshader").contains("shape == 4"), "arcos onda 6: shader tem as garras (forma 4)")
+	check(FileAccess.get_file_as_string("res://game/fx/fx_manager.gd").contains("arcs.swing(skill_id, s, th, origin, dir, -1.0, aim)"), "arcos onda 6: bote/investida chama o arco com o fim da linha")
+	# golpe dos outros: longe do jogador (> OTHERS_RANGE) sem arco; perto, com arco; habilidade de monstro nunca
+	e.form = "bear"
+	e.stats.weapon_type = "mace2h"
+	e.stats.offhand_type = ""
+	e.id = 987654
+	ffx.others[e.id] = true
+	var pl: SimEntity = Sim.player
+	if pl != null:
+		e.position = pl.position + Vector3(WeaponArcs.OTHERS_RANGE + 2.0, 0, 0)
+		check(not arcs._admit(e), "arcos: golpe dos outros a %.0f m do jogador fica sem arco" % (WeaponArcs.OTHERS_RANGE + 2.0))
+		e.position = pl.position + Vector3(3.0, 0, 0)
+		check(arcs._admit(e) and not arcs._for_mine, "arcos: golpe dos outros perto do jogador tem arco (vagas dos outros)")
+	ffx.others.erase(e.id)
+	check(arcs._admit(e) and arcs._for_mine, "arcos: golpe do jogador/grupo sempre tem arco")
+	check(not arcs.swing("mob_whirl", gd.skills["mob_whirl"], "physical", Vector3.ZERO, Vector3.FORWARD), "arcos: habilidade de monstro (mob_) nunca desenha arco")
+	_check_arc_user_calls(gd, arcs, fake)
+	arcs.free()
+
+## Decisões do usuário 2026-11-16: (a) marca no chão NEUTRA (o risco do golpe S nunca toma a cor do tema; cor da
+## família/forma); (b) pisão do Ent = impacto, não aviso: sem disco/aro do SkillFx.circle, só as marcas de pisão (teto).
+func _check_arc_user_calls(gd, arcs: WeaponArcs, fake: FakeMain) -> void:
+	var pl: SimEntity = Sim.player
+	check(pl != null, "arcos (decisões 2026-11-16): há jogador na sim do teste")
+	if pl == null:
+		return
+	var keep := [pl.stats.weapon_type, pl.stats.offhand_type, pl.current_skill, pl.form, fake.current_map_id]
+	for shape in arcs._pools:
+		for slot in arcs._pools[shape]:
+			slot["on"] = false
+	pl.form = ""
+	pl.stats.weapon_type = "sword2h"
+	pl.stats.offhand_type = ""
+	var b2h: SkillDef = gd.basic_skill_for_class(gd.classes["paladin"], "sword2h", "", "")
+	pl.current_skill = b2h
+	fake.current_map_id = pl.map_id
+	var fv := FakeView.new()
+	fv.anim.assigned_animation = "atk_2h"
+	fake.views[pl.id] = fv
+	var drew := arcs.swing(b2h.id, b2h, "fire", pl.position, Vector3(0, 0, 1))
+	var fam_band: Color = (WeaponArcs.FAMILIES["sword2h"]["band"] as Color).srgb_to_linear()
+	var marks := 0
+	var neutral := true
+	for slot in arcs._pools[0]:
+		var mi: MeshInstance3D = slot["mi"]
+		if slot["on"] and float(mi.get_instance_shader_parameter("alpha")) <= WeaponArcs.MARK_ALPHA + 0.0001:
+			marks += 1
+			neutral = neutral and (mi.get_instance_shader_parameter("band_col") as Color).is_equal_approx(fam_band)
+	check(drew and marks == 1 and neutral, "arcos (decisão a): golpe S com tema de fogo -> risco no chão na cor da família, não do tema (%s, %d marca)" % [drew, marks])
+	fake.views.erase(pl.id)
+	pl.stats.weapon_type = keep[0]
+	pl.stats.offhand_type = keep[1]
+	pl.current_skill = keep[2]
+	pl.form = keep[3]
+	fake.current_map_id = keep[4]
+	for shape in arcs._pools:
+		for slot in arcs._pools[shape]:
+			slot["on"] = false
+	# (b) pisão do Ent: sem aro/disco do golpe em volta de si; a forma mantém só as marcas de pisão, com teto
+	check(not WeaponArcs.self_ring(true, "ent"), "arcos (decisão b): pisão do Ent sem o disco/aro de aviso (só impacto)")
+	# decisão do usuário 2026-11-16: urso, lobo e Alfa (linhas do lobo) também pisam sem o disco/aro, como o Ent
+	for form in WeaponArcs.FORM_FAMILY:
+		check(not WeaponArcs.self_ring(true, form), "arcos: pisão da forma %s sem o disco/aro de aviso (só as marcas)" % form)
+	check(WeaponArcs.self_ring(false, "ent") and WeaponArcs.self_ring(true, ""), "arcos (decisão b): golpe sem arco ou de arma mantém o aro do golpe em volta de si")
+	var e := SimEntity.new()
+	e.form = "ent"
+	e.stats.weapon_type = "mace2h"
+	var slam: SkillDef = gd.skills["dru_earth_slam"]
+	check(arcs._swing_form(e, slam, Vector3(0, 0, 1)), "arcos (decisão b): pisão do Ent solta as marcas")
+	var ok: bool = arcs._pools[0].all(func(sl): return not sl["on"])
+	var n := 0
+	for slot in arcs._pools[4]:
+		if slot["on"]:
+			n += 1
+			ok = ok and float((slot["mi"] as MeshInstance3D).get_instance_shader_parameter("alpha")) <= WeaponArcs.MARK_ALPHA + 0.0001 and float(slot["life"]) <= WeaponArcs.MARK_LIFE_MAX
+	check(ok and n == 2, "arcos (decisão b): pisão do Ent = 2 marcas de pisão (alfa <= 0,6, vida <= 0,2 s), sem crescente nem aro (%d)" % n)
+	check(FileAccess.get_file_as_string("res://game/fx/fx_manager.gd").contains("WeaponArcs.self_ring("), "arcos (decisão b): FxManager pergunta ao WeaponArcs antes do aro do golpe em volta de si")
+	for shape in arcs._pools:
+		for slot in arcs._pools[shape]:
+			slot["on"] = false
+
 func _check_windup_timing() -> void:
 	for pair in [[0.375, 0.12], [0.29, 0.12], [0.33, 0.5], [0.2, 0.06]]:
 		var wt := EntityView.windup_timing(pair[0], pair[1])
@@ -419,10 +1126,82 @@ func _check_hand_twist() -> void:
 
 ## Pata da frente sem salto nas formas do Druida (druid_sets.clear_form_ground, FORM_GROUND_CLIPS): o 1º acerto do chão
 ## empilhava giro e a perna virava 145-173° entre quadros (pico 69° por passo de 60 Hz em slam/pounce/maul).
+## Formas ancestrais (druid_ancestral, 2026-11-15): Alfa = mesmas patas da frente do lobo; Ent = raízes-pés `leg_*` (as 4) e os
+## braços `arm_l`/`arm_r` nos golpes. Mesmo teto de 45°/quadro. O giro dos arquivos antigos já passava (alfa 22°, ent 32°): o que
+## estava errado era o CHÃO (patas do Alfa 0,26 m abaixo, raízes do Ent 0,46 m, braço -X do Ent 0,11 m em maul/attack), então
+## as quatro formas também medem a altura: o ponto mais baixo de cada osso com malha nos golpes não desce mais que
+## FORM_GROUND_SLACK abaixo de onde ele pisa parado (idle, nunca acima de y 0). Raiz/pata parada já fica 17-54 mm "dentro" do chão
+## (pé enterrado de propósito), por isso a régua é relativa ao idle e não um y fixo.
 ## `-- --form_dir=<pasta>` mede GLBs de outra pasta (fora do projeto, lidos sem importar) para conferir uma versão antiga.
+const FORM_TWIST_BONES := {"wolf": ["leg_f"], "bear": ["leg_f"], "alpha": ["leg_f"], "ent": ["leg_", "arm_l", "arm_r"]}
+const FORM_STRIKES := ["slam", "pounce", "maul", "attack"]
+const FORM_GROUND_SLACK := 0.02       # m abaixo da pisada parada que um golpe pode afundar
+
+## Pose global (no espaço do esqueleto) de cada osso no tempo `t` do clipe, montada das trilhas sobre o rest (sem AnimationPlayer).
+func _form_pose_at(sk: Skeleton3D, an: Animation, t: float) -> Array:
+	var n := sk.get_bone_count()
+	var pos := []
+	var rot := []
+	var scl := []
+	for b in n:
+		var r := sk.get_bone_rest(b)
+		pos.append(r.origin)
+		rot.append(r.basis.get_rotation_quaternion())
+		scl.append(r.basis.get_scale())
+	for k in an.get_track_count():
+		var b := sk.find_bone(String(an.track_get_path(k).get_subname(0)))
+		if b < 0:
+			continue
+		match an.track_get_type(k):
+			Animation.TYPE_POSITION_3D:
+				pos[b] = an.position_track_interpolate(k, t)
+			Animation.TYPE_ROTATION_3D:
+				rot[b] = an.rotation_track_interpolate(k, t)
+			Animation.TYPE_SCALE_3D:
+				scl[b] = an.scale_track_interpolate(k, t)
+	var g := []
+	g.resize(n)
+	for b in n:
+		var loc := Transform3D(Basis(rot[b] as Quaternion) * Basis.from_scale(scl[b] as Vector3), pos[b] as Vector3)
+		var par := sk.get_bone_parent(b)
+		g[b] = loc if par < 0 else (g[par] as Transform3D) * loc
+	return g
+
+## Transform de `n` relativo a `top`, somando os pais (a cena não precisa estar na árvore).
+func _form_rel(n: Node, top: Node) -> Transform3D:
+	var x := Transform3D.IDENTITY
+	while n != top and n != null:
+		if n is Node3D:
+			x = (n as Node3D).transform * x
+		n = n.get_parent()
+	return x
+
+## Menor y (m) por osso com malha presa (BoneAttachment3D) ao longo do clipe, a 24 quadros/s (o ritmo das chaves).
+func _form_lowest(inst: Node, sk: Skeleton3D, an: Animation) -> Dictionary:
+	var skx := _form_rel(sk, inst)
+	var parts := []
+	for a in inst.find_children("*", "BoneAttachment3D", true, false):
+		for mi in a.find_children("*", "MeshInstance3D", true, false):
+			var vs := PackedVector3Array()
+			for s in mi.mesh.get_surface_count():
+				vs.append_array(mi.mesh.surface_get_arrays(s)[Mesh.ARRAY_VERTEX])
+			parts.append([sk.find_bone(a.bone_name), String(a.bone_name), _form_rel(mi, a), vs])
+	var low := {}
+	var t := 0.0
+	while t <= an.length + 0.0001:
+		var gp := _form_pose_at(sk, an, t)
+		for p in parts:
+			var xf: Transform3D = skx * (gp[p[0]] as Transform3D) * (p[2] as Transform3D)
+			var lo := 99.0
+			for v in p[3]:
+				lo = minf(lo, (xf * v).y)
+			low[p[1]] = minf(float(low.get(p[1], 99.0)), lo)
+		t += 1.0 / 24.0
+	return low
+
 func _check_form_leg_twist() -> void:
 	var dir := DevArgs.value("--form_dir", "")
-	for form in ["wolf", "bear"]:
+	for form in ["wolf", "bear", "alpha", "ent"]:
 		var inst: Node
 		if dir == "":
 			inst = (load("res://assets/models/form_%s.glb" % form) as PackedScene).instantiate()
@@ -434,17 +1213,39 @@ func _check_form_leg_twist() -> void:
 				continue
 			inst = doc.generate_scene(st)
 		var ap: AnimationPlayer = inst.find_children("*", "AnimationPlayer", true, false)[0]
+		var sk: Skeleton3D = inst.find_children("*", "Skeleton3D", true, false)[0]
+		var prefixes: Array = FORM_TWIST_BONES[form]
 		var worst := 0.0
 		var where := ""
 		var seen := 0
-		for clip in ["slam", "pounce", "maul", "attack"]:
+		# pisada parada (idle) de cada osso com malha; nunca acima de y 0
+		var rest_low := {}
+		if ap.has_animation("idle"):
+			var il := _form_lowest(inst, sk, ap.get_animation("idle"))
+			for b in il:
+				rest_low[b] = minf(0.0, float(il[b]))
+		check(rest_low.size() >= 6, "forma %s: idle com ossos de malha para medir o chão (%d)" % [form, rest_low.size()])
+		var sunk := 0.0
+		var sunk_at := ""
+		for clip in FORM_STRIKES:
 			if not ap.has_animation(clip):
 				check(false, "forma %s: tem o clipe %s" % [form, clip])
 				continue
 			var an := ap.get_animation(clip)
+			var low := _form_lowest(inst, sk, an)
+			for b in low:
+				var dip: float = float(rest_low.get(b, 0.0)) - float(low[b])      # quanto desceu abaixo da pisada parada
+				if dip > sunk:
+					sunk = dip
+					sunk_at = "%s %s (y %.3f)" % [clip, b, low[b]]
 			for t in range(an.get_track_count()):
 				var bone := String(an.track_get_path(t).get_subname(0))
-				if an.track_get_type(t) != Animation.TYPE_ROTATION_3D or not bone.begins_with("leg_f"):
+				if an.track_get_type(t) != Animation.TYPE_ROTATION_3D:
+					continue
+				var hit := false
+				for pre in prefixes:
+					hit = hit or bone.begins_with(pre)
+				if not hit:
 					continue
 				seen += 1
 				var prev := an.rotation_track_interpolate(t, 0.0)
@@ -457,10 +1258,11 @@ func _check_form_leg_twist() -> void:
 						where = "%s %s" % [clip, bone]
 					prev = q
 					tt += 1.0 / 60.0
-		check(seen >= 8, "forma %s: patas da frente animadas nos 4 golpes (%d trilhas)" % [form, seen])
+		check(seen >= 8, "forma %s: patas/braços %s animados nos 4 golpes (%d trilhas)" % [form, prefixes, seen])
 		if DevArgs.has("--verbose"):
-			print("  FORMA %s: pata da frente, pior %.1f° em %s" % [form, worst, where])
-		check(worst < 45.0, "forma %s: pata da frente gira no máximo 45°/quadro a 60 Hz (pior %.0f° em %s)" % [form, worst, where])
+			print("  FORMA %s: %s pior %.1f° em %s; chão: desce %.3f m em %s" % [form, prefixes, worst, where, sunk, sunk_at])
+		check(worst < 45.0, "forma %s: %s gira no máximo 45°/quadro a 60 Hz (pior %.0f° em %s)" % [form, prefixes, worst, where])
+		check(sunk <= FORM_GROUND_SLACK, "forma %s: golpes não afundam no chão mais de %.2f m abaixo da pisada parada (pior %.3f m em %s)" % [form, FORM_GROUND_SLACK, sunk, sunk_at])
 		inst.free()
 
 ## Malhas de um kit (GLB): nome -> MeshInstance3D. Instancia a cena crua (sem KitModel/poda); quem chama libera `inst`.
@@ -787,6 +1589,21 @@ func _check_start_flow() -> void:
 	check(Sim.maps.size() == maps0 and Sim.entities.size() == ents0 and StartRequest.pending == null, "início: trocar de tela não toca na sim")
 	_check_start_routing(start)
 	start.free()
+	# sair: o tema solta o stream/playback (senão o fim do processo imprime "resources still in use")
+	var ma := MenuAudio.create(false)
+	add_child(ma)
+	check(ma.music != null and (ma.music.stream != null or MenuAudio.theme_stream(MenuAudio.THEME) == null), "início: o MenuAudio toca o tema")
+	ma.release_streams()
+	check(ma.music.stream == null and not ma.music.playing, "início: release_streams solta o tema (sem vazamento no quit)")
+	ma.free()
+	var mus := Music.new()
+	add_child(mus)
+	mus.release_streams()
+	var voices_ok := true
+	for v in mus.get("_voices"):
+		voices_ok = voices_ok and v.stream == null and not v.playing
+	check(voices_ok, "música: release_streams para as vozes (saída do jogo sem vazamento)")
+	mus.free()
 
 ## Tela inicial: Jogar/voltar da Criação seguem a fonte da lista (`CharList.has_any`, inclusive --menu_saves), excluir o
 ## último personagem abre a Criação, e `launch` vale uma vez (2º Enter não abre outro Carregamento; tela sem entrada).
@@ -1763,6 +2580,7 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_float_text_crowd(GameData)
 	_check_ui_polish_r2(GameData, Sim)
 	_check_windup_timing()
+	_check_weapon_arcs(gd, sim)
 	_check_pose_fade()
 	_check_hand_twist()
 	_check_form_leg_twist()
@@ -1890,7 +2708,9 @@ func _check_skill_points(gd, sim, p) -> void:
 	# arma define a build: Talho Duplo exige dois machados
 	p.mastery_points += 20
 	check(_buy_path(sim, p, "berserker_s_ber_hack") >= 0 and p.knows("ber_hack"), "aprende skill de dois machados")
-	var slot: int = p.slot_of("ber_hack")
+	check(p.slot_of("ber_hack") < 0, "Talho Duplo aprendido com machado de duas mãos não entra sozinho na barra")
+	var slot := 3
+	check(sim.set_skill_slot(p, slot, "ber_hack"), "Talho Duplo posto na barra à mão")
 	p.mp = p.stats.max_mp
 	check(not sim.try_cast(p, slot, p.position + Vector3(0, 0, 1), m), "Talho Duplo não sai com machado de duas mãos")
 	p.add_item("axe_t0", 2)
@@ -2004,6 +2824,8 @@ func _check_zone(gd, sim) -> void:
 	_check_character_window(gd, sim)
 	_check_hotbar_drag(gd, sim)
 	_check_action_bar(gd, sim)
+	_check_craft_tooltip(gd, sim)
+	_check_hotbar_clear(gd, sim)
 	_check_summon_ai(gd, sim)
 	_check_summon_lost(gd, sim)
 	_check_party_invitable(gd, sim)
@@ -2038,6 +2860,7 @@ func _check_zone(gd, sim) -> void:
 	_check_dash_iframes(gd, sim)
 	_check_skill_clips()
 	_check_shields(gd, sim)
+	_check_tall_shields(gd, sim)
 	_check_render_merge(gd, sim)
 	_check_nearest_hostile(gd, sim)
 	# bot sai da vila pelo portão e vai caçar no próprio vale
@@ -2570,6 +3393,100 @@ func _check_nearest_hostile(gd, sim) -> void:
 				same += 1
 	check(tries > 0 and same == tries, "nearest_hostile igual à busca completa (%d/%d)" % [same, tries])
 
+## Escudos altos (KitModel.TALL_SHIELDS = shield_kit.TALL): corrida e guarda próprias só nos kits de quem empunha escudo,
+## só o braço do escudo muda, e o boneco as toca quando (e só quando) empunha um escudo alto.
+func _check_tall_shields(gd, sim) -> void:
+	var by_style := {}
+	for iid in gd.items:
+		var it: ItemDef = gd.items[iid]
+		if it.weapon_type == "shield" and it.shield_style != "" and it.plus == 0 and not by_style.has(it.shield_style):
+			by_style[it.shield_style] = it
+	check(KitModel.TALL_SHIELDS.size() == 17, "escudos altos: 17 estilos (%d)" % KitModel.TALL_SHIELDS.size())
+	for st in KitModel.TALL_SHIELDS:
+		check(by_style.has(st), "escudo alto %s: é o estilo de algum escudo do jogo" % st)
+	var arm := ["upper_arm.L", "forearm.L"]
+	for model in ["paladin_male", "paladin_female", "bishop_male", "bishop_female"]:
+		var k := KitModel.create(model.get_slice("_", 1), Color.WHITE, 0.025, model.get_slice("_", 0))
+		for pair in [["run", "run_shield_tall"], ["block_shield", "block_shield_tall"]]:
+			var has: bool = k.resolve(pair[1]) != ""
+			check(has, "kit %s: tem o clipe %s" % [model, pair[1]])
+			if not has:
+				continue
+			var a: Animation = k.anim.get_animation(pair[0])
+			var b: Animation = k.anim.get_animation(pair[1])
+			check(b.loop_mode == Animation.LOOP_LINEAR and is_equal_approx(a.length, b.length), "kit %s: %s em laço, mesma duração do %s" % [model, pair[1], pair[0]])
+			var other := 0.0          # maior diferença (graus) fora do braço do escudo
+			var moved := 0.0          # maior diferença no braço do escudo
+			var swing := [0.0, 0.0]   # quanto o braço do escudo varre em cada clipe (graus)
+			for t in range(a.get_track_count()):
+				if a.track_get_type(t) != Animation.TYPE_ROTATION_3D:
+					continue
+				var tb := b.find_track(a.track_get_path(t), Animation.TYPE_ROTATION_3D)
+				var bone := String(a.track_get_path(t)).get_slice(":", 1)
+				if tb < 0:
+					other = 999.0
+					continue
+				var qa0: Quaternion = a.rotation_track_interpolate(t, 0.0)
+				var qb0: Quaternion = b.rotation_track_interpolate(tb, 0.0)
+				for i in range(16):
+					var at := a.length * float(i) / 16.0
+					var qa: Quaternion = a.rotation_track_interpolate(t, at)
+					var qb: Quaternion = b.rotation_track_interpolate(tb, at)
+					var d := rad_to_deg(qa.angle_to(qb))
+					if bone in arm:
+						moved = maxf(moved, d)
+					else:
+						other = maxf(other, d)
+					if bone == "upper_arm.L":
+						swing[0] = maxf(swing[0], rad_to_deg(qa0.angle_to(qa)))
+						swing[1] = maxf(swing[1], rad_to_deg(qb0.angle_to(qb)))
+			check(other < 0.5, "kit %s: %s só muda o braço do escudo (resto difere %.1f graus)" % [model, pair[1], other])
+			check(moved > 8.0, "kit %s: %s muda o braço do escudo (%.1f graus)" % [model, pair[1], moved])
+			if pair[0] == "run":
+				check(swing[1] < swing[0] * 0.5, "kit %s: na corrida do escudo alto o braço balança menos da metade (%.0f -> %.0f graus)" % [model, swing[0], swing[1]])
+		check(RidePose.ensure_guard_clip(k.anim, k.skeleton) and k.resolve(RidePose.GUARD_CLIP_TALL) != "", "kit %s: guarda montada do escudo alto criada" % model)
+		k.free()
+	for model in [["male", ""], ["male", "berserker"], ["female", "ranger"]]:      # quem não empunha escudo não ganha clipe
+		var k := KitModel.create(model[0], Color.WHITE, 0.025, model[1])
+		check(k.resolve("run_shield_tall") == "" and k.resolve("block_shield_tall") == "", "kit %s %s: sem clipes de escudo alto" % [model[0], model[1]])
+		k.apply_equipment({ItemDef.Slot.OFFHAND: by_style.get("veredito")})
+		check(k.tall_shield and k.run_clip() == "run", "kit %s %s: escudo alto sem o clipe cai na corrida comum" % [model[0], model[1]])
+		k.free()
+	var pal := KitModel.create("male", Color.WHITE, 0.025, "paladin")
+	var tall := 0
+	for st in by_style:
+		pal.apply_equipment({ItemDef.Slot.OFFHAND: by_style[st]})
+		var is_tall: bool = st in KitModel.TALL_SHIELDS
+		tall += 1 if is_tall else 0
+		check(pal.tall_shield == is_tall and pal.run_clip() == ("run_shield_tall" if is_tall else "run")
+			and pal.guard_clip() == ("block_shield_tall" if is_tall else "block_shield"), "escudo %s: %s" % [st, "clipes de escudo alto" if is_tall else "clipes comuns"])
+	check(tall == 17 and by_style.size() > 30, "escudos altos: os 17 estilos têm item (%d de %d estilos)" % [tall, by_style.size()])
+	pal.apply_equipment({})
+	check(not pal.tall_shield and pal.run_clip() == "run" and pal.tall_clip("run") == "", "sem escudo: corrida comum")
+	pal.free()
+	# no mundo: o boneco com escudo alto corre e bloqueia nas variantes; com escudo comum, nos clipes de sempre
+	for pair in [["veredito", "run_shield_tall", "block_shield_tall"], ["bastiao", "run", "block_shield"]]:
+		var hero: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Alto", "city_aldara", Vector3(0, 0, 6), 30)
+		hero.brain = null
+		hero.equipment[ItemDef.Slot.OFFHAND] = by_style[pair[0]]
+		hero.recompute_stats()
+		var view := EntityView.new()
+		add_child(view)
+		view.setup(hero, false)
+		view._dt = 1.0 / 60.0
+		hero.state = SimEntity.State.MOVING
+		hero.velocity = hero.forward() * 5.0
+		view._animate(1.0 / 60.0)
+		var running := str(view.anim.current_animation)
+		var pace: float = view.anim.speed_scale
+		hero.velocity = Vector3.ZERO
+		hero.state = SimEntity.State.BLOCKING
+		view._animate(1.0 / 60.0)
+		check(running == pair[1] and absf(pace - 5.0 / EntityView.RUN_REF_SPEED) < 0.01, "boneco com escudo %s corre em %s no ritmo do chão (%s, x%.2f)" % [pair[0], pair[1], running, pace])
+		check(str(view.anim.current_animation) == pair[2], "boneco com escudo %s bloqueia em %s (%s)" % [pair[0], pair[2], view.anim.current_animation])
+		view.free()
+		sim.despawn(hero)
+
 ## Escudos: 14 nomeados com silhueta, ícone e reação; bloquear reage; aparar dobra, atordoa e tem janela curta.
 func _check_shields(gd, sim) -> void:
 	check(GearCatalog.SHIELDS.size() == 14, "14 escudos nomeados")
@@ -2939,6 +3856,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_hybrid_sets(gd, sim)
 	_check_web_strength(gd, sim)
 	_check_web_frontier(gd, sim)
+	_check_lanceiro_evasion(gd, sim)
 	_check_gather(gd, sim)
 	_check_quest_variety(gd, sim)
 	_check_monster_polish(gd, sim)
@@ -6714,7 +7632,7 @@ func _check_bind_crystal(gd, sim, save) -> void:
 		e.position = fdef.town_center + Vector3(3, 0, 3)
 		check(sim.set_skill_slot(e, 5, sid), "troca skill dentro do Posto")
 		e.position = Vector3(70, 0, -16)
-		check(not sim.set_skill_slot(e, 4, sid), "fora do muro não troca skill")
+		check(sim.set_skill_slot(e, 4, sid) != Balance.LOADOUT_TOWN_ONLY, "fora do muro troca skill só se LOADOUT_TOWN_ONLY for falso")
 	# save
 	sim.despawn(e)
 	var me: SimEntity = sim.player
@@ -7693,6 +8611,90 @@ func _check_summon_ai(gd, sim) -> void:
 
 ## Seta da quest no minimapa: toda quest do catálogo tem um objetivo num mapa real, a seta acha o caminho
 ## (portal) de onde a quest é dada, e a quest pronta aponta para quem recebe.
+## Forja/caldeirão (relato 2026-11-16: "o colar não diz para que serve"): o tooltip de toda receita é o do item resultante
+## (UiKit.item_tooltip, o mesmo da bolsa) e a linha sob o nome nunca fica vazia.
+func _check_craft_tooltip(gd, _sim) -> void:
+	var U = load("res://game/ui/npc_ui.gd")
+	var bad: Array = []
+	var empty_line: Array = []
+	for rid in gd.recipes:
+		var r: RecipeDef = gd.recipes[rid]
+		var it: ItemDef = gd.items.get(r.result_item)
+		if it == null:
+			bad.append(rid)
+			continue
+		var tip: String = U.craft_tip(r)
+		var ok: bool = tip == UiKit.item_tooltip(it) and it.name in tip
+		if it.is_equipment():
+			ok = ok and UiKit.slot_name(it.slot) in tip and ("Lv %d" % it.level_req) in tip and (it.atk > 0 or it.matk > 0 or it.def > 0 or it.mdef > 0 or not it.attributes.is_empty())
+			ok = ok and it.attributes.keys().all(func(k): return int(it.attributes[k]) == 0 or ("%s +" % k) in tip)
+		elif it.type == ItemDef.Type.CONSUMABLE:
+			ok = ok and "Consumível" in tip and it.description.strip_edges() != ""
+		if not ok:
+			bad.append(rid)
+		if str(U.craft_line(it)).strip_edges() == "":
+			empty_line.append(rid)
+	check(bad.is_empty(), "forja: tooltip da receita = tooltip do item (peça, Lv, atributos; consumível com descrição) %s" % [bad.slice(0, 6)])
+	check(empty_line.is_empty(), "forja: linha do cartão diz o que o item é (descrição ou resumo) %s" % [empty_line.slice(0, 6)])
+	var neck: ItemDef = gd.items["amulet_guerreiro_t1"]
+	check("Amuleto" in str(U.craft_line(neck)) and "FOR" in U.craft_tip(gd.recipes["rec_amulet_guerreiro_t1"]), "forja: amuleto gerado mostra peça e atributo")
+	var kinds := {}
+	for rid in gd.recipes:
+		kinds[str(rid).get_slice("_", 1)] = true
+	check(kinds.has("amulet") and kinds.has("ring") and kinds.has("cape") and kinds.has("bag") and kinds.has("potion"), "forja: receitas de joia, capa, bolsa e poção conferidas")
+
+## Barra 1-6 (relato do Lanceiro 2026-11-16): soltar uma skill da barra fora dela a tira (Hud.drag_off; soltar num lugar que
+## aceita não tira), fora da cidade a troca é recusada com aviso na tela, e skill que a arma não permite não entra sozinha na barra ao aprender.
+func _check_hotbar_clear(gd, sim) -> void:
+	var H = load("res://game/ui/hud.gd")
+	var p = sim.spawn_bot(gd.classes["ranger"], "Lanca", "city_aldara", Vector3(0, 0, 4), 1)
+	p.ensure_slots()
+	p.skills[0] = gd.skills["ran_power_shot"]
+	check(not H.drag_off(p, 0, true) and p.skills[0] != null, "barra: soltar num slot que aceita não tira a skill")
+	check(H.drag_off(p, 0, false) and p.skills[0] == null, "barra: soltar fora da barra tira a skill")
+	check(not H.drag_off(p, 0, false), "barra: vaga vazia não tem o que tirar")
+	p.skills[0] = gd.skills["ran_power_shot"]
+	var town: Vector3 = p.position
+	var msgs: Array = []
+	var grab := func(t): msgs.append(str(t))
+	Events.notification.connect(grab)
+	var home: String = p.map_id
+	for mid in gd.maps:
+		if not gd.maps[mid].in_hub(Vector3(40, 0, 40)):
+			if not sim.maps.has(mid):
+				sim.load_map(gd.maps[mid])
+			p.map_id = mid                       # só o mapa da regra (campo); a entidade continua registrada na cidade
+			break
+	p.position = Vector3(40, 0, 40)
+	var field: String = p.map_id
+	var cleared: bool = not gd.maps[field].in_hub(p.position) and sim.set_skill_slot(p, 0, "")
+	Events.notification.disconnect(grab)
+	p.map_id = home
+	check(not Balance.LOADOUT_TOWN_ONLY and cleared and p.skills[0] == null, "barra: fora da cidade a troca também vale (%s) %s" % [field, msgs])
+	p.skills[0] = gd.skills["ran_power_shot"]
+	p.position = town
+	var spear := ""
+	for iid in gd.items:
+		var it: ItemDef = gd.items[iid]
+		if it.weapon_type == "spear" and it.level_req <= 20 and it.base_id == "":
+			spear = iid
+			break
+	p.equipment[gd.items[spear].slot] = gd.items[spear]
+	p.recompute_stats()
+	check(not p.stats.meets(gd.skills["ran_power_shot"].requires), "Lanceiro: lança não serve para o Tiro Poderoso")
+	p.level = 30
+	p.build_id = p.class_def.builds[0]["id"]          # build de arco aprendida com a lança na mão
+	for i in range(p.skills.size()):
+		p.skills[i] = null
+	ProgressionSystem.bot_spend(sim, p, true)
+	var learned_bow := 0
+	for sid in p.learned:
+		if not p.stats.meets(gd.skills[sid].requires):
+			learned_bow += 1
+	var wrong: Array = p.skills.filter(func(s): return s != null and not p.stats.meets(s.requires)).map(func(s): return s.id)
+	check(learned_bow > 0 and wrong.is_empty(), "aprender skill que a arma não permite não a põe na barra (%d aprendidas, na barra: %s)" % [learned_bow, wrong])
+	sim.despawn(p)
+
 ## Arrastar para a barra: poção da bolsa em F1-F3 (sem duplicar, F↔F troca), skill em 1-6 (troca de lugar).
 func _check_hotbar_drag(gd, sim) -> void:
 	var H = load("res://game/ui/hud.gd")
@@ -8074,10 +9076,64 @@ func _check_sfx_bank(gd) -> void:
 		check(Sfx.SIG_EFFECT.has(k), "quebra/contragolpe de assinatura '%s' tem som (Sfx.SIG_EFFECT)" % k)
 	for k in Sfx.SIG_EFFECT:
 		check(sfx.bank.has(Sfx.SIG_EFFECT[k]) and (gd.skills.has(k) or k in sig_fx), "Sfx.SIG_EFFECT '%s' cita skill/efeito que existe e som do banco" % k)
+	# soltura do arco (playtest 2026-11-16): ruído que morre rápido, nunca uma nota sustentada de "teclado"
+	check(sfx.bank.has("bow") and (sfx.bank["bow"] as Array).size() >= 3, "arco tem 3+ variações de som")
+	for i in range(1, 9):
+		var path := "res://assets/audio/sfx/bow_%d.wav" % i
+		if not FileAccess.file_exists(path):
+			continue
+		var smp := _wav_samples(path)
+		var tail := _rms(smp, 0.15, 1.0) / maxf(1e-6, _rms(smp, 0.0, 0.05))
+		var tonal := _periodicity(smp, 0.04, 0.1)
+		check(tail < 0.2 and tonal < 0.4, "som do arco %d curto e sem nota (cauda %.2f < 0,2; periodicidade %.2f < 0,4)" % [i, tail, tonal])
 	sfx.free()
 	AudioSettings.load_and_apply()
 	for b in AudioSettings.BUSES:
 		check(AudioServer.get_bus_index(b) >= 0, "barramento de áudio %s" % b)
+
+const WAV_RATE := 44100.0
+
+## Amostras [-1, 1] de um WAV PCM 16 bits mono do banco (o arquivo-fonte; o importado é QOA).
+func _wav_samples(path: String) -> PackedFloat32Array:
+	var b := FileAccess.get_file_as_bytes(path)
+	var out := PackedFloat32Array()
+	var p := 12
+	while p + 8 <= b.size():
+		var id := b.slice(p, p + 4).get_string_from_ascii()
+		var size := b.decode_u32(p + 4)
+		if id == "data":
+			out.resize(size / 2)
+			for i in out.size():
+				out[i] = b.decode_s16(p + 8 + i * 2) / 32768.0
+			return out
+		p += 8 + size + (size & 1)
+	return out
+
+## RMS entre `from` e `to` segundos.
+func _rms(s: PackedFloat32Array, from: float, to: float) -> float:
+	var a := int(from * WAV_RATE)
+	var z := mini(s.size(), int(to * WAV_RATE))
+	var acc := 0.0
+	for i in range(a, z):
+		acc += s[i] * s[i]
+	return sqrt(acc / maxf(1.0, z - a))
+
+## Autocorrelação normalizada máxima (50-800 Hz) numa janela: ~1 = nota afinada, ~0 = ruído.
+func _periodicity(s: PackedFloat32Array, from: float, win: float) -> float:
+	var a := int(from * WAV_RATE)
+	var z := mini(s.size(), a + int(win * WAV_RATE))
+	var e := 0.0
+	for i in range(a, z):
+		e += s[i] * s[i]
+	if e <= 0.0:
+		return 0.0
+	var best := 0.0
+	for lag in range(int(WAV_RATE / 800.0), int(WAV_RATE / 50.0), 2):
+		var c := 0.0
+		for i in range(a, z - lag, 4):
+			c += s[i] * s[i + lag]
+		best = maxf(best, c * 4.0 / e)
+	return best
 
 ## Ponto do desenho original de uma fortaleza (chegada ao sul) -> no mapa girado: o `"turn"` do JSON da zona
 ## (graus, horário visto de cima; zone_lib.Zone.apply_turn).
@@ -8994,6 +10050,56 @@ func _check_web_frontier(gd, sim) -> void:
 					check(sim.tree_block_reason(e, other).begins_with("exclui") and not sim.tree_allocate(e, other), "paladin: %s tranca %s" % [nodes[x]["name"], nodes[other]["name"]])
 			sim.despawn(e)
 
+## Lanceiro (decisão 2026-11-16, opção B): +LANCEIRO_EVASION_PCT de esquiva num notável próprio do setor dele na teia
+## (Balance.BUILD_WEB_NOTABLES), que o bot da build compra; nenhuma outra build tem esse notável e a curva da AGI não muda.
+func _check_lanceiro_evasion(gd, sim) -> void:
+	if not sim.maps.has("city_aldara"):
+		sim.load_map(gd.maps["city_aldara"])
+	check(Stats.STAT_KEYS.has("evasion"), "esquiva é stat de passivo (Stats.STAT_KEYS)")
+	var sig: Array = Balance.BUILD_WEB_NOTABLES.get("lanceiro", [])
+	check(sig.size() == 2 and is_equal_approx(float(sig[1].get("evasion", 0.0)), Balance.LANCEIRO_EVASION_PCT),
+		"Lanceiro: notável-assinatura dá +%.1f%% de esquiva" % Balance.LANCEIRO_EVASION_PCT)
+	check(is_equal_approx(Balance.LANCEIRO_EVASION_PCT, 5.0), "Lanceiro: esquiva própria de 5%% (decisão do autor; era %.1f)" % Balance.LANCEIRO_EVASION_PCT)
+	var sig_nid := ""
+	var others: Array = []
+	for cid in gd.classes:
+		var nd: Dictionary = gd.trees[cid]["nodes"]
+		for nid in nd:
+			var n: Dictionary = nd[nid]
+			if n["kind"] != "notable" or sig.is_empty() or str(n["name"]) != str(sig[0]):
+				continue
+			if cid == "ranger" and n["branch"] == "lanceiro" and sig_nid == "":
+				sig_nid = nid
+			else:
+				others.append("%s/%s" % [cid, nid])
+	check(sig_nid != "", "teia do Ranger: notável %s no setor do Lanceiro" % (str(sig[0]) if sig.size() > 0 else "?"))
+	check(others.is_empty(), "notável do Lanceiro só no setor dele, um só (%s)" % [others])
+	if sig_nid == "":
+		return
+	var node: Dictionary = gd.trees["ranger"]["nodes"][sig_nid]
+	check(int(node["level"]) <= 20 and is_equal_approx(float(node["stats"].get("evasion", 0.0)), Balance.LANCEIRO_EVASION_PCT),
+		"%s: +%.1f%% de esquiva, aberto até o nível 20 (nível %d)" % [sig_nid, Balance.LANCEIRO_EVASION_PCT, int(node["level"])])
+	var cls: ClassDef = gd.classes["ranger"]
+	for lv in [20, 30, 45]:
+		for bid in ["lanceiro", "cacador", "atirador"]:
+			var e: SimEntity = sim.spawn_bot(cls, "EvaTest", "city_aldara", Vector3(0, 0, 8), lv)
+			e.brain = null
+			e.build_id = bid
+			sim._gear_bot(e)
+			sim._skill_bot(e)
+			var has: bool = e.tree.has(sig_nid)
+			if bid == "lanceiro":
+				check(has, "bot Lanceiro no %d compra %s" % [lv, node["name"]])
+				var with_node: float = e.stats.evasion
+				e.tree_bonus["evasion"] = float(e.tree_bonus.get("evasion", 0.0)) - Balance.LANCEIRO_EVASION_PCT
+				e.recompute_stats()
+				var no_node: float = e.stats.evasion
+				check(absf(with_node - no_node - Balance.LANCEIRO_EVASION_PCT) < 0.01 or with_node >= Balance.EVASION_CAP,
+					"Lanceiro no %d: notável dá +%.1f%% de esquiva (%.1f -> %.1f, teto %.0f)" % [lv, Balance.LANCEIRO_EVASION_PCT, no_node, with_node, Balance.EVASION_CAP])
+			else:
+				check(not has, "bot %s no %d não compra o notável do Lanceiro" % [bid, lv])
+			sim.despawn(e)
+
 func _check_web_strength(gd, sim) -> void:
 	if not sim.maps.has("city_aldara"):
 		sim.load_map(gd.maps["city_aldara"])
@@ -9787,8 +10893,9 @@ func _bot_state(e: SimEntity) -> String:
 func _check_class_talents(gd, sim) -> void:
 	var known_hooks := ["id", "name", "text", "kind", "permanent", "aura", "strength", "radius", "summon_permanent", "summon_extra",
 		"skill_mods", "stats", "form_mult", "form_time", "cheat_death", "ally_save", "ambush_mult", "on_kill", "low_hp", "execute",
-		"regen", "mana_shield", "trap_max", "oath_max", "build"]
+		"regen", "mana_shield", "trap_max", "oath_max", "build", "summon_time", "dot_boost", "form_stats"]
 	var cat: Dictionary = ClassTalentsCatalog.build()
+	_check_talent_unlock_levels(gd)
 	for cid in gd.classes:
 		var rows: Array = cat.get(cid, [])
 		check(rows.map(func(r): return int(r[0])) == ClassTalentsCatalog.ROW_LEVELS, "%s: talentos nos níveis 5..45 (%s)" % [cid, str(rows.map(func(r): return r[0]))])
@@ -9841,8 +10948,8 @@ func _check_class_talents(gd, sim) -> void:
 	var ba: Array = pal.buffs.filter(func(b): return b.get("id") == gd.skills["pal_blessed_armor"].effects["buff"]["id"])
 	check(ba.size() == 1 and not ba[0].get("ct", false), "lançar com o permanente ativo: o lançado (mais forte) vale, um só")
 	sim.despawn(pal)
-	# Aura de Proteção: grupo a 10 m sim, a 25 m não, de fora do grupo não
-	var ap: SimEntity = mk.call("paladin", 10, "pal_c_aura_prot", at)
+	# Grito de Guerra (Sede de Sangue em aura): grupo a 10 m sim, a 25 m não, de fora do grupo não
+	var ap: SimEntity = mk.call("berserker", 10, "ber_c_warcry", at)
 	var near: SimEntity = mk.call("ranger", 10, "", at + Vector3(10, 0, 0))
 	var far: SimEntity = mk.call("ranger", 10, "", at + Vector3(0, 0, 25))
 	var stranger: SimEntity = mk.call("ranger", 10, "", at + Vector3(-8, 0, 0))
@@ -9852,8 +10959,8 @@ func _check_class_talents(gd, sim) -> void:
 		check(x.party_id >= 0 and x.party_id == ap.party_id, "aura: entra no grupo")
 	run.call(1.0)
 	var has_aura := func(x: SimEntity) -> bool: return x.buffs.any(func(b): return b.get("ct", false))
-	check(has_aura.call(ap) and has_aura.call(near), "Aura de Proteção: você e o aliado a 10 m")
-	check(not has_aura.call(far) and not has_aura.call(stranger), "Aura de Proteção: nem a 25 m nem quem está fora do grupo")
+	check(has_aura.call(ap) and has_aura.call(near), "aura de talento (Grito de Guerra): você e o aliado a 10 m")
+	check(not has_aura.call(far) and not has_aura.call(stranger), "aura de talento (Grito de Guerra): nem a 25 m nem quem está fora do grupo")
 	for x in [ap, near, far, stranger]:
 		sim.despawn(x)
 	# Elemental Vinculado: fica para sempre e invocar outro troca o elemento
@@ -9875,6 +10982,9 @@ func _check_class_talents(gd, sim) -> void:
 	for o in sk:
 		sim.despawn(o)
 	sim.despawn(nec)
+	_check_nec_row5(gd, sim, m, at, mk)
+	_check_talents_applied(gd, sim, m, at, mk)
+	_check_bot_talent_prefs(gd, sim)
 	# Recusa a Morrer: golpe fatal deixa com 1 HP e imortal 6 s; depois disso, morre (recarga 60 s)
 	var ber: SimEntity = mk.call("berserker", 5, "ber_c_undying", at + Vector3(6, 0, -4))
 	var wolf: SimEntity = sim.spawn_monster(gd.monsters["wolf"], "city_aldara", at + Vector3(7, 0, -4))
@@ -9894,10 +11004,321 @@ func _check_class_talents(gd, sim) -> void:
 	check(is_equal_approx(ClassTalentSystem.ambush_mult(ass), 2.0), "Emboscada: 2,0x saindo da furtividade")
 	check(sim.tree_allocate(ass, "assassin_c_ass_c_venom") and not ass.tree.has("assassin_c_ass_c_ambush"), "trocar a escolha na cidade tira a outra")
 	ass.position = Vector3(90, 0, 60)
-	check(sim.tree_block_reason(ass, "assassin_c_ass_c_reflex") == "troque a escolha desta linha na cidade", "fora da cidade não troca")
+	check(sim.tree_block_reason(ass, "assassin_c_ass_c_pistol_open") == "troque a escolha desta linha na cidade", "fora da cidade não troca")
 	check(sim.tree_block_reason(ass, "assassin_c_ass_c_vanish").begins_with("requer nível"), "linha de nível alto bloqueada")
 	sim.despawn(ass)
 	_check_act2_talent_rows(gd, sim, cat, mk)
+
+## Necromante nv 5 (pedido do jogador 2026-11-16): um talento de invocação, um de tempo das invocações, um de dano no tempo.
+func _check_nec_row5(gd, sim, m: Dictionary, at: Vector3, mk: Callable) -> void:
+	var row: Array = ClassTalentsCatalog.rows_of("necromancer")[0][1]
+	var ids: Array = row.map(func(o): return o["id"])
+	check(ids == ["nec_c_army", "nec_c_slow_dead", "nec_c_slow_rot"], "Necromante nv 5: Exército Eterno, Mortos sem Pressa, Podridão Lenta %s" % str(ids))
+	check(row.filter(func(o): return o.has("summon_permanent") or o.has("summon_extra")).size() == 1, "Necromante nv 5: só um talento de invocação permanente/extra")
+	check(Balance.NEC_TALENT_SUMMON_TIME == 2.0 and Balance.NEC_TALENT_DOT_TIME > 1.0 and Balance.NEC_TALENT_DOT_DPS > 1.0, "Necromante nv 5: números no Balance")
+	# Mortos sem Pressa: cão de ossos dura o dobro; sem o talento, o normal
+	var hs: SkillDef = gd.skills["nec_bone_hound"]
+	var base_dur := float(hs.effects["summon"]["duration"])
+	var mine := func(owner: SimEntity) -> Array: return m["entities"].filter(func(o): return o.kind == SimEntity.Kind.SUMMON and o.owner_id == owner.id and o.is_alive())
+	for pick in ["", "nec_c_slow_dead"]:
+		var nec: SimEntity = mk.call("necromancer", 10, pick, at + Vector3(-4, 0, 6))
+		sim._apply_skill(nec, hs, m)
+		var dogs: Array = mine.call(nec)
+		var want := base_dur * (Balance.NEC_TALENT_SUMMON_TIME if pick != "" else 1.0)
+		check(dogs.size() > 0 and dogs.all(func(o): return absf(o.summon_expires - sim.time - want) < 0.01), "Mortos sem Pressa (%s): cães duram %.0f s" % [pick if pick != "" else "sem", want])
+		for o in dogs:
+			sim.despawn(o)
+		sim.despawn(nec)
+	# Podridão Lenta: Podridão dura e bate mais; sangramento e skill de outra classe não mudam
+	var rot: SkillDef = gd.skills["nec_rot"]
+	var got := {}
+	for pick in ["", "nec_c_slow_rot"]:
+		var nec: SimEntity = mk.call("necromancer", 10, pick, at + Vector3(-6, 0, 6))
+		var dummy: SimEntity = sim.spawn_monster(gd.monsters["wolf"], "city_aldara", at + Vector3(-7, 0, 6))
+		dummy.brain = null
+		sim._apply_effects(nec, dummy, rot.effects, 0.0)
+		var d: Array = dummy.debuffs.filter(func(x): return x.get("kind") == "dot" and int(x.get("src", -1)) == nec.id)
+		got[pick] = [float(d[0]["remaining"]), float(d[0]["dps"]) / maxf(1.0, nec.stats.matk)] if d.size() == 1 else [0.0, 0.0]     # dps por MATK (bots com MATK diferente)
+		sim._apply_effects(nec, dummy, {"dot": {"atk_pct": 50, "duration": 3.0}}, 0.0)
+		var bl: Array = dummy.debuffs.filter(func(x): return x.get("bleed", false))
+		check(bl.size() == 1 and is_equal_approx(float(bl[0]["remaining"]), 3.0), "Podridão Lenta (%s): sangramento não muda" % (pick if pick != "" else "sem"))
+		sim.despawn(dummy)
+		sim.despawn(nec)
+	check(is_equal_approx(got[""][0], float(rot.effects["dot"]["duration"])), "Podridão sem o talento: %.1f s" % got[""][0])
+	check(is_equal_approx(got["nec_c_slow_rot"][0], got[""][0] * Balance.NEC_TALENT_DOT_TIME) and is_equal_approx(got["nec_c_slow_rot"][1], got[""][1] * Balance.NEC_TALENT_DOT_DPS),
+		"Podridão Lenta: %.1f s x%.2f e dps/MATK %.3f -> %.3f" % [got[""][0], Balance.NEC_TALENT_DOT_TIME, got[""][1], got["nec_c_slow_rot"][1]])
+	# bots: o gancho sem skill citada vale para a build que tem skill do tipo (invocação com tempo / dano no tempo)
+	var dead: Dictionary = row[1]
+	var rot_o: Dictionary = row[2]
+	var fits := func(o: Dictionary, bid: String) -> bool: return (gd.classes["necromancer"].build_by_id(bid)["skills"] as Array).any(func(r): return ClassTalentSystem._hook_fits(o, str(r)))
+	check(fits.call(dead, "invocador") and not fits.call(dead, "pestilento") and not fits.call(dead, "ceifador"), "Mortos sem Pressa: serve ao Invocador (bot)")
+	check(fits.call(rot_o, "pestilento") and not fits.call(rot_o, "invocador") and not fits.call(rot_o, "ceifador"), "Podridão Lenta: serve às Sombras (bot)")
+	var rng_state: int = sim.rng.state
+	ClassTalentSystem.bot_picks = true
+	for bid in ["invocador", "pestilento"]:
+		for i in 6:
+			var b: SimEntity = mk.call("necromancer", 5, "", at + Vector3(-8, 0, 6))
+			b.build_id = bid
+			ClassTalentSystem.bot_pick(sim, b)
+			var ids5: Array = ClassTalentSystem.picked(b).map(func(o): return o["id"])
+			check(ids5.size() == 1 and (ids5[0] != "nec_c_slow_rot" if bid == "invocador" else ids5[0] == "nec_c_slow_rot"), "bot %s nv 5 escolhe %s" % [bid, str(ids5)])
+			sim.despawn(b)
+	ClassTalentSystem.bot_picks = false
+	sim.rng.state = rng_state
+	# save com um talento que saiu (Cão Fiel / Pacto Eterno): a escolha some e a teia fica
+	var tr: Dictionary = gd.trees["necromancer"]
+	var src: String = FileAccess.get_file_as_string("res://core/save_system.gd")
+	check(src.contains('begins_with("%s_c_" % p.class_def.id) and not tr["nodes"].has(nid)'), "save: talento de classe que saiu só some (não zera a teia)")
+	check(not tr["nodes"].has("necromancer_c_nec_c_hounds") and not tr["nodes"].has("necromancer_c_nec_c_pact"), "Cão Fiel e Pacto Eterno saíram da teia")
+
+## Auditoria dos talentos aplicada (2026-11-16, opção A): trocas das linhas 5-30, gancho form_stats, raio de aura, bots e save.
+## Bot escolhe talento de classe sem sorteio (decisão 2026-11-16): a opção que cita skill da build (mais cedo na lista
+## de prioridade, melhor) > gancho genérico que serve > só números > de outra build. Mesma escolha com qualquer rng,
+## e o rng da sim não anda. Cruzado: Aura de Cruzada no 20 e Solo Sagrado no 25 (antes sorteava Aura ou Juiz).
+func _check_bot_talent_prefs(gd, sim) -> void:
+	var at: Vector3 = sim.maps["city_aldara"]["def"].town_center
+	var want := [["paladin", "cruzado", 20, "pal_c_aura_crusade"], ["paladin", "cruzado", 25, "pal_c_consecrate"],
+		["paladin", "cruzado", 5, "pal_c_resolve"], ["paladin", "guardiao", 20, "pal_c_living_bastion"],
+		["paladin", "templario", 10, "pal_c_flame_strike"], ["elementalist", "fogo", 5, "ele_c_blazing_ball"],
+		["elementalist", "gelo", 5, "ele_c_cold_lance"], ["druid", "fera", 5, "dru_c_sharp_claws"],
+		["necromancer", "ceifador", 10, "nec_c_death_blade"], ["ranger", "lanceiro", 10, "ran_c_light_spear"],
+		["elementalist", "gelo", 10, "ele_c_frost"], ["elementalist", "raio", 10, "ele_c_storm"],
+		["assassin", "laminas", 25, "ass_c_leech"], ["elementalist", "gelo", 25, "ele_c_shield"], ["elementalist", "fogo", 25, "ele_c_mana"]]
+	# toda build x linha: a escolha serve à build (nota >= 1000 = não é de outra build nem gancho sem uso) quando alguma serve
+	var weak: Array = []
+	for cid in gd.classes:
+		for b in gd.classes[cid].builds:
+			for row in ClassTalentsCatalog.rows_of(cid):
+				var o: Dictionary = ClassTalentSystem.bot_choice(row[1], b, b["skills"])
+				var top: int = (row[1] as Array).map(func(x): return ClassTalentSystem.bot_score(x, b, b["skills"])).max()
+				if ClassTalentSystem.bot_score(o, b, b["skills"]) != top or (top < 1000 and int(row[0]) < 35):
+					weak.append("%s/%s %d" % [cid, b["id"], int(row[0])])
+	check(weak.size() <= 1, "bot: toda build x linha tem escolha que serve (sem: %s)" % str(weak))
+	# exceções por build x linha (ClassTalentsCatalog.BOT_PREFER): build de uma classe só, id que existe na linha, e é a escolha
+	for bid in ClassTalentsCatalog.BOT_PREFER:
+		var owners: Array = gd.classes.keys().filter(func(c): return not gd.classes[c].build_by_id(bid).is_empty())
+		check(owners.size() == 1, "bot: BOT_PREFER %s é build de uma classe só (%s)" % [bid, str(owners)])
+		if owners.size() != 1:
+			continue
+		var bd: Dictionary = gd.classes[owners[0]].build_by_id(bid)
+		for lv in ClassTalentsCatalog.BOT_PREFER[bid]:
+			var oid: String = ClassTalentsCatalog.BOT_PREFER[bid][lv]
+			check(_row_of(owners[0], oid) == int(lv), "bot: BOT_PREFER %s nv %d = %s existe nessa linha (linha %d)" % [bid, int(lv), oid, _row_of(owners[0], oid)])
+			for row in ClassTalentsCatalog.rows_of(owners[0]):
+				if int(row[0]) == int(lv):
+					check(ClassTalentSystem.bot_choice(row[1], bd, bd["skills"], int(lv))["id"] == oid, "bot: BOT_PREFER %s nv %d vence a nota" % [bid, int(lv)])
+	check(ClassTalentsCatalog.BOT_PREFER.get("cruzado", {}).get(5, "") == "pal_c_resolve", "bot: Cruzado pega Determinação no nv 5 (solo x death_knight 3/40 -> 34/40)")
+	var cruz: Dictionary = gd.classes["paladin"].build_by_id("cruzado")
+	check(ClassTalentSystem.bot_score(ClassTalentsCatalog.rows_of("paladin")[0][1][0], cruz, cruz["skills"]) < 1000, "bot: Voto do Escudo não serve ao Cruzado (sem escudo)")
+	var rng_state: int = sim.rng.state
+	ClassTalentSystem.bot_picks = true
+	for w in want:
+		var got := {}
+		var moved := 0
+		for seed in [11, 222, 3333, 44444, 5, 66, 777, 8888]:       # sementes diferentes: o sorteio antigo variava aqui
+			var e: SimEntity = sim.spawn_bot(gd.classes[w[0]], "BT", "city_aldara", at + Vector3(-5, 0, 5), int(w[2]))
+			e.brain = null
+			e.build_id = w[1]
+			for nid in e.tree.keys():
+				if gd.trees[w[0]]["nodes"][nid]["kind"] == "pick":
+					e.tree.erase(nid)
+			sim.rng.state = seed
+			ClassTalentSystem.bot_pick(sim, e)
+			if sim.rng.state != seed:
+				moved += 1
+			for o in ClassTalentSystem.picked(e):
+				if _row_of(w[0], o["id"]) == int(w[2]):
+					got[o["id"]] = true
+			sim.despawn(e)
+		check(got.keys() == [w[3]], "bot %s/%s nv %d escolhe sempre %s (%s)" % [w[0], w[1], w[2], w[3], str(got.keys())])
+		check(moved == 0, "bot %s/%s: escolher talento não sorteia (rng andou %d vezes)" % [w[0], w[1], moved])
+	ClassTalentSystem.bot_picks = false
+	sim.rng.state = rng_state
+
+## Linha (nível) de uma opção de talento de classe, ou -1.
+func _row_of(cid: String, oid: String) -> int:
+	for r in ClassTalentsCatalog.rows_of(cid):
+		for o in r[1]:
+			if o["id"] == oid:
+				return int(r[0])
+	return -1
+
+func _check_talents_applied(gd, sim, m: Dictionary, at: Vector3, mk: Callable) -> void:
+	var row_ids := func(cid: String, lv: int) -> Array:
+		for r in ClassTalentsCatalog.rows_of(cid):
+			if int(r[0]) == lv:
+				return (r[1] as Array).map(func(o): return o["id"])
+		return []
+	var want := {
+		["elementalist", 5]: ["ele_c_blazing_ball", "ele_c_live_spark", "ele_c_cold_lance"],
+		["druid", 5]: ["dru_c_crescent", "dru_c_sharp_claws", "dru_c_bark"],
+		["druid", 20]: ["dru_c_moon_howl", "dru_c_roots", "dru_c_wolves"],
+		["necromancer", 15]: ["nec_c_thirsty_scythe", "nec_c_lich", "nec_c_drain"],
+		["necromancer", 20]: ["nec_c_spreading_curse", "nec_c_phantom", "nec_c_reap"],
+		["bishop", 5]: ["bis_c_heal", "bis_c_wound_light", "bis_c_radiant"],
+		["bishop", 15]: ["bis_c_blessed_mace", "bis_c_sanct", "bis_c_zealot"],
+		["assassin", 5]: ["ass_c_venom", "ass_c_pistol_open", "ass_c_ambush"],
+		["ranger", 30]: ["ran_c_chosen_prey", "ran_c_ghost", "ran_c_pack"],
+		["paladin", 10]: ["pal_c_bulwark", "pal_c_flame_strike", "pal_c_faith_arc"],
+		["paladin", 20]: ["pal_c_aura_crusade", "pal_c_living_bastion", "pal_c_judge"],
+	}
+	for k in want:
+		check(row_ids.call(k[0], k[1]) == want[k], "auditoria aplicada: %s nv %d = %s (%s)" % [k[0], k[1], str(want[k]), str(row_ids.call(k[0], k[1]))])
+	# Zelo em uma linha só; nenhuma linha com duas opções de ganchos iguais
+	var zeal := 0
+	for cid in gd.classes:
+		for r in ClassTalentsCatalog.rows_of(cid):
+			var seen := {}
+			for o: Dictionary in r[1]:
+				var hooks := o.duplicate()
+				for x in ["id", "name", "text", "kind", "build"]:
+					hooks.erase(x)
+				check(not seen.has(str(hooks)), "%s nv %d: %s não repete o gancho de outra opção da linha" % [cid, int(r[0]), o["id"]])
+				seen[str(hooks)] = true
+				if "pal_zeal" in o.get("permanent", []) + o.get("aura", []):
+					zeal += 1
+	check(zeal == 1, "Paladino: Zelo em um talento só (%d)" % zeal)
+	# efeitos de verdade (apply_mods)
+	var cases := [["elementalist", "ele_c_live_spark", "ele_spark"], ["elementalist", "ele_c_cold_lance", "ele_ice_lance"], ["bishop", "bis_c_wound_light", "bis_light"],
+		["assassin", "ass_c_pistol_open", "ass_pistol_shot"], ["druid", "dru_c_sharp_claws", "dru_claw"], ["paladin", "pal_c_flame_strike", "pal_sacred_flame"]]
+	for c in cases:
+		var e: SimEntity = mk.call(c[0], 30, c[1], at)
+		var base: SkillDef = gd.skills[c[2]]
+		var got: SkillDef = ClassTalentSystem.apply_mods(e, base)
+		check(got.power > base.power * 1.1, "%s: %s mais forte (%.2f -> %.2f)" % [c[1], c[2], base.power, got.power])
+		sim.despawn(e)
+	var ele: SimEntity = mk.call("elementalist", 5, "ele_c_live_spark", at)
+	check(ClassTalentSystem.apply_mods(ele, gd.skills["ele_spark"]).max_targets == Balance.CT_SPARK_TARGETS, "Faísca Viva: atravessa (%d alvos)" % Balance.CT_SPARK_TARGETS)
+	sim.despawn(ele)
+	ele = mk.call("elementalist", 5, "ele_c_cold_lance", at)
+	check(ClassTalentSystem.apply_mods(ele, gd.skills["ele_ice_lance"]).projectile_pierce, "Lança Fria: a Lança de Gelo atravessa")
+	sim.despawn(ele)
+	var dru: SimEntity = mk.call("druid", 5, "dru_c_sharp_claws", at)
+	var claw: SkillDef = ClassTalentSystem.apply_mods(dru, gd.skills["dru_claw"])
+	check(float(claw.talent_effects["dot"]["duration"]) == float(gd.skills["dru_claw"].effects["dot"]["duration"]) + Balance.CT_DOT_EXTRA_S, "Garras Afiadas: sangra %.0f s a mais" % Balance.CT_DOT_EXTRA_S)
+	sim.despawn(dru)
+	var bis: SimEntity = mk.call("bishop", 20, "bis_c_light", at)
+	check(not ClassTalentSystem.apply_mods(bis, gd.skills["bis_light"]).projectile_pierce, "Mão Firme: não atravessa mais (isso é a Luz que Fere)")
+	sim.despawn(bis)
+	var nec: SimEntity = mk.call("necromancer", 15, "nec_c_thirsty_scythe", at)
+	var reap: SkillDef = ClassTalentSystem.apply_mods(nec, gd.skills["nec_reap"])
+	check(is_equal_approx(float(reap.talent_effects["heal_pct_of_dmg"]), float(gd.skills["nec_reap"].effects["heal_pct_of_dmg"]) * 2.0), "Foice Sedenta: Ceifar cura o dobro")
+	sim.despawn(nec)
+	nec = mk.call("necromancer", 25, "", at)
+	for p in ["nec_c_spreading_curse", "nec_c_doom"]:
+		nec.tree["necromancer_c_" + p] = true
+	sim.recompute_tree_bonus(nec)
+	var doom: SkillDef = ClassTalentSystem.apply_mods(nec, gd.skills["nec_curse_doom"])
+	var base_doom: Dictionary = gd.skills["nec_curse_doom"].effects["curse"]
+	check(float(doom.talent_effects["curse"]["taken_pct"]) > float(base_doom["taken_pct"]) and doom.talent_effects["curse"]["id"] == base_doom["id"]
+		and is_equal_approx(float(doom.talent_effects["curse"]["duration"]), (float(base_doom["duration"]) + Balance.CT_CURSE_EXTRA_S) * 2.0),
+		"Maldição Contagiosa: Condenação mais forte, +%.0f s, e a Maldição Longa dobra por cima (%s)" % [Balance.CT_CURSE_EXTRA_S, str(doom.talent_effects["curse"])])
+	sim.despawn(nec)
+	# Bastião Vivo: o "radius" do talento leva junto o raio da aura (grupo e pulso)
+	var pal: SimEntity = mk.call("paladin", 20, "pal_c_living_bastion", at)
+	var ba: SkillDef = gd.skills["pal_bastion_aura"]
+	var ba2: SkillDef = ClassTalentSystem.apply_mods(pal, ba)
+	check(is_equal_approx(float(ba2.talent_effects["aura"]["radius"]), float(ba.effects["aura"]["radius"]) * Balance.CT_AREA_MULT)
+		and is_equal_approx(float(ba2.talent_effects["aura"]["pulse"]["radius"]), float(ba.effects["aura"]["pulse"]["radius"]) * Balance.CT_AREA_MULT)
+		and float(ba.effects["aura"]["radius"]) == 12.0, "Bastião Vivo: aura %.1f m e pulso %.2f m (skill intacta)" % [float(ba2.talent_effects["aura"]["radius"]), float(ba2.talent_effects["aura"]["pulse"]["radius"])])
+	sim._apply_skill(pal, ba2, m)
+	var on: Array = pal.buffs.filter(func(b): return b.get("id") == "bastion_aura")
+	check(on.size() == 1 and is_equal_approx(float(on[0]["aura"]["radius"]), 12.0 * Balance.CT_AREA_MULT), "Bastião Vivo: a aura ligada leva o raio maior")
+	sim.despawn(pal)
+	# Uivo da Lua (form_stats): +velocidade de ataque só na forma
+	var howl_ok := false
+	for i in 8:
+		var d: SimEntity = mk.call("druid", 20, "", at + Vector3(2, 0, 2))
+		var f := "wolf" if d.stats.meets([Balance.FORM_REQUIRES["wolf"]]) else ("bear" if d.stats.meets([Balance.FORM_REQUIRES["bear"]]) else "")
+		if f == "":
+			sim.despawn(d)
+			continue
+		var aspd := func(form: String, pick: bool) -> float:
+			if pick:
+				d.tree["druid_c_dru_c_moon_howl"] = true
+			else:
+				d.tree.erase("druid_c_dru_c_moon_howl")
+			sim.recompute_tree_bonus(d)
+			d.form = form
+			d.form_mult = 1.0
+			d.recompute_stats()
+			return d.stats.attack_speed
+		var in_off: float = aspd.call(f, false)
+		var in_on: float = aspd.call(f, true)
+		var out_off: float = aspd.call("", false)
+		var out_on: float = aspd.call("", true)
+		check(is_equal_approx(in_on - in_off, float(Balance.CT_FORM_HOWL["aspd_pct"])) and is_equal_approx(out_on, out_off),
+			"Uivo da Lua: +%s velocidade de ataque na forma %s (%.1f -> %.1f), fora dela nada (%.1f / %.1f)" % [Balance.CT_FORM_HOWL["aspd_pct"], f, in_off, in_on, out_off, out_on])
+		howl_ok = true
+		sim.despawn(d)
+		break
+	check(howl_ok, "Uivo da Lua: achou druida com arma de forma para testar")
+	check(Balance.CT_FORM_HOWL.keys().all(func(k): return k in Stats.STAT_KEYS), "Uivo da Lua: form_stats só com stats de Stats.STAT_KEYS")
+	# bots: cada build fica com uma opção que serve a ela (ou genérica) nas linhas trocadas
+	var picks := [["elementalist", "fogo", 5, ["ele_c_blazing_ball"]], ["elementalist", "raio", 5, ["ele_c_live_spark"]], ["elementalist", "gelo", 5, ["ele_c_cold_lance", "ele_c_blazing_ball"]],
+		["druid", "fera", 5, ["dru_c_sharp_claws", "dru_c_bark"]], ["druid", "xama", 5, ["dru_c_crescent", "dru_c_bark"]],
+		["assassin", "corsario", 5, ["ass_c_pistol_open", "ass_c_ambush"]], ["bishop", "inquisidor", 5, ["bis_c_wound_light", "bis_c_radiant"]],
+		["necromancer", "ceifador", 10, ["nec_c_death_blade"]], ["ranger", "lanceiro", 10, ["ran_c_light_spear"]]]
+	var rng_state: int = sim.rng.state
+	ClassTalentSystem.bot_picks = true
+	for p in picks:
+		for i in 4:
+			var b: SimEntity = mk.call(p[0], p[2], "", at + Vector3(-3, 0, 3))
+			b.build_id = p[1]
+			ClassTalentSystem.bot_pick(sim, b)
+			var got_ids: Array = ClassTalentSystem.picked(b).filter(func(o): return o["id"] in row_ids.call(p[0], p[2])).map(func(o): return o["id"])
+			check(got_ids.size() == 1 and got_ids[0] in p[3], "bot %s nv %d escolhe %s (%s)" % [p[1], p[2], str(p[3]), str(got_ids)])
+			sim.despawn(b)
+	# Uivo da Lua só para quem tem forma; Laço de Sangue só para quem tem o lince
+	var howl: Dictionary = ClassTalentsCatalog.rows_of("druid")[3][1][0]
+	var fits := func(cid: String, o: Dictionary, bid: String) -> bool: return (gd.classes[cid].build_by_id(bid)["skills"] as Array).any(func(r): return ClassTalentSystem._hook_fits(o, str(r)))
+	check(fits.call("druid", howl, "fera") and fits.call("druid", howl, "guardiao_verde") and not fits.call("druid", howl, "xama"), "Uivo da Lua: serve ao Lobo e ao Urso (bot)")
+	var bond: Dictionary = ClassTalentsCatalog.rows_of("ranger")[0][1][0]
+	check(fits.call("ranger", bond, "cacador") and not fits.call("ranger", bond, "atirador"), "Laço de Sangue (força do pet): serve ao Caçador (bot)")
+	ClassTalentSystem.bot_picks = false
+	sim.rng.state = rng_state
+	# save: escolha que mudou de linha (acima do nível ou 2 na mesma linha) sai; a que saiu do catálogo não é mais nó
+	var s: SimEntity = mk.call("bishop", 12, "", at)
+	for p in ["bis_c_angel", "bis_c_blessing", "bis_c_prayer", "bis_c_heal"]:
+		s.tree["bishop_c_" + p] = true
+	var dropped := ClassTalentSystem.sanitize_picks(s)
+	var left: Array = s.tree.keys().filter(func(n): return str(n).begins_with("bishop_c_"))
+	check(dropped == 2 and not s.tree.has("bishop_c_bis_c_angel") and s.tree.has("bishop_c_bis_c_heal") and left.size() == 2,
+		"save: talento que mudou de linha (Anjo no 25, dois na linha 10) sai, o resto fica %s" % str(left))
+	sim.despawn(s)
+	check(FileAccess.get_file_as_string("res://core/save_system.gd").contains("ClassTalentSystem.sanitize_picks(p)"), "save: carregar limpa as escolhas fora da linha")
+	for gone in ["paladin_c_pal_c_aura_prot", "paladin_c_pal_c_zeal", "paladin_c_pal_c_aegis", "paladin_c_pal_c_valor", "berserker_c_ber_c_titan",
+			"bishop_c_bis_c_ward", "bishop_c_bis_c_martyr", "bishop_c_bis_c_renew", "bishop_c_bis_c_ascend", "druid_c_dru_c_grove_guard", "druid_c_dru_c_primal",
+			"druid_c_dru_c_regrowth", "ranger_c_ran_c_deadeye", "ranger_c_ran_c_mark", "ranger_c_ran_c_alpha", "ranger_c_ran_c_survivor", "assassin_c_ass_c_reflex",
+			"assassin_c_ass_c_focus", "elementalist_c_ele_c_overload", "elementalist_c_ele_c_armor", "elementalist_c_ele_c_elemental", "necromancer_c_nec_c_bones",
+			"necromancer_c_nec_c_king", "necromancer_c_nec_c_demon"]:
+		var cid: String = gone.get_slice("_c_", 0)
+		check(not gd.trees[cid]["nodes"].has(gone), "talento que saiu não é nó (save só tira a escolha): %s" % gone)
+
+## Regra dos talentos vivos (auditoria 2026-11-16): toda opção da linha N cita ao menos uma skill que abre no nível <= N;
+## gancho genérico que depende de um tipo de skill (invocação com tempo, dano no tempo, forma, força do pet) precisa de
+## uma skill da classe desse tipo aberta até N. Opção só de números (stats/execução/sobrevivência) vale desde a linha.
+func _check_talent_unlock_levels(gd) -> void:
+	var dead: Array = []
+	for cid in gd.classes:
+		var skill_ids: Array = gd.classes[cid].skill_ids
+		for row in ClassTalentsCatalog.rows_of(cid):
+			var lv := int(row[0])
+			for o: Dictionary in row[1]:
+				var refs: Array = o.get("permanent", []) + o.get("aura", []) + o.get("summon_permanent", []) + (o.get("summon_extra", {}) as Dictionary).keys() + (o.get("skill_mods", {}) as Dictionary).keys()
+				if o.has("on_kill") and (o["on_kill"] as Dictionary).has("buff"):
+					refs.append(o["on_kill"]["buff"])
+				if refs.is_empty():
+					if not ClassTalentSystem._typed_hook(o):
+						continue                 # só números: vale desde a linha
+					refs = skill_ids.filter(func(r): return ClassTalentSystem._hook_fits(o, str(r)))
+					if refs.is_empty():
+						dead.append("%s nv %d %s (gancho sem skill do tipo)" % [cid, lv, o["id"]])
+						continue
+				var lvls: Array = refs.map(func(r): return gd.skills[r].unlock_level if gd.skills.has(r) else 99)
+				if lvls.min() > lv:
+					dead.append("%s nv %d %s (%s)" % [cid, lv, o["id"], ", ".join(refs.map(func(r): return "%s:%d" % [r, gd.skills[r].unlock_level if gd.skills.has(r) else 99]))])
+	check(dead.is_empty(), "talentos vivos: toda opção cita skill aberta até o nível da linha (%d mortas) %s" % [dead.size(), str(dead)])
 
 ## Ato II (ato2-horda.md R6/R7, AC-04): linhas 35/40/45, 3 por classe, uma para cada build; bot escolhe a da build;
 ## os refinos que dependem da ascensão ficam em ASC_REFINES_PENDING (dados válidos, fora da janela).
@@ -19245,6 +20666,10 @@ func _check_kharzun_bosses(gd) -> void:
 					var ad2: MonsterDef = gd.monsters.get(str(e.effects["boss_summon"]["id"]))
 					check(ad2 != null and ad2.xp == 0, "%s: invocação %s 0 XP" % [bid, sid])
 		check(b.phases.size() >= (2 if bid == "boss_dire_mother" else 3), "%s: fases suficientes" % bid)
+	# Mãe-Loba (2026-11-16): campo, mas não de papel. Com hp ×0,6 o grupo de 4-5 do 41 a derrubava em ~10 s (Ghar 40: 30-50 s)
+	var mom: MonsterDef = gd.monsters["boss_dire_mother"]
+	var ghar_hp: float = gd.monsters["boss_ghar"].hp
+	check(mom.hp >= ghar_hp * 0.9 and mom.hp <= ghar_hp * 1.3, "Mãe-Loba: vida na faixa do Ghar (%d / %d)" % [mom.hp, ghar_hp])
 	# Durgash: os três estandartes na F2, cada um com o seu efeito de clã
 	var d: MonsterDef = gd.monsters["boss_durgash"]
 	var planted: Array = []
