@@ -60,6 +60,10 @@ Escudo de conjunto: família em `paladin_sets.SET_SHIELDS` (entra em `shield_kit
 Montagem dos escudos: rente ao antebraço, uma entrada por estilo em `chibi_kit.SHIELD_MOUNTS` (todos os estilos; achada por `shield_mount_study.py`, gravada por
 `shield_mount_apply.py`); a alça vai soldada na malha do escudo (`kit_shield_strap`, 0 malhas a mais) e é aparada na silhueta da placa (`STRAP_CLIP`; `STRAP_HOLES` =
 escudos em que um vão da placa também apara). Monstros com escudo ficam na montagem afastada, sem alça (`kit_shield(close=False)`). Ícone de alguns estilos: `shield_icons.tscn -- --only=<estilo>,...`.
+Escudos altos (`shield_kit.TALL`, 17 estilos; espelho em `KitModel.TALL_SHIELDS`): clipes próprios `run_shield_tall` e `block_shield_tall` (`chibi_kit.animate_tall_shield`, só o braço
+esquerdo muda; só nos kits de `SHIELD_CLASSES`, fora do `animate_v3`, então os outros kits e os monstros não mudam) e montagem medida neles (`ck.shield_clip`, usado pelo estudo e pelo
+`shield_mount.py -- --check`). `shield_kit.ELBOW` = canto de cima do lado do cotovelo aparado por estilo (k, x0, z0; `--trim=` do estudo experimenta sem editar); vale só com
+`kit_shield(close=True)` e também no `shield_mount_study.legacy_shield`. `shield_mount_apply.py` mantém as entradas dos estilos que o json não traz.
 Kits por classe: `build_kits` gera `kit_<classe>_<male|female>.glb` (os dois sexos: criação de personagem) (corpo + peças comuns + SÓ os conjuntos/armas/escudos dela, pelo prefixo em
 `chibi_kit.CLASS_PREFIX`; escudos só em `SHIELD_CLASSES`) e `kit_<male|female>` genéricos para NPCs; `KitModel.create(..., class_id)`.
 Classe nova com conjuntos: adicione o prefixo em `CLASS_PREFIX`.

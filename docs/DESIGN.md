@@ -35,6 +35,9 @@ Os coeficientes valem por `Balance.ATTR_SCALE` (10) pontos de atributo: "/pt" na
 
 Esquiva da AGI (decisão do autor, 2026-11-12; `Stats.agi_evasion`, `Balance.EVASION_AGI_REF/REF_PCT/EXP`): AGI 140 (escala antiga, build toda em
 AGI no 45) = 10%; 40 (força com AGI de passagem) = 2%; 78 (Carniceiro) = 4,8%; magos 0%. Monstros não esquivam; dano no tempo não é esquivado.
+Lanceiro (decisão do autor, 2026-11-16, opção B): +5% de esquiva própria (`Balance.LANCEIRO_EVASION_PCT`) no notável **Passo do Caçador**,
+o 1º notável do setor do Lanceiro na teia (`Balance.BUILD_WEB_NOTABLES` troca o bônus sorteado desse notável; mantém o atributo e o sorteio
+da teia). Custa caminho na teia (não vem de graça no nível 1); o bot da build compra. A curva da AGI e as outras builds não mudam. Check `_check_lanceiro_evasion`.
 Zona avisada no chão (assinaturas e perigos de chefe: ilhas, marca, chuva, anel, avalanche, contragolpe) não é esquivada pela AGI: só sair dela salva (decisão 2026-11-13; `BossSignatures._hit` → `_deal_damage(..., dodgeable=false)`).
 
 Dano = (ATK × poder − DEF × 0.5, mín. 15% do bruto) × variação ±10% × crit 1.5. Bloqueio ativo (RMB) sempre bloqueia e soma +25% de redução
@@ -449,7 +452,7 @@ Proposta aprovada: `design/gdd/ato2-proposals-2026-11-11.md` §2 opção A. O li
   (`_falcao`, `_mergulho`, `_revoada`). Peso F5: `ASC_BUILD_POWER["cacador"]` 0,3 (multiplica só o dano dos mergulhos; com 1,0, Presa 6% e crítico 8 o Falcoeiro dava ×1,18 sem o freio da ameaça).
 
 ## Pontos de skill: teia (estilo Path of Exile)
-Regras completas, fórmulas e critérios em `design/gdd/progression.md` (a teia está descrita em "Teia de skills" mais abaixo). A barra 1-6 só se troca na cidade; resetar a teia é grátis perto do Ancião ou do Sumo Sacerdote (`SKILL_RESET_NPCS`).
+Regras completas, fórmulas e critérios em `design/gdd/progression.md` (a teia está descrita em "Teia de skills" mais abaixo). A barra 1-6 se troca em qualquer lugar (`Balance.LOADOUT_TOWN_ONLY`, liberado em 2026-11-16); resetar a teia é grátis perto do Ancião ou do Sumo Sacerdote (`SKILL_RESET_NPCS`).
 
 ## Lendários com visual próprio (`GearCatalog.SET_VISUALS`)
 Arte de referência em `reference/<classe>/set_N/` (frente, costas, ícones). Cada um vira um estilo do kit (`chibi_kit.SET_STYLES`,
@@ -499,7 +502,7 @@ Save antigo recebe os pontos de volta. Bots compram o caminho mais curto até as
 (`ClassTalentsCatalog`): buffs que ficam **permanentes** ou viram **aura** para o grupo (15 m), invocações que **ficam para sempre**
 (elemental, esqueletos, lobos, Ent), **recusa a morrer** (1 HP e imortal por alguns segundos, com recarga), execução, emboscada mais forte,
 mana como escudo, cura no abate etc. Um por linha, grátis (liberado pelo nível), trocar na cidade (`Balance.PICK_SWAP_TOWN_ONLY`); o reset
-das skills mantém as escolhas. **Ato II**: linhas novas aos **35, 40 e 45** (9 linhas no total), com uma escolha pensada para cada
+das skills mantém as escolhas. Bots (2026-11-16) escolhem sem sorteio pela nota `ClassTalentSystem.bot_score`: opção marcada para a build (35+) > cita skill da build (quanto mais cedo na prioridade, melhor) > gancho genérico que serve > só números (o Coração do elemento da build vale mais) > sem uso (Juramento sem escudo, armadilha sem skill de armadilha, gancho tipado sem skill do tipo); empate pelo tipo que o papel da build prefere, depois a ordem do catálogo. Exceções por build x linha em `ClassTalentsCatalog.BOT_PREFER` vencem a nota (onde a sobrevivência carrega a build solo): Cruzado 5 Determinação, Lâminas 25 Lâmina Sedenta, Gelo 25 Escudo de Mana (medição na auditoria, "Bots: exceções por build"). Necromante nv 5 (2026-11-16, pedido do jogador): Exército Eterno, **Mortos sem Pressa** (invocações com tempo ×`NEC_TALENT_SUMMON_TIME` 2, gancho `summon_time`) e **Podridão Lenta** (dano no tempo mágico ×`NEC_TALENT_DOT_TIME` 1,25 de duração e ×`NEC_TALENT_DOT_DPS` 1,15 por segundo, gancho `dot_boost`); bot fica com o gancho genérico se a build tem skill do tipo (`ClassTalentSystem._hook_fits`); escolha que sai do catálogo só some do save (a teia fica). Auditoria das 8 classes: `design/balance/class-talents-audit-2026-11-16.md`. Aplicada no mesmo dia (opção A): **regra dos talentos vivos** — toda opção da linha N cita uma skill que abre até o nível N (gancho genérico precisa de skill do tipo aberta; check `_check_talent_unlock_levels`); as 22 opções mortas e as repetidas saíram ou mudaram de linha (Elementalista 5 Bola Ardente/Faísca Viva/Lança Fria, Druida 5 Garras Afiadas/Lua Crescente, Druida 20 **Uivo da Lua** = +15% de velocidade de ataque só na forma, gancho `form_stats`, Necromante 15 Foice Sedenta e 20 Maldição Contagiosa, Bispo 5 Luz que Fere e 15 Martelo Abençoado, Assassino 5 Tiro de Abertura, Ranger 30 Presa Escolhida, Paladino 10 Golpe Ardente e 20 Bastião Vivo; lista completa na seção "Applied" da auditoria; números em `Balance.CT_*`). Talento que mudou de linha sai do save se ficou acima do nível ou repetiu a linha (`ClassTalentSystem.sanitize_picks`); os mods das escolhas valem na ordem das linhas (`set`/`effects` antes dos `mult`) e `mult.radius` numa skill de aura estica o raio do grupo e do pulso. **Ato II**: linhas novas aos **35, 40 e 45** (9 linhas no total), com uma escolha pensada para cada
 build da classe (`build` na opção, sem trava; o bot fica com a da build dele). A 35 reforça a identidade da build para as lutas do Ato II
 (bandos com líder, trolls, assassinos, investidas) sem depender da ascensão; 40/45 são refinos de skills que já existem. Os refinos de
 ascensão do GDD (R6.1) que precisam de mecânica ainda não feita ficam listados em `ClassTalentsCatalog.ASC_REFINES_PENDING` (só dados). Em 2026-11-11 saíram de lá para portões da teia de ascensão: Lança Pesada (Cruzado 40, `pal_long_lance`: Carga Montada ×`MOUNT_LANCE_MULT` 1,3), Torreta Firme/Veterana e Salamandra/Golem de Gelo/Silfo; o refino da Corrente de Luz (skill cortada) foi removido. Em 2026-11-12 saíram os últimos (a lista está vazia; check `_check_asc_refines`), todos portões de custo 3:
@@ -593,7 +596,7 @@ Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MS
 - **Vale de Aldara** (`city_aldara`, 300 m — cresceu 20% em volta da vila com `places.grow_aldara`, `tools/blender/zones/build_city_aldara.py` → `map_city_aldara.glb` +
   `data/zones/city_aldara.json`): vila murada (raio 30, portões N/L/S/O) com praça, chafariz e NPCs — Ancião Ravi, Capitã Mira,
   Brom (ferreiro), Lyra (alquimista), Tobias (mercador), Quadro, guardas nos portões. A vila é uma **região** do mapa
-  (`MapDef.town_radius`/`in_town`): só dentro dela vale "cidade" (bots não lutam, troca de barra de skills).
+  (`MapDef.town_radius`/`in_town`): só dentro dela vale "cidade" (bots não lutam).
   **Campina (1-10)** no mesmo vale: lago dos slimes (sul), slime azul no lago/fazenda, bosque dos javalis (leste),
   colinas dos lobos com torre em ruínas (norte), clareira do Rei Javali (oeste, além da ponte), castelo na colina (NE, landmark).
   Desfiladeiros na borda: leste → Floresta, oeste → Ruínas. Bots saem/entram pela vila pelos portões (`BotBrain._route`).
@@ -843,7 +846,7 @@ grupo completo (no Besteiro, que bate forte de perto, passava de 1). Rainha Aran
 substitutos `mob_*` de chefe que têm os gestos das skills, check `_check_anim_review`). Lacaios são do chefe (0 XP, sem loot). Falas = placeholder (narrative-director).
 | Chefe | Onde / nível | F2 / F3 / F4 | Substituto → modelo pretendido |
 |---|---|---|---|
-| Presa-de-Cinza, a Mãe-Loba (`boss_dire_mother`, campo) | Canil, 41 (chefe F2 hp ×0,6, atk ×0,7) | 60%: uivo + 2 Crias; 30%: fúria ×1,3. Sem berserk (campo) | `mob_boar` cinza (tem os gestos de chefe quadrúpede) → `mob_dire_mother` |
+| Presa-de-Cinza, a Mãe-Loba (`boss_dire_mother`, campo) | Canil, 41 (chefe F2 hp ×1,85 (era ×0,6, ver abaixo), atk ×0,7) | 60%: uivo + 2 Crias; 30%: fúria ×1,3. Sem berserk (campo) | `mob_boar` cinza (tem os gestos de chefe quadrúpede) → `mob_dire_mother` |
 | Mestre Matador Shazka (`boss_shazka`) | `dg_slayers`, 43 | 70%: some (furtividade 1,5 s), Passo nas Costas no frágil, 2 Sombras-Aprendizes no frágil, ward 0,5; 35%: Nuvens de Veneno + Golpe de Misericórdia (frágil); 15%: fúria | `mob_agitator_lord` → `mob_shazka` |
 | Ulgra Presa-Atroz (`boss_ulgra`) | cidadela W, 44 | 70%: Ginetes; 40%: ward 0,5 + Ginetes no mais longe; 15%: Chuva de Lanças + fúria. Investida 9 m, Corrente de Caça (puxa o mais longe) | `mob_ghar` → `mob_ulgra` |
 | Gorbash Pele-de-Rocha (`boss_gorbash`) | cidadela E, 44 (regen ×0,3) | 70%: 2 Xamãs-Pedra que CURAM o chefe (`mob_stone_mend`), ward 0,5; 40%: abalo que atordoa + desabamento; 15%: fúria | `mob_troll_king` → `mob_gorbash` |
@@ -856,6 +859,7 @@ Sonda em **ARENA PROVISÓRIA** (`boss_probe.ARENA_AT`: forte do Ghar, no lugar d
 | Chefe | Alvo | Completo (Guardião, Sacerdote, Executor, Fogo [+ Bispo Batalha]) | Sorteados | Notas |
 |---|---|---|---|---|
 | Presa-de-Cinza (campo, `--bands`) | solo 60-100%, trio 90-100% | — | solo 18/20 (90%, 50 s), trio 20/20 (13 s), kite 6/6 | BAND OK |
+| Presa-de-Cinza, hp ×0,6 → ×1,85 (2026-11-16, arena do Canil, 40 lutas) | campo + grupo `--asc` de 4-5 perto dos pares da faixa 40 (Troll Rei/Vorgul/Ghar 30-50 s) | `--asc` 4: 40/40 → 39/40, 10,3 → 28,4 s, 0,0 → 0,1 morte · 5: 40/40 → 38/40, 10,6 → 25,3 s, 0,0 → 0,3 | `--bands`: solo 20/20 68 s → 28/40 (70%) 156 s, trio 20/20 13 s → 37/40 46 s, kite 0/13 | BAND OK. Com ×0,6 caía antes de usar o kit (Três Botes 0,1 uso/luta). ×2,0 dava grupo 32/29 s mas solo 57% (fora do campo): ~28 s é o teto de um chefe que dá para solar. Check `_check_kharzun_bosses` (vida 0,9-1,3× a do Ghar) |
 | Shazka (hp ×1,8, atk ×0,95) | completo ≥ 95%, 4 sorteados 65-85% | 20/20, 1,1 morte, 58 s (números anteriores, mais fortes) | 30/40 (75%), 1,8 morte, 43 s | |
 | Ulgra (hp ×1,85, atk ×1,3; ×1,15 com a assinatura, ver Assinaturas) | idem | 20/20, 0,7 morte, 51 s (atk 1,4) | 28/40 (70%), 2,0, 45 s | |
 | Gorbash (hp ×1,85, atk ×1,3; Xamã matk 50) | idem | 20/20, 0,2 morte, 60 s (atk 1,6) | 26/40 (65%), 1,8, 51 s | no piso |

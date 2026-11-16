@@ -11,10 +11,10 @@
   notável (`ARM_NOTABLES`/`RING_NOTABLES`, duas entradas). Setores por ramo; skill de nível alto mais longe. Há check de folga (`windows.NODE_PX`/`WEB_UNIT`). 8 pontos por nível (`Balance.points_at`); estradas/junções só caminho. Quanto a teia dá: `--headless --path . tools/tests/web_probe.tscn -- [--level=30]` (alvo: média das builds ATK x1,3-1,5 e HP x1,1-1,3, cada build ATK×HP x1,2-2,3; `Balance.WEB_GAIN_*`, check `_check_web_strength`). Bots compram
   caminho na teia (`ProgressionSystem.bot_spend`). Revisar: `--bag_shot=<png> --wins=skills --level=<n> [--build_i=N]` (arrastar/zoom/busca na janela K).
   **Talentos de classe** (aba Talentos): `data/catalog/class_talents_catalog.gd`, 9 linhas (`ROW_LEVELS` 5..45) × 3 por classe, um por linha (nós `pick` `<classe>_c_<id>`;
-  35/40/45 têm uma opção por build com a chave `build`, sem trava: só diz qual o bot da build escolhe; os refinos de ascensão viraram portões na teia de ascensão (`AscensionCatalog.NODES`),
+  35/40/45 têm uma opção por build com a chave `build`, sem trava: só diz qual o bot da build escolhe (nas outras linhas o bot fica com a de maior `ClassTalentSystem.bot_score`: cita skill da build > gancho que serve > números; sem sorteio; exceção por build x linha em `ClassTalentsCatalog.BOT_PREFER`, vence a nota; check `_check_bot_talent_prefs`); os refinos de ascensão viraram portões na teia de ascensão (`AscensionCatalog.NODES`),
   `WorldSim.pick_sibling`, troca na cidade). Ganchos: `permanent`/`aura` (buff da skill sempre ativo / em você e no grupo), `summon_permanent`/`summon_extra`,
-  `skill_mods`, `stats`, `form_mult`/`form_time`, `cheat_death`, `ally_save`, `on_kill`, `low_hp`, `execute`, `regen`, `mana_shield`, `ambush_mult`, `trap_max`, `oath_max`;
-  regras em `core/sim/systems/class_talent_system.gd` (há check que todo gancho/skill citado existe). Revisar `--bag_shot=<png> --wins=skills --picks --level=30`.
+  `skill_mods`, `stats`, `form_mult`/`form_time`/`form_stats` (bônus só na forma), `cheat_death`, `ally_save`, `on_kill`, `low_hp`, `execute`, `regen`, `mana_shield`, `ambush_mult`, `trap_max`, `oath_max`, `summon_time` (invocação com tempo dura ×N), `dot_boost` (dano no tempo mágico: duração/dps);
+  regras em `core/sim/systems/class_talent_system.gd` (há check que todo gancho/skill citado existe e que toda opção da linha N cita skill aberta até N, `_check_talent_unlock_levels`; gancho genérico conta pela skill do tipo em `ClassTalentSystem._hook_fits`; números novos em `Balance.CT_*`; talento que muda de linha passa por `sanitize_picks` no save). Revisar `--bag_shot=<png> --wins=skills --picks --level=30`.
   **Ascensão** (35/40/45, missão `hx_asc_<classe>`; GDD `ato2-horda` R6): skill com `SkillDef.ascension` entra sozinha na **teia de ascensão** da classe
   (`data/catalog/ascension_catalog.gd`: `NODES[<classe>]` passivos/portões por ramo de build, ids `<classe>_a_*`, `flag` lido pela regra via
   `ProgressionSystem.asc_flag`; pontos próprios `Balance.ASC_POINTS_PER_LEVEL`/`ASC_QUEST_POINTS` = 6/21/36). A barra ganha `Balance.ASC_SLOTS` vagas
@@ -34,11 +34,18 @@
   Filme o clipe de perto (`lineup --strip`, de lado e `--front`): a bancada mostra tempo e efeito, não a pose.
 - **Escudo**: linha em `GearCatalog.SHIELDS` (modelo próprio em `tools/blender/shield_kit.py`, um por escudo; afinidade em `GearCatalog.SHIELD_AFFINITY` dá Juramento/Graça; ícone é foto do modelo: `tools/icons/shield_icons.tscn`; `shield_effect` = reação ao bloquear).
   Rode `build_kits` e `tools/icons/shield_icons.tscn` (com janela) + `--import`. Revisar: `-- --autostart=paladin --block_shot=<png> [--shield=<id>]`, `lineup.tscn -- --shields [--page=N] --anim=block_shield`, `--block_film`; montagem e guarda: `tools/blender/shield_mount.py` (sem args resolve `SHIELD_*` no idle; `-- --guard` acha o braço do
-  `block_shield`; `-- --check` conta toques fora do braço esquerdo em idle/corrida/guarda, os 18 escudos). Mudou montagem ou pose: rode `--check`.
+  `block_shield`; `-- --check` conta toques fora do braço esquerdo em idle/corrida/guarda, cada escudo nos clipes que ele toca). Mudou montagem ou pose: rode `--check`.
   Montagem rente (2026-11-15): todo escudo do jogador tem entrada em `chibi_kit.SHIELD_MOUNTS` (placa encostada no antebraço até onde o tamanho deixa)
   e a alça vai soldada na malha dele (não existe mais `wpn_off_grip`). Escudo novo ou pose de guarda/corrida mudada:
   `blender -b --factory-startup --python tools/blender/shield_mount_study.py -- --out=<pasta> [--only=<estilo>]` (procura, mede, fotografa antes/depois;
-  `--kit_mounts` só confere as do kit, `--wear=<estilo de conjunto>` veste um conjunto na foto) e `python tools/blender/shield_mount_apply.py <pasta>/study.json`.
+  `--kit_mounts` só confere as do kit, `--wear=<estilo de conjunto>` veste um conjunto na foto) e `python tools/blender/shield_mount_apply.py <pasta>/study.json`
+  (o apply troca só os estilos do json; os outros ficam como estão).
+  Escudos altos (2026-11-16): os 17 estilos de `shield_kit.TALL` (= `KitModel.TALL_SHIELDS`, mantenha os dois iguais) correm em `run_shield_tall` (braço do escudo quieto)
+  e bloqueiam em `block_shield_tall` (braço mais baixo); montados, `block_ride_tall` (`RidePose.GUARD_SOURCES`). Os clipes só existem nos kits de `SHIELD_CLASSES`
+  (`chibi_kit.animate_tall_shield`) e quem escolhe é `KitModel.tall_clip/run_clip/guard_clip` (`tall_shield`, ligado no `apply_equipment`); a montagem deles é medida nesses
+  clipes (`ck.shield_clip`). Cinco têm o canto do cotovelo aparado (`shield_kit.ELBOW`, só no kit do jogador): mexeu lá = estudo `--only=<estilo>`, apply, kits e ícone.
+  Escudo alto novo: entra em `TALL` e em `TALL_SHIELDS` antes do estudo. Revisar: `lineup.tscn -- --shields --styles=<estilo>,... --anim=run|block_shield [--phase=0.25]
+  [--shield_view=game|side] [--plain]`, `--strip=<classe> --shield=<item>`, `--mounted --guard=<item>,... [--shield_side]`. Check `_check_tall_shields`.
 - **Build**: uma entrada `_b(...)` em `classes_catalog.gd` diz tudo da build: armas, armadura, atributos, skills em prioridade,
   `passives`/`set_extra`, `of` ("do X" das peças), `signature` (magia-assinatura + `look` do básico), `legend` (kind/name/skill
   da arma lendária) e, no Elementalista, `element`. Números por build ficam em `Balance` (`BUILD_POWER`, `SIGNATURE_BUILD_POWER`,
@@ -97,6 +104,22 @@
   e quanto o boneco fica parado entre básicos segurados. `FLAG` = problema; mexeu em timing de skill ou clipe, rode e deixe em 0 (o Cruzado tem 0,16 s de ritmo de arma pesada, aceito).
   Formas de bicho: `EntityView.FORM_CLIP` manda o gesto humano para `maul/pounce/slam/roar/brace` (`druid_sets.form_clips`); gesto longo repete na fase ativa (`ACTIVE_LOOP`).
   Filme de clipe de monstro/forma: `lineup.tscn -- --mob_strip=<modelo> --anim=<clipe>`.
+- **Arco de golpe por família de arma** (`game/fx/weapon_arcs.gd`, `WeaponArcs`; só apresentação, nunca muda tempo nem dano): no tick do dano de golpe
+  físico em cone (básico e skills de leque) desenha um crescente do tamanho do cone REAL da `SkillDef`, faíscas/estrela no alvo e hit-stop LOCAL (só quem bate e quem apanha).
+  `FAMILIES[<tipo de arma>]` = aparência: `band` (cor da faixa no tema físico; tema mágico usa a cor do tema puxada para o branco, `THEME_WHITE`, e `THEME_WHITE_BY`
+  por tema, ex. `blood` 0,35: o vermelho cheio é do aviso de golpe), `rim` (contorno; família invertida = faixa escura e contorno claro, os machados), `glow`, `stop_mult`
+  (× quadros de parada da sim, teto `STOP_CAP_FRAMES`), `angle_pad/inner/tilt/height/life/push`; arco em pé exige `S_KEYS`, cunha de estocada `W_KEYS`; `"on": false` = só cor decidida.
+  Cores: `production/qa/attack-arc-colours.md`. `CLIP_ARC["clipe|família"]` (ou `"clipe|*"`) = `[lado, forma, início]`: lado +1/-1/0 (para onde a lâmina corre no impacto;
+  0 = de cima), forma `F` crescente deitado / `S` em pé / `W` cunha, 3º número opcional = progresso com que o arco nasce (golpe já passou do pico). Os lados saem da tabela de
+  golpes medida nos kits, `production/qa/evidence/attack-arcs/swing_table.json` (evidência; os checks `_check_weapon_arcs*` a releem). Família nova: linha em `FAMILIES`
+  (cor aprovada no doc de cores) + linhas `CLIP_ARC` dos clipes dela conferidas na tabela + check; sem linha a arma fica no rastro antigo.
+  **Formas de bicho do Druida** (onda 6): `FORM_FAMILY` (lobo/Alfa = `form_wolf`, urso = `form_bear`, Ent = `form_ent`) vence a arma; marcas no CHÃO (forma K, riscos de garra,
+  `K_KEYS`, nunca aro/disco (`QUIET_FORMS` = Ent, urso, lobo, Alfa: o pisão sai sem o aro do golpe em volta de si), alfa ≤ 0,6, vida ≤ 0,2 s, sempre a cor da forma, nunca a do tema: vermelho no chão é aviso de chefe) por `FORM_ARC["clipe do bicho|forma"]` = `[tipo rake/skid/stomp/bite, x, z, quadro(, alfa)]`
+  (contato medido no modelo; quadro > 0 = gancho da `EntityView`, a 2ª garra do maul); `FORM_STANDING` = crescente em pé (galho do Ent). Pool próprio `K_POOL`.
+  Medir ossos de um GLB por quadro: `--headless --path . -s tools/lineup/arc_measure.gd -- --model=<glb> --clip=<clipe> [--bones=hand.R,hand.L] [--from=N --to=N]`.
+  Revisar: `tools/lineup/arc_film.sh --class=<c> [--build=<b>] [--main=<item|tipo>] [--off=<item|tipo|none>] [--skill=<id|basic|basic_phys>] [--name=<rótulo>] [--cams=9,24]
+  [--map=<id> [--at=x,z]] --out=<pasta>` (várias tomadas: `--take=<rótulo>:<skill>:<main>:<off>[:<build>[:<forma>]]` repetido, `--form=<wolf|bear|alpha|ent>`; um Godot por câmera, janela fora da tela, sem som):
+  `strip_cam<C>_<rótulo>.png` (18 quadros a 60 Hz, impacto em amarelo) + `.txt` (tempo/clipe por quadro) e `full_cam<C>_<rótulo>_imp.png` (tela inteira logo depois do dano).
 - **Colheita**: ponto em `MapsCatalog.GATHER[<mapa>]` (item, forma `herb|herb_blue|ore|star|shell|mushroom|relic|crate`, centro, raio, quantos); a sim espalha
   (`GatherSystem.spread_gather`), F colhe (`GatherSystem.start_gather/update_gather`), visual em `game/world/gather_view.gd`. Item novo precisa de arte (`item_icons`).
 - **Entrega**: quest COLLECT com `give_items` (o pacote) e `turnin_npc` diferente do `giver_npc`. XP de quest é escalada por faixa (`QuestsCatalog.scale_xp`):
@@ -114,7 +137,7 @@
 - **Quest**: `quests_catalog.gd` (KILL/COLLECT/TALK/CRAFT/REACH; NPC giver precisa existir em algum `MapDef.npcs`). `prereq_all` junta ramos, `reward_gear_tier` dá peça vestível, `repeatable` é recompensa de quadro.
 - **Mapa/zona**: siga "Layout de zonas" abaixo (`/layout-zone`). O `MapDef` continua sendo a verdade da sim
   (obstáculos = colisão, portais, spawners, NPCs); o visual da zona vem do Blender (`map_<zona>.glb`).
-- **Som**: banco em `assets/audio/sfx/<nome>_<n>.<ogg|wav>`, todo gerado por `python tools/audio/build_sfx.py` (+ `--import`): `CC0` = arquivos dos pacotes
+- **Som**: banco em `assets/audio/sfx/<nome>_<n>.<ogg|wav>`, todo gerado por `python tools/audio/build_sfx.py [--only=<nome>,...]` (+ `--import`; `--only` refaz só esses nomes): `CC0` = arquivos dos pacotes
   do OpenGameArt (baixados para `.godot/sfx_cache`), `SYNTH` = funções `s_<nome>` (biblioteca padrão, semente fixa). Nome novo precisa de volume em `Sfx.VOL`
   (`game/audio/sfx.gd`; há check) e de um gancho em evento lá. Tema de skill novo = entrada em `Sfx.THEME_SOUND`. Monstros: `Sfx.MOB_VOICE` (id ou prefixo → [entrar em luta, lançar skill, morrer]),
   `CAST_SOUND` (skill com som próprio na fase ativa), `EFFECT_SOUND` (no impacto), `AURA_SOUND` (aura de `MonsterDef.aura` em laço, ex. tambor do Agitador), `BUFF_SOUND` (buff de monstro que pulsa enquanto dura, ex. regeneração do troll).
