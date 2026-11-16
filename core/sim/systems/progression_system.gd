@@ -453,8 +453,9 @@ static func tree_allocate(sim: WorldSim, e: SimEntity, node_id: String, batch: b
 			e.learned[ref] = true
 			e.mastery[ref] = e.mastery_of(ref)
 			var free := ItemSystem.first_free_slot(sim, e)
-			if free >= 0 and e.slot_of(ref) < 0:
-				e.skills[free] = GameData.skills[ref]
+			var learned_sk: SkillDef = GameData.skills[ref]
+			if free >= 0 and e.slot_of(ref) < 0 and e.stats.meets(learned_sk.requires):     # arma que não serve: fica na janela K, não ocupa a barra
+				e.skills[free] = learned_sk
 		"talent":
 			e.talents[ref] = true
 		"mastery":

@@ -1873,6 +1873,100 @@ func _hotbar_drag_check() -> void:
 	await _fake_drag(main.hud.skill_slots[5]["root"], main.hud.skill_slots[0]["root"])     # HUD 6 -> 1: troca
 	var got0: String = p.skills[0].id if p.skills[0] else ""
 	print("HOTBAR_DRAG hud 6->1 slot1=%s ok=%s" % [got0, got0 == sid])
+	await _hotbar_clear_check()
+
+## Relato do Lanceiro (2026-11-16): skill de arco presa na barra. --lancer = Ranger nível 20 da build Lanceiro com lança;
+## botão direito num slot do HUD esvazia, skill da janela K por cima de uma de arco a troca, arrastar para fora da barra tira.
+func _hotbar_clear_check() -> void:
+	var w = main.hud.windows_script
+	var p := Sim.player
+	if DevArgs.has("--lancer") and p.class_def.id == "ranger":
+		p.level = 20
+		p.build_id = "lanceiro"
+		ProgressionSystem.bot_spend(Sim, p, true)
+		p.build_id = ""
+		for iid in GameData.items:
+			var it: ItemDef = GameData.items[iid]
+			if it.weapon_type == "spear" and it.level_req <= p.level and it.base_id == "":
+				p.equipment[it.slot] = it
+				break
+		var lan: Array = p.class_def.build_by_id("lanceiro").get("skills", [])
+		var k := 2
+		for i in range(Balance.SKILL_SLOTS):
+			p.skills[i] = null
+		p.skills[0] = GameData.skills["ran_power_shot"]     # o começo do Ranger: 2 de arco + 4 de lança
+		p.skills[1] = GameData.skills["ran_disengage"]
+		for sid in lan:
+			if k < Balance.SKILL_SLOTS and p.knows(sid) and p.slot_of(sid) < 0:
+				p.skills[k] = GameData.skills[sid]
+				k += 1
+		p.recompute_stats()
+		Events.equipment_changed.emit(p.id)
+		await get_tree().process_frame
+	print("HOTBAR_CLEAR bar=%s" % [p.skills.slice(0, Balance.SKILL_SLOTS).map(func(s): return s.id if s else "")])
+	var vp := get_viewport()
+	var at: Vector2 = main.hud.skill_slots[0]["root"].get_global_transform_with_canvas() * (main.hud.skill_slots[0]["root"].size * 0.5)
+	var ev := InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_RIGHT
+	ev.pressed = true
+	ev.position = at; ev.global_position = at
+	vp.push_input(ev, true)
+	var up: InputEventMouseButton = ev.duplicate()
+	up.pressed = false
+	vp.push_input(up, true)
+	await get_tree().process_frame
+	print("HOTBAR_CLEAR right-click slot1 empty=%s ok=%s" % [p.skills[0] == null, p.skills[0] == null])
+	var spare := ""
+	for s in p.class_def.skill_ids:
+		if p.knows(s) and p.slot_of(s) < 0 and not GameData.skills[s].ascension and (spare == "" or p.stats.meets(GameData.skills[s].requires)):
+			spare = s          # de preferência uma que a arma na mão permite
+			if p.stats.meets(GameData.skills[s].requires):
+				break
+	var bow_at := -1
+	for i in range(Balance.SKILL_SLOTS):
+		if p.skills[i] and p.skills[i].id != spare and not p.stats.meets(p.skills[i].requires):
+			bow_at = i
+			break
+	bow_at = bow_at if bow_at >= 0 else 1
+	var was: String = p.skills[bow_at].id if p.skills[bow_at] else ""
+	w.toggle("skills")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var card: Control = w.drag_sources.get(spare)
+	if card:
+		await _fake_drag(card, w.drag_sources["bar_%d" % bow_at])
+	var now: String = p.skills[bow_at].id if p.skills[bow_at] else ""
+	print("HOTBAR_CLEAR K %s over %s slot%d=%s ok=%s" % [spare, was, bow_at + 1, now, now == spare and spare != "" and p.slot_of(was) < 0])
+	w.close_all()
+	await get_tree().process_frame
+	var gone: String = p.skills[2].id if p.skills[2] else ""
+	var hud_root: Control = main.hud.skill_slots[2]["root"]
+	var off := Control.new()             # alvo do arrasto: um ponto no meio da tela, longe da barra
+	off.size = Vector2(4, 4)
+	off.position = get_viewport().get_visible_rect().size * Vector2(0.5, 0.35)
+	main.hud.add_child(off)
+	await get_tree().process_frame
+	await _fake_drag(hud_root, off)
+	off.queue_free()
+	print("HOTBAR_CLEAR drag-off %s slot3 empty=%s ok=%s" % [gone, p.skills[2] == null, gone != "" and p.skills[2] == null])
+	if DevArgs.has("--field"):          # fora da cidade: a troca é recusada e o aviso aparece na tela (foto logo depois)
+		var md: MapDef = Sim.maps[p.map_id]["def"]
+		for r in [40.0, 60.0, 80.0, 100.0]:
+			var spot: Vector3 = md.town_center + Vector3(r, 0, 0)
+			if not md.in_hub(spot) and Sim.is_walkable(spot, md):
+				p.position = spot
+				break
+		await get_tree().create_timer(0.5).timeout
+		var keep: String = p.skills[3].id if p.skills[3] else ""
+		var at3: Vector2 = main.hud.skill_slots[3]["root"].get_global_transform_with_canvas() * (main.hud.skill_slots[3]["root"].size * 0.5)
+		var rc := InputEventMouseButton.new()
+		rc.button_index = MOUSE_BUTTON_RIGHT
+		rc.pressed = true
+		rc.position = at3; rc.global_position = at3
+		vp.push_input(rc, true)
+		await get_tree().process_frame
+		print("HOTBAR_CLEAR field right-click kept=%s ok=%s" % [keep, p.skills[3] != null and p.skills[3].id == keep])
+	await get_tree().create_timer(0.3).timeout
 
 func _dnd_check() -> void:
 	var w = main.hud.windows_script
@@ -2001,6 +2095,32 @@ func _bag_shot(path: String) -> void:
 		Sim.player.add_item("iron_ore", 1)                  # item do jogador: reconstrói e mantém a rolagem
 		await get_tree().create_timer(0.3).timeout
 		print("CRAFT_CHECK start=%d after_bots=%d after_rebuild=%d" % [at0, at1, main.hud.npc_ui._scroll.scroll_vertical])
+	if DevArgs.has("--craft_tip") or DevArgs.flag("--craft_tip"):      # forja/caldeirão: mouse sobre o cartão (--craft_tip=<receita>, padrão: 1º amuleto)
+		var station := "alchemist" if DevArgs.value("--craft_tip").begins_with("rec_cape") or DevArgs.value("--craft_tip").begins_with("rec_bag") or DevArgs.value("--craft_tip").begins_with("rec_potion") else "smith"
+		main.hud.windows_script.close_all()
+		main.hud.npc_ui.open(station)
+		main.hud.npc_ui.mode = "craft"
+		main.hud.npc_ui._rebuild()
+		await get_tree().process_frame
+		await get_tree().process_frame
+		var rid := DevArgs.value("--craft_tip")
+		if rid == "":
+			for k in main.hud.npc_ui.craft_cards:
+				if str(k).begins_with("rec_amulet"):
+					rid = k
+					break
+		var cc: Control = main.hud.npc_ui.craft_cards.get(rid)
+		if cc:
+			main.hud.npc_ui._scroll.ensure_control_visible(cc)
+			await get_tree().process_frame
+			var mv := InputEventMouseMotion.new()
+			mv.position = cc.get_global_transform_with_canvas() * Vector2(30, cc.size.y * 0.5)      # em cima do ícone
+			mv.global_position = mv.position
+			get_viewport().push_input(mv, true)
+			Input.warp_mouse(mv.position)
+			await get_tree().create_timer(0.3).timeout
+		var tp = main.hud.windows_script.get("tooltip")
+		print("CRAFT_TIP %s card=%s tip_visible=%s" % [rid, cc != null, tp.visible if tp is Control else "?"])
 	if DevArgs.has("--enhance") or DevArgs.flag("--enhance"):          # ferreiro: aprimorar; arma +9 e peito +5 para ver o brilho (--enhance=dwarf_smith: Thrain e lendário 40+)
 		var pp := Sim.player
 		var smith_id := DevArgs.value("--enhance")

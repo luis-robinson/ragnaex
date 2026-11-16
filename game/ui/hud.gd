@@ -299,7 +299,24 @@ func _drag_skill_slot(_at: Vector2, i: int) -> Variant:
 	if sk == null:
 		return null
 	_drag_icon(UiKit.skill_icon(sk, 48), skill_slots[i]["root"])
+	_skill_drag_from = i
 	return {"rx_drag": "skill", "skill": sk.id, "from": i}
+
+var _skill_drag_from := -1       # vaga do HUD de onde saiu o arrasto em curso (-1 = nenhum)
+
+## Arrasto que começou numa vaga do HUD e não caiu em lugar que aceita: a skill sai da barra (soltar fora = tirar).
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_DRAG_END and _skill_drag_from >= 0:
+		var from := _skill_drag_from
+		_skill_drag_from = -1
+		if Sim.player and drag_off(Sim.player, from, get_viewport().gui_is_drag_successful()):
+			Events.notification.emit("Skill tirada da barra (%s)" % ActionBar.key_of(from))
+
+## Fim do arrasto de uma vaga: sem um destino que aceitou, esvazia a vaga `from` (regra da cidade vale, Sim.set_skill_slot).
+static func drag_off(p: SimEntity, from: int, dropped: bool) -> bool:
+	if dropped or from < 0 or from >= p.skills.size() or p.skills[from] == null:
+		return false
+	return Sim.set_skill_slot(p, from, "")
 
 func _can_drop_skill_slot(_at: Vector2, data: Variant) -> bool:
 	return data is Dictionary and data.get("rx_drag") == "skill"
@@ -1236,6 +1253,11 @@ func _menu_to_title() -> void:
 
 func _menu_quit() -> void:
 	main.save_game()
+	var music: Node = main.get_node_or_null("Music")
+	if music and music.has_method("release_streams"):
+		music.call("release_streams")           # solta o tema antes de sair (sem "resources still in use")
+		await get_tree().process_frame
+		await get_tree().process_frame
 	get_tree().quit()
 
 # ---------------------------------------------------------------------------

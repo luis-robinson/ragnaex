@@ -643,7 +643,20 @@ func _do_enhance(item_id: String, slot: int) -> void:
 		hud.windows_script.hide_tip()
 		_rebuild()
 
+var craft_cards := {}        # id da receita -> cartão na forja aberta (revisão: --craft_tip)
+
+## Tooltip do que a receita faz: o mesmo do item na bolsa/boneco (UiKit.item_tooltip do resultado).
+static func craft_tip(r: RecipeDef) -> String:
+	var it: ItemDef = GameData.items.get(r.result_item)
+	return UiKit.item_tooltip(it) if it else r.result_item
+
+## Linha curta sob o nome: a descrição do item ou, sem ela (joias/capas geradas), o resumo do equipamento.
+static func craft_line(it: ItemDef) -> String:
+	var d := it.description.strip_edges()
+	return d if d != "" else UiKit.item_summary(it)
+
 func _craft(body: VBoxContainer) -> void:
+	craft_cards.clear()
 	var p: SimEntity = Sim.player
 	var station: String = npc.get("role", "smith")
 	body.add_child(UiKit.label("Ouro: %d   ·   Nível: %d" % [p.gold, p.level], 13, UiKit.GOLD))
@@ -651,6 +664,9 @@ func _craft(body: VBoxContainer) -> void:
 		var it: ItemDef = GameData.items.get(r.result_item)
 		var can := CraftSystem.can_craft(p, r)
 		var card := UiKit.panel(UiKit.BG_LIGHT, Color(0.5, 0.9, 0.5) if can else Color(0.3, 0.28, 0.35))
+		card.mouse_filter = Control.MOUSE_FILTER_STOP           # o cartão inteiro (ícone, nome, botão) mostra o item
+		_tip(card, craft_tip.bind(r))
+		craft_cards[r.id] = card
 		body.add_child(card)
 		var h := HBoxContainer.new()
 		card.add_child(h)
@@ -672,11 +688,10 @@ func _craft(body: VBoxContainer) -> void:
 		rt.add_theme_font_size_override("normal_font_size", 11)
 		rt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		v.add_child(rt)
-		var lbl := UiKit.para(it.description, 10, UiKit.MUTED)
+		var lbl := UiKit.para(craft_line(it), 10, UiKit.MUTED)
 		v.add_child(lbl)
 		var b := UiKit.button("Criar", func(): CraftSystem.craft(p, r), 90)
 		b.disabled = not can
-		_tip(b, func(): return UiKit.item_tooltip(it))
 		h.add_child(b)
 	body.add_child(UiKit.hsep())
 	body.add_child(UiKit.button("← Voltar", func(): mode = "dialog"; _rebuild(), 100))
