@@ -62,7 +62,7 @@ grupo. Sem ele, o progresso de build para no 30 e as builds novas (montado, elem
 |---|---|---|---|---|
 | 30–35 | `field_coast` — Costa Partida | `city_port` — Porto Esperança | `dg_goblin` — Grutas Goblin (3 salões + selo) | Mãe das Marés (naga, campo), Agitador-Mor (grutas) |
 | 35–40 | `field_steppe` — Estepes de Cinza | Posto da Caravana (dentro do campo, muralha de carroças) | `fort_trolls`, `fort_fire`, `fort_war` (acampamentos de guerra, conquistáveis) | Troll Rei-da-Rocha, Mestre Besteiro, Senhor da Guerra Ghar |
-| 40–45 | `field_kharzun` — Monte Kharzun | **Acampamento Avançado da Aurora** (dentro do campo, paliçada de estacas + carroças; cresce por estágio) | `dg_slayers` — Salão dos Matadores (42–44); `kharzun_citadel` — a Cidadela (44–45, mapa próprio) | Presa-de-Cinza (campo, opcional), Mestre Matador Shazka (masmorra), três **Chefes de Clã** = três alas da cidadela em qualquer ordem, **Grão-Senhor da Guerra** (nome provisório *Durgash*; raide de 5) |
+| 40–45 | `field_kharzun` — Monte Kharzun | **Acampamento Avançado da Aurora** (dentro do campo, paliçada de estacas + carroças; cresce por estágio) | `dg_slayers` — Salão dos Matadores (42–44); `kharzun_citadel` — a Cidadela (44–45, mapa próprio) | Presa-de-Cinza (grupo desde 2026-11-17; era campo), Mestre Matador Shazka (masmorra), três **Chefes de Clã** = três alas da cidadela em qualquer ordem, **Grão-Senhor da Guerra** (nome provisório *Durgash*; raide de 5) |
 
 Toda zona segue o layout do Ato I (vale ~240 m, hub, 3–5 POIs a 60–120 m, estradas curvas, marco visível de qualquer
 ponto, borda natural) e os quatro tipos de lugar por zona (`_check_places`: cabana com NPC, acampamento, santuário, entrada
@@ -343,12 +343,16 @@ arquétipo: o cavaleiro do dragão de Final Fantasy, salto e gritos elementais; 
 - Talentos de classe: linhas novas aos **35, 40, 45** (hoje 6 linhas de 5 a 30) — implementadas na fase 1 (72 talentos).
 - Equipamento comum: tiers novos aos **32 e 40** (`COMMON_TIER_LEVELS`), pelos laços de `gear_catalog.gd`.
 - Lendários: níveis **35, 40, 45** (`LEGENDARY_LEVELS`) — **dois tipos que coexistem** (decisão do autor): o conjunto **da build**
-  (24 builds × 3 = 72, como no Ato I) e o **híbrido por par de builds** (R7.1: 8 classes × 3 pares × 3 tiers = 72) → **144**
-  conjuntos. Nomes pela regra (`set_piece_name`); na fatia 1 o visual parte do conjunto de nível 30 (híbrido: lado A com detalhes
+  (24 builds × 3 = 72, como no Ato I) e o **híbrido por par de builds** (R7.1) → **144** conjuntos. **2026-11-16**: nas classes
+  de armas diferentes os híbridos viraram **Ápices** (um por build, `design/gdd/apice-sets.md`): 72 da build + 42 Ápices + 24 híbridos
+  (P3, Bi3, Elementalista, Necromante) = **138** conjuntos. Nomes pela regra (`set_piece_name`); na fatia 1 o visual parte do conjunto de nível 30 (híbrido: lado A com detalhes
   do lado B), modelos próprios no polimento.
 - Moedas Lendárias, Relicária e aprimoramento +1..+9 seguem iguais; preço em moedas continua `índice do tier + 1`.
 
-#### R7.1 Conjuntos híbridos (35/40/45) — "as builds ficam mais híbridas" (aprovada; Fusões ainda não implementadas)
+#### R7.1 Conjuntos híbridos (35/40/45) — "as builds ficam mais híbridas" (aprovada)
+> **2026-11-16 (Ápice, `design/gdd/apice-sets.md`)**: 16 das 24 Fusões saíram. Berserker, Ranger, Druida e Assassino não têm mais
+> híbrido (3 Ápices por tier, um por build); Paladino fica com Templário+Guardião (P3) + Ápice Cruzado; Bispo com Batalha+Sacerdote
+> (Bi3) + Ápice Iluminado; Elementalista e Necromante sem mudança. O texto abaixo vale para os 8 híbridos que ficaram.
 A partir do 35, a build cresce além do braço dela na teia (com muitos pontos, a maioria das builds fica híbrida — observação do
 autor), então além do conjunto da build passa a existir um **por par de builds da mesma classe** — o mesmo padrão que os
 conjuntos do Elementalista já usam (1º elemento manda, 2º "favorece": `SET_FAVOR_*`). **Coexistem** (decisão do autor): quem
@@ -401,7 +405,7 @@ Estágios de cada cenário (lidos de `quests_completed` pelo `WorldState`; cada 
 **Costa Partida / Porto Esperança**
 | Estágio | Gatilho (missão concluída) | O que muda |
 |---|---|---|
-| C0 Cerco | chegada | porto com paliçada meio feita, investida de ginetes a cada 240 s (±20%), praia e mangue cheios de goblins, farol apagado |
+| C0 Cerco | chegada | **(substituído em 2026-11-17 pelo Cerco Vivo, [`act2-siege-life.md`](act2-siege-life.md): paliçada em 3 trechos, levas a cada 90 s, assédio, batedores)** porto com paliçada meio feita, investida de ginetes a cada 240 s (±20%), praia e mangue cheios de goblins, farol apagado |
 | C1 Muralha | `hx_palisade` (ajudar a fechar a paliçada) | portões de terra prontos, sentinelas no muro, investidas maiores mas param no portão; a paliçada passa a **colidir** (23 colisores de estágio, `MapGeometry.sync_stage`) — antes de C1 os vãos são passáveis |
 | C2 Farol | `hx_lighthouse` (paralela, *O Farol Apagado*) | farol aceso (luz visível), 2º navio no cais, mercador de importados |
 | C3 Ginetes quebrados | `hx_riders_camp` (destruir o Acampamento dos Ginetes) | investida vira patrulha pequena; colonos montam fazenda no lugar do acampamento |

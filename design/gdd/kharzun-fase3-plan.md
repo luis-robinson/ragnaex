@@ -159,7 +159,7 @@ Vida/ATK pela F2 (`chefe` 45 = 177 750 HP / 160 ATK) × `unit_mods` **(H)**, cal
 
 | Chefe | Onde / nível | Fases e mecânicas (ferramentas existentes) | Ensina |
 |---|---|---|---|
-| **Presa-de-Cinza, a Mãe-Loba** (campo, opcional) | Canil, 41 | 100%: mordida + investida; 60%: uivo `summon` 2 Lobos Atrozes; 30%: `enrage`. Faixa **campo**: solo 60–100%, trio 90–100% | matilha; bom para o quadro de caçadas |
+| **Presa-de-Cinza, a Mãe-Loba** (**grupo** desde 2026-11-17; era campo) | Canil, 41 | 100%: mordida + investida; 70%: uivo `summon` 2 Crias + Três Botes; 40%: ward 0,5 + Crias; 15%: `enrage`; berserk 120 s. Faixa **grupo**: solo 20–40%, trio 75–100% em 30–150 s | matilha; bom para o quadro de caçadas |
 | **Mestre Matador Shazka** | `dg_slayers`, 43 | F1: golpes + faca envenenada (`mob_pick: soft`); F2 (70%): some (furtividade) e `summon` 2 Sombras-Aprendizes, `ward` 0,5 enquanto uma vive, reaparece nas costas de quem cura; F3 (35%): `barrage` de nuvens de veneno + execução em alvo < 30% | proteger quem cura; matar lacaio de `ward` |
 | **Ulgra Presa-Atroz** (Clã do Lobo) | cidadela W, 44 | montada no lobo atroz: investida em linha, `pull` (corrente) no mais longe (`mob_pick: far`); F2: `summon` Ginetes; F3: `enrage` + chuva de lanças (`barrage`) | posição/kite controlado; tanque segura o puxado |
 | **Gorbash Pele-de-Rocha** (Clã da Pedra) | cidadela E, 44 | regeneração ×0,3 (F3; fogo/veneno corta); F2: `summon` 2 Xamãs-Pedra com `ward` 0,5; pedregulho no mais longe; F3: abalo que atordoa + desabamento (`barrage`) | fogo/veneno no troll (AC-20), foco no Xamã |
@@ -293,7 +293,7 @@ Check = `check(...)` em `tools/tests/run_tests.gd` (nomes **propostos**). Sonda 
 - **KAC-09 (faixa)** `band_probe -- --from=40 --to=45 --trials=16 --why`: 0 `travou`, tempo por abate a ±25% da faixa 20–30; `--only=audit` com XP de missão 40–50% e 10+ missões.
 - **KAC-10 (chefes de grupo)** Shazka e os 3 clãs: completo de 4 ≥ 95% (0,3–1 morte), 4 sorteados 65–85%. — `boss_probe -- --party=4 --comp=paladin:guardiao,bishop:sacerdote,berserker:executor,elementalist:fogo --trials=40 --boss=<id>` (+ `--seed=7`).
 - **KAC-11 (raide)** Durgash: 5 completo ≥ 90% (0,5–1,5 morte, ~100 s); 5 sorteados 60–80%; 4 completo ≤ ~20% (berserk ×20, `BOSS_CROWD_RAID`). — `boss_probe -- --party=5 --comp=... --trials=40 --boss=boss_durgash --why`; bots matam ≥ 1 estandarte antes de 30 s na F2.
-- **KAC-12 (campo)** Presa-de-Cinza: solo 60–100%, trio 90–100%. — `boss_probe -- --bands --boss=boss_dire_mother`.
+- **KAC-12 (grupo, 2026-11-17; era campo)** Presa-de-Cinza: solo 20–40%, trio 75–100% em 30–150 s. — `boss_probe -- --bands --boss=boss_dire_mother`.
 - **KAC-13 (ascensão 45)** cada build com teia de ascensão cheia no 45: razão ≤ 1,215 (F5); `combat_probe -- --class=<id> --asc` 0 FLAG no 45; Prova 45 dá 0 ponto e 0 XP; Gêmeos (×1,078 sem nó 45) ganha o portão 45 **Fúria Gêmea** (`TWIN_FURY_ASPD`) e o Ciclone de Titã no `BOT_ORDER` (usuário 2026-11-13). — `boss_probe --asc`, `_check_ascensions`, `_check_twin_fury`.
 - **KAC-14 (recompensas)** com K1, Ferreiro Anão aprimora lendário 40+ (e recusa < 40); montaria lobo atroz = velocidade do cavalo. — `_check_act2_stages`, `_check_kharzun_rewards`; evidência `--bag_shot=<png> --wins= --enhance`.
 - **KAC-15 (fim)** `hx_warlord` + epílogo → festival no porto e no acampamento e tela "Fim do Ato II". — check do estágio + evidência `-- --autostart=<c> --act_end_shot=<png>`.

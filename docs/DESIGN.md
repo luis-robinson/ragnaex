@@ -129,7 +129,7 @@ que atravessa até 3 (`SPEAR_MAX_TARGETS`), um pouco mais lenta e forte que o ar
 retarda; assinatura), Salto do Predador (salta no cursor e prende), Lança Giratória (giro que retarda), Armadilha Lançada (mandíbula
 arremessada que prende e sangra na hora), Marca do Predador (maldição +18% de dano recebido, sangra), Instinto do Predador (velocidade,
 crítico e roubo de vida), Empalar (avanço que atravessa a fila, atordoa e sangra). Divide com o Atirador a Armadilha de Mandíbula e a
-Marca do Caçador (arco, mosquete ou lança). **Sangramento** = `dot` com `atk_pct` (% do ATK por segundo, renova). Arma lendária
+Foco Mortal (`ran_mark`, buff; arco, mosquete ou lança; antes chamava "Marca do Caçador", nome que ficou só da lendária do Caçador). **Sangramento** = `dot` com `atk_pct` (% do ATK por segundo, renova). Arma lendária
 **Ferida Aberta** (`open_wound`): cada golpe abre uma ferida no alvo (até 5, somem em `LEG_WOUND_TIME`), +2,4..4,8% do seu dano nele por
 ferida; com as 5 abertas ele sangra. Árvore: ATK e vida; conjunto de 3 dá vida. Visual (`ranger_sets.LAN_SETS`/`RAN_SPEARS` `ran_l*`):
 cabeça de bicho (javali, crânio de lobo, juba de leão, serpe, corvo, crânio chifrudo), gola de pelo, troféu no ombro esquerdo, dardos nas
@@ -173,12 +173,26 @@ Elemental, HUD, `elem_mode`): atacar (segue `last_target_id` do mago), proteger 
 gelo escudo, raio velocidade no grupo). Fusão Elemental (40 s): golpe com o efeito da forma + buff `elem_fusion` (`ELEM_FUSION_*_PCT` 8% de MATK e do elemento × estágio; peso por forma em `ELEM_FUSION_FORM`: fogo 0,85, gelo 1,0, raio 0,4, vale no golpe e no buff). Refino do 40 por elemento (Salamandra / Golem de Gelo / Silfo, portões `elem_refine_<forma>`): o elemental naquela forma com +15% de ataque e vida. Bots: forma do
 elemento da build, proteger se o chefe está neles, Fusão numa vaga extra (7+). Skills de ascensão têm `SkillDef.ascension`: ficam
 fora da teia normal (teia de ascensão e barra 7-0: ver "Teia e barra de ascensão"; o estágio Ancestral pede o nó Chamado Ancestral, 40). Save v5: campo `elemental` (antigo: 0 de experiência, forma da barra).
+**Dano no tempo** (2026-11-17, "impossível tancar"): todo dano no tempo (veneno, queimadura, sangramento, maldição) bate em **pulsos** de
+`Balance.DOT_PULSE_S` (0,5 s; o 1º meio segundo depois de aplicar, o resto sai quando acaba: mesmo total de antes, sem um número por tick).
+O de **monstro/chefe** (ou invocação de monstro) com o mesmo id e o mesmo tipo (fogo ou não) **renova** em vez de acumular: duração nova, maior
+dps, o relógio do pulso continua (`WorldSim._renew_dot`), e **dura x0,7** (`Balance.MONSTER_DOT_TIME_MULT`, mesmo dps: total x0,7; sem
+compensação, chefes com veneno/fogo ficam um pouco mais fáceis). O mágico do **jogador** leva o id da skill (`dot_<src>_<skill>`, marcado em
+`_apply_skill`; `WorldSim.dot_id`) e acumula até `Balance.PLAYER_DOT_MAX_STACKS` (3) cópias por (quem lançou, skill): a 4ª tira a mais antiga
+(`WorldSim._put_dot`, acumulado e pulso passam para a nova); skills diferentes têm teto próprio. Sangramento, veneno na lâmina e os das armas
+lendárias continuam renovando por id. Medido (boneco, nível 30/40): o teto quase nunca prende (os acúmulos vêm de skills diferentes), nenhuma
+build perdeu mais de 7% do dano no tempo, então os dps das skills não mudaram. `put_debuff` de dano no tempo guarda o acumulado e o relógio do
+pulso. Checks `_check_dot_pulse`, `_check_dot_cap`; medir com `boss_probe -- --dot_stats`.
 **Efeitos por elemento** (valem para qualquer classe, pelo elemento ou pelo tema visual da skill): **fogo queima** — todo dano no tempo
 de skill de fogo é queimadura (número laranja, brasas no alvo); **gelo estilhaça** — skill de gelo em alvo retardado, preso ou atordoado
 causa ×`Balance.FROST_SHATTER_MULT` (1,3; número azul com ❄), então vale abrir com Nova de Gelo/Lança e emendar; **raio atordoa** —
 Trovão, Estilhaçar, Zero Absoluto e as combinações com raio sempre; as outras skills de raio com dano têm `Balance.STORM_STUN_CHANCE`
 (15%) de atordoar `STORM_STUN_TIME` (0,5 s) no golpe direto (`Combat.storm_can_stun`; chefes: 40% da duração). Na tela: atordoado = estrelas girando, retardado/preso =
 anel de gelo nos pés e tom azul, queimando = brasas e tom laranja (`EntityView._update_status`, parâmetro `status` do `toon.gdshader`).
+**Controle em chefe** (`MonsterDef.resists_cc`, decisão 2026-11-17): só chefe de verdade resiste — atordoar dura 40%, provocar 50%,
+gancho/empurrão não o move. O Rei que surge depois de muitos abates (elite, `elite_of`) continua `is_boss` para loot/barra/IA, mas leva
+o controle cheio. Talento de classe pode **somar** ao efeito da skill (`skill_mods.add`, depois de maestria e evolução: Golpe Restaurador
++12% de cura por dano, Golpe Ardente +5 s de queimadura, Castigo +0,4 s no Martelo de Luz) em vez de trocar o número (`effects`).
 
 **Necromancer**: só **foice**; Invocador, Ceifador e Sombras são focos que se misturam. Invocações com limite **por tipo**
 (esqueletos, 2 cães de ossos, 1 lich de gelo, 1 Rei Esqueleto); o ataque delas sai do MATK do dono × força do monstro × `pet_pct`.
@@ -291,7 +305,7 @@ com maestria) e vão na barra só nas vagas 7/8/9/0. O Caçador é o Falcoeiro (
 Bots: `AscensionCatalog.BOT_ORDER` (Atirador: torreta; Lanceiro: salto, Chamas e depois os outros Brados; Caçador: falcão, Mergulho, Olhos do Céu). Peso F5 por build: `Balance.ASC_BUILD_POWER` (Atirador 3,5: a torreta com 0,55 do ATK a cada 1,4 s rendia 4% e as 3 montagens custavam 5% ao atirador — ×0,98 em grupo). Refinos da torreta como portões da teia: **Torreta Firme** (40, `ran_turret_firm`) e **Torreta Veterana** (45, `ran_turret_vet`), cada um +`TURRET_REFINE_TIME` 4 s e −`TURRET_REFINE_CD_PCT` 20% de recarga.
 - **Torreta de Campo** (Atirador, GROUND): invocação parada no ponto mirado (chão andável mais perto) que atira sozinha no inimigo
   mais perto a `TURRET_RANGE` m por `TURRET_TIME` s; vida/ATK/DEF = do dono × `TURRET_*_SHARE`; monstros podem atacá-la; não teletransporta
-  nem segue o dono para outro mapa (some). Exatamente `TURRET_MAX` = 1 (a mais antiga some); stat `turret_max` soma (conjunto híbrido futuro);
+  nem segue o dono para outro mapa (some). Exatamente `TURRET_MAX` = 1 (a mais antiga some); stat `turret_max` soma (Ápice do Atirador);
   `RangerAscension.near_turret` lê a área `TURRET_AREA` em volta (conjuntos futuros). Refino 40/45 (só dado): `TURRET_REFINE_TIME`/`_CD_PCT`.
   Bot: abre a luta com ela, do lado de cá do tanque (`BOT_TURRET_GAP`).
 - **Salto Dracônico** (Lanceiro, GROUND 9 m): decola no fim do preparo e fica `DRAGON_JUMP_AIR` s fora do chão (sem golpe, projétil, chuva
@@ -472,7 +486,18 @@ A cada 5 níveis (5/10/15/20/25/30, e 35/40/45 no Ato II) cada **build** tem um 
 Os conjuntos do 35, do 40 e do 45 reaproveitam o visual do 30 (`GearCatalog.visual_of`, nomes genéricos "... da Ascensão", "... do Triunfo" e "... do Apogeu") até ganharem modelos próprios.
 Bônus: (2) +atributo secundário · (3) +atributo principal (ex. INT +2) · (4) +20% na skill assinatura (ex. Bola de Fogo) ·
 (5) +% no stat da build e −% de recarga de outra skill. Os números crescem por tier (`Balance.SET_*`); os percentuais, acima do tier 5,
-crescem pela metade (`Balance.set_pct_tier`: 4 peças 42% no 35, 44% no 40 e 46% no 45; 5 peças 17/18/19%, recarga 21/22/23%). Equipamento comum: tiers 1/8/16/24/32/40 (o do 32, "de Adamante", e o do 40, "de Oricalco", só gerados; raridade épica; o de Oricalco tem cor própria, `GearCatalog.COMMON_TIER_TINT`).
+crescem pela metade (`Balance.set_pct_tier`: 4 peças 42% no 35, 44% no 40 e 46% no 45; 5 peças 17/18/19%, recarga 21/22/23%).
+**35/40/45: mais dois tipos coexistem com o da build** (138 conjuntos): **híbridos** (só P3 Templário+Guardião, Bi3 Batalha+Sacerdote e os
+3 pares do Elementalista e do Necromante; 5 peças = Fusão) e **Ápices** (`design/gdd/apice-sets.md`; 14 builds: as 3 do Berserker, Ranger,
+Druida e Assassino, mais Cruzado e Iluminado). Ápice = armadura/atributos da build, as armas da build como peças alternativas (efeito
+lendário próprio), 2-4 peças iguais às do conjunto da build e um 5 peças "de identidade" (`GearCatalog.APEX`, `Balance.APEX_NUMBERS`,
+regras em `FusionEffects`, id `apice_<build>`) que só liga com a arma da build na mão. Cor = a do conjunto 30 escurecida e dourada.
+Cai e troca como o da build (Relicária: só na aba da build); bots 35+ vestem o Ápice (Guardião/Templário P3, Sacerdote/Batalha Bi3).
+Calibração F-AP2 (2026-11-17; Ghar 40, `--hp=2 --tank_lock --asc`, 80-160 lutas; ruído ±0,04 em G): dentro do alvo `min(G_5n; 0,12) ± 0,02` —
+Carniceiro, Executor (`heavy` 11: G_ap 0,11), Punhos, Iluminado (`aurora` 16: 0,12). Fora, decisão pendente do usuário: **Cruzado** G_ap ~0,04 contra
+0,09 (já no teto +30%: `judged` 10,4, `stun_ch` 7,8); **Lobo** 0,06-0,16 entre rodadas (alvo 0,12; `hunt` 13, no teto); **Xamã** 0,04-0,10 contra
+0,076 (`moon` 12, `jump` 65). As bases b4/b5 são de antes das mudanças de DoT/CC do mesmo dia: refazer F-AP2 inteiro antes de mexer de novo.
+Save 6: peças dos híbridos que saíram viram as do Ápice (`SaveSystem._migrate_hybrid`). Equipamento comum: tiers 1/8/16/24/32/40 (o do 32, "de Adamante", e o do 40, "de Oricalco", só gerados; raridade épica; o de Oricalco tem cor própria, `GearCatalog.COMMON_TIER_TINT`).
 Drop: o lendário cai como **Moeda Lendária** (1 em 100 monstros; chefes 40% e 2 moedas; Reis sempre). **Iara, a Relicária** (praça de Aldara)
 troca moedas por qualquer peça lendária da sua classe (conjuntos das builds, maça do conjunto, escudos nomeados): tier i de
 `LEGENDARY_LEVELS` custa i+1 moedas (nível 5 = 1, nível 10 = 2 ... nível 30 = 6, nível 35 = 7, nível 40 = 8, nível 45 = 9), até o seu nível (`WorldSim.relic_*`). A janela tem uma aba por build (abre na do conjunto que você veste, senão na do braço da teia com mais nós) e uma linha
@@ -737,6 +762,29 @@ Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MS
     `raid_probe --route` repele os três fronts com a guarnição (2-9 guardas caem por leva).
 - Loot: materiais por campo (gel, pele, presa, erva, minério, seda, casca, insígnia, osso, essência, núcleo, escama) + raros.
 
+### Cidades com identidade e mapas vivos (Ato I; GDD `design/gdd/living-towns.md`, P1 2026-11-17)
+- **Aldara = Feira do Trigo**: no centro a Mó/Balança do Trigo (pedra de 4 m + braço de 4,5 m) e uma roseta de 8 bancas com toldo listrado
+  (trigo e azul, raio 7,6 m; os 4 eixos das ruas e as 4 diagonais ficam abertos), 2 carroças paradas. O chafariz e a estátua do centro
+  saíram; a estátua virou a **Estátua do Fundador** (o Semeador, NPC-placa `founder_statue`) no pátio do portão norte; o Cristal de Retorno
+  foi para a borda da feira; o poço foi para o Pátio do Fundador e o ponto de chegada fica na boca da rua sul (0, 10,4), fora da roseta. Quadrantes: **Pátio da Forja do Brom** a NE (o ferreiro atende lá), **Celeiro e cercado** ao S (a oeste do
+  portão sul). Mercador Tobias na frente de uma banca. Tudo ≤ 4 m de altura (`tools/blender/zones/town_dress.py`, lotes `Dress`;
+  resumo em `town.centerpiece` do JSON; check `_check_town_identity`).
+- **Rotinas** (`MapsCatalog.LIVING_NPCS["city_aldara"]`, `VILLAGER_EXTRAS`): Carroça da Colheita (carroceiro + cavalo `cart_draft`: fazenda →
+  ponte → portão sul → celeiro, 18 s descarregando, volta; ~3 min a volta), feirantes parados com pregão (Rosa, Zefa, Malaquias, Tico, Dora),
+  4 fregueses de banca em banca, Juca leva sacos do celeiro às bancas, galinhas no cercado/fazenda e corvos no trigal (`AMBIENT_LIFE`).
+  Rota com `flow` não para nos pontos de passagem; ponto `[x, z, s]` = parada de `s` segundos (`NpcSystem`). Check `_check_living_routes`.
+- **Posto dos Caçadores = Fogueira Comunal** (`town_dress.posto`): fogueira de 5 m com o caldeirão da Bia no lugar do poço e da estátua, roda de
+  4 carroças de lona dos refugiados (as quatro ruas dos portões passam entre elas; o cristal fica no vão norte), varais de peles a SO e a Trompa
+  do Cerco junto ao portão norte (só visual por enquanto). Rotina R8: dois lenhadores com tora (mata do oeste ↔ forja) e um caçador com as peles
+  (estrada sul ↔ mercado); corvos e mariposas (`AMBIENT_LIFE`). Ainda sem evento de estrada na Floresta (E2/E4/E5 são P2).
+- **Eventos de estrada** (`RoadEventSystem`, `MapsCatalog.ROAD_EVENTS`, pontos `SPAWN_event_*` → `MapDef.road_events`, números `Balance.EVENT_*`):
+  só no mapa do jogador, 1 ativo por mapa, o 1º entre 90 e 270 s e depois a cada 4-7 min, num ponto a 35-70 m do jogador (recarga de 10 min
+  por ponto), nunca durante investida. **E1 Lobos no Lavrador** (Aldara, 4 pontos: colinas do norte e estrada da fazenda): 2-3 Lobos Famintos
+  do nível do spawner mais perto cercam o Lavrador Chico (NPC, não morre); expira em 120 s sem ninguém a 30 m, 90 s para resolver depois que
+  alguém chega; os lobos não passam de 30 m do ponto e não dão XP/ouro/saque/quest. Prêmio único para quem contribuiu: XP = 4% do nível,
+  5 + 2/nível moedas (dividido) e 2 Poções de Vida (P). Bots de fora do grupo esperam 25 s (`EVENT_BOT_GRACE`) e avisam no chat quando
+  resolvem sozinhos. Minimapa: ponto dourado que pulsa. Nada vai para o save. Check `_check_road_events`.
+
 ## Chefes (mecânicas e calibragem, 2026-11-09)
 Todo chefe de grupo tem resposta de longe, invocação e três fases; quem kita não fica de graça.
 - **Mira**: `SkillDef.mob_pick` (`far`/`random`/`soft`, `SkillsCatalog.BOSS_PICK`): num chefe a skill escolhe outra vítima e o aggro
@@ -846,7 +894,7 @@ grupo completo (no Besteiro, que bate forte de perto, passava de 1). Rainha Aran
 substitutos `mob_*` de chefe que têm os gestos das skills, check `_check_anim_review`). Lacaios são do chefe (0 XP, sem loot). Falas = placeholder (narrative-director).
 | Chefe | Onde / nível | F2 / F3 / F4 | Substituto → modelo pretendido |
 |---|---|---|---|
-| Presa-de-Cinza, a Mãe-Loba (`boss_dire_mother`, campo) | Canil, 41 (chefe F2 hp ×1,85 (era ×0,6, ver abaixo), atk ×0,7) | 60%: uivo + 2 Crias; 30%: fúria ×1,3. Sem berserk (campo) | `mob_boar` cinza (tem os gestos de chefe quadrúpede) → `mob_dire_mother` |
+| Presa-de-Cinza, a Mãe-Loba (`boss_dire_mother`, **grupo** desde 2026-11-17; era campo) | Canil, 41 (chefe F2 hp ×1,85 (era ×0,6, ver abaixo), atk ×1,1 (era ×0,7), golpe a cada 1,0 s (era 1,2); prêmio do Ghar: 5800 XP, 480-760 ouro, 6-9 moedas) | 70%: uivo + 2 Crias + Três Botes; 40%: ward 0,5 + 2 Crias no frágil; 15%: fúria ×1,3. Berserk 120 s | `mob_boar` cinza (tem os gestos de chefe quadrúpede) → `mob_dire_mother` |
 | Mestre Matador Shazka (`boss_shazka`) | `dg_slayers`, 43 | 70%: some (furtividade 1,5 s), Passo nas Costas no frágil, 2 Sombras-Aprendizes no frágil, ward 0,5; 35%: Nuvens de Veneno + Golpe de Misericórdia (frágil); 15%: fúria | `mob_agitator_lord` → `mob_shazka` |
 | Ulgra Presa-Atroz (`boss_ulgra`) | cidadela W, 44 | 70%: Ginetes; 40%: ward 0,5 + Ginetes no mais longe; 15%: Chuva de Lanças + fúria. Investida 9 m, Corrente de Caça (puxa o mais longe) | `mob_ghar` → `mob_ulgra` |
 | Gorbash Pele-de-Rocha (`boss_gorbash`) | cidadela E, 44 (regen ×0,3) | 70%: 2 Xamãs-Pedra que CURAM o chefe (`mob_stone_mend`), ward 0,5; 40%: abalo que atordoa + desabamento; 15%: fúria | `mob_troll_king` → `mob_gorbash` |
@@ -858,7 +906,7 @@ Sonda em **ARENA PROVISÓRIA** (`boss_probe.ARENA_AT`: forte do Ghar, no lugar d
 `MAX_LEVEL` 40 desta base; equipamento até 40) — **refazer no mapa final e depois do teto 45 (WP1)**. 20 lutas por linha:
 | Chefe | Alvo | Completo (Guardião, Sacerdote, Executor, Fogo [+ Bispo Batalha]) | Sorteados | Notas |
 |---|---|---|---|---|
-| Presa-de-Cinza (campo, `--bands`) | solo 60-100%, trio 90-100% | — | solo 18/20 (90%, 50 s), trio 20/20 (13 s), kite 6/6 | BAND OK |
+| Presa-de-Cinza (campo até 2026-11-16, `--bands`) | solo 60-100%, trio 90-100% | — | solo 18/20 (90%, 50 s), trio 20/20 (13 s), kite 6/6 | BAND OK |
 | Presa-de-Cinza, hp ×0,6 → ×1,85 (2026-11-16, arena do Canil, 40 lutas) | campo + grupo `--asc` de 4-5 perto dos pares da faixa 40 (Troll Rei/Vorgul/Ghar 30-50 s) | `--asc` 4: 40/40 → 39/40, 10,3 → 28,4 s, 0,0 → 0,1 morte · 5: 40/40 → 38/40, 10,6 → 25,3 s, 0,0 → 0,3 | `--bands`: solo 20/20 68 s → 28/40 (70%) 156 s, trio 20/20 13 s → 37/40 46 s, kite 0/13 | BAND OK. Com ×0,6 caía antes de usar o kit (Três Botes 0,1 uso/luta). ×2,0 dava grupo 32/29 s mas solo 57% (fora do campo): ~28 s é o teto de um chefe que dá para solar. Check `_check_kharzun_bosses` (vida 0,9-1,3× a do Ghar) |
 | Shazka (hp ×1,8, atk ×0,95) | completo ≥ 95%, 4 sorteados 65-85% | 20/20, 1,1 morte, 58 s (números anteriores, mais fortes) | 30/40 (75%), 1,8 morte, 43 s | |
 | Ulgra (hp ×1,85, atk ×1,3; ×1,15 com a assinatura, ver Assinaturas) | idem | 20/20, 0,7 morte, 51 s (atk 1,4) | 28/40 (70%), 2,0, 45 s | |
@@ -1031,6 +1079,41 @@ nos três lados; 3 bots repelem 100%; só as sentinelas perdem os lados 0 e 1 (a
 Investidas de Porto Esperança (`raid_probe --map=city_port --level=32 --raid_level=32`, 40 levas): depois da correção de IA e dos 35+
 a guarnição sozinha caiu para 28/40 (C0) e 29/40 (C1); `Balance.PORT_GUARD_POWER` 1,2 (vida e ataque da guarnição e dos besteiros do
 muro, como o `STEPPE_GUARD_POWER`): C0 35/40, C1 38/40, 1 bot 40/40 nos dois, 3 bots 40/40, presos 0 (1,15 dava 27/40 e 35/40; 1,25, 36 e 39).
+**Cerco Vivo de Porto Esperança** (2026-11-17, GDD `design/gdd/act2-siege-life.md` P1, `SiegeSystem`; substitui o cerco/muralha de 240 s acima).
+A paliçada tem três trechos em obra, cada um fechado por uma missão (ou por `hx_palisade`, que fecha o que faltar): Vão da Garganta
+(`hx_stakes`), Trecho do Farolete (`hx_df_logs`, opcional: 6 Toras de Estaca do estaleiro) e Vão do Portão Norte (`hx_df_tower`, opcional,
+tipo novo `DEFEND`: 2 levas repelidas com o jogador na defesa; ergue a torre de vigia). Trecho aberto = a Horda entra por ele (rota
+`cerco_<id>`); fechado = colide, ganha 2 besteiros e a leva daquele lado vai ao portão norte. Um relógio por mapa solta **uma leva por vez**,
+revezando os lados, a cada 90 s ±20% (cadência "Intenso", decisão do usuário), com 30 s de calmaria depois de uma repelida; entre as levas,
+**assédio**: 2 Arqueiros Orcs aparecem na crista nordeste e 8 s depois cai uma salva de 3 círculos avisados (12% da vida cada, não esquivável,
+no máximo 2 por alvo, nunca mata quem tinha 30%+; só jogador e bots; nunca perto de cristal, chegada, portal ou NPC de serviço); matar o
+arqueiro antes cancela os círculos dele. **Batedores** (2 rondas de 2 ginetes, estrada da Costa e trilha da garganta) em luta há 6 s tocam a
+trompa e adiantam a próxima leva em 20 s (até 2 por leva). **Leva** (retune do playtest de 2026-11-17, "os invasores eram fracos e a guarda limpava fácil"): 3 Ginetes de Lobo, 2 Lanceiros Goblin,
+1 Arqueiro Orc (atira de trás) e 1 Saqueador Goblin de líder (rede e bote); a leva grande soma 2 Empaladores. Invasores do porto com vida e
+ataque × 1,2 (`RAID_MAP_POWER["city_port"]`, sobre `RAID_POWER` e os passos de nível). **Pressão**: 2 na chegada (leva de 7, a grande a cada 3ª), 3 com `hx_banners`
+(levas × 1,2, mais rápidas, grande a cada 2ª), 1 depois de `hx_riders_camp` (só a patrulha, ~10 min), 0 com `hx_warlord`. Repelir uma leva
+estando no raio do Bastião do alvo dá **Colônia de Pé** (+10% de XP de abate no porto por 180 s, renova); leva que chega e não é repelida deixa
+o porto em **Chamas** (fogo nas 3 casas queimadas, só visual) até a próxima repelida — nada se perde. Cenário: 3 casas queimadas (reerguidas
+com andaime em `hx_palisade`), refugiados do Gaivota junto ao portão sul (até `hx_riders_camp`; dois viram moradores), enfermaria da Curandeira
+Salete (vende poções) com feridos, fumaça no horizonte nordeste. Guarnição: 5 no portão norte + **reserva de 3** na praça; os lanceiros e o cavaleiro do portão e a reserva (6) correm para a brecha atacada, os
+2 besteiros ficam no portão. `PORT_GUARD_POWER` 1,4 (vida e ataque) e `PORT_GUARD_HP` 1,8 (vida a mais só: a guarnição aguenta sem matar depressa,
+então a luta dura e a ajuda pesa). Medido por rota, 20 levas, força da leva no nível 32 (`raid_probe --map=city_port --side=<lado> --bots=0,1,3
+--level=32 --raid_level=32`), só a guarnição: Vão da Garganta 19/20 repelidas, luta mediana 50 s (leva inteira 77 s), 2,0 sentinelas mortas, 3,5 de
+7,6 invasores dentro da brecha; Trecho do Farolete 19/20, 55 s (101 s), 1,1 mortas, 5,7 dentro; Vão do Portão Norte 20/20, 49 s (83 s), 1,7 mortas,
+4,8 dentro; portão (C1) 20/20, 34 s (80 s), 2,8 mortas, 1,5 de 8,6 no portão; presos 0. Com 1 bot de nível 32 na brecha: 20/20, leva inteira 38-42 s,
+0,4-1,1 invasores dentro; com 3 bots: 30 s, nenhum chega. Relógio de verdade, 30 min, 0 bots, jogador parado no cais (`--siege_run=1800`): C0 92%,
+92% e 83% repelidas (3 sementes; 1 Chamas por meia hora), uma leva a cada ~135 s e um evento (leva ou assédio) a cada ~70 s; com a guarnição
+sozinha a leva dura mais que os 90 s do relógio, com o jogador ajudando o ritmo volta a ~90 s. (`lifetime` da leva 200 s: com 110 s a leva recuava
+antes de a guarnição terminar e a taxa caía a 42-85%.)
+**Ajuste final do mesmo dia** (os ~9 bots do porto matavam a leva na garganta em ~27 s; um bot sozinho cortava a luta pela metade): invasores do porto
+com vida × 1,4 a mais (`RAID_MAP_HP["city_port"]`, só vida) e no máximo `SIEGE_BOT_DEFENDERS` (1) bot avulso larga o que faz para defender cada leva (bots do
+grupo do jogador vão sempre). Números finais, 12 levas por rota, só a guarnição: 12/12 em todas; luta mediana 67 s (Garganta), 80 s (Farolete), 73 s (Portão
+Norte), 59 s (portão, C1); leva inteira 100-124 s; 2,3-3,9 sentinelas mortas por leva; 2,4-5,7 dos ~7,7 invasores dentro do alvo. Com 1 bot na brecha: leva
+inteira 40-47 s; com 3: 39 s. Relógio de 30 min: 0 bots 11/11 repelidas (leva a cada ~165 s, evento a cada ~78 s); 6 bots soltos na praça 14/14 (leva a cada
+~120 s). Os números do parágrafo acima são de antes deste ajuste.
+**Cais** (playtest 2026-11-17): o portal do navio saiu da cabeceira do cais oeste (ficava na frente da Pescadora Iara) para a "prancha do
+navio" em (-15, 58); a estrada do cais acaba no largo; os dois cais ganharam uma corrente "só tripulação" na linha da água (o tabuleiro é só
+visual: ali a sim já não deixava passar). Check novo: nenhum NPC de quest a menos de 6 m de portal que não é porta, em todos os mapas.
 Investidas de Kharzun (`raid_probe --map=field_kharzun --level=42 --raid_level=42`): o elenco 40+ mais forte (rodada de balanço de 2026-11-13)
 derrubou a guarnição sozinha de 9/10 para 36/50 repelidas e 1 bot de 10/10 para 24/30. Decisão do usuário (2026-11-13): força só da investida,
 `Balance.RAID_MAP_POWER` (vida/ATK/MATK dos invasores × isto, por mapa, em `RaidSystem.scaled_def`; os comuns do campo não mudam; check em
@@ -1050,7 +1133,7 @@ os de cada uma no efeito da skill (`SkillDef.boss_signature`). Bots sempre fazem
 | Troll Rei-da-Rocha | Avalanche (70%, 30 s) | Chuva de Pedras deixa pedregulho (`MonsterDef.cover`, máx. 3, 40 s; modelo `prop_avalanche_stone`); preparo 2,5 s; onda de 18 m 2,2 + atordoa em quem não tem pedra entre si e ele; a pedra que protegeu racha; sem pedra, ele joga 2 antes | atrás da pedra |
 | Mestre Besteiro Vorgul | Marca do Atirador (100%, 18 s) | `mark` spread: 1 (solo) / 2 marcas que seguem a vítima 4 s, explodem 4 m (0,9) e deixam fogo 4 s | espalhar |
 | Senhor da Guerra Ghar | Muralha de Escudos (100%, 25 s) | `wall` 6 s: golpe da frente (120°, físico e mágico) perde 90% e soma fúria; no fim, contragolpe em cone 150° = 1,0 + 0,15 × fúria (teto 2,5), que cai `Balance.GHAR_COUNTER_DELAY` 0,375 s depois (quadro 10 do clipe `wall_counter`; durante a muralha ele repete `guard_wall`) | quem ele mira fica de guarda parado; o resto nas costas |
-| Presa-de-Cinza (campo) | Três Botes (60%, 20 s) | `repeat`: 3 investidas re-miradas na mesma vítima (aviso 0,8 s, 0,6 s entre elas); root/stun cortam | sair da faixa |
+| Presa-de-Cinza (grupo desde 2026-11-17) | Três Botes (70%, 20 s) | `repeat`: 3 investidas re-miradas na mesma vítima (aviso 0,8 s, 0,6 s entre elas); root/stun cortam | sair da faixa |
 | Mestre Matador Shazka | Sombras Gêmeas (70%, 24 s) | some na fumaça 1,5 s e volta com 2 cópias (`decoys`, monstro `shazka_decoy` com `MonsterDef.decoy`): mesmo nome, modelo e vida, dano 30% (`Balance.SHAZKA_DECOY_DMG`), 10 s; cópia morre com 1 golpe e solta nuvem de veneno 2 m (0,4 + veneno, fica 4 s); golpe direto no verdadeiro desfaz as cópias; só ele projeta sombra; a cópia é roxo escuro com borda roxa e quase sólida (`EntityView.DECOY_TINT/DECOY_RIM/DECOY_FADE` 0,15; antes 0,35 de transparência lia como bug) | achar o verdadeiro (bots sempre; área mata cópia) |
 | Ulgra Presa-Atroz | Estouro da Matilha (70%, 28 s) | `barrage.shape: line`: 3 faixas de 3 m × 30 m na direção dela→tanque (uma no tanque), vãos de 3 m, caem 2,0/2,6/3,2 s: 1,6 + derruba 0,8 s | sair de lado para o vão |
 | Gorbash Pele-de-Rocha | Ondas da Montanha (70%, 24 s) | `barrage.shape: ring` com `pulses`: 3 pisadas (1,2 s), cada uma 3 anéis de 2 m (2-4, 7-9, 12-14; a 2ª pisada 2 m para fora, até 16 m) que caem a cada 0,5 s depois de 1,5 s de aviso; 1,1 por anel; o próximo anel fica aceso | entra-sai no ritmo |
@@ -1087,7 +1170,7 @@ Executor, Fogo, 20 lutas). Recalibrado só `unit_mods.atk` e o `power` da marca 
 | Troll Rei-da-Rocha | 52,5% | 55% (sem: 45%) | atk 1,75 → 1,35 | 67,5% | 100% | 0,05-0,15 atingidos por Avalanche |
 | Mestre Besteiro Vorgul | 75% | 40% | marca 1,5 → 0,9; atk 1,1 → 1,0 → 0,9 | 72,5% (lutas 60-80 s, antes 52 s); **60%** (24/40, 51-68 s) depois que os bots passaram a sair de toda poça que fica (Kragmar) — na borda; próximo botão atk 0,9 → 0,85 | 100% | 0,01-0,04 aliados por marca |
 | Senhor da Guerra Ghar | 70% | 45% | guarda parada do alvo; atk 1,45 → 1,3 | 80% | 100% | fúria média 2,8-4,0 |
-| Presa-de-Cinza (campo) | — | solo 95%, trio 100% | — | solo 95%, trio 100% | — | 0,3 sequências cortadas (solo) |
+| Presa-de-Cinza (então campo, hp ×0,6) | — | solo 95%, trio 100% | — | solo 95%, trio 100% | — | 0,3 sequências cortadas (solo) |
 
 Kharzun (Shazka, Ulgra, Gorbash): faixa do usuário = **5 sorteados 60-80%**, completo de 5 (Guardião, Sacerdote, Executor, Fogo,
 Bispo Batalha) ≥ 90%. 40 lutas = semente padrão + `--seed=7`; antes = `--no_sig` na mesma base:
@@ -1198,6 +1281,37 @@ Pernas correm por cima do golpe (`LegOverlay`) e o clipe é ajustado em duas fas
 ## Equipamento: slots
 Toda classe usa arma, mão secundária, cabeça, peito, calça, luvas, botas, capa, amuleto e dois anéis. Calças, capas, amuletos e anéis são
 gerados em `GearCatalog.wearables` (4 tiers, sem restrição de classe); capa, amuleto e anel têm temas Guerreiro, Caçador e Sábio.
+**Joias de mana** (2026-11-16, Berserker sem mana): nos temas Guerreiro e Caçador o amuleto devolve % da mana máxima a cada abate
+(`mp_on_kill`: 4/5/6/7/8/10% por tier, 12% no k45) e a capa regenera % da mana máxima por segundo só em combate (`mp_regen_combat`:
+0,3-0,8%/s, 1% no k45); anéis sem. O Sábio tem a mana no amuleto: regen em combate (`mp_regen_combat` 0,15-0,4%/s, 0,5% no k45,
+`Balance.MANA_SAGE_*`). Números em `Balance.MANA_*`, stat do item em `ItemDef.bonus`; medir com `tools/tests/mana_probe.tscn`.
+**Acessórios (retrabalho 2026-11-17, spec `production/qa/accessory-rework-spec-2026-11-17.md`)**: capa, amuleto e anel seguem uma curva
+exponencial ancorada no t2 (`GearCatalog.acc_curve/acc_attrs`): atributo = linear antiga no nível 16 × 1,5^((nível − 16)/8)
+(`Balance.ACC_CURVE_*`), ~+50% por tier, nenhum tier abaixo do de antes. Somas (escala do jogo): anel/capa 24/30/44/67/99/149 e 211 no k45;
+amuleto 26/34/52/77/116/174 e 246. DEF/MDEF da capa na mesma curva (4/3 no t2, 14/10 no t5, 20/14 no k45). Papéis (`GearCatalog.acc_roles`):
+anel = ATK plano (MATK no Sábio) 0/1/2/3/4/5 por tier, 6 no k45 (`ItemDef.atk/matk`, `Balance.ACC_RING_ATK`; valores do spec: a alavanca
+3/3/4 da sonda foi desfeita por decisão do autor, que aceitou os chefes 43-44 mais fáceis solo); amuleto = vida % (`hp_pct` 1-3%,
+`Balance.ACC_AMULET_HP_PCT`) + a mana do tema; capa = DEF/MDEF + mana corpo a corpo. **Únicos** (`ItemsCatalog.UNIQUE_ACCESSORIES`,
+`GearCatalog.unique_acc`): os números escritos são a proporção; o total = min(1,25 × a comum do mesmo slot e nível; 0,9 × a do tier
+seguinte) (`Balance.ACC_UNIQUE_*`), com o papel do slot pelo 1º atributo (FOR/AGI → ATK/mana ao abater; INT/WILL → MATK/regen). Ex.: Anel
+do Capitão 60 → FOR 19 VIT 19 + 1 ATK (o anel de forja do 16 tem 44 + 2 ATK); Amuleto do Golem 160 → 96. Manto do Conde DEF/MDEF 4/4.
+Ganho das 4 joias do Guerreiro sobre as de antes: +3,6/+6,2/+4/+6/+14/+31,6/+53,8 de PATK (t0..t5, k45), vida +1/+2/+2/+2,5/+4/+7/+10%
+(sentinela em `_check_accessory_curve`). Sonda antes → depois → com a alavanca (`boss_probe`, solo, 40 lutas = semente padrão + `--seed=7`):
+Ulgra 17 → 22 → 19/40, Shazka 16 → 22 → 21/40, Kragmar 14 → 18 → 17/40, Mãe-Loba 19 → 21/40 (faixa de grupo: solo 20-40%); o grupo de 5
+sorteado sobe 0-4 vitórias em 20 por chefe (Durgash `--lvl=45` 9 → 9/20, 73 → 63 s); `band_probe` 8-16 e `web_probe` 40/45 sem mudança.
+Os chefes 41-45 ficam ~+10 pontos acima do teto solo: aceito pelo autor (2026-11-17), sem recalibrar.
+**Acessórios lendários** (2026-11-17, spec `production/qa/legendary-accessories-spec-2026-11-16.md`): por build e nível 35/40/45, Manto (capa),
+Medalhão (amuleto), Anel e Sinete (os dois no slot de anel), id `leg_acc_<classe>_<build>_<nível>_<peça>` (`GearCatalog.legendary_accessories`).
+Não são conjunto (`set_id` vazio, não contam peças); atributos da build pela curva × `LEGENDARY_MULT` (anel principal 94/121/155, amuleto
+109/141/181, capa DEF/MDEF 13/9, 17/12, 22/16); papéis no valor k45 (anel/sinete +6 ATK ou MATK, medalhão vida +3%) e mana herdada do k45
+(build FOR/AGI: medalhão 12% ao abater, manto 1%/s em combate; INT/WILL: medalhão 0,5%/s em combate; VIT nada). Cada peça soma um bônus da
+build (`Balance.LEG_ACC_BUILDS` → `LEG_ACC_STEP[stat][35/40/45]`, ajuste `LEG_ACC_BUILD_MULT`). A mesma peça nos dois anéis (ou ela e a +N)
+dá o bônus uma vez (`Stats.compute`). Stats novos (tetos em `Balance`): `crit_dmg_pct` (crítico × `CRIT_MULT` + v/100, teto 40),
+`dot_pct` (dano no tempo aplicado, fixado na aplicação, 60), `cc_resist_pct` (atordoar/prender/lentidão em você duram menos, 50),
+`mp_cost_pct` (custo de skill, arredonda para cima, mínimo 1, 30), `summon_time_pct` (invocação com tempo; companheiro permanente igual, 60).
+Fontes: o sorteio lendário do 35/40/45 dá acessório com chance `Balance.LEG_ACC_DROP_SHARE` (25%, fatia própria como o escudo nomeado) e a
+Relicária troca (7/8/9 moedas; "trocar o conjunto" não inclui acessórios). Bots do mundo não vestem; `Sim.bot_legendary_accessories` (sonda
+`boss_probe --acc=leg`). Sinete tem arte própria (`ItemIcons._a_ring_signet`).
 Tiers 0 e 1 estão no mercador; todos caem de monstro (`Balance.GEAR_DROP_CHANCE`). Conjuntos lendários seguem com as peças de antes.
 
 ## Crafting / loja
@@ -1350,7 +1464,7 @@ XP: `Balance.XP_BASE` 220 × `XP_GROWTH` 1,30^(nível−1) (subir é ~2x mais le
 Cada conjunto tem **5 peças de armadura** (cabeça, peito, **calça**, luvas, botas): os bônus saem com 2, 3, 4 e 5 delas. A arma (e a 2ª arma /
 mão secundária) é do conjunto, mas **não conta** nas peças: a arma lendária tem **efeito próprio** pelo papel da build, crescendo por tier —
 um por build (`legend` da build em `classes_catalog.gd`; números [base, por tier] em `Balance.LEGEND_NUMBERS`):
-Guardião Retaliação (devolve corpo a corpo) · Cruzado Julgamento (chance de atordoar) · Gêmeos Frenesi (golpes acumulam vel. de ataque) ·
+Guardião Lâmina Justa (chance de +% do ATK em dano sagrado, que conta ameaça) · Cruzado Julgamento (chance de atordoar) · Gêmeos Frenesi (golpes acumulam vel. de ataque) ·
 Executor Carrasco (+dano em alvo < 30%) · Punhos de Fúria Punho Vingativo (contra-ataque da esquiva mais forte) · Sacerdote Égide (cura vira barreira) · Iluminado Castigo Sagrado (básico lança Castigar) ·
 Templário Penitência (5ª carga explode em fogo sagrado) · Clérigo de Batalha Mão que Cura (golpe cura o aliado mais ferido) ·
 Urso Casca Viva (apanhou: Pele de Carvalho, 20 s) · Lobo Sangue da Matilha (sangramento) · Xamã Lua Cheia (básico lança Fogo Lunar) ·
@@ -1359,6 +1473,17 @@ contra-ataca) · Corsário Bala na Agulha (golpe às vezes dispara a pistola de 
 Voltaico (básico salta para +1 alvo) · Invocador Legião (abate levanta esqueleto) · Ceifador Ceifa (abate cura) · Sombras Praga (básico lança Agonia).
 Atributos: toda peça lendária usa os dois atributos da build; escudos nomeados seguem a afinidade (Paladino VIT/FOR, Bispo VIT/WILL);
 o Elementalista Raio é INT/WILL (AGI não serve a mago) e o conjunto inicial do Paladino é VIT/FOR.
+**Armas com papel** (2026-11-17, `GearCatalog.WEAPON_ROLES`, números em `Balance.LEG_ROLE_NUMBERS` / `LEG_SWORD_ATK_MULT` /
+`LEG_MACE_DEF_PER_ATK` / `LEG_BATTLE_MACE_ATK_MULT`; vale nos conjuntos da build, Ato II, híbridos e Ápices): no Guardião, Templário e
+Cruzado a **espada/montante ataca** (FOR + o outro atributo da build, sem MATK, ATK ×1,08, efeito da build: Lâmina Justa / Penitência /
+Julgamento) e a **maça/martelo defende** (VIT + FOR, MATK 0, DEF = ATK ×0,4, **Baluarte**: golpe dá barreira de 3% + 0,6%/tier da vida
+máxima por 5 s, no máximo a cada 4 s; renova, não acumula). O **escudo** dos conjuntos do Guardião, do Templário e do Clérigo de Batalha
+dá **Determinação** (`Stats.shield_passive`, buff `legend_determination`): atacar dá 1 carga no máximo a cada 2 s (sem renovar o tempo),
+levar golpe dá 1 carga e renova; até 5; cada carga +2% (+0,1/tier) de ATK/MATK e +3% (+0,15/tier) de cura recebida; 6 s sem apanhar
+perde todas. Escudos nomeados (`GearCatalog.SHIELDS`) não mudam. Clérigo de Batalha: a maça do conjunto troca o MATK por ATK ×1,1 e DEF
+(FOR + VIT) e mantém Mão que Cura; Sacerdote e Iluminado não mudam. Maças comuns continuam com MATK (o Sacerdote cura com ele).
+A Égide Ardente (híbrido Templário + Guardião) ganhou a maça de defesa (`..._mix_templario_guardiao_<nv>_mace`). Bots com `--set_weapon`
+na sonda (`Sim.bot_set_weapons`): tanque veste a maça, dps a espada (os bots do mundo não vestem lendário).
 
 ## IA dos bots no combate (`BotBrain._fight`)
 

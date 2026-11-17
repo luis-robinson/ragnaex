@@ -99,7 +99,7 @@ da skill no catálogo, como o `barrage` já faz). `power` = multiplicador de ATK
 - **Leitura**: escudo-torre erguido no modelo + cunha frontal âmbar no chão; contagem de fúria como pips sobre a cabeça.
 - **Aceite**: check: golpe de frente perde 90%, de costas não. Sonda: fúria média ≤ 3 por muralha (grupo de 4).
 
-### 3.6 Presa-de-Cinza, a Mãe-Loba (`boss_dire_mother`, 41, campo, solável) — **Três Botes** · verbo: *esquivar em ritmo*
+### 3.6 Presa-de-Cinza, a Mãe-Loba (`boss_dire_mother`, 41, grupo desde 2026-11-17; era campo, solável) — **Três Botes** · verbo: *esquivar em ritmo*
 - **Kit atual**: salto, mordida; uivo + filhotes (60%); fúria (30%).
 - **Fantasia**: a loba escolhe a presa e dá o bote três vezes.
 - **Regra**: a partir de 60%, a cada **20 s (K)** escolhe uma vítima (`far`; solo = o jogador) e dá **3 botes**
@@ -256,7 +256,7 @@ Intervalos (18-35 s), `power` e raios ficam no dicionário de efeito da skill, c
 - **Bots ruins na mecânica** derrubam a vitória em grupo abaixo do R8 → mitigar: bots com reação embutida por regra
   (acima), calibrar com `--comp` antes de mexer em números.
 - **Excesso de chão** (barrage + assinatura) ilegível de cima → regra de 1 mecânica de chão por vez (Edge Cases).
-- **Solo dos chefes de campo** (Mãe-Loba): Três Botes não pode tirar a faixa campo; `power` baixo e `root` corta.
+- **Solo dos chefes de campo** (Mãe-Loba até 2026-11-16; hoje é de grupo): Três Botes não pode tirar a faixa campo; `power` baixo e `root` corta.
 - **Custo da sim**: marcas e anéis são poucos por chefe (≤ 9 hazards vivos); medir com `sim_probe`.
 - **Escopo de arte/FX**: 7 visuais novos no chão; desenho procedural (anéis, faixas) primeiro, arte depois.
 

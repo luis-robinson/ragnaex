@@ -70,7 +70,7 @@ ganhava um anel fino no pé que ninguém via de cima ("usei Armadura de Gelo e n
 | `grove` | skill dru_grove (Bênção do Bosque) | holy | nature | não (só anel no pé no início) | auréola + brilho dourado; partículas `motes` |
 | `juramento` | ShieldSystem (Juramento ao bloquear) | armor | holy | não (só anel no pé no início) | borda + padrão na pele do tema; partículas `motes` |
 | `legend_frenzy` | LegendEffects (arma lendária: frenesi) | power | blood | não (só anel no pé no início) | chama do tema em volta + borda tremendo; partículas `embers`; casca `chama` |
-| `mark` | skill ran_mark (Marca do Caçador) | power | physical | não (só anel no pé no início) | chama do tema em volta + borda tremendo; partículas `sparks`; casca `chama` |
+| `mark` | skill ran_mark (Foco Mortal) | power | physical | não (só anel no pé no início) | chama do tema em volta + borda tremendo; partículas `sparks`; casca `chama` |
 | `oak_skin` | skill dru_oak_skin (Pele de Carvalho) | armor | nature | não (só anel no pé no início) | borda + padrão na pele do tema; partículas `leaves` |
 | `overload` | skill ele_overload (Sobrecarga) | power | lightning | não (só anel no pé no início) | chama do tema em volta + borda tremendo; partículas `sparks`; casca `chama` |
 | `pack` | skill ran_pack (Instinto da Matilha) | power | nature | não (só anel no pé no início) | chama do tema em volta + borda tremendo; partículas `embers`; casca `chama` |

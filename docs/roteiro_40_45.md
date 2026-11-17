@@ -32,7 +32,7 @@ Quem chega: pelo passo ao norte das Estepes, aberto por "O Caminho da Montanha" 
 
 | Quest | Quem dá | O que é |
 |---|---|---|
-| O Canil | Isolda | Presa-de-Cinza, a Mãe-Loba, no Canil (leste). **K1b: a frente do Canil cala.** Peça + 2 Moedas. |
+| O Canil | Isolda | Presa-de-Cinza, a Mãe-Loba, no Canil (leste) (grupo; mate as Crias: com Cria viva ela leva metade do dano). **K1b: a frente do Canil cala.** Peça + 2 Moedas. |
 | Ervas para o Fogo (Xamã) | Ushka, o Xamã Exilado | Colher 6 Ervas Azuis (F) na cinza entre a cabana e as Minas. |
 | As Ferramentas de Thrain (Ferreiro Anão) | Ferreiro Anão Thrain | Colher 6 Aços Anões (F) nas Minas. |
 | Riscos Sobre as Runas (Ecos) | Pedra Rúnica Partida → Ushka | Levar as inscrições ao Xamã. |

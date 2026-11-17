@@ -1,5 +1,8 @@
 # Ato II — Propostas (2026-11-11): Fusões dos conjuntos híbridos e Ascensão do Caçador
 
+> **Histórico (2026-11-16):** 16 de 24 Fusões substituídas pelo Ápice (`design/gdd/apice-sets.md`): saíram P1, P2, B1-B3, Bi1, Bi2,
+> D1-D3, R1-R3, A1-A3; ficaram P3, Bi3, E1-E3, N1-N3. As fichas removidas ficam aqui só como registro (o código e os números foram apagados).
+
 > **Decisões do autor (2026-11-11)**: Caçador = **A. Falcoeiro** (aprovado); Fusão **substitui** o 5 peças do conjunto híbrido e tem **duas faces** quando o par usa armas diferentes (aprovado); Atirador = **1 torreta**, refino 40/45 = +4 s e −20% de recarga (aprovado). Pendente: D3 face Xamã (decidir quando o Druida entrar), revisão fina das 24 fichas pelo autor.
 
 > **Status:** proposta para o autor revisar (systems-designer). **Não altera** `design/gdd/ato2-horda.md`; o que for aprovado

@@ -30,7 +30,7 @@
   A sim emite por `Events.post(&"sinal", ...)` (nunca `Events.x.emit` em `core/`): na thread o evento vai para a fila e sai no sync. Código que toca a sim
   fora desses momentos (thread própria, callback de render) chama `Sim.sync()` antes. `--sim_sync` desliga para comparar; testes chamam `tick()` direto.
 - Sim sem tela: `--headless --path . tools/tests/sim_probe.tscn -- [--phases] [--map=<id>] [--at=x,z] [--suite] [--census]` (ms/tick + soma de conferência: otimização da sim tem de dar a mesma soma;
-  `--suite` = o mundo do teste longo do run_tests, `--census` = por mapa: entidades por tipo, monstros dormindo, loot no chão). Orçamento: ≤ 10 ms/tick com Kharzun carregado (GDD `ato2-horda` AC-36).
+  `--suite` = o mundo do teste longo do run_tests, `--census` = por mapa: entidades por tipo, monstros dormindo, loot no chão, `--hops` = cada troca de mapa dos bots + resumo `HOPS` com idas e voltas A→B→A em 60 s). Orçamento: ≤ 10 ms/tick com Kharzun carregado (GDD `ato2-horda` AC-36).
   Laço sobre `m["entities"]`: teste a distância antes de chamar métodos (`Combat.nearest_hostile`); nada de alocar por entidade por tick. Notas e números: `docs/otimizacao.md`.
 
 - **Carregamento do início** (`main.build_world(staged=true)`; `BOOT <etapa> <ms> [extra]` no log, de `main._boot`, guardado em `main.boot_ms`; `StartDev.boot` marca `start_enter` = motor + autoloads + `start.tscn`): medido em 2026-11-14,

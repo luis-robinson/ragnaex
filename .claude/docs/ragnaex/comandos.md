@@ -43,6 +43,7 @@ Scripts novos com `class_name` só são vistos pelos outros scripts depois de `-
   `TrapSystem`, `MobSystem` (aggro, chefe, spawners). Regra nova vai no sistema dela; dentro da sim chame `Sistema.f(self, ...)`.
   O fim do `world_sim.gd` repassa (`Sim.equip`, `Sim.party_invite`...) o que jogo/testes/brains usam: API nova pública = um repasse lá.
 - Buff/debuff por id: `SimEntity.put_buff/put_debuff/drop_buff/buff_stacks` (renova, não acumula).
+  Dano no tempo bate em pulsos de `Balance.DOT_PULSE_S` (mesmo total); o de monstro renova (`WorldSim._renew_dot`) e dura x`Balance.MONSTER_DOT_TIME_MULT`; o do jogador vai até `Balance.PLAYER_DOT_MAX_STACKS` cópias por skill (id `WorldSim.dot_id`, a mais antiga sai: `_put_dot`; `docs/DESIGN.md` "Dano no tempo").
   Buff novo precisa de visual no corpo: entrada em `BuffLooks.LOOKS` (`game/fx/buff_looks.gd`; há check); revisar com `-- --autostart=<c> --buff_shot=<pasta> [--only=<id>]`.
 
 - **Início do jogo**: cena principal `game/menu/start.tscn` (`start.gd`, máquina de telas), fluxo Título (`title_screen.gd`) → Personagens (`char_list.gd`,

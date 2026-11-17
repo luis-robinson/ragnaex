@@ -41,15 +41,26 @@
   `--kit_mounts` só confere as do kit, `--wear=<estilo de conjunto>` veste um conjunto na foto) e `python tools/blender/shield_mount_apply.py <pasta>/study.json`
   (o apply troca só os estilos do json; os outros ficam como estão).
   Escudos altos (2026-11-16): os 17 estilos de `shield_kit.TALL` (= `KitModel.TALL_SHIELDS`, mantenha os dois iguais) correm em `run_shield_tall` (braço do escudo quieto)
-  e bloqueiam em `block_shield_tall` (braço mais baixo); montados, `block_ride_tall` (`RidePose.GUARD_SOURCES`). Os clipes só existem nos kits de `SHIELD_CLASSES`
+  e bloqueiam em `block_shield_tall` (braço mais baixo); montados, `block_ride_tall` (clipe do kit: braço aberto para a esquerda, placa de pé por fora do ombro da montaria; `chibi_kit.SHIELD_RIDE_TALL`, achado e conferido por `tools/blender/shield_ride_solve.py -- solve|check --mount=mob_horse,mob_dire_wolf_mount`). Os clipes só existem nos kits de `SHIELD_CLASSES`
   (`chibi_kit.animate_tall_shield`) e quem escolhe é `KitModel.tall_clip/run_clip/guard_clip` (`tall_shield`, ligado no `apply_equipment`); a montagem deles é medida nesses
   clipes (`ck.shield_clip`). Cinco têm o canto do cotovelo aparado (`shield_kit.ELBOW`, só no kit do jogador): mexeu lá = estudo `--only=<estilo>`, apply, kits e ícone.
   Escudo alto novo: entra em `TALL` e em `TALL_SHIELDS` antes do estudo. Revisar: `lineup.tscn -- --shields --styles=<estilo>,... --anim=run|block_shield [--phase=0.25]
   [--shield_view=game|side] [--plain]`, `--strip=<classe> --shield=<item>`, `--mounted --guard=<item>,... [--shield_side]`. Check `_check_tall_shields`.
+  Escudo e chão (2026-11-17): o chibi tem o cotovelo a ~0,55 m do chão, então TODO escudo passava do chão (até 0,8 m). Nos kits de `SHIELD_CLASSES` o rig tem o osso
+  `shield_tip.L` e a parte da placa abaixo do braço pesa nele em rampa (`chibi_kit.skin_shield_tip`); no jogo `ShieldGround` (`game/entities/shield_ground.gd`, criado pelo
+  `KitModel`) sobe o osso só o que falta para a ponta ficar no chão do pai do kit (na sela e no pulo a placa volta inteira). Com o osso em repouso a malha é a de sempre
+  (montagem, ícones, monstros). Medir: `--headless --path . tools/tests/shield_probe.tscn -- [--kits=paladin_male] [--all]` (ponto mais baixo por clipe antes/depois e
+  arestas do escudo que cruzam a montaria na guarda montada); o check `_check_shield_ground_and_ride` exige 0 em todo clipe de pé (fora `die`/`gather_*`; até 8 cm em
+  `cast_nature`/`atk_finisher`/`atk_leap`/`attack`) e 0 cruzamentos com cavalo e lobo. Escudo novo ganha a rampa sozinho; montaria nova: rode o `shield_ride_solve.py -- check`.
 - **Build**: uma entrada `_b(...)` em `classes_catalog.gd` diz tudo da build: armas, armadura, atributos, skills em prioridade,
   `passives`/`set_extra`, `of` ("do X" das peças), `signature` (magia-assinatura + `look` do básico), `legend` (kind/name/skill
-  da arma lendária) e, no Elementalista, `element`. Números por build ficam em `Balance` (`BUILD_POWER`, `SIGNATURE_BUILD_POWER`,
-  `LEGEND_NUMBERS`; check `_check_build_entries`). Uma build nova ganha conjuntos lendários sozinha (`gear_catalog.gd`).
+  da arma lendária; build com papel por arma em `GearCatalog.WEAPON_ROLES`: espada ataca com o `legend`, maça defende com Baluarte,
+  escudo do conjunto em `DETERMINATION_SHIELDS` ganha Determinação) e, no Elementalista, `element`. Números por build ficam em `Balance` (`BUILD_POWER`, `SIGNATURE_BUILD_POWER`,
+  `LEGEND_NUMBERS`; check `_check_build_entries`). Uma build nova ganha conjuntos lendários sozinha (`gear_catalog.gd`) e um
+  **Ápice** (35/40/45, `design/gdd/apice-sets.md`) com uma linha em `GearCatalog.APEX` + números em `Balance.APEX_NUMBERS`; a regra do
+  5 peças mora em `FusionEffects` (id `apice_<build>`; checks `_check_apex_sets`/`_check_apex_rules`/`_check_apex_save`, `--only=apex`).
+  Acessórios lendários (Manto/Medalhão/Anel/Sinete 35/40/45, `GearCatalog.legendary_accessories`) também saem sozinhos, mas a build nova
+  precisa de entrada em `Balance.LEG_ACC_BUILDS` (stat de cada peça, de `LEG_ACC_STEP`) e da arte (`item_icons.tscn -- --only=leg_acc_`); check `_check_legendary_accessories`.
 - **Evolução** (skill ou dash): `data/catalog/talents_catalog.gd` (`TalentDef`; dash = `skill_id: "dash"`).
 - **Item/equipamento**: `items_catalog.gd` (atributos FOR/AGI/VIT/WILL/INT vêm de equipamento e dos nós de atributo da teia). Ícone: sem `icon` próprio, arte pintada
   `art_<id>.png` por `tools/icons/item_icons.gd` (laço sobre todos os itens; forma por `ItemIcons.art_key`: tipo de arma, slot + `armor_style`,
@@ -58,7 +69,7 @@
   Forma nova = `_a_<chave>` em `item_icons.gd` (há check). Rodar `item_icons.tscn [-- --only=<id> --sheet=<png>]` (com janela) e `--import`.
   Loja do mercador (`npc_ui._shop`): grade da mercadoria e da bolsa, abas, clique/Shift, "vender materiais" (`junk_of`); revisar `--bag_shot=<png> --wins= --shop`.
   Bolsa ↔ boneco por arrastar e soltar (`windows._drag_from_bag/_drop_on_slot/_drop_on_bag`; clique = soltar sem arrastar); conferir com `--bag_shot=<png> --dnd_check`.
-  Barra do HUD: poção da bolsa → F1-F3 e skill da janela K → 1-6 por arrastar (`hud._drop_potion_slot/_drop_skill_slot`, botão direito esvazia); mouse simulado: `--bag_shot=<png> --wins= --hotbar_drag_check`. A barra (moldura, recarga em leque, atalhos, XP em 20 gomos) é `game/ui/action_bar.gd`; revisar com `-- --autostart=<c> [--preset=20] --screenshot=<png>`.
+  Barra do HUD: poção da bolsa → F1-F3 e skill da janela K → 1-6 por arrastar (`hud._drop_potion_slot/_drop_skill_slot`, botão direito esvazia); mouse simulado: `--bag_shot=<png> --wins= --hotbar_drag_check`. Clique em janela não ataca/bloqueia (o segurar só vale se o clique começou no mundo, `player_controller.attack_down/block_down`): `-- --autostart=<c> --bag_shot=<png> --wins= --ui_click_check` (check `_check_ui_click_gate`). A barra (moldura, recarga em leque, atalhos, XP em 20 gomos) é `game/ui/action_bar.gd`; revisar com `-- --autostart=<c> [--preset=20] --screenshot=<png>`.
   Montaria (H): o ícone segue o tipo escolhido (`ActionBar.mount_icon/set_mount_kind`, `action_mount_<kind>.png`, fallback cavalo); tipo novo =
   entrada `mount_<kind>` em `ACTION_ICONS` do `make_icons.gd` (+ glifo, ex. `_g_wolf`) e `make_icons.tscn -- --only=action` + `--import` (check em `_check_action_bar`).
   Cuidador de montarias (`npc_ui.mount_options/pick_mount`, estáticos; botões "Em uso / Trocar para / (travado)" + linha com a quest que destrava;
@@ -125,15 +136,39 @@
 - **Entrega**: quest COLLECT com `give_items` (o pacote) e `turnin_npc` diferente do `giver_npc`. XP de quest é escalada por faixa (`QuestsCatalog.scale_xp`):
   o número escrito vale como peso; o teste confere 40-50% da faixa e 10+ quests por faixa.
 - **Portão de progressão**: `MapsCatalog.PORTAL_GATES` (id do portal → `level`, `quest`, `quests` = várias, todas exigidas, `bosses`, `text`); vale só para o jogador. Save sem `save_version` passa por `grandfather_gates`.
+- **Cidade com identidade / evento de estrada** (GDD `living-towns`): centro e quadrantes de cidade em `tools/blender/zones/town_dress.py` (lotes `Dress`;
+  zona antiga sem `Zone` usa `town_dress.shim`; resumo em `data["town"]["centerpiece"]`, check `_check_town_identity`). Rotina de NPC = linha em
+  `MapsCatalog.LIVING_NPCS[<mapa>]` (`flow` = não para nos pontos da rota, ponto `[x, z, s]` = parada; check `_check_living_routes`, mapa novo entra em `TOWN_LIVING`).
+  Evento de estrada: ponto em `EVENT_POINTS` do `build_<zona>.py` (vira `SPAWN_event_<tipo>_NN` e `events` no JSON → `MapDef.road_events`; `EVENT_CONFLICT` = ponto fora das regras)
+  + regras em `MapsCatalog.ROAD_EVENTS[<mapa>][<tipo>]` (monstro, vítima, falas, prêmio consumível) + números `Balance.EVENT_*`; sim em `RoadEventSystem`
+  (`Sim.road_event_status/road_event_start`). Filmar: `-- --autostart=<classe> --event_shot=<png> [--event_point=N]`. Check `_check_road_events`.
 - **Investida / sentinela**: rota em `z.data["raid"]` no `build_<zona>.py` (from, route, target, radius) + levas/ritmo/falas em `MapsCatalog.RAIDS`;
   `RaidSystem` (relógio só com o jogador no mapa) e a marcha em `MonsterBrain._march`. Sentinela = NPC com `fighter` (monstro `guard_*` dá
   atributos), `gear` e `route`, em `MapsCatalog.FOREST_NPCS`; `GuardBrain`. Calibrar: `--headless --path . tools/tests/raid_probe.tscn -- [--trials=20] [--bots=0,1,3]`
   (repelidas, chegada, mortes, `presos` = FLAG). Filmar: `-- --autostart=<classe> --raid_shot=<png>`.
+- **Cerco Vivo** (GDD `design/gdd/act2-siege-life.md`; P1 = Porto Esperança): `MapsCatalog.SIEGE[<mapa>]` (→ `MapDef.siege`) liga o relógio do
+  `SiegeSystem` (core/sim/systems/siege_system.gd) no lugar do relógio de cada rota: uma leva por vez, revezando os `segments` (trechos da
+  paliçada: `{id, quest, label, route}`). Trecho aberto = rota `cerco_<id>` (`unless "quest|close_all"`; no WorldState um id `"a|b"` vale com
+  qualquer uma das duas) e a Horda entra pela brecha; fechado = a leva daquele lado vai ao `gate_route`. `pressure` (1ª linha que vale: 3 Fúria,
+  2 Cerco, 1 Fustigar = só `low_route`, 0 Paz) escala frequência/tamanho/leva grande (`Balance.SIEGE_EVERY_MULT/SIZE_MULT/BIG_NTH`). Assédio =
+  rota `kind: "harass"` (`harass_route`, `harass_mob`): atiradores no `from`, salva de círculos avisados em % da vida (não esquivável, só
+  jogador/bots, fora de `SiegeSystem.safe_points`). Batedores = `MOB_PATROLS` com extras `{"horn": true}` (não contam em `MapDef.has_hunting`).
+  Reserva = sentinela com `responder` (prefixo `port_r_`). Repelida = buff `colonia_de_pe` + conta quest `DEFEND` (tipo novo: `target_id` = mapa);
+  chegou e não foi repelida = Chamas (só visual: marcadores `fire` de `z.data["fx"]`, `game/world/siege_fx.gd`, que também faz a fumaça
+  `smoke`/`smoke_low` com `if`/`unless`). No Blender: `build_city_port.SEGMENTS` (espelho dos `segments`; há check), peças `pal_<id>_obra_*` /
+  `pal_<id>_pronta_*` e lotes com `tag` em `act2_dress.port_siege` (casas queimadas/novas, refugiados, torre, enfermaria). Números só em
+  `Balance.SIEGE_*` (cadência "Intenso": leva a cada 90 s). Checks `--only=siege`; medir: `raid_probe.tscn -- --map=city_port --side=cerco_ne --bots=0`
+  (uma rota) e `-- --map=city_port --siege_run=1800 --bots=0 --level=32 [--quests=...]` (relógio de verdade: repelidas, intervalo entre eventos,
+  XP/min); fotos: `-- --autostart=paladin --siege_shot=<pasta> [--quests=hx_palisade]`.
 - **Grupo (party)**: regras na sim (`PartySystem`, via `Sim.party_*`, `kill_sharers`; aliado = `SimEntity.is_friend`), números em `Balance.PARTY_*`,
   bots em `BotBrain._follow/_gather_party/wants_party`; UI em `hud.gd` (quadros/convite/comandos de chat) e janela `party` (P).
   IA de grupo por papel da build (posição contra chefe, ameaça, cura no tanque, tirar lacaio; `Balance.BOT_*`, check `_check_bot_group`). Medir:
   `boss_probe.tscn -- --party=5 --comp=paladin:guardiao,bishop:sacerdote,... [--why]` (aggro no tanque, `frente` = dano no lugar errado, `ritmo`, `cura_tq`).
   Sob pressão: `--dmg=6` (ATK/MATK do chefe ×6; grupo de 4 vence ~80%) ou `--under=N` (bots N níveis abaixo); `baixa`/`baixa_tq`/`pocoes`/`mortes` medem a cura.
+  **Bots presos** (2026-11-17): povoado murado (`town_radius` + portões no JSON, com ou sem `is_town`) passa por `BotBrain._route` (portão com histerese, anel em volta
+  do muro `_ring`); monstro calmo com a linha bloqueada não é escolhido (`MapGeometry.line_walkable`); sem chegar perto em `BOT_CHASE_STALL` s larga e ignora (`_stalled`/`_drop`);
+  ponta de rio a ≤ 3 m de lago fecha (`MapGeometry.river_lake_joins`); seguidor espera na porta só do jogador (`_wait_at_door`; catchup e portal do grupo não entram em casa).
+  Medir: `tools/tests/stuck_probe.tscn -- --minutes=30 --seed=<n> --out=<json>` + `python tools/tests/stuck_cluster.py <jsons>`; checks `_check_bot_unstuck`, `_check_water_lines_walk`.
 - **Quest**: `quests_catalog.gd` (KILL/COLLECT/TALK/CRAFT/REACH; NPC giver precisa existir em algum `MapDef.npcs`). `prereq_all` junta ramos, `reward_gear_tier` dá peça vestível, `repeatable` é recompensa de quadro.
 - **Mapa/zona**: siga "Layout de zonas" abaixo (`/layout-zone`). O `MapDef` continua sendo a verdade da sim
   (obstáculos = colisão, portais, spawners, NPCs); o visual da zona vem do Blender (`map_<zona>.glb`).
