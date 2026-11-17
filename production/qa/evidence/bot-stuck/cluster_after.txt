@@ -1,0 +1,22 @@
+files=3 alive_bot_s=355162 stuck_bot_s=44 rate=0.0001 eps=3 frozen=0
+
+CAUSES (eps, bot_s):
+  goal_blocked:house                          2      33
+  goal_blocked:well                           1      10
+
+STATES:
+  TOWN_IDLE+follow                  1      17
+  TRAVEL                            1      16
+  TOWN_WALK                         1      10
+
+ENDS: {'andou': 3}
+dur p50=16 p90=17 max=17  >=60s: 0
+
+HOTSPOTS (top 25 by bot_s):
+city_aldara       21.4,    4.8 eps= 2 bot_s=   33 bots=2 seeds=1 causes={'goal_blocked:house': 2}
+     ex: st=TOWN_IDLE dest=city_aldara aim=[20.4, 10.8] goal_line=0.6m:house(box 5.6x5.2 @24,7 gap0.4) foe=None@None foe_line=None near=['house(box 5.6x5.2 @24,7 gap0.4)', 'lamp(o r0.2 @24,3 gap2.6)'] town_d=-8.0 portal=None
+city_aldara       -5.7,    6.1 eps= 1 bot_s=   10 bots=1 seeds=1 causes={'goal_blocked:well': 1}
+     ex: st=TOWN_WALK dest=city_aldara aim=[-18.5, -1.5] goal_line=0.6m:well(o r0.8 @-7,7 gap0.3) foe=None@None foe_line=None near=['well(o r0.8 @-7,7 gap0.4)'] town_d=-21.6 portal=None
+
+PER MAP:
+  city_aldara         3      44

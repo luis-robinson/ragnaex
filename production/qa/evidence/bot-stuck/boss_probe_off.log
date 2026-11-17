@@ -1,0 +1,6 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+WARD bandit_chief grupo=5 lutas_com_ward=20 1o_lacaio_caiu_em=0.0s ate_30s=20/20
+PROBE bandit_chief       grupo=5 vitorias=20/20 tempo_medio=39.5s mortes=0.8 cast/min=28.4 act=65% adds=4.0 off=40% longe/min=3.3 aggro=99% area=51% cura_tq=68% baixa=0.7s frente=7% ritmo=43% baixa_tq=0.0s pocoes=2.3 perdas=0.40 freio=3%
+PROBE boar_king          grupo=5 vitorias=20/20 tempo_medio=6.6s mortes=0.0 cast/min=18.5 act=46% adds=3.0 off=13% longe/min=0.0 aggro=98% area=53% cura_tq=80% baixa=0.0s frente=11% ritmo=23% baixa_tq=0.0s pocoes=0.1 perdas=0.20 freio=1%
+PROBE_END

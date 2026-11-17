@@ -1,0 +1,6 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+RAID bots=0 reforcos=0 repelidas=2/12 chegada=34s duracao=232s mediana=248s luta_mediana=214s chegaram=34.0/24.0 sentinelas_mortas=17.8 sentinelas_vida_min=5% bots_mortos=0.0 presos=0
+RAID bots=1 reforcos=0 repelidas=11/12 chegada=37s duracao=139s mediana=154s luta_mediana=143s chegaram=22.8/24.0 sentinelas_mortas=12.3 sentinelas_vida_min=33% bots_mortos=0.4 presos=0
+RAID bots=3 reforcos=0 repelidas=12/12 chegada=40s duracao=59s mediana=50s luta_mediana=49s chegaram=4.8/24.0 sentinelas_mortas=1.9 sentinelas_vida_min=87% bots_mortos=1.1 presos=0
+RAID_END

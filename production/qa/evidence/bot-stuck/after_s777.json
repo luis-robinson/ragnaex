@@ -1,0 +1,51 @@
+{
+ "alive_bot_s": 118421.5,
+ "episodes": [
+  {
+   "aim": [
+    -18.5,
+    -1.5
+   ],
+   "aim_d": 14.8,
+   "cls": "paladin",
+   "combat": false,
+   "dest": "city_aldara",
+   "detour_tries": 1,
+   "dur": 10.4999999999995,
+   "end": "andou",
+   "end_state": "TOWN_WALK",
+   "goal_line": "0.6m:well(o r0.8 @-7,7 gap0.3)",
+   "goal_water": false,
+   "id": 380,
+   "in_town": true,
+   "kind": "preso",
+   "lv": 45,
+   "map": "city_aldara",
+   "mounted": true,
+   "move": [
+    -0.69,
+    -0.41
+   ],
+   "n": 1,
+   "near": [
+    "well(o r0.8 @-7,7 gap0.4)"
+   ],
+   "near_portal": "in_home (player_only)@13.4",
+   "sim_state": "MOVING",
+   "stall_t": 0.0,
+   "start": 1037.01666666604,
+   "state": "TOWN_WALK",
+   "target_pos": [
+    -18.5,
+    -1.5
+   ],
+   "town_d": -21.6,
+   "water_path": 0,
+   "x": -5.7,
+   "z": 6.1
+  }
+ ],
+ "minutes": 30.0,
+ "preso_bot_s": 10.4999999999995,
+ "seed": 777
+}

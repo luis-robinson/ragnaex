@@ -1,0 +1,34 @@
+# --ui_click_check (playtest 2026-11-16: LMB na bolsa/ficha atacava)
+# comando: .\tools\godot.ps1 --audio-driver Dummy --path . -- --autostart=berserker --bag_shot=<png> --wins= --ui_click_check
+
+## ANTES (controle antigo: Input.is_action_pressed no physics, sem saber se a UI consumiu o clique)
+UI_CLICK inventory_titulo LMB attack_ticks=12 hovered=PanelContainer ok=false
+UI_CLICK inventory_titulo RMB block_ticks=12 ok=false
+UI_CLICK inventory_corpo LMB attack_ticks=12 hovered=VBoxContainer ok=false
+UI_CLICK inventory_corpo RMB block_ticks=12 ok=false
+UI_CLICK character_titulo LMB attack_ticks=12 hovered=PanelContainer ok=false
+UI_CLICK character_titulo RMB block_ticks=12 ok=false
+UI_CLICK character_corpo LMB attack_ticks=12 hovered=ScrollContainer ok=false
+UI_CLICK character_corpo RMB block_ticks=12 ok=false
+UI_CLICK barra_1 LMB attack_ticks=12 hovered=PanelContainer ok=false
+UI_CLICK mundo LMB attack_ticks=12 hovered= ok=true
+UI_CLICK mundo RMB block_ticks=12 ok=true
+UI_CLICK mundo->bolsa LMB attack_ticks=12 solto_na_janela_ataca=false ok=true
+UI_CLICK bolsa->mundo LMB attack_ticks=12 solto_no_mundo_ataca=false ok=false
+UI_CLICK all ok=false
+
+## DEPOIS (segurar só vale se o aperto chegou ao _unhandled_input)
+UI_CLICK inventory_titulo LMB attack_ticks=0 hovered=PanelContainer ok=true
+UI_CLICK inventory_titulo RMB block_ticks=0 ok=true
+UI_CLICK inventory_corpo LMB attack_ticks=0 hovered=VBoxContainer ok=true
+UI_CLICK inventory_corpo RMB block_ticks=0 ok=true
+UI_CLICK character_titulo LMB attack_ticks=0 hovered=PanelContainer ok=true
+UI_CLICK character_titulo RMB block_ticks=0 ok=true
+UI_CLICK character_corpo LMB attack_ticks=0 hovered=ScrollContainer ok=true
+UI_CLICK character_corpo RMB block_ticks=0 ok=true
+UI_CLICK barra_1 LMB attack_ticks=0 hovered=PanelContainer ok=true
+UI_CLICK mundo LMB attack_ticks=12 hovered= ok=true
+UI_CLICK mundo RMB block_ticks=12 ok=true
+UI_CLICK mundo->bolsa LMB attack_ticks=12 solto_na_janela_ataca=false ok=true
+UI_CLICK bolsa->mundo LMB attack_ticks=0 solto_no_mundo_ataca=false ok=true
+UI_CLICK all ok=true

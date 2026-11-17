@@ -1,0 +1,6 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+STUCK_PROGRESS sim_min=5 real_s=146 open=0 eps=0
+STUCK_PROGRESS sim_min=10 real_s=312 open=0 eps=0
+STUCK_HOT map=lich_citadel at=17.6,6.5 kind=preso eps=1 bot_s=18 bots=1 states={"HUNT":1} ex={"aim":[11.5,-32.2],"aim_d":39.2,"cls":"druid","combat":false,"dest":"lich_citadel","detour_tries":0,"dur":17.9999999999927,"end":"andou","end_state":"HUNT","foe":"citadel_knight","foe_aggro_me":false,"foe_d":12.3,"foe_line":"0.6m:wall(box 2.3x2.4 @18,6 gap0.0)","foe_pos":[21.6,-5.1],"foe_water":false,"goal_line":"0.6m:wall(box 2.3x2.4 @18,6 gap0.0)","goal_water":false,"id":383,"in_town":false,"kind":"preso","lv":32,"map":"lich_citadel","mounted":false,"move":[-0.74,-0.67],"n":16,"near":["wall(box 2.3x2.4 @20,6 gap1.4)","wall(box 2.3x2.4 @18,6 gap0.0)","wall(box 2.3x2.4 @16,5 gap0.9)","ruin(box 5.8x0.7 @17,7 gap0.5)","ruin(box 5.3x0.7 @14,9 gap2.6)","ruin(box 5.3x0.7 @19,11 gap2.8)"],"near_portal":"field_ruins@126.1","sim_state":"MOVING","stall_t":0.0,"start":761.016666666294,"state":"HUNT","target_pos":[11.5,-32.2],"town_d":0.9,"water_path":0,"x":17.6,"z":6.5}
+STUCK_SUM seed=4242 minutes=15 bots=66 episodes=1 preso_bot_s=18 alive_bot_s=59218 rate=0.0003 by_state={"HUNT":1} by_end={"andou":1}

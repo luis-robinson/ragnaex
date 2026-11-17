@@ -1,0 +1,9 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+STUCK_PROGRESS sim_min=5 real_s=152 open=0 eps=0
+STUCK_PROGRESS sim_min=10 real_s=329 open=0 eps=0
+STUCK_PROGRESS sim_min=15 real_s=489 open=0 eps=0
+STUCK_PROGRESS sim_min=20 real_s=651 open=0 eps=0
+STUCK_PROGRESS sim_min=25 real_s=810 open=0 eps=0
+STUCK_HOT map=city_aldara at=21.5,4.9 kind=preso eps=2 bot_s=33 bots=2 states={"TOWN_IDLE":1,"TRAVEL":1} ex={"aim":[118.0,-38.6],"aim_d":106.0,"cls":"berserker","combat":false,"dest":"elf_city","detour_tries":0,"dur":16.4999999999941,"end":"andou","end_state":"TRAVEL","goal_line":"0.6m:house(box 5.6x5.2 @24,7 gap0.0)","goal_water":false,"id":334,"in_town":true,"kind":"preso","lv":19,"map":"city_aldara","mounted":true,"move":[0.57,-0.82],"n":13,"near":["house(box 5.6x5.2 @24,7 gap0.5)"],"near_portal":"in_tavern (player_only)@8.1","portal":"field_forest","portal_d":106.0,"portal_pos":[118.0,-38.6],"sim_state":"MOVING","stall_t":0.0,"start":1644.51666666549,"state":"TRAVEL","target_pos":[10.2,5.1],"town_d":-8.0,"water_path":0,"x":21.4,"z":5.1}
+STUCK_SUM seed=1234 minutes=30 bots=66 episodes=2 preso_bot_s=33 alive_bot_s=118299 rate=0.0003 by_state={"TOWN_IDLE":1,"TRAVEL":1} by_end={"andou":2}

@@ -1,0 +1,104 @@
+{
+ "alive_bot_s": 118298.5,
+ "episodes": [
+  {
+   "aim": [
+    118.0,
+    -38.6
+   ],
+   "aim_d": 106.0,
+   "cls": "berserker",
+   "combat": false,
+   "dest": "elf_city",
+   "detour_tries": 0,
+   "dur": 16.4999999999941,
+   "end": "andou",
+   "end_state": "TRAVEL",
+   "goal_line": "0.6m:house(box 5.6x5.2 @24,7 gap0.0)",
+   "goal_water": false,
+   "id": 334,
+   "in_town": true,
+   "kind": "preso",
+   "lv": 19,
+   "map": "city_aldara",
+   "mounted": true,
+   "move": [
+    0.57,
+    -0.82
+   ],
+   "n": 13,
+   "near": [
+    "house(box 5.6x5.2 @24,7 gap0.5)"
+   ],
+   "near_portal": "in_tavern (player_only)@8.1",
+   "portal": "field_forest",
+   "portal_d": 106.0,
+   "portal_pos": [
+    118.0,
+    -38.6
+   ],
+   "sim_state": "MOVING",
+   "stall_t": 0.0,
+   "start": 1644.51666666549,
+   "state": "TRAVEL",
+   "target_pos": [
+    10.2,
+    5.1
+   ],
+   "town_d": -8.0,
+   "water_path": 0,
+   "x": 21.4,
+   "z": 5.1
+  },
+  {
+   "aim": [
+    20.4,
+    10.8
+   ],
+   "aim_d": 6.3,
+   "cls": "assassin",
+   "combat": false,
+   "dest": "city_aldara",
+   "detour_tries": 1,
+   "dur": 16.9999999999936,
+   "end": "andou",
+   "end_state": "TOWN_IDLE",
+   "goal_line": "0.6m:house(box 5.6x5.2 @24,7 gap0.4)",
+   "goal_water": false,
+   "id": 335,
+   "in_town": true,
+   "kind": "preso",
+   "leader_d": 6.0,
+   "leader_map": "city_aldara",
+   "lv": 6,
+   "map": "city_aldara",
+   "mounted": true,
+   "move": [
+    -0.13,
+    0.74
+   ],
+   "n": 14,
+   "near": [
+    "house(box 5.6x5.2 @24,7 gap0.4)",
+    "lamp(o r0.2 @24,3 gap2.6)"
+   ],
+   "near_portal": "in_tavern (player_only)@8.7",
+   "party": "follow",
+   "sim_state": "MOVING",
+   "stall_t": 0.0,
+   "start": 1644.01666666549,
+   "state": "TOWN_IDLE",
+   "target_pos": [
+    4.0,
+    13.6
+   ],
+   "town_d": -8.0,
+   "water_path": 0,
+   "x": 21.5,
+   "z": 4.6
+  }
+ ],
+ "minutes": 30.0,
+ "preso_bot_s": 33.4999999999877,
+ "seed": 1234
+}

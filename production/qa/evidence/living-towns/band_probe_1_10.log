@@ -1,0 +1,61 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+AUDIT quests 1-10
+  q01_welcome    nv1  TALK     captain            x1  xp=30    
+  q02_slimes     nv1  KILL     slime              x6  xp=80    city_aldara
+  q03_gel        nv2  COLLECT  slime_gel          x5  xp=90    loot de slime (~5 abates)
+  q04_potion     nv2  CRAFT    potion_hp_s        x2  xp=100   
+  q05_boars      nv4  COLLECT  boar_tusk          x4  xp=170   loot de boar (~8 abates)
+  q06_wolves     nv6  KILL     wolf               x8  xp=270   city_aldara
+  q07_king       nv8  KILL     boar_king          x1  xp=500   city_aldara
+  c1_digging     nv8  TALK     hermit_ines        x1  xp=290   
+  c2_descent     nv8  REACH    dg_catacumbas      x1  xp=380   
+  c3_captain     nv9  KILL     bone_captain       x1  xp=750   dg_catacumbas
+  c4_widow       nv9  KILL     wailing_widow      x1  xp=840   dg_catacumbas
+  c_dust         nv8  COLLECT  grave_dust         x6  xp=340   loot de ghoul (~11 abates)
+  c5_report      nv9  TALK     captain            x1  xp=500   
+  q08_forest     nv10 TALK     ranger_post        x1  xp=220   
+  q09_spiders    nv10 COLLECT  spider_silk        x6  xp=620   loot de spider (~7 abates)
+  l1_pincas      nv3  KILL     crab               x8  xp=250   city_aldara
+  l2_cascos      nv4  COLLECT  crab_shell         x6  xp=290   colheita em ["city_aldara", "city_port", "field_coast"]
+  l3_cesto       nv4  COLLECT  fish_basket        x1  xp=210   entrega
+  l4_lenda       nv5  TALK     eld_scribe         x1  xp=210   
+  l5_isca        nv6  COLLECT  herb_blue          x6  xp=290   colheita em ["city_aldara", "field_forest", "field_coast", "field_steppe", "field_kharzun", "dg_slayers", "elf_city"]
+  l6_rei         nv8  KILL     crab_king          x1  xp=750   city_aldara
+  f1_cenouras    nv3  KILL     slime_blue         x10 xp=250   city_aldara,dg_gruta
+  f2_pao         nv2  COLLECT  bread_basket       x1  xp=150   entrega
+  g1_ervas       nv2  COLLECT  herb_green         x8  xp=180   colheita em ["city_aldara"]
+  g2_minerio     nv5  COLLECT  iron_ore           x6  xp=320   colheita em ["city_aldara", "field_ruins", "field_coast", "field_steppe"]
+  d1_carta       nv5  COLLECT  sealed_letter      x1  xp=250   entrega
+  e1_presa       nv5  KILL     boar_brute         x1  xp=420   city_aldara
+  v1_tico        nv6  KILL     boar               x10 xp=250   city_aldara,dg_gruta
+  v2_cha         nv6  COLLECT  herb_green         x8  xp=230   colheita em ["city_aldara"]
+  v3_peles       nv7  COLLECT  wolf_pelt          x6  xp=380   loot de wolf (~10 abates)
+  v4_bando       nv7  KILL     wolf               x10 xp=380   city_aldara
+  v5_gruta       nv7  REACH    dg_gruta           x1  xp=290   
+  v6_recibo      nv7  COLLECT  sealed_letter      x1  xp=340   entrega
+  v7_marco       nv7  REACH    marco              x1  xp=250   
+  b1_trilhas     nv10 KILL     bandit             x18 xp=1610  field_forest
+  s_wolf_den     nv6  KILL     wolf               x6  xp=250   city_aldara
+  s_slime_king   nv8  KILL     slime_king         x1  xp=420   dg_gruta
+  s_silk         nv10 COLLECT  spider_silk        x5  xp=620   loot de spider (~6 abates)
+  b_wolves       nv6  KILL     wolf               x10 xp=260   city_aldara
+  b_zombies      nv9  KILL     zombie             x8  xp=440   dg_catacumbas
+  b_bones        nv10 KILL     bone_recruit       x8  xp=520   dg_catacumbas,dg_catacumbas_trono
+  h_slime        nv1  KILL     slime              x10 xp=160   city_aldara
+  h_slime_blue   nv1  KILL     slime_blue         x10 xp=256   city_aldara,dg_gruta
+  h_boar         nv3  KILL     boar               x10 xp=384   city_aldara,dg_gruta
+  h_crab         nv2  KILL     crab               x10 xp=336   city_aldara
+  h_bandit_footpad nv10 KILL     bandit_footpad     x10 xp=992   field_forest
+  h_bone_archer  nv8  KILL     bone_archer        x10 xp=896   dg_catacumbas,dg_catacumbas_trono
+  h_ghoul        nv9  KILL     ghoul              x10 xp=1376  dg_catacumbas
+  h_wraith       nv10 KILL     wraith             x10 xp=1456  dg_catacumbas
+  h_golem_moss   nv9  KILL     golem_moss         x10 xp=1472  dg_pedreira
+  h_golem_stone  nv10 KILL     golem_stone        x10 xp=1664  dg_pedreira,dg_pedreira_coracao
+AUDIT xp das quests 13770 de 21420 para subir 1->10 (64%); quests por nível { 1: 4, 2: 5, 4: 3, 6: 6, 8: 7, 9: 6, 10: 8, 3: 3, 5: 4, 7: 5 }
+DUEL bone_recruit       dg_catacumbas        nv=9  vitorias=8/8 mortes=0 ttk=1.1s vida_perdida=8% golpes/monstro=0.84 1o_golpe=0.5s  FLAG trivial
+DUEL bone_archer        dg_catacumbas        nv=10 vitorias=8/8 mortes=0 ttk=1.8s vida_perdida=11% golpes/monstro=0.88 1o_golpe=0.8s
+DUEL ghoul              dg_catacumbas        nv=11 vitorias=8/8 mortes=0 ttk=3.8s vida_perdida=36% golpes/monstro=2.25 1o_golpe=0.9s
+DUEL zombie             dg_catacumbas        nv=8  vitorias=8/8 mortes=0 ttk=1.1s vida_perdida=8% golpes/monstro=0.59 1o_golpe=0.6s  FLAG trivial
+DUEL golem_moss         dg_pedreira          nv=11 vitorias=8/8 mortes=0 ttk=2.4s vida_perdida=49% golpes/monstro=1.34 1o_golpe=0.8s
+BAND_END flags=2

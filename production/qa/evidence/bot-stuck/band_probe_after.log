@@ -1,0 +1,101 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+AUDIT quests 10-20
+  c6_count       nv11 KILL     count_vargo        x1  xp=2140  dg_catacumbas_trono
+  q08_forest     nv10 TALK     ranger_post        x1  xp=220   
+  q09_spiders    nv10 COLLECT  spider_silk        x6  xp=620   loot de spider (~7 abates)
+  q10_bandits    nv12 KILL     bandit             x15 xp=1470  field_forest
+  q10b_nest      nv16 KILL     spider_queen       x1  xp=2330  dg_ninho
+  q11_chief      nv17 KILL     bandit_chief       x1  xp=2230  field_forest
+  q12_ruins      nv20 TALK     dawn_commander     x1  xp=2920  
+  dw_gates       nv20 KILL     larva              x30 xp=7600  field_ruins,fort_ghoul,investida field_ruins
+  dw_ghoul_posts nv20 KILL     rot_ghoul          x12 xp=8770  field_ruins,fort_ghoul,investida field_ruins
+  dw_ghoul_boss  nv20 KILL     ghoul_giant        x1  xp=15200 fort_ghoul
+  dw_ghoul_settle nv20 TALK     fort_ghoul_settler_0 x1  xp=4680  
+  b1_trilhas     nv10 KILL     bandit             x18 xp=1610  field_forest
+  b2_carga       nv12 COLLECT  stolen_goods       x6  xp=1160  colheita em ["field_forest"]
+  b3_arqueiros   nv14 KILL     bandit_archer      x15 xp=2010  field_forest
+  b4_relatorio   nv14 COLLECT  ranger_report      x1  xp=800   entrega
+  b5_ordens      nv15 TALK     ranger_post        x1  xp=800   
+  b6_limpeza     nv18 KILL     bandit             x27 xp=3210  field_forest
+  el1_alarm      nv14 TALK     forest_commander   x1  xp=540   
+  el2_defense    nv15 KILL     elf_raider         x24 xp=2140  investida field_forest
+  el3_scout      nv16 TALK     siege_scout        x1  xp=1160  
+  el4_roots      nv17 KILL     trent              x6  xp=2680  elf_city,dg_coracao
+  el5_wardens    nv18 KILL     elf_warden         x5  xp=3210  elf_city,dg_coracao
+  el6_king       nv19 KILL     elf_king           x1  xp=5990  dg_coracao
+  els_lynx       nv15 KILL     elf_lynx           x15 xp=1470  elf_city,investida field_forest
+  els_steel      nv16 COLLECT  elf_steel          x5  xp=1550  colheita em ["elf_city"]
+  els_feathers   nv17 COLLECT  griffin_feather    x6  xp=1340  loot de griffin (~7 abates)
+  els_heart      nv18 COLLECT  heartwood          x3  xp=1520  loot de trent (~5 abates)
+  elf_fort_hunter nv19 KILL     elf_captain_hunter x1  xp=3750  elf_city
+  elf_fort_sky   nv19 KILL     elf_captain_sky    x1  xp=3750  elf_city
+  elf_fort_sap   nv19 KILL     elf_captain_sap    x1  xp=4100  elf_city
+  b_elf_patrols  nv18 KILL     elf_sergeant       x15 xp=2600  elf_city
+  r1_reliquias   nv20 COLLECT  ancient_relic      x6  xp=4870  colheita em ["field_ruins"]
+  s_silk         nv10 COLLECT  spider_silk        x5  xp=620   loot de spider (~6 abates)
+  s_queen        nv13 COLLECT  forest_mushroom    x8  xp=1250  colheita em ["field_forest", "elf_city"]
+  s_ents         nv15 KILL     ent                x6  xp=2010  field_forest,dg_ninho
+  b_bones        nv10 KILL     bone_recruit       x8  xp=520   dg_catacumbas,dg_catacumbas_trono
+  p1_pedreira    nv11 TALK     miner_tadeu        x1  xp=450   
+  p2_musgo       nv11 KILL     golem_moss         x10 xp=800   dg_pedreira
+  p3_nucleos     nv12 COLLECT  stone_core         x6  xp=850   loot de golem_stone (~14 abates)
+  p4_ancestral   nv13 KILL     golem_ancient      x1  xp=1250  dg_pedreira
+  p5_guardia     nv13 KILL     crystal_warden     x1  xp=1250  dg_pedreira
+  p6_coracao     nv14 KILL     quarry_heart       x1  xp=1690  dg_pedreira_coracao
+  p7_ferro       nv14 TALK     forest_smith       x1  xp=620   
+  t1_atadura     nv11 COLLECT  spider_silk        x4  xp=540   loot de spider (~5 abates)
+  t2_ensopado    nv12 COLLECT  herb_blue          x6  xp=620   colheita em ["city_aldara", "field_forest", "field_coast", "field_steppe", "field_kharzun", "dg_slayers", "elf_city"]
+  t3_versos      nv13 REACH    circulo            x1  xp=620   
+  t4_trents      nv13 KILL     trent_young        x8  xp=980   field_forest
+  t5_teias       nv14 KILL     spider             x15 xp=980   field_forest,dg_ninho
+  r_silk         nv11 COLLECT  spider_silk        x10 xp=900   loot de spider (~12 abates)
+  r_mush         nv12 COLLECT  forest_mushroom    x8  xp=900   colheita em ["field_forest", "elf_city"]
+  r_core         nv12 COLLECT  stone_core         x6  xp=1000  loot de golem_stone (~14 abates)
+  r_bark         nv14 COLLECT  ent_bark           x6  xp=1100  loot de trent (~5 abates)
+  b_spiders      nv12 KILL     spider             x12 xp=1000  field_forest,dg_ninho
+  b_bandits      nv15 KILL     bandit             x12 xp=1500  field_forest
+  b_ents         nv18 KILL     ent                x5  xp=2200  field_forest,dg_ninho
+  h_larva        nv18 KILL     larva              x10 xp=512   field_ruins,fort_ghoul,investida field_ruins
+  h_rot_ghoul    nv20 KILL     rot_ghoul          x10 xp=1680  field_ruins,fort_ghoul,investida field_ruins
+  h_rot_wolf     nv19 KILL     rot_wolf           x10 xp=1520  field_ruins,fort_ghoul,investida field_ruins
+  h_bandit_footpad nv10 KILL     bandit_footpad     x10 xp=992   field_forest
+  h_bandit_thief nv11 KILL     bandit_thief       x10 xp=1120  field_forest
+  h_bandit_archer nv12 KILL     bandit_archer      x10 xp=1280  field_forest
+  h_bandit_outlaw nv15 KILL     bandit_outlaw      x10 xp=2560  field_forest
+  h_elf_lynx     nv13 KILL     elf_lynx           x10 xp=944   elf_city,investida field_forest
+  h_elf_warrior  nv16 KILL     elf_warrior        x10 xp=2448  elf_city,dg_coracao
+  h_elf_archer   nv16 KILL     elf_archer         x10 xp=2048  elf_city,dg_coracao
+  h_griffin      nv16 KILL     griffin            x10 xp=2656  elf_city
+  h_trent        nv17 KILL     trent              x10 xp=2720  elf_city,dg_coracao
+  h_elf_warden   nv18 KILL     elf_warden         x10 xp=4160  elf_city,dg_coracao
+  h_wraith       nv10 KILL     wraith             x10 xp=1456  dg_catacumbas
+  h_golem_stone  nv10 KILL     golem_stone        x10 xp=1664  dg_pedreira,dg_pedreira_coracao
+  h_golem_shard  nv11 KILL     golem_shard        x10 xp=1568  dg_pedreira,dg_pedreira_coracao
+  h_trent_young  nv12 KILL     trent_young        x10 xp=1344  field_forest
+AUDIT xp das quests 110370 de 120570 para subir 10->20 (92%); quests por nível { 11: 7, 10: 8, 12: 9, 16: 6, 17: 4, 20: 7, 14: 7, 15: 6, 18: 7, 19: 5, 13: 6 }
+DUEL bandit_footpad     field_forest         nv=12 vitorias=8/8 mortes=0 ttk=1.5s vida_perdida=16% golpes/monstro=1.31 1o_golpe=0.5s
+DUEL spider             field_forest         nv=13 vitorias=8/8 mortes=0 ttk=1.8s vida_perdida=35% golpes/monstro=1.25 1o_golpe=0.7s
+DUEL bandit_thief       field_forest         nv=13 vitorias=8/8 mortes=0 ttk=1.6s vida_perdida=15% golpes/monstro=1.81 1o_golpe=0.7s
+DUEL bandit             field_forest         nv=15 vitorias=8/8 mortes=0 ttk=2.3s vida_perdida=12% golpes/monstro=0.31 1o_golpe=1.8s
+DUEL bandit_archer      field_forest         nv=14 vitorias=8/8 mortes=0 ttk=3.0s vida_perdida=42% golpes/monstro=1.97 1o_golpe=0.7s
+DUEL bandit_outlaw      field_forest         nv=17 vitorias=8/8 mortes=0 ttk=2.9s vida_perdida=10% golpes/monstro=1.03 1o_golpe=2.1s
+DUEL ent                field_forest         nv=19 vitorias=8/8 mortes=0 ttk=1.2s vida_perdida=19% golpes/monstro=0.78 1o_golpe=0.6s
+DUEL trent_young        field_forest         nv=14 vitorias=8/8 mortes=0 ttk=2.5s vida_perdida=20% golpes/monstro=1.31 1o_golpe=0.9s
+DUEL elf_warrior        elf_city             nv=18 vitorias=8/8 mortes=0 ttk=1.8s vida_perdida=8% golpes/monstro=0.47 1o_golpe=1.5s  FLAG trivial
+DUEL elf_archer         elf_city             nv=18 vitorias=8/8 mortes=0 ttk=2.1s vida_perdida=6% golpes/monstro=1.13 1o_golpe=0.7s  FLAG trivial
+DUEL elf_sergeant       elf_city             nv=19 vitorias=8/8 mortes=0 ttk=5.0s vida_perdida=17% golpes/monstro=1.91 1o_golpe=1.8s
+DUEL elf_warden         elf_city             nv=20 vitorias=8/8 mortes=0 ttk=7.9s vida_perdida=11% golpes/monstro=3.88 1o_golpe=1.3s
+DUEL griffin            elf_city             nv=18 vitorias=8/8 mortes=0 ttk=2.3s vida_perdida=22% golpes/monstro=1.09 1o_golpe=1.2s
+DUEL trent              elf_city             nv=19 vitorias=8/8 mortes=0 ttk=7.1s vida_perdida=13% golpes/monstro=3.25 1o_golpe=0.7s
+DUEL elf_lynx           elf_city             nv=15 vitorias=8/8 mortes=0 ttk=1.5s vida_perdida=9% golpes/monstro=0.56 1o_golpe=1.1s
+DUEL bone_archer        dg_catacumbas        nv=10 vitorias=8/8 mortes=0 ttk=1.7s vida_perdida=10% golpes/monstro=0.88 1o_golpe=0.7s
+DUEL ghoul              dg_catacumbas        nv=11 vitorias=8/8 mortes=0 ttk=3.3s vida_perdida=32% golpes/monstro=2.16 1o_golpe=0.6s
+DUEL wraith             dg_catacumbas        nv=12 vitorias=8/8 mortes=0 ttk=1.8s vida_perdida=10% golpes/monstro=1.03 1o_golpe=0.5s
+DUEL golem_moss         dg_pedreira          nv=11 vitorias=8/8 mortes=0 ttk=2.3s vida_perdida=40% golpes/monstro=1.25 1o_golpe=0.7s
+DUEL golem_stone        dg_pedreira          nv=12 vitorias=8/8 mortes=0 ttk=2.7s vida_perdida=11% golpes/monstro=0.34 1o_golpe=2.4s
+DUEL golem_shard        dg_pedreira          nv=13 vitorias=8/8 mortes=0 ttk=3.1s vida_perdida=28% golpes/monstro=1.38 1o_golpe=1.0s
+DUEL larva              field_ruins          nv=20 vitorias=8/8 mortes=0 ttk=0.7s vida_perdida=7% golpes/monstro=0.63 1o_golpe=0.4s  FLAG trivial
+DUEL rot_zombie         field_ruins          nv=21 vitorias=8/8 mortes=0 ttk=2.4s vida_perdida=33% golpes/monstro=1.38 1o_golpe=0.8s
+DUEL rot_wolf           field_ruins          nv=21 vitorias=8/8 mortes=0 ttk=1.3s vida_perdida=5% golpes/monstro=0.38 1o_golpe=1.1s  FLAG trivial
+BAND_END flags=4

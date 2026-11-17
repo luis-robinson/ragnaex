@@ -1,0 +1,91 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+3000 ticks com 2039 entidades em 37695 ms (12.57 ms/tick); calibração 47.7/46.6 ms (quieta 36.0) -> lentidão x1.31, limite 41922 ms
+WARNING: SaveSystem: espaço 90 recuperado do .tmp de uma gravação interrompida
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] _settle_tmp (res://core/save_system.gd:181)
+       [1] slot_state (res://core/save_system.gd:123)
+       [2] _slot_state (res://tools/tests/run_tests.gd:2298)
+       [3] _check_save_slots (res://tools/tests/run_tests.gd:2276)
+       [4] run_all (res://tools/tests/run_tests.gd:2656)
+       [5] _ready (res://tools/tests/run_tests.gd:41)
+WARNING: SaveSystem: espaço 90 recuperado do .tmp de uma gravação interrompida
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] _settle_tmp (res://core/save_system.gd:181)
+       [1] slot_state (res://core/save_system.gd:123)
+       [2] _slot_state (res://tools/tests/run_tests.gd:2298)
+       [3] _check_save_slots (res://tools/tests/run_tests.gd:2284)
+       [4] run_all (res://tools/tests/run_tests.gd:2656)
+       [5] _ready (res://tools/tests/run_tests.gd:41)
+  matilha: 1.92 ATK do dono por segundo (2 lobos)
+  F5 fera: 556989 -> 640857 de dano em 3 x 90 s (x1.151)
+  F5 xama: 725458 -> 758535 de dano em 3 x 90 s (x1.046)
+  F5 guardiao_verde: 223915 -> 216172 de dano em 3 x 90 s (x0.965)
+ACC_BUDGET ["t0 ATK +13.8% (+3.6 de 26) HP +1.0%", "t1 ATK +10.4% (+6.2 de 59) HP +1.9%", "t2 ATK +3.7% (+4.0 de 107) HP +2.0%", "t3 ATK +3.9% (+6.0 de 155) HP +2.5%", "t4 ATK +5.7% (+14.0 de 247) HP +4.2%", "t5 ATK +10.4% (+31.6 de 305) HP +7.1%", "k45 ATK +16.6% (+53.8 de 324) HP +10.0%"]
+FORM_LICH_SURFACES before=72 after=5
+FORM_DEMON_SURFACES before=41 after=6
+ERROR: FAIL: defesa: bot vai ao portão atacado (45.2 m, antes 52.2)
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_raid_defense (res://tools/tests/run_tests.gd:15073)
+       [2] _check_combat_feel (res://tools/tests/run_tests.gd:4062)
+       [3] _check_zone (res://tools/tests/run_tests.gd:2982)
+       [4] run_all (res://tools/tests/run_tests.gd:2657)
+       [5] _ready (res://tools/tests/run_tests.gd:41)
+FAIL: defesa: bot vai ao portão atacado (45.2 m, antes 52.2)
+ERROR: FAIL: defesa: Bastião no defensor junto da muralha
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_raid_defense (res://tools/tests/run_tests.gd:15076)
+       [2] _check_combat_feel (res://tools/tests/run_tests.gd:4062)
+       [3] _check_zone (res://tools/tests/run_tests.gd:2982)
+       [4] run_all (res://tools/tests/run_tests.gd:2657)
+       [5] _ready (res://tools/tests/run_tests.gd:41)
+FAIL: defesa: Bastião no defensor junto da muralha
+ERROR: FAIL: defesa: Bastião some depois da leva
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_raid_defense (res://tools/tests/run_tests.gd:15098)
+       [2] _check_combat_feel (res://tools/tests/run_tests.gd:4062)
+       [3] _check_zone (res://tools/tests/run_tests.gd:2982)
+       [4] run_all (res://tools/tests/run_tests.gd:2657)
+       [5] _ready (res://tools/tests/run_tests.gd:41)
+FAIL: defesa: Bastião some depois da leva
+TEIA paladin: 533 nós { "start": 1, "stat": 434, "skill": 29, "mastery": 29, "talent": 5, "notable": 35 }
+TEIA berserker: 537 nós { "start": 1, "stat": 437, "skill": 29, "mastery": 29, "talent": 6, "notable": 35 }
+TEIA bishop: 516 nós { "start": 1, "stat": 420, "skill": 27, "talent": 6, "mastery": 27, "notable": 35 }
+TEIA druid: 529 nós { "start": 1, "stat": 431, "skill": 28, "mastery": 28, "talent": 6, "notable": 35 }
+TEIA ranger: 563 nós { "start": 1, "stat": 460, "skill": 30, "mastery": 30, "talent": 6, "notable": 36 }
+TEIA assassin: 592 nós { "start": 1, "stat": 475, "skill": 37, "talent": 7, "mastery": 37, "notable": 35 }
+TEIA elementalist: 543 nós { "start": 1, "stat": 443, "skill": 29, "talent": 5, "mastery": 29, "notable": 36 }
+TEIA necromancer: 554 nós { "start": 1, "stat": 452, "skill": 30, "mastery": 30, "talent": 5, "notable": 36 }
+fala de bot: 24.2 µs
+BOOT start_enter 210455
+WARNING: MenuSet: tela desconhecida nada
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] set_shot (res://game/menu/menu_set.gd:122)
+       [1] go_to (res://game/menu/menu_set.gd:161)
+       [2] _check_menu_set (res://tools/tests/run_tests.gd:2031)
+       [3] run_all (res://tools/tests/run_tests.gd:2692)
+       [4] _ready (res://tools/tests/run_tests.gd:41)
+  placa boss_ulgra: topo do modelo 3.54 m, barra 3.89 m (antes 2.09)
+  placa boss_troll_king: topo do modelo 4.10 m, barra 4.45 m (antes 4.29)
+  placa boss_kragmar: topo do modelo 3.76 m, barra 4.11 m (antes 3.81)
+  placa boss_durgash: topo do modelo 4.94 m, barra 5.29 m (antes 4.29)
+  placa trent: topo do modelo 4.50 m, barra 4.85 m (antes 3.00)
+  placa ghoul_giant: topo do modelo 3.70 m, barra 4.10 m (antes 4.10)
+  placa boss_gorbash: topo do modelo 3.93 m, barra 4.49 m (antes 4.49)
+  placa troll_brute: topo do modelo 3.11 m, barra 3.81 m (antes 3.81)
+  placa troll: topo do modelo 2.48 m, barra 3.32 m (antes 3.32)
+
+=== 92466 passed, 3 failed ===
+WARNING: 16575 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 13 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

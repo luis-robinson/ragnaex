@@ -1,0 +1,175 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+HOP t=6.0 id=348 lv=20 field_ruins->city_aldara stay=1.0 state=TRAVEL dest=elf_city party=-
+HOP t=8.1 id=352 lv=18 elf_city->field_forest stay=3.1 state=TRAVEL dest=field_forest party=-
+HOP t=8.5 id=356 lv=21 elf_city->field_forest stay=3.5 state=TRAVEL dest=field_ruins party=-
+HOP t=8.7 id=368 lv=31 field_coast->city_port stay=3.7 state=TRAVEL dest=fort_frost party=-
+HOP t=8.9 id=363 lv=32 city_port->field_ruins stay=3.9 state=TRAVEL dest=lich_citadel party=-
+HOP t=9.6 id=354 lv=18 elf_city->field_forest stay=4.6 state=TRAVEL dest=field_forest party=-
+HOP t=10.8 id=369 lv=33 field_coast->city_port stay=5.8 state=TRAVEL dest=field_ruins party=-
+HOP t=11.8 id=366 lv=33 field_coast->city_port stay=6.8 state=TRAVEL dest=field_ruins party=-
+HOP t=12.0 id=383 lv=42 field_kharzun->field_steppe stay=7.0 state=TRAVEL dest=field_steppe party=-
+HOP t=12.4 id=358 lv=32 field_ruins->lich_citadel stay=7.4 state=TRAVEL dest=lich_citadel party=-
+HOP t=13.2 id=380 lv=41 field_kharzun->field_steppe stay=8.2 state=TRAVEL dest=fort_war party=-
+HOP t=16.3 id=371 lv=31 city_port->field_ruins stay=11.3 state=TRAVEL dest=lich_citadel party=-
+HOP t=17.1 id=318 lv=29 city_aldara->field_ruins stay=12.1 state=TRAVEL dest=fort_bones party=-
+HOP t=17.5 id=367 lv=31 city_port->field_ruins stay=12.5 state=TRAVEL dest=fort_frost party=-
+HOP t=19.4 id=322 lv=19 city_aldara->field_forest stay=14.4 state=TRAVEL dest=field_forest party=-
+HOP t=19.7 id=363 lv=32 field_ruins->lich_citadel stay=10.8 state=TRAVEL dest=lich_citadel party=-
+HOP t=20.1 id=364 lv=34 city_port->field_coast stay=15.1 state=TRAVEL dest=field_coast party=-
+HOP t=20.3 id=336 lv=26 city_aldara->field_ruins stay=15.3 state=TRAVEL dest=fort_ghoul party=-
+HOP t=20.4 id=326 lv=21 city_aldara->field_ruins stay=15.4 state=TRAVEL dest=fort_ghoul party=lead
+HOP t=20.4 id=334 lv=17 city_aldara->field_ruins stay=15.4 state=HUNT dest= party=follow:326@field_ruins
+HOP t=22.8 id=371 lv=31 field_ruins->lich_citadel stay=6.4 state=TRAVEL dest=lich_citadel party=-
+HOP t=23.2 id=366 lv=33 city_port->field_ruins stay=11.4 state=TRAVEL dest=field_ruins party=-
+HOP t=23.4 id=357 lv=34 city_port->field_coast stay=18.4 state=TRAVEL dest=fort_trolls party=-
+HOP t=23.5 id=332 lv=9 city_aldara->field_forest stay=18.5 state=TRAVEL dest=field_forest party=-
+HOP t=24.7 id=369 lv=33 city_port->field_ruins stay=13.9 state=TRAVEL dest=field_ruins party=-
+HOP t=24.8 id=368 lv=31 city_port->field_ruins stay=16.1 state=TRAVEL dest=fort_frost party=-
+HOP t=27.1 id=373 lv=37 field_steppe->fort_trolls stay=22.1 state=TRAVEL dest=fort_trolls party=-
+HOP t=27.6 id=319 lv=14 city_aldara->field_forest stay=22.6 state=HUNT dest= party=follow:330@field_forest
+HOP t=27.6 id=321 lv=15 city_aldara->field_forest stay=22.6 state=HUNT dest= party=follow:330@field_forest
+HOP t=27.6 id=330 lv=15 city_aldara->field_forest stay=22.6 state=TRAVEL dest=field_forest party=lead
+HOP t=28.5 id=346 lv=28 field_ruins->fort_bones stay=23.5 state=TRAVEL dest=fort_bones party=-
+HOP t=31.1 id=360 lv=35 city_port->field_coast stay=26.1 state=TRAVEL dest=fort_trolls party=-
+HOP t=31.7 id=318 lv=29 field_ruins->fort_bones stay=14.6 state=TRAVEL dest=fort_bones party=-
+HOP t=32.3 id=349 lv=26 field_ruins->fort_bones stay=27.3 state=TRAVEL dest=fort_bones party=-
+HOP t=34.0 id=361 lv=33 city_port->field_ruins stay=29.0 state=TRAVEL dest=lich_citadel party=-
+HOP t=34.2 id=329 lv=10 city_aldara->field_forest stay=29.2 state=TRAVEL dest=field_forest party=-
+HOP t=34.4 id=339 lv=18 city_aldara->field_forest stay=29.4 state=TRAVEL dest=elf_city party=-
+HOP t=34.9 id=348 lv=20 city_aldara->field_forest stay=28.8 state=TRAVEL dest=elf_city party=-
+HOP t=35.2 id=343 lv=11 field_forest->city_aldara stay=30.2 state=TRAVEL dest=city_aldara party=-
+HOP t=35.2 id=365 lv=34 city_port->field_coast stay=30.2 state=TRAVEL dest=field_steppe party=-
+HOP t=36.7 id=343 lv=11 city_aldara->dg_gruta stay=1.5 state=HUNT dest=city_aldara party=-
+HOP t=37.8 id=357 lv=34 field_coast->field_steppe stay=14.4 state=TRAVEL dest=fort_trolls party=-
+HOP t=40.2 id=370 lv=31 field_coast->city_port stay=35.2 state=TRAVEL dest=lich_citadel party=-
+HOP t=40.4 id=324 lv=26 city_aldara->field_ruins stay=35.4 state=TRAVEL dest=field_ruins party=-
+HOP t=40.8 id=361 lv=33 field_ruins->lich_citadel stay=6.8 state=TRAVEL dest=lich_citadel party=-
+HOP t=41.7 id=342 lv=18 field_forest->elf_city stay=36.7 state=TRAVEL dest=elf_city party=-
+HOP t=44.7 id=337 lv=9 city_aldara->field_forest stay=39.7 state=TRAVEL dest=field_forest party=-
+HOP t=46.2 id=368 lv=31 field_ruins->fort_frost stay=21.4 state=TRAVEL dest=fort_frost party=-
+HOP t=46.8 id=367 lv=31 field_ruins->fort_frost stay=29.4 state=TRAVEL dest=fort_frost party=-
+HOP t=46.9 id=380 lv=41 field_steppe->fort_war stay=33.7 state=TRAVEL dest=fort_war party=-
+HOP t=47.0 id=355 lv=21 field_forest->city_aldara stay=42.0 state=TRAVEL dest=fort_ghoul party=-
+HOP t=47.3 id=356 lv=21 field_forest->city_aldara stay=38.8 state=TRAVEL dest=field_ruins party=-
+HOP t=49.6 id=365 lv=34 field_coast->field_steppe stay=14.4 state=TRAVEL dest=field_steppe party=-
+HOP t=50.6 id=326 lv=21 field_ruins->fort_ghoul stay=30.2 state=TRAVEL dest=fort_ghoul party=lead
+HOP t=50.6 id=334 lv=17 field_ruins->fort_ghoul stay=30.2 state=HUNT dest= party=follow:326@fort_ghoul
+HOP t=50.9 id=362 lv=32 city_port->field_ruins stay=45.9 state=TRAVEL dest=lich_citadel party=-
+HOP t=51.1 id=360 lv=35 field_coast->field_steppe stay=20.0 state=TRAVEL dest=fort_trolls party=-
+HOP t=51.4 id=376 lv=40 field_steppe->field_kharzun stay=46.4 state=TRAVEL dest=field_kharzun party=-
+HOP t=51.4 id=350 lv=26 field_ruins->fort_ghoul stay=46.4 state=TRAVEL dest=fort_ghoul party=-
+HOP t=51.8 id=351 lv=22 field_ruins->fort_ghoul stay=46.8 state=TRAVEL dest=fort_ghoul party=-
+HOP t=52.6 id=370 lv=31 city_port->field_ruins stay=12.4 state=TRAVEL dest=lich_citadel party=-
+HOP t=53.9 id=333 lv=29 city_aldara->field_ruins stay=48.9 state=TRAVEL dest=fort_bones party=-
+HOP t=54.5 id=336 lv=26 field_ruins->fort_ghoul stay=34.2 state=TRAVEL dest=fort_ghoul party=-
+HOP t=54.5 id=372 lv=40 field_steppe->fort_war stay=49.5 state=TRAVEL dest=fort_war party=-
+HOP t=57.8 id=362 lv=32 field_ruins->lich_citadel stay=6.8 state=TRAVEL dest=lich_citadel party=-
+HOP t=59.4 id=370 lv=31 field_ruins->lich_citadel stay=6.8 state=TRAVEL dest=lich_citadel party=-
+HOP t=64.0 id=339 lv=18 field_forest->elf_city stay=29.7 state=TRAVEL dest=elf_city party=-
+HOP t=64.6 id=348 lv=20 field_forest->elf_city stay=29.7 state=TRAVEL dest=elf_city party=-
+HOP t=66.1 id=359 lv=32 city_port->field_ruins stay=61.1 state=TRAVEL dest=fort_frost party=-
+HOP t=68.6 id=357 lv=34 field_steppe->fort_trolls stay=30.8 state=TRAVEL dest=fort_trolls party=-
+HOP t=68.7 id=360 lv=35 field_steppe->fort_trolls stay=17.6 state=TRAVEL dest=fort_trolls party=-
+HOP t=69.7 id=347 lv=20 field_ruins->city_aldara stay=64.7 state=TRAVEL dest=field_forest party=-
+HOP t=69.9 id=333 lv=29 field_ruins->fort_bones stay=16.0 state=TRAVEL dest=fort_bones party=-
+HOP t=70.1 id=381 lv=44 field_kharzun->city_aldara stay=65.1 state=HUNT dest=field_kharzun party=-
+HOP t=71.6 id=344 lv=17 field_forest->elf_city stay=66.6 state=TRAVEL dest=elf_city party=-
+HOP t=75.0 id=355 lv=21 city_aldara->field_ruins stay=28.0 state=TRAVEL dest=fort_ghoul party=-
+HOP t=76.4 id=356 lv=21 city_aldara->field_ruins stay=29.1 state=TRAVEL dest=field_ruins party=-
+HOP t=78.8 id=341 lv=18 field_forest->elf_city stay=73.8 state=TRAVEL dest=elf_city party=-
+HOP t=88.3 id=377 lv=39 field_steppe->fort_trolls stay=83.3 state=TRAVEL dest=fort_trolls party=-
+HOP t=90.4 id=359 lv=32 field_ruins->fort_frost stay=24.3 state=TRAVEL dest=fort_frost party=-
+HOP t=98.8 id=347 lv=20 city_aldara->field_forest stay=29.1 state=TRAVEL dest=field_forest party=-
+HOP t=104.8 id=340 lv=12 field_forest->city_aldara stay=99.8 state=HUNT dest=field_forest party=-
+HOP t=108.0 id=356 lv=21 field_ruins->city_aldara stay=31.6 state=HUNT dest=field_ruins party=- BOUNCE
+HOP t=111.7 id=355 lv=21 field_ruins->fort_ghoul stay=36.7 state=TRAVEL dest=fort_ghoul party=-
+HOP t=118.2 id=322 lv=19 field_forest->city_aldara stay=98.8 state=HUNT dest=field_forest party=-
+SIM ticks=7200 avg_ms=9.763 p50_ms=9.965 p95_ms=13.708 max_ms=24.936
+SIM   commands                 4.539 ms/tick
+SIM   map_city_aldara          2.846 ms/tick
+SIM   entities                 2.413 ms/tick
+SIM   think_bot                1.060 ms/tick
+SIM   upd_MONSTER              0.996 ms/tick
+SIM   map_field_ruins          0.847 ms/tick
+SIM   map_field_forest         0.763 ms/tick
+SIM   apply_MONSTER            0.730 ms/tick
+SIM   think_mob                0.724 ms/tick
+SIM   index_map                0.721 ms/tick
+SIM   map_field_steppe         0.626 ms/tick
+SIM   map_field_kharzun        0.608 ms/tick
+SIM   upd_BOT                  0.573 ms/tick
+SIM   r_loot                   0.552 ms/tick
+SIM   upd_NPC                  0.481 ms/tick
+SIM   apply_BOT                0.426 ms/tick
+SIM   r_spawners               0.411 ms/tick
+SIM   map_field_coast          0.385 ms/tick
+SIM   map_elf_city             0.280 ms/tick
+SIM   map_fort_ghoul           0.255 ms/tick
+SIM   map_fort_war             0.189 ms/tick
+SIM   r_projectiles            0.180 ms/tick
+SIM   map_fort_trolls          0.180 ms/tick
+SIM   map_lich_citadel         0.143 ms/tick
+SIM   apply_NPC                0.140 ms/tick
+SIM   map_city_port            0.122 ms/tick
+SIM   map_fort_bones           0.120 ms/tick
+SIM   map_fort_frost           0.101 ms/tick
+SIM   upd_SUMMON               0.101 ms/tick
+SIM   apply_SUMMON             0.098 ms/tick
+SIM   map_dg_gruta             0.085 ms/tick
+SIM   map_kharzun_citadel      0.077 ms/tick
+SIM   map_fort_fire            0.074 ms/tick
+SIM   map_dg_goblin            0.072 ms/tick
+SIM   map_dg_catacumbas        0.065 ms/tick
+SIM   map_dg_pedreira          0.055 ms/tick
+SIM   map_dg_ninho             0.042 ms/tick
+SIM   map_dg_cripta            0.040 ms/tick
+SIM   map_dg_slayers           0.034 ms/tick
+SIM   map_dg_coracao           0.025 ms/tick
+SIM   map_dg_catacumbas_trono  0.017 ms/tick
+SIM   map_dg_pedreira_coracao  0.016 ms/tick
+SIM   upd_PLAYER               0.014 ms/tick
+SIM   map_in_port_tavern       0.009 ms/tick
+SIM   map_in_tavern            0.009 ms/tick
+SIM   apply_PLAYER             0.008 ms/tick
+SIM   map_in_home              0.007 ms/tick
+SIM   map_in_port_warehouse    0.007 ms/tick
+SIM   map_in_apothecary        0.007 ms/tick
+SIM   map_in_smithy            0.007 ms/tick
+SIM   map_in_elder             0.007 ms/tick
+SIM   rest                     0.003 ms/tick
+SIM checksum=73d0f72c n=1730 alive=1714
+SIM   city_aldara        n=88 bots=12 mobs=40 (dormindo 23) npcs=28 summons=7 loot=147 proj=1
+SIM   field_forest       n=96 bots=10 mobs=50 (dormindo 18) npcs=33 summons=3 loot=63 proj=1
+SIM   field_ruins        n=100 bots=3 mobs=36 (dormindo 9) npcs=56 summons=5 loot=42 proj=0
+SIM   elf_city           n=88 bots=6 mobs=63 (dormindo 52) npcs=19 summons=0 loot=55 proj=0
+SIM   city_port          n=41 bots=0 mobs=0 (dormindo 0) npcs=41 summons=0 loot=0 proj=0
+SIM   field_coast        n=118 bots=2 mobs=102 (dormindo 72) npcs=14 summons=0 loot=9 proj=0
+SIM   field_steppe       n=161 bots=3 mobs=118 (dormindo 86) npcs=39 summons=1 loot=76 proj=0
+SIM   field_kharzun      n=140 bots=4 mobs=101 (dormindo 72) npcs=33 summons=2 loot=65 proj=1
+SIM   kharzun_citadel    n=88 bots=0 mobs=88 (dormindo 88) npcs=0 summons=0 loot=0 proj=0
+SIM   fort_ghoul         n=73 bots=6 mobs=64 (dormindo 52) npcs=3 summons=0 loot=55 proj=0
+SIM   fort_bones         n=34 bots=4 mobs=27 (dormindo 26) npcs=3 summons=0 loot=8 proj=0
+SIM   fort_frost         n=22 bots=3 mobs=14 (dormindo 12) npcs=3 summons=2 loot=25 proj=0
+SIM   lich_citadel       n=19 bots=6 mobs=10 (dormindo 6) npcs=3 summons=0 loot=20 proj=0
+SIM   fort_trolls        n=50 bots=4 mobs=39 (dormindo 35) npcs=5 summons=2 loot=55 proj=0
+SIM   fort_fire          n=90 bots=0 mobs=85 (dormindo 85) npcs=5 summons=0 loot=0 proj=0
+SIM   fort_war           n=55 bots=2 mobs=48 (dormindo 30) npcs=5 summons=0 loot=46 proj=1
+SIM   dg_gruta           n=25 bots=1 mobs=24 (dormindo 16) npcs=0 summons=0 loot=32 proj=0
+SIM   dg_catacumbas      n=82 bots=0 mobs=80 (dormindo 80) npcs=2 summons=0 loot=0 proj=0
+SIM   dg_catacumbas_trono n=15 bots=0 mobs=15 (dormindo 15) npcs=0 summons=0 loot=0 proj=0
+SIM   dg_pedreira        n=65 bots=0 mobs=63 (dormindo 63) npcs=2 summons=0 loot=0 proj=0
+SIM   dg_pedreira_coracao n=13 bots=0 mobs=13 (dormindo 13) npcs=0 summons=0 loot=0 proj=0
+SIM   dg_ninho           n=53 bots=0 mobs=53 (dormindo 53) npcs=0 summons=0 loot=0 proj=0
+SIM   dg_coracao         n=26 bots=0 mobs=26 (dormindo 26) npcs=0 summons=0 loot=0 proj=0
+SIM   dg_cripta          n=49 bots=0 mobs=49 (dormindo 49) npcs=0 summons=0 loot=0 proj=0
+SIM   dg_goblin          n=79 bots=0 mobs=76 (dormindo 76) npcs=3 summons=0 loot=0 proj=0
+SIM   dg_slayers         n=40 bots=0 mobs=40 (dormindo 40) npcs=0 summons=0 loot=0 proj=0
+SIM   in_tavern          n=4 bots=0 mobs=0 (dormindo 0) npcs=4 summons=0 loot=0 proj=0
+SIM   in_elder           n=2 bots=0 mobs=0 (dormindo 0) npcs=2 summons=0 loot=0 proj=0
+SIM   in_smithy          n=2 bots=0 mobs=0 (dormindo 0) npcs=2 summons=0 loot=0 proj=0
+SIM   in_apothecary      n=2 bots=0 mobs=0 (dormindo 0) npcs=2 summons=0 loot=0 proj=0
+SIM   in_home            n=2 bots=0 mobs=0 (dormindo 0) npcs=2 summons=0 loot=0 proj=0
+SIM   in_port_tavern     n=5 bots=0 mobs=0 (dormindo 0) npcs=5 summons=0 loot=0 proj=0
+SIM   in_port_warehouse  n=3 bots=0 mobs=0 (dormindo 0) npcs=3 summons=0 loot=0 proj=0
+HOPS total=85 bots_moved=51 worst_bot=4 bounces=1 (A->B->A < 60 s)

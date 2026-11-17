@@ -1,0 +1,5 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+STUCK_PROGRESS sim_min=5 real_s=143 open=0 eps=0
+STUCK_PROGRESS sim_min=10 real_s=308 open=0 eps=0
+STUCK_SUM seed=4242 minutes=15 bots=66 episodes=0 preso_bot_s=0 alive_bot_s=59227 rate=0.0000 by_state={} by_end={}

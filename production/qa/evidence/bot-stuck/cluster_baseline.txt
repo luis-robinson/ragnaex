@@ -1,0 +1,113 @@
+files=3 alive_bot_s=355610 stuck_bot_s=32005 rate=0.0900 eps=666 frozen=62
+
+CAUSES (eps, bot_s):
+  town_gate_pingpong                        159   12855
+  chase_foe_blocked:wall                    199   10774
+  goal_blocked:wall                          88    1993
+  parado:HUNT                                62    1891
+  goal_blocked:agua                          35    1625
+  goal_blocked:water+water                   38     787
+  goal_blocked:agua+water                    23     665
+  chase_foe_blocked:agua+water               19     424
+  chase_foe_blocked:agua                     17     411
+  goal_blocked:ruin                           4     305
+  chase_foe_blocked:rock                      5     262
+  open_line                                  12     247
+  goal_blocked:tree                           9     244
+  chase_foe_blocked:cliff                     9     234
+  chase_foe_blocked:tree                     12     214
+  chase_foe_blocked:ruin                      4     210
+  goal_blocked:rock                           4     179
+  chase_foe_blocked:fence                     7     173
+  goal_blocked:cliff                          6     119
+  goal_blocked:tent                           1      79
+  goal_blocked:fence                          2      31
+  goal_blocked:elf_hut                        2      29
+  chase_foe_blocked:dead_tree                 2      27
+  chase_foe_blocked:tent                      2      22
+  chase_foe_blocked:log                       1      16
+  goal_blocked:house                          1      13
+  goal_blocked:wall+water                     1      13
+  follow                                      1      13
+  chase_foe_blocked:pine                      1      11
+  goal_blocked:hill                           1      11
+  chase_foe_blocked:pillar                    1      11
+
+STATES:
+  HUNT                            548   26883
+  TRAVEL                           33    2870
+  HUNT+follow                      47    1369
+  HUNT+combat                      30     713
+  HUNT+combat+follow                6     144
+  TOWN_WALK                         1      13
+  RETURN                            1      10
+
+ENDS: {'andou': 657, 'morreu': 2, 'parado': 62, 'fim_da_sonda': 7}
+dur p50=19 p90=151 max=435  >=60s: 138
+
+HOTSPOTS (top 25 by bot_s):
+city_aldara       -2.7,  -29.9 eps=24 bot_s= 2416 bots=17 seeds=3 causes={'town_gate_pingpong': 24}
+     ex: st=TRAVEL dest=fort_bones aim=[-117.9, -36.3] goal_line=0.6m:pillar(o r2.0 @-5,-30 gap-0.1) foe=None@None foe_line=None near=['wall(box 2.8x1.6 @-6,-29 gap2.2)', 'pillar(o r2.0 @-5,-30 gap0.4)'] town_d=0.1 portal=field_ruins
+city_aldara       -8.4,   83.4 eps=66 bot_s= 2301 bots=30 seeds=3 causes={'goal_blocked:water+water': 16, 'chase_foe_blocked:agua': 15, 'goal_blocked:agua+water': 9, 'goal_blocked:agua': 25, 'parado:HUNT': 1}
+     ex: st=HUNT dest=city_aldara aim=[-20.0, 95.0] goal_line=0.6m:agua(box 0.7x6.0 @-9,82 gap0.0) foe=None@None foe_line=None near=['agua(box 1.2x6.0 @-11,81 gap2.7)', 'agua(box 1.2x6.0 @-10,81 gap2.3)', 'agua(box 1.2x6.0 @-10,81 gap1.8)'] town_d=53.4 portal=None
+city_aldara       -2.0,   29.9 eps=16 bot_s= 1632 bots=15 seeds=3 causes={'town_gate_pingpong': 16}
+     ex: st=HUNT dest=field_coast aim=[-31.8, -84.4] goal_line=6.1m:lamp(o r0.2 @-3,24 gap0.3) foe=None@None foe_line=None near=['pillar(o r2.0 @-5,30 gap2.1)'] town_d=0.3 portal=None
+city_aldara        1.0,  -29.9 eps=12 bot_s= 1614 bots=11 seeds=3 causes={'town_gate_pingpong': 12}
+     ex: st=HUNT dest=city_aldara aim=[38.3, 102.2] goal_line= foe=None@None foe_line=None near=['pillar(o r2.0 @5,-30 gap2.6)'] town_d=0.0 portal=None
+fort_bones       -29.3,  -35.5 eps=12 bot_s= 1368 bots=9 seeds=2 causes={'chase_foe_blocked:wall': 11, 'parado:HUNT': 1}
+     ex: st=HUNT dest=fort_bones aim=[-18.7, -32.4] goal_line=0.6m:wall(box 2.3x2.4 @-28,-34 gap0.0) foe=skel_archer@10.9 foe_line=0.6m:wall(box 2.3x2.4 @-28,-34 gap0.0) near=['wall(box 2.3x2.4 @-28,-32 gap1.9)', 'wall(box 2.3x2.4 @-28,-34 gap0.5)', 'wall(box 2.3x2.4 @-27,-37 gap0.6)'] town_d=1.7 portal=None
+city_aldara       30.0,    0.6 eps= 7 bot_s=  998 bots=7 seeds=3 causes={'town_gate_pingpong': 7}
+     ex: st=HUNT dest=city_aldara aim=[-74.4, 42.4] goal_line=6.6m:lamp(o r0.2 @24,3 gap0.2) foe=None@None foe_line=None near=[] town_d=0.2 portal=None
+city_aldara       -7.8,   81.8 eps=33 bot_s=  977 bots=15 seeds=3 causes={'goal_blocked:water+water': 22, 'chase_foe_blocked:agua': 2, 'goal_blocked:agua': 9}
+     ex: st=HUNT dest=field_forest aim=[-11.1, 84.8] goal_line=0.6m:agua(box 0.7x6.0 @-9,82 gap0.0) foe=None@None foe_line=None near=['agua(box 1.2x6.0 @-11,81 gap2.6)', 'agua(box 1.2x6.0 @-10,81 gap2.2)', 'agua(box 1.2x6.0 @-10,81 gap1.7)'] town_d=52.8 portal=None
+fort_trolls       -5.5,  -18.2 eps=14 bot_s=  931 bots=9 seeds=2 causes={'chase_foe_blocked:wall': 8, 'parado:HUNT': 3, 'town_gate_pingpong': 3}
+     ex: st=HUNT dest=fort_trolls aim=[-16.2, -12.3] goal_line=0.6m:wall(box 2.3x3.4 @-9,-19 gap0.4) foe=troll_whelp@11.7 foe_line=0.6m:wall(box 2.3x3.4 @-9,-19 gap0.4) near=['wall(box 2.3x3.4 @-11,-20 gap2.9)', 'wall(box 2.3x3.4 @-9,-19 gap0.6)', 'wall(box 2.3x3.4 @-8,-17 gap0.4)'] town_d=2.2 portal=None
+city_aldara      -30.1,   -1.8 eps= 9 bot_s=  867 bots=7 seeds=3 causes={'town_gate_pingpong': 8, 'parado:HUNT': 1}
+     ex: st=HUNT dest=city_aldara aim=[-7.4, -85.5] goal_line=0.6m:pillar(o r2.0 @-30,-5 gap-0.1) foe=None@None foe_line=None near=['wall(box 2.8x1.6 @-29,-6 gap2.2)', 'pillar(o r2.0 @-30,-5 gap0.5)'] town_d=0.0 portal=None
+fort_war          -2.3,  -26.9 eps= 9 bot_s=  687 bots=6 seeds=3 causes={'parado:HUNT': 5, 'chase_foe_blocked:wall': 3, 'town_gate_pingpong': 1}
+     ex: st=HUNT dest=fort_war aim=[8.5, -21.7] goal_line=0.6m:wall(box 2.3x1.4 @-0,-24 gap0.4) foe=goblin_impaler@10.5 foe_line=0.6m:wall(box 2.3x1.4 @-0,-24 gap0.4) near=['wall(box 2.3x1.4 @-1,-22 gap2.8)', 'wall(box 2.3x1.4 @-0,-24 gap0.7)', 'wall(box 2.3x1.4 @0,-26 gap0.5)'] town_d=1.2 portal=None
+fort_ghoul       -29.2,   29.8 eps= 4 bot_s=  629 bots=3 seeds=2 causes={'town_gate_pingpong': 4}
+     ex: st=HUNT dest=fort_ghoul aim=[-30.9, 18.2] goal_line=0.6m:wall(box 6.1x2.4 @-27,28 gap0.0) foe=larva@11.7 foe_line=0.6m:wall(box 6.1x2.4 @-27,28 gap0.0) near=['wall(box 6.1x2.4 @-27,28 gap0.5)', 'wall(box 6.1x2.4 @-33,28 gap1.4)'] town_d=1.7 portal=None
+fort_trolls       -2.2,  -11.6 eps= 5 bot_s=  561 bots=4 seeds=3 causes={'chase_foe_blocked:wall': 4, 'town_gate_pingpong': 1}
+     ex: st=HUNT dest=fort_trolls aim=[-13.8, -10.8] goal_line=0.6m:wall(box 2.3x3.4 @-4,-11 gap0.2) foe=troll_whelp@10.8 foe_line= near=['wall(box 2.3x3.4 @-5,-13 gap2.9)', 'wall(box 2.3x3.4 @-4,-11 gap0.6)', 'wall(box 2.3x3.4 @-4,-9 gap0.5)'] town_d=2.2 portal=None
+fort_bones       -28.4,  -21.6 eps= 4 bot_s=  508 bots=3 seeds=1 causes={'chase_foe_blocked:wall': 4}
+     ex: st=HUNT dest=fort_bones aim=[-16.1, -26.9] goal_line=0.6m:wall(box 2.3x2.4 @-27,-21 gap0.0) foe=skel_archer@13.4 foe_line=0.6m:wall(box 2.3x2.4 @-27,-21 gap0.0) near=['wall(box 2.3x2.4 @-26,-19 gap1.9)', 'wall(box 2.3x2.4 @-27,-21 gap0.5)', 'wall(box 2.3x2.4 @-27,-23 gap0.7)'] town_d=1.7 portal=None
+city_aldara       30.0,   -2.9 eps= 4 bot_s=  465 bots=4 seeds=2 causes={'town_gate_pingpong': 4}
+     ex: st=HUNT dest=city_aldara aim=[0.0, -88.4] goal_line=0.6m:pillar(o r2.0 @30,-5 gap-0.0) foe=None@None foe_line=None near=['wall(box 2.8x1.6 @29,-6 gap2.3)', 'pillar(o r2.0 @30,-5 gap0.5)'] town_d=0.1 portal=None
+fort_trolls       -0.4,   -5.8 eps= 3 bot_s=  445 bots=3 seeds=2 causes={'town_gate_pingpong': 2, 'chase_foe_blocked:wall': 1}
+     ex: st=HUNT dest=fort_trolls aim=[-14.3, -10.8] goal_line=0.6m:wall(box 2.3x3.4 @-3,-7 gap0.5) foe=troll_whelp@14.8 foe_line=0.6m:wall(box 2.3x3.4 @-3,-7 gap0.5) near=['wall(box 2.3x3.4 @-3,-7 gap0.9)', 'wall(box 2.3x3.4 @-2,-5 gap0.4)', 'pillar(o r0.3 @-1,-7 gap0.4)'] town_d=2.1 portal=None
+elf_city          52.4,   42.5 eps= 6 bot_s=  422 bots=5 seeds=1 causes={'chase_foe_blocked:wall': 5, 'town_gate_pingpong': 1}
+     ex: st=HUNT dest=elf_city aim=[48.7, 30.8] goal_line=0.6m:wall(box 2.3x2.0 @52,40 gap0.1) foe=elf_archer@12.1 foe_line=0.6m:wall(box 2.3x2.0 @52,40 gap0.1) near=['wall(box 2.3x2.0 @54,38 gap2.7)', 'wall(box 2.3x2.0 @52,40 gap0.6)', 'wall(box 2.3x2.0 @51,42 gap0.4)'] town_d=1.5 portal=None
+fort_ghoul        -3.3,  -13.0 eps= 4 bot_s=  416 bots=2 seeds=1 causes={'town_gate_pingpong': 4}
+     ex: st=HUNT dest=fort_ghoul aim=[-16.6, -6.4] goal_line=0.6m:wall(box 6.1x2.4 @-4,-11 gap0.0) foe=rot_ghoul@14.8 foe_line=0.6m:wall(box 6.1x2.4 @-4,-11 gap0.0) near=['wall(box 6.1x2.4 @-7,-16 gap2.8)', 'wall(box 6.1x2.4 @-4,-11 gap0.4)'] town_d=1.7 portal=None
+elf_city         -13.0,  -62.6 eps= 5 bot_s=  414 bots=4 seeds=2 causes={'chase_foe_blocked:wall': 3, 'parado:HUNT': 1, 'town_gate_pingpong': 1}
+     ex: st=HUNT dest=elf_city aim=[-21.5, -73.1] goal_line=0.6m:wall(box 2.3x2.0 @-14,-64 gap0.1) foe=elf_lynx@13.4 foe_line=0.6m:wall(box 2.3x2.0 @-14,-64 gap0.1) near=['wall(box 2.3x2.0 @-16,-64 gap2.6)', 'wall(box 2.3x2.0 @-14,-64 gap0.6)', 'wall(box 2.3x2.0 @-12,-65 gap0.5)'] town_d=-1.4 portal=None
+fort_ghoul        -6.2,  -17.8 eps= 2 bot_s=  409 bots=2 seeds=2 causes={'chase_foe_blocked:wall': 2}
+     ex: st=HUNT dest=fort_ghoul aim=[-16.7, -9.3] goal_line=0.6m:wall(box 6.1x2.4 @-7,-16 gap0.0) foe=rot_ghoul@13.4 foe_line=0.6m:wall(box 6.1x2.4 @-7,-16 gap0.0) near=['wall(box 6.1x2.4 @-7,-16 gap0.5)', 'wall(box 6.1x2.4 @-4,-11 gap2.1)'] town_d=1.7 portal=None
+fort_bones       -29.7,  -30.1 eps= 4 bot_s=  344 bots=3 seeds=1 causes={'chase_foe_blocked:wall': 2, 'town_gate_pingpong': 2}
+     ex: st=HUNT dest=fort_bones aim=[-14.0, -31.4] goal_line=0.6m:wall(box 2.3x2.4 @-28,-30 gap0.0) foe=skel_archer@15.5 foe_line=0.6m:wall(box 2.3x2.4 @-28,-30 gap0.0) near=['wall(box 2.3x2.4 @-28,-28 gap1.9)', 'wall(box 2.3x2.4 @-28,-30 gap0.5)', 'wall(box 2.3x2.4 @-28,-32 gap0.6)'] town_d=1.7 portal=None
+lich_citadel      20.4,   29.2 eps= 4 bot_s=  341 bots=3 seeds=1 causes={'parado:HUNT': 1, 'chase_foe_blocked:wall': 1, 'goal_blocked:wall': 2}
+     ex: st=HUNT dest=lich_citadel aim=[30.6, 17.3] goal_line=0.6m:wall(box 3.2x2.0 @24,28 gap0.1) foe=citadel_adept@14.5 foe_line=0.6m:wall(box 3.2x2.0 @24,28 gap0.1) near=['wall(box 3.2x2.0 @24,28 gap0.6)', 'wall(box 3.2x2.0 @21,28 gap0.4)', 'wall(box 3.2x2.0 @18,28 gap2.6)'] town_d=23.5 portal=None
+field_steppe      60.3,   74.3 eps=14 bot_s=  339 bots=6 seeds=2 causes={'goal_blocked:cliff': 4, 'chase_foe_blocked:cliff': 7, 'parado:HUNT': 3}
+     ex: st=HUNT dest=field_steppe aim=[74.4, 68.6] goal_line=0.6m:cliff(box 4.9x3.9 @63,76 gap0.2) foe=orc_archer@14.9 foe_line=0.6m:cliff(box 4.9x3.9 @63,76 gap0.2) near=['cliff(box 5.9x3.9 @62,80 gap2.3)', 'cliff(box 4.9x3.9 @63,76 gap0.7)', 'cliff(box 5.6x3.9 @62,72 gap0.4)'] town_d=74.0 portal=None
+lich_citadel       3.6,  -46.9 eps= 5 bot_s=  326 bots=3 seeds=1 causes={'town_gate_pingpong': 2, 'chase_foe_blocked:wall': 3}
+     ex: st=HUNT dest=lich_citadel aim=[11.7, -36.0] goal_line=0.6m:wall(box 2.3x2.4 @4,-45 gap0.0) foe=citadel_adept@13.6 foe_line=0.6m:wall(box 2.3x2.4 @4,-45 gap0.0) near=['wall(box 2.3x2.4 @3,-44 gap1.9)', 'wall(box 2.3x2.4 @4,-45 gap0.5)', 'wall(box 2.3x2.4 @6,-47 gap0.6)'] town_d=1.7 portal=None
+fort_bones       -25.3,  -14.0 eps= 2 bot_s=  306 bots=2 seeds=1 causes={'chase_foe_blocked:wall': 2}
+     ex: st=HUNT dest=fort_bones aim=[-16.1, -26.9] goal_line=0.6m:wall(box 2.3x2.4 @-24,-15 gap0.3) foe=skel_archer@15.8 foe_line=0.6m:wall(box 2.3x2.4 @-24,-15 gap0.3) near=['wall(box 2.3x2.4 @-23,-13 gap1.4)', 'wall(box 2.3x2.4 @-24,-15 gap0.8)', 'wall(box 2.3x2.4 @-25,-17 gap1.4)'] town_d=2.0 portal=None
+field_steppe      53.3,  -22.2 eps= 3 bot_s=  306 bots=2 seeds=1 causes={'chase_foe_blocked:wall': 2, 'goal_blocked:wall': 1}
+     ex: st=HUNT dest=field_steppe aim=[60.6, -32.8] goal_line=0.6m:wall(box 2.3x1.4 @55,-22 gap0.4) foe=orc_warrior@13.1 foe_line=0.6m:wall(box 2.3x1.4 @55,-22 gap0.4) near=['wall(box 2.3x1.4 @57,-22 gap2.9)', 'wall(box 2.3x1.4 @55,-22 gap0.7)', 'wall(box 2.3x1.4 @53,-23 gap0.4)'] town_d=35.4 portal=None
+
+PER MAP:
+  city_aldara       193   12021
+  elf_city           80    3089
+  field_steppe      100    2878
+  fort_bones         23    2598
+  fort_trolls        31    2465
+  fort_ghoul         17    2447
+  lich_citadel       58    2370
+  fort_fire          50    1058
+  fort_war           14     848
+  field_ruins        35     698
+  field_forest       33     694
+  field_kharzun      23     616
+  dg_coracao          9     219

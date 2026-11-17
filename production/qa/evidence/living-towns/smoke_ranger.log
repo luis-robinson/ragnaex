@@ -1,0 +1,14 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+BOOT start_enter 5856
+BOOT main_enter 7852
+BOOT main_nodes 875
+BOOT sim_maps 324 wall=324 mapas=33
+BOOT bots 1382 wall=1382 entidades=407
+BOOT player 0
+BOOT map_build 670 views=2 fila=59
+BOOT world_total 2386
+SMOKE party: 3 membros, líder=Smoke
+SMOKE OK: map=city_aldara hp=106 entities=2264 views=131
+SMOKE SOM: bow=8, coins=1, die_monster=1, dodge=1, earth=1, hit=2, hurt=5, potion=1, shadow=1, ui_open=3, wind=1
+SMOKE MUSICA: atual=aldara tocadas={ "aldara": 1 }
