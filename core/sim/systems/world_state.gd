@@ -2,7 +2,7 @@ class_name WorldState
 extends RefCounted
 ## Mundo que muda com a conquista (por personagem: lê `player.quests_completed`, sem campo novo no save).
 ## - Spawner, NPC, rota de investida e assalto aceitam `if` (quest feita) e `unless` (quest ainda não feita);
-##   valor = id de quest ou lista de ids (todas). Sem jogador (testes/servidor) nenhuma quest conta como feita.
+##   valor = id de quest ou lista de ids (todas); um id "a|b" vale com qualquer uma das duas. Sem jogador (testes/servidor) nenhuma quest conta como feita.
 ## - Spawner que deixa de valer recolhe os monstros dele (fortaleza retomada esvazia); NPC condicional nasce/some.
 ## - Obstáculo com `if`/`unless`: prop que o jogo mostra/esconde; se for `solid`, a colisão só vale no estágio
 ##   (MapGeometry.sync_stage refaz a grade quando muda).
@@ -21,16 +21,25 @@ static func active(sim: WorldSim, d: Dictionary) -> bool:
 	var q := done(sim)
 	if d.has("if"):
 		for id in _ids(d["if"]):
-			if not q.has(id):
+			if not _has(q, id):
 				return false
 	if d.has("unless"):
 		var all_done := true
 		for id in _ids(d["unless"]):
-			if not q.has(id):
+			if not _has(q, id):
 				all_done = false
 		if all_done:
 			return false
 	return true
+
+## Quest feita? "a|b" = qualquer uma delas (trecho da paliçada: a quest dele OU a que fecha tudo).
+static func _has(q: Array, id: String) -> bool:
+	if not id.contains("|"):
+		return q.has(id)
+	for alt in id.split("|"):
+		if q.has(alt):
+			return true
+	return false
 
 static func _ids(v) -> Array:
 	if v is Array:
@@ -98,12 +107,13 @@ static func update_assaults(sim: WorldSim, m: Dictionary, dt: float) -> void:
 
 ## Soldado de leva com vida e ataque x `power` (criado uma vez por tipo e força; mesmo id, então guarnição e textos
 ## continuam iguais). Usado nas levas que sobem junto com o jogador às fortalezas: ajudam sem limpar tudo sozinhas.
-static func assault_def(sim: WorldSim, base: MonsterDef, power: float) -> MonsterDef:
-	var key := "%s@%.2f" % [base.id, power]
+## `hp_mult` = vida a mais só (guarnição que aguenta sem bater mais: a luta dura e a ajuda do jogador pesa).
+static func assault_def(sim: WorldSim, base: MonsterDef, power: float, hp_mult: float = 1.0) -> MonsterDef:
+	var key := "%s@%.2f" % [base.id, power] if is_equal_approx(hp_mult, 1.0) else "%s@%.2f@%.2f" % [base.id, power, hp_mult]
 	if sim._elite_defs.has(key):
 		return sim._elite_defs[key]
 	var d: MonsterDef = base.duplicate()
-	d.hp = base.hp * power
+	d.hp = base.hp * power * hp_mult
 	d.atk = base.atk * power
 	d.matk = base.matk * power
 	sim._elite_defs[key] = d

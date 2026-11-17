@@ -54,3 +54,8 @@ extends Resource
 @export var regen: float = 0.0            ## Ato II (F3): regeneração de troll = isto × Balance.TROLL_REGEN_PCT × vida máxima por s; fogo/veneno param
 @export var burn_immune: bool = false ## Ato II (Kharzun): queimadura (dot de fogo) não pega (Salamandra de Lava); o golpe de fogo ainda dói
 @export var phases: Array = []            ## chefe, em ordem de HP: {hp (0-1), say, skills, summon: {id, count, max, pick}, enrage, ward (0-1: corte de dano com lacaio vivo)}
+
+## Chefe de verdade resiste a controle (atordoa 40%, provocar 50%, não é puxado/empurrado). O Rei (elite, `elite_of`)
+## é `is_boss` para loot/barra/IA, mas leva o controle cheio (decisão 2026-11-17).
+func resists_cc() -> bool:
+	return is_boss and elite_of == ""

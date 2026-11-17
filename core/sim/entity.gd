@@ -191,6 +191,9 @@ var raid_id := -1                    # monstro de uma investida (RaidSystem): ma
 var raid_leg := 0                    # investida: índice do próximo ponto da rota
 var raid_route := 0                  # investida: qual rota do mapa (RaidSystem.routes; 0 = MapDef.raid)
 var stance := ""                     # monstro que trocou de arma (MonsterDef.swap): "bow" = espada guardada, arco na mão
+var road_event := false              # monstro de evento de estrada (RoadEventSystem): sem XP/saque/quest de abate
+var road_grace := false              # graça dos bots: bot de fora do grupo `road_grace_party` não o mira (nem ele ao bot)
+var road_grace_party: int = -1
 var dormant := false                 # monstro sem ninguém por perto: não pensa nem anda (WorldSim._dormant)
 var npc_goal: Vector3 = Vector3.ZERO  # NPC que passeia: para onde está indo
 var npc_wait: float = 0.0            # parado olhando em volta antes do próximo passo
@@ -211,6 +214,10 @@ func is_character() -> bool:
 func is_hostile_to(other: SimEntity) -> bool:
 	if other == null or other == self or shade or other.shade or spirit or other.spirit:
 		return false                        # clone de sombra / espírito (Anjo Guardião): ninguém os mira nem acerta, e eles não miram ninguém
+	if road_grace and other.kind == Kind.BOT and (other.party_id < 0 or other.party_id != road_grace_party):
+		return false                        # evento de estrada: nos primeiros segundos é do jogador (RoadEventSystem._set_grace)
+	if other.road_grace and kind == Kind.BOT and (party_id < 0 or party_id != other.road_grace_party):
+		return false
 	var a_mob := kind == Kind.MONSTER
 	var b_mob := other.kind == Kind.MONSTER
 	if (other.kind == Kind.NPC and not other.guard) or (kind == Kind.NPC and not guard):
@@ -235,9 +242,17 @@ func put_buff(b: Dictionary) -> void:
 	buffs = buffs.filter(func(x): return x.get("id") != id)
 	buffs.append(b)
 
-## Põe o debuff trocando o de mesmo id (renova, não acumula).
+## Põe o debuff trocando o de mesmo id (renova, não acumula). Dano no tempo renovado guarda o acumulado e o relógio
+## do pulso (Balance.DOT_PULSE_S): reaplicar mais rápido que o pulso não zera o dano.
 func put_debuff(d: Dictionary) -> void:
 	var id: Variant = d.get("id")
+	if id != null and d.get("kind") == "dot":
+		for x in debuffs:
+			if x.get("id") == id and x.get("kind") == "dot":
+				d["acc"] = float(x.get("acc", 0.0))
+				if x.has("pulse"):
+					d["pulse"] = x["pulse"]
+				break
 	debuffs = debuffs.filter(func(x): return x.get("id") != id)
 	debuffs.append(d)
 
@@ -343,6 +358,10 @@ func heal_factor() -> float:
 	for d in debuffs:
 		if d.get("kind") == "wither":
 			f *= 1.0 - float(d.get("pct", 0)) / 100.0
+	if not buffs.is_empty():
+		for b in buffs:
+			if b.get("id") == Balance.LEG_DETERMINATION_BUFF:     # Determinação (escudo lendário): mais cura recebida por carga
+				f *= 1.0 + float(b.get("heal_in_pct", 0.0)) / 100.0
 	return f
 
 func mastery_of(skill_id: String) -> int:

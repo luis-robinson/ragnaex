@@ -103,6 +103,147 @@ const TIER_EPITHETS := ["da Alvorada", "do Juramento", "da Vanguarda", "da Glór
 ## visual do último nível com visual (visual_of), com o nome genérico da regra; modelos próprios vêm no polimento.
 const OWN_VISUALS_UNTIL := 30
 const LEGENDARY_COLOR := Color(1.0, 0.6, 0.15)
+## Ato II (35/40/45): UM visual novo por build ("<classe>_<build>"), o mesmo nos três níveis e no Ápice da build (no híbrido,
+## o da 1ª build do par). "style" = malhas arm_<style>_* do kit (tools/blender/<classe>_sets.py); "wpn" = estilo da arma
+## (padrão = style) e "shield" = do escudo (padrão = o do conjunto 30). O nível muda só a cor: "colors" = cor do item
+## (tint) e "glows" = cor das peças acesas (material tint_glow* do kit, KitModel), na ordem de Balance.HYBRID_LEVELS.
+## Opcionais (sem a chave vale a regra antiga): "accents" = destaque (tint2: pano, crina, estandarte) escolhido por nível
+## (set_accent; sem ela sai de ItemDef.accent(cor)); "name" + "suffix" (+ "nouns") = nome próprio da build: as peças viram
+## "<substantivo> <suffix> <TIER_EPITHETS do nível>" e o conjunto "Conjunto <name> <epíteto>" (Ápice e híbrido mantêm os
+## nomes deles); "icon" = prefixo dos ícones (assets/icons/<icon>_<peça>.png), UMA foto por build, tirada na cor do 40 por
+## tools/icons/set_icons.tscn (vale nos três níveis, no Ápice e na armadura do híbrido). Build sem entrada continua
+## reaproveitando o visual do 30 (visual_of).
+const ACT2_VISUALS := {
+	"berserker_carniceiro": {"style": "ber_g35",      # Montador de Warg: crânio de warg + crina, presas nos ombros, pele nas costas
+		"name": "Montador de Warg", "suffix": "do Montador de Warg", "icon": "ber_g35",
+		"colors": [Color(0.6, 0.36, 0.2), Color(0.34, 0.4, 0.5), Color(0.17, 0.14, 0.2)],
+		"accents": [Color(0.5, 0.13, 0.1), Color(0.84, 0.86, 0.9), Color(0.66, 0.08, 0.1)],
+		"glows": [Color(1.0, 0.5, 0.12), Color(0.45, 0.85, 1.0), Color(1.0, 0.14, 0.1)]},
+	"berserker_executor": {"style": "ber_e35",        # Quebra-Hordas: elmo de touro, gorjal, fornalha no peito, estandarte nas costas
+		"name": "Quebra-Hordas", "suffix": "do Quebra-Hordas", "icon": "ber_e35",
+		"colors": [Color(0.38, 0.4, 0.46), Color(0.72, 0.5, 0.22), Color(0.88, 0.84, 0.76)],
+		"accents": [Color(0.56, 0.14, 0.1), Color(0.68, 0.1, 0.12), Color(0.15, 0.13, 0.17)],
+		"glows": [Color(1.0, 0.55, 0.15), Color(1.0, 0.85, 0.4), Color(1.0, 0.2, 0.12)]},
+	"berserker_punhos": {"style": "ber_m35",          # Tambor do Trovão: diadema de chifres, aro de tambores nas costas, manoplas de ferro
+		"name": "Tambor do Trovão", "suffix": "do Tambor do Trovão", "icon": "ber_m35", "nouns": {"head": "Diadema"},
+		"colors": [Color(0.24, 0.3, 0.5), Color(0.2, 0.5, 0.4), Color(0.8, 0.22, 0.12)],
+		"accents": [Color(0.86, 0.88, 0.95), Color(0.88, 0.62, 0.16), Color(0.16, 0.13, 0.15)],
+		"glows": [Color(0.6, 0.9, 1.0), Color(1.0, 0.8, 0.3), Color(1.0, 0.92, 0.6)]},
+	"assassin_laminas": {"style": "ass_l35",          # Sombra da Horda: chapéu de guerra largo, meia-máscara de osso, turíbulo de veneno, lenço de duas pontas
+		"name": "Sombra da Horda", "suffix": "da Sombra da Horda", "icon": "ass_l35", "nouns": {"head": "Chapéu"},
+		"colors": [Color(0.48, 0.39, 0.31), Color(0.14, 0.36, 0.32), Color(0.12, 0.11, 0.15)],
+		"accents": [Color(0.6, 0.2, 0.12), Color(0.85, 0.78, 0.5), Color(0.86, 0.83, 0.8)],
+		"glows": [Color(0.75, 1.0, 0.3), Color(0.5, 1.0, 0.45), Color(0.95, 0.3, 1.0)]},
+	"assassin_duelista": {"style": "ass_d35",         # Lâmina de Gala: chapéu de cavaleiro com pena enorme, braço esquerdo blindado, lâminas cruzadas nas costas
+		"name": "Lâmina de Gala", "suffix": "da Lâmina de Gala", "icon": "ass_d35",
+		"colors": [Color(0.34, 0.38, 0.44), Color(0.66, 0.14, 0.16), Color(0.9, 0.88, 0.84)],
+		"accents": [Color(0.5, 0.12, 0.16), Color(0.92, 0.88, 0.78), Color(0.16, 0.24, 0.6)],
+		"glows": [Color(1.0, 0.7, 0.3), Color(1.0, 0.88, 0.5), Color(0.5, 0.85, 1.0)]},
+	"assassin_corsario": {"style": "ass_c35",         # Costa de Ferro: bicorne com caveira, sobretudo de gola de pele, corrente de âncora
+		"name": "Costa de Ferro", "suffix": "da Costa de Ferro", "icon": "ass_c35", "nouns": {"head": "Bicorne", "body": "Sobretudo"},
+		"colors": [Color(0.52, 0.39, 0.28), Color(0.14, 0.22, 0.42), Color(0.13, 0.13, 0.16)],
+		"accents": [Color(0.2, 0.26, 0.4), Color(0.7, 0.14, 0.12), Color(0.86, 0.84, 0.78)],
+		"glows": [Color(1.0, 0.6, 0.2), Color(1.0, 0.82, 0.35), Color(0.4, 1.0, 0.85)]},
+	# Ranger e Elementalista (onda 1B)
+	"ranger_cacador": {"style": "ran_c35",            # Batedor da Estepe: gorro de pele com cabeça e asas de falcão, manto de penas, aljavas cruzadas, capa de capim
+		"name": "Batedor da Estepe", "suffix": "do Batedor da Estepe", "icon": "ran_c35",
+		"colors": [Color(0.62, 0.52, 0.3), Color(0.58, 0.3, 0.22), Color(0.15, 0.17, 0.3)],
+		"accents": [Color(0.3, 0.42, 0.25), Color(0.92, 0.86, 0.7), Color(0.75, 0.8, 0.9)],
+		"glows": [Color(1.0, 0.7, 0.25), Color(0.7, 1.0, 0.85), Color(0.6, 0.85, 1.0)]},
+	"ranger_atirador": {"style": "ran_a35",           # Artilheiro de Cerco: touca de piloto, óculos e luneta de latão, cartucheiras em X, barril de pólvora com pavio aceso
+		"name": "Artilheiro de Cerco", "suffix": "do Artilheiro de Cerco", "icon": "ran_a35", "nouns": {"head": "Touca", "body": "Casaco"},
+		"colors": [Color(0.44, 0.39, 0.33), Color(0.3, 0.45, 0.22), Color(0.9, 0.86, 0.76)],
+		"accents": [Color(0.75, 0.55, 0.25), Color(0.85, 0.75, 0.4), Color(0.6, 0.15, 0.15)],
+		"glows": [Color(1.0, 0.55, 0.15), Color(1.0, 0.85, 0.4), Color(1.0, 0.22, 0.15)]},
+	"ranger_lanceiro": {"style": "ran_l35",           # Caça-Trolls: elmo com presas de troll enormes, gola e manto de couro de troll com espinhos, leque de dardos acesos
+		"name": "Caça-Trolls", "suffix": "do Caça-Trolls", "icon": "ran_l35", "nouns": {"head": "Elmo"},
+		"colors": [Color(0.46, 0.33, 0.22), Color(0.8, 0.38, 0.12), Color(0.12, 0.2, 0.17)],
+		"accents": [Color(0.7, 0.3, 0.15), Color(0.25, 0.2, 0.18), Color(0.75, 0.7, 0.5)],
+		"glows": [Color(1.0, 0.75, 0.2), Color(1.0, 0.92, 0.6), Color(0.6, 1.0, 0.35)]},
+	# Elementalista: o brilho do nível fica na faixa do elemento (fogo: brasa/chama/branco quente; gelo: verde-água/branco frio/aurora;
+	# raio: âmbar/ouro claro/ciano); o 2º elemento ("favor" do 30) continua em gemas fixas no kit (elementalist_sets.ACT2_SECOND)
+	"elementalist_fogo": {"style": "ele_f35",         # Forja Viva: braseiro de ferro na cabeça com chifres de chama, ombreiras de rocha com veios de magma, anel de brasas
+		"name": "Forja Viva", "suffix": "da Forja Viva", "icon": "ele_f35", "nouns": {"head": "Braseiro"},
+		"colors": [Color(0.42, 0.26, 0.2), Color(0.78, 0.2, 0.14), Color(0.16, 0.13, 0.17)],
+		"accents": [Color(0.8, 0.45, 0.15), Color(0.95, 0.75, 0.3), Color(0.7, 0.15, 0.1)],
+		"glows": [Color(1.0, 0.42, 0.1), Color(1.0, 0.75, 0.2), Color(1.0, 0.95, 0.7)]},
+	"elementalist_gelo": {"style": "ele_g35",         # Geleira: coroa alta e torta de cristais, ombreiras de lascas, túnica em camadas, capa de lascas de gelo
+		"name": "Geleira", "suffix": "da Geleira", "icon": "ele_g35",
+		"colors": [Color(0.2, 0.3, 0.36), Color(0.2, 0.42, 0.85), Color(0.86, 0.92, 0.97)],
+		"accents": [Color(0.62, 0.78, 0.82), Color(0.9, 0.95, 1.0), Color(0.32, 0.3, 0.72)],
+		"glows": [Color(0.55, 0.9, 0.95), Color(0.8, 0.96, 1.0), Color(0.75, 0.6, 1.0)]},
+	"elementalist_raio": {"style": "ele_r35",         # Para-raios: chapéu com haste de anéis, hastes nos ombros, túnica de faixas, bobinas com arco aceso
+		"name": "Para-raios", "suffix": "do Para-raios", "icon": "ele_r35",
+		"colors": [Color(0.4, 0.36, 0.44), Color(0.5, 0.3, 0.85), Color(0.14, 0.13, 0.24)],
+		"accents": [Color(0.8, 0.65, 0.25), Color(0.95, 0.85, 0.4), Color(0.4, 0.6, 0.9)],
+		"glows": [Color(1.0, 0.75, 0.25), Color(1.0, 0.95, 0.55), Color(0.6, 0.95, 1.0)]},
+	# Druida (onda 3): Lobo e Urso têm também a armadura de animal do estilo (form_wolf/form_bear: frm_<estilo>_*, FormModel pinta cor/destaque/brilho do nível)
+	"druid_xama": {"style": "dru_x35",                # Xamã da Estepe: crânio de carneiro com chifres enrolados, cocar de penas que desce pelas costas, talismãs de osso, túnica pintada
+		"name": "Xamã da Estepe", "suffix": "do Xamã da Estepe", "icon": "dru_x35", "nouns": {"head": "Cocar"},
+		"colors": [Color(0.55, 0.42, 0.28), Color(0.16, 0.42, 0.42), Color(0.22, 0.16, 0.34)],
+		"accents": [Color(0.62, 0.2, 0.12), Color(0.92, 0.6, 0.2), Color(0.56, 0.26, 0.82)],
+		"glows": [Color(1.0, 0.65, 0.2), Color(0.55, 1.0, 0.6), Color(0.72, 0.55, 1.0)]},
+	"druid_fera": {"style": "dru_w35",                # Matilha de Guerra: elmo de cabeça de lobo (rosto dentro da boca), crina em crista, ombreiras com garras, coleira de cravos, couro tachado
+		"name": "Matilha de Guerra", "suffix": "da Matilha de Guerra", "icon": "dru_w35", "nouns": {"head": "Elmo", "body": "Couro"},
+		"colors": [Color(0.36, 0.38, 0.44), Color(0.6, 0.14, 0.14), Color(0.13, 0.13, 0.17)],
+		"accents": [Color(0.56, 0.14, 0.1), Color(0.85, 0.83, 0.8), Color(0.8, 0.88, 0.95)],
+		"glows": [Color(1.0, 0.5, 0.15), Color(1.0, 0.85, 0.4), Color(0.5, 0.85, 1.0)]},
+	"druid_guardiao_verde": {"style": "dru_b35",      # Montanha Viva: elmo de pedra com crista de musgo, lajes nos ombros com cristais acesos, placas de casca e rocha, casco de pedra nas costas
+		"name": "Montanha Viva", "suffix": "da Montanha Viva", "icon": "dru_b35", "nouns": {"head": "Elmo", "body": "Casco"},
+		"colors": [Color(0.5, 0.46, 0.42), Color(0.25, 0.42, 0.5), Color(0.15, 0.14, 0.18)],
+		"accents": [Color(0.34, 0.48, 0.22), Color(0.82, 0.68, 0.25), Color(0.8, 0.82, 0.7)],
+		"glows": [Color(1.0, 0.7, 0.25), Color(0.5, 0.95, 1.0), Color(0.9, 0.4, 1.0)]},
+	# Paladino (onda 4): só a ARMADURA é nova; espadas, maças e escudos continuam os do nível 30 ("wpn"; o escudo já é o do 30 sem a
+	# chave "shield"). As malhas arm_pal_*35_* NÃO estão no kit principal (teto de 200 malhas): ficam no kit extra
+	# kit_paladin_<sexo>_a2.glb, que o KitModel só carrega quando uma peça dessas é vestida (chibi_kit.A2_STYLES / build_kit_a2).
+	"paladin_guardiao": {"style": "pal_g35", "wpn": "pal_g30",      # Baluarte de Kharzun: elmo de cerco de topo chato, crista em leque atravessada, ombreiras de torre com ameias, gola de pele
+		"name": "Baluarte de Kharzun", "suffix": "do Baluarte de Kharzun", "icon": "pal_g35",
+		"colors": [Color(0.42, 0.43, 0.48), Color(0.2, 0.34, 0.7), Color(0.15, 0.14, 0.2)],
+		"accents": [Color(0.58, 0.15, 0.12), Color(0.93, 0.9, 0.82), Color(0.9, 0.7, 0.25)],
+		"glows": [Color(1.0, 0.6, 0.2), Color(1.0, 0.88, 0.45), Color(0.5, 0.85, 1.0)]},
+	"paladin_cruzado": {"style": "pal_c35", "wpn": "pal_c30",       # Lança da Aurora: celada de bico, crina longa pelas costas, UMA ombreira gigante com espigão, meia-capa com gola de pele, tabardo partido
+		"name": "Lança da Aurora", "suffix": "da Lança da Aurora", "icon": "pal_c35",
+		"colors": [Color(0.6, 0.56, 0.5), Color(0.72, 0.14, 0.16), Color(0.93, 0.92, 0.88)],
+		"accents": [Color(0.62, 0.22, 0.14), Color(0.94, 0.9, 0.8), Color(0.18, 0.28, 0.68)],
+		"glows": [Color(1.0, 0.65, 0.25), Color(1.0, 0.85, 0.4), Color(1.0, 0.8, 0.7)]},
+	"paladin_templario": {"style": "pal_t35", "wpn": "pal_t30",     # Chama de Guerra: elmo-balde coroado com braseiro aceso, viseira em cruz, correntes com turíbulos acesos, saiote de escamas
+		"name": "Chama de Guerra", "suffix": "da Chama de Guerra", "icon": "pal_t35",
+		"colors": [Color(0.5, 0.36, 0.24), Color(0.9, 0.55, 0.16), Color(0.16, 0.14, 0.17)],
+		"accents": [Color(0.16, 0.14, 0.16), Color(0.6, 0.1, 0.1), Color(0.88, 0.85, 0.78)],
+		"glows": [Color(1.0, 0.45, 0.1), Color(1.0, 0.82, 0.3), Color(1.0, 0.95, 0.75)]},
+	# Necromancer e Bispo (onda 2B; nomes e ícones na passada final)
+	# Bispo: os ESCUDOS continuam os do nível 30 (sem a chave "shield", visual_of já deixa o estilo do 30): orçamento de malhas do kit.
+	"necromancer_invocador": {"style": "nec_i35",     # Ossuário de Guerra: coroa de ossos de dedos, crânio de orc em cada ombro, couraça de costelas, armação de espinha e costelas nas costas
+		"name": "Ossuário de Guerra", "suffix": "do Ossuário de Guerra", "icon": "nec_i35", "nouns": {"head": "Coroa", "body": "Couraça"},
+		"colors": [Color(0.4, 0.34, 0.3), Color(0.16, 0.42, 0.36), Color(0.3, 0.06, 0.1)],
+		"accents": [Color(0.5, 0.16, 0.14), Color(0.86, 0.82, 0.7), Color(0.8, 0.7, 0.4)],
+		"glows": [Color(0.55, 1.0, 0.5), Color(0.4, 1.0, 0.8), Color(0.6, 0.9, 1.0)]},
+	"necromancer_ceifador": {"style": "nec_c35",      # Ceifeiro do Campo: capuz alto de carrasco, laço de corda, lanternas acesas em correntes, capa de tiras de estandartes caídos
+		"name": "Ceifeiro do Campo", "suffix": "do Ceifeiro do Campo", "icon": "nec_c35",
+		"colors": [Color(0.36, 0.33, 0.32), Color(0.6, 0.12, 0.14), Color(0.84, 0.82, 0.8)],
+		"accents": [Color(0.55, 0.2, 0.15), Color(0.85, 0.78, 0.55), Color(0.14, 0.13, 0.16)],
+		"glows": [Color(1.0, 0.6, 0.2), Color(1.0, 0.85, 0.45), Color(0.45, 1.0, 0.6)]},
+	"necromancer_pestilento": {"style": "nec_s35",    # Sol Negro (na folha de arte: "Eclipse"; já existe o Conjunto Eclipse do 25): capuz com véu no rosto e crescente, lascas flutuando nos ombros, túnica lisa, disco de sol negro com aro aceso atrás da cabeça
+		"name": "Sol Negro", "suffix": "do Sol Negro", "icon": "nec_s35",
+		"colors": [Color(0.32, 0.3, 0.4), Color(0.16, 0.2, 0.6), Color(0.1, 0.09, 0.14)],
+		"accents": [Color(0.62, 0.5, 0.28), Color(0.82, 0.84, 0.92), Color(0.55, 0.1, 0.2)],
+		"glows": [Color(1.0, 0.7, 0.3), Color(0.9, 0.92, 1.0), Color(1.0, 0.25, 0.45)]},
+	"bishop_sacerdote": {"style": "bis_s35",          # Capelã de Campanha: chapéu largo de peregrino com borlas, manta e ataduras, bolsa, oratório portátil nas costas com velas acesas
+		"name": "Capelã de Campanha", "suffix": "da Capelã de Campanha", "icon": "bis_s35", "nouns": {"head": "Chapéu"},
+		"colors": [Color(0.52, 0.48, 0.36), Color(0.2, 0.5, 0.4), Color(0.9, 0.87, 0.8)],
+		"accents": [Color(0.62, 0.2, 0.16), Color(0.93, 0.92, 0.88), Color(0.8, 0.58, 0.2)],
+		"glows": [Color(1.0, 0.75, 0.35), Color(1.0, 0.9, 0.55), Color(0.75, 0.9, 1.0)]},
+	"bishop_inquisidor": {"style": "bis_i35",         # Farol da Aurora: tiara em gaiola com orbe aceso flutuando, mangas longas em camadas, túnica alta, gola de raios de sol atrás dos ombros
+		"name": "Farol da Aurora", "suffix": "do Farol da Aurora", "icon": "bis_i35", "nouns": {"head": "Tiara"},
+		"colors": [Color(0.55, 0.4, 0.36), Color(0.9, 0.6, 0.2), Color(0.2, 0.1, 0.3)],
+		"accents": [Color(0.3, 0.34, 0.5), Color(0.64, 0.13, 0.15), Color(0.9, 0.75, 0.35)],
+		"glows": [Color(1.0, 0.6, 0.25), Color(1.0, 0.95, 0.7), Color(1.0, 0.75, 0.9)]},
+	"bishop_batalha": {"style": "bis_b35",            # Martelo da Vanguarda: bacinete de ponta com camal de malha e asas varridas, manto único de placa, saiote blindado, livro acorrentado
+		"name": "Martelo da Vanguarda", "suffix": "do Martelo da Vanguarda", "icon": "bis_b35",
+		"colors": [Color(0.4, 0.42, 0.46), Color(0.2, 0.34, 0.66), Color(0.14, 0.14, 0.17)],
+		"accents": [Color(0.58, 0.2, 0.14), Color(0.92, 0.9, 0.84), Color(0.68, 0.1, 0.12)],
+		"glows": [Color(1.0, 0.55, 0.18), Color(1.0, 0.85, 0.4), Color(1.0, 0.95, 0.85)]},
+}
 ## Conjuntos lendários com visual próprio (kit: tools/blender/chibi_kit.py SET_STYLES; ícones: assets/icons/<icon>_<peça>.png).
 ## Referência de arte em reference/<classe>/set_N. Peças sem slot próprio no RagnaEx (polainas) vêm junto do corpo.
 ## Nomes das peças de conjunto (set_piece_name): substantivo da build + complemento do conjunto ("suffix" = "do X";
@@ -240,8 +381,76 @@ static func visual_of(sid: String) -> Dictionary:
 			for k in ["names", "suffix", "adj", "nouns", "set_name"]:
 				v.erase(k)
 			v["reuse"] = base + str(olv)
+			var a2: Dictionary = ACT2_VISUALS.get(bid_of_set(sid), {})
+			var li := Balance.HYBRID_LEVELS.find(lv)
+			if not a2.is_empty() and li >= 0:          # Ato II: malha nova da build, cor do nível (nomes e ícones seguem a regra do reaproveitado)
+				v["shield"] = a2.get("shield", v["style"])
+				v["style"] = a2["style"]
+				v["wpn"] = a2.get("wpn", a2["style"])
+				v["color"] = a2["colors"][li]
+				v["glow"] = a2["glows"][li]
+				v["act2"] = true
+				if a2.has("accents"):
+					v["accent"] = a2["accents"][li]
+				if a2.has("icon"):
+					v["icon"] = a2["icon"]
+				if a2.has("suffix"):          # nome próprio da build + epíteto do nível ("Elmo do Quebra-Hordas do Triunfo")
+					var ep: String = TIER_EPITHETS[Balance.LEGENDARY_LEVELS.find(lv)]
+					v["suffix"] = "%s %s" % [a2["suffix"], ep]
+					v["set_name"] = "Conjunto %s %s" % [a2.get("name", str(a2["suffix"])), ep]
+					if a2.has("nouns"):
+						v["nouns"] = a2["nouns"]
 			return v
 	return {}
+
+## Entrada de ACT2_VISUALS de um conjunto qualquer: da build, Ápice dela ou híbrido (1ª build do par). {} = build sem visual do Ato II.
+static func act2_of(sid: String) -> Dictionary:
+	var key := bid_of_set(sid).replace("_apex_", "_")
+	var mix := key.find("_mix_")
+	if mix > 0:
+		var cid := key.substr(0, mix)
+		var rest := key.substr(mix + 5)
+		key = ""
+		for k: String in ACT2_VISUALS:
+			if k.begins_with(cid + "_") and rest.begins_with(k.trim_prefix(cid + "_") + "_"):
+				key = k
+	return ACT2_VISUALS.get(key, {})
+
+## Cor das peças acesas (tint_glow*) de um conjunto do Ato II no nível dele; alfa 0 = o kit fica com a cor da malha.
+static func set_glow(sid: String) -> Color:
+	var a2 := act2_of(sid)
+	var li := Balance.HYBRID_LEVELS.find(int(sid.get_slice("_", sid.get_slice_count("_") - 1)))
+	if a2.is_empty() or li < 0:
+		return Color(0, 0, 0, 0)
+	return a2["glows"][li]
+
+## Destaque (tint2) escolhido de um conjunto do Ato II no nível dele ("accents"); alfa 0 = o derivado da cor (ItemDef.accent).
+## Híbrido: a armadura veste a cor da 2ª build do par, então o destaque também é o dela.
+static func set_accent(sid: String) -> Color:
+	var li := Balance.HYBRID_LEVELS.find(int(sid.get_slice("_", sid.get_slice_count("_") - 1)))
+	if li < 0:
+		return Color(0, 0, 0, 0)
+	var key := bid_of_set(sid).replace("_apex_", "_")
+	var mix := key.find("_mix_")
+	if mix > 0:
+		var cid := key.substr(0, mix)
+		var rest := key.substr(mix + 5)
+		key = ""
+		for k: String in ACT2_VISUALS:
+			if k.begins_with(cid + "_") and rest.ends_with("_" + k.trim_prefix(cid + "_")):
+				key = k
+	var a2: Dictionary = ACT2_VISUALS.get(key, {})
+	if not a2.has("accents"):
+		return Color(0, 0, 0, 0)
+	return a2["accents"][li]
+
+## Estilo do nível 30 da build dona de um estilo do Ato II ("" = não é estilo do Ato II). O KitModel veste este quando as
+## malhas do estilo não existem (kit extra `_a2` ausente): o boneco fica com o visual do 30 na cor do nível.
+static func act2_fallback_style(style: String) -> String:
+	for k: String in ACT2_VISUALS:
+		if ACT2_VISUALS[k]["style"] == style:
+			return str(SET_VISUALS.get("set_%s_%d" % [k, OWN_VISUALS_UNTIL], {}).get("style", ""))
+	return ""
 
 ## Substantivo + complemento do conjunto (o adjetivo concorda com ele). "" = "".
 static func noun_with(vis: Dictionary, noun: String) -> String:
@@ -562,6 +771,70 @@ static func _attrs(primary: String, secondary: String, level: int, weight: float
 		a[secondary] = maxf(1.0, snappedf(Balance.GEAR_ATTR_SECONDARY_PER_LEVEL * level * weight * mult, step))
 	return a
 
+## Peças da curva dos acessórios (spec production/qa/accessory-rework-spec-2026-11-17.md).
+const ACC_PIECES := ["cape", "amulet", "ring"]
+
+## F1/F2: fator da curva dos acessórios, 1,0 no nível Balance.ACC_CURVE_REF_LEVEL (t2) e x ACC_CURVE_GROWTH a cada ACC_CURVE_STEP níveis.
+## Ex.: acc_curve(16) = 1,0; acc_curve(40) = 3,375.
+static func acc_curve(level: int) -> float:
+	return pow(Balance.ACC_CURVE_GROWTH, (float(level) - Balance.ACC_CURVE_REF_LEVEL) / Balance.ACC_CURVE_STEP)
+
+## F1: atributos de capa/amuleto/anel = a linear de hoje no nível de referência x acc_curve(level). Escala antiga com uma
+## casa e piso 1,0, como _attrs. Ex.: acc_attrs("FOR", "VIT", 32, "ring", 1.0) = {FOR 6,7, VIT 3,2}.
+static func acc_attrs(primary: String, secondary: String, level: int, piece: String, mult: float) -> Dictionary:
+	var step := 1.0 / Balance.ATTR_SCALE
+	var k: float = Balance.ACC_CURVE_REF_LEVEL * float(PIECE_WEIGHT[piece]) * mult * acc_curve(level)
+	var a := {}
+	a[primary] = maxf(1.0, snappedf(Balance.GEAR_ATTR_PRIMARY_PER_LEVEL * k, step))
+	if secondary != primary:
+		a[secondary] = maxf(1.0, snappedf(Balance.GEAR_ATTR_SECONDARY_PER_LEVEL * k, step))
+	return a
+
+## Índice do tier comum de um nível (-1 = fora da tabela, ex.: 45 de Kharzun).
+static func acc_tier(level: int) -> int:
+	return Balance.COMMON_TIER_LEVELS.find(level)
+
+## Papéis dos acessórios (F3/F4/F5): anel = ATK plano (MATK no tema mágico), amuleto = vida % + a mana do tema, capa = a mana
+## corpo a corpo. `tier` = índice em COMMON_TIER_LEVELS, -1 = Kharzun (k45). `magic` = tema/único INT/WILL.
+## Ex.: acc_roles(anel, "ring", 3, false) -> it.atk = 3.
+static func acc_roles(it: ItemDef, piece: String, tier: int, magic: bool) -> void:
+	var k45 := tier < 0
+	if piece == "ring":
+		var v := float(Balance.ACC_RING_ATK_K45 if k45 else Balance.ACC_RING_ATK[tier])
+		it.atk = 0.0 if magic else v
+		it.matk = v if magic else 0.0
+	elif piece == "amulet":
+		it.bonus["hp_pct"] = Balance.ACC_AMULET_HP_PCT_K45 if k45 else float(Balance.ACC_AMULET_HP_PCT[tier])
+
+## Soma dos atributos (escala nova, x ATTR_SCALE) da comum de um slot no tier (os 3 temas têm a mesma soma). F6.
+static func acc_common_sum(piece: String, tier: int) -> int:
+	var t: Array = THEMES["guerreiro"]
+	var a := acc_attrs(t[1], t[2], Balance.COMMON_TIER_LEVELS[tier], piece, 1.0)
+	var s := 0
+	for k in a:
+		s += int(round(float(a[k]) * Balance.ATTR_SCALE))
+	return s
+
+## F6: acessório único escrito à mão. Os atributos escritos no catálogo são a proporção; o total vira
+## min(ACC_UNIQUE_MULT x comum do nível; ACC_UNIQUE_NEXT_CAP x comum do tier seguinte). Ganha o papel do slot no tier
+## (anel: ATK ou MATK pelo 1º atributo; amuleto: vida % e mana pelo 1º atributo). DEF/MDEF escritos ficam.
+static func unique_acc(it: ItemDef) -> void:
+	var piece: String = {S.RING: "ring", S.AMULET: "amulet", S.CAPE: "cape"}[it.slot]
+	var tier := acc_tier(it.level_req)
+	var total: float = minf(Balance.ACC_UNIQUE_MULT * acc_common_sum(piece, tier), Balance.ACC_UNIQUE_NEXT_CAP * acc_common_sum(piece, mini(tier + 1, Balance.COMMON_TIER_LEVELS.size() - 1)))
+	var share := 0.0
+	for a in it.attributes:
+		share += float(it.attributes[a])
+	var out := {}
+	for a in it.attributes:
+		out[a] = round(total * float(it.attributes[a]) / share) / Balance.ATTR_SCALE     # escala antiga, uma casa
+	var magic: bool = str(it.attributes.keys()[0]) in ["INT", "WILL"]
+	it.attributes = out
+	it.bonus = it.bonus.duplicate()
+	acc_roles(it, piece, tier, magic)
+	if piece == "amulet":
+		it.bonus.merge(mana_bonus(piece, "sabio" if magic else "guerreiro", tier))
+
 static func _price(level: int, weight: float, mult: float) -> int:
 	return int(round((Balance.GEAR_PRICE_BASE + level * level * Balance.GEAR_PRICE_PER_LV2) * weight * mult))
 
@@ -605,6 +878,11 @@ static func armor_item(id: String, name: String, piece: String, armor: String, a
 	it.mdef = round(float(ARMOR[armor][1]) * f)
 	it.armor_style = armor
 	it.attributes = _attrs(attr, attr2, level, w, mult)
+	if piece in ACC_PIECES:      # F1/F2: acessórios na curva ancorada no t2; DEF/MDEF da capa na mesma curva
+		var fa := level_factor(int(Balance.ACC_CURVE_REF_LEVEL)) * mult * w * acc_curve(level)
+		it.def = round(float(ARMOR[armor][0]) * fa)
+		it.mdef = round(float(ARMOR[armor][1]) * fa)
+		it.attributes = acc_attrs(attr, attr2, level, piece, mult)
 	it.price = _price(level, w, mult)
 	it.stack_max = 1
 	it.icon_color = color
@@ -627,9 +905,11 @@ static func wearables(tier: int) -> Array:
 			var col: Color = (t[3] as Color).lightened(tier * 0.08)
 			var it := armor_item("%s_%s_t%d" % [piece, theme, tier], "%s %s %s" % [THEME_PIECES[piece], t[0], COMMON_TIER_NAMES[tier]], piece, "leather", t[1], t[2], lv, common_rarity(tier), 1.0, col)
 			it.armor_style = "cape" if piece == "cape" else ""
+			it.bonus = mana_bonus(piece, theme, tier)
 			if piece != "cape":
 				it.def = 0.0
 				it.mdef = 0.0
+			acc_roles(it, piece, tier, theme in Balance.MANA_SAGE_THEMES)
 			out.append(it)
 	return out
 
@@ -645,11 +925,27 @@ static func kharzun_jewels() -> Array:
 			var it := armor_item("%s_%s_k45" % [piece, theme], "%s %s de Kharzun" % [THEME_PIECES[piece], t[0]], piece, "leather", t[1], t[2], lv,
 				ItemDef.RARITY_LEGENDARY - 1, Balance.KHARZUN_JEWEL_MULT, col)
 			it.armor_style = "cape" if piece == "cape" else ""
+			it.bonus = mana_bonus(piece, theme, -1)
 			if piece != "cape":
 				it.def = 0.0
 				it.mdef = 0.0
+			acc_roles(it, piece, -1, theme in Balance.MANA_SAGE_THEMES)
 			out.append(it)
 	return out
+
+## Joias de mana por tier (`tier` = índice em COMMON_TIER_LEVELS, -1 = k45). Corpo a corpo (Balance.MANA_ACC_THEMES): amuleto
+## devolve mana ao abater, capa regenera mana em combate. Sábio (MANA_SAGE_THEMES): o amuleto regenera mana em combate. Anel nada.
+## Ex.: mana_bonus("amulet", "sabio", 5) = {"mp_regen_combat": 0.4}.
+static func mana_bonus(piece: String, theme: String, tier: int) -> Dictionary:
+	var k45 := tier < 0
+	if theme in Balance.MANA_ACC_THEMES:
+		if piece == "amulet":
+			return {"mp_on_kill": Balance.MANA_KILL_PCT_K45 if k45 else float(Balance.MANA_KILL_PCT[tier])}
+		if piece == "cape":
+			return {"mp_regen_combat": Balance.MANA_COMBAT_REGEN_K45 if k45 else float(Balance.MANA_COMBAT_REGEN[tier])}
+	elif theme in Balance.MANA_SAGE_THEMES and piece == "amulet":
+		return {"mp_regen_combat": Balance.MANA_SAGE_REGEN_K45 if k45 else float(Balance.MANA_SAGE_REGEN[tier])}
+	return {}
 
 ## Peça que só sai da forja (joias/capas 45 com troféu): bots não a recebem de graça ao nascer.
 static func craft_only(it: ItemDef) -> bool:
@@ -724,6 +1020,78 @@ static func set_skills(build: Dictionary, skills: Dictionary, level: int, tier: 
 ## `pct`% do ATK, +1 Bravata; Balance.LEG_SHOT_ICD).
 ## fist_counter (Punhos de Fúria com duas garras: o contra-ataque da esquiva causa +`pct`% do ATK; FistSystem).
 
+## Armas com papel no conjunto (build -> tipo de arma -> papel): "offense" = espada/montante (FOR + o outro atributo da build,
+## sem MATK, ATK x LEG_SWORD_ATK_MULT, efeito da build); "defense" = maça/martelo (VIT + FOR, MATK 0, DEF, Baluarte);
+## "battle" = maça do Clérigo de Batalha (FOR + VIT, MATK vira ATK e DEF, efeito da build). Escudo do conjunto das builds
+## em DETERMINATION_SHIELDS ganha Determinação. Maças comuns (WEAPONS) não mudam: o Sacerdote precisa do MATK.
+const WEAPON_ROLES := {
+	"guardiao": {"sword": "offense", "mace": "defense"},
+	"templario": {"sword": "offense", "mace": "defense"},
+	"cruzado": {"sword2h": "offense", "mace2h": "defense"},
+	"batalha": {"mace": "battle"},
+}
+const DETERMINATION_SHIELDS := ["guardiao", "templario", "batalha"]
+const ROLE_LEGENDS := {"bulwark": {"kind": "bulwark", "name": "Baluarte"}, "determination": {"kind": "determination", "name": "Determinação"}}
+
+## Papel da arma `wtype` no conjunto da build ("" = arma sem papel: fica como sempre foi).
+static func weapon_role(build_id: String, wtype: String) -> String:
+	return str(WEAPON_ROLES.get(build_id, {}).get(wtype, ""))
+
+## Efeito de papel (Baluarte, Determinação) no tier: Balance.LEG_ROLE_NUMBERS ([base, por tier] viram números).
+static func role_legend(kind: String, tier: int) -> Dictionary:
+	var out: Dictionary = (ROLE_LEGENDS[kind] as Dictionary).duplicate()
+	var nums: Dictionary = Balance.LEG_ROLE_NUMBERS[kind]
+	for k in nums:
+		var v = nums[k]
+		out[k] = round((float(v[0]) + float(v[1]) * tier) * 100.0) / 100.0 if v is Array else v
+	return out
+
+## Aplica o papel na arma do conjunto (atributos, ATK/MATK/DEF e efeito). Devolve false se a arma não tem papel.
+## Ex.: maça do Guardião 30 -> VIT/FOR, MATK 0, DEF = ATK x LEG_MACE_DEF_PER_ATK, Baluarte.
+static func apply_weapon_role(w: ItemDef, build: Dictionary, tier: int, lv: int, mult: float) -> bool:
+	var role := weapon_role(str(build["id"]), w.weapon_type)
+	if role == "":
+		return false
+	var other: String = build["attr2"] if build["attr"] == "FOR" else build["attr"]     # Guardião: VIT/FOR -> espada FOR/VIT
+	match role:
+		"offense":
+			w.attributes = _attrs("FOR", other, lv, PIECE_WEIGHT["weapon"], mult)
+			w.atk = round(w.atk * Balance.LEG_SWORD_ATK_MULT)
+			w.matk = 0.0
+			w.legend_effect = legend_effect(build, tier)
+		"defense":
+			w.attributes = _attrs("VIT", "FOR", lv, PIECE_WEIGHT["weapon"], mult)
+			w.matk = 0.0
+			w.def = round(w.atk * Balance.LEG_MACE_DEF_PER_ATK)
+			w.legend_effect = role_legend("bulwark", tier)
+		"battle":
+			w.attributes = _attrs("FOR", "VIT", lv, PIECE_WEIGHT["weapon"], mult)
+			w.atk = round(w.atk * Balance.LEG_BATTLE_MACE_ATK_MULT)
+			w.matk = 0.0
+			w.def = round(w.atk * Balance.LEG_MACE_DEF_PER_ATK)
+			w.legend_effect = legend_effect(build, tier)
+	return true
+
+## Escudo do conjunto da build com Determinação (DETERMINATION_SHIELDS); outros escudos ficam como estão.
+static func apply_shield_role(off: ItemDef, build: Dictionary, tier: int) -> void:
+	if off.weapon_type == "shield" and str(build["id"]) in DETERMINATION_SHIELDS:
+		off.legend_effect = role_legend("determination", tier)
+
+## Descrição curta do papel da arma/escudo no conjunto (vai no fim da descrição do item; "" = sem papel).
+## Ex.: maça do Guardião -> " Arma de defesa (Baluarte)."
+static func role_note(it: ItemDef, build_id: String) -> String:
+	var nm: String = str(it.legend_effect.get("name", ""))
+	if str(it.legend_effect.get("kind", "")) == "determination":
+		return " Escudo de utilidade (%s)." % nm
+	match weapon_role(build_id, it.weapon_type):
+		"offense":
+			return " Arma de ataque (%s)." % nm
+		"defense":
+			return " Arma de defesa (%s)." % nm
+		"battle":
+			return " Arma da linha de frente (%s): ATK e DEF no lugar do MATK." % nm
+	return ""
+
 ## Efeito da arma lendária da build no tier: identidade em `build["legend"]` (classes_catalog), números em
 ## Balance.LEGEND_NUMBERS[<build>] ([base, por tier] viram números).
 static func legend_effect(build: Dictionary, tier: int) -> Dictionary:
@@ -757,53 +1125,10 @@ static func set_bonuses(build: Dictionary, dmg_skill: String, cdr_skill: String,
 ## peças alternativas (não contam). Bônus: 2 = o 2 de A, 3 = o 3 de B, 4 = metade do 4 de A e de B, 5 = a Fusão.
 ## Fusões: nome, complemento das peças e texto de cada face (chave = build cuja arma liga a face; "all" = uma face só).
 const FUSIONS := {
-	"guardiao+cruzado": {"name": "Juramento Rubro", "of": "do Juramento Rubro", "text": {
-		"cruzado": "golpes diretos dão Juramento; skill sagrada que gasta 3+ cargas provoca quem acerta",
-		"guardiao": "com Juramento cheio, bloquear pode atordoar quem bateu"}},
-	"cruzado+templario": {"name": "Sentença Ardente", "of": "da Sentença Ardente", "text": {
-		"cruzado": "golpes diretos põem Penitência; cada carga no alvo aumenta todo o seu dano nele; na 5ª explode e volta a 2",
-		"templario": "golpes diretos põem Penitência (cada carga aumenta seu dano no alvo; na 5ª explode e volta a 2); a explosão atordoa"}},
 	"templario+guardiao": {"name": "Égide Ardente", "of": "da Égide Ardente", "text": {
 		"all": "bloquear põe Penitência no atacante; a explosão dá 2 de Juramento"}},
-	"carniceiro+executor": {"name": "Carrasco Frenético", "of": "do Carrasco Frenético", "text": {
-		"all": "golpes dão Frenesi; o limiar de execução sobe com o Frenesi"}},
-	"executor+punhos": {"name": "Peso do Titã", "of": "do Peso do Titã", "text": {
-		"executor": "crítico ou esquiva dá Peso (próxima skill mais forte); +esquiva e contra-ataque com o machado",
-		"punhos": "crítico ou esquiva dá Peso: a próxima skill de golpe bate mais forte"}},
-	"punhos+carniceiro": {"name": "Turbilhão Feroz", "of": "do Turbilhão Feroz", "text": {
-		"all": "crítico ou esquiva dá 2 de Frenesi; com Frenesi cheio, +esquiva e contra-ataque"}},
-	"sacerdote+inquisidor": {"name": "Luz que Julga", "of": "da Luz que Julga", "text": {
-		"all": "a cura que passa do máximo vira dano sagrado no inimigo mais perto do aliado"}},
-	"inquisidor+batalha": {"name": "Martelo da Aurora", "of": "do Martelo da Aurora", "text": {
-		"all": "magia sagrada dá Aurora (+ATK e +MATK por 4 s); golpes de arma curam o aliado mais ferido"}},
 	"batalha+sacerdote": {"name": "Graça em Combate", "of": "da Graça em Combate", "text": {
 		"all": "a cada 3 golpes de maça a Graça dispara e o aliado curado ganha uma Égide"}},
-	"guardiao_verde+fera": {"name": "Bramido da Matilha", "of": "do Bramido da Matilha", "text": {
-		"guardiao_verde": "o Urro da Mata chama 2 lobos espirituais e dá Frenesi ao grupo",
-		"fera": "o Frenesi provoca os inimigos perto de você"}},
-	"fera+xama": {"name": "Lua Caçadora", "of": "da Lua Caçadora", "text": {
-		"fera": "todo o seu dano em alvo sangrando (a Mordida conta) ou com Fogo Lunar é maior",
-		"xama": "Fogo Lunar também faz sangrar; suas magias em alvo sangrando causam mais dano"}},
-	"xama+guardiao_verde": {"name": "Casca Partilhada", "of": "da Casca Partilhada", "text": {
-		"guardiao_verde": "ao ser atingido, a Pele de Carvalho também cobre o aliado mais ferido",
-		"xama": "magias em alvo preso ou na área do Ent causam mais dano"}},
-	"cacador+atirador": {"name": "Posto de Caça", "of": "do Posto de Caça", "text": {
-		"atirador": "+1 torreta ativa",
-		"cacador": "o Ataque da Fera arma uma Armadilha de Gelo; o companheiro bate mais em alvo retardado"}},
-	"atirador+lanceiro": {"name": "Trincheira", "of": "da Trincheira", "text": {
-		"atirador": "aliados perto da sua torreta regeneram vida",
-		"lanceiro": "o Dardo de Caça crava uma Estaca: aliados perto dela regeneram vida"}},
-	"lanceiro+cacador": {"name": "Caça em Dupla", "of": "da Caça em Dupla", "text": {
-		"lanceiro": "golpes abrem Feridas (2 em alvo retardado ou preso)",
-		"cacador": "o companheiro abre Feridas e bate mais por Ferida no alvo"}},
-	"laminas+duelista": {"name": "Passo Fantasma", "of": "do Passo Fantasma", "text": {
-		"all": "avançar ou esquivar deixa o próximo golpe furtivo"}},
-	"duelista+corsario": {"name": "Duelo de Pólvora", "of": "do Duelo de Pólvora", "text": {
-		"corsario": "crítico dá Bravata; Bravata cheia dispara a pistola de graça",
-		"duelista": "crítico dá Bravata; Bravata cheia vira Foco do Duelista"}},
-	"corsario+laminas": {"name": "Pólvora Envenenada", "of": "da Pólvora Envenenada", "text": {
-		"corsario": "tiros envenenam; cada veneno seu no alvo fortalece o próximo tiro",
-		"laminas": "Dardo Venenoso e Leque de Facas dão Bravata por alvo envenenado"}},
 	"fogo+gelo": {"name": "Vapor", "of": "do Vapor", "text": {
 		"all": "gelo em alvo queimando, ou fogo em alvo retardado, apaga a queimadura e causa o dano dela na hora"}},
 	"gelo+raio": {"name": "Supercondutor", "of": "do Supercondutor", "text": {
@@ -817,16 +1142,54 @@ const FUSIONS := {
 	"pestilento+invocador": {"name": "Pestilência Viva", "of": "da Pestilência Viva", "text": {
 		"all": "invocações aplicam Agonia; cada maldição no alvo fortalece as invocações"}},
 }
+## Conjuntos Ápice (design/gdd/apice-sets.md): um por build, aprofundando a mecânica dela (no lugar dos híbridos de
+## armas diferentes). Nome do conjunto, complemento das peças ("do X") e texto do efeito de 5 peças. Uma build nova ganha um
+## Ápice com uma linha aqui e números em Balance.APEX_NUMBERS.
+const APEX := {
+	"carniceiro": {"name": "da Tormenta Gêmea", "of": "da Tormenta Gêmea", "text":
+		"golpe direto dá Frenesi da Tormenta (velocidade de ataque, até 5); o Arremesso Brutal gasta as cargas e bate mais por carga"},
+	"executor": {"name": "do Cadafalso", "of": "do Cadafalso", "text":
+		"skills de golpe em um alvo com machado de 2 mãos batem mais; o limiar de execução sobe (vale para o Carrasco) e golpes abaixo dele batem mais"},
+	"punhos": {"name": "do Punho Implacável", "of": "do Punho Implacável", "text":
+		"crítico com as garras também contra-ataca (como a esquiva); +esquiva"},
+	"cruzado": {"name": "do Veredito", "of": "do Veredito", "text":
+		"tentar atordoar (Julgamento da arma ou skill que atordoa, mesmo em chefe) deixa o alvo Julgado: todo o seu dano nele é maior; +chance de Julgamento"},
+	"inquisidor": {"name": "da Aurora Ardente", "of": "da Aurora Ardente", "text":
+		"magia sagrada dá Aurora (+ATK e +MATK por 4 s; renova, não acumula)"},
+	"guardiao_verde": {"name": "da Casca Ancestral", "of": "da Casca Ancestral", "text":
+		"ao ser atingido, a Pele de Carvalho cobre você e o aliado mais ferido (com recarga); o Urro da Mata zera a recarga"},
+	"fera": {"name": "da Matilha Rubra", "of": "da Matilha Rubra", "text":
+		"todo o seu dano em alvo sangrando (a Mordida conta) é maior"},
+	"xama": {"name": "da Maré Lunar", "of": "da Maré Lunar", "text":
+		"suas magias em alvo com Fogo Lunar batem mais; Fogo Lunar em alvo já marcado salta para o inimigo mais perto"},
+	"cacador": {"name": "do Faro do Lince", "of": "do Faro do Lince", "text":
+		"golpes do lince aplicam a Marca do Caçador; o lince bate mais em alvo retardado"},
+	"atirador": {"name": "do Posto Avançado", "of": "do Posto Avançado", "text":
+		"+1 torreta (a 2ª mais fraca) que atira primeiro em alvo preso, retardado ou marcado; +1 armadilha; aliados perto da torreta regeneram vida"},
+	"lanceiro": {"name": "da Presa Aberta", "of": "da Presa Aberta", "text":
+		"golpes abrem Feridas (2 em alvo retardado ou preso); com todas abertas o alvo sangra"},
+	"laminas": {"name": "da Sombra Peçonhenta", "of": "da Sombra Peçonhenta", "text":
+		"avançar ou esquivar deixa a próxima facada furtiva; a facada furtiva aplica Veneno Letal"},
+	"duelista": {"name": "da Cadência Perfeita", "of": "da Cadência Perfeita", "text":
+		"crítico com espada dá Cadência (esquivar dá 2); com 5 vira Foco do Duelista"},
+	"corsario": {"name": "da Salva Final", "of": "da Salva Final", "text":
+		"crítico com espada dá Bravata; Bravata cheia dispara a pistola de graça no próximo golpe de espada"},
+}
+## Cor do Ápice (R-AP5, constantes visuais): a do conjunto 30 da build escurecida e puxada para o dourado.
+const APEX_DARKEN := 0.25
+const APEX_GILD := 0.20
 const HYBRID_NUMERALS := ["I", "II", "III", "IV", "V"]
 
-## Pares de builds da classe: [A, B] na ordem A+B, B+C, C+A.
+## Pares de builds da classe que ainda têm híbrido (Fusão em FUSIONS): [A, B] na ordem A+B, B+C, C+A.
 static func hybrid_pairs(cls: ClassDef) -> Array:
 	var out: Array = []
 	var n := cls.builds.size()
 	if n < 2:
 		return out
 	for i in range(n if n > 2 else 1):
-		out.append([str(cls.builds[i]["id"]), str(cls.builds[(i + 1) % n]["id"])])
+		var pair := [str(cls.builds[i]["id"]), str(cls.builds[(i + 1) % n]["id"])]
+		if FUSIONS.has("%s+%s" % pair):          # os pares de armas diferentes viraram Ápices (apice-sets.md §5)
+			out.append(pair)
 	return out
 
 static func hybrid_set_id(class_id: String, a: String, b: String, level: int) -> String:
@@ -894,8 +1257,8 @@ static func hybrid_sets(classes: Dictionary, skills: Dictionary) -> Dictionary:
 				sd.fusion = fid
 				var base := "leg_%s_mix_%s_%s_%d" % [cid, pair[0], pair[1], lv]
 				# visual: o conjunto de A no maior nível com visual, na cor do conjunto de B (fatia 1; modelos no polimento)
-				var va := visual_of("set_%s_%s_%d" % [cid, pair[0], OWN_VISUALS_UNTIL])
-				var vb := visual_of("set_%s_%s_%d" % [cid, pair[1], OWN_VISUALS_UNTIL])
+				var va := visual_of("set_%s_%s_%d" % [cid, pair[0], lv])          # do nível: a build com visual do Ato II usa o novo
+				var vb := visual_of("set_%s_%s_%d" % [cid, pair[1], lv])
 				var col: Color = vb.get("color", cls.color.lerp(LEGENDARY_COLOR, 0.35))
 				var made: Array = []
 				for piece in PIECES:
@@ -909,10 +1272,12 @@ static func hybrid_sets(classes: Dictionary, skills: Dictionary) -> Dictionary:
 					made.append(it)
 				# armas: as das duas builds, cada uma com o efeito lendário da própria build
 				var names := {}
+				var role_of := {}          # id da arma -> build (descrição do papel)
+				var has_def := false
 				for bd in [ba, bb]:
 					var bid: String = bd["id"]
 					var other: String = bb["attr"] if bid == pair[0] else ba["attr"]
-					var vw := visual_of("set_%s_%s_%d" % [cid, bid, OWN_VISUALS_UNTIL])
+					var vw := visual_of("set_%s_%s_%d" % [cid, bid, lv])
 					var wl: Array = []
 					var main_t: String = bd["main"][0]
 					var nouns: Dictionary = PIECE_NOUNS["%s_%s" % [cid, bid]]
@@ -921,24 +1286,34 @@ static func hybrid_sets(classes: Dictionary, skills: Dictionary) -> Dictionary:
 					if bd["stat"] == "matk_pct":
 						wpn.matk = maxf(wpn.matk, round(wpn.atk * Balance.LEGEND_MATK_FROM_ATK))
 					wpn.legend_effect = legend_effect(bd, tier)
+					apply_weapon_role(wpn, bd, tier, lv, mult)
 					wl.append(wpn)
+					# a maça/martelo de defesa (Baluarte) entra uma vez no par: Égide Ardente tem duas espadas (Lâmina Justa e Penitência)
+					for alt_t: String in bd["main"]:
+						if weapon_role(bid, alt_t) == "defense" and not has_def:
+							has_def = true
+							var alt := weapon_item("%s_%s" % [base, alt_t], "%s %s" % [WEAPON_NAMES[alt_t], tail], alt_t, lv, ItemDef.RARITY_LEGENDARY, mult, col)
+							apply_weapon_role(alt, bd, tier, lv, mult)
+							wl.append(alt)
 					if bd["off"].size() > 0:
 						var off_t: String = bd["off"][0]
 						var off := weapon_item("%s_%s_offhand" % [base, bid], "%s %s" % [str(nouns.get("offhand", WEAPON_NAMES[off_t])), tail], off_t, lv, ItemDef.RARITY_LEGENDARY, mult, col, PIECE_WEIGHT["offhand"])
 						off.attributes = _attrs(bd["attr"], other, lv, PIECE_WEIGHT["offhand"], mult)
+						apply_shield_role(off, bd, tier)
 						wl.append(off)
 					for w in wl:
-						var piece: String = "offhand" if w.id.ends_with("_offhand") else "weapon"
+						var piece: String = "offhand" if w.id.ends_with("_offhand") else ("mace" if w.weapon_type in ["mace", "mace2h"] and weapon_role(str(bd["id"]), w.weapon_type) == "defense" else "weapon")
 						if vw.has("style"):
 							if w.weapon_type == "shield":
-								w.shield_style = vw["style"]
+								w.shield_style = vw.get("shield", vw["style"])
 							elif w.slot == S.WEAPON or w.weapon_type == "pistol":
-								w.weapon_style = vw["style"]
+								w.weapon_style = vw.get("wpn", vw["style"])
 							if vw.has("icon"):
 								w.icon = "%s_%s" % [vw["icon"], piece]
 						if names.has(w.name):          # mesma arma nas duas builds: o nome leva o efeito lendário
 							w.name = "%s (%s)" % [w.name, str(bd["legend"]["name"])]
 						names[w.name] = true
+						role_of[w.id] = bid
 						sd.alt_pieces.append(w.id)
 						made.append(w)
 				for it in made:
@@ -948,13 +1323,174 @@ static func hybrid_sets(classes: Dictionary, skills: Dictionary) -> Dictionary:
 					if it.id.ends_with("_offhand") and it.slot == S.WEAPON:
 						hands = "Mão secundária (Shift+clique na bolsa). "
 					if it.slot in [S.WEAPON, S.OFFHAND]:
-						it.description = "%sArma do %s (%s, híbrido %s + %s): não conta nas peças; tem efeito lendário próprio." % [hands, sd.name, cls.name, ba["name"], bb["name"]]
+						it.description = "%sArma do %s (%s, híbrido %s + %s): não conta nas peças; %s" % [hands, sd.name, cls.name, ba["name"], bb["name"],
+							"tem efeito lendário próprio." if not it.legend_effect.is_empty() else "acompanha o conjunto."] + role_note(it, str(role_of.get(it.id, "")))
 					else:
 						it.description = "Peça do %s (%s, híbrido %s + %s)." % [sd.name, cls.name, ba["name"], bb["name"]]
 				items.append_array(made)
 				sd.bonuses = hybrid_bonuses(ba, bb, skills, lv, tier, fid)
 				sets.append(sd)
 	return {"items": items, "sets": sets}
+
+static func apex_set_id(class_id: String, build_id: String, level: int) -> String:
+	return "set_%s_apex_%s_%d" % [class_id, build_id, level]
+
+## Números do Ápice no tier (F-AP1, igual à F-FUS1).
+static func apex_numbers(bid: String, tier: int) -> Dictionary:
+	var out := {}
+	var nums: Dictionary = Balance.APEX_NUMBERS.get(bid, {})
+	for k in nums:
+		var v = nums[k]
+		out[k] = snappedf(float(v[0]) + float(v[1]) * (tier - 6), 0.01) if v is Array else v
+	return out
+
+## Cor do Ápice (R-AP5): a do conjunto 30 da build, escurecida e dourada.
+static func apex_color(base: Color) -> Color:
+	return base.darkened(APEX_DARKEN).lerp(LEGENDARY_COLOR, APEX_GILD)
+
+## Conjuntos Ápice (R-AP1..R-AP5): por build em APEX, nos níveis HYBRID_LEVELS. 5 de armadura da build; as armas da build
+## como peças alternativas (efeito lendário próprio); 2-4 peças = as do conjunto da build; 5 = efeito Ápice.
+static func apex_sets(classes: Dictionary, skills: Dictionary) -> Dictionary:
+	var items: Array = []
+	var sets: Array = []
+	var mult: float = Balance.LEGENDARY_MULT
+	for cid in classes:
+		var cls: ClassDef = classes[cid]
+		var restrict: Array[String] = [cid]
+		for build in cls.builds:
+			var bid: String = build["id"]
+			if not APEX.has(bid):
+				continue
+			var ap: Dictionary = APEX[bid]
+			var nouns: Dictionary = PIECE_NOUNS.get("%s_%s" % [cid, bid], {})
+			for hi in range(Balance.HYBRID_LEVELS.size()):
+				var lv: int = Balance.HYBRID_LEVELS[hi]
+				var vis := visual_of("set_%s_%s_%d" % [cid, bid, lv])          # o do nível: o Ápice divide o visual do Ato II da build
+				var col := apex_color(vis.get("color", cls.color.lerp(LEGENDARY_COLOR, 0.35)))
+				var tier := Balance.legend_tier(lv)
+				var tail := "%s Ápice %s" % [ap["of"], HYBRID_NUMERALS[hi]]
+				var sd := SetDef.new()
+				sd.id = apex_set_id(cid, bid, lv)
+				sd.name = "Conjunto %s Ápice %s" % [ap["name"], HYBRID_NUMERALS[hi]]
+				sd.class_id = cid
+				sd.level = lv
+				sd.apex = bid
+				sd.fusion = "apice_" + bid
+				var base := "leg_%s_apex_%s_%d" % [cid, bid, lv]
+				var made: Array = []
+				for piece in PIECES:
+					var noun: String = ARMOR_NAMES[build["armor"]]["legs"] if piece == "legs" else str(nouns.get(piece, ARMOR_NAMES[build["armor"]][piece]))
+					var it := armor_item("%s_%s" % [base, piece], "%s %s" % [noun, tail], piece, build["armor"], build["attr"], build["attr2"], lv, ItemDef.RARITY_LEGENDARY, mult, col)
+					if piece != "legs" and vis.has("style"):
+						it.armor_style = vis["style"]
+						it.icon = "%s_%s" % [vis["icon"], piece] if vis.has("icon") else ""
+					sd.armor.append(it.id)
+					sd.pieces.append(it.id)
+					made.append(it)
+				# armas da build: main[0], main[1] (se houver), off[0] (se houver), cada uma com o efeito lendário da build
+				var le := legend_effect(build, tier)
+				var wl: Array = []
+				var main_t: String = build["main"][0]
+				wl.append(weapon_item("%s_weapon" % base, "%s %s" % [str(nouns.get("weapon", WEAPON_NAMES[main_t])), tail], main_t, lv, ItemDef.RARITY_LEGENDARY, mult, col))
+				if build["main"].size() > 1:
+					var alt_t: String = build["main"][1]
+					wl.append(weapon_item("%s_%s" % [base, alt_t], "%s %s" % [WEAPON_NAMES[alt_t], tail], alt_t, lv, ItemDef.RARITY_LEGENDARY, mult, col))
+				if build["off"].size() > 0:
+					var off_t: String = build["off"][0]
+					var off_name: String = str(nouns.get("offhand", WEAPON_NAMES[off_t] + ("" if off_t in ItemDef.OFFHAND_ONLY else " Gêmea")))
+					wl.append(weapon_item("%s_offhand" % base, "%s %s" % [off_name, tail], off_t, lv, ItemDef.RARITY_LEGENDARY, mult, col, PIECE_WEIGHT["offhand"]))
+				for w: ItemDef in wl:
+					var off_piece := w.id.ends_with("_offhand")
+					w.attributes = _attrs(build["attr"], build["attr2"], lv, PIECE_WEIGHT["offhand" if off_piece else "weapon"], mult)
+					if not off_piece:
+						w.legend_effect = le.duplicate()
+						if build["stat"] == "matk_pct":
+							w.matk = maxf(w.matk, round(w.atk * Balance.LEGEND_MATK_FROM_ATK))
+						apply_weapon_role(w, build, tier, lv, mult)          # Cruzado: montante ataca, martelo defende
+					else:
+						apply_shield_role(w, build, tier)
+					if vis.has("style"):
+						if w.weapon_type == "shield":
+							w.shield_style = vis.get("shield", vis["style"])
+						elif w.slot == S.WEAPON or w.weapon_type == "pistol":
+							w.weapon_style = vis.get("wpn", vis["style"])
+						if vis.has("icon"):
+							w.icon = "%s_%s" % [vis["icon"], "offhand" if off_piece else "weapon"]
+					sd.alt_pieces.append(w.id)
+					made.append(w)
+				for it in made:
+					it.set_id = sd.id
+					it.class_restriction = restrict
+					var hands := "Duas mãos. " if it.is_two_handed() else ""
+					if it.id.ends_with("_offhand") and it.slot == S.WEAPON:
+						hands = "Mão secundária (Shift+clique na bolsa). "
+					if it.slot in [S.WEAPON, S.OFFHAND]:
+						it.description = "%sArma do %s (%s, Ápice %s): não conta nas peças; tem efeito lendário próprio." % [hands, sd.name, cls.name, build["name"]] + role_note(it, bid)
+					else:
+						it.description = "Peça do %s (%s, Ápice %s)." % [sd.name, cls.name, build["name"]]
+				items.append_array(made)
+				var picks := set_skills(build, skills, lv, tier)
+				var nb := set_bonuses(build, picks[0], picks[1], tier)
+				var f := apex_numbers(bid, tier)
+				f["id"] = sd.fusion
+				sd.bonuses = {2: (nb[2] as Dictionary).duplicate(true), 3: (nb[3] as Dictionary).duplicate(true), 4: (nb[4] as Dictionary).duplicate(true), 5: {"fusion": f}}
+				sets.append(sd)
+	return {"items": items, "sets": sets}
+
+## Acessórios lendários (spec production/qa/legendary-accessories-spec-2026-11-16.md, re-base da rev2): por build e nível de
+## Balance.HYBRID_LEVELS, Manto/Medalhão/Anel/Sinete. Não são conjunto (set_id ""). Atributos/DEF pela curva F1/F2 x
+## LEGENDARY_MULT; papéis no valor k45 (anel ATK ou MATK, amuleto vida %); mana herdada do k45 (FOR/AGI: tema guerreiro,
+## INT/WILL: sábio; VIT nada); bônus da build por Balance.LEG_ACC_BUILDS/LEG_ACC_STEP. Id `leg_acc_<classe>_<build>_<nível>_<peça>`.
+const LEG_ACC_NAMES := {"cape": "Manto", "amulet": "Medalhão", "ring": "Anel", "signet": "Sinete"}
+
+## Tema de mana herdada da build (R-LA4): "guerreiro" (FOR/AGI), "sabio" (INT/WILL) ou "" (VIT).
+static func leg_acc_theme(build: Dictionary) -> String:
+	if str(build["attr"]) in ["FOR", "AGI"]:
+		return "guerreiro"
+	if str(build["attr"]) in ["INT", "WILL"]:
+		return "sabio"
+	return ""
+
+## Id do acessório lendário. Ex.: leg_acc_id("paladin", "guardiao", 45, "signet") = "leg_acc_paladin_guardiao_45_signet".
+static func leg_acc_id(class_id: String, build_id: String, level: int, piece: String) -> String:
+	return "leg_acc_%s_%s_%d_%s" % [class_id, build_id, level, piece]
+
+static func legendary_accessories(classes: Dictionary) -> Array:
+	var out: Array = []
+	for cid in classes:
+		var cls: ClassDef = classes[cid]
+		var restrict: Array[String] = [cid]
+		var col: Color = cls.color.lerp(LEGENDARY_COLOR, 0.35)
+		for build in cls.builds:
+			var bid: String = build["id"]
+			var roles: Dictionary = Balance.LEG_ACC_BUILDS.get(bid, {})
+			var magic: bool = str(build["attr"]) in ["INT", "WILL"] or build["stat"] == "matk_pct"
+			var theme := leg_acc_theme(build)
+			var bmult := float(Balance.LEG_ACC_BUILD_MULT.get(bid, 1.0))
+			for hi in range(Balance.HYBRID_LEVELS.size()):
+				var lv: int = Balance.HYBRID_LEVELS[hi]
+				var tail := "%s %s" % [build["of"], TIER_EPITHETS[Balance.legend_tier(lv)]]
+				for piece in Balance.LEG_ACC_PIECES:
+					var base_piece: String = "ring" if piece == "signet" else piece
+					var it := armor_item(leg_acc_id(cid, bid, lv, piece), "%s %s" % [LEG_ACC_NAMES[piece], tail], base_piece, "leather",
+						build["attr"], build["attr2"], lv, ItemDef.RARITY_LEGENDARY, Balance.LEGENDARY_MULT, col)
+					it.armor_style = "cape" if piece == "cape" else ""
+					if piece != "cape":
+						it.def = 0.0
+						it.mdef = 0.0
+					it.bonus = {}
+					acc_roles(it, base_piece, -1, magic)
+					if theme != "":
+						var mb := mana_bonus(base_piece, theme, -1)
+						for k in mb:
+							it.bonus[k] = float(it.bonus.get(k, 0.0)) + float(mb[k])
+					var stat: String = roles.get(piece, "")
+					if stat != "":
+						it.bonus[stat] = float(it.bonus.get(stat, 0.0)) + snappedf(float(Balance.LEG_ACC_STEP[stat][hi]) * bmult, 0.01)
+					it.class_restriction = restrict
+					it.description = "Acessório lendário (%s, %s): não conta nas peças do conjunto." % [cls.name, build["name"]]
+					out.append(it)
+	return out
 
 ## Gera tudo. Retorna {"items": [ItemDef], "sets": [SetDef]}.
 static func build(classes: Dictionary, skills: Dictionary) -> Dictionary:
@@ -1007,6 +1543,7 @@ static func build(classes: Dictionary, skills: Dictionary) -> Dictionary:
 				if build["stat"] == "matk_pct":
 					wpn.matk = maxf(wpn.matk, round(wpn.atk * Balance.LEGEND_MATK_FROM_ATK))
 				wpn.legend_effect = legend_effect(build, tier)
+				apply_weapon_role(wpn, build, tier, lv, mult)          # espada ataca / maça defende (WEAPON_ROLES)
 				made.append(wpn)
 				var alts := {}
 				# conjunto com visual próprio e build de duas armas (espada ou maça): a outra também vira peça do conjunto
@@ -1018,6 +1555,7 @@ static func build(classes: Dictionary, skills: Dictionary) -> Dictionary:
 					alt.legend_effect = wpn.legend_effect.duplicate()
 					if build["stat"] == "matk_pct":
 						alt.matk = maxf(alt.matk, round(alt.atk * Balance.LEGEND_MATK_FROM_ATK))
+					apply_weapon_role(alt, build, tier, lv, mult)          # maça/martelo do Paladino: defesa (Baluarte), não cópia da espada
 					made.append(alt)
 					alts[alt.id] = true
 				if build["off"].size() > 0:
@@ -1025,13 +1563,14 @@ static func build(classes: Dictionary, skills: Dictionary) -> Dictionary:
 					var off_name: String = WEAPON_NAMES[off_t] + ("" if off_t in ItemDef.OFFHAND_ONLY else " Gêmea")
 					var off := weapon_item("leg_%s_%s_%d_offhand" % [cid, bid, lv], "%s %s" % [off_name, tail], off_t, lv, ItemDef.RARITY_LEGENDARY, mult, col, PIECE_WEIGHT["offhand"])
 					off.attributes = _attrs(build["attr"], build["attr2"], lv, PIECE_WEIGHT["offhand"], mult)     # serve à build (escudo do Sacerdote dá WILL, não FOR)
+					apply_shield_role(off, build, tier)          # Guardião/Templário/Batalha: Determinação
 					made.append(off)
 				if vis.has("set_name"):
 					sd.name = vis["set_name"]
 				for it in made:
 					if not vis.is_empty():
 						var piece: String = it.id.get_slice("_", it.id.get_slice_count("_") - 1)
-						if vis.has("reuse"):          # visual reaproveitado (Ato II): nome genérico da regra
+						if vis.has("reuse") and not vis.has("suffix"):          # visual reaproveitado sem nome próprio: nome genérico da regra
 							pass
 						elif vis.has("names"):          # conjunto escrito à mão
 							it.name = vis["names"].get(piece, it.name)
@@ -1043,7 +1582,7 @@ static func build(classes: Dictionary, skills: Dictionary) -> Dictionary:
 							var nm := set_piece_name(vis, bid_of_set(sd.id), piece, build["armor"])
 							if nm != "":
 								it.name = nm
-						if alts.has(it.id) and not vis.has("reuse"):         # maça do conjunto: mesmo nome da espada, trocando a arma
+						if alts.has(it.id) and (not vis.has("reuse") or vis.has("suffix")):         # maça do conjunto: mesmo nome da espada, trocando a arma
 							if vis.has("names"):
 								it.name = (vis["names"].get("weapon", it.name) as String).replace("Espada", WEAPON_NAMES[it.weapon_type])
 							else:
@@ -1053,11 +1592,11 @@ static func build(classes: Dictionary, skills: Dictionary) -> Dictionary:
 						if it.armor_style != "" and piece != "legs":     # calça: a do estilo da build (o kit tem), na cor do conjunto
 							it.armor_style = vis["style"]
 						elif it.slot == S.WEAPON:
-							it.weapon_style = vis["style"]          # arma própria do conjunto (paladin_sets / berserker_sets); vale na mão secundária
+							it.weapon_style = vis.get("wpn", vis["style"])          # arma própria do conjunto (paladin_sets / berserker_sets); vale na mão secundária
 						elif it.weapon_type == "shield":
-							it.shield_style = vis["style"]
+							it.shield_style = vis.get("shield", vis["style"])
 						elif it.weapon_type == "pistol":
-							it.weapon_style = vis["style"]          # pistola própria do conjunto (assassin_sets.ASS_WEAPONS, wpn_off_pistol_<estilo>)          # escudo próprio do conjunto (paladin_sets.SET_SHIELDS)
+							it.weapon_style = vis.get("wpn", vis["style"])          # pistola própria do conjunto (assassin_sets.ASS_WEAPONS, wpn_off_pistol_<estilo>)          # escudo próprio do conjunto (paladin_sets.SET_SHIELDS)
 					it.set_id = sd.id
 					it.class_restriction = restrict
 					var hands := "Duas mãos. " if it.is_two_handed() else ""
@@ -1065,7 +1604,7 @@ static func build(classes: Dictionary, skills: Dictionary) -> Dictionary:
 						hands = "Mão secundária (Shift+clique na bolsa). "
 					it.description = "%sPeça do %s (%s)." % [hands, sd.name, cls.name]
 					if it.slot in [S.WEAPON, S.OFFHAND]:
-						it.description = "%sArma do %s (%s): não conta nas peças; %s" % [hands, sd.name, cls.name, "tem efeito lendário próprio." if not it.legend_effect.is_empty() else "acompanha o conjunto."]
+						it.description = "%sArma do %s (%s): não conta nas peças; %s" % [hands, sd.name, cls.name, "tem efeito lendário próprio." if not it.legend_effect.is_empty() else "acompanha o conjunto."] + role_note(it, bid)
 					elif not sd.armor.has(it.id):
 						sd.armor.append(it.id)
 					items.append(it)
@@ -1079,7 +1618,11 @@ static func build(classes: Dictionary, skills: Dictionary) -> Dictionary:
 				if favor != "":         # conjunto de combinação (Elementalista): 4 peças dão o segundo elemento
 					sd.bonuses[4][favor + "_pct"] = round((Balance.SET_FAVOR_BASE + Balance.SET_FAVOR_PER_TIER * Balance.set_pct_tier(tier)) * 10.0) / 10.0
 				sets.append(sd)
-	var hyb := hybrid_sets(classes, skills)          # 3) conjuntos híbridos 35/40/45 (R7.1)
+	var hyb := hybrid_sets(classes, skills)          # 3) conjuntos híbridos 35/40/45 (R7.1; os que ficaram)
 	items.append_array(hyb["items"])
 	sets.append_array(hyb["sets"])
+	var apx := apex_sets(classes, skills)           # 4) conjuntos Ápice 35/40/45 (apice-sets.md)
+	items.append_array(apx["items"])
+	sets.append_array(apx["sets"])
+	items.append_array(legendary_accessories(classes))          # 5) acessórios lendários 35/40/45 (fora de conjunto)
 	return {"items": items, "sets": sets}

@@ -575,7 +575,7 @@ const SET_ICON_PX := 36
 const SET_ICON_SMALL := 28
 func _char_sets(p: SimEntity, side: VBoxContainer) -> void:
 	var s := p.stats
-	if s.active_sets.is_empty() and s.legend.is_empty():
+	if s.active_sets.is_empty() and s.legend.is_empty() and s.shield_passive.is_empty():
 		side.add_child(UiKit.para("Nenhuma peça de conjunto. Lendários caem a cada 5 níveis (chefes dropam mais).", 12, UiKit.MUTED))
 		return
 	var compact := s.active_sets.size() > 1
@@ -585,6 +585,8 @@ func _char_sets(p: SimEntity, side: VBoxContainer) -> void:
 			_char_set_card(p, sd, int(s.active_sets[set_id]), compact, side)
 	if not s.legend.is_empty():
 		_char_legend_card(p, side)
+	if not s.shield_passive.is_empty():
+		_char_legend_card(p, side, true)          # escudo lendário com papel (Determinação): cartão próprio
 
 ## Peças de armadura do conjunto (as que contam), na ordem do SetDef.
 static func set_armor_items(sd: SetDef) -> Array:
@@ -631,7 +633,7 @@ func _char_set_card(p: SimEntity, sd: SetDef, n: int, compact: bool, side: VBoxC
 	for it in set_armor_items(sd):
 		row.add_child(_set_piece_icon(p, it, px))
 	if not compact:
-		var lv := UiKit.label("Lv %d%s" % [sd.level, "\nFusão" if sd.is_hybrid() else ""], 11, UiKit.MUTED)
+		var lv := UiKit.label("Lv %d%s" % [sd.level, "\nFusão" if sd.is_hybrid() else "\nÁpice" if sd.is_apex() else ""], 11, UiKit.MUTED)
 		lv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		lv.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		lv.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -694,13 +696,13 @@ func _set_bonus_badge(k: int, on: bool, tip: String) -> Control:
 		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return box
 
-## Cartão da arma lendária: ícone, nome e o efeito (1 linha; inteiro na dica).
-func _char_legend_card(p: SimEntity, side: VBoxContainer) -> void:
-	var le: Dictionary = p.stats.legend
+## Cartão da arma lendária: ícone, nome e o efeito (1 linha; inteiro na dica). `shield` = o do escudo (Determinação).
+func _char_legend_card(p: SimEntity, side: VBoxContainer, shield := false) -> void:
+	var le: Dictionary = p.stats.shield_passive if shield else p.stats.legend
 	var wpn: ItemDef = null
-	for slot in [ItemDef.Slot.WEAPON, ItemDef.Slot.OFFHAND]:
+	for slot in ([ItemDef.Slot.OFFHAND] if shield else [ItemDef.Slot.WEAPON, ItemDef.Slot.OFFHAND]):
 		var it: ItemDef = p.equipment.get(slot)
-		if it and not it.legend_effect.is_empty() and wpn == null:
+		if it and not it.legend_effect.is_empty() and wpn == null and (shield or str(it.legend_effect.get("kind", "")) != "determination"):
 			wpn = it
 	var card := PanelContainer.new()
 	var sb := UiKit.panel_style(Color(0.1, 0.08, 0.13, 0.9), UiKit.SLOT_EDGE, 4, 1)
@@ -718,7 +720,8 @@ func _char_legend_card(p: SimEntity, side: VBoxContainer) -> void:
 	v.add_theme_constant_override("separation", 0)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(v)
-	var t := UiKit.label("Arma lendária: %s" % str(le.get("name", "?")), 12, UiKit.rarity_color(4))
+	var head := "Escudo lendário" if shield else "Arma lendária"
+	var t := UiKit.label("%s: %s" % [head, str(le.get("name", "?"))], 12, UiKit.rarity_color(4))
 	t.clip_text = true
 	v.add_child(t)
 	var full := UiKit.legend_effect_text(le)
@@ -726,7 +729,7 @@ func _char_legend_card(p: SimEntity, side: VBoxContainer) -> void:
 	d.max_lines_visible = 1            # 1 linha: cabe junto do híbrido (bônus de Fusão em 2 linhas); inteiro na dica
 	d.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	v.add_child(d)
-	_tip_on(card, "[b]Arma lendária[/b]\n" + full + "\n[color=#aaa]Efeito próprio: não conta nas peças do conjunto.[/color]")
+	_tip_on(card, "[b]%s[/b]\n" % head + full + "\n[color=#aaa]Efeito próprio: não conta nas peças do conjunto.[/color]")
 
 func _on_slot_input(ev: InputEvent, slot: int) -> void:
 	if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:

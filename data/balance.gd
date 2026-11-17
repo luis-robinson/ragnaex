@@ -69,7 +69,7 @@ const BUILD_SET_EXTRA := {
 	"ceifador": {3: {"lifesteal": [1.0, 0.3]}},
 }
 const LEGEND_NUMBERS := {
-	"guardiao": {"pct": [15, 3]},
+	"guardiao": {"chance": [15, 2], "pct": [35, 5]},          # Lâmina Justa (espada): chance de +pct% do ATK em dano sagrado (conta ameaça)
 	"cruzado": {"chance": [12, 2], "dur": [0.8, 0.1], "icd": 6.0},
 	"templario": {"pct": [120, 24], "stacks": 5, "radius": 2.5},
 	"carniceiro": {"pct": [4, 0.6], "max": 5},
@@ -245,10 +245,33 @@ const RIFLE_RANGE_MULT := 1.2
 ## Ranger Lanceiro: a lança estoca em linha, mais longe que espada e machado e bem mais perto que o arco
 const SPEAR_REACH := 3.3                 # m (espada ~1,9; montante ~2,7; arco 13)
 const SPEAR_ARC_DEG := 40.0              # estocada estreita: o que está na frente da ponta
-const SPEAR_MAX_TARGETS := 3             # atravessa a fila
+const SPEAR_MAX_TARGETS := 4             # atravessa a fila (era 3 num cone de 40°; agora faixa reta, 2026-11-16)
+## Saltos (GROUND com dash: Salto do Predador, Salto Selvagem, Salto da Fé, Passo das Sombras): pousam no cursor, no máximo
+## o `dash`; com o cursor em cima de quem salta, um pulinho mínimo
+const LEAP_MIN_HOP := 1.0
+## Bola de Fogo: explosão no impacto (raio m, fração do poder em quem está em volta; o alvo leva o golpe cheio)
+const FIREBALL_EXPLODE_RADIUS := 1.5
+const FIREBALL_EXPLODE_PCT := 0.45            # com a explosão o poder caiu 1,8 -> 1,7 (alvo único -5,5%)
+## Muralha de Fogo: faixa no chão (largura m, s acesa, s entre pulsos que reacendem a queimadura)
+const FIRE_WALL_WIDTH := 1.4
+const FIRE_WALL_TIME := 5.0
+const FIRE_WALL_PULSE := 0.5
+## Tiro de Dispersão: empurrão (m)
+const SCATTER_PUSH := 2.5
+## Tiro Fantasma (talento): meia-largura da fila atrás do alvo e alvos no total
+const PIERCE_SHOT_HALF := 0.6
+const GHOST_SHOT_TARGETS := 3
+const SPEAR_LINE_WIDTH := 1.0            # m: largura da faixa da estocada (básico e Estocada Dupla); SkillDef.line_width
 const SPEAR_POWER_MULT := 1.15
 const SPEAR_COOLDOWN_MULT := 1.1
 const BLEED_TIME_DEFAULT := 4.0          # s do sangramento das skills de lança (dot com atk_pct)
+## Dano no tempo (veneno, queimadura, sangramento) bate em pulsos: o acumulado sai a cada DOT_PULSE_S s (1º pulso
+## 0,5 s depois de aplicar; o resto sai quando acaba, mesmo total). Antes saía quase todo tick (60/s).
+const DOT_PULSE_S := 0.5
+## Dano no tempo de monstro (chefe, lacaio, invocação de monstro; veneno e fogo) dura x0,7 (mesmo dps: total x0,7). 2026-11-17.
+const MONSTER_DOT_TIME_MULT := 0.7
+## Dano no tempo mágico do jogador: no máximo 3 cópias por (quem lançou, skill) no alvo; a 4ª substitui a mais antiga.
+const PLAYER_DOT_MAX_STACKS := 3
 const ARCHER_RANGE_MULT := 1.35          # skills de arco/mosquete alcançam mais (o arqueiro luta de longe)
 ## armadilhas: arma em 0,6 s, no máximo 3 por ranger (a mais antiga some)
 const TRAP_ARM_TIME := 0.6
@@ -371,7 +394,9 @@ const SIGNATURE_BASIC_TRIM := 0.94     # o básico perde isto para o DPS total f
 const RAID_POWER := 1.5                 # invasores: HP/ATK/MATK x isto (centro do 2º mapa)
 ## Força da investida só neste mapa (vida/ATK/MATK dos invasores x isto, sobre RAID_POWER); comuns do campo não mudam.
 ## Kharzun (usuário 2026-11-13): o elenco 40+ ficou mais forte; a leva sem bots voltou a ~9/10 repelidas.
-const RAID_MAP_POWER := {"field_kharzun": 0.85}
+const RAID_MAP_POWER := {"field_kharzun": 0.85, "city_port": 1.2}
+## Vida a mais só (x, sobre RAID_MAP_POWER): invasor que aguenta aventureiro de nível 30+ sem bater mais na guarnição.
+const RAID_MAP_HP := {"city_port": 1.4}
 const RAID_SMART := 1.5                 # invasores: alcance de aggro x isto e skills isto vezes mais seguidas
 const RAID_FLEE_HP := 0.25              # invasor sozinho abaixo disto recua para se juntar à leva
 const CRYSTAL_ARRIVE := 2.4             # m na frente do cristal onde o G/renascer deixa você
@@ -581,11 +606,27 @@ const ELITE_RADIUS_MULT := 1.3
 const ELITE_LEASH_MIN := 25.0
 const RECALL_TIME := 3.5                   # s de conjuração (G) para voltar à cidade; vale em combate; andar, agir ou levar dano interrompe
 const BOT_RECALL_RETRY := 8.0              # bot com a volta interrompida anda para o portal e tenta de novo depois disto
+const BOT_TRAVEL_LEG_S := 60.0             # bot viajando: prazo para chegar ao próximo portal; recomeça a cada mapa do caminho (era 60 s para a viagem toda)
 ## IA dos bots no combate
 const BOT_POTION_HP_MELEE := 0.45          # corpo a corpo bebe poção de vida abaixo disto (os outros: 0.35)
 const BOT_FLEE_HP := 0.2                   # sem poção, abaixo disto recua por BOT_FLEE_TIME s
 const BOT_FLEE_TIME := 2.5
 const BOT_STICKY_RANGE := 16.0             # mantém o alvo atual enquanto ele estiver vivo e a até esta distância
+## Bots presos (production/qa/bot-stuck-diagnosis-2026-11-17.md). Povoado murado = town_radius + portões no JSON (vila,
+## fortes, cidade élfica, postos): sai/entra pelo portão; fora, linha que cortaria o muro contorna pelo anel.
+const BOT_GATE_CROSS_PAD := 2.0            # m além do muro: linha que passa mais perto que isto do centro "corta" o povoado
+const BOT_GATE_CROSS_HYST := 2.0           # m a mais para largar o contorno (sem isto ia e voltava entre anel e linha reta)
+const BOT_GATE_RING_PAD := 6.0             # m além do muro: anel por onde o bot contorna o povoado
+const BOT_GATE_RING_STEP := 30.0           # graus por ponto do anel (do ângulo do bot para o do destino)
+const BOT_GATE_CLEAR := 3.5                # m além (ou aquém) do muro: até aqui o portão escolhido vale (sem ida e volta no vão)
+const BOT_CHASE_PROGRESS := 1.0            # m: chegar isto mais perto do alvo conta como progresso
+const BOT_CHASE_STALL := 4.0               # s sem progresso indo ao alvo (ou ao ponto de caça): larga
+const BOT_UNREACHABLE_IGNORE := 20.0       # s ignorando o monstro largado por inalcançável
+const BOT_ROUTED_STALL_MULT := 3.0         # andando por rota (portão, anel, ponte) o prazo sem progresso é BOT_CHASE_STALL × isto
+const BOT_ESCAPE_TIME := 2.5               # s andando para trás (±30°) ao desistir de um ponto: sai do bolsão (ruína em U, canto de muro)
+const BOT_LINE_STEP := 1.0                 # m entre amostras do teste de linha (_pick_monster: monstro calmo atrás de muro/rio)
+const BOT_LINE_RECHECK := 3.0              # s: monstro com a linha bloqueada fica fora da escolha por isto
+const BOT_DOOR_WAIT := 3.0                 # m da porta só do jogador: seguidor espera aqui enquanto o líder está na casa
 # chefes (MobSystem): mira, chuva de golpes, gancho, fúria por tempo, escudo dos lacaios
 const BOSS_PICK_RANGE := 16.0               # m: quem o chefe escolhe como vítima de skill com mob_pick
 const BOSS_HAZARD_DELAY := 1.3              # s do aviso no chão até o golpe da chuva (barrage sem delay)
@@ -759,8 +800,11 @@ const CT_DOT_EXTRA_S := 2.0                 # Garras Afiadas / Lua Crescente / B
 const CT_CURSE_EXTRA_S := 2.0               # Maldição Contagiosa: +2 s (CT_CURSES)
 const CT_CURSE_MULT := 1.3                  # ... e 30% mais forte
 ## Dano no tempo trocado pelo talento (dicionário inteiro: o efeito do talento substitui o da skill).
+## Talentos que SOMAM ao que a skill já tem (base + maestria + evolução; skill_mods "add", decisão 2026-11-17)
+const CT_HOLY_MEND_ADD := 0.12              # Golpe Restaurador: +12% do dano vira cura (Golpe Sagrado já cura 15-35%)
+const CT_FLAME_STRIKE_ADD_S := 5.0          # Golpe Ardente: a queimadura da Chama Sagrada dura +5 s
+const CT_SMITE_HAMMER_ADD_S := 0.4          # Castigo: o Martelo de Luz (já atordoa 0,6 s) atordoa +0,4 s
 const CT_DOTS := {
-	"pal_sacred_flame": {"dps": 5, "duration": 5},                  # Golpe Ardente: 4 s -> 5 s
 	"dru_claw": {"dps": 4, "duration": 4 + CT_DOT_EXTRA_S},          # Garras Afiadas
 	"dru_moonfire": {"dps": 5, "duration": 4 + CT_DOT_EXTRA_S},      # Lua Crescente
 	"ele_fireball": {"dps": 5, "duration": 3 + CT_DOT_EXTRA_S},      # Bola Ardente
@@ -797,6 +841,25 @@ const GUARD_REGEN_MULT := 3.0              # regenera mais rápido que personage
 const GUARD_PATROL_PACE := 0.42            # fração da velocidade na ronda
 const RAID_RECLAIM_MULT := 1.5           # cada fortaleza retomada (rota calada por `unless`) multiplica as levas dos fronts que sobram
 const RAID_RECLAIM_EVERY := 0.8             # ... e as levas voltam 20% mais rápido
+# ---- eventos de estrada (RoadEventSystem; GDD design/gdd/living-towns.md 4 e 7) ----
+const EVENT_FIRST_S := 90.0               # s de presença no mapa até o 1º evento (+ sorteio de EVENT_JITTER_S)
+const EVENT_EVERY_S := 240.0              # s entre eventos (+ sorteio): um a cada 4-7 min
+const EVENT_JITTER_S := 180.0
+const EVENT_RETRY_S := 30.0               # sem ponto válido: tenta de novo
+const EVENT_NEAR_M := 35.0                # o ponto nasce a esta distância do jogador... (fora da tela, mas audível)
+const EVENT_FAR_M := 70.0                 # ...até esta
+const EVENT_POINT_CD_S := 600.0           # recarga do ponto
+const EVENT_LIFETIME := 120.0             # s sem ninguém por perto até expirar
+const EVENT_RESOLVE_S := 90.0             # s para resolver depois que alguém chega
+const EVENT_ENGAGE_M := 30.0              # "chegou": personagem a esta distância do ponto
+const EVENT_LEASH_M := 30.0               # monstro do evento não persegue além disto
+const EVENT_MAX_MOBS := 4                 # teto de monstros por evento
+const EVENT_MOB_SCALE := 0.8              # quanto a vida/ataque caem quando o nível do ponto é menor que o do monstro (0 = nada, 1 = proporcional)
+const EVENT_XP_FRAC := 0.04               # XP do evento = fração do nível (acima de 0,06 vira farm)
+const EVENT_COIN_BASE := 5
+const EVENT_COIN_PER_LV := 2
+const EVENT_BOT_GRACE := 25.0             # s em que o evento é só do jogador (bots esperam)
+const EVENT_LEAVE_S := 12.0               # s que o NPC do evento leva indo embora antes de sumir
 const RAID_WAVE_CAP := 50                   # teto de invasores por leva (FPS)
 ## Último front (as outras duas fortalezas retomadas): o cerco joga tudo nele. Leva x isto (além da fúria), teto
 ## próprio e um líder elite (RAIDS[..]["leader"]). Antes a Torre vinha com ~54 e era espalhada pelos reforços (2026-11-10).
@@ -833,6 +896,76 @@ const LEVEL_UP_RESTORE := 0.3              # subir de nível devolve 30% da vida
 const REGEN_HP_PCT := 0.02                 # fora de combate: % da vida por segundo
 const REGEN_MP_PCT := 0.015                # fora de combate: % da mana por segundo (+ REGEN_MP_FLAT)
 const REGEN_MP_FLAT := 1.0
+## Joias de mana (pedido do jogador 2026-11-16: "o Berserker fica sem mana"; tools/tests/mana_probe.tscn). Por tier de
+## COMMON_TIER_LEVELS [1, 8, 16, 24, 32, 40]; nos temas corpo a corpo (GearCatalog.THEMES). Amuleto: % da mana máxima a cada
+## abate (Stats.mp_on_kill). Capa: % da mana máxima por s a mais só em combate (Stats.mp_regen_combat). Anéis ficam sem.
+const MANA_ACC_THEMES := ["guerreiro", "cacador"]
+const MANA_KILL_PCT := [4.0, 5.0, 6.0, 7.0, 8.0, 10.0]
+const MANA_KILL_PCT_K45 := 12.0
+const MANA_COMBAT_REGEN := [0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+const MANA_COMBAT_REGEN_K45 := 1.0
+## Sábio: a mana do tema fica no amuleto, regen em combate (% da mana máxima por s; base REGEN_MP_PCT 1,5). Spec acessórios F5.
+const MANA_SAGE_THEMES := ["sabio"]
+const MANA_SAGE_REGEN := [0.15, 0.2, 0.25, 0.3, 0.35, 0.4]
+const MANA_SAGE_REGEN_K45 := 0.5
+## Acessórios (capa, amuleto, anel; spec production/qa/accessory-rework-spec-2026-11-17.md). Atributo = linear de hoje no nível
+## ACC_CURVE_REF_LEVEL (t2) x GROWTH^((nível - REF) / STEP): ~+50% por tier, nenhum tier abaixo da fórmula linear antiga.
+const ACC_CURVE_REF_LEVEL := 16.0          # F1/F2: nível onde a curva nova = a linear antiga (fixo por decisão)
+const ACC_CURVE_GROWTH := 1.5              # F1/F2: x por passo (faixa segura 1,4-1,6)
+const ACC_CURVE_STEP := 8.0                # F1/F2: níveis por passo (= distância entre tiers)
+const ACC_RING_ATK := [0, 1, 2, 3, 4, 5]   # F3: ATK plano (guerreiro/caçador) ou MATK (sábio) do anel por tier (spec; alavanca 3/3/4 desfeita 2026-11-17)
+const ACC_RING_ATK_K45 := 6
+const ACC_AMULET_HP_PCT := [1.0, 1.5, 2.0, 2.5, 3.0, 3.0]   # F4: vida % do amuleto (todos os temas), por tier
+const ACC_AMULET_HP_PCT_K45 := 3.0
+const ACC_UNIQUE_MULT := 1.25              # F6: único = x a comum do mesmo slot e nível...
+const ACC_UNIQUE_NEXT_CAP := 0.9           # ...limitado a x a comum do tier seguinte
+## Acessórios lendários por build (spec production/qa/legendary-accessories-spec-2026-11-16.md, re-base da rev2 dos acessórios):
+## Manto/Medalhão/Anel/Sinete nos níveis HYBRID_LEVELS; atributos/DEF pela curva F1/F2 x LEGENDARY_MULT; papéis e mana no valor k45.
+## LEG_ACC_STEP = valor de cada stat por nível [35, 40, 45]; LEG_ACC_BUILDS = stat de cada peça por build.
+const LEG_ACC_PIECES := ["cape", "amulet", "ring", "signet"]
+const LEG_ACC_STEP := {
+	"atk_pct": [1.5, 2.0, 2.5], "matk_pct": [1.5, 2.0, 2.5], "aspd_pct": [2.5, 3.0, 4.0], "crit": [1.5, 2.0, 2.5],
+	"crit_dmg_pct": [5.0, 6.5, 8.0], "lifesteal": [1.0, 1.5, 2.0], "hp_pct": [3.0, 4.0, 5.0], "def_pct": [3.0, 4.0, 5.0],
+	"dr_pct": [2.0, 2.5, 3.0], "block": [2.0, 3.0, 4.0], "evasion": [1.5, 2.0, 2.5], "threat_pct": [10.0, 15.0, 20.0],
+	"heal_pct": [3.0, 4.0, 5.0], "buff_pct": [6.0, 8.0, 10.0], "radiance": [2.0, 3.0, 4.0], "pet_pct": [5.0, 6.5, 8.0],
+	"fire_pct": [2.5, 3.0, 4.0], "frost_pct": [2.5, 3.0, 4.0], "storm_pct": [2.5, 3.0, 4.0], "backstab": [4.0, 5.0, 6.0],
+	"cdr": [1.5, 2.0, 2.5], "speed_pct": [3.0, 4.0, 5.0], "dot_pct": [6.0, 8.0, 10.0], "cc_resist_pct": [10.0, 15.0, 20.0],
+	"mp_cost_pct": [4.0, 5.0, 6.0], "summon_time_pct": [10.0, 15.0, 20.0],
+}
+const LEG_ACC_BUILDS := {
+	"guardiao": {"cape": "dr_pct", "amulet": "threat_pct", "ring": "block", "signet": "cc_resist_pct"},
+	"cruzado": {"cape": "cc_resist_pct", "amulet": "atk_pct", "ring": "crit_dmg_pct", "signet": "mp_cost_pct"},
+	"templario": {"cape": "block", "amulet": "atk_pct", "ring": "crit", "signet": "crit_dmg_pct"},
+	"carniceiro": {"cape": "lifesteal", "amulet": "aspd_pct", "ring": "crit", "signet": "mp_cost_pct"},
+	"executor": {"cape": "hp_pct", "amulet": "atk_pct", "ring": "crit_dmg_pct", "signet": "cc_resist_pct"},
+	"punhos": {"cape": "evasion", "amulet": "aspd_pct", "ring": "crit", "signet": "lifesteal"},
+	"sacerdote": {"cape": "mp_cost_pct", "amulet": "heal_pct", "ring": "buff_pct", "signet": "radiance"},
+	"inquisidor": {"cape": "mp_cost_pct", "amulet": "matk_pct", "ring": "radiance", "signet": "crit_dmg_pct"},
+	"batalha": {"cape": "block", "amulet": "atk_pct", "ring": "heal_pct", "signet": "buff_pct"},
+	"guardiao_verde": {"cape": "dr_pct", "amulet": "threat_pct", "ring": "hp_pct", "signet": "cc_resist_pct"},
+	"fera": {"cape": "lifesteal", "amulet": "atk_pct", "ring": "aspd_pct", "signet": "dot_pct"},
+	"xama": {"cape": "mp_cost_pct", "amulet": "pet_pct", "ring": "summon_time_pct", "signet": "buff_pct"},
+	"cacador": {"cape": "evasion", "amulet": "pet_pct", "ring": "atk_pct", "signet": "crit"},
+	"atirador": {"cape": "speed_pct", "amulet": "atk_pct", "ring": "crit_dmg_pct", "signet": "cdr"},
+	"lanceiro": {"cape": "hp_pct", "amulet": "atk_pct", "ring": "dot_pct", "signet": "evasion"},
+	"laminas": {"cape": "evasion", "amulet": "backstab", "ring": "dot_pct", "signet": "crit_dmg_pct"},
+	"duelista": {"cape": "def_pct", "amulet": "atk_pct", "ring": "crit", "signet": "crit_dmg_pct"},
+	"corsario": {"cape": "def_pct", "amulet": "crit", "ring": "crit_dmg_pct", "signet": "cdr"},
+	"fogo": {"cape": "mp_cost_pct", "amulet": "fire_pct", "ring": "dot_pct", "signet": "crit_dmg_pct"},
+	"gelo": {"cape": "hp_pct", "amulet": "frost_pct", "ring": "matk_pct", "signet": "mp_cost_pct"},
+	"raio": {"cape": "mp_cost_pct", "amulet": "storm_pct", "ring": "crit", "signet": "crit_dmg_pct"},
+	"invocador": {"cape": "mp_cost_pct", "amulet": "pet_pct", "ring": "summon_time_pct", "signet": "matk_pct"},
+	"ceifador": {"cape": "lifesteal", "amulet": "matk_pct", "ring": "crit_dmg_pct", "signet": "cc_resist_pct"},
+	"pestilento": {"cape": "mp_cost_pct", "amulet": "dot_pct", "ring": "matk_pct", "signet": "cdr"},
+}
+const LEG_ACC_BUILD_MULT := {}            # ajuste fino por build (sem entrada = 1,0); F-LA1: G_acc > 0,08 = baixar
+const LEG_ACC_DROP_SHARE := 0.25          # chance do lendário sorteado no 35/40/45 ser um acessório (como SHIELD_LEGENDARY_SHARE)
+## Stats novos dos acessórios lendários (spec §3): tetos.
+const CRIT_DMG_CAP := 40.0                # % a mais no multiplicador do crítico (CRIT_MULT 1,5 -> até 1,9)
+const DOT_PCT_CAP := 60.0                 # % a mais de dano no tempo que você aplica
+const CC_RESIST_CAP := 50.0               # % a menos de duração de atordoar/prender/lentidão em você
+const MP_COST_CAP := 30.0                 # % a menos de custo de mana das skills
+const SUMMON_TIME_CAP := 60.0             # % a mais de duração das invocações com tempo
 const HIT_FLASH_TIME := 0.12               # piscada branca de quem apanha
 const NOTICE_CD := 3.0                     # aviso repetido (bolsa cheia ao pisar no baú) espera isto
 const ENTITY_RADIUS := 0.45
@@ -872,6 +1005,17 @@ const LEGENDARY_DROP_CHANCE := 0.01           # por monstro morto (1 em 100); ca
 const LEGENDARY_DROP_CHANCE_BOSS := 0.4
 ## Arma lendária: efeito próprio da build (`legend` da build + LEGEND_NUMBERS acima); aqui só os limites comuns
 const LEG_THORNS_RANGE := 4.0
+## Armas lendárias com papel (Paladino e Clérigo de Batalha; GearCatalog.WEAPON_ROLES): espada/montante ataca, maça/martelo
+## defende, escudo do conjunto dá utilidade. Números [base, por tier] como LEGEND_NUMBERS.
+const LEG_SWORD_ATK_MULT := 1.08            # espada/montante do conjunto: ATK x isto (sem MATK)
+const LEG_MACE_DEF_PER_ATK := 0.4           # maça/martelo do conjunto: DEF = ATK dela x isto (MATK 0)
+const LEG_BATTLE_MACE_ATK_MULT := 1.1       # maça do Clérigo de Batalha: troca o MATK por ATK x isto (e DEF)
+const LEG_ROLE_NUMBERS := {
+	"bulwark": {"pct": [3, 0.6], "icd": 4.0, "time": 5.0},     # Baluarte (maça): golpe dá barreira de pct% da vida máx.; 1 a cada icd s; dura time s
+	"determination": {"max": 5, "dmg": [2, 0.1], "heal": [3, 0.15], "icd": 2.0, "time": 6.0},   # Determinação (escudo): por carga +dmg% dano, +heal% cura recebida
+}
+const LEG_BULWARK_BUFF := "legend_bulwark"
+const LEG_DETERMINATION_BUFF := "legend_determination"
 const LEG_RIPOSTE_RANGE := 4.0             # contra-ataque só em quem bate de perto
 const LEG_CHAIN_RANGE := 6.0               # salto do básico (corrente) até o próximo inimigo
 const LEG_WARD_TIME := 6.0
@@ -924,83 +1068,79 @@ const HYBRID_4PC_SHARE := 0.5                 # 4 peças: a skill de A e a de B,
 ## Orçamento F-FUS2: |G_fus − G_5n| ≤ FUSION_TOL e G_fus ≤ FUSION_GAIN_MAX (G medido com boss_probe --set).
 const FUSION_TOL := 0.02
 const FUSION_GAIN_MAX := 0.12
-const FUSION_AMBUSH_MAX := 2.0                # A1 Passo Fantasma: teto do golpe "furtivo"
-const FUSION_POST_RADIUS := 5.0               # R2 Trincheira: raio do posto (torreta / estaca)
-const FUSION_POST_TIME := 6.0                 # R2: s da Estaca do Dardo de Caça
-const FUSION_OVH_RANGE := 8.0                 # Bi1 Luz que Julga: inimigo mais perto do aliado sobrecurado
-const FUSION_AURORA_TIME := 4.0               # Bi2 Martelo da Aurora: s da Aurora depois de cada magia sagrada
-const FUSION_FRENZY_MAX := 5                  # B1/B3: cargas de Frenesi da Fusão
-const FUSION_WEIGHT_MAX := 3                  # B2: cargas de Peso
-const FUSION_WEIGHT_ICD := 0.5
-const FUSION_EXEC_BASE := 30.0                # B1: limiar de execução (% da vida) + exec_step por carga de Frenesi
-const FUSION_EXEC_STEP := 2.0
-const FUSION_COUNTER_ICD := 1.0               # B2/B3: contra-ataque ao esquivar
-const FUSION_GHOST_TIME := 3.0                # A1: s que a próxima facada fica "furtiva"
-const FUSION_BRAVADO_ICD := 1.0               # A2: crítico com espada dá Bravata no máximo a cada isto
-const FUSION_PEN_ICD := 0.65                  # P2: carga de Penitência por alvo no máximo a cada isto
-const FUSION_PEN_STUN_ICD := 8.0
-const FUSION_PEN_MAX := 5                     # P2: cargas de Penitência que contam no dano (a 5ª explode)
-const FUSION_PEN_KEEP := 2                    # P2: cargas que ficam depois da explosão
+const FUSION_AMBUSH_MAX := 2.0                # Ápice das Lâminas: teto da facada "furtiva"
+const FUSION_POST_RADIUS := 5.0               # Ápice do Atirador: aliados a isto da torreta regeneram
+const FUSION_AURORA_TIME := 4.0               # Ápice Iluminado: s da Aurora depois de cada magia sagrada
+const FUSION_FRENZY_MAX := 5                  # Ápice do Carniceiro: cargas do Frenesi da Tormenta
+const FUSION_COUNTER_ICD := 1.0               # Ápice dos Punhos: recarga do contra-ataque por crítico
+const FUSION_GHOST_TIME := 3.0                # Ápice das Lâminas: s que a próxima facada fica "furtiva"
+const FUSION_BRAVADO_ICD := 1.0               # Ápice do Corsário: crítico com espada dá Bravata no máximo a cada isto
 const FUSION_BLOCK_ICD := 1.0                 # P3: Penitência no atacante ao bloquear
 const FUSION_OATH_FROM_PEN := 2               # P3: a Penitência que explode dá isto de Juramento
-const FUSION_OATH_TAUNT_STACKS := 3           # P1: skill sagrada que gasta 3+ cargas provoca
-const FUSION_STUN_ICD := 6.0                  # P1 face escudo
 const FUSION_GRACE_HITS := 3                  # Bi3: a cada isto de golpes de maça a Graça dispara
 const FUSION_WARD_TIME := 4.0
-const FUSION_WOLF_COUNT := 2                  # D1: lobos do Urro
-const FUSION_PACK_RANGE := 10.0               # D1: Frenesi do Urro no grupo a esta distância
-const FUSION_TAUNT_RANGE := 5.0               # D1 face Lobo
-const FUSION_TAUNT_TIME := 1.5
-const FUSION_MOON_TIME := 4.0                 # D2: s da marca do Fogo Lunar (= a queimadura lunar) e do sangramento da face cajado
-const FUSION_BURST_RADIUS := 2.5              # D2 face Xamã / P2 / E1 (área do vapor: 2 m)
-const FUSION_ENT_RADIUS := 6.0                # D3 face Xamã: alvo "dentro da área do Ent" (decisão do coordenador: chefe é imune a prender)
-const FUSION_BARK_RANGE := 12.0               # D3 face Urso
-const FUSION_WOUND_ICD := 1.5                 # R3 face arco: o companheiro abre uma Ferida a cada isto
+const FUSION_MOON_TIME := 4.0                 # Ápice do Xamã: s da marca do Fogo Lunar
+const FUSION_BURST_RADIUS := 2.5              # P3: área da explosão da Penitência sem a arma do Templário
+const FUSION_BARK_RANGE := 12.0               # Ápice do Urso: alcance da Casca no aliado mais ferido
 const FUSION_AGONY_POWER := 0.5               # N3: Agonia das invocações a esta fração
 const FUSION_CURSE_MAX := 3                   # N2/N3: maldições que contam
 const FUSION_PLAGUE_TIME := 6.0               # N2: s da Praga Menor (golpe de foice)
 const FUSION_PLAGUE_MAX := 3                  # N2: cargas da Praga Menor
-const FUSION_POISON_MAX := 3                  # A3
 const FUSION_SHOCK_TIME := 2.0                # E2/E3: alvo "eletrificado" por isto depois de um golpe de raio
 const FUSION_SPREAD_RANGE := 4.0              # E3: queimadura espalha para inimigos a esta distância
 const FUSION_SPREAD_MAX := 3
 const FUSION_VAPOR_SLOW := 30.0               # E1: vapor deixa 30% mais lento por 2 s
 const FUSION_MINION_MEND_RANGE := 13.0        # N1
-const FUSION_TAUNT_WINDOW := 2.0              # P1: s em que os golpes da skill sagrada que gastou 3+ cargas provocam
-const FUSION_WEIGHT_TIME := 10.0              # B2: s das cargas de Peso
-const FUSION_FOCUS_TIME := 6.0                # A2 face duas espadas: s do Foco
-const FUSION_BLOCK_STUN := 0.8                # P1 face escudo: s de atordoar
+const FUSION_FOCUS_TIME := 6.0                # Ápice do Duelista: s do Foco da Cadência cheia
 const FUSION_JUMP_RANGE := 5.0                # E2: salto extra do raio
 const FUSION_VAPOR_RADIUS := 2.0              # E1
 const FUSION_VAPOR_TIME := 2.0
 const FUSION_VAPOR_ICD := 2.0               # E1: s entre Vapores disparados por FOGO em alvo retardado (o de gelo não tem recarga)
 const FUSION_STATE_MAX := 64                  # chaves de estado da Fusão por personagem antes de limpar as vencidas
-## [v35, passo] por Fusão (id "<build A>+<build B>"); número solto = fixo. Chaves lidas em FusionEffects.
+## [v35, passo] por Fusão (id "<build A>+<build B>"; as 8 que ficaram: P3, Bi3, Elementalista, Necromante); número solto = fixo.
 const FUSION_NUMBERS := {
-	"guardiao+cruzado": {"oath_icd": [1.5, -0.15], "taunt": [2.0, 0.25], "stun_ch": [12.0, 1.5]},
-	"cruzado+templario": {"pen_pct": [90.0, 6.0], "pen_dmg": [2.75, 0.25], "pen_stun": [0.6, 0.05]},
 	"templario+guardiao": {"pen_pct": [80.0, 6.0]},
-	"carniceiro+executor": {"frenzy": [1.6, 0.2], "exec_dmg": [20.0, 2.0]},
-	"executor+punhos": {"weight": [12.0, 1.0], "eva": [6.0, 1.0], "counter": [25.0, 3.0]},
-	"punhos+carniceiro": {"frenzy": [1.6, 0.2], "eva2": [6.0, 1.0], "counter": [25.0, 3.0]},
-	"sacerdote+inquisidor": {"ovh": [40.0, 5.0], "ovh_cap": [1.0, 0.1]},
-	"inquisidor+batalha": {"aurora": [14.0, 1.4], "heal": [3.0, 0.3]},
 	"batalha+sacerdote": {"ward": [6.0, 0.6]},
-	"guardiao_verde+fera": {"wolf_t": [8.0, 1.0], "fr_str": [40.0, 4.0]},
-	"fera+xama": {"hunt": [10.0, 1.0], "bleed": [5.0, 0.5]},
-	"xama+guardiao_verde": {"bark_icd": [16.0, -1.0], "root_dmg": [15.0, 1.5]},
-	"cacador+atirador": {"t2_pwr": [60.0, 5.0], "trap_taken": [8.0, 1.0]},
-	"atirador+lanceiro": {"regen": [0.8, 0.1]},
-	"lanceiro+cacador": {"pct": [2.0, 0.4], "max": 5, "bleed": [6.0, 1.0], "pack": [3.0, 0.3]},
-	"laminas+duelista": {"ghost_icd": [5.0, -0.25]},
-	"duelista+corsario": {"shot": [45.0, 4.0], "focus": [60.0, 5.0]},
-	"corsario+laminas": {"poison": [8.0, 0.8], "per": [6.0, 0.6]},
 	"fogo+gelo": {"quench": [670.0, 30.0]},
 	"gelo+raio": {"super": [10.0, 1.0]},
 	"raio+fogo": {"spread": [60.0, 5.0], "plasma": [15.0, 1.5]},
 	"invocador+ceifador": {"reap": [3.0, 0.3], "mend": [20.0, 2.0]},
 	"ceifador+pestilento": {"curse_dmg": [3.2, 0.32], "curse_ls": [2.0, 0.2], "ce": [60.0, 5.0]},
 	"pestilento+invocador": {"agony_icd": [8.0, -0.5], "minion_curse": [5.0, 0.5]},
+}
+
+## Conjuntos Ápice (design/gdd/apice-sets.md): um por build nas classes de armas diferentes (e Cruzado, Iluminado), 35/40/45.
+## O 5 peças é o efeito Ápice (FusionEffects, id "apice_<build>"). Números F-AP1 = F-FUS1: valor(i) = v35 + passo × (i − 6).
+## Orçamento F-AP2 = o das Fusões: |G_ap − min(G_5n, APEX_GAIN_MAX)| ≤ APEX_TOL (boss_probe --set=a4|a5|b5).
+const APEX_TOL := FUSION_TOL
+const APEX_GAIN_MAX := FUSION_GAIN_MAX
+const APEX_JUDGED_TIME := 4.0                 # Cruzado: s do Julgado (alvo leva +judged% do seu dano)
+const APEX_JUDGE_STUN := 0.8                  # Cruzado sem a arma do Julgamento: o Ápice rola o próprio (s de atordoar)
+const APEX_JUDGE_ICD := 6.0                   # ... com a mesma recarga da arma
+const APEX_MOON_JUMP_RANGE := 6.0             # Xamã: Fogo Lunar em alvo marcado salta para o inimigo mais perto a isto
+const APEX_CADENCE_MAX := 5                   # Duelista: Cadência cheia vira Foco do Duelista
+const APEX_CADENCE_TIME := 12.0
+const APEX_CADENCE_ICD := 1.0                 # Duelista: crítico dá Cadência no máximo a cada isto
+const APEX_TEMPEST_TIME := 4.0                # Carniceiro: s do Frenesi da Tormenta
+const APEX_EXEC_BASE := 30.0                  # Executor: limiar de execução base (% da vida) + exec_up
+const APEX_POISON_TIME := 4.0                 # Lâminas: s do Veneno Letal da facada furtiva
+const APEX_BOT_HOLD_BRAVADO := 4              # Corsário (bot): com isto de Bravata segura o Tiro Entre os Olhos até a salva sair
+## [v35, passo] por build; número solto = fixo. Chaves lidas em FusionEffects.
+const APEX_NUMBERS := {
+	"carniceiro": {"frenzy": [1.2, 0.15], "throw": [8.0, 0.8]},
+	"executor": {"heavy": [11.0, 1.1], "exec_up": [5.0, 1.0], "exec_dmg": [20.0, 2.0]},
+	"punhos": {"counter": [35.0, 3.0], "eva": [4.0, 0.5]},
+	"cruzado": {"judged": [10.4, 1.0], "stun_ch": [7.8, 0.75]},
+	"inquisidor": {"aurora": [16.0, 1.6]},
+	"guardiao_verde": {"bark_icd": [16.0, -1.0]},
+	"fera": {"hunt": [13.0, 1.3]},
+	"xama": {"moon": [12.0, 1.2], "jump": [65.0, 6.5]},
+	"cacador": {"mark": [5.0, 0.5], "pet": [15.0, 1.5]},
+	"atirador": {"t2_pwr": [60.0, 5.0], "trap": 1, "regen": [0.5, 0.05]},
+	"lanceiro": {"pct": [2.0, 0.4], "max": 5, "bleed": [6.0, 1.0]},
+	"laminas": {"ghost_icd": [5.0, -0.25], "poison": [8.0, 0.8]},
+	"duelista": {"focus": [60.0, 5.0]},
+	"corsario": {"shot": [45.0, 4.0]},
 }
 
 ## Índice do tier lendário de um nível (LEGENDARY_LEVELS; acima do último segue de 5 em 5: 45 = 8).
@@ -1063,7 +1203,41 @@ const ASSAULT_FORT_POWER := 0.5            # vida e ataque dos soldados dessas l
 const STEPPE_GUARD_POWER := 2.5
 ## Guarnição de Porto Esperança (Ato II, 30-35; muro e besteiros do C1): vida e ataque x isto. Regra: o porto segura o cerco (C0)
 ## e a muralha (C1) sozinho em >= 75% (raid_probe --map=city_port --bots=0 --level=32 --raid_level=32, 40 levas).
-const PORT_GUARD_POWER := 1.2
+## Cerco Vivo (2026-11-17, cadência Intenso; reserva + lanceiros do portão correm para a brecha). Retune do playtest ("invasores fracos"):
+## invasores x RAID_MAP_POWER["city_port"] 1,2 e leva de 7 com líder e arqueiro; guarnição 1,4 de vida/ataque e mais PORT_GUARD_HP só de vida.
+## Medido: 19-20/20 por rota, luta mediana 34-55 s, 1-3 sentinelas mortas por leva; relógio de 30 min C0 83-92% (raid_probe --siege_run=1800).
+const PORT_GUARD_POWER := 1.4
+const PORT_GUARD_HP := 1.8               # vida a mais só (x, sobre PORT_GUARD_POWER): a guarnição aguenta a leva sem matá-la depressa
+
+# --- Cerco Vivo (SiegeSystem; design/gdd/act2-siege-life.md §7). Cadência "Intenso" (decisão do usuário 2026-11-17):
+# leva a cada ~90 s (o `every` da rota no catálogo), assédio na mesma proporção (80 x 90/150 = 48 s). Chaves = pressão 0-3.
+const SIEGE_EVERY_MULT := {3: 0.8, 2: 1.0, 1: 2.0}   # x o `every` da rota (F1)
+const SIEGE_SIZE_MULT := {3: 1.2, 2: 1.0, 1: 0.6}    # x invasores por leva (F2): menores e mais frequentes
+const SIEGE_BIG_NTH := {3: 2, 2: 3, 1: 99}           # leva grande (grupo com every_nth) a cada N levas do mapa
+const SIEGE_QUIET_MIN := 30.0             # s de calmaria depois de uma leva repelida (assédio espera a metade)
+const SIEGE_FIRST_WAVE := 45.0            # s até a 1ª leva ao entrar no mapa / carregar
+const SIEGE_FIRST_HARASS := 25.0          # s até o 1º assédio
+const SIEGE_HARASS_EVERY := 48.0          # s entre assédios em p = 2
+const SIEGE_HARASS_JITTER := 10.0         # ± s
+const SIEGE_HARASS_MULT := {3: 0.75, 2: 1.0}
+const SIEGE_HARASS_SHOOTERS := 2          # atiradores por salva
+const SIEGE_HARASS_CIRCLES := 3           # círculos avisados por salva
+const SIEGE_HARASS_RADIUS := 3.0          # m
+const SIEGE_HARASS_DMG_PCT := 12.0        # % da vida máxima por círculo (teto 2 círculos por alvo por salva)
+const SIEGE_HARASS_WARN := 1.2            # s de aviso no chão
+const SIEGE_HARASS_SPREAD := 10.0         # m em volta da brecha
+const SIEGE_HARASS_WINDUP := 8.0          # s do atirador aparecer até a salva (janela para caçá-lo e cancelar)
+const SIEGE_HARASS_LIFE := 25.0           # s até os atiradores recuarem
+const SIEGE_SAFE_RADIUS := 8.0            # m sem círculo em volta de cristal, chegada, portal e NPC de serviço
+const SIEGE_HORN_DELAY := 6.0             # s em luta até o batedor tocar a trompa
+const SIEGE_HORN_HASTEN := 20.0           # s que cada trompa adianta a próxima leva
+const SIEGE_HORN_MAX := 2                 # trompas que contam por leva
+const SIEGE_MORALE_TIME := 180.0          # s do buff Colônia de Pé (renova, não acumula)
+const SIEGE_MORALE_XP_PCT := 10.0         # +% de XP de abate no mapa defendido
+const SIEGE_FIRE_SPOTS := 3               # focos de Chamas (apresentação)
+const SIEGE_BOT_DEFENDERS := 1            # bots fora do grupo do jogador que largam o que fazem para defender cada leva (o resto fica: a guarnição segura, ajudar pesa)
+const SIEGE_GUARD_REPEL := 0.75           # meta das sondas: guarnição sozinha repele esta fração (raid_probe --bots=0)
+const SIEGE_XP_SHARE := 0.8               # meta das sondas: XP/min do cerco <= isto x a caça da faixa
 ## Guarnição do Acampamento Avançado (Kharzun 40-45): vida e ataque dos soldados da Aurora x isto. Regra: o acampamento segura
 ## o Contra-ataque (K0, Canil + Cidadela) sozinho em >= 75% (raid_probe --map=field_kharzun --bots=0).
 const KHARZUN_GUARD_POWER := 3.6

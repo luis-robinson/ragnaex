@@ -31,7 +31,53 @@
     -5.0,
     24.0
    ]
-  ]
+  ],
+  "centerpiece": {
+   "kind": "fogueira_comunal",
+   "fire": [
+    -5.0,
+    0.0
+   ],
+   "fire_r": 2.5,
+   "wagon_r": 6.8,
+   "wagons": [
+    [
+     -0.63,
+     5.21,
+     -140.0
+    ],
+    [
+     -10.21,
+     4.37,
+     -230.0
+    ],
+    [
+     -9.37,
+     -5.21,
+     40.0
+    ],
+    [
+     0.21,
+     -4.37,
+     -50.0
+    ]
+   ],
+   "racks": [
+    [
+     -12.94,
+     10.54
+    ],
+    [
+     -16.76,
+     5.99
+    ]
+   ],
+   "horn": [
+    -0.73,
+    -18.51
+   ],
+   "max_height": 2.6
+  }
  },
  "obstacles": [
   {
@@ -1095,33 +1141,93 @@
    "solid": true
   },
   {
-   "kind": "well",
+   "kind": "pillar",
    "pos": [
     -5.0,
     0.0
    ],
    "size": [
-    2.0,
-    1.4,
-    2.0
+    3.6,
+    2.4,
+    3.6
    ],
    "rot": 0.0,
-   "visible": true,
+   "visible": false,
    "solid": true
   },
   {
-   "kind": "statue",
+   "kind": "pillar",
    "pos": [
-    -1.8,
-    -3.2
+    -7.4,
+    2.4
    ],
    "size": [
     1.2,
-    2.8,
+    1.7,
     1.2
    ],
-   "rot": 45.0,
-   "visible": true,
+   "rot": 0.0,
+   "visible": false,
+   "solid": true
+  },
+  {
+   "kind": "crate",
+   "pos": [
+    -0.63,
+    5.21
+   ],
+   "size": [
+    3.3,
+    2.1,
+    1.9
+   ],
+   "rot": -140.0,
+   "visible": false,
+   "solid": true
+  },
+  {
+   "kind": "crate",
+   "pos": [
+    -10.21,
+    4.37
+   ],
+   "size": [
+    3.3,
+    2.1,
+    1.9
+   ],
+   "rot": -230.0,
+   "visible": false,
+   "solid": true
+  },
+  {
+   "kind": "crate",
+   "pos": [
+    -9.37,
+    -5.21
+   ],
+   "size": [
+    3.3,
+    2.1,
+    1.9
+   ],
+   "rot": 40.0,
+   "visible": false,
+   "solid": true
+  },
+  {
+   "kind": "crate",
+   "pos": [
+    0.21,
+    -4.37
+   ],
+   "size": [
+    3.3,
+    2.1,
+    1.9
+   ],
+   "rot": -50.0,
+   "visible": false,
    "solid": true
   },
   {
@@ -33375,5 +33481,6 @@
  "arrive_from_town": [
   -106.5,
   9.3
- ]
+ ],
+ "turn": 0.0
 }

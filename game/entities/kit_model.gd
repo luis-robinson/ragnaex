@@ -7,12 +7,13 @@ extends Node3D
 ##  - armas:    wpn_main_<tipo> / wpn_off_<tipo>
 ##  - material "tint" = cor do item · "hair" = cor do cabelo · elmo/capuz escondem o cabelo
 
-const LOOPS := ["idle", "idle_bow", "idle_staff", "run", "block", "block_shield", "fall", "run_shield_tall", "block_shield_tall"]
+const LOOPS := ["idle", "idle_bow", "idle_staff", "run", "block", "block_shield", "fall", "run_shield_tall", "block_shield_tall", "block_ride_tall"]
 ## Escudos altos (espelho de shield_kit.TALL, tools/blender): a placa de 1,1 m+ só fica rente ao antebraço com a guarda
 ## mais baixa e a corrida de braço quieto. A montagem deles é medida nesses clipes, então quem empunha um sempre os toca.
 const TALL_SHIELDS := ["presa", "perdao", "serpente", "pal_t20", "bis_s30", "pal_t30", "relicario", "veredito", "asa_negra",
 	"suspiros", "asa", "escama", "coluna", "cruel", "pal_g25", "pal_g30", "bis_b15"]
-## clipe comum -> variante do escudo alto (block_ride_tall é criado por RidePose.ensure_guard_clip)
+## clipe comum -> variante do escudo alto (block_ride_tall vem no kit: escudo para o lado, fora do pescoço do cavalo;
+## kit antigo sem ele: RidePose.ensure_guard_clip cria um a partir da guarda a pé)
 const TALL_CLIPS := {"run": "run_shield_tall", "block_shield": "block_shield_tall", "block_ride": "block_ride_tall"}
 
 const TRAIL_TIME := 0.2             # duração do rastro do golpe (s)
@@ -47,7 +48,9 @@ var _outline := 0.025
 var _cols := {}                      # cores do visual guardadas para peças que aparecem depois (hair, beard, iris, m_skin, mark)
 var legs: LegOverlay = null          # pernas correndo por cima do golpe
 var tall_shield := false             # escudo alto na mão esquerda (apply_equipment): corrida e guarda próprias
+var shield_ground: ShieldGround = null     # a ponta do escudo encolhe em vez de furar o chão (kits com o osso da ponta)
 var fade: PoseFade = null            # troca de clipe sem tranco (desliza da pose da tela)
+var _glows: Dictionary = {}          # nome do nó -> [ShaderMaterial] com material "tint_glow*" (brilho na cor do nível, Ato II)
 var _accents: Dictionary = {}        # nome do nó -> [ShaderMaterial] com material "tint2" (capa, manto, faixa)
 var _plus_of: Dictionary = {}        # slot -> aprimoramento da peça (brilho)
 var _glow_of: Dictionary = {}        # prefixo/nó -> aprimoramento
@@ -57,6 +60,16 @@ static var merge := true             # --no_merge: desliga (medir)
 var _merged: MeshInstance3D = null
 var _merge_queued := false
 var _vis: Dictionary = {}            # nome -> visível (lógico, antes da fusão)
+## Kit extra (<kit>_a2.glb, tools/blender chibi_kit.build_kit_a2): peças de armadura que não cabem no kit principal (teto
+## de malhas por boneco). Mesmo esqueleto do kit principal; só é lido quando uma peça dele é vestida (apply_equipment ->
+## load_addon) e as malhas entram em _nodes como as outras (fusão, cor, brilho, flash). Sem o arquivo, o boneco veste o
+## estilo do nível 30 da build (GearCatalog.act2_fallback_style). Hoje: armaduras do Ato II do Paladino.
+static var _addon_scenes: Dictionary = {}    # caminho -> PackedScene (null = arquivo não existe)
+static var addon_loads := 0                  # arquivos extras lidos do disco (checks e medição)
+static var addon_last_ms := 0.0              # custo do último load_addon que anexou peças (ms; a 1ª vez inclui ler o arquivo)
+var addon_loaded := false                    # este boneco já tem as peças do kit extra
+var _addon_path := ""
+var _addon_tried := false
 
 ## kit_<classe>_<sexo>.glb (corpo + conjuntos da classe); senão kit_<classe>.glb antigo; senão o genérico kit_<male|female> (NPCs).
 static func path_for(body: String, class_id: String = "") -> String:
@@ -68,6 +81,82 @@ static func path_for(body: String, class_id: String = "") -> String:
 
 static func exists(body: String, class_id: String = "") -> bool:
 	return body != "" and ResourceLoader.exists(path_for(body, class_id))
+
+## Kit extra do kit escolhido por path_for: o mesmo caminho com o sufixo _a2 (kit_<classe>_<sexo>_a2.glb).
+static func addon_path_for(body: String, class_id: String = "") -> String:
+	return path_for(body, class_id).trim_suffix(".glb") + "_a2.glb"
+
+static func addon_exists(body: String, class_id: String = "") -> bool:
+	return body != "" and ResourceLoader.exists(addon_path_for(body, class_id))
+
+## Anexa as peças do kit extra a este boneco (uma vez; o arquivo é lido uma vez por caminho e fica guardado). false = não
+## há kit extra, ou o esqueleto dele não é o deste kit (ossos do skin em outra ordem: a fusão usa um skin só).
+func load_addon() -> bool:
+	if _addon_tried:
+		return addon_loaded
+	_addon_tried = true
+	if skeleton == null or _addon_path == "" or _nodes.is_empty():
+		return false
+	var t0 := Time.get_ticks_usec()
+	if not _addon_scenes.has(_addon_path):
+		var found := ResourceLoader.exists(_addon_path)
+		_addon_scenes[_addon_path] = (load(_addon_path) as PackedScene) if found else null
+		addon_loads += 1 if found else 0
+	var ps: PackedScene = _addon_scenes[_addon_path]
+	if ps == null:
+		return false
+	var ref: MeshInstance3D = null
+	for n in _nodes:
+		if (_nodes[n] as MeshInstance3D).skin != null:
+			ref = _nodes[n]
+			break
+	if ref == null:
+		return false
+	var inst: Node = ps.instantiate()
+	var sks := inst.find_children("*", "Skeleton3D", true, false)
+	var want := _bind_names(ref.skin, skeleton)
+	var added := 0
+	for c in inst.find_children("*", "MeshInstance3D", true, false):
+		var mi := c as MeshInstance3D
+		if _nodes.has(mi.name) or mi.skin == null or sks.is_empty() or _bind_names(mi.skin, sks[0]) != want:
+			continue
+		mi.owner = null
+		mi.get_parent().remove_child(mi)
+		mi.skin = ref.skin                     # mesmo skin do kit principal: a malha fundida usa um só
+		mi.skeleton = NodePath("..")
+		_nodes[mi.name] = mi
+		_parent_of[mi.name] = skeleton
+		_vis[mi.name] = false
+		mi.visible = false
+		if not prune:                          # modo antigo (fotos de ícone): tudo na árvore, materiais já criados
+			skeleton.add_child(mi)
+			_prepare(mi)
+		added += 1
+	inst.free()
+	if added == 0:
+		push_warning("kit extra sem peças que sirvam neste esqueleto: %s" % _addon_path)
+		return false
+	addon_loaded = true
+	addon_last_ms = float(Time.get_ticks_usec() - t0) / 1000.0
+	return true
+
+## Ossos de um skin na ordem dos binds (nome do bind, ou o do osso do esqueleto dono quando o bind é por índice).
+static func _bind_names(skin: Skin, skel: Skeleton3D) -> PackedStringArray:
+	var out := PackedStringArray()
+	for i in range(skin.get_bind_count()):
+		var bn := String(skin.get_bind_name(i))
+		if bn == "" and skel != null and skin.get_bind_bone(i) >= 0:
+			bn = skel.get_bone_name(skin.get_bind_bone(i))
+		out.append(bn)
+	return out
+
+## O kit (principal + extra já anexado) tem a peça deste estilo no slot?
+func _has_style(style: String, slot_name: String) -> bool:
+	var pre := "arm_%s_%s_" % [style, slot_name]
+	for n in _nodes:
+		if String(n).begins_with(pre):
+			return true
+	return false
 
 ## Cria o modelo (ou null se o kit não existir). class_id: usa o kit da classe (com os conjuntos dela).
 static func create(body: String, hair: Color, outline_width: float = 0.025, class_id: String = "") -> KitModel:
@@ -83,6 +172,7 @@ static func create(body: String, hair: Color, outline_width: float = 0.025, clas
 			if k.anim.has_animation(a):
 				k.anim.get_animation(a).loop_mode = Animation.LOOP_LINEAR
 	k._outline = outline_width
+	k._addon_path = addon_path_for(body, class_id)
 	k._cols["hair"] = hair
 	k._toon(inst, outline_width)
 	for n in k._nodes:              # começa tudo fora da árvore: apply_equipment/apply_look ligam só o que aparece
@@ -99,6 +189,11 @@ static func create(body: String, hair: Color, outline_width: float = 0.025, clas
 		k.legs = LegOverlay.new()
 		k.legs.setup(k.anim.get_animation("run"), k.skeleton)
 		k.skeleton.add_child(k.legs)
+	if k.skeleton and k.skeleton.find_bone(ShieldGround.TIP_BONE) >= 0:
+		k.shield_ground = ShieldGround.new()
+		k.shield_ground.active = false
+		k.shield_ground.floor_node = k.get_parent_node_3d()
+		k.skeleton.add_child(k.shield_ground)          # depois do deslize e das pernas: mede o antebraço já na pose da tela
 	k._make_trail_node()
 	GatherPose.ensure_clips(k.anim, k.skeleton)       # colheita: agachar/puxar e picareta (gerados do idle)
 	return k
@@ -331,6 +426,8 @@ func _remerge() -> void:
 	_merged.transparency = alpha
 
 func _notification(what: int) -> void:
+	if what == NOTIFICATION_PARENTED and shield_ground:
+		shield_ground.floor_node = get_parent_node_3d()     # o chão é o do pai: na sela o kit sobe, o pai fica
 	if what == NOTIFICATION_PREDELETE:
 		for n in _nodes:                # peças fora da árvore não morrem com o kit
 			var mi: MeshInstance3D = _nodes[n]
@@ -377,6 +474,10 @@ func _prepare(mi: MeshInstance3D) -> void:
 			_skin.append(tm)
 		elif mname == "mark":
 			_mark.append(tm)
+		elif mname.begins_with("tint_glow"):     # peça acesa na cor do nível do conjunto (Ato II: GearCatalog.set_glow)
+			if not _glows.has(mi.name):
+				_glows[mi.name] = []
+			_glows[mi.name].append(tm)
 		if _cols.has(mname):
 			tm.set_shader_parameter("albedo", _cols[mname])
 
@@ -390,6 +491,8 @@ func apply_equipment(eq: Dictionary, bare_body: Color = Color(0.55, 0.42, 0.3), 
 		if pit:
 			_plus_of[sl] = maxi(pit.plus, int(plus.get(pit.id, 0)))
 	var shown := {}          # prefixo -> cor
+	var glow_cols := {}      # prefixo/nó -> cor das peças acesas (alfa 0 = a da malha)
+	var acc_cols := {}       # prefixo/nó -> destaque (tint2) escolhido pelo conjunto (Ato II; alfa 0 = derivado da cor)
 	var hide_hair := false
 	var slots := {"head": ItemDef.Slot.HEAD, "body": ItemDef.Slot.BODY, "legs": ItemDef.Slot.LEGS, "gloves": ItemDef.Slot.GLOVES,
 		"boots": ItemDef.Slot.BOOTS, "cape": ItemDef.Slot.CAPE}
@@ -411,7 +514,13 @@ func apply_equipment(eq: Dictionary, bare_body: Color = Color(0.55, 0.42, 0.3), 
 				col = Color(0.3, 0.27, 0.33)
 		if style == "":
 			continue
+		if not _has_style(style, slot_name) and not (load_addon() and _has_style(style, slot_name)):
+			# peça do kit extra (Ato II) e o arquivo não está lá: veste o estilo do nível 30 da build, na cor do item
+			var fb := GearCatalog.act2_fallback_style(style)
+			style = fb if fb != "" else style
 		shown["arm_%s_%s_" % [style, slot_name]] = col
+		glow_cols["arm_%s_%s_" % [style, slot_name]] = GearCatalog.set_glow(it.set_id) if it else Color(0, 0, 0, 0)
+		acc_cols["arm_%s_%s_" % [style, slot_name]] = GearCatalog.set_accent(it.set_id) if it else Color(0, 0, 0, 0)
 		_glow_of["arm_%s_%s_" % [style, slot_name]] = _plus_of.get(slots[slot_name], 0)
 		if slot_name == "head" and style not in ["cloth"]:
 			hide_hair = true
@@ -420,17 +529,28 @@ func apply_equipment(eq: Dictionary, bare_body: Color = Color(0.55, 0.42, 0.3), 
 	var main: ItemDef = eq.get(ItemDef.Slot.WEAPON)
 	var off: ItemDef = eq.get(ItemDef.Slot.OFFHAND)
 	tall_shield = is_tall_shield(off)
+	for w: ItemDef in [main, off]:          # arma de estilo do Ato II que só existe no kit extra (hoje nenhuma: o Paladino mantém as do 30)
+		if w and w.weapon_style != "" and not _addon_tried and GearCatalog.act2_fallback_style(w.weapon_style) != "" \
+				and not _nodes.has("wpn_%s_%s_%s" % ["main" if w == main else "off", w.weapon_type, w.weapon_style]):
+			load_addon()
 	if main:
 		weapons[main_node(main)] = main.icon_color
+		glow_cols[main_node(main)] = GearCatalog.set_glow(main.set_id)
+		acc_cols[main_node(main)] = GearCatalog.set_accent(main.set_id)
 		_glow_of[main_node(main)] = _plus_of.get(ItemDef.Slot.WEAPON, 0)
 	if off:
 		if off.weapon_type in ItemDef.TWO_HANDED and off.weapon_type != "shield":
 			_ensure_off_twohand(off)          # Empunhadura de Titã: machado de 2 mãos na esquerda
 		var off_node := off_node_of(off)
 		weapons[off_node] = off.icon_color
+		glow_cols[off_node] = GearCatalog.set_glow(off.set_id)
+		acc_cols[off_node] = GearCatalog.set_accent(off.set_id)
 		_glow_of[off_node] = _plus_of.get(ItemDef.Slot.OFFHAND, 0)
 		# escudo: a alça vem soldada na malha dele (chibi_kit.kit_shield), não há suporte à parte para ligar
 	_setup_trails(main, off)
+	if shield_ground:
+		var sh: MeshInstance3D = _nodes.get(off_node_of(off)) if off and off.weapon_type == "shield" else null
+		shield_ground.setup(skeleton, sh.mesh if sh else null, sh.skin if sh else null)
 	for n in _nodes:
 		var vis := false
 		var col := Color.WHITE
@@ -459,9 +579,21 @@ func apply_equipment(eq: Dictionary, bare_body: Color = Color(0.55, 0.42, 0.3), 
 				m.set_shader_parameter("plus_glow", plus_glow_color(pl))
 			for m in _tints.get(n, []):
 				m.set_shader_parameter("albedo", col)
-			for m in _accents.get(n, []):
+			if _glows.has(n):
+				for pre in glow_cols:
+					var gc: Color = glow_cols[pre]
+					if n.begins_with(pre) and gc.a > 0.0:
+						for m in _glows[n]:
+							m.set_shader_parameter("albedo", Color(gc.r, gc.g, gc.b))
+			if _accents.has(n):
 				# escudo: painel no tom escuro da própria cor (o contraste vem do aro e da gema)
-				m.set_shader_parameter("albedo", col.darkened(0.4) if n.begins_with("wpn_off_shield") else ItemDef.accent(col))
+				var acc: Color = col.darkened(0.4) if n.begins_with("wpn_off_shield") else ItemDef.accent(col)
+				for pre in acc_cols:
+					var ac: Color = acc_cols[pre]
+					if n.begins_with(pre) and ac.a > 0.0:          # destaque escolhido por nível (GearCatalog.ACT2_VISUALS "accents")
+						acc = Color(ac.r, ac.g, ac.b)
+				for m in _accents[n]:
+					m.set_shader_parameter("albedo", acc)
 
 ## Aparência (LooksCatalog): liga o cabelo/barba/olhos escolhidos e pinta as cores.
 func apply_look(look: Dictionary) -> void:

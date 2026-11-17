@@ -91,7 +91,7 @@ static func calc_damage(attacker: SimEntity, target: SimEntity, power: float, ki
 	raw = maxf(raw, atk * power * 0.15)   # piso: 15% do dano bruto
 	var variance := 1.0 + rng.randf_range(-Balance.DMG_VARIANCE, Balance.DMG_VARIANCE)
 	var crit := rng.randf() * 100.0 < crit_chance
-	var amount := raw * variance * (Balance.CRIT_MULT if crit else 1.0)
+	var amount := raw * variance * (attacker.stats.crit_mult() if crit else 1.0)
 
 	# bloqueio: passivo (escudo) ou ativo (segurando RMB)
 	var blocked := false
@@ -117,7 +117,7 @@ static func calc_damage(attacker: SimEntity, target: SimEntity, power: float, ki
 static func calc_heal(healer: SimEntity, power: float, rng: RandomNumberGenerator) -> int:
 	var base := healer.stats.matk * power * healer.stats.heal_power
 	var crit := rng.randf() * 100.0 < healer.stats.crit_mag
-	return int(round(base * (1.0 + rng.randf_range(-0.08, 0.08)) * (Balance.CRIT_MULT if crit else 1.0)))
+	return int(round(base * (1.0 + rng.randf_range(-0.08, 0.08)) * (healer.stats.crit_mult() if crit else 1.0)))
 
 
 ## Seleciona alvos de uma skill no mapa do caster. `entities` = todas as entidades do mapa.
@@ -161,6 +161,22 @@ static func select_targets(caster: SimEntity, skill: SkillDef, aim: Vector3, ent
 					out.append(e)
 		SkillDef.Target.CONE:
 			var dir := caster.forward()
+			if skill.line_width > 0.0:          # estocada de lança: faixa reta que atravessa a fila, o mais perto primeiro
+				var half := skill.line_width * 0.5
+				for e: SimEntity in entities:
+					if not _valid(caster, e, friendly):
+						continue
+					var rel: Vector3 = e.position - caster.position
+					rel.y = 0.0
+					var along: float = rel.dot(dir)
+					if along < -e.radius or along > skill.radius + e.radius:
+						continue
+					if absf(rel.cross(dir).y) <= half + e.radius:
+						out.append(e)
+				out.sort_custom(func(a, b): return (a.position - caster.position).dot(dir) < (b.position - caster.position).dot(dir))
+				if out.size() > skill.max_targets:
+					out.resize(skill.max_targets)
+				return out
 			var half_angle := deg_to_rad(skill.cone_angle_deg * 0.5)
 			for e: SimEntity in entities:
 				if not _valid(caster, e, friendly):
@@ -188,6 +204,21 @@ static func select_targets(caster: SimEntity, skill: SkillDef, aim: Vector3, ent
 				best = caster         # cura/buff sem aliado sob o cursor: em si mesmo
 			if best:
 				out.append(best)
+				if skill.projectile_pierce and not friendly:      # tiro que atravessa (Tiro Fantasma): a fila atrás do alvo, até o alcance
+					var dir2 := best.position - caster.position
+					dir2.y = 0.0
+					dir2 = dir2.normalized() if dir2.length() > 0.05 else caster.forward()
+					var lane: Array = []
+					for e: SimEntity in entities:
+						if e == best or not _valid(caster, e, friendly):
+							continue
+						var rel: Vector3 = e.position - caster.position
+						rel.y = 0.0
+						var along: float = rel.dot(dir2)
+						if along > 0.0 and along <= skill.range + e.radius and absf(rel.cross(dir2).y) <= Balance.PIERCE_SHOT_HALF + e.radius:
+							lane.append(e)
+					lane.sort_custom(func(a, b): return (a.position - caster.position).dot(dir2) < (b.position - caster.position).dot(dir2))
+					out.append_array(lane)
 				if skill.radius > 0.0:
 					for e: SimEntity in entities:
 						if e != best and _valid(caster, e, friendly) and e.position.distance_to(best.position) <= skill.radius + e.radius:

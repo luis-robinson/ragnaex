@@ -88,7 +88,7 @@ static func refresh(e: SimEntity) -> void:
 	e.ct = ct
 
 # --- skills -----------------------------------------------------------------------------------------------------
-## Skill com os mods das escolhas: primeiro `set`/`effects` de todas, depois os `mult` ("duration" multiplica as durações dos
+## Skill com os mods das escolhas: primeiro `set`/`effects`/`add` de todas, depois os `mult` ("duration" multiplica as durações dos
 ## efeitos; "radius" numa skill de aura estica também o raio do grupo e do pulso). Assim a ordem das escolhas não importa.
 static func apply_mods(e: SimEntity, s: SkillDef) -> SkillDef:
 	var list: Array = e.ct.get("skill_mods", {}).get(s.id, [])
@@ -101,6 +101,8 @@ static func apply_mods(e: SimEntity, s: SkillDef) -> SkillDef:
 			out.set(k, md["set"][k])
 		for k in md.get("effects", {}):
 			out.talent_effects[k] = (md["effects"][k] as Dictionary).duplicate(true) if md["effects"][k] is Dictionary else md["effects"][k]
+		if md.get("add") is Dictionary:      # soma ao efeito final (base + maestria + evolução), no _apply_skill (merge_add)
+			out.talent_effects["add"] = add_effects(out.talent_effects.get("add", {}), md["add"])
 	for md in list:
 		for k in md.get("mult", {}):
 			if k == "duration":
@@ -110,6 +112,33 @@ static func apply_mods(e: SimEntity, s: SkillDef) -> SkillDef:
 				if k == "radius" and s.effects.get("aura") is Dictionary:
 					_scale_aura(out, float(md["mult"][k]))
 	return out
+
+## Soma dois dicionários de "add" ({efeito: número | {campo: número}}) sem mexer nos originais.
+static func add_effects(a: Dictionary, b: Dictionary) -> Dictionary:
+	var out := a.duplicate(true)
+	for k in b:
+		if b[k] is Dictionary:
+			var d: Dictionary = (out.get(k, {}) as Dictionary).duplicate()
+			for f in b[k]:
+				d[f] = float(d.get(f, 0.0)) + float(b[k][f])
+			out[k] = d
+		else:
+			out[k] = float(out.get(k, 0.0)) + float(b[k])
+	return out
+
+## Aplica o "add" dos talentos em `effects` (já com maestria e evolução): número soma; dicionário soma campo a campo.
+## Só reforça efeito que a skill tem. Ex.: merge_add({"dot": {"dps": 5, "duration": 4}}, {"dot": {"duration": 5}}) -> 9 s.
+static func merge_add(effects: Dictionary, add: Dictionary) -> void:
+	for k in add:
+		if add[k] is Dictionary:
+			if not (effects.get(k) is Dictionary):
+				continue
+			var d: Dictionary = (effects[k] as Dictionary).duplicate()
+			for f in add[k]:
+				d[f] = float(d.get(f, 0.0)) + float(add[k][f])
+			effects[k] = d
+		elif effects.has(k):
+			effects[k] = float(effects[k]) + float(add[k])
 
 static func _scale_aura(s: SkillDef, f: float) -> void:
 	var au: Dictionary = (s.talent_effects.get("aura", s.effects["aura"]) as Dictionary).duplicate(true)
@@ -159,7 +188,7 @@ static func ambush_mult(e: SimEntity) -> float:
 	return float(e.ct.get("ambush_mult", Balance.AMBUSH_MULT))
 
 static func trap_max(e: SimEntity) -> int:
-	return int(e.ct.get("trap_max", Balance.TRAP_MAX))
+	return int(e.ct.get("trap_max", Balance.TRAP_MAX)) + int(e.stats.trap_max if e.stats else 0.0)     # + stat trap_max (Ápice do Atirador)
 
 static func oath_max(e: SimEntity) -> int:
 	return int(e.ct.get("oath_max", Balance.SHIELD_OATH_MAX))

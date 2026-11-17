@@ -135,6 +135,9 @@ static func relic_levels() -> Array:
 static func bot_legendary_set(sim: WorldSim, e: SimEntity, level: int) -> String:
 	if e.class_def == null or e.build_id == "":
 		return ""
+	var apex: SetDef = GameData.apex_set_for(e.class_def, e.build_id, level)
+	if apex:                          # R-AP6: Ápice da build primeiro (Guardião/Templário -> P3, Sacerdote/Batalha -> Bi3 pela regra abaixo)
+		return apex.id
 	var hyb: Array = GameData.hybrid_sets_for(e.class_def, e.build_id, level)
 	if hyb.is_empty():
 		var sd: SetDef = GameData.sets.get(GameData.set_id_for(e.class_def.id, e.build_id, level))
@@ -153,6 +156,62 @@ static func bot_legendary_set(sim: WorldSim, e: SimEntity, level: int) -> String
 			best_n = n
 			best = sd
 	return best.id
+
+## Armas do conjunto `sd` que o bot veste, pelo papel da build (GearCatalog.WEAPON_ROLES): tanque fica com a de defesa
+## (maça/martelo, Baluarte), dps com a de ataque (espada/montante); sem papel, a arma principal da build. No híbrido, a da
+## própria build vem antes. + o escudo/mão secundária da build no conjunto. Ex.: Guardião 30 -> [maça, escudo].
+static func bot_set_weapons(sim: WorldSim, e: SimEntity, sd: SetDef) -> Array:
+	var out: Array = []
+	if e.class_def == null or e.build_id == "" or sd == null:
+		return out
+	var b: Dictionary = e.class_def.build_by_id(e.build_id)
+	var want := "defense" if str(b.get("role", "")) == "tank" else "offense"
+	var best := ""
+	var best_n := -1
+	var off := ""
+	for iid in sd.pieces + sd.alt_pieces:
+		var it: ItemDef = GameData.items.get(iid)
+		if it == null or not (it.slot in [ItemDef.Slot.WEAPON, ItemDef.Slot.OFFHAND]):
+			continue
+		var own: bool = sd.pair.is_empty() or str(iid).ends_with("_%s_weapon" % e.build_id) or str(iid).ends_with("_%s_offhand" % e.build_id)
+		if it.slot == ItemDef.Slot.OFFHAND or str(iid).ends_with("_offhand"):
+			if b.get("off", []).has(it.weapon_type) and (off == "" or own):
+				off = iid
+			continue
+		if not b.get("main", []).has(it.weapon_type):
+			continue
+		var n := 0
+		var role := GearCatalog.weapon_role(e.build_id, it.weapon_type)
+		if role == want or (role != "" and want == "offense" and role == "battle"):
+			n += 4
+		elif role == "":
+			n += 2 if it.weapon_type == str(b["main"][0]) else 1
+		if own:
+			n += 1
+		if n > best_n:
+			best_n = n
+			best = iid
+	if best != "":
+		out.append(best)
+	if off != "":
+		out.append(off)
+	return out
+
+const LEG_ACC_PREFIX := "leg_acc_"
+
+## Acessórios lendários da build do bot (sonda de chefe; bots do mundo não vestem lendário): os 4 do maior nível de
+## Balance.HYBRID_LEVELS <= level (Anel em RING, Sinete em RING2). Vazio abaixo do 35 ou sem build.
+## Ex.: bot_legendary_accessories(sim, executor, 44) = os 4 `leg_acc_berserker_executor_40_*`.
+static func bot_legendary_accessories(sim: WorldSim, e: SimEntity, level: int) -> Array:
+	if e.class_def == null or e.build_id == "":
+		return []
+	var lv := 0
+	for h in Balance.HYBRID_LEVELS:
+		if h <= level:
+			lv = h
+	if lv == 0:
+		return []
+	return GameData.legendary_accessory_pool(e.class_def, lv, e.build_id)
 
 ## Por que não troca ("" = pode): perto da Relicária, peça da classe, nível e moedas.
 static func relic_block_reason(sim: WorldSim, e: SimEntity, item_id: String) -> String:
@@ -283,9 +342,12 @@ static func pick_legendary(sim: WorldSim, killer: SimEntity, mob_level: int) -> 
 		var fits: Array = killer.class_def.builds.filter(func(b): return killer.stats.weapon_type in b["main"])
 		if fits.size() > 0:
 			build_id = fits[sim.rng.randi() % fits.size()]["id"]
-	var pool := GameData.legendary_pool(killer.class_def, tier_level, build_id)
+	var accs := GameData.legendary_accessory_pool(killer.class_def, tier_level, build_id)
+	if accs.size() > 0 and sim.rng.randf() < Balance.LEG_ACC_DROP_SHARE:     # acessório lendário: fatia própria (não dilui o conjunto)
+		return accs[sim.rng.randi() % accs.size()]
+	var pool := GameData.legendary_pool(killer.class_def, tier_level, build_id).filter(func(i): return not str(i).begins_with(LEG_ACC_PREFIX))
 	if pool.is_empty():
-		pool = GameData.legendary_pool(killer.class_def, tier_level)
+		pool = GameData.legendary_pool(killer.class_def, tier_level).filter(func(i): return not str(i).begins_with(LEG_ACC_PREFIX))
 	return pool[sim.rng.randi() % pool.size()] if pool.size() > 0 else ""
 
 static func use_potion(sim: WorldSim, e: SimEntity, slot: int) -> bool:

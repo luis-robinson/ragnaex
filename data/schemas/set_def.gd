@@ -20,8 +20,23 @@ extends Resource
 @export var pair: Array[String] = []
 @export var fusion: String = ""             ## id da Fusão ("<A>+<B>", chave de Balance.FUSION_NUMBERS)
 
+## Conjunto Ápice (design/gdd/apice-sets.md): build cuja mecânica ele aprofunda; vazio fora do Ápice. O 5 peças é o
+## efeito Ápice ({"fusion": {"id": "apice_<build>", ...}}, FusionEffects); 2-4 peças = os do conjunto da build.
+@export var apex: String = ""
+
 func is_hybrid() -> bool:
 	return not pair.is_empty()
+
+func is_apex() -> bool:
+	return apex != ""
+
+## Build dona do conjunto (Ápice: a dele; híbrido: a do lado A; conjunto da build: tirada do id).
+func build_of() -> String:
+	if is_apex():
+		return apex
+	if is_hybrid():
+		return pair[0]
+	return GearCatalog.bid_of_set(id).trim_prefix(class_id + "_")
 
 ## Bônus ativos com `count` peças equipadas, em ordem crescente de peças.
 func bonuses_for(count: int) -> Array:

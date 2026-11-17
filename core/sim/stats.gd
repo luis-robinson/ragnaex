@@ -9,7 +9,8 @@ extends RefCounted
 const STAT_KEYS := ["atk_pct", "matk_pct", "def_pct", "speed_pct", "heal_pct", "hp_pct", "mp_pct", "crit", "lifesteal",
 	"aspd_pct", "buff_pct", "radiance", "radiance_cap", "pet_pct", "evasion", "hit_poison", "backstab", "cdr", "threat_pct",
 	"dr_pct", "fire_pct", "frost_pct", "storm_pct", "titan_relief", "turret_max", "shadow_time", "shadow_share", "execute_pct",
-	"prey_crit", "falcon_pct", "block"]
+	"prey_crit", "falcon_pct", "block", "mp_on_kill", "mp_regen_combat", "trap_max",
+	"crit_dmg_pct", "dot_pct", "cc_resist_pct", "mp_cost_pct", "summon_time_pct"]
 ## Chaves de buff que não são stat: id (renova, não acumula), duração e aura de ligar/desligar.
 const BUFF_META := ["id", "duration", "toggle"]
 ## Chaves de bônus de conjunto que não são stat (SetDef: atributos e bônus por skill).
@@ -27,6 +28,13 @@ var heal_power: float = 1.0
 var block_chance: float = 0.0  # % (passivo, só com escudo)
 var block_reduction: float = 0.0 # %
 var move_speed: float = 5.5
+var mp_on_kill: float = 0.0      # % da mana máxima devolvida a cada abate (joias; WorldSim._mana_on_kill)
+var mp_regen_combat: float = 0.0 # % da mana máxima por s a mais enquanto em combate (capas; regen do WorldSim._update_entity)
+var crit_dmg_pct: float = 0.0    # % a mais no multiplicador do crítico (acessório lendário; teto Balance.CRIT_DMG_CAP)
+var dot_pct: float = 0.0         # % a mais de dano no tempo aplicado por você (fixado na aplicação; teto DOT_PCT_CAP)
+var cc_resist_pct: float = 0.0   # % a menos de duração de atordoar/prender/lentidão em você (teto CC_RESIST_CAP)
+var mp_cost_pct: float = 0.0     # % a menos de custo de mana das skills (mínimo 1; teto MP_COST_CAP)
+var summon_time_pct: float = 0.0 # % a mais de duração das invocações com tempo (teto SUMMON_TIME_CAP)
 var lifesteal: float = 0.0       # % do dano causado que volta como vida (golpes diretos; dano no tempo não conta)
 var shadow_time: float = 0.0    # nós "shadow_time" da teia de ascensão (Assassino): cada um +Balance.SHADOW_TIME_NODE s de clone
 var shadow_share: float = 0.0   # nós "shadow_share": cada um +Balance.SHADOW_SHARE_NODE pontos de % no dano do clone
@@ -34,6 +42,7 @@ var execute_pct: float = 0.0    # nós "execute_pct": cada um +Balance.EXECUTION
 var prey_crit: float = 0.0      # crítico a mais contra alvo com Presa (Olhos do Céu, Falcoeiro)
 var falcon_pct: float = 0.0     # % de dano a mais do mergulho do falcão (nós da teia de ascensão do Caçador)
 var turret_max: float = 0.0     # torretas a mais (Atirador ascendido; conjuntos futuros) além de Balance.TURRET_MAX
+var trap_max: float = 0.0       # armadilhas a mais além do limite (Balance.TRAP_MAX ou o do talento; Ápice do Atirador)
 var attack_speed: float = 0.0    # % a mais de velocidade do ataque básico (recarga menor)
 var buff_duration: float = 0.0   # % a mais de duração nas bênçãos e escudos que você lança (em você e nos aliados)
 var radiance: float = 0.0        # % do dano mágico direto que cura o aliado mais ferido por perto (você incluso)
@@ -52,6 +61,7 @@ var echo_pct: float = 0.0        # ... com esta % do dano
 var thorns_pct: float = 0.0      # arma lendária (tanque): % do dano corpo a corpo recebido devolvido
 var ward_pct: float = 0.0        # arma lendária (cura): % da cura que vira barreira
 var legend: Dictionary = {}      # efeito da arma lendária equipada (GearCatalog.legend_effect); vazio = nenhum
+var shield_passive: Dictionary = {}     # escudo lendário com papel (GearCatalog.apply_shield_role): Determinação; vazio = nenhum
 var fusion: Dictionary = {}      # Fusão do híbrido com 5 peças (números do tier + "face" = build da arma na mão; FusionEffects)
 var attrs := {"FOR": 0, "AGI": 0, "VIT": 0, "WILL": 0, "INT": 0}
 var has_shield: bool = false
@@ -115,6 +125,9 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 		var item: ItemDef = equipment[slot]
 		if item and not item.legend_effect.is_empty():
 			var le: Dictionary = item.legend_effect
+			if str(le.get("kind", "")) == "determination":     # escudo do conjunto (Determinação): não é a arma lendária
+				s.shield_passive = le
+				continue
 			if s.legend.is_empty() or slot == ItemDef.Slot.WEAPON:
 				s.legend = le
 			match str(le.get("kind", "")):
@@ -136,6 +149,15 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 		var sd: SetDef = GameData.sets.get(sid)
 		if sd:
 			set_bonus.append_array(sd.bonuses_for(n))
+	var bonus_seen := {}
+	for slot in equipment:              # stats extras de item (ItemDef.bonus), somados como bônus de conjunto
+		var bi: ItemDef = equipment[slot]
+		if bi and not bi.bonus.is_empty():
+			var bkey: String = bi.base_id if bi.base_id != "" else bi.id
+			if bonus_seen.has(bkey):
+				continue                # a mesma peça nos 2 anéis (ou ela e a +N): o bônus vale uma vez
+			bonus_seen[bkey] = true
+			set_bonus.append(bi.bonus)
 	# 1) atributos vêm SÓ de equipamento (+ buffs + conjuntos). A chave do dicionário é o slot
 	#    ocupado (uma espada pode estar na mão secundária).
 	for slot in equipment:
@@ -238,6 +260,8 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 		s.crit_phys += float(b.get("crit", 0))
 		s.crit_mag += float(b.get("crit", 0))
 		s.lifesteal += float(b.get("lifesteal", 0))
+		s.mp_on_kill += float(b.get("mp_on_kill", 0))
+		s.mp_regen_combat += float(b.get("mp_regen_combat", 0))
 		s.attack_speed += float(b.get("aspd_pct", 0))
 		s.buff_duration += float(b.get("buff_pct", 0))
 		s.radiance += float(b.get("radiance", 0))
@@ -258,11 +282,17 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 		elif b.get("id") == Balance.GLORY_BUFF:
 			s.glory = int(b.get("stacks", 0))
 		s.turret_max += float(b.get("turret_max", 0))
+		s.trap_max += float(b.get("trap_max", 0))
 		s.shadow_time += float(b.get("shadow_time", 0))
 		s.shadow_share += float(b.get("shadow_share", 0))
 		s.execute_pct += float(b.get("execute_pct", 0))
 		s.prey_crit = maxf(s.prey_crit, float(b.get("prey_crit", 0)))      # dois falcoeiros no grupo não somam
 		s.falcon_pct += float(b.get("falcon_pct", 0))
+		s.crit_dmg_pct += float(b.get("crit_dmg_pct", 0))
+		s.dot_pct += float(b.get("dot_pct", 0))
+		s.cc_resist_pct += float(b.get("cc_resist_pct", 0))
+		s.mp_cost_pct += float(b.get("mp_cost_pct", 0))
+		s.summon_time_pct += float(b.get("summon_time_pct", 0))
 		if s.has_shield:
 			s.block_chance += float(b.get("block", 0))           # +% de bloqueio (Asas com Bloqueio); sem escudo não vale
 	for b in set_bonus:
@@ -277,6 +307,11 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 	s.fire_pct = minf(s.fire_pct, Balance.ELEMENT_CAP)
 	s.frost_pct = minf(s.frost_pct, Balance.ELEMENT_CAP)
 	s.storm_pct = minf(s.storm_pct, Balance.ELEMENT_CAP)
+	s.crit_dmg_pct = minf(s.crit_dmg_pct, Balance.CRIT_DMG_CAP)
+	s.dot_pct = minf(s.dot_pct, Balance.DOT_PCT_CAP)
+	s.cc_resist_pct = minf(s.cc_resist_pct, Balance.CC_RESIST_CAP)
+	s.mp_cost_pct = minf(s.mp_cost_pct, Balance.MP_COST_CAP)
+	s.summon_time_pct = minf(s.summon_time_pct, Balance.SUMMON_TIME_CAP)
 	if s.titan_pair:
 		s.titan_speed = titan_speed_mult(s.titan_relief)
 	return s
@@ -320,6 +355,28 @@ func element_pct(el: String) -> float:
 
 func skill_cooldown_mult(skill_id: String) -> float:
 	return maxf(0.2, 1.0 - (float(skill_cdr_pct.get(skill_id, 0.0)) + cdr) / 100.0)
+
+## Multiplicador do crítico: Balance.CRIT_MULT + crit_dmg_pct/100. Ex.: crit_dmg_pct 8 -> 1,58.
+func crit_mult() -> float:
+	return Balance.CRIT_MULT + crit_dmg_pct / 100.0
+
+## Multiplicador do dano no tempo que esta entidade aplica (fixado na aplicação). Ex.: dot_pct 10 -> 1,1.
+func dot_mult() -> float:
+	return 1.0 + dot_pct / 100.0
+
+## Multiplicador da duração de atordoar/prender/lentidão recebidos. Ex.: cc_resist_pct 20 -> 0,8.
+func cc_mult() -> float:
+	return 1.0 - cc_resist_pct / 100.0
+
+## Custo de mana de uma skill com o desconto (arredonda para cima, mínimo 1; custo 0 continua 0). Ex.: 30 com 6% -> 29.
+func mp_cost_of(base: float) -> float:
+	if base <= 0.0 or mp_cost_pct <= 0.0:
+		return base
+	return maxf(1.0, ceilf(base * (1.0 - mp_cost_pct / 100.0) - 0.0001))
+
+## Duração de uma invocação com tempo (0 = permanente, não muda). Ex.: 10 s com 20% -> 12 s.
+func summon_time_of(duration: float) -> float:
+	return duration * (1.0 + summon_time_pct / 100.0) if duration > 0.0 else duration
 
 
 static func from_monster(m: MonsterDef) -> Stats:

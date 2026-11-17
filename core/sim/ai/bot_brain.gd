@@ -13,6 +13,7 @@ var timer: float = 0.0
 var chat_timer: float = 0.0
 var target_pos: Vector3 = Vector3.ZERO
 var dest_map: String = ""
+var travel_map := ""           # mapa da última etapa da viagem: a cada portal passado o prazo (BOT_TRAVEL_LEG_S) recomeça
 var rng: RandomNumberGenerator
 var stuck_timer: float = 0.0
 var last_pos: Vector3 = Vector3.ZERO
@@ -58,6 +59,23 @@ var sig_guard := false          # Muralha do Ghar e eu sou o alvo dele: parado, 
 var spread_id := -1             # marca de espalhar em mim: para onde decidi correr (uma vez por marca)
 var drag_to := Vector3.INF      # Têmpera na Lava: para onde levo o Kragmar (fica até ele sair da poça)
 var spread_to := Vector3.INF
+var ignore: Dictionary = {}           # id do monstro -> sim.time até quando não escolhe (inalcançável / linha bloqueada)
+var think_dt := 0.05                   # dt do pensamento atual (o combate passa para o _steer: sem ele não havia desvio)
+var route_map := ""                    # povoado murado: portão escolhido (histerese: vale até sair/entrar BOT_GATE_CLEAR m)
+var route_gate := -1
+var route_exit := false
+var ring_side := 0.0                   # contornando o povoado pelo anel: sentido escolhido (+1/-1; 0 = não está contornando)
+var ring_wp := Vector3.INF             # ponto do anel escolhido e até quando vale
+var ring_until := 0.0
+var line_block: Dictionary = {}       # id -> sim.time: monstro calmo com a linha bloqueada (fora da escolha até lá)
+var door_id := ""                      # porta só do jogador onde o seguidor espera, e o ponto escolhido
+var door_spot := Vector3.INF
+var steer_routed := false              # o último _steer andou para um ponto de rota (portão, anel, ponte), não para o destino
+var prog_key := -99                    # progresso até o alvo (_stalled): de quem, melhor distância, desde quando, último uso
+var prog_best := INF
+var prog_t := 0.0
+var prog_at := -1.0
+var prog_anchor := Vector3.ZERO
 
 ## MonsterDef.id → tem skill com grito de guerra (`rally`)? Cache (os catálogos não mudam durante o jogo).
 static var _rally_cache: Dictionary = {}
@@ -65,6 +83,8 @@ static var _rally_cache: Dictionary = {}
 static var focus_enabled := true
 ## Sonda (boss_probe --no_opener): desliga a abertura (BotBrain._opener) para comparar.
 static var opener_enabled := true
+## Sonda (boss_probe/band_probe --no_unstuck): desliga largar alvo travado, teste de linha na escolha e dt no avanço (A/B).
+static var unstuck_enabled := true
 
 ## Um convite ao jogador por vez no servidor inteiro (não vira spam).
 static var next_player_invite: float = 60.0
@@ -98,6 +118,7 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 	tank_t -= dt
 	place_cool -= dt
 	focus_t -= dt
+	think_dt = dt
 	var def: MapDef = m["def"]
 	cur_def = def
 	cur_sim = sim
@@ -149,6 +170,8 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 		var keep := _sticky(e, m, 12.0)         # já brigando com alguém por perto: continua nele
 		if keep:
 			threat = keep
+		elif _ignored(threat):
+			threat = null                      # largado por inalcançável (muro, rio): não volta a empurrar a parede
 	if threat != null and not in_town and state != S.RETURN:
 		return _fight(e, sim, m, threat, cmd)
 
@@ -178,6 +201,9 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 				timer = rng.randf_range(150.0, 360.0)
 				target_pos = Vector3.ZERO
 				return cmd
+			if e.map_id != travel_map:              # passou por um portal no meio do caminho: prazo novo para a próxima etapa
+				travel_map = e.map_id
+				timer = maxf(timer, Balance.BOT_TRAVEL_LEG_S)
 			# anda até o portal do mapa atual que leva a dest_map (ou à cidade)
 			var portal := _find_portal(def, dest_map)
 			if portal.is_empty():
@@ -209,6 +235,8 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 						target_pos = sim.random_walkable(def, Vector3.ZERO, 20.0)
 				cmd.move = _steer(e, target_pos, dt)
 				cmd.aim = target_pos
+				if _stalled(e, -2, target_pos):
+					target_pos = Vector3.ZERO          # ponto atrás de muro/penhasco: sorteia outro
 		S.RETURN:
 			if in_town:
 				state = S.SHOP
@@ -404,7 +432,7 @@ func _fight_core(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCom
 				cmd.skill_slot = opener
 				return cmd
 		var spot := mob.position if circled else mob.position - mob.forward() * (mob.radius + e.radius + Balance.BOT_STEALTH_BACK_GAP)
-		cmd.move = _steer(e, spot, 0.0)
+		cmd.move = _steer(e, spot, think_dt)
 		return cmd
 	stealth_peak = 0.0
 	# ascensão do Bispo: Retorno, Barreira e Anjo têm hora certa
@@ -526,7 +554,10 @@ func _fight_core(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCom
 		# segurando o básico (abertura/ameaça): dash que bate em área também fica (somaria ameaça no chefe)
 		if dist > 5.0 and dist < 9.0 and e.dash_cd <= 0.0 and rng.randf() < 0.12 and not (hold_basic and _dash_hits(e, sim)):
 			cmd.dash = true
-	cmd.move = _steer(e, spot, 0.0)
+	cmd.move = _steer(e, spot, think_dt if unstuck_enabled else 0.0)
+	# sem chegar mais perto em BOT_CHASE_STALL s (muro, penhasco, rio no meio): larga e ignora por um tempo (chefe não)
+	if not held and not mob.monster_def.is_boss and _stalled(e, mob.id, spot):
+		_drop(mob)
 	return cmd
 
 ## Ascensão (Combate Montado + Modo Arcano): true = já decidiu o comando. Liga as asas em luta de chefe (Guardião
@@ -1107,10 +1138,74 @@ func _pick_monster(e: SimEntity, m: Dictionary) -> SimEntity:
 		var score: float = d + absf(o.level - e.level) * 1.5
 		if o.aggro_target >= 0 and o.aggro_target != e.id:
 			score += 6.0   # evita roubar monstro de outro
-		if score < best_score:
-			best_score = score
-			best = o
+		if score >= best_score or _ignored(o):
+			continue
+		# calmo e com muro/cerca/rio no meio: não escolhe (antes empurrava a parede até o prazo da caça)
+		if o.aggro_target != e.id and cur_sim != null and unstuck_enabled:
+			if float(line_block.get(o.id, -1.0)) > cur_sim.time:
+				continue
+			if not MapGeometry.line_walkable(cur_sim, m, e.position, o.position, o.radius + 0.6):
+				if line_block.size() > 24:
+					line_block.clear()
+				line_block[o.id] = cur_sim.time + Balance.BOT_LINE_RECHECK
+				continue
+		best_score = score
+		best = o
 	return best
+
+## Monstro largado (inalcançável ou linha bloqueada) e ainda no prazo.
+func _ignored(o: SimEntity) -> bool:
+	if ignore.is_empty() or cur_sim == null:
+		return false
+	var until: float = ignore.get(o.id, -1.0)
+	if until < 0.0:
+		return false
+	if cur_sim.time < until:
+		return true
+	ignore.erase(o.id)
+	return false
+
+## Larga o alvo e o ignora por BOT_UNREACHABLE_IGNORE s.
+func _drop(mob: SimEntity) -> void:
+	if ignore.size() > 24:
+		for k in ignore.keys():
+			if float(ignore[k]) <= cur_sim.time:
+				ignore.erase(k)
+	ignore[mob.id] = cur_sim.time + Balance.BOT_UNREACHABLE_IGNORE
+	hunt_target_id = -1
+	engaged = false
+	prog_key = -99
+
+## Travado indo para `goal` (chave `key`: id do alvo ou -2 = ponto de caça)? Progresso = chegar BOT_CHASE_PROGRESS m mais
+## perto; andando por rota (portão, anel, ponte) vale sair 2 m do lugar. Sem progresso por BOT_CHASE_STALL s = true.
+func _stalled(e: SimEntity, key: int, goal: Vector3) -> bool:
+	if cur_sim == null or not unstuck_enabled:
+		return false                   # cérebro solto (teste chamando _fight_core direto): sem relógio
+	var now: float = cur_sim.time
+	if key != prog_key or now - prog_at > 1.0:
+		prog_key = key
+		prog_best = INF
+		prog_t = 0.0
+		prog_anchor = e.position
+	prog_at = now
+	var d := e.position.distance_to(goal)
+	if d < prog_best - Balance.BOT_CHASE_PROGRESS:
+		prog_best = d
+		prog_anchor = e.position
+		prog_t = 0.0
+		return false
+	prog_t += think_dt
+	if prog_t <= Balance.BOT_CHASE_STALL * (Balance.BOT_ROUTED_STALL_MULT if steer_routed else 1.0):
+		return false
+	prog_key = -99                 # quem chamou troca de alvo/ponto: a contagem recomeça
+	# sai do bolsão: anda para trás (em relação ao ponto) por um tempo antes de seguir para o próximo
+	var back := Vector2(e.position.x - goal.x, e.position.z - goal.z)
+	if back.length() > 0.01:
+		detour = back.normalized().rotated(rng.randf_range(-0.5, 0.5))
+		detour_timer = Balance.BOT_ESCAPE_TIME
+		detour_age = 0.0
+		ring_wp = Vector3.INF
+	return true
 
 func _plan_trip(e: SimEntity, sim) -> void:
 	var fields: Array = []
@@ -1126,7 +1221,8 @@ func _plan_trip(e: SimEntity, sim) -> void:
 				fields.append(mid)
 	dest_map = fields[rng.randi() % fields.size()]
 	state = S.TRAVEL
-	timer = 60.0
+	timer = Balance.BOT_TRAVEL_LEG_S
+	travel_map = e.map_id
 	if rng.randf() < 0.3:
 		Events.post(&"chat_message", e.name, GameData.random_bot_line("leaving").format(BotsCatalog.place_words(GameData.maps[dest_map].name)), "global")
 	_gather_party(e, sim)
@@ -1136,12 +1232,11 @@ func _go_home() -> void:
 	dest_map = GameData.town_map_id()
 	timer = 90.0
 
+## Portal do mapa atual no caminho até `target_map` (busca no grafo de portais, como o seguidor do grupo).
+## Antes caía em `portals[0]` quando o destino ficava a 2+ portais: no mapa vizinho o `portals[0]` apontava de volta
+## e o bot ia e voltava pelo mesmo portal até a viagem expirar.
 func _find_portal(def: MapDef, target_map: String) -> Dictionary:
-	for p in def.portals:
-		if p["target_map"] == target_map:
-			return p
-	# fallback: qualquer portal
-	return def.portals[0] if def.portals.size() > 0 else {}
+	return PortalSystem.portal_towards(def, target_map, true)
 
 ## Sem recarga e com mana para a skill (no nível de maestria atual).
 func _ready_to_cast(e: SimEntity, s: SkillDef) -> bool:
@@ -1209,6 +1304,9 @@ func _defend(e: SimEntity, sim, m: Dictionary, cmd: InputCommand, dt: float) -> 
 		if state == S.RETURN or e.position.distance_to(target) > Balance.RAID_DEFEND_RANGE or rng.randf() > Balance.RAID_DEFEND_CHANCE:
 			skip_wave = wave
 			return null
+		if e.party_id < 0 and not SiegeSystem.bot_may_defend(m, wave):      # Cerco Vivo: só alguns avulsos acodem; o grupo do jogador vai sempre
+			skip_wave = wave
+			return null
 		defend_wave = wave
 		falling_back = false
 		if rng.randf() < 0.4:
@@ -1260,30 +1358,114 @@ func _defend(e: SimEntity, sim, m: Dictionary, cmd: InputCommand, dt: float) -> 
 		cmd.aim = gate + out * 10.0
 	return cmd
 
-## Ponto intermediário para entrar/sair da vila murada pelo portão mais conveniente.
+## Ponto intermediário para entrar/sair de povoado murado (vila, forte, cidade élfica, posto: town_radius + portões no JSON).
+## Teste pela distância ao centro (não `in_town`, que só vale com is_town). Sai pelo portão de frente para o destino, entra
+## pelo mais perto; o portão escolhido vale até passar BOT_GATE_CLEAR m do muro (antes ia e voltava no vão). Fora, linha que
+## cortaria o povoado contorna por um anel a BOT_GATE_RING_PAD m do muro.
 func _route(e: SimEntity, p: Vector3) -> Vector3:
 	if cur_def == null or cur_def.town_radius <= 0.0 or cur_def.town_gates.is_empty():
 		return p
-	var inside := cur_def.in_town(e.position)
-	if inside == cur_def.in_town(p):
-		return p
 	var c := cur_def.town_center
-	var gate: Vector3 = cur_def.town_gates[0]
-	var best := INF
-	for g in cur_def.town_gates:
-		var cost: float = e.position.distance_to(g) + p.distance_to(g)
-		if cost < best:
-			best = cost
-			gate = g
-	var dir := (gate - c).normalized()
 	var r := cur_def.town_radius
+	var from_c := Vector2(e.position.x - c.x, e.position.z - c.z).length()
+	var p_in := Vector2(p.x - c.x, p.z - c.z).length() < r
+	if route_map != cur_def.id:
+		route_map = cur_def.id
+		route_gate = -1
+		ring_side = 0.0
+	var gates: Array = cur_def.town_gates
+	if route_gate >= gates.size():
+		route_gate = -1
+	if route_gate >= 0:
+		if route_exit and (p_in or from_c > r + Balance.BOT_GATE_CLEAR):
+			route_gate = -1
+		elif not route_exit and (not p_in or from_c < r - Balance.BOT_GATE_CLEAR):
+			route_gate = -1
+	if route_gate < 0:
+		var inside := from_c < r
+		if inside == p_in:
+			return p if inside else _ring(e, p, from_c)
+		route_exit = inside
+		var best := INF
+		for i in range(gates.size()):
+			var g: Vector3 = gates[i]
+			var cost: float = p.distance_to(g) if inside else e.position.distance_to(g)
+			if cost < best:
+				best = cost
+				route_gate = i
+	var gate: Vector3 = gates[route_gate]
+	var dir := Vector3(gate.x - c.x, 0.0, gate.z - c.z).normalized()
 	var inner := c + dir * (r - 5.0)
 	var outer := c + dir * (r + 5.0)
-	var from_c := e.position.distance_to(c)
-	if inside:
+	if route_exit:
 		# sai: primeiro até a rua do portão, depois atravessa
 		return inner if from_c < r - 5.5 and e.position.distance_to(inner) > 2.5 else outer
-	return outer if from_c > r + 3.5 and e.position.distance_to(outer) > 2.5 else inner
+	if from_c > r + 3.5 and e.position.distance_to(outer) > 2.5:
+		return _ring(e, outer, from_c)                  # até a frente do portão, contornando o muro
+	return inner
+
+## Fora do povoado: a linha até `p` corta o muro? Então contorna por um anel: candidatos a BOT_GATE_RING_STEP (ou meio)
+## graus no sentido escolhido (uma vez por contorno), no anel a 1x..4x BOT_GATE_RING_PAD m do muro (o passo reto só para fora);
+## vale o primeiro com a linha
+## livre (morro, torre ou casa colados no muro: abre o anel). Nada livre: tenta o outro sentido; senão o anel de sempre.
+## O ponto vale por 1 s ou até chegar (os testes de linha não rodam a cada pensamento).
+func _ring(e: SimEntity, p: Vector3, from_c: float) -> Vector3:
+	var c := cur_def.town_center
+	var r := cur_def.town_radius
+	var a2 := Vector2(e.position.x - c.x, e.position.z - c.z)
+	var b2 := Vector2(p.x - c.x, p.z - c.z)
+	var q := Geometry2D.get_closest_point_to_segment(Vector2.ZERO, a2, b2)
+	var pad: float = Balance.BOT_GATE_CROSS_PAD + (Balance.BOT_GATE_CROSS_HYST if ring_side != 0.0 else 0.0)     # já contornando: só larga com folga
+	if q.length() >= r + pad or q.distance_squared_to(a2) < 0.0001 or q.distance_squared_to(b2) < 0.0001:
+		ring_side = 0.0
+		ring_wp = Vector3.INF
+		return p
+	var now: float = cur_sim.time if cur_sim else 0.0
+	if ring_wp != Vector3.INF and now < ring_until and Vector2(e.position.x - ring_wp.x, e.position.z - ring_wp.z).length() > 1.5:
+		return ring_wp
+	var a0 := a2.angle()
+	var delta := wrapf(b2.angle() - a0, -PI, PI)
+	if ring_side == 0.0:
+		ring_side = 1.0 if delta >= 0.0 else -1.0
+	var m: Dictionary = cur_sim.maps.get(e.map_id, {}) if cur_sim else {}
+	# sem rio entre o bot e o alvo (ex.: em cima da ponte): passo do anel que põe um rio no meio não serve
+	var p2 := Vector2(p.x, p.z)
+	var clear_now: bool = not m.is_empty() and not MapGeometry.crosses_river(cur_sim, m, Vector2(e.position.x, e.position.z), p2)
+	var pick := Vector3.INF
+	for dry: bool in [false, true]:      # 1º com a água; nada livre: sem ela (o desvio pela ponte leva até o ponto)
+		for side: float in [ring_side, -ring_side]:
+			var travel := delta if signf(delta) == side or delta == 0.0 else delta + side * TAU
+			var full := minf(absf(travel), deg_to_rad(Balance.BOT_GATE_RING_STEP))
+			var steps: Array = [0.0] if from_c < r + 3.0 else [full, full * 0.5, 0.0]     # colado no muro: sai reto primeiro
+			for k in range(1, 5):
+				var rad: float = r + Balance.BOT_GATE_RING_PAD * k
+				for st: float in steps:
+					if st == 0.0 and rad < from_c + 1.0:
+						continue                              # passo só para fora: nunca volta para perto do muro
+					var w := Vector2.from_angle(a0 + side * st) * rad
+					var wp := cur_def.clamp_inside(c + Vector3(w.x, 0.0, w.y), 1.0)
+					if Vector2(wp.x - e.position.x, wp.z - e.position.z).length() < 2.0:
+						continue                              # já está nele: não serve de passo
+					if clear_now and not dry and MapGeometry.crosses_river(cur_sim, m, Vector2(wp.x, wp.z), p2):
+						continue
+					if m.is_empty() or MapGeometry.line_walkable(cur_sim, m, e.position, wp, 0.0, 0.4, dry):
+						pick = wp
+						break
+				if pick != Vector3.INF:
+					break
+			if pick != Vector3.INF:
+				ring_side = side
+				break
+		if pick != Vector3.INF:
+			break
+	if pick == Vector3.INF:
+		var travel0 := delta if signf(delta) == ring_side or delta == 0.0 else delta + ring_side * TAU
+		var st0 := 0.0 if from_c < r + 3.0 else minf(absf(travel0), deg_to_rad(Balance.BOT_GATE_RING_STEP))
+		var w0 := Vector2.from_angle(a0 + ring_side * st0) * (r + Balance.BOT_GATE_RING_PAD)
+		pick = cur_def.clamp_inside(c + Vector3(w0.x, 0.0, w0.y), 1.0)
+	ring_wp = pick
+	ring_until = now + 1.0
+	return pick
 
 ## Desvio dos rios pelas pontes: caminho recalculado quando o alvo muda ou a cada 1,5 s; avança ponto a ponto.
 func _water_step(e: SimEntity, p: Vector3, dt: float) -> Vector3:
@@ -1300,9 +1482,11 @@ func _water_step(e: SimEntity, p: Vector3, dt: float) -> Vector3:
 
 ## Direção até `p` com desvio simples quando preso.
 func _steer(e: SimEntity, p: Vector3, dt: float) -> Vector2:
-	p = _route(e, p)
+	var goal := p
 	if cur_sim:
-		p = _water_step(e, p, dt)
+		p = _water_step(e, p, dt)           # rio primeiro (ponte); o muro do povoado vale para cada trecho
+	p = _route(e, p)
+	steer_routed = p.distance_squared_to(goal) > 0.01
 	var d := p - e.position
 	var v := Vector2(d.x, d.z)
 	if v.length() < 0.05:
@@ -1374,7 +1558,10 @@ func _follow(e: SimEntity, sim, m: Dictionary, leader: SimEntity, cmd: InputComm
 	state = S.TOWN_IDLE if in_town else S.HUNT     # se sair do grupo, continua de onde está
 	timer = 30.0
 	if leader.map_id != e.map_id:
-		var portal := PortalSystem.portal_towards(def, leader.map_id)
+		var door := _door_to(def, leader.map_id)
+		if not door.is_empty():
+			return _wait_at_door(e, sim, door, cmd, dt)     # líder numa casa (porta só do jogador): espera do lado de fora
+		var portal := PortalSystem.portal_towards(def, leader.map_id, true)
 		if not portal.is_empty():
 			cmd.move = _steer(e, portal["pos"], dt)
 			cmd.aim = portal["pos"]
@@ -1399,6 +1586,8 @@ func _follow(e: SimEntity, sim, m: Dictionary, leader: SimEntity, cmd: InputComm
 		foe = null                       # o líder foi embora: larga e acompanha
 	if foe == null:
 		foe = _party_threat(e, m, members, leader)
+	if foe and _ignored(foe):
+		foe = null                       # largado por inalcançável: acompanha o líder
 	if foe and not in_town:
 		if _taunt_party(e, sim, m, members, cmd):
 			return cmd
@@ -1419,6 +1608,40 @@ func _follow(e: SimEntity, sim, m: Dictionary, leader: SimEntity, cmd: InputComm
 		cmd.aim = spot
 	else:
 		cmd.aim = e.position + leader.forward() * 3.0
+	return cmd
+
+## Porta só do jogador deste mapa que leva a `map_id` ({} = nenhuma).
+static func _door_to(def: MapDef, map_id: String) -> Dictionary:
+	for pt: Dictionary in def.portals:
+		if pt["target_map"] == map_id and pt.get("player_only", false):
+			return pt
+	return {}
+
+## Seguidor esperando o líder sair de casa: fica num ponto livre a BOT_DOOR_WAIT m da porta, com linha até ela (8 direções,
+## a mais perto do bot; escolhido uma vez por porta), em leque por ordem no grupo, virado para a porta.
+func _wait_at_door(e: SimEntity, sim, door: Dictionary, cmd: InputCommand, dt: float) -> InputCommand:
+	var dp: Vector3 = door["pos"]
+	if door_id != str(door["id"]) or door_spot == Vector3.INF:
+		door_id = str(door["id"])
+		door_spot = dp
+		var m: Dictionary = sim.maps.get(e.map_id, {})
+		var best := INF
+		for k in range(8):
+			var q := dp + Vector3.FORWARD.rotated(Vector3.UP, TAU * k / 8.0) * Balance.BOT_DOOR_WAIT
+			if not sim.is_walkable(q, cur_def, 0.6) or (not m.is_empty() and not MapGeometry.line_walkable(sim, m, q, dp, 0.0, 0.4)):
+				continue
+			var d := q.distance_to(e.position)
+			if d < best:
+				best = d
+				door_spot = q
+	var members: Array = sim.party_members(e)
+	var idx := maxi(0, members.find(e) - 1)
+	var spot := door_spot + Vector3(cos(idx * 2.1), 0.0, sin(idx * 2.1)) * (0.0 if idx == 0 else 1.2)
+	if e.position.distance_to(spot) > 1.0:
+		cmd.move = _steer(e, spot, dt) * 0.8
+		cmd.aim = spot
+	else:
+		cmd.aim = dp
 	return cmd
 
 ## Tanque: provoca quando há monstro por perto batendo em outro membro do grupo. O tanque também provoca de novo o

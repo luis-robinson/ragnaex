@@ -49,7 +49,7 @@ static func power_mult(e: SimEntity, s: SkillDef) -> float:
 static func on_hit(sim: WorldSim, e: SimEntity, t: SimEntity, s: SkillDef) -> void:
 	if not e.stats.titan_claws or not s.id.begins_with("basic_") or not t.is_alive() or not e.is_hostile_to(t):
 		return
-	if (t.monster_def and t.monster_def.is_boss) or t.is_perched() or not sim.maps.has(t.map_id):
+	if (t.monster_def and t.monster_def.resists_cc()) or t.is_perched() or not sim.maps.has(t.map_id):
 		return
 	var away := t.position - e.position
 	away.y = 0.0

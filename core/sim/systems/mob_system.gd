@@ -10,7 +10,7 @@ static func taunt(sim: WorldSim, mob: SimEntity, src: SimEntity, duration: float
 	mob.threat[src.id] = top * Balance.TAUNT_THREAT_LEAD + 1.0
 	mob.aggro_target = src.id
 	mob.aggro_timer = Balance.AGGRO_LOSE_TIME
-	mob.taunt_left = duration * (0.5 if mob.monster_def.is_boss else 1.0)
+	mob.taunt_left = duration * (0.5 if mob.monster_def.resists_cc() else 1.0)
 
 ## Troca de alvo por ameaça: o primeiro golpe puxa; depois só quem passa o alvo atual com folga.
 static func retarget(sim: WorldSim, mob: SimEntity, attacker: SimEntity) -> void:

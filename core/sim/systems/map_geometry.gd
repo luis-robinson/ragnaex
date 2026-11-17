@@ -33,7 +33,7 @@ static func build_collider_grid(sim: WorldSim, m: Dictionary) -> void:
 	for w in def.water:
 		if w["kind"] == "lake":
 			var c: Vector2 = w["pos"]
-			add_collider(sim, cols, grid, {"circle": true, "x": c.x, "z": c.y, "cr": float(w["r"]) - WATER_SHORE, "hx": 0.0, "hz": 0.0, "rot": 0.0, "tall": false})
+			add_collider(sim, cols, grid, {"circle": true, "x": c.x, "z": c.y, "cr": float(w["r"]) - WATER_SHORE, "hx": 0.0, "hz": 0.0, "rot": 0.0, "tall": false, "water": true})
 			continue
 		var pts: PackedVector2Array = w["pts"]
 		var half_w: float = float(w["w"]) * 0.5 - WATER_SHORE
@@ -61,7 +61,19 @@ static func build_collider_grid(sim: WorldSim, m: Dictionary) -> void:
 					continue
 				# caixa alinhada ao trecho (um pouco mais longa para não deixar fresta entre peças)
 				add_collider(sim, cols, grid, {"circle": false, "x": c.x, "z": c.y, "cr": 0.0, "hx": seg_len / n * 0.5 + 0.35, "hz": half_w,
-					"rot": -dir.angle(), "tall": false})
+					"rot": -dir.angle(), "tall": false, "water": true})
+	# ponta de rio quase no lago (Aldara: 1,6 m): a fresta vira água, igual para a colisão e para o desvio (crosses_river)
+	var joins := river_lake_joins(def)
+	m["river_joins"] = joins
+	for jn in joins:
+		var ja: Vector2 = jn[0]
+		var jb: Vector2 = jn[1]
+		var jl := ja.distance_to(jb)
+		if jl < 0.01:
+			continue
+		var jc := (ja + jb) * 0.5
+		add_collider(sim, cols, grid, {"circle": false, "x": jc.x, "z": jc.y, "cr": 0.0, "hx": jl * 0.5 + 0.35, "hz": float(jn[2]),
+			"rot": -(jb - ja).angle(), "tall": false, "water": true})
 	m["colliders"] = cols
 	m["grid"] = grid
 	m["stage_obs"] = stage_obs
@@ -93,6 +105,64 @@ const RIVER_PIECE_BRIDGE := 0.5   # idem, nos trechos que encostam numa ponte (v
 const BRIDGE_HALF := 2.7      # meia-largura do vão da ponte (tabuleiro = estrada + 0,6 m)
 
 const BRIDGE_LANE := 1.1      # folga (raio de quem anda + sobra) para o meio da estrada passar numa ponte enviesada
+
+const RIVER_LAKE_JOIN := 3.0  # m: ponta de rio a até isto da borda (sólida) de um lago conta como ligada a ele
+
+## Emendas ponta de rio -> lago: [ponta, ponto 1 m dentro do lago, meia-largura do rio]. O JSON da zona deixa folgas
+## pequenas (o visual emenda a água); sem isto a fresta era andável e o desvio achava a linha livre.
+static func river_lake_joins(def: MapDef) -> Array:
+	var out: Array = []
+	for w in def.water:
+		if w["kind"] != "river":
+			continue
+		var pts: PackedVector2Array = w["pts"]
+		if pts.size() < 2:
+			continue
+		for tip in [pts[0], pts[pts.size() - 1]]:
+			for l in def.water:
+				if l["kind"] != "lake":
+					continue
+				var c: Vector2 = l["pos"]
+				var solid: float = float(l["r"]) - WATER_SHORE
+				var gap: float = tip.distance_to(c) - solid
+				if gap > 0.0 and gap <= RIVER_LAKE_JOIN:
+					out.append([tip, c + (tip - c).normalized() * (solid - 1.0), float(w["w"]) * 0.5 - WATER_SHORE])
+	return out
+
+## A linha a→b anda sem bater em nada (amostras a cada BOT_LINE_STEP m, raio `r`)? Para antes de `stop` m do fim (o corpo do alvo).
+## Teste de linha da IA (só na escolha do alvo/ponto, nunca por tick). `skip_water` = rio/lago não contam (quem anda usa water_path).
+static func line_walkable(sim: WorldSim, m: Dictionary, a: Vector3, b: Vector3, stop: float, r: float = 0.3, skip_water: bool = false) -> bool:
+	var d := Vector2(b.x - a.x, b.z - a.z)
+	var total := d.length() - stop
+	if total <= 0.5:
+		return true
+	var dir := d / d.length()
+	var t := 0.5
+	while t < total:
+		var p := Vector3(a.x + dir.x * t, 0.0, a.z + dir.y * t)
+		if skip_water:
+			if _hits_dry(m, p, r):
+				return false
+		elif resolve_obstacles(sim, p, r, m).distance_squared_to(p) > 0.0001:
+			return false
+		t += Balance.BOT_LINE_STEP
+	return true
+
+## Algum colisor que não é água encosta no círculo (p, r)?
+static func _hits_dry(m: Dictionary, p: Vector3, r: float) -> bool:
+	var cols: Array = m["colliders"]
+	for idx in m["grid"].get(Vector2i(floori(p.x / GRID_CELL), floori(p.z / GRID_CELL)), []):
+		var c: Dictionary = cols[idx]
+		if c.get("water", false):
+			continue
+		if c["circle"]:
+			if Vector2(p.x - c["x"], p.z - c["z"]).length() < float(c["cr"]) + r:
+				return true
+		else:
+			var rel := Vector2(p.x - c["x"], p.z - c["z"]).rotated(c["rot"])
+			if absf(rel.x) < float(c["hx"]) + r and absf(rel.y) < float(c["hz"]) + r:
+				return true
+	return false
 
 static func add_collider(sim: WorldSim, cols: Array, grid: Dictionary, c: Dictionary) -> void:
 	var idx := cols.size()
@@ -268,6 +338,9 @@ static func crosses_river(sim: WorldSim, m: Dictionary, a: Vector2, b: Vector2) 
 					break
 			if not at_bridge:
 				return true
+	for jn in m.get("river_joins", []):
+		if Geometry2D.segment_intersects_segment(a, b, jn[0], jn[1]) != null:
+			return true
 	return false
 
 static func nearby_colliders(sim: WorldSim, m: Dictionary, p: Vector3) -> Array:

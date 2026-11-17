@@ -32,6 +32,11 @@ const STARTER_PIECES := {
 	"cape": [S_C, {"plate": "Capa", "leather": "Capa", "cloth": "Capa"}],
 }
 
+## Acessórios únicos (drops de chefe/quest): os números escritos em build() são só a PROPORÇÃO entre os atributos; o valor
+## sai de GearCatalog.unique_acc (spec acessórios F6: min(1,25x a comum do nível; 0,9x a do tier seguinte)) no fim de build().
+const UNIQUE_ACCESSORIES := ["ring_gel", "ring_captain", "ring_vargo", "amulet_widow", "cape_vargo", "amulet_tusk", "amulet_silk",
+	"ring_spectral", "amulet_golem"]
+
 ## escudos comuns também têm silhueta própria
 const SHIELD_LOOK := {"shield_wood": "tabuas", "shield_iron": "ferro", "shield_bone": "ossario", "shield_dragon": "escama"}
 
@@ -133,6 +138,7 @@ static func build() -> Array:
 		_mat("elf_steel", "Aço Élfico", 28, "Leve como pena. Aprimora peças da Glória (+1 a +5) no ferreiro.", Color(0.7, 0.9, 0.75)),
 		_mat("mother_sap", "Seiva da Árvore-Mãe", 70, "Dourada e morna. Aprimora peças da Glória (+6 a +9) no ferreiro.", Color(0.95, 0.8, 0.3)),
 		_mat("heartwood", "Cerne de Trent", 24, "O coração de madeira de um Trent Ancião.", Color(0.5, 0.36, 0.2)),
+		_mat("palisade_log", "Tora de Estaca", 6, "Tora cortada no estaleiro do porto. O Carpinteiro Bruno faz dela uma estaca de paliçada.", Color(0.66, 0.5, 0.32)),
 		_mat("griffin_feather", "Pena de Grifo", 18, "Dourada na ponta. Flecheiros pagam bem.", Color(0.95, 0.85, 0.55)),
 		_mat("golem_core", "Núcleo de Golem", 60, "Pulsa com magia antiga.", Color(0.9, 0.6, 0.2)),
 		_mat("stone_core", "Núcleo de Pedra", 22, "Coração de um golem da Pedreira; ainda morno.", Color(0.66, 0.58, 0.46)),
@@ -226,7 +232,7 @@ static func build() -> Array:
 		_armor("ring_captain", "Anel do Capitão", S_R, 1, 2, 0, {"FOR": 3, "VIT": 3}, Color(0.9, 0.82, 0.6)),
 		_armor("amulet_widow", "Lágrima da Viúva", S_M, 1, 0, 3, {"INT": 4, "WILL": 3}, Color(0.7, 0.8, 1.0)),
 		_armor("ring_vargo", "Selo de Vargo", S_R, 1, 0, 2, {"INT": 4, "AGI": 3}, Color(0.55, 0.35, 0.8)),
-		_armor("cape_vargo", "Manto do Conde", S_C, 1, 5, 5, {"VIT": 4, "WILL": 3}, Color(0.4, 0.22, 0.55)),
+		_armor("cape_vargo", "Manto do Conde", S_C, 1, 4, 4, {"VIT": 4, "WILL": 3}, Color(0.4, 0.22, 0.55)),
 		_armor("amulet_tusk", "Amuleto de Presa", S_M, 1, 0, 0, {"FOR": 3, "AGI": 2}, Color(0.95, 0.9, 0.8)),
 		_armor("amulet_silk", "Amuleto de Seda", S_M, 1, 0, 0, {"INT": 3, "WILL": 2}, Color(0.9, 0.9, 0.95)),
 		_armor("ring_spectral", "Anel Espectral", S_R, 2, 0, 0, {"INT": 4, "AGI": 4}, Color(0.6, 0.9, 1)),
@@ -243,6 +249,8 @@ static func build() -> Array:
 			it.armor_style = _style_from_id(it.id)
 		if it.is_equipment() and it.slot == S_C:
 			it.armor_style = "cape"
+		if it.id in UNIQUE_ACCESSORIES:
+			GearCatalog.unique_acc(it)      # atributos escritos = proporção; total pela curva dos acessórios
 		out.append(it)
 	return out
 

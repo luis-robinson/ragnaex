@@ -8,6 +8,19 @@ var camera: CameraRig
 var ui_blocking: bool = false     # true quando uma janela modal/chat está aberta
 var _pending := InputCommand.new()
 var aim_point: Vector3 = Vector3.ZERO
+var last_cmd: InputCommand = null   # último comando montado (revisão: --ui_click_check)
+# LMB/RMB seguro só vale se o aperto chegou aqui, no _unhandled_input (começou no mundo). Clique numa janela,
+# barra ou minimapa é consumido pela UI e nunca liga isto, mesmo com Input.is_action_pressed true (o Input
+# registra o botão antes da UI). Segurar no mundo e passar por cima de uma janela continua: quem decide é o aperto.
+var _attack_held := false
+var _block_held := false
+
+## Soltar vale em qualquer lugar, até sobre uma janela (o _input vem antes da UI consumir o evento).
+func _input(event: InputEvent) -> void:
+	if event.is_action_released("attack"):
+		_attack_held = false
+	if event.is_action_released("block"):
+		_block_held = false
 
 func _unhandled_input(event: InputEvent) -> void:
 	if ui_blocking:
@@ -15,6 +28,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	# ações "one-shot" são acumuladas até o próximo tick de física (não perde clique entre frames)
 	if event.is_action_pressed("attack"):
 		_pending.attack = true
+		_attack_held = true
+	if event.is_action_pressed("block"):
+		_block_held = true
 	for i in range(Balance.SKILL_SLOTS + Balance.ASC_SLOTS):     # 1-6 e 7 8 9 0 (ascensão)
 		if event.is_action_pressed("skill_%d" % (i + 1)):
 			_pending.skill_slot = i
@@ -39,6 +55,16 @@ func queue_mount() -> void:
 func queue_recall() -> void:
 	_pending.recall = true
 
+## Ataque contínuo deste passo: o botão está apertado (`input_down`) E o aperto começou no mundo.
+func attack_down(input_down: bool) -> bool:
+	_attack_held = _attack_held and input_down and not ui_blocking
+	return _attack_held
+
+## Bloqueio deste passo: mesma regra do ataque (RMB numa janela/slot não levanta a guarda).
+func block_down(input_down: bool) -> bool:
+	_block_held = _block_held and input_down and not ui_blocking
+	return _block_held
+
 func _physics_process(_delta: float) -> void:
 	var cmd := InputCommand.new()
 	var mouse := get_viewport().get_mouse_position()
@@ -48,10 +74,10 @@ func _physics_process(_delta: float) -> void:
 		var iv := Input.get_vector("move_left", "move_right", "move_back", "move_forward")
 		var world := camera.forward_flat() * iv.y + camera.right_flat() * iv.x
 		cmd.move = Vector2(world.x, world.z)
-		cmd.block = Input.is_action_pressed("block")
-		# segurar LMB = ataque contínuo (cadência da arma)
-		if Input.is_action_pressed("attack"):
-			cmd.attack = true
+	cmd.block = block_down(Input.is_action_pressed("block"))
+	# segurar LMB = ataque contínuo (cadência da arma), só se o aperto foi no mundo
+	if attack_down(Input.is_action_pressed("attack")):
+		cmd.attack = true
 	cmd.attack = cmd.attack or _pending.attack
 	cmd.skill_slot = _pending.skill_slot
 	cmd.potion_slot = _pending.potion_slot
@@ -61,4 +87,5 @@ func _physics_process(_delta: float) -> void:
 	cmd.mount = _pending.mount
 	cmd.recall = _pending.recall
 	_pending = InputCommand.new()
+	last_cmd = cmd
 	Sim.set_player_command(cmd)

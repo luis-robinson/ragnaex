@@ -758,7 +758,7 @@ static func main_build(sim: WorldSim, e: SimEntity) -> String:
 		var it: ItemDef = e.equipment[sl]
 		if it and it.set_id != "":
 			var hsd: SetDef = GameData.sets.get(it.set_id)
-			var bid := hsd.pair[0] if hsd and hsd.is_hybrid() else GearCatalog.bid_of_set(it.set_id).trim_prefix(e.class_def.id + "_")
+			var bid := hsd.build_of() if hsd else GearCatalog.bid_of_set(it.set_id).trim_prefix(e.class_def.id + "_")
 			if score.has(bid):
 				score[bid] += 10.0
 	var nodes: Dictionary = tree_of(sim, e)["nodes"]

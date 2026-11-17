@@ -278,6 +278,13 @@ func _draw_dynamic_body() -> void:
 		if at.length() < side * 0.5 + float(rs["radius"]) * zoom:
 			var pulse := 0.55 + 0.45 * sin(Time.get_ticks_msec() * 0.006)
 			d.draw_arc(at, float(rs["radius"]) * zoom, 0.0, TAU, 48, Color(1.0, 0.45, 0.2, 0.35 + 0.4 * pulse), 2.5, true)
+	# evento de estrada (RoadEventSystem): ponto dourado que pulsa; longe, fica na borda apontando o rumo
+	var ev: Dictionary = Sim.road_event_status(p.map_id)
+	if ev.get("active", false):
+		var er := ((Vector2(ev["pos"].x, ev["pos"].z) - origin) * zoom).limit_length(side * 0.5 - 12.0)
+		var ep := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.008)
+		d.draw_circle(er, 3.5, Color(1.0, 0.86, 0.3))
+		d.draw_arc(er, 6.0 + 3.0 * ep, 0.0, TAU, 20, Color(1.0, 0.86, 0.3, 0.9 - 0.6 * ep), 1.5, true)
 	for id in _marks:                     # NPC com pendência de quest (os pontos comuns estão na malha _dots)
 		var mark: String = _marks[id]
 		if mark == "":

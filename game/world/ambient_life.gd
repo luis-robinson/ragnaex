@@ -27,6 +27,8 @@ const KINDS := {
 		"lit": true, "shadow": true},
 	"moth": {"color": Color(0.98, 0.92, 0.7), "span": 0.18, "h": [0.5, 1.6], "w": 0.9, "flap": 9.0, "fly": true},
 	"crab": {"color": Color(0.9, 0.42, 0.26), "span": 0.4, "h": [0.0, 0.0], "w": 0.0, "flap": 0.0, "fly": false},
+	# galinha (Aldara: cercado do celeiro e fazenda): bicho de chão como o caranguejo, creme, 1 draw por grupo
+	"hen": {"color": Color(0.96, 0.92, 0.82), "span": 0.34, "h": [0.0, 0.0], "w": 0.0, "flap": 0.0, "fly": false},
 	# brasa no ar sobre a lava (Kharzun): fagulha laranja que sobe e desce sem rumo; "asa" mínima, quase sem bater
 	"ember": {"color": Color(1.0, 0.55, 0.16), "span": 0.14, "h": [0.4, 3.2], "w": 0.8, "flap": 1.5, "fly": true},
 }

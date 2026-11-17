@@ -266,6 +266,12 @@ func after_start() -> void:
 	if DevArgs.flag("--boss_film"):     # --boss_film=<chefe>[,..] --out=<pasta>: cada skill do chefe lançada num grupo parado, 3 quadros por skill
 		_smoke_test = false
 		_boss_film(Array(DevArgs.value("--boss_film").split(",")), DevArgs.value("--out"))
+	if DevArgs.flag("--event_shot"):    # --event_shot=<png> [--event_point=N]: evento de estrada em andamento (RoadEventSystem) e sai
+		_smoke_test = false
+		_event_shot(DevArgs.value("--event_shot"))
+	if DevArgs.flag("--siege_shot"):    # --siege_shot=<pasta> [--quests=...]: Cerco Vivo do Porto (cais, brechas, cenário, assédio, leva, Chamas) e sai
+		_smoke_test = false
+		_siege_shot(DevArgs.value("--siege_shot"))
 	if DevArgs.flag("--raid_shot"):     # --raid_shot=<png>: investida élfica na Floresta (fotos _marcha e _portao) e sai
 		_smoke_test = false
 		_raid_shot(DevArgs.value("--raid_shot"))
@@ -558,7 +564,7 @@ func _morph_film(path: String, form: String) -> void:
 const BUFF_SHOT_EXTRA := ["shield@necromancer", "shield@elementalist", "bastion_aura@ally", "blessing@ally",
 	"dbf_slow", "dbf_root", "dbf_stun", "dbf_burn", "dbf_poison", "dbf_curse"]
 const BUFF_SHOT_CLASS := {"legend_frenzy": "berserker", "bastion": "paladin", "juramento": "paladin", "wild_run": "druid", "shield": "paladin",
-	"elixir": "berserker", "stoneskin": "paladin", "fus_frenzy": "berserker", "fus_weight": "berserker", "fus_pack_frenzy": "druid",
+	"elixir": "berserker", "stoneskin": "paladin", "apex_tempest": "berserker", "apex_cadence": "assassin",
 	"fus_aurora": "bishop"}
 
 func _buff_shot(dir: String, only: String) -> void:
@@ -1265,6 +1271,30 @@ func _cast_buff_at_start(sid: String) -> void:
 
 ## Investida élfica: leva o jogador à Floresta, solta uma leva e fotografa a marcha na estrada norte e a luta no portão.
 ## O jogador fica de pé no caminho (vida cheia o tempo todo) para a câmera seguir a ação.
+## --event_shot=<png>: põe o jogador perto de um ponto de evento de estrada do mapa dele, começa o evento e fotografa
+## (`_grito` logo no começo, `_luta` com os monstros em cima dele). Imprime EVENT_SHOT com o estado.
+func _event_shot(path: String) -> void:
+	var p := Sim.player
+	await get_tree().create_timer(2.0).timeout
+	var def: MapDef = GameData.maps[p.map_id]
+	var i := int(DevArgs.value("--event_point", "0"))
+	if def.road_events.size() <= i:
+		print("EVENT_SHOT sem ponto %d em %s" % [i, def.id])
+		get_tree().quit()
+		return
+	var pos: Vector3 = def.road_events[i]["pos"]
+	Sim.sync()
+	p.position = pos + (def.town_center - pos).normalized() * 9.0
+	var a := Sim.road_event_start(def.id, i)
+	for sh in [[1.5, "_grito"], [5.0, "_luta"]]:
+		await get_tree().create_timer(float(sh[0])).timeout
+		Sim.sync()
+		p.hp = p.stats.max_hp
+		get_viewport().get_texture().get_image().save_png(path.trim_suffix(".png") + str(sh[1]) + ".png")
+		print("EVENT_SHOT %s %s" % [sh[1], Sim.road_event_status(def.id)])
+	print("EVENT_SHOT ids=%d" % (a.get("ids", []) as Array).size())
+	get_tree().quit()
+
 func _raid_shot(path: String) -> void:
 	var p := Sim.player
 	var def: MapDef = GameData.maps["field_forest"]
@@ -1290,6 +1320,93 @@ func _raid_shot(path: String) -> void:
 				st["arrived_t"] = st["t"]
 		get_viewport().get_texture().get_image().save_png(path.trim_suffix(".png") + sh[1] + ".png")
 		print("RAID_SHOT %s t=%.0f vivos=%d" % [sh[1], float(RaidSystem.state(m)["t"]), RaidSystem.state(m)["ids"].size()])
+	get_tree().quit()
+
+## Fotos do Cerco Vivo em Porto Esperança (estágio = --quests): cais/prancha do navio, as três brechas, casas queimadas,
+## refugiados, enfermaria, uma salva de assédio no meio do aviso, a leva chegando e as Chamas.
+func _siege_shot(dir: String) -> void:
+	var p := Sim.player
+	var def: MapDef = GameData.maps["city_port"]
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(dir) if dir.begins_with("res://") else dir)
+	Sim._change_map(p, def.id, def.spawn_point)
+	await get_tree().create_timer(2.5).timeout
+	p.hp = p.stats.max_hp * 1000.0          # jogador de nível baixo: a leva não pode mandá-lo de volta à cidade no meio das fotos
+	p.brain = null                          # sem o piloto automático do autostart (ele voltava para a cidade durante a leva)
+	var m: Dictionary = Sim.maps[def.id]
+	var st := SiegeSystem.state(m)
+	st["hold"] = true
+	MapBuilder.apply_conquest(main.map_node)
+	var all := RaidSystem.routes(def)
+	var snap := func(tag: String) -> void:
+		get_viewport().get_texture().get_image().save_png("%s/%s.png" % [dir, tag])
+		print("SIEGE_SHOT %s" % tag)
+	var spots := [["cais_prancha", Vector3(-9.5, 0, 61.0)], ["cais_barreira", Vector3(-8.0, 0, 66.2)], ["refugiados", Vector3(17.0, 0, 49.5)], ["enfermaria", Vector3(24.5, 0, 16.5)]]
+	for seg in def.siege["segments"]:
+		spots.append(["brecha_" + str(seg["id"]), all[SiegeSystem.route_index(def, seg["route"])]["target"]])
+	for mk in def.fx:
+		if mk["kind"] == "fire":
+			spots.append(["casa_%d" % spots.size(), mk["pos"] + Vector3(0, 0, 5.0)])
+	for sp in spots:
+		p.position = sp[1]
+		p.hp = p.stats.max_hp * 1000.0
+		await get_tree().create_timer(1.2).timeout
+		snap.call(sp[0])
+	# assédio: atiradores no ponto de tiro, a salva no meio do aviso
+	var aim := SiegeSystem.harass_aim(Sim, def)
+	p.position = aim + Vector3(0, 0, 4.0)
+	var shooters := SiegeSystem.start_harass(Sim, m)
+	SiegeSystem.volley(Sim, m, shooters)
+	st["shot"] = true
+	await get_tree().create_timer(Balance.SIEGE_HARASS_WARN * 0.6).timeout
+	snap.call("assedio_salva")
+	p.position = all[SiegeSystem.route_index(def, def.siege["harass_route"])]["from"] + Vector3(0, 0, 5.0)
+	await get_tree().create_timer(1.0).timeout
+	snap.call("assedio_atiradores")
+	for id in shooters:
+		if Sim.entities.has(id):
+			Sim.despawn(Sim.entities[id])
+	st["shooters"] = []
+	# leva: o lado da vez (brecha aberta ou portão)
+	var i := SiegeSystem.next_route(Sim, m, maxi(2, SiegeSystem.pressure(Sim, def)))
+	if i >= 0:
+		SiegeSystem.start_wave(Sim, m, i)
+		p.position = all[i]["target"] + Vector3(0, 0, 3.0)
+		var t := 0.0
+		var rs := RaidSystem.state(m, i)
+		var marched := false
+		while t < 120.0 and not (rs["ids"] as Array).is_empty() and not (rs["arrived"] and float(rs["t"]) > float(rs.get("arrived_t", 1e9)) + 3.0):
+			await get_tree().process_frame
+			t += get_process_delta_time()
+			p.hp = p.stats.max_hp * 1000.0
+			if p.map_id != def.id:                # algo levou o jogador embora (visto: volta para Aldara no meio da leva): traz de volta
+				print("SIEGE_SHOT jogador estava em %s t=%.0f state=%s" % [p.map_id, float(rs["t"]), str(p.state)])
+				Sim._change_map(p, def.id, all[i]["target"] + Vector3(0, 0, 3.0))
+				await get_tree().create_timer(1.5).timeout
+			if rs["arrived"] and not rs.has("arrived_t"):
+				rs["arrived_t"] = rs["t"]
+			if not marched and float(rs["t"]) >= Balance.RAID_MUSTER + 10.0:       # a leva em marcha: a câmera vai até ela
+				marched = true
+				var lead: SimEntity = Sim.entities.get(rs["ids"][0])
+				if lead != null:
+					p.position = MapGeometry.random_walkable(Sim, def, (lead.position as Vector3).lerp(def.town_center, 0.12), 1.5)
+					for _f in 40:                     # a câmera chega; o jogador (nível baixo) não pode morrer no meio da leva
+						p.hp = p.stats.max_hp
+						await get_tree().process_frame
+					snap.call("leva_marcha")
+					p.position = all[i]["target"] + Vector3(0, 0, 3.0)
+		snap.call("leva_%s" % str(all[i]["side"]))
+		print("SIEGE_SHOT leva t=%.0f vivos=%d" % [float(rs["t"]), (rs["ids"] as Array).size()])
+	# Chamas
+	if p.map_id != def.id:
+		Sim._change_map(p, def.id, def.spawn_point)
+		await get_tree().create_timer(1.5).timeout
+	st["scorch"] = true
+	Events.siege_event.emit(def.id, "scorch")
+	var fire: Array = def.fx.filter(func(mk): return mk["kind"] == "fire")
+	if not fire.is_empty():
+		p.position = fire[0]["pos"] + Vector3(0, 0, 6.0)
+		await get_tree().create_timer(2.5).timeout
+		snap.call("chamas")
 	get_tree().quit()
 
 ## Carga do último front: Bastião com Covil e Ossos retomados (a Torre joga tudo: leva x2, teto RAID_WAVE_CAP_LAST, líder),
@@ -1463,7 +1580,9 @@ func _wear_set(set_id: String) -> void:
 		return
 	Sim.player.level = maxi(Sim.player.level, sd.level)
 	var wear: Array = sd.pieces.duplicate()
-	if sd.is_hybrid():           # híbrido: armas da build A (ou B com --face=b)
+	if sd.is_apex():             # Ápice: arma principal e mão secundária da build
+		wear.append_array(sd.alt_pieces.filter(func(x): return x.ends_with("_weapon") or x.ends_with("_offhand")))
+	elif sd.is_hybrid():           # híbrido: armas da build A (ou B com --face=b)
 		var side: String = sd.pair[1] if DevArgs.value("--face") == "b" else sd.pair[0]
 		wear.append_array(sd.alt_pieces.filter(func(x): return x.contains("_%s_weapon" % side) or x.contains("_%s_offhand" % side)))
 	if DevArgs.flag("--gear_partial"):      # --gear_partial=N: só as N primeiras peças de armadura (revisar peça faltando na aba Conjuntos)
@@ -1875,6 +1994,102 @@ func _hotbar_drag_check() -> void:
 	print("HOTBAR_DRAG hud 6->1 slot1=%s ok=%s" % [got0, got0 == sid])
 	await _hotbar_clear_check()
 
+## Playtest 2026-11-16 ("com a bolsa/ficha aberta, o botão esquerdo ataca"). Eventos pelo Input de verdade
+## (Input.parse_input_event atualiza Input.is_action_pressed, como o mouse; push_input não), segurando o botão
+## alguns passos e contando os comandos do controle com ataque/bloqueio. Imprime UI_CLICK <alvo> ... ok=.
+func _ui_click_check() -> void:
+	var w = main.hud.windows_script
+	var pc: PlayerController = main.controller
+	w.close_all()
+	w.toggle("inventory")
+	w.toggle("character")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var vp_size := get_viewport().get_visible_rect().size
+	var world_at := vp_size * Vector2(0.5, 0.3)          # céu/chão no meio da tela, fora das janelas
+	var spots := []
+	for wn in ["inventory", "character"]:
+		var pnl: Control = w.wins[wn]["panel"]
+		spots.append([wn + "_titulo", pnl.get_global_transform_with_canvas() * Vector2(pnl.size.x * 0.4, 12.0)])
+		spots.append([wn + "_corpo", pnl.get_global_transform_with_canvas() * Vector2(pnl.size.x * 0.5, pnl.size.y - 14.0)])
+	var bar: Control = main.hud.skill_slots[0]["root"]
+	spots.append(["barra_1", bar.get_global_transform_with_canvas() * (bar.size * 0.5)])
+	var all_ok := true
+	for sp in spots:
+		var at: Vector2 = sp[1]
+		var hov := await _ui_hold(at, at, MOUSE_BUTTON_LEFT)
+		var ok: bool = hov[0] == 0 and hov[1] != ""
+		all_ok = all_ok and ok
+		print("UI_CLICK %s LMB attack_ticks=%d hovered=%s ok=%s" % [sp[0], hov[0], hov[1], ok])
+		if not str(sp[0]).begins_with("barra"):      # RMB num slot da barra esvazia o slot (comportamento da barra)
+			var hb := await _ui_hold(at, at, MOUSE_BUTTON_RIGHT)
+			var okb: bool = hb[0] == 0
+			all_ok = all_ok and okb
+			print("UI_CLICK %s RMB block_ticks=%d ok=%s" % [sp[0], hb[0], okb])
+	var hw := await _ui_hold(world_at, world_at, MOUSE_BUTTON_LEFT)
+	print("UI_CLICK mundo LMB attack_ticks=%d hovered=%s ok=%s" % [hw[0], hw[1], hw[0] > 0])
+	all_ok = all_ok and hw[0] > 0 and hw[1] == ""
+	var hr := await _ui_hold(world_at, world_at, MOUSE_BUTTON_RIGHT)
+	print("UI_CLICK mundo RMB block_ticks=%d ok=%s" % [hr[0], hr[0] > 0])
+	all_ok = all_ok and hr[0] > 0
+	# segurou no mundo e passou por cima da bolsa: continua (o aperto decide); soltar sobre a janela encerra
+	var bag_at: Vector2 = spots[1][1]
+	var hm := await _ui_hold(world_at, bag_at, MOUSE_BUTTON_LEFT)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	var after_release: bool = pc.last_cmd != null and pc.last_cmd.attack
+	print("UI_CLICK mundo->bolsa LMB attack_ticks=%d solto_na_janela_ataca=%s ok=%s" % [hm[0], after_release, hm[0] > 0 and not after_release])
+	all_ok = all_ok and hm[0] > 0 and not after_release
+	# arrastar da bolsa e soltar no mundo: nenhum golpe no caminho nem ao soltar
+	var hd := await _ui_hold(bag_at, world_at, MOUSE_BUTTON_LEFT)
+	await get_tree().physics_frame
+	var drag_after: bool = pc.last_cmd != null and pc.last_cmd.attack
+	print("UI_CLICK bolsa->mundo LMB attack_ticks=%d solto_no_mundo_ataca=%s ok=%s" % [hd[0], drag_after, hd[0] == 0 and not drag_after])
+	all_ok = all_ok and hd[0] == 0 and not drag_after
+	print("UI_CLICK all ok=%s" % all_ok)
+
+## Aperta `button` em `from` (coordenadas da viewport), arrasta até `to` e segura ~10 passos de física, solta em `to`.
+## Devolve [passos com ataque (LMB) ou bloqueio (RMB) no comando do controle, controle sob o mouse no aperto ("" = mundo)].
+func _ui_hold(from: Vector2, to: Vector2, button: MouseButton) -> Array:
+	var pc: PlayerController = main.controller
+	var xf := get_viewport().get_screen_transform()       # viewport -> janela (o Input recebe coordenadas da janela)
+	Input.warp_mouse(xf * from)
+	var mv0 := InputEventMouseMotion.new()
+	mv0.position = xf * from; mv0.global_position = mv0.position
+	Input.parse_input_event(mv0)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var hc := get_viewport().gui_get_hovered_control()
+	var hovered := "" if hc == null else str(hc.get_class())
+	var mask := MOUSE_BUTTON_MASK_LEFT if button == MOUSE_BUTTON_LEFT else MOUSE_BUTTON_MASK_RIGHT
+	var ev := InputEventMouseButton.new()
+	ev.button_index = button
+	ev.button_mask = mask
+	ev.pressed = true
+	ev.position = xf * from; ev.global_position = ev.position
+	Input.parse_input_event(ev)
+	var ticks := 0
+	for k in range(12):
+		var p: Vector2 = from.lerp(to, minf(1.0, k / 6.0))
+		var mv := InputEventMouseMotion.new()
+		mv.button_mask = mask
+		mv.position = xf * p; mv.global_position = mv.position
+		mv.relative = (to - from) / 6.0 if k <= 6 else Vector2.ZERO
+		Input.parse_input_event(mv)
+		await get_tree().physics_frame
+		await get_tree().process_frame
+		if pc.last_cmd and ((button == MOUSE_BUTTON_LEFT and pc.last_cmd.attack) or (button == MOUSE_BUTTON_RIGHT and pc.last_cmd.block)):
+			ticks += 1
+	var up := InputEventMouseButton.new()
+	up.button_index = button
+	up.pressed = false
+	up.position = xf * to; up.global_position = up.position
+	Input.parse_input_event(up)
+	await get_tree().process_frame
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	return [ticks, hovered]
+
 ## Relato do Lanceiro (2026-11-16): skill de arco presa na barra. --lancer = Ranger nível 20 da build Lanceiro com lança;
 ## botão direito num slot do HUD esvazia, skill da janela K por cima de uma de arco a troca, arrastar para fora da barra tira.
 func _hotbar_clear_check() -> void:
@@ -2079,6 +2294,8 @@ func _bag_shot(path: String) -> void:
 			main.hud.windows_script.toggle(w)
 	if DevArgs.has("--hotbar_drag_check"):    # mouse simulado: poção da bolsa -> F3, skill da janela K -> slot 6
 		await _hotbar_drag_check()
+	if DevArgs.has("--ui_click_check"):       # mouse real (Input.parse_input_event): clique em janela/barra não ataca, no mundo ataca
+		await _ui_click_check()
 	if DevArgs.has("--web_click_check"):      # teia (janela K): zoom pela roda e compra de um nó; foto antes em <png>_antes.png
 		await _web_click_check(path)
 	if DevArgs.has("--craft_check"):      # forja aberta e rolada: a rolagem não pode voltar ao topo
@@ -2166,6 +2383,12 @@ func _bag_shot(path: String) -> void:
 		main.hud.npc_ui.open("relic")
 		main.hud.npc_ui.mode = "relic"
 		main.hud.npc_ui._rebuild()
+	if DevArgs.flag("--item_tip"):        # dica de um item (--item_tip=<id>): vai para a bolsa e a dica abre ao lado (revisar textos)
+		var tip_id := DevArgs.value("--item_tip")
+		if GameData.items.has(tip_id):
+			Sim.player.add_item(tip_id)
+			main.hud.windows_script.show_tip(UiKit.item_tooltip(GameData.items[tip_id]))
+			main.hud.windows_script.tooltip.position = Vector2(40, 120)
 	if DevArgs.has("--storage"):          # janela do depósito, perto do Guarda-volumes
 		for n in Sim.maps[Sim.player.map_id]["def"].npcs:
 			if n["role"] == "storage":

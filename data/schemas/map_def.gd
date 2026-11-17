@@ -47,7 +47,12 @@ extends Resource
 ## investida periódica (RaidSystem): {"from":Vector3, "route":[Vector3...], "target":Vector3, "radius":float,
 ##   "every":s, "first":s, "jitter":s, "lifetime":s, "waves":[{"mobs":{"id":n}, "every_nth":int}], "name":"..."}
 @export var raid: Dictionary = {}
+@export var road_events: Array = []       ## pontos de evento de estrada: {kind, pos: Vector3, mob} (JSON `events`; RoadEventSystem, MapsCatalog.ROAD_EVENTS)
 @export var raids: Array = []             ## investidas extras (cidade atacada por vários lados): formato de `raid` + `side`, `if`/`unless`
+## Cerco Vivo (SiegeSystem): {segments [{id, quest, label, route}], close_all, gate_route, low_route, harass_route, harass_mob,
+##   pressure [{p, if, unless}], say_*}; vazio = mapa sem cerco (as rotas seguem o relógio próprio do RaidSystem)
+@export var siege: Dictionary = {}
+@export var fx: Array = []                ## marcadores de efeito do JSON da zona: {kind fire|smoke|smoke_low, pos: Vector3, if/unless} (game/world/siege_fx.gd)
 @export var conquest_vis: Array = []      ## peças do GLB que mudam com a conquista: {tag (parte do nome), if/unless} (MapBuilder.apply_conquest)
 @export var sortie: Dictionary = {}         ## surtida quando a investida chega à muralha: {from (porta), fighters {guard_id: n}, cooldown, say}
 @export var assaults: Array = []          ## levas aliadas que marcham (WorldState): {from, route, target, radius, fighters {guard_id: n}, every, max, first, say, if/unless}
@@ -69,7 +74,10 @@ func in_hub(p: Vector3) -> bool:
 
 ## Tem área de caça (spawners) — campo puro ou zona com vila + campina.
 func has_hunting() -> bool:
-	return spawners.size() > 0
+	for sp in spawners:
+		if not sp.get("horn", false):          # batedores do Cerco Vivo não fazem do povoado um campo de caça
+			return true
+	return false
 
 ## Masmorra que obriga a andar a pé (dungeon sem `mounts_ok`).
 func no_mount() -> bool:

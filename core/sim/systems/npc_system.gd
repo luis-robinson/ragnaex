@@ -41,6 +41,12 @@ static func update_npc(sim: WorldSim, e: SimEntity, m: Dictionary, dt: float) ->
 		e.npc_wait = sim.rng.randf_range(Balance.NPC_WAIT_MIN, Balance.NPC_WAIT_MAX)
 		if nd.has("route"):
 			e.npc_wait *= 0.4                  # ronda: para pouco
+			var pts: Array = nd["route"]
+			var at: Array = pts[(e.npc_leg - 1 + pts.size()) % pts.size()] if e.npc_leg > 0 else []
+			if at.size() > 2:                  # ponto com parada própria [x, z, s] (carroça descarregando)
+				e.npc_wait = float(at[2])
+			elif nd.get("flow", false):        # rota de estrada: não para nos pontos de passagem
+				e.npc_wait = 0.02
 		return
 	var step := to.normalized() * minf(to.length(), Balance.NPC_WALK_SPEED * dt)
 	var before := e.position

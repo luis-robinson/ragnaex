@@ -11,6 +11,7 @@ var skeleton: Skeleton3D = null
 var mats: Array = []                 # materiais toon (hit flash)
 var _tints: Dictionary = {}          # nome do nó -> [ShaderMaterial "tint"]
 var _accents: Dictionary = {}        # nome do nó -> [ShaderMaterial "tint2"]
+var _glows: Dictionary = {}          # nome do nó -> [ShaderMaterial "tint_glow*"] (brilho na cor do nível, Ato II)
 var _pieces: Array = []              # MeshInstance3D frm_*
 var fade: PoseFade = null            # troca de clipe sem tranco
 var legs: LegOverlay = null          # patas correndo por cima do golpe (bicho que ataca andando não desliza)
@@ -128,29 +129,42 @@ func _toon(n: Node) -> void:
 				if not _accents.has(mi.name):
 					_accents[mi.name] = []
 				_accents[mi.name].append(tm)
+			elif nm.begins_with("tint_glow"):     # peça acesa na cor do nível do conjunto (Ato II: GearCatalog.set_glow)
+				if not _glows.has(mi.name):
+					_glows[mi.name] = []
+				_glows[mi.name].append(tm)
 	for c in n.get_children():
 		_toon(c)
 
 ## Liga as peças de animal dos slots equipados (estilo de conjunto) e pinta pela cor do item.
 func apply_equipment(eq: Dictionary) -> void:
 	var shown := {}            # prefixo frm_<estilo>_<slot>_ -> cor
+	var sets := {}             # prefixo -> id do conjunto (Ato II: destaque e brilho do nível)
 	for pair in [["head", ItemDef.Slot.HEAD], ["body", ItemDef.Slot.BODY], ["gloves", ItemDef.Slot.GLOVES], ["boots", ItemDef.Slot.BOOTS]]:
 		var it: ItemDef = eq.get(pair[1])
 		if it and it.armor_style != "":
 			shown["frm_%s_%s_" % [it.armor_style, pair[0]]] = it.icon_color
+			sets["frm_%s_%s_" % [it.armor_style, pair[0]]] = it.set_id
 	for mi in _pieces:
 		var vis := false
 		var col := Color.WHITE
+		var sid := ""
 		for prefix in shown:
 			if String(mi.name).begins_with(prefix):
 				vis = true
 				col = shown[prefix]
+				sid = sets[prefix]
 		mi.visible = vis
 		if vis:
+			var acc: Color = GearCatalog.set_accent(sid) if sid != "" else Color(0, 0, 0, 0)     # Ato II: destaque escolhido por nível
+			var glow: Color = GearCatalog.set_glow(sid) if sid != "" else Color(0, 0, 0, 0)
 			for m in _tints.get(mi.name, []):
 				m.set_shader_parameter("albedo", col)
 			for m in _accents.get(mi.name, []):
-				m.set_shader_parameter("albedo", ItemDef.accent(col))
+				m.set_shader_parameter("albedo", Color(acc.r, acc.g, acc.b) if acc.a > 0.0 else ItemDef.accent(col))
+			if glow.a > 0.0:
+				for m in _glows.get(mi.name, []):
+					m.set_shader_parameter("albedo", Color(glow.r, glow.g, glow.b))
 
 ## Nomes das peças de animal de um estilo (testes).
 func pieces_of(style: String) -> Array:

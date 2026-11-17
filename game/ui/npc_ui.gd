@@ -156,6 +156,23 @@ func _relic(body: VBoxContainer) -> void:
 			_relic_set_row(body, sd)
 		for hsd in GameData.hybrid_sets_for(p.class_def, relic_tab, lv):     # híbridos em que a build entra (R7.1)
 			_relic_set_row(body, hsd)
+		var apx: SetDef = GameData.apex_set_for(p.class_def, relic_tab, lv)     # Ápice: só na aba da própria build
+		if apx:
+			_relic_set_row(body, apx)
+		var accs: Array = GameData.legendary_accessory_pool(p.class_def, lv, relic_tab)     # acessórios lendários: fora de conjunto
+		if not accs.is_empty():
+			_relic_acc_row(body, accs, lv)
+
+## Linha dos acessórios lendários da build no nível (Manto, Medalhão, Anel, Sinete; cada um troca à parte).
+func _relic_acc_row(body: VBoxContainer, accs: Array, lv: int) -> void:
+	var cost: int = Sim.relic_cost(GameData.items[accs[0]])
+	body.add_child(UiKit.label("Nível %d — Acessórios lendários · %d moeda%s por peça (não contam no conjunto)" % [lv, cost, "s" if cost > 1 else ""], 14,
+		UiKit.GOLD if Sim.player.level >= lv else Color(1.0, 0.62, 0.5)))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	body.add_child(row)
+	for iid in accs:
+		row.add_child(_relic_cell(GameData.items[iid], cost))
 
 func _set_relic_tab(tab: String) -> void:
 	relic_tab = tab
@@ -169,6 +186,8 @@ func _relic_set_row(body: VBoxContainer, sd: SetDef) -> void:
 	var mix := ""
 	if sd.is_hybrid():
 		mix = " · híbrido %s + %s" % [p.class_def.build_by_id(sd.pair[0]).get("name", ""), p.class_def.build_by_id(sd.pair[1]).get("name", "")]
+	elif sd.is_apex():
+		mix = " · Ápice %s" % p.class_def.build_by_id(sd.apex).get("name", "")
 	body.add_child(UiKit.label("Nível %d — %s%s · %d moeda%s por peça" % [sd.level, sd.name, mix, cost, "s" if cost > 1 else ""], 14, UiKit.GOLD if reach else Color(1.0, 0.62, 0.5)))
 	var ks := sd.bonuses.keys()
 	ks.sort()

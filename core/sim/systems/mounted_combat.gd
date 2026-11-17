@@ -125,7 +125,7 @@ static func arcane_cast(sim: WorldSim, e: SimEntity, s: SkillDef, effects: Dicti
 			continue
 		sim._strike(e, t, s, power, kind, e.position)
 		any_hit = true
-		if t.is_alive() and not (t.monster_def and t.monster_def.is_boss) and t.iframe_left <= 0.0:
+		if t.is_alive() and not (t.monster_def and t.monster_def.resists_cc()) and t.iframe_left <= 0.0:
 			var away: Vector3 = t.position - e.position
 			away.y = 0.0
 			if away.length_squared() > 0.0001:

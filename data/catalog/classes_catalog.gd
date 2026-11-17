@@ -47,7 +47,7 @@ static func build() -> Array:
 					# os 6 primeiros que o nível libera vão na barra do bot: ricochete, aura e provocar sempre entram
 					["pal_holy_strike", "pal_shield_throw", "pal_bastion_aura", "pal_taunt", "pal_lay_hands", "pal_retribution",
 					 "pal_shield_wall", "pal_aegis_slam", "pal_shield_bash", "pal_divine_shield", "pal_blessed_armor"]).merged({
-					"of": "do Guardião", "signature": {"skill": "pal_holy_strike", "look": "holy"}, "legend": {"kind": "thorns", "name": "Retaliação"}}),
+					"of": "do Guardião", "signature": {"skill": "pal_holy_strike", "look": "holy"}, "legend": {"kind": "holy_edge", "name": "Lâmina Justa"}}),
 				_b("cruzado", "Cruzado", "dps", ["sword2h", "mace2h"], [], "plate", "FOR", "WILL", "atk_pct",
 					["pal_holy_strike", "pal_crusader_strike", "pal_twin_slash", "pal_consecrate", "pal_lunge", "pal_hammer_light", "pal_blade_dance",
 					 "pal_holy_wave", "pal_flurry", "pal_zeal", "pal_valor", "pal_judgement_blade", "pal_purge"]).merged({
@@ -62,7 +62,7 @@ static func build() -> Array:
 		_mk({"id": "berserker", "body_type": "male", "hair_color": Color(0.55, 0.2, 0.12), "name": "Berserker", "role": "dps", "color": Color(0.85, 0.3, 0.25),
 			"description": "Fúria pura. Dois machados velozes que bebem o sangue do inimigo, um machado de duas mãos que aguenta o tranco e executa, ou duas garras de monge da fúria: esquiva tudo e devolve cada golpe.",
 			"weapon_types": _s(["axe2h", "axe", "claw"]), "offhand_types": _s(["axe", "claw"]),
-			"base_hp": 125.0, "base_mp": 40.0, "hp_per_level": 14.0, "mp_per_level": 4.0, "move_speed": 5.4,
+			"base_hp": 125.0, "base_mp": 40.0, "hp_per_level": 14.0, "mp_per_level": 5.0, "move_speed": 5.4,
 			"basic_attack_power": 1.25, "basic_attack_cooldown": 0.85, "basic_attack_range": 2.2,
 			"starting_equipment": _s(["axe_old"] + ItemsCatalog.starter_ids("berserker")),
 			"starting_skills": _s(["ber_cleave", "ber_bloodlust"]),

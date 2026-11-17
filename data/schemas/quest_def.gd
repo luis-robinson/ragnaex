@@ -1,7 +1,7 @@
 class_name QuestDef
 extends Resource
 
-enum Type { KILL, COLLECT, TALK, CRAFT, REACH }
+enum Type { KILL, COLLECT, TALK, CRAFT, REACH, DEFEND }     ## DEFEND: levas repelidas no mapa `target_id` com o jogador na defesa (SiegeSystem)
 
 @export var id: String = ""
 @export var title: String = ""
@@ -9,7 +9,7 @@ enum Type { KILL, COLLECT, TALK, CRAFT, REACH }
 @export var giver_npc: String = ""        ## NPC que dá a quest
 @export var turnin_npc: String = ""       ## NPC que recebe (vazio = o mesmo)
 @export var type: Type = Type.KILL
-@export var target_id: String = ""        ## monster_id / item_id / npc_id / item craftado / mapa ou lugar (REACH)
+@export var target_id: String = ""        ## monster_id / item_id / npc_id / item craftado / mapa ou lugar (REACH) / mapa defendido (DEFEND)
 @export var also_counts: Array[String] = [] ## KILL: outros monstros que também contam (ex.: qualquer elfo)
 @export var count: int = 1
 @export var level_req: int = 1

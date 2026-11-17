@@ -40,7 +40,7 @@ const FAMILIES := {
 	# lança (onda 3): estocada = cunha W ao longo do alcance; inner = onde a cunha começa (fração do raio)
 	"spear": {"angle_pad": 0.0, "inner": 0.16, "tilt": 14.0, "height": 0.95, "life": 0.14, "stop_mult": 1.0,
 		"push": 0.18, "glow": 1.25, "band": Color(0.90, 0.92, 0.95),     # #E6EBF2 aço de cinza claro
-		"w_width": 0.34, "w_lean": 6.0},
+		"w_width": 0.5, "w_lean": 6.0},     # meia-largura = metade de Balance.SPEAR_LINE_WIDTH (a faixa real do golpe)
 	# só a cor (garras na onda das duas armas): ferro rosado
 	# machados (onda 2, modelos refeitos): ferro negro INVERTIDO (faixa escura, contorno claro #E0E6F0, miolo forte)
 	"axe": {"angle_pad": 14.0, "inner": 0.26, "tilt": 14.0, "height": 0.60, "life": 0.16, "stop_mult": 1.5,

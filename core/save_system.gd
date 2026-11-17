@@ -7,7 +7,7 @@ const SLOTS := 5
 ## Retrato do card do espaço (`PORTRAIT_PATH % n`): grava o game/menu/portrait.gd (Portrait.path), apaga o delete_slot.
 const PORTRAIT_PATH := "user://portrait_%d.png"
 var slot := 0
-const VERSION := 5      # 2 = portões de progressão e chefes abatidos; 3 = Rei Élfico guarda as Ruínas; 4 = teia de passivos (reembolso); 5 = Ato II: elemental que evolui, teia de ascensão (asc_tree) e barra de 10 (loadout 7-0)
+const VERSION := 6      # 2 = portões de progressão e chefes abatidos; 3 = Rei Élfico guarda as Ruínas; 4 = teia de passivos (reembolso); 5 = Ato II: elemental que evolui, teia de ascensão (asc_tree) e barra de 10 (loadout 7-0); 6 = Ápices: peças dos híbridos que saíram viram as do Ápice (migrate_item_id)
 
 ## Itens de build que saiu do jogo (save antigo): prefixo antigo -> [prefixo novo da peça, prefixo novo da arma]; o resto
 ## do id (nível, peça e o "+N" do aprimoramento) segue junto. Único lugar das migrações de id de item.
@@ -25,6 +25,56 @@ static func migrate_item_id(id: String) -> String:
 		if id.begins_with(old):
 			var weapon := id.get_slice("+", 0).ends_with("_weapon")
 			return str(ITEM_ID_MIGRATIONS[old][1 if weapon else 0]) + id.substr(old.length())
+	if id.contains("_mix_"):
+		return _migrate_hybrid(id)
+	return id
+
+## Save 5 -> 6 (design/gdd/apice-sets.md §6): peça de híbrido que saiu (`leg_<c>_mix_<A>_<B>_<lv>_<resto>`) vira a do Ápice.
+## Armadura -> Ápice de A (sem Ápice: de B). Arma/mão secundária da build X -> a do Ápice de X; sem Ápice, a mesma arma no
+## híbrido que ficou (P3/Bi3). Híbrido que ficou e id desconhecido: igual. O "+N" segue junto.
+static func _migrate_hybrid(id: String) -> String:
+	var core_id := id.get_slice("+", 0)
+	var plus := id.substr(core_id.length())
+	if GameData.items.has(core_id):
+		return id
+	var head := core_id.split("_mix_", true, 1)
+	var cid := head[0].trim_prefix("leg_")
+	var cls: ClassDef = GameData.classes.get(cid)
+	if cls == null or head.size() < 2:
+		return id
+	var toks := head[1].split("_")
+	var li := -1
+	for i in range(toks.size()):
+		if toks[i].is_valid_int():
+			li = i
+			break
+	if li < 1:
+		return id
+	var pair_s := "_".join(toks.slice(0, li))
+	var lv := int(toks[li])
+	var rest := "_".join(toks.slice(li + 1))
+	var a := ""
+	var b := ""
+	for bd in cls.builds:
+		var bid: String = bd["id"]
+		if pair_s.begins_with(bid + "_") and not cls.build_by_id(pair_s.trim_prefix(bid + "_")).is_empty():
+			a = bid
+			b = pair_s.trim_prefix(bid + "_")
+	if a == "":
+		return id
+	if rest in GearCatalog.PIECES:          # armadura
+		var to := a if GearCatalog.APEX.has(a) else b
+		return "leg_%s_apex_%s_%d_%s%s" % [cid, to, lv, rest, plus]
+	for bd in cls.builds:                   # arma ou mão secundária da build X: "<X>_weapon" / "<X>_offhand"
+		var x: String = bd["id"]
+		for kind in ["weapon", "offhand"]:
+			if rest != "%s_%s" % [x, kind]:
+				continue
+			if GearCatalog.APEX.has(x):
+				return "leg_%s_apex_%s_%d_%s%s" % [cid, x, lv, kind, plus]
+			for pair in GearCatalog.hybrid_pairs(cls):
+				if x in pair:
+					return "leg_%s_mix_%s_%s_%d_%s_%s%s" % [cid, pair[0], pair[1], lv, x, kind, plus]
 	return id
 
 ## Pontos de skill ganhos até um nível (o que a árvore devolve quando é refeita).

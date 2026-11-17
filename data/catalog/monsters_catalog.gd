@@ -623,16 +623,18 @@ const KHARZUN_BANNERS := ["banner_wolf", "banner_stone", "banner_forge"]
 static func _kharzun_bosses() -> Array:
 	var H := "horde"
 	return [
-		# ---- Presa-de-Cinza, a Mãe-Loba (Canil, 41; chefe de CAMPO: dá para solar) ----
-		# hp 0,6 -> 1,85 (2026-11-16): com 0,6 o grupo de 4-5 do 41 a derrubava em ~10 s (pares da faixa 30-50 s). 2,0 tirava o solo da
-		# faixa campo (57%); 1,85 = solo 70%, grupo --asc 25-28 s (o teto do campo: mais vida pede virar chefe de grupo)
-		{"id": "boss_dire_mother", "name": "Presa-de-Cinza, a Mãe-Loba", "level": 41, "stat_role": "chefe", "unit_mods": {"hp": 1.85, "atk": 0.7},
-		 "move_speed": 5.6, "attack_range": 2.6, "attack_cooldown": 1.2, "attack_startup": 0.35, "xp": 2600, "aggro_range": 12.0, "leash_range": 28.0,
-		 "radius": 0.9, "scale": 1.7, "color": Color(0.42, 0.4, 0.4), "shape": "box", "is_boss": true, "loot_table": "lt_dire_mother", "gold_min": 260, "gold_max": 420, "model": "mob_dire_mother",
-		 "skill_ids": ["mob_dire_leap", "mob_dire_bite"] as Array[String], "coin_chance": 1.0, "coin_min": 2, "coin_max": 4,
+		# ---- Presa-de-Cinza, a Mãe-Loba (Canil, 41; chefe de GRUPO desde 2026-11-17) ----
+		# hp 0,6 -> 1,85 (2026-11-16): com 0,6 o grupo de 4-5 do 41 a derrubava em ~10 s (pares da faixa 30-50 s).
+		# 2026-11-17 (decisão do autor): virou chefe de grupo como Ghar/Troll Rei: 3 fases, ward das Crias, berserk 120 s, prêmio do Ghar.
+		# Faixa grupo (40 lutas): atk 0,7 -> 1,1 e golpe a cada 1,0 s (era 1,2; act 33 -> 43%): solo 38%, trio 80% em 49 s
+		{"id": "boss_dire_mother", "name": "Presa-de-Cinza, a Mãe-Loba", "level": 41, "stat_role": "chefe", "unit_mods": {"hp": 1.85, "atk": 1.1},
+		 "move_speed": 5.6, "attack_range": 2.6, "attack_cooldown": 1.0, "attack_startup": 0.35, "xp": 5800, "aggro_range": 12.0, "leash_range": 28.0,
+		 "radius": 0.9, "scale": 1.7, "color": Color(0.42, 0.4, 0.4), "shape": "box", "is_boss": true, "berserk_after": 120, "loot_table": "lt_dire_mother", "gold_min": 480, "gold_max": 760, "model": "mob_dire_mother",
+		 "skill_ids": ["mob_dire_leap", "mob_dire_bite"] as Array[String], "coin_chance": 1.0, "coin_min": 6, "coin_max": 9,
 		 "intro": "(a loba cinzenta arreganha os dentes e o canil inteiro uiva junto)", "last_words": "(um último uivo, longo, para a montanha)",
-		 "phases": [{"hp": 0.6, "say": "(Presa-de-Cinza uiva: a matilha responde!)", "skills": ["mob_dire_howl", "mob_dire_pounce"], "summon": {"id": "dire_pup", "count": 2, "max": 3}},
-			{"hp": 0.3, "say": "(a Mãe-Loba se eriça, os olhos em brasa)", "enrage": 1.3}]},
+		 "phases": [{"hp": 0.7, "say": "(Presa-de-Cinza uiva: a matilha responde!)", "skills": ["mob_dire_howl", "mob_dire_pounce"], "summon": {"id": "dire_pup", "count": 2, "max": 3}},
+			{"hp": 0.4, "say": "(as Crias cercam a mãe, rosnando)", "ward": 0.5, "summon": {"id": "dire_pup", "count": 2, "max": 3, "pick": "soft"}},
+			{"hp": 0.15, "say": "(a Mãe-Loba se eriça, os olhos em brasa)", "enrage": 1.3}]},
 		# ---- Mestre Matador Shazka (dg_slayers, 43): protege quem cura ----
 		{"id": "boss_shazka", "name": "Mestre Matador Shazka", "level": 43, "stat_role": "chefe", "unit_mods": {"hp": 1.8, "atk": 0.95}, "faction": H,
 		 "move_speed": 5.4, "attack_range": 2.4, "attack_cooldown": 1.0, "attack_startup": 0.3, "xp": 6400, "aggro_range": 12.0, "leash_range": 30.0,

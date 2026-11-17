@@ -60,7 +60,7 @@ static func build() -> Array:
 ## Cristais de retorno (role "crystal", modelo prop_crystal): vincular = G e renascer ali. Posição (x, z) na praça.
 ## Quest que vincula o jogador ao cristal do mapa ao ser concluída (Ato II: morrer não manda de volta a Aldara).
 const QUEST_BIND := {"hx_crossing": "city_port"}
-const CRYSTALS := {"city_aldara": [-7.5, 0.0], "field_forest": [-5.5, -5.5], "field_ruins": [25.6, 4.6], "city_port": [6.5, 13.0], "field_steppe": [-6.9, 4.0], "field_kharzun": [-12.79, 5.69]}
+const CRYSTALS := {"city_aldara": [-10.6, 4.6], "field_forest": [-5.5, -5.5], "field_ruins": [25.6, 4.6], "city_port": [6.5, 13.0], "field_steppe": [-6.9, 4.0], "field_kharzun": [-12.79, 5.69]}
 const CRYSTAL_LINES := ["Uma pedra azul que zumbe baixinho. Toque para lembrar deste lugar.", "Os viajantes juram que o cristal os puxa de volta para casa."]
 
 static func crystal_npc(map_id: String) -> Array:
@@ -106,8 +106,8 @@ const VICTORY_QUEST := "dw_lich"
 const ACT_END_QUEST := "dw_epilogue"      # entregar ao Ancião Ravi = fim do Ato I (tela de encerramento do HUD)
 const FESTIVAL := {
 	"city_aldara": {
-		"fest_bard": ["Bardo Fennel, o Moço", "villager", Color(0.55, 0.8, 0.45), ["♪ E o Lich caiu, caiu, caiu... e Aldara cantou! ♪", "Estou compondo a sua canção. Rima com \"Azhar\"? Só \"jantar\"."], -7.0, -2.0, 3.0],
-		"fest_dancer_a": ["Dançarina Mel", "villager", Color(0.95, 0.55, 0.6), ["Dança comigo! Hoje ninguém fica parado na praça!", "Três dias de festa, foi o que o Ancião prometeu."], 7.0, -2.0, 4.0],
+		"fest_bard": ["Bardo Fennel, o Moço", "villager", Color(0.55, 0.8, 0.45), ["♪ E o Lich caiu, caiu, caiu... e Aldara cantou! ♪", "Estou compondo a sua canção. Rima com \"Azhar\"? Só \"jantar\"."], -9.8, -1.4, 3.0],
+		"fest_dancer_a": ["Dançarina Mel", "villager", Color(0.95, 0.55, 0.6), ["Dança comigo! Hoje ninguém fica parado na praça!", "Três dias de festa, foi o que o Ancião prometeu."], 9.8, -1.4, 4.0],
 		"fest_dancer_b": ["Tico Saltitante", "villager", Color(0.95, 0.8, 0.35), ["A noite acabou! A NOITE ACABOU!", "Eu sempre soube que você ia voltar."], -3.0, 8.0, 4.0],
 		"fest_brewer": ["Mestre Cervejeiro Duda", "villager", Color(0.7, 0.5, 0.3), ["Cerveja por conta da casa para o herói da Aurora!", "Barril novo, aberto em sua honra."], 3.0, 8.0, 2.0],
 	},
@@ -364,6 +364,8 @@ static func villagers(table: Dictionary = VILLAGERS) -> Array:
 		d["look_seed"] = seed
 		if v.size() > 5:                  # modelo próprio (cidadão élfico): sem o kit humano
 			d["model"] = v[5]
+		for k in VILLAGER_EXTRAS.get(vid, {}):       # pregão / carga de quem trabalha na feira
+			d[k] = VILLAGER_EXTRAS[vid][k]
 		seed += 7
 		out.append(d)
 	return out
@@ -459,7 +461,7 @@ const GATHER := {
 	# Cidade Élfica: ervas na margem do lago, cogumelos sob o bosque dos trents, pedra-estrela no Altar da Lua
 	# e caixotes de Aço Élfico no acampamento da patrulha (guardados pelos guerreiros)
 	# Porto Esperança: conchas na areia ao lado do cais
-	"city_port": [["crab_shell", "shell", [16.0, 60.0], 5.0, 3]],
+	"city_port": [["crab_shell", "shell", [16.0, 60.0], 5.0, 3], ["palisade_log", "crate", [-33.0, 62.0], 6.0, 6]],      # toras do estaleiro (hx_df_logs)
 	# Costa Partida: conchas na praia, erva azul no mangue, ferro nas falésias
 	"field_coast": [["crab_shell", "shell", [-4.0, 64.0], 10.0, 5], ["herb_blue", "herb_blue", [-78.0, 2.0], 10.0, 4], ["iron_ore", "ore", [-10.0, -70.0], 10.0, 4]],
 	# Estepes de Cinza: ferro nas duas pontas do norte, erva azul no capim e as presas do Cemitério dos Mamutes (entre os trolls do sudoeste)
@@ -478,6 +480,10 @@ const GATHER := {
 
 ## Bichos de ambiente (só apresentação, game/world/ambient_life.gd): por mapa, [tipo, centro [x, z], raio, quantos].
 const AMBIENT_LIFE := {
+	# Vale de Aldara: galinhas no cercado do celeiro e na fazenda, corvos no trigal (GDD living-towns R5)
+	# Posto dos Caçadores: corvos sobre a paliçada e mariposas na luz da Fogueira Comunal
+	"field_forest": [["crow", [-5.0, 0.0], 18.0, 4], ["moth", [-5.0, 0.0], 5.0, 7]],
+	"city_aldara": [["hen", [-15.65, 18.98], 2.0, 4], ["hen", [-63.0, 70.0], 5.0, 5], ["crow", [-70.0, 76.0], 9.0, 3]],
 	"city_port": [["gull", [0.0, 58.0], 16.0, 6], ["gull", [0.0, 10.0], 24.0, 3], ["crab", [16.0, 62.0], 6.0, 4], ["crab", [-18.0, 60.0], 5.0, 3]],
 	"field_coast": [["gull", [-10.0, 72.0], 24.0, 6], ["gull", [50.0, 62.0], 14.0, 4], ["gull", [-82.0, 30.0], 16.0, 3], ["crab", [16.0, 72.0], 10.0, 5],
 		["crab", [-70.0, 52.0], 7.0, 3], ["crab", [-14.0, 76.0], 8.0, 4], ["crow", [70.0, -55.0], 10.0, 3]],
@@ -627,7 +633,7 @@ const ALDARA_NPCS := {
 	"merchant": ["Mercador Tobias", "merchant", Color(0.9, 0.8, 0.5), ["Poções, elixires e um bom preço pelo que você trouxe das caçadas."]],
 	"relic": ["Iara, a Relicária", "relic", Color(0.95, 0.6, 0.25), ["Moedas lendárias? Eu forjo a peça que você escolher.", "Nível 5 custa 1 moeda, nível 10 custa 2, e assim por diante."]],
 	"storage": ["Guarda-volumes Nilo", "storage", Color(0.45, 0.6, 0.75), ["Deixe aqui o que não cabe na bolsa. Fica tudo guardado, até você voltar.", "Cada personagem tem o seu depósito. Ninguém mexe."]],
-	"board": ["Quadro de Avisos", "board", Color(0.6, 0.45, 0.3), ["Procura-se: aventureiros para a Campina (1-10), Floresta (10-20) e Ruínas (20-30).", "Dica: maestria sobe gastando pontos na árvore (tecla K)."]],
+	"board": ["Quadro de Avisos", "board", Color(0.6, 0.45, 0.3), ["Procura-se: aventureiros para a Campina (1-10), Floresta (10-20) e Ruínas (20-30).", "Dica: maestria sobe gastando pontos na árvore (tecla K).", "Feira do Trigo na praça todos os dias. A Estátua do Fundador fica no pátio do portão norte."]],
 	"guard_s": ["Guarda", "guard", Color(0.6, 0.6, 0.75), ["O portão sul leva ao lago dos slimes. Monstros fracos, bons para começar."]],
 	"guard_e": ["Guarda", "guard", Color(0.6, 0.6, 0.75), ["Estrada leste: bosque dos javalis e, no fim do vale, o desfiladeiro da Floresta (nível 10+)."]],
 	"guard_w": ["Guarda", "guard", Color(0.6, 0.6, 0.75), ["Oeste: a ponte do rio, a clareira do Rei Javali e a passagem para as Ruínas (nível 20+)."]],
@@ -639,15 +645,21 @@ const ALDARA_NPCS := {
 const VILLAGERS := {
 	"vil_farmer": ["Lavrador Beto", Color(0.62, 0.5, 0.3), ["O trigo vai bem este ano. Os slimes azuis é que comem as cenouras.", "Se for à fazenda, diga ao Ferdinando que eu mandei lembranças."], [-66.5, 67.0], 5.0],
 	"vil_fisher": ["Pescadora Nalu", Color(0.4, 0.6, 0.75), ["Os caranguejos tomaram a praia sul do lago. Dizem que tem um enorme lá no fundo.", "Peixe bom aqui só no píer. O resto é pinça."], [8.5, 68.5], 2.5],
-	"vil_kid_a": ["Pipo", Color(0.95, 0.75, 0.35), ["Quando eu crescer vou caçar o Rei Javali!", "Você já viu o castelo da colina por dentro? Eu não."], [-5.0, -4.0], 9.0],
-	"vil_kid_b": ["Lia", Color(0.9, 0.5, 0.65), ["Pega-pega! Você tá com ele!", "Minha mãe disse para eu não passar do portão."], [5.0, 3.0], 9.0],
-	"vil_couple_a": ["Dona Celeste", Color(0.75, 0.55, 0.8), ["Cinquenta anos de casados e ele ainda me traz flores do lago.", "Que dia bonito na praça."], [0.0, 6.0], 3.0],
-	"vil_couple_b": ["Seu Augusto", Color(0.5, 0.45, 0.4), ["As flores do lago? Ah... eu compro do mercador. Não conte a ela.", "No meu tempo os slimes eram menores."], [1.5, 6.5], 3.0],
-	"vil_baker": ["Padeira Rosa", Color(0.95, 0.85, 0.6), ["Pão quentinho para quem volta da caça!", "Farinha da fazenda, mel da floresta. Simples e bom."], [11.0, 6.0], 5.0],
+	"vil_kid_a": ["Pipo", Color(0.95, 0.75, 0.35), ["Quando eu crescer vou caçar o Rei Javali!", "Você já viu o castelo da colina por dentro? Eu não."], [-4.0, -11.0], 9.0],
+	"vil_kid_b": ["Lia", Color(0.9, 0.5, 0.65), ["Pega-pega! Você tá com ele!", "Minha mãe disse para eu não passar do portão."], [9.5, 6.5], 9.0],
+	"vil_couple_a": ["Dona Celeste", Color(0.75, 0.55, 0.8), ["Cinquenta anos de casados e ele ainda me traz flores do lago.", "Que dia bonito na praça."], [4.6, -22.0], 2.0],
+	"vil_couple_b": ["Seu Augusto", Color(0.5, 0.45, 0.4), ["As flores do lago? Ah... eu compro do mercador. Não conte a ela.", "No meu tempo os slimes eram menores."], [9.0, -22.2], 2.0],
+	"vil_baker": ["Padeira Rosa", Color(0.95, 0.85, 0.6), ["Pão quentinho para quem volta da caça!", "Farinha da fazenda, mel da floresta. Simples e bom."], [5.68, 2.35], {"facing": 67.5}],
 	"vil_bard": ["Bardo Fennel", Color(0.55, 0.75, 0.45), ["♪ Lá na Campina o javali corria... ♪", "Toda canção precisa de um herói. Está procurando trabalho?"], [-11.0, 6.0], 6.0],
 	"vil_monk": ["Irmão Odo", Color(0.85, 0.8, 0.7), ["Que a luz guie seus passos pela Campina.", "Os mortos das Ruínas não descansam. Reze por eles."], [7.0, -9.0], 5.0],
-	"vil_porter": ["Carregador Juca", Color(0.6, 0.45, 0.35), ["Caixas para o mercador, caixas para o ferreiro... minhas costas!", "Se vir o Tobias, diga que a carga atrasou."], [2.5, 12.0], [[2.5, 12.0], [-8.0, 13.0], [-14.0, -12.0], [14.0, -14.0]]],
-	"vil_patrol": ["Guarda de Ronda", Color(0.6, 0.6, 0.75), ["Ronda tranquila. Os monstros não passam do muro.", "Mantenha a arma na bainha dentro da vila."], [0.0, -19.0], [[0.0, -19.0], [19.0, 2.0], [2.0, 19.0], [-19.0, -2.0]]],
+	"vil_porter": ["Carregador Juca", Color(0.6, 0.45, 0.35), ["Caixas para o mercador, caixas para o ferreiro... minhas costas!", "Se vir o Tobias, diga que a carga atrasou."], [-6.0, 18.2], [[-6.0, 18.2], [-3.6, 8.7], [-6.8, 6.8], [-8.7, 3.6], [-6.8, 6.8], [-3.6, 8.7]]],
+	"vil_patrol": ["Guarda de Ronda", Color(0.6, 0.6, 0.75), ["Ronda tranquila. Os monstros não passam do muro.", "Mantenha a arma na bainha dentro da vila."], [0.0, -19.0], [[0.0, -19.0], [13.4, -13.4], [19.0, 0.0], [13.4, 13.4], [0.0, 19.0], [-13.4, 13.4], [-19.0, 0.0], [-13.4, -13.4]]],      # ronda pela rua do anel (8 pontos: a corda entre eles fica na rua)
+}
+## Extras dos moradores de Aldara que trabalham na Feira do Trigo (GDD living-towns R1/R2): a Padeira fica na banca dela
+## (pregão) e o Carregador leva os sacos da carroça do celeiro às bancas.
+const VILLAGER_EXTRAS := {
+	"vil_baker": {"barks": ["Pão quentinho!", "Saiu do forno agora!", "Leva um pra viagem!"]},
+	"vil_porter": {"carry": "carry_sack", "barks": ["Saco de farinha passando!", "Ai, minhas costas...", "Mais um pra banca da Rosa!"]},
 }
 ## Cidadãos da Cidade Élfica (neutros: não atacam nem são alvo): [nome, cor da roupa, falas, casa [x,z], passeio m | rota, modelo].
 const ELF_CITIZENS := {
@@ -834,29 +846,102 @@ const COAST_NPCS := {
 	"coast_pearl_diver": ["Naia, a Mergulhadora", "villager", Color(0.35, 0.65, 0.75), ["Sem a Mãe das Marés, o recife é só ostra e silêncio.", "Uma pérola por mergulho, se a maré deixar."], -4.0, 56.0, 3.0, "hx_pe_mother"],
 	"goblin_drummer": ["Tum-Tum, o Tamborileiro", "villager", Color(0.5, 0.72, 0.38), ["Bum, bum! Tambor de feira! Ninguém briga, todo mundo compra!", "Antes Tum-Tum tocava para guerra. Agora toca para a Nikki."], -83.0, 22.0, 0.0, "hx_nk_drum"],
 }
-## Investida dos ginetes sobre o porto (rotas no JSON: cerco = C0, muralha = C1, patrulha = C3). Intervalo 240 s ±20%.
+## Cerco Vivo do porto (design/gdd/act2-siege-life.md; rotas no JSON). Quem solta as levas é o SiegeSystem (SIEGE["city_port"]):
+## uma por vez, revezando os lados; trecho aberto = a brecha dele (cerco_<id>), fechado = o portão (muralha); depois do
+## Acampamento dos Ginetes só a patrulha rara. Cadência "Intenso": leva a cada 90 s ±20% (x Balance.SIEGE_EVERY_MULT da pressão).
+## Leva: ginetes e lanceiros na frente, um Saqueador (rede e bote) de líder e um Arqueiro Orc atrás; a grande traz empaladores.
+const PORT_WAVE := [{"mobs": {"wolf_rider": 3, "goblin_lancer": 2, "orc_archer": 1, "wolf_raider": 1}}, {"mobs": {"goblin_impaler": 2}, "every_nth": 3}]
 const PORT_RAIDS := {
-	"cerco": {"every": 240.0, "first": 90.0, "jitter": 48.0, "lifetime": 200.0,
-		"waves": [{"mobs": {"wolf_rider": 3, "goblin_lancer": 3}}, {"mobs": {"wolf_raider": 1}, "every_nth": 3}],
-		"say_start": "Uivos na garganta nordeste: os ginetes descem contra Porto Esperança!",
-		"say_arrived": "Os ginetes passaram pelos vãos da paliçada! Defendam a praça!",
-		"say_repelled": "Os ginetes foram rechaçados. A colônia resiste!",
+	"cerco_ne": {"every": 90.0, "jitter": 18.0, "lifetime": 200.0, "waves": PORT_WAVE,
+		"say_start": "Uivos na garganta nordeste: os ginetes descem para o Vão da Garganta!",
+		"say_arrived": "Os ginetes entraram pelo Vão da Garganta! Segurem a brecha!",
+		"say_repelled": "Os ginetes foram rechaçados no Vão da Garganta. A colônia resiste!",
 		"say_retreat": "Os ginetes que sobraram somem morro acima."},
-	"muralha": {"every": 240.0, "first": 90.0, "jitter": 48.0, "lifetime": 200.0,
-		"waves": [{"mobs": {"wolf_rider": 5, "goblin_lancer": 4, "wolf_raider": 1}}],
-		"say_start": "Tambores e uivos: uma investida maior desce contra a paliçada nova!",
+	"cerco_e": {"every": 90.0, "jitter": 18.0, "lifetime": 200.0, "waves": PORT_WAVE,
+		"say_start": "Poeira na trilha do farolete: os ginetes rodeiam para o trecho leste!",
+		"say_arrived": "Os ginetes entraram pelo trecho leste da paliçada! Segurem a brecha!",
+		"say_repelled": "O trecho leste segurou. A colônia resiste!",
+		"say_retreat": "Os ginetes largam o trecho leste e somem no morro."},
+	"cerco_n": {"every": 90.0, "jitter": 18.0, "lifetime": 200.0, "waves": PORT_WAVE,
+		"say_start": "Uivos ao norte: os ginetes vêm para o vão ao lado do portão!",
+		"say_arrived": "Os ginetes entraram pelo vão do portão norte! Segurem a brecha!",
+		"say_repelled": "O vão do portão norte segurou. A colônia resiste!",
+		"say_retreat": "Os ginetes recuam do portão norte."},
+	"muralha": {"every": 90.0, "jitter": 18.0, "lifetime": 200.0,
+		"waves": [{"mobs": {"wolf_rider": 3, "goblin_lancer": 3, "orc_archer": 1, "wolf_raider": 1}}, {"mobs": {"goblin_impaler": 2}, "every_nth": 3}],
+		"say_start": "Tambores e uivos: os ginetes descem contra o portão norte!",
 		"say_arrived": "Os ginetes batem no portão norte! A paliçada segura!",
 		"say_repelled": "A investida quebrou no portão norte!",
 		"say_retreat": "Os ginetes recuam da paliçada."},
-	"patrulha": {"every": 240.0, "first": 120.0, "jitter": 48.0, "lifetime": 160.0,
+	"patrulha": {"every": 300.0, "jitter": 60.0, "lifetime": 160.0,
 		"waves": [{"mobs": {"wolf_rider": 3}}],
 		"say_start": "Uma patrulha de ginetes ronda o portão norte.",
 		"say_arrived": "A patrulha de ginetes chegou ao portão norte.",
 		"say_repelled": "A patrulha de ginetes foi espantada.",
 		"say_retreat": "A patrulha volta para o morro."},
+	"assedio": {"kind": "harass"},
 }
+## Cerco por mapa (MapDef.siege, SiegeSystem). `segments` = trechos da paliçada (ids/quests = build_city_port.SEGMENTS; há check):
+## fecha com a quest dele ou com `close_all`. `pressure` = 1ª linha que vale (3 Fúria, 2 Cerco, 1 Fustigar, 0 Paz).
+const Q_STAKES := "hx_stakes"
+const Q_DF_LOGS := "hx_df_logs"
+const Q_DF_TOWER := "hx_df_tower"
+const SIEGE := {
+	"city_port": {
+		"segments": [{"id": "ne", "quest": Q_STAKES, "label": "Vão da Garganta", "route": "cerco_ne"},
+			{"id": "e", "quest": Q_DF_LOGS, "label": "Trecho do Farolete", "route": "cerco_e"},
+			{"id": "n", "quest": Q_DF_TOWER, "label": "Vão do Portão Norte", "route": "cerco_n"}],
+		"close_all": Q_PALISADE, "gate_route": "muralha", "low_route": "patrulha", "harass_route": "assedio", "harass_mob": "orc_archer",
+		"pressure": [{"p": 0, "if": "hx_warlord"}, {"p": 1, "if": Q_RIDERS}, {"p": 3, "if": "hx_banners"}, {"p": 2}],
+		"say_harass": "Flechas de fogo da crista nordeste! Saiam dos círculos!",
+		"say_horn": "Uma trompa soa na estrada: os batedores chamaram a próxima leva!",
+		"say_scorch": "Os ginetes puseram fogo nas casas! Repilam a próxima leva para apagar as chamas."},
+}
+
+## Condição (`if`) de um posto de besteiros do muro novo: o trecho dele fechado, ou a paliçada inteira (torres do portão).
+static func port_wall_cond(nid: String) -> String:
+	for seg in SIEGE["city_port"]["segments"]:
+		if nid.begins_with("port_w_%s_" % seg["id"]):
+			return "%s|%s" % [seg["quest"], Q_PALISADE]
+	return Q_PALISADE
+
+## Peças do GLB trocadas por trecho: `pal_<id>_obra` (andaime e toras) até fechar, `pal_<id>_pronta` (estacas, tochas, torre) depois.
+static func siege_conquest_vis(map_id: String) -> Array:
+	var out: Array = []
+	var cfg: Dictionary = SIEGE.get(map_id, {})
+	for seg in cfg.get("segments", []):
+		var cond := "%s|%s" % [seg["quest"], cfg["close_all"]]
+		out.append_array([{"tag": "pal_%s_obra" % seg["id"], "unless": cond}, {"tag": "pal_%s_pronta" % seg["id"], "if": cond}])
+	return out
+
+## Cenário de guerra do porto (act2_dress.port_siege): enfermaria (fica), feridos e refugiados (somem com a vitória), formato de LIVING_NPCS.
+const PORT_SIEGE_NPCS := {
+	"port_wounded_a": ["Soldado Ferido", Color(0.7, 0.66, 0.6), ["Flecha goblin no ombro. A Salete diz que eu volto pro muro em uma semana.", "Segurei o vão até o braço não levantar mais."],
+		["Ai...", "Água, por favor.", "Eles vêm de novo?"], [28.4, 13.2], 0.0, {"stay": true, "facing": 200.0}],
+	"port_wounded_b": ["Carpinteiro Ferido", Color(0.66, 0.5, 0.36), ["O andaime caiu comigo em cima quando os lobos passaram.", "Diga ao Bruno que eu ainda sei segurar um martelo."],
+		["Minha perna...", "Fecharam o vão?", "Uf."], [26.6, 12.8], 0.0, {"stay": true, "facing": 180.0, "unless": Q_PALISADE}],
+	"port_wounded_c": ["Colona Queimada", Color(0.8, 0.62, 0.5), ["Minha casa era a do telhado verde. Agora é cinza.", "Tirei o Chico pela janela. O resto ficou."],
+		["Ainda sinto a fumaça.", "Obrigada, Salete.", "Minha casa..."], [24.9, 12.4], 0.0, {"stay": true, "facing": 160.0, "unless": Q_PALISADE}],
+	"port_refugee_a": ["Viúva do Gaivota", Color(0.6, 0.56, 0.62), ["O Gaivota afundou com tudo o que a gente tinha. Sobrou a roupa do corpo e esta panela.", "A Governadora prometeu casa quando o muro fechar."],
+		["Tem sopa, se quiser.", "Menino, sai de perto do muro!", "Ainda bem que tem fogo."], [15.6, 47.6], 0.0, {"stay": true, "facing": 100.0, "unless": Q_RIDERS}],
+	"port_refugee_b": ["Marujo do Gaivota", Color(0.42, 0.52, 0.66), ["Nadei até a praia com um barril debaixo do braço. O barril era de rum, ao menos.", "Quando os ginetes sumirem do morro eu volto pro mar."],
+		["Frio de rachar.", "Ouviu a trompa?", "Barco bom, o Gaivota."], [18.6, 47.4], 0.0, {"stay": true, "facing": 260.0, "unless": Q_RIDERS}],
+	"port_refugee_c": ["Velha Benta", Color(0.72, 0.66, 0.58), ["Já fugi de guerra duas vezes. Na terceira eu fico sentada.", "Lobo com goblin em cima. No meu tempo lobo andava sozinho."],
+		["Hmpf.", "Passa esse cobertor.", "De novo essas trompas."], [17.2, 44.8], 0.0, {"stay": true, "facing": 0.0, "unless": Q_RIDERS}],
+	"port_refugee_d": ["Menino do Gaivota", Color(0.9, 0.74, 0.44), ["Eu carrego as trouxas do cais pra tenda. Um dia eu carrego uma espada.", "Minha mãe diz que a gente vai morar dentro do muro."],
+		["Deixa que eu levo!", "Pesado...", "Eu vi os lobos!"], [19.5, 48.6], [[19.5, 48.6], [10.0, 50.5], [3.5, 52.5], [10.0, 50.5]], {"carry": "carry_sack", "unless": Q_RIDERS}],
+	# depois do Acampamento dos Ginetes: dois refugiados viram moradores
+	"port_settler_a": ["Viúva do Gaivota", Color(0.6, 0.56, 0.62), ["Casa com telhado! Nunca achei que ia chorar por um telhado.", "Os ginetes sumiram do morro. Dá até pra ouvir o mar de novo."],
+		["Bom dia!", "Varrendo, varrendo...", "Que sossego."], [-7.0, 26.0], 3.0, {"if": Q_RIDERS}],
+	"port_settler_b": ["Marujo do Gaivota", Color(0.42, 0.52, 0.66), ["Fiquei em terra. A Dora diz que marujo em terra cria raiz e barriga.", "Ajudo no cais. O mar fica ali, me esperando."],
+		["Ê, vida boa.", "Alguém viu o Leo?", "Hoje não tem trompa."], [9.0, -5.0], 3.0, {"if": Q_RIDERS}],
+}
+## Curandeira da enfermaria (serviço: poções e elixires): [nome, cor, falas, x, z, virada°].
+const PORT_HEALER := ["Curandeira Salete", Color(0.92, 0.9, 0.84), ["Mordida de lobo eu costuro. Flecha de fogo eu só enfaixo e rezo.", "Leve poção. Quem volta inteiro do muro me poupa atadura."], 22.9, 13.7, 255.0]
+const HEALER_SHOP := ["potion_hp_s", "potion_mp_s", "potion_hp_m", "potion_mp_m", "elixir_stone"]
+
 ## Peças do GLB que mudam com o estágio (MapBuilder.apply_conquest).
-const PORT_CONQUEST_VIS := [{"tag": "palicada_nova", "if": Q_PALISADE}, {"tag": "andaime", "unless": Q_PALISADE},
+const PORT_CONQUEST_VIS := [{"tag": "casa_nova", "if": Q_PALISADE}, {"tag": "casa_queimada", "unless": Q_PALISADE}, {"tag": "refugiados", "unless": Q_RIDERS},
 	{"tag": "farolete_luz", "if": Q_LIGHTHOUSE}, {"tag": "farolete_apagado", "unless": Q_LIGHTHOUSE}, {"tag": "navio2_", "if": Q_LIGHTHOUSE}]
 const COAST_CONQUEST_VIS := [{"tag": "farol_luz", "if": Q_LIGHTHOUSE}, {"tag": "farol_apagado", "unless": Q_LIGHTHOUSE},
 	{"tag": "passo_estepes_fechado", "unless": Q_GOBLIN_BOSS}, {"tag": "passo_estepes_aberto", "if": Q_GOBLIN_BOSS}]     # C4: passagem das Estepes
@@ -937,6 +1022,39 @@ const PIER_REACH := 2.0
 ## (pescador no cais: a sim é plana e o cais é só visual, então o posto fica fora da água andável e o boneco sobe ao tabuleiro).
 ## Postos dos pescadores = varas de `act2_dress.port/coast` (fishing_pole): atrás do cabo, olhando para a água.
 const LIVING_NPCS := {
+	# Floresta Sombria (GDD living-towns R8): lenhadores trazem toras da mata do oeste até a forja do Posto e o caçador volta
+	# da estrada sul com as peles para o mercado (pontos das estradas do JSON; `flow` + paradas [x, z, s] nas pontas).
+	"field_forest": {
+		"post_logger_a": ["Lenhador Otto", Color(0.56, 0.42, 0.3), ["Tora pra paliçada, tora pra forja, tora pra fogueira da Bia. A mata dá, mas cobra.", "Do lado de lá do rio eu não corto. Lá as árvores andam."],
+			["Tora passando!", "Uf... essa pesa.", "Abre o portão oeste!"], [-60.72, 2.36], [[-60.72, 2.36, 12], [-58.57, -0.2], [-56.43, -2.14], [-54, -3], [-51, -2.29], [-47.89, -0.27], [-44.8, 2.36], [-41.86, 4.9], [-39.19, 6.65], [-36.35, 6.89], [-33.65, 5.19], [-31.37, 2.5], [-29, 0], [-22, 0], [-15.5, -2.6, 10], [-22, 0], [-29, 0], [-31.37, 2.5], [-33.65, 5.19], [-36.35, 6.89], [-39.19, 6.65], [-41.86, 4.9], [-44.8, 2.36], [-47.89, -0.27], [-51, -2.29], [-54, -3], [-56.43, -2.14], [-58.57, -0.2]], {"carry": "carry_log", "flow": true}],
+		"post_logger_b": ["Lenhadora Ilda", Color(0.5, 0.46, 0.34), ["O Otto corta, eu carrego. Depois a gente troca. Ele nunca lembra de trocar.", "Aranha em tronco oco é o que mais tem. Eu bato antes de pegar."],
+			["Mais uma pra forja!", "Cuidado com o pé!", "Lenha seca, lenha boa."], [-15.5, -2.6], [[-15.5, -2.6, 10], [-22, 0], [-29, 0], [-31.37, 2.5], [-33.65, 5.19], [-36.35, 6.89], [-39.19, 6.65], [-41.86, 4.9], [-44.8, 2.36], [-47.89, -0.27], [-51, -2.29], [-54, -3], [-56.43, -2.14], [-58.57, -0.2], [-60.72, 2.36, 12], [-58.57, -0.2], [-56.43, -2.14], [-54, -3], [-51, -2.29], [-47.89, -0.27], [-44.8, 2.36], [-41.86, 4.9], [-39.19, 6.65], [-36.35, 6.89], [-33.65, 5.19], [-31.37, 2.5], [-29, 0], [-22, 0]], {"carry": "carry_log", "flow": true}],
+		"post_hunter": ["Caçador Raul", Color(0.52, 0.5, 0.36), ["Pele de lobo, pele de javali, e uma que eu não sei de quê. O Joca diz que compra.", "No sul os bandidos armam emboscada na estrada. Eu ando pelo mato."],
+			["Peles frescas!", "Hoje a caça foi boa.", "Bia, guarda um prato pra mim!"], [6.0, 50.0], [[6, 50, 10], [3.16, 47.79], [0.5, 45.27], [-1.88, 42.57], [-3.88, 39.84], [-5.43, 37.22], [-6.54, 34.18], [-6.48, 30.72], [-5.66, 27.37], [-5, 24], [-5, 14], [-3.6, 10, 10], [-5, 14], [-5, 24], [-5.66, 27.37], [-6.48, 30.72], [-6.54, 34.18], [-5.43, 37.22], [-3.88, 39.84], [-1.88, 42.57], [0.5, 45.27], [3.16, 47.79]], {"carry": "carry_sack", "flow": true}],
+	},
+	# Vale de Aldara (GDD living-towns P1): a Feira do Trigo com feirantes no posto (pregão) e fregueses de banca em banca (R2),
+	# e a Carroça da Colheita que vai da fazenda ao celeiro do portão sul e volta (R1; `flow` = não para nos pontos da estrada,
+	# ponto [x, z, s] = parada de s segundos). Postos dos feirantes = dentro da roseta (town_dress.fair_stalls, raio 6,15).
+	"city_aldara": {
+		"ald_carter": ["Carroceiro Dimas", Color(0.64, 0.5, 0.34), ["Trigo da fazenda pro celeiro, farinha do celeiro pra feira. A vila come porque a roda gira.", "O Ferdinando enche a carroça, o Juca esvazia. Eu e o Trovão só andamos."],
+			["Eia, Trovão!", "Trigo passando!", "Abre o portão sul!"], [-53.28, 71.04], [[-53.28, 71.04, 16], [-50.37, 72.75], [-44.37, 76.52], [-38.52, 79.97], [-33.29, 82.13], [-26.02, 82.22], [-19.85, 79.41], [-15.36, 74.65], [-11.07, 69.07], [-5.36, 66.4], [1.83, 66.95], [5.42, 67.22], [6.91, 60.38], [5.58, 54.06], [-0.23, 49.34], [-5.62, 44.52], [-5.51, 38.94], [-1.73, 32.97], [0, 30], [0, 25], [-2.6, 20.6], [-8, 19.2, 18], [-2.6, 20.6], [0, 25], [0, 30], [-1.73, 32.97], [-5.51, 38.94], [-5.62, 44.52], [-0.23, 49.34], [5.58, 54.06], [6.91, 60.38], [5.42, 67.22], [1.83, 66.95], [-5.36, 66.4], [-11.07, 69.07], [-15.36, 74.65], [-19.85, 79.41], [-26.02, 82.22], [-33.29, 82.13], [-38.52, 79.97], [-44.37, 76.52], [-50.37, 72.75]], {"carry": "cart_draft", "flow": true}],
+		"ald_keeper_veg": ["Verdureira Zefa", Color(0.5, 0.68, 0.4), ["Cenoura, couve e nabo, tudo colhido hoje. O que o slime azul não comeu.", "Feira boa é feira cheia. Hoje está boa."],
+			["Olha a couve!", "Cenoura doce, freguesa!", "Colhido hoje cedo!"], [-2.35, 5.68], 0.0, {"stay": true, "facing": -22.5}],
+		"ald_keeper_cheese": ["Queijeiro Malaquias", Color(0.9, 0.82, 0.55), ["Queijo curado três luas. Mais que isso e ele sai andando sozinho.", "Leite das cabras do vale. Brabas, as cabras. O queijo é manso."],
+			["Queijo curado!", "Prova, prova que é de graça!", "Meia roda por duas moedas!"], [-5.68, 2.35], 0.0, {"stay": true, "facing": -67.5}],
+		"ald_keeper_fish": ["Peixeiro Tico", Color(0.45, 0.6, 0.74), ["Peixe do lago, pescado pela Nalu de madrugada. Caranguejo eu não vendo: eles vendem a gente.", "Fresco até o sol do meio-dia. Depois vira ensopado."],
+			["Peixe do lago!", "Fresquinho, fresquinho!", "Leva dois!"], [-5.68, -2.35], 0.0, {"stay": true, "facing": -112.5}],
+		"ald_keeper_flowers": ["Florista Dora", Color(0.9, 0.6, 0.72), ["Flores do lago e mel da floresta. O Seu Augusto é meu melhor freguês, mas é segredo.", "Uma flor na lapela dá sorte na Campina. Dizem."],
+			["Olha o mel!", "Flores do lago!", "Um ramo pra dar sorte!"], [5.68, -2.35], 0.0, {"stay": true, "facing": -247.5}],
+		"ald_shopper_a": ["Dona Marta", Color(0.72, 0.52, 0.46), ["Pão na Rosa, flor na Dora, e ainda falta a louça. Feira é assim: a gente vem por um e leva três.", "Você é dos que caçam na Campina? Então coma antes de ir."],
+			["Quanto é esse?", "Tá caro...", "Deixa eu ver esse aí."], [8.7, 3.6], [[8.7, 3.6], [8.7, -3.6], [3.6, -8.7], [8.7, -3.6]], {}],
+		"ald_shopper_b": ["Seu Jonas", Color(0.5, 0.52, 0.6), ["Venho buscar água e saio com um queijo. Todo dia. O Malaquias sabe vender.", "O poço é mais velho que a muralha, sabia?"],
+			["Bom dia, Zefa!", "Enche o balde...", "Me vê meia roda."], [-3.6, 8.7], [[-3.6, 8.7], [-6.8, 6.8], [-8.7, 3.6], [-6.8, 6.8]], {}],
+		"ald_shopper_c": ["Moça Lina", Color(0.86, 0.7, 0.5), ["Minha mãe mandou comprar peixe e pano. O troco é meu, ela disse. Não vai sobrar troco.", "A balança do trigo não mente. O Ancião confere toda lua."],
+			["Esse pano é bonito.", "Peixe pra hoje!", "Ai, que cheiro bom."], [-8.7, 3.6], [[-8.7, 3.6], [-8.7, -3.6], [-3.6, -8.7], [-8.7, -3.6]], {}],
+		"ald_shopper_d": ["Velho Honório", Color(0.58, 0.56, 0.5), ["Setenta feiras do trigo eu já vi. Esta é a mais cheia desde a seca.", "No meu tempo a mó girava. Agora só pesa. Pesa bem."],
+			["Hum... e o pão?", "Devagar, devagar.", "Tobias, e a minha encomenda?"], [-3.6, 8.7], [[-3.6, 8.7], [1.8, 10.4], [8.7, 3.6], [1.8, 10.4]], {}],
+	},
 	"city_port": {
 		"port_vil_docker_a": ["Estivador Ramiro", Color(0.62, 0.46, 0.34), ["Do navio pro mercado, do mercado pro navio. O mar não descansa, eu também não.", "Caixa com furo é da Celina. Caixa inteira é do Jonas. Não troque."],
 			["Olha a caixa!", "Abre caminho, abre caminho!", "Essa aqui é peixe. Ou era."], [-2.0, 54.0], [[-2.0, 54.0], [0.0, 44.0], [0.0, 32.0], [-8.0, 27.0], [0.0, 32.0], [0.0, 44.0]], {"carry": "carry_crate"}],
@@ -1129,9 +1247,13 @@ const FORT_LIFE := {
 	},
 }
 
-## Rondas de monstro que não vêm do JSON (Blender): mapa -> [[monstro, x, z, raio, quantos, respawn, rota [[x, z]...], unless]].
+## Rondas de monstro que não vêm do JSON (Blender): mapa -> [[monstro, x, z, raio, quantos, respawn, rota [[x, z]...], unless, (extras)]].
+## Extras `{"horn": true}` = batedores do Cerco Vivo: em luta há Balance.SIEGE_HORN_DELAY s tocam a trompa (SiegeSystem).
 ## Bando pequeno que anda entre salões/postos: o lugar não fica parado esperando o jogador.
 const MOB_PATROLS := {
+	# Porto: batedores ginetes na estrada da Costa e na trilha da garganta (até o Acampamento dos Ginetes cair)
+	"city_port": [["wolf_rider", -62.0, -16.0, 3.0, 2, 45.0, [[-62.0, -16.0], [-70.0, -24.0], [-62.0, -16.0], [-50.0, -40.0], [-24.0, -52.0], [-50.0, -40.0]], Q_RIDERS, {"horn": true}],
+		["wolf_rider", 50.0, -34.0, 3.0, 2, 45.0, [[50.0, -34.0], [56.0, -10.0], [50.0, -34.0], [30.0, -52.0]], Q_RIDERS, {"horn": true}]],
 	"dg_goblin": [["goblin_lancer", 0.0, 25.0, 3.0, 2, 30.0, [[0.0, 25.0], [-19.0, 18.0], [-36.0, -2.0], [-18.0, -2.0], [1.0, -2.0], [-18.0, -2.0], [-36.0, -2.0], [-19.0, 18.0]], ""]],
 	"fort_trolls": [["troll_whelp", 26.0, 3.0, 3.0, 2, 30.0, [[26.0, 3.0], [36.0, -11.0], [53.0, -14.0], [64.0, -4.0], [53.0, -14.0], [36.0, -11.0]], Q_FORT_TROLLS]],
 	"fort_fire": [["orc_archer", -36.0, -20.0, 3.0, 2, 30.0, [[-36.0, -20.0], [-31.0, -10.0], [-17.0, -11.0], [-5.0, -8.0], [-17.0, -11.0], [-31.0, -10.0]], Q_FORT_FIRE]],
@@ -1217,7 +1339,7 @@ static func living_npcs(table: Dictionary, prefix: String = "", cond: Dictionary
 			d["wander"] = float(r)
 		if not (v[3] as Array).is_empty():
 			d["barks"] = v[3]
-		for k in ["if", "unless", "model", "power", "carry", "perch", "reach"]:
+		for k in ["if", "unless", "model", "power", "carry", "perch", "reach", "flow"]:
 			if ex.has(k):
 				d[k] = ex[k]
 		for k in cond:
@@ -1244,6 +1366,22 @@ static func _apply_barks(npcs: Array) -> void:
 				if nid.contains("_%s_" % role):
 					n["barks"] = FORT_BARKS[role]
 
+## Eventos de estrada (RoadEventSystem; GDD design/gdd/living-towns.md 3.5): regras por mapa e tipo. Os pontos vêm do build
+## da zona (`events` no JSON -> MapDef.road_events); números em Balance.EVENT_*. `count` = [mín, máx] de monstros,
+## `victim` = [nome, cor] do NPC (nunca morre), `home` = para onde ele volta, `reward_item` x `reward_count` para cada um
+## que contribuiu (consumível; nunca equipamento nem moeda lendária).
+const ROAD_EVENTS := {
+	"city_aldara": {
+		"wolves": {"name": "Lobos no Lavrador", "mob": "wolf", "mob_name": "Lobo Faminto", "count": [2, 3],
+			"victim": ["Lavrador Chico", Color(0.66, 0.54, 0.34)], "home": [-66.5, 67.0],
+			"cry": ["Socorro! Os lobos!", "Alguém me ajude! Lobos na estrada!", "Sai, bicho! Socorro!"],
+			"thanks": ["Obrigado! Achei que era o meu fim. Leve isto, é pouco, mas é de coração.", "Você me salvou! Fique com isto. A fazenda agradece."],
+			"flee": ["Não aguento mais... vou correr pra vila!", "Ai! Me morderam! Fujam!"],
+			"bot_chat": ["Salvei um lavrador dos lobos lá na estrada!", "Tinha um lavrador cercado de lobos. Agora não tem mais lobo.", "Lobo na estrada de novo. Resolvido."],
+			"reward_item": "potion_hp_s", "reward_count": 2},
+	},
+}
+
 ## Rondas de monstro de MOB_PATROLS como spawners (mesmo formato do JSON).
 static func mob_patrols(id: String) -> Array:
 	var out: Array = []
@@ -1252,6 +1390,8 @@ static func mob_patrols(id: String) -> Array:
 		sp["route"] = (p[6] as Array).map(func(q): return Vector3(float(q[0]), 0.0, float(q[1])))
 		if str(p[7]) != "":
 			sp["unless"] = p[7]
+		if p.size() > 8:
+			sp.merge(p[8])
 		out.append(sp)
 	return out
 
@@ -1332,6 +1472,7 @@ const PLACE_NPCS := {
 	"city_aldara": {
 		"woodcutter_nils": ["Nils, o Lenhador", "quest", Color(0.7, 0.5, 0.35), ["Do outro lado do rio a mata é minha. Pelo menos era, antes dos lobos.", "A cidade fica pra lá da ponte. Daqui só se ouve o machado."]],
 		"hermit_ines": ["Eremita Inês", "quest", Color(0.6, 0.75, 0.7), ["Vim pra cá atrás de silêncio. A gruta a nordeste não deixa: ela goteja e borbulha.", "Algo grande mora lá embaixo e não é um slime comum."]],
+		"founder_statue": ["Estátua do Fundador", "board", Color(0.8, 0.78, 0.72), ["O nome se gastou, como os do Marco do vale. Em Aldara ele é só o Semeador: quem plantou o primeiro trigo, há 300 anos.", "Na base, quase apagado: 'Enquanto a mó pesar o trigo, Aldara resiste.'"], "prop_statue"],
 		"stone_marker": ["Marco de Aldara", "board", Color(0.72, 0.7, 0.66), ["Aqui os fundadores juraram defender o vale. Os nomes estão gastos, a promessa não.", "Dizem que quem descansa neste círculo sonha com o mapa do vale."], "prop_statue"],
 	},
 	"field_forest": {
@@ -1487,6 +1628,9 @@ static func load_zone(id: String) -> Dictionary:
 	var roads: Array = []
 	for r in z["roads"]:
 		roads.append({"kind": r["kind"], "w": float(r["w"]), "pts": _pts(r["pts"]), "r": float(r.get("r", 0.0))})
+	var road_events: Array = []          # pontos de evento de estrada (SPAWN_event_* do build; RoadEventSystem)
+	for ev in z.get("events", []):
+		road_events.append({"kind": str(ev["kind"]), "pos": _v3(ev["pos"]), "mob": str(ev.get("mob", ""))})
 	var places: Array = []
 	for p in z.get("places", []):
 		places.append({"id": p["id"], "type": p["type"], "pos": _v3(p["pos"]), "style": str(p.get("style", ""))})
@@ -1535,11 +1679,18 @@ static func load_zone(id: String) -> Dictionary:
 		d["radius"] = float(a.get("radius", 10.0))
 		d["route"] = (a["route"] as Array).map(func(q): return _v3(q))
 		assaults.append(d)
+	var fx: Array = []
+	for mk in z.get("fx", []):         # marcadores de efeito (fumaça/fogo do Cerco Vivo): só apresentação
+		var d := {"kind": str(mk["kind"]), "pos": _v3(mk["pos"])}
+		for k in ["if", "unless"]:
+			if mk.has(k):
+				d[k] = mk[k]
+		fx.append(d)
 	return {"size": Vector2(float(z["size"][0]), float(z["size"][1])), "spawn_point": _v3(z["spawn"]), "obstacles": obs, "raid": raid,
-		"raids": raids, "assaults": assaults,
+		"raids": raids, "assaults": assaults, "fx": fx,
 		"portals": portals, "spawners": spawners, "bot_hangouts": hangouts, "npc_pos": z["npcs"],
 		"town_center": _v3(z["town"]["center"]), "town_radius": float(z["town"]["radius"]), "town_gates": gates,
-		"roads": roads, "water": water, "water_tints": water_tints, "model": "map_" + id, "places": places}
+		"roads": roads, "water": water, "water_tints": water_tints, "model": "map_" + id, "places": places, "road_events": road_events}
 
 static func _aldara() -> MapDef:
 	var z := load_zone("city_aldara")
@@ -1552,6 +1703,7 @@ static func _aldara() -> MapDef:
 	npcs.append_array(_place_npcs("city_aldara", npc_pos))
 	npcs.append_array(crystal_npc("city_aldara"))
 	npcs.append_array(villagers())
+	npcs.append_array(living_npcs(LIVING_NPCS["city_aldara"]))
 	npcs.append_array(festival("city_aldara"))
 	z["portals"] = (z["portals"] as Array) + _door_portals(_interior_doors(z))
 	z.erase("npc_pos")
@@ -1567,7 +1719,7 @@ static func _aldara() -> MapDef:
 static func _forest() -> MapDef:
 	var z := load_zone("field_forest")
 	var p: Array = z["npc_pos"].get("ranger_post", [0.0, 0.0, 180.0])
-	var extra := _place_npcs("field_forest", z["npc_pos"]) + forest_npcs(z["npc_pos"]) + villagers(POST_VILLAGERS) + crystal_npc("field_forest")
+	var extra := _place_npcs("field_forest", z["npc_pos"]) + forest_npcs(z["npc_pos"]) + villagers(POST_VILLAGERS) + living_npcs(LIVING_NPCS["field_forest"]) + crystal_npc("field_forest")
 	z.erase("npc_pos")
 	z.merge({
 		"id": "field_forest", "name": "Floresta Sombria", "is_town": false, "hub": true, "level_range": Vector2i(10, 20),
@@ -1614,7 +1766,7 @@ static func _ruins() -> MapDef:
 
 # ---------------------------------------------------------------------------
 ## Porto Esperança (Ato II): tools/blender/zones/build_city_port.py. Hub da Costa: cristal, serviços, taverna que abre,
-## navio de volta ao Bastião (portal sem portão), investida dos ginetes por estágio (C0 cerco, C1 muralha, C3 patrulha).
+## navio de volta ao Bastião (portal sem portão), Cerco Vivo dos ginetes (SIEGE: trechos da paliçada, levas, assédio, batedores).
 static func _port() -> MapDef:
 	var z := load_zone("city_port")
 	var npc_pos: Dictionary = z["npc_pos"]
@@ -1639,22 +1791,36 @@ static func _port() -> MapDef:
 		d["look_seed"] = 500 + nid.length() * 11
 		npcs.append(d)
 	npcs.append_array(festival("city_port", FESTIVAL_ACT2, VICTORY2_QUEST))   # fim do Ato II
-	for d in dawn_garrison(npc_pos, "port_g_"):           # guarnição: Balance.PORT_GUARD_POWER
+	for d in dawn_garrison(npc_pos, "port_g_"):           # guarnição: Balance.PORT_GUARD_POWER (vida ainda x PORT_GUARD_HP)
+		d["hp_power"] = Balance.PORT_GUARD_HP
+		if not str(d["id"]).contains("crossbow"):         # lanceiros e cavaleiro do portão também acodem a brecha; os besteiros ficam (portão nunca vazio)
+			d["responder"] = true
 		if not is_equal_approx(Balance.PORT_GUARD_POWER, 1.0):
 			d["power"] = Balance.PORT_GUARD_POWER
 		npcs.append(d)
-	for d in dawn_garrison(npc_pos, "port_w_"):           # C1: besteiros no muro novo
-		d["if"] = Q_PALISADE
+	for d in dawn_garrison(npc_pos, "port_r_"):           # reserva da praça: corre para a brecha atacada (SiegeSystem, `responder`)
+		d["responder"] = true
+		d["hp_power"] = Balance.PORT_GUARD_HP
+		if not is_equal_approx(Balance.PORT_GUARD_POWER, 1.0):
+			d["power"] = Balance.PORT_GUARD_POWER
+		npcs.append(d)
+	for d in dawn_garrison(npc_pos, "port_w_"):           # besteiros do muro novo: 2 por trecho fechado + 2 nas torres do portão (hx_palisade)
+		d["if"] = port_wall_cond(d["id"])
+		d["hp_power"] = Balance.PORT_GUARD_HP
 		if not is_equal_approx(Balance.PORT_GUARD_POWER, 1.0):
 			d["power"] = Balance.PORT_GUARD_POWER
 		npcs.append(d)
 	npcs.append_array(villagers(PORT_VILLAGERS))
 	npcs.append_array(living_npcs(LIVING_NPCS["city_port"]))
+	npcs.append_array(living_npcs(PORT_SIEGE_NPCS))      # Cerco Vivo: feridos, refugiados e os que viram moradores
+	var healer := _npc("port_healer", PORT_HEALER[0], float(PORT_HEALER[3]), float(PORT_HEALER[4]), "merchant", PORT_HEALER[1], PORT_HEALER[2], float(PORT_HEALER[5]), HEALER_SHOP)
+	healer["look_seed"] = 977
+	npcs.append(healer)
 	npcs.append_array(crystal_npc("city_port"))
 	z["portals"] = (z["portals"] as Array) + _door_portals(_interior_doors(z, "city_port"), "city_port")
 	z.erase("npc_pos")
 	z.merge({"id": "city_port", "name": "Porto Esperança", "is_town": false, "hub": true, "level_range": Vector2i(30, 35),
-		"conquest_vis": PORT_CONQUEST_VIS,
+		"conquest_vis": PORT_CONQUEST_VIS + siege_conquest_vis("city_port"), "siege": SIEGE["city_port"],
 		"ground_color": Color(0.62, 0.62, 0.44), "ground_color_alt": Color(0.57, 0.57, 0.41), "ambient": Color(0.92, 0.95, 0.98), "sun_energy": 1.2,     # chão de porto: capim salgado e areia, não o verde de Aldara
 		"bot_population": 9, "npcs": npcs})
 	return _mk(z)

@@ -183,6 +183,7 @@ func _ready() -> void:
 	Events.recall_cast.connect(_on_recall)
 	Events.entity_changed_map.connect(_on_changed_map)
 	Events.monster_emerged.connect(_on_emerged)
+	Events.road_event_started.connect(_on_road_event)
 
 func _exit_tree() -> void:
 	if _inst == self:
@@ -393,6 +394,11 @@ func _on_died(id: int, _killer: int) -> void:
 		var boss := e.monster_def != null and e.monster_def.is_boss
 		play_at("die_boss" if boss else "die_monster", e.position, true)
 		_mob_voice(e, 2)
+
+## Evento de estrada no mapa do jogador (grito de socorro): toque curto de aviso.
+func _on_road_event(map_id: String, _kind: String, _pos: Vector3) -> void:
+	if Sim.player != null and Sim.player.map_id == map_id:
+		_player_sound(Sim.player.id, "quest_accept", true)
 
 func _on_level_up(id: int, _lv: int) -> void:
 	_player_sound(id, "level_up", true)

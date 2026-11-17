@@ -155,10 +155,41 @@ func legendary_pool(cls: ClassDef, level: int, build_id: String = "") -> Array:
 		if sd:
 			out.append_array(sd.pieces)
 			out.append_array(sd.alt_pieces)       # a maça do conjunto também cai
-	for sd in hybrid_sets_for(cls, build_id, level):     # híbridos (R7.1): caem e trocam como os da build
+	for sd in hybrid_sets_for(cls, build_id, level) + apex_sets_for(cls, build_id, level):     # híbridos (R7.1) e Ápices: caem e trocam como os da build
 		for iid in sd.pieces + sd.alt_pieces:
 			if not (iid in out):
 				out.append(iid)
+	out.append_array(legendary_accessory_pool(cls, level, build_id))     # acessórios lendários 35/40/45 (fatia própria no sorteio)
+	return out
+
+## Acessórios lendários da classe no nível (build_id != "": só os da build). Vazio fora de Balance.HYBRID_LEVELS.
+## Ex.: legendary_accessory_pool(berserker, 45, "executor") = os 4 `leg_acc_berserker_executor_45_*`.
+func legendary_accessory_pool(cls: ClassDef, level: int, build_id: String = "") -> Array:
+	var out: Array = []
+	if not (level in Balance.HYBRID_LEVELS):
+		return out
+	for b in cls.builds:
+		if build_id != "" and b["id"] != build_id:
+			continue
+		for piece in Balance.LEG_ACC_PIECES:
+			var iid := GearCatalog.leg_acc_id(cls.id, str(b["id"]), level, piece)
+			if items.has(iid):
+				out.append(iid)
+	return out
+
+## Conjunto Ápice da build no nível (null = a build não tem Ápice ou o nível não é de Ápice).
+func apex_set_for(cls: ClassDef, build_id: String, level: int) -> SetDef:
+	return sets.get(GearCatalog.apex_set_id(cls.id, build_id, level))
+
+## Ápices da classe no nível (build_id != "": só o da build).
+func apex_sets_for(cls: ClassDef, build_id: String, level: int) -> Array:
+	var out: Array = []
+	for b in cls.builds:
+		if build_id != "" and b["id"] != build_id:
+			continue
+		var sd := apex_set_for(cls, str(b["id"]), level)
+		if sd:
+			out.append(sd)
 	return out
 
 ## Conjuntos híbridos da classe no nível (build_id != "": só os pares em que ela entra, A ou B).
@@ -245,6 +276,7 @@ func basic_skill_for_class(cls: ClassDef, weapon_type: String = "", offhand_type
 			s.radius = Balance.SPEAR_REACH
 			s.cone_angle_deg = Balance.SPEAR_ARC_DEG
 			s.max_targets = Balance.SPEAR_MAX_TARGETS
+			s.line_width = Balance.SPEAR_LINE_WIDTH        # faixa reta: atravessa quem está na linha da lança
 			s.power *= Balance.SPEAR_POWER_MULT
 			s.cooldown = cd * Balance.SPEAR_COOLDOWN_MULT
 			s.recovery = maxf(0.12, s.cooldown * 0.45)

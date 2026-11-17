@@ -7,6 +7,7 @@ const COLLECT := QuestDef.Type.COLLECT
 const TALK := QuestDef.Type.TALK
 const CRAFT := QuestDef.Type.CRAFT
 const REACH := QuestDef.Type.REACH
+const DEFEND := QuestDef.Type.DEFEND
 
 static func _mk(d: Dictionary) -> QuestDef:
 	var q := QuestDef.new()
@@ -634,10 +635,10 @@ static func act2_kharzun() -> Array:
 		 "dialog_progress": "Derrube o Agitador primeiro: com o tambor batendo o bando bate mais forte. Lança-Pedras mira quem está longe.",
 		 "dialog_complete": "A corrente caiu! Quinze anos... Vamos para o acampamento. E o Thrain, o nosso ferreiro, vai com a gente."},
 		{"id": "hx_kennel", "title": "O Canil", "giver_npc": "kharzun_commander", "type": KILL, "target_id": "boss_dire_mother", "count": 1, "level_req": 41, "prereq_quest": "hx_mines",
-		 "reward_xp": 8200, "reward_gold": 1500, "reward_gear_tier": 5, "reward_items": {"legend_coin": 2}, "map_hint": "Monte Kharzun: Canil dos Lobos Atrozes (leste), a toca da Presa-de-Cinza",
+		 "reward_xp": 8200, "reward_gold": 1500, "reward_gear_tier": 5, "reward_items": {"legend_coin": 2}, "map_hint": "Monte Kharzun: Canil dos Lobos Atrozes (leste), a toca da Presa-de-Cinza: leve um grupo",
 		 "description": "Entre no Canil dos Lobos Atrozes e derrube Presa-de-Cinza, a Mãe-Loba. Sem ela, a frente do leste cala.",
-		 "dialog_offer": "Todo ginete que bate no portão leste saiu do Canil, e toda matilha sai da mesma loba. Derrube a Mãe-Loba e o leste cala.",
-		 "dialog_progress": "Ela uiva e chama dois lobos atrozes: tire os lobos ou fique de costas para a parede. No fim ela enlouquece; segure firme.",
+		 "dialog_offer": "Todo ginete que bate no portão leste saiu do Canil, e toda matilha sai da mesma loba. Derrube a Mãe-Loba e o leste cala. Leve um grupo.",
+		 "dialog_progress": "Ela uiva e chama as Crias: com Cria viva a mãe leva metade do dano, mate as Crias antes. Nos Três Botes, saia da faixa.",
 		 "dialog_complete": "O leste está quieto pela primeira vez. O Bráulio, dos libertos, já perguntou dos ovos. Fale com ele."},
 		{"id": "hx_black_forge", "title": "A Forja Negra", "giver_npc": "kharzun_commander", "type": KILL, "target_id": "orc_warlord", "count": 2, "level_req": 42, "prereq_quest": "hx_mines",
 		 "also_counts": ["orc_fire_archer"],
@@ -838,6 +839,20 @@ static func act2() -> Array:
 		 "description": "Traga 6 Presas de Orc para o Carpinteiro Bruno fazer as cavilhas da paliçada.",
 		 "dialog_offer": "O Bruno diz que prego de ferro enferruja no sal e presa de orc não. Os recrutas orcs acampam nas falésias ao norte da Costa.",
 		 "dialog_progress": "Recruta orc bate forte e devagar: espere o golpe, desvie com Shift e responda.", "dialog_complete": "Presa boa, dura como pedra. Agora eu fecho esse muro. Só preciso que ninguém me fure enquanto isso."},
+		# Cerco Vivo: mini-cadeia opcional de defesa (Carpinteiro Bruno). Cada uma fecha um trecho da paliçada (MapsCatalog.SIEGE);
+		# quem pular não perde nada: hx_palisade fecha o que faltar.
+		{"id": "hx_df_logs", "title": "Toras para o Trecho Leste", "giver_npc": "port_vil_builder", "type": COLLECT, "target_id": "palisade_log", "count": 6, "level_req": 30, "prereq_quest": "hx_first_wave",
+		 "reward_xp": 1500, "reward_gold": 300, "reward_items": {"potion_hp_m": 2}, "map_hint": "Porto Esperança: toras empilhadas na praia do estaleiro (sudoeste) → Carpinteiro Bruno",
+		 "description": "Traga 6 Toras de Estaca do estaleiro para o Carpinteiro Bruno fechar o trecho leste da paliçada.",
+		 "dialog_offer": "O vão do lado do farolete está aberto e os ginetes já aprenderam o caminho. No estaleiro tem tora cortada e ninguém para carregar. Seis bastam.",
+		 "dialog_progress": "As toras estão empilhadas na areia do estaleiro, a sudoeste do cais. Chegue perto e aperte F para pegar.",
+		 "dialog_complete": "Seis toras, seis estacas. O trecho leste fecha hoje, e os besteiros já sobem. A próxima leva vai ter de bater no portão."},
+		{"id": "hx_df_tower", "title": "Segurar o Vão do Norte", "giver_npc": "port_vil_builder", "type": DEFEND, "target_id": "city_port", "count": 2, "level_req": 30, "prereq_quest": "hx_df_logs",
+		 "reward_xp": 2000, "reward_gold": 360, "reward_items": {"elixir_might": 1}, "map_hint": "Porto Esperança: ajude a repelir 2 investidas (fique na brecha ou no portão atacado)",
+		 "description": "Ajude a repelir 2 investidas contra Porto Esperança para o Bruno erguer a torre de vigia e fechar o vão do portão norte.",
+		 "dialog_offer": "Torre de vigia não se ergue com lobo mordendo o calcanhar. Segure duas investidas junto do muro e eu fecho o vão do norte com torre e tudo.",
+		 "dialog_progress": "Quando a trompa tocar, corra para onde a leva vai entrar (a faixa do topo avisa). Só conta se você estiver lá e a leva for repelida. Saia dos círculos de fogo.",
+		 "dialog_complete": "Duas levas rechaçadas e a torre de pé. Daqui de cima o besteiro vê a garganta inteira."},
 		{"id": "hx_palisade", "title": "Fechar a Paliçada", "giver_npc": "port_vil_builder", "turnin_npc": "port_governor", "type": KILL, "target_id": "goblin_lancer", "count": 15, "level_req": 31, "prereq_quest": "hx_stakes",
 		 "also_counts": ["goblin_impaler", "wolf_rider", "wolf_raider"],
 		 "reward_xp": 4000, "reward_gold": 600, "reward_items": {"potion_hp_m": 3, "legend_coin": 1}, "map_hint": "Costa: mangue (oeste) e estrada nordeste; Porto: investidas",

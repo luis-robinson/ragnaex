@@ -160,7 +160,7 @@ static func area_heal(sim: WorldSim, e: SimEntity, s: SkillDef, aim: Vector3, ah
 ## Empurra `t` para longe de `kb.from` (ou de quem lançou) por `dist` m, parando em parede/água. Chefe e quem está
 ## em torre ficam no lugar.
 static func knockback(sim: WorldSim, src: SimEntity, t: SimEntity, kb: Dictionary) -> void:
-	if not src.is_hostile_to(t) or (t.monster_def and t.monster_def.is_boss) or t.is_perched() or not sim.maps.has(t.map_id):
+	if not src.is_hostile_to(t) or (t.monster_def and t.monster_def.resists_cc()) or t.is_perched() or not sim.maps.has(t.map_id):
 		return
 	var from: Vector3 = kb.get("from", src.position)
 	var away := t.position - from

@@ -47,6 +47,8 @@ const RARITY_LEGENDARY := 4
 ## reação ao bloquear: {"theme":"holy","heal_pct":3,"mana_pct":4,"barrier_pct":6,"reflect_pct":10,"stun_chance":25,
 ##   "dot":{"dps":6,"duration":3},"slow":{"pct":40,"duration":3},"root":{"duration":1}}; "block_bonus" é passivo
 @export var shield_effect: Dictionary = {}
+## stats extras do item (chaves de Stats.STAT_KEYS, somados como buff), ex. joias de mana: {"mp_on_kill": 10, "mp_regen_combat": 0.8}
+@export var bonus: Dictionary = {}
 
 ## consumível: {"heal": 50, "heal_pct": 0.2, "mana": 30, "buff": {"id":"might","duration":30,"atk_pct":15}}
 @export var consume: Dictionary = {}

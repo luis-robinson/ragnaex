@@ -17,7 +17,8 @@ const EFFECT_KEYS := ["dot", "slow", "stun", "root", "buff", "shield", "dash", "
 	"choir_angel", "choir_barrier", "choir_return",
 	"provoke", "area_heal", "pack",
 	"falcon_call", "falcon_dive", "falcon_eyes", "rally",
-	"islands", "mark", "boss_channel", "repeat", "avalanche", "wall", "decoys"]
+	"islands", "mark", "boss_channel", "repeat", "avalanche", "wall", "decoys",
+	"explode", "fire_wall"]
 
 @export var id: String = ""
 @export var name: String = ""
@@ -45,6 +46,9 @@ const EFFECT_KEYS := ["dot", "slow", "stun", "root", "buff", "shield", "dash", "
 @export var range: float = 6.0         ## alcance máximo (DIRECTION = comprimento, GROUND = distância máx do retículo)
 @export var radius: float = 1.5        ## GROUND/TARGET: raio do AoE. DIRECTION: meia-largura. CONE: raio
 @export var cone_angle_deg: float = 90.0
+## CONE com line_width > 0: a área vira uma faixa reta à frente (`radius` de comprimento, esta largura em m),
+## que atravessa a fila do mais perto ao mais longe até `max_targets` (estocada de lança; Combat.select_targets).
+@export var line_width: float = 0.0
 @export var max_targets: int = 99
 
 ## timing em segundos (movimento por código, não root motion)
@@ -135,6 +139,11 @@ const FORM_LABELS := {"wolf": "lobo", "bear": "urso", "phantom": "fantasma", "de
 ## Bispo ascendido (ChoirSystem): "choir_angel": {} → chama o Anjo Guardião (espírito que cura o grupo, Balance.ANGEL_*);
 ##     "choir_barrier": {} → (GROUND) Barreira Sagrada: cúpula de `radius` m que anda com o Bispo (Balance.BARRIER_*);
 ##     "choir_return": {} → (GROUND) Retorno: no fim do preparo levanta o caído do grupo mais perto do ponto (Balance.RES_*).
+## "explode": {"radius": 1.5, "power_pct": 0.5}  → projétil que explode no impacto: em volta do atingido, power × power_pct
+##     e os efeitos (WorldSim._explode; Bola de Fogo, Balance.FIREBALL_EXPLODE_*).
+## "fire_wall": {"width", "duration", "pulse"}  → (GROUND) faixa de 2 × radius m atravessada na mira que fica no chão:
+##     o lançamento bate em quem está nela e cada pulso renova o `dot` em quem passar (TrapSystem.place_wall; Balance.FIRE_WALL_*).
+## TARGET com projectile_pierce: o tiro segue depois do alvo e pega a fila atrás dele até o alcance (Balance.PIERCE_SHOT_HALF).
 ## "pull": {"gap": 0.6}  → puxa o atingido para o lado de quem lançou (gancho; chefe nunca é puxado).
 ## Druida ascendido (DruidAscension, Forma Ancestral):
 ## "provoke": {"duration": 4}  → cada monstro atingido fica preso em quem lançou (MobSystem.taunt; chefes: metade). Ao

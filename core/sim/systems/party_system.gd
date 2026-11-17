@@ -14,8 +14,8 @@ static func party_catchup(sim: WorldSim, dt: float) -> void:
 			var o: SimEntity = sim.entities.get(id)
 			if o == null or o == leader or o.kind != SimEntity.Kind.BOT:
 				continue
-			if not o.is_alive() or o.map_id == leader.map_id:
-				o.lost_leader_t = 0.0
+			if not o.is_alive() or o.map_id == leader.map_id or (sim.maps.has(leader.map_id) and sim.maps[leader.map_id]["def"].interior):
+				o.lost_leader_t = 0.0      # líder dentro de casa (porta só do jogador): o seguidor espera na porta, não é puxado
 				continue
 			o.lost_leader_t += dt
 			if o.lost_leader_t >= Balance.PARTY_CATCHUP_TIME:

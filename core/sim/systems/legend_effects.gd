@@ -8,7 +8,7 @@ static func legend_power(sim: WorldSim, e: SimEntity, t: SimEntity) -> float:
 	var le: Dictionary = e.stats.legend if e.is_character() else {}
 	match str(le.get("kind", "")):
 		"execute":
-			if t.hp < t.stats.max_hp * float(le.get("below", 0.3)):
+			if t.hp < t.stats.max_hp * (float(le.get("below", 0.3)) + FusionEffects.exec_up(e)):      # Ápice do Cadafalso sobe o limiar
 				return 1.0 + float(le["pct"]) / 100.0
 		"prey":
 			if Combat.is_chilled(t):
@@ -34,7 +34,7 @@ static func wound_hit(sim: WorldSim, e: SimEntity, t: SimEntity, le: Dictionary)
 	t.put_debuff({"kind": "wound", "id": "legend_wound_%d" % e.id, "remaining": Balance.LEG_WOUND_TIME, "stacks": n})
 	if n >= int(le.get("max", 5)):
 		var bid := "legend_wound_bleed_%d" % e.id
-		t.put_debuff({"kind": "dot", "id": bid, "remaining": Balance.LEG_WOUND_TIME, "dps": maxf(1.0, e.stats.patk * float(le.get("bleed", 8.0)) / 100.0), "src": e.id, "bleed": true})
+		t.put_debuff({"kind": "dot", "id": bid, "remaining": Balance.LEG_WOUND_TIME, "dps": maxf(1.0, e.stats.patk * float(le.get("bleed", 8.0)) / 100.0) * e.stats.dot_mult(), "src": e.id, "bleed": true})
 
 ## Lança uma skill de graça (sem mana nem recarga) a partir de `e`, mirando em `aim`: os efeitos que "lançam" algo.
 static func legend_cast(sim: WorldSim, e: SimEntity, skill_id: String, aim: Vector3) -> void:
@@ -107,6 +107,8 @@ static func signature_on_hit(sim: WorldSim, e: SimEntity, t: SimEntity, s: Skill
 
 ## Efeitos da arma lendária ao acertar (golpe direto de quem a usa). `s` = skill do golpe (o básico começa com "basic_").
 static func legend_on_hit(sim: WorldSim, e: SimEntity, t: SimEntity, s: SkillDef, amount: int) -> void:
+	if amount > 0 and e.is_character() and not e.stats.shield_passive.is_empty() and e.is_hostile_to(t):
+		determination_attack(sim, e)            # escudo lendário: atacar junta Determinação (com recarga)
 	if not e.is_character() or e.stats.legend.is_empty() or amount <= 0 or not t.is_alive() and not (str(e.stats.legend.get("kind", "")) in ["splash", "mend"]):
 		return
 	var le: Dictionary = e.stats.legend
@@ -138,9 +140,10 @@ static func legend_on_hit(sim: WorldSim, e: SimEntity, t: SimEntity, s: SkillDef
 					if o != t and o.is_alive() and e.is_hostile_to(o) and o.position.distance_to(t.position) <= float(le.get("radius", 2.5)):
 						sim._deal_damage(e, o, maxi(1, int(amount * float(le["pct"]) / 100.0)), false, false, "splash")
 		"stun":
-			if t.is_alive() and sim.time >= e.legend_ready_at and sim.rng.randf() * 100.0 < float(le["chance"]):
+			if t.is_alive() and sim.time >= e.legend_ready_at and sim.rng.randf() * 100.0 < float(le["chance"]) + FusionEffects.stun_bonus(e):
 				e.legend_ready_at = sim.time + float(le.get("icd", 6.0))
 				sim._apply_effects(e, t, {"stun": {"duration": float(le["dur"])}}, 0.0)
+				FusionEffects.judge(sim, e, t)          # Ápice do Veredito: a rolagem que passa julga (mesmo se o chefe resistir)
 		"frenzy":
 			var n: int = mini(int(le.get("max", 5)), e.buff_stacks("legend_frenzy") + 1)
 			e.put_buff({"id": "legend_frenzy", "remaining": Balance.LEG_FRENZY_TIME, "stacks": n, "aspd_pct": float(le["pct"]) * n})
@@ -148,7 +151,7 @@ static func legend_on_hit(sim: WorldSim, e: SimEntity, t: SimEntity, s: SkillDef
 		"bleed", "poison":
 			if t.is_alive() and sim.rng.randf() * 100.0 < float(le["chance"]):
 				var did := "legend_%s_%d" % [le["kind"], e.id]
-				t.put_debuff({"kind": "dot", "id": did, "remaining": Balance.LEG_DOT_TIME, "dps": maxf(1.0, e.stats.patk * float(le["pct"]) / 100.0), "src": e.id})
+				t.put_debuff({"kind": "dot", "id": did, "remaining": Balance.LEG_DOT_TIME, "dps": maxf(1.0, e.stats.patk * float(le["pct"]) / 100.0) * e.stats.dot_mult(), "src": e.id})
 		"spare_shot":                       # Bala na Agulha (Corsário): o golpe às vezes dispara a pistola de graça no alvo
 			if single and not own_cast and t.is_alive() and e.is_hostile_to(t) and e.stats.offhand_type == "pistol" \
 					and sim.time >= e.shot_ready_at and sim.rng.randf() * 100.0 < float(le["chance"]):
@@ -166,6 +169,58 @@ static func legend_on_hit(sim: WorldSim, e: SimEntity, t: SimEntity, s: SkillDef
 		"open_wound":                       # Ferida Aberta (Lanceiro): golpes direto abrem feridas; a assinatura não conta
 			if t.is_alive() and not own_cast and e.is_hostile_to(t):
 				wound_hit(sim, e, t, le)
+		"holy_edge":                        # Lâmina Justa (espada do Guardião): chance de dano sagrado a mais (conta ameaça)
+			if t.is_alive() and not own_cast and e.is_hostile_to(t) and (sim.signature_force or sim.rng.randf() * 100.0 < float(le["chance"])):
+				holy_edge(sim, e, t, float(le["pct"]))
+		"bulwark":                          # Baluarte (maça/martelo do Paladino): golpe dá barreira, com recarga
+			if e.is_hostile_to(t) and sim.time >= e.legend_ready_at:
+				e.legend_ready_at = sim.time + float(le.get("icd", 4.0))
+				bulwark(sim, e, le)
+
+## Lâmina Justa: `pct`% do ATK em dano sagrado no alvo. Passa por _deal_damage: soma ameaça como qualquer golpe.
+static func holy_edge(sim: WorldSim, e: SimEntity, t: SimEntity, pct: float) -> void:
+	var r := Combat.calc_damage(e, t, pct / 100.0, SkillDef.Kind.PHYSICAL, sim.rng, e.position)
+	sim._deal_damage(e, t, r["amount"], r["crit"], false, "holy_edge", e.position)
+
+## Baluarte: barreira de `pct`% da vida máxima por `time` s. Uma só: renova (fica a maior), não soma com a que já existe.
+## A marca `LEG_BULWARK_BUFF` mostra o ícone e o visual; sai quando a barreira acaba (legend_weapon / fim do buff).
+static func bulwark(sim: WorldSim, e: SimEntity, le: Dictionary) -> void:
+	var time := float(le.get("time", 5.0))
+	sim._apply_effects(e, e, {"shield": {"amount_pct_hp": float(le["pct"]), "duration": time}}, 1.0)
+	e.put_buff({"id": Balance.LEG_BULWARK_BUFF, "remaining": time})
+	Events.post(&"buff_applied", e.id, Balance.LEG_BULWARK_BUFF, time)
+
+## Determinação (escudo lendário): +1 carga até `max`; cada carga = +`dmg`% de ATK/MATK e +`heal`% de cura recebida.
+## Atacar dá carga no máximo a cada `icd` s e não renova o tempo; levar golpe dá carga e renova (`time` s). Sem golpe recebido
+## por `time` s, todas somem (o buff acaba).
+static func determination_gain(sim: WorldSim, e: SimEntity, refresh: bool) -> void:
+	var dp: Dictionary = e.stats.shield_passive
+	var cur: Dictionary = {}
+	for b in e.buffs:
+		if b.get("id") == Balance.LEG_DETERMINATION_BUFF:
+			cur = b
+	var old_n := int(cur.get("stacks", 0))
+	var n := mini(int(dp.get("max", 5)), old_n + 1)
+	if not cur.is_empty() and n == old_n:           # no máximo: o golpe só renova, o ataque só marca a recarga
+		if refresh:
+			cur["remaining"] = float(dp.get("time", 6.0))
+		else:
+			cur["atk_at"] = sim.time
+		return
+	var left: float = float(dp.get("time", 6.0)) if refresh or cur.is_empty() else float(cur["remaining"])
+	var atk_at: float = float(cur.get("atk_at", -INF)) if refresh else sim.time
+	e.put_buff({"id": Balance.LEG_DETERMINATION_BUFF, "remaining": left, "stacks": n, "atk_at": atk_at,
+		"atk_pct": float(dp.get("dmg", 0.0)) * n, "matk_pct": float(dp.get("dmg", 0.0)) * n, "heal_in_pct": float(dp.get("heal", 0.0)) * n})
+	e.recompute_stats()
+	Events.post(&"buff_applied", e.id, Balance.LEG_DETERMINATION_BUFF, left)
+
+## Atacar com o escudo de Determinação: +1 carga se passou a recarga (`icd`) desde a última carga por ataque.
+static func determination_attack(sim: WorldSim, e: SimEntity) -> void:
+	var icd := float(e.stats.shield_passive.get("icd", 2.0))
+	for b in e.buffs:
+		if b.get("id") == Balance.LEG_DETERMINATION_BUFF and sim.time < float(b.get("atk_at", -INF)) + icd:
+			return
+	determination_gain(sim, e, false)
 
 ## Tiro de graça da pistola (Bala na Agulha): `pct`% do ATK no alvo, +1 Bravata. O FX é o do Tiro de Pistola.
 static func spare_shot(sim: WorldSim, e: SimEntity, t: SimEntity, pct: float) -> void:
@@ -197,8 +252,15 @@ static func penance_hit(sim: WorldSim, e: SimEntity, t: SimEntity, le: Dictionar
 ## Arma lendária: Eco (o golpe direto bate de novo), Retaliação (devolve parte do corpo a corpo recebido). Eco e
 ## retaliação não disparam a si mesmos.
 static func legend_weapon(sim: WorldSim, attacker: SimEntity, target: SimEntity, amount: int, kind: String) -> void:
+	if target.shield_hp <= 0.0 and target.is_character() and str(target.stats.legend.get("kind", "")) == "bulwark":
+		for b in target.buffs:
+			if b.get("id") == Balance.LEG_BULWARK_BUFF:
+				target.drop_buff(Balance.LEG_BULWARK_BUFF)          # Baluarte: a barreira acabou, a marca sai junto
+				break
 	if amount <= 0 or attacker == target or not (kind in ["physical", "magical", "shatter"]):
 		return
+	if target.is_character() and target.is_alive() and not target.stats.shield_passive.is_empty() and attacker.is_hostile_to(target):
+		determination_gain(sim, target, true)      # levou golpe: +1 Determinação e renova o tempo
 	if target.is_character() and target.is_alive() and str(target.stats.legend.get("kind", "")) == "cast_when_hit" and sim.time >= target.legend_ready_at:
 		target.legend_ready_at = sim.time + float(target.stats.legend.get("icd", 20.0))      # Coração de Gelo / Casca Viva
 		legend_cast(sim, target, str(target.stats.legend["skill"]), attacker.position)

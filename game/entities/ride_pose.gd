@@ -52,8 +52,11 @@ static func ensure_clip(anim: AnimationPlayer, sk: Skeleton3D) -> bool:
 
 ## Guarda montada (Muralha a Cavalo): a guarda de escudo a pé deixa o escudo na altura do peito, atrás do pescoço do
 ## cavalo. Na sela o braço do escudo sobe e vai à frente (giro somado no eixo do osso em repouso), o tronco fica ereto.
-## Graus por osso, somados a cada chave do "block_shield"; vira o clipe GUARD_CLIP. A guarda do escudo alto
-## ("block_shield_tall", só nos kits de quem empunha escudo) vira GUARD_CLIP_TALL do mesmo jeito.
+## Graus por osso, somados a cada chave do "block_shield"; vira o clipe GUARD_CLIP.
+## Escudo alto (KitModel.TALL_SHIELDS): a placa de 1 m a 1,6 m não cabe acima do pescoço do cavalo e o atravessava. O
+## clipe GUARD_CLIP_TALL vem pronto no kit (chibi_kit._shield_ride_tall_pose: braço aberto para a esquerda, placa de pé
+## por fora do ombro do cavalo, achado por tools/blender/shield_ride_solve.py). Só um kit antigo, sem o clipe, cai no
+## giro somado ao "block_shield_tall".
 const GUARD_CLIP := "block_ride"
 const GUARD_CLIP_TALL := "block_ride_tall"
 const GUARD_SOURCES := {"block_ride": "block_shield", "block_ride_tall": "block_shield_tall"}

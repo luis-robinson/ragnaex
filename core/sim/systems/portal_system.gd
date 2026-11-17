@@ -58,14 +58,17 @@ static func grandfather_gates(sim: WorldSim, e: SimEntity, map_id: String) -> vo
 
 ## Primeiro portal do caminho mais curto (em mapas) até `target_map`; sem caminho, o que leva à vila
 ## (de lá há portal pra todo lado). Usado pelos bots (seguir o líder) e pela seta da quest no minimapa.
-static func portal_towards(def: MapDef, target_map: String) -> Dictionary:
+## `bots` = quem pergunta é bot: porta só do jogador (casa) não serve de caminho.
+static func portal_towards(def: MapDef, target_map: String, bots: bool = false) -> Dictionary:
 	for p in def.portals:
-		if p["target_map"] == target_map:
+		if p["target_map"] == target_map and not (bots and p.get("player_only", false)):
 			return p
 	# busca em largura pelo grafo de portais; guarda o portal de saída de cada ramo
 	var seen := {def.id: true}
 	var open: Array = []
 	for p in def.portals:
+		if bots and p.get("player_only", false):
+			continue
 		if not seen.has(p["target_map"]):
 			seen[p["target_map"]] = true
 			open.append([p["target_map"], p])
@@ -75,6 +78,8 @@ static func portal_towards(def: MapDef, target_map: String) -> Dictionary:
 		if md == null:
 			continue
 		for p in md.portals:
+			if bots and p.get("player_only", false):
+				continue
 			var nxt: String = p["target_map"]
 			if nxt == target_map:
 				return cur[1]
@@ -82,7 +87,7 @@ static func portal_towards(def: MapDef, target_map: String) -> Dictionary:
 				seen[nxt] = true
 				open.append([nxt, cur[1]])
 	if GameData.maps.has(target_map) and GameData.maps[target_map].parent_map != "":
-		return portal_towards(def, GameData.maps[target_map].parent_map)     # dungeon: vai pela zona da entrada
+		return portal_towards(def, GameData.maps[target_map].parent_map, bots)     # dungeon/casa: vai pela zona da entrada
 	for p in def.portals:
 		if p["target_map"] == GameData.town_map_id():
 			return p
@@ -160,6 +165,9 @@ static func process_map_changes(sim: WorldSim) -> void:
 		var e: SimEntity = ch["e"]
 		if e.party_id < 0 or PartySystem.party_leader(sim, e) != e:
 			continue
+		var into: MapDef = GameData.maps.get(ch["map"])
+		if into != null and into.interior:
+			continue                       # casa (porta só do jogador): o grupo espera na porta (BotBrain._wait_at_door)
 		var k := 0
 		for o in PartySystem.party_members(sim, e):
 			if o == e or moving.has(o.id) or o.kind != SimEntity.Kind.BOT or not o.is_alive() or o.map_id != e.map_id:

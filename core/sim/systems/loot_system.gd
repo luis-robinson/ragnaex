@@ -6,6 +6,9 @@ static func on_monster_killed(sim: WorldSim, mob: SimEntity, killer: SimEntity) 
 	var m: Dictionary = sim.maps[mob.map_id]
 	if mob.monster_def.last_words != "":
 		MobSystem.boss_say(sim, mob, mob.monster_def.last_words)
+	if mob.road_event:                       # monstro de evento de estrada: o prêmio é do evento (sem XP, saque nem quest)
+		RoadEventSystem.on_mob_killed(sim, mob, killer)
+		return
 	# XP para quem mais bateu (grupo soma) + dono da invocação
 	var credit := top_damager(sim, mob, killer)
 	if credit and credit.is_character():
@@ -14,7 +17,7 @@ static func on_monster_killed(sim: WorldSim, mob: SimEntity, killer: SimEntity) 
 		var each := mob.monster_def.xp * (1.0 + Balance.PARTY_XP_BONUS * (sharers.size() - 1)) / sharers.size()
 		for c in sharers:
 			var mult := clampf(1.0 + (mob.level - c.level) * 0.08, 0.3, 1.6)
-			ProgressionSystem.gain_xp(sim, c, int(each * mult))
+			ProgressionSystem.gain_xp(sim, c, int(each * mult * SiegeSystem.xp_mult(c, mob.map_id)))
 			QuestSystem.on_kill(c, mob.monster_def.elite_of if mob.monster_def.elite_of != "" else mob.monster_def.id)
 			if mob.monster_def.is_boss:
 				c.bosses_killed[mob.monster_def.id] = true

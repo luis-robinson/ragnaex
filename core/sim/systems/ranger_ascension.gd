@@ -73,10 +73,11 @@ static func place_turret(sim: WorldSim, e: SimEntity, s: SkillDef, aim: Vector3,
 	var mine := turrets_of(sim, e)
 	while mine.size() >= turret_max(e):
 		sim.despawn(mine.pop_front())
+	var pwr := FusionEffects.turret_power(e, mine.size())          # Ápice do Posto Avançado: a torreta a mais sai mais fraca
 	var pos := land_point(sim, e, Combat.clamp_aim(e, aim, s.range))
 	var t := sim.spawn_summon(e, mdef, pos, Balance.TURRET_TIME + Balance.TURRET_REFINE_TIME * turret_refines(e), false)
 	t.summon_hp = e.stats.max_hp * Balance.TURRET_HP_SHARE
-	t.summon_patk = e.stats.patk * Balance.TURRET_ATK_SHARE * asc_power(s.build, e.level)
+	t.summon_patk = e.stats.patk * Balance.TURRET_ATK_SHARE * asc_power(s.build, e.level) * pwr
 	t.recompute_stats()
 	t.stats.pdef = e.stats.pdef * Balance.TURRET_DEF_SHARE
 	t.stats.mdef = e.stats.mdef * Balance.TURRET_DEF_SHARE
@@ -107,7 +108,9 @@ class TurretBrain:
 	func think(e: SimEntity, sim, m: Dictionary, _dt: float) -> InputCommand:
 		var cmd := InputCommand.new()
 		cmd.aim = e.position + e.forward()
-		var t := Combat.nearest_hostile(e, m["entities"], Balance.TURRET_RANGE)
+		var t := FusionEffects.turret_pick(sim, e, m, Balance.TURRET_RANGE)      # Ápice do Atirador: preso/retardado/marcado primeiro
+		if t == null:
+			t = Combat.nearest_hostile(e, m["entities"], Balance.TURRET_RANGE)
 		if t != null:
 			cmd.aim = t.position
 			cmd.attack = true

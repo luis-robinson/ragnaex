@@ -345,8 +345,14 @@ static func set_bonus_text(b: Dictionary) -> String:
 	return ", ".join(parts)
 
 ## Fusão do híbrido (5 peças): nome e o que cada face faz; a face ligada (arma na mão do jogador) em destaque.
+## Ápice: uma face só (a arma da build); apagado com outra arma.
 static func fusion_text(f: Dictionary) -> String:
-	var fu: Dictionary = GearCatalog.FUSIONS.get(str(f.get("id", "")), {})
+	var fid := str(f.get("id", ""))
+	if fid.begins_with(FusionEffects.APEX_PREFIX):
+		var ap: Dictionary = GearCatalog.APEX.get(fid.trim_prefix(FusionEffects.APEX_PREFIX), {})
+		var lit: bool = Sim.player != null and Sim.player.stats != null and str(Sim.player.stats.fusion.get("id", "")) == fid and str(Sim.player.stats.fusion.get("face", "")) != ""
+		return "Ápice %s — %s%s" % [ap.get("name", "?"), "» " if lit else "", ap.get("text", "")]
+	var fu: Dictionary = GearCatalog.FUSIONS.get(fid, {})
 	var on: String = str(Sim.player.stats.fusion.get("face", "")) if Sim.player and Sim.player.stats and str(Sim.player.stats.fusion.get("id", "")) == str(f.get("id", "")) else "-"
 	var txt: Dictionary = fu.get("text", {})
 	var parts: Array = []
@@ -473,6 +479,7 @@ static func item_tooltip(it: ItemDef) -> String:
 		for a in it.attributes:
 			if int(it.attributes[a]) != 0:
 				t += "\n[color=#ffd966]%s +%d[/color]" % [a, int(b.attributes.get(a, 0))] + _plus_txt(int(it.attributes[a]) - int(b.attributes.get(a, 0)))
+		t += item_bonus_text(it.bonus)
 	elif it.type == ItemDef.Type.CONSUMABLE:
 		t += "\n[color=#aaa]Consumível · cooldown %.0fs[/color]" % it.consume_cooldown
 	t += "\n[color=#888]Preço: %d ouro[/color]" % it.price
@@ -481,6 +488,32 @@ static func item_tooltip(it: ItemDef) -> String:
 	if it.set_id != "":
 		t += set_block(it.set_id)
 	return t
+
+## Linhas dos stats extras do item (ItemDef.bonus): joias de mana.
+static func item_bonus_text(bonus: Dictionary) -> String:
+	var t := ""
+	if float(bonus.get("hp_pct", 0)) > 0.0:
+		t += "\n[color=#ff9a8a]Vida +%s%%[/color]" % ("%.1f" % float(bonus["hp_pct"])).trim_suffix(".0")
+	if float(bonus.get("mp_on_kill", 0)) > 0.0:
+		t += "\n[color=#7fb8ff]Mana ao abater +%.0f%% da mana máxima[/color]" % float(bonus["mp_on_kill"])
+	if float(bonus.get("mp_regen_combat", 0)) > 0.0:
+		t += "\n[color=#7fb8ff]Mana em combate +%.1f%% da mana máxima/s[/color]" % float(bonus["mp_regen_combat"])
+	for k in BONUS_LABELS:
+		if float(bonus.get(k, 0)) > 0.0:
+			t += "\n[color=#ffd27f]%s[/color]" % (BONUS_LABELS[k] as String).replace("{v}", ("%.1f" % float(bonus[k])).trim_suffix(".0"))
+	return t
+
+## Rótulos pt-BR dos bônus de item (acessórios lendários); {v} = valor.
+const BONUS_LABELS := {
+	"atk_pct": "Ataque +{v}%", "matk_pct": "Ataque mágico +{v}%", "def_pct": "Defesa +{v}%", "aspd_pct": "Velocidade de ataque +{v}%",
+	"crit": "Crítico +{v}%", "crit_dmg_pct": "Dano crítico +{v}%", "lifesteal": "Roubo de vida +{v}%", "dr_pct": "Dano recebido -{v}%",
+	"block": "Bloqueio +{v}% (com escudo)", "evasion": "Esquiva +{v}%", "threat_pct": "Ameaça +{v}%", "heal_pct": "Cura +{v}%",
+	"buff_pct": "Duração das bênçãos +{v}%", "radiance": "Radiância +{v}%", "pet_pct": "Companheiro e invocações +{v}%",
+	"fire_pct": "Dano de fogo +{v}%", "frost_pct": "Dano de gelo +{v}%", "storm_pct": "Dano de raio +{v}%",
+	"backstab": "Dano pelas costas +{v}%", "cdr": "Recarga -{v}%", "speed_pct": "Velocidade de movimento +{v}%",
+	"dot_pct": "Dano no tempo +{v}%", "cc_resist_pct": "Atordoar/prender/lentidão em você -{v}% de duração",
+	"mp_cost_pct": "Custo de mana -{v}%", "summon_time_pct": "Duração das invocações +{v}%",
+}
 
 static func legend_effect_text(le: Dictionary) -> String:
 	var nm: String = str(le.get("name", ""))
@@ -505,6 +538,9 @@ static func legend_effect_text(le: Dictionary) -> String:
 		"riposte": body = "ao esquivar, contra-ataca com %.0f%% do ATK" % float(le["pct"])
 		"raise_on_kill": body = "abater levanta um esqueleto por %.0f s (a cada %.0f s no máximo)" % [float(le["time"]), float(le["icd"])]
 		"heal_on_kill": body = "abater cura %.1f%% da vida" % float(le["pct"])
+		"holy_edge": body = "%.0f%% de chance, a cada golpe, de causar +%.0f%% do ATK em dano sagrado (conta como ameaça)" % [float(le["chance"]), float(le["pct"])]
+		"bulwark": body = "golpear dá uma barreira de %.1f%% da vida máxima por %.0f s (no máximo a cada %.0f s; renova, não acumula)" % [float(le["pct"]), float(le["time"]), float(le["icd"])]
+		"determination": body = "atacar (no máximo a cada %.0f s) e levar golpe dão 1 carga (até %d): +%.1f%% de dano causado e +%.1f%% de cura recebida cada; levar golpe renova, %.0f s sem apanhar perde todas" % [float(le["icd"]), int(le["max"]), float(le["dmg"]), float(le["heal"]), float(le["time"])]
 		"penance": body = "cada golpe marca o alvo; na %dª marca ele explode em fogo sagrado (%.0f%% do ATK a %.1f m)" % [int(le["stacks"]), float(le["pct"]), float(le["radius"])]
 		"mend": body = "%.0f%% do dano de ataques e habilidades cura o aliado mais ferido por perto (você incluso)" % float(le["pct"])
 		"fist_counter": body = "ao esquivar com duas garras, o contra-ataque causa +%.0f%% do ATK (além da Fúria do Punho)" % float(le["pct"])

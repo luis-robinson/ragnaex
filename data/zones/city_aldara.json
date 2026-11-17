@@ -6,7 +6,7 @@
  ],
  "spawn": [
   0.0,
-  8.0
+  10.4
  ],
  "town": {
   "center": [
@@ -31,7 +31,89 @@
     -30.0,
     0.0
    ]
-  ]
+  ],
+  "centerpiece": {
+   "kind": "feira_do_trigo",
+   "mill": [
+    0.0,
+    0.0
+   ],
+   "mill_r": 2.5,
+   "height": 4.0,
+   "stall_r": 7.6,
+   "stalls": [
+    [
+     7.02,
+     2.91,
+     67.5
+    ],
+    [
+     2.91,
+     7.02,
+     22.5
+    ],
+    [
+     -2.91,
+     7.02,
+     -22.5
+    ],
+    [
+     -7.02,
+     2.91,
+     -67.5
+    ],
+    [
+     -7.02,
+     -2.91,
+     -112.5
+    ],
+    [
+     -2.91,
+     -7.02,
+     -157.5
+    ],
+    [
+     2.91,
+     -7.02,
+     -202.5
+    ],
+    [
+     7.02,
+     -2.91,
+     -247.5
+    ]
+   ],
+   "carts": [
+    [
+     5.6,
+     12.5,
+     168.0
+    ],
+    [
+     -12.8,
+     -4.6,
+     68.0
+    ]
+   ],
+   "forge": [
+    9.4,
+    -9.4
+   ],
+   "barn": [
+    -9.85,
+    23.2
+   ],
+   "pen": [
+    -15.65,
+    18.98,
+    2.5
+   ],
+   "founder": [
+    6.89,
+    -24.03
+   ],
+   "max_height": 4.0
+  }
  },
  "obstacles": [
   {
@@ -1257,56 +1339,6 @@
   {
    "kind": "house",
    "pos": [
-    -6.89,
-    24.03
-   ],
-   "size": [
-    5.6,
-    3.5,
-    5.2
-   ],
-   "rot": 164.0,
-   "visible": true,
-   "solid": true,
-   "color": [
-    0.86,
-    0.8,
-    0.68
-   ],
-   "roof": [
-    0.55,
-    0.45,
-    0.65
-   ]
-  },
-  {
-   "kind": "house",
-   "pos": [
-    -14.34,
-    20.48
-   ],
-   "size": [
-    6.4,
-    3.8,
-    5.2
-   ],
-   "rot": 145.0,
-   "visible": true,
-   "solid": true,
-   "color": [
-    0.86,
-    0.8,
-    0.68
-   ],
-   "roof": [
-    0.78,
-    0.4,
-    0.33
-   ]
-  },
-  {
-   "kind": "house",
-   "pos": [
     -20.48,
     14.34
    ],
@@ -1507,31 +1539,6 @@
   {
    "kind": "house",
    "pos": [
-    6.89,
-    -24.03
-   ],
-   "size": [
-    5.6,
-    3.2,
-    5.2
-   ],
-   "rot": -16.0,
-   "visible": true,
-   "solid": true,
-   "color": [
-    0.86,
-    0.8,
-    0.68
-   ],
-   "roof": [
-    0.8,
-    0.55,
-    0.3
-   ]
-  },
-  {
-   "kind": "house",
-   "pos": [
     14.34,
     -20.48
    ],
@@ -1605,65 +1612,265 @@
    ]
   },
   {
-   "kind": "house",
+   "kind": "pillar",
    "pos": [
-    9.9,
-    -9.9
+    0.0,
+    0.0
    ],
    "size": [
     5.0,
-    2.8,
-    4.2
-   ],
-   "rot": -45.0,
-   "visible": true,
-   "solid": true,
-   "color": [
-    0.88,
-    0.83,
-    0.72
-   ],
-   "roof": [
-    0.78,
-    0.4,
-    0.33
-   ]
-  },
-  {
-   "kind": "fountain",
-   "pos": [
-    0,
-    0
-   ],
-   "size": [
-    3.6,
-    1.3,
-    3.6
+    4.0,
+    5.0
    ],
    "rot": 0.0,
-   "visible": true,
+   "visible": false,
    "solid": true
   },
   {
-   "kind": "statue",
+   "kind": "stall",
    "pos": [
-    0.0,
-    -7.5
+    7.02,
+    2.91
    ],
    "size": [
-    1.2,
-    2.6,
-    1.2
+    2.7,
+    1.6,
+    0.95
+   ],
+   "rot": 67.5,
+   "visible": false,
+   "solid": true
+  },
+  {
+   "kind": "stall",
+   "pos": [
+    2.91,
+    7.02
+   ],
+   "size": [
+    2.7,
+    1.6,
+    0.95
+   ],
+   "rot": 22.5,
+   "visible": false,
+   "solid": true
+  },
+  {
+   "kind": "stall",
+   "pos": [
+    -2.91,
+    7.02
+   ],
+   "size": [
+    2.7,
+    1.6,
+    0.95
+   ],
+   "rot": -22.5,
+   "visible": false,
+   "solid": true
+  },
+  {
+   "kind": "stall",
+   "pos": [
+    -7.02,
+    2.91
+   ],
+   "size": [
+    2.7,
+    1.6,
+    0.95
+   ],
+   "rot": -67.5,
+   "visible": false,
+   "solid": true
+  },
+  {
+   "kind": "stall",
+   "pos": [
+    -7.02,
+    -2.91
+   ],
+   "size": [
+    2.7,
+    1.6,
+    0.95
+   ],
+   "rot": -112.5,
+   "visible": false,
+   "solid": true
+  },
+  {
+   "kind": "stall",
+   "pos": [
+    -2.91,
+    -7.02
+   ],
+   "size": [
+    2.7,
+    1.6,
+    0.95
+   ],
+   "rot": -157.5,
+   "visible": false,
+   "solid": true
+  },
+  {
+   "kind": "stall",
+   "pos": [
+    2.91,
+    -7.02
+   ],
+   "size": [
+    2.7,
+    1.6,
+    0.95
+   ],
+   "rot": -202.5,
+   "visible": false,
+   "solid": true
+  },
+  {
+   "kind": "stall",
+   "pos": [
+    7.02,
+    -2.91
+   ],
+   "size": [
+    2.7,
+    1.6,
+    0.95
+   ],
+   "rot": -247.5,
+   "visible": false,
+   "solid": true
+  },
+  {
+   "kind": "crate",
+   "pos": [
+    4.92,
+    12.35
+   ],
+   "size": [
+    4.4,
+    1.3,
+    1.9
+   ],
+   "rot": 168.0,
+   "visible": false,
+   "solid": true
+  },
+  {
+   "kind": "crate",
+   "pos": [
+    -12.54,
+    -5.25
+   ],
+   "size": [
+    4.4,
+    1.3,
+    1.9
+   ],
+   "rot": 68.0,
+   "visible": false,
+   "solid": true
+  },
+  {
+   "kind": "crate",
+   "pos": [
+    11.24,
+    -11.24
+   ],
+   "size": [
+    2.9,
+    3.9,
+    2.3
+   ],
+   "rot": -45.0,
+   "visible": false,
+   "solid": true
+  },
+  {
+   "kind": "pillar",
+   "pos": [
+    8.76,
+    -8.76
+   ],
+   "size": [
+    0.9,
+    0.9,
+    0.9
    ],
    "rot": 0.0,
-   "visible": true,
+   "visible": false,
+   "solid": true
+  },
+  {
+   "kind": "crate",
+   "pos": [
+    12.65,
+    -7.84
+   ],
+   "size": [
+    1.9,
+    0.8,
+    1.3
+   ],
+   "rot": -45.0,
+   "visible": false,
+   "solid": true
+  },
+  {
+   "kind": "pillar",
+   "pos": [
+    8.06,
+    -12.72
+   ],
+   "size": [
+    1.9,
+    0.9,
+    1.9
+   ],
+   "rot": 0.0,
+   "visible": false,
+   "solid": true
+  },
+  {
+   "kind": "crate",
+   "pos": [
+    -9.85,
+    23.2
+   ],
+   "size": [
+    7.6,
+    4.0,
+    5.0
+   ],
+   "rot": 157.0,
+   "visible": false,
+   "solid": true
+  },
+  {
+   "kind": "pillar",
+   "pos": [
+    -15.65,
+    18.98
+   ],
+   "size": [
+    5.3,
+    1.0,
+    5.3
+   ],
+   "rot": 0.0,
+   "visible": false,
    "solid": true
   },
   {
    "kind": "well",
    "pos": [
-    -6.8,
-    6.8
+    3.89,
+    -25.63
    ],
    "size": [
     1.6,
@@ -1675,134 +1882,69 @@
    "solid": true
   },
   {
-   "kind": "stall",
+   "kind": "bench",
    "pos": [
-    -14.0,
-    7.0
+    4.29,
+    -22.83
    ],
    "size": [
-    2.4,
     1.6,
-    1.4
+    0.5,
+    0.5
    ],
-   "rot": 60.0,
+   "rot": 115.0,
    "visible": true,
-   "solid": true,
-   "color": [
-    0.55,
-    0.4,
-    0.27
-   ]
+   "solid": false
   },
   {
-   "kind": "stall",
+   "kind": "bench",
    "pos": [
-    14.0,
-    7.0
+    9.49,
+    -22.83
    ],
    "size": [
-    2.4,
     1.6,
-    1.4
+    0.5,
+    0.5
    ],
-   "rot": -60.0,
+   "rot": 65.0,
    "visible": true,
-   "solid": true,
-   "color": [
-    0.55,
-    0.4,
-    0.27
-   ]
+   "solid": false
   },
   {
-   "kind": "crate",
+   "kind": "lamp",
    "pos": [
-    -16.5,
-    9.0
+    9.99,
+    -26.43
    ],
    "size": [
-    1.0,
-    1.0,
-    1.0
+    0.4,
+    3.0,
+    0.4
    ],
    "rot": 0.0,
    "visible": true,
    "solid": true
   },
   {
-   "kind": "crate",
+   "kind": "flowers",
    "pos": [
-    16.5,
-    9.0
+    9.29,
+    -25.93
    ],
    "size": [
-    1.0,
-    1.0,
-    1.0
+    1.6,
+    0.45,
+    1.6
    ],
    "rot": 0.0,
    "visible": true,
-   "solid": true
-  },
-  {
-   "kind": "bench",
-   "pos": [
-    -4,
-    5
-   ],
-   "size": [
-    1.6,
-    0.5,
-    0.5
-   ],
-   "rot": 30,
-   "visible": true,
-   "solid": false
-  },
-  {
-   "kind": "bench",
-   "pos": [
-    4,
-    -5
-   ],
-   "size": [
-    1.6,
-    0.5,
-    0.5
-   ],
-   "rot": 210,
-   "visible": true,
-   "solid": false
-  },
-  {
-   "kind": "bench",
-   "pos": [
-    5,
-    4
-   ],
-   "size": [
-    1.6,
-    0.5,
-    0.5
-   ],
-   "rot": 135,
-   "visible": true,
-   "solid": false
-  },
-  {
-   "kind": "bench",
-   "pos": [
-    -5,
-    -4
-   ],
-   "size": [
-    1.6,
-    0.5,
-    0.5
-   ],
-   "rot": 315,
-   "visible": true,
-   "solid": false
+   "solid": false,
+   "color": [
+    0.92,
+    0.8,
+    0.4
+   ]
   },
   {
    "kind": "lamp",
@@ -1942,21 +2084,6 @@
   {
    "kind": "lamp",
    "pos": [
-    3.2,
-    13.5
-   ],
-   "size": [
-    0.4,
-    3.0,
-    0.4
-   ],
-   "rot": 0.0,
-   "visible": true,
-   "solid": true
-  },
-  {
-   "kind": "lamp",
-   "pos": [
     -3.2,
     24.0
    ],
@@ -1974,21 +2101,6 @@
    "pos": [
     3.2,
     24.0
-   ],
-   "size": [
-    0.4,
-    3.0,
-    0.4
-   ],
-   "rot": 0.0,
-   "visible": true,
-   "solid": true
-  },
-  {
-   "kind": "lamp",
-   "pos": [
-    -13.5,
-    -3.2
    ],
    "size": [
     0.4,
@@ -24944,46 +25056,6 @@
    "solid": true
   },
   {
-   "kind": "stall",
-   "pos": [
-    -5.5,
-    -16.5
-   ],
-   "size": [
-    2.4,
-    1.6,
-    1.4
-   ],
-   "rot": 18.4,
-   "visible": true,
-   "solid": true,
-   "color": [
-    0.55,
-    0.4,
-    0.27
-   ]
-  },
-  {
-   "kind": "stall",
-   "pos": [
-    6.5,
-    16.5
-   ],
-   "size": [
-    2.4,
-    1.6,
-    1.4
-   ],
-   "rot": -158.5,
-   "visible": true,
-   "solid": true,
-   "color": [
-    0.55,
-    0.4,
-    0.27
-   ]
-  },
-  {
    "kind": "crate",
    "pos": [
     -16.0,
@@ -33736,9 +33808,9 @@
    -28.4
   ],
   "smith": [
-   -12.5,
-   4.0,
-   107.7
+   7.85,
+   -7.85,
+   -45.0
   ],
   "alchemist": [
    12.5,
@@ -33746,9 +33818,9 @@
    -107.7
   ],
   "merchant": [
-   4.0,
-   12.0,
-   -161.6
+   3.72,
+   8.98,
+   22.5
   ],
   "storage": [
    -4.0,
@@ -33764,6 +33836,11 @@
    -3.0,
    23.0,
    172.6
+  ],
+  "founder_statue": [
+   6.89,
+   -24.03,
+   -16.0
   ],
   "guard_s": [
    4.5,
@@ -33794,15 +33871,15 @@
  "hangouts": [
   [
    0,
-   6
+   10.8
   ],
   [
-   -5,
-   -4
+   -9.8,
+   -1.2
   ],
   [
-   5,
-   3
+   9.8,
+   1.2
   ],
   [
    -11,
@@ -33813,12 +33890,12 @@
    6
   ],
   [
-   3,
-   13
+   -1.5,
+   13.5
   ],
   [
-   7,
-   -9
+   3.4,
+   -10.6
   ],
   [
    -8,
@@ -33829,8 +33906,8 @@
    -12
   ],
   [
-   14,
-   -14
+   15.5,
+   -15.5
   ],
   [
    0,
@@ -35515,6 +35592,44 @@
     94.81,
     63.21
    ]
+  }
+ ],
+ "events": [
+  {
+   "kind": "wolves",
+   "pos": [
+    -13.77,
+    -66.09
+   ],
+   "mob": "wolf",
+   "road": "N"
+  },
+  {
+   "kind": "wolves",
+   "pos": [
+    15.59,
+    -82.45
+   ],
+   "mob": "wolf",
+   "road": "colinas_castelo"
+  },
+  {
+   "kind": "wolves",
+   "pos": [
+    -19.93,
+    87.42
+   ],
+   "mob": "wolf",
+   "road": "lago_fazenda"
+  },
+  {
+   "kind": "wolves",
+   "pos": [
+    -74.39,
+    42.79
+   ],
+   "mob": "wolf",
+   "road": "SW"
   }
  ]
 }

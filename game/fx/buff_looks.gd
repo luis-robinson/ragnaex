@@ -24,7 +24,7 @@ const LOOKS := {
 	"bark": ["armor", "nature"], "oak_skin": ["armor", "nature"], "bellow": ["armor", "nature"],
 	"bone_armor": ["armor", "bone"], "bonewall": ["armor", "bone"],
 	"blessed_armor": ["armor", "holy"], "ward": ["armor", "holy"], "bulwark": ["armor", "holy"],
-	"shield_wall": ["armor", "holy"], "bastion": ["armor", "holy"], "juramento": ["armor", "holy"],
+	"shield_wall": ["armor", "holy"], "bastion": ["armor", "holy"], "colonia_de_pe": ["holy", "holy"], "juramento": ["armor", "holy"],
 	"duel_guard": ["armor", "physical"], "chakra": ["armor", "holy"],
 	# escudo de HP
 	"shield": ["shield", ""], "boss_ward": ["shield", ""],
@@ -44,9 +44,11 @@ const LOOKS := {
 	"glory": ["power", "fire"],
 	"elem_ember": ["power", "fire"], "elem_fusion": ["power", "lightning"],
 	"fus_aurora": ["power", "holy"],          # Aurora (Fusão Martelo da Aurora)
-	"fus_frenzy": ["power", "blood"],          # Frenesi da Fusão (golpes rápidos empilham velocidade de ataque)
-	"fus_weight": ["power", "physical"],      # Peso (Fusão Executor+Punhos: a próxima skill bate mais forte)
-	"fus_pack_frenzy": ["power", "nature"],   # Frenesi da Matilha (Fusão Guardião Verde+Fera: Bramido dá frenesi no grupo)
+	"apex_tempest": ["power", "blood"],       # Frenesi da Tormenta (Ápice do Carniceiro: golpes empilham velocidade de ataque)
+	"apex_cadence": ["power", "physical"],    # Cadência (Ápice do Duelista: crítico junta; com 5 vira Foco)
+	"legend_determination": ["power", "holy"],   # Determinação (escudo lendário do Paladino/Clérigo de Batalha): cargas de dano e cura recebida
+	"legend_bulwark": ["armor", "holy"],         # Baluarte (maça lendária do Paladino): a bolha vem do "shield"; a borda sagrada marca a origem
+	"apex_judged": ["power", "holy"],         # Julgado (Ápice do Cruzado: debuff no alvo, todo o dano do Cruzado nele é maior)
 	# bênçãos
 	"choir_wings": ["speed", "holy"], "choir_aegis": ["armor", "holy"],        # bênçãos do Coro Celeste (Bispo ascendido)
 	"blessing": ["holy", "holy"], "angel": ["holy", "holy"], "avenging_wrath": ["holy", "holy"], "grove": ["holy", "nature"],
@@ -74,6 +76,8 @@ const FAMILIES := ["armor", "shield", "power", "holy", "speed", "smoke", "poison
 ## Buffs que a sim põe direto no código (sem catálogo): id -> onde.
 const SYSTEM_BUFFS := {
 	"legend_frenzy": "LegendEffects (arma lendária: frenesi)",
+	"legend_bulwark": "LegendEffects.bulwark (maça lendária: Baluarte)",
+	"legend_determination": "LegendEffects.determination_gain (escudo lendário: Determinação)",
 	"lord_pact_minion": "NecroAscension (Pacto dos Mortos nas invocações)",
 	"shout_flame_ally": "RangerAscension (Brado das Chamas no grupo)",
 	"shout_thunder_ally": "RangerAscension (Brado do Trovão no grupo)",
@@ -82,6 +86,7 @@ const SYSTEM_BUFFS := {
 	"fist_fury": "FistSystem (Punhos de Fúria: esquivar dá Fúria do Punho)",
 	"glory": "GladiatorSystem (Modo Gladiador: Glória por crítico, abate e Brado da Arena)",
 	"bastion": "RaidSystem (sentinela: reunir)",
+	"colonia_de_pe": "SiegeSystem (Colônia de Pé: leva repelida, +XP de abate no mapa)",
 	"juramento": "ShieldSystem (Juramento ao bloquear)",
 	"shield": "WorldSim (efeito shield, Égide lendária)",
 	"boss_ward": "MobSystem (chefe protegido pelos lacaios: fase com ward)",
@@ -100,10 +105,10 @@ const SYSTEM_BUFFS := {
 	"elem_ember": "ElementalSystem (elemental de fogo no modo apoiar)",
 	"elem_gale": "ElementalSystem (elemental de raio no modo apoiar)",
 	"elem_fusion": "ElementalSystem (Fusão Elemental)",
-	"fus_aurora": "FusionEffects.on_cast (Martelo da Aurora: magia sagrada dá Aurora)",
-	"fus_frenzy": "FusionEffects._frenzy (Fusão: frenesi empilhável)",
-	"fus_weight": "FusionEffects._weight (Fusão Executor+Punhos: Peso)",
-	"fus_pack_frenzy": "FusionEffects.on_cast (Fusão Guardião Verde+Fera: frenesi da matilha no grupo)",
+	"fus_aurora": "FusionEffects.on_cast (Ápice Iluminado: magia sagrada dá Aurora)",
+	"apex_tempest": "FusionEffects._tempest (Ápice do Carniceiro: Frenesi da Tormenta)",
+	"apex_cadence": "FusionEffects._cadence (Ápice do Duelista: Cadência)",
+	"apex_judged": "FusionEffects.judge (Ápice do Cruzado: alvo Julgado)",
 }
 
 ## Padrão na pele (uniform buff_style do toon) por tema.

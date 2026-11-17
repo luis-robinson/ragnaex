@@ -13,6 +13,8 @@ static func reclaimed(sim: WorldSim, m: Dictionary) -> int:
 	var st := state(m)
 	if st.has("force_reclaimed"):
 		return int(st["force_reclaimed"])
+	if SiegeSystem.managed(m["def"]):
+		return 0                         # cerco em trechos: rota calada = trecho fechado, não fortaleza retomada (sem fúria)
 	var n := 0
 	for r in routes(m["def"]):
 		if r.has("unless") and not WorldState.active(sim, {"unless": r["unless"]}):
@@ -45,10 +47,13 @@ static func update_raids(sim: WorldSim, m: Dictionary, dt: float) -> void:
 	var all := routes(def)
 	if float(m.get("sortie_cd", 0.0)) > 0.0:
 		m["sortie_cd"] = float(m["sortie_cd"]) - dt
+	var siege := SiegeSystem.managed(def)     # Cerco Vivo: quem solta as levas é o relógio do SiegeSystem
 	for i in all.size():
 		var st := state(m, i)
 		if not (st["ids"] as Array).is_empty():
 			_update_wave(sim, m, st, dt, i)
+			continue
+		if siege:
 			continue
 		if not WorldState.active(sim, all[i]):
 			continue
@@ -74,7 +79,7 @@ static func start_raid(sim: WorldSim, m: Dictionary, i: int = 0) -> Array:
 	var step := power_step(sim, m)
 	var groups: Array = []
 	for w in r.get("waves", []):
-		var nth: int = int(w.get("every_nth", 1))
+		var nth: int = SiegeSystem.big_nth(sim, m, int(w.get("every_nth", 1)))
 		if (n + 1) % nth == 0:
 			groups.append(w["mobs"])
 	var extra: Dictionary = r.get("scale_extra", {})
@@ -83,7 +88,7 @@ static func start_raid(sim: WorldSim, m: Dictionary, i: int = 0) -> Array:
 			groups.append(extra[at])
 	# fúria: cada fortaleza retomada aumenta a leva dos fronts que sobram (x RAID_RECLAIM_MULT^k) e soma elites
 	var k := reclaimed(sim, m)
-	var mult := pow(Balance.RAID_RECLAIM_MULT, k)
+	var mult := pow(Balance.RAID_RECLAIM_MULT, k) * SiegeSystem.size_mult(sim, m)
 	var last: bool = k > 0 and k >= routes(def).size() - 1          # só sobra este front: o cerco joga tudo nele
 	if last:
 		mult *= Balance.RAID_LAST_FRONT_MULT
@@ -177,6 +182,7 @@ static func _update_wave(sim: WorldSim, m: Dictionary, st: Dictionary, dt: float
 		if repelled:
 			Events.post(&"chat_message", "Sistema", str(r.get("say_repelled", "A investida foi repelida!")), "system")
 		Events.post(&"raid_event", def.id, "repelled" if repelled else "retreated")
+		SiegeSystem.on_wave_end(sim, m, i, repelled, bool(st["arrived"]))
 		return
 	st["ids"] = alive
 	_rally(sim, m, st, dt, i)
@@ -205,7 +211,7 @@ static func scaled_def(sim: WorldSim, base: MonsterDef, step: int, map_id: Strin
 		return sim._raid_defs[key]
 	var d: MonsterDef = base.duplicate()
 	d.level = base.level + step
-	d.hp = base.hp * (1.0 + step * Balance.RAID_SCALE_HP_PCT / 100.0) * Balance.RAID_POWER * mp
+	d.hp = base.hp * (1.0 + step * Balance.RAID_SCALE_HP_PCT / 100.0) * Balance.RAID_POWER * mp * float(Balance.RAID_MAP_HP.get(map_id, 1.0))
 	d.atk = base.atk * (1.0 + step * Balance.RAID_SCALE_ATK_PCT / 100.0) * Balance.RAID_POWER * mp
 	d.matk = base.matk * (1.0 + step * Balance.RAID_SCALE_ATK_PCT / 100.0) * Balance.RAID_POWER * mp
 	d.aggro_range = base.aggro_range * Balance.RAID_SMART
@@ -278,6 +284,10 @@ static func status(sim: WorldSim, map_id: String) -> Dictionary:
 		if e != null and e.is_alive():
 			alive += 1
 	var active := not (st["ids"] as Array).is_empty()
+	if not active and SiegeSystem.managed(def):
+		var ss: Dictionary = SiegeSystem.status(sim, map_id)
+		st = st.duplicate()
+		st["timer"] = float(ss["next_wave"]) if int(ss["p"]) > 0 else 1.0e9      # paz: sem leva à vista (a faixa do HUD não aparece)
 	var phase := "retreat" if st["retreat"] else ("walls" if st["arrived"] else "march")
 	return {"active": active, "alive": alive, "total": int(st.get("total", alive)), "phase": phase, "wave": int(st["n"]), "step": int(st.get("step", 0)), "level": int(st.get("level", 0)),
 		"next_in": 0.0 if active else maxf(0.0, float(st["timer"])), "target": r["target"], "radius": float(r.get("radius", 25.0)),
@@ -295,7 +305,7 @@ static func _status_route(sim: WorldSim, m: Dictionary, all: Array) -> int:
 		if n > best_alive:
 			best_alive = n
 			best = i
-		elif n == 0 and WorldState.active(sim, all[i]) and float(st["timer"]) < soon:
+		elif n == 0 and WorldState.active(sim, all[i]) and float(st["timer"]) < soon and str(all[i].get("kind", "")) != "harass":
 			soon = float(st["timer"])
 			soon_i = i
 	return best if best_alive > 0 else maxi(soon_i, 0)

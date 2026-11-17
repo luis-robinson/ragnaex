@@ -73,6 +73,15 @@ static func on_kill(e: SimEntity, monster_id: String) -> void:
 			e.quests_active[qid] = cur
 			Events.post(&"quest_progress", e.id, qid, cur, q.count)
 
+## DEFEND: uma leva repelida no mapa `map_id` com o jogador na defesa (SiegeSystem.on_wave_end).
+static func on_defend(e: SimEntity, map_id: String) -> void:
+	for qid in e.quests_active.keys():
+		var q: QuestDef = GameData.quests.get(qid)
+		if q and q.type == QuestDef.Type.DEFEND and q.target_id == map_id:
+			var cur := mini(int(e.quests_active[qid]) + 1, q.count)
+			e.quests_active[qid] = cur
+			Events.post(&"quest_progress", e.id, qid, cur, q.count)
+
 static func on_item_changed(e: SimEntity, item_id: String) -> void:
 	for qid in e.quests_active.keys():
 		var q: QuestDef = GameData.quests.get(qid)
@@ -161,6 +170,12 @@ static func objective(e: SimEntity, q: QuestDef) -> Dictionary:
 			return spot if not spot.is_empty() else _npc_spot(e, q.turnin())   # entrega: o pacote já está na bolsa
 		QuestDef.Type.TALK:
 			return _npc_spot(e, q.target_id)
+		QuestDef.Type.DEFEND:                    # o povoado sitiado: o alvo da próxima leva (ou o centro)
+			var dm: MapDef = GameData.maps.get(q.target_id)
+			if dm == null:
+				return {}
+			var routes := RaidSystem.routes(dm)
+			return {"map": q.target_id, "pos": routes[0]["target"] if not routes.is_empty() else dm.town_center}
 		QuestDef.Type.REACH:
 			if GameData.maps.has(q.target_id):
 				return {"map": q.target_id, "pos": GameData.maps[q.target_id].spawn_point}

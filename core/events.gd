@@ -63,6 +63,9 @@ signal trap_removed(trap_id: int, triggered: bool)
 signal hazard_placed(map_id: String, pos: Vector3, radius: float, delay: float, skill_id: String)     # chefe: círculo de aviso que cai depois de delay s
 signal dodged(entity_id: int)
 signal raid_event(map_id: String, kind: String)          # investida (RaidSystem): start | arrived | retreat | repelled | retreated
+signal siege_event(map_id: String, kind: String)         # cerco (SiegeSystem): harass | horn | repelled | scorch | fire_out
+signal road_event_started(map_id: String, kind: String, pos: Vector3)     # evento de estrada (RoadEventSystem)
+signal road_event_ended(map_id: String, kind: String, outcome: String)    # resolved | expired | failed | raid
 signal monster_emerged(map_id: String, position: Vector3)
 signal gathered(map_id: String, node_index: int, entity_id: int)     # ponto de colheita esvaziou (volta depois)   # chefe saiu da água (respingo no lugar)
 signal mount_changed(entity_id: int, mounted: bool)   # montou/desmontou (H, golpe ou dano)                # esquivou um golpe (Assassino)

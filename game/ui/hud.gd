@@ -654,7 +654,8 @@ const STATUS_NAMES := {"burn": ["Queimando", "Fogo: perde HP com o tempo."], "po
 	"stun": ["Atordoado", "Não age até passar."], "curse": ["Amaldiçoado", "Recebe mais dano e/ou causa menos."],
 	"wither": ["Definhando", "Cura recebida reduzida."], "shield": ["Barreira", "Absorve dano."],
 	"juramento": ["Juramento", "Cargas do escudo: bloquear acumula."],
-	"bastion": ["Bastião", "Defendendo as muralhas na investida: mais defesa e regenera vida."]}
+	"bastion": ["Bastião", "Defendendo as muralhas na investida: mais defesa e regenera vida."],
+	"colonia_de_pe": ["Colônia de Pé", "Você ajudou a repelir uma investida: +10% de XP de abate neste mapa."]}
 
 func _update_status_bar(p: SimEntity) -> void:
 	var want: Array = []                  # [chave, buff?, tempo, cargas, ícone, nome, descrição]
@@ -748,6 +749,10 @@ func _form_skill(form: String) -> SkillDef:
 
 func _buff_source(id: String) -> Dictionary:
 	if _buff_src.is_empty():
+		for pair in [[Balance.LEG_BULWARK_BUFF, "leg_paladin_guardiao_30_mace", "Baluarte", "Maça/martelo lendário do Paladino: golpe dá uma barreira de parte da vida máxima (com recarga; renova, não acumula)."],
+				[Balance.LEG_DETERMINATION_BUFF, "leg_paladin_guardiao_30_offhand", "Determinação", "Escudo lendário: atacar (com recarga) e levar golpes juntam cargas de dano causado e cura recebida; levar golpe renova, sem apanhar por um tempo some tudo."]]:
+			if GameData.items.has(pair[1]):          # armas de papel (GearCatalog.WEAPON_ROLES): ícone = a arte da peça
+				_buff_src[pair[0]] = {"tex": UiKit.item_texture(GameData.items[pair[1]]), "name": pair[2], "desc": pair[3]}
 		if GameData.skills.has("ass_between_eyes"):       # Bravata (Corsário): cargas que o Tiro Entre os Olhos gasta
 			_buff_src[Balance.BRAVADO_BUFF] = {"tex": UiKit.icon_texture("skill_ass_between_eyes"), "name": "Bravata",
 				"desc": "Cargas do Corsário (até %d): tiros e cortes juntam, o Tiro Entre os Olhos gasta todas." % Balance.BRAVADO_MAX}
@@ -765,9 +770,13 @@ func _buff_source(id: String) -> Dictionary:
 		if GameData.skills.has(Balance.ARCANE_SKILL):     # Asas Protetoras (Templário): redução de dano no grupo perto das asas
 			_buff_src[str(Balance.ARCANE_WARD["id"])] = {"tex": UiKit.icon_texture("skill_" + Balance.ARCANE_SKILL), "name": "Asas Protetoras",
 				"desc": "As asas de um Templário perto protegem você: −%d%% de dano sofrido." % int(Balance.ARCANE_WARD["dr_pct"])}
-		if GameData.skills.has("bis_hammer"):             # Aurora (Fusão Martelo da Aurora): magia sagrada dá +ATK e +MATK
+		if GameData.skills.has("bis_hammer"):             # Aurora (Ápice Iluminado): magia sagrada dá +ATK e +MATK
 			_buff_src[FusionEffects.AURORA_BUFF] = {"tex": UiKit.icon_texture("skill_bis_hammer"), "name": "Aurora",
-				"desc": "Martelo da Aurora: sua magia sagrada deixa ATK e MATK mais altos por %d s." % int(Balance.FUSION_AURORA_TIME)}
+				"desc": "Ápice da Aurora Ardente: sua magia sagrada deixa ATK e MATK mais altos por %d s." % int(Balance.FUSION_AURORA_TIME)}
+		_buff_src["apex_tempest"] = {"tex": UiKit.icon_texture("skill_ber_throw_axe"), "name": "Frenesi da Tormenta",
+			"desc": "Ápice da Tormenta Gêmea: cada golpe direto dá velocidade de ataque (até %d); o Arremesso Brutal gasta as cargas e bate mais." % Balance.FUSION_FRENZY_MAX}
+		_buff_src["apex_cadence"] = {"tex": UiKit.icon_texture("skill_ass_focus"), "name": "Cadência",
+			"desc": "Ápice da Cadência Perfeita: crítico com espada junta (esquivar dá 2); com %d vira Foco do Duelista." % Balance.APEX_CADENCE_MAX}
 		for sid in GameData.skills:
 			var sk: SkillDef = GameData.skills[sid]
 			var faces = sk.effects.get("dice")

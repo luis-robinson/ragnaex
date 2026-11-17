@@ -9,7 +9,7 @@ extends RefCounted
 ##   aura: [skill] + strength + radius  o mesmo, em você e nos aliados do grupo/invocações perto
 ##   summon_permanent: [skill]          as invocações da skill não expiram
 ##   summon_extra: {skill: n}           +n no máximo de invocações da skill
-##   skill_mods: {skill: {set, mult, effects}}   como as evoluções (TalentsCatalog)
+##   skill_mods: {skill: {set, mult, effects, add}}   como as evoluções (TalentsCatalog); `add` SOMA ao efeito final (base + maestria + evolução)
 ##   stats: {...}                       bônus fixo (formato de buff: atk_pct, crit, attr_FOR...)
 ##   form_mult                          multiplica os bônus das formas (lobo, urso, demônio, fantasma)
 ##   form_stats {...}                   bônus fixo (formato de buff) que só vale na forma (Uivo da Lua)
@@ -107,11 +107,11 @@ static func _make() -> Dictionary:
 	return {
 		"paladin": [
 			[5, [_o("pal_c_oath", "Voto do Escudo", "Juramento acumula até 8 cargas (eram 5).", "dano", {"oath_max": 8}),
-				_o("pal_c_holy_mend", "Golpe Restaurador", "Golpe Sagrado cura 12% do dano causado.", "sobrevivência", {"skill_mods": {"pal_holy_strike": {"effects": {"heal_pct_of_dmg": 0.12}}}}),
+				_o("pal_c_holy_mend", "Golpe Restaurador", "Golpe Sagrado cura +12% do dano causado (soma à cura que ele já tem).", "sobrevivência", {"skill_mods": {"pal_holy_strike": {"add": {"heal_pct_of_dmg": Balance.CT_HOLY_MEND_ADD}}}}),
 				_o("pal_c_resolve", "Determinação", "+8% de HP e +60 de VIT.", "sobrevivência", {"stats": {"hp_pct": 8, "attr_VIT": 60}})]],
 			[10, [_o("pal_c_bulwark", "Baluarte", "Armadura Abençoada e Muralha de Escudo ficam sempre ativas em você (60% da força, sem a lentidão).", "permanente",
 					{"permanent": ["pal_blessed_armor", "pal_shield_wall"], "strength": 0.6}),
-				_o("pal_c_flame_strike", "Golpe Ardente", "Chama Sagrada +20% de dano e queima 1 s a mais.", "dano", {"skill_mods": {"pal_sacred_flame": {"mult": {"power": Balance.CT_SKILL_POWER}, "effects": {"dot": Balance.CT_DOTS["pal_sacred_flame"]}}}}),
+				_o("pal_c_flame_strike", "Golpe Ardente", "Chama Sagrada +20% de dano e queima 5 s a mais.", "dano", {"skill_mods": {"pal_sacred_flame": {"mult": {"power": Balance.CT_SKILL_POWER}, "add": {"dot": {"duration": Balance.CT_FLAME_STRIKE_ADD_S}}}}}),
 				_o("pal_c_faith_arc", "Arco da Fé", "Arco Radiante e Martelo de Luz +20% de dano.", "dano", {"skill_mods": {"pal_twin_slash": {"mult": {"power": Balance.CT_SKILL_POWER}}, "pal_hammer_light": {"mult": {"power": Balance.CT_SKILL_POWER}}}})]],
 			[15, [_o("pal_c_steady_lunge", "Investida Firme", "Estocada Sagrada recarrega 25% mais rápido.", "dano", {"skill_mods": {"pal_lunge": {"mult": {"cooldown": Balance.CT_LUNGE_CD}}}}),
 				_o("pal_c_hands", "Mãos Rápidas", "Imposição de Mãos recarrega 40% mais rápido.", "sobrevivência", {"skill_mods": {"pal_lay_hands": {"mult": {"cooldown": 0.6}}}}),
@@ -181,8 +181,8 @@ static func _make() -> Dictionary:
 				_o("bis_c_radiant_nova", "Nova Radiante", "Nova Sagrada 30% maior e +20% de dano.", "dano", {"skill_mods": {"bis_holy_nova": {"mult": {"radius": Balance.CT_AREA_MULT, "power": Balance.CT_SKILL_POWER}}}}),
 				_o("bis_c_light", "Mão Firme", "Luz Sagrada e Martelada da Fé +15% de dano.", "dano",
 					{"skill_mods": {"bis_light": {"mult": {"power": 1.15}}, "bis_holy_blow": {"mult": {"power": 1.15}}}})]],
-			[25, [_o("bis_c_smite", "Castigo", "Castigar e Martelo de Luz atordoam 0,6 s.", "utilidade",
-					{"skill_mods": {"bis_smite": {"effects": {"stun": {"duration": 0.6}}}, "bis_hammer": {"effects": {"stun": {"duration": 0.6}}}}}),
+			[25, [_o("bis_c_smite", "Castigo", "Castigar atordoa 0,6 s e o Martelo de Luz atordoa 0,4 s a mais.", "utilidade",
+					{"skill_mods": {"bis_smite": {"effects": {"stun": {"duration": 0.6}}}, "bis_hammer": {"add": {"stun": {"duration": Balance.CT_SMITE_HAMMER_ADD_S}}}}}),
 				_o("bis_c_angel", "Anjo Guardião", "Asas Angelicais duram o dobro e recarregam 40% mais rápido.", "sobrevivência", {"skill_mods": {"bis_angel": {"mult": {"cooldown": 0.6, "duration": 2.0}}}}),
 				_o("bis_c_mind", "Mente Clara", "+15% de MP e −10% de recarga.", "utilidade", {"stats": {"mp_pct": 15, "cdr": 10}})]],
 			[30, [_o("bis_c_intercede", "Intercessão", "Um aliado do grupo a 15 m que cairia fica com 1 HP e imortal por 4 s (uma vez a cada 120 s).", "sobrevivência",
@@ -248,7 +248,8 @@ static func _make() -> Dictionary:
 				_o("ran_c_cdr", "Fôlego", "−15% de recarga em todas as skills.", "utilidade", {"stats": {"cdr": 15}}),
 				_o("ran_c_volley", "Chuva de Flechas", "Saraivada e Barragem +25% de dano.", "dano", {"skill_mods": {"ran_volley": {"mult": {"power": 1.25}}, "ran_barrage": {"mult": {"power": 1.25}}}})]],
 			[30, [_o("ran_c_chosen_prey", "Presa Escolhida", "Marca do Predador dura 50% a mais e recarrega 20% mais rápido.", "utilidade", {"skill_mods": {"ran_predator": {"mult": {"duration": Balance.CT_PREY_TIME, "cooldown": Balance.CT_PREY_CD}}}}),
-				_o("ran_c_ghost", "Tiro Fantasma", "Tiro na Cabeça atravessa e +30% de dano.", "dano", {"skill_mods": {"ran_headshot": {"set": {"projectile_pierce": true}, "mult": {"power": 1.3}}}}),
+				_o("ran_c_ghost", "Tiro Fantasma", "Tiro na Cabeça atravessa: acerta também até 2 inimigos na linha atrás do alvo e +15% de dano.", "dano",
+					{"skill_mods": {"ran_headshot": {"set": {"projectile_pierce": true, "max_targets": Balance.GHOST_SHOT_TARGETS}, "mult": {"power": 1.15}}}}),
 				_o("ran_c_pack", "Matilha", "Instinto da Matilha fica sempre ativo em você e no lince (60% da força).", "permanente", {"permanent": ["ran_pack"], "strength": 0.6})]],
 			[35, [_b("cacador", "ran_c_hunting_net", "Rede de Caça", "Rede 40% maior e recarrega 25% mais rápido.", "utilidade", {"skill_mods": {"ran_net": {"mult": {"radius": 1.4, "cooldown": 0.75}}}}),
 				_b("atirador", "ran_c_leader_shot", "Tiro no Líder", "Tiro na Cabeça atordoa 1 s (era 0,5 s) e recarrega 20% mais rápido.", "utilidade", {"skill_mods": {"ran_headshot": {"mult": {"cooldown": 0.8}, "effects": {"stun": {"duration": 1.0}}}}}),
@@ -311,7 +312,7 @@ static func _make() -> Dictionary:
 				_o("ele_c_avatar", "Avatar Elemental", "+15% de MATK e +6% de crítico.", "dano", {"stats": {"matk_pct": 15, "crit": 6.0}}),
 				_o("ele_c_cataclysm", "Cataclismo", "Meteoro, Inferno e Zero Absoluto recarregam 40% mais rápido.", "dano",
 					{"skill_mods": {"ele_meteor": {"mult": {"cooldown": 0.6}}, "ele_inferno": {"mult": {"cooldown": 0.6}}, "ele_absolute_zero": {"mult": {"cooldown": 0.6}}}})]],
-			[35, [_b("fogo", "ele_c_scorched", "Terra Queimada", "Muralha de Fogo 30% maior e queima por 40% mais tempo.", "dano", {"skill_mods": {"ele_fire_wall": {"mult": {"radius": 1.3, "duration": 1.4}}}}),
+			[35, [_b("fogo", "ele_c_scorched", "Terra Queimada", "Muralha de Fogo 30% mais longa e fica acesa e queima 40% mais tempo.", "dano", {"skill_mods": {"ele_fire_wall": {"mult": {"radius": 1.3, "duration": 1.4}}}}),
 				_b("gelo", "ele_c_deep_ice", "Gelo Fundo", "Geleira 30% maior e prende por 50% mais tempo.", "utilidade", {"skill_mods": {"ele_glacier": {"mult": {"radius": 1.3, "duration": 1.5}}}}),
 				_b("raio", "ele_c_rod", "Para-Raios", "Campo Estático 30% maior e +20% de dano.", "dano", {"skill_mods": {"ele_static": {"mult": {"radius": 1.3, "power": 1.2}}}})]],
 			[40, [_b("fogo", "ele_c_furnace", "Fornalha", "Onda de Chamas e Inferno +25% de dano.", "dano", {"skill_mods": {"ele_flame_wave": {"mult": {"power": 1.25}}, "ele_inferno": {"mult": {"power": 1.25}}}}),

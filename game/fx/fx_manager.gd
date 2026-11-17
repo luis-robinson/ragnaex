@@ -115,6 +115,13 @@ func _update_reticle() -> void:
 	var col := held.icon_color
 	col.a = 0.85
 	match held.target:
+		SkillDef.Target.GROUND when held.effects.has("fire_wall"):
+			var cw := Combat.clamp_aim(p, aim, held.range)       # muralha: a faixa real, atravessada na mira
+			dir_reticle.visible = true
+			dir_reticle.position = Vector3(cw.x, 0.03, cw.z)
+			dir_reticle.rotation.y = p.facing + PI * 0.5
+			dir_reticle.scale = Vector3(float(held.effects["fire_wall"].get("width", Balance.FIRE_WALL_WIDTH)) * 0.5, 1, held.radius)
+			dir_reticle.material_override.set_shader_parameter("color", col)
 		SkillDef.Target.GROUND:
 			var c := Combat.clamp_aim(p, aim, held.range)
 			reticle.visible = true
@@ -182,6 +189,9 @@ func _on_damage(attacker_id: int, target_id: int, amount: int, crit: bool, block
 		col = Color(1.0, 0.6, 0.3)
 	if kind == "shot":                     # Bala na Agulha (Corsário): tiro de graça da pistola
 		col = Color(1.0, 0.78, 0.35)
+		txt = "✦" + txt
+	if kind == "holy_edge":                # Lâmina Justa (espada do Guardião): dano sagrado a mais
+		col = Color(1.0, 0.92, 0.55)
 		txt = "✦" + txt
 	if kind == "penance":                  # Penitência (Templário): explosão de fogo sagrado
 		col = Color(1.0, 0.85, 0.35)
@@ -285,6 +295,17 @@ static func theme_of(s: SkillDef) -> String:
 		return s.vfx
 	return s.look if s.look != "" else "physical"
 
+## raio-marcador do evento skill_effect do tiro que atravessou (WorldSim._apply_skill; aim = o último da fila)
+const PIERCE_TRACE := -3.0
+const FUSION_THEMES := {"fire": "fire", "frost": "ice", "storm": "lightning"}
+
+## Tema da Fusão Elemental pela forma do elemental de quem lançou (quem está na origem do evento).
+func _fusion_theme(origin: Vector3, fallback: String) -> String:
+	for o in Sim.map_entities(main.current_map_id):
+		if o.is_character() and o.position.distance_to(origin) < 0.05:
+			return FUSION_THEMES.get(ElementalSystem.default_form(o), fallback)
+	return fallback
+
 ## Efeito da skill pelo TEMA (SkillDef.vfx) e na FORMA real da hitbox (SkillFx).
 func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: float) -> void:
 	if Sim.ticking_map != "" and Sim.ticking_map != main.current_map_id:
@@ -298,6 +319,15 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: f
 	if s == null:
 		return
 	var th := theme_of(s)
+	if s.effects.has("elem_fusion"):                      # Fusão: a cor/forma do elemento do elemental de quem lançou
+		th = _fusion_theme(origin, th)
+	if radius <= PIERCE_TRACE:                             # tiro que atravessou a fila (Tiro Fantasma): rastro até o último
+		SkillFx.gunshot(self, origin + Vector3(0, 1.1, 0), aim + Vector3(0, 0.9, 0), true)
+		return
+	if s.effects.has("explode") and origin.distance_to(aim) < 0.05:      # Bola de Fogo: explosão no impacto, no raio real
+		SkillFx.explosion(self, aim, radius, th)
+		SkillFx.circle(self, aim, radius, th, 0.35)
+		return
 	if th == "physical" and skill_id.begins_with("mob_"):    # golpe físico de monstro: impacto quente (leque branco lia como aviso "neutro")
 		th = MOB_HIT_THEME
 	# área no chão de golpe de monstro é sempre carmim (verde/branco nunca é golpe); o tema fica só nas partículas
@@ -320,6 +350,9 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: f
 		SkillDef.Target.GROUND:
 			if s.effects.get("dash_to_aim", false):      # gancho: a corda vai da mão até onde ele chegou
 				SkillFx.rope(self, origin + Vector3(0, 1.0, 0) - dir * 0.4, aim + Vector3(0, 1.0, 0))
+			if s.effects.has("fire_wall"):               # muralha: a faixa de fogo é desenhada pela armadilha (_fire_wall_fx)
+				SkillFx.flash(self, aim + Vector3(0, 0.6, 0), th, 2.5, radius * 1.5)
+				return
 			_ground_impact(s, th, aim, radius, area_th)
 			if s.kind == SkillDef.Kind.PHYSICAL:
 				arcs.swing(skill_id, s, th, origin, dir)     # salto de arma corpo a corpo: crescente onde caiu (WeaponArcs)
@@ -391,7 +424,7 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: f
 							if hops >= mini(s.max_targets - 1, 4) or not o.is_alive() or o.kind != SimEntity.Kind.MONSTER:
 								continue
 							var op: Vector3 = o.position + Vector3(0, 0.8, 0)
-							if op.distance_to(prev) > 0.6 and op.distance_to(aim) < maxf(s.radius, 5.0):
+							if op.distance_to(prev) > 0.6 and op.distance_to(aim) < maxf(radius, 1.0) + o.radius:     # só quem o raio real alcança (antes 5 m fixos)
 								SkillFx.arc_bolt(self, prev, op)
 								prev = op
 								hops += 1
@@ -1158,6 +1191,9 @@ func _on_trap_placed(id: int, kind: String, pos: Vector3, radius: float, map_id:
 	if kind == "miasma":                       # nuvem do Necromante ascendido (NecroAscension usa o canal das armadilhas)
 		_miasma_fx(id, pos, radius)
 		return
+	if kind == TrapSystem.WALL:                # Muralha de Fogo: faixa atravessada, do tamanho real (TrapSystem.in_wall)
+		_fire_wall_fx(id, map_id)
+		return
 	var look: Array = TRAP_LOOK.get(kind, TRAP_LOOK["jaw"])
 	var col: Color = look[0]
 	var n := Node3D.new()
@@ -1289,6 +1325,65 @@ func _miasma_fx(id: int, pos: Vector3, radius: float) -> void:
 	n.scale = Vector3(0.2, 1.0, 0.2)
 	var tw := create_tween()
 	tw.tween_property(n, "scale", Vector3.ONE, 0.3).set_ease(Tween.EASE_OUT)
+	n.tree_exiting.connect(tw.kill)
+
+## Muralha de Fogo: faixa brilhante no chão (2 × half_len por 2 × half_w) com chamas subindo ao longo dela.
+func _fire_wall_fx(id: int, map_id: String) -> void:
+	var t: Dictionary = {}
+	for w in Sim.maps.get(map_id, {}).get("traps", []):
+		if w["id"] == id:
+			t = w
+	if t.is_empty():
+		return
+	var along: Vector3 = t["along"]
+	var hl := float(t["half_len"])
+	var hw := float(t["half_w"])
+	var n := Node3D.new()
+	n.position = t["pos"]
+	n.rotation.y = atan2(along.x, along.z)
+	n.set_meta("theme", "fire")
+	add_child(n)
+	_traps[id] = n
+	var bed := MeshInstance3D.new()          # chão em brasa: o tamanho real da faixa
+	var bm := BoxMesh.new()
+	bm.size = Vector3(hw * 2.0, 0.04, hl * 2.0)
+	bed.mesh = bm
+	bed.material_override = Materials.glow(Color(1.0, 0.45, 0.12, 0.6), 1.6)
+	bed.position.y = 0.03
+	n.add_child(bed)
+	var fire := CPUParticles3D.new()         # chamas ao longo da faixa
+	fire.amount = int(clampf(hl * 14.0, 24.0, 90.0))
+	fire.lifetime = 0.7
+	fire.preprocess = 0.6
+	fire.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	fire.emission_box_extents = Vector3(hw * 0.8, 0.05, hl)
+	fire.direction = Vector3.UP
+	fire.spread = 12.0
+	fire.gravity = Vector3(0, 1.2, 0)
+	fire.initial_velocity_min = 0.6
+	fire.initial_velocity_max = 1.4
+	fire.scale_amount_min = 0.5
+	fire.scale_amount_max = 1.0
+	var qm := QuadMesh.new()
+	qm.size = Vector2(0.6, 0.9)
+	var fm := StandardMaterial3D.new()
+	fm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	fm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	fm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	fm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	fm.vertex_color_use_as_albedo = true
+	fm.albedo_texture = SkillFx.soft()
+	qm.material = fm
+	fire.mesh = qm
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(1.0, 0.85, 0.4, 0.9))
+	ramp.set_color(1, Color(0.9, 0.2, 0.05, 0.0))
+	fire.color_ramp = ramp
+	fire.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	n.add_child(fire)
+	n.scale = Vector3(1.0, 1.0, 0.15)
+	var tw := create_tween()
+	tw.tween_property(n, "scale", Vector3.ONE, 0.25).set_ease(Tween.EASE_OUT)
 	n.tree_exiting.connect(tw.kill)
 
 func _on_trap_removed(id: int, triggered: bool) -> void:
