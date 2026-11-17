@@ -24,4 +24,9 @@ const PRESETS := {
 		"items": {"legend_coin": 200, "potion_hp_m": 25, "potion_mp_m": 25, "elixir_might": 5, "elf_steel": 10, "mother_sap": 2, "holy_silver": 10, "dawn_shard": 3},
 		"party": [["paladin", "guardiao"], ["bishop", "sacerdote"], ["ranger", "cacador"], ["elementalist", "fogo"]],
 		"welcome": "Começo rápido (nível 20): Bastião da Aurora, praça da catedral. Fale com o Marechal Aldric (ao lado) para começar: segurar os portões, depois as três fortalezas."},
+	30: {"label": "Nível 30", "hint": "Teste do Ato II: nível 30, Ato I concluído, 300 Moedas Lendárias, grupo completo (paladino, bispo, caçadora e elementalista), em Porto Esperança com o cerco começando.",
+		"level": 30, "gold": 20000, "gear_tier": 4, "quest": "hx_first_wave", "map": "city_port",
+		"items": {"legend_coin": 300, "potion_hp_m": 30, "potion_mp_m": 30, "elixir_might": 5},
+		"party": [["paladin", "guardiao"], ["bishop", "sacerdote"], ["ranger", "cacador"], ["elementalist", "fogo"]],
+		"welcome": "Começo rápido (nível 30): Porto Esperança. O Governador pede ajuda contra os ginetes no portão; a paliçada ainda tem três vãos abertos."},
 }

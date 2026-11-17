@@ -14940,6 +14940,15 @@ func _check_hunter_post(gd, sim) -> void:
 ## Criação de personagem: começo rápido nível 10 (teste do MVP) chega pronto para a Floresta.
 func _check_start_presets(gd, sim) -> void:
 	check(StartCatalog.PRESETS.has(1) and StartCatalog.PRESETS.has(10), "começos: nível 1 e nível 10")
+	var w30 := WorldSim.new()                # começo nível 30 (Ato II): grupo cheio, 300 moedas, no porto com o cerco
+	for mid in gd.maps:
+		w30.load_map(gd.maps[mid])
+	var p30: SimEntity = w30.spawn_character(SimEntity.Kind.PLAYER, gd.classes["berserker"], "Rapido30", "city_aldara", Vector3(0, 0, 8))
+	w30.player = p30
+	w30.apply_start_preset(p30, 30)
+	check(p30.level == 30 and p30.has_item("legend_coin", 300) and not p30.has_item("legend_coin", 301) and p30.map_id == "city_port", "começo nível 30: nível, 300 moedas lendárias, Porto Esperança")
+	check(PartySystem.party_members(w30, p30).size() == Balance.PARTY_MAX, "começo nível 30: grupo cheio (%d)" % PartySystem.party_members(w30, p30).size())
+	check(p30.quests_active.has("hx_first_wave") and p30.quests_completed.has("hx_crossing"), "começo nível 30: Ato I feito, cerco começando")
 	var e: SimEntity = sim.spawn_character(SimEntity.Kind.PLAYER, gd.classes["ranger"], "Rapido", "city_aldara", Vector3(0, 0, 8))
 	var pts0: int = e.mastery_points
 	sim.apply_start_preset(e, 1)
