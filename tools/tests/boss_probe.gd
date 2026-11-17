@@ -19,13 +19,20 @@ extends Node
 ##                                  por ameaça (BOT_THREAT_HOLD). Mede a força da build sem o teto do tanque — sem isto, build que já
 ##                                  bate no teto não responde a +dano nenhum: a razão F5 dela sai ~1,00 por causa do tanque, não dela)
 ##     [--no_opener]               (desliga a abertura dos bots, BotBrain._opener: A/B)
+##     [--no_unstuck]              (desliga largar alvo travado / teste de linha / dt no avanço dos bots: A/B)
 ##     [--hp=X]                    (vida do chefe × X: luta mais longa. Build que derruba o chefe em 20-30 s mede a abertura,
 ##                                  não o ritmo — recarga de 40 s usada uma vez pesa o dobro)
-##     [--set=b4|b5|h4|h5|h5n] [--set_who=2,3] [--set_lv=40] [--pair=<build>]   (conjunto lendário nos membros --set_who (padrão:
+##     [--set=b4|b5|h4|h5|h5n|a4|a5] [--set_who=2,3] [--set_lv=40] [--pair=<build>]   (conjunto lendário nos membros --set_who (padrão:
 ##                                  todos): b = o da build, h = o híbrido (com --pair, o par com essa build; sem, o que o bot
 ##                                  escolhe, Sim.bot_legendary_set); 4/5 = peças; h5n = híbrido com o 5 peças normal da build no lugar
 ##                                  da Fusão. Orçamento F-FUS2: G_5n = T(b4)/T(b5) − 1, G_fus = T(h4)/T(h5) − 1, ref. T(h4)/T(h5n) − 1.
+##                                  a4/a5 = Ápice da build (F-AP2: G_ap = T(a4)/T(a5) − 1; a4 = b4).
 ##                                  Imprime "FUS <membro> disparos/luta" (a Fusão disparou?))
+##     [--set_weapon]              (com --set: veste também a arma do conjunto pelo papel da build e o escudo, Sim.bot_set_weapons;
+##                                  "dano_tq" na linha PROBE = dano do chefe/lacaios no tanque por luta)
+##     [--acc=leg] [--acc_who=2,3] (acessórios lendários da build nos membros --acc_who (padrão: todos), Sim.bot_legendary_accessories;
+##                                  sem a flag = as joias comuns do bot, a referência. F-LA1: G_acc = T(sem)/T(leg) − 1)
+##     [--dot_stats]               (linha DOT: % do dano no tanque que veio de dano no tempo, acúmulos máx. no tanque e no chefe por build)
 ##     [--seed=N]                  (semente da sim; padrão 1337. Rodadas com sementes diferentes somam lutas independentes)
 ##                                  Cada luta sorteia o grupo (classes distintas + build) e ressemeia a sim por (chefe, luta, semente)
 ##                                  (random_comp/fight_seed): o mesmo chefe dá o mesmo grupo e a mesma luta sozinho ou no meio de outros.
@@ -74,7 +81,7 @@ const BOSSES := {"bandit_chief": "field_forest", "crab_king": "city_aldara", "sl
 ## Chefe sem spawner no mapa da sonda luta no lugar deste (arena provisória). Vazio: todos têm a sala deles.
 const ARENA_AT := {}
 ## field = chefe de campo (dá para solar); elite = monstro forte de missão (sem fases); group = conteúdo de grupo.
-const GROUPS := {"boss_dire_mother": "field", "crab_king": "field", "boar_brute": "field", "boar_king": "field", "slime_king": "field",
+const GROUPS := {"crab_king": "field", "boar_brute": "field", "boar_king": "field", "slime_king": "field",
 	"trent": "elite", "elf_warden": "elite"}          # o resto: group
 ## Faixas que o chefe precisa cumprir (`--bands`). win = fração de vitórias; time = s de luta do trio; o resto são pisos.
 ## kite_far: skills miradas a 9 m+ por minuto contra um atirador que kita; passa também se o atirador perde a maioria.
@@ -92,6 +99,7 @@ var _force_build := ""
 var _lead := ""
 var _kite := ""
 var _why := false
+var _dot_stats := false
 var _comp: Array = []
 var _under := 0
 var _dmg := 1.0
@@ -105,7 +113,10 @@ var _hp := 1.0
 var _berserk: Array = []
 var _set := ""
 var _set_who: Array = []
+var _acc := ""
+var _acc_who: Array = []
 var _set_lv := 0
+var _set_weapon := false
 var _pair := ""
 var _fus_fired := {}
 var _seed := 1337             # --seed (a sim nasce com 1337)
@@ -291,13 +302,18 @@ func _ready() -> void:
 		if a.begins_with("--elem_stage="): _elem_stage = int(a.get_slice("=", 1))
 		if a == "--tank_lock": _tank_lock = true
 		if a == "--no_opener": BotBrain.opener_enabled = false     # A/B da abertura (BotBrain._opener)
+		if a == "--no_unstuck": BotBrain.unstuck_enabled = false   # A/B dos bots presos (BotBrain._stalled/_pick_monster)
 		if a.begins_with("--hp="): _hp = float(a.get_slice("=", 1))
 		if a.begins_with("--berserk="):     # --berserk=<s>,<mult>: berserk_after e berserk_mult do chefe (calibrar a raide)
 			_berserk = Array(a.get_slice("=", 1).split(",")).map(func(x): return float(x))
 		if a.begins_with("--set="): _set = a.get_slice("=", 1)
 		if a.begins_with("--set_who="): _set_who = Array(a.get_slice("=", 1).split(",")).map(func(x): return int(x))
 		if a.begins_with("--set_lv="): _set_lv = int(a.get_slice("=", 1))
+		if a == "--set_weapon": _set_weapon = true
+		if a.begins_with("--acc="): _acc = a.get_slice("=", 1)
+		if a.begins_with("--acc_who="): _acc_who = Array(a.get_slice("=", 1).split(",")).map(func(x): return int(x))
 		if a.begins_with("--pair="): _pair = a.get_slice("=", 1)
+		if a == "--dot_stats": _dot_stats = true      # linha DOT: dano no tempo no tanque e acúmulos (tanque e chefe)
 		if a == "--why": _why = true          # imprime de onde veio o dano que o grupo levou
 		if a.begins_with("--sig_tune="):    # --sig_tune=<skill>:power=X,cooldown=Y,radius=Z,time=T (marca): varrer botões de assinatura sem editar o Balance
 			var sk: SkillDef = GameData.skills[a.get_slice("=", 1).get_slice(":", 0)]
@@ -381,7 +397,7 @@ func _print(bid: String, n: int, trials: int, r: Dictionary) -> void:
 			per.call("temper_sum", "temper_time"), float(sg.get("temper_heal", 0)) / maxf(1.0, trials), per.call("pool_time", "temper_time"), per.call("soak_n", "marks"), per.call("soak_kills", "marks"), str(sg)])
 	print("PROBE %-18s grupo=%d%s vitorias=%d/%d tempo_medio=%.1fs mortes=%.1f cast/min=%.1f act=%.0f%% adds=%.1f off=%.0f%% longe/min=%.1f%s" % [
 		bid, n, (" kite" if r["kite"] else ""), r["wins"], trials, r["time"], r["deaths"], r["casts"], r["act"], r["adds"], r["off"], r["far"],
-		("" if _lead == "" and _comp.is_empty() else " aggro=%.0f%% area=%.0f%% cura_tq=%.0f%% baixa=%.1fs frente=%.0f%% ritmo=%.0f%% baixa_tq=%.1fs pocoes=%.1f perdas=%.2f freio=%.0f%%" % [r["aggro"], r["area"], r["heal_tank"], r["low"], r["stray"], r["busy"], r["low_tank"], r["pots"], r["drops"], r["hold"]])])
+		("" if _lead == "" and _comp.is_empty() else " aggro=%.0f%% area=%.0f%% cura_tq=%.0f%% baixa=%.1fs frente=%.0f%% ritmo=%.0f%% baixa_tq=%.1fs pocoes=%.1f perdas=%.2f freio=%.0f%% dano_tq=%.0f" % [r["aggro"], r["area"], r["heal_tank"], r["low"], r["stray"], r["busy"], r["low_tank"], r["pots"], r["drops"], r["hold"], r["tank_dmg"]])])
 
 ## Solo, trio e kite contra as faixas do grupo do chefe. Devolve os motivos de estar fora (vazio = dentro).
 func _band(bid: String, trials: int) -> Array:
@@ -462,7 +478,7 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 	var ward_n := 0                # lutas em que o ward ligou (lacaio de escudo vivo)
 	var ward_sum := 0.0            # s do ward ligar até o 1º lacaio dele cair
 	var ward_fast := 0             # ... em até 30 s (KAC-11: estandarte antes de 30 s)
-	var acc := {"pots": 0, "stray": 0.0, "area": 0.0, "heal": 0.0, "heal_tank": 0.0, "lead": -1, "casts": 0, "dmg": 0.0, "off": 0.0, "far": 0, "boss": -1, "bots": {}, "from": Vector3.ZERO, "why": {}, "why_t": {}, "states": {}, "asc": {}, "dealt": {}, "drop_by": {}, "last_hit": {}, "drop_how": {}, "decide": {}}
+	var acc := {"pots": 0, "stray": 0.0, "area": 0.0, "heal": 0.0, "heal_tank": 0.0, "lead": -1, "casts": 0, "dmg": 0.0, "off": 0.0, "far": 0, "boss": -1, "bots": {}, "from": Vector3.ZERO, "why": {}, "why_t": {}, "states": {}, "asc": {}, "dealt": {}, "drop_by": {}, "last_hit": {}, "drop_how": {}, "decide": {}, "dot": {"tank": 0.0, "tank_dot": 0.0, "tank_dot_hits": 0, "tank_max": 0, "boss_by": {}, "boss_dot_by": {}, "boss_max": 0, "boss_max_by": {}}}
 	var on_cast := func(id: int, sid: String, ph: String):
 		if _why and acc["bots"].has(id) and Sim.entities.has(acc["boss"]):     # último lance de cada membro (PERDA: "decisao")
 			var be: SimEntity = Sim.entities[id]
@@ -488,6 +504,10 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 		if tid == acc["boss"] and acc["bots"].has(src):         # dano de cada membro no chefe (--asc_level: DPS por build)
 			var key: String = acc["bots"][src]
 			acc["dealt"][key] = float(acc["dealt"].get(key, 0.0)) + amount
+			var bk0: String = key.get_slice("#", 0)          # --dot_stats: parte do dano do membro que veio de dano no tempo
+			acc["dot"]["boss_by"][bk0] = float(acc["dot"]["boss_by"].get(bk0, 0.0)) + amount
+			if _k.begins_with("dot"):
+				acc["dot"]["boss_dot_by"][bk0] = float(acc["dot"]["boss_dot_by"].get(bk0, 0.0)) + amount
 			if _why:                 # último golpe de cada membro no chefe (PERDAS_COMO: com o quê tirou o chefe do tanque)
 				var a0: SimEntity = Sim.entities.get(src)
 				var b0: SimEntity = Sim.entities.get(acc["boss"])
@@ -505,6 +525,11 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 		if a == null or b == null or not (a == b or a.boss_id == b.id):
 			return
 		acc["dmg"] += amount
+		if tid == acc["lead"]:          # --dot_stats: dano do chefe/lacaios no tanque e quanto foi dano no tempo
+			acc["dot"]["tank"] += amount
+			if _k.begins_with("dot"):
+				acc["dot"]["tank_dot"] += amount
+				acc["dot"]["tank_dot_hits"] += 1
 		if not _k.begins_with("dot"):
 			var sk: SkillDef = b.current_skill if a == b and b.state == SimEntity.State.CASTING else null
 			if (a == b and sk == null) or (sk and sk.target != SkillDef.Target.TARGET and sk.radius >= Balance.BOT_DODGE_MIN_RADIUS):
@@ -611,6 +636,8 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 			bot.brain.personality = 1.0          # veio pelo chefe: encara (o bot cauteloso ignora chefe)
 			if _set != "" and (_set_who.is_empty() or i in _set_who):
 				_wear_set(bot)
+			if _acc == "leg" and (_acc_who.is_empty() or i in _acc_who):
+				_wear_acc(bot, trial == 0)
 			if _why and trial == 0:
 				var st: Stats = bot.stats
 				print("      MEMBRO %s/%s arma=%s+%s lv=%d hp=%d pdef=%d mdef=%d patk=%d matk=%d esq=%.0f%% skills=%s" % [cid, bot.build_id, st.weapon_type, st.offhand_type, bot.level, st.max_hp, st.pdef, st.mdef, st.patk, st.matk, st.evasion,
@@ -644,6 +671,27 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 		while t < LIMIT and boss.is_alive():
 			Sim.tick(DT)
 			t += DT
+			if _dot_stats:               # acúmulos de dano no tempo: no tanque (do lado do chefe) e no chefe (por build do membro)
+				var tn := 0
+				for dd in tank_bot.debuffs:
+					if dd.get("kind") == "dot":
+						tn += 1
+				acc["dot"]["tank_max"] = maxi(int(acc["dot"]["tank_max"]), tn)
+				var per_src := {}
+				var bn := 0
+				for dd in boss.debuffs:
+					if dd.get("kind") == "dot":
+						bn += 1
+						var sid0: int = int(dd.get("src", -1))
+						var se: SimEntity = Sim.entities.get(sid0)
+						if se and se.kind == SimEntity.Kind.SUMMON:
+							sid0 = se.owner_id
+						if acc["bots"].has(sid0):
+							var bk1: String = str(acc["bots"][sid0]).get_slice("#", 0)
+							per_src[bk1] = int(per_src.get(bk1, 0)) + 1
+				acc["dot"]["boss_max"] = maxi(int(acc["dot"]["boss_max"]), bn)
+				for k in per_src:
+					acc["dot"]["boss_max_by"][k] = maxi(int(acc["dot"]["boss_max_by"].get(k, 0)), int(per_src[k]))
 			if temper_boss:              # Têmpera do Kragmar (AC-S5 tempera_med): acúmulos médios no tempo de luta
 				BossSignatures.stat(Sim, "temper_time", DT)
 				BossSignatures.stat(Sim, "temper_sum", boss.buff_stacks(BossSignatures.TEMPER_BUFF) * DT)
@@ -783,6 +831,13 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 		print("PERDAS %s %s" % [bid, str(acc["drop_by"])])
 		print("PERDAS_COMO %s %s" % [bid, str(acc["drop_how"])])
 		print("WHY %s grupo=%d %s" % [bid, party, ", ".join(keys.slice(0, 8).map(func(k): return "%s=%.0f%%" % [k, 100.0 * acc["why"][k] / maxf(1.0, acc["dmg"])]))])
+	if _dot_stats:
+		var dd: Dictionary = acc["dot"]
+		print("DOT %s grupo=%d tanque_dot=%.1f%% tanque_dot_hits/s=%.1f tanque_max_acumulos=%d chefe_max_acumulos=%d" % [bid, party,
+			100.0 * float(dd["tank_dot"]) / maxf(1.0, float(dd["tank"])), float(dd["tank_dot_hits"]) / maxf(0.01, fight_sum), int(dd["tank_max"]), int(dd["boss_max"])])
+		var bks2: Array = (dd["boss_by"] as Dictionary).keys()
+		bks2.sort()
+		print("DOT_BUILDS %s %s" % [bid, ", ".join(bks2.map(func(k): return "%s=%.0f%%/max%d" % [k, 100.0 * float(dd["boss_dot_by"].get(k, 0.0)) / maxf(1.0, float(dd["boss_by"][k])), int(dd["boss_max_by"].get(k, 0))]))])
 	if ward_n > 0:
 		print("WARD %s grupo=%d lutas_com_ward=%d 1o_lacaio_caiu_em=%.1fs ate_30s=%d/%d" % [bid, party, ward_n, ward_sum / ward_n, ward_fast, ward_n])
 	Events.skill_cast.disconnect(on_cast)
@@ -796,7 +851,8 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 		"area": 100.0 * acc["area"] / maxf(1.0, acc["dmg"]), "heal_tank": 100.0 * acc["heal_tank"] / maxf(1.0, acc["heal"]), "low": low_sum / trials,
 		"stray": 100.0 * acc["stray"] / maxf(1.0, acc["dmg"]), "busy": 100.0 * busy_sum / maxf(0.01, fight_sum),
 		"low_tank": low_tank / trials, "pots": float(acc["pots"]) / trials, "asc": acc["asc"], "dealt": acc["dealt"], "fight_t": acc.get("fight_t", 1.0),
-		"times": times, "inv_dead": inv_dead, "hold": 100.0 * hold_sum / maxf(0.01, fight_sum), "drops": float(drops) / trials}
+		"times": times, "inv_dead": inv_dead, "hold": 100.0 * hold_sum / maxf(0.01, fight_sum), "drops": float(drops) / trials,
+		"tank_dmg": float(acc["dot"]["tank"]) / trials}
 
 
 ## --set: veste o conjunto lendário no bot (armadura; a arma continua a comum da build: a face da Fusão é a da build dele).
@@ -809,6 +865,8 @@ func _wear_set(bot: SimEntity) -> void:
 	var sid := ""
 	if _set.begins_with("b"):
 		sid = GameData.set_id_for(bot.class_def.id, bot.build_id, lv)
+	elif _set.begins_with("a"):          # a4/a5: Ápice da build do bot (apice-sets.md F-AP2)
+		sid = GearCatalog.apex_set_id(bot.class_def.id, bot.build_id, lv)
 	else:
 		for sd in GameData.hybrid_sets_for(bot.class_def, bot.build_id, lv):
 			if _pair == "" or _pair in sd.pair:
@@ -828,10 +886,29 @@ func _wear_set(bot: SimEntity) -> void:
 	for i in range(n):
 		var it: ItemDef = GameData.items[sd.armor[i]]
 		bot.equipment[it.slot] = it
+	if _set_weapon:                     # --set_weapon: arma (pelo papel da build) e escudo do conjunto, Sim.bot_set_weapons
+		for iid in Sim.bot_set_weapons(bot, sd):
+			var w: ItemDef = GameData.items[iid]
+			bot.equipment[ItemDef.Slot.OFFHAND if w.slot == ItemDef.Slot.OFFHAND else ItemDef.Slot.WEAPON] = w
 	bot.recompute_stats()
 	bot.heal_full()
 	Sim._slot_bot(bot)                  # barra refeita com o conjunto (como no jogo: equipamento antes das skills)
 	bot.set_meta("fus_set", sid)
+
+## --acc=leg: veste os 4 acessórios lendários da build (Anel em RING, Sinete em RING2) e imprime "ACC <membro> <stat>=<valor>".
+func _wear_acc(bot: SimEntity, show: bool) -> void:
+	var ids: Array = Sim.bot_legendary_accessories(bot, bot.level)
+	if ids.is_empty():
+		push_error("--acc: sem acessório lendário para %s/%s nv %d" % [bot.class_def.id, bot.build_id, bot.level])
+		return
+	for iid in ids:
+		var it: ItemDef = GameData.items[iid]
+		var sl: int = ItemDef.Slot.RING2 if iid.ends_with("_signet") else it.slot
+		bot.equipment[sl] = it
+		if show:
+			print("      ACC %s/%s %s %s" % [bot.class_def.id, bot.build_id, iid.get_slice("_", iid.get_slice_count("_") - 1), it.bonus])
+	bot.recompute_stats()
+	bot.heal_full()
 
 ## Disparos da Fusão por luta (sonda): chamado no fim de cada luta.
 func _count_fusion(bots: Array, acc: Dictionary) -> void:

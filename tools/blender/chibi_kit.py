@@ -1189,11 +1189,28 @@ def _run_shield_tall_pose(ph):
     return dict(p, **{"upper_arm.L": (-15 * s - 38, -14, 0), "forearm.L": (-62 - 16 * 15 / 46 * c, 0, 0)}), hips
 
 
+# Guarda montada do escudo alto (clipe block_ride_tall; no jogo RidePose.GUARD_CLIP_TALL). A guarda montada comum soma um
+# giro à guarda a pé (RidePose.GUARD_DELTA) e põe o escudo acima do pescoço do cavalo; a placa de 1 m a 1,6 m não cabe lá
+# e atravessava pescoço e cernelha. Aqui o braço abre para o lado esquerdo e a placa desce de pé por fora do ombro do
+# cavalo, com a face virada para a frente o quanto dá (uns 30 graus). Braço achado por tools/blender/shield_ride_solve.py
+# -- solve --mount=mob_horse,mob_dire_wolf_mount (sem cruzar cavalo nem lobo no idle e no galope, 8 cm de folga, nem o
+# corpo do cavaleiro, nos escudos altos); tronco ereto, quadril na sela. Montaria nova ou escudo alto novo: -- check.
+SHIELD_RIDE_TALL = {"upper_arm.L": (5.0, 10.0, -87.5), "forearm.L": ((-85.0, 0, 0), -75)}
+
+
+def _shield_ride_tall_pose(ph):
+    p, _hips = _shield_guard_tall_pose(ph)
+    s = math.sin(ph)
+    ua, (fa, roll) = SHIELD_RIDE_TALL["upper_arm.L"], SHIELD_RIDE_TALL["forearm.L"]
+    return dict(p, **{"spine": (3 + 1.5 * s, -10, 0), "upper_arm.L": (ua[0] + 2 * s, ua[1], ua[2]), "forearm.L": _rolled(fa, roll)}), (0, 0, 0)
+
+
 def animate_tall_shield(rig):
     """Clipes dos escudos altos. Fora do animate_v3 de propósito: só os kits de quem empunha escudo (build_kit) ganham,
     os outros kits e os monstros (mob_clips) não mudam."""
     _cycle(rig, "block_shield_tall", 32, _shield_guard_tall_pose, step=4)
     _cycle(rig, "run_shield_tall", 16, _run_shield_tall_pose, step=1)
+    _cycle(rig, "block_ride_tall", 32, _shield_ride_tall_pose, step=4)
 
 
 def shield_clip(style, clip):
@@ -2633,7 +2650,50 @@ def kit_shield(base, style, name, mats, close=True):
             bpy.data.objects.remove(strap, do_unlink=True)
     shield_kit.hull(obj, SHIELD_OUTLINE, mat("m_contorno", (0.12, 0.1, 0.16), 0.9))
     skin_rigid(obj, base["rig"], "forearm.L")
+    if close and SHIELD_TIP_BONE in base["rig"].data.bones:
+        skin_shield_tip(obj, _shield_anchor(base, mount)[0], (rot.to_3x3() @ Vector((0, 0, 1))).normalized())
     return obj
+
+
+# Ponta do escudo que não fura o chão. O chibi tem o cotovelo a ~0,55 m do chão e os escudos têm de 0,7 m a 1,6 m: presos
+# rente ao antebraço, todos passavam do chão (de 0,05 m a 0,8 m, conforme o clipe). Nos kits de quem empunha escudo o rig
+# ganha o osso SHIELD_TIP_BONE (filho do antebraço esquerdo, sem chave em clipe nenhum) e a parte da placa abaixo do braço
+# pesa nele em rampa: 0 em SHIELD_TIP_PIVOT abaixo do eixo do antebraço, 1 no ponto mais baixo da placa. No jogo
+# (game/entities/shield_ground.gd) o osso sobe ao longo da placa só o que falta para a ponta ficar no chão: a parte de
+# baixo encolhe em linha reta, a de cima (alça, canto do cotovelo, tudo que foi medido contra o corpo) não muda. Com o
+# osso no repouso o escudo é o de sempre (medidas de montagem, ícones, monstros).
+SHIELD_TIP_BONE = "shield_tip.L"
+SHIELD_TIP_PIVOT = 0.06
+
+
+def add_shield_tip(rig):
+    """Osso da ponta do escudo no rig do kit (chame antes de montar os escudos)."""
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode="EDIT")
+    eb = rig.data.edit_bones
+    fore = eb["forearm.L"]
+    b = eb.new(SHIELD_TIP_BONE)
+    b.head = Vector(fore.tail)
+    b.tail = Vector(fore.tail) + (Vector(fore.tail) - Vector(fore.head)).normalized() * 0.06
+    b.roll = fore.roll
+    b.parent = fore
+    b.use_connect = False
+    bpy.ops.object.mode_set(mode="OBJECT")
+
+
+def skin_shield_tip(obj, arm, up):
+    """Pesos da ponta: h = altura do vértice ao longo da placa a partir do antebraço; rampa de -SHIELD_TIP_PIVOT ao mais baixo."""
+    hs = [(v.co - arm).dot(up) for v in obj.data.vertices]
+    top, low = -SHIELD_TIP_PIVOT, min(hs)
+    if top - low < 0.05:
+        return
+    fore = obj.vertex_groups["forearm.L"]
+    tip = obj.vertex_groups.new(name=SHIELD_TIP_BONE)
+    for i, h in enumerate(hs):
+        w = max(0.0, min(1.0, (top - h) / (top - low)))
+        if w > 0.0:
+            tip.add([i], w, "REPLACE")
+            fore.add([i], 1.0 - w, "REPLACE")
 
 
 def _mace_1h(g, fwd, mm, mg, ml, mt):
@@ -2870,8 +2930,12 @@ def kit_set_pal1(base, mats):
 
 SET_STYLES = {"pal1": kit_set_pal1}
 SET_WEAPONS = {}
+# Estilos que vão no kit EXTRA da classe (kit_<classe>_<sexo>_a2.glb, build_kit_a2), fora do kit principal: o jogo só o
+# carrega quando uma peça dessas é vestida (KitModel). Hoje: armaduras do Ato II do Paladino (o kit dele está no teto de malhas).
+A2_STYLES = {}
 import paladin_sets as _paladin_sets      # demais conjuntos do Paladino (construtor paramétrico)
 _paladin_sets.register(sys.modules[__name__])
+_paladin_sets.register_a2(sys.modules[__name__])
 import berserker_sets as _berserker_sets  # conjuntos e machados do Berserker
 _berserker_sets.register(sys.modules[__name__])
 import bishop_sets as _bishop_sets        # conjuntos, maças, escudos e cetros do Bispo
@@ -2950,6 +3014,7 @@ def build_kit(sex, out_dir=None, class_id=None):
             fn(base, mats)
     import shield_kit
     if class_id in SHIELD_CLASSES:
+        add_shield_tip(base["rig"])           # ponta do escudo que encolhe no chão (skin_shield_tip)
         for style in shield_kit.FAMILIES:
             if style_class(style) in (None, class_id):
                 kit_shield(base, style, "wpn_off_shield_" + style, mats)
@@ -2969,6 +3034,53 @@ def build_kit(sex, out_dir=None, class_id=None):
     return base
 
 
+def a2_classes():
+    """Classes com kit extra (alguma entrada em A2_STYLES)."""
+    return [cid for cid in CLASS_BODY if any(style_class(k) == cid for k in A2_STYLES)]
+
+
+def build_kit_a2(sex, out_dir=None, class_id=None):
+    """Kit extra da classe: só as malhas arm_<estilo>_<slot>_all de A2_STYLES, presas ao MESMO esqueleto do kit principal
+    (mesmos ossos, na mesma ordem: o jogo funde as peças dos dois arquivos numa malha só). Sem corpo, sem armas, sem clipes.
+    Exporta kit_<classe>_<sexo>_a2.glb se out_dir."""
+    import os
+    clear()
+    base = build_base("base", sex, 0.0, KIT_HAIR, "hair")
+    base["player_kit"] = True
+    mats = _kit_mats()
+    for key, fn in A2_STYLES.items():
+        if style_class(key) == class_id:
+            fn(base, mats)
+    if class_id in SHIELD_CLASSES:
+        add_shield_tip(base["rig"])           # mesmo osso extra (e na mesma posição da lista) do kit principal
+    rig = base["rig"]
+    keep = [o for o in bpy.context.scene.objects if o.type == "MESH" and o.name.startswith("arm_")]
+    for o in keep:
+        if "." in o.name:
+            o.name = o.name.replace(".", "_")
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+        path = os.path.join(out_dir, "kit_%s_%s_a2.glb" % (class_id, sex))
+        deselect_everything()
+        rig.hide_set(False)
+        rig.select_set(True)
+        for o in keep:
+            o.select_set(True)
+        bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, use_active_scene=True, export_apply=False,
+                                  export_animations=False, export_yup=True, export_materials="EXPORT", export_skins=True)
+        print("exported", path, len(keep), "malhas")
+    return base
+
+
+def build_kits_a2(out_dir, only=None):
+    """Kits extras (kit_<classe>_<sexo>_a2.glb) das classes de a2_classes(). only = lista de classes."""
+    for cid in a2_classes():
+        if only is None or cid in only:
+            for sex in ("male", "female"):
+                build_kit_a2(sex, out_dir, cid)
+    print("a2 kits done")
+
+
 def build_kits(out_dir, only=None):
     """Kits genéricos (NPCs) e um por classe. only = lista de classes (e/ou "male"/"female") para refazer só essas."""
     for sex in ("male", "female"):
@@ -2978,4 +3090,5 @@ def build_kits(out_dir, only=None):
         if only is None or cid in only:
             for sex in ("male", "female"):
                 build_kit(sex, out_dir, cid)
+    build_kits_a2(out_dir, only)              # kits extras (Ato II do Paladino)
     print("kits done")

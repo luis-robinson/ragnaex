@@ -21,15 +21,31 @@ TOWN_C, TOWN_R = (0.0, 8.0), 36.0     # centro fixo: mestres (anel r=18) e memor
 PLAZA_R = 22.0                          # praça grande: 6 serviços (r=10), cristal, memorial, 8 mestres (r=18..21) e 10+ bots
 COAST_ARRIVE = (101.4, 14.2)            # chegada na Costa (build_field_coast imprime "BACK port")
 BASTION_ARRIVE = (93.9, -25.2)          # chegada no Bastião (build_field_ruins imprime "BACK port")
-SHIP_PORTAL = (-8.0, 60.0)              # pé do cais: navio para o Bastião
+SHIP_PORTAL = (-15.0, 58.0)             # prancha do navio (areia a oeste do largo, fora do eixo dos píeres): navio para o Bastião
+PIERS = [((-8.0, 61.0), (-8.0, 96.0)), ((14.0, 63.0), (14.0, 92.0))]
 SHIP_ARRIVE = (-3.0, 52.0)              # quem chega do Bastião aparece aqui (o Capitão Bren aponta para cá)
 TAVERN = (-29.0, 16.0)                  # = MapsCatalog.INTERIORS["in_port_tavern"]["house"]
 GATES = [-90.0, 90.0, 0.0, 180.0]       # norte (garganta dos ginetes), sul (cais), leste (farolete), oeste (hortas, estaleiro e a Costa)
 GATE_HALF = 8.5                         # graus do eixo do portão a cada torre
-GAPS = [(198.0, 245.0), (25.0, 60.0)]   # arcos da paliçada ainda por fazer em C0 (noroeste e sudeste)
+# Cerco Vivo (design/gdd/act2-siege-life.md): a paliçada tem 3 trechos em obra; cada um fecha com a quest dele OU com hx_palisade
+# ("a|b" = qualquer uma, WorldState). id -> (arco em graus, quest). Os arcos caem ENTRE duas casas do anel (r = 31): a brecha é um corredor.
+# = MapsCatalog.SIEGE["city_port"]["segments"] (ids e quests; há check).
+SEGMENTS = {"ne": ((297.0, 315.0), "hx_stakes"), "e": ((27.0, 45.0), "hx_df_logs"), "n": ((247.0, 259.0), "hx_df_tower")}
+BURNT = (297.0, 333.0, 243.0)           # casas queimadas do anel (ângulo): ruína até hx_palisade, depois casa nova com andaime
 RAID_DEG = -40.0
 COAST_DEG = -160.0                      # garganta da Costa Partida (oeste-noroeste)
 PALISADE_Q, LIGHT_Q = "hx_palisade", "hx_lighthouse"
+RIDERS_Q = "hx_riders_camp"
+
+
+def seg_q(sid):
+    """Condição de "trecho fechado": a quest do trecho ou a paliçada inteira (R7)."""
+    return "%s|%s" % (SEGMENTS[sid][1], PALISADE_Q)
+
+
+def seg_mid(sid):
+    lo, hi = SEGMENTS[sid][0]
+    return (lo + hi) * 0.5
 
 
 def H(r, a, c=TOWN_C):
@@ -43,14 +59,18 @@ def polar(z, ang_deg, inset):
 
 
 def in_gap(a):
+    """Trecho em obra que contém o ângulo `a` (id) ou ""."""
     a = a % 360.0
-    return any(lo <= a <= hi or lo <= a + 360.0 <= hi for lo, hi in GAPS)
+    for sid, ((lo, hi), _q) in SEGMENTS.items():
+        if lo <= a <= hi:
+            return sid
+    return ""
 
 
 def palisade(z):
-    """Anel de estacas. Fora dos vãos: estaca sólida (visual + colisão). Nos vãos: andaime e pilhas de tronco (C0,
-    peças `andaime_*`) e a paliçada nova (C1, peças `palicada_nova_*`) — o jogo troca pelo MapDef.conquest_vis e a
-    colisão do vão só vale em C1 (`if`: MapGeometry.sync_stage)."""
+    """Anel de estacas. Fora dos trechos em obra: estaca sólida (visual + colisão). Em cada trecho (SEGMENTS): andaime nas
+    pontas e toras no chão (peças `pal_<id>_obra_*`) e a paliçada nova (`pal_<id>_pronta_*`) — o jogo troca pelo
+    MapDef.conquest_vis e a colisão do trecho só vale com ele fechado (`if`: MapGeometry.sync_stage)."""
     wood = mat("estaca_clara", (0.82, 0.68, 0.48))
     new = mat("estaca_nova", (0.9, 0.78, 0.56))
     scaf = mat("andaime", (0.56, 0.42, 0.28))
@@ -63,20 +83,24 @@ def palisade(z):
         p = H(TOWN_R, deg)
         rot = zone_lib.along(-math.sin(am), math.cos(am))
         seg = math.tau * TOWN_R / n + 0.12
-        if in_gap(deg):
+        sid = in_gap(deg)
+        if sid:
+            ob, pr = "pal_%s_obra_" % sid, "pal_%s_pronta_" % sid      # MapDef.conquest_vis troca um lote pelo outro
             for k in (-0.25, 0.25):
                 q = (p[0] - math.sin(am) * seg * k, p[1] + math.cos(am) * seg * k)
-                cyl(z.coll, z.P + "palicada_nova_%d_%d" % (i, int(k * 4)), q, 0.42, 0.42, 3.4, new, 0.0, 6)
-                cone(z.coll, z.P + "palicada_nova_ponta_%d_%d" % (i, int(k * 4)), q, 0.44, 0.7, new, 3.4, 6)
-            if i % 3 == 0:
-                box(z.coll, z.P + "andaime_%d" % i, p, (seg * 2.0, 0.2, 1.4), rot, scaf, 1.6)
-                for s in (-1, 1):
-                    q = (p[0] - math.sin(am) * seg * s, p[1] + math.cos(am) * seg * s)
-                    cyl(z.coll, z.P + "andaime_poste_%d_%d" % (i, s), q, 0.12, 0.12, 2.4, scaf, 0.0, 5)
-            else:
-                box(z.coll, z.P + "andaime_toras_%d" % i, p, (seg * 1.4, 0.5, 0.9), rot + 15.0, scaf, 0.0)
-            # C1: o vão fecha também na sim (colisor que só vale com a quest feita)
-            z.ob("wall", p[0], p[1], (seg, 3.2, 1.4), rot, visible=False, when={"if": PALISADE_Q}, stage_solid=True)
+                cyl(z.coll, z.P + pr + "estaca_%d_%d" % (i, int(k * 4)), q, 0.42, 0.42, 3.4, new, 0.0, 6)
+                cone(z.coll, z.P + pr + "ponta_%d_%d" % (i, int(k * 4)), q, 0.44, 0.7, new, 3.4, 6)
+            lo, hi = SEGMENTS[sid][0]
+            edge = min(deg - lo, hi - deg) < 360.0 / n * 1.1         # ponta do trecho: andaime encostado no muro velho; o meio fica aberto
+            if edge:
+                box(z.coll, z.P + ob + "andaime_%d" % i, p, (seg * 1.0, 0.2, 1.4), rot, scaf, 1.6)
+                for sg in (-1, 1):
+                    q = (p[0] - math.sin(am) * seg * 0.5 * sg, p[1] + math.cos(am) * seg * 0.5 * sg)
+                    cyl(z.coll, z.P + ob + "poste_%d_%d" % (i, sg), q, 0.12, 0.12, 2.4, scaf, 0.0, 5)
+            else:                                                     # toras deitadas no chão da brecha (baixas: não fecham a passagem)
+                box(z.coll, z.P + ob + "toras_%d" % i, p, (seg * 0.9, 0.3, 0.4), rot + (12.0 if i % 2 else -9.0), scaf, 0.0)
+            # trecho fechado: o vão fecha também na sim (colisor que só vale com a quest do trecho ou hx_palisade)
+            z.ob("wall", p[0], p[1], (seg, 3.2, 1.4), rot, visible=False, when={"if": seg_q(sid)}, stage_solid=True)
             continue
         for k in (-0.25, 0.25):
             q = (p[0] - math.sin(am) * seg * k, p[1] + math.cos(am) * seg * k)
@@ -174,7 +198,7 @@ def build(export=False):
     arrive = polar(z, COAST_DEG, 16)
     print("BACK coast", arrive)
     z.portal("to_field_coast", portal, "field_coast", COAST_ARRIVE, "Costa Partida (Lv 30-35)")
-    # o navio de volta: portal no pé do cais, sem portão
+    # o navio de volta: portal na prancha do navio (longe da Pescadora Iara, que dá quest no cais oeste), sem portão
     z.data["portals"].append({"id": "ship_field_ruins", "pos": list(SHIP_PORTAL), "radius": 2.0, "target_map": "field_ruins",
                               "target_pos": list(BASTION_ARRIVE), "label": "Navio para o Bastião"})
     z.block(SHIP_PORTAL, 5.0)
@@ -196,6 +220,7 @@ def build(export=False):
     roofs = [(0.3, 0.42, 0.72), (0.62, 0.3, 0.24), (0.42, 0.52, 0.36), (0.7, 0.56, 0.34)]
     tav_a = math.degrees(math.atan2(TAVERN[1] - TOWN_C[1], TAVERN[0] - TOWN_C[0]))
     k = 0
+    burnt_houses = []
     for i in range(20):
         a = 360.0 * (i + 0.5) / 20
         if near_gate(a, 13.0):
@@ -203,7 +228,10 @@ def build(export=False):
         x, y = H(31.0, a)
         if math.hypot(x - TAVERN[0], y - TAVERN[1]) < 9.5:
             continue
-        z.ob("house", x, y, (4.6, 3.2, 4.0), face(a), color=(0.78, 0.66, 0.5), roof=roofs[k % 4])
+        burnt = any(abs(a - b) < 1.0 for b in BURNT)                 # casa queimada: só o colisor aqui; ruína/casa nova = act2_dress.port_siege
+        z.ob("house", x, y, (4.6, 3.2, 4.0), face(a), color=(0.78, 0.66, 0.5), roof=roofs[k % 4], visible=not burnt)
+        if burnt:
+            burnt_houses.append(((x, y), face(a), roofs[k % 4]))
         k += 1
     z.ob("house", TAVERN[0], TAVERN[1], (7.0, 4.0, 5.6), face(tav_a), color=(0.72, 0.56, 0.4), roof=(0.5, 0.26, 0.22))
     z.ob("statue", TOWN_C[0], TOWN_C[1] - 3.0, (1.6, 2.6, 1.6), color=(0.92, 0.88, 0.72))       # a âncora de pedra da fundação
@@ -222,19 +250,26 @@ def build(export=False):
     for i, role in enumerate(["spearman", "spearman", "crossbow", "crossbow", "knight"]):     # defesa do portão norte (sempre)
         x, y = H(TOWN_R - 5.0 - (i // 2) * 2.5, -90.0 + (i % 2 * 2 - 1) * 7.0 - (3.5 if i == 4 else 0))
         z.npc("port_g_%s_%d" % (role, i), x, y, face(-90.0) + 180.0)
-    for i in range(4):                                   # C1: besteiros nas torres e no muro novo
-        a = [-80.0, -100.0, 42.0, 222.0][i]
+    for i in range(2):                                   # C1 (hx_palisade): besteiros nas torres do portão norte
+        a = [-80.0, -100.0][i]
         x, y = H(TOWN_R - 2.6, a)
         z.npc("port_w_crossbow_%d" % i, x, y, face(a) + 180.0)
+    for sid, ((lo, hi), _q) in SEGMENTS.items():         # trecho fechado: posto de 2 besteiros nas pontas (MapsCatalog: `if` do trecho)
+        for i, a in enumerate((lo + 3.0, hi - 3.0)):
+            x, y = H(TOWN_R - 1.8, a)                     # rente ao muro: as casas do anel chegam a r = 33
+            z.npc("port_w_%s_crossbow_%d" % (sid, i), x, y, face(a) + 180.0)
+    for i, a in enumerate((-78.0, -102.0, -90.0)):       # reserva da praça (responder): corre para a brecha atacada (SiegeSystem)
+        x, y = H(PLAZA_R + 3.4, a)
+        z.npc("port_r_%s_%d" % (["spearman", "spearman", "knight"][i], i), x, y, face(a) + 180.0)
     # pontos de bot: anel do meio da praça (entre serviços e mestres), frente da taverna, mercado e largo do cais
     z.data["hangouts"] = [list(H(14.2, a)) for a in range(15, 360, 30)] + [list(H(23.5, tav_a + 12.0)), list(H(24.0, 82.0)), [3.0, 54.0], [-6.0, 53.0]]
 
     # ---------- cais: estrada do portão sul, largo de tábuas, dois píeres, navio de chegada e (C2) o segundo navio ----------
-    z.road("cais", [H(TOWN_R + 1.0, 90.0), (0.0, 50.0), (-6.0, 62.0)], w=4.6, end_clearing=False)
+    z.road("cais", [H(TOWN_R + 1.0, 90.0), (0.0, 50.0), (-2.0, 56.0)], w=4.6, end_clearing=False)      # acaba no largo, não no portal
     z.M["pave_largo_cais"] = mat("pave_largo_cais", (0.7, 0.58, 0.42))
     z.plaza("largo_cais", (0.0, 55.0), 8.5, "pave_largo_cais")
-    sea.pier(z, "oeste", (-8.0, 61.0), (-8.0, 96.0))
-    sea.pier(z, "leste", (14.0, 63.0), (14.0, 92.0))
+    sea.pier(z, "oeste", *PIERS[0])
+    sea.pier(z, "leste", *PIERS[1])
     sea.ship(z, "chegada", (-17.0, 86.0), 90.0, L=18.0)
     sea.ship(z, "segundo", (23.0, 84.0), 90.0, L=16.0, hull=(0.36, 0.3, 0.26), sail=(0.86, 0.9, 0.98), tag="navio2_")
     z.npc("port_sailor", -4.0, 57.0, 0.0)
@@ -254,14 +289,28 @@ def build(export=False):
     z.road("vigia", [(30.0, -52.0), (50.0, -34.0), (56.0, -10.0), (48.0, 4.0), H(TOWN_R + 1.0, 0.0)], w=3.4, end_clearing=False)
     gorge_post(z, (64.0, -30.0), gorge_in)
     gate_n = H(TOWN_R + 4.0, -90.0)
-    z.data["raids"] = [
-        {"side": "cerco", "from": list(gorge_in), "route": [[30.0, -52.0], [6.0, -42.0]], "target": list(TOWN_C), "radius": TOWN_R - 6.0,
-         "unless": PALISADE_Q},
-        {"side": "muralha", "from": list(gorge_in), "route": [[30.0, -52.0], [6.0, -42.0]], "target": list(gate_n), "radius": 7.0,
-         "if": PALISADE_Q, "unless": "hx_riders_camp"},
-        {"side": "patrulha", "from": list(gorge_in), "route": [[30.0, -52.0], [6.0, -42.0]], "target": list(gate_n), "radius": 7.0,
-         "if": "hx_riders_camp"},
+    # ---------- Cerco Vivo: uma rota por trecho em obra (a Horda entra pela brecha), o portão quando o lado fechou, a patrulha
+    # depois do Acampamento dos Ginetes e o ponto de tiro do assédio. Quem solta as levas é o SiegeSystem (relógio do mapa).
+    # Trilhas pisadas (estrada estreita) até cada brecha: reservam o caminho da dispersão e mostram por onde a Horda entra.
+    lead = {"ne": [[30.0, -52.0]], "e": [[30.0, -52.0], [50.0, -34.0], [56.0, -10.0], [48.0, 4.0]], "n": [[30.0, -52.0], [6.0, -42.0]]}
+    z.data["raids"] = []
+    for sid in SEGMENTS:
+        mid = seg_mid(sid)
+        out, breach, inside = H(TOWN_R + 5.0, mid), H(TOWN_R, mid), H(TOWN_R - 9.0, mid)
+        z.road("brecha_" + sid, [tuple(lead[sid][-1]), out], w=2.6, end_clearing=False)
+        z.data["raids"].append({"side": "cerco_" + sid, "from": list(gorge_in), "route": lead[sid] + [list(out), list(breach)], "target": list(inside),
+                                "radius": 9.0, "unless": seg_q(sid)})
+    z.data["raids"] += [
+        {"side": "muralha", "from": list(gorge_in), "route": [[30.0, -52.0], [6.0, -42.0]], "target": list(gate_n), "radius": 7.0, "unless": RIDERS_Q},
+        {"side": "patrulha", "from": list(gorge_in), "route": [[30.0, -52.0], [6.0, -42.0]], "target": list(gate_n), "radius": 7.0, "if": RIDERS_Q},
+        # assédio (kind harass no catálogo): atiradores na crista nordeste, salva na brecha aberta mais perto (ou no portão norte)
+        {"side": "assedio", "from": list(H(TOWN_R + 21.0, 304.0)), "route": [], "target": list(H(TOWN_R - 4.0, seg_mid("ne"))), "radius": 10.0, "unless": RIDERS_Q},
     ]
+    # marcadores de efeito (só apresentação: game/world/siege_fx.gd): fogo das Chamas nas casas queimadas, fumaça baixa delas
+    # até a paliçada fechar e a coluna de fumaça no horizonte nordeste (fora do vale) enquanto os ginetes têm acampamento
+    z.data["fx"] = [{"kind": "fire", "pos": [round(c[0], 2), round(c[1], 2)]} for c, _f, _r in burnt_houses]
+    z.data["fx"] += [{"kind": "smoke_low", "pos": [round(c[0], 2), round(c[1], 2)], "unless": PALISADE_Q} for c, _f, _r in burnt_houses[:2]]
+    z.data["fx"].append({"kind": "smoke", "pos": list(polar(z, RAID_DEG, -14)), "unless": RIDERS_Q})
     # ---------- oeste: hortas dos colonos (casa de fazenda, cercas) e o estaleiro na praia; a estrada dá a volta ----------
     z.road("hortas", [H(TOWN_R + 1.0, 180.0), (-52.0, 2.0), (-62.0, -16.0), (-50.0, -40.0), (-24.0, -52.0), (2.0, -45.0)], w=3.6, end_clearing=False)
     z.road("costa", [(-62.0, -16.0), (-70.0, -24.0), arrive, portal], end_clearing=False)      # sai da volta das hortas para a garganta da Costa
@@ -290,5 +339,6 @@ def build(export=False):
                    solid=False, margin=2.6, spacing=3.0, avoid=obs)
     nature.woodland_floor(z.ob, fr, nrnd, [((0, -62), 36, 8)], avoid=obs)
     act2_dress.port(z, SEA_C, SEA_R, TOWN_C, TOWN_R, PLAZA_R, GATES, GATE_HALF, farm, (-46.0, 69.0), (49.0, 82.0), (45.0, 64.0), (64.0, -30.0),
-                    (-17.0, 86.0), 90.0, 18.0, [((-8.0, 61.0), (-8.0, 96.0)), ((14.0, 63.0), (14.0, 92.0))])
+                    (-17.0, 86.0), 90.0, 18.0, PIERS, ship_portal=SHIP_PORTAL, breaches=[seg_mid(sid) for sid in SEGMENTS])
+    act2_dress.port_siege(z, TOWN_C, TOWN_R, {sid: (seg_mid(sid), seg_q(sid)) for sid in SEGMENTS}, burnt_houses, PALISADE_Q, RIDERS_Q)
     return z.finish(export, poi=(0.0, 56.0), ground=(0.56, 0.66, 0.42))

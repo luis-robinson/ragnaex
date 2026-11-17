@@ -142,8 +142,11 @@ def axe_parts(ck, n, g, fwd, out, side, mats, cfg, big):
     t, t2, gold, wood = mats["tint"], mats["tint2"], mats["trim"], mats["wood"]
     m_edge = mats["metal"]
     if cfg.get("glow"):
-        gc = EDGE_GLOW if cfg["glow"] is True else tuple(cfg["glow"])
-        m_edge = _mat(ck, "m_axe_glow_%02x%02x%02x" % tuple(int(round(c * 255)) for c in gc), gc, 0.3, EDGE_GLOW_ENERGY)
+        if cfg["glow"] == "tint":                # Ato II: o jogo pinta o fio com a cor do nível (KitModel, material tint_glow*)
+            m_edge = _mat(ck, "tint_glow_edge", EDGE_GLOW, 0.3, EDGE_GLOW_ENERGY)
+        else:
+            gc = EDGE_GLOW if cfg["glow"] is True else tuple(cfg["glow"])
+            m_edge = _mat(ck, "m_axe_glow_%02x%02x%02x" % tuple(int(round(c * 255)) for c in gc), gc, 0.3, EDGE_GLOW_ENERGY)
     m_cheek = _mat(ck, "m_axe_cheek_dark", CHEEK_DARK, 0.5) if cfg.get("dark") else _mat(ck, "m_axe_cheek", CHEEK, 0.5)
     S = cfg.get("S", 1.4 if big else 0.86)
     shaft = cfg.get("shaft", 0.95 if big else 0.54)

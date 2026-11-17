@@ -243,21 +243,24 @@ func _build_strip() -> void:
 			eq[ItemDef.Slot.OFFHAND] = w
 	if DevArgs.flag("--shield") and GameData.items.has(DevArgs.value("--shield")):     # --shield=<item>: esse escudo na mão esquerda
 		eq[ItemDef.Slot.OFFHAND] = GameData.items[DevArgs.value("--shield")]
-	for i in range(8):
+	var frames := int(DevArgs.value("--frames", "8"))     # --frames=N: N instantes (menos bonecos = câmera mais perto); --yaw=<graus>: giro de todos
+	for i in range(frames):
 		var k := KitModel.create(DevArgs.value("--body", cls.body_type), cls.hair_color, 0.025, cls.id)
 		add_child(k)
-		k.position = Vector3(-7.0 + i * 2.0, 0, 0)
+		k.position = Vector3(-float(frames - 1) + i * 2.0, 0, 0)
 		k.rotation.y = 0.0 if _front else PI * 0.5            # de frente ou de perfil para a câmera
+		if DevArgs.flag("--yaw"):
+			k.rotation.y = deg_to_rad(float(DevArgs.value("--yaw")))
 		k.apply_equipment(eq)
 		var clip := _worn_clip(k, _anim)
 		if clip != "":
 			k.anim.play(clip)
-			k.anim.seek(k.anim.current_animation_length * float(i) / 8.0, true)
+			k.anim.seek(k.anim.current_animation_length * float(i) / float(frames), true)
 			k.anim.pause()
 	var cam := Camera3D.new()
 	cam.fov = 30.0
 	add_child(cam)
-	cam.look_at_from_position(Vector3(0, 1.4, 15.0), Vector3(0, 0.7, 0), Vector3.UP)
+	cam.look_at_from_position(Vector3(0, 1.4, 15.0 if frames >= 8 else 2.4 * float(frames)), Vector3(0, 0.7 if frames >= 8 else 1.0, 0), Vector3.UP)
 	_side = true
 
 func _build_mounted() -> void:
@@ -486,6 +489,9 @@ func _build_tiers() -> void:
 func _build_forms() -> void:
 	var cls: ClassDef = GameData.classes.get(_strip, GameData.classes["druid"])
 	var levels: Array = Balance.LEGENDARY_LEVELS
+	if DevArgs.flag("--levels"):                 # --levels=30,35,40,45: só esses níveis
+		levels = Array(DevArgs.value("--levels").split(",")).map(func(s): return int(s))
+	var x0: float = -6.25 if levels.size() > 5 else -1.25 * float(levels.size() - 1)
 	for i in range(levels.size()):
 		var eq := {}
 		for iid in GameData.legendary_pool(cls, int(levels[i]), _set):
@@ -497,7 +503,7 @@ func _build_forms() -> void:
 			return
 		add_child(f)
 		f.scale = Vector3.ONE * EntityView.FORM_SCALE.get(_form, 1.0)
-		f.position = Vector3(-6.25 + i * 2.5, 0, 0)
+		f.position = Vector3(x0 + i * 2.5, 0, 0)
 		f.rotation.y = 0.6 if _front else PI * 0.5
 		f.apply_equipment(eq)
 		if f.anim and f.anim.has_animation(_anim):
@@ -505,7 +511,10 @@ func _build_forms() -> void:
 	var cam := Camera3D.new()
 	cam.fov = 30.0
 	add_child(cam)
-	cam.look_at_from_position(Vector3(0, 6.0, 14.0), Vector3(0, 0.5, 0), Vector3.UP)
+	if levels.size() <= 5:                       # poucos bichos: mais perto
+		cam.look_at_from_position(Vector3(0, 5.2, 12.0), Vector3(0, 0.6, 0), Vector3.UP)
+	else:
+		cam.look_at_from_position(Vector3(0, 6.0, 14.0), Vector3(0, 0.5, 0), Vector3.UP)
 
 func _spawn(cls: ClassDef, eq: Dictionary, pos: Vector3, seed_i: int) -> void:
 	var k := KitModel.create(DevArgs.value("--body", cls.body_type), cls.hair_color, 0.025, cls.id)

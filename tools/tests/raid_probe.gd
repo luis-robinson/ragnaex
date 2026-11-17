@@ -7,6 +7,11 @@ extends Node
 ##   repelidas = leva toda derrubada antes do recuo; chegada = s até a 1ª entrar no raio do povoado;
 ##   presos = elfos parados 10 s fora de luta antes de chegar (FLAG: rota/pathing quebrado).
 ## --quests=<id,...>: mede um estágio da conquista (ex.: `--map=city_port --route=1 --quests=hx_palisade` = C1, paliçada fechada).
+## --side=<lado>: escolhe a rota pelo nome (ex.: `--map=city_port --side=cerco_ne`), em vez do índice de --route.
+## --siege_run=<s>: Cerco Vivo de verdade (mapa com MapDef.siege): um jogador parado na chegada, o relógio do SiegeSystem solta
+##   levas, assédios e trompas por <s> segundos. Saída: "SIEGE levas=N repelidas=R (x%) chamas=C assedios=A trompas=T
+##   intervalo_medio=Ss (eventos = leva + assédio) min_pos_repelida=Ss invasores_max=N hazards_max=N xp_cerco_min=X"
+##   (--bots=N põe N bots do nível --level na praça; --quests= fixa o estágio).
 ## --reinforce=N: os reforços das N primeiras fortalezas retomadas (assaults "reforco_*" do mapa) já rondando a praça,
 ##   cheios até o `max` de cada um, como no jogo depois das retomadas (sem eles a sonda mede só a guarnição).
 
@@ -15,6 +20,8 @@ const DT := 1.0 / 20.0
 var route_i := 0
 var reclaimed := 0               # --reclaimed=N: fortalezas retomadas (fúria das levas, RaidSystem.reclaimed)                 # --route=N: qual lado da cidade (RaidSystem.routes)
 var reinforce := 0
+var side := ""                   # --side=<lado>: rota pelo nome
+var siege_run := 0.0             # --siege_run=<s>: relógio do cerco de verdade
 var quests: PackedStringArray = []   # --quests=<id,...>: quests feitas (WorldState: rota, guarnição e colisores do estágio; ex. hx_palisade com --route=1)
 
 func _ready() -> void:
@@ -35,6 +42,8 @@ func _ready() -> void:
 		if a.begins_with("--reclaimed="): reclaimed = int(a.get_slice("=", 1))
 		if a.begins_with("--reinforce="): reinforce = int(a.get_slice("=", 1))
 		if a.begins_with("--quests="): quests = a.get_slice("=", 1).split(",")
+		if a.begins_with("--side="): side = a.get_slice("=", 1)
+		if a.begins_with("--siege_run="): siege_run = float(a.get_slice("=", 1))
 	Sim.load_map(GameData.maps[GameData.town_map_id()])
 	var m: Dictionary = Sim.load_map(GameData.maps[mid])
 	m["spawners"].clear()
@@ -45,6 +54,16 @@ func _ready() -> void:
 			p.quests_completed.append(q)
 		WorldState.sync_npcs(Sim, m)
 		MapGeometry.sync_stage(Sim, m)
+	if side != "":
+		route_i = maxi(0, SiegeSystem.route_index(GameData.maps[mid], side))
+	if siege_run > 0.0:
+		for n in bot_counts:
+			_siege_run(m, n, level)
+		print("RAID_END")
+		get_tree().quit()
+		return
+	if SiegeSystem.managed(GameData.maps[mid]):
+		SiegeSystem.state(m)["hold"] = true          # a sonda solta as levas à mão: o relógio do cerco fica parado (a reserva continua respondendo)
 	RaidSystem.state(m)["force_level"] = raid_level
 	RaidSystem.state(m)["force_reclaimed"] = reclaimed
 	for e in m["entities"].duplicate():
@@ -52,8 +71,8 @@ func _ready() -> void:
 			Sim.despawn(e)
 	for n in bot_counts:
 		var r := _run(m, n, level, trials)
-		print("RAID bots=%d reforcos=%d repelidas=%d/%d chegada=%.0fs duracao=%.0fs sentinelas_mortas=%.1f bots_mortos=%.1f presos=%d%s" % [
-			n, r["allies"], r["repelled"], trials, r["arrive"], r["dur"], r["guards"], r["bots"], r["stuck"], "  FLAG" if r["stuck"] > 0 else ""])
+		print("RAID bots=%d reforcos=%d repelidas=%d/%d chegada=%.0fs duracao=%.0fs mediana=%.0fs luta_mediana=%.0fs chegaram=%.1f/%.1f sentinelas_mortas=%.1f sentinelas_vida_min=%.0f%% bots_mortos=%.1f presos=%d%s" % [
+			n, r["allies"], r["repelled"], trials, r["arrive"], r["dur"], r["median"], r["fight_median"], r["reached"], r["size"], r["guards"], r["guard_hp"] * 100.0, r["bots"], r["stuck"], "  FLAG" if r["stuck"] > 0 else ""])
 	print("RAID_END")
 	get_tree().quit()
 
@@ -63,7 +82,10 @@ func _run(m: Dictionary, nbots: int, level: int, trials: int) -> Dictionary:
 	var guards: Array = m["entities"].filter(func(e): return e.guard)
 	var gate: Vector3 = r["route"][r["route"].size() - 1]
 	var classes: Array = GameData.classes.keys()
-	var out := {"repelled": 0, "arrive": 0.0, "dur": 0.0, "guards": 0.0, "bots": 0.0, "stuck": 0}
+	var out := {"repelled": 0, "arrive": 0.0, "dur": 0.0, "guards": 0.0, "bots": 0.0, "stuck": 0, "reached": 0.0, "size": 0.0, "guard_hp": 0.0}
+	var durs: Array = []             # duração de cada leva (mediana) e da luta (da chegada ao fim)
+	var fights: Array = []
+	var radius: float = float(r.get("radius", 25.0))
 	var arrived_n := 0
 	for trial in range(trials):
 		for g in guards:                 # sentinelas inteiras no posto
@@ -83,6 +105,9 @@ func _run(m: Dictionary, nbots: int, level: int, trials: int) -> Dictionary:
 		var st := RaidSystem.state(m, route_i)
 		st["n"] = trial % 3                  # alterna as levas (a 3ª traz o grifo)
 		var ids := RaidSystem.start_raid(Sim, m, route_i)
+		var reached := {}                # invasores que entraram no raio do alvo (chegaram à brecha/portão)
+		var hp_min := 1.0                # menor fração de vida somada da guarnição durante a leva
+		out["size"] += ids.size()
 		var t := 0.0
 		var arrive := -1.0
 		var guard_dead := {}
@@ -101,6 +126,17 @@ func _run(m: Dictionary, nbots: int, level: int, trials: int) -> Dictionary:
 			for b in bots:
 				if not b.is_alive():
 					bot_dead[b.id] = true
+			if int(t / DT) % 10 == 0:
+				for id in st["ids"]:
+					var inv: SimEntity = Sim.entities.get(id)
+					if inv != null and inv.position.distance_to(r["target"]) < radius:
+						reached[id] = true
+				var hp := 0.0
+				var hp_max := 0.0
+				for g in guards:
+					hp += maxf(0.0, g.hp) if g.is_alive() else 0.0
+					hp_max += g.stats.max_hp
+				hp_min = minf(hp_min, hp / maxf(1.0, hp_max))
 			if int(t / DT) % 20 == 0:              # 1x por segundo: vigia de elfo parado fora de luta
 				for id in st["ids"]:
 					var e: SimEntity = Sim.entities.get(id)
@@ -120,6 +156,11 @@ func _run(m: Dictionary, nbots: int, level: int, trials: int) -> Dictionary:
 			out["arrive"] += arrive
 			arrived_n += 1
 		out["dur"] += t
+		durs.append(t)
+		if arrive >= 0.0:
+			fights.append(t - arrive)
+		out["reached"] += reached.size()
+		out["guard_hp"] += hp_min
 		out["guards"] += guard_dead.size()
 		out["bots"] += bot_dead.size()
 		out["stuck"] += stuck_ids.size()
@@ -137,9 +178,104 @@ func _run(m: Dictionary, nbots: int, level: int, trials: int) -> Dictionary:
 				Sim.despawn(e)
 	out["arrive"] = out["arrive"] / maxf(1, arrived_n)
 	out["allies"] = _ally_count
+	durs.sort()
+	fights.sort()
+	out["median"] = durs[durs.size() / 2] if not durs.is_empty() else 0.0
+	out["fight_median"] = fights[fights.size() / 2] if not fights.is_empty() else 0.0
+	out["reached"] = out["reached"] / trials
+	out["size"] = out["size"] / trials
+	out["guard_hp"] = out["guard_hp"] / trials
 	return _finish(out, trials)
 
 var _ally_count := 0
+var _ev: Array = []              # --siege_run: [tempo, tipo]
+
+## Cerco de verdade por `siege_run` s: jogador parado na chegada do mapa (longe do muro), relógio do SiegeSystem.
+func _siege_run(m: Dictionary, nbots: int, level: int) -> void:
+	var def: MapDef = m["def"]
+	for e in m["entities"].duplicate():
+		if e.kind == SimEntity.Kind.MONSTER or e.kind == SimEntity.Kind.BOT:
+			Sim.despawn(e)
+	m.erase("siege")
+	for i in RaidSystem.routes(def).size():
+		m.erase("raid" if i == 0 else "raid_%d" % i)
+	if Sim.player == null:
+		var p := Sim.spawn_player(GameData.classes["paladin"], "Sonda", def.id)
+		p.brain = null
+		p.level = level                      # a força da leva segue o nível do jogador no mapa (RaidSystem.power_step)
+		for q in quests:
+			p.quests_completed.append(q)
+		WorldState.sync_npcs(Sim, m)
+		MapGeometry.sync_stage(Sim, m)
+	var classes: Array = GameData.classes.keys()
+	var bots: Array = []
+	for i in range(nbots):
+		bots.append(Sim.spawn_bot(GameData.classes[classes[(i * 5) % classes.size()]], "D%d" % i, def.id, def.town_center + Vector3(-3 + i * 3, 0, 4), level))
+	_ev.clear()
+	var on_raid := func(mid: String, kind: String) -> void:
+		if mid == def.id: _ev.append([Sim.time, "raid_" + kind])
+	var on_siege := func(mid: String, kind: String) -> void:
+		if mid == def.id: _ev.append([Sim.time, "siege_" + kind])
+	Events.raid_event.connect(on_raid)
+	Events.siege_event.connect(on_siege)
+	var t0: float = Sim.time
+	var t := 0.0
+	var max_inv := 0
+	var max_hz := 0
+	var xp := 0.0
+	var seen_dead := {}
+	while t < siege_run:
+		Sim.tick(DT)
+		t += DT
+		if int(t / DT) % 20 == 0:
+			var inv := 0
+			for e in m["entities"]:
+				if e.kind == SimEntity.Kind.MONSTER:
+					if e.is_alive():
+						inv += 1
+					elif not seen_dead.has(e.id):
+						seen_dead[e.id] = true
+						xp += e.monster_def.xp
+			max_inv = maxi(max_inv, inv)
+			max_hz = maxi(max_hz, (m.get("hazards", []) as Array).size())
+			Sim.player.hp = Sim.player.stats.max_hp          # a sonda mede a guarnição: o jogador parado não morre
+	Events.raid_event.disconnect(on_raid)
+	Events.siege_event.disconnect(on_siege)
+	var waves := 0
+	var repelled := 0
+	var scorch := 0
+	var harass := 0
+	var horns := 0
+	var starts: Array = []
+	var min_after := INF
+	var last_rep := -1.0
+	for ev in _ev:
+		var at: float = float(ev[0]) - t0
+		match str(ev[1]):
+			"raid_start":
+				waves += 1
+				starts.append(at)
+				if last_rep >= 0.0:
+					min_after = minf(min_after, at - last_rep)
+					last_rep = -1.0
+			"raid_repelled":
+				repelled += 1
+				last_rep = at
+			"siege_scorch": scorch += 1
+			"siege_harass":
+				harass += 1
+				starts.append(at)
+			"siege_horn": horns += 1
+	starts.sort()
+	var gap := 0.0
+	for i in range(1, starts.size()):
+		gap += float(starts[i]) - float(starts[i - 1])
+	var ended: int = _ev.filter(func(ev): return str(ev[1]) in ["raid_repelled", "raid_retreated"]).size()
+	print("SIEGE bots=%d p=%d levas=%d repelidas=%d/%d (%.0f%%) chamas=%d assedios=%d trompas=%d intervalo_medio=%.0fs min_pos_repelida=%.0fs invasores_max=%d hazards_max=%d xp_cerco_min=%.0f" % [
+		nbots, SiegeSystem.pressure(Sim, def), waves, repelled, ended, 100.0 * repelled / maxf(1.0, ended), scorch, harass, horns,
+		gap / maxf(1.0, starts.size() - 1), min_after if min_after != INF else -1.0, max_inv, max_hz, xp / (siege_run / 60.0)])
+	for b in bots:
+		Sim.despawn(b)
 
 ## Reforços das `reinforce` primeiras fortalezas retomadas já na praça (fim da marcha), cheios até o max.
 func _reinforcements(m: Dictionary) -> Array:

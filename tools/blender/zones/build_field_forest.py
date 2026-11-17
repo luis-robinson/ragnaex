@@ -11,6 +11,7 @@ import random
 import importlib
 import nature
 import places
+import town_dress
 import zone_lib
 importlib.reload(zone_lib)
 from zone_lib import Zone, ROAD_W
@@ -74,8 +75,9 @@ def build(export=False):
     z.data["town"] = {"center": [hx, hz], "radius": CAMP_R, "gates": [[round(H(CAMP_R, a)[0], 2), round(H(CAMP_R, a)[1], 2)] for a in gate_deg]}
     for a in gate_deg:                                   # ruas radiais praça -> portão
         z.road("rua_%d" % int(a), [H(7.0, a), H(CAMP_R - 2.0, a)], w=3.4, material="road", end_clearing=False)
-    z.ob("well", hx, hz, (2.0, 1.4, 2.0))
-    z.ob("statue", hx + 3.2, hz - 3.2, (1.2, 2.8, 1.2), 45.0)
+    # centro = Fogueira Comunal + roda de carroças dos refugiados + varais de peles + Trompa do Cerco (GDD living-towns 3.2;
+    # o poço e a estátua genérica saíram). Colisores ocultos pelo z.ob; resumo em town.centerpiece (check _check_town_identity)
+    z.data["town"]["centerpiece"] = town_dress.posto(z, HUB)
     # quadrantes entre as ruas: NE quartel, NO forja + alojamento dos caçadores, SE mercado, SO casas
     roof_q = (0.42, 0.34, 0.5)
     z.ob("house", *H(15.5, -45.0), (8.5, 5.0, 6.0), 45.0, roof=roof_q)          # quartel

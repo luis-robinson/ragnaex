@@ -147,7 +147,7 @@ ZONES = {
     "lich_citadel": {"name": "Cidadela do Lich", "ground": (0.32, 0.28, 0.36), "mood": "moody",
                      "cam": {"at": "town", "az": "spawn", "dist": 98, "elev": 26, "pitch": 18, "fov": 50}},
     "city_port": {"name": "Porto Esperança", "ground": (0.62, 0.62, 0.44), "mood": "coast", "sea": True,
-                  "hide": ["palicada_nova", "farolete_apagado"],
+                  "hide": ["_pronta_", "casa_nova", "farolete_apagado"],      # C0 do Cerco Vivo: trechos em obra, casas queimadas
                   "cam": {"at": (0, -22), "az": 160, "dist": 125, "elev": 25, "pitch": 16, "fov": 50}},
     "field_coast": {"name": "Costa Partida", "ground": (0.64, 0.66, 0.46), "mood": "coast", "sea": True,
                     "hide": ["farol_apagado", "passo_estepes_aberto"], "water_tints": {"water_dark": (0.22, 0.38, 0.36)},

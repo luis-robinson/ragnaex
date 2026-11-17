@@ -820,3 +820,401 @@ def register(ck):
         ck.SET_WEAPONS[st + "_mace"] = (lambda st_, cf_: (lambda base, mats: build_mace(ck, base, mats, st_, cf_)))(st, cf)
     for style, cfg in PAL_SETS.items():
         ck.SET_STYLES[style] = wrap((lambda st, cf: (lambda base, mats: build(ck, base, mats, st, cf)))(style, cfg), "arm_%s_" % style)
+
+
+# ---------------------------------------------------------------------------
+# Ato II (níveis 35/40/45 + Ápice/híbrido da build): UM visual novo de ARMADURA por build, tema guerra contra a Horda em
+# Monte Kharzun. A malha é a mesma nos três níveis; o jogo pinta a cor do item (tint), o destaque (tint2) e as peças acesas
+# (material "tint_glow") por nível: GearCatalog.ACT2_VISUALS[...]["colors"/"accents"/"glows"]. Espadas, maças e escudos
+# continuam os do nível 30 (ACT2_VISUALS "wpn"/"shield").
+# Estes estilos NÃO entram no kit principal do Paladino (195 malhas, teto de 200): vão no kit extra
+# kit_paladin_<sexo>_a2.glb (chibi_kit.A2_STYLES / build_kit_a2), que o KitModel só carrega quando uma peça dessas é vestida.
+#   pal_g35 Guardião = Baluarte de Kharzun: elmo de cerco de topo chato com fenda acesa, crista em leque ATRAVESSADA (tint2),
+#           ombreiras quadradas de torre com ameias e seteira acesa, gola de pele, placas rebitadas na barriga.
+#   pal_c35 Cruzado = Lança da Aurora: celada de bico com olhos acesos, crina longa (tint2) caindo pelas costas, UMA ombreira
+#           gigante com espigão no ombro direito, meia-capa (tint2) com gola de pele no esquerdo, tabardo comprido partido.
+#   pal_t35 Templário = Chama de Guerra: elmo-balde coroado com um braseiro aceso no alto, viseira em cruz acesa, correntes
+#           nos ombros com turíbulos acesos pendurados, saiote de escamas.
+FUR_PALE = (0.8, 0.78, 0.74)
+
+
+def _a2_mats(ck, mats):
+    import berserker_sets as bs
+    return (mats["tint"], mats["tint2"], mats["trim"], mats["dark"], mats["metal"], mats["white"],
+            ck.mat("m_pal_fur", FUR_PALE, 0.95), bs._tint_glow(ck), bs)
+
+
+def _a2_limbs(ck, base, mats, P, kind):
+    """Manoplas e botas do Ato II. kind: tower (blocos quadrados) | lance (aletas) | flame (escamas e aro aceso)."""
+    V = Vector
+    rig, body, b, j = base["rig"], base["body"], base["b"], base["j"]
+    t, t2, gold, dark, metal, wh, fur, glow, bs = _a2_mats(ck, mats)
+    for s, sx in ((".R", -1), (".L", 1)):
+        tag = s.replace(".", "_")
+        el, wr = V(j["elbow" + s]), V(j["wrist" + s])
+        big = 1.25 if kind == "tower" else 1.1
+        g = [ck.tube(P + "gloves_cuff" + tag, el.lerp(wr, 0.2), wr + V((0, 0, 0.01)), 0.078 * big, 0.108 * big, t, 12),
+             ck.tube(P + "gloves_rim" + tag, wr + V((0, 0, 0.005)), wr + V((0, 0, 0.032)), 0.115 * big, 0.115 * big, metal if kind == "tower" else gold, 12)]
+        if kind == "tower":              # cotoveleira quadrada e placa rebitada no dorso
+            g += [ck.box(P + "gloves_elbow" + tag, (0.13, 0.13, 0.09), el + V((sx * 0.02, 0.02, 0.0)), metal, 0.02),
+                  ck.box(P + "gloves_plate" + tag, (0.04, 0.12, 0.12), el.lerp(wr, 0.6) + V((sx * 0.115, 0, 0)), metal, 0.012)]
+            for k in range(2):
+                g.append(ck.ball(P + "gloves_rivet_%d%s" % (k, tag), 0.02, el.lerp(wr, 0.45 + k * 0.3) + V((sx * 0.14, 0, 0)), gold))
+            g.append(ck.box(P + "gloves_slit" + tag, (0.02, 0.028, 0.07), el.lerp(wr, 0.6) + V((sx * 0.138, 0, 0)), glow, 0.005))     # seteira acesa
+        elif kind == "lance":            # aleta longa para fora, cotovelo redondo
+            g += [ck.ball(P + "gloves_elbow" + tag, 0.07, el + V((sx * 0.02, 0.02, 0)), gold, (1.0, 1.0, 0.9)),
+                  ck.ball(P + "gloves_gem" + tag, 0.028, el.lerp(wr, 0.62) + V((sx * 0.1, -0.02, 0)), glow, (0.7, 1.0, 1.3)),
+                  ck.blade(P + "gloves_fin" + tag, el.lerp(wr, 0.25) + V((sx * 0.07, 0, 0)), el.lerp(wr, 0.9) + V((sx * 0.16, 0.02, 0.04)), 0.07, 0.03, gold, (0, 1, 0))]
+        else:                            # aro aceso no punho e duas escamas
+            g.append(ck.tube(P + "gloves_lit" + tag, el.lerp(wr, 0.55), el.lerp(wr, 0.68), 0.1, 0.106, glow, 12))
+            for k in range(2):
+                p = el.lerp(wr, 0.3 + k * 0.42) + V((sx * 0.085, 0, 0))
+                g.append(ck.blade(P + "gloves_scale_%d%s" % (k, tag), p + V((0, 0, 0.05)), p + V((sx * 0.035, 0, -0.07)), 0.1, 0.03, metal, (0, 1, 0), 0.3))
+        ck._rigid(bs._outward(g), rig, "forearm" + s)
+        hc = V(ck.hand_center(base, s))
+        fist = [ck.ball(P + "gloves_fist" + tag, b["hand"] * (1.55 if kind == "tower" else 1.4), hc, t, (1, 1, 1.1))]
+        for k in range(2):
+            fist.append(ck.box(P + "gloves_knuckle_%d%s" % (k, tag), (0.08, 0.03, 0.022), hc + V((sx * 0.01, -0.065, 0.035 - k * 0.032)), metal if kind == "tower" else gold, 0.008))
+        ck._rigid(fist, rig, "hand" + s)
+    ck.armor_piece(body, rig, P + "boots_shell", "boots", t, 0.028 if kind == "tower" else 0.024, 0.016)
+    for s, sx in ((".R", -1), (".L", 1)):
+        tag = s.replace(".", "_")
+        kn, an = V(j["knee" + s]), V(j["ankle" + s])
+        k = [ck.tube(P + "boots_cuff" + tag, an + V((0, 0, 0.06)), an + V((0, 0, 0.095)), 0.095, 0.095, metal if kind == "tower" else gold, 12)]
+        if kind == "tower":              # joelheira quadrada com ameia e caneleira rebitada
+            k += [ck.box(P + "boots_knee" + tag, (0.15, 0.07, 0.12), kn + V((0, -0.085, 0.015)), t, 0.02),
+                  ck.box(P + "boots_knee_cap" + tag, (0.17, 0.085, 0.035), kn + V((0, -0.085, 0.085)), metal, 0.01),
+                  ck.box(P + "boots_shin" + tag, (0.08, 0.03, 0.09), an.lerp(kn, 0.55) + V((0, -0.08, 0)), metal, 0.008),
+                  ck.box(P + "boots_slit" + tag, (0.024, 0.03, 0.07), kn + V((0, -0.118, 0.015)), glow, 0.005)]
+        elif kind == "lance":            # joelheira em ponta e asa no tornozelo
+            k += [ck.ball(P + "boots_knee" + tag, 0.078, kn + V((0, -0.075, 0.01)), t, (1.05, 0.7, 1.0)),
+                  ck.blade(P + "boots_knee_spike" + tag, kn + V((0, -0.11, -0.01)), kn + V((0, -0.19, 0.1)), 0.07, 0.04, gold, (1, 0, 0)),
+                  ck.ball(P + "boots_knee_gem" + tag, 0.026, kn + V((0, -0.135, -0.02)), glow, (1.0, 0.6, 1.0)),
+                  ck.blade(P + "boots_wing" + tag, an + V((sx * 0.07, 0.01, 0.08)), an + V((sx * 0.16, 0.07, 0.2)), 0.07, 0.025, t2, (0, 1, 0))]
+        else:                            # joelheira redonda com brasa
+            k += [ck.ball(P + "boots_knee" + tag, 0.08, kn + V((0, -0.075, 0.01)), t, (1.05, 0.7, 1.0)),
+                  ck.ball(P + "boots_knee_lit" + tag, 0.03, kn + V((0, -0.13, 0.015)), glow, (1.0, 0.6, 1.0)),
+                  ck.blade(P + "boots_scale" + tag, an.lerp(kn, 0.75) + V((0, -0.08, 0)), an.lerp(kn, 0.2) + V((0, -0.09, 0)), 0.1, 0.03, metal, (1, 0, 0), 0.3)]
+        ck._rigid(bs._outward(k), rig, "shin" + s)
+        toe = [ck.ball(P + "boots_toe" + tag, 0.062, an + V((0, -0.11, -0.04)), metal if kind == "tower" else gold, (1.0, 1.25, 0.6))]
+        for q in range(2):
+            toe.append(ck.box(P + "boots_lame_%d%s" % (q, tag), (0.125, 0.05, 0.022), an + V((0, -0.06 - q * 0.03, 0.0 - q * 0.02)), t, 0.008))
+        ck._rigid(toe, rig, "foot" + s)
+
+
+def _chain(ck, name, p0, p1, sag, material, n=6, rad=0.012):
+    """Corrente pendurada de p0 a p1 (barriga para baixo de sag), em n elos retos."""
+    p0, p1 = Vector(p0), Vector(p1)
+    out, prev = [], p0
+    for i in range(1, n + 1):
+        k = i / n
+        p = p0.lerp(p1, k) + Vector((0, 0, -sag * math.sin(math.pi * k)))
+        out.append(ck.tube("%s_%d" % (name, i), prev, p, rad, rad, material, 4))
+        prev = p
+    return out
+
+
+def _censer(ck, name, top, drop, metal, glow, size=0.05):
+    """Turíbulo pendurado numa corrente: brasa acesa numa gaiola de ferro com tampa em ponta."""
+    V = Vector
+    top = V(top)
+    cp = top + V((0, 0, -drop))
+    out = [ck.tube(name + "_chain", top, cp + V((0, 0, size * 1.2)), 0.008, 0.008, metal, 4),
+           ck.ball(name + "_lit", size * 0.92, cp, glow, (1, 1, 1.1)),
+           ck.tube(name + "_ring", cp + V((0, 0, -size * 0.22)), cp + V((0, 0, size * 0.22)), size, size, metal, 8),
+           ck.tube(name + "_cap", cp + V((0, 0, size * 0.72)), cp + V((0, 0, size * 1.5)), size * 0.68, 0.006, metal, 8),
+           ck.tube(name + "_foot", cp + V((0, 0, -size * 0.72)), cp + V((0, 0, -size * 1.6)), size * 0.56, 0.004, metal, 8)]
+    for k in range(4):
+        a = math.tau * (k + 0.5) / 4
+        o = V((math.cos(a) * size * 0.94, math.sin(a) * size * 0.94, 0))
+        out.append(ck.tube(name + "_bar_%d" % k, cp + o + V((0, 0, size * 0.8)), cp + o + V((0, 0, -size * 0.8)), 0.007, 0.007, metal, 4))
+    return out
+
+
+def build_bulwark(ck, base, mats, style):
+    """pal_g35 — Baluarte de Kharzun (Guardião, placa)."""
+    V = Vector
+    rig, body, b, j = base["rig"], base["body"], base["b"], base["j"]
+    t, t2, gold, dark, metal, wh, fur, glow, bs = _a2_mats(ck, mats)
+    P = "arm_%s_" % style
+    c, r = V(base["head_c"]), b["head"]
+    # ---------------- cabeça: elmo de cerco de topo chato, fenda acesa, crista em leque atravessada ----------------
+    head = [ck._shell(P + "head_helm", c, r * 1.16, -0.75, -0.62, -0.5, 0.04, t),
+            ck.tube(P + "head_drum", c + V((0, 0, r * 0.3)), c + V((0, 0, r * 1.2)), r * 1.2, r * 1.1, t, 20),
+            ck.tube(P + "head_top_rim", c + V((0, 0, r * 1.15)), c + V((0, 0, r * 1.23)), r * 1.14, r * 1.13, metal, 20),
+            ck.tube(P + "head_band", c + V((0, 0, r * 0.26)), c + V((0, 0, r * 0.4)), r * 1.24, r * 1.23, metal, 20),
+            ck.ball(P + "head_face", r * 0.86, c + V((0, -r * 0.82, -r * 0.14)), t, (1.1, 0.5, 1.02)),
+            ck.box(P + "head_slit", (r * 1.3, 0.08, r * 0.13), c + V((0, -r * 1.25, r * 0.04)), glow, 0.02),
+            ck.box(P + "head_nasal", (0.075, 0.1, r * 0.95), c + V((0, -r * 1.27, -r * 0.2)), metal, 0.02),
+            ck.tube(P + "head_rim", c + V((0, 0, -r * 0.62)), c + V((0, 0, -r * 0.5)), r * 1.12, r * 1.22, metal, 20),
+            ck.box(P + "head_crest_base", (r * 1.9, 0.12, 0.07), c + V((0, r * 0.05, r * 1.24)), metal, 0.02)]
+    for sx in (-1, 1):
+        for k in range(3):               # furos de respiro
+            head.append(ck.box(P + "head_hole_%d_%d" % (sx, k), (0.03, 0.05, 0.03), c + V((sx * r * (0.3 + k * 0.17), -r * 1.2 + k * 0.035, -r * 0.42)), dark, 0.006))
+    for k in range(6):
+        a = math.pi * (0.22 + 0.56 * k / 5.0) + math.pi
+        head.append(ck.ball(P + "head_rivet_%d" % k, 0.032, c + V((math.cos(a) * r * 1.26, math.sin(a) * r * 1.26, r * 0.33)), gold))
+    for k in range(9):                   # crista de crina em leque, de orelha a orelha
+        a = math.radians(-76 + k * 19)
+        root = c + V((math.sin(a) * r * 0.75, r * 0.05, r * 1.22))
+        tip = c + V((math.sin(a) * r * 1.6, r * 0.08, r * 1.25 + math.cos(a) * r * 0.85 + r * 0.12))
+        head.append(ck.blade(P + "head_crest_%d" % k, root, tip, r * 0.36, 0.07, t2, (math.cos(a), 0, -math.sin(a)), 0.55))
+    ck._rigid(bs._outward(head), rig, "head")
+    # ---------------- corpo ----------------
+    ck.armor_piece(body, rig, P + "body_plate", "torso", t, 0.018, 0.016, 0.04)
+    ck.armor_piece(body, rig, P + "body_legs", "legs", metal, 0.008, 0.012)
+    d = b["depth"]
+    front = -b["chest"] * d - 0.035
+    back = b["chest"] * d + 0.035
+    zc, zn, zw = ck.Z["chest"], ck.Z["neck"], ck.Z["waist"]
+    chest = bs._fur_ring(ck, P, "body_fur", (0, 0, zn - 0.075), b["chest"] * 0.8, 14, 0.066, fur)
+    gorget = ck.tube(P + "body_gorget", (0, 0, zn - 0.05), (0, 0, zn + 0.075), b["chest"] * 0.74, b["chest"] * 0.58, metal, 14)
+    for v in gorget.data.vertices:
+        v.co.y *= 0.9
+    chest += [gorget,
+              ck.ball(P + "body_breast", 0.17, (0, front + 0.045, zc + 0.015), t, (1.3, 0.42, 1.0)),
+              ck.box(P + "body_gate", (0.15, 0.035, 0.15), (0, front - 0.012, zc + 0.01), metal, 0.012),      # portão: grade acesa no peito
+              ck.box(P + "body_gate_arch", (0.19, 0.04, 0.04), (0, front - 0.014, zc + 0.095), gold, 0.012)]
+    for k in range(3):
+        chest.append(ck.box(P + "body_gate_slit_%d" % k, (0.026, 0.03, 0.11), ((k - 1) * 0.045, front - 0.024, zc + 0.005), glow, 0.005))
+    for k in range(3):                   # placas rebitadas da barriga
+        w = 0.3 - k * 0.025
+        zz = zw + 0.085 - k * 0.05
+        chest.append(ck.box(P + "body_lame_%d" % k, (w, 0.036, 0.046), (0, -b["waist"] * d * 1.12 - 0.02, zz), t if k % 2 == 0 else metal, 0.012))
+        for sx in (-1, 1):
+            chest.append(ck.ball(P + "body_lame_rivet_%d_%d" % (k, sx), 0.017, (sx * (w * 0.5 - 0.03), -b["waist"] * d * 1.12 - 0.042, zz), gold))
+    # costas: placa de reforço com três rebites e um losango aceso (a câmera alta vê as costas)
+    chest += [ck.box(P + "body_back_plate", (0.22, 0.035, 0.2), (0, back, zc + 0.01), metal, 0.014),
+              ck.blade(P + "body_back_lit", (0, back + 0.022, zc + 0.085), (0, back + 0.022, zc - 0.065), 0.1, 0.02, glow, (1, 0, 0), 0.5)]
+    for k in range(3):
+        chest.append(ck.ball(P + "body_back_rivet_%d" % k, 0.02, ((k - 1) * 0.085, back + 0.022, zc + 0.095), gold))
+    ck._rigid(bs._outward(chest), rig, "chest")
+    bs._belt(ck, base, P + "body_belt", zw - 0.05, zw + 0.04, 1.22, metal)
+    wf = -b["waist"] * d * 1.22
+    hips = [ck.box(P + "body_buckle", (0.09, 0.03, 0.075), (0, wf - 0.012, zw), gold, 0.012)]
+    for k in range(3):                   # escarcelas quadradas, frente e costas
+        x = (k - 1) * 0.1
+        L = 0.2 if k == 1 else 0.16
+        for side, y in (("f", wf - 0.008 + abs(k - 1) * 0.02), ("b", -wf + 0.008 - abs(k - 1) * 0.02)):
+            hips += [ck.box(P + "body_tasset_%s%d" % (side, k), (0.092, 0.024, L), (x, y, zw - 0.04 - L * 0.5), t, 0.007),
+                     ck.box(P + "body_tasset_rim_%s%d" % (side, k), (0.097, 0.028, 0.03), (x, y, zw - 0.04 - L + 0.012), metal, 0.005),
+                     ck.ball(P + "body_tasset_rivet_%s%d" % (side, k), 0.016, (x, y + (-0.014 if side == "f" else 0.014), zw - 0.075), gold)]
+    ck._rigid(bs._outward(hips), rig, "hips")
+    for s, sx in ((".R", -1), (".L", 1)):                 # ombreiras: torre quadrada com ameias e seteira acesa
+        tag = s.replace(".", "_")
+        sh = V(j["shoulder" + s])
+        ctr = sh + V((sx * 0.105, 0, 0.085))
+        pa = [ck.box(P + "body_tower" + tag, (0.2, 0.23, 0.15), ctr, t, 0.018),
+              ck.box(P + "body_tower_base" + tag, (0.225, 0.255, 0.04), ctr + V((0, 0, -0.07)), metal, 0.012),
+              ck.box(P + "body_tower_top" + tag, (0.215, 0.245, 0.03), ctr + V((0, 0, 0.075)), metal, 0.01),
+              ck.box(P + "body_tower_slit" + tag, (0.03, 0.035, 0.085), ctr + V((sx * 0.092, 0, 0.0)), glow, 0.006),
+              ck.ball(P + "body_tower_lame" + tag, b["arm"] * 2.5, sh + V((sx * 0.1, 0, -0.06)), t, (1.1, 1.1, 0.6))]
+        for qx in (-1, 1):
+            for qy in (-1, 0, 1):        # ameias em volta do topo
+                if qx == -sx and qy == 0:
+                    continue
+                pa.append(ck.box(P + "body_merlon_%d_%d%s" % (qx, qy, tag), (0.055, 0.055, 0.06), ctr + V((qx * 0.076, qy * 0.092, 0.115)), t, 0.01))
+        for qy in (-1, 1):               # seteiras escuras nas faces da frente e de trás
+            pa.append(ck.box(P + "body_tower_arrow_%d%s" % (qy, tag), (0.025, 0.03, 0.07), ctr + V((0, qy * 0.108, 0.0)), dark, 0.005))
+        ck._rigid(bs._outward(pa), rig, "upper_arm" + s)
+        hp = V(j["hip" + s])
+        tas = [ck.box(P + "body_fauld_%d%s" % (k, tag), (0.045, 0.16 - k * 0.012, 0.1), hp + V((sx * (b["thigh"] + 0.04 + k * 0.006), 0, -0.01 - k * 0.07)),
+                      t if k % 2 == 0 else metal, 0.012) for k in range(3)]
+        ck._rigid(tas, rig, "thigh" + s)
+    _a2_limbs(ck, base, mats, P, "tower")
+
+
+def build_dawn_lance(ck, base, mats, style):
+    """pal_c35 — Lança da Aurora (Cruzado, placa)."""
+    V = Vector
+    rig, body, b, j = base["rig"], base["body"], base["b"], base["j"]
+    t, t2, gold, dark, metal, wh, fur, glow, bs = _a2_mats(ck, mats)
+    P = "arm_%s_" % style
+    c, r = V(base["head_c"]), b["head"]
+    # ---------------- cabeça: celada de bico, olhos acesos, crina longa caindo pelas costas ----------------
+    head = [ck._shell(P + "head_helm", c, r * 1.16, -0.75, -0.5, -0.45, 0.035, t),
+            ck.blade(P + "head_tail", c + V((0, r * 0.75, -r * 0.2)), c + V((0, r * 1.6, -r * 0.78)), r * 1.7, 0.06, t, (1, 0, 0), 0.3),
+            ck.tube(P + "head_beak", c + V((0, -r * 0.62, -r * 0.3)), c + V((0, -r * 1.86, -r * 0.42)), r * 0.82, 0.015, t, 4),
+            ck.blade(P + "head_beak_ridge", c + V((0, -r * 1.05, r * 0.12)), c + V((0, -r * 1.9, -r * 0.42)), 0.06, r * 0.16, gold, (1, 0, 0), 0.4),
+            ck.box(P + "head_visor_brow", (r * 1.7, 0.1, r * 0.1), c + V((0, -r * 1.06, r * 0.36)), gold, 0.02),
+            ck.blade(P + "head_comb", c + V((0, -r * 1.0, r * 0.6)), c + V((0, r * 0.9, r * 1.02)), r * 0.34, 0.07, gold, (0, 0, 1), 0.5),
+            ck.tube(P + "head_brow", c + V((0, 0, r * 0.16)), c + V((0, 0, r * 0.28)), r * 1.24, r * 1.21, gold, 24),
+            ck.tube(P + "head_plume_socket", c + V((0, r * 0.1, r * 1.08)), c + V((0, r * 0.2, r * 1.36)), 0.07, 0.085, gold, 8)]
+    for sx in (-1, 1):                   # olhos: fendas inclinadas acesas nas faces do bico
+        head.append(ck.blade(P + "head_eye_%d" % sx, c + V((sx * r * 0.16, -r * 1.2, r * 0.12)), c + V((sx * r * 0.84, -r * 0.95, r * 0.25)), r * 0.2, 0.09, glow, (0, 0, 1), 0.5))
+        for k in range(3):
+            head.append(ck.ball(P + "head_hole_%d_%d" % (sx, k), 0.02, c + V((sx * r * (0.14 + k * 0.1), -r * (1.5 - k * 0.2), -r * (0.22 - k * 0.02))), dark))
+        head.append(ck.blade(P + "head_wing_%d" % sx, c + V((sx * r * 1.0, -r * 0.1, r * 0.35)), c + V((sx * r * 1.5, r * 0.75, r * 0.95)), r * 0.5, 0.05, gold, (0, 0.5, 1), 0.4))
+    top = c + V((0, r * 0.2, r * 1.34))
+    for i, x in enumerate((-0.06, 0.0, 0.06)):     # crina: sobe, arqueia para trás e desce até a cintura
+        zz = 0.02 if i == 1 else 0.0
+        pts = [top + V((x * 0.4, 0, 0)), top + V((x * 0.9, r * 0.35, r * 0.32 + zz)), top + V((x * 1.5, r * 0.95, r * 0.12 + zz)),
+               top + V((x * 1.9, r * 1.4, -r * 0.7)), top + V((x * 2.0, r * 1.5, -r * 1.6)), top + V((x * 1.6, r * 1.42, -r * 2.5 - i * 0.03))]
+        head.append(bs._ribbon(ck, P + "head_plume_%d" % i, pts, (1, 0, 0), [0.07, 0.13, 0.16, 0.16, 0.13, 0.015], 0.06, t2))
+    ck._rigid(bs._outward(head), rig, "head")
+    # ---------------- corpo ----------------
+    ck.armor_piece(body, rig, P + "body_plate", "torso", t, 0.016, 0.016, 0.04)
+    ck.armor_piece(body, rig, P + "body_legs", "legs", metal, 0.008, 0.012)
+    d = b["depth"]
+    front = -b["chest"] * d - 0.035
+    back = b["chest"] * d + 0.035
+    zc, zn, zw = ck.Z["chest"], ck.Z["neck"], ck.Z["waist"]
+    chest = [ck.tube(P + "body_gorget", V((0, 0, zn - 0.05)), V((0, 0, zn + 0.02)), b["chest"] * 0.64, b["chest"] * 0.5, gold, 16),
+             ck.ball(P + "body_sun", 0.05, (0, front - 0.004, zc + 0.02), glow, (1, 0.45, 1)),            # sol nascente aceso
+             ck.box(P + "body_horizon", (0.2, 0.03, 0.028), (0, front - 0.006, zc - 0.012), gold, 0.008),
+             ck.blade(P + "body_ridge", (0, front + 0.006, zc - 0.03), (0, front + 0.004, zc - 0.16), 0.035, 0.03, t, (1, 0, 0), 0.5)]
+    for k in range(5):                   # raios só para cima
+        a = math.radians(20 + k * 35)
+        chest.append(ck.blade(P + "body_sun_ray_%d" % k, (math.cos(a) * 0.05, front - 0.002, zc + 0.02 + math.sin(a) * 0.05),
+                              (math.cos(a) * 0.125, front - 0.006, zc + 0.02 + math.sin(a) * 0.125), 0.036, 0.02, gold, (-math.sin(a), 0, math.cos(a))))
+    for k in range(2):
+        chest.append(ck.box(P + "body_plackart_%d" % k, (0.2 - k * 0.03, 0.03, 0.045), (0, -b["waist"] * d * 1.12 - 0.02, zw + 0.07 - k * 0.055), t if k == 0 else gold, 0.012))
+    # meia-capa no ombro ESQUERDO (+X): gola de pele por cima, pano em dobras até o joelho, por trás e pelo lado
+    lsh = V(j["shoulder.L"])
+    chest += bs._fur_ring(ck, P, "body_cape_fur", lsh + V((0.0, 0.02, 0.09)), 0.13, 10, 0.08, fur, 0.03)
+    for i, (x0, x1) in enumerate(((0.02, 0.0), (0.15, 0.2), (0.27, 0.36))):
+        yb = back + 0.03 - i * 0.045
+        pts = [(x0, yb - 0.03, zn - 0.02), (x0 + (x1 - x0) * 0.25, yb + 0.05, zc + 0.05), (x0 + (x1 - x0) * 0.5, yb + 0.035, zw + 0.02),
+               (x0 + (x1 - x0) * 0.8, yb + 0.09, zw - 0.17), (x1, yb + 0.07, zw - 0.31 + i * 0.03)]
+        chest.append(bs._ribbon(ck, P + "body_cape_%d" % i, pts, (1, 0, 0.0) if i < 2 else (0.6, -0.8, 0), [0.15, 0.17, 0.18, 0.19, 0.17], 0.016, t2))
+    chest += [ck.ball(P + "body_cape_clasp", 0.036, lsh + V((-0.09, -0.1, 0.03)), glow, (1.0, 0.6, 1.0)),
+              ck.tube(P + "body_cape_cord", lsh + V((-0.09, -0.1, 0.03)), (-0.1, front + 0.01, zn - 0.06), 0.012, 0.012, gold, 6)]
+    # costas: disco de sol (o lado direito das costas fica à mostra)
+    chest.append(ck.ball(P + "body_back_disc", 0.06, (-0.07, back, zc + 0.02), gold, (1, 0.35, 1)))
+    ck._rigid(bs._outward(chest), rig, "chest")
+    bs._belt(ck, base, P + "body_belt", zw - 0.035, zw + 0.03, 1.16, gold)
+    wf = -b["waist"] * d * 1.2
+    hips = [ck.ball(P + "body_buckle", 0.04, (0, wf - 0.012, zw), glow, (1.0, 0.5, 1.0))]
+    for side, y in (("f", wf - 0.02), ("b", -wf + 0.02)):     # tabardo comprido partido ao meio: duas abas por lado
+        for sx in (-1, 1):
+            pair = [_banner(ck, P + "body_tabard_%s%d" % (side, sx), y, zw - 0.03, 0.062, 0.34, 0.016, wh),
+                    _banner(ck, P + "body_tabard_hem_%s%d" % (side, sx), y + (-0.004 if side == "f" else 0.004), zw - 0.03, 0.07, 0.365, 0.01, gold)]
+            for o in pair:
+                for v in o.data.vertices:
+                    v.co.x += sx * 0.078
+            hips += pair
+            hips.append(ck.box(P + "body_tabard_mark_%s%d" % (side, sx), (0.022, 0.012, 0.15), (sx * 0.078, y + (-0.012 if side == "f" else 0.012), zw - 0.16), t2, 0.004))
+    ck._rigid(bs._outward(hips), rig, "hips")
+    for s, sx in ((".R", -1), (".L", 1)):
+        tag = s.replace(".", "_")
+        sh = V(j["shoulder" + s])
+        pa = []
+        if s == ".R":                    # ombreira gigante: quatro lâminas, espigão e gema acesa
+            for k in range(4):
+                pa.append(ck.ball(P + "body_pauldron_%d%s" % (k, tag), b["arm"] * (3.9 - k * 0.42), sh + V((sx * (0.05 + k * 0.04), 0, 0.12 - k * 0.07)),
+                                  t if k % 2 == 0 else gold, (1.15, 1.15, 0.6)))
+            top = sh + V((sx * 0.06, 0, 0.19))
+            pa += [ck.tube(P + "body_pauldron_spike" + tag, top + V((0, 0, -0.03)), top + V((sx * 0.2, 0.0, 0.3)), 0.06, 0.004, gold, 8),
+                   ck.blade(P + "body_pauldron_guard" + tag, sh + V((sx * -0.06, -0.14, 0.1)), sh + V((sx * -0.06, 0.14, 0.1)), 0.3, 0.035, t, (0, 0, 1), 0.5),
+                   ck.ball(P + "body_pauldron_gem" + tag, 0.036, sh + V((sx * 0.25, -0.02, 0.1)), glow, (0.6, 1.0, 1.3))]
+            for k in range(2):
+                pa.append(ck.blade(P + "body_pauldron_fin_%d%s" % (k, tag), top + V((0, (k * 2 - 1) * 0.1, -0.05)), top + V((sx * 0.13, (k * 2 - 1) * 0.17, 0.12)), 0.08, 0.03, gold, (0, 1, 0)))
+        else:                            # ombro esquerdo: uma lâmina pequena por baixo da pele
+            pa.append(ck.ball(P + "body_pauldron_0" + tag, b["arm"] * 2.4, sh + V((sx * 0.07, 0, 0.03)), t, (1.1, 1.1, 0.6)))
+        ck._rigid(bs._outward(pa), rig, "upper_arm" + s)
+        hp = V(j["hip" + s])
+        tas = [ck.box(P + "body_fauld_%d%s" % (k, tag), (0.04, 0.15 - k * 0.012, 0.11), hp + V((sx * (b["thigh"] + 0.035 + k * 0.006), 0, -0.02 - k * 0.075)),
+                      t if k % 2 == 0 else gold, 0.012) for k in range(2)]
+        ck._rigid(tas, rig, "thigh" + s)
+    _a2_limbs(ck, base, mats, P, "lance")
+
+
+def build_war_flame(ck, base, mats, style):
+    """pal_t35 — Chama de Guerra (Templário, placa)."""
+    V = Vector
+    rig, body, b, j = base["rig"], base["body"], base["b"], base["j"]
+    t, t2, gold, dark, metal, wh, fur, glow, bs = _a2_mats(ck, mats)
+    P = "arm_%s_" % style
+    c, r = V(base["head_c"]), b["head"]
+    # ---------------- cabeça: elmo-balde coroado, viseira em cruz acesa, braseiro aceso no alto ----------------
+    head = [ck._shell(P + "head_helm", c, r * 1.16, -0.75, -0.62, -0.5, 0.04, t),
+            ck.ball(P + "head_face", r * 0.86, c + V((0, -r * 0.82, -r * 0.14)), t, (1.1, 0.5, 1.02)),
+            ck.box(P + "head_slit", (r * 1.2, 0.08, r * 0.12), c + V((0, -r * 1.25, r * 0.05)), glow, 0.02),
+            ck.box(P + "head_slit_v", (r * 0.13, 0.08, r * 0.8), c + V((0, -r * 1.26, -r * 0.2)), glow, 0.02),
+            ck.tube(P + "head_rim", c + V((0, 0, -r * 0.62)), c + V((0, 0, -r * 0.5)), r * 1.12, r * 1.2, gold, 20),
+            ck.tube(P + "head_crown_band", c + V((0, 0, r * 0.4)), c + V((0, 0, r * 0.58)), r * 1.2, r * 1.14, gold, 20)]
+    for sx in (-1, 1):                   # molduras da cruz
+        head.append(ck.box(P + "head_slit_rim_%d" % sx, (0.03, 0.07, r * 0.84), c + V((sx * r * 0.12, -r * 1.27, -r * 0.2)), gold, 0.006))
+    for k in range(8):                   # coroa
+        a = math.tau * (k + 0.5) / 8
+        dd = V((math.cos(a), math.sin(a), 0))
+        head.append(ck.blade(P + "head_crown_%d" % k, c + dd * r * 1.15 + V((0, 0, r * 0.5)), c + dd * r * 1.24 + V((0, 0, r * 1.02)),
+                             r * 0.4, 0.05, gold, (-dd.y, dd.x, 0), 0.3))
+    bz = r * 1.1                         # braseiro: três pés, bacia de ferro, brasa e línguas de fogo
+    head += [ck.tube(P + "head_bowl", c + V((0, 0, bz + r * 0.1)), c + V((0, 0, bz + r * 0.42)), r * 0.36, r * 0.74, metal, 12),
+             ck.tube(P + "head_bowl_rim", c + V((0, 0, bz + r * 0.4)), c + V((0, 0, bz + r * 0.48)), r * 0.78, r * 0.76, gold, 12),
+             ck.ball(P + "head_ember", r * 0.56, c + V((0, 0, bz + r * 0.46)), glow, (1.0, 1.0, 0.42))]
+    for k in range(3):
+        a = math.tau * k / 3 + 0.5
+        head.append(ck.tube(P + "head_bowl_leg_%d" % k, c + V((math.cos(a) * r * 0.62, math.sin(a) * r * 0.62, r * 0.9)),
+                            c + V((math.cos(a) * r * 0.42, math.sin(a) * r * 0.42, bz + r * 0.2)), 0.03, 0.03, metal, 5))
+    for k in range(6):                   # chamas: uma alta no meio e cinco em volta
+        if k == 0:
+            root, tip, w = c + V((0, 0, bz + r * 0.5)), c + V((0.02, r * 0.12, bz + r * 1.5)), r * 0.52
+            wd = (1, 0, 0)
+        else:
+            a = math.tau * k / 5
+            root = c + V((math.cos(a) * r * 0.36, math.sin(a) * r * 0.36, bz + r * 0.48))
+            tip = c + V((math.cos(a) * r * 0.62, math.sin(a) * r * 0.62 + r * 0.08, bz + r * (1.0 + 0.14 * (k % 2))))
+            w = r * 0.36
+            wd = (-math.sin(a), math.cos(a), 0)
+        head.append(ck.blade(P + "head_flame_%d" % k, root, tip, w, r * 0.16, glow, wd, 0.3))
+    ck._rigid(bs._outward(head), rig, "head")
+    # ---------------- corpo ----------------
+    ck.armor_piece(body, rig, P + "body_plate", "torso", t, 0.016, 0.016, 0.04)
+    ck.armor_piece(body, rig, P + "body_legs", "legs", metal, 0.008, 0.012)
+    d = b["depth"]
+    front = -b["chest"] * d - 0.035
+    back = b["chest"] * d + 0.035
+    zc, zn, zw = ck.Z["chest"], ck.Z["neck"], ck.Z["waist"]
+    chest = [ck.tube(P + "body_gorget", V((0, 0, zn - 0.05)), V((0, 0, zn + 0.02)), b["chest"] * 0.64, b["chest"] * 0.5, gold, 16),
+             ck.box(P + "body_surcoat", (0.25, 0.02, 0.27), (0, front + 0.012, zc - 0.0), wh, 0.02),
+             ck.box(P + "body_cross_v", (0.06, 0.03, 0.23), (0, front - 0.004, zc + 0.0), t2, 0.01),
+             ck.box(P + "body_cross_h", (0.2, 0.03, 0.06), (0, front - 0.004, zc + 0.05), t2, 0.01),
+             ck.ball(P + "body_cross_gem", 0.03, (0, front - 0.02, zc + 0.05), glow, (1, 0.6, 1)),
+             ck.box(P + "body_back_coat", (0.25, 0.02, 0.27), (0, back - 0.012, zc), wh, 0.02),
+             ck.box(P + "body_back_cross_v", (0.07, 0.03, 0.25), (0, back + 0.004, zc), t2, 0.01),
+             ck.box(P + "body_back_cross_h", (0.21, 0.03, 0.07), (0, back + 0.004, zc + 0.05), t2, 0.01)]
+    rs, ls = V(j["shoulder.R"]), V(j["shoulder.L"])
+    # correntes: de ombro a ombro pela frente e por trás
+    chest += _chain(ck, P + "body_chain_f", rs + V((0.02, -0.13, 0.06)), ls + V((-0.02, -0.13, 0.06)), 0.13, metal, 8, 0.014)
+    chest += _chain(ck, P + "body_chain_b", rs + V((0.02, 0.13, 0.06)), ls + V((-0.02, 0.13, 0.06)), 0.16, metal, 8, 0.014)
+    chest += _censer(ck, P + "body_censer_back", (0, back + 0.06, zn - 0.1), 0.2, metal, glow, 0.06)
+    ck._rigid(bs._outward(chest), rig, "chest")
+    bs._belt(ck, base, P + "body_belt", zw - 0.04, zw + 0.035, 1.18, gold)
+    hips = [ck.box(P + "body_buckle", (0.07, 0.03, 0.06), (0, -b["waist"] * d * 1.2 - 0.012, zw), glow, 0.01)]
+    n = 12
+    for row in range(3):                 # saiote de escamas: três fiadas em volta do quadril
+        rad = b["waist"] * (1.2 + row * 0.1)
+        zz = zw - 0.035 - row * 0.075
+        for k in range(n):
+            a = math.tau * (k + 0.5 * (row % 2)) / n
+            dd = V((math.cos(a), math.sin(a) * d * 1.05, 0))
+            p = V((dd.x * rad, dd.y * rad, zz))
+            m_ = t if row % 2 == 0 else metal
+            if row == 2 and k % 3 == 0:
+                m_ = gold
+            hips.append(ck.blade(P + "body_scale_%d_%d" % (row, k), p + V((0, 0, 0.02)), p + dd * 0.025 + V((0, 0, -0.105)), 0.115, 0.022, m_, (-math.sin(a), math.cos(a), 0), 0.35))
+    ck._rigid(bs._outward(hips), rig, "hips")
+    for s, sx in ((".R", -1), (".L", 1)):                 # ombreiras redondas em duas lâminas, corrente e turíbulo pendurado
+        tag = s.replace(".", "_")
+        sh = V(j["shoulder" + s])
+        pa = []
+        for k in range(2):
+            pa.append(ck.ball(P + "body_pauldron_%d%s" % (k, tag), b["arm"] * (3.1 - k * 0.4), sh + V((sx * (0.06 + k * 0.035), 0, 0.07 - k * 0.07)),
+                              t if k == 0 else gold, (1.15, 1.12, 0.62)))
+        pa += [ck.ball(P + "body_pauldron_boss" + tag, 0.05, sh + V((sx * 0.1, 0, 0.14)), gold, (1, 1, 0.7)),
+               ck.ball(P + "body_pauldron_lit" + tag, 0.026, sh + V((sx * 0.1, 0, 0.175)), glow)]
+        pa += _chain(ck, P + "body_pchain" + tag, sh + V((sx * 0.13, -0.13, 0.04)), sh + V((sx * 0.13, 0.13, 0.04)), 0.09, metal, 6, 0.013)
+        pa += _censer(ck, P + "body_censer" + tag, sh + V((sx * 0.21, 0, 0.0)), 0.13, metal, glow, 0.052)
+        ck._rigid(bs._outward(pa), rig, "upper_arm" + s)
+    _a2_limbs(ck, base, mats, P, "flame")
+
+
+ACT2_SETS = {"pal_g35": build_bulwark, "pal_c35": build_dawn_lance, "pal_t35": build_war_flame}
+
+
+def register_a2(ck):
+    """Estilos do Ato II no kit EXTRA (chibi_kit.A2_STYLES): fn(base, mats), 1 malha por slot."""
+    for style, fn in ACT2_SETS.items():
+        ck.A2_STYLES[style] = (lambda st, f: (lambda base, mats: (f(ck, base, mats, st), join_slots("arm_%s_" % st))))(style, fn)

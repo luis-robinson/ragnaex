@@ -3,8 +3,11 @@ extends Node
 ##   godot --path . tools/icons/set_icons.tscn [-- --only=<estilo>[,<estilo>...]]   (com janela; depois rode --import)
 ## Só conjuntos de GearCatalog.SET_VISUALS com "icon" igual ao estilo (o pal1 tem arte desenhada à mão).
 ## Peças: head/body/gloves/boots = malhas arm_<estilo>_<peça>_*; weapon = a espada do conjunto. Escudo: shield_icons.tscn.
+## Ato II (GearCatalog.ACT2_VISUALS com "icon" igual ao estilo): UMA foto por build, do conjunto do nível ACT2_ICON_LEVEL
+## (cor, destaque e brilho do 40); os três níveis, o Ápice e o híbrido usam o mesmo arquivo.
 
 const SIZE := 128
+const ACT2_ICON_LEVEL := 40
 ## direção da câmera por peça (de onde olha; eixos do Godot: +Z é a frente do boneco, o -Y do Blender) e margem
 ## Armas: a direção sai da própria malha (olha a face larga, comprimento na diagonal). Luvas: só uma mão (a outra fica fora do quadro).
 ## Cabeça: de cima em 3/4 (aros e coroas aparecem como anel, não como risco).
@@ -44,9 +47,16 @@ func _ready() -> void:
 	vp.add_child(sun)
 	var made := 0
 	KitModel.merge = false        # a foto escolhe peça por nome: a malha juntada (KitMerged) esconderia as peças
-	for set_id in GearCatalog.SET_VISUALS:
-		var vis: Dictionary = GearCatalog.SET_VISUALS[set_id]
-		if vis.get("icon", "") != vis["style"] or (only != "" and not (vis["style"] in only.split(","))):
+	var jobs := {}          # id do conjunto fotografado -> visual
+	for sid in GearCatalog.SET_VISUALS:
+		jobs[sid] = GearCatalog.SET_VISUALS[sid]
+	for key in GearCatalog.ACT2_VISUALS:          # Ato II: uma foto por build, na cor do nível ACT2_ICON_LEVEL
+		var a2_sid := "set_%s_%d" % [key, ACT2_ICON_LEVEL]
+		if GameData.sets.has(a2_sid):
+			jobs[a2_sid] = GearCatalog.visual_of(a2_sid)
+	for set_id in jobs:
+		var vis: Dictionary = jobs[set_id]
+		if vis.get("icon", "") != vis.get("style", "-") or (only != "" and not (vis["style"] in only.split(","))):
 			continue
 		var sd: SetDef = GameData.sets[set_id]
 		var eq := {}

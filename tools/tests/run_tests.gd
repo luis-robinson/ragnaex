@@ -51,6 +51,125 @@ class FakeMain:
 	var views := {}
 	var current_map_id := ""
 
+## Dano no tempo (2026-11-17, "impossível tancar"): o de MONSTRO com o mesmo id renova (1 acúmulo, maior dps, duração nova);
+## todo dano no tempo bate em pulsos de Balance.DOT_PULSE_S com o mesmo total; o do jogador continua acumulando.
+func _check_dot_pulse(gd, sim) -> void:
+	var at := Vector3(-30, 0, 30)
+	var mob: SimEntity = sim.spawn_monster(gd.monsters["golem"], "city_aldara", at)
+	mob.brain = null
+	var tgt: SimEntity = sim.spawn_bot(gd.classes["berserker"], "DotAlvo", "city_aldara", at + Vector3(2, 0, 0), 30)
+	tgt.brain = null
+	tgt.stats.evasion = 0.0
+	tgt.stats.max_hp = 10000000.0
+	tgt.hp = tgt.stats.max_hp
+	var ele: SimEntity = sim.spawn_bot(gd.classes["elementalist"], "DotFonte", "city_aldara", at + Vector3(-2, 0, 0), 30)
+	ele.brain = null
+	var m: Dictionary = sim.maps["city_aldara"]
+	var dt := 1.0 / 60.0
+	var hits := []
+	var on_dmg := func(src: int, tid: int, amount: int, _c: bool, _b: bool, k: String): hits.append([src, amount, tid, k])
+	var got := func() -> Array: return hits.filter(func(h): return int(h[2]) == tgt.id and str(h[3]).begins_with("dot"))
+	Events.damage_dealt.connect(on_dmg)
+	var dots := func(src_id: int) -> Array: return tgt.debuffs.filter(func(d): return d.get("kind") == "dot" and int(d.get("src", -1)) == src_id)
+	var fx := {"dot": {"dps": 10, "duration": 4}}
+	# monstro: reaplicar 5 vezes = 1 acúmulo; reaplicar depois de 1 s renova a duração
+	for i in 5:
+		sim._apply_effects(mob, tgt, fx, 1.0)
+	check(dots.call(mob.id).size() == 1, "dano no tempo de monstro reaplicado 5x = 1 acúmulo (%d)" % dots.call(mob.id).size())
+	for i in 60:
+		sim._update_entity(tgt, m, dt)
+	sim._apply_effects(mob, tgt, fx, 1.0)
+	var md: Array = dots.call(mob.id)
+	check(md.size() == 1 and is_equal_approx(float(md[0]["remaining"]), 4.0 * Balance.MONSTER_DOT_TIME_MULT), "dano no tempo de monstro: reaplicar renova a duração (x%.1f) (%s)" % [Balance.MONSTER_DOT_TIME_MULT, str(md.map(func(d): return d["remaining"]))])
+	# pulsos: 2 s = 4 pulsos; total = dps x duração (±1)
+	tgt.debuffs.clear()
+	hits.clear()
+	sim._apply_effects(mob, tgt, fx, 1.0)
+	var dps: float = float(dots.call(mob.id)[0]["dps"])
+	for i in 120:
+		sim._update_entity(tgt, m, dt)
+	check(got.call().size() == 4, "dano no tempo bate em pulsos de %.1f s: 4 em 2 s (%d)" % [Balance.DOT_PULSE_S, got.call().size()])
+	for i in 200:
+		sim._update_entity(tgt, m, dt)
+	var total := 0
+	for h in got.call():
+		total += int(h[1])
+	var mob_dur := 4.0 * Balance.MONSTER_DOT_TIME_MULT
+	check(dots.call(mob.id).is_empty() and absf(total - dps * mob_dur) <= 1.0, "dano no tempo: total = dps x duração (%d vs %.1f)" % [total, dps * mob_dur])
+	# reaplicar a cada 0,3 s não atrasa o pulso (o relógio do pulso não volta)
+	tgt.debuffs.clear()
+	hits.clear()
+	for i in 120:
+		if i % 18 == 0:
+			sim._apply_effects(mob, tgt, fx, 1.0)
+		sim._update_entity(tgt, m, dt)
+	check(got.call().size() == 4, "monstro reaplicando a cada 0,3 s: ainda 4 pulsos em 2 s (%d)" % got.call().size())
+	# jogador: continua acumulando (sem mudança), mas também bate em pulsos
+	tgt.debuffs.clear()
+	hits.clear()
+	for i in 3:
+		sim._apply_effects(ele, tgt, fx, 1.0)
+	check(dots.call(ele.id).size() == 3, "dano no tempo do jogador acumula até %d cópias (%d)" % [Balance.PLAYER_DOT_MAX_STACKS, dots.call(ele.id).size()])
+	for i in 120:
+		sim._update_entity(tgt, m, dt)
+	check(got.call().size() == 12, "dano no tempo do jogador: 3 acúmulos x 4 pulsos em 2 s (%d)" % got.call().size())
+	Events.damage_dealt.disconnect(on_dmg)
+	tgt.debuffs.clear()
+	for o in [mob, tgt, ele]:
+		sim.despawn(o)
+
+## Dano no tempo, rodada 2 (2026-11-17): o de monstro dura x Balance.MONSTER_DOT_TIME_MULT (mesmo dps); o mágico do jogador
+## tem no máximo Balance.PLAYER_DOT_MAX_STACKS cópias por (quem lançou, skill): a 4ª tira a mais antiga; skills diferentes têm teto próprio.
+func _check_dot_cap(gd, sim) -> void:
+	var at := Vector3(-30, 0, 36)
+	var mob: SimEntity = sim.spawn_monster(gd.monsters["golem"], "city_aldara", at)
+	mob.brain = null
+	mob.stats.max_hp = 10000000.0
+	mob.hp = mob.stats.max_hp
+	var tgt: SimEntity = sim.spawn_bot(gd.classes["berserker"], "CapAlvo", "city_aldara", at + Vector3(2, 0, 0), 30)
+	tgt.brain = null
+	var nec: SimEntity = sim.spawn_bot(gd.classes["necromancer"], "CapFonte", "city_aldara", at + Vector3(-2, 0, 0), 30)
+	nec.brain = null
+	var on := func(t: SimEntity, src_id: int) -> Array: return t.debuffs.filter(func(d): return d.get("kind") == "dot" and int(d.get("src", -1)) == src_id)
+	# monstro: duração x0,7, dps igual
+	sim._apply_effects(mob, tgt, {"dot": {"dps": 10, "duration": 4}}, 1.0)
+	var md: Array = on.call(tgt, mob.id)
+	check(md.size() == 1 and is_equal_approx(float(md[0]["remaining"]), 4.0 * Balance.MONSTER_DOT_TIME_MULT),
+		"dano no tempo de monstro dura x%.1f (%s)" % [Balance.MONSTER_DOT_TIME_MULT, str(md.map(func(d): return d["remaining"]))])
+	sim._apply_effects(mob, tgt, {"dot": {"dps": 10, "duration": 5, "fire": true, "skill": "mob_x"}}, 1.0)
+	md = on.call(tgt, mob.id).filter(func(d): return d.get("fire", false))
+	check(md.size() == 1 and is_equal_approx(float(md[0]["remaining"]), 5.0 * Balance.MONSTER_DOT_TIME_MULT), "queimadura de monstro também dura x%.1f" % Balance.MONSTER_DOT_TIME_MULT)
+	# jogador: 5 aplicações da mesma skill = 3 cópias; a mais antiga sai
+	for i in 5:
+		sim._apply_effects(nec, mob, {"dot": {"dps": 10 + i, "duration": 4, "skill": "cap_a"}}, 1.0)
+	var pa: Array = on.call(mob, nec.id)
+	var dps_a: Array = pa.map(func(d): return float(d["dps"]))      # base 10..14 x escala do MATK/talento: só a razão importa
+	var kept_new: bool = dps_a.size() == 3 and absf(float(dps_a[1]) / float(dps_a[0]) - 13.0 / 12.0) < 0.005 and absf(float(dps_a[2]) / float(dps_a[0]) - 14.0 / 12.0) < 0.005
+	check(pa.size() == Balance.PLAYER_DOT_MAX_STACKS, "jogador: 5 aplicações da mesma skill = %d cópias (%d)" % [Balance.PLAYER_DOT_MAX_STACKS, pa.size()])
+	check(kept_new, "jogador: a 4ª e a 5ª substituem as mais antigas (ficam as de base 12, 13, 14: %s)" % str(dps_a))
+	# outra skill tem o próprio teto
+	for i in 4:
+		sim._apply_effects(nec, mob, {"dot": {"dps": 5, "duration": 4, "skill": "cap_b"}}, 1.0)
+	pa = on.call(mob, nec.id)
+	var ids := {}
+	for d in pa:
+		ids[d["id"]] = int(ids.get(d["id"], 0)) + 1
+	check(pa.size() == 2 * Balance.PLAYER_DOT_MAX_STACKS and ids.size() == 2 and ids.values().all(func(n): return n == Balance.PLAYER_DOT_MAX_STACKS),
+		"jogador: skills diferentes têm teto separado (%s)" % str(ids))
+	# a skill de verdade marca o dano no tempo com o id dela (Agonia)
+	mob.debuffs.clear()
+	var ag: SkillDef = gd.skills["nec_curse_agony"]
+	nec.skill_aim = mob.position
+	for i in 5:
+		sim._apply_skill(nec, ag, sim.maps["city_aldara"])
+	pa = on.call(mob, nec.id)
+	check(pa.size() == Balance.PLAYER_DOT_MAX_STACKS and pa.all(func(d): return str(d["id"]).ends_with("nec_curse_agony")),
+		"Agonia lançada 5x: %d cópias com o id da skill (%s)" % [Balance.PLAYER_DOT_MAX_STACKS, str(pa.map(func(d): return d["id"]))])
+	mob.debuffs.clear()
+	tgt.debuffs.clear()
+	for o in [mob, tgt, nec]:
+		sim.despawn(o)
+
 ## Texto flutuante (FloatText) e nomes de matilha (NameplateCrowd), arte 2026-11-13 itens 4 e 5:
 ## repetição vira "Esquiva! ×N", teto por alvo, faixas distintas, Label3D reaproveitados; comum em matilha esconde o nome.
 func _check_float_text_crowd(gd) -> void:
@@ -2540,6 +2659,7 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_jump(gd, sim)
 	_check_tree(gd, sim, save)
 	_check_class_talents(gd, sim)
+	_check_talent_fx_cast(gd, sim)
 	_check_bot_spawn_cache(gd, sim)
 	_check_skill_visuals(gd)
 	_check_party(gd, sim)
@@ -2578,6 +2698,8 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_view_queue()
 	_check_late_view_state(GameData, Sim)
 	_check_float_text_crowd(GameData)
+	_check_dot_pulse(GameData, Sim)
+	_check_dot_cap(GameData, Sim)
 	_check_ui_polish_r2(GameData, Sim)
 	_check_windup_timing()
 	_check_weapon_arcs(gd, sim)
@@ -2663,11 +2785,11 @@ func _check_builds(gd) -> void:
 				check(_token_ok(r), "%s: exigência '%s' válida" % [t.id, r])
 		check(has_dash, "%s: tem evolução de dash" % cid)
 	# conjuntos lendários: 1 por build a cada 5 níveis
-	var n_hyb: int = gd.sets.values().filter(func(x): return x.is_hybrid()).size()     # híbridos: _check_hybrid_sets
+	var n_hyb: int = gd.sets.values().filter(func(x): return x.is_hybrid() or x.is_apex()).size()     # híbridos e Ápices: _check_hybrid_sets/_check_apex_sets
 	check(gd.sets.size() - n_hyb == total_builds * Balance.LEGENDARY_LEVELS.size(), "conjuntos = builds x níveis lendários (%d)" % (gd.sets.size() - n_hyb))
 	for set_id in gd.sets:
 		var sd: SetDef = gd.sets[set_id]
-		if sd.is_hybrid():
+		if sd.is_hybrid() or sd.is_apex():
 			continue
 		check(sd.level in Balance.LEGENDARY_LEVELS, "%s: nível lendário" % set_id)
 		check(sd.armor.size() == 5 and sd.pieces.size() >= 6 and sd.pieces.size() <= 7, "%s: 5 peças de armadura (+ armas: %d)" % [set_id, sd.pieces.size()])
@@ -2826,6 +2948,7 @@ func _check_zone(gd, sim) -> void:
 	_check_action_bar(gd, sim)
 	_check_craft_tooltip(gd, sim)
 	_check_hotbar_clear(gd, sim)
+	_check_ui_click_gate()
 	_check_summon_ai(gd, sim)
 	_check_summon_lost(gd, sim)
 	_check_party_invitable(gd, sim)
@@ -3212,7 +3335,7 @@ func _check_shield_bonus(gd, sim, foe) -> void:
 	for iid in gd.items:
 		var st: String = gd.items[iid].shield_style
 		var hyb_set: SetDef = gd.sets.get(gd.items[iid].set_id)
-		if st != "" and not GearCatalog.visual_of(gd.items[iid].set_id).has("reuse") and not (hyb_set and hyb_set.is_hybrid()):      # Ato II: 35 e híbridos reaproveitam o do 30
+		if st != "" and not GearCatalog.visual_of(gd.items[iid].set_id).has("reuse") and not (hyb_set and (hyb_set.is_hybrid() or hyb_set.is_apex())):      # Ato II: 35 e híbridos reaproveitam o do 30
 			styles[st] = int(styles.get(st, 0)) + 1
 			check(GearCatalog.SHIELD_AFFINITY.has(st), "%s tem afinidade" % st)
 	var set_shields := 0          # 18 = 14 nomeados + 4 de tier (ItemsCatalog.SHIELD_LOOK)
@@ -3393,6 +3516,87 @@ func _check_nearest_hostile(gd, sim) -> void:
 				same += 1
 	check(tries > 0 and same == tries, "nearest_hostile igual à busca completa (%d/%d)" % [same, tries])
 
+## Escudo e chão / escudo alto e montaria (chamado por _check_tall_shields; medidas de ShieldProbe, com a malha inteira):
+##  - nenhum escudo do jogador passa do chão em clipe nenhum de pé (a ponta encolhe: ShieldGround + osso shield_tip.L);
+##  - a guarda montada do escudo alto (block_ride_tall, do kit) não atravessa o cavalo nem o lobo, parados e no galope.
+## As duas medidas enxergam o defeito antigo: sem a ponta o escudo afunda, e a guarda montada antiga cruza a montaria.
+func _check_shield_ground_and_ride(by_style: Dictionary) -> void:
+	var lying := ["die", "gather_herb", "gather_mine"]                      # deitado no chão / escudo escondido na colheita
+	var near := ["cast_nature", "atk_finisher", "atk_leap", "attack"]      # placa quase deitada no meio do golpe: até 8 cm
+	for model in ["paladin_male", "paladin_female", "bishop_male", "bishop_female"]:
+		var holder := Node3D.new()
+		add_child(holder)
+		var k := KitModel.create(model.get_slice("_", 1), Color.WHITE, 0.025, model.get_slice("_", 0))
+		holder.add_child(k)
+		var has_tip: bool = k.shield_ground != null and k.skeleton.find_bone(ShieldGround.TIP_BONE) >= 0
+		check(has_tip, "kit %s: tem o osso da ponta do escudo" % model)
+		var styles: Array = ShieldProbe.shields_of(k).keys()
+		var clips: Array = []
+		for c in k.anim.get_animation_list():
+			# kits masculinos: todo clipe; femininos (mesmos clipes, corpo um pouco diferente): só parado, corrida e guarda
+			if not (c in lying) and (model.ends_with("_male") or c == "idle" or String(c).begins_with("run") or String(c).begins_with("block")):
+				clips.append(c)
+		var lows := ShieldProbe.ground_lows(k, styles, clips, 4)
+		var was := 0.0             # pior ponto sem a ponta encolher (o defeito antigo)
+		var worst := INF           # pior ponto com ela
+		var worst_near := INF
+		var under: Array = []
+		var ramps := 0
+		for st in lows:
+			var mi: MeshInstance3D = ShieldProbe.shields_of(k)[st]
+			ramps += 0 if ShieldGround.data_for(mi.mesh, mi.skin, k.skeleton).is_empty() else 1
+			for clip in lows[st]:
+				var r: Array = lows[st][clip]
+				was = minf(was, r[0])
+				if clip in near:
+					worst_near = minf(worst_near, r[1])
+				else:
+					worst = minf(worst, r[1])
+					if r[1] < 0.0:
+						under.append("%s/%s %.3f" % [st, clip, r[1]])
+		check(styles.size() >= 30 and ramps == styles.size(), "kit %s: todo escudo tem a rampa da ponta (%d de %d)" % [model, ramps, styles.size()])
+		check(was < -0.5, "kit %s: sem a ponta os escudos passavam do chão (pior %.2f m): a medida enxerga o defeito" % [model, was])
+		check(under.is_empty() and worst >= 0.0, "kit %s: nenhum escudo abaixo do chão em %d clipes x %d escudos (pior %.3f m) %s" % [model, clips.size(), styles.size(), worst, str(under.slice(0, 6))])
+		check(worst_near > -0.08, "kit %s: nos golpes de placa deitada o escudo passa do chão menos de 8 cm (%.3f m)" % [model, worst_near])
+		# de pé no chão, com o escudo posto, o modificador sobe a ponta; sem escudo fica desligado
+		if has_tip and by_style.has("suspiros"):
+			k.apply_equipment({ItemDef.Slot.OFFHAND: by_style["suspiros"]})
+			ShieldProbe.pose(k, "idle", 0.0)
+			k.shield_ground._process_modification()
+			check(k.shield_ground.active and k.shield_ground.squash > 0.2, "kit %s: Muro dos Suspiros parado encolhe a ponta (%.2f m)" % [model, k.shield_ground.squash])
+			k.position.y = 2.0          # no ar / na sela (o chão é o do pai): a placa volta inteira
+			k.shield_ground._process_modification()
+			check(k.shield_ground.squash == 0.0, "kit %s: longe do chão o escudo fica inteiro (%.2f m)" % [model, k.shield_ground.squash])
+			k.position.y = 0.0
+			k.apply_equipment({})
+			check(not k.shield_ground.active, "kit %s: sem escudo a ponta fica desligada" % model)
+		# guarda montada do escudo alto
+		RidePose.ensure_guard_clip(k.anim, k.skeleton)
+		RidePose._guard_from(k.anim, k.skeleton, "block_ride_tall_antiga", "block_shield_tall")     # a de antes: giro somado à guarda a pé
+		var tall: Array = styles.filter(func(s): return s in KitModel.TALL_SHIELDS)
+		for mname in ["mob_horse", "mob_dire_wolf_mount"]:
+			var m := FormModel.create_from("res://assets/models/%s.glb" % mname)
+			check(m != null, "montaria %s existe" % mname)
+			if m == null:
+				continue
+			m.scale = Vector3.ONE * EntityView.HORSE_SCALE
+			holder.add_child(m)
+			var cross: Array = []
+			var old := 0
+			for mc in ["idle", "run"]:
+				var now := ShieldProbe.mounted_crossings(k, m, tall, RidePose.GUARD_CLIP_TALL, mc, 4)
+				for st in now:
+					if now[st] > 0 and not (st in cross):
+						cross.append(st)
+			var before := ShieldProbe.mounted_crossings(k, m, tall, "block_ride_tall_antiga", "run", 2)
+			for st in before:
+				old += 1 if before[st] > 0 else 0
+			check(tall.size() >= 13 and cross.is_empty(), "kit %s: guarda montada do escudo alto não atravessa %s (%d escudos) %s" % [model, mname, tall.size(), str(cross)])
+			check(old >= tall.size() - 2, "kit %s: a guarda montada antiga atravessava %s (%d de %d): a medida enxerga o defeito" % [model, mname, old, tall.size()])
+			k.transform = Transform3D.IDENTITY
+			m.free()
+		holder.free()
+
 ## Escudos altos (KitModel.TALL_SHIELDS = shield_kit.TALL): corrida e guarda próprias só nos kits de quem empunha escudo,
 ## só o braço do escudo muda, e o boneco as toca quando (e só quando) empunha um escudo alto.
 func _check_tall_shields(gd, sim) -> void:
@@ -3464,6 +3668,7 @@ func _check_tall_shields(gd, sim) -> void:
 	pal.apply_equipment({})
 	check(not pal.tall_shield and pal.run_clip() == "run" and pal.tall_clip("run") == "", "sem escudo: corrida comum")
 	pal.free()
+	_check_shield_ground_and_ride(by_style)
 	# no mundo: o boneco com escudo alto corre e bloqueia nas variantes; com escudo comum, nos clipes de sempre
 	for pair in [["veredito", "run_shield_tall", "block_shield_tall"], ["bastiao", "run", "block_shield"]]:
 		var hero: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Alto", "city_aldara", Vector3(0, 0, 6), 30)
@@ -3759,6 +3964,7 @@ func _check_combat_feel(gd, sim) -> void:
 	for e in [a, b, c]:
 		sim.despawn(e)
 	_check_skill_chain(gd, sim)
+	_check_paladin_weapon_roles(gd, sim)
 	_check_berserker_builds(gd, sim)
 	_check_bishop_builds(gd, sim)
 	_check_holy_third_builds(gd, sim)
@@ -3800,6 +4006,9 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_horde_ai(gd, sim)
 	_check_escort_leak(gd, sim)
 	_check_catalog_keys(gd)
+	_check_mana_accessories(gd, sim)
+	_check_accessory_curve(gd)
+	_check_legendary_accessories(gd, sim)
 	_check_build_entries(gd)
 	_check_portal_arrivals(gd)
 	_check_assault_routes(gd, sim)
@@ -3831,10 +4040,18 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_elemental_debuffs(gd, sim)
 	_check_layout_conflicts(gd, sim)
 	_check_villagers(gd, sim)
+	_check_town_identity(gd, sim)
+	_check_living_routes(gd, sim)
+	_check_road_events(gd, sim)
 	_check_living_act2(gd, sim)
 	_check_living_kharzun(gd, sim)
 	_check_creatures_act2(gd, sim)
 	_check_raids(gd, sim)
+	_check_quest_npc_portals(gd)
+	_check_siege_data(gd)
+	_check_siege_segments(gd)
+	_check_siege_clock(gd)
+	_check_siege_rules(gd)
 	_check_elf_loot(gd, sim)
 	_check_hunter_post(gd, sim)
 	_check_start_presets(gd, sim)
@@ -3854,6 +4071,10 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_act2_xp_curve(gd)
 	_check_act2_gear(gd, sim)
 	_check_hybrid_sets(gd, sim)
+	_check_apex_sets(gd, sim)
+	_check_act2_visuals(gd, sim)
+	_check_apex_rules(gd, sim)
+	_check_apex_save(gd, sim)
 	_check_web_strength(gd, sim)
 	_check_web_frontier(gd, sim)
 	_check_lanceiro_evasion(gd, sim)
@@ -3870,6 +4091,8 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_recall_and_personal_loot(gd, sim)
 	_check_recall_cast(gd, sim)
 	_check_bot_recall(gd, sim)
+	_check_bot_portal_route(gd, sim)
+	_check_bot_unstuck(gd, sim)
 	_check_potion_slot_cooldowns(gd, sim)
 	_check_shield_bar(gd, sim)
 	_check_party_follow_elite(gd, sim)
@@ -4793,7 +5016,7 @@ func _check_party_follow_elite(gd, sim) -> void:
 	sim.party_accept(far)
 	var dg := ""
 	for mid in gd.maps:
-		if gd.maps[mid].parent_map == "city_aldara":
+		if gd.maps[mid].parent_map == "city_aldara" and not gd.maps[mid].interior:     # casa: o grupo espera na porta (_check_bot_unstuck)
 			dg = mid
 	check(dg != "", "há dungeon saindo do Vale")
 	if dg != "":
@@ -5141,8 +5364,8 @@ func _check_legend_weapons_and_attrs(gd, sim) -> void:
 			role_of["%s_%s" % [cid, b["id"]]] = b["role"]
 	for sid in gd.sets:
 		var sd: SetDef = gd.sets[sid]
-		if sd.is_hybrid():
-			continue          # híbrido: as armas são peças alternativas (_check_hybrid_sets)
+		if sd.is_hybrid() or sd.is_apex():
+			continue          # híbrido/Ápice: as armas são peças alternativas (_check_hybrid_sets/_check_apex_sets)
 		var w: ItemDef = gd.items.get(sd.pieces.filter(func(x): return x.ends_with("_weapon"))[0]) if sd.pieces.any(func(x): return x.ends_with("_weapon")) else null
 		check(w != null and not w.legend_effect.is_empty(), "%s: arma lendária tem efeito próprio" % sid)
 		if w:
@@ -6834,9 +7057,188 @@ func _check_corsair(gd, sim) -> void:
 	for x in [a, foe, old]:
 		sim.despawn(x)
 
+## Varredura de formas (2026-11-16, production/qa/skills-sweep-ranger-elementalist-2026-11-16.md): skill de distância
+## alcança pelo menos o básico da arma, leque de arco perto do alcance do arco, área de nível alto não menor que a irmã
+## de nível baixo e texto que não promete o que a sim não faz.
+func _check_skill_sweep(gd) -> void:
+	var ran: ClassDef = gd.classes["ranger"]
+	var bow: SkillDef = gd.basic_skill_for_class(ran, "bow")
+	var rif: SkillDef = gd.basic_skill_for_class(ran, "rifle")
+	for sid in ran.skill_ids:
+		var s: SkillDef = gd.skills[sid]
+		if s.kind != SkillDef.Kind.PHYSICAL or s.effects.has("trap"):
+			continue
+		var on_bow := s.requires.has("bow")
+		var rifle_only := Array(s.requires) == ["rifle"]
+		if s.target == SkillDef.Target.DIRECTION or s.target == SkillDef.Target.TARGET:
+			if on_bow:
+				check(s.range >= bow.range, "%s: tiro de arco alcança o básico (%.1f >= %.1f m)" % [sid, s.range, bow.range])
+			elif rifle_only:
+				check(s.range >= rif.range, "%s: tiro de mosquete alcança o básico (%.1f >= %.1f m)" % [sid, s.range, rif.range])
+		elif s.target == SkillDef.Target.CONE and on_bow:
+			check(s.radius >= bow.range * 0.8, "%s: leque de arco perto do alcance do arco (%.1f m, básico %.1f)" % [sid, s.radius, bow.range])
+	var sk: Dictionary = gd.skills
+	check(sk["ran_volley"].radius >= sk["ran_multishot"].radius and sk["ran_volley"].cone_angle_deg < sk["ran_multishot"].cone_angle_deg,
+		"Saraivada (22) é o leque longo e estreito: mais longa e mais fechada que o Tiro Múltiplo (3)")
+	check(sk["ran_snipe"].range >= rif.range * 1.2, "Tiro Certeiro: longuíssimo alcance (%.1f m, mosquete %.1f)" % [sk["ran_snipe"].range, rif.range])
+	check(sk["ran_barrage"].radius >= sk["ran_rain"].radius, "Barragem (27) não é menor que a Chuva de Flechas (20)")
+	check(not sk["ran_scatter"].description.contains("empurra") or sk["ran_scatter"].effects.has("knockback"), "Tiro de Dispersão só promete empurrar se empurra")
+	var ele: ClassDef = gd.classes["elementalist"]
+	var staff: SkillDef = gd.basic_skill_for_class(ele, "staff")
+	for sid in ele.skill_ids:
+		var s: SkillDef = gd.skills[sid]
+		if s.kind == SkillDef.Kind.MAGICAL and (s.target == SkillDef.Target.DIRECTION or s.target == SkillDef.Target.TARGET):
+			check(s.range >= staff.range, "%s: magia de alvo alcança o básico do cajado (%.1f >= %.1f m)" % [sid, s.range, staff.range])
+	check(sk["ele_flame_wave"].radius >= staff.range * 0.6, "Onda de Chamas não é de corpo a corpo (%.1f m, cajado %.1f)" % [sk["ele_flame_wave"].radius, staff.range])
+	check(sk["ele_storm_lord"].radius > sk["ele_thunder"].radius and sk["ele_storm_lord"].radius >= 4.0, "Senhor da Tempestade (28) é a área gigante do Raio")
+	check(not sk["ele_fireball"].description.contains("explode") or sk["ele_fireball"].effects.has("explode"), "Bola de Fogo só promete explosão se explode")
+	check(sk["ele_fire_wall"].effects.has("fire_wall"), "Muralha de Fogo é uma muralha que fica no chão (fire_wall)")
+
+## Estocada da lança (pedido do usuário 2026-11-16, "o ataque do lanceiro tem que atravessar, é uma lança"): o básico
+## e a Estocada Dupla acertam uma FAIXA reta à frente (Balance.SPEAR_LINE_WIDTH), do mais perto ao mais longe, até
+## SPEAR_MAX_TARGETS; quem está ao lado da haste (dentro do antigo cone de 40°) fica de fora.
+func _sweep_wolf(gd, sim, pos: Vector3) -> SimEntity:
+	var w: SimEntity = sim.spawn_monster(gd.monsters["wolf"], "city_aldara", pos)
+	w.brain = null
+	w.stats.max_hp = 1000000.0
+	w.hp = w.stats.max_hp
+	return w
+
+## Varredura, 2ª rodada (usuário "veja todos", 2026-11-16): saltos pousam no cursor, Bola de Fogo explode, Muralha de
+## Fogo é faixa que fica no chão, Tiro de Dispersão empurra, Tiro Fantasma atravessa, Fusão pinta o elemento, Foco Mortal.
+func _check_skill_sweep_round2(gd, sim) -> void:
+	var m: Dictionary = sim.maps["city_aldara"]
+	var at := Vector3(0, 0, 6)
+	var ran: SimEntity = sim.spawn_bot(gd.classes["ranger"], "Salta", "city_aldara", at, 30)
+	ran.brain = null
+	# 1) salto pousa no cursor (no máximo o dash; antes andava sempre o dash inteiro)
+	for sid in ["ran_spear_leap", "ass_shadowstep", "ber_leap", "bis_faith_leap"]:
+		var s: SkillDef = gd.skills[sid]
+		ran.position = at
+		ran.facing = PI * 0.5
+		ran.skill_aim = at + Vector3(2.5, 0, 0)
+		sim._apply_skill(ran, s, m)
+		var moved: float = ran.position.distance_to(at)
+		check(absf(moved - 2.5) < 0.35, "%s: com o cursor a 2,5 m pousa no cursor (andou %.2f m, dash %.1f)" % [sid, moved, float(s.effects["dash"])])
+	ran.position = at
+	ran.skill_aim = at + Vector3(20, 0, 0)
+	sim._apply_skill(ran, gd.skills["ran_spear_leap"], m)
+	check(absf(ran.position.distance_to(at) - float(gd.skills["ran_spear_leap"].effects["dash"])) < 0.35, "salto com o cursor longe: anda o dash inteiro")
+	ran.position = at
+	ran.skill_aim = at
+	sim._apply_skill(ran, gd.skills["ran_spear_leap"], m)
+	check(ran.position.distance_to(at) >= Balance.LEAP_MIN_HOP - 0.05, "salto com o cursor em cima: pulinho mínimo")
+	ran.position = at
+	# 4) Tiro de Dispersão empurra; 7) Foco Mortal não repete o nome da lendária do Caçador
+	check(gd.skills["ran_scatter"].effects.get("knockback") is Dictionary, "Tiro de Dispersão empurra (knockback)")
+	check(gd.skills["ran_mark"].name != "Marca do Caçador" and gd.skills["ran_mark"].name != str(gd.classes["ranger"].build_by_id("cacador")["legend"]["name"]),
+		"ran_mark tem nome próprio (%s), não o da lendária do Caçador" % gd.skills["ran_mark"].name)
+	# 5) Tiro Fantasma: o tiro no alvo atravessa a fila atrás dele
+	var line: Array = []
+	for x in [3.0, 5.0, 7.0]:
+		line.append(_sweep_wolf(gd, sim, at + Vector3(x, 0, 0)))
+	var hs: SkillDef = gd.skills["ran_headshot"].duplicate()
+	ran.facing = PI * 0.5
+	check(Combat.select_targets(ran, hs, at + Vector3(3, 0, 0), sim.map_entities("city_aldara")).size() == 1, "Tiro na Cabeça sem o talento: 1 alvo")
+	hs.projectile_pierce = true
+	hs.max_targets = Balance.GHOST_SHOT_TARGETS
+	var ph: Array = Combat.select_targets(ran, hs, at + Vector3(3, 0, 0), sim.map_entities("city_aldara"))
+	check(ph.size() == 3 and ph[0] == line[0], "Tiro Fantasma: atravessa e pega os 3 da fila (%d)" % ph.size())
+	for w in line:
+		sim.despawn(w)
+	sim.despawn(ran)
+	# 2) Bola de Fogo explode em volta do atingido (e o talento aumenta a explosão)
+	var ele: SimEntity = sim.spawn_bot(gd.classes["elementalist"], "Fogo", "city_aldara", at, 30)
+	ele.brain = null
+	ele.facing = PI * 0.5
+	ele.skill_aim = at + Vector3(6, 0, 0)
+	var a: SimEntity = _sweep_wolf(gd, sim, at + Vector3(3, 0, 0))
+	var b: SimEntity = _sweep_wolf(gd, sim, at + Vector3(3.3, 0, 1.3))
+	var far: SimEntity = _sweep_wolf(gd, sim, at + Vector3(3, 0, 4.0))
+	sim._apply_skill(ele, gd.skills["ele_fireball"], m)
+	for i in range(30):
+		sim._update_projectiles(m, 0.05)
+	check(a.hp < a.stats.max_hp and b.hp < b.stats.max_hp and far.hp == far.stats.max_hp, "Bola de Fogo: explode no impacto (alvo e vizinho a 1,3 m levam, o de 4 m não)")
+	var main_dmg: float = a.stats.max_hp - a.hp
+	var side_dmg: float = b.stats.max_hp - b.hp
+	check(side_dmg < main_dmg, "Bola de Fogo: quem está em volta leva menos que o alvo (%.0f < %.0f)" % [side_dmg, main_dmg])
+	var tal: TalentDef = gd.talents["ele_t_fireball"]
+	check(is_equal_approx(float(tal.mods["effects"]["explode"]["radius"]), Balance.FIREBALL_EXPLODE_RADIUS * 1.6) and tal.description.contains("explosão"), "Bola de Fogo Maior: explosão 60% maior de verdade")
+	# 3) Muralha de Fogo: faixa atravessada que fica e queima quem passa (sem acumular queimadura)
+	for w in [a, b, far]:
+		w.hp = w.stats.max_hp
+		w.debuffs.clear()
+	a.position = at + Vector3(5, 0, 2.0)       # dentro da faixa (atravessada em x = 5, 6 m de comprimento)
+	b.position = at + Vector3(9, 0, 0)         # chega depois
+	far.position = at + Vector3(5, 0, 4.6)     # passou da ponta
+	ele.skill_aim = at + Vector3(5, 0, 0)
+	sim._apply_skill(ele, gd.skills["ele_fire_wall"], m)
+	var walls: Array = m["traps"].filter(func(t): return t["owner"] == ele.id and t["kind"] == TrapSystem.WALL)
+	check(walls.size() == 1, "Muralha de Fogo fica no chão")
+	check(a.hp < a.stats.max_hp and far.hp == far.stats.max_hp and b.hp == b.stats.max_hp, "Muralha: bate em quem está na faixa no lançamento, não na ponta de fora nem longe")
+	b.position = at + Vector3(5, 0, -1.0)
+	sim.time += Balance.FIRE_WALL_PULSE + 0.05
+	TrapSystem.update_traps(sim, m)
+	sim.time += Balance.FIRE_WALL_PULSE + 0.05
+	TrapSystem.update_traps(sim, m)
+	var burns: Array = b.debuffs.filter(func(d): return d.get("kind") == "dot" and d.get("src") == ele.id)
+	check(burns.size() == 1 and burns[0].get("fire", false), "Muralha: quem entra depois pega fogo, sem acumular (%d)" % burns.size())
+	sim.time += Balance.FIRE_WALL_TIME
+	TrapSystem.update_traps(sim, m)
+	check(m["traps"].filter(func(t): return t["owner"] == ele.id).is_empty(), "Muralha apaga depois de %.0f s" % Balance.FIRE_WALL_TIME)
+	# 6) Fusão: o FX pinta o elemento de cada forma
+	for form in SkillsCatalog.ELEM_FORMS:
+		check(FxManager.FUSION_THEMES.has(form) and str(FxManager.FUSION_THEMES[form]) in SkillsCatalog.VFX_THEMES, "Fusão Elemental tem tema da forma %s" % form)
+	for w in [a, b, far]:
+		sim.despawn(w)
+	sim.despawn(ele)
+
+func _check_spear_line(gd, sim) -> void:
+	var cls: ClassDef = gd.classes["ranger"]
+	var at := Vector3(0, 0, -8)
+	var e: SimEntity = sim.spawn_bot(cls, "Estoca", "city_aldara", at, 30)
+	e.brain = null
+	e.build_id = "lanceiro"
+	e.equipment[ItemDef.Slot.WEAPON] = gd.items["spear_t2"]
+	e.recompute_stats()
+	e.facing = PI * 0.5                     # olha para +X
+	var sp: SkillDef = e.basic_skill
+	check(sp != null and sp.line_width > 0.0 and sp.max_targets >= 4, "lança: básico é faixa reta (%.1f m) que atravessa até %d" % [sp.line_width if sp else 0.0, sp.max_targets if sp else 0])
+	var mobs: Array = []
+	for x in [1.2, 2.0, 2.8, 3.5]:           # fila na linha da lança
+		mobs.append(sim.spawn_monster(gd.monsters["wolf"], "city_aldara", at + Vector3(x, 0, 0)))
+	var side: SimEntity = sim.spawn_monster(gd.monsters["wolf"], "city_aldara", at + Vector3(2.5, 0, 1.3))
+	mobs.append(side)
+	for o: SimEntity in mobs:
+		o.brain = null
+	var hit: Array = Combat.select_targets(e, sp, at + Vector3(4, 0, 0), sim.map_entities("city_aldara"))
+	var in_line := 0
+	for o in mobs.slice(0, 4):
+		if hit.has(o):
+			in_line += 1
+	check(in_line == 4, "lança: a estocada atravessa os 4 da fila (%d)" % in_line)
+	check(not hit.has(side), "lança: quem está ao lado da haste (1,3 m) não leva a estocada")
+	var old: SkillDef = sp.duplicate()      # o cone antigo (40°, 3 alvos): prova que a montagem distingue as duas formas
+	old.line_width = 0.0
+	old.max_targets = 99
+	var old_hit: Array = Combat.select_targets(e, old, at + Vector3(4, 0, 0), sim.map_entities("city_aldara"))
+	check(old_hit.has(side), "montagem: o cone antigo de 40° pegava o do lado da haste (%d atingidos)" % old_hit.size())
+	check(hit.size() <= Balance.SPEAR_MAX_TARGETS and (hit.is_empty() or hit[0] == mobs[0]), "lança: o mais perto primeiro, teto de %d" % Balance.SPEAR_MAX_TARGETS)
+	var dt: SkillDef = gd.skills["ran_double_thrust"]
+	var hit2: Array = Combat.select_targets(e, dt, at + Vector3(4, 0, 0), sim.map_entities("city_aldara"))
+	check(dt.line_width > 0.0 and hit2.size() == dt.max_targets and not hit2.has(side), "Estocada Dupla: faixa reta, atravessa %d da fila" % dt.max_targets)
+	for o in mobs:
+		sim.despawn(o)
+	sim.despawn(e)
+
 func _check_ranger_builds(gd, sim) -> void:
 	var cls: ClassDef = gd.classes["ranger"]
 	check(cls.builds.size() == 3 and cls.build_by_id("cacador")["main"] == ["bow"] and cls.build_by_id("atirador")["main"] == ["rifle"], "Ranger: Caçador (arco) e Atirador (mosquete)")
+	var ms: SkillDef = gd.skills["ran_multishot"]          # leque de arco: alcança perto do básico (playtest 2026-11-16)
+	check(ms.radius >= cls.basic_attack_range * 0.8 and ms.cone_angle_deg >= 70 and ms.max_targets >= 6, "Tiro Múltiplo: leque de %.1f m / %d° / %d alvos (básico %.1f m)" % [ms.radius, ms.cone_angle_deg, ms.max_targets, cls.basic_attack_range])
+	_check_skill_sweep(gd)
+	_check_skill_sweep_round2(gd, sim)
+	_check_spear_line(gd, sim)
 	_check_ranger_spear(gd, sim, cls)
 	_check_ranger_ascension(gd, sim)
 	_check_ranger_ascension_bots(gd, sim)
@@ -6987,7 +7389,7 @@ func _check_ranger_spear(gd, sim, cls: ClassDef) -> void:
 				check(ResourceLoader.exists("res://assets/icons/%s.png" % it.icon), "%s: ícone %s" % [iid, it.icon])
 	check(styles.size() == 6 and styles.keys().all(func(st2): return str(st2).begins_with("ran_l")), "6 visuais próprios do Lanceiro")
 	# sangramento: dot de % do ATK; renova, não acumula
-	var at := Vector3(0, 0, 6)
+	var at := Vector3(0, 0, 18)       # rua sul: o centro da praça agora tem a mó da feira (o Empalar precisa de 3 m livres ao norte)
 	var m: Dictionary = sim.maps["city_aldara"]
 	var e: SimEntity = sim.spawn_bot(cls, "Lance", "city_aldara", at, 30)
 	e.brain = null
@@ -7167,6 +7569,29 @@ func _check_druid_builds(gd, sim) -> void:
 		fm.apply_equipment(eq)
 		var shown: Array = fm._pieces.filter(func(mi): return mi.visible)
 		check(not shown.is_empty() and shown.all(func(mi): return String(mi.name).contains("_%s30_" % ("dru_w" if pair[0] == "wolf" else "dru_b").substr(4))), "%s: só a armadura do conjunto vestido aparece (%d)" % [pair[0], shown.size()])
+		# Ato II: a armadura de animal da build (uma malha para 35/40/45) veste a cor, o destaque e o brilho do nível
+		var a2: Dictionary = GearCatalog.ACT2_VISUALS.get("druid_%s" % pair[1], {})
+		check(not a2.is_empty(), "druid_%s: visual do Ato II" % pair[1])
+		for li in range(Balance.HYBRID_LEVELS.size() if not a2.is_empty() else 0):
+			var eq2 := {}
+			for iid in gd.legendary_pool(cls, int(Balance.HYBRID_LEVELS[li]), pair[1]):
+				eq2[gd.items[iid].slot] = gd.items[iid]
+			fm.apply_equipment(eq2)
+			var on: Array = fm._pieces.filter(func(mi): return mi.visible)
+			check(on.size() >= 4 and on.all(func(mi): return String(mi.name).begins_with("frm_%s_" % a2["style"])), "%s %d: armadura de animal do Ato II (%d peças)" % [pair[0], Balance.HYBRID_LEVELS[li], on.size()])
+			var lit := 0
+			var right := 0
+			var acc_ok := 0
+			var acc_n := 0
+			for mi in on:
+				for gm: ShaderMaterial in fm._glows.get(mi.name, []):
+					lit += 1
+					right += 1 if (gm.get_shader_parameter("albedo") as Color).is_equal_approx(a2["glows"][li]) else 0
+				for am: ShaderMaterial in fm._accents.get(mi.name, []):
+					acc_n += 1
+					acc_ok += 1 if (am.get_shader_parameter("albedo") as Color).is_equal_approx(a2["accents"][li]) else 0
+			check(lit >= 2 and right == lit, "%s %d: peças acesas na cor do nível (%d de %d)" % [pair[0], Balance.HYBRID_LEVELS[li], right, lit])
+			check(acc_n >= 1 and acc_ok == acc_n, "%s %d: destaque do nível (%d de %d)" % [pair[0], Balance.HYBRID_LEVELS[li], acc_ok, acc_n])
 		fm.free()
 
 ## Bispo: Sacerdote = maça + escudo (cura e bênçãos mais longas); Iluminado = cetro de duas mãos (luz mágica + Radiância).
@@ -7303,6 +7728,167 @@ func _check_holy_third_builds(gd, sim) -> void:
 	check(st.is_empty() and near.hp < 1.0e6, "Penitência: a 5ª carga explode e fere quem está perto (%.0f)" % (1.0e6 - near.hp))
 	check(gd.skills["pal_brand"].effects.has("curse") and gd.skills["pal_sacred_flame"].vfx == "fire", "Marca da Penitência amaldiçoa; Chama Sagrada é fogo (queima)")
 	for x in [cle, ally, foe, tem_e, near]:
+		sim.despawn(x)
+
+## Armas lendárias com papel (Paladino e Clérigo de Batalha, GearCatalog.WEAPON_ROLES): espada/montante ataca, maça/martelo
+## defende (Baluarte), escudo do conjunto dá Determinação; nenhuma arma do Paladino devolve dano (Retaliação saiu).
+func _check_paladin_weapon_roles(gd, sim) -> void:
+	var n_sw := 0
+	var n_mc := 0
+	var n_sh := 0
+	for iid in gd.items:
+		var it: ItemDef = gd.items[iid]
+		if not it.is_legendary() or it.set_id == "" or not (it.class_restriction.has("paladin") or it.set_id.begins_with("set_bishop_batalha") or it.set_id.begins_with("set_bishop_mix_batalha")):
+			continue
+		var kind := str(it.legend_effect.get("kind", ""))
+		check(kind != "thorns", "%s: arma do Paladino sem Retaliação" % iid)
+		if it.weapon_type in ["sword", "sword2h"]:
+			n_sw += 1
+			check(it.matk == 0.0 and kind in ["holy_edge", "stun", "penance"] and int(it.attributes.get("FOR", 0)) > int(it.attributes.get("VIT", 0)),
+				"%s: espada de ataque (FOR principal, sem MATK, efeito da build: %s)" % [iid, kind])
+		elif it.weapon_type in ["mace", "mace2h"] and it.class_restriction.has("paladin"):
+			n_mc += 1
+			check(it.matk == 0.0 and it.def > 0.0 and kind == "bulwark" and int(it.attributes.get("VIT", 0)) > int(it.attributes.get("FOR", 0)),
+				"%s: maça de defesa (VIT principal, MATK 0, DEF %d, Baluarte: %s)" % [iid, int(it.def), kind])
+			check(it.description.contains("Baluarte"), "%s: descrição diz o efeito (Baluarte)" % iid)
+		elif it.weapon_type == "shield" and not it.id.contains("_sacerdote_"):
+			n_sh += 1
+			check(kind == "determination" and int(it.legend_effect.get("max", 0)) == int(Balance.LEG_ROLE_NUMBERS["determination"]["max"]) and it.description.contains("Determinação"),
+				"%s: escudo do conjunto com Determinação" % iid)
+	check(n_sw >= 36 and n_mc >= 33 and n_sh >= 33, "armas de papel geradas: %d espadas, %d maças, %d escudos" % [n_sw, n_mc, n_sh])
+	# espada x maça do mesmo conjunto: não são cópias
+	for bid in ["guardiao", "templario", "cruzado"]:
+		for lv in Balance.LEGENDARY_LEVELS:
+			var sd: SetDef = gd.sets.get("set_paladin_%s_%d" % [bid, lv])
+			if sd == null or sd.alt_pieces.is_empty():
+				continue
+			var sw: ItemDef = gd.items["leg_paladin_%s_%d_weapon" % [bid, lv]]
+			var mc: ItemDef = gd.items[sd.alt_pieces[0]]
+			check(sw.attributes != mc.attributes and sw.legend_effect.get("kind") != mc.legend_effect.get("kind") and sw.atk > mc.atk and mc.def > sw.def,
+				"%s: espada (ATK %d, %s) e maça (ATK %d, DEF %d, %s) diferentes" % [sd.id, int(sw.atk), sw.legend_effect.get("kind"), int(mc.atk), int(mc.def), mc.legend_effect.get("kind")])
+	check(str(gd.items["leg_paladin_guardiao_30_weapon"].legend_effect.get("name", "")) == "Lâmina Justa", "espada do Guardião: Lâmina Justa")
+	check(gd.sets["set_paladin_mix_templario_guardiao_35"].alt_pieces.any(func(x): return gd.items[x].legend_effect.get("kind") == "bulwark"), "Égide Ardente tem maça de defesa (Baluarte)")
+	# Clérigo de Batalha: maça troca MATK por ATK/DEF (FOR+VIT) e mantém Mão que Cura; Sacerdote e maça comum mantêm o MATK
+	var bm: ItemDef = gd.items["leg_bishop_batalha_30_weapon"]
+	check(bm.matk == 0.0 and bm.def > 0.0 and bm.attributes.has("FOR") and bm.attributes.has("VIT") and bm.legend_effect.get("kind") == "mend", "maça do Clérigo de Batalha: FOR/VIT, ATK e DEF, Mão que Cura")
+	check(gd.items["leg_bishop_sacerdote_30_weapon"].matk > 0.0 and gd.items["leg_bishop_sacerdote_30_weapon"].legend_effect.get("kind") == "ward", "maça do Sacerdote continua com MATK (cura)")
+	check(gd.items["leg_bishop_sacerdote_30_offhand"].legend_effect.is_empty(), "escudo do Sacerdote sem Determinação")
+	check(gd.items["mace_t3"].matk > 0.0, "maça comum continua com MATK")
+	# dica do item: cada peça diz o próprio efeito (texto em pt-BR, com os números)
+	for tip in [["leg_paladin_guardiao_30_weapon", "Lâmina Justa"], ["leg_paladin_guardiao_30_mace", "Baluarte"], ["leg_paladin_guardiao_30_offhand", "Determinação"],
+			["leg_paladin_cruzado_30_mace2h", "Baluarte"], ["leg_bishop_batalha_30_offhand", "Determinação"]]:
+		var tt := UiKit.item_tooltip(gd.items[tip[0]])
+		check(tt.contains("Efeito lendário: " + str(tip[1])) and tt.contains("%"), "%s: a dica mostra %s com números" % tip)
+	for iid in gd.items:          # escudos nomeados (fora de conjunto): reação ao bloquear, sem efeito de papel
+		var nsh: ItemDef = gd.items[iid]
+		if nsh.weapon_type == "shield" and nsh.set_id == "" and nsh.is_legendary():
+			check(nsh.legend_effect.is_empty(), "%s: escudo nomeado sem Determinação" % iid)
+	# --- comportamento ---
+	var m: Dictionary = sim.maps["city_aldara"]
+	var pal: SimEntity = sim.spawn_bot(gd.classes["paladin"], "PalRole", "city_aldara", Vector3(-30, 0, -30), 30)
+	pal.brain = null
+	pal.equipment[ItemDef.Slot.WEAPON] = gd.items["leg_paladin_guardiao_30_weapon"]
+	pal.equipment[ItemDef.Slot.OFFHAND] = gd.items["leg_paladin_guardiao_30_offhand"]
+	pal.recompute_stats()
+	check(str(pal.stats.legend.get("kind", "")) == "holy_edge" and str(pal.stats.shield_passive.get("kind", "")) == "determination", "espada + escudo: Lâmina Justa na arma, Determinação no escudo")
+	var foe: SimEntity = sim.spawn_monster(gd.monsters["golem"], "city_aldara", Vector3(-30, 0, -28.5))
+	foe.brain = null
+	foe.stats.max_hp = 1.0e7
+	foe.hp = 1.0e7
+	var hs: SkillDef = gd.skills["pal_holy_strike"]
+	# Lâmina Justa (forçando a chance): dano sagrado a mais, que vira ameaça
+	_dmg_kinds.clear()
+	Events.damage_dealt.connect(_note_damage)
+	var th0: float = float(foe.threat.get(pal.id, 0.0))
+	sim.signature_force = true
+	LegendEffects.legend_on_hit(sim, pal, foe, hs, 100)
+	sim.signature_force = false
+	check(_dmg_kinds.has("holy_edge") and float(foe.threat.get(pal.id, 0.0)) > th0, "Lâmina Justa: dano sagrado a mais conta ameaça (%s)" % str(_dmg_kinds))
+	Events.damage_dealt.disconnect(_note_damage)
+	# Determinação: atacar dá carga com recarga; levar golpe dá carga e renova; teto; some sem apanhar
+	var dbuf: String = Balance.LEG_DETERMINATION_BUFF
+	var dp: Dictionary = pal.stats.shield_passive
+	pal.drop_buff(dbuf)
+	pal.recompute_stats()
+	var patk0: float = pal.stats.patk
+	var hf0: float = pal.heal_factor()
+	LegendEffects.determination_attack(sim, pal)
+	check(pal.buff_stacks(dbuf) == 1, "Determinação: atacar dá 1 carga")
+	LegendEffects.determination_attack(sim, pal)
+	check(pal.buff_stacks(dbuf) == 1, "Determinação: atacar de novo antes de %.0f s não dá carga" % float(dp["icd"]))
+	var db: Dictionary = pal.buffs.filter(func(b): return b.get("id") == dbuf)[0]
+	db["atk_at"] = float(db["atk_at"]) - float(dp["icd"]) - 0.01
+	db["remaining"] = 1.0
+	LegendEffects.determination_attack(sim, pal)
+	db = pal.buffs.filter(func(b): return b.get("id") == dbuf)[0]
+	check(pal.buff_stacks(dbuf) == 2 and absf(float(db["remaining"]) - 1.0) < 0.001, "Determinação: passada a recarga, atacar dá carga sem renovar o tempo (%.2f)" % float(db["remaining"]))
+	pal.stats.evasion = 0.0
+	pal.iframe_left = 0.0
+	pal.parry_left = 0.0
+	pal.is_blocking = false
+	pal.shield_hp = 0.0
+	pal.hp = pal.stats.max_hp
+	sim._deal_damage(foe, pal, 5, false, false, "physical")
+	db = pal.buffs.filter(func(b): return b.get("id") == dbuf)[0]
+	check(pal.buff_stacks(dbuf) == 3 and absf(float(db["remaining"]) - float(dp["time"])) < 0.001, "Determinação: levar golpe dá carga e renova o tempo (%d, %.1f s)" % [pal.buff_stacks(dbuf), float(db["remaining"])])
+	for i in range(6):
+		pal.stats.evasion = 0.0
+		pal.hp = pal.stats.max_hp
+		sim._deal_damage(foe, pal, 5, false, false, "physical")
+	var mx := int(dp["max"])
+	check(pal.buff_stacks(dbuf) == mx, "Determinação: teto de %d cargas (%d)" % [mx, pal.buff_stacks(dbuf)])
+	check(absf(pal.stats.patk / patk0 - (1.0 + float(dp["dmg"]) * mx / 100.0)) < 0.01, "Determinação: +%.1f%% de ATK por carga (x%.3f)" % [float(dp["dmg"]), pal.stats.patk / patk0])
+	check(absf(pal.heal_factor() / hf0 - (1.0 + float(dp["heal"]) * mx / 100.0)) < 0.001, "Determinação: +%.1f%% de cura recebida por carga (x%.3f)" % [float(dp["heal"]), pal.heal_factor() / hf0])
+	var hp_before: float = pal.stats.max_hp * 0.5
+	pal.hp = hp_before
+	sim._heal(pal, pal, 100)
+	check(absf(pal.hp - hp_before - 100.0 * (1.0 + float(dp["heal"]) * mx / 100.0)) < 1.0, "Determinação: a cura recebida aumenta de verdade (+%.0f)" % (pal.hp - hp_before))
+	sim._update_entity(pal, m, float(dp["time"]) + 0.1)
+	check(pal.buff_stacks(dbuf) == 0 and absf(pal.stats.patk - patk0) < 0.01, "Determinação: %.0f s sem apanhar perde todas as cargas" % float(dp["time"]))
+	# Baluarte: golpe dá barreira (% da vida), recarga, não acumula; a marca sai com a barreira
+	pal.equipment[ItemDef.Slot.WEAPON] = gd.items["leg_paladin_guardiao_30_mace"]
+	pal.equipment.erase(ItemDef.Slot.OFFHAND)
+	pal.recompute_stats()
+	var bl: Dictionary = pal.stats.legend
+	check(str(bl.get("kind", "")) == "bulwark" and pal.stats.shield_passive.is_empty(), "maça do Guardião: Baluarte")
+	pal.shield_hp = 0.0
+	pal.legend_ready_at = 0.0
+	var want: float = pal.stats.max_hp * float(bl["pct"]) / 100.0
+	LegendEffects.legend_on_hit(sim, pal, foe, hs, 100)
+	check(absf(pal.shield_hp - want) < 1.0 and pal.buffs.any(func(b): return b.get("id") == Balance.LEG_BULWARK_BUFF), "Baluarte: barreira de %.1f%% da vida (%.0f/%.0f)" % [float(bl["pct"]), pal.shield_hp, want])
+	pal.shield_hp = want * 0.5
+	LegendEffects.legend_on_hit(sim, pal, foe, hs, 100)
+	check(absf(pal.shield_hp - want * 0.5) < 1.0, "Baluarte: recarga de %.0f s (não renova antes)" % float(bl["icd"]))
+	pal.shield_hp = want
+	pal.legend_ready_at = sim.time - 0.01
+	LegendEffects.legend_on_hit(sim, pal, foe, hs, 100)
+	check(absf(pal.shield_hp - want) < 1.0, "Baluarte: renova, não acumula (%.0f)" % pal.shield_hp)
+	pal.shield_hp = 1.0
+	pal.stats.evasion = 0.0
+	pal.hp = pal.stats.max_hp
+	sim._deal_damage(foe, pal, 50, false, false, "physical")
+	check(pal.shield_hp <= 0.0 and not pal.buffs.any(func(b): return b.get("id") == Balance.LEG_BULWARK_BUFF), "Baluarte: barreira gasta, a marca sai")
+	# bots: Guardião (tanque) veste a maça, Templário/Cruzado a espada; Clérigo de Batalha a maça dele
+	var picks := {"guardiao": ["set_paladin_guardiao_30", "leg_paladin_guardiao_30_mace"], "templario": ["set_paladin_templario_30", "leg_paladin_templario_30_weapon"],
+		"cruzado": ["set_paladin_cruzado_30", "leg_paladin_cruzado_30_weapon"]}
+	for bid in picks:
+		pal.build_id = bid
+		var got: Array = sim.bot_set_weapons(pal, gd.sets[picks[bid][0]])
+		check(not got.is_empty() and got[0] == picks[bid][1], "bot %s veste %s (%s)" % [bid, picks[bid][1], str(got)])
+		if bid != "cruzado":
+			check(got.size() == 2 and str(got[1]).ends_with("_offhand"), "bot %s veste o escudo do conjunto" % bid)
+	pal.build_id = "guardiao"
+	var hyb: Array = sim.bot_set_weapons(pal, gd.sets["set_paladin_mix_templario_guardiao_35"])
+	check(hyb.size() == 2 and hyb[0] == "leg_paladin_mix_templario_guardiao_35_mace" and hyb[1] == "leg_paladin_mix_templario_guardiao_35_guardiao_offhand", "bot Guardião no híbrido: maça + escudo dele (%s)" % str(hyb))
+	pal.build_id = "templario"
+	hyb = sim.bot_set_weapons(pal, gd.sets["set_paladin_mix_templario_guardiao_35"])
+	check(not hyb.is_empty() and hyb[0] == "leg_paladin_mix_templario_guardiao_35_templario_weapon", "bot Templário no híbrido: a espada dele (%s)" % str(hyb))
+	var cle: SimEntity = sim.spawn_bot(gd.classes["bishop"], "CleRole", "city_aldara", Vector3(-32, 0, -30), 30)
+	cle.brain = null
+	cle.build_id = "batalha"
+	var cw: Array = sim.bot_set_weapons(cle, gd.sets["set_bishop_batalha_30"])
+	check(cw.size() == 2 and cw[0] == "leg_bishop_batalha_30_weapon", "bot Clérigo de Batalha veste a maça e o escudo (%s)" % str(cw))
+	for x in [pal, foe, cle]:
 		sim.despawn(x)
 
 ## Berserker: só machados; Machados Gêmeos = velocidade de ataque + roubo de vida, Executor = vida/defesa (tanque de apoio).
@@ -8695,6 +9281,43 @@ func _check_hotbar_clear(gd, sim) -> void:
 	check(learned_bow > 0 and wrong.is_empty(), "aprender skill que a arma não permite não a põe na barra (%d aprendidas, na barra: %s)" % [learned_bow, wrong])
 	sim.despawn(p)
 
+## Clique na UI não vira golpe (playtest 2026-11-16: "com a bolsa/ficha aberta, o botão esquerdo faz o personagem atacar").
+## O controle lia Input.is_action_pressed no physics, que fica true mesmo quando a janela consome o clique. Agora segurar
+## LMB/RMB só vale se o aperto chegou ao _unhandled_input (começou no mundo); soltar em qualquer lugar encerra.
+func _check_ui_click_gate() -> void:
+	var pc = load("res://game/player/player_controller.gd").new()
+	var lmb := InputEventMouseButton.new()
+	lmb.button_index = MOUSE_BUTTON_LEFT
+	lmb.pressed = true
+	var lmb_up: InputEventMouseButton = lmb.duplicate()
+	lmb_up.pressed = false
+	var rmb: InputEventMouseButton = lmb.duplicate()
+	rmb.button_index = MOUSE_BUTTON_RIGHT
+	var rmb_up: InputEventMouseButton = rmb.duplicate()
+	rmb_up.pressed = false
+	# clique consumido por uma janela: o botão está apertado (Input), mas o evento nunca chega ao _unhandled_input
+	check(not pc.attack_down(true) and not pc.block_down(true), "UI: LMB/RMB apertados sobre uma janela não atacam nem bloqueiam")
+	pc._unhandled_input(lmb)
+	check(pc.attack_down(true) and pc._pending.attack, "UI: LMB no mundo ataca (e segurar repete)")
+	pc._input(lmb_up)
+	check(not pc.attack_down(true), "UI: soltar o LMB (até sobre uma janela) encerra o ataque contínuo")
+	pc._unhandled_input(rmb)
+	check(pc.block_down(true), "UI: RMB no mundo bloqueia")
+	check(not pc.block_down(false) and not pc.block_down(true), "UI: botão solto sem evento (janela perdeu o foco) encerra o bloqueio")
+	pc._unhandled_input(rmb)
+	pc._input(rmb_up)
+	check(not pc.block_down(true), "UI: soltar o RMB encerra o bloqueio")
+	pc._unhandled_input(lmb)
+	pc.ui_blocking = true
+	check(not pc.attack_down(true), "UI: janela modal/chat aberta corta o ataque segurado")
+	pc.ui_blocking = false
+	pc._pending = InputCommand.new()
+	pc.ui_blocking = true
+	pc._unhandled_input(lmb)
+	pc.ui_blocking = false
+	check(not pc.attack_down(true) and not pc._pending.attack, "UI: clique com janela modal aberta não ataca")
+	pc.free()
+
 ## Arrastar para a barra: poção da bolsa em F1-F3 (sem duplicar, F↔F troca), skill em 1-6 (troca de lugar).
 func _check_hotbar_drag(gd, sim) -> void:
 	var H = load("res://game/ui/hud.gd")
@@ -8764,7 +9387,7 @@ func _check_character_window(gd, sim) -> void:
 		check(placed.count(slot) == 1, "janela C: slot %s aparece uma vez no boneco" % UiKit.slot_name(slot))
 	check(placed.size() == UiKit.EQUIP_SLOTS.size(), "janela C: só slots de equipamento no boneco")
 	var p = sim.spawn_bot(gd.classes["paladin"], "Ficha", "city_aldara", Vector3(0, 0, 4), 35)
-	for iid in gd.sets["set_paladin_mix_guardiao_cruzado_35"].pieces:
+	for iid in gd.sets["set_paladin_mix_templario_guardiao_35"].pieces:
 		p.add_item(iid)
 		sim.equip(p, iid, false)
 	var keep = sim.player
@@ -8791,7 +9414,7 @@ func _check_character_window(gd, sim) -> void:
 		if arm.size() != 5 or arm.any(func(it): return it.slot in [ItemDef.Slot.WEAPON, ItemDef.Slot.OFFHAND]):
 			bad_sets.append(sid)
 	check(bad_sets.is_empty(), "conjuntos: 5 peças de armadura, sem arma/mão secundária (%s)" % [bad_sets.slice(0, 4)])
-	var sid0 := "set_paladin_mix_guardiao_cruzado_35"
+	var sid0 := "set_paladin_mix_templario_guardiao_35"
 	for wid in gd.sets[sid0].alt_pieces:          # arma lendária da build A na mão (híbrido: as armas ficam em alt_pieces)
 		if str(wid).ends_with("_guardiao_weapon"):
 			p.add_item(wid)
@@ -9308,7 +9931,7 @@ func _check_villagers(gd, sim) -> void:
 	var def: MapDef = gd.maps["city_aldara"]
 	check(MapsCatalog.VILLAGERS.size() >= 10 and MapsCatalog.VILLAGERS.size() <= 12, "Aldara: 10-12 moradores (%d)" % MapsCatalog.VILLAGERS.size())
 	var m: Dictionary = sim.maps["city_aldara"]
-	var vil: Array = m["entities"].filter(func(o): return o.kind == SimEntity.Kind.NPC and o.npc_data.get("role", "") == "villager")
+	var vil: Array = m["entities"].filter(func(o): return o.kind == SimEntity.Kind.NPC and MapsCatalog.VILLAGERS.has(o.npc_data.get("id", "")))      # só os de VILLAGERS (a feira tem os de LIVING_NPCS)
 	var smith: SimEntity = m["entities"].filter(func(o): return o.kind == SimEntity.Kind.NPC and o.npc_data.get("id", "") == "smith")[0]
 	check(vil.size() == MapsCatalog.VILLAGERS.size(), "moradores nascem no mapa (%d)" % vil.size())
 	for v in vil:
@@ -9450,7 +10073,7 @@ func _check_act2_gear(gd, sim) -> void:
 	var n35 := 0
 	for sid in gd.sets:
 		var sd: SetDef = gd.sets[sid]
-		if sd.level != 35 or sd.is_hybrid():
+		if sd.level != 35 or sd.is_hybrid() or sd.is_apex():
 			continue
 		n35 += 1
 		var v4: float = sd.bonuses[4]["skill_dmg"].values()[0]
@@ -9463,7 +10086,7 @@ func _check_act2_gear(gd, sim) -> void:
 		check(stat_pct >= 17.0, "%s: 5 peças +17%% no stat da build (%.1f)" % [sid, stat_pct])
 		var vis: Dictionary = GearCatalog.visual_of(sid)
 		var base30: String = sid.trim_suffix("_35") + "_30"
-		check(vis.get("reuse", "") == base30 and vis.get("style", "") == GearCatalog.SET_VISUALS[base30]["style"], "%s: visual do conjunto 30" % sid)
+		check(vis.get("reuse", "") == base30 and (vis.has("act2") or vis.get("style", "") == GearCatalog.SET_VISUALS[base30]["style"]), "%s: visual do conjunto 30 (ou o do Ato II da build)" % sid)
 		var head: ItemDef = gd.items[sd.armor[0]]
 		check(head.armor_style == vis["style"] and head.name.ends_with("da Ascensão"), "%s: peça com estilo do 30 e nome próprio (%s)" % [sid, head.name])
 		var w: ItemDef = gd.items[sid.replace("set_", "leg_") + "_weapon"]
@@ -9484,19 +10107,26 @@ func _check_act2_gear(gd, sim) -> void:
 ## Conjuntos híbridos e Fusões (GDD Ato II R7.1, AC-32b/c; design/gdd/ato2-proposals-2026-11-11.md §1.7).
 func _check_hybrid_sets(gd, sim) -> void:
 	var hyb: Array = gd.sets.values().filter(func(x): return x.is_hybrid())
-	check(hyb.size() == 72, "72 conjuntos híbridos (8 classes × 3 pares × 3 tiers): %d" % hyb.size())
-	var n_build: int = gd.sets.size() - hyb.size()
+	check(hyb.size() == 24, "24 conjuntos híbridos (P3, Bi3, 3 Ele, 3 Necro × 3 tiers): %d" % hyb.size())
+	var n_apex: int = gd.sets.values().filter(func(x): return x.is_apex()).size()
+	var n_build: int = gd.sets.size() - hyb.size() - n_apex
 	check(n_build == 24 * Balance.LEGENDARY_LEVELS.size(), "conjuntos da build seguem 24 × níveis lendários (%d)" % n_build)
 	check(Balance.HYBRID_LEVELS == [35, 40, 45] and Balance.legend_tier(35) == 6 and Balance.legend_tier(40) == 7 and Balance.legend_tier(45) == 8, "híbridos 35/40/45 nos tiers 6/7/8")
-	# Fusões: 24, uma por par, números e textos coerentes
-	check(GearCatalog.FUSIONS.size() == 24 and Balance.FUSION_NUMBERS.size() == 24, "24 Fusões com números (%d, %d)" % [GearCatalog.FUSIONS.size(), Balance.FUSION_NUMBERS.size()])
+	# Fusões: as 8 que ficaram (apice-sets.md §5), números e textos coerentes
+	var fk: Array = GearCatalog.FUSIONS.keys()
+	var nk: Array = Balance.FUSION_NUMBERS.keys()
+	fk.sort()
+	nk.sort()
+	check(fk.size() == 8 and fk == nk, "8 Fusões (P3, Bi3, Elementalista, Necromante) com números: %s" % str(fk))
 	check(FusionEffects.NEW_HOOKS.size() <= 6, "no máximo 6 ganchos novos na sim (%d)" % FusionEffects.NEW_HOOKS.size())
+	check(not ("on_overheal" in FusionEffects.NEW_HOOKS) and not (load("res://core/sim/systems/fusion_effects.gd") as Script).get_script_method_list().any(func(m): return m["name"] == "on_overheal"), "gancho da sobrecura (Bi1) saiu junto com a Fusão")
+	var want_pairs := {"paladin": 1, "bishop": 1, "elementalist": 3, "necromancer": 3, "berserker": 0, "ranger": 0, "druid": 0, "assassin": 0}
 	var names := {}
 	var dup: Array = []
 	for cid in gd.classes:
 		var cls: ClassDef = gd.classes[cid]
 		var pairs: Array = GearCatalog.hybrid_pairs(cls)
-		check(pairs.size() == 3, "%s: 3 pares (A+B, B+C, C+A)" % cid)
+		check(pairs.size() == int(want_pairs.get(cid, -1)), "%s: %d pares de híbrido (%d)" % [cid, int(want_pairs.get(cid, -1)), pairs.size()])
 		for pair in pairs:
 			var fid := "%s+%s" % pair
 			check(GearCatalog.FUSIONS.has(fid) and Balance.FUSION_NUMBERS.has(fid), "%s: Fusão %s existe" % [cid, fid])
@@ -9513,7 +10143,7 @@ func _check_hybrid_sets(gd, sim) -> void:
 				if sd == null:
 					continue
 				var tier := Balance.legend_tier(lv)
-				check(sd.armor.size() == 5 and sd.pieces == sd.armor and sd.fusion == fid and sd.pair == pair and sd.class_id == cid, "%s: 5 peças de armadura, par e Fusão" % sd.id)
+				check(sd.armor.size() == 5 and sd.pieces == sd.armor and sd.fusion == fid and sd.pair == pair and sd.class_id == cid and not sd.is_apex(), "%s: 5 peças de armadura, par e Fusão" % sd.id)
 				for pid in sd.armor:
 					var it: ItemDef = gd.items[pid]
 					var piece: String = pid.get_slice("_", pid.get_slice_count("_") - 1)
@@ -9521,7 +10151,6 @@ func _check_hybrid_sets(gd, sim) -> void:
 					check(it.armor_style == ba["armor"] or (piece != "legs" and it.armor_style != ""), "%s: armadura do lado A (%s)" % [pid, it.armor_style])
 					check(it.attr(ba["attr"]) > 0 and (ba["attr"] == bb["attr"] or it.attr(bb["attr"]) > 0), "%s: atributo de A e de B" % pid)
 					check(it.icon != "" and ResourceLoader.exists("res://assets/icons/%s.png" % it.icon) if piece != "legs" else ResourceLoader.exists("res://assets/icons/art_%s.png" % pid), "%s: ícone/arte" % pid)
-				# armas das duas builds como peças alternativas
 				for bd in [ba, bb]:
 					var wid := "leg_%s_mix_%s_%s_%d_%s_weapon" % [cid, pair[0], pair[1], lv, bd["id"]]
 					var w: ItemDef = gd.items.get(wid)
@@ -9563,79 +10192,40 @@ func _check_hybrid_sets(gd, sim) -> void:
 					if nums[k] is Array:
 						check(float(f5["fusion"][k]) >= 0.79 * float(nums[k][0]), "%s: %s nunca abaixo de 80%% do v35" % [sd.id, k])
 	check(dup.is_empty(), "nomes das peças híbridas únicos %s" % str(dup.slice(0, 4)))
-	# Relicária: os híbridos aparecem para as duas builds; o 45 espera o MAX_LEVEL
+	var gone: Array = gd.items.keys().filter(func(k): return str(k).contains("_mix_") and (str(k).begins_with("leg_berserker_") or str(k).begins_with("leg_ranger_") or str(k).begins_with("leg_druid_") or str(k).begins_with("leg_assassin_")))
+	check(gone.is_empty(), "nenhum híbrido de Berserker/Ranger/Druida/Assassino (%s)" % str(gone.slice(0, 3)))
+	# Relicária: o híbrido que ficou aparece para as duas builds do par; o 45 espera o MAX_LEVEL
 	check(ItemSystem.relic_levels().has(35) and ItemSystem.relic_levels().has(40) and (Balance.MAX_LEVEL >= 45) == ItemSystem.relic_levels().has(45), "Relicária: híbridos até o MAX_LEVEL")
 	var pal: ClassDef = gd.classes["paladin"]
-	for bid in ["guardiao", "cruzado"]:
+	var p3 := GearCatalog.hybrid_set_id("paladin", "templario", "guardiao", 40)
+	for bid in ["guardiao", "templario"]:
 		var hs: Array = gd.hybrid_sets_for(pal, bid, 40).map(func(x): return x.id)
-		check(GearCatalog.hybrid_set_id("paladin", "guardiao", "cruzado", 40) in hs and hs.size() == 2, "aba %s da Relicária mostra os 2 híbridos dela (%s)" % [bid, hs])
-	check(gd.legendary_pool(pal, 35, "templario").has("leg_paladin_mix_cruzado_templario_35_head"), "híbrido cai/troca para as duas builds do par")
+		check(hs == [p3], "aba %s da Relicária mostra o híbrido P3 (%s)" % [bid, hs])
+	check(gd.hybrid_sets_for(pal, "cruzado", 40).is_empty(), "aba do Cruzado: sem híbrido (tem o Ápice)")
+	check(gd.legendary_pool(pal, 35, "guardiao").has("leg_paladin_mix_templario_guardiao_35_head"), "híbrido cai/troca para as duas builds do par")
 	# face pela arma; 4 peças sem Fusão; arma de fora apaga
 	if not sim.maps.has("city_aldara"):
 		sim.load_map(gd.maps["city_aldara"])
 	var p: SimEntity = sim.spawn_bot(pal, "Hib", "city_aldara", Vector3(0, 0, 6), 40)
-	var sd1: SetDef = gd.sets[GearCatalog.hybrid_set_id("paladin", "guardiao", "cruzado", 40)]
+	var sd1: SetDef = gd.sets[p3]
 	for i in range(4):
 		p.equipment[gd.items[sd1.armor[i]].slot] = gd.items[sd1.armor[i]]
-	p.equipment[ItemDef.Slot.WEAPON] = gd.items["sword2h_t5"]
-	p.equipment.erase(ItemDef.Slot.OFFHAND)
+	p.equipment[ItemDef.Slot.WEAPON] = gd.items["sword_t5"]
+	p.equipment[ItemDef.Slot.OFFHAND] = gd.items["shield_t5"] if gd.items.has("shield_t5") else gd.items["shield_wood"]
 	p.recompute_stats()
 	check(p.stats.fusion.is_empty(), "4 peças: sem Fusão")
 	p.equipment[gd.items[sd1.armor[4]].slot] = gd.items[sd1.armor[4]]
 	p.recompute_stats()
-	check(str(p.stats.fusion.get("id", "")) == "guardiao+cruzado" and p.stats.fusion["face"] == "cruzado", "5 peças + 2 mãos: face do Cruzado")
-	p.equipment[ItemDef.Slot.WEAPON] = gd.items["sword_t5"]
-	p.equipment[ItemDef.Slot.OFFHAND] = gd.items["shield_t5"] if gd.items.has("shield_t5") else gd.items["shield_wood"]
-	p.recompute_stats()
-	check(p.stats.fusion["face"] == "guardiao", "5 peças + espada e escudo: face do Guardião")
-	# P1 face 2 mãos: golpe direto dá Juramento (com recarga própria)
+	check(str(p.stats.fusion.get("id", "")) == "templario+guardiao" and p.stats.fusion["face"] != "", "5 peças + espada e escudo: Égide Ardente ligada")
 	p.equipment[ItemDef.Slot.WEAPON] = gd.items["sword2h_t5"]
 	p.equipment.erase(ItemDef.Slot.OFFHAND)
 	p.recompute_stats()
-	var mob: SimEntity = sim.spawn_monster(gd.monsters["slime"], "city_aldara", Vector3(1, 0, 6))
-	p.drop_buff("juramento")
-	FusionEffects.on_hit(sim, p, mob, gd.basic_skill_for_class(pal, "sword2h"), 10, false)
-	FusionEffects.on_hit(sim, p, mob, gd.basic_skill_for_class(pal, "sword2h"), 10, false)
-	check(p.buff_stacks("juramento") == 1, "Juramento Rubro: golpe de 2 mãos dá 1 Juramento (recarga segura o 2º): %d" % p.buff_stacks("juramento"))
-	sim.despawn(mob)
+	check(p.stats.fusion["face"] == "", "5 peças + espada de 2 mãos: Égide Ardente apagada")
 	sim.despawn(p)
-	# Bi1: o dano da sobrecura não gera Radiância (trava do laço)
-	var bis: ClassDef = gd.classes["bishop"]
-	var h: SimEntity = sim.spawn_bot(bis, "Luz", "city_aldara", Vector3(0, 0, 6), 40)
-	var ally: SimEntity = sim.spawn_bot(gd.classes["berserker"], "Ali", "city_aldara", Vector3(0.5, 0, 6), 40)
-	sim.party_invite(h, ally)
-	sim.party_accept(ally)
-	var sdb: SetDef = gd.sets[GearCatalog.hybrid_set_id("bishop", "sacerdote", "inquisidor", 40)]
-	for pid in sdb.armor:
-		h.equipment[gd.items[pid].slot] = gd.items[pid]
-	h.recompute_stats()
-	h.stats.radiance = 50.0
-	h.stats.lifesteal = 0.0          # só a Radiância conta aqui (a teia do bot pode dar roubo de vida)
-	var foe: SimEntity = sim.spawn_monster(gd.monsters["slime"], "city_aldara", Vector3(1.5, 0, 6))
-	foe.stats.max_hp = 1.0e6
-	foe.hp = 1.0e6
-	ally.hp = ally.stats.max_hp * 0.5
-	var ally_hp := ally.hp
-	h.hp = h.stats.max_hp * 0.5
-	var foe_hp := foe.hp
-	FusionEffects.on_overheal(sim, h, ally, 500.0)
-	check(foe.hp < foe_hp, "Luz que Julga: sobrecura vira dano no inimigo perto do aliado")
-	check(is_equal_approx(ally.hp, ally_hp) and h.hp <= h.stats.max_hp * 0.5 + 0.01, "Luz que Julga: o dano da sobrecura não gera cura (Radiância) ally %.0f->%.0f h %.0f/%.0f" % [ally_hp, ally.hp, h.hp, h.stats.max_hp])
-	sim.despawn(foe)
-	sim.despawn(ally)
-	sim.despawn(h)
-	# AC-32c: bot da build A com a teia mais comprada no braço B pega o híbrido A+B (e C+A se for C)
+	# AC-32c / R-AP6: Guardião e Templário pegam P3; abaixo do 35, o conjunto da build
 	var b: SimEntity = sim.spawn_bot(pal, "Esc", "city_aldara", Vector3(0, 0, 6), 40)
 	b.build_id = "guardiao"
-	var nodes: Dictionary = ProgressionSystem.tree_of(sim, b)["nodes"]
-	for want in [["cruzado", GearCatalog.hybrid_set_id("paladin", "guardiao", "cruzado", 40)], ["templario", GearCatalog.hybrid_set_id("paladin", "templario", "guardiao", 40)]]:
-		b.tree = {}
-		var k := 0
-		for nid in nodes:
-			if str(nodes[nid].get("branch", "")) == want[0] and k < 12:
-				b.tree[nid] = true
-				k += 1
-		check(sim.bot_legendary_set(b, 40) == want[1], "AC-32c: Guardião com a teia no %s pega %s (%s)" % [want[0], want[1], sim.bot_legendary_set(b, 40)])
+	check(sim.bot_legendary_set(b, 40) == p3, "R-AP6: Guardião pega P3 (%s)" % sim.bot_legendary_set(b, 40))
 	check(sim.bot_legendary_set(b, 30) == "set_paladin_guardiao_30", "abaixo do 35 o bot fica com o conjunto da build")
 	sim.despawn(b)
 	# E1 Vapor: gelo em alvo queimando consome a queimadura e causa o dano na hora
@@ -9675,7 +10265,13 @@ func _check_hybrid_sets(gd, sim) -> void:
 
 ## Veste `n` peças do híbrido A+B nível 40 e a arma (e mão secundária) dada; devolve o personagem com os stats refeitos.
 func _wear_hybrid(gd, e: SimEntity, a: String, b: String, n: int, weapon: String, off: String = "") -> SimEntity:
-	var sd: SetDef = gd.sets[GearCatalog.hybrid_set_id(e.class_def.id, a, b, 40)]
+	return _wear_set(gd, e, gd.sets[GearCatalog.hybrid_set_id(e.class_def.id, a, b, 40)], n, weapon, off)
+
+## Veste `n` peças do Ápice da build no nível `lv` e a arma (e mão secundária) dada.
+func _wear_apex(gd, e: SimEntity, bid: String, n: int, weapon: String, off: String = "", lv: int = 40) -> SimEntity:
+	return _wear_set(gd, e, gd.sets[GearCatalog.apex_set_id(e.class_def.id, bid, lv)], n, weapon, off)
+
+func _wear_set(gd, e: SimEntity, sd: SetDef, n: int, weapon: String, off: String) -> SimEntity:
 	for i in range(5):
 		var it: ItemDef = gd.items[sd.armor[i]]
 		if i < n:
@@ -9696,72 +10292,13 @@ func _big_mob(gd, sim, at: Vector3) -> SimEntity:
 	m.hp = 1.0e7
 	return m
 
-## Redesenho 2026-11-12 (GDD ato2-proposals 1.9): P2, Bi2, D2, N2 quase sempre ligadas; E1 com regra de bot. Cada uma
-## dispara com 5 peças e fica apagada com 4.
+## Fusões que ficaram (redesenho 2026-11-12, GDD ato2-proposals 1.9): N2 quase sempre ligada; E1 com regra de bot. Cada uma
+## dispara com 5 peças e fica apagada com 4. (P2, Bi2 e D2 viraram Ápices: _check_apex_rules.)
 func _check_fusion_redesign(gd, sim) -> void:
 	var at := Vector3(0, 0, 6)
-	# P2 Sentença Ardente: golpe direto põe Penitência; cada carga +pen_dmg% em todo o dano no alvo; na 5ª explode e volta a 2
-	var pal: SimEntity = _wear_hybrid(gd, sim.spawn_bot(gd.classes["paladin"], "Sen", "city_aldara", at, 40), "cruzado", "templario", 5, "sword2h_t5")
-	var mob: SimEntity = _big_mob(gd, sim, at + Vector3(1, 0, 0))
-	var basic: SkillDef = gd.basic_skill_for_class(pal.class_def, "sword2h")
-	check(FusionEffects.face(pal) == "cruzado" and is_equal_approx(FusionEffects.damage_mult(pal, mob), 1.0), "Sentença Ardente: sem Penitência, dano normal")
-	FusionEffects.on_hit(sim, pal, mob, basic, 10, false)
-	var pd := FusionEffects.num(pal, "pen_dmg")
-	check(FusionEffects._penance(pal, mob) == 1 and absf(FusionEffects.damage_mult(pal, mob) - (1.0 + pd / 100.0)) < 0.001, "Sentença Ardente: golpe põe 1 Penitência e +%.2f%% de dano no alvo" % pd)
-	mob.put_debuff({"kind": "penance", "id": "legend_penance_%d" % pal.id, "remaining": 5.0, "stacks": 4})
-	check(absf(FusionEffects.damage_mult(pal, mob) - (1.0 + 4.0 * pd / 100.0)) < 0.001, "Sentença Ardente: o bônus cresce por carga (4)")
-	pal.fus.erase("pen_%d" % mob.id)
-	var hp0: float = mob.hp
-	FusionEffects.on_hit(sim, pal, mob, basic, 10, false)
-	check(mob.hp < hp0 and FusionEffects._penance(pal, mob) == Balance.FUSION_PEN_KEEP, "Sentença Ardente: a 5ª carga explode e volta a %d (%d)" % [Balance.FUSION_PEN_KEEP, FusionEffects._penance(pal, mob)])
-	_wear_hybrid(gd, pal, "cruzado", "templario", 4, "sword2h_t5")
-	check(is_equal_approx(FusionEffects.damage_mult(pal, mob), 1.0), "Sentença Ardente: 4 peças = apagada")
-	sim.despawn(pal)
-	sim.despawn(mob)
-	# Bi2 Martelo da Aurora: magia sagrada dá Aurora (+ATK/+MATK); golpe de arma cura o aliado mais ferido
-	var bis: SimEntity = _wear_hybrid(gd, sim.spawn_bot(gd.classes["bishop"], "Aur", "city_aldara", at, 40), "inquisidor", "batalha", 5, "scepter_t5")
-	var ally: SimEntity = sim.spawn_bot(gd.classes["berserker"], "Ali", "city_aldara", at + Vector3(0.5, 0, 0), 40)
-	sim.party_invite(bis, ally)
-	sim.party_accept(ally)
-	var matk0: float = bis.stats.matk
-	FusionEffects.on_cast(sim, bis, gd.skills["bis_smite"], at)
-	var au := FusionEffects.num(bis, "aurora")
-	check(bis.buffs.any(func(x): return x.get("id") == FusionEffects.AURORA_BUFF) and bis.stats.matk > matk0 * (1.0 + au / 200.0),
-		"Martelo da Aurora: magia sagrada dá Aurora (MATK %.0f -> %.0f)" % [matk0, bis.stats.matk])
-	check(BuffLooks.LOOKS.has(FusionEffects.AURORA_BUFF), "Aurora tem visual (BuffLooks)")
-	ally.hp = ally.stats.max_hp * 0.5
-	var ahp: float = ally.hp
-	mob = _big_mob(gd, sim, at + Vector3(1, 0, 0))
-	FusionEffects.on_hit(sim, bis, mob, gd.basic_skill_for_class(bis.class_def, "scepter"), 1000, false)
-	check(ally.hp > ahp, "Martelo da Aurora: golpe de arma cura o aliado mais ferido (%.0f -> %.0f)" % [ahp, ally.hp])
-	bis.drop_buff(FusionEffects.AURORA_BUFF)
-	_wear_hybrid(gd, bis, "inquisidor", "batalha", 4, "scepter_t5")
-	FusionEffects.on_cast(sim, bis, gd.skills["bis_smite"], at)
-	check(not bis.buffs.any(func(x): return x.get("id") == FusionEffects.AURORA_BUFF), "Martelo da Aurora: 4 peças = sem Aurora")
-	sim.despawn(ally)
-	sim.despawn(bis)
-	sim.despawn(mob)
-	# D2 Lua Caçadora: face duas maças +hunt% em alvo sangrando/com Fogo Lunar; face cajado: Fogo Lunar faz sangrar, magia em sangrando +hunt%
-	var dru: SimEntity = _wear_hybrid(gd, sim.spawn_bot(gd.classes["druid"], "Lua", "city_aldara", at, 40), "fera", "xama", 5, "mace_t5", "mace_t5")
-	mob = _big_mob(gd, sim, at + Vector3(1, 0, 0))
-	var hunt := FusionEffects.num(dru, "hunt")
-	check(FusionEffects.face(dru) == "fera" and is_equal_approx(FusionEffects.damage_mult(dru, mob), 1.0), "Lua Caçadora (lobo): alvo limpo, dano normal")
-	FusionEffects.on_hit(sim, dru, mob, gd.skills["dru_moonfire"], 10, false)
-	check(absf(FusionEffects.damage_mult(dru, mob) - (1.0 + hunt / 100.0)) < 0.001, "Lua Caçadora (lobo): alvo com Fogo Lunar +%.0f%%" % hunt)
-	_wear_hybrid(gd, dru, "fera", "xama", 5, "staff_t5")
-	var m2: SimEntity = _big_mob(gd, sim, at + Vector3(-1, 0, 0))
-	check(FusionEffects.face(dru) == "xama" and is_equal_approx(FusionEffects.hit_mult(sim, dru, m2, gd.skills["dru_moonfire"]), 1.0), "Lua Caçadora (cajado): alvo sem sangrar, magia normal")
-	FusionEffects.on_hit(sim, dru, m2, gd.skills["dru_moonfire"], 10, false)
-	check(m2.debuffs.any(func(d): return d.get("bleed", false) and int(d.get("src", -1)) == dru.id), "Lua Caçadora (cajado): Fogo Lunar faz sangrar")
-	check(absf(FusionEffects.hit_mult(sim, dru, m2, gd.skills["dru_moonfire"]) - (1.0 + hunt / 100.0)) < 0.001, "Lua Caçadora (cajado): magia em alvo sangrando +%.0f%%" % hunt)
-	_wear_hybrid(gd, dru, "fera", "xama", 4, "mace_t5", "mace_t5")
-	check(is_equal_approx(FusionEffects.damage_mult(dru, mob), 1.0), "Lua Caçadora: 4 peças = apagada")
-	sim.despawn(dru)
-	sim.despawn(mob)
-	sim.despawn(m2)
 	# N2 Colheita da Praga: golpe de foice põe Praga Menor (maldição, até 3); cada maldição dá dano e roubo de vida
 	var nec: SimEntity = _wear_hybrid(gd, sim.spawn_bot(gd.classes["necromancer"], "Pra", "city_aldara", at, 40), "ceifador", "pestilento", 5, "scythe_t5")
-	mob = _big_mob(gd, sim, at + Vector3(1, 0, 0))
+	var mob: SimEntity = _big_mob(gd, sim, at + Vector3(1, 0, 0))
 	var nb: SkillDef = gd.basic_skill_for_class(nec.class_def, "scythe")
 	for i in range(4):
 		FusionEffects.on_hit(sim, nec, mob, nb, 10, false)
@@ -9795,6 +10332,637 @@ func _check_fusion_redesign(gd, sim) -> void:
 	check(is_equal_approx(FusionEffects.bot_skill_mult(ele, mob, gd.skills["ele_ice_lance"]), 1.0) and FusionEffects.bot_slot_skill(ele) == null, "Vapor (bot): 4 peças = sem peso nem skill de gelo forçada")
 	sim.despawn(ele)
 	sim.despawn(mob)
+
+## Conjuntos Ápice (design/gdd/apice-sets.md §7 checks 1, 3, 4, 6, 7): ids, nomes, peças, armas, bônus, números F-AP1,
+## visual R-AP5, face pela arma, drop/Relicária/bot.
+## Visual do Ato II (GearCatalog.ACT2_VISUALS): uma malha nova por build para 35/40/45 e o Ápice dela; o nível muda a cor do
+## item e a das peças acesas (material tint_glow* do kit, pintado pelo KitModel).
+func _check_act2_visuals(gd, _sim) -> void:
+	var styles := {}
+	for key: String in GearCatalog.ACT2_VISUALS:
+		var a2: Dictionary = GearCatalog.ACT2_VISUALS[key]
+		var cid: String = key.get_slice("_", 0)
+		var bid: String = key.trim_prefix(cid + "_")
+		var cls: ClassDef = gd.classes.get(cid)
+		check(cls != null and not cls.build_by_id(bid).is_empty(), "%s: build existe" % key)
+		if cls == null:
+			continue
+		var style: String = a2["style"]
+		var s30: String = GearCatalog.SET_VISUALS["set_%s_30" % key]["style"]
+		check(style != s30 and not styles.has(style), "%s: estilo próprio do Ato II (%s), diferente do 30 e das outras builds" % [key, style])
+		styles[style] = true
+		var cols: Array = a2["colors"]
+		var glows: Array = a2["glows"]
+		check(cols.size() == Balance.HYBRID_LEVELS.size() and glows.size() == cols.size(), "%s: uma cor e um brilho por nível" % key)
+		check(GearCatalog.set_glow("set_%s_30" % key).a == 0.0, "%s: o conjunto 30 não tem brilho de nível" % key)
+		var seen := {}
+		for li in range(Balance.HYBRID_LEVELS.size()):
+			var lv: int = Balance.HYBRID_LEVELS[li]
+			var sid := "set_%s_%d" % [key, lv]
+			seen[(cols[li] as Color).to_html()] = true
+			var ids: Array = [sid]
+			if GearCatalog.APEX.has(bid):
+				ids.append(GearCatalog.apex_set_id(cid, bid, lv))
+			for id: String in ids:
+				var sd: SetDef = gd.sets.get(id)
+				check(sd != null, "%s existe" % id)
+				if sd == null:
+					continue
+				var want: Color = GearCatalog.apex_color(cols[li]) if sd.is_apex() else cols[li]
+				for pid in sd.armor:
+					var it: ItemDef = gd.items[pid]
+					check(it.slot == ItemDef.Slot.LEGS or it.armor_style == style, "%s: malha do Ato II (%s)" % [pid, it.armor_style])
+					check(it.icon_color.is_equal_approx(want), "%s: cor do nível" % pid)
+				for wid in sd.pieces + sd.alt_pieces:
+					var w: ItemDef = gd.items[wid]
+					if w.slot == ItemDef.Slot.WEAPON and w.weapon_type != "shield":
+						check(w.weapon_style == str(a2.get("wpn", style)), "%s: arma do Ato II (%s)" % [wid, w.weapon_style])
+				check(GearCatalog.set_glow(id).is_equal_approx(glows[li]), "%s: brilho do nível" % id)
+		check(seen.size() == cols.size(), "%s: 35, 40 e 45 com cores diferentes" % key)
+		_check_act2_extras(gd, key, a2)
+		for body in ["male", "female"]:
+			var k := KitModel.create(body, Color.WHITE, 0.025, cid)
+			if k == null:
+				check(false, "kit_%s_%s abre" % [cid, body])
+				continue
+			if KitModel.addon_exists(body, cid):          # classe com kit extra (Paladino): as peças do Ato II moram lá (_check_kit_addon)
+				k.load_addon()
+			for slot in ["head", "body", "gloves", "boots"]:
+				check(k.pieces("arm_%s_%s_*" % [style, slot]).size() == 1, "kit_%s_%s: %s do %s numa malha só" % [cid, body, slot, style])
+			var eq := {}
+			var sd45: SetDef = gd.sets["set_%s_%d" % [key, Balance.HYBRID_LEVELS[-1]]]
+			for pid in sd45.pieces:
+				var it: ItemDef = gd.items[pid]
+				eq[ItemDef.Slot.OFFHAND if pid.ends_with("_offhand") else it.slot] = it
+			var main: ItemDef = eq[ItemDef.Slot.WEAPON]
+			check(k.main_node(main) == "wpn_main_%s_%s" % [main.weapon_type, main.weapon_style], "kit_%s_%s: arma do Ato II no kit (%s)" % [cid, body, k.main_node(main)])
+			k.apply_equipment(eq)
+			var lit := 0
+			var right := 0
+			for n in k._glows:
+				if k._vis.get(n, false):
+					for m: ShaderMaterial in k._glows[n]:
+						lit += 1
+						var c: Color = m.get_shader_parameter("albedo")
+						right += 1 if c.is_equal_approx(glows[-1]) else 0
+			check(lit >= 3 and right == lit, "kit_%s_%s: peças acesas do %s na cor do nível 45 (%d de %d)" % [cid, body, style, right, lit])
+			k.free()
+	_check_kit_addon(gd)
+
+## Kit extra (kit_<classe>_<sexo>_a2.glb; KitModel.load_addon): as armaduras do Ato II do Paladino ficam fora do kit principal
+## (teto de 200 malhas por boneco) e só são lidas quando uma peça delas é vestida; sem o arquivo, visual do nível 30.
+func _check_kit_addon(gd) -> void:
+	var cid := "paladin"
+	var styles: Array = []
+	for key: String in GearCatalog.ACT2_VISUALS:
+		if key.begins_with(cid + "_"):
+			styles.append(GearCatalog.ACT2_VISUALS[key]["style"])
+			check(GearCatalog.act2_fallback_style(styles[-1]) == str(GearCatalog.SET_VISUALS["set_%s_30" % key]["style"]), "kit extra: %s cai no estilo do 30 da build" % styles[-1])
+	check(styles.size() == 3, "kit extra: as 3 builds do Paladino têm armadura do Ato II (%d)" % styles.size())
+	check(GearCatalog.act2_fallback_style("pal_g30") == "" and GearCatalog.act2_fallback_style("plate") == "", "kit extra: estilo que não é do Ato II não tem troca")
+	for other in gd.classes:
+		if other != cid:
+			check(not KitModel.addon_exists("male", other) and not KitModel.addon_exists("female", other), "kit extra: só o Paladino tem (%s)" % other)
+	check(not KitModel.addon_exists("male", ""), "kit extra: o kit genérico não tem")
+	var slots: Array = ["head", "body", "gloves", "boots"]
+	for body in ["male", "female"]:
+		check(KitModel.addon_exists(body, cid) and KitModel.addon_path_for(body, cid).ends_with("kit_paladin_%s_a2.glb" % body), "kit extra: kit_paladin_%s_a2.glb existe" % body)
+		var k := KitModel.create(body, Color.WHITE, 0.025, cid)
+		if k == null or not KitModel.addon_exists(body, cid):
+			continue
+		var main_count: int = k.pieces("*").size()
+		check(main_count < 200, "kit extra: kit_paladin_%s principal abaixo de 200 malhas (%d)" % [body, main_count])
+		check(k.pieces("arm_pal_?35_*").is_empty(), "kit extra: nenhuma peça do Ato II no kit principal do Paladino (%s)" % body)
+		# equipamento do nível 30: nada do kit extra é lido nem anexado
+		var loads0: int = KitModel.addon_loads
+		var eq30 := {}
+		for pid in (gd.sets["set_paladin_guardiao_30"] as SetDef).pieces:
+			var it: ItemDef = gd.items[pid]
+			eq30[ItemDef.Slot.OFFHAND if pid.ends_with("_offhand") else it.slot] = it
+		k.apply_equipment(eq30)
+		check(not k.addon_loaded and k.pieces("*").size() == main_count, "kit extra: conjunto do nível 30 não carrega o kit extra (%s)" % body)
+		# conjunto do Ato II: carrega, e as 4 peças de cada estilo estão lá, uma malha por slot, no esqueleto do kit
+		var eq := {}
+		var sd: SetDef = gd.sets["set_paladin_guardiao_%d" % Balance.HYBRID_LEVELS[0]]
+		for pid in sd.pieces:
+			var it: ItemDef = gd.items[pid]
+			eq[ItemDef.Slot.OFFHAND if pid.ends_with("_offhand") else it.slot] = it
+		k.apply_equipment(eq)
+		check(k.addon_loaded and KitModel.addon_loads <= loads0 + 1, "kit extra: conjunto do Ato II carrega o kit extra uma vez (%s)" % body)
+		for style: String in styles:
+			for slot: String in slots:
+				check(k.pieces("arm_%s_%s_*" % [style, slot]).size() == 1, "kit extra: %s do %s numa malha só (%s)" % [slot, style, body])
+		check(k.pieces("*").size() == main_count + styles.size() * slots.size(), "kit extra: só as 12 peças do Ato II entram (%d -> %d)" % [main_count, k.pieces("*").size()])
+		var style35: String = GearCatalog.ACT2_VISUALS["paladin_guardiao"]["style"]
+		var shown := 0
+		var same_skin := true
+		var ref_skin: Skin = (k.pieces("base_body*")[0] as MeshInstance3D).skin if not k.pieces("base_body*").is_empty() else null
+		for mi: MeshInstance3D in k.pieces("arm_pal_?35_*"):
+			same_skin = same_skin and ref_skin != null and mi.skin == ref_skin
+			if k._vis.get(mi.name, false):
+				shown += 1
+				check(String(mi.name).begins_with("arm_%s_" % style35) and mi.get_parent() == k.skeleton, "kit extra: %s visível e preso ao esqueleto do kit" % mi.name)
+		check(shown == slots.size() and same_skin, "kit extra: 4 peças do %s à mostra, com o skin do kit principal (%d)" % [style35, shown])
+		check(k.pieces("arm_pal_g30_*").all(func(m): return not k._vis.get(m.name, false)), "kit extra: armadura do 30 some ao vestir a do Ato II")
+		var off: ItemDef = eq.get(ItemDef.Slot.OFFHAND)
+		check(off != null and off.shield_style == "pal_g30" and k._vis.get(k.off_node_of(off), false), "kit extra: escudo do nível 30 mantido no Ato II")
+		var mainw: ItemDef = eq[ItemDef.Slot.WEAPON]
+		check(mainw.weapon_style == "pal_g30" and k._vis.get(k.main_node(mainw), false) and k.main_node(mainw) == "wpn_main_sword_pal_g30", "kit extra: espada do nível 30 mantida no Ato II")
+		k.set_flash(1.0)          # o flash de dano alcança as peças do kit extra (materiais em k.mats)
+		var flashed := true
+		for mi: MeshInstance3D in k.pieces("arm_%s_*" % style35):
+			for si in range(mi.get_surface_override_material_count()):
+				var sm := mi.get_surface_override_material(si) as ShaderMaterial
+				flashed = flashed and sm != null and k.mats.has(sm) and is_equal_approx(float(sm.get_shader_parameter("flash")), 1.0)
+		check(flashed, "kit extra: flash de dano nas peças do Ato II (%s)" % body)
+		# outro boneco do mesmo kit: o arquivo não é lido de novo
+		var loads1: int = KitModel.addon_loads
+		var k2 := KitModel.create(body, Color.WHITE, 0.025, cid)
+		k2.apply_equipment(eq)
+		check(k2.addon_loaded and KitModel.addon_loads == loads1, "kit extra: 2º boneco reaproveita o arquivo já lido (%s)" % body)
+		# sem o arquivo: visual do nível 30 da build, sem erro
+		k2.free()
+		var k3 := KitModel.create(body, Color.WHITE, 0.025, cid)
+		k3._addon_path = "res://assets/models/kit_nao_existe_a2.glb"
+		k3.apply_equipment(eq)
+		var fb := 0
+		for mi: MeshInstance3D in k3.pieces("arm_pal_g30_*"):
+			fb += 1 if k3._vis.get(mi.name, false) else 0
+		check(not k3.addon_loaded and fb == slots.size(), "kit extra: sem o arquivo o boneco veste o visual do 30 (%d peças, %s)" % [fb, body])
+		k3.free()
+		k.free()
+	# toda peça de armadura do Ato II do Paladino (build, Ápice e híbrido) aponta para um estilo do kit extra
+	for sid in gd.sets:
+		var psd: SetDef = gd.sets[sid]
+		if psd.class_id != cid or Balance.HYBRID_LEVELS.find(int(String(sid).get_slice("_", String(sid).get_slice_count("_") - 1))) < 0:
+			continue
+		for pid in psd.armor:
+			var it: ItemDef = gd.items[pid]
+			if it.slot != ItemDef.Slot.LEGS:
+				check(it.armor_style in styles, "kit extra: %s veste armadura do Ato II (%s)" % [pid, it.armor_style])
+
+## Ato II, opcionais por build (ACT2_VISUALS): destaque escolhido por nível, nome próprio e ícone próprio (uma foto por build).
+func _check_act2_extras(gd, key: String, a2: Dictionary) -> void:
+	var cid: String = key.get_slice("_", 0)
+	var bid: String = key.trim_prefix(cid + "_")
+	var levels: Array = Balance.HYBRID_LEVELS
+	check(GearCatalog.set_accent("set_%s_30" % key).a == 0.0, "%s: o conjunto 30 fica com o destaque derivado da cor" % key)
+	if a2.has("accents"):
+		var accs: Array = a2["accents"]
+		check(accs.size() == levels.size(), "%s: um destaque por nível" % key)
+		for li in range(mini(accs.size(), levels.size())):
+			var ids: Array = ["set_%s_%d" % [key, levels[li]]]
+			if GearCatalog.APEX.has(bid):
+				ids.append(GearCatalog.apex_set_id(cid, bid, levels[li]))
+			for id: String in ids:
+				check(GearCatalog.set_accent(id).is_equal_approx(accs[li]), "%s: destaque do nível" % id)
+			var a: Color = accs[li]
+			var c: Color = a2["colors"][li]
+			check(absf(a.r - c.r) + absf(a.g - c.g) + absf(a.b - c.b) > 0.3, "%s %d: destaque contrasta com a cor do item" % [key, levels[li]])
+		var k := KitModel.create("male", Color.WHITE, 0.025, cid)
+		if k != null:
+			var eq := {}
+			for pid in (gd.sets["set_%s_%d" % [key, levels[0]]] as SetDef).pieces:
+				var it: ItemDef = gd.items[pid]
+				eq[ItemDef.Slot.OFFHAND if pid.ends_with("_offhand") else it.slot] = it
+			k.apply_equipment(eq)
+			var painted := 0
+			var right := 0
+			for n in k._accents:
+				if k._vis.get(n, false) and (n as String).begins_with("arm_%s_" % a2["style"]):
+					for m: ShaderMaterial in k._accents[n]:
+						painted += 1
+						right += 1 if (m.get_shader_parameter("albedo") as Color).is_equal_approx(accs[0]) else 0
+			check(painted >= 1 and right == painted, "kit_%s: tint2 do %s no destaque do nível 35 (%d de %d)" % [cid, a2["style"], right, painted])
+			k.free()
+	if a2.has("suffix"):
+		var names := {}
+		for lv: int in levels:
+			var sd: SetDef = gd.sets["set_%s_%d" % [key, lv]]
+			var ep: String = GearCatalog.TIER_EPITHETS[Balance.LEGENDARY_LEVELS.find(lv)]
+			check(sd.name == "Conjunto %s %s" % [a2["name"], ep], "%s: nome próprio do conjunto (%s)" % [sd.id, sd.name])
+			for pid in sd.pieces + sd.alt_pieces:
+				var it: ItemDef = gd.items[pid]
+				check(it.name.ends_with("%s %s" % [a2["suffix"], ep]), "%s: nome próprio da peça (%s)" % [pid, it.name])
+				check(not names.has(it.name), "%s: nome sem repetir (%s)" % [pid, it.name])
+				names[it.name] = true
+	if a2.has("icon"):
+		var sd40: SetDef = gd.sets["set_%s_%d" % [key, levels[1]]]
+		for pid in sd40.pieces + sd40.alt_pieces:
+			var it: ItemDef = gd.items[pid]
+			if it.slot == ItemDef.Slot.LEGS:
+				continue
+			check(it.icon.begins_with(str(a2["icon"]) + "_"), "%s: ícone do Ato II (%s)" % [pid, it.icon])
+			check(ResourceLoader.exists("res://assets/icons/%s.png" % it.icon), "%s: ícone %s.png existe (set_icons.tscn)" % [pid, it.icon])
+
+func _check_apex_sets(gd, sim) -> void:
+	var apx: Array = gd.sets.values().filter(func(x): return x.is_apex())
+	check(apx.size() == 42, "42 Ápices (14 builds × 35/40/45): %d" % apx.size())
+	var ak: Array = GearCatalog.APEX.keys()
+	var nk: Array = Balance.APEX_NUMBERS.keys()
+	ak.sort()
+	nk.sort()
+	check(ak.size() == 14 and ak == nk, "APEX e APEX_NUMBERS: as 14 builds (%s)" % str(ak))
+	check(is_equal_approx(Balance.APEX_TOL, Balance.FUSION_TOL) and is_equal_approx(Balance.APEX_GAIN_MAX, Balance.FUSION_GAIN_MAX), "orçamento do Ápice = o das Fusões (F-AP2)")
+	check("trap_max" in Stats.STAT_KEYS, "stat trap_max em Stats.STAT_KEYS")
+	for k in ["apex_judged", "apex_cadence", "apex_tempest"]:
+		check(BuffLooks.LOOKS.has(k), "%s tem visual (BuffLooks)" % k)
+	var names := {}
+	var dup: Array = []
+	for cid in gd.classes:
+		var cls: ClassDef = gd.classes[cid]
+		for build in cls.builds:
+			var bid: String = build["id"]
+			var want: bool = cid in ["berserker", "ranger", "druid", "assassin"] or bid in ["cruzado", "inquisidor"]
+			check(GearCatalog.APEX.has(bid) == want, "%s/%s: %s Ápice (spec §1)" % [cid, bid, "tem" if want else "sem"])
+			if not want:
+				check(gd.apex_set_for(cls, bid, 40) == null, "%s/%s: nenhum Ápice gerado" % [cid, bid])
+				continue
+			var vis30: Dictionary = GearCatalog.visual_of("set_%s_%s_%d" % [cid, bid, GearCatalog.OWN_VISUALS_UNTIL])
+			check(not vis30.is_empty() and vis30.has("style"), "%s/%s: conjunto 30 tem visual (estilo do Ápice)" % [cid, bid])
+			for hi in range(Balance.HYBRID_LEVELS.size()):
+				var lv: int = Balance.HYBRID_LEVELS[hi]
+				var tier := Balance.legend_tier(lv)
+				var vis_lv: Dictionary = GearCatalog.visual_of("set_%s_%s_%d" % [cid, bid, lv])     # o do nível: 30 reaproveitado ou o do Ato II da build
+				var col: Color = GearCatalog.apex_color(vis_lv.get("color", Color.WHITE))
+				var sd: SetDef = gd.sets.get(GearCatalog.apex_set_id(cid, bid, lv))
+				check(sd != null, "%s/%s: Ápice do %d existe" % [cid, bid, lv])
+				if sd == null:
+					continue
+				var num: String = GearCatalog.HYBRID_NUMERALS[hi]
+				check(sd.id == "set_%s_apex_%s_%d" % [cid, bid, lv] and sd.name == "Conjunto %s Ápice %s" % [GearCatalog.APEX[bid]["name"], num], "%s: id e nome R-AP1 (%s)" % [sd.id, sd.name])
+				check(sd.is_apex() and not sd.is_hybrid() and sd.build_of() == bid and sd.class_id == cid and sd.level == lv and sd.fusion == "apice_" + bid, "%s: Ápice da build %s" % [sd.id, bid])
+				if names.has(sd.name):
+					dup.append(sd.name)
+				names[sd.name] = true
+				check(sd.armor.size() == 5 and sd.pieces == sd.armor, "%s: 5 peças de armadura" % sd.id)
+				for pid in sd.armor:
+					var it: ItemDef = gd.items[pid]
+					var piece: String = pid.get_slice("_", pid.get_slice_count("_") - 1)
+					check(pid == "leg_%s_apex_%s_%d_%s" % [cid, bid, lv, piece] and it.name.ends_with("Ápice %s" % num), "%s: id e nome da peça (%s)" % [pid, it.name])
+					check(it.set_id == sd.id and it.is_legendary() and it.level_req == lv and it.class_restriction == [cid], "%s: peça lendária da classe" % pid)
+					check(it.attr(build["attr"]) > 0 and (build["attr2"] == build["attr"] or it.attr(build["attr2"]) > 0), "%s: atributos da build (%s, %s)" % [pid, build["attr"], build["attr2"]])
+					check(it.armor_style == (build["armor"] if piece == "legs" else vis_lv.get("style", "")), "%s: estilo do conjunto da build no nível (%s)" % [pid, it.armor_style])
+					check(it.icon_color.is_equal_approx(col), "%s: cor R-AP5 (30 escurecido e dourado)" % pid)
+					check(it.icon != "" and ResourceLoader.exists("res://assets/icons/%s.png" % it.icon) if piece != "legs" else true, "%s: ícone do conjunto 30" % pid)
+					if names.has(it.name):
+						dup.append(it.name)
+					names[it.name] = true
+				var base := "leg_%s_apex_%s_%d" % [cid, bid, lv]
+				var want_w: Array = [base + "_weapon"]
+				if build["main"].size() > 1:
+					want_w.append("%s_%s" % [base, build["main"][1]])
+				if build["off"].size() > 0:
+					want_w.append(base + "_offhand")
+				check(sd.alt_pieces == want_w, "%s: armas da build como peças alternativas %s" % [sd.id, str(sd.alt_pieces)])
+				for wid in sd.alt_pieces:
+					var w: ItemDef = gd.items.get(wid)
+					check(w != null and w.set_id == sd.id and w.class_restriction == [cid] and w.level_req == lv, "%s: arma do Ápice coerente" % wid)
+					if w == null:
+						continue
+					if wid.ends_with("_offhand"):
+						check(w.weapon_type == build["off"][0], "%s: mão secundária da build" % wid)
+					else:
+						var want_le: Dictionary = GearCatalog.role_legend("bulwark", tier) if GearCatalog.weapon_role(bid, w.weapon_type) == "defense" else GearCatalog.legend_effect(build, tier)
+						check(w.weapon_type in build["main"] and str(w.legend_effect) == str(want_le), "%s: efeito lendário da build (ou Baluarte no martelo) no tier" % wid)
+					if names.has(w.name):
+						dup.append(w.name)
+					names[w.name] = true
+				check(sim.relic_cost(gd.items[sd.armor[0]]) == tier + 1, "%s: custa %d moedas" % [sd.id, tier + 1])
+				var nb: Dictionary = gd.sets[gd.set_id_for(cid, bid, lv)].bonuses        # o conjunto da build no mesmo tier (atributos já em escala)
+				var ks := sd.bonuses.keys()
+				ks.sort()
+				check(ks == [2, 3, 4, 5] and str(sd.bonuses[2]) == str(nb[2]) and str(sd.bonuses[3]) == str(nb[3]) and str(sd.bonuses[4]) == str(nb[4]), "%s: 2-4 peças = as do conjunto da build" % sd.id)
+				var f5: Dictionary = sd.bonuses[5]
+				check(f5.size() == 1 and f5.get("fusion") is Dictionary and str(f5["fusion"]["id"]) == "apice_" + bid, "%s: 5 peças = só o efeito Ápice" % sd.id)
+				var nums: Dictionary = Balance.APEX_NUMBERS[bid]
+				for k in nums:
+					var wv: float = float(nums[k][0]) + float(nums[k][1]) * (tier - 6) if nums[k] is Array else float(nums[k])
+					check(absf(float(f5["fusion"].get(k, -999.0)) - wv) < 0.011, "%s: F-AP1 %s = %.2f" % [sd.id, k, wv])
+					if nums[k] is Array:
+						check(float(f5["fusion"][k]) >= 0.79 * float(nums[k][0]) and float(f5["fusion"][k]) > 0.0, "%s: %s nunca abaixo de 80%% do v35" % [sd.id, k])
+	check(dup.is_empty(), "nomes dos Ápices únicos %s" % str(dup.slice(0, 4)))
+	# drop / Relicária: o Ápice cai e troca só na aba da própria build; nenhum híbrido removido no pool
+	for cid in ["berserker", "ranger", "druid", "assassin", "paladin", "bishop"]:
+		var cls: ClassDef = gd.classes[cid]
+		for b in cls.builds:
+			var bid: String = b["id"]
+			var pool: Array = gd.legendary_pool(cls, 40, bid)
+			var sd: SetDef = gd.apex_set_for(cls, bid, 40)
+			check(not pool.any(func(x): return str(x).contains("_mix_") and not gd.items.has(str(x))), "%s/%s: pool sem híbrido removido" % [cid, bid])
+			if sd:
+				check(pool.has(sd.armor[0]) and pool.has(sd.alt_pieces[0]), "%s/%s: Ápice cai/troca para a build" % [cid, bid])
+				check(gd.apex_sets_for(cls, bid, 40) == [sd], "%s/%s: Relicária mostra o Ápice na aba da build" % [cid, bid])
+				for ob in cls.builds:
+					if ob["id"] != bid:
+						check(not gd.apex_sets_for(cls, ob["id"], 40).has(sd) and not gd.legendary_pool(cls, 40, ob["id"]).has(sd.armor[0]), "%s/%s: Ápice não aparece na aba de %s" % [cid, bid, ob["id"]])
+	# bots aos 35/40/45 (R-AP6)
+	if not sim.maps.has("city_aldara"):
+		sim.load_map(gd.maps["city_aldara"])
+	var want_set := {"guardiao": "set_paladin_mix_templario_guardiao_%d", "templario": "set_paladin_mix_templario_guardiao_%d",
+		"sacerdote": "set_bishop_mix_batalha_sacerdote_%d", "batalha": "set_bishop_mix_batalha_sacerdote_%d"}
+	for cid in gd.classes:
+		var cls: ClassDef = gd.classes[cid]
+		var bot: SimEntity = sim.spawn_bot(cls, "Apx", "city_aldara", Vector3(0, 0, 6), 40)
+		for b in cls.builds:
+			bot.build_id = b["id"]
+			for lv in Balance.HYBRID_LEVELS:
+				var got: String = sim.bot_legendary_set(bot, lv)
+				var expect: String = GearCatalog.apex_set_id(cid, b["id"], lv) if GearCatalog.APEX.has(b["id"]) else (want_set[b["id"]] % lv if want_set.has(b["id"]) else got)
+				check(got == expect and gd.sets.has(got), "R-AP6: bot %s/%s no %d pega %s (%s)" % [cid, b["id"], lv, expect, got])
+				if cid in ["elementalist", "necromancer"]:
+					check(gd.sets.has(got) and gd.sets[got].is_hybrid(), "bot %s/%s no %d segue no híbrido" % [cid, b["id"], lv])
+		sim.despawn(bot)
+	# face (R-AP3): Executor com garras = apagado; machado de 2 mãos (e Titã) = ligado; 4 peças = nada
+	var ex: SimEntity = _wear_apex(gd, sim.spawn_bot(gd.classes["berserker"], "Exe", "city_aldara", Vector3(0, 0, 6), 40), "executor", 5, "axe2h_t5")
+	check(FusionEffects.fid(ex) == "apice_executor" and FusionEffects.face(ex) == "executor", "Ápice do Executor + machado de 2 mãos: ligado")
+	_wear_apex(gd, ex, "executor", 5, "axe2h_t5", "axe2h_t5")
+	check(FusionEffects.face(ex) == "executor", "Ápice do Executor + Empunhadura de Titã: ligado")
+	_wear_apex(gd, ex, "executor", 5, "claw_t5", "claw_t5")
+	check(FusionEffects.fid(ex) == "apice_executor" and FusionEffects.face(ex) == "", "Ápice do Executor + garras: apagado")
+	_wear_apex(gd, ex, "executor", 4, "axe2h_t5")
+	check(ex.stats.fusion.is_empty(), "Ápice com 4 peças: sem efeito")
+	sim.despawn(ex)
+	var du: SimEntity = _wear_apex(gd, sim.spawn_bot(gd.classes["assassin"], "Due", "city_aldara", Vector3(0, 0, 6), 40), "duelista", 5, "sword_t5", "pistol_t5")
+	check(FusionEffects.face(du) == "", "Ápice do Duelista com sabre e pistola: apagado (é a arma do Corsário)")
+	_wear_apex(gd, du, "duelista", 5, "sword_t5", "sword_t5")
+	check(FusionEffects.face(du) == "duelista", "Ápice do Duelista com duas espadas: ligado")
+	sim.despawn(du)
+
+## Uma regra por ficha do Ápice (apice-sets.md §7 check 5), sim determinística. Cada uma com 5 peças e a arma da build, nível 40.
+func _check_apex_rules(gd, sim) -> void:
+	if not sim.maps.has("city_aldara"):
+		sim.load_map(gd.maps["city_aldara"])
+	var at := Vector3(0, 0, 6)
+	var ber: ClassDef = gd.classes["berserker"]
+	# B-A1 Carniceiro: golpe dá Frenesi da Tormenta até 5; o Arremesso Brutal gasta e bate mais por carga
+	var e: SimEntity = _wear_apex(gd, sim.spawn_bot(ber, "Car", "city_aldara", at, 40), "carniceiro", 5, "axe_t5", "axe_t5")
+	var mob: SimEntity = _big_mob(gd, sim, at + Vector3(1, 0, 0))
+	var basic: SkillDef = gd.basic_skill_for_class(ber, "axe")
+	for i in range(7):
+		FusionEffects.on_hit(sim, e, mob, basic, 10, false)
+	check(e.buff_stacks(FusionEffects.TEMPEST_BUFF) == Balance.FUSION_FRENZY_MAX, "Tormenta Gêmea: Frenesi da Tormenta para em %d (%d)" % [Balance.FUSION_FRENZY_MAX, e.buff_stacks(FusionEffects.TEMPEST_BUFF)])
+	var thr := FusionEffects.num(e, "throw")
+	var sm := FusionEffects.skill_mult(sim, e, gd.skills[FusionEffects.THROW_SKILL])
+	check(absf(sm - (1.0 + thr * Balance.FUSION_FRENZY_MAX / 100.0)) < 0.001 and e.buff_stacks(FusionEffects.TEMPEST_BUFF) == 0, "Tormenta Gêmea: Arremesso gasta as cargas, +%.1f%% por carga (x%.3f)" % [thr, sm])
+	sim.despawn(e)
+	# B-A2 Executor: limiar 35/36/37; abaixo dele +exec_dmg; o Carrasco da arma sobe junto; skill de 1 alvo +heavy
+	e = sim.spawn_bot(ber, "Exe", "city_aldara", at, 45)
+	for i in range(3):
+		var lv: int = Balance.HYBRID_LEVELS[i]
+		_wear_apex(gd, e, "executor", 5, "axe2h_t5", "", lv)
+		check(absf(FusionEffects.exec_line(e) - (0.35 + 0.01 * i)) < 0.0001, "Cadafalso: limiar de execução %d%% no %d (%.3f)" % [35 + i, lv, FusionEffects.exec_line(e)])
+	_wear_apex(gd, e, "executor", 5, "axe2h_t5", "", 35)
+	mob.hp = mob.stats.max_hp * 0.345
+	var ed := FusionEffects.num(e, "exec_dmg")
+	check(absf(FusionEffects.hit_mult(sim, e, mob, basic) - (1.0 + ed / 100.0)) < 0.001, "Cadafalso: abaixo do limiar +%.0f%%" % ed)
+	mob.hp = mob.stats.max_hp * 0.355
+	check(is_equal_approx(FusionEffects.hit_mult(sim, e, mob, basic), 1.0), "Cadafalso: acima do limiar, normal")
+	var axe: String = "leg_berserker_apex_executor_40_weapon"
+	_wear_apex(gd, e, "executor", 5, axe)
+	mob.hp = mob.stats.max_hp * 0.33
+	check(LegendEffects.legend_power(sim, e, mob) > 1.0, "Cadafalso: o Carrasco da arma vale até o limiar novo (33%% da vida)")
+	_wear_apex(gd, e, "executor", 4, axe)
+	check(is_equal_approx(LegendEffects.legend_power(sim, e, mob), 1.0), "Carrasco sem o Ápice: 33%% da vida fica acima dos 30%%")
+	_wear_apex(gd, e, "executor", 5, axe)
+	check(absf(FusionEffects.skill_mult(sim, e, gd.skills["ber_execute"]) - (1.0 + FusionEffects.num(e, "heavy") / 100.0)) < 0.001, "Cadafalso: skill de golpe em 1 alvo +heavy%%")
+	check(is_equal_approx(FusionEffects.bot_skill_mult(e, mob, gd.skills["ber_execute"]), Balance.BOT_FUSION_SCORE), "Cadafalso (bot): Executar abaixo do limiar atual pesa mais (33%% < 36%%)")
+	mob.hp = mob.stats.max_hp * 0.5
+	check(is_equal_approx(FusionEffects.bot_skill_mult(e, mob, gd.skills["ber_execute"]), 1.0), "Cadafalso (bot): acima do limiar, sem peso extra")
+	sim.despawn(e)
+	# B-A3 Punhos: crítico com garras contra-ataca (ICD); +esquiva
+	e = _wear_apex(gd, sim.spawn_bot(ber, "Pun", "city_aldara", at, 40), "punhos", 4, "claw_t5", "claw_t5")
+	var eva4: float = e.stats.evasion
+	_wear_apex(gd, e, "punhos", 5, "claw_t5", "claw_t5")
+	check(e.stats.evasion > eva4 or e.stats.evasion >= Balance.EVASION_CAP, "Punho Implacável: +esquiva (%.1f -> %.1f)" % [eva4, e.stats.evasion])
+	var cb: SkillDef = gd.basic_skill_for_class(ber, "claw")
+	var hp0: float = mob.hp
+	FusionEffects.on_hit(sim, e, mob, cb, 10, false)
+	check(is_equal_approx(mob.hp, hp0), "Punho Implacável: golpe sem crítico não contra-ataca")
+	FusionEffects.on_hit(sim, e, mob, cb, 10, true)
+	var hp1: float = mob.hp
+	FusionEffects.on_hit(sim, e, mob, cb, 10, true)
+	check(hp1 < hp0 and is_equal_approx(mob.hp, hp1) and int(e.fus.get("n_counter", 0)) == 1, "Punho Implacável: crítico contra-ataca, com recarga de %.0f s" % Balance.FUSION_COUNTER_ICD)
+	sim.despawn(e)
+	# P-A1 Cruzado: skill que atordoa julga o alvo mesmo se o chefe resistir; Julgado = +judged% de todo o dano
+	var pal: ClassDef = gd.classes["paladin"]
+	e = _wear_apex(gd, sim.spawn_bot(pal, "Cru", "city_aldara", at, 40), "cruzado", 5, "sword2h_t5")
+	var boss_def: MonsterDef = null
+	for mid in gd.monsters:
+		if gd.monsters[mid].is_boss:
+			boss_def = gd.monsters[mid]
+			break
+	var boss: SimEntity = sim.spawn_monster(boss_def, "city_aldara", at + Vector3(0, 0, 1))
+	var stun_s: SkillDef = null
+	for sid in gd.skills:
+		var s: SkillDef = gd.skills[sid]
+		if s.class_id == "paladin" and s.effects.has("stun") and s.power > 0.0:
+			stun_s = s
+			break
+	check(is_equal_approx(FusionEffects.damage_mult(e, boss), 1.0), "Veredito: alvo sem Julgado, dano normal")
+	FusionEffects.on_hit(sim, e, boss, stun_s, 10, false)
+	var jd := FusionEffects.num(e, "judged")
+	check(boss.state != SimEntity.State.STUNNED and absf(FusionEffects.damage_mult(e, boss) - (1.0 + jd / 100.0)) < 0.001, "Veredito: %s julga o chefe mesmo sem atordoar (+%.1f%%)" % [stun_s.id if stun_s else "?", jd])
+	check(is_equal_approx(FusionEffects.stun_bonus(e), FusionEffects.num(e, "stun_ch")) and FusionEffects.stun_bonus(e) > 0.0, "Veredito: +%.0f p.p. no Julgamento da arma" % FusionEffects.stun_bonus(e))
+	_wear_apex(gd, e, "cruzado", 4, "sword2h_t5")
+	check(is_equal_approx(FusionEffects.damage_mult(e, boss), 1.0) and is_equal_approx(FusionEffects.stun_bonus(e), 0.0), "Veredito: 4 peças = apagado")
+	sim.despawn(boss)
+	sim.despawn(e)
+	# Bi-A1 Iluminado: magia sagrada dá Aurora; renova, não acumula
+	var bis: ClassDef = gd.classes["bishop"]
+	e = _wear_apex(gd, sim.spawn_bot(bis, "Aur", "city_aldara", at, 40), "inquisidor", 5, "scepter_t5")
+	var matk0: float = e.stats.matk
+	FusionEffects.on_cast(sim, e, gd.skills["bis_smite"], at)
+	FusionEffects.on_cast(sim, e, gd.skills["bis_smite"], at)
+	var au := FusionEffects.num(e, "aurora")
+	var auras: Array = e.buffs.filter(func(x): return x.get("id") == FusionEffects.AURORA_BUFF)
+	check(auras.size() == 1 and is_equal_approx(float(auras[0].get("matk_pct", 0.0)), au) and e.stats.matk > matk0, "Aurora Ardente: magia sagrada dá Aurora +%.1f%% (renova sem acumular; MATK %.0f -> %.0f)" % [au, matk0, e.stats.matk])
+	sim.despawn(e)
+	# D-A1 Urso: ao apanhar, a Casca cobre você e o aliado mais ferido; recarga; o Urro zera a recarga
+	var dru: ClassDef = gd.classes["druid"]
+	e = _wear_apex(gd, sim.spawn_bot(dru, "Urs", "city_aldara", at, 40), "guardiao_verde", 5, "mace2h_t5")
+	var ally: SimEntity = sim.spawn_bot(ber, "Ali", "city_aldara", at + Vector3(0.5, 0, 0), 40)
+	sim.party_leave(e)
+	sim.party_leave(ally)
+	sim.party_invite(e, ally)
+	sim.party_accept(ally)
+	check(sim.same_party(e, ally), "Casca Ancestral: urso e aliado no mesmo grupo (preparo)")
+	ally.hp = ally.stats.max_hp * 0.05
+	ally.buffs.clear()
+	e.buffs.clear()
+	FusionEffects.on_hit_taken(sim, mob, e)
+	FusionEffects.on_hit_taken(sim, mob, e)
+	check(not ally.buffs.is_empty() and not e.buffs.is_empty() and int(e.fus.get("n_bark", 0)) == 1, "Casca Ancestral: cobre você e o aliado mais ferido, com recarga (%d)" % int(e.fus.get("n_bark", 0)))
+	FusionEffects.on_cast(sim, e, gd.skills[FusionEffects.BELLOW_SKILL], at)
+	FusionEffects.on_hit_taken(sim, mob, e)
+	check(int(e.fus.get("n_bark", 0)) == 2, "Casca Ancestral: o Urro da Mata zera a recarga")
+	sim.despawn(ally)
+	sim.despawn(e)
+	# D-A2 Lobo: +hunt só em alvo sangrando
+	e = _wear_apex(gd, sim.spawn_bot(dru, "Lob", "city_aldara", at, 40), "fera", 5, "mace_t5", "mace_t5")
+	mob.debuffs.clear()
+	check(is_equal_approx(FusionEffects.damage_mult(e, mob), 1.0), "Matilha Rubra: alvo sem sangrar, dano normal")
+	mob.debuffs.append({"kind": "dot", "id": "bleed_x", "remaining": 4.0, "dps": 1.0, "src": -7, "bleed": true})
+	check(absf(FusionEffects.damage_mult(e, mob) - (1.0 + FusionEffects.num(e, "hunt") / 100.0)) < 0.001, "Matilha Rubra: alvo sangrando (de qualquer fonte) +%.0f%%" % FusionEffects.num(e, "hunt"))
+	mob.debuffs.clear()
+	sim.despawn(e)
+	# D-A3 Xamã: magia em alvo com Fogo Lunar +moon; Fogo Lunar em alvo marcado salta uma vez (o salto não encadeia)
+	e = _wear_apex(gd, sim.spawn_bot(dru, "Xam", "city_aldara", at, 40), "xama", 5, "staff_t5")
+	var m2: SimEntity = _big_mob(gd, sim, mob.position + Vector3(2.5, 0, 0))
+	var moon: SkillDef = gd.skills[FusionEffects.MOON_SKILL]
+	FusionEffects.on_hit(sim, e, mob, moon, 10, false)
+	var m2hp: float = m2.hp
+	check(int(e.fus.get("n_moon_jump", 0)) == 0 and absf(FusionEffects.hit_mult(sim, e, mob, moon) - (1.0 + FusionEffects.num(e, "moon") / 100.0)) < 0.001, "Maré Lunar: 1º Fogo Lunar marca, magia no marcado +%.0f%%" % FusionEffects.num(e, "moon"))
+	check(is_equal_approx(FusionEffects.bot_skill_mult(e, mob, moon), Balance.BOT_FUSION_SCORE), "Maré Lunar (bot): Fogo Lunar no alvo marcado pesa mais")
+	FusionEffects.on_hit(sim, e, mob, moon, 10, false)
+	check(int(e.fus.get("n_moon_jump", 0)) == 1 and m2.hp < m2hp and FusionEffects._moonlit(e, m2), "Maré Lunar: Fogo Lunar no marcado salta e marca o vizinho")
+	check(int(e.fus.get("n_moon_jump", 0)) == 1, "Maré Lunar: o salto não encadeia")
+	sim.despawn(m2)
+	sim.despawn(e)
+	# R-A1 Caçador: golpe do lince aplica a Marca (teto MARK_TAKEN_CAP); lince +pet% em alvo retardado
+	var ran: ClassDef = gd.classes["ranger"]
+	e = _wear_apex(gd, sim.spawn_bot(ran, "Cac", "city_aldara", at, 40), "cacador", 5, "bow_t5")
+	var pet: SimEntity = sim.spawn_summon(e, gd.monsters[FusionEffects.PET_ID], at + Vector3(0.5, 0, 0.5), 0.0, true)
+	mob.debuffs.clear()
+	mob.debuffs.append({"kind": "curse", "id": "curse_predator_999", "remaining": 9.0, "taken_pct": 22.0, "weaken_pct": 0.0, "mark": true})
+	FusionEffects.summon_on_hit(sim, e, pet, mob)
+	check(mob.debuffs.any(func(d): return str(d.get("id", "")) == "curse_legend_mark_%d" % e.id and d.get("mark", false)) and Combat.taken_pct(mob) <= Balance.MARK_TAKEN_CAP + 0.001,
+		"Faro do Lince: o lince marca o alvo e a soma das marcas fica no teto (%.1f)" % Combat.taken_pct(mob))
+	check(is_equal_approx(FusionEffects.hit_mult(sim, pet, mob, null), 1.0), "Faro do Lince: alvo livre, lince normal")
+	mob.debuffs.append({"kind": "slow", "remaining": 3.0, "pct": 30.0})
+	check(absf(FusionEffects.hit_mult(sim, pet, mob, null) - (1.0 + FusionEffects.num(e, "pet") / 100.0)) < 0.001, "Faro do Lince: lince +%.1f%% em alvo retardado" % FusionEffects.num(e, "pet"))
+	check(is_equal_approx(FusionEffects.bot_skill_mult(e, mob, gd.skills[FusionEffects.FROST_ARROW]), 1.0), "Faro do Lince (bot): alvo já retardado, Flecha Gélida sem peso extra")
+	mob.debuffs.clear()
+	check(is_equal_approx(FusionEffects.bot_skill_mult(e, mob, gd.skills[FusionEffects.FROST_ARROW]), Balance.BOT_FUSION_SCORE), "Faro do Lince (bot): abre com Flecha Gélida")
+	sim.despawn(pet)
+	sim.despawn(e)
+	# R-A2 Atirador: +1 torreta (a 2ª a t2_pwr%), +1 armadilha, mira em preso/retardado/marcado; regenera perto da torreta
+	e = sim.spawn_bot(ran, "Ati", "city_aldara", at, 40)
+	_wear_apex(gd, e, "atirador", 4, "rifle_t5")
+	var tm4 := RangerAscension.turret_max(e)
+	var tr4 := ClassTalentSystem.trap_max(e)
+	_wear_apex(gd, e, "atirador", 5, "rifle_t5")
+	check(RangerAscension.turret_max(e) == tm4 + 1 and ClassTalentSystem.trap_max(e) == tr4 + 1, "Posto Avançado: +1 torreta (%d) e +1 armadilha (%d)" % [RangerAscension.turret_max(e), ClassTalentSystem.trap_max(e)])
+	check(is_equal_approx(FusionEffects.turret_power(e, 0), 1.0) and absf(FusionEffects.turret_power(e, Balance.TURRET_MAX) - FusionEffects.num(e, "t2_pwr") / 100.0) < 0.001, "Posto Avançado: a torreta a mais sai a %.0f%%" % FusionEffects.num(e, "t2_pwr"))
+	var tur: SimEntity = sim.spawn_summon(e, gd.monsters[Balance.TURRET_MONSTER], at + Vector3(0, 0, -1), 20.0, false)
+	var near_m: SimEntity = _big_mob(gd, sim, tur.position + Vector3(1, 0, 0))
+	var far_m: SimEntity = _big_mob(gd, sim, tur.position + Vector3(-3, 0, 0))
+	far_m.debuffs.append({"kind": "root", "remaining": 3.0})
+	check(FusionEffects.turret_pick(sim, tur, sim.maps["city_aldara"], Balance.TURRET_RANGE) == far_m, "Posto Avançado: a torreta mira primeiro o preso, não o mais perto")
+	var al2: SimEntity = sim.spawn_bot(ber, "Reg", "city_aldara", tur.position + Vector3(0.5, 0, 0.5), 40)
+	sim.party_leave(e)
+	sim.party_leave(al2)
+	sim.party_invite(e, al2)
+	sim.party_accept(al2)
+	al2.hp = al2.stats.max_hp * 0.5
+	var ahp: float = al2.hp
+	sim.maps["city_aldara"].erase("fus_tick")
+	FusionEffects.tick(sim, sim.maps["city_aldara"])
+	check(al2.hp > ahp, "Posto Avançado: aliado perto da torreta regenera (%.0f -> %.0f)" % [ahp, al2.hp])
+	_wear_apex(gd, e, "atirador", 5, "bow_t5")
+	check(FusionEffects.turret_pick(sim, tur, sim.maps["city_aldara"], Balance.TURRET_RANGE) == null, "Posto Avançado: com o arco, apagado")
+	for x in [al2, near_m, far_m, tur, e]:
+		sim.despawn(x)
+	# R-A3 Lanceiro: golpe abre 1 Ferida, 2 em alvo retardado ou preso
+	e = _wear_apex(gd, sim.spawn_bot(ran, "Lan", "city_aldara", at, 40), "lanceiro", 5, "spear_t5")
+	var sb: SkillDef = gd.basic_skill_for_class(ran, "spear")
+	var m4: SimEntity = _big_mob(gd, sim, at + Vector3(-1, 0, 0))
+	FusionEffects.on_hit(sim, e, m4, sb, 10, false)
+	check(LegendEffects.wounds(e, m4) == 1, "Presa Aberta: golpe abre 1 Ferida")
+	var m5: SimEntity = _big_mob(gd, sim, at + Vector3(-1, 0, 1))
+	m5.debuffs.append({"kind": "slow", "remaining": 3.0, "pct": 30.0})
+	FusionEffects.on_hit(sim, e, m5, sb, 10, false)
+	check(LegendEffects.wounds(e, m5) == 2, "Presa Aberta: 2 Feridas em alvo retardado (%d)" % LegendEffects.wounds(e, m5))
+	sim.despawn(m4)
+	sim.despawn(m5)
+	sim.despawn(e)
+	# A-A1 Lâminas: avançar/esquivar deixa a facada furtiva; ela envenena
+	var ass: ClassDef = gd.classes["assassin"]
+	e = _wear_apex(gd, sim.spawn_bot(ass, "Lam", "city_aldara", at, 40), "laminas", 5, "dagger_t5", "dagger_t5")
+	var db: SkillDef = gd.basic_skill_for_class(ass, "dagger")
+	mob.debuffs.clear()
+	FusionEffects.on_hit(sim, e, mob, db, 10, false)
+	check(not mob.debuffs.any(func(d): return str(d.get("id", "")) == "apex_poison_%d" % e.id), "Sombra Peçonhenta: facada comum não envenena")
+	FusionEffects.on_dodge(sim, e, mob)
+	var gm := FusionEffects.skill_mult(sim, e, db)
+	FusionEffects.on_hit(sim, e, mob, db, 10, false)
+	check(gm >= 1.0 and int(e.fus.get("n_ghost", 0)) == 1 and mob.debuffs.any(func(d): return str(d.get("id", "")) == "apex_poison_%d" % e.id), "Sombra Peçonhenta: esquivar deixa a facada furtiva (x%.2f) e ela envenena" % gm)
+	sim.despawn(e)
+	# A-A2 Duelista: crítico dá Cadência (não é Bravata), esquivar dá 2; com 5 vira Foco
+	e = _wear_apex(gd, sim.spawn_bot(ass, "Due", "city_aldara", at, 40), "duelista", 5, "sword_t5", "sword_t5")
+	var swb: SkillDef = gd.basic_skill_for_class(ass, "sword")
+	FusionEffects.on_hit(sim, e, mob, swb, 10, true)
+	FusionEffects.on_hit(sim, e, mob, swb, 10, true)
+	check(e.buff_stacks(FusionEffects.CADENCE_BUFF) == 1 and e.buff_stacks(Balance.BRAVADO_BUFF) == 0, "Cadência Perfeita: crítico dá 1 Cadência (recarga de %.0f s), não Bravata" % Balance.APEX_CADENCE_ICD)
+	FusionEffects.on_dodge(sim, e, mob)
+	check(e.buff_stacks(FusionEffects.CADENCE_BUFF) == 3, "Cadência Perfeita: esquivar dá 2")
+	FusionEffects.on_dodge(sim, e, mob)
+	var fid_buff: String = str((gd.skills[FusionEffects.FOCUS_SKILL].effects["buff"] as Dictionary).get("id", ""))
+	check(e.buff_stacks(FusionEffects.CADENCE_BUFF) == 0 and e.buffs.any(func(x): return x.get("id") == fid_buff), "Cadência Perfeita: com %d vira Foco do Duelista" % Balance.APEX_CADENCE_MAX)
+	sim.despawn(e)
+	# A-A3 Corsário: Bravata cheia -> o próximo golpe de espada dispara a pistola de graça e gasta tudo; bot segura o Tiro
+	e = _wear_apex(gd, sim.spawn_bot(ass, "Cor", "city_aldara", at, 40), "corsario", 5, "sword_t5", "pistol_t5")
+	e.drop_buff(Balance.BRAVADO_BUFF)
+	FusionEffects.on_hit(sim, e, mob, swb, 10, true)
+	check(e.buff_stacks(Balance.BRAVADO_BUFF) == 1, "Salva Final: crítico com espada dá Bravata")
+	e.put_buff({"id": Balance.BRAVADO_BUFF, "remaining": 10.0, "stacks": Balance.APEX_BOT_HOLD_BRAVADO})
+	check(is_equal_approx(FusionEffects.bot_skill_mult(e, mob, gd.skills[FusionEffects.EYES_SHOT]), 0.0), "Salva Final (bot): com %d de Bravata segura o Tiro Entre os Olhos" % Balance.APEX_BOT_HOLD_BRAVADO)
+	e.put_buff({"id": Balance.BRAVADO_BUFF, "remaining": 10.0, "stacks": Balance.BRAVADO_MAX})
+	var mhp: float = mob.hp
+	FusionEffects.on_hit(sim, e, mob, swb, 10, false)
+	check(mob.hp < mhp and e.buff_stacks(Balance.BRAVADO_BUFF) == 0 and int(e.fus.get("n_salvo", 0)) == 1, "Salva Final: Bravata cheia dispara a pistola de graça e gasta tudo")
+	sim.despawn(e)
+	sim.despawn(mob)
+
+## Save 5 -> 6 (apice-sets.md §6, check 8): peças dos híbridos que saíram viram as do Ápice; P3/Bi3/Ele/Necro intactos.
+func _check_apex_save(gd, sim) -> void:
+	check(SaveSystem.VERSION == 6, "save versão 6 (Ápices)")
+	var cases := {
+		"leg_berserker_mix_carniceiro_executor_40_head": "leg_berserker_apex_carniceiro_40_head",
+		"leg_berserker_mix_executor_punhos_45_legs": "leg_berserker_apex_executor_45_legs",
+		"leg_berserker_mix_carniceiro_executor_40_executor_weapon+3": "leg_berserker_apex_executor_40_weapon+3",
+		"leg_berserker_mix_punhos_carniceiro_35_carniceiro_offhand": "leg_berserker_apex_carniceiro_35_offhand",
+		"leg_ranger_mix_lanceiro_cacador_40_cacador_weapon": "leg_ranger_apex_cacador_40_weapon",
+		"leg_druid_mix_xama_guardiao_verde_40_guardiao_verde_weapon": "leg_druid_apex_guardiao_verde_40_weapon",
+		"leg_druid_mix_guardiao_verde_fera_40_gloves": "leg_druid_apex_guardiao_verde_40_gloves",
+		"leg_assassin_mix_duelista_corsario_40_corsario_offhand": "leg_assassin_apex_corsario_40_offhand",
+		"leg_paladin_mix_guardiao_cruzado_40_body": "leg_paladin_apex_cruzado_40_body",
+		"leg_paladin_mix_guardiao_cruzado_40_cruzado_weapon": "leg_paladin_apex_cruzado_40_weapon",
+		"leg_paladin_mix_guardiao_cruzado_40_guardiao_offhand": "leg_paladin_mix_templario_guardiao_40_guardiao_offhand",
+		"leg_paladin_mix_cruzado_templario_45_templario_weapon+2": "leg_paladin_mix_templario_guardiao_45_templario_weapon+2",
+		"leg_paladin_mix_cruzado_templario_45_boots": "leg_paladin_apex_cruzado_45_boots",
+		"leg_bishop_mix_sacerdote_inquisidor_40_head": "leg_bishop_apex_inquisidor_40_head",
+		"leg_bishop_mix_sacerdote_inquisidor_40_sacerdote_weapon": "leg_bishop_mix_batalha_sacerdote_40_sacerdote_weapon",
+		"leg_bishop_mix_inquisidor_batalha_40_batalha_offhand": "leg_bishop_mix_batalha_sacerdote_40_batalha_offhand",
+		"leg_bishop_mix_inquisidor_batalha_40_legs": "leg_bishop_apex_inquisidor_40_legs",
+		# os que ficaram: iguais
+		"leg_paladin_mix_templario_guardiao_40_head": "leg_paladin_mix_templario_guardiao_40_head",
+		"leg_bishop_mix_batalha_sacerdote_40_batalha_weapon+5": "leg_bishop_mix_batalha_sacerdote_40_batalha_weapon+5",
+		"leg_elementalist_mix_fogo_gelo_40_head": "leg_elementalist_mix_fogo_gelo_40_head",
+		"leg_necromancer_mix_ceifador_pestilento_45_ceifador_weapon": "leg_necromancer_mix_ceifador_pestilento_45_ceifador_weapon",
+	}
+	for old in cases:
+		var got := SaveSystem.migrate_item_id(old)
+		check(got == cases[old] and gd.resolve_item(got), "save v5: %s -> %s (%s)" % [old, cases[old], got])
+		check(SaveSystem.migrate_item_id(got) == got, "save v6: %s ida e volta igual" % got)
+	# fixture v5: bolsa, depósito, equipado (+3) e duas peças que viram a mesma
+	if not sim.maps.has("city_aldara"):
+		sim.load_map(gd.maps["city_aldara"])
+	var sv: SimEntity = sim.spawn_bot(gd.classes["berserker"], "SaveApx", "city_aldara", Vector3(0, 0, 8), 40)
+	sv.brain = null
+	SaveSystem.apply_to(sv, {"level": 40, "save_version": 5,
+		"inventory": {"leg_berserker_mix_carniceiro_executor_40_carniceiro_offhand": 1, "leg_berserker_mix_punhos_carniceiro_40_carniceiro_offhand": 1,
+			"leg_berserker_mix_executor_punhos_40_body": 1},
+		"storage": {"leg_berserker_mix_punhos_carniceiro_40_boots": 2},
+		"equipment": {str(ItemDef.Slot.WEAPON): "leg_berserker_mix_carniceiro_executor_40_executor_weapon+3",
+			str(ItemDef.Slot.HEAD): "leg_berserker_mix_carniceiro_executor_40_head"}})
+	check(int(sv.inventory.get("leg_berserker_apex_carniceiro_40_offhand", 0)) == 2, "save v5: duas peças velhas que viram a mesma somam (%s)" % str(sv.inventory.get("leg_berserker_apex_carniceiro_40_offhand", 0)))
+	check(int(sv.inventory.get("leg_berserker_apex_executor_40_body", 0)) == 1 and int(sv.storage.get("leg_berserker_apex_punhos_40_boots", 0)) == 2, "save v5: bolsa e depósito migram")
+	var w: ItemDef = sv.equipment.get(ItemDef.Slot.WEAPON)
+	var hd: ItemDef = sv.equipment.get(ItemDef.Slot.HEAD)
+	check(w != null and w.id == "leg_berserker_apex_executor_40_weapon+3" and w.plus == 3 and hd != null and hd.id == "leg_berserker_apex_carniceiro_40_head", "save v5: equipado troca no mesmo slot e mantém o +3 (%s)" % (w.id if w else "-"))
+	check(not sv.inventory.keys().any(func(k): return str(k).contains("_mix_")), "save v5: nenhum id velho fica na bolsa")
+	sim.despawn(sv)
 
 ## Ato II fase 2 (GDD F10, AC-32): tier comum do 40 ("de Oricalco", épico), lendário do 40 no índice 7 (8 moedas,
 ## i_ef = 6 -> 4 peças 44%, 5 peças 18%, recarga 22%), visual do 30 reaproveitado, bots vestem pelo nível.
@@ -9838,7 +11006,7 @@ func _check_act2_gear_40(gd, sim) -> void:
 	var n40 := 0
 	for sid in gd.sets:
 		var sd: SetDef = gd.sets[sid]
-		if sd.level != 40 or sd.is_hybrid():
+		if sd.level != 40 or sd.is_hybrid() or sd.is_apex():
 			continue
 		n40 += 1
 		var v4: float = sd.bonuses[4]["skill_dmg"].values()[0]
@@ -9851,7 +11019,7 @@ func _check_act2_gear_40(gd, sim) -> void:
 		check(stat_pct >= 18.0, "%s: 5 peças +18%% no stat da build (%.1f)" % [sid, stat_pct])
 		var vis: Dictionary = GearCatalog.visual_of(sid)
 		var base30: String = sid.trim_suffix("_40") + "_30"
-		check(vis.get("reuse", "") == base30 and vis.get("style", "") == GearCatalog.SET_VISUALS[base30]["style"], "%s: visual do conjunto 30" % sid)
+		check(vis.get("reuse", "") == base30 and (vis.has("act2") or vis.get("style", "") == GearCatalog.SET_VISUALS[base30]["style"]), "%s: visual do conjunto 30 (ou o do Ato II da build)" % sid)
 		var head: ItemDef = gd.items[sd.armor[0]]
 		check(head.armor_style == vis["style"] and head.name.ends_with(GearCatalog.TIER_EPITHETS[7]) and head.level_req == 40, "%s: peça com estilo do 30 e nome próprio (%s)" % [sid, head.name])
 		var w: ItemDef = gd.items[sid.replace("set_", "leg_") + "_weapon"]
@@ -9859,7 +11027,8 @@ func _check_act2_gear_40(gd, sim) -> void:
 		var w35: ItemDef = gd.items[(sid.trim_suffix("_40") + "_35").replace("set_", "leg_") + "_weapon"]
 		check(w.atk > w35.atk or w.matk > w35.matk, "%s: arma acima da do 35" % sid)
 		var t5w: ItemDef = gd.items.get("%s_t%d" % [w.weapon_type, t5])
-		check(t5w != null and w.atk >= t5w.atk and w.matk >= t5w.matk, "%s: arma lendária do 40 não fica abaixo da comum do 40" % sid)
+		var traded: bool = GearCatalog.weapon_role(str(gd.sets[sid].id.get_slice("_", 2)), w.weapon_type) == "battle"     # Clérigo de Batalha: MATK virou ATK/DEF
+		check(t5w != null and w.atk >= t5w.atk and (w.matk >= t5w.matk or (traded and w.def > 0.0)), "%s: arma lendária do 40 não fica abaixo da comum do 40" % sid)
 	check(n40 == 24, "24 conjuntos lendários do 40, um por build (%d)" % n40)
 	check(absf(GearCatalog.level_factor(40) - 44.0 / 28.0) < 0.001, "F10: fator do nível 40 = 1,571 (%.3f)" % GearCatalog.level_factor(40))
 
@@ -9892,7 +11061,7 @@ func _check_kharzun_cap(gd, sim) -> void:
 		var sd: SetDef = gd.sets[sid]
 		if sd.level != 45:
 			continue
-		if sd.is_hybrid():
+		if sd.is_hybrid() or sd.is_apex():
 			n45h += 1
 			continue
 		n45 += 1
@@ -9905,14 +11074,14 @@ func _check_kharzun_cap(gd, sim) -> void:
 		check(w.atk > w40.atk or w.matk > w40.matk, "%s: arma acima da do 40" % sid)
 		var head: ItemDef = gd.items[sd.armor[0]]
 		check(head.name.ends_with(GearCatalog.TIER_EPITHETS[8]) and head.level_req == 45 and not GearCatalog.visual_of(sid).is_empty(), "%s: peça com nome do 45 e visual reaproveitado (%s)" % [sid, head.name])
-	check(n45 == 24 and n45h == 24, "24 conjuntos de build e 24 híbridos do 45 (%d, %d)" % [n45, n45h])
+	check(n45 == 24 and n45h == 22, "24 conjuntos de build e 22 extras do 45 (8 híbridos + 14 Ápices) (%d, %d)" % [n45, n45h])
 	for cid in gd.classes:
 		var p := SimEntity.new()
 		p.class_def = gd.classes[cid]
 		p.level = 45
 		var offer: Array = sim.relic_offer(p)
-		check(offer.any(func(iid): return gd.items[iid].level_req == 45 and gd.items[iid].set_id != "" and not gd.sets[gd.items[iid].set_id].is_hybrid()), "%s: Relicária oferece conjunto da build do 45" % cid)
-		check(offer.any(func(iid): return gd.items[iid].level_req == 45 and gd.items[iid].set_id != "" and gd.sets[gd.items[iid].set_id].is_hybrid()), "%s: Relicária oferece híbrido do 45" % cid)
+		check(offer.any(func(iid): return gd.items[iid].level_req == 45 and gd.items[iid].set_id != "" and not gd.sets[gd.items[iid].set_id].is_hybrid() and not gd.sets[gd.items[iid].set_id].is_apex()), "%s: Relicária oferece conjunto da build do 45" % cid)
+		check(offer.any(func(iid): return gd.items[iid].level_req == 45 and gd.items[iid].set_id != "" and (gd.sets[gd.items[iid].set_id].is_hybrid() or gd.sets[gd.items[iid].set_id].is_apex())), "%s: Relicária oferece híbrido ou Ápice do 45" % cid)
 	# linha de talento 45: fechada no 44, abre no 45 (uma opção por classe)
 	var cat: Dictionary = ClassTalentsCatalog.build()
 	var at: Vector3 = sim.maps["city_aldara"]["def"].town_center
@@ -10671,7 +11840,7 @@ func _check_character_models(gd, sim) -> void:
 	var pal_styles := {}
 	for set_id in gd.sets:
 		var psd: SetDef = gd.sets[set_id]
-		if psd.class_id != "paladin" or psd.is_hybrid():
+		if psd.class_id != "paladin" or psd.is_hybrid() or psd.is_apex():
 			continue
 		check(not GearCatalog.visual_of(set_id).is_empty(), "%s tem visual próprio" % set_id)
 		for iid in psd.pieces:
@@ -10679,28 +11848,30 @@ func _check_character_models(gd, sim) -> void:
 			if pit.armor_style != "" and pit.slot != ItemDef.Slot.LEGS:      # calça: estilo da build (o kit tem), na cor do conjunto
 				pal_styles[pit.armor_style] = true
 				check(pit.armor_style == GearCatalog.visual_of(set_id).get("style", ""), "%s usa o visual do conjunto" % iid)
-	check(pal_styles.size() == 18, "18 conjuntos do paladino, 18 visuais (%d)" % pal_styles.size())
+	# 18 visuais dos níveis 5..30 + 3 do Ato II (um por build, o mesmo no 35/40/45; malhas no kit extra, _check_kit_addon)
+	check(pal_styles.size() == 18 + 3, "18 conjuntos do paladino até o 30 + 3 visuais do Ato II (%d)" % pal_styles.size())
 	var ber := 0
 	for set_id in gd.sets:
-		if gd.sets[set_id].class_id == "berserker" and not gd.sets[set_id].is_hybrid():
+		if gd.sets[set_id].class_id == "berserker" and not gd.sets[set_id].is_hybrid() and not gd.sets[set_id].is_apex():
 			ber += 1
 			check(not GearCatalog.visual_of(set_id).is_empty(), "%s tem visual próprio" % set_id)
 	check(ber == 3 * Balance.LEGENDARY_LEVELS.size(), "3 conjuntos do berserker por nível lendário (%d)" % ber)
 	var bis := 0
 	for set_id in gd.sets:
-		if gd.sets[set_id].class_id == "bishop" and not gd.sets[set_id].is_hybrid():
+		if gd.sets[set_id].class_id == "bishop" and not gd.sets[set_id].is_hybrid() and not gd.sets[set_id].is_apex():
 			bis += 1
 			check(not GearCatalog.visual_of(set_id).is_empty(), "%s tem visual próprio" % set_id)
 			for pid in gd.sets[set_id].pieces:
 				var bit: ItemDef = gd.items[pid]
 				if bit.weapon_type == "shield":
-					check(bit.shield_style == GearCatalog.visual_of(set_id)["style"] and ResourceLoader.exists("res://assets/icons/%s.png" % bit.icon), "%s: escudo próprio com ícone" % pid)
+					var bvis: Dictionary = GearCatalog.visual_of(set_id)          # Ato II: o escudo continua o do nível 30 (chave "shield" do visual)
+					check(bit.shield_style == str(bvis.get("shield", bvis["style"])) and ResourceLoader.exists("res://assets/icons/%s.png" % bit.icon), "%s: escudo próprio com ícone" % pid)
 	check(bis == 3 * Balance.LEGENDARY_LEVELS.size(), "3 conjuntos do bispo por nível lendário (%d)" % bis)
 	# cada conjunto do paladino tem uma maça além da espada: cai junto, conta como a peça de arma, não muda o total
 	var mace_sets := 0
 	for set_id in gd.sets:
 		var msd: SetDef = gd.sets[set_id]
-		if msd.class_id != "paladin" or msd.is_hybrid():
+		if msd.class_id != "paladin" or msd.is_hybrid() or msd.is_apex():
 			continue
 		check(msd.alt_pieces.size() == 1, "%s: tem maça alternativa" % set_id)
 		if msd.alt_pieces.is_empty():
@@ -10716,7 +11887,8 @@ func _check_character_models(gd, sim) -> void:
 		for pid in msd.pieces:
 			if gd.items[pid].slot == ItemDef.Slot.WEAPON and not pid.ends_with("_offhand"):
 				sword = gd.items[pid]
-		check(sword != null and mace.attributes == sword.attributes and mace.is_two_handed() == sword.is_two_handed(), "%s: maça com os atributos e as mãos da espada" % mace.id)
+		check(sword != null and mace.attributes.has("VIT") and mace.is_two_handed() == sword.is_two_handed() and mace.attributes != sword.attributes,
+			"%s: maça com as mãos da espada, mas atributos de defesa (VIT) e não cópia da espada" % mace.id)
 	check(mace_sets == 3 * Balance.LEGENDARY_LEVELS.size(), "maça de conjunto em todo nível lendário (Guardião, Cruzado e Templário) (%d)" % mace_sets)
 	# bônus: maça + armadura conta igual a espada + armadura
 	var ms: SetDef = gd.sets["set_paladin_guardiao_20"]
@@ -10730,7 +11902,7 @@ func _check_character_models(gd, sim) -> void:
 	pa.equipment[ItemDef.Slot.WEAPON] = gd.items[ms.alt_pieces[0]]
 	pa.recompute_stats()
 	check(int(pa.stats.active_sets.get(ms.id, 0)) == ms.armor.size(), "armadura completa: %d/%d (arma não conta)" % [int(pa.stats.active_sets.get(ms.id, 0)), ms.armor.size()])
-	check(pa.stats.thorns_pct > 0.0, "maça lendária do Guardião (tanque): Retaliação")
+	check(str(pa.stats.legend.get("kind", "")) == "bulwark" and pa.stats.thorns_pct == 0.0, "maça lendária do Guardião (tanque): Baluarte, sem Retaliação")
 	sim.despawn(pa)
 	for set_id in GearCatalog.SET_VISUALS:
 		var vis: Dictionary = GearCatalog.SET_VISUALS[set_id]
@@ -11295,6 +12467,127 @@ func _check_talents_applied(gd, sim, m: Dictionary, at: Vector3, mk: Callable) -
 		var cid: String = gone.get_slice("_c_", 0)
 		check(not gd.trees[cid]["nodes"].has(gone), "talento que saiu não é nó (save só tira a escolha): %s" % gone)
 
+## Talento de classe que põe efeito numa skill (relato 2026-11-17: "Salto Atordoante" ber_c_leap "parece não funcionar"):
+## pelo caminho do jogo (resolve_skill -> _start_skill -> tick, IA dos monstros ligada) o salto atordoa 1 s no lobo e no rei
+## (elite leva controle cheio, decisão 2026-11-17: MonsterDef.resists_cc); só o chefe leva 40%. Depois TODO talento com
+## skill_mods.effects/add, com e sem a escolha: o efeito chega e nunca sai mais fraco que sem o talento (dano no tempo/controle:
+## duração; cura por dano: cura/dano); "add" soma por cima do que a skill já tem (base + maestria + evolução). Bote Brutal (ran_sic) passava pelo _pet_command, que ignorava o atordoamento do talento.
+func _check_talent_fx_cast(gd, sim) -> void:
+	var st: int = sim.rng.state
+	var r: Dictionary = _ct_fx_cast(gd, sim, "berserker", "ber_c_leap", "ber_leap", ["wolf", "wolf_rei", "boar_brute"], true)
+	var want := [1.0, 1.0, 0.4]
+	for i in range(3):
+		check(absf(float(r["stun"][i]) - float(want[i])) < 0.05, "Salto Atordoante: %s atordoado %.2f s onde o salto cai (quer %.2f)" % [["lobo", "rei (elite)", "chefe"][i], float(r["stun"][i]), float(want[i])])
+	var r0: Dictionary = _ct_fx_cast(gd, sim, "berserker", "", "ber_leap", ["wolf"])
+	check(float(r0["stun"][0]) == 0.0, "Salto sem o talento não atordoa")
+	var cat: Dictionary = ClassTalentsCatalog.build()
+	for cid in cat:
+		for row in cat[cid]:
+			for o in row[1]:
+				var mods: Dictionary = o.get("skill_mods", {})
+				for sid in mods:
+					var fx: Dictionary = mods[sid].get("effects", {})
+					var add: Dictionary = mods[sid].get("add", {})
+					if (fx.is_empty() and add.is_empty()) or not gd.skills.has(sid):
+						continue
+					var w: Dictionary = _ct_fx_cast(gd, sim, cid, str(o["id"]), sid, ["wolf"])
+					var wo: Dictionary = _ct_fx_cast(gd, sim, cid, "", sid, ["wolf"])
+					for k in fx.keys() + add.keys():
+						var plus: bool = add.has(k)          # "add": tem de passar o sem-talento por pelo menos o que soma
+						var v: Variant = add[k] if plus else fx[k]
+						var dur := float((v as Dictionary).get("duration", 0.0)) if v is Dictionary else 0.0
+						var ok := false
+						var got := ""
+						match k:
+							"stun":
+								ok = float(w["stun"][0]) >= (float(wo["stun"][0]) + dur if plus else dur) - 0.05 and float(w["stun"][0]) >= float(wo["stun"][0])
+								got = "%.2f s (sem: %.2f)" % [float(w["stun"][0]), float(wo["stun"][0])]
+							"slow", "root", "dot", "curse":
+								ok = w["fx"].has(k) and float(w["fx"][k]) >= (float(wo["fx"].get(k, 0.0)) + dur if plus else dur * 0.9) - 0.05 and float(w["fx"][k]) >= float(wo["fx"].get(k, 0.0)) - 0.05
+								got = "%.2f s (sem: %.2f)" % [float(w["fx"].get(k, -1.0)), float(wo["fx"].get(k, -1.0))]
+							"heal_pct_of_dmg", "mend_pct_of_dmg":       # o crítico muda o dano entre as duas rodadas: compara cura/dano
+								ok = float(w["heal"]) / maxf(1.0, float(w["dmg"])) > float(wo["heal"]) / maxf(1.0, float(wo["dmg"])) + (float(v) * 0.8 if plus else 0.0)
+								got = "cura/dano %.2f (sem: %.2f)" % [float(w["heal"]) / maxf(1.0, float(w["dmg"])), float(wo["heal"]) / maxf(1.0, float(wo["dmg"]))]
+							"heal_pct":
+								ok = float(w["heal"]) > float(wo["heal"])
+								got = "cura %.0f (sem: %.0f)" % [float(w["heal"]), float(wo["heal"])]
+							_:
+								continue
+						check(ok, "%s (%s): %s.%s chega no jogo — %s" % [o["id"], cid, sid, k, got])
+						if DevArgs.has("--talent_fx_log"):
+							print("TALENT_FX %s %s.%s %s %s" % [o["id"], sid, k, "ok" if ok else "QUEBRADO", got + " dano %.0f/%.0f" % [float(w["dmg"]), float(wo["dmg"])]])
+	sim.rng.state = st
+
+## Um lançamento de `sid` por um bot de `cid` (nível 45, só a escolha `pick`, HP preso em 5%) em monstros `mids` (id;
+## "<id>_rei" = elite), num mapa vazio só dele, no ponto mirado (salto: 4 m; resto: 1,8 m; `brains` = IA dos monstros ligada). Devolve o maior atordoamento por monstro (`stun`),
+## o maior tempo de cada debuff nos monstros (`fx`) e quanto o bot se curou (`heal`). Mesmo sorteio em toda chamada.
+func _ct_fx_cast(gd, sim, cid: String, pick: String, sid: String, mids: Array, brains := false) -> Dictionary:
+	# mundo só deste lançamento: o sim roda SÓ um mapa vazio (sem bots/curas/atordoamentos dos outros testes), sorteio fixo
+	var saved_maps: Dictionary = sim.maps
+	var saved_away: int = sim.away_every
+	var ps: float = sim.power_scale
+	var lab := MapDef.new()
+	lab.id = "talent_fx_lab"
+	lab.size = Vector2(60, 60)
+	sim.maps = {}
+	sim.away_every = 1
+	sim.load_map(lab)
+	var at := Vector3(0, 0, 6)
+	sim.rng.seed = 20261117
+	var e: SimEntity = sim.spawn_bot(gd.classes[cid], "CTfx", lab.id, at, 45)
+	e.brain = null
+	for nid in e.tree.keys():
+		if gd.trees[cid]["nodes"][nid]["kind"] == "pick":
+			e.tree.erase(nid)
+	if pick != "":
+		e.tree["%s_c_%s" % [cid, pick]] = true
+	sim.recompute_tree_bonus(e)
+	e.heal_full()
+	var base: SkillDef = gd.skills[sid]
+	var leap: bool = base.target == SkillDef.Target.GROUND and float(base.effects.get("dash", 0.0)) > 0.0
+	var aim := at + Vector3(4.0 if leap else 1.8, 0, 0)
+	var foes: Array = []
+	for i in range(mids.size()):
+		var mid: String = mids[i]
+		var md: MonsterDef = gd.monsters[mid] if gd.monsters.has(mid) else sim.elite_def(gd.monsters[mid.trim_suffix("_rei")])
+		var f: SimEntity = sim.spawn_monster(md, lab.id, aim + Vector3(0, 0, (float(i) - float(mids.size() - 1) * 0.5) * 0.7))
+		if not brains:
+			f.brain = null
+		f.stats.max_hp = 1000000.0
+		f.hp = f.stats.max_hp
+		foes.append(f)
+	var out := {"stun": [], "fx": {}, "heal": 0.0}
+	for f in foes:
+		out["stun"].append(0.0)
+	var pet: SimEntity = null
+	if base.effects.has("pet_command"):      # Ataque da Fera: precisa do lince
+		pet = sim.spawn_summon(e, gd.monsters[gd.skills["ran_companion"].effects["summon"]["monster_id"]], at + Vector3(-1, 0, 0), 0.0, true)
+	e.face_towards(aim)
+	sim._start_skill(e, sim.resolve_skill(e, base), 0, aim)
+	var low: float = e.stats.max_hp * 0.05      # volta a 5% a cada passo: a cura soma sem bater no teto do HP
+	sim.power_scale = 0.2                     # golpe mais fraco: a cura por dano não bate no teto do HP
+	for t in range(150):
+		e.hp = low
+		sim.tick(1.0 / 60.0)
+		out["heal"] = float(out["heal"]) + e.hp - low
+		for i in range(foes.size()):
+			var f: SimEntity = foes[i]
+			if f.state == SimEntity.State.STUNNED:
+				out["stun"][i] = float(out["stun"][i]) + 1.0 / 60.0      # tempo de verdade parado (IA ligada pode sair antes)
+			for d in f.debuffs:
+				var kd: String = str(d.get("kind", ""))
+				out["fx"][kd] = maxf(float(out["fx"].get(kd, 0.0)), float(d.get("remaining", 0.0)) + 1.0 / 60.0)
+	sim.power_scale = ps
+	out["dmg"] = foes.reduce(func(a, f): return a + f.stats.max_hp - f.hp, 0.0)
+	for f in foes:
+		sim.despawn(f)
+	if pet:
+		sim.despawn(pet)
+	sim.despawn(e)
+	sim.maps = saved_maps
+	sim.away_every = saved_away
+	return out
+
 ## Regra dos talentos vivos (auditoria 2026-11-16): toda opção da linha N cita ao menos uma skill que abre no nível <= N;
 ## gancho genérico que depende de um tipo de skill (invocação com tempo, dano no tempo, forma, força do pet) precisa de
 ## uma skill da classe desse tipo aberta até N. Opção só de números (stats/execução/sobrevivência) vale desde a linha.
@@ -11348,7 +12641,7 @@ func _check_act2_talent_rows(gd, sim, cat: Dictionary, mk: Callable) -> void:
 						var f := float(md["mult"][k])
 						check(k == "duration" or (k in sk and float(sk.get(k)) > 0.0), "%s: %s multiplica %s que a skill tem" % [o["id"], sid, k])
 						check(f >= 0.6 and f <= 1.5, "%s: %s x%.2f dentro do orçamento da linha (0,6-1,5)" % [o["id"], k, f])
-					for k in md.get("effects", {}):
+					for k in md.get("effects", {}).keys() + md.get("add", {}).keys():
 						check(k in SkillDef.EFFECT_KEYS and sk.effects.has(k), "%s: %s reforça efeito que a skill já tem (%s)" % [o["id"], sid, k])
 		for pr in ClassTalentsCatalog.ASC_REFINES_PENDING.get(cid, []):
 			check(int(pr["level"]) in [40, 45] and pr["build"] in build_ids and str(pr["text"]).length() > 10 and str(pr["needs"]) != "",
@@ -12936,6 +14229,421 @@ func _bearing(v: Vector2) -> float:
 
 func _ang_gap(a: float, b: float) -> float:
 	return absf(fposmod(a - b + 180.0, 360.0) - 180.0)
+
+const QUEST_NPC_PORTAL_MIN := 6.0     # m: NPC que dá/recebe quest não fica colado num portal de zona (playtest 2026-11-17, cais do Porto)
+
+## Nenhum NPC de quest (giver/turnin) a menos de 6 m de um portal que não é porta (porta = `player_only`/interior):
+## quem vai falar com ele não pode cair dentro do portal. Em todos os mapas.
+func _check_quest_npc_portals(gd) -> void:
+	var quest_npcs := {}
+	for qid in gd.quests:
+		var q: QuestDef = gd.quests[qid]
+		for nid in [q.giver_npc, q.turnin_npc]:
+			if nid != "":
+				quest_npcs[nid] = qid
+	var seen := 0
+	for mid in gd.maps:
+		var def: MapDef = gd.maps[mid]
+		if def.interior:
+			continue
+		for pt in def.portals:
+			if pt.get("player_only", false) or (gd.maps.has(pt["target_map"]) and gd.maps[pt["target_map"]].interior):
+				continue
+			for n in def.npcs:
+				if not quest_npcs.has(n["id"]):
+					continue
+				seen += 1
+				var d: float = Vector2(n["pos"].x - pt["pos"].x, n["pos"].z - pt["pos"].z).length()
+				check(d >= QUEST_NPC_PORTAL_MIN, "%s: NPC de quest %s (%s) a %.1f m do portal %s (mín. %.0f m)" % [mid, n["id"], quest_npcs[n["id"]], d, pt["id"], QUEST_NPC_PORTAL_MIN])
+	check(seen > 50, "portais x NPCs de quest conferidos (%d pares)" % seen)
+	if gd.maps.has("city_port"):          # o navio do Porto saiu da cabeceira do cais oeste: longe do eixo dos píeres e da Pescadora Iara
+		var port: MapDef = gd.maps["city_port"]
+		var ship: Dictionary = port.portals.filter(func(pt): return pt["id"] == "ship_field_ruins")[0]
+		var iara: Dictionary = port.npcs.filter(func(n): return n["id"] == "port_vil_fisher")[0]
+		check(absf(ship["pos"].x - iara["pos"].x) > 5.0, "porto: portal do navio fora do eixo do cais da Iara (dx %.1f m)" % absf(ship["pos"].x - iara["pos"].x))
+		var from: Vector3 = port.spawn_point
+		var to := Vector3(iara["pos"].x, 0.0, 66.8)         # de onde se fala com ela (areia, antes da água)
+		var ab := to - from
+		var t: float = clampf((ship["pos"] - from).dot(ab) / ab.length_squared(), 0.0, 1.0)
+		check((from + ab * t).distance_to(ship["pos"]) > float(ship["radius"]) + 2.0, "porto: caminho reto chegada -> Iara não cruza o portal do navio")
+		for h in port.bot_hangouts:
+			check((h as Vector3).distance_to(ship["pos"]) >= 3.0, "porto: ponto de bot %s a 3 m+ do portal do navio" % h)
+
+# ---------------------------------------------------------------------------
+# Cerco Vivo (design/gdd/act2-siege-life.md): `--only=siege`
+# ---------------------------------------------------------------------------
+
+## Sim só com a cidade e o mapa sitiado, jogador no mapa com as quests dadas (WorldState lê `quests_completed`).
+func _siege_world(gd, map_id: String, quests: Array = []) -> WorldSim:
+	var ws := WorldSim.new()
+	ws.load_map(gd.maps[GameData.town_map_id()])
+	ws.load_map(gd.maps[map_id])
+	ws.player = ws.spawn_player(gd.classes["paladin"], "Cerco", map_id)
+	ws.player.brain = null
+	ws.player.quests_completed.clear()
+	ws.player.quests_completed.append_array(quests)
+	MapGeometry.sync_stage(ws, ws.maps[map_id])
+	WorldState.sync_npcs(ws, ws.maps[map_id])
+	return ws
+
+## AC-1/AC-4/AC-11 (dados): trechos, tags, colisores, rotas, pressão por conjunto de quests, missões de defesa.
+func _check_siege_data(gd) -> void:
+	var sieged: Array = gd.maps.keys().filter(func(mid): return not gd.maps[mid].siege.is_empty())
+	check(sieged.has("city_port"), "cerco: Porto Esperança tem MapDef.siege (P1)")
+	for mid in sieged:
+		var def: MapDef = gd.maps[mid]
+		var cfg: Dictionary = def.siege
+		var routes := {}
+		for r in RaidSystem.routes(def):
+			routes[str(r.get("side", ""))] = r
+		var segs: Array = cfg.get("segments", [])
+		check(segs.size() >= 2 and gd.quests.has(str(cfg.get("close_all", ""))), "%s: cerco com trechos (%d) e quest que fecha tudo" % [mid, segs.size()])
+		for key in ["gate_route", "low_route", "harass_route"]:
+			check(routes.has(str(cfg.get(key, ""))), "%s: cerco.%s é uma rota do mapa" % [mid, key])
+		check(str(routes.get(str(cfg.get("harass_route", "")), {}).get("kind", "")) == "harass", "%s: rota do assédio é kind harass (sem levas próprias)" % mid)
+		check(gd.monsters.has(str(cfg.get("harass_mob", ""))) and gd.monsters[cfg["harass_mob"]].ranged, "%s: atirador do assédio é monstro à distância que existe" % mid)
+		var tags := {}
+		for cv in def.conquest_vis:
+			tags[cv["tag"]] = cv
+		for seg in segs:
+			var cond := SiegeSystem.segment_cond(def, seg)
+			var sid: String = seg["id"]
+			check(gd.quests.has(seg["quest"]) and str(seg.get("label", "")) != "", "AC-1 %s/%s: quest existe e o trecho tem nome" % [mid, sid])
+			check(str(tags.get("pal_%s_obra" % sid, {}).get("unless", "")) == cond and str(tags.get("pal_%s_pronta" % sid, {}).get("if", "")) == cond,
+				"AC-1 %s/%s: tags pal_%s_obra (unless) e pal_%s_pronta (if) com a condição do trecho" % [mid, sid, sid, sid])
+			var cols: int = def.obstacles.filter(func(o): return o.get("solid", true) and str(o.get("if", "")) == cond).size()
+			check(cols >= 1, "AC-1 %s/%s: colisor de estágio com o `if` do trecho (%d)" % [mid, sid, cols])
+			check(routes.has(seg["route"]) and str(routes[seg["route"]].get("unless", "")) == cond, "AC-1 %s/%s: rota %s com `unless` do trecho" % [mid, sid, seg["route"]])
+		for p in [1, 2, 3]:
+			check(Balance.SIEGE_EVERY_MULT.has(p) and Balance.SIEGE_SIZE_MULT.has(p) and Balance.SIEGE_BIG_NTH.has(p), "cerco: Balance.SIEGE_* cobre a pressão %d" % p)
+		for mk in def.fx:
+			check(SiegeFx.LOOKS.has(mk["kind"]), "%s: marcador de efeito %s tem visual (SiegeFx.LOOKS)" % [mid, mk["kind"]])
+		check(def.fx.filter(func(mk): return mk["kind"] == "fire").size() >= Balance.SIEGE_FIRE_SPOTS and def.fx.any(func(mk): return mk["kind"] == "smoke"),
+			"%s: marcadores FX de fogo (Chamas) e de fumaça no horizonte" % mid)
+		check(def.fx.filter(func(mk): return mk["kind"] != "fire").size() + Balance.SIEGE_FIRE_SPOTS <= SiegeFx.MAX_EMITTERS, "AC-15 %s: no máximo %d emissores de fumaça/fogo" % [mid, SiegeFx.MAX_EMITTERS])
+		var horns: int = def.spawners.filter(func(sp): return sp.get("horn", false)).size()
+		check(horns >= 2, "%s: 2+ rondas de batedores com trompa (%d)" % [mid, horns])
+	# o Blender e o catálogo dizem os mesmos trechos (build_city_port.SEGMENTS)
+	var src := FileAccess.get_file_as_string("res://tools/blender/zones/build_city_port.py")
+	for seg in gd.maps["city_port"].siege["segments"]:
+		check(src.contains("\"%s\": ((" % seg["id"]) and src.contains("\"%s\")" % seg["quest"]), "cerco: build_city_port.SEGMENTS tem o trecho %s (%s)" % [seg["id"], seg["quest"]])
+	# o GLB do porto tem as peças dos dois estados de cada trecho e do cenário de guerra
+	var glb: PackedScene = load("res://assets/models/map_city_port.glb")
+	var names: Array = []
+	if glb:
+		var st := glb.get_state()
+		for i in st.get_node_count():
+			names.append(str(st.get_node_name(i)))
+	for tag in ["pal_ne_obra", "pal_ne_pronta", "pal_e_obra", "pal_e_pronta", "pal_n_obra", "pal_n_pronta", "pal_n_pronta_torre", "casa_queimada", "casa_nova", "refugiados"]:
+		check(names.any(func(n): return n.contains(tag)), "cerco: map_city_port.glb tem peça com '%s'" % tag)
+	# AC-4: pressão por conjunto de quests (GDD 3.8)
+	var ws := _siege_world(gd, "city_port")
+	var port: MapDef = gd.maps["city_port"]
+	for row in [[[], 2], [["hx_stakes", "hx_palisade"], 2], [["hx_palisade", "hx_banners"], 3], [["hx_palisade", "hx_banners", "hx_riders_camp"], 1],
+			[["hx_riders_camp", "hx_warlord"], 0]]:
+		ws.player.quests_completed.clear()
+		ws.player.quests_completed.append_array(row[0])
+		check(SiegeSystem.pressure(ws, port) == row[1], "AC-4 porto: quests %s -> pressão %d (deu %d)" % [row[0], row[1], SiegeSystem.pressure(ws, port)])
+	# missões de defesa: existem, opcionais (fora da cadeia da principal) e a DEFEND aponta para um mapa sitiado
+	for qid in ["hx_df_logs", "hx_df_tower"]:
+		check(gd.quests.has(qid) and gd.quests[qid].dialog_progress != "", "cerco: missão de defesa %s existe com dica" % qid)
+	check(gd.quests["hx_palisade"].prereq_quest == "hx_stakes" and not ("hx_df_logs" in gd.quests["hx_palisade"].prereq_all) and not ("hx_df_tower" in gd.quests["hx_palisade"].prereq_all),
+		"cerco: as defesas opcionais não travam hx_palisade (R7)")
+	for qid in gd.quests:
+		var q: QuestDef = gd.quests[qid]
+		if q.type == QuestDef.Type.DEFEND:
+			check(gd.maps.has(q.target_id) and not gd.maps[q.target_id].siege.is_empty(), "quest DEFEND %s aponta para mapa com cerco" % qid)
+	check(gd.items.has("palisade_log") and port.gather.any(func(g): return g["item"] == "palisade_log"), "cerco: Tora de Estaca existe e é colhida no porto")
+	check(ResourceLoader.exists("res://assets/icons/art_palisade_log.png"), "cerco: Tora de Estaca tem arte (item_icons -- --only=palisade_log)")
+	check(BuffLooks.LOOKS.has(SiegeSystem.MORALE_BUFF), "AC-10: Colônia de Pé tem visual em BuffLooks.LOOKS")
+	check(gd.skills.has(SiegeSystem.VOLLEY_SKILL), "cerco: skill do círculo da salva existe (tema/som)")
+
+## AC-2/AC-3: brecha andável com o trecho aberto e sólida fechado; lado fechado manda a leva ao portão; hx_palisade fecha tudo.
+func _check_siege_segments(gd) -> void:
+	var port: MapDef = gd.maps["city_port"]
+	var segs: Array = port.siege["segments"]
+	var all := RaidSystem.routes(port)
+	var gate := SiegeSystem.route_index(port, port.siege["gate_route"])
+	for k in segs.size():
+		var seg: Dictionary = segs[k]
+		var i := SiegeSystem.route_index(port, seg["route"])
+		var breach: Vector3 = all[i]["route"][all[i]["route"].size() - 1]
+		var ws := _siege_world(gd, "city_port")
+		var m: Dictionary = ws.maps["city_port"]
+		check(not SiegeSystem.segment_closed(ws, port, seg) and not MapGeometry.point_in_solid(ws, breach, m), "AC-2 %s: trecho aberto = brecha andável" % seg["id"])
+		for q in [all[i]["from"]] + all[i]["route"] + [all[i]["target"]]:
+			check(not MapGeometry.point_in_solid(ws, q, m), "AC-2 %s: rota da brecha em chão livre em %s" % [seg["id"], q])
+		var route: Array = all[i]["route"] + [all[i]["target"]]
+		for j in range(route.size() - 1):
+			check(MapGeometry.line_walkable(ws, m, route[j], route[j + 1], 0.0, 0.5), "AC-2 %s: perna %d da rota sem colisor no caminho (aberto)" % [seg["id"], j])
+		SiegeSystem.state(m)["side"] = k
+		check(SiegeSystem.next_route(ws, m, 2) == i, "AC-2 %s: lado da vez aberto = a leva entra pela brecha" % seg["id"])
+		ws.player.quests_completed.append(seg["quest"])
+		check(MapGeometry.sync_stage(ws, m), "AC-2 %s: concluir a quest refaz a colisão" % seg["id"])
+		check(SiegeSystem.segment_closed(ws, port, seg) and MapGeometry.point_in_solid(ws, breach, m), "AC-2 %s: trecho fechado = brecha sólida" % seg["id"])
+		check(SiegeSystem.next_route(ws, m, 2) == gate, "AC-2 %s: lado fechado = a leva vai ao portão (R4)" % seg["id"])
+		for o in segs:
+			if o["id"] != seg["id"]:
+				check(not SiegeSystem.segment_closed(ws, port, o), "AC-2 %s: fechar um trecho não fecha o %s" % [seg["id"], o["id"]])
+		WorldState.sync_npcs(ws, m)
+		var post: int = m["entities"].filter(func(e): return e.guard and str(e.npc_data.get("id", "")).begins_with("port_w_%s_" % seg["id"])).size()
+		check(post == 2, "R5 %s: trecho fechado ganha posto de 2 besteiros (%d)" % [seg["id"], post])
+	# AC-3: hx_palisade sozinha fecha todos (com ou sem as opcionais)
+	var ws2 := _siege_world(gd, "city_port", ["hx_palisade"])
+	var m2: Dictionary = ws2.maps["city_port"]
+	for seg in segs:
+		var i := SiegeSystem.route_index(port, seg["route"])
+		check(SiegeSystem.segment_closed(ws2, port, seg) and not WorldState.active(ws2, all[i]) and MapGeometry.point_in_solid(ws2, all[i]["route"][all[i]["route"].size() - 1], m2),
+			"AC-3: hx_palisade fecha o trecho %s (rota calada, brecha sólida)" % seg["id"])
+	for k in 6:
+		SiegeSystem.state(m2)["side"] = k
+		check(SiegeSystem.next_route(ws2, m2, 2) == gate, "AC-3: com tudo fechado toda leva vai ao portão")
+	# o jogo inteiro continua alcançável com tudo fechado (portões abertos)
+	var seen := _reach(ws2, port, port.spawn_point)
+	check(_reached(seen, port.town_center) and _reached(seen, all[gate]["target"]), "AC-3: com a paliçada fechada a praça e o portão norte seguem alcançáveis do cais")
+	# AC-11: o mesmo conjunto de quests num mundo novo dá os mesmos trechos (nada no save além das quests)
+	var a: Dictionary = SiegeSystem.status(_siege_world(gd, "city_port", ["hx_stakes"]), "city_port")
+	var b: Dictionary = SiegeSystem.status(_siege_world(gd, "city_port", ["hx_stakes"]), "city_port")
+	check(a["segments"] == b["segments"] and a["segments"]["ne"] and not a["segments"]["e"] and a["p"] == b["p"] and not a["scorch"], "AC-11: trechos e pressão saem só de quests_completed")
+
+## AC-5/AC-6: relógio do cerco (só o SiegeSystem, sem lutar): cadência, calmaria, assédio nunca durante leva, pausa fora do mapa.
+func _check_siege_clock(gd) -> void:
+	var ws := _siege_world(gd, "city_port")
+	var m: Dictionary = ws.maps["city_port"]
+	var port: MapDef = gd.maps["city_port"]
+	var st := SiegeSystem.state(m)
+	check(is_equal_approx(float(st["wave_t"]), Balance.SIEGE_FIRST_WAVE) and is_equal_approx(float(st["harass_t"]), Balance.SIEGE_FIRST_HARASS), "cerco: 1º assédio e 1ª leva nos tempos de Balance")
+	# AC-6: jogador em outro mapa = relógios parados e nada nasce
+	ws.player.map_id = GameData.town_map_id()
+	for _k in 600:
+		SiegeSystem.update(ws, m, 1.0)
+	check(is_equal_approx(float(st["wave_t"]), Balance.SIEGE_FIRST_WAVE) and SiegeSystem.active_route(m) < 0 and (st["shooters"] as Array).is_empty(), "AC-6: 600 s com o jogador fora do mapa = 0 eventos")
+	ws.player.map_id = "city_port"
+	# AC-5: 30 min de relógio em p = 2. Cada leva "dura" 40 s e é repelida (sem luta: a sonda mede a luta de verdade).
+	var events: Array = []          # [t, tipo]
+	var t := 0.0
+	var wave_left := 0.0
+	var last_repel := -1.0
+	var min_after := INF
+	var harass_in_wave := 0
+	var sides := {}
+	var dt := 0.5
+	while t < 1800.0:
+		var had_wave := SiegeSystem.active_route(m)
+		var had_shooters: int = (st["shooters"] as Array).size()
+		SiegeSystem.update(ws, m, dt)
+		t += dt
+		var now := SiegeSystem.active_route(m)
+		if now >= 0 and had_wave < 0:
+			events.append([t, "leva"])
+			sides[str(RaidSystem.routes(port)[now]["side"])] = true
+			wave_left = 40.0
+			if last_repel >= 0.0:
+				min_after = minf(min_after, t - last_repel)
+		if (st["shooters"] as Array).size() > 0 and had_shooters == 0:
+			events.append([t, "assedio"])
+			if now >= 0:
+				harass_in_wave += 1
+		if now >= 0:
+			wave_left -= dt
+			if wave_left <= 0.0:                      # leva repelida: some e avisa o cerco como o RaidSystem faria
+				var rs := RaidSystem.state(m, now)
+				for id in rs["ids"]:
+					if ws.entities.has(id):
+						ws.despawn(ws.entities[id])
+				rs["ids"] = []
+				SiegeSystem.on_wave_end(ws, m, now, true, true)
+				last_repel = t
+		for id in (st["shooters"] as Array).duplicate():       # atiradores somem pelo relógio do assédio (SIEGE_HARASS_LIFE)
+			if not ws.entities.has(id):
+				st["shooters"].erase(id)
+	var waves: int = events.filter(func(ev): return ev[1] == "leva").size()
+	var harass: int = events.size() - waves
+	var mean := 1800.0 / maxf(1.0, events.size())
+	check(waves >= 16 and waves <= 24, "AC-5 Intenso: ~1 leva a cada 90 s em p = 2 (%d em 30 min)" % waves)
+	check(harass >= 12, "AC-5: assédio entre as levas (%d em 30 min)" % harass)
+	check(mean >= 27.0 and mean <= 60.0, "AC-5 Intenso: algo acontece a cada 27-60 s (média %.0f s)" % mean)
+	check(min_after >= Balance.SIEGE_QUIET_MIN - 0.01, "AC-5: nenhuma leva a menos de SIEGE_QUIET_MIN de uma repelida (mín. %.0f s)" % min_after)
+	check(harass_in_wave == 0, "AC-5: nenhum assédio durante uma leva (R12)")
+	check(sides.size() == 3, "cerco: as levas revezam as três brechas abertas (%s)" % [sides.keys()])
+	var live: int = m["entities"].filter(func(e): return e.kind == SimEntity.Kind.MONSTER).size()
+	check(live <= Balance.RAID_WAVE_CAP, "AC-14: invasores + atiradores + batedores vivos <= RAID_WAVE_CAP (%d)" % live)
+	# intervalos pela fórmula F1 e tamanho pela pressão (F2)
+	check(is_equal_approx(SiegeSystem.wave_interval({"every": 90.0, "jitter": 18.0}, 2, 0.5), 99.0) and is_equal_approx(SiegeSystem.wave_interval({"every": 90.0, "jitter": 18.0}, 3, -1.0), 54.0),
+		"F1: intervalo da leva = every x mult da pressão + u x jitter")
+	check(SiegeSystem.wave_interval({"every": 20.0}, 3, 0.0) >= Balance.SIEGE_QUIET_MIN, "F1: a calmaria segura o intervalo mínimo")
+	check(SiegeSystem.harass_interval(3, 0.0) < SiegeSystem.harass_interval(2, 0.0), "F1: assédio mais rápido em p = 3")
+	var ws3 := _siege_world(gd, "city_port")
+	var m3: Dictionary = ws3.maps["city_port"]
+	SiegeSystem.state(m3)["hold"] = true
+	var ne := SiegeSystem.route_index(port, "cerco_ne")
+	var small: int = SiegeSystem.start_wave(ws3, m3, ne).size()
+	check(small == 7, "F2 p = 2: leva de 7 invasores (3 ginetes, 2 lanceiros, 1 arqueiro, 1 saqueador; deu %d)" % small)
+	var kinds := {}
+	for id in RaidSystem.state(m3, ne)["ids"]:
+		kinds[ws3.entities[id].monster_def.id] = true
+	check(kinds.has("wolf_raider") and kinds.has("orc_archer") and ws3.entities[RaidSystem.state(m3, ne)["ids"][0]].monster_def.level >= 30,
+		"leva do porto: líder (Saqueador) e atirador (Arqueiro Orc) em toda leva, nível da faixa 30-35")
+	check(float(Balance.RAID_MAP_POWER.get("city_port", 1.0)) > 1.0 and Balance.PORT_GUARD_HP > 1.0, "porto: invasores reforçados (RAID_MAP_POWER) e guarnição que aguenta mais do que bate (PORT_GUARD_HP)")
+	var big_seen := false
+	for k in 3:
+		for id in RaidSystem.state(m3, ne)["ids"]:
+			ws3.despawn(ws3.entities[id])
+		RaidSystem.state(m3, ne)["ids"] = []
+		if SiegeSystem.start_wave(ws3, m3, ne).size() > small:
+			big_seen = true
+	check(big_seen, "F2 p = 2: a leva grande vem a cada %d levas do mapa" % int(Balance.SIEGE_BIG_NTH[2]))
+	check(RaidSystem.reclaimed(ws3, m3) == 0, "cerco: trecho fechado não conta como fortaleza retomada (sem fúria no porto)")
+	# p = 1 (Acampamento dos Ginetes destruído): só a patrulha, sem assédio; p = 0: nada
+	var ws1 := _siege_world(gd, "city_port", ["hx_palisade", "hx_riders_camp"])
+	var m1: Dictionary = ws1.maps["city_port"]
+	var first := -1
+	for _k in 2400:
+		SiegeSystem.update(ws1, m1, 0.5)
+		if first < 0 and SiegeSystem.active_route(m1) >= 0:
+			first = SiegeSystem.active_route(m1)
+	check(first == SiegeSystem.route_index(port, "patrulha") and (SiegeSystem.state(m1)["shooters"] as Array).is_empty(), "p = 1: só a patrulha rara, sem assédio")
+	var ws0 := _siege_world(gd, "city_port", ["hx_palisade", "hx_riders_camp", "hx_warlord"])
+	var m0: Dictionary = ws0.maps["city_port"]
+	for _k in 1200:
+		SiegeSystem.update(ws0, m0, 1.0)
+	check(SiegeSystem.active_route(m0) < 0 and not RaidSystem.status(ws0, "city_port")["active"] and float(RaidSystem.status(ws0, "city_port")["next_in"]) > 1.0e6, "p = 0 (fim do Ato II): sem levas e sem faixa de investida")
+
+## AC-7 a AC-10: assédio (zonas seguras, teto de dano), trompa, Chamas, Colônia de Pé, DEFEND, reserva.
+func _check_siege_rules(gd) -> void:
+	var port: MapDef = gd.maps["city_port"]
+	var ws := _siege_world(gd, "city_port")
+	var m: Dictionary = ws.maps["city_port"]
+	var st := SiegeSystem.state(m)
+	st["hold"] = true
+	var p: SimEntity = ws.player
+	# AC-7: 10.000 sorteios, nenhum círculo perto de cristal, chegada, portal ou NPC de serviço
+	var safe := SiegeSystem.safe_points(port)
+	check(safe.size() >= 9, "AC-7: zonas seguras do porto (chegada, portais, cristal e serviços: %d)" % safe.size())
+	var aim := SiegeSystem.harass_aim(ws, port)
+	check(aim.distance_to(RaidSystem.routes(port)[SiegeSystem.route_index(port, "cerco_ne")]["target"]) < 0.1, "assédio: mira a brecha aberta mais perto do ponto de tiro (NE)")
+	var bad := 0
+	var born := 0
+	for k in 10000:
+		var spot := SiegeSystem.volley_spot(ws, port, aim if k % 2 == 0 else RaidSystem.routes(port)[SiegeSystem.route_index(port, "muralha")]["target"], safe)
+		if spot == Vector3.INF:
+			continue
+		born += 1
+		for q in safe:
+			if Vector2(spot.x - q.x, spot.z - q.z).length() < Balance.SIEGE_SAFE_RADIUS:
+				bad += 1
+	check(bad == 0 and born > 5000, "AC-7: 10.000 sorteios, 0 círculos a menos de SIEGE_SAFE_RADIUS de zona segura (%d nasceram)" % born)
+	# salva: círculos avisados, não esquivável, teto de 2 círculos por alvo, não mata quem tinha >= 30%
+	var shooters := SiegeSystem.start_harass(ws, m)
+	check(shooters.size() == Balance.SIEGE_HARASS_SHOOTERS and ws.entities[shooters[0]].position.distance_to(port.town_center) > port.town_radius + 8.0,
+		"assédio: %d atiradores nascem no ponto de tiro, fora da muralha" % shooters.size())
+	var n := SiegeSystem.volley(ws, m, shooters)
+	var hz: Array = m.get("hazards", [])
+	check(n == Balance.SIEGE_HARASS_CIRCLES and hz.size() == n and hz.all(func(h): return h.has("hp_pct") and is_equal_approx(float(h["at"]) - ws.time, Balance.SIEGE_HARASS_WARN)),
+		"assédio: %d círculos avisados %.1f s antes" % [n, Balance.SIEGE_HARASS_WARN])
+	check(hz.size() <= 8, "AC-14: hazards simultâneos <= 8 (%d)" % hz.size())
+	for h in hz:
+		h["pos"] = Vector3(p.position.x, 0, p.position.z)          # pior caso: os 3 em cima do jogador
+	p.heal_full()
+	var hp0 := p.hp
+	ws.time += Balance.SIEGE_HARASS_WARN + 0.1
+	MobSystem.update_hazards(ws, m)
+	var lost := (hp0 - p.hp) / p.stats.max_hp
+	check(lost > 0.0 and lost <= 2.0 * Balance.SIEGE_HARASS_DMG_PCT / 100.0 + 0.001 and (m.get("hazards", []) as Array).is_empty(),
+		"AC-7: salva inteira num alvo tira no máximo 2 x %.0f%% da vida (%.1f%%)" % [Balance.SIEGE_HARASS_DMG_PCT, lost * 100.0])
+	p.hp = p.stats.max_hp * 0.31
+	st["salvo"] = {}
+	for k in 2:
+		SiegeSystem.land(ws, m, ws.entities[shooters[0]], {"pos": p.position, "radius": 3.0, "shape": "circle", "hp_pct": 40.0, "skill": SiegeSystem.VOLLEY_SKILL})
+	check(p.is_alive() and p.hp >= 1.0, "assédio: quem tinha 30%+ de vida antes da salva não morre dela")
+	p.heal_full()
+	var guard: SimEntity = m["entities"].filter(func(e): return e.guard)[0]
+	var ghp := guard.hp
+	SiegeSystem.land(ws, m, ws.entities[shooters[0]], {"pos": guard.position, "radius": 3.0, "shape": "circle", "hp_pct": 12.0, "skill": SiegeSystem.VOLLEY_SKILL})
+	check(is_equal_approx(guard.hp, ghp), "assédio: o círculo fere aventureiros, não a guarnição")
+	# atirador morto antes do impacto: os círculos dele somem
+	SiegeSystem.volley(ws, m, [shooters[0]])
+	ws.despawn(ws.entities[shooters[0]])
+	ws.time += Balance.SIEGE_HARASS_WARN + 0.1
+	MobSystem.update_hazards(ws, m)
+	check((m.get("hazards", []) as Array).is_empty() and is_equal_approx(p.hp, p.stats.max_hp), "assédio: matar o atirador antes da salva cancela os círculos dele")
+	st["age"] = Balance.SIEGE_HARASS_LIFE + 20.0
+	SiegeSystem.update(ws, m, 0.1)
+	check((st["shooters"] as Array).is_empty() and not ws.entities.has(shooters[1]), "assédio: os atiradores recuam e somem depois de SIEGE_HARASS_LIFE")
+	# AC-8: trompa
+	var w0 := float(st["wave_t"])
+	check(SiegeSystem.horn(ws, m) and is_equal_approx(float(st["wave_t"]), w0 - Balance.SIEGE_HORN_HASTEN), "AC-8: trompa adianta a leva em SIEGE_HORN_HASTEN")
+	SiegeSystem.horn(ws, m)
+	check(not SiegeSystem.horn(ws, m) and is_equal_approx(float(st["wave_t"]), w0 - Balance.SIEGE_HORN_HASTEN * Balance.SIEGE_HORN_MAX), "AC-8: no máximo SIEGE_HORN_MAX trompas por leva")
+	st["horns"] = 0
+	var hsp: Array = m["spawners"].filter(func(sp): return sp["def"].get("horn", false))
+	check(hsp.size() >= 2, "batedores: spawners com trompa no mapa (%d)" % hsp.size())
+	if not hsp.is_empty():
+		var sp: Dictionary = hsp[0]
+		var scout := ws.spawn_monster(gd.monsters[sp["def"]["monster_id"]], "city_port", sp["def"]["pos"])
+		sp["alive"] = [scout.id]
+		var before := float(st["wave_t"])
+		st["scan"] = 0.0
+		SiegeSystem.update(ws, m, 0.1)
+		check(is_equal_approx(float(st["wave_t"]), before), "AC-8: batedor fora de luta não toca a trompa")
+		scout.aggro_target = p.id
+		var rang := 0
+		for k in int(Balance.SIEGE_HORN_DELAY / SiegeSystem.SCAN) + 6:
+			st["scan"] = 0.0
+			var b := float(st["wave_t"])
+			SiegeSystem.update(ws, m, 0.1)
+			if float(st["wave_t"]) < b - 1.0:
+				rang += 1
+		check(rang == 1, "AC-8: batedor em luta há SIEGE_HORN_DELAY s toca a trompa uma vez por vida (%d)" % rang)
+		ws.despawn(scout)
+		sp["alive"] = []
+	check(WorldState.active(_siege_world(gd, "city_port", ["hx_riders_camp"]), hsp[0]["def"]) == false, "batedores: somem com o Acampamento dos Ginetes")
+	# AC-9: Chamas só com leva que chegou e não foi repelida; apagam na próxima repelida; nada mais muda
+	var quests_before: Array = p.quests_completed.duplicate()
+	var bag_before: Dictionary = p.inventory.duplicate()
+	SiegeSystem.on_wave_end(ws, m, 0, false, false)
+	check(not st["scorch"], "AC-9/R17: leva que recua sem chegar não causa Chamas")
+	SiegeSystem.on_wave_end(ws, m, 0, false, true)
+	check(st["scorch"] and SiegeSystem.status(ws, "city_port")["scorch"], "AC-9: leva que chegou e não foi repelida = Chamas")
+	check(SiegeFx.wanted({"kind": "fire", "pos": Vector3.ZERO}, true) and not SiegeFx.wanted({"kind": "fire", "pos": Vector3.ZERO}, false), "Chamas: o fogo só aparece com o mapa em Chamas")
+	check(p.quests_completed == quests_before and p.inventory == bag_before and not SiegeSystem.segment_closed(ws, port, port.siege["segments"][0]), "AC-9: Chamas não mexem em missão, item ou trecho")
+	# AC-10 + DEFEND: repelida com o jogador na defesa
+	var q: QuestDef = gd.quests["hx_df_tower"]
+	p.quests_active[q.id] = 0
+	var ne := SiegeSystem.route_index(port, "cerco_ne")
+	var target: Vector3 = RaidSystem.routes(port)[ne]["target"]
+	var bot := ws.spawn_bot(gd.classes["ranger"], "Longe", "city_port", port.spawn_point, 30)
+	bot.brain = null
+	p.position = target + Vector3(2, 0, 0)
+	var ids := SiegeSystem.start_wave(ws, m, ne)
+	st["scan"] = 0.0
+	SiegeSystem.update(ws, m, 0.1)
+	var resp: Array = m["entities"].filter(func(e): return e.guard and e.npc_data.get("responder", false))
+	check(resp.size() == 6 and resp.all(func(e): return e.home_position.distance_to(target) < 12.0), "R21: a reserva e os lanceiros/cavaleiro do portão (%d) ancoram na brecha atacada" % resp.size())
+	check(m["entities"].filter(func(e): return e.guard and str(e.npc_data.get("id", "")).begins_with("port_g_crossbow") and not e.npc_data.get("responder", false)).size() == 2, "R21: os besteiros do portão ficam (portão nunca vazio)")
+	for id in ids:
+		ws.despawn(ws.entities[id])
+	RaidSystem.state(m, ne)["ids"] = []
+	SiegeSystem.on_wave_end(ws, m, ne, true, true)
+	check(not st["scorch"], "AC-9: a leva repelida apaga as Chamas")
+	check(p.buffs.any(func(b): return b.get("id") == SiegeSystem.MORALE_BUFF) and not bot.buffs.any(func(b): return b.get("id") == SiegeSystem.MORALE_BUFF), "AC-10: Colônia de Pé só em quem esteve no raio do Bastião do alvo")
+	check(is_equal_approx(SiegeSystem.xp_mult(p, "city_port"), 1.0 + Balance.SIEGE_MORALE_XP_PCT / 100.0) and is_equal_approx(SiegeSystem.xp_mult(p, "field_coast"), 1.0),
+		"F6: +%.0f%% de XP de abate só no mapa defendido" % Balance.SIEGE_MORALE_XP_PCT)
+	check(int(p.quests_active[q.id]) == 1, "DEFEND: leva repelida com o jogador na defesa conta 1")
+	st["seen"] = {p.id: true}
+	SiegeSystem.on_wave_end(ws, m, ne, true, true)
+	check(p.buffs.filter(func(b): return b.get("id") == SiegeSystem.MORALE_BUFF).size() == 1, "AC-10: Colônia de Pé renova, não acumula")
+	check(QuestSystem.is_complete(p, q), "DEFEND: 2 levas repelidas completam hx_df_tower")
+	st["seen"] = {}
+	SiegeSystem.on_wave_end(ws, m, ne, true, true)
+	check(int(p.quests_active[q.id]) == 2, "DEFEND: leva repelida sem o jogador na defesa não conta")
+	st["scan"] = 0.0
+	SiegeSystem.update(ws, m, 0.1)
+	check(resp.all(func(e): return e.home_position.distance_to(e.npc_data["pos"]) < 0.6), "R21: sem leva a reserva volta ao posto")
+	check(float(st["quiet"]) >= Balance.SIEGE_QUIET_MIN - 0.2, "R11: leva repelida abre a calmaria")
+	check(WorldState.active(ws, {"if": "a|hx_x"}) == false and WorldState.active(_siege_world(gd, "city_port", ["hx_x"]), {"if": "a|hx_x"}) and not WorldState.active(_siege_world(gd, "city_port", ["hx_x"]), {"unless": "a|hx_x"}),
+		"WorldState: 'a|b' vale com qualquer uma das duas (if e unless)")
+
 
 func _check_world_layout(gd) -> void:
 	var surface: Array = []
@@ -15962,6 +17670,477 @@ func _check_bot_stealth(gd, sim) -> void:
 
 ## Erros de digitação nos catálogos: chave que o Resource não tem (CatalogUtil), stat fora de Stats.STAT_KEYS em
 ## passivos/bônus/buffs e efeito fora de SkillDef.EFFECT_KEYS. Antes todos somavam 0 ou sumiam em silêncio.
+## Proporções dos acessórios únicos ANTES do retrabalho (a identidade de cada um; spec acessórios F6). DEF/MDEF esperados depois.
+const ACC_UNIQUE_SHARES := {
+	"ring_gel": [{"WILL": 2}, 0, 0], "ring_captain": [{"FOR": 3, "VIT": 3}, 2, 0], "ring_vargo": [{"INT": 4, "AGI": 3}, 0, 2],
+	"amulet_widow": [{"INT": 4, "WILL": 3}, 0, 3], "cape_vargo": [{"VIT": 4, "WILL": 3}, 4, 4], "amulet_tusk": [{"FOR": 3, "AGI": 2}, 0, 0],
+	"amulet_silk": [{"INT": 3, "WILL": 2}, 0, 0], "ring_spectral": [{"INT": 4, "AGI": 4}, 0, 0], "amulet_golem": [{"FOR": 6, "VIT": 6, "WILL": 4}, 0, 0],
+}
+
+## Orçamento de poder do spec de acessórios (seção 4): ganho das 4 joias do Guerreiro por tier (t0..t5, k45). ATK em pontos de
+## PATK (coluna "Δ PATK": o % depende da arma/armadura de referência), vida em %. Com a 1ª alavanca (anel 3/3/4 no t4/t5/k45:
+## -2/-4/-4 de PATK nos 2 anéis contra o spec 14/31,6/53,8).
+const ACC_BUDGET_ATK := [3.6, 6.2, 4.0, 6.0, 14.0, 31.6, 53.8]
+const ACC_BUDGET_HP_PCT := [1.0, 1.7, 2.0, 2.5, 4.3, 7.4, 10.2]
+const ACC_BUDGET_SLACK := 2.0
+
+## Retrabalho dos acessórios (spec production/qa/accessory-rework-spec-2026-11-17.md): curva ancorada no t2 (~+50% por tier),
+## nunca abaixo da fórmula linear antiga, papéis (anel ATK/MATK, amuleto vida %, Sábio regen de MP) e únicos pela F6.
+func _check_accessory_curve(gd) -> void:
+	var sum_of := func(it: ItemDef) -> int:
+		var s := 0
+		for a in it.attributes:
+			s += int(it.attributes[a])
+		return s
+	var n_t: int = Balance.COMMON_TIER_LEVELS.size()
+	var ids_of := func(piece: String, theme: String) -> Array:
+		var out: Array = []
+		for t in range(n_t):
+			out.append("%s_%s_t%d" % [piece, theme, t])
+		out.append("%s_%s_k45" % [piece, theme])
+		return out
+	for arr in [Balance.ACC_RING_ATK, Balance.ACC_AMULET_HP_PCT, Balance.MANA_SAGE_REGEN]:
+		var ok := true
+		for i in range(1, arr.size()):
+			ok = ok and float(arr[i]) >= float(arr[i - 1])
+		check(ok and arr.size() == n_t, "acessórios: tabela por tier não decresce e tem %d tiers (%s)" % [n_t, arr])
+	check(Balance.ACC_RING_ATK_K45 >= Balance.ACC_RING_ATK[n_t - 1] and Balance.ACC_AMULET_HP_PCT_K45 >= Balance.ACC_AMULET_HP_PCT[n_t - 1]
+		and Balance.MANA_SAGE_REGEN_K45 >= Balance.MANA_SAGE_REGEN[n_t - 1], "acessórios: k45 >= t5 em ATK do anel, vida % e regen do Sábio")
+	for piece in GearCatalog.THEME_PIECES:
+		var w: float = GearCatalog.PIECE_WEIGHT[piece]
+		for theme in GearCatalog.THEMES:
+			var th: Array = GearCatalog.THEMES[theme]
+			var ids: Array = ids_of.call(piece, theme)
+			var prev: ItemDef = null
+			for i in range(ids.size()):
+				var it: ItemDef = gd.items.get(ids[i])
+				check(it != null, "acessório %s existe" % ids[i])
+				if it == null:
+					continue
+				var k45: bool = i == n_t
+				var tier: int = mini(i, n_t - 1)
+				var mult: float = Balance.KHARZUN_JEWEL_MULT if k45 else 1.0
+				# 4) nunca abaixo da linear antiga
+				var old: Dictionary = GearCatalog._attrs(th[1], th[2], it.level_req, w, mult)
+				var low: Array = []
+				for a in old:
+					if it.attr(a) < int(round(float(old[a]) * Balance.ATTR_SCALE)):
+						low.append("%s %d < %d" % [a, it.attr(a), int(round(float(old[a]) * Balance.ATTR_SCALE))])
+				check(low.is_empty(), "%s: nenhum atributo abaixo da fórmula antiga (%s)" % [it.id, low])
+				if piece == "cape":
+					var lf := GearCatalog.level_factor(it.level_req) * mult * w
+					check(it.def >= round(GearCatalog.ARMOR["leather"][0] * lf) and it.mdef >= round(GearCatalog.ARMOR["leather"][1] * lf),
+						"%s: DEF/MDEF %d/%d não abaixo da antiga" % [it.id, it.def, it.mdef])
+				else:
+					check(it.def == 0.0 and it.mdef == 0.0, "%s: anel/amuleto sem DEF/MDEF" % it.id)
+				# 1/2) monotonia e passo do tier
+				if prev != null:
+					var r := float(sum_of.call(it)) / float(sum_of.call(prev))
+					check(sum_of.call(it) > sum_of.call(prev) and r >= 1.2 and r <= 1.6,
+						"%s: soma %d > %d do tier anterior, passo x%.2f em [1,2; 1,6]" % [it.id, sum_of.call(it), sum_of.call(prev), r])
+					if piece == "cape":
+						check(it.def >= prev.def and it.mdef >= prev.mdef, "%s: DEF/MDEF não decresce (%d/%d)" % [it.id, it.def, it.mdef])
+				prev = it
+				# 8) papéis
+				if piece == "ring":
+					var want: float = float(Balance.ACC_RING_ATK_K45 if k45 else Balance.ACC_RING_ATK[tier])
+					var sage: bool = theme in Balance.MANA_SAGE_THEMES
+					check(is_equal_approx(it.atk, 0.0 if sage else want) and is_equal_approx(it.matk, want if sage else 0.0),
+						"%s: %s %.0f (atk %.0f matk %.0f)" % [it.id, "MATK" if sage else "ATK", want, it.atk, it.matk])
+					check(it.bonus.is_empty(), "%s: anel sem mana" % it.id)
+				elif piece == "amulet":
+					var hp: float = Balance.ACC_AMULET_HP_PCT_K45 if k45 else float(Balance.ACC_AMULET_HP_PCT[tier])
+					check(is_equal_approx(float(it.bonus.get("hp_pct", 0)), hp), "%s: vida +%.1f%%" % [it.id, hp])
+					if theme in Balance.MANA_SAGE_THEMES:
+						var rg: float = Balance.MANA_SAGE_REGEN_K45 if k45 else float(Balance.MANA_SAGE_REGEN[tier])
+						check(is_equal_approx(float(it.bonus.get("mp_regen_combat", 0)), rg), "%s: regen de MP em combate %.2f%%" % [it.id, rg])
+	# 3) âncora no t2
+	for theme in GearCatalog.THEMES:
+		check(sum_of.call(gd.items["ring_%s_t2" % theme]) == 44 and sum_of.call(gd.items["cape_%s_t2" % theme]) == 44
+			and sum_of.call(gd.items["amulet_%s_t2" % theme]) == 52, "acessórios %s t2 = hoje (anel/capa 44, amuleto 52)" % theme)
+		var c2: ItemDef = gd.items["cape_%s_t2" % theme]
+		check(c2.def == 4.0 and c2.mdef == 3.0, "capa %s t2 DEF/MDEF 4/3 (âncora)" % theme)
+	check(sum_of.call(gd.items["ring_guerreiro_t5"]) == 149 and sum_of.call(gd.items["amulet_guerreiro_k45"]) == 246
+		and gd.items["cape_guerreiro_t5"].def == 14.0 and gd.items["cape_guerreiro_k45"].def == 20.0,
+		"curva: anel t5 149, amuleto k45 246, capa DEF 14 (t5) / 20 (k45; a tabela do spec arredondou f(45) para cima)")
+	# 5/6/7) únicos
+	check(ItemsCatalog.UNIQUE_ACCESSORIES.size() == ACC_UNIQUE_SHARES.size(), "9 acessórios únicos em ItemsCatalog.UNIQUE_ACCESSORIES")
+	for uid in ACC_UNIQUE_SHARES:
+		var u: ItemDef = gd.items.get(uid)
+		check(u != null and uid in ItemsCatalog.UNIQUE_ACCESSORIES, "único %s existe e está na lista" % uid)
+		if u == null:
+			continue
+		var share: Dictionary = ACC_UNIQUE_SHARES[uid][0]
+		var piece: String = {ItemDef.Slot.RING: "ring", ItemDef.Slot.AMULET: "amulet", ItemDef.Slot.CAPE: "cape"}[u.slot]
+		var tier: int = Balance.COMMON_TIER_LEVELS.find(u.level_req)
+		var c: int = sum_of.call(gd.items["%s_guerreiro_t%d" % [piece, tier]])
+		var cn: int = sum_of.call(gd.items["%s_guerreiro_t%d" % [piece, tier + 1]])
+		var uu: float = minf(Balance.ACC_UNIQUE_MULT * c, Balance.ACC_UNIQUE_NEXT_CAP * cn)
+		var tot := 0
+		for a in share:
+			tot += int(share[a])
+		var off: Array = []
+		for a in share:
+			if absi(u.attr(a) - int(round(uu * share[a] / tot))) > 1:
+				off.append("%s %d vs %d" % [a, u.attr(a), int(round(uu * share[a] / tot))])
+		check(off.is_empty() and u.attributes.keys() == share.keys(), "único %s segue a F6 e mantém os atributos (%s)" % [uid, off])
+		var r := float(sum_of.call(u)) / c
+		check(sum_of.call(u) < cn and r >= 1.1 and r <= 1.3, "único %s: soma %d < %d (tier seguinte), x%.2f da comum (1,1-1,3)" % [uid, sum_of.call(u), cn, r])
+		check(u.def == float(ACC_UNIQUE_SHARES[uid][1]) and u.mdef == float(ACC_UNIQUE_SHARES[uid][2]), "único %s DEF/MDEF %d/%d" % [uid, u.def, u.mdef])
+		var magic: bool = share.keys()[0] in ["INT", "WILL"]
+		if piece == "ring":
+			var want := float(Balance.ACC_RING_ATK[tier])
+			check(is_equal_approx(u.matk if magic else u.atk, want) and is_equal_approx(u.atk if magic else u.matk, 0.0), "único %s: %s %.0f" % [uid, "MATK" if magic else "ATK", want])
+		elif piece == "amulet":
+			check(is_equal_approx(float(u.bonus.get("hp_pct", 0)), Balance.ACC_AMULET_HP_PCT[tier]), "único %s: vida %% do tier" % uid)
+			var mk: String = "mp_regen_combat" if magic else "mp_on_kill"
+			var mv: float = float(Balance.MANA_SAGE_REGEN[tier] if magic else Balance.MANA_KILL_PCT[tier])
+			check(is_equal_approx(float(u.bonus.get(mk, 0)), mv), "único %s: mana %s %.2f" % [uid, mk, mv])
+	var cap: ItemDef = gd.items["ring_captain"]
+	var gol: ItemDef = gd.items["amulet_golem"]
+	check(cap.attr("FOR") == cap.attr("VIT") and gd.items["ring_vargo"].attr("INT") > gd.items["ring_vargo"].attr("AGI")
+		and gol.attr("FOR") == gol.attr("VIT") and gol.attr("VIT") > gol.attr("WILL"), "únicos mantêm a identidade (Capitão FOR = VIT, Vargo INT > AGI, Golem FOR = VIT > WILL)")
+	check(sum_of.call(gd.items["ring_guerreiro_t2"]) > sum_of.call(cap), "anel de forja do 16 passa o Anel do Capitão (era o problema)")
+	# 9) orçamento (sentinela): Berserker com o machado/armadura comuns do tier e as 4 joias do Guerreiro, contra as mesmas joias
+	# na fórmula antiga (linear, sem ATK/vida %). Ganho medido <= spec seção 4 (ATK_PCT/HP_PCT) com folga ACC_BUDGET_SLACK.
+	var cls: ClassDef = gd.classes["berserker"]
+	var old_of := func(it: ItemDef, piece: String) -> ItemDef:
+		var o: ItemDef = it.duplicate(true)
+		var th: Array = GearCatalog.THEMES["guerreiro"]
+		var mult: float = Balance.KHARZUN_JEWEL_MULT if it.id.ends_with("_k45") else 1.0
+		var oa: Dictionary = GearCatalog._attrs(th[1], th[2], it.level_req, GearCatalog.PIECE_WEIGHT[piece], mult)
+		var sc := {}
+		for a in oa:
+			sc[a] = int(round(float(oa[a]) * Balance.ATTR_SCALE))
+		o.attributes = sc
+		o.atk = 0.0
+		o.bonus.erase("hp_pct")
+		if piece == "cape":
+			var lf: float = GearCatalog.level_factor(it.level_req) * mult * GearCatalog.PIECE_WEIGHT[piece]
+			o.def = round(GearCatalog.ARMOR["leather"][0] * lf)
+			o.mdef = round(GearCatalog.ARMOR["leather"][1] * lf)
+		return o
+	var gains: Array = []
+	for i in range(n_t + 1):
+		var tier: int = mini(i, n_t - 1)
+		var suf: String = "k45" if i == n_t else "t%d" % i
+		var lv: int = Balance.KHARZUN_JEWEL_LEVEL if i == n_t else int(Balance.COMMON_TIER_LEVELS[i])
+		var eq := {ItemDef.Slot.WEAPON: gd.items["axe_t%d" % tier], ItemDef.Slot.LEGS: gd.items["legs_plate_t%d" % tier]}
+		if tier >= GearCatalog.HAND_WRITTEN_TIERS:
+			for p in GearCatalog.FULL_PIECES:
+				eq[GearCatalog.PIECE_SLOT[p]] = gd.items["%s_plate_t%d" % [p, tier]]
+		var eq_old := eq.duplicate()
+		var ring: ItemDef = gd.items["ring_guerreiro_%s" % suf]
+		eq[ItemDef.Slot.RING] = ring; eq[ItemDef.Slot.RING2] = ring
+		eq[ItemDef.Slot.AMULET] = gd.items["amulet_guerreiro_%s" % suf]; eq[ItemDef.Slot.CAPE] = gd.items["cape_guerreiro_%s" % suf]
+		var ring_o: ItemDef = old_of.call(ring, "ring")
+		eq_old[ItemDef.Slot.RING] = ring_o; eq_old[ItemDef.Slot.RING2] = ring_o
+		eq_old[ItemDef.Slot.AMULET] = old_of.call(eq[ItemDef.Slot.AMULET], "amulet"); eq_old[ItemDef.Slot.CAPE] = old_of.call(eq[ItemDef.Slot.CAPE], "cape")
+		var sn := Stats.compute(cls, lv, eq, [])
+		var so := Stats.compute(cls, lv, eq_old, [])
+		var d_atk: float = 100.0 * (sn.patk / so.patk - 1.0)
+		var d_hp: float = 100.0 * (sn.max_hp / so.max_hp - 1.0)
+		gains.append("%s ATK %+.1f%% (%+.1f de %.0f) HP %+.1f%%" % [suf, d_atk, sn.patk - so.patk, so.patk, d_hp])
+		var dp: float = sn.patk - so.patk
+		check(absf(dp - ACC_BUDGET_ATK[i]) <= ACC_BUDGET_SLACK and absf(d_hp - ACC_BUDGET_HP_PCT[i]) <= ACC_BUDGET_SLACK,
+			"orçamento dos acessórios %s: PATK %+.1f (spec %+.1f), vida %+.1f%% (spec %.1f), folga %.0f" % [suf, dp, ACC_BUDGET_ATK[i], d_hp, ACC_BUDGET_HP_PCT[i], ACC_BUDGET_SLACK])
+	print("ACC_BUDGET ", gains)
+	# dica: vida % no amuleto, ATK/MATK no anel
+	var tip := UiKit.item_tooltip(gd.items["amulet_cacador_t4"]) + UiKit.item_tooltip(gd.items["ring_guerreiro_t3"]) + UiKit.item_tooltip(gd.items["ring_sabio_t3"])
+	check(tip.contains("Vida +3%") and tip.contains("ATK +3") and tip.contains("MATK +3"), "dica do acessório mostra vida %% e ATK/MATK do anel (%s)" % tip.replace("\n", " | "))
+
+## Joias de mana (pedido do jogador 2026-11-16: "o Berserker fica sem mana"): amuleto = mana ao abater, capa = regeneração de
+## mana em combate, nos temas corpo a corpo (Balance.MANA_ACC_THEMES), por tier; anéis e tema do Sábio sem isso.
+func _check_mana_accessories(gd, sim) -> void:
+	check("mp_on_kill" in Stats.STAT_KEYS and "mp_regen_combat" in Stats.STAT_KEYS, "mana de joia: mp_on_kill e mp_regen_combat são stats (Stats.STAT_KEYS)")
+	var bad: Array = []
+	for iid in gd.items:
+		var it: ItemDef = gd.items[iid]
+		for k in it.bonus:
+			if not (k in Stats.STAT_KEYS):
+				bad.append("%s.%s" % [iid, k])
+	check(bad.is_empty(), "bônus de item só com chaves de Stats.STAT_KEYS (%s)" % [bad])
+	for tier in range(Balance.COMMON_TIER_LEVELS.size()):
+		for th in Balance.MANA_ACC_THEMES:
+			var am: ItemDef = gd.items["amulet_%s_t%d" % [th, tier]]
+			var cp: ItemDef = gd.items["cape_%s_t%d" % [th, tier]]
+			check(is_equal_approx(float(am.bonus.get("mp_on_kill", 0)), Balance.MANA_KILL_PCT[tier]) and am.attr(GearCatalog.THEMES[th][1]) > 0,
+				"amuleto %s t%d: %.0f%% de mana ao abater e mantém o atributo" % [th, tier, Balance.MANA_KILL_PCT[tier]])
+			check(is_equal_approx(float(cp.bonus.get("mp_regen_combat", 0)), Balance.MANA_COMBAT_REGEN[tier]) and cp.def > 0.0,
+				"capa %s t%d: %.1f%% de mana/s em combate e mantém a defesa" % [th, tier, Balance.MANA_COMBAT_REGEN[tier]])
+		check(gd.items["ring_guerreiro_t%d" % tier].bonus.is_empty() and gd.items["ring_sabio_t%d" % tier].bonus.is_empty(), "t%d: anéis sem mana de joia" % tier)
+		var sg: ItemDef = gd.items["amulet_sabio_t%d" % tier]
+		check(is_equal_approx(float(sg.bonus.get("mp_regen_combat", 0)), Balance.MANA_SAGE_REGEN[tier]) and not sg.bonus.has("mp_on_kill")
+			and gd.items["cape_sabio_t%d" % tier].bonus.is_empty(), "t%d: amuleto do Sábio com %.2f%% de mana/s em combate; capa do Sábio sem mana" % [tier, Balance.MANA_SAGE_REGEN[tier]])
+	check(is_equal_approx(float(gd.items["amulet_sabio_k45"].bonus.get("mp_regen_combat", 0)), Balance.MANA_SAGE_REGEN_K45), "amuleto do Sábio k45: regen de MP %.1f%%" % Balance.MANA_SAGE_REGEN_K45)
+	check(Balance.MANA_KILL_PCT[5] >= 10.0 and is_equal_approx(float(gd.items["amulet_guerreiro_k45"].bonus.get("mp_on_kill", 0)), Balance.MANA_KILL_PCT_K45),
+		"amuleto de nível alto devolve 10%%+ da mana ao abater (k45 %.0f%%)" % Balance.MANA_KILL_PCT_K45)
+	var plus: ItemDef = gd.plus_item(gd.items["amulet_guerreiro_t3"], 3)
+	check(plus != null and plus.bonus.has("mp_on_kill"), "aprimorar o amuleto mantém a mana ao abater")
+	var tip := UiKit.item_tooltip(gd.items["amulet_guerreiro_t5"]) + UiKit.item_tooltip(gd.items["cape_cacador_t2"])
+	check(tip.contains("Mana ao abater") and tip.contains("Mana em combate"), "dica do item mostra mana ao abater e mana em combate")
+	# Stats
+	var cls: ClassDef = gd.classes["berserker"]
+	var eq := {ItemDef.Slot.AMULET: gd.items["amulet_guerreiro_t5"], ItemDef.Slot.CAPE: gd.items["cape_guerreiro_t5"]}
+	var st := Stats.compute(cls, 40, eq, [])
+	check(is_equal_approx(st.mp_on_kill, Balance.MANA_KILL_PCT[5]) and is_equal_approx(st.mp_regen_combat, Balance.MANA_COMBAT_REGEN[5]), "Stats.compute soma mana ao abater e mana em combate das joias")
+	# sim: abate devolve X% da mana; regeneração extra só em combate
+	var m: Dictionary = sim.maps["city_aldara"]
+	var at := Vector3(62, 0, -58)
+	var b: SimEntity = sim.spawn_character(SimEntity.Kind.BOT, cls, "Sedento", "city_aldara", at, 40)
+	b.brain = null
+	b.equipment[ItemDef.Slot.AMULET] = gd.items["amulet_guerreiro_t5"]
+	b.equipment[ItemDef.Slot.CAPE] = gd.items["cape_guerreiro_t5"]
+	b.recompute_stats()
+	var mob: SimEntity = sim.spawn_monster(gd.monsters["spider"], "city_aldara", at + Vector3(1.5, 0, 0))
+	mob.brain = null
+	b.mp = 0.0
+	sim._deal_damage(b, mob, int(mob.hp) + 99999, false, false, "physical", null, false)
+	check(not mob.is_alive() and absf(b.mp - b.stats.max_mp * Balance.MANA_KILL_PCT[5] / 100.0) < 1.0,
+		"abate com amuleto devolve %.0f%% da mana (%.1f de %.0f)" % [Balance.MANA_KILL_PCT[5], b.mp, b.stats.max_mp])
+	var regen_of := func(in_combat: bool) -> float:
+		b.mp = 0.0
+		b.combat_timer = 5.0 if in_combat else 0.0
+		b.is_blocking = false
+		sim._update_entity(b, m, 1.0)
+		return b.mp
+	var out_r: float = regen_of.call(false)
+	var in_r: float = regen_of.call(true)
+	var base_r := b.stats.max_mp * Balance.REGEN_MP_PCT + Balance.REGEN_MP_FLAT
+	check(absf(out_r - base_r) < 0.01, "fora de combate a capa não muda a regeneração (%.2f / %.2f)" % [out_r, base_r])
+	check(absf(in_r - base_r - b.stats.max_mp * Balance.MANA_COMBAT_REGEN[5] / 100.0) < 0.01, "em combate a capa soma %.1f%% da mana/s (%.2f)" % [Balance.MANA_COMBAT_REGEN[5], in_r])
+	b.combat_timer = 0.0
+	sim.despawn(b)
+
+## Acessórios lendários por build (spec production/qa/legendary-accessories-spec-2026-11-16.md §6, re-base da rev2 dos acessórios).
+const LEG_ACC_RING_MAIN := [94, 121, 155]       # atributo principal do Anel/Sinete no 35/40/45 (escala nova; spec rev2 §8)
+const LEG_ACC_AMULET_MAIN := [109, 141, 181]
+const LEG_ACC_CAPE_DEF := [[13, 9], [17, 12], [22, 16]]
+func _check_legendary_accessories(gd, sim) -> void:
+	var rng_keep: int = sim.rng.state          # o resto da suíte não sente este check (bots e sorteios daqui gastam o rng da sim)
+	_legacc_body(gd, sim)
+	sim.rng.state = rng_keep
+
+func _legacc_body(gd, sim) -> void:
+	var slot_of := {"cape": ItemDef.Slot.CAPE, "amulet": ItemDef.Slot.AMULET, "ring": ItemDef.Slot.RING, "signet": ItemDef.Slot.RING}
+	var n := 0
+	var expect_n := 0
+	var bad: Array = []
+	for cid in gd.classes:
+		var cls: ClassDef = gd.classes[cid]
+		for b in cls.builds:
+			var bid: String = b["id"]
+			var roles: Dictionary = Balance.LEG_ACC_BUILDS.get(bid, {})
+			check(roles.size() == 4 and Balance.LEG_ACC_PIECES.all(func(p): return roles.has(p)), "%s: LEG_ACC_BUILDS tem as 4 peças" % bid)
+			var magic: bool = str(b["attr"]) in ["INT", "WILL"] or b["stat"] == "matk_pct"
+			var theme := "guerreiro" if str(b["attr"]) in ["FOR", "AGI"] else ("sabio" if str(b["attr"]) in ["INT", "WILL"] else "")
+			for hi in range(Balance.HYBRID_LEVELS.size()):
+				var lv: int = Balance.HYBRID_LEVELS[hi]
+				for piece in Balance.LEG_ACC_PIECES:
+					expect_n += 1
+					var iid := "leg_acc_%s_%s_%d_%s" % [cid, bid, lv, piece]
+					var it: ItemDef = gd.items.get(iid)
+					if it == null:
+						bad.append(iid)
+						continue
+					n += 1
+					var tail := "%s %s" % [b["of"], GearCatalog.TIER_EPITHETS[Balance.legend_tier(lv)]]
+					if it.slot != slot_of[piece] or it.rarity != ItemDef.RARITY_LEGENDARY or it.set_id != "" or Array(it.class_restriction) != [cid] \
+							or it.level_req != lv or not it.name.ends_with(tail):
+						bad.append(iid + " (campos)")
+					var stat: String = roles.get(piece, "")
+					var want := {}
+					if piece == "amulet":
+						want["hp_pct"] = Balance.ACC_AMULET_HP_PCT_K45
+					if theme != "":
+						var mb: Dictionary = GearCatalog.mana_bonus("ring" if piece == "signet" else piece, theme, -1)
+						for k in mb:
+							want[k] = float(want.get(k, 0.0)) + float(mb[k])
+					if stat != "":
+						want[stat] = float(want.get(stat, 0.0)) + snappedf(float(Balance.LEG_ACC_STEP[stat][hi]) * float(Balance.LEG_ACC_BUILD_MULT.get(bid, 1.0)), 0.01)
+					var same: bool = it.bonus.size() == want.size()
+					for k in want:
+						same = same and absf(float(it.bonus.get(k, -99.0)) - float(want[k])) < 0.001
+					if not same:
+						bad.append("%s bonus %s != %s" % [iid, it.bonus, want])
+					var main_v: int = int(it.attr(str(b["attr"])))
+					var ref: Array = LEG_ACC_AMULET_MAIN if piece == "amulet" else LEG_ACC_RING_MAIN
+					if absi(main_v - int(ref[hi])) > 1:
+						bad.append("%s %s %d (spec %d)" % [iid, b["attr"], main_v, ref[hi]])
+					if piece == "cape":
+						if int(it.def) != LEG_ACC_CAPE_DEF[hi][0] or int(it.mdef) != LEG_ACC_CAPE_DEF[hi][1] or it.armor_style != "cape":
+							bad.append("%s DEF/MDEF %d/%d" % [iid, it.def, it.mdef])
+					elif it.def != 0.0 or it.mdef != 0.0:
+						bad.append(iid + " com DEF")
+					if piece in ["ring", "signet"]:
+						var v := float(Balance.ACC_RING_ATK_K45)
+						if not (is_equal_approx(it.matk, v if magic else 0.0) and is_equal_approx(it.atk, 0.0 if magic else v)):
+							bad.append("%s ATK/MATK %.0f/%.0f" % [iid, it.atk, it.matk])
+	check(n == expect_n and expect_n == 288, "acessórios lendários: %d de %d (spec: 288 = 24 builds x 3 níveis x 4 peças)" % [n, expect_n])
+	check(bad.is_empty(), "acessórios lendários: campos, bônus, atributos e papéis pela spec (%d erros: %s)" % [bad.size(), str(bad.slice(0, 4))])
+	for stat in Balance.LEG_ACC_STEP:
+		var st: Array = Balance.LEG_ACC_STEP[stat]
+		check(stat in Stats.STAT_KEYS and st.size() == 3 and float(st[0]) < float(st[1]) and float(st[1]) < float(st[2]), "LEG_ACC_STEP %s: stat conhecido e 3 valores crescentes" % stat)
+	for bid in Balance.LEG_ACC_BUILDS:
+		for p in Balance.LEG_ACC_BUILDS[bid]:
+			check(Balance.LEG_ACC_STEP.has(Balance.LEG_ACC_BUILDS[bid][p]), "%s.%s: stat com tabela em LEG_ACC_STEP" % [bid, p])
+	# ordem t4 < lend. 35 < t5 < lend. 40 < k45 < lend. 45 (atributo principal; guerreiro)
+	var order: Array = []
+	for iid in ["ring_guerreiro_t4", "leg_acc_berserker_executor_35_ring", "ring_guerreiro_t5", "leg_acc_berserker_executor_40_ring", "ring_guerreiro_k45", "leg_acc_berserker_executor_45_ring"]:
+		order.append(int(gd.items[iid].attr("FOR")) if gd.items.has(iid) else -1)
+	var asc := true
+	for i in range(1, order.size()):
+		asc = asc and order[i] > order[i - 1]
+	check(asc, "anel: t4 < lend. 35 < t5 < lend. 40 < k45 < lend. 45 (%s)" % [order])
+	if not gd.items.has("leg_acc_paladin_guardiao_45_signet"):
+		return
+	# 3) não conta em conjunto
+	var pal: ClassDef = gd.classes["paladin"]
+	var sd: SetDef = gd.sets["set_paladin_guardiao_45"]
+	var eq := {}
+	for pid in sd.armor.slice(0, 4):
+		eq[gd.items[pid].slot] = gd.items[pid]
+	eq[ItemDef.Slot.CAPE] = gd.items["leg_acc_paladin_guardiao_45_cape"]
+	eq[ItemDef.Slot.AMULET] = gd.items["leg_acc_paladin_guardiao_45_amulet"]
+	eq[ItemDef.Slot.RING] = gd.items["leg_acc_paladin_guardiao_45_ring"]
+	eq[ItemDef.Slot.RING2] = gd.items["leg_acc_paladin_guardiao_45_signet"]
+	var st4 := Stats.compute(pal, 45, eq, [])
+	check(int(st4.active_sets.get(sd.id, 0)) == 4 and st4.active_sets.size() == 1, "4 peças do conjunto + 4 acessórios lendários: o conjunto conta 4 (%s)" % [st4.active_sets])
+	check(is_equal_approx(st4.cc_resist_pct, 20.0) and is_equal_approx(st4.threat_pct, 20.0) and is_equal_approx(st4.dr_pct, 3.0), "Guardião 45: Sinete cc 20, Medalhão ameaça 20, Manto DR 3 (%.1f/%.1f/%.1f)" % [st4.cc_resist_pct, st4.threat_pct, st4.dr_pct])
+	# 4) peça repetida não soma
+	var dc: ClassDef = gd.classes["assassin"]
+	var r1: ItemDef = gd.items["leg_acc_assassin_duelista_45_ring"]
+	var sg: ItemDef = gd.items["leg_acc_assassin_duelista_45_signet"]
+	var s_one := Stats.compute(dc, 45, {ItemDef.Slot.RING: r1}, [])
+	var s_two := Stats.compute(dc, 45, {ItemDef.Slot.RING: r1, ItemDef.Slot.RING2: r1}, [])
+	var s_pair := Stats.compute(dc, 45, {ItemDef.Slot.RING: r1, ItemDef.Slot.RING2: sg}, [])
+	var s_plus := Stats.compute(dc, 45, {ItemDef.Slot.RING: r1, ItemDef.Slot.RING2: gd.plus_item(r1, 2)}, [])
+	var agi_crit := func(a: Stats, b: Stats) -> float: return (b.attrs["AGI"] - a.attrs["AGI"]) / float(Balance.ATTR_SCALE) * Balance.CRIT_PER_AGI
+	check(absf((s_two.crit_phys - s_one.crit_phys) - agi_crit.call(s_one, s_two)) < 0.01, "o mesmo Anel lendário nos dois slots: o crítico do bônus conta uma vez (só os atributos somam)")
+	check(absf((s_plus.crit_phys - s_one.crit_phys) - agi_crit.call(s_one, s_plus)) < 0.01, "Anel + a versão +2 dele: o bônus conta uma vez")
+	check(is_equal_approx(s_pair.crit_dmg_pct, 8.0) and s_pair.crit_phys > s_one.crit_phys, "Anel + Sinete: os dois bônus valem (crit_dmg %.1f)" % s_pair.crit_dmg_pct)
+	# 5) fontes
+	var bers: ClassDef = gd.classes["berserker"]
+	var pool45: Array = gd.legendary_pool(bers, 45, "executor")
+	check(Balance.LEG_ACC_PIECES.all(func(p): return ("leg_acc_berserker_executor_45_%s" % p) in pool45), "legendary_pool(berserker, 45, executor) tem os 4 acessórios")
+	check(not gd.legendary_pool(bers, 30).any(func(i): return str(i).begins_with("leg_acc_")), "nível 30: nenhum acessório lendário no sorteio")
+	var bot: SimEntity = sim.spawn_bot(bers, "Joalheiro", "city_aldara", Vector3(64, 0, -60), 45)
+	bot.brain = null
+	check(not bot.equipment.values().any(func(it): return it != null and it.id.begins_with("leg_acc_")), "bot do mundo nasce sem acessório lendário (_gear_bot)")
+	bot.build_id = "executor"
+	var offer: Array = sim.relic_offer(bot)
+	check(offer.has("leg_acc_berserker_executor_45_signet") and offer.has("leg_acc_berserker_punhos_35_cape"), "Relicária oferece os acessórios lendários da classe")
+	for hi in range(3):
+		check(sim.relic_cost(gd.items["leg_acc_berserker_executor_%d_ring" % Balance.HYBRID_LEVELS[hi]]) == 7 + hi, "Relicária: acessório lendário %d custa %d moedas" % [Balance.HYBRID_LEVELS[hi], 7 + hi])
+	check(not sim.relic_set_missing(bot, "set_berserker_executor_45").any(func(i): return str(i).begins_with("leg_acc_")), "trocar o conjunto inteiro não inclui acessórios")
+	# 6) bots (sonda): os 4 da build
+	var got: Array = sim.bot_legendary_accessories(bot, 45)
+	check(got.size() == 4 and Balance.LEG_ACC_PIECES.all(func(p): return ("leg_acc_berserker_executor_45_%s" % p) in got), "bot_legendary_accessories(45) = os 4 da build (%s)" % [got])
+	check(sim.bot_legendary_accessories(bot, 34).is_empty() and (sim.bot_legendary_accessories(bot, 39) as Array).has("leg_acc_berserker_executor_35_ring"), "bot_legendary_accessories: vazio no 34; no 39 os do 35")
+	# fatia própria no sorteio (LEG_ACC_DROP_SHARE)
+	sim.rng.seed = 4242
+	var accs := 0
+	for i in range(600):
+		if str(sim.pick_legendary(bot, 45)).begins_with("leg_acc_"):
+			accs += 1
+	var share := accs / 600.0
+	check(Balance.LEG_ACC_DROP_SHARE > 0.0 and absf(share - Balance.LEG_ACC_DROP_SHARE) < 0.06, "lendário no 45: %.0f%% acessórios (LEG_ACC_DROP_SHARE %.0f%%)" % [share * 100.0, Balance.LEG_ACC_DROP_SHARE * 100.0])
+	# 7) stats novos
+	var big := {"crit_dmg_pct": 100.0, "dot_pct": 100.0, "cc_resist_pct": 100.0, "mp_cost_pct": 100.0, "summon_time_pct": 100.0}
+	var sc := Stats.compute(bers, 45, {}, [big])
+	check(sc.crit_dmg_pct == Balance.CRIT_DMG_CAP and sc.dot_pct == Balance.DOT_PCT_CAP and sc.cc_resist_pct == Balance.CC_RESIST_CAP
+		and sc.mp_cost_pct == Balance.MP_COST_CAP and sc.summon_time_pct == Balance.SUMMON_TIME_CAP, "stats novos: tetos de Balance (%.0f/%.0f/%.0f/%.0f/%.0f)" % [sc.crit_dmg_pct, sc.dot_pct, sc.cc_resist_pct, sc.mp_cost_pct, sc.summon_time_pct])
+	var s8 := Stats.compute(bers, 45, {}, [{"crit_dmg_pct": 8.0}])
+	check(is_equal_approx(s8.crit_mult(), 1.58), "crit_dmg_pct 8: crítico x1,58 (%.2f)" % s8.crit_mult())
+	var mob: SimEntity = sim.spawn_monster(gd.monsters["golem"], "city_aldara", Vector3(66, 0, -60))
+	mob.brain = null
+	var rng := RandomNumberGenerator.new()
+	bot.recompute_stats()
+	bot.stats.crit_phys = 1000.0
+	rng.seed = 7
+	var c0 := int(Combat.calc_damage(bot, mob, 50.0, SkillDef.Kind.PHYSICAL, rng)["amount"])
+	bot.stats.crit_dmg_pct = 8.0
+	rng.seed = 7
+	var c1 := int(Combat.calc_damage(bot, mob, 50.0, SkillDef.Kind.PHYSICAL, rng)["amount"])
+	check(absf(float(c1) / c0 - 1.58 / 1.5) < 0.01, "golpe crítico com crit_dmg_pct 8: dano x%.3f (espera %.3f)" % [float(c1) / c0, 1.58 / 1.5])
+	bot.recompute_stats()
+	mob.debuffs.clear()
+	sim._apply_effects(bot, mob, {"dot": {"dps": 10, "duration": 4}}, 0.0)
+	var d0: float = float(mob.debuffs[-1].get("dps", 0)) if not mob.debuffs.is_empty() else 0.0
+	mob.debuffs.clear()
+	bot.stats.dot_pct = 10.0
+	sim._apply_effects(bot, mob, {"dot": {"dps": 10, "duration": 4}}, 0.0)
+	var d1: float = float(mob.debuffs[-1].get("dps", 0)) if not mob.debuffs.is_empty() else 0.0
+	mob.debuffs.clear()
+	check(d0 > 0.0 and absf(d1 / d0 - 1.1) < 0.001, "dot_pct 10: dano no tempo x1,1 (%.2f -> %.2f)" % [d0, d1])
+	var tank: SimEntity = sim.spawn_bot(pal, "Firme", "city_aldara", Vector3(62, 0, -62), 45)
+	tank.brain = null
+	tank.recompute_stats()
+	tank.stats.cc_resist_pct = 20.0
+	tank.iframe_left = 0.0
+	sim._apply_effects(mob, tank, {"stun": {"duration": 2.0}, "root": {"duration": 2.0}, "slow": {"duration": 2.0, "pct": 30}}, 0.0)
+	var root_t := -1.0
+	var slow_t := -1.0
+	for d in tank.debuffs:
+		if d.get("kind") == "root":
+			root_t = float(d["remaining"])
+		if d.get("kind") == "slow":
+			slow_t = float(d["remaining"])
+	check(tank.state == SimEntity.State.STUNNED and is_equal_approx(tank.state_duration, 1.6) and is_equal_approx(root_t, 1.6) and is_equal_approx(slow_t, 1.6),
+		"cc_resist_pct 20: atordoar/prender/lentidão de 2 s duram 1,6 s (%.2f/%.2f/%.2f)" % [tank.state_duration, root_t, slow_t])
+	tank.set_state(SimEntity.State.IDLE)
+	tank.debuffs.clear()
+	var s6 := Stats.compute(bers, 45, {}, [{"mp_cost_pct": 6.0}])
+	check(is_equal_approx(s6.mp_cost_pct, 6.0) and is_equal_approx(s6.mp_cost_of(30.0), 29.0) and is_equal_approx(s6.mp_cost_of(1.0), 1.0) and is_equal_approx(s6.mp_cost_of(0.0), 0.0),
+		"mp_cost_pct 6: custo 30 -> 29, mínimo 1, custo 0 fica 0")
+	var caster: SimEntity = sim.spawn_bot(bers, "Poupador", "city_aldara", Vector3(60, 0, -64), 30)
+	caster.brain = null
+	var m: Dictionary = sim.maps["city_aldara"]
+	var spent := {}
+	for pass_i in range(2):
+		caster.recompute_stats()
+		caster.stats.mp_cost_pct = 30.0 if pass_i == 1 else 0.0
+		for sl in range(mini(caster.skills.size(), Balance.SKILL_SLOTS)):
+			var sk: SkillDef = caster.skills[sl]
+			if sk == null or sk.mp_cost <= 0.0:
+				continue
+			caster.cooldowns.clear()
+			caster.mp = 999.0
+			caster.set_state(SimEntity.State.IDLE)
+			if sim.try_cast(caster, sl, caster.position + caster.forward(), m):
+				spent[pass_i] = [sk.id, 999.0 - caster.mp, sk.mp_cost_at(caster.mastery_of(sk.id))]
+				sim._end_skill(caster)
+				break
+	check(spent.size() == 2 and spent[0][0] == spent[1][0] and is_equal_approx(spent[1][1], maxf(1.0, ceilf(float(spent[1][2]) * 0.7 - 0.0001))) and spent[1][1] < spent[0][1],
+		"try_cast cobra o custo com mp_cost_pct 30 (%s)" % [spent])
+	sim.despawn(caster)
+	bot.recompute_stats()
+	bot.stats.summon_time_pct = 20.0
+	var t0: float = sim.time
+	var sm: SimEntity = sim.spawn_summon(bot, gd.monsters["golem"], bot.position + Vector3(1, 0, 0), 10.0)
+	var pet: SimEntity = sim.spawn_summon(bot, gd.monsters["golem"], bot.position + Vector3(-1, 0, 0), 0.0)
+	check(is_equal_approx(sm.summon_expires - t0, 12.0) and pet.summon_expires == INF, "summon_time_pct 20: invocação de 10 s dura 12 s; companheiro permanente igual")
+	sim.despawn(sm)
+	sim.despawn(pet)
+	# 8) ícones e 10) dica
+	check(ItemIcons.art_key(gd.items["leg_acc_paladin_guardiao_45_signet"]) == "ring_signet" and ItemIcons.art_key(gd.items["leg_acc_paladin_guardiao_45_ring"]) == "ring",
+		"arte: Sinete = ring_signet, Anel = ring")
+	var raw: Array = []
+	for iid in gd.items:
+		if not str(iid).begins_with("leg_acc_") or str(iid).contains("+"):
+			continue
+		var it: ItemDef = gd.items[iid]
+		var tx := UiKit.item_bonus_text(it.bonus)
+		if tx.count("\n") != it.bonus.size() or not ResourceLoader.exists("res://assets/icons/art_%s.png" % iid):
+			raw.append(iid)
+	check(raw.is_empty(), "acessório lendário: uma linha pt-BR por bônus na dica e arte pintada (%d: %s)" % [raw.size(), str(raw.slice(0, 3))])
+	for k in ["crit_dmg_pct", "dot_pct", "cc_resist_pct", "mp_cost_pct", "summon_time_pct"]:
+		var tx := UiKit.item_bonus_text({k: 5.0})
+		check(tx != "" and not tx.contains(k), "dica: rótulo pt-BR para %s (%s)" % [k, tx.strip_edges()])
+	sim.despawn(tank)
+	sim.despawn(mob)
+	sim.despawn(bot)
+
 func _check_catalog_keys(gd) -> void:
 	check(CatalogUtil.unknown_keys.is_empty(), "catálogos: nenhuma chave desconhecida (%s)" % [CatalogUtil.unknown_keys])
 	var bad: Array[String] = []
@@ -16160,6 +18339,283 @@ func _check_bot_recall(gd, sim) -> void:
 			break
 	check(cast and e.map_id == town, "bot voltando conjura o G e chega na cidade (mapa %s)" % e.map_id)
 	sim.despawn(e)
+
+## Bot viajando não vai e volta pelo mesmo portal (playtest 2026-11-16, faixas 1-10/11-20): de todo mapa, a cadeia de
+## BotBrain._find_portal leva a cada campo de caça sem repetir mapa; e um bot nv 26 saindo de Aldara para um forte a 2
+## portais (fort_bones, pela floresta) atravessa sem voltar a um mapa já visitado.
+func _check_bot_portal_route(gd, sim) -> void:
+	var brain := BotBrain.new()
+	var bad := 0
+	var first_bad := ""
+	for fid in gd.maps:
+		var fd: MapDef = gd.maps[fid]
+		if not fd.has_hunting() or fd.parent_map != "":
+			continue
+		for mid in gd.maps:
+			var md: MapDef = gd.maps[mid]
+			if mid == fid or md.portals.is_empty() or md.interior:
+				continue
+			var seen := {mid: true}
+			var cur: String = mid
+			var ok := false
+			for step in gd.maps.size():
+				var p := brain._find_portal(gd.maps[cur], fid)
+				if p.is_empty():
+					break
+				cur = p["target_map"]
+				if cur == fid:
+					ok = true
+					break
+				if seen.has(cur):
+					break
+				seen[cur] = true
+			if not ok:
+				bad += 1
+				if first_bad == "":
+					first_bad = "%s -> %s (parou em %s)" % [mid, fid, cur]
+	check(bad == 0, "bot: de todo mapa a rota de portais chega ao campo sem voltar (%d rotas ruins; ex. %s)" % [bad, first_bad])
+	# na sim: Aldara -> floresta -> Forte dos Ossos, sem ida e volta
+	var town: String = gd.town_map_id()
+	var dest := "fort_bones"
+	if not gd.maps.has(dest):
+		return
+	for mid in [town, "field_forest", dest]:
+		if not sim.maps.has(mid):
+			sim.load_map(gd.maps[mid])
+	var e: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Viajante", town, gd.maps[town].town_center, 26)
+	e.hp = e.stats.max_hp * 1000.0
+	e.brain.dest_map = dest
+	e.brain.state = BotBrain.S.TRAVEL
+	e.brain.timer = Balance.BOT_TRAVEL_LEG_S
+	e.brain.travel_map = town
+	var visited: Array = [town]
+	var back := false
+	for i in range(int(Balance.BOT_TRAVEL_LEG_S * 2.0 * 20)):
+		sim.tick(0.05)
+		if e.map_id != visited.back():
+			back = back or e.map_id in visited
+			visited.append(e.map_id)
+		if e.map_id == dest or back:
+			break
+	check(not back, "bot viajando não volta por um portal já passado (mapas: %s)" % " > ".join(visited))
+	check(e.map_id == dest, "bot nv 26 sai de Aldara e chega ao %s (mapas: %s)" % [dest, " > ".join(visited)])
+	sim.despawn(e)
+
+## Bots presos (production/qa/bot-stuck-diagnosis-2026-11-17.md): portão da vila sem ida e volta, alvo atrás do muro
+## largado, ponta do rio de Aldara colada no lago, seguidor do jogador na porta de casa.
+func _check_bot_unstuck(gd, sim) -> void:
+	var town: String = gd.town_map_id()
+	for mid in [town, "fort_bones"]:
+		if gd.maps.has(mid) and not sim.maps.has(mid):
+			sim.load_map(gd.maps[mid])
+	var tdef: MapDef = gd.maps[town]
+	var tm: Dictionary = sim.maps[town]
+	var dt := 1.0 / 60.0
+	# R1: bot no portão com destino do outro lado da vila sai do vão em 6 s e chega (antes: ia e voltava no portão)
+	var c := tdef.town_center
+	var r := tdef.town_radius
+	for g: Vector3 in tdef.town_gates:
+		var dir := (g - c).normalized()
+		var goal := Vector3.INF
+		for ang: float in [0.45, -0.45, 0.8, -0.8, 0.0]:
+			for rad: float in [r + 45.0, r + 35.0, r + 55.0]:
+				var q := c - dir.rotated(Vector3.UP, ang) * rad
+				if goal == Vector3.INF and sim.is_walkable(q, tdef, 0.6):
+					goal = q
+		if goal == Vector3.INF:
+			continue
+		for start: Vector3 in [g, c + dir * (r + 1.5)]:
+			var bot: SimEntity = sim.spawn_bot(gd.classes["ranger"], "Portao", town, start, 10)
+			var br = bot.brain
+			br.cur_sim = sim
+			br.cur_def = tdef
+			var out_t := -1.0
+			var reached := false
+			for tick in range(60 * 70):
+				var cmd := InputCommand.new()
+				cmd.move = br._steer(bot, goal, dt)
+				cmd.aim = goal
+				sim._apply_command(bot, cmd, tm, dt)
+				if out_t < 0.0 and bot.position.distance_to(g) > 8.0:
+					out_t = tick * dt
+				if bot.position.distance_to(goal) < 2.0:
+					reached = true
+					break
+			check(out_t >= 0.0 and out_t <= 6.0, "bot no portão %s (início %s) sai do vão em 6 s rumo a %s (saiu em %.1f s; parou em %s)" % [g, start, goal, out_t, bot.position])
+			check(reached, "bot do portão %s chega ao outro lado da vila %s em 70 s (parou em %s)" % [g, goal, bot.position])
+			sim.despawn(bot)
+	# casos achados no stuck_probe (morro colado no muro SE de Aldara): o contorno chega
+	for case in [[Vector3(22.7, 0, -31.7), Vector3(33.9, 0, 106.0)], [Vector3(36.0, 0, -16.8), Vector3(-38.2, 0, 40.7)]]:
+		var cb: SimEntity = sim.spawn_bot(gd.classes["ranger"], "Morro", town, case[0], 10)
+		var cbr = cb.brain
+		cbr.cur_sim = sim
+		cbr.cur_def = tdef
+		var got := false
+		for tick in range(60 * 60):
+			var cmd := InputCommand.new()
+			cmd.move = cbr._steer(cb, case[1], dt)
+			sim._apply_command(cb, cmd, tm, dt)
+			if cb.position.distance_to(case[1]) < 2.5:
+				got = true
+				break
+		check(got, "bot contorna o muro de Aldara de %s até %s em 60 s (parou em %s)" % [case[0], case[1], cb.position])
+		sim.despawn(cb)
+	# R2: monstro parado do outro lado da muralha do forte (mapa sem is_town): não escolhe; preso ao alvo, larga ou chega
+	if sim.maps.has("fort_bones"):
+		var fm: Dictionary = sim.maps["fort_bones"]
+		var fdef: MapDef = fm["def"]
+		var outside := Vector3(-30.6, 0, -36.0)
+		var inner := Vector3(-18.7, 0, -32.4)
+		for o: SimEntity in fm["entities"].duplicate():
+			if o.kind == SimEntity.Kind.MONSTER and o.position.distance_to(outside) < 45.0:
+				sim.despawn(o)
+		var mob: SimEntity = sim.spawn_monster(gd.monsters["skel_archer"], "fort_bones", inner)
+		mob.brain = null
+		var hb: SimEntity = sim.spawn_bot(gd.classes["berserker"], "Muro", "fort_bones", outside, 26)
+		hb.hp = hb.stats.max_hp * 1000.0
+		var b2 = hb.brain
+		b2.cur_sim = sim
+		b2.cur_def = fdef
+		check(b2._pick_monster(hb, fm) != mob, "bot não escolhe monstro calmo atrás da muralha do forte (linha bloqueada)")
+		mob.aggro_target = hb.id
+		check(b2._pick_monster(hb, fm) == mob, "... mas escolhe o mesmo monstro se ele está brigando com o bot")
+		mob.aggro_target = -1
+		b2.ignore.clear()
+		b2.line_block.clear()
+		b2.state = BotBrain.S.HUNT
+		b2.timer = 999.0
+		b2.hunt_target_id = mob.id
+		var near := false
+		var anchor := hb.position
+		var still := 0.0
+		var worst := 0.0
+		for i in range(int(25.0 * 20)):
+			sim.tick(0.05)
+			if hb.position.distance_to(mob.position) < 4.0:
+				near = true
+				break
+			if b2.hunt_target_id != mob.id or hb.position.distance_to(anchor) > 1.5:
+				anchor = hb.position
+				still = 0.0
+			else:
+				still += 0.05
+				worst = maxf(worst, still)
+		check(worst < 6.0, "bot preso a um alvo atrás do muro não fica %.0f s parado empurrando a parede (ficou %.1f s; em %s)" % [6.0, worst, hb.position])
+		check(near or b2.hunt_target_id != mob.id, "... e em 25 s chega pelo portão ou larga o alvo (alvo %d, monstro %d, em %s)" % [b2.hunt_target_id, mob.id, hb.position])
+		sim.despawn(hb)
+		sim.despawn(mob)
+	# R3: a ponta do rio de Aldara a 1,6 m do lago conta como água (antes a linha passava pela fresta e o bot encalhava)
+	var slots := 0
+	for w in tdef.water:
+		if w["kind"] != "river":
+			continue
+		for tip: Vector2 in [w["pts"][0], w["pts"][w["pts"].size() - 1]]:
+			for l in tdef.water:
+				if l["kind"] != "lake":
+					continue
+				var lc: Vector2 = l["pos"]
+				var gap: float = tip.distance_to(lc) - (float(l["r"]) - MapGeometry.WATER_SHORE)
+				if gap <= 0.0 or gap > 3.0:
+					continue
+				slots += 1
+				var to_l := (lc - tip).normalized()
+				var gm: Vector2 = tip + to_l * gap * 0.5
+				var gn := Vector2(-to_l.y, to_l.x)
+				check(MapGeometry.crosses_river(sim, tm, gm + gn * 6.0, gm - gn * 6.0), "Aldara: linha pela fresta de %.1f m entre a ponta do rio %s e o lago corta água" % [gap, tip])
+	check(slots >= 1, "Aldara: a ponta do rio perto do lago (fresta) foi achada (%d)" % slots)
+	_check_water_lines_walk(gd, sim)
+	# R5: seguidor de um líder que entrou numa casa (porta só do jogador) espera perto da porta, sem subir nela nem ser puxado
+	var door := {}
+	for pt in tdef.portals:
+		if pt.get("player_only", false) and gd.maps.has(pt["target_map"]):
+			door = pt
+			break
+	check(not door.is_empty(), "Aldara tem porta de casa (só jogador)")
+	if not door.is_empty():
+		check(PortalSystem.portal_towards(tdef, door["target_map"], true).get("player_only", false) == false, "bot não procura a porta só do jogador como caminho")
+		var inn: String = door["target_map"]
+		if not sim.maps.has(inn):
+			sim.load_map(gd.maps[inn])
+		var dp: Vector3 = door["pos"]
+		var lead: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Casa", town, dp, 10)
+		lead.brain = null
+		var spot: Vector3 = dp + (c - dp).normalized() * 9.0
+		var fol: SimEntity = sim.spawn_bot(gd.classes["bishop"], "Fora", town, sim.random_walkable(tdef, spot, 2.0), 10)
+		sim.party_invite(lead, fol)
+		sim.party_accept(fol)
+		sim._pending_map_changes.append({"e": lead, "map": inn, "pos": gd.maps[inn].spawn_point})
+		sim._process_map_changes()
+		var on_door := false
+		for i in range(int((Balance.PARTY_CATCHUP_TIME + 3.0) * 20)):
+			sim.tick(0.05)
+			if fol.map_id == town and Vector2(fol.position.x - dp.x, fol.position.z - dp.z).length() <= float(door.get("radius", 2.0)) + 0.3:
+				on_door = true
+		var dd := fol.position.distance_to(dp)
+		check(not on_door, "seguidor não sobe na porta só do jogador (líder lá dentro)")
+		check(fol.map_id == town and dd < Balance.BOT_DOOR_WAIT + 2.0, "seguidor espera do lado de fora, perto da porta (%s, %.1f m)" % [fol.map_id, dd])
+		sim.party_leave(fol)
+		sim.despawn(fol)
+		sim.despawn(lead)
+
+## crosses_river concorda com uma caminhada em passos contra a água (só os colisores de água) perto de cada ponta de rio
+## e de cada ponte: linha que a sim acha livre tem de passar andando (pega fresta como a do rio de Aldara em outra zona).
+func _check_water_lines_walk(gd, sim) -> void:
+	var bad := 0
+	var first := ""
+	var lines := 0
+	for mid in sim.maps:
+		var m: Dictionary = sim.maps[mid]
+		var def: MapDef = m["def"]
+		if def.water.is_empty():
+			continue
+		var wm := {"colliders": [], "grid": {}}
+		for col: Dictionary in m["colliders"]:
+			if col.get("water", false):
+				MapGeometry.add_collider(sim, wm["colliders"], wm["grid"], col)
+		var probes: Array = []
+		for w in def.water:
+			if w["kind"] != "river":
+				continue
+			var pts: PackedVector2Array = w["pts"]
+			var hw: float = float(w["w"]) * 0.5
+			for k in [0, pts.size() - 1]:
+				var e2: Vector2 = pts[k]
+				var t: Vector2 = (pts[k] - pts[1 if k == 0 else k - 1]).normalized()      # para fora do rio
+				var n := Vector2(-t.y, t.x)
+				for along: float in [1.5, 3.0]:       # além da ponta (antes dela a linha corta o rio)
+					var mid2: Vector2 = e2 + t * along
+					probes.append([mid2 + n * (hw + 3.0), mid2 - n * (hw + 3.0)])
+		for br in m.get("bridges", []):
+			var across := Vector2(-br["dir"].y, br["dir"].x)
+			var reach: float = float(br["w"]) * 0.5 + 3.0
+			probes.append([br["pos"] + across * reach, br["pos"] - across * reach])
+		for pr in probes:
+			var a: Vector2 = pr[0]
+			var b: Vector2 = pr[1]
+			var h := def.half()
+			if absf(a.x) > h.x - 1 or absf(a.y) > h.y - 1 or absf(b.x) > h.x - 1 or absf(b.y) > h.y - 1:
+				continue
+			for flip in range(2):
+				var s := a if flip == 0 else b
+				var f := b if flip == 0 else a
+				if MapGeometry.resolve_obstacles(sim, Vector3(s.x, 0, s.y), 0.45, wm).distance_to(Vector3(s.x, 0, s.y)) > 0.01:
+					continue       # começo dentro da água (lago grande ao lado): não é uma travessia
+				if MapGeometry.crosses_river(sim, m, s, f):
+					continue
+				lines += 1
+				var p := Vector3(s.x, 0, s.y)
+				var goal := Vector3(f.x, 0, f.y)
+				for i in range(400):
+					var step := (goal - p)
+					if step.length() < 0.2:
+						break
+					p = MapGeometry.resolve_obstacles(sim, p + step.normalized() * 0.15, 0.45, wm)
+				if p.distance_to(goal) > 0.6:
+					bad += 1
+					if bad <= 6:
+						first += "%s %s -> %s (parou em %s); " % [mid, s, f, Vector2(p.x, p.z)]
+	check(lines > 20, "água: linhas de conferência perto de pontas de rio e pontes (%d)" % lines)
+	check(bad == 0, "água: toda linha que crosses_river dá como livre passa andando (%d ruins; ex. %s)" % [bad, first])
 
 # ---------------------------------------------------------------------------
 # Ato II, a Horda 30-35 (design/gdd/ato2-horda.md R3, F2, F4; AC-15/16/18/19)
@@ -16825,14 +19281,16 @@ func _check_act2_maps(gd, sim) -> void:
 	for h in port.bot_hangouts:
 		check(_reached(seen, h), "Porto: ponto de encontro dos bots alcançável")
 	check(port.bot_hangouts.size() >= 8 and port.town_radius >= 28.0, "Porto: praça comporta 10+ bots")
-	# investida dos ginetes: 240 s ±20%; cerco (C0) maior que a patrulha (C3)
+	# Cerco Vivo (cadência Intenso): leva a cada 90 s ±20% por brecha/portão; a patrulha (C3) é menor e rara
 	var routes := {}
 	for r in [port.raid] + port.raids:
 		routes[r.get("side", "")] = r
-	check(routes.has("cerco") and routes.has("muralha") and routes.has("patrulha"), "Porto: investidas cerco/muralha/patrulha")
-	if routes.has("cerco") and routes.has("patrulha"):
-		var cerco: Dictionary = routes["cerco"]
-		check(is_equal_approx(float(cerco["every"]), 240.0) and is_equal_approx(float(cerco["jitter"]), 48.0), "AC-13: investida a cada 240 s ±20%")
+	check(routes.has("cerco_ne") and routes.has("cerco_e") and routes.has("cerco_n") and routes.has("muralha") and routes.has("patrulha") and routes.has("assedio"),
+		"Porto: rotas cerco_ne/cerco_e/cerco_n/muralha/patrulha/assedio")
+	if routes.has("cerco_ne") and routes.has("patrulha"):
+		var cerco: Dictionary = routes["cerco_ne"]
+		check(is_equal_approx(float(cerco["every"]), 90.0) and is_equal_approx(float(cerco["jitter"]), 18.0), "AC-13: leva a cada 90 s ±20% (Intenso)")
+		check(float(routes["patrulha"]["every"]) * float(Balance.SIEGE_EVERY_MULT[1]) >= 480.0, "AC-13: patrulha (C3) rara (8 min+)")
 		var size_of := func(r: Dictionary) -> int:
 			var n := 0
 			for k in r["waves"][0]["mobs"]:
@@ -16842,13 +19300,18 @@ func _check_act2_maps(gd, sim) -> void:
 		check(size_of.call(routes["muralha"]) > size_of.call(cerco), "AC-13: muralha (C1) maior que o cerco (C0)")
 		for side in routes:
 			var r: Dictionary = routes[side]
+			if str(r.get("kind", "")) == "harass":
+				check(not MapGeometry.point_in_solid(sim, r["from"], sim.maps["city_port"]), "Porto: ponto de tiro do assédio em chão livre")
+				continue
 			for q in [r["from"]] + r["route"] + [r["target"]]:
 				check(not MapGeometry.point_in_solid(sim, q, sim.maps["city_port"]), "Porto: rota %s passa por chão livre em %s" % [side, q])
 	# guarnição do porto (muro e besteiros do C1) com vida e ataque x Balance.PORT_GUARD_POWER (sozinho segura >= 75%)
 	var pguards: Array = port.npcs.filter(func(n): return str(n["id"]).begins_with("port_g_") or str(n["id"]).begins_with("port_w_"))
-	var pg_ok := pguards.size() >= 7
+	pguards.append_array(port.npcs.filter(func(n): return str(n["id"]).begins_with("port_r_")))
+	var pg_ok := pguards.size() >= 16
 	for n in pguards:
 		pg_ok = pg_ok and n.has("fighter") and is_equal_approx(float(n.get("power", 1.0)), Balance.PORT_GUARD_POWER)
+	check(pguards.all(func(n): return is_equal_approx(float(n.get("hp_power", 1.0)), Balance.PORT_GUARD_HP)), "Porto: guarnição com vida x Balance.PORT_GUARD_HP")
 	check(pg_ok and Balance.PORT_GUARD_POWER >= 1.0, "Porto: guarnição (%d) com poder Balance.PORT_GUARD_POWER %.2f" % [pguards.size(), Balance.PORT_GUARD_POWER])
 	# AC-09: estágios C0-C4 (tabela): o que vale em cada estágio
 	var ws2 := WorldSim.new()
@@ -16863,10 +19326,13 @@ func _check_act2_maps(gd, sim) -> void:
 	var spawn_on := func(md: MapDef, q: String, key: String) -> int:
 		return md.spawners.filter(func(s): return str(s.get(key, "")) == q and WorldState.active(ws2, s)).size()
 	var stages := [
-		["C0", [], {"cerco": true, "muralha": false, "patrulha": false}, {"port_import_merchant": false, "goblin_nikki": false, "coast_farmer_a": false, "port_w_crossbow_0": false}],
-		["C1", [MapsCatalog.Q_PALISADE], {"cerco": false, "muralha": true, "patrulha": false}, {"port_w_crossbow_0": true, "port_import_merchant": false}],
-		["C2", [MapsCatalog.Q_PALISADE, MapsCatalog.Q_LIGHTHOUSE], {"cerco": false, "muralha": true}, {"port_import_merchant": true}],
-		["C3", [MapsCatalog.Q_PALISADE, MapsCatalog.Q_LIGHTHOUSE, MapsCatalog.Q_RIDERS], {"cerco": false, "muralha": false, "patrulha": true}, {"coast_farmer_a": true, "goblin_nikki": false}],
+		["C0", [], {"cerco_ne": true, "cerco_e": true, "cerco_n": true, "muralha": true, "patrulha": false, "assedio": true},
+			{"port_import_merchant": false, "goblin_nikki": false, "coast_farmer_a": false, "port_w_crossbow_0": false, "port_w_ne_crossbow_0": false, "port_refugee_a": true, "port_wounded_b": true}],
+		["C1", [MapsCatalog.Q_PALISADE], {"cerco_ne": false, "cerco_e": false, "cerco_n": false, "muralha": true, "patrulha": false},
+			{"port_w_crossbow_0": true, "port_w_ne_crossbow_0": true, "port_w_e_crossbow_1": true, "port_import_merchant": false, "port_wounded_b": false, "port_wounded_a": true}],
+		["C2", [MapsCatalog.Q_PALISADE, MapsCatalog.Q_LIGHTHOUSE], {"cerco_ne": false, "muralha": true}, {"port_import_merchant": true}],
+		["C3", [MapsCatalog.Q_PALISADE, MapsCatalog.Q_LIGHTHOUSE, MapsCatalog.Q_RIDERS], {"cerco_ne": false, "muralha": false, "patrulha": true, "assedio": false},
+			{"coast_farmer_a": true, "goblin_nikki": false, "port_refugee_a": false, "port_settler_a": true}],
 		["C4", [MapsCatalog.Q_PALISADE, MapsCatalog.Q_LIGHTHOUSE, MapsCatalog.Q_RIDERS, MapsCatalog.Q_GOBLIN_BOSS], {"patrulha": true}, {"goblin_nikki": true, "goblin_villager_a": true}],
 	]
 	for st in stages:
@@ -16887,7 +19353,7 @@ func _check_act2_maps(gd, sim) -> void:
 	var tags := {}
 	for cv in port.conquest_vis + coast.conquest_vis:
 		tags[cv["tag"]] = cv
-	check(tags.has("palicada_nova") and tags.has("andaime") and tags.has("farol_luz") and tags.has("farolete_luz") and tags.has("navio2_"),
+	check(tags.has("pal_ne_pronta") and tags.has("pal_ne_obra") and tags.has("casa_queimada") and tags.has("farol_luz") and tags.has("farolete_luz") and tags.has("navio2_"),
 		"AC-09: paliçada nova (C1), farol aceso e 2º navio (C2) mudam o GLB")
 
 ## Missões do Ato II (30-35): linha principal C0-C4, paralelas da Costa e as ascensões (mestre por classe no porto).
@@ -17299,6 +19765,25 @@ func _check_ancestral_forms(gd, sim) -> void:
 			check(meshes < 200, "form_%s: %d malhas (< 200)" % [f, meshes])
 			var style_i := "dru_%s30" % {"ent": "b", "alpha": "w", "bird": "x"}[f]
 			check(not fm.pieces_of(style_i).is_empty(), "form_%s: armadura do conjunto %s" % [f, style_i])
+			# Ato II: a forma ancestral veste a armadura do visual do Ato II da build, na cor/destaque/brilho do nível
+			var a2: Dictionary = GearCatalog.ACT2_VISUALS.get("druid_%s" % Balance.ANC_FORM_BUILD.get(f, ""), {})
+			check(not a2.is_empty() and fm.pieces_of(str(a2.get("style", "-"))).size() >= 4, "form_%s: armadura do Ato II (%s)" % [f, a2.get("style", "")])
+			for li in range(Balance.HYBRID_LEVELS.size() if not a2.is_empty() else 0):
+				var eq2 := {}
+				for iid in gd.legendary_pool(gd.classes["druid"], int(Balance.HYBRID_LEVELS[li]), Balance.ANC_FORM_BUILD[f]):
+					eq2[gd.items[iid].slot] = gd.items[iid]
+				fm.apply_equipment(eq2)
+				var on: Array = fm._pieces.filter(func(mi): return mi.visible)
+				var lit := 0
+				var bad := 0
+				for mi in on:
+					for gm: ShaderMaterial in fm._glows.get(mi.name, []):
+						lit += 1
+						bad += 0 if (gm.get_shader_parameter("albedo") as Color).is_equal_approx(a2["glows"][li]) else 1
+					for am: ShaderMaterial in fm._accents.get(mi.name, []):
+						bad += 0 if (am.get_shader_parameter("albedo") as Color).is_equal_approx(a2["accents"][li]) else 1
+				check(on.size() >= 4 and on.all(func(mi): return String(mi.name).begins_with("frm_%s_" % a2["style"])) and lit >= 1 and bad == 0,
+					"form_%s %d: só a armadura do Ato II, brilho e destaque do nível (%d peças, %d acesas, %d erradas)" % [f, Balance.HYBRID_LEVELS[li], on.size(), lit, bad])
 			fm.free()
 	var variants := 0
 	for sid in SkillsCatalog.ANCESTRAL_MODS:
@@ -17535,7 +20020,7 @@ func _check_ancestral_forms(gd, sim) -> void:
 ## AC-25: bot de cada build entra na forma ancestral em luta de chefe, fica nela e usa as skills dela em 60 s.
 func _check_ancestral_bots(gd, sim) -> void:
 	var m: Dictionary = sim.maps["city_aldara"]
-	var at := Vector3(-52, 0, 30)
+	var at := Vector3(-30, 0, 30)        # em terra (o -52,30 era no meio do rio: o Xamã andava na água e saía 55 m adiante)
 	var tank: SimEntity = _ranger_asc_bot(gd, sim, "lanceiro", at + Vector3(0, 0, 2.5), false)
 	var rows := [["guardiao_verde", "ent", Vector3(2, 0, -2), ["dru_ent_roots", "dru_ent_grove"]], ["fera", "alpha", Vector3(-2, 0, -2), ["dru_alpha_pack", "dru_alpha_howl"]],
 		["xama", "bird", Vector3(0, 0, -7), ["dru_bird_bolt"]]]
@@ -17751,8 +20236,8 @@ func _check_stage_obstacles(gd) -> void:
 				continue                    # porta do trono da Cidadela de Kharzun: o outro colisor de estágio (`_check_kharzun_citadel`)
 			check(not ((ob.has("if") or ob.has("unless")) and ob.get("solid", true)), "%s: prop de conquista sem colisão (colisor de estágio só no Porto e na porta do trono)" % mid)
 	var port: MapDef = gd.maps["city_port"]
-	var gaps: Array = port.obstacles.filter(func(ob): return ob.get("if", "") == MapsCatalog.Q_PALISADE and ob.get("solid", true))
-	check(gaps.size() >= 20, "Porto: vãos da paliçada têm colisor de estágio (%d)" % gaps.size())
+	var gaps: Array = port.obstacles.filter(func(ob): return str(ob.get("if", "")).contains(MapsCatalog.Q_PALISADE) and ob.get("solid", true))      # trechos: "quest|hx_palisade"
+	check(gaps.size() >= 12, "Porto: trechos da paliçada têm colisor de estágio (%d)" % gaps.size())
 	check(port.town_gates.size() == 4, "Porto: quatro portões")
 	var ws := WorldSim.new()
 	ws.load_map(gd.maps[GameData.town_map_id()])
@@ -19178,7 +21663,7 @@ func _check_choir(gd, sim) -> void:
 		tank.hp = tank.stats.max_hp
 		ally.hp = ally.stats.max_hp
 		check(ChoirSystem.angel_target(sim, an, b) == null, "grupo cheio: o anjo espera")
-		ally.hp = ally.stats.max_hp * 0.3
+		ally.hp = ally.stats.max_hp * 0.05          # folga para a cura inteira (o MATK do anel subiu: 0,3 batia no teto da vida)
 		var hp0 := ally.hp
 		for i in range(int((Balance.ANGEL_HEAL_EVERY + 0.1) / dt)):
 			sim.time += dt
@@ -20644,7 +23129,7 @@ func _check_kharzun_bosses(gd) -> void:
 			continue
 		var b: MonsterDef = gd.monsters[bid]
 		check(b.is_boss and b.level >= 41 and b.level <= 45 and b.intro != "" and b.last_words != "", "%s: chefe 41-45 com intro e last_words" % bid)
-		check((b.berserk_after == 0.0) == (bid == "boss_dire_mother"), "%s: berserk só nos chefes de grupo (campo dá para solar)" % bid)
+		check(b.berserk_after > 0.0, "%s: chefe de grupo com berserk por tempo (a Mãe-Loba também, desde 2026-11-17)" % bid)
 		check(gd.loot_tables.has(b.loot_table) and b.xp > 0 and b.coin_chance >= 1.0, "%s: loot próprio, XP e moedas" % bid)
 		check(MonstersCatalog.KHARZUN_MODELS.has(bid) and b.model.begins_with("mob_") and ResourceLoader.exists("res://assets/models/%s.glb" % b.model), "%s: substituto %s existe e modelo pretendido anotado" % [bid, b.model])
 		check(not Sfx.voice_of(b).is_empty(), "%s: voz (Sfx.MOB_VOICE)" % bid)
@@ -20665,11 +23150,18 @@ func _check_kharzun_bosses(gd) -> void:
 				if e and e.effects.has("boss_summon"):
 					var ad2: MonsterDef = gd.monsters.get(str(e.effects["boss_summon"]["id"]))
 					check(ad2 != null and ad2.xp == 0, "%s: invocação %s 0 XP" % [bid, sid])
-		check(b.phases.size() >= (2 if bid == "boss_dire_mother" else 3), "%s: fases suficientes" % bid)
-	# Mãe-Loba (2026-11-16): campo, mas não de papel. Com hp ×0,6 o grupo de 4-5 do 41 a derrubava em ~10 s (Ghar 40: 30-50 s)
+		check(b.phases.size() >= 3, "%s: fases suficientes" % bid)
+	# Mãe-Loba (2026-11-16): com hp ×0,6 o grupo de 4-5 do 41 a derrubava em ~10 s (Ghar 40: 30-50 s).
+	# 2026-11-17: chefe de grupo como o Ghar (faixa "group" da sonda, prêmio e dica "leve um grupo" na missão)
 	var mom: MonsterDef = gd.monsters["boss_dire_mother"]
-	var ghar_hp: float = gd.monsters["boss_ghar"].hp
+	var ghar: MonsterDef = gd.monsters["boss_ghar"]
+	var ghar_hp: float = ghar.hp
 	check(mom.hp >= ghar_hp * 0.9 and mom.hp <= ghar_hp * 1.3, "Mãe-Loba: vida na faixa do Ghar (%d / %d)" % [mom.hp, ghar_hp])
+	var probe_bands = load("res://tools/tests/boss_probe.gd")
+	check(probe_bands.GROUPS.get("boss_dire_mother", "group") == "group", "Mãe-Loba: faixa de grupo na sonda (boss_probe.GROUPS)")
+	check(mom.xp >= ghar.xp and mom.coin_min >= ghar.coin_min and mom.gold_min >= ghar.gold_min, "Mãe-Loba: prêmio de chefe de grupo (XP/moedas/ouro do Ghar ou mais)")
+	var kennel: QuestDef = gd.quests.get("hx_kennel")
+	check(kennel != null and kennel.map_hint.ends_with("leve um grupo") and kennel.dialog_offer.contains("Leve um grupo"), "O Canil: a missão avisa que é de grupo")
 	# Durgash: os três estandartes na F2, cada um com o seu efeito de clã
 	var d: MonsterDef = gd.monsters["boss_durgash"]
 	var planted: Array = []
@@ -20736,3 +23228,325 @@ func _check_boot_splash() -> void:
 		if absf(c.r - bg.r) > 0.006 or absf(c.g - bg.g) > 0.006 or absf(c.b - bg.b) > 0.006:
 			off.append("%s=%s" % [p, c])
 	check(off.is_empty(), "splash: cantos da imagem na cor de fundo (%s)" % [off])
+
+## Cidades com identidade (GDD design/gdd/living-towns.md AC-A1/A2/A4): Aldara tem a Feira do Trigo no centro (mó/balança +
+## roseta de bancas), nada de estátua/chafariz no miolo, nada alto perto do hub, cristal na borda, ofícios por quadrante.
+const TOWN_LIVING := ["city_aldara", "field_forest"]         # mapas do Ato I com LIVING_NPCS ligado (AC-B1)
+func _check_town_identity(gd, sim) -> void:
+	var def: MapDef = gd.maps["city_aldara"]
+	var z: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(MapsCatalog.ZONE_PATH % "city_aldara"))
+	var cp: Dictionary = (z["town"] as Dictionary).get("centerpiece", {})
+	check(str(cp.get("kind", "")) == "feira_do_trigo", "Aldara: o centro é a Feira do Trigo (town.centerpiece no JSON)")
+	if cp.is_empty():
+		return
+	var generic: Array = []
+	var tall: Array = []
+	var stalls: Array = []
+	var mill := false
+	for o in z["obstacles"]:
+		var p := Vector2(float(o["pos"][0]), float(o["pos"][1]))
+		if str(o["kind"]) in ["statue", "fountain"] and p.length() < 20.0:
+			generic.append("%s (%.0f, %.0f)" % [o["kind"], p.x, p.y])
+		if p.length() < 25.0 and float(o["size"][1]) > 6.0:
+			tall.append("%s %.1f m" % [o["kind"], o["size"][1]])
+		if str(o["kind"]) == "stall" and p.length() < 12.0:
+			stalls.append(p)
+		if p.length() < 0.1 and bool(o.get("solid", true)) and absf(float(o["size"][0]) - 2.0 * float(cp["mill_r"])) < 0.01:
+			mill = true
+	check(generic.is_empty(), "Aldara: sem estátua nem chafariz a menos de 20 m do centro (%s)" % [generic])
+	check(mill, "Aldara: a mó/balança do trigo é a peça central (colisor no centro)")
+	check(stalls.size() >= 6 and stalls.size() == (cp["stalls"] as Array).size(), "Aldara: 6+ bancas em roseta (%d)" % stalls.size())
+	var ring_ok := true
+	var gap := INF
+	for i in stalls.size():
+		ring_ok = ring_ok and absf((stalls[i] as Vector2).length() - float(cp["stall_r"])) < 0.5
+		for j in range(i + 1, stalls.size()):
+			gap = minf(gap, (stalls[i] as Vector2).distance_to(stalls[j]))
+	check(ring_ok and gap >= 5.5, "Aldara: bancas no anel da roseta, com vão entre elas (%.1f m entre centros)" % gap)
+	check(tall.is_empty() and float(cp["max_height"]) <= 6.0, "Aldara: nada acima de 6 m a menos de 25 m do centro (%s)" % [tall])
+	# os 8 vãos da roseta (4 ruas + 4 diagonais) passam um personagem com folga (corredor >= 3 m)
+	var shut: Array = []
+	for k in 8:
+		var a := TAU * k / 8.0
+		var q := Vector3(cos(a), 0.0, sin(a)) * float(cp["stall_r"])
+		if not sim.is_walkable(q, def, 1.5):
+			shut.append(k * 45)
+	check(shut.is_empty(), "Aldara: vãos da roseta abertos, corredor >= 3 m (fechados em %s graus)" % [shut])
+	# cristal de retorno fora do centro, na borda da feira
+	var cr: Array = MapsCatalog.CRYSTALS["city_aldara"]
+	var cd := Vector2(float(cr[0]), float(cr[1])).length()
+	check(cd >= float(cp["stall_r"]) + 2.0 and cd <= 16.0, "Aldara: Cristal de Retorno na borda da feira (%.1f m do centro)" % cd)
+	# ofícios por quadrante: ferreiro no pátio da forja (NE), mercador numa banca, Estátua do Fundador fora da praça
+	var by_id := {}
+	for n in def.npcs:
+		by_id[n["id"]] = n
+	var forge := Vector3(float(cp["forge"][0]), 0.0, float(cp["forge"][1]))
+	check(forge.x > 0.0 and forge.z < 0.0 and by_id.has("smith") and (by_id["smith"]["pos"] as Vector3).distance_to(forge) < 4.0, "Aldara: Brom trabalha no pátio da forja, a nordeste")
+	var mp: Vector3 = by_id["merchant"]["pos"] if by_id.has("merchant") else Vector3.ZERO
+	check(stalls.any(func(s): return Vector2(mp.x, mp.z).distance_to(s) < 3.5), "Aldara: o mercador atende numa banca da feira")
+	var fs: Dictionary = by_id.get("founder_statue", {})
+	check(not fs.is_empty() and (fs["pos"] as Vector3).length() >= 20.0 and def.in_hub(fs["pos"]) and str(fs.get("model", "")) == "prop_statue",
+		"Aldara: Estátua do Fundador fora da praça, dentro da vila, com nome e fala")
+	check((by_id["board"]["dialog"] as Array).any(func(l): return str(l).contains("Fundador")), "Aldara: o Quadro de Avisos fala da Estátua do Fundador")
+	check(float(cp["barn"][1]) > 15.0 and Vector2(float(cp["barn"][0]), float(cp["barn"][1])).length() < def.town_radius, "Aldara: celeiro no quadrante sul, dentro da muralha")
+	# bots não ficam dentro da roseta (lá ficam os feirantes)
+	var inside: Array = def.bot_hangouts.filter(func(h): return Vector2(h.x, h.z).length() < float(cp["stall_r"]) + 1.5)
+	check(inside.is_empty() and def.bot_hangouts.all(func(h): return sim.is_walkable(h, def, 0.45)), "Aldara: pontos de bot fora da roseta e em chão livre (%d dentro)" % inside.size())
+	check(def.npcs.filter(func(n): return n.get("role", "") == "crystal").size() == 1, "Aldara: um cristal de retorno")
+	# Posto dos Caçadores: Fogueira Comunal + roda de carroças no lugar do poço e da estátua
+	var fdef: MapDef = gd.maps["field_forest"]
+	if not sim.maps.has(fdef.id):
+		sim.load_map(fdef)
+	var fz: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(MapsCatalog.ZONE_PATH % "field_forest"))
+	var fcp: Dictionary = (fz["town"] as Dictionary).get("centerpiece", {})
+	check(str(fcp.get("kind", "")) == "fogueira_comunal" and (fcp.get("wagons", []) as Array).size() >= 4, "Posto: o centro é a Fogueira Comunal com a roda de carroças")
+	if fcp.is_empty():
+		return
+	var hub := Vector2(float(fz["town"]["center"][0]), float(fz["town"]["center"][1]))
+	var fgen: Array = fz["obstacles"].filter(func(o): return str(o["kind"]) in ["statue", "fountain", "well"] and Vector2(float(o["pos"][0]), float(o["pos"][1])).distance_to(hub) < 20.0)
+	var ftall: Array = fz["obstacles"].filter(func(o): return Vector2(float(o["pos"][0]), float(o["pos"][1])).distance_to(hub) < 12.0 and float(o["size"][1]) > 6.0)
+	check(fgen.is_empty() and ftall.is_empty() and float(fcp["max_height"]) <= 6.0, "Posto: sem estátua/poço genérico no centro e nada alto perto da fogueira (%d, %d)" % [fgen.size(), ftall.size()])
+	var fshut := 0
+	for k in 4:                     # as quatro ruas dos portões passam entre as carroças
+		var q := Vector3(hub.x + cos(TAU * k / 4.0) * float(fcp["wagon_r"]), 0.0, hub.y + sin(TAU * k / 4.0) * float(fcp["wagon_r"]))
+		var side := Vector3(-sin(TAU * k / 4.0), 0.0, cos(TAU * k / 4.0))
+		# corredor de 3 m no vão (o cristal de retorno fica no vão norte: vale passar de um lado dele)
+		if not [-2.0, 0.0, 2.0].any(func(off): return sim.is_walkable(q + side * off, fdef, 1.5)):
+			fshut += 1
+	check(fshut == 0, "Posto: as quatro ruas passam pela roda de carroças (%d fechadas)" % fshut)
+	check(fdef.bot_hangouts.all(func(h): return sim.is_walkable(h, fdef, 0.45)), "Posto: pontos de bot em chão livre")
+
+## Mapas vivos do Ato I (AC-B1/B2): Aldara chama living_npcs(LIVING_NPCS[...]); toda rota anda em chão livre, cruza água só
+## na ponte e não termina em colisor; a Carroça da Colheita faz ida e volta em <= 4 min e ninguém fica parado > 30 s.
+func _check_living_routes(gd, sim) -> void:
+	for mid in TOWN_LIVING:
+		var def: MapDef = gd.maps[mid]
+		if not sim.maps.has(mid):
+			sim.load_map(def)
+		var table: Dictionary = MapsCatalog.LIVING_NPCS.get(mid, {})
+		var ids := {}
+		for n in def.npcs:
+			ids[n["id"]] = n
+		check(not table.is_empty() and table.keys().all(func(k): return ids.has(k)), "%s: LIVING_NPCS ligado no mapa (%d NPCs)" % [mid, table.size()])
+		var bad: Array = []
+		var legs := 0
+		for n in def.npcs:
+			if not n.has("route"):
+				if table.has(n["id"]) and not sim.is_walkable(n["pos"], def, 0.3):
+					bad.append("%s posto em sólido" % n["id"])
+				continue
+			var pts: Array = n["route"]
+			for i in pts.size():
+				var a := Vector3(float(pts[i][0]), 0, float(pts[i][1]))
+				var b := Vector3(float(pts[(i + 1) % pts.size()][0]), 0, float(pts[(i + 1) % pts.size()][1]))
+				var why := _wet_or_solid(sim, def, a)
+				if why != "":
+					bad.append("%s ponto %d (%.1f, %.1f): %s" % [n["id"], i, a.x, a.z, why])
+				var steps := int(a.distance_to(b) / 0.75)
+				for k in range(1, steps):
+					var q := a.lerp(b, float(k) / steps)
+					var w2 := _wet_or_solid(sim, def, q)
+					if not sim.is_walkable(q, def, 0.3) or w2 == "lago" or w2 == "rio":
+						bad.append("%s perna %d em (%.1f, %.1f) %s" % [n["id"], i, q.x, q.z, w2])
+						break
+				legs += 1
+		if not bad.is_empty():
+			print("TOWN_ROUTE_BAD ", "\nTOWN_ROUTE_BAD ".join(bad))
+		check(bad.is_empty() and legs >= 20, "%s: rotas dos NPCs em chão livre, água só na ponte (%d pernas; %s)" % [mid, legs, "; ".join(bad.slice(0, 6))])
+		check(AmbientLife.count_for(mid) >= 6, "%s: bichos de ambiente (%d)" % [mid, AmbientLife.count_for(mid)])
+	# R1: a carroça vai da fazenda ao celeiro e volta em <= 4 min; feirantes no posto com pregão; fregueses andam
+	var def_a: MapDef = gd.maps["city_aldara"]
+	var m: Dictionary = sim.maps["city_aldara"]
+	var carter: Array = m["entities"].filter(func(o): return o.kind == SimEntity.Kind.NPC and o.npc_data.get("id", "") == "ald_carter")
+	check(carter.size() == 1 and not CarryPose.draft_of(str(carter[0].npc_data.get("carry", ""))).is_empty() if carter.size() == 1 else false, "Aldara: Carroça da Colheita com animal de tiro")
+	var keepers: Array = def_a.npcs.filter(func(n): return n.has("barks") and not n.has("route") and not n.has("wander") and (n["pos"] as Vector3).length() < 8.0)
+	check(keepers.size() >= 4, "Aldara: 4+ feirantes parados na banca com pregão (%d)" % keepers.size())
+	var shoppers: Array = def_a.npcs.filter(func(n): return str(n["id"]).begins_with("ald_shopper") and n.has("route"))
+	check(shoppers.size() >= 4, "Aldara: 4+ fregueses de banca em banca (%d)" % shoppers.size())
+	var extra: int = MapsCatalog.LIVING_NPCS["city_aldara"].size() + 1       # + Estátua do Fundador
+	check(extra <= 12, "Aldara: NPCs de ambiente a mais dentro do orçamento (+%d <= 12)" % extra)
+	check(MapsCatalog.LIVING_NPCS["field_forest"].size() <= 10 and gd.maps["field_forest"].npcs.filter(func(n): return n.get("carry", "") == "carry_log").size() >= 2,
+		"Floresta: lenhadores com tora e orçamento de NPCs de ambiente (+%d <= 10)" % MapsCatalog.LIVING_NPCS["field_forest"].size())
+	if carter.size() != 1:
+		return
+	var c: SimEntity = carter[0]
+	var movers: Array = m["entities"].filter(func(o): return o.kind == SimEntity.Kind.NPC and o.npc_data.has("route") and MapsCatalog.LIVING_NPCS["city_aldara"].has(o.npc_data.get("id", "")))
+	var start: Vector3 = c.npc_data["pos"]
+	c.position = start
+	c.npc_leg = 0
+	c.npc_goal = Vector3.ZERO
+	c.npc_wait = 0.0
+	var route: Array = c.npc_data["route"]
+	var barn := Vector3.ZERO
+	for q in route:
+		if (q as Array).size() > 2 and Vector3(float(q[0]), 0, float(q[1])).distance_to(start) > 5.0:
+			barn = Vector3(float(q[0]), 0, float(q[1]))
+	var at_barn := -1.0
+	var back := -1.0
+	var still := {}
+	var worst := 0.0
+	var last := {}
+	var dt := 1.0 / 30.0
+	for i in range(int(20.0 * 60.0 / dt)):
+		var t := i * dt
+		for o: SimEntity in movers:
+			sim._update_npc(o, m, dt)
+			if o.position.distance_to(last.get(o.id, Vector3.INF)) > 0.001:
+				still[o.id] = 0.0
+			else:
+				still[o.id] = float(still.get(o.id, 0.0)) + dt
+				worst = maxf(worst, float(still[o.id]))
+			last[o.id] = o.position
+		if at_barn < 0.0 and c.position.distance_to(barn) < 0.6:
+			at_barn = t
+		if at_barn >= 0.0 and back < 0.0 and c.position.distance_to(start) < 0.6:
+			back = t
+	check(at_barn > 0.0 and back > 0.0 and back <= 240.0, "Aldara: Carroça da Colheita vai ao celeiro (%.0f s) e volta à fazenda (%.0f s <= 240)" % [at_barn, back])
+	check(worst <= 30.0, "Aldara: nenhum NPC de rota parado mais de 30 s em 20 min (pior %.1f s)" % worst)
+
+## Eventos de estrada (RoadEventSystem; AC-B3/B4): relógio só com o jogador no mapa, 1 ativo, pontos fora do hub e longe de
+## portal, expira e limpa os monstros, prêmio pago uma vez, NPC do evento não morre, nada de quest/saque/save.
+func _check_road_events(gd, _sim) -> void:
+	var def: MapDef = gd.maps["city_aldara"]
+	check(def.road_events.size() >= 3 and def.road_events.size() <= 4, "eventos: Aldara tem 3-4 pontos de evento (%d)" % def.road_events.size())
+	check(Balance.EVENT_XP_FRAC > 0.0 and Balance.EVENT_XP_FRAC <= 0.06 and Balance.EVENT_MAX_MOBS <= 4 and Balance.EVENT_NEAR_M < Balance.EVENT_FAR_M
+		and Balance.EVENT_EVERY_S >= 180.0, "eventos: números dentro da faixa segura do GDD")
+	var ws := WorldSim.new()
+	ws.rng.seed = 23
+	var m: Dictionary = ws.load_map(def)
+	m["spawners"].clear()
+	for o in m["entities"].duplicate():
+		if o.kind == SimEntity.Kind.MONSTER:
+			ws.despawn(o)
+	# pontos: regra, monstro, chão livre e seco, fora do hub, longe de portal/chegada/NPC/chefe
+	var bad: Array = []
+	for i in def.road_events.size():
+		var p: Dictionary = def.road_events[i]
+		var pos: Vector3 = p["pos"]
+		var rule := RoadEventSystem.rules(def.id, str(p["kind"]))
+		if rule.is_empty() or not gd.monsters.has(str(p.get("mob", rule.get("mob", "")))):
+			bad.append("%d sem regra/monstro" % i)
+		if not ws.is_walkable(pos, def, 0.6) or _wet_or_solid(ws, def, pos) != "":
+			bad.append("%d fora de chão livre" % i)
+		if pos.distance_to(def.town_center) < 40.0:
+			bad.append("%d no hub" % i)
+		for pt in def.portals:
+			if pos.distance_to(pt["pos"]) < 25.0:
+				bad.append("%d perto do portal %s" % [i, pt["id"]])
+		for other in gd.maps:
+			for pt in gd.maps[other].portals:
+				if pt["target_map"] == def.id and pos.distance_to(pt["target_pos"]) < 25.0:
+					bad.append("%d perto da chegada de %s" % [i, other])
+		for n in def.npcs:
+			if pos.distance_to(n["pos"]) < 25.0 and not n.has("route") and not n.has("wander"):
+				bad.append("%d perto do NPC %s" % [i, n["id"]])
+		for sp in def.spawners:
+			var smd: MonsterDef = gd.monsters.get(str(sp["monster_id"]))
+			if smd != null and smd.is_boss and pos.distance_to(sp["pos"]) < 25.0:
+				bad.append("%d perto do chefe %s" % [i, smd.id])
+		for j in range(i + 1, def.road_events.size()):
+			if pos.distance_to(def.road_events[j]["pos"]) < 30.0:
+				bad.append("%d colado no ponto %d" % [i, j])
+	check(bad.is_empty(), "eventos: pontos válidos (%s)" % "; ".join(bad.slice(0, 6)))
+	for kind in MapsCatalog.ROAD_EVENTS["city_aldara"]:
+		var r: Dictionary = MapsCatalog.ROAD_EVENTS["city_aldara"][kind]
+		var it: ItemDef = gd.items.get(str(r.get("reward_item", "")))
+		check(it != null and it.type == ItemDef.Type.CONSUMABLE and not str(r["reward_item"]).begins_with("legend"), "eventos: prêmio de %s é consumível (%s)" % [kind, r.get("reward_item", "")])
+		for key in ["cry", "thanks", "flee", "bot_chat"]:
+			check(not (r.get(key, []) as Array).is_empty(), "eventos: %s tem falas de %s" % [kind, key])
+	# sem jogador no mapa: nada nasce
+	for i in 800:
+		RoadEventSystem.update(ws, m, 0.5)
+	check(not m.has("road_event") or (m["road_event"]["active"] as Dictionary).is_empty(), "eventos: sem jogador no mapa nada nasce")
+	var p0: Vector3 = def.road_events[0]["pos"]
+	var p: SimEntity = ws.spawn_player(gd.classes["berserker"], "Viajante", def.id)
+	# jogador na vila (pontos a mais de EVENT_FAR_M): o relógio anda mas nada nasce
+	p.position = def.town_center
+	var st := RoadEventSystem.state(ws, m)
+	var first: float = st["timer"]
+	check(first >= Balance.EVENT_FIRST_S and first <= Balance.EVENT_FIRST_S + Balance.EVENT_JITTER_S, "eventos: 1º evento entre FIRST e FIRST+JITTER (%.0f s)" % first)
+	check(RoadEventSystem.valid_points(ws, m).all(func(i): return def.road_events[i]["pos"].distance_to(p.position) >= Balance.EVENT_NEAR_M and def.road_events[i]["pos"].distance_to(p.position) <= Balance.EVENT_FAR_M),
+		"eventos: só vale ponto a 35-70 m do jogador")
+	# jogador na estrada, a 50 m do ponto 0: nasce quando o relógio zera
+	p.position = p0 + (def.town_center - p0).normalized() * 50.0
+	check(RoadEventSystem.valid_points(ws, m).has(0), "eventos: ponto a 50 m do jogador é válido")
+	var born := -1.0
+	var t := 0.0
+	while t < Balance.EVENT_FIRST_S + Balance.EVENT_JITTER_S + 5.0 and born < 0.0:
+		RoadEventSystem.update(ws, m, 0.25)
+		ws.time += 0.25
+		t += 0.25
+		if bool(RoadEventSystem.status(ws, def.id)["active"]):
+			born = t
+	check(born >= first - 0.5 and born <= first + 0.5, "eventos: nasce quando o relógio zera (%.1f s, relógio %.1f s)" % [born, first])
+	var a: Dictionary = st["active"]
+	if a.is_empty():
+		check(false, "eventos: evento ativo para conferir")
+		ws.free()
+		return
+	var mobs: Array = (a["ids"] as Array).map(func(id): return ws.entities[id])
+	var npc: SimEntity = ws.entities[a["npc"]]
+	var wolf: MonsterDef = gd.monsters["wolf"]
+	var mobs_ok := true
+	for e: SimEntity in mobs:
+		mobs_ok = mobs_ok and e.road_event and e.monster_def.xp == 0 and e.monster_def.loot_table == "" and e.monster_def.gold_max == 0 			and e.level <= wolf.level and is_equal_approx(e.monster_def.leash_range, Balance.EVENT_LEASH_M)
+	check(mobs.size() >= 2 and mobs.size() <= Balance.EVENT_MAX_MOBS and mobs_ok, "eventos: 2-3 lobos do nível do ponto, sem XP/ouro/saque, presos a 30 m (%d)" % mobs.size())
+	check(npc.kind == SimEntity.Kind.NPC and mobs.all(func(e): return not e.is_hostile_to(npc) and not npc.is_hostile_to(e)), "eventos: o lavrador não é alvo (não morre)")
+	check(RoadEventSystem.start(ws, m).is_empty() and RoadEventSystem.start(ws, m, 1).is_empty(), "eventos: nunca 2 ativos no mapa")
+	# graça dos bots: nos primeiros 25 s só o jogador (e o grupo dele) mira os lobos
+	var bot: SimEntity = ws.spawn_bot(gd.classes["paladin"], "Curioso", def.id, p0 + Vector3(3, 0, 0), 8)
+	check(bool(a["grace"]) and not bot.is_hostile_to(mobs[0]) and not mobs[0].is_hostile_to(bot) and p.is_hostile_to(mobs[0]) and mobs[0].is_hostile_to(p),
+		"eventos: bots esperam a graça; o jogador não")
+	a["t"] = Balance.EVENT_BOT_GRACE + 1.0
+	RoadEventSystem.update(ws, m, 0.25)
+	ws.time += 0.25
+	check(not bool(a["grace"]) and bot.is_hostile_to(mobs[0]) and mobs[0].is_hostile_to(bot), "eventos: depois da graça os bots entram")
+	# resolver: prêmio pago uma vez, sem XP de abate nem quest
+	QuestSystem.accept(p, gd.quests["q06_wolves"])
+	var xp0 := p.xp
+	var lv0 := p.level
+	var gold0 := p.gold
+	var pot0: int = int(p.inventory.get("potion_hp_s", 0))
+	for e: SimEntity in mobs:
+		ws._deal_damage(p, e, int(e.hp + 99999), false, false, "physical")
+	var want := RoadEventSystem.reward_of(lv0, 1)
+	var last: Dictionary = RoadEventSystem.status(ws, def.id).get("last", {})
+	check(not bool(RoadEventSystem.status(ws, def.id)["active"]) and str(last.get("outcome", "")) == "resolved" and int(last.get("paid", 0)) == 1, "eventos: matar os lobos resolve o evento")
+	check(p.level > lv0 or p.xp - xp0 == int(want["xp"]), "eventos: XP só do prêmio, %d = %.0f%% do nível (ganhou %d)" % [want["xp"], Balance.EVENT_XP_FRAC * 100.0, p.xp - xp0])
+	check(p.gold - gold0 == int(want["gold"]) and int(p.inventory.get("potion_hp_s", 0)) - pot0 == 2, "eventos: moedas (%d) e consumível x2" % int(want["gold"]))
+	check(int(p.quests_active.get("q06_wolves", 0)) == 0, "eventos: lobo de evento não conta para quest")
+	RoadEventSystem.finish(ws, m, "resolved")
+	check(p.gold - gold0 == int(want["gold"]), "eventos: prêmio pago uma vez só")
+	check(ws.entities.has(npc.id), "eventos: o lavrador agradece e vai embora andando")
+	for i in int((Balance.EVENT_LEAVE_S + 1.0) / 0.25):
+		RoadEventSystem.update(ws, m, 0.25)
+		ws.time += 0.25
+	check(not ws.entities.has(npc.id), "eventos: o lavrador some depois de ir embora")
+	check(float(st["timer"]) >= Balance.EVENT_EVERY_S - Balance.EVENT_LEAVE_S - 2.0 and not RoadEventSystem.valid_points(ws, m).has(0), "eventos: próximo em 4-7 min e o ponto entra em recarga")
+	# expirar: ninguém chega em EVENT_LIFETIME -> some sem prêmio, monstros limpos
+	ws.despawn(bot)
+	p.position = def.road_events[1]["pos"] + ((def.town_center - def.road_events[1]["pos"]) as Vector3).normalized() * 50.0
+	var b2 := RoadEventSystem.start(ws, m, 1)
+	var ids2: Array = (b2.get("ids", []) as Array).duplicate()
+	var gold1 := p.gold
+	for i in int((Balance.EVENT_LIFETIME + 2.0) / 0.5):
+		RoadEventSystem.update(ws, m, 0.5)
+		ws.time += 0.5
+	last = RoadEventSystem.status(ws, def.id).get("last", {})
+	check(not ids2.is_empty() and str(last.get("outcome", "")) == "expired" and ids2.all(func(id): return not ws.entities.has(id)) and p.gold == gold1,
+		"eventos: expira sem prêmio e limpa os monstros")
+	# jogador fora do mapa por mais que a janela: o evento congelado expira na volta
+	st["cd"].clear()
+	p.position = p0 + (def.town_center - p0).normalized() * 50.0
+	RoadEventSystem.start(ws, m, 0)
+	ws.time += Balance.EVENT_LIFETIME + 10.0
+	RoadEventSystem.update(ws, m, 0.25)
+	check(str(RoadEventSystem.status(ws, def.id).get("last", {}).get("outcome", "")) == "expired", "eventos: jogador some por mais que a janela, evento expira na volta")
+	# investida no mapa cala o evento (a Floresta tem investida; a regra é a mesma)
+	var fm: Dictionary = ws.load_map(gd.maps["field_forest"])
+	check(not RoadEventSystem.raid_on(fm), "eventos: sem leva, sem bloqueio")
+	RaidSystem.start_raid(ws, fm)
+	check(RoadEventSystem.raid_on(fm), "eventos: investida em curso bloqueia e encerra eventos")
+	# nada no save
+	check(not FileAccess.get_file_as_string("res://core/save_system.gd").contains("road_event"), "eventos: nada de evento no save")
+	ws.free()

@@ -71,8 +71,8 @@ func _probe_build(cls: ClassDef, build_id: String, map_id: String) -> void:
 		if st and st.class_id == cls.id:
 			Sim._apply_effects(p, p, {"buff": st.effects["buff"]}, 1.0)
 		p.recompute_stats()
-	if DevArgs.flag("--hybrid"):            # --hybrid[=i]: 5 peças do i-ésimo híbrido 40 da build (Fusão ligada: ritmo de B3/A1)
-		var hs: Array = GameData.hybrid_sets_for(cls, build_id, 40)
+	if DevArgs.flag("--hybrid"):            # --hybrid[=i]: 5 peças do i-ésimo híbrido 40 da build, ou do Ápice dela (efeito ligado)
+		var hs: Array = GameData.apex_sets_for(cls, build_id, 40) + GameData.hybrid_sets_for(cls, build_id, 40)
 		if not hs.is_empty():
 			var hsd: SetDef = hs[mini(int(DevArgs.value("--hybrid", "0")), hs.size() - 1)]
 			for pid in hsd.armor:

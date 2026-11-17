@@ -67,6 +67,11 @@ func _ready() -> void:
 			continue
 		if not only.is_empty() and not only.has(it.shield_style):
 			continue
+		# Ato II: os três níveis, o Ápice e o híbrido dividem UM ícone por build; a foto é a do conjunto da build no nível 40 (como set_icons)
+		var set_lv := int(it.set_id.get_slice("_", it.set_id.get_slice_count("_") - 1)) if it.set_id != "" else 0
+		if Balance.HYBRID_LEVELS.has(set_lv) and not GearCatalog.act2_of(it.set_id).is_empty() \
+				and (set_lv != 40 or GameData.sets[it.set_id].is_apex() or GameData.sets[it.set_id].is_hybrid()):
+			continue
 		var kit := KitModel.create("male", Color.WHITE, 0.025, "bishop" if it.shield_style.begins_with("bis") else "paladin")     # escudo de conjunto fica no kit da classe
 		add_child(kit)
 		kit.apply_equipment({ItemDef.Slot.OFFHAND: it})

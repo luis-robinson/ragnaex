@@ -272,6 +272,139 @@ def bird_armor(ck, lp, ds, arm, style, cfg, tint, tint2):
 
 
 # ---------------------------------------------------------------------------
+# Ato II (druid_sets.ACT2_SETS): UMA armadura por forma ancestral, a do visual do Ato II da build. Cor (tint), destaque
+# (tint2) e brilho (tint_glow) vêm do nível no jogo (FormModel). Ficam FORA da conta de chão (skip nas passadas): os
+# clipes e os contatos medidos (production/qa/attack-arcs-wave6-spec.md D/E) ficam iguais aos de antes.
+# ---------------------------------------------------------------------------
+ACT2_STYLE = {"ent": "dru_b35", "alpha": "dru_w35", "bird": "dru_x35"}
+
+
+def _attach2(ck, lp, arm, style, groups):
+    import bmesh
+    for (slot, bone), objs in groups.items():
+        for o in objs:                   # normais para fora (o toon corta a face de trás)
+            b = bmesh.new()
+            b.from_mesh(o.data)
+            bmesh.ops.recalc_face_normals(b, faces=b.faces[:])
+            b.to_mesh(o.data)
+            b.free()
+        obj = ck._join(objs, "frm_%s_%s_%s" % (style, slot, bone))
+        ck._smooth(obj.data)
+        lp.attach(obj, arm, bone)
+
+
+def ent_armor2(ck, lp, ds, arm, style, tint, tint2):
+    """Montanha Viva no Ent: coroa de lajes de pedra com cristais acesos e crista de musgo (cabeça), cinturão de pedra,
+    gola de rochas e casco de lajes nas costas (corpo), braçadeiras de pedra com laje e cristal no ombro (luvas), anéis de
+    pedra nas raízes (botas)."""
+    V = Vector
+    m = ds._a2_mats(ck)
+    rock, glow = m["rock"], m["glow"]
+    P = "frm_%s_" % style
+    groups = {}
+
+    def put(slot, bone, obj):
+        groups.setdefault((slot, bone), []).append(obj)
+
+    for k in range(8):                   # coroa de lajes em volta da copa
+        a = math.tau * (k + 0.5) / 8
+        c = V((math.cos(a) * 0.68, 0.06 + math.sin(a) * 0.64, 1.5 + 0.06 * (k % 2)))
+        wide = abs(math.sin(a)) > 0.7
+        put("head", "head", ck.box(P + "head_slab_%d" % k, (0.34, 0.16, 0.24) if wide else (0.16, 0.34, 0.24), c, tint if k % 2 == 0 else rock, 0.035))
+    for k, (x, y, h) in enumerate(((0.0, -0.3, 0.6), (-0.34, -0.1, 0.46), (0.34, -0.1, 0.46))):     # cristais na frente da copa
+        root = V((x, y, 2.02 - abs(x) * 0.5))
+        put("head", "head", ck.blade(P + "head_crystal_%d" % k, root, root + V((x * 0.5, -0.1, h)), 0.3, 0.22, glow, (1, 0, 0), 0.4))
+    for k in range(4):                   # crista de musgo por cima da copa
+        put("head", "head", ck.ball(P + "head_moss_%d" % k, 0.15, V((0, -0.12 + k * 0.2, 2.5 - k * 0.07)), tint2, (1.3, 1.0, 0.6)))
+    # cinturão de pedra + gola de rochas + casco nas costas
+    put("body", "body", ck.tube(P + "body_belt", V((0, 0.01, 0.6)), V((0, 0.01, 0.8)), 0.48, 0.46, tint, 14))
+    put("body", "body", ck.tube(P + "body_belt_rim", V((0, 0.01, 0.8)), V((0, 0.01, 0.84)), 0.48, 0.48, tint2, 14))
+    put("body", "body", ck.box(P + "body_buckle", (0.2, 0.08, 0.2), V((0, -0.47, 0.7)), rock, 0.03))
+    put("body", "body", ck.ball(P + "body_buckle_gem", 0.06, V((0, -0.52, 0.7)), glow))
+    for k in range(10):
+        a = math.tau * k / 10
+        put("body", "body", ck.ball(P + "body_collar_%d" % k, 0.12, V((math.cos(a) * 0.35, math.sin(a) * 0.31, 1.37)), tint2 if k in (3, 7) else rock, (1, 1, 0.75)))
+    for k in range(3):                   # casco: lajes em duas fileiras, cristal e musgo na espinha
+        z = 0.95 + k * 0.17
+        for sx in (-1, 1):
+            put("body", "body", ck.box(P + "body_shell_%d_%d" % (k, sx), (0.26, 0.1, 0.2), V((sx * 0.15, 0.42 - abs(k - 1) * 0.04, z)), rock if k != 1 else tint, 0.03))
+        root = V((0, 0.44 - abs(k - 1) * 0.04, z))
+        put("body", "body", ck.blade(P + "body_crystal_%d" % k, root, root + V((0.03 * (k - 1), 0.26 - abs(k - 1) * 0.05, 0.14)), 0.15, 0.11, glow, (1, 0, 0), 0.4))
+    put("body", "body", ck.ball(P + "body_moss", 0.12, V((0.06, 0.44, 0.86)), tint2, (1.6, 0.6, 0.8)))
+    for sx, bone in ((1, "arm_r"), (-1, "arm_l")):          # braçadeira no antebraço + laje e cristal no ombro
+        sh = V((sx * 0.34, 0, 1.22))
+        el = V((sx * 0.8, -0.1, 0.95))
+        hand = V((sx * 0.9, -0.28, 0.32))
+        put("gloves", bone, ck.tube(P + "gloves_band_%s" % bone, el.lerp(hand, 0.3), el.lerp(hand, 0.72), 0.145, 0.135, tint, 10))
+        put("gloves", bone, ck.tube(P + "gloves_rim_%s" % bone, el.lerp(hand, 0.72), el.lerp(hand, 0.78), 0.15, 0.15, tint2, 10))
+        top = sh + V((sx * 0.1, 0, 0.3))
+        put("gloves", bone, ck.box(P + "gloves_slab_%s" % bone, (0.34, 0.36, 0.1), top, rock, 0.035))
+        put("gloves", bone, ck.box(P + "gloves_slab2_%s" % bone, (0.24, 0.28, 0.08), top + V((sx * 0.04, 0, 0.08)), tint, 0.03))
+        put("gloves", bone, ck.blade(P + "gloves_crystal_%s" % bone, top + V((sx * 0.06, 0, 0.08)), top + V((sx * 0.24, 0.04, 0.4)), 0.15, 0.12, glow, (0, 1, 0), 0.4))
+    for bone, sx, sy in (("leg_fr", 1, -1), ("leg_fl", -1, -1), ("leg_br", 1, 1), ("leg_bl", -1, 1)):
+        top = V((sx * 0.2, sy * 0.16, 0.38))
+        foot = V((sx * 0.62, sy * 0.52, 0.03))
+        put("boots", bone, ck.tube(P + "boots_band_%s" % bone, top.lerp(foot, 0.3), top.lerp(foot, 0.55), 0.165, 0.14, tint, 10))
+        put("boots", bone, ck.tube(P + "boots_rim_%s" % bone, top.lerp(foot, 0.27), top.lerp(foot, 0.3), 0.175, 0.175, tint2, 10))
+    _attach2(ck, lp, arm, style, groups)
+
+
+def bird_armor2(ck, lp, ds, arm, style, tint, tint2):
+    """Xamã da Estepe no Pássaro: casquete de crânio de carneiro com chifres enrolados e cocar de penas (cabeça), peitoral
+    com colar de dentes, conta acesa e a trilha do cocar pelo dorso (corpo), faixas com penas e talismã nas asas (luvas),
+    anilhas (botas)."""
+    V = Vector
+    z = BIRD_Z
+    m = ds._a2_mats(ck)
+    bone_m, glow = m["bone"], m["glow"]
+    P = "frm_%s_" % style
+    groups = {}
+
+    def put(slot, bone, obj):
+        groups.setdefault((slot, bone), []).append(obj)
+
+    hc = V((0, -0.3, z + 0.24))
+    put("head", "head", ck.ball(P + "head_skull", 0.15, hc + V((0, 0.03, 0.125)), bone_m, (1.0, 1.0, 0.45)))
+    put("head", "head", ck.tube(P + "head_band", hc + V((0, 0.02, 0.105)), hc + V((0, 0.02, 0.14)), 0.152, 0.138, tint, 12))
+    put("head", "head", ck.ball(P + "head_gem", 0.04, hc + V((0, -0.12, 0.15)), glow))
+    for sx in (-1, 1):
+        for o in ds._ram_horn(ck, P + "head_horn%d" % sx, hc + V((sx * 0.12, 0.02, 0.06)), sx, 0.085, 0.036, bone_m, 1.4, 7):
+            put("head", "head", o)
+    for k in range(7):                   # cocar: leque de penas de orelha a orelha, pontas claras
+        a = math.pi * (k / 6.0)
+        dv = V((math.cos(a), 0.35, math.sin(a) * 0.9 + 0.25)).normalized()
+        root = hc + V((math.cos(a) * 0.13, 0.08, 0.1 + math.sin(a) * 0.05))
+        tip = root + dv * (0.2 + 0.08 * math.sin(a))
+        put("head", "head", ck.blade(P + "head_feather_%d" % k, root, tip, 0.075, 0.016, tint2, (dv.z, 0, -dv.x) if abs(dv.x) > 0.05 else (1, 0, 0), 0.5))
+        put("head", "head", ck.ball(P + "head_tip_%d" % k, 0.022, tip, bone_m))
+    put("body", "body", ck.ball(P + "body_plate", 0.175, V((0, -0.13, z - 0.05)), tint, (0.92, 0.8, 0.92)))
+    put("body", "body", ck.ball(P + "body_sun", 0.04, V((0, -0.27, z - 0.03)), glow))
+    put("body", "body", ck.tube(P + "body_rim", V((0, 0.02, z - 0.02)), V((0, 0.14, z - 0.02)), 0.235, 0.23, tint, 12))
+    for k in range(7):                   # colar de dentes
+        a = math.pi * (0.1 + 0.8 * k / 6.0)
+        p = V((math.cos(a) * 0.15, -0.2 - math.sin(a) * 0.03, z + 0.07 - math.sin(a) * 0.1))
+        put("body", "body", ck.tube(P + "body_tooth_%d" % k, p, p + V((0, -0.02, -0.07)), 0.018, 0.003, bone_m, 5))
+    for k in range(4):                   # trilha do cocar pelo dorso
+        root = V((0, -0.08 + k * 0.1, z + 0.2 - k * 0.02))
+        tip = root + V((0.03 * (k % 2 * 2 - 1), 0.17, 0.09))
+        put("body", "body", ck.blade(P + "body_trail_%d" % k, root, tip, 0.085, 0.016, tint2, (1, 0, 0), 0.5))
+        put("body", "body", ck.ball(P + "body_trail_tip_%d" % k, 0.022, tip, bone_m))
+    for sx, bone in ((1, "arm_r"), (-1, "arm_l")):
+        root = V((sx * 0.16, 0.0, z + 0.1))
+        a, b = root + V((sx * 0.2, 0.0, 0.055)), root + V((sx * 0.38, 0.0, 0.105))
+        put("gloves", bone, ck.tube(P + "gloves_band_%s" % bone, a, b, 0.072, 0.062, tint, 10))
+        for k in range(3):               # penas e talismã pendurados na faixa
+            p = a.lerp(b, 0.2 + 0.3 * k) + V((0, 0.03, 0.05))
+            put("gloves", bone, ck.blade(P + "gloves_feather%d_%s" % (k, bone), p, p + V((sx * 0.03, 0.2, 0.05)), 0.065, 0.014, tint2, (1, 0, 0), 0.5))
+        put("gloves", bone, ck.ball(P + "gloves_bone_%s" % bone, 0.035, b + V((0, -0.03, 0.05)), bone_m, (1.0, 1.0, 0.8)))
+    for sx, bone in ((1, "leg_fr"), (-1, "leg_fl")):
+        hipp = V((sx * 0.09, 0.02, z - 0.16))
+        put("boots", bone, ck.tube(P + "boots_band_%s" % bone, hipp + V((0, -0.02, -0.07)), hipp + V((0, -0.035, -0.13)), 0.052, 0.052, tint, 8))
+        put("boots", bone, ck.ball(P + "boots_bead_%s" % bone, 0.022, hipp + V((sx * 0.05, -0.03, -0.1)), tint2))
+    _attach2(ck, lp, arm, style, groups)
+
+
+# ---------------------------------------------------------------------------
 # Clipes: laços próprios do pássaro e os cinco gestos (mesmos nomes de druid_sets.FORM_CLIPS)
 # Eixos do rig (build_monsters.combat_actions): corpo loc Y = cima, Z = frente; corpo/cabeça +X = inclina para a frente;
 # braço -X = levanta para a frente; braço Z = abre para o lado (direito -, esquerdo +).
@@ -419,15 +552,16 @@ ENT_ARM_BONE, ENT_ARM_CLIPS = "arm_l", ("maul", "attack")    # braço que furava
 GROUND_REPORT = {}                                           # forma -> relatório da última passada de chão (chibi_kit.clear_ground)
 
 
-def clear_ent_ground(ck, arm):
+def clear_ent_ground(ck, arm, skip=None):
     """Raízes-pés do Ent: são filhas do tronco, então quando ele tomba/afunda no golpe as raízes iam junto para baixo do chão
     (até 0,47 m no slam; 0,15-0,40 em attack/maul/pounce, e as de trás no recuo). Passada de chibi_kit.clear_ground SÓ nos
     quatro ossos das pernas (dianteiras abrem para a frente, traseiras para trás) até a raiz voltar à altura em que pisa parada.
     O tronco NÃO sobe (sem modo "lift") e o braço direito não entra: o contato dos punhos (slam f8, maul f7 do braço +X) fica
-    igual, ao mm. O braço esquerdo só é erguido em maul/attack, onde furava o chão."""
+    igual, ao mm. O braço esquerdo só é erguido em maul/attack, onde furava o chão.
+    skip = prefixo de malhas que ficam fora da conta (armadura do Ato II: os clipes não mudam por causa dela)."""
     by_bone = {}
     for o in arm.children:
-        if o.type == "MESH" and o.parent_type == "BONE":
+        if o.type == "MESH" and o.parent_type == "BONE" and not (skip and o.name.startswith(skip)):
             by_bone.setdefault(o.parent_bone, []).append(o)
     modes = (("leg_fr", "pitch-"), ("leg_fl", "pitch-"), ("leg_br", "pitch+"), ("leg_bl", "pitch+"))
     spec = [(b, by_bone[b], m) for b, m in modes if b in by_bone]
@@ -468,6 +602,13 @@ def build(out_dir, only=None):
                 ds.form_armor(ck, lp, arm, "wolf", style, cfg, tint, tint2)
             else:
                 bird_armor(ck, lp, ds, arm, style, cfg, tint, tint2)
+        a2 = ACT2_STYLE[kind]                          # Ato II: fora da conta de chão (skip)
+        if kind == "ent":
+            ent_armor2(ck, lp, ds, arm, a2, tint, tint2)
+        elif kind == "alpha":
+            ds.form_armor2(ck, lp, arm, "wolf", a2, tint, tint2)
+        else:
+            bird_armor2(ck, lp, ds, arm, a2, tint, tint2)
         if kind == "alpha":
             ds.form_clips(lp, arm, "wolf")
             # Mesmos clipes do lobo, mesma passada. As garras acesas (alpha_leg_*, malhas nos ossos das pernas) ENTRAM na conta:
@@ -475,13 +616,13 @@ def build(out_dir, only=None):
             # nada desce do chão; o preço é a perna dianteira já sair girada 34-42° no 1º quadro (lobo: 12-24°).
             # Folga própria para as garras (paradas ficam 19 mm acima do chão) foi testada e recusada: o bote acabava com a
             # perna 48° fora da pose (tranco na volta ao idle).
-            GROUND_REPORT[kind] = ds.clear_form_ground(ck, arm)
+            GROUND_REPORT[kind] = ds.clear_form_ground(ck, arm, skip="frm_%s_" % a2)
         else:
             if kind == "bird":
                 bird_loops(lp, arm)
             clips(lp, arm, kind)
             if kind == "ent":
-                GROUND_REPORT[kind] = clear_ent_ground(ck, arm)
+                GROUND_REPORT[kind] = clear_ent_ground(ck, arm, skip="frm_%s_" % a2)
         bpy.ops.object.mode_set(mode="OBJECT")
         for o in bpy.context.scene.objects:
             if "." in o.name:

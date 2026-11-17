@@ -38,7 +38,7 @@ const SLOT_ART := {ItemDef.Slot.HEAD: "head", ItemDef.Slot.BODY: "body", ItemDef
 const MATERIAL_ART := [["legend_coin", "legend_coin"], ["shell", "shell"], ["mushroom", "mushroom"], ["relic", "relic"], ["basket", "basket"],
 	["letter", "letter"], ["report", "letter"], ["star_ore", "star"], ["goods", "basket"], ["gel", "gel"], ["pelt", "pelt"], ["hide", "pelt"], ["tusk", "tusk"], ["fang", "tusk"], ["herb", "herb"],
 	["ore", "ore"], ["silk", "silk"], ["bark", "bark"], ["badge", "badge"], ["bone", "bone"], ["dust", "dust"],
-	["essence", "essence"], ["core", "core"], ["scale", "scale"], ["feather", "feather"], ["steel", "ingot"], ["sap", "sap"], ["heartwood", "bark"]]
+	["essence", "essence"], ["core", "core"], ["scale", "scale"], ["feather", "feather"], ["steel", "ingot"], ["sap", "sap"], ["heartwood", "bark"], ["_log", "bark"]]
 ## inclinação da arte (rad): armas na diagonal, como na mão
 const ANGLE := {"sword": 0.74, "sword2h": 0.74, "dagger": 0.74, "mace": 0.6, "mace2h": 0.5, "axe": 0.42, "axe2h": 0.4, "staff": 0.6,
 	"wand": 0.66, "scythe": 0.2, "scepter": 0.6, "rifle": 0.76, "spear": 0.74, "pistol": -0.2, "claw": 0.3, "bow": -0.74, "tusk": 0.3, "bone": 0.7, "herb": 0.18}
@@ -52,6 +52,8 @@ static func art_key(it: ItemDef) -> String:
 		if it.weapon_type != "":
 			return it.weapon_type
 		var part: String = SLOT_ART.get(it.slot, "body")
+		if part == "ring" and it.id.get_slice("+", 0).ends_with("_signet"):
+			return "ring_signet"          # Sinete (acessório lendário): anel de selo
 		if part in ["head", "body", "legs", "gloves", "boots"]:
 			var st := it.armor_style if it.armor_style in ["plate", "leather", "cloth"] else "plate"
 			return part + "_" + st
@@ -877,6 +879,21 @@ func _a_ring() -> void:
 	var g := "gem" if _r >= 2 else "tint"
 	_shape(_P([0, -0.98, 0.34, -0.66, 0.24, -0.34, -0.24, -0.34, -0.34, -0.66]), g, 0.045, 0.1)
 	_shine(-0.1, -0.7, 0.08, 0.05, 0.9)
+
+## Sinete: aro grosso e uma placa de selo larga em cima, com a marca gravada (gema no centro a partir do raro).
+func _a_ring_signet() -> void:
+	_ell(0, 0.28, 0.62, 0.56, "trim")
+	_ell(0, 0.32, 0.38, 0.34, INK, 0.0)
+	if not _sil:
+		_cv.draw_arc(Vector2(0, 0.28), 0.5, PI * 1.1, PI * 1.6, 12, Color(1, 1, 1, 0.5), 0.05, true)
+	_poly([-0.36, -0.34, 0.36, -0.34, 0.26, -0.14, -0.26, -0.14], "trim", 0.04, 0.04)
+	_shape(_P([-0.56, -0.92, 0.56, -0.92, 0.62, -0.5, 0.44, -0.3, -0.44, -0.3, -0.62, -0.5]), "tint", 0.05, 0.1)
+	_shape(_P([-0.38, -0.8, 0.38, -0.8, 0.42, -0.5, 0.3, -0.4, -0.3, -0.4, -0.42, -0.5]), "trim", 0.035, 0.06)
+	if _r >= 2:
+		_gem(0, -0.6, 0.11)
+	else:
+		_circ(0, -0.6, 0.1, "tint", 0.03)
+	_shine(-0.3, -0.78, 0.08, 0.04, 0.9)
 
 # --- consumíveis e missão --------------------------------------------------------------
 func _liquid(cx: float, cy: float, r: float, level: float) -> void:

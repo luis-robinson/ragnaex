@@ -2,7 +2,8 @@ extends Node
 ## Sonda de custo da simulação (sem tela, sem bonecos): o mundo inteiro como no jogo (todos os mapas, bots, jogador na
 ## cidade parado), semente fixa, N ticks de 1/60 s. Imprime ms/tick (média, p95) e uma soma de conferência do estado:
 ## otimização da sim que não muda comportamento tem de dar a MESMA soma antes e depois.
-##   godot --headless --path . tools/tests/sim_probe.tscn -- [--ticks=1200] [--warm=300] [--phases] [--at=x,z] [--map=<id>] [--suite] [--census]
+##   godot --headless --path . tools/tests/sim_probe.tscn -- [--ticks=1200] [--warm=300] [--phases] [--at=x,z] [--map=<id>] [--suite] [--census] [--hops]
+## --hops: registra cada troca de mapa dos bots (HOP) e conta idas e voltas A->B->A em menos de HOP_BOUNCE_S (vai-e-volta de portal).
 ## --phases liga o Sim.profile (ms/tick por fase; o próprio perfil custa um pouco).
 
 const DT := 1.0 / 60.0
@@ -39,11 +40,16 @@ func _ready() -> void:
 		Sim.tick(DT)
 	Sim.profile = DevArgs.has("--phases")
 	Sim.prof.clear()
+	var hops := DevArgs.has("--hops")
+	if hops:
+		_watch_hops()
 	var times: Array[float] = []
 	var t_all := Time.get_ticks_usec()
 	for i in n:
 		var t0 := Time.get_ticks_usec()
 		Sim.tick(DT)
+		if hops:
+			_watch_hops()
 		times.append(float(Time.get_ticks_usec() - t0))
 	var total := float(Time.get_ticks_usec() - t_all)
 	times.sort()
@@ -66,6 +72,8 @@ func _ready() -> void:
 					asleep += 1
 			print("SIM   %-18s n=%d bots=%d mobs=%d (dormindo %d) npcs=%d summons=%d loot=%d proj=%d" % [mid, m["entities"].size(), c[1], c[2], asleep, c[3], c[4],
 				m["loot"].size(), m["projectiles"].size()])
+	if hops:
+		_hop_report()
 	get_tree().quit()
 
 ## Como o trecho "simulação longa" do run_tests: classes em rodízio, nível da faixa do mapa, todos no ponto de entrada.
@@ -107,3 +115,37 @@ func _checksum() -> String:
 		var e: SimEntity = Sim.entities[id]
 		parts.append("%d:%s:%.3f,%.3f:%.2f:%d" % [id, e.map_id, e.position.x, e.position.z, e.hp, e.level])
 	return "%08x n=%d" % ["|".join(parts).hash(), ids.size()]
+
+const HOP_BOUNCE_S := 60.0
+var _hop_last := {}      # id do bot -> [mapa, hora da chegada, mapa anterior]
+var _hop_count := {}
+var _hop_bounces := 0
+
+func _watch_hops() -> void:
+	for e: SimEntity in Sim.entities.values():
+		if e.kind != SimEntity.Kind.BOT:
+			continue
+		var last: Array = _hop_last.get(e.id, [])
+		if last.is_empty():
+			_hop_last[e.id] = [e.map_id, Sim.time, ""]
+			continue
+		if last[0] == e.map_id:
+			continue
+		var b: BotBrain = e.brain
+		var lead: SimEntity = Sim.party_leader(e) if e.party_id >= 0 else null
+		var bounce: bool = e.map_id == last[2] and Sim.time - float(last[1]) < HOP_BOUNCE_S
+		if bounce:
+			_hop_bounces += 1
+		_hop_count[e.id] = int(_hop_count.get(e.id, 0)) + 1
+		print("HOP t=%.1f id=%d lv=%d %s->%s stay=%.1f state=%s dest=%s party=%s%s" % [Sim.time, e.id, e.level, last[0], e.map_id,
+			Sim.time - float(last[1]), BotBrain.S.keys()[b.state] if b else "?", b.dest_map if b else "?",
+			("lead" if lead == e else "follow:%d@%s" % [lead.id, lead.map_id]) if lead else "-", " BOUNCE" if bounce else ""])
+		_hop_last[e.id] = [e.map_id, Sim.time, last[0]]
+
+func _hop_report() -> void:
+	var tot := 0
+	var worst := 0
+	for id in _hop_count:
+		tot += int(_hop_count[id])
+		worst = maxi(worst, int(_hop_count[id]))
+	print("HOPS total=%d bots_moved=%d worst_bot=%d bounces=%d (A->B->A < %.0f s)" % [tot, _hop_count.size(), worst, _hop_bounces, HOP_BOUNCE_S])

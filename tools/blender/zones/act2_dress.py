@@ -387,7 +387,8 @@ def coast(z, sea_c, sea_r, village, nests, beach, lighthouse, shrine, hub_r, hub
 PORT_SHORE_POLE = ((-13.0, 66.4), (-15.0, 66.2), (-3.5, 66.6))
 
 
-def port(z, sea_c, sea_r, town_c, town_r, plaza_r, gates, gate_half, farm, shipyard_c, beacon_c, beacon_root, post_c, ship_c, ship_rot, ship_L, piers):
+def port(z, sea_c, sea_r, town_c, town_r, plaza_r, gates, gate_half, farm, shipyard_c, beacon_c, beacon_root, post_c, ship_c, ship_rot, ship_L, piers, ship_portal=None, breaches=()):
+    """breaches = ângulos (graus, em volta de town_c) das brechas do Cerco Vivo: o corredor entre as casas fica sem pilha de carga."""
     d = Dress(z, 211)
     rnd = d.rnd
     H = lambda r, a: P(town_c, r, a)
@@ -398,6 +399,9 @@ def port(z, sea_c, sea_r, town_c, town_r, plaza_r, gates, gate_half, farm, shipy
     d.mottle([("mata_sombra", (0.43, 0.56, 0.35))], [((0, -62), 36, 18), ((-70, -40), 24, 10), ((72, 8), 20, 8)], y=0.0032, rmin=5.0, rmax=10.0, group="mata")
     d.road_edges((0.58, 0.54, 0.4), skip=avs)
     d.roadside(d.m("seixo_estrada", (0.62, 0.58, 0.5)), d.m("capim_beira", (0.5, 0.62, 0.34)), every=6.0, lean=(0.1, 0.04), skip=avs)
+    for a, b in piers:                                     # cabeceira e eixo dos cais na areia: nada de palmeira/pedra/bote no caminho
+        for k in (1.0, 4.0, 7.0):
+            d.reserve(a[0], a[1] + k, 3.2)
     shoreline(d, sea_c, sea_r, 12.0, palms=9, boats=4, rocks=9)
     # ---- praça: anéis de laje clara e raios (rosa dos ventos) no calçamento ----
     ring = d.m("patch_praca_anel", (0.9, 0.82, 0.66))
@@ -427,6 +431,8 @@ def port(z, sea_c, sea_r, town_c, town_r, plaza_r, gates, gate_half, farm, shipy
             continue
         mid = a0 + gap * 0.5
         q = H(33.4, mid)
+        if any(abs((mid - b + 180.0) % 360.0 - 180.0) < 9.0 for b in breaches):
+            continue                                        # corredor de uma brecha: a leva (e quem defende) passa por aqui
         if d.ok(q[0], q[1], 1.2, road=1.0):
             if i % 3 == 0:
                 d.woodpile(q, -mid, 3, 2.2)
@@ -447,7 +453,7 @@ def port(z, sea_c, sea_r, town_c, town_r, plaza_r, gates, gate_half, farm, shipy
         if o["kind"] == "stall":
             d.rug(o["pos"], 3.8, 2.8, o["rot"], [(0.74, 0.3, 0.26), (0.3, 0.44, 0.7), (0.86, 0.7, 0.3)][int(abs(o["pos"][0])) % 3], (0.92, 0.86, 0.7))
     # ---- cais: guindastes, carga no largo e nos píeres, cabeços de amarração, redes, bancas de peixe com toldo ----
-    for c, rot in (((7.6, 62.6), 60.0), ((-13.4, 58.6), 120.0)):
+    for c, rot in (((7.6, 62.6), 60.0),):                  # (o candidato do oeste, (-13,4, 58,6), nunca coube; ali agora é a prancha do navio)
         if d.ok(c[0], c[1], 1.4, road=0.6, water=-1.0):
             d.crane(c, rot)
             d.solid(c[0], c[1], 1.8, 1.8, 6.0)
@@ -568,7 +574,7 @@ def port(z, sea_c, sea_r, town_c, town_r, plaza_r, gates, gate_half, farm, shipy
     # ---- vida do cais (por último: não mexe no sorteio de cima; sem colisor): varas de pescar nos píeres, peixe no varal ----
     for (px, pz), (dx, dz) in (((15.1, 69.5), (1, 0)), ((12.9, 79.0), (-1, 0)), ((14.0, 91.2), (0, 1)), ((-6.9, 71.0), (1, 0)), ((-6.9, 82.0), (1, 0)), ((-8.0, 95.2), (0, 1))):
         d.fishing_pole((px, pz), zone_lib.along(dx, dz), 3.2, 0.7)
-    for q, rot in (((19.5, 60.5), 12.0), ((-14.5, 58.0), -8.0), ((30.0, 55.5), 30.0)):
+    for q, rot in (((19.5, 60.5), 12.0), ((-21.5, 59.5), -8.0), ((30.0, 55.5), 30.0)):
         if d.ok(q[0], q[1], 1.6, road=0.8, water=0.0):
             d.fish_rack(q, rot, "pesca")
     # vara de pescar na AREIA, do lado do píer oeste (PORT_SHORE_POLE): o pescador dela fica em chão seco, a um passo de quem
@@ -578,7 +584,189 @@ def port(z, sea_c, sea_r, town_c, town_r, plaza_r, gates, gate_half, farm, shipy
             d.fishing_pole(q, zone_lib.along(sea_c[0] - q[0], sea_c[1] - q[1]), 3.4, 0.0)
             print("PORT_SHORE_POLE %.1f %.1f rot %.1f" % (q[0], q[1], zone_lib.along(sea_c[0] - q[0], sea_c[1] - q[1])))
             break
+    port_pier_gates(d, sea_c, sea_r, piers)
+    if ship_portal:
+        port_gangplank(d, ship_portal, (-8.6, 55.6))
     return d.flush()
+
+
+PIER_GATE_BACK = 0.35      # a corrente fica este tanto ANTES da água da sim (m): a parede invisível do mar ganha cara de parede
+
+
+def pier_gate_point(sea_c, sea_r, a, b, shore=0.5):
+    """Ponto do eixo do cais (a -> b) em que a água da sim começa (círculo do mar menos MapGeometry.WATER_SHORE), recuado."""
+    a, b = Vector(a), Vector(b)
+    t = (b - a).normalized()
+    k = 0.0
+    while k < (b - a).length and (a + t * k - Vector(sea_c)).length > sea_r - shore:
+        k += 0.05
+    return a + t * max(0.0, k - PIER_GATE_BACK), t
+
+
+def port_pier_gates(d, sea_c, sea_r, piers, deck=0.7, half=1.6):
+    """Barreira "só tripulação" na linha da água de cada cais: o tabuleiro é só visual e o mar é sólido na sim, então quem
+    subia no cais batia numa parede invisível a ~7 m da cabeceira. Dois postes, corrente dupla com barriga, tábua de aviso
+    e uma boia pendurada. Sem colisor (a água já segura); chamada por último (os sorteios do resto do lote não mudam)."""
+    post = d.m("cais_cabeco", (0.36, 0.27, 0.19))
+    chain = d.m("corrente_cais", (0.3, 0.3, 0.33))
+    board = d.m("aviso_cais", (0.86, 0.78, 0.6))
+    red = d.m("aviso_cais_faixa", (0.78, 0.24, 0.2))
+    buoy = d.m("boia", (0.86, 0.36, 0.22))
+    for a, b in piers:
+        c, t = pier_gate_point(sea_c, sea_r, a, b)
+        n = Vector((-t.y, t.x))
+        rot = zone_lib.along(n.x, n.y)
+        ends = [c + n * s * half for s in (-1, 1)]
+        for q in ends:
+            d.cyl("cais_barreira", post, (q.x, q.y), 0.16, 0.13, 1.25, deck - 0.25, 6)
+            d.cyl("cais_barreira", red, (q.x, q.y), 0.18, 0.18, 0.16, deck + 0.78, 6)
+        for y0, sag in ((deck + 0.86, 0.26), (deck + 0.46, 0.2)):
+            pts = []
+            for i in range(9):
+                u = i / 8.0
+                q = ends[0] + (ends[1] - ends[0]) * u
+                pts.append((q.x, y0 - sag * 4.0 * u * (1.0 - u), q.y))
+            d.tube("cais_barreira", chain, pts, 0.045, 0.045, 4)
+        d.box("cais_barreira", board, (c.x, c.y), (1.5, 0.46, 0.06), rot, deck + 0.5)       # tábua de aviso pendurada no meio
+        d.box("cais_barreira", red, (c.x, c.y), (1.5, 0.09, 0.07), rot, deck + 0.68)
+        q = ends[1] + t * 0.05
+        d.cyl("cais_barreira", buoy, (q.x, q.y), 0.3, 0.3, 0.12, deck + 0.3, 8, tilt=(90, 0))
+
+
+def port_gangplank(d, portal, root):
+    """Prancha do navio: passarela curta de tábuas do largo do cais até o portal do navio, com dois cabeços de amarração,
+    corda e placa. Só visual; por último no lote (os sorteios de cima não mudam)."""
+    wood = d.m("cais_cabeco", (0.36, 0.27, 0.19))
+    rope = d.m("corda", (0.78, 0.7, 0.5))
+    p, r = Vector(portal), Vector(root)
+    t = (p - r).normalized()
+    n = Vector((-t.y, t.x))
+    mid = (p + r) * 0.5 + n * 0.5
+    d.planks([tuple(r), tuple(mid), tuple(p - t * 1.2)], w=2.0, y=0.075, g="prancha")
+    for s in (-1, 1):
+        pts = []
+        for k in (0.25, 0.6, 0.95):
+            q = r + (p - t * 2.4 - r) * k + n * s * 1.35
+            d.cyl("prancha3d", wood, (q.x, q.y), 0.15, 0.17, 0.95, 0.0, 6)
+            d.cyl("prancha3d", rope, (q.x, q.y), 0.2, 0.2, 0.12, 0.7, 6, cap=False)
+            pts.append(q)
+        for q0, q1 in zip(pts, pts[1:]):
+            m = (q0 + q1) * 0.5
+            d.tube("prancha3d", rope, [(q0.x, 0.8, q0.y), (m.x, 0.56, m.y), (q1.x, 0.8, q1.y)], 0.035, 0.035, 4)
+    q = p - t * 3.4 + n * 2.3
+    d.signpost((q.x, q.y), zone_lib.along(t.x, t.y), n=1)
+
+
+# ---- Cerco Vivo (design/gdd/act2-siege-life.md, P1): cenário de guerra do porto ----
+PORT_REFUGEES = (17.0, 46.5)       # acampamento de refugiados do Gaivota, encostado na paliçada do lado do cais (= MapsCatalog.PORT_SIEGE_NPCS)
+PORT_INFIRMARY = (26.2, 14.5)      # enfermaria: toldo aberto com catres, a leste da praça (= MapsCatalog.PORT_SIEGE_NPCS)
+PORT_TOWER_BACK = 2.6              # a torre de vigia do trecho norte fica este tanto para dentro do muro
+
+
+def _local(c, rot, lx, lz):
+    a = math.radians(rot)
+    return (c[0] + lx * math.cos(a) + lz * math.sin(a), c[1] - lx * math.sin(a) + lz * math.cos(a))
+
+
+def burnt_house(d, c, rot, roof, sx=4.6, sz=4.0):
+    """Casa queimada lida de cima: mancha de cinza, paredes baixas quebradas e pretas, vigas caídas, um pano de telhado
+    tombado, brasa. Cabe no colisor da casa (que continua lá)."""
+    ash = d.m("cinza_chao", (0.42, 0.39, 0.38))                 # valor médio: quase preto lia como buraco no chão
+    ash2 = d.m("cinza_chao_clara", (0.55, 0.52, 0.5))
+    char = d.m("carvao", (0.16, 0.14, 0.14))
+    wall = d.m("parede_queimada", (0.3, 0.26, 0.24))
+    rf = d.m("telhado_queimado_%d" % int(roof[0] * 100), tuple(k * 0.42 for k in roof))
+    d.blob("queimado", ash, c, 3.7, 0.0118, 0.3, sx=1.15, rot=rot)                 # plano 11,8 mm: vão livre da pilha do porto
+    d.blob("queimado", ash2, _local(c, rot, 0.4, -0.3), 1.6, 0.0124, 0.35)
+    for lx, lz, w, dp, h in ((0.0, -sz * 0.5, sx, 0.26, 1.5), (0.0, sz * 0.5, sx * 0.55, 0.26, 0.7), (-sx * 0.5, 0.0, 0.26, sz, 1.9),
+                             (sx * 0.5, 0.3, 0.26, sz * 0.6, 0.9), (sx * 0.28, sz * 0.5, sx * 0.3, 0.26, 1.2)):
+        d.box("casa_ruina", wall, _local(c, rot, lx, lz), (w, h, dp), rot, 0.0)
+        d.box("casa_ruina", char, _local(c, rot, lx, lz), (w * 0.98, 0.16, dp * 1.1), rot, h)
+    for (x0, z0), (x1, z1), y1 in (((-2.0, -1.7), (0.6, 0.4), 2.3), ((2.0, -1.6), (-0.4, 0.2), 1.7), ((-1.9, 1.6), (0.9, -0.5), 1.1), ((1.6, 1.5), (0.2, 0.9), 0.5)):
+        a, b = _local(c, rot, x0, z0), _local(c, rot, x1, z1)
+        d.tube("casa_ruina", char, [(a[0], 0.15, a[1]), (b[0], y1, b[1])], 0.11, 0.09, 5)
+    d.box("casa_ruina", rf, _local(c, rot, 0.7, 0.5), (2.6, 0.12, 1.8), rot + 14.0, 0.25, tilt=(16.0, -9.0))
+    for lx, lz in ((-0.8, -0.4), (0.9, 1.0)):
+        q = _local(c, rot, lx, lz)
+        d.cyl("casa_ruina", d.m("glow_brasa", (1.0, 0.56, 0.2)), q, 0.22, 0.0, 0.2, 0.05, 5)
+
+
+def rebuilt_house(d, c, rot, roof, sx=4.6, sz=4.0):
+    """A mesma casa reerguida: paredes claras de tábua nova, telhado novo de quatro águas e o andaime ainda encostado."""
+    wall = d.m("parede_nova", (0.84, 0.74, 0.56))
+    trim = d.m("parede_nova_viga", (0.62, 0.48, 0.3))
+    rf = d.m("telhado_novo_%d" % int(roof[0] * 100), tuple(min(1.0, k * 1.08 + 0.04) for k in roof))
+    d.box("casa_nova", wall, c, (sx, 2.1, sz), rot, 0.0)
+    d.box("casa_nova", trim, c, (sx + 0.16, 0.16, sz + 0.16), rot, 2.1)
+    d.cyl("casa_nova", rf, c, 3.35, 0.35, 1.5, 2.26, 4, rot + 45.0)
+    d.box("casa_nova", d.m("tenda_boca", (0.12, 0.1, 0.1)), _local(c, rot, 0.0, -sz * 0.5 - 0.02), (0.9, 1.5, 0.08), rot, 0.0)
+    d.scaffold(_local(c, rot, sx * 0.5 + 0.8, 0.0), rot + 90.0, L=3.4, h=2.4)
+
+
+def port_siege(z, town_c, town_r, segs, burnt_houses, palisade_q, riders_q):
+    """Cenário de guerra do Porto (Cerco Vivo P1). Lotes com `tag` trocados pelo MapDef.conquest_vis (sem colisor: o da casa é
+    o do build; o da torre é colisor de estágio) e a enfermaria num lote neutro. Tudo com Random próprio."""
+    H = lambda r, a: P(town_c, r, a)
+    # ---- casas queimadas (até hx_palisade) / reerguidas (depois) ----
+    bd = Dress(z, 223, tag="casa_queimada", when={"unless": palisade_q})
+    nd = Dress(z, 227, tag="casa_nova", when={"if": palisade_q})
+    for c, rot, roof in burnt_houses:
+        burnt_house(bd, c, rot, roof)
+        rebuilt_house(nd, c, rot, roof)
+    bd.flush()
+    nd.flush()
+    # ---- torre de vigia do trecho norte (aparece com o trecho fechado; colisor de estágio) ----
+    mid, cond = segs["n"]
+    tc = H(town_r - PORT_TOWER_BACK - 1.8, mid)
+    td = Dress(z, 229, tag="pal_n_pronta_torre", when={"if": cond})
+    _watchtower(td, tc, h=5.4)
+    td.torch(H(town_r - 1.6, mid - 4.0), 2.6)
+    td.torch(H(town_r - 1.6, mid + 4.0), 2.6)
+    td.flush()
+    z.ob("pillar", tc[0], tc[1], (3.2, 5.4, 3.2), 0.0, visible=False, when={"if": cond}, stage_solid=True)
+    for sid, (m2, cnd) in segs.items():                     # tochas nas pontas dos outros trechos fechados
+        if sid == "n":
+            continue
+        fd = Dress(z, 231 + len(sid), tag="pal_%s_pronta_tocha" % sid, when={"if": cnd})
+        fd.torch(H(town_r - 1.6, m2 - 6.0), 2.6)
+        fd.torch(H(town_r - 1.6, m2 + 6.0), 2.6)
+        fd.flush()
+    # ---- refugiados do Gaivota (até hx_riders_camp): tendas baixas, fogueira, carroça parada, trouxas ----
+    rd = Dress(z, 233, tag="refugiados", when={"unless": riders_q})
+    rc = PORT_REFUGEES
+    rd.blob("refugiados_chao", rd.m("patch_pisado", (0.6, 0.52, 0.4)), rc, 6.0, 0.0112, 0.3, sx=1.3)
+    for k, (dx, dz, rot, col) in enumerate(((-4.6, -1.0, 100.0, (0.86, 0.8, 0.66)), (4.4, -1.4, -80.0, (0.8, 0.76, 0.7)), (-3.4, 3.2, 150.0, (0.78, 0.72, 0.6)),
+                                            (3.6, 3.0, -140.0, (0.84, 0.76, 0.62)), (0.4, -3.6, 0.0, (0.74, 0.7, 0.64)))):
+        q = (rc[0] + dx, rc[1] + dz)
+        if not rd.ok(q[0], q[1], 1.0, road=0.4):
+            print("REFUGEE_TENT_CONFLICT", k, q)
+        rd.tent_aurora(q, rot, 0.62, color=col, trim=(0.5, 0.42, 0.34), gold=(0.6, 0.5, 0.4), g="refugiados")
+    rd.cookfire(rc, 0.9, 20.0, g="refugiados")
+    rd.cart((rc[0] + 7.4, rc[1] + 0.8), 24.0, g="refugiados", load=(0.74, 0.66, 0.5))
+    for dx, dz in ((-1.8, 1.9), (1.9, -1.6), (5.6, 2.4), (-6.0, 1.6)):
+        rd.sack((rc[0] + dx, rc[1] + dz), 0.9, "refugiados")
+    rd.laundry((rc[0] - 5.4, rc[1] + 4.6), (rc[0] - 1.0, rc[1] + 5.2), 2.0, g="refugiados")
+    rd.flush()
+    # ---- enfermaria (fica): toldo aberto com faixa vermelha, 3 catres, mesa de ataduras, braseiro ----
+    ed = Dress(z, 239)
+    ic = PORT_INFIRMARY
+    irot = zone_lib.along(town_c[0] - ic[0], town_c[1] - ic[1])
+    if not ed.ok(ic[0], ic[1], 2.2, road=0.2):
+        print("INFIRMARY_CONFLICT", ic)
+    ed.blob("enfermaria_chao", ed.m("patch_enfermaria", (0.74, 0.68, 0.56)), ic, 3.4, 0.0171, 0.2, sx=1.25, rot=irot)
+    ed.awning(ic, 5.6, 3.6, irot, (0.93, 0.89, 0.78), 2.5, g="enfermaria", stripes=(0.78, 0.24, 0.2))
+    cot = ed.m("catre", (0.5, 0.38, 0.26))
+    sheet = ed.m("catre_lencol", (0.9, 0.88, 0.82))
+    for lx in (-1.8, 0.0, 1.8):
+        q = _local(ic, irot, lx, 0.5)
+        ed.box("enfermaria", cot, q, (0.85, 0.34, 1.9), irot, 0.0)
+        ed.box("enfermaria", sheet, q, (0.78, 0.08, 1.5), irot, 0.34)
+    q = _local(ic, irot, -2.2, -1.3)
+    ed.box("enfermaria", cot, q, (1.1, 0.8, 0.6), irot, 0.0)
+    ed.cyl("enfermaria", ed.m("atadura", (0.95, 0.94, 0.9)), q, 0.14, 0.14, 0.16, 0.8, 6)
+    ed.cyl("enfermaria", ed.m("frasco_cura", (0.8, 0.3, 0.3)), _local(ic, irot, -1.9, -1.3), 0.08, 0.05, 0.22, 0.8, 5)
+    ed.flag(_local(ic, irot, 3.3, -1.9), (0.78, 0.24, 0.2), 4.6, irot, (0.82, 0.68, 0.48), w=1.0, drop=1.4, tatter=False)
+    ed.flush()
 
 
 # ----------------------------------------------------------------------------------------------------------------

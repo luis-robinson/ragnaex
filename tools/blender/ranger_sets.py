@@ -251,16 +251,25 @@ def build_bow(ck, base, mats, style, cfg):
             parts.append(ck.blade(n + "tip%d" % sz, tip, tip + dirv * 0.14 * S, 0.06 * S, 0.04, ck.mat("m_ran_crystal", (0.6, 0.85, 1.0), 0.2, 1.8), (1, 0, 0)))
         elif tk == "crescent":
             parts.append(ck.blade(n + "tip%d" % sz, tip, tip + V((0, 0.12, sz * 0.04)) * S, 0.07 * S, 0.014, gold, (1, 0, 0)))
+        elif tk == "hawk":         # Ato II: asa de falcão (3 penas para trás) e garra de osso para a frente
+            hawk = ck.mat("m_ran_hawk", (0.5, 0.36, 0.24), 0.85)
+            for k in range(3):
+                q = tip - dirv * 0.07 * k
+                parts.append(ck.blade(n + "tip%d_%d" % (sz, k), q, q + V((0, 0.17 + k * 0.035, sz * (0.07 - k * 0.03))) * S, 0.06 * S, 0.014, (wh, hawk, t2)[k], (1, 0, 0)))
+            parts += curve(ck, n + "talon%d" % sz, tip, tip + dirv * 0.1 * S + V((0, -0.07, 0)) * S, V((0, 0.0, sz * 0.03)), 0.02, gold, 3, 6)
         if tk == "ribbon" or cfg.get("ribbon"):     # fita ao vento pendurada na ponta
             parts.append(ck.blade(n + "ribbon%d" % sz, tip, tip + V((0.01, 0.13, -0.1 if sz > 0 else 0.06)) * S, 0.035 * S, 0.008, t2, (1, 0, 0), 0.25))
             parts.append(ck.ball(n + "knot%d" % sz, 0.016, tip, gold))
+    lit = tint_glow(ck) if cfg.get("glow") == "tint" else None     # Ato II: brilho na cor do nível
     if cfg.get("gem"):
-        parts.append(ck.ball(n + "gem", 0.035, g + V((0, -0.035, 0.08)), t2, (1, 0.6, 1.3)))
-        parts.append(ck.ball(n + "gem2", 0.035, g + V((0, -0.035, -0.08)), t2, (1, 0.6, 1.3)))
+        parts.append(ck.ball(n + "gem", 0.035, g + V((0, -0.035, 0.08)), lit or t2, (1, 0.6, 1.3)))
+        parts.append(ck.ball(n + "gem2", 0.035, g + V((0, -0.035, -0.08)), lit or t2, (1, 0.6, 1.3)))
     if cfg.get("fins"):            # aletas de vento nos braços do arco, para a frente
         for i in (3, 9):
             parts.append(ck.blade(n + "fin%d" % i, pts[i], pts[i] + V((0, -0.08, 0.04 if i > 6 else -0.04)) * S, 0.05 * S, 0.012, t2, (1, 0, 0), 0.35))
-    if cfg.get("glow"):
+    if lit:
+        parts += [ck.tube(n + "glow_a", pts[2], pts[5], 0.011, 0.011, lit, 4), ck.tube(n + "glow_b", pts[7], pts[10], 0.011, 0.011, lit, 4)]
+    elif cfg.get("glow"):
         gcol = cfg["glow"] if isinstance(cfg["glow"], tuple) else (1.0, 0.9, 0.55)
         gm = ck.mat("m_ran_glow_bow" if gcol == (1.0, 0.9, 0.55) else "m_ran_glow_bow_%d" % int(sum(gcol) * 100), gcol, 0.3, 2.5)
         parts.append(ck.tube(n + "glow", pts[3], pts[9], 0.008, 0.008, gm, 4))
@@ -290,9 +299,18 @@ def rifle_parts(ck, n, g, mats, cfg, glow=None):
              ck.tube(n + "body", g - fwd * 0.08, g + fwd * 0.32, 0.04, 0.035, wood, 8),
              ck.tube(n + "trigger", g - fwd * 0.02 - up * 0.04, g + fwd * 0.03 - up * 0.07, 0.008, 0.008, gold, 4)]
     barrels = (-0.022, 0.022) if cfg.get("double") else (0.0,)
+    hv = cfg.get("heavy")          # Ato II: cano grosso de peça de cerco, boca em sino, bipé dobrado
     for bx in barrels:
-        parts += [ck.tube(n + "barrel%d" % int(bx * 1000), g + fwd * 0.05 + up * 0.035 + side * bx, g + fwd * 0.82 + up * 0.035 + side * bx, 0.022, 0.02, metal, 8),
-                  ck.tube(n + "muzzle%d" % int(bx * 1000), g + fwd * 0.8 + up * 0.035 + side * bx, g + fwd * 0.85 + up * 0.035 + side * bx, 0.03, 0.03, gold, 8)]
+        parts += [ck.tube(n + "barrel%d" % int(bx * 1000), g + fwd * 0.05 + up * 0.035 + side * bx, g + fwd * (0.9 if hv else 0.82) + up * 0.035 + side * bx, 0.034 if hv else 0.022, 0.028 if hv else 0.02, ck.mat("m_ran_gunmetal", (0.2, 0.2, 0.24), 0.4) if hv else metal, 8),
+                  ck.tube(n + "muzzle%d" % int(bx * 1000), g + fwd * (0.86 if hv else 0.8) + up * 0.035 + side * bx, g + fwd * (0.96 if hv else 0.85) + up * 0.035 + side * bx, 0.034 if hv else 0.03, 0.052 if hv else 0.03, gold, 8)]
+    if hv:
+        parts += [ck.tube(n + "breech", g - fwd * 0.02 + up * 0.035, g + fwd * 0.12 + up * 0.035, 0.05, 0.046, metal, 8),
+                  ck.box(n + "sight", (0.014, 0.014, 0.05), g + fwd * 0.84 + up * 0.08, gold, 0.003)]
+        for sx in (-1, 1):         # pernas do bipé dobradas sob o cano
+            parts.append(ck.tube(n + "bipod%d" % sx, g + fwd * 0.5 - up * 0.01 + side * sx * 0.02, g + fwd * 0.74 - up * 0.03 + side * sx * 0.035, 0.009, 0.009, metal, 5))
+    if cfg.get("drum"):            # tambor de munição sob o corpo
+        parts += [ck.tube(n + "drum", g + fwd * 0.2 - up * 0.075 - side * 0.03, g + fwd * 0.2 - up * 0.075 + side * 0.03, 0.062, 0.062, ck.mat("m_ran_gunmetal", (0.2, 0.2, 0.24), 0.4), 10),
+                  ck.tube(n + "drum_rim", g + fwd * 0.2 - up * 0.075 - side * 0.036, g + fwd * 0.2 - up * 0.075 + side * 0.036, 0.04, 0.04, gold, 10)]
     for k in range(cfg.get("bands", 2)):
         z = 0.15 + k * 0.17
         parts.append(ck.tube(n + "band%d" % k, g + fwd * z, g + fwd * (z + 0.025), 0.05, 0.05, gold, 8))
@@ -304,14 +322,19 @@ def rifle_parts(ck, n, g, mats, cfg, glow=None):
     if cfg.get("carved"):
         parts.append(ck.ball(n + "medal", 0.03, g - fwd * 0.25 - up * 0.01 + side * 0.055, gold, (0.4, 1, 1)))
     if glow and cfg.get("glow"):
-        parts.append(ck.tube(n + "rune", g + fwd * 0.4 + up * 0.035, g + fwd * 0.7 + up * 0.035, 0.024, 0.022, glow, 8))
+        if hv:                     # três anéis acesos no cano e a boca em brasa
+            for k in range(3):
+                parts.append(ck.tube(n + "rune%d" % k, g + fwd * (0.36 + k * 0.15) + up * 0.035, g + fwd * (0.4 + k * 0.15) + up * 0.035, 0.04, 0.039, glow, 8))
+            parts.append(ck.tube(n + "bore", g + fwd * 0.93 + up * 0.035, g + fwd * 0.965 + up * 0.035, 0.03, 0.04, glow, 8))
+        else:
+            parts.append(ck.tube(n + "rune", g + fwd * 0.4 + up * 0.035, g + fwd * 0.7 + up * 0.035, 0.024, 0.022, glow, 8))
     return parts
 
 
 def build_rifle(ck, base, mats, style, cfg):
     V = Vector
     g = V(ck.hand_center(base, ".R"))
-    glow = ck.mat("m_ran_rifle_glow", (1.0, 0.7, 0.3), 0.3, 2.5)
+    glow = tint_glow(ck) if cfg.get("glow") == "tint" else ck.mat("m_ran_rifle_glow", (1.0, 0.7, 0.3), 0.3, 2.5)
     obj = ck._join(rifle_parts(ck, "r_%s_" % style, g, mats, cfg, glow), "wpn_main_rifle_%s" % style)
     ck._smooth(obj.data)
     ck.skin_rigid(obj, base["rig"], "hand.R")
@@ -570,7 +593,13 @@ def spear_parts(ck, n, g, ax, mats, cfg, glow=None):
         parts.append(ck.blade(n + "head", top, top + ax * 0.44, 0.14, 0.024, metal, side, 0.38))
         for sx in (-1, 1):
             parts.append(ck.blade(n + "wing%d" % sx, top + ax * 0.02, top - ax * 0.02 + side * sx * 0.16, 0.07, 0.02, gold, ax, 0.45))
-    if cfg.get("fang"):            # presas de travar logo abaixo da ponta
+    elif hk == "troll":            # Ato II: lâmina larga e escura de matar troll, farpas para trás, travessa de presas, fio aceso
+        parts.append(ck.blade(n + "head", top, top + ax * 0.5, 0.17, 0.026, mats["dark"], side, 0.3))
+        parts.append(ck.blade(n + "head_edge", top + ax * 0.03, top + ax * 0.47, 0.06, 0.03, glow if glow is not None else metal, side, 0.3))
+        for sx in (-1, 1):
+            parts.append(ck.blade(n + "barb%d" % sx, top + ax * 0.2, top + ax * 0.06 + side * sx * 0.15, 0.06, 0.02, mats["dark"], ax, 0.5))
+            parts += curve(ck, n + "tusk%d" % sx, top - ax * 0.03, top + ax * 0.1 + side * sx * 0.17, side * sx * 0.04 - ax * 0.03, 0.026, bone, 3, 6)
+    if cfg.get("fang") and hk != "troll":            # presas de travar logo abaixo da ponta
         for sx in (-1, 1):
             parts.append(ck.tube(n + "fang%d" % sx, top - ax * 0.02, top + ax * 0.06 + side * sx * 0.08, 0.016, 0.004, bone, 6))
     if cfg.get("tassel"):          # penacho/fita caindo do alvado
@@ -582,7 +611,10 @@ def spear_parts(ck, n, g, ax, mats, cfg, glow=None):
     for k in range(2):             # faixas de couro tingido na haste
         z = -0.4 + k * 0.85
         parts.append(ck.tube(n + "band%d" % k, g + ax * z, g + ax * (z + 0.03), 0.026, 0.026, t, 8))
-    if glow is not None and cfg.get("glow"):
+    if glow is not None and hk == "troll":
+        for k in range(2):
+            parts.append(ck.tube(n + "rune%d" % k, g + ax * (0.55 + k * 0.3) * L, g + ax * (0.6 + k * 0.3) * L, 0.026, 0.026, glow, 8))
+    elif glow is not None and cfg.get("glow"):
         parts.append(ck.tube(n + "rune", g + ax * 0.3, g + ax * 0.9 * L, 0.024, 0.023, glow, 8))
     return parts
 
@@ -591,15 +623,426 @@ def build_spear(ck, base, mats, style, cfg):
     V = Vector
     g = V(ck.hand_center(base, ".R"))
     ax = V(SPEAR_AXIS).normalized()
-    glow = ck.mat("m_ran_spear_glow_%d" % int(sum(cfg["glow"]) * 100), cfg["glow"], 0.3, 2.5) if cfg.get("glow") else None
+    if cfg.get("glow") == "tint":
+        glow = tint_glow(ck)
+    else:
+        glow = ck.mat("m_ran_spear_glow_%d" % int(sum(cfg["glow"]) * 100), cfg["glow"], 0.3, 2.5) if cfg.get("glow") else None
     obj = ck._join(spear_parts(ck, "s_%s_" % style, g, ax, mats, cfg, glow), "wpn_main_spear_%s" % style)
     ck._smooth(obj.data)
     ck.skin_rigid(obj, base["rig"], "hand.R")
     return obj
 
 
+# ---------------------------------------------------------------------------
+# Ato II (níveis 35/40/45 + Ápice da build): UM visual novo por build, tema guerra contra a Horda em Monte Kharzun.
+# A malha é a mesma nos três níveis; muda a cor do item (tint), o destaque (tint2) e o brilho: o material "tint_glow"
+# recebe no jogo a cor de GearCatalog.ACT2_VISUALS[...]["glows"][nível] (KitModel).
+#   ran_c35 Caçador  = Batedor da Estepe: gorro de pele com asas de falcão, manto de penas nos ombros, duas aljavas
+#           cruzadas e capa de capim da estepe (tiras de palha) nas costas.
+#   ran_a35 Atirador = Artilheiro de Cerco: touca de piloto com óculos na testa e luneta de latão no olho direito,
+#           cartucheiras cruzadas, casaco comprido e barril de pólvora nas costas com pavio aceso.
+#   ran_l35 Lanceiro = Caça-Trolls: elmo com duas presas de troll enormes subindo das bochechas, gola de couro de troll,
+#           manto de couro de troll com espinhos na espinha e leque de dardos de ponta acesa.
+GLOW_BASE = (1.0, 0.6, 0.2)           # cor só do .glb; o jogo pinta por nível
+GRASS = (0.78, 0.68, 0.38)
+TROLL = (0.4, 0.47, 0.36)
+
+
+def tint_glow(ck):
+    return ck.mat("tint_glow", GLOW_BASE, 0.3, 2.0)
+
+
+def outward(objs):
+    """Normais para fora (peça espelhada sai com a face virada e some no toon, que corta a face de trás)."""
+    import bmesh
+    for o in objs:
+        bm = bmesh.new()
+        bm.from_mesh(o.data)
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+        bm.to_mesh(o.data)
+        bm.free()
+    return objs
+
+
+def ribbon(ck, name, pts, wdir, widths, thick, material):
+    """Faixa de pano/couro com espessura passando pelos pontos (dobras = pontos fora da linha); largura no sentido wdir."""
+    import bmesh
+    w = Vector(wdir).normalized()
+    pts = [Vector(p) for p in pts]
+    bm = bmesh.new()
+    front, backv = [], []
+    for i, (p, wd) in enumerate(zip(pts, widths)):
+        ax = pts[min(i + 1, len(pts) - 1)] - pts[max(i - 1, 0)]
+        n = ax.cross(w).normalized() * thick * 0.5
+        front.append((bm.verts.new(p - w * wd * 0.5 + n), bm.verts.new(p + w * wd * 0.5 + n)))
+        backv.append((bm.verts.new(p - w * wd * 0.5 - n), bm.verts.new(p + w * wd * 0.5 - n)))
+    last = len(pts) - 1
+    for i in range(last):
+        bm.faces.new((front[i][0], front[i][1], front[i + 1][1], front[i + 1][0]))
+        bm.faces.new((backv[i][0], backv[i + 1][0], backv[i + 1][1], backv[i][1]))
+        bm.faces.new((front[i][0], front[i + 1][0], backv[i + 1][0], backv[i][0]))
+        bm.faces.new((front[i][1], backv[i][1], backv[i + 1][1], front[i + 1][1]))
+    bm.faces.new((front[0][0], backv[0][0], backv[0][1], front[0][1]))
+    bm.faces.new((front[last][0], front[last][1], backv[last][1], backv[last][0]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    return ck.mesh_from(name, bm, material)
+
+
+def curve(ck, name, p0, p1, bend, r0, material, n=4, segs=8, r1=0.004):
+    """Presa/chifre/haste curva de p0 a p1, arqueada por bend, afinando de r0 a r1."""
+    p0, p1, bend = Vector(p0), Vector(p1), Vector(bend)
+    out = []
+    prev = p0
+    for i in range(1, n + 1):
+        k = i / n
+        p = p0.lerp(p1, k) + bend * math.sin(math.pi * k)
+        out.append(ck.tube("%s_%d" % (name, i), prev, p, r0 + (r1 - r0) * (i - 1) / n, r0 + (r1 - r0) * k, material, segs))
+        prev = p
+    return out
+
+
+def fur_ring(ck, name, c, r, n, size, material, z_jitter=0.02, squash=0.85):
+    """Gola/borda de pele: tufos irregulares em anel."""
+    out = []
+    for k in range(n):
+        a = math.tau * k / n
+        jit = ((k * 37) % 7) / 7.0
+        p = Vector(c) + Vector((math.cos(a) * r, math.sin(a) * r * squash, (jit - 0.5) * z_jitter))
+        out.append(ck.ball("%s_%d" % (name, k), size * (0.85 + jit * 0.35), p, material, (1.0, 1.0, 0.75)))
+    return out
+
+
+def body_belt(ck, base, name, z0, z1, k, material):
+    """Cinto que acompanha o corpo (pesos do corpo)."""
+    b, d = base["b"], base["b"]["depth"]
+    belt = ck.tube(name, (0, 0, z0), (0, 0, z1), b["waist"] * k, b["waist"] * k, material, 16)
+    for v in belt.data.vertices:
+        v.co.y *= d * 1.05
+    ck._smooth(belt.data)
+    ck.transfer_weights(belt, base["body"], base["rig"])
+    return belt
+
+
+def _act2_arms_boots(ck, base, P, cuff_m, band_m, fist_m, boot_m, trim_m, fur=None):
+    """Braçadeiras, luvas e botas de cano alto comuns aos três visuais do Ato II do Ranger."""
+    V = Vector
+    rig, body, b, j = base["rig"], base["body"], base["b"], base["j"]
+    for s in (".R", ".L"):
+        tag = s.replace(".", "_")
+        el, wr = V(j["elbow" + s]), V(j["wrist" + s])
+        g = [ck.tube(P + "gloves_cuff" + tag, el.lerp(wr, 0.25), wr + V((0, 0, 0.01)), 0.074, 0.092, cuff_m, 12),
+             ck.tube(P + "gloves_rim" + tag, el.lerp(wr, 0.22), el.lerp(wr, 0.32), 0.094, 0.09, band_m, 12),
+             ck.tube(P + "gloves_strap" + tag, el.lerp(wr, 0.66), el.lerp(wr, 0.75), 0.095, 0.097, band_m, 12)]
+        if fur is not None:
+            g += fur_ring(ck, P + "gloves_fur" + tag, el.lerp(wr, 0.2), 0.075, 6, 0.045, fur, 0.01, 1.0)
+        ck._rigid(outward(g), rig, "forearm" + s)
+        ck._rigid([ck.ball(P + "gloves_fist" + tag, b["hand"] * 1.28, ck.hand_center(base, s), fist_m, (1, 1, 1.1))], rig, "hand" + s)
+    ck.armor_piece(body, rig, P + "boots_shell", "boots", boot_m, 0.024, 0.016)
+    for s in (".R", ".L"):
+        tag = s.replace(".", "_")
+        an, kn = V(j["ankle" + s]), V(j["knee" + s])
+        k = [ck.tube(P + "boots_cuff" + tag, an + V((0, 0, 0.075)), an + V((0, 0, 0.12)), 0.086, 0.096, cuff_m, 12),
+             ck.tube(P + "boots_wrap" + tag, an + V((0, 0, 0.02)), an + V((0, 0, 0.045)), 0.078, 0.078, band_m, 12),
+             ck.ball(P + "boots_knee" + tag, 0.06, kn + V((0, -0.06, 0.0)), trim_m, (1.0, 0.6, 1.1))]
+        if fur is not None:
+            k += fur_ring(ck, P + "boots_fur" + tag, an + V((0, 0, 0.12)), 0.082, 7, 0.045, fur, 0.012, 1.0)
+        ck._rigid(outward(k), rig, "shin" + s)
+
+
+def build_scout(ck, base, mats, style):
+    """ran_c35 — Batedor da Estepe (Caçador, arco)."""
+    V = Vector
+    rig, body, b, j = base["rig"], base["body"], base["b"], base["j"]
+    t, t2, gold, leather, wood = mats["tint"], mats["tint2"], mats["trim"], mats["leather"], mats["wood"]
+    feather = ck.mat("m_ran_feather", FEATHER, 0.8)
+    hawk = ck.mat("m_ran_hawk", (0.5, 0.36, 0.24), 0.85)
+    fur = ck.mat("m_ran_fur_cream", FURS["cream"], 0.95)
+    grass = ck.mat("m_ran_grass", GRASS, 0.9)
+    glow = tint_glow(ck)
+    P = "arm_%s_" % style
+    c, r = V(base["head_c"]), b["head"]
+    # ---------------- cabeça: gorro de pele com borda de pelo, asas de falcão abertas para trás, pedra acesa na testa ----------------
+    head = [ck._shell(P + "head_cap", c + V((0, r * 0.03, r * 0.05)), r * 1.14, 0.36, -0.7, -0.3, 0.04, t)]
+    head += fur_ring(ck, P + "head_fur", c + V((0, r * 0.06, r * 0.44)), r * 1.12, 16, r * 0.24, fur, 0.02, 1.0)
+    # cabeça de falcão na testa: bico de ouro, olhos acesos, crista de penas tingidas do topo à nuca
+    head += [ck.blade(P + "head_beak", c + V((0, -r * 0.95, r * 0.86)), c + V((0, -r * 1.62, r * 0.4)), r * 0.44, r * 0.3, gold, (1, 0, 0), 0.3),
+             ck.ball(P + "head_brow", r * 0.42, c + V((0, -r * 0.82, r * 0.82)), hawk, (1.25, 0.9, 0.6)),
+             ck.strand(P + "head_tail", c + V((0, r * 0.85, r * 0.75)), r * 0.9, r * 0.4, r * 0.34, t, taper=0.9, lean=(0.0, 0.7))]
+    for sx in (-1, 1):
+        head.append(ck.ball(P + "head_eye_%d" % sx, r * 0.13, c + V((sx * r * 0.36, -r * 1.02, r * 0.88)), glow, (1.0, 0.7, 0.8)))
+    for k in range(4):
+        a = -0.2 + k * 0.42
+        root = c + V((0, math.sin(a) * r * 1.12, math.cos(a) * r * 1.12))
+        head.append(ck.blade(P + "head_crest_%d" % k, root, root + V((0, math.sin(a + 0.7), math.cos(a + 0.7))) * r * (0.75 - k * 0.07), r * 0.42, 0.04,
+                             t2 if k % 2 == 0 else feather, (0, math.cos(a), -math.sin(a)), 0.45))
+    for sx in (-1, 1):                   # asa: 5 penas largas em leque quase deitado, da têmpora para fora e para trás (de cima, duas asas abertas)
+        root = c + V((sx * r * 0.98, -r * 0.1, r * 0.55))
+        head.append(ck.ball(P + "head_wing_root_%d" % sx, r * 0.26, root, gold, (0.6, 1.2, 1.0)))
+        for k in range(5):
+            a = -0.25 + k * 0.38      # 0 = para fora, pi/2 = para trás
+            dv = V((sx * math.cos(a), math.sin(a), 0.42 - k * 0.04))
+            wd = V((-sx * math.sin(a), math.cos(a), 0.12))
+            head.append(ck.blade(P + "head_wing_%d_%d" % (sx, k), root + V((0, r * 0.06 * k, 0.004 * k)), root + dv * r * (1.25 + 0.16 * (2 - abs(k - 2))), r * 0.46, 0.024,
+                                 (feather, hawk, t2, hawk, feather)[k], wd, 0.55))
+    ck._rigid(outward(head), rig, "head")
+    # ---------------- corpo ----------------
+    ck.armor_piece(body, rig, P + "body_vest", "torso", t, 0.012, 0.014, 0.03)
+    ck.armor_piece(body, rig, P + "body_legs", "legs", leather, 0.008, 0.012)
+    d = b["depth"]
+    front = -b["chest"] * d - 0.03
+    back = b["chest"] * d + 0.03
+    zc, zn, zw = ck.Z["chest"], ck.Z["neck"], ck.Z["waist"]
+    chest = [ck.box(P + "body_lacing", (0.04, 0.02, 0.2), (0, front, zc - 0.04), t2, 0.005),
+             ck.ball(P + "body_brooch", 0.034, (0, front - 0.02, zn - 0.07), glow, (1.0, 0.5, 1.2))]
+    # manto de penas de falcão: duas fiadas em volta dos ombros
+    rw = abs(V(j["shoulder.L"]).x) + b["arm"] * 2.0
+    for row, (n, rr, drop, wd) in enumerate(((14, 0.72, 0.1, 0.5), (16, 1.06, 0.2, 0.44))):
+        for k in range(n):
+            a = math.tau * (k + 0.5 * row) / n
+            dv = V((math.cos(a), math.sin(a) * 0.84, 0))
+            m = (hawk, feather, hawk, t2)[k % 4] if row else (feather, hawk)[k % 2]
+            chest.append(ck.blade(P + "body_mantle_%d_%d" % (row, k), dv * rw * (rr - 0.45) + V((0, 0, zn - 0.01 - row * 0.03)),
+                                  dv * rw * rr + V((0, 0, zn - 0.03 - drop)), rw * wd, 0.016, m, V((-dv.y, dv.x, 0)), 0.5))
+    # duas aljavas cruzadas nas costas, com as penas das flechas (uma acesa em cada)
+    for sx in (-1, 1):
+        q0 = V((-sx * 0.1, back + 0.07, zw + 0.0))
+        q1 = V((sx * 0.2, back + 0.1 + r * 0.25, zn + 0.1))
+        ax = (q1 - q0).normalized()
+        chest += [ck.tube(P + "body_quiver_%d" % sx, q0, q1, 0.05, 0.062, leather, 10),
+                  ck.tube(P + "body_quiver_rim_%d" % sx, q1, q1 + ax * 0.025, 0.068, 0.068, gold, 10),
+                  ck.tube(P + "body_quiver_band_%d" % sx, q0.lerp(q1, 0.45), q0.lerp(q1, 0.52), 0.064, 0.065, t2, 10),
+                  ck.tube(P + "body_qstrap_%d" % sx, (sx * 0.14, front + 0.02, zc + 0.14), (-sx * 0.12, front + 0.02, zw + 0.04), 0.016, 0.016, leather, 6)]
+        for k in range(3):
+            off = V(((k - 1) * 0.028, 0, 0))
+            chest.append(_feather(ck, P + "body_fletch_%d_%d" % (sx, k), q1 + off, q1 + off + ax * 0.13, 0.04, glow if k == 1 else feather))
+    # capa de capim da estepe: tiras de palha e pano em duas camadas, pontas desiguais
+    for row in range(2):
+        n = 7 if row == 0 else 6
+        for k in range(n):
+            x = (k - (n - 1) / 2.0) * (0.36 / n)
+            L = 0.3 + row * 0.2 + ((k * 7 + row * 3) % 5) * 0.03
+            y0 = back + 0.03 + r * 0.12 - row * 0.02
+            m = (grass, t, grass, t2)[(k + row) % 4]
+            chest.append(ck.blade(P + "body_ghillie_%d_%d" % (row, k), (x * 0.9, y0, zn - 0.06 - row * 0.04), (x * 1.9, y0 + 0.1 + row * 0.04, zn - 0.06 - L),
+                                  0.085, 0.014, m, (1, 0, 0), 0.25))
+    ck._rigid(outward(chest), rig, "chest")
+    body_belt(ck, base, P + "body_belt", zw - 0.035, zw + 0.03, 1.18, leather)
+    wf = -b["waist"] * d * 1.2
+    hips = [ck.box(P + "body_buckle", (0.065, 0.025, 0.055), (0, wf - 0.01, zw), gold, 0.008),
+            ck.ball(P + "body_buckle_gem", 0.02, (0, wf - 0.028, zw), glow),
+            ck.ball(P + "body_pouch", 0.048, (-0.11, wf * 0.93 - 0.02, zw - 0.04), leather, (1, 0.6, 1)),
+            ck.box(P + "body_tasset_f", (0.12, 0.014, 0.13), (0, wf - 0.004, zw - 0.1), t, 0.004)]
+    for k in range(5):                   # franja de capim na cintura, atrás
+        x = (k - 2) * 0.055
+        hips.append(ck.blade(P + "body_fringe_%d" % k, (x, -wf, zw - 0.02), (x * 1.3, -wf + 0.04, zw - 0.2 - (k % 2) * 0.04), 0.06, 0.012, grass if k % 2 == 0 else t2, (1, 0, 0), 0.25))
+    ck._rigid(outward(hips), rig, "hips")
+    sh = V(j["shoulder.L"])              # ombreira de arqueiro na esquerda com garra de falcão
+    pa = [ck.ball(P + "body_pauldron", b["arm"] * 2.4, sh + V((0.06, 0, 0.06)), t, (1.1, 1.05, 0.6)),
+          ck.ball(P + "body_pauldron_rim", b["arm"] * 2.47, sh + V((0.06, 0, 0.035)), gold, (1.12, 1.07, 0.15))]
+    for k in range(3):
+        pa += curve(ck, P + "body_talon_%d" % k, sh + V((0.08, (k - 1) * 0.045, 0.1)), sh + V((0.2, (k - 1) * 0.07, 0.12)), (0, 0, 0.06), 0.02, gold, 3, 6)
+    ck._rigid(outward(pa), rig, "upper_arm.L")
+    _act2_arms_boots(ck, base, P, t, t2, leather, leather, gold, fur)
+
+
+def build_gunner(ck, base, mats, style):
+    """ran_a35 — Artilheiro de Cerco (Atirador, mosquete)."""
+    V = Vector
+    rig, body, b, j = base["rig"], base["body"], base["b"], base["j"]
+    t, t2, gold, dark, leather, wood, metal = mats["tint"], mats["tint2"], mats["trim"], mats["dark"], mats["leather"], mats["wood"], mats["metal"]
+    brass = ck.mat("m_ran_brass", BRASS, 0.35)
+    fur = ck.mat("m_ran_fur_cream", FURS["cream"], 0.95)
+    glow = tint_glow(ck)
+    P = "arm_%s_" % style
+    c, r = V(base["head_c"]), b["head"]
+    # ---------------- cabeça: touca de piloto com abas, faixa de cor no topo, óculos na testa, luneta no olho direito ----------------
+    head = [ck._shell(P + "head_cap", c, r * 1.15, 0.32, -0.75, -0.55, 0.04, t),
+            ck.tube(P + "head_strap", c + V((0, 0, r * 0.4)), c + V((0, 0, r * 0.5)), r * 1.19, r * 1.17, leather, 24)]
+    arc = [c + V((0, math.sin(a) * r * 1.17, math.cos(a) * r * 1.17)) for a in [-0.95 + k * 0.38 for k in range(7)]]
+    for k in range(6):                   # rolo acolchoado da testa à nuca (a cor de destaque lê de cima)
+        head.append(ck.tube(P + "head_ridge_%d" % k, arc[k], arc[k + 1], r * 0.2, r * 0.2, t2, 8))
+    for sx in (-1, 1):
+        head += [ck.ball(P + "head_flap_%d" % sx, r * 0.4, c + V((sx * r * 1.08, -r * 0.05, -r * 0.35)), leather, (0.35, 0.9, 1.25)),
+                 ck.ball(P + "head_flap_fur_%d" % sx, r * 0.24, c + V((sx * r * 1.06, -r * 0.05, -r * 0.78)), fur, (0.5, 0.9, 0.7)),
+                 ck.ball(P + "head_stud_%d" % sx, r * 0.1, c + V((sx * r * 1.19, -r * 0.05, r * 0.02)), brass)]
+        p = c + V((sx * r * 0.36, -r * 1.02, r * 0.66))          # óculos de latão levantados
+        head += [ck.tube(P + "head_lens_rim_%d" % sx, p + V((0, 0.03, 0.01)), p - V((0, 0.045, 0.012)), r * 0.3, r * 0.27, brass, 12),
+                 ck.ball(P + "head_lens_%d" % sx, r * 0.23, p - V((0, 0.04, 0.012)), glow, (1, 0.4, 1))]
+    head.append(ck.box(P + "head_bridge", (r * 0.3, 0.03, 0.03), c + V((0, -r * 1.1, r * 0.66)), brass, 0.008))
+    e = c + V((-r * 0.36, -r * 0.98, r * 0.1))                  # luneta: tubo de latão em dois corpos, lente acesa
+    head += [ck.tube(P + "head_scope_a", e, e + V((0, -r * 0.5, 0)), r * 0.24, r * 0.22, brass, 10),
+             ck.tube(P + "head_scope_b", e + V((0, -r * 0.45, 0)), e + V((0, -r * 0.8, 0)), r * 0.17, r * 0.19, dark, 10),
+             ck.tube(P + "head_scope_ring", e + V((0, -r * 0.76, 0)), e + V((0, -r * 0.84, 0)), r * 0.22, r * 0.22, brass, 10),
+             ck.ball(P + "head_scope_lens", r * 0.17, e + V((0, -r * 0.83, 0)), glow, (1, 0.35, 1)),
+             ck.tube(P + "head_scope_arm", e + V((0, -r * 0.1, r * 0.2)), c + V((-r * 0.75, -r * 0.75, r * 0.45)), 0.014, 0.014, brass, 6)]
+    ck._rigid(outward(head), rig, "head")
+    # ---------------- corpo: casaco comprido, gola alta, cartucheiras em X, ombreira de coice ----------------
+    ck.armor_piece(body, rig, P + "body_coat", "torso", t, 0.014, 0.014, 0.03)
+    ck.armor_piece(body, rig, P + "body_legs", "legs", dark, 0.008, 0.012)
+    tails = ck.skirt(P + "body_tails", b, body, rig, t, 0.25, 1.55)
+    d = b["depth"]
+    front = -b["chest"] * d - 0.03
+    back = b["chest"] * d + 0.03
+    zc, zn, zw = ck.Z["chest"], ck.Z["neck"], ck.Z["waist"]
+    chest = []
+    for k in range(9):                   # gola alta aberta na frente
+        a = math.pi * (-0.1 + 1.2 * k / 8)
+        p = V((math.cos(a) * b["chest"] * 0.6, math.sin(a) * b["chest"] * 0.55, zn - 0.03))
+        chest.append(ck.blade(P + "body_collar_%d" % k, p, p + V((math.cos(a) * 0.05, math.sin(a) * 0.05, 0.13)), 0.1, 0.014, t2 if k % 2 else t, (-math.sin(a), math.cos(a), 0), 0.55))
+    for sx in (-1, 1):                   # cartucheiras cruzadas (frente e costas), cartuchos de latão
+        a0, a1 = V((sx * 0.15, front + 0.015, zc + 0.15)), V((-sx * 0.13, front + 0.015, zw + 0.04))
+        chest += [ck.tube(P + "body_belt_f%d" % sx, a0, a1, 0.026, 0.026, leather, 6),
+                  ck.tube(P + "body_belt_b%d" % sx, (sx * 0.15, back - 0.012, zc + 0.15), (-sx * 0.13, back - 0.012, zw + 0.04), 0.026, 0.026, leather, 6)]
+        for k in range(5):
+            p = a0.lerp(a1, (k + 0.6) / 5.6)
+            chest.append(ck.tube(P + "body_cart_%d_%d" % (sx, k), p + V((0, -0.012, -0.02)), p + V((0, -0.03, 0.03)), 0.015, 0.013, brass, 6))
+        chest.append(ck.box(P + "body_lapel_%d" % sx, (0.07, 0.014, 0.17), (sx * 0.06, front - 0.002, zc + 0.03), t2, 0.004))
+    chest += [ck.ball(P + "body_button_%d" % k, 0.018, (0, front - 0.016, zc + 0.09 - k * 0.075), brass) for k in range(3)]
+    # barril de pólvora atravessado nas costas (atrás da cabeça não: abaixo da nuca), aros de ferro, pavio aceso subindo
+    ky = back + 0.115
+    kz = zc + 0.02
+    chest += [ck.tube(P + "body_keg", (-0.2, ky, kz), (0.2, ky, kz), 0.105, 0.105, wood, 12),
+              ck.tube(P + "body_keg_belly", (-0.11, ky, kz), (0.11, ky, kz), 0.118, 0.118, wood, 12)]
+    for k, x in enumerate((-0.19, -0.115, 0.115, 0.19)):
+        chest.append(ck.tube(P + "body_keg_hoop_%d" % k, (x - 0.014, ky, kz), (x + 0.014, ky, kz), 0.122 if abs(x) < 0.15 else 0.11, 0.122 if abs(x) < 0.15 else 0.11, metal, 12))
+    chest += [ck.box(P + "body_keg_tag", (0.12, 0.02, 0.1), (0, ky + 0.115, kz), t2, 0.005),
+              ck.tube(P + "body_keg_bung", (0.06, ky, kz + 0.1), (0.06, ky, kz + 0.15), 0.03, 0.026, brass, 8)]
+    fz = c.z + r * 0.35                  # o pavio sobe por fora da cabeça (lado esquerdo) e a faísca aparece de frente e de cima
+    fx = r * 1.3
+    chest += curve(ck, P + "body_fuse", (0.06, ky, kz + 0.14), (fx, ky - 0.02, fz), (0.1, 0.06, -0.08), 0.013, leather, 6, 5, 0.011)
+    chest += [ck.ball(P + "body_fuse_spark", 0.055, (fx, ky - 0.02, fz + 0.01), glow),
+              ck.blade(P + "body_fuse_flare", (fx, ky - 0.02, fz + 0.02), (fx + 0.02, ky - 0.03, fz + 0.2), 0.08, 0.04, glow, (1, 0, 0), 0.35)]
+    ck._rigid(outward(chest), rig, "chest")
+    body_belt(ck, base, P + "body_belt", zw - 0.04, zw + 0.035, 1.2, leather)
+    wf = -b["waist"] * d * 1.2
+    hips = [ck.box(P + "body_buckle", (0.075, 0.025, 0.065), (0, wf - 0.01, zw), brass, 0.008),
+            ck.ball(P + "body_buckle_gem", 0.022, (0, wf - 0.03, zw), glow),
+            ck.ball(P + "body_flask", 0.05, (0.13, wf * 0.8, zw - 0.07), brass, (0.8, 0.7, 1.25)),
+            ck.ball(P + "body_flask_cap", 0.02, (0.13, wf * 0.8, zw - 0.0), dark),
+            ck.ball(P + "body_pouch", 0.05, (-0.13, wf * 0.8, zw - 0.06), leather, (0.8, 0.8, 1.0))]
+    ck._rigid(outward(hips), rig, "hips")
+    sh = V(j["shoulder.R"])              # ombreira acolchoada do coice (direita), rebites de latão
+    pa = [ck.ball(P + "body_pad", b["arm"] * 2.6, sh + V((-0.06, 0, 0.06)), leather, (1.1, 1.1, 0.62)),
+          ck.ball(P + "body_pad_rim", b["arm"] * 2.68, sh + V((-0.06, 0, 0.03)), brass, (1.12, 1.12, 0.15))]
+    for k in range(3):
+        pa.append(ck.box(P + "body_pad_quilt_%d" % k, (0.03, b["arm"] * 4.4, 0.03), sh + V((-0.02 - k * 0.045, 0, 0.115 - k * 0.022)), t, 0.01))
+    ck._rigid(outward(pa), rig, "upper_arm.R")
+    sh = V(j["shoulder.L"])
+    ck._rigid(outward([ck.ball(P + "body_epaulet", b["arm"] * 2.0, sh + V((0.05, 0, 0.05)), t2, (1.1, 1.05, 0.5)),
+                       ck.ball(P + "body_epaulet_stud", 0.028, sh + V((0.07, 0, 0.1)), brass)]), rig, "upper_arm.L")
+    _act2_arms_boots(ck, base, P, t, brass, leather, leather, brass)
+
+
+def build_trollhunter(ck, base, mats, style):
+    """ran_l35 — Caça-Trolls (Lanceiro, lança)."""
+    V = Vector
+    rig, body, b, j = base["rig"], base["body"], base["b"], base["j"]
+    t, t2, gold, dark, leather, wood, metal = mats["tint"], mats["tint2"], mats["trim"], mats["dark"], mats["leather"], mats["wood"], mats["metal"]
+    bone = ck.mat("m_ran_bone", BONE, 0.7)
+    hide = ck.mat("m_ran_troll", TROLL, 0.9)
+    fur = ck.mat("m_ran_fur_brown", FURS["brown"], 0.95)
+    glow = tint_glow(ck)
+    P = "arm_%s_" % style
+    c, r = V(base["head_c"]), b["head"]
+    # ---------------- cabeça: elmo aberto, testeira de ferro, duas presas de troll enormes subindo das bochechas ----------------
+    head = [ck._shell(P + "head_helm", c, r * 1.16, 0.3, -0.8, -0.45, 0.045, t),
+            ck.box(P + "head_brow", (r * 1.7, 0.09, r * 0.2), c + V((0, -r * 1.12, r * 0.42)), metal, 0.03),
+            ck.box(P + "head_nasal", (0.07, 0.07, r * 0.6), c + V((0, -r * 1.2, r * 0.14)), metal, 0.02),
+            ck.ball(P + "head_gem", r * 0.13, c + V((0, -r * 1.2, r * 0.46)), glow, (1.0, 0.5, 1.2))]
+    for sx in (-1, 1):
+        root = c + V((sx * r * 1.0, -r * 0.55, -r * 0.42))
+        head += [ck.ball(P + "head_cheek_%d" % sx, r * 0.36, root + V((0, r * 0.12, r * 0.1)), metal, (0.45, 1.0, 1.1)),
+                 ck.tube(P + "head_tusk_ring_%d" % sx, root + V((sx * r * 0.06, -r * 0.1, r * 0.02)), root + V((sx * r * 0.14, -r * 0.2, r * 0.16)), r * 0.25, r * 0.23, gold, 10)]
+        head += curve(ck, P + "head_tusk_%d" % sx, root + V((sx * r * 0.1, -r * 0.15, r * 0.08)), c + V((sx * r * 1.5, -r * 0.75, r * 1.75)),
+                      (sx * r * 0.42, -r * 0.5, -r * 0.25), r * 0.21, bone, 6, 10, 0.006)
+    for k in range(6):                   # espinhos de troll em fila no topo do elmo, da testa à nuca
+        a = -0.75 + k * 0.42
+        root = c + V((0, math.sin(a) * r * 1.12, math.cos(a) * r * 1.12))
+        head.append(ck.blade(P + "head_spine_%d" % k, root, root + V((0, math.sin(a + 0.45), math.cos(a + 0.45))) * r * (0.85 - abs(k - 2) * 0.08), r * 0.46, 0.07,
+                             hide if k % 2 else t2, (0, math.cos(a), -math.sin(a)), 0.4))
+    ck._rigid(outward(head), rig, "head")
+    # ---------------- corpo ----------------
+    ck.armor_piece(body, rig, P + "body_vest", "torso", t, 0.012, 0.014, 0.05)
+    ck.armor_piece(body, rig, P + "body_legs", "legs", leather, 0.008, 0.012)
+    d = b["depth"]
+    front = -b["chest"] * d - 0.03
+    back = b["chest"] * d + 0.03
+    zc, zn, zw = ck.Z["chest"], ck.Z["neck"], ck.Z["waist"]
+    chest = []
+    for sx in (-1, 1):
+        chest.append(ck.tube(P + "body_strap_f%d" % sx, (sx * 0.15, front + 0.015, zc + 0.15), (-sx * 0.13, front + 0.015, zw + 0.04), 0.02, 0.02, leather, 6))
+    chest += [ck.tube(P + "body_disc", (0, front + 0.01, zc - 0.02), (0, front - 0.03, zc - 0.02), 0.07, 0.062, metal, 10),
+              ck.ball(P + "body_rune", 0.03, (0, front - 0.034, zc - 0.02), glow, (1.0, 0.45, 1.4))]
+    for k in range(7):                   # colar de dentes de troll
+        a = math.pi * (0.2 + 0.6 * k / 6.0)
+        p = V((math.cos(a) * b["chest"] * 0.52, -math.sin(a) * b["chest"] * 0.58 - 0.02, zn - 0.08 - math.sin(a) * 0.035))
+        chest.append(ck.tube(P + "body_tooth_%d" % k, p, p + V((0, -0.012, -0.075 if k % 2 else -0.055)), 0.018, 0.003, bone, 6))
+    # gola de couro de troll: rolo grosso em volta dos ombros com verrugas de osso
+    rw = abs(V(j["shoulder.L"]).x) + b["arm"] * 1.2
+    n = 14
+    for k in range(n):
+        a = math.tau * (k + 0.5) / n
+        dv = V((math.cos(a), math.sin(a) * 0.84, 0))
+        chest.append(ck.ball(P + "body_collar_%d" % k, 0.085, dv * rw + V((0, 0, zn - 0.06)), hide, (1.0, 1.0, 0.72)))
+        if k % 2 == 0 and dv.y > -0.5:
+            chest.append(ck.tube(P + "body_collar_spike_%d" % k, dv * rw * 1.05 + V((0, 0, zn - 0.03)), dv * rw * 1.5 + V((0, 0, zn + 0.05)), 0.026, 0.003, bone, 6))
+    # manto de couro de troll nas costas (passa por fora da cabeça), espinhos em fila na espinha
+    yb = back + 0.05 + r * 0.2
+    cloak_pts = [(0, back + 0.03, zn - 0.05), (0, yb, zc + 0.02), (0, yb - 0.02, zw + 0.0), (0, yb + 0.03, zw - 0.17), (0, yb + 0.0, zw - 0.3)]
+    chest.append(ribbon(ck, P + "body_cloak", cloak_pts, (1, 0, 0), [0.4, 0.46, 0.42, 0.36, 0.2], 0.035, hide))
+    for sx in (-1, 1):
+        chest.append(ribbon(ck, P + "body_cloak_edge_%d" % sx, [(sx * 0.2, back + 0.035, zn - 0.06), (sx * 0.235, yb + 0.012, zc + 0.02), (sx * 0.215, yb - 0.008, zw),
+                                                                 (sx * 0.18, yb + 0.04, zw - 0.17)], (1, 0, 0), [0.05, 0.05, 0.05, 0.03], 0.045, t2))
+    for k in range(5):
+        tt = k / 4.0
+        p = V((0, yb + 0.01 - 0.02 * tt, zc + 0.1 - tt * 0.36))
+        chest.append(ck.tube(P + "body_cloak_spine_%d" % k, p, p + V((0, 0.13 - tt * 0.04, 0.06)), 0.036 - tt * 0.008, 0.004, bone, 6))
+    # leque de dardos de caça atrás do ombro direito, pontas acesas
+    for k in range(4):
+        off = (k - 1.5) * 0.085
+        p0 = V((0.06 + off * 0.3, yb + 0.05, zw + 0.02))
+        p1 = V((-0.12 + off * 2.2, yb + 0.1 + r * 0.25, zn + 0.42 - abs(k - 1.5) * 0.04))
+        ax = (p1 - p0).normalized()
+        chest += [ck.tube(P + "body_jav_%d" % k, p0, p1, 0.013, 0.013, wood, 6),
+                  ck.blade(P + "body_javtip_%d" % k, p1, p1 + ax * 0.14, 0.06, 0.02, glow, (1, 0, 0)),
+                  ck.tube(P + "body_javsock_%d" % k, p1 - ax * 0.03, p1 + ax * 0.01, 0.02, 0.018, metal, 6)]
+    chest.append(ck.tube(P + "body_javband", V((0.02, yb + 0.03, zc - 0.07)), V((0.02, yb + 0.1, zc - 0.05)), 0.075, 0.075, leather, 8))
+    ck._rigid(outward(chest), rig, "chest")
+    body_belt(ck, base, P + "body_belt", zw - 0.04, zw + 0.035, 1.2, leather)
+    wf = -b["waist"] * d * 1.2
+    hips = [ck.ball(P + "body_buckle", 0.055, (0, wf - 0.008, zw), bone, (1.0, 0.6, 1.0)),
+            ck.ball(P + "body_buckle_eye_l", 0.014, (-0.02, wf - 0.04, zw + 0.012), glow),
+            ck.ball(P + "body_buckle_eye_r", 0.014, (0.02, wf - 0.04, zw + 0.012), glow),
+            ck.blade(P + "body_flap_f", (0, wf - 0.012, zw - 0.02), (0, wf - 0.04, zw - 0.25), 0.18, 0.014, hide, (1, 0, 0), 0.3),
+            ck.blade(P + "body_flap_f2", (0, wf - 0.02, zw - 0.02), (0, wf - 0.05, zw - 0.17), 0.1, 0.012, t2, (1, 0, 0), 0.3)]
+    for sx in (-1, 1):                   # troféu: orelha/dente de troll pendurado
+        p = V((sx * b["waist"] * 1.2, 0.0, zw - 0.05))
+        hips.append(ck.tube(P + "body_trophy_%d" % sx, p, p + V((sx * 0.02, 0, -0.13)), 0.03, 0.004, bone, 6))
+    ck._rigid(outward(hips), rig, "hips")
+    sh = V(j["shoulder.L"])              # troféu no ombro esquerdo: mão de troll em garra (3 unhas de osso)
+    tro = [ck.ball(P + "body_pauldron", b["arm"] * 2.6, sh + V((0.06, 0, 0.06)), hide, (1.1, 1.08, 0.66)),
+           ck.ball(P + "body_pauldron_rim", b["arm"] * 2.68, sh + V((0.06, 0, 0.03)), metal, (1.12, 1.1, 0.15))]
+    for k in range(3):
+        fy = (k - 1) * 0.07
+        tro += curve(ck, P + "body_claw_%d" % k, sh + V((0.07, fy, 0.1)), sh + V((0.24, fy * 1.5, 0.2 - abs(k - 1) * 0.03)), (0.02, 0, 0.08), 0.034, bone, 4, 6)
+    ck._rigid(outward(tro), rig, "upper_arm.L")
+    sh = V(j["shoulder.R"])
+    ck._rigid(outward([ck.ball(P + "body_cap_r", b["arm"] * 2.1, sh + V((-0.05, 0, 0.05)), t, (1.1, 1.05, 0.55)),
+                       ck.ball(P + "body_cap_r_rim", b["arm"] * 2.17, sh + V((-0.05, 0, 0.028)), metal, (1.12, 1.07, 0.14))]), rig, "upper_arm.R")
+    _act2_arms_boots(ck, base, P, t, t2, leather, leather, metal, fur)
+
+
+ACT2_SETS = {"ran_c35": build_scout, "ran_a35": build_gunner, "ran_l35": build_trollhunter}
+# armas do Ato II ("glow": "tint" -> material tint_glow, pintado na cor do nível)
+RAN_BOWS["ran_c35"] = {"tips": "hawk", "size": 1.26, "curve": 1.15, "gem": True, "fins": True, "glow": "tint"}
+RAN_RIFLES["ran_a35"] = {"bands": 4, "scope": True, "carved": True, "heavy": True, "drum": True, "glow": "tint"}
+RAN_SPEARS["ran_l35"] = {"head": "troll", "len": 1.16, "fang": True, "tassel": True, "gold": True, "glow": "tint"}
+
+
 def register(ck):
     import paladin_sets
+    for style, fn in ACT2_SETS.items():                    # Ato II: um visual novo por build (35/40/45 + Ápice)
+        ck.SET_STYLES[style] = (lambda st, f: (lambda base, mats: (f(ck, base, mats, st), paladin_sets.join_slots("arm_%s_" % st))))(style, fn)
     for style, cfg in RAN_SETS.items():
         ck.SET_STYLES[style] = (lambda st, cf: (lambda base, mats: (build(ck, base, mats, st, cf), paladin_sets.join_slots("arm_%s_" % st))))(style, cfg)
     for style, cfg in RAN_BOWS.items():

@@ -24,6 +24,7 @@ from mathutils import Vector
 
 import nature
 import places
+import town_dress
 import zone_lib
 
 ZONE = "city_aldara"
@@ -79,6 +80,19 @@ HILLS = [(G(c), r, n) for c, r, n in [((-24.0, -86.0), 8.0, 2), ((14.0, -100.0),
          ((28.0, -22.0), 7.0, 2), ((-24.0, 34.0), 7.0, 2), ((56.0, 44.0), 8.0, 2), ((-74.0, -34.0), 7.0, 2),
          ((74.0, -64.0), 8.0, 2), ((-32.0, 96.0), 7.0, 1), ((30.0, 40.0), 6.0, 1)]]
 TOWER_RUIN = G((-30.0, -100.0))
+# Cidade com identidade (GDD living-towns): lotes do anel externo que viraram pátio (quadrante, desvio em graus) e o
+# quadrante da casa do anel interno que virou o Pátio da Forja (NE)
+OPEN_LOTS = {(1, -29.0), (1, -10.0), (3, -29.0)}      # celeiro + cercado (S, a oeste do portão) e Pátio do Fundador (N)
+FORGE_Q = 3
+MERCHANT_AT = (3.72, 8.98)       # Tobias na frente da banca dele (a de 67,5 graus da roseta), do lado do freguês
+# Pontos de evento de estrada: (tipo, estrada, fração do comprimento, desvio lateral m, monstro). E1 "Lobos no Lavrador":
+# colinas do norte e estrada da fazenda. Viram SPAWN_event_<tipo>_NN e data["events"]; MapsCatalog.ROAD_EVENTS dá as regras.
+EVENT_POINTS = [
+    ("wolves", "N", 0.72, 7.0, "wolf"),
+    ("wolves", "colinas_castelo", 0.38, -7.0, "wolf"),
+    ("wolves", "lago_fazenda", 0.5, 7.0, "wolf"),
+    ("wolves", "SW", 0.55, -7.0, "wolf"),
+]
 # decoração que some se cair numa estrada/trilha (cerca vira portão, pedra sai do caminho)
 ROAD_DECOR = ("rock", "fence", "crate", "log", "tree", "pine", "bush", "flowers", "stump", "reeds", "dead_tree")
 
@@ -336,7 +350,7 @@ def build(export=False):
     coll = collection(sc)
     clear(sc, coll)
     M = MATS()
-    data = {"zone": ZONE, "size": [SIZE, SIZE], "spawn": [0.0, 8.0],
+    data = {"zone": ZONE, "size": [SIZE, SIZE], "spawn": [0.0, 10.4],        # na boca da rua sul, fora da roseta da feira (dentro dela os bots se enroscavam nas bancas)
             "town": {"center": [0.0, 0.0], "radius": TOWN_R, "gates": []},
             "obstacles": [], "portals": [], "spawners": [], "npcs": {}, "hangouts": [], "roads": [], "water": []}
     obs = data["obstacles"]
@@ -463,6 +477,9 @@ def build(export=False):
     k = 0
     for q in range(4):
         for off in (-29.0, -10.0, 10.0, 29.0):
+            if (q, off) in OPEN_LOTS:
+                k += 1                     # o lote vazio gasta a vez dele: as outras casas ficam com o mesmo telhado
+                continue
             a = math.radians(45 + 90 * q + off)
             r = 25.0
             x, z = math.cos(a) * r, math.sin(a) * r
@@ -470,25 +487,29 @@ def build(export=False):
             w = 5.6 if abs(off) > 20 else 6.4
             ob("house", x, z, (w, 3.2 + (k % 3) * 0.3, 5.2), rot, color=(0.86, 0.8, 0.68), roof=roofs[k % len(roofs)])
             k += 1
+        if q == FORGE_Q:
+            continue                       # NE: o Pátio da Forja do Brom fica no lugar desta casa
         a = math.radians(45 + 90 * q)
         x, z = math.cos(a) * 14.0, math.sin(a) * 14.0
         ob("house", x, z, (5.0, 2.8, 4.2), math.degrees(math.atan2(-x, -z)), color=(0.88, 0.83, 0.72), roof=roofs[(q + 2) % len(roofs)])
-    # praça: chafariz, estátua, poço, bancas, bancos, lampiões
-    ob("fountain", 0, 0, (3.6, 1.3, 3.6))
-    ob("statue", 0.0, -7.5, (1.2, 2.6, 1.2))
-    ob("well", -6.8, 6.8, (1.6, 1.4, 1.6))
-    ob("stall", -14.0, 7.0, (2.4, 1.6, 1.4), 60.0, color=(0.55, 0.4, 0.27))
-    ob("stall", 14.0, 7.0, (2.4, 1.6, 1.4), -60.0, color=(0.55, 0.4, 0.27))
-    ob("crate", -16.5, 9.0, (1.0, 1.0, 1.0))
-    ob("crate", 16.5, 9.0, (1.0, 1.0, 1.0))
-    for (x, z, r) in ((-4, 5, 30), (4, -5, 210), (5, 4, 135), (-5, -4, 315)):
-        ob("bench", x, z, (1.6, 0.5, 0.5), r, solid=False)
+    # praça = Feira do Trigo (GDD living-towns): mó/balança no centro, roseta de 8 toldos, 2 carroças; pátio da forja a NE,
+    # celeiro e cercado ao S, Pátio do Fundador ao N. Chafariz e estátua do centro saíram.
+    centerpiece = town_dress.aldara(town_dress.shim(ZONE, P, coll, data, ob, rim_r, road_polys, [river], RIVER_W))
+    data["town"]["centerpiece"] = centerpiece
+    fdx, fdz = centerpiece["founder"]
+    ob("well", fdx - 3.0, fdz - 1.6, (1.6, 1.4, 1.6))      # o poço foi para o Pátio do Fundador (na praça ele estrangulava a passagem junto das casas)
+    for s_ in (-1, 1):                 # bancos e lampiões do Pátio do Fundador
+        ob("bench", fdx + 2.6 * s_, fdz + 1.2, (1.6, 0.5, 0.5), 90.0 - 25.0 * s_, solid=False)
+    ob("lamp", fdx + 3.1, fdz - 2.4, (0.4, 3.0, 0.4))
+    ob("flowers", fdx + 2.4, fdz - 1.9, (1.6, 0.45, 1.6), solid=False, color=(0.92, 0.8, 0.4))
     for gname, (gx, gz) in GATES.items():
         ga = math.atan2(gz, gx)
         side = Vector((-math.sin(ga), math.cos(ga))) * 3.2
         for f in (0.45, 0.8):
-            ob("lamp", gx * f + side.x, gz * f + side.y, (0.4, 3.0, 0.4))
-            ob("lamp", gx * f - side.x, gz * f - side.y, (0.4, 3.0, 0.4))
+            for sg in (1, -1):
+                lp = Vector((gx * f + side.x * sg, gz * f + side.y * sg))
+                if all((lp - Vector(c[:2])).length > 3.4 for c in centerpiece["carts"]):      # a carroça parada fica no lugar do lampião
+                    ob("lamp", lp.x, lp.y, (0.4, 3.0, 0.4))
 
     # ---------- castelo na colina (landmark NE) ----------
     (cx, cz), cr = CASTLE
@@ -720,9 +741,7 @@ def build(export=False):
         box(coll, P + "placa_tabua_a_%d" % k, (sx_, sz_), (1.1, 0.26, 0.06), r1, M["wood"], 1.85)
         box(coll, P + "placa_tabua_b_%d" % k, (sx_, sz_), (1.0, 0.24, 0.06), r2, M["wood"], 1.5)
 
-    # --- vila: bancas extras do mercado, caixas nas oficinas, lampiões no anel interno ---
-    for (x, z) in ((-5.5, -16.5), (6.5, 16.5)):
-        ob("stall", x, z, (2.4, 1.6, 1.4), math.degrees(math.atan2(-x, -z)), color=(0.55, 0.4, 0.27))
+    # --- vila: caixas nas oficinas, lampiões no anel interno (as bancas soltas viraram a roseta da feira) ---
     for (x, z) in ((-16.0, 1.6), (-16.4, -0.2), (16.0, 1.6), (16.4, -0.2)):
         ob("crate", x, z, (0.9, 0.9, 0.9), 15.0)
     for k in range(8):
@@ -793,18 +812,62 @@ def build(export=False):
     def face_to(x, z, tx, tz):
         return round(math.degrees(math.atan2(tx - x, tz - z)), 1)
     npcs = {
-        "elder": (0.0, -13.0), "board": (6.5, -12.0), "smith": (-12.5, 4.0), "alchemist": (12.5, 4.0),
-        "merchant": (4.0, 12.0), "storage": (-4.0, 12.0), "relic": (12.5, -4.0), "captain": (-3.0, 23.0),
+        "elder": (0.0, -13.0), "board": (6.5, -12.0), "smith": (7.85, -7.85), "alchemist": (12.5, 4.0),
+        "merchant": MERCHANT_AT, "storage": (-4.0, 12.0), "relic": (12.5, -4.0), "captain": (-3.0, 23.0),
+        "founder_statue": tuple(centerpiece["founder"]),
         "guard_s": (4.5, 35.0), "guard_e": (35.0, -4.5), "guard_w": (-35.0, 4.5), "guard_n": (-4.5, -35.0),
         "meadow_guard": G((-5.0, 47.0)),
     }
     for nid, (x, z) in npcs.items():
         tgt = (0.0, 0.0) if Vector((x, z)).length < TOWN_R else (x * 0.5, z * 0.5)
-        if nid.startswith("guard_") or nid == "meadow_guard":
-            tgt = (x * 2, z * 2)       # guardas olham pra fora
+        if nid.startswith("guard_") or nid in ("meadow_guard", "merchant"):
+            tgt = (x * 2, z * 2)       # guardas olham pra fora; o mercador fica de costas para a banca, de frente para o freguês
         data["npcs"][nid] = [x, z, face_to(x, z, *tgt)]
-    data["hangouts"] = [[0, 6], [-5, -4], [5, 3], [-11, 6], [11, 6], [3, 13], [7, -9], [-8, 13], [-14, -12], [14, -14],
+    # pontos de bot: fora da roseta (dentro dela ficam os feirantes), na borda da feira e no anel
+    data["hangouts"] = [[0, 10.8], [-9.8, -1.2], [9.8, 1.2], [-11, 6], [11, 6], [-1.5, 13.5], [3.4, -10.6], [-8, 13], [-14, -12], [15.5, -15.5],
                         [0, -19], [19, 2], [-19, -2], [2, 19]]
+
+    # ---------- pontos de evento de estrada (RoadEventSystem, GDD living-towns 3.5): à beira da estrada, fora do hub ----------
+    data["events"] = []
+    def event_why(q):
+        """Motivo de um ponto de evento não servir ("" = serve): GDD 3.5 regra 3."""
+        far = lambda c, r: (q - Vector(c)).length >= r
+        if q.length < 40.0:
+            return "hub"
+        if not free(q.x, q.y, ROAD_W * 0.5 + 0.6):
+            return "estrada/agua/morro"
+        if not all(far(pp["pos"], 25.0) for pp in PORTALS.values()) or not all(far(c, 25.0) for c, _ in spots[:2]):
+            return "portal/chegada"
+        if not all(far(v[:2], 25.0) for v in data["npcs"].values()):
+            return "npc"
+        if not all(far(s_["pos"], 25.0) for s_ in data["spawners"] if s_["count"] == 1):
+            return "chefe"
+        if not all(far(o["pos"], max(o["size"][0], o["size"][2]) * 0.5 + 1.6) for o in obs if o["solid"] and o["kind"] != "cliff"):
+            return "obstaculo"
+        if not all(far(e_["pos"], 30.0) for e_ in data["events"]):
+            return "outro ponto"
+        return ""
+
+    for kind, road, frac, side, mob in EVENT_POINTS:
+        poly = road_polys[road]
+        found, why = None, ""
+        # o ponto pedido primeiro; se não servir, anda pela estrada (até 20% para cada lado) e troca de margem
+        for df in (0.0, 0.04, -0.04, 0.08, -0.08, 0.12, -0.12, 0.16, -0.16, 0.2, -0.2):
+            for sd in (side, -side, side * 1.3, -side * 1.3):
+                i = max(1, min(len(poly) - 2, int((frac + df) * (len(poly) - 1))))
+                t = (poly[i + 1] - poly[i - 1]).normalized()
+                q = poly[i] + Vector((-t.y, t.x)) * sd
+                w = event_why(q)
+                if w == "":
+                    found = q
+                    break
+                why = why or w
+            if found is not None:
+                break
+        if found is None:
+            print("EVENT_CONFLICT %s em %s: nenhum ponto serve (%s)" % (kind, road, why))
+            continue
+        data["events"].append({"kind": kind, "pos": [round(found.x, 2), round(found.y, 2)], "mob": mob, "road": road})
 
     # ---------- passe de estradas: decoração que cai no caminho sai; spawner que pega a estrada se afasta ----------
     lanes = [(poly, (places.TRAIL_W if name.startswith("trilha_") else ROAD_W) * 0.5) for name, poly in road_polys.items()]
@@ -842,6 +905,11 @@ def build(export=False):
         e.empty_display_size = s["radius"]
         e.location = B(s["pos"][0], s["pos"][1], 0.2)
         sc.collection.objects.link(e)
+    for i, ev in enumerate(data["events"]):
+        e = bpy.data.objects.new("SPAWN_event_%s_%02d" % (ev["kind"], i + 1), None)
+        e.empty_display_type = "CONE"
+        e.location = B(ev["pos"][0], ev["pos"][1], 0.2)
+        sc.collection.objects.link(e)
     for pid, p in PORTALS.items():
         e = bpy.data.objects.new("TRIG_portal_%s" % p["target_map"], None)
         e.empty_display_type = "SPHERE"
@@ -877,7 +945,10 @@ def build(export=False):
         bpy.ops.object.select_all(action="DESELECT")
         for ob_ in coll.objects:
             ob_.select_set(True)
+        kw = {}
+        if "export_vertex_color" in bpy.ops.export_scene.gltf.get_rna_type().properties:
+            kw["export_vertex_color"] = "ACTIVE"       # lotes do dress.py (town_dress): a cor de cada peça vai no vértice (COLOR_0)
         bpy.ops.export_scene.gltf(filepath=ROOT + "/assets/models/map_%s.glb" % ZONE, export_format="GLB", use_selection=True, use_active_scene=True,
-                                  export_apply=True, export_animations=False, export_yup=True, export_materials="EXPORT")
+                                  export_apply=True, export_animations=False, export_yup=True, export_materials="EXPORT", **kw)
         print("exportado: map_%s.glb + data/zones/%s.json" % (ZONE, ZONE))
     return data
