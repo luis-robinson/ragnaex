@@ -308,6 +308,9 @@ func after_start() -> void:
 	if DevArgs.flag("--sig_shot"):      # --sig_shot=<pasta> [--boss=<id>,...]: aviso de cada assinatura de chefe (GDD act2-boss-signatures)
 		_smoke_test = false
 		_sig_shot.call_deferred(DevArgs.value("--sig_shot"))
+	if DevArgs.flag("--lock_shot"):     # --lock_shot=<pasta> [--boss=<id>]: Tab trava no chefe, D gira em volta e W chega perto (fotos + raio no log)
+		_smoke_test = false
+		_lock_shot.call_deferred(DevArgs.value("--lock_shot"))
 	if DevArgs.flag("--carry_shot"):    # --carry_shot=<png>: um morador com cada carga (caixa, saco, estaca, pedra), de 3/4 (_jogo) e de lado (_lado)
 		_smoke_test = false
 		_carry_shot.call_deferred(DevArgs.value("--carry_shot"))
@@ -1596,9 +1599,13 @@ func _wear_set(set_id: String) -> void:
 		Sim.equip(Sim.player, iid, iid.ends_with("_offhand") and GameData.items[iid].weapon_type != "shield")
 	if DevArgs.flag("--form"):      # --form=wolf|bear: já começa transformado (revisar a forma do Druida)
 		Sim._apply_effects(Sim.player, Sim.player, {"form": DevArgs.value("--form")}, 1.0)
-	if DevArgs.has("--mace") and not sd.alt_pieces.is_empty():     # --mace: a maça do conjunto no lugar da espada
-		Sim.player.add_item(sd.alt_pieces[0])
-		Sim.equip(Sim.player, sd.alt_pieces[0], false)
+	if DevArgs.has("--mace"):     # --mace: a maça/martelo do conjunto na mão (Templário: é a arma principal, a 2ª peça é a espada)
+		for mid in sd.pieces + sd.alt_pieces:
+			var mit: ItemDef = GameData.items.get(mid)
+			if mit and mit.weapon_type in ["mace", "mace2h"] and not mid.ends_with("_offhand"):
+				Sim.player.add_item(mid)
+				Sim.equip(Sim.player, mid, false)
+				break
 
 static func _grow_aldara(v: Vector3) -> Vector3:
 	var r := Vector2(v.x, v.z).length()
@@ -2958,3 +2965,76 @@ func _sig_shot(dir: String) -> void:
 		Sim.reset_boss(boss)
 		boss.brain = keep_brain
 	get_tree().quit()
+
+## Revisão da trava no chefe (Tab, BossLock): jogador imortal a 7 m do chefe parado, trava, segura D e depois W.
+## Grava <pasta>/lock_0_travado.png, lock_1_orbita.png, lock_2_perto.png e lock_3_solto.png; imprime LOCK_SHOT com o raio.
+func _lock_shot(dir: String) -> void:
+	DirAccess.make_dir_recursive_absolute(dir)
+	var bid := DevArgs.value("--boss", "boss_troll_king")
+	var p: SimEntity = Sim.player
+	p.brain = null
+	var map_id := ""
+	var home := Vector3.ZERO
+	for mid in GameData.maps:
+		for sp in GameData.maps[mid].spawners:
+			if sp["monster_id"] == bid and map_id == "":
+				map_id = mid
+				home = sp["pos"]
+	if map_id == "":
+		push_error("LOCK_SHOT: %s sem spawner" % bid)
+		get_tree().quit()
+		return
+	Sim.sync()
+	Sim._change_map(p, map_id, home + Vector3(7, 0, 0))
+	var arrive := Time.get_ticks_msec() + 2000
+	while Time.get_ticks_msec() < arrive:
+		Sim.sync()
+		p.iframe_left = 1.0
+		p.stats.max_hp = 1.0e9
+		p.hp = 1.0e9
+		await get_tree().process_frame
+	Sim.sync()
+	var boss: SimEntity = null
+	for e: SimEntity in Sim.maps[map_id]["entities"]:
+		if e.monster_def != null and e.monster_def.id == bid and e.is_alive():
+			boss = e
+	if boss == null:
+		boss = Sim.spawn_monster(GameData.monsters[bid], map_id, home)
+	boss.brain = null
+	for e: SimEntity in Sim.maps[map_id]["entities"]:     # o resto do mapa não entra na foto brigando
+		if e.kind == SimEntity.Kind.MONSTER and e != boss:
+			e.brain = null
+	p.position = boss.position + Vector3(0, 0, 7.0)
+	main.camera.distance = 22.0
+	await get_tree().create_timer(0.8).timeout
+	Sim.sync()
+	main.controller.toggle_lock(Vector3(9999, 0, 9999))     # cursor longe: escolhe o mais perto
+	await get_tree().create_timer(0.6).timeout
+	await _lock_snap(dir + "/lock_0_travado.png", p, boss)
+	var r0 := Vector2(p.position.x - boss.position.x, p.position.z - boss.position.z).length()
+	Input.action_press("move_right")
+	await get_tree().create_timer(2.5).timeout
+	await _lock_snap(dir + "/lock_1_orbita.png", p, boss)
+	Input.action_release("move_right")
+	Sim.sync()
+	var r1 := Vector2(p.position.x - boss.position.x, p.position.z - boss.position.z).length()
+	Input.action_press("move_forward")
+	await get_tree().create_timer(0.6).timeout
+	Input.action_release("move_forward")
+	await _lock_snap(dir + "/lock_2_perto.png", p, boss)
+	Sim.sync()
+	var r2 := Vector2(p.position.x - boss.position.x, p.position.z - boss.position.z).length()
+	print("LOCK_SHOT boss=%s locked=%s r_start=%.2f r_after_D=%.2f r_after_W=%.2f" % [bid, main.controller.lock.target_id == boss.id, r0, r1, r2])
+	main.controller.toggle_lock(Vector3.ZERO)
+	await get_tree().create_timer(0.4).timeout
+	await _lock_snap(dir + "/lock_3_solto.png", p, boss)
+	print("LOCK_SHOT released=%s" % (not main.controller.lock.active()))
+	get_tree().quit()
+
+func _lock_snap(path: String, p: SimEntity, boss: SimEntity) -> void:
+	Sim.sync()
+	p.hp = p.stats.max_hp
+	boss.hp = boss.stats.max_hp
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(path)
+	print("LOCK_SHOT " + path)

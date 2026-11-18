@@ -10,6 +10,7 @@ extends Node3D
 ##   --strip=<classe> --shield=<item>: o filme com esse escudo na mão (corrida/guarda na variante dele)
 ##   --mounted --guard=<item>,<item>: paladinos a cavalo na guarda montada (Muralha a Cavalo), um por escudo
 ##   --strip=<classe>: filme de um clipe — 8 cópias da classe, cada uma num instante do clipe, vistas de lado
+##     ([--frames=N] bonecos; [--f0=<quadro> --fstep=1] = um boneco por quadro de 24 fps a partir desse)
 ##     [--titan[=<item>]]: Berserker com machado de 2 mãos nas duas mãos (Empunhadura de Titã)
 ##   --body=<male|female>: troca o corpo da classe nos filmes e fileiras (revisar o kit do outro sexo)
 ## Salva a screenshot e sai.
@@ -256,6 +257,8 @@ func _build_strip() -> void:
 		if clip != "":
 			k.anim.play(clip)
 			k.anim.seek(k.anim.current_animation_length * float(i) / float(frames), true)
+			if DevArgs.flag("--f0"):               # --f0=<quadro> [--fstep=1]: um boneco por quadro de 24 fps a partir desse (base 1)
+				k.anim.seek(minf((float(DevArgs.value("--f0")) - 1.0 + float(i) * float(DevArgs.value("--fstep", "1"))) / 24.0, k.anim.current_animation_length), true)
 			k.anim.pause()
 	var cam := Camera3D.new()
 	cam.fov = 30.0
@@ -461,6 +464,8 @@ func _build_tiers() -> void:
 		for iid in GameData.legendary_pool(cls, int(levels[i]), _set):
 			var it: ItemDef = GameData.items[iid]
 			var slot: int = ItemDef.Slot.OFFHAND if iid.ends_with("_offhand") else it.slot     # 2ª arma (Gêmeos, garras) vai na outra mão
+			if slot == ItemDef.Slot.WEAPON and DevArgs.flag("--wtype") and it.weapon_type != DevArgs.value("--wtype"):
+				continue                             # --wtype=mace: a arma desse tipo do conjunto (ex.: o martelo do Templário)
 			if not eq.has(slot):
 				eq[slot] = it
 		var k := KitModel.create(DevArgs.value("--body", cls.body_type), cls.hair_color, 0.025, cls.id)

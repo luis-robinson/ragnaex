@@ -1588,9 +1588,12 @@ const IMPACT_FRAME := {"maul": 7, "pounce": 9, "slam": 8, "roar": 7, "brace": 6,
 	"cast_ground": 10, "cast_channel": 14, "cast_target": 8, "atk_leap": 12, "atk_charge": 5, "atk_throw": 7,
 	"atk_shoot_multi": 8, "summon": 11, "atk_pistol": 6, "atk_slash_shot": 9, "atk_sweep": 8, "atk_finisher": 10, "atk_flurry": 5, "atk_claw": 6, "shout": 7,
 	"cast_fire": 8, "cast_ice": 8, "cast_bolt": 7, "cast_holy": 8, "cast_shadow": 8, "cast_nature": 9,
-	"buff_power": 7, "buff_guard": 6, "buff_focus": 8, "wall_counter": 10}
+	"buff_power": 7, "buff_guard": 6, "buff_focus": 8, "wall_counter": 10,
+	"atk_2h_chain_a": 5, "atk_2h_chain_b": 6, "atk_2h_chain_c": 7}     # sequência de duas mãos do Golpe do Cruzado (só no kit do Paladino)
 ## clipes só de modelo de monstro (não existem nos kits): wall_counter = contragolpe da Muralha (mob_ghar)
 const MOB_ONLY_CLIPS := {"wall_counter": "mob_ghar"}
+## clipes que só o kit de uma classe tem (chibi_kit.CHAIN_CLASSES): os kits genéricos e os das outras classes não levam
+const CLASS_ONLY_CLIPS := {"atk_2h_chain_a": "paladin", "atk_2h_chain_b": "paladin", "atk_2h_chain_c": "paladin"}
 const RUN_REF_SPEED := 5.2            # m/s em que o ciclo "run" do kit casa com o chão
 const TWO_HANDED_MELEE := ["sword2h", "mace2h", "axe2h", "scythe"]
 var manual_anim := false             # combat_probe: animação andada à mão, quadro a quadro
@@ -1640,6 +1643,46 @@ func _sig_base(base: String) -> String:
 ## Gestos de fase ativa longa (giro, canalização, pisão): repetem até a fase ativa acabar em vez de parar na pose final.
 const RECALL_ANIM_SPEED := 0.75      # conjuração da volta à cidade: gesto calmo, em laço
 const ACTIVE_LOOP := ["atk_spin", "cast_channel", "cast_shadow", "slam"]
+## Sequência de golpes (efeito "strikes", Golpe do Cruzado): um clipe por golpe (`strikes.clips`), cada impacto no tick
+## do golpe dele. Os clipes atk_2h_chain_a/b/c (chibi_kit.animate_crusader) têm o impacto nos quadros 5/6/7 = os preparos
+## que saem daqui (0,16 / 0,21 / 0,24 s), então tocam a ~1x; mudou `at` ou STRIKE_NEXT_AT: refaça os clipes. O próximo clipe entra depois desta fração do intervalo entre os golpes (o resto é a preparação dele).
+const STRIKE_NEXT_AT := 0.25
+var _strike_shown := 0                # golpe da sequência cujo clipe está tocando
+
+## Segundos depois do fim do preparo em que cai o último golpe da sequência (0 = skill de um golpe só).
+static func strike_last_at(s: SkillDef) -> float:
+	var st = s.effects.get("strikes") if s else null
+	if not (st is Dictionary):
+		return 0.0
+	var at_s: Array = st.get("at", [])
+	return float(at_s.back()) if not at_s.is_empty() else 0.0
+
+## Troca para o clipe do próximo golpe da sequência na hora certa. true = a sequência ainda não acabou (sem reajuste
+## do resto do clipe); false = último golpe já tocando (o reajuste normal leva o resto até o fim da skill).
+func _strike_step(s: SkillDef) -> bool:
+	var st = s.effects.get("strikes")
+	if not (st is Dictionary):
+		return false
+	var clips: Array = st.get("clips", [])
+	var at_s: Array = st.get("at", [])
+	var n := mini(clips.size(), at_s.size())
+	var nxt := _strike_shown + 1
+	if nxt >= n:
+		return false
+	var hit_t := s.startup + float(at_s[nxt])
+	var prev_t := s.startup + float(at_s[_strike_shown])
+	if entity.state_time < prev_t + (hit_t - prev_t) * STRIKE_NEXT_AT:
+		return true
+	_strike_shown = nxt
+	var clip := _clip(str(clips[nxt]))
+	if clip != "":
+		var wt := windup_timing(float(IMPACT_FRAME.get(clip, 5) - 1) / 24.0, maxf(hit_t - entity.state_time, 0.06))
+		_act_speed = wt.y
+		_retimed = false
+		_play(clip, 0.06, wt.y)
+		anim.seek(wt.x, true)
+	return true
+
 ## Velocidade do clipe para o impacto do desenho cair no tick do dano (preparo longo = clipe mais lento).
 const LOOP_MIN_ACTIVE := 0.5        # s de fase ativa para o gesto repetir (curta: acaba junto com a skill, como os outros)
 const ANIM_MIN_SPEED := 0.4
@@ -1889,7 +1932,9 @@ func _animate_glb(st: int) -> void:
 		_act_skill = s
 		_act_time = entity.state_time
 		var looping: bool = s != null and s.active >= LOOP_MIN_ACTIVE and anim.assigned_animation in ACTIVE_LOOP
-		if s and not fresh and not _retimed and entity.state_time >= s.startup and anim.is_playing():
+		if s and not fresh and _strike_step(s):
+			return                             # sequência de golpes: o próximo clipe já entrou ou ainda vai entrar
+		if s and not fresh and not _retimed and entity.state_time >= s.startup + strike_last_at(s) and anim.is_playing():
 			# impacto: o que resta do clipe acaba junto com a skill (sem pose congelada nem corte);
 			# giro/canalização acaba junto com a fase ativa (e repete enquanto ela durar)
 			_retimed = true
@@ -1927,6 +1972,7 @@ func _animate_glb(st: int) -> void:
 				_play(clip, 0.06, wt.y)
 				anim.seek(wt.x, true)
 				_combo += 1
+				_strike_shown = 0
 		# Corte e Tiro: o golpe do sabre passa antes do tiro (o tick do dano) -> o arco sai no quadro do corte
 		if not _slash_done and s and anim.assigned_animation == _slash_clip and anim.current_animation_position >= float(WeaponArcs.SLASH_FRAME - 1) / 24.0:
 			_slash_done = true

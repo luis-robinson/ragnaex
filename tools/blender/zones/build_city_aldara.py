@@ -84,7 +84,7 @@ TOWER_RUIN = G((-30.0, -100.0))
 # quadrante da casa do anel interno que virou o Pátio da Forja (NE)
 OPEN_LOTS = {(1, -29.0), (1, -10.0), (3, -29.0)}      # celeiro + cercado (S, a oeste do portão) e Pátio do Fundador (N)
 FORGE_Q = 3
-MERCHANT_AT = (3.72, 8.98)       # Tobias na frente da banca dele (a de 67,5 graus da roseta), do lado do freguês
+MERCHANT_AT = (2.41, 5.82)       # Tobias na frente da banca dele (a de 67,5 graus), do lado do freguês = dentro da praça (town_dress.FAIR_R - FAIR_FRONT: longe do toldo, que de frente para a câmera o escondia)
 # Pontos de evento de estrada: (tipo, estrada, fração do comprimento, desvio lateral m, monstro). E1 "Lobos no Lavrador":
 # colinas do norte e estrada da fazenda. Viram SPAWN_event_<tipo>_NN e data["events"]; MapsCatalog.ROAD_EVENTS dá as regras.
 EVENT_POINTS = [
@@ -492,7 +492,7 @@ def build(export=False):
         a = math.radians(45 + 90 * q)
         x, z = math.cos(a) * 14.0, math.sin(a) * 14.0
         ob("house", x, z, (5.0, 2.8, 4.2), math.degrees(math.atan2(-x, -z)), color=(0.88, 0.83, 0.72), roof=roofs[(q + 2) % len(roofs)])
-    # praça = Feira do Trigo (GDD living-towns): mó/balança no centro, roseta de 8 toldos, 2 carroças; pátio da forja a NE,
+    # praça = Feira do Trigo (GDD living-towns): mó/balança no centro, 6 toldos na borda virados para o meio, 2 carroças; pátio da forja a NE,
     # celeiro e cercado ao S, Pátio do Fundador ao N. Chafariz e estátua do centro saíram.
     centerpiece = town_dress.aldara(town_dress.shim(ZONE, P, coll, data, ob, rim_r, road_polys, [river], RIVER_W))
     data["town"]["centerpiece"] = centerpiece
@@ -820,12 +820,13 @@ def build(export=False):
     }
     for nid, (x, z) in npcs.items():
         tgt = (0.0, 0.0) if Vector((x, z)).length < TOWN_R else (x * 0.5, z * 0.5)
-        if nid.startswith("guard_") or nid in ("meadow_guard", "merchant"):
-            tgt = (x * 2, z * 2)       # guardas olham pra fora; o mercador fica de costas para a banca, de frente para o freguês
+        if nid.startswith("guard_") or nid == "meadow_guard":
+            tgt = (x * 2, z * 2)       # guardas olham pra fora (o mercador, na frente da banca, olha para o meio da praça como os outros)
         data["npcs"][nid] = [x, z, face_to(x, z, *tgt)]
-    # pontos de bot: fora da roseta (dentro dela ficam os feirantes), na borda da feira e no anel
-    data["hangouts"] = [[0, 10.8], [-9.8, -1.2], [9.8, 1.2], [-11, 6], [11, 6], [-1.5, 13.5], [3.4, -10.6], [-8, 13], [-14, -12], [15.5, -15.5],
-                        [0, -19], [19, 2], [-19, -2], [2, 19]]
+    # pontos de bot: no miolo aberto da praça (nas diagonais, de frente para os vãos), na borda da feira e no anel; nunca na
+    # faixa dos balcões (town_dress.FAIR_R +- 1,5 m)
+    data["hangouts"] = [[0, 10.8], [3.6, 3.6], [-3.6, 3.6], [-3.6, -3.6], [3.6, -3.6], [-11, 6], [11, 6], [-1.5, 13.5], [3.4, -10.6], [-8, 13],
+                        [-14, -12], [15.5, -15.5], [0, -19], [19, 2], [-19, -2], [2, 19]]
 
     # ---------- pontos de evento de estrada (RoadEventSystem, GDD living-towns 3.5): à beira da estrada, fora do hub ----------
     data["events"] = []

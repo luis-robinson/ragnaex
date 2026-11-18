@@ -62,7 +62,7 @@ Conjunto lendário = 5 peças de armadura (`SetDef.armor`: cabeça, peito, calç
 `ItemDef.legend_effect` próprio da build (`legend` da build em `classes_catalog.gd` + números em `Balance.LEGEND_NUMBERS`, tipos em `LegendEffects.legend_on_hit/legend_weapon/legend_on_kill`). Atributos das peças, da arma, da mão secundária
 e dos escudos nomeados (por `SHIELD_AFFINITY`) vêm da build/classe (há check de coerência).
 Maça de conjunto: build com 2 armas principais ganha a 2ª como `SetDef.alt_pieces` (não conta nas peças, cai como lendário; no Paladino
-a espada ataca e a maça defende com Baluarte, `GearCatalog.WEAPON_ROLES`); modelo em `paladin_sets.PAL_MACES`. Revisar: `-- --autostart=paladin --gear=<set_id> --mace`.
+a espada ataca e a maça defende com Baluarte, `GearCatalog.WEAPON_ROLES`); modelo em `paladin_sets.PAL_MACES`. Templário = martelo de guerra: `"head": "hammer"` (`paladin_sets._hammer_head`; `back` flat/spike, `face` plain/studs/sun/crown, `emblem`, `top`, `core` metal/tint/white; o tipo da arma continua `mace` e o Ato II herda o `pal_t30`); revisar só o martelo: `lineup.tscn -- --strip=paladin --set=templario --tiers --wtype=mace [--view=game|close] [--anim=atk_1h_slash]`. Revisar: `-- --autostart=paladin --gear=<set_id> --mace`.
 Escudo de conjunto: família em `paladin_sets.SET_SHIELDS` (entra em `shield_kit.FAMILIES`; `shield_style` = estilo do conjunto, afinidade em
 `SHIELD_AFFINITY`); ícone por `shield_icons.tscn`, contato por `shield_mount.py -- --check`.
 Montagem dos escudos: rente ao antebraço, uma entrada por estilo em `chibi_kit.SHIELD_MOUNTS` (todos os estilos; achada por `shield_mount_study.py`, gravada por
@@ -75,6 +75,12 @@ esquerdo muda; só nos kits de `SHIELD_CLASSES`, fora do `animate_v3`, então os
 Guarda montada do escudo alto: clipe `block_ride_tall` do kit (`chibi_kit._shield_ride_tall_pose` + `SHIELD_RIDE_TALL`, em `animate_tall_shield`); o braço sai de `tools/blender/shield_ride_solve.py`
 (`-- solve` procura, `-- check [--old] [--mount=a,b]` conta cruzamentos com a montaria e toques no cavaleiro, nos dois sexos). Ponta que não fura o chão: `chibi_kit.add_shield_tip` (osso `shield_tip.L`,
 só nos kits de `SHIELD_CLASSES`) + `skin_shield_tip` (rampa de pesos abaixo do antebraço, `SHIELD_TIP_PIVOT`), lidos por `ShieldGround` no jogo; mexeu em um dos dois: refaça os 4 kits e rode `tools/tests/shield_probe.tscn`.
+Sequência de duas mãos do Golpe do Cruzado (2026-11-17): clipes `atk_2h_chain_a/b/c` (corte para a esquerda, revés, golpe de cima com passo), só nos kits de
+`chibi_kit.CHAIN_CLASSES` (Paladino; `EntityView.CLASS_ONLY_CLIPS`), fora do `animate_v3`. O desenho das chaves (tronco à mão; mão direita, direção da lâmina, mão
+esquerda no cabo e pés plantados como alvos) fica em `tools/blender/crusader_chain_solve.py`, que resolve por FK e grava `crusader_chain_data.py` (por sexo; não edite à mão);
+`chibi_kit.animate_crusader` só lê. Impactos 5/6/7 = os preparos que `EntityView._strike_step` dá a cada golpe (clipes a ~1x). Mudou uma chave:
+`blender -b --factory-startup --python tools/blender/crusader_chain_solve.py` (`-- --dry` só relata), refaça os kits do Paladino, `--import` e as linhas da tabela de golpes
+(`production/qa/evidence/cruzado-skills/clip2h/swing_rows.py --write`). Filme quadro a quadro: `lineup.tscn -- --strip=paladin --set=cruzado --frames=5 --anim=atk_2h_chain_c --f0=5`.
 Kits por classe: `build_kits` gera `kit_<classe>_<male|female>.glb` (os dois sexos: criação de personagem) (corpo + peças comuns + SÓ os conjuntos/armas/escudos dela, pelo prefixo em
 `chibi_kit.CLASS_PREFIX`; escudos só em `SHIELD_CLASSES`) e `kit_<male|female>` genéricos para NPCs; `KitModel.create(..., class_id)`.
 Classe nova com conjuntos: adicione o prefixo em `CLASS_PREFIX`.

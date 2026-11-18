@@ -45899,6 +45899,590 @@
    "weapon_family": "form",
    "below_ground": false,
    "impact_off_peak": false
+  },
+  {
+   "kit": "kit_paladin_male",
+   "clip": "atk_2h_chain_a",
+   "offhand": "",
+   "hand": "main",
+   "piece": "wpn_main_sword2h",
+   "bone": "hand.R",
+   "role": "skill",
+   "sweep": 1,
+   "sweep_dx_m": 2.47,
+   "type": "horizontal",
+   "share_lateral": 0.83,
+   "share_vertical": 0.01,
+   "share_forward": 0.16,
+   "strike_vec": [
+    1.29,
+    -0.1,
+    0.57
+   ],
+   "strike_peak_speed": 1.41,
+   "speed_into_impact": 1.41,
+   "vertical_dir": "down",
+   "reach_at_impact": 1.51,
+   "fwd_at_impact": 1.5,
+   "h_min": 0.67,
+   "h_max": 1.12,
+   "h_at_impact": 0.67,
+   "impact_frame": 5,
+   "peak_speed_frame": 5,
+   "peak_speed_m_per_frame": 1.41,
+   "clip_frames": 14,
+   "window": [
+    2,
+    7
+   ],
+   "path": [
+    {
+     "k": -3,
+     "p": [
+      -1.34,
+      1.09,
+      -0.26
+     ]
+    },
+    {
+     "k": -2,
+     "p": [
+      -1.33,
+      1.12,
+      -0.27
+     ]
+    },
+    {
+     "k": -1,
+     "p": [
+      -1.13,
+      0.77,
+      0.93
+     ]
+    },
+    {
+     "k": 0,
+     "p": [
+      0.16,
+      0.67,
+      1.5
+     ]
+    },
+    {
+     "k": 1,
+     "p": [
+      1.14,
+      0.74,
+      0.87
+     ]
+    },
+    {
+     "k": 2,
+     "p": [
+      1.31,
+      0.82,
+      0.09
+     ]
+    }
+   ],
+   "sweep_fast": 1,
+   "sweep_ambiguous": false,
+   "weapon_family": "sword2h",
+   "below_ground": false,
+   "impact_off_peak": false,
+   "measured_with": "tools/lineup/arc_measure.gd 2026-11-17 (ponta da arma por --offset; quadro 1 fora; sem os campos de ângulo)"
+  },
+  {
+   "kit": "kit_paladin_male",
+   "clip": "atk_2h_chain_a",
+   "offhand": "",
+   "hand": "main",
+   "piece": "wpn_main_mace2h",
+   "bone": "hand.R",
+   "role": "skill",
+   "sweep": 1,
+   "sweep_dx_m": 2.5,
+   "type": "horizontal",
+   "share_lateral": 0.82,
+   "share_vertical": 0.01,
+   "share_forward": 0.17,
+   "strike_vec": [
+    1.33,
+    -0.11,
+    0.61
+   ],
+   "strike_peak_speed": 1.47,
+   "speed_into_impact": 1.47,
+   "vertical_dir": "down",
+   "reach_at_impact": 1.53,
+   "fwd_at_impact": 1.52,
+   "h_min": 0.65,
+   "h_max": 1.12,
+   "h_at_impact": 0.65,
+   "impact_frame": 5,
+   "peak_speed_frame": 5,
+   "peak_speed_m_per_frame": 1.47,
+   "clip_frames": 14,
+   "window": [
+    2,
+    7
+   ],
+   "path": [
+    {
+     "k": -3,
+     "p": [
+      -1.36,
+      1.09,
+      -0.28
+     ]
+    },
+    {
+     "k": -2,
+     "p": [
+      -1.35,
+      1.12,
+      -0.3
+     ]
+    },
+    {
+     "k": -1,
+     "p": [
+      -1.18,
+      0.76,
+      0.91
+     ]
+    },
+    {
+     "k": 0,
+     "p": [
+      0.15,
+      0.65,
+      1.52
+     ]
+    },
+    {
+     "k": 1,
+     "p": [
+      1.15,
+      0.73,
+      0.89
+     ]
+    },
+    {
+     "k": 2,
+     "p": [
+      1.33,
+      0.81,
+      0.1
+     ]
+    }
+   ],
+   "sweep_fast": 1,
+   "sweep_ambiguous": false,
+   "weapon_family": "mace2h",
+   "below_ground": false,
+   "impact_off_peak": false,
+   "measured_with": "tools/lineup/arc_measure.gd 2026-11-17 (ponta da arma por --offset; quadro 1 fora; sem os campos de ângulo)"
+  },
+  {
+   "kit": "kit_paladin_male",
+   "clip": "atk_2h_chain_b",
+   "offhand": "",
+   "hand": "main",
+   "piece": "wpn_main_sword2h",
+   "bone": "hand.R",
+   "role": "skill",
+   "sweep": -1,
+   "sweep_dx_m": -2.59,
+   "type": "horizontal",
+   "share_lateral": 0.65,
+   "share_vertical": 0.0,
+   "share_forward": 0.35,
+   "strike_vec": [
+    -1.09,
+    0.03,
+    -0.8
+   ],
+   "strike_peak_speed": 1.35,
+   "speed_into_impact": 1.31,
+   "vertical_dir": "down",
+   "reach_at_impact": 1.48,
+   "fwd_at_impact": 1.46,
+   "h_min": 0.65,
+   "h_max": 1.14,
+   "h_at_impact": 0.65,
+   "impact_frame": 6,
+   "peak_speed_frame": 7,
+   "peak_speed_m_per_frame": 1.35,
+   "clip_frames": 15,
+   "window": [
+    2,
+    8
+   ],
+   "path": [
+    {
+     "k": -4,
+     "p": [
+      1.13,
+      1.14,
+      -0.36
+     ]
+    },
+    {
+     "k": -3,
+     "p": [
+      1.12,
+      1.12,
+      -0.38
+     ]
+    },
+    {
+     "k": -2,
+     "p": [
+      1.23,
+      1.07,
+      -0.03
+     ]
+    },
+    {
+     "k": -1,
+     "p": [
+      0.95,
+      0.79,
+      0.99
+     ]
+    },
+    {
+     "k": 0,
+     "p": [
+      -0.27,
+      0.65,
+      1.46
+     ]
+    },
+    {
+     "k": 1,
+     "p": [
+      -1.36,
+      0.68,
+      0.66
+     ]
+    },
+    {
+     "k": 2,
+     "p": [
+      -1.43,
+      0.71,
+      -0.26
+     ]
+    }
+   ],
+   "sweep_fast": -1,
+   "sweep_ambiguous": false,
+   "weapon_family": "sword2h",
+   "below_ground": false,
+   "impact_off_peak": false,
+   "measured_with": "tools/lineup/arc_measure.gd 2026-11-17 (ponta da arma por --offset; quadro 1 fora; sem os campos de ângulo)"
+  },
+  {
+   "kit": "kit_paladin_male",
+   "clip": "atk_2h_chain_b",
+   "offhand": "",
+   "hand": "main",
+   "piece": "wpn_main_mace2h",
+   "bone": "hand.R",
+   "role": "skill",
+   "sweep": -1,
+   "sweep_dx_m": -2.61,
+   "type": "horizontal",
+   "share_lateral": 0.65,
+   "share_vertical": 0.0,
+   "share_forward": 0.35,
+   "strike_vec": [
+    -1.08,
+    0.03,
+    -0.79
+   ],
+   "strike_peak_speed": 1.34,
+   "speed_into_impact": 1.3,
+   "vertical_dir": "down",
+   "reach_at_impact": 1.51,
+   "fwd_at_impact": 1.48,
+   "h_min": 0.63,
+   "h_max": 1.13,
+   "h_at_impact": 0.63,
+   "impact_frame": 6,
+   "peak_speed_frame": 7,
+   "peak_speed_m_per_frame": 1.34,
+   "clip_frames": 15,
+   "window": [
+    2,
+    8
+   ],
+   "path": [
+    {
+     "k": -4,
+     "p": [
+      1.15,
+      1.13,
+      -0.36
+     ]
+    },
+    {
+     "k": -3,
+     "p": [
+      1.15,
+      1.12,
+      -0.37
+     ]
+    },
+    {
+     "k": -2,
+     "p": [
+      1.25,
+      1.07,
+      -0.02
+     ]
+    },
+    {
+     "k": -1,
+     "p": [
+      0.94,
+      0.77,
+      1.04
+     ]
+    },
+    {
+     "k": 0,
+     "p": [
+      -0.28,
+      0.63,
+      1.48
+     ]
+    },
+    {
+     "k": 1,
+     "p": [
+      -1.36,
+      0.66,
+      0.69
+     ]
+    },
+    {
+     "k": 2,
+     "p": [
+      -1.44,
+      0.69,
+      -0.27
+     ]
+    }
+   ],
+   "sweep_fast": -1,
+   "sweep_ambiguous": false,
+   "weapon_family": "mace2h",
+   "below_ground": false,
+   "impact_off_peak": false,
+   "measured_with": "tools/lineup/arc_measure.gd 2026-11-17 (ponta da arma por --offset; quadro 1 fora; sem os campos de ângulo)"
+  },
+  {
+   "kit": "kit_paladin_male",
+   "clip": "atk_2h_chain_c",
+   "offhand": "",
+   "hand": "main",
+   "piece": "wpn_main_sword2h",
+   "bone": "hand.R",
+   "role": "skill",
+   "sweep": 1,
+   "sweep_dx_m": 0.54,
+   "type": "overhead",
+   "share_lateral": 0.05,
+   "share_vertical": 0.73,
+   "share_forward": 0.22,
+   "strike_vec": [
+    0.33,
+    -1.28,
+    0.7
+   ],
+   "strike_peak_speed": 1.5,
+   "speed_into_impact": 1.5,
+   "vertical_dir": "down",
+   "reach_at_impact": 1.62,
+   "fwd_at_impact": 1.6,
+   "h_min": 0.31,
+   "h_max": 2.13,
+   "h_at_impact": 0.61,
+   "impact_frame": 7,
+   "peak_speed_frame": 7,
+   "peak_speed_m_per_frame": 1.5,
+   "clip_frames": 19,
+   "window": [
+    3,
+    9
+   ],
+   "path": [
+    {
+     "k": -4,
+     "p": [
+      -0.76,
+      1.87,
+      -0.31
+     ]
+    },
+    {
+     "k": -3,
+     "p": [
+      -0.49,
+      2.03,
+      -0.39
+     ]
+    },
+    {
+     "k": -2,
+     "p": [
+      -0.41,
+      2.13,
+      -0.27
+     ]
+    },
+    {
+     "k": -1,
+     "p": [
+      -0.09,
+      1.89,
+      0.9
+     ]
+    },
+    {
+     "k": 0,
+     "p": [
+      0.24,
+      0.61,
+      1.6
+     ]
+    },
+    {
+     "k": 1,
+     "p": [
+      0.13,
+      0.32,
+      1.63
+     ]
+    },
+    {
+     "k": 2,
+     "p": [
+      0.01,
+      0.31,
+      1.64
+     ]
+    }
+   ],
+   "sweep_fast": 1,
+   "sweep_ambiguous": false,
+   "weapon_family": "sword2h",
+   "below_ground": false,
+   "impact_off_peak": false,
+   "measured_with": "tools/lineup/arc_measure.gd 2026-11-17 (ponta da arma por --offset; quadro 1 fora; sem os campos de ângulo)"
+  },
+  {
+   "kit": "kit_paladin_male",
+   "clip": "atk_2h_chain_c",
+   "offhand": "",
+   "hand": "main",
+   "piece": "wpn_main_mace2h",
+   "bone": "hand.R",
+   "role": "skill",
+   "sweep": 1,
+   "sweep_dx_m": 0.54,
+   "type": "overhead",
+   "share_lateral": 0.05,
+   "share_vertical": 0.7,
+   "share_forward": 0.24,
+   "strike_vec": [
+    0.35,
+    -1.29,
+    0.76
+   ],
+   "strike_peak_speed": 1.54,
+   "speed_into_impact": 1.54,
+   "vertical_dir": "down",
+   "reach_at_impact": 1.63,
+   "fwd_at_impact": 1.62,
+   "h_min": 0.32,
+   "h_max": 2.15,
+   "h_at_impact": 0.66,
+   "impact_frame": 7,
+   "peak_speed_frame": 7,
+   "peak_speed_m_per_frame": 1.54,
+   "clip_frames": 19,
+   "window": [
+    3,
+    9
+   ],
+   "path": [
+    {
+     "k": -4,
+     "p": [
+      -0.79,
+      1.89,
+      -0.3
+     ]
+    },
+    {
+     "k": -3,
+     "p": [
+      -0.51,
+      2.05,
+      -0.38
+     ]
+    },
+    {
+     "k": -2,
+     "p": [
+      -0.43,
+      2.15,
+      -0.27
+     ]
+    },
+    {
+     "k": -1,
+     "p": [
+      -0.13,
+      1.95,
+      0.86
+     ]
+    },
+    {
+     "k": 0,
+     "p": [
+      0.22,
+      0.66,
+      1.62
+     ]
+    },
+    {
+     "k": 1,
+     "p": [
+      0.11,
+      0.33,
+      1.65
+     ]
+    },
+    {
+     "k": 2,
+     "p": [
+      -0.01,
+      0.32,
+      1.66
+     ]
+    }
+   ],
+   "sweep_fast": 1,
+   "sweep_ambiguous": false,
+   "weapon_family": "mace2h",
+   "below_ground": false,
+   "impact_off_peak": false,
+   "measured_with": "tools/lineup/arc_measure.gd 2026-11-17 (ponta da arma por --offset; quadro 1 fora; sem os campos de ângulo)"
   }
  ]
 }

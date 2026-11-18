@@ -20,7 +20,40 @@ const ITEM_ID_MIGRATIONS := {
 	"leg_ranger_patrulheiro_": ["leg_ranger_lanceiro_", "leg_ranger_cacador_"],
 }
 
+## Templário virou a build do martelo (2026-11-18): a maça do conjunto passou a ser a arma de ataque (`_weapon`) e a arma de
+## defesa (Baluarte) virou a espada. A peça de defesa velha `..._templario_<nv>_mace` vira `..._templario_<nv>_sword` (o "+N" segue).
+const TEMPLAR_DEFENSE_OLD := "_mace"
+const TEMPLAR_DEFENSE_NEW := "_sword"
+
+## Skills que saíram do jogo -> a que tomou o lugar (mesma build, mesmo nível): aprendida, maestria, barra e nós da teia
+## (`<classe>_s_<id>`, `<classe>_m_<id>`) passam para a nova. Templário dos martelos (2026-11-18).
+const SKILL_ID_MIGRATIONS := {
+	"pal_sacred_flame": "pal_wrath_hammer", "pal_cleansing_fire": "pal_righteous_hammer",
+	"pal_flame_pyre": "pal_blessed_hammers", "pal_hammer_light": "pal_justice_hammer",
+}
+## Evoluções que trocaram de id junto com a skill (nó `<classe>_t_<id>`).
+const TALENT_ID_MIGRATIONS := {"pal_t_sacred_flame": "pal_t_wrath_hammer"}
+
+static func migrate_skill_id(id: String) -> String:
+	return str(SKILL_ID_MIGRATIONS.get(id, id))
+
+## Nó da teia de save antigo: skill/maestria/evolução que trocou de id vira o nó da nova (o resto fica igual).
+static func migrate_node_id(nid: String) -> String:
+	for kind in ["_s_", "_m_"]:
+		var at := nid.find(kind)
+		if at > 0 and SKILL_ID_MIGRATIONS.has(nid.substr(at + 3)):
+			return nid.substr(0, at + 3) + str(SKILL_ID_MIGRATIONS[nid.substr(at + 3)])
+	var t := nid.find("_t_")
+	if t > 0 and TALENT_ID_MIGRATIONS.has(nid.substr(t + 3)):
+		return nid.substr(0, t + 3) + str(TALENT_ID_MIGRATIONS[nid.substr(t + 3)])
+	return nid
+
 static func migrate_item_id(id: String) -> String:
+	var core_id := id.get_slice("+", 0)
+	if core_id.begins_with("leg_paladin_") and core_id.contains("templario_") and core_id.ends_with(TEMPLAR_DEFENSE_OLD) and not GameData.items.has(core_id):
+		var nw := core_id.trim_suffix(TEMPLAR_DEFENSE_OLD) + TEMPLAR_DEFENSE_NEW
+		if GameData.items.has(nw):
+			return nw + id.substr(core_id.length())
 	for old in ITEM_ID_MIGRATIONS:
 		if id.begins_with(old):
 			var weapon := id.get_slice("+", 0).ends_with("_weapon")
@@ -287,21 +320,23 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 	_fix_class_weapons(p)
 	p.mastery = {}
 	for k in d.get("mastery", {}):
-		p.mastery[k] = int(d["mastery"][k])
+		p.mastery[migrate_skill_id(str(k))] = int(d["mastery"][k])          # skill que trocou de id: a maestria vai junto
 	p.mastery_points = int(d.get("mastery_points", 0))
 	for nid in d.get("tree", []):
-		p.tree[String(nid)] = true
+		p.tree[migrate_node_id(String(nid))] = true
 	# skills aprendidas + barra. Save antigo (sem "learned"): as skills com maestria viram aprendidas.
 	p.learned = {}
-	for sid in d.get("learned", p.mastery.keys()):
+	for sid0 in d.get("learned", p.mastery.keys()):
+		var sid := migrate_skill_id(str(sid0))
 		if GameData.skills.has(sid):
-			p.learned[str(sid)] = true
+			p.learned[sid] = true
 	for sid in p.class_def.starting_skills:
 		p.learned[sid] = true
 	p.talents = {}
-	for tid in d.get("talents", []):
+	for tid0 in d.get("talents", []):
+		var tid := str(TALENT_ID_MIGRATIONS.get(str(tid0), str(tid0)))
 		if GameData.talents.has(tid):
-			p.talents[str(tid)] = true
+			p.talents[tid] = true
 	# save antigo (sem árvore): marca os nós do que já foi comprado
 	if not d.has("tree"):
 		for sid in p.learned:
@@ -362,7 +397,7 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 	p.skills.clear()
 	p.ensure_slots()
 	for i in range(mini(loadout.size(), p.skills.size())):
-		var s: SkillDef = GameData.skills.get(str(loadout[i]))
+		var s: SkillDef = GameData.skills.get(migrate_skill_id(str(loadout[i])))
 		if s and p.learned.has(s.id) and s.ascension == (i >= Balance.SKILL_SLOTS):
 			p.skills[i] = s
 	for b in d.get("bosses_killed", []):

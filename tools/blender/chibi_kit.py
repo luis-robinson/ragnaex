@@ -1213,6 +1213,21 @@ def animate_tall_shield(rig):
     _cycle(rig, "block_ride_tall", 32, _shield_ride_tall_pose, step=4)
 
 
+# Sequência de duas mãos do Golpe do Cruzado (skill pal_crusader_strike, efeito "strikes"): um clipe por golpe.
+# Impactos nos quadros em que EntityView._strike_step os espera (preparos de 0,16 / 0,21 / 0,24 s: os clipes tocam a ~1x).
+CHAIN_CLASSES = ("paladin",)                                 # só o kit de quem tem a skill ganha os clipes
+IMPACT.update({"atk_2h_chain_a": 5, "atk_2h_chain_b": 6, "atk_2h_chain_c": 7})
+
+
+def animate_crusader(rig, sex):
+    """Corte largo (direita -> esquerda), revés (esquerda -> direita) e golpe de cima com passo à frente, as duas mãos no
+    cabo e os pés plantados. Poses resolvidas por FK em crusader_chain_solve.py (desenho das chaves lá), gravadas em
+    crusader_chain_data.py. Fora do animate_v3: os outros kits e os monstros não mudam."""
+    import crusader_chain_data
+    for name, (end, keys) in crusader_chain_data.SOLVED[sex].items():
+        _pose_action(rig, name, [(f, dict(pose), hips) for f, pose, hips in keys], end)
+
+
 def shield_clip(style, clip):
     """Clipe que o escudo de estilo `style` toca no lugar de `clip` (as medidas de montagem conferem nesse)."""
     import shield_kit
@@ -3023,6 +3038,8 @@ def build_kit(sex, out_dir=None, class_id=None):
     animate_v3(base["rig"])
     if class_id in SHIELD_CLASSES:
         animate_tall_shield(base["rig"])      # corrida e guarda dos escudos altos (shield_kit.TALL)
+    if class_id in CHAIN_CLASSES:
+        animate_crusader(base["rig"], sex)    # sequência de duas mãos do Golpe do Cruzado (atk_2h_chain_a/b/c)
     clear_weapons(base["rig"], class_id)  # golpes de cima cravavam a ponta no chão (espada -0,2 m, montante -0,5 m, lança -0,9 m)
     # Godot não aceita "." em nome de nó
     for o in bpy.context.scene.objects:

@@ -108,8 +108,8 @@ const FESTIVAL := {
 	"city_aldara": {
 		"fest_bard": ["Bardo Fennel, o Moço", "villager", Color(0.55, 0.8, 0.45), ["♪ E o Lich caiu, caiu, caiu... e Aldara cantou! ♪", "Estou compondo a sua canção. Rima com \"Azhar\"? Só \"jantar\"."], -9.8, -1.4, 3.0],
 		"fest_dancer_a": ["Dançarina Mel", "villager", Color(0.95, 0.55, 0.6), ["Dança comigo! Hoje ninguém fica parado na praça!", "Três dias de festa, foi o que o Ancião prometeu."], 9.8, -1.4, 4.0],
-		"fest_dancer_b": ["Tico Saltitante", "villager", Color(0.95, 0.8, 0.35), ["A noite acabou! A NOITE ACABOU!", "Eu sempre soube que você ia voltar."], -3.0, 8.0, 4.0],
-		"fest_brewer": ["Mestre Cervejeiro Duda", "villager", Color(0.7, 0.5, 0.3), ["Cerveja por conta da casa para o herói da Aurora!", "Barril novo, aberto em sua honra."], 3.0, 8.0, 2.0],
+		"fest_dancer_b": ["Tico Saltitante", "villager", Color(0.95, 0.8, 0.35), ["A noite acabou! A NOITE ACABOU!", "Eu sempre soube que você ia voltar."], -3.6, 3.8, 4.0],
+		"fest_brewer": ["Mestre Cervejeiro Duda", "villager", Color(0.7, 0.5, 0.3), ["Cerveja por conta da casa para o herói da Aurora!", "Barril novo, aberto em sua honra."], 4.2, -3.8, 2.0],
 	},
 	"field_ruins": {
 		"fest_soldier_a": ["Soldado Bruno", "guard", Color(0.85, 0.85, 0.9), ["Vencemos! Vou dormir uma semana inteira.", "Nenhum osso se mexe mais na garganta."], 10.0, 6.0, 3.0],
@@ -649,10 +649,10 @@ const VILLAGERS := {
 	"vil_kid_b": ["Lia", Color(0.9, 0.5, 0.65), ["Pega-pega! Você tá com ele!", "Minha mãe disse para eu não passar do portão."], [9.5, 6.5], 9.0],
 	"vil_couple_a": ["Dona Celeste", Color(0.75, 0.55, 0.8), ["Cinquenta anos de casados e ele ainda me traz flores do lago.", "Que dia bonito na praça."], [4.6, -22.0], 2.0],
 	"vil_couple_b": ["Seu Augusto", Color(0.5, 0.45, 0.4), ["As flores do lago? Ah... eu compro do mercador. Não conte a ela.", "No meu tempo os slimes eram menores."], [9.0, -22.2], 2.0],
-	"vil_baker": ["Padeira Rosa", Color(0.95, 0.85, 0.6), ["Pão quentinho para quem volta da caça!", "Farinha da fazenda, mel da floresta. Simples e bom."], [5.68, 2.35], {"facing": 67.5}],
+	"vil_baker": ["Padeira Rosa", Color(0.95, 0.85, 0.6), ["Pão quentinho para quem volta da caça!", "Farinha da fazenda, mel da floresta. Simples e bom."], [9.24, 3.83], {"facing": -112.5}],
 	"vil_bard": ["Bardo Fennel", Color(0.55, 0.75, 0.45), ["♪ Lá na Campina o javali corria... ♪", "Toda canção precisa de um herói. Está procurando trabalho?"], [-11.0, 6.0], 6.0],
 	"vil_monk": ["Irmão Odo", Color(0.85, 0.8, 0.7), ["Que a luz guie seus passos pela Campina.", "Os mortos das Ruínas não descansam. Reze por eles."], [7.0, -9.0], 5.0],
-	"vil_porter": ["Carregador Juca", Color(0.6, 0.45, 0.35), ["Caixas para o mercador, caixas para o ferreiro... minhas costas!", "Se vir o Tobias, diga que a carga atrasou."], [-6.0, 18.2], [[-6.0, 18.2], [-3.6, 8.7], [-6.8, 6.8], [-8.7, 3.6], [-6.8, 6.8], [-3.6, 8.7]]],
+	"vil_porter": ["Carregador Juca", Color(0.6, 0.45, 0.35), ["Caixas para o mercador, caixas para o ferreiro... minhas costas!", "Se vir o Tobias, diga que a carga atrasou."], [-6.0, 18.2], [[-6.0, 18.2], [-5.2, 13.6], [-6.3, 6.3], [-6.3, 2.0], [-6.3, 6.3], [-5.2, 13.6]]],
 	"vil_patrol": ["Guarda de Ronda", Color(0.6, 0.6, 0.75), ["Ronda tranquila. Os monstros não passam do muro.", "Mantenha a arma na bainha dentro da vila."], [0.0, -19.0], [[0.0, -19.0], [13.4, -13.4], [19.0, 0.0], [13.4, 13.4], [0.0, 19.0], [-13.4, 13.4], [-19.0, 0.0], [-13.4, -13.4]]],      # ronda pela rua do anel (8 pontos: a corda entre eles fica na rua)
 }
 ## Extras dos moradores de Aldara que trabalham na Feira do Trigo (GDD living-towns R1/R2): a Padeira fica na banca dela
@@ -1034,26 +1034,27 @@ const LIVING_NPCS := {
 	},
 	# Vale de Aldara (GDD living-towns P1): a Feira do Trigo com feirantes no posto (pregão) e fregueses de banca em banca (R2),
 	# e a Carroça da Colheita que vai da fazenda ao celeiro do portão sul e volta (R1; `flow` = não para nos pontos da estrada,
-	# ponto [x, z, s] = parada de s segundos). Postos dos feirantes = dentro da roseta (town_dress.fair_stalls, raio 6,15).
+	# ponto [x, z, s] = parada de s segundos). Praça aberta (2026-11-18): as bancas olham para o MEIO; postos dos feirantes = atrás do
+	# balcão, fora do anel (`keeper_posts` do JSON, raio 10,0) e os fregueses param na frente, dentro da praça (raio ~6,9).
 	"city_aldara": {
 		"ald_carter": ["Carroceiro Dimas", Color(0.64, 0.5, 0.34), ["Trigo da fazenda pro celeiro, farinha do celeiro pra feira. A vila come porque a roda gira.", "O Ferdinando enche a carroça, o Juca esvazia. Eu e o Trovão só andamos."],
 			["Eia, Trovão!", "Trigo passando!", "Abre o portão sul!"], [-53.28, 71.04], [[-53.28, 71.04, 16], [-50.37, 72.75], [-44.37, 76.52], [-38.52, 79.97], [-33.29, 82.13], [-26.02, 82.22], [-19.85, 79.41], [-15.36, 74.65], [-11.07, 69.07], [-5.36, 66.4], [1.83, 66.95], [5.42, 67.22], [6.91, 60.38], [5.58, 54.06], [-0.23, 49.34], [-5.62, 44.52], [-5.51, 38.94], [-1.73, 32.97], [0, 30], [0, 25], [-2.6, 20.6], [-8, 19.2, 18], [-2.6, 20.6], [0, 25], [0, 30], [-1.73, 32.97], [-5.51, 38.94], [-5.62, 44.52], [-0.23, 49.34], [5.58, 54.06], [6.91, 60.38], [5.42, 67.22], [1.83, 66.95], [-5.36, 66.4], [-11.07, 69.07], [-15.36, 74.65], [-19.85, 79.41], [-26.02, 82.22], [-33.29, 82.13], [-38.52, 79.97], [-44.37, 76.52], [-50.37, 72.75]], {"carry": "cart_draft", "flow": true}],
 		"ald_keeper_veg": ["Verdureira Zefa", Color(0.5, 0.68, 0.4), ["Cenoura, couve e nabo, tudo colhido hoje. O que o slime azul não comeu.", "Feira boa é feira cheia. Hoje está boa."],
-			["Olha a couve!", "Cenoura doce, freguesa!", "Colhido hoje cedo!"], [-2.35, 5.68], 0.0, {"stay": true, "facing": -22.5}],
+			["Olha a couve!", "Cenoura doce, freguesa!", "Colhido hoje cedo!"], [-3.83, 9.24], 0.0, {"stay": true, "facing": 157.5}],
 		"ald_keeper_cheese": ["Queijeiro Malaquias", Color(0.9, 0.82, 0.55), ["Queijo curado três luas. Mais que isso e ele sai andando sozinho.", "Leite das cabras do vale. Brabas, as cabras. O queijo é manso."],
-			["Queijo curado!", "Prova, prova que é de graça!", "Meia roda por duas moedas!"], [-5.68, 2.35], 0.0, {"stay": true, "facing": -67.5}],
+			["Queijo curado!", "Prova, prova que é de graça!", "Meia roda por duas moedas!"], [-3.83, -9.24], 0.0, {"stay": true, "facing": 22.5}],
 		"ald_keeper_fish": ["Peixeiro Tico", Color(0.45, 0.6, 0.74), ["Peixe do lago, pescado pela Nalu de madrugada. Caranguejo eu não vendo: eles vendem a gente.", "Fresco até o sol do meio-dia. Depois vira ensopado."],
-			["Peixe do lago!", "Fresquinho, fresquinho!", "Leva dois!"], [-5.68, -2.35], 0.0, {"stay": true, "facing": -112.5}],
+			["Peixe do lago!", "Fresquinho, fresquinho!", "Leva dois!"], [-9.24, -3.83], 0.0, {"stay": true, "facing": 67.5}],
 		"ald_keeper_flowers": ["Florista Dora", Color(0.9, 0.6, 0.72), ["Flores do lago e mel da floresta. O Seu Augusto é meu melhor freguês, mas é segredo.", "Uma flor na lapela dá sorte na Campina. Dizem."],
-			["Olha o mel!", "Flores do lago!", "Um ramo pra dar sorte!"], [5.68, -2.35], 0.0, {"stay": true, "facing": -247.5}],
+			["Olha o mel!", "Flores do lago!", "Um ramo pra dar sorte!"], [9.24, -3.83], 0.0, {"stay": true, "facing": -67.5}],
 		"ald_shopper_a": ["Dona Marta", Color(0.72, 0.52, 0.46), ["Pão na Rosa, flor na Dora, e ainda falta a louça. Feira é assim: a gente vem por um e leva três.", "Você é dos que caçam na Campina? Então coma antes de ir."],
-			["Quanto é esse?", "Tá caro...", "Deixa eu ver esse aí."], [8.7, 3.6], [[8.7, 3.6], [8.7, -3.6], [3.6, -8.7], [8.7, -3.6]], {}],
+			["Quanto é esse?", "Tá caro...", "Deixa eu ver esse aí."], [6.37, 2.64], [[6.37, 2.64], [6.37, -2.64], [-2.64, -6.37], [6.37, -2.64]], {}],
 		"ald_shopper_b": ["Seu Jonas", Color(0.5, 0.52, 0.6), ["Venho buscar água e saio com um queijo. Todo dia. O Malaquias sabe vender.", "O poço é mais velho que a muralha, sabia?"],
-			["Bom dia, Zefa!", "Enche o balde...", "Me vê meia roda."], [-3.6, 8.7], [[-3.6, 8.7], [-6.8, 6.8], [-8.7, 3.6], [-6.8, 6.8]], {}],
+			["Bom dia, Zefa!", "Enche o balde...", "Me vê meia roda."], [-2.64, 6.37], [[-2.64, 6.37], [-4.9, 4.9], [-6.37, -2.64], [-4.9, 4.9]], {}],
 		"ald_shopper_c": ["Moça Lina", Color(0.86, 0.7, 0.5), ["Minha mãe mandou comprar peixe e pano. O troco é meu, ela disse. Não vai sobrar troco.", "A balança do trigo não mente. O Ancião confere toda lua."],
-			["Esse pano é bonito.", "Peixe pra hoje!", "Ai, que cheiro bom."], [-8.7, 3.6], [[-8.7, 3.6], [-8.7, -3.6], [-3.6, -8.7], [-8.7, -3.6]], {}],
+			["Esse pano é bonito.", "Peixe pra hoje!", "Ai, que cheiro bom."], [-6.37, -2.64], [[-6.37, -2.64], [-2.64, -6.37], [6.37, -2.64], [-2.64, -6.37]], {}],
 		"ald_shopper_d": ["Velho Honório", Color(0.58, 0.56, 0.5), ["Setenta feiras do trigo eu já vi. Esta é a mais cheia desde a seca.", "No meu tempo a mó girava. Agora só pesa. Pesa bem."],
-			["Hum... e o pão?", "Devagar, devagar.", "Tobias, e a minha encomenda?"], [-3.6, 8.7], [[-3.6, 8.7], [1.8, 10.4], [8.7, 3.6], [1.8, 10.4]], {}],
+			["Hum... e o pão?", "Devagar, devagar.", "Tobias, e a minha encomenda?"], [-2.64, 6.37], [[-2.64, 6.37], [3.9, 4.6], [6.37, 2.64], [3.9, 4.6]], {}],
 	},
 	"city_port": {
 		"port_vil_docker_a": ["Estivador Ramiro", Color(0.62, 0.46, 0.34), ["Do navio pro mercado, do mercado pro navio. O mar não descansa, eu também não.", "Caixa com furo é da Celina. Caixa inteira é do Jonas. Não troque."],
@@ -1710,7 +1711,7 @@ static func _aldara() -> MapDef:
 	z.merge({
 		"id": "city_aldara", "name": "Vale de Aldara", "is_town": true, "level_range": Vector2i(1, 10),
 		"ground_color": Color(0.48, 0.68, 0.38), "ground_color_alt": Color(0.44, 0.63, 0.35), "ambient": Color(0.97, 0.94, 0.86), "sun_energy": 1.28,
-		"bot_population": 22, "npcs": npcs,
+		"bot_population": 13, "npcs": npcs,     # bots: era 22 (2026-11-18 playtest: praça cheia, um mapa só)
 	})
 	return _mk(z)
 
@@ -1757,7 +1758,7 @@ static func _ruins() -> MapDef:
 		"id": "field_ruins", "name": "Bastião da Aurora", "is_town": false, "hub": true, "level_range": Vector2i(20, 30), "sortie": SORTIES["field_ruins"],
 		"conquest_vis": DAWN_CONQUEST_VIS,
 		"ground_color": Color(0.55, 0.56, 0.46), "ground_color_alt": Color(0.5, 0.52, 0.43), "ambient": Color(0.78, 0.78, 0.86), "sun_energy": 0.9,
-		"bot_population": 6,
+		"bot_population": 3,     # 2026-11-18 playtest: era 6
 		"npcs": [_npc("ruins_scholar", "Erudita Senna", float(p[0]), float(p[1]), "quest", Color(0.8, 0.75, 0.9),
 			["Estudo os mortos para a Alta Sacerdotisa. Cada fortaleza tem um senhor, e cada senhor um ponto fraco.",
 			"A cripta ao norte é mais velha que a cidade. O Senhor dela ainda dá ordens lá embaixo."], float(p[2]))] + extra,

@@ -60,6 +60,7 @@ var echo_chance: float = 0.0     # arma lendária (dano): % de chance do golpe d
 var echo_pct: float = 0.0        # ... com esta % do dano
 var thorns_pct: float = 0.0      # arma lendária (tanque): % do dano corpo a corpo recebido devolvido
 var ward_pct: float = 0.0        # arma lendária (cura): % da cura que vira barreira
+var vit_dmg_pct: float = 0.0     # % a mais de dano dos golpes pela VIT (Paladino com espada; Stats.vit_sword_pct)
 var legend: Dictionary = {}      # efeito da arma lendária equipada (GearCatalog.legend_effect); vazio = nenhum
 var shield_passive: Dictionary = {}     # escudo lendário com papel (GearCatalog.apply_shield_role): Determinação; vazio = nenhum
 var fusion: Dictionary = {}      # Fusão do híbrido com 5 peças (números do tier + "face" = build da arma na mão; FusionEffects)
@@ -194,6 +195,8 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 			s.skill_cdr_pct[k] = float(s.skill_cdr_pct.get(k, 0.0)) + float(sd_cdr[k])
 	s.is_ranged_weapon = s.weapon_type in ["bow", "rifle"]
 	s.is_magic_weapon = s.weapon_type in ["staff", "wand", "scythe", "scepter"]
+	if cls and cls.id in Balance.VIT_SWORD_CLASSES and s.weapon_type in Balance.VIT_SWORD_WEAPONS:
+		s.vit_dmg_pct = vit_sword_pct(s.attrs["VIT"], s.weapon_type == "sword2h")     # Paladino de espada: a VIT vira dano
 
 	# escala nova: Balance.*_PER_* valem por ATTR_SCALE pontos
 	var sc := float(Balance.ATTR_SCALE)
@@ -323,6 +326,11 @@ static func titan_speed_mult(n: int) -> float:
 ## F7: razão de DPS do básico com as duas armas de 2 mãos iguais (1,0875 com n = 0 .. 1,218 com n = 3).
 static func titan_dps_ratio(n: int) -> float:
 	return (1.0 + Balance.TITAN_OFFHAND_MULT) * titan_speed_mult(n)
+
+## Dano a mais (%) do Paladino com espada pela VIT (escala de hoje, a da janela): +1% a cada Balance.VIT_SWORD_PER_PCT, teto VIT_SWORD_CAP.
+## Ex.: VIT_SWORD_PER_PCT 20, VIT 500 -> +25%.
+static func vit_sword_pct(vit: float, two_handed: bool = false) -> float:     # 2 mãos: VIT_SWORD_PER_PCT_2H (rende o dobro)
+	return clampf(vit / (Balance.VIT_SWORD_PER_PCT_2H if two_handed else Balance.VIT_SWORD_PER_PCT), 0.0, Balance.VIT_SWORD_CAP)
 
 ## Esquiva passiva (% de evitar um golpe direto inteiro) pela AGI na escala antiga (atributo / ATTR_SCALE); curva em Balance.EVASION_AGI_*.
 ## Só personagens usam: monstro não passa por compute e a sim só testa esquiva em is_character().

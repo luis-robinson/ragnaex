@@ -249,9 +249,6 @@ func _build() -> void:
 	var sp := Control.new()
 	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	foot.add_child(sp)
-	if DevArgs.has("--dev_presets"):          # começos rápidos: só dev (decisão Q6)
-		_preset_box = _presets()
-		foot.add_child(_preset_box)
 	_primary_btn = _btn("Próximo: visual →", _primary, 240, 48)
 	_primary_btn.add_theme_color_override("font_color", UiKit.GOLD)
 	_primary_btn.add_theme_font_size_override("font_size", 17)
@@ -288,11 +285,20 @@ func _build() -> void:
 	nh.add_child(dice)
 	lv.add_child(_btn("🎲  Visual aleatório", _random_look))
 	lv.add_child(UiKit.label("Arraste o personagem para girar · roda do mouse aproxima", 12, UiKit.MUTED))
+	# começos rápidos: botão "Debug" sempre na tela (playtest 2026-11-18); `--dev_presets` já abre o seletor
+	var dbg := _btn("Debug", _toggle_debug, 0, 30)
+	dbg.name = "DebugToggle"
+	dbg.tooltip_text = "Modo debug: começar no nível 10, 16, 20 ou 30 com grupo completo e Moedas Lendárias de sobra"
+	dbg.add_theme_font_size_override("font_size", 12)
+	lv.add_child(dbg)
+	_preset_box = _presets()
+	_preset_box.visible = DevArgs.has("--dev_presets")
+	lv.add_child(_preset_box)
 
 func _presets() -> Control:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 4)
-	h.add_child(UiKit.label("Começo (dev)", 12, UiKit.MUTED))
+	h.add_child(UiKit.label("Começo", 12, UiKit.MUTED))
 	for pid in StartCatalog.PRESETS:
 		var b := _btn(StartCatalog.PRESETS[pid]["label"], _set_preset.bind(pid), 76)
 		b.tooltip_text = StartCatalog.PRESETS[pid]["hint"]
@@ -300,6 +306,12 @@ func _presets() -> Control:
 		h.add_child(b)
 	_set_preset(preset)
 	return h
+
+## Mostra/esconde o seletor de começo rápido; ao esconder, volta ao começo normal (nível 1).
+func _toggle_debug() -> void:
+	_preset_box.visible = not _preset_box.visible
+	if not _preset_box.visible:
+		_set_preset(1)
 
 func _set_preset(pid: int) -> void:
 	preset = pid

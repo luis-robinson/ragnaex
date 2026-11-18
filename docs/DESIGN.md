@@ -105,10 +105,26 @@ arco de 150° e até 4 alvos (`Balance.BIG_SWING_*`). Vale para Executor, Cruzad
 curam o aliado mais ferido a até 10 m (efeito de skill `mend_pct_of_dmg`; em você mesmo rende só `Balance.MEND_SELF_MULT`; arma lendária Mão que Cura faz o mesmo em todo golpe), Hino de
 Batalha (ATK/DEF no grupo) e as bênçãos do Sacerdote como apoio. Dano ~2x o do Sacerdote e ~55% de um dps puro: o resto vira cura.
 
-**Paladino Templário** (build `templario`; espada ou maça + escudo como o Guardião, placa; FOR/INT) = dano: golpes de fogo sagrado que
-queimam (Chama Sagrada, Fogo Purificador, Pira Sagrada), Marca da Penitência (+15% de dano recebido), Ira Vingadora e Golpe Solar, misturados
-às skills de escudo do Guardião (Pancada, Golpe de Égide, Retribuição). Arma lendária **Penitência**: cada golpe põe uma carga no alvo; na 5ª ele
+**Paladino Templário** (build `templario`, "a build do martelo" desde 2026-11-18; martelo/maça + escudo, placa; FOR/INT) = dano com martelos
+de luz que ainda queimam um pouco (fogo sagrado curto): **Martelo da Ira** (nv 2, assinatura: cai do céu no cursor, área, atordoa 0,4 s,
+queima 3 s), **Martelo dos Justos** (nv 13, martelada que solta uma onda de luz em leque, queima 3 s) e **Martelos Abençoados** (nv 16, 3
+martelos giram em espiral em volta por 6 s, batendo a cada 0,5 s com o poder do lançamento: efeito `orbit`, `AuraSystem.orbit_tick`);
+Marca da Penitência (+15% de dano recebido), Ira Vingadora e Golpe Solar, misturados às skills de escudo do Guardião (Pancada, Golpe de Égide,
+Retribuição). Toda skill dele exige escudo, então gasta o **Juramento** (cargas ao bloquear com escudo do Paladino, +8% de dano cada; o HUD
+explica na dica do ícone). No conjunto lendário o **martelo** é a arma de ataque (Penitência) e a **espada** a de defesa (Baluarte)
+(`GearCatalog.WEAPON_ROLES`; save antigo: `..._templario_<nv>_mace` vira `..._sword`, skills/nós antigos viram os novos em
+`SaveSystem.SKILL_ID_MIGRATIONS`). O Cruzado trocou o Martelo de Luz pelo **Martelo da Justiça** (nv 9, martelo arremessado que atordoa
+1 s e volta: `bounce` de 1 alvo com `stun`). Arma lendária **Penitência**: cada golpe põe uma carga no alvo; na 5ª ele
 explode em fogo sagrado (`pct`% do ATK em 2,5 m). DPS ~10% abaixo do Cruzado (troca dano pelo escudo).
+
+**VIT do Paladino** (decisão do usuário 2026-11-18, opção "Forte": o Guardião quase de dano). VIT na escala de hoje (a da janela; "2 VIT"
+da proposta = 2 da escala antiga = 20 de hoje). (1) **Espada** (1 ou 2 mãos na mão principal, só Paladino, `Balance.VIT_SWORD_*`):
++1% de dano a cada 20 VIT (espada de 2 mãos: a cada 10, `VIT_SWORD_PER_PCT_2H`, o Cruzado tem pouca VIT), teto +40% (`Stats.vit_sword_pct` → `Stats.vit_dmg_pct`, multiplica o golpe em `Combat.calc_damage`; dano no
+tempo não); maça não ganha. Mostra na dica da espada e na janela C ("Dano pela VIT"). (2) **Skill de escudo** (exige escudo, classe com
+Juramento): +1% de poder a cada 20 VIT, teto +25% (era 45%: o Guardião passava o Cruzado), somado à DEF do escudo (`ShieldSystem.vit_power`/`def_power`,
+`Balance.SHIELD_VIT_*`); dica da skill mostra os dois. Toda skill do Templário exige escudo, então ele também ganha (2). VIT medida
+nos bots (teia + equipamento comum / lendário do nível): Guardião 30 ≈ 580 / 1280, 45 ≈ 1000 / 2020; Cruzado 30 ≈ 195 / 135,
+45 ≈ 305 / 205; Templário 30 ≈ 330 / 125, 45 ≈ 500 / 205. Check `_check_paladin_vit`.
 
 **Druida**: **Xamã** (cajado de duas mãos, túnicas) = magia da natureza, invocações (Lobos Espirituais, Ent Guardião) e Bênção do Bosque;
 passivos de MATK e duração de bênçãos. **Lobo** (duas maças, couro) e **Urso** (malho, placa) viram bicho: `Forma de Lobo`/`Forma de Urso`
@@ -763,8 +779,10 @@ Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MS
 - Loot: materiais por campo (gel, pele, presa, erva, minério, seda, casca, insígnia, osso, essência, núcleo, escama) + raros.
 
 ### Cidades com identidade e mapas vivos (Ato I; GDD `design/gdd/living-towns.md`, P1 2026-11-17)
-- **Aldara = Feira do Trigo**: no centro a Mó/Balança do Trigo (pedra de 4 m + braço de 4,5 m) e uma roseta de 8 bancas com toldo listrado
-  (trigo e azul, raio 7,6 m; os 4 eixos das ruas e as 4 diagonais ficam abertos), 2 carroças paradas. O chafariz e a estátua do centro
+- **Aldara = Feira do Trigo**: no centro a Mó/Balança do Trigo (pedra de 3,5 m + braço de 3,8 m) e 6 bancas com toldo listrado na borda da praça
+  (trigo e azul, raio 8,6 m, de frente para o MEIO: freguês, jogador e o mercador dentro, feirante atrás do balcão; anel livre de ~6 m em volta da mó;
+  os 4 eixos das ruas e as 4 diagonais ficam abertos e duas vagas ficam sem banca: a do Cristal de Retorno e a que dá vista para o Ancião e o
+  Quadro; praça aberta em 2026-11-18, depois do playtest "tudo muito socado": antes eram 8 bancas a 7,6 m viradas para fora), 2 carroças paradas. O chafariz e a estátua do centro
   saíram; a estátua virou a **Estátua do Fundador** (o Semeador, NPC-placa `founder_statue`) no pátio do portão norte; o Cristal de Retorno
   foi para a borda da feira; o poço foi para o Pátio do Fundador e o ponto de chegada fica na boca da rua sul (0, 10,4), fora da roseta. Quadrantes: **Pátio da Forja do Brom** a NE (o ferreiro atende lá), **Celeiro e cercado** ao S (a oeste do
   portão sul). Mercador Tobias na frente de uma banca. Tudo ≤ 4 m de altura (`tools/blender/zones/town_dress.py`, lotes `Dress`;
@@ -1245,7 +1263,7 @@ Save sem `save_version` abre os portões de história que o nível alcança e o 
 selo ao norte → Trono do Conde (mapa à parte). Capitão: lacaios em 66% e 33%. Viúva: lamento em cone que retarda; em 50% almas e toque que corta cura (Murchar).
 Conde: dreno, ergue mortos em 70%, fúria e onda de morte em 30%. Chefe sem alvo reseta por inteiro.
 
-**Escudos**: 18 modelos únicos (`shield_kit.py`), usados por Paladino e pelo Sacerdote de maça. Com escudo da afinidade, o Paladino junta Juramento ao bloquear (até 5 cargas, aparar vale 2) e a próxima skill sagrada ou de escudo gasta tudo; skills de escudo também escalam com a DEF dele. O Bispo cura 5% do HP do aliado mais ferido ao bloquear (Graça, recarga de 4 s) e, ao aparar, protege quem está por perto. Com escudo, a chance de bloqueio usa o maior entre FOR e WILL. Guarda sem MP quebra: só volta soltando o botão e com `Balance.BLOCK_MIN_MP`. Dano no tempo não apara. Séries e plano de arte: `docs/equipment_series.md`.
+**Escudos**: 18 modelos únicos (`shield_kit.py`), usados por Paladino e pelo Sacerdote de maça. Com escudo da afinidade, o Paladino junta Juramento ao bloquear (até 5 cargas, aparar vale 2) e a próxima skill sagrada ou de escudo gasta tudo; skills de escudo também escalam com a DEF dele e com a VIT do Paladino (+1% a cada 20 VIT, até +25%). O Bispo cura 5% do HP do aliado mais ferido ao bloquear (Graça, recarga de 4 s) e, ao aparar, protege quem está por perto. Com escudo, a chance de bloqueio usa o maior entre FOR e WILL. Guarda sem MP quebra: só volta soltando o botão e com `Balance.BLOCK_MIN_MP`. Dano no tempo não apara. Séries e plano de arte: `docs/equipment_series.md`.
 
 **Guardião (Paladino tanque)**: **Escudo Ricochete** (nível 6, exige escudo; efeito `bounce`) arremessa o escudo no alvo: ele voa, salta para o
 inimigo mais perto ainda não atingido (3 alvos, 4 na maestria 3, 5 na 5; -15% de dano por salto), provoca cada um por 3 s (chefes metade),
@@ -1333,6 +1351,13 @@ Usam skills, poções e bloqueio reativo; falam no chat (contexto cidade/caça/m
   grupo a cada `PARTY_CHAT_MIN..MAX`; estado no dicionário do grupo, falas recentes em `BotBrain.recent_lines` (nunca repete seguida).
 Movimento: atravessam água só pelas pontes (`WorldSim.water_path`, grafo de cabeceiras + margens + anel dos lagos, seguido por
 `BotBrain._water_step`); preso, o bot desvia a 90° e abre para 135°/180° se prender de novo (`BotBrain._steer`).
+**Faixa dos bots** (`BotBandSystem`, playtest 2026-11-18 "lv 40 no primeiro mapa"): a cidade nasce na faixa dela
+(`level_range` até `BOT_BAND_SLACK` acima: Aldara 1-12, antes 1-30). Cada povoado com cristal (`MapsCatalog.CRYSTALS`) é a casa de uma faixa:
+bot sem cristal volta (G, renascer, vender em RETURN/SHOP) ao de maior piso com piso + `BOT_HOME_STEP_UP` ≤ nível (Aldara até 11, Posto 12+,
+Bastião 22+, Porto 32+, Estepes 37+, Kharzun 42+); no grupo do jogador a casa é a do jogador. Bot à toa num povoado de faixa bem mais baixa
+(`below_band`) sai para caçar na faixa dele. Praça: o ponto de encontro sai de `BOT_HANGOUT_PICKS` sorteios (o com menos gente a
+`BOT_HANGOUT_CROWD_R`) e, com `BOT_SQUARE_CAP` bots a `BOT_SQUARE_RADIUS` do centro, os da praça ficam de fora; os bots da cidade nascem
+espalhados pelos pontos de encontro. Medir: `sim_probe.tscn -- --ticks=18000 --census` (linhas `BAND`/`BANDAVG`). Check `_check_bot_band`.
 
 ## Grupo (party) — `PartySystem` (`Sim.party_*`), constantes `Balance.PARTY_*`
 - Até 5 membros. Convite → aceitar (expira em 30 s); quem convidou vira líder. Líder convida, expulsa e passa a liderança;

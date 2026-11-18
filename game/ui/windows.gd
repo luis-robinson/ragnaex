@@ -547,7 +547,7 @@ func _char_status(p: SimEntity, side: VBoxContainer) -> void:
 	for e in [[s.attack_speed, "Veloc. de ataque", "+%.0f%%"], [s.lifesteal, "Roubo de vida", "%.1f%%"], [s.cdr, "Recarga", "-%.0f%%"],
 			[s.backstab, "Pelas costas", "+%.0f%%"], [s.fire_pct, "Dano de fogo", "+%.0f%%"], [s.frost_pct, "Dano de gelo", "+%.0f%%"],
 			[s.storm_pct, "Dano de raio", "+%.0f%%"], [s.echo_chance, "Eco do golpe", "%.0f%%"], [s.hit_poison, "Veneno na lâmina", "%.0f/s"],
-			[s.threat_pct, "Ameaça", "+%.0f%%"]]:
+			[s.threat_pct, "Ameaça", "+%.0f%%"], [s.vit_dmg_pct, "Dano pela VIT", "+%.0f%%"]]:
 		if float(e[0]) > 0.0:
 			atk_extra.append([e[1], e[2] % float(e[0])])
 	_char_group(side, "Ataque", [["ATK", "%.0f" % s.patk], ["MATK", "%.0f" % s.matk],
@@ -1044,6 +1044,10 @@ func _tree_view(p: SimEntity, asc: bool = false) -> Control:
 		for nid in nodes:
 			if (nodes[nid]["kind"] in ["skill", "start", "notable"]) == top:
 				web.add_child(_tree_node(p, nodes[nid], (nodes[nid]["pos"] as Vector2) * WEB_UNIT))
+	# névoa por faixa de nível por cima (o que pede nível acima do seu escurece; rótulo "Nv N+" na borda)
+	var fog := WebFog.new()
+	web.add_child(fog)
+	fog.setup("%s|%s|%d" % [p.class_def.id, asc, p.level], nodes, p.level, origin, WEB_UNIT)
 	# barra de cima (fundo escuro): busca, centralizar e para onde vai cada braço
 	var bar_bg := PanelContainer.new()
 	bar_bg.position = Vector2(6, 6)

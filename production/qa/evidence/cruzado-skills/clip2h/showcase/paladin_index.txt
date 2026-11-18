@@ -1,0 +1,1 @@
+000  pal_crusader_strike    Golpe do Cruzado         CONE      FIS      build=cruzado    clip=atk_2h_chain_a vfx=physical start=0.16 act=0.60 rec=0.30 impacto=quadro 1

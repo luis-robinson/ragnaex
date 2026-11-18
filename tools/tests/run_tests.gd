@@ -1796,7 +1796,12 @@ func _check_char_create() -> void:
 	cc.back_requested.connect(func() -> void: got["back"] = int(got["back"]) + 1)
 	add_child(cc)
 	check(cc.step == CharCreate.STEP_CLASS and cc.selected != null, "criação: abre no passo Classe com uma classe escolhida")
-	check(cc._preset_box == null and cc.preset == 1, "criação: começos rápidos escondidos fora do dev (nível 1)")
+	check(cc._preset_box != null and not cc._preset_box.visible and cc.preset == 1, "criação: começos rápidos escondidos até apertar Debug (nível 1)")
+	cc._toggle_debug()
+	check(cc._preset_box.visible and cc.find_child("DebugToggle", true, false) != null, "criação: botão Debug mostra os começos rápidos")
+	cc._set_preset(20)
+	cc._toggle_debug()
+	check(not cc._preset_box.visible and cc.preset == 1, "criação: fechar o Debug volta ao começo normal")
 	cc.select_class("druid")
 	var druid: ClassDef = GameData.classes["druid"]
 	check(cc.selected == druid and cc.demo_clip != "" and cc.demo_clip == CharCreate.signature_clip(druid), "criação: select_class troca a classe e a demonstração")
@@ -2674,6 +2679,7 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_tent_cloth()
 	_check_item_icons(gd)
 	_check_tree_spacing()
+	_check_web_fog()
 	_check_dungeon_mood(gd)
 	_check_portal_gates()
 	_check_progression(gd, sim)
@@ -2949,6 +2955,7 @@ func _check_zone(gd, sim) -> void:
 	_check_craft_tooltip(gd, sim)
 	_check_hotbar_clear(gd, sim)
 	_check_ui_click_gate()
+	_check_boss_lock()
 	_check_summon_ai(gd, sim)
 	_check_summon_lost(gd, sim)
 	_check_party_invitable(gd, sim)
@@ -3327,6 +3334,84 @@ func _check_guard_rules(gd, sim) -> void:
 	sim.despawn(foe)
 	sim.despawn(e)
 
+## VIT do Paladino (decisão 2026-11-18, "Forte"): espada (1 ou 2 mãos) dá +1% de dano a cada VIT_SWORD_PER_PCT de VIT até
+## VIT_SWORD_CAP; skill de escudo ganha +1% de poder a cada SHIELD_VIT_PER_PCT até SHIELD_VIT_MAX, somado à DEF do escudo.
+## Só o Paladino; maça não conta; outra classe com espada não ganha. `--only=paladin_vit`
+func _check_paladin_vit(gd, sim) -> void:
+	var first := func(wt: String) -> ItemDef:
+		for iid in gd.items:
+			var it: ItemDef = gd.items[iid]
+			if it.weapon_type == wt and it.slot == ItemDef.Slot.WEAPON and it.base_id == "":
+				return it
+		return null
+	var sword: ItemDef = first.call("sword")
+	var sword2h: ItemDef = first.call("sword2h")
+	var mace: ItemDef = first.call("mace")
+	var shield: ItemDef = gd.items["shield_wood"]
+	var pal_cls: ClassDef = gd.classes["paladin"]
+	var vit_buff := [{"id": "t_vit", "attr_VIT": 300}]
+	var st: Stats = Stats.compute(pal_cls, 30, {ItemDef.Slot.WEAPON: sword, ItemDef.Slot.OFFHAND: shield}, vit_buff)
+	var want := clampf(float(st.attrs["VIT"]) / Balance.VIT_SWORD_PER_PCT, 0.0, Balance.VIT_SWORD_CAP)
+	check(st.vit_dmg_pct > 0.0 and is_equal_approx(st.vit_dmg_pct, want), "VIT: Paladino de espada ganha dano pela VIT (VIT %d -> +%.1f%%, esperado %.1f)" % [st.attrs["VIT"], st.vit_dmg_pct, want])
+	var st2: Stats = Stats.compute(pal_cls, 30, {ItemDef.Slot.WEAPON: sword2h}, vit_buff)
+	check(is_equal_approx(st2.vit_dmg_pct, clampf(float(st2.attrs["VIT"]) / Balance.VIT_SWORD_PER_PCT_2H, 0.0, Balance.VIT_SWORD_CAP)) and st2.vit_dmg_pct > 0.0,
+		"VIT: espada de 2 mãos do Cruzado rende a cada %d VIT (+%.1f%%)" % [int(Balance.VIT_SWORD_PER_PCT_2H), st2.vit_dmg_pct])
+	check(Balance.VIT_SWORD_PER_PCT_2H < Balance.VIT_SWORD_PER_PCT and UiKit.item_tooltip(sword2h).contains("a cada %d VIT" % int(Balance.VIT_SWORD_PER_PCT_2H)),
+		"VIT: espada de 2 mãos rende mais por VIT que a de 1 mão e o tooltip mostra")
+	var big: Stats = Stats.compute(pal_cls, 30, {ItemDef.Slot.WEAPON: sword}, [{"id": "t_vit", "attr_VIT": 99999}])
+	check(big.vit_dmg_pct == Balance.VIT_SWORD_CAP, "VIT: dano da espada tem teto %.0f%% (%.1f)" % [Balance.VIT_SWORD_CAP, big.vit_dmg_pct])
+	var stm: Stats = Stats.compute(pal_cls, 30, {ItemDef.Slot.WEAPON: mace, ItemDef.Slot.OFFHAND: shield}, vit_buff)
+	check(stm.vit_dmg_pct == 0.0, "VIT: maça do Paladino não converte VIT em dano")
+	var sta: Stats = Stats.compute(gd.classes["assassin"], 30, {ItemDef.Slot.WEAPON: sword}, vit_buff)
+	check(sta.vit_dmg_pct == 0.0, "VIT: outra classe com espada não ganha dano pela VIT")
+	# o bônus entra no dano de verdade (mesma semente: só muda o multiplicador)
+	var pal: SimEntity = sim.spawn_bot(pal_cls, "VitPal", "city_aldara", Vector3(3, 0, 6), 30)
+	pal.brain = null
+	pal.equipment.clear()
+	pal.equipment[ItemDef.Slot.WEAPON] = sword
+	pal.equipment[ItemDef.Slot.OFFHAND] = shield
+	pal.recompute_stats()
+	var dummy: SimEntity = sim.spawn_monster(gd.monsters["spider"], "city_aldara", Vector3(4.5, 0, 6))
+	dummy.brain = null
+	var r := RandomNumberGenerator.new()
+	pal.stats.vit_dmg_pct = 0.0
+	r.seed = 4242
+	var d0: float = Combat.calc_damage(pal, dummy, 10.0, SkillDef.Kind.PHYSICAL, r)["amount"]
+	pal.stats.vit_dmg_pct = 30.0
+	r.seed = 4242
+	var d1: float = Combat.calc_damage(pal, dummy, 10.0, SkillDef.Kind.PHYSICAL, r)["amount"]
+	check(absf(d1 / d0 - 1.3) < 0.02, "VIT: +30%% de dano pela VIT multiplica o golpe (%.0f -> %.0f)" % [d0, d1])
+	pal.recompute_stats()
+	# skill de escudo: DEF do escudo + VIT, só Paladino
+	var bash: SkillDef = gd.skills["pal_shield_bash"]
+	pal.buffs = pal.buffs.filter(func(b): return b.get("id") != "juramento")
+	var p0: float = sim._shield_power(pal, bash)
+	var vp0: float = ShieldSystem.vit_power(pal)
+	check(is_equal_approx(p0, 1.0 + ShieldSystem.def_power(shield) + vp0), "VIT: skill de escudo = 1 + DEF do escudo + VIT (x%.3f)" % p0)
+	check(is_equal_approx(vp0, clampf(float(pal.stats.attrs["VIT"]) / Balance.SHIELD_VIT_PER_PCT / 100.0, 0.0, Balance.SHIELD_VIT_MAX)),
+		"VIT: poder do escudo pela VIT = VIT/%d %% (VIT %d -> +%.1f%%)" % [int(Balance.SHIELD_VIT_PER_PCT), pal.stats.attrs["VIT"], vp0 * 100.0])
+	pal.buffs.append({"id": "t_vit", "remaining": 99.0, "attr_VIT": 400})
+	pal.recompute_stats()
+	var p1: float = sim._shield_power(pal, bash)
+	check(p1 > p0 and is_equal_approx(p1 - p0, ShieldSystem.vit_power(pal) - vp0), "VIT: mais VIT, skill de escudo mais forte (x%.3f -> x%.3f)" % [p0, p1])
+	pal.buffs.append({"id": "t_vit2", "remaining": 99.0, "attr_VIT": 99999})
+	pal.recompute_stats()
+	check(ShieldSystem.vit_power(pal) == Balance.SHIELD_VIT_MAX, "VIT: poder do escudo pela VIT tem teto +%.0f%%" % (Balance.SHIELD_VIT_MAX * 100.0))
+	check(is_equal_approx(sim._shield_power(pal, bash), 1.0 + ShieldSystem.def_power(shield) + Balance.SHIELD_VIT_MAX), "VIT: no teto soma DEF + %.2f" % Balance.SHIELD_VIT_MAX)
+	check(sim._shield_power(pal, gd.skills["pal_holy_strike"]) == 1.0, "VIT: skill que não exige escudo não ganha o bônus do escudo")
+	var bis: SimEntity = sim.spawn_bot(gd.classes["bishop"], "VitBis", "city_aldara", Vector3(3, 0, 8), 30)
+	bis.brain = null
+	bis.equipment[ItemDef.Slot.OFFHAND] = shield
+	bis.recompute_stats()
+	check(not ShieldSystem.is_oath_shield_skill(bis, bash) and ShieldSystem.is_oath_shield_skill(pal, bash), "VIT: bônus de escudo pela VIT é só do Paladino")
+	# o jogador vê: espada no tooltip, linha na skill de escudo
+	check(UiKit.item_tooltip(sword).contains("a cada %d VIT" % int(Balance.VIT_SWORD_PER_PCT)) and not UiKit.item_tooltip(mace).contains(" VIT ("),
+		"VIT: tooltip da espada mostra o dano pela VIT")
+	check(UiKit.skill_tooltip(pal, bash).contains("pela VIT") and not UiKit.skill_tooltip(pal, gd.skills["pal_holy_strike"]).contains("pela VIT"),
+		"VIT: tooltip da skill de escudo mostra o poder pela VIT")
+	for e in [pal, dummy, bis]:
+		sim.despawn(e)
+
 ## Bônus de classe do escudo: Juramento, Graça, afinidade errada não vale, e o Bispo mantém as skills de Sacerdote.
 func _check_shield_bonus(gd, sim, foe) -> void:
 	for d in GearCatalog.SHIELDS:
@@ -3534,6 +3619,8 @@ func _check_shield_ground_and_ride(by_style: Dictionary) -> void:
 		var clips: Array = []
 		for c in k.anim.get_animation_list():
 			# kits masculinos: todo clipe; femininos (mesmos clipes, corpo um pouco diferente): só parado, corrida e guarda
+			if String(c).begins_with("atk_2h_chain"):
+				continue             # sequência do Golpe do Cruzado: a skill exige arma de duas mãos, nunca toca com escudo (_check_crusader_skills)
 			if not (c in lying) and (model.ends_with("_male") or c == "idle" or String(c).begins_with("run") or String(c).begins_with("block")):
 				clips.append(c)
 		var lows := ShieldProbe.ground_lows(k, styles, clips, 4)
@@ -3805,6 +3892,7 @@ func _check_shields(gd, sim) -> void:
 	sim._apply_command(q, up, m, 1.0 / 60.0)
 	check(q.parry_left == 0.0, "martelar o bloqueio não reabre a janela")
 	_check_shield_bonus(gd, sim, foe)
+	_check_paladin_vit(gd, sim)
 	# sem escudo não apara
 	var nb: SimEntity = sim.spawn_bot(gd.classes["berserker"], "Sem", "city_aldara", Vector3(0, 0, 6), 30)
 	nb.brain = null
@@ -3818,12 +3906,22 @@ func _check_skill_clips() -> void:
 	for body in ["male", "female"]:
 		var k := KitModel.create(body, Color.WHITE)
 		for clip in EntityView.IMPACT_FRAME:
+			if EntityView.CLASS_ONLY_CLIPS.has(clip):     # clipe só do kit de uma classe: o genérico não leva (conferido abaixo)
+				check(not k.anim.has_animation(clip), "kit_%s: clipe %s fica só no kit da classe" % [body, clip])
+				continue
 			if clip != "attack" and not (clip in EntityView.FORM_CLIP.values()) and not EntityView.MOB_ONLY_CLIPS.has(clip):     # gestos de bicho ficam nas formas (_check_form_clips)
 				check(k.resolve(clip) != "", "kit_%s: clipe %s" % [body, clip])
 				if k.anim.has_animation(clip):
 					check(float(EntityView.IMPACT_FRAME[clip] - 1) / 24.0 < k.anim.get_animation(clip).length, "%s: impacto dentro do clipe" % clip)
 		check(k.legs != null and k.legs._tracks.size() >= 6, "kit_%s: pernas por cima do golpe" % body)
 		k.free()
+		for clip in EntityView.CLASS_ONLY_CLIPS:      # ... e o kit da classe tem, com o impacto dentro do clipe
+			var own: String = EntityView.CLASS_ONLY_CLIPS[clip]
+			var ck := KitModel.create(body, Color.WHITE, 0.025, own)
+			check(EntityView.IMPACT_FRAME.has(clip) and ck.anim.has_animation(clip), "kit_%s_%s: clipe %s" % [own, body, clip])
+			if ck.anim.has_animation(clip):
+				check(float(EntityView.IMPACT_FRAME[clip] - 1) / 24.0 < ck.anim.get_animation(clip).length, "%s: impacto dentro do clipe" % clip)
+			ck.free()
 	for clip in EntityView.MOB_ONLY_CLIPS:            # clipe próprio de monstro: existe no modelo e o impacto cabe nele
 		var ps: PackedScene = load("res://assets/models/%s.glb" % EntityView.MOB_ONLY_CLIPS[clip])
 		var inst := ps.instantiate()
@@ -3964,10 +4062,12 @@ func _check_combat_feel(gd, sim) -> void:
 	for e in [a, b, c]:
 		sim.despawn(e)
 	_check_skill_chain(gd, sim)
+	_check_crusader_skills(gd, sim)
 	_check_paladin_weapon_roles(gd, sim)
 	_check_berserker_builds(gd, sim)
 	_check_bishop_builds(gd, sim)
 	_check_holy_third_builds(gd, sim)
+	_check_paladin_hammers(gd, sim)
 	_check_druid_builds(gd, sim)
 	_check_ranger_builds(gd, sim)
 	_check_assassin_builds(gd, sim)
@@ -4093,6 +4193,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_bot_recall(gd, sim)
 	_check_bot_portal_route(gd, sim)
 	_check_bot_unstuck(gd, sim)
+	_check_bot_band(gd, sim)
 	_check_potion_slot_cooldowns(gd, sim)
 	_check_shield_bar(gd, sim)
 	_check_party_follow_elite(gd, sim)
@@ -4521,6 +4622,9 @@ func _check_arcane_mode(gd, sim) -> void:
 	var dt := 1.0 / 60.0
 	var e := _asc_paladin(gd, sim, fmap, m["def"].spawn_point, "templario", ["pal_arcane_mode", "pal_blessed_armor"])
 	e.position = _open_spot(sim, e, m, 8.0)
+	# Templário ascendido com o martelo do conjunto (FOR/INT): a maça comum dá WILL e a MP dela empata com as asas paradas
+	e.equipment[ItemDef.Slot.WEAPON] = gd.items["leg_paladin_templario_30_weapon"]
+	e.recompute_stats()
 	var patk0: float = e.stats.patk
 	var matk0: float = e.stats.matk
 	var pdef0: float = e.stats.pdef
@@ -4556,7 +4660,7 @@ func _check_arcane_mode(gd, sim) -> void:
 		t += 0.05
 	var regen: float = (e.stats.max_mp * Balance.REGEN_MP_PCT + Balance.REGEN_MP_FLAT) * Balance.ARCANE_REGEN_MULT
 	check(absf((mp0 - e.mp) - (Balance.ARCANE_MP_PER_S - regen)) < 0.05, "Modo Arcano gasta %.1f MP/s e regenera menos (líquido %.2f)" % [Balance.ARCANE_MP_PER_S, mp0 - e.mp])
-	check(Balance.ARCANE_MP_PER_S > (e.stats.max_mp * Balance.REGEN_MP_PCT + Balance.REGEN_MP_FLAT) * Balance.ARCANE_REGEN_MULT, "parado, as asas gastam mais MP do que regenera (a MP acaba)")
+	check(Balance.ARCANE_MP_PER_S > (e.stats.max_mp * Balance.REGEN_MP_PCT + Balance.REGEN_MP_FLAT) * Balance.ARCANE_REGEN_MULT, "parado, as asas gastam mais MP do que regenera (a MP acaba; MP máx %.0f, arma %s)" % [e.stats.max_mp, e.equipment[ItemDef.Slot.WEAPON].id if e.equipment.get(ItemDef.Slot.WEAPON) else "-"])
 	# montar desliga
 	e.cooldowns.clear()
 	var c := InputCommand.new()
@@ -5085,7 +5189,7 @@ func _check_party_follow_elite(gd, sim) -> void:
 func _check_recall_cast(gd, sim) -> void:
 	var town: String = gd.town_map_id()
 	var m: Dictionary = sim.maps["city_aldara"]
-	var e: SimEntity = sim.spawn_bot(gd.classes["elementalist"], "Lareira", "city_aldara", Vector3(70, 0, 10), 12)
+	var e: SimEntity = sim.spawn_bot(gd.classes["elementalist"], "Lareira", "city_aldara", Vector3(70, 0, 10), 10)     # nível da faixa de Aldara: a casa do bot é a cidade
 	e.brain = null
 	var mob: SimEntity = sim.spawn_monster(gd.monsters["slime"], "city_aldara", Vector3(73, 0, 10))
 	mob.brain = null
@@ -7657,8 +7761,8 @@ func _check_bishop_builds(gd, sim) -> void:
 func _check_holy_third_builds(gd, sim) -> void:
 	var tem: Dictionary = gd.classes["paladin"].build_by_id("templario")
 	var bat: Dictionary = gd.classes["bishop"].build_by_id("batalha")
-	check(not tem.is_empty() and tem["main"] == ["sword", "mace"] and tem["off"] == ["shield"] and tem["armor"] == "plate" and tem["role"] == "dps",
-		"Templário: espada ou maça, escudo e placa, para dano")
+	check(not tem.is_empty() and tem["main"] == ["mace", "sword"] and tem["off"] == ["shield"] and tem["armor"] == "plate" and tem["role"] == "dps",
+		"Templário: martelo (maça) ou espada, escudo e placa, para dano")
 	check(not bat.is_empty() and bat["main"] == ["mace"] and bat["off"] == ["shield"] and bat["armor"] == "plate", "Clérigo de Batalha: maça, escudo e placa")
 	for pair in [["paladin", "templario", "pal_t"], ["bishop", "batalha", "bis_b"]]:
 		var n_sets := 0
@@ -7714,20 +7818,150 @@ func _check_holy_third_builds(gd, sim) -> void:
 	tem_e.equipment[ItemDef.Slot.WEAPON] = gd.items["leg_paladin_templario_30_weapon"]
 	tem_e.recompute_stats()
 	var le: Dictionary = tem_e.stats.legend
-	check(str(le.get("kind", "")) == "penance" and int(le.get("stacks", 0)) == 5, "espada lendária do Templário: Penitência")
+	check(str(le.get("kind", "")) == "penance" and int(le.get("stacks", 0)) == 5 and tem_e.stats.weapon_type == "mace", "martelo lendário do Templário: Penitência")
 	var near: SimEntity = sim.spawn_monster(gd.monsters["golem"], "city_aldara", Vector3(1.2, 0, 7.5))
 	near.brain = null
 	near.stats.max_hp = 1.0e6
 	near.hp = 1.0e6
 	for i in range(4):
-		LegendEffects.legend_on_hit(sim, tem_e, foe, gd.skills["pal_sacred_flame"], 100)
+		LegendEffects.legend_on_hit(sim, tem_e, foe, gd.skills["pal_wrath_hammer"], 100)
 	var st: Array = foe.debuffs.filter(func(d): return d.get("id") == "legend_penance_%d" % tem_e.id)
 	check(st.size() == 1 and int(st[0]["stacks"]) == 4 and near.hp == 1.0e6, "Penitência: 4 cargas e nada explode ainda")
-	LegendEffects.legend_on_hit(sim, tem_e, foe, gd.skills["pal_sacred_flame"], 100)
+	LegendEffects.legend_on_hit(sim, tem_e, foe, gd.skills["pal_wrath_hammer"], 100)
 	st = foe.debuffs.filter(func(d): return d.get("id") == "legend_penance_%d" % tem_e.id)
 	check(st.is_empty() and near.hp < 1.0e6, "Penitência: a 5ª carga explode e fere quem está perto (%.0f)" % (1.0e6 - near.hp))
-	check(gd.skills["pal_brand"].effects.has("curse") and gd.skills["pal_sacred_flame"].vfx == "fire", "Marca da Penitência amaldiçoa; Chama Sagrada é fogo (queima)")
+	check(gd.skills["pal_brand"].effects.has("curse") and gd.skills["pal_wrath_hammer"].vfx == "holy" and bool(gd.skills["pal_wrath_hammer"].effects["dot"].get("fire", false)),
+		"Marca da Penitência amaldiçoa; Martelo da Ira é luz e queima (fogo sagrado curto)")
 	for x in [cle, ally, foe, tem_e, near]:
+		sim.despawn(x)
+
+## Templário dos martelos (2026-11-18): Martelo da Ira (cai do céu, área, atordoa, queima), Martelo dos Justos (leque, queima),
+## Martelos Abençoados (efeito "orbit": martelos que giram e batem com o poder do lançamento, Juramento incluso) e, no Cruzado,
+## Martelo da Justiça (arremessado: atordoa e volta). Skills antigas saíram; save antigo passa para as novas sem reembolso.
+func _check_paladin_hammers(gd, sim) -> void:
+	for old in ["pal_sacred_flame", "pal_cleansing_fire", "pal_flame_pyre", "pal_hammer_light"]:
+		check(not gd.skills.has(old), "skill antiga %s saiu do catálogo" % old)
+		check(gd.skills.has(SaveSystem.SKILL_ID_MIGRATIONS[old]), "%s tem substituta (%s)" % [old, SaveSystem.SKILL_ID_MIGRATIONS[old]])
+	var cls: ClassDef = gd.classes["paladin"]
+	var tem: Dictionary = cls.build_by_id("templario")
+	var cru: Dictionary = cls.build_by_id("cruzado")
+	check(str(tem["signature"]["skill"]) == "pal_wrath_hammer" and tem["skills"].has("pal_righteous_hammer") and tem["skills"].has("pal_blessed_hammers"),
+		"Templário: Martelo da Ira é a assinatura; Martelo dos Justos e Martelos Abençoados na prioridade")
+	check(cru["skills"].has("pal_justice_hammer"), "Cruzado: Martelo da Justiça na prioridade")
+	check(cls.description.contains("martelo"), "descrição do Paladino fala dos martelos")
+	for sid in ["pal_wrath_hammer", "pal_righteous_hammer", "pal_blessed_hammers", "pal_justice_hammer"]:
+		var sk: SkillDef = gd.skills[sid]
+		check(sk.vfx == "holy" and sk.kind == SkillDef.Kind.PHYSICAL and sk.startup <= 0.3, "%s: luz, dano físico (ATK), sai rápido (%.2f s)" % [sid, sk.startup])
+		check(ResourceLoader.exists("res://assets/icons/skill_%s.png" % sid), "%s: tem ícone" % sid)
+	var wrath: SkillDef = gd.skills["pal_wrath_hammer"]
+	check(wrath.target == SkillDef.Target.GROUND and wrath.unlock_level == 2 and wrath.cooldown <= 4.0 and bool(wrath.effects["dot"].get("fire", false))
+		and is_equal_approx(float(wrath.effects["stun"]["duration"]), Balance.PAL_WRATH_STUN), "Martelo da Ira: chão, nv 2, recarga curta, queima e atordoa %.1f s" % Balance.PAL_WRATH_STUN)
+	var just: SkillDef = gd.skills["pal_righteous_hammer"]
+	check(just.target == SkillDef.Target.CONE and just.requires.has("shield") and bool(just.effects["dot"].get("fire", false)) and just.description.contains("Juramento"),
+		"Martelo dos Justos: leque, exige escudo, queima e diz que gasta o Juramento")
+	var m: Dictionary = sim.maps["city_aldara"]
+	var at := Vector3(-40, 0, 40)
+	var pal: SimEntity = sim.spawn_bot(cls, "Hammer", "city_aldara", at, 30)
+	pal.brain = null
+	pal.build_id = "templario"
+	pal.equipment[ItemDef.Slot.WEAPON] = gd.items["leg_paladin_templario_30_weapon"]
+	pal.equipment[ItemDef.Slot.OFFHAND] = gd.items["leg_paladin_templario_30_offhand"]
+	pal.recompute_stats()
+	var mk := func(p: Vector3) -> SimEntity:
+		var f: SimEntity = sim.spawn_monster(gd.monsters["golem"], "city_aldara", p)
+		f.brain = null
+		f.stats.max_hp = 1.0e6
+		f.hp = 1.0e6
+		return f
+	# Martelo da Ira: no cursor, fere, atordoa e queima (fogo)
+	var foe: SimEntity = mk.call(at + Vector3(0, 0, 5))
+	pal.face_towards(foe.position)
+	pal.skill_aim = foe.position
+	sim._apply_skill(pal, sim.resolve_skill(pal, wrath), m)
+	check(foe.hp < 1.0e6 and foe.state == SimEntity.State.STUNNED and foe.debuffs.any(func(d): return d.get("kind") == "dot" and d.get("fire", false)),
+		"Martelo da Ira: fere, atordoa e queima o alvo no cursor")
+	# Martelo dos Justos: leque à frente a 4 m, queima; quem está atrás não leva
+	var back: SimEntity = mk.call(at + Vector3(0, 0, -3))
+	foe.position = at + Vector3(0, 0, 4)
+	foe.debuffs.clear()
+	var h0 := foe.hp
+	pal.face_towards(foe.position)
+	pal.skill_aim = foe.position
+	sim._apply_skill(pal, sim.resolve_skill(pal, just), m)
+	check(foe.hp < h0 and back.hp == 1.0e6 and foe.debuffs.any(func(d): return d.get("kind") == "dot" and d.get("fire", false)), "Martelo dos Justos: a onda pega quem está no leque a 4 m e queima; atrás não")
+	# Martelos Abençoados: o lançamento bate, o buff fica e bate de novo a cada PAL_HAMMERS_EVERY; Juramento vale para todas
+	var bh: SkillDef = gd.skills["pal_blessed_hammers"]
+	check(bh.effects.get("orbit") is Dictionary and SkillDef.EFFECT_KEYS.has("orbit") and BuffLooks.LOOKS.has(str(bh.effects["orbit"]["id"])),
+		"Martelos Abençoados: efeito orbit conhecido e buff com visual")
+	foe.position = at + Vector3(1.5, 0, 0)
+	back.position = at + Vector3(0, 0, 30)
+	pal.drop_buff("juramento")
+	sim._apply_skill(pal, sim.resolve_skill(pal, bh), m)
+	var orbit: Array = pal.buffs.filter(func(b): return b.get("orbit") is Dictionary)
+	check(orbit.size() == 1 and is_equal_approx(float(orbit[0]["remaining"]), Balance.PAL_HAMMERS_TIME), "Martelos Abençoados: buff dos martelos por %.0f s" % Balance.PAL_HAMMERS_TIME)
+	var p0: float = float(orbit[0]["orbit"]["power"]) if not orbit.is_empty() else 0.0
+	var hits := 0
+	for k in range(4):
+		var hb := foe.hp
+		AuraSystem.tick(sim, m, Balance.AURA_TICK + 0.001)
+		hits += 1 if foe.hp < hb else 0
+	var want_hits := int(4.0 * Balance.AURA_TICK / Balance.PAL_HAMMERS_EVERY + 0.01)
+	check(hits == want_hits and back.hp == 1.0e6, "Martelos Abençoados: %d batidas em %.1f s em quem está perto, nada em quem está longe (%d)" % [want_hits, 4.0 * Balance.AURA_TICK, hits])
+	sim._update_entity(pal, m, Balance.PAL_HAMMERS_TIME + 0.1)
+	var h1 := foe.hp
+	AuraSystem.tick(sim, m, Balance.AURA_TICK + 0.001)
+	check(not pal.buffs.any(func(b): return b.get("orbit") is Dictionary) and foe.hp == h1, "Martelos Abençoados: acabado o tempo, os martelos param")
+	pal.put_buff({"id": "juramento", "remaining": Balance.SHIELD_OATH_TIME, "stacks": 5})
+	sim._apply_skill(pal, sim.resolve_skill(pal, bh), m)
+	orbit = pal.buffs.filter(func(b): return b.get("orbit") is Dictionary)
+	var p1: float = float(orbit[0]["orbit"]["power"]) if not orbit.is_empty() else 0.0
+	var sp0: float = 1.0 + ShieldSystem.def_power(pal.equipment.get(ItemDef.Slot.OFFHAND)) + ShieldSystem.vit_power(pal)     # o Juramento soma ao bônus de escudo (DEF + VIT)
+	check(pal.buff_stacks("juramento") == 0 and p1 > p0 * (1.0 + 4.0 * Balance.SHIELD_OATH_POWER / sp0), "Juramento gasto no lançamento vale para as batidas (%.2f -> %.2f)" % [p0, p1])
+	check(Hud.juramento_text().contains("+%d%%" % roundi(Balance.SHIELD_OATH_POWER * 100.0)) and Hud.juramento_text().contains(str(Balance.CT_OATH_MAX)),
+		"dica do Juramento explica as cargas com os números")
+	# Martelo da Justiça (Cruzado): vai, atordoa, não provoca e volta
+	var cr: SimEntity = sim.spawn_bot(cls, "Justice", "city_aldara", at + Vector3(10, 0, 0), 30)
+	cr.brain = null
+	cr.build_id = "cruzado"
+	var tgt: SimEntity = mk.call(cr.position + Vector3(6, 0, 0))
+	var jh: SkillDef = gd.skills["pal_justice_hammer"]
+	check(jh.target == SkillDef.Target.TARGET and int(jh.effects["bounce"]["count"]) == 1 and float(jh.effects["bounce"]["taunt"]) == 0.0, "Martelo da Justiça: um alvo, sem provocar")
+	cr.face_towards(tgt.position)
+	cr.skill_aim = tgt.position
+	sim._apply_skill(cr, sim.resolve_skill(cr, jh), m)
+	var mine: SimProjectile = m["projectiles"][-1] if not m["projectiles"].is_empty() else null
+	var stunned := false
+	var gone := false
+	for k in range(120):
+		sim._update_projectiles(m, 1.0 / 20.0)
+		stunned = stunned or tgt.state == SimEntity.State.STUNNED
+		if mine != null and not m["projectiles"].has(mine):
+			gone = mine.returning          # sumiu voltando = pegou de volta
+			break
+	check(tgt.hp < 1.0e6 and stunned and tgt.taunt_left <= 0.0 and gone, "Martelo da Justiça: fere, atordoa, não provoca e volta para a mão (hp %.0f, atordoou %s, provoca %.1f, voltou %s)" % [tgt.hp, stunned, tgt.taunt_left, gone])
+	# arma do conjunto: martelo ataca (Penitência), espada defende (Baluarte)
+	var hw: ItemDef = gd.items["leg_paladin_templario_30_weapon"]
+	var sw: ItemDef = gd.items.get("leg_paladin_templario_30_sword")
+	check(hw.weapon_type == "mace" and str(hw.legend_effect.get("kind", "")) == "penance" and hw.name.begins_with("Martelo"), "Templário: a arma do conjunto é o martelo (%s, Penitência)" % hw.name)
+	check(sw != null and str(sw.legend_effect.get("kind", "")) == "bulwark" and not gd.items.has("leg_paladin_templario_30_mace"), "Templário: a espada do conjunto é a de defesa (Baluarte)")
+	# save antigo: skills, maestria, evolução, nós da teia, barra e a maça de defesa passam para os novos, sem reembolso
+	check(SaveSystem.migrate_item_id("leg_paladin_templario_30_mace+3") == "leg_paladin_templario_30_sword+3"
+		and SaveSystem.migrate_item_id("leg_paladin_mix_templario_guardiao_35_mace") == "leg_paladin_mix_templario_guardiao_35_mace"
+		and SaveSystem.migrate_item_id("leg_paladin_templario_30_weapon") == "leg_paladin_templario_30_weapon", "save: maça de defesa do Templário vira a espada; o resto fica")
+	var sv: SimEntity = sim.spawn_character(SimEntity.Kind.BOT, cls, "OldTemplar", "city_aldara", at + Vector3(-6, 0, 0), 20)
+	SaveSystem.apply_to(sv, {"level": 20, "class": "paladin", "save_version": SaveSystem.VERSION, "mastery_points": 0,
+		"tree": ["paladin_start", "paladin_s_pal_holy_strike", "paladin_s_pal_sacred_flame", "paladin_m_pal_sacred_flame", "paladin_t_pal_t_sacred_flame", "paladin_s_pal_flame_pyre"],
+		"learned": ["pal_holy_strike", "pal_sacred_flame", "pal_flame_pyre"], "talents": ["pal_t_sacred_flame"], "mastery": {"pal_sacred_flame": 3},
+		"loadout": ["pal_holy_strike", "pal_sacred_flame", "pal_flame_pyre", "", "", ""],
+		"equipment": {str(int(ItemDef.Slot.WEAPON)): "leg_paladin_templario_20_mace+2"}})
+	var ew: ItemDef = sv.equipment.get(ItemDef.Slot.WEAPON)
+	check(sv.learned.has("pal_wrath_hammer") and sv.learned.has("pal_blessed_hammers") and not sv.learned.has("pal_sacred_flame") and int(sv.mastery.get("pal_wrath_hammer", 0)) == 3,
+		"save antigo: Chama Sagrada/Pira viram Martelo da Ira/Martelos Abençoados com a maestria")
+	check(sv.tree.has("paladin_s_pal_wrath_hammer") and sv.tree.has("paladin_m_pal_wrath_hammer") and sv.tree.has("paladin_t_pal_t_wrath_hammer") and sv.talents.has("pal_t_wrath_hammer")
+		and sv.mastery_points == 0, "save antigo: nós da teia e evolução passam para os novos, sem refazer a teia (%d pontos)" % sv.mastery_points)
+	check(sv.skills[1] != null and sv.skills[1].id == "pal_wrath_hammer" and sv.skills[2] != null and sv.skills[2].id == "pal_blessed_hammers", "save antigo: a barra fica com os martelos")
+	check(ew != null and ew.base_id == "leg_paladin_templario_20_sword" and ew.plus == 2, "save antigo: maça de defesa +2 vira a espada de defesa +2")
+	for x in [pal, foe, back, cr, tgt, sv]:
 		sim.despawn(x)
 
 ## Armas lendárias com papel (Paladino e Clérigo de Batalha, GearCatalog.WEAPON_ROLES): espada/montante ataca, maça/martelo
@@ -7742,20 +7976,22 @@ func _check_paladin_weapon_roles(gd, sim) -> void:
 			continue
 		var kind := str(it.legend_effect.get("kind", ""))
 		check(kind != "thorns", "%s: arma do Paladino sem Retaliação" % iid)
-		if it.weapon_type in ["sword", "sword2h"]:
+		var bid_of := "templario" if it.id.contains("_templario_") and not it.id.contains("_mix_") else ("templario" if it.id.ends_with("_templario_weapon") else "")
+		var role := GearCatalog.weapon_role(bid_of, it.weapon_type) if bid_of != "" else ("offense" if it.weapon_type in ["sword", "sword2h"] else ("defense" if it.weapon_type in ["mace", "mace2h"] else ""))
+		if role == "offense" and it.weapon_type in ["sword", "sword2h", "mace", "mace2h"]:
 			n_sw += 1
 			check(it.matk == 0.0 and kind in ["holy_edge", "stun", "penance"] and int(it.attributes.get("FOR", 0)) > int(it.attributes.get("VIT", 0)),
-				"%s: espada de ataque (FOR principal, sem MATK, efeito da build: %s)" % [iid, kind])
-		elif it.weapon_type in ["mace", "mace2h"] and it.class_restriction.has("paladin"):
+				"%s: arma de ataque (FOR principal, sem MATK, efeito da build: %s)" % [iid, kind])
+		elif role == "defense" and it.class_restriction.has("paladin"):
 			n_mc += 1
 			check(it.matk == 0.0 and it.def > 0.0 and kind == "bulwark" and int(it.attributes.get("VIT", 0)) > int(it.attributes.get("FOR", 0)),
-				"%s: maça de defesa (VIT principal, MATK 0, DEF %d, Baluarte: %s)" % [iid, int(it.def), kind])
+				"%s: arma de defesa (VIT principal, MATK 0, DEF %d, Baluarte: %s)" % [iid, int(it.def), kind])
 			check(it.description.contains("Baluarte"), "%s: descrição diz o efeito (Baluarte)" % iid)
 		elif it.weapon_type == "shield" and not it.id.contains("_sacerdote_"):
 			n_sh += 1
 			check(kind == "determination" and int(it.legend_effect.get("max", 0)) == int(Balance.LEG_ROLE_NUMBERS["determination"]["max"]) and it.description.contains("Determinação"),
 				"%s: escudo do conjunto com Determinação" % iid)
-	check(n_sw >= 36 and n_mc >= 33 and n_sh >= 33, "armas de papel geradas: %d espadas, %d maças, %d escudos" % [n_sw, n_mc, n_sh])
+	check(n_sw >= 36 and n_mc >= 33 and n_sh >= 33, "armas de papel geradas: %d de ataque, %d de defesa, %d escudos" % [n_sw, n_mc, n_sh])
 	# espada x maça do mesmo conjunto: não são cópias
 	for bid in ["guardiao", "templario", "cruzado"]:
 		for lv in Balance.LEGENDARY_LEVELS:
@@ -7882,7 +8118,7 @@ func _check_paladin_weapon_roles(gd, sim) -> void:
 	check(hyb.size() == 2 and hyb[0] == "leg_paladin_mix_templario_guardiao_35_mace" and hyb[1] == "leg_paladin_mix_templario_guardiao_35_guardiao_offhand", "bot Guardião no híbrido: maça + escudo dele (%s)" % str(hyb))
 	pal.build_id = "templario"
 	hyb = sim.bot_set_weapons(pal, gd.sets["set_paladin_mix_templario_guardiao_35"])
-	check(not hyb.is_empty() and hyb[0] == "leg_paladin_mix_templario_guardiao_35_templario_weapon", "bot Templário no híbrido: a espada dele (%s)" % str(hyb))
+	check(not hyb.is_empty() and hyb[0] == "leg_paladin_mix_templario_guardiao_35_templario_weapon" and gd.items[hyb[0]].weapon_type == "mace", "bot Templário no híbrido: o martelo dele (%s)" % str(hyb))
 	var cle: SimEntity = sim.spawn_bot(gd.classes["bishop"], "CleRole", "city_aldara", Vector3(-32, 0, -30), 30)
 	cle.brain = null
 	cle.build_id = "batalha"
@@ -7975,6 +8211,103 @@ func _check_berserker_builds(gd, sim) -> void:
 
 ## Encadear skills (estilo Diablo): a segunda skill, apertada logo no começo da primeira, sai no impacto da primeira,
 ## sem esperar a recuperação; a primeira sempre acerta. Roda todos os pares de skills em sequência de cada classe.
+## Cruzado (2026-11-17): Golpe do Cruzado = 3 golpes em sequência (efeito "strikes"), o último crítico garantido;
+## Arco Radiante = varrida que retarda. As duas não podem ter a mesma cara (clipe/tema).
+func _check_crusader_skills(gd, sim) -> void:
+	var m: Dictionary = sim.maps["city_aldara"]
+	var dt := 1.0 / 60.0
+	var at := Vector3(-30, 0, 38)
+	var pal: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Cruzado", "city_aldara", at, 30)
+	pal.brain = null
+	pal.stats.crit_phys = 0.0                      # sem crítico de sorte: só o garantido aparece
+	pal.legend_ready_at = 1e9                      # sem Julgamento da arma lendária (o Ápice do Veredito bate um golpe a mais: dependia do RNG)
+	pal.sig_ready_at = 1e9                         # sem magia-assinatura de sorte (Martelo de Luz contava como 4º golpe conforme o sim.rng)
+	var mob: SimEntity = sim.spawn_monster(gd.monsters["golem"], "city_aldara", at + Vector3(0, 0, 1.6))
+	mob.brain = null
+	mob.stats.max_hp = 10000000.0
+	mob.hp = mob.stats.max_hp
+	mob.stats.evasion = 0.0
+	mob.stats.block_chance = 0.0
+	var hits := []
+	var t_now := [0.0]
+	var on_dmg := func(src: int, tid: int, amount: int, crit: bool, _b: bool, _k: String): hits.append([src, tid, amount, crit, t_now[0]])
+	Events.damage_dealt.connect(on_dmg)
+	var cs: SkillDef = gd.skills["pal_crusader_strike"]
+	var st: Dictionary = cs.effects.get("strikes", {})
+	check(not st.is_empty() and "strikes" in SkillDef.EFFECT_KEYS, "Golpe do Cruzado: sequência de golpes (efeito strikes)")
+	var n := Combat.strike_count(st)
+	check(n == 3 and bool(st.get("crit_last", false)), "Golpe do Cruzado: 3 golpes, o último crítico (%d)" % n)
+	check(cs.startup <= 0.3 and cs.active >= float((st.get("at", [0.0]) as Array).back()), "Golpe do Cruzado: preparo curto e a fase ativa cobre os 3 golpes")
+	var share := 0.0
+	for i in n:
+		share += Combat.strike_share(st, i)
+	check(is_equal_approx(share, 1.0), "Golpe do Cruzado: as partes somam o power inteiro (%.3f)" % share)
+	pal.face_towards(mob.position)
+	sim._start_skill(pal, cs, 0, mob.position)
+	var cmd := InputCommand.new()
+	cmd.skill_slot = 1
+	cmd.aim = mob.position
+	var chain_early := false
+	var chain_late := false
+	for i in 150:
+		sim._update_entity(pal, m, dt)
+		t_now[0] += dt
+		var mine: Array = hits.filter(func(h): return int(h[0]) == pal.id and int(h[1]) == mob.id)
+		if mine.size() >= 1 and mine.size() < n and pal.state == SimEntity.State.CASTING and sim._can_chain(pal, cmd):
+			chain_early = true
+		if mine.size() == n and pal.state == SimEntity.State.CASTING and pal.state_time >= cs.startup + float((st["at"] as Array).back()) + Balance.CHAIN_AFTER_IMPACT and sim._can_chain(pal, cmd):
+			chain_late = true
+	var got: Array = hits.filter(func(h): return int(h[0]) == pal.id and int(h[1]) == mob.id)
+	check(got.size() == 3, "Golpe do Cruzado: 3 golpes acertam (%d)" % got.size())
+	if got.size() == 3:
+		var at_s: Array = st["at"]
+		var ok_t := true
+		for i in 3:
+			var want := cs.startup + float(at_s[i])
+			ok_t = ok_t and absf(float(got[i][4]) - want) <= dt * 1.5
+		check(ok_t, "Golpe do Cruzado: golpes nos tempos do catálogo (%s)" % str(got.map(func(h): return snappedf(h[4], 0.01))))
+		check(not got[0][3] and not got[1][3] and got[2][3], "Golpe do Cruzado: só o 3º é crítico (%s)" % str(got.map(func(h): return h[3])))
+		check(int(got[2][2]) > int(got[0][2]) * 1.5, "Golpe do Cruzado: o 3º (crítico) bate bem mais que o 1º (%d vs %d)" % [got[2][2], got[0][2]])
+	check(not chain_early, "Golpe do Cruzado: outra skill não corta a sequência antes do último golpe")
+	check(chain_late, "Golpe do Cruzado: depois do último golpe a próxima skill encadeia")
+	# Arco Radiante: dano em leque + lentidão
+	var ar: SkillDef = gd.skills["pal_twin_slash"]
+	check(ar.effects.get("slow") is Dictionary and float(ar.effects["slow"].get("pct", 0)) >= 20.0, "Arco Radiante: retarda quem acerta")
+	sim._end_skill(pal)
+	mob.debuffs.clear()
+	hits.clear()
+	pal.face_towards(mob.position)
+	sim._start_skill(pal, ar, 1, mob.position)
+	for i in 60:
+		sim._update_entity(pal, m, dt)
+	check(hits.any(func(h): return int(h[0]) == pal.id and int(h[1]) == mob.id), "Arco Radiante: acerta o alvo à frente")
+	check(mob.debuffs.any(func(d): return d.get("kind") == "slow"), "Arco Radiante: alvo atingido fica lento")
+	# caras diferentes: clipe e tema
+	for w in ["sword2h", "mace2h"]:
+		check(EntityView.clip_for_skill(ar, w) != EntityView.clip_for_skill(cs, w), "Arco Radiante e Golpe do Cruzado: clipes diferentes com %s" % w)
+	check(FxManager.theme_of(ar) != FxManager.theme_of(cs), "Arco Radiante e Golpe do Cruzado: temas diferentes (%s / %s)" % [FxManager.theme_of(ar), FxManager.theme_of(cs)])
+	for c in st.get("clips", []):
+		check(EntityView.IMPACT_FRAME.has(c), "Golpe do Cruzado: clipe %s tem quadro de impacto" % c)
+	# sequência própria de duas mãos (2026-11-17): corte, revés e golpe de cima, cada clipe perto de 1x no preparo que a
+	# EntityView dá ao golpe dele, e o arco de cada um para o lado medido (+X, -X, de cima)
+	var chain: Array = st.get("clips", [])
+	check(chain == ["atk_2h_chain_a", "atk_2h_chain_b", "atk_2h_chain_c"] and cs.clip == "atk_2h_chain_a", "Golpe do Cruzado: clipes da sequência de duas mãos (%s)" % str(chain))
+	var chain_users: Array = gd.skills.values().filter(func(sk): return String(sk.clip).begins_with("atk_2h_chain") or (sk.effects.get("strikes") is Dictionary and str(sk.effects["strikes"].get("clips", [])).contains("atk_2h_chain")))
+	check(chain_users.size() >= 1 and chain_users.all(func(sk): return "two_handed" in sk.requires), "sequência de duas mãos: só skills que exigem arma de duas mãos tocam os clipes (sem escudo na mão)")
+	var at_c: Array = st.get("at", [])
+	for i in mini(chain.size(), at_c.size()):
+		var windup := maxf(cs.startup, 0.06) if i == 0 else maxf((float(at_c[i]) - float(at_c[i - 1])) * (1.0 - EntityView.STRIKE_NEXT_AT), 0.06)
+		var wt := EntityView.windup_timing(float(int(EntityView.IMPACT_FRAME.get(chain[i], 5)) - 1) / 24.0, windup)
+		check(wt.x == 0.0 and wt.y > 0.85 and wt.y < 1.2, "Golpe do Cruzado: golpe %d (%s) toca inteiro perto de 1x (%.2fx)" % [i + 1, chain[i], wt.y])
+		check(EntityView.CLASS_ONLY_CLIPS.get(chain[i], "") == "paladin", "Golpe do Cruzado: %s é clipe só do kit do Paladino" % chain[i])
+	for w in ["sword2h", "mace2h"]:
+		check(WeaponArcs.shape_of("atk_2h_chain_a", w) == "F" and WeaponArcs.sweep_of("atk_2h_chain_a", 0, w) == 1.0, "Golpe do Cruzado: corte com %s = arco deitado para +X" % w)
+		check(WeaponArcs.shape_of("atk_2h_chain_b", w) == "F" and WeaponArcs.sweep_of("atk_2h_chain_b", 1, w) == -1.0, "Golpe do Cruzado: revés com %s = arco deitado para -X" % w)
+		check(WeaponArcs.shape_of("atk_2h_chain_c", w) == "S", "Golpe do Cruzado: golpe de cima com %s = arco em pé" % w)
+	Events.damage_dealt.disconnect(on_dmg)
+	sim.despawn(pal)
+	sim.despawn(mob)
+
 func _check_skill_chain(gd, sim) -> void:
 	var m: Dictionary = sim.maps["city_aldara"]
 	var dt := 1.0 / 60.0
@@ -8034,7 +8367,8 @@ func _check_skill_chain(gd, sim) -> void:
 			if b_skill == null or b_hit < 0.0 or a_hit < 0.0 or a_hit > b_start:
 				lost.append("%s>%s" % [a_skill.id, e.skills[sb].id])
 				continue
-			if b_start > a_skill.startup + 0.1:          # absoluto: não depende da constante que está sendo testada
+			var last_strike: float = float((a_skill.effects["strikes"]["at"] as Array).back()) if a_skill.effects.get("strikes") is Dictionary else 0.0
+			if b_start > a_skill.startup + last_strike + 0.1:          # absoluto: não depende da constante que está sendo testada; sequência = depois do último golpe
 				late.append("%s>%s %.2fs" % [a_skill.id, b_skill.id, b_start])
 			saved += (a_skill.startup + a_skill.active + a_skill.recovery) - b_start
 		sim.despawn(e)
@@ -8191,7 +8525,7 @@ func _check_bind_crystal(gd, sim, save) -> void:
 	check(fdef.hub and not fdef.is_town and gd.town_map_id() == "city_aldara", "Posto é hub sem virar a cidade inicial")
 	var e: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Vinculo", fid, fdef.town_center + Vector3(-3, 0, -8), 15)
 	e.brain = null
-	check(sim.home_of(e)["map"] == "city_aldara", "sem cristal: retorno é a cidade")
+	check(sim.home_of(e)["map"] == BotBandSystem.home_map(15), "bot sem cristal: retorno é o povoado da faixa dele")
 	check(not sim.bind_crystal(e, "forest_smith"), "só cristal vincula")
 	check(sim.bind_crystal(e, "crystal_field_forest"), "vincula no cristal do Posto")
 	check(e.bind_map == fid and sim.is_walkable(e.bind_pos, fdef, 0.5), "ponto de retorno é chão livre na frente do cristal")
@@ -11027,8 +11361,9 @@ func _check_act2_gear_40(gd, sim) -> void:
 		var w35: ItemDef = gd.items[(sid.trim_suffix("_40") + "_35").replace("set_", "leg_") + "_weapon"]
 		check(w.atk > w35.atk or w.matk > w35.matk, "%s: arma acima da do 35" % sid)
 		var t5w: ItemDef = gd.items.get("%s_t%d" % [w.weapon_type, t5])
-		var traded: bool = GearCatalog.weapon_role(str(gd.sets[sid].id.get_slice("_", 2)), w.weapon_type) == "battle"     # Clérigo de Batalha: MATK virou ATK/DEF
-		check(t5w != null and w.atk >= t5w.atk and (w.matk >= t5w.matk or (traded and w.def > 0.0)), "%s: arma lendária do 40 não fica abaixo da comum do 40" % sid)
+		var role40 := GearCatalog.weapon_role(str(gd.sets[sid].id.get_slice("_", 2)), w.weapon_type)
+		var traded: bool = role40 == "battle" or role40 == "offense"     # Clérigo de Batalha / martelo do Templário: MATK virou ATK (e DEF)
+		check(t5w != null and w.atk >= t5w.atk and (w.matk >= t5w.matk or (traded and (w.def > 0.0 or w.atk > t5w.atk))), "%s: arma lendária do 40 não fica abaixo da comum do 40" % sid)
 	check(n40 == 24, "24 conjuntos lendários do 40, um por build (%d)" % n40)
 	check(absf(GearCatalog.level_factor(40) - 44.0 / 28.0) < 0.001, "F10: fator do nível 40 = 1,571 (%.3f)" % GearCatalog.level_factor(40))
 
@@ -11867,7 +12202,7 @@ func _check_character_models(gd, sim) -> void:
 					var bvis: Dictionary = GearCatalog.visual_of(set_id)          # Ato II: o escudo continua o do nível 30 (chave "shield" do visual)
 					check(bit.shield_style == str(bvis.get("shield", bvis["style"])) and ResourceLoader.exists("res://assets/icons/%s.png" % bit.icon), "%s: escudo próprio com ícone" % pid)
 	check(bis == 3 * Balance.LEGENDARY_LEVELS.size(), "3 conjuntos do bispo por nível lendário (%d)" % bis)
-	# cada conjunto do paladino tem uma maça além da espada: cai junto, conta como a peça de arma, não muda o total
+	# cada conjunto do paladino tem uma 2ª arma (a maça; no Templário, a espada de defesa): cai junto, não muda o total
 	var mace_sets := 0
 	for set_id in gd.sets:
 		var msd: SetDef = gd.sets[set_id]
@@ -11878,9 +12213,11 @@ func _check_character_models(gd, sim) -> void:
 			continue
 		mace_sets += 1
 		var mace: ItemDef = gd.items[msd.alt_pieces[0]]
-		check(mace.weapon_type in ["mace", "mace2h"] and mace.set_id == set_id and mace.weapon_style != "", "%s: maça do conjunto com visual" % mace.id)
+		var mbid: String = set_id.get_slice("_", 2)
+		check(mace.weapon_type in gd.classes["paladin"].build_by_id(mbid)["main"] and GearCatalog.weapon_role(mbid, mace.weapon_type) == "defense" and mace.set_id == set_id and mace.weapon_style != "",
+			"%s: 2ª arma do conjunto (a de defesa) com visual" % mace.id)
 		check(not (mace.id in msd.pieces) and not (mace.id in msd.armor), "%s: maça não soma no total de peças" % set_id)
-		check(ResourceLoader.exists("res://assets/icons/%s.png" % mace.icon), "%s: ícone da maça" % mace.id)
+		check(ResourceLoader.exists("res://assets/icons/%s.png" % mace.icon), "%s: ícone da 2ª arma (%s)" % [mace.id, mace.icon])
 		var pool: Array = gd.legendary_pool(gd.classes["paladin"], msd.level)
 		check(mace.id in pool, "%s: maça cai como lendário" % mace.id)
 		var sword: ItemDef = null
@@ -12352,7 +12689,7 @@ func _check_talents_applied(gd, sim, m: Dictionary, at: Vector3, mk: Callable) -
 	check(zeal == 1, "Paladino: Zelo em um talento só (%d)" % zeal)
 	# efeitos de verdade (apply_mods)
 	var cases := [["elementalist", "ele_c_live_spark", "ele_spark"], ["elementalist", "ele_c_cold_lance", "ele_ice_lance"], ["bishop", "bis_c_wound_light", "bis_light"],
-		["assassin", "ass_c_pistol_open", "ass_pistol_shot"], ["druid", "dru_c_sharp_claws", "dru_claw"], ["paladin", "pal_c_flame_strike", "pal_sacred_flame"]]
+		["assassin", "ass_c_pistol_open", "ass_pistol_shot"], ["druid", "dru_c_sharp_claws", "dru_claw"], ["paladin", "pal_c_flame_strike", "pal_wrath_hammer"]]
 	for c in cases:
 		var e: SimEntity = mk.call(c[0], 30, c[1], at)
 		var base: SkillDef = gd.skills[c[2]]
@@ -12887,8 +13224,8 @@ func _check_skill_visuals(gd) -> void:
 	check(themes_used.size() >= 10, "skills usam temas variados (%d)" % themes_used.size())
 	# cada clipe que a EntityView pode escolher existe nos dois kits e o impacto cabe nele
 	for clip in impacts:
-		if clip in EntityView.FORM_CLIP.values() or EntityView.MOB_ONLY_CLIPS.has(clip):
-			continue                     # gesto de bicho: só nas formas (_check_form_clips); de monstro: _check_skill_clips
+		if clip in EntityView.FORM_CLIP.values() or EntityView.MOB_ONLY_CLIPS.has(clip) or EntityView.CLASS_ONLY_CLIPS.has(clip):
+			continue                     # gesto de bicho: só nas formas (_check_form_clips); de monstro ou só do kit de uma classe: _check_skill_clips
 		for k in kits:
 			var name: String = k.resolve(clip)
 			check(name != "", "clipe %s existe no kit" % clip)
@@ -13521,6 +13858,29 @@ func _check_dungeon_mood(gd) -> void:
 	check(out.environment.background_mode == Environment.BG_SKY, "zona aberta mantém o céu")
 	dg.free()
 	out.free()
+
+## Névoa por faixa de nível na teia (janela K, WebFog): 0 = liberado, 1 = até a próxima dezena, depois uma por dezena;
+## rótulo "Nv N+" de cada região trancada, nenhum para nível liberado.
+func _check_web_fog() -> void:
+	check(WebFog.band(22, 22) == 0 and WebFog.band(1, 22) == 0, "névoa: nível do jogador ou abaixo = liberado")
+	check(WebFog.band(23, 22) == 1 and WebFog.band(29, 22) == 1, "névoa: 23-29 para o nível 22 = faixa 1")
+	check(WebFog.band(30, 22) == 2 and WebFog.band(39, 22) == 2 and WebFog.band(40, 22) == 3 and WebFog.band(45, 22) == 3, "névoa: 30+ = faixa 2, 40+ = faixa 3 (nível 22)")
+	check(WebFog.band(30, 29) == 1 and WebFog.band(40, 29) == 2, "névoa: no nível 29 a dezena seguinte já é a faixa 1")
+	check(WebFog.band_floor(1, 22) == 23 and WebFog.band_floor(2, 22) == 30 and WebFog.band_floor(3, 22) == 40, "névoa: começo das faixas 23/30/40 no nível 22")
+	var nodes := {"a": {"level": 1, "pos": Vector2.ZERO}, "b": {"level": 25, "pos": Vector2(4, 0)}, "c": {"level": 25, "pos": Vector2(5.5, 0)},
+		"d": {"level": 32, "pos": Vector2(13, 0)}, "e": {"level": 41, "pos": Vector2(0, 12)}}
+	var texts: Array = WebFog.labels(nodes, 22, Vector2.ZERO).map(func(l): return l["text"])
+	texts.sort()
+	check(texts == ["Nv 25+", "Nv 32+", "Nv 41+"], "névoa: um rótulo por região trancada, com o menor nível dela (%s)" % [texts])
+	nodes["f"] = {"level": 33, "pos": Vector2(7.5, 0)}          # 25 -> 33 colados: a região do 30+ ganha rótulo próprio mais adiante
+	texts = WebFog.labels(nodes, 22, Vector2.ZERO).map(func(l): return l["text"])
+	check(texts.has("Nv 25+") and texts.has("Nv 30+"), "névoa: faixa 30+ dentro da região do 25 tem rótulo próprio (%s)" % [texts])
+	check(WebFog.labels(nodes, 50, Vector2.ZERO).is_empty(), "névoa: nível 50 não tem região trancada")
+	# a teia real do paladino no 22: há nó trancado e a textura sai; no 50 nada
+	var tr: Dictionary = GameData.trees["paladin"]
+	var f: Dictionary = WebFog.build_fog("test|22", tr["nodes"], 22, Vector2.ZERO)
+	check(f["tex"] != null and not (f["labels"] as Array).is_empty(), "névoa: teia do Paladino no 22 tem névoa e rótulos")
+	check(WebFog.build_fog("test|50", tr["nodes"], 50, Vector2.ZERO)["tex"] == null, "névoa: teia do Paladino no 50 sem névoa")
 
 ## Teia: nós com folga no zoom 1 (nenhum par encosta: distância > soma dos raios + 8 px) e rótulos em tudo.
 func _check_tree_spacing() -> void:
@@ -14946,7 +15306,7 @@ func _check_start_presets(gd, sim) -> void:
 	var p30: SimEntity = w30.spawn_character(SimEntity.Kind.PLAYER, gd.classes["berserker"], "Rapido30", "city_aldara", Vector3(0, 0, 8))
 	w30.player = p30
 	w30.apply_start_preset(p30, 30)
-	check(p30.level == 30 and p30.has_item("legend_coin", 300) and not p30.has_item("legend_coin", 301) and p30.map_id == "city_port", "começo nível 30: nível, 300 moedas lendárias, Porto Esperança")
+	check(p30.level == 30 and p30.has_item("legend_coin", Balance.START_PRESET_COINS) and not p30.has_item("legend_coin", Balance.START_PRESET_COINS + 1) and p30.map_id == "city_port", "começo nível 30: nível, moedas lendárias, Porto Esperança")
 	check(PartySystem.party_members(w30, p30).size() == Balance.PARTY_MAX, "começo nível 30: grupo cheio (%d)" % PartySystem.party_members(w30, p30).size())
 	check(p30.quests_active.has("hx_first_wave") and p30.quests_completed.has("hx_crossing"), "começo nível 30: Ato I feito, cerco começando")
 	var e: SimEntity = sim.spawn_character(SimEntity.Kind.PLAYER, gd.classes["ranger"], "Rapido", "city_aldara", Vector3(0, 0, 8))
@@ -14958,7 +15318,11 @@ func _check_start_presets(gd, sim) -> void:
 	for lv in range(2, 11):
 		want += Balance.points_at(lv)
 	check(e.level == 10 and e.mastery_points == want, "começo 10: nível 10 com os pontos de skill de cada nível (%d/%d)" % [e.mastery_points, want])
-	check(int(e.inventory.get("legend_coin", 0)) == 100, "começo 10: 100 Moedas Lendárias")
+	check(int(e.inventory.get("legend_coin", 0)) == Balance.START_PRESET_COINS, "começo 10: Moedas Lendárias de sobra")
+	for pid in StartCatalog.PRESETS:
+		if int(pid) > 1:
+			var pr: Dictionary = StartCatalog.PRESETS[pid]
+			check((pr["party"] as Array).size() == Balance.PARTY_MAX - 1 and int(pr["items"]["legend_coin"]) == Balance.START_PRESET_COINS, "começo %d: grupo completo e %d moedas" % [pid, Balance.START_PRESET_COINS])
 	check(e.quests_active.has("q08_forest") and "c5_report" in e.quests_completed and "q01_welcome" in e.quests_completed if gd.quests.has("q01_welcome") else e.quests_active.has("q08_forest"), "começo 10: quest da Floresta ativa, cadeia anterior concluída")
 	for qid in gd.quests:
 		var q: QuestDef = gd.quests[qid]
@@ -18338,8 +18702,8 @@ func _check_bot_recall(gd, sim) -> void:
 	if not sim.maps.has(fid):
 		sim.load_map(gd.maps[fid])
 	var town: String = gd.town_map_id()
-	var e: SimEntity = sim.spawn_bot(gd.classes["ranger"], "Volta", fid, gd.maps[fid].spawn_point, 12)
-	e.brain._go_home()
+	var e: SimEntity = sim.spawn_bot(gd.classes["ranger"], "Volta", fid, gd.maps[fid].spawn_point, 8)     # nível da faixa de Aldara (casa = cidade)
+	e.brain._go_home(e, sim)
 	var cast := false
 	for i in range(int((Balance.RECALL_TIME + 2.0) * 20)):
 		sim.tick(0.05)
@@ -22523,7 +22887,7 @@ func _check_act2_playtest(gd, sim, save) -> void:
 	var at: Vector3 = gd.maps["city_port"].spawn_point
 	var e: SimEntity = sim.spawn_character(SimEntity.Kind.BOT, cls, "Turista", "city_port", at, 30)
 	e.bind_map = ""
-	check(PortalSystem.home_of(e)["map"] == gd.town_map_id(), "sem cristal: renasce na cidade inicial")
+	check(PortalSystem.home_of(e)["map"] == BotBandSystem.home_map(30), "bot sem cristal: renasce no povoado da faixa")
 	check(PortalSystem.quest_bind(sim, e, "hx_crossing", false) and e.bind_map == "city_port"
 		and sim.is_walkable(e.bind_pos, gd.maps["city_port"], 0.5), "Terra à Vista: retorno no cristal do porto, em chão livre")
 	var c: Array = MapsCatalog.CRYSTALS["city_port"]
@@ -23293,14 +23657,32 @@ func _check_town_identity(gd, sim) -> void:
 	check(forge.x > 0.0 and forge.z < 0.0 and by_id.has("smith") and (by_id["smith"]["pos"] as Vector3).distance_to(forge) < 4.0, "Aldara: Brom trabalha no pátio da forja, a nordeste")
 	var mp: Vector3 = by_id["merchant"]["pos"] if by_id.has("merchant") else Vector3.ZERO
 	check(stalls.any(func(s): return Vector2(mp.x, mp.z).distance_to(s) < 3.5), "Aldara: o mercador atende numa banca da feira")
+	# praça aberta (playtest 2026-11-18): anel livre >= 5,5 m entre a mó e os balcões, mercador do lado de dentro, feirantes
+	# atrás do balcão (fora do anel), nos postos que o Blender gravou
+	var sr := float(cp["stall_r"])
+	check(sr - 0.5 - float(cp["mill_r"]) >= 5.5, "Aldara: anel livre de 5,5+ m entre a mó e as bancas (%.1f m)" % (sr - 0.5 - float(cp["mill_r"])))
+	var ring_shut: Array = []
+	for k in 16:
+		var qa := TAU * k / 16.0
+		var qq := Vector3(cos(qa), 0.0, sin(qa)) * (float(cp["mill_r"]) + 0.5 * (sr - 0.5 - float(cp["mill_r"])))
+		if not sim.is_walkable(qq, def, 2.4):
+			ring_shut.append(int(rad_to_deg(qa)))
+	check(ring_shut.is_empty(), "Aldara: o miolo da praça é chão livre em toda a volta (fechado em %s graus)" % [ring_shut])
+	check(Vector2(mp.x, mp.z).length() < sr, "Aldara: o mercador atende do lado de dentro da praça (%.1f m do centro)" % Vector2(mp.x, mp.z).length())
+	var posts: Array = cp.get("keeper_posts", [])
+	var keeper_ids: Array = by_id.keys().filter(func(id): return str(id).begins_with("ald_keeper_") or str(id) == "vil_baker")
+	var off_post: Array = keeper_ids.filter(func(id): return not posts.any(func(q): return Vector2(by_id[id]["pos"].x, by_id[id]["pos"].z).distance_to(Vector2(float(q[0]), float(q[1]))) < 0.3))
+	check(keeper_ids.size() >= 5 and off_post.is_empty(), "Aldara: feirantes atrás do balcão, nos postos do JSON (fora do posto: %s)" % [off_post])
+	var in_stall: Array = def.npcs.filter(func(n): return n.get("role", "") != "crystal" and (n["pos"] as Vector3).length() < 14.0 and not sim.is_walkable(n["pos"], def, 0.3)).map(func(n): return n["id"])
+	check(in_stall.is_empty(), "Aldara: nenhum NPC da praça nasce dentro de um colisor (%s)" % [in_stall])
 	var fs: Dictionary = by_id.get("founder_statue", {})
 	check(not fs.is_empty() and (fs["pos"] as Vector3).length() >= 20.0 and def.in_hub(fs["pos"]) and str(fs.get("model", "")) == "prop_statue",
 		"Aldara: Estátua do Fundador fora da praça, dentro da vila, com nome e fala")
 	check((by_id["board"]["dialog"] as Array).any(func(l): return str(l).contains("Fundador")), "Aldara: o Quadro de Avisos fala da Estátua do Fundador")
 	check(float(cp["barn"][1]) > 15.0 and Vector2(float(cp["barn"][0]), float(cp["barn"][1])).length() < def.town_radius, "Aldara: celeiro no quadrante sul, dentro da muralha")
-	# bots não ficam dentro da roseta (lá ficam os feirantes)
-	var inside: Array = def.bot_hangouts.filter(func(h): return Vector2(h.x, h.z).length() < float(cp["stall_r"]) + 1.5)
-	check(inside.is_empty() and def.bot_hangouts.all(func(h): return sim.is_walkable(h, def, 0.45)), "Aldara: pontos de bot fora da roseta e em chão livre (%d dentro)" % inside.size())
+	# bots não ficam na faixa dos balcões (ali ficam feirantes e fregueses): ou no miolo aberto, ou fora do anel
+	var inside: Array = def.bot_hangouts.filter(func(h): return absf(Vector2(h.x, h.z).length() - float(cp["stall_r"])) < 1.5)
+	check(inside.is_empty() and def.bot_hangouts.all(func(h): return sim.is_walkable(h, def, 0.45)), "Aldara: pontos de bot fora da faixa das bancas e em chão livre (%d na faixa)" % inside.size())
 	check(def.npcs.filter(func(n): return n.get("role", "") == "crystal").size() == 1, "Aldara: um cristal de retorno")
 	# Posto dos Caçadores: Fogueira Comunal + roda de carroças no lugar do poço e da estátua
 	var fdef: MapDef = gd.maps["field_forest"]
@@ -23368,7 +23750,7 @@ func _check_living_routes(gd, sim) -> void:
 	var m: Dictionary = sim.maps["city_aldara"]
 	var carter: Array = m["entities"].filter(func(o): return o.kind == SimEntity.Kind.NPC and o.npc_data.get("id", "") == "ald_carter")
 	check(carter.size() == 1 and not CarryPose.draft_of(str(carter[0].npc_data.get("carry", ""))).is_empty() if carter.size() == 1 else false, "Aldara: Carroça da Colheita com animal de tiro")
-	var keepers: Array = def_a.npcs.filter(func(n): return n.has("barks") and not n.has("route") and not n.has("wander") and (n["pos"] as Vector3).length() < 8.0)
+	var keepers: Array = def_a.npcs.filter(func(n): return n.has("barks") and not n.has("route") and not n.has("wander") and (n["pos"] as Vector3).length() < 11.5)      # atrás dos balcões (raio 10)
 	check(keepers.size() >= 4, "Aldara: 4+ feirantes parados na banca com pregão (%d)" % keepers.size())
 	var shoppers: Array = def_a.npcs.filter(func(n): return str(n["id"]).begins_with("ald_shopper") and n.has("route"))
 	check(shoppers.size() >= 4, "Aldara: 4+ fregueses de banca em banca (%d)" % shoppers.size())
@@ -23559,3 +23941,207 @@ func _check_road_events(gd, _sim) -> void:
 	# nada no save
 	check(not FileAccess.get_file_as_string("res://core/save_system.gd").contains("road_event"), "eventos: nada de evento no save")
 	ws.free()
+
+## Tab = trava no chefe (BossLock, game/player/boss_lock.gd; decisão 2026-11-18): só chefe de verdade, regras de soltar,
+## movimento W/S/A/D em volta do chefe (A/D puro orbita sem espiralar) e mira = chefe para todo tipo de alvo.
+func _check_boss_lock() -> void:
+	var mk_mob := func(id: int, pos: Vector3, boss: bool, elite: String, decoy: bool) -> SimEntity:
+		var md := MonsterDef.new()
+		md.id = "lock_test_%d" % id; md.name = "Chefe %d" % id; md.is_boss = boss; md.elite_of = elite; md.decoy = decoy
+		var m := SimEntity.new()
+		m.id = id; m.kind = SimEntity.Kind.MONSTER; m.monster_def = md; m.position = pos; m.map_id = "lock_map"; m.radius = 1.0
+		return m
+	var p := SimEntity.new()
+	p.id = 1; p.kind = SimEntity.Kind.PLAYER; p.map_id = "lock_map"; p.position = Vector3.ZERO
+	var trash: SimEntity = mk_mob.call(10, Vector3(2, 0, 0), false, "", false)
+	var king: SimEntity = mk_mob.call(11, Vector3(3, 0, 0), true, "boar", false)       # elite "Rei": não trava
+	var copy: SimEntity = mk_mob.call(12, Vector3(3, 0, 1), true, "", true)          # cópia da Shazka: não trava
+	var near: SimEntity = mk_mob.call(13, Vector3(8, 0, 0), true, "", false)
+	var far: SimEntity = mk_mob.call(14, Vector3(0, 0, -15), true, "", false)
+	var out: SimEntity = mk_mob.call(15, Vector3(0, 0, Balance.BOSS_LOCK_RANGE + 5.0), true, "", false)
+	var ents: Array = [p, trash, king, copy, near, far, out]
+	var R := Balance.BOSS_LOCK_RANGE
+	var pad := Balance.BOSS_LOCK_CURSOR_PAD
+	check(BossLock.is_lockable(near) and not BossLock.is_lockable(trash) and not BossLock.is_lockable(king) and not BossLock.is_lockable(copy) and not BossLock.is_lockable(p),
+		"Trava: só chefe de verdade (comum, Rei elite, cópia e jogador não)")
+	check(BossLock.pick(ents, p.position, Vector3(50, 0, 50), R, pad) == near, "Trava: sem chefe sob o cursor, o mais perto")
+	check(BossLock.pick(ents, p.position, Vector3(0.5, 0, -14.0), R, pad) == far, "Trava: o chefe sob o cursor vence o mais perto")
+	check(BossLock.pick(ents, p.position, out.position, R, pad) == near, "Trava: chefe fora do alcance não trava nem sob o cursor")
+	check(BossLock.pick([p, trash, king, copy, out], p.position, trash.position, R, pad) == null, "Trava: sem chefe por perto = nada")
+	near.state = SimEntity.State.DEAD
+	check(BossLock.pick(ents, p.position, near.position, R, pad) == far, "Trava: chefe morto não trava")
+	near.state = SimEntity.State.IDLE
+	# regras de soltar
+	var lk := BossLock.new()
+	lk.lock(near)
+	var why := func() -> String: return BossLock.release_reason(p, near, lk.map_id, lk.epoch, Balance.BOSS_LOCK_RELEASE)
+	check(why.call() == "", "Trava: chefe vivo por perto segue travado")
+	p.mounted = true
+	check(why.call() == "", "Trava: montar não solta (Combate Montado)")
+	p.mounted = false
+	near.state = SimEntity.State.DEAD
+	check(why.call() == "boss_gone", "Trava: chefe morreu solta")
+	near.state = SimEntity.State.IDLE
+	check(BossLock.release_reason(p, null, lk.map_id, lk.epoch, Balance.BOSS_LOCK_RELEASE) == "boss_gone", "Trava: chefe sumiu solta")
+	near.adds_epoch += 1
+	check(why.call() == "reset", "Trava: chefe resetou solta")
+	near.adds_epoch -= 1
+	p.map_id = "other_map"
+	check(why.call() == "map", "Trava: troca de mapa solta")
+	p.map_id = "lock_map"
+	near.position = Vector3(Balance.BOSS_LOCK_RELEASE + 1.0, 0, 0)
+	check(why.call() == "range", "Trava: chefe longe demais solta")
+	near.position = Vector3(8, 0, 0)
+	p.state = SimEntity.State.DEAD
+	check(why.call() == "player_dead", "Trava: jogador morreu solta")
+	p.state = SimEntity.State.IDLE
+	# movimento: W para o chefe, S para longe, A/D na tangente mantendo o raio
+	var b := Vector3(8, 0, 0)
+	var md := 2.0
+	var ah := Balance.BOSS_LOCK_ORBIT_AHEAD
+	var w := BossLock.move_vector(Vector3.ZERO, b, Vector2(0, 1), 8.0, md, ah)
+	var sv := BossLock.move_vector(Vector3.ZERO, b, Vector2(0, -1), 8.0, md, ah)
+	check(w.distance_to(Vector2(1, 0)) < 0.001 and sv.distance_to(Vector2(-1, 0)) < 0.001, "Trava: W vai para o chefe e S para longe")
+	check(BossLock.move_vector(Vector3(7.5, 0, 0), b, Vector2(0, 1), 0.5, md, ah).length() < 0.001, "Trava: W colado no chefe não empurra para dentro")
+	var dv := BossLock.move_vector(Vector3.ZERO, b, Vector2(1, 0), 8.0, md, ah)
+	var av := BossLock.move_vector(Vector3.ZERO, b, Vector2(-1, 0), 8.0, md, ah)
+	# olhando +X, a direita é +Z (a mesma conta do Node3D: frente × cima)
+	check(dv.y > 0.95 and av.y < -0.95 and absf(dv.x) < 0.2, "Trava: D vai para a direita e A para a esquerda, quase na tangente (%s / %s)" % [dv, av])
+	var diag := BossLock.move_vector(Vector3.ZERO, b, Vector2(1, 1).normalized(), 8.0, md, ah)
+	check(diag.x > 0.5 and diag.y > 0.5 and diag.length() <= 1.0001, "Trava: W+D combina (frente e lado)")
+	# A/D puro por 20 s a 5,5 m/s: dá voltas e o raio fica (sem espiralar)
+	var pos := Vector3.ZERO
+	var dt := 1.0 / 60.0
+	var worst := 0.0
+	var turned := 0.0
+	var last_a := atan2(pos.z - b.z, pos.x - b.x)
+	for i in range(1200):
+		var mv := BossLock.move_vector(pos, b, Vector2(1, 0), 8.0, md, ah)
+		pos += Vector3(mv.x, 0, mv.y) * 5.5 * dt
+		worst = maxf(worst, absf(Vector2(pos.x - b.x, pos.z - b.z).length() - 8.0))
+		var a := atan2(pos.z - b.z, pos.x - b.x)
+		turned += absf(wrapf(a - last_a, -PI, PI))
+		last_a = a
+	check(worst < 0.15 and turned > TAU * 1.5, "Trava: D puro orbita no raio (desvio máx %.3f m, %.1f voltas)" % [worst, turned / TAU])
+	check(BossLock.move_vector(Vector3.ZERO, b, Vector2.ZERO, 8.0, md, ah) == Vector2.ZERO, "Trava: sem tecla, parado")
+	# mira = chefe para todo tipo de alvo (a sim encara a mira e limita o GROUND ao alcance)
+	var caster := SimEntity.new()
+	caster.id = 2; caster.kind = SimEntity.Kind.PLAYER; caster.map_id = "lock_map"; caster.position = Vector3(0, 0, 0)
+	var boss: SimEntity = mk_mob.call(20, Vector3(4, 0, 3), true, "", false)
+	var decoy_mob: SimEntity = mk_mob.call(21, Vector3(-3, 0, 0), false, "", false)     # outro alvo atrás, perto do cursor antigo
+	var aim := BossLock.aim_point(boss)
+	caster.face_towards(aim)
+	var hit_all := true
+	var why_not := ""
+	for t in [SkillDef.Target.DIRECTION, SkillDef.Target.CONE, SkillDef.Target.TARGET, SkillDef.Target.GROUND]:
+		var sk := SkillDef.new()
+		sk.target = t; sk.range = 8.0; sk.radius = 6.0 if t == SkillDef.Target.CONE else 2.0; sk.cone_angle_deg = 60.0; sk.max_targets = 3
+		var got: Array = Combat.select_targets(caster, sk, aim, [caster, boss, decoy_mob])
+		if not got.has(boss) or got.has(decoy_mob):
+			hit_all = false
+			why_not += " %d" % t
+	check(hit_all, "Trava: com a mira no chefe, DIRECTION/CONE/TARGET/GROUND acertam o chefe e não o de trás (falhou:%s)" % why_not)
+	var far_aim := Combat.clamp_aim(caster, BossLock.aim_point(far), 6.0)
+	check(far_aim.distance_to(caster.position) <= 6.001, "Trava: GROUND no chefe longe é limitado ao alcance como sempre")
+	# controlador: Tab sem chefe não trava; lock_changed avisa
+	var pc = load("res://game/player/player_controller.gd").new()
+	check(not pc.lock.active(), "Trava: começa solta")
+	check(InputMap.has_action("lock_target") and InputMap.action_get_events("lock_target").any(func(ev): return ev is InputEventKey and ev.physical_keycode == KEY_TAB),
+		"Trava: ação lock_target ligada no Tab (InputMap, project.godot)")
+	pc.free()
+
+## Faixa dos bots (playtest 2026-11-18: lv 40 na praça de Aldara): cidade nasce na faixa, bot volta para o povoado
+## da faixa dele (lv 40 não volta a Aldara), sai do povoado de faixa baixa e Aldara fica da faixa depois de minutos de sim.
+func _check_bot_band(gd, sim) -> void:
+	var town: String = gd.town_map_id()
+	var tdef: MapDef = gd.maps[town]
+	var band := BotBandSystem.spawn_levels(tdef)
+	check(band.x == tdef.level_range.x and band.y <= tdef.level_range.y + Balance.BOT_BAND_SLACK and band.y <= 12, "Aldara: bots nascem em %d-%d (faixa da cidade)" % [band.x, band.y])
+	check(BotBandSystem.home_map(5) == town and BotBandSystem.home_map(11) == town, "bot lv 5/11: casa é a cidade inicial")
+	var spots := BotBandSystem.spawn_spots(tdef)
+	var in_sq := spots.filter(func(h): return (h as Vector3).distance_to(tdef.town_center) < Balance.BOT_SQUARE_RADIUS).size()
+	check(spots.size() >= 6 and in_sq <= Balance.BOT_SQUARE_CAP, "Aldara: bots nascem em %d pontos, só %d na praça" % [spots.size(), in_sq])
+	var sq_spawn := 0
+	for i in tdef.bot_population:
+		if BotBandSystem.spawn_spot(tdef, i).distance_to(tdef.town_center) < Balance.BOT_SQUARE_RADIUS:
+			sq_spawn += 1
+	check(sq_spawn <= Balance.BOT_SQUARE_CAP, "Aldara: dos %d bots iniciais só %d nascem na praça" % [tdef.bot_population, sq_spawn])
+	for h: Vector3 in spots:
+		check(sim.is_walkable(sim.random_walkable(tdef, h, 2.0), tdef, 0.4), "ponto de nascer %s em chão livre" % h)
+	for lv in [12, 22, 32, 37, 40, 45]:
+		var home := BotBandSystem.home_map(lv)
+		var hd: MapDef = gd.maps[home]
+		check(home != town and lv >= hd.level_range.x and lv <= hd.level_range.y + 5, "bot lv %d: casa %s (%d-%d), não Aldara" % [lv, home, hd.level_range.x, hd.level_range.y])
+	check(BotBandSystem.home_map(40) == "field_kharzun" or BotBandSystem.home_map(40) == "field_steppe", "bot lv 40: povoado do Ato II (%s)" % BotBandSystem.home_map(40))
+	for mid in MapsCatalog.CRYSTALS:
+		if not sim.maps.has(mid):
+			sim.load_map(gd.maps[mid])
+		var probe: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Faixa", mid, gd.maps[mid].town_center, gd.maps[mid].level_range.x + Balance.BOT_HOME_STEP_UP)
+		probe.brain = null
+		var h: Dictionary = sim.home_of(probe)
+		check(h["map"] == mid and sim.is_walkable(h["pos"], gd.maps[mid], 0.5) and gd.maps[mid].in_hub(h["pos"]),
+			"retorno de bot em %s: chão livre dentro do povoado" % mid)
+		sim.despawn(probe)
+	# lv 40 em Aldara: G/renascer levam ao povoado dele; voltando (RETURN) não para na loja de Aldara
+	if not sim.maps.has(town):
+		sim.load_map(tdef)
+	var hi: SimEntity = sim.spawn_bot(gd.classes["berserker"], "Visitante", town, tdef.town_center, 40)
+	check(sim.home_of(hi)["map"] != town, "lv 40 sem cristal: casa não é Aldara")
+	var b: BotBrain = hi.brain
+	b.state = BotBrain.S.RETURN
+	b.timer = 30.0
+	b.think(hi, sim, sim.maps[town], 0.1)
+	check(b.state != BotBrain.S.SHOP, "lv 40 voltando em Aldara não compra/fica na praça de Aldara")
+	b.state = BotBrain.S.TOWN_IDLE
+	b.timer = 0.0
+	b.think(hi, sim, sim.maps[town], 0.1)
+	check(b.state == BotBrain.S.TRAVEL and b.dest_map != town, "lv 40 à toa em Aldara sai para caçar na faixa (%s)" % b.dest_map)
+	# no grupo do jogador a casa é a do jogador (segue para onde ele for)
+	sim.despawn(hi)
+	hi = null
+	if sim.player != null and sim.player.party_id < 0 and sim.player.bind_map == "" and BotBandSystem.home_map(sim.player.level) == town:
+		hi = sim.spawn_bot(gd.classes["berserker"], "Parceiro", town, tdef.town_center, mini(sim.player.level + 13, 45))
+		check(sim.home_of(hi)["map"] != town, "bot lv %d sozinho: casa fora de Aldara" % hi.level)
+		sim.party_invite(sim.player, hi)
+		if not sim.same_party(sim.player, hi):
+			sim.party_accept(hi)
+		check(sim.same_party(sim.player, hi) and sim.home_of(hi)["map"] == sim.home_of(sim.player)["map"], "bot no grupo do jogador: casa = a do jogador (%s, grupo %s, erro '%s')"
+			% [sim.home_of(hi)["map"], sim.same_party(sim.player, hi), sim.party_invite_error(sim.player, hi)])
+		sim.party_leave(hi)
+		sim.despawn(hi)
+	# mini-censo de Aldara: 8 bots da faixa + 4 de lv 40 à toa na vila por 90 s
+	var tm: Dictionary = sim.maps[town]
+	var dt := 1.0 / 60.0
+	var crowd: Array = []
+	for i in 12:
+		var hpos: Vector3 = tdef.bot_hangouts[i % tdef.bot_hangouts.size()] if tdef.bot_hangouts.size() > 0 else tdef.town_center
+		var bt: SimEntity = sim.spawn_bot(gd.classes[["paladin", "ranger", "bishop", "berserker"][i % 4]], "Censo%d" % i, town,
+			sim.random_walkable(tdef, hpos, 2.0), 40 if i >= 8 else 3 + i)
+		(bt.brain as BotBrain).state = BotBrain.S.TOWN_IDLE
+		(bt.brain as BotBrain).timer = 0.5 + i * 0.3
+		bt.brain.personality = 0.0        # fica mais na vila (pior caso para a praça)
+		crowd.append(bt)
+	var sq_sum := 0.0
+	var sq_n := 0
+	for tick in range(60 * 90):
+		for bt: SimEntity in crowd:
+			if bt.map_id == town:
+				sim._apply_command(bt, bt.brain.think(bt, sim, tm, dt), tm, dt)
+		if tick % 60 == 0 and tick >= 60 * 20:
+			var sq := 0
+			for bt: SimEntity in crowd:
+				if bt.map_id == town and bt.level <= tdef.level_range.y and bt.position.distance_to(tdef.town_center) < Balance.BOT_SQUARE_RADIUS:
+					sq += 1
+			sq_sum += sq
+			sq_n += 1
+	var idle_hi := 0
+	for bt: SimEntity in crowd:
+		var bb: BotBrain = bt.brain
+		if bt.level > tdef.level_range.y + Balance.BOT_BAND_SLACK and bt.map_id == town and bb.state in [BotBrain.S.TOWN_IDLE, BotBrain.S.TOWN_WALK, BotBrain.S.SHOP]:
+			idle_hi += 1
+	check(idle_hi == 0, "Aldara após 90 s: nenhum lv 40 à toa na vila (%d)" % idle_hi)
+	var sq_avg := sq_sum / maxf(1.0, sq_n)
+	check(sq_avg <= Balance.BOT_SQUARE_CAP + 1.0, "Aldara: média de bots da faixa na praça %.1f <= %d" % [sq_avg, Balance.BOT_SQUARE_CAP + 1])
+	print("BOT_BAND aldara praca_media=%.2f lv40_a_toa=%d" % [sq_avg, idle_hi])
+	for bt: SimEntity in crowd:
+		sim.despawn(bt)

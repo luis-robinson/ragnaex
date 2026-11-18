@@ -23,7 +23,7 @@ const FIRST := 3                     # quadros do disparo antes da 1ª célula
 const CELLS := 18
 const COLS := 6
 const CELL := 300
-const OWN := ["--class", "--build", "--main", "--off", "--skill", "--name", "--cams", "--map", "--at", "--out", "--take", "--form"]
+const OWN := ["--class", "--build", "--main", "--off", "--skill", "--name", "--cams", "--map", "--at", "--out", "--take", "--form", "--stride"]
 
 var runner := false
 var cls_id := ""
@@ -31,6 +31,7 @@ var out_dir := ""
 var map_id := ""
 var at := ""
 var cams: Array = []
+var stride := 1                      # --stride=N: 1 quadro a cada N (golpe longo, ex. sequência de 3 golpes)
 var takes: Array = []                # [{name, skill, main, off, build}]
 
 var sc: Showcase = null
@@ -77,6 +78,7 @@ func _ready() -> void:
 	r.map_id = map_id
 	r.at = at
 	r.cams = cams
+	r.stride = maxi(1, int(_val("--stride", "1")))
 	r.takes = takes
 	get_tree().root.add_child.call_deferred(r)
 	get_tree().change_scene_to_file.call_deferred(BENCH)
@@ -239,12 +241,12 @@ func _process(delta: float) -> void:
 		_full_left = 2
 	if _n >= 0:
 		_n += 1
-		if _n >= FIRST and _n < FIRST + CELLS + 6:
+		if _n >= FIRST and _n < FIRST + (CELLS + 6) * stride and (_n - FIRST) % stride == 0:
 			_frames.append(_grab(main, p))
 			_st.append(p.state_time if p.current_skill != null else -1.0)
 			var v = main.views.get(p.id)
 			_clips.append(v.anim.assigned_animation if v and v.anim else "")
-		if _n == FIRST + CELLS + 6:
+		if _n == FIRST + (CELLS + 6) * stride:
 			_write_strip(p)
 			_n = -1
 

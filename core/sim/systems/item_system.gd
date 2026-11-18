@@ -181,7 +181,11 @@ static func bot_set_weapons(sim: WorldSim, e: SimEntity, sd: SetDef) -> Array:
 		if not b.get("main", []).has(it.weapon_type):
 			continue
 		var n := 0
-		var role := GearCatalog.weapon_role(e.build_id, it.weapon_type)
+		var role_bid := e.build_id          # híbrido: a arma "_<build>_weapon" tem o papel da build dona (martelo do Templário ataca)
+		for pb in sd.pair:
+			if str(iid).ends_with("_%s_weapon" % pb):
+				role_bid = pb
+		var role := GearCatalog.weapon_role(role_bid, it.weapon_type)
 		if role == want or (role != "" and want == "offense" and role == "battle"):
 			n += 4
 		elif role == "":

@@ -257,7 +257,7 @@ const PIECE_NOUNS := {
 	"berserker_punhos": {"body": "Gibão", "boots": "Sandálias", "gloves": "Faixas", "head": "Faixa", "offhand": "Garra Gêmea", "weapon": "Garra"},
 	"bishop_sacerdote": {"body": "Vestes", "boots": "Sandálias", "gloves": "Mangas", "head": "Véu", "offhand": "Escudo", "weapon": "Maça"},
 	"bishop_inquisidor": {"body": "Vestes", "boots": "Sandálias", "gloves": "Mangas", "head": "Mitra", "weapon": "Cetro"},
-	"paladin_templario": {"body": "Couraça", "boots": "Grevas", "gloves": "Manoplas", "head": "Elmo", "offhand": "Escudo", "weapon": "Espada"},
+	"paladin_templario": {"body": "Couraça", "boots": "Grevas", "gloves": "Manoplas", "head": "Elmo", "offhand": "Escudo", "weapon": "Martelo"},
 	"bishop_batalha": {"body": "Couraça", "boots": "Grevas", "gloves": "Manoplas", "head": "Elmo", "offhand": "Escudo", "weapon": "Maça"},
 	"druid_xama": {"body": "Manto", "boots": "Botas", "gloves": "Braçais", "head": "Coroa", "weapon": "Cajado"},
 	"druid_fera": {"body": "Manto", "boots": "Botas", "gloves": "Braçais", "head": "Capuz", "offhand": "Maça Gêmea", "weapon": "Maça"},
@@ -280,6 +280,7 @@ const NOUN_FORM := {
 	"Adaga": "fs",
 	"Machadinha": "fs",
 	"Martelo de Guerra": "ms",
+	"Martelo": "ms",
 	"Montante": "ms",
 	"Orbe": "ms",
 	"Varinha": "fs",
@@ -1026,7 +1027,7 @@ static func set_skills(build: Dictionary, skills: Dictionary, level: int, tier: 
 ## em DETERMINATION_SHIELDS ganha Determinação. Maças comuns (WEAPONS) não mudam: o Sacerdote precisa do MATK.
 const WEAPON_ROLES := {
 	"guardiao": {"sword": "offense", "mace": "defense"},
-	"templario": {"sword": "offense", "mace": "defense"},
+	"templario": {"mace": "offense", "sword": "defense"},     # martelo ataca (Penitência), espada defende (Baluarte)
 	"cruzado": {"sword2h": "offense", "mace2h": "defense"},
 	"batalha": {"mace": "battle"},
 }
@@ -1056,7 +1057,7 @@ static func apply_weapon_role(w: ItemDef, build: Dictionary, tier: int, lv: int,
 	match role:
 		"offense":
 			w.attributes = _attrs("FOR", other, lv, PIECE_WEIGHT["weapon"], mult)
-			w.atk = round(w.atk * Balance.LEG_SWORD_ATK_MULT)
+			w.atk = round(w.atk * (Balance.LEG_HAMMER_ATK_MULT if w.weapon_type == "mace" else Balance.LEG_SWORD_ATK_MULT))     # martelo de ataque = ATK da espada
 			w.matk = 0.0
 			w.legend_effect = legend_effect(build, tier)
 		"defense":
@@ -1288,9 +1289,10 @@ static func hybrid_sets(classes: Dictionary, skills: Dictionary) -> Dictionary:
 					wpn.legend_effect = legend_effect(bd, tier)
 					apply_weapon_role(wpn, bd, tier, lv, mult)
 					wl.append(wpn)
-					# a maça/martelo de defesa (Baluarte) entra uma vez no par: Égide Ardente tem duas espadas (Lâmina Justa e Penitência)
+					# a maça/martelo de defesa (Baluarte) entra uma vez no par (Égide Ardente: a do Guardião; a espada de defesa do
+					# Templário fica só no conjunto dele)
 					for alt_t: String in bd["main"]:
-						if weapon_role(bid, alt_t) == "defense" and not has_def:
+						if weapon_role(bid, alt_t) == "defense" and alt_t in ["mace", "mace2h"] and not has_def:
 							has_def = true
 							var alt := weapon_item("%s_%s" % [base, alt_t], "%s %s" % [WEAPON_NAMES[alt_t], tail], alt_t, lv, ItemDef.RARITY_LEGENDARY, mult, col)
 							apply_weapon_role(alt, bd, tier, lv, mult)

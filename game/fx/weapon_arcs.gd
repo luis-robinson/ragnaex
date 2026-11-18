@@ -153,6 +153,8 @@ const CLIP_ARC := {
 	"atk_thrust|*": [1.0, "W"],
 	"atk_leap|sword2h": [1.0, "F"], "atk_leap|mace2h": [1.0, "F"], "atk_finisher|claw": [1.0, "F"],
 	"atk_slash_shot|*": [1.0, "F"],   # estocada: diagonal com a ponta indo para +X (tabela: dx +1,02 m), cunha
+	# sequência de duas mãos do Golpe do Cruzado (tabela, medido 2026-11-17): corte para +X, revés para -X, golpe de cima
+	"atk_2h_chain_a|*": [1.0, "F"], "atk_2h_chain_b|*": [-1.0, "F"], "atk_2h_chain_c|*": [0.0, "S"],
 }
 ## Faixa de tema mágico: a cor do tema puxada para o branco (THEME_WHITE). Sangue mais claro só nos arcos
 ## (decisão do usuário 2026-11-15, doc de cores 6.6): o vermelho cheio é do aviso de dano (FxManager.DANGER*).

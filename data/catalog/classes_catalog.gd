@@ -36,7 +36,7 @@ static func _b(id: String, name: String, role: String, main: Array, off: Array, 
 static func build() -> Array:
 	return [
 		_mk({"id": "paladin", "shield_charge": "oath", "body_type": "male", "hair_color": Color(0.85, 0.65, 0.3), "name": "Paladino", "role": "tank", "color": Color(0.95, 0.85, 0.45),
-			"description": "Guerreiro sagrado. Tanque de escudo, cruzado de arma de duas mãos ou templário de espada e escudo que queima com fogo sagrado.",
+			"description": "Guerreiro sagrado. Tanque de escudo, cruzado de arma de duas mãos ou templário de martelo e escudo que esmaga com martelos de luz.",
 			"weapon_types": _s(["sword", "mace", "sword2h", "mace2h"]), "offhand_types": _s(["shield"]),
 			"base_hp": 140.0, "base_mp": 45.0, "hp_per_level": 16.0, "mp_per_level": 5.0, "move_speed": 5.2,
 			"basic_attack_power": 1.0, "basic_attack_cooldown": 0.7, "basic_attack_range": 1.9,
@@ -49,15 +49,16 @@ static func build() -> Array:
 					 "pal_shield_wall", "pal_aegis_slam", "pal_shield_bash", "pal_divine_shield", "pal_blessed_armor"]).merged({
 					"of": "do Guardião", "signature": {"skill": "pal_holy_strike", "look": "holy"}, "legend": {"kind": "holy_edge", "name": "Lâmina Justa"}}),
 				_b("cruzado", "Cruzado", "dps", ["sword2h", "mace2h"], [], "plate", "FOR", "WILL", "atk_pct",
-					["pal_holy_strike", "pal_crusader_strike", "pal_twin_slash", "pal_consecrate", "pal_lunge", "pal_hammer_light", "pal_blade_dance",
+					["pal_holy_strike", "pal_crusader_strike", "pal_twin_slash", "pal_consecrate", "pal_lunge", "pal_justice_hammer", "pal_blade_dance",
 					 "pal_holy_wave", "pal_flurry", "pal_zeal", "pal_valor", "pal_judgement_blade", "pal_purge"]).merged({
 					"of": "do Cruzado", "signature": {"skill": "pal_holy_wave", "look": "holy"}, "legend": {"kind": "stun", "name": "Julgamento"}}),
-				# Templário: espada (ou maça) e escudo como o Guardião, mas para causar dano: golpes de fogo sagrado que marcam
-				# e queimam (FOR no golpe, INT na queimadura); as skills de escudo do Guardião e a Retribuição entram na mistura
-				_b("templario", "Templário", "dps", ["sword", "mace"], ["shield"], "plate", "FOR", "INT", "atk_pct",
-					["pal_sacred_flame", "pal_holy_strike", "pal_brand", "pal_cleansing_fire", "pal_sun_strike", "pal_shield_bash", "pal_flame_pyre", "pal_avenging_wrath",
+				# Templário: martelo/maça (ou espada) e escudo como o Guardião, mas para causar dano: martelos de luz que marcam
+				# e queimam um pouco (FOR no golpe, INT na queimadura); as skills de escudo do Guardião e a Retribuição entram na mistura.
+				# Maça primeiro: a arma lendária de ataque é o martelo (GearCatalog.WEAPON_ROLES), a espada é a de defesa
+				_b("templario", "Templário", "dps", ["mace", "sword"], ["shield"], "plate", "FOR", "INT", "atk_pct",
+					["pal_wrath_hammer", "pal_holy_strike", "pal_brand", "pal_righteous_hammer", "pal_sun_strike", "pal_shield_bash", "pal_blessed_hammers", "pal_avenging_wrath",
 					 "pal_aegis_slam", "pal_retribution", "pal_blessed_armor", "pal_lay_hands", "pal_purge"]).merged({
-					"of": "do Templário", "signature": {"skill": "pal_sacred_flame", "look": "holy"}, "legend": {"kind": "penance", "name": "Penitência"}}),
+					"of": "do Templário", "signature": {"skill": "pal_wrath_hammer", "look": "holy"}, "legend": {"kind": "penance", "name": "Penitência"}}),
 			]}),
 		_mk({"id": "berserker", "body_type": "male", "hair_color": Color(0.55, 0.2, 0.12), "name": "Berserker", "role": "dps", "color": Color(0.85, 0.3, 0.25),
 			"description": "Fúria pura. Dois machados velozes que bebem o sangue do inimigo, um machado de duas mãos que aguenta o tranco e executa, ou duas garras de monge da fúria: esquiva tudo e devolve cada golpe.",

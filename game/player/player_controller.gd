@@ -2,7 +2,9 @@ class_name PlayerController
 extends Node
 ## Lê teclado/mouse e monta o InputCommand do jogador a cada tick de física.
 ## WASD relativo à câmera, mira = ponto do chão sob o mouse (MOBA), LMB ataque, RMB bloqueio,
-## 1-6 skills, F1-F3 poções, Shift dash, Espaço pula, F interage, H monta, G volta à cidade.
+## 1-6 skills, F1-F3 poções, Shift dash, Espaço pula, F interage, H monta, G volta à cidade, Tab trava no chefe (BossLock).
+
+signal lock_changed(target_id: int)   ## trava no chefe mudou (-1 = solta); HUD e marcador ouvem
 
 var camera: CameraRig
 var ui_blocking: bool = false     # true quando uma janela modal/chat está aberta
@@ -14,6 +16,8 @@ var last_cmd: InputCommand = null   # último comando montado (revisão: --ui_cl
 # registra o botão antes da UI). Segurar no mundo e passar por cima de uma janela continua: quem decide é o aperto.
 var _attack_held := false
 var _block_held := false
+var lock := BossLock.new()          # Tab: trava no chefe (movimento e mira no chefe)
+var _lock_toggle := false
 
 ## Soltar vale em qualquer lugar, até sobre uma janela (o _input vem antes da UI consumir o evento).
 func _input(event: InputEvent) -> void:
@@ -21,6 +25,10 @@ func _input(event: InputEvent) -> void:
 		_attack_held = false
 	if event.is_action_released("block"):
 		_block_held = false
+	# Tab no _input: um botão do HUD com foco comeria o Tab (ui_focus_next) antes do _unhandled_input
+	if not ui_blocking and event.is_action_pressed("lock_target") and not event.is_echo():
+		_lock_toggle = true
+		get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if ui_blocking:
@@ -65,15 +73,53 @@ func block_down(input_down: bool) -> bool:
 	_block_held = _block_held and input_down and not ui_blocking
 	return _block_held
 
+## Tab: trava no chefe por perto (cursor vence o mais perto) ou solta. Sem chefe: aviso e nada muda.
+func toggle_lock(cursor: Vector3) -> void:
+	if lock.active():
+		_set_lock(null)
+		return
+	var p: SimEntity = Sim.player
+	if p == null or not Sim.maps.has(p.map_id):
+		return
+	var boss := BossLock.pick(Sim.maps[p.map_id]["entities"], p.position, cursor, Balance.BOSS_LOCK_RANGE, Balance.BOSS_LOCK_CURSOR_PAD)
+	if boss == null:
+		Events.notification.emit("Nenhum chefe por perto")
+		return
+	_set_lock(boss)
+
+func _set_lock(boss: SimEntity) -> void:
+	if boss:
+		lock.lock(boss)
+	else:
+		lock.release()
+	lock_changed.emit(lock.target_id)
+
+## Chefe travado ainda vale? Solta sozinho pelas regras de BossLock.release_reason.
+func _locked_boss() -> SimEntity:
+	if not lock.active():
+		return null
+	var boss: SimEntity = Sim.get_entity(lock.target_id)
+	if BossLock.release_reason(Sim.player, boss, lock.map_id, lock.epoch, Balance.BOSS_LOCK_RELEASE) != "":
+		_set_lock(null)
+		return null
+	return boss
+
 func _physics_process(_delta: float) -> void:
 	var cmd := InputCommand.new()
 	var mouse := get_viewport().get_mouse_position()
 	aim_point = camera.mouse_ground_point(mouse)
-	cmd.aim = aim_point
+	if _lock_toggle:
+		_lock_toggle = false
+		toggle_lock(aim_point)
+	var boss := _locked_boss()
+	cmd.aim = BossLock.aim_point(boss) if boss else aim_point
 	if not ui_blocking:
 		var iv := Input.get_vector("move_left", "move_right", "move_back", "move_forward")
-		var world := camera.forward_flat() * iv.y + camera.right_flat() * iv.x
-		cmd.move = Vector2(world.x, world.z)
+		if boss and Sim.player:
+			cmd.move = _lock_move(Sim.player, boss, iv)
+		else:
+			var world := camera.forward_flat() * iv.y + camera.right_flat() * iv.x
+			cmd.move = Vector2(world.x, world.z)
 	cmd.block = block_down(Input.is_action_pressed("block"))
 	# segurar LMB = ataque contínuo (cadência da arma), só se o aperto foi no mundo
 	if attack_down(Input.is_action_pressed("attack")):
@@ -89,3 +135,10 @@ func _physics_process(_delta: float) -> void:
 	_pending = InputCommand.new()
 	last_cmd = cmd
 	Sim.set_player_command(cmd)
+
+## Movimento travado: W/S mexem a distância (o raio de A/D segue a distância atual); A/D giram no raio guardado.
+func _lock_move(p: SimEntity, boss: SimEntity, iv: Vector2) -> Vector2:
+	var r := Vector2(p.position.x - boss.position.x, p.position.z - boss.position.z).length()
+	if absf(iv.y) > 0.001 or lock.orbit_r <= 0.0:
+		lock.orbit_r = r
+	return BossLock.move_vector(p.position, boss.position, iv, lock.orbit_r, boss.radius + p.radius + Balance.BOSS_LOCK_MIN_GAP, Balance.BOSS_LOCK_ORBIT_AHEAD)

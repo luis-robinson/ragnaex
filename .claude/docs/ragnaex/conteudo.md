@@ -5,7 +5,7 @@
 - **Skill**: `data/catalog/skills_catalog.gd` → `_more()` com `_s(...)`/`_buff(...)` (20+ por classe; nível, build e
   arma exigida em cada uma; o jogador aprende com pontos e equipa 6). `ClassDef.skill_ids` é preenchido sozinho.
   Campos em `data/schemas/skill_def.gd`; efeitos suportados por `WorldSim._apply_effects`
-  (`dot, slow, stun, root, buff, shield, dash, summon, heal_pct_of_dmg, taunt, boss_summon, wither, mend_pct_of_dmg, combust, bounce, aura`; aura = liga/desliga em `AuraSystem`, `bounce` = projétil que ricocheteia; `SkillDef.clip`/`vfx` forçam clipe e tema); `dot` de skill de fogo vira queimadura sozinho e gelo estilhaça alvo retardado (`Combat.frost_mult`). Mira: SELF/DIRECTION/GROUND/CONE/TARGET.
+  (`dot, slow, stun, root, buff, shield, dash, summon, heal_pct_of_dmg, taunt, boss_summon, wither, mend_pct_of_dmg, combust, bounce, aura, orbit`; `orbit` = martelos que giram e batem de novo com o poder do lançamento (`AuraSystem.start_orbit/orbit_tick`, Martelos Abençoados); aura = liga/desliga em `AuraSystem`, `bounce` = projétil que ricocheteia; `strikes` = sequência de golpes de personagem: N golpes nos tempos `at`, partes `weights` do power, `crit_last` = último crítico garantido, `clips` = um clipe por golpe na `EntityView`; encadear só depois do último; check `_check_crusader_skills`; `SkillDef.clip`/`vfx` forçam clipe e tema); `dot` de skill de fogo vira queimadura sozinho e gelo estilhaça alvo retardado (`Combat.frost_mult`). Mira: SELF/DIRECTION/GROUND/CONE/TARGET.
   A skill entra sozinha na **teia** (estilo Path of Exile, `data/catalog/tree_catalog.gd`): malha de junções e estradas (grade `CELL` irregular,
   sorteio fixo por classe, parte das estradas sai = escolha de rota) com círculos nas casas: de skill (maestria/evoluções/passivos em volta) e de
   notável (`ARM_NOTABLES`/`RING_NOTABLES`, duas entradas). Setores por ramo; skill de nível alto mais longe. Há check de folga (`windows.NODE_PX`/`WEB_UNIT`). 8 pontos por nível (`Balance.points_at`); estradas/junções só caminho. Quanto a teia dá: `--headless --path . tools/tests/web_probe.tscn -- [--level=30]` (alvo: média das builds ATK x1,3-1,5 e HP x1,1-1,3, cada build ATK×HP x1,2-2,3; `Balance.WEB_GAIN_*`, check `_check_web_strength`). Bots compram
@@ -115,6 +115,11 @@
   e quanto o boneco fica parado entre básicos segurados. `FLAG` = problema; mexeu em timing de skill ou clipe, rode e deixe em 0 (o Cruzado tem 0,16 s de ritmo de arma pesada, aceito).
   Formas de bicho: `EntityView.FORM_CLIP` manda o gesto humano para `maul/pounce/slam/roar/brace` (`druid_sets.form_clips`); gesto longo repete na fase ativa (`ACTIVE_LOOP`).
   Filme de clipe de monstro/forma: `lineup.tscn -- --mob_strip=<modelo> --anim=<clipe>`.
+- **Trava no chefe (Tab, 2026-11-18)**: só apresentação, `game/player/boss_lock.gd` (`BossLock`, funções puras) + `PlayerController` (ação `lock_target` no InputMap).
+  Só chefe de verdade (`is_boss`, sem `elite_of`, sem `decoy`) até `Balance.BOSS_LOCK_RANGE`; o sob o cursor vence o mais perto; sem chefe = aviso "Nenhum chefe por perto".
+  Travado: W/S = raio, A/D = órbita no raio guardado (persegue um ponto `BOSS_LOCK_ORBIT_AHEAD` à frente no círculo: não espirala), mira de TUDO = chefe (a sim limita GROUND ao alcance).
+  Solta: Tab, chefe morto/sumido/resetado (`adds_epoch`), troca de mapa, além de `BOSS_LOCK_RELEASE`, jogador morto; montar NÃO solta. Marca: `LockMarker` (mira dourada nos pés + seta branca), etiqueta "Travado" no HUD.
+  Check `_check_boss_lock`; revisar: `-- --autostart=<c> --lock_shot=<pasta> [--boss=<id>]` (imprime `LOCK_SHOT` com o raio antes/depois do D).
 - **Arco de golpe por família de arma** (`game/fx/weapon_arcs.gd`, `WeaponArcs`; só apresentação, nunca muda tempo nem dano): no tick do dano de golpe
   físico em cone (básico e skills de leque) desenha um crescente do tamanho do cone REAL da `SkillDef`, faíscas/estrela no alvo e hit-stop LOCAL (só quem bate e quem apanha).
   `FAMILIES[<tipo de arma>]` = aparência: `band` (cor da faixa no tema físico; tema mágico usa a cor do tema puxada para o branco, `THEME_WHITE`, e `THEME_WHITE_BY`
@@ -169,6 +174,9 @@
   do muro `_ring`); monstro calmo com a linha bloqueada não é escolhido (`MapGeometry.line_walkable`); sem chegar perto em `BOT_CHASE_STALL` s larga e ignora (`_stalled`/`_drop`);
   ponta de rio a ≤ 3 m de lago fecha (`MapGeometry.river_lake_joins`); seguidor espera na porta só do jogador (`_wait_at_door`; catchup e portal do grupo não entram em casa).
   Medir: `tools/tests/stuck_probe.tscn -- --minutes=30 --seed=<n> --out=<json>` + `python tools/tests/stuck_cluster.py <jsons>`; checks `_check_bot_unstuck`, `_check_water_lines_walk`.
+  **Faixa dos bots** (2026-11-18, `BotBandSystem`): cidade nasce na faixa dela (`spawn_levels`, `BOT_BAND_SLACK`) e espalhada (`spawn_spots`: no máx. `BOT_SQUARE_CAP` na praça);
+  bot sem cristal volta/renasce no povoado com cristal da faixa (`home_map`, `BOT_HOME_STEP_UP`; no grupo do jogador = casa do jogador, via `PortalSystem.home_of(e, sim)`);
+  à toa em povoado de faixa baixa sai para caçar (`below_band`); ponto de encontro com menos gente (`BotBrain._pick_hangout`). Medir: `sim_probe.tscn -- --ticks=18000 --census` (`BAND`/`BANDAVG`); check `_check_bot_band`.
 - **Quest**: `quests_catalog.gd` (KILL/COLLECT/TALK/CRAFT/REACH; NPC giver precisa existir em algum `MapDef.npcs`). `prereq_all` junta ramos, `reward_gear_tier` dá peça vestível, `repeatable` é recompensa de quadro.
 - **Mapa/zona**: siga "Layout de zonas" abaixo (`/layout-zone`). O `MapDef` continua sendo a verdade da sim
   (obstáculos = colisão, portais, spawners, NPCs); o visual da zona vem do Blender (`map_<zona>.glb`).

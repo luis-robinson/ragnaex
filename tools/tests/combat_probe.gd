@@ -436,6 +436,42 @@ func _probe_skill(s: SkillDef) -> Dictionary:
 	_anim_check(tag, cast)
 	return {"latency": float(lat)}
 
+## Sequência de golpes ("strikes"): a mesma conta de EntityView._strike_step para cada clipe (impacto no tick do golpe
+## dele) e, no último, o resto do clipe até o fim da skill. true = conferido (sem o caminho de clipe único).
+func _strikes_check(tag: String, s: SkillDef) -> bool:
+	var st: Dictionary = s.effects["strikes"]
+	var clips: Array = st.get("clips", [])
+	var at_s: Array = st.get("at", [])
+	var n := mini(clips.size(), at_s.size())
+	if n < 2:
+		return false
+	var s1 := 1.0
+	var clip := ""
+	for i in n:
+		clip = view._clip(str(clips[i]))
+		if clip == "":
+			_flag("%s golpe %d sem clipe (%s)" % [tag, i + 1, clips[i]])
+			return true
+		var impact := float(EntityView.IMPACT_FRAME.get(clip, 5) - 1) / 24.0
+		var windup := maxf(s.startup, 0.06)
+		if i > 0:
+			var gap := float(at_s[i]) - float(at_s[i - 1])
+			windup = maxf(gap * (1.0 - EntityView.STRIKE_NEXT_AT), 0.06)
+		var wt := EntityView.windup_timing(impact, windup)
+		s1 = wt.y
+		var off := (impact - wt.x) / s1 - windup
+		if absf(off) > 0.08:
+			_flag("%s golpe %d clipe '%s' bate %.2fs %s do dano" % [tag, i + 1, clip, absf(off), "antes" if off < 0 else "depois"])
+		if i == n - 1:
+			var left := view.anim.get_animation(clip).length - impact
+			var time_left := maxf(s.startup + s.active + s.recovery - (s.startup + float(at_s[i])), 0.05)
+			var raw2 := left / time_left / maxf(s1, 0.01)
+			if raw2 > 2.5 * 1.05:
+				_flag("%s último golpe '%s' corre demais depois do impacto (%.1fx)" % [tag, clip, raw2])
+		elif verbose:
+			print("  %s golpe %d '%s' preparo %.2fs a %.2fx" % [tag, i + 1, clip, windup, s1])
+	return true
+
 ## Mesma conta de EntityView._animate_glb: velocidade até o impacto e depois o resto do clipe até o fim da skill.
 func _anim_check(tag: String, s: SkillDef) -> void:
 	if view.anim == null:
@@ -451,6 +487,8 @@ func _anim_check(tag: String, s: SkillDef) -> void:
 		return
 	if clip != want and verbose:
 		print("  %s clipe %s -> %s" % [tag, want, clip])
+	if s.effects.get("strikes") is Dictionary and _strikes_check(tag, s):
+		return
 	var length := view.anim.get_animation(clip).length
 	var impact := float(EntityView.IMPACT_FRAME.get(clip, 5) - 1) / 24.0
 	var startup := maxf(s.startup, 0.06)

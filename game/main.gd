@@ -21,6 +21,7 @@ var view_queue := ViewQueue.new()  # entidades do mapa ainda sem view (criadas a
 var camera: CameraRig
 var controller: PlayerController
 var fx: FxManager
+var lock_marker: LockMarker
 var hud                          # Hud (CanvasLayer)
 var current_map_id: String = ""
 var started := false
@@ -78,6 +79,11 @@ func _ready() -> void:
 	hud = load("res://game/ui/hud.gd").new()
 	hud.main = self
 	add_child(hud)
+	lock_marker = LockMarker.new()           # Tab: marca dourada no chefe travado (BossLock)
+	lock_marker.name = "LockMarker"
+	lock_marker.main = self
+	world_root.add_child(lock_marker)
+	controller.lock_changed.connect(_on_lock_changed)
 
 	start_req = StartRequest.take()
 	if start_req == null:                    # main.tscn aberto direto: decide como a tela inicial decidiria
@@ -207,10 +213,11 @@ func _populate_bots(staged: bool = false) -> int:
 		for i in range(md.bot_population):
 			var tm := Time.get_ticks_msec()
 			var cls: ClassDef = classes[randi() % classes.size()]
-			var lv := randi_range(md.level_range.x, md.level_range.y)
-			if md.is_town:
-				lv = randi_range(1, 30)
-			var pos := Sim.random_walkable(md, md.spawn_point if not md.is_town else md.town_center, 10.0)
+			var band := BotBandSystem.spawn_levels(md)        # cidade também nasce na faixa dela (antes: 1-30 em Aldara)
+			var lv := randi_range(band.x, band.y)
+			var pos := Sim.random_walkable(md, md.spawn_point, 10.0)
+			if md.is_town:                                     # espalhados pelos pontos de encontro, não todos na praça
+				pos = Sim.random_walkable(md, BotBandSystem.spawn_spot(md, i), 2.0)
 			Sim.spawn_bot(cls, names[k % names.size()], mid, pos, lv)
 			k += 1
 			work += Time.get_ticks_msec() - tm
@@ -669,3 +676,8 @@ func return_to_menu() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST and started:
 		save_game()
+
+## Trava no chefe mudou (Tab ou solta sozinha): marcador no mundo + etiqueta no HUD.
+func _on_lock_changed(target_id: int) -> void:
+	lock_marker.set_target(target_id)
+	hud.set_lock(target_id)

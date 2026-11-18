@@ -76,7 +76,25 @@ static func is_chilled(t: SimEntity) -> bool:
 			return true
 	return false
 
-static func calc_damage(attacker: SimEntity, target: SimEntity, power: float, kind: int, rng: RandomNumberGenerator, from: Variant = null) -> Dictionary:
+## Sequência de golpes (efeito "strikes": {"weights": [...], "at": [...], "crit_last": bool}): quantos golpes.
+static func strike_count(st: Dictionary) -> int:
+	return (st.get("weights", []) as Array).size()
+
+## Parte do power da skill que o golpe `i` da sequência leva (weights normalizados: a soma é o power inteiro).
+static func strike_share(st: Dictionary, i: int) -> float:
+	var w: Array = st.get("weights", [])
+	if w.is_empty():
+		return 1.0
+	var total := 0.0
+	for x in w:
+		total += float(x)
+	return float(w[clampi(i, 0, w.size() - 1)]) / maxf(total, 0.001)
+
+## O golpe `i` é o crítico garantido da sequência (o último, com crit_last)?
+static func strike_crit(st: Dictionary, i: int) -> bool:
+	return bool(st.get("crit_last", false)) and i == strike_count(st) - 1
+
+static func calc_damage(attacker: SimEntity, target: SimEntity, power: float, kind: int, rng: RandomNumberGenerator, from: Variant = null, force_crit := false) -> Dictionary:
 	var magical := kind == SkillDef.Kind.MAGICAL
 	var atk := attacker.stats.matk if magical else attacker.stats.patk
 	var def := target.stats.mdef if magical else target.stats.pdef
@@ -90,8 +108,9 @@ static func calc_damage(attacker: SimEntity, target: SimEntity, power: float, ki
 	var raw := atk * power - def * Balance.DEF_FACTOR
 	raw = maxf(raw, atk * power * 0.15)   # piso: 15% do dano bruto
 	var variance := 1.0 + rng.randf_range(-Balance.DMG_VARIANCE, Balance.DMG_VARIANCE)
-	var crit := rng.randf() * 100.0 < crit_chance
+	var crit := rng.randf() * 100.0 < crit_chance or force_crit     # crítico garantido (último golpe de "strikes"); bloqueio ainda vence
 	var amount := raw * variance * (attacker.stats.crit_mult() if crit else 1.0)
+	amount *= 1.0 + attacker.stats.vit_dmg_pct / 100.0     # Paladino de espada: dano pela VIT (Stats.vit_sword_pct)
 
 	# bloqueio: passivo (escudo) ou ativo (segurando RMB)
 	var blocked := false

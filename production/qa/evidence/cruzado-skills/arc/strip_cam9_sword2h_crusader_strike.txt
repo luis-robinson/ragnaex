@@ -1,0 +1,20 @@
+0 st=0.050 clip=atk_1h_a
+1 st=0.100 clip=atk_1h_a
+2 st=0.150 clip=atk_1h_a
+3 st=0.200 clip=atk_1h_a
+4 st=0.250 clip=atk_1h_b
+5 st=0.300 clip=atk_1h_b
+6 st=0.350 clip=atk_1h_b
+7 st=0.400 clip=atk_1h_b
+8 st=0.450 clip=atk_1h_b
+9 st=0.500 clip=atk_1h_b
+10 st=0.550 clip=atk_finisher
+11 st=0.600 clip=atk_finisher
+12 st=0.650 clip=atk_finisher
+13 st=0.700 clip=atk_finisher
+14 st=0.750 clip=atk_finisher
+15 st=0.800 clip=atk_finisher
+16 st=0.850 clip=atk_finisher
+17 st=0.900 clip=atk_finisher
+impact_cell=3
+skill=pal_crusader_strike startup=0.16

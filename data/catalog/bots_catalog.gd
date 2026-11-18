@@ -175,7 +175,7 @@ const BUILD_LINES := {
 	"cruzado": ["espada de duas mãos e fé", "cruzado é dps disfarçado de tank", "zelo no talo"],
 	"punhos": ["esquivei, agora é minha vez", "quanto mais você erra, mais forte eu fico", "garra afiada, punho fechado", "chakra em dia, bora"],
 	"corsario": ["sabre numa mão, pistola na outra", "bravata cheia, tiro entre os olhos", "rolei os dados e deu crítico, sorte de capitão", "gancho no mastro e lá vou eu", "a bala ricocheteia, a culpa não é minha"],
-	"templario": ["escudo numa mão, fogo sagrado na outra", "marquei, agora queima", "templário é paladino que descobriu o fogo", "cinco marcas e bum"],
+	"templario": ["escudo numa mão, martelo na outra", "marquei, agora o martelo cai", "templário é paladino que descobriu o martelo", "cinco marcas e bum"],
 	"batalha": ["cada martelada cura alguém, confia", "clérigo de linha de frente, sem medo", "hino de batalha tocando", "quem tá ferido? vou bater em algo"],
 	"lanceiro": ["lança na mão, presa na mira", "arco é pra quem tem medo de chegar perto", "marquei, agora sangra", "salto, estoco e já tô em cima"],
 	"carniceiro": ["dois machados, o dobro de alegria", "roubo de vida tá rendendo", "velocidade de ataque é tudo"],

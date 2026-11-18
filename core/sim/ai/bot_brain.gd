@@ -178,12 +178,14 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 	match state:
 		S.TOWN_IDLE:
 			if timer <= 0.0:
-				if rng.randf() < 0.45 + personality * 0.3 and e.hp > e.stats.max_hp * 0.8:
+				# povoado de faixa bem mais baixa (veio de grupo/viagem): não fica à toa aqui, sai para caçar na faixa dele
+				var away := BotBandSystem.below_band(e, def) and e.party_id < 0
+				if away or (rng.randf() < 0.45 + personality * 0.3 and e.hp > e.stats.max_hp * 0.8):
 					_plan_trip(e, sim)
 				else:
 					state = S.TOWN_WALK
 					if def.bot_hangouts.size() > 0:
-						target_pos = def.bot_hangouts[rng.randi() % def.bot_hangouts.size()] + Vector3(rng.randf_range(-1.5, 1.5), 0, rng.randf_range(-1.5, 1.5))
+						target_pos = _pick_hangout(e, m, def) + Vector3(rng.randf_range(-1.5, 1.5), 0, rng.randf_range(-1.5, 1.5))
 					else:
 						target_pos = sim.random_walkable(def, def.town_center, 10.0)
 					timer = 15.0
@@ -219,7 +221,7 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 				state = S.TOWN_IDLE if in_town else S.RETURN
 				timer = 2.0
 			elif e.hp < e.stats.max_hp * 0.3 or e.inventory_weight() > 60 or timer <= 0.0:
-				_go_home()
+				_go_home(e, sim)
 			else:
 				var mob := _sticky(e, m, Balance.BOT_STICKY_RANGE)
 				if mob == null:
@@ -238,12 +240,13 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 				if _stalled(e, -2, target_pos):
 					target_pos = Vector3.ZERO          # ponto atrás de muro/penhasco: sorteia outro
 		S.RETURN:
-			if in_town:
+			var home: String = PortalSystem.home_of(e, sim)["map"]     # povoado da faixa (ou a casa do jogador, no grupo dele)
+			if e.map_id == home and def.in_hub(e.position):
 				state = S.SHOP
 				timer = rng.randf_range(4.0, 9.0)
 				var npc := _find_npc(def, "merchant")
-				target_pos = npc.get("pos", Vector3.ZERO) + Vector3(0, 0, 1.6)
-			elif def.is_town:
+				target_pos = npc["pos"] + Vector3(0, 0, 1.6) if npc.has("pos") else def.town_center
+			elif def.is_town and e.map_id == home:
 				cmd.move = _steer(e, def.town_center, dt)      # mesma zona: volta pela estrada até a praça
 				cmd.aim = def.town_center
 			elif e.recall_left > 0.0:
@@ -253,7 +256,7 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 				cmd.move = Vector2.ZERO
 				recall_retry = Balance.BOT_RECALL_RETRY
 			else:
-				var portal := _find_portal(def, GameData.town_map_id())
+				var portal := _find_portal(def, home)
 				if not portal.is_empty():
 					cmd.move = _steer(e, portal["pos"], dt)
 					cmd.aim = portal["pos"]
@@ -1227,10 +1230,34 @@ func _plan_trip(e: SimEntity, sim) -> void:
 		Events.post(&"chat_message", e.name, GameData.random_bot_line("leaving").format(BotsCatalog.place_words(GameData.maps[dest_map].name)), "global")
 	_gather_party(e, sim)
 
-func _go_home() -> void:
+func _go_home(e: SimEntity, sim) -> void:
 	state = S.RETURN
-	dest_map = GameData.town_map_id()
+	dest_map = PortalSystem.home_of(e, sim)["map"]
 	timer = 90.0
+
+## Ponto de encontro do povoado: BOT_HANGOUT_PICKS sorteados, fica o com menos bots em volta; com a praça cheia
+## (BOT_SQUARE_CAP bots à toa a BOT_SQUARE_RADIUS do centro) os da praça ficam de fora.
+func _pick_hangout(e: SimEntity, m: Dictionary, def: MapDef) -> Vector3:
+	var hs: Array = def.bot_hangouts
+	var square := 0
+	for o: SimEntity in m["entities"]:
+		if o != e and o.kind == SimEntity.Kind.BOT and o.position.distance_to(def.town_center) < Balance.BOT_SQUARE_RADIUS:
+			square += 1
+	var full := square >= Balance.BOT_SQUARE_CAP
+	var best: Vector3 = hs[rng.randi() % hs.size()]
+	var best_n := 1 << 30
+	for i in Balance.BOT_HANGOUT_PICKS:
+		var h: Vector3 = hs[rng.randi() % hs.size()]
+		var n := 0
+		if full and h.distance_to(def.town_center) < Balance.BOT_SQUARE_RADIUS:
+			n += 1000
+		for o: SimEntity in m["entities"]:
+			if o != e and o.kind == SimEntity.Kind.BOT and o.position.distance_to(h) < Balance.BOT_HANGOUT_CROWD_R:
+				n += 1
+		if n < best_n:
+			best = h
+			best_n = n
+	return best
 
 ## Portal do mapa atual no caminho até `target_map` (busca no grafo de portais, como o seguidor do grupo).
 ## Antes caía em `portals[0]` quando o destino ficava a 2+ portais: no mapa vizinho o `portals[0]` apontava de volta
@@ -1537,7 +1564,7 @@ func _gather_party(e: SimEntity, sim) -> void:
 				break
 			if o == e or o.kind != SimEntity.Kind.BOT or o.party_id >= 0 or not o.is_alive():
 				continue
-			if absi(o.level - e.level) > 5 or o.position.distance_to(e.position) > 30.0 or not cur_def.in_town(o.position):
+			if absi(o.level - e.level) > 5 or o.position.distance_to(e.position) > 30.0 or not cur_def.in_hub(o.position):
 				continue
 			if o.brain and o.brain.state in [S.TOWN_IDLE, S.TOWN_WALK] and sim.party_invite(e, o):
 				wanted -= 1

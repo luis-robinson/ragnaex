@@ -58,6 +58,6 @@ Scripts novos com `class_name` só são vistos pelos outros scripts depois de `-
   `--loading_shot=<png> [--loading_map=<id>]` (overlay com a arte da zona, sem montar mundo); `--loading_fail` (força a falha da montagem: volta a Personagens com a faixa vermelha);
   `--path_shot=<pasta> [--path_class=<id>]` (título → Jogar → Criação → Carregamento pelos sinais, espaço -1; grava `a_title/a_create/a_loading.png`; com `--loading_fail` grava `a_fail.png`);
   `--menu_saves=<n|padrão>` (saves falsos, ids 90+: `n` cards ok, ou um char por espaço, `o` ok / `c` danificado / `-` vazio, ex. `oc-o`); `--menu_delete` (abre a confirmação de excluir);
-  `--dev_presets` (seletor de começo rápido na Criação, só dev; `--preset=N` continua valendo); `-- --autostart=<c> --return_check [--menu_shot=<png> --return_shot=<png>]` (imprime
+  `--dev_presets` (já abre o seletor de começo rápido; no jogo o botão "Debug" do painel do nome na Criação mostra os começos 10/16/20/30, grupo completo e `Balance.START_PRESET_COINS` moedas; `--preset=N` continua valendo); `-- --autostart=<c> --return_check [--menu_shot=<png> --return_shot=<png>]` (imprime
   `RETURN_CHECK ok entities=0 maps=0 parties=0 player=false screen=list`); cenário sem a cena de início: `.\tools\godot.ps1 --path . tools/menu_set_view.tscn -- --menu_set_shot=<png> [--shot_cam=title|list|create] [--settings] [--class=<id>]`.
   Checks: `_check_start_flow`, `_check_char_create`, `_check_char_list`, `_check_menu_set`, `_check_settings_panel`, `_check_loading_steps`, `_check_save_slots`, `_check_title_screen`.

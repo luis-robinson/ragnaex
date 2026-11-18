@@ -304,7 +304,7 @@ static func _chain_before(qid: String) -> Array:
 	return out
 
 static func respawn_character(sim: WorldSim, e: SimEntity) -> void:
-	var home := PortalSystem.home_of(e)
+	var home := PortalSystem.home_of(e, sim)
 	e.hp = e.stats.max_hp * Balance.RESPAWN_SHARE
 	e.mp = e.stats.max_mp * Balance.RESPAWN_SHARE
 	e.set_state(SimEntity.State.IDLE)

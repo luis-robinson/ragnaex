@@ -63,7 +63,20 @@ static func shield_class_bonus(sim: WorldSim, e: SimEntity, off: ItemDef, parrie
 static func oath_stacks(sim: WorldSim, e: SimEntity) -> int:
 	return e.buff_stacks("juramento")
 
-## Skill de escudo escala com a DEF do escudo; skill sagrada ou de escudo do paladino gasta o Juramento.
+## Fração de poder a mais da skill de escudo do Paladino pela DEF do escudo (+SHIELD_DEF_POWER por DEF, teto SHIELD_DEF_POWER_MAX).
+static func def_power(off: ItemDef) -> float:
+	return minf(off.def * Balance.SHIELD_DEF_POWER, Balance.SHIELD_DEF_POWER_MAX) if off else 0.0
+
+## Fração de poder a mais da skill de escudo do Paladino pela VIT (escala de hoje): +1% a cada SHIELD_VIT_PER_PCT, teto SHIELD_VIT_MAX.
+## Soma com def_power. Ex.: SHIELD_VIT_PER_PCT 20, VIT 600 -> +0,30.
+static func vit_power(e: SimEntity) -> float:
+	return clampf(float(e.stats.attrs["VIT"]) / Balance.SHIELD_VIT_PER_PCT / 100.0, 0.0, Balance.SHIELD_VIT_MAX)
+
+## A skill é "de escudo" para o Paladino (exige escudo e a classe junta Juramento): ganha DEF do escudo e VIT.
+static func is_oath_shield_skill(e: SimEntity, s: SkillDef) -> bool:
+	return e.class_def != null and e.class_def.shield_charge == "oath" and "shield" in s.requires and s.kind != SkillDef.Kind.BUFF
+
+## Skill de escudo escala com a DEF do escudo e a VIT; skill sagrada ou de escudo do paladino gasta o Juramento.
 static func shield_power(sim: WorldSim, e: SimEntity, s: SkillDef) -> float:
 	var off: ItemDef = e.equipment.get(ItemDef.Slot.OFFHAND)
 	if off == null or off.weapon_type != "shield" or e.class_def == null or s.kind == SkillDef.Kind.BUFF:
@@ -71,7 +84,7 @@ static func shield_power(sim: WorldSim, e: SimEntity, s: SkillDef) -> float:
 	var mult := 1.0
 	var shield_skill: bool = "shield" in s.requires and e.class_def.shield_charge == "oath"
 	if shield_skill:
-		mult += minf(off.def * Balance.SHIELD_DEF_POWER, Balance.SHIELD_DEF_POWER_MAX)
+		mult += def_power(off) + vit_power(e)
 	var stacks := oath_stacks(sim, e)
 	if stacks > 0 and (shield_skill or s.vfx == "holy"):
 		mult += stacks * Balance.SHIELD_OATH_POWER

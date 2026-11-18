@@ -130,8 +130,27 @@ const PARRY_MELEE_RANGE := 4.0
 const SHIELD_OATH_MAX := 5             # Juramento (paladino): cargas por bloqueio; aparar vale 2
 const SHIELD_OATH_TIME := 10.0         # s até as cargas sumirem
 const SHIELD_OATH_POWER := 0.08        # +8% por carga na próxima skill sagrada ou de escudo
+const CT_OATH_MAX := 8                 # Voto do Escudo (talento de classe nv 5): teto do Juramento
+## Martelos do Paladino (Templário: Martelo da Ira, Martelos Abençoados; Cruzado: Martelo da Justiça)
+const PAL_WRATH_STUN := 0.4            # s: Martelo da Ira atordoa de leve (abertura barata)
+const PAL_JUSTICE_STUN := 1.0          # s: Martelo da Justiça (arremessado, volta para a mão)
+const PAL_HAMMERS_POWER := 0.25        # power de cada batida dos Martelos Abençoados (a do lançamento e cada pulso)
+const PAL_HAMMERS_TIME := 6.0          # s que os martelos giram (efeito "orbit")
+const PAL_HAMMERS_EVERY := 0.5         # s entre batidas (múltiplo de AURA_TICK: o pulso anda no relógio das auras)
+const PAL_HAMMERS_RADIUS := 2.8        # m em volta de quem lança
 const SHIELD_DEF_POWER := 0.003        # skill de escudo: +0,3% por DEF do escudo
 const SHIELD_DEF_POWER_MAX := 0.3
+## VIT do Paladino (decisão do usuário 2026-11-18, opção "Forte": o Guardião quase de dano). VIT na escala de HOJE (a da janela,
+## ATTR_SCALE pontos = 1 da antiga): "+1% a cada 2 VIT" da proposta = 2 VIT antigos = 20 de hoje. VIT medida (2026-11-18, teia de bot):
+## Guardião nv 30 ~580 com equipamento comum (+29%) e ~1280 com o lendário do 30 (teto); nv 45 ~1000 comum (teto).
+## Cruzado ~195 (nv 30) / ~305 (nv 45) = +10% / +15%; Templário ~330 / ~500 (escudo +16% / +25%). Tabela em docs/DESIGN.md.
+const SHIELD_VIT_PER_PCT := 20.0       # skill de escudo do Paladino: +1% de poder a cada 20 VIT (ShieldSystem.vit_power), soma com a DEF
+const SHIELD_VIT_MAX := 0.25           # teto +25% (era 45%: o Guardião passava o Cruzado em dano, decisão 2026-11-18)
+const VIT_SWORD_CLASSES := ["paladin"]           # classes cuja espada converte VIT em dano
+const VIT_SWORD_WEAPONS := ["sword", "sword2h"]  # espada de 1 ou 2 mãos na mão principal
+const VIT_SWORD_PER_PCT := 20.0        # +1% de dano a cada 20 VIT com espada (Stats.vit_sword_pct; Combat.calc_damage)
+const VIT_SWORD_PER_PCT_2H := 10.0     # espada de 2 mãos (Cruzado, pouca VIT): rende o dobro, +1% a cada 10 VIT
+const VIT_SWORD_CAP := 40.0            # teto +40%
 const SHIELD_GRACE_PCT := 5.0          # Graça (bispo): bloquear cura 5% do HP do aliado mais ferido...
 const SHIELD_GRACE_CD := 4.0           # ...no máximo a cada 4 s: reforço, não imortalidade de graça
 const SHIELD_GRACE_RANGE := 12.0
@@ -211,6 +230,12 @@ const LOADOUT_TOWN_ONLY := false            # true = trocar skills da barra só 
 
 # --- combate / game feel ---
 const INPUT_BUFFER_TICKS := 15              # 0,25 s: apertar durante o golpe não se perde
+# Trava no chefe (Tab, só apresentação: game/player/boss_lock.gd; decisão 2026-11-18)
+const BOSS_LOCK_RANGE := 30.0               # m: Tab só trava chefe de verdade até aqui
+const BOSS_LOCK_RELEASE := 40.0             # m: passou disto, a trava solta sozinha
+const BOSS_LOCK_CURSOR_PAD := 2.0           # m além do raio do chefe: o que está sob o cursor vence o mais perto
+const BOSS_LOCK_ORBIT_AHEAD := 1.2          # m de arco à frente que A/D persegue no círculo (não espirala para fora)
+const BOSS_LOCK_MIN_GAP := 0.5              # m entre os raios: W não empurra mais para dentro do chefe
 const CAST_MOVE_MULT := 0.6                 # anda a 60% durante golpes e magias rápidas
 const CAST_MOVE_MULT_HEAVY := 0.25          # magias longas (preparo >= CAST_HEAVY_STARTUP) quase param
 const CAST_HEAVY_STARTUP := 0.45
@@ -381,6 +406,7 @@ static func horde_stat(role: String, stat: String, level: int, mods: Dictionary 
 		_:
 			return base + (HORDE_D_DEF_COMMON if role == "comum" else HORDE_D_DEF) * dl
 const PATROL_PACE := 0.45              # líder em ronda anda devagar (a escolta acompanha)
+const START_PRESET_COINS := 999        # começo rápido (modo debug da criação): Moedas Lendárias para comprar o conjunto lendário
 const LEGEND_COIN_PRICE := 500         # Relicária vende uma Moeda Lendária por isto em ouro
 const SKILL_RESET_NPCS := ["elder", "high_priest"]   # quem reseta a árvore (Ancião Ravi; Alta Sacerdotisa no Bastião)
 const SKILL_RESET_NPC := "elder"       # quem reseta a árvore de skills (Ancião Ravi, praça de Aldara)
@@ -607,6 +633,13 @@ const ELITE_LEASH_MIN := 25.0
 const RECALL_TIME := 3.5                   # s de conjuração (G) para voltar à cidade; vale em combate; andar, agir ou levar dano interrompe
 const BOT_RECALL_RETRY := 8.0              # bot com a volta interrompida anda para o portal e tenta de novo depois disto
 const BOT_TRAVEL_LEG_S := 60.0             # bot viajando: prazo para chegar ao próximo portal; recomeça a cada mapa do caminho (era 60 s para a viagem toda)
+## Faixa dos bots (playtest 2026-11-18: lv 40 na praça de Aldara). Medir: sim_probe -- --census (linhas BAND).
+const BOT_BAND_SLACK := 2                  # níveis acima do teto da faixa do mapa que ainda contam "da faixa" (censo e checks)
+const BOT_SQUARE_RADIUS := 12.0            # m do centro da vila: a praça (censo; hangout com gente demais aqui é evitado)
+const BOT_HOME_STEP_UP := 2                # bot muda de povoado-casa (cristal) quando passa o piso da faixa do próximo por isto (lv 12 Posto, 22 Bastião, 32 Porto...)
+const BOT_SQUARE_CAP := 4                  # bots à toa na praça: com isto ou mais lá, quem escolhe um ponto de encontro vai para um de fora
+const BOT_HANGOUT_PICKS := 3               # pontos de encontro sorteados por escolha; fica o com menos gente a BOT_HANGOUT_CROWD_R
+const BOT_HANGOUT_CROWD_R := 3.0           # m em volta do ponto de encontro que contam como "gente lá"
 ## IA dos bots no combate
 const BOT_POTION_HP_MELEE := 0.45          # corpo a corpo bebe poção de vida abaixo disto (os outros: 0.35)
 const BOT_FLEE_HP := 0.2                   # sem poção, abaixo disto recua por BOT_FLEE_TIME s
@@ -802,7 +835,8 @@ const CT_CURSE_MULT := 1.3                  # ... e 30% mais forte
 ## Dano no tempo trocado pelo talento (dicionário inteiro: o efeito do talento substitui o da skill).
 ## Talentos que SOMAM ao que a skill já tem (base + maestria + evolução; skill_mods "add", decisão 2026-11-17)
 const CT_HOLY_MEND_ADD := 0.12              # Golpe Restaurador: +12% do dano vira cura (Golpe Sagrado já cura 15-35%)
-const CT_FLAME_STRIKE_ADD_S := 5.0          # Golpe Ardente: a queimadura da Chama Sagrada dura +5 s
+const CT_WRATH_HAMMER_ADD_S := 3.0          # Golpe Ardente: a queimadura do Martelo da Ira dura +3 s (dobra)
+const CT_HAMMERS_TIME_MULT := 1.5           # Martelos Incansáveis (templário 35): os Martelos Abençoados giram 50% mais tempo
 const CT_SMITE_HAMMER_ADD_S := 0.4          # Castigo: o Martelo de Luz (já atordoa 0,6 s) atordoa +0,4 s
 const CT_DOTS := {
 	"dru_claw": {"dps": 4, "duration": 4 + CT_DOT_EXTRA_S},          # Garras Afiadas
@@ -821,9 +855,9 @@ const CT_CRUSADE_AURA := 0.6                # Aura de Cruzada (Paladino 20): for
 const ATTACK_SPEED_CAP := 60.0              # % máximo de velocidade de ataque
 const CHAIN_AFTER_IMPACT := 0.05            # depois do impacto, outra skill/ataque já pode sair (o quadro do golpe ainda aparece)
 const HIT_STOP_FRAMES_BASIC := 2
-const DASH_DISTANCE := 3.2
-const DASH_TIME := 0.18
-const DASH_IFRAMES := 0.18              # s invulnerável a golpe direto depois de sair o dash (o dash inteiro; dano no tempo continua)
+const DASH_DISTANCE := 3.8             # 2026-11-18 playtest: era 3,2 m / 0,18 s (+19%, mesma velocidade)
+const DASH_TIME := 0.2
+const DASH_IFRAMES := 0.2             # s invulnerável a golpe direto depois de sair o dash (o dash inteiro; dano no tempo continua)
 const DASH_SKILL_STEP := 0.25          # investida anda em passos: para em parede e rio, não salta por cima
 const JUMP_VELOCITY := 6.2          # m/s para cima (Espaço): ~0,96 m de altura
 const JUMP_GRAVITY := 20.0          # m/s²: ~0,62 s no ar
@@ -1008,6 +1042,7 @@ const LEG_THORNS_RANGE := 4.0
 ## Armas lendárias com papel (Paladino e Clérigo de Batalha; GearCatalog.WEAPON_ROLES): espada/montante ataca, maça/martelo
 ## defende, escudo do conjunto dá utilidade. Números [base, por tier] como LEGEND_NUMBERS.
 const LEG_SWORD_ATK_MULT := 1.08            # espada/montante do conjunto: ATK x isto (sem MATK)
+const LEG_HAMMER_ATK_MULT := 1.25           # martelo de ataque do Templário (maça, papel "offense"): 38 x 1,25 = 47,5 = a espada de ataque (44 x 1,08)
 const LEG_MACE_DEF_PER_ATK := 0.4           # maça/martelo do conjunto: DEF = ATK dela x isto (MATK 0)
 const LEG_BATTLE_MACE_ATK_MULT := 1.1       # maça do Clérigo de Batalha: troca o MATK por ATK x isto (e DEF)
 const LEG_ROLE_NUMBERS := {

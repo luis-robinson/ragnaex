@@ -662,6 +662,9 @@ SET_SHIELDS.update({st: shield_templar(cf) for st, cf in TEMPLAR_SHIELDS.items()
 # ---------------------------------------------------------------------------
 # Maças dos conjuntos (alternativa à espada): Guardião = maça de flanges de 1 mão, Cruzado = malho de 2 mãos.
 # head (1 mão): flange (n flanges) | star (núcleo com cravos) | sun (disco com raios)
+#   | hammer (martelo de guerra do Templário: bloco atravessado no cabo, face de bater no +X da arma; _hammer_head)
+#     back: flat (duas faces) | spike (bico atrás) ; face: plain | studs | sun | crown ; emblem (lados largos): plain | cross | gem | sun
+#     top: cap (pomo/gema de "cap") | spike ; core: metal | tint | white (bloco; o conjunto todo dourado pede bloco branco)
 # face (malho): plain | cross | gem | sun ; spikes = cravos no malho ; wings / halo / glow / dark como nas espadas
 PAL_MACES = {
     "pal1": {"type": "mace", "head": "flange", "n": 6, "core": "tint", "cap": "gem"},
@@ -676,13 +679,114 @@ PAL_MACES = {
     "pal_c20": {"type": "mace2h", "face": "sun", "glow": True},
     "pal_c25": {"type": "mace2h", "face": "gem", "spikes": True, "dark": True},
     "pal_c30": {"type": "mace2h", "face": "sun", "wings": True, "halo": True, "glow": True},
-    "pal_t5": {"type": "mace", "head": "flange", "n": 4, "core": "metal", "cap": "ball"},
-    "pal_t10": {"type": "mace", "head": "flange", "n": 6, "core": "tint", "cap": "gem"},
-    "pal_t15": {"type": "mace", "head": "star", "core": "tint", "cap": "gem", "fire": True},
-    "pal_t20": {"type": "mace", "head": "sun", "core": "tint", "cap": "gem", "fire": True},
-    "pal_t25": {"type": "mace", "head": "star", "core": "tint", "cap": "gem", "dark": True, "fire": True},
-    "pal_t30": {"type": "mace", "head": "sun", "core": "tint", "cap": "gem", "halo": True, "fire": True},
+    # Templário = a build do martelo: martelos de guerra de uma mão (o tipo da arma continua "mace")
+    "pal_t5": {"type": "mace", "head": "hammer", "core": "metal", "cap": "ball", "back": "flat", "face": "plain", "emblem": "plain"},
+    "pal_t10": {"type": "mace", "head": "hammer", "core": "tint", "cap": "gem", "back": "flat", "face": "plain", "emblem": "cross"},
+    "pal_t15": {"type": "mace", "head": "hammer", "core": "tint", "cap": "gem", "back": "spike", "face": "studs", "emblem": "cross", "fire": True},
+    "pal_t20": {"type": "mace", "head": "hammer", "core": "tint", "cap": "gem", "back": "flat", "face": "sun", "emblem": "sun", "fire": True},
+    "pal_t25": {"type": "mace", "head": "hammer", "core": "tint", "cap": "gem", "back": "spike", "face": "studs", "emblem": "gem", "top": "spike",
+                "dark": True, "fire": True},
+    "pal_t30": {"type": "mace", "head": "hammer", "core": "white", "cap": "gem", "back": "flat", "face": "crown", "emblem": "sun", "halo": True, "fire": True},
 }
+
+
+# martelo: meio comprimento do bloco (no eixo X da arma), meia altura (ao longo do cabo) e meia espessura
+HAMMER_L, HAMMER_H, HAMMER_D = 0.15, 0.115, 0.1
+
+
+def _block(ck, name, c, u, v, w, hu, hv, hw, material, bevel=0.0, taper=1.0):
+    """Caixa orientada (eixos u, v, w; meias medidas hu, hv, hw); taper = escala da ponta +u (tronco de pirâmide)."""
+    import bmesh
+    bm = bmesh.new()
+    vs = {}
+    for su in (-1, 1):
+        k = taper if su > 0 else 1.0
+        for sv in (-1, 1):
+            for sw in (-1, 1):
+                vs[(su, sv, sw)] = bm.verts.new(c + u * hu * su + v * hv * sv * k + w * hw * sw * k)
+    for ax in range(3):
+        for sg in (-1, 1):
+            a, b = [i for i in range(3) if i != ax]
+            quad = []
+            for sa, sb in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
+                key = [0, 0, 0]
+                key[ax], key[a], key[b] = sg, sa, sb
+                quad.append(vs[tuple(key)])
+            bm.faces.new(quad)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    if bevel > 0:
+        bmesh.ops.bevel(bm, geom=bm.edges[:], offset=bevel, segments=1, affect="EDGES")
+    return ck.mesh_from(name, bm, material)
+
+
+def _hammer_head(ck, n, hc, fwd, side, ridge, cfg, mats, metal):
+    """Cabeça do martelo de guerra: bloco atravessado no cabo, face de bater alargada no +side, costas chatas ou em bico."""
+    t, t2, gold = mats["tint"], mats["tint2"], mats["trim"]
+    L, H, D = HAMMER_L, HAMMER_H, HAMMER_D
+    core = {"tint": t, "white": mats["white"]}.get(cfg.get("core"), metal)
+    parts = [_block(ck, n + "block", hc, side, ridge, fwd, L, D, H, core, 0.016),
+             ck.tube(n + "socket", hc - fwd * (H + 0.05), hc - fwd * (H - 0.01), 0.05, 0.062, gold, 8)]
+    crown = cfg.get("face") == "crown"
+    ends = (1, -1) if cfg.get("back", "flat") == "flat" else (1,)
+    for sx in ends:                 # face de bater: cinta de ouro + tronco que alarga + lábio
+        d = side * sx
+        flare = 1.3 if crown else 1.18
+        parts += [_block(ck, n + "band%d" % sx, hc + d * (L - 0.005), d, ridge, fwd, 0.022, D * 1.1, H * 1.1, gold, 0.008),
+                  _block(ck, n + "face%d" % sx, hc + d * (L + 0.05), d, ridge, fwd, 0.04, D * 0.96, H * 0.96, metal, 0.012, flare),
+                  _block(ck, n + "lip%d" % sx, hc + d * (L + 0.1), d, ridge, fwd, 0.014, D * flare, H * flare, gold if crown else metal, 0.008)]
+        fc = hc + d * (L + 0.114)
+        face = cfg.get("face", "plain")
+        if face == "studs":         # quatro cravos em pirâmide
+            for i, (sv, sw) in enumerate(((-1, -1), (1, -1), (1, 1), (-1, 1))):
+                p = fc + ridge * sv * D * 0.55 + fwd * sw * H * 0.55
+                parts.append(ck.tube(n + "stud%d_%d" % (sx, i), p - d * 0.01, p + d * 0.07, 0.042, 0.004, gold, 4))
+        elif face == "sun":         # disco e raios curtos DENTRO da face (raio comprido escondia o bloco)
+            parts.append(ck.tube(n + "fsun%d" % sx, fc - d * 0.005, fc + d * 0.03, 0.07, 0.045, gold, 10))
+            for k in range(8):
+                a = math.tau * k / 8
+                r = ridge * math.cos(a) + fwd * math.sin(a)
+                parts.append(ck.blade(n + "fray%d_%d" % (sx, k), fc + d * 0.004 + r * 0.055, fc + d * 0.004 + r * (0.135 if k % 2 == 0 else 0.105),
+                                      0.05, 0.024, gold, d.cross(r)))
+        elif face == "crown":       # coroa: dentes na borda da face, gema no meio
+            fl = flare * 0.92
+            for i, (sv, sw) in enumerate(((-1, -1), (1, -1), (1, 1), (-1, 1))):
+                p = fc + ridge * sv * D * fl + fwd * sw * H * fl
+                parts.append(ck.tube(n + "tooth%d_%d" % (sx, i), p - d * 0.02, p + d * 0.085, 0.042, 0.004, gold, 4))
+            parts.append(ck.ball(n + "fgem%d" % sx, 0.05, fc + d * 0.01, t2))
+    if len(ends) == 1:              # bico atrás (corvo): pirâmide longa saindo de uma cinta
+        d = -side
+        parts += [_block(ck, n + "band-1", hc + d * (L - 0.005), d, ridge, fwd, 0.022, D * 1.1, H * 1.1, gold, 0.008),
+                  _block(ck, n + "pick", hc + d * (L + 0.11), d, ridge, fwd, 0.11, D * 0.6, H * 0.62, metal, 0.0, 0.08)]
+    emb = cfg.get("emblem", "plain")
+    for sg in (-1, 1):              # emblema nos lados largos (frente/trás): o que a câmera alta e o ícone veem
+        o = ridge * sg
+        fc = hc + o * D
+        if emb == "cross":
+            parts += [_block(ck, n + "cross_v%d" % sg, fc + o * 0.006, side, ridge, fwd, 0.02, 0.014, H * 0.74, gold, 0.004),
+                      _block(ck, n + "cross_h%d" % sg, fc + o * 0.006 + fwd * H * 0.2, side, ridge, fwd, 0.062, 0.014, 0.02, gold, 0.004)]
+        elif emb == "gem":
+            parts += [ck.tube(n + "gem_ring%d" % sg, fc - o * 0.005, fc + o * 0.018, 0.066, 0.056, gold, 8),
+                      ck.ball(n + "gem%d" % sg, 0.045, fc + o * 0.018, t2)]
+        elif emb == "sun":
+            parts.append(ck.tube(n + "sun%d" % sg, fc - o * 0.005, fc + o * 0.022, 0.05, 0.036, gold, 10))
+            for k in range(8):
+                a = math.tau * k / 8
+                r = side * math.cos(a) + fwd * math.sin(a)
+                parts.append(ck.blade(n + "sray%d_%d" % (sg, k), fc + o * 0.008 + r * 0.045, fc + o * 0.008 + r * 0.1, 0.032, 0.014, gold, o.cross(r)))
+        else:                       # rebites
+            for i, (su, sw) in enumerate(((-1, -1), (1, -1), (1, 1), (-1, 1))):
+                parts.append(ck.ball(n + "rivet%d_%d" % (sg, i), 0.02, fc + side * su * L * 0.62 + fwd * sw * H * 0.58, gold))
+    top = hc + fwd * H
+    if cfg.get("top") == "spike":
+        parts += [ck.tube(n + "top_base", top - fwd * 0.01, top + fwd * 0.03, 0.06, 0.05, gold, 8),
+                  ck.tube(n + "top", top + fwd * 0.03, top + fwd * 0.2, 0.045, 0.004, metal, 6)]
+    elif cfg.get("cap") == "gem":
+        parts += [ck.tube(n + "cap", top - fwd * 0.01, top + fwd * 0.035, 0.06, 0.045, gold, 8), ck.ball(n + "cap_gem", 0.045, top + fwd * 0.05, t2, (1, 1, 1.3))]
+    else:
+        parts.append(ck.ball(n + "cap", 0.055, top + fwd * 0.01, gold, (1, 1, 0.8)))
+    if cfg.get("glow"):
+        parts.append(_block(ck, n + "glow_band", hc, side, ridge, fwd, 0.03, D * 1.08, H * 1.08, ck.mat("m_wpn_glow", (1.0, 0.92, 0.6), 0.3, 2.2), 0.006))
+    return parts
 
 
 def build_mace(ck, base, mats, style, cfg, hand="main"):
@@ -704,9 +808,12 @@ def build_mace(ck, base, mats, style, cfg, hand="main"):
         for k in range(3):
             parts.append(ck.tube(n + "wrap%d" % k, g + fwd * (-0.08 + k * 0.07), g + fwd * (-0.06 + k * 0.07), 0.034, 0.034, gold, 8))
         core = t if cfg.get("core") == "tint" else metal
-        parts.append(ck.tube(n + "core", hc - fwd * 0.13, hc + fwd * 0.13, 0.085, 0.085, core, 12))
         head = cfg["head"]
-        if head == "flange":
+        if head != "hammer":
+            parts.append(ck.tube(n + "core", hc - fwd * 0.13, hc + fwd * 0.13, 0.085, 0.085, core, 12))
+        if head == "hammer":
+            parts += _hammer_head(ck, n, hc, fwd, side, ridge, cfg, mats, metal)
+        elif head == "flange":
             for k in range(cfg["n"]):
                 a = math.tau * k / cfg["n"]
                 d = side * math.cos(a) + ridge * math.sin(a)
@@ -727,7 +834,9 @@ def build_mace(ck, base, mats, style, cfg, hand="main"):
                 d = side * math.cos(a) + fwd * math.sin(a)
                 parts.append(ck.blade(n + "ray%d" % k, hc + d * 0.12, hc + d * (0.26 if k % 2 == 0 else 0.2), 0.06, 0.03, gold, fwd.cross(d) if k % 3 else ridge))
         top = hc + fwd * 0.15
-        if cfg.get("cap") == "gem":
+        if head == "hammer":
+            pass                    # o pomo de cima sai do _hammer_head
+        elif cfg.get("cap") == "gem":
             parts += [ck.ball(n + "cap", 0.06, top, gold, (1, 1, 0.8)), ck.ball(n + "cap_gem", 0.045, top + fwd * 0.05, t2, (1, 1, 1.4))]
         else:
             parts.append(ck.ball(n + "cap", 0.065, top, gold, (1, 1, 0.8)))
@@ -737,6 +846,8 @@ def build_mace(ck, base, mats, style, cfg, hand="main"):
                 parts += [ck.tube(n + "horn_a%d" % sx, hc - fwd * 0.1, p1, 0.035, 0.028, t, 8),
                           ck.tube(n + "horn_b%d" % sx, p1, p1 + side * sx * 0.06 + fwd * 0.16, 0.028, 0.004, gold, 8)]
         wing_at, wing_s = hc - fwd * 0.16, 1.0
+        if head == "hammer":
+            wing_at = hc - fwd * (HAMMER_H + 0.07)
     else:
         hc = g + fwd * 0.98
         parts += [ck.tube(n + "shaft", g - fwd * 0.34, g + fwd * 0.88, 0.033, 0.03, t2, 8), ck.tube(n + "butt", g - fwd * 0.42, g - fwd * 0.33, 0.045, 0.04, gold, 8),
@@ -785,11 +896,15 @@ def build_mace(ck, base, mats, style, cfg, hand="main"):
         wing_at, wing_s = hc - fwd * 0.18, 1.25
     if cfg.get("fire"):            # brasa sagrada em volta da cabeça (Templário)
         fire = ck.mat("m_set_holyfire", (1.0, 0.36, 0.05), 0.3, 0.6)
-        for k in range(6):
+        if cfg.get("head") == "hammer":     # martelo: crista de chamas no alto do bloco
+            for k, f in enumerate((-0.5, 0.0, 0.5)):      # só três línguas no meio: de cima (o idle mostra o topo) o bloco continua à vista
+                root = hc + side * f * HAMMER_L + ridge * (0.03 if k % 2 else -0.03) + fwd * (HAMMER_H - 0.03)
+                parts.append(ck.blade(n + "fire%d" % k, root, root + fwd * (0.2 - abs(f) * 0.12) + side * f * 0.05, 0.075, 0.028, fire, side))
+        for k in range(0 if cfg.get("head") == "hammer" else 6):
             a = math.tau * k / 6
             d = side * math.cos(a) + ridge * math.sin(a)
             parts.append(ck.blade(n + "fire%d" % k, hc + d * 0.1 - fwd * 0.05, hc + d * 0.16 + fwd * 0.16, 0.06, 0.02, fire, fwd.cross(d)))
-    if cfg.get("glow"):
+    if cfg.get("glow") and cfg.get("head") != "hammer":
         parts.append(ck.tube(n + "glow", hc - fwd * 0.04, hc + fwd * 0.04, 0.155 if cfg["type"] == "mace2h" else 0.1, 0.155 if cfg["type"] == "mace2h" else 0.1, glow, 14))
     if cfg.get("wings"):
         for sx in (-1, 1):

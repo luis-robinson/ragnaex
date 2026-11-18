@@ -19,9 +19,16 @@ from dress import Dress
 AWN_A = (0.95, 0.80, 0.45)
 AWN_B = (0.56, 0.72, 0.86)
 AWN_STRIPE = (0.97, 0.94, 0.84)
-FAIR_R = 7.6                 # raio do anel de bancas (roseta de ~18 m com os toldos)
+# Praça aberta (playtest 2026-11-18: "tudo muito socado"): as bancas foram para a borda e viraram de frente para o MEIO
+# (freguês e jogador dentro, feirante atrás do balcão, do lado de fora), a mó encolheu e duas bancas saíram. Fica um anel
+# livre de ~6 m entre a mó e os balcões e os 8 vãos (4 ruas + 4 diagonais) ganham ~3,9 m.
+FAIR_R = 8.6                 # raio do anel de bancas (era 7,6)
 FAIR_N = 8
-MILL_R = 2.5                 # colisor da mó (com os pratos da balança)
+FAIR_SKIP = (3, 6)           # vagas sem banca: 157,5 graus = Cristal de Retorno; 292,5 = vista para o Ancião e o Quadro
+FAIR_KEEP = 1.4              # o feirante fica a esta distância do centro do balcão, para fora do anel
+FAIR_FRONT = 2.3             # onde o mercador Tobias para, para dentro do anel (mais perto o toldo o esconde da câmera)
+FAIR_GOODS = {5: 3}          # a banca de 247,5 graus vende queijo (o Malaquias veio da vaga do cristal)
+MILL_R = 2.1                 # colisor da mó (com os pratos da balança; era 2,5)
 MILL_H = 4.0
 # o que cada banca vende (cor dos montinhos no balcão): pão, mel, verdura, queijo, peixe, pano, louça, flor
 GOODS = [((0.86, 0.66, 0.38), (0.78, 0.56, 0.3)), ((0.93, 0.74, 0.28), (0.8, 0.6, 0.22)), ((0.5, 0.7, 0.38), (0.86, 0.5, 0.36)),
@@ -35,12 +42,15 @@ def shim(zone, P, coll, data, ob, rim_r, road_polys, rivers, river_w):
                                  rivers=rivers, river_ws=[river_w] * len(rivers), seas=[])
 
 
-def fair_stalls(r=FAIR_R, n=FAIR_N):
-    """[(x, z, rot, ângulo)] das bancas da roseta: nos meios dos oitavos, as 4 ruas e as 4 diagonais ficam abertas."""
+def fair_stalls(r=FAIR_R, n=FAIR_N, skip=FAIR_SKIP):
+    """[(x, z, rot, ângulo, k)] das bancas da roseta: nos meios dos oitavos, as 4 ruas e as 4 diagonais ficam abertas.
+    `rot` já vira o balcão de frente para o meio da praça (o lado do feirante, yb > 0 da `stall`, fica para fora)."""
     out = []
     for k in range(n):
+        if k in skip:
+            continue
         th = math.radians(22.5 + 360.0 / n * k)
-        out.append((math.cos(th) * r, math.sin(th) * r, 90.0 - math.degrees(th), th))
+        out.append((math.cos(th) * r, math.sin(th) * r, (270.0 - math.degrees(th)) % 360.0, th, k))
     return out
 
 
@@ -64,7 +74,7 @@ def _tri(d, g, m, c, pts, thick=0.04, n=None):
         bm.faces.new((v[a], v[b], v[b + 3], v[a + 3]))
 
 
-def awning(d, c, rot, col, stripe, w=3.0, front=1.0, back=1.6, h=2.3, ridge=2.95, ridge_at=0.3, strips=6, g="feira"):
+def awning(d, c, rot, col, stripe, w=3.0, front=0.85, back=1.0, h=2.3, ridge=2.8, ridge_at=0.08, strips=6, g="feira"):
     """Toldo de duas águas com listras e barra em dentes (pano dobrado, nunca placa chata): `front` = quanto avança para o
     lado do freguês (yb < 0), `back` para o lado do feirante; a cumeeira corre ao longo do balcão."""
     f = Dress._xf(c, rot, (0, 0))
@@ -89,7 +99,8 @@ def awning(d, c, rot, col, stripe, w=3.0, front=1.0, back=1.6, h=2.3, ridge=2.95
 
 
 def stall(d, c, rot, col, goods, g="feira"):
-    """Banca da feira: balcão com mercadoria e o toldo listrado. O lado yb > 0 (dentro da roseta) é o do feirante."""
+    """Banca da feira: balcão com mercadoria e o toldo listrado. O lado yb > 0 é o do feirante (fora do anel: o toldo é
+    curto atrás para ele aparecer na câmera)."""
     f = Dress._xf(c, rot, (0, 0))
     wood = d.m("banca_madeira", (0.6, 0.45, 0.3))
     top = d.m("banca_tampo", (0.76, 0.62, 0.42))
@@ -109,33 +120,33 @@ def stall(d, c, rot, col, goods, g="feira"):
 
 
 def mill(d, c=(0.0, 0.0), rot=20.0, g="mo"):
-    """Mó/Balança do Trigo: pedra redonda de 4 m, poste e braço de balança de 4,5 m com dois pratos (um de sacos)."""
+    """Mó/Balança do Trigo: pedra redonda de 3,5 m, poste e braço de balança de 3,8 m com dois pratos (um de sacos)."""
     stone = d.m("mo_base", (0.82, 0.79, 0.72))
     dark = d.m("mo_pedra", (0.66, 0.63, 0.58))
     groove = d.m("mo_sulco", (0.52, 0.5, 0.47))
     wood = d.m("mo_madeira", (0.5, 0.36, 0.24))
     gold = d.m("mo_bronze", (0.86, 0.7, 0.32))
-    d.cyl(g, stone, c, 2.1, 2.0, 0.45, 0.0, 14)
-    d.cyl(g, dark, c, 1.75, 1.7, 0.4, 0.45, 14)
+    d.cyl(g, stone, c, 1.75, 1.67, 0.45, 0.0, 14)
+    d.cyl(g, dark, c, 1.45, 1.4, 0.4, 0.45, 14)
     for k in range(8):                                        # sulcos da mó (leitura de cima)
-        d.box(g, groove, c, (3.2, 0.03, 0.12), 22.5 * k, 0.85)
+        d.box(g, groove, c, (2.65, 0.03, 0.12), 22.5 * k, 0.85)
     d.cyl(g, wood, c, 0.24, 0.18, 2.5, 0.85, 7)
     d.cyl(g, gold, c, 0.3, 0.3, 0.14, 3.3, 7)
     tilt = 7.0
-    d.box(g, wood, c, (4.5, 0.16, 0.2), rot, 3.26, tilt=(0, tilt))
+    d.box(g, wood, c, (3.8, 0.16, 0.2), rot, 3.26, tilt=(0, tilt))
     # feixe de trigo no topo (o símbolo de Aldara)
     wheat = d.m("mo_trigo", (0.93, 0.78, 0.36))
     d.cyl(g, wheat, c, 0.1, 0.3, 0.5, 3.44, 6)
     d.cyl(g, gold, c, 0.14, 0.14, 0.08, 3.6, 6)
     f = Dress._xf(c, rot, (0, tilt))
     for s in (-1, 1):
-        tip = f(s * 2.15, 0, 0.08, 3.26)
+        tip = f(s * 1.8, 0, 0.08, 3.26)
         pan_y = tip.z - 1.35
         pc = (tip.x, -tip.y)
-        d.cyl(g, gold, pc, 0.62, 0.5, 0.1, pan_y, 9)
+        d.cyl(g, gold, pc, 0.55, 0.44, 0.1, pan_y, 9)
         for k in range(3):
             a = math.tau * k / 3 + 0.4
-            d.tube(g, wood, [(pc[0], tip.z, pc[1]), (pc[0] + math.cos(a) * 0.52, pan_y + 0.1, pc[1] + math.sin(a) * 0.52)], 0.025)
+            d.tube(g, wood, [(pc[0], tip.z, pc[1]), (pc[0] + math.cos(a) * 0.46, pan_y + 0.1, pc[1] + math.sin(a) * 0.46)], 0.025)
         if pan_y < 1.95:                                      # o prato baixo leva os sacos; o alto, os pesos de ferro
             for k in range(3):
                 a = math.tau * k / 3
@@ -146,7 +157,7 @@ def mill(d, c=(0.0, 0.0), rot=20.0, g="mo"):
             d.cyl(g, iron, (pc[0] + 0.2, pc[1] + 0.1), 0.14, 0.11, 0.22, pan_y + 0.1, 6)
     # sacos e cestos encostados na base
     for k, a in enumerate((0.5, 1.3, 2.9, 3.6, 4.4, 5.6)):
-        p = (c[0] + math.cos(a) * 2.25, c[1] + math.sin(a) * 2.25)
+        p = (c[0] + math.cos(a) * 1.9, c[1] + math.sin(a) * 1.9)
         if k % 3 == 2:
             d.cyl(g, d.m("cesto", (0.78, 0.62, 0.36)), p, 0.28, 0.36, 0.4, 0.0, 8)
             d.cyl(g, wheat, p, 0.3, 0.2, 0.16, 0.4, 7)
@@ -180,15 +191,15 @@ def aldara(z):
     floor = (0.72, 0.68, 0.6)
     t1 = d.m("patch_feira_a", tuple(k * 0.93 for k in floor))
     t2 = d.m("patch_feira_b", (0.78, 0.72, 0.6))
-    d.blob("feira", t2, (0, 0), 10.6, 0.0172, 0.05)
-    d.blob("feira", t1, (0, 0), 3.5, 0.0180, 0.08)
+    d.blob("feira", t2, (0, 0), 11.6, 0.0172, 0.05)
+    d.blob("feira", t1, (0, 0), 3.0, 0.0180, 0.08)
 
     # --- Feira do Trigo ---
     mill(d)
     ob("pillar", 0.0, 0.0, (MILL_R * 2, MILL_H, MILL_R * 2), visible=False)
     stalls = fair_stalls()
-    for k, (x, zz, rot, th) in enumerate(stalls):
-        stall(d, (x, zz), rot, AWN_A if k % 2 == 0 else AWN_B, GOODS[k % len(GOODS)])
+    for x, zz, rot, th, k in stalls:
+        stall(d, (x, zz), rot, AWN_A if k % 2 == 0 else AWN_B, GOODS[FAIR_GOODS.get(k, k) % len(GOODS)])
         ob("stall", x, zz, (2.7, 1.6, 0.95), rot, visible=False)
     # duas carroças paradas descarregando, na borda da feira (fora das ruas radiais)
     carts = [((5.6, 12.5), 168.0), ((-12.8, -4.6), 68.0)]
@@ -287,7 +298,10 @@ def aldara(z):
 
     d.flush()
     return {"kind": "feira_do_trigo", "mill": [0.0, 0.0], "mill_r": MILL_R, "height": MILL_H, "stall_r": FAIR_R,
-            "stalls": [[round(x, 2), round(zz, 2), round(rot, 1)] for x, zz, rot, _ in stalls],
+            "stalls": [[round(x, 2), round(zz, 2), round(rot, 1)] for x, zz, rot, _, _ in stalls],
+            # postos (espelhados à mão no MapsCatalog, LIVING_NPCS/VILLAGERS; há check): feirante atrás do balcão, freguês na frente
+            "keeper_posts": [[round(math.cos(th) * (FAIR_R + FAIR_KEEP), 2), round(math.sin(th) * (FAIR_R + FAIR_KEEP), 2)] for _, _, _, th, _ in stalls],
+            "front_posts": [[round(math.cos(th) * (FAIR_R - FAIR_FRONT), 2), round(math.sin(th) * (FAIR_R - FAIR_FRONT), 2)] for _, _, _, th, _ in stalls],
             "carts": [[c[0], c[1], rot] for c, rot in carts],
             "forge": [fx, fz], "barn": [round(bc[0], 2), round(bc[1], 2)], "pen": [round(pc[0], 2), round(pc[1], 2), pr],
             "founder": [round(sc[0], 2), round(sc[1], 2)], "max_height": 4.0}

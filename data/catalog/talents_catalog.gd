@@ -30,8 +30,8 @@ static func build() -> Array:
 			{"set": {"radius": 6.0}}),
 		_t("pal_t_twin_slash", "paladin", "pal_twin_slash", 12, 2, "Arco Sangrento", "Arco Radiante recarrega 30% mais rápido e faz sangrar.",
 			{"mult": {"cooldown": 0.7}, "effects": {"dot": {"dps": 4, "duration": 3}}}, ["two_handed"]),
-		_t("pal_t_sacred_flame", "paladin", "pal_sacred_flame", 10, 2, "Chama Ardente", "Chama Sagrada atravessa inimigos e queima por mais tempo.",
-			{"set": {"projectile_pierce": true}, "effects": {"dot": {"dps": 6, "duration": 6}}}, ["shield"]),
+		_t("pal_t_wrath_hammer", "paladin", "pal_wrath_hammer", 10, 2, "Martelo Ardente", "Martelo da Ira cai numa área 30% maior e queima por 5 s.",
+			{"mult": {"radius": 1.3}, "effects": {"dot": {"dps": 6, "duration": 5, "fire": true}}}, ["shield"]),
 		# --- Berserker ---
 		_t("ber_t_crash", "berserker", D, 5, 2, "Avanço Brutal", "O dash fere inimigos ao redor do ponto de chegada.",
 			{"power": 0.8, "radius": 1.8}),

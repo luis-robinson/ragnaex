@@ -63,6 +63,7 @@ const LOOKS := {
 	# auras de liga/desliga
 	"bastion_aura": ["aura", "holy"], "gladiator": ["aura", "blood"],
 	# ascensão do Paladino: asas do Modo Arcano; caiu do cavalo (imune a controle)
+	"blessed_hammers": ["power", "holy"],          # Martelos Abençoados (os martelos girando são do FxManager._orbit_fx)
 	"arcane_wings": ["wings", "holy"], "unhorsed": ["armor", "physical"], "arcane_ward": ["armor", "holy"],      # Asas Protetoras no grupo
 	# o boneco muda (EntityView)
 	"stealth": ["form", "shadow"], "form_wolf": ["form", "nature"], "form_bear": ["form", "nature"],
@@ -88,6 +89,7 @@ const SYSTEM_BUFFS := {
 	"bastion": "RaidSystem (sentinela: reunir)",
 	"colonia_de_pe": "SiegeSystem (Colônia de Pé: leva repelida, +XP de abate no mapa)",
 	"juramento": "ShieldSystem (Juramento ao bloquear)",
+	"blessed_hammers": "AuraSystem.start_orbit (Martelos Abençoados: efeito orbit)",
 	"shield": "WorldSim (efeito shield, Égide lendária)",
 	"boss_ward": "MobSystem (chefe protegido pelos lacaios: fase com ward)",
 	"boss_berserk": "MobSystem (chefe enlouquecido: berserk_after)",

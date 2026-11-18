@@ -94,9 +94,14 @@ static func portal_towards(def: MapDef, target_map: String, bots: bool = false) 
 	return def.portals[0] if def.portals.size() > 0 else {}
 
 ## Ponto de retorno (G e renascer): o cristal vinculado, ou a entrada da cidade inicial.
-static func home_of(e: SimEntity) -> Dictionary:
+## Bot sem cristal: o povoado da faixa dele (BotBandSystem); no grupo do jogador, a casa do jogador.
+static func home_of(e: SimEntity, sim: WorldSim = null) -> Dictionary:
 	if e.bind_map != "" and GameData.maps.has(e.bind_map):
 		return {"map": e.bind_map, "pos": e.bind_pos}
+	if e.kind == SimEntity.Kind.BOT:
+		if sim != null and sim.player != null and sim.player != e and sim.same_party(e, sim.player):
+			return home_of(sim.player)
+		return BotBandSystem.home_of_bot(e)
 	var town := GameData.town_map_id()
 	return {"map": town, "pos": GameData.maps[town].spawn_point}
 
@@ -188,7 +193,7 @@ static func process_map_changes(sim: WorldSim) -> void:
 static func update_recall(sim: WorldSim, e: SimEntity, cmd: InputCommand, action_cmd: InputCommand, dt: float) -> void:
 	if not e.is_character():
 		return
-	var home := home_of(e)
+	var home := home_of(e, sim)
 	var town: String = home["map"]
 	if cmd.recall:
 		if e.recall_left > 0.0:
@@ -226,7 +231,7 @@ static func update_recall(sim: WorldSim, e: SimEntity, cmd: InputCommand, action
 static func recall_blocked(sim: WorldSim, e: SimEntity) -> String:
 	if not e.is_alive():
 		return "Não dá agora"
-	var home := home_of(e)
+	var home := home_of(e, sim)
 	var town: String = home["map"]
 	if e.map_id == town and (e.position.distance_to(home["pos"]) < Balance.RECALL_NEAR or (e.bind_map == "" and sim.maps[town]["def"].in_town(e.position))):
 		return "Você já está no seu ponto de retorno"

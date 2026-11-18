@@ -37,6 +37,9 @@ static func tick(sim: WorldSim, m: Dictionary, dt: float) -> void:
 		if not MountedCombat.ward_buff(e).is_empty():
 			MountedCombat.ward_tick(sim, e, m)            # Asas Protetoras (Templário): redução de dano no grupo perto
 		for b in e.buffs:
+			if b.get("orbit") is Dictionary:
+				orbit_tick(sim, e, m, b)
+				continue
 			if not b.get("toggle", false) or not (b.get("aura") is Dictionary):
 				continue
 			var au: Dictionary = b["aura"]
@@ -60,6 +63,34 @@ static func pulse(sim: WorldSim, e: SimEntity, m: Dictionary, pu: Dictionary) ->
 			continue
 		var r := Combat.calc_damage(e, t, float(pu.get("power", 0.4)), SkillDef.Kind.MAGICAL if e.stats.matk > e.stats.patk else SkillDef.Kind.PHYSICAL, sim.rng, e.position)
 		sim._deal_damage(e, t, int(r["amount"]), bool(r["crit"]), false, "aura", e.position)
+
+## Martelos que giram em volta (efeito "orbit" de skill, Martelos Abençoados): buff com tempo em quem lançou; o poder de
+## cada batida é o do lançamento (`power`, já com maestria, Juramento, conjunto...). Bate a cada `every` s (no relógio de tick).
+static func start_orbit(e: SimEntity, s: SkillDef, ob: Dictionary, power: float) -> void:
+	var id := str(ob.get("id", s.id))
+	var dur := float(ob.get("duration", 6.0))
+	e.put_buff({"id": id, "remaining": dur, "duration": dur, "orbit": {"power": power, "radius": s.radius, "every": float(ob.get("every", Balance.AURA_TICK)),
+		"kind": s.kind, "skill": s.id, "t": 0.0}})
+	Events.post(&"buff_applied", e.id, id, dur)
+
+## Uma passada do relógio (Balance.AURA_TICK) num buff com "orbit": conta o tempo e bate em volta quando dá.
+static func orbit_tick(sim: WorldSim, e: SimEntity, m: Dictionary, b: Dictionary) -> void:
+	var ob: Dictionary = b["orbit"]
+	ob["t"] = float(ob.get("t", 0.0)) + Balance.AURA_TICK
+	if float(ob["t"]) + 0.001 < float(ob["every"]):
+		return
+	ob["t"] = 0.0
+	var R := float(ob["radius"])
+	var hit := false
+	for t: SimEntity in m["entities"].duplicate():          # como o pulso da aura: só o dano (sem reação de arma lendária a cada batida)
+		if not t.is_alive() or not e.is_hostile_to(t) or t.position.distance_to(e.position) > R + t.radius:
+			continue
+		var r := Combat.calc_damage(e, t, float(ob["power"]), ob["kind"], sim.rng, e.position)
+		sim._deal_damage(e, t, int(r["amount"]), bool(r["crit"]), bool(r["blocked"]), "physical", e.position)
+		hit = true
+	if hit:
+		e.combat_timer = Balance.AGGRO_LOSE_TIME
+		Events.post(&"skill_effect", str(ob.get("skill", "")), e.position, e.position, -2.0)     # raio -2 = batida dos martelos (FX pequeno)
 
 ## Quem recebe a aura: o grupo de `e` e as invocações dele a até R metros (sem ele: o dele é o buff da skill).
 static func receivers(sim: WorldSim, e: SimEntity, m: Dictionary, R: float) -> Array:

@@ -36,7 +36,7 @@ const GLYPHS := {
 		"ber_crimson_flurry", "ber_whirlwind", "ber_glad_finale"],
 	"dagger": ["ass_backstab", "ass_poison", "ass_fan", "ass_execute", "ass_quick_stab", "ass_twin_strike", "ass_blade_flurry", "ass_dance", "ass_thousand",
 		"ass_plague_blade", "ass_eviscerate"],
-	"hammer": ["bis_holy_blow", "bis_divine_hammer", "pal_hammer_light", "bis_hammer", "bis_judgement", "bis_condemn", "ber_overhead"],
+	"hammer": ["bis_holy_blow", "bis_divine_hammer", "pal_justice_hammer", "pal_wrath_hammer", "pal_righteous_hammer", "pal_blessed_hammers", "bis_hammer", "bis_judgement", "bis_condemn", "ber_overhead"],
 	"scythe": ["nec_reap", "nec_harvest", "nec_grim"],
 	"arrow": ["ran_scatter", "ran_power_shot", "ran_multishot", "ran_rain", "ran_explosive", "ran_frost_arrow", "ran_volley", "ass_venom_dart"],
 	"shield": ["bis_shield_smite", "pal_shield_bash", "pal_divine_shield", "pal_shield_wall", "pal_aegis_slam", "bis_martyr", "pal_shield_throw", "ber_gladiator", "dru_ent_grove"],
@@ -66,7 +66,7 @@ const GLYPHS := {
 	"trap": ["ran_trap", "ran_snare_toss"],
 	"net": ["ran_net"],
 	"cloud": ["nec_asc_miasma", "ele_hailstorm", "nec_pandemic", "ele_thunder", "ass_smoke", "ass_toxic_cloud", "nec_curse"],
-	"flame": ["pal_sacred_flame", "pal_cleansing_fire", "pal_flame_pyre", "nec_demon_form", "ele_frost_flare", "ele_summon_fire", "pal_zeal", "pal_purge", "ele_fireball", "ele_flame_wave", "ele_fire_wall", "ele_inferno", "ber_glad_fire"],
+	"flame": ["nec_demon_form", "ele_frost_flare", "ele_summon_fire", "pal_zeal", "pal_purge", "ele_fireball", "ele_flame_wave", "ele_fire_wall", "ele_inferno", "ber_glad_fire"],
 	"meteor": ["ass_hand_cannon", "ran_mine", "ele_meteor"],
 	"bird": ["bis_choir_angel", "ele_phoenix", "dru_bird_form", "ran_falcon"],
 	"crystal": ["bis_choir_barrier", "ele_prism", "ele_summon_ice", "ele_absolute_zero", "ele_ice_lance", "ele_glacier"],
@@ -85,7 +85,10 @@ const GLYPHS := {
 	"flag": ["ass_black_flag"],
 	"boot": ["bis_choir_wings", "ber_glad_rush"],
 }
-const TWIN := ["ass_twin_shadow", "ber_glad_finale", "ber_fist_flurry", "ass_cross_slash", "ran_double_thrust", "ass_thrust", "ass_master", "pal_twin_slash", "ber_hack", "ber_twin_fang", "ran_twin_cut", "ass_twin_strike", "ass_blade_flurry", "ber_axe_storm", "ber_bladestorm", "ass_dance", "pal_flurry", "ber_crimson_flurry"]
+const TWIN := ["ass_twin_shadow", "ber_glad_finale", "ber_fist_flurry", "ass_cross_slash", "ran_double_thrust", "ass_thrust", "ass_master", "ber_hack", "ber_twin_fang", "ran_twin_cut", "ass_twin_strike", "ass_blade_flurry", "ber_axe_storm", "ber_bladestorm", "ass_dance", "pal_flurry", "ber_crimson_flurry"]
+## três golpes em sequência (efeito "strikes"): três lâminas em escada
+const TRIO := ["pal_crusader_strike"]
+const ORBIT := ["pal_blessed_hammers"]          # 3 símbolos girando em volta do centro (Martelos Abençoados)
 const RAIN := ["ran_rain", "ran_volley", "dru_starfall", "ele_blizzard", "ele_storm_lord"]
 const FAN := ["ran_multishot", "ass_fan", "ass_broadside"]
 const WALL := ["ele_fire_wall", "nec_bone_wall", "pal_shield_wall", "nec_army"]
@@ -170,7 +173,7 @@ func _ready() -> void:
 func _signature(s: SkillDef) -> String:
 	var shape := "buff" if s.kind == SkillDef.Kind.BUFF else str(s.target if s.target != SkillDef.Target.SELF or s.power > 0.0 else 9)
 	return "%s/%s/%s/%s/%s/%s/%s" % [s.vfx, shape, s.effects.has("dash"), s.effects.has("dot"), s.effects.has("heal_pct_of_dmg") or s.effects.has("mend_pct_of_dmg"),
-		"t" if s.id in TWIN else ("r" if s.id in RAIN else ("f" if s.id in FAN else ("w" if s.id in WALL else ""))), s.kind == SkillDef.Kind.BUFF]
+		"3" if s.id in TRIO else "t" if s.id in TWIN else ("r" if s.id in RAIN else ("f" if s.id in FAN else ("w" if s.id in WALL else ""))), s.kind == SkillDef.Kind.BUFF]
 
 func _save_sheet(path: String) -> void:
 	var cols := 16
@@ -242,6 +245,13 @@ func _paint() -> void:
 	elif id in FAN:
 		for a in [-0.55, 0.55, 0.0]:
 			_glyph(g, at + Vector2(0, 28), a, sc * 0.9)
+	elif id in ORBIT:
+		for k in range(3):
+			var oa := TAU * k / 3.0 - PI * 0.5
+			_glyph(g, at + Vector2(cos(oa), sin(oa)) * 74.0, oa + PI * 0.5 + 0.6, sc * 0.52)
+	elif id in TRIO:
+		for k in [-1, 0, 1]:
+			_glyph(g, at + Vector2(k * 84, k * 34), base + k * 0.18, sc * 0.62)
 	elif id in TWIN:
 		_glyph(g, at, -0.55, sc * 0.9, true)
 		_glyph(g, at, 0.55, sc * 0.9)

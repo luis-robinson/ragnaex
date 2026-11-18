@@ -1,0 +1,1 @@
+000  pal_twin_slash         Arco Radiante            CONE      FIS      build=cruzado    clip=atk_sweep   vfx=holy     start=0.15 act=0.05 rec=0.35 impacto=quadro 2

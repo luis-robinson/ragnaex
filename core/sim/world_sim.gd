@@ -879,7 +879,11 @@ func _can_chain(e: SimEntity, cmd: InputCommand) -> bool:
 		return false
 	if cmd.skill_slot < 0 and e.current_skill_slot < 0:      # slot -1 = básico (também a cópia montada)
 		return false            # básico atrás de básico mantém o ritmo dele (senão a velocidade de ataque sobe)
-	return e.state_time >= e.current_skill.startup + Balance.CHAIN_AFTER_IMPACT
+	var last_hit := 0.0
+	if e.current_skill.effects.get("strikes") is Dictionary:      # sequência de golpes: só depois do último
+		var at_s: Array = e.current_skill.effects["strikes"].get("at", [0.0])
+		last_hit = float(at_s.back()) if not at_s.is_empty() else 0.0
+	return e.state_time >= e.current_skill.startup + last_hit + Balance.CHAIN_AFTER_IMPACT
 
 ## Quanto da velocidade sobra durante a skill: investidas não andam, magias longas quase param.
 func cast_move_mult(s: SkillDef) -> float:
@@ -1051,6 +1055,15 @@ func _update_skill(e: SimEntity, m: Dictionary, dt: float) -> void:
 		while e.channel_done < n and t >= s.startup + s.active * float(e.channel_done) / float(n):
 			e.channel_done += 1
 			_apply_skill(e, s, m)
+	elif e.skill_applied and e.skill_phase == "active" and s.effects.get("strikes") is Dictionary:
+		# sequência de golpes (Golpe do Cruzado): golpe i no startup + at[i]; o último pode ser crítico garantido
+		var at_s: Array = s.effects["strikes"].get("at", [])
+		while e.channel_done < at_s.size() and t >= s.startup + float(at_s[e.channel_done]):
+			e.channel_done += 1
+			_apply_skill(e, s, m)
+		if t >= s.startup + s.active:
+			e.skill_phase = "recovery"
+			Events.post(&"skill_cast", e.id, s.id, "recovery")
 	elif e.skill_applied and e.skill_phase == "active" and t >= s.startup + s.active:
 		e.skill_phase = "recovery"
 		if s.effects.has("dragon_jump"):
@@ -1090,6 +1103,11 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 			effects["buff"] = SimEntity.scaled_bonus(effects["buff"], bm)
 		if effects.has("form"):
 			effects["form_mult"] = bm
+	var strike_i := -1                 # golpe da sequência ("strikes"): channel_done já contou este (1 = o primeiro)
+	if effects.get("strikes") is Dictionary:
+		strike_i = clampi(e.channel_done - 1, 0, Combat.strike_count(effects["strikes"]) - 1)
+		power *= Combat.strike_share(effects["strikes"], strike_i)
+	var sure_crit := strike_i >= 0 and Combat.strike_crit(effects["strikes"], strike_i)
 	e.combat_timer = Balance.AGGRO_LOSE_TIME
 	var aim := Combat.clamp_aim(e, e.skill_aim, s.range)
 	if e.is_character() and not e.stats.fusion.is_empty():
@@ -1321,7 +1339,7 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 				var from: Vector3 = aim if s.target == SkillDef.Target.GROUND else origin     # área no chão vem do ponto de impacto
 				var burn_left := consume_burns(e, t) if effects.get("combust") is Dictionary and e.is_hostile_to(t) else 0.0
 				var hit_power := power * ShadowSystem.execution_mult(self, e, t) if effects.has("execute") else power     # Execução: cheia só abaixo do limiar
-				var r := _strike(e, t, s, hit_power, s.kind if s.kind != SkillDef.Kind.SUMMON else SkillDef.Kind.MAGICAL, from)
+				var r := _strike(e, t, s, hit_power, s.kind if s.kind != SkillDef.Kind.SUMMON else SkillDef.Kind.MAGICAL, from, sure_crit)
 				any_hit = true
 				TitanSystem.on_hit(self, e, t, s)
 				if burn_left >= 1.0 and t.is_alive():      # Combustão: a queimadura que faltava explode de uma vez
@@ -1332,6 +1350,8 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 					mend(e, int(r["amount"]), float(effects["mend_pct_of_dmg"]))
 				_storm_proc(e, s, t)
 		_apply_effects(e, t, effects if e.is_friend(t) else on_foes, power)
+	if effects.get("orbit") is Dictionary:  # Martelos Abençoados: martelos girando que batem de novo com o mesmo poder (AuraSystem.orbit_tick)
+		AuraSystem.start_orbit(e, s, effects["orbit"], power)
 	if effects.has("falcon_dive"):         # Mergulho: Presa no alvo e os linces saltam nele
 		FalconSystem.stoop(self, e, targets, m)
 	if effects.has("buff") or effects.has("shield"):
@@ -1345,8 +1365,11 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 		_chain(e, s, targets, power, effects["chain"], on_foes, m)
 	if effects.get("area_heal") is Dictionary:      # Chuva de Penas de Luz: cura os aliados embaixo
 		DruidAscension.area_heal(self, e, s, aim, effects["area_heal"], m)
-	if any_hit and s.hit_stop_frames > 0 and (e == player or targets.has(player)):
-		Events.post(&"hit_stop", s.hit_stop_frames)
+	var stop := s.hit_stop_frames
+	if sure_crit:
+		stop = int(effects["strikes"].get("last_stop", stop))     # o golpe final da sequência para mais
+	if any_hit and stop > 0 and (e == player or targets.has(player)):
+		Events.post(&"hit_stop", stop)
 
 ## Raio que salta ("chain"): do primeiro atingido para até `count` inimigos a `radius` m que a skill não pegou,
 ## com power × falloff (Lâmina Trovejante). Os saltos levam os efeitos da skill no inimigo, sem saltar de novo.
@@ -1385,12 +1408,12 @@ func gain_bravado(e: SimEntity, n: int) -> void:
 ## Raio: chance de atordoar no golpe direto (Balance.STORM_STUN_*).
 ## Golpe direto (skill ou projétil) em um alvo: gelo estilhaça alvo retardado/preso, a arma lendária multiplica e reage.
 ## Devolve o resultado de Combat.calc_damage.
-func _strike(e: SimEntity, t: SimEntity, s: SkillDef, power: float, kind: SkillDef.Kind, from: Vector3) -> Dictionary:
+func _strike(e: SimEntity, t: SimEntity, s: SkillDef, power: float, kind: SkillDef.Kind, from: Vector3, force_crit := false) -> Dictionary:
 	if t.iframe_left > 0.0 and e != t and e.is_hostile_to(t):        # dash: o golpe passa por ele
 		Events.post(&"dodged", t.id)
 		return {"amount": 0, "crit": false, "blocked": false}
 	var frost := Combat.frost_mult(s, t)
-	var r := Combat.calc_damage(e, t, power * (frost * LegendEffects.legend_power(self, e, t) * TitanSystem.second_axe_mult(e, t, s) * FusionEffects.hit_mult(self, e, t, s)), kind, rng, from)
+	var r := Combat.calc_damage(e, t, power * (frost * LegendEffects.legend_power(self, e, t) * TitanSystem.second_axe_mult(e, t, s) * FusionEffects.hit_mult(self, e, t, s)), kind, rng, from, force_crit)
 	var dk := "magical" if s.kind == SkillDef.Kind.MAGICAL else "physical"
 	_deal_damage(e, t, r["amount"], r["crit"], r["blocked"], "shatter" if frost > 1.0 and dk == "magical" else dk, from)
 	LegendEffects.legend_on_hit(self, e, t, s, int(r["amount"]))
@@ -1647,6 +1670,8 @@ func _update_bouncer(p: SimProjectile, m: Dictionary, dt: float) -> bool:
 		if casting and float(p.bounce.get("interrupt", 0.0)) > 0.0:
 			_apply_effects(owner, tgt, {"stun": {"duration": float(p.bounce["interrupt"])}}, 0.0)
 			Events.post(&"damage_dealt", owner.id, tgt.id, 0, false, false, "interrupt")
+	if float(p.bounce.get("stun", 0.0)) > 0.0 and tgt.is_alive() and int(r["amount"]) > 0:     # Martelo da Justiça: atordoa quem leva
+		_apply_effects(owner, tgt, {"stun": {"duration": float(p.bounce["stun"])}}, 0.0)
 	Events.post(&"skill_effect", p.skill.id, p.position, tgt.position, -1.0)     # raio < 0 = salto do escudo (FX do ricochete)
 	if int(r["amount"]) > 0 and p.skill.hit_stop_frames > 0 and (owner == player or tgt == player):
 		Events.post(&"hit_stop", maxi(2, p.skill.hit_stop_frames - p.hit_ids.size() + 1))
@@ -2498,7 +2523,7 @@ func reset_boss(e: SimEntity) -> void:
 func bind_crystal(e: SimEntity, npc_id: String) -> bool:
 	return PortalSystem.bind_crystal(self, e, npc_id)
 func home_of(e: SimEntity) -> Dictionary:
-	return PortalSystem.home_of(e)
+	return PortalSystem.home_of(e, self)
 func recall_progress(e: SimEntity) -> float:
 	return PortalSystem.recall_progress(e)
 func recall_blocked(e: SimEntity) -> String:

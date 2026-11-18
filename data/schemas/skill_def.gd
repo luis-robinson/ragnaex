@@ -18,7 +18,7 @@ const EFFECT_KEYS := ["dot", "slow", "stun", "root", "buff", "shield", "dash", "
 	"provoke", "area_heal", "pack",
 	"falcon_call", "falcon_dive", "falcon_eyes", "rally",
 	"islands", "mark", "boss_channel", "repeat", "avalanche", "wall", "decoys",
-	"explode", "fire_wall"]
+	"explode", "fire_wall", "strikes", "orbit"]
 
 @export var id: String = ""
 @export var name: String = ""
@@ -92,7 +92,12 @@ const FORM_LABELS := {"wolf": "lobo", "bear": "urso", "phantom": "fantasma", "de
 ## "bounce": {"count": 3, "radius": 6, "falloff": 0.85, "taunt": 3, "interrupt": 0.5}  → TARGET arremessado
 ##     (velocidade = projectile_speed): voa até o alvo, salta para o inimigo mais perto ainda não atingido (count
 ##     alvos no total, power × falloff a cada salto), provoca cada um (MobSystem.taunt) e atordoa `interrupt` s
-##     quem estava preparando um golpe; depois volta para a mão de quem lançou.
+##     quem estava preparando um golpe; depois volta para a mão de quem lançou. `stun` (s, opcional) atordoa cada
+##     atingido (Martelo da Justiça: count 1, taunt 0 = martelo que vai e volta).
+## "orbit": {"id": "blessed_hammers", "duration": 6, "every": 0.5, "count": 3}  → (SELF com raio) o golpe de lançar bate
+##     em volta e põe o buff `id` em quem lançou; enquanto durar, a cada `every` s (relógio de AuraSystem.tick) bate de novo
+##     em quem está a `radius` m com o MESMO power do lançamento (maestria, Juramento etc. já contados). `count` = quantos
+##     martelos a apresentação desenha girando (Martelos Abençoados).
 ## "aura": {"radius": 12, "ally": {"dr_pct": 8, "def_pct": 10}}  → liga/desliga: lançar põe o `buff` (sem fim)
 ##     em você; enquanto ele durar, o grupo a `radius` m recebe `ally` com o mesmo id (AuraSystem). Lançar de novo desliga.
 ## "barrage": {"count": 4, "radius": 2.2, "delay": 1.3, "spread": 8}  → (chefe, GROUND) N círculos avisados no chão:
@@ -107,6 +112,11 @@ const FORM_LABELS := {"wolf": "lobo", "bear": "urso", "phantom": "fantasma", "de
 ##     segue a vítima e cai depois de `time` s; spread = power em cada um dentro; soak = power dividido por quantos dentro.
 ## "boss_channel": {"on_done": {"buff": {...}, "radius", "heal_pct", "summon": {...}}} → (R-C) canal interrompível (dura o
 ##     `active` da skill); quebra com atordoar ou dano ≥ BOSS_CHANNEL_BREAK_PCT × vida.
+## "strikes": {"weights": [0.55, 0.55, 0.75], "at": [0.0, 0.28, 0.6], "crit_last": true, "last_stop": 6, "clips": [...]}
+##     → sequência de golpes de personagem (Golpe do Cruzado): o golpe i sai em startup + at[i] (at[0] = 0; `active` ≥ o
+##     último) com power × weights[i]/soma; `crit_last` = o último é crítico garantido (bloqueio ainda vence), `last_stop`
+##     = quadros de parada dele. Encadear outra skill só depois do último (WorldSim._can_chain); dash corta o resto.
+##     `clips` = só apresentação: clipe de cada golpe (EntityView toca um por golpe, impacto no tick dele).
 ## "repeat": {"times": 3, "gap": 0.6} → (R-D) a skill sai `times` vezes seguidas, re-mirando a mesma vítima; root/stun cortam.
 ## "avalanche": {"radius": 18, "stun": 1.0, "guarantee": 2} → (R-E) onda em volta; quem tem pedregulho (MonsterDef.cover)
 ##     entre si e o chefe não leva, e a pedra racha. Sem pedra no chão no começo, arremessa `guarantee` antes.

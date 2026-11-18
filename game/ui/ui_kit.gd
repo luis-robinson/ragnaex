@@ -480,6 +480,8 @@ static func item_tooltip(it: ItemDef) -> String:
 			if int(it.attributes[a]) != 0:
 				t += "\n[color=#ffd966]%s +%d[/color]" % [a, int(b.attributes.get(a, 0))] + _plus_txt(int(it.attributes[a]) - int(b.attributes.get(a, 0)))
 		t += item_bonus_text(it.bonus)
+		if it.slot == ItemDef.Slot.WEAPON and it.weapon_type in Balance.VIT_SWORD_WEAPONS:
+			t += "\n" + vit_sword_text(it.weapon_type == "sword2h")
 	elif it.type == ItemDef.Type.CONSUMABLE:
 		t += "\n[color=#aaa]Consumível · cooldown %.0fs[/color]" % it.consume_cooldown
 	t += "\n[color=#888]Preço: %d ouro[/color]" % it.price
@@ -562,4 +564,20 @@ static func skill_tooltip(p: SimEntity, sk: SkillDef) -> String:
 	var bonus := float(p.stats.skill_dmg_pct.get(sk.id, 0.0))
 	if bonus > 0.0:
 		t += "\n[color=#ffa040]Conjunto: +%d%% de poder[/color]" % int(bonus)
+	if ShieldSystem.is_oath_shield_skill(p, sk):
+		t += "\n" + shield_vit_text(p)
 	return t
+
+## Linha da espada no tooltip: o Paladino converte VIT em dano (Stats.vit_sword_pct).
+static func vit_sword_text(two_handed: bool = false) -> String:
+	var per: float = Balance.VIT_SWORD_PER_PCT_2H if two_handed else Balance.VIT_SWORD_PER_PCT
+	return "[color=#ffd27f]Paladino: +1%% de dano a cada %d VIT (máx. %d%%)[/color]" % [int(per), int(Balance.VIT_SWORD_CAP)]
+
+## Linha da skill de escudo do Paladino: poder pela DEF do escudo + pela VIT (ShieldSystem.def_power/vit_power), com o valor de agora.
+static func shield_vit_text(p: SimEntity) -> String:
+	var off: ItemDef = p.equipment.get(ItemDef.Slot.OFFHAND)
+	var has := off != null and off.weapon_type == "shield"
+	var dp := ShieldSystem.def_power(off) * 100.0 if has else 0.0
+	var vp := ShieldSystem.vit_power(p) * 100.0
+	return "[color=#ffd27f]Escudo: +%.0f%% de poder pela DEF do escudo e +%.0f%% pela VIT (+1%% a cada %d VIT, máx. %d%%)[/color]" % [
+		dp, vp if has else 0.0, int(Balance.SHIELD_VIT_PER_PCT), roundi(Balance.SHIELD_VIT_MAX * 100.0)]

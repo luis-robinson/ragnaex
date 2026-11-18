@@ -67,6 +67,8 @@ var minimap: Minimap
 var tracked_quest_id := ""            # quest rastreada (seta amarela no minimapa); só apresentação
 var fps_label: Label                 # contador de FPS (canto direito, embaixo do nome do mapa)
 var gather_label: Label              # "[F] Colher ..." perto de um ponto; "Colhendo..." durante
+var lock_tag: PanelContainer        # Tab: "Travado: <chefe>" no topo enquanto a trava no chefe vale (BossLock)
+var lock_label: Label
 var raid_banner: PanelContainer      # faixa no topo durante uma investida no mapa do jogador (Sim.raid_status)
 var raid_label: Label
 ## Fala de chefe (abertura/fase/queda): faixa própria, opaca, abaixo da investida; não divide a linha das notificações
@@ -125,6 +127,15 @@ func _on_level_up(id: int, _lv: int) -> void:
 func _on_mastery(id: int, _s: String, _l: int) -> void:
 	if Sim.player and id == Sim.player.id:
 		_refresh_hotbar_names()
+
+## Trava no chefe (PlayerController.lock_changed): mostra/esconde a etiqueta dourada do topo.
+func set_lock(target_id: int) -> void:
+	if lock_tag == null:
+		return
+	var e: SimEntity = Sim.get_entity(target_id) if target_id >= 0 else null
+	lock_tag.visible = e != null
+	if e and e.monster_def:
+		lock_label.text = "◆ Travado: %s   (Tab solta)" % e.monster_def.name
 
 func on_game_started() -> void:
 	root.visible = true
@@ -440,6 +451,15 @@ func _build_notifications() -> void:
 	boss_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	boss_banner.add_child(boss_label)
 	root.add_child(boss_banner)
+	lock_tag = UiKit.panel(Color(0.1, 0.08, 0.04, 0.9), UiKit.GOLD)
+	lock_tag.anchor_left = 0.5; lock_tag.anchor_right = 0.5
+	lock_tag.offset_left = -170; lock_tag.offset_right = 170; lock_tag.offset_top = 8
+	lock_tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lock_tag.visible = false
+	lock_label = UiKit.label("", 15, UiKit.GOLD)
+	lock_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lock_tag.add_child(lock_label)
+	root.add_child(lock_tag)
 
 ## Coluna da direita: minimapa (com o nome do mapa embaixo) e o rastreador de quests.
 func _build_top_right() -> void:
@@ -477,7 +497,8 @@ func _build_top_right() -> void:
 	minimap.hud = self
 
 func _build_hints() -> Label:
-	hint_label = UiKit.label("WASD mover · LMB atacar · RMB bloquear · Shift dash\n1-6 skills · F1-F3 poções · Espaço pular · F interagir\nQ/E girar câmera · Enter chat · F11 tela cheia\nH montar · G voltar à cidade · arraste skills e poções para a barra", 12, UiKit.MUTED)
+	hint_label = UiKit.label("WASD mover · LMB atacar · RMB bloquear · Shift dash\n1-6 skills · F1-F3 poções · Espaço pular · F interagir\nQ/E girar câmera · Enter chat · F11 tela cheia\nH montar · G voltar à cidade · Tab travar no chefe
+arraste skills e poções para a barra", 12, UiKit.MUTED)
 	hint_label.custom_minimum_size.x = SIDE_W
 	hint_label.size_flags_vertical = Control.SIZE_SHRINK_END
 	hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -747,12 +768,18 @@ func _form_skill(form: String) -> SkillDef:
 			return sk
 	return null
 
+## Dica do Juramento (Paladino, ShieldSystem): de onde vêm as cargas e o que elas fazem, com os números de Balance.
+static func juramento_text() -> String:
+	return "Cargas do Paladino: bloquear com escudo do Paladino dá 1 (aparar dá 2), até %d (%d com o talento Voto do Escudo); somem em %d s sem bloquear. A próxima skill de escudo ou sagrada que causa dano gasta todas: +%d%% de dano por carga." % [
+		Balance.SHIELD_OATH_MAX, Balance.CT_OATH_MAX, int(Balance.SHIELD_OATH_TIME), roundi(Balance.SHIELD_OATH_POWER * 100.0)]
+
 func _buff_source(id: String) -> Dictionary:
 	if _buff_src.is_empty():
 		for pair in [[Balance.LEG_BULWARK_BUFF, "leg_paladin_guardiao_30_mace", "Baluarte", "Maça/martelo lendário do Paladino: golpe dá uma barreira de parte da vida máxima (com recarga; renova, não acumula)."],
 				[Balance.LEG_DETERMINATION_BUFF, "leg_paladin_guardiao_30_offhand", "Determinação", "Escudo lendário: atacar (com recarga) e levar golpes juntam cargas de dano causado e cura recebida; levar golpe renova, sem apanhar por um tempo some tudo."]]:
 			if GameData.items.has(pair[1]):          # armas de papel (GearCatalog.WEAPON_ROLES): ícone = a arte da peça
 				_buff_src[pair[0]] = {"tex": UiKit.item_texture(GameData.items[pair[1]]), "name": pair[2], "desc": pair[3]}
+		_buff_src["juramento"] = {"tex": UiKit.icon_texture("status_juramento"), "name": "Juramento", "desc": juramento_text()}
 		if GameData.skills.has("ass_between_eyes"):       # Bravata (Corsário): cargas que o Tiro Entre os Olhos gasta
 			_buff_src[Balance.BRAVADO_BUFF] = {"tex": UiKit.icon_texture("skill_ass_between_eyes"), "name": "Bravata",
 				"desc": "Cargas do Corsário (até %d): tiros e cortes juntam, o Tiro Entre os Olhos gasta todas." % Balance.BRAVADO_MAX}
@@ -782,6 +809,9 @@ func _buff_source(id: String) -> Dictionary:
 			var faces = sk.effects.get("dice")
 			if faces is Array and not faces.is_empty() and not _buff_src.has(faces[0].get("id", "")):
 				_buff_src[faces[0]["id"]] = {"tex": UiKit.icon_texture("skill_" + sid), "name": sk.name, "desc": sk.description}
+			var ob = sk.effects.get("orbit")             # Martelos Abençoados: o buff dos martelos girando
+			if ob is Dictionary and ob.has("id") and not _buff_src.has(ob["id"]):
+				_buff_src[ob["id"]] = {"tex": UiKit.icon_texture("skill_" + sid), "name": sk.name, "desc": sk.description}
 			var b = sk.effects.get("buff")
 			if b is Dictionary and b.has("id") and not _buff_src.has(b["id"]):
 				_buff_src[b["id"]] = {"tex": UiKit.icon_texture("skill_" + sid), "name": sk.name, "desc": sk.description}

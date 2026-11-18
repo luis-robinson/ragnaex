@@ -10,6 +10,9 @@ static func effective(s: SkillDef) -> float:
 	var ef := s.power
 	if s.effects.get("channel") is Dictionary:      # canalização: cada pulso bate o power inteiro
 		ef *= float(s.effects["channel"].get("ticks", 3))
+	var st = s.effects.get("strikes")
+	if st is Dictionary and bool(st.get("crit_last", false)):     # sequência: o último golpe é crítico garantido
+		ef *= 1.0 + Combat.strike_share(st, Combat.strike_count(st) - 1) * (Balance.CRIT_MULT - 1.0)
 	var dot = s.effects.get("dot")
 	if dot is Dictionary:
 		ef += float(dot.get("dps", 0)) * float(dot.get("duration", 0)) / 20.0
@@ -21,6 +24,9 @@ static func effective(s: SkillDef) -> float:
 		ef += 0.1
 	if s.effects.has("combust"):
 		ef += 0.6                      # detonação: vale mais com queimaduras no alvo
+	var ob = s.effects.get("orbit")
+	if ob is Dictionary:                # martelos que giram: cada batida repete o power do lançamento
+		ef += s.power * float(ob.get("duration", 0.0)) / maxf(0.1, float(ob.get("every", 1.0)))
 	if s.effects.has("bounce"):
 		ef *= 1.0 + 0.5 * maxf(0.0, float(s.effects["bounce"].get("count", 1)) - 1.0) * float(s.effects["bounce"].get("falloff", 0.8))
 	var area: bool = (s.target == SkillDef.Target.SELF and s.radius > 0.0) or s.target == SkillDef.Target.CONE \

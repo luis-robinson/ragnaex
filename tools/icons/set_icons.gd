@@ -14,7 +14,7 @@ const ACT2_ICON_LEVEL := 40
 const VIEWS := {
 	"head": [Vector3(0.45, 0.8, 1.0), 1.12], "body": [Vector3(0.45, 0.25, 1.0), 1.06],
 	"gloves": [Vector3(0.9, 0.35, 1.0), 1.12], "boots": [Vector3(0.5, 0.5, 1.0), 1.08],
-	"weapon": [Vector3.ZERO, 1.08], "mace": [Vector3.ZERO, 1.08], "mace2h": [Vector3.ZERO, 1.08], "offhand": [Vector3.ZERO, 1.08],
+	"weapon": [Vector3.ZERO, 1.08], "mace": [Vector3.ZERO, 1.08], "sword": [Vector3.ZERO, 1.08], "mace2h": [Vector3.ZERO, 1.08], "offhand": [Vector3.ZERO, 1.08],
 }
 
 func _ready() -> void:
@@ -210,6 +210,6 @@ func _frame(cam: Camera3D, pts: PackedVector3Array, dir: Vector3, up_hint: Vecto
 ## Prefixo das malhas que entram na foto da peça.
 func _keep_prefix(style: String, piece: String, it: ItemDef) -> String:
 	match piece:
-		"weapon", "mace", "mace2h": return "wpn_main_"
+		"weapon", "mace", "sword", "mace2h": return "wpn_main_"     # sword = espada de defesa do Templário (o martelo é a arma)
 		"offhand": return "wpn_off_"
 	return "arm_%s_%s_" % [style, piece]

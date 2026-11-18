@@ -618,6 +618,10 @@ static func _buff(id: String, name: String, lvl: int, build: String, req: Array,
 static func _dot(dps: float, dur: float) -> Dictionary:
 	return {"dps": dps, "duration": dur}
 
+## Queimadura (dano no tempo de fogo, número laranja) numa skill que não é do tema fogo (martelos de luz do Templário).
+static func _burn(dps: float, dur: float) -> Dictionary:
+	return {"dps": dps, "duration": dur, "fire": true}
+
 static func _slow(pct: float, dur: float) -> Dictionary:
 	return {"pct": pct, "duration": dur}
 
@@ -645,22 +649,43 @@ static func _more() -> Dictionary:
 			{"buff": {"id": "bastion_aura", "toggle": true, "threat_pct": 150, "def_pct": 10},
 			 "aura": {"radius": 12.0, "ally": {"dr_pct": 10, "def_pct": 10}, "pulse": {"radius": 3.5, "power": 0.4}}}),
 		# Cruzado: mais golpes de arma de duas mãos
-		_s("pal_twin_slash", "Arco Radiante", 2, "cruzado", ["two_handed"], T_CONE, K_PHYS, 1.5, 8, 3, "Corte largo em leque com a arma de duas mãos.", {"radius": 2.6, "cone_angle_deg": 110, "max_targets": 4, "clip": "atk_sweep", "vfx": "holy"}),
+		_s("pal_twin_slash", "Arco Radiante", 2, "cruzado", ["two_handed"], T_CONE, K_PHYS, 1.5, 8, 3, "Varre um arco de luz em leque com a arma de duas mãos: dano e lentidão de 30% por 1,5s em quem for atingido.",
+			{"radius": 2.6, "cone_angle_deg": 110, "max_targets": 4, "clip": "atk_sweep", "vfx": "holy", "slow": _slow(30, 1.5)}),
 		_s("pal_blade_dance", "Giro do Cruzado", 7, "cruzado", ["two_handed"], T_SELF, K_PHYS, 2.0, 16, 9, "Gira a arma pesada: dano em tudo ao redor.", {"radius": 3.0, "active": 0.3, "clip": "atk_spin", "vfx": "holy"}),
 		_s("pal_lunge", "Estocada Sagrada", 11, "cruzado", ["two_handed"], T_DIR, K_PHYS, 1.8, 12, 7, "Avança 4.5m perfurando quem estiver no caminho.", {"range": 5.0, "radius": 0.9, "dash": 4.5}),
 		_s("pal_flurry", "Sentença", 17, "cruzado", ["two_handed"], T_TARGET, K_PHYS, 3.0, 20, 10, "Sequência de golpes pesados em um alvo.", {"hit_stop_frames": 5}),
 		_buff("pal_valor", "Valor", 22, "cruzado", ["two_handed"], 20, 24, "+30% ATK e +10 crit por 8s.", {"id": "valor", "duration": 8, "atk_pct": 30, "crit": 10}),
 		# Cruzado (arma de duas mãos)
-		_s("pal_crusader_strike", "Golpe do Cruzado", 4, "cruzado", ["two_handed"], T_CONE, K_PHYS, 2.0, 12, 5, "Golpe largo com a arma de duas mãos.", {"radius": 3.0, "cone_angle_deg": 120, "hit_stop_frames": 5}),
-		_s("pal_hammer_light", "Martelo de Luz", 9, "cruzado", ["two_handed"], T_GROUND, K_MAG, 2.0, 18, 10, "Martelo de luz cai no cursor e atordoa 0.8s.", {"range": 7.0, "radius": 2.2, "stun": _dur(0.8)}),
+		# 3 golpes em sequência (efeito "strikes"): partes 0,55/0,55/0,75 do power (soma = 1,85), o último sempre crítico
+		_s("pal_crusader_strike", "Golpe do Cruzado", 4, "cruzado", ["two_handed"], T_CONE, K_PHYS, 1.85, 12, 5,
+			"Sequência de 3 golpes com a arma de duas mãos: corte, revés e um golpe de cima que é sempre crítico.",
+			{"radius": 3.0, "cone_angle_deg": 120, "startup": 0.16, "active": 0.6, "recovery": 0.3, "cancel_after": 0.1, "hit_stop_frames": 3, "clip": "atk_2h_chain_a", "vfx": "physical",
+			 "strikes": {"weights": [0.55, 0.55, 0.75], "at": [0.0, 0.28, 0.6], "crit_last": true, "last_stop": 6, "clips": ["atk_2h_chain_a", "atk_2h_chain_b", "atk_2h_chain_c"]}}),
+		# Martelo da Justiça: martelo de luz arremessado (efeito "bounce" de 1 alvo, sem provocar) que atordoa e volta para a mão
+		_s("pal_justice_hammer", "Martelo da Justiça", 9, "cruzado", ["two_handed"], T_TARGET, K_PHYS, 3.0, 16, 9,
+			"Arremessa um martelo de luz no alvo: dano, atordoa %.1f s e o martelo volta para a sua mão." % Balance.PAL_JUSTICE_STUN,
+			{"range": 10.0, "projectile_speed": 24.0, "bounce": {"count": 1, "radius": 0.0, "falloff": 1.0, "taunt": 0.0, "interrupt": 0.0, "stun": Balance.PAL_JUSTICE_STUN},
+			 "startup": 0.2, "recovery": 0.3, "cancel_after": 0.12, "hit_stop_frames": 4, "clip": "atk_throw", "vfx": "holy", "icon_color": Color(1.0, 0.88, 0.5)}),
 		_s("pal_holy_wave", "Onda Sagrada", 14, "cruzado", ["two_handed"], T_DIR, K_MAG, 1.8, 16, 7, "Onda sagrada que atravessa inimigos.", {"range": 9.0, "radius": 0.8, "projectile_speed": 16.0, "projectile_pierce": true}),
 		_buff("pal_zeal", "Zelo", 18, "cruzado", ["two_handed"], 18, 22, "+25% ATK/MATK e +10% velocidade por 10s.", {"id": "zeal", "duration": 10, "atk_pct": 25, "matk_pct": 25, "speed_pct": 10}),
 		_s("pal_judgement_blade", "Lâmina do Juízo", 26, "cruzado", ["two_handed"], T_GROUND, K_PHYS, 3.4, 30, 16, "Lâmina gigante de luz no cursor: dano enorme e atordoa 1s.", {"range": 6.0, "radius": 2.5, "stun": _dur(1.0), "hit_stop_frames": 6}),
-		# Templário (espada/maça + escudo): golpes de fogo sagrado (dano físico do ATK, queimadura do MATK), marca de penitência
-		_s("pal_sacred_flame", "Chama Sagrada", 2, "templario", ["shield"], T_DIR, K_PHYS, 1.8, 8, 3, "Corte que lança uma chama sagrada: dano e queimadura por 4s.", {"range": 9.0, "radius": 0.5, "projectile_speed": 20.0, "startup": 0.14, "dot": _dot(5, 4)}),
+		# Templário (martelo/maça ou espada + escudo): martelos de luz (dano físico do ATK) com um pouco de fogo sagrado (queimadura do MATK),
+		# marca de penitência. Toda skill dele exige escudo, então gasta o Juramento (ShieldSystem.shield_power: +8% por carga).
+		_s("pal_wrath_hammer", "Martelo da Ira", 2, "templario", ["shield"], T_GROUND, K_PHYS, 1.8, 8, 3.5,
+			"Um martelo de luz cai do céu no cursor: dano em área, atordoa %.1f s e queima com fogo sagrado por 3 s." % Balance.PAL_WRATH_STUN,
+			{"range": 8.0, "radius": 1.8, "startup": 0.3, "recovery": 0.2, "cancel_after": 0.12, "hit_stop_frames": 4, "clip": "cast_holy", "vfx": "holy",
+			 "dot": _burn(5, 3), "stun": _dur(Balance.PAL_WRATH_STUN), "icon_color": Color(1.0, 0.82, 0.4)}),
 		_s("pal_brand", "Marca da Penitência", 7, "templario", ["shield"], T_TARGET, K_PHYS, 1.8, 12, 9, "Golpe que marca o alvo com luz: dano e ele recebe +15% de dano de todos por 6s.", {"range": 8.0, "startup": 0.15, "curse": {"id": "penance", "duration": 6, "taken_pct": 15}}),
-		_s("pal_cleansing_fire", "Fogo Purificador", 13, "templario", ["shield"], T_GROUND, K_PHYS, 1.9, 16, 9, "Chão em chamas sagradas no cursor: dano, queimadura e lentidão.", {"range": 8.0, "radius": 2.6, "startup": 0.2, "dot": _dot(9, 5), "slow": _slow(25, 2)}),
-		_s("pal_flame_pyre", "Pira Sagrada", 16, "templario", ["shield"], T_SELF, K_PHYS, 2.2, 18, 10, "Ergue chamas sagradas à sua volta: dano e queimadura em quem estiver perto.", {"radius": 3.4, "startup": 0.2, "dot": _dot(7, 4)}),
+		_s("pal_righteous_hammer", "Martelo dos Justos", 13, "templario", ["shield"], T_CONE, K_PHYS, 2.2, 16, 8,
+			"Martelada no chão que solta uma onda de luz em leque: dano e queima com fogo sagrado por 3 s. Gasta o Juramento: +8% de dano por carga.",
+			{"radius": 4.5, "cone_angle_deg": 70, "startup": 0.25, "recovery": 0.3, "cancel_after": 0.12, "hit_stop_frames": 5, "clip": "atk_finisher", "vfx": "holy",
+			 "dot": _burn(7, 3), "icon_color": Color(1.0, 0.75, 0.35)}),
+		# Martelos Abençoados (efeito "orbit"): o golpe de lançar bate em volta e deixa 3 martelos girando em você que batem de novo
+		# a cada orbit.every s enquanto o buff durar, com o mesmo poder do lançamento (Juramento gasto nele vale para todos os pulsos)
+		_s("pal_blessed_hammers", "Martelos Abençoados", 16, "templario", ["shield"], T_SELF, K_PHYS, Balance.PAL_HAMMERS_POWER, 18, 12,
+			"Três martelos de luz giram em espiral à sua volta por %.0f s, batendo em quem estiver a %.1f m a cada %.1f s. O Juramento gasto ao lançar vale para todas as batidas." % [Balance.PAL_HAMMERS_TIME, Balance.PAL_HAMMERS_RADIUS, Balance.PAL_HAMMERS_EVERY],
+			{"radius": Balance.PAL_HAMMERS_RADIUS, "startup": 0.15, "recovery": 0.2, "cancel_after": 0.1, "hit_stop_frames": 2, "clip": "buff_power", "vfx": "holy",
+			 "orbit": {"id": "blessed_hammers", "duration": Balance.PAL_HAMMERS_TIME, "every": Balance.PAL_HAMMERS_EVERY, "count": 3}, "icon_color": Color(1.0, 0.9, 0.55)}),
 		_buff("pal_avenging_wrath", "Ira Vingadora", 19, "templario", ["shield"], 20, 24, "+25% ATK, +25% MATK e +8 crit por 10s.", {"id": "avenging_wrath", "duration": 10, "atk_pct": 25, "matk_pct": 25, "crit": 8}),
 		_s("pal_sun_strike", "Golpe Solar", 25, "templario", ["shield"], T_CONE, K_PHYS, 4.0, 28, 15, "Golpe de luz solar em leque: dano enorme, atordoa 0.8s e cura 20% do dano.", {"radius": 3.2, "cone_angle_deg": 110, "startup": 0.25, "stun": _dur(0.8), "heal_pct_of_dmg": 0.2, "hit_stop_frames": 6}),
 		# Ascensão (35): Combate Montado + Modo Arcano (GDD ato2-horda R6.1, F8, F9b); liberadas pela missão, fora da teia

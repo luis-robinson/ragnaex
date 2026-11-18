@@ -597,6 +597,119 @@ static func brand(root: Node, follow: Node3D, radius: float, theme: String, dura
 	tw.chain().tween_callback(holder.queue_free)
 
 ## Escudo redondo arremessado (malha do projétil): disco com aro do tema e umbo, inclinado para girar no ar.
+## Martelo de luz feito de primitivas (Paladino/Bispo): cabeça em bloco com as duas faces mais claras e cabo.
+## Origem no meio da cabeça; o cabo desce em -y. `size` 1 = cabeça de 0,75 m.
+static func hammer_mesh(theme: String, size: float = 1.0) -> Node3D:
+	var root := Node3D.new()
+	var handle := MeshInstance3D.new()
+	var hm := CylinderMesh.new()
+	hm.top_radius = 0.06 * size
+	hm.bottom_radius = 0.075 * size
+	hm.height = 1.05 * size
+	hm.radial_segments = 8
+	handle.mesh = hm
+	handle.material_override = Materials.glow(col(theme, 1), 1.4)
+	handle.position.y = -0.55 * size
+	handle.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(handle)
+	var head := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(0.75, 0.38, 0.38) * size
+	head.mesh = bm
+	head.material_override = Materials.glow(col(theme, 0), 1.5)     # brilho moderado: a forma do bloco aparece
+	head.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(head)
+	var cap_mat := Materials.glow(col(theme, 1), 2.4)
+	for sx in [-1.0, 1.0]:                  # faces de bater: placas um pouco maiores e mais claras
+		var cap := MeshInstance3D.new()
+		var cm := BoxMesh.new()
+		cm.size = Vector3(0.09, 0.46, 0.46) * size
+		cap.mesh = cm
+		cap.material_override = cap_mat
+		cap.position.x = sx * 0.4 * size
+		cap.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		head.add_child(cap)
+	return root
+
+## Martelo de luz que cai do céu (Martelo da Ira, Martelo de Luz do Bispo): desce girando um pouco em `fall` s, pousa
+## de cabeça no instante do dano (estouro, clarão) e some afundando. O aro da área é de quem chama (raio real).
+static func falling_hammer(root: Node, pos: Vector3, radius: float, theme: String, fall: float = 0.3) -> void:
+	var sz := clampf(radius * 1.1, 1.5, 2.4)       # grande: de cima precisa ler como martelo, não como clarão
+	var h := hammer_mesh(theme, sz)
+	# aparece já erguido ao lado do alvo (cabo deitado, como um braço no alto) e desce num arco até a cabeça bater no chão
+	h.rotation = Vector3(0.0, 0.5, PI * 0.5)
+	h.position = pos + Vector3(-1.6, 4.2, 1.2)
+	h.scale = Vector3(0.3, 0.3, 0.3)
+	root.add_child(h)
+	var land := pos + Vector3(0, 0.19 * sz, 0)
+	var appear := fall * 0.4                    # 40% do tempo: surge e fica no alto (lê de longe)
+	var drop := fall - appear
+	var tw := root.create_tween()
+	tw.tween_property(h, "scale", Vector3.ONE, appear).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	tw.tween_property(h, "position", land, drop).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+	tw.parallel().tween_property(h, "rotation", Vector3(0.0, -0.3, PI), drop).set_ease(Tween.EASE_IN)
+	tw.tween_callback(func():
+		burst(root, pos + Vector3(0, 0.2, 0), theme, 30, Vector3.UP, radius * 0.45, 1.3)
+		flash(root, pos + Vector3(0, 1.0, 0), theme, 3.0, radius * 2.5)
+		column(root, pos, radius * 0.4, theme, 0.45))
+	tw.tween_interval(0.18)
+	tw.tween_property(h, "position", land + Vector3(0, -0.9 * sz, 0), 0.28).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(h, "scale", Vector3(0.6, 0.6, 0.6), 0.28)
+	tw.tween_callback(h.queue_free)
+
+## Martelo arremessado (Martelo da Justiça): deitado, gira no eixo vertical (o projétil gira o nó com meta "spin").
+static func thrown_hammer(theme: String) -> Node3D:
+	var root := Node3D.new()
+	var h := hammer_mesh(theme, 0.95)
+	h.rotation.z = PI * 0.5                  # cabo na horizontal: de cima lê como um martelo rodando
+	h.position.x = 0.2
+	root.add_child(h)
+	return root
+
+## Martelos Abençoados: `count` martelos girando em espiral em volta de quem lançou (segue a view) por `duration` s.
+## Cada um abre e fecha entre 60% e 100% de `radius` e sobe/desce: a espiral. Tween do próprio nó (some com a view).
+static func orbit_hammers(follow: Node3D, count: int, radius: float, duration: float, theme: String) -> Node3D:
+	var pivot := Node3D.new()
+	pivot.name = "OrbitHammers"
+	pivot.position = Vector3(0, 0.9, 0)
+	follow.add_child(pivot)
+	var spin := pivot.create_tween()
+	spin.tween_property(pivot, "rotation:y", -TAU * duration * 0.9, duration).set_trans(Tween.TRANS_LINEAR)
+	spin.tween_property(pivot, "scale", Vector3(0.05, 0.05, 0.05), 0.25).set_ease(Tween.EASE_IN)
+	spin.tween_callback(pivot.queue_free)
+	for k in range(maxi(1, count)):
+		var arm := Node3D.new()
+		arm.rotation.y = TAU * k / float(maxi(1, count))
+		pivot.add_child(arm)
+		var h := hammer_mesh(theme, 0.5)
+		h.rotation = Vector3(0.0, 0.0, -0.5)
+		h.position = Vector3(radius, 0, 0)
+		arm.add_child(h)
+		var tail := CPUParticles3D.new()      # rastro de motas: desenha a espiral
+		tail.amount = 16
+		tail.lifetime = 0.35
+		tail.local_coords = false
+		tail.gravity = Vector3.ZERO
+		tail.initial_velocity_min = 0.0
+		tail.initial_velocity_max = 0.2
+		var tq := QuadMesh.new()
+		tq.size = Vector2(0.22, 0.22)
+		tail.mesh = tq
+		var tg := Gradient.new()
+		tg.set_color(0, col(theme, 1))
+		tg.set_color(1, Color(col(theme, 0), 0.0))
+		tail.color_ramp = tg
+		var tmm := _mat(Color.WHITE)
+		tmm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		tmm.albedo_texture = soft()
+		tail.material_override = tmm
+		h.add_child(tail)
+		var period := 0.9
+		var bob := h.create_tween().set_loops(maxi(1, ceili(duration / period)))
+		bob.tween_property(h, "position", Vector3(radius * 0.6, 0.5, 0), period * 0.5).set_trans(Tween.TRANS_SINE).set_delay(0.12 * k)
+		bob.tween_property(h, "position", Vector3(radius, -0.2, 0), period * 0.5).set_trans(Tween.TRANS_SINE)
+	return pivot
+
 static func thrown_shield(theme: String) -> Node3D:
 	var root := Node3D.new()
 	var face := MeshInstance3D.new()

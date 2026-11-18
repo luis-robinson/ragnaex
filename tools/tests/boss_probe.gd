@@ -251,7 +251,7 @@ class StayBrain extends BotBrain:
 	func _plan_trip(_e: SimEntity, _sim) -> void:
 		state = S.HUNT
 		timer = 5.0
-	func _go_home() -> void:               # nem volta à cidade para reabastecer com o chefe vivo
+	func _go_home(_e: SimEntity, _sim) -> void:               # nem volta à cidade para reabastecer com o chefe vivo
 		state = S.HUNT
 		timer = 5.0
 

@@ -287,6 +287,17 @@ func _on_hit_stop(frames: int) -> void:
 	_hit_stop_left = frames / 60.0
 	camera.add_shake(0.03 * frames)
 
+## Golpe final de "strikes" (Golpe do Cruzado): clarão e tremida a mais (só apresentação).
+const STRIKE_FINAL_FLASH := 4.0
+const STRIKE_FINAL_SHAKE := 0.12
+
+## O evento é o último golpe da sequência de quem está na origem (channel_done já contou todos)?
+func _strike_final(s: SkillDef, origin: Vector3) -> bool:
+	for o in Sim.map_entities(main.current_map_id):
+		if o.current_skill != null and o.current_skill.id == s.id and o.position.distance_to(origin) < 0.05:
+			return o.channel_done >= Combat.strike_count(s.effects["strikes"])
+	return false
+
 ## Tema visual: o da skill (`vfx`), ou a aparência do básico da build (`look`); sem nenhum, físico.
 static func theme_of(s: SkillDef) -> String:
 	if s == null:
@@ -297,6 +308,12 @@ static func theme_of(s: SkillDef) -> String:
 
 ## raio-marcador do evento skill_effect do tiro que atravessou (WorldSim._apply_skill; aim = o último da fila)
 const PIERCE_TRACE := -3.0
+## raio-marcador da batida dos martelos que giram (efeito "orbit", AuraSystem.orbit_tick)
+const ORBIT_PULSE := -2.0
+const ORBIT_DRAW_R := 0.8                  # os martelos giram a 80% do raio do golpe (dentro do aro, lê como "pega quem está perto")
+## skills de martelo de luz que caem do céu (SkillFx.falling_hammer na preparação, pousa no tick do dano)
+static func falling_hammer_skill(s: SkillDef) -> bool:
+	return s != null and "hammer" in s.id and s.vfx == "holy" and (s.target == SkillDef.Target.GROUND or (s.target == SkillDef.Target.TARGET and s.kind == SkillDef.Kind.MAGICAL))
 const FUSION_THEMES := {"fire": "fire", "frost": "ice", "storm": "lightning"}
 
 ## Tema da Fusão Elemental pela forma do elemental de quem lançou (quem está na origem do evento).
@@ -321,6 +338,10 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: f
 	var th := theme_of(s)
 	if s.effects.has("elem_fusion"):                      # Fusão: a cor/forma do elemento do elemental de quem lançou
 		th = _fusion_theme(origin, th)
+	if radius == ORBIT_PULSE:                              # batida dos Martelos Abençoados (AuraSystem.orbit_tick): faíscas em volta
+		var rr := float(s.radius)
+		SkillFx.burst(self, origin + Vector3(0, 0.7, 0), th, 14, Vector3.UP, rr * 0.7, 0.8)
+		return
 	if radius <= PIERCE_TRACE:                             # tiro que atravessou a fila (Tiro Fantasma): rastro até o último
 		SkillFx.gunshot(self, origin + Vector3(0, 1.1, 0), aim + Vector3(0, 0.9, 0), true)
 		return
@@ -354,7 +375,7 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: f
 				SkillFx.flash(self, aim + Vector3(0, 0.6, 0), th, 2.5, radius * 1.5)
 				return
 			_ground_impact(s, th, aim, radius, area_th)
-			if s.kind == SkillDef.Kind.PHYSICAL:
+			if s.kind == SkillDef.Kind.PHYSICAL and not falling_hammer_skill(s):     # martelo que cai do céu: sem crescente de arma em quem chamou
 				arcs.swing(skill_id, s, th, origin, dir)     # salto de arma corpo a corpo: crescente onde caiu (WeaponArcs)
 		SkillDef.Target.SELF:
 			if s.kind == SkillDef.Kind.BUFF or s.kind == SkillDef.Kind.HEAL or s.effects.has("shield"):
@@ -365,6 +386,10 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: f
 					SkillFx.flash(self, origin + Vector3(0, 1.0, 0), th, 2.5, 6.0)
 				if s.kind == SkillDef.Kind.HEAL and radius > 2.0:
 					SkillFx.circle(self, origin, radius, th, 0.6)
+			elif s.effects.has("orbit"):            # Martelos Abençoados: aro do raio real e clarão (os martelos vêm do buff)
+				SkillFx.circle(self, origin, maxf(radius, 1.0), area_th, 0.5)
+				SkillFx.flash(self, origin + Vector3(0, 1, 0), th, 2.2, maxf(radius, 1.0) * 1.6)
+				SkillFx.burst(self, origin + Vector3(0, 0.8, 0), th, 20, Vector3.UP, 0.5)
 			else:
 				# golpe em volta de si (giro, nova, provocar): aro que abre até o raio real + partículas em anel
 				var drew := s.kind == SkillDef.Kind.PHYSICAL and arcs.swing(skill_id, s, th, origin, dir)
@@ -379,6 +404,18 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: f
 					SkillFx.burst(self, origin + Vector3(0, 0.5, 0), th, 30, Vector3.UP, maxf(radius, 1.0) * 0.6)
 					SkillFx.flash(self, origin + Vector3(0, 1, 0), th, 1.8, maxf(radius, 1.0) * 1.6)
 		SkillDef.Target.CONE:
+			if s.effects.get("strikes") is Dictionary and _strike_final(s, origin):
+				# golpe final da sequência (crítico garantido): clarão e faíscas onde a arma cai, tremida maior
+				var hit_at := origin + dir * radius * 0.6
+				SkillFx.flash(self, hit_at + Vector3(0, 0.8, 0), th, STRIKE_FINAL_FLASH, radius * 1.4)
+				SkillFx.burst(self, hit_at + Vector3(0, 0.5, 0), th, 26, Vector3.UP, 0.45, 1.3)
+				camera.add_shake(STRIKE_FINAL_SHAKE)
+			if "hammer" in skill_id and s.kind == SkillDef.Kind.PHYSICAL and not basic:     # Martelo dos Justos: a onda de luz corre pelo leque
+				SkillFx.decal_sector(self, origin, dir, radius, s.cone_angle_deg, th, 0.6)
+				SkillFx.sector(self, origin, dir, radius, s.cone_angle_deg, th, 0.4, 0.3)
+				SkillFx.burst(self, origin + dir * 0.9 + Vector3(0, 0.2, 0), th, 26, Vector3.UP, 0.5, 1.2)
+				SkillFx.burst(self, origin + dir * radius * 0.75 + Vector3(0, 0.4, 0), th, 18, dir + Vector3.UP * 0.6, 0.6)
+				camera.add_shake(0.1)
 			if arcs.swing(skill_id, s, th, origin, dir):
 				pass                           # família com arco: o crescente do tamanho do cone substitui leque e partículas
 			elif basic:                        # básico: o tema da build num rastro curto (não compete com as skills)
@@ -481,6 +518,9 @@ func _ground_impact(s: SkillDef, th: String, at: Vector3, radius: float, area_th
 			SkillFx.bolt(self, at)
 			SkillFx.burst(self, at + Vector3(0, 0.2, 0), th, 24, Vector3.UP, radius * 0.4)
 		"holy", "lunar":
+			if falling_hammer_skill(s):
+				camera.add_shake(0.1)     # o martelo (preparação) pousa agora e faz o estouro
+				return
 			SkillFx.column(self, at, radius * 0.55, th, 0.6)
 			SkillFx.burst(self, at + Vector3(0, 0.3, 0), th, 26, Vector3.UP, radius * 0.4)
 		"ice":
@@ -492,6 +532,20 @@ func _ground_impact(s: SkillDef, th: String, at: Vector3, radius: float, area_th
 		_:
 			SkillFx.burst(self, at + Vector3(0, 0.3, 0), th, 30, Vector3.UP, radius * 0.45)
 
+## Martelos girando na view de `e` (efeito "orbit"): troca os que já estavam (relançar renova o tempo).
+func _orbit_fx(e: SimEntity, b: Dictionary, duration: float) -> void:
+	var view: Node3D = main.views.get(e.id)
+	if view == null:
+		return
+	var old := view.get_node_or_null("OrbitHammers")
+	if old:
+		old.queue_free()
+	var ob: Dictionary = b["orbit"]
+	var sk: SkillDef = GameData.skills.get(str(ob.get("skill", "")))
+	var n := int(sk.effects.get("orbit", {}).get("count", 3)) if sk else 3
+	var th := theme_of(sk) if sk else "holy"
+	SkillFx.orbit_hammers(view, n, float(ob.get("radius", 2.5)) * ORBIT_DRAW_R, maxf(0.5, duration), th)
+
 func _on_skill_cast(entity_id: int, skill_id: String, phase: String) -> void:
 	if phase != "startup":
 		return
@@ -502,13 +556,15 @@ func _on_skill_cast(entity_id: int, skill_id: String, phase: String) -> void:
 	# meteoro: começa a cair já na preparação, pra chegar no chão no instante do dano
 	if s and s.target == SkillDef.Target.GROUND and s.vfx == "fire" and ("meteor" in s.id or "phoenix" in s.id):
 		SkillFx.meteor(self, e.skill_aim, s.radius, s.vfx, maxf(0.15, s.startup))
+	if s and s.target == SkillDef.Target.GROUND and falling_hammer_skill(s):      # martelo de luz: cai já na preparação
+		SkillFx.falling_hammer(self, Combat.clamp_aim(e, e.skill_aim, s.range), s.radius, s.vfx, maxf(0.15, s.startup))
 	# magia no alvo: a marca cresce em cima de quem vai levar (lê de longe antes do impacto)
 	if s and s.target == SkillDef.Target.TARGET and s.kind == SkillDef.Kind.MAGICAL and s.startup >= 0.2 and e.kind != SimEntity.Kind.MONSTER:
 		var foe := _foe_under(e, s)
 		if foe and main.views.has(foe.id):
 			SkillFx.brand(self, main.views[foe.id], maxf(0.8, minf(s.radius, 3.0)), s.vfx, s.startup)
-			if "hammer" in s.id:          # martelo de luz: cai do céu e bate no quadro do dano
-				SkillFx.meteor(self, foe.position, 1.4, s.vfx, s.startup)
+			if falling_hammer_skill(s):          # martelo de luz: cai do céu e bate no quadro do dano
+				SkillFx.falling_hammer(self, foe.position, 1.4, s.vfx, s.startup)
 	# preparação: magia junta energia do tema nas mãos; golpe lento mostra o aro de aviso
 	if s and s.kind != SkillDef.Kind.PHYSICAL and s.startup >= 0.2:
 		SkillFx.gather(self, e.position + Vector3(0, 1.0, 0) + e.forward() * 0.35, s.vfx, s.startup)
@@ -712,6 +768,9 @@ func _on_buff(entity_id: int, buff_id: String, duration: float) -> void:
 	if buff_id.begins_with("form_"):
 		_transform_fx(e, buff_id.substr(5))
 		return
+	for b in e.buffs:                            # Martelos Abençoados: martelos girando em volta enquanto o buff dura
+		if b.get("id") == buff_id and b.get("orbit") is Dictionary:
+			_orbit_fx(e, b, duration)
 	if buff_id.ends_with("_off"):
 		return
 	var lk: Dictionary = BuffLooks.look(buff_id, e)
@@ -1081,7 +1140,7 @@ func _on_projectile(p: SimProjectile) -> void:
 	var bow_shot: bool = owner != null and owner.stats != null and owner.stats.weapon_type == "bow" and p.skill != null and p.skill.id.begins_with("basic_")
 	if p.skill and p.skill.effects.has("bounce") and not p.skill.effects.get("shot", false):     # bala (Corsário) fica a bolinha de fogo
 		mi.mesh = null
-		mi.add_child(SkillFx.thrown_shield(th))
+		mi.add_child(SkillFx.thrown_hammer(th) if "hammer" in p.skill.id else SkillFx.thrown_shield(th))
 		mi.set_meta("spin", true)
 	elif th in ["physical", "blood", "earth", "bone"] or bow_shot or (owner and owner.stats and owner.stats.weapon_type == "bow" and th in ["", "physical"]):
 		if owner and owner.stats and owner.stats.weapon_type == "bow":

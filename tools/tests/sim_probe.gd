@@ -41,6 +41,7 @@ func _ready() -> void:
 	Sim.profile = DevArgs.has("--phases")
 	Sim.prof.clear()
 	var hops := DevArgs.has("--hops")
+	var census := DevArgs.has("--census")
 	if hops:
 		_watch_hops()
 	var times: Array[float] = []
@@ -50,6 +51,8 @@ func _ready() -> void:
 		Sim.tick(DT)
 		if hops:
 			_watch_hops()
+		if census and i % CENSUS_EVERY == 0:
+			_band_sample()
 		times.append(float(Time.get_ticks_usec() - t0))
 	var total := float(Time.get_ticks_usec() - t_all)
 	times.sort()
@@ -72,6 +75,8 @@ func _ready() -> void:
 					asleep += 1
 			print("SIM   %-18s n=%d bots=%d mobs=%d (dormindo %d) npcs=%d summons=%d loot=%d proj=%d" % [mid, m["entities"].size(), c[1], c[2], asleep, c[3], c[4],
 				m["loot"].size(), m["projectiles"].size()])
+			_band_line(mid, m)
+		_band_report()
 	if hops:
 		_hop_report()
 	get_tree().quit()
@@ -100,10 +105,11 @@ func _populate_bots() -> void:
 		var md: MapDef = GameData.maps[mid]
 		for i in range(md.bot_population):
 			var cls: ClassDef = classes[randi() % classes.size()]
-			var lv := randi_range(md.level_range.x, md.level_range.y)
-			if md.is_town:
-				lv = randi_range(1, 30)
-			var pos := Sim.random_walkable(md, md.spawn_point if not md.is_town else md.town_center, 10.0)
+			var band := BotBandSystem.spawn_levels(md)        # cidade também nasce na faixa dela (antes: 1-30 em Aldara)
+			var lv := randi_range(band.x, band.y)
+			var pos := Sim.random_walkable(md, md.spawn_point, 10.0)
+			if md.is_town:                                     # espalhados pelos pontos de encontro, não todos na praça
+				pos = Sim.random_walkable(md, BotBandSystem.spawn_spot(md, i), 2.0)
 			Sim.spawn_bot(cls, names[k % names.size()], mid, pos, lv)
 			k += 1
 
@@ -149,3 +155,56 @@ func _hop_report() -> void:
 		tot += int(_hop_count[id])
 		worst = maxi(worst, int(_hop_count[id]))
 	print("HOPS total=%d bots_moved=%d worst_bot=%d bounces=%d (A->B->A < %.0f s)" % [tot, _hop_count.size(), worst, _hop_bounces, HOP_BOUNCE_S])
+
+## Censo por faixa: bots do mapa por faixa de nível (1-10, 11-20, 21-30, 31-40, 41+), quantos acima da faixa do mapa
+## (> level_range.y + BOT_BAND_SLACK) e quantos parados a menos de BOT_SQUARE_RADIUS do centro (a praça).
+func _band_line(mid: String, m: Dictionary) -> void:
+	var def: MapDef = m["def"]
+	var b := [0, 0, 0, 0, 0]
+	var above := 0
+	var square := 0
+	var n := 0
+	for e: SimEntity in m["entities"]:
+		if e.kind != SimEntity.Kind.BOT:
+			continue
+		n += 1
+		b[clampi((e.level - 1) / 10, 0, 4)] += 1
+		if e.level > def.level_range.y + Balance.BOT_BAND_SLACK:
+			above += 1
+		if (def.is_town or def.hub) and e.position.distance_to(def.town_center) < Balance.BOT_SQUARE_RADIUS:
+			square += 1
+	if n > 0:
+		print("BAND  %-18s faixa=%d-%d bots=%d  1-10=%d 11-20=%d 21-30=%d 31-40=%d 41+=%d  acima=%d praca=%d" % [mid, def.level_range.x, def.level_range.y,
+			n, b[0], b[1], b[2], b[3], b[4], above, square])
+
+const CENSUS_EVERY := 600       # ticks entre amostras do censo por faixa (10 s)
+var _samples := 0
+var _acc := {}                  # mapa -> [bots, acima da faixa, na praça, máx. na praça]
+
+func _band_sample() -> void:
+	_samples += 1
+	for mid in Sim.maps:
+		var m: Dictionary = Sim.maps[mid]
+		var def: MapDef = m["def"]
+		var a: Array = _acc.get(mid, [0, 0, 0, 0])
+		var sq := 0
+		for e: SimEntity in m["entities"]:
+			if e.kind != SimEntity.Kind.BOT:
+				continue
+			a[0] += 1
+			if e.level > def.level_range.y + Balance.BOT_BAND_SLACK:
+				a[1] += 1
+			if (def.is_town or def.hub) and e.position.distance_to(def.town_center) < Balance.BOT_SQUARE_RADIUS:
+				sq += 1
+		a[2] += sq
+		a[3] = maxi(a[3], sq)
+		_acc[mid] = a
+
+## Médias das amostras: bots no mapa, % acima da faixa, bots na praça (média e pico).
+func _band_report() -> void:
+	for mid in _acc:
+		var a: Array = _acc[mid]
+		if a[0] == 0:
+			continue
+		print("BANDAVG %-18s amostras=%d bots=%.1f acima=%.0f%% praca=%.1f praca_max=%d" % [mid, _samples, float(a[0]) / _samples,
+			100.0 * a[1] / a[0], float(a[2]) / _samples, a[3]])

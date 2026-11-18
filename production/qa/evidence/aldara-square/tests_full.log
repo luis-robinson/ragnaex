@@ -1,0 +1,146 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+3000 ticks com 2003 entidades em 37130 ms (12.38 ms/tick); calibração 46.1/48.2 ms (quieta 36.0) -> lentidão x1.31, limite 41917 ms
+WARNING: SaveSystem: espaço 90 recuperado do .tmp de uma gravação interrompida
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] _settle_tmp (res://core/save_system.gd:214)
+       [1] slot_state (res://core/save_system.gd:156)
+       [2] _slot_state (res://tools/tests/run_tests.gd:2298)
+       [3] _check_save_slots (res://tools/tests/run_tests.gd:2276)
+       [4] run_all (res://tools/tests/run_tests.gd:2656)
+       [5] _ready (res://tools/tests/run_tests.gd:41)
+WARNING: SaveSystem: espaço 90 recuperado do .tmp de uma gravação interrompida
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] _settle_tmp (res://core/save_system.gd:214)
+       [1] slot_state (res://core/save_system.gd:156)
+       [2] _slot_state (res://tools/tests/run_tests.gd:2298)
+       [3] _check_save_slots (res://tools/tests/run_tests.gd:2284)
+       [4] run_all (res://tools/tests/run_tests.gd:2656)
+       [5] _ready (res://tools/tests/run_tests.gd:41)
+ERROR: FAIL: Golpe do Cruzado: 3 golpes acertam (4)
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_crusader_skills (res://tools/tests/run_tests.gd:8255)
+       [2] _check_combat_feel (res://tools/tests/run_tests.gd:4060)
+       [3] _check_zone (res://tools/tests/run_tests.gd:2984)
+       [4] run_all (res://tools/tests/run_tests.gd:2657)
+       [5] _ready (res://tools/tests/run_tests.gd:41)
+FAIL: Golpe do Cruzado: 3 golpes acertam (4)
+ERROR: FAIL: Golpe do Cruzado: depois do último golpe a próxima skill encadeia
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_crusader_skills (res://tools/tests/run_tests.gd:8266)
+       [2] _check_combat_feel (res://tools/tests/run_tests.gd:4060)
+       [3] _check_zone (res://tools/tests/run_tests.gd:2984)
+       [4] run_all (res://tools/tests/run_tests.gd:2657)
+       [5] _ready (res://tools/tests/run_tests.gd:41)
+FAIL: Golpe do Cruzado: depois do último golpe a próxima skill encadeia
+  matilha: 1.94 ATK do dono por segundo (2 lobos)
+  F5 fera: 556989 -> 640857 de dano em 3 x 90 s (x1.151)
+  F5 xama: 725458 -> 758535 de dano em 3 x 90 s (x1.046)
+  F5 guardiao_verde: 223915 -> 216172 de dano em 3 x 90 s (x0.965)
+SCRIPT ERROR: Parse Error: The function signature doesn't match the parent. Parent signature is "_go_home(SimEntity, Variant) -> void".
+   at: GDScript::reload (res://tools/tests/boss_probe.gd:254)
+   GDScript backtrace (most recent call first):
+       [0] _check_probe_sampler (res://tools/tests/run_tests.gd:17928)
+       [1] _check_combat_feel (res://tools/tests/run_tests.gd:4081)
+       [2] _check_zone (res://tools/tests/run_tests.gd:2984)
+       [3] run_all (res://tools/tests/run_tests.gd:2657)
+       [4] _ready (res://tools/tests/run_tests.gd:41)
+ERROR: Failed to load script "res://tools/tests/boss_probe.gd" with error "Parse error".
+   at: load (modules/gdscript/gdscript_resource_format.cpp:46)
+   GDScript backtrace (most recent call first):
+       [0] _check_probe_sampler (res://tools/tests/run_tests.gd:17928)
+       [1] _check_combat_feel (res://tools/tests/run_tests.gd:4081)
+       [2] _check_zone (res://tools/tests/run_tests.gd:2984)
+       [3] run_all (res://tools/tests/run_tests.gd:2657)
+       [4] _ready (res://tools/tests/run_tests.gd:41)
+SCRIPT ERROR: Invalid call. Nonexistent function 'random_comp' in base 'GDScript'.
+   at: _check_probe_sampler (res://tools/tests/run_tests.gd:17929)
+   GDScript backtrace (most recent call first):
+       [0] _check_probe_sampler (res://tools/tests/run_tests.gd:17929)
+       [1] _check_combat_feel (res://tools/tests/run_tests.gd:4081)
+       [2] _check_zone (res://tools/tests/run_tests.gd:2984)
+       [3] run_all (res://tools/tests/run_tests.gd:2657)
+       [4] _ready (res://tools/tests/run_tests.gd:41)
+ACC_BUDGET ["t0 ATK +13.8% (+3.6 de 26) HP +1.0%", "t1 ATK +10.4% (+6.2 de 59) HP +1.9%", "t2 ATK +3.7% (+4.0 de 107) HP +2.0%", "t3 ATK +3.9% (+6.0 de 155) HP +2.5%", "t4 ATK +5.7% (+14.0 de 247) HP +4.2%", "t5 ATK +10.4% (+31.6 de 305) HP +7.1%", "k45 ATK +16.6% (+53.8 de 324) HP +10.0%"]
+FORM_LICH_SURFACES before=72 after=5
+FORM_DEMON_SURFACES before=41 after=6
+ERROR: FAIL: parado 3 s: chega na cidade
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_recall_and_personal_loot (res://tools/tests/run_tests.gd:5300)
+       [2] _check_combat_feel (res://tools/tests/run_tests.gd:4186)
+       [3] _check_zone (res://tools/tests/run_tests.gd:2984)
+       [4] run_all (res://tools/tests/run_tests.gd:2657)
+       [5] _ready (res://tools/tests/run_tests.gd:41)
+FAIL: parado 3 s: chega na cidade
+ERROR: FAIL: volta: bot conjura em combate e chega na cidade
+   at: push_error (core/variant/variant_utility.cpp:1023)
+   GDScript backtrace (most recent call first):
+       [0] check (res://tools/tests/run_tests.gd:30)
+       [1] _check_recall_cast (res://tools/tests/run_tests.gd:5236)
+       [2] _check_combat_feel (res://tools/tests/run_tests.gd:4187)
+       [3] _check_zone (res://tools/tests/run_tests.gd:2984)
+       [4] run_all (res://tools/tests/run_tests.gd:2657)
+       [5] _ready (res://tools/tests/run_tests.gd:41)
+FAIL: volta: bot conjura em combate e chega na cidade
+SCRIPT ERROR: Invalid call to function '_go_home' in base 'RefCounted (BotBrain)'. Expected 2 argument(s).
+   at: _check_bot_recall (res://tools/tests/run_tests.gd:18696)
+   GDScript backtrace (most recent call first):
+       [0] _check_bot_recall (res://tools/tests/run_tests.gd:18696)
+       [1] _check_combat_feel (res://tools/tests/run_tests.gd:4188)
+       [2] _check_zone (res://tools/tests/run_tests.gd:2984)
+       [3] run_all (res://tools/tests/run_tests.gd:2657)
+       [4] _ready (res://tools/tests/run_tests.gd:41)
+BOT_BAND aldara praca_media=0.46 lv40_a_toa=0
+TEIA paladin: 533 nós { "start": 1, "stat": 434, "skill": 29, "mastery": 29, "talent": 5, "notable": 35 }
+TEIA berserker: 537 nós { "start": 1, "stat": 437, "skill": 29, "mastery": 29, "talent": 6, "notable": 35 }
+TEIA bishop: 516 nós { "start": 1, "stat": 420, "skill": 27, "talent": 6, "mastery": 27, "notable": 35 }
+TEIA druid: 529 nós { "start": 1, "stat": 431, "skill": 28, "mastery": 28, "talent": 6, "notable": 35 }
+TEIA ranger: 563 nós { "start": 1, "stat": 460, "skill": 30, "mastery": 30, "talent": 6, "notable": 36 }
+TEIA assassin: 592 nós { "start": 1, "stat": 475, "skill": 37, "talent": 7, "mastery": 37, "notable": 35 }
+TEIA elementalist: 543 nós { "start": 1, "stat": 443, "skill": 29, "talent": 5, "mastery": 29, "notable": 36 }
+TEIA necromancer: 554 nós { "start": 1, "stat": 452, "skill": 30, "mastery": 30, "talent": 5, "notable": 36 }
+ala de bot: 39.0 µs
+SCRIPT ERROR: Invalid access to property or key 'BOSSES' on a base object of type 'GDScript'.
+   at: _check_boss_mechanics (res://tools/tests/run_tests.gd:16691)
+   GDScript backtrace (most recent call first):
+       [0] _check_boss_mechanics (res://tools/tests/run_tests.gd:16691)
+       [1] run_all (res://tools/tests/run_tests.gd:2673)
+       [2] _ready (res://tools/tests/run_tests.gd:41)
+BOOT start_enter 240477
+WARNING: MenuSet: tela desconhecida nada
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] set_shot (res://game/menu/menu_set.gd:122)
+       [1] go_to (res://game/menu/menu_set.gd:161)
+       [2] _check_menu_set (res://tools/tests/run_tests.gd:2031)
+       [3] run_all (res://tools/tests/run_tests.gd:2693)
+       [4] _ready (res://tools/tests/run_tests.gd:41)
+  placa boss_ulgra: topo do modelo 3.54 m, barra 3.89 m (antes 2.09)
+  placa boss_troll_king: topo do modelo 4.10 m, barra 4.45 m (antes 4.29)
+  placa boss_kragmar: topo do modelo 3.76 m, barra 4.11 m (antes 3.81)
+  placa boss_durgash: topo do modelo 4.94 m, barra 5.29 m (antes 4.29)
+  placa trent: topo do modelo 4.50 m, barra 4.85 m (antes 3.00)
+  placa ghoul_giant: topo do modelo 3.70 m, barra 4.10 m (antes 4.10)
+  placa boss_gorbash: topo do modelo 3.93 m, barra 4.49 m (antes 4.49)
+  placa troll_brute: topo do modelo 3.11 m, barra 3.81 m (antes 3.81)
+  placa troll: topo do modelo 2.48 m, barra 3.32 m (antes 3.32)
+SCRIPT ERROR: Invalid access to property or key 'BOSSES' on a base object of type 'GDScript'.
+   at: _check_anim_review (res://tools/tests/run_tests.gd:467)
+   GDScript backtrace (most recent call first):
+       [0] _check_anim_review (res://tools/tests/run_tests.gd:467)
+       [1] run_all (res://tools/tests/run_tests.gd:2712)
+       [2] _ready (res://tools/tests/run_tests.gd:41)
+
+=== 92254 passed, 4 failed ===
+WARNING: 17755 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2536)
+ERROR: 13 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

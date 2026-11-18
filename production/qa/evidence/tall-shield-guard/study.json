@@ -1,0 +1,7783 @@
+{
+ "poses": {
+  "guard": [
+   -45,
+   22.5,
+   -37.5,
+   -67.5,
+   -30
+  ],
+  "run": [
+   15,
+   -38,
+   -14,
+   0,
+   -62
+  ]
+ },
+ "kits": {
+  "glb_base": 9621396,
+  "glb_2clips": 9635752,
+  "meshes": 195
+ },
+ "styles": {
+  "presa": {
+   "alt": 1.199,
+   "larg": 0.789,
+   "area": 0.287,
+   "arm": [
+    0.15841421484947205,
+    0.25959646701812744
+   ],
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.248,
+      0.246,
+      -0.046
+     ]
+    ],
+    "gda": [
+     0.225,
+     0.26,
+     0.08
+    ],
+    "ar": 0.133,
+    "cobre": 0.82,
+    "perto": 0.079,
+    "tira_fora": 5,
+    "folga": {
+     "block_shield": 0.066,
+     "idle": 0.03,
+     "run": 0.054
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 38,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 32,
+     "idle_female": 48,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 1347,
+     "run_male": 1137,
+     "block_shield_female": 0,
+     "idle_female": 548,
+     "run_female": 48
+    },
+    "minz": {
+     "block_shield": -0.205,
+     "idle": 0.01,
+     "run": -0.216
+    }
+   },
+   "controle": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.281,
+      0.165,
+      -0.033
+     ]
+    ],
+    "gda": [
+     0.262,
+     0.179,
+     0.08
+    ],
+    "ar": 0.162,
+    "cobre": 1.0,
+    "perto": 0.097,
+    "tira_fora": 1,
+    "folga": {
+     "block_shield": 0.056,
+     "idle": 0.043,
+     "run": 0.089
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 48,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 50,
+     "idle_female": 48,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 243,
+     "run_male": 272,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "minz": {
+     "block_shield": -0.125,
+     "idle": 0.079,
+     "run": -0.139
+    },
+    "busca": "gap 0.262 drop 0.18 along 0.08 extra 0.15 | corpo m 0 f 0, elmo 342, conj 0"
+   },
+   "A": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.281,
+      0.165,
+      -0.033
+     ]
+    ],
+    "gda": [
+     0.262,
+     0.179,
+     0.08
+    ],
+    "ar": 0.162,
+    "cobre": 1.0,
+    "perto": 0.097,
+    "tira_fora": 1,
+    "folga": {
+     "idle": 0.043,
+     "run": 0.089,
+     "block_shield_tall": 0.177
+    },
+    "toques": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 48,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "manga": {
+     "idle_male": 243,
+     "run_male": 272,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "minz": {
+     "idle": 0.079,
+     "run": -0.139,
+     "block_shield_tall": -0.196
+    },
+    "busca": "gap 0.262 drop 0.18 along 0.08 extra 0.15 | corpo m 0 f 0, elmo 48, conj 0"
+   },
+   "A+": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.169,
+      0.249,
+      -0.063
+     ]
+    ],
+    "gda": [
+     0.144,
+     0.26,
+     0.08
+    ],
+    "ar": 0.052,
+    "cobre": 0.82,
+    "perto": 0.014,
+    "tira_fora": 5,
+    "folga": {
+     "idle": 0.012,
+     "block_shield_tall": 0.049,
+     "run_shield_tall": 0.03
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 120,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 144,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "block_shield_tall_male": 16,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "manga": {
+     "idle_male": 2180,
+     "block_shield_tall_male": 156,
+     "run_shield_tall_male": 2687,
+     "idle_female": 2473,
+     "block_shield_tall_female": 54,
+     "run_shield_tall_female": 2528
+    },
+    "minz": {
+     "idle": -0.011,
+     "block_shield_tall": -0.246,
+     "run_shield_tall": -0.2
+    },
+    "busca": "gap 0.144 drop 0.26 along 0.08 extra 0.04 | corpo m 0 f 0, elmo 1056, conj 16"
+   },
+   "trims": [
+    {
+     "mode": "canto",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.218,
+       0.29,
+       -0.015
+      ]
+     ],
+     "ar": 0.112,
+     "busca": "gap 0.200 drop 0.30 along 0.04 extra 0.10 | corpo m 0 f 0, elmo 122, conj 0",
+     "area": 0.2777,
+     "alt": 1.198,
+     "larg": 0.728,
+     "perda": 0.032
+    },
+    {
+     "mode": "canto",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.218,
+       0.29,
+       -0.015
+      ]
+     ],
+     "ar": 0.112,
+     "busca": "gap 0.200 drop 0.30 along 0.04 extra 0.10 | corpo m 0 f 0, elmo 122, conj 0",
+     "area": 0.2689,
+     "alt": 1.198,
+     "larg": 0.667,
+     "perda": 0.063
+    },
+    {
+     "mode": "canto",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.218,
+       0.29,
+       -0.015
+      ]
+     ],
+     "ar": 0.112,
+     "busca": "gap 0.200 drop 0.30 along 0.04 extra 0.10 | corpo m 0 f 0, elmo 122, conj 0",
+     "area": 0.2638,
+     "alt": 1.198,
+     "larg": 0.642,
+     "perda": 0.081
+    },
+    {
+     "mode": "topo",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.189,
+       0.248,
+       -0.059
+      ]
+     ],
+     "ar": 0.072,
+     "busca": "gap 0.164 drop 0.26 along 0.08 extra 0.06 | corpo m 0 f 0, elmo 220, conj 8",
+     "area": 0.2792,
+     "alt": 1.117,
+     "larg": 0.788,
+     "perda": 0.027
+    },
+    {
+     "mode": "topo",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.169,
+       0.249,
+       -0.063
+      ]
+     ],
+     "ar": 0.052,
+     "busca": "gap 0.144 drop 0.26 along 0.08 extra 0.04 | corpo m 0 f 0, elmo 0, conj 56",
+     "area": 0.2712,
+     "alt": 1.036,
+     "larg": 0.784,
+     "perda": 0.055
+    },
+    {
+     "mode": "topo",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.15,
+       0.25,
+       -0.068
+      ]
+     ],
+     "ar": 0.032,
+     "busca": "gap 0.124 drop 0.26 along 0.08 extra 0.02 | corpo m 0 f 0, elmo 0, conj 240",
+     "area": 0.2641,
+     "alt": 0.968,
+     "larg": 0.774,
+     "perda": 0.08
+    }
+   ],
+   "B": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.169,
+      0.249,
+      -0.063
+     ]
+    ],
+    "gda": [
+     0.144,
+     0.26,
+     0.08
+    ],
+    "ar": 0.052,
+    "cobre": 0.82,
+    "perto": 0.014,
+    "tira_fora": 5,
+    "folga": {
+     "block_shield": 0.118,
+     "idle": 0.037,
+     "run": 0.036
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 56,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 1132,
+     "idle_male": 2026,
+     "run_male": 2702,
+     "block_shield_female": 168,
+     "idle_female": 2761,
+     "run_female": 2717
+    },
+    "minz": {
+     "block_shield": -0.205,
+     "idle": -0.011,
+     "run": -0.212
+    },
+    "busca": "gap 0.144 drop 0.26 along 0.08 extra 0.04 | corpo m 0 f 0, elmo 0, conj 56",
+    "mode": "topo",
+    "k": 0.4,
+    "perda": 0.055,
+    "alt": 1.036,
+    "larg": 0.784
+   }
+  },
+  "perdao": {
+   "alt": 1.43,
+   "larg": 1.175,
+   "area": 0.4787,
+   "arm": [
+    0.07835136353969574,
+    0.34038299322128296
+   ],
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.239,
+      0.332,
+      0.028
+     ]
+    ],
+    "gda": [
+     0.229,
+     0.34,
+     -0.0
+    ],
+    "ar": 0.132,
+    "cobre": 1.0,
+    "perto": 0.116,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.181,
+     "idle": 0.121,
+     "run": 0.034
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 84,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 132
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 224,
+     "run_male": 264,
+     "block_shield_female": 0,
+     "idle_female": 56,
+     "run_female": 0
+    },
+    "minz": {
+     "block_shield": -0.505,
+     "idle": -0.121,
+     "run": -0.491
+    }
+   },
+   "controle": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.239,
+      0.332,
+      0.028
+     ]
+    ],
+    "gda": [
+     0.229,
+     0.34,
+     -0.0
+    ],
+    "ar": 0.132,
+    "cobre": 1.0,
+    "perto": 0.116,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.181,
+     "idle": 0.121,
+     "run": 0.034
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 84,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 132
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 224,
+     "run_male": 264,
+     "block_shield_female": 0,
+     "idle_female": 56,
+     "run_female": 0
+    },
+    "minz": {
+     "block_shield": -0.505,
+     "idle": -0.121,
+     "run": -0.491
+    },
+    "busca": "gap 0.229 drop 0.34 along 0.00 extra 0.12 | corpo m 0 f 0, elmo 0, conj 375"
+   },
+   "A": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.239,
+      0.332,
+      0.028
+     ]
+    ],
+    "gda": [
+     0.229,
+     0.34,
+     -0.0
+    ],
+    "ar": 0.132,
+    "cobre": 1.0,
+    "perto": 0.116,
+    "tira_fora": 0,
+    "folga": {
+     "idle": 0.121,
+     "run": 0.034,
+     "block_shield_tall": 0.133
+    },
+    "toques": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "run_male": 84,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 132,
+     "block_shield_tall_female": 0
+    },
+    "manga": {
+     "idle_male": 224,
+     "run_male": 264,
+     "block_shield_tall_male": 0,
+     "idle_female": 56,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "minz": {
+     "idle": -0.121,
+     "run": -0.491,
+     "block_shield_tall": -0.54
+    },
+    "busca": "gap 0.229 drop 0.34 along 0.00 extra 0.12 | corpo m 0 f 0, elmo 0, conj 375"
+   },
+   "A+": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.142,
+      0.335,
+      0.007
+     ]
+    ],
+    "gda": [
+     0.129,
+     0.34,
+     -0.0
+    ],
+    "ar": 0.033,
+    "cobre": 1.0,
+    "perto": 0.05,
+    "tira_fora": 0,
+    "folga": {
+     "idle": 0.059,
+     "block_shield_tall": 0.035,
+     "run_shield_tall": 0.064
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "block_shield_tall_male": 210,
+     "run_shield_tall_male": 54,
+     "idle_female": 18,
+     "block_shield_tall_female": 6,
+     "run_shield_tall_female": 6
+    },
+    "manga": {
+     "idle_male": 2147,
+     "block_shield_tall_male": 228,
+     "run_shield_tall_male": 1145,
+     "idle_female": 1790,
+     "block_shield_tall_female": 216,
+     "run_shield_tall_female": 585
+    },
+    "minz": {
+     "idle": -0.147,
+     "block_shield_tall": -0.517,
+     "run_shield_tall": -0.506
+    },
+    "busca": "gap 0.129 drop 0.34 along 0.00 extra 0.02 | corpo m 0 f 0, elmo 0, conj 566"
+   },
+   "trims": [
+    {
+     "mode": "canto",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.189,
+       0.331,
+       -0.024
+      ]
+     ],
+     "ar": 0.072,
+     "busca": "gap 0.169 drop 0.34 along 0.04 extra 0.06 | corpo m 0 f 0, elmo 132, conj 238",
+     "area": 0.4747,
+     "alt": 1.427,
+     "larg": 1.175,
+     "perda": 0.008
+    },
+    {
+     "mode": "canto",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.141,
+       0.335,
+       0.006
+      ]
+     ],
+     "ar": 0.032,
+     "busca": "gap 0.128 drop 0.34 along 0.00 extra 0.02 | corpo m 0 f 0, elmo 24, conj 1868",
+     "area": 0.4706,
+     "alt": 1.424,
+     "larg": 1.175,
+     "perda": 0.017
+    },
+    {
+     "mode": "canto",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.141,
+       0.335,
+       0.006
+      ]
+     ],
+     "ar": 0.032,
+     "busca": "gap 0.128 drop 0.34 along 0.00 extra 0.02 | corpo m 0 f 0, elmo 0, conj 1700",
+     "area": 0.466,
+     "alt": 1.421,
+     "larg": 1.175,
+     "perda": 0.027
+    },
+    {
+     "mode": "topo",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.237,
+       0.332,
+       0.027
+      ]
+     ],
+     "ar": 0.131,
+     "busca": "gap 0.227 drop 0.34 along 0.00 extra 0.12 | corpo m 0 f 0, elmo 0, conj 417",
+     "area": 0.4653,
+     "alt": 1.37,
+     "larg": 1.175,
+     "perda": 0.028
+    },
+    {
+     "mode": "topo",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.238,
+       0.292,
+       0.03
+      ]
+     ],
+     "ar": 0.133,
+     "busca": "gap 0.229 drop 0.30 along 0.00 extra 0.12 | corpo m 0 f 0, elmo 0, conj 294",
+     "area": 0.4526,
+     "alt": 1.309,
+     "larg": 1.175,
+     "perda": 0.055
+    },
+    {
+     "mode": "topo",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.237,
+       0.292,
+       0.03
+      ]
+     ],
+     "ar": 0.133,
+     "busca": "gap 0.228 drop 0.30 along 0.00 extra 0.12 | corpo m 0 f 0, elmo 0, conj 306",
+     "area": 0.4425,
+     "alt": 1.258,
+     "larg": 1.175,
+     "perda": 0.076
+    }
+   ],
+   "B": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.141,
+      0.335,
+      0.006
+     ]
+    ],
+    "gda": [
+     0.128,
+     0.34,
+     0.0
+    ],
+    "ar": 0.032,
+    "cobre": 1.0,
+    "perto": 0.048,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.105,
+     "idle": 0.042,
+     "run": 0.051
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 24,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 840,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 320
+    },
+    "manga": {
+     "block_shield_male": 738,
+     "idle_male": 2929,
+     "run_male": 2006,
+     "block_shield_female": 392,
+     "idle_female": 2033,
+     "run_female": 1498
+    },
+    "minz": {
+     "block_shield": -0.505,
+     "idle": -0.147,
+     "run": -0.486
+    },
+    "busca": "gap 0.128 drop 0.34 along 0.00 extra 0.02 | corpo m 0 f 0, elmo 24, conj 1868",
+    "mode": "canto",
+    "k": 0.4,
+    "perda": 0.017,
+    "alt": 1.424,
+    "larg": 1.175
+   }
+  },
+  "serpente": {
+   "alt": 1.33,
+   "larg": 0.958,
+   "area": 0.5,
+   "arm": [
+    0.15833787620067596,
+    0.3398054540157318
+   ],
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.251,
+      0.326,
+      -0.051
+     ]
+    ],
+    "gda": [
+     0.224,
+     0.34,
+     0.08
+    ],
+    "ar": 0.132,
+    "cobre": 1.0,
+    "perto": 0.119,
+    "tira_fora": 2,
+    "folga": {
+     "block_shield": 0.172,
+     "idle": 0.092,
+     "run": 0.036
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 24,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 54
+    },
+    "manga": {
+     "block_shield_male": 24,
+     "idle_male": 2848,
+     "run_male": 2657,
+     "block_shield_female": 0,
+     "idle_female": 754,
+     "run_female": 355
+    },
+    "minz": {
+     "block_shield": -0.474,
+     "idle": -0.277,
+     "run": -0.507
+    }
+   },
+   "controle": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.251,
+      0.326,
+      -0.051
+     ]
+    ],
+    "gda": [
+     0.224,
+     0.34,
+     0.08
+    ],
+    "ar": 0.132,
+    "cobre": 1.0,
+    "perto": 0.119,
+    "tira_fora": 2,
+    "folga": {
+     "block_shield": 0.172,
+     "idle": 0.092,
+     "run": 0.036
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 24,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 54
+    },
+    "manga": {
+     "block_shield_male": 24,
+     "idle_male": 2848,
+     "run_male": 2657,
+     "block_shield_female": 0,
+     "idle_female": 754,
+     "run_female": 355
+    },
+    "minz": {
+     "block_shield": -0.474,
+     "idle": -0.277,
+     "run": -0.507
+    },
+    "busca": "gap 0.224 drop 0.34 along 0.08 extra 0.12 | corpo m 0 f 0, elmo 0, conj 120"
+   },
+   "A": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.251,
+      0.326,
+      -0.051
+     ]
+    ],
+    "gda": [
+     0.224,
+     0.34,
+     0.08
+    ],
+    "ar": 0.132,
+    "cobre": 1.0,
+    "perto": 0.119,
+    "tira_fora": 2,
+    "folga": {
+     "idle": 0.092,
+     "run": 0.036,
+     "block_shield_tall": 0.126
+    },
+    "toques": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "run_male": 24,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 54,
+     "block_shield_tall_female": 0
+    },
+    "manga": {
+     "idle_male": 2848,
+     "run_male": 2657,
+     "block_shield_tall_male": 0,
+     "idle_female": 754,
+     "run_female": 355,
+     "block_shield_tall_female": 0
+    },
+    "minz": {
+     "idle": -0.277,
+     "run": -0.507,
+     "block_shield_tall": -0.55
+    },
+    "busca": "gap 0.224 drop 0.34 along 0.08 extra 0.12 | corpo m 0 f 0, elmo 0, conj 120"
+   },
+   "A+": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.173,
+      0.329,
+      -0.068
+     ]
+    ],
+    "gda": [
+     0.144,
+     0.34,
+     0.08
+    ],
+    "ar": 0.052,
+    "cobre": 1.0,
+    "perto": 0.056,
+    "tira_fora": 2,
+    "folga": {
+     "idle": 0.021,
+     "block_shield_tall": 0.047,
+     "run_shield_tall": 0.047
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "block_shield_tall_male": 196,
+     "run_shield_tall_male": 40,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "manga": {
+     "idle_male": 7212,
+     "block_shield_tall_male": 660,
+     "run_shield_tall_male": 6509,
+     "idle_female": 7817,
+     "block_shield_tall_female": 288,
+     "run_shield_tall_female": 4941
+    },
+    "minz": {
+     "idle": -0.298,
+     "block_shield_tall": -0.533,
+     "run_shield_tall": -0.499
+    },
+    "busca": "gap 0.144 drop 0.34 along 0.08 extra 0.04 | corpo m 0 f 0, elmo 0, conj 428"
+   },
+   "trims": [
+    {
+     "mode": "canto",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.193,
+       0.328,
+       -0.064
+      ]
+     ],
+     "ar": 0.073,
+     "busca": "gap 0.164 drop 0.34 along 0.08 extra 0.06 | corpo m 0 f 0, elmo 24, conj 132",
+     "area": 0.4777,
+     "alt": 1.322,
+     "larg": 0.853,
+     "perda": 0.045
+    },
+    {
+     "mode": "canto",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.156,
+       0.334,
+       0.01
+      ]
+     ],
+     "ar": 0.052,
+     "busca": "gap 0.144 drop 0.34 along 0.00 extra 0.04 | corpo m 0 f 0, elmo 0, conj 887",
+     "area": 0.4583,
+     "alt": 1.322,
+     "larg": 0.757,
+     "perda": 0.083
+    },
+    {
+     "mode": "canto",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.137,
+       0.335,
+       0.006
+      ]
+     ],
+     "ar": 0.033,
+     "busca": "gap 0.124 drop 0.34 along 0.00 extra 0.02 | corpo m 0 f 0, elmo 24, conj 1552",
+     "area": 0.4457,
+     "alt": 1.322,
+     "larg": 0.758,
+     "perda": 0.109
+    },
+    {
+     "mode": "topo",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.265,
+       0.291,
+       0.036
+      ]
+     ],
+     "ar": 0.162,
+     "busca": "gap 0.257 drop 0.30 along 0.00 extra 0.15 | corpo m 0 f 0, elmo 0, conj 252",
+     "area": 0.4821,
+     "alt": 1.289,
+     "larg": 0.958,
+     "perda": 0.036
+    },
+    {
+     "mode": "topo",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.252,
+       0.286,
+       -0.048
+      ]
+     ],
+     "ar": 0.132,
+     "busca": "gap 0.227 drop 0.30 along 0.08 extra 0.12 | corpo m 0 f 0, elmo 0, conj 60",
+     "area": 0.4649,
+     "alt": 1.249,
+     "larg": 0.958,
+     "perda": 0.07
+    },
+    {
+     "mode": "topo",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.243,
+       0.289,
+       -0.009
+      ]
+     ],
+     "ar": 0.132,
+     "busca": "gap 0.226 drop 0.30 along 0.04 extra 0.12 | corpo m 0 f 0, elmo 0, conj 147",
+     "area": 0.4504,
+     "alt": 1.214,
+     "larg": 0.958,
+     "perda": 0.099
+    }
+   ],
+   "B": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.156,
+      0.334,
+      0.01
+     ]
+    ],
+    "gda": [
+     0.144,
+     0.34,
+     -0.0
+    ],
+    "ar": 0.052,
+    "cobre": 1.0,
+    "perto": 0.056,
+    "tira_fora": 1,
+    "folga": {
+     "block_shield": 0.124,
+     "idle": 0.021,
+     "run": 0.039
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 422,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 120
+    },
+    "manga": {
+     "block_shield_male": 1708,
+     "idle_male": 7336,
+     "run_male": 7268,
+     "block_shield_female": 860,
+     "idle_female": 6960,
+     "run_female": 5848
+    },
+    "minz": {
+     "block_shield": -0.473,
+     "idle": -0.247,
+     "run": -0.486
+    },
+    "busca": "gap 0.144 drop 0.34 along 0.00 extra 0.04 | corpo m 0 f 0, elmo 0, conj 887",
+    "mode": "canto",
+    "k": 0.4,
+    "perda": 0.083,
+    "alt": 1.322,
+    "larg": 0.757
+   }
+  },
+  "pal_t20": {
+   "alt": 1.13,
+   "larg": 0.941,
+   "area": 0.6963,
+   "arm": [
+    0.07849201560020447,
+    0.34025898575782776
+   ],
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.235,
+      0.332,
+      0.027
+     ]
+    ],
+    "gda": [
+     0.225,
+     0.34,
+     -0.0
+    ],
+    "ar": 0.132,
+    "cobre": 1.0,
+    "perto": 0.113,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.135,
+     "idle": 0.081,
+     "run": 0.086
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 30,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 1925,
+     "run_male": 872,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "minz": {
+     "block_shield": -0.185,
+     "idle": -0.021,
+     "run": -0.184
+    }
+   },
+   "controle": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.235,
+      0.332,
+      0.027
+     ]
+    ],
+    "gda": [
+     0.225,
+     0.34,
+     -0.0
+    ],
+    "ar": 0.132,
+    "cobre": 1.0,
+    "perto": 0.113,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.135,
+     "idle": 0.081,
+     "run": 0.086
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 30,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 1925,
+     "run_male": 872,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "minz": {
+     "block_shield": -0.185,
+     "idle": -0.021,
+     "run": -0.184
+    },
+    "busca": "gap 0.225 drop 0.34 along 0.00 extra 0.12 | corpo m 0 f 0, elmo 30, conj 0"
+   },
+   "A": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.135,
+      0.33,
+      -0.076
+     ]
+    ],
+    "gda": [
+     0.105,
+     0.34,
+     0.08
+    ],
+    "ar": 0.013,
+    "cobre": 1.0,
+    "perto": 0.035,
+    "tira_fora": 1,
+    "folga": {
+     "idle": 0.037,
+     "run": 0.029,
+     "block_shield_tall": 0.005
+    },
+    "toques": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 72,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 33,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 21
+    },
+    "manga": {
+     "idle_male": 3358,
+     "run_male": 3892,
+     "block_shield_tall_male": 1074,
+     "idle_female": 3000,
+     "run_female": 4480,
+     "block_shield_tall_female": 498
+    },
+    "minz": {
+     "idle": -0.102,
+     "run": -0.195,
+     "block_shield_tall": -0.221
+    },
+    "busca": "gap 0.105 drop 0.34 along 0.08 extra 0.00 | corpo m 0 f 0, elmo 72, conj 95"
+   },
+   "A+": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.119,
+      0.296,
+      0.005
+     ]
+    ],
+    "gda": [
+     0.108,
+     0.3,
+     -0.0
+    ],
+    "ar": 0.012,
+    "cobre": 1.0,
+    "perto": 0.005,
+    "tira_fora": 0,
+    "folga": {
+     "idle": 0.006,
+     "block_shield_tall": 0.013,
+     "run_shield_tall": 0.036
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 48,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "manga": {
+     "idle_male": 6926,
+     "block_shield_tall_male": 1446,
+     "run_shield_tall_male": 7530,
+     "idle_female": 5582,
+     "block_shield_tall_female": 868,
+     "run_shield_tall_female": 6078
+    },
+    "minz": {
+     "idle": -0.022,
+     "block_shield_tall": -0.165,
+     "run_shield_tall": -0.143
+    },
+    "busca": "gap 0.108 drop 0.30 along 0.00 extra 0.00 | corpo m 0 f 0, elmo 48, conj 0"
+   },
+   "trims": [
+    {
+     "mode": "canto",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.235,
+       0.332,
+       0.027
+      ]
+     ],
+     "ar": 0.132,
+     "busca": "gap 0.225 drop 0.34 along 0.00 extra 0.12 | corpo m 0 f 0, elmo 30, conj 0",
+     "area": 0.6815,
+     "alt": 1.127,
+     "larg": 0.941,
+     "perda": 0.021
+    },
+    {
+     "mode": "canto",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.235,
+       0.332,
+       0.027
+      ]
+     ],
+     "ar": 0.132,
+     "busca": "gap 0.225 drop 0.34 along 0.00 extra 0.12 | corpo m 0 f 0, elmo 30, conj 0",
+     "area": 0.6693,
+     "alt": 1.123,
+     "larg": 0.941,
+     "perda": 0.039
+    },
+    {
+     "mode": "canto",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.235,
+       0.332,
+       0.027
+      ]
+     ],
+     "ar": 0.132,
+     "busca": "gap 0.225 drop 0.34 along 0.00 extra 0.12 | corpo m 0 f 0, elmo 30, conj 0",
+     "area": 0.6608,
+     "alt": 1.12,
+     "larg": 0.941,
+     "perda": 0.051
+    },
+    {
+     "mode": "topo",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.156,
+       0.334,
+       0.01
+      ]
+     ],
+     "ar": 0.051,
+     "busca": "gap 0.144 drop 0.34 along 0.00 extra 0.04 | corpo m 0 f 0, elmo 24, conj 0",
+     "area": 0.679,
+     "alt": 1.064,
+     "larg": 0.941,
+     "perda": 0.025
+    },
+    {
+     "mode": "topo",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.127,
+       0.293,
+       -0.035
+      ]
+     ],
+     "ar": 0.012,
+     "busca": "gap 0.107 drop 0.30 along 0.04 extra 0.00 | corpo m 0 f 0, elmo 24, conj 0",
+     "area": 0.6607,
+     "alt": 0.997,
+     "larg": 0.941,
+     "perda": 0.051
+    },
+    {
+     "mode": "topo",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.128,
+       0.253,
+       -0.032
+      ]
+     ],
+     "ar": 0.012,
+     "busca": "gap 0.110 drop 0.26 along 0.04 extra 0.00 | corpo m 0 f 0, elmo 0, conj 0",
+     "area": 0.6459,
+     "alt": 0.941,
+     "larg": 0.941,
+     "perda": 0.072
+    }
+   ],
+   "B": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.156,
+      0.334,
+      0.01
+     ]
+    ],
+    "gda": [
+     0.144,
+     0.34,
+     -0.0
+    ],
+    "ar": 0.051,
+    "cobre": 1.0,
+    "perto": 0.057,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.121,
+     "idle": 0.043,
+     "run": 0.025
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 24,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 1510,
+     "idle_male": 5994,
+     "run_male": 5803,
+     "block_shield_female": 704,
+     "idle_female": 6326,
+     "run_female": 5166
+    },
+    "minz": {
+     "block_shield": -0.185,
+     "idle": -0.042,
+     "run": -0.18
+    },
+    "busca": "gap 0.144 drop 0.34 along 0.00 extra 0.04 | corpo m 0 f 0, elmo 24, conj 0",
+    "mode": "topo",
+    "k": 0.7,
+    "perda": 0.025,
+    "alt": 1.064,
+    "larg": 0.941
+   }
+  },
+  "bis_s30": {
+   "alt": 1.111,
+   "larg": 1.073,
+   "area": 0.5544,
+   "arm": [
+    0.15827356278896332,
+    0.25972050428390503
+   ],
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.252,
+      0.246,
+      -0.045
+     ]
+    ],
+    "gda": [
+     0.229,
+     0.26,
+     0.08
+    ],
+    "ar": 0.131,
+    "cobre": 1.0,
+    "perto": 0.07,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.126,
+     "idle": 0.034,
+     "run": 0.083
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 444,
+     "run_male": 264,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "minz": {
+     "block_shield": -0.138,
+     "idle": 0.067,
+     "run": -0.143
+    }
+   },
+   "controle": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.252,
+      0.246,
+      -0.045
+     ]
+    ],
+    "gda": [
+     0.229,
+     0.26,
+     0.08
+    ],
+    "ar": 0.131,
+    "cobre": 1.0,
+    "perto": 0.07,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.126,
+     "idle": 0.034,
+     "run": 0.083
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 444,
+     "run_male": 264,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "minz": {
+     "block_shield": -0.138,
+     "idle": 0.067,
+     "run": -0.143
+    },
+    "busca": "gap 0.229 drop 0.26 along 0.08 extra 0.12 | corpo m 0 f 0, elmo 0, conj 0"
+   },
+   "A": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.252,
+      0.246,
+      -0.045
+     ]
+    ],
+    "gda": [
+     0.229,
+     0.26,
+     0.08
+    ],
+    "ar": 0.131,
+    "cobre": 1.0,
+    "perto": 0.07,
+    "tira_fora": 0,
+    "folga": {
+     "idle": 0.034,
+     "run": 0.083,
+     "block_shield_tall": 0.128
+    },
+    "toques": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "manga": {
+     "idle_male": 444,
+     "run_male": 264,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "minz": {
+     "idle": 0.067,
+     "run": -0.143,
+     "block_shield_tall": -0.189
+    },
+    "busca": "gap 0.229 drop 0.26 along 0.08 extra 0.12 | corpo m 0 f 0, elmo 0, conj 0"
+   },
+   "A+": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.172,
+      0.329,
+      -0.068
+     ]
+    ],
+    "gda": [
+     0.143,
+     0.34,
+     0.08
+    ],
+    "ar": 0.052,
+    "cobre": 1.0,
+    "perto": 0.057,
+    "tira_fora": 4,
+    "folga": {
+     "idle": 0.056,
+     "block_shield_tall": 0.043,
+     "run_shield_tall": 0.087
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "block_shield_tall_male": 290,
+     "run_shield_tall_male": 54,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "manga": {
+     "idle_male": 2015,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 511,
+     "idle_female": 1187,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 208
+    },
+    "minz": {
+     "idle": -0.014,
+     "block_shield_tall": -0.245,
+     "run_shield_tall": -0.207
+    },
+    "busca": "gap 0.143 drop 0.34 along 0.08 extra 0.04 | corpo m 0 f 0, elmo 0, conj 760"
+   },
+   "trims": [
+    {
+     "mode": "canto",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.194,
+       0.248,
+       -0.058
+      ]
+     ],
+     "ar": 0.072,
+     "busca": "gap 0.169 drop 0.26 along 0.08 extra 0.06 | corpo m 0 f 0, elmo 0, conj 58",
+     "area": 0.5321,
+     "alt": 1.111,
+     "larg": 0.982,
+     "perda": 0.04
+    },
+    {
+     "mode": "canto",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.135,
+       0.25,
+       -0.071
+      ]
+     ],
+     "ar": 0.012,
+     "busca": "gap 0.109 drop 0.26 along 0.08 extra 0.00 | corpo m 0 f 0, elmo 0, conj 1172",
+     "area": 0.5152,
+     "alt": 1.111,
+     "larg": 0.914,
+     "perda": 0.071
+    },
+    {
+     "mode": "canto",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.121,
+       0.216,
+       0.011
+      ]
+     ],
+     "ar": 0.013,
+     "busca": "gap 0.113 drop 0.22 along 0.00 extra 0.00 | corpo m 0 f 0, elmo 0, conj 1419",
+     "area": 0.5039,
+     "alt": 1.111,
+     "larg": 0.914,
+     "perda": 0.091
+    },
+    {
+     "mode": "topo",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.233,
+       0.247,
+       -0.05
+      ]
+     ],
+     "ar": 0.112,
+     "busca": "gap 0.209 drop 0.26 along 0.08 extra 0.10 | corpo m 0 f 0, elmo 0, conj 36",
+     "area": 0.5249,
+     "alt": 1.035,
+     "larg": 1.07,
+     "perda": 0.053
+    },
+    {
+     "mode": "topo",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.191,
+       0.288,
+       -0.062
+      ]
+     ],
+     "ar": 0.072,
+     "busca": "gap 0.164 drop 0.30 along 0.08 extra 0.06 | corpo m 0 f 0, elmo 0, conj 112",
+     "area": 0.4975,
+     "alt": 0.96,
+     "larg": 1.066,
+     "perda": 0.103
+    },
+    {
+     "mode": "topo",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.213,
+       0.208,
+       -0.051
+      ]
+     ],
+     "ar": 0.092,
+     "busca": "gap 0.191 drop 0.22 along 0.08 extra 0.08 | corpo m 0 f 0, elmo 0, conj 48",
+     "area": 0.4744,
+     "alt": 0.897,
+     "larg": 1.061,
+     "perda": 0.144
+    }
+   ],
+   "B": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.135,
+      0.25,
+      -0.071
+     ]
+    ],
+    "gda": [
+     0.109,
+     0.26,
+     0.08
+    ],
+    "ar": 0.012,
+    "cobre": 1.0,
+    "perto": -0.028,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.038,
+     "idle": 0.044,
+     "run": 0.025
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 38,
+     "idle_male": 0,
+     "run_male": 478,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 118
+    },
+    "manga": {
+     "block_shield_male": 345,
+     "idle_male": 2029,
+     "run_male": 1909,
+     "block_shield_female": 204,
+     "idle_female": 1377,
+     "run_female": 1162
+    },
+    "minz": {
+     "block_shield": -0.138,
+     "idle": 0.035,
+     "run": -0.138
+    },
+    "busca": "gap 0.109 drop 0.26 along 0.08 extra 0.00 | corpo m 0 f 0, elmo 0, conj 1172",
+    "mode": "canto",
+    "k": 0.4,
+    "perda": 0.071,
+    "alt": 1.111,
+    "larg": 0.914
+   }
+  },
+  "pal_t30": {
+   "alt": 1.193,
+   "larg": 0.681,
+   "area": 0.6123,
+   "arm": [
+    0.11889305710792542,
+    0.34005752205848694
+   ],
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.273,
+      0.328,
+      -0.006
+     ]
+    ],
+    "gda": [
+     0.255,
+     0.34,
+     0.04
+    ],
+    "ar": 0.161,
+    "cobre": 1.0,
+    "perto": 0.135,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.135,
+     "idle": 0.124,
+     "run": 0.156
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 20,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 408,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "minz": {
+     "block_shield": -0.231,
+     "idle": -0.034,
+     "run": -0.228
+    }
+   },
+   "controle": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.273,
+      0.328,
+      -0.006
+     ]
+    ],
+    "gda": [
+     0.255,
+     0.34,
+     0.04
+    ],
+    "ar": 0.161,
+    "cobre": 1.0,
+    "perto": 0.135,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.135,
+     "idle": 0.124,
+     "run": 0.156
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 20,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 408,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "minz": {
+     "block_shield": -0.231,
+     "idle": -0.034,
+     "run": -0.228
+    },
+    "busca": "gap 0.255 drop 0.34 along 0.04 extra 0.15 | corpo m 0 f 0, elmo 20, conj 0"
+   },
+   "A": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.135,
+      0.33,
+      -0.076
+     ]
+    ],
+    "gda": [
+     0.105,
+     0.34,
+     0.08
+    ],
+    "ar": 0.012,
+    "cobre": 1.0,
+    "perto": 0.041,
+    "tira_fora": 0,
+    "folga": {
+     "idle": 0.032,
+     "run": 0.022,
+     "block_shield_tall": 0.005
+    },
+    "toques": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 33,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 21
+    },
+    "manga": {
+     "idle_male": 4496,
+     "run_male": 5807,
+     "block_shield_tall_male": 1646,
+     "idle_female": 4017,
+     "run_female": 6013,
+     "block_shield_tall_female": 822
+    },
+    "minz": {
+     "idle": -0.098,
+     "run": -0.229,
+     "block_shield_tall": -0.25
+    },
+    "busca": "gap 0.105 drop 0.34 along 0.08 extra 0.00 | corpo m 0 f 0, elmo 0, conj 95"
+   },
+   "A+": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.135,
+      0.33,
+      -0.076
+     ]
+    ],
+    "gda": [
+     0.105,
+     0.34,
+     0.08
+    ],
+    "ar": 0.012,
+    "cobre": 1.0,
+    "perto": 0.041,
+    "tira_fora": 0,
+    "folga": {
+     "idle": 0.032,
+     "block_shield_tall": 0.005,
+     "run_shield_tall": 0.049
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "block_shield_tall_male": 33,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 21,
+     "run_shield_tall_female": 0
+    },
+    "manga": {
+     "idle_male": 4496,
+     "block_shield_tall_male": 1646,
+     "run_shield_tall_male": 5529,
+     "idle_female": 4017,
+     "block_shield_tall_female": 822,
+     "run_shield_tall_female": 4873
+    },
+    "minz": {
+     "idle": -0.098,
+     "block_shield_tall": -0.25,
+     "run_shield_tall": -0.219
+    },
+    "busca": "gap 0.105 drop 0.34 along 0.08 extra 0.00 | corpo m 0 f 0, elmo 0, conj 95"
+   },
+   "trims": [
+    {
+     "mode": "canto",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.273,
+       0.328,
+       -0.006
+      ]
+     ],
+     "ar": 0.161,
+     "busca": "gap 0.255 drop 0.34 along 0.04 extra 0.15 | corpo m 0 f 0, elmo 16, conj 0",
+     "area": 0.5882,
+     "alt": 1.193,
+     "larg": 0.681,
+     "perda": 0.039
+    },
+    {
+     "mode": "canto",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.273,
+       0.328,
+       -0.006
+      ]
+     ],
+     "ar": 0.161,
+     "busca": "gap 0.255 drop 0.34 along 0.04 extra 0.15 | corpo m 0 f 0, elmo 16, conj 0",
+     "area": 0.5669,
+     "alt": 1.193,
+     "larg": 0.681,
+     "perda": 0.074
+    },
+    {
+     "mode": "canto",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.273,
+       0.328,
+       -0.006
+      ]
+     ],
+     "ar": 0.161,
+     "busca": "gap 0.255 drop 0.34 along 0.04 extra 0.15 | corpo m 0 f 0, elmo 16, conj 0",
+     "area": 0.5502,
+     "alt": 1.193,
+     "larg": 0.681,
+     "perda": 0.101
+    },
+    {
+     "mode": "topo",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.157,
+       0.334,
+       0.01
+      ]
+     ],
+     "ar": 0.052,
+     "busca": "gap 0.145 drop 0.34 along 0.00 extra 0.04 | corpo m 0 f 0, elmo 264, conj 0",
+     "area": 0.5876,
+     "alt": 1.121,
+     "larg": 0.681,
+     "perda": 0.04
+    },
+    {
+     "mode": "topo",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.134,
+       0.33,
+       -0.077
+      ]
+     ],
+     "ar": 0.011,
+     "busca": "gap 0.104 drop 0.34 along 0.08 extra 0.00 | corpo m 0 f 0, elmo 0, conj 0",
+     "area": 0.5641,
+     "alt": 1.049,
+     "larg": 0.681,
+     "perda": 0.079
+    },
+    {
+     "mode": "topo",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.135,
+       0.29,
+       -0.074
+      ]
+     ],
+     "ar": 0.012,
+     "busca": "gap 0.107 drop 0.30 along 0.08 extra 0.00 | corpo m 0 f 0, elmo 0, conj 0",
+     "area": 0.544,
+     "alt": 0.989,
+     "larg": 0.681,
+     "perda": 0.112
+    }
+   ],
+   "B": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.157,
+      0.334,
+      0.01
+     ]
+    ],
+    "gda": [
+     0.145,
+     0.34,
+     -0.0
+    ],
+    "ar": 0.052,
+    "cobre": 1.0,
+    "perto": 0.057,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.121,
+     "idle": 0.036,
+     "run": 0.044
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 40,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 112,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 3029,
+     "idle_male": 8664,
+     "run_male": 8711,
+     "block_shield_female": 1254,
+     "idle_female": 8627,
+     "run_female": 7202
+    },
+    "minz": {
+     "block_shield": -0.23,
+     "idle": -0.038,
+     "run": -0.214
+    },
+    "busca": "gap 0.145 drop 0.34 along 0.00 extra 0.04 | corpo m 0 f 0, elmo 264, conj 0",
+    "mode": "topo",
+    "k": 0.7,
+    "perda": 0.04,
+    "alt": 1.121,
+    "larg": 0.681
+   }
+  },
+  "relicario": {
+   "alt": 1.415,
+   "larg": 0.989,
+   "area": 0.3855,
+   "arm": [
+    0.07868147641420364,
+    0.3402945399284363
+   ],
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.296,
+      0.33,
+      0.04
+     ]
+    ],
+    "gda": [
+     0.287,
+     0.34,
+     0.0
+    ],
+    "ar": 0.192,
+    "cobre": 1.0,
+    "perto": 0.17,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.139,
+     "idle": 0.165,
+     "run": 0.193
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 20,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 110,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "minz": {
+     "block_shield": -0.447,
+     "idle": -0.083,
+     "run": -0.434
+    }
+   },
+   "controle": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.296,
+      0.33,
+      0.04
+     ]
+    ],
+    "gda": [
+     0.287,
+     0.34,
+     0.0
+    ],
+    "ar": 0.192,
+    "cobre": 1.0,
+    "perto": 0.17,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.139,
+     "idle": 0.165,
+     "run": 0.193
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 20,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 110,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "minz": {
+     "block_shield": -0.447,
+     "idle": -0.083,
+     "run": -0.434
+    },
+    "busca": "gap 0.287 drop 0.34 along 0.00 extra 0.18 | corpo m 0 f 0, elmo 358, conj 0"
+   },
+   "A": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.14,
+      0.335,
+      0.006
+     ]
+    ],
+    "gda": [
+     0.127,
+     0.34,
+     0.0
+    ],
+    "ar": 0.033,
+    "cobre": 1.0,
+    "perto": 0.045,
+    "tira_fora": 0,
+    "folga": {
+     "idle": 0.089,
+     "run": 0.043,
+     "block_shield_tall": 0.036
+    },
+    "toques": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 24,
+     "run_male": 774,
+     "block_shield_tall_male": 162,
+     "idle_female": 57,
+     "run_female": 190,
+     "block_shield_tall_female": 4
+    },
+    "manga": {
+     "idle_male": 3517,
+     "run_male": 3216,
+     "block_shield_tall_male": 1296,
+     "idle_female": 2994,
+     "run_female": 2936,
+     "block_shield_tall_female": 688
+    },
+    "minz": {
+     "idle": -0.125,
+     "run": -0.426,
+     "block_shield_tall": -0.445
+    },
+    "busca": "gap 0.127 drop 0.34 along 0.00 extra 0.02 | corpo m 0 f 0, elmo 0, conj 2264"
+   },
+   "A+": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.14,
+      0.335,
+      0.006
+     ]
+    ],
+    "gda": [
+     0.127,
+     0.34,
+     0.0
+    ],
+    "ar": 0.033,
+    "cobre": 1.0,
+    "perto": 0.045,
+    "tira_fora": 0,
+    "folga": {
+     "idle": 0.089,
+     "block_shield_tall": 0.036,
+     "run_shield_tall": 0.055
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 24,
+     "block_shield_tall_male": 162,
+     "run_shield_tall_male": 50,
+     "idle_female": 57,
+     "block_shield_tall_female": 4,
+     "run_shield_tall_female": 0
+    },
+    "manga": {
+     "idle_male": 3517,
+     "block_shield_tall_male": 1296,
+     "run_shield_tall_male": 2961,
+     "idle_female": 2994,
+     "block_shield_tall_female": 688,
+     "run_shield_tall_female": 2360
+    },
+    "minz": {
+     "idle": -0.125,
+     "block_shield_tall": -0.445,
+     "run_shield_tall": -0.444
+    },
+    "busca": "gap 0.127 drop 0.34 along 0.00 extra 0.02 | corpo m 0 f 0, elmo 0, conj 577"
+   },
+   "trims": [
+    {
+     "mode": "canto",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.296,
+       0.33,
+       0.04
+      ]
+     ],
+     "ar": 0.192,
+     "busca": "gap 0.287 drop 0.34 along 0.00 extra 0.18 | corpo m 0 f 0, elmo 354, conj 0",
+     "area": 0.3788,
+     "alt": 1.41,
+     "larg": 0.944,
+     "perda": 0.017
+    },
+    {
+     "mode": "canto",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.296,
+       0.33,
+       0.04
+      ]
+     ],
+     "ar": 0.192,
+     "busca": "gap 0.287 drop 0.34 along 0.00 extra 0.18 | corpo m 0 f 0, elmo 354, conj 0",
+     "area": 0.3735,
+     "alt": 1.404,
+     "larg": 0.899,
+     "perda": 0.031
+    },
+    {
+     "mode": "canto",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.296,
+       0.33,
+       0.04
+      ]
+     ],
+     "ar": 0.192,
+     "busca": "gap 0.287 drop 0.34 along 0.00 extra 0.18 | corpo m 0 f 0, elmo 338, conj 0",
+     "area": 0.3694,
+     "alt": 1.401,
+     "larg": 0.871,
+     "perda": 0.042
+    },
+    {
+     "mode": "topo",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.197,
+       0.333,
+       0.019
+      ]
+     ],
+     "ar": 0.092,
+     "busca": "gap 0.186 drop 0.34 along 0.00 extra 0.08 | corpo m 0 f 0, elmo 288, conj 209",
+     "area": 0.3713,
+     "alt": 1.341,
+     "larg": 0.989,
+     "perda": 0.037
+    },
+    {
+     "mode": "topo",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.118,
+       0.336,
+       0.002
+      ]
+     ],
+     "ar": 0.012,
+     "busca": "gap 0.105 drop 0.34 along 0.00 extra 0.00 | corpo m 0 f 0, elmo 16, conj 3721",
+     "area": 0.3602,
+     "alt": 1.268,
+     "larg": 0.989,
+     "perda": 0.066
+    },
+    {
+     "mode": "topo",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.127,
+       0.293,
+       -0.035
+      ]
+     ],
+     "ar": 0.012,
+     "busca": "gap 0.107 drop 0.30 along 0.04 extra 0.00 | corpo m 0 f 0, elmo 24, conj 2947",
+     "area": 0.3494,
+     "alt": 1.207,
+     "larg": 0.989,
+     "perda": 0.094
+    }
+   ],
+   "B": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.118,
+      0.336,
+      0.002
+     ]
+    ],
+    "gda": [
+     0.105,
+     0.34,
+     -0.001
+    ],
+    "ar": 0.012,
+    "cobre": 1.0,
+    "perto": 0.023,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.085,
+     "idle": 0.072,
+     "run": 0.022
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 16
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 57,
+     "run_male": 1503,
+     "block_shield_female": 0,
+     "idle_female": 72,
+     "run_female": 698
+    },
+    "manga": {
+     "block_shield_male": 1677,
+     "idle_male": 1778,
+     "run_male": 2112,
+     "block_shield_female": 1114,
+     "idle_female": 850,
+     "run_female": 1619
+    },
+    "minz": {
+     "block_shield": -0.448,
+     "idle": -0.131,
+     "run": -0.425
+    },
+    "busca": "gap 0.105 drop 0.34 along 0.00 extra 0.00 | corpo m 0 f 0, elmo 16, conj 3721",
+    "mode": "topo",
+    "k": 0.4,
+    "perda": 0.066,
+    "alt": 1.268,
+    "larg": 0.989
+   }
+  },
+  "veredito": {
+   "alt": 1.338,
+   "larg": 0.898,
+   "area": 0.5771,
+   "arm": [
+    0.15888364613056183,
+    0.3002762496471405
+   ],
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.296,
+      0.285,
+      -0.039
+     ]
+    ],
+    "gda": [
+     0.272,
+     0.3,
+     0.08
+    ],
+    "ar": 0.192,
+    "cobre": 1.0,
+    "perto": 0.143,
+    "tira_fora": 1,
+    "folga": {
+     "block_shield": 0.131,
+     "idle": 0.058,
+     "run": 0.08
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 12,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "minz": {
+     "block_shield": -0.357,
+     "idle": -0.245,
+     "run": -0.42
+    }
+   },
+   "controle": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.296,
+      0.285,
+      -0.039
+     ]
+    ],
+    "gda": [
+     0.272,
+     0.3,
+     0.08
+    ],
+    "ar": 0.192,
+    "cobre": 1.0,
+    "perto": 0.143,
+    "tira_fora": 1,
+    "folga": {
+     "block_shield": 0.131,
+     "idle": 0.058,
+     "run": 0.08
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 12,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "minz": {
+     "block_shield": -0.357,
+     "idle": -0.245,
+     "run": -0.42
+    },
+    "busca": "gap 0.272 drop 0.30 along 0.08 extra 0.18 | corpo m 0 f 0, elmo 28, conj 0"
+   },
+   "A": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.296,
+      0.285,
+      -0.039
+     ]
+    ],
+    "gda": [
+     0.272,
+     0.3,
+     0.08
+    ],
+    "ar": 0.192,
+    "cobre": 1.0,
+    "perto": 0.143,
+    "tira_fora": 1,
+    "folga": {
+     "idle": 0.058,
+     "run": 0.08,
+     "block_shield_tall": 0.179
+    },
+    "toques": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "manga": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "minz": {
+     "idle": -0.245,
+     "run": -0.42,
+     "block_shield_tall": -0.485
+    },
+    "busca": "gap 0.272 drop 0.30 along 0.08 extra 0.18 | corpo m 0 f 0, elmo 0, conj 0"
+   },
+   "A+": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.296,
+      0.285,
+      -0.039
+     ]
+    ],
+    "gda": [
+     0.272,
+     0.3,
+     0.08
+    ],
+    "ar": 0.192,
+    "cobre": 1.0,
+    "perto": 0.143,
+    "tira_fora": 1,
+    "folga": {
+     "idle": 0.058,
+     "block_shield_tall": 0.179,
+     "run_shield_tall": 0.205
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "manga": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "minz": {
+     "idle": -0.245,
+     "block_shield_tall": -0.485,
+     "run_shield_tall": -0.429
+    },
+    "busca": "gap 0.272 drop 0.30 along 0.08 extra 0.18 | corpo m 0 f 0, elmo 0, conj 0"
+   },
+   "trims": [
+    {
+     "mode": "canto",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.22,
+       0.327,
+       -0.058
+      ]
+     ],
+     "ar": 0.112,
+     "busca": "gap 0.192 drop 0.34 along 0.08 extra 0.10 | corpo m 0 f 0, elmo 28, conj 0",
+     "area": 0.5498,
+     "alt": 1.338,
+     "larg": 0.898,
+     "perda": 0.047
+    },
+    {
+     "mode": "canto",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.159,
+       0.289,
+       -0.068
+      ]
+     ],
+     "ar": 0.052,
+     "busca": "gap 0.132 drop 0.30 along 0.08 extra 0.04 | corpo m 0 f 0, elmo 528, conj 142",
+     "area": 0.5263,
+     "alt": 1.338,
+     "larg": 0.898,
+     "perda": 0.088
+    },
+    {
+     "mode": "canto",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.159,
+       0.289,
+       -0.068
+      ]
+     ],
+     "ar": 0.052,
+     "busca": "gap 0.132 drop 0.30 along 0.08 extra 0.04 | corpo m 0 f 0, elmo 528, conj 142",
+     "area": 0.5129,
+     "alt": 1.338,
+     "larg": 0.898,
+     "perda": 0.111
+    },
+    {
+     "mode": "topo",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.298,
+       0.205,
+       -0.032
+      ]
+     ],
+     "ar": 0.191,
+     "busca": "gap 0.278 drop 0.22 along 0.08 extra 0.18 | corpo m 0 f 0, elmo 99, conj 0",
+     "area": 0.5552,
+     "alt": 1.259,
+     "larg": 0.898,
+     "perda": 0.038
+    },
+    {
+     "mode": "topo",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.269,
+       0.206,
+       -0.039
+      ]
+     ],
+     "ar": 0.162,
+     "busca": "gap 0.248 drop 0.22 along 0.08 extra 0.15 | corpo m 0 f 0, elmo 0, conj 0",
+     "area": 0.5327,
+     "alt": 1.18,
+     "larg": 0.898,
+     "perda": 0.077
+    },
+    {
+     "mode": "topo",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.239,
+       0.207,
+       -0.045
+      ]
+     ],
+     "ar": 0.132,
+     "busca": "gap 0.217 drop 0.22 along 0.08 extra 0.12 | corpo m 0 f 0, elmo 0, conj 66",
+     "area": 0.5155,
+     "alt": 1.114,
+     "larg": 0.898,
+     "perda": 0.107
+    }
+   ],
+   "B": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.159,
+      0.289,
+      -0.068
+     ]
+    ],
+    "gda": [
+     0.132,
+     0.3,
+     0.08
+    ],
+    "ar": 0.052,
+    "cobre": 1.0,
+    "perto": 0.038,
+    "tira_fora": 2,
+    "folga": {
+     "block_shield": 0.107,
+     "idle": 0.052,
+     "run": 0.047
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 160,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 144,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 106,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 4
+    },
+    "manga": {
+     "block_shield_male": 864,
+     "idle_male": 2716,
+     "run_male": 2873,
+     "block_shield_female": 244,
+     "idle_female": 3085,
+     "run_female": 2878
+    },
+    "minz": {
+     "block_shield": -0.357,
+     "idle": -0.281,
+     "run": -0.413
+    },
+    "busca": "gap 0.132 drop 0.30 along 0.08 extra 0.04 | corpo m 0 f 0, elmo 528, conj 142",
+    "mode": "canto",
+    "k": 0.4,
+    "perda": 0.088,
+    "alt": 1.338,
+    "larg": 0.898
+   }
+  },
+  "asa_negra": {
+   "alt": 1.504,
+   "larg": 1.154,
+   "area": 0.6543,
+   "arm": [
+    0.07819604128599167,
+    0.3400314450263977
+   ],
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.289,
+      0.33,
+      0.039
+     ]
+    ],
+    "gda": [
+     0.28,
+     0.34,
+     -0.0
+    ],
+    "ar": 0.192,
+    "cobre": 1.0,
+    "perto": 0.159,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.17,
+     "idle": 0.09,
+     "run": 0.015
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 13
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 138
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 57,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 84
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 24,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 24,
+     "run_female": 0
+    },
+    "minz": {
+     "block_shield": -0.606,
+     "idle": -0.265,
+     "run": -0.608
+    }
+   },
+   "controle": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.289,
+      0.33,
+      0.039
+     ]
+    ],
+    "gda": [
+     0.28,
+     0.34,
+     -0.0
+    ],
+    "ar": 0.192,
+    "cobre": 1.0,
+    "perto": 0.159,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.17,
+     "idle": 0.09,
+     "run": 0.015
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 13
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 138
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 57,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 84
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 24,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 24,
+     "run_female": 0
+    },
+    "minz": {
+     "block_shield": -0.606,
+     "idle": -0.265,
+     "run": -0.608
+    },
+    "busca": "SO HOMEM: gap 0.280 drop 0.34 along 0.00 extra 0.18 | corpo m 0 f 26, elmo 210, conj 315"
+   },
+   "A": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.289,
+      0.33,
+      0.039
+     ]
+    ],
+    "gda": [
+     0.28,
+     0.34,
+     -0.0
+    ],
+    "ar": 0.192,
+    "cobre": 1.0,
+    "perto": 0.159,
+    "tira_fora": 0,
+    "folga": {
+     "idle": 0.09,
+     "run": 0.015,
+     "block_shield_tall": 0.186
+    },
+    "toques": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 13,
+     "block_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 138,
+     "block_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "run_male": 57,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 84,
+     "block_shield_tall_female": 0
+    },
+    "manga": {
+     "idle_male": 24,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 24,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "minz": {
+     "idle": -0.265,
+     "run": -0.608,
+     "block_shield_tall": -0.653
+    },
+    "busca": "SO HOMEM: gap 0.280 drop 0.34 along 0.00 extra 0.18 | corpo m 0 f 26, elmo 210, conj 315"
+   },
+   "A+": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.231,
+      0.332,
+      0.026
+     ]
+    ],
+    "gda": [
+     0.22,
+     0.34,
+     -0.0
+    ],
+    "ar": 0.132,
+    "cobre": 1.0,
+    "perto": 0.113,
+    "tira_fora": 0,
+    "folga": {
+     "idle": 0.071,
+     "block_shield_tall": 0.127,
+     "run_shield_tall": 0.153
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 36,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 66,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "manga": {
+     "idle_male": 1189,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 332,
+     "idle_female": 128,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 77
+    },
+    "minz": {
+     "idle": -0.28,
+     "block_shield_tall": -0.64,
+     "run_shield_tall": -0.622
+    },
+    "busca": "gap 0.220 drop 0.34 along 0.00 extra 0.12 | corpo m 0 f 0, elmo 0, conj 279"
+   },
+   "trims": [
+    {
+     "mode": "canto",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.289,
+       0.29,
+       0.041
+      ]
+     ],
+     "ar": 0.191,
+     "busca": "gap 0.282 drop 0.30 along 0.00 extra 0.18 | corpo m 0 f 0, elmo 0, conj 399",
+     "area": 0.6105,
+     "alt": 1.504,
+     "larg": 1.078,
+     "perda": 0.067
+    },
+    {
+     "mode": "canto",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.211,
+       0.333,
+       0.022
+      ]
+     ],
+     "ar": 0.112,
+     "busca": "gap 0.200 drop 0.34 along 0.00 extra 0.10 | corpo m 0 f 0, elmo 404, conj 474",
+     "area": 0.571,
+     "alt": 1.504,
+     "larg": 1.078,
+     "perda": 0.127
+    },
+    {
+     "mode": "canto",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.133,
+       0.335,
+       0.005
+      ]
+     ],
+     "ar": 0.032,
+     "busca": "gap 0.120 drop 0.34 along 0.00 extra 0.02 | corpo m 0 f 0, elmo 1140, conj 2611",
+     "area": 0.5447,
+     "alt": 1.504,
+     "larg": 1.078,
+     "perda": 0.168
+    },
+    {
+     "mode": "topo",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.289,
+       0.33,
+       0.039
+      ]
+     ],
+     "ar": 0.192,
+     "busca": "gap 0.280 drop 0.34 along 0.00 extra 0.18 | corpo m 0 f 0, elmo 0, conj 246",
+     "area": 0.6373,
+     "alt": 1.451,
+     "larg": 1.154,
+     "perda": 0.026
+    },
+    {
+     "mode": "topo",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.289,
+       0.29,
+       0.041
+      ]
+     ],
+     "ar": 0.192,
+     "busca": "gap 0.282 drop 0.30 along 0.00 extra 0.18 | corpo m 0 f 0, elmo 0, conj 450",
+     "area": 0.6195,
+     "alt": 1.398,
+     "larg": 1.154,
+     "perda": 0.053
+    },
+    {
+     "mode": "topo",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.26,
+       0.291,
+       0.035
+      ]
+     ],
+     "ar": 0.162,
+     "busca": "gap 0.252 drop 0.30 along 0.00 extra 0.15 | corpo m 0 f 0, elmo 48, conj 849",
+     "area": 0.6056,
+     "alt": 1.354,
+     "larg": 1.154,
+     "perda": 0.074
+    }
+   ],
+   "B": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.133,
+      0.335,
+      0.005
+     ]
+    ],
+    "gda": [
+     0.12,
+     0.34,
+     -0.0
+    ],
+    "ar": 0.032,
+    "cobre": 1.0,
+    "perto": 0.05,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.068,
+     "idle": 0.027,
+     "run": 0.036
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 168,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 168,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 934,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 396
+    },
+    "manga": {
+     "block_shield_male": 1484,
+     "idle_male": 7600,
+     "run_male": 4818,
+     "block_shield_female": 1104,
+     "idle_female": 6091,
+     "run_female": 3382
+    },
+    "minz": {
+     "block_shield": -0.606,
+     "idle": -0.306,
+     "run": -0.601
+    },
+    "busca": "gap 0.120 drop 0.34 along 0.00 extra 0.02 | corpo m 0 f 0, elmo 1140, conj 2611",
+    "mode": "canto",
+    "k": 0.15,
+    "perda": 0.168,
+    "alt": 1.504,
+    "larg": 1.078
+   }
+  },
+  "suspiros": {
+   "alt": 1.63,
+   "larg": 1.112,
+   "area": 0.698,
+   "arm": [
+    0.0784047394990921,
+    0.34007778763771057
+   ],
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.29,
+      0.33,
+      0.039
+     ]
+    ],
+    "gda": [
+     0.281,
+     0.34,
+     -0.0
+    ],
+    "ar": 0.192,
+    "cobre": 1.0,
+    "perto": 0.16,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.067,
+     "idle": 0.086,
+     "run": 0.056
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 106,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 214,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 36,
+     "block_shield_female": 0,
+     "idle_female": 9,
+     "run_female": 48
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 56,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 56,
+     "run_female": 0
+    },
+    "minz": {
+     "block_shield": -0.576,
+     "idle": -0.277,
+     "run": -0.59
+    }
+   },
+   "controle": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.29,
+      0.33,
+      0.039
+     ]
+    ],
+    "gda": [
+     0.281,
+     0.34,
+     -0.0
+    ],
+    "ar": 0.192,
+    "cobre": 1.0,
+    "perto": 0.16,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.067,
+     "idle": 0.086,
+     "run": 0.056
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 106,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 214,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 36,
+     "block_shield_female": 0,
+     "idle_female": 9,
+     "run_female": 48
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 56,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 56,
+     "run_female": 0
+    },
+    "minz": {
+     "block_shield": -0.576,
+     "idle": -0.277,
+     "run": -0.59
+    },
+    "busca": "gap 0.281 drop 0.34 along 0.00 extra 0.18 | corpo m 0 f 0, elmo 1102, conj 150"
+   },
+   "A": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.269,
+      0.328,
+      -0.007
+     ]
+    ],
+    "gda": [
+     0.251,
+     0.34,
+     0.04
+    ],
+    "ar": 0.161,
+    "cobre": 1.0,
+    "perto": 0.136,
+    "tira_fora": 0,
+    "folga": {
+     "idle": 0.072,
+     "run": 0.035,
+     "block_shield_tall": 0.152
+    },
+    "toques": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 36,
+     "block_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "run_male": 60,
+     "block_shield_tall_male": 0,
+     "idle_female": 33,
+     "run_female": 78,
+     "block_shield_tall_female": 0
+    },
+    "manga": {
+     "idle_male": 215,
+     "run_male": 289,
+     "block_shield_tall_male": 0,
+     "idle_female": 84,
+     "run_female": 24,
+     "block_shield_tall_female": 0
+    },
+    "minz": {
+     "idle": -0.31,
+     "run": -0.597,
+     "block_shield_tall": -0.64
+    },
+    "busca": "gap 0.251 drop 0.34 along 0.04 extra 0.15 | corpo m 0 f 0, elmo 36, conj 324"
+   },
+   "A+": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.19,
+      0.328,
+      -0.065
+     ]
+    ],
+    "gda": [
+     0.161,
+     0.34,
+     0.08
+    ],
+    "ar": 0.072,
+    "cobre": 1.0,
+    "perto": 0.071,
+    "tira_fora": 0,
+    "folga": {
+     "idle": 0.037,
+     "block_shield_tall": 0.062,
+     "run_shield_tall": 0.051
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 48,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 96,
+     "block_shield_tall_female": 70,
+     "run_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 18,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 10,
+     "idle_female": 48,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "manga": {
+     "idle_male": 5267,
+     "block_shield_tall_male": 268,
+     "run_shield_tall_male": 5327,
+     "idle_female": 3892,
+     "block_shield_tall_female": 60,
+     "run_shield_tall_female": 3389
+    },
+    "minz": {
+     "idle": -0.358,
+     "block_shield_tall": -0.63,
+     "run_shield_tall": -0.584
+    },
+    "busca": "gap 0.161 drop 0.34 along 0.08 extra 0.06 | corpo m 0 f 0, elmo 418, conj 163"
+   },
+   "trims": [
+    {
+     "mode": "canto",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.29,
+       0.33,
+       0.039
+      ]
+     ],
+     "ar": 0.192,
+     "busca": "gap 0.281 drop 0.34 along 0.00 extra 0.18 | corpo m 0 f 0, elmo 970, conj 171",
+     "area": 0.6601,
+     "alt": 1.624,
+     "larg": 1.028,
+     "perda": 0.054
+    },
+    {
+     "mode": "canto",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.29,
+       0.33,
+       0.039
+      ]
+     ],
+     "ar": 0.192,
+     "busca": "gap 0.281 drop 0.34 along 0.00 extra 0.18 | corpo m 0 f 0, elmo 874, conj 0",
+     "area": 0.6251,
+     "alt": 1.618,
+     "larg": 1.028,
+     "perda": 0.104
+    },
+    {
+     "mode": "canto",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.29,
+       0.33,
+       0.039
+      ]
+     ],
+     "ar": 0.192,
+     "busca": "gap 0.281 drop 0.34 along 0.00 extra 0.18 | corpo m 0 f 0, elmo 730, conj 0",
+     "area": 0.6014,
+     "alt": 1.612,
+     "larg": 1.028,
+     "perda": 0.138
+    },
+    {
+     "mode": "topo",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.261,
+       0.331,
+       0.032
+      ]
+     ],
+     "ar": 0.162,
+     "busca": "gap 0.251 drop 0.34 along 0.00 extra 0.15 | corpo m 0 f 0, elmo 482, conj 390",
+     "area": 0.6757,
+     "alt": 1.53,
+     "larg": 1.112,
+     "perda": 0.032
+    },
+    {
+     "mode": "topo",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.231,
+       0.332,
+       0.026
+      ]
+     ],
+     "ar": 0.132,
+     "busca": "gap 0.220 drop 0.34 along 0.00 extra 0.12 | corpo m 0 f 0, elmo 20, conj 753",
+     "area": 0.6494,
+     "alt": 1.43,
+     "larg": 1.112,
+     "perda": 0.07
+    },
+    {
+     "mode": "topo",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.231,
+       0.332,
+       0.026
+      ]
+     ],
+     "ar": 0.132,
+     "busca": "gap 0.220 drop 0.34 along 0.00 extra 0.12 | corpo m 0 f 0, elmo 20, conj 792",
+     "area": 0.6318,
+     "alt": 1.347,
+     "larg": 1.112,
+     "perda": 0.095
+    }
+   ],
+   "B": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.231,
+      0.332,
+      0.026
+     ]
+    ],
+    "gda": [
+     0.22,
+     0.34,
+     -0.0
+    ],
+    "ar": 0.132,
+    "cobre": 1.0,
+    "perto": 0.113,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.168,
+     "idle": 0.095,
+     "run": 0.025
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 20
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 39,
+     "run_male": 96,
+     "block_shield_female": 0,
+     "idle_female": 48,
+     "run_female": 114
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 2399,
+     "run_male": 2453,
+     "block_shield_female": 0,
+     "idle_female": 626,
+     "run_female": 528
+    },
+    "minz": {
+     "block_shield": -0.576,
+     "idle": -0.293,
+     "run": -0.587
+    },
+    "busca": "gap 0.220 drop 0.34 along 0.00 extra 0.12 | corpo m 0 f 0, elmo 20, conj 753",
+    "mode": "topo",
+    "k": 0.4,
+    "perda": 0.07,
+    "alt": 1.43,
+    "larg": 1.112
+   }
+  },
+  "asa": {
+   "alt": 1.077,
+   "larg": 1.066,
+   "area": 0.6019,
+   "arm": [
+    0.15856581926345825,
+    0.3398626148700714
+   ],
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.192,
+      0.328,
+      -0.064
+     ]
+    ],
+    "gda": [
+     0.163,
+     0.34,
+     0.08
+    ],
+    "ar": 0.073,
+    "cobre": 1.0,
+    "perto": 0.056,
+    "tira_fora": 5,
+    "folga": {
+     "block_shield": 0.127,
+     "idle": 0.081,
+     "run": 0.037
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 10
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 144,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 225
+    },
+    "manga": {
+     "block_shield_male": 120,
+     "idle_male": 4774,
+     "run_male": 3946,
+     "block_shield_female": 0,
+     "idle_female": 3476,
+     "run_female": 3121
+    },
+    "minz": {
+     "block_shield": -0.233,
+     "idle": -0.012,
+     "run": -0.233
+    }
+   },
+   "controle": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.255,
+      0.206,
+      -0.042
+     ]
+    ],
+    "gda": [
+     0.234,
+     0.22,
+     0.08
+    ],
+    "ar": 0.132,
+    "cobre": 1.0,
+    "perto": 0.058,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.193,
+     "idle": 0.053,
+     "run": 0.051
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 42
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 108,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 138
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 561,
+     "run_male": 168,
+     "block_shield_female": 0,
+     "idle_female": 24,
+     "run_female": 0
+    },
+    "minz": {
+     "block_shield": -0.113,
+     "idle": 0.094,
+     "run": -0.119
+    },
+    "busca": "gap 0.234 drop 0.22 along 0.08 extra 0.12 | corpo m 0 f 0, elmo 42, conj 510"
+   },
+   "A": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.255,
+      0.206,
+      -0.042
+     ]
+    ],
+    "gda": [
+     0.234,
+     0.22,
+     0.08
+    ],
+    "ar": 0.132,
+    "cobre": 1.0,
+    "perto": 0.058,
+    "tira_fora": 0,
+    "folga": {
+     "idle": 0.053,
+     "run": 0.051,
+     "block_shield_tall": 0.129
+    },
+    "toques": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 42,
+     "block_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "run_male": 108,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 138,
+     "block_shield_tall_female": 0
+    },
+    "manga": {
+     "idle_male": 561,
+     "run_male": 168,
+     "block_shield_tall_male": 0,
+     "idle_female": 24,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "minz": {
+     "idle": 0.094,
+     "run": -0.119,
+     "block_shield_tall": -0.166
+    },
+    "busca": "gap 0.234 drop 0.22 along 0.08 extra 0.12 | corpo m 0 f 0, elmo 42, conj 510"
+   },
+   "A+": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.206,
+      0.25,
+      -0.015
+     ]
+    ],
+    "gda": [
+     0.19,
+     0.26,
+     0.04
+    ],
+    "ar": 0.092,
+    "cobre": 1.0,
+    "perto": 0.026,
+    "tira_fora": 1,
+    "folga": {
+     "idle": 0.032,
+     "block_shield_tall": 0.085,
+     "run_shield_tall": 0.123
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 24,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 30,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "manga": {
+     "idle_male": 5883,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 3069,
+     "idle_female": 2049,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 436
+    },
+    "minz": {
+     "idle": 0.078,
+     "block_shield_tall": -0.185,
+     "run_shield_tall": -0.149
+    },
+    "busca": "gap 0.190 drop 0.26 along 0.04 extra 0.08 | corpo m 0 f 0, elmo 24, conj 78"
+   },
+   "trims": [
+    {
+     "mode": "canto",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.216,
+       0.208,
+       -0.05
+      ]
+     ],
+     "ar": 0.092,
+     "busca": "gap 0.194 drop 0.22 along 0.08 extra 0.08 | corpo m 0 f 0, elmo 0, conj 888",
+     "area": 0.566,
+     "alt": 1.041,
+     "larg": 1.066,
+     "perda": 0.06
+    },
+    {
+     "mode": "canto",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.138,
+       0.21,
+       -0.067
+      ]
+     ],
+     "ar": 0.012,
+     "busca": "gap 0.114 drop 0.22 along 0.08 extra 0.00 | corpo m 0 f 0, elmo 0, conj 2739",
+     "area": 0.5346,
+     "alt": 1.004,
+     "larg": 1.066,
+     "perda": 0.112
+    },
+    {
+     "mode": "canto",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.138,
+       0.21,
+       -0.067
+      ]
+     ],
+     "ar": 0.012,
+     "busca": "gap 0.114 drop 0.22 along 0.08 extra 0.00 | corpo m 0 f 0, elmo 0, conj 2580",
+     "area": 0.5175,
+     "alt": 0.973,
+     "larg": 1.065,
+     "perda": 0.14
+    },
+    {
+     "mode": "topo",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.237,
+       0.252,
+       0.033
+      ]
+     ],
+     "ar": 0.132,
+     "busca": "gap 0.230 drop 0.26 along 0.00 extra 0.12 | corpo m 0 f 0, elmo 56, conj 747",
+     "area": 0.5889,
+     "alt": 1.041,
+     "larg": 1.066,
+     "perda": 0.022
+    },
+    {
+     "mode": "topo",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.237,
+       0.252,
+       0.033
+      ]
+     ],
+     "ar": 0.132,
+     "busca": "gap 0.230 drop 0.26 along 0.00 extra 0.12 | corpo m 0 f 0, elmo 0, conj 741",
+     "area": 0.5754,
+     "alt": 1.004,
+     "larg": 1.066,
+     "perda": 0.044
+    },
+    {
+     "mode": "topo",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.237,
+       0.252,
+       0.033
+      ]
+     ],
+     "ar": 0.132,
+     "busca": "gap 0.230 drop 0.26 along 0.00 extra 0.12 | corpo m 0 f 0, elmo 0, conj 636",
+     "area": 0.5646,
+     "alt": 0.973,
+     "larg": 1.066,
+     "perda": 0.062
+    }
+   ],
+   "B": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.138,
+      0.21,
+      -0.067
+     ]
+    ],
+    "gda": [
+     0.114,
+     0.22,
+     0.08
+    ],
+    "ar": 0.012,
+    "cobre": 1.0,
+    "perto": -0.06,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.078,
+     "idle": 0.025,
+     "run": 0.034
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 22,
+     "idle_male": 0,
+     "run_male": 453,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 531
+    },
+    "manga": {
+     "block_shield_male": 6086,
+     "idle_male": 9792,
+     "run_male": 9793,
+     "block_shield_female": 3271,
+     "idle_female": 9325,
+     "run_female": 8362
+    },
+    "minz": {
+     "block_shield": -0.113,
+     "idle": 0.063,
+     "run": -0.113
+    },
+    "busca": "gap 0.114 drop 0.22 along 0.08 extra 0.00 | corpo m 0 f 0, elmo 0, conj 2739",
+    "mode": "canto",
+    "k": 0.4,
+    "perda": 0.112,
+    "alt": 1.004,
+    "larg": 1.066
+   }
+  },
+  "escama": {
+   "alt": 1.322,
+   "larg": 0.882,
+   "area": 0.4793,
+   "arm": [
+    0.15856127440929413,
+    0.3403274416923523
+   ],
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.206,
+      0.328,
+      -0.061
+     ]
+    ],
+    "gda": [
+     0.178,
+     0.34,
+     0.08
+    ],
+    "ar": 0.091,
+    "cobre": 1.0,
+    "perto": 0.088,
+    "tira_fora": 5,
+    "folga": {
+     "block_shield": 0.15,
+     "idle": 0.036,
+     "run": 0.025
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 72,
+     "idle_male": 2872,
+     "run_male": 2384,
+     "block_shield_female": 0,
+     "idle_female": 1396,
+     "run_female": 960
+    },
+    "minz": {
+     "block_shield": -0.435,
+     "idle": -0.259,
+     "run": -0.466
+    }
+   },
+   "controle": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.206,
+      0.328,
+      -0.061
+     ]
+    ],
+    "gda": [
+     0.178,
+     0.34,
+     0.08
+    ],
+    "ar": 0.091,
+    "cobre": 1.0,
+    "perto": 0.088,
+    "tira_fora": 5,
+    "folga": {
+     "block_shield": 0.15,
+     "idle": 0.036,
+     "run": 0.025
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 72,
+     "idle_male": 2872,
+     "run_male": 2384,
+     "block_shield_female": 0,
+     "idle_female": 1396,
+     "run_female": 960
+    },
+    "minz": {
+     "block_shield": -0.435,
+     "idle": -0.259,
+     "run": -0.466
+    },
+    "busca": "gap 0.178 drop 0.34 along 0.08 extra 0.08 | corpo m 0 f 0, elmo 0, conj 0"
+   },
+   "A": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.206,
+      0.328,
+      -0.061
+     ]
+    ],
+    "gda": [
+     0.178,
+     0.34,
+     0.08
+    ],
+    "ar": 0.091,
+    "cobre": 1.0,
+    "perto": 0.088,
+    "tira_fora": 5,
+    "folga": {
+     "idle": 0.036,
+     "run": 0.025,
+     "block_shield_tall": 0.081
+    },
+    "toques": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "manga": {
+     "idle_male": 2872,
+     "run_male": 2384,
+     "block_shield_tall_male": 0,
+     "idle_female": 1396,
+     "run_female": 960,
+     "block_shield_tall_female": 0
+    },
+    "minz": {
+     "idle": -0.259,
+     "run": -0.466,
+     "block_shield_tall": -0.503
+    },
+    "busca": "gap 0.178 drop 0.34 along 0.08 extra 0.08 | corpo m 0 f 0, elmo 0, conj 0"
+   },
+   "A+": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.167,
+      0.329,
+      -0.069
+     ]
+    ],
+    "gda": [
+     0.138,
+     0.34,
+     0.079
+    ],
+    "ar": 0.052,
+    "cobre": 1.0,
+    "perto": 0.064,
+    "tira_fora": 5,
+    "folga": {
+     "idle": 0.036,
+     "block_shield_tall": 0.041,
+     "run_shield_tall": 0.077
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "block_shield_tall_male": 194,
+     "run_shield_tall_male": 56,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "manga": {
+     "idle_male": 3414,
+     "block_shield_tall_male": 24,
+     "run_shield_tall_male": 2470,
+     "idle_female": 3087,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 2036
+    },
+    "minz": {
+     "idle": -0.269,
+     "block_shield_tall": -0.493,
+     "run_shield_tall": -0.462
+    },
+    "busca": "gap 0.138 drop 0.34 along 0.08 extra 0.04 | corpo m 0 f 0, elmo 0, conj 484"
+   },
+   "trims": [
+    {
+     "mode": "canto",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.168,
+       0.249,
+       -0.064
+      ]
+     ],
+     "ar": 0.052,
+     "busca": "gap 0.143 drop 0.26 along 0.08 extra 0.04 | corpo m 0 f 0, elmo 251, conj 62",
+     "area": 0.4685,
+     "alt": 1.322,
+     "larg": 0.82,
+     "perda": 0.023
+    },
+    {
+     "mode": "canto",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.129,
+       0.25,
+       -0.072
+      ]
+     ],
+     "ar": 0.012,
+     "busca": "gap 0.103 drop 0.26 along 0.08 extra 0.00 | corpo m 0 f 0, elmo 382, conj 1034",
+     "area": 0.4592,
+     "alt": 1.322,
+     "larg": 0.766,
+     "perda": 0.042
+    },
+    {
+     "mode": "canto",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.129,
+       0.25,
+       -0.072
+      ]
+     ],
+     "ar": 0.012,
+     "busca": "gap 0.103 drop 0.26 along 0.08 extra 0.00 | corpo m 0 f 0, elmo 382, conj 1034",
+     "area": 0.4531,
+     "alt": 1.322,
+     "larg": 0.766,
+     "perda": 0.055
+    },
+    {
+     "mode": "topo",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.227,
+       0.247,
+       -0.051
+      ]
+     ],
+     "ar": 0.112,
+     "busca": "gap 0.203 drop 0.26 along 0.08 extra 0.10 | corpo m 0 f 0, elmo 0, conj 0",
+     "area": 0.4711,
+     "alt": 1.272,
+     "larg": 0.882,
+     "perda": 0.017
+    },
+    {
+     "mode": "topo",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.207,
+       0.248,
+       -0.055
+      ]
+     ],
+     "ar": 0.092,
+     "busca": "gap 0.183 drop 0.26 along 0.08 extra 0.08 | corpo m 0 f 0, elmo 0, conj 0",
+     "area": 0.463,
+     "alt": 1.222,
+     "larg": 0.881,
+     "perda": 0.034
+    },
+    {
+     "mode": "topo",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.188,
+       0.248,
+       -0.059
+      ]
+     ],
+     "ar": 0.072,
+     "busca": "gap 0.163 drop 0.26 along 0.08 extra 0.06 | corpo m 0 f 0, elmo 0, conj 12",
+     "area": 0.4562,
+     "alt": 1.18,
+     "larg": 0.877,
+     "perda": 0.048
+    }
+   ],
+   "B": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.168,
+      0.249,
+      -0.064
+     ]
+    ],
+    "gda": [
+     0.143,
+     0.26,
+     0.08
+    ],
+    "ar": 0.052,
+    "cobre": 1.0,
+    "perto": 0.008,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.114,
+     "idle": 0.028,
+     "run": 0.058
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 45,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 72,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 62,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 1546,
+     "idle_male": 3861,
+     "run_male": 3996,
+     "block_shield_female": 604,
+     "idle_female": 3811,
+     "run_female": 2990
+    },
+    "minz": {
+     "block_shield": -0.355,
+     "idle": -0.209,
+     "run": -0.386
+    },
+    "busca": "gap 0.143 drop 0.26 along 0.08 extra 0.04 | corpo m 0 f 0, elmo 251, conj 62",
+    "mode": "canto",
+    "k": 0.7,
+    "perda": 0.023,
+    "alt": 1.322,
+    "larg": 0.82
+   }
+  },
+  "coluna": {
+   "alt": 1.369,
+   "larg": 0.751,
+   "area": 0.6343,
+   "arm": [
+    0.07844318449497223,
+    0.34009942412376404
+   ],
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.17,
+      0.334,
+      0.013
+     ]
+    ],
+    "gda": [
+     0.158,
+     0.34,
+     -0.0
+    ],
+    "ar": 0.072,
+    "cobre": 1.0,
+    "perto": 0.07,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.067,
+     "idle": 0.039,
+     "run": 0.037
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 180,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 264,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 134,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 48
+    },
+    "manga": {
+     "block_shield_male": 3190,
+     "idle_male": 6972,
+     "run_male": 6887,
+     "block_shield_female": 1422,
+     "idle_female": 6654,
+     "run_female": 5958
+    },
+    "minz": {
+     "block_shield": -0.438,
+     "idle": -0.241,
+     "run": -0.46
+    }
+   },
+   "controle": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.17,
+      0.334,
+      0.013
+     ]
+    ],
+    "gda": [
+     0.158,
+     0.34,
+     -0.0
+    ],
+    "ar": 0.072,
+    "cobre": 1.0,
+    "perto": 0.07,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.067,
+     "idle": 0.039,
+     "run": 0.037
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 180,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 264,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 134,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 48
+    },
+    "manga": {
+     "block_shield_male": 3190,
+     "idle_male": 6972,
+     "run_male": 6887,
+     "block_shield_female": 1422,
+     "idle_female": 6654,
+     "run_female": 5958
+    },
+    "minz": {
+     "block_shield": -0.438,
+     "idle": -0.241,
+     "run": -0.46
+    },
+    "busca": "gap 0.158 drop 0.34 along 0.00 extra 0.06 | corpo m 0 f 0, elmo 1518, conj 228"
+   },
+   "A": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.159,
+      0.292,
+      -0.028
+     ]
+    ],
+    "gda": [
+     0.14,
+     0.3,
+     0.04
+    ],
+    "ar": 0.052,
+    "cobre": 1.0,
+    "perto": 0.035,
+    "tira_fora": 0,
+    "folga": {
+     "idle": 0.026,
+     "run": 0.026,
+     "block_shield_tall": 0.044
+    },
+    "toques": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 36,
+     "block_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "run_male": 114,
+     "block_shield_tall_male": 163,
+     "idle_female": 0,
+     "run_female": 12,
+     "block_shield_tall_female": 0
+    },
+    "manga": {
+     "idle_male": 6362,
+     "run_male": 6372,
+     "block_shield_tall_male": 1236,
+     "idle_female": 6016,
+     "run_female": 5958,
+     "block_shield_tall_female": 602
+    },
+    "minz": {
+     "idle": -0.242,
+     "run": -0.429,
+     "block_shield_tall": -0.46
+    },
+    "busca": "gap 0.140 drop 0.30 along 0.04 extra 0.04 | corpo m 0 f 0, elmo 48, conj 465"
+   },
+   "A+": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.151,
+      0.295,
+      0.011
+     ]
+    ],
+    "gda": [
+     0.14,
+     0.3,
+     0.0
+    ],
+    "ar": 0.052,
+    "cobre": 1.0,
+    "perto": 0.035,
+    "tira_fora": 0,
+    "folga": {
+     "idle": 0.022,
+     "block_shield_tall": 0.05,
+     "run_shield_tall": 0.031
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "block_shield_tall_male": 36,
+     "run_shield_tall_male": 16,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "manga": {
+     "idle_male": 6677,
+     "block_shield_tall_male": 1378,
+     "run_shield_tall_male": 7778,
+     "idle_female": 6719,
+     "block_shield_tall_female": 582,
+     "run_shield_tall_female": 6982
+    },
+    "minz": {
+     "idle": -0.217,
+     "block_shield_tall": -0.45,
+     "run_shield_tall": -0.413
+    },
+    "busca": "gap 0.140 drop 0.30 along 0.00 extra 0.04 | corpo m 0 f 0, elmo 0, conj 116"
+   },
+   "trims": [
+    {
+     "mode": "canto",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.15,
+       0.335,
+       0.009
+      ]
+     ],
+     "ar": 0.051,
+     "busca": "gap 0.138 drop 0.34 along 0.00 extra 0.04 | corpo m 0 f 0, elmo 1440, conj 590",
+     "area": 0.6168,
+     "alt": 1.365,
+     "larg": 0.725,
+     "perda": 0.028
+    },
+    {
+     "mode": "canto",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.15,
+       0.335,
+       0.009
+      ]
+     ],
+     "ar": 0.051,
+     "busca": "gap 0.138 drop 0.34 along 0.00 extra 0.04 | corpo m 0 f 0, elmo 1344, conj 590",
+     "area": 0.5995,
+     "alt": 1.362,
+     "larg": 0.725,
+     "perda": 0.055
+    },
+    {
+     "mode": "canto",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.131,
+       0.335,
+       0.004
+      ]
+     ],
+     "ar": 0.032,
+     "busca": "gap 0.118 drop 0.34 along 0.00 extra 0.02 | corpo m 0 f 0, elmo 1476, conj 1478",
+     "area": 0.5849,
+     "alt": 1.359,
+     "larg": 0.725,
+     "perda": 0.078
+    },
+    {
+     "mode": "topo",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.139,
+       0.332,
+       -0.035
+      ]
+     ],
+     "ar": 0.031,
+     "busca": "gap 0.118 drop 0.34 along 0.04 extra 0.02 | corpo m 0 f 0, elmo 480, conj 1302",
+     "area": 0.611,
+     "alt": 1.306,
+     "larg": 0.748,
+     "perda": 0.037
+    },
+    {
+     "mode": "topo",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.139,
+       0.332,
+       -0.035
+      ]
+     ],
+     "ar": 0.031,
+     "busca": "gap 0.118 drop 0.34 along 0.04 extra 0.02 | corpo m 0 f 0, elmo 0, conj 1302",
+     "area": 0.5877,
+     "alt": 1.242,
+     "larg": 0.743,
+     "perda": 0.073
+    },
+    {
+     "mode": "topo",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.148,
+       0.29,
+       -0.071
+      ]
+     ],
+     "ar": 0.032,
+     "busca": "gap 0.120 drop 0.30 along 0.08 extra 0.02 | corpo m 0 f 0, elmo 0, conj 484",
+     "area": 0.5698,
+     "alt": 1.189,
+     "larg": 0.739,
+     "perda": 0.102
+    }
+   ],
+   "B": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.15,
+      0.335,
+      0.009
+     ]
+    ],
+    "gda": [
+     0.138,
+     0.34,
+     -0.001
+    ],
+    "ar": 0.051,
+    "cobre": 1.0,
+    "perto": 0.054,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.065,
+     "idle": 0.025,
+     "run": 0.032
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 204,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 228,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 468,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 62
+    },
+    "manga": {
+     "block_shield_male": 2762,
+     "idle_male": 4830,
+     "run_male": 5187,
+     "block_shield_female": 2488,
+     "idle_female": 4506,
+     "run_female": 5333
+    },
+    "minz": {
+     "block_shield": -0.438,
+     "idle": -0.247,
+     "run": -0.459
+    },
+    "busca": "gap 0.138 drop 0.34 along 0.00 extra 0.04 | corpo m 0 f 0, elmo 1440, conj 590",
+    "mode": "canto",
+    "k": 0.7,
+    "perda": 0.028,
+    "alt": 1.365,
+    "larg": 0.725
+   }
+  },
+  "cruel": {
+   "alt": 1.503,
+   "larg": 0.974,
+   "area": 0.5908,
+   "arm": [
+    0.15905579924583435,
+    0.3396609127521515
+   ],
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.185,
+      0.328,
+      -0.066
+     ]
+    ],
+    "gda": [
+     0.156,
+     0.34,
+     0.08
+    ],
+    "ar": 0.072,
+    "cobre": 0.73,
+    "perto": 0.051,
+    "tira_fora": 5,
+    "folga": {
+     "block_shield": 0.032,
+     "idle": 0.095,
+     "run": 0.079
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 290,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 260,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 188,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 96
+    },
+    "manga": {
+     "block_shield_male": 280,
+     "idle_male": 2084,
+     "run_male": 2043,
+     "block_shield_female": 60,
+     "idle_female": 1512,
+     "run_female": 1750
+    },
+    "minz": {
+     "block_shield": -0.488,
+     "idle": -0.304,
+     "run": -0.506
+    }
+   },
+   "controle": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.286,
+      0.29,
+      0.041
+     ]
+    ],
+    "gda": [
+     0.279,
+     0.3,
+     -0.0
+    ],
+    "ar": 0.192,
+    "cobre": 0.82,
+    "perto": 0.123,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.119,
+     "idle": 0.122,
+     "run": 0.112
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 8,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 8,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 30,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 57
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "minz": {
+     "block_shield": -0.447,
+     "idle": -0.193,
+     "run": -0.456
+    },
+    "busca": "gap 0.279 drop 0.30 along 0.00 extra 0.18 | corpo m 0 f 0, elmo 40, conj 117"
+   },
+   "A": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.189,
+      0.293,
+      0.02
+     ]
+    ],
+    "gda": [
+     0.179,
+     0.3,
+     -0.0
+    ],
+    "ar": 0.093,
+    "cobre": 0.82,
+    "perto": 0.041,
+    "tira_fora": 0,
+    "folga": {
+     "idle": 0.029,
+     "run": 0.037,
+     "block_shield_tall": 0.079
+    },
+    "toques": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 72,
+     "run_female": 16,
+     "block_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "run_male": 102,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 102,
+     "block_shield_tall_female": 0
+    },
+    "manga": {
+     "idle_male": 2837,
+     "run_male": 2054,
+     "block_shield_tall_male": 0,
+     "idle_female": 1358,
+     "run_female": 1021,
+     "block_shield_tall_female": 0
+    },
+    "minz": {
+     "idle": -0.218,
+     "run": -0.451,
+     "block_shield_tall": -0.486
+    },
+    "busca": "gap 0.179 drop 0.30 along 0.00 extra 0.08 | corpo m 0 f 0, elmo 88, conj 397"
+   },
+   "A+": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.151,
+      0.255,
+      0.014
+     ]
+    ],
+    "gda": [
+     0.142,
+     0.26,
+     0.0
+    ],
+    "ar": 0.053,
+    "cobre": 1.0,
+    "perto": -0.013,
+    "tira_fora": 0,
+    "folga": {
+     "idle": 0.015,
+     "block_shield_tall": 0.043,
+     "run_shield_tall": 0.06
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 60,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 96,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "block_shield_tall_male": 94,
+     "run_shield_tall_male": 28,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "manga": {
+     "idle_male": 4690,
+     "block_shield_tall_male": 108,
+     "run_shield_tall_male": 3990,
+     "idle_female": 3550,
+     "block_shield_tall_female": 36,
+     "run_shield_tall_female": 2081
+    },
+    "minz": {
+     "idle": -0.2,
+     "block_shield_tall": -0.44,
+     "run_shield_tall": -0.415
+    },
+    "busca": "gap 0.142 drop 0.26 along 0.00 extra 0.04 | corpo m 0 f 0, elmo 396, conj 188"
+   },
+   "trims": [
+    {
+     "mode": "canto",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.286,
+       0.29,
+       0.041
+      ]
+     ],
+     "ar": 0.192,
+     "busca": "gap 0.279 drop 0.30 along 0.00 extra 0.18 | corpo m 0 f 0, elmo 40, conj 18",
+     "area": 0.5833,
+     "alt": 1.503,
+     "larg": 0.974,
+     "perda": 0.013
+    },
+    {
+     "mode": "canto",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.286,
+       0.29,
+       0.041
+      ]
+     ],
+     "ar": 0.192,
+     "busca": "gap 0.279 drop 0.30 along 0.00 extra 0.18 | corpo m 0 f 0, elmo 40, conj 0",
+     "area": 0.5752,
+     "alt": 1.503,
+     "larg": 0.974,
+     "perda": 0.026
+    },
+    {
+     "mode": "canto",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.286,
+       0.29,
+       0.041
+      ]
+     ],
+     "ar": 0.192,
+     "busca": "gap 0.279 drop 0.30 along 0.00 extra 0.18 | corpo m 0 f 0, elmo 40, conj 0",
+     "area": 0.5687,
+     "alt": 1.503,
+     "larg": 0.974,
+     "perda": 0.037
+    },
+    {
+     "mode": "topo",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.189,
+       0.293,
+       0.02
+      ]
+     ],
+     "ar": 0.093,
+     "busca": "gap 0.179 drop 0.30 along 0.00 extra 0.08 | corpo m 0 f 0, elmo 818, conj 397",
+     "area": 0.5792,
+     "alt": 1.414,
+     "larg": 0.974,
+     "perda": 0.02
+    },
+    {
+     "mode": "topo",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.189,
+       0.293,
+       0.02
+      ]
+     ],
+     "ar": 0.093,
+     "busca": "gap 0.179 drop 0.30 along 0.00 extra 0.08 | corpo m 0 f 0, elmo 16, conj 397",
+     "area": 0.5673,
+     "alt": 1.326,
+     "larg": 0.974,
+     "perda": 0.04
+    },
+    {
+     "mode": "topo",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.209,
+       0.253,
+       0.027
+      ]
+     ],
+     "ar": 0.112,
+     "busca": "gap 0.202 drop 0.26 along 0.00 extra 0.10 | corpo m 0 f 0, elmo 0, conj 189",
+     "area": 0.5575,
+     "alt": 1.252,
+     "larg": 0.974,
+     "perda": 0.056
+    }
+   ],
+   "B": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.189,
+      0.293,
+      0.02
+     ]
+    ],
+    "gda": [
+     0.179,
+     0.3,
+     -0.0
+    ],
+    "ar": 0.093,
+    "cobre": 0.82,
+    "perto": 0.041,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.097,
+     "idle": 0.04,
+     "run": 0.037
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 106,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 140,
+     "idle_female": 0,
+     "run_female": 16
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 102,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 102
+    },
+    "manga": {
+     "block_shield_male": 72,
+     "idle_male": 2423,
+     "run_male": 1774,
+     "block_shield_female": 0,
+     "idle_female": 1126,
+     "run_female": 1005
+    },
+    "minz": {
+     "block_shield": -0.447,
+     "idle": -0.218,
+     "run": -0.451
+    },
+    "busca": "gap 0.179 drop 0.30 along 0.00 extra 0.08 | corpo m 0 f 0, elmo 818, conj 397",
+    "mode": "topo",
+    "k": 0.7,
+    "perda": 0.02,
+    "alt": 1.414,
+    "larg": 0.974
+   }
+  },
+  "pal_g25": {
+   "alt": 1.096,
+   "larg": 0.981,
+   "area": 0.4472,
+   "arm": [
+    0.15821193158626556,
+    0.34040510654449463
+   ],
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.209,
+      0.328,
+      -0.06
+     ]
+    ],
+    "gda": [
+     0.181,
+     0.34,
+     0.08
+    ],
+    "ar": 0.092,
+    "cobre": 0.73,
+    "perto": 0.08,
+    "tira_fora": 5,
+    "folga": {
+     "block_shield": 0.149,
+     "idle": 0.091,
+     "run": 0.065
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 56
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 204,
+     "idle_male": 3379,
+     "run_male": 2609,
+     "block_shield_female": 84,
+     "idle_female": 1295,
+     "run_female": 472
+    },
+    "minz": {
+     "block_shield": -0.241,
+     "idle": -0.014,
+     "run": -0.242
+    }
+   },
+   "controle": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.209,
+      0.328,
+      -0.06
+     ]
+    ],
+    "gda": [
+     0.181,
+     0.34,
+     0.08
+    ],
+    "ar": 0.092,
+    "cobre": 0.73,
+    "perto": 0.08,
+    "tira_fora": 5,
+    "folga": {
+     "block_shield": 0.149,
+     "idle": 0.091,
+     "run": 0.065
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 56
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 204,
+     "idle_male": 3379,
+     "run_male": 2609,
+     "block_shield_female": 84,
+     "idle_female": 1295,
+     "run_female": 472
+    },
+    "minz": {
+     "block_shield": -0.241,
+     "idle": -0.014,
+     "run": -0.242
+    },
+    "busca": "gap 0.181 drop 0.34 along 0.08 extra 0.08 | corpo m 0 f 0, elmo 56, conj 0"
+   },
+   "A": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.209,
+      0.328,
+      -0.06
+     ]
+    ],
+    "gda": [
+     0.181,
+     0.34,
+     0.08
+    ],
+    "ar": 0.092,
+    "cobre": 0.73,
+    "perto": 0.08,
+    "tira_fora": 5,
+    "folga": {
+     "idle": 0.091,
+     "run": 0.065,
+     "block_shield_tall": 0.08
+    },
+    "toques": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 56,
+     "block_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "manga": {
+     "idle_male": 3379,
+     "run_male": 2609,
+     "block_shield_tall_male": 0,
+     "idle_female": 1295,
+     "run_female": 472,
+     "block_shield_tall_female": 0
+    },
+    "minz": {
+     "idle": -0.014,
+     "run": -0.242,
+     "block_shield_tall": -0.276
+    },
+    "busca": "gap 0.181 drop 0.34 along 0.08 extra 0.08 | corpo m 0 f 0, elmo 56, conj 0"
+   },
+   "A+": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.19,
+      0.328,
+      -0.065
+     ]
+    ],
+    "gda": [
+     0.161,
+     0.34,
+     0.08
+    ],
+    "ar": 0.072,
+    "cobre": 0.73,
+    "perto": 0.067,
+    "tira_fora": 5,
+    "folga": {
+     "idle": 0.073,
+     "block_shield_tall": 0.061,
+     "run_shield_tall": 0.105
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "manga": {
+     "idle_male": 3813,
+     "block_shield_tall_male": 48,
+     "run_shield_tall_male": 1836,
+     "idle_female": 3039,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 636
+    },
+    "minz": {
+     "idle": -0.019,
+     "block_shield_tall": -0.271,
+     "run_shield_tall": -0.231
+    },
+    "busca": "gap 0.161 drop 0.34 along 0.08 extra 0.06 | corpo m 0 f 0, elmo 0, conj 0"
+   },
+   "trims": [
+    {
+     "mode": "canto",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.151,
+       0.33,
+       -0.073
+      ]
+     ],
+     "ar": 0.032,
+     "busca": "gap 0.121 drop 0.34 along 0.08 extra 0.02 | corpo m 0 f 0, elmo 0, conj 0",
+     "area": 0.4354,
+     "alt": 1.096,
+     "larg": 0.904,
+     "perda": 0.026
+    },
+    {
+     "mode": "canto",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.136,
+       0.21,
+       -0.068
+      ]
+     ],
+     "ar": 0.012,
+     "busca": "gap 0.112 drop 0.22 along 0.08 extra 0.00 | corpo m 0 f 0, elmo 36, conj 0",
+     "area": 0.4243,
+     "alt": 1.096,
+     "larg": 0.826,
+     "perda": 0.051
+    },
+    {
+     "mode": "canto",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.136,
+       0.21,
+       -0.068
+      ]
+     ],
+     "ar": 0.012,
+     "busca": "gap 0.112 drop 0.22 along 0.08 extra 0.00 | corpo m 0 f 0, elmo 0, conj 0",
+     "area": 0.4162,
+     "alt": 1.096,
+     "larg": 0.812,
+     "perda": 0.069
+    },
+    {
+     "mode": "topo",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.19,
+       0.328,
+       -0.065
+      ]
+     ],
+     "ar": 0.072,
+     "busca": "gap 0.161 drop 0.34 along 0.08 extra 0.06 | corpo m 0 f 0, elmo 0, conj 0",
+     "area": 0.442,
+     "alt": 1.055,
+     "larg": 0.981,
+     "perda": 0.012
+    },
+    {
+     "mode": "topo",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.214,
+       0.208,
+       -0.051
+      ]
+     ],
+     "ar": 0.091,
+     "busca": "gap 0.192 drop 0.22 along 0.08 extra 0.08 | corpo m 0 f 0, elmo 0, conj 0",
+     "area": 0.4367,
+     "alt": 1.014,
+     "larg": 0.981,
+     "perda": 0.023
+    },
+    {
+     "mode": "topo",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.151,
+       0.33,
+       -0.073
+      ]
+     ],
+     "ar": 0.032,
+     "busca": "gap 0.121 drop 0.34 along 0.08 extra 0.02 | corpo m 0 f 0, elmo 0, conj 0",
+     "area": 0.4324,
+     "alt": 0.98,
+     "larg": 0.98,
+     "perda": 0.033
+    }
+   ],
+   "B": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.151,
+      0.33,
+      -0.073
+     ]
+    ],
+    "gda": [
+     0.121,
+     0.341,
+     0.08
+    ],
+    "ar": 0.032,
+    "cobre": 0.73,
+    "perto": 0.042,
+    "tira_fora": 5,
+    "folga": {
+     "block_shield": 0.09,
+     "idle": 0.042,
+     "run": 0.027
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 536,
+     "idle_male": 3647,
+     "run_male": 3136,
+     "block_shield_female": 216,
+     "idle_female": 3665,
+     "run_female": 2655
+    },
+    "minz": {
+     "block_shield": -0.241,
+     "idle": -0.03,
+     "run": -0.239
+    },
+    "busca": "gap 0.121 drop 0.34 along 0.08 extra 0.02 | corpo m 0 f 0, elmo 0, conj 0",
+    "mode": "canto",
+    "k": 0.7,
+    "perda": 0.026,
+    "alt": 1.096,
+    "larg": 0.904
+   }
+  },
+  "pal_g30": {
+   "alt": 1.122,
+   "larg": 1.055,
+   "area": 0.5473,
+   "arm": [
+    0.15897135436534882,
+    0.3401823043823242
+   ],
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.231,
+      0.327,
+      -0.056
+     ]
+    ],
+    "gda": [
+     0.203,
+     0.34,
+     0.08
+    ],
+    "ar": 0.113,
+    "cobre": 1.0,
+    "perto": 0.096,
+    "tira_fora": 4,
+    "folga": {
+     "block_shield": 0.145,
+     "idle": 0.099,
+     "run": 0.07
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 30,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 88,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 132,
+     "idle_male": 2901,
+     "run_male": 732,
+     "block_shield_female": 0,
+     "idle_female": 960,
+     "run_female": 392
+    },
+    "minz": {
+     "block_shield": -0.218,
+     "idle": -0.002,
+     "run": -0.22
+    }
+   },
+   "controle": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.265,
+      0.251,
+      0.039
+     ]
+    ],
+    "gda": [
+     0.259,
+     0.26,
+     0.0
+    ],
+    "ar": 0.162,
+    "cobre": 1.0,
+    "perto": 0.098,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.153,
+     "idle": 0.069,
+     "run": 0.064
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 20,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 1054,
+     "run_male": 136,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "minz": {
+     "block_shield": -0.137,
+     "idle": 0.122,
+     "run": -0.128
+    },
+    "busca": "gap 0.259 drop 0.26 along 0.00 extra 0.15 | corpo m 0 f 0, elmo 20, conj 0"
+   },
+   "A": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.252,
+      0.246,
+      -0.045
+     ]
+    ],
+    "gda": [
+     0.229,
+     0.26,
+     0.08
+    ],
+    "ar": 0.131,
+    "cobre": 1.0,
+    "perto": 0.07,
+    "tira_fora": 0,
+    "folga": {
+     "idle": 0.037,
+     "run": 0.081,
+     "block_shield_tall": 0.128
+    },
+    "toques": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "manga": {
+     "idle_male": 4200,
+     "run_male": 2723,
+     "block_shield_tall_male": 0,
+     "idle_female": 1003,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "minz": {
+     "idle": 0.065,
+     "run": -0.143,
+     "block_shield_tall": -0.189
+    },
+    "busca": "gap 0.229 drop 0.26 along 0.08 extra 0.12 | corpo m 0 f 0, elmo 0, conj 0"
+   },
+   "A+": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.172,
+      0.329,
+      -0.068
+     ]
+    ],
+    "gda": [
+     0.143,
+     0.34,
+     0.08
+    ],
+    "ar": 0.052,
+    "cobre": 1.0,
+    "perto": 0.057,
+    "tira_fora": 4,
+    "folga": {
+     "idle": 0.052,
+     "block_shield_tall": 0.043,
+     "run_shield_tall": 0.087
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "manga": {
+     "idle_male": 8510,
+     "block_shield_tall_male": 168,
+     "run_shield_tall_male": 4752,
+     "idle_female": 6741,
+     "block_shield_tall_female": 84,
+     "run_shield_tall_female": 1815
+    },
+    "minz": {
+     "idle": -0.017,
+     "block_shield_tall": -0.245,
+     "run_shield_tall": -0.207
+    },
+    "busca": "gap 0.143 drop 0.34 along 0.08 extra 0.04 | corpo m 0 f 0, elmo 0, conj 0"
+   },
+   "trims": [
+    {
+     "mode": "canto",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.193,
+       0.333,
+       0.018
+      ]
+     ],
+     "ar": 0.091,
+     "busca": "gap 0.182 drop 0.34 along 0.00 extra 0.08 | corpo m 0 f 0, elmo 244, conj 0",
+     "area": 0.535,
+     "alt": 1.122,
+     "larg": 0.967,
+     "perda": 0.022
+    },
+    {
+     "mode": "canto",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.154,
+       0.334,
+       0.009
+      ]
+     ],
+     "ar": 0.051,
+     "busca": "gap 0.142 drop 0.34 along 0.00 extra 0.04 | corpo m 0 f 0, elmo 444, conj 0",
+     "area": 0.524,
+     "alt": 1.122,
+     "larg": 0.928,
+     "perda": 0.043
+    },
+    {
+     "mode": "canto",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.154,
+       0.334,
+       0.009
+      ]
+     ],
+     "ar": 0.051,
+     "busca": "gap 0.142 drop 0.34 along 0.00 extra 0.04 | corpo m 0 f 0, elmo 444, conj 0",
+     "area": 0.515,
+     "alt": 1.122,
+     "larg": 0.927,
+     "perda": 0.059
+    },
+    {
+     "mode": "topo",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.236,
+       0.252,
+       0.033
+      ]
+     ],
+     "ar": 0.132,
+     "busca": "gap 0.229 drop 0.26 along 0.00 extra 0.12 | corpo m 0 f 0, elmo 184, conj 0",
+     "area": 0.536,
+     "alt": 1.067,
+     "larg": 1.055,
+     "perda": 0.021
+    },
+    {
+     "mode": "topo",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.233,
+       0.247,
+       -0.05
+      ]
+     ],
+     "ar": 0.112,
+     "busca": "gap 0.209 drop 0.26 along 0.08 extra 0.10 | corpo m 0 f 0, elmo 0, conj 0",
+     "area": 0.523,
+     "alt": 1.013,
+     "larg": 1.055,
+     "perda": 0.044
+    },
+    {
+     "mode": "topo",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.182,
+       0.331,
+       -0.025
+      ]
+     ],
+     "ar": 0.071,
+     "busca": "gap 0.162 drop 0.34 along 0.04 extra 0.06 | corpo m 0 f 0, elmo 0, conj 0",
+     "area": 0.5139,
+     "alt": 0.967,
+     "larg": 1.055,
+     "perda": 0.061
+    }
+   ],
+   "B": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.154,
+      0.334,
+      0.009
+     ]
+    ],
+    "gda": [
+     0.142,
+     0.34,
+     0.0
+    ],
+    "ar": 0.051,
+    "cobre": 1.0,
+    "perto": 0.055,
+    "tira_fora": 5,
+    "folga": {
+     "block_shield": 0.118,
+     "idle": 0.045,
+     "run": 0.062
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 36,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 144,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "manga": {
+     "block_shield_male": 850,
+     "idle_male": 9358,
+     "run_male": 7422,
+     "block_shield_female": 348,
+     "idle_female": 7082,
+     "run_female": 3635
+    },
+    "minz": {
+     "block_shield": -0.217,
+     "idle": 0.033,
+     "run": -0.2
+    },
+    "busca": "gap 0.142 drop 0.34 along 0.00 extra 0.04 | corpo m 0 f 0, elmo 444, conj 0",
+    "mode": "canto",
+    "k": 0.4,
+    "perda": 0.043,
+    "alt": 1.122,
+    "larg": 0.928
+   }
+  },
+  "bis_b15": {
+   "alt": 0.952,
+   "larg": 1.154,
+   "area": 0.6816,
+   "arm": [
+    0.15848545730113983,
+    0.3001943528652191
+   ],
+   "antes": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.234,
+      0.287,
+      -0.052
+     ]
+    ],
+    "gda": [
+     0.208,
+     0.3,
+     0.08
+    ],
+    "ar": 0.113,
+    "cobre": 1.0,
+    "perto": 0.074,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.177,
+     "idle": 0.111,
+     "run": 0.033
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 72
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 180,
+     "run_male": 114,
+     "block_shield_female": 0,
+     "idle_female": 24,
+     "run_female": 0
+    },
+    "minz": {
+     "block_shield": -0.147,
+     "idle": -0.047,
+     "run": -0.162
+    }
+   },
+   "controle": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.234,
+      0.287,
+      -0.052
+     ]
+    ],
+    "gda": [
+     0.208,
+     0.3,
+     0.08
+    ],
+    "ar": 0.113,
+    "cobre": 1.0,
+    "perto": 0.074,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.177,
+     "idle": 0.111,
+     "run": 0.033
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 72
+    },
+    "manga": {
+     "block_shield_male": 0,
+     "idle_male": 180,
+     "run_male": 114,
+     "block_shield_female": 0,
+     "idle_female": 24,
+     "run_female": 0
+    },
+    "minz": {
+     "block_shield": -0.147,
+     "idle": -0.047,
+     "run": -0.162
+    },
+    "busca": "gap 0.208 drop 0.30 along 0.08 extra 0.10 | corpo m 0 f 0, elmo 0, conj 72"
+   },
+   "A": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.234,
+      0.287,
+      -0.052
+     ]
+    ],
+    "gda": [
+     0.208,
+     0.3,
+     0.08
+    ],
+    "ar": 0.113,
+    "cobre": 1.0,
+    "perto": 0.074,
+    "tira_fora": 0,
+    "folga": {
+     "idle": 0.111,
+     "run": 0.033,
+     "block_shield_tall": 0.108
+    },
+    "toques": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_tall_male": 0,
+     "idle_female": 0,
+     "run_female": 72,
+     "block_shield_tall_female": 0
+    },
+    "manga": {
+     "idle_male": 180,
+     "run_male": 114,
+     "block_shield_tall_male": 0,
+     "idle_female": 24,
+     "run_female": 0,
+     "block_shield_tall_female": 0
+    },
+    "minz": {
+     "idle": -0.047,
+     "run": -0.162,
+     "block_shield_tall": -0.207
+    },
+    "busca": "gap 0.208 drop 0.30 along 0.08 extra 0.10 | corpo m 0 f 0, elmo 0, conj 72"
+   },
+   "A+": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.139,
+      0.295,
+      0.009
+     ]
+    ],
+    "gda": [
+     0.128,
+     0.3,
+     -0.0
+    ],
+    "ar": 0.032,
+    "cobre": 1.0,
+    "perto": 0.015,
+    "tira_fora": 0,
+    "folga": {
+     "idle": 0.021,
+     "block_shield_tall": 0.034,
+     "run_shield_tall": 0.05
+    },
+    "toques": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "elmo": {
+     "idle_male": 0,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 0,
+     "idle_female": 0,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 0
+    },
+    "conj": {
+     "idle_male": 0,
+     "block_shield_tall_male": 826,
+     "run_shield_tall_male": 102,
+     "idle_female": 48,
+     "block_shield_tall_female": 8,
+     "run_shield_tall_female": 6
+    },
+    "manga": {
+     "idle_male": 2307,
+     "block_shield_tall_male": 0,
+     "run_shield_tall_male": 536,
+     "idle_female": 1567,
+     "block_shield_tall_female": 0,
+     "run_shield_tall_female": 269
+    },
+    "minz": {
+     "idle": -0.018,
+     "block_shield_tall": -0.17,
+     "run_shield_tall": -0.143
+    },
+    "busca": "gap 0.128 drop 0.30 along 0.00 extra 0.02 | corpo m 0 f 0, elmo 0, conj 2448"
+   },
+   "trims": [
+    {
+     "mode": "canto",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.175,
+       0.289,
+       -0.065
+      ]
+     ],
+     "ar": 0.052,
+     "busca": "gap 0.148 drop 0.30 along 0.08 extra 0.04 | corpo m 0 f 0, elmo 0, conj 512",
+     "area": 0.6708,
+     "alt": 0.952,
+     "larg": 1.05,
+     "perda": 0.016
+    },
+    {
+     "mode": "canto",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.138,
+       0.21,
+       -0.067
+      ]
+     ],
+     "ar": 0.012,
+     "busca": "gap 0.114 drop 0.22 along 0.08 extra 0.00 | corpo m 0 f 0, elmo 0, conj 1482",
+     "area": 0.6613,
+     "alt": 0.952,
+     "larg": 1.048,
+     "perda": 0.03
+    },
+    {
+     "mode": "canto",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.13,
+       0.213,
+       -0.028
+      ]
+     ],
+     "ar": 0.012,
+     "busca": "gap 0.114 drop 0.22 along 0.04 extra 0.00 | corpo m 0 f 0, elmo 0, conj 1855",
+     "area": 0.6538,
+     "alt": 0.952,
+     "larg": 1.048,
+     "perda": 0.041
+    },
+    {
+     "mode": "topo",
+     "k": 0.7,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.234,
+       0.247,
+       -0.049
+      ]
+     ],
+     "ar": 0.112,
+     "busca": "gap 0.210 drop 0.26 along 0.08 extra 0.10 | corpo m 0 f 0, elmo 0, conj 102",
+     "area": 0.6727,
+     "alt": 0.925,
+     "larg": 1.154,
+     "perda": 0.013
+    },
+    {
+     "mode": "topo",
+     "k": 0.4,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.235,
+       0.207,
+       -0.046
+      ]
+     ],
+     "ar": 0.112,
+     "busca": "gap 0.213 drop 0.22 along 0.08 extra 0.10 | corpo m 0 f 0, elmo 0, conj 198",
+     "area": 0.6638,
+     "alt": 0.898,
+     "larg": 1.154,
+     "perda": 0.026
+    },
+    {
+     "mode": "topo",
+     "k": 0.15,
+     "mount": [
+      88.1,
+      -12.2,
+      -86.4,
+      [
+       0.213,
+       0.248,
+       -0.054
+      ]
+     ],
+     "ar": 0.092,
+     "busca": "gap 0.189 drop 0.26 along 0.08 extra 0.08 | corpo m 0 f 0, elmo 0, conj 81",
+     "area": 0.6571,
+     "alt": 0.878,
+     "larg": 1.154,
+     "perda": 0.036
+    }
+   ],
+   "B": {
+    "mount": [
+     88.1,
+     -12.2,
+     -86.4,
+     [
+      0.175,
+      0.289,
+      -0.065
+     ]
+    ],
+    "gda": [
+     0.148,
+     0.3,
+     0.08
+    ],
+    "ar": 0.052,
+    "cobre": 1.0,
+    "perto": 0.028,
+    "tira_fora": 0,
+    "folga": {
+     "block_shield": 0.116,
+     "idle": 0.074,
+     "run": 0.035
+    },
+    "toques": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "elmo": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 0,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 0
+    },
+    "conj": {
+     "block_shield_male": 0,
+     "idle_male": 0,
+     "run_male": 84,
+     "block_shield_female": 0,
+     "idle_female": 0,
+     "run_female": 156
+    },
+    "manga": {
+     "block_shield_male": 18,
+     "idle_male": 939,
+     "run_male": 678,
+     "block_shield_female": 0,
+     "idle_female": 539,
+     "run_female": 360
+    },
+    "minz": {
+     "block_shield": -0.147,
+     "idle": -0.063,
+     "run": -0.159
+    },
+    "busca": "gap 0.148 drop 0.30 along 0.08 extra 0.04 | corpo m 0 f 0, elmo 0, conj 512",
+    "mode": "canto",
+    "k": 0.7,
+    "perda": 0.016,
+    "alt": 0.952,
+    "larg": 1.05
+   }
+  }
+ },
+ "basis": {
+  "rot": [
+   88.1,
+   -12.2,
+   -86.4
+  ],
+  "n": [
+   0.977,
+   -0.032,
+   0.212
+  ],
+  "d": [
+   0.046,
+   0.997,
+   -0.061
+  ],
+  "a": [
+   0.209,
+   -0.07,
+   -0.975
+  ],
+  "arm_r": 0.08
+ }
+}
