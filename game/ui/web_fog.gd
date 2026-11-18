@@ -135,7 +135,7 @@ static func build_fog(key: String, nodes: Dictionary, player_level: int, origin:
 
 ## --- Cadeado: selo neutro (branco/cinza, contorno escuro) por cima da névoa em todo nó acima do nível do jogador. ---
 const LOCK_TEX_PX := 32           # lado da textura (gerada uma vez, desenhada esticada)
-const LOCK_BIG := ["skill", "start", "talent", "notable"]     # selo no canto de baixo à direita; nos outros, no meio
+const LOCK_BIG := ["skill", "skill_up", "start", "talent", "notable"]     # selo no canto de baixo à direita; nos outros, no meio
 const LOCK_BODY := Color(0.93, 0.93, 0.95)
 const LOCK_SHACKLE := Color(0.7, 0.71, 0.75)
 const LOCK_EDGE := Color(0.03, 0.03, 0.05)

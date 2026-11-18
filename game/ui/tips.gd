@@ -15,7 +15,7 @@ const TIPS := {
 	"gather": "F colhe ervas, minérios e caixas brilhando: viram poção, joia e entrega de quest.",
 	"quest": "NPCs com ! têm quest: chegue perto e aperte F. L mostra suas quests e o roteiro.",
 	"bag": "Item novo na bolsa! I abre a bolsa; arraste a peça para o boneco (C) para equipar.",
-	"web": "Você ganhou pontos de skill. K abre a teia: compre caminhos, atributos e skills novas.",
+	"web": "Skills chegam com o nível; o rank sobe no Mestre de Skills. K abre a teia: caminhos, atributos e aprimoramentos.",
 	"talents": "Talentos de classe liberados: aba Talentos na janela K (trocar, só na cidade).",
 	"recall": "Longe de casa? G volta para a cidade depois de alguns segundos parado.",
 	"mount": "H chama o cavalo: corre bem mais, mas golpes e dano derrubam você da sela.",

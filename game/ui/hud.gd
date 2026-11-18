@@ -928,6 +928,8 @@ func _update_blocking() -> void:
 func _notify(text: String) -> void:
 	if _boss_line(text):
 		return
+	if text.begins_with(NEW_SKILL_PREFIX) and _new_skill_toast(text):
+		return
 	var l := UiKit.label(text, 16, Color(1, 0.95, 0.75))
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	notif_box.add_child(l)
@@ -937,6 +939,44 @@ func _notify(text: String) -> void:
 	tw.tween_callback(l.queue_free)
 	if notif_box.get_child_count() > 5:
 		notif_box.get_child(0).queue_free()
+
+const NEW_SKILL_PREFIX := "Nova skill: "     # aviso da sim no level-up (ProgressionSystem.gain_xp)
+
+## Skill nova do nível: cartão com o ícone, o nome e onde ela ficou (tecla da barra, ou "arraste da janela K").
+## Devolve false se o nome não bate com uma skill do jogador (aí vira o aviso de texto comum).
+func _new_skill_toast(text: String) -> bool:
+	var p: SimEntity = Sim.player
+	if p == null or p.class_def == null:
+		return false
+	var nm := text.trim_prefix(NEW_SKILL_PREFIX).get_slice(" (", 0)
+	var sk: SkillDef = null
+	for sid in p.class_def.skill_ids:
+		if GameData.skills.has(sid) and GameData.skills[sid].name == nm and p.knows(sid):
+			sk = GameData.skills[sid]
+	if sk == null:
+		return false
+	var card := UiKit.panel(Color(0.1, 0.08, 0.04, 0.92), UiKit.GOLD)
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 10)
+	card.add_child(h)
+	h.add_child(UiKit.skill_icon(sk, 36))
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 0)
+	h.add_child(v)
+	v.add_child(UiKit.label("Nova skill: %s" % sk.name, 16, UiKit.GOLD))
+	var slot := p.slot_of(sk.id)
+	var where := "Na barra: tecla %s" % ActionBar.key_of(slot) if slot >= 0 else ("Abra a janela K e arraste para a barra" if p.stats.meets(sk.requires) else "Pede outra arma · fica na janela K")
+	v.add_child(UiKit.label(where + "  ·  rank no Mestre de Skills", 12, Color(0.85, 0.82, 0.75)))
+	notif_box.add_child(card)
+	var tw := create_tween()
+	tw.tween_interval(4.0)
+	tw.tween_property(card, "modulate:a", 0.0, 0.6)
+	tw.tween_callback(card.queue_free)
+	if notif_box.get_child_count() > 5:
+		notif_box.get_child(0).queue_free()
+	return true
 
 ## Quem fala, se `text` é "<nome>: ..." de um chefe em `names` ("" se não é fala de chefe).
 static func boss_speaker(text: String, names: Array) -> String:

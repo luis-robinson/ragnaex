@@ -212,11 +212,14 @@ static func gain_xp(sim: WorldSim, e: SimEntity, amount: int) -> void:
 		e.level += 1
 		e.mastery_points += Balance.points_at(e.level)
 		e.recompute_stats()
+		var fresh_skills := grant_level_skills(sim, e, e.kind != SimEntity.Kind.BOT)
 		e.hp = minf(e.stats.max_hp, e.hp + e.stats.max_hp * Balance.LEVEL_UP_RESTORE)
 		e.mp = minf(e.stats.max_mp, e.mp + e.stats.max_mp * Balance.LEVEL_UP_RESTORE)
 		Events.post(&"level_up", e.id, e.level)
 		if e == sim.player:
 			Events.post(&"notification", "Nível %d! +%d ponto(s) de skill (tecla K)" % [e.level, Balance.points_at(e.level)])
+			for sid in fresh_skills:
+				Events.post(&"notification", "Nova skill: %s (tecla K)" % GameData.skills[sid].name)
 			if has_ascension(e) and e.level <= Balance.ASC_MAX_LEVEL:
 				Events.post(&"notification", "+%d ponto(s) de ascensão (tecla K, aba Ascensão)" % Balance.ASC_POINTS_PER_LEVEL)
 			BotChat.party_event(sim, e, "player_levelup", {"lv": str(e.level)})
@@ -241,6 +244,8 @@ static func apply_start_preset(sim: WorldSim, e: SimEntity, preset_id: int) -> v
 		e.level += 1
 		e.mastery_points += Balance.points_at(e.level)
 	e.xp = 0
+	e.recompute_stats()
+	grant_level_skills(sim, e)               # skills do nível (as primeiras na barra)
 	e.gold += int(pr.get("gold", 0))
 	for iid in pr.get("items", {}):
 		e.add_item(iid, int(pr["items"][iid]))
@@ -267,6 +272,9 @@ static func apply_start_preset(sim: WorldSim, e: SimEntity, preset_id: int) -> v
 		sim.place_loaded(e, pr["map"], pos)       # começa longe de Aldara (o grupo nasce ao lado)
 	PortalSystem.grandfather_gates(sim, e, e.map_id)
 	e.recompute_stats()
+	for s in e.skills:                       # ranks como os de um bot do nível nas skills da barra (Balance.BOT_SKILL_RANK_PER_LEVELS)
+		if s and not s.ascension:
+			e.mastery[s.id] = maxi(e.mastery_of(s.id), bot_rank(e, s))
 	e.heal_full()
 	Events.post(&"equipment_changed", e.id)
 	_start_party(sim, e, pr.get("party", []))
@@ -316,6 +324,7 @@ static func respawn_character(sim: WorldSim, e: SimEntity) -> void:
 ## Sem evolução ativa devolve a própria skill (sem alocação).
 static func resolve_skill(sim: WorldSim, e: SimEntity, s: SkillDef) -> SkillDef:
 	var out := resolve_talents(sim, e, s)
+	out = _web_upgrades(e, s, out)                          # nós "Aprimorada"/"Ágil" da teia
 	if not e.ct.is_empty():
 		out = ClassTalentSystem.apply_mods(e, out)          # talentos de classe (recarga, área, efeitos...)
 	if out.ascension:
@@ -338,6 +347,31 @@ static func resolve_skill(sim: WorldSim, e: SimEntity, s: SkillDef) -> SkillDef:
 	for k in fm.get("effects", {}):
 		out.talent_effects[k] = fm["effects"][k]
 	return DruidAscension.refine(e, s, out, true)
+
+## Nós da teia da skill: "<Skill> Aprimorada" (<classe>_s_<id>, +SKILL_UP_POWER de poder) e "<Skill> Ágil"
+## (<classe>_m_<id>, -SKILL_QUICK_PCT de recarga e MP). Copia a skill só se algum dos dois foi comprado.
+static func _web_upgrades(e: SimEntity, s: SkillDef, out: SkillDef) -> SkillDef:
+	if e.class_def == null or e.tree.size() <= 1 or s.ascension:
+		return out
+	var up := e.tree.has("%s_s_%s" % [e.class_def.id, s.id])
+	var quick := e.tree.has("%s_m_%s" % [e.class_def.id, s.id])
+	if not up and not quick:
+		return out
+	if out == s:
+		out = s.duplicate()
+		out.talent_effects = s.talent_effects.duplicate()
+	if up:
+		out.power *= 1.0 + Balance.SKILL_UP_POWER
+	if quick:
+		out.cooldown *= 1.0 - Balance.SKILL_QUICK_PCT
+		out.mp_cost *= 1.0 - Balance.SKILL_QUICK_PCT
+	return out
+
+## Multiplicador de MP do nó "Ágil" (try_cast cobra antes de resolver a skill).
+static func web_mp_mult(e: SimEntity, sid: String) -> float:
+	if e.class_def == null or e.tree.size() <= 1 or not e.tree.has("%s_m_%s" % [e.class_def.id, sid]):
+		return 1.0
+	return 1.0 - Balance.SKILL_QUICK_PCT
 
 static func resolve_talents(sim: WorldSim, e: SimEntity, s: SkillDef) -> SkillDef:
 	if not e.is_character() or e.talents.is_empty():
@@ -388,8 +422,10 @@ static func tree_block_reason(sim: WorldSim, e: SimEntity, node_id: String) -> S
 	if tr.is_empty() or not tr["nodes"].has(node_id):
 		return "nó inexistente"
 	var n: Dictionary = tr["nodes"][node_id]
-	if e.tree.has(node_id) and n["kind"] != "mastery":      # maestria compra de novo até o máximo (1 ponto por nível)
+	if e.tree.has(node_id):
 		return "já comprado"
+	if n["kind"] in ["skill_up", "skill_quick"] and not e.knows(n["ref"]):
+		return "requer a skill (nível %d)" % int(n["level"])
 	if n["kind"] == "pick":                  # talento de escolha: sem vizinho; um por linha, troca na cidade
 		if e.level < int(n["level"]):
 			return "requer nível %d" % int(n["level"])
@@ -415,8 +451,6 @@ static func tree_block_reason(sim: WorldSim, e: SimEntity, node_id: String) -> S
 		return "requer nível %d" % int(n["level"])
 	if e.mastery_points < int(n["cost"]):
 		return "pontos insuficientes (%d)" % int(n["cost"])
-	if n["kind"] == "mastery" and e.mastery_of(n["ref"]) >= Balance.MASTERY_MAX:
-		return "maestria já no máximo"
 	return ""
 
 ## Talento de escolha já comprado na mesma linha (outra opção do mesmo grupo), ou "".
@@ -428,7 +462,7 @@ static func pick_sibling(sim: WorldSim, e: SimEntity, node_id: String) -> String
 			return nid
 	return ""
 
-## Compra um nó da árvore e aplica: skill nova (vai pro 1º slot livre), evolução, +1 maestria ou passivo.
+## Compra um nó da árvore e aplica: evolução, passivo; "Aprimorada"/"Ágil" valem pelo resolve_skill.
 ## `batch` = não refaz os atributos a cada passivo (quem chama refaz uma vez no fim; ex.: bot_spend de bot novo).
 ## Ex.: `ProgressionSystem.tree_allocate(sim, e, "paladin_m_pal_holy_strike")`.
 static func tree_allocate(sim: WorldSim, e: SimEntity, node_id: String, batch: bool = false) -> bool:
@@ -449,17 +483,8 @@ static func tree_allocate(sim: WorldSim, e: SimEntity, node_id: String, batch: b
 	e.tree[node_id] = true
 	var ref: String = n["ref"]
 	match n["kind"]:
-		"skill":
-			e.learned[ref] = true
-			e.mastery[ref] = e.mastery_of(ref)
-			var free := ItemSystem.first_free_slot(sim, e)
-			var learned_sk: SkillDef = GameData.skills[ref]
-			if free >= 0 and e.slot_of(ref) < 0 and e.stats.meets(learned_sk.requires):     # arma que não serve: fica na janela K, não ocupa a barra
-				e.skills[free] = learned_sk
 		"talent":
 			e.talents[ref] = true
-		"mastery":
-			e.mastery[ref] = mini(Balance.MASTERY_MAX, e.mastery_of(ref) + 1)
 		"stat", "notable", "pick":
 			if not batch:
 				recompute_tree_bonus(sim, e)
@@ -485,16 +510,19 @@ static func bot_spend(sim: WorldSim, e: SimEntity, fresh: bool = false, batch: b
 	if fresh:
 		e.tree = {tr["start"]: true}
 		e.learned = {}
-		for sid in e.class_def.starting_skills:
-			e.tree["%s_s_%s" % [cid, sid]] = true
-			e.learned[sid] = true
 		e.talents = {}
 		e.mastery = {}
 		e.mastery_points = points_for_level(e.level)
+	grant_level_skills(sim, e, false)                             # skills pelo nível (a barra é do _slot_bot)
 	var build := e.class_def.build_by_id(e.build_id)
 	var wanted: Array = build.get("skills", e.class_def.skill_ids)
+	# ranks de graça pelo nível nas skills da build (o jogador paga no Mestre de Skills)
+	for sid in wanted:
+		var ws: SkillDef = GameData.skills.get(sid)
+		if ws and e.learned.has(sid) and not ws.ascension:
+			e.mastery[sid] = maxi(e.mastery_of(sid), bot_rank(e, ws))
 	var dirty := ClassTalentSystem.bot_pick(sim, e, batch)        # talentos de classe (grátis, pelo nível)
-	# 1) skills da build (que o nível já libera), pelo caminho mais curto
+	# 1) "Aprimorada" das skills da build (que o nível já libera), pelo caminho mais curto; depois "Ágil" ao lado
 	for sid in wanted:
 		var target := "%s_s_%s" % [cid, sid]
 		if not nodes.has(target) or e.tree.has(target) or int(nodes[target]["level"]) > e.level:
@@ -506,14 +534,10 @@ static func bot_spend(sim: WorldSim, e: SimEntity, fresh: bool = false, batch: b
 			if not tree_allocate(sim, e, nid, batch):
 				break
 			dirty = dirty or _changes_stats(nodes[nid])
-	# 2) maestria das skills da build aprendidas, até nível/6
-	var want_m := clampi(e.level / 6, 0, Balance.MASTERY_MAX)
 	for sid in wanted:
-		if not e.learned.has(sid):
-			continue
-		while e.mastery_of(sid) < want_m and e.mastery_points > 0:
-			if not tree_allocate(sim, e, "%s_m_%s" % [cid, sid], batch):
-				break
+		var quick := "%s_m_%s" % [cid, sid]
+		if nodes.has(quick) and not e.tree.has(quick) and tree_block_reason(sim, e, quick) == "":
+			tree_allocate(sim, e, quick, batch)
 	# 2b) notáveis de papel da classe para esta build (sobrevivência / dano de tanque), do mais perto ao mais longe
 	dirty = _bot_role_notes(sim, e, nodes, batch) or dirty
 	# 3) evoluções das skills aprendidas (metade, como antes)
@@ -646,7 +670,7 @@ static func _path_to(e: SimEntity, nodes: Dictionary, target: String) -> Array:
 		if cur == target:
 			break
 		for l in nodes[cur]["links"]:
-			if prev.has(l) or int(nodes[l]["level"]) > e.level or nodes[l]["kind"] in ["mastery", "talent"]:
+			if prev.has(l) or int(nodes[l]["level"]) > e.level or nodes[l]["kind"] in ["skill_quick", "talent"]:
 				continue
 			prev[l] = cur
 			queue.append(l)
@@ -675,8 +699,8 @@ static func near_npc(sim: WorldSim, e: SimEntity, npc_id: String) -> bool:
 			return true
 	return false
 
-## Reset da árvore (Ancião Ravi): volta ao nó inicial com as skills iniciais, sem evoluções nem maestria, e devolve
-## todos os pontos do nível. Os talentos de escolha ficam (não gastam pontos). A barra guarda só o que ainda conhece.
+## Reset da árvore (Ancião Ravi): volta ao nó inicial (as skills do nível e os ranks ficam; sai a teia de ascensão),
+## sem evoluções, e devolve todos os pontos do nível. Os talentos de escolha ficam (não gastam pontos). A barra guarda só o que ainda conhece.
 static func reset_tree(sim: WorldSim, e: SimEntity) -> bool:
 	if e.class_def == null:
 		return false
@@ -689,13 +713,12 @@ static func reset_tree(sim: WorldSim, e: SimEntity) -> bool:
 	for nid in e.tree:
 		if tr["nodes"].has(nid) and tr["nodes"][nid]["kind"] == "pick":
 			keep[nid] = true
-	e.learned = {}
-	for sid in e.class_def.starting_skills:
-		keep["%s_s_%s" % [e.class_def.id, sid]] = true
-		e.learned[sid] = true
 	e.tree = keep
 	e.talents = {}
-	e.mastery = {}
+	for sid in ascension_skills(e):            # a teia de ascensão volta: as skills dela e a maestria saem
+		e.mastery.erase(sid)
+	e.learned = {}
+	grant_level_skills(sim, e, false)          # as skills do nível ficam (e os ranks pagos no Mestre de Skills também)
 	e.mastery_points = points_for_level(e.level)
 	e.ensure_slots()
 	for i in range(e.skills.size()):
@@ -724,11 +747,145 @@ static func recompute_tree_bonus(sim: WorldSim, e: SimEntity) -> void:
 	ClassTalentSystem.refresh(e)
 	e.recompute_stats()
 
-## Atalhos pela árvore (UI antiga, testes): aprender skill / comprar evolução = comprar o nó dela.
+## Atalho antigo (dev/testes): skills vêm pelo nível (grant_level_skills); aprende só uma skill comum da classe já
+## liberada pelo nível que ainda não conhece (ex.: save editado) e põe na 1ª vaga livre. Ascensão: pela teia dela.
 static func learn_skill(sim: WorldSim, e: SimEntity, skill_id: String) -> bool:
-	if e.knows(skill_id) or e.class_def == null:
+	var s: SkillDef = GameData.skills.get(skill_id)
+	if s == null or e.knows(skill_id) or e.class_def == null or s.ascension or not (skill_id in e.class_def.skill_ids) or e.level < s.unlock_level:
 		return false
-	return tree_allocate(sim, e, "%s_s_%s" % [e.class_def.id, skill_id])
+	e.learned[skill_id] = true
+	e.mastery[skill_id] = e.mastery_of(skill_id)
+	_slot_new(sim, e, s)
+	Events.post(&"mastery_changed", e.id, skill_id, e.mastery_of(skill_id))
+	return true
+
+## Skills comuns da classe (fora ascensão) que o nível `level` libera: as iniciais primeiro, depois por nível.
+## Ex.: `ProgressionSystem.level_skill_ids(GameData.classes["paladin"], 10)`.
+static func level_skill_ids(cls: ClassDef, level: int) -> Array:
+	var out: Array = []
+	for sid in cls.starting_skills:
+		var s0: SkillDef = GameData.skills.get(sid)
+		if s0 and not s0.ascension and s0.unlock_level <= level:
+			out.append(sid)
+	var rest: Array = []
+	for sid in cls.skill_ids:
+		var s: SkillDef = GameData.skills.get(sid)
+		if s and not s.ascension and s.unlock_level <= level and not (sid in out):
+			rest.append(s)
+	rest.sort_custom(func(a, b): return a.unlock_level < b.unlock_level)
+	for s in rest:
+		out.append(s.id)
+	return out
+
+## Aprende as skills que o nível dá (no spawn, ao subir de nível, ao carregar). `slot_new` = põe cada nova na 1ª vaga
+## livre de 1-6 se a arma serve (jogador; o bot refaz a barra com WorldSim._slot_bot). Devolve os ids novos.
+## Ex.: `ProgressionSystem.grant_level_skills(sim, player)`.
+static func grant_level_skills(sim: WorldSim, e: SimEntity, slot_new: bool = true) -> Array:
+	var out: Array = []
+	if e.class_def == null:
+		return out
+	e.ensure_slots()
+	for sid in level_skill_ids(e.class_def, e.level):
+		if e.learned.has(sid):
+			continue
+		e.learned[sid] = true
+		e.mastery[sid] = e.mastery_of(sid)
+		out.append(sid)
+		if slot_new:
+			_slot_new(sim, e, GameData.skills[sid])
+	return out
+
+## Skill nova na 1ª vaga livre de 1-6 (arma que não serve: fica na janela K, não ocupa a barra).
+static func _slot_new(sim: WorldSim, e: SimEntity, s: SkillDef) -> void:
+	var free := ItemSystem.first_free_slot(sim, e)
+	if free >= 0 and e.slot_of(s.id) < 0 and e.stats.meets(s.requires):
+		e.skills[free] = s
+
+# --- Rank da skill (1-5, e.mastery) no Mestre de Skills: ouro + materiais da faixa da skill ---
+
+## Tier da skill pelo nível dela (Balance.COMMON_TIER_LEVELS; 0..5): escolhe o ouro e os materiais do rank.
+static func skill_tier(s: SkillDef) -> int:
+	var t := 0
+	for i in range(Balance.COMMON_TIER_LEVELS.size()):
+		if s.unlock_level >= Balance.COMMON_TIER_LEVELS[i]:
+			t = i
+	return mini(t, Balance.SKILL_RANK_MATS.size() - 1)
+
+## Nível exigido para o rank `rank` da skill: nível dela + SKILL_RANK_LEVEL_STEP × (rank-1), até MAX_LEVEL.
+static func rank_level(s: SkillDef, rank: int) -> int:
+	return mini(Balance.MAX_LEVEL, s.unlock_level + Balance.SKILL_RANK_LEVEL_STEP * maxi(0, rank - 1))
+
+## Custo do rank `to_rank` (padrão: o próximo) da skill: {"gold", "items": {id: n}, "level", "rank"}; {} se não existe.
+## Ex.: `ProgressionSystem.rank_cost(p, "pal_holy_strike")` -> {"gold": 40, "items": {"iron_ore": 2}, "level": 1, "rank": 1}.
+static func rank_cost(e: SimEntity, skill_id: String, to_rank: int = -1) -> Dictionary:
+	var s: SkillDef = GameData.skills.get(skill_id)
+	if s == null:
+		return {}
+	var r := to_rank if to_rank > 0 else e.mastery_of(skill_id) + 1
+	if r > Balance.MASTERY_MAX:
+		return {}
+	var tier := skill_tier(s)
+	var mats: Array = Balance.SKILL_RANK_MATS[tier]
+	var items := {str(mats[0]): r}     # comum: r unidades (era r+1; ferro do 1-10 virava gargalo, playtest 2026-11-18)
+	if r >= Balance.SKILL_RANK_RARE_FROM:
+		items[str(mats[1])] = r - Balance.SKILL_RANK_RARE_FROM + 1
+	return {"gold": int(Balance.SKILL_RANK_GOLD_BASE * (tier + 1) * pow(r, 1.5)), "items": items, "level": rank_level(s, r), "rank": r}
+
+## Perto de um NPC com papel de Mestre de Skills (Balance.SKILL_TRAINER_ROLES).
+static func near_trainer(sim: WorldSim, e: SimEntity) -> bool:
+	for role in Balance.SKILL_TRAINER_ROLES:
+		if ItemSystem.near_station(sim, e, str(role)):
+			return true
+	return false
+
+## Por que não dá para subir o rank agora ("" = dá). `ignore_npc` = sem exigir o Mestre por perto (testes, dev).
+static func rank_error(sim: WorldSim, e: SimEntity, skill_id: String, ignore_npc: bool = false) -> String:
+	var s: SkillDef = GameData.skills.get(skill_id)
+	if s == null or e.class_def == null or not (skill_id in e.class_def.skill_ids):
+		return "Skill de outra classe"
+	if s.ascension:
+		return "Skill de ascensão: o rank sobe na teia de ascensão"
+	if not e.knows(skill_id):
+		return "Skill ainda não aprendida (nível %d)" % s.unlock_level
+	if e.mastery_of(skill_id) >= Balance.MASTERY_MAX:
+		return "Rank já no máximo (%d)" % Balance.MASTERY_MAX
+	var c := rank_cost(e, skill_id)
+	if e.level < int(c["level"]):
+		return "Rank %d pede nível %d" % [int(c["rank"]), int(c["level"])]
+	if not ignore_npc and not near_trainer(sim, e):
+		return "Fale com o Mestre de Skills (na cidade) para subir o rank"
+	if e.gold < int(c["gold"]):
+		return "Ouro insuficiente (%d)" % int(c["gold"])
+	for iid in c["items"]:
+		var need := int(c["items"][iid])
+		if not e.has_item(iid, need):
+			return "Faltam %d %s" % [need - int(e.inventory.get(iid, 0)), GameData.items[iid].name if GameData.items.has(iid) else iid]
+	return ""
+
+## Sobe o rank da skill em 1: cobra ouro e materiais e escreve e.mastery (efeitos da maestria de sempre).
+## Ex.: `ProgressionSystem.rank_up(sim, p, "pal_holy_strike")`.
+static func rank_up(sim: WorldSim, e: SimEntity, skill_id: String, ignore_npc: bool = false) -> bool:
+	var why := rank_error(sim, e, skill_id, ignore_npc)
+	if why != "":
+		if e == sim.player:
+			Events.post(&"notification", why)
+		return false
+	var c := rank_cost(e, skill_id)
+	e.gold -= int(c["gold"])
+	for iid in c["items"]:
+		e.remove_item(iid, int(c["items"][iid]))
+	e.mastery[skill_id] = int(c["rank"])
+	Events.post(&"mastery_changed", e.id, skill_id, e.mastery_of(skill_id))
+	if e == sim.player:
+		Events.post(&"notification", "%s: rank %d!" % [GameData.skills[skill_id].name, e.mastery_of(skill_id)])
+	return true
+
+## Rank de graça do bot (e do começo rápido): nível / BOT_SKILL_RANK_PER_LEVELS, sem passar do que o nível libera.
+static func bot_rank(e: SimEntity, s: SkillDef) -> int:
+	var r := clampi(e.level / Balance.BOT_SKILL_RANK_PER_LEVELS, 0, Balance.MASTERY_MAX)
+	while r > 0 and rank_level(s, r) > e.level:
+		r -= 1
+	return r
 
 static func learn_talent(sim: WorldSim, e: SimEntity, talent_id: String) -> bool:
 	if e.has_talent(talent_id) or e.class_def == null:
@@ -762,12 +919,14 @@ static func set_skill_slot(sim: WorldSim, e: SimEntity, slot: int, skill_id: Str
 	Events.post(&"mastery_changed", e.id, skill_id, e.mastery_of(skill_id))
 	return true
 
-## +1 maestria com pontos = comprar a folha de maestria da skill na árvore (repete até Balance.MASTERY_MAX).
+## +1 maestria: skill de ascensão compra a folha de maestria na teia de ascensão; skill comum sobe o rank no
+## Mestre de Skills (rank_up: ouro + materiais, perto do NPC).
 static func upgrade_mastery(sim: WorldSim, e: SimEntity, skill_id: String) -> bool:
 	if e.class_def == null or not e.knows(skill_id):
 		return false
-	var asc: bool = GameData.skills[skill_id].ascension
-	return tree_allocate(sim, e, "%s_%s_%s" % [e.class_def.id, "a_m" if asc else "m", skill_id])
+	if GameData.skills[skill_id].ascension:
+		return tree_allocate(sim, e, "%s_a_m_%s" % [e.class_def.id, skill_id])
+	return rank_up(sim, e, skill_id)
 
 static func set_potion_slot(sim: WorldSim, e: SimEntity, slot: int, item_id: String) -> void:
 	e.potion_slots[slot] = item_id

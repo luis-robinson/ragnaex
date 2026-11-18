@@ -15,7 +15,7 @@ const LINES := {
 		"onde fica o ferreiro?", "finalmente lv 10 kkk", "esse jogo é melhor que o outro", "alguém viu o rei javali hoje?",
 		"vendo pele de lobo barato", "compro minério de ferro", "bom dia pessoal", "voltei", "gg", "ta chovendo aí?",
 		"preciso de 3 seda de aranha, alguém?", "o ancião tem quest nova", "lag?", "alguém quer duo?", "brb",
-		"como upa maestria?", "resp: usa a skill 30 vezes que sobe sozinha", "o elixir da força é muito bom",
+		"como upa o rank da skill?", "resp: mestre de skills na praça, ouro + material da caçada", "skill nova vem sozinha no nível, só treinar", "o elixir da força é muito bom",
 	],
 	"hunt": [
 		"esse lobo é rápido demais", "ajuda aqui!!", "quase morri kkkk", "dropou o anel!!!", "cadê os javalis",

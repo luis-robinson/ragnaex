@@ -7,7 +7,10 @@ extends RefCounted
 ## de skill (skill no centro; maestria, evoluções e passivos em volta) e de notável (anel com o notável no meio, duas
 ## entradas). Setores por ramo (Geral + builds) em volta do início; skill de nível alto mais longe. Ver _class_tree.
 ##
-## Nó: {id, kind: start|skill|stat|notable|mastery|talent|pick, ref, name, desc, level, cost, pos: Vector2, links: [ids], stats: {}, branch}
+## Nó: {id, kind: start|skill_up|skill_quick|stat|notable|talent|pick, ref, name, desc, level, cost, pos: Vector2, links: [ids], stats: {}, branch}
+## Skills vêm pelo nível (ProgressionSystem.grant_level_skills); no centro do círculo fica "<Skill> Aprimorada" (skill_up,
+## id <classe>_s_<skill>) e do outro lado da entrada "<Skill> Ágil" (skill_quick, id <classe>_m_<skill>): ids, posições e
+## ligações de sempre. O rank 1-5 da skill sobe no Mestre de Skills (ProgressionSystem.rank_up), fora da teia.
 ## Teia: {start, nodes, panes: [{id, name, role, angle}], clusters: [{center, r, kind, branch}]}
 ## Regra (WorldSim.tree_allocate): só se compra nó ligado a um já comprado, com nível e pontos suficientes.
 
@@ -322,7 +325,7 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 		if cl["kind"] == "skill":
 			var sk: SkillDef = cl["skill"]
 			var nid := "%s_s_%s" % [cls.id, sk.id]
-			nodes[nid] = _node(nid, "skill", sk.id, sk.name, sk.description, sk.unlock_level, Balance.SKILL_LEARN_COST, c)
+			nodes[nid] = _node(nid, "skill_up", sk.id, up_name(sk), up_desc(sk), sk.unlock_level, Balance.SKILL_LEARN_COST, c)
 			nodes[nid]["branch"] = br["id"]
 			var evs: Array = by_skill.get(sk.id, [])
 			var slots := 4 + evs.size()
@@ -344,9 +347,9 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 					nodes[sid] = _node(sid, "stat", "", stat_text(st), "Passivo: %s." % stat_text(st), 1, 1, at)
 					nodes[sid]["stats"] = st
 					_link(nodes, sid, hubs[corner])
-				elif str(roles[s]) == "m":            # maestria do outro lado da entrada
+				elif str(roles[s]) == "m":            # "Ágil" do outro lado da entrada (era a maestria)
 					sid = "%s_m_%s" % [cls.id, sk.id]
-					nodes[sid] = _node(sid, "mastery", sk.id, "Maestria: " + sk.name, mastery_desc(sk), sk.unlock_level, 1, at)
+					nodes[sid] = _node(sid, "skill_quick", sk.id, quick_name(sk), quick_desc(sk), sk.unlock_level, Balance.SKILL_QUICK_COST, at)
 				elif roles[s] is TalentDef:
 					var t: TalentDef = roles[s]
 					sid = "%s_t_%s" % [cls.id, t.id]
@@ -777,6 +780,20 @@ static func _scaled(st: Dictionary, k_mult: float = NOTABLE_SCALE) -> Dictionary
 		out[k] = st[k] if str(k).begins_with("attr_") else (snappedf(float(st[k]) * k_mult, 0.5) if st[k] is float else maxi(1, roundi(float(st[k]) * k_mult)))
 	return out
 
+## Nome/texto dos nós da skill na teia (pt-BR): "<Skill> Aprimorada" e "<Skill> Ágil".
+static func up_name(s: SkillDef) -> String:
+	return "%s Aprimorada" % s.name
+
+static func up_desc(s: SkillDef) -> String:
+	return "%s: +%d%% de %s." % [s.name, roundi(Balance.SKILL_UP_POWER * 100.0), "cura" if s.kind == SkillDef.Kind.HEAL else "poder (dano e efeitos pelo poder)"]
+
+static func quick_name(s: SkillDef) -> String:
+	return "%s Ágil" % s.name
+
+static func quick_desc(s: SkillDef) -> String:
+	return "%s: -%d%% de recarga e de MP." % [s.name, roundi(Balance.SKILL_QUICK_PCT * 100.0)]
+
+## Texto do rank (maestria) da skill: o que cada rank do Mestre de Skills dá.
 static func mastery_desc(s: SkillDef) -> String:
 	var e1 := s.mastery_entry(1)
 	var pw := roundi((float(e1.get("power_mult", 1.0)) - 1.0) * 100.0)

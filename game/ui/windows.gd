@@ -783,7 +783,7 @@ func _on_preview_input(ev: InputEvent) -> void:
 ## quadradas no braço, maestria (círculo) e evoluções (losango) ao lado, atributos (bolinhas) e notáveis (círculos com
 ## pedra) entre elas, anéis ligando os braços. Dourado = comprado, verde = dá pra comprar agora, cinza = bloqueado.
 const TREE_PX := Vector2(840, 620)
-const NODE_PX := {"start": 48, "skill": 40, "talent": 26, "mastery": 24, "notable": 30, "stat": 16}
+const NODE_PX := {"start": 48, "skill": 40, "skill_up": 40, "talent": 26, "mastery": 24, "skill_quick": 24, "notable": 30, "stat": 16}
 const TREE_ROW_PX := 72.0       # px por unidade da árvore na vertical: ramo comprido rola em vez de apertar as linhas
 const TREE_TOP := 126.0         # espaço do nó inicial (e dos rótulos das evoluções do dash) e dos títulos dos painéis
 const C_OWNED := Color(1.0, 0.8, 0.35)
@@ -827,7 +827,7 @@ func _skills(body: VBoxContainer) -> void:
 	fill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(fill)
 	if _skills_tab == "tree":
-		top.add_child(UiKit.label("■ skill  ◆ evolução  ● maestria  ◉ notável  · atributo    dourado = comprado  verde = disponível", 12, UiKit.MUTED))
+		top.add_child(UiKit.label("■ skill aprimorada  ◆ evolução  • ágil  ◉ notável  · atributo    dourado = comprado  verde = disponível", 12, UiKit.MUTED))
 	elif _skills_tab == "asc":
 		var why := "" if Sim.has_ascension(p) else "  · liberada no nível %d com a missão de ascensão" % Balance.ASC_LEVEL
 		top.add_child(UiKit.label("%d pontos por nível (%d-%d) + %d da missão · skills vão nas teclas 7 8 9 0%s" % [Balance.ASC_POINTS_PER_LEVEL,
@@ -1029,7 +1029,7 @@ func _tree_view(p: SimEntity, asc: bool = false) -> Control:
 			if nodes[nid]["branch"] == pane["id"]:
 				reach = maxf(reach, ((nodes[nid]["pos"] as Vector2) - origin).length())
 				if _web_owned(p, nid):
-					spent += int(nodes[nid]["cost"]) * (p.mastery_of(nodes[nid]["ref"]) if nodes[nid]["kind"] == "mastery" else 1)
+					spent += _node_spent(p, nodes[nid])
 		var ang: float = pane["angle"]
 		var at := (origin + Vector2(cos(ang), sin(ang)) * (reach + 1.1)) * WEB_UNIT
 		var role: String = {"tank": "tanque", "dps": "dano", "ranged": "distância", "caster": "magia", "healer": "cura"}.get(pane["role"], "classe")
@@ -1043,7 +1043,7 @@ func _tree_view(p: SimEntity, asc: bool = false) -> Control:
 		web.add_child(lb)
 	for top in [false, true]:                 # skills e notáveis por cima dos pequenos
 		for nid in nodes:
-			if (nodes[nid]["kind"] in ["skill", "start", "notable"]) == top:
+			if (nodes[nid]["kind"] in ["skill", "skill_up", "start", "notable"]) == top:
 				web.add_child(_tree_node(p, nodes[nid], (nodes[nid]["pos"] as Vector2) * WEB_UNIT))
 	# névoa por faixa de nível por cima (o que pede nível acima do seu escurece; rótulo "Nv N+" na borda)
 	var fog := WebFog.new()
@@ -1077,7 +1077,7 @@ func _tree_view(p: SimEntity, asc: bool = false) -> Control:
 		var spent := 0
 		for nid in nodes:
 			if nodes[nid]["branch"] == pane["id"] and _web_owned(p, nid):
-				spent += int(nodes[nid]["cost"]) * (p.mastery_of(nodes[nid]["ref"]) if nodes[nid]["kind"] == "mastery" else 1)
+				spent += _node_spent(p, nodes[nid])
 		arms.append("%s %s (%d)" % [arrow, pane["name"], spent])
 	bar_v.add_child(UiKit.label("Braços:  " + "   ".join(arms) + "   · arraste para mover, roda = zoom", 11, UiKit.MUTED))
 	var q := LineEdit.new()
@@ -1129,6 +1129,10 @@ func _web_search(t: String) -> void:
 
 ## Nó da teia (no espaço da teia, sem zoom). Os botões deixam o mouse passar para a tela (arrastar e zoom em cima dos nós).
 ## Nó comprado na teia que está aberta (comum: p.tree; ascensão: p.asc_tree, o início conta como comprado).
+## Pontos gastos num nó comprado: custo fixo; só a folha de maestria da teia de ascensão conta por nível.
+func _node_spent(p: SimEntity, n: Dictionary) -> int:
+	return int(n["cost"]) * (p.mastery_of(n["ref"]) if _web_asc and n["kind"] == "mastery" else 1)
+
 func _web_owned(p: SimEntity, nid: String) -> bool:
 	if _web_asc:
 		return p.asc_tree.has(nid) or nid.ends_with("_a_start")
@@ -1144,10 +1148,10 @@ func _tree_node(p: SimEntity, n: Dictionary, at: Vector2) -> Control:
 	var st: Dictionary = n.get("stats", {})
 	var fam: String = TreeCatalog.STAT_FAMILY.get(st.keys()[0] if not st.is_empty() else "", "atk")
 	match kind:
-		"skill": col = GameData.skills[n["ref"]].icon_color
+		"skill", "skill_up": col = GameData.skills[n["ref"]].icon_color
 		"talent": col = Color(0.78, 0.55, 1.0)
 		"stat", "notable": col = STAT_COLORS[fam]
-		"mastery": col = Color(0.55, 0.95, 0.6)
+		"mastery", "skill_quick": col = Color(0.55, 0.95, 0.6)
 		"start": col = p.class_def.color
 	var fill := col.darkened(0.25) if owned else (col.darkened(0.55) if can else Color(0.12, 0.11, 0.15))
 	var border := C_OWNED if owned else (C_CAN if can else C_LOCK)
@@ -1168,7 +1172,7 @@ func _tree_node(p: SimEntity, n: Dictionary, at: Vector2) -> Control:
 		glow.position = Vector2(-4, -4)
 		glow.size = Vector2(px + 8, px + 8)
 		glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		glow.add_theme_stylebox_override("panel", UiKit.panel_style(Color(C_CAN, 0.18), Color(C_CAN, 0.0), px if kind in ["mastery", "start", "notable"] else 8, 0))
+		glow.add_theme_stylebox_override("panel", UiKit.panel_style(Color(C_CAN, 0.18), Color(C_CAN, 0.0), px if kind in ["mastery", "skill_quick", "start", "notable"] else 8, 0))
 		if kind == "talent":
 			glow.rotation = PI / 4
 			glow.pivot_offset = Vector2(px + 8, px + 8) * 0.5
@@ -1178,7 +1182,7 @@ func _tree_node(p: SimEntity, n: Dictionary, at: Vector2) -> Control:
 	b.mouse_filter = Control.MOUSE_FILTER_PASS
 	b.size = Vector2(px, px)
 	b.custom_minimum_size = Vector2(px, px)
-	var radius := px / 2 if kind in ["stat", "mastery", "start", "notable"] else (3 if kind == "talent" else 6)
+	var radius := px / 2 if kind in ["stat", "mastery", "skill_quick", "start", "notable"] else (3 if kind == "talent" else 6)
 	var bw := (4 if kind == "notable" else 3) if owned or can else 2
 	var stb := UiKit.panel_style(fill, border, radius, bw)
 	for state in ["normal", "hover", "pressed", "disabled"]:
@@ -1187,13 +1191,17 @@ func _tree_node(p: SimEntity, n: Dictionary, at: Vector2) -> Control:
 		b.rotation = PI / 4
 		b.pivot_offset = Vector2(px, px) * 0.5
 	holder.add_child(b)
-	if kind in ["skill", "start"]:
-		var icon: Control = UiKit.skill_icon(GameData.skills[n["ref"]], px - 6) if kind == "skill" else UiKit.class_icon(p.class_def, px - 6)
+	if kind in ["skill", "skill_up", "start"]:
+		var icon: Control = UiKit.skill_icon(GameData.skills[n["ref"]], px - 6) if kind != "start" else UiKit.class_icon(p.class_def, px - 6)
 		icon.position = Vector2(3, 3)
 		icon.size = Vector2(px - 6, px - 6)
 		icon.modulate = Color.WHITE if owned else (Color(0.85, 0.85, 0.85) if can else Color(0.4, 0.4, 0.44))
 		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(icon)
+		if kind == "skill_up":
+			_up_badge(holder, px, owned, can)
+	elif kind == "skill_quick":
+		_quick_badge(holder, px, owned, can)
 	elif kind in ["stat", "notable"] and n["branch"] != "ring":
 		# pequeno: o bônus curto embaixo; notável: o nome (o bônus fica na dica); junção/passagem: só na dica
 		var txt: String = TreeCatalog.stat_short(st) if kind == "stat" else str(n["name"])
@@ -1256,7 +1264,7 @@ func _tree_node(p: SimEntity, n: Dictionary, at: Vector2) -> Control:
 			ml.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			holder.add_child(ml)
 	# nível que falta: em cima da skill bloqueada por nível
-	if not owned and p.level < int(n["level"]) and kind in ["skill", "talent"]:
+	if not owned and p.level < int(n["level"]) and kind in ["skill", "skill_up", "talent"]:
 		var lv := UiKit.label("Nv %d" % int(n["level"]), 11, Color(1.0, 0.6, 0.5))
 		lv.add_theme_constant_override("outline_size", 3)
 		lv.add_theme_color_override("font_outline_color", Color(0, 0, 0))
@@ -1269,6 +1277,50 @@ func _tree_node(p: SimEntity, n: Dictionary, at: Vector2) -> Control:
 	b.mouse_exited.connect(hide_tip)
 	b.pressed.connect(_web_buy.bind(p, n["id"]))
 	return holder
+
+## "<Skill> Aprimorada": selo dourado "+" no canto de cima e "Aprimorada" embaixo (o nó era a skill; a skill vem pelo nível).
+func _up_badge(holder: Control, px: int, owned: bool, can: bool) -> void:
+	var d := 16
+	var badge := Panel.new()
+	badge.position = Vector2(px - d + 5, -5)
+	badge.size = Vector2(d, d)
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.add_theme_stylebox_override("panel", UiKit.panel_style(C_OWNED if owned else (Color(0.25, 0.2, 0.08) if can else Color(0.14, 0.13, 0.16)), Color(0.08, 0.06, 0.02), d / 2, 2))
+	holder.add_child(badge)
+	var plus := UiKit.label("+", 14, Color(0.15, 0.1, 0.0) if owned else (C_OWNED if can else Color(0.5, 0.48, 0.52)), false)
+	plus.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	plus.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	plus.position = badge.position + Vector2(0, -2)
+	plus.size = badge.size
+	plus.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(plus)
+	_node_tag(holder, px, "Aprimorada", C_OWNED, owned or can)
+
+## "<Skill> Ágil": raio no meio do círculo pequeno e "Ágil" embaixo (sem "+1" nem anel de maestria).
+func _quick_badge(holder: Control, px: int, owned: bool, can: bool) -> void:
+	var bolt := Control.new()
+	bolt.size = Vector2(px, px)
+	bolt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var col := Color(0.1, 0.16, 0.08) if owned else (Color(0.75, 1.0, 0.65) if can else Color(0.48, 0.48, 0.52))
+	bolt.draw.connect(func():
+		var k := px / 24.0
+		var pts := PackedVector2Array([Vector2(13.5, 3), Vector2(6.5, 13.5), Vector2(11.5, 13.5), Vector2(9.5, 21), Vector2(17.5, 10), Vector2(12.5, 10), Vector2(14.5, 3)])
+		for i in range(pts.size()):
+			pts[i] = pts[i] * k
+		bolt.draw_colored_polygon(pts, col))
+	holder.add_child(bolt)
+	_node_tag(holder, px, "Ágil", Color(0.6, 1.0, 0.65), owned or can)
+
+func _node_tag(holder: Control, px: int, txt: String, col: Color, lit: bool) -> void:
+	var tag := UiKit.label(txt, 10, col)
+	tag.add_theme_constant_override("outline_size", 3)
+	tag.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	var tw := tag.get_minimum_size().x
+	tag.position = Vector2(px * 0.5 - tw * 0.5, px + 1)
+	tag.size = Vector2(tw, 14)
+	tag.modulate.a = 1.0 if lit else 0.55
+	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(tag)
 
 func _web_buy(p: SimEntity, nid: String) -> void:
 	if _web_moved < 8.0 and Sim.tree_allocate(p, nid):
@@ -1291,12 +1343,19 @@ static func lock_line(level: int) -> String:
 	return "Abre no nível %d" % level
 
 func _tree_tip(p: SimEntity, n: Dictionary, owned: bool, why: String) -> String:
-	var kinds := {"skill": "Skill", "talent": "Evolução", "stat": "Passivo", "notable": "Notável", "mastery": "Maestria", "start": "Início"}
+	var kinds := {"skill": "Skill", "skill_up": "Aprimoramento", "skill_quick": "Aprimoramento", "talent": "Evolução", "stat": "Passivo", "notable": "Notável", "mastery": "Maestria", "start": "Início"}
 	var t := "[b][color=#ffd966]%s[/color][/b]  [color=#aaa](%s)[/color]\n" % [n["name"], kinds.get(n["kind"], "")]
 	if n["kind"] == "skill":
 		t += UiKit.skill_tooltip(p, GameData.skills[n["ref"]]) + "\n"
 	elif n["kind"] == "mastery":
 		t += "%s\n[color=#ffd966]Maestria atual: %d/%d[/color]\n" % [n["desc"], p.mastery_of(n["ref"]), Balance.MASTERY_MAX]
+	elif n["kind"] in ["skill_up", "skill_quick"]:
+		var sk: SkillDef = GameData.skills[n["ref"]]
+		t += "%s\n" % (TreeCatalog.up_desc(sk) if n["kind"] == "skill_up" else TreeCatalog.quick_desc(sk))
+		if p.knows(sk.id):
+			t += "[color=#ffd966]Rank da skill: M%d/%d[/color] [color=#aaa](sobe no Mestre de Skills)[/color]\n" % [p.mastery_of(sk.id), Balance.MASTERY_MAX]
+		else:
+			t += "[color=#aaa]A skill chega sozinha no nível %d.[/color]\n" % sk.unlock_level
 	else:
 		t += "%s\n" % n["desc"]
 	t += "[color=#aaa]Nível %d · custo %d ponto(s)[/color]\n" % [int(n["level"]), int(n["cost"])]
@@ -1337,6 +1396,7 @@ func _known_skills(p: SimEntity) -> Control:
 	col.add_child(UiKit.para("Arraste uma skill para a barra 1-6 (aqui ou no HUD; as de ascensão vão em 7 8 9 0); botão direito na barra tira. Trocar a barra: só na cidade. ✖ = a arma equipada não serve.", 11, UiKit.MUTED))
 	col.add_child(UiKit.hsep(4))
 	col.add_child(UiKit.label("Skills conhecidas", 14, UiKit.GOLD))
+	col.add_child(UiKit.para("Skills chegam sozinhas no nível delas. Aprimore o rank (M1-M%d) com o Mestre de Skills da cidade." % Balance.MASTERY_MAX, 11, UiKit.MUTED))
 	for sid in p.class_def.skill_ids:
 		if not p.knows(sid):
 			continue
@@ -1353,7 +1413,7 @@ func _known_skills(p: SimEntity) -> Control:
 		var h := HBoxContainer.new()
 		v.add_child(h)
 		h.add_child(UiKit.skill_icon(sk, 24))
-		var nm := UiKit.label("%s  · M%d" % [sk.name, p.mastery_of(sid)], 12, UiKit.TEXT)
+		var nm := UiKit.label("%s  · M%d/%d" % [sk.name, p.mastery_of(sid), Balance.MASTERY_MAX], 12, UiKit.GOLD if p.mastery_of(sid) >= Balance.MASTERY_MAX else UiKit.TEXT)
 		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		nm.clip_text = true
 		h.add_child(nm)

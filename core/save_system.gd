@@ -7,7 +7,7 @@ const SLOTS := 5
 ## Retrato do card do espaço (`PORTRAIT_PATH % n`): grava o game/menu/portrait.gd (Portrait.path), apaga o delete_slot.
 const PORTRAIT_PATH := "user://portrait_%d.png"
 var slot := 0
-const VERSION := 6      # 2 = portões de progressão e chefes abatidos; 3 = Rei Élfico guarda as Ruínas; 4 = teia de passivos (reembolso); 5 = Ato II: elemental que evolui, teia de ascensão (asc_tree) e barra de 10 (loadout 7-0); 6 = Ápices: peças dos híbridos que saíram viram as do Ápice (migrate_item_id)
+const VERSION := 7      # 7 = skills pelo nível + rank no Mestre de Skills: nó de maestria (_m_) sai da teia, o rank fica e os pontos voltam (migrate_skill_ranks); 2 = portões de progressão e chefes abatidos; 3 = Rei Élfico guarda as Ruínas; 4 = teia de passivos (reembolso); 5 = Ato II: elemental que evolui, teia de ascensão (asc_tree) e barra de 10 (loadout 7-0); 6 = Ápices: peças dos híbridos que saíram viram as do Ápice (migrate_item_id)
 
 ## Itens de build que saiu do jogo (save antigo): prefixo antigo -> [prefixo novo da peça, prefixo novo da arma]; o resto
 ## do id (nível, peça e o "+N" do aprimoramento) segue junto. Único lugar das migrações de id de item.
@@ -344,6 +344,8 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 		for tid in p.talents:
 			p.tree["%s_t_%s" % [p.class_def.id, tid]] = true
 	var tr: Dictionary = GameData.trees.get(p.class_def.id, {})
+	if int(d.get("save_version", 0)) < 7:
+		migrate_skill_ranks(p)
 	if not tr.is_empty():
 		p.tree[tr["start"]] = true
 		# talento de classe que saiu do catálogo (escolha grátis da aba Talentos): só some, a teia fica
@@ -354,15 +356,16 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 		# nó que não existe mais (skill/build removida): a árvore volta ao início e os pontos voltam todos
 		if int(d.get("save_version", 0)) < 4 or p.tree.keys().any(func(nid): return not tr["nodes"].has(nid)):
 			p.tree = {tr["start"]: true}
-			for sid in p.class_def.starting_skills:
-				p.tree["%s_s_%s" % [p.class_def.id, sid]] = true
 			p.learned = {}
 			for sid in p.class_def.starting_skills:
 				p.learned[sid] = true
 			p.talents = {}
-			p.mastery = {}
+			for sid in p.mastery.keys():           # ranks de skill comum são pagos com ouro: ficam
+				if not (sid in p.class_def.skill_ids) or GameData.skills[sid].ascension:
+					p.mastery.erase(sid)
 			p.mastery_points = points_for_level(p.level)
 			Events.post(&"notification", "A teia de skills mudou: seus %d pontos foram devolvidos (tecla K)." % p.mastery_points)
+	ProgressionSystem.grant_level_skills(Sim, p, false)      # skills do nível (as que o save não tinha; a barra vem do loadout)
 	Sim.recompute_tree_bonus(p)
 	var ps: Array[String] = []
 	for s in d.get("potion_slots", ["", "", ""]):
@@ -417,6 +420,25 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 	p.mp = clampf(float(d.get("mp", p.stats.max_mp)), 0.0, p.stats.max_mp)
 	Events.post(&"equipment_changed", p.id)
 
+
+## Save < 7 (skills compradas na teia, maestria com pontos): o nó de maestria `<classe>_m_<id>` (hoje "<Skill> Ágil")
+## sai da teia antes da checagem de nó desconhecido; o rank (p.mastery) fica e cada nível dele volta como 1 ponto.
+## Os nós `<classe>_s_<id>` comprados ficam (viram "<Skill> Aprimorada", já pagos). Devolve os pontos devolvidos.
+static func migrate_skill_ranks(p: SimEntity) -> int:
+	if p.class_def == null:
+		return 0
+	var refund := 0
+	var pre := "%s_m_" % p.class_def.id
+	for nid in p.tree.keys():
+		var k := str(nid)
+		if k.begins_with(pre):
+			p.tree.erase(nid)
+			var sid := k.substr(pre.length())
+			var s: SkillDef = GameData.skills.get(sid)
+			if s and not s.ascension:
+				refund += clampi(p.mastery_of(sid), 0, Balance.MASTERY_MAX)
+	p.mastery_points += refund
+	return refund
 
 ## Save antigo: o slot único de acessório vira amuleto ou anel, conforme o item.
 func saved_slot(slot: int, it: ItemDef) -> int:

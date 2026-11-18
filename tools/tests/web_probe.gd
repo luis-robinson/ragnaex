@@ -32,7 +32,7 @@ func _ready() -> void:
 			if nd["kind"] in ["start", "pick"]:
 				continue
 			kinds[nd["kind"]] = int(kinds.get(nd["kind"], 0)) + 1
-			cost += int(nd["cost"]) * (Balance.MASTERY_MAX if nd["kind"] == "mastery" else 1)
+			cost += int(nd["cost"])
 			radius = maxf(radius, (nd["pos"] as Vector2).length())
 		print("WEB %s: custo total %d, raio %.1f, nós %s" % [cid, cost, radius, kinds])
 		for b in cls.builds:

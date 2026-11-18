@@ -482,6 +482,26 @@ Proposta aprovada: `design/gdd/ato2-proposals-2026-11-11.md` §2 opção A. O li
   (`_falcao`, `_mergulho`, `_revoada`). Peso F5: `ASC_BUILD_POWER["cacador"]` 0,3 (multiplica só o dano dos mergulhos; com 1,0, Presa 6% e crítico 8 o Falcoeiro dava ×1,18 sem o freio da ameaça).
 
 ## Pontos de skill: teia (estilo Path of Exile)
+**Skills pelo nível e rank no Mestre de Skills (2026-11-18)**: toda skill comum da classe (de todas as builds; fora as de ascensão)
+chega sozinha no nível dela (`ProgressionSystem.grant_level_skills`: spawn, subir de nível, carregar o save; as novas vão para a 1ª vaga
+livre de 1-6 se a arma serve). Arma e build continuam decidindo o que dá para usar; a barra continua com 6. O **rank 1-5** da skill
+(o antigo nível de maestria, `e.mastery`: mesmos efeitos de `SkillDef.mastery`/`MASTERY_*_PER_LV`) sobe com **ouro + materiais da faixa
+da skill** num NPC de papel `trainer` ("Mestre de Skills", `Balance.SKILL_TRAINER_ROLES`, `STATION_RANGE`): ouro =
+`SKILL_RANK_GOLD_BASE` (40) × (tier + 1) × rank^1,5 (tier pelo nível da skill em `COMMON_TIER_LEVELS`), materiais `SKILL_RANK_MATS[tier]`
+= rank unidades do comum (era rank + 1; ferro virava gargalo no 1-10) e, do rank 4 (`SKILL_RANK_RARE_FROM`), rank − 3 do raro (os pares das joias); rank r pede nível ≥ nível da skill +
+`SKILL_RANK_LEVEL_STEP` (3) × (r − 1). Ex.: skill do nível 1, rank 1 = 40 de ouro + 1 Minério de Ferro; rank 5 = 447 + 5 Minérios + 2
+Carapaças, nível 13. API `ProgressionSystem.rank_cost/rank_error/rank_up` (`Sim.skill_rank_cost/skill_rank_error/skill_rank_up`); a
+skill de ascensão continua com maestria na teia dela. **Na teia**, o círculo da skill fica igual: o centro (`<classe>_s_<id>`) virou
+**"<Skill> Aprimorada"** (+`SKILL_UP_POWER` 15% de poder/cura) e o antigo nó de maestria (`<classe>_m_<id>`) virou **"<Skill> Ágil"**
+(−`SKILL_QUICK_PCT` 12% de recarga e de MP), 1 ponto cada, uma vez (`ProgressionSystem._web_upgrades` no `resolve_skill`, MP no
+`try_cast`). As skills iniciais não vêm mais com o nó comprado. Pontos: 8 → **7 por nível** (+1 no 10/20/30/40) = 206 no 30, 277 no
+40, 312 no 45 (a maestria gastava ~45-65 pontos no 30; web_probe antes/depois: 30 ATK x1,31→1,32, HP x1,30→1,33; 40 1,35/1,29→1,36/1,31;
+45 1,42/1,31→1,42/1,32). Bots não pagam rank: nível / `BOT_SKILL_RANK_PER_LEVELS` (6) nas skills da build, até o que o nível
+libera (`bot_rank`); compram Aprimorada e Ágil das skills da build e só põem na barra skills da build/gerais. Começo rápido: skills do
+nível e ranks de bot nas skills da barra. Reset da teia mantém skills e ranks. **Save v7**: nó `_m_` sai da teia antes da checagem de
+nó desconhecido, o rank fica e cada nível volta como 1 ponto; `_s_` comprado vira Aprimorada (`SaveSystem.migrate_skill_ranks`).
+Checks `_check_level_skills`, `_check_skill_upgrade_nodes`, `_check_skill_ranks`, `_check_save_skill_ranks`.
+
 Regras completas, fórmulas e critérios em `design/gdd/progression.md` (a teia está descrita em "Teia de skills" mais abaixo). A barra 1-6 se troca em qualquer lugar (`Balance.LOADOUT_TOWN_ONLY`, liberado em 2026-11-16); resetar a teia é grátis perto do Ancião ou do Sumo Sacerdote (`SKILL_RESET_NPCS`).
 
 **Notáveis de papel (playtest 2026-11-18, "o assassino tinha 500 de vida e o paladino 4k")**: `Balance.ROLE_NOTABLES` troca o bônus
@@ -541,14 +561,14 @@ Maestria: o nó +1 da árvore compra de novo até `MASTERY_MAX` (1 ponto por ní
 Cada nível: +12% de poder (dano/cura), -4% MP, -5% recarga e +`MASTERY_BONUS_PCT` (10%) nos bônus positivos de buffs e formas
 (`SimEntity.scaled_bonus`, `form_mult`; penalidade e duração não mudam). A descrição de cada maestria sai dos dados (`TreeCatalog.mastery_desc`).
 **Teia de skills** (janela K, estilo Path of Exile): uma teia por classe. É uma malha de junções e estradas (grade irregular,
-sorteio fixo por classe; parte das estradas some, então há várias rotas) com círculos pendurados nas casas: o de skill (a skill no
-centro; maestria, evoluções e passivos da build em volta) e o de notável (anel de atributos com o notável no meio, duas entradas =
+sorteio fixo por classe; parte das estradas some, então há várias rotas) com círculos pendurados nas casas: o de skill ("<Skill>
+Aprimorada" no centro; "<Skill> Ágil", evoluções e passivos da build em volta) e o de notável (anel de atributos com o notável no meio, duas entradas =
 atalho). Cada ramo (Geral + builds) tem o seu setor em volta do início, como as regiões do PoE; skill de nível alto fica mais longe.
-Estradas e junções custam 1 ponto e dão +1 do atributo do setor; os atributos maiores e os bônus ficam nos círculos. 8 pontos por nível
-(+1 no 10/20/30/40) = 235 no 30, 275 no 35 e 316 no 40, numa teia de ~250-360 nós (+ maestrias). Medido com `tools/tests/web_probe.tscn`: no 30 a teia dá
+Estradas e junções custam 1 ponto e dão +1 do atributo do setor; os atributos maiores e os bônus ficam nos círculos. 7 pontos por nível
+(+1 no 10/20/30/40; eram 8 até 2026-11-18) = 206 no 30, 241 no 35 e 277 no 40, numa teia de ~250-360 nós. Medido com `tools/tests/web_probe.tscn`: no 30 a teia dá
 ~x1,4 de ataque e ~x1,2 de HP a um bot da build. No 40 (`-- --level=40`, medido 2026-11-11): média ATK x1,31 e HP x1,32 (HP 0,02 acima da faixa do 30), builds com ATK×HP de 1,30 a 2,10.
-Save antigo recebe os pontos de volta. Bots compram o caminho mais curto até as skills da build e depois notáveis/atributos
-(`ProgressionSystem.bot_spend`).
+Save antigo recebe os pontos de volta. Bots compram o caminho mais curto até a Aprimorada das skills da build, a Ágil ao lado e depois
+notáveis/atributos (`ProgressionSystem.bot_spend`).
 **Talentos de classe** (aba "Talentos"): a cada 5 níveis (5 a 45) uma linha com 3 escolhas que mudam o jeito de jogar
 (`ClassTalentsCatalog`): buffs que ficam **permanentes** ou viram **aura** para o grupo (15 m), invocações que **ficam para sempre**
 (elemental, esqueletos, lobos, Ent), **recusa a morrer** (1 HP e imortal por alguns segundos, com recarga), execução, emboscada mais forte,

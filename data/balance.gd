@@ -185,13 +185,31 @@ static func quest_share(band_start: int) -> float:
 	return float(XP_QUEST_SHARE_BAND.get(band_start, XP_QUEST_SHARE))
 const XP_BANDS := [[1, 10], [10, 20], [20, 30], [30, 35], [35, 40], [40, 45]]
 const DEATH_XP_PENALTY := 0.03
-# pontos da teia (estilo Path of Exile): skills, maestria, evoluções, atributos e notáveis. 8 por nível (+1 no 10/20/30/40)
-# = 235 no 30, 275 no 35, 316 no 40 e 356 no 45, numa teia de ~250-360 nós (+ maestrias): muita liberdade, mas não dá para pegar tudo.
-const MASTERY_POINTS_PER_LEVEL := 8
+# pontos da teia (estilo Path of Exile): aprimoramentos das skills, evoluções, atributos e notáveis. 7 por nível (+1 no 10/20/30/40)
+# = 206 no 30, 241 no 35, 277 no 40 e 312 no 45, numa teia de ~250-360 nós: muita liberdade, mas não dá para pegar tudo.
+# 8 -> 7 (2026-11-18): a maestria saiu da teia (rank no Mestre de Skills), os ~45-65 pontos dela no 30 iam para atributos
+# (web_probe no 30 com 8: ATK x1,38 HP x1,39 > faixa); por círculo de skill o jogador gasta <= 2 (Aprimorada + Ágil).
+const MASTERY_POINTS_PER_LEVEL := 7
 const MASTERY_BONUS_LEVELS := [10, 20, 30, 40]  # +1 ponto extra (40: Ato II, GDD R7)
 const MASTERY_MAX := 5
 const MASTERY_BONUS_PCT := 0.1     # cada nível de maestria: +10% nos bônus de buff e forma (só os positivos; tempo não muda)
-const SKILL_LEARN_COST := 1
+const SKILL_LEARN_COST := 1               # custo do nó "<Skill> Aprimorada" (o antigo nó da skill; skills vêm pelo nível desde 2026-11-18)
+## Skills por nível + ranks no Mestre de Skills (2026-11-18, plano tidy-painting-biscuit): toda skill da classe (fora ascensão)
+## chega sozinha no nível dela; o rank 1-5 (e.mastery, efeitos da maestria de sempre) sobe com ouro + materiais da faixa.
+const SKILL_UP_POWER := 0.15               # nó "<Skill> Aprimorada" (<classe>_s_<id>): +15% de poder (dano/cura) da skill
+const SKILL_QUICK_PCT := 0.12              # nó "<Skill> Ágil" (<classe>_m_<id>): -12% de recarga e de MP da skill
+const SKILL_QUICK_COST := 1
+const SKILL_TRAINER_ROLES := ["trainer"]   # papel do NPC que sobe o rank (MapDef.npcs[].role; Mestre de Skills)
+const SKILL_RANK_LEVEL_STEP := 3           # rank r pede nível >= nível da skill + STEP × (r-1) (teto MAX_LEVEL)
+const SKILL_RANK_GOLD_BASE := 40           # ouro = base × (tier da skill + 1) × rank^1.5 (tier por COMMON_TIER_LEVELS)
+## Materiais por tier da skill (COMMON_TIER_LEVELS: 1, 8, 16, 24, 32, 40), os mesmos das joias (RecipesCatalog.JEWEL_MATS):
+## [comum, raro]. Rank r pede r + 1 do comum; do rank SKILL_RANK_RARE_FROM em diante, (r - FROM + 1) do raro.
+const SKILL_RANK_MATS := [["iron_ore", "crab_shell"], ["spider_silk", "grave_dust"], ["bone_shard", "bandit_badge"],
+	["star_ore", "ancient_relic"], ["orc_tusk", "goblin_fang"], ["orc_steel", "troll_tusk"]]
+const SKILL_RANK_RARE_FROM := 4
+## Bots não pagam rank: rank = nível / BOT_SKILL_RANK_PER_LEVELS (o antigo nível/6 da maestria), até o que o nível
+## liberaria para um jogador (SKILL_RANK_LEVEL_STEP), nas skills da build. Começo rápido usa a mesma conta.
+const BOT_SKILL_RANK_PER_LEVELS := 6
 ## Quanto a teia rende no 30 (bot da build, com e sem tree_bonus; web_probe e _check_web_strength).
 ## Média das builds de ATK e HP dentro da faixa; cada build com ATK×HP dentro de WEB_GAIN_BUILD (tanque troca ATK por HP).
 const WEB_GAIN_ATK := [1.25, 1.5]          # 1,3 -> 1,25 (2026-11-10): anel/capa/amuleto mais fortes, a teia rende um pouco menos em proporção

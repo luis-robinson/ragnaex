@@ -785,8 +785,8 @@ static func build_loot() -> Array:
 	return [
 		_lt("lt_slime", [{"item": "slime_gel", "chance": 0.7, "min": 1, "max": 2}, {"item": "herb_green", "chance": 0.25}, {"item": "ring_gel", "chance": 0.03}]),
 		_lt("lt_slime_blue", [{"item": "slime_gel", "chance": 0.6}, {"item": "herb_blue", "chance": 0.45}, {"item": "potion_mp_s", "chance": 0.1}]),
-		_lt("lt_boar", [{"item": "boar_tusk", "chance": 0.5}, {"item": "herb_green", "chance": 0.3}, {"item": "cap_leather", "chance": 0.05}, {"item": "boots_leather", "chance": 0.05}]),
-		_lt("lt_wolf", [{"item": "wolf_pelt", "chance": 0.6}, {"item": "iron_ore", "chance": 0.35}, {"item": "potion_hp_s", "chance": 0.12}]),
+		_lt("lt_boar", [{"item": "boar_tusk", "chance": 0.5}, {"item": "iron_ore", "chance": 0.2}, {"item": "herb_green", "chance": 0.3}, {"item": "cap_leather", "chance": 0.05}, {"item": "boots_leather", "chance": 0.05}]),
+		_lt("lt_wolf", [{"item": "wolf_pelt", "chance": 0.6}, {"item": "iron_ore", "chance": 0.5}, {"item": "potion_hp_s", "chance": 0.12}]),
 		# chefes com tabela própria (antes dividiam a do Rei Javali / Chefe dos Bandidos)
 		_lt("lt_slime_king", [{"item": "slime_gel", "chance": 1.0, "min": 6, "max": 10}, {"item": "ring_gel", "chance": 0.5}, {"item": "herb_blue", "chance": 1.0, "min": 3, "max": 5}, {"item": "potion_mp_m", "chance": 0.6}]),
 		_lt("lt_spider_queen", [{"item": "spider_silk", "chance": 1.0, "min": 6, "max": 9}, {"item": "amulet_silk", "chance": 0.5}, {"item": "hood_silk", "chance": 0.4}, {"item": "elixir_stone", "chance": 0.5}]),
@@ -809,8 +809,8 @@ static func build_loot() -> Array:
 		_lt("lt_spider", [{"item": "spider_silk", "chance": 0.6, "min": 1, "max": 2}, {"item": "herb_blue", "chance": 0.3}, {"item": "hood_silk", "chance": 0.04}]),
 		_lt("lt_larva", [{"item": "rot_gel", "chance": 0.3}, {"item": "potion_hp_s", "chance": 0.08}]),
 		_lt("lt_rot", [{"item": "rot_gel", "chance": 0.55}, {"item": "holy_silver", "chance": 0.1}, {"item": "potion_hp_m", "chance": 0.1}, {"item": "bone_shard", "chance": 0.3}]),
-		_lt("lt_bones", [{"item": "bone_shard", "chance": 0.6, "min": 1, "max": 2}, {"item": "holy_silver", "chance": 0.14}, {"item": "potion_hp_m", "chance": 0.1}]),
-		_lt("lt_cult", [{"item": "ghost_essence", "chance": 0.5}, {"item": "holy_silver", "chance": 0.16}, {"item": "potion_mp_m", "chance": 0.12}]),
+		_lt("lt_bones", [{"item": "bone_shard", "chance": 0.6, "min": 1, "max": 2}, {"item": "holy_silver", "chance": 0.14}, {"item": "star_ore", "chance": 0.2}, {"item": "potion_hp_m", "chance": 0.1}]),
+		_lt("lt_cult", [{"item": "ghost_essence", "chance": 0.5}, {"item": "holy_silver", "chance": 0.16}, {"item": "ancient_relic", "chance": 0.2}, {"item": "potion_mp_m", "chance": 0.12}]),
 		_lt("lt_citadel", [{"item": "holy_silver", "chance": 0.3}, {"item": "dawn_shard", "chance": 0.05}, {"item": "potion_hp_m", "chance": 0.15}]),
 		_lt("lt_ghoul_giant", [{"item": "holy_silver", "chance": 1.0, "min": 3, "max": 5}, {"item": "dawn_shard", "chance": 0.5}, {"item": "rot_gel", "chance": 1.0, "min": 3, "max": 5}, {"item": "elixir_might", "chance": 0.4}]),
 		_lt("lt_death_knight", [{"item": "holy_silver", "chance": 1.0, "min": 4, "max": 6}, {"item": "dawn_shard", "chance": 0.7}, {"item": "bone_shard", "chance": 1.0, "min": 3, "max": 5}, {"item": "elixir_might", "chance": 0.5}]),

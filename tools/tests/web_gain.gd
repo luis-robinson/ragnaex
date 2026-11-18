@@ -14,14 +14,14 @@ static func measure(sim, cls: ClassDef, build_id: String, lv: int) -> Dictionary
 	var bonus: Dictionary = e.tree_bonus.duplicate()
 	var nodes: int = e.tree.size()
 	var left: int = e.mastery_points
-	var spent := {}                    # pontos por tipo de nó (maestria = soma dos níveis comprados)
+	var spent := {}                    # pontos por tipo de nó (+ "rank": soma dos ranks, fora da teia)
 	var tr: Dictionary = ProgressionSystem.tree_of(sim, e)
 	for nid in e.tree:
 		var kind: String = tr["nodes"][nid]["kind"] if tr["nodes"].has(nid) else "?"
-		if kind != "start" and kind != "mastery":
+		if kind != "start":
 			spent[kind] = int(spent.get(kind, 0)) + int(tr["nodes"][nid]["cost"])
 	for sid in e.mastery:
-		spent["mastery"] = int(spent.get("mastery", 0)) + int(e.mastery[sid])      # 1 ponto por nível de maestria
+		spent["rank"] = int(spent.get("rank", 0)) + int(e.mastery[sid])      # ranks de graça do bot (não gastam ponto; só informativo)
 	e.tree_bonus = {}
 	e.recompute_stats()
 	var no_atk := maxf(e.stats.patk, e.stats.matk)

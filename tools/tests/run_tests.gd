@@ -2572,7 +2572,9 @@ func run_all(gd, sim, balance, save) -> void:
 	var lv0 = p.level
 	sim.gain_xp(p, Balance.band_xp(p.level, 3) - p.xp)          # chega no nível 3
 	check(p.level > lv0 and p.mastery_points > 0, "XP sobe nível e dá maestria (lv %d, pts %d)" % [p.level, p.mastery_points])
-	check(sim.upgrade_mastery(p, "ber_cleave") and p.mastery["ber_cleave"] == 1, "maestria sobe com pontos")
+	p.add_item("iron_ore", 2)
+	p.gold += 100
+	check(ProgressionSystem.rank_up(sim, p, "ber_cleave", true) and p.mastery["ber_cleave"] == 1, "rank da skill sobe com ouro e material (Mestre de Skills)")
 	_check_skill_points(gd, sim, p)
 	# loot/quests/craft
 	var elder_quests = QuestSystem.available_from_npc(p, "elder")
@@ -2829,15 +2831,18 @@ func _check_builds(gd) -> void:
 
 func _check_skill_points(gd, sim, p) -> void:
 	var m: Dictionary = sim.maps[p.map_id]
-	check(not sim.learn_skill(p, "ber_execute"), "não aprende skill acima do nível")
+	check(not sim.learn_skill(p, "ber_execute") and not p.knows("ber_execute"), "skill acima do nível não vem nem se aprende")
+	check(p.knows("ber_leap") and p.knows("ber_hack"), "skills do nível 3 chegam sozinhas ao subir de nível (Salto, Talho Duplo)")
 	var pts: int = p.mastery_points
-	check(not sim.learn_skill(p, "ber_leap"), "skill longe na árvore: precisa do caminho até ela")
+	var leap: SkillDef = gd.skills["ber_leap"]
 	var cost := _buy_path(sim, p, "berserker_s_ber_leap")
-	check(cost > 0 and p.knows("ber_leap") and p.mastery_points == pts - cost and p.slot_of("ber_leap") == 2, "aprende skill pelo caminho da árvore e vai pro slot livre (custo %d)" % cost)
-	check(sim.set_skill_slot(p, 5, "ber_leap") and p.skills[5].id == "ber_leap" and p.skills[2] == null, "move skill na barra (cidade)")
+	var up: SkillDef = sim.resolve_skill(p, leap)
+	check(cost > 0 and p.tree.has("berserker_s_ber_leap") and p.mastery_points == pts - cost and is_equal_approx(up.power, leap.power * (1.0 + Balance.SKILL_UP_POWER)),
+		"Salto Aprimorado pelo caminho da teia: +%d%% de poder (custo %d)" % [roundi(Balance.SKILL_UP_POWER * 100), cost])
+	var was: int = p.slot_of("ber_leap")
+	check(sim.set_skill_slot(p, 5, "ber_leap") and p.skills[5].id == "ber_leap" and (was == 5 or p.slot_of("ber_leap") == 5), "move skill na barra (cidade)")
 	# arma define a build: Talho Duplo exige dois machados
 	p.mastery_points += 20
-	check(_buy_path(sim, p, "berserker_s_ber_hack") >= 0 and p.knows("ber_hack"), "aprende skill de dois machados")
 	check(p.slot_of("ber_hack") < 0, "Talho Duplo aprendido com machado de duas mãos não entra sozinho na barra")
 	var slot := 3
 	check(sim.set_skill_slot(p, slot, "ber_hack"), "Talho Duplo posto na barra à mão")
@@ -2883,6 +2888,7 @@ func _check_skill_points(gd, sim, p) -> void:
 	check(ally.hp > hp_before, "Curar sob o cursor cura o aliado do grupo")
 	bis.skill_aim = Vector3(500, 0, 500)
 	hp_before = ally.hp
+	bis.tree["bishop_s_bis_heal"] = true           # a evolução pende do nó da skill (Curar Aprimorada), que não vem mais de graça
 	check(sim.learn_talent(bis, "bis_t_heal_party"), "compra evolução Cura em Grupo")
 	sim._apply_skill(bis, sim.resolve_skill(bis, heal), sim.maps["city_aldara"])
 	check(ally.hp > hp_before, "Curar evoluída cura aliado do grupo (%d -> %d)" % [hp_before, ally.hp])
@@ -4192,6 +4198,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_dungeon_density(gd, sim)
 	_check_shop_rules(gd, sim)
 	_check_mount_keeper_ui(gd, sim)
+	_check_trainer_panel(gd, sim)
 	_check_forge(gd, sim)
 	_check_legend_weapons_and_attrs(gd, sim)
 	_check_item_descriptions(gd)
@@ -4208,6 +4215,11 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_party_seek_storage(gd, sim, save_ref)
 	_check_first_set_drops(gd, sim)
 	_check_mastery_rebuy(gd, sim)
+	_check_level_skills(gd, sim)
+	_check_skill_upgrade_nodes(gd, sim)
+	_check_skill_ranks(gd, sim)
+	_check_trainers(gd)
+	_check_save_skill_ranks(gd, sim, save_ref)
 	_check_status_and_drag(gd, sim)
 	_check_buff_visuals(gd, sim)
 	_check_hunts(gd, sim)
@@ -5007,20 +5019,28 @@ func _check_status_and_drag(gd, sim) -> void:
 			"anel solto no 2º slot fica no 2º slot")
 	sim.despawn(e)
 
-## Maestria pela árvore: compra de novo até o máximo, 1 ponto por nível.
+## Rank no Mestre de Skills: sobe de 1 em 1 até o máximo (ouro + materiais), pontos da teia não mudam; o nó "Ágil" compra uma vez.
 func _check_mastery_rebuy(gd, sim) -> void:
 	var e: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Mestre", "city_aldara", Vector3(-42, 0, -42), 30)
 	e.brain = null
 	var sid: String = e.class_def.starting_skills[0]
 	e.mastery[sid] = 0
 	e.mastery_points = 10
+	e.gold = 100000
+	for row in Balance.SKILL_RANK_MATS:
+		for iid in row:
+			e.add_item(iid, 40)
 	var bought := 0
 	for i in range(Balance.MASTERY_MAX + 2):
-		if sim.upgrade_mastery(e, sid):
+		if ProgressionSystem.rank_up(sim, e, sid, true):
 			bought += 1
-	check(bought == Balance.MASTERY_MAX and e.mastery_of(sid) == Balance.MASTERY_MAX and e.mastery_points == 10 - Balance.MASTERY_MAX,
-		"maestria pela árvore sobe até %d (comprou %d, M%d, sobraram %d pontos)" % [Balance.MASTERY_MAX, bought, e.mastery_of(sid), e.mastery_points])
-	check(sim.tree_block_reason(e, "%s_m_%s" % [e.class_def.id, sid]) == "maestria já no máximo", "maestria no máximo não compra mais")
+	check(bought == Balance.MASTERY_MAX and e.mastery_of(sid) == Balance.MASTERY_MAX and e.mastery_points == 10,
+		"rank sobe até %d no Mestre (subiu %d, M%d, pontos da teia intactos: %d)" % [Balance.MASTERY_MAX, bought, e.mastery_of(sid), e.mastery_points])
+	check(ProgressionSystem.rank_error(sim, e, sid, true).begins_with("Rank já no máximo"), "rank no máximo não sobe mais")
+	var quick := "%s_m_%s" % [e.class_def.id, sid]
+	e.tree["%s_s_%s" % [e.class_def.id, sid]] = true
+	e.tree.erase(quick)                  # o bot do 30 já comprou: refaz a compra
+	check(sim.tree_allocate(e, quick) and sim.tree_block_reason(e, quick) == "já comprado", "nó Ágil compra uma vez só")
 	sim.despawn(e)
 
 ## Mini-chefe nível 5 no Vale (1º conjunto lendário) e chance maior do 1º conjunto no primeiro mapa.
@@ -9224,10 +9244,11 @@ func _check_reset_and_coin(gd, sim) -> void:
 	check(picks == 4, "bot nível 20: um talento de classe por linha liberada (%d)" % picks)
 	check(not sim.reset_tree(e), "longe do Ancião não reseta")
 	e.position = at.call("elder")
+	var ranks: Dictionary = e.mastery.duplicate()
 	check(sim.reset_tree(e), "perto do Ancião reseta")
 	check(e.mastery_points == total, "reset devolve todos os pontos do nível (%d/%d)" % [e.mastery_points, total])
-	check(e.talents.is_empty() and e.mastery.is_empty(), "sem evoluções nem maestria depois do reset")
-	check(e.learned.keys().all(func(sid): return sid in e.class_def.starting_skills), "só as skills iniciais ficam aprendidas")
+	check(e.talents.is_empty() and ranks.keys().all(func(sid): return e.mastery_of(sid) == int(ranks[sid])), "sem evoluções; os ranks (pagos no Mestre) ficam")
+	check(ProgressionSystem.level_skill_ids(e.class_def, e.level).all(func(sid): return e.learned.has(sid)), "skills do nível continuam aprendidas")
 	var kept := e.tree.keys().filter(func(nid): return ProgressionSystem.tree_of(sim, e)["nodes"][nid]["kind"] == "pick").size()
 	check(kept == picks, "talentos de escolha ficam (%d/%d)" % [kept, picks])
 	check(e.skills.all(func(s): return s == null or e.learned.has(s.id)), "barra só com o que ainda conhece")
@@ -10361,17 +10382,17 @@ func _check_act2_xp_curve(gd) -> void:
 	var web_points := 0
 	for l in range(2, 41):
 		web_points += Balance.points_at(l)
-	check(web_points == 316, "teia: 316 pontos no 40 (%d)" % web_points)
+	check(web_points == 277, "teia: 277 pontos no 40 (%d; 7 por nível desde 2026-11-18)" % web_points)
 	# pontos de ascensão no 40: 3 por nível do 35 ao 40 + 3 da missão = 21 (calculados, R6)
 	var asc := SimEntity.new()
 	asc.class_def = gd.classes["paladin"]
 	asc.level = 40
 	asc.quests_completed.append("hx_asc_paladin")
 	check(ProgressionSystem.asc_points_total(asc) == 21, "ascensão: 21 pontos no 40 (%d)" % ProgressionSystem.asc_points_total(asc))
-	check(Balance.points_at(40) == 9 and Balance.points_at(30) == 9 and Balance.points_at(35) == 8, "pontos: +1 no 40 como no 10/20/30, 8 no 35")
+	check(Balance.points_at(40) == 8 and Balance.points_at(30) == 8 and Balance.points_at(35) == 7, "pontos: +1 no 40 como no 10/20/30, 7 no 35")
 	for lv in range(31, 46):
 		if lv != 40:
-			check(Balance.points_at(lv) == 8, "pontos no %d = 8" % lv)
+			check(Balance.points_at(lv) == 7, "pontos no %d = 7" % lv)
 	# um personagem sobe do 30 ao máximo e para lá com XP 0
 	var e := SimEntity.new()
 	e.level = 30
@@ -11259,7 +11280,7 @@ func _check_apex_rules(gd, sim) -> void:
 
 ## Save 5 -> 6 (apice-sets.md §6, check 8): peças dos híbridos que saíram viram as do Ápice; P3/Bi3/Ele/Necro intactos.
 func _check_apex_save(gd, sim) -> void:
-	check(SaveSystem.VERSION == 6, "save versão 6 (Ápices)")
+	check(SaveSystem.VERSION >= 6, "save versão 6+ (Ápices; 7 = ranks de skill)")
 	var cases := {
 		"leg_berserker_mix_carniceiro_executor_40_head": "leg_berserker_apex_carniceiro_40_head",
 		"leg_berserker_mix_executor_punhos_45_legs": "leg_berserker_apex_executor_45_legs",
@@ -11389,7 +11410,7 @@ func _check_kharzun_cap(gd, sim) -> void:
 	var web_points := 0
 	for l in range(2, 46):
 		web_points += Balance.points_at(l)
-	check(web_points == 356 and Balance.points_at(45) == 8, "teia: 356 pontos no 45 (%d), sem bônus no 45" % web_points)
+	check(web_points == 312 and Balance.points_at(45) == 7, "teia: 312 pontos no 45 (%d), sem bônus no 45" % web_points)
 	var asc := SimEntity.new()
 	asc.class_def = gd.classes["paladin"]
 	asc.level = 45
@@ -13230,12 +13251,13 @@ func _check_tree(gd, sim, save) -> void:
 		var cost_all := 0
 		for nid in nodes:
 			cost_all += int(nodes[nid]["cost"])
-			if nodes[nid]["kind"] == "skill":
+			if nodes[nid]["kind"] == "skill_up":
 				skill_nodes += 1
 		var web_ids: Array = Array(cls.skill_ids).filter(func(x): return not gd.skills[x].ascension)     # ascensão: teia própria
-		check(skill_nodes == web_ids.size(), "%s: cada skill da classe é um nó (%d/%d)" % [cid, skill_nodes, web_ids.size()])
+		check(skill_nodes == web_ids.size(), "%s: cada skill da classe tem um nó Aprimorada (%d/%d)" % [cid, skill_nodes, web_ids.size()])
 		for sid in web_ids:
-			check(nodes.has("%s_s_%s" % [cid, sid]) and nodes.has("%s_m_%s" % [cid, sid]), "%s: nó e maestria de %s" % [cid, sid])
+			check(nodes.has("%s_s_%s" % [cid, sid]) and nodes.has("%s_m_%s" % [cid, sid]) and nodes["%s_s_%s" % [cid, sid]]["kind"] == "skill_up"
+				and nodes["%s_m_%s" % [cid, sid]]["kind"] == "skill_quick", "%s: nós Aprimorada e Ágil de %s" % [cid, sid])
 		for t in gd.talents_for_class(cid):
 			check(nodes.has("%s_t_%s" % [cid, t.id]), "%s: evolução %s na árvore" % [cid, t.id])
 		var overlap: Array = []
@@ -13249,7 +13271,17 @@ func _check_tree(gd, sim, save) -> void:
 		# --- regras ---
 		var t0 = sim.spawn_character(SimEntity.Kind.BOT, cls, "Arv", "city_aldara", Vector3(-6, 0, 10), 1)
 		for sid in cls.starting_skills:
-			check(t0.tree.has("%s_s_%s" % [cid, sid]), "%s: skill inicial %s já comprada" % [cid, sid])
+			check(t0.knows(sid) and not t0.tree.has("%s_s_%s" % [cid, sid]), "%s: skill inicial %s vem sem o nó Aprimorada (compra-se)" % [cid, sid])
+		t0.mastery_points = 1
+		var lv1_buy := 0
+		for nid in nodes:
+			if sim.tree_block_reason(t0, nid) == "":
+				lv1_buy += 1
+		check(lv1_buy >= 1, "%s: no nível 1 com 1 ponto há nó vizinho do início para comprar (%d)" % [cid, lv1_buy])
+		var near_up := 99
+		for sid in cls.starting_skills:
+			near_up = mini(near_up, _path_cost(gd, t0, "%s_s_%s" % [cid, sid]))
+		check(near_up <= 14, "%s: Aprimorada de uma skill inicial a até 14 pontos do início (~2 níveis; %d)" % [cid, near_up])
 		var far := ""
 		var lvl_gate := ""
 		for nid in nodes:
@@ -13281,12 +13313,13 @@ func _check_tree(gd, sim, save) -> void:
 			for lv in range(2, Balance.MAX_LEVEL + 1):
 				e.level = lv
 				e.mastery_points += Balance.points_at(lv)
+				ProgressionSystem.grant_level_skills(sim, e, false)      # skills chegam pelo nível
 				var guard := 0
 				while e.mastery_points > 0 and guard < 30:
 					guard += 1
 					var target := ""
 					for sid in want:
-						if not e.knows(sid) and gd.skills[sid].unlock_level <= lv:
+						if not e.tree.has("%s_s_%s" % [cid, sid]) and gd.skills[sid].unlock_level <= lv:
 							target = "%s_s_%s" % [cid, sid]
 							break
 					if target != "":
@@ -13298,12 +13331,12 @@ func _check_tree(gd, sim, save) -> void:
 							continue
 						if before == e.mastery_points:
 							break
-					# sobra: maestria das skills da build, depois passivos
+					# sobra: Ágil das skills da build, depois passivos
 					var bought := false
-					for kind in ["mastery", "notable", "stat", "talent"]:
+					for kind in ["skill_quick", "notable", "stat", "talent"]:
 						for nid in nodes:
 							var n: Dictionary = nodes[nid]
-							if n["kind"] == kind and (kind != "mastery" or n["ref"] in want) and sim.tree_block_reason(e, nid) == "":
+							if n["kind"] == kind and (kind != "skill_quick" or n["ref"] in want) and sim.tree_block_reason(e, nid) == "":
 								bought = sim.tree_allocate(e, nid)
 								break
 						if bought:
@@ -13312,9 +13345,9 @@ func _check_tree(gd, sim, save) -> void:
 						break
 			var missing: Array = []
 			for sid in want:
-				if not e.knows(sid):
+				if not e.tree.has("%s_s_%s" % [cid, sid]):
 					missing.append(sid)
-			check(refused == 0 and missing.is_empty(), "%s/%s: do 1 ao 30 pela árvore pega todas as skills da build (faltam %s)" % [cid, b["id"], missing])
+			check(refused == 0 and missing.is_empty(), "%s/%s: do 1 ao 45 pela teia pega a Aprimorada de todas as skills da build (faltam %s)" % [cid, b["id"], missing])
 			check(not e.tree_bonus.is_empty(), "%s/%s: passivos da árvore ativos (%s)" % [cid, b["id"], e.tree_bonus])
 			if cid == "paladin" and b["id"] == "guardiao":
 				e.recompute_stats()
@@ -18696,7 +18729,7 @@ func _legacc_body(gd, sim) -> void:
 			caster.mp = 999.0
 			caster.set_state(SimEntity.State.IDLE)
 			if sim.try_cast(caster, sl, caster.position + caster.forward(), m):
-				spent[pass_i] = [sk.id, 999.0 - caster.mp, sk.mp_cost_at(caster.mastery_of(sk.id))]
+				spent[pass_i] = [sk.id, 999.0 - caster.mp, sk.mp_cost_at(caster.mastery_of(sk.id)) * ProgressionSystem.web_mp_mult(caster, sk.id)]
 				sim._end_skill(caster)
 				break
 	check(spent.size() == 2 and spent[0][0] == spent[1][0] and is_equal_approx(spent[1][1], maxf(1.0, ceilf(float(spent[1][2]) * 0.7 - 0.0001))) and spent[1][1] < spent[0][1],
@@ -24777,3 +24810,311 @@ func _check_monster_shift(gd, sim) -> void:
 	sim.despawn(b)
 	for id in ["t_shift_base", "t_shift_bear", "t_shift_wolf", "t_shift_hawk"]:
 		gd.monsters.erase(id)
+
+## Skills pelo nível (2026-11-18): toda skill comum da classe chega sozinha no nível dela (spawn, subir de nível, bot),
+## nunca as de ascensão; a barra pega as novas; o bot só põe na barra as da build e as gerais.
+func _check_level_skills(gd, sim) -> void:
+	var cls: ClassDef = gd.classes["paladin"]
+	var e: SimEntity = sim.spawn_character(SimEntity.Kind.PLAYER, cls, "Novato", "city_aldara", Vector3(-30, 0, 30), 1)
+	var at1 := ProgressionSystem.level_skill_ids(cls, 1)
+	check(at1.size() >= 2 and at1[0] == cls.starting_skills[0] and at1.all(func(sid): return e.knows(sid)), "nível 1: as skills iniciais (e as de nível 1) já vêm aprendidas (%d)" % at1.size())
+	var later: Array = Array(cls.skill_ids).filter(func(sid): return not gd.skills[sid].ascension and gd.skills[sid].unlock_level > 1 and gd.skills[sid].unlock_level <= 8)
+	check(not later.is_empty() and later.all(func(sid): return not e.knows(sid)), "nível 1: skill de nível maior ainda não vem (%d esperando)" % later.size())
+	sim.gain_xp(e, Balance.band_xp(1, 8) + 10)
+	var lv: int = e.level
+	var want := ProgressionSystem.level_skill_ids(cls, lv)
+	check(lv >= 8 and want.all(func(sid): return e.knows(sid)), "subiu ao %d: aprendeu as %d skills do nível sozinho" % [lv, want.size()])
+	check(e.skills.slice(0, Balance.SKILL_SLOTS).filter(func(s): return s != null).size() >= mini(Balance.SKILL_SLOTS, 4), "skills novas entram nas vagas livres da barra")
+	check(not e.learned.keys().any(func(sid): return gd.skills[sid].ascension), "skill de ascensão nunca vem pelo nível")
+	sim.despawn(e)
+	# bot do 20: todas as skills do nível, ranks de graça nas da build, barra só com build + gerais
+	for cid in gd.classes:
+		var bc: ClassDef = gd.classes[cid]
+		var b: SimEntity = sim.spawn_bot(bc, "LvBot", "city_aldara", Vector3(-31, 0, 31), 20)
+		b.brain = null
+		check(ProgressionSystem.level_skill_ids(bc, 20).all(func(sid): return b.knows(sid)), "%s: bot do 20 conhece as skills do nível" % cid)
+		var bw: Array = bc.build_by_id(b.build_id).get("skills", [])
+		var ranked := bw.filter(func(sid): return b.knows(sid) and not gd.skills[sid].ascension)
+		check(ranked.all(func(sid): return b.mastery_of(sid) == ProgressionSystem.bot_rank(b, gd.skills[sid])), "%s/%s: bot com rank de graça pelo nível nas skills da build" % [cid, b.build_id])
+		var stray: Array = []
+		for s in b.skills.slice(0, Balance.SKILL_SLOTS):
+			if s != null and not (s.id in bw) and not (s.build in ["", b.build_id]) and not (s.id in bc.starting_skills):
+				stray.append(s.id)
+		check(stray.is_empty(), "%s/%s: barra do bot sem skill de outra build %s" % [cid, b.build_id, stray])
+		sim.despawn(b)
+
+## Nós da skill na teia (2026-11-18): "<Skill> Aprimorada" (+SKILL_UP_POWER de poder) e "<Skill> Ágil" (-SKILL_QUICK_PCT de
+## recarga e de MP), 1 ponto cada, uma vez; precisam conhecer a skill; valem no resolve_skill e no try_cast.
+func _check_skill_upgrade_nodes(gd, sim) -> void:
+	var bad: Array = []
+	for cid in gd.trees:
+		for nid in gd.trees[cid]["nodes"]:
+			var n: Dictionary = gd.trees[cid]["nodes"][nid]
+			if n["kind"] in ["skill", "mastery"]:
+				bad.append(nid)
+			elif n["kind"] == "skill_up" and not (str(n["name"]).ends_with(" Aprimorada") and int(n["cost"]) == Balance.SKILL_LEARN_COST and str(nid).contains("_s_")):
+				bad.append(nid)
+			elif n["kind"] == "skill_quick" and not (str(n["name"]).ends_with(" Ágil") and int(n["cost"]) == Balance.SKILL_QUICK_COST and str(nid).contains("_m_")):
+				bad.append(nid)
+	check(bad.is_empty(), "teia comum: só nós Aprimorada/Ágil para as skills (sem skill/maestria; %s)" % [bad.slice(0, 4)])
+	var cls: ClassDef = gd.classes["paladin"]
+	var e: SimEntity = sim.spawn_character(SimEntity.Kind.BOT, cls, "Afiado", "city_aldara", Vector3(-33, 0, 33), 20)
+	e.brain = null
+	var sid: String = "pal_holy_strike"
+	var s: SkillDef = gd.skills[sid]
+	var up := "paladin_s_" + sid
+	var quick := "paladin_m_" + sid
+	e.mastery[sid] = 0
+	check(sim.resolve_skill(e, s) == s, "sem nó comprado a skill resolvida é a própria (sem cópia)")
+	e.mastery_points = 0
+	check(sim.tree_block_reason(e, up).begins_with("precisa de um nó vizinho") or sim.tree_block_reason(e, up).begins_with("pontos"), "Aprimorada segue as regras da teia (vizinho/pontos)")
+	var later := ""
+	for k in cls.skill_ids:
+		if not gd.skills[k].ascension and gd.skills[k].unlock_level > e.level:
+			later = k
+			break
+	if later != "":
+		var t0 := e.tree.duplicate()
+		e.tree[str(gd.trees["paladin"]["nodes"]["paladin_s_" + later]["links"][0])] = true
+		e.mastery_points = 5
+		check(sim.tree_block_reason(e, "paladin_s_" + later) != "", "Aprimorada de skill acima do nível é recusada")
+		e.tree = t0
+	e.tree[up] = true
+	var r1: SkillDef = sim.resolve_skill(e, s)
+	check(r1 != s and is_equal_approx(r1.power, s.power * (1.0 + Balance.SKILL_UP_POWER)) and is_equal_approx(r1.cooldown, s.cooldown) and is_equal_approx(s.power, gd.skills[sid].power),
+		"%s: +%d%% de poder, recarga igual, original intacta" % [up, roundi(Balance.SKILL_UP_POWER * 100)])
+	e.mastery_points = 3
+	check(sim.tree_allocate(e, quick) and e.mastery_points == 3 - Balance.SKILL_QUICK_COST and sim.tree_block_reason(e, quick) == "já comprado", "%s: compra uma vez, 1 ponto" % quick)
+	var r2: SkillDef = sim.resolve_skill(e, s)
+	check(is_equal_approx(r2.cooldown, s.cooldown * (1.0 - Balance.SKILL_QUICK_PCT)) and is_equal_approx(r2.mp_cost, s.mp_cost * (1.0 - Balance.SKILL_QUICK_PCT)), "Ágil: -%d%% de recarga e MP" % roundi(Balance.SKILL_QUICK_PCT * 100))
+	# no lançamento: MP cobrado e recarga posta com o desconto
+	var m: Dictionary = sim.maps["city_aldara"]
+	e.ensure_slots()
+	e.skills[0] = s
+	e.mp = e.stats.max_mp
+	e.cooldowns.clear()
+	var mp0: float = e.mp
+	var want_mp: float = e.stats.mp_cost_of(s.mp_cost_at(0) * (1.0 - Balance.SKILL_QUICK_PCT))
+	var want_cd: float = s.cooldown_at(0) * (1.0 - Balance.SKILL_QUICK_PCT) * e.stats.skill_cooldown_mult(sid)
+	check(sim.try_cast(e, 0, e.position + Vector3(0, 0, 2), m), "skill com Ágil sai")
+	check(absf((mp0 - e.mp) - want_mp) < 0.01 and absf(float(e.cooldowns.get(sid, 0.0)) - want_cd) < 0.01,
+		"Ágil no try_cast: MP %.2f (quer %.2f), recarga %.2f (quer %.2f)" % [mp0 - e.mp, want_mp, float(e.cooldowns.get(sid, 0.0)), want_cd])
+	sim._end_skill(e)
+	sim.despawn(e)
+
+## Rank 1-5 da skill no Mestre de Skills (2026-11-18): ouro + materiais da faixa da skill, nível por rank, perto de um NPC
+## com papel de Mestre (Balance.SKILL_TRAINER_ROLES); escreve e.mastery (os efeitos da maestria de sempre).
+func _check_skill_ranks(gd, sim) -> void:
+	# custos: todo material existe e o ouro cresce com rank e faixa
+	var missing: Array = []
+	for row in Balance.SKILL_RANK_MATS:
+		for iid in row:
+			if not gd.items.has(iid):
+				missing.append(iid)
+	check(Balance.SKILL_RANK_MATS.size() == Balance.COMMON_TIER_LEVELS.size() and missing.is_empty(), "materiais de rank: um par por faixa, todos itens do jogo (%s)" % [missing])
+	var cls: ClassDef = gd.classes["paladin"]
+	var e: SimEntity = sim.spawn_character(SimEntity.Kind.BOT, cls, "Aluno", "city_aldara", Vector3(-35, 0, 35), 1)
+	e.brain = null
+	var sid := "pal_holy_strike"
+	var s: SkillDef = gd.skills[sid]
+	e.mastery[sid] = 0
+	var c1 := ProgressionSystem.rank_cost(e, sid)
+	check(int(c1["rank"]) == 1 and int(c1["gold"]) == Balance.SKILL_RANK_GOLD_BASE and int(c1["items"].get(Balance.SKILL_RANK_MATS[0][0], 0)) == 1 and int(c1["level"]) == s.unlock_level,
+		"rank 1 de skill do nível 1: %d de ouro e 1 %s (%s)" % [Balance.SKILL_RANK_GOLD_BASE, Balance.SKILL_RANK_MATS[0][0], c1])
+	var c4 := ProgressionSystem.rank_cost(e, sid, 4)
+	check(c4["items"].has(Balance.SKILL_RANK_MATS[0][1]) and int(c4["gold"]) > int(c1["gold"]) and int(c4["level"]) == s.unlock_level + 3 * Balance.SKILL_RANK_LEVEL_STEP, "rank 4: material raro, mais ouro, nível maior (%s)" % [c4])
+	check(sim.skill_rank_cost(e, sid) == c1, "Sim.skill_rank_cost repassa")
+	var hi := ""
+	for k in cls.skill_ids:
+		if not gd.skills[k].ascension and gd.skills[k].unlock_level >= Balance.COMMON_TIER_LEVELS[3]:
+			hi = k
+			break
+	if hi != "":
+		var ch := ProgressionSystem.rank_cost(e, hi, 1)
+		check(ch["items"].has(Balance.SKILL_RANK_MATS[ProgressionSystem.skill_tier(gd.skills[hi])][0]) and int(ch["gold"]) > int(c1["gold"]), "skill de faixa alta pede o material da faixa dela (%s %s)" % [hi, ch])
+	# erros: ouro, material, Mestre, nível, máximo, ascensão
+	e.gold = 0
+	check(ProgressionSystem.rank_error(sim, e, sid, true).begins_with("Ouro"), "sem ouro não sobe")
+	e.gold = 10000
+	check(ProgressionSystem.rank_error(sim, e, sid, true).begins_with("Faltam"), "sem material não sobe")
+	for row in Balance.SKILL_RANK_MATS:
+		for iid in row:
+			e.add_item(iid, 30)
+	check(ProgressionSystem.rank_error(sim, e, sid).contains("Mestre de Skills") and not sim.skill_rank_up(e, sid), "longe do Mestre de Skills não sobe")
+	var mdef: MapDef = sim.maps["city_aldara"]["def"]
+	var trainer := {"id": "test_trainer", "role": Balance.SKILL_TRAINER_ROLES[0], "name": "Mestre (teste)", "pos": e.position + Vector3(1, 0, 0)}
+	mdef.npcs.append(trainer)
+	var g0: int = e.gold
+	var ore0 := int(e.inventory.get(Balance.SKILL_RANK_MATS[0][0], 0))
+	var p0 := s.power_at(e.mastery_of(sid))
+	check(sim.skill_rank_error(e, sid) == "" and sim.skill_rank_up(e, sid) and e.mastery_of(sid) == 1, "perto do Mestre: rank 1")
+	check(e.gold == g0 - int(c1["gold"]) and int(e.inventory.get(Balance.SKILL_RANK_MATS[0][0], 0)) == ore0 - 1, "rank cobra o ouro e o material")
+	check(s.power_at(e.mastery_of(sid)) > p0, "rank sobe o poder da skill (maestria de sempre)")
+	check(ProgressionSystem.rank_error(sim, e, sid).begins_with("Rank 2 pede nível"), "rank 2 pede nível %d" % ProgressionSystem.rank_level(s, 2))
+	e.level = Balance.MAX_LEVEL
+	var n := 0
+	while sim.skill_rank_up(e, sid) and n < 10:
+		n += 1
+	check(e.mastery_of(sid) == Balance.MASTERY_MAX and n == Balance.MASTERY_MAX - 1, "sobe até o rank %d" % Balance.MASTERY_MAX)
+	mdef.npcs.erase(trainer)
+	var asc := ""
+	for k in cls.skill_ids:
+		if gd.skills[k].ascension:
+			asc = k
+			break
+	if asc != "":
+		e.learned[asc] = true
+		check(ProgressionSystem.rank_error(sim, e, asc, true).contains("ascensão"), "skill de ascensão não sobe no Mestre")
+		e.learned.erase(asc)
+	check(not ProgressionSystem.rank_up(sim, e, "ber_cleave", true), "skill de outra classe não sobe")
+	# rank de graça do bot: nível/6, sem passar do nível de cada rank
+	e.level = 30
+	check(ProgressionSystem.bot_rank(e, s) == mini(Balance.MASTERY_MAX, 30 / Balance.BOT_SKILL_RANK_PER_LEVELS), "bot do 30: rank %d na skill do nível 1" % ProgressionSystem.bot_rank(e, s))
+	var late: SkillDef = null
+	for k in cls.skill_ids:
+		if not gd.skills[k].ascension and gd.skills[k].unlock_level >= 24:
+			late = gd.skills[k]
+			break
+	if late:
+		var br := ProgressionSystem.bot_rank(e, late)
+		check(br >= 1 and ProgressionSystem.rank_level(late, br) <= 30 and (br == Balance.MASTERY_MAX or ProgressionSystem.rank_level(late, br + 1) > 30), "bot do 30: %s (nível %d) no rank que o nível libera (%d)" % [late.id, late.unlock_level, br])
+	sim.despawn(e)
+
+## Save 6 -> 7: skills pelo nível, nó de maestria sai da teia (o rank fica, os pontos voltam), nó da skill vira Aprimorada.
+func _check_save_skill_ranks(gd, sim, save) -> void:
+	var cls: ClassDef = gd.classes["paladin"]
+	var e: SimEntity = sim.spawn_character(SimEntity.Kind.BOT, cls, "Velho", "city_aldara", Vector3(-37, 0, 37), 20)
+	e.brain = null
+	SaveSystem.apply_to(e, {"level": 20, "class": "paladin", "save_version": 6, "mastery_points": 5,
+		"tree": ["paladin_start", "paladin_s_pal_holy_strike", "paladin_m_pal_holy_strike"], "learned": ["pal_holy_strike", "pal_blessed_armor"],
+		"mastery": {"pal_holy_strike": 3}, "loadout": ["pal_holy_strike", "pal_blessed_armor", "", "", "", ""]})
+	check(not e.tree.has("paladin_m_pal_holy_strike") and e.tree.has("paladin_s_pal_holy_strike") and e.tree.has("paladin_start"), "save 6: nó de maestria sai, o da skill fica (vira Aprimorada), teia não reseta")
+	check(e.mastery_of("pal_holy_strike") == 3 and e.mastery_points == 5 + 3, "save 6: rank 3 fica e os 3 pontos voltam (%d pontos)" % e.mastery_points)
+	check(ProgressionSystem.level_skill_ids(cls, 20).all(func(sid): return e.knows(sid)), "save 6: skills do nível 20 aprendidas")
+	check(e.skills[0] != null and e.skills[0].id == "pal_holy_strike", "save 6: barra mantida")
+	# gravar e ler de novo (espaço de teste): versão 7, sem nó de maestria, nada muda
+	var keep: int = save.slot
+	save.slot = TEST_SLOT
+	save.save_player(e)
+	var d: Dictionary = save.load_data(TEST_SLOT)
+	check(int(d.get("save_version", 0)) == 7 and not (d.get("tree", []) as Array).has("paladin_m_pal_holy_strike"), "save gravado na versão 7")
+	var e2: SimEntity = sim.spawn_character(SimEntity.Kind.BOT, cls, "Velho2", "city_aldara", Vector3(-38, 0, 37), 20)
+	e2.brain = null
+	SaveSystem.apply_to(e2, d)
+	check(e2.mastery_points == 8 and e2.mastery_of("pal_holy_strike") == 3 and e2.tree.size() == e.tree.size(), "save 7 relido: pontos, rank e teia iguais")
+	save.delete_slot(TEST_SLOT)
+	save.slot = keep
+	sim.despawn(e)
+	sim.despawn(e2)
+
+
+## Mestres de Skills (plano tidy-painting-biscuit 2026-11-18): um por hub, papel em Balance.SKILL_TRAINER_ROLES, em chão livre
+## (fora de colisor, com folga), alcançável a pé desde a chegada do mapa, e um jogador ao lado dele sobe o rank com ouro + materiais
+## (e sem o Mestre por perto, não sobe).
+const TRAINER_HUBS := ["city_aldara", "field_forest", "elf_city", "field_ruins", "city_port", "field_kharzun"]
+func _check_trainers(gd) -> void:
+	check(MapsCatalog.TRAINERS.size() == TRAINER_HUBS.size(), "Mestres de Skills: um por hub (%d)" % MapsCatalog.TRAINERS.size())
+	for mid in TRAINER_HUBS:
+		var def: MapDef = gd.maps[mid]
+		var tr: Array = def.npcs.filter(func(n): return str(n.get("role", "")) in Balance.SKILL_TRAINER_ROLES)
+		check(tr.size() == 1, "%s: um Mestre de Skills (%d)" % [mid, tr.size()])
+		if tr.size() != 1:
+			continue
+		var n: Dictionary = tr[0]
+		var p: Vector3 = n["pos"]
+		check(str(n["name"]).contains("Mestr") and (n["dialog"] as Array).any(func(l): return str(l).contains("rank")), "%s: Mestre de Skills com nome e fala sobre rank" % mid)
+		check(not n.has("if") and not n.has("unless"), "%s: o Mestre de Skills está sempre lá" % mid)
+		var ws := WorldSim.new()
+		ws.load_map(def)
+		check(ws.is_walkable(p, def, 0.9), "%s: Mestre de Skills fora de colisor, com folga (%.1f, %.1f)" % [mid, p.x, p.z])
+		var crowd: Array = def.npcs.filter(func(o): return o != n and (o["pos"] as Vector3).distance_to(p) < 2.0)
+		check(crowd.is_empty(), "%s: ninguém em cima do Mestre de Skills (%s)" % [mid, crowd.map(func(o): return o["id"])])
+		var from: Vector3 = def.town_center if def.town_radius > 0.0 and mid != "elf_city" and ws.is_walkable(def.town_center, def, 0.45) else def.spawn_point
+		check(_reached(_reach(ws, def, from), p), "%s: Mestre de Skills alcançável a pé" % mid)
+		if def.town_radius > 0.0 and mid != "elf_city":      # Cidade Élfica: o "hub" humano é o acampamento do cerco, fora do anel élfico
+			check(def.in_hub(p), "%s: Mestre de Skills dentro do povoado" % mid)
+	# rank no Mestre: Aldara, paladino nível 10 com a 1ª skill de nível 1
+	var ws2 := WorldSim.new()
+	var adef: MapDef = gd.maps["city_aldara"]
+	ws2.load_map(adef)
+	var pl: SimEntity = ws2.spawn_player(gd.classes["paladin"], "Teste", adef.id)
+	pl.brain = null
+	pl.level = 10
+	var sid := ""
+	for s in pl.class_def.skill_ids:
+		var sd: SkillDef = gd.skills[s]
+		if not sd.ascension and sd.unlock_level == 1 and pl.knows(s):
+			sid = s
+			break
+	check(sid != "", "Mestre: o paladino nível 10 já sabe uma skill de nível 1")
+	if sid == "":
+		return
+	var trainer: Dictionary = adef.npcs.filter(func(n): return str(n.get("role", "")) in Balance.SKILL_TRAINER_ROLES)[0]
+	var c := ProgressionSystem.rank_cost(pl, sid)
+	pl.gold = int(c["gold"]) + 5
+	for iid in c["items"]:
+		pl.add_item(iid, int(c["items"][iid]))
+	pl.position = Vector3(0, 0, 10.0)
+	check(not ProgressionSystem.rank_up(ws2, pl, sid) and pl.mastery_of(sid) == 0, "Mestre: longe dele o rank não sobe")
+	pl.position = (trainer["pos"] as Vector3) + Vector3(1.2, 0, 0)
+	var r0 := pl.mastery_of(sid)
+	check(ProgressionSystem.rank_up(ws2, pl, sid) and pl.mastery_of(sid) == r0 + 1 and pl.gold == 5, "Mestre: ao lado dele o rank sobe e cobra o ouro (%s rank %d)" % [sid, pl.mastery_of(sid)])
+	check((c["items"] as Dictionary).keys().all(func(iid): return not pl.has_item(iid, 1)), "Mestre: os materiais do rank saem da bolsa")
+	# materiais de rank: tier 0-2 e 4-5 caem de monstro em algum mapa; o tier 3 (Ruínas) vem da colheita
+	for t in Balance.SKILL_RANK_MATS.size():
+		for iid in Balance.SKILL_RANK_MATS[t]:
+			var drops: bool = gd.loot_tables.values().any(func(lt): return lt.entries.any(func(e): return str(e["item"]) == str(iid)))
+			var gathered: bool = MapsCatalog.GATHER.values().any(func(rows): return (rows as Array).any(func(r): return str(r[0]) == str(iid)))
+			check(drops or gathered, "material de rank %s (tier %d) cai de monstro ou se colhe" % [iid, t])
+
+## Painel do Mestre de Skills (npc_ui): lista as skills aprendidas fora da ascensão (barra primeiro) e o botão
+## "Aprimorar" segue skill_rank_error (longe do Mestre = desligado com o motivo; perto/dev com ouro e material = ligado).
+func _check_trainer_panel(gd, sim) -> void:
+	var ui = load("res://game/ui/npc_ui.gd").new()
+	var e: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Treino", "city_aldara", Vector3(0, 0, 6), 20)
+	e.brain = null
+	var ids: Array = ui.trainer_skills(sim, e)
+	var want := 0
+	for sid in e.class_def.skill_ids:
+		if e.knows(sid) and not gd.skills[sid].ascension:
+			want += 1
+			check(sid in ids, "mestre: skill aprendida %s está na lista" % sid)
+	check(ids.size() == want and want > 0, "mestre: lista = skills aprendidas sem ascensão (%d/%d)" % [ids.size(), want])
+	var bar_first := true
+	var k := 0
+	for sk in e.skills:
+		if sk and not sk.ascension and e.knows(sk.id):
+			bar_first = bar_first and ids[k] == sk.id
+			k += 1
+	check(bar_first, "mestre: as skills da barra vêm primeiro, na ordem das teclas")
+	var sid0: String = ids[0]
+	e.mastery[sid0] = 0
+	e.gold = 0
+	for free in [false, true]:
+		ui.trainer_free = free
+		var row: Control = ui._trainer_row(e, gd.skills[sid0], true)
+		var b: Button = ui.trainer_rows[sid0]
+		var err: String = ProgressionSystem.rank_error(sim, e, sid0, free)
+		check(err != "" and b.disabled and b.tooltip_text == err, "mestre: sem ouro/longe o botão fica cinza com o motivo (free=%s, %s)" % [free, err])
+		row.free()
+	var c: Dictionary = sim.skill_rank_cost(e, sid0)
+	e.gold = int(c["gold"])
+	for iid in c["items"]:
+		e.add_item(iid, int(c["items"][iid]))
+	ui.trainer_free = true
+	var row2: Control = ui._trainer_row(e, gd.skills[sid0], true)
+	var b2: Button = ui.trainer_rows[sid0]
+	check(not b2.disabled and ProgressionSystem.rank_error(sim, e, sid0, true) == "", "mestre: com ouro e material o botão liga (%s)" % b2.tooltip_text)
+	row2.free()
+	ui.trainer_free = false
+	var row3: Control = ui._trainer_row(e, gd.skills[sid0], true)
+	var err3: String = sim.skill_rank_error(e, sid0)
+	check(ui.trainer_rows[sid0].disabled == (err3 != ""), "mestre: botão segue skill_rank_error no jogo (%s)" % err3)
+	row3.free()
+	e.mastery[sid0] = Balance.MASTERY_MAX
+	var row4: Control = ui._trainer_row(e, gd.skills[sid0], true)
+	check(ui.trainer_rows[sid0].disabled and ui.trainer_rows[sid0].text == "Máximo", "mestre: rank máximo = botão Máximo desligado")
+	row4.free()
+	check(not ui.rank_step_text(gd.skills[sid0], 1).is_empty() and ui.rank_step_text(gd.skills[sid0], 1).begins_with("Rank 2"), "mestre: texto do próximo rank (%s)" % ui.rank_step_text(gd.skills[sid0], 1))
+	ui.free()
+	sim.despawn(e)

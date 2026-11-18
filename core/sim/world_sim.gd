@@ -180,7 +180,7 @@ func spawn_character(kind: SimEntity.Kind, cls: ClassDef, char_name: String, map
 	e.home_position = pos
 	e.radius = Balance.ENTITY_RADIUS
 	e.ensure_slots()
-	# skills iniciais: aprendidas de graça e postas nos primeiros slots
+	# skills iniciais: aprendidas de graça e postas nos primeiros slots (as do nível vêm no fim: grant_level_skills)
 	for sid in cls.starting_skills:
 		var s: SkillDef = GameData.skills.get(sid)
 		if s:
@@ -191,11 +191,7 @@ func spawn_character(kind: SimEntity.Kind, cls: ClassDef, char_name: String, map
 				e.skills[free] = s
 	var tr: Dictionary = GameData.trees.get(cls.id, {})
 	if not tr.is_empty():
-		e.tree[tr["start"]] = true
-		for sid in cls.starting_skills:
-			var nid := "%s_s_%s" % [cls.id, sid]
-			if tr["nodes"].has(nid):
-				e.tree[nid] = true
+		e.tree[tr["start"]] = true          # só o início: "<Skill> Aprimorada" das iniciais se compra como as outras
 	for item_id in cls.starting_equipment:
 		var item: ItemDef = GameData.items.get(item_id)
 		if item:
@@ -213,6 +209,7 @@ func spawn_character(kind: SimEntity.Kind, cls: ClassDef, char_name: String, map
 			e.add_item(item_id, 1)
 	e.gold = 50
 	e.recompute_stats()
+	ProgressionSystem.grant_level_skills(self, e, kind != SimEntity.Kind.BOT)     # skills do nível (bot: barra no _slot_bot)
 	e.heal_full()
 	return _register(e, map_id)
 
@@ -432,6 +429,8 @@ func _slot_bot(b: SimEntity) -> void:
 		var s: SkillDef = GameData.skills.get(sid)
 		if s == null or s.ascension or not b.learned.has(s.id) or b.slot_of(s.id) >= 0:
 			continue                 # skill de ascensão: vagas extras (abaixo), nunca no lugar de uma da build
+		if not (s.id in ids) and not (s.build in ["", b.build_id]) and not (s.id in b.class_def.starting_skills):
+			continue                 # skill de outra build (o nível dá todas): o bot fica com as da build dele e as gerais
 		if slot < Balance.SKILL_SLOTS and b.stats.meets(s.requires):
 			b.skills[slot] = s
 			slot += 1
@@ -950,7 +949,7 @@ func try_cast(e: SimEntity, slot: int, aim: Vector3, m: Dictionary) -> bool:
 	var lv := e.mastery_of(s.id)
 	if e.cooldowns.get(s.id, 0.0) > 0.0:
 		return false
-	var cost := e.stats.mp_cost_of(s.mp_cost_at(lv))      # desconto de mana (acessório lendário)
+	var cost := e.stats.mp_cost_of(s.mp_cost_at(lv) * ProgressionSystem.web_mp_mult(e, s.id))     # nó "Ágil" e desconto de mana (acessório lendário)
 	if s.effects.has("arcane") and MountedCombat.arcane_on(e):
 		cost = 0.0                 # desligar as asas não custa MP (sem MP o bot ficava pedindo para desligar)
 	if e.mp < cost:
@@ -2507,6 +2506,15 @@ func set_skill_slot(e: SimEntity, slot: int, skill_id: String) -> bool:
 	return ProgressionSystem.set_skill_slot(self, e, slot, skill_id)
 func upgrade_mastery(e: SimEntity, skill_id: String) -> bool:
 	return ProgressionSystem.upgrade_mastery(self, e, skill_id)
+## Rank da skill no Mestre de Skills (ouro + materiais da faixa): custo do próximo rank, motivo de não poder ("" = pode), subir.
+func skill_rank_cost(e: SimEntity, skill_id: String) -> Dictionary:
+	return ProgressionSystem.rank_cost(e, skill_id)
+func skill_rank_error(e: SimEntity, skill_id: String) -> String:
+	return ProgressionSystem.rank_error(self, e, skill_id)
+func skill_rank_up(e: SimEntity, skill_id: String) -> bool:
+	return ProgressionSystem.rank_up(self, e, skill_id)
+func grant_level_skills(e: SimEntity) -> Array:
+	return ProgressionSystem.grant_level_skills(self, e)
 func set_potion_slot(e: SimEntity, slot: int, item_id: String) -> void:
 	ProgressionSystem.set_potion_slot(self, e, slot, item_id)
 # GatherSystem

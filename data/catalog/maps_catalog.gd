@@ -71,6 +71,32 @@ static func crystal_npc(map_id: String) -> Array:
 	d["model"] = "prop_crystal"
 	return [d]
 
+## Mestres de Skills (role "trainer", Balance.SKILL_TRAINER_ROLES; plano tidy-painting-biscuit 2026-11-18): um por hub, posição escrita
+## aqui (sem marcador no JSON), em chão livre (folga >= 1 m, 2,5 m de outro NPC, fora da faixa das bancas de Aldara;
+## achado por `tools/tests/trainer_probe.tscn -- --pick`). A Ordem dos Mestres segue a Aurora: em cada posto, um instrutor que
+## ensina a DOMINAR o que o nível já deu (rank 1-5 por ouro + materiais da faixa). Mesma cor (índigo) em todos, para achar de longe.
+## mapa -> [nome, x, z, facing, falas].
+const TRAINER_COLOR := Color(0.32, 0.36, 0.78)
+const TRAINER_LINES := ["Toda skill chega sozinha com o nível. Eu ensino a dominá-la: rank 1 a 5, pago em ouro e materiais da caçada.",
+	"Cada rank pede um pouco mais de nível, de ouro e de material. Do rank 4 em diante, também um material raro da região."]
+const TRAINERS := {
+	"city_aldara": ["Isadora, Mestra de Skills", -14.75, -5.0, 90.0, ["Aqui na praça eu treino quem volta da Campina. Minério de ferro e casco de caranguejo: é com isso que se paga o começo."]],
+	"field_forest": ["Teodoro, Mestre de Skills", -14.0, -0.5, 90.0, ["Seda de aranha e pó de cova pagam o treino na Floresta. Os elfos não esperam você ficar pronto."]],
+	"elf_city": ["Ayla, Mestra de Skills", 28.0, 80.0, 200.0, ["Treino no acampamento do cerco. Antes de entrar no anel élfico, domine o que você já sabe."]],
+	"field_ruins": ["Valério, Mestre de Skills", -9.0, -22.0, 0.0, ["Fragmento de osso e insígnia de bandido nas skills do meio do caminho; minério estelar e relíquia nas de nível 24 em diante."]],
+	"city_port": ["Celina, Mestra de Skills", 4.0, -4.25, 180.0, ["A Ordem cruzou o mar com a colônia. Presa de orc e de goblin pagam as skills do Ato II."]],
+	"field_kharzun": ["Gaspar, Mestre de Skills", -11.0, -3.0, 90.0, ["Aço de orc e presa de troll: as skills mais altas pedem o que só esta montanha dá."]],
+}
+
+## O Mestre de Skills do hub `map_id` (lista vazia se o mapa não tem).
+static func trainer_npc(map_id: String) -> Array:
+	if not TRAINERS.has(map_id):
+		return []
+	var t: Array = TRAINERS[map_id]
+	var d := _npc("trainer_" + map_id, t[0], float(t[1]), float(t[2]), "trainer", TRAINER_COLOR, TRAINER_LINES + (t[4] as Array), float(t[3]))
+	d["look_seed"] = 700 + map_id.length() * 13
+	return [d]
+
 ## Bastião da Aurora (terceiro andar): serviços na praça da catedral; posições do JSON.
 const DAWN_NPCS := {
 	"dawn_commander": ["Marechal Aldric", "quest", Color(0.4, 0.5, 0.8), ["Três portões, três fortalezas, uma cidade. Seguramos o que dá e retomamos o resto.", "O pântano a oeste é o mais fraco deles. Começamos por lá."]],
@@ -640,7 +666,7 @@ const ALDARA_NPCS := {
 	"merchant": ["Mercador Tobias", "merchant", Color(0.9, 0.8, 0.5), ["Poções, elixires e um bom preço pelo que você trouxe das caçadas."]],
 	"relic": ["Iara, a Relicária", "relic", Color(0.95, 0.6, 0.25), ["Moedas lendárias? Eu forjo a peça que você escolher.", "Nível 5 custa 1 moeda, nível 10 custa 2, e assim por diante."]],
 	"storage": ["Guarda-volumes Nilo", "storage", Color(0.45, 0.6, 0.75), ["Deixe aqui o que não cabe na bolsa. Fica tudo guardado, até você voltar.", "Cada personagem tem o seu depósito. Ninguém mexe."]],
-	"board": ["Quadro de Avisos", "board", Color(0.6, 0.45, 0.3), ["Procura-se: aventureiros para a Campina (1-10), Floresta (10-20) e Ruínas (20-30).", "Dica: maestria sobe gastando pontos na árvore (tecla K).", "Feira do Trigo na praça todos os dias. A Estátua do Fundador fica no pátio do portão norte."]],
+	"board": ["Quadro de Avisos", "board", Color(0.6, 0.45, 0.3), ["Procura-se: aventureiros para a Campina (1-10), Floresta (10-20) e Ruínas (20-30).", "Dica: skills chegam com o nível; o rank delas sobe com a Mestra de Skills, a oeste da praça.", "Feira do Trigo na praça todos os dias. A Estátua do Fundador fica no pátio do portão norte."]],
 	"guard_s": ["Guarda", "guard", Color(0.6, 0.6, 0.75), ["O portão sul leva ao lago dos slimes. Monstros fracos, bons para começar."]],
 	"guard_e": ["Guarda", "guard", Color(0.6, 0.6, 0.75), ["Estrada leste: bosque dos javalis e, no fim do vale, o desfiladeiro da Floresta (nível 10+)."]],
 	"guard_w": ["Guarda", "guard", Color(0.6, 0.6, 0.75), ["Oeste: a ponte do rio, a clareira do Rei Javali e a passagem para as Ruínas (nível 20+)."]],
@@ -1710,6 +1736,7 @@ static func _aldara() -> MapDef:
 		npcs.append(_npc(nid, n[0], float(p[0]), float(p[1]), n[1], n[2], n[3], float(p[2]), MERCHANT_SHOP + GearCatalog.shop_ids() + GearCatalog.starter_weapon_ids(GameData.items) if nid == "merchant" else []))
 	npcs.append_array(_place_npcs("city_aldara", npc_pos))
 	npcs.append_array(crystal_npc("city_aldara"))
+	npcs.append_array(trainer_npc("city_aldara"))
 	npcs.append_array(villagers())
 	npcs.append_array(living_npcs(LIVING_NPCS["city_aldara"]))
 	npcs.append_array(festival("city_aldara"))
@@ -1727,7 +1754,7 @@ static func _aldara() -> MapDef:
 static func _forest() -> MapDef:
 	var z := load_zone("field_forest")
 	var p: Array = z["npc_pos"].get("ranger_post", [0.0, 0.0, 180.0])
-	var extra := _place_npcs("field_forest", z["npc_pos"]) + forest_npcs(z["npc_pos"]) + villagers(POST_VILLAGERS) + living_npcs(LIVING_NPCS["field_forest"]) + crystal_npc("field_forest")
+	var extra := _place_npcs("field_forest", z["npc_pos"]) + forest_npcs(z["npc_pos"]) + villagers(POST_VILLAGERS) + living_npcs(LIVING_NPCS["field_forest"]) + crystal_npc("field_forest") + trainer_npc("field_forest")
 	z.erase("npc_pos")
 	z.merge({
 		"id": "field_forest", "name": "Floresta Sombria", "is_town": false, "hub": true, "level_range": Vector2i(10, 20),
@@ -1791,7 +1818,7 @@ static func _grove() -> MapDef:
 ## Cidade Élfica: tools/blender/zones/build_elf_city.py (anel élfico em volta da Árvore-Mãe Ancestral; cerco humano na entrada sul).
 static func _elf_city() -> MapDef:
 	var z := load_zone("elf_city")
-	var extra := _place_npcs("elf_city", z["npc_pos"]) + villagers(ELF_CITIZENS)
+	var extra := _place_npcs("elf_city", z["npc_pos"]) + villagers(ELF_CITIZENS) + trainer_npc("elf_city")
 	z.erase("npc_pos")
 	z.merge({
 		"id": "elf_city", "name": "Cidade Élfica", "is_town": false, "level_range": Vector2i(17, 21),
@@ -1805,7 +1832,7 @@ static func _elf_city() -> MapDef:
 static func _ruins() -> MapDef:
 	var z := load_zone("field_ruins")
 	var p: Array = z["npc_pos"].get("ruins_scholar", [0.0, 0.0, 180.0])
-	var extra := _place_npcs("field_ruins", z["npc_pos"]) + dawn_services(z["npc_pos"]) + dawn_garrison(z["npc_pos"]) + crystal_npc("field_ruins") + festival("field_ruins")
+	var extra := _place_npcs("field_ruins", z["npc_pos"]) + dawn_services(z["npc_pos"]) + dawn_garrison(z["npc_pos"]) + crystal_npc("field_ruins") + trainer_npc("field_ruins") + festival("field_ruins")
 	var bp: Array = z["npc_pos"].get("port_captain_bren", [0.0, 0.0, 180.0])
 	extra.append(_npc("port_captain_bren", BREN[0], float(bp[0]), float(bp[1]), BREN[1], BREN[2], BREN[3], float(bp[2])))
 	z.erase("npc_pos")
@@ -1846,6 +1873,7 @@ static func _port() -> MapDef:
 			d["model"] = ex["model"]
 		d["look_seed"] = 500 + nid.length() * 11
 		npcs.append(d)
+	npcs.append_array(trainer_npc("city_port"))
 	npcs.append_array(festival("city_port", FESTIVAL_ACT2, VICTORY2_QUEST))   # fim do Ato II
 	for d in dawn_garrison(npc_pos, "port_g_"):           # guarnição: Balance.PORT_GUARD_POWER (vida ainda x PORT_GUARD_HP)
 		d["hp_power"] = Balance.PORT_GUARD_HP
@@ -2040,6 +2068,7 @@ static func _kharzun() -> MapDef:
 		d["respawn"] = KHARZUN_RESPAWN
 		npcs.append(d)
 	npcs.append_array(crystal_npc("field_kharzun"))
+	npcs.append_array(trainer_npc("field_kharzun"))
 	npcs.append_array(festival("field_kharzun", FESTIVAL_ACT2, VICTORY2_QUEST))   # K4: festa no acampamento
 	for pt in z["portals"]:                          # a volta às Estepes é livre (o id to_field_steppe é o portão da Costa)
 		if pt["target_map"] == "field_steppe":

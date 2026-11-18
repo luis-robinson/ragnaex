@@ -2384,6 +2384,32 @@ func _bag_shot(path: String) -> void:
 			main.hud.npc_ui.open(smith_id)
 			main.hud.npc_ui.mode = "enhance"
 			main.hud.npc_ui._rebuild()
+	if DevArgs.has("--trainer"):          # Mestre de Skills: ouro + materiais de amostra, painel aberto sem exigir o NPC por perto
+		var tp := Sim.player
+		tp.gold = int(DevArgs.value("--gold", "3000"))
+		for mats in Balance.SKILL_RANK_MATS.slice(0, 3):
+			tp.add_item(str(mats[0]), 6)
+			tp.add_item(str(mats[1]), 1)
+		var sks: Array = main.hud.npc_ui.trainer_skills(Sim, tp)
+		for i in range(mini(3, sks.size())):        # alguns ranks feitos: gomos, máximo e custos maiores à vista
+			tp.mastery[sks[i]] = [5, 2, 1][i]
+		main.hud.windows_script.close_all()
+		var tid := ""
+		for mid in GameData.maps:
+			for n in GameData.maps[mid].npcs:
+				if n.get("role", "") in Balance.SKILL_TRAINER_ROLES and tid == "":
+					tid = n["id"]
+		var ui = main.hud.npc_ui
+		ui.trainer_free = true
+		if tid != "":
+			ui.open(tid)
+		else:                                # sem NPC no catálogo ainda: painel com um Mestre de mentira
+			ui.npc_id = "trainer_dev"
+			ui.npc = {"id": "trainer_dev", "name": "Mestre de Skills", "role": "trainer"}
+		ui.mode = "trainer"
+		ui._rebuild()
+		if DevArgs.has("--new_skill_demo"):   # cartão de skill nova do level-up
+			main.hud._notify("Nova skill: %s (tecla K)" % GameData.skills[sks[0]].name)
 	if DevArgs.has("--shop"):             # loja do mercador com a bolsa de amostra (revisar compra/venda)
 		Sim.player.gold = 350
 		main.hud.windows_script.close_all()
@@ -2682,8 +2708,7 @@ func _soak(delta: float) -> void:
 		Sim._process_map_changes()
 		p.level = 12
 		p.mastery_points = 40
-		for sid in p.class_def.skill_ids:          # aprende o que der e enche a barra
-			Sim.learn_skill(p, sid)
+		Sim.grant_level_skills(p)                  # skills do nível 12 e enche a barra
 		p.recompute_stats()
 		var k := 0
 		for cid in ["paladin", "bishop", "elementalist"]:      # grupo de bots junto, brigando também

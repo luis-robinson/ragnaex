@@ -5,7 +5,7 @@ var hud
 var win: PanelContainer = null
 var npc_id := ""
 var npc: Dictionary = {}
-var mode := "dialog"   # dialog | shop | craft
+var mode := "dialog"   # dialog | shop | craft | enhance | storage | relic | trainer
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -13,6 +13,7 @@ func _ready() -> void:
 	Events.item_gained.connect(func(id, _i, _c): _refresh_if_mine(id))      # só o que é do jogador (bots pegam itens o tempo todo)
 	Events.item_removed.connect(func(id, _i, _c): _refresh_if_mine(id))
 	Events.quest_completed.connect(func(id, _q): _refresh_if_mine(id))
+	Events.mastery_changed.connect(func(id, _s, _l): _refresh_if_mine(id))   # rank subiu (Mestre de Skills)
 
 func _process(_delta: float) -> void:
 	if win != null and npc_id != "":
@@ -88,6 +89,7 @@ func _rebuild() -> void:
 		"enhance": _enhance(body)
 		"storage": _storage(body)
 		"relic": _relic(body)
+		"trainer": _trainer(body)
 	win.reset_size()
 	win.position = (get_viewport_rect().size - win.size) * 0.5
 	if compact:
@@ -276,8 +278,16 @@ func _on_reset_pressed(b: Button) -> void:
 
 ## Dica ao passar o mouse: texto pronto ou Callable que monta o texto na hora.
 func _tip(c: Control, tip: Variant) -> void:
-	c.mouse_entered.connect(func(): hud.windows_script.show_tip(tip.call() if tip is Callable else str(tip)))
-	c.mouse_exited.connect(hud.windows_script.hide_tip)
+	c.mouse_entered.connect(_show_tip.bind(tip))
+	c.mouse_exited.connect(_hide_tip)
+
+func _show_tip(tip: Variant) -> void:
+	if hud:              # sem HUD (painel montado no teste): sem dica
+		hud.windows_script.show_tip(tip.call() if tip is Callable else str(tip))
+
+func _hide_tip() -> void:
+	if hud:
+		hud.windows_script.hide_tip()
 
 func _on_relic_click(ev: InputEvent, item_id: String) -> void:
 	if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
@@ -415,6 +425,8 @@ func _dialog(body: VBoxContainer) -> void:
 			actions.add_child(UiKit.button("Aprimorar (+1 a +9)", func(): mode = "enhance"; _rebuild(), 170))
 		"alchemy":
 			actions.add_child(UiKit.button("Usar o caldeirão", func(): mode = "craft"; _rebuild(), 140))
+		"trainer":
+			actions.add_child(UiKit.button("Aprimorar skills", func(): mode = "trainer"; _rebuild(), 170))
 		"storage":
 			actions.add_child(UiKit.button("Abrir o depósito", func(): mode = "storage"; _rebuild(), 160))
 		"relic":
@@ -714,3 +726,195 @@ func _craft(body: VBoxContainer) -> void:
 		h.add_child(b)
 	body.add_child(UiKit.hsep())
 	body.add_child(UiKit.button("← Voltar", func(): mode = "dialog"; _rebuild(), 100))
+
+# ---------------------------------------------------------------------------
+## Mestre de Skills: sobe o rank (1-5, a maestria de sempre) das skills aprendidas com ouro + materiais da faixa da
+## skill. Uma linha por skill: ícone, nome, rank com gomos, o que o próximo rank dá, custo (tem/precisa, vermelho se
+## falta), nível exigido e "Aprimorar" (cinza com o motivo na dica). Quem decide é a sim (Sim.skill_rank_*).
+
+var trainer_free := false     # só dev (--trainer): sem exigir o Mestre por perto (ProgressionSystem.rank_error ignore_npc)
+var trainer_rows := {}        # id da skill -> botão "Aprimorar" do painel aberto (testes e revisão)
+const TRAINER_MAT_PX := 30
+
+## Skills que o Mestre treina, na ordem do painel: as da barra (na ordem das teclas), depois as da build principal,
+## as gerais da classe e as das outras builds, cada grupo por nível. Ascensão fica de fora (rank na teia própria).
+static func trainer_skills(sim: WorldSim, p: SimEntity) -> Array:
+	var out: Array = []
+	if p == null or p.class_def == null:
+		return out
+	for sk in p.skills:
+		if sk and not sk.ascension and p.knows(sk.id) and sk.id in p.class_def.skill_ids and not out.has(sk.id):
+			out.append(sk.id)
+	var main := ProgressionSystem.main_build(sim, p)
+	var rest: Array = []
+	for sid in p.class_def.skill_ids:
+		var s: SkillDef = GameData.skills.get(sid)
+		if s and not s.ascension and p.knows(sid) and not out.has(sid):
+			rest.append(s)
+	rest.sort_custom(_trainer_order.bind(main))
+	for s in rest:
+		out.append(s.id)
+	return out
+
+static func _trainer_order(a: SkillDef, b: SkillDef, main: String) -> bool:
+	var ga := 0 if a.build == main else (1 if a.build == "" else 2)
+	var gb := 0 if b.build == main else (1 if b.build == "" else 2)
+	if ga != gb:
+		return ga < gb
+	if a.build != b.build:
+		return a.build < b.build
+	if a.unlock_level != b.unlock_level:
+		return a.unlock_level < b.unlock_level
+	return a.id < b.id
+
+## O que o próximo rank dá, em uma linha: totais de agora → do próximo (poder, recarga, MP, bônus de buff/forma)
+## e o que o rank novo acrescenta (atordoar, escudo...). Ex.: "Rank 3: poder +24% → +36% · recarga -10% → -15%".
+static func rank_step_text(s: SkillDef, cur: int) -> String:
+	var nxt := cur + 1
+	var e0 := s.mastery_entry(cur)
+	var e1 := s.mastery_entry(nxt)
+	var parts: Array = []
+	if s.effects.has("form") or s.effects.get("buff") is Dictionary:
+		var bon := Balance.MASTERY_BONUS_PCT * 100.0
+		parts.append("bônus %s +%d%% → +%d%%" % ["da forma" if s.effects.has("form") else "do efeito", roundi(bon * cur), roundi(bon * nxt)])
+	var pw0 := roundi((float(e0.get("power_mult", 1.0)) - 1.0) * 100.0)
+	var pw1 := roundi((float(e1.get("power_mult", 1.0)) - 1.0) * 100.0)
+	if s.power > 0.0 and pw1 != pw0:
+		parts.append("%s +%d%% → +%d%%" % ["cura" if s.kind == SkillDef.Kind.HEAL else "poder", pw0, pw1])
+	for k in [["cd_mult", "recarga"], ["mp_mult", "MP"]]:
+		var a := roundi((1.0 - float(e0.get(k[0], 1.0))) * 100.0)
+		var b := roundi((1.0 - float(e1.get(k[0], 1.0))) * 100.0)
+		if a != b:
+			parts.append("%s -%d%% → -%d%%" % [k[1], a, b])
+	var ex0: Dictionary = e0.get("extra", {})
+	var ex1: Dictionary = e1.get("extra", {})
+	for k in ex1:
+		if not ex0.has(k) or str(ex0[k]) != str(ex1[k]):
+			parts.append(TreeCatalog._extra_text(k, ex1[k]))
+	return "Rank %d: %s" % [nxt, " · ".join(parts) if not parts.is_empty() else "melhora a skill"]
+
+## Motivo para não subir ("" = dá). No caminho de revisão (--trainer) o Mestre não precisa estar perto.
+func rank_error(p: SimEntity, sid: String) -> String:
+	if trainer_free:
+		return ProgressionSystem.rank_error(Sim, p, sid, true)
+	return Sim.skill_rank_error(p, sid)
+
+func _trainer(body: VBoxContainer) -> void:
+	var p: SimEntity = Sim.player
+	trainer_rows.clear()
+	win.custom_minimum_size = Vector2(860, 480)
+	_scroll.custom_minimum_size = Vector2(830, 430)
+	body.add_child(UiKit.label("Ouro: %d   ·   Nível: %d" % [p.gold, p.level], 13, UiKit.GOLD))
+	body.add_child(UiKit.para("Cada rank (até %d) deixa a skill mais forte. O rank pede o nível da skill + %d por rank já feito e se paga em ouro e materiais da faixa da skill (o raro só do rank %d em diante). Aprimorada e Ágil continuam na teia (K)." % [
+		Balance.MASTERY_MAX, Balance.SKILL_RANK_LEVEL_STEP, Balance.SKILL_RANK_RARE_FROM], 11, UiKit.MUTED))
+	var ids := trainer_skills(Sim, p)
+	if ids.is_empty():
+		body.add_child(UiKit.para("Você ainda não conhece nenhuma skill para treinar.", 12, UiKit.MUTED))
+	var bar_n := 0
+	for sk in p.skills:
+		if sk and sk.id in ids:
+			bar_n += 1
+	for i in range(ids.size()):
+		if i == 0 and bar_n > 0:
+			body.add_child(UiKit.label("Na barra", 13, UiKit.GOLD))
+		elif i == bar_n:
+			body.add_child(UiKit.label("Outras skills aprendidas", 13, UiKit.GOLD))
+		body.add_child(_trainer_row(p, GameData.skills[ids[i]], i < bar_n))
+	body.add_child(UiKit.hsep())
+	body.add_child(UiKit.button("← Voltar", func(): mode = "dialog"; _rebuild(), 100))
+
+func _trainer_row(p: SimEntity, s: SkillDef, on_bar: bool) -> Control:
+	var cur := p.mastery_of(s.id)
+	var maxed := cur >= Balance.MASTERY_MAX
+	var err := "" if maxed else rank_error(p, s.id)
+	var edge := UiKit.GOLD.darkened(0.3) if maxed else (Color(0.5, 0.9, 0.5) if err == "" else Color(0.3, 0.28, 0.35))
+	var card := UiKit.panel(UiKit.BG_LIGHT, edge)
+	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	_tip(card, UiKit.skill_tooltip(p, s))
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 10)
+	card.add_child(h)
+	var ic := UiKit.skill_icon(s, 40)
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(ic)
+	# nome, rank com gomos e o que o próximo dá
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 2)
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(v)
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 8)
+	v.add_child(top)
+	var key := p.slot_of(s.id)
+	top.add_child(UiKit.label(("[%s] " % ActionBar.key_of(key) if on_bar and key >= 0 else "") + s.name, 14, UiKit.GOLD if maxed else UiKit.TEXT))
+	top.add_child(_rank_pips(cur))
+	top.add_child(UiKit.label("M%d/%d" % [cur, Balance.MASTERY_MAX], 12, UiKit.GOLD if cur > 0 else UiKit.MUTED))
+	var bname := "Geral"
+	for bd in p.class_def.builds:
+		if bd["id"] == s.build:
+			bname = str(bd.get("name", s.build))
+	top.add_child(UiKit.label(bname, 11, UiKit.MUTED))
+	if maxed:
+		v.add_child(UiKit.para("Rank máximo: a skill já está no auge do treino.", 11, UiKit.GOLD))
+	else:
+		v.add_child(UiKit.para(rank_step_text(s, cur), 11, Color(0.7, 0.9, 1.0)))
+	# custo: ouro, materiais (tem/precisa) e o nível exigido
+	if not maxed:
+		var c := Sim.skill_rank_cost(p, s.id)
+		var cost := HBoxContainer.new()
+		cost.add_theme_constant_override("separation", 6)
+		cost.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(cost)
+		var gold := int(c.get("gold", 0))
+		var gl := UiKit.label("%d ouro" % gold, 13, UiKit.GOLD if p.gold >= gold else Color(1.0, 0.45, 0.4))
+		gl.custom_minimum_size.x = 72
+		gl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		cost.add_child(gl)
+		var items: Dictionary = c.get("items", {})
+		var shown := 0
+		for iid in items:
+			var it: ItemDef = GameData.items.get(iid)
+			if it == null:
+				continue
+			var have := int(p.inventory.get(iid, 0))
+			var need := int(items[iid])
+			var cell := UiKit.icon_cell(it, TRAINER_MAT_PX, Color.WHITE if have >= need else Color(0.6, 0.5, 0.5, 0.9))
+			UiKit.corner_label(cell, "%d/%d" % [have, need], TRAINER_MAT_PX, false, Color(0.6, 1.0, 0.6) if have >= need else Color(1.0, 0.45, 0.4))
+			_tip(cell, "%s\nTem %d · precisa %d" % [it.name, have, need])
+			cost.add_child(cell)
+			shown += 1
+		for i in range(2 - shown):            # coluna fixa: o nível e o botão ficam alinhados de linha a linha
+			var gap := Control.new()
+			gap.custom_minimum_size = Vector2(TRAINER_MAT_PX, TRAINER_MAT_PX)
+			cost.add_child(gap)
+		var lv := int(c.get("level", 1))
+		var lvl := UiKit.label("Nv %d" % lv, 12, UiKit.TEXT if p.level >= lv else Color(1.0, 0.45, 0.4))
+		lvl.custom_minimum_size.x = 42
+		cost.add_child(lvl)
+	var b := UiKit.button("Máximo" if maxed else "Aprimorar", _do_rank.bind(s.id), 104)
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.disabled = maxed or err != ""
+	b.tooltip_text = ("Rank %d/%d" % [cur, Balance.MASTERY_MAX]) if maxed else (err if err != "" else "Subir para o rank %d" % (cur + 1))
+	h.add_child(b)
+	trainer_rows[s.id] = b
+	return card
+
+## Gomos do rank (um por nível até MASTERY_MAX; dourado até o atual).
+func _rank_pips(cur: int) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 3)
+	row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	for i in range(Balance.MASTERY_MAX):
+		var pip := Panel.new()
+		pip.custom_minimum_size = Vector2(10, 10)
+		pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var on := i < cur
+		pip.add_theme_stylebox_override("panel", UiKit.panel_style(UiKit.GOLD if on else Color(0.14, 0.12, 0.17), UiKit.GOLD.darkened(0.2) if on else Color(0.4, 0.37, 0.45), 5, 1))
+		row.add_child(pip)
+	return row
+
+func _do_rank(sid: String) -> void:
+	var ok := ProgressionSystem.rank_up(Sim, Sim.player, sid, true) if trainer_free else Sim.skill_rank_up(Sim.player, sid)
+	if ok:
+		hud.windows_script.hide_tip()
+		_rebuild()
