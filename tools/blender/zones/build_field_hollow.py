@@ -138,15 +138,16 @@ def build(export=False):
                                                                     C(6.2, 160.0), C(13.5, -72.0), C(13.5, 150.0))]
 
     # ---------- monstros (ids do plano; modelos mob_<id> feitos à parte) ----------
-    z.spawner("wasp", MEADOW[0] - 2, MEADOW[1] + 3, 10, 5, 12.0)                 # Prado de Flores
-    z.spawner("wasp", MEADOW2[0], MEADOW2[1] + 1, 7, 4, 12.0)
-    z.spawner("wasp_soldier", -60, 35, 6, 3, 16.0)                               # guardam o caminho do aprendiz
-    z.spawner("wasp", HIVE[0] - 9, HIVE[1] + 2, 6, 4, 12.0)                      # em volta da Colmeia
-    z.spawner("wasp_soldier", HIVE[0] + 8, HIVE[1] + 4, 6, 3, 16.0)
+    # 2026-11-18 playtest: +25% de bichos (31 -> 39 comuns; chefe, colmeia e ursos da toca iguais)
+    z.spawner("wasp", MEADOW[0] - 2, MEADOW[1] + 3, 10, 6, 12.0)                 # Prado de Flores
+    z.spawner("wasp", MEADOW2[0], MEADOW2[1] + 1, 7, 5, 12.0)
+    z.spawner("wasp_soldier", -60, 35, 6, 4, 16.0)                               # guardam o caminho do aprendiz
+    z.spawner("wasp", HIVE[0] - 9, HIVE[1] + 2, 6, 5, 12.0)                      # em volta da Colmeia
+    z.spawner("wasp_soldier", HIVE[0] + 8, HIVE[1] + 4, 6, 4, 16.0)
     z.spawner("hive", HIVE[0], HIVE[1] + 1.5, 1, 1, 150.0)
-    z.spawner("bear_cub", CUBS[0], CUBS[1], 7, 4, 16.0)
-    z.spawner("bear_cub", SLOPE[0] - 7, SLOPE[1] - 5, 6, 3, 16.0)                # Encosta dos Ursos
-    z.spawner("bear", SLOPE[0] + 5, SLOPE[1] + 1, 7, 3, 20.0)
+    z.spawner("bear_cub", CUBS[0], CUBS[1], 7, 5, 16.0)
+    z.spawner("bear_cub", SLOPE[0] - 7, SLOPE[1] - 5, 6, 4, 16.0)                # Encosta dos Ursos
+    z.spawner("bear", SLOPE[0] + 5, SLOPE[1] + 1, 7, 4, 20.0)
     z.spawner("bear", 60, 44, 5, 2, 20.0)                                        # na trilha da toca
     z.spawner("bear_mother", den[0] + 1.5, den[1] + 1.5, 2, 1, 150.0)            # Toca da Ursa (chefe de campo)
 
