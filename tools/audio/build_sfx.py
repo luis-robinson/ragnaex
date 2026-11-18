@@ -718,6 +718,88 @@ def s_drum_tear(rng):
 	return out
 
 
+def _buzz(dur, f, rng, vib=7.0):
+	"""Zumbido de asa: dente-de-serra grave com batida rápida (a asa) e vibrato lento."""
+	n = n_of(dur)
+	out, ph = [], 0.0
+	beat = rng.uniform(170, 210)
+	for i in range(n):
+		t = i / SR
+		u = i / n
+		ph += 2 * math.pi * f * (1 + 0.04 * math.sin(2 * math.pi * vib * t)) / SR
+		v = sum(math.sin(ph * k) / k for k in range(1, 7)) * 0.6
+		v *= 0.55 + 0.45 * abs(math.sin(math.pi * beat * t))
+		out.append(v * min(1.0, u / 0.12) * min(1.0, (1 - u) / 0.25))
+	return bandpass(out, 160, 3200)
+
+
+def s_wasp_buzz(rng):
+	"""Vespa avistando você (Mata dos Zumbidos): zumbido que chega perto e sobe de tom."""
+	dur = rng.uniform(0.6, 0.8)
+	f = rng.uniform(210, 250)
+	out = _buzz(dur, f, rng)
+	up = _buzz(0.25, f * 1.35, rng, vib=12.0)
+	add(out, up, dur - 0.3, 0.6)
+	return out
+
+
+def s_wasp_die(rng):
+	"""Vespa caindo: o zumbido despenca de tom e para com um estalinho."""
+	out = zeros(0.55)
+	n = n_of(0.45)
+	ph, buzz = 0.0, []
+	f0 = rng.uniform(230, 260)
+	for i in range(n):
+		u = i / n
+		f = f0 * 0.35 ** u
+		ph += 2 * math.pi * f / SR
+		buzz.append(sum(math.sin(ph * k) / k for k in range(1, 6)) * 0.6 * (0.55 + 0.45 * abs(math.sin(math.pi * 190 * i / SR))) * (1 - u))
+	add(out, bandpass(buzz, 120, 2800), 0.0, 0.9)
+	add(out, highpass(noise(0.015, rng, decay=160), 2500), 0.45, 0.5)
+	return out
+
+
+def s_bear_growl(rng):
+	"""Urso (Mata dos Zumbidos): rosnado grave e áspero, com o bafo por cima."""
+	dur = rng.uniform(0.8, 1.0)
+	f = rng.uniform(85, 100)
+	body = tone(dur, f, f * 0.85, kind="saw", decay=1.5, attack=0.06)
+	rough = lowpass(noise(dur, rng, decay=1.2, attack=0.05), 420)
+	rate = rng.uniform(28, 34)
+	out = [a + 0.8 * r * (0.5 + 0.5 * math.sin(i / SR * 2 * math.pi * rate)) for i, (a, r) in enumerate(zip(body, rough))]
+	add(out, bandpass(noise(dur, rng, decay=2.0, attack=0.04), 600, 2000), 0.0, 0.15)
+	return swell(lowpass(out, 1500), 0.3)
+
+
+def s_bear_roar(rng):
+	"""Rugido da Ursa-Mãe (lentidão em área): abre grave, cresce e rasga, com o peito ressoando."""
+	dur = rng.uniform(1.3, 1.5)
+	n = n_of(dur)
+	lo = rng.uniform(95, 110)
+	out, ph = [], 0.0
+	for i in range(n):
+		u = i / n
+		f = lo * (1.5 ** (u / 0.3) if u < 0.3 else 1.5 * 0.7 ** ((u - 0.3) / 0.7))
+		ph += 2 * math.pi * f / SR
+		v = math.sin(ph) + 0.6 * math.sin(2 * ph) + 0.35 * math.sin(3 * ph) + 0.15 * math.sin(5 * ph)
+		out.append(v * min(1.0, u / 0.08) * min(1.0, (1 - u) / 0.35))
+	rasp = lowpass(noise(dur, rng, decay=0.5, attack=0.08), 900)
+	out = [a + 0.9 * r * abs(a) for a, r in zip(out, rasp)]
+	add(out, tone(dur, 48, 40, decay=1.5, harm=[(1.5, 0.3)]), 0.0, 0.5)
+	return lowpass(out, 2400)
+
+
+def s_hive_crack(rng):
+	"""Colmeia gigante caindo: papel da colmeia rachando, o miolo de cera desabando e um último zumbido que some."""
+	out = zeros(1.4)
+	for _ in range(12):
+		add(out, bandpass(noise(0.05, rng, decay=60), 900, 4500), rng.uniform(0.0, 0.5), rng.uniform(0.3, 0.6))
+	add(out, tone(0.6, 75, 38, decay=5), 0.35, 0.8)
+	add(out, lowpass(noise(0.3, rng, decay=10, attack=0.002), 900), 0.35, 0.7)
+	add(out, _buzz(0.8, rng.uniform(200, 230), rng), 0.5, 0.35)
+	return out
+
+
 def s_ui_open(rng):
 	return tone(0.09, 520, 820, decay=30, attack=0.002)
 
@@ -745,6 +827,9 @@ SYNTH = {
 	"boulder": (s_boulder, 3), "banner_plant": (s_banner_plant, 2),
 	# assinaturas dos chefes (design/gdd/act2-boss-signatures.md): aviso do desenho no chão e o tambor que rasga
 	"sig_warn": (s_sig_warn, 2), "drum_tear": (s_drum_tear, 2),
+	# Mata dos Zumbidos (4-8): vespas, ursos e a colmeia
+	"wasp_buzz": (s_wasp_buzz, 3), "wasp_die": (s_wasp_die, 2), "bear_growl": (s_bear_growl, 3),
+	"bear_roar": (s_bear_roar, 2), "hive_crack": (s_hive_crack, 2),
 }
 
 

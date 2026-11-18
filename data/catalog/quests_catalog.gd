@@ -14,7 +14,7 @@ static func _mk(d: Dictionary) -> QuestDef:
 	CatalogUtil.fill(q, d)
 	return q
 
-const HUNT_GIVERS := {"city_aldara": "board", "field_forest": "stone_druid", "field_ruins": "dawn_board", "elf_city": "moon_altar",
+const HUNT_GIVERS := {"city_aldara": "board", "field_hollow": "hollow_brena", "field_forest": "stone_druid", "field_ruins": "dawn_board", "elf_city": "moon_altar",
 	"fort_ghoul": "dawn_board", "fort_bones": "dawn_board", "fort_frost": "dawn_board", "lich_citadel": "dawn_board",
 	"field_coast": "ptav_board", "city_port": "ptav_board",
 	"field_steppe": "wind_totem", "fort_trolls": "wind_totem", "fort_fire": "wind_totem", "fort_war": "wind_totem",
@@ -61,7 +61,7 @@ static func hunts(monsters: Dictionary, maps: Dictionary, existing: Dictionary) 
 	var out: Array = []
 	for id in monsters:
 		var m: MonsterDef = monsters[id]
-		if m.is_boss or m.xp <= 0 or covered.has(id) or not where.has(id):
+		if m.is_boss or m.xp <= 0 or m.move_speed <= 0.0 or covered.has(id) or not where.has(id):      # parado (Colmeia): 10 por caçada não fecha
 			continue
 		var giver: String = HUNT_GIVERS.get(zone_of.get(id, ""), "board")
 		var n: int = Balance.HUNT_COUNT
@@ -72,6 +72,66 @@ static func hunts(monsters: Dictionary, maps: Dictionary, existing: Dictionary) 
 			"dialog_offer": "Precisamos de %d %s a menos. Volte quando quiser repetir." % [n, m.name],
 			"dialog_progress": "Procure em %s." % where[id], "dialog_complete": "Pago. O trabalho continua amanhã."}))
 	return out
+
+## Mata dos Zumbidos (4-8): ramo lateral ao sul de Aldara, acampamento da Mateira Brena. Não trava nada da história
+## (a Floresta continua abrindo por c5_report); a XP entra na faixa 1-10 pelo scale_xp como as outras.
+static func hollow() -> Array:
+	return [
+		{"id": "m0_rumor", "title": "Zumbido na Mata do Sul", "giver_npc": "captain", "turnin_npc": "hollow_brena", "type": TALK, "target_id": "hollow_brena", "count": 1, "level_req": 4,
+		 "reward_xp": 60, "reward_gold": 20, "reward_items": {"potion_hp_s": 2}, "map_hint": "Mata dos Zumbidos (gorja a sudoeste do vale, depois da fazenda)",
+		 "description": "Os mateiros do sul pediram ajuda. Vá até a Mata dos Zumbidos e fale com a Mateira Brena no acampamento.",
+		 "dialog_offer": "Chegou um recado da mata do sul: vespas do tamanho de um punho e ursos rondando o acampamento dos mateiros. A Mateira Brena paga quem ajudar. A gorja fica a sudoeste, passando a fazenda.",
+		 "dialog_progress": "Siga a estrada da fazenda até a gorja no sudoeste do vale. O acampamento fica no meio da mata, é só seguir a trilha.",
+		 "dialog_complete": "A Capitã mandou você? Que bom. Aqui a mata é fechada: fique nas trilhas e escute o zumbido antes de ver a vespa."},
+		{"id": "m1_wasps", "title": "Vespas no Prado", "giver_npc": "hollow_brena", "type": KILL, "target_id": "wasp", "count": 10, "level_req": 4, "prereq_quest": "m0_rumor",
+		 "reward_xp": 160, "reward_gold": 45, "reward_items": {"potion_hp_s": 3}, "map_hint": "Mata dos Zumbidos: Prado de Flores (oeste)",
+		 "description": "Abata 10 Vespas no Prado de Flores, a oeste do acampamento.",
+		 "dialog_offer": "As vespas tomaram o prado a oeste. Ninguém colhe nada lá. Derrube 10 delas.",
+		 "dialog_progress": "Vespa vem em bando e é rápida. Puxe de uma ou duas por vez e use uma skill de área (1-6) quando elas se juntarem em você.",
+		 "dialog_complete": "Já dá para ouvir os passarinhos de novo. Osvaldo e Rui também querem falar com você."},
+		{"id": "m2_honey", "title": "Favos Perdidos", "giver_npc": "hollow_osvaldo", "type": COLLECT, "target_id": "honey_comb", "count": 6, "level_req": 5, "prereq_quest": "m1_wasps",
+		 "reward_xp": 200, "reward_gold": 55, "reward_items": {"potion_hp_s": 2, "potion_mp_s": 2}, "map_hint": "Mata dos Zumbidos: clareira da Colmeia (norte)",
+		 "description": "Recolha 6 Favos de Mel para o Apicultor Osvaldo: caixas caídas perto da Colmeia, vespas-soldado e ursos.",
+		 "dialog_offer": "Os ursos derrubaram minhas caixas de abelha e as vespas grandes se mudaram para a clareira do norte. Me traga 6 favos.",
+		 "dialog_progress": "As caixas caídas ficam na clareira da Colmeia: chegue perto e aperte F para colher. Vespas-soldado e ursos também carregam favos.",
+		 "dialog_complete": "Mel bom, escuro, de flor de mata. A alquimista de Aldara vai chorar quando eu cobrar o preço."},
+		{"id": "m3_cubs", "title": "Filhotes Atrevidos", "giver_npc": "hollow_rui", "type": KILL, "target_id": "bear_cub", "count": 6, "level_req": 5, "prereq_quest": "m1_wasps",
+		 "reward_xp": 200, "reward_gold": 55, "reward_items": {"potion_hp_s": 2}, "map_hint": "Mata dos Zumbidos: encosta dos ursos (leste)",
+		 "description": "Afaste 6 Filhotes de Urso que rondam a trilha leste.",
+		 "dialog_offer": "Filhote de urso é bonito até roubar a carne do varal. Os da trilha leste perderam o medo da gente. Derrube 6.",
+		 "dialog_progress": "Filhote é lento e fraco, mas onde tem filhote tem urso grande. Olhe em volta antes de atacar.",
+		 "dialog_complete": "Agora eles pensam duas vezes. A mãe deles é outra história."},
+		{"id": "m4_lost", "title": "O Aprendiz Sumido", "giver_npc": "hollow_brena", "turnin_npc": "hollow_apprentice", "type": TALK, "target_id": "hollow_apprentice", "count": 1, "level_req": 6, "prereq_quest": "m1_wasps",
+		 "reward_xp": 220, "reward_gold": 40, "reward_items": {"potion_hp_m": 1}, "map_hint": "Mata dos Zumbidos: clareira distante (sudoeste)",
+		 "description": "Ache Tavinho, o aprendiz da Brena, que não voltou da clareira distante no sudoeste.",
+		 "dialog_offer": "Mandei o Tavinho buscar flor de mel no prado e ele não voltou. A última vez que o vi, ia para a clareira do sudoeste. Ache ele, por favor.",
+		 "dialog_progress": "Passe o Prado de Flores e siga para o sudoeste. Abra o mapa (M) se perder a trilha; as vespas do caminho vêm em bando.",
+		 "dialog_complete": "Você me achou! Fiquei quietinho atrás da pedra até as vespas irem embora. Diga à Brena que eu volto pela trilha, devagar."},
+		{"id": "m5_hides", "title": "Couro para o Inverno", "giver_npc": "hollow_rui", "type": COLLECT, "target_id": "bear_hide", "count": 5, "level_req": 6, "prereq_quest": "m3_cubs",
+		 "reward_xp": 260, "reward_gold": 70, "reward_items": {"elixir_stone": 1, "potion_hp_m": 2}, "map_hint": "Mata dos Zumbidos: encosta dos ursos (leste)",
+		 "description": "Traga 5 Couros de Urso para o Caçador Rui.",
+		 "dialog_offer": "O inverno aqui é longo e a gente dorme em tenda. Me traga 5 couros de urso e eu te pago com o que tenho de melhor no baú.",
+		 "dialog_progress": "Urso Pardo solta couro quase sempre; filhote, às vezes. A patada do urso grande bate em leque na frente dele: saia pelo lado ou bloqueie (botão direito).",
+		 "dialog_complete": "Couro grosso, bem tirado. Tome, isto aqui guardei para quem merecesse."},
+		{"id": "m6_hive", "title": "A Colmeia Gigante", "giver_npc": "hollow_osvaldo", "type": KILL, "target_id": "hive", "count": 1, "level_req": 7, "prereq_quest": "m2_honey",
+		 "reward_xp": 320, "reward_gold": 90, "reward_items": {"elixir_stone": 1}, "map_hint": "Mata dos Zumbidos: clareira da Colmeia (norte)",
+		 "description": "Destrua a Colmeia Gigante na clareira do norte antes que as vespas tomem a mata inteira.",
+		 "dialog_offer": "Aquela colmeia não é de abelha, é de vespa, e cresce todo dia. Enquanto ela estiver de pé, as vespas não acabam. Derrube a Colmeia.",
+		 "dialog_progress": "A Colmeia não anda nem bate, mas solta vespas enquanto você estiver perto. Mate as vespas que saírem e volte a bater nela; com grupo é bem mais rápido.",
+		 "dialog_complete": "Ouviu isso? Silêncio. Minhas abelhas vão voltar para as caixas."},
+		{"id": "m7_mother", "title": "A Ursa-Mãe", "giver_npc": "hollow_brena", "type": KILL, "target_id": "bear_mother", "count": 1, "level_req": 8, "prereq_quest": "m3_cubs", "prereq_all": ["m5_hides"] as Array[String],
+		 "reward_xp": 520, "reward_gold": 140, "reward_gear_tier": 1, "reward_items": {"elixir_might": 1}, "map_hint": "Mata dos Zumbidos: Toca da Ursa (nordeste)",
+		 "description": "Derrote a Ursa-Mãe na toca do nordeste. Leve poções.",
+		 "dialog_offer": "Os filhotes e os ursos da encosta descem porque a Ursa-Mãe tomou a toca do nordeste e expulsou todo mundo. Enquanto ela mandar, a mata não sossega.",
+		 "dialog_progress": "Quando ela erguer o corpo para rugir, saia da área: o rugido deixa você lento. A investida vem em linha reta: desvie com Shift. Se você se afastar, ela dispara em linha até você. Na metade da vida ela chama os filhotes.",
+		 "dialog_complete": "A Ursa-Mãe caiu... Era a dona desta mata antes da gente. Fique com esta peça, foi do meu pai. E conte à Capitã Mira: a mata do sul tem dono de novo."},
+		{"id": "m8_report", "title": "Notícias do Sul", "giver_npc": "hollow_brena", "turnin_npc": "captain", "type": TALK, "target_id": "captain", "count": 1, "level_req": 9, "prereq_quest": "m7_mother",
+		 "reward_xp": 180, "reward_gold": 80, "reward_items": {"potion_hp_m": 2}, "map_hint": "Capitã Mira (praça de Aldara)",
+		 "description": "Volte a Aldara e conte à Capitã Mira o que aconteceu na Mata dos Zumbidos.",
+		 "dialog_offer": "Leve a notícia à Capitã. E diga que mel não vai faltar na Feira do Trigo este ano.",
+		 "dialog_progress": "Volte pela gorja do norte da mata e procure a Capitã na praça de Aldara.",
+		 "dialog_complete": "A Ursa-Mãe? Sozinho? Os mateiros vão contar essa história na fogueira por anos. Tome, você mereceu."},
+	]
 
 static func build() -> Array:
 	var L := [
@@ -590,6 +650,7 @@ static func build() -> Array:
 		 "reward_xp": 16000, "reward_gold": 1300, "map_hint": "Ruínas: pedreira (SO)",
 		 "description": "Quebre 6 Golens de Pedra.", "dialog_offer": "As runas brilham quando os mortos caem.", "dialog_progress": "Pedreira a sudoeste.", "dialog_complete": "As runas se apagam, por enquanto."},
 	]
+	L.append_array(hollow())
 	L.append_array(act2())
 	L.append_array(act2_steppe())
 	L.append_array(act2_kharzun())

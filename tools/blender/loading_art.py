@@ -132,6 +132,8 @@ ZONES = {
                     "cam": {"at": (10, 12), "az": -45, "dist": 128, "elev": 25, "pitch": 17, "fov": 50}},
     "field_forest": {"name": "Floresta Sombria", "ground": (0.36, 0.52, 0.34), "mood": "forest",
                      "cam": {"at": (-5, 8), "az": -8, "dist": 122, "elev": 25, "pitch": 17, "fov": 50}},
+    "field_hollow": {"name": "Mata dos Zumbidos", "ground": (0.3, 0.45, 0.29), "mood": "forest",
+                     "cam": {"at": (4, 4), "az": -24, "dist": 104, "elev": 26, "pitch": 18, "fov": 50}},
     "elf_city": {"name": "Cidade Élfica", "ground": (0.42, 0.6, 0.44), "mood": "elf",
                  "cam": {"at": (0, 0), "az": 18, "dist": 155, "elev": 24, "pitch": 13, "fov": 50}},
     "field_ruins": {"name": "Bastião da Aurora", "ground": (0.55, 0.56, 0.46), "mood": "dawn", "hide": ["limpo_"],

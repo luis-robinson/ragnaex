@@ -51,7 +51,10 @@ POIS["praia"] = (LAKE[0][0], LAKE[0][1] + LAKE[1] + 7.0)      # margem sul do la
 PORTALS = {
     "to_forest": {"pos": G((104.0, -34.0)), "target_map": "field_forest", "target_pos": (-106.5, 9.3), "label": "Floresta (Lv 10-20)"},
     "to_ruins": {"pos": G((-104.0, -32.0)), "target_map": "field_ruins", "target_pos": (99.5, -5.2), "label": "Ruínas (Lv 20-30)"},
+    # garganta sul-sudoeste (rumo 206 graus), depois da fazenda e do marco: Mata dos Zumbidos (build_field_hollow)
+    "to_field_hollow": {"pos": (-54.8, 112.4), "target_map": "field_hollow", "target_pos": (33.6, -75.5), "label": "Mata dos Zumbidos (Lv 4-8)"},
 }
+HOLLOW_ARRIVE = (-51.5, 105.6)     # onde chega quem volta da Mata (= build_field_hollow.ALDARA_ARRIVE)
 # estradas (game x,z) — catmull-rom, nunca reta
 ROADS_BASE = [
     ("N", [(0, -30), (5, -44), (-6, -58), (-3, -72)]),
@@ -65,6 +68,14 @@ ROADS_BASE = [
     ("castelo_bosque", [(30, -50), (34, -36), (50, -32), (68, -24), (84, -10), (88, -4)]),
 ]
 ROADS = [(n, [G(q) for q in pts]) for n, pts in ROADS_BASE]
+# trilha da Mata: sai do fim da estrada da fazenda (lago_fazenda), cobre o começo da trilha do marco (que continua saindo para
+# oeste), passa a leste do marco e entra na garganta (já em metros do vale crescido).
+# LATE = o que entrou depois do sorteio da vegetação estar aprovado: a dispersão, os lugares (places) e os pontos de evento são
+# calculados SEM estes nomes (o JSON sai igual ao de antes, fora o que é novo) e o passe de estradas do fim limpa o caminho.
+ROADS.append(("mata", [G((-48.0, 64.0)), (-47.7, 77.1), (-44.4, 82.6), (-45.6, 90.0), (-49.0, 97.5), HOLLOW_ARRIVE, PORTALS["to_field_hollow"]["pos"]]))
+LATE_ROADS = ("mata",)
+LATE_PORTALS = ("to_field_hollow",)
+LATE_SPOTS = [(HOLLOW_ARRIVE, 5.0), (PORTALS["to_field_hollow"]["pos"], 7.0)]      # (centro, raio) sem árvore/pedra/moita
 RIVER = [G(q) for q in [(-70, -122), (-64, -86), (-57, -46), (-52, -8), (-48, 30), (-30, 60), (-8, 74)]]
 RIVER_W = 7.0
 PLACES = [
@@ -371,6 +382,7 @@ def build(export=False):
 
     # ---------- estradas e rio (polilinhas) ----------
     road_polys = {}
+    late_roads = []          # entram no fim de data["roads"] (a ordem das antigas não muda)
     for name, pts in ROADS:
         poly = catmull(pts, 1.6)
         road_polys[name] = poly
@@ -390,7 +402,7 @@ def build(export=False):
                 env = math.sin(math.pi * t) ** 0.7
                 return 0.5 * env * math.sin(t * 9.0 + ph), 1.0 + 0.16 * env * math.sin(t * 15.0 + ph * 1.7)
         ribbon(coll, P + "estrada_" + name, poly, ROAD_W, 0.012, M["road"], shape)
-        data["roads"].append({"kind": "road", "w": ROAD_W, "pts": [[round(p.x, 2), round(p.y, 2)] for p in poly[::2] + [poly[-1]]]})
+        (late_roads if name in LATE_ROADS else data["roads"]).append({"kind": "road", "w": ROAD_W, "pts": [[round(p.x, 2), round(p.y, 2)] for p in poly[::2] + [poly[-1]]]})
         # fim de estrada sem portal/vila: clareira de terra redonda (nunca termina em quina)
         if end.length > TOWN_R + 2 and not to_portal:
             disc(coll, P + "estrada_fim_" + name, (end.x, end.y), ROAD_W * 1.1, 0.011, M["road"], 20, 0.12, len(name))
@@ -545,14 +557,15 @@ def build(export=False):
     ob("pillar", tx, tz, (6.0, 9.0, 6.0), visible=False)
 
     # ---------- borda do vale: anel de penhascos facetados (gargantas nos portais) ----------
-    portal_angles = [math.atan2(p["pos"][1], p["pos"][0]) for p in PORTALS.values()]
+    portal_angles = [math.atan2(p["pos"][1], p["pos"][0]) for pid, p in PORTALS.items() if pid not in LATE_PORTALS]
+    late_angles = [math.atan2(PORTALS[pid]["pos"][1], PORTALS[pid]["pos"][0]) for pid in LATE_PORTALS]
 
     def in_gorge(a, width=0.07):
-        return any(abs((a - pa + math.pi) % math.tau - math.pi) < width for pa in portal_angles)
+        return any(abs((a - pa + math.pi) % math.tau - math.pi) < width for pa in portal_angles + late_angles)
 
     steps = 180
     nature.mountain_ring(coll, P + "penhascos", rim_r, portal_angles, [M["rock"], M["rock_d"], M["cliff_grass"], M["snow"]],
-                         ob, seed=5, boulder_col=(0.48, 0.45, 0.43))
+                         ob, seed=5, boulder_col=(0.48, 0.45, 0.43), late_gorges=late_angles)
     # colisão da borda: corrente de caixas logo fora do andável (inclusive atrás dos portais)
     for i in range(0, steps, 2):
         a = math.tau * (i + 1) / steps
@@ -562,9 +575,13 @@ def build(export=False):
         ob("cliff", math.cos(a) * r0, math.sin(a) * r0, (seg, 6.0, 7.0), rot, visible=False)
 
     # ---------- portais ----------
-    for pid, p in PORTALS.items():
-        data["portals"].append({"id": pid, "pos": p["pos"], "radius": 2.0, "target_map": p["target_map"],
-                                "target_pos": p["target_pos"], "label": p["label"]})
+    def add_portal(pid):
+        p = PORTALS[pid]
+        data["portals"].append({"id": pid, "pos": list(p["pos"]), "radius": 2.0, "target_map": p["target_map"],
+                                "target_pos": list(p["target_pos"]), "label": p["label"]})
+    for pid in PORTALS:
+        if pid not in LATE_PORTALS:
+            add_portal(pid)
 
     # ---------- vegetação e pedras (props do jogo) ----------
     # lugares (places.py) e chegadas das outras zonas reservam o chão antes da vegetação
@@ -573,9 +590,13 @@ def build(export=False):
     avoid = [(LAKE[0], LAKE[1] + 3.0), (fxz, 18.5), (CASTLE[0], CASTLE[1] + 2.0)]       # fazenda inteira, com o moinho (15 m) + [(c, r + 1.5) for c, r, _ in HILLS]
     # trail_ok: a trilha do marco sai do fim da estrada lago_fazenda (já dentro do círculo da fazenda) e chega 5 cm dentro da
     # margem; contorna cercas, feno e moinho sem tocar em nada sólido (conferido em production/qa/evidence/trails-all)
-    places.build(types.SimpleNamespace(data=data, ob=ob, coll=coll, P=P, road_polys=road_polys, rivers=[river], river_w=RIVER_W,
+    early_polys = {k: v for k, v in road_polys.items() if k not in LATE_ROADS}
+    places.build(types.SimpleNamespace(data=data, ob=ob, coll=coll, P=P, road_polys=early_polys, rivers=[river], river_w=RIVER_W,
                                        avoid=avoid, block=lambda c, r: spots.append((Vector(c), r)), trail_ok={"marco"}), PLACES)
-    blocked_polys = list(road_polys.values()) + [river]
+    road_polys.update({k: v for k, v in early_polys.items() if k not in road_polys})      # as trilhas dos lugares
+    for pid in LATE_PORTALS:
+        add_portal(pid)
+    blocked_polys = [v for k, v in road_polys.items() if k not in LATE_ROADS] + [river]
 
     def free(x, z, margin):
         p = Vector((x, z))
@@ -588,8 +609,8 @@ def build(export=False):
                 return False
         if (p - Vector(TOWER_RUIN)).length < 5 or any((p - c).length < r for c, r in spots):
             return False
-        for pp in PORTALS.values():
-            if (p - Vector(pp["pos"])).length < 7:
+        for pid, pp in PORTALS.items():
+            if pid not in LATE_PORTALS and (p - Vector(pp["pos"])).length < 7:
                 return False
         return all(poly_dist(p, poly) > margin for poly in blocked_polys)
 
@@ -751,6 +772,8 @@ def build(export=False):
     # --- vegetação baixa: arbustos na beira das estradas (não bloqueiam) e pedras no pé dos penhascos ---
     bushes = 0
     for name, poly in road_polys.items():
+        if name in LATE_ROADS:
+            continue
         for i in range(4, len(poly) - 4, 6):
             q = poly[i]
             t = (poly[i + 1] - poly[i - 1]).normalized()
@@ -782,6 +805,20 @@ def build(export=False):
     nature.woodland_floor(ob, free, nrnd, [(POIS["bosque"], 29, 34), (G((-62, -64)), 31, 34), (G((40, 70)), 19, 13)], avoid=obs)
     nature.clear_banks(obs, [river], [LAKE], RIVER_W)
     nature.shore(ob, nrnd, [river], [LAKE], list(road_polys.values()), RIVER_W)
+
+    # estradas que entraram depois (LATE_ROADS): moitas na beira com sorteio próprio, depois de todos os passes acima
+    lrnd = random.Random(97)
+    for name in LATE_ROADS:
+        poly = road_polys[name]
+        for i in range(4, len(poly) - 4, 6):
+            t = (poly[i + 1] - poly[i - 1]).normalized()
+            pos = poly[i] + Vector((-t.y, t.x)) * (1 if lrnd.random() < 0.5 else -1) * lrnd.uniform(3.8, 5.5)
+            s = lrnd.uniform(0.45, 0.65) / 0.55
+            col = (0.36, 0.6, 0.34) if lrnd.random() < 0.5 else (0.44, 0.66, 0.36)
+            if (free(pos.x, pos.y, 3.4) and all(poly_dist(pos, road_polys[n]) > 3.4 for n in LATE_ROADS)
+                    and all((pos - Vector(c)).length > r for c, r in LATE_SPOTS)
+                    and all((pos - Vector(o["pos"])).length > 2.2 for o in obs if o["visible"] and abs(o["pos"][0] - pos.x) < 4)):
+                ob("bush", pos.x, pos.y, (1.7 * s, 0.95 * s, 1.7 * s), solid=False, color=col)
 
     # ---------- spawners, NPCs, hangouts ----------
     def sp(mid, x, z, r, n, respawn):
@@ -878,6 +915,8 @@ def build(export=False):
             return False
         p = Vector(o["pos"])
         half = (max(o["size"][0], o["size"][2]) if o["kind"] == "fence" else (o["size"][0] + o["size"][2]) * 0.5) * 0.5
+        if not o.get("y") and any((p - Vector(c)).length < r + half for c, r in LATE_SPOTS):
+            return True                   # chegada e portal que entraram depois do sorteio (LATE_*)
         return any(poly_dist(p, poly) < hw + half for poly, hw in lanes)
     obs[:] = [o for o in obs if not on_lane(o)]
     print("estradas limpas: %d objetos tirados do caminho" % (before - len(obs)))
@@ -900,6 +939,7 @@ def build(export=False):
             e.scale = (o["size"][0] / 2, o["size"][2] / 2, o["size"][1] / 2)
             e.rotation_euler = (0, 0, math.radians(o["rot"]))
             sc.collection.objects.link(e)
+    data["roads"].extend(late_roads)
     for s in data["spawners"]:
         e = bpy.data.objects.new("SPAWN_mob_%s" % s["monster_id"], None)
         e.empty_display_type = "CIRCLE"

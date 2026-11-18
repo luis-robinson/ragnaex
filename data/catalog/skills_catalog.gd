@@ -192,6 +192,14 @@ static func build(classes: Dictionary) -> Array:
 		 "effects": {"barrage": {"count": 3, "radius": 2.6, "delay": 1.6, "spread": 8.0}, "dot": {"dps": 6, "duration": 3}}},
 		{"id": "mob_crab_bubbles", "name": "Bolhas do Lago", "target": T_GROUND, "kind": K_MAG, "power": 0.9, "cooldown": 11.0, "range": 14, "radius": 1.8, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.55, 0.8, 1.0), "mob_pick": "far", "vfx": "ice",
 		 "effects": {"barrage": {"count": 3, "radius": 1.8, "delay": 1.4, "spread": 7.0}, "slow": {"pct": 35, "duration": 2}}},
+		# Mata dos Zumbidos: ferrão com veneno, patada em leque, rugido que retarda (Ursa-Mãe) e o enxame da Colmeia
+		{"id": "mob_wasp_sting", "name": "Ferroada", "target": T_DIR, "kind": K_PHYS, "power": 1.1, "cooldown": 7.0, "range": 2.4, "radius": 0.9, "startup": 0.35, "active": 0.1, "recovery": 0.4, "hit_stop_frames": 2, "icon_color": Color(0.75, 0.85, 0.3), "vfx": "poison",
+		 "effects": {"dot": {"dps": 4, "duration": 4}}},
+		{"id": "mob_bear_swipe", "name": "Patada de Urso", "vfx": "blood", "target": T_CONE, "kind": K_PHYS, "power": 1.5, "cooldown": 8.0, "radius": 2.8, "cone_angle_deg": 90, "startup": 0.6, "active": 0.15, "recovery": 0.55, "hit_stop_frames": 4, "icon_color": Color(0.6, 0.4, 0.25)},
+		{"id": "mob_bear_roar", "name": "Rugido da Toca", "vfx": "blood", "target": T_SELF, "kind": K_PHYS, "power": 0.6, "cooldown": 14.0, "radius": 6.0, "startup": 1.0, "active": 0.2, "recovery": 0.6, "hit_stop_frames": 4, "icon_color": Color(0.7, 0.45, 0.3),
+		 "effects": {"slow": {"pct": 40, "duration": 3}}},
+		{"id": "mob_hive_swarm", "name": "Enxame", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 10.0, "radius": 12.0, "startup": 0.6, "active": 0.1, "recovery": 0.4, "icon_color": Color(0.95, 0.8, 0.25),
+		 "effects": {"boss_summon": {"id": "hive_wasp", "count": 2, "max": 4}}},
 		{"id": "mob_toxic_rain", "name": "Chuva Ácida", "target": T_GROUND, "kind": K_MAG, "power": 0.9, "cooldown": 12.0, "range": 12.0, "radius": 2.0, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.45, 0.85, 0.5), "mob_pick": "far",
 		 "effects": {"barrage": {"count": 3, "radius": 2.0, "delay": 1.4, "spread": 7.0}, "dot": {"dps": 5, "duration": 4}}},
 		# lacaios no ritmo da recarga (chefe: invocar vale a qualquer distância; o `max` limita quantos vivem juntos)

@@ -45,6 +45,8 @@ const TOURS := {
 	"dg_pedreira_coracao": [["galeria", Vector3(0, 0, 22)], ["coracao", Vector3(0, 0, -16)]],
 	"dg_ninho": [["entrada", Vector3(0, 0, 40)], ["salao", Vector3(20, 0, 22)], ["chefe", Vector3(-8, 0, -30)]],
 	"dg_cripta": [["entrada", Vector3(0, 0, 40)], ["salao", Vector3(-20, 0, 22)], ["chefe", Vector3(8, 0, -30)]],
+	"field_hollow": [["chegada", Vector3(33.6, 0, -75.5)], ["acampamento", Vector3(2, 0, -12)], ["prado", Vector3(-45, 0, 30)], ["colmeia", Vector3(10, 0, 58)],
+		["filhotes", Vector3(41, 0, 21)], ["ursos", Vector3(70, 0, -36)], ["toca", Vector3(50, 0, 50)], ["aprendiz", Vector3(-64, 0, 48)]],
 	"field_forest": [["ponte_leste", Vector3(32.2, 0, -2)], ["cristal_posto", Vector3(-2.5, 0, -1.5)], ["herborista", Vector3(-41, 0, 38)], ["cacador", Vector3(62, 0, -14)], ["emboscada", Vector3(38, 0, 88)], ["circulo", Vector3(-27, 0, -92)], ["ninho", Vector3(-60, 0, 86)], ["pedreira", Vector3(-74, 0, -26)],
 		["hub", Vector3(0, 0, 5)], ["chegada", Vector3(-100, 0, 9)], ["ponte", Vector3(26, 0, -6)],
 		["bandidos_portao", Vector3(52, 0, -40)], ["bandidos_centro", Vector3(66, 0, -56)], ["aranhas", Vector3(-50, 0, -50)],

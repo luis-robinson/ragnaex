@@ -150,10 +150,13 @@ LEDGE_D = (4.8, 12.2)       # início dos dois patamares
 
 
 def mountain_ring(coll, name, rim_r, portal_angles, mats, ob, seed=1, snow_line=27.0, steps=240,
-                  ledge_trees="pine", tree_cols=PINE_COLS, boulder_col=(0.5, 0.48, 0.48), gorge=0.07):
+                  ledge_trees="pine", tree_cols=PINE_COLS, boulder_col=(0.5, 0.48, 0.48), gorge=0.07, late_gorges=()):
     """Anel facetado (triângulos, ruído por vértice). mats = [rocha, rocha escura, grama, neve ou None].
     Patamares a ~30% e ~55% da altura ganham grama e árvores (props com "y"); pedras grandes no pé.
-    Os primeiros 8 m depois do andável ficam baixos: a câmera a 52° não esbarra na encosta."""
+    Os primeiros 8 m depois do andável ficam baixos: a câmera a 52° não esbarra na encosta.
+    `late_gorges` = gargantas abertas depois que a zona já estava aprovada: a encosta baixa igual, mas o sorteio anda como
+    se ali não houvesse garganta (árvore/pedra sorteada lá é jogada fora), então o resto do anel sai igual ao de antes."""
+    late = lambda a, k=1.0: any(abs((a - pa + math.pi) % math.tau - math.pi) < gorge * k for pa in late_gorges)
     import bmesh
     import bpy
     from mathutils import noise
@@ -169,7 +172,7 @@ def mountain_ring(coll, name, rim_r, portal_angles, mats, ob, seed=1, snow_line=
         a = math.tau * i / steps
         r0 = rim_r(a)
         g = any(abs((a - pa + math.pi) % math.tau - math.pi) < gorge for pa in portal_angles)
-        h = (19.0 + 10.0 * abs(math.sin(a * 4 + 1 + seed)) + rnd.uniform(0, 5)) * (0.18 if g else 1.0)
+        h = (19.0 + 10.0 * abs(math.sin(a * 4 + 1 + seed)) + rnd.uniform(0, 5)) * (0.18 if g or late(a) else 1.0)
         peak = 1.0 + 0.5 * max(0.0, math.sin(a * 11 + 0.5 + seed)) + rnd.uniform(0, 0.3)
         heights.append(h)
         row = []
@@ -229,8 +232,11 @@ def mountain_ring(coll, name, rim_r, portal_angles, mats, ob, seed=1, snow_line=
                 dd = d + rnd.uniform(-0.8, 0.8)
                 aa = a + rnd.uniform(-0.01, 0.01)
                 s = rnd.uniform(0.9, 1.4)
+                col = tree_cols[rnd.randrange(len(tree_cols))]
+                if late(a):
+                    continue
                 ob(ledge_trees, math.cos(aa) * (r0 + dd), math.sin(aa) * (r0 + dd), (1.9 * s, 4.6 * s, 1.9 * s), 0.0, solid=False,
-                   color=tree_cols[rnd.randrange(len(tree_cols))], y=round(max(0.0, ground(aa, dd) - 0.3), 2))
+                   color=col, y=round(max(0.0, ground(aa, dd) - 0.3), 2))
     # saia de pedras: blocos grandes (com contorno) meio enterrados no pé e no 1º patamar — é o que a câmera vê.
     # As do pé ficam na beirada do andável e são sólidas (a borda vira pedra, não uma parede lisa).
     for i in range(steps):
@@ -238,15 +244,16 @@ def mountain_ring(coll, name, rim_r, portal_angles, mats, ob, seed=1, snow_line=
         if any(abs((a - pa + math.pi) % math.tau - math.pi) < gorge * 0.8 for pa in portal_angles):
             continue
         r0 = rim_r(a)
+        put = (lambda *q, **kw: None) if late(a, 0.8) else ob
         if rnd.random() < 0.85:
             d = rnd.uniform(-0.9, 1.2)
             s = rnd.uniform(1.5, 3.0)
-            ob("rock", math.cos(a) * (r0 + d), math.sin(a) * (r0 + d), (1.4 * s, 1.15 * s, 1.2 * s), rnd.uniform(0, 360),
+            put("rock", math.cos(a) * (r0 + d), math.sin(a) * (r0 + d), (1.4 * s, 1.15 * s, 1.2 * s), rnd.uniform(0, 360),
                solid=d < 0.3, color=boulder_col if rnd.random() < 0.6 else tuple(c * 0.85 for c in boulder_col),
                y=round(max(0.0, ground(a, d) - 0.35 * 1.15 * s), 2))
         if rnd.random() < 0.5:
             d = rnd.uniform(2.6, LEDGE_D[0] + 1.0)
             s = rnd.uniform(1.6, 3.0)
-            ob("rock", math.cos(a) * (r0 + d), math.sin(a) * (r0 + d), (1.4 * s, 1.1 * s, 1.2 * s), rnd.uniform(0, 360), solid=False,
+            put("rock", math.cos(a) * (r0 + d), math.sin(a) * (r0 + d), (1.4 * s, 1.1 * s, 1.2 * s), rnd.uniform(0, 360), solid=False,
                color=tuple(c * 0.92 for c in boulder_col), y=round(max(0.0, ground(a, d) - 0.4 * 1.1 * s), 2))
     return o

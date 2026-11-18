@@ -2938,6 +2938,8 @@ func _check_zone(gd, sim) -> void:
 	for zid in ["city_aldara", "field_forest", "field_ruins", "elf_city", "field_coast", "field_steppe", "field_kharzun"]:
 		_check_zone_layout(gd, sim, gd.maps[zid])
 		_check_places(gd, sim, gd.maps[zid])
+	_check_zone_layout(gd, sim, gd.maps["field_hollow"])      # sem masmorra/lugares: fora do _check_places
+	_check_field_hollow(gd, sim)
 	_check_dungeons(gd, sim)
 	_check_fort_lairs(gd, sim)
 	_check_sfx_bank(gd)
@@ -14571,7 +14573,7 @@ func _check_dry_land(gd, sim) -> void:
 ## Mapa-múndi em "zonas" (x = leste, y = sul; 1 = uma zona de ~240 m). Dois continentes: Aldara (Ato I) e Kharzun (Ato II),
 ## ligados só por navio. Zona nova de superfície = uma linha aqui (o check exige).
 const WORLD := {
-	"field_ruins": Vector2(-1.0, 0.0), "city_aldara": Vector2(0.0, 0.0), "field_forest": Vector2(1.0, 0.0), "elf_city": Vector2(1.0, -1.0),
+	"field_ruins": Vector2(-1.0, 0.0), "city_aldara": Vector2(0.0, 0.0), "field_hollow": Vector2(-0.5, 1.0), "field_forest": Vector2(1.0, 0.0), "elf_city": Vector2(1.0, -1.0),
 	"fort_ghoul": Vector2(-2.0, 0.0), "fort_bones": Vector2(-1.0, -1.0), "fort_frost": Vector2(-1.0, 1.0), "lich_citadel": Vector2(-0.35, -0.7),
 	"field_coast": Vector2(9.0, 0.0), "city_port": Vector2(10.0, 0.1), "field_steppe": Vector2(9.3, -1.0),
 	"fort_trolls": Vector2(8.3, -1.0), "fort_war": Vector2(10.15, -1.5), "fort_fire": Vector2(10.1, -0.4), "field_kharzun": Vector2(9.3, -2.0),
@@ -24145,3 +24147,117 @@ func _check_bot_band(gd, sim) -> void:
 	print("BOT_BAND aldara praca_media=%.2f lv40_a_toa=%d" % [sq_avg, idle_hi])
 	for bt: SimEntity in crowd:
 		sim.despawn(bt)
+
+
+## Mata dos Zumbidos (4-8, ramo lateral ao sul de Aldara): portal ida/volta, faixa, spawners, NPCs das quests, cadeia m0-m8,
+## Floresta sem depender dela, Colmeia que invoca vespas 0 XP (com teto) e Ursa-Mãe com fases.
+func _check_field_hollow(gd, sim) -> void:
+	check(gd.maps.has("field_hollow"), "Mata dos Zumbidos existe")
+	if not gd.maps.has("field_hollow"):
+		return
+	var md: MapDef = gd.maps["field_hollow"]
+	# som: todo bicho da mata tem voz e o som existe no banco (Sfx.MOB_VOICE + tools/audio/build_sfx.py)
+	for mid in ["wasp", "wasp_soldier", "hive_wasp", "bear_cub", "bear_cub_den", "bear", "bear_mother", "hive"]:
+		var v: Array = Sfx.voice_of(gd.monsters[mid])
+		var ok := v.size() == 3
+		for snd in v:
+			if str(snd) != "" and not FileAccess.file_exists("res://assets/audio/sfx/%s_1.wav" % snd):
+				ok = false
+		check(ok and (str(v[0]) != "" or str(v[1]) != ""), "Mata dos Zumbidos: %s tem voz no banco de sons" % mid)
+	check(str(Sfx.voice_of(gd.monsters["bear_mother"])[0]) == "bear_roar" and Sfx.CAST_SOUND.get("mob_bear_roar", "") == "bear_roar", "Ursa-Mãe ruge ao entrar em luta e no rugido")
+	check(md.level_range == Vector2i(4, 8) and md.bot_population == 3 and not md.is_town and md.model == "map_field_hollow", "Mata: faixa 4-8, 3 bots, campo com modelo próprio")
+	check(md.name == "Mata dos Zumbidos" and md.ground_color.is_equal_approx(Color(0.3, 0.45, 0.29)), "Mata: nome e chão iguais à arte de carregamento")
+	check(not MapsCatalog.CRYSTALS.has("field_hollow"), "Mata: sem cristal (não quebra a faixa dos bots)")
+	var back: Array = md.portals.filter(func(p): return p["target_map"] == "city_aldara")
+	var there: Array = gd.maps["city_aldara"].portals.filter(func(p): return p["target_map"] == "field_hollow")
+	check(back.size() == 1 and there.size() == 1, "Mata: um portal de ida (Aldara) e um de volta")
+	if back.size() == 1 and there.size() == 1:
+		check(sim.is_walkable(there[0]["target_pos"], md, 0.45) and sim.is_walkable(back[0]["target_pos"], gd.maps["city_aldara"], 0.45), "Mata: chegadas dos dois lados andáveis")
+		check(there[0]["target_pos"].distance_to(back[0]["pos"]) > back[0]["radius"] + 1.0, "Mata: chegada fora do portal de volta")
+	check(sim.is_walkable(md.spawn_point, md, 0.45), "Mata: spawn andável")
+	var ids := {}
+	for sp in md.spawners:
+		ids[sp["monster_id"]] = true
+		check(gd.monsters.has(sp["monster_id"]), "Mata: spawner de %s existe" % sp["monster_id"])
+		var mm: MonsterDef = gd.monsters.get(sp["monster_id"])
+		if mm:
+			check(mm.level >= 4 and mm.level <= 8, "Mata: %s na faixa (nv %d)" % [mm.id, mm.level])
+	for mid in ["wasp", "wasp_soldier", "bear_cub", "bear", "hive", "bear_mother"]:
+		check(ids.has(mid), "Mata: spawner de %s" % mid)
+	check(md.spawners.size() >= 7, "Mata: 7+ spawners")
+	for it in ["honey_comb", "bear_hide", "wasp_stinger"]:
+		check(gd.items.has(it), "Mata: material %s" % it)
+	# NPCs e quests
+	var npc_ids := {}
+	for m in gd.maps.values():
+		for n in m.npcs:
+			npc_ids[n["id"]] = m.id
+	for nid in MapsCatalog.HOLLOW_NPCS:
+		check(npc_ids.get(nid, "") == "field_hollow", "Mata: NPC %s no mapa" % nid)
+	var chain := ["m0_rumor", "m1_wasps", "m2_honey", "m3_cubs", "m4_lost", "m5_hides", "m6_hive", "m7_mother", "m8_report"]
+	var done := {}
+	for qid in chain:
+		check(gd.quests.has(qid), "Mata: quest %s" % qid)
+		if not gd.quests.has(qid):
+			continue
+		var q: QuestDef = gd.quests[qid]
+		check(npc_ids.has(q.giver_npc) and (q.turnin_npc == "" or npc_ids.has(q.turnin_npc)), "Mata: %s tem giver/turnin em algum mapa" % qid)
+		var pre: Array = ([q.prereq_quest] if q.prereq_quest != "" else []) + Array(q.prereq_all)
+		check(pre.all(func(p): return done.has(p)), "Mata: %s só pede quests anteriores da cadeia" % qid)
+		check(q.dialog_progress != "", "Mata: %s tem dica no progresso" % qid)
+		match q.type:
+			QuestDef.Type.KILL:
+				check(ids.has(q.target_id), "Mata: alvo de %s aparece na Mata" % qid)
+			QuestDef.Type.COLLECT:
+				var src := false
+				for g in md.gather:
+					src = src or str(g.get("item", "")) == q.target_id
+				for mid in ids:
+					var lt: LootTable = gd.loot_tables.get(gd.monsters[mid].loot_table) if gd.monsters[mid].loot_table != "" else null
+					if lt:
+						for e in lt.entries:
+							src = src or e["item"] == q.target_id
+				check(src, "Mata: %s tem fonte (colheita ou saque)" % qid)
+			QuestDef.Type.TALK:
+				check(npc_ids.has(q.target_id), "Mata: %s fala com NPC que existe" % qid)
+		done[qid] = true
+	check(gd.quests["m0_rumor"].giver_npc == "captain" and gd.quests["m8_report"].turnin_npc == "captain", "Mata: começa e termina com a Capitã Mira")
+	check(QuestsCatalog.HUNT_GIVERS.get("field_hollow", "") == "hollow_brena" and gd.quests.has("h_wasp") and gd.quests["h_wasp"].giver_npc == "hollow_brena", "Mata: caçadas repetíveis com a Brena")
+	# a Floresta não depende do ramo: nenhuma quest fora do ramo pede m*, nem portão
+	var gated := false
+	for qid in gd.quests:
+		if str(qid).begins_with("m") and str(qid).substr(1, 1).is_valid_int():
+			continue
+		var q: QuestDef = gd.quests[qid]
+		gated = gated or chain.has(q.prereq_quest) or Array(q.prereq_all).any(func(p): return chain.has(p))
+	for pid in MapsCatalog.PORTAL_GATES:
+		var g: Dictionary = MapsCatalog.PORTAL_GATES[pid]
+		gated = gated or chain.has(str(g.get("quest", ""))) or Array(g.get("quests", [])).any(func(p): return chain.has(p))
+	check(not gated, "Mata: ramo lateral não trava a Floresta nem outra quest")
+	# Colmeia: parada, sem golpe, invoca vespas 0 XP no alcance do aggro, com teto
+	var hv: MonsterDef = gd.monsters["hive"]
+	var sw: SkillDef = gd.skills.get("mob_hive_swarm")
+	check(hv.move_speed == 0.0 and hv.xp > 0 and not hv.is_boss and sw != null and hv.skill_ids.has("mob_hive_swarm"), "Colmeia: parada, dá XP e tem o Enxame")
+	if sw:
+		var bs: Dictionary = sw.effects.get("boss_summon", {})
+		check(bs.get("id", "") == "hive_wasp" and gd.monsters["hive_wasp"].xp == 0, "Colmeia: invoca Vespa da Colmeia sem XP")
+		var reach := MonsterBrain._skill_reach(sw, false)
+		check(reach > 3.0 and reach <= hv.aggro_range, "Colmeia: Enxame sai com o alvo dentro do aggro (%.1f m)" % reach)
+		var at := Vector3(10, 0, 64.5)
+		var hive: SimEntity = sim.spawn_monster(hv, "field_hollow", at)
+		hive.brain = null
+		for i in range(4):
+			MobSystem.spawn_adds(sim, hive, bs)
+		var adds: Array = sim.maps["field_hollow"]["entities"].filter(func(o): return o.boss_id == hive.id and o.is_alive())
+		check(adds.size() == int(bs.get("max", 0)) and adds.all(func(o): return o.monster_def.id == "hive_wasp"), "Colmeia: vespas param no teto (%d)" % adds.size())
+		for o in adds:
+			sim.despawn(o)
+		sim.despawn(hive)
+	# Ursa-Mãe: chefe com fases, filhotes 0 XP, falas e skills que existem
+	var bm: MonsterDef = gd.monsters["bear_mother"]
+	check(bm.is_boss and bm.phases.size() >= 2 and bm.intro != "" and bm.last_words != "", "Ursa-Mãe: chefe com fases e falas")
+	var sm: Dictionary = bm.phases[0].get("summon", {})
+	check(gd.monsters.has(sm.get("id", "")) and gd.monsters[sm.get("id", "")].xp == 0, "Ursa-Mãe: filhotes da fase sem XP")
+	check(bm.skill_ids.all(func(s): return gd.skills.has(s)), "Ursa-Mãe: skills existem")
+	check(Music.MAP_THEME.get("field_hollow", "") == "campo", "Mata: tema de música")
+	check(BotsCatalog.MAP_KIND.has("field_hollow") and BotsCatalog.LINES.has("hunt_field_hollow"), "Mata: falas de bots")

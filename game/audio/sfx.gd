@@ -33,6 +33,8 @@ const VOL := {
 	"salamander_hiss": -8.0, "salamander_die": -7.0, "golem_rumble": -5.0, "golem_crumble": -3.0, "boulder": -4.0, "banner_plant": -4.0,
 	# assinaturas dos chefes
 	"sig_warn": -4.0, "drum_tear": -3.0,
+	# Mata dos Zumbidos (4-8)
+	"wasp_buzz": -10.0, "wasp_die": -9.0, "bear_growl": -7.0, "bear_roar": -4.0, "hive_crack": -5.0,
 }
 ## Tema visual (FxManager.theme_of) -> som da skill. Físico não tem: quem soa é o golpe (swing/hit).
 const THEME_SOUND := {
@@ -60,13 +62,19 @@ const MOB_VOICE := {
 	"boss_gorbash": ["troll_growl", "troll_grunt", "troll_die"], "stone_shaman": ["troll_growl", "troll_grunt", "troll_die"],
 	"boss_kragmar": ["orc", "orc", ""], "forge_golemling": ["orc", "", ""], "boss_durgash": ["orc", "orc", ""], "throne_guard": ["orc", "orc", ""],
 	"banner_": ["", "", ""],
+	# Mata dos Zumbidos (4-8): "wasp_" pega a vespa-soldado; hive_wasp = vespa da colmeia
+	"wasp": ["wasp_buzz", "wasp_buzz", "wasp_die"], "wasp_": ["wasp_buzz", "wasp_buzz", "wasp_die"], "hive_wasp": ["", "wasp_buzz", "wasp_die"],
+	"bear_cub": ["bear_growl", "bear_growl", ""], "bear_cub_den": ["", "bear_growl", ""], "bear": ["bear_growl", "bear_growl", ""],
+	"bear_mother": ["bear_roar", "bear_growl", "bear_roar"], "hive": ["wasp_buzz", "", "hive_crack"],
 }
 ## Skill com som próprio na fase ativa (no lugar do vento da arma) e no impacto (no lugar do som do tema).
 const CAST_SOUND := {"mob_drum_beat": "war_drum", "mob_war_drum": "war_drum", "mob_net_throw": "net",
 	# Kharzun: a fumaça avisa o Assassino/Matador antes do bote (aviso curto do plano, §7)
 	"mob_shadow_step": "smoke_vanish", "mob_slayer_vanish": "smoke_vanish", "mob_slayer_execute": "smoke_vanish",
 	# Estandartes de Clã (Pedra e Forja): o pé do mastro batendo na pedra ao pulsar
-	"mob_stone_mend": "banner_plant", "mob_forge_embers": "banner_plant"}
+	"mob_stone_mend": "banner_plant", "mob_forge_embers": "banner_plant",
+	# Mata dos Zumbidos: o rugido da Ursa-Mãe e a colmeia soltando o enxame
+	"mob_bear_roar": "bear_roar", "mob_hive_swarm": "wasp_buzz"}
 const EFFECT_SOUND := {"mob_tide_pull": "tide", "mob_tide_wave": "tide", "mob_tide_geysers": "tide",
 	"mob_troll_slam": "troll_slam", "mob_rock_quake": "troll_slam",
 	"mob_boulder_toss": "boulder", "mob_basalt_stomp": "troll_slam", "mob_brute_quake": "troll_slam"}

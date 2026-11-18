@@ -42,7 +42,7 @@ static func _sp(monster: String, x: float, z: float, radius: float, count: int, 
 	return {"monster_id": monster, "pos": Vector3(x, 0, z), "radius": radius, "count": count, "respawn": respawn}
 
 static func build() -> Array:
-	var out: Array = [_aldara(), _forest(), _ruins(), _elf_city(), _port(), _coast(), _steppe(), _kharzun(), _kharzun_citadel()]
+	var out: Array = [_aldara(), _hollow(), _forest(), _ruins(), _elf_city(), _port(), _coast(), _steppe(), _kharzun(), _kharzun_citadel()]
 	for fid in FORT_DEFS:
 		out.append(_fort(fid))
 	for did in DUNGEON_DEFS:
@@ -461,6 +461,9 @@ const GATHER := {
 	# Cidade Élfica: ervas na margem do lago, cogumelos sob o bosque dos trents, pedra-estrela no Altar da Lua
 	# e caixotes de Aço Élfico no acampamento da patrulha (guardados pelos guerreiros)
 	# Porto Esperança: conchas na areia ao lado do cais
+	# Mata dos Zumbidos: ervas nas trilhas, cogumelos à sombra, favos nas caixas de abelha que os ursos derrubaram (clareira da Colmeia)
+	"field_hollow": [["herb_green", "herb", [-20.0, 4.0], 10.0, 5], ["herb_green", "herb", [4.0, 30.0], 10.0, 4], ["forest_mushroom", "mushroom", [-30.0, 50.0], 12.0, 5],
+		["forest_mushroom", "mushroom", [44.0, 8.0], 10.0, 4], ["honey_comb", "crate", [10.0, 63.0], 9.0, 5]],
 	"city_port": [["crab_shell", "shell", [16.0, 60.0], 5.0, 3], ["palisade_log", "crate", [-33.0, 62.0], 6.0, 6]],      # toras do estaleiro (hx_df_logs)
 	# Costa Partida: conchas na praia, erva azul no mangue, ferro nas falésias
 	"field_coast": [["crab_shell", "shell", [-4.0, 64.0], 10.0, 5], ["herb_blue", "herb_blue", [-78.0, 2.0], 10.0, 4], ["iron_ore", "ore", [-10.0, -70.0], 10.0, 4]],
@@ -483,6 +486,8 @@ const AMBIENT_LIFE := {
 	# Vale de Aldara: galinhas no cercado do celeiro e na fazenda, corvos no trigal (GDD living-towns R5)
 	# Posto dos Caçadores: corvos sobre a paliçada e mariposas na luz da Fogueira Comunal
 	"field_forest": [["crow", [-5.0, 0.0], 18.0, 4], ["moth", [-5.0, 0.0], 5.0, 7]],
+	# Mata dos Zumbidos: corvos sobre o acampamento, mariposas na fogueira e no Prado de Flores
+	"field_hollow": [["crow", [2.0, -12.0], 16.0, 3], ["moth", [2.0, -12.0], 5.0, 6], ["moth", [-45.0, 30.0], 10.0, 6]],
 	"city_aldara": [["hen", [-15.65, 18.98], 2.0, 4], ["hen", [-63.0, 70.0], 5.0, 5], ["crow", [-70.0, 76.0], 9.0, 3]],
 	"city_port": [["gull", [0.0, 58.0], 16.0, 6], ["gull", [0.0, 10.0], 24.0, 3], ["crab", [16.0, 62.0], 6.0, 4], ["crab", [-18.0, 60.0], 5.0, 3]],
 	"field_coast": [["gull", [-10.0, 72.0], 24.0, 6], ["gull", [50.0, 62.0], 14.0, 4], ["gull", [-82.0, 30.0], 16.0, 3], ["crab", [16.0, 72.0], 10.0, 5],
@@ -1729,6 +1734,30 @@ static func _forest() -> MapDef:
 		"npcs": [_npc("ranger_post", "Ranger Teo", float(p[0]), float(p[1]), "quest", Color(0.5, 0.75, 0.55),
 			["Ninhos de aranha a noroeste e no sudoeste, perto do pântano. Os bandidos se fecharam na paliçada a nordeste; ents no bosque a sudeste.",
 			"A Árvore-Mãe ao norte se vê de qualquer lugar. Atrás dela, a garganta dos elfos: é de lá que vêm as investidas.", "Não lute com o Chefe sozinho abaixo do nível 17."], float(p[2]))] + extra,
+	})
+	return _mk(z)
+
+# ---------------------------------------------------------------------------
+## Mata dos Zumbidos (4-8, ramo lateral): tools/blender/zones/build_field_hollow.py. Acampamento dos mateiros sem muro nem cristal.
+const HOLLOW_NPCS := {
+	"hollow_brena": ["Mateira Brena", "quest", Color(0.55, 0.62, 0.35), ["Somos mateiros: mel, couro e lenha. A mata dava para todo mundo até as vespas grandes chegarem.", "Fique nas trilhas. Entre as árvores o urso te vê antes de você ver ele."]],
+	"hollow_osvaldo": ["Apicultor Osvaldo", "quest", Color(0.9, 0.75, 0.35), ["Abelha boa não pica sem motivo. Vespa pica por esporte.", "Meu mel adoça metade do pão de Aldara. A Padeira Rosa que o diga."]],
+	"hollow_rui": ["Caçador Rui", "quest", Color(0.5, 0.4, 0.3), ["Urso pardo é lento até não ser mais. Nunca dê as costas.", "Do leste para o nordeste é terra de urso. A toca grande, então, nem pensar."]],
+	"hollow_apprentice": ["Aprendiz Tavinho", "quest", Color(0.75, 0.7, 0.45), ["Shhh! Elas ouvem a gente!", "A Brena vai me matar. Se as vespas não matarem antes."]],
+}
+
+static func _hollow() -> MapDef:
+	var z := load_zone("field_hollow")
+	var npcs: Array = []
+	for nid in HOLLOW_NPCS:
+		var n: Array = HOLLOW_NPCS[nid]
+		var p: Array = z["npc_pos"].get(nid, [0.0, 0.0, 180.0])
+		npcs.append(_npc(nid, n[0], float(p[0]), float(p[1]), n[1], n[2], n[3], float(p[2])))
+	z.erase("npc_pos")
+	z.merge({
+		"id": "field_hollow", "name": "Mata dos Zumbidos", "is_town": false, "level_range": Vector2i(4, 8),
+		"ground_color": Color(0.3, 0.45, 0.29), "ground_color_alt": Color(0.27, 0.41, 0.26), "ambient": Color(0.78, 0.86, 0.74), "sun_energy": 0.95,
+		"bot_population": 3, "npcs": npcs,
 	})
 	return _mk(z)
 

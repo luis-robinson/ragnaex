@@ -23,6 +23,8 @@ const LINES := {
 		"não aggra o rei javali agora pfv", "lootei 4 minério", "bloqueia quando ele avançar", "pull de 5 slime ez",
 	],
 	# caçando num mapa específico (BotBrain: "hunt_<mapa>" ou "town_<mapa>" quando existe, senão o genérico)
+	"hunt_field_hollow": ["vespa vem em bando, puxa devagar", "alguém viu a Colmeia? quero acabar com ela", "urso pardo bate forte na frente, sai pelo lado",
+		"filhote aqui, cuidado com a mãe", "ninguém sobe na toca da Ursa-Mãe sozinho", "dropou favo de mel!", "essa mata zumbe até de noite"],
 	"hunt_field_forest": ["paliçada dos bandidos tá lotada hoje", "cuidado com os clandestinos, o laço prende o pé", "trombadinha atira pedra e corre", "gatuno bate forte, mata ele primeiro", "alguém viu o Chefe dos Bandidos?",
 		"essas aranhas grudam a gente no chão", "ent bate devagar mas bate", "cadê a trompa? quero xp de elfo", "o pântano sul tá cheio de aranha"],
 	"town_field_forest": ["portão norte segura mais uma?", "o Gunnar aprimora com aço élfico", "alguém pra Cidade Élfica?", "a Comandante Hela tá de mau humor",
@@ -67,7 +69,7 @@ static func place_words(place: String) -> Dictionary:
 ## Mapa -> tipo de lugar; quem não está aqui cai em interior/dungeon/aldara/field pelos dados (BotChat.place_kind).
 ## Tipos com "_town" usam a variante dentro da muralha do povoado (town_radius).
 const MAP_KIND := {
-	"city_aldara": "aldara", "field_forest": "forest", "elf_city": "elf_city", "field_ruins": "dawn",
+	"city_aldara": "aldara", "field_hollow": "hollow", "field_forest": "forest", "elf_city": "elf_city", "field_ruins": "dawn",
 	"fort_ghoul": "fort", "fort_bones": "fort", "fort_frost": "fort", "lich_citadel": "citadel",
 	"field_kharzun": "kharzun", "dg_slayers": "slayers", "kharzun_citadel": "kharzun_citadel",
 }
@@ -87,6 +89,7 @@ const KHARZUN_VICTORY_LINES := ["DURGASH CAIU!!! a montanha é nossa", "{p} derr
 const KHARZUN_VICTORY_KINDS := ["kharzun_town", "kharzun", "slayers"]     # e o Porto (city_port), pelo id do mapa
 
 const PLACE_LINES := {
+	"hollow": ["que mata fechada", "fica na trilha senão o urso te acha", "o acampamento da Brena é logo ali", "cheiro de mel por toda parte"],
 	"aldara_town": ["o chafariz da praça é o melhor ponto de afk", "a taverna do Gus tá lotada hoje", "a Relicária troca moeda lendária, só lembrando",
 		"alguém pra Gruta Gotejante?", "o Brom aprimora até +9 e nunca quebra, confia", "quem vende bolsa ampliada?", "vou passar no ferreiro e já volto",
 		"o Ancião Ravi fala demais mas a quest paga bem", "vendo couro, preço de amigo", "a Capitã Mira já liberou o desfiladeiro pra alguém?",

@@ -122,7 +122,10 @@ def slime(cid="mob_slime", color=(0.42, 0.88, 0.48)):
 # ---------------------------------------------------------------------------
 # quadrúpedes: lobo, javali, dragão
 # ---------------------------------------------------------------------------
-def quadruped(cid, fur, dark, light, kind="wolf", rider=None):
+def quadruped(cid, fur, dark, light, kind="wolf", rider=None, look=None):
+    """look (só urso da Mata dos Zumbidos): {"head": k} = cabeça k vezes maior (filhote); {"boss": cor} = Ursa-Mãe
+    (crescente claro no peito, cicatrizes da cor dada no ombro e no olho, tufo escuro no cangote)."""
+    look = look or {}
     hip0 = 0.4 if kind == "boar" else (0.5 if kind == "bear" else 0.45)
     # rabo com osso próprio (balança no idle e ondula na corrida); só os quadrúpedes têm
     arm = lp.make_armature("rig_" + cid, dict(bm.MOB_BONES, tail=((0, 0.52, hip0 + 0.14), (0, 0.9, hip0 + 0.2), "body")))
@@ -259,6 +262,13 @@ def quadruped(cid, fur, dark, light, kind="wolf", rider=None):
         tpts = [((0, 0.4, hip + 0.12), 0.1), ((0, 0.6, hip + 0.17), 0.095), ((0, 0.74, hip + 0.15), 0.1), ((0, 0.86, hip + 0.08), 0.08), ((0, 0.94, hip + 0.02), 0.045)]
         parts.append((skin_body("tail", tpts, [(0, 1), (1, 2), (2, 3), (3, 4)], m), "body"))
         parts.append((blob("tail_tip", 0.055, (0, 0.93, hip + 0.03), ml, (0.95, 1.2, 0.95)), "body"))
+    if look.get("head", 1.0) != 1.0:              # filhote: cabeça, orelhas e focinho crescem em volta do centro da cabeça
+        for o, bone in parts:
+            if bone == "head":
+                for v in o.data.vertices:
+                    v.co = hc + (v.co - hc) * look["head"] + Vector((0, -0.03, 0.03)) * (look["head"] - 1.0) * 4
+    if look.get("boss"):
+        parts += bear_mother_marks(cid, hc, hip, bulk, md, ml, look["boss"])
     if rider:                                    # Ginete: goblin montado (goblin_rider)
         rider(parts, hip)
     for i, (o, bone) in enumerate(parts):          # tudo que é rabo vai para o osso do rabo
@@ -272,6 +282,25 @@ def quadruped(cid, fur, dark, light, kind="wolf", rider=None):
     if dragon:
         quad_dragon_gestures(arm)
     return arm
+
+
+def bear_mother_marks(cid, hc, hip, bulk, md, ml, scar_color):
+    """Marcas da Ursa-Mãe, pensadas para a câmera alta: tufo escuro no cangote, colar claro que sobe do peito pelos lados
+    do pescoço, três cicatrizes de garra no lombo direito e uma no olho esquerdo."""
+    scar = ck.mat("m_%s_scar" % cid, scar_color, 0.8)
+    out = [(blob("hump", 0.25 * bulk * 0.7, (0, -0.3, hip + 0.4), md, (1.25, 1.15, 0.62)), "body")]
+    for i, (x, y, h) in enumerate(((0, -0.44, 0.16), (-0.1, -0.3, 0.13), (0.1, -0.3, 0.13), (0, -0.16, 0.12))):
+        out.append((cone("mane%d" % i, (x, y, hip + 0.44), (x * 1.2, y + 0.09, hip + 0.48 + h), 0.085, md, 6), "body"))
+    # colar: gomo claro na frente do peito + duas línguas que sobem para os ombros (aparecem de cima)
+    out.append((blob("chest", 0.2 * bulk * 0.75, (0, -0.56, hip - 0.02), ml, (1.25, 0.7, 0.75)), "body"))
+    for sx in (-1, 1):
+        out.append((blob("collar%d" % sx, 0.17, (sx * 0.2, -0.57, hip + 0.1), ml, (0.9, 0.8, 1.15), 2), "body"))
+    for i in range(3):
+        x0, x1 = 0.1 + i * 0.085, 0.24 + i * 0.07
+        zs = lambda x: hip + 0.06 + math.sqrt(max(0.01, (0.25 * bulk) ** 2 - x * x))
+        out.append((ck.tube("scar%d" % i, (x0, -0.08, zs(x0) + 0.0), (x1, 0.26, zs(x1) - 0.02), 0.03, 0.012, scar, 5), "body"))
+    out.append((ck.tube("scar_eye", hc + Vector((-0.2, -0.2, 0.2)), hc + Vector((-0.11, -0.3, -0.03)), 0.028, 0.014, scar, 5), "head"))
+    return out
 
 
 def _drop_clips(arm, names):
@@ -1498,6 +1527,285 @@ def bat(cid="mob_bat"):
     return arm
 
 
+# ---------------------------------------------------------------------------
+# Mata dos Zumbidos (4-8): vespa / vespa-soldado e a Colmeia gigante
+# ---------------------------------------------------------------------------
+def wasp(cid="mob_wasp", soldier=False):
+    """Vespa da Mata dos Zumbidos (~0,85 m; soldado ~1,15 m, listras laranja-avermelhadas, ferrão e mandíbulas maiores, espinhos no tórax).
+    Rig do morcego + osso `tail` (abdômen: curva para baixo no bote do ferrão). Asas nos ossos arm_r/arm_l (giro Z = bate),
+    patas penduradas em leg_*. Clipes próprios (idle paira batendo asa, run inclina, attack = bote do ferrão no quadro 5, hit, die cai de costas)."""
+    k = 1.38 if soldier else 1.0
+    zc = 0.72 + 0.24 * k                    # altura do tórax (paira)
+    C = Vector((0, 0, zc))
+    P = lambda x, y, z: C + Vector((x, y, z)) * k
+    bones = pivots(body=(0, 0, zc - 0.1 * k), head=tuple(P(0, -0.14, 0.02)), arm_r=tuple(P(0.09, -0.02, 0.12)), arm_l=tuple(P(-0.09, -0.02, 0.12)),
+                   leg_fr=tuple(P(0.09, -0.08, -0.1)), leg_fl=tuple(P(-0.09, -0.08, -0.1)), leg_br=tuple(P(0.09, 0.06, -0.1)), leg_bl=tuple(P(-0.09, 0.06, -0.1)))
+    bones["tail"] = (tuple(P(0, 0.12, -0.01)), tuple(P(0, 0.5, -0.01)), "body")
+    arm = lp.make_armature("rig_" + cid, bones)
+    if soldier:
+        stripe, dark, headc = (0.93, 0.36, 0.13), (0.2, 0.1, 0.1), (0.62, 0.16, 0.1)
+    else:
+        stripe, dark, headc = (0.99, 0.8, 0.2), (0.17, 0.14, 0.15), (0.99, 0.8, 0.2)
+    m_s = ck.mat("m_%s_stripe" % cid, stripe, 0.6)
+    m_d = ck.mat("m_%s_dark" % cid, dark, 0.7)
+    m_h = ck.mat("m_%s_head" % cid, headc, 0.6)
+    m_w = ck.mat("m_%s_wing" % cid, (0.84, 0.93, 0.97), 0.4)           # asa clara, sem brilho (o toon não tem transparência)
+    m_w2 = ck.mat("m_%s_vein" % cid, (0.62, 0.76, 0.84), 0.5)
+    m_st = ck.mat("m_%s_sting" % cid, (0.95, 0.92, 0.8) if not soldier else (0.98, 0.86, 0.5), 0.4)
+    m_eye, m_white = base_mats()
+    if soldier:
+        m_eye = ck.mat("m_%s_eye" % cid, (0.99, 0.78, 0.2), 0.3)
+    parts = [(blob("thorax", 0.17 * k, P(0, 0, 0), m_d, (1.0, 1.15, 0.95)), "body"),
+             (blob("fuzz", 0.12 * k, P(0, 0.0, 0.09), m_s, (1.15, 1.0, 0.6), 2), "body"),
+             (blob("head", 0.175 * k, P(0, -0.27, 0.04), m_h, (1.05, 0.9, 0.95)), "head")]
+    # olhos grandes de inseto nos lados da frente + brilho; antenas; mandíbulas
+    for sx in (-1, 1):
+        ec = P(sx * 0.115, -0.34, 0.08)
+        parts.append((blob("%s_eye%d" % (cid, sx), 0.09 * k, ec, m_eye, (0.75, 0.8, 1.15), 2), "head"))
+        parts.append((blob("%s_hl%d" % (cid, sx), 0.03 * k, ec + Vector((sx * 0.02, -0.055, 0.05)) * k, m_white if not soldier else m_d, (1, 1, 1), 1), "head"))
+        a0, a1, a2 = P(sx * 0.06, -0.33, 0.17), P(sx * 0.12, -0.45, 0.33), P(sx * 0.16, -0.6, 0.3)
+        parts.append((ck.tube("ant%da" % sx, a0, a1, 0.018 * k, 0.014 * k, m_d, 5), "head"))
+        parts.append((ck.tube("ant%db" % sx, a1, a2, 0.014 * k, 0.012 * k, m_d, 5), "head"))
+        parts.append((blob("ant%dtip" % sx, 0.03 * k, a2, m_d, (1, 1, 1), 1), "head"))
+        mk = 1.5 if soldier else 1.0
+        parts.append((cone("mand%d" % sx, P(sx * 0.07, -0.4, -0.06), P(sx * 0.015, -0.4 - 0.1 * mk, -0.11), 0.04 * mk * k, m_st if soldier else m_d, 5), "head"))
+    # abdômen: gomos alternados (listras lidas de cima), cai um pouco para trás; ferrão na ponta
+    segs = ((0.24, 0.135, 0.0), (0.38, 0.185, -0.015), (0.53, 0.19, -0.04), (0.67, 0.155, -0.07), (0.78, 0.105, -0.1))
+    for i, (y, r, dz) in enumerate(segs):
+        parts.append((blob("abd%d" % i, r * k, P(0, y, dz), m_s if i % 2 == 0 else m_d, (1.0, 0.62, 0.95)), "tail"))
+    sl = 0.3 if soldier else 0.2
+    parts.append((cone("abd_sting", P(0, 0.82, -0.105), P(0, 0.84 + sl, -0.16), (0.06 if soldier else 0.045) * k, m_st, 6), "tail"))
+    if soldier:                      # espinhos no tórax e crista escura no último gomo claro
+        for sx in (-1, 1):
+            parts.append((cone("spike%d" % sx, P(sx * 0.1, 0.02, 0.1), P(sx * 0.2, 0.1, 0.27), 0.05 * k, m_st, 5), "body"))
+        parts.append((cone("abd_crest", P(0, 0.5, 0.12), P(0, 0.62, 0.26), 0.05 * k, m_st, 5), "tail"))
+    # asas: par grande + par pequeno por lado, quase deitadas (aparecem de cima), um pouco para trás e para cima
+    for sx in (-1, 1):
+        bone = "arm_r" if sx > 0 else "arm_l"
+        r0 = P(sx * 0.09, -0.02, 0.12)
+        parts.append((ck.blade("wing%d" % sx, r0, P(sx * 0.78, 0.2, 0.34), 0.34 * k, 0.014 * k, m_w, (0, 1, 0), 0.6), bone))
+        parts.append((ck.blade("wing%db" % sx, r0 + Vector((0, 0.05, -0.01)) * k, P(sx * 0.56, 0.42, 0.24), 0.22 * k, 0.012 * k, m_w, (0.3 * sx, 1, 0), 0.6), bone))
+        parts.append((ck.tube("vein%d" % sx, r0 + Vector((0, -0.03, 0.012)) * k, P(sx * 0.72, 0.1, 0.345), 0.016 * k, 0.008 * k, m_w2, 4), bone))
+    # patas: 3 por lado, dobradas e penduradas
+    for sx in (-1, 1):
+        for j, y in enumerate((-0.1, 0.0, 0.1)):
+            bone = ("leg_fr" if sx > 0 else "leg_fl") if j == 0 else ("leg_br" if sx > 0 else "leg_bl")
+            a, b, c = P(sx * 0.09, y, -0.1), P(sx * 0.24, y - 0.03, -0.2), P(sx * 0.19, y - 0.07 + j * 0.05, -0.4)
+            parts.append((ck.tube("leg%d_%da" % (sx, j), a, b, 0.026 * k, 0.02 * k, m_d, 5), bone))
+            parts.append((ck.tube("leg%d_%db" % (sx, j), b, c, 0.02 * k, 0.012 * k, m_d, 5), bone))
+    finish(arm, parts)
+
+    z = (0, 0, 0)
+    tau = math.tau
+    legs = ("leg_fr", "leg_fl", "leg_br", "leg_bl")
+
+    def beat(keys, n, amp=34.0, mid=6.0, period=4, stop=None):
+        """asas: uma chave por quadro, sobe/desce a cada `period` quadros (arm_r sobe com -Z, arm_l com +Z); stop = quadro em que param"""
+        keys["arm_r"], keys["arm_l"] = [], []
+        for f in range(1, n + 1):
+            a = mid + amp * math.sin(tau * (f - 1) / period + 0.5)
+            if stop and f >= stop:
+                a = -38.0 * min(1.0, (f - stop) / 4.0)                 # asas caem
+            keys["arm_r"].append((f, (0, 0, -a), z))
+            keys["arm_l"].append((f, (0, 0, a), z))
+        return keys
+
+    # idle: paira (sobe/desce), abdômen balança, patas pendulam; 25 quadros = 6 batidas de asa
+    n = 25
+    idle = {b: [] for b in ("body", "head", "tail") + legs}
+    for f in range(1, n + 1, 2):
+        ph = (f - 1) / (n - 1) * tau
+        idle["body"].append((f, (3 * math.sin(ph), 0, 3 * math.sin(ph + 0.8)), (0.03 * math.sin(ph + 0.8), 0.06 * math.sin(ph), 0)))
+        idle["head"].append((f, (3 * math.sin(ph + 1.0), 0, 9 * math.sin(ph + 1.6)), z))
+        idle["tail"].append((f, (-6 + 7 * math.sin(ph - 0.9), 0, 4 * math.sin(ph)), z))
+        for i, b in enumerate(legs):
+            idle[b].append((f, (6 * math.sin(ph + i * 0.9), 0, 0), z))
+    lp.add_action(arm, "idle", beat(idle, n), n)
+    # run: inclina para a frente, asas mais rápidas, abdômen e patas para trás
+    n = 17
+    run = {b: [] for b in ("body", "head", "tail") + legs}
+    for f in range(1, n + 1, 2):
+        ph = (f - 1) / (n - 1) * tau
+        run["body"].append((f, (20 + 3 * math.cos(ph), 0, 5 * math.sin(ph)), (0, 0.04 * math.sin(2 * ph), 0)))
+        run["head"].append((f, (-14 - 2 * math.cos(ph), 0, -3 * math.sin(ph)), z))
+        run["tail"].append((f, (8 + 5 * math.sin(ph - 1.0), 0, 5 * math.sin(ph + 0.5)), z))
+        for i, b in enumerate(legs):
+            run[b].append((f, (24 + 5 * math.sin(ph + i), 0, 0), z))
+    lp.add_action(arm, "run", beat(run, n, amp=38.0, period=2), n)
+    # attack: recua e sobe, mergulha de corpo empinado com o abdômen dobrado por baixo (ferrão para a frente) no quadro 5, segura, volta
+    r = lambda x=0.0, y=0.0, zz=0.0: (x, y, zz)
+    p = lambda up=0.0, fwd=0.0: (0, up, fwd)
+    e = 16
+    atk = {
+        "body": [(1, z, z), (3, r(14), p(0.14, -0.16)), (5, r(-38), p(-0.06, 0.36)), (7, r(-34), p(-0.05, 0.32)), (10, r(-14), p(0.02, 0.12)), (13, r(4), p(0.02, -0.02)), (e, z, z)],
+        "head": [(1, z, z), (3, r(-14), z), (5, r(38), z), (7, r(32), z), (10, r(10), z), (e, z, z)],
+        "tail": [(1, z, z), (3, r(26), z), (5, r(-104), z), (7, r(-96), z), (10, r(-34), z), (13, r(6), z), (e, z, z)],
+    }
+    for i, b in enumerate(legs):
+        atk[b] = [(1, z, z), (3, r(-20), z), (5, r(40), z), (7, r(34), z), (11, r(8), z), (e, z, z)]
+    lp.add_action(arm, "attack", beat(atk, e, amp=40.0, period=2), e, loop=False)
+    # hit: tranco para trás, gira de lado, asas abertas por um instante
+    hit = {
+        "body": [(1, z, z), (2, r(-18, 0, 14), p(0.03, -0.14)), (5, r(8, 0, -8), p(-0.03, -0.07)), (8, r(-2), p(0, -0.02)), (10, z, z)],
+        "head": [(1, z, z), (2, r(-22, 0, 16), z), (5, r(8, 0, -8), z), (10, z, z)],
+        "tail": [(1, z, z), (2, r(30), z), (5, r(-16, 0, 10), z), (8, r(4), z), (10, z, z)],
+    }
+    for b in legs:
+        hit[b] = [(1, z, z), (2, r(-28), z), (5, r(12), z), (10, z, z)]
+    lp.add_action(arm, "hit", beat(hit, 10, amp=18.0, mid=22.0, period=2), 10, loop=False)
+    # die: asas param, vira de costas e cai no chão; quica, patas encolhem e tremem
+    drop = -(zc - 0.2 * k)
+    e = 24
+    die = {
+        "root": [(1, z, z), (4, z, (0, 0.06, 0)), (11, z, (0, drop, 0)), (14, z, (0, drop + 0.09, 0)), (17, z, (0, drop, 0)), (e, z, (0, drop, 0))],
+        "body": [(1, z, z), (4, r(-20, 0, 20), z), (11, r(-6, 0, 172), z), (14, r(-2, 0, 164), z), (17, r(-4, 0, 172), z), (e, r(-4, 0, 172), z)],
+        "head": [(1, z, z), (4, r(-24), z), (11, r(16, 0, 12), z), (17, r(22, 0, 16), z), (e, r(22, 0, 16), z)],
+        "tail": [(1, z, z), (4, r(24), z), (11, r(-20), z), (14, r(14), z), (17, r(4), z), (20, r(12), z), (e, r(8), z)],
+    }
+    for i, b in enumerate(legs):
+        die[b] = [(1, z, z), (4, r(-20), z), (11, r(30), z), (15, r(52), z), (18, r(40), z), (21, r(54), z), (e, r(50), z)]
+    lp.add_action(arm, "die", beat(die, e, amp=30.0, period=2, stop=5), e, loop=False)
+    return arm
+
+
+HIVE_BONES = {              # ossos de pé (x = X, y = para cima, z = -Y), como o casulo
+    "root": ((0, 0, 0), (0, 0, 0.2), None),
+    "body": ((0, 0, 0.05), (0, 0, 0.9), "root"),            # toco oco: fica no lugar
+    "head": ((0, 0, 1.0), (0, 0, 1.6), "body"),             # a colmeia (pulsa, treme, tomba)
+    "arm_r": ((0, 0, 1.95), (0, 0, 2.3), "head"),           # a ponta de cima: racha e salta
+    "arm_l": ((0.5, -0.2, 1.3), (0.5, -0.2, 1.6), "head"),  # pedaço de favo exposto: solta na queda
+}
+
+
+def hive(cid="mob_hive"):
+    """Colmeia gigante (monstro parado da Mata dos Zumbidos, ~2,4 m): toco oco com raízes e, em cima dele, a colmeia em
+    camadas de papel (anéis de dois tons), boca escura, um rombo com favos e mel escorrendo (`glow_honey`). Peças rígidas;
+    clipes idle (pulsa), run (= idle: nunca anda), attack (aperta: solta vespas), hit (treme), die (racha, tomba do toco e achata)."""
+    import bmesh
+    arm = lp.make_armature("rig_" + cid, HIVE_BONES)
+    bark = ck.mat("m_%s_bark" % cid, (0.45, 0.32, 0.22), 1.0)
+    bark_d = ck.mat("m_%s_bark_d" % cid, (0.27, 0.19, 0.14), 1.0)
+    wood = ck.mat("m_%s_wood" % cid, (0.72, 0.56, 0.36), 1.0)
+    hollow = ck.mat("m_%s_hollow" % cid, (0.12, 0.08, 0.07), 1.0)
+    paper = ck.mat("m_%s_paper" % cid, (0.93, 0.76, 0.4), 1.0)
+    paper2 = ck.mat("m_%s_paper2" % cid, (0.62, 0.42, 0.2), 1.0)
+    comb = ck.mat("m_%s_comb" % cid, (0.98, 0.72, 0.2), 0.8)
+    honey = ck.mat("glow_honey", (1.0, 0.68, 0.14), 0.3, 1.6)
+    moss = ck.mat("m_%s_moss" % cid, (0.45, 0.62, 0.32), 1.0)
+    parts = []
+    # toco: parede de fora (alarga no pé, topo quebrado em dentes) + parede de dentro escura
+    n = 14
+    wob = lambda a_i: 1.0 + 0.07 * math.sin(a_i * 2.3 + 0.7) + 0.05 * math.sin(a_i * 5.1)
+    top = lambda a_i: 1.02 + 0.2 * abs(math.sin(a_i * 1.9 + 0.4)) + (0.34 if a_i in (9, 10, 11) else 0.0) - (0.2 if a_i in (2, 3) else 0.0)     # lasca alta atrás, mordida na frente
+    bmx = bmesh.new()
+    prof = ((0.0, 0.7), (0.22, 0.56), (0.6, 0.5), (None, 0.47), (None, 0.36))          # (z, raio); None = z do topo quebrado
+    rings = []
+    for z_, r_ in prof:
+        ring = []
+        for i in range(n):
+            a = math.tau * i / n - math.pi / 2 + 0.2
+            zz = top(i) if z_ is None else z_
+            rr = r_ * wob(i)
+            ring.append(bmx.verts.new((math.cos(a) * rr, math.sin(a) * rr, zz)))
+        rings.append(ring)
+    inner = [bmx.verts.new((v.co.x * 0.95, v.co.y * 0.95, 0.5)) for v in rings[-1]]
+    rings.append(inner)
+    for j in range(len(rings) - 1):
+        for i in range(n):
+            f = bmx.faces.new((rings[j][i], rings[j][(i + 1) % n], rings[j + 1][(i + 1) % n], rings[j + 1][i]))
+            f.material_index = 0 if j < 3 else (1 if j == 3 else 2)
+    f = bmx.faces.new(list(reversed(inner)))
+    f.material_index = 2
+    bmesh.ops.recalc_face_normals(bmx, faces=bmx.faces[:])
+    stump = ck.mesh_from("stump", bmx, bark)
+    stump.data.materials.append(wood)
+    stump.data.materials.append(hollow)
+    parts.append((stump, "body"))
+    for i in range(6):                  # raízes
+        a = 0.5 + i * math.tau / 6 + 0.3 * math.sin(i * 2.7)
+        far = 1.0 + 0.15 * math.sin(i * 1.3)
+        mid = Vector((math.cos(a) * 0.72, math.sin(a) * 0.72, 0.12))
+        parts.append((ck.tube("root%da" % i, (math.cos(a) * 0.42, math.sin(a) * 0.42, 0.34), mid, 0.17, 0.12, bark, 6), "body"))
+        parts.append((ck.tube("root%db" % i, mid, (math.cos(a + 0.15) * far, math.sin(a + 0.15) * far, 0.0), 0.12, 0.04, bark, 6), "body"))
+    parts.append((blob("knot", 0.17, (0.1, -0.5, 0.55), hollow, (0.8, 0.35, 1.2), 2), "body"))          # oco na frente do toco
+    parts.append((blob("knot_rim", 0.22, (0.1, -0.47, 0.55), bark_d, (0.8, 0.3, 1.2), 2), "body"))
+    parts.append((blob("moss0", 0.3, (-0.42, 0.2, 0.3), moss, (1.0, 1.0, 0.45), 2), "body"))
+    parts.append((blob("moss1", 0.22, (0.5, 0.3, 0.14), moss, (1.0, 1.0, 0.4), 2), "body"))
+    parts.append((ck.tube("branch", (-0.42, 0.1, 0.8), (-0.86, 0.22, 1.2), 0.1, 0.06, bark, 6), "body"))     # galho quebrado
+    parts.append((ck.tube("branch_cut", (-0.86, 0.22, 1.2), (-0.89, 0.23, 1.23), 0.062, 0.05, wood, 6), "body"))
+    # colmeia: bulbo de anéis de papel empilhados (0,95 -> 2,35 m), cada um um pouco torto
+    hz0, hz1, hr = 0.95, 2.32, 0.74
+    nr = 9
+    for i in range(nr):
+        t = (i + 0.5) / nr
+        zz = hz0 + (hz1 - hz0) * t
+        rr = hr * (math.sin(math.pi * (0.16 + 0.84 * t) ** 0.8) ** 0.75) * (1.0 + 0.04 * math.sin(i * 2.1)) * (0.93 if i % 2 else 1.0)
+        o = blob("layer%d" % i, 1.0, (0.035 * math.sin(i * 1.7), 0.035 * math.cos(i * 2.3) - 0.02, zz), paper if i % 2 == 0 else paper2, (rr, rr, 0.125), 3)
+        parts.append((o, "arm_r" if i >= nr - 3 else "head"))
+    parts.append((cone("tip", (0.02, -0.02, hz1 - 0.16), (-0.03, 0.02, hz1 + 0.16), 0.24, paper2, 8), "arm_r"))
+    # boca: anel de papel + buraco escuro, na frente e um pouco para baixo
+    parts.append((blob("mouth_rim", 0.2, (-0.12, -0.66, 1.42), paper2, (1.0, 0.45, 1.0), 2), "head"))
+    parts.append((blob("mouth", 0.13, (-0.12, -0.72, 1.42), hollow, (1.0, 0.45, 1.0), 2), "head"))
+    # rombo com favos: células hexagonais com mel, de frente-direita e viradas um pouco para cima
+    cdir = Vector((0.62, -0.5, 0.6)).normalized()
+    cu = cdir.cross(Vector((0, 0, 1))).normalized()
+    cv = cu.cross(cdir).normalized()
+    c0 = Vector((0.0, -0.02, 1.52)) + cdir * 0.6
+    parts.append((ck.tube("comb_bed", c0 - cdir * 0.12, c0 + cdir * 0.015, 0.33, 0.3, paper2, 10), "arm_l"))
+    k = 0
+    for q in range(-2, 3):
+        for r_ in range(-2, 3):
+            if abs(q + r_) > 2:
+                continue
+            cpos = c0 + cu * (0.115 * (q + r_ * 0.5)) + cv * (0.1 * r_)
+            if (cpos - c0).length > 0.25:
+                continue
+            parts.append((ck.tube("cell%d" % k, cpos, cpos + cdir * 0.045, 0.062, 0.062, comb, 6), "arm_l"))
+            parts.append((ck.tube("cellh%d" % k, cpos + cdir * 0.03, cpos + cdir * 0.052, 0.04, 0.04, honey if k % 3 else hollow, 6), "arm_l"))
+            k += 1
+    # mel: escorre do rombo e da base da colmeia pelo toco, gotas e poça no chão
+    for i, (a, z0, ln, rad) in enumerate(((-0.6, 1.02, 0.5, 0.055), (-1.5, 1.0, 0.36, 0.045), (0.3, 1.02, 0.62, 0.05), (2.4, 1.05, 0.3, 0.045), (-2.6, 1.0, 0.44, 0.05))):
+        x, y = math.cos(a), math.sin(a)
+        parts.append((ck.tube("drip%d" % i, (x * 0.5, y * 0.5, z0), (x * 0.52, y * 0.52, z0 - ln), rad, rad * 0.75, honey, 6), "body"))
+        parts.append((blob("drop%d" % i, rad * 1.35, (x * 0.53, y * 0.53, z0 - ln), honey, (1, 1, 1.25), 1), "body"))
+    parts.append((blob("ooze", 0.16, c0 - cv * 0.27 - cdir * 0.04, honey, (1.1, 0.8, 0.9), 2), "arm_l"))
+    parts.append((ck.tube("ooze_drip", c0 - cv * 0.3 - cdir * 0.03, c0 - cv * 0.3 - cdir * 0.03 + Vector((0, 0, -0.3)), 0.05, 0.03, honey, 6), "arm_l"))
+    parts.append((blob("pool", 0.34, (0.42, -0.72, 0.0), honey, (1.0, 0.8, 0.07), 2), "root"))
+    parts.append((blob("pool2", 0.16, (0.74, -0.42, 0.0), honey, (1.0, 1.0, 0.09), 2), "root"))
+    finish(arm, parts)
+
+    z, one = (0, 0, 0), (1, 1, 1)
+
+    def still(keys, end):           # toda trilha de escala em todo clipe (clipe sem a trilha herdaria a escala do anterior)
+        for b in ("body", "head", "arm_r", "arm_l"):
+            keys.setdefault(b, [(1, z, z, one), (end, z, z, one)])
+        return keys
+
+    pulse = [(1, z, z, one), (14, (0.5, 0, 0.7), z, (1.03, 0.985, 1.03)), (28, z, z, one), (42, (-0.5, 0, -0.7), z, (1.025, 0.99, 1.025)), (56, z, z, one)]
+    lp.add_action(arm, "idle", still({"head": pulse}, 56), 56)
+    lp.add_action(arm, "run", still({"head": pulse}, 56), 56)
+    # attack: a colmeia encolhe e cospe (a sim solta as vespas); impacto no quadro 5
+    spit = [(1, z, z, one), (3, (-3, 0, 0), z, (1.07, 0.95, 1.07)), (5, (5, 0, 0), z, (0.93, 1.06, 0.93)), (9, (2, 0, -3), z, (1.04, 0.98, 1.04)), (13, (0, 0, 2), z, (0.99, 1.01, 0.99)), (16, z, z, one)]
+    lp.add_action(arm, "attack", still({"head": spit}, 16), 16, loop=False)
+    hit = {"head": [(1, (0, 0, 9), z, (1.06, 0.95, 1.06)), (3, (0, 0, -7), z, (0.97, 1.03, 0.97)), (5, (0, 0, 5), z, one), (7, (0, 0, -3), z, one), (10, z, z, one)],
+           "body": [(1, (0, 0, 2.5), z, one), (3, (0, 0, -2), z, one), (5, (0, 0, 1), z, one), (10, z, z, one)]}
+    lp.add_action(arm, "hit", still(hit, 10), 10, loop=False)
+    # die: incha, racha (a ponta salta para trás, o favo solta para o lado), a colmeia tomba para a frente do toco, cai e achata
+    die = {
+        "body": [(1, z, z, one), (4, (0, 0, 3), z, one), (7, (0, 0, -2.5), z, one), (10, (-2, 0, 1), z, one), (14, z, z, one), (28, z, z, one)],
+        # a colmeia gira ~95 graus para a frente: daí em diante, nos filhos dela, loc Y = para a frente e loc Z = para baixo
+        "head": [(1, z, z, one), (4, z, z, (1.1, 0.96, 1.1)), (7, (10, 0, 4), z, (1.0, 1.0, 1.0)), (11, (48, 0, 8), (0, 0.0, 0.16), one), (15, (88, 0, 10), (0, -0.2, 0.34), one),
+                 (17, (96, 0, 10), (0, -0.33, 0.38), (1.08, 1.05, 0.86)), (20, (92, 0, 10), (0, -0.26, 0.42), (0.99, 0.99, 0.98)), (23, (95, 0, 10), (0, -0.33, 0.44), (1.06, 1.04, 0.9)),
+                 (28, (95, 0, 10), (0, -0.33, 0.44), (1.06, 1.04, 0.9))],
+        "arm_r": [(1, z, z, one), (5, z, z, one), (8, (-15, 0, 10), (0, 0.15, 0), one), (13, (10, 0, 18), (0.1, 0.3, -0.25), one), (18, (40, 0, 25), (0.2, 0.45, 0.4), one),
+                  (21, (48, 0, 28), (0.2, 0.5, 0.3), one), (24, (55, 0, 30), (0.22, 0.55, 0.45), one), (28, (55, 0, 30), (0.22, 0.55, 0.45), one)],
+        "arm_l": [(1, z, z, one), (5, z, z, one), (8, (0, 0, -20), (0.15, 0.05, 0), one), (14, (10, 0, -45), (0.45, 0.1, -0.1), one), (19, (20, 0, -62), (0.6, 0.1, 0.17), one),
+                  (22, (20, 0, -58), (0.62, 0.1, 0.1), one), (25, (20, 0, -62), (0.64, 0.1, 0.17), one), (28, (20, 0, -62), (0.64, 0.1, 0.17), one)],
+    }
+    lp.add_action(arm, "die", die, 28, loop=False)
+    return arm
+
+
 def golem(cid="mob_golem"):
     arm = lp.make_armature("rig_" + cid, bm.MOB_BONES)
     stone = ck.mat("m_stone", (0.62, 0.6, 0.58), 0.9)
@@ -1978,7 +2286,7 @@ def goblin_rider(cid, raider=False):
 SK_BONE = (0.92, 0.9, 0.82)
 # bichos que são (ou vestem) chefes: gestos maul/pounce/slam/roar/brace (boss_gestures), para as skills especiais não
 # repetirem o "attack"
-BOSS_GESTURES = {"mob_boar": "quad", "mob_dire_mother": "quad", "mob_crab": "crab", "mob_slime": "slime", "mob_spider": "spider", "mob_ghost": "ghost", "mob_trent": "biped4",
+BOSS_GESTURES = {"mob_boar": "quad", "mob_dire_mother": "quad", "mob_bear_mother": "quad", "mob_crab": "crab", "mob_slime": "slime", "mob_spider": "spider", "mob_ghost": "ghost", "mob_trent": "biped4",
                  "mob_golem_ancient": "biped", "mob_crystal_warden": "biped", "mob_quarry_heart": "biped"}
 
 
@@ -2096,6 +2404,13 @@ def build_all(out_dir, only=None):
         "mob_larva": larva,
         "mob_web_cocoon": web_cocoon,      # lacaio do Casulo de Seda da Rainha Aranha (monstro `web_cocoon`)
         "mob_bat": bat,
+        # Mata dos Zumbidos (4-8): vespas, ursos e a Colmeia. Tamanho dos ursos = MonsterDef.scale (sugestão: filhote 0,7; urso 1,1; Ursa-Mãe 1,65)
+        "mob_wasp": lambda: wasp("mob_wasp"),
+        "mob_wasp_soldier": lambda: wasp("mob_wasp_soldier", soldier=True),
+        "mob_bear": lambda: quadruped("mob_bear", (0.52, 0.34, 0.2), (0.27, 0.17, 0.11), (0.82, 0.66, 0.46), "bear"),
+        "mob_bear_cub": lambda: quadruped("mob_bear_cub", (0.72, 0.5, 0.3), (0.42, 0.28, 0.18), (0.95, 0.82, 0.62), "bear", look={"head": 1.28}),
+        "mob_bear_mother": lambda: quadruped("mob_bear_mother", (0.3, 0.2, 0.15), (0.15, 0.1, 0.09), (0.9, 0.8, 0.62), "bear", look={"boss": (0.92, 0.56, 0.5)}),
+        "mob_hive": hive,
         "mob_skeleton": lambda: humanoid("mob_skeleton", "plate", (0.42, 0.4, 0.38), "sword", skin=(0.92, 0.9, 0.82),
                                          eye=(1.0, 0.3, 0.2), offhand="shield", hide_hair=True),
         "mob_zombie": lambda: humanoid("mob_zombie", "leather", (0.32, 0.36, 0.28), "axe", skin=(0.52, 0.62, 0.42), eye=(0.95, 0.9, 0.3)),

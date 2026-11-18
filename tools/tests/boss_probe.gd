@@ -64,7 +64,7 @@ extends Node
 ##   baixa_tq = o mesmo para o tanque; pocoes = poções de vida bebidas por luta (grupo todo);
 ##   ritmo = parte da luta em que os outros membros estavam golpeando/lançando (o resto é andando ou parado).
 
-const BOSSES := {"bandit_chief": "field_forest", "crab_king": "city_aldara", "slime_king": "dg_gruta", "spider_queen": "dg_ninho", "crypt_lord": "dg_cripta",
+const BOSSES := {"bandit_chief": "field_forest", "crab_king": "city_aldara", "bear_mother": "field_hollow", "slime_king": "dg_gruta", "spider_queen": "dg_ninho", "crypt_lord": "dg_cripta",
 	"bone_captain": "dg_catacumbas", "wailing_widow": "dg_catacumbas", "count_vargo": "dg_catacumbas_trono",
 	"boar_brute": "city_aldara", "boar_king": "city_aldara", "elf_king": "dg_coracao", "elf_warden": "elf_city", "trent": "elf_city",
 	"golem_ancient": "dg_pedreira", "crystal_warden": "dg_pedreira", "quarry_heart": "dg_pedreira_coracao",
@@ -81,7 +81,7 @@ const BOSSES := {"bandit_chief": "field_forest", "crab_king": "city_aldara", "sl
 ## Chefe sem spawner no mapa da sonda luta no lugar deste (arena provisória). Vazio: todos têm a sala deles.
 const ARENA_AT := {}
 ## field = chefe de campo (dá para solar); elite = monstro forte de missão (sem fases); group = conteúdo de grupo.
-const GROUPS := {"crab_king": "field", "boar_brute": "field", "boar_king": "field", "slime_king": "field",
+const GROUPS := {"crab_king": "field", "bear_mother": "field", "boar_brute": "field", "boar_king": "field", "slime_king": "field",
 	"trent": "elite", "elf_warden": "elite"}          # o resto: group
 ## Faixas que o chefe precisa cumprir (`--bands`). win = fração de vitórias; time = s de luta do trio; o resto são pisos.
 ## kite_far: skills miradas a 9 m+ por minuto contra um atirador que kita; passa também se o atirador perde a maioria.

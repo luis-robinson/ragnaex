@@ -35,7 +35,7 @@ const SLOT_ART := {ItemDef.Slot.HEAD: "head", ItemDef.Slot.BODY: "body", ItemDef
 	ItemDef.Slot.BOOTS: "boots", ItemDef.Slot.CAPE: "cape", ItemDef.Slot.AMULET: "amulet", ItemDef.Slot.RING: "ring",
 	ItemDef.Slot.RING2: "ring", ItemDef.Slot.ACCESSORY: "ring"}
 ## material: palavra no id -> arte (o primeiro que bater)
-const MATERIAL_ART := [["legend_coin", "legend_coin"], ["shell", "shell"], ["mushroom", "mushroom"], ["relic", "relic"], ["basket", "basket"],
+const MATERIAL_ART := [["legend_coin", "legend_coin"], ["honey", "sap"], ["stinger", "tusk"], ["shell", "shell"], ["mushroom", "mushroom"], ["relic", "relic"], ["basket", "basket"],
 	["letter", "letter"], ["report", "letter"], ["star_ore", "star"], ["goods", "basket"], ["gel", "gel"], ["pelt", "pelt"], ["hide", "pelt"], ["tusk", "tusk"], ["fang", "tusk"], ["herb", "herb"],
 	["ore", "ore"], ["silk", "silk"], ["bark", "bark"], ["badge", "badge"], ["bone", "bone"], ["dust", "dust"],
 	["essence", "essence"], ["core", "core"], ["scale", "scale"], ["feather", "feather"], ["steel", "ingot"], ["sap", "sap"], ["heartwood", "bark"], ["_log", "bark"]]
