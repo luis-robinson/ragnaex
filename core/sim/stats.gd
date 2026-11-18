@@ -10,7 +10,8 @@ const STAT_KEYS := ["atk_pct", "matk_pct", "def_pct", "speed_pct", "heal_pct", "
 	"aspd_pct", "buff_pct", "radiance", "radiance_cap", "pet_pct", "evasion", "hit_poison", "backstab", "cdr", "threat_pct",
 	"dr_pct", "fire_pct", "frost_pct", "storm_pct", "titan_relief", "turret_max", "shadow_time", "shadow_share", "execute_pct",
 	"prey_crit", "falcon_pct", "block", "mp_on_kill", "mp_regen_combat", "trap_max",
-	"crit_dmg_pct", "dot_pct", "cc_resist_pct", "mp_cost_pct", "summon_time_pct"]
+	"crit_dmg_pct", "dot_pct", "cc_resist_pct", "mp_cost_pct", "summon_time_pct",
+	"crit_leech", "low_leech", "mana_guard", "hit_slow", "heal_taken_pct", "def_atk_pct", "block_reflect", "guard_crit", "taunt_dmg_pct", "thorns"]
 ## Chaves de buff que não são stat: id (renova, não acumula), duração e aura de ligar/desligar.
 const BUFF_META := ["id", "duration", "toggle"]
 ## Chaves de bônus de conjunto que não são stat (SetDef: atributos e bônus por skill).
@@ -35,6 +36,16 @@ var dot_pct: float = 0.0         # % a mais de dano no tempo aplicado por você 
 var cc_resist_pct: float = 0.0   # % a menos de duração de atordoar/prender/lentidão em você (teto CC_RESIST_CAP)
 var mp_cost_pct: float = 0.0     # % a menos de custo de mana das skills (mínimo 1; teto MP_COST_CAP)
 var summon_time_pct: float = 0.0 # % a mais de duração das invocações com tempo (teto SUMMON_TIME_CAP)
+## Notáveis de papel da teia (Balance.ROLE_NOTABLES; regras em Combat.role_*)
+var crit_leech: float = 0.0      # % do dano de um crítico direto que volta como vida (Sangue no Fio)
+var low_leech: float = 0.0       # roubo de vida a mais abaixo de Balance.LOW_LEECH_HP da vida (Sede na Beira)
+var mana_guard: float = 0.0      # % do dano recebido que sai da mana (Barreira de Mana; teto MANA_GUARD_CAP)
+var hit_slow: float = 0.0        # % de lentidão no alvo do golpe físico direto (Flecha Pesada; HIT_SLOW_TIME s)
+var heal_taken_pct: float = 0.0  # % a mais de cura recebida (SimEntity.heal_factor)
+var def_atk_pct: float = 0.0     # % da DEF física que vira ATK físico (Peso da Fé / Casca Afiada)
+var block_reflect: float = 0.0   # % do golpe bloqueado devolvido ao atacante (Escudo Vingador)
+var guard_crit: float = 0.0      # +% de crítico por Balance.GUARD_CRIT_TIME s depois de bloquear (Contra-Ataque)
+var taunt_dmg_pct: float = 0.0   # % a mais de dano em monstro cujo alvo é você (Julgamento / Fúria do Urso)
 var lifesteal: float = 0.0       # % do dano causado que volta como vida (golpes diretos; dano no tempo não conta)
 var shadow_time: float = 0.0    # nós "shadow_time" da teia de ascensão (Assassino): cada um +Balance.SHADOW_TIME_NODE s de clone
 var shadow_share: float = 0.0   # nós "shadow_share": cada um +Balance.SHADOW_SHARE_NODE pontos de % no dano do clone
@@ -296,6 +307,16 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 		s.cc_resist_pct += float(b.get("cc_resist_pct", 0))
 		s.mp_cost_pct += float(b.get("mp_cost_pct", 0))
 		s.summon_time_pct += float(b.get("summon_time_pct", 0))
+		s.crit_leech += float(b.get("crit_leech", 0))
+		s.low_leech += float(b.get("low_leech", 0))
+		s.mana_guard += float(b.get("mana_guard", 0))
+		s.hit_slow = maxf(s.hit_slow, float(b.get("hit_slow", 0)))
+		s.heal_taken_pct += float(b.get("heal_taken_pct", 0))
+		s.def_atk_pct += float(b.get("def_atk_pct", 0))
+		s.block_reflect += float(b.get("block_reflect", 0))
+		s.guard_crit += float(b.get("guard_crit", 0))
+		s.taunt_dmg_pct += float(b.get("taunt_dmg_pct", 0))
+		s.thorns_pct += float(b.get("thorns", 0))      # soma com a arma lendária de espinhos
 		if s.has_shield:
 			s.block_chance += float(b.get("block", 0))           # +% de bloqueio (Asas com Bloqueio); sem escudo não vale
 	for b in set_bonus:
@@ -315,6 +336,11 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 	s.cc_resist_pct = minf(s.cc_resist_pct, Balance.CC_RESIST_CAP)
 	s.mp_cost_pct = minf(s.mp_cost_pct, Balance.MP_COST_CAP)
 	s.summon_time_pct = minf(s.summon_time_pct, Balance.SUMMON_TIME_CAP)
+	s.mana_guard = minf(s.mana_guard, Balance.MANA_GUARD_CAP)
+	s.crit_leech = minf(s.crit_leech, Balance.ROLE_LEECH_CAP)
+	s.low_leech = minf(s.low_leech, Balance.ROLE_LEECH_CAP)
+	if s.def_atk_pct > 0.0:
+		s.patk += s.pdef * s.def_atk_pct / 100.0          # tanque: a DEF vira dano (depois dos % de DEF e de ATK)
 	if s.titan_pair:
 		s.titan_speed = titan_speed_mult(s.titan_relief)
 	return s

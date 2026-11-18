@@ -973,6 +973,7 @@ var _web_dragging := false
 var _web_moved := 0.0           # quanto o mouse andou desde o clique: arrasto não compra nó
 var _web_view: Control = null   # área e teia da janela aberta (revisão automática: --web_click_check)
 var _web_node: Control = null
+var _web_fog: WebFog = null     # névoa + cadeados da teia aberta (teste: quantos cadeados)
 
 func _tree_view(p: SimEntity, asc: bool = false) -> Control:
 	_web_asc = asc
@@ -1048,6 +1049,16 @@ func _tree_view(p: SimEntity, asc: bool = false) -> Control:
 	var fog := WebFog.new()
 	web.add_child(fog)
 	fog.setup("%s|%s|%d" % [p.class_def.id, asc, p.level], nodes, p.level, origin, WEB_UNIT)
+	# cadeado em todo nó acima do nível (por cima da névoa; a névoa sozinha passava despercebida)
+	var lock_rects: Array = []
+	for nid in WebFog.locked(nodes, p.level, p.asc_tree if asc else p.tree):
+		var kind: String = nodes[nid]["kind"]
+		if nodes[nid]["branch"] == "ring" and kind == "stat":
+			continue                         # estradas/junções: só a névoa (cadeado em cada uma virava chuvisco)
+		var r := WebFog.lock_rect(kind, float(NODE_PX.get(kind, 16)))
+		lock_rects.append([Rect2(r.position + (nodes[nid]["pos"] as Vector2) * WEB_UNIT, r.size), kind in WebFog.LOCK_BIG])
+	fog.set_locks(lock_rects)
+	_web_fog = fog
 	# barra de cima (fundo escuro): busca, centralizar e para onde vai cada braço
 	var bar_bg := PanelContainer.new()
 	bar_bg.position = Vector2(6, 6)
@@ -1093,6 +1104,8 @@ func _web_input(ev: InputEvent, view: Control, web: Control) -> void:
 			web.position = m - (m - web.position) * (_web_zoom / z0)
 			web.scale = Vector2.ONE * _web_zoom
 			_web_pan = web.position - view.size * 0.5
+			if is_instance_valid(_web_fog):
+				_web_fog.queue_redraw()          # selos têm tamanho mínimo na tela
 			view.accept_event()
 	elif ev is InputEventMouseMotion and _web_dragging and (ev as InputEventMouseMotion).button_mask & MOUSE_BUTTON_MASK_LEFT:
 		web.position += (ev as InputEventMouseMotion).relative
@@ -1105,6 +1118,8 @@ func _web_center(web: Control) -> void:
 	_web_zoom = 0.8
 	web.position = (web.get_parent() as Control).size * 0.5
 	web.scale = Vector2.ONE * _web_zoom
+	if is_instance_valid(_web_fog):
+		_web_fog.queue_redraw()
 
 func _web_search(t: String) -> void:
 	_web_query = t
@@ -1271,6 +1286,10 @@ func _mastery_ring(ring: Control, lv: int, px: int) -> void:
 		ring.draw_arc(c, r, a0, a1, 8, Color(0.04, 0.03, 0.06), 5.0, true)
 		ring.draw_arc(c, r, a0, a1, 8, C_OWNED if i < lv else Color(0.3, 0.28, 0.34), 3.0, true)
 
+## Linha da dica de um nó com cadeado.
+static func lock_line(level: int) -> String:
+	return "Abre no nível %d" % level
+
 func _tree_tip(p: SimEntity, n: Dictionary, owned: bool, why: String) -> String:
 	var kinds := {"skill": "Skill", "talent": "Evolução", "stat": "Passivo", "notable": "Notável", "mastery": "Maestria", "start": "Início"}
 	var t := "[b][color=#ffd966]%s[/color][/b]  [color=#aaa](%s)[/color]\n" % [n["name"], kinds.get(n["kind"], "")]
@@ -1281,7 +1300,12 @@ func _tree_tip(p: SimEntity, n: Dictionary, owned: bool, why: String) -> String:
 	else:
 		t += "%s\n" % n["desc"]
 	t += "[color=#aaa]Nível %d · custo %d ponto(s)[/color]\n" % [int(n["level"]), int(n["cost"])]
-	if owned and not (n["kind"] == "mastery" and why == ""):
+	if not owned and n["kind"] != "start" and p.level < int(n["level"]):
+		# cadeado: o nível vem primeiro (a sim pode dizer antes "precisa de vizinho"); o outro motivo vai embaixo
+		t += "[color=#ddd]%s[/color]" % lock_line(int(n["level"]))
+		if why != "" and not why.begins_with("requer nível"):
+			t += "\n[color=#f99]%s[/color]" % why.capitalize()
+	elif owned and not (n["kind"] == "mastery" and why == ""):
 		t += "[color=#9f9]✔ Comprado[/color]"
 	elif why == "":
 		t += "[color=#9f9]Clique para comprar[/color]"

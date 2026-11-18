@@ -216,6 +216,7 @@ static func adds_alive(sim: WorldSim, boss: SimEntity) -> int:
 
 ## Chefe volta ao estado inicial depois de um wipe ou de ser puxado longe demais.
 static func reset_boss(sim: WorldSim, e: SimEntity) -> void:
+	ShiftSystem.revert(sim, e)
 	e.phase = 0
 	e.boss_spoke = false
 	e.dmg_mult = 1.0

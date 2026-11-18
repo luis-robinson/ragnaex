@@ -12,7 +12,7 @@ const BOSS_RANGE := 32.0               # m: chefe em luta até aqui troca para o
 const THEMES := ["aldara", "taverna", "campo", "elfos", "bastiao", "masmorra", "caverna", "catacumbas", "trevas", "cidadela", "chefe", "investida",
 	"porto", "costa", "goblins", "horda", "kharzun", "kharzun_citadel"]
 ## mapa -> tema; o resto sai de theme_for() (masmorras, fortalezas, interiores)
-const MAP_THEME := {"city_aldara": "aldara", "field_hollow": "campo", "in_tavern": "taverna", "field_forest": "campo", "elf_city": "elfos",
+const MAP_THEME := {"city_aldara": "aldara", "field_hollow": "campo", "field_grove": "campo", "in_tavern": "taverna", "field_forest": "campo", "elf_city": "elfos",
 	"field_ruins": "bastiao", "lich_citadel": "cidadela", "dg_catacumbas": "catacumbas", "dg_catacumbas_trono": "catacumbas",
 	"dg_gruta": "caverna", "dg_pedreira": "caverna", "dg_pedreira_coracao": "caverna",
 	# Ato II: Porto Esperança, Costa Partida e Grutas Goblin (tambores); a taverna do porto usa a do Ato I

@@ -39,6 +39,10 @@ var form: String = ""                 # forma de animal do Druida: "" | "wolf" |
 var form_left: float = 0.0             # s até a forma acabar sozinha (0 = até desligar; Balance.FORM_DURATION)
 var stealth_left: float = 0.0         # s de furtividade (monstros não enxergam); qualquer golpe quebra
 var ambush: bool = false              # o golpe que quebrou a furtividade ganha bônus
+var shift_base: MonsterDef = null     # monstro transformado (ShiftSystem): o MonsterDef de origem; null = na forma base
+var shift_left: float = 0.0           # s de conjuração da metamorfose (> 0 = conjurando)
+var shift_pick: String = ""           # forma sorteada para esta conjuração
+var shift_calm: float = 0.0           # s fora de combate transformado (volta em Balance.SHIFT_REVERT_S)
 var summon_hp: float = 0.0            # vida máxima fixa: invocação que herda a do dono, cópia do Shazka (a do chefe); 0 = do monstro
 # Elemental que evolui (Elementalista ascendido, ElementalSystem). No mago: experiência, forma e modo (salvos);
 # na invocação: elem_form/elem_stage dizem que é o elemental persistente (vazio = invocação comum).
@@ -362,6 +366,8 @@ func heal_factor() -> float:
 		for b in buffs:
 			if b.get("id") == Balance.LEG_DETERMINATION_BUFF:     # Determinação (escudo lendário): mais cura recebida por carga
 				f *= 1.0 + float(b.get("heal_in_pct", 0.0)) / 100.0
+	if stats != null and stats.heal_taken_pct > 0.0:
+		f *= 1.0 + stats.heal_taken_pct / 100.0          # notável de papel (Cura de Si, Seiva, Pacto de Sangue)
 	return f
 
 func mastery_of(skill_id: String) -> int:

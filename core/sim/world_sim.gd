@@ -1079,7 +1079,7 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 	if s.effects.has("elem_fusion"):
 		power *= ElementalSystem.fusion_power_mult(e, s)     # Fusão bate com o elemento da forma do elemental
 	if e.ambush:
-		power *= ClassTalentSystem.ambush_mult(e)
+		power *= ShiftSystem.ambush_mult(e)          # forma furtiva de monstro: Balance.SHIFT_AMBUSH_MULT
 		e.ambush = false
 	if e.is_character() and not e.stats.fusion.is_empty():
 		power *= FusionEffects.skill_mult(self, e, s)          # Fusão do híbrido: Juramento (2 mãos), Peso, golpe furtivo
@@ -1787,6 +1787,8 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 		amount = maxi(1, int(round(amount * ClassTalentSystem.damage_mult(attacker, target))))     # ferido / execução
 	if attacker.is_character() and attacker != target and not attacker.stats.fusion.is_empty():
 		amount = maxi(1, int(round(amount * FusionEffects.damage_mult(attacker, target))))     # Fusão: Sentença Ardente (P2), Lua Caçadora (D2)
+	if attacker.is_character() and attacker != target and attacker.stats.taunt_dmg_pct > 0.0:
+		amount = maxi(1, int(round(amount * Combat.role_damage_mult(attacker, target))))     # notável de tanque: quem bate em você apanha mais
 	# maldições: alvo amaldiçoado recebe mais, atacante enfraquecido causa menos
 	var taken := Combat.taken_pct(target) if not target.debuffs.is_empty() else 0.0     # marcas com teto (MARK_TAKEN_CAP)
 	var weak := Combat.curse_sum(attacker, "weaken_pct")
@@ -1818,6 +1820,8 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 		amount -= int(absorbed)
 	if not target.ct.is_empty():
 		amount = ClassTalentSystem.mana_shield(target, amount)
+	if target.is_character() and attacker != target and target.stats.mana_guard > 0.0:
+		amount = Combat.role_mana_guard(target, amount)      # Barreira de Mana (notável)
 	amount = ClassTalentSystem.before_hit(self, target, amount)       # imortal / recusa a morrer
 	if amount > 0 and target.recall_left > 0.0:
 		PortalSystem.interrupt_recall(self, target)                   # levou dano (o que a barreira segurou não conta)
@@ -1859,6 +1863,8 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 	elif blocked and target.stats.has_shield:
 		ShieldSystem.shield_reaction(self, target, attacker, amount, parried, from)
 	LegendEffects.legend_weapon(self, attacker, target, amount, kind)
+	if attacker.is_character() or (blocked and target.is_character()):
+		Combat.role_on_hit(self, attacker, target, amount, crit, blocked, kind)     # notáveis de papel (roubo, lentidão, bloqueio)
 	if target.is_character() and not target.stats.fusion.is_empty() and attacker != target and not kind.begins_with("dot") and target.is_alive():
 		FusionEffects.on_hit_taken(self, attacker, target)     # Casca Partilhada (D3)
 
@@ -1903,6 +1909,8 @@ func _mana_on_kill(killer: SimEntity) -> void:
 	k.mp = minf(k.stats.max_mp, k.mp + k.stats.max_mp * k.stats.mp_on_kill / 100.0)
 
 func _kill(e: SimEntity, killer: SimEntity) -> void:
+	if e.shift_base != null or e.shift_left > 0.0:
+		ShiftSystem.revert(self, e, true)          # morre como a forma, mas XP/saque/quest contam pela base
 	if not e.sig.is_empty():
 		BossSignatures.on_death(self, e)          # cópia solta veneno; chefe leva as cópias junto (R-F)
 	NecroAscension.on_death(self, e)          # Marca da Cova (levanta) e fim da Forma de Lich; antes de limpar debuffs/forma
@@ -2117,6 +2125,8 @@ func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 				e.set_state(SimEntity.State.IDLE)
 		_:
 			pass
+	if e.kind == SimEntity.Kind.MONSTER and (e.shift_base != null or e.shift_left > 0.0 or not e.monster_def.shift_forms.is_empty()):
+		ShiftSystem.update(self, e, dt)          # metamorfose: conjura ao entrar em combate, volta fora dele
 	if e.kind == SimEntity.Kind.MONSTER and (not e.monster_def.phases.is_empty() or e.monster_def.berserk_after > 0.0):
 		MobSystem.update_boss(self, e, dt)
 	# aggro

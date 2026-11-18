@@ -324,6 +324,7 @@ class Zone:
         self.river_ws = []           # largura de cada rio (bridges)
         self.blocked = []          # (centro, raio) onde não nasce árvore/pedra
         self.portal_angles = []
+        self.late_gorges = []      # gargantas abertas depois da zona aprovada (nature.mountain_ring: o resto do anel sai igual)
         self.turn = FORT_TURN.get(zone, 0.0)      # giro do mapa inteiro no fim (apply_turn)
 
     # --- dados da sim ---
@@ -472,7 +473,7 @@ class Zone:
         nature.mountain_ring(self.coll, self.P + "penhascos", self.rim_r, self.portal_angles, mats, self.ob, seed=self.seed,
                              tree_cols=nature.PINE_COLS if snow else [(0.42, 0.36, 0.3), (0.5, 0.44, 0.36)],
                              ledge_trees="pine" if snow else "dead_tree",
-                             boulder_col=tuple(self.M[rock].diffuse_color[:3]))
+                             boulder_col=tuple(self.M[rock].diffuse_color[:3]), late_gorges=tuple(self.late_gorges))
         for i in range(0, steps, 2):
             a = math.tau * (i + 1) / steps
             r0 = self.rim_r(a) + 3.5

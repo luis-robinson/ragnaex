@@ -133,6 +133,44 @@ static func calc_damage(attacker: SimEntity, target: SimEntity, power: float, ki
 	return {"amount": maxi(1, int(round(amount))), "crit": crit, "blocked": blocked}
 
 
+## --- Notáveis de papel da teia (Balance.ROLE_NOTABLES) ---
+## Dano a mais do tanque no monstro que o tem como alvo (Julgamento / Fúria do Urso). Multiplicador.
+static func role_damage_mult(attacker: SimEntity, target: SimEntity) -> float:
+	if attacker.stats.taunt_dmg_pct > 0.0 and target.kind == SimEntity.Kind.MONSTER and target.aggro_target == attacker.id:
+		return 1.0 + attacker.stats.taunt_dmg_pct / 100.0
+	return 1.0
+
+## Barreira de Mana: parte do dano recebido sai da mana (até acabar). Devolve o dano que sobra para a vida.
+static func role_mana_guard(target: SimEntity, amount: int) -> int:
+	if amount <= 0 or target.stats.mana_guard <= 0.0 or target.mp <= 0.0:
+		return amount
+	var take := minf(target.mp, amount * target.stats.mana_guard / 100.0)
+	target.mp -= take
+	return amount - int(take)
+
+## Depois do dano aplicado (golpe direto): roubo no crítico e na beira da morte, lentidão do golpe físico,
+## espinhos do escudo e o crítico do Contra-Ataque. `amount` = dano que entrou na vida.
+static func role_on_hit(sim: WorldSim, attacker: SimEntity, target: SimEntity, amount: int, crit: bool, blocked: bool, kind: String) -> void:
+	if attacker == target or kind.begins_with("dot") or amount <= 0:
+		return
+	if attacker.is_character() and attacker.is_alive():
+		var leech := 0.0
+		if crit and attacker.stats.crit_leech > 0.0:
+			leech += attacker.stats.crit_leech
+		if attacker.stats.low_leech > 0.0 and attacker.hp < attacker.stats.max_hp * Balance.LOW_LEECH_HP:
+			leech += attacker.stats.low_leech
+		if leech > 0.0:
+			attacker.hp = minf(attacker.stats.max_hp, attacker.hp + amount * leech / 100.0)
+		if kind == "physical" and attacker.stats.hit_slow > 0.0 and target.is_alive() and target.kind == SimEntity.Kind.MONSTER:
+			target.put_debuff({"kind": "slow", "id": "hit_slow_%d" % attacker.id, "remaining": Balance.HIT_SLOW_TIME * target.stats.cc_mult(), "pct": attacker.stats.hit_slow})
+	if blocked and target.is_character() and target.is_alive():
+		if target.stats.guard_crit > 0.0:
+			target.put_buff({"id": Balance.GUARD_CRIT_BUFF, "remaining": Balance.GUARD_CRIT_TIME, "crit": target.stats.guard_crit})
+			target.recompute_stats()
+		if target.stats.block_reflect > 0.0 and attacker.is_alive() and kind in ["physical", "magical"]:
+			sim._deal_damage(target, attacker, maxi(1, int(amount * target.stats.block_reflect / 100.0)), false, false, "reflect")
+
+
 static func calc_heal(healer: SimEntity, power: float, rng: RandomNumberGenerator) -> int:
 	var base := healer.stats.matk * power * healer.stats.heal_power
 	var crit := rng.randf() * 100.0 < healer.stats.crit_mag

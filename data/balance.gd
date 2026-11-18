@@ -195,7 +195,7 @@ const SKILL_LEARN_COST := 1
 ## Quanto a teia rende no 30 (bot da build, com e sem tree_bonus; web_probe e _check_web_strength).
 ## Média das builds de ATK e HP dentro da faixa; cada build com ATK×HP dentro de WEB_GAIN_BUILD (tanque troca ATK por HP).
 const WEB_GAIN_ATK := [1.25, 1.5]          # 1,3 -> 1,25 (2026-11-10): anel/capa/amuleto mais fortes, a teia rende um pouco menos em proporção
-const WEB_GAIN_HP := [1.1, 1.3]
+const WEB_GAIN_HP := [1.1, 1.35]           # 1,3 -> 1,35 (2026-11-18): notáveis de sobrevivência (ROLE_NOTABLES) põem HP na teia de propósito (média medida x1,30)
 const WEB_GAIN_BUILD := [1.2, 2.3]
 const WEB_GAIN_LEVEL := 30                 # nível em que as faixas acima foram calibradas (Ato I); o Ato II mede à parte (web_probe --level=35 / --level=40)
 ## Faixas do Ato II (Fronteira da teia), mesmas regras do 30 nos níveis 40 e 45: crescem pouco (o equipamento do tier novo
@@ -251,18 +251,26 @@ const RADIANCE_RANGE := 10.0               # m: alcance da cura da Radiância
 ## o Ent soma +30. Sem isto o grupo do Urso passava 32-40% do tempo segurando skills pela ameaça (boss_probe "freio").
 const BEAR_THREAT_PCT := 150
 ## Druida: formas de animal (buff enquanto transformado) e a arma que cada forma exige
-const FORM_STATS := {"wolf": {"aspd_pct": 25, "speed_pct": 20, "atk_pct": 10, "crit": 5}, "bear": {"def_pct": 40, "hp_pct": 25, "atk_pct": 10, "speed_pct": -10, "threat_pct": BEAR_THREAT_PCT},
+## Urso/Ent: hp_pct 25/35 -> 21/31 (2026-11-18): o HP base por nível do Druida subiu (não tanques), o tanque na forma fica igual.
+const FORM_STATS := {"wolf": {"aspd_pct": 25, "speed_pct": 20, "atk_pct": 10, "crit": 5}, "bear": {"def_pct": 40, "hp_pct": 21, "atk_pct": 10, "speed_pct": -10, "threat_pct": BEAR_THREAT_PCT},
 	"phantom": {"speed_pct": 25, "evasion": 20, "matk_pct": 10},          # Necromancer: forma fantasma (rápida, difícil de acertar)
 	"demon": {"matk_pct": 20, "hp_pct": 25, "def_pct": 20, "lifesteal": 6},   # Necromancer: demônio (grande, aguenta e drena)
 	"lich": {"matk_pct": LORD_LICH_MATK_PCT},                             # Necromante ascendido (45): Forma de Lich
 	# Druida ascendido (Forma Ancestral, DruidAscension): a 3ª forma de cada build (H; F5)
-	"ent": {"def_pct": 55, "hp_pct": 35, "atk_pct": 10, "speed_pct": -12, "threat_pct": BEAR_THREAT_PCT + 30, "dr_pct": 2},     # Urso -> Ent: aguenta mais e segura o aggro
+	"ent": {"def_pct": 55, "hp_pct": 31, "atk_pct": 10, "speed_pct": -12, "threat_pct": BEAR_THREAT_PCT + 30, "dr_pct": 2},     # Urso -> Ent: aguenta mais e segura o aggro
 	"alpha": {"aspd_pct": 28, "speed_pct": 22, "atk_pct": 12, "crit": 6},                       # Lobo -> Lobo Alfa
 	"bird": {"speed_pct": 25, "matk_pct": 3}}                                                   # Xamã -> Pássaro Arcano (voa: só desenho)
 const FORM_REQUIRES := {"wolf": "dual_mace", "bear": "mace2h", "phantom": "scythe", "demon": "scythe", "lich": "scythe",
 	"ent": "mace2h", "alpha": "dual_mace", "bird": "staff"}
 const FORM_DURATION := {"phantom": 10.0, "lich": LORD_LICH_TIME}     # s; forma fora daqui fica até desligar (lobo, urso, demônio)
 const AMBUSH_MULT := 1.6                  # golpe que sai da furtividade
+## Metamorfose de monstro (ShiftSystem; MonsterDef.shift_forms): xamã que vira bicho ao entrar em combate
+const SHIFT_CAST_S := 1.0                 # s de conjuração antes de trocar de forma (MonsterDef.shift_cast > 0 vence)
+const SHIFT_REVERT_S := 6.0               # s fora de combate (sem alvo, combat_timer zerado) até voltar à forma base
+const SHIFT_AMBUSH_MULT := 1.8            # forma furtiva (lobo): o 1º golpe saindo da furtividade
+const SHIFT_STEALTH_S := 8.0              # s de furtividade ao virar a forma com shift_stealth
+const SHIFT_STEALTH_MIN_S := 1.5          # s mínimos espreitando (sem golpe nem skill) antes do bote furtivo
+const SHIFT_KITE_DIST := 6.0              # forma com kite (gavião): recua entre os tiros se o alvo chegar mais perto que isto (m)
 ## Ranger Atirador: o mosquete atira mais devagar e bate muito mais forte que o arco
 const RIFLE_COOLDOWN_MULT := 1.8
 const RIFLE_POWER_MULT := 1.9
@@ -563,6 +571,48 @@ const LANCEIRO_EVASION_PCT := 5.0
 const BUILD_WEB_NOTABLES := {
 	"lanceiro": ["Passo do Caçador", {"evasion": LANCEIRO_EVASION_PCT}],
 }
+## Notáveis de papel da classe (playtest 2026-11-18: "o assassino tinha 500 de vida e o paladino 4k"). Classes que não
+## são tanque ganham notáveis de SOBREVIVÊNCIA; tanques (Guardião, Urso) ganham notáveis de DANO. Cada grupo troca os
+## notáveis da teia do 30 mais perto do início no(s) ramo(s) `branch` ("*" = qualquer, "" = Geral, lista = um deles) pelos da lista (mantém o atributo do círculo
+## e o sorteio da teia; TreeCatalog._role_notables). `bots` = builds cujo bot vai buscá-los (ProgressionSystem.bot_spend,
+## caminho até BOT_ROLE_NOTE_PATH nós). Alvo do usuário: rota completa de sobrevivência = +25-35% de HP efetivo (com o HP
+## base maior das classes) contra antes; tools/tests/hp_probe.tscn mede. Stats só de Stats.STAT_KEYS.
+const ROLE_NOTABLES := {
+	"assassin": [{"kind": "survival", "branch": "*", "bots": ["laminas", "duelista", "corsario"], "list": [
+		["Véu de Sombras", {"evasion": 3.0, "hp_pct": 3}], ["Sangue no Fio", {"crit_leech": 8, "hp_pct": 2}],
+		["Couro Curtido", {"dr_pct": 3, "hp_pct": 3}], ["Instinto de Fuga", {"hp_pct": 4, "cc_resist_pct": 10}]]}],
+	"ranger": [{"kind": "survival", "branch": "*", "bots": ["cacador", "atirador", "lanceiro"], "list": [
+		["Pele de Mateiro", {"hp_pct": 4, "dr_pct": 2}], ["Flecha Pesada", {"hit_slow": 20, "hp_pct": 2}],
+		["Distância Segura", {"evasion": 2.5, "hp_pct": 3}], ["Vigor da Trilha", {"hp_pct": 3, "dr_pct": 2}]]}],
+	"elementalist": [{"kind": "survival", "branch": "*", "bots": ["fogo", "gelo", "raio"], "list": [
+		["Barreira de Mana", {"mana_guard": 15, "hp_pct": 2}], ["Escudo Arcano", {"dr_pct": 4, "hp_pct": 3}],
+		["Corpo Elemental", {"hp_pct": 5}], ["Mente Blindada", {"cc_resist_pct": 15, "hp_pct": 2, "mp_pct": 5}]]}],
+	"necromancer": [{"kind": "survival", "branch": "*", "bots": ["invocador", "ceifador", "pestilento"], "list": [
+		["Armadura de Ossos", {"dr_pct": 4, "hp_pct": 2}], ["Dreno Sombrio", {"lifesteal": 3, "hp_pct": 2}],
+		["Carne Morta", {"hp_pct": 5}], ["Pacto de Sangue", {"hp_pct": 3, "heal_taken_pct": 10}]]}],
+	"berserker": [{"kind": "survival", "branch": "*", "bots": ["carniceiro", "executor", "punhos"], "list": [
+		["Sede na Beira", {"low_leech": 6, "hp_pct": 3}], ["Couro de Batalha", {"dr_pct": 3, "hp_pct": 3}],
+		["Sangue Quente", {"hp_pct": 4}], ["Teimosia", {"hp_pct": 3, "cc_resist_pct": 15}]]}],
+	"bishop": [{"kind": "survival", "branch": "*", "bots": ["sacerdote", "inquisidor", "batalha"], "list": [
+		["Cura de Si", {"heal_taken_pct": 15, "hp_pct": 2}], ["Égide da Fé", {"dr_pct": 3, "hp_pct": 3}],
+		["Corpo Consagrado", {"hp_pct": 5}], ["Graça Protetora", {"dr_pct": 2, "hp_pct": 3}]]}],
+	"druid": [{"kind": "survival", "branch": ["", "fera", "xama"], "bots": ["fera", "xama"], "list": [
+		["Casca Viva", {"dr_pct": 3, "hp_pct": 3}], ["Seiva", {"heal_taken_pct": 15, "hp_pct": 2}],
+		["Raízes do Corpo", {"hp_pct": 5}], ["Pelagem Densa", {"hp_pct": 3, "evasion": 2.0}]]},
+		{"kind": "damage", "branch": "guardiao_verde", "bots": ["guardiao_verde"], "list": [
+		["Casca Afiada", {"def_atk_pct": 10}], ["Espinhos de Carvalho", {"thorns": 15}],
+		["Fúria do Urso", {"taunt_dmg_pct": 12}], ["Ira da Mata", {"crit": 4.0, "atk_pct": 3}]]}],
+	"paladin": [{"kind": "damage", "branch": "guardiao", "bots": ["guardiao"], "list": [
+		["Peso da Fé", {"def_atk_pct": 10}], ["Escudo Vingador", {"block_reflect": 40}],
+		["Contra-Ataque", {"guard_crit": 15}], ["Julgamento", {"taunt_dmg_pct": 12}]]}],
+}
+const BOT_ROLE_NOTE_PATH := 14           # nós no máximo que o bot anda até um notável de papel (mais longe: deixa)
+const LOW_LEECH_HP := 0.35               # "low_leech" (Sede na Beira): roubo de vida a mais abaixo desta fração da vida
+const HIT_SLOW_TIME := 2.0               # s de lentidão do "hit_slow" (Flecha Pesada), renova a cada golpe físico direto
+const GUARD_CRIT_BUFF := "guard_crit"    # Contra-Ataque: bloqueou -> +"guard_crit"% de crítico por GUARD_CRIT_TIME
+const GUARD_CRIT_TIME := 4.0
+const MANA_GUARD_CAP := 30.0             # % máx do dano recebido que sai da mana ("mana_guard", Barreira de Mana)
+const ROLE_LEECH_CAP := 20.0             # % máx de "crit_leech"/"low_leech" (cada um)
 ## Punhos de Fúria (Berserker de duas garras, FistSystem): esquivar dá Fúria do Punho e contra-ataca
 const FIST_FURY_BUFF := "fist_fury"
 const FIST_FURY_MAX := 5

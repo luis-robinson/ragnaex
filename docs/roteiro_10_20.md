@@ -29,6 +29,22 @@ Tema: o Posto dos Caçadores segura a floresta contra aranhas, bandidos e as inv
 | Faro Élfico, Aço que Pesa Nada | Hela, Gunnar | Linces das investidas; Aço Élfico. |
 | Versos, Trents jovens, Teias | Laterais | Círculo Druídico, trents jovens, aranhas. |
 
+## Ramo lateral 14-18: Bosque dos Xamãs (opcional)
+
+Garganta a leste da Floresta (portal "Bosque dos Xamãs (Lv 14-18)"). Não trava a Cidade Élfica nem nada da história; a XP entra na faixa 10-20.
+Xamãs Metamorfos viram urso (leque na frente), lobo (some e morde forte) ou gavião (foge e atira); Chamadores trazem javali, coelho e cervo fracos (no máximo 3).
+
+| Quest | Quem dá | O que é |
+|---|---|---|
+| Tambores a Leste | Ranger Teo → Guardiã Aiyra | Chegar ao Bosque dos Xamãs (posto na entrada). |
+| Pele de Bicho | Guardiã Aiyra | 8 Xamãs Metamorfos. |
+| Unguento de Mateiro | Herbalista Jurema | 6 Peles Pintadas (Metamorfos, lobos e ursos do bosque). |
+| Calar os Tambores | Batedor Caíque | 6 Xamãs Chamadores. |
+| O Que o Batedor Viu | Aiyra → Caíque | Conversa no posto. |
+| Casca dos Totens | Herbalista Jurema | 5 Cascas de Totem (Chamadores). |
+| O Arquidruida | Guardiã Aiyra | Arquidruida Ulmo (sudeste), grupo de 3-5: lobos 75%, ursos 50%, árvores 25%, Enlaçar = chão roxo, saia. |
+| Silêncio a Leste | Aiyra → Ranger Teo | Volta ao Posto dos Caçadores. |
+
 ## Nível 16-17: além da garganta
 
 | Quest | Quem dá | O que é |

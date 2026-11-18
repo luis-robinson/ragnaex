@@ -23,6 +23,14 @@ ELF_ANG = -93.0            # garganta norte (Cidade Élfica), entre o Círculo D
 BANDITS = (68.0, -60.0)
 BANDIT_R = 14.0
 TREE_COLS = [(0.22, 0.4, 0.27), (0.27, 0.47, 0.3), (0.32, 0.52, 0.32)]
+# Garganta leste (Bosque dos Xamãs, 2026-11-18), aberta DEPOIS da zona aprovada: portal, trilha e largo entram no fim do
+# build (LATE_*, como em build_city_aldara) e o anel usa `late_gorges`; o resto do JSON sai byte a byte igual, fora a
+# decoração tirada do caminho (lista no log: "garganta leste").
+GROVE_ANG = 7.0
+GROVE_ARRIVE_IN = (-85.2, -6.0)     # chegada no Bosque (build_field_grove: polar(184, 15))
+LATE_TRAIL = [(42.0, -6.0), (55.0, -3.0), (67.0, 2.5), (78.0, 8.0)]      # sai da estrada leste, depois da ponte
+LATE_W = 3.0                        # trilha estreita, como as do Bosque
+LATE_DECOR = ("tree", "pine", "dead_tree", "rock", "bush", "flowers", "log", "stump", "reed")
 PLACES = [
     {"type": "cabin", "id": "herborista", "pos": (-44.0, 30.0), "face": 60.0, "npc": "herbalist_maren", "roof": (0.36, 0.46, 0.32)},
     {"type": "cabin", "id": "cacador", "pos": (70.0, -16.0), "face": 170.0, "npc": "hunter_dario", "roof": (0.46, 0.32, 0.24)},
@@ -162,6 +170,9 @@ def build(export=False):
     for i, (c, r, lv) in enumerate([((-32, -36), 6, 2), ((52, 10), 7, 2), ((-70, -20), 7, 2), ((88, -30), 6, 1), ((-60, 30), 6, 1)]):
         z.terrace("afloramento_%d" % i, c, r, lv, top="cliff_grass")
 
+    grove_portal = polar(z, GROVE_ANG, 7)
+    grove_arrive = polar(z, GROVE_ANG, 15)
+    z.late_gorges.append(math.atan2(grove_portal[1], grove_portal[0]))
     z.cliffs()
 
     places.build(z, PLACES)
@@ -215,5 +226,23 @@ def build(export=False):
     z.spawner("trent_young", 60, 30, 8, 4, 20.0)
     z.spawner("trent_young", 76, 72, 8, 4, 20.0)
     z.data["arrive_from_town"] = list(arrive)
+
+    # ---------- garganta leste: Bosque dos Xamãs (entra por último: nada acima muda) ----------
+    z.portal("to_field_grove", grove_portal, "field_grove", GROVE_ARRIVE_IN, "Bosque dos Xamãs (Lv 14-18)")
+    late_poly = z.road("leste", LATE_TRAIL + [grove_arrive, grove_portal], w=LATE_W, end_clearing=False)
+    z.arrival(grove_arrive, toward=grove_portal, r=6.0, name="chegada_leste")
+    spots = [(zone_lib.Vector(grove_arrive), 7.0), (zone_lib.Vector(grove_portal), 7.0)]
+    def in_the_way(o):
+        if o["kind"] not in LATE_DECOR or not o["visible"] or o.get("y"):
+            return False
+        p = zone_lib.Vector(o["pos"])
+        half = (o["size"][0] + o["size"][2]) * 0.25
+        pad = 1.6 if o.get("solid", True) else 0.4
+        return zone_lib.poly_dist(p, late_poly) < LATE_W * 0.5 + pad + half or any((p - c).length < r + half for c, r in spots)
+    gone = [o for o in obs if in_the_way(o)]
+    obs[:] = [o for o in obs if not in_the_way(o)]
+    z.data["arrive_from_field_grove"] = list(grove_arrive)
+    print("garganta leste: portal %s chegada %s; %d objetos tirados do caminho: %s"
+          % (grove_portal, grove_arrive, len(gone), [(o["kind"], o["pos"]) for o in gone]))
     print("chegada da Floresta:", arrive, "portal:", portal)
     return z.finish(export, poi=BANDITS, ground=(0.36, 0.52, 0.34))

@@ -54,6 +54,7 @@ func _ready() -> void:
 	Events.skill_cast.connect(_on_skill_cast)
 	Events.entity_died.connect(_on_died)
 	Events.buff_applied.connect(_on_buff)
+	Events.monster_shift.connect(_on_monster_shift)
 	var sig := BossSigView.new()             # avisos das assinaturas de chefe (lê o estado da sim a cada quadro)
 	sig.fx = self
 	add_child(sig)
@@ -592,8 +593,12 @@ const DANGER_RIM_W := 0.14                           # m (chefe: × 1,6)
 const MOB_HIT_THEME := "blood"                       # tema do impacto de golpe físico de monstro (SkillFx.PALETTE)
 
 ## Aviso de golpe de monstro: a área de verdade (círculo no chão, cone na frente, faixa da investida) na gramática de perigo.
+const DANGER_CONTROL := Color(0.5, 0.26, 0.72)      # roxo: controle sem muito dano (raiz do Arquidruida); a borda creme continua
+const CONTROL_TELEGRAPH := {"mob_entangle": true}   # skills de monstro que avisam em roxo (gramática: sombra/controle)
+
 func _telegraph(e: SimEntity, s: SkillDef) -> void:
 	var dur := maxf(0.2, s.startup)
+	var dc := DANGER_CONTROL if CONTROL_TELEGRAPH.has(s.id) else DANGER
 	var root := Node3D.new()
 	add_child(root)
 	var rw := DANGER_RIM_W * (1.6 if e.monster_def and e.monster_def.is_boss else 1.0)
@@ -605,16 +610,16 @@ func _telegraph(e: SimEntity, s: SkillDef) -> void:
 			root.position = e.position + Vector3(0, 0.05, 0)
 			root.rotation.y = e.facing
 			var ang := deg_to_rad(s.cone_angle_deg)
-			base = _fan(s.radius, ang, Color(DANGER, DANGER_BASE_A))
-			fill = _fan(s.radius, ang, Color(DANGER, DANGER_FILL_A))
+			base = _fan(s.radius, ang, Color(dc, DANGER_BASE_A))
+			fill = _fan(s.radius, ang, Color(dc, DANGER_FILL_A))
 			rim = _danger_rim("fan", s.radius, ang, 0.0, rw)
 		SkillDef.Target.DIRECTION:
 			var length := float(s.effects.get("dash", s.range))
 			var w := maxf(1.2, s.radius * 2.0)
 			root.position = e.position + Vector3(0, 0.05, 0)
 			root.rotation.y = e.facing
-			base = _strip(length, w, Color(DANGER, DANGER_BASE_A))
-			fill = _strip(length, w, Color(DANGER, DANGER_FILL_A))
+			base = _strip(length, w, Color(dc, DANGER_BASE_A))
+			fill = _strip(length, w, Color(dc, DANGER_FILL_A))
 			rim = _danger_rim("strip", w * 0.5, 0.0, length, rw)
 		_:
 			var r := s.radius if s.radius > 0.0 else 1.6
@@ -624,8 +629,8 @@ func _telegraph(e: SimEntity, s: SkillDef) -> void:
 					root.queue_free()
 					return
 				_tele_spots.append([root, root.position, r])
-			base = _disc(r, Color(DANGER, DANGER_BASE_A))
-			fill = _disc(r, Color(DANGER, DANGER_FILL_A))
+			base = _disc(r, Color(dc, DANGER_BASE_A))
+			fill = _disc(r, Color(dc, DANGER_FILL_A))
 			rim = _danger_rim("disc", r, 0.0, 0.0, rw)
 	_danger_grow(root, base, fill, rim, s.target == SkillDef.Target.DIRECTION, dur)
 
@@ -999,6 +1004,28 @@ func _transform_fx(e: SimEntity, form: String) -> void:
 		SkillFx.column(self, e.position, 0.55 * s, th, 0.35)
 	SkillFx.flash(self, mid, th, 1.6, 4.0)
 	_ring(e.position, 1.1 * s, SkillFx.col(th, 0), 0.45, false, false)
+
+## Metamorfose de monstro (ShiftSystem): conjuração = folhas girando para dentro + gesto; troca = estouro de folhas e coluna
+## (esconde o estalo do modelo); volta = estouro menor. Tema nature.
+func _on_monster_shift(entity_id: int, _form_id: String, phase: String) -> void:
+	var e: SimEntity = Sim.get_entity(entity_id)
+	if e == null or e.map_id != main.current_map_id or phase == "cancel":
+		return
+	var s := e.scale
+	var mid := e.position + Vector3(0, 0.9 * s, 0)
+	if phase == "cast":
+		var dur := e.shift_left if e.shift_left > 0.0 else Balance.SHIFT_CAST_S
+		SkillFx.gather(self, mid, "nature", dur)
+		var v = main.views.get(entity_id)
+		if v and v.has_method("shift_gesture"):
+			v.shift_gesture()
+		if v is Node3D:
+			SkillFx.aura(self, v, "nature", dur, 0.9 * s)      # anel de folhas subindo em volta (o gather sozinho quase não aparecia)
+		return
+	SkillFx.burst(self, mid, "nature", 34 if phase == "done" else 20, Vector3.UP, 0.35 * s, s)
+	if phase == "done":
+		SkillFx.column(self, e.position, 0.55 * s, "nature", 0.35)
+	_ring(e.position, 1.1 * s, SkillFx.col("nature", 0), 0.45, false, false)
 
 func _on_died(entity_id: int, _killer: int) -> void:
 	var e: SimEntity = Sim.get_entity(entity_id)

@@ -54,6 +54,15 @@ extends Resource
 @export var regen: float = 0.0            ## Ato II (F3): regeneração de troll = isto × Balance.TROLL_REGEN_PCT × vida máxima por s; fogo/veneno param
 @export var burn_immune: bool = false ## Ato II (Kharzun): queimadura (dot de fogo) não pega (Salamandra de Lava); o golpe de fogo ainda dói
 @export var phases: Array = []            ## chefe, em ordem de HP: {hp (0-1), say, skills, summon: {id, count, max, pick}, enrage, ward (0-1: corte de dano com lacaio vivo)}
+## Metamorfose (ShiftSystem): ao entrar em combate o monstro conjura shift_cast s (0 = Balance.SHIFT_CAST_S) e vira UMA forma
+## sorteada por peso (rng da sim): [{"form": <id de outro MonsterDef>, "weight": n}]. A forma é um MonsterDef completo (modelo, vida,
+## ataque, skills, velocidade, alcance, ranged, aggro/leash valem enquanto transformado); a vida guarda o %. Volta à base no leash/reset
+## ou depois de Balance.SHIFT_REVERT_S s fora de combate. Morre como a forma, mas XP/saque/quest/elite contam pela BASE.
+## Nome na placa: "<nome da base> (<nome da forma>)" (a forma tem nome curto: "Urso").
+@export var shift_forms: Array = []
+@export var shift_cast: float = 0.0
+@export var shift_stealth: bool = false    ## forma: entra furtiva (Balance.SHIFT_STEALTH_S); o 1º golpe é emboscada × Balance.SHIFT_AMBUSH_MULT
+@export var kite: bool = false             ## atirador que recua entre os tiros se o alvo chegar a menos de Balance.SHIFT_KITE_DIST m (gavião)
 
 ## Chefe de verdade resiste a controle (atordoa 40%, provocar 50%, não é puxado/empurrado). O Rei (elite, `elite_of`)
 ## é `is_boss` para loot/barra/IA, mas leva o controle cheio (decisão 2026-11-17).

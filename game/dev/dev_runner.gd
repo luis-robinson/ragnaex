@@ -47,6 +47,7 @@ const TOURS := {
 	"dg_cripta": [["entrada", Vector3(0, 0, 40)], ["salao", Vector3(-20, 0, 22)], ["chefe", Vector3(8, 0, -30)]],
 	"field_hollow": [["chegada", Vector3(33.6, 0, -75.5)], ["acampamento", Vector3(2, 0, -12)], ["prado", Vector3(-45, 0, 30)], ["colmeia", Vector3(10, 0, 58)],
 		["filhotes", Vector3(41, 0, 21)], ["ursos", Vector3(70, 0, -36)], ["toca", Vector3(50, 0, 50)], ["aprendiz", Vector3(-64, 0, 48)]],
+	"field_grove": [["chegada", Vector3(-80, 0, -6)], ["posto", Vector3(-56, 0, -4)], ["aldeia", Vector3(46, 0, 8)], ["arquidruida", Vector3(44, 0, -42)], ["lobos", Vector3(-40, 0, -46)], ["ursos", Vector3(56, 0, 50)], ["chamados", Vector3(18, 0, 56)]],
 	"field_forest": [["ponte_leste", Vector3(32.2, 0, -2)], ["cristal_posto", Vector3(-2.5, 0, -1.5)], ["herborista", Vector3(-41, 0, 38)], ["cacador", Vector3(62, 0, -14)], ["emboscada", Vector3(38, 0, 88)], ["circulo", Vector3(-27, 0, -92)], ["ninho", Vector3(-60, 0, 86)], ["pedreira", Vector3(-74, 0, -26)],
 		["hub", Vector3(0, 0, 5)], ["chegada", Vector3(-100, 0, 9)], ["ponte", Vector3(26, 0, -6)],
 		["bandidos_portao", Vector3(52, 0, -40)], ["bandidos_centro", Vector3(66, 0, -56)], ["aranhas", Vector3(-50, 0, -50)],
@@ -313,6 +314,12 @@ func after_start() -> void:
 	if DevArgs.flag("--lock_shot"):     # --lock_shot=<pasta> [--boss=<id>]: Tab trava no chefe, D gira em volta e W chega perto (fotos + raio no log)
 		_smoke_test = false
 		_lock_shot.call_deferred(DevArgs.value("--lock_shot"))
+	if DevArgs.flag("--shift_shot"):    # --shift_shot=<pasta> [--form=bear|wolf|hawk]: xamã metamorfo no Bosque (antes, conjura, forma, furtivo/distância, volta)
+		_smoke_test = false
+		_shift_shot.call_deferred(DevArgs.value("--shift_shot"), DevArgs.value("--form"))
+	if DevArgs.flag("--grove_boss_shot"):    # --grove_boss_shot=<pasta>: Arquidruida com 2 aliados: Enlaçar (roxo) e as fases 75/50/25% (lobos, ursos, árvores)
+		_smoke_test = false
+		_grove_boss_shot.call_deferred(DevArgs.value("--grove_boss_shot"))
 	if DevArgs.flag("--carry_shot"):    # --carry_shot=<png>: um morador com cada carga (caixa, saco, estaca, pedra), de 3/4 (_jogo) e de lado (_lado)
 		_smoke_test = false
 		_carry_shot.call_deferred(DevArgs.value("--carry_shot"))
@@ -1080,7 +1087,7 @@ func _asc_shot(path: String) -> void:
 			get_viewport().get_texture().get_image().save_png(path.trim_suffix(".png") + "_salto.png")
 			while p.sky_left > 0.0:
 				await get_tree().process_frame
-			await get_tree().create_timer(0.08).timeout
+			await get_tree().create_timer(0.3).timeout      # o golpe sai da furtividade no início; o dano vem no ativo
 			get_viewport().get_texture().get_image().save_png(path.trim_suffix(".png") + "_queda.png")
 	print("ASC_SHOT done")
 	get_tree().quit()
@@ -3040,3 +3047,209 @@ func _lock_snap(path: String, p: SimEntity, boss: SimEntity) -> void:
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(path)
 	print("LOCK_SHOT " + path)
+
+
+## Revisão da metamorfose de monstro (ShiftSystem): jogador imortal no Bosque dos Xamãs ao lado de um shaman_shifter, forma
+## forçada (--form) ou as três em sequência. Grava <pasta>/shift_<forma>_0_antes .. _4_volta.png e imprime SHIFT_SHOT.
+func _shift_shot(dir: String, only: String) -> void:
+	DirAccess.make_dir_recursive_absolute(dir)
+	var p: SimEntity = Sim.player
+	p.brain = null
+	var spot := _grove_spot("shaman_shifter")
+	await _grove_enter(p, spot + Vector3(0, 0, 4.5))
+	var forms: Array = ["bear", "wolf", "hawk"] if only == "" else [only]
+	main.camera.distance = float(DevArgs.value("--shift_cam", "15"))
+	for f: String in forms:
+		var fid := "shaman_" + f
+		_grove_clear(spot, 30.0)
+		p.stealth_left = 0.0
+		p.position = spot + Vector3(0, 0, 8.0 if f == "wolf" else 4.5)     # lobo: na borda do aggro, corre furtivo até o bote
+		main.camera.distance = float(DevArgs.value("--shift_cam", "19" if f == "wolf" else "15"))
+		var s := Sim.spawn_monster(GameData.monsters["shaman_shifter"], "field_grove", spot)
+		var brain = s.brain
+		s.brain = null
+		s.face_towards(p.position)
+		p.last_target_id = s.id
+		await _grove_hold(p, 1.2)
+		await _shift_snap(dir, f, "0_antes", s)
+		Sim.sync()
+		s.brain = brain
+		s.aggro_target = p.id
+		s.aggro_timer = Balance.AGGRO_LOSE_TIME
+		s.shift_pick = fid
+		s.shift_left = Balance.SHIFT_CAST_S
+		Events.post(&"monster_shift", s.id, fid, "cast")
+		await _grove_hold(p, Balance.SHIFT_CAST_S * 0.55)
+		await _shift_snap(dir, f, "1_conjura", s)
+		var t_end := Time.get_ticks_msec() + 4000
+		while s.shift_base == null and Time.get_ticks_msec() < t_end:
+			await _grove_hold(p, 0.0)
+		if f == "wolf":
+			await _grove_hold(p, 0.15)
+			await _shift_snap(dir, f, "2_forma", s)       # furtivo: quase transparente
+			await get_tree().create_timer(0.35).timeout
+			if s.stealth_left > 0.0:
+				await _shift_snap(dir, f, "2b_furtivo", s)
+			Sim.sync()
+			var hp0 := p.hp
+			t_end = Time.get_ticks_msec() + 6000
+			while s.stealth_left > 0.0 and Time.get_ticks_msec() < t_end:     # sem reencher a vida: mede o 1º golpe
+				Sim.sync()
+				await get_tree().process_frame
+			await get_tree().create_timer(0.3).timeout      # o golpe sai da furtividade no início; o dano vem no ativo
+			Sim.sync()
+			print("SHIFT_SHOT wolf ambush stealth_left=%.2f first_hit=%.0f" % [s.stealth_left, hp0 - p.hp])
+			await _shift_snap(dir, f, "3_emboscada", s)
+			hp0 = p.hp
+			await get_tree().create_timer(2.5).timeout
+			Sim.sync()
+			print("SHIFT_SHOT wolf next_hits_2.5s=%.0f" % (hp0 - p.hp))
+		elif f == "hawk":
+			await _grove_hold(p, 0.6)
+			await _shift_snap(dir, f, "2_forma", s)
+			var d0 := p.position.distance_to(s.position)
+			var walk := Time.get_ticks_msec() + 2600
+			var shot := false
+			while Time.get_ticks_msec() < walk:          # o jogador avança no gavião: ele recua entre os tiros
+				Sim.sync()
+				var to := s.position - p.position
+				to.y = 0.0
+				if to.length() > 2.0:
+					p.position += to.normalized() * 4.0 * get_process_delta_time()
+					p.face_towards(s.position)
+				await _grove_hold(p, 0.0)
+				if not shot and walk - Time.get_ticks_msec() < 1600 and s.basic_cd > 0.0 and s.state == SimEntity.State.MOVING:
+					shot = true                                  # recuando depois do tiro
+					await _shift_snap(dir, f, "3_distancia", s)
+				if Engine.get_process_frames() % 20 == 0:
+					print("SHIFT_SHOT hawk d=%.2f home=%.2f cd=%.2f aggro=%d p=%d state=%d act=%s basic=%s brain=%s" % [p.position.distance_to(s.position), s.position.distance_to(s.home_position), s.basic_cd, s.aggro_target, p.id, s.state, s.can_act(), s.basic_skill.id if s.basic_skill else "-", s.brain != null])
+			print("SHIFT_SHOT hawk dist_start=%.2f dist_end=%.2f shot=%s" % [d0, p.position.distance_to(s.position), shot])
+			if not shot:
+				await _shift_snap(dir, f, "3_distancia", s)
+		else:
+			await _grove_hold(p, 0.6)
+			await _shift_snap(dir, f, "2_forma", s)
+			await _grove_hold(p, 1.6)
+			await _shift_snap(dir, f, "3_luta", s)
+		# sai de combate: jogador furtivo (o monstro perde o alvo) até voltar à base
+		Sim.sync()
+		p.stealth_left = 1.0e9
+		s.aggro_target = -1
+		s.threat.clear()
+		t_end = Time.get_ticks_msec() + int((Balance.SHIFT_REVERT_S + 12.0) * 1000.0)
+		while s.shift_base != null and Time.get_ticks_msec() < t_end:
+			await _grove_hold(p, 0.0)
+		Sim.sync()
+		p.position = s.position + Vector3(0, 0, 4.5)        # câmera volta para o xamã (o jogador continua furtivo)
+		await _grove_hold(p, 0.45)
+		print("SHIFT_SHOT %s reverted=%s name=%s" % [f, s.shift_base == null, s.name])
+		await _shift_snap(dir, f, "4_volta", s)
+		Sim.sync()
+		Sim.despawn(s)
+	p.stealth_left = 0.0
+	print("SHIFT_SHOT_END")
+	get_tree().quit()
+
+func _shift_snap(dir: String, f: String, tag: String, s: SimEntity) -> void:
+	Sim.sync()
+	await RenderingServer.frame_post_draw
+	var path := dir.path_join("shift_%s_%s.png" % [f, tag])
+	get_viewport().get_texture().get_image().save_png(path)
+	var v = main.views.get(s.id)
+	print("SHIFT_SHOT %s def=%s name=%s stealth=%.2f shift_left=%.2f view=%s -> %s" % [tag, s.monster_def.id, s.name, s.stealth_left, s.shift_left, v != null, path])
+
+## Revisão do Arquidruida (boss_archdruid): Enlaçar (aviso roxo) e as fases de 75/50/25% com 2 aliados. <pasta>/boss_*.png.
+func _grove_boss_shot(dir: String) -> void:
+	DirAccess.make_dir_recursive_absolute(dir)
+	var p: SimEntity = Sim.player
+	p.brain = null
+	var home := _grove_spot("boss_archdruid")
+	await _grove_enter(p, home + Vector3(0, 0, 7))
+	var m: Dictionary = Sim.maps["field_grove"]
+	var boss: SimEntity = null
+	for e: SimEntity in m["entities"]:
+		if e.monster_def != null and e.monster_def.id == "boss_archdruid" and e.is_alive():
+			boss = e
+	if boss == null:
+		boss = Sim.spawn_monster(GameData.monsters["boss_archdruid"], "field_grove", home)
+	_grove_clear(home, 40.0, boss)
+	p.position = boss.position + Vector3(0, 0, 6)
+	var allies: Array = []
+	for i in 2:
+		var b: SimEntity = Sim.spawn_bot(GameData.classes[["paladin", "bishop"][i]], "Aliado %d" % i, "field_grove", boss.position + Vector3(-3.0 + 6.0 * i, 0, 4.0), boss.level)
+		b.stats.max_hp = 1.0e9
+		b.hp = 1.0e9
+		Sim.party_invite(p, b)
+		allies.append(b)
+	boss.aggro_target = p.id
+	boss.aggro_timer = Balance.AGGRO_LOSE_TIME
+	p.last_target_id = boss.id
+	main.camera.distance = float(DevArgs.value("--shift_cam", "22"))
+	await _grove_hold(p, 1.0, allies)
+	# Enlaçar forçado no jogador: aviso roxo (gramática de controle)
+	Sim.sync()
+	var s: SkillDef = GameData.skills["mob_entangle"]
+	if boss.skills.find(s) < 0:
+		Sim._add_skills(boss, [s.id])
+	boss.face_towards(p.position)
+	if boss.state == SimEntity.State.CASTING:
+		Sim._end_skill(boss)
+	Sim._start_skill(boss, s, boss.skills.find(s), p.position)
+	await _grove_hold(p, s.startup * 0.6, allies)
+	await _boss_snap(dir, "0_enlacar", boss)
+	await _grove_hold(p, 1.5, allies)
+	for row in [[0.74, "1_lobos"], [0.49, "2_ursos"], [0.24, "3_arvores"]]:
+		Sim.sync()
+		boss.hp = boss.stats.max_hp * float(row[0])
+		await _grove_hold(p, 1.8, allies)
+		var n := 0
+		for e: SimEntity in m["entities"]:
+			if e.boss_id == boss.id and e.is_alive():
+				n += 1
+		print("GROVE_BOSS %s hp=%.0f%% summons=%d" % [row[1], 100.0 * boss.hp / boss.stats.max_hp, n])
+		await _boss_snap(dir, str(row[1]), boss)
+	print("GROVE_BOSS_END")
+	get_tree().quit()
+
+func _boss_snap(dir: String, tag: String, boss: SimEntity) -> void:
+	Sim.sync()
+	await RenderingServer.frame_post_draw
+	var path := dir.path_join("boss_%s.png" % tag)
+	get_viewport().get_texture().get_image().save_png(path)
+	print("GROVE_BOSS %s state=%d -> %s" % [tag, boss.state, path])
+
+## Ponto do 1º spawner de `mid` no Bosque dos Xamãs.
+func _grove_spot(mid: String) -> Vector3:
+	for sp in GameData.maps["field_grove"].spawners:
+		if sp["monster_id"] == mid:
+			return sp["pos"]
+	push_error("GROVE: %s sem spawner" % mid)
+	return Vector3.ZERO
+
+## Leva o jogador (imortal) ao Bosque e espera o mapa montar; nada renasce no meio das fotos.
+func _grove_enter(p: SimEntity, at: Vector3) -> void:
+	Sim.sync()
+	Sim._change_map(p, "field_grove", at)
+	await _grove_hold(p, 2.0)
+	Sim.sync()
+	Sim.maps["field_grove"]["spawners"].clear()
+
+## Tira monstros (fora `keep`) num raio do ponto para a foto ficar limpa.
+func _grove_clear(at: Vector3, r: float, keep: SimEntity = null) -> void:
+	Sim.sync()
+	for e: SimEntity in Sim.maps["field_grove"]["entities"].duplicate():
+		if e != keep and e.kind == SimEntity.Kind.MONSTER and e.position.distance_to(at) < r:
+			Sim.despawn(e)
+
+## Espera `sec` s com o jogador (e aliados) imortais; 0 = um quadro.
+func _grove_hold(p: SimEntity, sec: float, extra: Array = []) -> void:
+	var end := Time.get_ticks_msec() + int(sec * 1000.0)
+	while true:
+		Sim.sync()
+		p.stats.max_hp = 1.0e9
+		p.hp = 1.0e9
+		for b: SimEntity in extra:
+			b.hp = b.stats.max_hp
+		await get_tree().process_frame
+		if Time.get_ticks_msec() >= end:
+			break

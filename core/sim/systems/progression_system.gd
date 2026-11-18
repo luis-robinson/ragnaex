@@ -514,6 +514,8 @@ static func bot_spend(sim: WorldSim, e: SimEntity, fresh: bool = false, batch: b
 		while e.mastery_of(sid) < want_m and e.mastery_points > 0:
 			if not tree_allocate(sim, e, "%s_m_%s" % [cid, sid], batch):
 				break
+	# 2b) notáveis de papel da classe para esta build (sobrevivência / dano de tanque), do mais perto ao mais longe
+	dirty = _bot_role_notes(sim, e, nodes, batch) or dirty
 	# 3) evoluções das skills aprendidas (metade, como antes)
 	for nid in nodes:
 		var n: Dictionary = nodes[nid]
@@ -568,6 +570,29 @@ static var bot_spawn_cache := true
 
 ## Nós stat/notável que o bot da build compraria no passo 4, por nota decrescente; empate na ordem da teia
 ## (o `>` estrito da varredura antiga fica com o primeiro). Ex.: `for nid in _web_order(nodes, "paladin", "cruzado", "atk")`.
+## Bot compra os notáveis de papel (TreeCatalog._role_notables) marcados para a build dele, pelo caminho mais curto,
+## se o caminho tiver até Balance.BOT_ROLE_NOTE_PATH nós e couber nos pontos. Devolve se mudou atributo.
+static func _bot_role_notes(sim: WorldSim, e: SimEntity, nodes: Dictionary, batch: bool) -> bool:
+	var dirty := false
+	for _i in range(4):                  # até 4 notáveis: o mais barato primeiro, refazendo o caminho a cada compra
+		var best: Array = []
+		for nid in nodes:
+			var n: Dictionary = nodes[nid]
+			if not n.has("role_note") or e.tree.has(nid) or not (e.build_id in n["role_bots"]) or int(n["level"]) > e.level:
+				continue
+			var path := _path_to(e, nodes, nid)
+			if path.is_empty() or path.size() > Balance.BOT_ROLE_NOTE_PATH or path.size() > e.mastery_points:
+				continue
+			if best.is_empty() or path.size() < best.size():
+				best = path
+		if best.is_empty():
+			break
+		for nid in best:
+			if not tree_allocate(sim, e, nid, batch):
+				return dirty
+			dirty = dirty or _changes_stats(nodes[nid])
+	return dirty
+
 static func _web_order(nodes: Dictionary, cid: String, build_id: String, lean: String) -> PackedStringArray:
 	var key := "%s|%s|%s" % [cid, build_id, lean]
 	var c: Dictionary = _web_cache.get(key, {})

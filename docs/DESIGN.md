@@ -484,6 +484,16 @@ Proposta aprovada: `design/gdd/ato2-proposals-2026-11-11.md` §2 opção A. O li
 ## Pontos de skill: teia (estilo Path of Exile)
 Regras completas, fórmulas e critérios em `design/gdd/progression.md` (a teia está descrita em "Teia de skills" mais abaixo). A barra 1-6 se troca em qualquer lugar (`Balance.LOADOUT_TOWN_ONLY`, liberado em 2026-11-16); resetar a teia é grátis perto do Ancião ou do Sumo Sacerdote (`SKILL_RESET_NPCS`).
 
+**Notáveis de papel (playtest 2026-11-18, "o assassino tinha 500 de vida e o paladino 4k")**: `Balance.ROLE_NOTABLES` troca o bônus
+dos notáveis da teia do 30 mais perto do início (mantém atributo, ids e posições; `TreeCatalog._role_notables`). Classes que não são
+tanque ganham 4 de **sobrevivência** temáticos (Assassino: esquiva, crítico que cura; Ranger: HP, golpe físico que deixa lento;
+Elementalista: Barreira de Mana; Necromante: Armadura de Ossos, dreno; Berserker: roubo de vida abaixo de 35%; Bispo/Druida: cura
+recebida, redução de dano); os tanques (Guardião, Urso) ganham 3 de **dano** no ramo deles (DEF vira ATK, bloqueio devolve dano,
+crítico depois de bloquear, +dano em quem tem você como alvo, espinhos). Stats novos em `Stats.STAT_KEYS`, regras em `Combat.role_*`.
+O HP base por nível das classes que não são tanque subiu 10-15% (`classes_catalog.gd`; Urso/Ent compensados em `FORM_STATS`).
+Alvo do usuário: rota completa = +25-35% de HP efetivo contra antes (medir: `tools/tests/hp_probe.tscn -- [--levels=30,45] [--notes]`).
+Bots buscam os do papel deles (`ProgressionSystem._bot_role_notes`, até `BOT_ROLE_NOTE_PATH` nós). Check `_check_role_notables`.
+
 ## Lendários com visual próprio (`GearCatalog.SET_VISUALS`)
 Arte de referência em `reference/<classe>/set_N/` (frente, costas, ícones). Cada um vira um estilo do kit (`chibi_kit.SET_STYLES`,
 peças `arm_<estilo>_<slot>_*`), ícones renderizados em `assets/icons/<icone>_<peça>.png` e nomes da referência.

@@ -60,6 +60,7 @@ func _check_dot_pulse(gd, sim) -> void:
 	var tgt: SimEntity = sim.spawn_bot(gd.classes["berserker"], "DotAlvo", "city_aldara", at + Vector3(2, 0, 0), 30)
 	tgt.brain = null
 	tgt.stats.evasion = 0.0
+	tgt.stats.dr_pct = 0.0          # notáveis de sobrevivência (Balance.ROLE_NOTABLES): o total do dano no tempo é sem redução
 	tgt.stats.max_hp = 10000000.0
 	tgt.hp = tgt.stats.max_hp
 	var ele: SimEntity = sim.spawn_bot(gd.classes["elementalist"], "DotFonte", "city_aldara", at + Vector3(-2, 0, 0), 30)
@@ -2680,6 +2681,7 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_item_icons(gd)
 	_check_tree_spacing()
 	_check_web_fog()
+	_check_web_fog_lock(gd, sim)
 	_check_dungeon_mood(gd)
 	_check_portal_gates()
 	_check_progression(gd, sim)
@@ -2940,6 +2942,8 @@ func _check_zone(gd, sim) -> void:
 		_check_places(gd, sim, gd.maps[zid])
 	_check_zone_layout(gd, sim, gd.maps["field_hollow"])      # sem masmorra/lugares: fora do _check_places
 	_check_field_hollow(gd, sim)
+	_check_zone_layout(gd, sim, gd.maps["field_grove"])       # sem masmorra/lugares: fora do _check_places
+	_check_field_grove(gd, sim)
 	_check_dungeons(gd, sim)
 	_check_fort_lairs(gd, sim)
 	_check_sfx_bank(gd)
@@ -4089,6 +4093,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_tank_threat(gd, sim)
 	_check_boss_crowd(gd, sim)
 	_check_boss_crowd_cocoon(gd, sim)
+	_check_monster_shift(gd, sim)
 	_check_boss_signatures(gd)
 	_check_boss_sig_idempotent(gd)
 	_check_sim_rng_fresh()
@@ -4180,6 +4185,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_web_strength(gd, sim)
 	_check_web_frontier(gd, sim)
 	_check_lanceiro_evasion(gd, sim)
+	_check_role_notables(gd, sim)
 	_check_gather(gd, sim)
 	_check_quest_variety(gd, sim)
 	_check_monster_polish(gd, sim)
@@ -6542,6 +6548,7 @@ func _check_agi_evasion(gd, sim) -> void:
 	r.build_id = "cacador"
 	sim._gear_bot(r)
 	sim._skill_bot(r)
+	r.tree_bonus.erase("evasion")      # notável de sobrevivência (Distância Segura): aqui só a esquiva da AGI
 	r.buffs.clear()
 	r.recompute_stats()
 	var from_agi := Stats.agi_evasion(float(r.stats.attrs["AGI"]) / Balance.ATTR_SCALE)
@@ -11558,6 +11565,142 @@ func _check_web_frontier(gd, sim) -> void:
 
 ## Lanceiro (decisão 2026-11-16, opção B): +LANCEIRO_EVASION_PCT de esquiva num notável próprio do setor dele na teia
 ## (Balance.BUILD_WEB_NOTABLES), que o bot da build compra; nenhuma outra build tem esse notável e a curva da AGI não muda.
+## Notáveis de papel (Balance.ROLE_NOTABLES, playtest 2026-11-18): não tanques têm 3+ de sobrevivência, tanques 3+ de dano,
+## o HP base por nível das classes que não são tanque subiu 10-15%, bots compram e cada efeito novo funciona na sim.
+const ROLE_HP_PER_LEVEL_BEFORE := {"paladin": 16.0, "berserker": 14.0, "bishop": 9.0, "druid": 12.5, "ranger": 11.5,
+	"assassin": 11.0, "elementalist": 8.0, "necromancer": 9.0}
+
+func _check_role_notables(gd, sim) -> void:
+	if not sim.maps.has("city_aldara"):
+		sim.load_map(gd.maps["city_aldara"])
+	for cid in ROLE_HP_PER_LEVEL_BEFORE:
+		var cls: ClassDef = gd.classes[cid]
+		var r: float = cls.hp_per_level / float(ROLE_HP_PER_LEVEL_BEFORE[cid])
+		if cid == "paladin":
+			check(is_equal_approx(r, 1.0), "Paladino (tanque): HP por nível igual (%.2f)" % cls.hp_per_level)
+		else:
+			check(r >= 1.10 and r <= 1.15, "%s: HP por nível +10-15%% (%.2f -> %.2f, x%.3f)" % [cid, ROLE_HP_PER_LEVEL_BEFORE[cid], cls.hp_per_level, r])
+	for cid in Balance.ROLE_NOTABLES:
+		for grp in Balance.ROLE_NOTABLES[cid]:
+			for pick in grp["list"]:
+				for k in pick[1]:
+					check(Stats.STAT_KEYS.has(k) and TreeCatalog.STAT_NAMES.has(k) and TreeCatalog.STAT_SHORT.has(k),
+						"notável %s/%s: stat %s em Stats.STAT_KEYS e com texto na teia" % [cid, pick[0], k])
+	for cid in gd.classes:
+		var tanks: Array = []
+		var others: Array = []
+		for b in gd.classes[cid].builds:
+			(tanks if b["role"] == "tank" else others).append(b["id"])
+		var nd: Dictionary = gd.trees[cid]["nodes"]
+		var surv := {}
+		var dmg := {}
+		for nid in nd:
+			var n: Dictionary = nd[nid]
+			if not n.has("role_note"):
+				continue
+			check(n["kind"] == "notable" and int(n["level"]) <= Balance.WEB_GAIN_LEVEL, "%s: notável de papel %s é notável da teia do 30" % [cid, n["name"]])
+			(surv if n["role_note"] == "survival" else dmg)[n["name"]] = n
+		if cid != "paladin":
+			check(surv.size() >= 3, "%s: %d notáveis de sobrevivência na teia (>= 3)" % [cid, surv.size()])
+		if not tanks.is_empty():
+			check(dmg.size() >= 3, "%s: %d notáveis de dano para o tanque (>= 3)" % [cid, dmg.size()])
+			for nm in dmg:
+				check(str(dmg[nm]["branch"]) in tanks, "%s: notável de dano %s no ramo do tanque" % [cid, nm])
+		# bot de cada build compra os do papel dele no 30
+		for b in gd.classes[cid].builds:
+			var want: Dictionary = dmg if b["role"] == "tank" else surv
+			if want.is_empty():
+				continue
+			var e: SimEntity = sim.spawn_bot(gd.classes[cid], "RoleTest", "city_aldara", Vector3(0, 0, 8), 30)
+			e.brain = null
+			e.build_id = b["id"]
+			sim._gear_bot(e)
+			sim._skill_bot(e)
+			var got := 0
+			for nid in e.tree:
+				if nd.has(nid) and nd[nid].get("role_note", "") == ("damage" if b["role"] == "tank" else "survival"):
+					got += 1
+			check(got >= 3, "bot %s/%s no 30 compra %d notáveis de papel (>= 3)" % [cid, b["id"], got])
+			sim.despawn(e)
+	# rota completa de sobrevivência: +12-30% de HP efetivo só dos notáveis (o resto vem do HP base)
+	for cid in ["assassin", "ranger", "elementalist", "necromancer", "berserker", "bishop"]:
+		var add := {}
+		for pick in Balance.ROLE_NOTABLES[cid][0]["list"]:
+			for k in pick[1]:
+				add[k] = float(add.get(k, 0.0)) + float(pick[1][k])
+		var hp_m := 1.0 + float(add.get("hp_pct", 0.0)) / 100.0
+		var ehp := hp_m / ((1.0 - float(add.get("dr_pct", 0.0)) / 100.0) * (1.0 - float(add.get("evasion", 0.0)) / 100.0))
+		check(ehp >= 1.12 and ehp <= 1.3, "%s: notáveis de sobrevivência dão x%.2f de HP efetivo (alvo 1,12-1,30)" % [cid, ehp])
+	# efeitos na sim
+	var mob: SimEntity = sim.spawn_monster(gd.monsters["golem"], "city_aldara", Vector3(1, 0, 8))
+	mob.brain = null
+	var ass: SimEntity = sim.spawn_character(SimEntity.Kind.BOT, gd.classes["assassin"], "Leech", "city_aldara", Vector3(0, 0, 8), 30)
+	ass.tree_bonus = {"crit_leech": 8}
+	ass.recompute_stats()
+	ass.hp = 100.0
+	mob.hp = mob.stats.max_hp
+	sim._deal_damage(ass, mob, 200, true, false, "physical")
+	check(ass.hp > 100.0, "Sangue no Fio: crítico cura (%.0f -> %.0f)" % [100.0, ass.hp])
+	var hp_c := ass.hp
+	sim._deal_damage(ass, mob, 200, false, false, "physical")
+	check(is_equal_approx(ass.hp, hp_c), "Sangue no Fio: golpe sem crítico não cura")
+	ass.tree_bonus = {"low_leech": 6}
+	ass.recompute_stats()
+	ass.hp = ass.stats.max_hp * 0.2
+	var low := ass.hp
+	sim._deal_damage(ass, mob, 200, false, false, "physical")
+	check(ass.hp > low, "Sede na Beira: rouba vida abaixo de %d%% da vida" % int(Balance.LOW_LEECH_HP * 100))
+	ass.hp = ass.stats.max_hp
+	sim._deal_damage(ass, mob, 200, false, false, "physical")
+	check(is_equal_approx(ass.hp, ass.stats.max_hp), "Sede na Beira: com vida cheia não muda nada")
+	ass.tree_bonus = {"hit_slow": 20}
+	ass.recompute_stats()
+	mob.debuffs.clear()
+	sim._deal_damage(ass, mob, 50, false, false, "physical")
+	check(mob.debuffs.any(func(d): return d.get("kind") == "slow" and is_equal_approx(float(d["pct"]), 20.0)), "Flecha Pesada: golpe físico deixa o monstro lento")
+	ass.tree_bonus = {"heal_taken_pct": 15}
+	ass.recompute_stats()
+	check(is_equal_approx(ass.heal_factor(), 1.15), "Cura de Si/Seiva: +15%% de cura recebida (x%.2f)" % ass.heal_factor())
+	sim.despawn(ass)
+	var ele: SimEntity = sim.spawn_character(SimEntity.Kind.BOT, gd.classes["elementalist"], "Mana", "city_aldara", Vector3(0, 0, 8), 30)
+	ele.tree_bonus = {"mana_guard": 15}
+	ele.recompute_stats()
+	ele.heal_full()
+	var mp0 := ele.mp
+	var hp0 := ele.hp
+	sim._deal_damage(mob, ele, 100, false, false, "physical", null, false)
+	check(ele.mp < mp0 and hp0 - ele.hp < 100.0 and hp0 - ele.hp >= 80.0, "Barreira de Mana: parte do dano sai da mana (HP -%.0f, MP -%.0f)" % [hp0 - ele.hp, mp0 - ele.mp])
+	sim.despawn(ele)
+	var pal: SimEntity = sim.spawn_character(SimEntity.Kind.BOT, gd.classes["paladin"], "Tank", "city_aldara", Vector3(0, 0, 8), 30)
+	pal.tree_bonus = {}
+	pal.recompute_stats()
+	var patk0 := pal.stats.patk
+	pal.tree_bonus = {"def_atk_pct": 10}
+	pal.recompute_stats()
+	check(absf(pal.stats.patk - patk0 - pal.stats.pdef * 0.1) < 0.5, "Peso da Fé: 10%% da DEF vira ATK (%.0f -> %.0f, DEF %.0f)" % [patk0, pal.stats.patk, pal.stats.pdef])
+	pal.tree_bonus = {"block_reflect": 40, "guard_crit": 15}
+	pal.recompute_stats()
+	var crit0 := pal.stats.crit_phys
+	pal.heal_full()
+	mob.hp = mob.stats.max_hp
+	sim._deal_damage(mob, pal, 100, false, true, "physical", null, false)
+	check(mob.hp < mob.stats.max_hp, "Escudo Vingador: bloqueio devolve dano (%.0f)" % (mob.stats.max_hp - mob.hp))
+	check(pal.buffs.any(func(b): return b.get("id") == Balance.GUARD_CRIT_BUFF) and absf(pal.stats.crit_phys - crit0 - 15.0) < 0.01,
+		"Contra-Ataque: bloquear dá +15%% de crítico por %.0f s (%.1f -> %.1f)" % [Balance.GUARD_CRIT_TIME, crit0, pal.stats.crit_phys])
+	pal.tree_bonus = {"taunt_dmg_pct": 12}
+	pal.recompute_stats()
+	mob.hp = mob.stats.max_hp
+	mob.aggro_target = -1
+	sim._deal_damage(pal, mob, 300, false, false, "physical")
+	var d_free: float = mob.stats.max_hp - mob.hp
+	mob.hp = mob.stats.max_hp
+	mob.aggro_target = pal.id
+	sim._deal_damage(pal, mob, 300, false, false, "physical")
+	var d_taunt: float = mob.stats.max_hp - mob.hp
+	check(absf(d_taunt / maxf(1.0, d_free) - 1.12) < 0.01, "Julgamento: +12%% de dano em quem tem o tanque como alvo (%.0f -> %.0f)" % [d_free, d_taunt])
+	sim.despawn(pal)
+	sim.despawn(mob)
+
 func _check_lanceiro_evasion(gd, sim) -> void:
 	if not sim.maps.has("city_aldara"):
 		sim.load_map(gd.maps["city_aldara"])
@@ -13884,6 +14027,70 @@ func _check_web_fog() -> void:
 	check(f["tex"] != null and not (f["labels"] as Array).is_empty(), "névoa: teia do Paladino no 22 tem névoa e rótulos")
 	check(WebFog.build_fog("test|50", tr["nodes"], 50, Vector2.ZERO)["tex"] == null, "névoa: teia do Paladino no 50 sem névoa")
 
+## Cadeado da teia (janela K): todo nó acima do nível e não comprado ganha selo (o início nunca), o liberado não; o selo
+## do nó grande fica no canto (não cobre o ícone) e o do pequeno no meio; a dica diz "Abre no nível N"; teia comum e de ascensão.
+func _check_web_fog_lock(gd, sim) -> void:
+	var nodes := {"s": {"kind": "start", "level": 99}, "a": {"kind": "skill", "level": 5}, "b": {"kind": "skill", "level": 25},
+		"c": {"kind": "stat", "level": 30}, "d": {"kind": "notable", "level": 23}, "e": {"kind": "stat", "level": 40}}
+	var ids: Array = WebFog.locked(nodes, 22, {"e": true})
+	ids.sort()
+	check(ids == ["b", "c", "d"], "cadeado: só nós acima do nível, sem o início nem o já comprado (%s)" % [ids])
+	check(WebFog.locked(nodes, 50, {}).is_empty(), "cadeado: no nível 50 nada trancado (fora o início)")
+	var big := WebFog.lock_rect("skill", 40.0)
+	check(big.position.x > 0.0 and big.position.y > 0.0 and big.end.x <= 40.0 * 0.5 + 8.0, "cadeado: na skill vai no canto de baixo à direita (%s)" % big)
+	check(big.size.x >= 15.0 and big.size.x <= 20.0, "cadeado: selo da skill de 15-20 px (%s)" % big.size)
+	var small := WebFog.lock_rect("stat", 16.0)
+	check(small.get_center().is_zero_approx() and small.size.x <= 16.0, "cadeado: no pontinho de atributo vai no meio, sem passar do nó (%s)" % small)
+	var tex := WebFog.lock_texture()
+	check(tex != null and tex == WebFog.lock_texture(), "cadeado: textura única, compartilhada")
+	var img := tex.get_image()
+	var mid := img.get_pixel(11, 25)
+	check(mid.a > 0.9 and mid.r > 0.8 and absf(mid.r - mid.b) < 0.1 and absf(mid.r - mid.g) < 0.1, "cadeado: corpo branco/cinza neutro (%s)" % mid)
+	check(img.get_pixel(0, 0).a == 0.0 and img.get_pixel(16, 6).a > 0.5, "cadeado: fundo transparente, alça em cima")
+	var W = load("res://game/ui/windows.gd")
+	check(W.lock_line(30) == "Abre no nível 30", "cadeado: dica diz Abre no nível N")
+	# janela real: paladino 22, teia comum e de ascensão
+	var p = sim.spawn_bot(gd.classes["paladin"], "Cadeado", "city_aldara", Vector3(0, 0, 5), 22)
+	var keep = sim.player
+	sim.player = p
+	var w = W.new()
+	add_child(w)
+	var tr: Dictionary = gd.trees["paladin"]
+	var want := 0
+	var hi_id := ""
+	var lo_id := ""
+	for nid in tr["nodes"]:
+		var n: Dictionary = tr["nodes"][nid]
+		if n["kind"] == "pick" or n["kind"] == "start" or (n["branch"] == "ring" and n["kind"] == "stat"):
+			continue                        # estradas/junções ficam só com a névoa
+		if int(n["level"]) > 22 and not p.tree.has(nid):
+			want += 1
+			if hi_id == "":
+				hi_id = nid
+		elif lo_id == "" and not p.tree.has(nid):
+			lo_id = nid
+	w._tree_view(p, false)
+	check(w._web_fog != null and w._web_fog.lock_count() == want and want > 0, "cadeado: teia do Paladino 22 tem um selo por nó acima do nível (%d de %d)" % [w._web_fog.lock_count() if w._web_fog else -1, want])
+	var tip_hi: String = w._tree_tip(p, tr["nodes"][hi_id], false, sim.tree_block_reason(p, hi_id))
+	check(tip_hi.contains("Abre no nível %d" % int(tr["nodes"][hi_id]["level"])), "cadeado: dica do nó trancado diz Abre no nível N")
+	var tip_lo: String = w._tree_tip(p, tr["nodes"][lo_id], false, sim.tree_block_reason(p, lo_id))
+	check(not tip_lo.contains("Abre no nível"), "cadeado: dica do nó liberado sem a linha do cadeado")
+	p.level = 50
+	w._tree_view(p, false)
+	check(w._web_fog.lock_count() == 0, "cadeado: no nível 50 nenhum selo")
+	p.level = 40
+	w._tree_view(p, true)
+	var atr: Dictionary = gd.asc_trees.get("paladin", {})
+	var asc_nodes := {}
+	for nid in atr.get("nodes", {}):
+		if atr["nodes"][nid]["kind"] != "pick" and not (atr["nodes"][nid]["branch"] == "ring" and atr["nodes"][nid]["kind"] == "stat"):
+			asc_nodes[nid] = atr["nodes"][nid]
+	var asc_want := WebFog.locked(asc_nodes, 40, p.asc_tree).size()
+	check(asc_want > 0 and w._web_fog.lock_count() == asc_want, "cadeado: teia de ascensão no 40 tem selo nos nós de 41-45 (%d de %d)" % [w._web_fog.lock_count(), asc_want])
+	w.free()
+	sim.player = keep
+	sim.despawn(p)
+
 ## Teia: nós com folga no zoom 1 (nenhum par encosta: distância > soma dos raios + 8 px) e rótulos em tudo.
 func _check_tree_spacing() -> void:
 	var w = load("res://game/ui/windows.gd")
@@ -14573,7 +14780,7 @@ func _check_dry_land(gd, sim) -> void:
 ## Mapa-múndi em "zonas" (x = leste, y = sul; 1 = uma zona de ~240 m). Dois continentes: Aldara (Ato I) e Kharzun (Ato II),
 ## ligados só por navio. Zona nova de superfície = uma linha aqui (o check exige).
 const WORLD := {
-	"field_ruins": Vector2(-1.0, 0.0), "city_aldara": Vector2(0.0, 0.0), "field_hollow": Vector2(-0.5, 1.0), "field_forest": Vector2(1.0, 0.0), "elf_city": Vector2(1.0, -1.0),
+	"field_ruins": Vector2(-1.0, 0.0), "city_aldara": Vector2(0.0, 0.0), "field_hollow": Vector2(-0.5, 1.0), "field_grove": Vector2(2.0, 0.0), "field_forest": Vector2(1.0, 0.0), "elf_city": Vector2(1.0, -1.0),
 	"fort_ghoul": Vector2(-2.0, 0.0), "fort_bones": Vector2(-1.0, -1.0), "fort_frost": Vector2(-1.0, 1.0), "lich_citadel": Vector2(-0.35, -0.7),
 	"field_coast": Vector2(9.0, 0.0), "city_port": Vector2(10.0, 0.1), "field_steppe": Vector2(9.3, -1.0),
 	"fort_trolls": Vector2(8.3, -1.0), "fort_war": Vector2(10.15, -1.5), "fort_fire": Vector2(10.1, -0.4), "field_kharzun": Vector2(9.3, -2.0),
@@ -15449,6 +15656,12 @@ func _check_raid_defense(gd, sim) -> void:
 	check(far.brain.defend_wave != wave, "defesa: bot longe do povoado não larga a caça")
 	var bastion := b.buffs.filter(func(x): return x.get("id") == "bastion")
 	check(bastion.size() == 1 and float(bastion[0]["def_pct"]) == Balance.RAID_RALLY_DEF_PCT, "defesa: Bastião no defensor junto da muralha")
+	# o bot longe pode ter escolhido outra viagem (a lista de campos muda com mapa novo): parado longe, o Bastião some em 1,5 s
+	far.brain = null
+	far.position = ws.random_walkable(def, target + Vector3(80, 0, 62), 6.0)
+	for i in 2 * 20:
+		ws.tick(1.0 / 20.0)
+	b.position = gate
 	check(not far.buffs.any(func(x): return x.get("id") == "bastion"), "defesa: sem Bastião longe das muralhas")
 	var pdef_with := b.stats.pdef
 	b.hp = b.stats.max_hp * 0.5
@@ -21207,7 +21420,7 @@ func _check_lord_of_dead(gd, sim) -> void:
 		var f0: float = foe.hp
 		sim._deal_damage(near_h, foe, 100, false, false, "physical")
 		check(is_equal_approx(f0 - foe.hp, 125.0), "Pacto: o golpe de 100 da invocação tira 125 (%.0f)" % (f0 - foe.hp))
-		check(is_equal_approx(n.hp - hp0, 12.5), "Pacto: 10%% do dano da invocação cura o necromante (%.1f)" % (n.hp - hp0))
+		check(is_equal_approx(n.hp - hp0, 12.5 * n.heal_factor()), "Pacto: 10%% do dano da invocação cura o necromante (%.1f; cura recebida x%.2f)" % [n.hp - hp0, n.heal_factor()])
 		f0 = foe.hp
 		hp0 = n.hp
 		sim._deal_damage(far_h, foe, 100, false, false, "physical")
@@ -24261,3 +24474,306 @@ func _check_field_hollow(gd, sim) -> void:
 	check(bm.skill_ids.all(func(s): return gd.skills.has(s)), "Ursa-Mãe: skills existem")
 	check(Music.MAP_THEME.get("field_hollow", "") == "campo", "Mata: tema de música")
 	check(BotsCatalog.MAP_KIND.has("field_hollow") and BotsCatalog.LINES.has("hunt_field_hollow"), "Mata: falas de bots")
+
+## Bosque dos Xamãs (14-18, ramo lateral a leste da Floresta; plano shaman-grove pacote D): portais, faixa, xamãs com formas
+## válidas, chamadores com teto de bichos 0 XP, Arquidruida com fases e Enlaçar (raiz), quests x*, Cidade Élfica sem trava, vozes. `--only=grove`
+func _check_field_grove(gd, sim) -> void:
+	check(gd.maps.has("field_grove"), "Bosque dos Xamãs existe")
+	if not gd.maps.has("field_grove"):
+		return
+	var md: MapDef = gd.maps["field_grove"]
+	check(md.level_range == Vector2i(14, 18) and md.bot_population == 3 and not md.is_town and md.model == "map_field_grove", "Bosque: faixa 14-18, 3 bots, campo com modelo próprio")
+	check(md.name == "Bosque dos Xamãs" and md.ground_color.is_equal_approx(Color(0.25, 0.42, 0.36)), "Bosque: nome e chão iguais à arte de carregamento")
+	check(not MapsCatalog.CRYSTALS.has("field_grove"), "Bosque: sem cristal")
+	var back: Array = md.portals.filter(func(p): return p["target_map"] == "field_forest")
+	var there: Array = gd.maps["field_forest"].portals.filter(func(p): return p["target_map"] == "field_grove")
+	check(back.size() == 1 and there.size() == 1, "Bosque: um portal de ida (Floresta) e um de volta")
+	if back.size() == 1 and there.size() == 1:
+		check(sim.is_walkable(there[0]["target_pos"], md, 0.45) and sim.is_walkable(back[0]["target_pos"], gd.maps["field_forest"], 0.45), "Bosque: chegadas dos dois lados andáveis")
+		check(there[0]["target_pos"].distance_to(back[0]["pos"]) > back[0]["radius"] + 1.0, "Bosque: chegada fora do portal de volta")
+	check(sim.is_walkable(md.spawn_point, md, 0.45), "Bosque: spawn andável")
+	var ids := {}
+	for sp in md.spawners:
+		ids[sp["monster_id"]] = true
+		var mm: MonsterDef = gd.monsters.get(sp["monster_id"])
+		check(mm != null, "Bosque: spawner de %s existe" % sp["monster_id"])
+		if mm:
+			check(mm.level >= 14 and mm.level <= 18 and mm.xp > 0, "Bosque: %s na faixa e dá XP (nv %d)" % [mm.id, mm.level])
+	for mid in ["shaman_shifter", "shaman_caller", "grove_wolf", "grove_bear", "boss_archdruid"]:
+		check(ids.has(mid), "Bosque: spawner de %s" % mid)
+	for it in ["painted_hide", "spirit_feather", "totem_bark"]:
+		check(gd.items.has(it) and FileAccess.file_exists("res://assets/icons/art_%s.png" % it), "Bosque: material %s com arte" % it)
+	# Metamorfo: formas válidas, aggro/leash da base, sem XP/saque; lobo furtivo, gavião atirador que recua
+	var sh: MonsterDef = gd.monsters["shaman_shifter"]
+	var forms := {}
+	for f in sh.shift_forms:
+		forms[str(f["form"])] = float(f["weight"])
+	check(forms.keys().size() == 3 and forms.has("shaman_bear") and forms.has("shaman_wolf") and forms.has("shaman_hawk"), "Metamorfo: urso, lobo e gavião")
+	for fid in forms:
+		var fm: MonsterDef = gd.monsters.get(fid)
+		check(fm != null and fm.xp == 0 and fm.loot_table == "" and fm.shift_forms.is_empty(), "Metamorfo: forma %s sem XP/saque" % fid)
+		if fm:
+			check(is_equal_approx(fm.aggro_range, sh.aggro_range) and is_equal_approx(fm.leash_range, sh.leash_range) and fm.level == sh.level, "Metamorfo: %s com aggro/leash/nível da base" % fid)
+			check(fm.skill_ids.all(func(x): return gd.skills.has(x)) and fm.model != "", "Metamorfo: %s com modelo e skills que existem" % fid)
+	check(gd.monsters["shaman_wolf"].shift_stealth and gd.monsters["shaman_hawk"].kite and gd.monsters["shaman_hawk"].ranged, "Metamorfo: lobo furtivo, gavião atirador que recua")
+	check(ShiftSystem.pick_form(sh.shift_forms, 0.0) == "shaman_bear" and ShiftSystem.pick_form(sh.shift_forms, 0.99) == "shaman_hawk", "Metamorfo: sorteio por peso")
+	# Chamador: invoca bichos 0 XP com teto que soma as três skills
+	var ca: MonsterDef = gd.monsters["shaman_caller"]
+	var cap := 0
+	for sid in ca.skill_ids:
+		var sk: SkillDef = gd.skills.get(sid)
+		var bs: Dictionary = sk.effects.get("boss_summon", {}) if sk else {}
+		var ad: MonsterDef = gd.monsters.get(bs.get("id", ""))
+		check(ad != null and ad.xp == 0 and ad.loot_table == "" and ad.atk < ca.matk, "Chamador: %s chama bicho fraco sem XP" % sid)
+		check(sk != null and MonsterBrain._skill_reach(sk, false) <= ca.aggro_range + 0.01 and MonsterBrain._skill_reach(sk, false) > 3.0, "Chamador: %s sai com o alvo no aggro" % sid)
+		cap = maxi(cap, int(bs.get("max", 0)))
+	check(cap == 3 and ca.ranged, "Chamador: no máximo 3 bichos e raio fraco de longe")
+	var at := Vector3(57.6, 0, 9.6)
+	var c: SimEntity = sim.spawn_monster(ca, "field_grove", at) if sim.maps.has("field_grove") else null
+	if c:
+		c.brain = null
+		for sid in ca.skill_ids:
+			for i in range(3):
+				MobSystem.spawn_adds(sim, c, gd.skills[sid].effects["boss_summon"])
+		var adds: Array = sim.maps["field_grove"]["entities"].filter(func(o): return o.boss_id == c.id and o.is_alive())
+		check(adds.size() == 3, "Chamador: bichos param no teto (%d)" % adds.size())
+		for o in adds:
+			sim.despawn(o)
+		sim.despawn(c)
+	# Arquidruida: chefe, fases 75/50/25 (lobos, ursos, árvores) e último fôlego; Enlaçar = raiz em alvo aleatório com aviso roxo
+	var bd: MonsterDef = gd.monsters["boss_archdruid"]
+	check(bd.is_boss and bd.level == 18 and bd.intro != "" and bd.last_words != "" and bd.phases.size() == 4, "Arquidruida: chefe 18 com 4 fases e falas")
+	var want := ["archdruid_wolf", "archdruid_bear", "archdruid_treant"]
+	for i in range(3):
+		var ph: Dictionary = bd.phases[i]
+		var ad: MonsterDef = gd.monsters.get(ph.get("summon", {}).get("id", ""))
+		check(is_equal_approx(float(ph["hp"]), [0.75, 0.5, 0.25][i]) and ad != null and ad.id == want[i] and ad.xp == 0 and ad.loot_table == "", "Arquidruida: fase %d chama %s sem XP" % [i + 1, want[i]])
+	check(float(bd.phases[3]["hp"]) <= 0.15 and float(bd.phases[3].get("enrage", 1.0)) > 1.0, "Arquidruida: último fôlego com fúria")
+	var en: SkillDef = gd.skills.get("mob_entangle")
+	check(en != null and bd.skill_ids.has("mob_entangle") and en.effects.has("root") and en.target == SkillDef.Target.GROUND and en.mob_pick == "random" and en.startup >= 1.0, "Arquidruida: Enlaçar prende (raiz) um alvo aleatório com aviso")
+	check(FxManager.CONTROL_TELEGRAPH.has("mob_entangle") and FxManager.DANGER_CONTROL.b > FxManager.DANGER_CONTROL.g, "Enlaçar: aviso roxo (controle)")
+	check(bd.skill_ids.all(func(x): return gd.skills.has(x)), "Arquidruida: skills existem")
+	# NPCs e quests
+	var npc_ids := {}
+	for m in gd.maps.values():
+		for n in m.npcs:
+			npc_ids[n["id"]] = m.id
+	for nid in MapsCatalog.GROVE_NPCS:
+		check(npc_ids.get(nid, "") == "field_grove", "Bosque: NPC %s no mapa" % nid)
+	var chain := ["x0_grove", "x1_shifters", "x2_hides", "x3_callers", "x4_scout", "x5_totems", "x6_archdruid", "x7_report"]
+	var done := {}
+	for qid in chain:
+		check(gd.quests.has(qid), "Bosque: quest %s" % qid)
+		if not gd.quests.has(qid):
+			continue
+		var q: QuestDef = gd.quests[qid]
+		check(q.level_req >= 14 and q.level_req <= 18 and q.dialog_progress != "", "Bosque: %s na faixa e com dica" % qid)
+		check(npc_ids.has(q.giver_npc) and (q.turnin_npc == "" or npc_ids.has(q.turnin_npc)), "Bosque: %s tem giver/turnin em algum mapa" % qid)
+		var pre: Array = ([q.prereq_quest] if q.prereq_quest != "" else []) + Array(q.prereq_all)
+		check(pre.all(func(p): return done.has(p)), "Bosque: %s só pede quests anteriores da cadeia" % qid)
+		if q.type == QuestDef.Type.KILL:
+			check(ids.has(q.target_id), "Bosque: alvo de %s aparece no Bosque" % qid)
+		elif q.type == QuestDef.Type.COLLECT:
+			var src := false
+			for mid in ids:
+				var lt: LootTable = gd.loot_tables.get(gd.monsters[mid].loot_table)
+				if lt:
+					for e in lt.entries:
+						src = src or e["item"] == q.target_id
+			check(src, "Bosque: %s tem fonte de saque" % qid)
+		done[qid] = true
+	check(gd.quests["x0_grove"].giver_npc == "ranger_post" and gd.quests["x7_report"].turnin_npc == "ranger_post", "Bosque: começa e termina com o Ranger Teo")
+	var gated := false
+	for qid in gd.quests:
+		if chain.has(qid):
+			continue
+		var q: QuestDef = gd.quests[qid]
+		gated = gated or chain.has(q.prereq_quest) or Array(q.prereq_all).any(func(p): return chain.has(p))
+	for pid in MapsCatalog.PORTAL_GATES:
+		var g: Dictionary = MapsCatalog.PORTAL_GATES[pid]
+		gated = gated or chain.has(str(g.get("quest", ""))) or Array(g.get("quests", [])).any(func(p): return chain.has(p))
+	check(not gated, "Bosque: ramo lateral não trava a Cidade Élfica nem outra quest")
+	check(QuestsCatalog.HUNT_GIVERS.get("field_grove", "") == "grove_warden", "Bosque: caçadas repetíveis com a Guardiã")
+	# som: todo bicho do bosque tem voz no banco; metamorfose e Enlaçar têm som
+	for mid in ["shaman_shifter", "shaman_bear", "shaman_wolf", "shaman_hawk", "shaman_caller", "grove_wolf", "grove_bear", "grove_boar", "grove_rabbit", "grove_deer",
+			"boss_archdruid", "archdruid_wolf", "archdruid_bear", "archdruid_treant"]:
+		var v: Array = Sfx.voice_of(gd.monsters[mid])
+		var ok := v.size() == 3
+		for snd in v:
+			if str(snd) != "" and not (FileAccess.file_exists("res://assets/audio/sfx/%s_1.wav" % snd) or FileAccess.file_exists("res://assets/audio/sfx/%s_1.ogg" % snd)):
+				ok = false
+		check(ok and (str(v[0]) != "" or str(v[1]) != ""), "Bosque: %s tem voz no banco de sons" % mid)
+	check(Sfx.CAST_SOUND.get("mob_entangle", "") != "" and Sfx.SHIFT_SOUND.has("cast") and Sfx.SHIFT_SOUND.has("shaman_bear"), "Bosque: Enlaçar e metamorfose têm som")
+	check(Music.MAP_THEME.get("field_grove", "") == "campo", "Bosque: tema de música")
+	check(BotsCatalog.MAP_KIND.has("field_grove") and BotsCatalog.LINES.has("hunt_field_grove"), "Bosque: falas de bots")
+	check(DevRunner.TOURS.has("field_grove"), "Bosque: pontos do tour")
+
+## Metamorfose de monstro (ShiftSystem; plano shaman-grove pacote C): sorteio fixo por roll, vida em %, skills da forma,
+## volta no leash/reset/fora de combate, abate pela base, lobo furtivo com emboscada única, gavião recua, bots lutam contra.
+## Monstros de teste montados aqui (cópias do golem); o conteúdo real (xamãs) entra depois. `--only=shift`
+func _check_monster_shift(gd, sim) -> void:
+	var src: MonsterDef = gd.monsters["golem"]
+	var skill_src := ""
+	for mid in gd.monsters:
+		var md: MonsterDef = gd.monsters[mid]
+		if not md.skill_ids.is_empty() and gd.skills.has(md.skill_ids[0]):
+			skill_src = md.skill_ids[0]
+			break
+	var mk := func(id: String, nm: String) -> MonsterDef:
+		var d: MonsterDef = src.duplicate()
+		d.id = id; d.name = nm; d.skill_ids = [] as Array[String]; d.shift_forms = []; d.xp = 0; d.loot_table = ""
+		gd.monsters[id] = d
+		return d
+	var base: MonsterDef = mk.call("t_shift_base", "Xamã Teste")
+	base.xp = src.xp if src.xp > 0 else 20
+	base.loot_table = src.loot_table
+	var bear: MonsterDef = mk.call("t_shift_bear", "Urso")
+	bear.hp = base.hp * 2.0
+	bear.skill_ids = [skill_src] as Array[String]
+	var wolf: MonsterDef = mk.call("t_shift_wolf", "Lobo")
+	wolf.shift_stealth = true
+	var hawk: MonsterDef = mk.call("t_shift_hawk", "Gavião")
+	hawk.ranged = true
+	hawk.kite = true
+	hawk.attack_range = 9.0
+	# sorteio: puro, mesmo roll = mesma forma, peso 0 nunca sai
+	var forms := [{"form": "t_shift_bear", "weight": 1}, {"form": "t_shift_wolf", "weight": 0}, {"form": "t_shift_hawk", "weight": 3}]
+	check(ShiftSystem.pick_form(forms, 0.1) == "t_shift_bear" and ShiftSystem.pick_form(forms, 0.1) == "t_shift_bear", "metamorfose: mesmo roll, mesma forma")
+	var never := true
+	for i in 100:
+		never = never and ShiftSystem.pick_form(forms, i / 100.0) != "t_shift_wolf"
+	check(never and ShiftSystem.pick_form(forms, 0.5) == "t_shift_hawk" and ShiftSystem.pick_form([], 0.5) == "", "metamorfose: peso 0 nunca sai; peso maior pega a maior faixa")
+	check(Balance.SHIFT_CAST_S > 0.0 and Balance.SHIFT_REVERT_S > 0.0 and Balance.SHIFT_AMBUSH_MULT > 1.0 and Balance.SHIFT_KITE_DIST > 0.0, "metamorfose: números no Balance")
+	var at := Vector3(-40, 0, 40)
+	var foe: SimEntity = sim.spawn_bot(gd.classes["paladin"], "AlvoXama", "city_aldara", at + Vector3(2, 0, 0), maxi(1, base.level))
+	foe.brain = null
+	var m: Dictionary = sim.maps["city_aldara"]
+	var mob: SimEntity = sim.spawn_monster(base, "city_aldara", at)
+	mob.brain = null
+	base.shift_forms = [{"form": "t_shift_bear", "weight": 1}]
+	var aggro := func(x: SimEntity) -> void:
+		x.aggro_target = foe.id; x.aggro_timer = Balance.AGGRO_LOSE_TIME; x.threat = {foe.id: 5.0}
+	ShiftSystem.update(sim, mob, 0.05)
+	check(mob.shift_left == 0.0 and mob.monster_def == base and mob.shift_base == null, "metamorfose: sem combate fica na base")
+	mob.hp = mob.stats.max_hp * 0.5
+	aggro.call(mob)
+	ShiftSystem.update(sim, mob, 0.05)
+	check(mob.shift_left > 0.0 and mob.shift_pick == "t_shift_bear" and mob.monster_def == base, "metamorfose: entrar em combate começa a conjuração")
+	ShiftSystem.update(sim, mob, Balance.SHIFT_CAST_S + 0.1)
+	check(mob.monster_def == bear and mob.shift_base == base and is_equal_approx(mob.stats.max_hp, bear.hp), "metamorfose: virou a forma (vida máxima da forma)")
+	check(absf(mob.hp / mob.stats.max_hp - 0.5) < 0.01, "metamorfose: guarda o %% da vida (%.2f)" % (mob.hp / mob.stats.max_hp))
+	var ids: Array = mob.skills.map(func(sk): return sk.id)
+	check(ids == Array(bear.skill_ids) and mob.basic_skill.id == "basic_mob_t_shift_bear" and mob.name == "Xamã Teste (Urso)", "metamorfose: skills, básico e nome da forma (%s)" % mob.name)
+	check(mob.aggro_target == foe.id and mob.threat.has(foe.id), "metamorfose: aggro e ameaça ficam")
+	# fora de combate: volta depois de SHIFT_REVERT_S
+	mob.aggro_target = -1
+	mob.combat_timer = 0.0
+	ShiftSystem.update(sim, mob, Balance.SHIFT_REVERT_S * 0.5)
+	check(mob.monster_def == bear, "metamorfose: meio tempo fora de combate ainda é a forma")
+	ShiftSystem.update(sim, mob, Balance.SHIFT_REVERT_S)
+	check(mob.monster_def == base and mob.shift_base == null and mob.name == base.name and mob.skills.is_empty() and absf(mob.hp / mob.stats.max_hp - 0.5) < 0.01, "metamorfose: volta à base fora de combate, vida em %")
+	# leash: o cérebro devolve a base
+	aggro.call(mob)
+	ShiftSystem.update(sim, mob, 0.05)
+	ShiftSystem.update(sim, mob, Balance.SHIFT_CAST_S + 0.1)
+	mob.brain = MonsterBrain.new()
+	mob.position = at + Vector3(bear.leash_range + 5.0, 0, 0)
+	mob.brain.think(mob, sim, m, 0.05)
+	check(mob.monster_def == base and mob.shift_base == null, "metamorfose: leash volta à base")
+	mob.position = at
+	mob.brain = null
+	# reset (chefe)
+	aggro.call(mob)
+	ShiftSystem.update(sim, mob, 0.05)
+	ShiftSystem.update(sim, mob, Balance.SHIFT_CAST_S + 0.1)
+	sim.reset_boss(mob)
+	check(mob.monster_def == base, "metamorfose: reset volta à base")
+	# conjuração cancelada ao perder o alvo
+	aggro.call(mob)
+	ShiftSystem.update(sim, mob, 0.05)
+	mob.aggro_target = -1
+	ShiftSystem.update(sim, mob, 0.05)
+	check(mob.shift_left == 0.0 and mob.monster_def == base, "metamorfose: perder o alvo cancela a conjuração")
+	# abate: morre como a forma, XP/saque/quest pela base
+	aggro.call(mob)
+	ShiftSystem.update(sim, mob, 0.05)
+	ShiftSystem.update(sim, mob, Balance.SHIFT_CAST_S + 0.1)
+	check(mob.monster_def == bear, "metamorfose: transformado antes do abate")
+	mob.damage_by = {foe.id: 100.0}
+	var xp0: int = foe.xp
+	var lv0: int = foe.level
+	sim._kill(mob, foe)
+	check(mob.monster_def == base and not mob.is_alive(), "metamorfose: o morto devolve a base (abate/quest contam %s)" % mob.monster_def.id)
+	check(foe.xp > xp0 or foe.level > lv0, "metamorfose: XP do abate vem da base (a forma tem 0)")
+	sim.despawn(mob)
+	# lobo: furtivo, emboscada uma vez, área ainda acerta
+	base.shift_forms = [{"form": "t_shift_wolf", "weight": 1}]
+	var w: SimEntity = sim.spawn_monster(base, "city_aldara", at)
+	w.brain = null
+	aggro.call(w)
+	ShiftSystem.update(sim, w, 0.05)
+	ShiftSystem.update(sim, w, Balance.SHIFT_CAST_S + 0.1)
+	check(w.monster_def == wolf and is_equal_approx(w.stealth_left, Balance.SHIFT_STEALTH_S), "lobo: entra furtivo")
+	check(Combat.nearest_hostile(foe, [w], 20.0) == null, "lobo furtivo: ninguém mira nele")
+	var aoe: SkillDef = null
+	for sid in gd.skills:
+		var sk: SkillDef = gd.skills[sid]
+		if sk.target == SkillDef.Target.SELF and sk.radius >= 3.0 and sk.kind == SkillDef.Kind.PHYSICAL and not String(sid).begins_with("mob_"):
+			aoe = sk
+			break
+	check(aoe != null, "metamorfose: achou golpe em área de jogador para o teste")
+	if aoe:
+		foe.position = w.position + Vector3(1.0, 0, 0)
+		check(w in Combat.select_targets(foe, aoe, foe.position, [w]), "lobo furtivo: golpe em área (%s) acerta" % aoe.id)
+	# recém-furtivo: espreita SHIFT_STEALTH_MIN_S sem golpe nem skill (senão a furtividade quebrava na hora)
+	foe.position = w.position + Vector3(1.0, 0, 0)
+	var wb := MonsterBrain.new()
+	var c0: InputCommand = wb.think(w, sim, m, 0.05)
+	check(not c0.attack and c0.skill_slot < 0 and w.stealth_left > 0.0, "lobo furtivo: espreita antes do bote (sem golpe nem skill no começo)")
+	w.stealth_left = Balance.SHIFT_STEALTH_S - Balance.SHIFT_STEALTH_MIN_S - 0.1
+	w.basic_cd = 0.0
+	var c1: InputCommand = wb.think(w, sim, m, 0.05)
+	check(c1.attack or c1.skill_slot >= 0, "lobo furtivo: depois de espreitar, dá o bote")
+	w.stealth_left = Balance.SHIFT_STEALTH_S
+	sim._start_skill(w, w.basic_skill, -1, foe.position)
+	check(w.stealth_left == 0.0 and w.ambush and is_equal_approx(ShiftSystem.ambush_mult(w), Balance.SHIFT_AMBUSH_MULT), "lobo: 1º golpe sai da furtividade como emboscada × SHIFT_AMBUSH_MULT")
+	sim._apply_skill(w, w.basic_skill, m)
+	sim._end_skill(w)
+	sim._start_skill(w, w.basic_skill, -1, foe.position)
+	check(not w.ambush, "lobo: emboscada só uma vez")
+	sim._end_skill(w)
+	sim.despawn(w)
+	# gavião: recua entre os tiros
+	base.shift_forms = [{"form": "t_shift_hawk", "weight": 1}]
+	var h: SimEntity = sim.spawn_monster(base, "city_aldara", at)
+	h.brain = null
+	aggro.call(h)
+	ShiftSystem.update(sim, h, 0.05)
+	ShiftSystem.update(sim, h, Balance.SHIFT_CAST_S + 0.1)
+	foe.position = h.position + Vector3(2.0, 0, 0)
+	foe.hp = foe.stats.max_hp
+	h.basic_cd = 1.0
+	h.brain = MonsterBrain.new()
+	var cmd: InputCommand = h.brain.think(h, sim, m, 0.05)
+	var away := Vector2(h.position.x - foe.position.x, h.position.z - foe.position.z).normalized()
+	check(h.monster_def == hawk and cmd.move.dot(away) > 0.7, "gavião: alvo a 2 m, recua entre os tiros (%s)" % str(cmd.move))
+	sim.despawn(h)
+	# bots de verdade contra o xamã (forma sorteada pela sim)
+	base.shift_forms = [{"form": "t_shift_bear", "weight": 1}, {"form": "t_shift_wolf", "weight": 1}, {"form": "t_shift_hawk", "weight": 1}]
+	sim.despawn(foe)
+	for d in [base, bear, wolf, hawk]:
+		d.hp *= 6.0          # aguenta a conjuração e um tempo na forma
+	var mob2: SimEntity = sim.spawn_monster(base, "city_aldara", at)
+	var b: SimEntity = sim.spawn_bot(gd.classes["berserker"], "CacaXama", "city_aldara", at + Vector3(3, 0, 0), maxi(1, base.level))
+	MobSystem.retarget(sim, mob2, b)
+	var shifted := false
+	for i in 600:
+		sim.tick(1.0 / 60.0)
+		shifted = shifted or mob2.shift_base != null
+		if not mob2.is_alive() or (shifted and mob2.hp < mob2.stats.max_hp * 0.8):
+			break
+	check(shifted and (not mob2.is_alive() or mob2.hp < mob2.stats.max_hp), "metamorfose: bot luta contra o xamã transformado (transformou=%s vivo=%s vida=%.0f/%.0f)" % [str(shifted), str(mob2.is_alive()), mob2.hp, mob2.stats.max_hp])
+	sim.despawn(mob2)
+	sim.despawn(b)
+	for id in ["t_shift_base", "t_shift_bear", "t_shift_wolf", "t_shift_hawk"]:
+		gd.monsters.erase(id)

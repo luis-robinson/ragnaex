@@ -26,6 +26,7 @@ const LOOKS := {
 	"blessed_armor": ["armor", "holy"], "ward": ["armor", "holy"], "bulwark": ["armor", "holy"],
 	"shield_wall": ["armor", "holy"], "bastion": ["armor", "holy"], "colonia_de_pe": ["holy", "holy"], "juramento": ["armor", "holy"],
 	"duel_guard": ["armor", "physical"], "chakra": ["armor", "holy"],
+	"guard_crit": ["power", "holy"],          # Contra-Ataque (notável do Guardião): bloqueou -> crítico por pouco tempo
 	# escudo de HP
 	"shield": ["shield", ""], "boss_ward": ["shield", ""],
 	# ataque
@@ -89,6 +90,7 @@ const SYSTEM_BUFFS := {
 	"bastion": "RaidSystem (sentinela: reunir)",
 	"colonia_de_pe": "SiegeSystem (Colônia de Pé: leva repelida, +XP de abate no mapa)",
 	"juramento": "ShieldSystem (Juramento ao bloquear)",
+	"guard_crit": "Combat.role_on_hit (notável Contra-Ataque: bloqueou, +crítico)",
 	"blessed_hammers": "AuraSystem.start_orbit (Martelos Abençoados: efeito orbit)",
 	"shield": "WorldSim (efeito shield, Égide lendária)",
 	"boss_ward": "MobSystem (chefe protegido pelos lacaios: fase com ward)",

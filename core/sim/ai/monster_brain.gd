@@ -115,17 +115,26 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 		e.aggro_target = -1
 		e.taunt_left = 0.0
 		target = null
+		ShiftSystem.revert(sim, e)          # metamorfose: o leash devolve a forma base
 
 	if target == null:
 		opened = false
 	elif not opened:                   # começo da briga: skill especial só depois de skill_delay s (abre no golpe básico)
 		opened = true
 		skill_timer = maxf(skill_timer, mdef.skill_delay)
+	if target != null and e.shift_left > 0.0:      # conjurando a metamorfose: parado, olhando o alvo
+		state = S.CHASE
+		cmd.aim = target.position
+		return cmd
 	if target != null:
 		state = S.CHASE
 		fought = true
 		var dist := e.position.distance_to(target.position) - target.radius    # o acerto mede do centro de quem bate até a borda do alvo
 		cmd.aim = target.position
+		if e.shift_base != null and e.stealth_left > Balance.SHIFT_STEALTH_S - Balance.SHIFT_STEALTH_MIN_S:
+			if dist > 1.2:                 # lobo furtivo: espreita antes do bote (golpe/skill quebrariam a furtividade na hora)
+				cmd.move = _steer(e, sim, target.position, dt)
+			return cmd
 		if not e.sig.is_empty() and e.sig.has("seq"):
 			return cmd                     # Três Botes em andamento: a sim re-mira e relança; nada de golpe no meio
 		if not e.sig.is_empty() and e.sig.has("counter"):
@@ -155,6 +164,9 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 		var reach := atk_range if not is_summon or ranged else 1.5
 		if ranged and _shots_blocked(e, target, dt) and dist > 1.5:
 			cmd.move = _steer(e, sim, target.position, dt)
+			return cmd
+		if mdef.kite and ranged and dist < Balance.SHIFT_KITE_DIST and e.basic_cd > 0.0 and e.can_act() and e.position.distance_to(e.home_position) < mdef.leash_range * 0.7:
+			cmd.move = -_dir_to(e, target.position)      # gavião: recua entre os tiros (mantém distância)
 			return cmd
 		if dist <= reach * 0.85:
 			if e.basic_cd <= 0.0 and e.can_act():

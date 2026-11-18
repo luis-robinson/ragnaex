@@ -67,6 +67,12 @@ const STAT_NAMES := {"def_pct": "%+d%% DEF", "hp_pct": "%+d%% HP máximo", "atk_
 	"shadow_time": "Sombra Gêmea: +%d s de clone", "shadow_share": "Sombra Gêmea: +%d nó de força (5%% do dano)", "execute_pct": "Execução: +%d nó de dano (10%%)",
 	"falcon_pct": "%+d%% dano do mergulho do falcão", "prey_crit": "%+d crítico contra a Presa",
 	"threat_pct": "%+d%% ameaça gerada", "dr_pct": "%+d%% redução de todo dano recebido",
+	"crit_leech": "crítico cura %d%% do dano causado", "low_leech": "%+d%% roubo de vida abaixo de 35%% da vida",
+	"mana_guard": "%d%% do dano recebido sai da mana", "hit_slow": "golpe físico deixa o alvo %d%% mais lento (2 s)",
+	"heal_taken_pct": "%+d%% cura recebida", "def_atk_pct": "%d%% da DEF vira ATK",
+	"block_reflect": "bloqueio devolve %d%% do golpe", "guard_crit": "bloquear dá %+d%% de crítico por 4 s",
+	"taunt_dmg_pct": "%+d%% de dano em quem tem você como alvo", "thorns": "devolve %d%% do dano corpo a corpo recebido",
+	"cc_resist_pct": "-%d%% duração de atordoar/prender/lentidão",
 	"attr_FOR": "%+d FOR", "attr_AGI": "%+d AGI", "attr_VIT": "%+d VIT", "attr_WILL": "%+d WILL", "attr_INT": "%+d INT"}
 
 ## Rótulo curto embaixo do losango da evolução: o que ela muda na skill (ou no dash), lido dos mods. Até 2 partes.
@@ -109,6 +115,9 @@ const STAT_SHORT := {"def_pct": "%+d%% DEF", "hp_pct": "%+d%% HP", "atk_pct": "%
 	"titan_relief": "+%d Titã", "shadow_time": "+%d s Sombra", "shadow_share": "+%d Sombra", "execute_pct": "+%d Execução",
 	"falcon_pct": "%+d%% Falcão", "prey_crit": "%+d Crít Presa",
 	"threat_pct": "%+d%% Ameaça", "dr_pct": "%+d%% Redução",
+	"crit_leech": "Crít cura %d%%", "low_leech": "%+d%% Roubo na beira", "mana_guard": "%d%% Mana-escudo", "hit_slow": "Lentidão %d%%",
+	"heal_taken_pct": "%+d%% Cura recebida", "def_atk_pct": "%d%% DEF->ATK", "block_reflect": "Reflete %d%%", "guard_crit": "%+d Crít bloqueio",
+	"taunt_dmg_pct": "%+d%% Provocado", "thorns": "Espinhos %d%%", "cc_resist_pct": "-%d%% Controle",
 	"attr_FOR": "%+d FOR", "attr_AGI": "%+d AGI", "attr_VIT": "%+d VIT", "attr_WILL": "%+d WILL", "attr_INT": "%+d INT"}
 ## família do passivo (cor do rótulo): defesa, ataque, magia, cura, mobilidade
 const STAT_FAMILY := {"def_pct": "def", "hp_pct": "def", "evasion": "def", "atk_pct": "atk", "crit": "atk", "lifesteal": "atk",
@@ -116,6 +125,8 @@ const STAT_FAMILY := {"def_pct": "def", "hp_pct": "def", "evasion": "def", "atk_
 	"storm_pct": "mag", "heal_pct": "heal", "buff_pct": "heal", "radiance": "heal", "speed_pct": "move", "cdr": "move", "titan_relief": "atk", "shadow_time": "atk", "shadow_share": "atk", "execute_pct": "atk",
 	"falcon_pct": "atk", "prey_crit": "atk",
 	"threat_pct": "def", "dr_pct": "def",
+	"crit_leech": "def", "low_leech": "def", "mana_guard": "def", "hit_slow": "def", "heal_taken_pct": "def", "cc_resist_pct": "def",
+	"def_atk_pct": "atk", "block_reflect": "atk", "guard_crit": "atk", "taunt_dmg_pct": "atk", "thorns": "atk",
 	"attr_FOR": "atk", "attr_AGI": "move", "attr_VIT": "def", "attr_WILL": "heal", "attr_INT": "mag"}
 
 static func stat_short(stats: Dictionary) -> String:
@@ -407,6 +418,7 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 
 			nodes[tnid]["branch"] = "start"
 			_link(nodes, start if i == 0 else "%s_t_%s" % [cls.id, dash_talents[i - 1].id], tnid)
+	_role_notables(cls, nodes)
 	_outer_web(cls, nodes, branches, hubs, used_cells, sector_of, out_clusters, far)
 	_class_picks(cls, nodes)
 	return {"start": start, "nodes": nodes, "panes": panes, "clusters": out_clusters}
@@ -720,6 +732,43 @@ static func _class_picks(cls: ClassDef, nodes: Dictionary) -> void:
 			nodes[pid]["stats"] = _power(o.get("stats", {}), cls)
 			nodes[pid]["branch"] = "talentos"
 			nodes[pid]["group"] = "row_%d" % r
+
+## Notáveis de papel (Balance.ROLE_NOTABLES): por grupo, os notáveis da teia do 30 do(s) ramo(s) do grupo mais perto do início
+## (fora o notável-assinatura) trocam o bônus pelo da lista; o atributo do círculo fica. Marca "role_note" = survival|damage
+## e "role_bots" = builds cujo bot vai buscá-lo. Não mexe em ids, posições nem ligações (só bônus, nome e texto).
+static func _role_notables(cls: ClassDef, nodes: Dictionary) -> void:
+	var sig_names := {}
+	for b in Balance.BUILD_WEB_NOTABLES:
+		sig_names[Balance.BUILD_WEB_NOTABLES[b][0]] = true
+	for grp in Balance.ROLE_NOTABLES.get(cls.id, []):
+		var cands: Array = []
+		for nid in nodes:
+			var n: Dictionary = nodes[nid]
+			if n["kind"] == "notable" and int(n["level"]) <= Balance.WEB_GAIN_LEVEL and _in_branches(str(n.get("branch", "")), grp["branch"]) \
+					and not n.has("role_note") and not sig_names.has(n["name"]):
+				cands.append(nid)
+		cands.sort_custom(func(a, b): return (nodes[a]["pos"] as Vector2).length() < (nodes[b]["pos"] as Vector2).length())
+		var list: Array = grp["list"]
+		for i in range(mini(list.size(), cands.size())):
+			var n: Dictionary = nodes[cands[i]]
+			var st := {}
+			for k in n["stats"]:
+				if str(k).begins_with("attr_"):
+					st[k] = n["stats"][k]
+			var add: Dictionary = list[i][1]
+			for k in add:
+				st[k] = add[k]
+			n["name"] = list[i][0]
+			n["stats"] = st
+			n["desc"] = "Notável de %s: %s." % ["sobrevivência" if grp["kind"] == "survival" else "dano", stat_text(st)]
+			n["role_note"] = grp["kind"]
+			n["role_bots"] = grp["bots"]
+
+## Ramo do nó vale para o grupo de notáveis de papel: "*" = qualquer, Array = um desses, String = só esse.
+static func _in_branches(br: String, want: Variant) -> bool:
+	if want is Array:
+		return br in want
+	return str(want) == "*" or br == str(want)
 
 ## Bônus de notável escalado (% x NOTABLE_SCALE, arredondado; atributo fica).
 static func _scaled(st: Dictionary, k_mult: float = NOTABLE_SCALE) -> Dictionary:

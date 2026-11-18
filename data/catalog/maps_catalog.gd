@@ -42,7 +42,7 @@ static func _sp(monster: String, x: float, z: float, radius: float, count: int, 
 	return {"monster_id": monster, "pos": Vector3(x, 0, z), "radius": radius, "count": count, "respawn": respawn}
 
 static func build() -> Array:
-	var out: Array = [_aldara(), _hollow(), _forest(), _ruins(), _elf_city(), _port(), _coast(), _steppe(), _kharzun(), _kharzun_citadel()]
+	var out: Array = [_aldara(), _hollow(), _grove(), _forest(), _ruins(), _elf_city(), _port(), _coast(), _steppe(), _kharzun(), _kharzun_citadel()]
 	for fid in FORT_DEFS:
 		out.append(_fort(fid))
 	for did in DUNGEON_DEFS:
@@ -462,6 +462,7 @@ const GATHER := {
 	# e caixotes de Aço Élfico no acampamento da patrulha (guardados pelos guerreiros)
 	# Porto Esperança: conchas na areia ao lado do cais
 	# Mata dos Zumbidos: ervas nas trilhas, cogumelos à sombra, favos nas caixas de abelha que os ursos derrubaram (clareira da Colmeia)
+	"field_grove": [["herb_blue", "herb_blue", [-40.0, 14.0], 10.0, 4], ["forest_mushroom", "mushroom", [-20.0, -40.0], 12.0, 5], ["herb_green", "herb", [10.0, 40.0], 12.0, 4]],
 	"field_hollow": [["herb_green", "herb", [-20.0, 4.0], 10.0, 5], ["herb_green", "herb", [4.0, 30.0], 10.0, 4], ["forest_mushroom", "mushroom", [-30.0, 50.0], 12.0, 5],
 		["forest_mushroom", "mushroom", [44.0, 8.0], 10.0, 4], ["honey_comb", "crate", [10.0, 63.0], 9.0, 5]],
 	"city_port": [["crab_shell", "shell", [16.0, 60.0], 5.0, 3], ["palisade_log", "crate", [-33.0, 62.0], 6.0, 6]],      # toras do estaleiro (hx_df_logs)
@@ -487,6 +488,7 @@ const AMBIENT_LIFE := {
 	# Posto dos Caçadores: corvos sobre a paliçada e mariposas na luz da Fogueira Comunal
 	"field_forest": [["crow", [-5.0, 0.0], 18.0, 4], ["moth", [-5.0, 0.0], 5.0, 7]],
 	# Mata dos Zumbidos: corvos sobre o acampamento, mariposas na fogueira e no Prado de Flores
+	"field_grove": [["crow", [-58.0, -6.0], 14.0, 3], ["moth", [-58.0, -6.0], 5.0, 6], ["crow", [52.0, 14.0], 16.0, 4]],
 	"field_hollow": [["crow", [2.0, -12.0], 16.0, 3], ["moth", [2.0, -12.0], 5.0, 6], ["moth", [-45.0, 30.0], 10.0, 6]],
 	"city_aldara": [["hen", [-15.65, 18.98], 2.0, 4], ["hen", [-63.0, 70.0], 5.0, 5], ["crow", [-70.0, 76.0], 9.0, 3]],
 	"city_port": [["gull", [0.0, 58.0], 16.0, 6], ["gull", [0.0, 10.0], 24.0, 3], ["crab", [16.0, 62.0], 6.0, 4], ["crab", [-18.0, 60.0], 5.0, 3]],
@@ -1757,6 +1759,30 @@ static func _hollow() -> MapDef:
 	z.merge({
 		"id": "field_hollow", "name": "Mata dos Zumbidos", "is_town": false, "level_range": Vector2i(4, 8),
 		"ground_color": Color(0.3, 0.45, 0.29), "ground_color_alt": Color(0.27, 0.41, 0.26), "ambient": Color(0.78, 0.86, 0.74), "sun_energy": 0.95,
+		"bot_population": 3, "npcs": npcs,
+	})
+	return _mk(z)
+
+# ---------------------------------------------------------------------------
+## Bosque dos Xamãs (14-18, ramo lateral a leste da Floresta): tools/blender/zones/build_field_grove.py. Posto da Guardiã sem muro
+## nem cristal na entrada; aldeia hostil dos xamãs no centro-leste, bosque do Arquidruida ao sudeste.
+const GROVE_NPCS := {
+	"grove_warden": ["Guardiã Aiyra", "quest", Color(0.45, 0.6, 0.4), ["Eles não eram assim. O Arquidruida ensinou a virar bicho e esqueceram como voltar a ser gente.", "Se um xamã começar a girar folhas em volta do corpo, decida rápido: urso, lobo ou gavião."]],
+	"grove_herbalist": ["Herbalista Jurema", "quest", Color(0.7, 0.75, 0.45), ["Pena, casca e pele pintada: com isso eu faço o unguento que tira o cheiro de bicho de você.", "O gavião foge quando você chega perto. Não corra atrás dele no meio da aldeia."]],
+	"grove_scout": ["Batedor Caíque", "quest", Color(0.5, 0.45, 0.35), ["Os Chamadores ficam atrás, batendo tambor, e os bichos vêm por eles. Mate o tambor primeiro.", "O lobo some no mato antes de morder. Se ficar quieto demais, levante a guarda."]],
+}
+
+static func _grove() -> MapDef:
+	var z := load_zone("field_grove")
+	var npcs: Array = []
+	for nid in GROVE_NPCS:
+		var n: Array = GROVE_NPCS[nid]
+		var p: Array = z["npc_pos"].get(nid, [0.0, 0.0, 180.0])
+		npcs.append(_npc(nid, n[0], float(p[0]), float(p[1]), n[1], n[2], n[3], float(p[2])))
+	z.erase("npc_pos")
+	z.merge({
+		"id": "field_grove", "name": "Bosque dos Xamãs", "is_town": false, "level_range": Vector2i(14, 18),
+		"ground_color": Color(0.25, 0.42, 0.36), "ground_color_alt": Color(0.23, 0.39, 0.33), "ambient": Color(0.74, 0.84, 0.8), "sun_energy": 0.9,
 		"bot_population": 3, "npcs": npcs,
 	})
 	return _mk(z)

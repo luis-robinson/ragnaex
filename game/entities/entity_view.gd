@@ -26,6 +26,7 @@ const FORM_SCALE := {"wolf": 1.15, "bear": 1.4, "demon": 1.3, "lich": 1.2,     #
 	"ent": 1.2, "alpha": 1.4, "bird": 1.3}                         # formas ancestrais (ascensão do Druida)
 var _fly := 0.0                      # Pássaro Arcano: altura do voo no desenho (a sim é plana)
 var _shown_form := ""
+var _shown_def: MonsterDef = null   # metamorfose de monstro (ShiftSystem): o MonsterDef do modelo mostrado
 var _stealth_shown := false
 var _alpha_shown := 0.0              # transparência aplicada (furtivo 0.7, forma fantasma 0.45)
 var _last_flash := 0.0
@@ -91,6 +92,7 @@ func setup(e: SimEntity, is_player: bool) -> void:
 	position = e.position
 	_smooth_pos = e.position
 	_base_scale = e.scale
+	_shown_def = e.monster_def
 	_build_model()
 	if e.monster_def and e.monster_def.decoy:
 		_decoy_look()
@@ -980,6 +982,47 @@ func _swap_form() -> void:
 	_alpha_shown = -1.0
 	_reapply_mats()
 
+## Metamorfose de monstro (ShiftSystem): troca o modelo inteiro pelo do MonsterDef atual, com o aperto/estouro do _morph;
+## nome e barras sobem para o topo do modelo novo. O estouro de folhas é do FxManager (Events.monster_shift).
+func _swap_monster_model() -> void:
+	_shown_def = entity.monster_def
+	var rot := model_root.rotation.y
+	remove_child(model_root)
+	model_root.queue_free()
+	anim = null
+	mat = null
+	_mats = []
+	_stance_main.clear()
+	_stance_alt.clear()
+	_stance_seen = ""
+	_prey_fx = null
+	_model_top = 0.0
+	_act_skill = null
+	_last_state = -1
+	_base_scale = entity.scale
+	_build_model()
+	model_root.rotation.y = rot
+	var top := plate_top(_base_scale, entity.monster_def.shape in ["sphere", "box"], _model_top)
+	nameplate.position.y = top + 0.32
+	if hp_bar:
+		hp_bar.position.y = top + 0.2
+		cast_bar.position.y = top + 0.08
+	_stealth_shown = not (entity.stealth_left > 0.0)     # transparência nas malhas novas
+	_alpha_shown = -1.0
+	_last_flash = -1.0
+	_morph_t = 0.0
+	_reapply_mats()
+	_refresh_nameplate()
+
+## Gesto da conjuração da metamorfose (o 1º clipe de conjurar que o modelo tiver).
+func shift_gesture() -> void:
+	if anim == null:
+		return
+	for c in ["cast", "cast_nature", "roar", "attack"]:
+		if anim.has_animation(c):
+			anim.play(c, 0.12)
+			return
+
 ## Materiais trocados (forma, peças novas): estado e borda de buff voltam a valer nos novos.
 func _reapply_mats() -> void:
 	_last_status = Color(-1, -1, -1, -1)
@@ -1163,6 +1206,8 @@ func _process_view(delta: float) -> void:
 	if kit and entity.form != _shown_form:
 		_morph_t = 0.0 if _shown_form != "" or entity.form != "" else 1.0
 		_swap_form()
+	if entity.kind == SimEntity.Kind.MONSTER and entity.monster_def != _shown_def and entity.is_alive():
+		_swap_monster_model()          # metamorfose: morto fica com o corpo da forma
 	if kit and entity.mounted != _shown_mount:
 		_swap_mount()
 	var want_alpha := 0.7 if entity.stealth_left > 0.0 else 0.0     # furtivo quase some
@@ -2004,6 +2049,17 @@ func _animate_glb(st: int) -> void:
 			if anim.current_animation != rc:
 				_play(rc, 0.18)
 			anim.speed_scale = RECALL_ANIM_SPEED
+			return
+	# metamorfose de monstro conjurando: gesto de conjurar até trocar (senão o idle do quadro seguinte apaga o shift_gesture)
+	if entity.shift_left > 0.0 and entity.state != SimEntity.State.CASTING:
+		var sc := _clip("cast_nature")
+		for c in ["cast", "shout", "attack"]:
+			if sc == "":
+				sc = _clip(c)
+		if sc != "":
+			if anim.current_animation != sc:
+				_play(sc, 0.12)
+			anim.speed_scale = 1.0
 			return
 	# pulo: sobe / cai / pousa (clip curto e volta ao normal)
 	var air := entity.airborne()

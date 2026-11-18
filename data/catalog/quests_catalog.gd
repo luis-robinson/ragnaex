@@ -14,7 +14,7 @@ static func _mk(d: Dictionary) -> QuestDef:
 	CatalogUtil.fill(q, d)
 	return q
 
-const HUNT_GIVERS := {"city_aldara": "board", "field_hollow": "hollow_brena", "field_forest": "stone_druid", "field_ruins": "dawn_board", "elf_city": "moon_altar",
+const HUNT_GIVERS := {"city_aldara": "board", "field_hollow": "hollow_brena", "field_grove": "grove_warden", "field_forest": "stone_druid", "field_ruins": "dawn_board", "elf_city": "moon_altar",
 	"fort_ghoul": "dawn_board", "fort_bones": "dawn_board", "fort_frost": "dawn_board", "lich_citadel": "dawn_board",
 	"field_coast": "ptav_board", "city_port": "ptav_board",
 	"field_steppe": "wind_totem", "fort_trolls": "wind_totem", "fort_fire": "wind_totem", "fort_war": "wind_totem",
@@ -72,6 +72,59 @@ static func hunts(monsters: Dictionary, maps: Dictionary, existing: Dictionary) 
 			"dialog_offer": "Precisamos de %d %s a menos. Volte quando quiser repetir." % [n, m.name],
 			"dialog_progress": "Procure em %s." % where[id], "dialog_complete": "Pago. O trabalho continua amanhã."}))
 	return out
+
+## Bosque dos Xamãs (14-18): ramo lateral a leste da Floresta, Posto da Guardiã Aiyra. Não trava a Cidade Élfica nem nada da história.
+static func grove() -> Array:
+	return [
+		{"id": "x0_grove", "title": "Tambores a Leste", "giver_npc": "ranger_post", "turnin_npc": "grove_warden", "type": REACH, "target_id": "field_grove", "count": 1, "level_req": 14,
+		 "reward_xp": 120, "reward_gold": 60, "reward_items": {"potion_hp_m": 2}, "map_hint": "Bosque dos Xamãs (garganta a leste da Floresta Sombria)",
+		 "description": "Atravesse a garganta do leste da Floresta e encontre a Guardiã Aiyra no posto da entrada do Bosque dos Xamãs.",
+		 "dialog_offer": "De noite se ouve tambor do lado leste, e os bichos de lá andam em fila, como gente. A Guardiã Aiyra montou um posto na entrada do bosque. Vá ver o que ela precisa.",
+		 "dialog_progress": "Saia do Posto pela estrada do leste e siga até a garganta (marcada como Bosque dos Xamãs no mapa, M). O posto da Guardiã fica logo depois.",
+		 "dialog_complete": "O Teo mandou você? Então ele ouviu os tambores também. Sente aqui, vou explicar o que virou esse bosque."},
+		{"id": "x1_shifters", "title": "Pele de Bicho", "giver_npc": "grove_warden", "type": KILL, "target_id": "shaman_shifter", "count": 8, "level_req": 14, "prereq_quest": "x0_grove",
+		 "reward_xp": 260, "reward_gold": 80, "reward_items": {"potion_hp_m": 2}, "map_hint": "Bosque dos Xamãs: aldeia e trilhas do centro",
+		 "description": "Derrube 8 Xamãs Metamorfos nas trilhas e na aldeia.",
+		 "dialog_offer": "Os Metamorfos viram urso, lobo ou gavião quando lutam. Ninguém do posto consegue passar das trilhas. Derrube 8 deles.",
+		 "dialog_progress": "Bata enquanto ele gira as folhas: a transformação leva um segundo. Urso bate em leque na frente (saia pelo lado ou bloqueie com o botão direito); lobo some e morde forte (guarda levantada); gavião foge, use uma skill de alcance (1-6).",
+		 "dialog_complete": "Oito. E você ainda está inteiro. A Jurema e o Caíque vão querer falar com você."},
+		{"id": "x2_hides", "title": "Unguento de Mateiro", "giver_npc": "grove_herbalist", "type": COLLECT, "target_id": "painted_hide", "count": 6, "level_req": 15, "prereq_quest": "x1_shifters",
+		 "reward_xp": 280, "reward_gold": 90, "reward_items": {"potion_hp_m": 2, "potion_mp_m": 2}, "map_hint": "Bosque dos Xamãs: Metamorfos, lobos e ursos do bosque",
+		 "description": "Traga 6 Peles Pintadas para a Herbalista Jurema.",
+		 "dialog_offer": "Os bichos sentem cheiro de gente de longe. Com pele pintada eu faço um unguento que engana o faro deles. Me traga 6.",
+		 "dialog_progress": "Metamorfos, Lobos do Bosque e Ursos do Bosque carregam pele pintada. Os lobos ficam na toca do noroeste e os ursos na clareira do sudeste.",
+		 "dialog_complete": "Boa pele. Passe um pouco disso atrás da orelha, o lobo vai achar que você é árvore."},
+		{"id": "x3_callers", "title": "Calar os Tambores", "giver_npc": "grove_scout", "type": KILL, "target_id": "shaman_caller", "count": 6, "level_req": 15, "prereq_quest": "x1_shifters",
+		 "reward_xp": 300, "reward_gold": 95, "reward_items": {"potion_hp_m": 2}, "map_hint": "Bosque dos Xamãs: Roda dos Chamados e arco leste",
+		 "description": "Derrube 6 Xamãs Chamadores.",
+		 "dialog_offer": "Os Chamadores batem tambor e javali, coelho e cervo vêm correndo. Os bichos são fracos, o problema é o tambor que não para. Derrube 6.",
+		 "dialog_progress": "Vá direto no Chamador e ignore os bichos chamados: eles batem pouco e somem com ele. No máximo 3 bichos por Chamador ficam de pé.",
+		 "dialog_complete": "Silêncio na roda. Agora dá para ouvir o que o Arquidruida fala para eles."},
+		{"id": "x4_scout", "title": "O Que o Batedor Viu", "giver_npc": "grove_warden", "turnin_npc": "grove_scout", "type": TALK, "target_id": "grove_scout", "count": 1, "level_req": 16, "prereq_quest": "x3_callers",
+		 "reward_xp": 200, "reward_gold": 60, "reward_items": {"potion_hp_m": 1}, "map_hint": "Batedor Caíque (Posto da Guardiã)",
+		 "description": "O Batedor Caíque voltou da aldeia dos xamãs. Ouça o que ele viu.",
+		 "dialog_offer": "O Caíque passou a noite na beira da aldeia. Voltou branco. Vá ouvir ele, eu não tive coragem.",
+		 "dialog_progress": "O Caíque fica no posto, perto da fogueira. Fale com ele (clique ou E).",
+		 "dialog_complete": "Ele está no bosque do sudeste, o Arquidruida. Chama lobo, depois urso, depois as próprias árvores. E prende os pés de quem chega com raiz."},
+		{"id": "x5_totems", "title": "Casca dos Totens", "giver_npc": "grove_herbalist", "type": COLLECT, "target_id": "totem_bark", "count": 5, "level_req": 16, "prereq_quest": "x2_hides",
+		 "reward_xp": 320, "reward_gold": 100, "reward_items": {"elixir_stone": 1, "potion_hp_m": 2}, "map_hint": "Bosque dos Xamãs: Chamadores",
+		 "description": "Traga 5 Cascas de Totem para a Herbalista Jurema.",
+		 "dialog_offer": "Os totens dos Chamadores seguram o feitiço. Queimando a casca deles eu faço uma fumaça que solta raiz. Vai precisar disso contra o velho. Me traga 5.",
+		 "dialog_progress": "Cada Chamador carrega lascas de totem. Puxe um por vez para os bichos chamados não se juntarem.",
+		 "dialog_complete": "Cheiro de resina queimada. Leve esta pedra: quando a raiz te pegar, ela ajuda a aguentar."},
+		{"id": "x6_archdruid", "title": "O Arquidruida", "giver_npc": "grove_warden", "type": KILL, "target_id": "boss_archdruid", "count": 1, "level_req": 17, "prereq_quest": "x4_scout", "prereq_all": ["x5_totems"] as Array[String],
+		 "reward_xp": 700, "reward_gold": 220, "reward_gear_tier": 2, "reward_items": {"elixir_might": 1}, "map_hint": "Bosque dos Xamãs: Bosque do Arquidruida (sudeste)",
+		 "description": "Derrote o Arquidruida Ulmo no bosque do sudeste. Leve um grupo.",
+		 "dialog_offer": "Ulmo era o melhor de nós. Hoje ele quer o bosque inteiro de bicho, e depois a Floresta. Junte gente e acabe com isso.",
+		 "dialog_progress": "Com grupo de 3 a 5 é bem mais seguro. Quando o chão ficar roxo embaixo de você, saia: é a raiz que prende. Ele chama lobos (3/4 da vida), ursos (metade) e árvores (1/4, e fica mais duro enquanto elas vivem): mate os chamados rápido e volte nele.",
+		 "dialog_complete": "Ulmo caiu. Os xamãs ainda vão demorar a lembrar quem eram, mas sem ele não viram bicho de novo. Fique com isto. E avise o Teo."},
+		{"id": "x7_report", "title": "Silêncio a Leste", "giver_npc": "grove_warden", "turnin_npc": "ranger_post", "type": TALK, "target_id": "ranger_post", "count": 1, "level_req": 18, "prereq_quest": "x6_archdruid",
+		 "reward_xp": 180, "reward_gold": 90, "reward_items": {"potion_hp_m": 2}, "map_hint": "Ranger Teo (Posto dos Caçadores, Floresta Sombria)",
+		 "description": "Volte à Floresta Sombria e conte ao Ranger Teo que os tambores pararam.",
+		 "dialog_offer": "Leve a notícia ao Teo. Diga que o posto fica: alguém precisa ensinar os xamãs a voltar.",
+		 "dialog_progress": "Volte pela garganta do oeste do bosque e procure o Ranger Teo no Posto dos Caçadores.",
+		 "dialog_complete": "Os tambores pararam mesmo. Achei que ia ter de mandar a guarda inteira. Tome, foi bem merecido."},
+	]
 
 ## Mata dos Zumbidos (4-8): ramo lateral ao sul de Aldara, acampamento da Mateira Brena. Não trava nada da história
 ## (a Floresta continua abrindo por c5_report); a XP entra na faixa 1-10 pelo scale_xp como as outras.
@@ -651,6 +704,7 @@ static func build() -> Array:
 		 "description": "Quebre 6 Golens de Pedra.", "dialog_offer": "As runas brilham quando os mortos caem.", "dialog_progress": "Pedreira a sudoeste.", "dialog_complete": "As runas se apagam, por enquanto."},
 	]
 	L.append_array(hollow())
+	L.append_array(grove())
 	L.append_array(act2())
 	L.append_array(act2_steppe())
 	L.append_array(act2_kharzun())

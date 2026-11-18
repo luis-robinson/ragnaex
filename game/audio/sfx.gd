@@ -64,7 +64,11 @@ const MOB_VOICE := {
 	"banner_": ["", "", ""],
 	# Mata dos Zumbidos (4-8): "wasp_" pega a vespa-soldado; hive_wasp = vespa da colmeia
 	"wasp": ["wasp_buzz", "wasp_buzz", "wasp_die"], "wasp_": ["wasp_buzz", "wasp_buzz", "wasp_die"], "hive_wasp": ["", "wasp_buzz", "wasp_die"],
-	"bear_cub": ["bear_growl", "bear_growl", ""], "bear_cub_den": ["", "bear_growl", ""], "bear": ["bear_growl", "bear_growl", ""],
+"shaman_shifter": ["nature", "summon", ""], "shaman_bear": ["bear_growl", "bear_roar", ""], "shaman_wolf": ["wolf_snarl", "wolf_snarl", ""],
+	"shaman_hawk": ["wind", "wind", ""], "shaman_caller": ["drum_beat", "summon", ""], "grove_wolf": ["wolf_howl", "wolf_snarl", ""], "grove_bear": ["bear_growl", "bear_growl", ""],
+	"grove_boar": ["earth", "", ""], "grove_rabbit": ["nature", "", ""], "grove_deer": ["nature", "", ""], "boss_archdruid": ["nature", "summon", "die_boss"],
+	"archdruid_wolf": ["wolf_howl", "wolf_snarl", ""], "archdruid_bear": ["bear_growl", "bear_roar", ""], "archdruid_treant": ["golem_rumble", "earth", ""],
+		"bear_cub": ["bear_growl", "bear_growl", ""], "bear_cub_den": ["", "bear_growl", ""], "bear": ["bear_growl", "bear_growl", ""],
 	"bear_mother": ["bear_roar", "bear_growl", "bear_roar"], "hive": ["wasp_buzz", "", "hive_crack"],
 }
 ## Skill com som próprio na fase ativa (no lugar do vento da arma) e no impacto (no lugar do som do tema).
@@ -74,7 +78,7 @@ const CAST_SOUND := {"mob_drum_beat": "war_drum", "mob_war_drum": "war_drum", "m
 	# Estandartes de Clã (Pedra e Forja): o pé do mastro batendo na pedra ao pulsar
 	"mob_stone_mend": "banner_plant", "mob_forge_embers": "banner_plant",
 	# Mata dos Zumbidos: o rugido da Ursa-Mãe e a colmeia soltando o enxame
-	"mob_bear_roar": "bear_roar", "mob_hive_swarm": "wasp_buzz"}
+	"mob_bear_roar": "bear_roar", "mob_hive_swarm": "wasp_buzz", "mob_entangle": "nature", "mob_call_pack": "wolf_howl", "mob_call_boar": "drum_beat", "mob_call_rabbits": "drum_beat", "mob_call_deer": "drum_beat"}
 const EFFECT_SOUND := {"mob_tide_pull": "tide", "mob_tide_wave": "tide", "mob_tide_geysers": "tide",
 	"mob_troll_slam": "troll_slam", "mob_rock_quake": "troll_slam",
 	"mob_boulder_toss": "boulder", "mob_basalt_stomp": "troll_slam", "mob_brute_quake": "troll_slam"}
@@ -177,6 +181,7 @@ func _ready() -> void:
 	Events.projectile_spawned.connect(_on_projectile)
 	Events.damage_dealt.connect(_on_damage)
 	Events.blocked_hit.connect(_on_block)
+	Events.monster_shift.connect(_on_monster_shift)
 	Events.shield_block.connect(_on_shield_block)
 	Events.dodged.connect(_on_dodged)
 	Events.entity_died.connect(_on_died)
@@ -376,6 +381,21 @@ func _on_damage(attacker_id: int, target_id: int, amount: int, crit: bool, block
 		play_at("hit", t.position, mine)
 	if crit and mine:
 		play_at("crit", t.position, true)
+
+## Metamorfose de monstro (ShiftSystem): giro de folhas na conjuração, voz do bicho ao virar.
+const SHIFT_SOUND := {"cast": "summon", "shaman_bear": "bear_roar", "shaman_wolf": "wolf_howl", "shaman_hawk": "wind", "revert": "nature"}
+
+func _on_monster_shift(id: int, form_id: String, phase: String) -> void:
+	var e: SimEntity = Sim.get_entity(id)
+	if not _here(e):
+		return
+	var snd := ""
+	match phase:
+		"cast": snd = SHIFT_SOUND["cast"]
+		"done": snd = str(SHIFT_SOUND.get(form_id, "nature"))
+		"revert": snd = SHIFT_SOUND["revert"]
+	if snd != "":
+		play_at(snd, e.position, false)
 
 func _on_block(id: int) -> void:
 	var t: SimEntity = Sim.get_entity(id)

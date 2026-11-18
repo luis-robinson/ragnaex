@@ -133,8 +133,90 @@ static func build_fog(key: String, nodes: Dictionary, player_level: int, origin:
 	_cache = res
 	return res
 
+## --- Cadeado: selo neutro (branco/cinza, contorno escuro) por cima da névoa em todo nó acima do nível do jogador. ---
+const LOCK_TEX_PX := 32           # lado da textura (gerada uma vez, desenhada esticada)
+const LOCK_BIG := ["skill", "start", "talent", "notable"]     # selo no canto de baixo à direita; nos outros, no meio
+const LOCK_BODY := Color(0.93, 0.93, 0.95)
+const LOCK_SHACKLE := Color(0.7, 0.71, 0.75)
+const LOCK_EDGE := Color(0.03, 0.03, 0.05)
+
+static var _lock_tex: Texture2D = null
+
+## Textura do cadeado (32 px, 4x4 amostras por pixel), feita na 1ª vez e compartilhada por todos os selos.
+static func lock_texture() -> Texture2D:
+	if _lock_tex:
+		return _lock_tex
+	var n := LOCK_TEX_PX
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	for y in range(n):
+		for x in range(n):
+			var acc := Color(0, 0, 0, 0)
+			for sy in range(4):
+				for sx in range(4):
+					var c := _lock_sample(Vector2(x + (sx + 0.5) / 4.0, y + (sy + 0.5) / 4.0))
+					acc += Color(c.r * c.a, c.g * c.a, c.b * c.a, c.a)
+			acc /= 16.0
+			img.set_pixel(x, y, Color(acc.r / acc.a, acc.g / acc.a, acc.b / acc.a, acc.a) if acc.a > 0.0 else Color(0, 0, 0, 0))
+	_lock_tex = ImageTexture.create_from_image(img)
+	return _lock_tex
+
+## Cor de um ponto do cadeado (espaço de 32 px): buraco da chave, corpo, alça, contorno de 2 px.
+static func _lock_sample(p: Vector2) -> Color:
+	var body := _round_rect(p, Vector2(16, 21.5), Vector2(9.5, 7.5), 2.5)
+	var cx := 16.0
+	var cy := 12.5
+	var r := 6.0
+	var shackle := INF                     # distância ao eixo da alça (arco de cima + duas pernas até o corpo)
+	if p.y <= cy:
+		shackle = absf(p.distance_to(Vector2(cx, cy)) - r)
+	elif p.y <= 15.0:
+		shackle = minf(absf(p.x - (cx - r)), absf(p.x - (cx + r)))
+	var key := minf(p.distance_to(Vector2(16, 20)) - 2.2, _round_rect(p, Vector2(16, 23.0), Vector2(1.0, 3.0), 0.5))
+	if body < 0.0:
+		return LOCK_EDGE if key < 0.0 else LOCK_BODY
+	if shackle < 1.6:
+		return LOCK_SHACKLE
+	if body < 2.0 or shackle < 3.6:
+		return LOCK_EDGE
+	return Color(0, 0, 0, 0)
+
+static func _round_rect(p: Vector2, c: Vector2, half: Vector2, rr: float) -> float:
+	var q := (p - c).abs() - (half - Vector2(rr, rr))
+	return q.max(Vector2.ZERO).length() + minf(maxf(q.x, q.y), 0.0) - rr
+
+## Onde vai o selo de um nó (px da teia, relativo ao centro do nó) de lado `px`: canto de baixo à direita nos
+## grandes (não cobre o ícone), no meio nos pequenos (o pontinho de atributo não tem ícone).
+static func lock_rect(kind: String, px: float) -> Rect2:
+	if kind in LOCK_BIG:
+		var s := clampf(px * 0.5, 15.0, 20.0)
+		return Rect2(Vector2.ONE * (px * 0.5 - s * 0.62), Vector2(s, s))
+	var t := clampf(px * 0.75, 12.0, 16.0)
+	return Rect2(-Vector2(t, t) * 0.5, Vector2(t, t))
+
+## Nós que levam cadeado: nível acima do jogador e ainda não comprados (`owned` = ids comprados). O início nunca.
+static func locked(nodes: Dictionary, player_level: int, owned: Dictionary) -> Array:
+	var out: Array = []
+	for nid in nodes:
+		var n: Dictionary = nodes[nid]
+		if str(n["kind"]) != "start" and int(n["level"]) > player_level and not owned.has(nid):
+			out.append(nid)
+	return out
+
 var _tex: Texture2D = null
 var _rect := Rect2()
+var _locks: Array = []             # [[Rect2 em px da teia, grande?]]
+const LOCK_MIN_SCREEN := 13.0     # selo grande nunca menor que isso na tela (zoom afastado)
+const LOCK_SMALL_ZOOM := 0.6      # abaixo desse zoom os selos dos pontinhos somem (viravam chuvisco branco)
+
+## Cadeados por cima da névoa: `locks` = [[Rect2 em px da teia, grande?]] (um draw de textura cada, mesma textura = um lote).
+## Redesenhar ao mudar o zoom (o tamanho mínimo na tela depende dele).
+func set_locks(locks: Array) -> void:
+	_locks = locks
+	queue_redraw()
+
+## Quantos cadeados estão desenhados (revisão/teste).
+func lock_count() -> int:
+	return _locks.size()
 
 ## Névoa da teia `nodes` (sem os talentos de escolha) para o nível `player_level`; `unit` = px por unidade da teia.
 ## Os rótulos entram como filhos (Label) por cima da névoa.
@@ -160,3 +242,15 @@ func setup(key: String, nodes: Dictionary, player_level: int, origin: Vector2, u
 func _draw() -> void:
 	if _tex:
 		draw_texture_rect(_tex, _rect, false)
+	if not _locks.is_empty():
+		var lt := lock_texture()
+		var zoom := maxf(0.01, get_global_transform().get_scale().x)     # zoom da teia (a névoa é filha dela)
+		for l in _locks:
+			var r: Rect2 = l[0]
+			if not l[1]:
+				if zoom < LOCK_SMALL_ZOOM:
+					continue
+				draw_texture_rect(lt, r, false)
+				continue
+			var s := maxf(r.size.x, LOCK_MIN_SCREEN / zoom)
+			draw_texture_rect(lt, Rect2(r.get_center() - Vector2(s, s) * 0.5, Vector2(s, s)), false)
