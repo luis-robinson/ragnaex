@@ -514,7 +514,7 @@ const AMBIENT_LIFE := {
 	# Posto dos Caçadores: corvos sobre a paliçada e mariposas na luz da Fogueira Comunal
 	"field_forest": [["crow", [-5.0, 0.0], 18.0, 4], ["moth", [-5.0, 0.0], 5.0, 7]],
 	# Mata dos Zumbidos: corvos sobre o acampamento, mariposas na fogueira e no Prado de Flores
-	"field_grove": [["crow", [-58.0, -6.0], 14.0, 3], ["moth", [-58.0, -6.0], 5.0, 6], ["crow", [52.0, 14.0], 16.0, 4]],
+	"field_grove": [["crow", [-58.0, -6.0], 14.0, 3], ["moth", [-58.0, -6.0], 5.0, 6], ["crow", [50.0, 13.0], 22.0, 5]],
 	"field_hollow": [["crow", [2.0, -12.0], 16.0, 3], ["moth", [2.0, -12.0], 5.0, 6], ["moth", [-45.0, 30.0], 10.0, 6]],
 	"city_aldara": [["hen", [-15.65, 18.98], 2.0, 4], ["hen", [-63.0, 70.0], 5.0, 5], ["crow", [-70.0, 76.0], 9.0, 3]],
 	"city_port": [["gull", [0.0, 58.0], 16.0, 6], ["gull", [0.0, 10.0], 24.0, 3], ["crab", [16.0, 62.0], 6.0, 4], ["crab", [-18.0, 60.0], 5.0, 3]],

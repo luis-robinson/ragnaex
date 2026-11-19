@@ -24715,6 +24715,27 @@ func _check_field_grove(gd, sim) -> void:
 		var g: Dictionary = MapsCatalog.PORTAL_GATES[pid]
 		gated = gated or chain.has(str(g.get("quest", ""))) or Array(g.get("quests", [])).any(func(p): return chain.has(p))
 	check(not gated, "Bosque: ramo lateral não trava a Cidade Élfica nem outra quest")
+	# Aldeia dos Xamãs maior e folgada (2026-11-19; build_field_grove.VILLAGE/VILLAGE_R): 16+ xamãs em grupos de até 3, anel da praça e
+	# as quatro entradas passam um disco de 3,2-5 m (antes o gargalo era 2,3 m), nenhum spawner da aldeia em cima de sólido
+	var vc := Vector3(50.0, 0, 13.0)
+	var in_village := 0
+	var big_group := 0
+	for sp in md.spawners:
+		if str(sp["monster_id"]).begins_with("shaman_") and Vector3(sp["pos"].x, 0, sp["pos"].z).distance_to(vc) < 29.0:
+			in_village += int(sp["count"])
+			big_group = maxi(big_group, int(sp["count"]))
+			check(sim.is_walkable(Vector3(sp["pos"].x, 0, sp["pos"].z), md, 1.0), "Aldeia: spawner de %s em chão livre" % sp["monster_id"])
+	check(in_village >= 16 and big_group <= 3, "Aldeia dos Xamãs: 16+ xamãs em grupos de até 3 (%d, maior grupo %d)" % [in_village, big_group])
+	var tight := 0
+	for i in range(24):
+		var a := TAU * i / 24.0
+		if not sim.is_walkable(vc + Vector3(cos(a), 0, sin(a)) * 9.6, md, 1.6):
+			tight += 1
+	for deg in [185.0, 290.0, 25.0, 105.0]:
+		for r in [14.0, 17.0, 20.0]:
+			if not sim.is_walkable(vc + Vector3(cos(deg_to_rad(deg)), 0, sin(deg_to_rad(deg))) * r, md, 2.5):
+				tight += 1
+	check(tight == 0, "Aldeia dos Xamãs: anel da praça e entradas sem aperto (%d pontos apertados)" % tight)
 	check(QuestsCatalog.HUNT_GIVERS.get("field_grove", "") == "grove_warden", "Bosque: caçadas repetíveis com a Guardiã")
 	# som: todo bicho do bosque tem voz no banco; metamorfose e Enlaçar têm som
 	for mid in ["shaman_shifter", "shaman_bear", "shaman_wolf", "shaman_hawk", "shaman_caller", "grove_wolf", "grove_bear", "grove_boar", "grove_rabbit", "grove_deer",

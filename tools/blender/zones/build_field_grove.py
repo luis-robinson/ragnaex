@@ -26,15 +26,26 @@ FOREST_ARRIVE = (87.4, 10.7)        # chegada na Floresta, junto da garganta les
 POST = (-58.0, -6.0)               # Posto da Guardiã (amigo)
 POST_R = 9.5
 GATES = {"O": 180.0, "N": -90.0, "L": 0.0, "S": 90.0}        # por onde as trilhas saem do posto (graus do jogo)
-VILLAGE = (52.0, 14.0)             # Aldeia dos Xamãs (hostil)
-VILLAGE_R = 16.0
-HUTS = [(-150.0, 1.05), (-118.0, 0.9), (-52.0, 1.15), (-20.0, 0.9), (48.0, 1.1), (76.0, 0.9), (140.0, 1.2)]   # (ângulo, escala)
+# Aldeia dos Xamãs (hostil). 2026-11-19 (pedido: "maior, com mais xamãs; é apertado e mal dá para passar"): raio 16 -> 22 m
+# (área x1,9), 7 -> 10 ocas em dois anéis desencontrados, roda de menires no centro. Regra de folga: dentro da clareira dois
+# sólidos ou se tocam ou ficam a >= 4 m (ruas de 5-6 m: anel da praça e as quatro entradas). Peça comprida (varal, frisa)
+# colide como fila de círculos pequenos: o `pillar` da sim é círculo do MAIOR lado, um colisor só tapava a rua.
+VILLAGE = (50.0, 13.0)
+VILLAGE_R = 22.0
+VILLAGE_CLEAR = VILLAGE_R + 7.0    # sem árvore/pedra até aqui (as ocas de fora ficam a >= 4 m da mata)
+ENTRIES = {"O": 185.0, "N": 290.0, "L": 25.0, "S": 105.0}      # por onde as trilhas entram na aldeia (graus do jogo)
+STONE_R = 6.0                      # roda de menires (6, um a cada 60 graus a partir de 30)
+HUTS = [(14.2, 53.0, 1.0), (14.2, 133.0, 1.0), (14.0, 230.0, 1.15), (14.2, 335.0, 1.0),                 # anel de dentro (230 = oca do chefe)
+        (19.0, 79.0, 0.9), (19.0, 159.0, 0.9), (19.0, 203.0, 0.9), (19.0, 257.0, 0.9), (19.0, 308.0, 0.9), (19.0, 2.0, 0.9)]   # (raio, ângulo, escala)
+SPIKES = (53.0, 133.0, 230.0, 335.0)       # frisas atrás das ocas de dentro, no vão entre duas ocas de fora
+RACKS = (79.0, 257.0, 2.0)                 # varais nas costas de três ocas de fora (encostados nelas)
+DRUMS = ((30.0, 0.85), (90.0, 0.7), (150.0, 0.8), (270.0, 0.65))      # tambores encostados por fora nos menires
 GROVE = (52.0, -50.0)              # Bosque do Arquidruida (chefe)
 GROVE_R = 18.0
 CALL = (14.0, 64.0)                # Roda dos Chamados (xamãs invocadores, sul)
 WOLVES = (-44.0, -52.0)            # Toca dos Lobos (noroeste, lado do posto)
 BEARS = (62.0, 56.0)               # Clareira dos Ursos (sudeste)
-EAST = (74.0, 36.0)                # invocadores no arco leste
+EAST = (75.0, 38.0)                # invocadores no arco leste (fora da clareira da aldeia)
 POND = (-46.0, 58.0)               # Lagoa do Musgo
 POND_R = 8.0
 ELDER = (8.0, -30.0)               # Árvore Anciã (landmark)
@@ -108,7 +119,26 @@ def rack(d, p0, p1, hides=2):
         t = (k + 0.5) / hides
         q = (p0[0] + (p1[0] - p0[0]) * t, p0[1] + (p1[1] - p0[1]) * t)
         d.box("armas", cols[k % 3], q, (L / hides * 0.72, 1.1, 0.06), rot, 0.66)
-    d.solid(mid[0], mid[1], L + 0.3, 0.5, 1.9, rot)
+    chain(d, p0, p1, 0.6, 1.9)
+
+
+def chain(d, p0, p1, w, h):
+    """Colisor de peça comprida e fina: fila de círculos de diâmetro `w` de p0 a p1 (um `pillar` só viraria um círculo do
+    comprimento inteiro)."""
+    L = math.hypot(p1[0] - p0[0], p1[1] - p0[1])
+    n = max(1, int(math.ceil(L / (w * 0.9))))
+    for k in range(n + 1):
+        t = k / n
+        d.solid(p0[0] + (p1[0] - p0[0]) * t, p0[1] + (p1[1] - p0[1]) * t, w, w, h)
+
+
+def gate_posts(poly, c, r, half):
+    """Dois pontos, um de cada lado da trilha `poly`, onde ela cruza o círculo de raio `r` em volta de `c` (totens da entrada)."""
+    k = min(range(1, len(poly) - 1), key=lambda i: abs(math.hypot(poly[i][0] - c[0], poly[i][1] - c[1]) - r))
+    tx, tz = poly[k + 1][0] - poly[k - 1][0], poly[k + 1][1] - poly[k - 1][1]
+    tl = math.hypot(tx, tz)
+    nx, nz = -tz / tl, tx / tl
+    return [(poly[k][0] + nx * half * sg, poly[k][1] + nz * half * sg) for sg in (-1, 1)], zone_lib.along(tx, tz)
 
 
 def build(export=False):
@@ -130,12 +160,12 @@ def build(export=False):
 
     # ---------- chão por região (lido de cima): terreiro do posto, terra escura da aldeia, laje musgosa da arena ----------
     z.patch("posto", POST, POST_R + 1.5, (0.55, 0.5, 0.38), y=0.0104)            # acima do acostamento (9,8 mm)
-    z.patch("aldeia", VILLAGE, VILLAGE_R + 1.0, (0.4, 0.38, 0.31), y=0.0104)
+    z.patch("aldeia", VILLAGE, VILLAGE_R + 1.5, (0.4, 0.38, 0.31), y=0.0104)
     z.patch("arena", GROVE, GROVE_R, (0.36, 0.45, 0.4), y=0.0104)
     z.patch("chamados", CALL, 11.0, (0.4, 0.42, 0.33))
     z.patch("lobos", WOLVES, 10.0, (0.3, 0.44, 0.36), grass=True)
     z.patch("ursos", BEARS, 10.0, (0.33, 0.46, 0.34), grass=True)
-    z.patch("leste", EAST, 8.0, (0.36, 0.42, 0.33), grass=True)
+    z.patch("leste", EAST, 7.5, (0.36, 0.42, 0.33), grass=True)
     z.data["town"] = {"center": [px, pz], "radius": 0.0, "gates": []}
 
     # ---------- riacho (norte-sul, separa o posto da aldeia) e a Lagoa do Musgo ----------
@@ -144,21 +174,22 @@ def build(export=False):
 
     # ---------- trilhas (estreitas, curvas; laços norte, sul e leste: sem beco) ----------
     g = lambda k: P(POST_R - 2.5, GATES[k])
-    vw, vn, vs, ve = V(VILLAGE_R - 3.0, 185.0), V(VILLAGE_R - 2.0, -86.0), V(VILLAGE_R - 2.0, 105.0), V(VILLAGE_R - 2.0, 16.0)
+    vw, vn, vs, ve = V(VILLAGE_R - 3.0, ENTRIES["O"]), V(VILLAGE_R - 2.0, ENTRIES["N"]), V(VILLAGE_R - 2.0, ENTRIES["S"]), V(VILLAGE_R - 2.0, ENTRIES["L"])
     g_s, g_w = G(GROVE_R - 5.0, 86.0), G(GROVE_R - 5.0, 188.0)
     z.road("chegada", [g("O"), (-74, -8), arrive, portal], w=TRAIL_W, end_clearing=False)
-    z.road("vau", [g("L"), (-40, -3), (-28, -7), (-15, -4), (-3, -3), (10, 4), (24, 9), vw], w=TRAIL_W, end_clearing=False)
-    z.road("bosque", [vn, (60, -14), (58, -27), g_s], w=TRAIL_W, end_clearing=False)
-    z.road("sul", [vs, (40, 42), (27, 54), (CALL[0] + 3, CALL[1] - 4)], w=TRAIL_W, end_clearing=False)
+    r_vau = z.road("vau", [g("L"), (-40, -3), (-28, -7), (-15, -4), (-3, -3), (10, 4), (22, 9), vw], w=TRAIL_W, end_clearing=False)
+    r_bosque = z.road("bosque", [vn, (61, -16), (58, -27), g_s], w=TRAIL_W, end_clearing=False)
+    r_sul = z.road("sul", [vs, (40, 42), (27, 54), (CALL[0] + 3, CALL[1] - 4)], w=TRAIL_W, end_clearing=False)
     z.road("arco_sul", [(CALL[0] + 3, CALL[1] - 4), (0, 68), (-14, 70), (-28, 64), (-36, 46), (-46, 34), (-54, 18), g("S")], w=TRAIL_W, end_clearing=False)
     z.road("norte", [g("N"), (-56, -30), (WOLVES[0] + 4, WOLVES[1] + 6), (-34, -60), (-19, -64), (-4, -62), (14, -60), (30, -56), g_w],
            w=TRAIL_W, end_clearing=False)
-    z.road("arco_leste", [ve, (EAST[0] + 2, EAST[1] - 6), (72, 46), (BEARS[0] - 4, BEARS[1] - 2), (40, 42)], w=TRAIL_W, end_clearing=False)
+    r_leste = z.road("arco_leste", [ve, (EAST[0] + 2, EAST[1] - 6), (73, 48), (BEARS[0] - 4, BEARS[1] - 2), (40, 42)], w=TRAIL_W, end_clearing=False)
     z.arrival(arrive, toward=portal, r=6.0)
+    gates = [gate_posts(poly, VILLAGE, VILLAGE_R + 4.5, 3.8) for poly in (r_vau, r_bosque, r_sul, r_leste)]      # totens das 4 entradas
     z.bridges()
 
     # ---------- relevo: afloramentos baixos e as duas árvores anciãs (landmarks, fora das trilhas) ----------
-    for i, (c, r, lv) in enumerate([((-74, -44), 7, 2), ((-20, 44), 5, 1), ((24, 30), 6, 2), ((84, -10), 7, 2),
+    for i, (c, r, lv) in enumerate([((-74, -44), 7, 2), ((-20, 44), 5, 1), ((20, 33), 6, 2), ((84, -10), 7, 2),
                                     ((20, -84), 6, 2), ((-76, 38), 6, 2), ((30, 84), 6, 1), ((6, 22), 5, 1)]):
         z.terrace("afloramento_%d" % i, c, r, lv, top="cliff_grass")
     z.giant_tree("arvore_ancia", ELDER, trunk_r=2.8, height=20.0)
@@ -166,8 +197,11 @@ def build(export=False):
     z.cliffs()
 
     # ---------- vegetação: mata velha e fechada, só as clareiras e as trilhas abertas ----------
-    for c, r in ((POST, POST_R + 4.0), (VILLAGE, VILLAGE_R + 3.0), (GROVE, GROVE_R + 5.5), (CALL, 13.0), (WOLVES, 9.5), (BEARS, 9.5), (EAST, 7.5)):
+    for c, r in ((POST, POST_R + 4.0), (VILLAGE, VILLAGE_CLEAR), (GROVE, GROVE_R + 5.5), (CALL, 13.0), (WOLVES, 9.5), (BEARS, 9.5), (EAST, 7.5)):
         z.block(c, r)
+    for posts, _rot in gates:              # mata a >= 4 m dos totens das entradas
+        for q in posts:
+            z.block(q, 6.2)
     z.scatter("tree", [((-72, -66), 24, 55), ((-76, 60), 22, 45), ((0, -84), 22, 45), ((84, -30), 16, 26),
                        ((20, 86), 20, 36), ((-30, -24), 16, 28), ((24, -24), 18, 34), ((20, 30), 16, 28), ((-40, 30), 14, 20),
                        ((84, 14), 14, 22), ((40, 70), 14, 22), ((-6, -44), 14, 20), ((76, -60), 14, 20)],
@@ -213,10 +247,17 @@ def build(export=False):
                                                                     P(6.2, 165.0), P(13.5, 180.0), P(13.5, 0.0))]
 
     # ---------- monstros (ids do plano; modelos mob_<id> e dados feitos à parte) ----------
-    z.spawner("shaman_shifter", VILLAGE[0] - 6, VILLAGE[1] - 3, 6, 4, 20.0)       # aldeia, lado oeste (entrada do vau)
-    z.spawner("shaman_shifter", VILLAGE[0] + 3.5, VILLAGE[1], 6, 4, 20.0)          # aldeia, lado leste
-    z.spawner("shaman_caller", VILLAGE[0] + 5.6, VILLAGE[1] - 4.4, 5, 2, 22.0)        # aldeia, junto da roda de menires
-    z.spawner("shaman_shifter", 40, -10, 5, 3, 20.0)                              # sentinelas a noroeste da aldeia
+    # aldeia: 12 Metamorfos em 6 duplas + 5 Chamadores (antes 8 + 2), espalhados para puxar 1-3 por vez. Nenhum a menos de
+    # 40 m da origem (regra do _check_zone_layout): o lado oeste da aldeia só tem a dupla do anel da praça.
+    for r, a, n in ((16.0, ENTRIES["L"], 2), (16.0, ENTRIES["S"], 2), (16.0, ENTRIES["N"] - 2.0, 2), (10.5, 190.0, 2),
+                    (25.0, 335.0, 2), (25.0, 133.0, 2)):
+        q = V(r, a)
+        z.spawner("shaman_shifter", round(q[0], 1), round(q[1], 1), 3.5 if r > 12.0 else 3.0, n, 20.0)
+    z.spawner("shaman_caller", VILLAGE[0] + 2.5, VILLAGE[1] - 1.0, 3.0, 2, 22.0)      # roda de menires
+    for a in (20.0, 100.0, 300.0):                                                    # um atrás de cada dupla das entradas
+        q = V(10.5, a)
+        z.spawner("shaman_caller", round(q[0], 1), round(q[1], 1), 2.5, 1, 22.0)
+    z.spawner("shaman_shifter", 38, -18, 5, 3, 20.0)                              # sentinelas a noroeste da aldeia
     z.spawner("shaman_shifter", 61, -21, 6, 3, 20.0)                              # guardam a trilha do bosque
     z.spawner("shaman_shifter", 33, 48, 6, 3, 20.0)                               # trilha sul
     z.spawner("shaman_caller", CALL[0] + 2.5, CALL[1] - 1.5, 7, 3, 22.0)                      # Roda dos Chamados
@@ -273,41 +314,44 @@ def build(export=False):
         d.signpost(q, 40.0 + 70.0 * k)
         d.solid(q[0], q[1], 0.5, 0.5, 2.4)
 
-    # Aldeia dos Xamãs: roda de menires com o fogo dos espíritos no meio, ocas em volta, totens em cada entrada,
-    # potes de fumaça, varais, tambores, ossos e uma cerca de estacas quebrada entre as ocas
-    ritual = V(4.5, -40.0)
-    d.blob("ritual", d.m("patch_ritual", (0.34, 0.36, 0.31)), ritual, 5.6, 0.0108, 0.12)
-    d.brazier(ritual, 1.5, fire="glow_espirito", color=SPIRIT)
+    # Aldeia dos Xamãs: roda de menires com o fogo dos espíritos no centro e tambores por fora dela, anel da praça (rua de
+    # ~5 m), ocas em dois anéis desencontrados, frisas e varais só onde não fecham passagem, totens e tochas nas 4 entradas
+    ritual = VILLAGE
+    d.blob("ritual", d.m("patch_ritual", (0.34, 0.36, 0.31)), ritual, STONE_R + 1.8, 0.0108, 0.12)
+    d.brazier(ritual, 1.6, fire="glow_espirito", color=SPIRIT)
     d.solid(ritual[0], ritual[1], 1.8, 1.8, 2.0)
-    for k in range(8):
-        a = math.tau * (k + 0.5) / 8
-        q = (ritual[0] + math.cos(a) * 4.6, ritual[1] + math.sin(a) * 4.6)
-        d.standing_stone(q, 2.3 + 0.5 * (k % 3), (0.47, 0.52, 0.5), rune=SPIRIT if k % 2 == 0 else None)
+    for k in range(6):
+        q = V(STONE_R, 30.0 + 60.0 * k)
+        d.standing_stone(q, 2.4 + 0.5 * (k % 3), (0.47, 0.52, 0.5), rune=SPIRIT if k % 2 == 0 else None)
         d.solid(q[0], q[1], 1.1, 1.1, 2.4)
-    for a, s in HUTS:
-        t = V(VILLAGE_R - 4.6, a)
-        hut(d, t, door_rot(VILLAGE, t), s)
-    tot_cols = (PAINT, BONE, OCHRE)
-    for a in (185.0, -86.0, 105.0, 16.0):                    # um par de totens em cada entrada da aldeia
-        for sg in (-1, 1):
-            q = V(VILLAGE_R + 0.6, a + sg * 14.0)
-            d.totem(q, 4.4, a + 90.0, tot_cols)
-            d.solid(q[0], q[1], 1.0, 1.0, 4.4)
-    for a in (-170.0, -84.0, -36.0, 62.0, 120.0, 160.0, 20.0):
-        smoke_pot(d, V(7.6 if a != 20.0 else 9.5, a), 1.0 + 0.25 * (int(abs(a)) % 3))
-    rack(d, V(8.6, 100.0), V(8.6, 118.0), 3)
-    rack(d, V(9.0, -100.0), V(9.0, -84.0), 2)
-    rack(d, V(8.2, 10.0), V(8.2, 26.0), 2)
-    for q, r in ((V(3.5, 150.0), 0.8), (V(4.4, 168.0), 0.55), (V(5.0, 60.0), 0.7)):
+    for a, r in DRUMS:
+        q = V(STONE_R + 0.45 + r * 0.75, a)
         d.drum(q, r, color=PAINT)
         d.solid(q[0], q[1], r * 2, r * 2, 1.0)
-    for k, a in enumerate((-135.0, -36.0, 62.0, 122.0, 158.0)):          # estacas entre as ocas (aldeia hostil, sem muro inteiro)
-        q = V(VILLAGE_R + 0.4, a)
-        d.spikes(q, a + 90.0, 3.4)
-        d.solid(q[0], q[1], 3.4, 0.8, 1.2, zone_lib.along(-math.sin(math.radians(a)), math.cos(math.radians(a))))
-    for k in range(5):
+    for r, a, s_ in HUTS:
+        t = V(r, a)
+        hut(d, t, door_rot(VILLAGE, t), s_)
+    tot_cols = (PAINT, BONE, OCHRE)
+    for poly, (posts, rot) in zip((r_vau, r_bosque, r_sul, r_leste), gates):     # um par de totens (e de tochas dos espíritos) em cada entrada
+        for q in posts:
+            d.totem(q, 4.4, rot + 90.0, tot_cols)
+            d.solid(q[0], q[1], 1.0, 1.0, 4.4)
+        for q in gate_posts(poly, VILLAGE, VILLAGE_R - 3.5, 3.6)[0]:
+            d.torch(q, 2.3, fire="glow_espirito_tocha")
+    for r, a, s_ in HUTS[:4]:                                # pote de fumaça ao lado da porta das ocas de dentro
+        smoke_pot(d, V(r - 3.3 * s_, a + 13.0), 1.0 + 0.25 * (int(a) % 3))
+    for a in (0.0, 120.0, 240.0):
+        smoke_pot(d, V(2.6, a), 1.1)
+    for a in RACKS:                                          # varal nas costas da oca (encostado nela: não abre fresta)
+        rack(d, V(21.2, a), V(23.6, a), 2)
+    for a in SPIKES:                                         # frisas (aldeia hostil, sem muro inteiro)
+        q = V(VILLAGE_R - 0.5, a)
+        d.spikes(q, 270.0 - a, 3.4)
+        tx, tz = -math.sin(math.radians(a)) * 1.3, math.cos(math.radians(a)) * 1.3
+        chain(d, (q[0] - tx, q[1] - tz), (q[0] + tx, q[1] + tz), 0.9, 1.2)
+    for k in range(9):
         a = rnd.uniform(0, 360)
-        d.bones(V(rnd.uniform(3.0, 9.0), a), 4, 1.1, skull=k % 2 == 0)
+        d.bones(V(rnd.uniform(8.0, 20.0), a), 4, 1.1, skull=k % 2 == 0)
 
     # Bosque do Arquidruida: menires (runa acesa um sim, um não), anéis de musgo no tom do próprio chão, totens nas duas bocas,
     # raízes e cogumelos acesos só na borda. O miolo fica vazio: a luta é de invocações.
@@ -349,14 +393,14 @@ def build(export=False):
     smoke_pot(d, (CALL[0] - 2.5, CALL[1] - 3.2), 1.2)
     smoke_pot(d, (CALL[0] + 3.4, CALL[1] + 2.0), 1.0)
     # arco leste: acampamento pequeno de invocadores (oca, totem, varal)
-    hq = (EAST[0] + 4.5, EAST[1] + 3.5)
+    hq = (EAST[0] - 6.0, EAST[1] + 3.0)
     hut(d, hq, door_rot(EAST, hq), 0.95)
-    tq = (EAST[0] - 4.5, EAST[1] + 4.5)
+    tq = (EAST[0] + 4.5, EAST[1] + 3.0)
     d.totem(tq, 4.2, 70.0, tot_cols)
     d.solid(tq[0], tq[1], 1.0, 1.0, 4.2)
-    smoke_pot(d, (EAST[0] + 0.5, EAST[1] + 5.2), 1.1)
+    smoke_pot(d, (EAST[0] - 3.5, EAST[1] - 3.0), 1.1)
     # sentinelas (trilha do vau e trilha do bosque): totem de aviso com ossos
-    for q, rot in (((33.0, 5.5), 80.0), ((62.5, -9.0), 10.0), ((23.0, 58.5), 40.0)):
+    for q, rot in (((11.0, 0.5), 80.0), ((64.5, -17.0), 10.0), ((23.0, 58.5), 40.0)):
         if d.ok(q[0], q[1], 0.6, road=0.5):
             d.totem(q, 3.8, rot, tot_cols)
             d.solid(q[0], q[1], 1.0, 1.0, 3.8)
@@ -385,7 +429,7 @@ def build(export=False):
         for j in range(rnd.randint(2, 4)):
             d.mushroom((q[0] + rnd.uniform(-0.7, 0.7), q[1] + rnd.uniform(-0.7, 0.7)), rnd.uniform(0.7, 1.3),
                        cap=[(0.56, 0.5, 0.7), (0.8, 0.78, 0.66), (0.42, 0.62, 0.6)][j % 3], glow=False)
-    for q in d.spots([(VILLAGE, VILLAGE_R + 14.0, 12), (GROVE, GROVE_R + 12.0, 10), (CALL, 14.0, 5)], r=0.5, spacing=5.0, road=0.4, blocked=True, tries=6):
+    for q in d.spots([(VILLAGE, VILLAGE_R + 14.0, 16), (GROVE, GROVE_R + 12.0, 10), (CALL, 14.0, 5)], r=0.5, spacing=5.0, road=0.4, blocked=True, tries=6):
         for j in range(rnd.randint(2, 3)):
             d.mushroom((q[0] + rnd.uniform(-0.6, 0.6), q[1] + rnd.uniform(-0.6, 0.6)), rnd.uniform(0.8, 1.4), cap=SPIRIT, glow=True)
     # Lagoa do Musgo: pedras na beira

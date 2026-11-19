@@ -1,0 +1,32 @@
+solidos no disco r=27.0: 65  (pillar 65)
+pares com vao 0,3-4,0 m: 0   (< 0,9 m = nao passa: 0; 0,9-2 m: 0; 2-3 m: 0; 3-4 m: 0)
+chao andavel (raio 0,45) no disco: 1961 m2 de 2289 m2 (86%); com folga >= 2 m (corredor de 4 m): 1265 m2; >= 2,5 m: 976 m2
+   entrada (24.1, 10.7) -> alvo (50.0, 9.0): gargalo 4.65 m
+   entrada (24.1, 10.7) -> alvo (64.5, 19.8): gargalo 5.22 m
+   entrada (24.1, 10.7) -> alvo (45.9, 28.5): gargalo 5.43 m
+   entrada (24.1, 10.7) -> alvo (54.9, -2.2): gargalo 5.91 m
+   entrada (24.1, 10.7) -> alvo (39.7, 11.2): gargalo 7.63 m
+   entrada (24.1, 10.7) -> alvo (72.7, 2.4): gargalo 5.91 m
+   entrada (24.1, 10.7) -> alvo (33.0, 31.3): gargalo 6.45 m
+   entrada (58.9, -11.4) -> alvo (50.0, 9.0): gargalo 4.65 m
+   entrada (58.9, -11.4) -> alvo (64.5, 19.8): gargalo 5.22 m
+   entrada (58.9, -11.4) -> alvo (45.9, 28.5): gargalo 5.43 m
+   entrada (58.9, -11.4) -> alvo (54.9, -2.2): gargalo 8.09 m
+   entrada (58.9, -11.4) -> alvo (39.7, 11.2): gargalo 5.91 m
+   entrada (58.9, -11.4) -> alvo (72.7, 2.4): gargalo 6.34 m
+   entrada (58.9, -11.4) -> alvo (33.0, 31.3): gargalo 5.91 m
+   entrada (43.3, 38.1) -> alvo (50.0, 9.0): gargalo 4.65 m
+   entrada (43.3, 38.1) -> alvo (64.5, 19.8): gargalo 5.22 m
+   entrada (43.3, 38.1) -> alvo (45.9, 28.5): gargalo 8.50 m
+   entrada (43.3, 38.1) -> alvo (54.9, -2.2): gargalo 5.43 m
+   entrada (43.3, 38.1) -> alvo (39.7, 11.2): gargalo 5.43 m
+   entrada (43.3, 38.1) -> alvo (72.7, 2.4): gargalo 5.43 m
+   entrada (43.3, 38.1) -> alvo (33.0, 31.3): gargalo 5.43 m
+   entrada (73.6, 24.0) -> alvo (50.0, 9.0): gargalo 4.65 m
+   entrada (73.6, 24.0) -> alvo (64.5, 19.8): gargalo 8.56 m
+   entrada (73.6, 24.0) -> alvo (45.9, 28.5): gargalo 5.22 m
+   entrada (73.6, 24.0) -> alvo (54.9, -2.2): gargalo 5.22 m
+   entrada (73.6, 24.0) -> alvo (39.7, 11.2): gargalo 5.22 m
+   entrada (73.6, 24.0) -> alvo (72.7, 2.4): gargalo 5.22 m
+   entrada (73.6, 24.0) -> alvo (33.0, 31.3): gargalo 5.22 m
+GARGALO (pior entrada->alvo): 4.65 m
