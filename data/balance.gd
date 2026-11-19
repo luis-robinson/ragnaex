@@ -267,6 +267,11 @@ const BUFF_DURATION_CAP := 80.0            # % máximo de duração extra das b�
 ## Buffs de "ligar e esquecer" (armaduras, bênçãos, hinos, Pacto Sombrio, Matilha, Lâmina Pestilenta; decisão 2026-11-19):
 ## duram isto. Os de explosão curta (Fúria, Ira Vingadora, Muralha, Reflexos...) e os escudos absorventes continuam curtos.
 const BUFF_KEEP_S := 60.0
+## Armadura de Gelo (decisão 2026-11-19): em vez de +DEF, corta o dano recebido em BASE% + 1% a cada PER_INT de INT, até CAP%
+## (buff com "dr_int"; soma no Stats.dr_pct, que tem o teto geral DR_CAP). Bater o teto cedo é escolha de build.
+const FROST_ARMOR_DR_BASE := 15.0
+const FROST_ARMOR_DR_PER_INT := 10.0
+const FROST_ARMOR_DR_CAP := 40.0
 const RADIANCE_CAP := 40.0                 # % máximo de Radiância
 const RADIANCE_RANGE := 10.0               # m: alcance da cura da Radiância
 ## Postura de tanque: ameaça a mais gerada pelo dano na forma de Urso (o mesmo papel da Aura do Bastião do Guardião, +150%);
@@ -513,15 +518,92 @@ const BOT_ULT_SELF_HP := 40.0            # "self": a própria vida abaixo disto
 const BOT_ULT_HOLD := 20.0               # bot do grupo do jogador segura a carga cheia esperando chefe
 const BOT_ULT_STAGGER := 3.0             # dois bots do mesmo grupo não soltam "boss" a menos disto
 const BOT_ULT_AREA := 8.0                # m: área que o bot considera para bando/aliados quando a skill não diz
+const BOT_ULT_KEEP_HP := 35.0            # % de vida: acima disto o bot não dá dash na própria Suprema em andamento (mira, canal, saltos; o dash a cortaria)
 ## Mecânicas das Supremas (seção 9 do GDD). Números por Suprema: ULT_NUMBERS[<id>] (texto e catálogo leem daqui).
 const STORM_WALK_TRIES := 3              # meteoro em ponto não andável: sorteia de novo até isto, senão pula
 const HOP_GAP := 0.3                     # m entre quem salta (hop_strikes) e o alvo ao reaparecer
 const INTERCEPT_BUFF := "intercept"      # buff da Proteção no paladino
 const DOT_AMP_KIND := "dot_amp"          # debuff que multiplica os danos no tempo de um lançador no alvo
+const ULT_SCALE_TIME := 0.3             # s da transição do boneco maior (Avatar da Fé, Colosso Primevo; EntityView)
+const WOUND_HOLD_RANGE := 30.0           # m: o Festim de Sangue segura as feridas do berserker nos inimigos até esta distância
+## Força-alvo das Supremas de dano em alvo único (poder somado na duração ÷ golpe de poder 1,0; decisão do usuário 2026-11-19:
+## +60% sobre o orçamento antigo de 10-14, ~1 por luta de chefe). Medida por _check_ultimate_b2_power (SimEntity.ult_dealt).
+const ULT_POWER_BAND := [16.0, 22.0]
+## Supremas de dano + utilidade: só a parte de dano, com faixa própria (giro, implosão, árvore que também cura)
+const ULT_POWER_PART := {"nec_ult_soul_reaping": [7.0, 14.0], "nec_ult_void_eclipse": [7.0, 16.0]}
+## Recalibragem +60% (decisão do usuário 2026-11-19; medido por _check_ultimate_b2_power, ef = poder em alvo único): Chuva 0,8/6->0,8/6,8
+## (15->~20; a queimadura agora conta), Juízo 12->15,5 (~19), Martelos 0,42->0,73 (~20), Festim aspd 35->45, sangria 30->100, fecho 3->7 (~20),
+## Veredito 5->11,5 (~18), Sete Ventos 1,3->2,7 (~19), Sol 2,5/0,55->4,0/1,4 (~19), Lua Rubra 1,3/4->0,8/2,5 (o lobo já dava ~25: CORTADA, ~18),
+## Coração 1,5/0,9->2,0/1,2 (~17), Disparo 10->17 (~19), Lança 0,6/3,0/20->0,84/4,2/28 (~18), Toxina 3/2->6,5/3,8 (~18), Duelo fecho 1,25->0,9 x
+## contador do Duelo (~21), Frota 1,6->2,0 (~19), Inverno 1,1->1,7 (~18), Olho 0,36->0,55 (~19), Ceifa 6,5->10,4 (giro ~10), Eclipse 4->7 (~9).
 const ULT_NUMBERS := {
 	# Elementalista Fogo: Chuva de Meteoros (presa no ponto do lançamento; decisão do usuário 2026-11-19)
 	"ele_ult_meteor_rain": {"duration": 10.0, "every": 0.5, "radius": 8.0, "strike_radius": 2.0, "power": 0.8, "bias": 0.7,
-		"warn": 0.3, "burn_dps": 6.0, "burn_time": 3.0},
+		"warn": 0.3, "burn_dps": 6.8, "burn_time": 3.0},
+	# --- onda B1: Paladino, Berserker, Bispo, Druida (GDD §3.5 1-12) ---
+	# Paladino Guardião: Bastião da Aurora (provoca, escudo, Juramento cheio + Proteção)
+	"pal_ult_dawn_bastion": {"radius": 8.0, "taunt": 4.0, "shield_pct": 35.0, "duration": 8.0, "pct": 30.0, "stop_below": 25.0},
+	# Paladino Cruzado: Juízo da Alvorada (salto + 3 golpes 3,0/3,0/6,0; o último crítico e atordoa)
+	"pal_ult_dawn_judgement": {"range": 8.0, "radius": 3.5, "power": 15.5, "weights": [0.25, 0.25, 0.5], "stun": 1.0, "iframe": 0.3},
+	# Paladino Templário: Céu de Martelos (orbit no relógio de AURA_TICK 0,5 s: 0,73 x 20 passadas ~ 14,6 + Penitência num alvo parado)
+	"pal_ult_hammer_sky": {"duration": 10.0, "radius": 4.0, "count": 8, "power": 0.73, "every": 0.5, "penance_pct": 15.0, "penance_time": 6.0},
+	# Berserker Carniceiro: Festim de Sangue (fecha com a Sangria gigante, skill ber_ult_blood_feast_end)
+	"ber_ult_blood_feast": {"duration": 10.0, "aspd_pct": 45.0, "lifesteal": 10.0, "bleed_dps": 100.0, "end_radius": 4.5, "end_power": 7.0,
+		"end_heal_pct": 6.0, "end_heal_max": 5},
+	# Berserker Executor: Veredito do Carrasco (rachadura cheia em volta, golpe que consome; execução abaixo de 30%)
+	"ber_ult_headsman_verdict": {"range": 7.0, "radius": 3.5, "stacks": 5, "power": 11.5, "below": 0.3, "exec_mult": 1.5, "boss_mult": 1.25},
+	# Berserker Punhos: Sete Ventos (hop_strikes intocável, Fúria cheia no fim)
+	"ber_ult_seven_winds": {"range": 8.0, "count": 7, "every": 0.2, "radius": 8.0, "power": 2.7, "fury": 5},
+	# Bispo Sacerdote: Cúpula da Graça (cúpula parada; não soma com a Barreira Sagrada: vale a maior)
+	"bis_ult_grace_dome": {"range": 9.0, "radius": 7.0, "duration": 8.0, "dr": 50.0, "heal": 1.5},
+	# Bispo Iluminado: Sol do Julgamento (impacto + chão aceso; 30% do dano cura o aliado mais ferido)
+	"bis_ult_judgement_sun": {"range": 10.0, "radius": 4.5, "power": 4.0, "stun": 1.0, "duration": 7.0, "pulse": 0.5, "pulse_power": 1.4, "mend": 0.3},
+	# Bispo Clérigo de Batalha: Avatar da Fé (martelo + cura do grupo + 12 s de Avatar, boneco x1,25)
+	"bis_ult_faith_avatar": {"radius": 3.5, "power": 3.0, "heal_radius": 8.0, "heal": 1.0, "duration": 12.0, "atk_pct": 30.0, "def_pct": 25.0,
+		"cc_resist_pct": 50.0, "mend_pct": 40.0, "scale": 1.25},
+	# Druida Urso: Colosso Primevo (vira urso; urso x1,5; +50% HP que entra cheio; ao acabar mantém a % de vida)
+	"dru_ult_primal_colossus": {"radius": 8.0, "taunt": 4.0, "duration": 15.0, "hp_pct": 50.0, "def_pct": 40.0, "atk_pct": 30.0, "threat_pct": 100.0,
+		"cc_resist_pct": 50.0, "scale": 1.5},
+	# Druida Lobo: Garras da Lua Rubra (hop_strikes a cada 0,8 s; prefere quem não sangra)
+	"dru_ult_blood_moon": {"count": 10, "every": 0.8, "radius": 10.0, "power": 0.8, "iframe": 0.15, "bleed_dps": 2.5, "bleed_time": 4.0},
+	# Druida Xamã: Coração do Bosque Ancião (zona parada e intocável: Fogo Lunar em até 3 a 10 m + cura a 6 m)
+	"dru_ult_elder_heart": {"range": 9.0, "radius": 6.0, "power": 2.0, "root": 2.0, "duration": 12.0, "pulse": 1.5, "foe_radius": 10.0, "foe_max": 3,
+		"foe_power": 1.2, "heal": 0.35, "dot_dps": 5.0, "dot_time": 4.0},
+	# --- Onda B2 (GDD ultimates-lv40 §3.5 13-24): Ranger, Assassino, Elementalista Gelo/Raio, Necromante ---
+	# Calibragem 2026-11-19 (_check_ultimate_b2_power, poder efetivo em alvo único; régua Chuva de Meteoros = 15): Lança 0,7/3,5 -> 0,6/3,0
+	# (15,8), Toxina 2,0/1,5 -> 3,0/2,0 (8,4), Inverno 0,9 -> 1,1 (8,8), Olho 0,5 -> 0,36 (19,9), Ceifa 4,5 -> 6,5 (o giro saía 3,7: o Ceifador tem BUILD_POWER baixo) e Eclipse 3,0 -> 4,0 (o giro/a
+	# implosão; o resto delas é buff/utilidade).
+	# Ranger Caçador: Laço Selvagem (revive o lince; 2º lince espiritual com spirit_mult da força)
+	"ran_ult_wild_bond": {"duration": 12.0, "atk_pct": 35.0, "pet_cc_resist": 50.0, "pet_grow": 1.4, "spirit_mult": 0.7},
+	# Ranger Atirador: Disparo do Fim (mira longa: exceção ao teto de 0,3 s; 1º alvo power, os outros power × rest)
+	"ran_ult_end_shot": {"aim": 1.2, "range": 30.0, "power": 17.0, "rest": 0.6, "push": 2.0, "speed": 60.0, "width": 0.7},
+	# Ranger Lanceiro: Lança Incansável (canal de estocadas em linha; no fim arremessa a lança)
+	"ran_ult_endless_lance": {"channel": 2.4, "ticks": 12, "power": 0.84, "length": 6.0, "width": 1.5, "bleed_atk_pct": 28.0,
+		"bleed_time": 4.0, "throw_power": 4.2, "throw_range": 12.0, "throw_root": 1.5, "throw_speed": 32.0},
+	# Assassino Lâminas: Toxina Real (dot_amp: seus venenos ×mult; no fim detonam e se espalham)
+	"ass_ult_royal_toxin": {"power": 6.5, "range": 3.0, "duration": 8.0, "mult": 2.0, "detonate": 3.8, "spread": 4.0},
+	# Assassino Duelista: Duelo Supremo (guarda longa; fim = Golpe de Mestre com Ímpeto cheio × end_power × (1 + duel_per × contador do
+	# Duelo); aparo +gain, golpe seu +hit_gain até hit_cap golpes, teto duel_cap: decisão do usuário 2026-11-19)
+	"ass_ult_grand_duel": {"duration": 6.0, "arc": 140.0, "gain": 2, "gap": 0.5, "crit": 20.0, "end_power": 0.9,
+		"hit_gain": 1, "hit_cap": 8, "duel_cap": 10, "duel_per": 0.06},
+	# Assassino Corsário: Chamado da Frota (balas avisadas em areia; Bravata cheia)
+	"ass_ult_fleet_call": {"duration": 6.0, "shots": 14, "radius": 6.0, "strike_radius": 2.0, "bias": 0.5, "warn": 0.4,
+		"power": 2.0, "push": 1.0, "range": 12.0},
+	# Elementalista Gelo: Inverno Eterno (pulsos ancorados; lentidão que acumula; congela no 3º pulso, uma vez por alvo)
+	"ele_ult_eternal_winter": {"duration": 8.0, "every": 1.0, "radius": 6.0, "power": 1.7, "slow_step": 15.0, "slow_max": 45.0,
+		"slow_time": 1.5, "freeze_hits": 3, "freeze": 2.0, "range": 9.0},
+	# Elementalista Raio: Olho da Tempestade (segue o mago; raio em cadeia; +velocidade; zera o Passo Relampejante)
+	"ele_ult_storm_eye": {"duration": 10.0, "every": 0.4, "radius": 9.0, "strike_radius": 1.2, "power": 0.55, "fresh": 0.8,
+		"chain": 2, "chain_radius": 4.0, "falloff": 0.6, "stun_pct": 10.0, "stun": 0.4, "speed_pct": 25.0},
+	# Necromante Invocador: Maré dos Mortos (esqueletos fora do limite que explodem ao sumir)
+	"nec_ult_tide_of_dead": {"count": 6, "duration": 20.0, "buff_time": 15.0, "matk_pct": 40.0, "summon_aspd": 25.0,
+		"blast_radius": 3.0, "blast_power": 1.0},
+	# Necromante Ceifador: Ceifa das Almas (giro + cura por atingido + buff; Demoníaca ×demon, Fantasma avança)
+	"nec_ult_soul_reaping": {"radius": 6.0, "power": 10.4, "heal_pct": 6.0, "heal_max": 5, "buff_time": 8.0, "atk_pct": 25.0,
+		"matk_pct": 25.0, "lifesteal": 20.0, "demon": 1.2, "phantom_dash": 3.0},
+	# Necromante Sombras: Eclipse do Vazio (disco: lentidão, cópia das maldições, dots ×amp; implosão no fim)
+	"nec_ult_void_eclipse": {"duration": 8.0, "every": 0.5, "radius": 5.0, "slow": 40.0, "amp": 1.5, "power": 7.0, "range": 10.0,
+		"curse_radius": 10.0},
 }
 ## Elemental que evolui (Elementalista ascendido; GDD ato2-horda F6). ElementalSystem.
 const ELEM_XP_RADIUS := 13.0             # m do mago: abate que dá XP aqui dentro alimenta o elemental (= SUMMON_ASSIST_RANGE)

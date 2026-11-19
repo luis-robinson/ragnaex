@@ -105,6 +105,8 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 	if e.state == SimEntity.State.CASTING and e.current_skill and e.current_skill.effects.has("channel"):
 		return cmd                 # canalizando: o bot segura até o fim (o jogador pode cortar com outra skill)
 	cmd = _think(e, sim, m, dt)
+	if cmd.dash and ult_committed(e):
+		cmd.dash = false           # a própria Suprema em andamento: o dash cortaria a mira ou os saltos
 	# andando fora de combate: às vezes monta (atacar desmonta sozinho, na sim)
 	if not e.mounted and e.mount_left <= 0.0 and e.combat_timer <= 0.0 and cmd.move.length_squared() > 0.25 and not cmd.has_action() and sim.rng.randf() < Balance.BOT_MOUNT_CHANCE \
 			and m["def"].parent_map == "":
@@ -288,6 +290,8 @@ func _fight(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCommand)
 	if e.ult_charge >= Balance.ULT_MAX and UltimateSystem.bot_release(sim, e, mob):
 		cmd.ultimate = true                           # Suprema (regra SkillDef.ult_bot: UltimateSystem.bot_release)
 		cmd.aim = mob.position
+	if cmd.dash and ult_committed(e):
+		cmd.dash = false                              # a própria Suprema em andamento: o dash a cortaria (fuga de área, aproximar)
 	if sig_pin:
 		cmd.move = Vector2.ZERO                       # no lugar da mecânica: bate/lança dali, sem sair
 		cmd.dash = false
@@ -311,6 +315,16 @@ func _fight(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCommand)
 			cmd.move = Vector2.ZERO                       # dentro: não sai (nem para o lugar do papel, nem recuando)
 			cmd.dash = false
 	return cmd
+
+## A Suprema de `e` está em andamento e um dash a cortaria: preparo/canal (Disparo do Fim, Lança Incansável) ou a
+## sequência de saltos (Sete Ventos, Lua Rubra; HopSystem). Com a vida abaixo de Balance.BOT_ULT_KEEP_HP % ainda foge.
+## Ex.: `if cmd.dash and BotBrain.ult_committed(e): cmd.dash = false`.
+static func ult_committed(e: SimEntity) -> bool:
+	if e.hp < e.stats.max_hp * Balance.BOT_ULT_KEEP_HP / 100.0:
+		return false
+	if not e.hop.is_empty():
+		return true
+	return e.state == SimEntity.State.CASTING and e.current_skill != null and e.current_skill.ultimate and e.skill_phase != "recovery"
 
 ## Coro Celeste (Bispo ascendido): true = já decidiu o comando. Retorno em quem caiu; Barreira quando o chefe avisa
 ## chuva/golpe de longe ou há feridos (ChoirSystem.wants_barrier), no meio do grupo; Anjo sempre que pronto em luta

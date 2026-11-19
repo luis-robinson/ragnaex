@@ -62,7 +62,10 @@ Estado em tempo de execução no `SimEntity` (não vai no save): `ult_charge: fl
    `cura_ref = Combat.calc_heal(e, 1.0)` (a cura de poder 1,0 do próprio lançador). Sobrecura = 0. Escudo conta **quando
    absorve** (não ao ser posto), pela mesma régua. Cura de `heal_pct_of_dmg`/`mend` conta como cura.
 3. **Dano recebido** de inimigo: `pts = ULT_GAIN_TAKEN × (dano bruto depois da DEF / HP máx × 100) × peso_apanhar(papel)`,
-   contado **antes** de bloqueio, escudo, aparar e cúpula (tanque bem jogado não perde carga). No máximo `ULT_TAKEN_HIT_CAP`
+   contado **antes** de bloqueio, escudo, aparar e cúpula (tanque bem jogado não perde carga). "Aparar" aqui é o aparo do
+   escudo (`parry`, que só reduz). O aparo **inteiro** do Duelista (Guarda do Duelista / Duelo Supremo, `RiposteSystem`
+   devolve -1) é golpe que não pegou (item 5) e não enche; a resposta dele enche como dano causado (decisão da onda B2,
+   2026-11-19: o golpe aparado inteiro não tem "dano bruto"; contar os dois seria encher duas vezes pelo mesmo golpe). No máximo `ULT_TAKEN_HIT_CAP`
    por golpe (golpe que mata metade da vida não enche de uma vez). Dano redirecionado pela Suprema do Guardião não conta.
 4. **Gotejar em combate**: `ULT_TRICKLE` pts/s enquanto em combate com inimigo de verdade (garante que todo mundo chega).
 5. **Teto de ritmo** (aprovado pelo usuário 2026-11-19, depois da calibragem da onda A): os itens 1-3 gastam um estoque por
@@ -121,7 +124,8 @@ isso: ver a seção 5 (sem estoque levado para fora).
 ### 3.5 As 24 Supremas
 
 Faixa de força (régua, nível 40): skills de 24-28 da build valem 3,0-4,2 de poder; a ascensão vale 2,2-3,5.
-**Orçamento de Suprema**: dano em alvo único somando toda a duração ≈ **10-14 de poder** (≈ 3-4 skills grandes de uma vez);
+**Orçamento de Suprema**: dano em alvo único somando toda a duração ≈ **16-22 de poder** (decisão do usuário 2026-11-19: +60%
+sobre os 10-14 do rascunho, ~1 por luta de chefe, medidor igual; `Balance.ULT_POWER_BAND`, medido como na §4 "Força medida");
 em área, cada alvo a mais leva o mesmo, com os limites de alvo de cada uma. Suprema de utilidade (Guardião, Sacerdote,
 Batalha, Urso, Caçador) mede-se pelas mortes do grupo sob pressão, não pelo dano. Todos os números vão para
 `Balance.ULT_NUMBERS["<id>"]` (dicionário por Suprema) e os textos são gerados com eles.
@@ -140,14 +144,14 @@ o Rei elite leva cheio). Tudo é PvE (não há PvP; nada atinge jogador/bot alia
 
 **2. Cruzado — Juízo da Alvorada** (`pal_ult_dawn_judgement`, GROUND 8 m, `ult_bot: boss`)
 - Salta até o ponto (iframe no ar) e desce numa sequência de 3 golpes do montante em raio 3,5 m: `strikes` com poder total
-  12,0, `weights` 0,25/0,25/0,5 (3,0 + 3,0 + 6,0), último crítico garantido (`crit_last`), o último atordoa 1 s.
+  15,5 (era 12,0; +60%, 2026-11-19), `weights` 0,25/0,25/0,5 (3,9 + 3,9 + 7,8), último crítico garantido (`crit_last`), o último atordoa 1 s.
 - Reusa: `dash`, `strikes`, clipes `atk_2h_chain_a/b/c` (já existem no kit do Paladino), `stun`. **Novo**: nenhum
   (confirmar se `strikes` aceita GROUND com `dash`; se não, ajuste pequeno no pipeline).
 - Big version de Lâmina do Juízo (26): ela fica.
 
 **3. Templário — Céu de Martelos** (`pal_ult_hammer_sky`, SELF, `ult_bot: boss`)
-- 10 s: 8 martelos de luz gigantes giram em raio 4 m (`orbit`), cada passada 0,5 de poder por alvo, no máx. uma a cada
-  0,6 s por alvo (≈ 8,3 em alvo único parado dentro); quem é atingido recebe a Marca da Penitência; o Juramento enche e não
+- 10 s: 8 martelos de luz gigantes giram em raio 4 m (`orbit`), cada passada 0,73 de poder por alvo a cada 0,5 s
+  (era 0,42; ≈ 14,6 + Penitência em alvo único parado dentro, medido ~20); quem é atingido recebe a Marca da Penitência; o Juramento enche e não
   esfria enquanto durar (cada skill sagrada sai com +40%).
 - Reusa: `orbit` (Martelos Abençoados), marca `pal_brand`, Juramento. **Novo**: nenhum (só números maiores no `orbit` e um
   buff que trava o Juramento: chave de buff `oath_lock`, pequena).
@@ -156,20 +160,20 @@ o Rei elite leva cheio). Tudo é PvE (não há PvP; nada atinge jogador/bot alia
 #### Berserker
 
 **4. Machados Gêmeos (Carniceiro) — Festim de Sangue** (`ber_ult_blood_feast`, SELF, `ult_bot: boss`)
-- 10 s: +35% velocidade de ataque, +10 roubo de vida; todo golpe abre ferida (sangramento seu, conta como ferida da regra 8.1
+- 10 s: +45% velocidade de ataque (era 35), +10 roubo de vida; todo golpe abre ferida (sangramento seu de 100/s, era 30, conta como ferida da regra 8.1
   do GDD skills-fill), e suas feridas não expiram enquanto durar.
-- Ao acabar: **Sangria gigante** sozinha (raio 4,5 m, poder 3,0, cura 6% do HP por inimigo sangrando, até 5 = 30%).
+- Ao acabar: **Sangria gigante** sozinha (raio 4,5 m, poder 7,0 (era 3,0), cura 6% do HP por inimigo sangrando, até 5 = 30%).
 - Reusa: buff (`aspd_pct`, `lifesteal`, `hit_poison` no papel de sangramento), `WoundSystem`. **Novo**: chave `end_cast`
   (skill grátis quando o buff acaba; pequena).
 
 **5. Executor — Veredito do Carrasco** (`ber_ult_headsman_verdict`, TARGET 7 m, `ult_bot: boss`)
-- Salta no alvo; põe rachadura máxima (5 cargas) no alvo e em quem estiver a 3,5 m; golpe de poder 5,0 que consome a
-  rachadura (+50% → 7,5) e vale ×1,5 se o alvo estiver abaixo de 30% (chefe ×1,25).
+- Salta no alvo; põe rachadura máxima (5 cargas) no alvo e em quem estiver a 3,5 m; golpe de poder 11,5 (era 5,0) que consome a
+  rachadura (+50% → 17,3) e vale ×1,5 se o alvo estiver abaixo de 30% (chefe ×1,25).
 - Os vizinhos ficam com 5 cargas: o grupo e o próximo Executar/Decapitar colhem.
 - Reusa: `dash`, `sunder`, `sunder_consume`, limiar de execução. **Novo**: nenhum. Clipe `atk_leap` → `atk_finisher`.
 
 **6. Punhos de Fúria — Sete Ventos** (`ber_ult_seven_winds`, TARGET 8 m, `ult_bot: boss`)
-- Some e reaparece em 7 golpes em 1,4 s, saltando entre inimigos a 8 m (um alvo só = 7 no mesmo), poder 1,3 cada (9,1);
+- Some e reaparece em 7 golpes em 1,4 s, saltando entre inimigos a 8 m (um alvo só = 7 no mesmo), poder 2,7 cada (18,9; era 1,3);
   intocável (`iframe`) durante; termina ao lado do último alvo com a Fúria do Punho cheia (5).
 - Reusa: Fúria do Punho (`FIST_FURY_*`), `iframe`. **Novo**: `hop_strikes` (sequência de golpes que teleporta entre alvos),
   partilhado com o Lobo.
@@ -183,10 +187,15 @@ o Rei elite leva cheio). Tudo é PvE (não há PvP; nada atinge jogador/bot alia
   andar). Fora do `DR_CAP` 40% (mesmo caminho da cúpula do Coro). Com a Barreira Sagrada em cima: **vale a maior** (50%),
   não somam. **Novo**: nenhum.
 - Big version de Barreira Sagrada (ascensão, 30%/5 m que anda).
+- **Fica até acabar** (decisão 2026-11-19, o usuário pode mudar): é um efeito posto para salvar o grupo, então a cúpula continua
+  os 8 s mesmo se o Sacerdote cair ou sair do mapa (`ChoirSystem._tick_barrier`: a cúpula só olha o tempo; a Barreira Sagrada
+  continua presa ao Bispo vivo). Check `_check_ultimate_dome_stays`.
+- **Bots do Coro**: com qualquer cúpula de pé no mapa (Barreira ou Cúpula da Graça, de qualquer Bispo; regra antiga de `BotBrain`, `m["barriers"]` não vazio), o bot não lança a Barreira Sagrada (não somam; vale a maior), e
+  volta a lançar quando ela acaba.
 
 **8. Iluminado — Sol do Julgamento** (`bis_ult_judgement_sun`, GROUND 10 m, `ult_bot: boss`)
-- Raio de sol cai no ponto: impacto 2,5 de poder mágico e atordoa 1 s em raio 4,5 m; o chão fica aceso 7 s (zona M1) com
-  pulsos de 0,5 s de 0,55 de poder (≈ 7,7) e 30% de todo esse dano cura o aliado mais ferido (Radiância).
+- Raio de sol cai no ponto: impacto 4,0 (era 2,5) de poder mágico e atordoa 1 s em raio 4,5 m; o chão fica aceso 7 s (zona M1) com
+  pulsos de 0,5 s de 1,4 (era 0,55) de poder, sem crítico (medido ~19) e 30% de todo esse dano cura o aliado mais ferido (Radiância).
 - Reusa: `zone` (M1 do GDD skills-fill), `mend_pct_of_dmg`, `stun`. **Novo**: nenhum. Big version de Ira Divina (25).
 
 **9. Clérigo de Batalha — Avatar da Fé** (`bis_ult_faith_avatar`, SELF, `ult_bot: self`)
@@ -208,16 +217,16 @@ o Rei elite leva cheio). Tudo é PvE (não há PvP; nada atinge jogador/bot alia
 
 **11. Lobo (Fera) — Garras da Lua Rubra** (`dru_ult_blood_moon`, SELF, `ult_bot: boss`)
 - Exige forma de lobo (Alfa conta). 8 s: a cada 0,8 s o lobo salta sozinho num inimigo a 10 m (prefere quem não sangra),
-  golpe de poder 1,3 (já com a emboscada embutida: NÃO multiplica por `AMBUSH_MULT` 1,6 nem tira da furtividade) +
-  sangramento de Garras; 10 saltos ≈ 13 em alvo único.
+  golpe de poder 0,8 (era 1,3: o lobo já media ~25 com o sangramento, acima da faixa; já com a emboscada embutida: NÃO multiplica por `AMBUSH_MULT` 1,6 nem tira da furtividade) +
+  sangramento de Garras 2,5/s (era 4); medido ~18 em alvo único.
   Entre saltos o jogador anda; dash cancela o resto.
 - Reusa: emboscada, `dot` de Garras. **Novo**: `hop_strikes` (o mesmo do Punhos, com intervalo maior e sem `iframe` contínuo:
   só 0,15 s no salto).
 
 **12. Xamã — Coração do Bosque Ancião** (`dru_ult_elder_heart`, GROUND 9 m, `ult_bot: boss`)
-- Uma árvore ancestral brota no ponto (invocação parada e intocável, como a torreta) por 12 s. Ao nascer: 1,5 de poder e
-  prende (root 2 s) inimigos a 6 m. A cada 1,5 s: Fogo Lunar em até 3 inimigos a 10 m (0,9 cada + dano no tempo) e cura de
-  poder 0,35 em aliados a 6 m (≈ 7,2 de dano num alvo + o tempo).
+- Uma árvore ancestral brota no ponto (invocação parada e intocável, como a torreta) por 12 s. Ao nascer: 2,0 (era 1,5) de poder e
+  prende (root 2 s) inimigos a 6 m. A cada 1,5 s: Fogo Lunar em até 3 inimigos a 10 m (1,2 cada, era 0,9, + dano no tempo) e cura de
+  poder 0,35 em aliados a 6 m (a cura não mudou; medido ~17 de dano num alvo com o tempo).
 - Reusa: `summon` parado (padrão da Torreta de Campo), `root`, `dru_moonfire`. **Novo**: nenhum. Não conta no limite do Ent.
 
 #### Ranger
@@ -230,33 +239,40 @@ o Rei elite leva cheio). Tudo é PvE (não há PvP; nada atinge jogador/bot alia
 
 **14. Atirador — Disparo do Fim** (`ran_ult_end_shot`, DIRECTION, `ult_bot: boss`)
 - Mira 1,2 s parado (exceção ao teto de 0,3 s: é Suprema; dash cancela e a carga fica), projétil de 30 m que atravessa tudo:
-  10,0 de poder no 1º, 6,0 nos outros, crítico garantido, empurra 2 m (chefe não).
-- Reusa: `projectile_pierce`, knockback (`DruidAscension.knockback`). **Novo**: nenhum (crítico garantido em tiro único =
-  `crit_last` de 1 golpe). Big version de Tiro na Cabeça (18).
+  17,0 de poder no 1º (era 10,0), 60% nos outros, crítico garantido, empurra 2 m (chefe não).
+- Reusa: `projectile_pierce`, knockback (`DruidAscension.knockback`). **Novo**: chaves `sure_crit` (crítico garantido do
+  projétil) e `pierce_rest` (poder × isto depois do 1º atingido). Big version de Tiro na Cabeça (18).
+- Implementação (onda B2): a mira é o `startup` da skill (`ULT_NUMBERS.aim` = 1,2 s, como o Tiro Certeiro com 0,45 s): o
+  atirador fica parado encarando o cursor, o anel de preparo encolhe e o dash cancela antes da carga ser gasta. Única
+  Suprema com startup acima de 0,3 s (o check aceita só quando bate com `aim`).
 
 **15. Lanceiro — Lança Incansável** (`ran_ult_endless_lance`, DIRECTION, `ult_bot: boss`)
-- Canal de 2,4 s: 12 estocadas numa linha de 6 m × 1,5 m, 0,7 de poder cada (8,4), cada uma renova o sangramento e a Marca
-  do Predador; fim: arremessa a lança (12 m, 3,5, prende 1,5 s). ≈ 11,9 em alvo único.
+- Canal de 2,4 s: 12 estocadas numa linha de 6 m × 1,5 m, 0,84 de poder cada (10,1), cada uma renova o sangramento (28% do ATK/s) e a Marca
+  do Predador; fim: arremessa a lança (12 m, 4,2, prende 1,5 s). Medido ~18 em alvo único.
 - Reusa: `channel`, `bleed` do Lanceiro, `ran_predator`, `root`. **Novo**: nenhum.
 
 #### Assassino
 
 **16. Lâminas — Toxina Real** (`ass_ult_royal_toxin`, TARGET 3 m, `ult_bot: boss`)
-- Golpe de 2,0 que marca o alvo por 8 s: **seus venenos nele causam o dobro**. Ao acabar (ou o alvo morrer), todos os seus
-  venenos no alvo detonam (Eviscerar, `detonate` 1,5) e são copiados para inimigos a 4 m.
+- Golpe de 6,5 (era 2,0/3,0) que marca o alvo por 8 s: **seus venenos nele causam o dobro**. Ao acabar (ou o alvo morrer), todos os seus
+  venenos no alvo detonam (`detonate` 3,8, era 1,5/2,0) e são copiados para inimigos a 4 m.
 - Reusa: `combust` com `kind: poison` (`EVISCERATE_POISON`), `_put_dot`. **Novo**: `dot_amp` (debuff que multiplica os dots de
   um lançador no alvo; partilhado com as Sombras) e o espalhar na detonação.
 
 **17. Duelista — Duelo Supremo** (`ass_ult_grand_duel`, SELF, `ult_bot: boss`)
 - 6 s de guarda que **apara tudo** à frente (janela da `RiposteSystem` por 6 s, arco 140°, até 1 resposta a cada 0,5 s),
-  cada aparo dá 2 de Ímpeto, +20 de crítico. Ao acabar: Golpe de Mestre grátis com Ímpeto cheio, poder ×1,5 (≈ 6,0 com 3
-  cargas) no inimigo à frente. Chefe: golpes passam com −60% (regra atual).
+  cada aparo dá 2 de Ímpeto, +20 de crítico. Ao acabar: Golpe de Mestre grátis com Ímpeto cheio no inimigo à frente.
+  Chefe: golpes passam com −60% (regra atual).
+- **Contador do Duelo** (decisão do usuário 2026-11-19, jogo em grupo: o chefe olha o tanque, ninguém bate no Duelista):
+  cada golpe direto seu durante a guarda (básico ou skill) soma +1 (até 8 golpes) e cada aparo soma +2; teto 10. O Golpe de
+  Mestre do fim vale × 0,9 × (1 + 0,06 × contador): só com os próprios golpes ×1,48, com aparos ×1,6. Medido ~21 (fecho,
+  respostas e o crítico a mais nos básicos). `RiposteSystem.duel_hit`, `UltEffects.end_cast`.
 - Reusa: `RiposteSystem` (janela, `RIPOSTE_*`), `ass_master` + `momentum_spend`, `end_cast` (do Carniceiro). **Novo**: nenhum
   além de parâmetros. Piso: contra quem não bate (boneco, atirador longe) o Golpe de Mestre final ainda sai.
 
 **18. Corsário — Chamado da Frota** (`ass_ult_fleet_call`, GROUND 12 m, `ult_bot: boss`)
 - Um navio fora da tela bombardeia por 6 s: 14 balas de canhão em círculos de 2 m num raio de 6 m (metade sobre inimigos),
-  cada uma avisada 0,4 s antes e de 1,6 de poder + empurrão de 1 m (≈ 8 em alvo único); Bravata cheia (5) ao lançar.
+  cada uma avisada 0,4 s antes e de 2,0 (era 1,6) de poder + empurrão de 1 m (medido ~19 em alvo único); Bravata cheia (5) ao lançar.
 - Reusa: `barrage` (`MobSystem.place_barrage/update_hazards`), Bravata. **Novo**: `barrage` com dono jogador (filtro hostil;
   aviso em areia/dourado, **nunca** vermelho: gramática de aviso de chefe).
 
@@ -264,23 +280,23 @@ o Rei elite leva cheio). Tudo é PvE (não há PvP; nada atinge jogador/bot alia
 
 **19. Fogo — Chuva de Meteoros** (`ele_ult_meteor_rain`, SELF, `ult_bot: boss`) — ideia do usuário
 - 10 s, **presa no ponto do lançamento** (centro = onde o mago estava ao lançar): a cada 0,5 s cai um meteoro num ponto a até
-  8 m desse centro (70% sobre um inimigo, preferindo quem não queima; 30% ao acaso), raio 2 m, poder 0,8 + queimadura (conta
+  8 m desse centro (70% sobre um inimigo, preferindo quem não queima; 30% ao acaso), raio 2 m, poder 0,8 + queimadura 6,8/s (era 6; conta
   para a Combustão e a Semente). Aviso de 0,3 s (sombra laranja-areia). O mago anda e lança normalmente (não é canal) e pode
-  sair da área. ≈ 11 em alvo único + queimaduras.
+  sair da área. Medido ~20 em alvo único com as queimaduras (a medida antiga não contava a queimadura).
 - Decisão do usuário (2026-11-19): **presa no ponto do lançamento** (`anchor: "ground"`), não segue o mago.
 - **Novo**: `storm` (`{"anchor": "caster"|"ground", "duration", "every", "radius", "strike_radius", "power", "bias"}`), num
   sistema estático `StormSystem`. Big version de Meteoro (10).
 
 **20. Gelo — Inverno Eterno** (`ele_ult_eternal_winter`, GROUND 9 m, `ult_bot: boss`) — ideia do usuário
-- Tempestade de gelo **ancorada**, raio 6 m, 8 s; pulso a cada 1 s: 0,9 de poder + lentidão 15% que acumula (até 45%).
+- Tempestade de gelo **ancorada**, raio 6 m, 8 s; pulso a cada 1 s: 1,7 de poder (era 0,9/1,1) + lentidão 15% que acumula (até 45%).
   Quem leva 3 pulsos **congela** 2 s (atordoar; chefe ×0,4 = 0,8 s, uma vez por alvo por lançamento). Estilhaço ×1,3
-  (`Combat.frost_mult`) pega em quem está retardado. ≈ 9,4 em alvo único.
+  (`Combat.frost_mult`) pega em quem está retardado. Medido ~17-18 em alvo único.
 - **Novo**: `storm` (ancorado) + contador de pulsos para congelar. Big version de Nevasca (20)/Zero Absoluto (26).
 
 **21. Raio — Olho da Tempestade** (`ele_ult_storm_eye`, SELF, `ult_bot: boss`) — ideia do usuário
-- 10 s, **segue o mago**, raio 9 m: a cada 0,4 s um raio cai num inimigo (prefere quem não levou nos últimos 0,8 s), 0,5 de
-  poder, salta para 2 (`chain`, queda 0,6), 10% de chance de atordoar 0,4 s; ao lançar, +25% velocidade por 10 s e o Passo
-  Relampejante volta da recarga. ≈ 12,5 em alvo único.
+- 10 s, **segue o mago**, raio 9 m: a cada 0,4 s um raio cai num inimigo (prefere quem não levou nos últimos 0,8 s), 0,55 de
+  poder (era 0,5/0,36), salta para 2 (`chain`, queda 0,6), 10% de chance de atordoar 0,4 s; ao lançar, +25% velocidade por 10 s e o Passo
+  Relampejante volta da recarga. Medido ~19 em alvo único.
 - **Novo**: `storm` (o mesmo). Big version de Senhor da Tempestade (28).
 
 #### Necromante
@@ -293,14 +309,25 @@ o Rei elite leva cheio). Tudo é PvE (não há PvP; nada atinge jogador/bot alia
   Big version de Exército dos Mortos (27).
 
 **23. Ceifador — Ceifa das Almas** (`nec_ult_soul_reaping`, SELF, `ult_bot: self`)
-- Giro enorme da foice: raio 6 m, poder 4,5, cura 6% do HP por inimigo atingido (até 5 = 30%); depois 8 s de +25% ATK/MATK
+- Giro enorme da foice: raio 6 m, poder 10,4 (era 4,5/6,5; só o giro é dano, medido ~10), cura 6% do HP por inimigo atingido (até 5 = 30%); depois 8 s de +25% ATK/MATK
   e +20 roubo de vida. Em Forma Demoníaca o giro vale ×1,2; em Fantasma, avança 3 m no giro.
 - Reusa: dano em área, buff, variantes de forma (`FORM_VARIANTS` como Ceifeiro Sinistro). **Novo**: nenhum.
 
 **24. Sombras — Eclipse do Vazio** (`nec_ult_void_eclipse`, GROUND 10 m, `ult_bot: boss`)
 - Disco de vazio de raio 5 m por 8 s: inimigos dentro ficam 40% mais lentos, recebem cópia das suas maldições ao entrar e
-  seus danos no tempo neles valem ×1,5. No fim, implosão: puxa ao centro (chefe não) e 3,0 de poder.
+  seus danos no tempo neles valem ×1,5. No fim, implosão: puxa ao centro (chefe não) e 7,0 de poder (era 3,0/4,0; implosão + o ×1,5 dos seus dots medidos ~9; o
+  resto é controle).
 - Reusa: `zone` (M1), `slow`, `pull`, `curse`. **Novo**: `dot_amp` (o das Lâminas) e `curse_spread` (copiar suas maldições).
+
+**Chaves pequenas da onda B2** (implementação, 2026-11-19): `channel_end` (fim do canal arremessa a arma: Lança Incansável),
+`sure_crit`/`pierce_rest` (Disparo do Fim), `hit_heal` {pct, max} (Ceifa das Almas), `cd_reset` [ids] (Olho da Tempestade
+zera o Passo Relampejante), `pet_revive.buff`/`.spirit` (Laço Selvagem: buff no lince com `scale`, 2º lince espiritual
+`free_summon`), `summon.buff_first`/`summon_buff`/`expire_blast` (Maré dos Mortos: o +MATK vale para os que nascem, buff de
+velocidade nas suas invocações, explosão ao sumir × vida restante), guarda do Duelo com `riposte_arc/gain/gap` e
+`momentum_fill`. O Chamado da Frota usa o `storm` (golpes avisados no tempo, lista própria `ally_strikes`) em vez da
+`barrage` de uma vez só: 14 balas em 6 s pedem cadência. O Eclipse é um `storm` de pulsos sem dano (`strike_mult` 0) com
+lentidão, `dot_amp` curto e `curse_spread`, e `end` = implosão. Ceifa das Almas nas formas: `FORM_MODS` (só a variante, sem
+talentos/teia: `UltEffects.form_variant`).
 
 ## 4. Fórmulas
 
@@ -335,6 +362,23 @@ volta recomeça do zero; o tempo de volta não conta). Histórico das 4 rodadas 
 
 **Decaimento**: fora de combate por mais de `ULT_DECAY_DELAY`: `carga -= ULT_DECAY_RATE × dt`. Cheia → zero em
 `ULT_DECAY_DELAY + ULT_MAX / ULT_DECAY_RATE` = 6 + 12,5 = 18,5 s.
+
+**Força medida** (decisão do usuário 2026-11-19, `_check_ultimate_b2_power`): `ef = dano_da_Suprema / golpe_ref`
+- `dano_da_Suprema` = `SimEntity.ult_dealt` no alvo nos 14 s depois de lançar contra um chefe parado: a sim soma o que sai sob
+  `WorldSim.ult_tag` (o `_apply_skill` da Suprema e de skill `*_ult_*`, golpes de `storm`/`hop_strikes`, martelos do `orbit`,
+  pulsos de zona, dots marcados `ult`, a parte que o `dot_amp` acrescenta, a detonação, o fecho `end_cast`, respostas do Duelo).
+  Faixa típica: 3000-6000 de dano para golpe_ref 200-650.
+- `golpe_ref` = média de 400 `Combat.calc_damage(lançador, alvo, 1,0)` (com crítico médio). Média de 5 lançamentos (15 nos
+  de golpe único: Duelo, Veredito).
+- Festim e Duelo (buffs): `ef = (dano batendo de básico 11 s com a Suprema − sem ela) / golpe_ref`.
+- Alvo `ULT_POWER_BAND` 16-22 (check com folga de ±1,5 pelo crítico de golpe único e golpes sorteados); dano + utilidade só a
+  parte de dano (`ULT_POWER_PART`: Ceifa 7-14, Eclipse 7-16). Exemplo: Disparo do Fim 17,0 de poder com crítico garantido
+  (×1,5) ÷ golpe_ref com crítico médio (×~1,1-1,2) ≈ 19-21 medido.
+- Medido (2026-11-19, `--only=ultimate`): Chuva 19,8, Disparo 21,6, Lança 17,8, Toxina 18,0, Frota 17,7, Inverno 16,7 (antes do
+  1,6 -> 1,7), Olho 19,9, Juízo 19,0, Martelos 19,8, Veredito 18,1, Sete Ventos 20,0, Sol 18,0, Lua Rubra 17,4, Coração 16,2 (antes
+  do 1,1 -> 1,2), Festim 20,2, Duelo 22,3, Ceifa 10,3, Eclipse 9,2.
+- No grupo: `boss_probe -- --ult` imprime `ULTDMG <chefe> <classe:build>=<%>(suprema/total, suprema/luta)`: a parte do dano de
+  cada build no chefe que veio da Suprema (meta ≥ ~8% sem derrubar uma fase de uma vez).
 
 **Peso da Suprema na luta** (meta de calibragem): `razão = tempo sem Suprema / tempo com` em `boss_probe` (nível 40, 80 lutas por
 braço, `--tank_lock`): **×1,08-1,15** para builds de dano; para Guardião, Sacerdote, Batalha, Urso: **−25 a −35% de mortes** do
@@ -409,6 +453,9 @@ grupo sob `--dmg` (mesma régua do F5 da ascensão em `docs/DESIGN.md`).
 | `ULT_DECAY_RATE` | 8.0 | 5-20 | quanto demora para esvaziar |
 | `ULT_MIN_GAP` | 20.0 | 10-40 | trava contra duas seguidas |
 | `ULT_NUMBERS[<id>]` | seção 3.5 | ±25% | força de cada Suprema |
+| `ULT_POWER_BAND` | [16, 22] (era o orçamento 10-14; +60%, decisão do usuário 2026-11-19) | 14-24 | alvo da força em alvo único das Supremas de dano (check) |
+| `ULT_POWER_PART` | Ceifa [7, 14], Eclipse [7, 16] | — | faixa só da parte de dano das que também são utilidade |
+| Duelo: `hit_gain` / `hit_cap` / `gain` / `duel_cap` / `duel_per` | 1 / 8 / 2 / 10 / 0,06 | 0-2 / 4-12 / 1-3 / 6-14 / 0,03-0,1 | contador do Duelo: o fecho cresce com os seus golpes e aparos |
 | `BOT_ULT_PACK` | 3 | 2-5 | bando mínimo para bot soltar |
 | `BOT_ULT_SAVE_ALLIES` / `BOT_ULT_SAVE_HP` | 2 / 55 | 1-3 / 40-65 | quando a cura/tanque bot salva |
 | `BOT_ULT_HOLD` | 20.0 | 0-40 | bot segura esperando o chefe |

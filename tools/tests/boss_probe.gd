@@ -107,6 +107,8 @@ var _lvl := 0
 var _asc: Array = []
 var _asc_on := false
 var _ult_trace := false           # --ult_trace: carga de cada membro a cada 5 s
+var _ult_off := false             # --ult_off: ninguém solta a Suprema (braço de controle da razão de força, GDD §4)
+var _ult_who: Array = []          # --ult_who=2,3: só esses membros (índice no grupo, 0 = líder) soltam a Suprema; os outros travados (razão de UMA build)
 var _ult := false                 # --ult: tempo até a 1ª Carga Suprema cheia por membro (GDD ultimates-lv40 §8; use com --lvl=40 --asc)
 var _asc_base: Array = []
 var _elem_stage := 0
@@ -298,6 +300,8 @@ func _ready() -> void:
 		if a == "--asc_level" and _lvl <= 0: _lvl = Balance.ASC_LEVEL
 		if a == "--asc": _asc_on = true
 		if a == "--ult": _ult = true
+		if a == "--ult_off": _ult_off = true
+		if a.begins_with("--ult_who="): _ult_who = Array(a.get_slice("=", 1).split(",")).map(func(x): return int(x))
 		if a == "--ult_trace": _ult_trace = true
 		if a.begins_with("--asc="):
 			_asc_on = true
@@ -385,6 +389,20 @@ func _print(bid: String, n: int, trials: int, r: Dictionary) -> void:
 		for k in keys:
 			dps.append("%s=%.1f" % [k, float(dl[k]) / maxf(1.0, float(r.get("fight_t", 1.0)))])
 		print("DPS %s %s" % [bid, " ".join(dps)])
+		# ULTDMG: parte do dano de cada build no chefe que veio da Suprema dela (SimEntity.ult_dealt) e quantas saíram por luta
+		var ud: Dictionary = r.get("ult_dmg", {})
+		var uc: Dictionary = r.get("ult_casts", {})
+		var all_by: Dictionary = {}
+		for k in keys:
+			if not str(k).ends_with("+inv"):
+				var k0: String = str(k).get_slice("#", 0)
+				all_by[k0] = float(all_by.get(k0, 0.0)) + float(dl[k])
+		var ups: Array = []
+		for k0 in all_by:
+			if uc.has(k0) or ud.has(k0):
+				ups.append("%s=%.1f%%(%.0f/%.0f,suprema/luta=%.2f)" % [k0, 100.0 * float(ud.get(k0, 0.0)) / maxf(1.0, float(all_by[k0])), float(ud.get(k0, 0.0)), float(all_by[k0]), float(uc.get(k0, 0)) / maxf(1.0, trials)])
+		if not ups.is_empty():
+			print("ULTDMG %s %s" % [bid, " ".join(ups)])
 	if _asc_on:
 		var parts: Array = []
 		for sid in r.get("asc", {}):
@@ -498,7 +516,7 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 	var ward_n := 0                # lutas em que o ward ligou (lacaio de escudo vivo)
 	var ward_sum := 0.0            # s do ward ligar até o 1º lacaio dele cair
 	var ward_fast := 0             # ... em até 30 s (KAC-11: estandarte antes de 30 s)
-	var acc := {"pots": 0, "stray": 0.0, "area": 0.0, "heal": 0.0, "heal_tank": 0.0, "lead": -1, "casts": 0, "dmg": 0.0, "off": 0.0, "far": 0, "boss": -1, "bots": {}, "from": Vector3.ZERO, "why": {}, "why_t": {}, "states": {}, "asc": {}, "dealt": {}, "drop_by": {}, "last_hit": {}, "drop_how": {}, "decide": {}, "dot": {"tank": 0.0, "tank_dot": 0.0, "tank_dot_hits": 0, "tank_max": 0, "boss_by": {}, "boss_dot_by": {}, "boss_max": 0, "boss_max_by": {}}}
+	var acc := {"pots": 0, "stray": 0.0, "area": 0.0, "heal": 0.0, "heal_tank": 0.0, "lead": -1, "casts": 0, "dmg": 0.0, "off": 0.0, "far": 0, "boss": -1, "bots": {}, "from": Vector3.ZERO, "why": {}, "why_t": {}, "states": {}, "asc": {}, "dealt": {}, "ult_dmg": {}, "ult_seen": {}, "ult_casts": {}, "drop_by": {}, "last_hit": {}, "drop_how": {}, "decide": {}, "dot": {"tank": 0.0, "tank_dot": 0.0, "tank_dot_hits": 0, "tank_max": 0, "boss_by": {}, "boss_dot_by": {}, "boss_max": 0, "boss_max_by": {}}}
 	var on_cast := func(id: int, sid: String, ph: String):
 		if _why and acc["bots"].has(id) and Sim.entities.has(acc["boss"]):     # último lance de cada membro (PERDA: "decisao")
 			var be: SimEntity = Sim.entities[id]
@@ -510,6 +528,9 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 					-1.0 if tg == null else tg.position.distance_to(bb.position), str(bb.aggro_target == acc["lead"]), float(bb.threat.get(acc["lead"], 0.0)),
 					float(bb.threat.get(id, 0.0)), BotBrain._skill_threat(be, be.basic_skill, bb, true) + BotBrain._signature_threat(be, Sim, bb),
 					str(br.opener_id == bb.id), br.opener_seen - float(acc.get("t0", 0.0)), br.opener_held - float(acc.get("t0", 0.0)), be.position.distance_to(bb.position)]
+		if ph == "active" and acc["bots"].has(id) and GameData.skills.has(sid) and GameData.skills[sid].ultimate:
+			var uk1: String = str(acc["bots"][id]).get_slice("#", 0)
+			acc["ult_casts"][uk1] = int(acc["ult_casts"].get(uk1, 0)) + 1      # Supremas que saíram (ULTDMG)
 		if ph == "startup" and acc["bots"].has(id) and GameData.skills.has(sid) and GameData.skills[sid].ascension:
 			acc["asc"][sid] = int(acc["asc"].get(sid, 0)) + 1      # skill da ascensão usada por um bot (--asc)
 		if id == acc["boss"] and ph == "startup":
@@ -521,6 +542,14 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 				if b and sk and sk.target != SkillDef.Target.SELF and Vector2(b.skill_aim.x - b.position.x, b.skill_aim.z - b.position.z).length() >= 9.0:
 					acc["far"] += 1          # golpe mirado em quem está a 9 m+ (o bot pode desviar; conta a pressão)
 	var on_dmg := func(src: int, tid: int, amount: int, _c: bool, _b: bool, _k: String):
+		if acc["bots"].has(src):                  # parte da Suprema neste golpe: SimEntity.ult_dealt sobe antes do evento
+			var ua: SimEntity = Sim.entities.get(src)
+			if ua != null:
+				var ud: float = ua.ult_dealt - float(acc["ult_seen"].get(src, 0.0))
+				acc["ult_seen"][src] = ua.ult_dealt
+				if tid == acc["boss"] and ud > 0.0:
+					var uk0: String = str(acc["bots"][src]).get_slice("#", 0)
+					acc["ult_dmg"][uk0] = float(acc["ult_dmg"].get(uk0, 0.0)) + ud
 		if tid == acc["boss"] and acc["bots"].has(src):         # dano de cada membro no chefe (--asc_level: DPS por build)
 			var key: String = acc["bots"][src]
 			acc["dealt"][key] = float(acc["dealt"].get(key, 0.0)) + amount
@@ -664,6 +693,7 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 					",".join(bot.skills.filter(func(s): return s != null).map(func(s): return s.id))])
 			bots.append(bot)
 			acc["bots"][bot.id] = "%s:%s#%d" % [cid, bot.build_id, i]
+			acc["ult_seen"][bot.id] = bot.ult_dealt
 		for i in range(1, party):
 			Sim.party_invite(bots[0], bots[i])
 			Sim.party_accept(bots[i])
@@ -698,6 +728,13 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 		while t < LIMIT and boss.is_alive():
 			Sim.tick(DT)
 			t += DT
+			if _ult_off:
+				for b in bots:
+					b.ult_gap_until = Sim.time + 1.0      # trava: nada enche e nada sai
+			elif not _ult_who.is_empty():
+				for bi in range(bots.size()):
+					if not (bi in _ult_who):
+						bots[bi].ult_gap_until = Sim.time + 1.0     # só os de --ult_who soltam
 			if _ult:
 				for b in bots:
 					var uk: String = str(acc["bots"][b.id]).get_slice("#", 0)
@@ -708,6 +745,23 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 						ult_last[uk + "@0"] = t            # luta de verdade começa quando a carga sai do zero (morreu: recomeça)
 					if _ult_trace and int(t / DT) % int(5.0 / DT) == 0:
 						print("    ULT_TRACE t=%.0f %s carga=%.1f estoque=%.1f vivo=%s combate=%.1f lv=%d ok=%s" % [t, uk, b.ult_charge, b.ult_budget, b.is_alive(), Sim.time - b.ult_combat_t, b.level, b.ult_ok])
+					# ULTCUT: Supremas começadas e quantas o próprio dash cortou (canal/mira ou sequência de saltos)
+					var uc: Dictionary = acc.get_or_add("ultcut", {"cast": 0, "cut_cast": 0, "cut_hop": 0, "hop_left": 0})
+					var now_ult: bool = b.state == SimEntity.State.CASTING and b.current_skill != null and b.current_skill.ultimate and b.skill_phase != "recovery"
+					var was_ult: bool = b.get_meta("pu_cast", false)
+					var was_hop: int = b.get_meta("pu_hop", 0)
+					var was_dash: bool = b.get_meta("pu_dash", false)
+					if now_ult and not was_ult:
+						uc["cast"] += 1
+					if b.state == SimEntity.State.DASHING and not was_dash:
+						if was_ult:
+							uc["cut_cast"] += 1
+						if was_hop > 0:
+							uc["cut_hop"] += 1
+							uc["hop_left"] += was_hop
+					b.set_meta("pu_cast", now_ult)
+					b.set_meta("pu_hop", int(b.hop.get("left", 0)))
+					b.set_meta("pu_dash", b.state == SimEntity.State.DASHING)
 					if not b.is_alive():
 						ult_last[uk + "!"] = true          # morreu: a carga zerou, o ritmo para de contar aqui
 					elif not ult_last.has(uk + "!"):
@@ -893,6 +947,9 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 		var bks2: Array = (dd["boss_by"] as Dictionary).keys()
 		bks2.sort()
 		print("DOT_BUILDS %s %s" % [bid, ", ".join(bks2.map(func(k): return "%s=%.0f%%/max%d" % [k, 100.0 * float(dd["boss_dot_by"].get(k, 0.0)) / maxf(1.0, float(dd["boss_by"][k])), int(dd["boss_max_by"].get(k, 0))]))])
+	if acc.has("ultcut"):
+		var uc: Dictionary = acc["ultcut"]
+		print("ULTCUT %s lancadas=%d dash_cortou_canal=%d dash_cortou_saltos=%d saltos_perdidos=%d" % [bid, uc["cast"], uc["cut_cast"], uc["cut_hop"], uc["hop_left"]])
 	if ward_n > 0:
 		print("WARD %s grupo=%d lutas_com_ward=%d 1o_lacaio_caiu_em=%.1fs ate_30s=%d/%d" % [bid, party, ward_n, ward_sum / ward_n, ward_fast, ward_n])
 	Events.skill_cast.disconnect(on_cast)
@@ -905,7 +962,7 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 		"off": 100.0 * acc["off"] / maxf(1.0, acc["dmg"]), "far": acc["far"] / mins, "kite": kite != "",
 		"area": 100.0 * acc["area"] / maxf(1.0, acc["dmg"]), "heal_tank": 100.0 * acc["heal_tank"] / maxf(1.0, acc["heal"]), "low": low_sum / trials,
 		"stray": 100.0 * acc["stray"] / maxf(1.0, acc["dmg"]), "busy": 100.0 * busy_sum / maxf(0.01, fight_sum),
-		"low_tank": low_tank / trials, "pots": float(acc["pots"]) / trials, "asc": acc["asc"], "ult": acc.get("ult", {}), "dealt": acc["dealt"], "fight_t": acc.get("fight_t", 1.0),
+		"low_tank": low_tank / trials, "pots": float(acc["pots"]) / trials, "asc": acc["asc"], "ult": acc.get("ult", {}), "dealt": acc["dealt"], "ult_dmg": acc["ult_dmg"], "ult_casts": acc["ult_casts"], "fight_t": acc.get("fight_t", 1.0),
 		"times": times, "inv_dead": inv_dead, "hold": 100.0 * hold_sum / maxf(0.01, fight_sum), "drops": float(drops) / trials,
 		"tank_dmg": float(acc["dot"]["tank"]) / trials}
 

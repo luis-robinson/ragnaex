@@ -1,0 +1,1 @@
+000  dru_ult_elder_heart    Coração do Bosque Ancião GROUND    MAG      build=xama       clip=cast_ground vfx=nature   start=0.30 act=0.08 rec=0.35 impacto=quadro 1

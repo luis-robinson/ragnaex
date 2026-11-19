@@ -1,0 +1,1 @@
+000  pal_ult_dawn_judgement Juízo da Alvorada        GROUND    FIS      build=cruzado    clip=atk_2h_chain_a vfx=holy     start=0.22 act=0.62 rec=0.30 impacto=quadro 1

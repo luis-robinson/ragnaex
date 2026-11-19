@@ -1,0 +1,1 @@
+000  ber_ult_seven_winds    Sete Ventos              TARGET    FIS      build=punhos     clip=atk_flurry  vfx=wind     start=0.15 act=0.05 rec=0.20 impacto=quadro 0

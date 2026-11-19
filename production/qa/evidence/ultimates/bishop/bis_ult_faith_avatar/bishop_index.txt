@@ -1,0 +1,1 @@
+000  bis_ult_faith_avatar   Avatar da Fé             SELF      FIS      build=batalha    clip=atk_finisher vfx=holy     start=0.28 act=0.08 rec=0.30 impacto=quadro 1

@@ -48,6 +48,9 @@ func setup(m, cls_arg: String, skill_arg: String, out_arg: String, check_arg: bo
 		for sid in cls.skill_ids:
 			if only_skill == "" or sid == only_skill:
 				list.append(sid)
+		for bid in GameData.ultimates.get(cid, {}):     # Supremas (fora da skill_ids): só pedidas pelo id (--skill=<id>)
+			if only_skill == GameData.ultimates[cid][bid]:
+				list.append(only_skill)
 		list.sort_custom(func(a, b): return _order(cls, a) < _order(cls, b))
 		for sid in list:
 			_queue.append([cid, sid])
@@ -105,6 +108,15 @@ func _next(p: SimEntity) -> void:
 		p.basic_skill = GameData.basic_skill_for_class(p.class_def)
 	_gear(p, s)
 	p.level = maxi(1, s.unlock_level)
+	p.form = ""
+	if s.ultimate:                       # Suprema: nível 40 + ascensão, build dela, carga cheia, forma pedida
+		p.build_id = s.build
+		if not p.quests_completed.has("hx_asc_" + cid):
+			p.quests_completed.append("hx_asc_" + cid)
+		UltimateSystem.refresh(Sim, p)
+		p.ult_charge = Balance.ULT_MAX
+		p.ult_gap_until = 0.0
+		p.form = s.requires_form if s.requires_form != "" else str(s.effects.get("force_form", ""))
 	p.learned[sid] = true
 	p.skills[0] = s
 	p.cooldowns.clear()
@@ -196,8 +208,11 @@ func _fire(p: SimEntity) -> void:
 	var s: SkillDef = p.skills[0]
 	p.face_towards(_aim(p, s))
 	p.mp = p.stats.max_mp
-	if not Sim.try_cast(p, 0, _aim(p, s), Sim.maps[p.map_id]):
-		printerr("SHOWCASE: %s não saiu (%s)" % [s.id, Sim.requires_text(s.requires)])
+	if s.ultimate:
+		p.ult_charge = Balance.ULT_MAX      # fora de luta a carga esvazia no preparo da bancada
+	var ok: bool = UltimateSystem.try_cast(Sim, p, _aim(p, s), Sim.maps[p.map_id]) if s.ultimate else Sim.try_cast(p, 0, _aim(p, s), Sim.maps[p.map_id])
+	if not ok:
+		printerr("SHOWCASE: %s não saiu (%s)" % [s.id, UltimateSystem.cast_block(Sim, p) if s.ultimate else Sim.requires_text(s.requires)])
 		_errors += 1
 		_finish(p)
 		return
@@ -208,6 +223,8 @@ func _fire(p: SimEntity) -> void:
 		printerr("SHOWCASE: %s sem clipe '%s'" % [s.id, _clip])
 		_errors += 1
 	_total = s.startup + s.active + s.recovery + (0.35 if s.projectile_speed > 0.0 else 0.0)
+	if s.ultimate:
+		_total = maxf(_total, 2.4)       # Suprema: o efeito dura (saltos, martelos, chão aceso): a folha mostra 2,4 s
 	_times.clear()
 	for k in range(FRAMES):
 		_times.append(_total * float(k) / float(FRAMES - 1))

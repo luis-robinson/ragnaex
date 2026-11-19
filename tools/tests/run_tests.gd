@@ -4111,6 +4111,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_training_dummy(gd, sim)
 	_check_keep_buffs(gd)
 	_check_frost_aspd(gd, sim)
+	_check_frost_armor_dr(gd, sim)
 	_check_ultimate_unlock(gd, sim)
 	_check_ultimate_meter(gd, sim)
 	_check_ultimate_decay(gd, sim)
@@ -4121,8 +4122,23 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_ultimate_intercept(gd, sim)
 	_check_ultimate_small_keys(gd, sim)
 	_check_ultimate_bots(gd, sim)
+	_check_ultimate_bot_commit(gd, sim)
 	_check_ultimate_hud(gd, sim)
 	_check_ultimate_review(gd, sim)
+	_check_ultimate_b1_catalog(gd, sim)
+	_check_ultimate_b1_paladin(gd, sim)
+	_check_ultimate_b1_berserker(gd, sim)
+	_check_ultimate_b1_bishop(gd, sim)
+	_check_ultimate_b1_druid(gd, sim)
+	_check_ultimate_b1_hop_skip(gd, sim)
+	_check_ultimate_b2_catalog(gd, sim)
+	_check_ultimate_b2_ranger(gd, sim)
+	_check_ultimate_b2_assassin(gd, sim)
+	_check_ultimate_b2_elementalist(gd, sim)
+	_check_ultimate_b2_necro(gd, sim)
+	_check_ultimate_b2_power(gd, sim)
+	_check_ultimate_pet_def(gd, sim)
+	_check_ultimate_dome_stays(gd, sim)
 	_check_skill_book(gd, sim)
 	_check_elf_city_inner(gd, sim)
 	_check_quest_blocked_hint(gd, sim)
@@ -24842,6 +24858,44 @@ func _check_skill_book(gd, sim) -> void:
 	sim.despawn(e)
 	w.free()
 
+## Armadura de Gelo (decisão 2026-11-19): corta o dano recebido em FROST_ARMOR_DR_BASE% + 1% a cada PER_INT de INT, até CAP
+## (sem +DEF). `--only=frost_armor_dr`
+func _check_frost_armor_dr(gd, sim) -> void:
+	var fa: SkillDef = gd.skills["ele_frost_armor"]
+	var b: Dictionary = fa.effects["buff"]
+	check(b.get("dr_int", false) and not b.has("def_pct"), "armadura de gelo: corta dano pela INT, sem +DEF")
+	check("15% do HP" in fa.description and "40%" in fa.description, "armadura de gelo: texto formatado (%s)" % fa.description)
+	# nenhuma descrição de skill com código de formatação sobrando (%d, %.Nf, %%, %s)
+	var raw: Array = []
+	var rx := RegEx.create_from_string("%(\\d*\\.?\\d*[dfs]|%)")
+	for sid in gd.skills:
+		if rx.search(str(gd.skills[sid].description)) != null:
+			raw.append(sid)
+	check(raw.is_empty(), "skills: nenhuma descrição com %%d/%%s/%%%% cru (%s)" % [raw])
+	check(is_equal_approx(Stats.frost_armor_dr(0.0), Balance.FROST_ARMOR_DR_BASE) and is_equal_approx(Stats.frost_armor_dr(100.0), Balance.FROST_ARMOR_DR_BASE + 100.0 / Balance.FROST_ARMOR_DR_PER_INT)
+		and is_equal_approx(Stats.frost_armor_dr(99999.0), Balance.FROST_ARMOR_DR_CAP), "armadura de gelo: 15% + 1% a cada 10 INT, teto 40%")
+	var e: SimEntity = sim.spawn_bot(gd.classes["elementalist"], "Geada", "city_aldara", Vector3(32, 0, -44), 30)
+	e.brain = null
+	var before := e.stats.dr_pct
+	var def_before := e.stats.pdef
+	sim._apply_effects(e, e, {"buff": b}, 1.0)
+	var want := Stats.frost_armor_dr(float(e.stats.attrs["INT"]))
+	check(is_equal_approx(e.stats.dr_pct - before, want) and is_equal_approx(e.stats.pdef, def_before), "armadura de gelo: -%.0f%% de dano com INT %d, DEF igual" % [want, int(e.stats.attrs["INT"])])
+	# golpe real: o dano cai na proporção (dentro do teto geral DR_CAP)
+	var foe: SimEntity = sim.spawn_monster(gd.monsters["slime"], "city_aldara", e.position + Vector3(1.5, 0, 0))
+	foe.brain = null
+	e.shield_hp = 0.0
+	e.stats.evasion = 0.0
+	e.hp = 1.0e6                   # o golpe de teste não pode matar
+	e.mp = 0.0                     # sem Barreira de Mana / escudo de mana dos talentos: mede só a armadura
+	var hp0 := e.hp
+	sim._deal_damage(foe, e, 1000, false, false, "physical", null, false)
+	var took := hp0 - e.hp
+	var exp_took := roundi(1000.0 * (1.0 - minf(e.stats.dr_pct, Balance.DR_CAP) / 100.0))
+	check(absf(took - exp_took) <= 2.0, "armadura de gelo: golpe de 1000 tira %.0f (esperado %d)" % [took, exp_took])
+	sim.despawn(foe)
+	sim.despawn(e)
+
 ## Lentidão de gelo (decisão 2026-11-19): além do movimento, -Balance.FROST_ASPD_SLOW% de velocidade de ataque (intervalo do
 ## básico maior); lentidão que não é de gelo (Esmagar do Druida) só mexe no movimento. `--only=frost_aspd`
 func _check_frost_aspd(gd, sim) -> void:
@@ -25776,6 +25830,10 @@ func _check_eviscerate_poison(gd, sim) -> void:
 func _check_bleed_whirl(gd, sim) -> void:
 	var at := Vector3(-20, 0, 80)
 	var ber: SimEntity = _fill_bot(gd, sim, "berserker", "carniceiro", at)
+	for sl in ber.equipment.keys():            # só as armas: conjunto sorteado (Fusão/Ápice) com roubo de vida enchia a vida nos dois lados
+		if sl != ItemDef.Slot.WEAPON and sl != ItemDef.Slot.OFFHAND:
+			ber.equipment.erase(sl)
+	ber.recompute_stats()
 	var s: SkillDef = gd.skills["ber_steel_whirl"]
 	check(s.build == "carniceiro" and s.unlock_level == 12 and s.effects.get("wound_heal") is Dictionary and not s.effects.has("heal_pct_of_dmg"), "Sangria: nível 12, cura por ferida (sem o roubo genérico)")
 	var foes: Array = []
@@ -25790,6 +25848,12 @@ func _check_bleed_whirl(gd, sim) -> void:
 				f.debuffs.append({"kind": "dot", "id": "dot_%d_ber_hack" % ber.id, "remaining": 4.0, "dps": 1.0, "src": ber.id})
 		sim.rng.seed = 4242                # mesmos críticos: o roubo de vida do golpe é igual nos dois lados
 		ber.cooldowns.clear()
+		ber.buffs.clear()                  # arma lendária sorteada (Frenesi) dava roubo de vida que crescia entre as chamadas
+		ber.recompute_stats()
+		ber.stats.legend = {}
+		ber.stats.lifesteal = 0.0          # roubo de vida do equipamento/teia sorteados enchia a vida nos dois lados (a diferença sumia)
+		ber.stats.crit_leech = 0.0
+		ber.stats.low_leech = 0.0
 		ber.hp = ber.stats.max_hp * 0.3
 		var h0 := ber.hp
 		_fill_cast(sim, ber, "ber_steel_whirl", ber.position)
@@ -26028,10 +26092,13 @@ func _ult_char(gd, sim, cls: String, build: String, at: Vector3, nm: String, lev
 	return e
 
 ## Passa `secs` s "fora de combate" para o medidor (o relógio da sim fica parado nos testes: recua o último combate).
+## O recuo sai de uma base fixa (base - k*dt), não de "-= dt" repetido: somar 0,1 muitas vezes errava a última casa e,
+## com sim.time grande (depois de outros checks), o "6 s fora de luta" virava 6,0000001 e já esvaziava.
 func _ult_idle(sim, e: SimEntity, secs: float, dt: float = 0.1) -> void:
 	var n := int(round(secs / dt))
+	var base: float = e.ult_combat_t
 	for i in range(n):
-		e.ult_combat_t -= dt
+		e.ult_combat_t = base - float(i + 1) * dt
 		UltimateSystem.tick(sim, e, dt)
 
 func _ult_mob(gd, sim, id: String, at: Vector3) -> SimEntity:
@@ -26064,7 +26131,8 @@ func _check_ultimate_unlock(gd, sim) -> void:
 	check(s != null and s.id == "ele_ult_meteor_rain", "suprema: build Fogo -> Chuva de Meteoros (%s)" % (s.id if s else "null"))
 	check(sim.ultimate_of(e) == s and sim.has_ultimate(e) and sim.ultimate_lock(e) == "", "suprema: repasses públicos do Sim")
 	e.build_id = "gelo"
-	check(UltimateSystem.ultimate_of(sim, e) == null and UltimateSystem.lock_reason(sim, e) != "", "suprema: build sem Suprema (onda A) = nenhuma, com motivo")
+	var gelo_ult: SkillDef = UltimateSystem.ultimate_of(sim, e)
+	check(gelo_ult != null and gelo_ult.id == "ele_ult_eternal_winter", "suprema: trocar a build troca a Suprema (Gelo -> Inverno Eterno, onda B2)")
 	e.build_id = "fogo"
 	var keep: ItemDef = e.equipment.get(ItemDef.Slot.WEAPON)
 	e.equipment[ItemDef.Slot.WEAPON] = null
@@ -26087,7 +26155,8 @@ func _check_ultimate_unlock(gd, sim) -> void:
 		check(not str(gd.trees.get(sk.class_id, {})).contains(sid) and not str(gd.asc_trees.get(sk.class_id, {})).contains(sid), "suprema %s: fora da teia e da teia de ascensão" % sid)
 		check(Balance.ULT_NUMBERS.has(sid), "suprema %s: números em Balance.ULT_NUMBERS" % sid)
 		check(ResourceLoader.exists("res://assets/icons/skill_%s.png" % sid), "suprema %s: ícone (make_icons -- --only=%s)" % [sid, sid])
-		check(sk.description != "" and sk.startup <= 0.3 + 0.001, "suprema %s: texto e startup <= 0,3 s" % sid)
+		var aim_ok: bool = is_equal_approx(sk.startup, float((Balance.ULT_NUMBERS.get(sid, {}) as Dictionary).get("aim", -1.0)))     # mira longa declarada (Disparo do Fim)
+		check(sk.description != "" and (sk.startup <= 0.3 + 0.001 or aim_ok), "suprema %s: texto e startup <= 0,3 s (ou a mira de ULT_NUMBERS)" % sid)
 	check(ult_n >= 1, "suprema: ao menos a Chuva de Meteoros no catálogo (onda A)")
 	var who := _ult_char(gd, sim, "elementalist", "fogo", at, "UltSlot")
 	check(not ProgressionSystem.set_skill_slot(sim, who, 0, "ele_ult_meteor_rain") and not who.knows("ele_ult_meteor_rain"), "suprema: não entra nas vagas 1-0 (não é skill aprendida)")
@@ -26198,6 +26267,8 @@ func _check_ultimate_meter(gd, sim) -> void:
 ## o boneco de treino enche no ritmo normal e nada sobra 19 s depois. Gotejar em combate.
 func _check_ultimate_decay(gd, sim) -> void:
 	var at := Vector3(44, 0, -52)
+	var keep_time: float = sim.time
+	sim.time = ceilf(sim.time)                 # relógio inteiro: sim.time - (sim.time - 6) dá 6 exato (não depende dos checks de antes)
 	var e := _ult_char(gd, sim, "elementalist", "fogo", at, "UltDecay")
 	e.ult_charge = Balance.ULT_MAX
 	e.ult_combat_t = sim.time
@@ -26241,6 +26312,7 @@ func _check_ultimate_decay(gd, sim) -> void:
 	check(f.ult_charge == 0.0, "esvaziar: trocar de mapa zera (%s)" % other)
 	sim.despawn(f)
 	sim.despawn(mob)
+	sim.time = maxf(sim.time, keep_time)
 
 ## R: recusa sem carga; cheia sai, zera, trava ULT_MIN_GAP; cancelada no preparo mantém; o dano dela não enche;
 ## InputCommand.ultimate é de 1 vez.
@@ -26626,6 +26698,63 @@ func _check_ultimate_bots(gd, sim) -> void:
 		o.party_id = -1
 		sim.despawn(o)
 
+## Bot não corta a própria Suprema com dash (boss_probe 2026-11-19: Sete Ventos/Lua Rubra perdiam os saltos e a mira do
+## Disparo do Fim recomeçava quando a fuga de área ou a aproximação davam dash). Abaixo de BOT_ULT_KEEP_HP % ainda foge.
+## Golpe de Suprema no alvo só sai com o alvo no alcance. `--only=ultimate`
+func _check_ultimate_bot_commit(gd, sim) -> void:
+	var m: Dictionary = sim.maps["city_aldara"]
+	var at := Vector3(64, 0, -36)
+	var e := _ult_char(gd, sim, "berserker", "punhos", at, "UltCommit")
+	e.equipment[ItemDef.Slot.WEAPON] = gd.items["claw_t5"]
+	e.equipment[ItemDef.Slot.OFFHAND] = gd.items["claw_t5"]
+	e.recompute_stats()
+	e.hp = e.stats.max_hp
+	var boss: SimEntity = _ult_mob(gd, sim, _ult_boss_id(gd), at + Vector3(0, 0, 2.5))
+	var hz := {"pos": e.position, "radius": 4.0, "at": sim.time + 1.0}
+	(m.get_or_add("hazards", []) as Array).append(hz)
+	var dashes := func(n: int) -> int:
+		var bb := BotBrain.new()
+		bb.rng = _seeded_rng()
+		var k := 0
+		for i in range(n):
+			e.dash_cd = 0.0
+			var c: InputCommand = bb._fight(e, sim, m, boss, InputCommand.new())
+			k += 1 if c.dash else 0
+		return k
+	var free: int = dashes.call(20)
+	check(free > 0, "bot: área de perigo em cima sem Suprema = foge com dash (%d/20; controle do teste)" % free)
+	e.hop = {"skill": "ber_ult_seven_winds", "left": 4}
+	var hop_n: int = dashes.call(20)
+	check(hop_n == 0, "bot: com os saltos da Suprema em andamento não dá dash (cortaria o resto) (%d/20)" % hop_n)
+	e.hp = e.stats.max_hp * (Balance.BOT_ULT_KEEP_HP - 10.0) / 100.0
+	var low_n: int = dashes.call(20)
+	check(low_n > 0, "bot: com a vida abaixo de BOT_ULT_KEEP_HP foge mesmo nos saltos (%d/20)" % low_n)
+	e.hp = e.stats.max_hp
+	e.hop = {}
+	var ult: SkillDef = gd.skills["ran_ult_end_shot"]
+	e.current_skill = ult
+	e.skill_phase = "startup"
+	e.set_state(SimEntity.State.CASTING, ult.startup)
+	check(BotBrain.ult_committed(e), "bot: Suprema no preparo (mira do Disparo do Fim) conta como em andamento")
+	var aim_n: int = dashes.call(20)
+	check(aim_n == 0, "bot: mirando a própria Suprema não dá dash (%d/20)" % aim_n)
+	e.skill_phase = "recovery"
+	check(not BotBrain.ult_committed(e), "bot: na recuperação da Suprema o dash volta a valer")
+	e.current_skill = null
+	e.set_state(SimEntity.State.IDLE, 0.0)
+	m["hazards"].erase(hz)
+	# golpe no alvo (Sete Ventos, alcance 8): o bot só solta com o chefe no alcance
+	e.ult_charge = Balance.ULT_MAX
+	e.ult_full_at = sim.time
+	var s7 := UltimateSystem.ultimate_of(sim, e)
+	check(s7 != null and s7.id == "ber_ult_seven_winds", "bot: Punhos com garras tem Sete Ventos (%s)" % (s7.id if s7 else "nada"))
+	if s7 != null:
+		check(UltimateSystem.bot_release(sim, e, boss), "bot: Sete Ventos sai com o chefe a 2,5 m")
+		boss.position = at + Vector3(0, 0, s7.range + boss.radius + 4.0)
+		check(not UltimateSystem.bot_release(sim, e, boss), "bot: Sete Ventos espera com o chefe fora do alcance (%.0f m)" % s7.range)
+	for o in [e, boss]:
+		sim.despawn(o)
+
 ## HUD da Suprema: moldura do R à esquerda do 1, maior que as vagas; mostra a Suprema da build, cheia diz PRONTA, travada
 ## diz o motivo; som ult_ready no banco; tecla R no InputMap. `--only=ultimate`
 func _check_ultimate_hud(gd, sim) -> void:
@@ -26838,3 +26967,1012 @@ func _check_ultimate_review(gd, sim) -> void:
 	t.kind = SimEntity.Kind.BOT
 	sim.despawn(t)
 	sim.despawn(dd)
+
+# =============================================================================================
+# Supremas da onda B1 (GDD ultimates-lv40 §3.5 1-12): Paladino, Berserker, Bispo, Druida. `--only=ultimate`
+# =============================================================================================
+
+const ULT_B1 := {"paladin": {"guardiao": "pal_ult_dawn_bastion", "cruzado": "pal_ult_dawn_judgement", "templario": "pal_ult_hammer_sky"},
+	"berserker": {"carniceiro": "ber_ult_blood_feast", "executor": "ber_ult_headsman_verdict", "punhos": "ber_ult_seven_winds"},
+	"bishop": {"sacerdote": "bis_ult_grace_dome", "inquisidor": "bis_ult_judgement_sun", "batalha": "bis_ult_faith_avatar"},
+	"druid": {"guardiao_verde": "dru_ult_primal_colossus", "fera": "dru_ult_blood_moon", "xama": "dru_ult_elder_heart"}}
+
+var _b1_spot := Vector3.INF
+
+## Centro de uma área aberta de Aldara (tudo andável num raio de 13 m): os saltos e as invocações não esbarram em casa.
+func _ult_open(sim) -> Vector3:
+	if _b1_spot != Vector3.INF:
+		return _b1_spot
+	var m: Dictionary = sim.maps["city_aldara"]
+	var def: MapDef = m["def"]
+	for x in range(-90, 91, 6):
+		for z in range(-90, 91, 6):
+			var c := Vector3(x, 0, z)
+			var ok := true
+			for k in range(16):
+				for r in [3.0, 6.0, 9.0, 13.0]:
+					if ok and not MapGeometry.is_walkable(sim, c + Vector3(cos(k * PI / 8.0), 0, sin(k * PI / 8.0)) * r, def, 0.6):
+						ok = false
+			if ok and MapGeometry.is_walkable(sim, c, def, 0.6):
+				_b1_spot = c
+				return c
+	_b1_spot = Vector3(52, 0, -60)
+	return _b1_spot
+
+## Roda a skill em andamento de `e` até acabar (passos de 1/60 s; também move os saltos da sequência).
+func _ult_run(sim, e: SimEntity, m: Dictionary, secs: float) -> void:
+	for i in range(int(secs * 60.0)):
+		sim._update_entity(e, m, 1.0 / 60.0)
+
+## Catálogo B1: as 12 na build certa, uma por build, ult_bot pedido pelo GDD, números de ULT_NUMBERS e ícone.
+func _check_ultimate_b1_catalog(gd, sim) -> void:
+	var want_bot := {"pal_ult_dawn_bastion": "save", "pal_ult_dawn_judgement": "boss", "pal_ult_hammer_sky": "boss", "ber_ult_blood_feast": "boss",
+		"ber_ult_headsman_verdict": "boss", "ber_ult_seven_winds": "boss", "bis_ult_grace_dome": "save", "bis_ult_judgement_sun": "boss",
+		"bis_ult_faith_avatar": "self", "dru_ult_primal_colossus": "self", "dru_ult_blood_moon": "boss", "dru_ult_elder_heart": "boss"}
+	for cid in ULT_B1:
+		for bid in ULT_B1[cid]:
+			var sid: String = ULT_B1[cid][bid]
+			var s: SkillDef = gd.skills.get(sid)
+			check(s != null and s.ultimate and s.class_id == cid and s.build == bid, "suprema B1 %s: existe, é Suprema da build %s/%s" % [sid, cid, bid])
+			if s == null:
+				continue
+			check(gd.ultimates.get(cid, {}).get(bid, "") == sid, "suprema B1 %s: GameData.ultimates[%s][%s]" % [sid, cid, bid])
+			check(s.ult_bot == want_bot[sid], "suprema B1 %s: ult_bot %s (%s)" % [sid, want_bot[sid], s.ult_bot])
+			check(Balance.ULT_NUMBERS.has(sid) and s.startup <= 0.3 + 0.001, "suprema B1 %s: números em ULT_NUMBERS e startup <= 0,3 s" % sid)
+	var h: SkillDef = gd.skills.get("ber_ult_blood_feast_end")
+	check(h != null and not h.ultimate and h.class_id == "" and not gd.classes["berserker"].skill_ids.has("ber_ult_blood_feast_end"),
+		"Festim: a Sangria de fechamento é skill de apoio (sem classe: fora da teia, da barra e do livro)")
+	var fe: SkillDef = gd.skills["ber_ult_blood_feast"]
+	check(str(fe.effects["buff"].get("end_cast", "")) == "ber_ult_blood_feast_end", "Festim: o buff fecha com a Sangria (end_cast)")
+	for sid in ["intercept", "hammer_sky", "blood_feast", "faith_avatar", "primal_colossus"]:
+		check(BuffLooks.LOOKS.has(sid), "suprema B1: buff %s tem visual no boneco (BuffLooks)" % sid)
+
+## Paladino: Bastião (provoca, escudo, Juramento, Proteção), Juízo (salto uma vez, 3 golpes, último atordoa), Céu (martelos, marca, Juramento preso).
+func _check_ultimate_b1_paladin(gd, sim) -> void:
+	var m: Dictionary = sim.maps["city_aldara"]
+	var at := _ult_open(sim)
+	# Bastião da Aurora
+	var p := _ult_char(gd, sim, "paladin", "guardiao", at, "B1Bastiao")
+	var mob := _ult_mob(gd, sim, "golem", at + Vector3(0, 0, 4))
+	var s: SkillDef = gd.skills["pal_ult_dawn_bastion"]
+	var n: Dictionary = Balance.ULT_NUMBERS["pal_ult_dawn_bastion"]
+	p.shield_hp = 0.0
+	sim._apply_skill(p, s, m)
+	check(mob.aggro_target == p.id and mob.taunt_left > 0.0, "Bastião: provoca o inimigo a %d m" % int(n["radius"]))
+	check(absf(p.shield_hp - p.stats.max_hp * float(n["shield_pct"]) / 100.0) < 2.0, "Bastião: escudo de %d%% da vida (%.0f)" % [int(n["shield_pct"]), p.shield_hp])
+	check(sim.oath_stacks(p) == ClassTalentSystem.oath_max(p), "Bastião: Juramento cheio (%d)" % sim.oath_stacks(p))
+	check(InterceptSystem.active(p), "Bastião: Proteção ligada (intercept)")
+	sim.despawn(p)
+	sim.despawn(mob)
+	# Juízo da Alvorada
+	var c := _ult_char(gd, sim, "paladin", "cruzado", at, "B1Juizo")
+	var aim := at + Vector3(0, 0, 6)
+	var foe := _ult_mob(gd, sim, "golem", aim + Vector3(0, 0, 0.8))
+	var js: SkillDef = gd.skills["pal_ult_dawn_judgement"]
+	var hits: Array = []
+	var cb := func(att: int, tid: int, _amt: int, _c: bool, _b: bool, _k: String): hits.append([att, tid])
+	Events.damage_dealt.connect(cb)
+	c.face_towards(aim)
+	sim._start_skill(c, js, Balance.ULT_CAST_SLOT, aim)
+	var after_leap := Vector3.INF
+	var iframe_seen := false
+	for i in range(120):
+		sim._update_entity(c, m, 1.0 / 60.0)
+		if c.channel_done >= 1 and after_leap == Vector3.INF and c.skill_applied:
+			after_leap = c.position
+			iframe_seen = c.iframe_left > 0.0
+		if c.state != SimEntity.State.CASTING:
+			break
+	Events.damage_dealt.disconnect(cb)
+	var on_foe := hits.filter(func(hh): return hh[0] == c.id and hh[1] == foe.id).size()
+	check(after_leap != Vector3.INF and after_leap.distance_to(at) > 4.0, "Juízo: salta até o cursor (%.1f m)" % (after_leap.distance_to(at) if after_leap != Vector3.INF else -1.0))
+	check(iframe_seen, "Juízo: intocável no salto")
+	check(after_leap != Vector3.INF and c.position.distance_to(after_leap) < 0.3, "Juízo: o salto sai só no 1º golpe (não anda nos outros dois)")
+	check(on_foe == 3, "Juízo: 3 golpes no alvo (%d)" % on_foe)
+	check(foe.state == SimEntity.State.STUNNED, "Juízo: o golpe final atordoa")
+	sim.despawn(c)
+	sim.despawn(foe)
+	# só o último golpe atordoa (o 1º não)
+	var c2 := _ult_char(gd, sim, "paladin", "cruzado", at, "B1Juizo2")
+	var foe2 := _ult_mob(gd, sim, "golem", at + Vector3(0, 0, 2))
+	c2.skill_aim = foe2.position
+	c2.channel_done = 1
+	sim._apply_skill(c2, js, m)
+	check(foe2.state != SimEntity.State.STUNNED, "Juízo: o 1º golpe não atordoa")
+	sim.despawn(c2)
+	sim.despawn(foe2)
+	# Céu de Martelos
+	var t := _ult_char(gd, sim, "paladin", "templario", at, "B1Ceu")
+	var near := _ult_mob(gd, sim, "golem", at + Vector3(0, 0, 3))
+	var ks: SkillDef = gd.skills["pal_ult_hammer_sky"]
+	sim._apply_skill(t, ks, m)
+	var hp0 := near.hp
+	for i in range(int(2.0 / Balance.AURA_TICK)):
+		AuraSystem.tick(sim, m, Balance.AURA_TICK)
+	sim._update_entity(t, m, 1.0 / 60.0)
+	check(t.buffs.any(func(b): return b.get("id") == "hammer_sky" and b.get("oath_lock", false) and b.get("orbit") is Dictionary), "Céu: buff dos martelos com o Juramento preso")
+	check(sim.oath_stacks(t) == ClassTalentSystem.oath_max(t), "Céu: Juramento cheio enquanto os martelos giram")
+	check(near.debuffs.any(func(d): return str(d.get("id", "")).begins_with("curse_penance")), "Céu: quem é atingido recebe a Marca da Penitência")
+	var ob: Dictionary = t.buffs.filter(func(b): return b.get("id") == "hammer_sky")[0]["orbit"]
+	check(is_equal_approx(float(ob["radius"]), float(Balance.ULT_NUMBERS["pal_ult_hammer_sky"]["radius"])), "Céu: martelos a %d m" % int(ob["radius"]))
+	check(near.hp < hp0, "Céu: os martelos batem no inimigo perto")
+	sim.despawn(t)
+	sim.despawn(near)
+
+## Berserker: Festim (feridas presas, Sangria no fim), Veredito (rachadura em volta, consome, execução), Sete Ventos (7 golpes, Fúria cheia).
+func _check_ultimate_b1_berserker(gd, sim) -> void:
+	var m: Dictionary = sim.maps["city_aldara"]
+	var at := _ult_open(sim)
+	# Festim de Sangue
+	var b := _ult_char(gd, sim, "berserker", "carniceiro", at, "B1Festim")
+	var mob := _ult_mob(gd, sim, "golem", at + Vector3(0, 0, 1.6))
+	var aspd0: float = b.stats.attack_speed
+	sim._apply_skill(b, gd.skills["ber_ult_blood_feast"], m)
+	check(b.stats.attack_speed > aspd0 and b.stats.lifesteal >= 10.0, "Festim: +velocidade de ataque e roubo de vida")
+	sim._deal_damage(b, mob, 50, false, false, "physical")
+	var wound := mob.debuffs.filter(func(d): return WoundSystem.is_wound(d, b))
+	check(not wound.is_empty(), "Festim: golpe físico abre ferida")
+	var rem0: float = float(wound[0]["remaining"]) if not wound.is_empty() else 0.0
+	for i in range(int(6.0 * 60.0)):
+		sim._update_entity(b, m, 1.0 / 60.0)
+		sim._update_entity(mob, m, 1.0 / 60.0)
+	wound = mob.debuffs.filter(func(d): return WoundSystem.is_wound(d, b))
+	check(not wound.is_empty() and float(wound[0]["remaining"]) >= rem0 - 0.05, "Festim: a ferida não fecha enquanto dura (%.2f s depois de 6 s; antes %.2f)" % [float(wound[0]["remaining"]) if not wound.is_empty() else -1.0, rem0])
+	b.hp = b.stats.max_hp * 0.5
+	var hpb := b.hp
+	var hpm := mob.hp
+	for x in b.buffs:
+		if x.get("id") == "blood_feast":
+			x["remaining"] = 0.01
+	sim._update_entity(b, m, 1.0 / 60.0)
+	var fea: Dictionary = Balance.ULT_NUMBERS["ber_ult_blood_feast"]
+	check(mob.hp < hpm, "Festim: no fim a Sangria gigante sai sozinha e acerta")
+	check(b.hp - hpb >= b.stats.max_hp * float(fea["end_heal_pct"]) / 100.0 * 0.95, "Festim: a Sangria cura %d%% por inimigo que sangrava (%.0f)" % [int(fea["end_heal_pct"]), b.hp - hpb])
+	sim.despawn(b)
+	sim.despawn(mob)
+	# Veredito do Carrasco
+	var x := _ult_char(gd, sim, "berserker", "executor", at, "B1Veredito")
+	var tgt := _ult_mob(gd, sim, "golem", at + Vector3(0, 0, 5))
+	var nb := _ult_mob(gd, sim, "golem", tgt.position + Vector3(2, 0, 0))
+	var far := _ult_mob(gd, sim, "golem", tgt.position + Vector3(-7, 0, 0))
+	var vs: SkillDef = gd.skills["ber_ult_headsman_verdict"]
+	x.face_towards(tgt.position)
+	x.skill_aim = tgt.position
+	var hp_t := tgt.hp
+	sim._apply_skill(x, vs, m)
+	check(x.position.distance_to(tgt.position) < 2.0, "Veredito: salta no alvo (%.1f m)" % x.position.distance_to(tgt.position))
+	check(SunderSystem.stacks(nb) == 5 and SunderSystem.stacks(far) == 0, "Veredito: vizinho a 2 m com 5 cargas, o de 7 m sem (%d/%d)" % [SunderSystem.stacks(nb), SunderSystem.stacks(far)])
+	check(SunderSystem.stacks(tgt) == 0 and tgt.hp < hp_t, "Veredito: o golpe consome a rachadura do alvo")
+	var vn: Dictionary = Balance.ULT_NUMBERS["ber_ult_headsman_verdict"]
+	var ex: Dictionary = vs.effects["ult_execute"]
+	tgt.hp = tgt.stats.max_hp * 0.2
+	check(is_equal_approx(UltEffects.execute_mult(tgt, ex), float(vn["exec_mult"])), "Veredito: abaixo de %d%% vale x%.1f" % [roundi(float(vn["below"]) * 100.0), float(vn["exec_mult"])])
+	tgt.hp = tgt.stats.max_hp * 0.5
+	check(is_equal_approx(UltEffects.execute_mult(tgt, ex), 1.0), "Veredito: acima do limiar x1")
+	var bid := _ult_boss_id(gd)
+	if bid != "":
+		var boss := _ult_mob(gd, sim, bid, at + Vector3(6, 0, 6))
+		boss.hp = boss.stats.max_hp * 0.2
+		check(not boss.monster_def.is_boss or is_equal_approx(UltEffects.execute_mult(boss, ex), float(vn["boss_mult"])), "Veredito: chefe abaixo do limiar x%.2f" % float(vn["boss_mult"]))
+		sim.despawn(boss)
+	for o in [x, tgt, nb, far]:
+		sim.despawn(o)
+	# Sete Ventos
+	var f := _ult_char(gd, sim, "berserker", "punhos", at, "B1Ventos")
+	var one := _ult_mob(gd, sim, "golem", at + Vector3(0, 0, 3))
+	var hits: Array = []
+	var cb := func(att: int, tid: int, _amt: int, _c: bool, _b: bool, _k: String): hits.append([att, tid])
+	Events.damage_dealt.connect(cb)
+	f.skill_aim = one.position
+	sim._apply_skill(f, gd.skills["ber_ult_seven_winds"], m)
+	check(f.iframe_left > 0.0, "Sete Ventos: intocável durante")
+	for i in range(12):
+		if f.hop.is_empty():
+			break
+		f.hop["next_at"] = sim.time
+		HopSystem.tick(sim, f, m)
+	Events.damage_dealt.disconnect(cb)
+	var n7 := hits.filter(func(hh): return hh[0] == f.id and hh[1] == one.id).size()
+	check(n7 == int(Balance.ULT_NUMBERS["ber_ult_seven_winds"]["count"]), "Sete Ventos: um alvo só leva os %d golpes (%d)" % [int(Balance.ULT_NUMBERS["ber_ult_seven_winds"]["count"]), n7])
+	check(f.buff_stacks(Balance.FIST_FURY_BUFF) == Balance.FIST_FURY_MAX, "Sete Ventos: termina com a Fúria do Punho cheia (%d)" % f.buff_stacks(Balance.FIST_FURY_BUFF))
+	# com lacaios em volta: salta entre eles, mas o último golpe volta no alvo mirado (termina ao lado do chefe, não de um lacaio)
+	var add1 := _ult_mob(gd, sim, "golem", one.position + Vector3(2.5, 0, 0))
+	var add2 := _ult_mob(gd, sim, "golem", one.position + Vector3(-2.5, 0, 0))
+	hits.clear()
+	Events.damage_dealt.connect(cb)
+	f.skill_aim = one.position
+	sim._apply_skill(f, gd.skills["ber_ult_seven_winds"], m)
+	for i in range(12):
+		if f.hop.is_empty():
+			break
+		f.hop["next_at"] = sim.time
+		HopSystem.tick(sim, f, m)
+	Events.damage_dealt.disconnect(cb)
+	var seq: Array = hits.filter(func(hh): return hh[0] == f.id).map(func(hh): return hh[1])
+	check(seq.size() == 7 and seq[seq.size() - 1] == one.id and (seq.has(add1.id) or seq.has(add2.id)), "Sete Ventos: salta pelos lacaios e o último golpe volta no alvo mirado (%s)" % str(seq))
+	sim.despawn(add1)
+	sim.despawn(add2)
+	sim.despawn(f)
+	sim.despawn(one)
+
+## Bispo: Cúpula (parada, -50%, cura, não soma com a Barreira), Sol (atordoa, chão que cura o mais ferido), Avatar (cura, buff, dano físico cura, escala).
+func _check_ultimate_b1_bishop(gd, sim) -> void:
+	var m: Dictionary = sim.maps["city_aldara"]
+	var at := _ult_open(sim)
+	var b := _ult_char(gd, sim, "bishop", "sacerdote", at, "B1Cupula")
+	var ally := _ult_char(gd, sim, "berserker", "executor", at + Vector3(0, 0, 4), "B1CupulaAliado")
+	var mob := _ult_mob(gd, sim, "golem", at + Vector3(3, 0, 4))
+	b.party_id = 9400
+	ally.party_id = 9400
+	ally.stats.dr_pct = 0.0
+	ally.stats.evasion = 0.0
+	ally.hp = ally.stats.max_hp * 0.5
+	var hp_a := ally.hp
+	b.skill_aim = ally.position
+	sim._apply_skill(b, gd.skills["bis_ult_grace_dome"], m)
+	var domes: Array = (m.get("barriers", []) as Array).filter(func(x): return int(x["owner"]) == b.id and x.get("dome", false))
+	check(domes.size() == 1 and is_equal_approx(float(domes[0]["dr"]), 50.0), "Cúpula: ergue a cúpula de 50%%")
+	check(ally.hp > hp_a, "Cúpula: cura quem está dentro ao erguer")
+	var hp1 := ally.hp
+	sim._deal_damage(mob, ally, 100, false, false, "physical")
+	check(is_equal_approx(hp1 - ally.hp, 50.0), "Cúpula: aliado dentro leva -50%% (%.0f de 100)" % (hp1 - ally.hp))
+	b.position += Vector3(6, 0, 0)
+	ChoirSystem.tick(sim, m, 0.5)
+	check(domes.size() == 1 and (domes[0]["pos"] as Vector3).distance_to(Vector3(ally.position.x, 0, ally.position.z)) < 0.01, "Cúpula: fica parada quando o Bispo anda")
+	# Barreira Sagrada de outro Bispo em cima: vale a maior, não somam
+	var b2 := _ult_char(gd, sim, "bishop", "sacerdote", at + Vector3(0, 0, 3), "B1CupulaBarreira")
+	b2.party_id = 9400
+	ChoirSystem.place_barrier(sim, b2, gd.skills["bis_choir_barrier"], ally.position, m)
+	var hp2 := ally.hp
+	sim._deal_damage(mob, ally, 100, false, false, "physical")
+	check(is_equal_approx(hp2 - ally.hp, 50.0), "Cúpula + Barreira Sagrada: vale a maior, não somam (%.0f de 100)" % (hp2 - ally.hp))
+	b.position -= Vector3(6, 0, 0)
+	sim._apply_skill(b, gd.skills["bis_ult_grace_dome"], m)
+	check((m.get("barriers", []) as Array).filter(func(x): return int(x["owner"]) == b2.id and not x.get("dome", false)).size() == 1, "Cúpula: a Barreira de quem já tinha fica")
+	for x in (m.get("barriers", []) as Array).duplicate():
+		if int(x["owner"]) in [b.id, b2.id]:
+			m["barriers"].erase(x)
+	sim.despawn(b2)
+	# Sol do Julgamento
+	var i := _ult_char(gd, sim, "bishop", "inquisidor", at, "B1Sol")
+	i.party_id = 9400
+	ally.hp = ally.stats.max_hp * 0.5
+	i.skill_aim = mob.position
+	sim._apply_skill(i, gd.skills["bis_ult_judgement_sun"], m)
+	check(mob.state == SimEntity.State.STUNNED, "Sol: o impacto atordoa")
+	var zones: Array = (m["traps"] as Array).filter(func(x): return int(x["owner"]) == i.id and x["skill"] == "bis_ult_judgement_sun")
+	check(zones.size() == 1 and float(zones[0]["mend_pct"]) > 0.0, "Sol: o chão fica aceso (zona com cura do mais ferido)")
+	if zones.size() == 1:
+		var hp_al := ally.hp
+		var hp_m := mob.hp
+		TrapSystem._zone_pulse(sim, zones[0], i, m)
+		check(mob.hp < hp_m and ally.hp > hp_al, "Sol: o pulso fere e cura o aliado mais ferido")
+		m["traps"].erase(zones[0])
+	sim.despawn(i)
+	# Avatar da Fé
+	var c := _ult_char(gd, sim, "bishop", "batalha", at, "B1Avatar")
+	c.party_id = 9400
+	ally.hp = ally.stats.max_hp * 0.5
+	var hp_b := ally.hp
+	var hp_mob := mob.hp
+	sim._apply_skill(c, gd.skills["bis_ult_faith_avatar"], m)
+	check(ally.hp > hp_b, "Avatar: cura o grupo a %d m" % int(Balance.ULT_NUMBERS["bis_ult_faith_avatar"]["heal_radius"]))
+	check(c.buffs.any(func(x): return x.get("id") == "faith_avatar") and c.stats.phys_mend > 0.0 and c.stats.cc_resist_pct >= 49.0, "Avatar: buff com ATK/DEF, resistência a controle e cura pelo dano físico")
+	check(is_equal_approx(EntityView.buff_scale(c), 1.25), "Avatar: o boneco cresce x1,25 (EntityView.buff_scale)")
+	ally.hp = ally.stats.max_hp * 0.5
+	var hp_c := ally.hp
+	sim._deal_damage(c, mob, 400, false, false, "physical")
+	check(ally.hp > hp_c, "Avatar: o dano físico cura o aliado mais ferido")
+	check(mob.hp < hp_mob, "Avatar: o martelo de luz fere em volta")
+	for o in [b, ally, mob, c]:
+		o.party_id = -1
+		sim.despawn(o)
+
+## Druida: Colosso (vira urso, HP ganho entra cheio, % de vida no fim e ao sair do urso, Ent recusa), Lua Rubra (lobo, prefere quem não sangra), Coração (prende, 3 alvos a 10 m, cura).
+func _check_ultimate_b1_druid(gd, sim) -> void:
+	var m: Dictionary = sim.maps["city_aldara"]
+	var at := _ult_open(sim)
+	var d := _ult_char(gd, sim, "druid", "guardiao_verde", at, "B1Colosso")
+	if not d.stats.meets(["mace2h"]):           # o bot nasce com a arma de uma build sorteada: a do Urso é a maça de 2 mãos
+		for iid in gd.items:
+			var it: ItemDef = gd.items[iid]
+			if it.slot == ItemDef.Slot.WEAPON and it.weapon_type == "mace2h":
+				d.equipment[ItemDef.Slot.WEAPON] = it
+				d.recompute_stats()
+				break
+	var mob := _ult_mob(gd, sim, "golem", at + Vector3(0, 0, 4))
+	var cs: SkillDef = gd.skills["dru_ult_primal_colossus"]
+	d.form = "ent"
+	check(UltEffects.form_refused(d, "bear"), "Colosso: em Ent é recusado")
+	d.form = "wolf"
+	check(UltEffects.form_refused(d, "bear"), "Colosso: em outra forma é recusado")
+	d.form = ""
+	d.recompute_stats()
+	check(not UltEffects.form_refused(d, "bear"), "Colosso: em forma humana sai")
+	sim._apply_skill(d, cs, m)
+	check(d.form == "bear", "Colosso: vira urso na hora")
+	for x in d.buffs.duplicate():
+		if x.get("id") == "primal_colossus":
+			d.buffs.erase(x)
+	d.recompute_stats()
+	d.hp = d.stats.max_hp * 0.8
+	var max_bear: float = d.stats.max_hp
+	var hp_bear: float = d.hp
+	sim._apply_skill(d, cs, m)
+	check(d.buffs.any(func(x): return x.get("id") == "primal_colossus") and is_equal_approx(EntityView.buff_scale(d), 1.5), "Colosso: buff e urso x1,5")
+	check(d.stats.max_hp > max_bear * 1.4 and absf((d.hp - hp_bear) - (d.stats.max_hp - max_bear)) < 1.0, "Colosso: +HP máx. e a vida ganha entra cheia (%.0f -> %.0f, máx. %.0f -> %.0f)" % [hp_bear, d.hp, max_bear, d.stats.max_hp])
+	check(mob.aggro_target == d.id, "Colosso: urra e provoca")
+	d.hp = d.stats.max_hp * 0.6
+	for x in d.buffs:
+		if x.get("id") == "primal_colossus":
+			x["remaining"] = 0.01
+	sim._update_entity(d, m, 1.0 / 60.0)
+	check(not d.buffs.any(func(x): return x.get("id") == "primal_colossus") and absf(d.hp / d.stats.max_hp - 0.6) < 0.01,
+		"Colosso: ao acabar, a vida máx. volta e a %% fica (%.2f)" % (d.hp / d.stats.max_hp))
+	# urso desligado no meio: acaba junto, pela %
+	sim._apply_skill(d, cs, m)
+	d.hp = d.stats.max_hp * 0.7
+	sim._apply_effects(d, d, {"form": "bear"}, 0.0)
+	check(d.form == "" and not d.buffs.any(func(x): return x.get("id") == "primal_colossus") and absf(d.hp / d.stats.max_hp - 0.7) < 0.01,
+		"Colosso: sair do urso acaba o Colosso e a %% fica (%.2f)" % (d.hp / d.stats.max_hp))
+	sim.despawn(d)
+	sim.despawn(mob)
+	# Garras da Lua Rubra
+	var w := _ult_char(gd, sim, "druid", "fera", at, "B1Lua")
+	var ws: SkillDef = gd.skills["dru_ult_blood_moon"]
+	check(ws.requires_form == "wolf", "Lua Rubra: só como lobo (o Alfa conta por form_ok)")
+	var bled := _ult_mob(gd, sim, "golem", at + Vector3(0, 0, 2))
+	var fresh := _ult_mob(gd, sim, "golem", at + Vector3(0, 0, 4.5))
+	sim._apply_effects(w, bled, {"dot": {"dps": 4, "duration": 8, "skill": "dru_claw"}}, 1.0)
+	w.form = "wolf"
+	sim._apply_skill(w, ws, m)
+	check(not w.hop.is_empty() and is_equal_approx(float(w.hop["every"]), 0.8) and str(w.hop["prefer"]) == "unbled", "Lua Rubra: salta a cada 0,8 s preferindo quem não sangra")
+	check(fresh.debuffs.any(func(x): return x.get("kind") == "dot" and int(x.get("src", -1)) == w.id), "Lua Rubra: o 1º salto vai em quem não sangrava e o faz sangrar")
+	w.hop = {}
+	sim.despawn(w)
+	sim.despawn(bled)
+	sim.despawn(fresh)
+	# Coração do Bosque Ancião
+	var x := _ult_char(gd, sim, "druid", "xama", at, "B1Coracao")
+	var ally := _ult_char(gd, sim, "paladin", "guardiao", at + Vector3(0, 0, 6), "B1CoracaoAliado")
+	x.party_id = 9500
+	ally.party_id = 9500
+	var center := at + Vector3(0, 0, 6)
+	var inner := _ult_mob(gd, sim, "golem", center + Vector3(2, 0, 0))
+	var ring: Array = []
+	for k in range(4):
+		ring.append(_ult_mob(gd, sim, "golem", center + Vector3(cos(k * PI / 2.0), 0, sin(k * PI / 2.0)) * (7.5 + k * 0.5)))
+	x.skill_aim = center
+	sim._apply_skill(x, gd.skills["dru_ult_elder_heart"], m)
+	check(inner.has_debuff("root") and not (ring[0] as SimEntity).has_debuff("root"), "Coração: ao nascer prende quem está a 6 m (e só eles)")
+	var zs: Array = (m["traps"] as Array).filter(func(t): return int(t["owner"]) == x.id and t["skill"] == "dru_ult_elder_heart")
+	check(zs.size() == 1, "Coração: a árvore fica no chão (zona)")
+	if zs.size() == 1:
+		var before := {}
+		for o in [inner] + ring:
+			before[o.id] = o.hp
+		ally.hp = ally.stats.max_hp * 0.5
+		var hpa := ally.hp
+		TrapSystem._zone_pulse(sim, zs[0], x, m)
+		var hit_n := 0
+		for o in [inner] + ring:
+			if o.hp < float(before[o.id]):
+				hit_n += 1
+		check(hit_n == int(Balance.ULT_NUMBERS["dru_ult_elder_heart"]["foe_max"]), "Coração: Fogo Lunar em até 3 inimigos a 10 m (%d)" % hit_n)
+		check((ring[3] as SimEntity).hp == float(before[(ring[3] as SimEntity).id]), "Coração: o mais longe dos 5 fica de fora")
+		check(ally.hp > hpa, "Coração: cura o aliado a 6 m")
+		m["traps"].erase(zs[0])
+	for o in [x, ally, inner] + ring:
+		o.party_id = -1
+		sim.despawn(o)
+
+## Revisão da onda A (hop): o limite de pulos sem chão é por salto, não pela sequência (sequência longa não morre depois de 4 pulos).
+func _check_ultimate_b1_hop_skip(gd, sim) -> void:
+	var m: Dictionary = sim.maps["city_aldara"]
+	var at := _ult_open(sim)
+	var e := _ult_char(gd, sim, "druid", "fera", at, "B1HopSkip")
+	var foe := _ult_mob(gd, sim, "golem", at + Vector3(0, 0, 2.5))
+	HopSystem.start(sim, e, gd.skills["dru_ult_blood_moon"], 1.0, {"count": 6, "every": 0.5, "radius": 8.0})
+	var landed := 0
+	for i in range(5):
+		if e.hop.is_empty():
+			break
+		e.hop["skip"] = 3                       # três pulos sem chão antes deste salto (o limite é > 3 seguidos)
+		e.hop["next_at"] = sim.time
+		var left := int(e.hop["left"])
+		HopSystem.tick(sim, e, m)
+		if e.hop.is_empty() or int(e.hop["left"]) < left:
+			landed += 1
+		if not e.hop.is_empty():
+			check(int(e.hop.get("skip", 0)) == 0, "hop: salto que pousou zera os pulos sem chão (%d)" % int(e.hop.get("skip", 0)))
+	check(landed == 5, "hop: com pulos sem chão entre os saltos a sequência continua (%d de 5)" % landed)
+	e.hop = {}
+	sim.despawn(e)
+	sim.despawn(foe)
+
+# ----------------------------------------------------------------------------
+# Supremas da onda B2 (GDD ultimates-lv40 §3.5 13-24): Ranger, Assassino, Elementalista Gelo/Raio, Necromante.
+# `--only=ultimate_b2`
+# ----------------------------------------------------------------------------
+
+## Personagem do nível 40 com a ascensão e as armas da build (as de nível mais baixo, sem lendário).
+func _ult_b2_char(gd, sim, cls: String, build: String, at: Vector3, nm: String) -> SimEntity:
+	var e := _ult_char(gd, sim, cls, build, at, nm)
+	sim._gear_bot(e)                       # armadura da build (o bot nasce vestido para uma build sorteada: a força variava)
+	var b: Dictionary = e.class_def.build_by_id(build)
+	var slots := [[ItemDef.Slot.WEAPON, str(b["main"][0])]]
+	if (b["off"] as Array).size() > 0:
+		slots.append([ItemDef.Slot.OFFHAND, str(b["off"][0])])
+	for sl in slots:
+		var best: ItemDef = null
+		for iid in gd.items:
+			var it: ItemDef = gd.items[iid]
+			if it.weapon_type != sl[1] or it.is_legendary() or (it.class_restriction.size() > 0 and not (cls in it.class_restriction)):
+				continue
+			if best == null or it.level_req < best.level_req:
+				best = it
+		if best != null:
+			e.equipment[sl[0]] = best
+	e.recompute_stats()
+	e.hp = e.stats.max_hp
+	UltimateSystem.refresh(sim, e)
+	return e
+
+## Lança a Suprema da build de `e` direto (sem medidor): mira em `aim`, aplica o efeito como na fase ativa.
+func _ult_b2_fire(sim, e: SimEntity, aim: Vector3, m: Dictionary) -> SkillDef:
+	var s: SkillDef = UltimateSystem.ultimate_of(sim, e)
+	e.face_towards(aim)
+	e.skill_aim = aim
+	sim._apply_skill(e, s, m)
+	return s
+
+## Dano de `src` em `t` registrado pelo evento damage_dealt enquanto `fn` roda: [[amount, crit, kind], ...].
+func _ult_b2_hits(src: SimEntity, t: SimEntity, fn: Callable) -> Array:
+	var seen: Array = []
+	var cb := func(a: int, b: int, amount: int, crit: bool, _blk: bool, kind: String):
+		if a == src.id and b == t.id:
+			seen.append([amount, crit, kind])
+	Events.damage_dealt.connect(cb)
+	fn.call()
+	Events.damage_dealt.disconnect(cb)
+	return seen
+
+## As 11 da onda B2: uma por build, com a arma da build, números de Balance.ULT_NUMBERS.
+func _check_ultimate_b2_catalog(gd, sim) -> void:
+	var want := {"ranger": {"cacador": "ran_ult_wild_bond", "atirador": "ran_ult_end_shot", "lanceiro": "ran_ult_endless_lance"},
+		"assassin": {"laminas": "ass_ult_royal_toxin", "duelista": "ass_ult_grand_duel", "corsario": "ass_ult_fleet_call"},
+		"elementalist": {"gelo": "ele_ult_eternal_winter", "raio": "ele_ult_storm_eye"},
+		"necromancer": {"invocador": "nec_ult_tide_of_dead", "ceifador": "nec_ult_soul_reaping", "pestilento": "nec_ult_void_eclipse"}}
+	var at := _ult_open(sim)
+	for cls in want:
+		for b in want[cls]:
+			var e := _ult_b2_char(gd, sim, cls, b, at, "UltB2Cat")
+			var s: SkillDef = UltimateSystem.ultimate_of(sim, e)
+			check(s != null and s.id == want[cls][b], "suprema B2: %s/%s -> %s (%s)" % [cls, b, want[cls][b], s.id if s else "null"])
+			check(s != null and Balance.ULT_NUMBERS.has(s.id) and BuffLooks.LOOKS.size() > 0, "suprema B2 %s: números em ULT_NUMBERS" % want[cls][b])
+			sim.despawn(e)
+	var es: SkillDef = gd.skills["ran_ult_end_shot"]
+	check(is_equal_approx(es.startup, float(Balance.ULT_NUMBERS["ran_ult_end_shot"]["aim"])) and es.startup > 0.3,
+		"Disparo do Fim: mira longa (%.1f s) é a exceção ao teto de 0,3 s, vinda de ULT_NUMBERS" % es.startup)
+	for sid in ["wild_bond", "wild_bond_pet", "wild_bond_spirit", "grand_duel", "storm_eye", "tide_of_dead", "tide_frenzy", "soul_reaping"]:
+		check(BuffLooks.LOOKS.has(sid), "suprema B2: buff %s tem visual (BuffLooks.LOOKS)" % sid)
+
+## Ranger: Laço Selvagem (revive + 2º lince), Disparo do Fim (perfura, crítico, 1º leva mais, empurra), Lança Incansável.
+func _check_ultimate_b2_ranger(gd, sim) -> void:
+	var m: Dictionary = sim.maps["city_aldara"]
+	var at := _ult_open(sim)
+	var N: Dictionary = Balance.ULT_NUMBERS
+	# Laço Selvagem
+	var ran := _ult_b2_char(gd, sim, "ranger", "cacador", at, "UltB2Laco")
+	check(sim.pet_of(ran) == null, "Laço Selvagem: começa sem lince (morto)")
+	_ult_b2_fire(sim, ran, ran.position + Vector3(0, 0, 2), m)
+	var pet: SimEntity = sim.pet_of(ran)
+	check(pet != null and pet.hp == pet.stats.max_hp, "Laço Selvagem: o lince volta com a vida cheia")
+	var wb: Dictionary = N["ran_ult_wild_bond"]
+	if pet != null:
+		check(pet.buffs.any(func(b): return b.get("id") == "wild_bond_pet" and is_equal_approx(float(b.get("scale", 1.0)), float(wb["pet_grow"]))),
+			"Laço Selvagem: o lince ganha o buff e cresce ×%.1f (scale)" % float(wb["pet_grow"]))
+		check(pet.stats.cc_mult() <= 1.0 - float(wb["pet_cc_resist"]) / 100.0 + 0.001, "Laço Selvagem: lince resiste %d%% ao controle (%.2f)" % [int(wb["pet_cc_resist"]), pet.stats.cc_mult()])
+		check(absf(pet.stats.patk / pet.summon_patk - (1.0 + float(wb["atk_pct"]) / 100.0)) < 0.01, "Laço Selvagem: lince +%d%% de ataque (%.2f)" % [int(wb["atk_pct"]), pet.stats.patk / pet.summon_patk])
+	check(ran.buffs.any(func(b): return b.get("id") == "wild_bond" and float(b.get("atk_pct", 0)) == float(wb["atk_pct"])), "Laço Selvagem: você +%d%% de ATK" % int(wb["atk_pct"]))
+	var spirits: Array = m["entities"].filter(func(o): return o.kind == SimEntity.Kind.SUMMON and o.owner_id == ran.id and o != pet and o.is_alive())
+	check(spirits.size() == 1 and spirits[0].free_summon and spirits[0].summon_expires < INF, "Laço Selvagem: um 2º lince espiritual com tempo, fora do limite")
+	if spirits.size() == 1 and pet != null:
+		var sp: SimEntity = spirits[0]
+		check(absf(sp.stats.max_hp / pet.stats.max_hp - float(wb["spirit_mult"])) < 0.02 and sp.buffs.any(func(b): return b.get("id") == "wild_bond_spirit"),
+			"Laço Selvagem: o espiritual tem %d%% da vida do lince e o buff próprio (%.2f)" % [roundi(float(wb["spirit_mult"]) * 100.0), sp.stats.max_hp / pet.stats.max_hp])
+		check(sim.pet_of(ran) == pet, "Laço Selvagem: o companheiro de verdade continua sendo o lince (pet_of)")
+		sim.despawn(sp)
+	if pet != null:
+		pet.hp = 1.0
+		_ult_b2_fire(sim, ran, ran.position + Vector3(0, 0, 2), m)
+		check(pet.hp == pet.stats.max_hp, "Laço Selvagem: lince vivo volta à vida cheia")
+		for o in m["entities"].filter(func(o): return o.kind == SimEntity.Kind.SUMMON and o.owner_id == ran.id):
+			sim.despawn(o)
+	sim.despawn(ran)
+	# Disparo do Fim: 3 alvos em fila; o tiro passa por todos, crítico garantido, 1º leva mais
+	var gun := _ult_b2_char(gd, sim, "ranger", "atirador", at, "UltB2Tiro")
+	var fila: Array = []
+	for d in [3.0, 6.0, 11.0]:
+		fila.append(_ult_mob(gd, sim, "golem", gun.position + Vector3(d, 0, 0)))
+	var hp0: Array = fila.map(func(o): return o.hp)
+	var pos0: Vector3 = fila[1].position
+	var crits := {}
+	var fila_ids: Array = fila.map(func(o): return o.id)
+	var cb := func(a: int, b: int, _amt: int, crit: bool, _blk: bool, kind: String):
+		if a == gun.id and b in fila_ids and kind == "physical" and crit:
+			crits[b] = true
+	Events.damage_dealt.connect(cb)
+	_ult_b2_fire(sim, gun, gun.position + Vector3(10, 0, 0), m)
+	for i in range(90):
+		sim._update_projectiles(m, 1.0 / 60.0)
+	Events.damage_dealt.disconnect(cb)
+	var dmg: Array = []
+	for i in range(3):
+		dmg.append(float(hp0[i]) - fila[i].hp)
+	check(dmg[0] > 0.0 and dmg[1] > 0.0 and dmg[2] > 0.0, "Disparo do Fim: atravessa os três (%s)" % str(dmg))
+	check(crits.size() == 3, "Disparo do Fim: crítico garantido em todos (%d)" % crits.size())
+	var ratio: float = dmg[1] / maxf(1.0, dmg[0])
+	check(absf(ratio - float(N["ran_ult_end_shot"]["rest"])) < 0.15, "Disparo do Fim: depois do 1º, × %.1f (%.2f)" % [float(N["ran_ult_end_shot"]["rest"]), ratio])
+	check(fila[1].position.distance_to(pos0) > 1.0, "Disparo do Fim: empurra quem não é chefe (%.1f m)" % fila[1].position.distance_to(pos0))
+	for o in fila:
+		sim.despawn(o)
+	# mira longa: cancelar no preparo (dash) mantém a carga
+	gun.ult_charge = Balance.ULT_MAX
+	gun.ult_combat_t = sim.time + 100.0          # em luta: a carga não esvazia durante a mira
+	var foe := _ult_mob(gd, sim, "golem", gun.position + Vector3(6, 0, 0))
+	check(UltimateSystem.try_cast(sim, gun, foe.position, m) and gun.skill_phase == "startup", "Disparo do Fim: começa a mirar")
+	for i in range(60):
+		sim._update_entity(gun, m, 1.0 / 60.0)
+	check(gun.skill_phase == "startup" and gun.ult_charge == Balance.ULT_MAX, "Disparo do Fim: 1 s depois ainda mira e a carga está cheia")
+	var dash := InputCommand.new()
+	dash.dash = true
+	dash.aim = foe.position
+	gun.dash_cd = 0.0
+	sim._apply_command(gun, dash, m, 0.0)
+	check(gun.state == SimEntity.State.DASHING and gun.ult_charge == Balance.ULT_MAX, "Disparo do Fim: o dash na mira cancela e a carga fica")
+	gun.set_state(SimEntity.State.IDLE)
+	sim.despawn(foe)
+	sim.despawn(gun)
+	# Lança Incansável: 12 estocadas, sangra e marca; no fim arremessa e prende
+	var lan := _ult_b2_char(gd, sim, "ranger", "lanceiro", at, "UltB2Lanca")
+	var prey := _ult_mob(gd, sim, "golem", lan.position + Vector3(3, 0, 0))
+	var el: Dictionary = N["ran_ult_endless_lance"]
+	lan.ult_charge = Balance.ULT_MAX
+	var hits := _ult_b2_hits(lan, prey, func():
+		UltimateSystem.try_cast(sim, lan, prey.position, m)
+		for i in range(int((0.2 + float(el["channel"]) + 0.4) * 60.0)):
+			sim._update_entity(lan, m, 1.0 / 60.0)
+			sim._update_projectiles(m, 1.0 / 60.0))
+	var stabs := hits.filter(func(h): return h[2] == "physical").size()
+	check(stabs >= int(el["ticks"]) + 1 and stabs <= int(el["ticks"]) + 2, "Lança Incansável: %d estocadas + o arremesso (%d golpes)" % [int(el["ticks"]), stabs])
+	check(prey.debuffs.any(func(d): return d.get("id") == "bleed_%d" % lan.id) and prey.debuffs.any(func(d): return d.get("id") == "curse_predator_%d" % lan.id),
+		"Lança Incansável: sangra e marca (Marca do Predador)")
+	check(prey.has_debuff("root"), "Lança Incansável: o arremesso do fim prende")
+	sim.despawn(prey)
+	sim.despawn(lan)
+
+## Assassino: Toxina Real (dot_amp no alvo), Duelo Supremo (arco, Ímpeto 2, uma resposta por 0,5 s, Golpe de Mestre no fim),
+## Chamado da Frota (tempestade de balas, Bravata cheia). Decisão do aparo: golpe aparado por inteiro não enche a carga.
+func _check_ultimate_b2_assassin(gd, sim) -> void:
+	var m: Dictionary = sim.maps["city_aldara"]
+	var at := _ult_open(sim)
+	var N: Dictionary = Balance.ULT_NUMBERS
+	# Toxina Real
+	var lam := _ult_b2_char(gd, sim, "assassin", "laminas", at, "UltB2Tox")
+	var t := _ult_mob(gd, sim, "golem", lam.position + Vector3(1.5, 0, 0))
+	_ult_b2_fire(sim, lam, t.position, m)
+	var rt: Dictionary = N["ass_ult_royal_toxin"]
+	var amp := t.debuffs.filter(func(d): return d.get("kind") == Balance.DOT_AMP_KIND and int(d.get("src", -1)) == lam.id)
+	check(amp.size() == 1 and is_equal_approx(float(amp[0]["mult"]), float(rt["mult"])) and is_equal_approx(float(amp[0]["remaining"]), float(rt["duration"]))
+		and is_equal_approx(float(amp[0]["spread_radius"]), float(rt["spread"])), "Toxina Real: marca o alvo (×%.0f por %d s, espalha a %d m)" % [float(rt["mult"]), int(rt["duration"]), int(rt["spread"])])
+	sim.despawn(t)
+	sim.despawn(lam)
+	# Duelo Supremo
+	var du := _ult_b2_char(gd, sim, "assassin", "duelista", at, "UltB2Duelo")
+	du.facing = 0.0
+	var gd2: Dictionary = N["ass_ult_grand_duel"]
+	var front := _ult_mob(gd, sim, "golem", du.position + du.forward().rotated(Vector3.UP, deg_to_rad(60.0)) * 1.5)
+	var side := _ult_mob(gd, sim, "golem", du.position + du.forward().rotated(Vector3.UP, deg_to_rad(110.0)) * 1.5)
+	_ult_b2_fire(sim, du, du.position + du.forward() * 2.0, m)
+	var w := RiposteSystem.window(du)
+	check(not w.is_empty() and float(w.get("riposte_arc", 0)) == float(gd2["arc"]) and w.has("end_cast"), "Duelo Supremo: janela de aparar longa com arco %d° e fechamento" % int(gd2["arc"]))
+	sim._apply_effects(du, du, {"buff": gd.skills["ass_guard"].effects["buff"]}, 1.0)
+	check(RiposteSystem.window(du) == w and du.buffs.any(func(b): return b.get("id") == "grand_duel"), "Duelo Supremo: a Guarda comum lançada no meio não apaga o Duelo (id próprio)")
+	du.buffs = du.buffs.filter(func(b): return b.get("id") != Balance.RIPOSTE_BUFF)
+	var hp_f := front.hp
+	var landed: bool = sim._deal_damage(front, du, 100, false, false, "physical")
+	check(not landed and du.buff_stacks(Balance.RIPOSTE_MOMENTUM_BUFF) == int(gd2["gain"]) and front.hp < hp_f, "Duelo Supremo: apara a 60° da frente, responde e dá %d de Ímpeto" % int(gd2["gain"]))
+	hp_f = front.hp
+	sim._deal_damage(front, du, 100, false, false, "physical")
+	check(front.hp == hp_f, "Duelo Supremo: no máximo uma resposta a cada %.1f s" % float(gd2["gap"]))
+	w["next_counter"] = sim.time - 0.01
+	sim._deal_damage(front, du, 100, false, false, "physical")
+	check(front.hp < hp_f, "Duelo Supremo: passado o intervalo, responde de novo (sem o teto de 2 da Guarda)")
+	du.stats.evasion = 0.0
+	var hp_d := du.hp
+	sim._deal_damage(side, du, 100, false, false, "physical")
+	check(du.hp < hp_d, "Duelo Supremo: golpe de fora do arco (110°) entra")
+	# contador do Duelo (decisão do usuário 2026-11-19): aparo soma "gain"; golpe seu soma "hit_gain" até "hit_cap" golpes; teto "duel_cap"
+	var cap := int(gd2["duel_cap"])
+	check(int(w.get("duel", 0)) == mini(cap, 3 * int(gd2["gain"])), "Duelo Supremo: cada aparo soma %d ao Duelo (3 aparos: %d)" % [int(gd2["gain"]), int(w.get("duel", 0))])
+	w["duel"] = 0
+	sim._strike(du, front, du.basic_skill, 1.0, SkillDef.Kind.PHYSICAL, du.position)
+	check(int(w["duel"]) == int(gd2["hit_gain"]), "Duelo Supremo: o básico do duelista no alvo soma %d ao Duelo (%d)" % [int(gd2["hit_gain"]), int(w["duel"])])
+	for k in range(int(gd2["hit_cap"]) + 3):
+		RiposteSystem.duel_hit(du)
+	var from_hits: int = mini(cap, int(gd2["hit_cap"]) * int(gd2["hit_gain"]))
+	check(int(w["duel"]) == from_hits, "Duelo Supremo: os golpes enchem até %d golpes (%d)" % [int(gd2["hit_cap"]), int(w["duel"])])
+	w["next_counter"] = sim.time + 10.0
+	sim._deal_damage(front, du, 100, false, false, "physical")
+	check(int(w["duel"]) == mini(cap, from_hits + int(gd2["gain"])), "Duelo Supremo: aparar ainda soma depois do teto dos golpes (%d)" % int(w["duel"]))
+	sim._deal_damage(front, du, 100, false, false, "physical")
+	sim._deal_damage(front, du, 100, false, false, "physical")
+	check(int(w["duel"]) == cap, "Duelo Supremo: o Duelo para no teto %d (%d)" % [cap, int(w["duel"])])
+	check(cap * float(gd2["duel_per"]) > 0.4 and 1.0 + from_hits * float(gd2["duel_per"]) >= 1.4,
+		"Duelo Supremo: só com os seus golpes o fecho já sai bem mais forte que o piso (x%.2f)" % (1.0 + from_hits * float(gd2["duel_per"])))
+	# fim: Golpe de Mestre com o Ímpeto cheio
+	var hp_m := front.hp
+	w["remaining"] = 0.01
+	sim._update_entity(du, m, 0.05)
+	check(RiposteSystem.window(du).is_empty() and front.hp < hp_m and du.buff_stacks(Balance.RIPOSTE_MOMENTUM_BUFF) == 0, "Duelo Supremo: no fim sai o Golpe de Mestre e gasta o Ímpeto")
+	# decisão (GDD §3.2 item 5): aparo inteiro é golpe que não pegou -> não enche quem aparou
+	du.ult_gap_until = 0.0
+	UltimateSystem.zero(du)
+	du.ult_budget = Balance.ULT_RATE_BURST
+	du.put_buff({"id": Balance.RIPOSTE_BUFF, "remaining": 1.0})
+	du.stats.evasion = 0.0
+	sim._deal_damage(front, du, 200, false, false, "physical")
+	var c_parry := du.ult_charge
+	du.stats.evasion = 0.0
+	du.buffs = du.buffs.filter(func(b): return b.get("id") != Balance.RIPOSTE_BUFF)
+	UltimateSystem.zero(du)
+	du.ult_budget = Balance.ULT_RATE_BURST
+	sim._deal_damage(front, du, 200, false, false, "physical")
+	check(c_parry == 0.0 and du.ult_charge > 0.0, "aparo inteiro do Duelista não enche a carga (golpe que não pegou; %.2f) e o mesmo golpe sem aparar enche (%.2f)" % [c_parry, du.ult_charge])
+	for o in [front, side, du]:
+		sim.despawn(o)
+	# Chamado da Frota
+	var cor := _ult_b2_char(gd, sim, "assassin", "corsario", at, "UltB2Frota")
+	var fc: Dictionary = N["ass_ult_fleet_call"]
+	var tgt := _ult_mob(gd, sim, "golem", cor.position + Vector3(6, 0, 0))
+	var hp_t := tgt.hp
+	_ult_b2_fire(sim, cor, tgt.position, m)
+	check(cor.buff_stacks(Balance.BRAVADO_BUFF) == Balance.BRAVADO_MAX, "Chamado da Frota: Bravata cheia (%d)" % cor.buff_stacks(Balance.BRAVADO_BUFF))
+	check(tgt.hp == hp_t, "Chamado da Frota: nada bate na hora (as balas são avisadas)")
+	var st: Array = StormSystem.storms_of(sim, cor)
+	check(st.size() == 1 and st[0]["anchor"] == "ground" and (st[0]["center"] as Vector3).distance_to(Vector3(tgt.position.x, 0, tgt.position.z)) < 0.01,
+		"Chamado da Frota: a frota mira o ponto (presa no chão)")
+	check(ceili(float(fc["duration"]) / float(st[0]["every"]) - 0.0001) == int(fc["shots"]) if st.size() == 1 else false, "Chamado da Frota: %d balas em %d s" % [int(fc["shots"]), int(fc["duration"])])
+	if st.size() == 1:
+		st[0]["bias"] = 1.0
+		st[0]["next_at"] = sim.time
+		StormSystem.tick(sim, m)
+		var mine: Array = (m.get("ally_strikes", []) as Array).filter(func(h): return int(h["owner"]) == cor.id)
+		check(mine.size() == 1 and is_equal_approx(float(mine[0]["at"]) - sim.time, float(fc["warn"])), "Chamado da Frota: cada bala é avisada %.1f s antes" % float(fc["warn"]))
+		for h in mine:
+			h["at"] = sim.time - 0.01
+		StormSystem.tick(sim, m)
+		check(tgt.hp < hp_t, "Chamado da Frota: a bala acerta o inimigo")
+		(m["storms"] as Array).erase(st[0])
+	sim.despawn(tgt)
+	sim.despawn(cor)
+
+## Elementalista: Inverno Eterno (ancorado no ponto, congela no 3º pulso) e Olho da Tempestade (segue, encadeia, velocidade,
+## Passo Relampejante sem recarga).
+func _check_ultimate_b2_elementalist(gd, sim) -> void:
+	var m: Dictionary = sim.maps["city_aldara"]
+	var at := _ult_open(sim)
+	var N: Dictionary = Balance.ULT_NUMBERS
+	var g := _ult_b2_char(gd, sim, "elementalist", "gelo", at, "UltB2Gelo")
+	var foe := _ult_mob(gd, sim, "golem", g.position + Vector3(5, 0, 0))
+	var hp0 := foe.hp
+	_ult_b2_fire(sim, g, foe.position, m)
+	var st: Array = StormSystem.storms_of(sim, g)
+	var ew: Dictionary = N["ele_ult_eternal_winter"]
+	check(st.size() == 1 and st[0]["mode"] == "pulse" and (st[0]["center"] as Vector3).distance_to(Vector3(foe.position.x, 0, foe.position.z)) < 0.01,
+		"Inverno Eterno: tempestade de pulsos presa no ponto mirado")
+	if st.size() == 1:
+		for k in range(int(ew["freeze_hits"])):
+			StormSystem._fire(sim, m, g, st[0])
+		check(foe.hp < hp0 and foe.state == SimEntity.State.STUNNED, "Inverno Eterno: fere e congela no %dº pulso" % int(ew["freeze_hits"]))
+		(m["storms"] as Array).erase(st[0])
+	foe.set_state(SimEntity.State.IDLE)
+	sim.despawn(g)
+	# Olho da Tempestade
+	var r := _ult_b2_char(gd, sim, "elementalist", "raio", at, "UltB2Raio")
+	var se: Dictionary = N["ele_ult_storm_eye"]
+	r.cooldowns["ele_bolt_step"] = 7.0
+	var a := _ult_mob(gd, sim, "golem", r.position + Vector3(3, 0, 0))
+	var b := _ult_mob(gd, sim, "golem", r.position + Vector3(4.5, 0, 0))
+	_ult_b2_fire(sim, r, r.position + Vector3(0, 0, 1), m)
+	check(not r.cooldowns.has("ele_bolt_step"), "Olho da Tempestade: Passo Relampejante volta da recarga")
+	check(r.buffs.any(func(x): return x.get("id") == "storm_eye" and float(x.get("speed_pct", 0)) == float(se["speed_pct"])), "Olho da Tempestade: +%d%% de velocidade" % int(se["speed_pct"]))
+	var est: Array = StormSystem.storms_of(sim, r)
+	check(est.size() == 1 and est[0]["anchor"] == "caster", "Olho da Tempestade: a tempestade segue o mago")
+	if est.size() == 1:
+		var ha := a.hp
+		var hb := b.hp
+		est[0]["next_at"] = sim.time
+		StormSystem.tick(sim, m)
+		check(a.hp < ha and b.hp < hb, "Olho da Tempestade: o raio cai num e salta para o vizinho (chain)")
+		var first: SimEntity = a if (est[0]["last_hit"] as Dictionary).get(a.id, -1.0) == sim.time and (est[0]["last_hit"] as Dictionary).size() == 1 else b
+		var pick: SimEntity = StormSystem._pick(sim, m, r, est[0])
+		check(pick != null and (pick != first or (est[0]["last_hit"] as Dictionary).size() > 1), "Olho da Tempestade: prefere quem não levou agora")
+		(m["storms"] as Array).erase(est[0])
+	for o in [foe, a, b, r]:
+		sim.despawn(o)
+
+## Necromante: Maré dos Mortos (6 fora do limite, +MATK nelas, explodem ao sumir, fora da Oferenda), Ceifa das Almas (cura
+## por atingido, buff, variantes de forma), Eclipse do Vazio (sem dano no pulso, lentidão, maldição copiada, dot ×, implosão).
+func _check_ultimate_b2_necro(gd, sim) -> void:
+	var m: Dictionary = sim.maps["city_aldara"]
+	var at := _ult_open(sim)
+	var N: Dictionary = Balance.ULT_NUMBERS
+	var nec := _ult_b2_char(gd, sim, "necromancer", "invocador", at, "UltB2Mare")
+	var td: Dictionary = N["nec_ult_tide_of_dead"]
+	var ref: SimEntity = sim.spawn_summon(nec, gd.monsters["skeleton_minion"], nec.position + Vector3(-1, 0, 0), 20.0)
+	_ult_b2_fire(sim, nec, nec.position + Vector3(0, 0, 2), m)
+	var free: Array = m["entities"].filter(func(o): return o.kind == SimEntity.Kind.SUMMON and o.owner_id == nec.id and o.free_summon and o.is_alive())
+	check(free.size() == int(td["count"]) and free.all(func(o): return not o.expire_blast.is_empty()), "Maré dos Mortos: %d esqueletos fora do limite, que explodem ao sumir" % int(td["count"]))
+	check(nec.buffs.any(func(x): return x.get("id") == "tide_of_dead"), "Maré dos Mortos: +MATK em você")
+	if free.size() > 0:
+		var k: float = free[0].summon_patk / maxf(0.01, ref.summon_patk)
+		check(absf(k - (1.0 + float(td["matk_pct"]) / 100.0)) < 0.05, "Maré dos Mortos: os novos já nascem com o +%d%% de MATK (×%.2f)" % [int(td["matk_pct"]), k])
+		check(free[0].buffs.any(func(x): return x.get("id") == "tide_frenzy") and ref.buffs.any(func(x): return x.get("id") == "tide_frenzy"),
+			"Maré dos Mortos: suas invocações (as novas e as que já estavam) atacam mais rápido")
+		check(SummonRites.pick(sim, nec, nec.position, {"pick_radius": 20.0, "max": 20}).all(func(o): return not o.free_summon), "Maré dos Mortos: a Oferenda Sombria não pega os 6")
+		var sk: SimEntity = free[0]
+		var near := _ult_mob(gd, sim, "golem", sk.position + Vector3(1, 0, 0))
+		var hp_n := near.hp
+		sk.summon_expires = sim.time - 0.01
+		sim._update_entity(sk, m, 0.05)
+		check(not m["entities"].has(sk), "Maré dos Mortos: o esqueleto some no fim do tempo")
+		check(near.hp < hp_n, "Maré dos Mortos: a explosão fere quem está perto (%.0f)" % (hp_n - near.hp))
+		sim.despawn(near)
+	for o in m["entities"].filter(func(o): return o.kind == SimEntity.Kind.SUMMON and o.owner_id == nec.id):
+		sim.despawn(o)
+	sim.despawn(nec)
+	# Ceifa das Almas
+	var rp := _ult_b2_char(gd, sim, "necromancer", "ceifador", at, "UltB2Ceifa")
+	var sr: Dictionary = N["nec_ult_soul_reaping"]
+	var ring: Array = []
+	for i in range(3):
+		ring.append(_ult_mob(gd, sim, "golem", rp.position + Vector3(cos(i * 2.1), 0, sin(i * 2.1)) * 3.0))
+	rp.hp = rp.stats.max_hp * 0.3
+	var h0 := rp.hp
+	_ult_b2_fire(sim, rp, rp.position + Vector3(0, 0, 1), m)
+	var healed := (rp.hp - h0) / rp.stats.max_hp * 100.0
+	check(healed >= float(sr["heal_pct"]) * 3.0 - 0.5, "Ceifa das Almas: cura %d%% por inimigo atingido (3 -> %.1f%%)" % [int(sr["heal_pct"]), healed])
+	check(ring.all(func(o): return o.hp < 1.0e7), "Ceifa das Almas: o giro pega todos a %d m" % int(sr["radius"]))
+	check(rp.buffs.any(func(x): return x.get("id") == "soul_reaping" and float(x.get("lifesteal", 0)) == float(sr["lifesteal"])), "Ceifa das Almas: buff de ATK/MATK e roubo de vida")
+	rp.ult_charge = Balance.ULT_MAX
+	rp.ult_gap_until = 0.0
+	rp.form = "demon"
+	UltimateSystem.try_cast(sim, rp, rp.position + Vector3(0, 0, 1), m)
+	var cur: SkillDef = rp.current_skill
+	check(cur != null and cur.ultimate and absf(cur.power - gd.skills["nec_ult_soul_reaping"].power * float(sr["demon"])) < 0.01, "Ceifa das Almas: na Forma Demoníaca o giro vale ×%.1f (%.2f)" % [float(sr["demon"]), cur.power if cur else 0.0])
+	rp.set_state(SimEntity.State.IDLE)
+	rp.current_skill = null
+	rp.form = "phantom"
+	UltimateSystem.try_cast(sim, rp, rp.position + Vector3(0, 0, 1), m)
+	cur = rp.current_skill
+	check(cur != null and cur.talent_effects.has("dash"), "Ceifa das Almas: na Forma Fantasma avança no giro")
+	rp.set_state(SimEntity.State.IDLE)
+	rp.current_skill = null
+	rp.form = ""
+	for o in ring:
+		sim.despawn(o)
+	sim.despawn(rp)
+	# Eclipse do Vazio
+	var sh := _ult_b2_char(gd, sim, "necromancer", "pestilento", at, "UltB2Eclipse")
+	var ve: Dictionary = N["nec_ult_void_eclipse"]
+	var cursed := _ult_mob(gd, sim, "golem", sh.position + Vector3(6, 0, 0))
+	var fresh := _ult_mob(gd, sim, "golem", sh.position + Vector3(8, 0, 2))
+	sim._apply_effects(sh, cursed, gd.skills["nec_curse_doom"].effects, 1.0)
+	var bid := _ult_boss_id(gd)
+	var boss: SimEntity = _ult_mob(gd, sim, bid, sh.position + Vector3(9, 0, -2.5)) if bid != "" else null
+	var center := sh.position + Vector3(7, 0, 0)
+	var hp_c := fresh.hp
+	_ult_b2_fire(sim, sh, center, m)
+	var vst: Array = StormSystem.storms_of(sim, sh)
+	check(vst.size() == 1, "Eclipse do Vazio: o disco fica no ponto")
+	if vst.size() == 1:
+		StormSystem._fire(sim, m, sh, vst[0])
+		check(fresh.hp == hp_c, "Eclipse do Vazio: o pulso não fere (só prende o vazio)")
+		check(fresh.debuffs.any(func(d): return d.get("kind") == "slow" and is_equal_approx(float(d.get("pct", 0)), float(ve["slow"])) and not d.get("frost", false)),
+			"Eclipse do Vazio: %d%% mais lento (sem estilhaço de gelo)" % int(ve["slow"]))
+		check(fresh.debuffs.any(func(d): return d.get("id") == "curse_doom_%d" % sh.id), "Eclipse do Vazio: quem entra recebe cópia das suas maldições")
+		check(fresh.debuffs.any(func(d): return d.get("kind") == Balance.DOT_AMP_KIND and is_equal_approx(float(d.get("mult", 0)), float(ve["amp"]))), "Eclipse do Vazio: seus danos no tempo ×%.1f dentro" % float(ve["amp"]))
+		var far := fresh.position.distance_to(Vector3(center.x, 0, center.z))
+		var boss_pos: Vector3 = boss.position if boss else Vector3.ZERO
+		vst[0]["until"] = sim.time - 0.01
+		vst[0]["next_at"] = sim.time + 100.0
+		StormSystem.tick(sim, m)
+		check(fresh.hp < hp_c and fresh.position.distance_to(Vector3(center.x, 0, center.z)) < far - 0.5, "Eclipse do Vazio: no fim implode, puxa e fere")
+		if boss:
+			check(boss.position.distance_to(boss_pos) < 0.01, "Eclipse do Vazio: chefe não é puxado")
+	for o in [cursed, fresh, boss, sh]:
+		if o != null:
+			sim.despawn(o)
+
+## Força das Supremas de dano (decisão do usuário 2026-11-19: 16-22 de poder em alvo único somando a duração, GDD §3.5/§4):
+## lança contra um chefe parado (sem cérebro) e soma o dano DA SUPREMA (SimEntity.ult_dealt: golpes, pulsos, saltos,
+## martelos, dots dela, fecho e o que a marca dela acrescenta) ÷ o dano médio de um golpe de poder 1,0 de quem lançou no
+## mesmo alvo; média de ULT_POW_RUNS lançamentos (crítico de golpe único oscila). Festim e Duelo são buffs: quem lança bate de
+## básico 11 s com e sem a Suprema e a diferença é a força dela (velocidade, crítico, sangria, fecho). Imprime
+## "ULT_POWER <id> ef=<x>". O relógio da sim anda aqui (tempestades/zonas por sim.time). `--only=ultimate_b2_power`
+## (`--ult_pow_only=<build,...>` só essas; `--ult_pow_trace` cada golpe da Suprema).
+const ULT_POW_RUNS := 5
+## O check aceita ULT_POW_NOISE de folga em volta da faixa: golpe único com crítico (Duelo, Veredito) e golpes sorteados
+## (meteoros, balas) oscilam ±1-2 entre ordens de check; o alvo de calibragem continua Balance.ULT_POWER_BAND.
+const ULT_POW_NOISE := 1.5
+
+func _check_ultimate_b2_power(gd, sim) -> void:
+	var keep_time: float = sim.time           # cada lançamento anda ~14 s: o relógio volta no fim (checks seguintes não dependem disto)
+	_ult_pow_all(gd, sim)
+	sim.time = keep_time
+
+func _ult_pow_all(gd, sim) -> void:
+	var m: Dictionary = sim.maps["city_aldara"]
+	var at := _ult_open(sim)
+	var bid := _ult_boss_id(gd)
+	# [classe, build, distância do alvo, buff: bate de básico com e sem]
+	var cases := [["elementalist", "fogo", 0.0, false], ["ranger", "atirador", 6.0, false], ["ranger", "lanceiro", 2.5, false],
+		["assassin", "laminas", 1.5, false], ["assassin", "corsario", 6.0, false], ["elementalist", "gelo", 5.0, false],
+		["elementalist", "raio", 3.0, false], ["necromancer", "ceifador", 2.5, false], ["necromancer", "pestilento", 5.0, false],
+		["paladin", "cruzado", 3.0, false], ["paladin", "templario", 2.5, false], ["berserker", "executor", 3.0, false],
+		["berserker", "punhos", 2.0, false], ["bishop", "inquisidor", 5.0, false], ["druid", "fera", 2.0, false],
+		["druid", "xama", 5.0, false], ["berserker", "carniceiro", 1.2, true], ["assassin", "duelista", 1.2, true]]
+	var only := ""
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--ult_pow_only="):
+			only = a.get_slice("=", 1)          # só estas builds (iterar a calibragem)
+	for c in cases:
+		if only != "" and not (c[1] in only.split(",")):
+			continue
+		var ef := 0.0
+		var duel_max := 0
+		var sid := ""
+		var runs: int = ULT_POW_RUNS * (3 if c[1] in ["duelista", "executor"] else 1)     # um golpe só: o crítico pesa
+		for k in range(runs):
+			var r: Dictionary = _ult_pow_run(gd, sim, m, at, bid, c, true)
+			sid = r["id"]
+			duel_max = maxi(duel_max, int(r["duel"]))
+			if c[3]:
+				var off: Dictionary = _ult_pow_run(gd, sim, m, at, bid, c, false)
+				ef += (float(r["total"]) - float(off["total"])) / maxf(1.0, float(r["ref"])) / runs
+			else:
+				ef += float(r["ult"]) / maxf(1.0, float(r["ref"])) / runs
+		print("ULT_POWER %s ef=%.1f%s" % [sid, ef, (" duelo=%d" % duel_max) if c[1] == "duelista" else ""])
+		if Balance.ULT_POWER_PART.has(sid):     # dano + utilidade: só a parte de dano tem faixa própria
+			var band: Array = Balance.ULT_POWER_PART[sid]
+			check(ef >= float(band[0]) - ULT_POW_NOISE and ef <= float(band[1]) + ULT_POW_NOISE, "suprema %s: a parte de dano na faixa %.0f-%.0f (%.1f)" % [sid, float(band[0]), float(band[1]), ef])
+		else:
+			check(ef >= Balance.ULT_POWER_BAND[0] - ULT_POW_NOISE and ef <= Balance.ULT_POWER_BAND[1] + ULT_POW_NOISE, "suprema %s: força em alvo único na faixa %.0f-%.0f de poder (decisão 2026-11-19; %.1f)" % [
+				sid, Balance.ULT_POWER_BAND[0], Balance.ULT_POWER_BAND[1], ef])
+		if c[1] == "duelista":
+			check(duel_max >= int(Balance.ULT_NUMBERS["ass_ult_grand_duel"]["hit_cap"]) * int(Balance.ULT_NUMBERS["ass_ult_grand_duel"]["hit_gain"]),
+				"Duelo Supremo: só os seus golpes já enchem o contador do Duelo (%d) sem ninguém bater nele" % duel_max)
+
+## Um lançamento (ou, com `use_ult` falso, só os básicos) contra um chefe parado: {"id", "ult" (dano da Suprema no alvo),
+## "total" (todo o dano no alvo), "ref" (golpe médio de poder 1,0), "duel" (maior contador do Duelo)}.
+func _ult_pow_run(gd, sim, m: Dictionary, at: Vector3, bid: String, c: Array, use_ult: bool) -> Dictionary:
+	var e := _ult_b2_char(gd, sim, c[0], c[1], at, "UltPow")
+	if c[1] == "fera":
+		e.form = "wolf"                      # Lua Rubra: só como lobo
+		e.recompute_stats()
+	e.facing = 0.0
+	var t: SimEntity = _ult_mob(gd, sim, bid, e.position + e.forward() * maxf(1.2, float(c[2])))
+	t.position.y = 0.0
+	var s: SkillDef = UltimateSystem.ultimate_of(sim, e)
+	var kind: int = SkillDef.Kind.MAGICAL if s.kind == SkillDef.Kind.MAGICAL else SkillDef.Kind.PHYSICAL
+	var ref := 0.0
+	for i in range(400):
+		ref += float(Combat.calc_damage(e, t, 1.0, kind, sim.rng, e.position)["amount"])
+	ref /= 400.0
+	if c[1] == "laminas":                # Toxina Real: o que ela dobra = os venenos da build (Lâmina Pestilenta + Virulência)
+		sim._apply_effects(e, e, {"buff": gd.skills["ass_plague_blade"].effects["buff"]}, 1.0)
+		sim._apply_effects(e, t, {"dot": (gd.skills["ass_virulence"].effects["dot"] as Dictionary).merged({"skill": "ass_virulence"})}, 1.0)
+	if c[1] == "pestilento":             # Eclipse: o que ele multiplica = as maldições/danos no tempo da build
+		sim._apply_effects(e, t, {"dot": (gd.skills["nec_pandemic"].effects["dot"] as Dictionary).merged({"skill": "nec_pandemic"})}, 1.0)
+	e.ult_charge = Balance.ULT_MAX
+	e.ult_gap_until = 0.0
+	e.ult_combat_t = sim.time + 100.0
+	var got := [0.0, e.ult_dealt, 0.0]
+	var trace := OS.get_cmdline_user_args().has("--ult_pow_trace")
+	var cb := func(a: int, b: int, amount: int, _c: bool, _bl: bool, _k: String):
+		if a == e.id:
+			if b == t.id:
+				got[0] += e.ult_dealt - float(got[1])     # a parte da Suprema neste golpe (somada antes do evento)
+				got[2] += float(amount)
+				if trace and e.ult_dealt > float(got[1]):
+					print("  ULT_HIT %s %.0f %s t=%.2f" % [e.build_id, e.ult_dealt - float(got[1]), _k, sim.time])
+			got[1] = e.ult_dealt
+	Events.damage_dealt.connect(cb)
+	if trace:
+		print("  ULT_RUN %s ref=%.0f patk=%.0f matk=%.0f crit=%.1f" % [c[1], ref, e.stats.patk, e.stats.matk, e.stats.crit_phys])
+	if use_ult:
+		UltimateSystem.try_cast(sim, e, t.position, m)
+	var cmd := InputCommand.new()
+	cmd.attack = true
+	var dt := 1.0 / 60.0
+	var duel_max := 0
+	for i in range(int(14.0 / dt)):
+		sim.time += dt
+		var in_ult: bool = e.state == SimEntity.State.CASTING and e.current_skill != null and e.current_skill.ultimate
+		if c[3] and not in_ult and i * dt < 11.0:
+			cmd.aim = t.position
+			sim._apply_command(e, cmd, m, dt)
+		sim._update_entity(e, m, dt)
+		sim._update_entity(t, m, dt)
+		StormSystem.tick(sim, m)
+		TrapSystem.update_traps(sim, m)
+		AuraSystem.tick(sim, m, dt)
+		sim._update_projectiles(m, dt)
+		if in_ult:
+			e.skill_aim = t.position
+		if i % 30 == 0:
+			e.facing = atan2(t.position.x - e.position.x, t.position.z - e.position.z)
+		for b in e.buffs:
+			if b.has("duel_cap"):
+				duel_max = maxi(duel_max, int(b.get("duel", 0)))
+	Events.damage_dealt.disconnect(cb)
+	for x in (m.get("storms", []) as Array).duplicate():
+		if int(x["owner"]) == e.id:
+			m["storms"].erase(x)
+	m["ally_strikes"] = (m.get("ally_strikes", []) as Array).filter(func(h): return int(h["owner"]) != e.id)
+	m["traps"] = (m.get("traps", []) as Array).filter(func(h): return int(h.get("owner", -1)) != e.id)
+	sim.despawn(t)
+	sim.despawn(e)
+	return {"id": s.id, "ult": got[0], "total": got[2], "ref": ref, "duel": duel_max}
+
+## Laço Selvagem / Maré dos Mortos: a defesa que o lince herda do dono (PET_DEF_SHARE) fica depois que o buff de invocação acaba
+## (o recompute_stats do fim do buff a perdia).
+func _check_ultimate_pet_def(gd, sim) -> void:
+	var m: Dictionary = sim.maps["city_aldara"]
+	var at := _ult_open(sim)
+	var e := _ult_b2_char(gd, sim, "ranger", "cacador", at, "UltPetDef")
+	var sm: Dictionary = gd.skills["ran_companion"].effects["summon"]
+	var pet: SimEntity = sim.spawn_summon(e, gd.monsters[str(sm["monster_id"])], at + Vector3(1.2, 0, 0), 0.0, bool(sm.get("owner_stats", false)))
+	pet.brain = null
+	var pd: float = pet.stats.pdef
+	check(pd > 0.0 and is_equal_approx(pd, e.stats.pdef * Balance.PET_DEF_SHARE), "Laço: o lince nasce com a defesa herdada do dono (%.1f)" % pd)
+	var wb: Dictionary = gd.skills["ran_ult_wild_bond"].effects["pet_revive"]
+	for buff in [wb["buff"], {"id": "tide_frenzy", "duration": 5.0, "aspd_pct": 25.0}]:
+		UltEffects.pet_buff(pet, buff)
+		for b in pet.buffs:
+			if b.get("id") == buff["id"]:
+				b["remaining"] = 0.01
+		sim._update_entity(pet, m, 0.05)
+		check(not pet.buffs.any(func(b): return b.get("id") == buff["id"]) and is_equal_approx(pet.stats.pdef, pd),
+			"Laço: acabou o buff %s e o lince mantém a defesa herdada (%.1f -> %.1f)" % [buff["id"], pd, pet.stats.pdef])
+	sim.despawn(pet)
+	sim.despawn(e)
+
+## Cúpula da Graça (decisão 2026-11-19): fica no chão até acabar, mesmo com o Sacerdote morto (efeito posto para salvar o grupo).
+func _check_ultimate_dome_stays(gd, sim) -> void:
+	var m: Dictionary = sim.maps["city_aldara"]
+	var at := _ult_open(sim)
+	var pr := _ult_b2_char(gd, sim, "bishop", "sacerdote", at, "UltDomePr")
+	var ally := _ult_b2_char(gd, sim, "paladin", "guardiao", at + Vector3(2, 0, 0), "UltDomeAl")
+	pr.party_id = 9601
+	ally.party_id = 9601
+	var mob := _ult_mob(gd, sim, "golem", at + Vector3(0, 0, 4))
+	_ult_b2_fire(sim, pr, at + Vector3(1, 0, 0), m)
+	var domes: Array = (m.get("barriers", []) as Array).filter(func(b): return int(b["owner"]) == pr.id and b.get("dome", false))
+	check(domes.size() == 1, "Cúpula: posta no chão")
+	sim._kill(pr, mob)
+	ChoirSystem.tick(sim, m, 0.1)
+	var left: Array = (m.get("barriers", []) as Array).filter(func(b): return int(b["owner"]) == pr.id and b.get("dome", false))
+	check(left.size() == 1, "Cúpula: o Sacerdote caiu e ela fica até acabar")
+	check(ChoirSystem.damage_in(sim, mob, ally, 100) == int(round(100 * (1.0 - float(Balance.ULT_NUMBERS["bis_ult_grace_dome"]["dr"]) / 100.0))),
+		"Cúpula: com o Sacerdote caído ainda corta o dano do grupo dentro (%d)" % ChoirSystem.damage_in(sim, mob, ally, 100))
+	if left.size() == 1:
+		left[0]["until"] = sim.time - 0.01
+	ChoirSystem.tick(sim, m, 0.1)
+	check(not (m.get("barriers", []) as Array).any(func(b): return int(b["owner"]) == pr.id and b.get("dome", false)), "Cúpula: some no fim do tempo")
+	for o in [pr, ally]:
+		o.party_id = -1
+		sim.despawn(o)
+	sim.despawn(mob)

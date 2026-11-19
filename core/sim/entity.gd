@@ -28,6 +28,7 @@ var owner_id: int = -1              # para invocações
 var party_id: int = -1              # grupo (WorldSim.parties); invocações herdam o do dono
 var summon_expires: float = 0.0
 var summon_patk: float = 0.0         # ataque da invocação (vem do dono; sobrevive a recompute_stats)
+var summon_pdef: float = 0.0         # defesa do companheiro (parte da do dono; sobrevive a recompute_stats); 0 = a do monstro
 
 # stats
 var stats: Stats = Stats.new()
@@ -208,6 +209,7 @@ var npc_leg: int = 0                 # ronda: índice do próximo ponto
 var npc_stuck: float = 0.0
 # Supremas do 40 (UltimateSystem; estado de luta, não vai no save)
 var ult_charge: float = 0.0           # Carga Suprema 0..Balance.ULT_MAX
+var ult_dealt: float = 0.0           # dano das suas Supremas até agora (só medição: sondas/testes; não vai no save)
 var ult_combat_t: float = -1000.0     # Sim.time do último golpe/cura em combate
 var ult_gap_until: float = 0.0        # Sim.time até quando nada enche (depois de soltar)
 var ult_full_at: float = -1.0         # Sim.time em que encheu (bot segura até BOT_ULT_HOLD); -1 = não está cheia
@@ -221,6 +223,7 @@ var ult_act_n: int = 0
 var hop: Dictionary = {}              # hop_strikes em andamento (HopSystem)
 var shield_src: int = -1              # quem pôs o escudo (a absorção conta como cura dele na Carga Suprema)
 var free_summon := false              # invocação fora do limite por tipo (summon.ignore_max)
+var expire_blast: Dictionary = {}     # invocação que explode ao acabar o tempo (Maré dos Mortos: {radius, power, skill})
 
 func is_alive() -> bool:
 	return state != State.DEAD
@@ -335,11 +338,18 @@ func recompute_stats() -> void:
 				stats.matk *= 1.0 + float(b.get("atk_pct", 0)) / 100.0
 				stats.move_speed *= 1.0 + float(b.get("speed_pct", 0)) / 100.0
 				stats.attack_speed += float(b.get("aspd_pct", 0))
+				stats.cc_resist_pct += float(b.get("cc_resist_pct", 0))     # Laço Selvagem: o lince resiste a controle
 		if kind == Kind.SUMMON:
 			stats.max_hp *= 1.0 + 0.1 * level
 			if summon_patk > 0.0:            # ataque do dono vale para golpe e magia da invocação
 				stats.patk = summon_patk
 				stats.matk = summon_patk
+			for b in buffs:                 # Laço Selvagem / Maré dos Mortos: buff de invocação depois do ataque do dono
+				if b.has("pet_atk_pct"):
+					stats.patk *= 1.0 + float(b["pet_atk_pct"]) / 100.0
+					stats.matk *= 1.0 + float(b["pet_atk_pct"]) / 100.0
+			if summon_pdef > 0.0:
+				stats.pdef = summon_pdef       # companheiro: defesa herdada do dono
 		if summon_hp > 0.0:                  # invocação que herda a vida do dono, ou cópia do Shazka (vida do chefe)
 			stats.max_hp = summon_hp
 	else:

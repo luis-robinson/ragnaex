@@ -37,8 +37,15 @@ static func build(classes: Dictionary) -> Array:
 		for d in more[cls_id]:
 			out.append(_finish(d, cls_id))
 	var ults := _ultimates()
+	ults.merge(_ultimates_b1())          # onda B1 (Paladino, Berserker, Bispo, Druida)
+	for d in _ult_helpers_b1():
+		out.append(_finish(d, ""))
 	for cls_id in ults:
 		for d in ults[cls_id]:
+			out.append(_finish(d, cls_id))
+	var ults_b2 := _ultimates_b2()          # onda B2 (Ranger, Assassino, Gelo/Raio, Necromante)
+	for cls_id in ults_b2:
+		for d in ults_b2[cls_id]:
 			out.append(_finish(d, cls_id))
 	# skills de monstros/bosses
 	for d in [
@@ -568,6 +575,8 @@ const FORM_MODS := {
 	"nec_soul_rend": {"phantom": {"name": "Toque Espectral", "effects": {"slow": {"pct": 50, "duration": 2}}}, "demon": {"name": "Devorar Alma", "mult": {"power": 1.25}, "effects": {"heal_pct_of_dmg": 0.45}}},
 	"nec_death_spin": {"phantom": {"name": "Rodopio Fantasma", "mult": {"startup": 0.7}}, "demon": {"name": "Turbilhão Infernal", "mult": {"radius": 1.3, "power": 1.2}}},
 	"nec_grim": {"phantom": {"name": "Sentença Fantasma", "mult": {"range": 1.5}, "effects": {"dash": 3.0}}, "demon": {"name": "Execução Demoníaca", "mult": {"power": 1.3}}},
+	"nec_ult_soul_reaping": {"phantom": {"name": "Ceifa Fantasma", "effects": {"dash": Balance.ULT_NUMBERS["nec_ult_soul_reaping"]["phantom_dash"]}},
+		"demon": {"name": "Ceifa Infernal", "mult": {"power": Balance.ULT_NUMBERS["nec_ult_soul_reaping"]["demon"]}}},     # Suprema do Ceifador
 	"dru_maul": {"bear": {"name": "Patada do Urso", "mult": {"radius": 1.3, "power": 1.15}, "set": {"cone_angle_deg": 140.0}}},
 	"dru_bellow": {"bear": {"name": "Rugido do Urso", "mult": {"radius": 1.3}}},
 	"dru_lacerate": {"bear": {"name": "Garra Laceradora", "mult": {"power": 1.15}, "set": {"radius": 2.2, "max_targets": 3}}},
@@ -1172,7 +1181,7 @@ static func _more() -> Dictionary:
 		_s("ele_phoenix", "Fênix", 27, "fogo", ["staff"], T_DIR, K_MAG, 3.4, 36, 16, "Fênix atravessa tudo na linha e queima.", {"range": 11.0, "radius": 1.2, "projectile_speed": 16.0, "projectile_pierce": true, "dot": _dot(8, 3)}),
 		# Gelo (cajado)
 		_s("ele_ice_lance", "Lança de Gelo", 2, "gelo", ["staff"], T_DIR, K_MAG, 1.5, 8, 3, "Lança que retarda 35%.", {"range": 9.0, "radius": 0.4, "projectile_speed": 22.0, "slow": _slow(35, 2)}),
-		_s("ele_frost_armor", "Armadura de Gelo", 8, "gelo", ["staff"], T_SELF, K_BUFF, 0.0, 16, 24, "Escudo de 15% do HP por 8s e +30% DEF por " + _keep_s() + ".", {"shield": {"amount_pct_hp": 15, "duration": 8}, "buff": {"id": "frost_armor", "duration": Balance.BUFF_KEEP_S, "def_pct": 30}}),
+		_s("ele_frost_armor", "Armadura de Gelo", 8, "gelo", ["staff"], T_SELF, K_BUFF, 0.0, 16, 24, "Escudo de 15%% do HP por 8s e corta %d%% do dano recebido (+1%% a cada %d INT, até %d%%) por " % [int(Balance.FROST_ARMOR_DR_BASE), int(Balance.FROST_ARMOR_DR_PER_INT), int(Balance.FROST_ARMOR_DR_CAP)] + _keep_s() + ".", {"shield": {"amount_pct_hp": 15, "duration": 8}, "buff": {"id": "frost_armor", "duration": Balance.BUFF_KEEP_S, "dr_int": true}}),
 		_s("ele_glacier", "Geleira", 12, "gelo", ["staff"], T_GROUND, K_MAG, 1.8, 20, 11, "Gelo prende inimigos por 1.5s.", {"range": 8.0, "radius": 2.4, "root": _dur(1.5)}),
 		_s("ele_shatter", "Estilhaçar", 18, "gelo", ["staff"], T_TARGET, K_MAG, 2.8, 22, 10, "Estilhaça o alvo: atordoa 0.6s e fere ao redor.", {"range": 9.0, "radius": 1.5, "max_targets": 4, "stun": _dur(0.6)}),
 		_s("ele_absolute_zero", "Zero Absoluto", 26, "gelo", ["staff"], T_SELF, K_MAG, 3.0, 36, 20, "Congela tudo ao redor por 1.5s.", {"radius": 4.5, "stun": _dur(1.5), "hit_stop_frames": 5}),
@@ -1279,6 +1288,123 @@ static func _ultimates() -> Dictionary:
 				 "storm": {"anchor": "ground", "mode": "strikes", "duration": float(mr["duration"]), "every": float(mr["every"]), "radius": float(mr["radius"]),
 					"strike_radius": float(mr["strike_radius"]), "bias": float(mr["bias"]), "warn": float(mr["warn"]), "prefer": "unburnt",
 					"effects": {"dot": {"dps": float(mr["burn_dps"]), "duration": float(mr["burn_time"]), "fire": true}}}}),
+		],
+	}
+
+## Supremas da onda B2 (GDD ultimates-lv40 §3.5, 13-24): Ranger, Assassino, Elementalista Gelo/Raio e Necromante.
+## Bloco à parte (a onda A está em `_ultimates`, a B1 em `_ultimates_b1`); `load_all` junta todos. Números: Balance.ULT_NUMBERS[<id>].
+static func _ultimates_b2() -> Dictionary:
+	var N: Dictionary = Balance.ULT_NUMBERS
+	var wb: Dictionary = N["ran_ult_wild_bond"]
+	var es: Dictionary = N["ran_ult_end_shot"]
+	var el: Dictionary = N["ran_ult_endless_lance"]
+	var rt: Dictionary = N["ass_ult_royal_toxin"]
+	var gd: Dictionary = N["ass_ult_grand_duel"]
+	var fc: Dictionary = N["ass_ult_fleet_call"]
+	var ew: Dictionary = N["ele_ult_eternal_winter"]
+	var se: Dictionary = N["ele_ult_storm_eye"]
+	var td: Dictionary = N["nec_ult_tide_of_dead"]
+	var sr: Dictionary = N["nec_ult_soul_reaping"]
+	var ve: Dictionary = N["nec_ult_void_eclipse"]
+	return {
+		# --- Ranger ---
+		"ranger": [
+			_s("ran_ult_wild_bond", "Laço Selvagem", Balance.ULT_LEVEL, "cacador", ["bow"], T_SELF, K_BUFF, 0.0, 0, 0.0,
+				"Suprema (R): o lince volta (morto, com a vida cheia) e por %ds você e ele causam +%d%% de dano; ele cresce e resiste %d%% ao controle. Um 2º lince, espiritual, luta junto pelo mesmo tempo com %d%% da força." % [
+					int(wb["duration"]), int(wb["atk_pct"]), int(wb["pet_cc_resist"]), roundi(float(wb["spirit_mult"]) * 100.0)],
+				{"ultimate": true, "ult_bot": "boss", "vfx": "nature", "clip": "shout", "startup": 0.2, "active": 0.05, "recovery": 0.3, "cancel_after": 0.1,
+				 "icon_color": Color(0.55, 0.9, 0.45), "buff": {"id": "wild_bond", "duration": float(wb["duration"]), "atk_pct": float(wb["atk_pct"])},
+				 "pet_revive": {"skill": "ran_companion", "buff": {"id": "wild_bond_pet", "duration": float(wb["duration"]), "atk_pct": float(wb["atk_pct"]),
+					"cc_resist_pct": float(wb["pet_cc_resist"]), "scale": float(wb["pet_grow"])},
+					"spirit": {"mult": float(wb["spirit_mult"]), "duration": float(wb["duration"]), "buff": "wild_bond_spirit"}}}),
+			_s("ran_ult_end_shot", "Disparo do Fim", Balance.ULT_LEVEL, "atirador", ["rifle"], T_DIR, K_PHYS, float(es["power"]), 0, 0.0,
+				"Suprema (R): mira %.1fs parado (o dash cancela e a carga fica) e dispara um tiro de %dm que atravessa todos: crítico garantido, dano enorme no 1º (%d%% nos outros) e empurra %dm (chefes não)." % [
+					float(es["aim"]), int(es["range"]), roundi(float(es["rest"]) * 100.0), int(es["push"])],
+				{"ultimate": true, "ult_bot": "boss", "vfx": "fire", "range": float(es["range"]), "radius": float(es["width"]) * 0.5, "projectile_speed": float(es["speed"]),
+				 "projectile_pierce": true, "startup": float(es["aim"]), "active": 0.05, "recovery": 0.4, "hit_stop_frames": 6, "icon_color": Color(1.0, 0.6, 0.25),
+				 "sure_crit": true, "pierce_rest": float(es["rest"]), "knockback": {"dist": float(es["push"])}, "shot": true}),
+			_s("ran_ult_endless_lance", "Lança Incansável", Balance.ULT_LEVEL, "lanceiro", ["spear"], T_DIR, K_PHYS, float(el["power"]), 0, 0.0,
+				"Suprema (R): %d estocadas em %.1fs numa linha de %dm à frente (segue o cursor); cada uma faz sangrar e renova a Marca do Predador. No fim arremessa a lança (%dm): dano forte e prende %.1fs." % [
+					int(el["ticks"]), float(el["channel"]), int(el["length"]), int(el["throw_range"]), float(el["throw_root"])],
+				{"ultimate": true, "ult_bot": "boss", "vfx": "blood", "clip": "atk_thrust", "range": float(el["length"]), "radius": float(el["width"]) * 0.5,
+				 "startup": 0.15, "active": float(el["channel"]), "recovery": 0.3, "hit_stop_frames": 2, "icon_color": Color(0.9, 0.35, 0.3),
+				 "channel": {"ticks": int(el["ticks"])}, "dot": {"atk_pct": float(el["bleed_atk_pct"]), "duration": float(el["bleed_time"])},
+				 "curse": {"id": "predator", "duration": 10.0, "taken_pct": 18},
+				 "channel_end": {"power": float(el["throw_power"]), "range": float(el["throw_range"]), "speed": float(el["throw_speed"]), "root": float(el["throw_root"])}}),
+		],
+		# --- Assassino ---
+		"assassin": [
+			_s("ass_ult_royal_toxin", "Toxina Real", Balance.ULT_LEVEL, "laminas", ["dual_dagger"], T_TARGET, K_PHYS, float(rt["power"]), 0, 0.0,
+				"Suprema (R): golpe que marca o alvo por %ds: os seus venenos nele causam %d%% do dano. No fim (ou se ele cair) todos os seus venenos nele explodem (%d%% do que faltava) e passam para os inimigos a %dm." % [
+					int(rt["duration"]), roundi(float(rt["mult"]) * 100.0), roundi(float(rt["detonate"]) * 100.0), int(rt["spread"])],
+				{"ultimate": true, "ult_bot": "boss", "vfx": "poison", "clip": "atk_finisher", "range": float(rt["range"]), "startup": 0.15, "active": 0.06, "recovery": 0.3,
+				 "cancel_after": 0.12, "hit_stop_frames": 6, "icon_color": Color(0.55, 0.9, 0.3),
+				 "dot_amp": {"mult": float(rt["mult"]), "duration": float(rt["duration"]), "detonate": float(rt["detonate"]), "spread_radius": float(rt["spread"])}}),
+			_buff("ass_ult_grand_duel", "Duelo Supremo", Balance.ULT_LEVEL, "duelista", ["dual_sword"], 0, 0.0,
+				"Suprema (R): por %ds apara todo golpe de perto num arco de %d° à sua frente (de chefe: -%d%%) e responde no máximo um a cada %.1fs; +%d de crítico. Cada aparo soma %d ao Duelo e cada golpe seu soma %d (até %d dos golpes; Duelo até %d). No fim sai um Golpe de Mestre grátis com o Ímpeto cheio, +%d%% por ponto de Duelo." % [
+					int(gd["duration"]), int(gd["arc"]), roundi(Balance.RIPOSTE_BOSS_CUT * 100.0), float(gd["gap"]), int(gd["crit"]), int(gd["gain"]), int(gd["hit_gain"]),
+					int(gd["hit_cap"]), int(gd["duel_cap"]), roundi(float(gd["duel_per"]) * 100.0)],
+				{"id": "grand_duel", "duration": float(gd["duration"]), "crit": float(gd["crit"]), "end_cast": "ass_master", "end_power": float(gd["end_power"]),
+				 "riposte_arc": float(gd["arc"]), "riposte_gain": int(gd["gain"]), "riposte_gap": float(gd["gap"]), "momentum_fill": true,
+				 "duel_cap": int(gd["duel_cap"]), "hit_gain": int(gd["hit_gain"]), "hit_cap": int(gd["hit_cap"]), "duel_per": float(gd["duel_per"])},
+				{"ultimate": true, "ult_bot": "boss", "riposte": true, "vfx": "physical", "clip": "buff_power", "startup": 0.1, "recovery": 0.15, "cancel_after": 0.05,
+				 "icon_color": Color(0.85, 0.85, 1.0)}),
+			_s("ass_ult_fleet_call", "Chamado da Frota", Balance.ULT_LEVEL, "corsario", ["pistol"], T_GROUND, K_PHYS, float(fc["power"]), 0, 0.0,
+				"Suprema (R): um navio fora da vista bombardeia o ponto por %ds: %d balas de canhão em círculos de %dm (metade sobre inimigos), cada uma avisada antes, ferem e empurram. Bravata cheia." % [
+					int(fc["duration"]), int(fc["shots"]), int(fc["strike_radius"])],
+				{"ultimate": true, "ult_bot": "boss", "vfx": "fire", "clip": "shout", "range": float(fc["range"]), "radius": float(fc["radius"]), "startup": 0.2, "active": 0.05,
+				 "recovery": 0.3, "cancel_after": 0.1, "hit_stop_frames": 0, "icon_color": Color(0.95, 0.75, 0.35), "combo_gain": Balance.BRAVADO_MAX,
+				 "storm": {"anchor": "ground", "mode": "strikes", "duration": float(fc["duration"]), "every": float(fc["duration"]) / float(fc["shots"]),
+					"radius": float(fc["radius"]), "strike_radius": float(fc["strike_radius"]), "bias": float(fc["bias"]), "warn": float(fc["warn"]),
+					"effects": {"knockback": {"dist": float(fc["push"])}}}}),
+		],
+		# --- Elementalista (Gelo e Raio; a do Fogo está em _ultimates) ---
+		"elementalist": [
+			_s("ele_ult_eternal_winter", "Inverno Eterno", Balance.ULT_LEVEL, "gelo", ["staff"], T_GROUND, K_MAG, float(ew["power"]), 0, 0.0,
+				"Suprema (R): tempestade de gelo presa no ponto (%dm) por %ds. A cada %ds fere quem está dentro e deixa %d%% mais lento (acumula até %d%%); no %dº pulso o alvo congela %ds (chefe menos; uma vez por lançamento). O gelo estilhaça em quem está lento." % [
+					int(ew["radius"]), int(ew["duration"]), int(ew["every"]), int(ew["slow_step"]), int(ew["slow_max"]), int(ew["freeze_hits"]), int(ew["freeze"])],
+				{"ultimate": true, "ult_bot": "boss", "vfx": "ice", "clip": "cast_ground", "range": float(ew["range"]), "radius": float(ew["radius"]), "startup": 0.3,
+				 "active": 0.1, "recovery": 0.35, "hit_stop_frames": 0, "icon_color": Color(0.6, 0.85, 1.0), "elements": ["frost"],
+				 "storm": {"anchor": "ground", "mode": "pulse", "duration": float(ew["duration"]), "every": float(ew["every"]), "radius": float(ew["radius"]),
+					"slow_stack": {"step": float(ew["slow_step"]), "max": float(ew["slow_max"]), "duration": float(ew["slow_time"])},
+					"freeze": {"hits": int(ew["freeze_hits"]), "duration": float(ew["freeze"])}}}),
+			_s("ele_ult_storm_eye", "Olho da Tempestade", Balance.ULT_LEVEL, "raio", ["staff"], T_SELF, K_MAG, float(se["power"]), 0, 0.0,
+				"Suprema (R): por %ds a tempestade anda com você (%dm): a cada %.1fs um raio cai num inimigo (prefere quem não levou agora), salta para %d vizinhos e pode atordoar. Você fica %d%% mais rápido e o Passo Relampejante volta na hora." % [
+					int(se["duration"]), int(se["radius"]), float(se["every"]), int(se["chain"]), int(se["speed_pct"])],
+				{"ultimate": true, "ult_bot": "boss", "vfx": "lightning", "clip": "buff_power", "startup": 0.2, "active": 0.05, "recovery": 0.3, "cancel_after": 0.1,
+				 "hit_stop_frames": 0, "icon_color": Color(0.7, 0.8, 1.0), "elements": ["storm"],
+				 "buff": {"id": "storm_eye", "duration": float(se["duration"]), "speed_pct": float(se["speed_pct"])}, "cd_reset": ["ele_bolt_step"],
+				 "storm": {"anchor": "caster", "mode": "strikes", "duration": float(se["duration"]), "every": float(se["every"]), "radius": float(se["radius"]),
+					"strike_radius": float(se["strike_radius"]), "bias": 1.0, "warn": 0.0, "prefer": "fresh", "fresh_s": float(se["fresh"]),
+					"chain": {"count": int(se["chain"]), "radius": float(se["chain_radius"]), "falloff": float(se["falloff"])},
+					"stun_chance": {"pct": float(se["stun_pct"]), "duration": float(se["stun"])}}}),
+		],
+		# --- Necromante ---
+		"necromancer": [
+			_s("nec_ult_tide_of_dead", "Maré dos Mortos", Balance.ULT_LEVEL, "invocador", ["scythe"], T_SELF, K_SUMMON, float(td["blast_power"]), 0, 0.0,
+				"Suprema (R): ergue %d esqueletos por %ds fora do limite de invocações. Por %ds você ganha +%d%% de MATK e suas invocações atacam %d%% mais rápido. Quando os esqueletos se desfazem, explodem (%dm; mais forte quanto mais vida eles tinham)." % [
+					int(td["count"]), int(td["duration"]), int(td["buff_time"]), int(td["matk_pct"]), int(td["summon_aspd"]), int(td["blast_radius"])],
+				{"ultimate": true, "ult_bot": "boss", "vfx": "bone", "clip": "summon", "startup": 0.3, "active": 0.05, "recovery": 0.35, "cancel_after": 0.12,
+				 "icon_color": Color(0.75, 0.9, 0.75), "buff": {"id": "tide_of_dead", "duration": float(td["buff_time"]), "matk_pct": float(td["matk_pct"])},
+				 "summon": {"monster_id": "skeleton_minion", "count": int(td["count"]), "duration": float(td["duration"]), "max": int(td["count"]), "ignore_max": true,
+					"buff_first": true, "summon_buff": {"id": "tide_frenzy", "duration": float(td["buff_time"]), "aspd_pct": float(td["summon_aspd"])},
+					"expire_blast": {"radius": float(td["blast_radius"]), "power": float(td["blast_power"])}}}),
+			_s("nec_ult_soul_reaping", "Ceifa das Almas", Balance.ULT_LEVEL, "ceifador", ["scythe"], T_SELF, K_MAG, float(sr["power"]), 0, 0.0,
+				"Suprema (R): giro enorme da foice (%dm): cura %d%% da vida por inimigo atingido (até %d) e depois +%d%% de ATK/MATK e +%d de roubo de vida por %ds. Demoníaca: o giro bate mais forte; Fantasma: avança no giro." % [
+					int(sr["radius"]), int(sr["heal_pct"]), int(sr["heal_max"]), int(sr["atk_pct"]), int(sr["lifesteal"]), int(sr["buff_time"])],
+				{"ultimate": true, "ult_bot": "self", "vfx": "shadow", "clip": "atk_spin", "radius": float(sr["radius"]), "startup": 0.2, "active": 0.25, "recovery": 0.35,
+				 "cancel_after": 0.15, "hit_stop_frames": 6, "icon_color": Color(0.6, 0.3, 0.75),
+				 "hit_heal": {"pct": float(sr["heal_pct"]), "max": int(sr["heal_max"])},
+				 "buff": {"id": "soul_reaping", "duration": float(sr["buff_time"]), "atk_pct": float(sr["atk_pct"]), "matk_pct": float(sr["matk_pct"]), "lifesteal": float(sr["lifesteal"])}}),
+			_s("nec_ult_void_eclipse", "Eclipse do Vazio", Balance.ULT_LEVEL, "pestilento", ["scythe"], T_GROUND, K_MAG, float(ve["power"]), 0, 0.0,
+				"Suprema (R): disco de vazio (%dm) no ponto por %ds: quem está dentro fica %d%% mais lento, recebe cópia das suas maldições e os seus danos no tempo nele valem %d%%. No fim implode: puxa todos ao centro (chefes não) e fere." % [
+					int(ve["radius"]), int(ve["duration"]), int(ve["slow"]), roundi(float(ve["amp"]) * 100.0)],
+				{"ultimate": true, "ult_bot": "boss", "vfx": "shadow", "clip": "cast_ground", "range": float(ve["range"]), "radius": float(ve["radius"]), "startup": 0.3,
+				 "active": 0.1, "recovery": 0.35, "hit_stop_frames": 5, "icon_color": Color(0.45, 0.25, 0.7),
+				 "storm": {"anchor": "ground", "mode": "pulse", "duration": float(ve["duration"]), "every": float(ve["every"]), "radius": float(ve["radius"]), "strike_mult": 0.0,
+					"slow_stack": {"step": float(ve["slow"]), "max": float(ve["slow"]), "duration": float(ve["every"]) + 0.3, "frost": false},
+					"effects": {"dot_amp": {"mult": float(ve["amp"]), "duration": float(ve["every"]) + 0.3}, "curse_spread": {"radius": float(ve["curse_radius"])}},
+					"end": {"power": float(ve["power"]), "radius": float(ve["radius"]), "pull": true}}}),
 		],
 	}
 
@@ -1397,3 +1523,135 @@ static func _originals() -> Dictionary:
 			{"radius": 4.5, "startup": 0.45, "active": 0.05, "recovery": 0.45, "hit_stop_frames": 5, "icon_color": Color(0.3, 1, 0.7), "heal_pct_of_dmg": 0.25}),
 	],
 	}
+
+## Supremas da onda B1 (GDD design/gdd/ultimates-lv40.md §3.5 1-12): Paladino, Berserker, Bispo, Druida.
+## Somadas às de `_ultimates()` em `build()`. Números: Balance.ULT_NUMBERS[<id>].
+static func _ultimates_b1() -> Dictionary:
+	var U: Dictionary = Balance.ULT_NUMBERS
+	var bas: Dictionary = U["pal_ult_dawn_bastion"]
+	var jud: Dictionary = U["pal_ult_dawn_judgement"]
+	var sky: Dictionary = U["pal_ult_hammer_sky"]
+	var fea: Dictionary = U["ber_ult_blood_feast"]
+	var ver: Dictionary = U["ber_ult_headsman_verdict"]
+	var win: Dictionary = U["ber_ult_seven_winds"]
+	var dom: Dictionary = U["bis_ult_grace_dome"]
+	var sun: Dictionary = U["bis_ult_judgement_sun"]
+	var ava: Dictionary = U["bis_ult_faith_avatar"]
+	var col: Dictionary = U["dru_ult_primal_colossus"]
+	var moo: Dictionary = U["dru_ult_blood_moon"]
+	var elh: Dictionary = U["dru_ult_elder_heart"]
+	var penance := {"id": "penance", "duration": float(sky["penance_time"]), "taken_pct": float(sky["penance_pct"])}
+	return {
+		"paladin": [
+			_s("pal_ult_dawn_bastion", "Bastião da Aurora", Balance.ULT_LEVEL, "guardiao", ["shield"], T_SELF, K_BUFF, 0.0, 0, 0.0,
+				"Suprema (R): finca um estandarte de luz. Provoca os inimigos a %dm (%ds; chefes: metade), ganha escudo de %d%% da vida por %ds e o Juramento enche. Por %ds, aliados a %dm recebem %d%% menos dano: essa parte vem para você (passa pela sua DEF, bloqueio e escudo). Acaba sozinha se você cair abaixo de %d%% da vida." % [
+					int(bas["radius"]), int(bas["taunt"]), int(bas["shield_pct"]), int(bas["duration"]), int(bas["duration"]), int(bas["radius"]), int(bas["pct"]), int(bas["stop_below"])],
+				{"ultimate": true, "ult_bot": "save", "vfx": "holy", "clip": "buff_power", "radius": float(bas["radius"]), "startup": 0.25, "active": 0.05, "recovery": 0.3,
+				 "cancel_after": 0.1, "hit_stop_frames": 4, "icon_color": Color(1.0, 0.86, 0.45),
+				 "taunt": {"duration": float(bas["taunt"])}, "shield": {"amount_pct_hp": float(bas["shield_pct"]), "duration": float(bas["duration"])},
+				 "intercept": {"radius": float(bas["radius"]), "pct": float(bas["pct"]), "duration": float(bas["duration"]), "stop_below": float(bas["stop_below"])},
+				 "oath_fill": true}),
+			_s("pal_ult_dawn_judgement", "Juízo da Alvorada", Balance.ULT_LEVEL, "cruzado", ["two_handed"], T_GROUND, K_PHYS, float(jud["power"]), 0, 0.0,
+				"Suprema (R): salta até o cursor (até %dm, intocável no ar) e desce em 3 golpes do montante em %.1fm: %.1f + %.1f + %.1f de poder. O último é sempre crítico e atordoa %ds." % [
+					int(jud["range"]), float(jud["radius"]), float(jud["power"]) * float(jud["weights"][0]), float(jud["power"]) * float(jud["weights"][1]),
+					float(jud["power"]) * float(jud["weights"][2]), int(jud["stun"])],
+				{"ultimate": true, "ult_bot": "boss", "vfx": "holy", "clip": "atk_2h_chain_a", "range": float(jud["range"]), "radius": float(jud["radius"]),
+				 "startup": 0.22, "active": 0.62, "recovery": 0.3, "cancel_after": 0.1, "hit_stop_frames": 4, "icon_color": Color(1.0, 0.9, 0.5),
+				 "dash": float(jud["range"]), "leap_iframe": float(jud["iframe"]),
+				 "strikes": {"weights": jud["weights"], "at": [0.0, 0.28, 0.6], "crit_last": true, "last_stop": 6,
+					"clips": ["atk_2h_chain_a", "atk_2h_chain_b", "atk_2h_chain_c"], "last_effects": {"stun": {"duration": float(jud["stun"])}}}}),
+			_s("pal_ult_hammer_sky", "Céu de Martelos", Balance.ULT_LEVEL, "templario", ["shield"], T_SELF, K_PHYS, float(sky["power"]), 0, 0.0,
+				"Suprema (R): por %ds, %d martelos de luz gigantes giram a %dm de você, batendo %.2f de poder em cada inimigo a cada %.1fs e pondo a Marca da Penitência (+%d%% de dano recebido). O Juramento fica cheio e não esfria enquanto durar." % [
+					int(sky["duration"]), int(sky["count"]), int(sky["radius"]), float(sky["power"]), float(sky["every"]), int(sky["penance_pct"])],
+				{"ultimate": true, "ult_bot": "boss", "vfx": "holy", "clip": "buff_power", "radius": float(sky["radius"]), "startup": 0.2, "active": 0.05, "recovery": 0.25,
+				 "cancel_after": 0.1, "hit_stop_frames": 3, "icon_color": Color(1.0, 0.92, 0.6), "curse": penance,
+				 "orbit": {"id": "hammer_sky", "duration": float(sky["duration"]), "every": float(sky["every"]), "count": int(sky["count"]), "oath_lock": true,
+					"effects": {"curse": penance}}}),
+		],
+		"berserker": [
+			_s("ber_ult_blood_feast", "Festim de Sangue", Balance.ULT_LEVEL, "carniceiro", ["dual"], T_SELF, K_BUFF, 0.0, 0, 0.0,
+				"Suprema (R): por %ds, +%d%% de velocidade de ataque e +%d de roubo de vida; todo golpe abre uma ferida e suas feridas não fecham enquanto durar. No fim, uma Sangria gigante sai sozinha (%.1fm, %.1f de poder) e cura %d%% da vida por inimigo que sangrava (até %d)." % [
+					int(fea["duration"]), int(fea["aspd_pct"]), int(fea["lifesteal"]), float(fea["end_radius"]), float(fea["end_power"]), int(fea["end_heal_pct"]), int(fea["end_heal_max"])],
+				{"ultimate": true, "ult_bot": "boss", "vfx": "blood", "clip": "shout", "startup": 0.2, "active": 0.05, "recovery": 0.25, "cancel_after": 0.1,
+				 "icon_color": Color(0.95, 0.25, 0.25),
+				 "buff": {"id": "blood_feast", "duration": float(fea["duration"]), "aspd_pct": float(fea["aspd_pct"]), "lifesteal": float(fea["lifesteal"]),
+					"hit_poison": float(fea["bleed_dps"]), "wound_hold": true, "end_cast": "ber_ult_blood_feast_end"}}),
+			_s("ber_ult_headsman_verdict", "Veredito do Carrasco", Balance.ULT_LEVEL, "executor", ["two_handed"], T_TARGET, K_PHYS, float(ver["power"]), 0, 0.0,
+				"Suprema (R): salta no alvo (até %dm), racha a armadura dele e de quem está a %.1fm (%d cargas) e desce um golpe de %.1f de poder que consome a rachadura do alvo (+%d%%). Abaixo de %d%% da vida o golpe vale x%.1f (chefe x%.2f). Os vizinhos ficam rachados para o grupo." % [
+					int(ver["range"]), float(ver["radius"]), int(ver["stacks"]), float(ver["power"]), roundi(float(Balance.SUNDER_CONSUME["per"]) * int(ver["stacks"]) * 100.0),
+					roundi(float(ver["below"]) * 100.0), float(ver["exec_mult"]), float(ver["boss_mult"])],
+				{"ultimate": true, "ult_bot": "boss", "vfx": "blood", "clip": "atk_leap", "range": float(ver["range"]), "startup": 0.25, "active": 0.08, "recovery": 0.35,
+				 "cancel_after": 0.12, "hit_stop_frames": 7, "icon_color": Color(0.85, 0.2, 0.2),
+				 "dash": float(ver["range"]), "dash_to_aim": true,
+				 "sunder_fill": {"stacks": int(ver["stacks"]), "radius": float(ver["radius"])}, "sunder_consume": Balance.SUNDER_CONSUME,
+				 "ult_execute": {"below": float(ver["below"]), "mult": float(ver["exec_mult"]), "boss_mult": float(ver["boss_mult"])}}),
+			_s("ber_ult_seven_winds", "Sete Ventos", Balance.ULT_LEVEL, "punhos", ["dual_claw"], T_TARGET, K_PHYS, float(win["power"]), 0, 0.0,
+				"Suprema (R): some e reaparece em %d golpes em %.1fs (%.1f de poder cada), saltando entre os inimigos a %dm (um alvo só leva todos). Intocável durante; termina com a Fúria do Punho cheia." % [
+					int(win["count"]), float(win["every"]) * int(win["count"]), float(win["power"]), int(win["radius"])],
+				{"ultimate": true, "ult_bot": "boss", "vfx": "wind", "clip": "atk_flurry", "range": float(win["range"]), "startup": 0.15, "active": 0.05, "recovery": 0.2,
+				 "cancel_after": 0.1, "hit_stop_frames": 2, "icon_color": Color(0.85, 0.9, 1.0),
+				 "hop_strikes": {"count": int(win["count"]), "every": float(win["every"]), "radius": float(win["radius"]), "iframe": "all", "fury_end": int(win["fury"])}}),
+		],
+		"bishop": [
+			_s("bis_ult_grace_dome", "Cúpula da Graça", Balance.ULT_LEVEL, "sacerdote", ["mace", "shield"], T_GROUND, K_HEAL, float(dom["heal"]), 0, 0.0,
+				"Suprema (R): ergue no cursor (até %dm) uma cúpula PARADA de %dm por %ds: o grupo dentro recebe %d%% menos dano. Ao erguer, cura todos dentro (%.1f de poder). Com a Barreira Sagrada em cima vale a maior, não somam." % [
+					int(dom["range"]), int(dom["radius"]), int(dom["duration"]), int(dom["dr"]), float(dom["heal"])],
+				{"ultimate": true, "ult_bot": "save", "vfx": "holy", "clip": "cast_holy", "range": float(dom["range"]), "radius": float(dom["radius"]), "startup": 0.25,
+				 "active": 0.05, "recovery": 0.3, "cancel_after": 0.1, "hit_stop_frames": 0, "icon_color": Color(1.0, 0.95, 0.7),
+				 "grace_dome": {"duration": float(dom["duration"]), "dr": float(dom["dr"])}}),
+			_s("bis_ult_judgement_sun", "Sol do Julgamento", Balance.ULT_LEVEL, "inquisidor", ["scepter"], T_GROUND, K_MAG, float(sun["power"]), 0, 0.0,
+				"Suprema (R): um raio de sol cai no cursor (até %dm): %.1f de poder e atordoa %ds em %.1fm. O chão fica aceso %ds, batendo %.2f a cada %.1fs, e %d%% de todo esse dano cura o aliado mais ferido." % [
+					int(sun["range"]), float(sun["power"]), int(sun["stun"]), float(sun["radius"]), int(sun["duration"]), float(sun["pulse_power"]), float(sun["pulse"]), roundi(float(sun["mend"]) * 100.0)],
+				{"ultimate": true, "ult_bot": "boss", "vfx": "holy", "clip": "cast_ground", "range": float(sun["range"]), "radius": float(sun["radius"]), "startup": 0.3,
+				 "active": 0.08, "recovery": 0.35, "cancel_after": 0.12, "hit_stop_frames": 6, "icon_color": Color(1.0, 0.85, 0.35),
+				 "stun": {"duration": float(sun["stun"])}, "mend_pct_of_dmg": float(sun["mend"]),
+				 "zone": {"id": "judgement_sun", "duration": float(sun["duration"]), "pulse": float(sun["pulse"]), "foe_power": float(sun["pulse_power"]),
+					"mend_pct": float(sun["mend"])}}),
+			_s("bis_ult_faith_avatar", "Avatar da Fé", Balance.ULT_LEVEL, "batalha", ["mace"], T_SELF, K_PHYS, float(ava["power"]), 0, 0.0,
+				"Suprema (R): martelo de luz no chão em volta (%.1fm, %.1f de poder) e cura o grupo a %dm (%.1f de poder). Depois, %ds de Avatar: maior, +%d%% ATK, +%d%% DEF, +%d%% de resistência a controle e %d%% de todo o seu dano físico cura o aliado mais ferido." % [
+					float(ava["radius"]), float(ava["power"]), int(ava["heal_radius"]), float(ava["heal"]), int(ava["duration"]), int(ava["atk_pct"]), int(ava["def_pct"]),
+					int(ava["cc_resist_pct"]), int(ava["mend_pct"])],
+				{"ultimate": true, "ult_bot": "self", "vfx": "holy", "clip": "atk_finisher", "radius": float(ava["radius"]), "startup": 0.28, "active": 0.08, "recovery": 0.3,
+				 "cancel_after": 0.12, "hit_stop_frames": 6, "icon_color": Color(1.0, 0.88, 0.5),
+				 "ally_heal": {"radius": float(ava["heal_radius"]), "power": float(ava["heal"])},
+				 "buff": {"id": "faith_avatar", "duration": float(ava["duration"]), "atk_pct": float(ava["atk_pct"]), "def_pct": float(ava["def_pct"]),
+					"cc_resist_pct": float(ava["cc_resist_pct"]), "phys_mend": float(ava["mend_pct"]), "scale": float(ava["scale"])}}),
+		],
+		"druid": [
+			_s("dru_ult_primal_colossus", "Colosso Primevo", Balance.ULT_LEVEL, "guardiao_verde", ["mace2h"], T_SELF, K_BUFF, 0.0, 0, 0.0,
+				"Suprema (R): só como Urso (em forma humana vira urso na hora; como Ent não sai). Urra e provoca a %dm (%ds; chefes: metade) e vira Colosso por %ds: urso gigante, +%d%% de vida máxima (a vida ganha entra cheia), +%d%% DEF, +%d%% ATK, +%d%% de ameaça e +%d%% de resistência a controle. Ao acabar, a vida máxima volta e a porcentagem de vida fica." % [
+					int(col["radius"]), int(col["taunt"]), int(col["duration"]), int(col["hp_pct"]), int(col["def_pct"]), int(col["atk_pct"]), int(col["threat_pct"]), int(col["cc_resist_pct"])],
+				{"ultimate": true, "ult_bot": "self", "vfx": "nature", "clip": "shout", "radius": float(col["radius"]), "startup": 0.25, "active": 0.05, "recovery": 0.3,
+				 "cancel_after": 0.1, "hit_stop_frames": 4, "icon_color": Color(0.6, 0.45, 0.25),
+				 "force_form": "bear", "taunt": {"duration": float(col["taunt"])},
+				 "buff": {"id": "primal_colossus", "duration": float(col["duration"]), "hp_pct": float(col["hp_pct"]), "def_pct": float(col["def_pct"]),
+					"atk_pct": float(col["atk_pct"]), "threat_pct": float(col["threat_pct"]), "cc_resist_pct": float(col["cc_resist_pct"]), "scale": float(col["scale"]),
+					"keep_hp": true, "form_bound": "bear"}}),
+			_s("dru_ult_blood_moon", "Garras da Lua Rubra", Balance.ULT_LEVEL, "fera", ["dual_mace"], T_SELF, K_PHYS, float(moo["power"]), 0, 0.0,
+				"Suprema (R): só como lobo (o Alfa conta). Por %ds, a cada %.1fs o lobo salta sozinho num inimigo a %dm (prefere quem não sangra): %.1f de poder e o sangramento das Garras. Entre os saltos você anda; o dash corta o resto." % [
+					int(round(float(moo["every"]) * int(moo["count"]))), float(moo["every"]), int(moo["radius"]), float(moo["power"])],
+				{"ultimate": true, "ult_bot": "boss", "vfx": "lunar", "clip": "atk_leap", "requires_form": "wolf", "startup": 0.15, "active": 0.05, "recovery": 0.2,
+				 "cancel_after": 0.1, "hit_stop_frames": 2, "icon_color": Color(0.85, 0.2, 0.3),
+				 "hop_strikes": {"count": int(moo["count"]), "every": float(moo["every"]), "radius": float(moo["radius"]), "iframe": float(moo["iframe"]),
+					"prefer": "unbled", "effects": {"dot": {"dps": float(moo["bleed_dps"]), "duration": float(moo["bleed_time"]), "skill": "dru_ult_blood_moon"}}}}),
+			_s("dru_ult_elder_heart", "Coração do Bosque Ancião", Balance.ULT_LEVEL, "xama", ["staff"], T_GROUND, K_MAG, float(elh["power"]), 0, 0.0,
+				"Suprema (R): uma árvore ancestral brota no cursor (até %dm) por %ds, intocável. Ao nascer: %.1f de poder e prende %ds os inimigos a %dm. A cada %.1fs lança Fogo Lunar em até %d inimigos a %dm (%.1f cada, com queimadura lunar) e cura os aliados a %dm (%.2f de poder)." % [
+					int(elh["range"]), int(elh["duration"]), float(elh["power"]), int(elh["root"]), int(elh["radius"]), float(elh["pulse"]), int(elh["foe_max"]), int(elh["foe_radius"]),
+					float(elh["foe_power"]), int(elh["radius"]), float(elh["heal"])],
+				{"ultimate": true, "ult_bot": "boss", "vfx": "nature", "clip": "cast_ground", "range": float(elh["range"]), "radius": float(elh["radius"]), "startup": 0.3,
+				 "active": 0.08, "recovery": 0.35, "cancel_after": 0.12, "hit_stop_frames": 4, "icon_color": Color(0.5, 0.85, 0.45),
+				 "root": {"duration": float(elh["root"])}, "dot": _dot(float(elh["dot_dps"]), float(elh["dot_time"])),
+				 "zone": {"id": "elder_heart", "duration": float(elh["duration"]), "pulse": float(elh["pulse"]), "foe_power": float(elh["foe_power"]),
+					"ally_heal": float(elh["heal"]), "foe_radius": float(elh["foe_radius"]), "foe_max": int(elh["foe_max"])}}),
+		],
+	}
+
+## Skills de apoio das Supremas B1 (sem classe: nunca entram na teia/barra/livro; só saem pelo efeito que as chama).
+static func _ult_helpers_b1() -> Array:
+	var fea: Dictionary = Balance.ULT_NUMBERS["ber_ult_blood_feast"]
+	return [
+		_s("ber_ult_blood_feast_end", "Sangria do Festim", Balance.ULT_LEVEL, "", [], T_SELF, K_PHYS, float(fea["end_power"]), 0, 0.0,
+			"Fecho do Festim de Sangue: giro dos dois machados que cura por inimigo que sangrava.",
+			{"vfx": "blood", "clip": "atk_spin", "radius": float(fea["end_radius"]), "startup": 0.0, "active": 0.05, "recovery": 0.0, "hit_stop_frames": 4,
+			 "icon_color": Color(0.95, 0.25, 0.25), "wound_heal": {"pct": float(fea["end_heal_pct"]), "max": int(fea["end_heal_max"])}}),
+	]

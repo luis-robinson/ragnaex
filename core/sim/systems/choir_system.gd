@@ -134,7 +134,7 @@ static func place_barrier(sim: WorldSim, e: SimEntity, s: SkillDef, aim: Vector3
 		m["barriers"] = []
 	var list: Array = m["barriers"]
 	for b in list.duplicate():
-		if int(b["owner"]) == e.id:
+		if int(b["owner"]) == e.id and not b.get("dome", false):     # a Cúpula da Graça (Suprema) fica
 			list.erase(b)
 	var pos := Combat.clamp_aim(e, aim, s.range)
 	pos.y = 0.0
@@ -149,6 +149,28 @@ static func place_barrier(sim: WorldSim, e: SimEntity, s: SkillDef, aim: Vector3
 				sim._apply_effects(e, o, {"shield": {"amount_pct_hp": Balance.BARRIER_MARCH_SHIELD, "duration": Balance.BARRIER_MARCH_SHIELD_TIME}}, 0.0)
 	Events.post(&"skill_effect", s.id, e.position, pos, s.radius)
 	return b
+
+## Cúpula da Graça (Suprema do Sacerdote): cúpula PARADA no ponto, -dr% (d = {"duration", "dr"}); a anterior dele some.
+## Mesma lista da Barreira Sagrada (desenho, projéteis, chuva de chefe); com as duas em cima vale a maior redução.
+static func place_dome(sim: WorldSim, e: SimEntity, s: SkillDef, aim: Vector3, m: Dictionary, d: Dictionary) -> Dictionary:
+	if not m.has("barriers"):
+		m["barriers"] = []
+	var list: Array = m["barriers"]
+	for b in list.duplicate():
+		if int(b["owner"]) == e.id and b.get("dome", false):
+			list.erase(b)
+	var pos := Combat.clamp_aim(e, aim, s.range)
+	pos.y = 0.0
+	sim.choir_next_id += 1
+	var b := {"id": sim.choir_next_id, "owner": e.id, "pos": pos, "offset": Vector3.ZERO, "born": sim.time,
+		"until": sim.time + float(d.get("duration", 8.0)), "burn_t": 0.0, "radius": s.radius, "hold": false, "burn": false, "march": false,
+		"dome": true, "anchored": true, "dr": float(d.get("dr", 50.0))}
+	list.append(b)
+	return b
+
+## Redução de dano da cúpula `b` (Barreira Sagrada: BARRIER_DR; Cúpula da Graça: a dela).
+static func dr_of(b: Dictionary) -> float:
+	return float(b.get("dr", Balance.BARRIER_DR))
 
 static func inside(b: Dictionary, p: Vector3) -> bool:
 	return _flat(b["pos"], p) <= float(b["radius"])
@@ -166,8 +188,8 @@ static func barrier_over(sim: WorldSim, e: SimEntity) -> Dictionary:
 		var owner: SimEntity = sim.entities.get(int(b["owner"]))
 		if owner == null or not owner.is_friend(e):
 			continue
-		if best.is_empty() or float(b["until"]) > float(best["until"]):
-			best = b
+		if best.is_empty() or dr_of(b) > dr_of(best) or (dr_of(b) == dr_of(best) and float(b["until"]) > float(best["until"])):
+			best = b                         # duas cúpulas não somam: vale a maior redução
 	return best
 
 ## Dano que vai entrar em `target` (chamado antes de tirar a vida): dentro de cúpula aliada, −BARRIER_DR % (duas cúpulas
@@ -178,7 +200,7 @@ static func damage_in(sim: WorldSim, attacker: SimEntity, target: SimEntity, amo
 	var b := barrier_over(sim, target)
 	if b.is_empty():
 		return amount
-	amount = maxi(1, int(round(amount * (1.0 - Balance.BARRIER_DR / 100.0))))
+	amount = maxi(1, int(round(amount * (1.0 - dr_of(b) / 100.0))))
 	if holding(sim, target):
 		amount = mini(amount, maxi(0, int(target.hp) - 1))
 	return amount
@@ -212,9 +234,13 @@ static func shelters(sim: WorldSim, striker: SimEntity, o: SimEntity) -> bool:
 	return not b.is_empty() and not inside(b, striker.position)
 
 static func _tick_barrier(sim: WorldSim, m: Dictionary, b: Dictionary, dt: float) -> bool:
+	if b.get("dome", false):
+		return sim.time < float(b["until"])     # Cúpula da Graça: parada no ponto e fica até acabar, mesmo com o Sacerdote morto ou longe
 	var owner: SimEntity = sim.entities.get(int(b["owner"]))
 	if owner == null or not owner.is_alive() or owner.map_id != m["def"].id or sim.time >= float(b["until"]):
 		return false
+	if b.get("anchored", false):
+		return true
 	# anda com o Bispo: persegue (Bispo + deslocamento do lançamento) BARRIER_LAG mais devagar que ele; em Marcha, colada
 	var want: Vector3 = Vector3(owner.position.x, 0.0, owner.position.z) + b["offset"]
 	if b["march"]:

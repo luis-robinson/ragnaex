@@ -46,6 +46,7 @@ var _poison_fx: CPUParticles3D = null # bolhas verdes subindo (veneno)
 var _curse_fx: CPUParticles3D = null  # fiapos roxos sobre a cabeça (maldição/definhar)
 var falcon_view: FalconView = null    # falcão do Caçador ascendido voando sobre o boneco (SimEntity.falcon)
 var _prey_fx: Node3D = null           # Presa do falcão: mira âmbar girando sobre a cabeça
+var _amp_fx: Node3D = null            # Toxina Real / Eclipse (debuff dot_amp): garras verdes girando ao contrário, maiores
 var buff_aura: BuffAura = null        # buffs ativos no boneco (criado no primeiro buff)
 var _rim_shown := Color(0, 0, 0, 0)
 var _rim_style_shown := 0
@@ -72,6 +73,7 @@ const ARC_TIME := 0.28
 var _last_state := -1
 var _is_player := false
 var _base_scale := 1.0
+var _ult_scale := 1.0              # boneco maior por buff de Suprema (Avatar da Fé, Colosso Primevo): escala do nó inteiro
 
 ## Golpe na guarda empurra o corpo para trás; aparar empurra mais.
 func _on_shield_block(target_id: int, _attacker_id: int, _theme: String, parried: bool, _from: Vector3) -> void:
@@ -1110,6 +1112,22 @@ var _np_lv := -1                     # o que a placa de nome mostra (refaz o tex
 var _np_ally := false
 var _np_plv := -1
 
+## Escala pedida pelos buffs da entidade (chave "scale" do buff; a maior vence; 1 = normal). Só desenho.
+static func buff_scale(e: SimEntity) -> float:
+	var k := 1.0
+	for b in e.buffs:
+		if b.has("scale"):
+			k = maxf(k, float(b["scale"]))
+	return k
+
+## Cresce/encolhe até a escala dos buffs em ~Balance.ULT_SCALE_TIME s (Avatar da Fé x1,25, Colosso Primevo x1,5).
+func _update_ult_scale(delta: float) -> void:
+	var want := buff_scale(entity) if not entity.buffs.is_empty() else 1.0
+	if is_equal_approx(want, _ult_scale):
+		return
+	_ult_scale = move_toward(_ult_scale, want, delta * maxf(0.25, absf(want - 1.0)) / Balance.ULT_SCALE_TIME)
+	scale = Vector3.ONE * _ult_scale
+
 func _process(delta: float) -> void:
 	if entity == null:
 		return
@@ -1166,6 +1184,7 @@ static func sky_lift(e: SimEntity) -> float:
 
 func _process_view(delta: float) -> void:
 	_dt = delta
+	_update_ult_scale(delta)
 	if entity.stance != _stance_seen:
 		_apply_stance()
 	if quest_mark:
@@ -1262,6 +1281,7 @@ func _update_status() -> void:
 	var poisoned := false
 	var cursed := false
 	var prey := false
+	var amp := false
 	var chill := 0                       # 0 nada, 1 retardado, 2 preso
 	if entity.is_alive():
 		for d in entity.debuffs:
@@ -1278,6 +1298,8 @@ func _update_status() -> void:
 						cursed = true
 				"slow":
 					chill = maxi(chill, 1)
+				Balance.DOT_AMP_KIND:
+					amp = true
 				"root":
 					chill = 2
 	if stunned and _stun_fx == null:
@@ -1304,6 +1326,16 @@ func _update_status() -> void:
 		_prey_fx.visible = prey
 		if prey:
 			_prey_fx.rotation.y += get_process_delta_time() * 2.2
+	if amp and _amp_fx == null:
+		_amp_fx = _make_prey_mark()
+		_amp_fx.scale = Vector3.ONE * 1.3
+		for c in _amp_fx.get_children():
+			if c is MeshInstance3D:
+				(c as MeshInstance3D).material_override = Materials.glow(Color(0.5, 1.0, 0.3, 0.95), 1.8)
+	if _amp_fx:
+		_amp_fx.visible = amp
+		if amp:
+			_amp_fx.rotation.y -= get_process_delta_time() * 3.0
 	if chill > 0 and _chill_fx == null:
 		_chill_fx = _make_frost_ring()
 	if _chill_fx:
@@ -1648,6 +1680,7 @@ var _act_time := 0.0
 var _combo := 0                       # alterna golpe A/B (combo de 2) e mão direita/esquerda
 var _act_speed := 1.0                 # velocidade do clipe na preparação
 var _retimed := false                 # depois do impacto o resto do clipe cabe no resto da skill
+var _aim_hold := -1.0                 # Suprema de mira longa (Disparo do Fim): o clipe para no quadro do tiro até o fim da mira
 var _slash_done := false              # Corte e Tiro: o arco do sabre já saiu nesta ação (WeaponArcs.slash_hook); true = ação sem corte
 var _slash_clip := ""                 # Corte e Tiro: o clipe da ação, guardado quando ela começa (não procura o clipe por quadro)
 var _ribbon_key: SkillDef = null      # WeaponArcs.ribbon_off guardado por ação: skill, forma e armas de quando foi calculado
@@ -1687,7 +1720,7 @@ func _sig_base(base: String) -> String:
 ## canalizada, no alvo, invocação, leque de flechas), depois pela família da arma empunhada.
 ## Gestos de fase ativa longa (giro, canalização, pisão): repetem até a fase ativa acabar em vez de parar na pose final.
 const RECALL_ANIM_SPEED := 0.75      # conjuração da volta à cidade: gesto calmo, em laço
-const ACTIVE_LOOP := ["atk_spin", "cast_channel", "cast_shadow", "slam"]
+const ACTIVE_LOOP := ["atk_spin", "cast_channel", "cast_shadow", "slam", "atk_thrust"]     # atk_thrust: Lança Incansável (estocadas em canal)
 ## Sequência de golpes (efeito "strikes", Golpe do Cruzado): um clipe por golpe (`strikes.clips`), cada impacto no tick
 ## do golpe dele. Os clipes atk_2h_chain_a/b/c (chibi_kit.animate_crusader) têm o impacto nos quadros 5/6/7 = os preparos
 ## que saem daqui (0,16 / 0,21 / 0,24 s), então tocam a ~1x; mudou `at` ou STRIKE_NEXT_AT: refaça os clipes. O próximo clipe entra depois desta fração do intervalo entre os golpes (o resto é a preparação dele).
@@ -1977,6 +2010,10 @@ func _animate_glb(st: int) -> void:
 		_act_skill = s
 		_act_time = entity.state_time
 		var looping: bool = s != null and s.active >= LOOP_MIN_ACTIVE and anim.assigned_animation in ACTIVE_LOOP
+		if s and not fresh and _aim_hold >= 0.0 and entity.state_time < s.startup:
+			if anim.current_animation_position >= _aim_hold:
+				anim.speed_scale = 0.0               # mirando: fica no quadro do disparo (o tiro sai no fim do startup)
+			return
 		if s and not fresh and _strike_step(s):
 			return                             # sequência de golpes: o próximo clipe já entrou ou ainda vai entrar
 		if s and not fresh and not _retimed and entity.state_time >= s.startup + strike_last_at(s) and anim.is_playing():
@@ -2008,6 +2045,10 @@ func _animate_glb(st: int) -> void:
 				var impact := float(IMPACT_FRAME.get(clip, 5) - 1) / 24.0
 				var startup := maxf(s.startup if s else 0.15, 0.06)
 				var wt := windup_timing(impact, startup)
+				_aim_hold = -1.0
+				if s and s.ultimate and startup > 0.6:     # mira longa: sobe a arma no ritmo normal e segura (não arrasta o preparo)
+					_aim_hold = maxf(0.0, impact - 0.05)
+					wt = Vector2(maxf(0.0, impact - 0.3), 1.0)
 				anim.speed_scale = 1.0
 				_act_speed = wt.y
 				_retimed = false

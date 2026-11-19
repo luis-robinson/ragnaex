@@ -1,0 +1,1 @@
+000  bis_ult_judgement_sun  Sol do Julgamento        GROUND    MAG      build=inquisidor clip=cast_ground vfx=holy     start=0.30 act=0.08 rec=0.35 impacto=quadro 1

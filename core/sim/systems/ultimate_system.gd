@@ -187,6 +187,8 @@ static func cast_block(sim: WorldSim, e: SimEntity) -> String:
 	if e.ult_charge < Balance.ULT_MAX:
 		return "Carga Suprema incompleta (%d%%)" % int(e.ult_charge / Balance.ULT_MAX * 100.0)
 	var s := ultimate_of(sim, e)
+	if s.effects.has("force_form") and UltEffects.form_refused(e, str(s.effects["force_form"])):
+		return "Só em forma de %s" % str(SkillDef.FORM_LABELS.get(s.effects["force_form"], s.effects["force_form"])).capitalize()
 	if not DruidAscension.form_ok(e, s.requires_form):
 		return "%s: só na forma de %s" % [s.name, SkillDef.FORM_LABELS.get(s.requires_form, s.requires_form)]
 	if e.has_debuff("root") and (s.effects.has("dash") or s.effects.has("hop_strikes")):
@@ -203,7 +205,10 @@ static func try_cast(sim: WorldSim, e: SimEntity, aim: Vector3, _m: Dictionary) 
 		return false
 	if e.mounted:
 		sim.dismount(e)                         # a Suprema desmonta (como as skills que não saem a cavalo)
-	sim._start_skill(e, ultimate_of(sim, e), Balance.ULT_CAST_SLOT, aim)
+	var s := ultimate_of(sim, e)
+	if e.form != "" and not DruidAscension.form_mods(s.id, e.form).is_empty():
+		s = UltEffects.form_variant(e, s)     # variante da forma (Ceifa das Almas na Demoníaca/Fantasma)
+	sim._start_skill(e, s, Balance.ULT_CAST_SLOT, aim)
 	return true
 
 ## A Suprema saiu (passou do startup): zera, abre ULT_MIN_GAP e marca o grupo (bots não soltam juntos).
@@ -244,6 +249,8 @@ static func bot_release(sim: WorldSim, e: SimEntity, mob: SimEntity) -> bool:
 	var around := _anchor(s, e, mob)            # Suprema em volta de si (SELF/segue o lançador): conta em volta do lançador
 	if around == e.position and mob.position.distance_to(e.position) > r + mob.radius:
 		return false                              # o alvo está fora da área que sai em volta dele
+	if s.target == SkillDef.Target.TARGET and s.range > 0.0 and mob.position.distance_to(e.position) > s.range + mob.radius:
+		return false                              # golpe no alvo (Toxina Real, Sete Ventos): só com o alvo no alcance
 	if not big and _foes_near(e, m, around, r) < Balance.BOT_ULT_PACK:
 		return false
 	if not big and sim.player != null and e.party_id >= 0 and e.party_id == sim.player.party_id and sim.time - e.ult_full_at < Balance.BOT_ULT_HOLD:

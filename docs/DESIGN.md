@@ -212,7 +212,7 @@ pulso. Checks `_check_dot_pulse`, `_check_dot_cap`; medir com `boss_probe -- --d
 de skill de fogo é queimadura (número laranja, brasas no alvo); **gelo estilhaça** — skill de gelo em alvo retardado, preso ou atordoado
 causa ×`Balance.FROST_SHATTER_MULT` (1,3; número azul com ❄), então vale abrir com Nova de Gelo/Lança e emendar; a **lentidão de gelo**
 também tira `Balance.FROST_ASPD_SLOW` (25%) da velocidade de ataque (`Combat.frost_attack_mult`; não soma entre lentidões de gelo; a de
-outras skills só retarda o movimento; 2026-11-19); **raio atordoa** —
+outras skills só retarda o movimento; 2026-11-19); a **Armadura de Gelo** não dá DEF: corta o dano recebido em 15% + 1% a cada 10 INT, até 40% (`Stats.frost_armor_dr`, `Balance.FROST_ARMOR_DR_*`; 2026-11-19); **raio atordoa** —
 Trovão, Estilhaçar, Zero Absoluto e as combinações com raio sempre; as outras skills de raio com dano têm `Balance.STORM_STUN_CHANCE`
 (15%) de atordoar `STORM_STUN_TIME` (0,5 s) no golpe direto (`Combat.storm_can_stun`; chefes: 40% da duração). Na tela: atordoado = estrelas girando, retardado/preso =
 anel de gelo nos pés e tom azul, queimando = brasas e tom laranja (`EntityView._update_status`, parâmetro `status` do `toon.gdshader`).
@@ -546,6 +546,50 @@ Proposta aprovada: `design/gdd/ato2-proposals-2026-11-11.md` §2 opção A. O li
   `ignore_max` no `summon` e chaves de buff `end_cast`/`oath_lock`.
 - **Onda A** (2026-11-19): o sistema inteiro + a Chuva de Meteoros (Fogo, presa onde o mago lançou, decisão do usuário).
   As outras 23 entram na onda B com os números em `Balance.ULT_NUMBERS`.
+- **Onda B1** (2026-11-19, Paladino/Berserker/Bispo/Druida; catálogo `SkillsCatalog._ultimates_b1`): Bastião da Aurora (provoca,
+  escudo, Juramento cheio `oath_fill`, Proteção), Juízo da Alvorada (salto `leap_iframe` + `strikes`: o `dash` sai só no 1º golpe e
+  `strikes.last_effects` só no último), Céu de Martelos (`orbit` com `oath_lock` e `effects` por batida; o relógio do orbit é
+  `AURA_TICK` 0,5 s, então 0,42 × 20 batidas ≈ 8,4 no lugar de "0,5 a cada 0,6 s"), Festim de Sangue (buff `wound_hold`: suas
+  feridas não fecham, `WoundSystem.hold`; fecha com a skill de apoio sem classe `ber_ult_blood_feast_end`), Veredito do Carrasco
+  (`sunder_fill` antes do golpe + `ult_execute`), Sete Ventos e Garras da Lua Rubra (`hop_strikes`; o limite de pulos sem chão
+  agora vale por salto), Cúpula da Graça (`grace_dome` → `ChoirSystem.place_dome`: cúpula parada; com a Barreira Sagrada vale a
+  maior redução, `ChoirSystem.dr_of`), Sol do Julgamento (zona com `mend_pct`), Avatar da Fé (`ally_heal` + stat `phys_mend`),
+  Colosso Primevo (`force_form` urso, recusa Ent/outras formas; buff `keep_hp`: a vida ganha entra cheia e no fim a % fica;
+  `form_bound`: sair do urso acaba o Colosso), Coração do Bosque Ancião (zona com `foe_radius`/`foe_max`: Fogo Lunar nos 3 mais
+  perto a 10 m, cura a 6 m). Boneco maior (Avatar ×1,25, Colosso ×1,5): chave de buff `scale`, só desenho (`EntityView.buff_scale`,
+  transição `Balance.ULT_SCALE_TIME`).
+- **Onda B2** (2026-11-19, Ranger/Assassino/Elementalista Gelo e Raio/Necromante; catálogo `SkillsCatalog._ultimates_b2`):
+  Laço Selvagem (`pet_revive` com `buff` no lince: +ATK `pet_atk_pct`, resistência a controle e `scale` 1,4; `spirit` = 2º lince
+  `free_summon` com 70% da ficha), Disparo do Fim (mira = `startup` 1,2 s, `ULT_NUMBERS.aim`, única exceção ao teto de 0,3 s; o
+  clipe segura o quadro do tiro; projétil de 30 m com `sure_crit` e `pierce_rest` 0,6; empurra), Lança Incansável (`channel` de 12
+  estocadas em linha que sangram e renovam a Marca do Predador; `channel_end` arremessa a lança e prende), Toxina Real (`dot_amp`
+  ×2 por 8 s, detona ×2 e espalha a 4 m; marca verde girando sobre o alvo), Duelo Supremo (janela da Guarda por 6 s com
+  `riposte_arc` 140°, `riposte_gain` 2 de Ímpeto, `riposte_gap` 0,5 s sem o teto de respostas; `end_cast` Golpe de Mestre com
+  `momentum_fill`; leque prateado no chão), Chamado da Frota (`storm` presa no ponto, 14 balas avisadas em areia, bala cai do céu,
+  empurra 1 m do ponto da queda; Bravata cheia), Inverno Eterno (`storm` de pulsos presa no ponto, congela no 3º), Olho da
+  Tempestade (`storm` que segue o mago, raio do céu + `chain`; buff de velocidade; `cd_reset` do Passo Relampejante), Maré dos
+  Mortos (6 esqueletos `ignore_max`; `buff_first` = o +MATK vale para eles; `summon_buff` nas suas invocações; `expire_blast` =
+  explodem ao sumir × vida restante; a Oferenda não os pega), Ceifa das Almas (`hit_heal` 6%/atingido até 5, buff; variantes em
+  `FORM_MODS`, só a da forma: `UltEffects.form_variant`), Eclipse do Vazio (`storm` de pulsos sem dano: lentidão, `dot_amp` 1,5 e
+  `curse_spread`; `end` = implosão que puxa). Aparo inteiro do Duelista não enche a carga (golpe que não pegou, GDD §3.2).
+  Força em alvo único medida por `_check_ultimate_b2_power` (régua: Chuva de Meteoros).
+- **Força das Supremas de dano** (decisão do usuário 2026-11-19): +60% sobre o orçamento antigo de 10-14, alvo
+  `Balance.ULT_POWER_BAND` = **16-22 de poder** em alvo único somando a duração (~1 por luta de chefe; medidor igual).
+  Medida: `_check_ultimate_b2_power` lança cada uma contra um chefe parado e soma `SimEntity.ult_dealt` (dano que a sim marca
+  como de Suprema: `WorldSim.ult_tag` em volta do `_apply_skill` da Suprema e de skill `*_ult_*`, golpes de `storm`/`hop`,
+  martelos do `orbit`, zonas, dots marcados `ult`, o que o `dot_amp` acrescenta, a detonação, o fecho `end_cast` e as respostas
+  do Duelo) ÷ o golpe médio de poder 1,0 de quem lança; média de 5 lançamentos, folga de ±1,5 no check. Festim e Duelo (buffs):
+  diferença batendo de básico com e sem. Dano + utilidade com faixa própria da parte de dano (`ULT_POWER_PART`: Ceifa, Eclipse).
+  Utilidade (Bastião, Cúpula, Avatar, Colosso, Laço, Maré) mantém os números. `boss_probe` imprime `ULTDMG` (parte do dano de
+  cada build no chefe que veio da Suprema). Dots de Suprema (todos agora marcados `ult`, inclusive a sangria do Festim) não enchem a carga.
+- **Duelo Supremo, contador do Duelo** (decisão do usuário 2026-11-19): na guarda, cada golpe direto do próprio duelista
+  (básico ou skill) soma `hit_gain` 1 (até `hit_cap` 8 golpes) e cada aparo soma `gain` 2; teto `duel_cap` 10. O Golpe de Mestre
+  do fim (Ímpeto cheio, como antes) vale × `end_power` × (1 + `duel_per` 0,06 × contador): forte mesmo sem ninguém bater nele
+  (o chefe olha o tanque). `RiposteSystem.duel_hit` (chamado no `_strike`, só para o golpe da própria ação: básico ou a skill em
+  andamento; procs e lançamentos de graça não contam), `UltEffects.end_cast`.
+- Cúpula da Graça fica até acabar mesmo com o Sacerdote caído/fora do mapa (decisão 2026-11-19); com ela de pé os bots do Coro
+  não lançam a Barreira Sagrada. Companheiro guarda a defesa herdada do dono em `SimEntity.summon_pdef` (o fim do Laço
+  Selvagem/Maré não a perde). `WorldSim.ult_tag` volta a 0 no começo de cada tique (medição nunca muda o jogo).
 
 ## Pontos de skill: teia (estilo Path of Exile)
 **Skills pelo nível e rank no Mestre de Skills (2026-11-18)**: toda skill comum da classe (de todas as builds; fora as de ascensão)

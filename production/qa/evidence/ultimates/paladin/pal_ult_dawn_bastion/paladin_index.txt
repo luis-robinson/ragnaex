@@ -1,0 +1,1 @@
+000  pal_ult_dawn_bastion   Bastião da Aurora        SELF      BUFF     build=guardiao   clip=buff_power  vfx=holy     start=0.25 act=0.05 rec=0.30 impacto=quadro 1

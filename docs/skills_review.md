@@ -59,3 +59,46 @@ físicos de tema "aço" ainda são o leque branco genérico, `dru_moonfire` tem 
 ## Pendências conhecidas
 - Flecha física ainda leva o rastro branco de partículas do tema "physical" (fica bonito, mas lê como magia leve).
 - Bancada mostra só a câmera do jogo (a vista de lado do plano não foi feita: a do jogo é a que importa).
+
+## Supremas da onda B1 (2026-11-19) — bancada `--showcase=<classe> --skill=<id>` (nível 40, ascensão, carga cheia)
+Folhas em `production/qa/evidence/ultimates/<classe>/<id>/`. Nota: pose, tempo, forma, identidade, retorno (0-2 cada; passa com ≥ 8).
+
+| Suprema | 1ª volta | Final | O que mudou entre as voltas |
+|---|---|---|---|
+| `pal_ult_dawn_bastion` Bastião da Aurora | 6 (1/2/1/1/1) | 8 (1/2/2/2/1) | estandarte de luz fincado (dura a Proteção), onda até 8 m, coluna, fios até o grupo |
+| `pal_ult_dawn_judgement` Juízo da Alvorada | 9 (2/2/2/2/1) | 9 | — (salto + 3 golpes do montante + coluna sagrada + estrelas do atordoar) |
+| `pal_ult_hammer_sky` Céu de Martelos | 9 (2/2/2/2/1) | 9 | — (8 martelos girando a 4 m, marca roxa nos atingidos) |
+| `ber_ult_blood_feast` Festim de Sangue | 5 (1/2/0/1/1) | 8 (1/2/1/2/2) | explosão de sangue em pé + coluna vermelha (nada vermelho no chão) |
+| `ber_ult_headsman_verdict` Veredito do Carrasco | 7 (2/2/1/1/1) | 8 (2/2/2/1/1) | fenda de 3,5 m em volta do alvo (tema terra) + sangue no impacto |
+| `ber_ult_seven_winds` Sete Ventos | 8 (1/2/2/2/1) | 8 | — (some e reaparece em cada golpe, rastro de vento) |
+| `bis_ult_grace_dome` Cúpula da Graça | 8 (1/2/2/2/1) | 8 | — (a cúpula da Barreira, maior e parada) |
+| `bis_ult_judgement_sun` Sol do Julgamento | 9 (1/2/2/2/2) | 9 | — (raio de sol, chão aceso, atordoar) |
+| `bis_ult_faith_avatar` Avatar da Fé | 8 (1/2/2/2/1) | 8 | — (martelo de luz em volta, auréola, boneco ×1,25) |
+| `dru_ult_primal_colossus` Colosso Primevo | 9 (2/2/2/2/1) | 9 | — (urso ×1,5 com a pele de casca do tema) |
+| `dru_ult_blood_moon` Garras da Lua Rubra | 6 (1/2/1/1/1) | 8 (1/2/2/1/2) | tema `lunar` no lugar de `blood`: os círculos dos saltos eram vermelhos no chão (cor de aviso de chefe) |
+| `dru_ult_elder_heart` Coração do Bosque Ancião | 6 (1/2/1/1/1) | 8 (1/2/2/2/1) | a árvore ancestral brota no ponto e fica os 12 s; Fogo Lunar sai dela até cada alvo |
+
+Pendências: o Festim não mostra o fechamento (a Sangria sai aos 10 s, fora da folha de 2,4 s); a pose das SELF é o clipe comum
+(`buff_power`/`shout`); a Lua Rubra usa o clipe do lobo, sem um salto próprio.
+
+## Supremas da onda B2 (2026-11-19) — bancada `--showcase=<classe> --skill=<id>` (nível 40, ascensão, carga cheia)
+Folhas em `production/qa/evidence/ultimates/<classe>/<id>/` (`final.png`; `v1.png` = 1ª volta quando mudou). Nota: pose, tempo,
+forma, identidade, retorno (0-2 cada; passa com ≥ 8).
+
+| Suprema | 1ª volta | Final | O que mudou entre as voltas |
+|---|---|---|---|
+| `ran_ult_wild_bond` Laço Selvagem | 9 (1/2/2/2/2) | 9 | — (o lince volta ×1,4 com o brilho verde; o espiritual em fumaça) |
+| `ran_ult_end_shot` Disparo do Fim | 6 (0/2/1/1/2) | 8 (1/2/1/2/2) | a mira segura o quadro do tiro (o clipe se arrastava na mira de 1,2 s e terminava antes do disparo); rastro do tiro até 30 m |
+| `ran_ult_endless_lance` Lança Incansável | 6 (1/2/1/1/1) | 8 (2/2/1/2/1) | `atk_thrust` em laço na fase ativa (era `atk_flurry`: talhos largos e depois parado) |
+| `ass_ult_royal_toxin` Toxina Real | 6 (1/2/1/0/2) | 8 (1/2/1/2/2) | marca do `dot_amp` sobre o alvo (garras verdes girando ao contrário) |
+| `ass_ult_grand_duel` Duelo Supremo | 6 (1/2/1/1/1) | 8 (1/2/2/2/1) | leque prateado da guarda (140°, alcance da resposta) no chão, virando com o duelista |
+| `ass_ult_fleet_call` Chamado da Frota | 7 (1/2/1/2/1) | 9 (1/2/2/2/2) | a bala de canhão cai do céu e chega com o golpe (vale também para a Chuva de Meteoros) |
+| `ele_ult_eternal_winter` Inverno Eterno | 8 (1/2/2/2/1) | 8 | — (pulsos de gelo, anel de frio e o floco do congelar) |
+| `ele_ult_storm_eye` Olho da Tempestade | 6 (1/2/1/1/1) | 9 (1/2/2/2/2) | raio que cai do céu em cada golpe (antes só um anel no chão) |
+| `nec_ult_tide_of_dead` Maré dos Mortos | 9 (2/2/2/2/1) | 9 | — |
+| `nec_ult_soul_reaping` Ceifa das Almas | 8 (2/2/1/1/2) | 8 | — |
+| `nec_ult_void_eclipse` Eclipse do Vazio | 7 (1/2/1/2/1) | 8 (1/2/2/2/1) | disco escuro do vazio no chão pela duração (quase preto: não lê como aviso de chefe) |
+
+Pendências: as folhas de 2,4 s não mostram os fechamentos (Golpe de Mestre do Duelo aos 6 s, implosão do Eclipse aos 8 s,
+explosão dos esqueletos aos 20 s); as SELF usam os clipes comuns (`shout`/`buff_power`); a arma do Disparo fica escondida
+atrás da cabeça chibi quando ele mira para o norte (câmera do jogo).

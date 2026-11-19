@@ -16,7 +16,7 @@ static func pick(sim: WorldSim, e: SimEntity, at: Vector3, sd: Dictionary) -> Ar
 	for o: SimEntity in sim.maps[e.map_id]["entities"]:
 		if o.kind != SimEntity.Kind.SUMMON or o.owner_id != e.id or not o.is_alive() or o.monster_def == null:
 			continue
-		if o.monster_def.id in Balance.SACRIFICE_EXCLUDE or o.elem_form != "":
+		if o.monster_def.id in Balance.SACRIFICE_EXCLUDE or o.elem_form != "" or o.free_summon:     # Maré dos Mortos: já explodem sozinhos
 			continue
 		if Vector2(o.position.x - at.x, o.position.z - at.z).length() <= R:
 			out.append(o)
@@ -52,3 +52,20 @@ static func offer(sim: WorldSim, e: SimEntity, s: SkillDef, aim: Vector3, power:
 				hits += 1
 		sim.despawn(o)          # oferecida: some na hora (invocação não dá XP nem saque)
 	return hits
+
+## Invocação com "expire_blast" (Maré dos Mortos) chegou ao fim do tempo: explode em `radius` com power x % de vida dela
+## (regra do sacrifice com hp_weight 1), como dano do dono. Chamado antes do despawn.
+static func expire_blast(sim: WorldSim, o: SimEntity) -> void:
+	var owner: SimEntity = sim.entities.get(o.owner_id)
+	if owner == null or not owner.is_alive() or owner.map_id != o.map_id or not sim.maps.has(o.map_id) or not o.is_alive():
+		return
+	var R := float(o.expire_blast.get("radius", 3.0))
+	var p := float(o.expire_blast.get("power", 1.0)) * clampf(o.hp / maxf(1.0, o.stats.max_hp), 0.0, 1.0)
+	if p <= 0.0:
+		return
+	var pos := o.position
+	Events.post(&"skill_effect", str(o.expire_blast.get("skill", "nec_dark_offering")), pos, pos, R)
+	for t: SimEntity in sim.maps[o.map_id]["entities"].duplicate():
+		if t.is_alive() and owner.is_hostile_to(t) and Vector2(t.position.x - pos.x, t.position.z - pos.z).length() <= R + t.radius:
+			var r := Combat.calc_damage(owner, t, p, SkillDef.Kind.MAGICAL, sim.rng, pos)
+			sim._deal_damage(owner, t, r["amount"], r["crit"], r["blocked"], "magical", pos)

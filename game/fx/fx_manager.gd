@@ -337,12 +337,24 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: f
 	if skill_id == ChoirSystem.BARRIER_SKILL + "_stop":      # projétil barrado na borda da Barreira Sagrada
 		_ring(aim, radius, DOME_COLOR, 0.3, true)
 		return
+	if skill_id.ends_with("_bolt") and GameData.skills.has(skill_id.trim_suffix("_bolt")):     # Coração do Bosque: Fogo Lunar da árvore no alvo
+		var bs: SkillDef = GameData.skills[skill_id.trim_suffix("_bolt")]
+		_beam(origin + Vector3(0, 2.6, 0), aim + Vector3(0, 0.9, 0), origin.distance_to(aim), Color(0.75, 0.85, 1.0), 0.3)
+		SkillFx.burst(self, aim + Vector3(0, 0.9, 0), theme_of(bs), 10, Vector3.UP, 0.4)
+		return
 	var s: SkillDef = GameData.skill_or_basic(skill_id)
 	if s == null:
 		return
 	var th := theme_of(s)
+	if s.ultimate or skill_id.begins_with("ber_ult_"):
+		_ult_b1_fx(skill_id, origin, aim)     # Supremas B1: estandarte, árvore, fendas...
 	if s.effects.has("elem_fusion"):                      # Fusão: a cor/forma do elemento do elemental de quem lançou
 		th = _fusion_theme(origin, th)
+	if s.ultimate and th == "lightning" and s.effects.get("storm") is Dictionary and origin.distance_to(aim) < 0.05:
+		_sky_bolt(aim, Color(0.78, 0.88, 1.0), 0.3)     # Olho da Tempestade: o raio cai do céu
+		SkillFx.burst(self, aim + Vector3(0, 0.5, 0), th, 14, Vector3.UP, 0.6)
+		SkillFx.circle(self, aim, maxf(0.8, radius), th, 0.25)
+		return
 	if radius == ORBIT_PULSE:                              # batida dos Martelos Abençoados (AuraSystem.orbit_tick): faíscas em volta
 		var rr := float(s.radius)
 		SkillFx.burst(self, origin + Vector3(0, 0.7, 0), th, 14, Vector3.UP, rr * 0.7, 0.8)
@@ -538,6 +550,33 @@ func _ground_impact(s: SkillDef, th: String, at: Vector3, radius: float, area_th
 			SkillFx.burst(self, at + Vector3(0, 0.3, 0), th, 30, Vector3.UP, radius * 0.45)
 
 ## Martelos girando na view de `e` (efeito "orbit"): troca os que já estavam (relançar renova o tempo).
+## Duelo Supremo: leque prateado (arco da guarda, alcance da resposta) no chão à frente, que gira com o boneco.
+func _guard_fan(e: SimEntity, b: Dictionary, duration: float) -> void:
+	var view: Node3D = main.views.get(e.id)
+	if view == null:
+		return
+	var ang := deg_to_rad(float(b["riposte_arc"]))
+	var root := Node3D.new()
+	root.name = "GuardFan"
+	add_child(root)
+	var fill := _fan(Balance.RIPOSTE_RANGE, ang, Color(GUARD_FAN, 0.10))
+	var rim := _danger_rim("fan", Balance.RIPOSTE_RANGE, ang, 0.0, DANGER_RIM_W * 0.7)
+	(rim.material_override as StandardMaterial3D).albedo_color = Color(GUARD_FAN, 0.7)
+	root.add_child(fill)
+	root.add_child(rim)
+	var tw := root.create_tween()
+	tw.tween_method(func(_v: float): _follow_fan(root, view, e), 0.0, 1.0, maxf(0.1, duration))
+	tw.tween_callback(root.queue_free)
+const GUARD_FAN := Color(0.85, 0.9, 1.0)
+const VOID_DISC := Color(0.09, 0.04, 0.14)
+
+func _follow_fan(root: Node3D, view: Node3D, e: SimEntity) -> void:
+	if not is_instance_valid(view) or not e.is_alive():
+		root.visible = false
+		return
+	root.global_position = view.global_position + Vector3(0, 0.06, 0)
+	root.rotation.y = e.facing
+
 func _orbit_fx(e: SimEntity, b: Dictionary, duration: float) -> void:
 	var view: Node3D = main.views.get(e.id)
 	if view == null:
@@ -670,6 +709,9 @@ func _on_ally_strike(map_id: String, pos: Vector3, radius: float, delay: float, 
 	var rim := _danger_rim("disc", radius, 0.0, 0.0, DANGER_RIM_W)
 	(rim.material_override as StandardMaterial3D).albedo_color = ALLY_STRIKE_RIM
 	_danger_grow(root, _disc(radius, Color(ALLY_STRIKE, 0.12)), _disc(radius, Color(ALLY_STRIKE, 0.26)), rim, false, maxf(0.15, delay))
+	var s: SkillDef = GameData.skills.get(_skill_id)
+	if s != null and s.vfx == "fire":           # meteoro / bala de canhão: cai do céu e chega junto com o golpe
+		SkillFx.meteor(self, pos, radius, "fire", maxf(0.15, delay))
 
 ## Área da tempestade de Suprema: anel fino de areia no chão pela duração (segue o dono quando `follows`).
 func _on_storm_started(map_id: String, owner_id: int, _skill_id: String, center: Vector3, radius: float, duration: float, follows: bool) -> void:
@@ -686,6 +728,17 @@ func _on_storm_started(map_id: String, owner_id: int, _skill_id: String, center:
 	tw.tween_interval(maxf(0.1, duration - 0.4))
 	tw.tween_property(rim.material_override, "albedo_color:a", 0.0, 0.4)
 	tw.tween_callback(rim.queue_free)
+	var ss: SkillDef = GameData.skills.get(_skill_id)
+	if ss != null and ss.vfx == "shadow" and not follows:     # Eclipse do Vazio: o disco escuro do vazio fica no chão (quase preto, não é aviso)
+		var void_disc := _disc(radius, Color(VOID_DISC, 0.0))
+		add_child(void_disc)
+		void_disc.position = center + Vector3(0, 0.04, 0)
+		var vm := void_disc.material_override as StandardMaterial3D
+		var vt := void_disc.create_tween()
+		vt.tween_property(vm, "albedo_color:a", 0.42, 0.35)
+		vt.tween_interval(maxf(0.1, duration - 0.75))
+		vt.tween_property(vm, "albedo_color:a", 0.0, 0.4)
+		vt.tween_callback(void_disc.queue_free)
 
 ## Monta base + miolo + borda em `root`, o miolo cresce em `dur` s e o aviso some.
 func _danger_grow(root: Node3D, base: MeshInstance3D, fill: MeshInstance3D, rim: MeshInstance3D, line: bool, dur: float) -> void:
@@ -810,6 +863,8 @@ func _on_buff(entity_id: int, buff_id: String, duration: float) -> void:
 	for b in e.buffs:                            # Martelos Abençoados: martelos girando em volta enquanto o buff dura
 		if b.get("id") == buff_id and b.get("orbit") is Dictionary:
 			_orbit_fx(e, b, duration)
+		if b.get("id") == buff_id and b.has("riposte_arc"):     # Duelo Supremo: o arco da guarda no chão, virando com ele
+			_guard_fan(e, b, duration)
 	if buff_id.ends_with("_off"):
 		return
 	var lk: Dictionary = BuffLooks.look(buff_id, e)
@@ -1135,6 +1190,27 @@ func _arc(pos: Vector3, radius: float, color: Color, duration: float) -> void:
 	tw.tween_property(mi, "scale", Vector3(1, 1, 1), duration).set_ease(Tween.EASE_OUT)
 	tw.tween_property(m, "albedo_color:a", 0.0, duration)
 	tw.chain().tween_callback(mi.queue_free)
+
+## Raio vertical do céu até `at` (dois segmentos tortos, some em `duration` s).
+func _sky_bolt(at: Vector3, color: Color, duration: float) -> void:
+	var kink := at + Vector3(randf_range(-0.6, 0.6), 4.0, randf_range(-0.6, 0.6))
+	for seg in [[at + Vector3(0, 0.2, 0), kink], [kink, at + Vector3(randf_range(-0.8, 0.8), 10.0, randf_range(-0.8, 0.8))]]:
+		var a: Vector3 = seg[0]
+		var b: Vector3 = seg[1]
+		var mi := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(0.22, a.distance_to(b), 0.22)
+		mi.mesh = bm
+		var m := Materials.glow(color, 3.0)
+		mi.material_override = m
+		add_child(mi)
+		mi.global_position = (a + b) * 0.5
+		mi.basis = Basis(Quaternion(Vector3.UP, (b - a).normalized()))
+		var tw := create_tween()
+		tw.set_parallel(true)
+		tw.tween_property(mi, "scale", Vector3(0.1, 1.0, 0.1), duration)
+		tw.tween_property(m, "albedo_color:a", 0.0, duration)
+		tw.chain().tween_callback(mi.queue_free)
 
 func _beam(origin: Vector3, aim: Vector3, length: float, color: Color, duration: float) -> void:
 	var d := aim - origin
@@ -1703,3 +1779,85 @@ func sync_loot_for_map() -> void:
 	for p in Sim.maps[main.current_map_id]["projectiles"]:
 		_on_projectile(p)
 	sync_traps_for_map()
+
+# ---------------------------------------------------------------------------
+# Supremas da onda B1 (GDD ultimates-lv40): o que a forma genérica do tema não mostra. Só desenho; o efeito normal segue.
+func _ult_b1_fx(skill_id: String, origin: Vector3, aim: Vector3) -> void:
+	var U: Dictionary = Balance.ULT_NUMBERS
+	match skill_id:
+		"pal_ult_dawn_bastion":            # estandarte de luz fincado + onda até o raio + fios até os aliados protegidos
+			var n: Dictionary = U[skill_id]
+			_ring(origin, float(n["radius"]), DOME_COLOR, 0.7)
+			_pillar(origin, 0.7, DOME_COLOR, 0.9)
+			_standard(origin, DOME_COLOR, float(n["duration"]))
+			if Sim.player != null:
+				for o in Sim.map_entities(main.current_map_id):
+					if o.is_character() and o.is_alive() and o.position.distance_to(origin) <= float(n["radius"]) and o.position.distance_to(origin) > 0.5 and (o == Sim.player or (o.party_id >= 0 and o.party_id == Sim.player.party_id)):
+						_beam(origin, o.position, origin.distance_to(o.position), DOME_COLOR, 0.6)
+		"ber_ult_blood_feast":             # explosão de sangue em pé (nada vermelho no chão: o chão vermelho é aviso de chefe)
+			SkillFx.burst(self, origin + Vector3(0, 1.0, 0), "blood", 40, Vector3.UP, 0.6, 1.4)
+			_pillar(origin, 0.55, Color(0.95, 0.2, 0.2), 0.7)
+		"ber_ult_headsman_verdict":        # a rachadura se abre em volta do alvo
+			SkillFx.circle(self, aim, float(U[skill_id]["radius"]), "earth", 0.7)
+			SkillFx.burst(self, aim + Vector3(0, 0.6, 0), "blood", 30, Vector3.UP, 0.5, 1.3)
+		"dru_ult_elder_heart":             # a árvore ancestral brota no ponto e fica o tempo da zona
+			_elder_tree(aim, float(U[skill_id]["duration"]))
+
+## Estandarte de luz (Bastião da Aurora): mastro + pano dourado aceso, fica `life` s e some.
+func _standard(pos: Vector3, color: Color, life: float) -> void:
+	var root := Node3D.new()
+	root.position = pos
+	add_child(root)
+	var pole := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = 0.05
+	cm.bottom_radius = 0.07
+	cm.height = 2.8
+	pole.mesh = cm
+	pole.material_override = Materials.glow(color.darkened(0.2), 1.2)
+	pole.position = Vector3(0, 1.4, 0)
+	root.add_child(pole)
+	var cloth := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(0.9, 0.7, 0.04)
+	cloth.mesh = bm
+	cloth.material_override = Materials.glow(color, 2.2)
+	cloth.position = Vector3(0.48, 2.3, 0)
+	root.add_child(cloth)
+	root.scale = Vector3(1, 0.05, 1)
+	var tw := create_tween()
+	tw.tween_property(root, "scale", Vector3.ONE, 0.25).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	tw.tween_interval(maxf(0.1, life - 0.6))
+	tw.tween_property(root, "scale", Vector3(1, 0.05, 1), 0.35)
+	tw.tween_callback(root.queue_free)
+
+## Árvore ancestral (Coração do Bosque Ancião): tronco + copa que brotam e somem no fim.
+func _elder_tree(pos: Vector3, life: float) -> void:
+	var root := Node3D.new()
+	root.position = Vector3(pos.x, 0.0, pos.z)
+	add_child(root)
+	var trunk := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = 0.28
+	cm.bottom_radius = 0.5
+	cm.height = 2.4
+	trunk.mesh = cm
+	trunk.material_override = Materials.glow(Color(0.45, 0.32, 0.2), 0.6)
+	trunk.position = Vector3(0, 1.2, 0)
+	root.add_child(trunk)
+	for k in range(3):
+		var crown := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 1.1 - k * 0.2
+		sm.height = sm.radius * 1.7
+		crown.mesh = sm
+		crown.material_override = Materials.glow(Color(0.45, 0.85, 0.45).lightened(k * 0.1), 1.3)
+		crown.position = Vector3((k - 1) * 0.5, 2.7 + k * 0.35, (k % 2) * 0.3)
+		root.add_child(crown)
+	root.scale = Vector3.ONE * 0.05
+	SkillFx.burst(self, root.position + Vector3(0, 1.5, 0), "nature", 30, Vector3.UP, 0.8, 1.4)
+	var tw := create_tween()
+	tw.tween_property(root, "scale", Vector3.ONE, 0.4).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	tw.tween_interval(maxf(0.1, life - 0.8))
+	tw.tween_property(root, "scale", Vector3.ONE * 0.05, 0.4)
+	tw.tween_callback(root.queue_free)

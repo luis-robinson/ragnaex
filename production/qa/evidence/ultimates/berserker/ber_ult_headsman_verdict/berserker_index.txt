@@ -1,0 +1,1 @@
+000  ber_ult_headsman_verdict Veredito do Carrasco     TARGET    FIS      build=executor   clip=atk_leap    vfx=blood    start=0.25 act=0.08 rec=0.35 impacto=quadro 1

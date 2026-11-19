@@ -106,6 +106,8 @@ static func _effect_rows(p: SimEntity, r: SkillDef, longer: float) -> Array:
 			if STAT_NAMES.has(k) and float(b[k]) != 0.0:
 				var v := float(b[k])
 				parts.append("%s%s%s %s" % ["+" if v > 0 else "", ("%.0f" % v), "" if k in PCT_FLAT else "%", STAT_NAMES[k]])
+		if b.get("dr_int", false):          # Armadura de Gelo: corte de dano pela INT de agora
+			parts.append("-%d%% de dano recebido (INT %d)" % [roundi(Stats.frost_armor_dr(float(p.stats.attrs["INT"]))), int(p.stats.attrs["INT"])])
 		var dur := "ligado até desligar" if b.get("toggle", false) else "por " + _secs(float(b.get("duration", 10)) * longer)
 		out.append(["Buff", ", ".join(parts) + ("  " if parts.size() > 0 else "") + dur])
 	if fx.get("shield") is Dictionary:

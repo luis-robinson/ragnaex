@@ -25,6 +25,7 @@ var player_cmd: InputCommand = InputCommand.new()
 var _pending_map_changes: Array = []
 var mounted_basics := {}           # SkillDef do básico -> cópia com o alcance montado (MountedCombat.mounted_basic)
 var power_scale := 1.0              # efeitos de graça (assinatura) lançam com menos poder
+var ult_tag := 0                    # > 0: o dano que sai agora é de Suprema (soma em SimEntity.ult_dealt; só medição: sondas/testes)
 var signatures_on := true
 var signature_force := false      # revisão visual: a assinatura dispara sempre (com a recarga)          # sondas: desliga a assinatura para comparar
 var _ended: Array = []             # _update_entity: buffs "end_cast" e marcas dot_amp que acabaram (lista reaproveitada)
@@ -271,9 +272,9 @@ func spawn_summon(owner: SimEntity, mdef: MonsterDef, pos: Vector3, duration: fl
 		e.summon_patk = owner.stats.matk * Balance.SUMMON_MATK_SHARE * clampf(mdef.atk / Balance.SUMMON_ATK_REF, Balance.SUMMON_ATK_MIN, Balance.SUMMON_ATK_MAX) * pk     # monstro mais forte (rei esqueleto) bate mais
 	if elem_form != "":
 		e.summon_patk *= ElementalSystem.stage_mult(owner, "atk")     # estágio do elemental: depois do limite SUMMON_ATK_MAX
-	e.recompute_stats()
 	if owner_stats:
-		e.stats.pdef = owner.stats.pdef * Balance.PET_DEF_SHARE
+		e.summon_pdef = owner.stats.pdef * Balance.PET_DEF_SHARE     # sobrevive ao recompute (fim do Laço Selvagem)
+	e.recompute_stats()
 	e.stats.patk = e.summon_patk
 	e.stats.matk = e.summon_patk
 	if elem_form != "":
@@ -484,6 +485,7 @@ func tick(dt: float) -> void:
 	var t_start := Time.get_ticks_usec()
 	tick_count += 1
 	time += dt
+	ult_tag = 0                         # guarda: a marca de medição nunca vaza entre tiques
 	# mapa sem o jogador roda a cada AWAY_MAP_EVERY ticks com o passo somado (bots e monstros seguem vivos, mais baratos);
 	# sem jogador (testes, servidor) todos rodam cheios
 	var focus: String = player.map_id if player != null else ""
@@ -1076,6 +1078,8 @@ func _update_skill(e: SimEntity, m: Dictionary, dt: float) -> void:
 		while e.channel_done < n and t >= s.startup + s.active * float(e.channel_done) / float(n):
 			e.channel_done += 1
 			_apply_skill(e, s, m)
+			if e.channel_done >= n and s.effects.get("channel_end") is Dictionary and e.is_alive() and e.current_skill == s:
+				UltEffects.channel_end(self, e, s, m)     # Lança Incansável: fim do canal = arremessa a lança
 	elif e.skill_applied and e.skill_phase == "active" and s.effects.get("strikes") is Dictionary:
 		# sequência de golpes (Golpe do Cruzado): golpe i no startup + at[i]; o último pode ser crítico garantido
 		var at_s: Array = s.effects["strikes"].get("at", [])
@@ -1094,6 +1098,14 @@ func _update_skill(e: SimEntity, m: Dictionary, dt: float) -> void:
 		_end_skill(e)
 
 func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
+	var ut := s.ultimate or is_ult_id(s.id)
+	if ut:
+		ult_tag += 1                       # tudo o que a Suprema faz aqui conta como dela (medição; dots marcados "ult")
+	_apply_skill_body(e, s, m)
+	if ut:
+		ult_tag -= 1
+
+func _apply_skill_body(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 	var lv := e.mastery_of(s.id) if s.id in e.mastery else 0
 	var power := s.power_at(lv) * e.stats.skill_power_mult(s.id) * e.stats.element_mult(s.elements) * ShieldSystem.shield_power(self, e, s) * power_scale
 	power *= TitanSystem.power_mult(e, s)          # Empunhadura/Garras de Titã: golpe duplo
@@ -1129,6 +1141,12 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 		strike_i = clampi(e.channel_done - 1, 0, Combat.strike_count(effects["strikes"]) - 1)
 		power *= Combat.strike_share(effects["strikes"], strike_i)
 	var sure_crit := strike_i >= 0 and Combat.strike_crit(effects["strikes"], strike_i)
+	if strike_i > 0:
+		effects.erase("dash")                  # salto da sequência: só no 1º golpe (Juízo da Alvorada)
+	if strike_i >= 0 and strike_i == Combat.strike_count(effects["strikes"]) - 1 and effects["strikes"].get("last_effects") is Dictionary:
+		effects.merge(effects["strikes"]["last_effects"], true)     # o golpe final atordoa (Juízo da Alvorada)
+	if effects.has("leap_iframe") and effects.has("dash"):
+		e.iframe_left = maxf(e.iframe_left, float(effects["leap_iframe"]))     # intocável no salto
 	e.combat_timer = Balance.AGGRO_LOSE_TIME
 	var aim := Combat.clamp_aim(e, e.skill_aim, s.range)
 	if e.is_character() and not e.stats.fusion.is_empty():
@@ -1195,15 +1213,22 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 			var n := int(sm.get("count", 1))
 			var cap := int(sm.get("max", 3)) + ClassTalentSystem.summon_extra(e, s.id) + NecroAscension.summon_extra(e)     # Senhor dos Mortos: +1 por tipo
 			var dur := 0.0 if ClassTalentSystem.summon_permanent(e, s.id) else float(sm.get("duration", 20)) * NecroAscension.summon_time_mult(e) * ClassTalentSystem.summon_time(e)     # talento: fica para sempre / Mortos sem Pressa; Senhor dos Mortos: dura mais
+			if sm.get("buff_first", false) and effects.get("buff") is Dictionary:     # Maré dos Mortos: o +MATK já vale para as que nascem agora
+				_apply_effects(e, e, {"buff": effects["buff"]}, power)
+				effects.erase("buff")
 			for i in range(n):
 				if alive >= cap and not free:
 					break
 				var off := Vector3(rng.randf_range(-1.2, 1.2), 0, rng.randf_range(-1.2, 1.2))
 				var made := spawn_summon(e, mdef, e.position + e.forward() * 1.2 + off, dur, bool(sm.get("owner_stats", false)))
 				made.free_summon = free
+				if sm.get("expire_blast") is Dictionary:
+					made.expire_blast = (sm["expire_blast"] as Dictionary).merged({"power": float(sm["expire_blast"].get("power", 1.0)) * power / maxf(0.01, s.power), "skill": s.id}, true)
 				NecroAscension.on_summoned(e, made)
 				alive += 1
 
+		if sm.get("summon_buff") is Dictionary:      # Maré dos Mortos: as SUAS invocações ganham o buff (velocidade de ataque)
+			UltEffects.buff_summons(self, e, sm["summon_buff"])
 	if effects.get("pack") is Dictionary:       # Lobo Alfa: chama a matilha
 		DruidAscension.call_pack(self, e, s, effects["pack"])
 	if effects.has("elem_command"):  # Comando Elemental: chama o elemental ou troca o modo
@@ -1275,15 +1300,28 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 			MobSystem.place_barrage(self, e, s, aim, power, effects)
 		return
 	# Supremas (GDD ultimates-lv40 §9)
+	if effects.has("force_form"):                  # Colosso Primevo: em forma humana vira urso na hora
+		UltEffects.force_form(self, e, str(effects["force_form"]))
+	if effects.get("oath_fill", false):            # Bastião da Aurora: Juramento cheio
+		UltEffects.oath_lock(e)
+	if effects.get("sunder_fill") is Dictionary:   # Veredito do Carrasco: rachadura cheia no alvo e em volta antes do golpe
+		UltEffects.sunder_fill(self, e, aim, effects["sunder_fill"], m)
+	if effects.get("grace_dome") is Dictionary:    # Cúpula da Graça: cúpula parada (a cura da skill segue abaixo)
+		ChoirSystem.place_dome(self, e, s, aim, m, effects["grace_dome"])
+	if effects.get("ally_heal") is Dictionary:     # Avatar da Fé: cura o grupo em volta
+		UltEffects.ally_heal(self, e, effects["ally_heal"], m)
 	if effects.get("intercept") is Dictionary:      # Proteção: parte do dano dos aliados perto vem para quem lançou
 		InterceptSystem.start(self, e, effects["intercept"])
 	if effects.get("pet_revive") is Dictionary:     # companheiro morto volta (vivo: vida cheia)
 		UltEffects.pet_revive(self, e, effects["pet_revive"])
 	if effects.get("storm") is Dictionary:          # tempestade: golpes no tempo em volta do lançador ou do ponto (StormSystem)
 		StormSystem.start(self, e, s, aim, power, effects["storm"])
-		if s.radius <= 0.0 and not effects.has("buff"):
-			Events.post(&"skill_effect", s.id, e.position, aim, 0.0)
-			return
+		if effects.get("buff") is Dictionary:         # Olho da Tempestade: +velocidade em quem lança
+			_apply_effects(e, e, {"buff": effects["buff"]}, power)
+		UltEffects.cd_reset(e, effects)                # ... e o Passo Relampejante volta
+		gain_bravado(e, int(effects.get("combo_gain", 0)))     # Chamado da Frota: Bravata cheia
+		Events.post(&"skill_effect", s.id, e.position, aim, 0.0)
+		return
 	if effects.get("hop_strikes") is Dictionary:    # salta entre inimigos batendo (HopSystem)
 		HopSystem.start(self, e, s, power, effects["hop_strikes"])
 		if not effects.has("buff"):
@@ -1353,6 +1391,8 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 	if s.projectile_speed > 0.0 and s.target == SkillDef.Target.DIRECTION:
 		_spawn_projectile(e, s, power, m, false, effects)
 		Events.post(&"skill_effect", s.id, e.position, aim, s.radius)
+		if effects.get("sure_crit", false) and s.projectile_pierce:     # Disparo do Fim: o rastro do tiro vai até o fim do alcance
+			Events.post(&"skill_effect", s.id, e.position, e.position + e.forward() * s.range, -3.0)
 		gain_bravado(e, int(effects.get("combo_gain", 0)))
 		return
 
@@ -1403,6 +1443,8 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 					wounded += 1                                        # Sangria: conta quem sangrava antes do giro
 				if effects.get("sunder_consume") is Dictionary and e.is_hostile_to(t):
 					hit_power *= SunderSystem.consume(t, effects["sunder_consume"])     # finalizador do Executor: gasta a rachadura
+				if effects.get("ult_execute") is Dictionary and e.is_hostile_to(t):
+					hit_power *= UltEffects.execute_mult(t, effects["ult_execute"])      # Veredito: alvo abaixo do limiar
 				var r := _strike(e, t, s, hit_power, s.kind if s.kind != SkillDef.Kind.SUMMON else SkillDef.Kind.MAGICAL, from, sure_crit)
 				any_hit = true
 				TitanSystem.on_hit(self, e, t, s)
@@ -1418,6 +1460,8 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 		_apply_effects(e, t, effects if e.is_friend(t) else on_foes, power)
 	if wounded > 0:
 		WoundSystem.whirl_heal(self, e, wounded, effects["wound_heal"])     # Sangria: cura por alvo que sangrava
+	if effects.get("hit_heal") is Dictionary and any_hit:
+		UltEffects.hit_heal(self, e, targets, effects["hit_heal"])         # Ceifa das Almas: % da vida por inimigo atingido
 	if effects.get("zone") is Dictionary:   # Chão Sagrado / Estandarte: o chão fica e pulsa (TrapSystem.place_zone)
 		TrapSystem.place_zone(self, e, s, aim, power, effects)
 	if effects.get("orbit") is Dictionary:  # Martelos Abençoados: martelos girando que batem de novo com o mesmo poder (AuraSystem.orbit_tick)
@@ -1480,6 +1524,10 @@ func gain_bravado(e: SimEntity, n: int) -> void:
 ## Raio: chance de atordoar no golpe direto (Balance.STORM_STUN_*).
 ## Golpe direto (skill ou projétil) em um alvo: gelo estilhaça alvo retardado/preso, a arma lendária multiplica e reage.
 ## Devolve o resultado de Combat.calc_damage.
+## Id de Suprema ou de skill de apoio dela ("<prefixo>_ult_<nome>[_end]"): o dano conta em SimEntity.ult_dealt (medição).
+static func is_ult_id(id: String) -> bool:
+	return id.contains("_ult_")
+
 func _strike(e: SimEntity, t: SimEntity, s: SkillDef, power: float, kind: SkillDef.Kind, from: Vector3, force_crit := false) -> Dictionary:
 	if t.iframe_left > 0.0 and e != t and e.is_hostile_to(t):        # dash: o golpe passa por ele
 		Events.post(&"dodged", t.id)
@@ -1487,9 +1535,16 @@ func _strike(e: SimEntity, t: SimEntity, s: SkillDef, power: float, kind: SkillD
 	var frost := Combat.frost_mult(s, t)
 	var r := Combat.calc_damage(e, t, power * (frost * LegendEffects.legend_power(self, e, t) * TitanSystem.second_axe_mult(e, t, s) * FusionEffects.hit_mult(self, e, t, s)), kind, rng, from, force_crit)
 	var dk := "magical" if s.kind == SkillDef.Kind.MAGICAL else "physical"
+	var ut := s.ultimate or is_ult_id(s.id)
+	if ut:
+		ult_tag += 1
 	var landed := _deal_damage(e, t, r["amount"], r["crit"], r["blocked"], "shatter" if frost > 1.0 and dk == "magical" else dk, from)
+	if ut:
+		ult_tag -= 1
 	if landed and e.kind != SimEntity.Kind.MONSTER:
 		UltimateSystem.on_dealt(self, e, t, s, power)     # Carga Suprema: poder do golpe, sem ATK/DEF/crítico
+		if not e.buffs.is_empty() and not ut and (s == e.basic_skill or s == e.current_skill):
+			RiposteSystem.duel_hit(e)                      # Duelo Supremo: o golpe da própria ação enche o Duelo (proc/lançamento de graça não)
 	LegendEffects.legend_on_hit(self, e, t, s, int(r["amount"]))
 	FusionEffects.on_hit(self, e, t, s, int(r["amount"]), bool(r["crit"]))
 	LegendEffects.signature_on_hit(self, e, t, s, int(r["amount"]))
@@ -1515,13 +1570,16 @@ func _apply_effects(src: SimEntity, t: SimEntity, effects: Dictionary, power: fl
 		var d: Dictionary = effects["dot"]
 		if d.has("atk_pct"):          # sangramento (Lanceiro): % do ATK por segundo; o mesmo atacante renova, não acumula
 			var bid := "bleed_%d" % src.id
-			t.put_debuff({"kind": "dot", "id": bid, "remaining": float(d.get("duration", Balance.BLEED_TIME_DEFAULT)), "dps": maxf(1.0, src.stats.patk * float(d["atk_pct"]) / 100.0) * src.stats.dot_mult(), "src": src.id, "bleed": true})
+			var bd := {"kind": "dot", "id": bid, "remaining": float(d.get("duration", Balance.BLEED_TIME_DEFAULT)), "dps": maxf(1.0, src.stats.patk * float(d["atk_pct"]) / 100.0) * src.stats.dot_mult(), "src": src.id, "bleed": true}
+			if ult_tag > 0 or d.get("ult", false):
+				bd["ult"] = true                    # sangramento de Suprema (Lança Incansável): não enche a carga
+			t.put_debuff(bd)
 		elif not (bool(d.get("fire", false)) and t.monster_def != null and t.monster_def.burn_immune):   # Salamandra de Lava: não queima
 			var db := ClassTalentSystem.dot_boost(src)          # Podridão Lenta (necromante nv 5): dura e bate mais
 			var mob := _monster_side(src)
 			var nd := {"kind": "dot", "id": dot_id(src, d, mob), "remaining": float(d.get("duration", 4)) * float(db[0]) * (Balance.MONSTER_DOT_TIME_MULT if mob else 1.0),
 				"dps": float(d.get("dps", 5)) * (src.stats.matk / 20.0) * float(db[1]) * src.stats.dot_mult(), "src": src.id, "fire": bool(d.get("fire", false))}
-			if d.get("ult", false):
+			if d.get("ult", false) or ult_tag > 0 or is_ult_id(str(d.get("skill", ""))):
 				nd["ult"] = true                    # dano no tempo de Suprema: não enche a Carga Suprema
 			if not mob:
 				_put_dot(t, nd)                 # jogador: até Balance.PLAYER_DOT_MAX_STACKS cópias por skill
@@ -1575,9 +1633,12 @@ func _apply_effects(src: SimEntity, t: SimEntity, effects: Dictionary, power: fl
 	if effects.get("form") != null and t == src:
 		var was_form: String = t.form
 		t.form = "" if t.form == effects["form"] else effects["form"]     # forma liga/desliga (a fantasma também acaba sozinha)
+		var bound_pct := UltEffects.drop_form_bound(t, was_form) if was_form != "" and t.form != was_form else -1.0     # Colosso: sair do urso acaba o Colosso
 		t.form_mult = float(effects.get("form_mult", 1.0)) * ClassTalentSystem.form_mult(t) if t.form != "" else 1.0
 		t.form_left = float(Balance.FORM_DURATION.get(t.form, 0.0)) * ClassTalentSystem.form_time(t, t.form)
 		t.recompute_stats()
+		if bound_pct >= 0.0:
+			t.hp = maxf(1.0, bound_pct * t.stats.max_hp)      # a % de vida fica
 		NecroAscension.form_changed(self, t, was_form)        # Forma de Lich: ao sair, o excesso de invocações some
 		Events.post(&"buff_applied", t.id, "form_" + (t.form if t.form != "" else "human"), t.form_left)
 	if effects.get("stealth") != null and t == src:
@@ -1594,8 +1655,11 @@ func _apply_effects(src: SimEntity, t: SimEntity, effects: Dictionary, power: fl
 	if effects.get("buff") != null:
 		var b: Dictionary = effects["buff"].duplicate()
 		b["remaining"] = INF if b.get("toggle", false) else float(b.get("duration", 10)) * longer     # aura: até desligar ou morrer
+		var max0: float = t.stats.max_hp
 		t.put_buff(b)
 		t.recompute_stats()
+		if b.get("keep_hp", false) and t.stats.max_hp > max0:
+			t.hp = minf(t.stats.max_hp, t.hp + t.stats.max_hp - max0)     # Colosso: a vida ganha entra cheia
 		Events.post(&"buff_applied", t.id, b.get("id", "buff"), b["remaining"])
 	if effects.get("shield") != null:
 		var sh: Dictionary = effects["shield"]
@@ -1656,7 +1720,9 @@ func _update_projectiles(m: Dictionary, dt: float) -> void:
 				if d <= t.radius + p.radius:
 					p.hit_ids.append(t.id)
 					var from: Vector3 = t.position - p.direction        # projétil vem de onde voa, não de quem atirou
-					_strike(owner, t, p.skill, p.power, p.skill.kind, from)
+					_strike(owner, t, p.skill, p.power, p.skill.kind, from, bool(p.effects.get("sure_crit", false)))     # Disparo do Fim: crítico garantido
+					if p.effects.has("pierce_rest") and p.hit_ids.size() == 1:
+						p.power *= float(p.effects["pierce_rest"])     # atravessou o 1º: os outros levam menos
 					owner.combat_timer = Balance.AGGRO_LOSE_TIME
 					_apply_effects(owner, t, p.effects, p.power)
 					_storm_proc(owner, p.skill, t)
@@ -1912,7 +1978,12 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 	# veneno na lâmina: golpe físico direto envenena (renova, não acumula)
 	if kind == "physical" and attacker != target and attacker.is_character() and attacker.stats.hit_poison > 0.0:
 		var pid := "blade_poison_%d" % attacker.id
-		target.put_debuff({"kind": "dot", "id": pid, "remaining": Balance.HIT_POISON_TIME, "dps": attacker.stats.hit_poison * attacker.stats.dot_mult(), "src": attacker.id})
+		var pd := {"kind": "dot", "id": pid, "remaining": Balance.HIT_POISON_TIME, "dps": attacker.stats.hit_poison * attacker.stats.dot_mult(), "src": attacker.id}
+		for b in attacker.buffs:
+			if b.get("wound_hold", false):
+				pd["ult"] = true                      # Festim de Sangue: a sangria dele é dano de Suprema (não enche a carga)
+				break
+		target.put_debuff(pd)
 	if target.shield_hp > 0.0:
 		var absorbed := minf(target.shield_hp, float(amount))
 		target.shield_hp -= absorbed
@@ -1943,6 +2014,8 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 		attacker.hp = minf(attacker.stats.max_hp, attacker.hp + amount * attacker.stats.lifesteal / 100.0)     # roubo de vida
 	if amount > 0 and kind in ["magical", "shatter"] and attacker != target and attacker.is_character() and attacker.is_alive() and attacker.stats.radiance > 0.0:
 		_radiance(attacker, amount)
+	if amount > 0 and kind == "physical" and attacker != target and attacker.is_character() and attacker.is_alive() and attacker.stats.phys_mend > 0.0:
+		mend(attacker, amount, attacker.stats.phys_mend / 100.0)      # Avatar da Fé
 	if target.hp > 0.0 and attacker != target and not target.buffs.is_empty() and not kind.begins_with("dot"):
 		ChoirSystem.on_hit_taken(self, target, amount)                # Égide Coral: cura por golpe recebido
 	target.hit_flash = Balance.HIT_FLASH_TIME
@@ -1956,6 +2029,8 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 		if not attacker.guard:              # sentinela não rouba o abate: XP e saque ficam com quem lutou junto
 			target.damage_by[who] = float(target.damage_by.get(who, 0.0)) + amount
 		MobSystem.retarget(self, target, attacker)
+	if ult_tag > 0 and attacker.kind != SimEntity.Kind.MONSTER:
+		attacker.ult_dealt += amount               # medição: dano de Suprema (antes do evento: a sonda lê no evento)
 	Events.post(&"damage_dealt", attacker.id, target.id, amount, crit, blocked, kind)
 	if blocked:
 		Events.post(&"blocked_hit", target.id)
@@ -2162,6 +2237,8 @@ func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 		return
 	# invocação expira
 	if e.kind == SimEntity.Kind.SUMMON and time >= e.summon_expires:
+		if not e.expire_blast.is_empty():
+			SummonRites.expire_blast(self, e)     # Maré dos Mortos: o esqueleto explode ao se desfazer
 		despawn(e)
 		return
 	# invocação perdida (presa longe, fora da tela) aparece ao lado do dono
@@ -2179,11 +2256,16 @@ func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 			return
 	# buffs / debuffs
 	var recompute := false
+	var keep_pct := -1.0
 	_ended.clear()                                  # buffs com fim / marcas que acabaram neste tique (sem alocar por entidade)
 	for b in (e.buffs.duplicate() if not e.buffs.is_empty() else e.buffs):     # cópia só quando há o que remover
 		b["remaining"] = float(b.get("remaining", 0)) - dt
 		if b.get("oath_lock", false) and b["remaining"] > 0.0:
 			UltEffects.oath_lock(e)                  # Céu de Martelos: Juramento cheio enquanto dura
+		if b.get("wound_hold", false) and b["remaining"] > 0.0:
+			WoundSystem.hold(self, e, dt)            # Festim de Sangue: suas feridas não fecham
+		if b.get("keep_hp", false) and b["remaining"] <= 0.0:
+			keep_pct = e.hp / maxf(1.0, e.stats.max_hp)     # Colosso: a % de vida fica quando a vida máx. volta
 		if b["remaining"] <= 0.0:
 			e.buffs.erase(b)
 			if b.get("id") == "shield":
@@ -2211,9 +2293,17 @@ func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 				d["acc"] -= dmg
 				var src: SimEntity = entities.get(int(d.get("src", -1)))
 				if src:
+					var dot_ult: bool = d.get("ult", false)
 					if e.debuffs.size() > 1 and src.kind != SimEntity.Kind.MONSTER:
+						var base_dmg := dmg
 						dmg = UltEffects.amp(e, src, dmg)      # Toxina Real / Eclipse
+						if dmg > base_dmg and not dot_ult:
+							src.ult_dealt += dmg - base_dmg      # medição: a parte que a marca acrescenta (dot de Suprema já conta inteiro)
+					if dot_ult:
+						ult_tag += 1
 					var hit_ok := _deal_damage(src, e, dmg, false, false, "dot_fire" if d.get("fire", false) else "dot")
+					if dot_ult:
+						ult_tag -= 1
 					if hit_ok and src.kind != SimEntity.Kind.MONSTER:
 						UltimateSystem.on_dot(self, src, e, dmg, d)
 					if not e.is_alive():
@@ -2235,6 +2325,8 @@ func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 			return
 	if recompute:
 		e.recompute_stats()
+		if keep_pct >= 0.0:
+			e.hp = maxf(1.0, keep_pct * e.stats.max_hp)
 	# regen
 	if e.combat_timer <= 0.0 and (e.is_character() or e.guard):
 		e.hp = minf(e.stats.max_hp, e.hp + e.stats.max_hp * Balance.REGEN_HP_PCT * (Balance.GUARD_REGEN_MULT if e.guard else 1.0) * dt)

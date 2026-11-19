@@ -10,7 +10,8 @@ extends RefCounted
 static func start(sim: WorldSim, e: SimEntity, s: SkillDef, power: float, d: Dictionary) -> void:
 	e.hop = {"skill": s.id, "power": power, "left": int(d.get("count", 3)), "next_at": sim.time,
 		"every": maxf(0.05, float(d.get("every", 0.2))), "radius": float(d.get("radius", 8.0)), "iframe": d.get("iframe", 0.0),
-		"prefer": str(d.get("prefer", "")), "last": -1, "fx": d.get("effects", {}), "fury_end": int(d.get("fury_end", 0))}
+		"prefer": str(d.get("prefer", "")), "last": -1, "fx": d.get("effects", {}), "fury_end": int(d.get("fury_end", 0)),
+		"home": _home(sim, e, s, float(d.get("radius", 8.0)))}
 	tick(sim, e, sim.maps[e.map_id])
 
 ## Dash do lançador: o resto da sequência se perde.
@@ -44,6 +45,7 @@ static func tick(sim: WorldSim, e: SimEntity, m: Dictionary) -> void:
 		if not (h["fx"] as Dictionary).is_empty():
 			sim._apply_effects(e, t, h["fx"], float(h["power"]))
 		h["last"] = t.id
+		h["skip"] = 0                              # pulos sem chão contam por salto (até 3 seguidos), não pela sequência inteira
 		h["left"] = int(h["left"]) - 1
 		h["next_at"] = float(h["next_at"]) + float(h["every"])
 	if int(h["left"]) <= 0:
@@ -55,10 +57,29 @@ static func _finish(sim: WorldSim, e: SimEntity) -> void:
 	if n > 0:
 		FistSystem.gain_fury(sim, e, n)
 
+## Alvo mirado (skill TARGET): o inimigo mais perto do ponto mirado. O último salto volta nele (Sete Ventos termina ao lado
+## do chefe que você mirou, não num lacaio qualquer). -1 = sem (SELF: Lua Rubra).
+static func _home(sim: WorldSim, e: SimEntity, s: SkillDef, r: float) -> int:
+	if s.target != SkillDef.Target.TARGET or not sim.maps.has(e.map_id):
+		return -1
+	var best := -1
+	var best_d := INF
+	for o: SimEntity in sim.maps[e.map_id]["entities"]:
+		if o.is_alive() and e.is_hostile_to(o) and o.position.distance_to(e.position) <= r + o.radius:
+			var d := o.position.distance_squared_to(e.skill_aim)
+			if d < best_d:
+				best_d = d
+				best = o.id
+	return best
+
 ## Próximo alvo: inimigo vivo a `radius` m com caminho livre; prefere outro que o anterior (e, com "unbled", quem não
 ## sangra por você); entre iguais o mais perto.
 static func _pick(sim: WorldSim, e: SimEntity, m: Dictionary, h: Dictionary) -> SimEntity:
 	var r := float(h["radius"])
+	if int(h["left"]) == 1 and int(h.get("home", -1)) >= 0:      # o último salto volta no alvo mirado
+		var home: SimEntity = sim.entities.get(int(h["home"]))
+		if home != null and home.is_alive() and home.position.distance_to(e.position) <= r + home.radius and MapGeometry.line_walkable(sim, m, e.position, home.position, home.radius + e.radius):
+			return home
 	var best: SimEntity = null
 	var best_s := -INF
 	for o: SimEntity in m["entities"]:

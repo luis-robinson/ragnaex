@@ -1,0 +1,1 @@
+000  pal_ult_hammer_sky     Céu de Martelos          SELF      FIS      build=templario  clip=buff_power  vfx=holy     start=0.20 act=0.05 rec=0.25 impacto=quadro 1

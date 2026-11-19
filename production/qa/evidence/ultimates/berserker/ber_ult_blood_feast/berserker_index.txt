@@ -1,0 +1,1 @@
+000  ber_ult_blood_feast    Festim de Sangue         SELF      BUFF     build=carniceiro clip=shout       vfx=blood    start=0.20 act=0.05 rec=0.25 impacto=quadro 1

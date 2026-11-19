@@ -1,0 +1,1 @@
+000  dru_ult_blood_moon     Garras da Lua Rubra      SELF      FIS      build=fera       clip=atk_spin    vfx=lunar    start=0.15 act=0.05 rec=0.20 impacto=quadro 0

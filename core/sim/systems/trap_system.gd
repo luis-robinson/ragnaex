@@ -147,6 +147,7 @@ static func place_zone(sim: WorldSim, e: SimEntity, s: SkillDef, aim: Vector3, p
 		"skill": s.id, "theme": SkillsCatalog.vfx_theme(s), "kind_dmg": s.kind, "effects": fx,
 		"foe_power": float(zd.get("foe_power", 0.0)) * scale, "ally_heal": float(zd.get("ally_heal", 0.0)) * scale,
 		"ally_buff": zd.get("ally_buff", {}), "foe_slow": float(zd.get("foe_slow", 0.0)),
+		"foe_radius": float(zd.get("foe_radius", 0.0)), "foe_max": int(zd.get("foe_max", 0)), "mend_pct": float(zd.get("mend_pct", 0.0)),
 		"pulse": float(zd.get("pulse", 1.0)), "next": sim.time + float(zd.get("pulse", 1.0)), "pulses": 0,
 		"armed_at": sim.time, "expires": sim.time + float(zd.get("duration", 6.0)) + 0.001}     # folga: o pulso do fim cabe
 	sim._next_trap_id += 1
@@ -164,14 +165,22 @@ static func _zone_pulse(sim: WorldSim, t: Dictionary, owner: SimEntity, m: Dicti
 	t["next"] = float(t["next"]) + float(t["pulse"])
 	t["pulses"] = int(t["pulses"]) + 1
 	var pos: Vector3 = t["pos"]
-	var reach := float(t["radius"]) + 2.0
+	var foe_r := float(t.get("foe_radius", 0.0))     # Coração do Bosque: os inimigos vêm de mais longe que a cura
+	var reach := maxf(float(t["radius"]), foe_r) + 2.0
 	var magical: bool = int(t["kind_dmg"]) == SkillDef.Kind.MAGICAL
+	var picked: Array = _zone_pick(t, owner, m, foe_r) if int(t.get("foe_max", 0)) > 0 else []
 	var linger := float(t["pulse"]) + Balance.ZONE_BUFF_LINGER
 	var buff: Dictionary = t["ally_buff"]
+	var ut := WorldSim.is_ult_id(str(t["skill"]))     # zona de Suprema: o dano (e os dots) contam em ult_dealt (medição)
 	for o: SimEntity in m["entities"].duplicate():
 		if absf(o.position.x - pos.x) > reach or absf(o.position.z - pos.z) > reach:
 			continue
-		if not o.is_alive() or not in_zone(t, o):
+		if not o.is_alive():
+			continue
+		if owner.is_hostile_to(o) and foe_r > 0.0:
+			if Vector2(o.position.x - pos.x, o.position.z - pos.z).length() > foe_r + o.radius or (int(t.get("foe_max", 0)) > 0 and not picked.has(o)):
+				continue
+		elif not in_zone(t, o):
 			continue
 		if owner.is_hostile_to(o):
 			if float(t["foe_power"]) > 0.0:
@@ -179,13 +188,21 @@ static func _zone_pulse(sim: WorldSim, t: Dictionary, owner: SimEntity, m: Dicti
 				var amount: int = int(r["amount"])
 				if r["crit"]:
 					amount = maxi(1, int(round(amount / owner.stats.crit_mult())))     # pulso não critica
-				sim._deal_damage(owner, o, amount, false, r["blocked"], "magical" if magical else "physical", pos)
+				sim.ult_tag += 1 if ut else 0         # Sol do Julgamento / Coração do Bosque: dano de Suprema (medição)
+				var landed: bool = sim._deal_damage(owner, o, amount, false, r["blocked"], "magical" if magical else "physical", pos)
+				sim.ult_tag -= 1 if ut else 0
+				if landed and float(t.get("mend_pct", 0.0)) > 0.0 and owner.is_alive():
+					sim.mend(owner, amount, float(t["mend_pct"]))     # Sol do Julgamento: o chão aceso cura o aliado mais ferido
+				if foe_r > 0.0 and o.is_alive():
+					Events.post(&"skill_effect", str(t["skill"]) + "_bolt", pos, o.position, 0.5)     # Coração do Bosque: Fogo Lunar da árvore
 			if not o.is_alive():
 				continue
 			if float(t["foe_slow"]) > 0.0:
 				o.put_debuff({"kind": "slow", "id": "zone_slow_%d" % int(t["id"]), "remaining": linger * o.stats.cc_mult(), "pct": float(t["foe_slow"])})
 			if not _renew_burn(sim, t, owner, o) and not (t["effects"] as Dictionary).is_empty():
+				sim.ult_tag += 1 if ut else 0
 				sim._apply_effects(owner, o, t["effects"], float(t["foe_power"]))
+				sim.ult_tag -= 1 if ut else 0
 		elif o == owner or owner.is_friend(o):
 			if o.kind == SimEntity.Kind.MONSTER or (o.kind == SimEntity.Kind.NPC and not o.guard):
 				continue
@@ -199,3 +216,13 @@ static func _zone_pulse(sim: WorldSim, t: Dictionary, owner: SimEntity, m: Dicti
 				o.recompute_stats()
 				if not had:
 					Events.post(&"buff_applied", o.id, b.get("id", "buff"), linger)
+
+## Coração do Bosque (zona com "foe_max"): os `foe_max` inimigos mais perto do centro a até `foe_r` m (Fogo Lunar da árvore).
+static func _zone_pick(t: Dictionary, owner: SimEntity, m: Dictionary, foe_r: float) -> Array:
+	var pos: Vector3 = t["pos"]
+	var near: Array = []
+	for o: SimEntity in m["entities"]:
+		if o.is_alive() and owner.is_hostile_to(o) and Vector2(o.position.x - pos.x, o.position.z - pos.z).length() <= foe_r + o.radius:
+			near.append(o)
+	near.sort_custom(func(a, b): return a.position.distance_squared_to(pos) < b.position.distance_squared_to(pos))
+	return near.slice(0, int(t.get("foe_max", 0)))

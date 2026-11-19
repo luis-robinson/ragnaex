@@ -45,3 +45,14 @@ static func whirl_heal(sim: WorldSim, e: SimEntity, n: int, wh: Dictionary) -> v
 	if k <= 0 or not e.is_alive():
 		return
 	sim._heal(e, e, maxi(1, int(e.stats.max_hp * float(wh.get("pct", 0.0)) / 100.0 * k)))
+
+## Festim de Sangue (buff "wound_hold"): devolve o tempo do tique às feridas de `e` nos inimigos do mapa (não fecham
+## enquanto o buff dura). Chamado uma vez por tique de `e` (WorldSim._update_entity).
+static func hold(sim: WorldSim, e: SimEntity, dt: float) -> void:
+	var m: Dictionary = sim.maps.get(e.map_id, {})
+	for o: SimEntity in m.get("entities", []):
+		if o.debuffs.is_empty() or not o.is_alive() or o.position.distance_squared_to(e.position) > Balance.WOUND_HOLD_RANGE * Balance.WOUND_HOLD_RANGE:
+			continue
+		for d in o.debuffs:
+			if is_wound(d, e):
+				d["remaining"] = float(d.get("remaining", 0.0)) + dt

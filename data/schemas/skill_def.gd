@@ -21,7 +21,9 @@ const EFFECT_KEYS := ["dot", "slow", "stun", "root", "buff", "shield", "dash", "
 	"explode", "fire_wall", "strikes", "orbit",
 	"zone", "sunder", "sunder_consume", "seed", "sacrifice",
 	"wound_heal", "wound_extend", "riposte", "momentum_spend",
-	"storm", "hop_strikes", "intercept", "dot_amp", "curse_spread", "pet_revive"]
+	"storm", "hop_strikes", "intercept", "dot_amp", "curse_spread", "pet_revive",
+	"oath_fill", "leap_iframe", "sunder_fill", "ult_execute", "grace_dome", "ally_heal", "force_form",
+	"sure_crit", "pierce_rest", "channel_end", "hit_heal", "cd_reset"]     # onda B2
 
 @export var id: String = ""
 @export var name: String = ""
@@ -217,6 +219,15 @@ const FORM_LABELS := {"wolf": "lobo", "bear": "urso", "phantom": "fantasma", "de
 ## "curse_spread": {"radius"}  → o atingido recebe cópia das SUAS maldições que estão em inimigos a `radius` m dele.
 ## "pet_revive": {"skill": "<id da skill do companheiro>"}  → companheiro morto volta com a vida cheia (vivo: vida cheia).
 ## "summon": {..., "ignore_max": true}  → invocação fora do limite por tipo (não conta nem é contada).
+## Onda B1 (Paladino, Berserker, Bispo, Druida):
+## "oath_fill": true  → Juramento cheio na hora (Bastião da Aurora). "leap_iframe": s → intocável ao saltar (Juízo da Alvorada).
+##     Com "strikes", o "dash" sai só no 1º golpe e `strikes.last_effects` entra só no último (atordoar no golpe final).
+## "sunder_fill": {"stacks", "radius"}  → antes do golpe, rachadura em `stacks` cargas no alvo e em quem está a `radius` m dele.
+## "ult_execute": {"below", "mult", "boss_mult"}  → golpe × mult no alvo abaixo de below da vida (chefe × boss_mult).
+## "grace_dome": {"duration", "dr"}  → (GROUND) cúpula PARADA no ponto (ChoirSystem.place_dome): -dr% de dano no grupo dentro;
+##     com a Barreira Sagrada em cima vale a maior (não somam). A skill segue (a cura de K_HEAL sai nos de dentro).
+## "ally_heal": {"radius", "power"}  → cura (x cura) você e os aliados a `radius` m (Avatar da Fé).
+## "force_form": "bear"  → em forma humana vira a forma na hora; em outra forma (Ent) a Suprema é recusada (Colosso).
 ## Chaves de buff (Stats.BUFF_META): "end_cast": "<skill_id>" (+ "end_power": mult) = quando o buff acaba a skill sai
 ##     sozinha, grátis, onde o dono está (UltEffects.end_cast); "oath_lock": true = Juramento cheio e sem esfriar enquanto dura.
 @export var effects: Dictionary = {}

@@ -182,9 +182,14 @@ static func _land(sim: WorldSim, m: Dictionary, owner: SimEntity, h: Dictionary)
 		sim._chain(owner, s, hit, float(h["power"]), st["chain"], h["fx"], m)
 
 static func _hit(sim: WorldSim, owner: SimEntity, o: SimEntity, s: SkillDef, power: float, fx: Dictionary, from: Vector3, st: Dictionary) -> void:
-	sim._strike(owner, o, s, power, s.kind if s.kind != SkillDef.Kind.SUMMON else SkillDef.Kind.MAGICAL, from)
+	if power > 0.0:                                   # Eclipse: pulso sem dano (só lentidão, marca e maldições)
+		sim._strike(owner, o, s, power, s.kind if s.kind != SkillDef.Kind.SUMMON else SkillDef.Kind.MAGICAL, from)
 	if not fx.is_empty():
-		sim._apply_effects(owner, o, _ult_dot(fx, s), power)
+		var f := _ult_dot(fx, s)
+		if f.get("knockback") is Dictionary:          # bala de canhão: empurra para longe do ponto da queda
+			f = f.duplicate()
+			f["knockback"] = (f["knockback"] as Dictionary).merged({"from": from})
+		sim._apply_effects(owner, o, f, power)
 	if st.is_empty():
 		return
 	(st["last_hit"] as Dictionary)[o.id] = sim.time
@@ -217,7 +222,7 @@ static func _pulse(sim: WorldSim, m: Dictionary, owner: SimEntity, st: Dictionar
 		hits[o.id] = int(hits.get(o.id, 0)) + 1
 		if not ss.is_empty():                 # antes do golpe: o estilhaço de gelo (Combat.frost_mult) pega o retardado
 			var pct := minf(float(ss.get("max", 45.0)), float(ss.get("step", 15.0)) * int(hits[o.id]))
-			o.put_debuff({"kind": "slow", "id": "storm_slow_%d" % owner.id, "remaining": float(ss.get("duration", 2.0)) * o.stats.cc_mult(), "pct": pct, "frost": true})
+			o.put_debuff({"kind": "slow", "id": "storm_slow_%d" % owner.id, "remaining": float(ss.get("duration", 2.0)) * o.stats.cc_mult(), "pct": pct, "frost": bool(ss.get("frost", true))})
 		_hit(sim, owner, o, s, float(st["power"]), st["fx"], center, st)
 		if not fr.is_empty() and o.is_alive() and int(hits[o.id]) >= int(fr.get("hits", 3)) and not (st["frozen"] as Dictionary).has(o.id):
 			st["frozen"][o.id] = true

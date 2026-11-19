@@ -8,12 +8,15 @@ extends RefCounted
 ## Chave nova = ler aqui embaixo em `compute()` E acrescentar na lista.
 const STAT_KEYS := ["atk_pct", "matk_pct", "def_pct", "speed_pct", "heal_pct", "hp_pct", "mp_pct", "crit", "lifesteal",
 	"aspd_pct", "buff_pct", "radiance", "radiance_cap", "pet_pct", "evasion", "hit_poison", "backstab", "cdr", "threat_pct",
-	"dr_pct", "fire_pct", "frost_pct", "storm_pct", "titan_relief", "turret_max", "shadow_time", "shadow_share", "execute_pct",
+	"dr_pct", "dr_int", "fire_pct", "frost_pct", "storm_pct", "titan_relief", "turret_max", "shadow_time", "shadow_share", "execute_pct",
 	"prey_crit", "falcon_pct", "block", "mp_on_kill", "mp_regen_combat", "trap_max",
 	"crit_dmg_pct", "dot_pct", "cc_resist_pct", "mp_cost_pct", "summon_time_pct",
-	"crit_leech", "low_leech", "mana_guard", "hit_slow", "heal_taken_pct", "def_atk_pct", "block_reflect", "guard_crit", "taunt_dmg_pct", "thorns"]
+	"crit_leech", "low_leech", "mana_guard", "hit_slow", "heal_taken_pct", "def_atk_pct", "block_reflect", "guard_crit", "taunt_dmg_pct", "thorns", "phys_mend"]
 ## Chaves de buff que não são stat: id (renova, não acumula), duração e aura de ligar/desligar.
-const BUFF_META := ["id", "duration", "toggle", "end_cast", "end_power", "oath_lock"]
+const BUFF_META := ["id", "duration", "toggle", "end_cast", "end_power", "oath_lock",
+	"scale", "wound_hold", "keep_hp", "form_bound",
+	"riposte_arc", "riposte_gain", "riposte_gap", "momentum_fill", "mob_stat",
+	"duel_cap", "hit_gain", "hit_cap", "duel_per"]     # Duelo Supremo: contador do Duelo (RiposteSystem.duel_hit). onda B1: escala do boneco, feridas presas, % de vida mantida, some com a forma
 ## Chaves de bônus de conjunto que não são stat (SetDef: atributos e bônus por skill).
 const SET_BONUS_META := ["attrs", "skill_dmg", "skill_cdr", "fusion"]
 
@@ -33,6 +36,7 @@ var mp_on_kill: float = 0.0      # % da mana máxima devolvida a cada abate (joi
 var mp_regen_combat: float = 0.0 # % da mana máxima por s a mais enquanto em combate (capas; regen do WorldSim._update_entity)
 var crit_dmg_pct: float = 0.0    # % a mais no multiplicador do crítico (acessório lendário; teto Balance.CRIT_DMG_CAP)
 var dot_pct: float = 0.0         # % a mais de dano no tempo aplicado por você (fixado na aplicação; teto DOT_PCT_CAP)
+var phys_mend: float = 0.0      # % do dano físico que cura o aliado mais ferido (Avatar da Fé; WorldSim.mend)
 var cc_resist_pct: float = 0.0   # % a menos de duração de atordoar/prender/lentidão em você (teto CC_RESIST_CAP)
 var mp_cost_pct: float = 0.0     # % a menos de custo de mana das skills (mínimo 1; teto MP_COST_CAP)
 var summon_time_pct: float = 0.0 # % a mais de duração das invocações com tempo (teto SUMMON_TIME_CAP)
@@ -287,6 +291,8 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 		s.cdr += float(b.get("cdr", 0))
 		s.threat_pct += float(b.get("threat_pct", 0))
 		s.dr_pct += float(b.get("dr_pct", 0))
+		if b.get("dr_int", false):         # Armadura de Gelo: corte de dano pela INT
+			s.dr_pct += frost_armor_dr(float(s.attrs["INT"]))
 		s.fire_pct += float(b.get("fire_pct", 0))
 		s.frost_pct += float(b.get("frost_pct", 0))
 		s.storm_pct += float(b.get("storm_pct", 0))
@@ -305,6 +311,7 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 		s.crit_dmg_pct += float(b.get("crit_dmg_pct", 0))
 		s.dot_pct += float(b.get("dot_pct", 0))
 		s.cc_resist_pct += float(b.get("cc_resist_pct", 0))
+		s.phys_mend += float(b.get("phys_mend", 0))
 		s.mp_cost_pct += float(b.get("mp_cost_pct", 0))
 		s.summon_time_pct += float(b.get("summon_time_pct", 0))
 		s.crit_leech += float(b.get("crit_leech", 0))
@@ -421,3 +428,7 @@ static func from_monster(m: MonsterDef) -> Stats:
 	s.move_speed = m.move_speed
 	s.crit_phys = 3.0; s.crit_mag = 3.0
 	return s
+
+## Corte de dano da Armadura de Gelo (%) para `int_attr` pontos de INT: BASE + INT/PER_INT, até CAP.
+static func frost_armor_dr(int_attr: float) -> float:
+	return minf(Balance.FROST_ARMOR_DR_CAP, Balance.FROST_ARMOR_DR_BASE + int_attr / Balance.FROST_ARMOR_DR_PER_INT)

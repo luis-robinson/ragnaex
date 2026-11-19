@@ -76,6 +76,12 @@ const LOOKS := {
 	# ascensão do Druida (Forma Ancestral): as formas e os buffs de grupo delas
 	"form_ent": ["form", "nature"], "form_alpha": ["form", "nature"], "form_bird": ["form", "lightning"],
 	"ent_grove": ["armor", "nature"], "alpha_howl": ["speed", "nature"], "bird_flock": ["speed", "holy"],
+	# Supremas B1 (GDD ultimates-lv40): Proteção do Bastião, martelos do Céu, Festim, Avatar, Colosso
+	"intercept": ["aura", "holy"], "hammer_sky": ["power", "holy"], "blood_feast": ["power", "blood"], "faith_avatar": ["holy", "holy"],
+	"primal_colossus": ["armor", "nature"],
+	# Supremas B2: Laço Selvagem (você, o lince e o lince espiritual), Olho da Tempestade, Maré dos Mortos, Ceifa das Almas
+	"wild_bond": ["power", "nature"], "wild_bond_pet": ["power", "nature"], "wild_bond_spirit": ["dark", "nature"],
+	"grand_duel": ["armor", "physical"], "storm_eye": ["speed", "lightning"], "tide_of_dead": ["dark", "bone"], "tide_frenzy": ["power", "bone"], "soul_reaping": ["power", "shadow"],
 }
 const FAMILIES := ["armor", "shield", "power", "holy", "speed", "smoke", "poison", "dark", "aura", "wings", "form"]
 
@@ -97,6 +103,11 @@ const SYSTEM_BUFFS := {
 	"juramento": "ShieldSystem (Juramento ao bloquear)",
 	"guard_crit": "Combat.role_on_hit (notável Contra-Ataque: bloqueou, +crítico)",
 	"blessed_hammers": "AuraSystem.start_orbit (Martelos Abençoados: efeito orbit)",
+	"intercept": "InterceptSystem.start (Proteção do Bastião da Aurora)",
+	"hammer_sky": "AuraSystem.start_orbit (Céu de Martelos: efeito orbit da Suprema)",
+	"wild_bond_pet": "UltEffects.pet_revive (Laço Selvagem: buff do lince)",
+	"wild_bond_spirit": "UltEffects.spirit_pet (Laço Selvagem: o 2º lince, espiritual)",
+	"tide_frenzy": "UltEffects.buff_summons (Maré dos Mortos: invocações mais rápidas)",
 	"shield": "WorldSim (efeito shield, Égide lendária)",
 	"boss_ward": "MobSystem (chefe protegido pelos lacaios: fase com ward)",
 	"boss_berserk": "MobSystem (chefe enlouquecido: berserk_after)",

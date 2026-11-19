@@ -8,6 +8,7 @@ extends Node
 ## Por skill: latência (apertar → golpe sai), trava (quanto tempo sem poder agir), encadear no básico depois do impacto,
 ## buffer (apertar o básico no meio da skill não se perde), dash cancela, e se o clipe acerta o impacto no tick do dano.
 ## Por build: cadência do básico segurando o botão (golpes/s, maior buraco parado entre golpes).
+## --ult: mede também a Suprema da build (GDD ultimates-lv40 §8).
 ## Saída: "PROBE <classe>/<build> ..." e "FLAG <classe> <skill> <motivo>"; no fim "PROBE_END flags=N".
 ## Trancos: --verbose lista os 3 piores giros de osso num quadro por build; --trace imprime cada quadro > 90° (clipe, posição, deslize).
 
@@ -109,6 +110,14 @@ func _probe_build(cls: ClassDef, build_id: String, map_id: String) -> void:
 			continue
 		tested += 1
 		lat_sum += r["latency"]
+	if DevArgs.has("--ult"):                   # --ult: a Suprema da build também (pela vaga, sem a carga: mede só o tempo dela)
+		var uid: String = GameData.ultimates.get(cls.id, {}).get(build_id, "")
+		var us: SkillDef = GameData.skills.get(uid)
+		if us != null and p.stats.meets(us.requires) and DruidAscension.form_ok(p, us.requires_form):
+			var ur := _probe_skill(us)
+			if not ur.is_empty():
+				tested += 1
+				lat_sum += ur["latency"]
 	if asc and MountedCombat.fights_mounted(p):
 		p.mounted = true
 		var cad_m := _basic_cadence()

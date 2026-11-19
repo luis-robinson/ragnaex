@@ -69,8 +69,11 @@ static func pulse(sim: WorldSim, e: SimEntity, m: Dictionary, pu: Dictionary) ->
 static func start_orbit(e: SimEntity, s: SkillDef, ob: Dictionary, power: float) -> void:
 	var id := str(ob.get("id", s.id))
 	var dur := float(ob.get("duration", 6.0))
-	e.put_buff({"id": id, "remaining": dur, "duration": dur, "orbit": {"power": power, "radius": s.radius, "every": float(ob.get("every", Balance.AURA_TICK)),
-		"kind": s.kind, "skill": s.id, "t": 0.0}})
+	var b := {"id": id, "remaining": dur, "duration": dur, "orbit": {"power": power, "radius": s.radius, "every": float(ob.get("every", Balance.AURA_TICK)),
+		"kind": s.kind, "skill": s.id, "t": 0.0, "fx": ob.get("effects", {})}}
+	if ob.get("oath_lock", false):
+		b["oath_lock"] = true                      # Céu de Martelos: Juramento cheio enquanto os martelos giram
+	e.put_buff(b)
 	Events.post(&"buff_applied", e.id, id, dur)
 
 ## Uma passada do relógio (Balance.AURA_TICK) num buff com "orbit": conta o tempo e bate em volta quando dá.
@@ -86,7 +89,12 @@ static func orbit_tick(sim: WorldSim, e: SimEntity, m: Dictionary, b: Dictionary
 		if not t.is_alive() or not e.is_hostile_to(t) or t.position.distance_to(e.position) > R + t.radius:
 			continue
 		var r := Combat.calc_damage(e, t, float(ob["power"]), ob["kind"], sim.rng, e.position)
+		var ut := WorldSim.is_ult_id(str(ob.get("skill", "")))
+		sim.ult_tag += 1 if ut else 0             # Céu de Martelos: dano de Suprema (medição)
 		sim._deal_damage(e, t, int(r["amount"]), bool(r["crit"]), bool(r["blocked"]), "physical", e.position)
+		sim.ult_tag -= 1 if ut else 0
+		if not (ob.get("fx", {}) as Dictionary).is_empty() and t.is_alive():
+			sim._apply_effects(e, t, ob["fx"], float(ob["power"]))     # Céu de Martelos: Marca da Penitência a cada batida
 		hit = true
 	if hit:
 		e.combat_timer = Balance.AGGRO_LOSE_TIME
