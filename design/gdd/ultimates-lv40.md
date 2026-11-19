@@ -357,7 +357,7 @@ Exemplos com os números finais (`ULT_GAIN_PER_POWER` 1,4):
 - Sacerdote (`healer`), Prece 2,0 × ref efetivo: 1,0 × 2,0 × 1,7 = 3,4 pts (abaixo do teto se curar menos de ~0,8 ref/s).
 - Guardião (`tank`), golpe de chefe de 6% do HP: min(4, 0,4 × 6) × 1,6 = 3,84 pts.
 **Medido (onda A, 2026-11-19)**: Ghar ×2,5 de vida, `--tank_lock`, 11 grupos tanque + Sacerdote + 2 builds, 4 lutas: as 24
-builds enchem em **50,2-58,4 s** de luta de verdade (mediana ~53 s), contando de quando a carga sai do zero (quem morre e
+builds enchiam em **50,2-58,4 s** (mediana ~53 s; **2026-11-19: metade a pedido do usuário**, ganhos/gotejar/teto x2, intervalo 10 s, medido ~22-25 s de combate), contando de quando a carga sai do zero (quem morre e
 volta recomeça do zero; o tempo de volta não conta). Histórico das 4 rodadas no relatório da onda A.
 
 **Decaimento**: fora de combate por mais de `ULT_DECAY_DELAY`: `carga -= ULT_DECAY_RATE × dt`. Cheia → zero em

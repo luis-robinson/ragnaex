@@ -26190,6 +26190,7 @@ func _check_ultimate_meter(gd, sim) -> void:
 	for i in range(8):
 		mobs.append(_ult_mob(gd, sim, "slime", at + Vector3(float(i) - 4.0, 0, 6)))
 	UltimateSystem.zero(dps)
+	dps.ult_budget = Balance.ULT_RATE_BURST
 	dps.ult_act_tick = -1
 	for o in mobs:
 		UltimateSystem.on_dealt(sim, dps, o, gd.skills["ele_meteor"], 1.0)

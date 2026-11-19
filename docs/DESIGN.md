@@ -532,7 +532,7 @@ Proposta aprovada: `design/gdd/ato2-proposals-2026-11-11.md` §2 opção A. O li
   **Teto de ritmo** (calibragem 2026-11-19): dano/cura/apanhar enchem no máximo `ULT_RATE_CAP` pts/s com estoque
   `ULT_RATE_BURST` (o gotejar fica fora); sem ele o poder/s variava 1,5-10 pts/s entre builds. Medido com
   `boss_probe -- --boss=boss_ghar --lvl=40 --asc --ult --tank_lock --hp=2.5` (11 grupos tanque + Sacerdote + 2 builds, 4 lutas):
-  as 24 builds enchem em 50-58 s de luta de verdade (mediana ~53 s), contando da hora em que a carga sai do zero.
+  as 24 builds enchiam em 50-58 s (mediana ~53 s); em 2026-11-19 o usuário pediu metade: ganhos, gotejar, teto de ritmo (2,6/s), reserva (20) e teto por golpe x2, intervalo depois de soltar 10 s; medido ~22-25 s de combate numa luta de chefe em grupo.
 - **HUD**: moldura redonda à esquerda do 1-6 (`ActionBar.UltFrame`): anel dourado de carga, brilho + "PRONTA" + som
   `ult_ready` quando cheia, cinza com os segundos na trava, cadeado com o motivo quando travada. Janela J: a Suprema aparece
   no fim da aba da build. Aviso dos golpes de Suprema no chão em areia/dourado (nunca o vermelho de chefe).
