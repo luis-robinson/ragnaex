@@ -16,12 +16,14 @@ var mount: bool = false             ## H: montar/desmontar
 var recall: bool = false            ## G: voltar à cidade
 var elem_form: String = ""          ## Elementalista ascendido: chamar/trocar o elemental para esta forma (1 vez; "" = nada)
 var elem_mode: String = ""          ## Elementalista ascendido: modo do elemental (attack/protect/support; 1 vez)
+var ultimate: bool = false          ## R: soltar a Suprema (1 vez; UltimateSystem)
 
 func has_action() -> bool:
-	return attack or skill_slot >= 0 or potion_slot >= 0 or interact or dash
+	return attack or skill_slot >= 0 or potion_slot >= 0 or interact or dash or ultimate
 
 func duplicate_cmd() -> InputCommand:
 	var c := InputCommand.new()
 	c.move = move; c.aim = aim; c.attack = attack; c.block = block
 	c.skill_slot = skill_slot; c.potion_slot = potion_slot; c.interact = interact; c.dash = dash; c.jump = jump; c.mount = mount
+	c.ultimate = ultimate
 	return c

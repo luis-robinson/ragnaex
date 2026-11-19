@@ -543,6 +543,7 @@ func _hud_process(_delta: float) -> void:
 	gold_label.text = "%d ouro" % p.gold
 	# hotbar (7-0 aparecem com a ascensão)
 	action_bar.set_slot_count(p.skills.size())
+	action_bar.update_ult(p)
 	for i in range(skill_slots.size()):
 		var s: Dictionary = skill_slots[i]
 		var sk: SkillDef = p.skills[i] if i < p.skills.size() else null

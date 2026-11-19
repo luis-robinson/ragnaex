@@ -268,6 +268,7 @@ static func change_map(sim: WorldSim, e: SimEntity, map_id: String, pos: Vector3
 		sim.maps[e.map_id]["entities"].erase(e)
 		if sim.maps[e.map_id].has("chars"):
 			sim.maps[e.map_id]["chars"].erase(e)
+	UltimateSystem.on_map_change(sim, e)        # trocar de mapa zera a Carga Suprema
 	# invocações seguem o dono
 	e.map_id = map_id
 	e.position = pos

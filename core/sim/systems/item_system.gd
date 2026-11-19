@@ -367,9 +367,13 @@ static func use_potion(sim: WorldSim, e: SimEntity, slot: int) -> bool:
 	e.potion_cds[slot] = item.consume_cooldown          # recarga só deste atalho (F1/F2/F3 são independentes)
 	var c := item.consume
 	if c.has("heal"):
+		sim.ult_quiet = true                 # poção não enche a Carga Suprema
 		sim._heal(e, e, int(c["heal"]))
+		sim.ult_quiet = false
 	if c.has("heal_pct"):
+		sim.ult_quiet = true
 		sim._heal(e, e, int(e.stats.max_hp * float(c["heal_pct"])))
+		sim.ult_quiet = false
 	if c.has("mana"):
 		e.mp = minf(e.stats.max_mp, e.mp + float(c["mana"]))
 	if c.has("mana_pct"):

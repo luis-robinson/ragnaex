@@ -46,8 +46,12 @@ static func rows(p: SimEntity, s: SkillDef) -> Array:
 			txt += "  em %d golpes" % int(d["hits"])
 		out.append(["Dano", txt])
 		out.append(["Crítico", "%d  (%.0f%% de chance)" % [roundi(d["crit"]), float(d["crit_pct"])]])
-	out.append(["Custo", "%d MP" % roundi(r.mp_cost_at(lv))])
-	out.append(["Recarga", _secs(r.cooldown_at(lv))])
+	if r.ultimate:
+		out.append(["Custo", "Carga Suprema cheia (%d)" % int(Balance.ULT_MAX)])
+		out.append(["Recarga", "%s sem encher depois de soltar" % _secs(Balance.ULT_MIN_GAP)])
+	else:
+		out.append(["Custo", "%d MP" % roundi(r.mp_cost_at(lv))])
+		out.append(["Recarga", _secs(r.cooldown_at(lv))])
 	if r.startup >= 0.25:
 		out.append(["Preparo", _secs(r.startup)])
 	var reach := _reach(r)
@@ -89,6 +93,12 @@ static func _area(r: SkillDef) -> String:
 static func _effect_rows(p: SimEntity, r: SkillDef, longer: float) -> Array:
 	var out: Array = []
 	var fx: Dictionary = r.effects
+	if fx.get("storm") is Dictionary:          # Suprema: tempestade (StormSystem)
+		var st: Dictionary = fx["storm"]
+		var n := int(float(st.get("duration", 8.0)) / maxf(0.05, float(st.get("every", 1.0))))
+		var where := "presa onde você lançou" if str(st.get("anchor", "")) == "ground" else "segue você"
+		var what := "pulsos em toda a área" if str(st.get("mode", "strikes")) == "pulse" else "golpes de %s m de raio" % _m(float(st.get("strike_radius", 2.0)))
+		out.append(["Tempestade", "%d %s em %s, raio %s m, %s" % [n, what, _secs(float(st.get("duration", 8.0))), _m(float(st.get("radius", 6.0))), where]])
 	if fx.get("buff") is Dictionary:
 		var b: Dictionary = fx["buff"]
 		var parts: Array = []

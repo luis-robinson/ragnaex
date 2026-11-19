@@ -285,6 +285,9 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 func _fight(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCommand) -> InputCommand:
 	sig_pin = false
 	cmd = _fight_core(e, sim, m, mob, cmd)
+	if e.ult_charge >= Balance.ULT_MAX and UltimateSystem.bot_release(sim, e, mob):
+		cmd.ultimate = true                           # Suprema (regra SkillDef.ult_bot: UltimateSystem.bot_release)
+		cmd.aim = mob.position
 	if sig_pin:
 		cmd.move = Vector2.ZERO                       # no lugar da mecânica: bate/lança dali, sem sair
 		cmd.dash = false

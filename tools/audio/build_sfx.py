@@ -375,6 +375,17 @@ def s_level_up(rng):
 	return out
 
 
+def s_ult_ready(rng):
+	# Carga Suprema cheia (tecla R): acorde que sobe e brilho fino por cima, mais curto que o de subir de nível
+	out = zeros(1.1)
+	for k, st in enumerate([0, 7, 12]):
+	    add(out, bell(0.45, NOTE(st + 2), decay=7), k * 0.07, 0.38)
+	for st in [2, 9, 14, 19]:
+	    add(out, bell(0.8, NOTE(st), decay=3.2), 0.24, 0.16)
+	add(out, highpass(noise(0.6, rng, decay=5), 7000), 0.22, 0.05)
+	return out
+
+
 def s_quest_accept(rng):
 	out = zeros(0.5)
 	add(out, bell(0.3, NOTE(7), decay=9), 0, 0.5)
@@ -813,7 +824,7 @@ SYNTH = {
 	"poison": (s_poison, 3), "nature": (s_nature, 2), "wind": (s_wind, 2), "earth": (s_earth, 2),
 	"blood": (s_blood, 3), "lunar": (s_lunar, 2), "summon": (s_summon, 2), "heal": (s_heal, 2),
 	"bone": (s_bone, 3), "cast": (s_cast, 3), "dodge": (s_dodge, 3), "crit": (s_crit, 3),
-	"hurt": (s_hurt, 2), "bow": (s_bow, 4), "gun": (s_gun, 2), "level_up": (s_level_up, 1),
+	"hurt": (s_hurt, 2), "bow": (s_bow, 4), "gun": (s_gun, 2), "level_up": (s_level_up, 1), "ult_ready": (s_ult_ready, 1),
 	"quest_accept": (s_quest_accept, 1), "quest_done": (s_quest_done, 1), "recall": (s_recall, 1),
 	"recall_done": (s_recall_done, 1), "death": (s_death, 1), "firework": (s_firework, 3), "ui_open": (s_ui_open, 1), "ui_close": (s_ui_close, 1),
 	# Ato II (A Horda)

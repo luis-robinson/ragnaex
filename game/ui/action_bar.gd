@@ -11,6 +11,7 @@ const XP_SEGMENTS := 20
 const SKILL_PX := 50
 const POTION_PX := 42
 const ASC_GOLD := Color(1.0, 0.8, 0.35)      # filete das vagas de ascensão
+const ULT_PX := 62                              # moldura da Suprema (R): maior que as vagas
 
 var hud
 var skill_slots: Array = []         # 1-6 e, ascendido, 7 8 9 0 (Balance.ASC_SLOTS, só skills de ascensão)
@@ -25,6 +26,7 @@ Conjura %.1f s, também em combate. Andar ou agir cancela; levar dano interrompe
 var _mount_kind := ""                # montaria mostrada no H (só troca quando o tipo muda)
 var xp: XpBar
 var level_cap: Crest
+var ult: UltFrame                   # moldura redonda da Suprema (R), à esquerda do 1-6
 ## [tecla, nome, janela que abre (@map/@menu = mapa grande / menu do Esc)]
 const MICRO := [["I", "Bolsa", "inventory"], ["C", "Personagem", "character"], ["J", "Skills", "book"], ["K", "Teia", "skills"],
 	["L", "Quests", "quests"], ["P", "Grupo", "party"], ["M", "Mapa", "@map"], ["Esc", "Menu", "@menu"]]
@@ -53,6 +55,12 @@ func build() -> void:
 	level_cap = Crest.new()
 	level_cap.kind = "level"
 	row.add_child(level_cap)
+	ult = UltFrame.new()
+	ult.custom_minimum_size = Vector2(ULT_PX, ULT_PX)
+	ult.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	ult.tooltip_text = "Suprema (R)"
+	row.add_child(ult)
+	row.add_child(_divider())
 	for i in range(Balance.SKILL_SLOTS):
 		var s := make_button("%d" % (i + 1), SKILL_PX)
 		row.add_child(s["root"])
@@ -125,6 +133,24 @@ func set_mount_kind(kind: String) -> void:
 ## Tecla da vaga i da barra (0-9): "1".."9", e "0" na décima.
 static func key_of(i: int) -> String:
 	return str((i + 1) % 10)
+
+## Moldura do R pelo estado da sim (só lê): ícone da Suprema da build, anel de carga, cheia, trava e o porquê.
+func update_ult(p: SimEntity) -> void:
+	var s: SkillDef = Sim.ultimate_skill(p)
+	var why: String = Sim.ultimate_lock(p)
+	var frac := clampf(Sim.ultimate_charge(p) / Balance.ULT_MAX, 0.0, 1.0)
+	var gap := maxf(0.0, p.ult_gap_until - Sim.time)
+	ult.set_state(s, frac, why != "", gap)
+	var tip := ""
+	if s == null:
+		tip = "Suprema (R)\n%s" % (why if why != "" else "Sua build ainda não tem Suprema")
+	elif why != "":
+		tip = "%s — Suprema (R)\n%s\n\n%s" % [s.name, why, s.description]
+	else:
+		var st := "Recarregando: %ds" % ceili(gap) if gap > 0.0 else ("PRONTA: aperte R" if frac >= 1.0 else "Carga Suprema: %d%%" % int(frac * 100.0))
+		tip = "%s — Suprema (R)\n%s\n\n%s\n\nA carga enche lutando (dano, cura e dano recebido); esvazia fora de combate e zera ao morrer ou trocar de mapa." % [s.name, st, s.description]
+	if ult.tooltip_text != tip:
+		ult.tooltip_text = tip
 
 ## Mostra as vagas 7-0 quando a barra do personagem tem mais de 6 (ascensão).
 func set_slot_count(n: int) -> void:
@@ -246,6 +272,90 @@ func set_xp(level: int, cur: int, need: int) -> void:
 	if level_cap.value != str(level):
 		level_cap.value = str(level)
 		level_cap.queue_redraw()
+
+## Moldura redonda da Suprema: disco escuro, ícone recortado em círculo, anel de carga dourado (sentido do relógio a
+## partir do topo), cheia = anel aceso + brilho pulsando, na trava pós-uso = anel cinza, travada = cadeado; "R" no canto.
+class UltFrame extends Control:
+	const GOLD := Color(1.0, 0.8, 0.3)
+	const GOLD_HI := Color(1.0, 0.95, 0.7)
+	var skill: SkillDef = null
+	var frac := 0.0
+	var locked := true
+	var gap := 0.0                     # s de trava depois de soltar (anel cinza + número)
+	var _tex: Texture2D = null
+	var _pulse := 0.0
+	func set_state(s: SkillDef, f: float, lock: bool, g: float) -> void:
+		var changed := s != skill or absf(f - frac) > 0.003 or lock != locked or ceili(g) != ceili(gap) or (f >= 1.0 and not lock)
+		if s != skill:
+			skill = s
+			_tex = UiKit.icon_texture("skill_" + s.id) if s else null
+		frac = f
+		locked = lock
+		gap = g
+		if changed:
+			queue_redraw()
+	func _process(delta: float) -> void:
+		if frac >= 1.0 and not locked:
+			_pulse = fmod(_pulse + delta * 2.2, TAU)
+			queue_redraw()
+	func _circle(c: Vector2, r: float, n: int = 48) -> PackedVector2Array:
+		var pts := PackedVector2Array()
+		for i in range(n):
+			var a := TAU * float(i) / float(n)
+			pts.append(c + Vector2(cos(a), sin(a)) * r)
+		return pts
+	func _draw() -> void:
+		var c := size * 0.5
+		var R := minf(size.x, size.y) * 0.5 - 1.0
+		var ready := frac >= 1.0 and not locked
+		if ready:                                          # brilho em volta (pulsa)
+			var k := 0.5 + 0.5 * sin(_pulse)
+			for i in range(4):
+				draw_arc(c, R + 1.5 + float(i) * 1.5, 0.0, TAU, 64, Color(GOLD.r, GOLD.g, GOLD.b, (0.55 - 0.12 * i) * (0.45 + 0.55 * k)), 1.6, true)
+		draw_circle(c, R, Color(0.16, 0.11, 0.06))
+		draw_circle(c, R - 1.5, Color(0.03, 0.03, 0.04))
+		var ri := R - 7.0
+		if _tex:                                           # ícone recortado no círculo
+			var pts := _circle(c, ri)
+			var uvs := PackedVector2Array()
+			for p in pts:
+				uvs.append((p - c) / (ri * 2.0) * 1.18 + Vector2(0.5, 0.5))
+			var tint := Color(0.42, 0.42, 0.42) if locked else (Color(0.75, 0.75, 0.75) if not ready else Color.WHITE)
+			draw_colored_polygon(pts, tint, uvs, _tex)
+		else:
+			draw_circle(c, ri, Color(0.1, 0.09, 0.11))
+		draw_arc(c, ri + 0.5, 0.0, TAU, 64, Color(0, 0, 0, 0.6), 1.5, true)
+		# anel de carga: trilho escuro + parte cheia
+		var rr := R - 3.6
+		draw_arc(c, rr, 0.0, TAU, 64, Color(0.22, 0.17, 0.1), 5.0, true)
+		if frac > 0.0 and not locked:
+			var col := Color(0.78, 0.78, 0.8) if gap > 0.0 else (GOLD_HI if ready else GOLD)
+			draw_arc(c, rr, -PI * 0.5, -PI * 0.5 + TAU * frac, maxi(8, int(64.0 * frac)), col, 5.0 if not ready else 6.0, true)
+			if ready:
+				draw_arc(c, rr - 3.2, 0.0, TAU, 64, Color(1, 1, 1, 0.55), 1.0, true)
+		draw_arc(c, R, 0.0, TAU, 64, Color(0.62, 0.47, 0.25), 1.5, true)
+		if locked:                                         # cadeado
+			var b := Rect2(c + Vector2(-8, -2), Vector2(16, 13))
+			draw_arc(c + Vector2(0, -3), 5.5, PI, TAU, 16, Color(0.85, 0.8, 0.7), 2.5, true)
+			draw_rect(b, Color(0.78, 0.66, 0.42))
+			draw_rect(b, Color(0.3, 0.22, 0.1), false, 1.0)
+			draw_circle(c + Vector2(0, 3.5), 2.0, Color(0.25, 0.18, 0.08))
+		var font := get_theme_default_font()
+		var key_at := c + Vector2(-R * 0.72, -R * 0.42)
+		draw_circle(key_at + Vector2(4.5, -4.0), 8.0, Color(0.05, 0.04, 0.03, 0.85))
+		draw_string(font, key_at, "R", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, GOLD_HI if ready else Color(0.92, 0.9, 0.85))
+		if gap > 0.0 and not locked:                       # trava depois de soltar: os segundos no meio
+			var t := str(ceili(gap))
+			var tw := font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
+			draw_string_outline(font, c + Vector2(-tw * 0.5, 7), t, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, 5, Color(0, 0, 0))
+			draw_string(font, c + Vector2(-tw * 0.5, 7), t, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color(0.92, 0.92, 0.95))
+		if ready:                                          # faixa "PRONTA" embaixo, por cima do anel
+			var lbl := "PRONTA"
+			var lw := font.get_string_size(lbl, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
+			var pill := Rect2(c + Vector2(-lw * 0.5 - 4, R - 9), Vector2(lw + 8, 13))
+			draw_rect(pill, Color(0.12, 0.08, 0.03, 0.95))
+			draw_rect(pill, GOLD, false, 1.0)
+			draw_string(font, c + Vector2(-lw * 0.5, R + 1.5), lbl, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, GOLD_HI)
 
 class CdSweep extends Control:
 	var frac := 0.0                   # quanto da recarga ainda falta (1 = começou agora)

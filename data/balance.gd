@@ -479,6 +479,50 @@ const ASC_POINTS_PER_LEVEL := 3
 const ASC_QUEST_POINTS := 3
 const ASC_SLOTS := 4
 const ASC_WEB_ENTRY_ATTR := 8             # atributo da build no nó de entrada de cada skill da teia de ascensão
+## Supremas do nível 40 (GDD design/gdd/ultimates-lv40.md; UltimateSystem). Libera no ULT_LEVEL com a ascensão; a Carga
+## Suprema (0..ULT_MAX) enche lutando e a Suprema da build principal sai na tecla R com ela cheia.
+const ULT_LEVEL := 40
+const ULT_MAX := 100.0
+const ULT_GAIN_PER_POWER := 1.4          # pts por 1,0 de poder causado (antes de DEF/crítico)
+const ULT_GAIN_HEAL := 1.0               # pts por "cura de poder 1,0" efetiva (régua: ATK mágico × cura do próprio lançador)
+const ULT_GAIN_TAKEN := 0.4              # pts por 1% da vida máx. recebido (depois da DEF, antes de bloqueio/escudo/cúpula)
+const ULT_TAKEN_HIT_CAP := 4.0           # teto por golpe recebido (antes do peso do papel)
+const ULT_TRICKLE := 0.5               # pts/s enquanto em combate
+const ULT_DOT_MULT := 0.6                # pulso de dano no tempo × isto
+const ULT_SUMMON_MULT := 0.8             # dano das suas invocações × isto
+const ULT_AOE_TARGETS := 3               # alvos que contam por ação (golpe/lançamento)
+## Teto de ritmo (calibragem 2026-11-19, boss_probe --ult): dano/cura/apanhar enchem no máximo ULT_RATE_CAP pts/s, com
+## um estoque de ULT_RATE_BURST para picos (abertura, golpe grande). Sem o teto, poder/s variava 1,5-10 pts/s entre as
+## 24 builds (Raio 10, Sacerdote 1,5): com ele quem faz o papel enche em ~(ULT_MAX - BURST)/(CAP + TRICKLE) s.
+const ULT_RATE_CAP := 1.3
+const ULT_RATE_BURST := 10.0
+## papel (ProgressionSystem.role_of) -> [dano, cura, apanhar]
+const ULT_ROLE_WEIGHTS := {"tank": [0.6, 0.5, 1.6], "healer": [0.9, 1.7, 0.6], "dps": [1.0, 0.5, 0.5], "caster": [1.0, 0.5, 0.5], "ranged": [1.0, 0.5, 0.5]}
+const ULT_COMBAT_WINDOW := 3.0           # s depois do último golpe/cura em que ainda está "em combate" (gotejar)
+const ULT_DECAY_DELAY := 6.0             # s fora de combate antes de esvaziar
+const ULT_DECAY_RATE := 8.0              # pts/s esvaziando
+const ULT_MIN_GAP := 20.0                # s depois de soltar em que nada enche
+const ULT_REFRESH_S := 1.0               # s entre reconferir liberação/papel (cache por entidade)
+const ULT_CAST_SLOT := 100               # current_skill_slot de uma Suprema em andamento (não é vaga da barra)
+## Bots (ramo da Suprema no BotBrain; UltimateSystem.bot_release)
+const BOT_ULT_PACK := 3                  # inimigos na área para soltar "boss" sem chefe
+const BOT_ULT_SAVE_ALLIES := 2           # aliados feridos na área para soltar "save"
+const BOT_ULT_SAVE_HP := 55.0            # % de vida que conta como ferido
+const BOT_ULT_TANK_HP := 35.0            # tanque do grupo abaixo disto: "save" solta
+const BOT_ULT_SELF_HP := 40.0            # "self": a própria vida abaixo disto
+const BOT_ULT_HOLD := 20.0               # bot do grupo do jogador segura a carga cheia esperando chefe
+const BOT_ULT_STAGGER := 3.0             # dois bots do mesmo grupo não soltam "boss" a menos disto
+const BOT_ULT_AREA := 8.0                # m: área que o bot considera para bando/aliados quando a skill não diz
+## Mecânicas das Supremas (seção 9 do GDD). Números por Suprema: ULT_NUMBERS[<id>] (texto e catálogo leem daqui).
+const STORM_WALK_TRIES := 3              # meteoro em ponto não andável: sorteia de novo até isto, senão pula
+const HOP_GAP := 0.3                     # m entre quem salta (hop_strikes) e o alvo ao reaparecer
+const INTERCEPT_BUFF := "intercept"      # buff da Proteção no paladino
+const DOT_AMP_KIND := "dot_amp"          # debuff que multiplica os danos no tempo de um lançador no alvo
+const ULT_NUMBERS := {
+	# Elementalista Fogo: Chuva de Meteoros (presa no ponto do lançamento; decisão do usuário 2026-11-19)
+	"ele_ult_meteor_rain": {"duration": 10.0, "every": 0.5, "radius": 8.0, "strike_radius": 2.0, "power": 0.8, "bias": 0.7,
+		"warn": 0.3, "burn_dps": 6.0, "burn_time": 3.0},
+}
 ## Elemental que evolui (Elementalista ascendido; GDD ato2-horda F6). ElementalSystem.
 const ELEM_XP_RADIUS := 13.0             # m do mago: abate que dá XP aqui dentro alimenta o elemental (= SUMMON_ASSIST_RANGE)
 const ELEM_XP_MAX := 400                 # teto do elem_xp

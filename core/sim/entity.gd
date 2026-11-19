@@ -206,6 +206,21 @@ var npc_wait: float = 0.0            # parado olhando em volta antes do próximo
 var npc_hold: float = 0.0            # conversando: fica parado
 var npc_leg: int = 0                 # ronda: índice do próximo ponto
 var npc_stuck: float = 0.0
+# Supremas do 40 (UltimateSystem; estado de luta, não vai no save)
+var ult_charge: float = 0.0           # Carga Suprema 0..Balance.ULT_MAX
+var ult_combat_t: float = -1000.0     # Sim.time do último golpe/cura em combate
+var ult_gap_until: float = 0.0        # Sim.time até quando nada enche (depois de soltar)
+var ult_full_at: float = -1.0         # Sim.time em que encheu (bot segura até BOT_ULT_HOLD); -1 = não está cheia
+var ult_ok := false                   # cache: liberada (nível + ascensão), reconferida a cada Balance.ULT_REFRESH_S
+var ult_role := "dps"                 # cache: papel da build principal
+var ult_check_at: float = -1000.0
+var ult_budget: float = Balance.ULT_RATE_BURST          # estoque do teto de ritmo (Balance.ULT_RATE_CAP/ULT_RATE_BURST); enche no tique
+var ult_act_tick: int = -1            # ação que está enchendo (tique + skill): conta até Balance.ULT_AOE_TARGETS alvos
+var ult_act_skill: String = ""
+var ult_act_n: int = 0
+var hop: Dictionary = {}              # hop_strikes em andamento (HopSystem)
+var shield_src: int = -1              # quem pôs o escudo (a absorção conta como cura dele na Carga Suprema)
+var free_summon := false              # invocação fora do limite por tipo (summon.ignore_max)
 
 func is_alive() -> bool:
 	return state != State.DEAD

@@ -65,13 +65,19 @@ Estado em tempo de execução no `SimEntity` (não vai no save): `ult_charge: fl
    contado **antes** de bloqueio, escudo, aparar e cúpula (tanque bem jogado não perde carga). No máximo `ULT_TAKEN_HIT_CAP`
    por golpe (golpe que mata metade da vida não enche de uma vez). Dano redirecionado pela Suprema do Guardião não conta.
 4. **Gotejar em combate**: `ULT_TRICKLE` pts/s enquanto em combate com inimigo de verdade (garante que todo mundo chega).
+5. **Teto de ritmo** (aprovado pelo usuário 2026-11-19, depois da calibragem da onda A): os itens 1-3 gastam um estoque por
+   personagem que enche `ULT_RATE_CAP` pts/s até `ULT_RATE_BURST`; o que passar do estoque se perde. O gotejar (4) fica de
+   fora. Motivo: sem teto, o poder/s variava 1,5-10 pts/s entre as 24 builds (Raio 10, Sacerdote 1,5) e nenhum peso global
+   punha todas a ±20% da mediana. Com o teto, quem faz o papel enche no mesmo ritmo; os pesos por papel, o teto por área,
+   o `ULT_DOT_MULT` e o `ULT_SUMMON_MULT` passam a valer sobretudo para quem fica **abaixo** do teto (cura que tem pouco a
+   curar, invocador, quem fica fora da luta). Só golpe que **pegou** conta (esquiva, dash e aparar inteiro não enchem).
 
 **Pesos por papel** (papel = `ProgressionSystem.role_of`, já existe: `tank`, `healer`, `dps`, `caster`, `ranged`):
 
 | papel | dano | cura | apanhar |
 |---|---|---|---|
 | tank | 0,6 | 0,5 | 1,6 |
-| healer | 0,6 | 1,4 | 0,6 |
+| healer | 0,9 | 1,7 | 0,6 |
 | dps / caster / ranged | 1,0 | 0,5 | 0,5 |
 
 O Clérigo de Batalha (papel `dps`) cura pelo `mend`: conta 0,5, igual a todo `dps`.
@@ -302,20 +308,30 @@ o Rei elite leva cheio). Tudo é PvE (não há PvP; nada atinge jogador/bot alia
 `g_dano = ULT_GAIN_PER_POWER × P × w_dano(papel) × m`
 - `P` = poder do golpe antes de DEF/crítico (básico 1,0; skill = `SkillDef.power`; pulso de dot = poder do pulso). Faixa 0,1-6.
 - `m` = 1 (direto), `ULT_DOT_MULT` (dot), `ULT_SUMMON_MULT` (invocação). Só os `ULT_AOE_TARGETS` maiores de cada ação.
-- Exemplo (Lanceiro, `dps`): Empalar 3,8 num alvo → 1,0 × 3,8 × 1,0 = 3,8 pts.
+- Exemplo (Lanceiro, `dps`): Empalar 3,8 num alvo → 1,4 × 3,8 × 1,0 = 5,3 pts (sai do estoque do teto de ritmo).
 
 **Carga por cura**
 `g_cura = ULT_GAIN_HEAL × (cura_efetiva / cura_ref) × w_cura(papel)`, `cura_ref = Combat.calc_heal(e, 1.0)`.
-- Exemplo (Sacerdote, `healer`): Prece cura 1,4 × ref em 3 aliados feridos, 2,0 × ref efetivo no total → 1,0 × 2,0 × 1,4 = 2,8 pts.
+- Exemplo (Sacerdote, `healer`): Prece cura 1,4 × ref em 3 aliados feridos, 2,0 × ref efetivo no total → 1,0 × 2,0 × 1,7 = 3,4 pts (sai do estoque do teto de ritmo).
 
 **Carga por dano recebido**
 `g_apanhar = min(ULT_TAKEN_HIT_CAP, ULT_GAIN_TAKEN × 100 × dano / HP_máx) × w_apanhar(papel)` (cap antes do peso).
-- Exemplo (Guardião, `tank`, golpe de chefe de 6% do HP): min(4, 0,4 × 6) = 2,4 × 1,6 = 3,84 pts.
+- Exemplo (Guardião, `tank`, golpe de chefe de 6% do HP): min(4, 0,4 × 6) = 2,4 × 1,6 = 3,84 pts (sai do estoque do teto de ritmo).
 
-**Ritmo-alvo** (calibrar com a sonda, seção 7): `t_cheia = ULT_MAX / (g/s médio + ULT_TRICKLE)` em **45-60 s** de luta de chefe
-em grupo de 4 no nível 40, para as 24 builds, todas a ±20% da mediana. Estimativa: `dps` ~1,5 poder/s → 1,5 + 0,25 =
-1,75 pts/s → 57 s. Tanque: ~3%/s recebidos → 0,4 × 3 × 1,6 = 1,9 + dano 0,8 × 0,6 + 0,25 ≈ 2,6 pts/s → 38 s (calibrar
-`ULT_GAIN_TAKEN` para baixo se ficar rápido demais).
+**Teto de ritmo**: `g_luta/s = min(g_dano + g_cura + g_apanhar, ULT_RATE_CAP)` em média (estoque de até `ULT_RATE_BURST`
+para picos), mais `ULT_TRICKLE`.
+
+**Ritmo-alvo** (sonda `boss_probe -- --lvl=40 --asc --ult`, seção 8): `t_cheia ≈ (ULT_MAX − ULT_RATE_BURST) / (ULT_RATE_CAP + ULT_TRICKLE)`
+para quem passa do teto = (100 − 10) / (1,3 + 0,5) = **50 s**; quem fica abaixo do teto demora mais. Meta: **45-60 s** de luta
+de chefe em grupo de 4 no nível 40, as 24 builds a ±20% da mediana.
+Exemplos com os números finais (`ULT_GAIN_PER_POWER` 1,4):
+- Lanceiro (`dps`), Empalar 3,8 num alvo: 1,4 × 3,8 × 1,0 = 5,3 pts pedidos; o estoque cheio (10) paga tudo, depois o ritmo
+  médio fica no teto 1,3/s.
+- Sacerdote (`healer`), Prece 2,0 × ref efetivo: 1,0 × 2,0 × 1,7 = 3,4 pts (abaixo do teto se curar menos de ~0,8 ref/s).
+- Guardião (`tank`), golpe de chefe de 6% do HP: min(4, 0,4 × 6) × 1,6 = 3,84 pts.
+**Medido (onda A, 2026-11-19)**: Ghar ×2,5 de vida, `--tank_lock`, 11 grupos tanque + Sacerdote + 2 builds, 4 lutas: as 24
+builds enchem em **50,2-58,4 s** de luta de verdade (mediana ~53 s), contando de quando a carga sai do zero (quem morre e
+volta recomeça do zero; o tempo de volta não conta). Histórico das 4 rodadas no relatório da onda A.
 
 **Decaimento**: fora de combate por mais de `ULT_DECAY_DELAY`: `carga -= ULT_DECAY_RATE × dt`. Cheia → zero em
 `ULT_DECAY_DELAY + ULT_MAX / ULT_DECAY_RATE` = 6 + 12,5 = 18,5 s.
@@ -378,15 +394,17 @@ grupo sob `--dmg` (mesma régua do F5 da ascensão em `docs/DESIGN.md`).
 |---|---|---|---|
 | `ULT_LEVEL` | 40 | 40 | nível que libera (com a ascensão) |
 | `ULT_MAX` | 100.0 | fixo | escala do medidor |
-| `ULT_GAIN_PER_POWER` | 1.0 | 0,6-1,4 | ritmo das builds de dano |
+| `ULT_GAIN_PER_POWER` | 1.4 (era 1.0) | 0,6-1,4 | ritmo das builds de dano abaixo do teto |
 | `ULT_GAIN_HEAL` | 1.0 | 0,6-1,4 | ritmo das curas |
 | `ULT_GAIN_TAKEN` | 0.4 | 0,2-0,6 | ritmo dos tanques |
 | `ULT_TAKEN_HIT_CAP` | 4.0 | 2-8 | golpe enorme não enche de uma vez |
-| `ULT_TRICKLE` | 0.25 | 0-0,5 | piso de ritmo em combate |
-| `ULT_DOT_MULT` | 0.6 | 0,4-1,0 | dano no tempo vs direto |
-| `ULT_SUMMON_MULT` | 0.5 | 0,3-0,8 | invocações (Invocador, Xamã, Caçador) |
-| `ULT_AOE_TARGETS` | 3 | 2-5 | área não enche demais |
-| `ULT_ROLE_WEIGHTS` | tabela 3.2 | ±0,3 por célula | justiça entre papéis |
+| `ULT_TRICKLE` | 0.5 (era 0.25) | 0-0,5 | piso de ritmo em combate (fora do teto) |
+| `ULT_RATE_CAP` | 1.3 (novo, aprovado 2026-11-19) | 1,0-1,8 | teto de pts/s de dano/cura/apanhar: o ritmo de quem faz o papel |
+| `ULT_RATE_BURST` | 10 (novo, aprovado 2026-11-19) | 5-20 | estoque do teto: picos (abertura, golpe grande) |
+| `ULT_DOT_MULT` | 0.6 | 0,4-1,0 | dano no tempo vs direto (vale abaixo do teto) |
+| `ULT_SUMMON_MULT` | 0.8 (era 0.5) | 0,3-0,8 | invocações (Invocador, Xamã, Caçador) |
+| `ULT_AOE_TARGETS` | 3 | 2-5 | área não enche demais (vale abaixo do teto) |
+| `ULT_ROLE_WEIGHTS` | tabela 3.2; cura 0,9/1,7/0,6 | ±0,3 por célula | justiça entre papéis (vale abaixo do teto) |
 | `ULT_DECAY_DELAY` | 6.0 | 4-10 | quanto a carga aguenta fora de luta |
 | `ULT_DECAY_RATE` | 8.0 | 5-20 | quanto demora para esvaziar |
 | `ULT_MIN_GAP` | 20.0 | 10-40 | trava contra duas seguidas |

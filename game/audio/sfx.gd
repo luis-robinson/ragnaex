@@ -22,7 +22,7 @@ const VOL := {
 	"holy": -6.0, "shadow": -5.0, "poison": -7.0, "nature": -6.0, "wind": -7.0, "earth": -4.0, "blood": -6.0,
 	"lunar": -6.0, "summon": -6.0, "heal": -8.0, "bone": -6.0, "die_monster": -7.0, "die_boss": -2.0,
 	"pickup": -8.0, "coins": -8.0, "gem": -4.0, "potion": -6.0, "equip": -8.0, "craft": -6.0, "gather": -6.0,
-	"door": -8.0, "click": -10.0, "page": -8.0, "ui_open": -14.0, "ui_close": -16.0, "level_up": -3.0,
+	"door": -8.0, "click": -10.0, "page": -8.0, "ui_open": -14.0, "ui_close": -16.0, "level_up": -3.0, "ult_ready": -5.0,
 	"quest_accept": -5.0, "quest_done": -3.0, "recall": -6.0, "recall_done": -5.0, "death": -3.0, "firework": -7.0,
 	# Ato II (A Horda)
 	"war_drum": -3.0, "drum_beat": -11.0, "net": -6.0, "wolf_howl": -7.0, "wolf_snarl": -8.0, "orc": -7.0,
@@ -186,6 +186,7 @@ func _ready() -> void:
 	Events.dodged.connect(_on_dodged)
 	Events.entity_died.connect(_on_died)
 	Events.level_up.connect(_on_level_up)
+	Events.ultimate_ready.connect(func(id: int): _player_sound(id, "ult_ready", true))     # Carga Suprema cheia (R)
 	Events.item_gained.connect(_on_item_gained)
 	Events.potion_used.connect(func(id: int, _s: int): _player_sound(id, "potion"))
 	Events.equipment_changed.connect(_on_equipment_changed)

@@ -20,6 +20,7 @@ var bot_names: Array = []
 var bot_lines: Dictionary = {}
 var bot_chat: Dictionary = {}    # "<tipo>:<chave>" -> falas (BotsCatalog.pools, escolhidas por BotChat)
 var _basic_cache: Dictionary = {}
+var ultimates: Dictionary = {}    # class_id -> {build_id -> skill_id} (Supremas do 40, SkillDef.ultimate; UltimateSystem)
 var basic_skills: Dictionary = {}   # id -> SkillDef dos básicos gerados (o FX acha o tema por aqui)
 
 func _ready() -> void:
@@ -39,8 +40,12 @@ func load_all() -> void:
 	for cid in classes:
 		var pool: Array = []
 		for sid in skills:
-			if skills[sid].class_id == cid:
+			if skills[sid].class_id == cid and not skills[sid].ultimate:     # Suprema: fora do pool (GameData.ultimates)
 				pool.append(skills[sid])
+			elif skills[sid].class_id == cid:
+				if not ultimates.has(cid):
+					ultimates[cid] = {}
+				ultimates[cid][skills[sid].build] = sid
 		pool.sort_custom(func(a, b): return a.unlock_level < b.unlock_level or (a.unlock_level == b.unlock_level and a.id < b.id))
 		classes[cid].skill_ids.clear()
 		for s in pool:

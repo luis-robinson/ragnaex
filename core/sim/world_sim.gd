@@ -27,6 +27,8 @@ var mounted_basics := {}           # SkillDef do básico -> cópia com o alcance
 var power_scale := 1.0              # efeitos de graça (assinatura) lançam com menos poder
 var signatures_on := true
 var signature_force := false      # revisão visual: a assinatura dispara sempre (com a recarga)          # sondas: desliga a assinatura para comparar
+var _ended: Array = []             # _update_entity: buffs "end_cast" e marcas dot_amp que acabaram (lista reaproveitada)
+var ult_quiet := false            # cura que não enche a Carga Suprema (poção; UltimateSystem.on_heal)
 var signature_casting := false     # assinatura em andamento: o que ela acertar não dispara outra
 var sig_stats: Dictionary = {}       # assinaturas de chefe: contagens para as sondas (BossSignatures.stat; boss_probe zera)
 var parties: Dictionary = {}       # party_id -> {"id", "leader": entity_id, "members": Array[int]}
@@ -59,6 +61,7 @@ func _physics_process(delta: float) -> void:
 	player_cmd.attack = false; player_cmd.skill_slot = -1; player_cmd.potion_slot = -1
 	player_cmd.interact = false; player_cmd.dash = false; player_cmd.jump = false
 	player_cmd.mount = false; player_cmd.recall = false; player_cmd.elem_form = ""; player_cmd.elem_mode = ""
+	player_cmd.ultimate = false
 	_queued_dt = delta
 	if _queued_cmds.size() >= ASYNC_FALLBACK:       # ninguém desenhou (janela minimizada): roda aqui mesmo
 		_run_queued()
@@ -530,6 +533,7 @@ func tick(dt: float) -> void:
 					cmd.move = e.brain_cmd.move; cmd.aim = e.brain_cmd.aim; cmd.block = e.brain_cmd.block
 					cmd.attack = false; cmd.skill_slot = -1; cmd.potion_slot = -1; cmd.dash = false; cmd.interact = false; cmd.jump = false
 					cmd.mount = false; cmd.recall = false; cmd.elem_form = ""; cmd.elem_mode = ""          # ações de 1 vez: repetir trocaria a montaria a cada tick
+					cmd.ultimate = false
 			if cmd != null:
 				var at := Time.get_ticks_usec() if profile else 0
 				_apply_command(e, cmd, m, mdt)
@@ -561,6 +565,8 @@ func tick(dt: float) -> void:
 			_prof("r_spawners", pt); pt = Time.get_ticks_usec()
 		TrapSystem.update_traps(self, m)
 		MobSystem.update_hazards(self, m)
+		if m.has("storms") or m.has("ally_strikes"):
+			StormSystem.tick(self, m)                # Supremas: tempestades e golpes avisados com dono jogador
 		NecroAscension.tick(self, m)
 		ClassTalentSystem.tick(self, m, mdt)
 		AuraSystem.tick(self, m, mdt)
@@ -579,6 +585,7 @@ func tick(dt: float) -> void:
 	player_cmd.attack = false; player_cmd.skill_slot = -1; player_cmd.potion_slot = -1
 	player_cmd.interact = false; player_cmd.dash = false; player_cmd.jump = false
 	player_cmd.mount = false; player_cmd.recall = false; player_cmd.elem_form = ""; player_cmd.elem_mode = ""
+	player_cmd.ultimate = false
 	PortalSystem.process_map_changes(self)
 	PartySystem.party_catchup(self, dt)
 	BotChat.update(self)
@@ -648,7 +655,7 @@ func _apply_command(e: SimEntity, cmd: InputCommand, m: Dictionary, dt: float) -
 			e.mount_left = Balance.MOUNT_CAST_TIME
 			e.is_blocking = false
 	elif e.mount_left > 0.0:
-		if action_cmd.attack or action_cmd.skill_slot >= 0 or action_cmd.dash or action_cmd.jump or cmd.block or cmd.recall or e.recall_left > 0.0:
+		if action_cmd.attack or action_cmd.skill_slot >= 0 or action_cmd.ultimate or action_cmd.dash or action_cmd.jump or cmd.block or cmd.recall or e.recall_left > 0.0:
 			stop_mount(e, "Montaria interrompida")
 		else:
 			e.mount_left -= dt
@@ -682,6 +689,8 @@ func _apply_command(e: SimEntity, cmd: InputCommand, m: Dictionary, dt: float) -
 	if action_cmd.dash and e.dash_cd <= 0.0 and (e.can_act() or _in_cancel_window(e) or _dash_cancels(e, action_cmd)) and not e.has_debuff("root"):
 		if e.state == SimEntity.State.CASTING:
 			_cancel_cast(e)
+		if not e.hop.is_empty():
+			HopSystem.cancel(e)                       # dash corta o resto dos saltos (Lua Rubra)
 		var d := Vector3(cmd.move.x, 0, cmd.move.y)
 		if d.length_squared() < 0.01:
 			d = e.forward()
@@ -702,6 +711,10 @@ func _apply_command(e: SimEntity, cmd: InputCommand, m: Dictionary, dt: float) -
 		Events.post(&"skill_cast", e.id, "dash", "active")
 		return
 
+	# --- Suprema (R): mesmo pipeline das skills; a carga só sai quando ela sai (UltimateSystem) ---
+	if action_cmd.ultimate and not e.airborne() and e.is_character() and (e.can_act() or _in_cancel_window(e) or _can_chain(e, action_cmd)):
+		if UltimateSystem.try_cast(self, e, action_cmd.aim, m):
+			return
 	# --- skills ---
 	if action_cmd.skill_slot >= 0 and not e.airborne() and (e.can_act() or _in_cancel_window(e) or _can_chain(e, action_cmd)):
 		if try_cast(e, action_cmd.skill_slot, action_cmd.aim, m):
@@ -875,9 +888,9 @@ func most_hurt_friend(e: SimEntity, range_m: float) -> SimEntity:
 func _can_chain(e: SimEntity, cmd: InputCommand) -> bool:
 	if not e.is_character() or e.state != SimEntity.State.CASTING or e.current_skill == null or not e.skill_applied or e.sky_left > 0.0:
 		return false            # no ar (Salto Dracônico): só depois do pouso
-	if cmd == null or not (cmd.skill_slot >= 0 or cmd.attack):
+	if cmd == null or not (cmd.skill_slot >= 0 or cmd.attack or cmd.ultimate):
 		return false
-	if cmd.skill_slot < 0 and e.current_skill_slot < 0:      # slot -1 = básico (também a cópia montada)
+	if cmd.skill_slot < 0 and not cmd.ultimate and e.current_skill_slot < 0:      # slot -1 = básico (também a cópia montada)
 		return false            # básico atrás de básico mantém o ritmo dele (senão a velocidade de ataque sobe)
 	var last_hit := 0.0
 	if e.current_skill.effects.get("strikes") is Dictionary:      # sequência de golpes: só depois do último
@@ -1049,6 +1062,8 @@ func _update_skill(e: SimEntity, m: Dictionary, dt: float) -> void:
 		e.skill_phase = "active"
 		e.channel_done = 1
 		Events.post(&"skill_cast", e.id, s.id, "active")
+		if s.ultimate:
+			UltimateSystem.on_fire(self, e, s)       # a carga é gasta aqui (cancelada no preparo, fica)
 		_apply_skill(e, s, m)
 	elif e.skill_applied and e.skill_phase == "active" and not e.sky.is_empty():
 		RangerAscension.fly(e, s)             # no ar: vai até o ponto de pouso
@@ -1170,8 +1185,9 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 						despawn(o)
 			# limita invocações vivas por dono
 			var alive := 0             # limite por tipo de invocação (esqueletos, cão, lich, rei... cada um conta o seu)
-			for o: SimEntity in m["entities"].duplicate():
-				if o.kind == SimEntity.Kind.SUMMON and o.owner_id == e.id and o.is_alive() and o.monster_def == mdef and not o.grave:
+			var free := bool(sm.get("ignore_max", false))     # Suprema: fora do limite (não conta nem é contada)
+			for o: SimEntity in (m["entities"].duplicate() if not free else []):
+				if o.kind == SimEntity.Kind.SUMMON and o.owner_id == e.id and o.is_alive() and o.monster_def == mdef and not o.grave and not o.free_summon:
 					if o.position.distance_to(e.position) > Balance.SUMMON_LEASH:
 						despawn(o)          # perdida longe do dono (presa atrás de muro/rio): a nova toma o lugar
 					else:
@@ -1180,10 +1196,12 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 			var cap := int(sm.get("max", 3)) + ClassTalentSystem.summon_extra(e, s.id) + NecroAscension.summon_extra(e)     # Senhor dos Mortos: +1 por tipo
 			var dur := 0.0 if ClassTalentSystem.summon_permanent(e, s.id) else float(sm.get("duration", 20)) * NecroAscension.summon_time_mult(e) * ClassTalentSystem.summon_time(e)     # talento: fica para sempre / Mortos sem Pressa; Senhor dos Mortos: dura mais
 			for i in range(n):
-				if alive >= cap:
+				if alive >= cap and not free:
 					break
 				var off := Vector3(rng.randf_range(-1.2, 1.2), 0, rng.randf_range(-1.2, 1.2))
-				NecroAscension.on_summoned(e, spawn_summon(e, mdef, e.position + e.forward() * 1.2 + off, dur, bool(sm.get("owner_stats", false))))
+				var made := spawn_summon(e, mdef, e.position + e.forward() * 1.2 + off, dur, bool(sm.get("owner_stats", false)))
+				made.free_summon = free
+				NecroAscension.on_summoned(e, made)
 				alive += 1
 
 	if effects.get("pack") is Dictionary:       # Lobo Alfa: chama a matilha
@@ -1251,8 +1269,25 @@ func _apply_skill(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 	if effects.has("rally"):              # grito de guerra: buff no bando da mesma facção
 		MobSystem.rally(self, e, effects["rally"])
 	if effects.has("barrage"):            # chefe: círculos avisados no chão que caem depois (MobSystem.update_hazards)
-		MobSystem.place_barrage(self, e, s, aim, power, effects)
+		if e.is_character():
+			StormSystem.place_barrage(self, e, s, aim, power, effects)     # do jogador/bot: lista própria (bots não fogem)
+		else:
+			MobSystem.place_barrage(self, e, s, aim, power, effects)
 		return
+	# Supremas (GDD ultimates-lv40 §9)
+	if effects.get("intercept") is Dictionary:      # Proteção: parte do dano dos aliados perto vem para quem lançou
+		InterceptSystem.start(self, e, effects["intercept"])
+	if effects.get("pet_revive") is Dictionary:     # companheiro morto volta (vivo: vida cheia)
+		UltEffects.pet_revive(self, e, effects["pet_revive"])
+	if effects.get("storm") is Dictionary:          # tempestade: golpes no tempo em volta do lançador ou do ponto (StormSystem)
+		StormSystem.start(self, e, s, aim, power, effects["storm"])
+		if s.radius <= 0.0 and not effects.has("buff"):
+			Events.post(&"skill_effect", s.id, e.position, aim, 0.0)
+			return
+	if effects.get("hop_strikes") is Dictionary:    # salta entre inimigos batendo (HopSystem)
+		HopSystem.start(self, e, s, power, effects["hop_strikes"])
+		if not effects.has("buff"):
+			return
 	# assinaturas de chefe (BossSignatures; GDD act2-boss-signatures)
 	if effects.has("islands"):
 		BossSignatures.place_islands(self, e, s, power, effects)
@@ -1452,7 +1487,9 @@ func _strike(e: SimEntity, t: SimEntity, s: SkillDef, power: float, kind: SkillD
 	var frost := Combat.frost_mult(s, t)
 	var r := Combat.calc_damage(e, t, power * (frost * LegendEffects.legend_power(self, e, t) * TitanSystem.second_axe_mult(e, t, s) * FusionEffects.hit_mult(self, e, t, s)), kind, rng, from, force_crit)
 	var dk := "magical" if s.kind == SkillDef.Kind.MAGICAL else "physical"
-	_deal_damage(e, t, r["amount"], r["crit"], r["blocked"], "shatter" if frost > 1.0 and dk == "magical" else dk, from)
+	var landed := _deal_damage(e, t, r["amount"], r["crit"], r["blocked"], "shatter" if frost > 1.0 and dk == "magical" else dk, from)
+	if landed and e.kind != SimEntity.Kind.MONSTER:
+		UltimateSystem.on_dealt(self, e, t, s, power)     # Carga Suprema: poder do golpe, sem ATK/DEF/crítico
 	LegendEffects.legend_on_hit(self, e, t, s, int(r["amount"]))
 	FusionEffects.on_hit(self, e, t, s, int(r["amount"]), bool(r["crit"]))
 	LegendEffects.signature_on_hit(self, e, t, s, int(r["amount"]))
@@ -1484,6 +1521,8 @@ func _apply_effects(src: SimEntity, t: SimEntity, effects: Dictionary, power: fl
 			var mob := _monster_side(src)
 			var nd := {"kind": "dot", "id": dot_id(src, d, mob), "remaining": float(d.get("duration", 4)) * float(db[0]) * (Balance.MONSTER_DOT_TIME_MULT if mob else 1.0),
 				"dps": float(d.get("dps", 5)) * (src.stats.matk / 20.0) * float(db[1]) * src.stats.dot_mult(), "src": src.id, "fire": bool(d.get("fire", false))}
+			if d.get("ult", false):
+				nd["ult"] = true                    # dano no tempo de Suprema: não enche a Carga Suprema
 			if not mob:
 				_put_dot(t, nd)                 # jogador: até Balance.PLAYER_DOT_MAX_STACKS cópias por skill
 			elif not _renew_dot(t, nd):         # monstro: renova
@@ -1525,6 +1564,10 @@ func _apply_effects(src: SimEntity, t: SimEntity, effects: Dictionary, power: fl
 			"mark": str(cu.get("id", "")) in Balance.MARK_CURSES})       # marcas somam até MARK_TAKEN_CAP (Combat.taken_pct)
 		if src.form != "":
 			NecroAscension.spread_curse(self, src, t, t.debuffs[-1])     # Forma de Lich: a maldição passa para quem está perto
+	if effects.get("dot_amp") is Dictionary and t != src and src.is_hostile_to(t):
+		UltEffects.apply_amp(src, t, effects["dot_amp"])          # Toxina Real / Eclipse: seus danos no tempo nele × mult
+	if effects.get("curse_spread") is Dictionary and t != src and src.is_hostile_to(t):
+		UltEffects.curse_spread(self, src, t, effects["curse_spread"])
 	if effects.get("wither") != null:
 		var w: Dictionary = effects["wither"]
 		t.debuffs.append({"kind": "wither", "remaining": float(w.get("duration", 5)), "pct": float(w.get("pct", 50))})
@@ -1557,6 +1600,7 @@ func _apply_effects(src: SimEntity, t: SimEntity, effects: Dictionary, power: fl
 	if effects.get("shield") != null:
 		var sh: Dictionary = effects["shield"]
 		t.shield_hp = maxf(t.shield_hp, t.stats.max_hp * float(sh.get("amount_pct_hp", 20)) / 100.0)
+		t.shield_src = src.id                      # a absorção conta como cura de quem pôs (Carga Suprema)
 		var left := float(sh.get("duration", 5)) * longer
 		for x in t.buffs:
 			if x.get("id") == "shield":
@@ -1797,16 +1841,19 @@ func consume_burns(src: SimEntity, t: SimEntity) -> float:
 # DANO / CURA / MORTE
 # ----------------------------------------------------------------------------
 ## `dodgeable` = false: zona avisada no chão (assinatura/perigo de chefe); a esquiva passiva (AGI) não salva, só sair dela.
-func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: bool, blocked: bool, kind: String, from: Variant = null, dodgeable := true) -> void:
+## Devolve false quando o golpe não pegou (alvo morto/intocável, dash, aparado inteiro, esquiva): a Carga Suprema só
+## conta golpe que pegou (UltimateSystem.on_dealt/on_taken).
+func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: bool, blocked: bool, kind: String, from: Variant = null, dodgeable := true) -> bool:
 	if not target.is_alive() or target.is_perched() or target.shade:
-		return
+		return false
 	if target.iframe_left > 0.0 and attacker != target and not kind.begins_with("dot"):     # dash: invulnerável a golpe direto
 		Events.post(&"dodged", target.id)
-		return
+		return false
+	var raw_amount := amount                       # Carga Suprema: dano depois da DEF, antes de aparar/bloqueio/escudo/cúpula
 	if dodgeable and attacker != target and kind != "riposte" and not kind.begins_with("dot") and not target.buffs.is_empty():
 		var rp := RiposteSystem.on_hit(self, target, attacker, amount, from)     # Guarda do Duelista: aparar e responder
 		if rp == -1:
-			return
+			return false
 		if rp >= 0:
 			amount = rp                       # chefe: passa parte (aparado não rola a esquiva de novo)
 			blocked = true
@@ -1857,7 +1904,11 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 		FusionEffects.on_dodge(self, target, attacker)
 		ShadowSystem.on_dodge(target)                              # Duelista ascendido: esquiva prepara a Execução
 		Events.post(&"dodged", target.id)
-		return
+		return false
+	if target.is_character() and attacker != target:
+		UltimateSystem.on_taken(self, attacker, target, raw_amount, kind)     # Carga Suprema: só golpe que pegou (depois da esquiva)
+		if kind != "intercept":
+			amount = InterceptSystem.damage_in(self, attacker, target, amount)     # Proteção (Suprema do Guardião): fora do DR_CAP
 	# veneno na lâmina: golpe físico direto envenena (renova, não acumula)
 	if kind == "physical" and attacker != target and attacker.is_character() and attacker.stats.hit_poison > 0.0:
 		var pid := "blade_poison_%d" % attacker.id
@@ -1866,6 +1917,8 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 		var absorbed := minf(target.shield_hp, float(amount))
 		target.shield_hp -= absorbed
 		amount -= int(absorbed)
+		if absorbed > 0.0 and target.shield_src >= 0:
+			UltimateSystem.on_shield_absorb(self, target, absorbed)
 	if not target.ct.is_empty():
 		amount = ClassTalentSystem.mana_shield(target, amount)
 	if target.is_character() and attacker != target and target.stats.mana_guard > 0.0:
@@ -1918,6 +1971,7 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 		Combat.role_on_hit(self, attacker, target, amount, crit, blocked, kind)     # notáveis de papel (roubo, lentidão, bloqueio)
 	if target.is_character() and not target.stats.fusion.is_empty() and attacker != target and not kind.begins_with("dot") and target.is_alive():
 		FusionEffects.on_hit_taken(self, attacker, target)     # Casca Partilhada (D3)
+	return true
 
 func _heal(src: SimEntity, target: SimEntity, amount: int) -> void:
 	if not target.is_alive() or amount <= 0:
@@ -1926,6 +1980,8 @@ func _heal(src: SimEntity, target: SimEntity, amount: int) -> void:
 	var raw := target.hp + amount * target.heal_factor()
 	target.hp = minf(target.stats.max_hp, raw)
 	Events.post(&"healed", src.id, target.id, int(target.hp - before))
+	if src.is_character() and target.hp > before:
+		UltimateSystem.on_heal(self, src, target, target.hp - before)     # Carga Suprema: só a cura efetiva
 	if src != target and src.party_id >= 0 and src.party_id == target.party_id and target.hp - before >= target.stats.max_hp * 0.15:
 		if src == player and target.kind == SimEntity.Kind.BOT:
 			BotChat.party_event(self, target, "healed_by_player", {}, target, 0.5)
@@ -1979,7 +2035,12 @@ func _kill(e: SimEntity, killer: SimEntity) -> void:
 	e.stealth_left = 0.0
 	e.ambush = false
 	e.current_skill = null
+	if e.is_character():
+		UltimateSystem.zero(e)               # morrer zera a Carga Suprema
+	if not e.hop.is_empty():
+		HopSystem.cancel(e)
 	if not e.debuffs.is_empty():
+		UltEffects.on_death(self, e)         # Toxina Real/Eclipse: a marca espalha os danos no tempo antes de limpar
 		FalconSystem.on_death(self, e)       # Falcão Real: a Presa passa para o vizinho (antes de limpar)
 		SeedSystem.on_death(self, e)         # Semente Ígnea: o alvo morreu antes, estoura agora
 	if e.falcon:
@@ -2053,6 +2114,10 @@ func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 		FalconSystem.tick(self, e, dt)
 	if e.combat_timer > 0.0:
 		e.combat_timer = maxf(0.0, e.combat_timer - dt)
+	if e.level >= Balance.ULT_LEVEL and e.is_character() and e.is_alive():
+		UltimateSystem.tick(self, e, dt)         # Carga Suprema: gotejar em combate / esvaziar fora dele
+	if not e.hop.is_empty():
+		HopSystem.tick(self, e, m)
 	if e.stealth_left > 0.0:
 		e.stealth_left = maxf(0.0, e.stealth_left - dt)
 	if e.cc_immune_left > 0.0 or (e.kind != SimEntity.Kind.MONSTER and not e.buffs.is_empty()):
@@ -2114,12 +2179,18 @@ func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 			return
 	# buffs / debuffs
 	var recompute := false
+	_ended.clear()                                  # buffs com fim / marcas que acabaram neste tique (sem alocar por entidade)
 	for b in (e.buffs.duplicate() if not e.buffs.is_empty() else e.buffs):     # cópia só quando há o que remover
 		b["remaining"] = float(b.get("remaining", 0)) - dt
+		if b.get("oath_lock", false) and b["remaining"] > 0.0:
+			UltEffects.oath_lock(e)                  # Céu de Martelos: Juramento cheio enquanto dura
 		if b["remaining"] <= 0.0:
 			e.buffs.erase(b)
 			if b.get("id") == "shield":
 				e.shield_hp = 0.0
+				e.shield_src = -1
+			if b.has("end_cast"):
+				_ended.append(b)
 			recompute = true
 	for d in (e.debuffs.duplicate() if not e.debuffs.is_empty() else e.debuffs):
 		var rem: float = float(d.get("remaining", 0))
@@ -2140,7 +2211,11 @@ func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 				d["acc"] -= dmg
 				var src: SimEntity = entities.get(int(d.get("src", -1)))
 				if src:
-					_deal_damage(src, e, dmg, false, false, "dot_fire" if d.get("fire", false) else "dot")
+					if e.debuffs.size() > 1 and src.kind != SimEntity.Kind.MONSTER:
+						dmg = UltEffects.amp(e, src, dmg)      # Toxina Real / Eclipse
+					var hit_ok := _deal_damage(src, e, dmg, false, false, "dot_fire" if d.get("fire", false) else "dot")
+					if hit_ok and src.kind != SimEntity.Kind.MONSTER:
+						UltimateSystem.on_dot(self, src, e, dmg, d)
 					if not e.is_alive():
 						return
 		if d["remaining"] <= 0.0:
@@ -2149,6 +2224,15 @@ func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 				SeedSystem.burst(self, e, d)          # Semente Ígnea: o tempo acabou, estoura em volta
 				if not e.is_alive():
 					return
+			elif d.get("kind") == Balance.DOT_AMP_KIND:
+				_ended.append(d)
+	for x in (_ended.duplicate() if not _ended.is_empty() else _ended):
+		if x.has("end_cast"):
+			UltEffects.end_cast(self, e, x)         # Festim/Duelo: a skill de fechamento sai sozinha
+		else:
+			UltEffects.amp_end(self, e, x)          # Toxina Real: detona e espalha os danos no tempo
+		if not e.is_alive():
+			return
 	if recompute:
 		e.recompute_stats()
 	# regen
@@ -2642,3 +2726,18 @@ func set_mount_kind(e: SimEntity, kind: String) -> bool:
 	return MountSystem.set_kind(self, e, kind)
 func gather_ready(node: Dictionary) -> bool:
 	return GatherSystem.node_ready(self, node)
+# UltimateSystem (Supremas do 40)
+## Carga Suprema (0..Balance.ULT_MAX) de `e`.
+func ultimate_charge(e: SimEntity) -> float:
+	return e.ult_charge
+## Suprema que sai agora (build principal + arma da build) ou null.
+func ultimate_of(e: SimEntity) -> SkillDef:
+	return UltimateSystem.ultimate_of(self, e)
+## Suprema da build principal, mesmo sem a arma (moldura do R mostra o ícone apagado).
+func ultimate_skill(e: SimEntity) -> SkillDef:
+	return UltimateSystem.skill_of(self, e)
+func has_ultimate(e: SimEntity) -> bool:
+	return UltimateSystem.has_ultimate(e)
+## Por que o R está travado ("" = liberado).
+func ultimate_lock(e: SimEntity) -> String:
+	return UltimateSystem.lock_reason(self, e)

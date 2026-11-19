@@ -4111,6 +4111,18 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_training_dummy(gd, sim)
 	_check_keep_buffs(gd)
 	_check_frost_aspd(gd, sim)
+	_check_ultimate_unlock(gd, sim)
+	_check_ultimate_meter(gd, sim)
+	_check_ultimate_decay(gd, sim)
+	_check_ultimate_cast(gd, sim)
+	_check_ultimate_storm(gd, sim)
+	_check_ultimate_barrage(gd, sim)
+	_check_ultimate_hop(gd, sim)
+	_check_ultimate_intercept(gd, sim)
+	_check_ultimate_small_keys(gd, sim)
+	_check_ultimate_bots(gd, sim)
+	_check_ultimate_hud(gd, sim)
+	_check_ultimate_review(gd, sim)
 	_check_skill_book(gd, sim)
 	_check_elf_city_inner(gd, sim)
 	_check_quest_blocked_hint(gd, sim)
@@ -25995,3 +26007,834 @@ func _check_sacrifice(gd, sim) -> void:
 			sim.despawn(e)
 	for e in [nec, other, foe]:
 		sim.despawn(e)
+
+# =============================================================================================
+# Supremas do nível 40 (GDD design/gdd/ultimates-lv40.md; UltimateSystem, StormSystem, HopSystem, InterceptSystem,
+# UltEffects). `--only=ultimate`
+# =============================================================================================
+
+## Personagem de teste liberado (nível 40 + missão de ascensão), na build pedida, sem cérebro e com a carga zerada.
+func _ult_char(gd, sim, cls: String, build: String, at: Vector3, nm: String, level: int = 40) -> SimEntity:
+	var e: SimEntity = sim.spawn_bot(gd.classes[cls], nm, "city_aldara", at, level)
+	e.brain = null
+	e.build_id = build
+	if not e.quests_completed.has("hx_asc_" + cls):
+		e.quests_completed.append("hx_asc_" + cls)
+	e.hp = e.stats.max_hp
+	UltimateSystem.refresh(sim, e)
+	UltimateSystem.zero(e)
+	e.ult_gap_until = 0.0
+	e.ult_budget = Balance.ULT_RATE_BURST
+	return e
+
+## Passa `secs` s "fora de combate" para o medidor (o relógio da sim fica parado nos testes: recua o último combate).
+func _ult_idle(sim, e: SimEntity, secs: float, dt: float = 0.1) -> void:
+	var n := int(round(secs / dt))
+	for i in range(n):
+		e.ult_combat_t -= dt
+		UltimateSystem.tick(sim, e, dt)
+
+func _ult_mob(gd, sim, id: String, at: Vector3) -> SimEntity:
+	var mob: SimEntity = sim.spawn_monster(gd.monsters[id], "city_aldara", at)
+	mob.brain = null
+	mob.hp = 1.0e7                    # aguenta a sequência inteira (o personagem é nível 40)
+	return mob
+
+func _ult_boss_id(gd) -> String:
+	var ids: Array = gd.monsters.keys()
+	ids.sort()
+	for id in ids:
+		var md: MonsterDef = gd.monsters[id]
+		if md.resists_cc() and md.shift_forms.is_empty() and not md.dummy:
+			return id
+	return ""
+
+## Liberação e catálogo: nível 40 E ascensão; a Suprema é a da build principal com a arma dela; fora da teia/barra.
+func _check_ultimate_unlock(gd, sim) -> void:
+	var at := Vector3(36, 0, -52)
+	var e := _ult_char(gd, sim, "elementalist", "fogo", at, "UltLib", 39)
+	check(not UltimateSystem.has_ultimate(e), "suprema: nível 39 com ascensão = sem Suprema")
+	e.level = 40
+	e.quests_completed.erase("hx_asc_elementalist")
+	check(not UltimateSystem.has_ultimate(e), "suprema: nível 40 sem a missão de ascensão = sem Suprema")
+	check(UltimateSystem.lock_reason(sim, e) == "Nível %d e Ascensão" % Balance.ULT_LEVEL, "suprema: travada diz o porquê (%s)" % UltimateSystem.lock_reason(sim, e))
+	e.quests_completed.append("hx_asc_elementalist")
+	check(UltimateSystem.has_ultimate(e), "suprema: nível 40 com a ascensão = liberada")
+	var s: SkillDef = UltimateSystem.ultimate_of(sim, e)
+	check(s != null and s.id == "ele_ult_meteor_rain", "suprema: build Fogo -> Chuva de Meteoros (%s)" % (s.id if s else "null"))
+	check(sim.ultimate_of(e) == s and sim.has_ultimate(e) and sim.ultimate_lock(e) == "", "suprema: repasses públicos do Sim")
+	e.build_id = "gelo"
+	check(UltimateSystem.ultimate_of(sim, e) == null and UltimateSystem.lock_reason(sim, e) != "", "suprema: build sem Suprema (onda A) = nenhuma, com motivo")
+	e.build_id = "fogo"
+	var keep: ItemDef = e.equipment.get(ItemDef.Slot.WEAPON)
+	e.equipment[ItemDef.Slot.WEAPON] = null
+	e.recompute_stats()
+	check(UltimateSystem.ultimate_of(sim, e) == null and UltimateSystem.lock_reason(sim, e) == "Arma da build necessária", "suprema: sem o cajado = sem Suprema (arma da build)")
+	e.equipment[ItemDef.Slot.WEAPON] = keep
+	e.recompute_stats()
+	sim.despawn(e)
+	# catálogo
+	var ult_n := 0
+	for sid in gd.skills:
+		var sk: SkillDef = gd.skills[sid]
+		if not sk.ultimate:
+			continue
+		ult_n += 1
+		check(sk.unlock_level == Balance.ULT_LEVEL and sk.mp_cost == 0.0 and sk.cooldown == 0.0, "suprema %s: nível %d, custo 0, sem recarga" % [sid, Balance.ULT_LEVEL])
+		check(sk.ult_bot in ["boss", "save", "self"], "suprema %s: ult_bot válido (%s)" % [sid, sk.ult_bot])
+		check(sid.contains("_ult_") and sk.build != "" and gd.ultimates.get(sk.class_id, {}).get(sk.build, "") == sid, "suprema %s: id <prefixo>_ult_<nome>, uma por build (GameData.ultimates)" % sid)
+		check(not (sid in gd.classes[sk.class_id].skill_ids), "suprema %s: fora da ClassDef.skill_ids (teia, barra, rank)" % sid)
+		check(not str(gd.trees.get(sk.class_id, {})).contains(sid) and not str(gd.asc_trees.get(sk.class_id, {})).contains(sid), "suprema %s: fora da teia e da teia de ascensão" % sid)
+		check(Balance.ULT_NUMBERS.has(sid), "suprema %s: números em Balance.ULT_NUMBERS" % sid)
+		check(ResourceLoader.exists("res://assets/icons/skill_%s.png" % sid), "suprema %s: ícone (make_icons -- --only=%s)" % [sid, sid])
+		check(sk.description != "" and sk.startup <= 0.3 + 0.001, "suprema %s: texto e startup <= 0,3 s" % sid)
+	check(ult_n >= 1, "suprema: ao menos a Chuva de Meteoros no catálogo (onda A)")
+	var who := _ult_char(gd, sim, "elementalist", "fogo", at, "UltSlot")
+	check(not ProgressionSystem.set_skill_slot(sim, who, 0, "ele_ult_meteor_rain") and not who.knows("ele_ult_meteor_rain"), "suprema: não entra nas vagas 1-0 (não é skill aprendida)")
+	sim.despawn(who)
+
+## Medidor: pesos por papel, dano no tempo, teto de alvos por ação, sobrecura, golpe recebido com teto, teto 100.
+func _check_ultimate_meter(gd, sim) -> void:
+	var at := Vector3(40, 0, -52)
+	var dps := _ult_char(gd, sim, "elementalist", "fogo", at, "UltDps")
+	var tank := _ult_char(gd, sim, "paladin", "guardiao", at + Vector3(2, 0, 0), "UltTank")
+	var heal := _ult_char(gd, sim, "bishop", "sacerdote", at + Vector3(-2, 0, 0), "UltCura")
+	var mob := _ult_mob(gd, sim, "golem", at + Vector3(0, 0, 3))
+	var fb: SkillDef = gd.skills["ele_fireball"]
+	check(dps.ult_role == "caster" and tank.ult_role == "tank" and heal.ult_role == "healer", "medidor: papéis da build (%s/%s/%s)" % [dps.ult_role, tank.ult_role, heal.ult_role])
+	UltimateSystem.on_dealt(sim, dps, mob, fb, 2.0)
+	check(is_equal_approx(dps.ult_charge, 2.0 * Balance.ULT_GAIN_PER_POWER), "medidor: golpe de poder 2,0 de dano dá %.2f pts (%.2f)" % [2.0 * Balance.ULT_GAIN_PER_POWER, dps.ult_charge])
+	UltimateSystem.on_dealt(sim, tank, mob, fb, 2.0)
+	check(is_equal_approx(tank.ult_charge, 2.0 * Balance.ULT_GAIN_PER_POWER * UltimateSystem.weight(tank, 0)), "medidor: o mesmo golpe do tanque dá × peso do tanque (%.2f)" % tank.ult_charge)
+	check(UltimateSystem.weight(tank, 0) < UltimateSystem.weight(dps, 0) and UltimateSystem.weight(tank, 2) > UltimateSystem.weight(dps, 2) and UltimateSystem.weight(heal, 1) > UltimateSystem.weight(dps, 1),
+		"medidor: tanque enche mais apanhando, cura mais curando, dano mais batendo")
+	# dano no tempo: poder do pulso = dano / MATK
+	UltimateSystem.zero(dps)
+	var pulse := int(round(dps.stats.matk))
+	UltimateSystem.on_dot(sim, dps, mob, pulse, {"kind": "dot"})
+	check(absf(dps.ult_charge - Balance.ULT_GAIN_PER_POWER * Balance.ULT_DOT_MULT * float(pulse) / dps.stats.matk) < 0.01, "medidor: pulso de dano no tempo de poder 1 vale × ULT_DOT_MULT (%.2f)" % dps.ult_charge)
+	UltimateSystem.zero(dps)
+	UltimateSystem.on_dot(sim, dps, mob, pulse, {"kind": "dot", "ult": true})
+	check(dps.ult_charge == 0.0, "medidor: dano no tempo de Suprema não enche")
+	# área: 8 alvos na mesma ação contam ULT_AOE_TARGETS
+	var mobs: Array = []
+	for i in range(8):
+		mobs.append(_ult_mob(gd, sim, "slime", at + Vector3(float(i) - 4.0, 0, 6)))
+	UltimateSystem.zero(dps)
+	dps.ult_act_tick = -1
+	for o in mobs:
+		UltimateSystem.on_dealt(sim, dps, o, gd.skills["ele_meteor"], 1.0)
+	check(is_equal_approx(dps.ult_charge, float(Balance.ULT_AOE_TARGETS) * Balance.ULT_GAIN_PER_POWER), "medidor: área com 8 alvos conta %d (%.1f)" % [Balance.ULT_AOE_TARGETS, dps.ult_charge])
+	# invocação: × ULT_SUMMON_MULT para o dono
+	var nec := _ult_char(gd, sim, "necromancer", "invocador", at + Vector3(0, 0, -3), "UltNec")
+	var sk: SimEntity = sim.spawn_summon(nec, gd.monsters["skeleton_minion"], nec.position + Vector3(1, 0, 0), 20.0)
+	UltimateSystem.on_dealt(sim, sk, mob, gd.skills[gd.monsters["skeleton_minion"].skill_ids[0]] if not gd.monsters["skeleton_minion"].skill_ids.is_empty() else fb, 1.0)
+	check(is_equal_approx(nec.ult_charge, Balance.ULT_SUMMON_MULT * Balance.ULT_GAIN_PER_POWER), "medidor: invocação enche o dono × %.1f (%.2f)" % [Balance.ULT_SUMMON_MULT, nec.ult_charge])
+	# cura: efetiva / cura de poder 1 do lançador × peso; sobrecura = 0
+	var ally := tank
+	ally.combat_timer = 5.0
+	ally.hp = ally.stats.max_hp - 100.0
+	var ref := heal.stats.matk * heal.stats.heal_power
+	sim._heal(heal, ally, 400)
+	check(absf(heal.ult_charge - 100.0 / ref * UltimateSystem.weight(heal, 1) * Balance.ULT_GAIN_HEAL) < 0.01, "medidor: cura de 400 com 100 de falta conta só 100 (%.3f)" % heal.ult_charge)
+	var before := heal.ult_charge
+	sim._heal(heal, ally, 400)
+	check(heal.ult_charge == before, "medidor: sobrecura não enche")
+	ally.hp = ally.stats.max_hp - 100.0
+	ally.combat_timer = 0.0
+	heal.combat_timer = 0.0
+	sim._heal(heal, ally, 50)
+	check(heal.ult_charge == before, "medidor: cura fora de combate não enche")
+	sim.ult_quiet = true
+	ally.combat_timer = 5.0
+	sim._heal(heal, ally, 50)
+	sim.ult_quiet = false
+	check(heal.ult_charge == before, "medidor: poção (ult_quiet) não enche")
+	# escudo: conta quando absorve, para quem pôs
+	UltimateSystem.zero(heal)
+	sim._apply_effects(heal, ally, {"shield": {"amount_pct_hp": 10, "duration": 5}}, 1.0)
+	check(ally.shield_src == heal.id and heal.ult_charge == 0.0, "medidor: escudo posto não enche ainda")
+	sim._deal_damage(mob, ally, 30, false, false, "physical")
+	check(heal.ult_charge > 0.0, "medidor: escudo que absorveu enche quem pôs (%.2f)" % heal.ult_charge)
+	tank.ult_budget = Balance.ULT_RATE_BURST
+	# golpe recebido: % da vida × ULT_GAIN_TAKEN, teto por golpe, × peso
+	UltimateSystem.zero(tank)
+	UltimateSystem.on_taken(sim, mob, tank, int(tank.stats.max_hp * 0.5), "physical")
+	tank.ult_budget = Balance.ULT_RATE_BURST
+	check(is_equal_approx(tank.ult_charge, Balance.ULT_TAKEN_HIT_CAP * UltimateSystem.weight(tank, 2)), "medidor: golpe de 50%% da vida dá no máximo %.1f × peso (%.2f)" % [Balance.ULT_TAKEN_HIT_CAP, tank.ult_charge])
+	UltimateSystem.zero(tank)
+	UltimateSystem.on_taken(sim, mob, tank, int(tank.stats.max_hp * 0.05), "physical")
+	check(absf(tank.ult_charge - minf(Balance.ULT_TAKEN_HIT_CAP, Balance.ULT_GAIN_TAKEN * 100.0 * int(tank.stats.max_hp * 0.05) / tank.stats.max_hp) * UltimateSystem.weight(tank, 2)) < 0.01, "medidor: golpe de 5%% = ULT_GAIN_TAKEN × 5 × peso (%.2f)" % tank.ult_charge)
+	UltimateSystem.zero(tank)
+	UltimateSystem.on_taken(sim, mob, tank, 500, "intercept")
+	check(tank.ult_charge == 0.0, "medidor: dano redirecionado pela Proteção não enche")
+	# teto de ritmo: 10 s batendo 10 pts/s enchem no máximo estoque + CAP × 10
+	UltimateSystem.zero(dps)
+	dps.ult_budget = Balance.ULT_RATE_BURST
+	dps.ult_combat_t = sim.time + 1000.0          # "em combate" o tempo todo (o gotejar entra à parte)
+	for i in range(100):
+		dps.ult_act_tick = -1
+		UltimateSystem.on_dealt(sim, dps, mob, fb, 1.0)
+		UltimateSystem.tick(sim, dps, 0.1)
+	var most := Balance.ULT_RATE_BURST + (Balance.ULT_RATE_CAP + Balance.ULT_TRICKLE) * 10.0
+	check(dps.ult_charge <= most + 0.01 and dps.ult_charge >= most - Balance.ULT_RATE_CAP, "medidor: teto de ritmo (%.1f de no máx. %.1f em 10 s)" % [dps.ult_charge, most])
+	dps.ult_combat_t = sim.time
+	dps.ult_budget = Balance.ULT_RATE_BURST
+	# teto 100 e aviso de cheia
+	dps.ult_charge = Balance.ULT_MAX - 1.0
+	dps.ult_full_at = -1.0
+	UltimateSystem.gain(sim, dps, 5.0)
+	check(dps.ult_charge == Balance.ULT_MAX and dps.ult_full_at == sim.time, "medidor: cheia não passa de %d e marca a hora" % int(Balance.ULT_MAX))
+	# sem liberação não enche
+	var low := _ult_char(gd, sim, "elementalist", "fogo", at + Vector3(4, 0, 0), "UltBaixo", 35)
+	UltimateSystem.on_dealt(sim, low, mob, fb, 3.0)
+	check(low.ult_charge == 0.0, "medidor: nível 35 não enche")
+	for o in mobs:
+		sim.despawn(o)
+	for o in [dps, tank, heal, nec, sk, mob, low]:
+		sim.despawn(o)
+
+## Esvaziar: 6 s fora de luta não perde, depois ULT_DECAY_RATE/s; cheia some em ~18,5 s; morrer e trocar de mapa zeram;
+## o boneco de treino enche no ritmo normal e nada sobra 19 s depois. Gotejar em combate.
+func _check_ultimate_decay(gd, sim) -> void:
+	var at := Vector3(44, 0, -52)
+	var e := _ult_char(gd, sim, "elementalist", "fogo", at, "UltDecay")
+	e.ult_charge = Balance.ULT_MAX
+	e.ult_combat_t = sim.time
+	_ult_idle(sim, e, Balance.ULT_DECAY_DELAY)
+	check(e.ult_charge == Balance.ULT_MAX, "esvaziar: %.0f s fora de luta não perde (%.1f)" % [Balance.ULT_DECAY_DELAY, e.ult_charge])
+	_ult_idle(sim, e, 1.0)
+	check(absf(e.ult_charge - (Balance.ULT_MAX - Balance.ULT_DECAY_RATE)) < Balance.ULT_DECAY_RATE * 0.15, "esvaziar: depois perde %.0f/s (%.1f)" % [Balance.ULT_DECAY_RATE, e.ult_charge])
+	_ult_idle(sim, e, 12.0)
+	check(e.ult_charge == 0.0, "esvaziar: cheia vazia em %.1f s" % (Balance.ULT_DECAY_DELAY + Balance.ULT_MAX / Balance.ULT_DECAY_RATE))
+	# gotejar em combate
+	e.ult_combat_t = sim.time
+	UltimateSystem.tick(sim, e, 1.0)
+	check(is_equal_approx(e.ult_charge, Balance.ULT_TRICKLE), "gotejar: +%.2f/s em combate (%.2f)" % [Balance.ULT_TRICKLE, e.ult_charge])
+	# boneco de treino: conta como combate e enche
+	var dummy: SimEntity = sim.spawn_monster(gd.monsters["training_dummy"], "city_aldara", at + Vector3(2, 0, 0))
+	e.kind = SimEntity.Kind.PLAYER                  # o boneco só é inimigo do jogador
+	UltimateSystem.zero(e)
+	e.ult_act_tick = -1
+	UltimateSystem.on_dealt(sim, e, dummy, gd.skills["ele_fireball"], 2.0)
+	check(is_equal_approx(e.ult_charge, 2.0 * Balance.ULT_GAIN_PER_POWER), "boneco: enche no ritmo normal (%.2f)" % e.ult_charge)
+	e.ult_charge = Balance.ULT_MAX
+	_ult_idle(sim, e, 19.0)
+	check(e.ult_charge == 0.0, "boneco: 19 s depois de sair dele não sobra carga")
+	e.kind = SimEntity.Kind.BOT
+	sim.despawn(dummy)
+	# morrer zera
+	e.ult_charge = 60.0
+	var mob := _ult_mob(gd, sim, "slime", at + Vector3(0, 0, 3))
+	sim._kill(e, mob)
+	check(e.ult_charge == 0.0, "esvaziar: morrer zera")
+	sim.despawn(e)
+	# trocar de mapa zera
+	var f := _ult_char(gd, sim, "elementalist", "fogo", at, "UltMapa")
+	f.ult_charge = 70.0
+	var other := ""
+	for mid in sim.maps:
+		if mid != "city_aldara":
+			other = mid
+			break
+	PortalSystem.change_map(sim, f, other, Vector3.ZERO)
+	check(f.ult_charge == 0.0, "esvaziar: trocar de mapa zera (%s)" % other)
+	sim.despawn(f)
+	sim.despawn(mob)
+
+## R: recusa sem carga; cheia sai, zera, trava ULT_MIN_GAP; cancelada no preparo mantém; o dano dela não enche;
+## InputCommand.ultimate é de 1 vez.
+func _check_ultimate_cast(gd, sim) -> void:
+	var at := Vector3(48, 0, -56)
+	var m: Dictionary = sim.maps["city_aldara"]
+	var e := _ult_char(gd, sim, "elementalist", "fogo", at, "UltR")
+	var mob := _ult_mob(gd, sim, "golem", at + Vector3(0, 0, 3))
+	var cmd := InputCommand.new()
+	cmd.ultimate = true
+	cmd.aim = mob.position
+	e.ult_charge = Balance.ULT_MAX * 0.5
+	sim._apply_command(e, cmd, m, 0.0)
+	check(e.state != SimEntity.State.CASTING, "R: carga pela metade é recusada")
+	check(UltimateSystem.cast_block(sim, e).begins_with("Carga Suprema incompleta"), "R: aviso diz a carga (%s)" % UltimateSystem.cast_block(sim, e))
+	# cancelada no preparo (dash): a carga fica
+	e.ult_charge = Balance.ULT_MAX
+	sim._apply_command(e, cmd, m, 0.0)
+	check(e.state == SimEntity.State.CASTING and e.current_skill != null and e.current_skill.ultimate and e.current_skill_slot == Balance.ULT_CAST_SLOT, "R: com a carga cheia a Suprema começa")
+	var dash := InputCommand.new()
+	dash.dash = true
+	dash.aim = mob.position
+	e.dash_cd = 0.0
+	sim._apply_command(e, dash, m, 0.0)
+	check(e.state == SimEntity.State.DASHING and e.ult_charge == Balance.ULT_MAX, "R: dash no preparo cancela e a carga fica")
+	e.set_state(SimEntity.State.IDLE)
+	# sai: zera, trava e posta o evento
+	var seen: Array = []
+	var cb := func(id: int, sid: String): seen.append([id, sid])
+	Events.ultimate_cast.connect(cb)
+	var cast_pos := e.position
+	sim._apply_command(e, cmd, m, 0.0)
+	for i in range(60):
+		if e.state != SimEntity.State.CASTING:
+			break
+		sim._update_entity(e, m, 1.0 / 60.0)
+	Events.ultimate_cast.disconnect(cb)
+	check(e.ult_charge == 0.0 and e.ult_gap_until >= sim.time + Balance.ULT_MIN_GAP - 0.01, "R: saiu = carga zero e %.0f s sem encher" % Balance.ULT_MIN_GAP)
+	check(seen.size() == 1 and seen[0][0] == e.id and seen[0][1] == "ele_ult_meteor_rain", "R: evento ultimate_cast (%s)" % str(seen))
+	UltimateSystem.gain(sim, e, 10.0)
+	check(e.ult_charge == 0.0, "R: na trava nada enche")
+	check(UltimateSystem.cast_block(sim, e).begins_with("Suprema: aguarde"), "R: na trava o R avisa o tempo")
+	var st: Array = StormSystem.storms_of(sim, e)
+	check(st.size() == 1 and (st[0]["center"] as Vector3).distance_to(Vector3(cast_pos.x, 0, cast_pos.z)) < 0.01 and st[0]["anchor"] == "ground", "R: a Chuva de Meteoros fica presa onde o mago lançou")
+	# o dano da própria Suprema não enche (mesmo sem a trava)
+	e.ult_gap_until = 0.0
+	UltimateSystem.on_dealt(sim, e, mob, gd.skills["ele_ult_meteor_rain"], 5.0)
+	check(e.ult_charge == 0.0, "R: dano da Suprema não enche")
+	# comando de 1 vez
+	var dup := cmd.duplicate_cmd()
+	check(dup.ultimate and cmd.has_action(), "R: duplicate_cmd leva o ultimate e conta como ação (buffer)")
+	sim.player_cmd = cmd.duplicate_cmd()
+	sim.tick(1.0 / 60.0)
+	check(not sim.player_cmd.ultimate, "R: InputCommand.ultimate não se repete no tique seguinte")
+	for x in (m.get("storms", []) as Array).duplicate():
+		if int(x["owner"]) == e.id:
+			m["storms"].erase(x)
+	sim.despawn(e)
+	sim.despawn(mob)
+
+## storm: Chuva presa no chão (o mago anda e ela fica), tempestade que segue o lançador, meteoro acerta inimigo e queima
+## com dano no tempo de Suprema; Gelo (pulse) congela no 3º pulso, chefe ×0,4 e uma vez; golpes avisados fora dos hazards.
+func _check_ultimate_storm(gd, sim) -> void:
+	var at := Vector3(52, 0, -60)
+	var m: Dictionary = sim.maps["city_aldara"]
+	var e := _ult_char(gd, sim, "elementalist", "fogo", at, "UltStorm")
+	var mob := _ult_mob(gd, sim, "golem", at + Vector3(0, 0, 3))
+	var s: SkillDef = gd.skills["ele_ult_meteor_rain"]
+	var ally := _ult_char(gd, sim, "paladin", "guardiao", at + Vector3(0, 0, 3.5), "UltStormAliado")
+	StormSystem.start(sim, e, s, at, 1.0, s.effects["storm"])
+	var st: Dictionary = StormSystem.storms_of(sim, e)[0]
+	e.position += Vector3(5, 0, 0)
+	StormSystem.tick(sim, m)
+	check((st["center"] as Vector3).distance_to(Vector3(at.x, 0, at.z)) < 0.01, "storm: presa no chão, o mago andou 5 m e ela ficou")
+	var hz_before := (m.get("hazards", []) as Array).filter(func(h): return int(h["owner"]) == e.id).size()
+	for i in range(20):
+		st["next_at"] = sim.time
+		StormSystem.tick(sim, m)
+	var mine: Array = (m.get("ally_strikes", []) as Array).filter(func(h): return int(h["owner"]) == e.id)
+	check(not mine.is_empty() and hz_before == 0 and (m.get("hazards", []) as Array).filter(func(h): return int(h["owner"]) == e.id).is_empty(),
+		"storm: meteoros avisados na lista própria (ally_strikes), nunca em hazards (%d)" % mine.size())
+	check(mine.all(func(h): return Vector2(h["pos"].x - at.x, h["pos"].z - at.z).length() <= float(st["radius"]) + 1.0), "storm: todo meteoro cai a até %.0f m do centro" % float(st["radius"]))
+	var hp0 := mob.hp
+	var ally_hp := ally.hp
+	for h in mine:
+		h["at"] = sim.time - 0.01
+	StormSystem.tick(sim, m)
+	check(mob.hp < hp0, "storm: meteoro acerta o inimigo (%.0f -> %.0f)" % [hp0, mob.hp])
+	check(ally.hp == ally_hp, "storm: aliado dentro do meteoro não leva dano")
+	var burn := mob.debuffs.filter(func(d): return d.get("kind") == "dot" and d.get("fire", false) and int(d.get("src", -1)) == e.id)
+	check(burn.any(func(d): return d.get("ult", false)), "storm: o meteoro queima e a queimadura é de Suprema (não enche)")
+	check(e.ult_charge == 0.0, "storm: o dano da Chuva não enche a carga")
+	(m["storms"] as Array).erase(st)
+	# tempestade que segue o lançador (anchor caster)
+	StormSystem.start(sim, e, s, at, 1.0, {"anchor": "caster", "duration": 5.0, "every": 1.0, "radius": 4.0})
+	var fol: Dictionary = StormSystem.storms_of(sim, e)[0]
+	e.position += Vector3(0, 0, 5)
+	StormSystem.tick(sim, m)
+	check((fol["center"] as Vector3).distance_to(Vector3(e.position.x, 0, e.position.z)) < 0.01, "storm: anchor caster segue o lançador")
+	e.position.x = -9999.0
+	sim._kill(e, mob)
+	StormSystem.tick(sim, m)
+	check(StormSystem.storms_of(sim, e).is_empty(), "storm: o lançador morreu = a tempestade some")
+	sim.despawn(e)
+	# Gelo: pulsos em área, lentidão que acumula e congela no 3º (uma vez)
+	var g := _ult_char(gd, sim, "elementalist", "gelo", at, "UltGelo")
+	var foe := _ult_mob(gd, sim, "golem", at + Vector3(2, 0, 0))
+	var ice := {"anchor": "ground", "mode": "pulse", "duration": 8.0, "every": 1.0, "radius": 6.0, "slow_stack": {"step": 15, "max": 45, "duration": 2.0}, "freeze": {"hits": 3, "duration": 2.0}}
+	StormSystem.start(sim, g, s, at, 0.9, ice)
+	var ist: Dictionary = StormSystem.storms_of(sim, g)[0]
+	var bid := _ult_boss_id(gd)
+	var boss: SimEntity = _ult_mob(gd, sim, bid, at + Vector3(-2, 0, 0)) if bid != "" else null
+	for k in range(2):
+		StormSystem._fire(sim, m, g, ist)
+	check(foe.state != SimEntity.State.STUNNED, "storm gelo: 2 pulsos não congelam")
+	var slow := foe.debuffs.filter(func(d): return d.get("kind") == "slow")
+	check(slow.size() == 1 and is_equal_approx(float(slow[0]["pct"]), 30.0), "storm gelo: lentidão acumula 15%% por pulso, uma só (30%%)")
+	StormSystem._fire(sim, m, g, ist)
+	check(foe.state == SimEntity.State.STUNNED, "storm gelo: o 3º pulso congela")
+	if boss != null:
+		check(boss.state == SimEntity.State.STUNNED and boss.state_duration <= 2.0 * 0.4 + 0.01, "storm gelo: chefe congela ×0,4 (%.2f s)" % boss.state_duration)
+		boss.set_state(SimEntity.State.IDLE)
+	foe.set_state(SimEntity.State.IDLE)
+	StormSystem._fire(sim, m, g, ist)
+	check(foe.state != SimEntity.State.STUNNED and (boss == null or boss.state != SimEntity.State.STUNNED), "storm gelo: congela uma vez só por lançamento")
+	slow = foe.debuffs.filter(func(d): return d.get("kind") == "slow")
+	check(is_equal_approx(float(slow[0]["pct"]), 45.0), "storm gelo: lentidão para em 45%%")
+	(m["storms"] as Array).erase(ist)
+	for o in [g, foe, boss, ally, mob]:
+		if o != null:
+			sim.despawn(o)
+
+## barrage do jogador: círculos na lista própria (bots não fogem), ferem inimigo e nunca aliado.
+func _check_ultimate_barrage(gd, sim) -> void:
+	var at := Vector3(56, 0, -48)
+	var m: Dictionary = sim.maps["city_aldara"]
+	var e := _ult_char(gd, sim, "assassin", "corsario", at, "UltCors")
+	var ally := _ult_char(gd, sim, "paladin", "guardiao", at + Vector3(4, 0, 0), "UltCorsAliado")
+	ally.party_id = 9100
+	e.party_id = 9100
+	var mob := _ult_mob(gd, sim, "golem", at + Vector3(4, 0, 0.5))
+	var s: SkillDef = gd.skills["mob_dragon_meteor"]
+	StormSystem.place_barrage(sim, e, s, at + Vector3(4, 0, 0), 1.0, {"barrage": {"count": 3, "radius": 2.0, "delay": 0.4, "spread": 4.0}})
+	var mine: Array = (m.get("ally_strikes", []) as Array).filter(func(h): return int(h["owner"]) == e.id)
+	check(mine.size() == 3 and (m.get("hazards", []) as Array).filter(func(h): return int(h["owner"]) == e.id).is_empty(), "barrage do jogador: 3 círculos na lista própria, nenhum em hazards")
+	var hp_a := ally.hp
+	var hp_m := mob.hp
+	for h in mine:
+		h["at"] = sim.time - 0.01
+	StormSystem.tick(sim, m)
+	check(mob.hp < hp_m and ally.hp == hp_a, "barrage do jogador: fere o inimigo e não o aliado")
+	ally.party_id = -1
+	e.party_id = -1
+	for o in [e, ally, mob]:
+		sim.despawn(o)
+
+## Acha dois pontos andáveis a ~5 m com parede entre eles (para "não salta através de parede").
+func _ult_wall_pair(sim, m: Dictionary) -> Array:
+	var def: MapDef = m["def"]
+	for x in range(-70, 71, 4):
+		for z in range(-70, 71, 4):
+			var a := Vector3(x, 0, z)
+			if not MapGeometry.is_walkable(sim, a, def, 0.5):
+				continue
+			for k in range(8):
+				var b := a + Vector3(cos(k * PI / 4.0), 0, sin(k * PI / 4.0)) * 5.0
+				if MapGeometry.is_walkable(sim, b, def, 0.5) and not MapGeometry.line_walkable(sim, m, a, b, 0.9):
+					return [a, b]
+	return []
+
+## hop_strikes: 7 golpes; um alvo só = 7 nele; intocável com iframe "all"; nunca através de parede; sem alvo acaba; dash corta.
+func _check_ultimate_hop(gd, sim) -> void:
+	var m: Dictionary = sim.maps["city_aldara"]
+	var pair := _ult_wall_pair(sim, m)
+	check(not pair.is_empty(), "hop: achou um muro em Aldara para o teste")
+	if pair.is_empty():
+		return
+	var a: Vector3 = pair[0]
+	var e := _ult_char(gd, sim, "berserker", "punhos", a, "UltHop")
+	var near := _ult_mob(gd, sim, "golem", a + (a.direction_to(pair[1]).rotated(Vector3.UP, PI)) * 1.6)
+	var far := _ult_mob(gd, sim, "golem", pair[1])
+	var hits: Array = []
+	var cb := func(att: int, tid: int, _amt: int, _c: bool, _b: bool, _k: String): hits.append([att, tid])
+	Events.damage_dealt.connect(cb)
+	var s: SkillDef = gd.skills["ele_fireball"]
+	HopSystem.start(sim, e, s, 1.0, {"count": 7, "every": 0.2, "radius": 8.0, "iframe": "all"})
+	check(e.iframe_left > 0.0, "hop: intocável durante a sequência (iframe all)")
+	for i in range(10):
+		if e.hop.is_empty():
+			break
+		e.hop["next_at"] = sim.time
+		HopSystem.tick(sim, e, m)
+	Events.damage_dealt.disconnect(cb)
+	var on_near := hits.filter(func(h): return h[0] == e.id and h[1] == near.id).size()
+	var on_far := hits.filter(func(h): return h[0] == e.id and h[1] == far.id).size()
+	check(on_near == 7 and on_far == 0, "hop: 7 golpes no único alvo alcançável, nenhum através da parede (%d/%d)" % [on_near, on_far])
+	check(e.hop.is_empty(), "hop: acabou depois do 7º")
+	# dois alvos: alterna
+	var other := _ult_mob(gd, sim, "slime", near.position + Vector3(1.5, 0, 0))
+	hits.clear()
+	Events.damage_dealt.connect(cb)
+	HopSystem.start(sim, e, s, 1.0, {"count": 4, "every": 0.2, "radius": 8.0})
+	for i in range(6):
+		if e.hop.is_empty():
+			break
+		e.hop["next_at"] = sim.time
+		HopSystem.tick(sim, e, m)
+	Events.damage_dealt.disconnect(cb)
+	var seq: Array = hits.filter(func(h): return h[0] == e.id).map(func(h): return h[1])
+	var alternates := seq.size() >= 2
+	for i in range(1, seq.size()):
+		if seq[i] == seq[i - 1]:
+			alternates = false
+	check(alternates, "hop: com dois alvos salta entre eles (%s)" % str(seq))
+	# sem alvo: acaba na hora; dash corta
+	for o in [near, far, other]:
+		sim.despawn(o)
+	HopSystem.start(sim, e, s, 1.0, {"count": 7, "every": 0.2, "radius": 8.0})
+	check(e.hop.is_empty(), "hop: sem inimigo no raio acaba na hora")
+	var foe := _ult_mob(gd, sim, "golem", e.position + Vector3(2, 0, 0))
+	HopSystem.start(sim, e, s, 1.0, {"count": 7, "every": 0.8, "radius": 8.0})
+	var dash := InputCommand.new()
+	dash.dash = true
+	e.dash_cd = 0.0
+	e.set_state(SimEntity.State.IDLE)
+	sim._apply_command(e, dash, m, 0.0)
+	check(e.hop.is_empty(), "hop: dash corta o resto")
+	sim.despawn(foe)
+	sim.despawn(e)
+
+## intercept: aliado leva -30%, o protetor leva os 30%; vale o protetor mais perto; protetor não é protegido; para a 25%.
+func _check_ultimate_intercept(gd, sim) -> void:
+	var at := Vector3(60, 0, -40)
+	var p := _ult_char(gd, sim, "paladin", "guardiao", at, "UltProt")
+	var a := _ult_char(gd, sim, "bishop", "sacerdote", at + Vector3(3, 0, 0), "UltProtAliado")
+	var mob := _ult_mob(gd, sim, "golem", at + Vector3(0, 0, 4))
+	p.party_id = 9200
+	a.party_id = 9200
+	for o in [p, a]:
+		o.stats.dr_pct = 0.0                  # só a Proteção mexe no número (sem aura/teia de redução)
+		o.stats.evasion = 0.0
+	InterceptSystem.start(sim, p, {"radius": 8.0, "pct": 30.0, "duration": 8.0, "stop_below": 25.0})
+	var hp_a := a.hp
+	var hp_p := p.hp
+	sim._deal_damage(mob, a, 100, false, false, "physical")
+	check(is_equal_approx(hp_a - a.hp, 70.0) and is_equal_approx(hp_p - p.hp, 30.0), "intercept: aliado leva 70 de 100 e o paladino 30 (%.0f / %.0f)" % [hp_a - a.hp, hp_p - p.hp])
+	hp_p = p.hp
+	sim._deal_damage(mob, p, 100, false, false, "physical")
+	check(is_equal_approx(hp_p - p.hp, 100.0), "intercept: quem protege não é protegido")
+	var stranger := _ult_char(gd, sim, "bishop", "sacerdote", at + Vector3(-3, 0, 0), "UltProtFora")
+	stranger.stats.dr_pct = 0.0
+	stranger.stats.evasion = 0.0
+	var hp_s := stranger.hp
+	sim._deal_damage(mob, stranger, 100, false, false, "physical")
+	check(is_equal_approx(hp_s - stranger.hp, 100.0), "intercept: fora do grupo não é protegido")
+	# perto de dois protetores: vale o mais perto
+	var p2 := _ult_char(gd, sim, "paladin", "guardiao", at + Vector3(4, 0, 0), "UltProt2")
+	p2.party_id = 9200
+	p2.stats.dr_pct = 0.0
+	p2.stats.evasion = 0.0
+	InterceptSystem.start(sim, p2, {"radius": 8.0, "pct": 30.0, "duration": 8.0, "stop_below": 25.0})
+	hp_p = p.hp
+	var hp_p2 := p2.hp
+	hp_a = a.hp
+	sim._deal_damage(mob, a, 100, false, false, "physical")
+	check(is_equal_approx(hp_a - a.hp, 70.0) and is_equal_approx(hp_p2 - p2.hp, 30.0) and p.hp == hp_p, "intercept: duas Proteções não somam, vale a do mais perto")
+	sim.despawn(p2)
+	# para a 25%
+	p.hp = p.stats.max_hp * 0.26
+	sim._deal_damage(mob, a, int(p.stats.max_hp * 0.2), false, false, "physical")
+	check(not InterceptSystem.active(p), "intercept: protetor abaixo de 25%% encerra a Proteção")
+	a.hp = a.stats.max_hp
+	hp_a = a.hp
+	sim._deal_damage(mob, a, 100, false, false, "physical")
+	check(is_equal_approx(hp_a - a.hp, 100.0), "intercept: encerrada, o aliado leva tudo (%.0f, vida %.0f/%.0f)" % [hp_a - a.hp, a.hp, a.stats.max_hp])
+	p.party_id = -1
+	a.party_id = -1
+	for o in [p, a, mob, stranger]:
+		sim.despawn(o)
+
+## dot_amp (só do lançador), detonar e espalhar no fim; curse_spread (só as suas); end_cast; oath_lock; ignore_max; pet_revive.
+func _check_ultimate_small_keys(gd, sim) -> void:
+	var at := Vector3(64, 0, -36)
+	var m: Dictionary = sim.maps["city_aldara"]
+	var src := _ult_char(gd, sim, "assassin", "laminas", at, "UltAmp")
+	var src2 := _ult_char(gd, sim, "assassin", "laminas", at + Vector3(-2, 0, 0), "UltAmp2")
+	var t := _ult_mob(gd, sim, "golem", at + Vector3(0, 0, 3))
+	var t2 := _ult_mob(gd, sim, "golem", at + Vector3(2, 0, 3))
+	sim._apply_effects(src, t, {"dot": {"dps": 10, "duration": 6, "skill": "ass_test"}}, 1.0)
+	UltEffects.apply_amp(src, t, {"mult": 2.0, "duration": 8.0, "detonate": 1.5, "spread_radius": 4.0})
+	check(UltEffects.amp(t, src, 10) == 20 and UltEffects.amp(t, src2, 10) == 10, "dot_amp: os danos no tempo do lançador valem ×2, os de outro não")
+	var amp_d: Dictionary = t.debuffs.filter(func(d): return d.get("kind") == Balance.DOT_AMP_KIND)[0]
+	var hp0 := t.hp
+	UltEffects.amp_end(sim, t, amp_d)
+	check(t2.debuffs.any(func(d): return d.get("kind") == "dot" and int(d.get("src", -1)) == src.id), "dot_amp: no fim o dano no tempo é copiado para o vizinho a 4 m")
+	check(t.hp < hp0 and not t.debuffs.any(func(d): return d.get("kind") == "dot" and int(d.get("src", -1)) == src.id), "dot_amp: no fim o resto detona de uma vez")
+	# curse_spread
+	t.debuffs.append({"kind": "curse", "id": "curse_hex_%d" % src.id, "remaining": 6.0, "taken_pct": 10.0, "weaken_pct": 0.0})
+	t.debuffs.append({"kind": "curse", "id": "curse_hex_%d" % src2.id, "remaining": 6.0, "taken_pct": 10.0, "weaken_pct": 0.0})
+	UltEffects.curse_spread(sim, src, t2, {"radius": 6.0})
+	check(t2.debuffs.any(func(d): return d.get("id") == "curse_hex_%d" % src.id) and not t2.debuffs.any(func(d): return d.get("id") == "curse_hex_%d" % src2.id),
+		"curse_spread: copia só as SUAS maldições")
+	# end_cast: o buff acaba e a skill sai sozinha
+	var hp_t := t.hp
+	src.position = t.position + Vector3(1.2, 0, 0)
+	src.put_buff({"id": "ult_test_end", "remaining": 0.01, "end_cast": "mob_whirl", "end_power": 1.5})
+	sim._update_entity(src, m, 0.05)
+	check(t.hp < hp_t, "end_cast: o buff acabou e o golpe de fechamento saiu sozinho")
+	# oath_lock
+	var pal := _ult_char(gd, sim, "paladin", "templario", at + Vector3(4, 0, -3), "UltOath")
+	pal.put_buff({"id": "ult_test_oath", "remaining": 5.0, "oath_lock": true})
+	sim._update_entity(pal, m, 0.05)
+	check(sim.oath_stacks(pal) == ClassTalentSystem.oath_max(pal), "oath_lock: Juramento cheio enquanto o buff dura (%d)" % sim.oath_stacks(pal))
+	# ignore_max
+	var nec := _ult_char(gd, sim, "necromancer", "invocador", at + Vector3(-4, 0, -3), "UltIgn")
+	var army: SkillDef = gd.skills["nec_army"]
+	var free := army.duplicate()
+	free.effects = army.effects.duplicate(true)
+	free.effects["summon"]["ignore_max"] = true
+	free.effects["summon"]["count"] = 6
+	free.effects["summon"]["max"] = 1
+	nec.skill_aim = nec.position + Vector3(0, 0, 2)
+	sim._apply_skill(nec, free, m)
+	var mine := func(): return m["entities"].filter(func(o): return o.kind == SimEntity.Kind.SUMMON and o.owner_id == nec.id and o.is_alive())
+	var n_free: int = mine.call().size()
+	check(n_free == 6 and mine.call().all(func(o): return o.free_summon), "ignore_max: 6 invocações fora do limite (max 1)")
+	sim._apply_skill(nec, army, m)
+	check(mine.call().size() == 6 + int(army.effects["summon"]["count"]), "ignore_max: as de fora não ocupam vaga das normais (%d)" % mine.call().size())
+	for o in mine.call():
+		sim.despawn(o)
+	# pet_revive
+	var ran := _ult_char(gd, sim, "ranger", "cacador", at + Vector3(0, 0, -6), "UltPet")
+	check(sim.pet_of(ran) == null, "pet_revive: começa sem lince")
+	var pet: SimEntity = UltEffects.pet_revive(sim, ran, {"skill": "ran_companion"})
+	check(pet != null and sim.pet_of(ran) == pet and pet.hp == pet.stats.max_hp, "pet_revive: sem lince, ele volta com a vida cheia")
+	pet.hp = 1.0
+	UltEffects.pet_revive(sim, ran, {"skill": "ran_companion"})
+	check(pet.hp == pet.stats.max_hp, "pet_revive: vivo, vida cheia")
+	sim.despawn(pet)
+	for o in [src, src2, t, t2, pal, nec, ran]:
+		sim.despawn(o)
+
+## Bots: "boss" solta contra chefe e não contra 1 bicho comum; dois do grupo não soltam a menos de BOT_ULT_STAGGER s;
+## "save" com 2 aliados feridos.
+func _check_ultimate_bots(gd, sim) -> void:
+	var at := Vector3(68, 0, -30)
+	var e := _ult_char(gd, sim, "elementalist", "fogo", at, "UltBot")
+	var mob := _ult_mob(gd, sim, "slime", at + Vector3(0, 0, 3))
+	e.ult_charge = Balance.ULT_MAX
+	e.ult_full_at = sim.time
+	check(not UltimateSystem.bot_release(sim, e, mob), "bot boss: não solta contra 1 bicho comum")
+	var bid := _ult_boss_id(gd)
+	var boss: SimEntity = _ult_mob(gd, sim, bid, at + Vector3(0, 0, 4))
+	check(UltimateSystem.bot_release(sim, e, boss), "bot boss: solta contra chefe (%s)" % bid)
+	var pid := 9300
+	sim.parties[pid] = {"id": pid, "leader": e.id, "members": [e.id], "ult_at": sim.time - 1.0}
+	e.party_id = pid
+	check(not UltimateSystem.bot_release(sim, e, boss), "bot boss: outro do grupo soltou há 1 s = espera (stagger)")
+	sim.parties[pid]["ult_at"] = sim.time - Balance.BOT_ULT_STAGGER - 0.1
+	check(UltimateSystem.bot_release(sim, e, boss), "bot boss: depois do stagger solta")
+	e.party_id = -1
+	sim.parties.erase(pid)
+	e.ult_charge = Balance.ULT_MAX - 1.0
+	check(not UltimateSystem.bot_release(sim, e, boss), "bot: sem a carga cheia não solta")
+	# save (regra pura, com uma Suprema de mentira)
+	var b := _ult_char(gd, sim, "bishop", "sacerdote", at + Vector3(3, 0, 0), "UltSave")
+	var x1 := _ult_char(gd, sim, "berserker", "executor", at + Vector3(4, 0, 0), "UltSave1")
+	var x2 := _ult_char(gd, sim, "berserker", "executor", at + Vector3(5, 0, 0), "UltSave2")
+	for o in [b, x1, x2]:
+		o.party_id = 9301
+	check(not UltimateSystem._save_needed(sim, b, sim.maps["city_aldara"], 8.0), "bot save: ninguém ferido = segura")
+	x1.hp = x1.stats.max_hp * 0.5
+	x2.hp = x2.stats.max_hp * 0.5
+	check(UltimateSystem._save_needed(sim, b, sim.maps["city_aldara"], 8.0), "bot save: 2 aliados a 50%% = solta")
+	# o BotBrain chama a regra
+	e.ult_charge = Balance.ULT_MAX
+	var bb := BotBrain.new()
+	bb.rng = _seeded_rng()
+	var cmd := InputCommand.new()
+	cmd = bb._fight(e, sim, sim.maps["city_aldara"], boss, cmd)
+	check(cmd.ultimate, "bot: o BotBrain liga cmd.ultimate na luta de chefe com a carga cheia")
+	for o in [b, x1, x2, e, mob, boss]:
+		o.party_id = -1
+		sim.despawn(o)
+
+## HUD da Suprema: moldura do R à esquerda do 1, maior que as vagas; mostra a Suprema da build, cheia diz PRONTA, travada
+## diz o motivo; som ult_ready no banco; tecla R no InputMap. `--only=ultimate`
+func _check_ultimate_hud(gd, sim) -> void:
+	var bar := ActionBar.new()
+	bar.build()
+	check(bar.ult != null and bar.ult.custom_minimum_size.x > ActionBar.SKILL_PX, "HUD R: moldura própria, maior que as vagas")
+	var row: Control = bar.ult.get_parent()
+	check(row.get_children().find(bar.ult) < row.get_children().find(bar.skill_slots[0]["root"]), "HUD R: à esquerda da vaga 1")
+	var e := _ult_char(gd, sim, "elementalist", "fogo", Vector3(72, 0, -24), "UltHud")
+	bar.update_ult(e)
+	check(not bar.ult.locked and bar.ult.skill != null and bar.ult.skill.id == "ele_ult_meteor_rain", "HUD R: liberada mostra a Suprema da build")
+	e.ult_charge = Balance.ULT_MAX
+	bar.update_ult(e)
+	check(bar.ult.frac == 1.0 and bar.ult.tooltip_text.contains("PRONTA"), "HUD R: cheia = anel completo e PRONTA na dica")
+	e.ult_gap_until = sim.time + 5.0
+	bar.update_ult(e)
+	check(bar.ult.gap > 0.0 and bar.ult.tooltip_text.contains("Recarregando"), "HUD R: na trava mostra os segundos")
+	e.level = 39
+	UltimateSystem.refresh(sim, e)
+	bar.update_ult(e)
+	check(bar.ult.locked and bar.ult.tooltip_text.contains("Nível %d e Ascensão" % Balance.ULT_LEVEL), "HUD R: travada mostra o cadeado e o motivo")
+	check(Sfx.VOL.has("ult_ready") and ResourceLoader.exists("res://assets/audio/sfx/ult_ready_1.wav"), "HUD R: som ult_ready no banco (build_sfx --only=ult_ready)")
+	check(InputMap.has_action("ultimate") and InputMap.action_get_events("ultimate").any(func(ev): return ev is InputEventKey and ev.physical_keycode == KEY_R), "HUD R: ação ultimate na tecla R")
+	bar.free()
+	sim.despawn(e)
+
+## Cérebro de teste: todo pensamento pede a Suprema (o comando repetido entre pensamentos não pode repetir o R).
+class UltAskBrain:
+	extends RefCounted
+	func think(_e, _sim, _m, _dt) -> InputCommand:
+		var c := InputCommand.new()
+		c.ultimate = true
+		return c
+
+## Revisão da onda A (2026-11-19): golpe que não pegou não enche; Proteção nunca suicida; salto sem chão não bate;
+## R desmonta; tempestade some quando o dono troca de mapa; bots: elite conta, SELF exige o alvo na área, segurar contra
+## lixo, regra "self"; comando repetido do bot não repete o R; poção (ItemSystem) não enche; boneco com o tique de verdade.
+func _check_ultimate_review(gd, sim) -> void:
+	var at := Vector3(76, 0, -20)
+	var m: Dictionary = sim.maps["city_aldara"]
+	# 7) esquiva/intocável: não enche nem quem bate nem quem apanha
+	var e := _ult_char(gd, sim, "berserker", "executor", at, "UltRev")
+	var mob := _ult_mob(gd, sim, "golem", at + Vector3(0, 0, 2))
+	mob.iframe_left = 1.0
+	sim._strike(e, mob, gd.skills["ber_execute"] if gd.skills.has("ber_execute") else gd.skills["ele_fireball"], 2.0, SkillDef.Kind.PHYSICAL, e.position)
+	check(e.ult_charge == 0.0, "golpe no intocável (dash) não enche a carga")
+	mob.iframe_left = 0.0
+	e.stats.evasion = 100.0
+	var landed: bool = sim._deal_damage(mob, e, 50, false, false, "physical")
+	check(not landed and e.ult_charge == 0.0, "golpe esquivado não enche a carga de quem esquivou (on_taken depois da esquiva)")
+	landed = sim._deal_damage(mob, mob, 5, false, false, "physical")
+	check(landed, "_deal_damage devolve true quando pega")
+	e.stats.evasion = 0.0
+	# 16) R desmonta
+	e.ult_charge = Balance.ULT_MAX
+	var ele := _ult_char(gd, sim, "elementalist", "fogo", at + Vector3(3, 0, 0), "UltRevMont")
+	ele.ult_charge = Balance.ULT_MAX
+	ele.mounted = true
+	var r := InputCommand.new()
+	r.ultimate = true
+	r.aim = mob.position
+	sim._apply_command(ele, r, m, 0.0)
+	check(not ele.mounted and ele.state == SimEntity.State.CASTING and ele.current_skill.ultimate, "R a cavalo: desmonta e a Suprema começa")
+	ele.set_state(SimEntity.State.IDLE)
+	ele.current_skill = null
+	# 16) tempestade some quando o dono troca de mapa
+	StormSystem.start(sim, ele, gd.skills["ele_ult_meteor_rain"], at, 1.0, {"anchor": "ground", "duration": 9.0, "every": 1.0, "radius": 4.0})
+	var other := ""
+	for mid in sim.maps:
+		if mid != "city_aldara":
+			other = mid
+			break
+	PortalSystem.change_map(sim, ele, other, Vector3.ZERO)
+	StormSystem.tick(sim, m)
+	check((m.get("storms", []) as Array).filter(func(st): return int(st["owner"]) == ele.id).is_empty(), "tempestade some quando o dono troca de mapa")
+	sim.despawn(ele)
+	# 3/4) bots: Suprema em volta de si exige o alvo na área; elite conta como alvo grande
+	var b := _ult_char(gd, sim, "elementalist", "fogo", at + Vector3(0, 0, -6), "UltRevBot")
+	b.ult_charge = Balance.ULT_MAX
+	b.ult_full_at = sim.time
+	var bid := _ult_boss_id(gd)
+	var far_boss: SimEntity = _ult_mob(gd, sim, bid, b.position + Vector3(20, 0, 0))
+	check(not UltimateSystem.bot_release(sim, b, far_boss), "bot: Suprema em volta de si não sai com o chefe a 20 m")
+	far_boss.position = b.position + Vector3(3, 0, 0)
+	check(UltimateSystem.bot_release(sim, b, far_boss), "bot: com o chefe dentro da área sai")
+	var elite: SimEntity = sim.spawn_monster(sim.elite_def(gd.monsters["slime"]), "city_aldara", b.position + Vector3(2, 0, 1))
+	elite.brain = null
+	check(elite.monster_def.elite_of != "" and UltimateSystem.bot_release(sim, b, elite), "bot: elite (Rei) conta como alvo grande")
+	sim.despawn(elite)
+	sim.despawn(far_boss)
+	# 16) segurar contra lixo no grupo do jogador; depois de BOT_ULT_HOLD solta em bando
+	var trash: Array = []
+	for i in range(3):
+		trash.append(_ult_mob(gd, sim, "slime", b.position + Vector3(float(i) - 1.0, 0, 2.0)))
+	var keep_pid: int = sim.player.party_id
+	sim.player.party_id = 9400
+	b.party_id = 9400
+	check(not UltimateSystem.bot_release(sim, b, trash[0]), "bot do grupo do jogador segura contra lixo (BOT_ULT_HOLD)")
+	b.ult_full_at = sim.time - Balance.BOT_ULT_HOLD - 1.0
+	check(UltimateSystem.bot_release(sim, b, trash[0]), "bot do grupo do jogador: depois de BOT_ULT_HOLD s solta no bando")
+	sim.player.party_id = keep_pid
+	b.party_id = -1
+	# 16) regra "self" (cercado ou vida baixa), com a Suprema do Fogo emprestando a regra
+	var mr: SkillDef = gd.skills["ele_ult_meteor_rain"]
+	var keep_rule := mr.ult_bot
+	mr.ult_bot = "self"
+	check(UltimateSystem.bot_release(sim, b, trash[0]), "bot self: 3 inimigos em cima = solta")
+	for o in trash:
+		sim.despawn(o)
+	var lone := _ult_mob(gd, sim, "slime", b.position + Vector3(0, 0, 3))
+	b.hp = b.stats.max_hp
+	check(not UltimateSystem.bot_release(sim, b, lone), "bot self: 1 inimigo e vida cheia = segura")
+	b.hp = b.stats.max_hp * (Balance.BOT_ULT_SELF_HP - 5.0) / 100.0
+	check(UltimateSystem.bot_release(sim, b, lone), "bot self: vida baixa = solta")
+	mr.ult_bot = keep_rule
+	sim.despawn(lone)
+	# 15) comando repetido do bot (entre pensamentos) não repete o R
+	b.brain = UltAskBrain.new()
+	b.ult_charge = 0.0
+	var seen_think := false
+	var seen_repeat := false
+	for i in range(6):
+		sim.tick(1.0 / 60.0)
+		if b.last_cmd == b.repeat_cmd and b.repeat_cmd != null:
+			seen_repeat = true
+			check(not b.last_cmd.ultimate, "bot: comando repetido entre pensamentos não leva o R")
+		elif b.last_cmd != null and b.last_cmd.ultimate:
+			seen_think = true
+	check(seen_think and seen_repeat, "bot: viu um pensamento com R e um tique repetido")
+	b.brain = null
+	sim.despawn(b)
+	# 14) poção de verdade (ItemSystem.use_potion) em combate não enche
+	var pid := ""
+	for iid in gd.items:
+		var it: ItemDef = gd.items[iid]
+		if it.consume.has("heal") or it.consume.has("heal_pct"):
+			pid = iid
+			break
+	e.combat_timer = 5.0
+	e.hp = e.stats.max_hp * 0.4
+	e.ult_charge = 0.0
+	e.inventory[pid] = 3
+	e.potion_slots[0] = pid
+	e.potion_cds[0] = 0.0
+	var hp0 := e.hp
+	ItemSystem.use_potion(sim, e, 0)
+	check(e.hp > hp0 and e.ult_charge == 0.0, "poção (%s) cura e não enche a carga" % pid)
+	sim.despawn(e)
+	sim.despawn(mob)
+	# 5) Proteção nunca suicida: a parte redirecionada para no limite
+	var p := _ult_char(gd, sim, "paladin", "guardiao", at + Vector3(6, 0, 0), "UltRevProt")
+	var a := _ult_char(gd, sim, "bishop", "sacerdote", at + Vector3(8, 0, 0), "UltRevProtA")
+	var foe := _ult_mob(gd, sim, "golem", at + Vector3(7, 0, 3))
+	p.party_id = 9401
+	a.party_id = 9401
+	for o in [p, a]:
+		o.stats.dr_pct = 0.0
+		o.stats.evasion = 0.0
+	InterceptSystem.start(sim, p, {"radius": 8.0, "pct": 30.0, "duration": 8.0, "stop_below": 25.0})
+	p.hp = p.stats.max_hp * 0.27
+	sim._deal_damage(foe, a, int(p.stats.max_hp * 2.0), false, false, "physical")
+	check(p.is_alive() and p.hp >= p.stats.max_hp * 0.25 - 1.0, "Proteção não suicida: o protetor fica no limite (%.0f%% da vida)" % (100.0 * p.hp / p.stats.max_hp))
+	check(not InterceptSystem.active(p), "Proteção: chegou ao limite e acabou")
+	for o in [p, a]:
+		o.party_id = -1
+		sim.despawn(o)
+	sim.despawn(foe)
+	# 6) salto sem chão andável ao lado do alvo: não salta (nem bate de longe)
+	var pair := _ult_wall_pair(sim, m)
+	if not pair.is_empty():
+		var pa: Vector3 = pair[0]
+		var pb: Vector3 = pair[1]
+		var dir := (pb - pa).normalized()
+		var edge := pa
+		var k := 0.0
+		while k < 5.0 and MapGeometry.is_walkable(sim, pa + dir * (k + 0.1), m["def"], 0.45):
+			k += 0.1
+			edge = pa + dir * k
+		var hopper := _ult_char(gd, sim, "berserker", "punhos", pb, "UltRevHop")
+		var tgt := _ult_mob(gd, sim, "golem", edge)
+		var from := hopper.position
+		var jumped: bool = HopSystem._jump(sim, hopper, tgt, m, gd.skills["ele_fireball"])
+		check(not jumped and hopper.position == from, "hop: sem chão andável ao lado do alvo não salta")
+		sim.despawn(hopper)
+		sim.despawn(tgt)
+	# 13) boneco com o tique de verdade: bater enche, ir embora esvazia
+	var dd: SimEntity = sim.spawn_monster(gd.monsters["training_dummy"], "city_aldara", at + Vector3(0, 0, 8))
+	var t := _ult_char(gd, sim, "berserker", "executor", dd.position + Vector3(0, 0, -1.6), "UltRevBoneco")
+	t.kind = SimEntity.Kind.PLAYER
+	var hit := InputCommand.new()
+	hit.attack = true
+	hit.aim = dd.position
+	var dt := 1.0 / 60.0
+	for i in range(600):
+		sim.time += dt
+		sim.tick_count += 1
+		sim._apply_command(t, hit, m, dt)
+		sim._update_entity(t, m, dt)
+		sim._update_entity(dd, m, dt)
+	var after_fight := t.ult_charge
+	check(after_fight > Balance.ULT_TRICKLE * 10.0 + 5.0, "boneco (tique de verdade): 10 s batendo enchem %.1f pts" % after_fight)
+	var idle := InputCommand.new()
+	idle.aim = dd.position
+	for i in range(int(19.0 / dt)):
+		sim.time += dt
+		sim.tick_count += 1
+		sim._apply_command(t, idle, m, dt)
+		sim._update_entity(t, m, dt)
+	check(t.ult_charge == 0.0, "boneco: 19 s depois de ir embora não sobra carga (%.1f)" % t.ult_charge)
+	t.kind = SimEntity.Kind.BOT
+	sim.despawn(t)
+	sim.despawn(dd)

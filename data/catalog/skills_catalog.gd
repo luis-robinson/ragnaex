@@ -36,6 +36,10 @@ static func build(classes: Dictionary) -> Array:
 	for cls_id in more:
 		for d in more[cls_id]:
 			out.append(_finish(d, cls_id))
+	var ults := _ultimates()
+	for cls_id in ults:
+		for d in ults[cls_id]:
+			out.append(_finish(d, cls_id))
 	# skills de monstros/bosses
 	for d in [
 		{"id": "mob_charge", "name": "Investida", "target": T_DIR, "kind": K_PHYS, "power": 1.8, "cooldown": 7.0, "range": 7.0, "radius": 1.0, "startup": 0.6, "active": 0.1, "recovery": 0.6, "hit_stop_frames": 4, "icon_color": Color(1, 0.6, 0.3),
@@ -1260,6 +1264,24 @@ static func _more() -> Dictionary:
 	}
 
 ## As 6 skills originais de cada classe (registradas antes das de `_more()`, nesta ordem).
+## Supremas do nível 40 (GDD design/gdd/ultimates-lv40.md): uma por build, tecla R, sai com a Carga Suprema cheia
+## (UltimateSystem). `ultimate: true` = fora da teia, da barra, do rank e da ClassDef.skill_ids (GameData.ultimates);
+## custo 0 e sem recarga própria; `ult_bot` = regra do bot ("boss", "save", "self"). Números: Balance.ULT_NUMBERS[<id>].
+## Onda A: só a do Fogo (prova o caminho inteiro); as outras 23 entram na onda B.
+static func _ultimates() -> Dictionary:
+	var mr: Dictionary = Balance.ULT_NUMBERS["ele_ult_meteor_rain"]
+	return {
+		"elementalist": [
+			_s("ele_ult_meteor_rain", "Chuva de Meteoros", Balance.ULT_LEVEL, "fogo", ["staff"], T_SELF, K_MAG, float(mr["power"]), 0, 0.0,
+				"Suprema (R): por %ds caem meteoros a até %dm de onde você lançou (um a cada %.1fs, a maioria sobre inimigos que ainda não queimam). Cada um queima. A chuva fica no lugar: você anda e lança à vontade." % [int(mr["duration"]), int(mr["radius"]), float(mr["every"])],
+				{"ultimate": true, "ult_bot": "boss", "vfx": "fire", "clip": "cast_ground", "radius": 0.0, "startup": 0.3, "active": 0.1, "recovery": 0.35,
+				 "hit_stop_frames": 0, "icon_color": Color(1, 0.45, 0.15),
+				 "storm": {"anchor": "ground", "mode": "strikes", "duration": float(mr["duration"]), "every": float(mr["every"]), "radius": float(mr["radius"]),
+					"strike_radius": float(mr["strike_radius"]), "bias": float(mr["bias"]), "warn": float(mr["warn"]), "prefer": "unburnt",
+					"effects": {"dot": {"dps": float(mr["burn_dps"]), "duration": float(mr["burn_time"]), "fire": true}}}}),
+		],
+	}
+
 static func _originals() -> Dictionary:
 	return {
 	"paladin": [

@@ -51,6 +51,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		_pending.dash = true
 	if event.is_action_pressed("jump"):
 		_pending.jump = true
+	if event.is_action_pressed("ultimate") and not event.is_echo():
+		_pending.ultimate = true       # R: Suprema
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_H:
 		_pending.mount = true          # H: montar/desmontar
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_G:
@@ -132,6 +134,7 @@ func _physics_process(_delta: float) -> void:
 	cmd.jump = _pending.jump
 	cmd.mount = _pending.mount
 	cmd.recall = _pending.recall
+	cmd.ultimate = _pending.ultimate
 	_pending = InputCommand.new()
 	last_cmd = cmd
 	Sim.set_player_command(cmd)

@@ -13,7 +13,7 @@ const STAT_KEYS := ["atk_pct", "matk_pct", "def_pct", "speed_pct", "heal_pct", "
 	"crit_dmg_pct", "dot_pct", "cc_resist_pct", "mp_cost_pct", "summon_time_pct",
 	"crit_leech", "low_leech", "mana_guard", "hit_slow", "heal_taken_pct", "def_atk_pct", "block_reflect", "guard_crit", "taunt_dmg_pct", "thorns"]
 ## Chaves de buff que não são stat: id (renova, não acumula), duração e aura de ligar/desligar.
-const BUFF_META := ["id", "duration", "toggle"]
+const BUFF_META := ["id", "duration", "toggle", "end_cast", "end_power", "oath_lock"]
 ## Chaves de bônus de conjunto que não são stat (SetDef: atributos e bônus por skill).
 const SET_BONUS_META := ["attrs", "skill_dmg", "skill_cdr", "fusion"]
 

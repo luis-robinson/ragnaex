@@ -25,6 +25,15 @@
   (7, 8, 9, 0) só para skills de ascensão; 1-6 recusam ascensão. Bots: `AscensionCatalog.BOT_ORDER` (+ `BOT_NO_SLOT`), `ProgressionSystem.bot_spend_asc`.
   Peso F5 por build em `Balance.ASC_BUILD_POWER`. Checks `_check_ascensions`, `_check_asc_web_fill`, `_check_ascension_bots`. Revisar: `-- --autostart=<c> --ascend --level=40`
   e `--bag_shot=<png> --wins=skills --asc_tab --ascend --level=45`.
+  **Suprema do 40** (tecla R, GDD `design/gdd/ultimates-lv40.md`): uma por build em `SkillsCatalog._ultimates()` com `_s(...)` +
+  `"ultimate": true`, `"ult_bot": "boss"|"save"|"self"`, nível `Balance.ULT_LEVEL`, custo 0, recarga 0, startup ≤ 0,3 s e id
+  `<prefixo>_ult_<nome>`; números SÓ em `Balance.ULT_NUMBERS[<id>]` (o texto lê de lá). Ela não entra na teia, na barra nem em
+  `ClassDef.skill_ids` (`GameData.ultimates[classe][build]`; a janela J mostra no fim da aba da build). Mecânicas próprias:
+  `storm`, `hop_strikes`, `intercept`, `dot_amp`, `curse_spread`, `pet_revive`, `barrage` de personagem, `summon.ignore_max`,
+  buff `end_cast`/`oath_lock` (contratos no `skill_def.gd`; regras em `StormSystem`, `HopSystem`, `InterceptSystem`, `UltEffects`).
+  Carga Suprema e o R: `UltimateSystem` (números `Balance.ULT_*`/`BOT_ULT_*`). Ícone: id em `GLYPHS` + `make_icons.tscn -- --only=<skill_id>`
+  (a Suprema ganha filete dourado sozinha). Checks `--only=ultimate`; ritmo da carga: `boss_probe.tscn -- --lvl=40 --asc --ult --comp=...`
+  (linha `ULT`: s até a 1ª cheia, `luta` = s desde que a carga saiu do zero, pts/s por membro; `--ult_trace` = carga a cada 5 s; alvo 45-60 s); foto da moldura: `-- --autostart=elementalist --ascend --level=40 --build_i=0 --ult_shot=<pasta>`.
   Ícone: adicione o id em `GLYPHS` (`tools/icons/make_icons.gd`) e rode `.\tools\godot.ps1 --path . tools/icons/make_icons.tscn` + `--import`.
   Fundo vem do tema, marcas (área, cone, avanço) finas ATRÁS do símbolo e selos (buff, dano no tempo, dreno) em discos nos cantos de baixo,
   todos dos dados; símbolo fino/cheio se equilibra em `GLYPH_WEIGHT`. Sombreado toon (`_toon`) e sombra projetada (`_flush` desenha as sombras de todos os símbolos antes) saem sozinhos de `_p`/`_c`/`_l`;

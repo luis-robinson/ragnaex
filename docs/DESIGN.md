@@ -514,6 +514,39 @@ Proposta aprovada: `design/gdd/ato2-proposals-2026-11-11.md` §2 opção A. O li
   mergulho anotado pela sim em `falcon_dive_time/_pos`; na Revoada aparecem 3). Revisar: `-- --autostart=ranger --falcon_shot=<png>`
   (`_falcao`, `_mergulho`, `_revoada`). Peso F5: `ASC_BUILD_POWER["cacador"]` 0,3 (multiplica só o dano dos mergulhos; com 1,0, Presa 6% e crítico 8 o Falcoeiro dava ×1,18 sem o freio da ameaça).
 
+## Supremas do nível 40 (GDD `design/gdd/ultimates-lv40.md`; onda A 2026-11-19) — `UltimateSystem`
+
+- **Liberação**: nível `Balance.ULT_LEVEL` (40) **e** a ascensão da classe (`hx_asc_<classe>`). Uma Suprema por build
+  (`SkillDef.ultimate`), a da build principal (`ProgressionSystem.main_build`) e só com a arma da build na mão. Fica fora
+  da teia, da teia de ascensão, da barra 1-0, do rank e de `ClassDef.skill_ids` (`GameData.ultimates[classe][build]`).
+- **Tecla R** (ação `ultimate`, `InputCommand.ultimate`, de 1 vez): mesmo pipeline das skills (preparo/ativa/recuperação,
+  encarar o cursor); desmonta; custo 0 e sem recarga própria. A carga só é gasta quando a skill **sai** (cancelada no
+  preparo, fica). Ao sair: carga zero e `ULT_MIN_GAP` s sem encher.
+- **Carga Suprema** (0-`ULT_MAX`, não vai no save): dano causado = poder do golpe (sem ATK/DEF/crítico) × `ULT_GAIN_PER_POWER`
+  × peso do papel, até `ULT_AOE_TARGETS` alvos por ação, dano no tempo × `ULT_DOT_MULT`, invocação × `ULT_SUMMON_MULT`;
+  cura efetiva (sobrecura 0; escudo conta ao absorver; poção não) / cura de poder 1 do lançador × `ULT_GAIN_HEAL`; dano
+  recebido = % da vida × `ULT_GAIN_TAKEN` (teto `ULT_TAKEN_HIT_CAP` por golpe; a parte redirecionada pela Proteção não
+  conta); `ULT_TRICKLE`/s em combate. Pesos `ULT_ROLE_WEIGHTS` (tanque: dano 0,6 / cura 0,5 / apanhar 1,6; cura: 0,9 / 1,7 / 0,6; os outros 1,0 / 0,5 / 0,5). Fora de combate por
+  `ULT_DECAY_DELAY` s esvazia `ULT_DECAY_RATE`/s; morrer e trocar de mapa zeram. O dano da própria Suprema nunca enche.
+  O boneco de treino enche no ritmo normal.
+  **Teto de ritmo** (calibragem 2026-11-19): dano/cura/apanhar enchem no máximo `ULT_RATE_CAP` pts/s com estoque
+  `ULT_RATE_BURST` (o gotejar fica fora); sem ele o poder/s variava 1,5-10 pts/s entre builds. Medido com
+  `boss_probe -- --boss=boss_ghar --lvl=40 --asc --ult --tank_lock --hp=2.5` (11 grupos tanque + Sacerdote + 2 builds, 4 lutas):
+  as 24 builds enchem em 50-58 s de luta de verdade (mediana ~53 s), contando da hora em que a carga sai do zero.
+- **HUD**: moldura redonda à esquerda do 1-6 (`ActionBar.UltFrame`): anel dourado de carga, brilho + "PRONTA" + som
+  `ult_ready` quando cheia, cinza com os segundos na trava, cadeado com o motivo quando travada. Janela J: a Suprema aparece
+  no fim da aba da build. Aviso dos golpes de Suprema no chão em areia/dourado (nunca o vermelho de chefe).
+- **Bots**: `SkillDef.ult_bot` = `boss` (chefe/elite ou `BOT_ULT_PACK`+ inimigos), `save` (`BOT_ULT_SAVE_ALLIES` aliados
+  abaixo de `BOT_ULT_SAVE_HP`% ou tanque abaixo de `BOT_ULT_TANK_HP`%), `self` (cercado ou vida baixa). No grupo do jogador
+  seguram `BOT_ULT_HOLD` s esperando chefe; dois do grupo não soltam a menos de `BOT_ULT_STAGGER` s (`UltimateSystem.bot_release`).
+- **Mecânicas novas** (efeitos em `SkillDef.EFFECT_KEYS`, contrato no `skill_def.gd`): `storm` (`StormSystem`: tempestade
+  presa no chão ou que segue o lançador; golpes avisados ou pulsos com lentidão que acumula e congelar uma vez),
+  `hop_strikes` (`HopSystem`), `intercept` (`InterceptSystem`, fora do `DR_CAP`, vale o protetor mais perto), `dot_amp` e
+  `curse_spread` (`UltEffects`), `pet_revive`, `barrage` de personagem (lista própria `ally_strikes`, bots não fogem), chave
+  `ignore_max` no `summon` e chaves de buff `end_cast`/`oath_lock`.
+- **Onda A** (2026-11-19): o sistema inteiro + a Chuva de Meteoros (Fogo, presa onde o mago lançou, decisão do usuário).
+  As outras 23 entram na onda B com os números em `Balance.ULT_NUMBERS`.
+
 ## Pontos de skill: teia (estilo Path of Exile)
 **Skills pelo nível e rank no Mestre de Skills (2026-11-18)**: toda skill comum da classe (de todas as builds; fora as de ascensão)
 chega sozinha no nível dela (`ProgressionSystem.grant_level_skills`: spawn, subir de nível, carregar o save; as novas vão para a 1ª vaga

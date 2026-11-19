@@ -1428,6 +1428,9 @@ func _book_skills(p: SimEntity, tab: String) -> Array:
 			continue
 		if (tab == "asc" and sk.ascension) or (tab == "geral" and not sk.ascension and sk.build == "") or (tab == sk.build and not sk.ascension):
 			out.append(sk)
+	var ult_id: String = GameData.ultimates.get(p.class_def.id, {}).get(tab, "")
+	if ult_id != "":
+		out.append(GameData.skills[ult_id])          # Suprema da build (tecla R): fica no fim da aba
 	return out
 
 func _set_book_tab(t: String) -> void:
@@ -1467,14 +1470,14 @@ func _book(body: VBoxContainer) -> void:
 const BOOK_KIND := {SkillDef.Kind.PHYSICAL: "física", SkillDef.Kind.MAGICAL: "mágica", SkillDef.Kind.HEAL: "cura", SkillDef.Kind.BUFF: "buff", SkillDef.Kind.SUMMON: "invocação", SkillDef.Kind.MOVEMENT: "movimento"}
 
 func _book_card(p: SimEntity, sk: SkillDef) -> Control:
-	var known := p.knows(sk.id)
+	var known := p.knows(sk.id) if not sk.ultimate else Sim.has_ultimate(p)     # Suprema: liberada no 40 com a ascensão
 	var fits := p.stats.meets(sk.requires)
 	var slot := p.slot_of(sk.id) if known else -1
 	var card := PanelContainer.new()
 	card.custom_minimum_size.x = 496
-	var edge := UiKit.GOLD if slot >= 0 else Color(0.3, 0.28, 0.35)
+	var edge := UiKit.GOLD if slot >= 0 or (sk.ultimate and known) else Color(0.3, 0.28, 0.35)
 	card.add_theme_stylebox_override("panel", UiKit.panel_style(UiKit.BG_LIGHT if known else Color(0.1, 0.09, 0.12, 0.95), edge, 5, 1))
-	if known:
+	if known and not sk.ultimate:
 		card.set_drag_forwarding(_drag_skill.bind(sk), Callable(), Callable())     # arrastar para a barra
 		drag_sources[sk.id] = card
 	card.mouse_entered.connect(show_tip.bind(UiKit.skill_tooltip(p, sk)))
@@ -1492,12 +1495,16 @@ func _book_card(p: SimEntity, sk: SkillDef) -> Control:
 	h.add_child(names)
 	var r := SkillSheet.resolved(p, sk)
 	var title := r.name if r.name != "" else sk.name
-	names.add_child(UiKit.label("%s   M%d/%d" % [title, p.mastery_of(sk.id), Balance.MASTERY_MAX] if known else title, 14, UiKit.TEXT if known else UiKit.MUTED))
+	names.add_child(UiKit.label("%s   M%d/%d" % [title, p.mastery_of(sk.id), Balance.MASTERY_MAX] if known and not sk.ultimate else title, 14, UiKit.TEXT if known else UiKit.MUTED))
 	var sub := "Nv %d · %s · %s" % [sk.unlock_level, BOOK_KIND.get(sk.kind, ""), SkillSheet.TARGETS.get(r.target, "")]
 	if slot >= 0:
 		sub += " · na barra: %s" % ActionBar.key_of(slot)
+	if sk.ultimate:
+		sub = "Suprema · Nv %d + Ascensão · tecla R · %s" % [sk.unlock_level, SkillSheet.TARGETS.get(r.target, "")]
 	names.add_child(UiKit.label(sub, 11, UiKit.GOLD if slot >= 0 else UiKit.MUTED))
-	if not known:
+	if not known and sk.ultimate:
+		v.add_child(UiKit.label("Libera no nível %d com a missão de ascensão" % sk.unlock_level, 12, Color(1.0, 0.62, 0.5)))
+	elif not known:
 		v.add_child(UiKit.label("Chega no nível %d" % sk.unlock_level, 12, Color(1.0, 0.62, 0.5)))
 	elif not fits:
 		v.add_child(UiKit.label("✖ Exige: %s" % Sim.requires_text(sk.requires), 12, Color(1.0, 0.5, 0.45)))
@@ -1514,7 +1521,9 @@ func _book_card(p: SimEntity, sk: SkillDef) -> Control:
 		val.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		val.custom_minimum_size.x = 390
 		rows.add_child(val)
-	if known:
+	if known and sk.ultimate:
+		v.add_child(UiKit.label("Sai com a Carga Suprema cheia (moldura redonda à esquerda da barra).", 11, UiKit.GOLD))
+	elif known:
 		var slots := HBoxContainer.new()
 		slots.add_theme_constant_override("separation", 4)
 		v.add_child(slots)

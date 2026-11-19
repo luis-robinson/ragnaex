@@ -45,6 +45,8 @@ func _ready() -> void:
 	Events.monster_emerged.connect(_on_emerged)
 	Events.trap_placed.connect(_on_trap_placed)
 	Events.hazard_placed.connect(_on_hazard_placed)
+	Events.ally_strike_placed.connect(_on_ally_strike)
+	Events.storm_started.connect(_on_storm_started)
 	Events.dodged.connect(_on_dodged)
 	Events.trap_removed.connect(_on_trap_removed)
 	Events.level_up.connect(_on_level_up)
@@ -102,6 +104,8 @@ func _update_reticle() -> void:
 	for i in range(Balance.SKILL_SLOTS + Balance.ASC_SLOTS):     # 1-6 e 7 8 9 0 (ascensão)
 		if Input.is_action_pressed("skill_%d" % (i + 1)) and i < p.skills.size():
 			held = p.skills[i]
+	if held == null and InputMap.has_action("ultimate") and Input.is_action_pressed("ultimate"):
+		held = Sim.ultimate_of(p)                    # segurar R mostra a área da Suprema
 	if held == null and p.state == SimEntity.State.CASTING and p.current_skill and p.current_skill_slot >= 0:
 		held = p.current_skill
 	reticle.visible = false
@@ -652,6 +656,36 @@ func _on_hazard_placed(map_id: String, pos: Vector3, radius: float, delay: float
 	root.position = pos + Vector3(0, 0.05, 0)
 	_danger_grow(root, _disc(radius, Color(DANGER, DANGER_BASE_A)), _disc(radius, Color(DANGER, DANGER_FILL_A)),
 		_danger_rim("disc", radius, 0.0, 0.0, DANGER_RIM_W * 1.6), false, maxf(0.2, delay))
+
+## Golpe avisado de Suprema (aliado: StormSystem): mesma forma do aviso de chefe, mas em AREIA/dourado (gramática: dano
+## de inimigo é vermelho; o seu nunca). O miolo cresce até o impacto.
+const ALLY_STRIKE := Color(1.0, 0.78, 0.38)
+const ALLY_STRIKE_RIM := Color(1.0, 0.95, 0.75, 0.9)
+func _on_ally_strike(map_id: String, pos: Vector3, radius: float, delay: float, _skill_id: String) -> void:
+	if map_id != main.current_map_id or delay <= 0.0:
+		return
+	var root := Node3D.new()
+	add_child(root)
+	root.position = pos + Vector3(0, 0.05, 0)
+	var rim := _danger_rim("disc", radius, 0.0, 0.0, DANGER_RIM_W)
+	(rim.material_override as StandardMaterial3D).albedo_color = ALLY_STRIKE_RIM
+	_danger_grow(root, _disc(radius, Color(ALLY_STRIKE, 0.12)), _disc(radius, Color(ALLY_STRIKE, 0.26)), rim, false, maxf(0.15, delay))
+
+## Área da tempestade de Suprema: anel fino de areia no chão pela duração (segue o dono quando `follows`).
+func _on_storm_started(map_id: String, owner_id: int, _skill_id: String, center: Vector3, radius: float, duration: float, follows: bool) -> void:
+	if map_id != main.current_map_id:
+		return
+	var rim := _danger_rim("disc", radius, 0.0, 0.0, DANGER_RIM_W * 0.8)
+	(rim.material_override as StandardMaterial3D).albedo_color = Color(ALLY_STRIKE, 0.55)
+	add_child(rim)
+	rim.position = center + Vector3(0, 0.06, 0)
+	if follows and main.views.has(owner_id):
+		rim.reparent(main.views[owner_id], false)
+		rim.position = Vector3(0, 0.06, 0)
+	var tw := rim.create_tween()
+	tw.tween_interval(maxf(0.1, duration - 0.4))
+	tw.tween_property(rim.material_override, "albedo_color:a", 0.0, 0.4)
+	tw.tween_callback(rim.queue_free)
 
 ## Monta base + miolo + borda em `root`, o miolo cresce em `dur` s e o aviso some.
 func _danger_grow(root: Node3D, base: MeshInstance3D, fill: MeshInstance3D, rim: MeshInstance3D, line: bool, dur: float) -> void:

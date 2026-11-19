@@ -67,7 +67,7 @@ const GLYPHS := {
 	"net": ["ran_net"],
 	"cloud": ["nec_asc_miasma", "ele_hailstorm", "nec_pandemic", "ele_thunder", "ass_smoke", "ass_toxic_cloud", "nec_curse"],
 	"flame": ["nec_demon_form", "ele_frost_flare", "ele_summon_fire", "pal_zeal", "pal_purge", "ele_fireball", "ele_flame_wave", "ele_fire_wall", "ele_inferno", "ber_glad_fire"],
-	"meteor": ["ele_ember_seed", "ass_hand_cannon", "ran_mine", "ele_meteor"],
+	"meteor": ["ele_ember_seed", "ass_hand_cannon", "ran_mine", "ele_meteor", "ele_ult_meteor_rain"],
 	"bird": ["bis_choir_angel", "ele_phoenix", "dru_bird_form", "ran_falcon"],
 	"crystal": ["bis_choir_barrier", "ele_prism", "ele_summon_ice", "ele_absolute_zero", "ele_ice_lance", "ele_glacier"],
 	"snowflake": ["nec_lich", "ran_frost_trap", "ele_shatter", "ele_frost_nova", "ele_blizzard", "ber_glad_frost"],
@@ -89,7 +89,7 @@ const TWIN := ["ass_twin_shadow", "ber_glad_finale", "ber_fist_flurry", "ass_cro
 ## três golpes em sequência (efeito "strikes"): três lâminas em escada
 const TRIO := ["pal_crusader_strike"]
 const ORBIT := ["pal_blessed_hammers"]          # 3 símbolos girando em volta do centro (Martelos Abençoados)
-const RAIN := ["ran_rain", "ran_volley", "dru_starfall", "ele_blizzard", "ele_storm_lord"]
+const RAIN := ["ele_ult_meteor_rain", "ran_rain", "ran_volley", "dru_starfall", "ele_blizzard", "ele_storm_lord"]
 const FAN := ["ran_multishot", "ass_fan", "ass_broadside"]
 const WALL := ["ele_fire_wall", "nec_bone_wall", "pal_shield_wall", "nec_army"]
 const FALLBACK := ["sword", "star", "heart", "sun", "skull", "boot"]    # por SkillDef.Kind
@@ -126,7 +126,7 @@ func _ready() -> void:
 		for sid in GLYPHS[g]:
 			glyph_of[sid] = g
 	for cid in CLASS_ICONS:
-		if not (only in ["action", "status"]):      # --only=action/status: só esses arquivos
+		if not (only in ["action", "status"]) and not GameData.skills.has(only):      # --only=action/status/<skill_id>: só esses arquivos
 			_queue.append({"file": "class_" + cid, "cls": cid})
 	if only == "" or only == "status":
 		for k in STATUS_ICONS:
@@ -136,7 +136,7 @@ func _ready() -> void:
 			_queue.append({"file": "action_" + k, "action": k})
 	for sid in GameData.skills:
 		var s: SkillDef = GameData.skills[sid]
-		if s.class_id == "" or (only != "" and s.class_id != only):
+		if s.class_id == "" or (only != "" and s.class_id != only and sid != only):
 			continue
 		if not glyph_of.has(sid):
 			push_warning("sem símbolo: " + sid)
@@ -261,6 +261,9 @@ func _paint() -> void:
 	var corners := [Vector2(398, 398), Vector2(114, 398)]
 	for k in range(mini(badges.size(), corners.size())):
 		_badge(badges[k], corners[k])
+	if s.ultimate:                                   # Suprema (tecla R): filete dourado duplo por dentro da moldura
+		_canvas.draw_rect(Rect2(22, 22, 468, 468), Color(1.0, 0.82, 0.35), false, 14.0)
+		_canvas.draw_rect(Rect2(42, 42, 428, 428), Color(1.0, 0.92, 0.6, 0.55), false, 4.0)
 
 func _paint_class(cid: String) -> void:
 	var c: Array = CLASS_ICONS[cid]

@@ -20,7 +20,8 @@ const EFFECT_KEYS := ["dot", "slow", "stun", "root", "buff", "shield", "dash", "
 	"islands", "mark", "boss_channel", "repeat", "avalanche", "wall", "decoys",
 	"explode", "fire_wall", "strikes", "orbit",
 	"zone", "sunder", "sunder_consume", "seed", "sacrifice",
-	"wound_heal", "wound_extend", "riposte", "momentum_spend"]
+	"wound_heal", "wound_extend", "riposte", "momentum_spend",
+	"storm", "hop_strikes", "intercept", "dot_amp", "curse_spread", "pet_revive"]
 
 @export var id: String = ""
 @export var name: String = ""
@@ -79,6 +80,11 @@ const EFFECT_KEYS := ["dot", "slow", "stun", "root", "buff", "shield", "dash", "
 ## skill de ascensão (Ato II, 35+): fica fora da teia normal (vai para a teia de ascensão da classe, barra 7-0) e só sai
 ## com a ascensão (ProgressionSystem.has_ascension).
 @export var ascension: bool = false
+## Suprema do nível 40 (GDD ultimates-lv40; UltimateSystem): tecla R, sai com a Carga Suprema cheia. Fora da teia, da
+## barra 1-0, do rank e de ClassDef.skill_ids (GameData.ultimates[classe][build]); custo 0, sem recarga própria.
+@export var ultimate: bool = false
+## regra do bot para soltar a Suprema: "boss" (chefe/elite ou bando), "save" (aliados feridos), "self" (cercado/ferido).
+@export var ult_bot: String = ""
 ## nome da forma nos avisos ("só na forma de lobo")
 const FORM_LABELS := {"wolf": "lobo", "bear": "urso", "phantom": "fantasma", "demon": "demônio", "lich": "lich",
 	"ent": "Ent", "alpha": "Lobo Alfa", "bird": "Pássaro Arcano"}
@@ -191,6 +197,28 @@ const FORM_LABELS := {"wolf": "lobo", "bear": "urso", "phantom": "fantasma", "de
 ## "wound_extend": {"add", "cap"}  → Presas Gêmeas: +add s nas suas feridas em cada atingido (até cap s restantes).
 ## "riposte": true  → Guarda do Duelista: o buff da skill é a janela de aparar (RiposteSystem).
 ## "momentum_spend": {"power_pct"}  → Golpe de Mestre: gasta o Ímpeto, +power_pct% de poder por carga.
+## Mecânicas das Supremas (GDD ultimates-lv40 §9; onda A):
+## "storm": {"anchor": "caster"|"ground", "mode": "strikes"|"pulse", "duration", "every", "radius", "strike_radius", "bias",
+##     "warn", "prefer": ""|"unburnt"|"fresh", "fresh_s", "strike_mult", "effects": {...}, "chain": {count, radius, falloff},
+##     "stun_chance": {"pct", "duration"}, "slow_stack": {"step", "max", "duration"}, "freeze": {"hits", "duration"},
+##     "end": {"power", "radius", "pull": bool}}  → tempestade (StormSystem): centro no lançador (segue) ou onde ele lançou
+##     (fica). strikes: a cada `every` s um golpe de `strike_radius` m num ponto a até `radius` m (com chance `bias` sobre um
+##     inimigo, preferindo quem não queima/não levou nos últimos fresh_s s), avisado `warn` s antes (aviso aliado, areia);
+##     pulse: a cada `every` s bate em todo inimigo dentro. Poder do golpe = poder do lançamento × strike_mult.
+## "hop_strikes": {"count", "every", "radius", "iframe": "all"|s, "prefer": ""|"unbled", "lock": bool, "effects": {...},
+##     "fury_end": n}  → (HopSystem) salta entre inimigos a `radius` m: a cada `every` s some e reaparece ao lado de um
+##     (outro que o anterior se houver; não atravessa parede), golpe de poder do lançamento. Sem alvo = acaba. Dash corta.
+## "intercept": {"radius", "pct", "duration", "stop_below"}  → Proteção (InterceptSystem): aliados a `radius` m levam
+##     -pct% e essa parte vai para quem lançou (passa pelo escudo/aparar dele); acaba abaixo de stop_below% da vida. Fora do
+##     DR_CAP; duas não somam (vale a do protetor mais perto); quem protege não é protegido.
+## "dot_amp": {"mult", "duration", "detonate", "spread_radius"}  → (UltEffects) debuff no alvo: os SEUS danos no tempo nele
+##     × mult. Ao acabar (ou o alvo morrer) os seus danos no tempo nele detonam (resto × detonate) e são copiados para
+##     inimigos a spread_radius m (0 = não).
+## "curse_spread": {"radius"}  → o atingido recebe cópia das SUAS maldições que estão em inimigos a `radius` m dele.
+## "pet_revive": {"skill": "<id da skill do companheiro>"}  → companheiro morto volta com a vida cheia (vivo: vida cheia).
+## "summon": {..., "ignore_max": true}  → invocação fora do limite por tipo (não conta nem é contada).
+## Chaves de buff (Stats.BUFF_META): "end_cast": "<skill_id>" (+ "end_power": mult) = quando o buff acaba a skill sai
+##     sozinha, grátis, onde o dono está (UltEffects.end_cast); "oath_lock": true = Juramento cheio e sem esfriar enquanto dura.
 @export var effects: Dictionary = {}
 
 ## Maestria: array de 6 dicionários {power_mult, mp_mult, cd_mult, extra:Dictionary}

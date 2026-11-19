@@ -106,6 +106,8 @@ var _dmg := 1.0
 var _lvl := 0
 var _asc: Array = []
 var _asc_on := false
+var _ult_trace := false           # --ult_trace: carga de cada membro a cada 5 s
+var _ult := false                 # --ult: tempo até a 1ª Carga Suprema cheia por membro (GDD ultimates-lv40 §8; use com --lvl=40 --asc)
 var _asc_base: Array = []
 var _elem_stage := 0
 var _tank_lock := false
@@ -295,6 +297,8 @@ func _ready() -> void:
 		if a.begins_with("--lvl="): _lvl = int(a.get_slice("=", 1))
 		if a == "--asc_level" and _lvl <= 0: _lvl = Balance.ASC_LEVEL
 		if a == "--asc": _asc_on = true
+		if a == "--ult": _ult = true
+		if a == "--ult_trace": _ult_trace = true
 		if a.begins_with("--asc="):
 			_asc_on = true
 			_asc = Array(a.get_slice("=", 1).split(","))
@@ -357,6 +361,22 @@ func _ready() -> void:
 	get_tree().quit()
 
 func _print(bid: String, n: int, trials: int, r: Dictionary) -> void:
+	if _ult and r.has("ult"):
+		var parts: Array = []
+		for k in r["ult"]:
+			var u: Dictionary = r["ult"][k]
+			var ts: Array = u["t"]
+			ts.sort()
+			var med: float = float(ts[ts.size() / 2]) if not ts.is_empty() else -1.0
+			var rs: Array = u["rate"]
+			var rate := 0.0
+			for x in rs:
+				rate += float(x) / maxf(1.0, rs.size())
+			var ls: Array = u["luta"]
+			ls.sort()
+			var lmed: float = float(ls[ls.size() / 2]) if not ls.is_empty() else -1.0
+			parts.append("%s(%s%s)=%.1fs luta=%.1fs n=%d sem=%d pts/s=%.2f(=%.0fs)" % [k, u["role"], "" if u["ok"] else ",TRAVADA", med, lmed, ts.size(), int(u["miss"]), rate, Balance.ULT_MAX / maxf(0.01, rate)])
+		print("ULT %s %s" % [bid, " ".join(parts)])
 	if _asc_on or _lvl > 0:
 		var dps: Array = []
 		var dl: Dictionary = r.get("dealt", {})
@@ -657,6 +677,13 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 		boss.aggro_timer = 5.0
 		var t := 0.0
 		acc["t0"] = Sim.time
+		var ult_first := {}
+		var ult_last := {}                 # último (carga, t) com o membro vivo: ritmo de quem não encheu
+		if _ult:
+			for b in bots:
+				UltimateSystem.zero(b)
+				b.ult_gap_until = 0.0
+				UltimateSystem.refresh(Sim, b)
 		acc["decide"] = {}
 		var dead := {}
 		var on_lead := 0.0
@@ -671,6 +698,20 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 		while t < LIMIT and boss.is_alive():
 			Sim.tick(DT)
 			t += DT
+			if _ult:
+				for b in bots:
+					var uk: String = str(acc["bots"][b.id]).get_slice("#", 0)
+					if b.ult_full_at >= 0.0 and not ult_first.has(uk):
+						ult_first[uk] = b.ult_full_at - float(acc["t0"])
+						ult_first[uk + "@luta"] = b.ult_full_at - float(acc["t0"]) - float(ult_last.get(uk + "@0", 0.0))
+					elif not ult_first.has(uk) and (b.ult_charge <= 0.0 or not b.is_alive()):
+						ult_last[uk + "@0"] = t            # luta de verdade começa quando a carga sai do zero (morreu: recomeça)
+					if _ult_trace and int(t / DT) % int(5.0 / DT) == 0:
+						print("    ULT_TRACE t=%.0f %s carga=%.1f estoque=%.1f vivo=%s combate=%.1f lv=%d ok=%s" % [t, uk, b.ult_charge, b.ult_budget, b.is_alive(), Sim.time - b.ult_combat_t, b.level, b.ult_ok])
+					if not b.is_alive():
+						ult_last[uk + "!"] = true          # morreu: a carga zerou, o ritmo para de contar aqui
+					elif not ult_last.has(uk + "!"):
+						ult_last[uk] = [b.ult_charge, t]
 			if _dot_stats:               # acúmulos de dano no tempo: no tanque (do lado do chefe) e no chefe (por build do membro)
 				var tn := 0
 				for dd in tank_bot.debuffs:
@@ -811,6 +852,20 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 		agg_sum += on_lead / maxf(0.01, targeted)
 		fight_sum += t
 		acc["fight_t"] = float(acc.get("fight_t", 0.0)) + t
+		if _ult:
+			if not acc.has("ult"):
+				acc["ult"] = {}
+			for b in bots:
+				var uk2: String = str(acc["bots"][b.id]).get_slice("#", 0)
+				if not acc["ult"].has(uk2):
+					acc["ult"][uk2] = {"t": [], "miss": 0, "role": Sim.role_of(b), "ok": UltimateSystem.has_ultimate(b), "rate": [], "luta": []}
+				var last: Array = ult_last.get(uk2, [0.0, t])
+				acc["ult"][uk2]["rate"].append(Balance.ULT_MAX / maxf(1.0, float(ult_first[uk2])) if ult_first.has(uk2) else float(last[0]) / maxf(1.0, float(last[1])))
+				if ult_first.has(uk2):
+					acc["ult"][uk2]["t"].append(ult_first[uk2])
+					acc["ult"][uk2]["luta"].append(ult_first[uk2 + "@luta"])
+				else:
+					acc["ult"][uk2]["miss"] += 1       # a luta acabou antes de encher
 		act_sum += acting
 		adds_sum += adds.size()
 		if not boss.is_alive():
@@ -850,7 +905,7 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 		"off": 100.0 * acc["off"] / maxf(1.0, acc["dmg"]), "far": acc["far"] / mins, "kite": kite != "",
 		"area": 100.0 * acc["area"] / maxf(1.0, acc["dmg"]), "heal_tank": 100.0 * acc["heal_tank"] / maxf(1.0, acc["heal"]), "low": low_sum / trials,
 		"stray": 100.0 * acc["stray"] / maxf(1.0, acc["dmg"]), "busy": 100.0 * busy_sum / maxf(0.01, fight_sum),
-		"low_tank": low_tank / trials, "pots": float(acc["pots"]) / trials, "asc": acc["asc"], "dealt": acc["dealt"], "fight_t": acc.get("fight_t", 1.0),
+		"low_tank": low_tank / trials, "pots": float(acc["pots"]) / trials, "asc": acc["asc"], "ult": acc.get("ult", {}), "dealt": acc["dealt"], "fight_t": acc.get("fight_t", 1.0),
 		"times": times, "inv_dead": inv_dead, "hold": 100.0 * hold_sum / maxf(0.01, fight_sum), "drops": float(drops) / trials,
 		"tank_dmg": float(acc["dot"]["tank"]) / trials}
 

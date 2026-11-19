@@ -266,6 +266,9 @@ func after_start() -> void:
 	if DevArgs.flag("--bag_shot"):      # foto da bolsa e da ficha com uma amostra de cada tipo de item
 		_smoke_test = false
 		_bag_shot(DevArgs.value("--bag_shot"))
+	if DevArgs.flag("--ult_shot"):      # --ult_shot=<pasta>: moldura da Suprema (R) travada, vazia, meia, cheia e na trava + chuva no chão; sai
+		_smoke_test = false
+		_ult_shot(DevArgs.value("--ult_shot"))
 	if DevArgs.flag("--boss_film"):     # --boss_film=<chefe>[,..] --out=<pasta>: cada skill do chefe lançada num grupo parado, 3 quadros por skill
 		_smoke_test = false
 		_boss_film(Array(DevArgs.value("--boss_film").split(",")), DevArgs.value("--out"))
@@ -1744,6 +1747,51 @@ func _menu_check() -> void:
 		get_viewport().get_texture().get_image().save_png(DevArgs.value("--menu_shot"))
 	print("RETURN_CHECK views=%d fila=%d" % [main.views.size(), main.view_queue.size()])     # fila com gente longe: a volta não pode tropeçar nela
 	main.hud._menu_to_title()
+
+## --ult_shot=<pasta>: estados da moldura do R (GDD ultimates-lv40 §8): travada (nível 35), vazia, meia, cheia, na trava
+## depois de soltar; recorte da barra em <pasta>/ult_<estado>.png e a tela inteira da cheia e da Chuva de Meteoros caindo.
+## Use com `-- --autostart=elementalist --ascend --level=40 --build_i=0` (a 1ª build do Elementalista é o Fogo).
+func _ult_shot(dir: String) -> void:
+	DirAccess.make_dir_recursive_absolute(dir)
+	await get_tree().create_timer(2.5).timeout
+	var p: SimEntity = Sim.player
+	var states := [["travada", 35, 0.0, false], ["vazia", 40, 0.0, false], ["meia", 40, 0.5, false], ["cheia", 40, 1.0, false], ["trava", 40, 0.35, true]]
+	for st in states:
+		Sim.sync()
+		p.level = int(st[1])
+		UltimateSystem.refresh(Sim, p)
+		for f in range(24):                         # segura o estado (o medidor esvaziaria fora de luta)
+			Sim.sync()
+			p.ult_charge = Balance.ULT_MAX * float(st[2])
+			p.ult_combat_t = Sim.time - Balance.ULT_COMBAT_WINDOW - 0.5
+			p.ult_gap_until = Sim.time + 12.0 if st[3] else 0.0
+			await get_tree().process_frame
+		var img := get_viewport().get_texture().get_image()
+		var k := Vector2(img.get_size()) / get_viewport().get_visible_rect().size      # janela maior que a tela lógica
+		var g: Rect2 = main.hud.action_bar.ult.get_global_rect().grow(40)
+		var r := Rect2(g.position * k, g.size * k)
+		r = r.intersection(Rect2(Vector2.ZERO, Vector2(img.get_size())))
+		img.get_region(Rect2i(r)).save_png(dir.path_join("ult_%s.png" % st[0]))
+		if st[0] == "cheia":
+			img.save_png(dir.path_join("ult_tela_cheia.png"))
+		print("ULT_SHOT %s carga=%.0f trava=%s" % [st[0], p.ult_charge, Sim.ultimate_lock(p)])
+	# a Chuva de Meteoros caindo (o R de verdade, com monstros por perto)
+	Sim.sync()
+	p.ult_gap_until = 0.0
+	p.ult_charge = Balance.ULT_MAX
+	var at := p.position + p.forward() * 3.0
+	for i in range(3):
+		var mob: SimEntity = Sim.spawn_monster(GameData.monsters["golem"], p.map_id, at + Vector3(float(i) * 2.0 - 2.0, 0, 1.5))
+		mob.brain = null
+		mob.hp = 1.0e6
+	var cmd := InputCommand.new()
+	cmd.ultimate = true
+	cmd.aim = at
+	Sim.set_player_command(cmd)
+	await get_tree().create_timer(2.2).timeout
+	get_viewport().get_texture().get_image().save_png(dir.path_join("ult_chuva.png"))
+	print("ULT_SHOT chuva tempestades=%d" % StormSystem.storms_of(Sim, p).size())
+	get_tree().quit()
 
 func _demo_shot() -> void:
 	await get_tree().create_timer(2.0).timeout
