@@ -1105,6 +1105,11 @@ Sonda, 20 lutas por linha (Durgash 40), bots no nível do chefe (Durgash `--lvl=
 | **Durgash (45, raide)** | **40/40, 0,8, 95 s** | **26/40 (65%), 2,8, 72 s** | **7/40 (18%), 3,5, 121 s** |
 Fora do que se esperava: os quatro chefes da cidadela com 5 sorteados ficam em 65-75% (o alvo de 65-85% era para 4 sorteados; não medido com 4 nesta rodada).
 
+**Tanque proativo** (2026-11-19, `BotBrain._tank_pull`, `Balance.BOT_TANK_PULL_*`/`PARTY_BIG_ASSIST_RANGE`; check `_check_tank_pull`): o tanque
+seguidor não espera o líder chegar perto: com o líder a pé e fora da vila, abre no chefe a até `BOT_TANK_PULL_BOSS` 20 m do líder (elite: só a
+`BOT_TANK_PULL_ELITE` 12 m) com caminho livre, que não briga com outro grupo, se tiver `BOT_TANK_PULL_HP` 60%+ de vida. O resto do grupo ajuda no
+chefe/elite preso em alguém do grupo (ou em que o líder bateu de longe) a até `PARTY_BIG_ASSIST_RANGE` 22 m do líder (antes 14 m).
+
 **Abertura do grupo** (2026-11-12, `BotBrain._opener`, `Balance.BOT_OPENER_*`; check `_check_bot_opener`; A/B com `boss_probe --no_opener`):
 com tanque no grupo, quem não é o tanque não usa skill de dano no chefe/elite (nem área num lacaio a `BOT_OPENER_AOE_RANGE` 6 m dele)
 até o chefe ficar `BOT_OPENER_TIME` 3 s preso no tanque com ameaça dele; até lá só o básico (e buff em si: forma, Sede de Sangue), e só

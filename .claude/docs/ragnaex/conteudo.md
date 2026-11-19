@@ -196,7 +196,7 @@
   XP/min); fotos: `-- --autostart=paladin --siege_shot=<pasta> [--quests=hx_palisade]`.
 - **Grupo (party)**: regras na sim (`PartySystem`, via `Sim.party_*`, `kill_sharers`; aliado = `SimEntity.is_friend`), números em `Balance.PARTY_*`,
   bots em `BotBrain._follow/_gather_party/wants_party`; UI em `hud.gd` (quadros/convite/comandos de chat) e janela `party` (P).
-  IA de grupo por papel da build (posição contra chefe, ameaça, cura no tanque, tirar lacaio; `Balance.BOT_*`, check `_check_bot_group`). Medir:
+  IA de grupo por papel da build (posição contra chefe, ameaça, cura no tanque, tirar lacaio; `Balance.BOT_*`, check `_check_bot_group`; tanque seguidor abre sozinho no chefe a até `BOT_TANK_PULL_BOSS` m do líder, `BotBrain._tank_pull`, check `_check_tank_pull`). Medir:
   `boss_probe.tscn -- --party=5 --comp=paladin:guardiao,bishop:sacerdote,... [--why]` (aggro no tanque, `frente` = dano no lugar errado, `ritmo`, `cura_tq`).
   Sob pressão: `--dmg=6` (ATK/MATK do chefe ×6; grupo de 4 vence ~80%) ou `--under=N` (bots N níveis abaixo); `baixa`/`baixa_tq`/`pocoes`/`mortes` medem a cura.
   **Bots presos** (2026-11-17): povoado murado (`town_radius` + portões no JSON, com ou sem `is_town`) passa por `BotBrain._route` (portão com histerese, anel em volta

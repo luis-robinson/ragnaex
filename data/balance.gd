@@ -1494,6 +1494,12 @@ const PARTY_LEVEL_GAP := 15                # diferença máx. de nível para div
 const PARTY_INVITE_TIME := 30.0            # s até o convite expirar
 const PARTY_FOLLOW_DIST := 3.5             # bots seguidores ficam a esta distância do líder
 const PARTY_ASSIST_RANGE := 14.0           # bots atacam o que bate no grupo dentro deste raio do líder
+## 2026-11-19 (usuário: o tanque precisa ser mais proativo): chefe/elite preso em alguém do grupo ou em que o líder bateu
+## vale até este raio do líder (antes 14 m: o líder atirador ficava sozinho e o grupo esperava ele chegar perto)
+const PARTY_BIG_ASSIST_RANGE := 22.0
+const BOT_TANK_PULL_BOSS := 20.0           # tanque seguidor abre no chefe a até isto do líder (a pé, fora da vila)
+const BOT_TANK_PULL_ELITE := 12.0          # ... e na elite a até isto (elite de campo: só a que está no caminho)
+const BOT_TANK_PULL_HP := 0.6              # abaixo disto de vida o tanque não abre luta nova
 const BOT_PARTY_ACCEPT := 0.8              # chance de um bot aceitar um convite válido
 const BOT_PARTY_FORM_CHANCE := 0.35        # bot que sai para caçar chama outros bots da vila
 const BOT_INVITE_PLAYER_CHANCE := 0.12     # ... ou chama o jogador, se ele estiver por perto e sem grupo

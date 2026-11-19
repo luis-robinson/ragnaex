@@ -1691,6 +1691,8 @@ func _follow(e: SimEntity, sim, m: Dictionary, leader: SimEntity, cmd: InputComm
 		foe = null                       # o líder foi embora: larga e acompanha
 	if foe == null:
 		foe = _party_threat(e, m, members, leader)
+	if foe == null and not in_town:
+		foe = _tank_pull(e, sim, m, members, leader)                          # tanque: abre no chefe/elite à frente do grupo
 	if foe and _ignored(foe):
 		foe = null                       # largado por inalcançável: acompanha o líder
 	if foe and not in_town:
@@ -1844,17 +1846,53 @@ func _party_threat(e: SimEntity, m: Dictionary, members: Array, leader: SimEntit
 	for o in members:
 		ids[o.id] = true
 	var best: SimEntity = null
-	var best_d := Balance.PARTY_ASSIST_RANGE
+	var best_d := INF
 	for o: SimEntity in m["entities"]:
 		if o.kind != SimEntity.Kind.MONSTER or not o.is_alive() or o.monster_def.dummy:     # o grupo não ajuda no boneco de treino
 			continue
 		var d: float = o.position.distance_to(leader.position)
-		if d > best_d:
+		if d > Balance.PARTY_BIG_ASSIST_RANGE:
 			continue
 		var hits_us: bool = ids.has(o.aggro_target) or ids.has(o.last_damage_from) or o.damage_by.has(leader.id)
+		# chefe/elite que o tanque puxou ou em que o líder bate de longe: vale até PARTY_BIG_ASSIST_RANGE do líder
+		var lim := Balance.PARTY_BIG_ASSIST_RANGE if hits_us and (_is_big(o) or o.damage_by.has(leader.id)) else Balance.PARTY_ASSIST_RANGE
+		if d > lim or d >= best_d:
+			continue
 		if hits_us or (leader.combat_timer > 0.0 and d < 8.0 and o.aggro_target >= 0):     # líder brigando: ajuda no que estiver perto dele
 			best_d = d
 			best = o
+	return best
+
+## Tanque seguidor proativo (2026-11-19, usuário: "preciso chegar perto do boss para que ele entenda"): com o líder a pé e
+## fora da vila, abre no chefe a até BOT_TANK_PULL_BOSS m do líder (elite: BOT_TANK_PULL_ELITE) que ainda não briga com
+## outro grupo, com caminho livre até ele. O resto do grupo entra pela ameaça (_party_threat) depois que o tanque segura.
+func _tank_pull(e: SimEntity, sim, m: Dictionary, members: Array, leader: SimEntity) -> SimEntity:
+	if _role(e, sim) != "tank" or leader.mounted or not leader.is_alive() or e.hp < e.stats.max_hp * Balance.BOT_TANK_PULL_HP:
+		return null
+	var ids := {}
+	for o in members:
+		ids[o.id] = true
+	var best: SimEntity = null
+	var best_d := INF
+	for o: SimEntity in m["entities"]:
+		if o.kind != SimEntity.Kind.MONSTER or o.monster_def == null:
+			continue
+		var d: float = o.position.distance_to(leader.position)
+		if d > Balance.BOT_TANK_PULL_BOSS or d >= best_d or not o.is_alive() or not _is_big(o) or o.monster_def.dummy or o.monster_def.decoy:
+			continue
+		if not o.monster_def.is_boss and d > Balance.BOT_TANK_PULL_ELITE:
+			continue
+		if o.aggro_target >= 0 and not ids.has(o.aggro_target):
+			continue                       # brigando com outro grupo: não rouba
+		if _ignored(o) or float(line_block.get(o.id, -1.0)) > sim.time:
+			continue
+		if o.aggro_target < 0 and not MapGeometry.line_walkable(sim, m, e.position, o.position, o.radius + 0.6):
+			if line_block.size() > 24:
+				line_block.clear()
+			line_block[o.id] = sim.time + Balance.BOT_LINE_RECHECK
+			continue                       # muro/rio no meio: o jogador decide o caminho
+		best_d = d
+		best = o
 	return best
 
 ## Alvo atual, enquanto vale a pena (vivo, mesmo mapa, perto): sem isso o bot troca de alvo a cada pensamento e fica indo e voltando.

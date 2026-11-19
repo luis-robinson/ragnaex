@@ -4100,6 +4100,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_bot_form(gd, sim)
 	_check_bot_stealth(gd, sim)
 	_check_bot_group(gd, sim)
+	_check_tank_pull(gd, sim)
 	_check_bot_raid(gd, sim)
 	_check_bot_opener(gd, sim)
 	_check_bot_threat_budget(gd, sim)
@@ -17800,6 +17801,69 @@ func _check_bot_group(gd, sim) -> void:
 		if o.name == "Frente":
 			sim.despawn(o)
 	for o in [tank, heal, dps, gun]:
+		sim.despawn(o)
+
+## Tanque seguidor proativo (2026-11-19): abre no chefe a até BOT_TANK_PULL_BOSS m do líder sem esperar o líder chegar
+## perto; elite só a BOT_TANK_PULL_ELITE; líder montado ou chefe de outro grupo = não abre; o dps ajuda no chefe preso no
+## tanque a até PARTY_BIG_ASSIST_RANGE do líder.
+func _check_tank_pull(gd, sim) -> void:
+	var at := Vector3(-30, 0, 30)
+	var m: Dictionary = sim.maps["city_aldara"]
+	var mk := func(cid: String, bid: String, name: String, pos: Vector3) -> SimEntity:
+		var b = sim.spawn_character(SimEntity.Kind.BOT, gd.classes[cid], name, "city_aldara", pos, 30)
+		b.build_id = bid
+		sim._gear_bot(b)
+		sim._skill_bot(b)
+		b.brain = null
+		return b
+	var lead: SimEntity = mk.call("ranger", "atirador", "Lider", at)
+	var tank: SimEntity = mk.call("paladin", "guardiao", "Tq", at + Vector3(-2, 0, 0))
+	var dps: SimEntity = mk.call("berserker", "carniceiro", "Dps", at + Vector3(2, 0, 0))
+	for o in [tank, dps]:
+		sim.party_invite(lead, o)
+		sim.party_accept(o)
+	check(sim.party_leader(tank) == lead and not m["def"].in_town(at), "tank_pull: grupo montado fora da vila")
+	var boss: SimEntity = sim.spawn_monster(gd.monsters["bandit_chief"], "city_aldara", at + Vector3(0, 0, -(Balance.BOT_TANK_PULL_BOSS - 3.0)))
+	boss.brain = null
+	var bt := BotBrain.new()
+	bt.setup(tank, _seeded_rng())
+	var bd := BotBrain.new()
+	bd.setup(dps, _seeded_rng())
+	var line_ok: bool = MapGeometry.line_walkable(sim, m, tank.position, boss.position, boss.radius + 0.6)
+	check(line_ok, "tank_pull: caminho livre até o chefe no teste")
+	check(bt._tank_pull(tank, sim, m, sim.party_members(tank), lead) == boss, "tanque seguidor abre no chefe a %.0f m do líder sem o líder bater" % (Balance.BOT_TANK_PULL_BOSS - 3.0))
+	var cmd: InputCommand = bt._follow(tank, sim, m, lead, InputCommand.new(), 0.05)
+	check(cmd.move != Vector2.ZERO or cmd.attack or cmd.skill_slot >= 0, "tanque seguidor sai da formação e vai no chefe")
+	check(bd._tank_pull(dps, sim, m, sim.party_members(dps), lead) == null, "só o tanque abre")
+	lead.mounted = true
+	check(bt._tank_pull(tank, sim, m, sim.party_members(tank), lead) == null, "líder montado: tanque não abre")
+	lead.mounted = false
+	var other: SimEntity = mk.call("ranger", "atirador", "Outro", at + Vector3(0, 0, -25))
+	boss.aggro_target = other.id
+	check(bt._tank_pull(tank, sim, m, sim.party_members(tank), lead) == null, "chefe brigando com outro grupo: tanque não rouba")
+	# preso no tanque, longe do líder: o dps entra
+	boss.aggro_target = tank.id
+	boss.last_damage_from = tank.id
+	check(bd._party_threat(dps, m, sim.party_members(dps), lead) == boss, "dps ajuda no chefe preso no tanque a %.0f m do líder" % (Balance.BOT_TANK_PULL_BOSS - 3.0))
+	sim.despawn(boss)
+	# elite: só perto
+	var elite_def: MonsterDef = gd.monsters["slime"].duplicate()     # elite de campo (as de verdade nascem na hora, LootSystem)
+	elite_def.elite_of = "slime"
+	if elite_def:
+		var el: SimEntity = sim.spawn_monster(elite_def, "city_aldara", at + Vector3(0, 0, -(Balance.BOT_TANK_PULL_ELITE + 3.0)))
+		el.brain = null
+		check(bt._tank_pull(tank, sim, m, sim.party_members(tank), lead) == null, "elite longe do líder: tanque não abre")
+		el.position = at + Vector3(0, 0, -(Balance.BOT_TANK_PULL_ELITE - 3.0))
+		check(bt._tank_pull(tank, sim, m, sim.party_members(tank), lead) == el, "elite no caminho: tanque abre")
+		sim.despawn(el)
+	tank.hp = tank.stats.max_hp * (Balance.BOT_TANK_PULL_HP - 0.1)
+	var b2: SimEntity = sim.spawn_monster(gd.monsters["bandit_chief"], "city_aldara", at + Vector3(0, 0, -8))
+	b2.brain = null
+	check(bt._tank_pull(tank, sim, m, sim.party_members(tank), lead) == null, "tanque ferido não abre luta nova")
+	sim.despawn(b2)
+	for o in [tank, dps]:
+		sim.party_leave(o)
+	for o in [lead, tank, dps, other]:
 		sim.despawn(o)
 
 ## WP8 (design/gdd/kharzun-fase3-plan.md §4, §9, KAC-02/KAC-11): IA de raide. Lacaio de `ward` (estandarte primeiro), proteger
