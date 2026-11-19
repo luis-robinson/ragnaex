@@ -37,6 +37,8 @@ const CLOSE_IN_TIME := 2.0
 func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 	var cmd := InputCommand.new()
 	cmd.aim = e.position + e.forward()      # sem alvo: mantém o rumo (padrão do comando é a origem do mundo)
+	if e.monster_def.dummy:                 # boneco de treino: fica parado
+		return cmd
 	timer -= dt
 	skill_timer -= dt
 	calm -= dt

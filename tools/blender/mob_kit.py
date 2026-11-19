@@ -1508,6 +1508,188 @@ def web_cocoon(cid="mob_web_cocoon"):
     return arm
 
 
+DUMMY_BONES = {             # ossos todos de pé (eixos locais: x = X, y = para cima, z = -Y), nomes de MOB_BONES
+    "root": ((0, 0, 0), (0, 0, 0.2), None),                 # monte de terra, pés em cruz e o encaixe: nunca se mexem
+    "body": ((0, 0, 0.16), (0, 0, 0.9), "root"),            # poste + tronco + travessa: balança a partir do encaixe (mola)
+    "head": ((0, 0, 1.3), (0, 0, 1.7), "body"),             # saco da cabeça: atrasa em relação ao poste
+    "arm_r": ((0.5, 0, 1.17), (0.5, 0, 1.5), "body"),       # tufo de palha da ponta +X
+    "arm_l": ((-0.5, 0, 1.17), (-0.5, 0, 1.5), "body"),     # tufo de palha da ponta -X
+}
+
+
+DUMMY_SCALE = 0.9           # o boneco é desenhado com ~2,05 m e encolhido inteiro (malhas e ossos) para ~1,85 m
+
+
+def _sack_rad(zz, sag=0.12):
+    """Raio relativo do saco na altura relativa zz (-1..1), sem os calombos."""
+    return (1.0 - zz * zz) ** 0.3 * (1.0 - sag * zz)
+
+
+def _sack(name, center, rx, ry, hz, material, sag=0.12, lump=0.04, cuts=3):
+    """Saco de estopa recheado: barril gordo (mais largo embaixo) com calombos."""
+    o = ck.quad_sphere(name, 1.0, (0, 0, 0), cuts=cuts)
+    for v in o.data.vertices:
+        zz = max(-1.0, min(1.0, v.co.z))
+        h = math.hypot(v.co.x, v.co.y)
+        if h < 1e-6:
+            v.co = Vector(center) + Vector((0, 0, zz * hz))
+            continue
+        a = math.atan2(v.co.y, v.co.x)
+        rad = _sack_rad(zz, sag) * (1.0 + lump * math.sin(a * 5.0 + zz * 3.0))
+        v.co = Vector(center) + Vector((v.co.x / h * rad * rx, v.co.y / h * rad * ry, zz * hz))
+    o.data.materials.append(material)
+    return o
+
+
+def _straw_tuft(prefix, base, out, material, n=6, length=0.24, spread=0.5, r=0.035, seed=0.0):
+    """Tufo de palha: `n` cones saindo de `base` em leque em volta da direção `out`."""
+    base, out = Vector(base), Vector(out).normalized()
+    side = out.cross(Vector((0, 0, 1)))
+    side = side.normalized() if side.length > 1e-4 else Vector((1, 0, 0))
+    up = side.cross(out).normalized()
+    objs = [ck.tube("%s_0" % prefix, base, base + out * length * 1.1, r * 1.3, r * 0.2, material, 4)]
+    for k in range(n):
+        a = math.tau * k / n + seed
+        ln = length * (0.75 + 0.3 * math.sin(k * 2.3 + seed * 3.0) ** 2)
+        d = (out + (side * math.cos(a) + up * math.sin(a)) * spread).normalized()
+        objs.append(ck.tube("%s_%d" % (prefix, k + 1), base + d * 0.02, base + d * ln, r, r * 0.15, material, 4))
+    return objs
+
+
+def training_dummy(cid="mob_training_dummy"):
+    """Boneco de treino de Aldara (~1,85 m, travessa de ~1,3 m): poste num encaixe sobre um monte de terra, tronco e cabeça de
+    saco de estopa recheado de palha, travessa com mangas e tufos, lenço vermelho e um alvo pintado pendurado no peito
+    (inclinado para cima: é o que a câmera alta vê). Peças rígidas em ossos; o clipe que importa é o `hit` (mola no poste)."""
+    k_size = DUMMY_SCALE
+    arm = lp.make_armature("rig_" + cid, {b: (tuple(c * k_size for c in h), tuple(c * k_size for c in t), p) for b, (h, t, p) in DUMMY_BONES.items()})
+    wood = ck.mat("m_%s_wood" % cid, (0.52, 0.37, 0.25), 1.0)
+    wood2 = ck.mat("m_%s_wood2" % cid, (0.36, 0.25, 0.18), 1.0)
+    dirt = ck.mat("m_%s_dirt" % cid, (0.5, 0.41, 0.3), 1.0)
+    sack = ck.mat("m_%s_sack" % cid, (0.8, 0.68, 0.48), 1.0)
+    sack2 = ck.mat("m_%s_sack2" % cid, (0.64, 0.52, 0.36), 1.0)          # remendos e mangas
+    straw = ck.mat("m_%s_straw" % cid, (0.95, 0.8, 0.38), 1.0)
+    rope = ck.mat("m_%s_rope" % cid, (0.93, 0.87, 0.7), 1.0)
+    stitch = ck.mat("m_%s_stitch" % cid, (0.24, 0.17, 0.14), 1.0)
+    red = ck.mat("m_%s_red" % cid, (0.84, 0.24, 0.2), 1.0)
+    white = ck.mat("m_%s_white" % cid, (0.96, 0.94, 0.88), 1.0)
+    flat, soft = [], []             # (objeto, osso): madeira e alvo facetados, sacos e cordas lisos
+
+    # --- chão (root): monte de terra, pés em cruz, encaixe do poste e palha caída
+    flat.append((ck.tube("mound", (0, 0, 0), (0, 0, 0.055), 0.5, 0.4, dirt, 10), "root"))
+    for k, a in enumerate((0.5, 0.5 + math.pi / 2)):
+        dx, dy = math.cos(a) * 0.42, math.sin(a) * 0.42
+        flat.append((ck.tube("foot%d" % k, (-dx, -dy, 0.1), (dx, dy, 0.1), 0.06, 0.06, wood2, 4), "root"))
+    flat.append((ck.tube("socket", (0, 0, 0.05), (0, 0, 0.2), 0.15, 0.12, wood2, 6), "root"))
+    for k in range(4):
+        a = 1.2 + k * 1.7
+        p = Vector((math.cos(a) * 0.3, math.sin(a) * 0.3, 0.06))
+        d = Vector((math.cos(a * 2.3), math.sin(a * 2.3), 0.0)) * 0.11
+        flat.append((ck.tube("litter%d" % k, p - d, p + d, 0.014, 0.008, straw, 4), "root"))
+
+    # --- corpo (body): poste, travessa, tronco de saco, cordas, franja de palha, mangas
+    flat.append((ck.tube("post", (0, 0, 0.12), (0, 0, 1.4), 0.075, 0.065, wood, 6), "body"))
+    flat.append((ck.tube("bar", (-0.52, 0, 1.17), (0.52, 0, 1.17), 0.055, 0.055, wood, 6), "body"))
+    soft.append((_sack("torso", (0, 0, 0.93), 0.35, 0.31, 0.37, sack), "body"))
+    for k, zz in enumerate((0.74, 1.14)):
+        rr = _sack_rad((zz - 0.93) / 0.37) + 0.035          # rente ao saco (por cima dos calombos)
+        pts = [(Vector((math.cos(math.tau * i / 12) * rr * 0.35, math.sin(math.tau * i / 12) * rr * 0.31, zz + 0.012 * math.sin(i * 2.1))), 0.026) for i in range(12)]
+        soft.append((_silk("rope%d" % k, pts, rope, closed=True, segs=4), "body"))
+    for k in range(9):              # franja de palha saindo por baixo do saco
+        a = math.tau * k / 9 + 0.2
+        r0 = 0.17
+        p = Vector((math.cos(a) * r0, math.sin(a) * r0 * 0.9, 0.62))
+        q = Vector((math.cos(a) * (r0 + 0.1), math.sin(a) * (r0 + 0.1) * 0.9, 0.44 + 0.04 * math.sin(k * 2.7)))
+        flat.append((ck.tube("fringe%d" % k, p, q, 0.05, 0.008, straw, 4), "body"))
+    patch = ck.tube("patch", (0.2, -0.235, 0.74), (0.215, -0.262, 0.74), 0.085, 0.085, sack2, 4)       # remendo no lado da barriga
+    flat.append((patch, "body"))
+    for sx in (-1, 1):
+        soft.append((_sack("sleeve%d" % sx, (sx * 0.36, 0, 1.17), 0.12, 0.12, 0.13, sack2, sag=0.0, lump=0.05, cuts=2), "body"))
+        sl = soft[-1][0]
+        for v in sl.data.vertices:              # o barril nasce de pé: deita ao longo da travessa
+            d = v.co - Vector((sx * 0.36, 0, 1.17))
+            v.co = Vector((sx * 0.36, 0, 1.17)) + Vector((d.z * sx, d.y, d.x * -sx * 0.95))
+        pts = [(Vector((sx * 0.475, math.cos(math.tau * i / 8) * 0.085, 1.17 + math.sin(math.tau * i / 8) * 0.085)), 0.022) for i in range(8)]
+        soft.append((_silk("cuff%d" % sx, pts, rope, closed=True, segs=4), "body"))
+        bone = "arm_r" if sx > 0 else "arm_l"
+        for o in _straw_tuft("tuft%d" % sx, (sx * 0.47, 0, 1.17), (sx, 0, -0.12), straw, n=7, length=0.22, spread=0.55, r=0.04, seed=0.4 + sx):
+            flat.append((o, bone))
+
+    # --- alvo no peito (body): tábua redonda pendurada, inclinada para cima, anéis vermelho/branco
+    tilt = math.radians(24)
+    nrm = Vector((0, -math.cos(tilt), math.sin(tilt)))
+    c = Vector((0, -0.335, 0.93))
+    flat.append((ck.tube("target_board", c - nrm * 0.03, c + nrm * 0.02, 0.255, 0.255, wood2, 12), "body"))
+    for k, (r, m) in enumerate(((0.225, white), (0.165, red), (0.105, white), (0.05, red))):
+        flat.append((ck.tube("target_ring%d" % k, c + nrm * (0.02 + k * 0.012), c + nrm * (0.032 + k * 0.012), r, r, m, 12), "body"))
+    for sx in (-1, 1):              # cordas do alvo até os ombros
+        top = c + Vector((sx * 0.16, 0, 0)) + Vector((0, math.sin(tilt), math.cos(tilt))) * 0.2
+        flat.append((ck.tube("target_rope%d" % sx, top, (sx * 0.2, -0.12, 1.24), 0.014, 0.014, rope, 4), "body"))
+
+    # --- lenço vermelho no pescoço (body): o ponto de cor visto de cima
+    pts = [(Vector((math.cos(math.tau * i / 10) * 0.2, math.sin(math.tau * i / 10) * 0.18, 1.3 - 0.03 * math.cos(math.tau * i / 10 + math.pi / 2))), 0.055) for i in range(10)]
+    soft.append((_silk("scarf", pts, red, closed=True, segs=5), "body"))
+    flat.append((ck.blade("scarf_tail0", (0.2, -0.13, 1.28), (0.36, -0.2, 1.06), 0.13, 0.02, red, (1, 0.6, 0), 0.5), "body"))      # nó de lado: não tapa o alvo
+    flat.append((ck.blade("scarf_tail1", (0.18, -0.14, 1.28), (0.24, -0.29, 1.1), 0.11, 0.02, red, (1, -0.2, 0), 0.5), "body"))
+    soft.append((blob("scarf_knot", 0.065, (0.19, -0.135, 1.29), red, (1, 0.9, 0.9), 1), "body"))
+
+    # --- cabeça (head): saco amarrado em cima, olhos em X, boca costurada, remendo, palha escapando
+    hc = Vector((0, 0, 1.55))
+    soft.append((_sack("head", hc, 0.3, 0.285, 0.26, sack, sag=0.08, lump=0.035), "head"))
+    for sx in (-1, 1):              # olhos em X (dois riscos cruzados)
+        e = Vector((sx * 0.115, -0.272, 1.6))
+        for k, (ax, az) in enumerate(((1, 1), (1, -1))):
+            d = Vector((ax * 0.05, 0.012 * sx * ax, az * 0.055))
+            flat.append((ck.tube("eye%d_%d" % (sx, k), e - d, e + d, 0.02, 0.02, stitch, 4), "head"))
+    flat.append((ck.tube("mouth", (-0.12, -0.262, 1.47), (0.12, -0.262, 1.47), 0.011, 0.011, stitch, 4), "head"))
+    for k in range(4):
+        x = -0.09 + k * 0.06
+        flat.append((ck.tube("mouth_st%d" % k, (x, -0.268, 1.44), (x + 0.012, -0.268, 1.5), 0.01, 0.01, stitch, 4), "head"))
+    flat.append((ck.tube("head_patch", (-0.19, 0.03, 1.74), (-0.205, 0.035, 1.765), 0.08, 0.08, sack2, 4), "head"))      # remendo no topo (visto de cima)
+    flat.append((ck.tube("topknot", (0, 0, 1.78), (0, 0.01, 1.86), 0.085, 0.05, sack, 6), "head"))
+    pts = [(Vector((math.cos(math.tau * i / 8) * 0.055, 0.01 + math.sin(math.tau * i / 8) * 0.055, 1.855)), 0.02) for i in range(8)]
+    soft.append((_silk("topknot_rope", pts, rope, closed=True, segs=4), "head"))
+    flat.append((ck.tube("topknot_flare", (0, 0.01, 1.86), (0.02, 0.03, 1.94), 0.05, 0.115, sack, 6), "head"))
+    for o in _straw_tuft("crest", (0.015, 0.025, 1.92), (0.15, 0.2, 1.0), straw, n=5, length=0.15, spread=0.7, r=0.03, seed=1.1):
+        flat.append((o, "head"))
+
+    for obj, _bone in flat + soft:
+        for v in obj.data.vertices:
+            v.co *= k_size
+    for obj, bone in flat:
+        for p in obj.data.polygons:
+            p.use_smooth = False
+        lp.attach(obj, arm, bone)
+    finish(arm, soft)
+
+    # --- clipes (sem escala em nenhum: nada a herdar entre clipes). rot X+ = tomba para a frente (-Y), Z = tomba de lado
+    z = (0, 0, 0)
+    # idle: quase parado, um rangido lento no poste; cabeça e tufos um nada atrasados
+    lp.add_action(arm, "idle", {
+        "body": [(1, z, z), (16, (0.7, 0, 0.5), z), (32, z, z), (48, (-0.6, 0, -0.5), z), (64, z, z)],
+        "head": [(1, z, z), (20, (1.0, 0, 1.2), z), (36, z, z), (52, (-0.8, 0, -1.2), z), (64, z, z)],
+        "arm_r": [(1, z, z), (20, (0, 0, 2.5), z), (40, (0, 0, -2.0), z), (64, z, z)],
+        "arm_l": [(1, z, z), (24, (0, 0, -2.5), z), (44, (0, 0, 2.0), z), (64, z, z)],
+    }, 64)
+    still = {b: [(1, z, z), (32, z, z)] for b in ("body", "head", "arm_r", "arm_l")}
+    lp.add_action(arm, "run", still, 32)                 # nunca anda nem ataca: os clipes existem para a vista não ficar sem
+    lp.add_action(arm, "attack", {b: [(1, z, z), (14, z, z)] for b in still}, 14, loop=False)
+    # hit: pancada joga o poste para trás, a mola devolve para a frente e amortece; a cabeça chicoteia atrasada
+    lp.add_action(arm, "hit", {
+        "body": [(1, (-13, 0, 2), z), (3, (-21, 0, 3), z), (6, (11, 0, -2), z), (9, (-6, 0, 1), z), (12, (3, 0, 0), z), (15, (-1, 0, 0), z), (18, z, z)],
+        "head": [(1, (8, 0, 0), z), (3, (-14, 0, -4), z), (6, (-12, 0, 3), z), (9, (10, 0, -2), z), (12, (-5, 0, 1), z), (15, (2, 0, 0), z), (18, z, z)],
+        "arm_r": [(1, (10, 0, 12), z), (3, (-8, 0, -16), z), (6, (-12, 0, 12), z), (9, (7, 0, -8), z), (12, (-3, 0, 4), z), (18, z, z)],
+        "arm_l": [(1, (10, 0, -12), z), (3, (-8, 0, 16), z), (6, (-12, 0, -12), z), (9, (7, 0, 8), z), (12, (-3, 0, -4), z), (18, z, z)],
+    }, 18, loop=False)
+    # die: nunca morre de verdade; só desaba um pouco (poste torto, cabeça caída, palha murcha)
+    lp.add_action(arm, "die", {
+        "body": [(1, z, z), (4, (-10, 0, 3), z), (9, (7, 0, 10), z), (14, (4, 0, 15), z), (20, (5, 0, 14), z)],
+        "head": [(1, z, z), (4, (6, 0, 0), z), (9, (20, 0, 8), z), (14, (36, 0, 14), z), (17, (31, 0, 13), z), (20, (33, 0, 13), z)],
+        "arm_r": [(1, z, z), (9, (0, 0, 10), z), (14, (0, 0, 26), z), (20, (0, 0, 24), z)],
+        "arm_l": [(1, z, z), (9, (0, 0, -10), z), (14, (0, 0, -26), z), (20, (0, 0, -24), z)],
+    }, 20, loop=False)
+    return arm
+
+
 def bat(cid="mob_bat"):
     """Morcego da Torre: corpo pequeno e peludo, asas grandes de membrana nos braços, orelhas e olhos vermelhos (rig do fantasma)."""
     arm = lp.make_armature("rig_" + cid, bm.MOB_BONES)
@@ -2404,6 +2586,7 @@ def build_all(out_dir, only=None):
         "mob_larva": larva,
         "mob_web_cocoon": web_cocoon,      # lacaio do Casulo de Seda da Rainha Aranha (monstro `web_cocoon`)
         "mob_bat": bat,
+        "mob_training_dummy": training_dummy,      # boneco de treino de Aldara (monstro `training_dummy`): só apanha
         # Mata dos Zumbidos (4-8): vespas, ursos e a Colmeia. Tamanho dos ursos = MonsterDef.scale (sugestão: filhote 0,7; urso 1,1; Ursa-Mãe 1,65)
         "mob_wasp": lambda: wasp("mob_wasp"),
         "mob_wasp_soldier": lambda: wasp("mob_wasp_soldier", soldier=True),

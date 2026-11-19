@@ -74,7 +74,9 @@ Secundária: escudo, orbe (mago) ou arma de 1 mão (espada/maça/machadinha/adag
 Arma de 2 mãos (montante, martelo, machado de guerra, cajado, arco, foice) libera a secundária. Segunda arma soma 60% do ATK.
 
 **Berserker** (machados; garras no Punhos de Fúria): **Machados Gêmeos** (dois machados de 1 mão, couro) = velocidade de ataque (`aspd_pct`, recarga do básico menor) e
-roubo de vida (`lifesteal`, % do dano direto volta como vida; dano no tempo não conta), na árvore e no conjunto. **Executor** (machado de 2 mãos,
+roubo de vida (`lifesteal`, % do dano direto volta como vida; dano no tempo não conta), na árvore e no conjunto. Ritmo de feridas
+(2026-11-19, GDD §8.2, `WoundSystem`): Talho Duplo abre o sangramento, **Presas Gêmeas** o estende (+2 s, até 8 s) e **Sangria** (era Turbilhão
+de Aço, nível 12) cura 5% da vida máxima por atingido que sangrava (até 4; `Balance.WOUND_*`). **Executor** (machado de 2 mãos,
 placa) = tanque de apoio: passivos e conjunto com vida e defesa sem perder ATK. **Punhos de Fúria** (duas garras/soqueiras, couro; monge da fúria,
 2026-11-09, substituiu o Arremessador) = muita AGI e esquiva (árvore e conjunto): com duas garras, cada golpe direto esquivado dá uma carga de
 **Fúria do Punho** (`FistSystem`; +6% ATK e +5% velocidade por carga, até 5, somem em 8 s sem esquivar) e contra-ataca quem está a até 3,2 m
@@ -158,7 +160,14 @@ se o alvo encosta (a 40% do alcance); funciona (boss_probe 23/40). Melhor seria 
 um veneno que renova, não acumula, `Balance.HIT_POISON_TIME`), **esquiva** (`evasion`, teto `Balance.EVASION_CAP`; golpe direto
 esquivado não causa nada, evento `dodged`), Sumir (`stealth` sem forma: só o Lobo do Druida exige estar transformado) e **pelas costas**
 (`backstab`: % de dano e +`BACKSTAB_CRIT` de crítico quando o atacante está atrás do alvo, `Combat.is_behind`). Venenos escalam com ATK.
-**Duelista** (duas espadas, `atk_pct`): golpes largos, Guarda (DEF + esquiva), Avanço, Turbilhão, Foco e Golpe de Mestre; árvore com
+Ritmo envenenar → **Eviscerar** (2026-11-19, GDD `skills-fill-2026-11-19` §8.1; `WoundSystem`): o golpe consome os venenos SEUS no alvo
+(dano no tempo seu que não é queimadura nem o sangramento por % do ATK do Lanceiro), o que faltava explode ×1,25 e o golpe ganha +10%
+por veneno (até 5; `Balance.EVISCERATE_POISON`, efeito `combust` com `kind: "poison"`; poder 2,2).
+**Duelista** (duas espadas, `atk_pct`): **aparar e contra-atacar** (2026-11-19, GDD §8.3, `RiposteSystem`): a Guarda do Duelista abre uma janela de
+1 s (recarga 8 s; buff `duel_guard`): golpe direto de perto (4 m) e de frente sai 0 (chefe: −60%), responde com 80% do ATK (+ a Riposte
+lendária; até 2 por janela) e dá 1 **Ímpeto** (buff `impeto`, +5 de crítico por carga, até 3, 10 s). Dano no tempo, zona avisada e golpe pelas
+costas não são aparados; a cópia permanente do talento não apara. O Golpe de Mestre gasta o Ímpeto (+20% por carga). Bots abrem a Guarda com
+golpe vindo neles ou cercados (`BOT_RIPOSTE_*`). Números em `Balance.RIPOSTE_*`. Resto: golpes largos, Avanço, Turbilhão, Foco; árvore com
 ATK/DEF/crítico e conjunto com DEF + crítico; Expor Fraqueza (alvo recebe +20% de todos, maldição `expose`) é dele.
 **Corsário** (sabre = `sword` na direita + **pistola** na esquerda, `atk_pct`, AGI/FOR): a pistola (`pistol`) é arma só de mão
 secundária (`ItemDef.OFFHAND_ONLY`, como escudo e orbe; ficha de exigência `"pistol"`), soma o ATK inteiro e não atira no básico — os
@@ -201,7 +210,9 @@ build perdeu mais de 7% do dano no tempo, então os dps das skills não mudaram.
 pulso. Checks `_check_dot_pulse`, `_check_dot_cap`; medir com `boss_probe -- --dot_stats`.
 **Efeitos por elemento** (valem para qualquer classe, pelo elemento ou pelo tema visual da skill): **fogo queima** — todo dano no tempo
 de skill de fogo é queimadura (número laranja, brasas no alvo); **gelo estilhaça** — skill de gelo em alvo retardado, preso ou atordoado
-causa ×`Balance.FROST_SHATTER_MULT` (1,3; número azul com ❄), então vale abrir com Nova de Gelo/Lança e emendar; **raio atordoa** —
+causa ×`Balance.FROST_SHATTER_MULT` (1,3; número azul com ❄), então vale abrir com Nova de Gelo/Lança e emendar; a **lentidão de gelo**
+também tira `Balance.FROST_ASPD_SLOW` (25%) da velocidade de ataque (`Combat.frost_attack_mult`; não soma entre lentidões de gelo; a de
+outras skills só retarda o movimento; 2026-11-19); **raio atordoa** —
 Trovão, Estilhaçar, Zero Absoluto e as combinações com raio sempre; as outras skills de raio com dano têm `Balance.STORM_STUN_CHANCE`
 (15%) de atordoar `STORM_STUN_TIME` (0,5 s) no golpe direto (`Combat.storm_can_stun`; chefes: 40% da duração). Na tela: atordoado = estrelas girando, retardado/preso =
 anel de gelo nos pés e tom azul, queimando = brasas e tom laranja (`EntityView._update_status`, parâmetro `status` do `toon.gdshader`).
@@ -216,6 +227,28 @@ o controle cheio. Talento de classe pode **somar** ao efeito da skill (`skill_mo
 **Canalização** (efeito `channel: {ticks}`, fase ativa = duração): o efeito pulsa N vezes mirando o cursor; outra skill ou o dash cortam (bots seguram até o fim).
 **Formas** do Ceifador: Fantasma (10 s, `Balance.FORM_DURATION`; `shaders/ghost.gdshader`: casca espectral com a cor das peças, rápido, esquiva) e Demônio (`form_demon.glb`, maior, HP/DEF/roubo de vida); golpes de foice mudam
 (`FORM_MODS`). Save com cajado/varinha/orbe: voltam para a bolsa e a foice inicial entra.
+
+**Preenchimento de skills (2026-11-19, `design/gdd/skills-fill-2026-11-19.md`)**: toda build tem ≥ 8 skills próprias e toda classe ≥ 4
+gerais, sem contar ascensão (check `_check_skill_fill`). 13 skills novas, nos buracos da escada (níveis das antigas não mudaram):
+Templário **Chão Sagrado** (10, zona 6 s que queima e dá +10% DEF a quem está dentro) e **Coluna da Alvorada** (22, coluna no cursor que
+atordoa, queima e salta para 2); Executor **Fender Armadura** (8, cone que racha) e **Brado do Carrasco** (22, +20% DEF/+10% ATK e escudo de
+12% no grupo a 8 m); Clérigo de Batalha **Estandarte da Fé** (17, zona 8 s que fere, retarda e cura o grupo dentro) e **Corrente da Fé** (23,
+golpe que cura o mais ferido e salta para 2); Sacerdote **Luz Protetora** (3, cura + escudo de 10% no aliado); Urso **Lacerar** (15, sangra e
+provoca; na forma de urso pega 3); Fogo **Semente Ígnea** (17); Raio **Passo Relampejante** (13, teleporte de 7 m que cai como raio);
+Invocador **Oferenda Sombria** (21); Necromante (geral) **Garra da Cova** (16, puxa e prende; chefe não vem); Ranger (geral) **Curativo de
+Campo** (11, cura 20% e +20% de velocidade; o lince ganha o buff se estiver, `pet_buff: "if_any"`). Mecânicas novas (números em `Balance`):
+- **`zone`** (`TrapSystem.place_zone`, lista `m["traps"]` kind `zone`): o golpe bate normal e o chão fica `duration` s; a cada `pulse` s
+  inimigos dentro levam `foe_power` × ATK/MATK (sem crítico; a AGI esquiva) e o `dot` renova, `foe_slow` retarda; aliados dentro (você
+  incluso) ganham `ally_heal` × cura e o `ally_buff` por pulso + `ZONE_BUFF_LINGER`. Uma por (lançador, skill); some com o dono morto/fora.
+- **`sunder`/`sunder_consume`** (`SunderSystem`): debuff `sunder` com cargas (+4% de dano recebido por carga, até 5, 8 s; é MARCA, teto
+  `MARK_TAKEN_CAP`; chefe acumula). Golpe Avassalador, Executar e Decapitar gastam: power × (1 + 0,10 × cargas) e zeram. Executar e
+  Decapitar perderam 10% de power (3,4 → 3,1; 4,4 → 4,0), como o GDD previa. Bot: com o Fender pronto, finalizador espera 3 cargas.
+- **`seed`** (`SeedSystem`): semente `seed_<lançador>` no alvo; no fim (4 s) ou na morte dele explode em 3 m (140% do MATK, até 6, o alvo
+  incluso se vivo) e espalha a queimadura da skill pelo teto de 3 cópias; não planta outra; relançar renova; dono morto/fora: some.
+- **`sacrifice`** (`SummonRites`): até 4 invocações suas a 6 m do ponto (fora `Balance.SACRIFICE_EXCLUDE`) explodem em 3 m com power ×
+  (0,5 + 0,5 × % de vida) e somem sem XP/saque; sem nenhuma a skill é recusada sem gastar MP. Bot: só com 3 perto do alvo.
+**Urso**: a magia-assinatura passou de Fogo Lunar (cajado do Xamã) para **Esmagar** (`dru_maul`, o cone do malho que abre a build no nível 2),
+peso `SIGNATURE_BUILD_POWER` 0,85. Correção junto: buff/cura % de SELF não sai mais duas vezes (Chakra curava 50%, não 25%).
 
 **Mundo mais cheio**: os spawners exportados do Blender são multiplicados na carga (`Balance.SPAWN_COUNT_MULT` 1,6 nos campos,
 `SPAWN_COUNT_MULT_DUNGEON` 1,3, chefes de count 1 não mudam) e renascem 25% mais rápido. **Caçadas repetíveis** geradas por loop

@@ -20,6 +20,10 @@ static func build() -> Array:
 		 "radius": 0.45, "scale": 0.8, "color": Color(0.45, 0.9, 0.5), "shape": "sphere", "loot_table": "lt_slime", "gold_min": 1, "gold_max": 4, "model": "mob_slime"},
 		{"id": "slime_blue", "name": "Slime Azul", "level": 3, "hp": 60, "atk": 10, "matk": 12, "def": 2, "mdef": 4, "move_speed": 3.0, "attack_range": 5.0, "attack_cooldown": 1.9, "xp": 16, "ranged": true,
 		 "radius": 0.45, "scale": 0.85, "color": Color(0.4, 0.6, 1.0), "shape": "sphere", "loot_table": "lt_slime_blue", "gold_min": 2, "gold_max": 6, "model": "mob_slime"},
+		# boneco de treino (Aldara, Balance.DUMMY_SPOTS): alvo para testar skills; DEF/MDEF 0 = o número que aparece é o dano cru
+		{"id": "training_dummy", "name": "Boneco de Treino", "level": 1, "hp": 99999, "atk": 0, "def": 0, "mdef": 0, "move_speed": 0.0, "attack_range": 0.0, "attack_cooldown": 60.0,
+		 "xp": 0, "aggro_range": 0.0, "leash_range": 1000.0, "radius": 0.5, "scale": 1.0, "color": Color(0.78, 0.66, 0.42), "shape": "capsule", "loot_table": "", "gold_min": 0, "gold_max": 0,
+		 "model": "mob_training_dummy", "dummy": true},
 		{"id": "boar", "name": "Javali", "level": 5, "hp": 95, "atk": 15, "def": 4, "mdef": 2, "move_speed": 4.2, "attack_range": 1.6, "attack_cooldown": 1.3, "attack_startup": 0.3, "xp": 24, "aggro_range": 6.0,
 		 "radius": 0.55, "scale": 1.0, "color": Color(0.5, 0.35, 0.25), "shape": "box", "loot_table": "lt_boar", "gold_min": 3, "gold_max": 8, "model": "mob_boar"},
 		{"id": "wolf", "name": "Lobo", "level": 7, "hp": 110, "atk": 19, "def": 5, "mdef": 3, "move_speed": 5.0, "attack_range": 1.7, "attack_cooldown": 1.1, "attack_startup": 0.25, "xp": 32, "aggro_range": 9.0,

@@ -1,0 +1,1 @@
+000  nec_dark_offering      Oferenda Sombria         GROUND    MAG      build=invocador  clip=summon      vfx=bone     start=0.30 act=0.05 rec=0.30 impacto=quadro 3

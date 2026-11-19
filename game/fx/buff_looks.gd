@@ -24,6 +24,7 @@ const LOOKS := {
 	"bark": ["armor", "nature"], "oak_skin": ["armor", "nature"], "bellow": ["armor", "nature"],
 	"bone_armor": ["armor", "bone"], "bonewall": ["armor", "bone"],
 	"blessed_armor": ["armor", "holy"], "ward": ["armor", "holy"], "bulwark": ["armor", "holy"],
+	"hallowed": ["armor", "holy"],            # Chão Sagrado (Templário): +DEF enquanto está dentro da zona
 	"shield_wall": ["armor", "holy"], "bastion": ["armor", "holy"], "colonia_de_pe": ["holy", "holy"], "juramento": ["armor", "holy"],
 	"duel_guard": ["armor", "physical"], "chakra": ["armor", "holy"],
 	"guard_crit": ["power", "holy"],          # Contra-Ataque (notável do Guardião): bloqueou -> crítico por pouco tempo
@@ -31,9 +32,11 @@ const LOOKS := {
 	"shield": ["shield", ""], "boss_ward": ["shield", ""],
 	# ataque
 	"fury": ["power", "blood"], "boss_berserk": ["power", "blood"], "warcry": ["power", "blood"], "bloodlust": ["power", "blood"], "titan_grip": ["power", "blood"],
+	"headsman_roar": ["power", "blood"],      # Brado do Carrasco (Executor): +DEF/+ATK no grupo
 	"frenzy": ["power", "blood"], "legend_frenzy": ["power", "blood"], "elixir": ["power", "fire"],
 	"valor": ["power", "holy"], "zeal": ["power", "holy"], "fervor": ["power", "holy"], "battle_hymn": ["power", "holy"],
 	"mark": ["power", "physical"], "deadeye": ["power", "physical"], "focus": ["power", "physical"], "duel_focus": ["power", "physical"],
+	"impeto": ["power", "physical"],          # Ímpeto (Duelista: cargas das aparadas, o Golpe de Mestre gasta)
 	"shout_flame": ["power", "fire"], "shout_flame_ally": ["power", "fire"], "shout_frost": ["power", "ice"],
 	"shout_thunder": ["speed", "lightning"], "shout_thunder_ally": ["speed", "lightning"],
 	"sky_eyes": ["speed", "wind"],          # Olhos do Céu (Falcoeiro): o grupo corre mais e acerta a Presa
@@ -55,6 +58,7 @@ const LOOKS := {
 	"blessing": ["holy", "holy"], "angel": ["holy", "holy"], "avenging_wrath": ["holy", "holy"], "grove": ["holy", "nature"],
 	# movimento
 	"swift": ["speed", "wind"], "elem_gale": ["speed", "lightning"], "reflexes": ["speed", "wind"], "counter_stance": ["speed", "wind"], "wild_run": ["speed", "nature"],
+	"field_dressing": ["speed", "nature"],    # Curativo de Campo (Ranger)
 	"smoke": ["smoke", "shadow"],
 	# arma / sombra
 	"plague_blade": ["poison", "poison"],
@@ -86,6 +90,7 @@ const SYSTEM_BUFFS := {
 	"twin_shadow": "ShadowSystem (Sombra Gêmea: clone de sombra ativo)",
 	"exec_ready": "ShadowSystem (Contra-Ataque em Cadeia: Execução preparada pela esquiva)",
 	"fist_fury": "FistSystem (Punhos de Fúria: esquivar dá Fúria do Punho)",
+	"impeto": "RiposteSystem (Duelista: aparar dá Ímpeto)",
 	"glory": "GladiatorSystem (Modo Gladiador: Glória por crítico, abate e Brado da Arena)",
 	"bastion": "RaidSystem (sentinela: reunir)",
 	"colonia_de_pe": "SiegeSystem (Colônia de Pé: leva repelida, +XP de abate no mapa)",
@@ -223,6 +228,8 @@ static func _from_effects(out: Array, fx: Dictionary, src: String) -> void:
 		out.append({"id": str(fx["buff"].get("id", "")), "source": src})
 	if fx.has("shield"):
 		out.append({"id": "shield", "source": src})
+	if fx.get("zone") is Dictionary and (fx["zone"] as Dictionary).get("ally_buff") is Dictionary and not (fx["zone"]["ally_buff"] as Dictionary).is_empty():
+		out.append({"id": str(fx["zone"]["ally_buff"].get("id", "")), "source": src + " (zona)"})
 	if fx.has("form"):
 		out.append({"id": "form_" + str(fx["form"]), "source": src})
 	if fx.has("stealth"):

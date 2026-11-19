@@ -31,6 +31,9 @@ func load_all() -> void:
 		classes[c.id] = c
 	for s in SkillsCatalog.build(classes):
 		s.power *= float(Balance.BUILD_POWER.get(s.build, 1.0))
+		if s.effects.get("slow") is Dictionary and (s.elements.has("frost") or s.vfx == "ice"):
+			s.effects["slow"] = (s.effects["slow"] as Dictionary).duplicate()
+			s.effects["slow"]["frost"] = true     # lentidão de gelo: também tira velocidade de ataque (Combat.frost_attack_mult)
 		skills[s.id] = s
 	# pool de skills de cada classe = todas as skills dela, por nível (a ordem da janela K)
 	for cid in classes:

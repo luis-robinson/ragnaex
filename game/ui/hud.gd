@@ -788,6 +788,9 @@ func _buff_source(id: String) -> Dictionary:
 				"desc": "Seu clone de sombra repete cada golpe direto com parte do dano."}
 			_buff_src[Balance.CHAIN_COUNTER_BUFF] = {"tex": UiKit.icon_texture("skill_" + Balance.EXECUTION_SKILL), "name": "Execução preparada",
 				"desc": "Você esquivou: a próxima Execução sai sem recarga."}
+		if GameData.skills.has("ass_master"):             # Ímpeto (Duelista): aparar junta, o Golpe de Mestre gasta
+			_buff_src[Balance.RIPOSTE_MOMENTUM_BUFF] = {"tex": UiKit.icon_texture("skill_ass_master"), "name": "Ímpeto",
+				"desc": "Cargas das aparadas da Guarda do Duelista (até %d): +%d de crítico por carga. O Golpe de Mestre gasta todas (+%d%% de dano por carga)." % [Balance.RIPOSTE_MOMENTUM_MAX, int(Balance.RIPOSTE_MOMENTUM_CRIT), int(Balance.RIPOSTE_SPEND_PCT)]}
 		if GameData.skills.has("ber_final_fist"):         # Fúria do Punho (Punhos de Fúria): esquivar junta, o Punho Final gasta
 			_buff_src[Balance.FIST_FURY_BUFF] = {"tex": UiKit.icon_texture("skill_ber_final_fist"), "name": "Fúria do Punho",
 				"desc": "Cargas de quem luta com duas garras (até %d): cada golpe esquivado dá uma e contra-ataca; +ATK e velocidade por carga. O Punho Final gasta todas." % Balance.FIST_FURY_MAX}
@@ -881,6 +884,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_inventory"): windows_script.toggle("inventory")
 	elif event.is_action_pressed("ui_character"): windows_script.toggle("character")
 	elif event.is_action_pressed("ui_skills"): windows_script.toggle("skills")
+	elif event.is_action_pressed("ui_book"): windows_script.toggle("book")
 	elif event.is_action_pressed("ui_quests"): windows_script.toggle("quests")
 	elif event.is_action_pressed("ui_party"): windows_script.toggle("party")
 	_update_blocking()

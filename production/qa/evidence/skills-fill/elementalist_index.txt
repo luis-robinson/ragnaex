@@ -1,0 +1,1 @@
+000  ele_ember_seed         Semente Ígnea            TARGET    MAG      build=fogo       clip=cast_fire   vfx=fire     start=0.25 act=0.05 rec=0.25 impacto=quadro 3

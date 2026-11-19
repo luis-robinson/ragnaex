@@ -417,6 +417,20 @@ static func rally(sim: WorldSim, e: SimEntity, d: Dictionary) -> void:
 		t.recompute_stats()
 		Events.post(&"buff_applied", t.id, bid, dur)
 
+## Boneco de treino (MonsterDef.dummy): DUMMY_REGEN_DELAY s sem levar dano = recompõe a vida (DUMMY_REGEN_PCT da máxima
+## por s), solta os debuffs e volta ao lugar (empurrão/puxão de skill o tira dali).
+static func update_dummy(sim: WorldSim, e: SimEntity, dt: float) -> void:
+	if sim.time - e.hurt_at < Balance.DUMMY_REGEN_DELAY:
+		return
+	if e.hp < e.stats.max_hp:
+		e.hp = minf(e.stats.max_hp, e.hp + e.stats.max_hp * Balance.DUMMY_REGEN_PCT * dt)
+	if not e.debuffs.is_empty() and e.hp >= e.stats.max_hp:
+		e.debuffs.clear()
+	e.aggro_target = -1
+	e.threat.clear()
+	if e.position.distance_squared_to(e.home_position) > 0.0001:
+		e.position = e.home_position
+
 static func update_spawners(sim: WorldSim, m: Dictionary, dt: float) -> void:
 	var def: MapDef = m["def"]
 	var epoch := sim.despawn_epoch

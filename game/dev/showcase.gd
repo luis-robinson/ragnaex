@@ -127,6 +127,9 @@ func _next(p: SimEntity) -> void:
 		m.stats.max_hp = 1.0e7
 		m.hp = 1.0e7
 		_dummies.append(m)
+	if s.effects.get("sacrifice") is Dictionary:     # Oferenda Sombria: precisa de mortos-vivos perto do alvo
+		for k in range(int(s.effects["sacrifice"].get("max", 4))):
+			Sim.spawn_summon(p, GameData.monsters["skeleton_minion"], _dummies[0].position + Vector3(0.6 * k - 0.9, 0, 0.9), 20.0)
 	_phase = "setup"
 	_t = 0.0
 

@@ -68,6 +68,16 @@ static func storm_can_stun(skill: SkillDef) -> bool:
 	return skill != null and (skill.elements.has("storm") or skill.vfx == "lightning") and skill.power > 0.0 \
 		and not skill.effects.has("stun") and skill.kind in [SkillDef.Kind.PHYSICAL, SkillDef.Kind.MAGICAL]
 
+## Lentidão de gelo (debuff "slow" com "frost"): velocidade de ataque -Balance.FROST_ASPD_SLOW% = intervalo do básico × isto.
+## Várias lentidões de gelo não somam (vale uma).
+static func frost_attack_mult(e: SimEntity) -> float:
+	if e.debuffs.is_empty():
+		return 1.0
+	for d in e.debuffs:
+		if d.get("kind") == "slow" and d.get("frost", false):
+			return 1.0 / (1.0 - Balance.FROST_ASPD_SLOW / 100.0)
+	return 1.0
+
 static func is_chilled(t: SimEntity) -> bool:
 	if t.state == SimEntity.State.STUNNED:
 		return true

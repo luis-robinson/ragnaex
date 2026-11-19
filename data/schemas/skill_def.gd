@@ -18,7 +18,9 @@ const EFFECT_KEYS := ["dot", "slow", "stun", "root", "buff", "shield", "dash", "
 	"provoke", "area_heal", "pack",
 	"falcon_call", "falcon_dive", "falcon_eyes", "rally",
 	"islands", "mark", "boss_channel", "repeat", "avalanche", "wall", "decoys",
-	"explode", "fire_wall", "strikes", "orbit"]
+	"explode", "fire_wall", "strikes", "orbit",
+	"zone", "sunder", "sunder_consume", "seed", "sacrifice",
+	"wound_heal", "wound_extend", "riposte", "momentum_spend"]
 
 @export var id: String = ""
 @export var name: String = ""
@@ -172,6 +174,23 @@ const FORM_LABELS := {"wolf": "lobo", "bear": "urso", "phantom": "fantasma", "de
 ## "elem_command": true  → (ascensão do Elementalista) sem elemental chama o persistente; com ele, troca o modo (ElementalSystem).
 ## "elem_fusion": true   → (ascensão do Elementalista) o golpe ganha o efeito da forma do elemental e o mago o buff
 ##     `elem_fusion` (MATK + elemento da forma, x estágio). Skills com estes efeitos exigem a ascensão.
+## Preenchimento de skills (GDD design/gdd/skills-fill-2026-11-19.md; números em Balance):
+## "zone": {"id", "duration", "pulse", "foe_power", "ally_heal", "ally_buff": {...}, "foe_slow": pct}  → (GROUND) o golpe
+##     bate normal e fica um círculo de `radius` m no ponto: a cada pulso, inimigos dentro levam foe_power x ATK/MATK (sem
+##     crítico) e o `dot` renova; aliados dentro ganham ally_heal x cura e o ally_buff (TrapSystem.place_zone). Uma por
+##     (lançador, skill); some com o dono morto/fora do mapa.
+## "sunder": {"add", "taken_per", "max", "duration"}  → rachadura: cargas no debuff Balance.SUNDER_ID (+taken_per % de dano
+##     recebido por carga, é marca); "sunder_consume": {"per"} → antes do golpe power x (1 + per x cargas) e zera (SunderSystem).
+## "seed": {"delay", "radius", "power", "spread_dot", "max_targets"}  → semente no alvo que explode no fim do tempo ou na
+##     morte dele, em volta, e espalha a queimadura da skill (SeedSystem; a explosão não planta outra).
+## "sacrifice": {"pick_radius", "max", "blast_radius", "hp_weight"}  → (GROUND) suas invocações perto do ponto explodem
+##     (power x vida) e morrem sem XP/saque; sem nenhuma, a skill é recusada (SummonRites).
+## "combust": {"kind": "poison", "detonate", "per", "max"}  → Eviscerar: em vez das queimaduras, os VENENOS seus
+##     (WoundSystem.is_wound) saem e explodem; o golpe ganha `per` de poder por veneno (até `max`).
+## "wound_heal": {"pct", "max"}  → Sangria: cura pct% da vida máx. por atingido que sangrava (ferida sua), até max.
+## "wound_extend": {"add", "cap"}  → Presas Gêmeas: +add s nas suas feridas em cada atingido (até cap s restantes).
+## "riposte": true  → Guarda do Duelista: o buff da skill é a janela de aparar (RiposteSystem).
+## "momentum_spend": {"power_pct"}  → Golpe de Mestre: gasta o Ímpeto, +power_pct% de poder por carga.
 @export var effects: Dictionary = {}
 
 ## Maestria: array de 6 dicionários {power_mult, mp_mult, cd_mult, extra:Dictionary}

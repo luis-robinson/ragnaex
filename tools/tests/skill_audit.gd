@@ -22,17 +22,33 @@ static func effective(s: SkillDef) -> float:
 			ef += 0.3 * float(c.get("duration", 0))
 	if s.effects.get("slow") is Dictionary:
 		ef += 0.1
-	if s.effects.has("combust"):
+	if s.effects.get("combust") is Dictionary and str(s.effects["combust"].get("kind", "fire")) == "poison":
+		ef *= 1.0 + float(s.effects["combust"].get("per", 0.0)) * 2.0     # Eviscerar: conta 2 venenos no alvo
+	elif s.effects.has("combust"):
 		ef += 0.6                      # detonação: vale mais com queimaduras no alvo
 	var ob = s.effects.get("orbit")
 	if ob is Dictionary:                # martelos que giram: cada batida repete o power do lançamento
 		ef += s.power * float(ob.get("duration", 0.0)) / maxf(0.1, float(ob.get("every", 1.0)))
+	var zn = s.effects.get("zone")
+	if zn is Dictionary:                # chão que fica: cada pulso bate foe_power (alvo parado dentro o tempo todo)
+		ef += float(zn.get("foe_power", 0.0)) * floorf(float(zn.get("duration", 0.0)) / maxf(0.1, float(zn.get("pulse", 1.0))))
+	var sd = s.effects.get("seed")
+	if sd is Dictionary:                # semente: a explosão (o alvo a leva também)
+		ef += float(sd.get("power", 0.0))
+	var sc = s.effects.get("sacrifice")
+	if sc is Dictionary:                # oferenda: conta 3 mortos-vivos a meia vida (o caso que o bot espera)
+		ef *= float(Balance.BOT_SACRIFICE_MIN) * (1.0 - 0.5 * float(sc.get("hp_weight", 0.5)))
+	if s.effects.has("sunder_consume"):
+		ef *= 1.0 + float(s.effects["sunder_consume"].get("per", 0.0)) * float(Balance.BOT_SUNDER_MIN)     # finalizador com 3 cargas
 	if s.effects.has("bounce"):
 		ef *= 1.0 + 0.5 * maxf(0.0, float(s.effects["bounce"].get("count", 1)) - 1.0) * float(s.effects["bounce"].get("falloff", 0.8))
 	var area: bool = (s.target == SkillDef.Target.SELF and s.radius > 0.0) or s.target == SkillDef.Target.CONE \
 		or (s.target == SkillDef.Target.GROUND and s.radius >= 2.0) or (s.target == SkillDef.Target.TARGET and s.radius > 1.0) or s.projectile_pierce
 	if area:
 		ef *= 1.5
+	var ch = s.effects.get("chain")
+	if ch is Dictionary:                # raio que salta: metade dos saltos num golpe de 1 alvo (nem sempre há vizinho), 1/4 numa área
+		ef *= 1.0 + (0.25 if area else 0.5) * float(ch.get("count", 0)) * float(ch.get("falloff", 0.5))
 	return ef
 
 static func damaging(s: SkillDef) -> bool:

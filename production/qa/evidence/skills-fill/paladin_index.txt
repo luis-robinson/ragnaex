@@ -1,0 +1,1 @@
+000  pal_hallowed_ground    Chão Sagrado             GROUND    FIS      build=templario  clip=cast_holy   vfx=holy     start=0.25 act=0.05 rec=0.25 impacto=quadro 3

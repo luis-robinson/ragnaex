@@ -42,6 +42,9 @@ extends Resource
 ## Shazka (R-F, GDD act2-boss-signatures 3.7): cópia de chefe. Morre com 1 golpe, não projeta sombra, não conta como chefe;
 ## morrendo solta a nuvem de veneno do dono (BossSignatures.on_death).
 @export var decoy: bool = false
+## Boneco de treino: não anda, não bate, não morre (segura em 1 HP), se recompõe parado (Balance.DUMMY_*),
+## sem XP/saque/quest; só o jogador e as invocações dele o miram (SimEntity.is_hostile_to). Bots e sentinelas ignoram.
+@export var dummy: bool = false
 @export var berserk_after: float = 0.0     ## chefe: s de luta até enlouquecer (dano × Balance.BOSS_BERSERK_MULT); 0 = nunca
 @export var berserk_mult: float = 0.0      ## chefe: dano × isto depois de berserk_after; 0 = Balance.BOSS_BERSERK_MULT (Durgash: a raide pede 5)
 @export var crowd_skills: Array[String] = []  ## chefe: skills que entram quando a luta chega a Balance.BOSS_CROWD_EXTRA_FROM pessoas (pico; valem até o reset)

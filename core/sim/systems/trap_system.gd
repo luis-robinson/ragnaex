@@ -4,13 +4,16 @@ extends RefCounted
 ## Muralha de Fogo (efeito "fire_wall", Elementalista): faixa de fogo no chão, atravessada na mira, que fica `duration` s
 ## e reacende a queimadura (o `dot` da skill) em quem estiver nela a cada `pulse` s; o dano direto sai só no lançamento.
 ## Mora na lista de armadilhas (m["traps"], kind WALL: não dispara, não conta no limite). Uma por dono.
+## Chão que fica (efeito "zone", GDD skills-fill-2026-11-19 M1): círculo no ponto mirado que pulsa (kind ZONE, mesma lista):
+## inimigos dentro levam dano e o `dot` renova, aliados dentro recebem cura e buff curto. Um por (dono, skill).
 
 const WALL := "fire_wall"
+const ZONE := "zone"
 
 static func place_trap(sim: WorldSim, e: SimEntity, s: SkillDef, aim: Vector3, power: float, effects: Dictionary) -> void:
 	var m: Dictionary = sim.maps[e.map_id]
 	var traps: Array = m["traps"]
-	var mine: Array = traps.filter(func(t): return t["owner"] == e.id and t["kind"] != WALL)
+	var mine: Array = traps.filter(func(t): return t["owner"] == e.id and t["kind"] != WALL and t["kind"] != ZONE)
 	while mine.size() >= ClassTalentSystem.trap_max(e):        # a mais antiga some
 		var old: Dictionary = mine.pop_front()
 		traps.erase(old)
@@ -32,13 +35,18 @@ static func update_traps(sim: WorldSim, m: Dictionary) -> void:
 	var traps: Array = m["traps"]
 	for t in traps.duplicate():
 		var owner: SimEntity = sim.entities.get(t["owner"])
-		if sim.time >= float(t["expires"]) or owner == null or owner.map_id != m["def"].id:
+		if t["kind"] == ZONE and owner != null and owner.is_alive() and owner.map_id == m["def"].id:
+			while sim.time >= float(t["next"]) and float(t["next"]) <= float(t["expires"]):
+				_zone_pulse(sim, t, owner, m)          # o último pulso cai no fim do tempo (antes de sumir)
+		if sim.time >= float(t["expires"]) or owner == null or owner.map_id != m["def"].id or (t["kind"] == ZONE and not owner.is_alive()):
 			traps.erase(t)
 			Events.post(&"trap_removed", t["id"], false)
 			continue
 		if t["kind"] == WALL:
 			if sim.time >= float(t["next"]):
 				_wall_pulse(sim, t, owner, m, false)
+			continue
+		if t["kind"] == ZONE:
 			continue
 		if sim.time < float(t["armed_at"]):
 			continue
@@ -119,3 +127,75 @@ static func _renew_burn(sim: WorldSim, t: Dictionary, owner: SimEntity, o: SimEn
 			d["remaining"] = maxf(float(d["remaining"]), float((dot as Dictionary).get("duration", 4)))
 			return true
 	return false
+
+## Chão que fica (efeito "zone"): o golpe da skill já bateu; aqui só nasce o círculo (o 1º pulso sai `pulse` s depois).
+## `power` = poder do lançamento (maestria, Juramento etc.); o pulso bate foe_power/power-base desse poder.
+static func place_zone(sim: WorldSim, e: SimEntity, s: SkillDef, aim: Vector3, power: float, effects: Dictionary) -> Dictionary:
+	var m: Dictionary = sim.maps[e.map_id]
+	var traps: Array = m["traps"]
+	for old in traps.duplicate():
+		if old["owner"] == e.id and old["kind"] == ZONE and old["skill"] == s.id:
+			traps.erase(old)
+			Events.post(&"trap_removed", old["id"], false)
+	var zd: Dictionary = effects[ZONE]
+	var fx := {}
+	if effects.has("dot"):
+		fx["dot"] = effects["dot"]
+	var scale := power / maxf(0.01, s.power)          # o que multiplicou o lançamento vale para os pulsos
+	var pos := Vector3(aim.x, 0.0, aim.z)
+	var t := {"id": sim._next_trap_id, "owner": e.id, "kind": ZONE, "zone": str(zd.get("id", s.id)), "pos": pos, "radius": s.radius,
+		"skill": s.id, "theme": SkillsCatalog.vfx_theme(s), "kind_dmg": s.kind, "effects": fx,
+		"foe_power": float(zd.get("foe_power", 0.0)) * scale, "ally_heal": float(zd.get("ally_heal", 0.0)) * scale,
+		"ally_buff": zd.get("ally_buff", {}), "foe_slow": float(zd.get("foe_slow", 0.0)),
+		"pulse": float(zd.get("pulse", 1.0)), "next": sim.time + float(zd.get("pulse", 1.0)), "pulses": 0,
+		"armed_at": sim.time, "expires": sim.time + float(zd.get("duration", 6.0)) + 0.001}     # folga: o pulso do fim cabe
+	sim._next_trap_id += 1
+	traps.append(t)
+	Events.post(&"trap_placed", t["id"], ZONE, pos, s.radius, e.map_id)
+	return t
+
+## Quem está dentro do círculo da zona (mesma régua da área de chão: raio + raio do corpo).
+static func in_zone(t: Dictionary, o: SimEntity) -> bool:
+	var pos: Vector3 = t["pos"]
+	return Vector2(o.position.x - pos.x, o.position.z - pos.z).length() <= float(t["radius"]) + o.radius
+
+## Um pulso da zona: inimigos dentro levam o dano (sem crítico) e o dot/lentidão; aliados dentro, cura e buff curto.
+static func _zone_pulse(sim: WorldSim, t: Dictionary, owner: SimEntity, m: Dictionary) -> void:
+	t["next"] = float(t["next"]) + float(t["pulse"])
+	t["pulses"] = int(t["pulses"]) + 1
+	var pos: Vector3 = t["pos"]
+	var reach := float(t["radius"]) + 2.0
+	var magical: bool = int(t["kind_dmg"]) == SkillDef.Kind.MAGICAL
+	var linger := float(t["pulse"]) + Balance.ZONE_BUFF_LINGER
+	var buff: Dictionary = t["ally_buff"]
+	for o: SimEntity in m["entities"].duplicate():
+		if absf(o.position.x - pos.x) > reach or absf(o.position.z - pos.z) > reach:
+			continue
+		if not o.is_alive() or not in_zone(t, o):
+			continue
+		if owner.is_hostile_to(o):
+			if float(t["foe_power"]) > 0.0:
+				var r := Combat.calc_damage(owner, o, float(t["foe_power"]), SkillDef.Kind.MAGICAL if magical else SkillDef.Kind.PHYSICAL, sim.rng, pos)
+				var amount: int = int(r["amount"])
+				if r["crit"]:
+					amount = maxi(1, int(round(amount / owner.stats.crit_mult())))     # pulso não critica
+				sim._deal_damage(owner, o, amount, false, r["blocked"], "magical" if magical else "physical", pos)
+			if not o.is_alive():
+				continue
+			if float(t["foe_slow"]) > 0.0:
+				o.put_debuff({"kind": "slow", "id": "zone_slow_%d" % int(t["id"]), "remaining": linger * o.stats.cc_mult(), "pct": float(t["foe_slow"])})
+			if not _renew_burn(sim, t, owner, o) and not (t["effects"] as Dictionary).is_empty():
+				sim._apply_effects(owner, o, t["effects"], float(t["foe_power"]))
+		elif o == owner or owner.is_friend(o):
+			if o.kind == SimEntity.Kind.MONSTER or (o.kind == SimEntity.Kind.NPC and not o.guard):
+				continue
+			if float(t["ally_heal"]) > 0.0:
+				sim._heal(owner, o, Combat.calc_heal(owner, float(t["ally_heal"]), sim.rng))
+			if not buff.is_empty():
+				var had := o.buffs.any(func(b): return b.get("id") == buff.get("id"))
+				var b := buff.duplicate()
+				b["remaining"] = linger
+				o.put_buff(b)
+				o.recompute_stats()
+				if not had:
+					Events.post(&"buff_applied", o.id, b.get("id", "buff"), linger)

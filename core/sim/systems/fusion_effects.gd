@@ -430,7 +430,7 @@ static func on_hit(sim: WorldSim, e: SimEntity, t: SimEntity, s: SkillDef, amoun
 						e.fus["vapor_at"] = sim.time + Balance.FUSION_VAPOR_ICD
 					var left := sim.consume_burns(e, t)
 					_burst(sim, e, t.position, int(left * num(e, "quench") / 100.0), Balance.FUSION_VAPOR_RADIUS)
-					sim._apply_effects(e, t, {"slow": {"pct": Balance.FUSION_VAPOR_SLOW, "duration": Balance.FUSION_VAPOR_TIME}}, 0.0)
+					sim._apply_effects(e, t, {"slow": {"pct": Balance.FUSION_VAPOR_SLOW, "duration": Balance.FUSION_VAPOR_TIME, "frost": true}}, 0.0)
 					count(e, "vapor")
 					var sub := "n_vapor_fire" if by_fire else "n_vapor_frost"      # só para a sonda (não conta em "fired")
 					e.fus[sub] = int(e.fus.get(sub, 0)) + 1

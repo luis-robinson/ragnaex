@@ -1990,17 +1990,19 @@ func _hotbar_drag_check() -> void:
 		await _fake_drag(cell, main.hud.potion_slots[2]["root"])
 	print("HOTBAR_DRAG potion F3=%s ok=%s" % [p.potion_slots[2], p.potion_slots[2] == "potion_hp_m"])
 	w.close_all()
-	w.toggle("skills")
-	await get_tree().process_frame
-	await get_tree().process_frame
 	var sid := ""
 	for s in p.class_def.skill_ids:
-		if p.knows(s) and p.slot_of(s) != 5:
+		if p.knows(s) and p.slot_of(s) != 5 and not GameData.skills[s].ascension:
 			sid = s
 			break
+	if sid != "":
+		w._book_tab = GameData.skills[sid].build if GameData.skills[sid].build != "" else "geral"     # janela J na aba da skill
+	w.toggle("book")
+	await get_tree().process_frame
+	await get_tree().process_frame
 	var card: Control = w.drag_sources.get(sid)
 	if card:
-		await _fake_drag(card, w.drag_sources["bar_5"])      # barra da própria janela K (o HUD fica atrás dela)
+		await _fake_drag(card, w.drag_sources["bar_5"])      # barra da própria janela J (o HUD fica atrás dela)
 	var got5: String = p.skills[5].id if p.skills.size() > 5 and p.skills[5] else ""
 	print("HOTBAR_DRAG skill K-bar %s slot6=%s ok=%s" % [sid, got5, got5 == sid and sid != ""])
 	w.close_all()
@@ -2160,7 +2162,9 @@ func _hotbar_clear_check() -> void:
 			break
 	bow_at = bow_at if bow_at >= 0 else 1
 	var was: String = p.skills[bow_at].id if p.skills[bow_at] else ""
-	w.toggle("skills")
+	if spare != "":
+		w._book_tab = GameData.skills[spare].build if GameData.skills[spare].build != "" else "geral"     # janela J na aba da skill
+	w.toggle("book")
 	await get_tree().process_frame
 	await get_tree().process_frame
 	var card: Control = w.drag_sources.get(spare)
@@ -2296,6 +2300,8 @@ func _bag_shot(path: String) -> void:
 		main.hud.windows_script._roteiro_band = DevArgs.value("--roteiro")
 	if DevArgs.flag("--char_tab"):       # janela C numa aba: --char_tab=status|sets
 		main.hud.windows_script._char_tab = DevArgs.value("--char_tab")
+	if DevArgs.flag("--book_tab"):       # janela J numa aba: --book_tab=<build>|geral|asc (com --wins=book)
+		main.hud.windows_script._book_tab = DevArgs.value("--book_tab")
 	if DevArgs.has("--picks"):           # janela K na aba Talentos (revisar as escolhas)
 		main.hud.windows_script._skills_tab = "picks"
 	if DevArgs.flag("--web_zoom"):       # teia: zoom e deslocamento iniciais (--web_pan=x,y em px), p.ex. a Fronteira inteira

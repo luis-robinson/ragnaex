@@ -67,6 +67,9 @@ var route_exit := false
 var ring_side := 0.0                   # contornando o povoado pelo anel: sentido escolhido (+1/-1; 0 = não está contornando)
 var ring_wp := Vector3.INF             # ponto do anel escolhido e até quando vale
 var ring_until := 0.0
+var ring_best := 0.0                   # contorno: menor ângulo restante (rad) já alcançado no sentido escolhido e quando
+var ring_best_t := 0.0
+var ring_bias := 0.0                   # quanto o sentido escolhido já era mais longo que o outro ao escolher (lado curto travado)
 var line_block: Dictionary = {}       # id -> sim.time: monstro calmo com a linha bloqueada (fora da escolha até lá)
 var door_id := ""                      # porta só do jogador onde o seguidor espera, e o ponto escolhido
 var door_spot := Vector3.INF
@@ -623,8 +626,10 @@ func _best_skill(e: SimEntity, sim, m: Dictionary, mob: SimEntity, dist: float) 
 			continue                        # um golpe só passaria o tanque (Meteoro, Executar): espera a ameaça dele crescer
 		# a sim recusaria (try_cast): sem companheiro para mandar, ou invocações no limite. Escolher assim travava o
 		# bot inteiro (pedia a mesma skill todo tick e nunca atacava nem andava: Caçador com o lince morto).
-		if (s.effects.has("pet_command") or s.effects.get("pet_buff", false)) and sim.pet_of(e) == null:
+		if (s.effects.has("pet_command") or s.effects.get("pet_buff", false) is bool and s.effects.get("pet_buff", false)) and sim.pet_of(e) == null:
 			continue
+		if not _fill_ok(e, sim, s, mob):
+			continue                        # skills do preenchimento (GDD skills-fill-2026-11-19): hora certa
 		if s.effects.has("summon") and sim._summons_full(e, s):
 			continue
 		if (s.effects.has("aura") and AuraSystem.aura_on(e, s)) or (str(s.effects.get("form", "")) != "" and e.form == str(s.effects["form"])):
@@ -646,7 +651,9 @@ func _best_skill(e: SimEntity, sim, m: Dictionary, mob: SimEntity, dist: float) 
 		if e.stealth_left > 0.0 and not (s.kind in [SkillDef.Kind.PHYSICAL, SkillDef.Kind.MAGICAL]):
 			continue                        # na sombra: só golpe (o resto quebraria a furtividade sem o bônus)
 		var score := 0.0
-		if FalconSystem.is_skill(s):         # Falcoeiro: chama o falcão, Mergulho na recarga, Olhos do Céu em chefe/barragem
+		if Balance.BOT_LOW_HP_SKILLS.has(s.id):     # Curativo de Campo: só com a vida baixa
+			score = Balance.BOT_LOW_HP_SCORE
+		elif FalconSystem.is_skill(s):         # Falcoeiro: chama o falcão, Mergulho na recarga, Olhos do Céu em chefe/barragem
 			score = FalconSystem.bot_score(e, s, mob, dist, m)
 			if score <= 0.0:
 				continue
@@ -666,6 +673,8 @@ func _best_skill(e: SimEntity, sim, m: Dictionary, mob: SimEntity, dist: float) 
 			if not ShadowSystem.bot_wants_clone(sim, e, dist):
 				continue
 			score = Balance.BOT_SHADOW_SCORE
+		elif s.effects.has("riposte"):       # Guarda do Duelista: hora certa em _fill_ok (golpe vindo / cercado)
+			score = Balance.BOT_RIPOSTE_SCORE
 		elif s.effects.has("execute"):       # Execução: só com o alvo abaixo do limiar (acima é um corte fraco)
 			if not ShadowSystem.executable(mob) or dist > s.range + 0.3:
 				continue
@@ -722,6 +731,23 @@ func _best_skill(e: SimEntity, sim, m: Dictionary, mob: SimEntity, dist: float) 
 			best_score = score
 			best = i
 	return best
+
+## Condições das skills do preenchimento (GDD skills-fill-2026-11-19): Oferenda só com mortos-vivos perto do alvo, Garra da
+## Cova nunca em chefe, finalizador do Executor espera a rachadura (se o Fender está pronto), Curativo só com a vida baixa.
+func _fill_ok(e: SimEntity, sim, s: SkillDef, mob: SimEntity) -> bool:
+	if s.effects.has("riposte"):
+		return RiposteSystem.bot_wants(sim, e)       # aparar: inimigo colado preparando golpe nele, ou cercado
+	if s.effects.get("sacrifice") is Dictionary:
+		return SummonRites.pick(sim, e, mob.position, s.effects["sacrifice"]).size() >= Balance.BOT_SACRIFICE_MIN
+	if s.effects.has("pull") and mob.monster_def != null and mob.monster_def.is_boss:
+		return false
+	if Balance.BOT_LOW_HP_SKILLS.has(s.id):
+		return e.hp <= e.stats.max_hp * float(Balance.BOT_LOW_HP_SKILLS[s.id])
+	if s.effects.get("sunder_consume") is Dictionary and SunderSystem.stacks(mob) < Balance.BOT_SUNDER_MIN 			and mob.hp > mob.stats.max_hp * Balance.BOT_SUNDER_LOW_HP:
+		for o: SkillDef in e.skills:
+			if o != null and o.effects.get("sunder") is Dictionary and e.level >= o.unlock_level and e.knows(o.id) and _ready_to_cast(e, o):
+				return false            # rachar primeiro: o Fender está pronto
+	return true
 
 ## A skill põe fogo ou veneno (dano no tempo que não é sangramento): corta a regeneração do troll (MobSystem.regen_blocked).
 static func cuts_regen(s: SkillDef) -> bool:
@@ -1131,7 +1157,7 @@ func _pick_monster(e: SimEntity, m: Dictionary) -> SimEntity:
 	var best: SimEntity = null
 	var best_score := INF
 	for o: SimEntity in m["entities"]:
-		if o.kind != SimEntity.Kind.MONSTER or not o.is_alive():
+		if o.kind != SimEntity.Kind.MONSTER or not o.is_alive() or o.monster_def.dummy:     # boneco de treino é do jogador
 			continue
 		if o.monster_def.is_boss and e.level < o.level + 2 and personality < 0.7:
 			continue
@@ -1434,7 +1460,10 @@ func _route(e: SimEntity, p: Vector3) -> Vector3:
 ## Fora do povoado: a linha até `p` corta o muro? Então contorna por um anel: candidatos a BOT_GATE_RING_STEP (ou meio)
 ## graus no sentido escolhido (uma vez por contorno), no anel a 1x..4x BOT_GATE_RING_PAD m do muro (o passo reto só para fora);
 ## vale o primeiro com a linha
-## livre (morro, torre ou casa colados no muro: abre o anel). Nada livre: tenta o outro sentido; senão o anel de sempre.
+## livre (morro, torre ou casa colados no muro: abre o anel).
+## Sentido com histerese: escolhido pelo lado curto e mantido até largar o contorno; só vira se o outro lado ficar
+## BOT_RING_FLIP_DEG mais curto ou se o escolhido passar BOT_RING_BLOCK_S s sem ponto livre (nem sem a água) — antes
+## virava num só pensamento sem ponto (ex.: na ponte da Floresta) e dava a volta longa. Nada livre: o anel de sempre.
 ## O ponto vale por 1 s ou até chegar (os testes de linha não rodam a cada pensamento).
 func _ring(e: SimEntity, p: Vector3, from_c: float) -> Vector3:
 	var c := cur_def.town_center
@@ -1452,17 +1481,29 @@ func _ring(e: SimEntity, p: Vector3, from_c: float) -> Vector3:
 		return ring_wp
 	var a0 := a2.angle()
 	var delta := wrapf(b2.angle() - a0, -PI, PI)
-	if ring_side == 0.0:
+	var fresh := ring_side == 0.0
+	var stalled := false
+	if fresh:
 		ring_side = 1.0 if delta >= 0.0 else -1.0
+	else:
+		var left := absf(_ring_travel(delta, ring_side))
+		if left - absf(_ring_travel(delta, -ring_side)) > maxf(ring_bias, 0.0) + deg_to_rad(Balance.BOT_RING_FLIP_DEG):
+			_ring_commit(-ring_side, delta, now)        # alvo mudou: o outro lado ficou bem mais curto
+		elif left < ring_best - deg_to_rad(Balance.BOT_RING_PROGRESS_DEG):
+			ring_best = left
+			ring_best_t = now
+		else:
+			stalled = now - ring_best_t >= Balance.BOT_RING_BLOCK_S     # parado neste sentido: pode tentar o outro
+	var may_flip: bool = fresh or stalled
+	var sides: Array = [ring_side] if not may_flip else ([ring_side, -ring_side] if fresh else [-ring_side, ring_side])
 	var m: Dictionary = cur_sim.maps.get(e.map_id, {}) if cur_sim else {}
 	# sem rio entre o bot e o alvo (ex.: em cima da ponte): passo do anel que põe um rio no meio não serve
 	var p2 := Vector2(p.x, p.z)
 	var clear_now: bool = not m.is_empty() and not MapGeometry.crosses_river(cur_sim, m, Vector2(e.position.x, e.position.z), p2)
 	var pick := Vector3.INF
 	for dry: bool in [false, true]:      # 1º com a água; nada livre: sem ela (o desvio pela ponte leva até o ponto)
-		for side: float in [ring_side, -ring_side]:
-			var travel := delta if signf(delta) == side or delta == 0.0 else delta + side * TAU
-			var full := minf(absf(travel), deg_to_rad(Balance.BOT_GATE_RING_STEP))
+		for side: float in sides:
+			var full := minf(absf(_ring_travel(delta, side)), deg_to_rad(Balance.BOT_GATE_RING_STEP))
 			var steps: Array = [0.0] if from_c < r + 3.0 else [full, full * 0.5, 0.0]     # colado no muro: sai reto primeiro
 			for k in range(1, 5):
 				var rad: float = r + Balance.BOT_GATE_RING_PAD * k
@@ -1481,18 +1522,38 @@ func _ring(e: SimEntity, p: Vector3, from_c: float) -> Vector3:
 				if pick != Vector3.INF:
 					break
 			if pick != Vector3.INF:
-				ring_side = side
+				if fresh or side != ring_side:
+					_ring_commit(side, delta, now)
 				break
 		if pick != Vector3.INF:
 			break
+	var hold := 1.0
 	if pick == Vector3.INF:
-		var travel0 := delta if signf(delta) == ring_side or delta == 0.0 else delta + ring_side * TAU
-		var st0 := 0.0 if from_c < r + 3.0 else minf(absf(travel0), deg_to_rad(Balance.BOT_GATE_RING_STEP))
-		var w0 := Vector2.from_angle(a0 + ring_side * st0) * (r + Balance.BOT_GATE_RING_PAD)
-		pick = cur_def.clamp_inside(c + Vector3(w0.x, 0.0, w0.y), 1.0)
+		if fresh:
+			_ring_commit(ring_side, delta, now)
+		if not may_flip:
+			hold = Balance.BOT_RING_HOLD_S
+		if not may_flip and ring_wp != Vector3.INF and Vector2(e.position.x - ring_wp.x, e.position.z - ring_wp.z).length() > 1.5:
+			pick = ring_wp                            # segura o ponto anterior (no mesmo sentido) e olha de novo logo
+		else:
+			var st0 := 0.0 if from_c < r + 3.0 else minf(absf(_ring_travel(delta, ring_side)), deg_to_rad(Balance.BOT_GATE_RING_STEP))
+			var w0 := Vector2.from_angle(a0 + ring_side * st0) * (r + Balance.BOT_GATE_RING_PAD)
+			pick = cur_def.clamp_inside(c + Vector3(w0.x, 0.0, w0.y), 1.0)
 	ring_wp = pick
-	ring_until = now + 1.0
+	ring_until = now + hold
 	return pick
+
+## Fixa o sentido do contorno: guarda o quanto ele já era mais longo que o outro (lado curto travado não volta pelo
+## ângulo) e zera o relógio de progresso.
+func _ring_commit(side: float, delta: float, now: float) -> void:
+	ring_side = side
+	ring_best = absf(_ring_travel(delta, side))
+	ring_best_t = now
+	ring_bias = ring_best - absf(_ring_travel(delta, -side))
+
+## Ângulo (rad, com sinal) a percorrer no anel do ângulo atual até o alvo (`delta` em -PI..PI) indo pelo sentido `side`.
+static func _ring_travel(delta: float, side: float) -> float:
+	return delta if signf(delta) == side or delta == 0.0 else delta + side * TAU
 
 ## Desvio dos rios pelas pontes: caminho recalculado quando o alvo muda ou a cada 1,5 s; avança ponto a ponto.
 func _water_step(e: SimEntity, p: Vector3, dt: float) -> Vector3:
@@ -1768,7 +1829,7 @@ func _party_threat(e: SimEntity, m: Dictionary, members: Array, leader: SimEntit
 	var best: SimEntity = null
 	var best_d := Balance.PARTY_ASSIST_RANGE
 	for o: SimEntity in m["entities"]:
-		if o.kind != SimEntity.Kind.MONSTER or not o.is_alive():
+		if o.kind != SimEntity.Kind.MONSTER or not o.is_alive() or o.monster_def.dummy:     # o grupo não ajuda no boneco de treino
 			continue
 		var d: float = o.position.distance_to(leader.position)
 		if d > best_d:

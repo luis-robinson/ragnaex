@@ -1280,6 +1280,9 @@ func _on_trap_placed(id: int, kind: String, pos: Vector3, radius: float, map_id:
 	if kind == TrapSystem.WALL:                # Muralha de Fogo: faixa atravessada, do tamanho real (TrapSystem.in_wall)
 		_fire_wall_fx(id, map_id)
 		return
+	if kind == TrapSystem.ZONE:                # Chão Sagrado / Estandarte da Fé: disco do tamanho real que pulsa
+		_zone_fx(id, map_id)
+		return
 	var look: Array = TRAP_LOOK.get(kind, TRAP_LOOK["jaw"])
 	var col: Color = look[0]
 	var n := Node3D.new()
@@ -1412,6 +1415,107 @@ func _miasma_fx(id: int, pos: Vector3, radius: float) -> void:
 	var tw := create_tween()
 	tw.tween_property(n, "scale", Vector3.ONE, 0.3).set_ease(Tween.EASE_OUT)
 	n.tree_exiting.connect(tw.kill)
+
+## Chão que fica (TrapSystem.place_zone): disco claro nos tons do tema (nunca vermelho cheio: gramática de aviso de chefe),
+## borda que respira no ritmo do pulso e motas subindo; o Estandarte da Fé ganha o mastro com o pano no centro.
+func _zone_fx(id: int, map_id: String) -> void:
+	var t: Dictionary = {}
+	for z in Sim.maps.get(map_id, {}).get("traps", []):
+		if z["id"] == id:
+			t = z
+	if t.is_empty():
+		return
+	var theme: String = str(t.get("theme", "holy"))
+	var pal: Array = SkillFx.PALETTE.get(theme, SkillFx.PALETTE["holy"])
+	var col: Color = pal[0]
+	var light: Color = pal[1]
+	var radius := float(t["radius"])
+	var n := Node3D.new()
+	n.position = t["pos"]
+	n.set_meta("theme", theme)
+	add_child(n)
+	_traps[id] = n
+	var bed := _disc(radius, Color(light.r, light.g, light.b, 0.16))
+	bed.position.y = 0.035
+	n.add_child(bed)
+	var ring := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = 0.95
+	tm.outer_radius = 1.0
+	tm.rings = 40
+	tm.ring_segments = 4
+	ring.mesh = tm
+	ring.material_override = Materials.glow(Color(col, 0.6), 1.3)
+	ring.scale = Vector3(radius, 0.3, radius)
+	ring.position.y = 0.05
+	n.add_child(ring)
+	var motes := CPUParticles3D.new()       # motas de luz subindo do chão
+	motes.amount = int(clampf(radius * radius * 2.5, 16.0, 60.0))
+	motes.lifetime = 1.6
+	motes.preprocess = 0.8
+	motes.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+	motes.emission_ring_axis = Vector3.UP
+	motes.emission_ring_radius = radius * 0.95
+	motes.emission_ring_inner_radius = 0.0
+	motes.emission_ring_height = 0.05
+	motes.direction = Vector3.UP
+	motes.spread = 10.0
+	motes.gravity = Vector3(0, 0.6, 0)
+	motes.initial_velocity_min = 0.3
+	motes.initial_velocity_max = 0.8
+	motes.scale_amount_min = 0.12
+	motes.scale_amount_max = 0.25
+	var qm := QuadMesh.new()
+	qm.size = Vector2.ONE
+	var fm := StandardMaterial3D.new()
+	fm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	fm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	fm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	fm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	fm.vertex_color_use_as_albedo = true
+	fm.albedo_texture = SkillFx.soft()
+	qm.material = fm
+	motes.mesh = qm
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(light, 0.9))
+	ramp.set_color(1, Color(col, 0.0))
+	motes.color_ramp = ramp
+	motes.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	n.add_child(motes)
+	if str(t.get("zone", "")) == "faith_banner":       # o estandarte fincado
+		var pole := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = 0.04
+		cm.bottom_radius = 0.05
+		cm.height = 2.6
+		pole.mesh = cm
+		pole.material_override = Materials.toon(Color(0.55, 0.42, 0.28))
+		pole.position.y = 1.3
+		n.add_child(pole)
+		var cloth := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(0.75, 1.0, 0.03)
+		cloth.mesh = bm
+		cloth.material_override = Materials.toon(Color(0.95, 0.92, 0.82))
+		cloth.position = Vector3(0.4, 2.0, 0.0)
+		n.add_child(cloth)
+		var mark := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 0.16
+		sm.height = 0.32
+		mark.mesh = sm
+		mark.material_override = Materials.glow(col, 1.6)
+		mark.position = Vector3(0.4, 2.05, 0.03)
+		n.add_child(mark)
+	var tw := create_tween().set_loops()     # borda respira no ritmo do pulso
+	var half := maxf(0.1, float(t.get("pulse", 1.0)) * 0.5)
+	tw.tween_property(ring, "scale", Vector3(radius * 1.04, 0.45, radius * 1.04), half)
+	tw.tween_property(ring, "scale", Vector3(radius, 0.3, radius), half)
+	n.tree_exiting.connect(tw.kill)
+	n.scale = Vector3(0.2, 1.0, 0.2)
+	var grow := create_tween()
+	grow.tween_property(n, "scale", Vector3.ONE, 0.25).set_ease(Tween.EASE_OUT)
+	n.tree_exiting.connect(grow.kill)
 
 ## Muralha de Fogo: faixa brilhante no chão (2 × half_len por 2 × half_w) com chamas subindo ao longo dela.
 func _fire_wall_fx(id: int, map_id: String) -> void:

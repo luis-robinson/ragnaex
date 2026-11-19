@@ -1726,8 +1726,21 @@ static func load_zone(id: String) -> Dictionary:
 		"town_center": _v3(z["town"]["center"]), "town_radius": float(z["town"]["radius"]), "town_gates": gates,
 		"roads": roads, "water": water, "water_tints": water_tints, "model": "map_" + id, "places": places, "road_events": road_events}
 
+## Bonecos de treino (monstro `training_dummy`, MonsterDef.dummy): [x, z] por mapa, um spawner fixo (raio 0) por boneco.
+## Aldara: entre o portão oeste e o rio, ao sul da estrada da ponte.
+const TRAINING_DUMMIES := {
+	"city_aldara": [[-38.5, -8.0], [-42.0, -9.6], [-45.5, -11.2]],
+}
+
+static func training_dummies(map_id: String) -> Array:
+	var out: Array = []
+	for p in TRAINING_DUMMIES.get(map_id, []):
+		out.append(_sp("training_dummy", float(p[0]), float(p[1]), 0.0, 1, 5.0))
+	return out
+
 static func _aldara() -> MapDef:
 	var z := load_zone("city_aldara")
+	z["spawners"] = (z["spawners"] as Array) + training_dummies("city_aldara")
 	var npcs: Array = []
 	var npc_pos: Dictionary = z.get("npc_pos", {})
 	for nid in ALDARA_NPCS:

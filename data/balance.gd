@@ -16,6 +16,7 @@ const BUILD_POWER := {"inquisidor": 0.6, "ceifador": 0.85, "invocador": 0.85, "c
 const SIGNATURE_BUILD_POWER := {
 	"punhos": 0.8, "fera": 0.8, "xama": 0.85, "lanceiro": 0.8, "laminas": 0.8, "duelista": 0.55, "corsario": 0.7,
 	"gelo": 0.9, "ceifador": 0.8, "pestilento": 0.7,
+	"guardiao_verde": 0.85,     # Urso: assinatura = Esmagar (cone do malho), não mais o Fogo Lunar do Xamã (2026-11-19)
 }
 ## Números do efeito da arma lendária de cada build ([base, por tier] ou fixo); kind/name/skill ficam na build
 ## (classes_catalog `legend`). Tipos e regras em LegendEffects. Toda build tem entrada (há check).
@@ -263,6 +264,9 @@ const BIG_SWING_REACH_MULT := 1.4          # alcance do golpe básico x1,4
 const BIG_SWING_ARC_DEG := 150.0           # e arco mais aberto (o normal é 110°)
 const BIG_SWING_MAX_TARGETS := 4           # acerta até 4 (o normal é 2)
 const BUFF_DURATION_CAP := 80.0            # % máximo de duração extra das bênçãos
+## Buffs de "ligar e esquecer" (armaduras, bênçãos, hinos, Pacto Sombrio, Matilha, Lâmina Pestilenta; decisão 2026-11-19):
+## duram isto. Os de explosão curta (Fúria, Ira Vingadora, Muralha, Reflexos...) e os escudos absorventes continuam curtos.
+const BUFF_KEEP_S := 60.0
 const RADIANCE_CAP := 40.0                 # % máximo de Radiância
 const RADIANCE_RANGE := 10.0               # m: alcance da cura da Radiância
 ## Postura de tanque: ameaça a mais gerada pelo dano na forma de Urso (o mesmo papel da Aura do Bastião do Guardião, +150%);
@@ -386,6 +390,11 @@ const TROLL_REGEN_LINGER := 2.0        # s sem regenerar depois do fogo/veneno
 const BOT_REGEN_CUT_SCORE := 1.6       # bot: peso da skill de fogo/veneno contra troll que está regenerando (BotBrain._best_skill)
 const BOT_FUSION_SCORE := 2.5           # bot: peso da skill que dispara a Fusão na hora certa (E1 Vapor: gelo em alvo que queima; FusionEffects.bot_skill_mult)
 const TROLL_REGEN_BUFF := "troll_regen"   # brilho verde enquanto regenera (BuffLooks); some quando queima
+
+## Boneco de treino (MonsterDef.dummy; MobSystem.update_dummy): nunca cai de 1 HP; sem levar golpe por DUMMY_REGEN_DELAY s
+## volta à vida cheia em ~1/DUMMY_REGEN_PCT s e ao lugar dele. Só o jogador (e as invocações dele) o acertam.
+const DUMMY_REGEN_DELAY := 4.0         # s sem dano até começar a se recompor
+const DUMMY_REGEN_PCT := 0.5           # fração da vida por segundo depois disso (2 s do zero ao cheio)
 
 ## Foco dos bots num bando (GDD ato2-horda AC-20, pergunta 7; BotBrain._focus): quem emite aura de facção (Agitador), quem
 ## dá grito de guerra (rally) e, para quem tem fogo/veneno, o troll que regenera. Vale só fora de luta de chefe; o tanque
@@ -683,6 +692,7 @@ const GLORY_KEEP_TIME := 6.0                      # s a mais até a Glória esfr
 const STORM_STUN_CHANCE := 15.0            # % de chance de skill de raio atordoar no golpe direto (a que já atordoa não rola)
 const STORM_STUN_TIME := 0.5              # s (chefes: 40%, como todo atordoar)
 const FROST_SHATTER_MULT := 1.3            # skill de gelo em alvo retardado/preso/atordoado: +30% de dano ("estilhaço")
+const FROST_ASPD_SLOW := 25.0              # % de velocidade de ataque a menos sob lentidão de gelo (decisão 2026-11-19; Combat.frost_attack_mult)
 const HIT_POISON_TIME := 4.0              # s do veneno que o golpe aplica (renova a cada golpe)
 const BACKSTAB_ARC := -0.35               # cos do ângulo: atrás do alvo = dot(frente do alvo, alvo->atacante) abaixo disso
 const BACKSTAB_CRIT := 25.0               # +crítico pelas costas
@@ -720,6 +730,10 @@ const BOT_GATE_CROSS_HYST := 2.0           # m a mais para largar o contorno (se
 const BOT_GATE_RING_PAD := 6.0             # m além do muro: anel por onde o bot contorna o povoado
 const BOT_GATE_RING_STEP := 30.0           # graus por ponto do anel (do ângulo do bot para o do destino)
 const BOT_GATE_CLEAR := 3.5                # m além (ou aquém) do muro: até aqui o portão escolhido vale (sem ida e volta no vão)
+const BOT_RING_FLIP_DEG := 40.0            # graus: contornando, só vira de sentido se o outro lado ficar isto mais curto (que ao escolher)
+const BOT_RING_BLOCK_S := 2.5              # s sem avançar BOT_RING_PROGRESS_DEG no sentido escolhido até poder tentar o outro
+const BOT_RING_PROGRESS_DEG := 3.0         # graus de anel que contam como avanço no contorno
+const BOT_RING_HOLD_S := 0.3               # s: sem ponto livre, segura o ponto anterior e olha de novo
 const BOT_CHASE_PROGRESS := 1.0            # m: chegar isto mais perto do alvo conta como progresso
 const BOT_CHASE_STALL := 4.0               # s sem progresso indo ao alvo (ou ao ponto de caça): larga
 const BOT_UNREACHABLE_IGNORE := 20.0       # s ignorando o monstro largado por inalcançável
@@ -1699,7 +1713,66 @@ const FALCON_DIVE_SHOW := 0.7             # s que o desenho leva no mergulho (id
 ## Teto do "dano recebido" somado das MARCAS num alvo (várias fontes/caçadores): Marca do Predador (Lanceiro), Presa,
 ## arma lendária `mark` (Marca do Caçador). As outras maldições (Necromante, Assassino, Paladino) somam por fora, como antes.
 const MARK_TAKEN_CAP := 25.0
-const MARK_CURSES := ["predator", "legend_mark", "falcon_prey"]
+const MARK_CURSES := ["predator", "legend_mark", "falcon_prey", "sunder"]
+
+## --- Preenchimento de skills (GDD design/gdd/skills-fill-2026-11-19.md): as 4 mecânicas novas ---
+## M1 "zone" (TrapSystem.place_zone): chão que fica `duration` s e pulsa a cada `pulse` s: inimigos dentro levam
+## foe_power x ATK/MATK (sem crítico; a AGI esquiva) e o `dot` da skill renova; aliados dentro (você incluso) recebem
+## ally_heal x a cura (Combat.calc_heal) e o ally_buff por pulse + ZONE_BUFF_LINGER s; foe_slow = % de lentidão no pulso.
+## Uma zona por (lançador, skill): lançar de novo apaga a antiga; some com o dono morto ou fora do mapa.
+const ZONE_BUFF_LINGER := 0.5
+const HALLOWED_ZONE := {"id": "hallowed", "duration": 6.0, "pulse": 1.0, "foe_power": 0.25, "ally_heal": 0.0,
+	"ally_buff": {"id": "hallowed", "def_pct": 10}}          # Chão Sagrado (Templário)
+const FAITH_BANNER_ZONE := {"id": "faith_banner", "duration": 8.0, "pulse": 1.0, "foe_power": 0.2, "ally_heal": 0.25,
+	"foe_slow": 20.0}                                        # Estandarte da Fé (Clérigo de Batalha)
+## M2 "sunder" (SunderSystem): cada acerto põe/renova o debuff SUNDER_ID no alvo (um por alvo, de qualquer Executor):
+## +taken_per % de dano recebido por carga até `max` (é MARCA: teto MARK_TAKEN_CAP). Skill com "sunder_consume": antes do
+## golpe lê as cargas, power x (1 + per x cargas) e zera. Chefe acumula normal (não é controle).
+const SUNDER_ID := "sunder"
+const SUNDER := {"add": 1, "taken_per": 4.0, "max": 5, "duration": 8.0}     # Fender Armadura
+const SUNDER_CONSUME := {"per": 0.10}                      # Golpe Avassalador, Executar, Decapitar
+## M3 "seed" (SeedSystem): debuff "seed_<lançador>" no alvo; ao fim de `delay` s OU na morte do alvo explode em `radius` m:
+## power x MATK em até max_targets inimigos (o alvo, se vivo, incluso) e, com spread_dot, a queimadura da skill neles
+## (pelo teto de cópias por skill). A explosão não planta semente. Relançar renova; dono morto/fora do mapa: some sem explodir.
+const EMBER_SEED := {"delay": 4.0, "radius": 3.0, "power": 1.4, "spread_dot": true, "max_targets": 6}     # Semente Ígnea
+## M4 "sacrifice" (SummonRites): até `max` invocações SUAS a pick_radius m do ponto (as mais perto primeiro), fora as de
+## SACRIFICE_EXCLUDE, explodem em blast_radius: power x (1 - hp_weight + hp_weight x % de vida dela) x MATK, e morrem sem
+## XP/saque. Sem nenhuma elegível a skill é recusada antes de gastar MP.
+const DARK_OFFERING := {"pick_radius": 6.0, "max": 4, "blast_radius": 3.0, "hp_weight": 0.5}     # Oferenda Sombria
+const SACRIFICE_EXCLUDE := ["skeleton_king", "lich_servant", "companion", "spirit_wolf", "treant", "ranger_turret", "fire_elemental", "frost_elemental", "storm_elemental"]
+## Onda 2 (GDD skills-fill §8). Ferida/veneno (WoundSystem.is_wound) = dano no tempo SEU que não é queimadura nem o
+## sangramento por % do ATK do Lanceiro. Eviscerar ("combust" kind poison): os venenos saem, o que faltava explode
+## x detonate e o golpe ganha `per` de poder por veneno consumido (até `max`).
+const EVISCERATE_POISON := {"kind": "poison", "detonate": 1.25, "per": 0.10, "max": 5}
+## Sangria (Carniceiro): cura `pct`% da vida máx. por inimigo atingido que sangrava (ferida sua), até `max` alvos.
+const WOUND_WHIRL := {"pct": 5.0, "max": 4}
+const WOUND_WHIRL_TALENT_PCT := 7.0       # talento Redemoinho Sedento (Berserker 25) na Sangria
+## Presas Gêmeas: +add s nas feridas suas em cada atingido, sem passar de `cap` s restantes.
+const WOUND_EXTEND := {"add": 2.0, "cap": 8.0}
+## Aparar do Duelista (RiposteSystem, Guarda do Duelista): janela RIPOSTE_WINDOW s; golpe direto de quem está a até
+## RIPOSTE_RANGE m, dentro do arco da guarda, sai 0 (chefe: -RIPOSTE_BOSS_CUT) e devolve RIPOSTE_COUNTER_PCT% do ATK
+## (até RIPOSTE_MAX_COUNTERS por janela). Cada aparada dá 1 Ímpeto (+crítico por carga); o Golpe de Mestre gasta todos.
+const RIPOSTE_BUFF := "duel_guard"
+const RIPOSTE_WINDOW := 1.0
+const RIPOSTE_CD := 8.0
+const RIPOSTE_RANGE := 4.0
+const RIPOSTE_BOSS_CUT := 0.6
+const RIPOSTE_COUNTER_PCT := 80.0
+const RIPOSTE_MAX_COUNTERS := 2
+const RIPOSTE_MOMENTUM_BUFF := "impeto"
+const RIPOSTE_MOMENTUM_MAX := 3
+const RIPOSTE_MOMENTUM_CRIT := 5.0
+const RIPOSTE_MOMENTUM_TIME := 10.0
+const RIPOSTE_SPEND_PCT := 20.0           # Golpe de Mestre: +% de poder por carga de Ímpeto gasta
+const BOT_RIPOSTE_SCORE := 6.0            # bot: Guarda quando o inimigo colado prepara um golpe nele
+const BOT_RIPOSTE_CROWD := 2              # ... ou com tantos inimigos em cima dele
+## Bots: finalizador que gasta a rachadura espera o Fender (pronto) até BOT_SUNDER_MIN cargas (ou alvo abaixo de
+## BOT_SUNDER_LOW_HP); Oferenda só com BOT_SACRIFICE_MIN mortos-vivos perto do alvo; skills de "vida baixa" (fração da vida).
+const BOT_SUNDER_MIN := 3
+const BOT_SUNDER_LOW_HP := 0.25
+const BOT_SACRIFICE_MIN := 3
+const BOT_LOW_HP_SKILLS := {"ran_field_dressing": 0.45}
+const BOT_LOW_HP_SCORE := 3.0
 const BOT_FALCON_CALL_SCORE := 5.0        # bot: chama o falcão antes de tudo (uma vez; fica até o dono cair)
 const BOT_FALCON_DIVE_SCORE := 3.6        # bot: Mergulho sempre que sai da recarga (no alvo do tanque)
 const BOT_FALCON_EYES_SCORE := 3.2        # bot: Olhos do Céu em chefe (abertura e a cada recarga) e quando aparece barragem

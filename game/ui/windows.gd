@@ -14,10 +14,10 @@ var _preview_model: Node3D = null       # prévia 3D da janela de personagem
 var _preview_yaw := 0.0
 var _preview_drag := 0.0
 
-const TITLES := {"inventory": "Bolsa", "character": "Personagem", "skills": "Teia de Skills", "quests": "Quests", "party": "Grupo"}
-const KEYS := {"inventory": "I", "character": "C", "skills": "K", "quests": "L", "party": "P"}
+const TITLES := {"inventory": "Bolsa", "character": "Personagem", "skills": "Teia de Skills", "quests": "Quests", "party": "Grupo", "book": "Skills"}
+const KEYS := {"inventory": "I", "character": "C", "skills": "K", "quests": "L", "party": "P", "book": "J"}
 ## tamanho do conteúdo (a moldura soma título e bordas); base 1600×900
-const SIZES := {"inventory": Vector2(392, 470), "character": Vector2(566, 340), "skills": Vector2(1110, 720), "quests": Vector2(620, 600), "party": Vector2(430, 480)}
+const SIZES := {"inventory": Vector2(392, 470), "character": Vector2(566, 340), "skills": Vector2(1110, 720), "quests": Vector2(620, 600), "party": Vector2(430, 480), "book": Vector2(1010, 690)}
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -37,9 +37,9 @@ func _ready() -> void:
 	add_child(tooltip)
 	Events.item_gained.connect(func(id, _i, _c): _maybe_refresh(id, ["inventory"]))
 	Events.item_removed.connect(func(id, _i, _c): _maybe_refresh(id, ["inventory"]))
-	Events.equipment_changed.connect(func(id): _maybe_refresh(id, ["inventory", "character"]))
-	Events.mastery_changed.connect(func(id, _s, _l): _maybe_refresh(id, ["skills", "character"]))
-	Events.level_up.connect(func(id, _l): _maybe_refresh(id, ["skills", "character"]))
+	Events.equipment_changed.connect(func(id): _maybe_refresh(id, ["inventory", "character", "book"]))
+	Events.mastery_changed.connect(func(id, _s, _l): _maybe_refresh(id, ["skills", "character", "book"]))
+	Events.level_up.connect(func(id, _l): _maybe_refresh(id, ["skills", "character", "book"]))
 	Events.quest_accepted.connect(func(id, _q): _maybe_refresh(id, ["quests"]))
 	Events.quest_completed.connect(func(id, _q): _maybe_refresh(id, ["quests"]))
 	Events.quest_abandoned.connect(func(id, _q): _maybe_refresh(id, ["quests"]))
@@ -153,12 +153,15 @@ func _rebuild(name: String) -> void:
 		"skills": _skills(body)
 		"quests": _quests(body)
 		"party": _party(body)
+		"book": _book(body)
 	panel.reset_size()
 	if pos.x < 0:
 		pos = _pos.get(name, _default_pos(name, panel.size))
 	panel.position = _clamp_pos(pos, panel.size)
 	if keep_scroll > 0:
 		scroll.set_deferred("scroll_vertical", keep_scroll)
+	if name == "skills" and wins.has("book"):
+		_rebuild("book")          # gastou ponto na teia/talento: os números da janela J mudam
 
 func _clamp_pos(p: Vector2, size: Vector2) -> Vector2:
 	var vp := get_viewport_rect().size
@@ -838,7 +841,7 @@ func _skills(body: VBoxContainer) -> void:
 	row.add_theme_constant_override("separation", 12)
 	body.add_child(row)
 	row.add_child(_tree_view(p, _skills_tab == "asc") if _skills_tab != "picks" else _picks_view(p))
-	row.add_child(_known_skills(p))
+	row.add_child(_bar_column(p))
 
 func _set_skills_tab(t: String) -> void:
 	_skills_tab = t
@@ -1373,17 +1376,13 @@ func _tree_tip(p: SimEntity, n: Dictionary, owned: bool, why: String) -> String:
 	return t
 
 ## Coluna direita: barra 1-6 e skills conhecidas (clique num número = põe a skill nesse slot; só na cidade).
-func _known_skills(p: SimEntity) -> Control:
-	var col := VBoxContainer.new()
-	col.custom_minimum_size.x = 300
-	col.add_theme_constant_override("separation", 6)
-	col.add_child(UiKit.label("Barra (1-6)" if p.skills.size() <= Balance.SKILL_SLOTS else "Barra (1-6 · ascensão 7 8 9 0)", 14, UiKit.GOLD))
+## Barra 1-6 (e 7 8 9 0 da ascensão): clique tira, solta uma skill arrastada (janelas K e J).
+func _bar_grid(p: SimEntity, cols: int, w: int) -> GridContainer:
 	var bar := GridContainer.new()
-	bar.columns = 3
-	col.add_child(bar)
+	bar.columns = cols
 	for i in range(maxi(Balance.SKILL_SLOTS, p.skills.size())):
 		var sk: SkillDef = p.skills[i] if i < p.skills.size() else null
-		var b := UiKit.button("%s  %s" % [ActionBar.key_of(i), sk.name if sk else "—"], func(): Sim.set_skill_slot(p, i, ""), 96)
+		var b := UiKit.button("%s  %s" % [ActionBar.key_of(i), sk.name if sk else "—"], func(): Sim.set_skill_slot(p, i, ""), w)
 		if i >= Balance.SKILL_SLOTS:
 			b.add_theme_color_override("font_color", Color(1.0, 0.85, 0.45))
 		b.add_theme_font_size_override("font_size", 11)
@@ -1393,41 +1392,142 @@ func _known_skills(p: SimEntity) -> Control:
 		b.set_drag_forwarding(Callable(), _can_drop_skill, _drop_skill.bind(i))
 		drag_sources["bar_%d" % i] = b
 		bar.add_child(b)
-	col.add_child(UiKit.para("Arraste uma skill para a barra 1-6 (aqui ou no HUD; as de ascensão vão em 7 8 9 0); botão direito na barra tira. Trocar a barra: só na cidade. ✖ = a arma equipada não serve.", 11, UiKit.MUTED))
+	return bar
+
+## Coluna da janela K: a barra e o atalho para a janela de Skills (J), onde ficam as skills com os números de agora.
+func _bar_column(p: SimEntity) -> Control:
+	var col := VBoxContainer.new()
+	col.custom_minimum_size.x = 300
+	col.add_theme_constant_override("separation", 6)
+	col.add_child(UiKit.label("Barra (1-6)" if p.skills.size() <= Balance.SKILL_SLOTS else "Barra (1-6 · ascensão 7 8 9 0)", 14, UiKit.GOLD))
+	col.add_child(_bar_grid(p, 3, 96))
 	col.add_child(UiKit.hsep(4))
-	col.add_child(UiKit.label("Skills conhecidas", 14, UiKit.GOLD))
-	col.add_child(UiKit.para("Skills chegam sozinhas no nível delas. Aprimore o rank (M1-M%d) com o Mestre de Skills da cidade." % Balance.MASTERY_MAX, 11, UiKit.MUTED))
+	col.add_child(UiKit.button("Abrir Skills  [J]", func(): toggle("book"), 200))
+	col.add_child(UiKit.para("Na janela de Skills (J): as skills por build, com dano, custo, recarga, área e efeitos de agora (mudam com a teia, os talentos, o rank e o equipamento). Arraste para a barra ou use os botões 1-6.", 11, UiKit.MUTED))
+	return col
+
+# --- Janela de Skills (J) ------------------------------------------------------------------------
+var _book_tab := ""             # id da build | "geral" | "asc"; "" = a build principal do personagem
+
+## Abas: as builds da classe, "Gerais" (skills sem build) e "Ascensão" (a partir do nível de ascensão).
+func _book_tabs(p: SimEntity) -> Array:
+	var tabs: Array = []
+	for b in p.class_def.builds:
+		tabs.append([str(b["id"]), str(b["name"])])
+	tabs.append(["geral", "Gerais"])
+	if p.level >= Balance.ASC_LEVEL and p.class_def.skill_ids.any(func(sid): return GameData.skills[sid].ascension):
+		tabs.append(["asc", "Ascensão"])
+	return tabs
+
+## Skills da aba, por nível (conhecidas e bloqueadas).
+func _book_skills(p: SimEntity, tab: String) -> Array:
+	var out: Array = []
 	for sid in p.class_def.skill_ids:
-		if not p.knows(sid):
-			continue
 		var sk: SkillDef = GameData.skills[sid]
-		var card := PanelContainer.new()
-		card.add_theme_stylebox_override("panel", UiKit.panel_style(UiKit.BG_LIGHT, Color(0.3, 0.28, 0.35), 5, 1))
-		card.mouse_entered.connect(func(): show_tip(UiKit.skill_tooltip(p, sk)))
-		card.mouse_exited.connect(hide_tip)
-		card.set_drag_forwarding(_drag_skill.bind(sk), Callable(), Callable())     # arrastar para a barra 1-6 do HUD
-		drag_sources[sid] = card
-		col.add_child(card)
-		var v := VBoxContainer.new()
-		card.add_child(v)
-		var h := HBoxContainer.new()
-		v.add_child(h)
-		h.add_child(UiKit.skill_icon(sk, 24))
-		var nm := UiKit.label("%s  · M%d/%d" % [sk.name, p.mastery_of(sid), Balance.MASTERY_MAX], 12, UiKit.GOLD if p.mastery_of(sid) >= Balance.MASTERY_MAX else UiKit.TEXT)
-		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		nm.clip_text = true
-		h.add_child(nm)
+		if sk.mount_only:
+			continue
+		if (tab == "asc" and sk.ascension) or (tab == "geral" and not sk.ascension and sk.build == "") or (tab == sk.build and not sk.ascension):
+			out.append(sk)
+	return out
+
+func _set_book_tab(t: String) -> void:
+	_book_tab = t
+	_rebuild("book")
+
+func _book(body: VBoxContainer) -> void:
+	var p: SimEntity = Sim.player
+	var tabs := _book_tabs(p)
+	var ids: Array = tabs.map(func(t): return t[0])
+	if not ids.has(_book_tab):
+		var main := LegendEffects.signature_build(p)
+		_book_tab = main if ids.has(main) else str(ids[0])
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 6)
+	body.add_child(top)
+	for t in tabs:
+		var n := _book_skills(p, t[0]).filter(func(sk): return p.knows(sk.id)).size()
+		var tb := UiKit.button("%s (%d)" % [t[1], n], _set_book_tab.bind(t[0]), 150)
+		tb.toggle_mode = true
+		tb.button_pressed = _book_tab == t[0]
+		top.add_child(tb)
+	var fill := Control.new()
+	fill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(fill)
+	top.add_child(UiKit.label("Números de agora, contra alvo sem defesa", 11, UiKit.MUTED))
+	body.add_child(_bar_grid(p, 6, 158))
+	body.add_child(UiKit.para("Arraste uma skill para a barra (aqui ou no HUD) ou use os botões 1-6 do cartão; clique na barra para tirar. Trocar a barra: só na cidade.", 11, UiKit.MUTED))
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
+	body.add_child(grid)
+	for sk in _book_skills(p, _book_tab):
+		grid.add_child(_book_card(p, sk))
+
+const BOOK_KIND := {SkillDef.Kind.PHYSICAL: "física", SkillDef.Kind.MAGICAL: "mágica", SkillDef.Kind.HEAL: "cura", SkillDef.Kind.BUFF: "buff", SkillDef.Kind.SUMMON: "invocação", SkillDef.Kind.MOVEMENT: "movimento"}
+
+func _book_card(p: SimEntity, sk: SkillDef) -> Control:
+	var known := p.knows(sk.id)
+	var fits := p.stats.meets(sk.requires)
+	var slot := p.slot_of(sk.id) if known else -1
+	var card := PanelContainer.new()
+	card.custom_minimum_size.x = 496
+	var edge := UiKit.GOLD if slot >= 0 else Color(0.3, 0.28, 0.35)
+	card.add_theme_stylebox_override("panel", UiKit.panel_style(UiKit.BG_LIGHT if known else Color(0.1, 0.09, 0.12, 0.95), edge, 5, 1))
+	if known:
+		card.set_drag_forwarding(_drag_skill.bind(sk), Callable(), Callable())     # arrastar para a barra
+		drag_sources[sk.id] = card
+	card.mouse_entered.connect(show_tip.bind(UiKit.skill_tooltip(p, sk)))
+	card.mouse_exited.connect(hide_tip)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 3)
+	card.add_child(v)
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 8)
+	v.add_child(h)
+	h.add_child(UiKit.skill_icon(sk, 40))
+	var names := VBoxContainer.new()
+	names.add_theme_constant_override("separation", 0)
+	names.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(names)
+	var r := SkillSheet.resolved(p, sk)
+	var title := r.name if r.name != "" else sk.name
+	names.add_child(UiKit.label("%s   M%d/%d" % [title, p.mastery_of(sk.id), Balance.MASTERY_MAX] if known else title, 14, UiKit.TEXT if known else UiKit.MUTED))
+	var sub := "Nv %d · %s · %s" % [sk.unlock_level, BOOK_KIND.get(sk.kind, ""), SkillSheet.TARGETS.get(r.target, "")]
+	if slot >= 0:
+		sub += " · na barra: %s" % ActionBar.key_of(slot)
+	names.add_child(UiKit.label(sub, 11, UiKit.GOLD if slot >= 0 else UiKit.MUTED))
+	if not known:
+		v.add_child(UiKit.label("Chega no nível %d" % sk.unlock_level, 12, Color(1.0, 0.62, 0.5)))
+	elif not fits:
+		v.add_child(UiKit.label("✖ Exige: %s" % Sim.requires_text(sk.requires), 12, Color(1.0, 0.5, 0.45)))
+	var rows := GridContainer.new()
+	rows.columns = 2
+	rows.add_theme_constant_override("h_separation", 10)
+	rows.add_theme_constant_override("v_separation", 0)
+	v.add_child(rows)
+	for row in SkillSheet.rows(p, sk):
+		var k := UiKit.label(str(row[0]), 12, UiKit.GOLD if known else UiKit.MUTED, false)
+		k.custom_minimum_size.x = 70
+		rows.add_child(k)
+		var val := UiKit.label(str(row[1]), 12, UiKit.TEXT if known else UiKit.MUTED, false)
+		val.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		val.custom_minimum_size.x = 390
+		rows.add_child(val)
+	if known:
 		var slots := HBoxContainer.new()
+		slots.add_theme_constant_override("separation", 4)
 		v.add_child(slots)
-		var cur := p.slot_of(sid)
 		for i in (range(Balance.SKILL_SLOTS, p.skills.size()) if sk.ascension else range(Balance.SKILL_SLOTS)):     # ascensão: só 7 8 9 0
-			var sb := UiKit.button(ActionBar.key_of(i), func(): Sim.set_skill_slot(p, i, sid), 26)
+			var sb := UiKit.button(ActionBar.key_of(i), func(): Sim.set_skill_slot(p, i, sk.id), 30)
 			sb.add_theme_font_size_override("font_size", 11)
-			if i == cur:
+			if i == slot:
 				sb.add_theme_color_override("font_color", UiKit.GOLD)
 				sb.add_theme_stylebox_override("normal", UiKit.panel_style(Color(0.35, 0.28, 0.12), UiKit.GOLD, 4, 1))
 			slots.add_child(sb)
-	return col
+	else:
+		card.modulate = Color(1, 1, 1, 0.75)
+	return card
 
 func _drag_skill(_at: Vector2, sk: SkillDef) -> Variant:
 	hide_tip()

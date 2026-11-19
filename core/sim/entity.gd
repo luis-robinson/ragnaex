@@ -130,6 +130,8 @@ var last_cmd: InputCommand = InputCommand.new()
 var aggro_target: int = -1
 var aggro_timer: float = 0.0
 var last_damage_from: int = -1
+var hurt_at: float = -1000.0         # Sim.time do último dano levado (boneco de treino: quando se recompõe)
+var player_owned := false            # invocação do jogador (ou de uma invocação dele): pode bater no boneco de treino
 var threat: Dictionary = {}          # attacker_id -> ameaça (dano + provocações); decide o alvo
 var damage_by: Dictionary = {}       # attacker_id -> dano real; decide quem levou o abate
 var taunt_left: float = 0.0          # s preso no alvo atual
@@ -215,9 +217,16 @@ func is_perched() -> bool:
 func is_character() -> bool:
 	return kind == Kind.PLAYER or kind == Kind.BOT
 
+## Boneco de treino (MonsterDef.dummy).
+func is_dummy() -> bool:
+	return monster_def != null and monster_def.dummy
+
 func is_hostile_to(other: SimEntity) -> bool:
 	if other == null or other == self or shade or other.shade or spirit or other.spirit:
 		return false                        # clone de sombra / espírito (Anjo Guardião): ninguém os mira nem acerta, e eles não miram ninguém
+	if is_dummy() or other.is_dummy():      # boneco de treino: só contra o jogador e as invocações dele (simétrico)
+		var o: SimEntity = other if is_dummy() else self
+		return not o.is_dummy() and (o.kind == Kind.PLAYER or (o.kind == Kind.SUMMON and o.player_owned))
 	if road_grace and other.kind == Kind.BOT and (other.party_id < 0 or other.party_id != road_grace_party):
 		return false                        # evento de estrada: nos primeiros segundos é do jogador (RoadEventSystem._set_grace)
 	if other.road_grace and kind == Kind.BOT and (party_id < 0 or party_id != other.road_grace_party):

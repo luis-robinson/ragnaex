@@ -26,7 +26,7 @@ var _mount_kind := ""                # montaria mostrada no H (só troca quando 
 var xp: XpBar
 var level_cap: Crest
 ## [tecla, nome, janela que abre (@map/@menu = mapa grande / menu do Esc)]
-const MICRO := [["I", "Bolsa", "inventory"], ["C", "Personagem", "character"], ["K", "Skills", "skills"],
+const MICRO := [["I", "Bolsa", "inventory"], ["C", "Personagem", "character"], ["J", "Skills", "book"], ["K", "Teia", "skills"],
 	["L", "Quests", "quests"], ["P", "Grupo", "party"], ["M", "Mapa", "@map"], ["Esc", "Menu", "@menu"]]
 
 func build() -> void:
