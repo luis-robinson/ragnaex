@@ -1829,8 +1829,24 @@ static func _grove() -> MapDef:
 
 # ---------------------------------------------------------------------------
 ## Cidade Élfica: tools/blender/zones/build_elf_city.py (anel élfico em volta da Árvore-Mãe Ancestral; cerco humano na entrada sul).
+## Grupos de dentro do anel da Cidade Élfica (pedido 2026-11-19: "na cidade mesmo deveria ter mais inimigos"): [x, z, [[monstro, quantos], ...]].
+## Pontos andáveis achados no mapa, longe de NPCs, das rotas dos sargentos e da entrada do Coração; um spawner por tipo no mesmo ponto.
+const ELF_CITY_GROUPS := [
+	[0.0, 26.0, [["elf_warrior", 2], ["elf_archer", 1]]], [-26.0, 0.0, [["elf_warrior", 1], ["elf_archer", 1], ["elf_warden", 1]]],
+	[27.7, -16.0, [["elf_warrior", 2], ["elf_archer", 1]]], [-15.0, 41.3, [["elf_warrior", 1], ["elf_archer", 1], ["elf_warden", 1]]],
+	[-28.3, -33.7, [["elf_warrior", 2], ["elf_archer", 1]]], [15.0, -41.3, [["elf_warrior", 1], ["elf_archer", 1], ["elf_warden", 1]]],
+]
+
+static func elf_city_groups() -> Array:
+	var out: Array = []
+	for g in ELF_CITY_GROUPS:
+		for m in g[2]:
+			out.append(_sp(str(m[0]), float(g[0]), float(g[1]), 3.0, int(m[1]), 30.0 * Balance.SPAWN_RESPAWN_MULT))
+	return out
+
 static func _elf_city() -> MapDef:
 	var z := load_zone("elf_city")
+	z["spawners"] = (z["spawners"] as Array) + elf_city_groups()
 	var extra := _place_npcs("elf_city", z["npc_pos"]) + villagers(ELF_CITIZENS) + trainer_npc("elf_city")
 	z.erase("npc_pos")
 	z.merge({

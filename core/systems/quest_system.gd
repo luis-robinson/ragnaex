@@ -31,6 +31,28 @@ static func can_accept(e: SimEntity, q: QuestDef) -> bool:
 			return false
 	return not shut_out(e, q)
 
+## Quests deste NPC que só esperam outra quest da corrente: nível ok (ou quase), uma parte dos pré-requisitos já feita e
+## outra não. O NPC mostra trancada com o que falta (ex.: o Arquidruida pede a Casca dos Totens da Herbalista).
+static func blocked_from_npc(e: SimEntity, npc_id: String) -> Array:
+	var out: Array = []
+	for qid in GameData.quests:
+		var q: QuestDef = GameData.quests[qid]
+		if q.giver_npc != npc_id or q.repeatable or e.quests_active.has(q.id) or q.id in e.quests_completed or can_accept(e, q) or shut_out(e, q):
+			continue
+		var cls := QuestsCatalog.class_of(q.id)
+		if cls != "" and (e.class_def == null or cls != e.class_def.id):
+			continue
+		var reqs: Array = ([q.prereq_quest] if q.prereq_quest != "" else []) + Array(q.prereq_all)
+		var done := reqs.filter(func(r): return r in e.quests_completed).size()
+		if reqs.size() >= 2 and done >= 1 and done < reqs.size():
+			out.append(q)
+	return out
+
+## Pré-requisitos que ainda faltam para `q` (em ordem).
+static func missing_prereqs(e: SimEntity, q: QuestDef) -> Array:
+	var reqs: Array = ([q.prereq_quest] if q.prereq_quest != "" else []) + Array(q.prereq_all)
+	return reqs.filter(func(r): return not (r in e.quests_completed) and GameData.quests.has(r))
+
 ## Escolha (QuestDef.excludes): a outra ponta já foi aceita ou concluída, esta não é mais oferecida. Desistir reabre.
 static func shut_out(e: SimEntity, q: QuestDef) -> bool:
 	for xid in q.excludes:

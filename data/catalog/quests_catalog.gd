@@ -105,7 +105,7 @@ static func grove() -> Array:
 		 "description": "O Batedor Caíque voltou da aldeia dos xamãs. Ouça o que ele viu.",
 		 "dialog_offer": "O Caíque passou a noite na beira da aldeia. Voltou branco. Vá ouvir ele, eu não tive coragem.",
 		 "dialog_progress": "O Caíque fica no posto, perto da fogueira. Fale com ele (clique ou E).",
-		 "dialog_complete": "Ele está no bosque do sudeste, o Arquidruida. Chama lobo, depois urso, depois as próprias árvores. E prende os pés de quem chega com raiz."},
+		 "dialog_complete": "Ele está no bosque do sudeste, o Arquidruida. Chama lobo, depois urso, depois as próprias árvores. E prende os pés de quem chega com raiz. Antes de ir, fale com a Jurema: sem a fumaça da casca dos totens a Guardiã não deixa ninguém entrar lá."},
 		{"id": "x5_totems", "title": "Casca dos Totens", "giver_npc": "grove_herbalist", "type": COLLECT, "target_id": "totem_bark", "count": 5, "level_req": 16, "prereq_quest": "x2_hides",
 		 "reward_xp": 320, "reward_gold": 100, "reward_items": {"elixir_stone": 1, "potion_hp_m": 2}, "map_hint": "Bosque dos Xamãs: Chamadores",
 		 "description": "Traga 5 Cascas de Totem para a Herbalista Jurema.",

@@ -4112,6 +4112,8 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_keep_buffs(gd)
 	_check_frost_aspd(gd, sim)
 	_check_skill_book(gd, sim)
+	_check_elf_city_inner(gd, sim)
+	_check_quest_blocked_hint(gd, sim)
 	_check_boss_signatures(gd)
 	_check_boss_sig_idempotent(gd)
 	_check_sim_rng_fresh()
@@ -24727,6 +24729,47 @@ func _check_field_grove(gd, sim) -> void:
 	check(Music.MAP_THEME.get("field_grove", "") == "campo", "Bosque: tema de música")
 	check(BotsCatalog.MAP_KIND.has("field_grove") and BotsCatalog.LINES.has("hunt_field_grove"), "Bosque: falas de bots")
 	check(DevRunner.TOURS.has("field_grove"), "Bosque: pontos do tour")
+
+## Cidade Élfica por dentro (2026-11-19): grupos novos dentro do anel (MapsCatalog.ELF_CITY_GROUPS), andáveis, longe da entrada
+## do Coração; com a escolta dos sargentos, o anel passa de 50 elfos. `--only=elf_city_inner`
+func _check_elf_city_inner(gd, sim) -> void:
+	var def: MapDef = gd.maps["elf_city"]
+	var inner := 0
+	var groups := 0
+	for sp in def.spawners:
+		var p: Vector3 = sp["pos"]
+		if Vector2(p.x, p.z).length() > def.town_radius:
+			continue
+		var n := int(sp["count"])
+		var md: MonsterDef = gd.monsters.get(sp["monster_id"])
+		check(md != null, "elfos: monstro %s existe" % sp["monster_id"])
+		if md and not md.escort.is_empty():
+			n += int(md.escort.get("count", 0))
+		inner += n
+	for g in MapsCatalog.ELF_CITY_GROUPS:
+		var c := Vector3(float(g[0]), 0, float(g[1]))
+		groups += 1
+		check(sim.is_walkable(c, def, 0.6) and c.length() < def.town_radius - 10.0 and c.distance_to(Vector3(6.2, 0, 6.2)) > 12.0,
+			"elfos: grupo em (%.0f, %.0f) andável, dentro do anel e longe do Coração" % [c.x, c.z])
+	check(groups >= 6 and inner >= 50, "elfos: %d grupos novos, %d elfos dentro do anel (com escoltas)" % [groups, inner])
+
+## Quest trancada por outra da corrente (2026-11-19): o NPC mostra o que falta e com quem (QuestSystem.blocked_from_npc).
+## Caso real: o Arquidruida pede O Que o Batedor Viu E a Casca dos Totens. `--only=quest_blocked_hint`
+func _check_quest_blocked_hint(gd, sim) -> void:
+	var p: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Trancada", "city_aldara", Vector3(30, 0, -44), 17)
+	p.brain = null
+	for qid in ["x0_grove", "x1_shifters", "x2_hides", "x3_callers", "x4_scout"]:
+		p.quests_completed.append(qid)
+	var ids: Array = QuestSystem.blocked_from_npc(p, "grove_warden").map(func(q): return q.id)
+	check("x6_archdruid" in ids, "trancada: a Guardiã mostra O Arquidruida trancado sem a Casca dos Totens (%s)" % [ids])
+	check(QuestSystem.missing_prereqs(p, gd.quests["x6_archdruid"]) == ["x5_totems"], "trancada: o que falta é a Casca dos Totens")
+	p.quests_completed.append("x5_totems")
+	check(QuestSystem.blocked_from_npc(p, "grove_warden").is_empty() and QuestSystem.can_accept(p, gd.quests["x6_archdruid"]), "trancada: com as duas feitas, a quest abre")
+	var fresh: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Novato", "city_aldara", Vector3(31, 0, -44), 17)
+	fresh.brain = null
+	check(QuestSystem.blocked_from_npc(fresh, "grove_warden").is_empty(), "trancada: quem não começou a corrente não vê a quest trancada")
+	sim.despawn(p)
+	sim.despawn(fresh)
 
 ## Janela de Skills (J, decisão 2026-11-19): abas = builds + Gerais (+ Ascensão no 35), toda skill da classe cai numa aba só;
 ## a ficha (SkillSheet) mostra os números de agora e muda com o ATK e com a teia. `--only=skill_book`

@@ -386,6 +386,18 @@ func _dialog(body: VBoxContainer) -> void:
 		cv.add_child(UiKit.para('"%s"' % q.dialog_offer, 12))
 		cv.add_child(UiKit.para(q.description + "  —  " + q.map_hint, 11, UiKit.MUTED))
 		cv.add_child(UiKit.button("Aceitar", func(): QuestSystem.accept(p, q); _rebuild(), 120))
+	# quests trancadas por outra da corrente: mostra o que falta e com quem
+	for q in QuestSystem.blocked_from_npc(p, npc_id):
+		var card := UiKit.panel(Color(0.1, 0.09, 0.12, 0.95), Color(0.36, 0.32, 0.4))
+		body.add_child(card)
+		var cv := VBoxContainer.new()
+		card.add_child(cv)
+		cv.add_child(UiKit.label("%s  (Lv %d)  ·  trancada" % [q.title, q.level_req], 14, UiKit.MUTED))
+		for rid in QuestSystem.missing_prereqs(p, q):
+			var r: QuestDef = GameData.quests[rid]
+			var who := QuestSystem.npc_name(r.giver_npc)
+			var state := "em andamento" if p.quests_active.has(rid) else "ainda não feita"
+			cv.add_child(UiKit.para("Antes: %s (%s, %s)" % [r.title, who, state], 12, Color(1.0, 0.75, 0.5)))
 	# falas
 	var lines: Array = npc.get("dialog", [])
 	var after: Dictionary = npc.get("dialog_after", {})      # falas novas depois de uma missão (a última da lista que vale)
