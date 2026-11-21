@@ -975,8 +975,16 @@ def export_scene(path, name="prop", kind=""):
     ck.deselect_everything()              # select_all não alcança coleção escondida (zonas iam dentro do GLB)
     for o in keep:
         o.select_set(True)
+    kw = {}
+    # prop com a cor no vértice (life_props.hen): o COLOR_0 só sai no glTF pedindo; os outros props não têm o atributo e não mudam
+    vcol = [o for o in keep if o.data.color_attributes]
+    for o in vcol:
+        o.data.color_attributes.active_color = o.data.color_attributes[0]
+        o.data.color_attributes.render_color_index = 0
+    if vcol and "export_vertex_color" in bpy.ops.export_scene.gltf.get_rna_type().properties:
+        kw["export_vertex_color"] = "ACTIVE"
     bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, use_active_scene=True, export_apply=True,
-                              export_animations=False, export_yup=True, export_materials="EXPORT")
+                              export_animations=False, export_yup=True, export_materials="EXPORT", **kw)
 
 
 # teto de triângulos dos props que se repetem centenas de vezes no mapa (o toon facetado aguenta bem a redução)

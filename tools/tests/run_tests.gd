@@ -23252,6 +23252,10 @@ func _check_living_kharzun(gd, sim) -> void:
 			check(by_id.has(nid) and not (by_id[nid].get("barks", []) as Array).is_empty(), "Kharzun: %s tem falas de rua (BARKS)" % nid)
 	# bichos e brasas: brasa é tipo conhecido e fica sobre a lava (perto de lava de verdade)
 	check(AmbientLife.KINDS.has("ember") and bool(AmbientLife.KINDS["ember"]["fly"]), "ambiente: brasa no ar existe")
+	# galinha de Aldara: modelo do Blender (não caixa), com cor no vértice e do tamanho de uma galinha (2026-11-21)
+	var hen_mesh: Mesh = AmbientLife.model_mesh(str(AmbientLife.KINDS["hen"].get("model", "")))
+	var hen_ok: bool = hen_mesh != null and hen_mesh.get_surface_count() == 1 and (hen_mesh.surface_get_format(0) & Mesh.ARRAY_FORMAT_COLOR) != 0
+	check(hen_ok and hen_mesh.get_aabb().size.z > 0.3 and hen_mesh.get_aabb().size.y < 0.5, "galinha: modelo prop_hen.glb com cor no vértice (%s)" % (str(hen_mesh.get_aabb()) if hen_mesh else "sem modelo"))
 	var embers := 0
 	for g in MapsCatalog.AMBIENT_LIFE["field_kharzun"]:
 		if str(g[0]) == "ember":

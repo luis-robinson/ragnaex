@@ -27,8 +27,10 @@ const KINDS := {
 		"lit": true, "shadow": true},
 	"moth": {"color": Color(0.98, 0.92, 0.7), "span": 0.18, "h": [0.5, 1.6], "w": 0.9, "flap": 9.0, "fly": true},
 	"crab": {"color": Color(0.9, 0.42, 0.26), "span": 0.4, "h": [0.0, 0.0], "w": 0.0, "flap": 0.0, "fly": false},
-	# galinha (Aldara: cercado do celeiro e fazenda): bicho de chão como o caranguejo, creme, 1 draw por grupo
-	"hen": {"color": Color(0.96, 0.92, 0.82), "span": 0.34, "h": [0.0, 0.0], "w": 0.0, "flap": 0.0, "fly": false},
+	# galinha (Aldara: cercado do celeiro e fazenda): modelo do Blender (`model`, cor no vértice; tools/blender/life_props.py
+	# `hen`), anda de frente com saltinho e bica o chão parada; 1 draw por grupo
+	"hen": {"color": Color(0.96, 0.92, 0.82), "span": 0.34, "h": [0.0, 0.0], "w": 0.0, "flap": 0.0, "fly": false,
+		"model": "res://assets/models/prop_hen.glb", "walk": 0.9, "peck": true},
 	# brasa no ar sobre a lava (Kharzun): fagulha laranja que sobe e desce sem rumo; "asa" mínima, quase sem bater
 	"ember": {"color": Color(1.0, 0.55, 0.16), "span": 0.14, "h": [0.4, 3.2], "w": 0.8, "flap": 1.5, "fly": true},
 }
@@ -90,14 +92,16 @@ func _build_group(kind: String, center: Vector3, radius: float, n: int) -> void:
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	var fly: bool = k["fly"]
-	mm.mesh = wing_mesh(k) if fly else _crab_mesh(float(k["span"]))
+	var model := model_mesh(str(k.get("model", "")))
+	mm.mesh = wing_mesh(k) if fly else (model if model else _crab_mesh(float(k["span"])))
 	mm.instance_count = n * (2 if fly else 1)
+	var vcol := fly or model != null                           # asa e modelo do Blender: cor vem do vértice
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color.WHITE if fly else k["color"]     # bicho que voa: cor vem do vértice
-	mat.vertex_color_use_as_albedo = fly
-	mat.vertex_color_is_srgb = fly                             # cor do vértice igual à cor do catálogo
+	mat.albedo_color = Color.WHITE if vcol else k["color"]
+	mat.vertex_color_use_as_albedo = vcol
+	mat.vertex_color_is_srgb = vcol                            # cor do vértice igual à cor do catálogo / do Blender (sRGB cru)
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	var flat := fly and not bool(k.get("lit", false))
+	var flat := fly and not bool(k.get("lit", false)) and model == null
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED if flat else BaseMaterial3D.SHADING_MODE_PER_PIXEL
 	if not flat:                    # toon: luz em degraus, sem brilho especular (combina com o resto do mundo)
 		mat.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
@@ -197,6 +201,24 @@ static func _shared_shadow_mesh() -> PlaneMesh:
 		_shadow_mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
 	return _shadow_mesh
 
+## Malha do primeiro MeshInstance3D de um GLB (bicho de chão com modelo; guardada por caminho). null = sem arquivo.
+static var _model_cache := {}
+static func model_mesh(path: String) -> Mesh:
+	if path == "":
+		return null
+	if _model_cache.has(path):
+		return _model_cache[path]
+	var mesh: Mesh = null
+	if ResourceLoader.exists(path):
+		var scene: PackedScene = load(path)
+		var root := scene.instantiate()
+		var mi: Array = root.find_children("*", "MeshInstance3D", true, false)
+		if not mi.is_empty():
+			mesh = (mi[0] as MeshInstance3D).mesh
+		root.free()
+	_model_cache[path] = mesh
+	return mesh
+
 func _crab_mesh(span: float) -> Mesh:
 	var b := BoxMesh.new()
 	b.size = Vector3(span, span * 0.28, span * 0.65)
@@ -244,8 +266,11 @@ func _animate(g: Dictionary, delta: float) -> void:
 				var yaw := Basis.looking_at(fwd, Vector3.UP) * Basis.from_scale(Vector3(sx, 1.0, sz))
 				smm.set_instance_transform(i, Transform3D(yaw, Vector3(p.x, SHADOW_Y, p.z)))
 	else:
-		# caranguejo: anda de lado até um ponto perto, para, escolhe outro
+		# caranguejo: anda de lado até um ponto perto, para, escolhe outro; galinha (`peck`): anda de frente com saltinho e,
+		# parada, bica o chão (inclina para a frente pelos pés)
 		var rad: float = g["radius"]
+		var peck: bool = k.get("peck", false)
+		var speed: float = k.get("walk", 1.1)
 		for i in beasts.size():
 			var b: Dictionary = beasts[i]
 			var pos: Vector3 = b["pos"]
@@ -258,10 +283,20 @@ func _animate(g: Dictionary, delta: float) -> void:
 				if to.length() < 0.1:
 					b["wait"] = _rng.randf_range(1.0, 4.0)
 				else:
-					pos += to.normalized() * minf(to.length(), 1.1 * delta)
+					pos += to.normalized() * minf(to.length(), speed * delta)
 					b["pos"] = pos
-					b["ph"] = atan2(to.x, to.z) + PI * 0.5      # de lado
-			var bob := absf(sin(_t * 14.0 + i)) * 0.03 if float(b["wait"]) <= 0.0 else 0.0
+					b["ph"] = atan2(to.x, to.z) + (0.0 if peck else PI * 0.5)      # galinha de frente; caranguejo de lado
+			var walking := float(b["wait"]) <= 0.0
+			if peck:
+				var hop := absf(sin(_t * 11.0 + i)) * 0.035 if walking else 0.0
+				var dip := 0.0
+				if not walking:               # bicada: duas batidas rápidas a cada ~1,6 s, fora de fase entre as galinhas
+					var c2 := fmod(_t * 0.62 + float(i) * 0.37, 1.0)
+					dip = maxf(0.0, sin(c2 * TAU * 2.0)) * 0.55 if c2 < 0.5 else 0.0
+				var hb := Basis(Vector3.UP, float(b["ph"])) * Basis(Vector3.RIGHT, dip)
+				mm.set_instance_transform(i, Transform3D(hb, pos + Vector3(0, hop, 0)))
+				continue
+			var bob := absf(sin(_t * 14.0 + i)) * 0.03 if walking else 0.0
 			mm.set_instance_transform(i, Transform3D(Basis(Vector3.UP, float(b["ph"])), pos + Vector3(0, 0.06 + bob, 0)))
 
 # --- barks ---------------------------------------------------------------------------------------------------------------
