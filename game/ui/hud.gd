@@ -1144,24 +1144,55 @@ func _on_track_clicked(meta: Variant) -> void:
 	tracked_quest_id = str(meta)
 	refresh_quest_tracker()
 
+## Quests visíveis no painel; da 6ª em diante o painel rola (roda do mouse). A rastreada vem sempre primeiro.
+const QUEST_ROWS := 5
+
 func refresh_quest_tracker() -> void:
 	var p: SimEntity = Sim.player
 	if p == null:
 		return
-	var t := "[b][color=#ffd966]Quests[/color][/b]  [color=#888](clique = seta)[/color]\n"
+	var t := "[b][color=#ffd966]Quests[/color][/b]  [color=#888](clique = seta%s)[/color]\n" % (", role" if p.quests_active.size() > QUEST_ROWS else "")
 	if p.quests_active.is_empty():
 		t = "[b][color=#ffd966]Quests[/color][/b]\n[color=#888]Nenhuma. Fale com NPCs [Quest].[/color]"
 	var tracked := tracked_quest()
-	for qid in p.quests_active:
+	var order: Array = p.quests_active.keys()
+	if order.has(tracked):
+		order.erase(tracked)
+		order.push_front(tracked)
+	var para := 1                          # parágrafo (linha do texto) em que cada quest começa; 0 = cabeçalho
+	var cut := -1                          # parágrafo da 1ª quest que fica escondida (rolar)
+	var shown := 0
+	for qid in order:
+		if shown == QUEST_ROWS:
+			cut = para
+		shown += 1
 		var q: QuestDef = GameData.quests[qid]
 		var prog := QuestSystem.progress(p, q)
 		var done := prog >= q.count
 		var col := "#9f9" if done else ("#ffd966" if qid == tracked else "#eee")
 		var rep := "  [color=#59bfff]↻ repetível[/color]" if q.repeatable else ""
 		t += "[url=%s][color=%s]%s%s[/color][/url]  %d/%d%s%s\n" % [qid, col, "▶ " if qid == tracked else "", q.title, prog, q.count, rep, "  ✔ entregar" if done else ""]
+		para += 1
 		if not done:
 			t += "   [color=#888]%s[/color]\n" % q.map_hint
+			para += 1
+	var keep: float = quest_tracker.get_v_scroll_bar().value      # progresso de quest refaz o texto: a rolagem fica onde estava
 	quest_tracker.text = t
+	quest_tracker.fit_content = cut < 0
+	quest_tracker.scroll_active = cut >= 0
+	if cut < 0:
+		quest_tracker.custom_minimum_size.y = 20
+	else:
+		_size_quest_tracker.call_deferred(cut, keep)
+
+## Altura do painel = até o começo da 6ª quest (parágrafo `cut`), depois do texto montado; devolve a rolagem.
+func _size_quest_tracker(cut: int, keep: float) -> void:
+	if quest_tracker == null or quest_tracker.fit_content:
+		return
+	var h: float = quest_tracker.get_paragraph_offset(cut) if cut < quest_tracker.get_paragraph_count() else quest_tracker.get_content_height()
+	quest_tracker.custom_minimum_size.y = ceilf(h) + 2.0
+	quest_tracker.size.y = quest_tracker.custom_minimum_size.y
+	quest_tracker.get_v_scroll_bar().value = keep
 
 # ---------------------------------------------------------------------------
 ## Perto de um ponto de colheita: mostra a tecla; colhendo: mostra o progresso.

@@ -2316,6 +2316,18 @@ func _bag_shot(path: String) -> void:
 		if not seen.has(g) and Sim.player.inventory.size() < 40:
 			seen[g] = true
 			Sim.player.add_item(iid)
+	if DevArgs.flag("--quest_demo"):    # N quests ativas no painel (revisar a rolagem: QUEST_ROWS visíveis)
+		var want := int(DevArgs.value("--quest_demo"))
+		for qid in GameData.quests:
+			if Sim.player.quests_active.size() >= want:
+				break
+			if not GameData.quests[qid].repeatable:
+				Sim.player.quests_active[qid] = 0          # direto (sem pré-requisito): só para ver o painel cheio
+		main.hud.refresh_quest_tracker()
+	if DevArgs.flag("--bags"):          # bolsas vestidas nas vagas: --bags=bag_t3,bag_t0 (ids na ordem das vagas)
+		for bid in DevArgs.value("--bags").split(","):
+			Sim.player.add_item(bid)
+			Sim.equip_bag(Sim.player, bid)
 	var wins := ["inventory", "character"]
 	if DevArgs.flag("--wins"):          # outras janelas: --wins=skills (com --level=N para um boneco do meio do jogo)
 		wins = Array(DevArgs.value("--wins").split(","))
