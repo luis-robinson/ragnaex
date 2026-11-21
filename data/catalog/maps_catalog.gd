@@ -1450,10 +1450,12 @@ const RAIDS := {
 	"field_kharzun": KHARZUN_RAIDS,
 	# Estepes de Cinza (Ato II): três lados, regra do Bastião
 	"field_steppe": STEPPE_RAIDS,
-	# Bastião da Aurora: três fronts, cada um com a leva do seu lado (a rota é calada pela quest do chefe da fortaleza)
+	# Bastião da Aurora: três fronts, cada um com a leva do seu lado (a rota é calada pela quest do chefe da fortaleza).
+	# Os três atacam juntos (Balance.RAID_SYNC_MAPS) e a força sobe até o nível 30 (RAID_SCALE_TO_MAP); levas +50% (2026-11-21)
 	"field_ruins": {
 		"ghoul": {"every": 200.0, "first": 70.0, "jitter": 40.0, "lifetime": 200.0,
-			"waves": [{"mobs": {"larva": 26, "rot_zombie": 12, "rot_ghoul": 8, "rot_wolf": 4}}, {"mobs": {"rot_bear": 2}, "every_nth": 2}],
+			"waves": [{"mobs": {"larva": 39, "rot_zombie": 18, "rot_ghoul": 12, "rot_wolf": 6}}, {"mobs": {"rot_bear": 3}, "every_nth": 2}],
+			"say_sync": "Trompas nos três portões: o pântano, os ossos e o gelo marcham juntos. O Bastião está cercado!",
 			"say_start": "O pântano do oeste se mexe: a ninhada do Carniçal marcha contra o Bastião!",
 			"say_arrived": "Os mortos do Carniçal chegaram ao portão oeste!",
 			"say_repelled": "A investida do Carniçal foi queimada no portão oeste!",
@@ -1462,7 +1464,7 @@ const RAIDS := {
 			"say_reclaim": "O pântano ferve de raiva pelas fortalezas perdidas: a ninhada vem maior!",
 			"leader": "citadel_horror", "say_leader": "Um Horror da Cidadela lidera a ninhada: o último front do Carniçal vem com tudo!"},
 		"bones": {"every": 230.0, "first": 140.0, "jitter": 40.0, "lifetime": 210.0,
-			"waves": [{"mobs": {"skeleton": 12, "skel_archer": 8, "skel_guard": 5}}],
+			"waves": [{"mobs": {"skeleton": 18, "skel_archer": 12, "skel_guard": 8}}],
 			"say_start": "Tambores de osso ao norte: a legião da Fortaleza dos Ossos marcha!",
 			"say_arrived": "Os esqueletos chegaram ao portão norte! Escudos à frente!",
 			"say_repelled": "A legião dos ossos foi quebrada no portão norte!",
@@ -1471,7 +1473,7 @@ const RAIDS := {
 			"say_reclaim": "Os tambores de osso batem mais forte: a legião vem maior pelas fortalezas perdidas!",
 			"leader": "citadel_knight", "say_leader": "Um Guarda da Cidadela comanda a legião: o último front dos Ossos vem com tudo!"},
 		"frost": {"every": 260.0, "first": 210.0, "jitter": 40.0, "lifetime": 210.0,
-			"waves": [{"mobs": {"cultist": 7, "tower_bat": 8, "ghost": 6, "citadel_adept": 4}}, {"mobs": {"citadel_knight": 2}, "every_nth": 2}],
+			"waves": [{"mobs": {"cultist": 11, "tower_bat": 12, "ghost": 9, "citadel_adept": 6}}, {"mobs": {"citadel_knight": 3}, "every_nth": 2}],
 			"say_start": "Um vento gelado vem do sul: os adeptos da Torre marcham com morcegos e espectros!",
 			"say_arrived": "Os adeptos chegaram ao portão sul!",
 			"say_repelled": "O frio recua: o portão sul resistiu!",

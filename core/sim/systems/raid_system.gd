@@ -48,12 +48,15 @@ static func update_raids(sim: WorldSim, m: Dictionary, dt: float) -> void:
 	if float(m.get("sortie_cd", 0.0)) > 0.0:
 		m["sortie_cd"] = float(m["sortie_cd"]) - dt
 	var siege := SiegeSystem.managed(def)     # Cerco Vivo: quem solta as levas é o relógio do SiegeSystem
+	var sync := not siege and Balance.RAID_SYNC_MAPS.has(def.id)     # todas as rotas juntas (relógio único)
+	var live := false
 	for i in all.size():
 		var st := state(m, i)
 		if not (st["ids"] as Array).is_empty():
 			_update_wave(sim, m, st, dt, i)
+			live = live or not (st["ids"] as Array).is_empty()
 			continue
-		if siege:
+		if siege or sync:
 			continue
 		if not WorldState.active(sim, all[i]):
 			continue
@@ -63,6 +66,50 @@ static func update_raids(sim: WorldSim, m: Dictionary, dt: float) -> void:
 		st["timer"] = float(st["timer"]) - dt
 		if float(st["timer"]) <= 0.0:
 			start_raid(sim, m, i)
+	if sync and not live:
+		_update_sync(sim, m, dt)
+
+## Estado do relógio único (Balance.RAID_SYNC_MAPS): {timer, n (ataques já vindos)}.
+static func sync_state(m: Dictionary) -> Dictionary:
+	if not m.has("raid_sync"):
+		var cfg: Dictionary = Balance.RAID_SYNC_MAPS.get((m["def"] as MapDef).id, {})
+		m["raid_sync"] = {"timer": float(cfg.get("first", 90.0)), "n": 0}
+	return m["raid_sync"]
+
+## Relógio único: só anda sem leva viva e com o jogador no mapa; ao zerar, chama start_sync.
+static func _update_sync(sim: WorldSim, m: Dictionary, dt: float) -> void:
+	var def: MapDef = m["def"]
+	if sim.player != null and sim.player.map_id != def.id:
+		return
+	var ss := sync_state(m)
+	var was_live := bool(ss.get("live", false))
+	if was_live:                              # a última leva acabou agora: o próximo ataque conta daqui
+		ss["live"] = false
+		var cfg: Dictionary = Balance.RAID_SYNC_MAPS.get(def.id, {})
+		ss["timer"] = (float(cfg.get("every", 240.0)) + sim.rng.randf_range(-1.0, 1.0) * float(cfg.get("jitter", 0.0))) * pow(Balance.RAID_RECLAIM_EVERY, reclaimed(sim, m))
+	ss["timer"] = float(ss["timer"]) - dt
+	if float(ss["timer"]) <= 0.0:
+		start_sync(sim, m)
+
+## Ataque de todos os lados: solta a leva de cada rota que vale (fortaleza retomada cala a dela). Devolve os ids.
+static func start_sync(sim: WorldSim, m: Dictionary) -> Array:
+	var def: MapDef = m["def"]
+	var all := routes(def)
+	var ss := sync_state(m)
+	var out: Array = []
+	var said := false
+	for i in all.size():
+		if not WorldState.active(sim, all[i]) or not (state(m, i)["ids"] as Array).is_empty():
+			continue
+		if not said and all[i].has("say_sync"):
+			said = true
+			Events.post(&"chat_message", "Sistema", str(all[i]["say_sync"]), "system")
+		out.append_array(start_raid(sim, m, i))
+	ss["n"] = int(ss["n"]) + 1
+	ss["live"] = not out.is_empty()
+	if out.is_empty():                        # nada valia: tenta de novo depois do intervalo
+		ss["timer"] = float((Balance.RAID_SYNC_MAPS.get(def.id, {}) as Dictionary).get("every", 240.0))
+	return out
 
 ## Solta a próxima leva agora (o relógio também chama).
 static func start_raid(sim: WorldSim, m: Dictionary, i: int = 0) -> Array:
@@ -101,7 +148,8 @@ static func start_raid(sim: WorldSim, m: Dictionary, i: int = 0) -> Array:
 	for mobs in groups:
 		for mid in mobs:
 			total += int(round(int(mobs[mid]) * mult))
-	var cap: int = Balance.RAID_WAVE_CAP_LAST if last else Balance.RAID_WAVE_CAP
+	var map_cap: int = int(Balance.RAID_WAVE_CAP_MAP.get(def.id, Balance.RAID_WAVE_CAP))
+	var cap: int = maxi(Balance.RAID_WAVE_CAP_LAST, map_cap) if last else map_cap
 	var fit := minf(1.0, float(cap) / maxf(1.0, float(total)))
 	var scaled: Array = []
 	for mobs in groups:
@@ -191,14 +239,17 @@ static func _update_wave(sim: WorldSim, m: Dictionary, st: Dictionary, dt: float
 		Events.post(&"chat_message", "Sistema", str(r.get("say_retreat", "Os inimigos recuam.")), "system")
 		Events.post(&"raid_event", def.id, "retreat")
 
-## Força da próxima leva: passos de nível do jogador no mapa acima de RAID_SCALE_FROM (máx. RAID_SCALE_TO).
-## `m["raid"]["force_level"]` fixa o nível (sondas/testes); sem jogador no mapa a leva vem na força base.
+## Força da próxima leva: passos de nível do jogador no mapa acima de RAID_SCALE_FROM (máx. RAID_SCALE_TO, ou o
+## teto do mapa em RAID_SCALE_TO_MAP). `m["raid"]["force_level"]` fixa o nível (sondas/testes); sem jogador no mapa
+## a leva vem na força base.
 static func power_step(sim: WorldSim, m: Dictionary) -> int:
 	var st := state(m)
+	var def: MapDef = m["def"]
 	var lv := int(st.get("force_level", 0))
-	if lv <= 0 and sim.player != null and sim.player.map_id == (m["def"] as MapDef).id:
+	if lv <= 0 and sim.player != null and sim.player.map_id == def.id:
 		lv = sim.player.level
-	return clampi(mini(lv, Balance.RAID_SCALE_TO) - Balance.RAID_SCALE_FROM, 0, Balance.RAID_SCALE_TO - Balance.RAID_SCALE_FROM)
+	var top: int = int(Balance.RAID_SCALE_TO_MAP.get(def.id, Balance.RAID_SCALE_TO))
+	return clampi(mini(lv, top) - Balance.RAID_SCALE_FROM, 0, top - Balance.RAID_SCALE_FROM)
 
 ## Monstro da investida: x RAID_POWER (vida/ataque) e x RAID_SMART (aggro) sobre o base, mais `step` passos de nível
 ## (mesmo id: quests, loot e abates contam igual), x RAID_MAP_POWER do mapa da investida. Guardado por id, passo e mapa.

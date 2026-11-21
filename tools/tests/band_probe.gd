@@ -418,6 +418,7 @@ func _soak(mid: String) -> void:
 	if OS.get_cmdline_user_args().has("--no_raid"):
 		for ri in RaidSystem.routes(m["def"]).size():
 			RaidSystem.state(m, ri)["timer"] = INF
+		RaidSystem.sync_state(m)["timer"] = INF      # Bastião: relógio único dos três lados
 	for step in 8:
 		for i in 1200:
 			Sim.tick(DT)

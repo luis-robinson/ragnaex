@@ -1128,6 +1128,13 @@ const RAID_RALLY_REGEN := 0.015            # Bastião: fração da vida máxima 
 # (cada passo: +1 nível e os % abaixo nos invasores; levas ganham reforço em MapsCatalog.RAIDS["scale_extra"])
 const RAID_SCALE_FROM := 15
 const RAID_SCALE_TO := 20
+## Teto por mapa (no lugar de RAID_SCALE_TO): o Bastião (faixa 20-30) acompanha o jogador até o 30 (2026-11-21).
+const RAID_SCALE_TO_MAP := {"field_ruins": 30}
+## Mapas em que todas as rotas atacam juntas: relógio único (m["raid_sync"]) que só anda sem leva viva; ao zerar,
+## todas as rotas que valem soltam a leva no mesmo tick (RaidSystem.update_raids). Intervalo x RAID_RECLAIM_EVERY^k.
+const RAID_SYNC_MAPS := {"field_ruins": {"first": 90.0, "every": 240.0, "jitter": 30.0}}
+## Teto de invasores por leva por mapa (no lugar de RAID_WAVE_CAP; o último front segue em RAID_WAVE_CAP_LAST).
+const RAID_WAVE_CAP_MAP := {"field_ruins": 80}
 const RAID_SCALE_HP_PCT := 8.0
 const RAID_SCALE_ATK_PCT := 6.0
 const RAID_SCALE_DEF_PCT := 6.0

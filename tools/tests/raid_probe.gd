@@ -14,6 +14,9 @@ extends Node
 ##   (--bots=N põe N bots do nível --level na praça; --quests= fixa o estágio).
 ## --reinforce=N: os reforços das N primeiras fortalezas retomadas (assaults "reforco_*" do mapa) já rondando a praça,
 ##   cheios até o `max` de cada um, como no jogo depois das retomadas (sem eles a sonda mede só a guarnição).
+## --sync: mapa com ataque simultâneo (Balance.RAID_SYNC_MAPS, ex. `--map=field_ruins`): solta todos os lados juntos
+##   (RaidSystem.start_sync), bots na praça. Saída: "SYNC bots=N tudo_repelido=R/T lados_repelidos=L/3 invasores=N
+##   chegaram=C duracao=Ss sentinelas_mortas=G bots_mortos=B ms_tick=M ms_tick_max=X"
 
 const LIMIT := 260.0
 const DT := 1.0 / 20.0
@@ -22,6 +25,7 @@ var reclaimed := 0               # --reclaimed=N: fortalezas retomadas (fúria d
 var reinforce := 0
 var side := ""                   # --side=<lado>: rota pelo nome
 var siege_run := 0.0             # --siege_run=<s>: relógio do cerco de verdade
+var sync := false                # --sync: todos os lados juntos (RaidSystem.start_sync)
 var quests: PackedStringArray = []   # --quests=<id,...>: quests feitas (WorldState: rota, guarnição e colisores do estágio; ex. hx_palisade com --route=1)
 
 func _ready() -> void:
@@ -44,6 +48,7 @@ func _ready() -> void:
 		if a.begins_with("--quests="): quests = a.get_slice("=", 1).split(",")
 		if a.begins_with("--side="): side = a.get_slice("=", 1)
 		if a.begins_with("--siege_run="): siege_run = float(a.get_slice("=", 1))
+		if a == "--sync": sync = true
 	Sim.load_map(GameData.maps[GameData.town_map_id()])
 	var m: Dictionary = Sim.load_map(GameData.maps[mid])
 	m["spawners"].clear()
@@ -69,6 +74,13 @@ func _ready() -> void:
 	for e in m["entities"].duplicate():
 		if e.kind == SimEntity.Kind.MONSTER:
 			Sim.despawn(e)
+	if sync:
+		RaidSystem.sync_state(m)["timer"] = INF      # a sonda solta os ataques à mão
+		for n in bot_counts:
+			_sync_run(m, n, level, trials)
+		print("RAID_END")
+		get_tree().quit()
+		return
 	for n in bot_counts:
 		var r := _run(m, n, level, trials)
 		print("RAID bots=%d reforcos=%d repelidas=%d/%d chegada=%.0fs duracao=%.0fs mediana=%.0fs luta_mediana=%.0fs chegaram=%.1f/%.1f sentinelas_mortas=%.1f sentinelas_vida_min=%.0f%% bots_mortos=%.1f presos=%d%s" % [
@@ -188,6 +200,100 @@ func _run(m: Dictionary, nbots: int, level: int, trials: int) -> Dictionary:
 	return _finish(out, trials)
 
 var _ally_count := 0
+
+## --sync: N ataques simultâneos (todos os lados), bots na praça, guarnição inteira a cada ataque.
+func _sync_run(m: Dictionary, nbots: int, level: int, trials: int) -> void:
+	var def: MapDef = m["def"]
+	var n_routes := RaidSystem.routes(def).size()
+	var guards: Array = m["entities"].filter(func(e): return e.guard)
+	var classes: Array = GameData.classes.keys()
+	var all_rep := 0
+	var sides_rep := 0
+	var size := 0.0
+	var reached_sum := 0.0
+	var dur := 0.0
+	var guards_dead := 0.0
+	var bots_dead := 0.0
+	var tick_ms := 0.0
+	var ticks := 0
+	var tick_max := 0.0
+	for trial in range(trials):
+		for g in guards:
+			g.position = g.home_position if not g.npc_data.has("route") else g.npc_data["pos"]
+			g.home_position = g.npc_data["pos"]
+			g.set_state(SimEntity.State.IDLE)
+			g.threat.clear()
+			g.aggro_target = -1
+			g.recompute_stats()
+			g.heal_full()
+		var bots: Array = []
+		for i in range(nbots):
+			var cid: String = classes[(trial * 3 + i * 5) % classes.size()]
+			bots.append(Sim.spawn_bot(GameData.classes[cid], "D%d" % i, def.id, Sim.random_walkable(def, def.town_center, 6.0), level))
+		var allies := _reinforcements(m)
+		m["sortie_cd"] = 0.0
+		for i in n_routes:
+			RaidSystem.state(m, i)["n"] = trial % 2
+		var ids := RaidSystem.start_sync(Sim, m)
+		size += ids.size()
+		var reached := {}
+		var guard_dead := {}
+		var bot_dead := {}
+		var t := 0.0
+		var live := true
+		while t < LIMIT * 1.5 and live:
+			var t0 := Time.get_ticks_usec()
+			Sim.tick(DT)
+			var ms := (Time.get_ticks_usec() - t0) / 1000.0
+			tick_ms += ms
+			ticks += 1
+			tick_max = maxf(tick_max, ms)
+			t += DT
+			live = false
+			for i in n_routes:
+				if not (RaidSystem.state(m, i)["ids"] as Array).is_empty():
+					live = true
+			for g in guards:
+				if not g.is_alive():
+					guard_dead[g.id] = true
+			for b in bots:
+				if not b.is_alive():
+					bot_dead[b.id] = true
+			if int(t / DT) % 10 == 0:
+				for i in n_routes:
+					var rr := RaidSystem.route_def(def, i)
+					for id in RaidSystem.state(m, i)["ids"]:
+						var inv: SimEntity = Sim.entities.get(id)
+						if inv != null and inv.position.distance_to(rr["target"]) < float(rr.get("radius", 25.0)):
+							reached[id] = true
+		var rep := 0
+		for i in n_routes:
+			var st := RaidSystem.state(m, i)
+			if not st["retreat"] and (st["ids"] as Array).is_empty():
+				rep += 1
+			for id in (st["ids"] as Array).duplicate():
+				if Sim.entities.has(id):
+					Sim.despawn(Sim.entities[id])
+			st["ids"] = []
+			st["retreat"] = false
+		sides_rep += rep
+		if rep == n_routes:
+			all_rep += 1
+		reached_sum += reached.size()
+		dur += t
+		guards_dead += guard_dead.size()
+		bots_dead += bot_dead.size()
+		for b in bots:
+			Sim.despawn(b)
+		for id in allies:
+			if Sim.entities.has(id):
+				Sim.despawn(Sim.entities[id])
+		for e in m["entities"].duplicate():
+			if e.kind == SimEntity.Kind.MONSTER:
+				Sim.despawn(e)
+	print("SYNC bots=%d nivel=%d tudo_repelido=%d/%d lados_repelidos=%.1f/%d invasores=%.0f chegaram=%.1f duracao=%.0fs sentinelas_mortas=%.1f bots_mortos=%.1f ms_tick=%.2f ms_tick_max=%.1f" % [
+		nbots, level, all_rep, trials, float(sides_rep) / trials, n_routes, size / trials, reached_sum / trials, dur / trials,
+		guards_dead / trials, bots_dead / trials, tick_ms / maxf(1, ticks), tick_max])
 var _ev: Array = []              # --siege_run: [tempo, tipo]
 
 ## Cerco de verdade por `siege_run` s: jogador parado na chegada do mapa (longe do muro), relógio do SiegeSystem.

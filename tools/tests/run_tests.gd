@@ -2992,6 +2992,7 @@ func _check_zone(gd, sim) -> void:
 	_check_dawn_factions(gd)
 	_check_dawn_conquest(gd)
 	_check_dawn_relief(gd)
+	_check_raid_sync(gd)
 	_check_dawn_towers(gd)
 	_check_dawn_clean_fronts(gd)
 	_check_signature(gd, sim)
@@ -8906,6 +8907,69 @@ func _check_dawn_towers(gd) -> void:
 		w2.tick(0.05)
 	check(boss.call().is_empty(), "Covil: retomado, o chefe não volta")
 
+## Bastião (2026-11-21): os três lados atacam juntos num relógio único (Balance.RAID_SYNC_MAPS); o relógio para
+## enquanto alguma leva vive e com o jogador fora do mapa; fortaleza retomada cala só o lado dela.
+func _check_raid_sync(gd) -> void:
+	var ws := WorldSim.new()
+	ws.rng.seed = 11
+	ws.load_map(gd.maps[GameData.town_map_id()])
+	var def: MapDef = gd.maps["field_ruins"]
+	var m: Dictionary = ws.load_map(def)
+	m["spawners"].clear()
+	for e in m["entities"].duplicate():
+		if e.kind == SimEntity.Kind.MONSTER:
+			ws.despawn(e)
+	var n_routes := RaidSystem.routes(def).size()
+	check(Balance.RAID_SYNC_MAPS.has("field_ruins") and n_routes == 3, "Bastião: três rotas num relógio único")
+	ws.player = ws.spawn_player(gd.classes["paladin"], "Sino", GameData.town_map_id())
+	var live := func() -> Array:
+		var out: Array = []
+		for i in n_routes:
+			if not (RaidSystem.state(m, i)["ids"] as Array).is_empty():
+				out.append(i)
+		return out
+	RaidSystem.sync_state(m)["timer"] = 0.2
+	for i in 20:
+		ws.tick(0.05)
+	check(live.call().is_empty(), "Bastião: relógio parado com o jogador fora do mapa")
+	ws.place_loaded(ws.player, def.id, def.spawn_point)
+	for i in 10:
+		ws.tick(0.05)
+	check(live.call().size() == 3, "Bastião: os três lados soltam a leva juntos (%s)" % str(live.call()))
+	var sizes: Array = []
+	for i in n_routes:
+		sizes.append((RaidSystem.state(m, i)["ids"] as Array).size())
+	check(sizes.all(func(x): return x >= 38), "Bastião: levas maiores (%s)" % str(sizes))
+	# uma leva acaba, as outras vivem: o relógio não anda
+	var first: int = live.call()[0]
+	for id in RaidSystem.state(m, first)["ids"]:
+		ws.despawn(ws.entities.get(id))
+	var t0 := float(RaidSystem.sync_state(m)["timer"])
+	for i in 40:
+		ws.tick(0.05)
+	check(RaidSystem.state(m, first)["ids"].is_empty() and live.call().size() == 2 and is_equal_approx(float(RaidSystem.sync_state(m)["timer"]), t0),
+		"Bastião: relógio parado enquanto alguma leva vive")
+	# todas acabam: relógio volta ao intervalo; o Covil retomado cala só o oeste
+	for i in n_routes:
+		for id in RaidSystem.state(m, i)["ids"]:
+			ws.despawn(ws.entities.get(id))
+	ws.tick(0.05)
+	var every := float(Balance.RAID_SYNC_MAPS["field_ruins"]["every"])
+	var jit := float(Balance.RAID_SYNC_MAPS["field_ruins"]["jitter"])
+	var tm := float(RaidSystem.sync_state(m)["timer"])
+	check(live.call().is_empty() and tm > every - jit - 1.0 and tm <= every + jit, "Bastião: relógio volta ao intervalo (%.0f s)" % tm)
+	ws.player.quests_completed.append("dw_ghoul_boss")
+	RaidSystem.sync_state(m)["timer"] = 0.1
+	for i in 10:
+		ws.tick(0.05)
+	var sides: Array = live.call().map(func(i): return str(RaidSystem.route_def(def, i).get("side", "")))
+	check(sides.size() == 2 and not ("ghoul" in sides), "Bastião: fortaleza retomada cala só o lado dela (%s)" % str(sides))
+	for i in n_routes:
+		for id in RaidSystem.state(m, i)["ids"]:
+			ws.despawn(ws.entities.get(id))
+	# outros mapas seguem com relógio por rota
+	check(not Balance.RAID_SYNC_MAPS.has("field_forest"), "Floresta: relógio por rota (sem ataque simultâneo)")
+
 func _check_dawn_relief(gd) -> void:
 	var ws := WorldSim.new()
 	ws.load_map(gd.maps[GameData.town_map_id()])
@@ -8928,11 +8992,13 @@ func _check_dawn_relief(gd) -> void:
 		for id in ids:
 			ws.despawn(ws.entities.get(id))
 		RaidSystem.state(m, bones)["ids"] = []
-	check(sizes[0] == 25 and sizes[1] >= 38 and sizes[1] <= 41 and sizes[2] > Balance.RAID_WAVE_CAP + 6 and sizes[2] <= Balance.RAID_WAVE_CAP_LAST + 7,
-		"fúria: leva dos Ossos 25 -> ~38 -> último front (as outras duas retomadas) passa do teto comum, com elites e líder %s" % str(sizes))
+	var cap: int = int(Balance.RAID_WAVE_CAP_MAP.get("field_ruins", Balance.RAID_WAVE_CAP))
+	var last_cap: int = maxi(Balance.RAID_WAVE_CAP_LAST, cap)
+	check(sizes[0] == 38 and sizes[1] >= 57 and sizes[1] <= 61 and sizes[2] > sizes[1] and sizes[2] <= last_cap + 7,
+		"fúria: leva dos Ossos 38 -> ~57 -> último front (as outras duas retomadas) no teto, com elites e líder %s" % str(sizes))
 	RaidSystem.state(m)["force_reclaimed"] = 5
 	var big := RaidSystem.start_raid(ws, m, bones)
-	check(big.size() <= Balance.RAID_WAVE_CAP_LAST + 7, "fúria: teto da leva do último front (%d)" % big.size())
+	check(big.size() <= last_cap + 7, "fúria: teto da leva do último front (%d)" % big.size())
 	check(big.any(func(id): return ws.entities.has(id) and ws.entities[id].monster_def.elite_of == str(RaidSystem.route_def(def, bones).get("leader", ""))),
 		"fúria: o último front vem com o líder elite")
 	for id in big:
@@ -8943,6 +9009,7 @@ func _check_dawn_relief(gd) -> void:
 	ws.player = ws.spawn_player(gd.classes["paladin"], "Aurora", def.id)
 	for i in RaidSystem.routes(def).size():
 		RaidSystem.state(m, i)["timer"] = 9999.0
+	RaidSystem.sync_state(m)["timer"] = 9999.0
 	var relief := func() -> Array:
 		return m["entities"].filter(func(e): return e.guard and str(e.npc_data.get("id", "")).begins_with("assault_"))
 	for i in int(30.0 * 20):
@@ -15787,6 +15854,17 @@ func _check_raid_scaling(gd, sim) -> void:
 		steps[lv] = RaidSystem.power_step(ws, m)
 	check(steps[10] == 0 and steps[Balance.RAID_SCALE_FROM] == 0 and steps[Balance.RAID_SCALE_FROM + 2] == 2, "investida: força sobe com o nível do jogador (%s)" % str(steps))
 	check(steps[Balance.RAID_SCALE_TO] == steps[30] and steps[30] == Balance.RAID_SCALE_TO - Balance.RAID_SCALE_FROM, "investida: força para no nível %d" % Balance.RAID_SCALE_TO)
+	# Bastião (2026-11-21): teto próprio, a leva acompanha o jogador até o 30
+	var rm: Dictionary = ws.load_map(gd.maps["field_ruins"])
+	var rtop: int = int(Balance.RAID_SCALE_TO_MAP["field_ruins"])
+	ws.place_loaded(ws.player, "field_ruins", gd.maps["field_ruins"].spawn_point)
+	var rsteps := {}
+	for lv in [20, 25, 30]:
+		ws.player.level = lv
+		rsteps[lv] = RaidSystem.power_step(ws, rm)
+	check(rtop == 30 and rsteps[20] == 20 - Balance.RAID_SCALE_FROM and rsteps[25] == 25 - Balance.RAID_SCALE_FROM and rsteps[30] == rtop - Balance.RAID_SCALE_FROM,
+		"investida do Bastião: força sobe até o nível %d (%s)" % [rtop, str(rsteps)])
+	ws.place_loaded(ws.player, def.id, def.raid["target"] + Vector3(0, 0, 10))
 	var base: MonsterDef = gd.monsters["elf_raider"]
 	var top := RaidSystem.scaled_def(ws, base, steps[30])
 	check(top.id == base.id and top.level == base.level + steps[30] and top.hp > base.hp * 1.3 and top.atk > base.atk * 1.2 and top.xp > base.xp, "investida: invasor reforçado (nv %d, %.0f HP, %.0f ATK)" % [top.level, top.hp, top.atk])

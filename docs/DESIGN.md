@@ -860,9 +860,14 @@ Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MS
       - norte: ossos, com a Cripta;
       - sul: campo gelado da Torre.
     - Cada front tem a sua rota (`MapDef.raids`, `RAIDS["field_ruins"][lado]`) e monstros que somem quando a fortaleza do lado cai (`unless`).
+    - **Cerco dos três lados (2026-11-21):** os fronts atacam JUNTOS num relógio único (`Balance.RAID_SYNC_MAPS`: 1º ataque em 90 s,
+      depois 240 ± 30 s contados do fim da última leva; parado enquanto alguma leva vive e com o jogador fora do mapa; `RaidSystem.start_sync`).
+      Fortaleza retomada cala só o lado dela. Levas +50%: Carniçal 75 (+3 ursos a cada 2), Ossos 38, Torre 38 (+3 cavaleiros a cada 2),
+      teto `RAID_WAVE_CAP_MAP["field_ruins"]` 80 por leva. A força acompanha o jogador até o nível 30 (`RAID_SCALE_TO_MAP`; passo 5 no 20, 15 no 30:
+      vida x2,2, ATK/DEF x1,9 sobre o base). Medir: `raid_probe.tscn -- --map=field_ruins --sync --bots=0,3 --level=N --raid_level=N`.
     - O leste é o lado seguro (Aldara, cabanas, rochedo do Dragonete).
     - **Guerra que muda com a conquista:**
-      - **Fúria:** cada fortaleza retomada multiplica as levas dos fronts que sobram por `RAID_RECLAIM_MULT` (1,5) e soma elites (`reclaim_extra`), com teto de `RAID_WAVE_CAP` (90) por leva (`RaidSystem.reclaimed`).
+      - **Fúria:** cada fortaleza retomada multiplica as levas dos fronts que sobram por `RAID_RECLAIM_MULT` (1,5) e soma elites (`reclaim_extra`), com teto de `RAID_WAVE_CAP_MAP["field_ruins"]` (80) por leva (`RaidSystem.reclaimed`).
       - **Reforços:** cada fortaleza retomada manda até `Balance.REINFORCE_MAX` (3) soldados ao Bastião a cada 2 min (`ASSAULTS["field_ruins"]["reforco_<lado>"]`):
         a rota da investida até o portão do lado, a avenida e a borda da praça. Eram até 8 por fortaleza e espalhavam a última investida (2026-11-10).
       - **Último front** (as outras duas retomadas): leva x `RAID_LAST_FRONT_MULT` (2) além da fúria, teto `RAID_WAVE_CAP_LAST` (80) e um líder elite

@@ -494,6 +494,7 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 	m["spawners"].clear()
 	for ri in RaidSystem.routes(m["def"]).size():
 		RaidSystem.state(m, ri)["timer"] = INF       # investidas paradas (Bastião): os bots largavam o chefe para defender o portão
+	RaidSystem.sync_state(m)["timer"] = INF          # Bastião: relógio único dos três lados
 	var at := Vector3.ZERO
 	for sp in m["def"].spawners:
 		if sp["monster_id"] == bid or (sp["monster_id"] == ARENA_AT.get(bid, "") and at == Vector3.ZERO):
