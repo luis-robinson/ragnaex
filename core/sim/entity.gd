@@ -155,6 +155,7 @@ var patrol_route: Array = []         # líder em ronda: pontos (Vector3) que ele
 var patrol_i: int = 0
 var boss_spoke := false             # chefe já disse a fala de abertura nesta luta (MonsterDef.intro)
 var adds_epoch: int = 0              # chefe: sobe ao resetar; lacaios de época antiga somem
+var eggs_ready: bool = false          # chefe com ninho (MonsterDef.eggs): ovos já postos nesta época
 var sig: Dictionary = {}             # chefe: estado da assinatura (canal, sequência, muralha; BossSignatures). reset_boss limpa
 var dead_time: float = 0.0
 var home_position: Vector3 = Vector3.ZERO

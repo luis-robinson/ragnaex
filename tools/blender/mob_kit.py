@@ -1508,6 +1508,171 @@ def web_cocoon(cid="mob_web_cocoon"):
     return arm
 
 
+EGG_BONES = {               # ossos todos de pé (eixos locais: x = X, y = para cima, z = -Y), nomes de MOB_BONES + "core"
+    "root": ((0, 0, 0), (0, 0, 0.12), None),                # cama de palha e pedrinhas: fica no lugar
+    "body": ((0, 0, 0.03), (0, 0, 0.5), "root"),            # a casca toda: pulsa e balança a partir do chão
+    "core": ((0, 0, 0.03), (0, 0, 0.5), "root"),            # a brasa de dentro (vista pelas rachaduras): some quando o ovo quebra
+    "head": ((0, 0, 0.8), (0, 0, 1.0), "body"),             # calota de cima
+    "arm_r": ((0.16, 0, 0.42), (0.16, 0, 0.62), "body"),    # metade da casca em +X
+    "arm_l": ((-0.16, 0, 0.42), (-0.16, 0, 0.62), "body"),  # metade da casca em -X
+}
+EGG_H = 1.02
+EGG_CAP = 0.78              # fração da altura em que a calota se separa das metades
+
+
+def _egg_r(zz, r0=0.37):
+    """Raio do ovo na altura zz: mais gordo embaixo, ponta em cima."""
+    t = max(-1.0, min(1.0, (zz - EGG_H * 0.5) / (EGG_H * 0.5)))
+    return r0 * math.sqrt(max(0.0, 1.0 - abs(t) ** 2.15)) * (1.0 - 0.2 * t)
+
+
+def _egg_shell(name, a0, a1, t0, t1, mats, cols=7, rows=6, seam=0.0, thick=0.035, scales=True, seed=0):
+    """Pedaço da casca entre os ângulos a0..a1 e as alturas t0..t1 (frações de EGG_H): face de fora facetada com manchas
+    escuras, face de dentro escura (a casca tem espessura: aberta no `die` não fica oca de um lado só), borda em
+    ziguezague (`seam` = quanto a emenda dança) e fileiras de escamas em quilha na face de fora. Uma malha, 3 materiais."""
+    import bmesh
+    import random
+    bmx = bmesh.new()
+    rnd = random.Random(seed * 131 + 7)
+    outer, inner = [], []
+    for i in range(rows + 1):
+        t = t0 + (t1 - t0) * i / rows
+        zz = EGG_H * t
+        r = max(0.02, _egg_r(zz))
+        zig = seam * (1 if i % 2 else -1) * (0.6 + 0.4 * math.sin(i * 2.1))       # igual nas duas metades: a rachadura dança inteira
+        ro, ri = [], []
+        for k in range(cols + 1):
+            edge = k in (0, cols)
+            a = a0 + (a1 - a0) * k / cols + (zig if edge else 0.0)
+            ro.append(bmx.verts.new((math.cos(a) * r, math.sin(a) * r, zz)))
+            rr = max(0.005, r - thick)
+            ri.append(bmx.verts.new((math.cos(a) * rr, math.sin(a) * rr, zz)))
+        outer.append(ro)
+        inner.append(ri)
+    for i in range(rows):
+        for k in range(cols):
+            f = bmx.faces.new((outer[i][k], outer[i][k + 1], outer[i + 1][k + 1], outer[i + 1][k]))
+            f.material_index = 1 if rnd.random() < 0.2 else 0
+            f = bmx.faces.new((inner[i][k], inner[i + 1][k], inner[i + 1][k + 1], inner[i][k + 1]))
+            f.material_index = 2
+    for i in range(rows):                                    # bordas dos lados (anel inteiro não tem)
+        for k in ((0, cols) if a1 - a0 < math.tau - 1e-6 else ()):
+            f = bmx.faces.new((outer[i][k], outer[i + 1][k], inner[i + 1][k], inner[i][k]))
+            f.material_index = 2
+    for k in range(cols):                                    # bordas de baixo e de cima
+        for i in (0, rows):
+            f = bmx.faces.new((outer[i][k], outer[i][k + 1], inner[i][k + 1], inner[i][k]))
+            f.material_index = 2
+    if scales:                                               # escamas: quilhas em losango, a ponta levantada para baixo
+        for j, t in enumerate((0.2, 0.33, 0.46, 0.59, 0.71)):
+            if not (t0 + 0.04 < t < t1 - 0.03):
+                continue
+            zz = EGG_H * t
+            n = 12
+            for q in range(n):
+                a = math.tau * (q + 0.5 * (j % 2)) / n
+                am = (a - a0) % math.tau
+                if not (0.2 < am < (a1 - a0) - 0.2):
+                    continue
+                r = _egg_r(zz) + 0.004
+                w, h = 0.44 * r, 0.15
+                up = (math.cos(a) * (_egg_r(zz + h * 0.5) + 0.004), math.sin(a) * (_egg_r(zz + h * 0.5) + 0.004), zz + h * 0.5)
+                dn = (math.cos(a) * (_egg_r(zz - h * 0.5) + 0.004), math.sin(a) * (_egg_r(zz - h * 0.5) + 0.004), zz - h * 0.5)
+                lf = (math.cos(a - w / r * 0.5) * r, math.sin(a - w / r * 0.5) * r, zz)
+                rt = (math.cos(a + w / r * 0.5) * r, math.sin(a + w / r * 0.5) * r, zz)
+                tip = (math.cos(a) * (r + 0.028), math.sin(a) * (r + 0.028), zz - h * 0.2)
+                v = [bmx.verts.new(p) for p in (up, lf, dn, rt, tip)]
+                dark = (q + j) % 3 == 0
+                for x, y in ((0, 1), (1, 2), (2, 3), (3, 0)):
+                    f = bmx.faces.new((v[x], v[y], v[4]))
+                    f.material_index = 1 if dark or x in (1, 2) else 0
+    bmesh.ops.recalc_face_normals(bmx, faces=bmx.faces[:])
+    o = ck.mesh_from(name, bmx, mats[0])
+    o.data.materials.append(mats[1])
+    o.data.materials.append(mats[2])
+    return o
+
+
+def dragon_egg(cid="mob_dragon_egg"):
+    """Ovo do Dragonete (~1,0 m de altura, origem na base): casca vermelho-alaranjada de facetas com manchas escuras e
+    fileiras de escamas em quilha, rachada em duas metades e uma calota; pelas rachaduras vê-se a brasa de dentro
+    (`glow_dragon_egg`: o jogo mantém a emissão). Peças rígidas em ossos, como o Casulo de Seda: no `die` as metades
+    tombam para os lados, a calota salta e a brasa some. Cama de palha e pedrinhas na base (fica no lugar)."""
+    arm = lp.make_armature("rig_" + cid, EGG_BONES)
+    shell = ck.mat("m_%s_shell" % cid, (0.86, 0.36, 0.2), 1.0)
+    spot = ck.mat("m_%s_spot" % cid, (0.52, 0.16, 0.13), 1.0)
+    inside = ck.mat("m_%s_inside" % cid, (0.3, 0.1, 0.09), 1.0)
+    ember = ck.mat("glow_dragon_egg", (1.0, 0.52, 0.16), 0.3, 1.5)
+    straw = ck.mat("m_%s_straw" % cid, (0.68, 0.56, 0.33), 1.0)
+    stone = ck.mat("m_%s_stone" % cid, (0.3, 0.26, 0.26), 1.0)
+    mats = (shell, spot, inside)
+    parts = []
+    # brasa de dentro: um ovo menor, aceso
+    core = ck.quad_sphere("ember", 1.0, (0, 0, 0), cuts=2)
+    for v in core.data.vertices:
+        zz = EGG_H * 0.5 + v.co.z * (EGG_H * 0.5 - 0.06)
+        h = math.hypot(v.co.x, v.co.y)
+        rr = max(0.0, _egg_r(zz) - 0.06)
+        v.co = Vector((v.co.x / h * rr, v.co.y / h * rr, zz)) if h > 1e-6 else Vector((0, 0, zz))
+    core.data.materials.append(ember)
+    parts.append((core, "core"))
+    # metades (+X / -X) com a emenda em ziguezague e a calota; a folga entre as peças é a rachadura acesa
+    gap = 0.06
+    parts.append((_egg_shell("shell_r", -math.pi / 2 + gap, math.pi / 2 - gap, 0.03, EGG_CAP - 0.012, mats, seam=0.075, seed=1), "arm_r"))
+    parts.append((_egg_shell("shell_l", math.pi / 2 + gap, math.pi * 1.5 - gap, 0.03, EGG_CAP - 0.012, mats, seam=0.075, seed=2), "arm_l"))
+    parts.append((_egg_shell("shell_cap", 0.0, math.tau, EGG_CAP + 0.012, 0.985, mats, cols=10, rows=3, seam=0.0, scales=False, seed=3), "head"))
+    parts.append((blob("cap_tip", 0.07, (0, 0, EGG_H * 0.975), spot, (1.0, 1.0, 0.6), 1), "head"))
+    # cama: anel de palha achatado, fios e pedrinhas (ficam quando o ovo quebra)
+    parts.append((blob("bed", 0.44, (0, 0, 0.0), straw, (1.0, 1.0, 0.13), 2), "root"))
+    for k in range(7):
+        a = 0.4 + k * math.tau / 7 + 0.3 * math.sin(k * 2.7)
+        r0, r1 = 0.2 + 0.05 * math.sin(k * 1.9), 0.52 + 0.06 * math.sin(k * 3.3)
+        parts.append((ck.tube("straw%d" % k, (math.cos(a) * r0, math.sin(a) * r0, 0.05), (math.cos(a + 0.5) * r1, math.sin(a + 0.5) * r1, 0.02 + 0.05 * (k % 2)), 0.022, 0.008, straw, 4), "root"))
+    for k in range(4):
+        a = 1.1 + k * math.tau / 4 + 0.4 * math.sin(k * 4.1)
+        parts.append((blob("stone%d" % k, 0.07 + 0.02 * (k % 2), (math.cos(a) * 0.43, math.sin(a) * 0.43, 0.03), stone, (1.2, 1.0, 0.7), 1), "root"))
+    for obj, bone in parts:                                  # a casca fica facetada (as escamas leem); o resto alisa como no `finish`
+        if not obj.name.startswith("shell"):
+            ck._smooth(obj.data)
+        lp.attach(obj, arm, bone)
+
+    z, one = (0, 0, 0), (1, 1, 1)
+
+    def both(frames):               # casca e brasa juntas (a brasa não é filha da casca, para poder sumir sozinha no `die`)
+        return {b: list(frames) for b in ("body", "core")}
+
+    def still(keys, end):           # toda chave de escala vai em todo clipe: clipe sem a trilha herdaria a escala do anterior
+        for b in ("head", "arm_r", "arm_l"):
+            keys.setdefault(b, [(1, z, z, one), (end, z, z, one)])
+        return keys
+
+    # idle: pulsa devagar (algo vivo lá dentro) com um balanço mínimo; a brasa pulsa um pouco mais que a casca
+    pulse = [(1, z, z, one), (12, (1.2, 0, 1.6), z, (1.03, 0.99, 1.03)), (24, z, z, one), (36, (-1.2, 0, -1.6), z, (1.025, 0.992, 1.025)), (48, z, z, one)]
+    glow = [(1, z, z, one), (12, (1.2, 0, 1.6), z, (1.07, 1.0, 1.07)), (24, z, z, one), (36, (-1.2, 0, -1.6), z, (1.06, 1.0, 1.06)), (48, z, z, one)]
+    for name in ("idle", "run"):                             # nunca anda; o `run` existe para a vista não ficar sem
+        lp.add_action(arm, name, still({"body": list(pulse), "core": list(glow)}, 48), 48)
+    # attack: estremece e incha (o filhote chuta por dentro)
+    kick = [(1, z, z, one), (4, (0, 0, 5), z, (1.06, 0.97, 1.06)), (8, (0, 0, -4), z, (0.97, 1.03, 0.97)), (12, (0, 0, 2), z, (1.02, 0.99, 1.02)), (16, z, z, one)]
+    lp.add_action(arm, "attack", still(both(kick), 16), 16, loop=False)
+    # hit: balança forte de um lado para o outro e volta
+    hit = [(1, (0, 0, 9), z, (1.07, 0.94, 1.07)), (4, (0, 0, -7), z, (0.97, 1.03, 0.97)), (7, (0, 0, 3.5), z, (1.02, 0.99, 1.02)), (10, z, z, one)]
+    lp.add_action(arm, "hit", still(both(hit), 10), 10, loop=False)
+    # die: incha, racha (as metades tombam para os lados, a calota salta para trás) e a brasa apaga encolhendo
+    die = {
+        "body": [(1, z, z, one), (5, z, z, (1.12, 0.96, 1.12)), (8, z, z, one), (24, z, z, one)],
+        "core": [(1, z, z, one), (5, z, z, (1.14, 0.97, 1.14)), (8, z, z, (1.2, 1.0, 1.2)), (14, z, (0, -0.1, 0), (0.02, 0.02, 0.02)),
+                 (24, z, (0, -0.1, 0), (0.02, 0.02, 0.02))],
+        "arm_r": [(1, z, z, one), (5, z, z, one), (8, (0, 0, -20), (0.1, 0.04, 0), one), (14, (0, 10, -68), (0.3, -0.16, 0.05), one),
+                  (19, (0, 14, -96), (0.36, -0.33, 0.07), one), (24, (0, 14, -93), (0.36, -0.33, 0.07), one)],
+        "arm_l": [(1, z, z, one), (5, z, z, one), (8, (0, 0, 20), (-0.1, 0.04, 0), one), (14, (0, -10, 68), (-0.3, -0.16, -0.05), one),
+                  (19, (0, -14, 96), (-0.36, -0.33, -0.07), one), (24, (0, -14, 93), (-0.36, -0.33, -0.07), one)],
+        "head": [(1, z, z, one), (5, z, (0, 0.02, 0), one), (9, (-40, 0, 10), (0, 0.26, -0.12), one), (15, (-115, 0, 25), (0.05, 0.06, -0.4), one),
+                 (20, (-168, 0, 30), (0.06, -0.7, -0.52), one), (24, (-168, 0, 30), (0.06, -0.71, -0.52), one)],
+    }
+    lp.add_action(arm, "die", die, 24, loop=False)
+    return arm
+
+
 DUMMY_BONES = {             # ossos todos de pé (eixos locais: x = X, y = para cima, z = -Y), nomes de MOB_BONES
     "root": ((0, 0, 0), (0, 0, 0.2), None),                 # monte de terra, pés em cruz e o encaixe: nunca se mexem
     "body": ((0, 0, 0.16), (0, 0, 0.9), "root"),            # poste + tronco + travessa: balança a partir do encaixe (mola)
@@ -2584,6 +2749,7 @@ def build_all(out_dir, only=None):
         "mob_rot_bear": lambda: quadruped("mob_rot_bear", (0.36, 0.38, 0.28), (0.42, 0.14, 0.14), (0.9, 0.86, 0.72), "bear"),
         "mob_rot_wolf": lambda: quadruped("mob_rot_wolf", (0.38, 0.4, 0.32), (0.42, 0.14, 0.14), (0.9, 0.86, 0.72), "wolf"),
         "mob_larva": larva,
+        "mob_dragon_egg": dragon_egg,      # ovos do ninho do Dragonete Ancestral (Covil do Dragonete)
         "mob_web_cocoon": web_cocoon,      # lacaio do Casulo de Seda da Rainha Aranha (monstro `web_cocoon`)
         "mob_bat": bat,
         "mob_training_dummy": training_dummy,      # boneco de treino de Aldara (monstro `training_dummy`): só apanha

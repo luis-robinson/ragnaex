@@ -2,7 +2,7 @@
 Cidade murada grande no centro (catedral com torre e flecha dourada = marco; mercado, quartel, casas) e a guarnição
 da Aurora nos portões. Cada portão (O, N, S) dá para um front de guerra com a cor dele (pântano pútrido do Carniçal,
 cinza de ossos, campo gelado da Torre) e uma garganta para a fortaleza daquele lado; por ali vêm as investidas.
-O leste é o lado seguro: estrada para Aldara, cabanas, o rochedo do Dragonete. A Cripta fica no front norte.
+O leste é o lado seguro: estrada para Aldara, cabanas, o rochedo com a boca do Covil do Dragonete. A Cripta fica no front norte.
 
     import sys; sys.path += [r"C:/Users/luisf/Desktop/projects/ragnaex/tools/blender/zones"]
     import build_field_ruins as z; z.build(export=True)
@@ -43,6 +43,8 @@ PLACES = [
     {"type": "camp", "id": "ninho_putrido", "pos": (-70.0, 42.0), "face": 200.0, "mob": "rot_ghoul", "count": 3, "cloth": (0.4, 0.46, 0.3), "respawn": 22.0,
      "when": {"unless": "dw_ghoul_boss"}},
     {"type": "dungeon", "id": "cripta", "dungeon": "dg_cripta"},
+    # Covil do Dragonete: boca encostada no rochedo, virada para o largo do altar onde a estrada "dragao" acaba (portão/face em places.DUNGEONS)
+    {"type": "dungeon", "id": "covil_dragao", "dungeon": "dg_covil_dragao"},
 ]
 
 
@@ -337,5 +339,5 @@ def build(export=False):
         for i, (mid_, n, resp) in enumerate(mobs):
             x, y = H(88.0 + (i % 2) * 8.0, f["deg"] - 18.0 + i * 12.0)
             z.spawner(mid_, x, y, 8, n, resp, when={"unless": f["quest"]})
-    z.spawner("dragonling", DRAGON[0], DRAGON[1], 2, 1, 120.0)          # chefe opcional do 30: volta em 2 min (era 5)
+    # o Dragonete Ancestral (chefe opcional do 30) saiu do campo: mora no Covil do Dragonete (dg_covil_dragao, boca no rochedo)
     return z.finish(export, poi=DRAGON, ground=(0.55, 0.56, 0.46))

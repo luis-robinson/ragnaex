@@ -189,6 +189,23 @@ DUNGEONS["dg_slayers"] = {
         "packs": {"galeria>mestre": ("goblin_assassin", 3)},
     },
 }
+# Covil do Dragonete (Bastião da Aurora, chefe opcional do 30): gruta vulcânica pequena, só a luta. Um túnel curto e o
+# covil redondo com o ninho no centro (act2_dress.dragon_lair); NENHUM bicho comum. A boca fica encostada no rochedo a
+# leste da cidade, virada para o largo do altar onde a estrada "dragao" acaba (build_field_ruins.DRAGON; quem sai aparece
+# no centro do largo) e 20 graus para o lado da câmera do jogo (uma boca virada de frente para a estrada ficava de costas
+# para a câmera). O Dragonete volta em 2 min (`respawn`) e o salão não tem a estátua dos outros chefes (`statue`): o
+# marco é o ninho.
+DUNGEONS["dg_covil_dragao"] = {
+    "zone": "field_ruins", "gate": (81.9, 48.4), "face": 160.0, "name": "Covil do Dragonete", "seed": 37,
+    "rock": (0.2, 0.18, 0.2), "floor": (0.44, 0.35, 0.3), "glow": (1.0, 0.5, 0.2),
+    "layout": {
+        "rooms": {
+            "tunel": {"pos": (-8, 18), "r": 6, "floor": (0.4, 0.32, 0.29)},
+            "covil": {"pos": (4, -10), "r": 14, "boss": "dragonling", "respawn": 120.0, "statue": False, "floor": (0.48, 0.38, 0.31)},
+        },
+        "edges": [("chegada", "tunel"), ("tunel", "covil")],
+    },
+}
 DUNGEON_ARRIVE = (0.0, 44.0)   # chegada dentro de toda dungeon; a saída fica em DUNGEON_EXIT
 DUNGEON_EXIT = (0.0, 50.0)
 

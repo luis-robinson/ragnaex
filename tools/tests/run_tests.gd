@@ -2677,6 +2677,7 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_threat_loot(gd, sim)
 	_check_self_aoe(gd, sim)
 	_check_review_fixes(gd, sim)
+	_check_dragon_eggs(gd, sim)
 	_check_tank_kit(gd, sim)
 	_check_boss_kit(gd, sim)
 	_check_boss_mechanics(gd)
@@ -14124,6 +14125,50 @@ func _check_threat_loot(gd, sim) -> void:
 	check(sim.can_loot(o, pile), "depois do tempo o item fica livre")
 	for x in [mob, mob2, a, b, o]:
 		sim.despawn(x)
+
+## Covil do Dragonete (2026-11-21): ninho de 6 ovos em volta do ponto de nascer; 70% choca metade dos inteiros, 40% o resto;
+## ovo não segura o escudo da fase; reset devolve o ninho inteiro.
+func _check_dragon_eggs(gd, sim) -> void:
+	var at := Vector3(70, 0, -60)
+	var d: MonsterDef = gd.monsters["dragonling"]
+	check(gd.monsters.has("dragon_egg") and gd.monsters["dragon_egg"].egg and gd.monsters["dragon_egg"].xp == 0 and gd.monsters["dragon_egg"].move_speed == 0.0,
+		"Ovo de Dragão: lacaio parado, sem XP")
+	check(int(d.eggs.get("count", 0)) == 6 and d.phases.any(func(p): return p.has("hatch")) and not d.phases.any(func(p): return p.has("summon")),
+		"Dragonete: ninho de 6 ovos e fases que chocam (sem filhote do nada)")
+	var boss: SimEntity = sim.spawn_monster(d, "city_aldara", at)
+	boss.brain = null
+	boss.home_position = at
+	MobSystem.update_boss(sim, boss, 0.05)
+	var eggs: Array = MobSystem.eggs_of(sim, boss)
+	check(eggs.size() == 6 and eggs.all(func(o): return absf(o.position.distance_to(at) - float(d.eggs["r"])) < 0.6), "ninho: 6 ovos no anel em volta do chefe (%d)" % eggs.size())
+	MobSystem.update_boss(sim, boss, 0.05)
+	check(MobSystem.eggs_of(sim, boss).size() == 6, "ninho: não põe ovo a mais")
+	check(MobSystem.adds_alive(sim, boss) == 0, "ovo não conta como lacaio (escudo da fase)")
+	sim._deal_damage(sim.player, eggs[0], 99999, false, false, "physical", null, false)     # quebrar um ovo antes
+	sim.tick(0.05)
+	check(MobSystem.eggs_of(sim, boss).size() == 5, "ovo quebra")
+	var foe: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Ninho", "city_aldara", at + Vector3(0, 0, 3), 30)
+	foe.brain = null
+	boss.aggro_target = foe.id
+	boss.hp = boss.stats.max_hp * 0.69
+	MobSystem.update_boss(sim, boss, 0.05)
+	var whelps := func() -> Array:
+		return sim.maps["city_aldara"]["entities"].filter(func(o): return o.boss_id == boss.id and o.is_alive() and o.monster_def.id == "dragon_whelp")
+	check(MobSystem.eggs_of(sim, boss).size() == 2 and whelps.call().size() == 3 and whelps.call().all(func(w): return w.aggro_target == foe.id),
+		"70%%: metade dos 5 ovos inteiros (3) choca em filhotes já na luta (%d ovos, %d filhotes)" % [MobSystem.eggs_of(sim, boss).size(), whelps.call().size()])
+	boss.hp = boss.stats.max_hp * 0.39
+	MobSystem.update_boss(sim, boss, 0.05)
+	check(MobSystem.eggs_of(sim, boss).is_empty() and whelps.call().size() == 5 and MobSystem.adds_alive(sim, boss) == 5, "40%: o resto choca (5 filhotes seguram o escudo)")
+	# reset: os lacaios somem e o ninho volta inteiro fora de luta
+	MobSystem.reset_boss(sim, boss)
+	boss.aggro_target = -1
+	sim.tick(0.05)
+	MobSystem.update_boss(sim, boss, 0.05)
+	check(whelps.call().is_empty() and MobSystem.eggs_of(sim, boss).size() == 6, "reset: filhotes somem e o ninho volta com 6 ovos")
+	for o in MobSystem.eggs_of(sim, boss):
+		sim.despawn(o)
+	sim.despawn(foe)
+	sim.despawn(boss)
 
 ## Regressões da revisão: cada uma passou batida pelos testes antes.
 func _check_review_fixes(gd, sim) -> void:

@@ -70,7 +70,7 @@ const BOSSES := {"bandit_chief": "field_forest", "crab_king": "city_aldara", "be
 	"golem_ancient": "dg_pedreira", "crystal_warden": "dg_pedreira", "quarry_heart": "dg_pedreira_coracao",
 	"elf_captain_hunter": "elf_city", "elf_captain_sky": "elf_city", "elf_captain_sap": "elf_city",
 	"ghoul_giant": "fort_ghoul", "death_knight": "fort_bones", "frost_mage": "fort_frost", "lich_king": "lich_citadel",
-	"dragonling": "field_ruins",
+	"dragonling": "dg_covil_dragao",
 	# Ato II (30-35): a sala de verdade (field_coast, dg_goblin) vem do pacote das zonas; até lá lutam nas Ruínas
 	"boss_tide_mother": "field_coast", "boss_agitator_lord": "dg_goblin",
 	"boss_troll_king": "fort_trolls", "boss_crossbow_master": "fort_fire", "boss_ghar": "fort_war",

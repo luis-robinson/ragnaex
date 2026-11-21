@@ -1006,6 +1006,11 @@ sopro (cone que queima), varrida de cauda, mergulho de asa no mais longe, rugido
 aos 40% fica protegido (ward) enquanto um filhote vive e chama a ninhada; fúria aos 40% e 15%, berserk aos 200 s. Gestos próprios
 no modelo (`mob_kit.quad_dragon_gestures`: cast_fire, atk_sweep, atk_charge, shout, cast_ground, summon). Antes: 4.200 de vida e só o bafo.
 A sonda agora para as investidas no mapa do chefe (os bots largavam o chefe para defender o portão do Bastião).
+**Covil do Dragonete (2026-11-21):** o Dragonete saiu do campo para uma masmorra só dele (`dg_covil_dragao`, boca no rochedo leste do
+Bastião, túnel + salão redondo com ninho; volta em 2 min). Ninho de 6 **Ovos de Dragão** (`MonsterDef.eggs`, `MobSystem.ensure_eggs`):
+lacaios parados, 1.500 de vida, sem XP; não seguram o escudo da fase. Aos 70% metade dos ovos inteiros choca em filhotes, aos 40% o
+resto (`hatch`, `MobSystem.hatch`; no lugar dos 2 filhotes do nada): quebrar ovos antes = menos filhotes. Reset devolve o ninho inteiro.
+Sonda (20 lutas): grupo de 4 vence 19/20 (mortes 0,8, 37 s); grupo de 5 13/20 (mortes 2,3: o multiplicador de multidão de 5). Check `_check_dragon_eggs`.
 
 **Ato II, a Horda 30-35** (2026-11-11, `design/gdd/ato2-horda.md` R3/F2/F4): atributos pela fórmula F2 (`Balance.horde_stat`,
 `MonsterDef.stat_role` + `unit_mods`; check `_check_horde_stats`). Linhas: Lanceiro Goblin 30 → Empalador 33 (estocada em linha que

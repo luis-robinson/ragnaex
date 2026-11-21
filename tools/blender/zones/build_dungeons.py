@@ -197,8 +197,9 @@ def build_graph(did, g, export):
             ox, oy = room.get("mob_off", (0.0, 0.0))       # bando recuado da chegada (places.DUNGEONS)
             z.spawner(mob, x + ox, y + oy, room["r"] - 3.0, n, 30.0)
         if "boss" in room:
-            z.spawner(room["boss"], x, y, 2, 1, 240.0)
-            z.ob("statue", x, y - room["r"] + 3.5, (1.8, 3.0, 1.8), color=g["glow"])
+            z.spawner(room["boss"], x, y, 2, 1, room.get("respawn", 240.0))      # `respawn` do salão (s); sem ele, 4 min
+            if room.get("statue", True):                                         # `statue` False = salão sem a estátua do fundo
+                z.ob("statue", x, y - room["r"] + 3.5, (1.8, 3.0, 1.8), color=g["glow"])
             for q, _ in places._ring((x, y), room["r"] - 1.2, 8, 0.4):
                 z.ob("pillar", q.x, q.y, (1.0, 3.6, 1.0), color=tuple(c * 1.25 for c in g["rock"]))
     for nid, (x, y, face) in L.get("npcs", {}).items():
@@ -222,6 +223,8 @@ def build_graph(did, g, export):
     z.data["hangouts"] = []
     if did == "dg_goblin":                # acabamento do Ato II (estalagmites, cogumelos, lava, runas): act2_dress.goblin
         act2_dress.goblin(z, rooms, L["edges"])
+    if did == "dg_covil_dragao":          # Covil do Dragonete: ninho no centro, estalagmites, ossos, lava na borda
+        act2_dress.dragon_lair(z, rooms, L["edges"])
     if did == "dg_slayers":               # Salão dos Matadores: bonecos de treino, alvos, venenos, panos roxos, arena do Mestre
         act2_dress.slayers(z, rooms, L["edges"])
     boss_pos = next(r["pos"] for r in L["rooms"].values() if "boss" in r)

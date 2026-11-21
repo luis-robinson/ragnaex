@@ -113,6 +113,8 @@ static func update_boss(sim: WorldSim, e: SimEntity, dt: float = 0.0) -> void:
 	if not e.boss_spoke and e.aggro_target >= 0 and e.monster_def.intro != "":
 		e.boss_spoke = true
 		boss_say(sim, e, e.monster_def.intro)
+	if not e.eggs_ready and e.aggro_target < 0 and not e.monster_def.eggs.is_empty():
+		ensure_eggs(sim, e)
 	var phases: Array = e.monster_def.phases
 	while e.phase < phases.size() and e.hp / e.stats.max_hp <= float(phases[e.phase]["hp"]):
 		var ph: Dictionary = phases[e.phase]
@@ -126,6 +128,8 @@ static func update_boss(sim: WorldSim, e: SimEntity, dt: float = 0.0) -> void:
 			e.ward_t = 0.0
 		if ph.has("summon"):
 			spawn_adds(sim, e, ph["summon"])
+		if ph.has("hatch"):
+			hatch(sim, e, float(ph["hatch"]))
 		if ph.has("enrage"):
 			e.enrage_mult = float(ph["enrage"])
 			_apply_fury(e)
@@ -210,9 +214,55 @@ static func adds_alive(sim: WorldSim, boss: SimEntity) -> int:
 		return 0
 	var n := 0
 	for o: SimEntity in sim.maps[boss.map_id]["entities"]:
-		if o.boss_id == boss.id and o.is_alive():
+		if o.boss_id == boss.id and o.is_alive() and not o.monster_def.egg:     # ovo não segura o escudo da fase
 			n += 1
 	return n
+
+## Ninho (MonsterDef.eggs): põe os ovos que faltam num anel em volta do ponto de nascer do chefe, fora de luta. Os ovos são
+## lacaios dele (somem quando ele morre ou reseta; voltam inteiros com ele).
+static func ensure_eggs(sim: WorldSim, boss: SimEntity) -> void:
+	var ed: Dictionary = boss.monster_def.eggs
+	var mdef: MonsterDef = GameData.monsters.get(str(ed.get("id", "")))
+	boss.eggs_ready = true
+	if mdef == null or not sim.maps.has(boss.map_id):
+		return
+	var have := eggs_of(sim, boss).size()
+	var n := int(ed.get("count", 0))
+	var r := float(ed.get("r", 6.0))
+	for i in range(have, n):
+		var a := TAU * float(i) / maxf(1.0, float(n)) + 0.3
+		var egg := sim.spawn_monster(mdef, boss.map_id, boss.home_position + Vector3(cos(a), 0, sin(a)) * r)
+		egg.boss_id = boss.id
+		egg.adds_epoch = boss.adds_epoch
+
+## Ovos inteiros deste chefe.
+static func eggs_of(sim: WorldSim, boss: SimEntity) -> Array:
+	var out: Array = []
+	for o: SimEntity in sim.maps[boss.map_id]["entities"]:
+		if o.boss_id == boss.id and o.adds_epoch == boss.adds_epoch and o.is_alive() and o.monster_def.egg:
+			out.append(o)
+	return out
+
+## Fase com "hatch": a fração `frac` dos ovos inteiros (arredonda para cima) choca: o ovo some e um filhote
+## (MonsterDef.eggs["hatch"], padrão dragon_whelp) nasce no lugar, já na luta.
+static func hatch(sim: WorldSim, boss: SimEntity, frac: float) -> void:
+	var eggs := eggs_of(sim, boss)
+	var into: MonsterDef = GameData.monsters.get(str(boss.monster_def.eggs.get("hatch", "dragon_whelp")))
+	if eggs.is_empty() or into == null:
+		return
+	var n := mini(eggs.size(), int(ceil(eggs.size() * clampf(frac, 0.0, 1.0))))
+	for i in range(n):
+		var egg: SimEntity = eggs[i]
+		var pos := egg.position
+		sim.despawn(egg)
+		var w := sim.spawn_monster(into, boss.map_id, pos)
+		w.boss_id = boss.id
+		w.adds_epoch = boss.adds_epoch
+		w.aggro_target = boss.aggro_target
+		w.aggro_timer = Balance.AGGRO_LOSE_TIME
+	Events.post(&"boss_hatch", boss.id, n)
+	if sim.player and sim.player.map_id == boss.map_id:
+		Events.post(&"notification", "%d ovo%s chocou!" % [n, "" if n == 1 else "s"])
 
 ## Chefe volta ao estado inicial depois de um wipe ou de ser puxado longe demais.
 static func reset_boss(sim: WorldSim, e: SimEntity) -> void:
@@ -231,6 +281,7 @@ static func reset_boss(sim: WorldSim, e: SimEntity) -> void:
 	e.crowd_t = 0.0
 	e.crowd_peak = 0
 	e.adds_epoch += 1
+	e.eggs_ready = false                         # ovos de antes somem com a época; o ninho volta inteiro
 	e.skills.clear()
 	sim._add_skills(e, e.monster_def.skill_ids)
 	e.cooldowns.clear()

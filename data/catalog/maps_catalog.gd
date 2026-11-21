@@ -1559,6 +1559,8 @@ const DUNGEON_DEFS := {
 	"dg_pedreira_coracao": {"name": "Coração da Pedreira", "parent": "dg_pedreira", "levels": Vector2i(14, 16), "ground": Color(0.4, 0.3, 0.24), "ambient": Color(0.9, 0.7, 0.6), "sun": 0.65},
 	"dg_ninho": {"name": "Ninho Profundo", "parent": "field_forest", "levels": Vector2i(15, 20), "ground": Color(0.26, 0.3, 0.24), "ambient": Color(0.6, 0.78, 0.62), "sun": 0.65},
 	"dg_coracao": {"name": "Coração da Árvore", "parent": "elf_city", "levels": Vector2i(19, 22), "ground": Color(0.4, 0.34, 0.26), "ambient": Color(0.7, 0.92, 0.7), "sun": 0.65},
+	# Covil do Dragonete (2026-11-21): só a luta com o Dragonete Ancestral e o ninho de ovos (MonsterDef.eggs); entrada no rochedo do Bastião
+	"dg_covil_dragao": {"name": "Covil do Dragonete", "parent": "field_ruins", "levels": Vector2i(28, 30), "ground": Color(0.34, 0.27, 0.23), "ambient": Color(0.9, 0.74, 0.62), "sun": 0.6},
 	"dg_cripta": {"name": "Cripta de Vel'Thar", "parent": "field_ruins", "levels": Vector2i(25, 30), "ground": Color(0.3, 0.28, 0.32), "ambient": Color(0.66, 0.58, 0.82), "sun": 0.6},
 	"dg_goblin": {"name": "Grutas Goblin", "parent": "field_coast", "levels": Vector2i(32, 35), "ground": Color(0.34, 0.32, 0.24), "ambient": Color(0.85, 0.7, 0.6), "sun": 0.65},
 	# Salão dos Matadores (Monte Kharzun): vestíbulo, galeria de treino, cripta de venenos (lateral) e a arena do Mestre Matador

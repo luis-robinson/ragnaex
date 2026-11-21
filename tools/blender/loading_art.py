@@ -119,6 +119,7 @@ BOSSES = {
     "crypt_lord": {"model": "mob_skeleton", "scale": 1.8, "tint": ((0.6, 0.45, 0.85), (0.9, 0.9, 0.8))},
     "boss_agitator_lord": {"model": "mob_agitator_lord", "scale": 1.7},
     "boss_shazka": {"model": "mob_shazka", "scale": 1.5},
+    "dragonling": {"model": "mob_dragon", "scale": 2.2},
 }
 
 # id -> nome (MapDef.name), chão (ground_color), clima, câmera. `boss` (masmorras) = chefe na foto: `id` (BOSSES),
@@ -234,6 +235,11 @@ ZONES = {
                    "hall": {"focus": (5, 64), "fill": 0.5},
                    "boss": {"id": "boss_shazka", "clip": "idle", "frame": 12, "turn": -26},
                    "cam": {"at": (5, 54), "h": 1.5, "az": 17, "dist": 25, "elev": 12, "pitch": 9, "fov": 42}},
+    # Covil do Dragonete: o Dragonete em cima do ninho (o spawner do JSON), câmera baixa do lado da boca do túnel
+    "dg_covil_dragao": {"name": "Covil do Dragonete", "ground": (0.34, 0.27, 0.23), "mood": "dungeon", "ambient": (0.9, 0.74, 0.62),
+                        "hall": {"focus": (5, 12.5), "fill": 0.4},
+                        "boss": {"id": "dragonling", "clip": "idle", "frame": 1, "turn": -32, "foot": 1.2, "foot_col": (1.0, 0.62, 0.3)},
+                        "cam": {"at": (5, 12.5), "h": 1.8, "az": 205, "dist": 15.5, "elev": 11, "pitch": 6, "fov": 46}},
 }
 
 # ---------------------------------------------------------------------------------------------------------------------

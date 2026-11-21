@@ -45,6 +45,11 @@ extends Resource
 ## Boneco de treino: não anda, não bate, não morre (segura em 1 HP), se recompõe parado (Balance.DUMMY_*),
 ## sem XP/saque/quest; só o jogador e as invocações dele o miram (SimEntity.is_hostile_to). Bots e sentinelas ignoram.
 @export var dummy: bool = false
+## Ovo de chefe (Covil do Dragonete): lacaio parado que não ataca e não segura o escudo da fase ("ward"; MobSystem.adds_alive).
+@export var egg: bool = false
+## Chefe com ninho: {id (monstro ovo), count, r (m do anel em volta do ponto de nascer)}. Os ovos nascem com ele e voltam
+## quando ele reseta (MobSystem.ensure_eggs); a fase com "hatch" (fração 0-1 dos ovos inteiros) choca filhotes (MobSystem.hatch).
+@export var eggs: Dictionary = {}
 @export var berserk_after: float = 0.0     ## chefe: s de luta até enlouquecer (dano × Balance.BOSS_BERSERK_MULT); 0 = nunca
 @export var berserk_mult: float = 0.0      ## chefe: dano × isto depois de berserk_after; 0 = Balance.BOSS_BERSERK_MULT (Durgash: a raide pede 5)
 @export var crowd_skills: Array[String] = []  ## chefe: skills que entram quando a luta chega a Balance.BOSS_CROWD_EXTRA_FROM pessoas (pico; valem até o reset)
@@ -56,7 +61,7 @@ extends Resource
 @export var skill_delay: float = 0.0       ## s depois de entrar na briga antes da 1ª skill especial (abre no golpe básico); Ato II 35+: Balance.HORDE_LATE_35
 @export var regen: float = 0.0            ## Ato II (F3): regeneração de troll = isto × Balance.TROLL_REGEN_PCT × vida máxima por s; fogo/veneno param
 @export var burn_immune: bool = false ## Ato II (Kharzun): queimadura (dot de fogo) não pega (Salamandra de Lava); o golpe de fogo ainda dói
-@export var phases: Array = []            ## chefe, em ordem de HP: {hp (0-1), say, skills, summon: {id, count, max, pick}, enrage, ward (0-1: corte de dano com lacaio vivo)}
+@export var phases: Array = []            ## chefe, em ordem de HP: {hp (0-1), say, skills, summon: {id, count, max, pick}, enrage, ward (0-1: corte de dano com lacaio vivo), hatch (0-1 dos ovos inteiros; MonsterDef.eggs)}
 ## Metamorfose (ShiftSystem): ao entrar em combate o monstro conjura shift_cast s (0 = Balance.SHIFT_CAST_S) e vira UMA forma
 ## sorteada por peso (rng da sim): [{"form": <id de outro MonsterDef>, "weight": n}]. A forma é um MonsterDef completo (modelo, vida,
 ## ataque, skills, velocidade, alcance, ranged, aggro/leash valem enquanto transformado); a vida guarda o %. Volta à base no leash/reset

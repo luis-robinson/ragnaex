@@ -2450,3 +2450,149 @@ def slayers(z, rooms, edges):
         else:
             d.bones(p, 5, 0.9)
     return d.flush()
+
+
+# ----------------------------------------------------------------------------------------------------------------
+# Covil do Dragonete (dg_covil_dragao): gruta vulcânica só com a luta do chefe opcional do 30
+# ----------------------------------------------------------------------------------------------------------------
+LAIR_NEST_R = 7.8          # raio do anel do ninho (os 6 ovos da sim nascem num anel de 6 m em volta do chefe: ficam por dentro)
+LAIR_CLEAR_R = 9.0         # dentro disto, em volta do chefe, nada colide (a luta precisa do espaço)
+
+
+def dragon_lair(z, rooms, edges):
+    """Acabamento do Covil do Dragonete. Tudo o que fica a menos de LAIR_CLEAR_R do chefe é só desenho (sem colisor):
+    ninho de galhos, palha, pedras baixas e ossos em anel, com a abertura virada para a boca do túnel. Chão: só tons do
+    próprio chão (fuligem e cinza); a lava (`glow_lava`, plana) fica em poças encostadas na parede, entre os pilares, com
+    colisor: fora da área de luta. Estalagmites na borda dos salões e dos corredores, tochas na chegada."""
+    d = Dress(z, 617)
+    rnd = d.rnd
+
+    def mouths(name):
+        x, y = rooms[name]["pos"]
+        out = []
+        for a, b in edges:
+            if name in (a, b):
+                ox, oy = rooms[b if a == name else a]["pos"]
+                out.append(math.atan2(oy - y, ox - x))
+        return out
+
+    def away(a, ms, gap):
+        return all(abs(math.atan2(math.sin(a - m), math.cos(a - m))) >= gap for m in ms)
+
+    rock = (0.2, 0.18, 0.2)
+    rock_l = (0.3, 0.26, 0.27)
+    # ---- todos os salões: estalagmites de basalto na borda, seixos e manchas de fuligem/cinza (tons do chão) ----
+    for name, room in rooms.items():
+        x, y = room["pos"]
+        r = room["r"]
+        ms = mouths(name)
+        light, dark = floor_tones(d, "covil_" + name, room.get("floor", (0.44, 0.35, 0.3)), 0.09)
+        for i in range(int(r * 1.3)):
+            q = P((x, y), r * math.sqrt(rnd.random()) * 0.9, rnd.uniform(0, 360))
+            d.blob("fuligem", dark if i % 3 else light, q, rnd.uniform(0.8, 2.2), 0.0212 + (i % 2) * 0.0004, 0.32, sx=rnd.uniform(1.0, 1.7), rot=rnd.uniform(0, 180))
+        n = int(r * 2.2)
+        for i in range(n):
+            a = math.tau * (i + rnd.uniform(0.2, 0.8)) / n
+            if not away(a, ms, 0.5):
+                continue
+            rr = r * rnd.uniform(0.97, 1.07)
+            p = (x + math.cos(a) * rr, y + math.sin(a) * rr)
+            d.stalagmite(p, rnd.uniform(1.4, 3.2), rnd.uniform(0.5, 0.95), tuple(k * (1.0, 1.2, 1.4)[i % 3] for k in rock))      # 3 tons fixos (cor sorteada por canal repetia o nome)
+            if rnd.random() < 0.5:
+                d.stalagmite((p[0] + rnd.uniform(-0.9, 0.9), p[1] + rnd.uniform(-0.9, 0.9)), rnd.uniform(0.7, 1.3), 0.4, rock_l)
+            if rnd.random() < 0.35:
+                d.pebbles("covil", d.m("seixo_covil", (0.3, 0.27, 0.27)), (x + math.cos(a) * r * 0.9, y + math.sin(a) * r * 0.9), rnd.randint(3, 6), 1.0, (0.12, 0.3))
+    # ---- corredores: estalagmites e ossos na beira (quem veio antes), brasas pequenas ----
+    ember = d.m("glow_lava", (1.0, 0.46, 0.14))
+    for name, poly in z.road_polys.items():
+        acc = 0.0
+        for i in range(2, len(poly) - 2):
+            acc += (poly[i] - poly[i - 1]).length
+            if acc < 3.4:
+                continue
+            acc = 0.0
+            t = (poly[i + 1] - poly[i - 1]).normalized()
+            q = poly[i] + Vector((-t.y, t.x)) * (1 if rnd.random() < 0.5 else -1) * (6.75 * 0.5 - rnd.uniform(0.1, 0.5))
+            if any((q - Vector(rm["pos"])).length < rm["r"] + 0.5 for rm in rooms.values()):
+                continue
+            k = rnd.random()
+            if k < 0.55:
+                d.stalagmite((q.x, q.y), rnd.uniform(0.8, 1.8), 0.42, rock_l)
+            elif k < 0.8:
+                d.bones((q.x, q.y), 3, 0.7)
+            else:
+                d.pebbles("covil", d.m("carvao", (0.16, 0.15, 0.16)), (q.x, q.y), 6, 0.7, (0.14, 0.3))
+                d.blob("brasa", ember, (q.x, q.y), 0.22, 0.0236, 0.2, 7)
+    cx, cy = rooms["chegada"]["pos"]
+    for s in (-1, 1):
+        d.torch((cx + s * 4.6, cy + 2.0), 2.4)
+    # ---- túnel: ossos de quem tentou antes, sem colisor ----
+    x, y = rooms["tunel"]["pos"]
+    r = rooms["tunel"]["r"]
+    for a in (40.0, 170.0, 290.0):
+        d.bones(P((x, y), r * 0.74, a + rnd.uniform(-12, 12)), rnd.randint(3, 5), 0.9)
+    # ---- covil: o ninho no ponto em que o chefe nasce ----
+    x, y = rooms["covil"]["pos"]
+    r = rooms["covil"]["r"]
+    ms = mouths("covil")
+    light, dark = floor_tones(d, "covil_ninho", rooms["covil"]["floor"], 0.2)
+    d.blob("ninho_chao", dark, (x, y), LAIR_NEST_R + 0.9, 0.0222, 0.1, 40)          # cama de cinza: tom escuro do chão
+    d.blob("ninho_chao", light, (x, y), LAIR_NEST_R - 1.5, 0.0227, 0.12, 32)        # miolo pisado: tom claro do chão
+    twig = [d.m("ninho_galho", (0.34, 0.25, 0.19)), d.m("ninho_galho_esc", (0.24, 0.18, 0.15))]
+    straw = [d.m("ninho_palha", (0.7, 0.58, 0.34)), d.m("ninho_palha_esc", (0.55, 0.44, 0.27))]
+    stone = [d.m("ninho_pedra", (0.33, 0.29, 0.29)), d.m("ninho_pedra_esc", (0.24, 0.21, 0.22))]
+    open_gap = 0.34                                                                 # abertura do anel, virada para a boca
+    n = 54
+    for i in range(n):                                    # galhos trançados: três voltas de varas deitadas na tangente
+        a = math.tau * (i + rnd.uniform(-0.3, 0.3)) / n
+        if not away(a, ms, open_gap):
+            continue
+        for lay in range(3):
+            rr = LAIR_NEST_R + rnd.uniform(-0.55, 0.55)
+            L = rnd.uniform(1.5, 2.6)
+            p = (x + math.cos(a) * rr, y + math.sin(a) * rr)
+            d.cyl("ninho", twig[(i + lay) % 2], p, 0.085, 0.05, L, 0.1 + lay * 0.14, 5,
+                  math.degrees(-a) + 90.0 + rnd.uniform(-24, 24), tilt=(rnd.uniform(-7, 7), 90))
+    for i in range(30):                                   # pedras baixas calçando o anel por fora
+        a = math.tau * (i + rnd.uniform(-0.3, 0.3)) / 30
+        if not away(a, ms, open_gap + 0.06):
+            continue
+        d.rock("ninho", stone[i % 2], P((x, y), LAIR_NEST_R + rnd.uniform(0.5, 1.1), math.degrees(a)), rnd.uniform(0.28, 0.5), 0.0, 0.6, rnd.uniform(1.0, 1.5), rnd.uniform(0, 180))
+    for i in range(46):                                   # palha: tufos deitados para fora no anel e forro por dentro
+        a = math.tau * (i + rnd.uniform(-0.4, 0.4)) / 46
+        if not away(a, ms, open_gap - 0.06):
+            continue
+        rr = LAIR_NEST_R + rnd.uniform(-1.3, 0.5)
+        d.tuft("ninho", straw[i % 2], (x + math.cos(a) * rr, y + math.sin(a) * rr), 0.55, rnd.uniform(0.45, 0.8), 6,
+               lean=(math.cos(a) * 0.5, math.sin(a) * 0.5), w=0.07)
+    for i in range(22):                                   # fios de palha chatos no forro (entre os ovos)
+        a = rnd.uniform(0, math.tau)
+        rr = rnd.uniform(2.0, LAIR_NEST_R - 1.2)
+        p = Vector((x + math.cos(a) * rr, y + math.sin(a) * rr))
+        t = Vector((math.cos(a + 1.3), math.sin(a + 1.3))) * rnd.uniform(0.5, 1.0)
+        d.strip("ninho_chao", straw[i % 2], [p - t, p + Vector((t.y, -t.x)) * 0.2, p + t], 0.12, 0.0232, 0.3, taper=True)
+    shell = [d.m("casca_ovo", (0.78, 0.36, 0.2)), d.m("casca_ovo_esc", (0.52, 0.2, 0.14))]
+    for i in range(7):                                    # cascas velhas (ninhadas passadas): cacos baixos no forro
+        p = P((x, y), rnd.uniform(1.6, 4.4), i * 51.0 + rnd.uniform(-14, 14))
+        d.cyl("ninho", shell[i % 2], p, rnd.uniform(0.16, 0.26), 0.0, rnd.uniform(0.16, 0.3), 0.0, 5, rnd.uniform(0, 70), (rnd.uniform(-30, 30), rnd.uniform(-30, 30)), jitter=0.25)
+    for i in range(8):                                    # ossos das caçadas em volta do ninho
+        a = math.tau * (i + rnd.uniform(-0.3, 0.3)) / 8
+        if away(a, ms, open_gap + 0.1):
+            d.bones(P((x, y), LAIR_NEST_R + rnd.uniform(1.6, 3.0), math.degrees(a)), rnd.randint(3, 6), 1.1, skull=i % 2 == 0)
+    # ---- covil: poças de lava encostadas na parede, entre os pilares (pilares em 0,4 rad + k * 45 graus); com colisor ----
+    soot = d.m("patch_fuligem_covil", (0.2, 0.17, 0.17))
+    crust = d.m("crosta_covil", (0.15, 0.13, 0.14))
+    crust_t = d.m("crosta_covil_topo", (0.25, 0.21, 0.21))
+    for k in range(8):
+        a = 0.4 + (k + 0.5) * math.tau / 8
+        if k % 2 or not away(a, ms, 0.7):
+            continue
+        p = P((x, y), r * 0.955, math.degrees(a))
+        rot = math.degrees(-a) + 90.0
+        d.blob("lava", soot, p, 2.0, 0.0222, 0.22, 16, sx=1.7, rot=rot)
+        d.blob("lava", ember, p, 1.25, 0.0236, 0.22, 14, sx=1.9, rot=rot)
+        for j in range(5):                                # crosta escura na beira de dentro (talude + tampo: tem volume)
+            aa = a + (j - 2) * 0.075
+            d.slab("lava3d", crust, crust_t, P((x, y), r * 0.955 - 1.55 + abs(j - 2) * 0.22, math.degrees(aa)), rnd.uniform(0.55, 0.85), 0.2, 0.25, 1.3, rot)
+        d.solid(p[0], p[1], 5.6, 3.4, 1.0, rot)
+    return d.flush()

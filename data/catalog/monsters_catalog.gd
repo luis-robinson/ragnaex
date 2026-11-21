@@ -303,9 +303,14 @@ static func build() -> Array:
 		 "radius": 1.1, "scale": 2.2, "color": Color(0.8, 0.2, 0.3), "shape": "box", "is_boss": true, "berserk_after": 200, "loot_table": "lt_dragonling", "gold_min": 400, "gold_max": 700, "model": "mob_dragon",
 		 "skill_ids": ["mob_dragon_breath", "mob_dragon_tail", "mob_dragon_dive", "mob_dragon_roar"] as Array[String], "coin_chance": 1.0, "coin_min": 5, "coin_max": 8,
 		 "intro": "Mil anos de sono... e vocês acordam o fogo?", "last_words": "As cinzas... lembram...",
-		 "phases": [{"hp": 0.7, "say": "O céu vai queimar com vocês!", "skills": ["mob_dragon_meteor"], "summon": {"id": "dragon_whelp", "count": 2, "max": 4}},
-			{"hp": 0.4, "say": "Ninhada, protejam o sangue antigo!", "ward": 0.5, "skills": ["mob_dragon_call"], "enrage": 1.2},
+		 # Covil do Dragonete (2026-11-21): 6 ovos no ninho; em 70% metade dos inteiros choca, em 40% o resto (quebrar antes = menos filhotes)
+		 "eggs": {"id": "dragon_egg", "count": 6, "r": 6.0},
+		 "phases": [{"hp": 0.7, "say": "O céu vai queimar com vocês! Ovos, despertem!", "skills": ["mob_dragon_meteor"], "hatch": 0.5},
+			{"hp": 0.4, "say": "Ninhada, protejam o sangue antigo!", "ward": 0.5, "skills": ["mob_dragon_call"], "enrage": 1.2, "hatch": 1.0},
 			{"hp": 0.15, "say": "QUEIMEM!", "enrage": 1.4}]},
+		# ovo do ninho do Dragonete: parado, não ataca, quebra (choca em filhote nas fases do chefe)
+		{"id": "dragon_egg", "name": "Ovo de Dragão", "level": 30, "hp": 1500, "atk": 1, "def": 20, "mdef": 20, "move_speed": 0.0, "attack_range": 0.0, "attack_cooldown": 60.0, "xp": 0, "aggro_range": 0.0, "leash_range": 40.0,
+		 "radius": 0.55, "scale": 1.0, "color": Color(0.85, 0.4, 0.25), "shape": "sphere", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_dragon_egg", "egg": true},
 		{"id": "dragon_whelp", "name": "Filhote de Dragão", "level": 30, "hp": 1800, "atk": 60, "matk": 60, "def": 18, "mdef": 18, "move_speed": 5.0, "attack_range": 2.2, "attack_cooldown": 1.3, "attack_startup": 0.4, "xp": 0, "aggro_range": 14.0, "leash_range": 40.0,
 		 "radius": 0.6, "scale": 0.9, "color": Color(0.9, 0.35, 0.3), "shape": "box", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_dragon"},
 		# ---- chefes de dungeon (modelo de um monstro comum, maior) ----
