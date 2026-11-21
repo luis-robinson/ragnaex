@@ -1665,7 +1665,7 @@ const IMPACT_FRAME := {"maul": 7, "pounce": 9, "slam": 8, "roar": 7, "brace": 6,
 	"cast_ground": 10, "cast_channel": 14, "cast_target": 8, "atk_leap": 12, "atk_charge": 5, "atk_throw": 7,
 	"atk_shoot_multi": 8, "summon": 11, "atk_pistol": 6, "atk_slash_shot": 9, "atk_sweep": 8, "atk_finisher": 10, "atk_flurry": 5, "atk_claw": 6, "shout": 7,
 	"cast_fire": 8, "cast_ice": 8, "cast_bolt": 7, "cast_holy": 8, "cast_shadow": 8, "cast_nature": 9,
-	"buff_power": 7, "buff_guard": 6, "buff_focus": 8, "wall_counter": 10,
+	"buff_power": 7, "buff_guard": 6, "buff_focus": 8, "wall_counter": 10, "block": 8,     # block: skill de monstro com `clip: "block"` (Concha do Caranguejo-Eremita: recolhido aos 0,3 s)
 	"atk_2h_chain_a": 5, "atk_2h_chain_b": 6, "atk_2h_chain_c": 7}     # sequência de duas mãos do Golpe do Cruzado (só no kit do Paladino)
 ## clipes só de modelo de monstro (não existem nos kits): wall_counter = contragolpe da Muralha (mob_ghar)
 const MOB_ONLY_CLIPS := {"wall_counter": "mob_ghar"}

@@ -31,7 +31,14 @@ static func build() -> Array:
 		# Praia dos Caranguejos (margem sul do lago do Vale): casco duro, belisca; o Rei sai da água
 		{"id": "crab", "name": "Caranguejo", "level": 4, "hp": 80, "atk": 12, "def": 7, "mdef": 2, "move_speed": 3.6, "attack_range": 1.6, "attack_cooldown": 1.3, "attack_startup": 0.3, "xp": 21, "aggro_range": 6.0,
 		 "radius": 0.55, "scale": 0.95, "color": Color(0.86, 0.4, 0.28), "shape": "box", "loot_table": "lt_crab", "gold_min": 2, "gold_max": 6, "model": "mob_crab"},
-		{"id": "crab_king", "name": "Caranguejo-Rei do Lago", "level": 8, "hp": 2200, "atk": 26, "def": 12, "mdef": 4, "move_speed": 3.4, "attack_range": 2.4, "attack_cooldown": 1.6, "attack_startup": 0.5, "xp": 190, "aggro_range": 9.0, "leash_range": 24.0,
+		# Praia dos Caranguejos (2026-11-21): dois tipos a mais, mesmo saque do comum (lt_crab), para a praia de farm
+		{"id": "crab_hermit", "name": "Caranguejo-Eremita", "level": 5, "hp": 180, "atk": 11, "def": 16, "mdef": 4, "move_speed": 3.0, "attack_range": 1.6, "attack_cooldown": 1.4, "attack_startup": 0.35, "xp": 26, "aggro_range": 6.0,
+		 "radius": 0.6, "scale": 1.0, "color": Color(0.72, 0.5, 0.36), "shape": "box", "loot_table": "lt_crab", "gold_min": 2, "gold_max": 6, "model": "mob_crab_hermit",
+		 "skill_ids": ["mob_shell_hide"] as Array[String]},
+		{"id": "crab_sand", "name": "Caranguejo da Areia", "level": 4, "hp": 70, "atk": 14, "def": 5, "mdef": 2, "move_speed": 4.2, "attack_range": 1.5, "attack_cooldown": 1.2, "attack_startup": 0.28, "xp": 22, "aggro_range": 7.0,
+		 "radius": 0.5, "scale": 0.9, "color": Color(0.9, 0.78, 0.52), "shape": "box", "loot_table": "lt_crab", "gold_min": 2, "gold_max": 6, "model": "mob_crab_sand",
+		 "skill_ids": ["mob_sand_leap"] as Array[String]},
+		{"id": "crab_king", "name": "Caranguejo-Rei da Praia", "level": 8, "hp": 2200, "atk": 26, "def": 12, "mdef": 4, "move_speed": 3.4, "attack_range": 2.4, "attack_cooldown": 1.6, "attack_startup": 0.5, "xp": 190, "aggro_range": 9.0, "leash_range": 24.0,
 		 "radius": 1.05, "scale": 2.0, "color": Color(0.72, 0.2, 0.22), "shape": "box", "is_boss": true, "loot_table": "lt_crab_king", "gold_min": 30, "gold_max": 60, "skill_ids": ["mob_whirl", "mob_crab_bubbles"] as Array[String], "model": "mob_crab",
 		 "phases": [{"hp": 0.6, "say": "O Caranguejo-Rei estala as pinças: os filhotes saem do lago!", "summon": {"id": "crab_small", "count": 3, "max": 4}},
 			{"hp": 0.3, "say": "KRRK-KRRK-KRRK!", "enrage": 1.3}]},

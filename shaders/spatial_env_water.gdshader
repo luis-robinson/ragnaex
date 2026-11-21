@@ -19,6 +19,7 @@ uniform float alpha_base : hint_range(0.0, 1.0) = 0.93;  // opacidade no meio da
 uniform float flow_speed = 1.0;                         // 0 = parada, 1 = normal
 uniform float sparkle_amount : hint_range(0.0, 1.0) = 0.7;
 uniform float foam_amount : hint_range(0.0, 1.0) = 1.0;
+uniform float surf_amount : hint_range(0.0, 1.0) = 0.0;   // mar de praia: cristas que rolam até a areia (WaterFx.SURF_MAPS); 0 = sem
 uniform float glow_amount : hint_range(0.0, 2.0) = 0.0;  // água que brilha (poço de almas)
 uniform vec4 glow_color : source_color = vec4(0.3, 1.0, 0.5, 1.0);
 uniform sampler2D shore_tex : filter_linear, repeat_disable, hint_default_white;
@@ -105,6 +106,12 @@ void fragment() {
 	float d2 = 0.7 + 0.55 * (0.5 + 0.5 * sin(t * 1.1 - 1.2 + wob * 5.0));
 	float foam2 = (1.0 - smoothstep(0.0, 0.09, abs(d - d2))) * step(0.5, n2) * smoothstep(0.35, 0.5, d);
 	float f = max(foam, foam2 * 0.85);
+
+	// rebentação (surf_amount > 0): cristas paralelas à margem que andam para a praia, quebradas pelo ruído; nascem a
+	// ~0,7 shore_max da areia e somem ao chegar na espuma da beira. Sem amostra nova (usa d, wob e n2).
+	float sph = fract((d + t * 0.6 + wob * 1.5) / 2.7);
+	float surf = (1.0 - smoothstep(0.0, 0.11, abs(sph - 0.5))) * smoothstep(0.5, 1.5, d) * (1.0 - smoothstep(shore_max * 0.5, shore_max * 0.8, d));
+	f = max(f, surf * smoothstep(0.3, 0.46, n2) * surf_amount * 0.8);
 
 	// ondas dos passos/peixes (WaterFx): anéis que abrem e somem
 	float ring = 0.0;

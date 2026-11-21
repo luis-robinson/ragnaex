@@ -20,7 +20,7 @@ extends RefCounted
 const LOOKS := {
 	# defesa
 	"frost_armor": ["armor", "ice"], "crystal_ward": ["armor", "ice"],
-	"stoneskin": ["armor", "earth"],
+	"stoneskin": ["armor", "earth"], "shell_hide": ["armor", "earth"],      # Concha (Caranguejo-Eremita)
 	"bark": ["armor", "nature"], "oak_skin": ["armor", "nature"], "bellow": ["armor", "nature"],
 	"bone_armor": ["armor", "bone"], "bonewall": ["armor", "bone"],
 	"blessed_armor": ["armor", "holy"], "ward": ["armor", "holy"], "bulwark": ["armor", "holy"],

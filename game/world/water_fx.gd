@@ -13,6 +13,7 @@ const WATER_Y := 0.05
 const FISH_POOL := 3
 const LEAF_POOL := 8
 const LEAF_LIFE := 14.0
+const SURF_MAPS := ["field_crab_beach"]      # mar com rebentação (cristas que rolam até a areia): só o material do mar
 
 var def: MapDef
 var natural := true                # água de verdade (peixe/folha); gelo, almas e bile ficam só com ondas
@@ -115,6 +116,7 @@ func material_for(mname: String, base: Color) -> ShaderMaterial:
 	m.set_shader_parameter("shallow_color", shallow)
 	m.set_shader_parameter("deep_color", deep)
 	m.set_shader_parameter("foam_color", foam)
+	m.set_shader_parameter("surf_amount", 0.9 if key == "agua_mar" and def.id in SURF_MAPS else 0.0)
 	m.set_shader_parameter("sky_color", shallow.lerp(Color.WHITE, 0.7))
 	m.set_shader_parameter("deep_dist", deep_dist)
 	m.set_shader_parameter("flow_speed", speed)

@@ -121,6 +121,11 @@ static func build(classes: Dictionary) -> Array:
 		{"id": "mob_shard_fan", "name": "Leque de Lascas", "target": T_CONE, "kind": K_MAG, "power": 1.3, "cooldown": 8.0, "radius": 7.5, "cone_angle_deg": 60, "startup": 0.6, "active": 0.15, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.5, 0.78, 1.0)},
 		{"id": "mob_crystal_prison", "name": "Prisão de Cristal", "target": T_GROUND, "kind": K_MAG, "power": 1.0, "cooldown": 12.0, "range": 9.0, "radius": 2.0, "startup": 1.0, "active": 0.2, "recovery": 0.5, "hit_stop_frames": 3, "icon_color": Color(0.55, 0.8, 1.0),
 		 "effects": {"stun": {"duration": 1.0}}},
+		# Praia dos Caranguejos: o eremita se fecha na concha; o da areia dá o bote saltando
+		{"id": "mob_shell_hide", "name": "Concha", "clip": "block", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 9.0, "radius": 0.0, "startup": 0.3, "active": 0.1, "recovery": 0.3, "icon_color": Color(0.75, 0.55, 0.4),
+		 "effects": {"buff": {"id": "shell_hide", "duration": 3, "def_pct": 150}}},
+		{"id": "mob_sand_leap", "name": "Bote da Areia", "target": T_DIR, "kind": K_PHYS, "power": 1.3, "cooldown": 7.0, "range": 6.0, "radius": 1.2, "startup": 0.4, "active": 0.12, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.9, 0.8, 0.5),
+		 "effects": {"dash": 5.5}},
 		{"id": "mob_crystal_ward", "name": "Escudo de Cristal", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 18.0, "radius": 0.0, "startup": 0.6, "active": 0.1, "recovery": 0.4, "icon_color": Color(0.55, 0.85, 1.0),
 		 "effects": {"buff": {"id": "crystal_ward", "duration": 6, "def_pct": 50}}},
 		# chefes da faixa 10-20 (Floresta, Ninho, Coração da Árvore, Trono do Conde)

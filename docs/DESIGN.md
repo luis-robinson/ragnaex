@@ -785,9 +785,19 @@ o jogador leva uma luz quente (`main._torch`, sem especular para não deixar ref
 Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MSAA 4x e sem FXAA; neblina fraca, porque ela cresce com a distância da câmera.
 
 - **Vale de Aldara** (`city_aldara`, 300 m — cresceu 20% em volta da vila com `places.grow_aldara`, `tools/blender/zones/build_city_aldara.py` → `map_city_aldara.glb` +
-  `data/zones/city_aldara.json`): vila murada (raio 30, portões N/L/S/O) com praça, chafariz e NPCs — Ancião Ravi, Capitã Mira,
-  Brom (ferreiro), Lyra (alquimista), Tobias (mercador), Quadro, guardas nos portões. A vila é uma **região** do mapa
+  `data/zones/city_aldara.json`): vila murada (raio 42 desde 2026-11-21; portões onde as estradas de fora cruzam o muro) em bairros:
+  praça aberta no centro (Balança do Trigo, cristal, Quadro; ponto de encontro dos bots), **Quartel** junto ao portão norte (Capitã Mira,
+  pátio de treino com a Mestra de Skills e os bonecos), **Ofícios** a oeste (Ferraria = Oficina, Brom na bigorna; Botica, Lyra no balcão),
+  **Mercado** a leste (avenida das bancas, loja do Tobias, Relicária, Armazém do Guarda-volumes), **Casa do Ancião** de frente para a praça
+  e o **sul residencial** (Taverna, celeiro com as galinhas, casas). Todo NPC de serviço fica do lado de fora, na porta/balcão do prédio
+  dele (`_check_town_identity`). Ruas: quatro avenidas curvas da praça aos portões + uma rua em anel; guardas nos portões. A vila é uma **região** do mapa
   (`MapDef.town_radius`/`in_town`): só dentro dela vale "cidade" (bots não lutam).
+  **Praia dos Caranguejos (3-8, 2026-11-21)**: zona à parte (`field_crab_beach`, `build_field_crab_beach.py`), portal na garganta ao sul
+  do lago de Aldara. Enseada de ~220 m (mar a oeste com rebentação: `WaterFx.SURF_MAPS`), rancho e píer do **Pescador Joca** na chegada
+  (quest repetível `beach_shells`: 10 cascos), Recife do Rei na outra ponta (Caranguejo-Rei da Praia sai do mar, `emerge`). Área de farm:
+  11 matilhas, ~70 caranguejos (comum, **Eremita** que se fecha na concha `mob_shell_hide`, **da Areia** que dá o bote `mob_sand_leap`;
+  mesmo saque `lt_crab`). Medir: `tools/tests/farm_probe.tscn` (abates/min por bot; use `vivos_medio`/`zerou`). Check `_check_crab_beach`.
+  O build desenha com o mar ao sul e gira o mapa 90° no fim (`TURN`, `(x, z) -> (-z, x)`): a chegada fica no rumo oposto à saída de Aldara.
   **Campina (1-10)** no mesmo vale: lago dos slimes (sul), slime azul no lago/fazenda, bosque dos javalis (leste),
   colinas dos lobos com torre em ruínas (norte), clareira do Rei Javali (oeste, além da ponte), castelo na colina (NE, landmark).
   Desfiladeiros na borda: leste → Floresta, oeste → Ruínas. Bots saem/entram pela vila pelos portões (`BotBrain._route`).

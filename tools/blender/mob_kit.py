@@ -741,6 +741,156 @@ def crab(cid="mob_crab"):
     return arm
 
 
+def _crab_block(arm, kind):
+    """Clipe `block` (laço, EntityView liga o loop): o Eremita senta a concha no chão e some dentro dela (skill `mob_shell_hide`,
+    "clip": "block"); o da Areia só se achata com as pinças na frente. Pose segurada com um tremor leve."""
+    L = boss_gestures.limb
+    n = 24
+    keys = {b: [] for b in ("body", "head", "arm_r", "arm_l", "leg_fr", "leg_fl", "leg_br", "leg_bl")}
+    for f in (1, 5, 9, 13, 17, 21, 24):
+        w = math.sin((f - 1) / (n - 1) * math.tau * 2.0)
+        if kind == "hermit":
+            keys["body"].append((f, (9 + 1.2 * w, 0, 1.6 * w), (0, -0.17, 0.02)))
+            keys["head"].append((f, (0, 0, 0), (0, -0.1, 0), (0.4, 0.4, 0.4)))   # o miolo encolhe para dentro da boca da concha
+            for a in ("arm_r", "arm_l"):
+                x, o, y = L(a, [(f, -26, -30, -62)])[0][1]
+                keys[a].append((f, (x, o, y), (0, -0.1, 0.22)))             # pinças cruzadas tampando a boca da concha
+            for g in ("leg_fr", "leg_fl", "leg_br", "leg_bl"):
+                x, o, y = L(g, [(f, 0, -78, 0)])[0][1]
+                keys[g].append((f, (x, o, y), (0, -0.2, 0)))                # patas dobradas para baixo do casco
+        else:
+            keys["body"].append((f, (5 + 1.0 * w, 0, 1.2 * w), (0, -0.2, 0)))
+            keys["head"].append((f, (14, 0, 0), (0, 0, 0)))
+            for a in ("arm_r", "arm_l"):
+                keys[a].append(L(a, [(f, -12, 0, -34)])[0])
+            for g in ("leg_fr", "leg_fl", "leg_br", "leg_bl"):
+                keys[g].append((f, (0, 0, 0), (0, -0.2, 0)))                # pés ficam no chão: a perna sobe o que o casco desce
+    lp.add_action(arm, "block", keys, n)
+
+
+def crab_hermit(cid="mob_crab_hermit"):
+    """Caranguejo-Eremita (Praia dos Caranguejos): mora numa concha espiral grande (no osso `body`), miolo pequeno com olhos
+    em pedúnculo na frente (osso `head`), pinça direita maior que a esquerda, 2 patas por lado. Mesmos ossos e clipes do
+    `mob_crab` + `block` = recolhido na concha."""
+    arm = lp.make_armature("rig_" + cid, pivots(arm_r=(0.3, -0.3, 0.3), arm_l=(-0.3, -0.3, 0.3), leg_fr=(0.3, -0.12, 0.28),
+                                                leg_fl=(-0.3, -0.12, 0.28), leg_br=(0.3, 0.08, 0.28), leg_bl=(-0.3, 0.08, 0.28), head=(0, -0.2, 0.36)))
+    m = ck.mat("m_hermit", (0.93, 0.5, 0.36), 0.55)             # miolo: coral
+    md = ck.mat("m_hermit_d", (0.72, 0.3, 0.24), 0.6)
+    ms = ck.mat("m_hermit_shell", (0.95, 0.86, 0.7), 0.5)       # concha: creme
+    msd = ck.mat("m_hermit_shell_d", (0.74, 0.5, 0.36), 0.55)   # faixas e espinhos: caramelo
+    msi = ck.mat("m_hermit_shell_in", (0.98, 0.72, 0.66), 0.5)  # boca da concha: rosado
+    m_eye = ck.mat("m_eye", (0.31, 0.27, 0.35), 0.3)
+    m_white = ck.mat("m_white", (1.0, 1.0, 1.0), 0.3)
+    # concha: três voltas que sobem e fecham para trás e para o lado, com a ponta torta
+    whorls = [((0.0, 0.2, 0.6), 0.47, (1.0, 1.05, 0.95)), ((0.07, 0.42, 0.9), 0.33, (1.0, 1.0, 0.9)), ((0.13, 0.56, 1.12), 0.21, (1.0, 1.0, 0.9))]
+    parts = []
+    for i, (c, rr, sc) in enumerate(whorls):
+        parts.append((blob("shell%d" % i, rr, c, ms, sc), "body"))
+        parts.append((blob("band%d" % i, rr * 1.0, (c[0], c[1], c[2] - rr * 0.2), msd, (sc[0] * 1.04, sc[1] * 1.04, 0.16)), "body"))     # sutura escura entre as voltas
+    parts.append((cone("shell_tip", (0.15, 0.62, 1.24), (0.24, 0.8, 1.46), 0.11, msd), "body"))
+    parts.append((blob("shell_lip", 0.34, (0.0, -0.17, 0.44), msi, (1.12, 0.42, 0.95)), "body"))                             # boca virada para a frente
+    parts.append((blob("shell_dark", 0.27, (0.0, -0.24, 0.42), ck.mat("m_hermit_hole", (0.3, 0.16, 0.16), 0.8), (1.05, 0.3, 0.9)), "body"))
+    for k in range(6):                                                                                                       # espinhos da crista (leitura de cima)
+        a = math.radians(-70 + k * 52)
+        c, rr = whorls[0][0], whorls[0][1]
+        root = Vector((c[0] + math.cos(a) * rr * 0.72, c[1] + math.sin(a) * rr * 0.72, c[2] + rr * 0.56))
+        tip = root + Vector((math.cos(a) * 0.16, math.sin(a) * 0.16, 0.17))
+        parts.append((cone("spike%d" % k, tuple(root), tuple(tip), 0.075, msd, 6), "body"))
+    # miolo: casco pequeno, barriga clara, olhos em pedúnculo, antenas
+    parts.append((blob("core", 0.24, (0, -0.36, 0.34), m, (1.25, 1.0, 0.72)), "head"))
+    parts.append((blob("core_ridge", 0.12, (0, -0.4, 0.44), md, (1.5, 0.7, 0.4)), "head"))
+    for sx in (-1, 1):
+        base = Vector((sx * 0.11, -0.52, 0.42))
+        tip = Vector((sx * 0.15, -0.6, 0.68))
+        parts.append((ck.tube("stalk%d" % sx, base, tip, 0.032, 0.026, m, 6), "head"))
+        parts.append((blob("eye%d" % sx, 0.07, tuple(tip), m_white), "head"))
+        parts.append((blob("pupil%d" % sx, 0.04, (sx * 0.16, -0.66, 0.69), m_eye), "head"))
+        parts.append((ck.tube("feeler%d" % sx, (sx * 0.05, -0.56, 0.36), (sx * 0.12, -0.78, 0.5), 0.014, 0.006, md, 5), "head"))
+        bone = "arm_r" if sx > 0 else "arm_l"
+        big = 1.25 if sx > 0 else 0.8                       # pinça direita grande (a "porta" da concha)
+        sh = Vector((sx * 0.3, -0.3, 0.3))
+        el = Vector((sx * 0.46, -0.56, 0.32))
+        parts.append((ck.tube("arm%d" % sx, sh, el, 0.065, 0.055, m, 7), bone))
+        parts.append((blob("claw%d" % sx, 0.14 * big, (sx * 0.47, -0.7, 0.34), m, (1.0, 1.35, 0.8)), bone))
+        parts.append((cone("pincer_a%d" % sx, (sx * 0.43, -0.8 - 0.04 * big, 0.38), (sx * 0.4, -0.86 - 0.16 * big, 0.4), 0.055 * big, md), bone))
+        parts.append((cone("pincer_b%d" % sx, (sx * 0.52, -0.8 - 0.04 * big, 0.3), (sx * 0.49, -0.84 - 0.13 * big, 0.26), 0.045 * big, md), bone))
+        for i in range(2):
+            y = -0.12 + i * 0.2
+            leg = ("leg_fr" if i < 1 else "leg_br") if sx > 0 else ("leg_fl" if i < 1 else "leg_bl")
+            root = Vector((sx * 0.3, y, 0.28))
+            knee = Vector((sx * 0.6, y - 0.05 + i * 0.08, 0.4))
+            foot = Vector((sx * 0.74, y - 0.1 + i * 0.18, 0.0))
+            parts.append((ck.tube("leg%d%d_a" % (sx, i), root, knee, 0.045, 0.036, md, 6), leg))
+            parts.append((ck.tube("leg%d%d_b" % (sx, i), knee, foot, 0.036, 0.014, md, 6), leg))
+    finish(arm, parts)
+    bm.mob_actions(arm, quadruped=True)
+    boss_gestures.crab_attack(arm)
+    _crab_block(arm, "hermit")
+    return arm
+
+
+def _sand_leap_attack(arm):
+    """Básico do Caranguejo da Areia: agacha, dá um bote curto para a frente com as pinças abertas e fecha ao cair
+    (impacto no 5 = EntityView.IMPACT_FRAME["attack"]). O bote longo da skill `mob_sand_leap` usa o `pounce` dos gestos."""
+    Z, r, p, limb, plant = boss_gestures.Z, boss_gestures.r, boss_gestures.p, boss_gestures.limb, boss_gestures.plant
+    for t in list(arm.animation_data.nla_tracks if arm.animation_data else []):
+        if t.name == "attack":
+            arm.animation_data.nla_tracks.remove(t)
+    body = [(1, Z, Z), (2, r(8), p(-0.1, -0.06)), (4, r(-12), p(0.26, 0.18)), (5, r(12), p(0.02, 0.34)), (7, r(8), p(-0.03, 0.3)), (10, r(4), p(0, 0.16)),
+            (13, r(-2), p(0, 0.05)), (16, Z, Z)]
+    k = {"body": body, "head": [(1, Z, Z), (2, r(10), Z), (4, r(-14), Z), (5, r(12), Z), (9, r(4), Z), (16, Z, Z)]}
+    for a in ("arm_r", "arm_l"):
+        k[a] = limb(a, [(1, 0), (2, 8, 0, 10), (4, -40, 0, 38), (5, 6, 0, -24), (7, 4, 0, -26), (10, -4, 0, -8), (16, 0)])
+    for g in ("leg_fr", "leg_fl", "leg_br", "leg_bl"):
+        k[g] = plant(body, g, [(2, 0, 12), (4, 0, -22), (5, 0, 12), (9, 0, 4)])
+    lp.add_action(arm, "attack", k, 16, loop=False)
+
+
+def crab_sand(cid="mob_crab_sand"):
+    """Caranguejo da Areia (Praia dos Caranguejos): chato, claro, cor de areia, 4 patas compridas por lado, pinças pequenas
+    e olhos altos (maria-farinha). Mesmos ossos e clipes do `mob_crab`; `attack` = bote curto, `pounce` = bote longo."""
+    arm = lp.make_armature("rig_" + cid, pivots(arm_r=(0.4, -0.24, 0.42), arm_l=(-0.4, -0.24, 0.42), leg_fr=(0.42, -0.04, 0.42),
+                                                leg_fl=(-0.42, -0.04, 0.42), leg_br=(0.42, 0.2, 0.42), leg_bl=(-0.42, 0.2, 0.42), head=(0, -0.28, 0.5)))
+    m = ck.mat("m_sandcrab", (0.9, 0.7, 0.42), 0.6)
+    md = ck.mat("m_sandcrab_d", (0.66, 0.44, 0.26), 0.6)
+    mt = ck.mat("m_sandcrab_tip", (0.96, 0.6, 0.42), 0.55)       # pontas das patas e pinças: coral
+    mb = ck.mat("m_sandcrab_belly", (1.0, 0.95, 0.82), 0.6)
+    m_eye = ck.mat("m_eye", (0.31, 0.27, 0.35), 0.3)
+    m_white = ck.mat("m_white", (1.0, 1.0, 1.0), 0.3)
+    parts = [(blob("shell", 0.4, (0, 0.02, 0.46), m, (1.5, 1.0, 0.4)), "body"),
+             (blob("belly", 0.34, (0, 0.04, 0.39), mb, (1.36, 0.9, 0.3)), "body"),
+             (blob("shell_rim", 0.2, (0, -0.2, 0.5), md, (2.3, 0.5, 0.3)), "body")]
+    for k, (x, y) in enumerate([(-0.3, 0.1), (-0.12, -0.04), (0.1, 0.14), (0.3, 0.02), (0.0, 0.26), (-0.2, 0.3), (0.22, 0.3)]):   # pintas de areia molhada
+        parts.append((blob("spot%d" % k, 0.05, (x, y, 0.61 - abs(x) * 0.1), md, (1.2, 1.0, 0.3)), "body"))
+    for sx in (-1, 1):
+        base = Vector((sx * 0.14, -0.3, 0.54))
+        tip = Vector((sx * 0.16, -0.36, 0.92))               # olho bem alto: lê de cima
+        parts.append((ck.tube("stalk%d" % sx, base, tip, 0.03, 0.028, m, 6), "head"))
+        parts.append((blob("eye%d" % sx, 0.075, tuple(tip), m_eye, (0.9, 0.9, 1.5)), "head"))
+        parts.append((blob("hl%d" % sx, 0.028, (sx * 0.15, -0.42, 0.97), m_white), "head"))
+        bone = "arm_r" if sx > 0 else "arm_l"
+        sh = Vector((sx * 0.4, -0.24, 0.42))
+        el = Vector((sx * 0.5, -0.5, 0.4))
+        parts.append((ck.tube("arm%d" % sx, sh, el, 0.05, 0.045, m, 7), bone))
+        parts.append((blob("claw%d" % sx, 0.1, (sx * 0.5, -0.62, 0.41), m, (1.0, 1.4, 0.75)), bone))
+        parts.append((cone("pincer_a%d" % sx, (sx * 0.47, -0.7, 0.44), (sx * 0.44, -0.9, 0.45), 0.045, mt), bone))
+        parts.append((cone("pincer_b%d" % sx, (sx * 0.54, -0.7, 0.38), (sx * 0.51, -0.86, 0.35), 0.038, mt), bone))
+        for i in range(4):                                   # patas compridas, joelho acima do casco
+            y = -0.1 + i * 0.13
+            leg = ("leg_fr" if i < 2 else "leg_br") if sx > 0 else ("leg_fl" if i < 2 else "leg_bl")
+            root = Vector((sx * 0.42, y, 0.44))
+            knee = Vector((sx * 0.84, y + (i - 1.5) * 0.1, 0.74))
+            foot = Vector((sx * 1.12, y + (i - 1.5) * 0.24, 0.0))
+            parts.append((ck.tube("leg%d%d_a" % (sx, i), root, knee, 0.05, 0.042, m, 6), leg))
+            parts.append((ck.tube("leg%d%d_b" % (sx, i), knee, foot, 0.042, 0.02, md, 6), leg))
+            parts.append((cone("leg%d%d_tip" % (sx, i), tuple(foot + (knee - foot) * 0.3), tuple(foot), 0.042, mt, 5), leg))
+    finish(arm, parts)
+    bm.mob_actions(arm, quadruped=True)
+    _sand_leap_attack(arm)
+    _crab_block(arm, "sand")
+    return arm
+
+
 # ---------------------------------------------------------------------------
 # espectro, ent, golem
 # ---------------------------------------------------------------------------
@@ -2633,7 +2783,7 @@ def goblin_rider(cid, raider=False):
 SK_BONE = (0.92, 0.9, 0.82)
 # bichos que são (ou vestem) chefes: gestos maul/pounce/slam/roar/brace (boss_gestures), para as skills especiais não
 # repetirem o "attack"
-BOSS_GESTURES = {"mob_boar": "quad", "mob_dire_mother": "quad", "mob_bear_mother": "quad", "mob_crab": "crab", "mob_slime": "slime", "mob_spider": "spider", "mob_ghost": "ghost", "mob_trent": "biped4",
+BOSS_GESTURES = {"mob_boar": "quad", "mob_dire_mother": "quad", "mob_bear_mother": "quad", "mob_crab": "crab", "mob_crab_hermit": "crab", "mob_crab_sand": "crab", "mob_slime": "slime", "mob_spider": "spider", "mob_ghost": "ghost", "mob_trent": "biped4",
                  "mob_golem_ancient": "biped", "mob_crystal_warden": "biped", "mob_quarry_heart": "biped"}
 
 
@@ -2656,6 +2806,8 @@ def build_all(out_dir, only=None):
         "mob_goat": lambda: quadruped("mob_goat", (0.8, 0.74, 0.64), (0.4, 0.32, 0.26), (0.95, 0.92, 0.86), "goat"),
         "mob_spider": spider,
         "mob_crab": crab,
+        "mob_crab_hermit": crab_hermit,      # Praia dos Caranguejos (field_crab_beach): eremita na concha e maria-farinha
+        "mob_crab_sand": crab_sand,
         "mob_ghost": ghost,
         "mob_ent": ent,
         "mob_horse": horse,

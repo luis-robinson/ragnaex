@@ -24,11 +24,13 @@ def P(c, r, deg):
 # ----------------------------------------------------------------------------------------------------------------
 # praia e mar (Costa e Porto)
 # ----------------------------------------------------------------------------------------------------------------
-def shoreline(d, c, r, beach, palms=10, boats=3, rocks=10, tongue_y=0.0046):
+def shoreline(d, c, r, beach, palms=10, boats=3, rocks=10, tongue_y=0.0046, shallows=True, rock_ok=None):
     """Borda do mar lida de cima: areia molhada, espuma em gomos, linhas de onda, baixios claros, pedras com espuma,
     conchas, algas, capim de duna na passagem areia/grama e palmeiras no fundo da praia.
     `tongue_y`: altura das línguas de areia na passagem areia/grama (a areia do mar fica a 4,0 mm: a língua pode ir por cima
-    ou por baixo dela, desde que a 0,5 mm+ e longe das outras camadas que cruzam a praia)."""
+    ou por baixo dela, desde que a 0,5 mm+ e longe das outras camadas que cruzam a praia).
+    `shallows=False` tira os baixios claros; `rock_ok(p)` recusa pedra do raso num ponto (debaixo de um píer). Os dois só
+    valem para quem os passa: sem eles o sorteio é o de sempre (Costa e Porto não mudam)."""
     z = d.z
     rnd = d.rnd
     wet = d.m("patch_areia_molhada", WET)
@@ -61,7 +63,7 @@ def shoreline(d, c, r, beach, palms=10, boats=3, rocks=10, tongue_y=0.0046):
             d.arc("mar", wave, c, r - dr + rnd.uniform(-0.5, 0.5), a, min(a1, a + ln), w, 0.036 + k * 0.0003, 0.3)
             a += ln + rnd.uniform(4.0, 10.0) / r
     a = a0
-    while a < a1:                                          # baixios claros e bancos de areia perto da borda
+    while a < a1 and shallows:                             # baixios claros e bancos de areia perto da borda
         rr = r - rnd.uniform(3.5, 12.0)
         d.blob("mar", shallow, (c[0] + math.cos(a) * rr, c[1] + math.sin(a) * rr), rnd.uniform(2.0, 4.5), 0.0318, 0.3, sx=1.8, rot=math.degrees(-a) + 90)
         a += rnd.uniform(9.0, 17.0) / r
@@ -81,6 +83,8 @@ def shoreline(d, c, r, beach, palms=10, boats=3, rocks=10, tongue_y=0.0046):
         rr = r - rnd.uniform(2.0, 9.0)
         p = (c[0] + math.cos(a) * rr, c[1] + math.sin(a) * rr)
         s = rnd.uniform(0.8, 1.7)
+        if rock_ok is not None and not rock_ok(p):
+            continue
         d.blob("mar", foam, p, s * 1.5, 0.0362, 0.3)
         d.rock("marpedra", darkrock, p, s, -0.1, 0.7)
         if rnd.random() < 0.5:

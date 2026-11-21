@@ -45,6 +45,8 @@ const TOURS := {
 	"dg_pedreira_coracao": [["galeria", Vector3(0, 0, 22)], ["coracao", Vector3(0, 0, -16)]],
 	"dg_ninho": [["entrada", Vector3(0, 0, 40)], ["salao", Vector3(20, 0, 22)], ["chefe", Vector3(-8, 0, -30)]],
 	"dg_cripta": [["entrada", Vector3(0, 0, 40)], ["salao", Vector3(-20, 0, 22)], ["chefe", Vector3(8, 0, -30)]],
+	"field_crab_beach": [["chegada", Vector3(-20.9, 0, -77.9)], ["rancho", Vector3(-37, 0, -68)], ["praia_norte", Vector3(2, 0, -40)], ["meio", Vector3(15, 0, 2.5)],
+		["praia_sul", Vector3(2, 0, 45)], ["recife_rei", Vector3(-29, 0, 64)], ["areal", Vector3(52, 0, 40)], ["lagoa", Vector3(54, 0, -2)], ["coqueiral", Vector3(36, 0, -44)]],
 	"field_hollow": [["chegada", Vector3(33.6, 0, -75.5)], ["acampamento", Vector3(2, 0, -12)], ["prado", Vector3(-45, 0, 30)], ["colmeia", Vector3(10, 0, 58)],
 		["filhotes", Vector3(41, 0, 21)], ["ursos", Vector3(70, 0, -36)], ["toca", Vector3(50, 0, 50)], ["aprendiz", Vector3(-64, 0, 48)]],
 	"field_grove": [["chegada", Vector3(-80, 0, -6)], ["posto", Vector3(-56, 0, -4)], ["aldeia", Vector3(46, 0, 8)], ["arquidruida", Vector3(44, 0, -42)], ["lobos", Vector3(-40, 0, -46)], ["ursos", Vector3(56, 0, 50)], ["chamados", Vector3(18, 0, 56)]],
@@ -2697,7 +2699,7 @@ func _tour(delta: float) -> void:
 		stops = [["sala", Vector3(0, 0, GameData.maps[_tour_map].size.y * 0.5 - 3.0)]]
 	elif not TOURS.has(_tour_map):             # paradas do Vale: escritas no layout antigo; o vale cresceu 20% (places.grow_aldara)
 		stops = stops.map(func(st): return [st[0], _grow_aldara(st[1])])
-		stops.append(["praia_caranguejos", Vector3(6.7, 0, 111.0)])
+		stops.append(["garganta_praia", Vector3(6.7, 0, 111.0)])      # a praia virou zona própria (field_crab_beach); aqui ficou a garganta
 		stops.append(["portas_casas", Vector3(13.0, 0, 12.0)])
 	if p.map_id != _tour_map:
 		Sim._change_map(p, _tour_map, stops[0][1])

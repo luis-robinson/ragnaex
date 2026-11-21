@@ -23,6 +23,8 @@ const LINES := {
 		"não aggra o rei javali agora pfv", "lootei 4 minério", "bloqueia quando ele avançar", "pull de 5 slime ez",
 	],
 	# caçando num mapa específico (BotBrain: "hunt_<mapa>" ou "town_<mapa>" quando existe, senão o genérico)
+	"hunt_field_crab_beach": ["caranguejo de monte, nem dá tempo de respirar", "o eremita fecha na concha, espera abrir e bate", "o da areia pula longe, cuidado",
+		"dropou casco! o Joca compra", "alguém pro Caranguejo-Rei? ponta sul", "farm de praia, melhor coisa", "pisei numa poça e saiu um eremita kkk"],
 	"hunt_field_hollow": ["vespa vem em bando, puxa devagar", "alguém viu a Colmeia? quero acabar com ela", "urso pardo bate forte na frente, sai pelo lado",
 		"filhote aqui, cuidado com a mãe", "ninguém sobe na toca da Ursa-Mãe sozinho", "dropou favo de mel!", "essa mata zumbe até de noite"],
 	"hunt_field_grove": ["xamã girando folha, bate antes de virar", "o lobo some no mato, guarda alta", "gavião foge, deixa ele pro arqueiro", "mata o Chamador primeiro, os bichos somem",
@@ -71,7 +73,7 @@ static func place_words(place: String) -> Dictionary:
 ## Mapa -> tipo de lugar; quem não está aqui cai em interior/dungeon/aldara/field pelos dados (BotChat.place_kind).
 ## Tipos com "_town" usam a variante dentro da muralha do povoado (town_radius).
 const MAP_KIND := {
-	"city_aldara": "aldara", "field_hollow": "hollow", "field_grove": "grove", "field_forest": "forest", "elf_city": "elf_city", "field_ruins": "dawn",
+	"city_aldara": "aldara", "field_hollow": "hollow", "field_crab_beach": "beach", "field_grove": "grove", "field_forest": "forest", "elf_city": "elf_city", "field_ruins": "dawn",
 	"fort_ghoul": "fort", "fort_bones": "fort", "fort_frost": "fort", "lich_citadel": "citadel",
 	"field_kharzun": "kharzun", "dg_slayers": "slayers", "kharzun_citadel": "kharzun_citadel",
 }
@@ -79,7 +81,7 @@ const WALLED := ["aldara", "forest", "dawn", "kharzun"]     # tipos com vila/pov
 
 ## Depois que o Lich cai (MapsCatalog.VICTORY_QUEST feita): a cidade e o Bastião comemoram no chat.
 const VICTORY_LINES := ["O LICH CAIU!!! festa na praça", "{p} matou o Azhar, alguém viu?? lendário", "GG {p}, a noite acabou de vez",
-	"cerveja de graça na taverna, é o que dizem", "olha os fogos em cima do chafariz", "três dias de festa, nem vou caçar hoje",
+	"cerveja de graça na taverna, é o que dizem", "olha os fogos em cima da balança", "três dias de festa, nem vou caçar hoje",
 	"alguém tira print dos fogos", "o bardo já fez música pro {p}", "valeu {p}, Aldara te deve uma", "a Aurora venceu \\o/",
 	"saudade do medo que dava a Cidadela kkk", "e agora? farmar lendário até o próximo ato"]
 
@@ -92,8 +94,9 @@ const KHARZUN_VICTORY_KINDS := ["kharzun_town", "kharzun", "slayers"]     # e o 
 
 const PLACE_LINES := {
 	"grove": ["esse bosque tem tambor de noite", "o posto da Guardiã é logo na entrada", "xamã virou urso na minha frente!", "cheiro de resina por toda parte"],
+	"beach": ["que praia bonita, pena as pinças", "o rancho do Joca é logo na chegada", "olha o casco encalhado no meio da baía", "areia até no elmo"],
 	"hollow": ["que mata fechada", "fica na trilha senão o urso te acha", "o acampamento da Brena é logo ali", "cheiro de mel por toda parte"],
-	"aldara_town": ["o chafariz da praça é o melhor ponto de afk", "a taverna do Gus tá lotada hoje", "a Relicária troca moeda lendária, só lembrando",
+	"aldara_town": ["a balança da praça é o melhor ponto de afk", "a taverna do Gus tá lotada hoje", "a Relicária troca moeda lendária, só lembrando",
 		"alguém pra Gruta Gotejante?", "o Brom aprimora até +9 e nunca quebra, confia", "quem vende bolsa ampliada?", "vou passar no ferreiro e já volto",
 		"o Ancião Ravi fala demais mas a quest paga bem", "vendo couro, preço de amigo", "a Capitã Mira já liberou o desfiladeiro pra alguém?",
 		"Aldara de manhã é outra coisa", "alguém sabe se a botica tem poção grande?", "quem vai pras Catacumbas hoje?"],

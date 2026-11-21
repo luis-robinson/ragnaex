@@ -55,7 +55,7 @@ class FakeMain:
 ## Dano no tempo (2026-11-17, "impossível tancar"): o de MONSTRO com o mesmo id renova (1 acúmulo, maior dps, duração nova);
 ## todo dano no tempo bate em pulsos de Balance.DOT_PULSE_S com o mesmo total; o do jogador continua acumulando.
 func _check_dot_pulse(gd, sim) -> void:
-	var at := Vector3(-30, 0, 30)
+	var at := ALDARA_FIELD
 	var mob: SimEntity = sim.spawn_monster(gd.monsters["golem"], "city_aldara", at)
 	mob.brain = null
 	var tgt: SimEntity = sim.spawn_bot(gd.classes["berserker"], "DotAlvo", "city_aldara", at + Vector3(2, 0, 0), 30)
@@ -414,7 +414,7 @@ func _check_form_clips() -> void:
 ## cabeça fora do chão na morte, golpe dos monstros com pose de impacto no quadro 5 e morte que tomba.
 func _check_anim_review() -> void:
 	var loops := ["idle", "idle_bow", "idle_staff", "run", "block", "block_shield", "fall", "run_shield_tall", "block_shield_tall"]
-	for model in ["kit_paladin_male", "kit_bishop_female", "mob_wolf", "mob_bandit", "mob_elf_bowman", "mob_golem", "mob_ghost", "form_bear"]:
+	for model in ["kit_paladin_male", "kit_bishop_female", "mob_wolf", "mob_bandit", "mob_elf_bowman", "mob_golem", "mob_ghost", "form_bear", "mob_crab_hermit", "mob_crab_sand"]:
 		var ps: PackedScene = load("res://assets/models/%s.glb" % model)
 		if ps == null:
 			check(false, "anim: modelo %s carrega" % model)
@@ -2417,6 +2417,7 @@ func _wipe_save(save, i: int) -> void:
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(pth))
 
 const HOSTILE_HUBS := ["elf_city"]     # zonas cujo hub é a cidade inimiga (sem serviços; spawners dentro do muro)
+const HUBLESS_ZONES := ["field_crab_beach"]     # área de farm sem hub no centro (o centro do mapa é a baía): a regra dos 40 m do hub não vale; a folga da chegada e do NPC é conferida no check da zona
 const TEST_SLOT := 90       # espaço só dos testes (fora dos SLOTS da tela inicial): nunca toca nos personagens do jogador
 # performance da simulação: 3000 ticks levam ~25,6 s com a máquina quieta; o limite pega uma regressão de 2x (~51 s)
 const PERF_SIM_LIMIT_MS := 32000.0
@@ -2950,6 +2951,7 @@ func _check_zone(gd, sim) -> void:
 		_check_places(gd, sim, gd.maps[zid])
 	_check_zone_layout(gd, sim, gd.maps["field_hollow"])      # sem masmorra/lugares: fora do _check_places
 	_check_field_hollow(gd, sim)
+	_check_crab_beach(gd, sim)       # área de farm sem masmorra/lugares nem hub (HUBLESS_ZONES); chama o _check_zone_layout dela
 	_check_zone_layout(gd, sim, gd.maps["field_grove"])       # sem masmorra/lugares: fora do _check_places
 	_check_field_grove(gd, sim)
 	_check_dungeons(gd, sim)
@@ -4460,7 +4462,7 @@ func _reset_act(e: SimEntity) -> void:
 
 ## Ascensão (Ato II, contrato da fase 1): nível + missão; skills da ascensão fora da teia comum, compradas na teia de ascensão.
 func _check_paladin_ascension(gd, sim) -> void:
-	var e: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Aspirante", "city_aldara", Vector3(-30, 0, -30), 30)
+	var e: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Aspirante", "city_aldara", ALDARA_FIELD_B, 30)
 	e.brain = null
 	check(Balance.ASC_LEVEL == 35, "ascensão no nível 35")
 	e.level = Balance.ASC_LEVEL
@@ -4491,7 +4493,7 @@ func _check_paladin_ascension(gd, sim) -> void:
 	check(is_equal_approx(gd.skills["pal_trample"].radius, 3.5) and is_equal_approx(gd.skills["pal_trample"].power, 0.9) and is_equal_approx(gd.skills["pal_trample"].cooldown, 8.0)
 		and int(gd.skills["pal_trample"].effects["slow"]["pct"]) == 30, "Pisotear: raio 3,5, power 0,9, lentidão 30%, recarga 8 s")
 	# sem a ascensão as skills dela não saem
-	var plain: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Comum", "city_aldara", Vector3(-34, 0, -30), 30)
+	var plain: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Comum", "city_aldara", ALDARA_FIELD_B + Vector3(-4, 0, 0), 30)
 	plain.brain = null
 	plain.learned["pal_arcane_mode"] = true
 	plain.ensure_slots()
@@ -5708,7 +5710,7 @@ func _check_necromancer_builds(gd, sim) -> void:
 	for mid in ["bone_hound", "lich_servant", "skeleton_king", "skeleton_minion"]:
 		check(gd.monsters.has(mid) and gd.monsters[mid].xp == 0, "invocação %s existe e não dá XP" % mid)
 	var m: Dictionary = sim.maps["city_aldara"]
-	var at := Vector3(-30, 0, -30)
+	var at := ALDARA_FIELD_B
 	var n: SimEntity = sim.spawn_bot(cls, "Nec", "city_aldara", at, 30)
 	n.brain = null
 	n.equipment[ItemDef.Slot.WEAPON] = gd.items["scythe_bone"]
@@ -5832,7 +5834,7 @@ func _check_elementalist_builds(gd, sim) -> void:
 	st.storm_pct = 0.0
 	check(is_equal_approx(st.element_mult(["fire"] as Array[String]), 1.4) and is_equal_approx(st.element_mult(["fire", "storm"] as Array[String]), 1.2)
 		and st.element_mult([] as Array[String]) == 1.0, "bônus de elemento: puro inteiro, combinação pela média")
-	var e: SimEntity = sim.spawn_bot(cls, "Ele", "city_aldara", Vector3(-30, 0, 30), 30)
+	var e: SimEntity = sim.spawn_bot(cls, "Ele", "city_aldara", ALDARA_FIELD, 30)
 	e.brain = null
 	e.buffs.append({"id": "t_el", "duration": 99, "remaining": 99, "fire_pct": 500})
 	e.recompute_stats()
@@ -8098,13 +8100,13 @@ func _check_paladin_weapon_roles(gd, sim) -> void:
 			check(nsh.legend_effect.is_empty(), "%s: escudo nomeado sem Determinação" % iid)
 	# --- comportamento ---
 	var m: Dictionary = sim.maps["city_aldara"]
-	var pal: SimEntity = sim.spawn_bot(gd.classes["paladin"], "PalRole", "city_aldara", Vector3(-30, 0, -30), 30)
+	var pal: SimEntity = sim.spawn_bot(gd.classes["paladin"], "PalRole", "city_aldara", ALDARA_FIELD_B, 30)
 	pal.brain = null
 	pal.equipment[ItemDef.Slot.WEAPON] = gd.items["leg_paladin_guardiao_30_weapon"]
 	pal.equipment[ItemDef.Slot.OFFHAND] = gd.items["leg_paladin_guardiao_30_offhand"]
 	pal.recompute_stats()
 	check(str(pal.stats.legend.get("kind", "")) == "holy_edge" and str(pal.stats.shield_passive.get("kind", "")) == "determination", "espada + escudo: Lâmina Justa na arma, Determinação no escudo")
-	var foe: SimEntity = sim.spawn_monster(gd.monsters["golem"], "city_aldara", Vector3(-30, 0, -28.5))
+	var foe: SimEntity = sim.spawn_monster(gd.monsters["golem"], "city_aldara", ALDARA_FIELD_B + Vector3(0, 0, 1.5))
 	foe.brain = null
 	foe.stats.max_hp = 1.0e7
 	foe.hp = 1.0e7
@@ -8196,7 +8198,7 @@ func _check_paladin_weapon_roles(gd, sim) -> void:
 	pal.build_id = "templario"
 	hyb = sim.bot_set_weapons(pal, gd.sets["set_paladin_mix_templario_guardiao_35"])
 	check(not hyb.is_empty() and hyb[0] == "leg_paladin_mix_templario_guardiao_35_templario_weapon" and gd.items[hyb[0]].weapon_type == "mace", "bot Templário no híbrido: o martelo dele (%s)" % str(hyb))
-	var cle: SimEntity = sim.spawn_bot(gd.classes["bishop"], "CleRole", "city_aldara", Vector3(-32, 0, -30), 30)
+	var cle: SimEntity = sim.spawn_bot(gd.classes["bishop"], "CleRole", "city_aldara", ALDARA_FIELD_B + Vector3(-2, 0, 0), 30)
 	cle.brain = null
 	cle.build_id = "batalha"
 	var cw: Array = sim.bot_set_weapons(cle, gd.sets["set_bishop_batalha_30"])
@@ -12498,16 +12500,10 @@ func _check_layout_conflicts(gd, sim) -> void:
 					crossed.append(sp["monster_id"])
 					break
 		check(crossed.is_empty(), "city_aldara: spawner fora da estrada (%s)" % str(crossed))
-	# a praia dos caranguejos e o rei que sai do lago
+	# a praia dos caranguejos e o Rei mudaram para a Praia dos Caranguejos (field_crab_beach, 2026-11-21): _check_crab_beach.
+	# No Vale ficou a garganta na margem sul do lago.
 	var md: MapDef = gd.maps["city_aldara"]
-	var crabs: Array = md.spawners.filter(func(s): return s["monster_id"] in ["crab", "crab_king"])
-	check(crabs.size() >= 3, "Vale: praia dos caranguejos com o Rei (%d spawners)" % crabs.size())
-	var m: Dictionary = sim.maps["city_aldara"]
-	for s in crabs:
-		check(not sim._point_in_solid(s["pos"], m), "%s nasce em chão livre" % s["monster_id"])
-	var king: Array = crabs.filter(func(s): return s["monster_id"] == "crab_king")
-	check(king.size() == 1 and king[0].has("emerge"), "Caranguejo-Rei sai do lago (emerge)")
-	check(gd.monsters["crab_king"].phases.size() >= 2 and gd.monsters["crab_small"].xp == 0, "Caranguejo-Rei: fases e filhotes sem XP")
+	check(md.portals.any(func(p): return p["target_map"] == "field_crab_beach"), "Vale: garganta da Praia dos Caranguejos na margem sul do lago")
 
 func _poly_dist2(p: Vector2, pts: Array) -> float:
 	var best := INF
@@ -12553,7 +12549,7 @@ func _check_zone_layout(gd, sim, md: MapDef) -> void:
 		var d: float = Vector2(sp["pos"].x, sp["pos"].z).length()
 		var hostile_hub: bool = mid in HOSTILE_HUBS and d < gd.maps[mid].town_radius         # cidade inimiga: a guarnição mora no hub
 		var dummy: bool = sp["monster_id"] == "training_dummy"       # boneco de treino: fica colado na vila de propósito
-		check((d > 40.0 or hostile_hub or dummy) and d < 120.0 * (1.2 if mid == "city_aldara" else 1.0), "%s: spawner %s a %.0f m do hub" % [mid, sp["monster_id"], d])
+		check((d > 40.0 or hostile_hub or dummy or mid in HUBLESS_ZONES) and d < 120.0 * (1.2 if mid == "city_aldara" else 1.0), "%s: spawner %s a %.0f m do hub" % [mid, sp["monster_id"], d])
 		check(sim.is_walkable(sim.random_walkable(md, sp["pos"], float(sp["radius"])), md), "%s: spawner %s andável" % [mid, sp["monster_id"]])
 	for n in md.npcs:
 		if n.get("role", "") == "crystal":          # o cristal é a própria coluna sólida: confere a frente dele
@@ -15148,7 +15144,7 @@ func _check_dry_land(gd, sim) -> void:
 ## Mapa-múndi em "zonas" (x = leste, y = sul; 1 = uma zona de ~240 m). Dois continentes: Aldara (Ato I) e Kharzun (Ato II),
 ## ligados só por navio. Zona nova de superfície = uma linha aqui (o check exige).
 const WORLD := {
-	"field_ruins": Vector2(-1.0, 0.0), "city_aldara": Vector2(0.0, 0.0), "field_hollow": Vector2(-0.5, 1.0), "field_grove": Vector2(2.0, 0.0), "field_forest": Vector2(1.0, 0.0), "elf_city": Vector2(1.0, -1.0),
+	"field_ruins": Vector2(-1.0, 0.0), "city_aldara": Vector2(0.0, 0.0), "field_hollow": Vector2(-0.5, 1.0), "field_crab_beach": Vector2(0.1, 1.1), "field_grove": Vector2(2.0, 0.0), "field_forest": Vector2(1.0, 0.0), "elf_city": Vector2(1.0, -1.0),
 	"fort_ghoul": Vector2(-2.0, 0.0), "fort_bones": Vector2(-1.0, -1.0), "fort_frost": Vector2(-1.0, 1.0), "lich_citadel": Vector2(-0.35, -0.7),
 	"field_coast": Vector2(9.0, 0.0), "city_port": Vector2(10.0, 0.1), "field_steppe": Vector2(9.3, -1.0),
 	"fort_trolls": Vector2(8.3, -1.0), "fort_war": Vector2(10.15, -1.5), "fort_fire": Vector2(10.1, -0.4), "field_kharzun": Vector2(9.3, -2.0),
@@ -17607,7 +17603,7 @@ func _check_tank_kit(gd, sim) -> void:
 ## Bot não escolhe skill que a sim recusa (sem companheiro, invocação no limite): antes pedia a mesma skill todo
 ## tick e ficava parado até morrer (Caçador com o lince morto: 0 vitórias solo no boss_probe).
 func _check_bot_skill_reject(gd, sim) -> void:
-	var r = sim.spawn_character(SimEntity.Kind.BOT, gd.classes["ranger"], "Caca", "city_aldara", Vector3(-30, 0, 30), 30)
+	var r = sim.spawn_character(SimEntity.Kind.BOT, gd.classes["ranger"], "Caca", "city_aldara", ALDARA_FIELD, 30)
 	r.build_id = "cacador"
 	var sic: SkillDef = gd.skills["ran_sic"]
 	r.learned[sic.id] = true
@@ -17626,7 +17622,7 @@ func _check_bot_skill_reject(gd, sim) -> void:
 ## Druida bot entra na forma (Lobo/Urso) com inimigo perto; antes pulava a skill de forma e lutava como humano (0/40 solo).
 func _check_bot_form(gd, sim) -> void:
 	for row in [["fera", "dru_wolf_form", "wolf"], ["guardiao_verde", "dru_bear_form", "bear"]]:
-		var d = sim.spawn_character(SimEntity.Kind.BOT, gd.classes["druid"], "Forma", "city_aldara", Vector3(-30, 0, 30), 30)
+		var d = sim.spawn_character(SimEntity.Kind.BOT, gd.classes["druid"], "Forma", "city_aldara", ALDARA_FIELD, 30)
 		d.build_id = row[0]
 		sim._gear_bot(d)
 		var fs: SkillDef = gd.skills[row[1]]
@@ -17861,7 +17857,7 @@ func _cocoon_breakers(gd, sim) -> void:
 ## provocar; provocar deixa folga de TAUNT_THREAT_LEAD; o tanque bot provoca de novo antes de o dps frear; e no mesmo
 ## dano o tanque gera bem mais ameaça que um dps (o dps não chega a BOT_THREAT_HOLD da ameaça dele).
 func _check_tank_threat(gd, sim) -> void:
-	var at := Vector3(-30, 0, 30)
+	var at := ALDARA_FIELD
 	var n_tanks := 0
 	for cid in gd.classes:
 		var cd = gd.classes[cid]
@@ -17985,7 +17981,7 @@ func _check_tank_threat(gd, sim) -> void:
 			sim.despawn(o)
 
 func _check_bot_group(gd, sim) -> void:
-	var at := Vector3(-30, 0, 30)
+	var at := ALDARA_FIELD
 	var mk := func(cid: String, bid: String, name: String, pos: Vector3) -> SimEntity:
 		var b = sim.spawn_character(SimEntity.Kind.BOT, gd.classes[cid], name, "city_aldara", pos, 30)
 		b.build_id = bid
@@ -18105,7 +18101,7 @@ func _check_bot_group(gd, sim) -> void:
 ## perto; elite só a BOT_TANK_PULL_ELITE; líder montado ou chefe de outro grupo = não abre; o dps ajuda no chefe preso no
 ## tanque a até PARTY_BIG_ASSIST_RANGE do líder.
 func _check_tank_pull(gd, sim) -> void:
-	var at := Vector3(-30, 0, 30)
+	var at := ALDARA_FIELD
 	var m: Dictionary = sim.maps["city_aldara"]
 	var mk := func(cid: String, bid: String, name: String, pos: Vector3) -> SimEntity:
 		var b = sim.spawn_character(SimEntity.Kind.BOT, gd.classes[cid], name, "city_aldara", pos, 30)
@@ -18169,7 +18165,7 @@ func _check_tank_pull(gd, sim) -> void:
 ## talho de 150°, tanque vira o chefe, berserk por chefe (MonsterDef.berserk_mult) e viagem a Kharzun.
 func _check_bot_raid(gd, sim) -> void:
 	var mid := "city_aldara"
-	var at := Vector3(-30, 0, -30)
+	var at := ALDARA_FIELD_B
 	var m: Dictionary = sim.maps[mid]
 	var mk := func(cid: String, bid: String, name: String, pos: Vector3) -> SimEntity:
 		var b = sim.spawn_character(SimEntity.Kind.BOT, gd.classes[cid], name, mid, pos, 45)
@@ -18350,7 +18346,7 @@ func _check_bot_raid(gd, sim) -> void:
 ## tanque guarda a provocação para o estouro. Antes o Fogo tirava o chefe do tanque na abertura do Ato II.
 func _check_bot_opener(gd, sim) -> void:
 	check(Balance.BOT_OPENER_TIME > 0.0 and Balance.BOT_OPENER_WAIT > Balance.BOT_OPENER_TIME and Balance.BOT_OPENER_RATIO > 0.0 and Balance.BOT_OPENER_RATIO < Balance.BOT_THREAT_HOLD, "abertura: números coerentes (espera > tempo preso; razão abaixo do freio)")
-	var at := Vector3(-30, 0, 30)
+	var at := ALDARA_FIELD
 	var mk := func(cid: String, bid: String, name: String, pos: Vector3) -> SimEntity:
 		var b = sim.spawn_character(SimEntity.Kind.BOT, gd.classes[cid], name, "city_aldara", pos, 30)
 		b.build_id = bid
@@ -18467,7 +18463,7 @@ func _check_bot_opener(gd, sim) -> void:
 ## (+ dano no tempo) passaria BOT_THREAT_HOLD × a ameaça do tanque espera; o dano no tempo pendente conta como ameaça já
 ## feita; área num lacaio colado no chefe usa o orçamento do chefe. Antes o Meteoro saía a 0,6 do tanque e passava dele.
 func _check_bot_threat_budget(gd, sim) -> void:
-	var at := Vector3(-30, 0, 30)
+	var at := ALDARA_FIELD
 	var mk := func(cid: String, bid: String, name: String, pos: Vector3) -> SimEntity:
 		var b = sim.spawn_character(SimEntity.Kind.BOT, gd.classes[cid], name, "city_aldara", pos, 30)
 		b.build_id = bid
@@ -18658,7 +18654,7 @@ func _check_probe_sampler(gd) -> void:
 ## Lâminas: Sumir está na barra do bot, abre a luta furtivo (alvo ainda não o mira), e na sombra o bot contorna o alvo
 ## sem golpe básico e sai com a skill mais forte pelas costas (antes Sumir nunca entrava na barra: 6/40 solo).
 func _check_bot_stealth(gd, sim) -> void:
-	var d = sim.spawn_character(SimEntity.Kind.BOT, gd.classes["assassin"], "Sombra", "city_aldara", Vector3(-30, 0, 30), 30)
+	var d = sim.spawn_character(SimEntity.Kind.BOT, gd.classes["assassin"], "Sombra", "city_aldara", ALDARA_FIELD, 30)
 	d.build_id = "laminas"
 	sim._gear_bot(d)
 	sim._skill_bot(d)
@@ -21119,7 +21115,7 @@ func _check_ancestral_forms(gd, sim) -> void:
 ## AC-25: bot de cada build entra na forma ancestral em luta de chefe, fica nela e usa as skills dela em 60 s.
 func _check_ancestral_bots(gd, sim) -> void:
 	var m: Dictionary = sim.maps["city_aldara"]
-	var at := Vector3(-30, 0, 30)        # em terra (o -52,30 era no meio do rio: o Xamã andava na água e saía 55 m adiante)
+	var at := ALDARA_FIELD        # em terra (o -52,30 era no meio do rio: o Xamã andava na água e saía 55 m adiante)
 	var tank: SimEntity = _ranger_asc_bot(gd, sim, "lanceiro", at + Vector3(0, 0, 2.5), false)
 	var rows := [["guardiao_verde", "ent", Vector3(2, 0, -2), ["dru_ent_roots", "dru_ent_grove"]], ["fera", "alpha", Vector3(-2, 0, -2), ["dru_alpha_pack", "dru_alpha_howl"]],
 		["xama", "bird", Vector3(0, 0, -7), ["dru_bird_bolt"]]]
@@ -24333,16 +24329,28 @@ func _check_boot_splash() -> void:
 			off.append("%s=%s" % [p, c])
 	check(off.is_empty(), "splash: cantos da imagem na cor de fundo (%s)" % [off])
 
-## Cidades com identidade (GDD design/gdd/living-towns.md AC-A1/A2/A4): Aldara tem a Feira do Trigo no centro (mó/balança +
-## roseta de bancas), nada de estátua/chafariz no miolo, nada alto perto do hub, cristal na borda, ofícios por quadrante.
+## Campo aberto do Vale de Aldara para os testes de combate: a muralha cresceu para o raio 42 (2026-11-21) e os pontos antigos
+## (-30, 30) e (-30, -30), 12 m fora da muralha de raio 30, caíram em cima dela. Dois pontos calmos a leste e a nordeste, com 8+ m
+## de chão livre em volta e sem ninho a menos de 25 m.
+const ALDARA_FIELD := Vector3(54, 0, -20)
+const ALDARA_FIELD_B := Vector3(34, 0, -44)
+## Cidades com identidade (GDD design/gdd/living-towns.md AC-A1/A2/A4): Aldara tem a Balança do Trigo no centro de uma praça
+## aberta, nada de estátua/chafariz no miolo, nada alto perto do hub, cristal na praça e um bairro por lado (2026-11-21, vila
+## de bairros: Quartel e pátio de treino ao norte, Mercado a leste, casas/Taverna/celeiro ao sul, Ofícios a oeste). Cada NPC
+## de serviço atende do lado de FORA, na porta/balcão do prédio dele.
 const TOWN_LIVING := ["city_aldara", "field_forest"]         # mapas do Ato I com LIVING_NPCS ligado (AC-B1)
+## serviço -> [prédio do town.centerpiece.buildings, lado do bairro: eixo e sinal]
+const ALDARA_SERVICES := {"elder": ["elder", "z", -1.0], "captain": ["quartel", "z", -1.0], "merchant": ["tobias", "x", 1.0], "relic": ["relic", "x", 1.0],
+	"storage": ["armazem", "x", 1.0], "smith": ["smithy", "x", -1.0], "alchemist": ["botica", "x", -1.0]}
 func _check_town_identity(gd, sim) -> void:
 	var def: MapDef = gd.maps["city_aldara"]
 	var z: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(MapsCatalog.ZONE_PATH % "city_aldara"))
 	var cp: Dictionary = (z["town"] as Dictionary).get("centerpiece", {})
-	check(str(cp.get("kind", "")) == "feira_do_trigo", "Aldara: o centro é a Feira do Trigo (town.centerpiece no JSON)")
+	check(str(cp.get("kind", "")) == "balanca_do_trigo", "Aldara: o centro é a Balança do Trigo (town.centerpiece no JSON)")
 	if cp.is_empty():
 		return
+	check(def.town_radius >= 40.0, "Aldara: muralha com raio %d m (era 30: a vila ganhou bairros)" % int(def.town_radius))
+	var plaza_r := float(cp["plaza_r"])
 	var generic: Array = []
 	var tall: Array = []
 	var stalls: Array = []
@@ -24353,68 +24361,105 @@ func _check_town_identity(gd, sim) -> void:
 			generic.append("%s (%.0f, %.0f)" % [o["kind"], p.x, p.y])
 		if p.length() < 25.0 and float(o["size"][1]) > 6.0:
 			tall.append("%s %.1f m" % [o["kind"], o["size"][1]])
-		if str(o["kind"]) == "stall" and p.length() < 12.0:
+		if str(o["kind"]) == "stall" and p.x > plaza_r:
 			stalls.append(p)
 		if p.length() < 0.1 and bool(o.get("solid", true)) and absf(float(o["size"][0]) - 2.0 * float(cp["mill_r"])) < 0.01:
 			mill = true
 	check(generic.is_empty(), "Aldara: sem estátua nem chafariz a menos de 20 m do centro (%s)" % [generic])
 	check(mill, "Aldara: a mó/balança do trigo é a peça central (colisor no centro)")
-	check(stalls.size() >= 6 and stalls.size() == (cp["stalls"] as Array).size(), "Aldara: 6+ bancas em roseta (%d)" % stalls.size())
-	var ring_ok := true
+	# rua do Mercado: 6+ bancas a leste, FORA da praça, com vão entre elas
+	check(stalls.size() >= 6 and stalls.size() == (cp["stalls"] as Array).size(), "Aldara: 6+ bancas na rua do Mercado (%d)" % stalls.size())
+	var street_ok := true
 	var gap := INF
 	for i in stalls.size():
-		ring_ok = ring_ok and absf((stalls[i] as Vector2).length() - float(cp["stall_r"])) < 0.5
+		street_ok = street_ok and (stalls[i] as Vector2).length() >= plaza_r + 2.0 and (stalls[i] as Vector2).length() < def.town_radius - 8.0 and absf((stalls[i] as Vector2).y) < 12.0
 		for j in range(i + 1, stalls.size()):
 			gap = minf(gap, (stalls[i] as Vector2).distance_to(stalls[j]))
-	check(ring_ok and gap >= 5.5, "Aldara: bancas no anel da roseta, com vão entre elas (%.1f m entre centros)" % gap)
+	check(street_ok and gap >= 5.0, "Aldara: bancas fora da praça, ao longo da avenida leste, com vão entre elas (%.1f m entre centros)" % gap)
 	check(tall.is_empty() and float(cp["max_height"]) <= 6.0, "Aldara: nada acima de 6 m a menos de 25 m do centro (%s)" % [tall])
-	# os 8 vãos da roseta (4 ruas + 4 diagonais) passam um personagem com folga (corredor >= 3 m)
+	# a praça é só ponto de encontro: chão livre em toda a volta (borda e miolo), as quatro avenidas saem dela
 	var shut: Array = []
-	for k in 8:
-		var a := TAU * k / 8.0
-		var q := Vector3(cos(a), 0.0, sin(a)) * float(cp["stall_r"])
-		if not sim.is_walkable(q, def, 1.5):
-			shut.append(k * 45)
-	check(shut.is_empty(), "Aldara: vãos da roseta abertos, corredor >= 3 m (fechados em %s graus)" % [shut])
-	# cristal de retorno fora do centro, na borda da feira
-	var cr: Array = MapsCatalog.CRYSTALS["city_aldara"]
-	var cd := Vector2(float(cr[0]), float(cr[1])).length()
-	check(cd >= float(cp["stall_r"]) + 2.0 and cd <= 16.0, "Aldara: Cristal de Retorno na borda da feira (%.1f m do centro)" % cd)
-	# ofícios por quadrante: ferreiro no pátio da forja (NE), mercador numa banca, Estátua do Fundador fora da praça
-	var by_id := {}
-	for n in def.npcs:
-		by_id[n["id"]] = n
-	var forge := Vector3(float(cp["forge"][0]), 0.0, float(cp["forge"][1]))
-	check(forge.x > 0.0 and forge.z < 0.0 and by_id.has("smith") and (by_id["smith"]["pos"] as Vector3).distance_to(forge) < 4.0, "Aldara: Brom trabalha no pátio da forja, a nordeste")
-	var mp: Vector3 = by_id["merchant"]["pos"] if by_id.has("merchant") else Vector3.ZERO
-	check(stalls.any(func(s): return Vector2(mp.x, mp.z).distance_to(s) < 3.5), "Aldara: o mercador atende numa banca da feira")
-	# praça aberta (playtest 2026-11-18): anel livre >= 5,5 m entre a mó e os balcões, mercador do lado de dentro, feirantes
-	# atrás do balcão (fora do anel), nos postos que o Blender gravou
-	var sr := float(cp["stall_r"])
-	check(sr - 0.5 - float(cp["mill_r"]) >= 5.5, "Aldara: anel livre de 5,5+ m entre a mó e as bancas (%.1f m)" % (sr - 0.5 - float(cp["mill_r"])))
+	for k in 16:
+		var a := TAU * k / 16.0
+		var edge := Vector3(cos(a), 0.0, sin(a)) * (plaza_r - 2.6)
+		if edge.distance_to(Vector3(float(cp["crystal"][0]), 0.0, float(cp["crystal"][1]))) > 2.5 and not sim.is_walkable(edge, def, 1.5):      # o cristal ocupa a vaga dele
+			shut.append(int(rad_to_deg(a)))
+	check(shut.is_empty(), "Aldara: borda da praça livre em toda a volta, corredor >= 3 m (fechada em %s graus)" % [shut])
 	var ring_shut: Array = []
 	for k in 16:
 		var qa := TAU * k / 16.0
-		var qq := Vector3(cos(qa), 0.0, sin(qa)) * (float(cp["mill_r"]) + 0.5 * (sr - 0.5 - float(cp["mill_r"])))
+		var qq := Vector3(cos(qa), 0.0, sin(qa)) * (float(cp["mill_r"]) + 0.5 * (plaza_r - 3.0 - float(cp["mill_r"])))
 		if not sim.is_walkable(qq, def, 2.4):
 			ring_shut.append(int(rad_to_deg(qa)))
-	check(ring_shut.is_empty(), "Aldara: o miolo da praça é chão livre em toda a volta (fechado em %s graus)" % [ring_shut])
-	check(Vector2(mp.x, mp.z).length() < sr, "Aldara: o mercador atende do lado de dentro da praça (%.1f m do centro)" % Vector2(mp.x, mp.z).length())
+	check(plaza_r - float(cp["mill_r"]) >= 8.0 and ring_shut.is_empty(), "Aldara: o miolo da praça é chão livre em toda a volta (fechado em %s graus)" % [ring_shut])
+	# cristal de retorno dentro da praça, fora do centro; o JSON e o catálogo dizem o mesmo
+	var cr: Array = MapsCatalog.CRYSTALS["city_aldara"]
+	var cd := Vector2(float(cr[0]), float(cr[1])).length()
+	check(cd >= float(cp["mill_r"]) + 3.0 and cd <= plaza_r and Vector2(float(cr[0]), float(cr[1])).distance_to(Vector2(float(cp["crystal"][0]), float(cp["crystal"][1]))) < 0.3,
+		"Aldara: Cristal de Retorno na praça, fora do centro (%.1f m do centro)" % cd)
+	# serviços: cada um do lado de fora, junto do prédio dele, no bairro certo, em chão livre
+	var by_id := {}
+	for n in def.npcs:
+		by_id[n["id"]] = n
+	var off_house: Array = []
+	for sid in ALDARA_SERVICES:
+		var want: Array = ALDARA_SERVICES[sid]
+		var b: Array = (cp["buildings"] as Dictionary).get(want[0], [])
+		if not by_id.has(sid) or b.is_empty():
+			off_house.append("%s sem prédio" % sid)
+			continue
+		var np: Vector3 = by_id[sid]["pos"]
+		var bp := Vector3(float(b[0]), 0.0, float(b[1]))
+		var inside_house := false
+		for o in def.obstacles:
+			if o.get("kind", "") == "house" and (o["pos"] as Vector3).distance_to(bp) < 0.5:
+				var lp: Vector3 = (np - bp).rotated(Vector3.UP, -deg_to_rad(float(o.get("rot", 0.0))))
+				inside_house = absf(lp.x) < (o["size"] as Vector3).x * 0.5 and absf(lp.z) < (o["size"] as Vector3).z * 0.5
+		var side: float = (bp.x if want[1] == "x" else bp.z) * float(want[2])
+		if np.distance_to(bp) > 8.0 or inside_house or not sim.is_walkable(np, def, 0.35) or side <= 0.0 or bp.length() < plaza_r:
+			off_house.append("%s (%.1f, %.1f)" % [sid, np.x, np.z])
+	check(off_house.is_empty(), "Aldara: cada serviço atende fora, na porta/balcão do prédio dele, no bairro dele (%s)" % [off_house])
+	var forge := Vector3(float(cp["forge"][0]), 0.0, float(cp["forge"][1]))
+	check(forge.x < -plaza_r and by_id.has("smith") and (by_id["smith"]["pos"] as Vector3).distance_to(forge) < 4.0, "Aldara: Brom trabalha na forja (bigorna), no bairro dos Ofícios, a oeste")
+	var mp: Vector3 = by_id["merchant"]["pos"] if by_id.has("merchant") else Vector3.ZERO
+	check(stalls.any(func(s): return Vector2(mp.x, mp.z).distance_to(s) < 3.5), "Aldara: o mercador atende no balcão da loja dele, na rua do Mercado")
+	# pátio de treino do Quartel: Mestra de Skills e bonecos onde o Blender marcou (catálogo espelhado à mão)
+	var yard := Vector3(float(cp["yard"][0]), 0.0, float(cp["yard"][1]))
+	var tr: Array = MapsCatalog.TRAINERS["city_aldara"]
+	check(Vector3(float(tr[1]), 0.0, float(tr[2])).distance_to(Vector3(float(cp["trainer"][0]), 0.0, float(cp["trainer"][1]))) < 0.3 and yard.z < -plaza_r,
+		"Aldara: Mestra de Skills na beira do pátio de treino, ao norte")
+	var dm: Array = MapsCatalog.TRAINING_DUMMIES["city_aldara"]
+	var dm_ok: bool = dm.size() == (cp["dummies"] as Array).size()
+	for q in dm:
+		dm_ok = dm_ok and (cp["dummies"] as Array).any(func(w): return Vector2(float(w[0]), float(w[1])).distance_to(Vector2(float(q[0]), float(q[1]))) < 0.3)
+		dm_ok = dm_ok and Vector3(float(q[0]), 0.0, float(q[1])).distance_to(yard) < float(cp["yard"][2])
+	check(dm_ok, "Aldara: bonecos de treino dentro do pátio (TRAINING_DUMMIES = dummies do JSON)")
+	check(by_id.has("captain") and (by_id["captain"]["pos"] as Vector3).distance_to(yard) < 16.0, "Aldara: a Capitã, na porta do Quartel, fica junto do pátio de treino")
+	# feirantes no posto que o Blender gravou; fregueses param na frente das bancas
 	var posts: Array = cp.get("keeper_posts", [])
 	var keeper_ids: Array = by_id.keys().filter(func(id): return str(id).begins_with("ald_keeper_") or str(id) == "vil_baker")
 	var off_post: Array = keeper_ids.filter(func(id): return not posts.any(func(q): return Vector2(by_id[id]["pos"].x, by_id[id]["pos"].z).distance_to(Vector2(float(q[0]), float(q[1]))) < 0.3))
-	check(keeper_ids.size() >= 5 and off_post.is_empty(), "Aldara: feirantes atrás do balcão, nos postos do JSON (fora do posto: %s)" % [off_post])
-	var in_stall: Array = def.npcs.filter(func(n): return n.get("role", "") != "crystal" and (n["pos"] as Vector3).length() < 14.0 and not sim.is_walkable(n["pos"], def, 0.3)).map(func(n): return n["id"])
-	check(in_stall.is_empty(), "Aldara: nenhum NPC da praça nasce dentro de um colisor (%s)" % [in_stall])
+	check(keeper_ids.size() >= 5 and off_post.is_empty(), "Aldara: feirantes nos postos do JSON, junto das bancas (fora do posto: %s)" % [off_post])
+	var in_solid: Array = def.npcs.filter(func(n): return n.get("role", "") != "crystal" and (n["pos"] as Vector3).length() < def.town_radius and not sim.is_walkable(n["pos"], def, 0.3)).map(func(n): return n["id"])
+	check(in_solid.is_empty(), "Aldara: nenhum NPC da vila nasce dentro de um colisor (%s)" % [in_solid])
 	var fs: Dictionary = by_id.get("founder_statue", {})
 	check(not fs.is_empty() and (fs["pos"] as Vector3).length() >= 20.0 and def.in_hub(fs["pos"]) and str(fs.get("model", "")) == "prop_statue",
 		"Aldara: Estátua do Fundador fora da praça, dentro da vila, com nome e fala")
 	check((by_id["board"]["dialog"] as Array).any(func(l): return str(l).contains("Fundador")), "Aldara: o Quadro de Avisos fala da Estátua do Fundador")
 	check(float(cp["barn"][1]) > 15.0 and Vector2(float(cp["barn"][0]), float(cp["barn"][1])).length() < def.town_radius, "Aldara: celeiro no quadrante sul, dentro da muralha")
-	# bots não ficam na faixa dos balcões (ali ficam feirantes e fregueses): ou no miolo aberto, ou fora do anel
-	var inside: Array = def.bot_hangouts.filter(func(h): return absf(Vector2(h.x, h.z).length() - float(cp["stall_r"])) < 1.5)
-	check(inside.is_empty() and def.bot_hangouts.all(func(h): return sim.is_walkable(h, def, 0.45)), "Aldara: pontos de bot fora da faixa das bancas e em chão livre (%d na faixa)" % inside.size())
+	var pen := Vector2(float(cp["pen"][0]), float(cp["pen"][1]))
+	var hens: Array = MapsCatalog.AMBIENT_LIFE["city_aldara"].filter(func(a): return a[0] == "hen" and Vector2(float(a[1][0]), float(a[1][1])).distance_to(pen) < 0.5 and float(a[2]) < float(cp["pen"][2]))
+	check(hens.size() == 1, "Aldara: galinhas dentro do cercado do celeiro (AMBIENT_LIFE = pen do JSON)")
+	# bots: nenhum ponto colado numa banca (ali ficam feirantes e fregueses), todos em chão livre, metade ou mais na praça
+	var at_stall: Array = def.bot_hangouts.filter(func(h): return stalls.any(func(s): return Vector2(h.x, h.z).distance_to(s) < 2.5))
+	var in_plaza: Array = def.bot_hangouts.filter(func(h): return Vector2(h.x, h.z).length() <= plaza_r)
+	check(at_stall.is_empty() and def.bot_hangouts.all(func(h): return sim.is_walkable(h, def, 0.45)) and in_plaza.size() >= 10,
+		"Aldara: pontos de bot em chão livre, fora das bancas, 10+ na praça (%d colados em banca, %d na praça)" % [at_stall.size(), in_plaza.size()])
 	check(def.npcs.filter(func(n): return n.get("role", "") == "crystal").size() == 1, "Aldara: um cristal de retorno")
+	# portões: cada um onde a estrada de fora cruza a muralha, com a avenida chegando nele
+	for g in def.town_gates:
+		var gp: Vector3 = g
+		check(absf(Vector2(gp.x, gp.z).length() - def.town_radius) < 0.5 and sim.is_walkable(gp * 0.93, def, 1.5) and sim.is_walkable(gp * 1.07, def, 1.5), "Aldara: portão (%.0f, %.0f) na muralha, com passagem dos dois lados" % [gp.x, gp.z])
 	# Posto dos Caçadores: Fogueira Comunal + roda de carroças no lugar do poço e da estátua
 	var fdef: MapDef = gd.maps["field_forest"]
 	if not sim.maps.has(fdef.id):
@@ -24481,7 +24526,7 @@ func _check_living_routes(gd, sim) -> void:
 	var m: Dictionary = sim.maps["city_aldara"]
 	var carter: Array = m["entities"].filter(func(o): return o.kind == SimEntity.Kind.NPC and o.npc_data.get("id", "") == "ald_carter")
 	check(carter.size() == 1 and not CarryPose.draft_of(str(carter[0].npc_data.get("carry", ""))).is_empty() if carter.size() == 1 else false, "Aldara: Carroça da Colheita com animal de tiro")
-	var keepers: Array = def_a.npcs.filter(func(n): return n.has("barks") and not n.has("route") and not n.has("wander") and (n["pos"] as Vector3).length() < 11.5)      # atrás dos balcões (raio 10)
+	var keepers: Array = def_a.npcs.filter(func(n): return n.has("barks") and not n.has("route") and not n.has("wander") and (n["pos"] as Vector3).x > 11.0 and (n["pos"] as Vector3).length() < 32.0 and absf((n["pos"] as Vector3).z) < 10.0)      # nas bancas da rua do Mercado
 	check(keepers.size() >= 4, "Aldara: 4+ feirantes parados na banca com pregão (%d)" % keepers.size())
 	var shoppers: Array = def_a.npcs.filter(func(n): return str(n["id"]).begins_with("ald_shopper") and n.has("route"))
 	check(shoppers.size() >= 4, "Aldara: 4+ fregueses de banca em banca (%d)" % shoppers.size())
@@ -24991,6 +25036,127 @@ func _check_field_hollow(gd, sim) -> void:
 	check(Music.MAP_THEME.get("field_hollow", "") == "campo", "Mata: tema de música")
 	check(BotsCatalog.MAP_KIND.has("field_hollow") and BotsCatalog.LINES.has("hunt_field_hollow"), "Mata: falas de bots")
 
+## Praia dos Caranguejos (3-8, área de farm ao sul do Vale; build_field_crab_beach): portais de ida e volta, faixa, chegada e
+## rancho do Joca sem bicho em cima, 9+ matilhas com 60-75 caranguejos (~60% comuns, ~20% eremitas, ~20% da areia), o Rei
+## que sai do MAR (emerge = a baía da sim), conchas para colher, quests do Lago com alvo aqui e modelos com os clipes. `--only=crab_beach`
+func _check_crab_beach(gd, sim) -> void:
+	check(gd.maps.has("field_crab_beach"), "Praia dos Caranguejos existe")
+	if not gd.maps.has("field_crab_beach"):
+		return
+	var md: MapDef = gd.maps["field_crab_beach"]
+	var town: MapDef = gd.maps["city_aldara"]
+	_check_zone_layout(gd, sim, md)
+	check(md.level_range == Vector2i(3, 8) and md.bot_population == 2 and not md.is_town and md.model == "map_field_crab_beach", "Praia: faixa 3-8, 2 bots, campo com modelo próprio")
+	check(md.name == "Praia dos Caranguejos" and md.ground_color.is_equal_approx(Color(0.7, 0.71, 0.46)), "Praia: nome e chão iguais à arte de carregamento")
+	check(not MapsCatalog.CRYSTALS.has("field_crab_beach"), "Praia: sem cristal (não quebra a faixa dos bots)")
+	var back: Array = md.portals.filter(func(p): return p["target_map"] == "city_aldara")
+	var there: Array = town.portals.filter(func(p): return p["target_map"] == "field_crab_beach")
+	check(back.size() == 1 and there.size() == 1 and md.portals.size() == 1, "Praia: um portal de ida (Aldara) e um de volta")
+	if back.size() == 1 and there.size() == 1:
+		check(sim.is_walkable(there[0]["target_pos"], md, 0.45) and sim.is_walkable(back[0]["target_pos"], town, 0.45), "Praia: chegadas dos dois lados andáveis")
+		check(there[0]["target_pos"].distance_to(back[0]["pos"]) > back[0]["radius"] + 1.0 and back[0]["target_pos"].distance_to(there[0]["pos"]) > there[0]["radius"] + 1.0,
+			"Praia: chegadas fora do portal de volta")
+		check(there[0]["target_pos"].distance_to(md.spawn_point) < 1.0, "Praia: quem vem de Aldara chega no ponto de chegada da zona")
+		# o portal de Aldara fica na margem sul do lago (as dicas de l1/l2 dizem isso)
+		var lake: Array = town.water.filter(func(w): return w["kind"] == "lake")
+		check(lake.size() >= 1 and there[0]["pos"].z > lake[0]["pos"].y + lake[0]["r"] and absf(there[0]["pos"].x - lake[0]["pos"].x) < lake[0]["r"],
+			"Praia: o portal de Aldara fica ao sul do lago")
+	# Aldara ficou sem os caranguejos (mudaram para cá)
+	check(town.spawners.filter(func(s): return str(s["monster_id"]).begins_with("crab")).is_empty(), "Vale: os caranguejos mudaram para a Praia")
+	# o mar: uma baía sólida com praia; o Rei sai dela
+	var seas: Array = md.water.filter(func(w): return w["kind"] == "lake" and w.has("shore"))
+	check(seas.size() == 1, "Praia: tem mar (baía com faixa de areia)")
+	var npc_ids := {}
+	for m in gd.maps.values():
+		for n in m.npcs:
+			npc_ids[n["id"]] = m.id
+	check(npc_ids.get("beach_fisher", "") == "field_crab_beach", "Praia: Pescador Joca no mapa")
+	var joca: Array = md.npcs.filter(func(n): return n["id"] == "beach_fisher")
+	check(joca.size() == 1 and joca[0]["name"] == "Pescador Joca" and joca[0]["role"] == "quest" and (joca[0]["dialog"] as Array).size() >= 2 and (joca[0].get("barks", []) as Array).size() >= 2,
+		"Praia: o Joca dá quest e tem falas")
+	# matilhas: quantidade e mistura (contagem já com o multiplicador de campo), tudo na faixa, longe da chegada e do Joca
+	var count := {"crab": 0, "crab_hermit": 0, "crab_sand": 0}
+	var packs := 0
+	var kings: Array = []
+	var crowded: Array = []
+	for sp in md.spawners:
+		var mid: String = sp["monster_id"]
+		check(gd.monsters.has(mid), "Praia: spawner de %s existe" % mid)
+		var mm: MonsterDef = gd.monsters.get(mid)
+		if mm == null:
+			continue
+		check(mm.level >= 3 and mm.level <= 8, "Praia: %s na faixa (nv %d)" % [mid, mm.level])
+		check(ResourceLoader.exists("res://assets/models/%s.glb" % mm.model), "Praia: modelo de %s (%s.glb)" % [mid, mm.model])
+		if mid == "crab_king":
+			kings.append(sp)
+			continue
+		check(count.has(mid), "Praia: só caranguejos nas matilhas (%s)" % mid)
+		count[mid] = int(count.get(mid, 0)) + int(sp["count"])
+		packs += 1
+		check(float(sp["respawn"]) <= 12.0, "Praia: %s renasce rápido (%.1f s)" % [mid, float(sp["respawn"])])
+		for spot in [md.spawn_point] + joca.map(func(n): return n["pos"]):
+			if sp["pos"].distance_to(spot) < float(sp["radius"]) + mm.aggro_range + 4.0:
+				crowded.append(mid)
+	var total: int = int(count["crab"]) + int(count["crab_hermit"]) + int(count["crab_sand"])
+	check(packs >= 9 and total >= 60 and total <= 75, "Praia: 9+ matilhas e 60-75 caranguejos (%d matilhas, %d bichos)" % [packs, total])
+	if total > 0:
+		check(float(count["crab"]) / total >= 0.5 and float(count["crab"]) / total <= 0.68, "Praia: ~60%% de Caranguejo comum (%d de %d)" % [count["crab"], total])
+		check(float(count["crab_hermit"]) / total >= 0.15 and float(count["crab_sand"]) / total >= 0.15, "Praia: ~20%% de eremitas e ~20%% da areia (%d e %d de %d)" % [count["crab_hermit"], count["crab_sand"], total])
+	check(crowded.is_empty(), "Praia: chegada e rancho do Joca sem matilha em cima (%s)" % str(crowded))
+	check(kings.size() == 1 and kings[0].has("emerge"), "Caranguejo-Rei sai do mar (emerge)")
+	if kings.size() == 1 and kings[0].has("emerge") and seas.size() == 1:
+		var em: Array = kings[0]["emerge"]
+		check(Vector2(float(em[0]), float(em[1])).distance_to(seas[0]["pos"]) < 0.1 and absf(float(em[2]) - float(seas[0]["r"])) < 0.1, "Caranguejo-Rei: emerge da baía da sim")
+		var kp: Vector3 = kings[0]["pos"]
+		var c := Vector3(float(em[0]), 0, float(em[1]))
+		var rise: Vector3 = c + (kp - c).normalized() * (float(em[2]) + gd.monsters["crab_king"].radius + 0.6)
+		check(sim.is_walkable(rise, md, 0.3) and sim.is_walkable(kp, md, 0.45) and rise.distance_to(kp) < 14.0, "Caranguejo-Rei: nasce na beira d'água e anda até a arena (%.1f m)" % rise.distance_to(kp))
+		# arena larga e livre: de todo lado dá para andar 7 m em volta do lugar dele (menos para dentro do mar)
+		var blocked := 0
+		for i in range(12):
+			var q: Vector3 = kp + Vector3(cos(TAU * i / 12.0), 0, sin(TAU * i / 12.0)) * 7.0
+			if Vector2(q.x, q.z).distance_to(seas[0]["pos"]) > float(seas[0]["r"]) + 1.0 and not sim.is_walkable(q, md, 0.45):
+				blocked += 1
+		check(blocked == 0, "Caranguejo-Rei: arena livre em volta (%d pontos bloqueados)" % blocked)
+	check(gd.monsters["crab_king"].phases.size() >= 2 and gd.monsters["crab_small"].xp == 0, "Caranguejo-Rei: fases e filhotes sem XP")
+	# os dois tipos novos: skills que existem; modelos com os clipes que o jogo pede (EntityView: block = Concha, pounce = Bote da Areia)
+	for mid in ["crab_hermit", "crab_sand"]:
+		var cm: MonsterDef = gd.monsters[mid]
+		check(cm.skill_ids.size() >= 1 and cm.skill_ids.all(func(s): return gd.skills.has(s)) and cm.loot_table == "lt_crab", "Praia: %s com skill própria e o saque dos caranguejos" % mid)
+		var ps: PackedScene = load("res://assets/models/%s.glb" % cm.model)
+		check(ps != null, "Praia: %s.glb carrega" % cm.model)
+		if ps == null:
+			continue
+		var inst: Node3D = ps.instantiate()
+		var aps: Array = inst.find_children("*", "AnimationPlayer", true, false)
+		check(aps.size() == 1, "Praia: %s tem animações" % cm.model)
+		if aps.size() == 1:
+			var ap: AnimationPlayer = aps[0]
+			for clip in ["idle", "run", "attack", "hit", "die", "block", "pounce"]:
+				check(ap.has_animation(clip), "Praia: %s tem o clipe '%s'" % [cm.model, clip])
+		inst.free()
+	check(gd.skills.has("mob_shell_hide") and gd.skills["mob_shell_hide"].clip == "block", "Eremita: a Concha usa o clipe 'block' (recolhido na concha)")
+	# conchas: colheita na areia + saque; a repetível do Joca e as quests do Lago têm fonte e alvo aqui
+	var shells: Array = md.gather.filter(func(g): return str(g.get("item", "")) == "crab_shell")
+	check(shells.size() >= 3, "Praia: conchas para colher na areia (%d pontos)" % shells.size())
+	for g in shells:
+		check(sim.is_walkable(sim.random_walkable(md, g["at"], float(g["radius"])), md), "Praia: ponto de concha em chão andável")
+	check(gd.maps["city_aldara"].gather.filter(func(g): return str(g.get("item", "")) == "crab_shell").is_empty(), "Vale: as conchas mudaram para a Praia")
+	var lt: LootTable = gd.loot_tables.get("lt_crab")
+	check(lt != null and lt.entries.any(func(e): return e["item"] == "crab_shell"), "Praia: caranguejo dá casco")
+	check(gd.quests.has("beach_shells") and gd.quests["beach_shells"].giver_npc == "beach_fisher" and gd.quests["beach_shells"].repeatable and gd.quests["beach_shells"].target_id == "crab_shell",
+		"Praia: repetível de cascos com o Joca")
+	for pair in [["l1_pincas", "crab"], ["l6_rei", "crab_king"]]:
+		check(gd.quests.has(pair[0]) and gd.quests[pair[0]].target_id == pair[1] and md.spawners.any(func(s): return s["monster_id"] == pair[1]), "Praia: alvo de %s está aqui" % pair[0])
+	check(gd.quests.has("l2_cascos") and gd.quests["l2_cascos"].target_id == "crab_shell", "Praia: l2_cascos colhe casco (fonte aqui)")
+	# vida e clima
+	check(Music.MAP_THEME.get("field_crab_beach", "") == "costa", "Praia: tema de música")
+	var life: Array = MapsCatalog.AMBIENT_LIFE.get("field_crab_beach", [])
+	check(life.any(func(a): return a[0] == "gull") and life.any(func(a): return a[0] == "crab"), "Praia: gaivotas e caranguejinhos de ambiente")
+	check(BotsCatalog.MAP_KIND.has("field_crab_beach") and BotsCatalog.LINES.has("hunt_field_crab_beach") and BotsCatalog.PLACE_LINES.has("beach"), "Praia: falas de bots")
+	check(WaterFx.SURF_MAPS.has("field_crab_beach"), "Praia: mar com rebentação (WaterFx.SURF_MAPS)")
+	check(md.bot_hangouts.size() >= 4 and md.bot_hangouts.all(func(h): return sim.is_walkable(h, md, 0.4)), "Praia: pontos de bot no rancho, em chão livre")
+
 ## Bosque dos Xamãs (14-18, ramo lateral a leste da Floresta; plano shaman-grove pacote D): portais, faixa, xamãs com formas
 ## válidas, chamadores com teto de bichos 0 XP, Arquidruida com fases e Enlaçar (raiz), quests x*, Cidade Élfica sem trava, vozes. `--only=grove`
 func _check_field_grove(gd, sim) -> void:
@@ -25306,7 +25472,7 @@ func _check_keep_buffs(gd) -> void:
 			check(float(s.effects["shield"].get("duration", 0.0)) < Balance.BUFF_KEEP_S, "buffs longos: escudo de %s continua curto" % sid)
 	check(float(gd.skills["ber_fury"].effects["buff"]["duration"]) < Balance.BUFF_KEEP_S, "buffs longos: os de explosão (Fúria) continuam curtos")
 
-## Boneco de treino (MonsterDef.dummy, MapsCatalog.TRAINING_DUMMIES): em Aldara, entre o portão oeste e o rio; não morre,
+## Boneco de treino (MonsterDef.dummy, MapsCatalog.TRAINING_DUMMIES): em Aldara, no pátio de treino do Quartel (norte da praça); não morre,
 ## se recompõe parado, só o jogador (e as invocações dele) o acertam; bots/sentinelas/monstros o ignoram. `--only=dummy`
 func _check_training_dummy(gd, sim) -> void:
 	var dd: MonsterDef = gd.monsters.get("training_dummy")
@@ -25319,9 +25485,9 @@ func _check_training_dummy(gd, sim) -> void:
 		if sp["monster_id"] == "training_dummy":
 			n += 1
 			var p: Vector3 = sp["pos"]
-			check(MapGeometry.is_walkable(sim, p, mdef) and p.x < -31.0 and p.x > -50.0 and float(sp["radius"]) == 0.0, "boneco: (%.1f, %.1f) andável, entre o portão oeste e o rio" % [p.x, p.z])
+			check(MapGeometry.is_walkable(sim, p, mdef) and mdef.in_town(p) and p.z < -12.0 and float(sp["radius"]) == 0.0, "boneco: (%.1f, %.1f) andável, no pátio de treino ao norte da praça" % [p.x, p.z])
 	check(n == spots.size() and n >= 3, "boneco: %d spawners em Aldara" % n)
-	var at := Vector3(-42.0, 0, -9.6)
+	var at := Vector3(float(spots[1][0]), 0, float(spots[1][1]))
 	var dummy: SimEntity = sim.spawn_monster(dd, "city_aldara", at)
 	var me: SimEntity = sim.spawn_bot(gd.classes["elementalist"], "TreinoJogador", "city_aldara", at + Vector3(2, 0, 0), 20)
 	me.brain = null
@@ -25536,7 +25702,7 @@ func _check_monster_shift(gd, sim) -> void:
 ## nunca as de ascensão; a barra pega as novas; o bot só põe na barra as da build e as gerais.
 func _check_level_skills(gd, sim) -> void:
 	var cls: ClassDef = gd.classes["paladin"]
-	var e: SimEntity = sim.spawn_character(SimEntity.Kind.PLAYER, cls, "Novato", "city_aldara", Vector3(-30, 0, 30), 1)
+	var e: SimEntity = sim.spawn_character(SimEntity.Kind.PLAYER, cls, "Novato", "city_aldara", ALDARA_FIELD, 1)
 	var at1 := ProgressionSystem.level_skill_ids(cls, 1)
 	check(at1.size() >= 2 and at1[0] == cls.starting_skills[0] and at1.all(func(sid): return e.knows(sid)), "nível 1: as skills iniciais (e as de nível 1) já vêm aprendidas (%d)" % at1.size())
 	var later: Array = Array(cls.skill_ids).filter(func(sid): return not gd.skills[sid].ascension and gd.skills[sid].unlock_level > 1 and gd.skills[sid].unlock_level <= 8)
@@ -25551,7 +25717,7 @@ func _check_level_skills(gd, sim) -> void:
 	# bot do 20: todas as skills do nível, ranks de graça nas da build, barra só com build + gerais
 	for cid in gd.classes:
 		var bc: ClassDef = gd.classes[cid]
-		var b: SimEntity = sim.spawn_bot(bc, "LvBot", "city_aldara", Vector3(-31, 0, 31), 20)
+		var b: SimEntity = sim.spawn_bot(bc, "LvBot", "city_aldara", ALDARA_FIELD + Vector3(-1, 0, 1), 20)
 		b.brain = null
 		check(ProgressionSystem.level_skill_ids(bc, 20).all(func(sid): return b.knows(sid)), "%s: bot do 20 conhece as skills do nível" % cid)
 		var bw: Array = bc.build_by_id(b.build_id).get("skills", [])
@@ -25579,7 +25745,7 @@ func _check_skill_upgrade_nodes(gd, sim) -> void:
 				bad.append(nid)
 	check(bad.is_empty(), "teia comum: só nós Aprimorada/Ágil para as skills (sem skill/maestria; %s)" % [bad.slice(0, 4)])
 	var cls: ClassDef = gd.classes["paladin"]
-	var e: SimEntity = sim.spawn_character(SimEntity.Kind.BOT, cls, "Afiado", "city_aldara", Vector3(-33, 0, 33), 20)
+	var e: SimEntity = sim.spawn_character(SimEntity.Kind.BOT, cls, "Afiado", "city_aldara", ALDARA_FIELD + Vector3(-3, 0, 3), 20)
 	e.brain = null
 	var sid: String = "pal_holy_strike"
 	var s: SkillDef = gd.skills[sid]
@@ -25634,7 +25800,7 @@ func _check_skill_ranks(gd, sim) -> void:
 				missing.append(iid)
 	check(Balance.SKILL_RANK_MATS.size() == Balance.COMMON_TIER_LEVELS.size() and missing.is_empty(), "materiais de rank: um par por faixa, todos itens do jogo (%s)" % [missing])
 	var cls: ClassDef = gd.classes["paladin"]
-	var e: SimEntity = sim.spawn_character(SimEntity.Kind.BOT, cls, "Aluno", "city_aldara", Vector3(-35, 0, 35), 1)
+	var e: SimEntity = sim.spawn_character(SimEntity.Kind.BOT, cls, "Aluno", "city_aldara", ALDARA_FIELD + Vector3(-5, 0, 5), 1)
 	e.brain = null
 	var sid := "pal_holy_strike"
 	var s: SkillDef = gd.skills[sid]
@@ -25704,7 +25870,7 @@ func _check_skill_ranks(gd, sim) -> void:
 ## Save 6 -> 7: skills pelo nível, nó de maestria sai da teia (o rank fica, os pontos voltam), nó da skill vira Aprimorada.
 func _check_save_skill_ranks(gd, sim, save) -> void:
 	var cls: ClassDef = gd.classes["paladin"]
-	var e: SimEntity = sim.spawn_character(SimEntity.Kind.BOT, cls, "Velho", "city_aldara", Vector3(-37, 0, 37), 20)
+	var e: SimEntity = sim.spawn_character(SimEntity.Kind.BOT, cls, "Velho", "city_aldara", ALDARA_FIELD + Vector3(-7, 0, 7), 20)
 	e.brain = null
 	SaveSystem.apply_to(e, {"level": 20, "class": "paladin", "save_version": 6, "mastery_points": 5,
 		"tree": ["paladin_start", "paladin_s_pal_holy_strike", "paladin_m_pal_holy_strike"], "learned": ["pal_holy_strike", "pal_blessed_armor"],
@@ -25718,8 +25884,8 @@ func _check_save_skill_ranks(gd, sim, save) -> void:
 	save.slot = TEST_SLOT
 	save.save_player(e)
 	var d: Dictionary = save.load_data(TEST_SLOT)
-	check(int(d.get("save_version", 0)) == 7 and not (d.get("tree", []) as Array).has("paladin_m_pal_holy_strike"), "save gravado na versão 7")
-	var e2: SimEntity = sim.spawn_character(SimEntity.Kind.BOT, cls, "Velho2", "city_aldara", Vector3(-38, 0, 37), 20)
+	check(int(d.get("save_version", 0)) == SaveSystem.VERSION and not (d.get("tree", []) as Array).has("paladin_m_pal_holy_strike"), "save gravado na versão atual")
+	var e2: SimEntity = sim.spawn_character(SimEntity.Kind.BOT, cls, "Velho2", "city_aldara", ALDARA_FIELD + Vector3(-8, 0, 7), 20)
 	e2.brain = null
 	SaveSystem.apply_to(e2, d)
 	check(e2.mastery_points == 8 and e2.mastery_of("pal_holy_strike") == 3 and e2.tree.size() == e.tree.size(), "save 7 relido: pontos, rank e teia iguais")
@@ -27610,6 +27776,7 @@ func _check_ultimate_b1_bishop(gd, sim) -> void:
 	var zones: Array = (m["traps"] as Array).filter(func(x): return int(x["owner"]) == i.id and x["skill"] == "bis_ult_judgement_sun")
 	check(zones.size() == 1 and float(zones[0]["mend_pct"]) > 0.0, "Sol: o chão fica aceso (zona com cura do mais ferido)")
 	if zones.size() == 1:
+		ally.hp = ally.stats.max_hp * 0.5      # de novo ferido: o impacto pode ter curado o aliado até o topo (dependia do sorteio da sim na suíte inteira)
 		var hp_al := ally.hp
 		var hp_m := mob.hp
 		TrapSystem._zone_pulse(sim, zones[0], i, m)

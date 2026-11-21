@@ -19,15 +19,9 @@ from dress import Dress
 AWN_A = (0.95, 0.80, 0.45)
 AWN_B = (0.56, 0.72, 0.86)
 AWN_STRIPE = (0.97, 0.94, 0.84)
-# Praça aberta (playtest 2026-11-18: "tudo muito socado"): as bancas foram para a borda e viraram de frente para o MEIO
-# (freguês e jogador dentro, feirante atrás do balcão, do lado de fora), a mó encolheu e duas bancas saíram. Fica um anel
-# livre de ~6 m entre a mó e os balcões e os 8 vãos (4 ruas + 4 diagonais) ganham ~3,9 m.
-FAIR_R = 8.6                 # raio do anel de bancas (era 7,6)
-FAIR_N = 8
-FAIR_SKIP = (3, 6)           # vagas sem banca: 157,5 graus = Cristal de Retorno; 292,5 = vista para o Ancião e o Quadro
-FAIR_KEEP = 1.4              # o feirante fica a esta distância do centro do balcão, para fora do anel
-FAIR_FRONT = 2.3             # onde o mercador Tobias para, para dentro do anel (mais perto o toldo o esconde da câmera)
-FAIR_GOODS = {5: 3}          # a banca de 247,5 graus vende queijo (o Malaquias veio da vaga do cristal)
+# Aldara (2026-11-21): as bancas saíram da praça e foram para a rua do mercado (avenida leste); a praça ficou só com a
+# Balança do Trigo. O feirante fica atrás do balcão, a FAIR_KEEP m do centro dele.
+FAIR_KEEP = 1.4
 MILL_R = 2.1                 # colisor da mó (com os pratos da balança; era 2,5)
 MILL_H = 4.0
 # o que cada banca vende (cor dos montinhos no balcão): pão, mel, verdura, queijo, peixe, pano, louça, flor
@@ -40,18 +34,6 @@ def shim(zone, P, coll, data, ob, rim_r, road_polys, rivers, river_w):
     """O que o `Dress` lê de uma `Zone`, para os builds antigos."""
     return types.SimpleNamespace(zone=zone, P=P, coll=coll, data=data, ob=ob, rim_r=rim_r, blocked=[], road_polys=road_polys,
                                  rivers=rivers, river_ws=[river_w] * len(rivers), seas=[])
-
-
-def fair_stalls(r=FAIR_R, n=FAIR_N, skip=FAIR_SKIP):
-    """[(x, z, rot, ângulo, k)] das bancas da roseta: nos meios dos oitavos, as 4 ruas e as 4 diagonais ficam abertas.
-    `rot` já vira o balcão de frente para o meio da praça (o lado do feirante, yb > 0 da `stall`, fica para fora)."""
-    out = []
-    for k in range(n):
-        if k in skip:
-            continue
-        th = math.radians(22.5 + 360.0 / n * k)
-        out.append((math.cos(th) * r, math.sin(th) * r, (270.0 - math.degrees(th)) % 360.0, th, k))
-    return out
 
 
 def _slab(d, g, m, c, pts, thick=0.05):
@@ -182,102 +164,292 @@ def gable(d, g, wall, roof, c, L, W, h, ridge, rot, over=0.35, door=None):
         d.box(g, dm, (p.x, -p.y), (2.6, min(h - 0.2, 2.4), 0.1), rot, 0.0)
 
 
-def aldara(z):
-    """Feira do Trigo (centro), Pátio da Forja do Brom (NE), Celeiro e Carroças (S), Pátio do Fundador (N).
-    Devolve o resumo gravado em data["town"]["centerpiece"]."""
+def _frame(pos, rot):
+    """(direita, frente) -> jogo (x, z), no referencial de um prédio: a frente (porta) aponta para (sin rot, cos rot)."""
+    a = math.radians(rot)
+    return lambda r, f: (pos[0] + math.cos(a) * r + math.sin(a) * f, pos[1] - math.sin(a) * r + math.cos(a) * f)
+
+
+def counter(d, c, rot, col, goods, g="feira", w=2.4):
+    """Balcão de loja com toldo curto (o da Botica e o do Tobias): como a banca, o lado de quem atende é yb > 0."""
+    f = Dress._xf(c, rot, (0, 0))
+    wood = d.m("banca_madeira", (0.6, 0.45, 0.3))
+    top = d.m("banca_tampo", (0.76, 0.62, 0.42))
+    d.box(g, wood, c, (w, 0.9, 0.8), rot, 0.0)
+    d.box(g, top, c, (w + 0.2, 0.07, 0.95), rot, 0.9)
+    for i, x in enumerate((-0.8, -0.3, 0.25, 0.75)):
+        p = f(x * w / 2.4, -0.05 + 0.1 * (i % 2), 0)
+        col_ = goods[i % len(goods)]
+        m = d.m("frasco_%d_%d" % (int(col_[0] * 100), int(col_[2] * 100)), col_)
+        if i % 2 == 0:
+            d.cyl(g, m, (p.x, -p.y), 0.13, 0.1, 0.3, 0.97, 6)
+            d.cyl(g, d.m("frasco_rolha", (0.6, 0.46, 0.3)), (p.x, -p.y), 0.05, 0.05, 0.08, 1.27, 5)
+        else:
+            d.box(g, m, (p.x, -p.y), (0.36, 0.2, 0.3), rot + 10.0 * i, 0.97)
+    awning(d, c, rot, col, AWN_STRIPE, w=w + 0.4, front=0.8, back=0.7)
+
+
+def table_set(d, c, g="taverna"):
+    """Mesa de barril com tampo redondo e três banquinhos (terraço da taverna)."""
+    wood = d.m("taverna_madeira", (0.56, 0.4, 0.26))
+    top = d.m("taverna_tampo", (0.72, 0.56, 0.36))
+    d.barrel(c, 1.0, g=g)
+    d.cyl(g, top, c, 0.7, 0.7, 0.07, 1.0, 10)
+    d.cyl(g, d.m("taverna_caneca", (0.8, 0.74, 0.6)), (c[0] + 0.25, c[1] - 0.1), 0.09, 0.09, 0.16, 1.07, 6)
+    for k in range(3):
+        a = math.tau * k / 3 + 0.5
+        d.cyl(g, wood, (c[0] + math.cos(a) * 1.15, c[1] + math.sin(a) * 1.15), 0.22, 0.2, 0.45, 0.0, 7)
+
+
+def aldara(z, lay):
+    """A vila de Aldara (2026-11-21): praça da Balança do Trigo no meio e um bairro por lado. `lay` vem do build
+    (prédios, avenidas, pátio, celeiro...). Aqui ficam os adereços de cada bairro, os colisores deles, e os POSTOS de quem
+    atende: cada NPC de serviço fica do lado de fora, na porta/balcão do prédio dele.
+    Devolve o resumo gravado em data["town"]["centerpiece"] (o MapsCatalog espelha à mão o que é dele; há check)."""
     d = Dress(z, seed=71)
     ob = z.ob
-    # --- chão: terra batida da feira em tons do próprio calçamento (acima da praça y 14 mm e das ruas 16 mm) ---
+    spot = lay["spot"]
+    B_ = lay["buildings"]
+    posts, clear, doors = {}, [], {}
+
+    def post(nid, p, facing):
+        posts[nid] = [round(p[0], 2), round(p[1], 2), round(facing, 1)]
+
+    for bid in ("elder", "smithy", "botica", "tavern", "home"):      # casas que abrem (MapsCatalog.INTERIORS): porta e saída livres
+        doors[bid] = [list(spot(bid, 0.0, 0.9)), list(spot(bid, 0.0, 2.8))]
+        clear.extend([spot(bid, 0.0, 0.9), spot(bid, 0.0, 2.8)])
+
+    # ------------------------------------------------------------------ praça: a Balança do Trigo e chão livre
     floor = (0.72, 0.68, 0.6)
     t1 = d.m("patch_feira_a", tuple(k * 0.93 for k in floor))
     t2 = d.m("patch_feira_b", (0.78, 0.72, 0.6))
-    d.blob("feira", t2, (0, 0), 11.6, 0.0172, 0.05)
+    d.blob("feira", t2, (0, 0), lay["plaza_r"] - 1.6, 0.0172, 0.05)
     d.blob("feira", t1, (0, 0), 3.0, 0.0180, 0.08)
-
-    # --- Feira do Trigo ---
     mill(d)
     ob("pillar", 0.0, 0.0, (MILL_R * 2, MILL_H, MILL_R * 2), visible=False)
-    stalls = fair_stalls()
-    for x, zz, rot, th, k in stalls:
-        stall(d, (x, zz), rot, AWN_A if k % 2 == 0 else AWN_B, GOODS[FAIR_GOODS.get(k, k) % len(GOODS)])
-        ob("stall", x, zz, (2.7, 1.6, 0.95), rot, visible=False)
-    # duas carroças paradas descarregando, na borda da feira (fora das ruas radiais)
-    carts = [((5.6, 12.5), 168.0), ((-12.8, -4.6), 68.0)]
-    for (cx, cz), rot in carts:
-        d.cart((cx, cz), rot, load=(0.8, 0.7, 0.46))
-        a = math.radians(rot)
-        ob("crate", cx + math.cos(a) * 0.7, cz - math.sin(a) * 0.7, (4.4, 1.3, 1.9), rot, visible=False)
-        for i, (dx, dz) in enumerate(((-0.4, 1.7), (0.6, 1.9), (-1.3, 1.5))):
-            p = (cx + dx * math.cos(a) + dz * math.sin(a), cz - dx * math.sin(a) + dz * math.cos(a))
-            d.sack(p, 0.9 + 0.1 * i, "feira")
+    for a in (45.0, 135.0, 225.0, 315.0):                             # bancos na borda (não colidem)
+        p = (math.cos(math.radians(a)) * (lay["plaza_r"] - 0.9), math.sin(math.radians(a)) * (lay["plaza_r"] - 0.9))
+        ob("bench", p[0], p[1], (1.6, 0.5, 0.5), 90.0 - a, solid=False)
+    crystal = (-6.4, 5.2)                                             # Cristal de Retorno (MapsCatalog.CRYSTALS)
+    clear.append(crystal)
+    post("board", (4.8, -10.8), -24.0)                                # Quadro de Avisos, na boca da avenida norte
 
-    # --- NE: Pátio da Forja do Brom (no lugar da casa do anel interno): pedra escura, fornalha, bigorna, lenha e carvão ---
-    fx, fz = 9.4, -9.4
-    out = Vector((fx, fz)).normalized()                      # para fora da praça
-    side = Vector((-out.y, out.x))
-    face = math.degrees(math.atan2(-fx, -fz))                # frente (+z do modelo) para a praça, como as casas
-    yard = d.m("patch_forja_chao", (0.6, 0.57, 0.53))
-    d.blob("forja", yard, (fx, fz), 5.0, 0.0188, 0.1)
+    # ------------------------------------------------------------------ N: Casa do Ancião, pátio de treino, Quartel, Fundador
+    post("elder", spot("elder", -2.4, 1.2), B_["elder"]["rot"])
+    for r_ in (2.2, 2.8):                                             # vasos de flor junto à porta do Ancião
+        p = spot("elder", r_, 0.45)
+        d.cyl("anciao", d.m("vaso", (0.72, 0.5, 0.38)), p, 0.2, 0.26, 0.34, 0.0, 7)
+        d.tuft("anciao", d.m("vaso_flor", (0.72, 0.56, 0.86)), p, 0.2, 0.5, 5)
+    yx, yz, yr = lay["yard"]
+    earth = d.m("patch_treino_pisado", (0.66, 0.54, 0.4))
+    d.blob("treino", earth, (yx, yz), yr - 1.6, 0.0172, 0.12)
+    dummies = [(round(yx + 2.2, 2), round(yz + 0.2, 2)), (round(yx - 0.6, 2), round(yz - 2.2, 2)), (round(yx - 2.6, 2), round(yz + 0.8, 2))]
+    clear.extend(dummies)
+    ring = [(yx + math.cos(math.radians(a)) * yr, yz + math.sin(math.radians(a)) * yr) for a in range(150, 351, 25)]      # cerca: oeste e norte (aberto para a avenida e a praça)
+    for i in range(len(ring) - 1):
+        d.fence_run(ring[i], ring[i + 1], 1.0, "treino", gap=1.3)
+        m_ = ((ring[i][0] + ring[i + 1][0]) * 0.5, (ring[i][1] + ring[i + 1][1]) * 0.5)
+        ob("fence", m_[0], m_[1], (yr * math.radians(25.0) + 0.1, 1.0, 0.3), -(150.0 + 25.0 * i + 12.5) - 90.0, visible=False)
+    d.target((yx + 1.6, yz - yr + 1.1), 0.0, "treino")
+    d.target((yx - 2.9, yz - yr + 1.9), 30.0, "treino")
+    d.weapon_rack((yx - yr + 1.0, yz - 1.6), 90.0, "treino")
+    ob("crate", yx - yr + 1.0, yz - 1.6, (0.6, 1.5, 2.4), 0.0, visible=False)
+    trainer = (round(yx + 3.6, 2), round(yz + 3.6, 2))                # Mestra de Skills (MapsCatalog.TRAINERS): na beira do pátio, do lado da avenida
+    clear.append(trainer)
+    qrot = B_["quartel"]["rot"]
+    post("captain", spot("quartel", -1.9, 1.1), qrot)
+    blue = (0.3, 0.42, 0.75)
+    for r_ in (-5.5, 5.5):
+        d.flag(spot("quartel", r_, 0.2), blue, h=4.4, rot=qrot, tatter=False, w=1.1, drop=1.6)
+    p = spot("quartel", 3.2, 0.55)
+    d.weapon_rack(p, qrot, "quartel")
+    ob("crate", p[0], p[1], (2.4, 1.5, 0.6), qrot, visible=False)
+    p = spot("quartel", -3.9, 0.6)
+    d.barrel(p, 1.0, g="quartel")
+    d.crate((p[0] + 0.2, p[1] - 0.9), 0.8, 12.0, g="quartel")
+    # Pátio do Fundador: a estátua é o NPC `founder_statue`; aqui o pedestal, o canteiro de trigo, bancos e flores
+    fdx, fdz = lay["founder"]
+    d.cyl("fundador", d.m("fundador_base", (0.8, 0.78, 0.74)), (fdx, fdz), 1.25, 1.1, 0.35, 0.0, 10)
+    for i in range(6):
+        a = math.tau * i / 6 + 0.3
+        d.tuft("fundador", d.m("fundador_trigo", (0.9, 0.76, 0.36)), (fdx + math.cos(a) * 1.9, fdz + math.sin(a) * 1.9), 0.3, 0.6, 5)
+    for s_ in (-1, 1):
+        ob("bench", fdx + 2.9 * s_, fdz + 1.6, (1.6, 0.5, 0.5), 90.0 - 25.0 * s_, solid=False)
+    ob("flowers", fdx + 2.6, fdz - 2.0, (1.6, 0.45, 1.6), solid=False, color=(0.92, 0.8, 0.4))
+    ob("flowers", fdx - 2.6, fdz - 1.8, (1.6, 0.45, 1.6), solid=False, color=(0.72, 0.56, 0.86))
+
+    # ------------------------------------------------------------------ L: Mercado (rua de bancas, loja do Tobias, Relicária, Armazém)
+    av_e = lay["avenues"]["E"]
+    az = lambda x: min(av_e, key=lambda q: abs(q.x - x)).y
+    stalls, keeper_posts, front_posts = [], [], []
+    for k, (x, side, goods) in enumerate(lay["stalls"]):
+        zz = az(x) + side * lay["stall_off"]
+        rot = 0.0 if side < 0 else 180.0                              # o freguês fica do lado da avenida
+        stall(d, (x, zz), rot, AWN_A if k % 2 == 0 else AWN_B, GOODS[goods % len(GOODS)])
+        ob("stall", x, zz, (2.7, 1.6, 0.95), rot, visible=False)
+        stalls.append([round(x, 2), round(zz, 2), rot])
+        # fila do sul: o feirante fica atrás do balcão (a câmera olha do sul e o vê); fila do norte: atrás ele sumia
+        # debaixo do toldo, então fica na ponta leste do balcão
+        keeper_posts.append([round(x, 2), round(zz + FAIR_KEEP, 2)] if side > 0 else [round(x + 2.2, 2), round(zz - 0.3, 2)])
+        front_posts.append([round(x, 2), round(zz - side * 2.0, 2)])
+    clear.extend(keeper_posts)
+    # loja do Tobias: balcão com toldo dourado na frente (ele atende atrás do balcão, de costas para a loja), placa, carga
+    tc = spot("tobias", 1.6, 2.3)
+    counter(d, tc, 0.0, (0.93, 0.7, 0.3), [(0.8, 0.3, 0.3), (0.86, 0.66, 0.38), (0.4, 0.56, 0.84), (0.74, 0.62, 0.42)], g="feira", w=2.6)
+    ob("stall", tc[0], tc[1], (2.8, 1.6, 0.9), 0.0, visible=False)
+    stalls.append([round(tc[0], 2), round(tc[1], 2), 0.0])
+    post("merchant", spot("tobias", 4.0, 2.2), -15.0)                  # na ponta do balcão (atrás dele o toldo o escondia da câmera)
+    front_posts.append([round(tc[0], 2), round(tc[1] + 1.9, 2)])
+    d.signpost(spot("tobias", -3.0, 1.3), 20.0, n=1)
+    p = spot("tobias", -2.3, 0.75)
+    d.cargo(p, 5, 1.1, g="feira")
+    ob("crate", p[0], p[1], (2.4, 1.3, 1.5), 0.0, visible=False)
+    d.rug(spot("tobias", 1.6, 4.0), 2.6, 1.3, 0.0, (0.62, 0.3, 0.3), (0.9, 0.8, 0.5), g="feira")
+    # Relicária da Iara: pedestais com cristais dourados acesos, flâmulas roxas e degrau claro
+    rrot = B_["relic"]["rot"]
+    post("relic", spot("relic", -2.1, 1.0), rrot)
+    step = d.m("reliquia_degrau", (0.88, 0.86, 0.8))
+    d.box("reliquia", step, spot("relic", 0.0, 0.45), (2.6, 0.16, 0.9), rrot, 0.0)
+    for r_ in (2.2, 3.4):
+        p = spot("relic", r_, 0.7 if r_ < 3.0 else 0.2)
+        d.cyl("reliquia", step, p, 0.42, 0.36, 0.7, 0.0, 8)
+        gm = d.m("glow_reliquia", (1.0, 0.82, 0.4))
+        d.cyl("reliquia", gm, p, 0.2, 0.13, 0.55, 0.7, 5)
+        d.cyl("reliquia", gm, p, 0.13, 0.0, 0.3, 1.25, 5)
+        ob("pillar", p[0], p[1], (0.9, 1.4, 0.9), visible=False)
+    for r_ in (-3.6, 3.9):
+        d.flag(spot("relic", r_, -0.4), (0.56, 0.4, 0.72), h=4.4, rot=rrot, tatter=False, w=1.0, drop=1.7)
+    # Armazém do Nilo (guarda-volumes): pilhas de carga dos dois lados da porta, carroça de mão ao lado
+    arot = B_["armazem"]["rot"]
+    post("storage", spot("armazem", 2.3, 1.0), arot)
+    p = spot("armazem", -2.5, 0.7)
+    d.cargo(p, 6, 1.0, g="armazem")
+    ob("crate", p[0], p[1], (2.2, 1.4, 1.3), arot, visible=False)
+    carts = []
+    p = spot("armazem", 5.5, -1.6)                                    # do lado sul (o lado norte fica livre: é a boca da avenida leste)
+    d.cart(p, arot + 90.0, load=(0.8, 0.7, 0.46))
+    ob("crate", p[0], p[1], (2.0, 1.3, 4.4), arot, visible=False)
+    carts.append([round(p[0], 2), round(p[1], 2), round(arot + 90.0, 1)])
+    # Jardim do Poço (canto sudeste do miolo): o poço, duas árvores, bancos e flores
+    wx, wz = lay["well"]
+    d.blob("jardim", d.m("patch_jardim", (0.44, 0.62, 0.37)), (wx, wz), 5.6, 0.0172, 0.16)
+    ob("well", wx + 0.4, wz - 0.4, (1.6, 1.4, 1.6))
+    ob("tree", wx - 3.0, wz + 2.6, (1.6, 3.7, 1.6), color=(0.40, 0.66, 0.38))
+    ob("tree", wx + 3.6, wz - 2.6, (1.6, 3.8, 1.6), color=(0.30, 0.52, 0.34))
+    ob("bench", wx - 1.8, wz - 2.4, (1.6, 0.5, 0.5), 20.0, solid=False)
+    ob("bench", wx + 2.4, wz + 1.8, (1.6, 0.5, 0.5), 110.0, solid=False)
+    ob("flowers", wx + 1.2, wz + 3.2, (1.6, 0.45, 1.6), solid=False, color=(0.92, 0.62, 0.76))
+    ob("flowers", wx - 3.4, wz - 1.2, (1.5, 0.45, 1.5), solid=False, color=(0.96, 0.9, 0.5))
+
+    # ------------------------------------------------------------------ O: Ofícios (Ferraria do Brom e Botica da Lyra)
+    # Ferraria: a casa É a Oficina (interior); ao lado, a fornalha com chaminé e o telheiro de ardósia com a bigorna na frente
+    srot = B_["smithy"]["rot"]
+    sf = _frame(B_["smithy"]["pos"], srot)
+    half = B_["smithy"]["size"][2] * 0.5
     stone = d.m("forja_pedra", (0.56, 0.54, 0.54))
     stone_d = d.m("forja_pedra_esc", (0.42, 0.41, 0.43))
-    fc = (fx + out.x * 2.6, fz + out.y * 2.6)                # fornalha no fundo do pátio
-    d.box("forja", stone, fc, (2.6, 1.7, 2.0), face, 0.0)
-    d.box("forja", stone_d, fc, (2.9, 0.18, 2.3), face, 1.7)
-    ch = (fc[0] + out.x * 0.35, fc[1] + out.y * 0.35)
+    fc = sf(5.6, half - 2.0)                                          # fornalha, recuada ao lado da casa
+    d.box("forja", stone, fc, (2.6, 1.7, 2.0), srot, 0.0)
+    d.box("forja", stone_d, fc, (2.9, 0.18, 2.3), srot, 1.7)
+    ch = sf(5.6, half - 2.35)
     d.cyl("forja", stone, ch, 0.62, 0.48, 1.9, 1.88, 7)
     d.cyl("forja", stone_d, ch, 0.56, 0.56, 0.14, 3.78, 7)
-    mouth = (fc[0] - out.x * 1.02, fc[1] - out.y * 1.02)
-    d.box("forja", d.m("glow_brasa", (1.0, 0.56, 0.2)), mouth, (1.1, 0.6, 0.12), face, 0.45)
-    ob("crate", fc[0], fc[1], (2.9, 3.9, 2.3), face, visible=False)
-    # telheiro de ardósia sobre a bigorna (4 postes, 3,1 m)
+    d.box("forja", d.m("glow_brasa", (1.0, 0.56, 0.2)), sf(5.6, half - 0.98), (1.1, 0.6, 0.12), srot, 0.45)
+    ob("crate", fc[0], fc[1], (2.9, 3.9, 2.3), srot, visible=False)
     slate = d.m("forja_telha", (0.4, 0.42, 0.5))
-    rc = (fx + out.x * 0.2, fz + out.y * 0.2)
-    rf = Dress._xf(rc, face, (0, 0))
     wood = d.m("forja_madeira", (0.44, 0.32, 0.22))
+    rc = sf(5.4, half + 0.9)                                          # telheiro: 4 postes, cai para a frente
+    rf = Dress._xf(rc, srot, (0, 0))
     for sx in (-1, 1):
         for sy in (-1, 1):
             p = rf(sx * 2.0, sy * 1.3, 0)
-            d.cyl("forja", wood, (p.x, -p.y), 0.1, 0.1, 2.6 if sy > 0 else 3.0, 0.0, 5)
-    _slab(d, "forja", slate, rc, [rf(-2.3, 1.6, 2.6), rf(2.3, 1.6, 2.6), rf(2.3, -1.6, 3.05), rf(-2.3, -1.6, 3.05)], 0.1)
-    an = (fx - out.x * 0.9, fz - out.y * 0.9)                # bigorna no toco
+            d.cyl("forja", wood, (p.x, -p.y), 0.1, 0.1, 3.0 if sy > 0 else 2.6, 0.0, 5)
+    _slab(d, "forja", slate, rc, [rf(-2.3, 1.6, 3.05), rf(2.3, 1.6, 3.05), rf(2.3, -1.6, 2.6), rf(-2.3, -1.6, 2.6)], 0.1)
+    an = sf(5.0, half + 1.5)                                          # bigorna no toco, na frente
     d.cyl("forja", wood, an, 0.36, 0.33, 0.5, 0.0, 8)
     iron = d.m("forja_ferro", (0.26, 0.26, 0.3))
-    d.box("forja", iron, an, (0.78, 0.2, 0.3), face + 20.0, 0.5)
-    d.box("forja", iron, an, (0.4, 0.16, 0.24), face + 20.0, 0.7)
+    d.box("forja", iron, an, (0.78, 0.2, 0.3), srot + 20.0, 0.5)
+    d.box("forja", iron, an, (0.4, 0.16, 0.24), srot + 20.0, 0.7)
     ob("pillar", an[0], an[1], (0.9, 0.9, 0.9), visible=False)
-    wp = (fx + side.x * 3.4 + out.x * 1.2, fz + side.y * 3.4 + out.y * 1.2)      # pilha de lenha
-    for i in range(5):
-        d.log("forja", d.m("forja_lenha", (0.56, 0.4, 0.26)), (wp[0] + out.x * (i % 3 - 1) * 0.36, wp[1] + out.y * (i % 3 - 1) * 0.36),
-              0.17, 1.7, face, y=0.17 + 0.3 * (i // 3))
-    ob("crate", wp[0], wp[1], (1.9, 0.8, 1.3), face, visible=False)
-    cp = (fx - side.x * 3.3 + out.x * 1.4, fz - side.y * 3.3 + out.y * 1.4)      # monte de carvão
+    post("smith", sf(2.6, half + 2.6), srot + 12.0)                   # Brom, ao lado da bigorna, de frente para a rua
+    cp = sf(7.9, half + 0.3)                                          # monte de carvão
     coal = d.m("forja_carvao", (0.2, 0.2, 0.23))
     for i in range(6):
         a = math.tau * i / 6
         d.rock("forja", coal, (cp[0] + math.cos(a) * 0.5, cp[1] + math.sin(a) * 0.5), 0.36, 0.0, 0.8)
     d.rock("forja", coal, cp, 0.5, 0.2, 0.9)
     ob("pillar", cp[0], cp[1], (1.9, 0.9, 1.9), visible=False)
-    d.barrel((fx - side.x * 2.2 - out.x * 1.6, fz - side.y * 2.2 - out.y * 1.6), 1.0, g="forja", color=(0.5, 0.42, 0.36))      # tina de têmpera
-    d.weapon_rack((fx + side.x * 2.5 - out.x * 1.3, fz + side.y * 2.5 - out.y * 1.3), face + 90.0, g="forja")
+    wp = sf(-4.5, half - 0.6)                                         # lenha encostada do outro lado da casa
+    for i in range(5):
+        d.log("forja", d.m("forja_lenha", (0.56, 0.4, 0.26)), (wp[0] + (i % 3 - 1) * 0.36, wp[1]), 0.17, 1.7, srot + 90.0, y=0.17 + 0.3 * (i // 3))
+    ob("crate", wp[0], wp[1], (1.3, 0.8, 1.9), srot, visible=False)
+    bq = sf(7.0, half + 2.7)
+    d.barrel(bq, 1.0, g="forja", color=(0.5, 0.42, 0.36))             # tina de têmpera
+    ob("pillar", bq[0], bq[1], (0.9, 1.0, 0.9), visible=False)
+    p = sf(-2.3, half + 0.45)
+    d.weapon_rack(p, srot, g="forja")
+    ob("crate", p[0], p[1], (2.4, 1.5, 0.6), srot, visible=False)
+    # Botica: balcão de frascos com toldo verde (a Lyra atende atrás dele), caldeirão no tripé, canteiro de ervas e varal
+    brot = B_["botica"]["rot"]
+    bc_ = spot("botica", 2.9, 2.0)
+    counter(d, bc_, brot, (0.5, 0.74, 0.52), [(0.4, 0.8, 0.5), (0.62, 0.42, 0.8), (0.86, 0.6, 0.3), (0.4, 0.62, 0.86)], g="botica")
+    ob("stall", bc_[0], bc_[1], (2.6, 1.6, 0.9), brot, visible=False)
+    post("alchemist", spot("botica", 1.0, 1.9), brot)                 # na ponta sul do balcão, ao lado da porta (fora do toldo)
+    front_botica = spot("botica", 1.0, 3.6)
+    cq = spot("botica", -2.6, 1.5)
+    ironc = d.m("caldeirao", (0.24, 0.23, 0.25))
+    for k in range(3):
+        a = math.tau * k / 3
+        d.tube("botica", ironc, [(cq[0] + math.cos(a) * 0.7, 0.0, cq[1] + math.sin(a) * 0.7), (cq[0], 1.7, cq[1])], 0.04)
+    d.cyl("botica", ironc, cq, 0.34, 0.5, 0.5, 0.45, 9)
+    d.cyl("botica", d.m("glow_pocao", (0.4, 0.9, 0.5)), cq, 0.44, 0.44, 0.04, 0.9, 9)
+    ob("pillar", cq[0], cq[1], (1.2, 1.7, 1.2), visible=False)
+    bf = _frame(B_["botica"]["pos"], brot)
+    gc = bf(-4.7, 1.9)                                                # canteiro de ervas, do lado sul da casa
+    soil = d.m("patch_canteiro", (0.46, 0.38, 0.3))
+    gf = _frame(gc, brot)
+    d.box("botica", soil, gc, (2.6, 0.02, 3.6), brot, 0.02)
+    herb = [d.m("erva_a", (0.36, 0.62, 0.36)), d.m("erva_b", (0.5, 0.72, 0.42)), d.m("erva_flor", (0.72, 0.56, 0.86)), d.m("erva_azul", (0.45, 0.62, 0.9))]
+    for i in range(3):
+        for j in range(5):
+            d.tuft("botica", herb[(i * 2 + j) % 4], gf(-0.85 + 0.85 * i, -1.4 + 0.7 * j), 0.22, 0.5, 5)
+    fr = [gf(-1.5, -2.0), gf(1.5, -2.0), gf(1.5, 2.0), gf(-1.5, 2.0), gf(-1.5, -2.0)]
+    for i in range(4):
+        d.fence_run(fr[i], fr[i + 1], 0.6, "botica", gap=1.0)
+    ob("crate", gc[0], gc[1], (3.1, 0.7, 4.1), brot, visible=False)
 
-    # --- S: Celeiro e Carroças (no lugar de duas casas do anel externo, a oeste do portão sul) ---
-    ba = math.radians(113.0)
-    bc = (math.cos(ba) * 25.2, math.sin(ba) * 25.2)
-    bface = math.degrees(math.atan2(-bc[0], -bc[1]))
+    # ------------------------------------------------------------------ S: Taverna, celeiro e cercado, casas de morar
+    trot = B_["tavern"]["rot"]
+    tables = [spot("tavern", -3.0, 2.3), spot("tavern", 2.9, 2.2), spot("tavern", -3.4, 3.9)]
+    for p in tables:
+        table_set(d, p)
+        ob("pillar", p[0], p[1], (1.4, 1.1, 1.4), visible=False)
+    p = spot("tavern", 3.7, 0.5)
+    d.barrel(p, 1.1, g="taverna")
+    d.barrel((p[0] + 0.5, p[1] + 0.7), 1.0, g="taverna")
+    ob("crate", p[0] + 0.2, p[1] + 0.3, (1.5, 1.1, 1.6), trot, visible=False)
+    d.signpost(spot("tavern", -1.6, 0.5), trot + 90.0, g="taverna", n=1)
+    d.torch(spot("tavern", 1.5, 0.35), 2.3, g="taverna")
+    # Celeiro e Carroças: a porta olha para a avenida sul (a carroça da colheita para na frente)
+    bx, bz, bface = lay["barn"]
+    bc = (bx, bz)
     planks = d.m("celeiro_tabua", (0.62, 0.46, 0.33))
     straw = d.m("celeiro_palha", (0.88, 0.76, 0.44))
     gable(d, "celeiro", planks, straw, bc, 7.6, 5.0, 2.5, 4.0, bface, door=(0.36, 0.27, 0.2))
     ob("crate", bc[0], bc[1], (7.6, 4.0, 5.0), bface, visible=False)
-    bin_ = Vector((-bc[0], -bc[1])).normalized()             # do celeiro para a praça
+    ba = math.radians(bface)
+    bin_ = Vector((-math.sin(ba), -math.cos(ba)))                     # para onde a porta olha
     bside = Vector((-bin_.y, bin_.x))
-    yard2 = d.m("patch_celeiro_chao", (0.76, 0.68, 0.5))     # palha pisada na frente da porta
-    d.blob("celeiro", yard2, (bc[0] + bin_.x * 3.6, bc[1] + bin_.y * 3.6), 3.4, 0.0188, 0.2)
-    for i, (u, v) in enumerate(((3.1, 3.0), (3.1, 4.2), (-3.4, 3.1))):
-        d.hay((bc[0] + bin_.x * u + bside.x * v * (1 if i < 2 else 0.9), bc[1] + bin_.y * u + bside.y * v * (1 if i < 2 else 0.9)), 1.0, "celeiro")
-    # cercado das galinhas (um colisor redondo: ninguém atravessa a cerca)
-    pa = math.radians(129.5)
-    pc = (math.cos(pa) * 24.6, math.sin(pa) * 24.6)
-    pr = 2.5
+    yard2 = d.m("patch_celeiro_chao", (0.76, 0.68, 0.5))              # palha pisada na frente da porta
+    d.blob("celeiro", yard2, (bc[0] + bin_.x * 4.4, bc[1] + bin_.y * 4.4), 3.6, 0.0188, 0.2)
+    for i, (u, v) in enumerate(((3.1, 3.0), (3.1, 4.1), (3.2, -3.4))):
+        d.hay((bc[0] + bin_.x * u + bside.x * v, bc[1] + bin_.y * u + bside.y * v), 1.0, "celeiro")
+    hs = (bc[0] + bin_.x * 3.1 + bside.x * 3.55, bc[1] + bin_.y * 3.1 + bside.y * 3.55)
+    ob("crate", hs[0], hs[1], (1.5, 1.4, 2.6), bface, visible=False)
+    cart_stop = (round(bc[0] + bin_.x * 5.6, 2), round(bc[1] + bin_.y * 5.6, 2))      # onde a Carroça da Colheita para (LIVING_NPCS)
+    clear.append(cart_stop)
+    pcx, pcz, pr = lay["pen"]
+    pc = (pcx, pcz)
     d.blob("celeiro", yard2, pc, pr + 0.2, 0.0188, 0.1)
     ring = [(pc[0] + math.cos(math.tau * i / 8) * pr, pc[1] + math.sin(math.tau * i / 8) * pr) for i in range(9)]
     for i in range(8):
@@ -285,26 +457,74 @@ def aldara(z):
     d.hay((pc[0] + 0.5, pc[1] - 0.6), 0.8, "celeiro")
     d.box("celeiro", planks, (pc[0] - 0.8, pc[1] + 0.7), (1.3, 0.3, 0.45), 30.0, 0.0)      # cocho
     ob("pillar", pc[0], pc[1], (pr * 2 + 0.3, 1.0, pr * 2 + 0.3), visible=False)
+    # casas de morar: canteiros de flor na frente, varais e árvores nos vãos entre as casas do sul
+    bloom = [(0.92, 0.8, 0.4), (0.92, 0.62, 0.76), (0.72, 0.56, 0.86), (0.96, 0.9, 0.5)]
+    homes = lay["homes"]
+    for k, (hp, hrot, w) in enumerate(homes):
+        hf = _frame(hp, hrot)
+        if hp[1] > 8.0:                                               # bairro residencial (sul): jardim na frente
+            q = hf(-w * 0.5 + 0.9, 2.5 + 0.75)
+            ob("flowers", q[0], q[1], (1.3, 0.45, 1.3), solid=False, color=bloom[k % 4])
+            q = hf(w * 0.5 - 0.8, 2.5 + 0.7)
+            d.cyl("casas", d.m("vaso", (0.72, 0.5, 0.38)), q, 0.2, 0.26, 0.34, 0.0, 7)
+            d.tuft("casas", d.m("vaso_flor_%d" % (k % 4), bloom[(k + 1) % 4]), q, 0.2, 0.5, 5)
+    gaps = []
+    for k in range(len(homes) - 1):
+        (pa, _, wa), (pb, _, wb) = homes[k], homes[k + 1]
+        if pa[1] > 8.0 and pb[1] > 8.0 and (Vector(pa) - Vector(pb)).length < 10.5:
+            gaps.append((Vector(pa) + Vector(pb)) * 0.5)
+    for k, g_ in enumerate(gaps):
+        out = g_.normalized()
+        tan = Vector((-out.y, out.x))
+        if k % 2 == 0:
+            q = g_ + out * 1.2
+            ob("tree", q.x, q.y, (1.6, 3.8, 1.6), color=(0.40, 0.66, 0.38) if k % 4 == 0 else (0.30, 0.52, 0.34))
+        else:
+            a_, b_ = g_ + out * 0.9 - tan * 1.25, g_ + out * 0.9 + tan * 1.25
+            d.laundry((a_.x, a_.y), (b_.x, b_.y), 2.3, "casas")
+    for q in ((-17.2, -18.6), (18.0, -20.8)):                         # árvores nos cantos do miolo (noroeste e nordeste)
+        ob("tree", q[0], q[1], (1.6, 3.8, 1.6), color=(0.30, 0.52, 0.34))
+    pol = lambda deg, r: (math.cos(math.radians(deg)) * r, math.sin(math.radians(deg)) * r)
+    for k, q in enumerate((pol(-69.0, 36.4), pol(-62.5, 34.6), pol(159.5, 35.2), pol(203.0, 35.0), (-9.6, 12.6), pol(248.0, 35.6), pol(21.5, 36.0))):
+        ob("tree", q[0], q[1], (1.6 + 0.1 * (k % 3), 3.8 + 0.2 * (k % 3), 1.6 + 0.1 * (k % 3)), color=(0.40, 0.66, 0.38) if k % 2 else (0.30, 0.52, 0.34))
+    # horta do celeiro (lote vazio a oeste do portão sul): leiras de terra com verdura e um espantalho
+    hc = pol(111.0, 35.2)
+    hrot = math.degrees(math.atan2(-hc[0], -hc[1]))
+    hf = _frame(hc, hrot)
+    d.box("horta", d.m("patch_canteiro", (0.46, 0.38, 0.3)), hc, (4.6, 0.02, 3.2), hrot, 0.02)
+    veg = [d.m("horta_a", (0.36, 0.62, 0.36)), d.m("horta_b", (0.56, 0.72, 0.4)), d.m("horta_c", (0.86, 0.56, 0.3))]
+    for i in range(6):
+        for j in range(4):
+            d.tuft("horta", veg[(i + j) % 3], hf(-1.9 + 0.76 * i, -1.1 + 0.74 * j), 0.2, 0.42, 5)
+    fr = [hf(-2.5, -1.8), hf(2.5, -1.8), hf(2.5, 1.8), hf(-2.5, 1.8), hf(-2.5, -1.8)]
+    for i in range(4):
+        d.fence_run(fr[i], fr[i + 1], 0.6, "horta", gap=1.1)
+    ob("crate", hc[0], hc[1], (5.1, 0.7, 3.7), hrot, visible=False)
+    d.scarecrow(hf(0.0, 0.0), hrot, g="horta")
 
-    # --- N: Pátio do Fundador (no lugar de uma casa do anel externo, a leste do portão norte) ---
-    sa = math.radians(286.0)
-    sc = (math.cos(sa) * 25.0, math.sin(sa) * 25.0)
-    pale = d.m("patch_fundador_chao", (0.8, 0.77, 0.7))
-    d.blob("fundador", pale, sc, 3.8, 0.0188, 0.08)
-    d.cyl("fundador", d.m("fundador_base", (0.8, 0.78, 0.74)), sc, 1.25, 1.1, 0.35, 0.0, 10)
-    for i in range(6):                                        # canteiro de trigo em volta do pedestal
-        a = math.tau * i / 6 + 0.3
-        d.tuft("fundador", d.m("fundador_trigo", (0.9, 0.76, 0.36)), (sc[0] + math.cos(a) * 1.9, sc[1] + math.sin(a) * 1.9), 0.3, 0.6, 5)
+    # relvado: manchas de dois tons (só aparecem onde não há rua nem chão de bairro por cima)
+    lawn = [d.m("patch_relva_a", (0.45, 0.63, 0.37)), d.m("patch_relva_b", (0.55, 0.71, 0.43))]
+    for k in range(34):
+        a = math.radians(k * 137.5)
+        r_ = 13.0 + (k * 7.3) % 26.0
+        d.blob("relva", lawn[k % 2], (math.cos(a) * r_, math.sin(a) * r_), 2.2 + (k % 4) * 0.7, 0.0078 + 0.0005 * (k % 2), 0.22)
 
     d.flush()
-    return {"kind": "feira_do_trigo", "mill": [0.0, 0.0], "mill_r": MILL_R, "height": MILL_H, "stall_r": FAIR_R,
-            "stalls": [[round(x, 2), round(zz, 2), round(rot, 1)] for x, zz, rot, _, _ in stalls],
-            # postos (espelhados à mão no MapsCatalog, LIVING_NPCS/VILLAGERS; há check): feirante atrás do balcão, freguês na frente
-            "keeper_posts": [[round(math.cos(th) * (FAIR_R + FAIR_KEEP), 2), round(math.sin(th) * (FAIR_R + FAIR_KEEP), 2)] for _, _, _, th, _ in stalls],
-            "front_posts": [[round(math.cos(th) * (FAIR_R - FAIR_FRONT), 2), round(math.sin(th) * (FAIR_R - FAIR_FRONT), 2)] for _, _, _, th, _ in stalls],
-            "carts": [[c[0], c[1], rot] for c, rot in carts],
-            "forge": [fx, fz], "barn": [round(bc[0], 2), round(bc[1], 2)], "pen": [round(pc[0], 2), round(pc[1], 2), pr],
-            "founder": [round(sc[0], 2), round(sc[1], 2)], "max_height": 4.0}
+    # pontos de bot: miolo aberto da praça, bocas das avenidas, mercado, terraço da taverna, forja, botica, pátio, jardim
+    hang = [[3.6, 3.6], [-3.6, 3.6], [-3.6, -3.6], [3.6, -3.6], [0.0, 7.4], [7.4, 0.6], [-7.4, -0.8], [0.0, -7.4], [6.6, 6.2], [-6.4, -6.2],
+            [0.0, 10.8], [15.4, 0.4], [21.4, 1.2], [27.2, -0.6], [2.6, 18.6], [-16.2, -3.2], [-13.6, 5.6], [-4.4, -12.6],
+            [wx - 0.6, wz + 1.8], [0.4, 27.4], [-1.2, -26.6], [-26.4, 0.8]]
+    views = {"praca": (0.0, 2.0), "norte": (-6.0, -25.0), "mercado": (21.0, -3.0), "sul": (0.0, 24.0), "oficios": (-19.0, -1.0)}
+    return {"kind": "balanca_do_trigo", "mill": [0.0, 0.0], "mill_r": MILL_R, "height": MILL_H, "plaza_r": lay["plaza_r"],
+            "stalls": stalls, "keeper_posts": keeper_posts, "front_posts": front_posts + [[round(front_botica[0], 2), round(front_botica[1], 2)]],
+            "carts": carts, "cart_stop": list(cart_stop),
+            "forge": [round(an[0], 2), round(an[1], 2)], "chimney": [round(ch[0], 2), round(ch[1], 2)],
+            "barn": [round(bc[0], 2), round(bc[1], 2)], "pen": [round(pc[0], 2), round(pc[1], 2), pr],
+            "founder": [round(fdx, 2), round(fdz, 2)], "well": [round(wx + 0.4, 2), round(wz - 0.4, 2)],
+            "yard": [yx, yz, yr], "dummies": [list(q) for q in dummies], "trainer": list(trainer), "crystal": list(crystal),
+            "buildings": {k: [v["pos"][0], v["pos"][1], v["rot"]] for k, v in B_.items()}, "doors": doors,
+            "posts": posts, "clear": [[round(q[0], 2), round(q[1], 2)] for q in clear], "hangouts": [[round(h[0], 2), round(h[1], 2)] for h in hang],
+            "views": views, "max_height": 4.4}
 
 
 # ---------------------------------------------------------------------------------------------------------------------

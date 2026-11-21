@@ -105,7 +105,7 @@
   brilho `plus_glow` no toon (`KitModel.plus_glow_color`). Revisar: `lineup.tscn -- --plus_demo --strip=<classe>` e `--bag_shot=<png> --wins= --enhance`.
 - **Boneco de treino** (2026-11-19): monstro `training_dummy` (`MonsterDef.dummy`, modelo `mob_training_dummy`, `mob_kit`), 99999 de vida, DEF/MDEF 0, nunca cai de 1 HP (`_deal_damage`/`_kill`),
   parado `Balance.DUMMY_REGEN_DELAY` s se recompõe e volta ao lugar (`MobSystem.update_dummy`); só o jogador e invocações dele (`SimEntity.player_owned`) o acertam (`is_hostile_to`),
-  sem aggro/XP/saque; bots não o caçam nem ajudam nele. Lugares em `MapsCatalog.TRAINING_DUMMIES` (Aldara: entre o portão oeste e o rio). Check `_check_training_dummy` (`--only=training_dummy`).
+  sem aggro/XP/saque; bots não o caçam nem ajudam nele. Lugares em `MapsCatalog.TRAINING_DUMMIES` (Aldara: pátio de treino do Quartel, ao norte da praça). Check `_check_training_dummy` (`--only=training_dummy`).
 - **Janela de Skills (J)** (2026-11-19): `windows._book` (abas = builds da classe + "Gerais" (build "") + "Ascensão" a partir de `ASC_LEVEL`; bloqueadas em cinza),
   ficha de números de agora em `game/ui/skill_sheet.gd` (`SkillSheet`: `ProgressionSystem.resolve_skill` + Stats, mesmas contas de `_apply_skill`/`_apply_effects`/`calc_damage` sem sorteio).
   Efeito novo que deve aparecer na ficha: linha em `SkillSheet._effect_rows`. A janela K perdeu a lista de skills (ficou a barra + botão para a J). Check `_check_skill_book`;

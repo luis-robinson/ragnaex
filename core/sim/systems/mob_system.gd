@@ -533,7 +533,7 @@ static func update_spawners(sim: WorldSim, m: Dictionary, dt: float) -> void:
 					if em is Array and em.size() >= 3:
 						Events.post(&"monster_emerged", def.id, pos)
 						if sim.player and sim.player.map_id == def.id and sp.get("primed", false):     # 1º enchimento (mapa carregando, jogador ainda de passagem): sem aviso
-							Events.post(&"chat_message", "Sistema", "%s emerge do lago!" % mob.monster_def.name, "system")
+							Events.post(&"chat_message", "Sistema", "%s emerge da água!" % mob.monster_def.name, "system")
 				if sp["alive"].size() >= int(sdef.get("count", 1)):
 					sp["primed"] = true
 				# enche rápido na 1ª vez (mapa recém-carregado) e quando esvazia; depois, um por vez no tempo de respawn

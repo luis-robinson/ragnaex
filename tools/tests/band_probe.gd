@@ -13,7 +13,7 @@ const DT := 1.0 / 20.0
 const LIMIT := 45.0
 const CHAIN := 4              # monstros seguidos por caçada
 const ELITE_HP := 1500.0      # monstro com mais vida que isto é elite: luta sozinho (1 por caçada)
-const BAND_MAPS := ["field_forest", "dg_ninho", "elf_city", "dg_coracao", "dg_catacumbas", "dg_catacumbas_trono", "dg_pedreira", "dg_pedreira_coracao", "field_ruins", "fort_ghoul", "fort_bones", "fort_frost", "lich_citadel", "field_coast", "field_steppe", "fort_trolls", "fort_fire", "fort_war", "dg_goblin", "field_kharzun"]
+const BAND_MAPS := ["field_forest", "dg_ninho", "elf_city", "dg_coracao", "dg_catacumbas", "dg_catacumbas_trono", "dg_pedreira", "dg_pedreira_coracao", "field_ruins", "fort_ghoul", "fort_bones", "fort_frost", "lich_citadel", "field_coast", "field_steppe", "fort_trolls", "fort_fire", "fort_war", "dg_goblin", "field_kharzun", "field_crab_beach"]
 
 var _trace := false
 var _trace_last := ""

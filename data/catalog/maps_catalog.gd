@@ -42,7 +42,7 @@ static func _sp(monster: String, x: float, z: float, radius: float, count: int, 
 	return {"monster_id": monster, "pos": Vector3(x, 0, z), "radius": radius, "count": count, "respawn": respawn}
 
 static func build() -> Array:
-	var out: Array = [_aldara(), _hollow(), _grove(), _forest(), _ruins(), _elf_city(), _port(), _coast(), _steppe(), _kharzun(), _kharzun_citadel()]
+	var out: Array = [_aldara(), _hollow(), _crab_beach(), _grove(), _forest(), _ruins(), _elf_city(), _port(), _coast(), _steppe(), _kharzun(), _kharzun_citadel()]
 	for fid in FORT_DEFS:
 		out.append(_fort(fid))
 	for did in DUNGEON_DEFS:
@@ -60,7 +60,7 @@ static func build() -> Array:
 ## Cristais de retorno (role "crystal", modelo prop_crystal): vincular = G e renascer ali. Posição (x, z) na praça.
 ## Quest que vincula o jogador ao cristal do mapa ao ser concluída (Ato II: morrer não manda de volta a Aldara).
 const QUEST_BIND := {"hx_crossing": "city_port"}
-const CRYSTALS := {"city_aldara": [-10.6, 4.6], "field_forest": [-5.5, -5.5], "field_ruins": [25.6, 4.6], "city_port": [6.5, 13.0], "field_steppe": [-6.9, 4.0], "field_kharzun": [-12.79, 5.69]}
+const CRYSTALS := {"city_aldara": [-6.4, 5.2], "field_forest": [-5.5, -5.5], "field_ruins": [25.6, 4.6], "city_port": [6.5, 13.0], "field_steppe": [-6.9, 4.0], "field_kharzun": [-12.79, 5.69]}
 const CRYSTAL_LINES := ["Uma pedra azul que zumbe baixinho. Toque para lembrar deste lugar.", "Os viajantes juram que o cristal os puxa de volta para casa."]
 
 static func crystal_npc(map_id: String) -> Array:
@@ -80,7 +80,7 @@ const TRAINER_COLOR := Color(0.32, 0.36, 0.78)
 const TRAINER_LINES := ["Toda skill chega sozinha com o nível. Eu ensino a dominá-la: rank 1 a 5, pago em ouro e materiais da caçada.",
 	"Cada rank pede um pouco mais de nível, de ouro e de material. Do rank 4 em diante, também um material raro da região."]
 const TRAINERS := {
-	"city_aldara": ["Isadora, Mestra de Skills", -14.75, -5.0, 90.0, ["Aqui na praça eu treino quem volta da Campina. Minério de ferro e casco de caranguejo: é com isso que se paga o começo."]],
+	"city_aldara": ["Isadora, Mestra de Skills", -6.2, -16.9, 20.0, ["Aqui no pátio do Quartel eu treino quem volta da Campina. Os bonecos aguentam tudo: bata à vontade. Minério de ferro e casco de caranguejo: é com isso que se paga o começo."]],
 	"field_forest": ["Teodoro, Mestre de Skills", -14.0, -0.5, 90.0, ["Seda de aranha e pó de cova pagam o treino na Floresta. Os elfos não esperam você ficar pronto."]],
 	"elf_city": ["Ayla, Mestra de Skills", 28.0, 80.0, 200.0, ["Treino no acampamento do cerco. Antes de entrar no anel élfico, domine o que você já sabe."]],
 	"field_ruins": ["Valério, Mestre de Skills", -9.0, -22.0, 0.0, ["Fragmento de osso e insígnia de bandido nas skills do meio do caminho; minério estelar e relíquia nas de nível 24 em diante."]],
@@ -403,7 +403,7 @@ static func villagers(table: Dictionary = VILLAGERS) -> Array:
 ## `map` = mapa onde fica a casa (sem a chave: Aldara).
 const C_FLOOR := Color(0.62, 0.46, 0.32)
 const INTERIORS := {
-	"in_tavern": {"name": "Taverna do Javali Dourado", "label": "Taverna", "house": [20.5, 14.3], "size": [18.0, 14.0], "floor": Color(0.6, 0.43, 0.3),
+	"in_tavern": {"name": "Taverna do Javali Dourado", "label": "Taverna", "house": [10.2, 20.3], "size": [18.0, 14.0], "floor": Color(0.6, 0.43, 0.3),
 		"light": Color(1.0, 0.78, 0.5),
 		"furniture": [["counter", 0.0, -4.6, 5.0, 1.1, 0.9, 0.0, C_WOOD, true], ["shelf", -2.6, -6.5, 2.2, 2.2, 0.5, 0.0, Color(0.7, 0.35, 0.3), true],
 			["shelf", 2.6, -6.5, 2.2, 2.2, 0.5, 0.0, Color(0.35, 0.5, 0.7), true], ["fireplace", -7.0, -6.3, 2.2, 2.6, 0.9, 0.0, C_STONE, true],
@@ -414,7 +414,7 @@ const INTERIORS := {
 			"tav_bard": ["Bardo Lírio", "villager", Color(0.45, 0.7, 0.55), ["♪ O Caranguejo-Rei saiu do lago... e o herói correu pro lado errado! ♪", "Pague uma rodada e eu canto a sua história."], -6.0, -3.6, 30.0, 2.5],
 			"tav_patron_a": ["Velho Bento", "villager", Color(0.55, 0.5, 0.45), ["No meu tempo a gente caçava javali de pau e pedra.", "Mais uma, Gus!"], -5.0, 1.2, 180.0, 0.0],
 			"tav_patron_b": ["Caçadora Ivy", "villager", Color(0.4, 0.6, 0.4), ["Os lobos das colinas andam em bando agora. Cuidado.", "Ouvi dizer que o Rei Javali odeia fogo."], 5.0, -1.1, 0.0, 0.0]}},
-	"in_elder": {"name": "Casa do Ancião", "label": "Casa do Ancião", "house": [-9.9, -9.9], "size": [14.0, 11.0], "floor": Color(0.55, 0.42, 0.34),
+	"in_elder": {"name": "Casa do Ancião", "label": "Casa do Ancião", "house": [9.6, -18.8], "size": [14.0, 11.0], "floor": Color(0.55, 0.42, 0.34),
 		"light": Color(1.0, 0.85, 0.65),
 		"furniture": [["shelf", -3.5, -5.0, 2.2, 2.2, 0.5, 0.0, Color(0.45, 0.35, 0.6), true], ["shelf", -1.0, -5.0, 2.2, 2.2, 0.5, 0.0, Color(0.6, 0.3, 0.3), true],
 			["fireplace", 4.0, -4.8, 2.2, 2.6, 0.9, 0.0, C_STONE, true], ["bed", -5.4, -1.6, 2.0, 0.8, 1.0, 90.0, Color(0.45, 0.4, 0.65), true],
@@ -423,7 +423,7 @@ const INTERIORS := {
 		"tables": [],
 		"npcs": {"eld_scribe": ["Escriba Tomé", "villager", Color(0.6, 0.55, 0.75), ["O Ancião me ditou a história de Aldara inteira. Trezentos anos... e três tinteiros.", "Os mapas antigos falam de uma cripta sob as Ruínas."], 1.5, -0.4, 0.0, 0.0],
 			"eld_wife": ["Dona Iolanda", "villager", Color(0.8, 0.6, 0.7), ["O Ravi passa o dia na praça. Eu cuido da casa e dos livros dele.", "Leve um chá para a viagem. Faz bem para o peito."], 3.0, -2.6, 200.0, 2.0]}},
-	"in_smithy": {"name": "Oficina do Ferreiro", "label": "Oficina", "house": [-24.0, 6.9], "size": [14.0, 11.0], "floor": Color(0.5, 0.46, 0.42),
+	"in_smithy": {"name": "Oficina do Ferreiro", "label": "Oficina", "house": [-20.5, -11.8], "size": [14.0, 11.0], "floor": Color(0.5, 0.46, 0.42),
 		"light": Color(1.0, 0.65, 0.4),
 		"furniture": [["fireplace", -4.0, -4.8, 2.6, 2.8, 1.0, 0.0, C_STONE, true], ["anvil", -1.0, -2.0, 1.0, 1.0, 0.6, 0.0, C_ROCK, true],
 			["anvil", 2.5, -2.4, 1.0, 1.0, 0.6, 20.0, C_ROCK, true], ["shelf", 3.5, -5.0, 2.2, 2.2, 0.5, 0.0, Color(0.5, 0.5, 0.55), true],
@@ -432,7 +432,7 @@ const INTERIORS := {
 		"tables": [],
 		"npcs": {"smi_apprentice": ["Aprendiz Duda", "villager", Color(0.75, 0.45, 0.3), ["Mestre Brom atende lá fora; aqui é onde o ferro apanha.", "Um dia vou forjar uma lâmina lendária. Hoje eu varro o chão."], 0.6, -2.0, 270.0, 0.0],
 			"smi_miner": ["Mineiro Ruy", "villager", Color(0.55, 0.5, 0.5), ["Trouxe minério das colinas. Os lobos quase me pegaram.", "Pedra boa mesmo só nas Ruínas, mas lá ninguém vai."], -3.2, 2.6, 120.0, 2.5]}},
-	"in_apothecary": {"name": "Botica da Alquimista", "label": "Botica", "house": [9.9, 9.9], "size": [14.0, 11.0], "floor": Color(0.5, 0.55, 0.45),
+	"in_apothecary": {"name": "Botica da Alquimista", "label": "Botica", "house": [-21.5, 9.5], "size": [14.0, 11.0], "floor": Color(0.5, 0.55, 0.45),
 		"light": Color(0.75, 1.0, 0.75),
 		"furniture": [["cauldron", 0.0, -2.0, 1.2, 1.0, 1.2, 0.0, Color(0.35, 0.85, 0.45), true], ["shelf", -3.6, -5.0, 2.2, 2.2, 0.5, 0.0, Color(0.4, 0.7, 0.5), true],
 			["shelf", -1.2, -5.0, 2.2, 2.2, 0.5, 0.0, Color(0.6, 0.4, 0.7), true], ["shelf", 1.2, -5.0, 2.2, 2.2, 0.5, 0.0, Color(0.85, 0.6, 0.3), true],
@@ -441,7 +441,7 @@ const INTERIORS := {
 		"tables": [],
 		"npcs": {"apo_assistant": ["Assistente Mel", "villager", Color(0.55, 0.8, 0.55), ["Não encoste no caldeirão! Da última vez o gato ficou verde.", "Gel de slime azul dá poção de mana. A Lyra jura."], 1.4, -2.2, 250.0, 2.0],
 			"apo_patient": ["Lenhador Tico", "villager", Color(0.6, 0.45, 0.3), ["Um javali me pegou de jeito. Estou esperando o unguento.", "Ai, ai... nunca mais corto lenha perto do bosque."], -4.5, 2.4, 180.0, 0.0]}},
-	"in_home": {"name": "Casa da Família Sol", "label": "Casa", "house": [-20.5, 14.3], "size": [14.0, 11.0], "floor": Color(0.64, 0.5, 0.36),
+	"in_home": {"name": "Casa da Família Sol", "label": "Casa", "house": [-34.95, -6.79], "size": [14.0, 11.0], "floor": Color(0.64, 0.5, 0.36),
 		"light": Color(1.0, 0.85, 0.6),
 		"furniture": [["bed", -5.2, -3.8, 2.0, 0.8, 1.0, 90.0, Color(0.75, 0.4, 0.35), true], ["bed", -3.4, -3.8, 2.0, 0.8, 1.0, 90.0, Color(0.4, 0.55, 0.75), true],
 			["fireplace", 3.5, -4.8, 2.2, 2.6, 0.9, 0.0, C_STONE, true], ["table", 2.0, 0.6, 2.0, 0.85, 1.0, 0.0, C_WOOD, true],
@@ -478,8 +478,10 @@ const INTERIORS := {
 
 ## Pontos de colheita (F): item, forma, centro [x, z], raio e quantos. A sim espalha em chão livre (sempre igual por mapa).
 const GATHER := {
-	"city_aldara": [["herb_green", "herb", [-30.0, 42.0], 14.0, 6], ["herb_green", "herb", [42.0, 46.0], 12.0, 5], ["herb_blue", "herb_blue", [6.7, 88.8], 23.0, 7],
-		["iron_ore", "ore", [-6.7, -93.6], 18.0, 6], ["crab_shell", "shell", [6.7, 111.0], 9.0, 4]],
+	"city_aldara": [["herb_green", "herb", [-34.0, 48.0], 12.0, 6], ["herb_green", "herb", [42.0, 46.0], 12.0, 5], ["herb_blue", "herb_blue", [6.7, 88.8], 23.0, 7],
+		["iron_ore", "ore", [-6.7, -93.6], 18.0, 6]],
+	# Praia dos Caranguejos: conchas na areia seca, de ponta a ponta (l2_cascos e a repetível beach_shells do Joca)
+	"field_crab_beach": [["crab_shell", "shell", [16.0, -39.0], 9.0, 4], ["crab_shell", "shell", [22.0, 8.0], 9.0, 4], ["crab_shell", "shell", [10.0, 47.0], 9.0, 4]],
 	"field_forest": [["forest_mushroom", "mushroom", [-44.0, 30.0], 18.0, 7], ["forest_mushroom", "mushroom", [74.0, 45.0], 15.0, 4],
 		["herb_blue", "herb_blue", [-28.0, -90.0], 14.0, 4], ["stolen_goods", "crate", [50.0, -36.0], 13.0, 6]],
 	"field_ruins": [["ancient_relic", "relic", [60.0, 80.0], 14.0, 7], ["ancient_relic", "relic", [24.0, -86.0], 10.0, 3],
@@ -516,7 +518,9 @@ const AMBIENT_LIFE := {
 	# Mata dos Zumbidos: corvos sobre o acampamento, mariposas na fogueira e no Prado de Flores
 	"field_grove": [["crow", [-58.0, -6.0], 14.0, 3], ["moth", [-58.0, -6.0], 5.0, 6], ["crow", [50.0, 13.0], 22.0, 5]],
 	"field_hollow": [["crow", [2.0, -12.0], 16.0, 3], ["moth", [2.0, -12.0], 5.0, 6], ["moth", [-45.0, 30.0], 10.0, 6]],
-	"city_aldara": [["hen", [-15.65, 18.98], 2.0, 4], ["hen", [-63.0, 70.0], 5.0, 5], ["crow", [-70.0, 76.0], 9.0, 3]],
+	# Praia dos Caranguejos: gaivotas no rancho do Joca, no meio da praia e no Recife do Rei; caranguejinhos (enfeite) na areia do rancho
+	"field_crab_beach": [["gull", [-38.0, -68.0], 14.0, 5], ["gull", [6.0, 2.0], 24.0, 6], ["gull", [-30.0, 62.0], 14.0, 4], ["crab", [-40.0, -70.0], 6.0, 4]],
+	"city_aldara": [["hen", [-15.6, 16.4], 2.0, 4], ["hen", [-63.0, 70.0], 5.0, 5], ["crow", [-70.0, 76.0], 9.0, 3]],
 	"city_port": [["gull", [0.0, 58.0], 16.0, 6], ["gull", [0.0, 10.0], 24.0, 3], ["crab", [16.0, 62.0], 6.0, 4], ["crab", [-18.0, 60.0], 5.0, 3]],
 	"field_coast": [["gull", [-10.0, 72.0], 24.0, 6], ["gull", [50.0, 62.0], 14.0, 4], ["gull", [-82.0, 30.0], 16.0, 3], ["crab", [16.0, 72.0], 10.0, 5],
 		["crab", [-70.0, 52.0], 7.0, 3], ["crab", [-14.0, 76.0], 8.0, 4], ["crow", [70.0, -55.0], 10.0, 3]],
@@ -666,7 +670,7 @@ const ALDARA_NPCS := {
 	"merchant": ["Mercador Tobias", "merchant", Color(0.9, 0.8, 0.5), ["Poções, elixires e um bom preço pelo que você trouxe das caçadas."]],
 	"relic": ["Iara, a Relicária", "relic", Color(0.95, 0.6, 0.25), ["Moedas lendárias? Eu forjo a peça que você escolher.", "Nível 5 custa 1 moeda, nível 10 custa 2, e assim por diante."]],
 	"storage": ["Guarda-volumes Nilo", "storage", Color(0.45, 0.6, 0.75), ["Deixe aqui o que não cabe na bolsa. Fica tudo guardado, até você voltar.", "Cada personagem tem o seu depósito. Ninguém mexe."]],
-	"board": ["Quadro de Avisos", "board", Color(0.6, 0.45, 0.3), ["Procura-se: aventureiros para a Campina (1-10), Floresta (10-20) e Ruínas (20-30).", "Dica: skills chegam com o nível; o rank delas sobe com a Mestra de Skills, a oeste da praça.", "Feira do Trigo na praça todos os dias. A Estátua do Fundador fica no pátio do portão norte."]],
+	"board": ["Quadro de Avisos", "board", Color(0.6, 0.45, 0.3), ["Procura-se: aventureiros para a Campina (1-10), Floresta (10-20) e Ruínas (20-30).", "Dica: skills chegam com o nível; o rank delas sobe com a Mestra de Skills, no pátio de treino do Quartel (norte).", "Feira do Trigo todos os dias na rua do Mercado (leste). Ofícios a oeste: ferraria e botica. A Estátua do Fundador fica no pátio a nordeste."]],
 	"guard_s": ["Guarda", "guard", Color(0.6, 0.6, 0.75), ["O portão sul leva ao lago dos slimes. Monstros fracos, bons para começar."]],
 	"guard_e": ["Guarda", "guard", Color(0.6, 0.6, 0.75), ["Estrada leste: bosque dos javalis e, no fim do vale, o desfiladeiro da Floresta (nível 10+)."]],
 	"guard_w": ["Guarda", "guard", Color(0.6, 0.6, 0.75), ["Oeste: a ponte do rio, a clareira do Rei Javali e a passagem para as Ruínas (nível 20+)."]],
@@ -677,16 +681,16 @@ const ALDARA_NPCS := {
 ## raio de passeio (`wander`) ou ronda por pontos (`route`). Cada um tem um visual sorteado pela semente.
 const VILLAGERS := {
 	"vil_farmer": ["Lavrador Beto", Color(0.62, 0.5, 0.3), ["O trigo vai bem este ano. Os slimes azuis é que comem as cenouras.", "Se for à fazenda, diga ao Ferdinando que eu mandei lembranças."], [-66.5, 67.0], 5.0],
-	"vil_fisher": ["Pescadora Nalu", Color(0.4, 0.6, 0.75), ["Os caranguejos tomaram a praia sul do lago. Dizem que tem um enorme lá no fundo.", "Peixe bom aqui só no píer. O resto é pinça."], [8.5, 68.5], 2.5],
-	"vil_kid_a": ["Pipo", Color(0.95, 0.75, 0.35), ["Quando eu crescer vou caçar o Rei Javali!", "Você já viu o castelo da colina por dentro? Eu não."], [-4.0, -11.0], 9.0],
-	"vil_kid_b": ["Lia", Color(0.9, 0.5, 0.65), ["Pega-pega! Você tá com ele!", "Minha mãe disse para eu não passar do portão."], [9.5, 6.5], 9.0],
-	"vil_couple_a": ["Dona Celeste", Color(0.75, 0.55, 0.8), ["Cinquenta anos de casados e ele ainda me traz flores do lago.", "Que dia bonito na praça."], [4.6, -22.0], 2.0],
-	"vil_couple_b": ["Seu Augusto", Color(0.5, 0.45, 0.4), ["As flores do lago? Ah... eu compro do mercador. Não conte a ela.", "No meu tempo os slimes eram menores."], [9.0, -22.2], 2.0],
-	"vil_baker": ["Padeira Rosa", Color(0.95, 0.85, 0.6), ["Pão quentinho para quem volta da caça!", "Farinha da fazenda, mel da floresta. Simples e bom."], [9.24, 3.83], {"facing": -112.5}],
-	"vil_bard": ["Bardo Fennel", Color(0.55, 0.75, 0.45), ["♪ Lá na Campina o javali corria... ♪", "Toda canção precisa de um herói. Está procurando trabalho?"], [-11.0, 6.0], 6.0],
-	"vil_monk": ["Irmão Odo", Color(0.85, 0.8, 0.7), ["Que a luz guie seus passos pela Campina.", "Os mortos das Ruínas não descansam. Reze por eles."], [7.0, -9.0], 5.0],
-	"vil_porter": ["Carregador Juca", Color(0.6, 0.45, 0.35), ["Caixas para o mercador, caixas para o ferreiro... minhas costas!", "Se vir o Tobias, diga que a carga atrasou."], [-6.0, 18.2], [[-6.0, 18.2], [-5.2, 13.6], [-6.3, 6.3], [-6.3, 2.0], [-6.3, 6.3], [-5.2, 13.6]]],
-	"vil_patrol": ["Guarda de Ronda", Color(0.6, 0.6, 0.75), ["Ronda tranquila. Os monstros não passam do muro.", "Mantenha a arma na bainha dentro da vila."], [0.0, -19.0], [[0.0, -19.0], [13.4, -13.4], [19.0, 0.0], [13.4, 13.4], [0.0, 19.0], [-13.4, 13.4], [-19.0, 0.0], [-13.4, -13.4]]],      # ronda pela rua do anel (8 pontos: a corda entre eles fica na rua)
+	"vil_fisher": ["Pescadora Nalu", Color(0.4, 0.6, 0.75), ["Os caranguejos tomaram a enseada depois do lago: a passagem fica na margem sul. Dizem que tem um enorme lá no fundo.", "Peixe bom aqui só no píer. O resto é pinça."], [8.5, 68.5], 2.5],
+	"vil_kid_a": ["Pipo", Color(0.95, 0.75, 0.35), ["Quando eu crescer vou caçar o Rei Javali!", "Você já viu o castelo da colina por dentro? Eu não."], [-3.0, -5.5], 7.0],
+	"vil_kid_b": ["Lia", Color(0.9, 0.5, 0.65), ["Pega-pega! Você tá com ele!", "Minha mãe disse para eu não passar do portão."], [5.5, 5.5], 7.0],
+	"vil_couple_a": ["Dona Celeste", Color(0.75, 0.55, 0.8), ["Cinquenta anos de casados e ele ainda me traz flores do lago.", "Que dia bonito no pátio do Fundador."], [20.6, -24.4], 2.0],
+	"vil_couple_b": ["Seu Augusto", Color(0.5, 0.45, 0.4), ["As flores do lago? Ah... eu compro do mercador. Não conte a ela.", "No meu tempo os slimes eram menores."], [24.6, -24.0], 2.0],
+	"vil_baker": ["Padeira Rosa", Color(0.95, 0.85, 0.6), ["Pão quentinho para quem volta da caça!", "Farinha da fazenda, mel da floresta. Simples e bom."], [16.8, 7.81], {"facing": 180.0}],
+	"vil_bard": ["Bardo Fennel", Color(0.55, 0.75, 0.45), ["♪ Lá na Campina o javali corria... ♪", "Toda canção precisa de um herói. Está procurando trabalho?"], [3.2, 18.2], 2.0],
+	"vil_monk": ["Irmão Odo", Color(0.85, 0.8, 0.7), ["Que a luz guie seus passos pela Campina.", "Os mortos das Ruínas não descansam. Reze por eles."], [8.6, -7.6], 3.5],
+	"vil_porter": ["Carregador Juca", Color(0.6, 0.45, 0.35), ["Caixas para o mercador, caixas para o ferreiro... minhas costas!", "Se vir o Tobias, diga que a carga atrasou."], [-7.03, 23.87], [[-7.03, 23.87], [-2.6, 22.2], [-1.5, 14.0], [1.6, 9.2], [9.0, 1.2], [15.0, 1.6], [16.8, 4.41], [15.0, 1.6], [9.0, 1.2], [1.6, 9.2], [-1.5, 14.0], [-2.6, 22.2]]],
+	"vil_patrol": ["Guarda de Ronda", Color(0.6, 0.6, 0.75), ["Ronda tranquila. Os monstros não passam do muro.", "Mantenha a arma na bainha dentro da vila."], [0.0, -30.0], [[0.0, -30.0], [11.5, -27.7], [21.2, -21.2], [27.7, -11.5], [29.4, -5.9], [27.7, -11.5], [21.2, -21.2], [11.5, -27.7], [0.0, -30.0], [-11.5, -27.7], [-21.2, -21.2], [-27.7, -11.5], [-29.4, -5.9], [-27.7, -11.5], [-21.2, -21.2], [-11.5, -27.7]]],      # ronda pela metade norte da Rua da Ronda (raio 30, lado do Quartel): vai até quase o leste, volta, vai até quase o oeste
 }
 ## Extras dos moradores de Aldara que trabalham na Feira do Trigo (GDD living-towns R1/R2): a Padeira fica na banca dela
 ## (pregão) e o Carregador leva os sacos da carroça do celeiro às bancas.
@@ -1066,28 +1070,28 @@ const LIVING_NPCS := {
 			["Peles frescas!", "Hoje a caça foi boa.", "Bia, guarda um prato pra mim!"], [6.0, 50.0], [[6, 50, 10], [3.16, 47.79], [0.5, 45.27], [-1.88, 42.57], [-3.88, 39.84], [-5.43, 37.22], [-6.54, 34.18], [-6.48, 30.72], [-5.66, 27.37], [-5, 24], [-5, 14], [-3.6, 10, 10], [-5, 14], [-5, 24], [-5.66, 27.37], [-6.48, 30.72], [-6.54, 34.18], [-5.43, 37.22], [-3.88, 39.84], [-1.88, 42.57], [0.5, 45.27], [3.16, 47.79]], {"carry": "carry_sack", "flow": true}],
 	},
 	# Vale de Aldara (GDD living-towns P1): a Feira do Trigo com feirantes no posto (pregão) e fregueses de banca em banca (R2),
-	# e a Carroça da Colheita que vai da fazenda ao celeiro do portão sul e volta (R1; `flow` = não para nos pontos da estrada,
-	# ponto [x, z, s] = parada de s segundos). Praça aberta (2026-11-18): as bancas olham para o MEIO; postos dos feirantes = atrás do
-	# balcão, fora do anel (`keeper_posts` do JSON, raio 10,0) e os fregueses param na frente, dentro da praça (raio ~6,9).
+	# e a Carroça da Colheita que vai da fazenda ao celeiro (avenida sul) e volta (R1; `flow` = não para nos pontos da estrada,
+	# ponto [x, z, s] = parada de s segundos). Vila de bairros (2026-11-21): a feira é a rua do Mercado (avenida leste); postos dos
+	# feirantes = atrás do balcão (`keeper_posts` do JSON) e os fregueses param na frente (`front_posts`), do lado da avenida.
 	"city_aldara": {
 		"ald_carter": ["Carroceiro Dimas", Color(0.64, 0.5, 0.34), ["Trigo da fazenda pro celeiro, farinha do celeiro pra feira. A vila come porque a roda gira.", "O Ferdinando enche a carroça, o Juca esvazia. Eu e o Trovão só andamos."],
-			["Eia, Trovão!", "Trigo passando!", "Abre o portão sul!"], [-53.28, 71.04], [[-53.28, 71.04, 16], [-50.37, 72.75], [-44.37, 76.52], [-38.52, 79.97], [-33.29, 82.13], [-26.02, 82.22], [-19.85, 79.41], [-15.36, 74.65], [-11.07, 69.07], [-5.36, 66.4], [1.83, 66.95], [5.42, 67.22], [6.91, 60.38], [5.58, 54.06], [-0.23, 49.34], [-5.62, 44.52], [-5.51, 38.94], [-1.73, 32.97], [0, 30], [0, 25], [-2.6, 20.6], [-8, 19.2, 18], [-2.6, 20.6], [0, 25], [0, 30], [-1.73, 32.97], [-5.51, 38.94], [-5.62, 44.52], [-0.23, 49.34], [5.58, 54.06], [6.91, 60.38], [5.42, 67.22], [1.83, 66.95], [-5.36, 66.4], [-11.07, 69.07], [-15.36, 74.65], [-19.85, 79.41], [-26.02, 82.22], [-33.29, 82.13], [-38.52, 79.97], [-44.37, 76.52], [-50.37, 72.75]], {"carry": "cart_draft", "flow": true}],
+			["Eia, Trovão!", "Trigo passando!", "Abre o portão sul!"], [-53.28, 71.04], [[-53.28, 71.04, 16], [-50.37, 72.75], [-44.37, 76.52], [-38.52, 79.97], [-33.29, 82.13], [-26.02, 82.22], [-19.85, 79.41], [-15.36, 74.65], [-11.07, 69.07], [-5.36, 66.4], [1.83, 66.95], [5.42, 67.22], [6.91, 60.38], [5.58, 54.06], [-0.23, 49.34], [-5.62, 44.52], [-6.26, 41.53], [-5.88, 38.12], [-4.34, 34.78], [-2.17, 31.45], [-1.04, 27.86], [-2.0, 24.8], [-7.03, 23.87, 18], [-2.0, 24.8], [-1.04, 27.86], [-2.17, 31.45], [-4.34, 34.78], [-5.88, 38.12], [-6.26, 41.53], [-5.62, 44.52], [-0.23, 49.34], [5.58, 54.06], [6.91, 60.38], [5.42, 67.22], [1.83, 66.95], [-5.36, 66.4], [-11.07, 69.07], [-15.36, 74.65], [-19.85, 79.41], [-26.02, 82.22], [-33.29, 82.13], [-38.52, 79.97], [-44.37, 76.52], [-50.37, 72.75]], {"carry": "cart_draft", "flow": true}],
 		"ald_keeper_veg": ["Verdureira Zefa", Color(0.5, 0.68, 0.4), ["Cenoura, couve e nabo, tudo colhido hoje. O que o slime azul não comeu.", "Feira boa é feira cheia. Hoje está boa."],
-			["Olha a couve!", "Cenoura doce, freguesa!", "Colhido hoje cedo!"], [-3.83, 9.24], 0.0, {"stay": true, "facing": 157.5}],
+			["Olha a couve!", "Cenoura doce, freguesa!", "Colhido hoje cedo!"], [15.6, -4.81], 0.0, {"stay": true, "facing": -20.0}],
 		"ald_keeper_cheese": ["Queijeiro Malaquias", Color(0.9, 0.82, 0.55), ["Queijo curado três luas. Mais que isso e ele sai andando sozinho.", "Leite das cabras do vale. Brabas, as cabras. O queijo é manso."],
-			["Queijo curado!", "Prova, prova que é de graça!", "Meia roda por duas moedas!"], [-3.83, -9.24], 0.0, {"stay": true, "facing": 22.5}],
+			["Queijo curado!", "Prova, prova que é de graça!", "Meia roda por duas moedas!"], [26.8, -5.0], 0.0, {"stay": true, "facing": -20.0}],
 		"ald_keeper_fish": ["Peixeiro Tico", Color(0.45, 0.6, 0.74), ["Peixe do lago, pescado pela Nalu de madrugada. Caranguejo eu não vendo: eles vendem a gente.", "Fresco até o sol do meio-dia. Depois vira ensopado."],
-			["Peixe do lago!", "Fresquinho, fresquinho!", "Leva dois!"], [-9.24, -3.83], 0.0, {"stay": true, "facing": 67.5}],
+			["Peixe do lago!", "Fresquinho, fresquinho!", "Leva dois!"], [22.4, 7.53], 0.0, {"stay": true, "facing": 180.0}],
 		"ald_keeper_flowers": ["Florista Dora", Color(0.9, 0.6, 0.72), ["Flores do lago e mel da floresta. O Seu Augusto é meu melhor freguês, mas é segredo.", "Uma flor na lapela dá sorte na Campina. Dizem."],
-			["Olha o mel!", "Flores do lago!", "Um ramo pra dar sorte!"], [9.24, -3.83], 0.0, {"stay": true, "facing": -67.5}],
+			["Olha o mel!", "Flores do lago!", "Um ramo pra dar sorte!"], [28.0, 6.44], 0.0, {"stay": true, "facing": 180.0}],
 		"ald_shopper_a": ["Dona Marta", Color(0.72, 0.52, 0.46), ["Pão na Rosa, flor na Dora, e ainda falta a louça. Feira é assim: a gente vem por um e leva três.", "Você é dos que caçam na Campina? Então coma antes de ir."],
-			["Quanto é esse?", "Tá caro...", "Deixa eu ver esse aí."], [6.37, 2.64], [[6.37, 2.64], [6.37, -2.64], [-2.64, -6.37], [6.37, -2.64]], {}],
+			["Quanto é esse?", "Tá caro...", "Deixa eu ver esse aí."], [16.8, 4.41], [[16.8, 4.41], [24.6, -2.7], [20.1, -7.4], [24.6, -2.7]], {}],
 		"ald_shopper_b": ["Seu Jonas", Color(0.5, 0.52, 0.6), ["Venho buscar água e saio com um queijo. Todo dia. O Malaquias sabe vender.", "O poço é mais velho que a muralha, sabia?"],
-			["Bom dia, Zefa!", "Enche o balde...", "Me vê meia roda."], [-2.64, 6.37], [[-2.64, 6.37], [-4.9, 4.9], [-6.37, -2.64], [-4.9, 4.9]], {}],
+			["Bom dia, Zefa!", "Enche o balde...", "Me vê meia roda."], [13.4, -2.51], [[13.4, -2.51], [22.4, 4.13], [28.0, 3.04], [22.4, 4.13]], {}],
 		"ald_shopper_c": ["Moça Lina", Color(0.86, 0.7, 0.5), ["Minha mãe mandou comprar peixe e pano. O troco é meu, ela disse. Não vai sobrar troco.", "A balança do trigo não mente. O Ancião confere toda lua."],
-			["Esse pano é bonito.", "Peixe pra hoje!", "Ai, que cheiro bom."], [-6.37, -2.64], [[-6.37, -2.64], [-2.64, -6.37], [6.37, -2.64], [-2.64, -6.37]], {}],
+			["Esse pano é bonito.", "Peixe pra hoje!", "Ai, que cheiro bom."], [22.4, 4.13], [[22.4, 4.13], [16.8, 4.41], [13.4, -2.51], [16.8, 4.41]], {}],
 		"ald_shopper_d": ["Velho Honório", Color(0.58, 0.56, 0.5), ["Setenta feiras do trigo eu já vi. Esta é a mais cheia desde a seca.", "No meu tempo a mó girava. Agora só pesa. Pesa bem."],
-			["Hum... e o pão?", "Devagar, devagar.", "Tobias, e a minha encomenda?"], [-2.64, 6.37], [[-2.64, 6.37], [3.9, 4.6], [6.37, 2.64], [3.9, 4.6]], {}],
+			["Hum... e o pão?", "Devagar, devagar.", "Tobias, e a minha encomenda?"], [20.1, -7.4], [[20.1, -7.4], [28.0, 3.04], [16.8, 4.41], [28.0, 3.04]], {}],
 	},
 	"city_port": {
 		"port_vil_docker_a": ["Estivador Ramiro", Color(0.62, 0.46, 0.34), ["Do navio pro mercado, do mercado pro navio. O mar não descansa, eu também não.", "Caixa com furo é da Celina. Caixa inteira é do Jonas. Não troque."],
@@ -1319,6 +1323,7 @@ const BARKS := {
 	"port_merchant": ["Poção nova do último navio!", "Ataduras, ataduras!"],
 	"port_vil_builder": ["Mais uma estaca!", "Segura firme aí!", "Faltam trezentas..."],
 	"port_vil_fisher": ["Peixe bravo, esse!", "Devolve minha rede, naga!"],
+	"beach_fisher": ["Olha a pinça!", "Casco bom, eu compro!", "Maré cheia, rede vazia..."],
 	"port_vil_kid": ["Eu vi um goblin!", "Corre, Belinha!"],
 	"port_vil_nurse": ["Próximo!", "Morde a tira e aguenta."],
 	"port_vil_porter": ["Caixa pro mercado!", "Minhas costas..."],
@@ -1731,9 +1736,9 @@ static func load_zone(id: String) -> Dictionary:
 		"roads": roads, "water": water, "water_tints": water_tints, "model": "map_" + id, "places": places, "road_events": road_events}
 
 ## Bonecos de treino (monstro `training_dummy`, MonsterDef.dummy): [x, z] por mapa, um spawner fixo (raio 0) por boneco.
-## Aldara: entre o portão oeste e o rio, ao sul da estrada da ponte.
+## Aldara: no pátio de treino do Quartel, ao norte da praça (`dummies` do town.centerpiece do JSON; há check).
 const TRAINING_DUMMIES := {
-	"city_aldara": [[-38.5, -8.0], [-42.0, -9.6], [-45.5, -11.2]],
+	"city_aldara": [[-7.6, -20.3], [-10.4, -22.7], [-12.4, -19.7]],
 }
 
 static func training_dummies(map_id: String) -> Array:
@@ -1804,6 +1809,31 @@ static func _hollow() -> MapDef:
 		"id": "field_hollow", "name": "Mata dos Zumbidos", "is_town": false, "level_range": Vector2i(4, 8),
 		"ground_color": Color(0.3, 0.45, 0.29), "ground_color_alt": Color(0.27, 0.41, 0.26), "ambient": Color(0.78, 0.86, 0.74), "sun_energy": 0.95,
 		"bot_population": 3, "npcs": npcs,
+	})
+	return _mk(z)
+
+# ---------------------------------------------------------------------------
+## Praia dos Caranguejos (3-8, área de farm ao sul do Vale): tools/blender/zones/build_field_crab_beach.py. Enseada com a baía a
+## oeste; chegada e rancho do Pescador Joca na ponta norte (sem muro nem cristal), Recife do Rei na ponta sul (o Caranguejo-Rei
+## sai do mar: spawner com `emerge`). Matilhas de `crab`, `crab_hermit` e `crab_sand` pela praia e pelas dunas (contagens no build).
+const BEACH_NPCS := {
+	"beach_fisher": ["Pescador Joca", "quest", Color(0.36, 0.56, 0.7), ["Trinta anos de rede e nunca vi tanta pinça numa praia só. Bom pra você, ruim pro meu píer.",
+		"Casco de caranguejo dá o melhor peso de rede que existe. Traga os que achar, eu pago sempre.",
+		"O grandão sai do mar lá na ponta sul, onde ficam as costelas do bicho velho. Não vá sozinho."]],
+}
+
+static func _crab_beach() -> MapDef:
+	var z := load_zone("field_crab_beach")
+	var npcs: Array = []
+	for nid in BEACH_NPCS:
+		var n: Array = BEACH_NPCS[nid]
+		var p: Array = z["npc_pos"].get(nid, [0.0, 0.0, 180.0])
+		npcs.append(_npc(nid, n[0], float(p[0]), float(p[1]), n[1], n[2], n[3], float(p[2])))
+	z.erase("npc_pos")
+	z.merge({
+		"id": "field_crab_beach", "name": "Praia dos Caranguejos", "is_town": false, "level_range": Vector2i(3, 8),
+		"ground_color": Color(0.7, 0.71, 0.46), "ground_color_alt": Color(0.65, 0.67, 0.43), "ambient": Color(0.96, 0.96, 0.92), "sun_energy": 1.2,     # capim de duna, luz de praia
+		"bot_population": 2, "npcs": npcs,
 	})
 	return _mk(z)
 

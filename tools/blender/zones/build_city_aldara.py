@@ -31,12 +31,13 @@ ZONE = "city_aldara"
 P = "Z_%s_" % ZONE
 ROOT = zone_lib.ROOT          # RAGNAEX_ROOT (worktree) ou o projeto
 SIZE = 300.0                  # vale ~20% maior (places.grow_aldara): era 260
-TOWN_R = 30.0                 # raio da muralha
+TOWN_R = 42.0                 # raio da muralha (2026-11-21: era 30; a vila ganhou bairros, o vale lá fora não mudou)
+OLD_TOWN_R = 30.0             # o raio antigo: o sorteio da vegetação e os pontos de evento continuam a ser feitos com ele
 GATE_HALF = 4.0               # meia largura do portão (m)
-GATES = {"N": (0.0, -TOWN_R), "E": (TOWN_R, 0.0), "S": (0.0, TOWN_R), "W": (-TOWN_R, 0.0)}
+GATE_ROADS = ("N", "E", "S", "W")      # cada portão fica onde a estrada de sempre cruza a muralha nova (as estradas não mudaram)
 ROAD_W = 4.2
 G = places.grow_aldara         # (x, z) do layout antigo -> vale crescido (a vila fica igual)
-LAKE = (G((6.0, 80.0)), 16.0)          # lago maior: margem sul vira a Praia dos Caranguejos
+LAKE = (G((6.0, 80.0)), 16.0)          # lago maior; na margem sul, a garganta da Praia dos Caranguejos (field_crab_beach)
 CASTLE = (G((47.0, -51.0)), 13.0)      # afastado 3 m: as três estradas param no pé da colina, não dentro
 
 # POIs (centro, nome) — a 60–120 m do hub
@@ -47,15 +48,20 @@ POIS = {k: G(v) for k, v in {
     "clareira": (-84.0, 24.0),
     "fazenda": (-58.0, 64.0),
 }.items()}
-POIS["praia"] = (LAKE[0][0], LAKE[0][1] + LAKE[1] + 7.0)      # margem sul do lago: caranguejos e o Caranguejo-Rei
+POIS["praia"] = (LAKE[0][0], LAKE[0][1] + LAKE[1] + 7.0)      # margem sul do lago: areal na boca da garganta da Praia (os caranguejos e o Rei mudaram para field_crab_beach em 2026-11-21)
 PORTALS = {
     "to_forest": {"pos": G((104.0, -34.0)), "target_map": "field_forest", "target_pos": (-106.5, 9.3), "label": "Floresta (Lv 10-20)"},
     "to_ruins": {"pos": G((-104.0, -32.0)), "target_map": "field_ruins", "target_pos": (99.5, -5.2), "label": "Ruínas (Lv 20-30)"},
     # garganta sul-sudoeste (rumo 206 graus), depois da fazenda e do marco: Mata dos Zumbidos (build_field_hollow)
     "to_field_hollow": {"pos": (-54.8, 112.4), "target_map": "field_hollow", "target_pos": (33.6, -75.5), "label": "Mata dos Zumbidos (Lv 4-8)"},
+    # garganta sul (rumo 177 graus), atrás do areal da margem sul do lago: Praia dos Caranguejos (build_field_crab_beach)
+    "to_field_crab_beach": {"pos": (6.9, 121.2), "target_map": "field_crab_beach", "target_pos": (-20.9, -77.9), "label": "Praia dos Caranguejos (Lv 3-8)"},
 }
 HOLLOW_ARRIVE = (-51.5, 105.6)     # onde chega quem volta da Mata (= build_field_hollow.ALDARA_ARRIVE)
-# estradas (game x,z) — catmull-rom, nunca reta
+BEACH_ARRIVE = (6.7, 113.2)        # onde chega quem volta da Praia (= build_field_crab_beach.ALDARA_ARRIVE)
+# estradas (game x,z) — catmull-rom, nunca reta. O primeiro ponto das quatro primeiras é o portão ANTIGO (raio 30): a
+# polilinha inteira continua a ser a que a vegetação, os lugares e os eventos enxergam (o JSON de fora da muralha sai igual
+# ao de antes); a estrada de verdade começa no portão novo, que fica onde ela cruza o raio TOWN_R.
 ROADS_BASE = [
     ("N", [(0, -30), (5, -44), (-6, -58), (-3, -72)]),
     ("E", [(30, 0), (46, -7), (60, 6), (74, 10), (88, -4), (98, -22), (104, -34)]),
@@ -73,9 +79,11 @@ ROADS = [(n, [G(q) for q in pts]) for n, pts in ROADS_BASE]
 # LATE = o que entrou depois do sorteio da vegetação estar aprovado: a dispersão, os lugares (places) e os pontos de evento são
 # calculados SEM estes nomes (o JSON sai igual ao de antes, fora o que é novo) e o passe de estradas do fim limpa o caminho.
 ROADS.append(("mata", [G((-48.0, 64.0)), (-47.7, 77.1), (-44.4, 82.6), (-45.6, 90.0), (-49.0, 97.5), HOLLOW_ARRIVE, PORTALS["to_field_hollow"]["pos"]]))
-LATE_ROADS = ("mata",)
-LATE_PORTALS = ("to_field_hollow",)
-LATE_SPOTS = [(HOLLOW_ARRIVE, 5.0), (PORTALS["to_field_hollow"]["pos"], 7.0)]      # (centro, raio) sem árvore/pedra/moita
+# trilha da Praia: sai da trilha da eremita (a leste do lago), contorna a margem leste e cruza o areal até a garganta sul
+ROADS.append(("praia", [(32.16, 79.32), (29.0, 86.0), (26.8, 93.0), (22.5, 100.5), (15.5, 108.5), BEACH_ARRIVE, PORTALS["to_field_crab_beach"]["pos"]]))
+LATE_ROADS = ("mata", "praia")
+LATE_PORTALS = ("to_field_hollow", "to_field_crab_beach")
+LATE_SPOTS = [(HOLLOW_ARRIVE, 5.0), (PORTALS["to_field_hollow"]["pos"], 7.0), (BEACH_ARRIVE, 5.0), (PORTALS["to_field_crab_beach"]["pos"], 7.0)]      # (centro, raio) sem árvore/pedra/moita
 RIVER = [G(q) for q in [(-70, -122), (-64, -86), (-57, -46), (-52, -8), (-48, 30), (-30, 60), (-8, 74)]]
 RIVER_W = 7.0
 PLACES = [
@@ -86,16 +94,71 @@ PLACES = [
     {"type": "dungeon", "id": "gruta", "dungeon": "dg_gruta"},
     {"type": "dungeon", "id": "catacumbas", "dungeon": "dg_catacumbas"},
 ]
+# os dois morros que ficavam a 36-43 m do centro (dentro da muralha nova) saíram do mapa; a vegetação ainda desvia do
+# lugar deles (HILLS_GONE: o sorteio é o de antes)
+HILLS_GONE = (G((28.0, -22.0)), G((-24.0, 34.0)))
 HILLS = [(G(c), r, n) for c, r, n in [((-24.0, -86.0), 8.0, 2), ((14.0, -100.0), 7.0, 2), ((-50.0, -100.0), 9.0, 3),   # (centro, raio, patamares)
          # patamares baixos pela campina (relevo visto de cima; longe de estradas, rio e spawners)
-         ((28.0, -22.0), 7.0, 2), ((-24.0, 34.0), 7.0, 2), ((56.0, 44.0), 8.0, 2), ((-74.0, -34.0), 7.0, 2),
+         ((56.0, 44.0), 8.0, 2), ((-74.0, -34.0), 7.0, 2),
          ((74.0, -64.0), 8.0, 2), ((-32.0, 96.0), 7.0, 1), ((30.0, 40.0), 6.0, 1)]]
 TOWER_RUIN = G((-30.0, -100.0))
-# Cidade com identidade (GDD living-towns): lotes do anel externo que viraram pátio (quadrante, desvio em graus) e o
-# quadrante da casa do anel interno que virou o Pátio da Forja (NE)
-OPEN_LOTS = {(1, -29.0), (1, -10.0), (3, -29.0)}      # celeiro + cercado (S, a oeste do portão) e Pátio do Fundador (N)
-FORGE_Q = 3
-MERCHANT_AT = (2.41, 5.82)       # Tobias na frente da banca dele (a de 67,5 graus), do lado do freguês = dentro da praça (town_dress.FAIR_R - FAIR_FRONT: longe do toldo, que de frente para a câmera o escondia)
+# ---------------------------------------------------------------------------------------------------------------------
+# A VILA (2026-11-21, "cidade de verdade"): praça da Balança do Trigo no meio, quatro avenidas curvas até os portões, a Rua da
+# Ronda (anel) e um bairro por lado: Quartel e pátio de treino (N), Mercado (L), casas, Taverna e celeiro (S), Ofícios (O).
+# Cada NPC de serviço atende do lado de FORA, na porta/balcão do prédio dele. Tudo em metros do jogo (x, z), -z = norte.
+# rot = giro Y do jogo; a frente (porta) aponta para (sin rot, cos rot): 0 = sul (para a câmera), 90 = leste, -90 = oeste.
+# ---------------------------------------------------------------------------------------------------------------------
+PLAZA_R = 11.0
+RING_R = 30.0                 # Rua da Ronda
+AVENUES = {                   # da boca da praça para fora; o build acrescenta a chegada ao portão e o portão
+    "N": [(0.0, -9.0), (1.6, -19.0), (1.2, -29.0)],
+    "E": [(9.0, 0.0), (19.0, 1.2), (29.0, -0.6)],
+    "S": [(0.0, 9.0), (-1.6, 19.0), (-1.2, 29.0)],
+    "W": [(-9.0, 0.0), (-19.0, 1.6), (-29.0, 1.2)],
+}
+AVENUE_W = 4.6
+RING_W = 3.4
+
+
+def polar(deg, r):
+    return (round(math.cos(math.radians(deg)) * r, 2), round(math.sin(math.radians(deg)) * r, 2))
+
+
+def facing_center(p):
+    return round(math.degrees(math.atan2(-p[0], -p[1])), 1)
+
+
+C_WALL = (0.86, 0.8, 0.68)
+C_STONE = (0.8, 0.79, 0.76)
+# id -> pos, tamanho (largura, altura, fundo), rot (None = de frente para a praça), parede, telhado
+BUILDINGS = {
+    # --- praça / norte ---
+    "elder": {"pos": (9.6, -18.8), "size": (6.2, 3.6, 5.6), "rot": -12.0, "wall": (0.88, 0.83, 0.72), "roof": (0.55, 0.45, 0.65)},
+    "quartel": {"pos": polar(-101.0, 36.0), "size": (8.6, 4.2, 5.4), "rot": None, "wall": C_STONE, "roof": (0.36, 0.46, 0.66)},
+    # --- mercado (leste) ---
+    "tobias": {"pos": (18.5, -14.3), "size": (7.0, 3.6, 5.4), "rot": 0.0, "wall": (0.9, 0.84, 0.68), "roof": (0.88, 0.66, 0.3)},
+    "relic": {"pos": polar(-33.0, 36.0), "size": (6.0, 4.0, 5.2), "rot": None, "wall": (0.92, 0.9, 0.84), "roof": (0.32, 0.58, 0.62)},
+    "armazem": {"pos": polar(11.0, 35.6), "size": (7.4, 3.8, 5.2), "rot": None, "wall": (0.74, 0.62, 0.46), "roof": (0.56, 0.42, 0.3)},
+    # --- sul: taverna e casas ---
+    "tavern": {"pos": (10.2, 20.3), "size": (8.5, 4.2, 6.4), "rot": -65.0, "wall": (0.88, 0.8, 0.66), "roof": (0.7, 0.36, 0.3)},
+    # --- ofícios (oeste) ---
+    "smithy": {"pos": (-20.5, -11.8), "size": (6.6, 3.8, 5.6), "rot": 0.0, "wall": (0.74, 0.72, 0.7), "roof": (0.36, 0.38, 0.46)},
+    "botica": {"pos": (-21.5, 9.5), "size": (6.4, 3.6, 5.4), "rot": 75.0, "wall": (0.86, 0.86, 0.74), "roof": (0.42, 0.62, 0.45)},
+    "home": {"pos": polar(191.0, 35.6), "size": (6.2, 3.4, 5.0), "rot": None, "wall": C_WALL, "roof": (0.8, 0.55, 0.3)},
+}
+# casas de morar: (ângulo do lote, largura, telhado). Sul = bairro residencial (telhados de barro); o resto, poucas.
+ROOFS_HOME = [(0.78, 0.45, 0.36), (0.8, 0.56, 0.36), (0.72, 0.5, 0.42), (0.82, 0.62, 0.42)]
+HOMES = [(31.0, 5.8), (45.0, 6.4), (59.0, 5.8), (76.0, 5.6), (121.0, 5.8), (135.0, 6.4), (149.0, 5.8),      # SE, S, SO
+         (213.0, 5.8), (236.0, 5.8)]                                                                          # NO
+HOME_R = 35.8
+YARD = (-9.8, -20.5, 5.5)         # pátio de treino (centro, raio): bonecos de MapsCatalog.TRAINING_DUMMIES, Mestra de Skills na beira
+PEN = (-15.6, 16.4, 2.5)          # cercado das galinhas (MapsCatalog.AMBIENT_LIFE)
+BARN = (-11.5, 20.5, 233.0)       # celeiro (centro, giro: a porta olha para a avenida sul)
+FOUNDER = polar(-50.0, 35.8)      # Pátio do Fundador, a nordeste (entre a Casa do Ancião e a Relicária)
+WELL_GARDEN = (20.0, 15.0)        # Jardim do Poço (canto sudeste do miolo)
+# bancas do mercado, ao longo da avenida leste: (x, lado: -1 norte / +1 sul, mercadoria). A do Tobias é o balcão da loja dele.
+STALLS = [(13.4, -1, 2), (24.6, -1, 3), (16.8, 1, 0), (22.4, 1, 4), (28.0, 1, 7)]
+STALL_OFF = 5.3               # distância do balcão ao eixo da avenida
 # Pontos de evento de estrada: (tipo, estrada, fração do comprimento, desvio lateral m, monstro). E1 "Lobos no Lavrador":
 # colinas do norte e estrada da fazenda. Viram SPAWN_event_<tipo>_NN e data["events"]; MapsCatalog.ROAD_EVENTS dá as regras.
 EVENT_POINTS = [
@@ -365,6 +428,8 @@ def build(export=False):
             "town": {"center": [0.0, 0.0], "radius": TOWN_R, "gates": []},
             "obstacles": [], "portals": [], "spawners": [], "npcs": {}, "hangouts": [], "roads": [], "water": []}
     obs = data["obstacles"]
+    town_obs = []                 # tudo que é da vila: entra na frente de `obs` no fim (a vegetação não o enxerga, como antes)
+    sink = [obs]
 
     def ob(kind, x, z, size, rot=0.0, visible=True, solid=True, color=None, roof=None, y=None, when=None, stage_solid=False):
         d = {"kind": kind, "pos": [round(x, 2), round(z, 2)], "size": [round(s, 2) for s in size], "rot": round(rot, 1),
@@ -378,14 +443,28 @@ def build(export=False):
             d["color"] = list(color)
         if roof:
             d["roof"] = list(roof)
-        obs.append(d)
+        sink[0].append(d)
 
     # ---------- estradas e rio (polilinhas) ----------
+    # legacy_polys = as polilinhas de antes da muralha crescer (saem do portão antigo, raio 30): é com elas que a vegetação,
+    # os lugares e os pontos de evento são sorteados. road_polys = as estradas de verdade (malha, JSON, limpeza do caminho).
+    legacy_polys = {name: catmull(pts, 1.6) for name, pts in ROADS}
     road_polys = {}
+
+    gates = {}                # nome -> (ponto na muralha, direção para fora)
+    for name, legacy in legacy_polys.items():
+        if name not in GATE_ROADS:
+            road_polys[name] = legacy
+            continue
+        i0 = next(i for i, q in enumerate(legacy) if q.length > TOWN_R)
+        a_, b_ = legacy[i0 - 1], legacy[i0]
+        g = a_.lerp(b_, (TOWN_R - a_.length) / (b_.length - a_.length))
+        g = g.normalized() * TOWN_R
+        gates[name] = (g, (b_ - a_).normalized())
+        # os pontos que vão para o JSON são um sim, um não (poly[::2]): a parte de fora continua caindo nos mesmos
+        road_polys[name] = [g] + legacy[i0 + (1 - i0 % 2):]
     late_roads = []          # entram no fim de data["roads"] (a ordem das antigas não muda)
-    for name, pts in ROADS:
-        poly = catmull(pts, 1.6)
-        road_polys[name] = poly
+    for name, poly in road_polys.items():
         end = poly[-1]
         to_portal = any((end - Vector(pp["pos"])).length <= 6 for pp in PORTALS.values())
         shape = None
@@ -429,28 +508,66 @@ def build(export=False):
     data["bridges"] = []
     zone_lib.build_bridges(ZONE, coll, P, road_polys, [river], [RIVER_W], M["wood"], data["bridges"])
 
-    # ---------- vila murada (hub) ----------
-    disc(coll, P + "praca", (0, 0), 9.5, 0.014, M["street"], 40)
-    disc(coll, P + "chao_vila", (0, 0), TOWN_R - 0.5, 0.006, M["street"], 64)
-    data["roads"].append({"kind": "street", "w": 0, "pts": [[0, 0]], "r": TOWN_R})
+    # ======================================================================================
+    # VILA MURADA (hub): praça, avenidas, Rua da Ronda, muralha, prédios dos bairros
+    # ======================================================================================
+    sink[0] = town_obs
+
+    def oval(name, c, rx, rz, rot, color, paved=False, y=0.010, jitter=0.07):
+        """Mancha de bairro (material pave_*/patch_*: no jogo vira calçamento ou chão pintado nessa cor)."""
+        m = mat(("pave_" if paved else "patch_") + name, color)
+        rnd_ = random.Random(len(name) * 31 + int(abs(c[0]) * 7))
+        ph = [rnd_.uniform(0, math.tau) for _ in range(3)]
+        bm = bmesh.new()
+        a_ = math.radians(rot)
+        cv = bm.verts.new(B(c[0], c[1], y))
+        ring = []
+        segs = 44
+        for i in range(segs):
+            t = math.tau * i / segs
+            k = 1.0 + jitter * (0.6 * math.sin(3 * t + ph[0]) + 0.3 * math.sin(5 * t + ph[1]) + 0.18 * math.sin(8 * t + ph[2]))
+            ux, uz = math.cos(t) * rx * k, math.sin(t) * rz * k
+            ring.append(bm.verts.new(B(c[0] + ux * math.cos(a_) + uz * math.sin(a_), c[1] - ux * math.sin(a_) + uz * math.cos(a_), y)))
+        for i in range(segs):
+            bm.faces.new((cv, ring[i], ring[(i + 1) % segs]))
+        bm.normal_update()
+        for f in bm.faces:
+            if f.normal.z < 0:
+                f.normal_flip()
+        obj(coll, P + "chao_" + name, bm, m)
+
+    # chão: relvado dentro da muralha (as ruas de pedra se leem por contraste), praça e ruas calçadas
+    disc(coll, P + "chao_vila", (0, 0), TOWN_R - 0.6, 0.006, mat("patch_vila_relva", (0.5, 0.67, 0.4)), 72)
+    disc(coll, P + "praca", (0, 0), PLAZA_R, 0.014, M["street"], 48)
+    data["roads"].append({"kind": "street", "w": 0, "pts": [[0, 0]], "r": PLAZA_R})
+    avenues = {}
     gate_angles = []
-    for gname, (gx, gz) in GATES.items():
-        ga = math.atan2(gz, gx)
-        gate_angles.append(ga)
-        data["town"]["gates"].append([gx, gz])
-        # rua radial praça -> portão
-        poly = [Vector((math.cos(ga) * 9, math.sin(ga) * 9)), Vector((gx * 1.12, gz * 1.12))]
-        poly = [poly[0].lerp(poly[1], t / 10) for t in range(11)]
-        ribbon(coll, P + "rua_" + gname, poly, 4.6, 0.016, M["street"])
-    # anel de rua dentro da muralha
-    ring_poly = [Vector((math.cos(math.tau * i / 64) * 19, math.sin(math.tau * i / 64) * 19)) for i in range(65)]
-    ribbon(coll, P + "rua_anel", ring_poly, 3.6, 0.016, M["street"])
+    for gname, (g, gdir) in gates.items():
+        gate_angles.append(math.atan2(g.y, g.x))
+        data["town"]["gates"].append([round(g.x, 2), round(g.y, 2)])
+        ctrl = AVENUES[gname] + [tuple(g - gdir * 4.5 - g.normalized() * 0.4), tuple(g), tuple(g + gdir * 4.5)]
+        poly = catmull(ctrl, 1.2)
+        avenues[gname] = poly
+        ribbon(coll, P + "rua_" + gname, poly, AVENUE_W, 0.016, M["street"])
+        inside = [q for q in poly if q.length <= TOWN_R + 0.01]
+        data["roads"].append({"kind": "street", "w": AVENUE_W, "pts": [[round(q.x, 2), round(q.y, 2)] for q in inside[::3] + [inside[-1]]]})
+    ring_poly = [Vector((math.cos(math.tau * i / 96) * RING_R, math.sin(math.tau * i / 96) * RING_R)) for i in range(97)]
+    # só a MALHA da ronda ondula e abre em largos (bocas das avenidas, frente do Quartel, da Relicária e do Armazém): de cima
+    # um anel de compasso lia-se como pista; a polilinha do JSON continua o círculo
+    wide = gate_angles + [math.atan2(BUILDINGS[k]["pos"][1], BUILDINGS[k]["pos"][0]) for k in ("quartel", "relic", "armazem", "home")]
+
+    def ring_shape(i):
+        a = math.tau * i / 96
+        bump = max(math.exp(-((((a - w + math.pi) % math.tau) - math.pi) / 0.16) ** 2) for w in wide)
+        return 0.35 * math.sin(3 * a + 1.0) + 0.2 * math.sin(7 * a), 1.0 + 0.45 * bump + 0.08 * math.sin(5 * a + 2.0)
+    ribbon(coll, P + "rua_anel", ring_poly, RING_W, 0.016, M["street"], ring_shape)
+    data["roads"].append({"kind": "street", "w": RING_W, "pts": [[round(q.x, 2), round(q.y, 2)] for q in ring_poly[::3]]})
 
     def near_gate(a):
         return min(abs((a - g + math.pi) % math.tau - math.pi) for g in gate_angles) * TOWN_R < GATE_HALF + 0.5
 
     # muralha: segmentos + ameias, torres, portões
-    nseg = 72
+    nseg = 96
     for i in range(nseg):
         a0 = math.tau * i / nseg
         a1 = math.tau * (i + 1) / nseg
@@ -471,7 +588,8 @@ def build(export=False):
         cyl(coll, P + "torre_borda_%d" % k, c, 2.9, 2.9, 0.6, M["wall_d"], 6.5, 12)
         cone(coll, P + "torre_teto_%d" % k, c, 3.1, 3.2, M["roof"], 7.1, 12)
         ob("pillar", c[0], c[1], (5.2, 6.5, 5.2), visible=False)
-    for gname, (gx, gz) in GATES.items():
+    for gname, (g, gdir) in gates.items():
+        gx, gz = g.x, g.y
         ga = math.atan2(gz, gx)
         side = Vector((-math.sin(ga), math.cos(ga)))
         for s in (-1, 1):
@@ -481,47 +599,105 @@ def build(export=False):
             ob("pillar", c[0], c[1], (4.0, 7.5, 4.0), visible=False)
         rot = along(side.x, side.y)
         box(coll, P + "portao_arco_" + gname, (gx, gz), (2 * GATE_HALF + 2.0, 1.1, 1.8), rot, M["wall_d"], 5.2)
-        box(coll, P + "estandarte_" + gname, (gx * 1.04, gz * 1.04), (1.4, 2.2, 0.08), rot, M["banner"], 3.0)
+        box(coll, P + "estandarte_" + gname, (gx * 1.03, gz * 1.03), (1.4, 2.2, 0.08), rot, M["banner"], 3.0)
 
-    # casas: anel externo (entre a rua do anel e a muralha, 4 por quadrante) + anel interno (diagonais),
-    # todas de frente pra praça; ruas radiais e o anel ficam livres
-    roofs = [(0.78, 0.4, 0.33), (0.45, 0.55, 0.72), (0.8, 0.55, 0.3), (0.5, 0.62, 0.45), (0.55, 0.45, 0.65)]
-    k = 0
-    for q in range(4):
-        for off in (-29.0, -10.0, 10.0, 29.0):
-            if (q, off) in OPEN_LOTS:
-                k += 1                     # o lote vazio gasta a vez dele: as outras casas ficam com o mesmo telhado
-                continue
-            a = math.radians(45 + 90 * q + off)
-            r = 25.0
-            x, z = math.cos(a) * r, math.sin(a) * r
-            rot = math.degrees(math.atan2(-x, -z))      # frente (+z do modelo) apontando pra praça
-            w = 5.6 if abs(off) > 20 else 6.4
-            ob("house", x, z, (w, 3.2 + (k % 3) * 0.3, 5.2), rot, color=(0.86, 0.8, 0.68), roof=roofs[k % len(roofs)])
-            k += 1
-        if q == FORGE_Q:
-            continue                       # NE: o Pátio da Forja do Brom fica no lugar desta casa
-        a = math.radians(45 + 90 * q)
-        x, z = math.cos(a) * 14.0, math.sin(a) * 14.0
-        ob("house", x, z, (5.0, 2.8, 4.2), math.degrees(math.atan2(-x, -z)), color=(0.88, 0.83, 0.72), roof=roofs[(q + 2) % len(roofs)])
-    # praça = Feira do Trigo (GDD living-towns): mó/balança no centro, 6 toldos na borda virados para o meio, 2 carroças; pátio da forja a NE,
-    # celeiro e cercado ao S, Pátio do Fundador ao N. Chafariz e estátua do centro saíram.
-    centerpiece = town_dress.aldara(town_dress.shim(ZONE, P, coll, data, ob, rim_r, road_polys, [river], RIVER_W))
+    # prédios dos bairros (cada um com parede e telhado próprios: o bairro se lê de cima pela cor) e casas de morar
+    town = {"buildings": {}, "homes": [], "avenues": avenues}
+    for bid, b in BUILDINGS.items():
+        rot = facing_center(b["pos"]) if b["rot"] is None else b["rot"]
+        ob("house", b["pos"][0], b["pos"][1], b["size"], rot, color=b["wall"], roof=b["roof"])
+        town["buildings"][bid] = {"pos": b["pos"], "size": b["size"], "rot": rot}
+    for k, (deg, w) in enumerate(HOMES):
+        hp = polar(deg, HOME_R)
+        rot = facing_center(hp)
+        ob("house", hp[0], hp[1], (w, 3.2 + (k % 3) * 0.3, 5.0), rot, color=C_WALL, roof=ROOFS_HOME[k % len(ROOFS_HOME)])
+        town["homes"].append((hp, rot, w))
+
+    def spot(bid, right, out):
+        """Ponto diante do prédio `bid`: `right` m para a direita de quem olha da porta para fora, `out` m da parede da frente."""
+        b = town["buildings"][bid]
+        a_ = math.radians(b["rot"])
+        d_ = b["size"][2] * 0.5 + out
+        return (round(b["pos"][0] + math.cos(a_) * right + math.sin(a_) * d_, 2), round(b["pos"][1] - math.sin(a_) * right + math.cos(a_) * d_, 2))
+    town["spot"] = spot
+
+    # chão dos bairros (acima do relvado 6 mm, abaixo da praça 14 mm e das ruas 16 mm; os lotes do town_dress ficam em 17+)
+    oval("mercado", (20.6, 0.2), 11.6, 8.8, 0.0, (0.84, 0.75, 0.52))
+    oval("mercado_loja", (19.0, -10.2), 6.2, 3.4, 0.0, (0.84, 0.75, 0.52), y=0.0104)
+    oval("forja", (-18.2, -8.6), 8.4, 6.4, 0.0, (0.5, 0.49, 0.5), paved=True)
+    oval("botica", (-17.6, 8.6), 4.6, 4.4, 0.0, (0.72, 0.76, 0.64), paved=True)
+    oval("treino", YARD[:2], YARD[2] + 0.4, YARD[2] + 0.4, 0.0, (0.72, 0.6, 0.44), jitter=0.04)
+    oval("quartel", spot("quartel", 0.0, 2.2), 6.0, 2.6, town["buildings"]["quartel"]["rot"], (0.66, 0.66, 0.7), paved=True)
+    oval("taverna", spot("tavern", 0.0, 2.6), 5.0, 3.0, town["buildings"]["tavern"]["rot"], (0.76, 0.64, 0.46))
+    oval("anciao", spot("elder", 0.0, 1.6), 4.4, 2.2, town["buildings"]["elder"]["rot"], (0.8, 0.77, 0.7), paved=True)
+    oval("fundador", FOUNDER, 4.4, 4.0, 0.0, (0.82, 0.79, 0.72), paved=True, jitter=0.04)
+    oval("reliquia", spot("relic", 0.0, 1.8), 4.2, 2.2, town["buildings"]["relic"]["rot"], (0.78, 0.76, 0.84), paved=True)
+    oval("armazem", spot("armazem", 0.0, 1.8), 4.8, 2.2, town["buildings"]["armazem"]["rot"], (0.74, 0.66, 0.5))
+
+    # praça da Balança do Trigo, mercado, forja, botica, quartel, taverna, celeiro, jardins: lotes do town_dress (cor no vértice)
+    lay = {"yard": YARD, "pen": PEN, "barn": BARN, "founder": FOUNDER, "well": WELL_GARDEN, "stalls": STALLS,
+           "stall_off": STALL_OFF, "plaza_r": PLAZA_R, "ring_r": RING_R, "ring_w": RING_W, "avenue_w": AVENUE_W, "town_r": TOWN_R}
+    lay.update(town)
+    lay["gates"] = {k: (tuple(g), tuple(gd_)) for k, (g, gd_) in gates.items()}
+    centerpiece = town_dress.aldara(town_dress.shim(ZONE, P, coll, data, ob, rim_r, road_polys, [river], RIVER_W), lay)
     data["town"]["centerpiece"] = centerpiece
-    fdx, fdz = centerpiece["founder"]
-    ob("well", fdx - 3.0, fdz - 1.6, (1.6, 1.4, 1.6))      # o poço foi para o Pátio do Fundador (na praça ele estrangulava a passagem junto das casas)
-    for s_ in (-1, 1):                 # bancos e lampiões do Pátio do Fundador
-        ob("bench", fdx + 2.6 * s_, fdz + 1.2, (1.6, 0.5, 0.5), 90.0 - 25.0 * s_, solid=False)
-    ob("lamp", fdx + 3.1, fdz - 2.4, (0.4, 3.0, 0.4))
-    ob("flowers", fdx + 2.4, fdz - 1.9, (1.6, 0.45, 1.6), solid=False, color=(0.92, 0.8, 0.4))
-    for gname, (gx, gz) in GATES.items():
-        ga = math.atan2(gz, gx)
-        side = Vector((-math.sin(ga), math.cos(ga))) * 3.2
-        for f in (0.45, 0.8):
-            for sg in (1, -1):
-                lp = Vector((gx * f + side.x * sg, gz * f + side.y * sg))
-                if all((lp - Vector(c[:2])).length > 3.4 for c in centerpiece["carts"]):      # a carroça parada fica no lugar do lampião
-                    ob("lamp", lp.x, lp.y, (0.4, 3.0, 0.4))
+    data["fx"] = [{"kind": "smoke_low", "pos": centerpiece["chimney"]}]      # fumaça da chaminé da forja (SiegeFx: só visual)
+
+    # lampiões: nos dois lados das avenidas e pela Rua da Ronda, fora de portas, balcões e postos
+    keep_clear = [Vector(v[:2]) for v in centerpiece["posts"].values()] + [Vector(q) for q in centerpiece["clear"]]
+
+    def lamp_ok(p):
+        if any((p - q).length < 2.2 for q in keep_clear):
+            return False
+        for o in town_obs:
+            if o["solid"] and (p - Vector(o["pos"])).length < max(o["size"][0], o["size"][2]) * 0.5 + 0.9:
+                return False
+        return True
+    for gname, poly in avenues.items():
+        n_ = len(poly)
+        for f, sg in ((0.16, 1), (0.34, -1), (0.52, 1), (0.7, -1), (0.84, 1)):
+            i = int(f * (n_ - 1))
+            t = (poly[i + 1] - poly[i - 1]).normalized()
+            lp = poly[i] + Vector((-t.y, t.x)) * sg * (AVENUE_W * 0.5 + 0.7)
+            if lp.length < TOWN_R - 3 and abs(lp.length - RING_R) > RING_W * 0.5 + 1.2 and lamp_ok(lp):
+                ob("lamp", lp.x, lp.y, (0.4, 3.0, 0.4))
+                keep_clear.append(lp)
+    for k in range(16):
+        a = math.radians(11.25 + 22.5 * k)
+        lp = Vector((math.cos(a), math.sin(a))) * (RING_R - RING_W * 0.5 - 0.6)
+        if lamp_ok(lp):
+            ob("lamp", lp.x, lp.y, (0.4, 3.0, 0.4))
+            keep_clear.append(lp)
+    sink[0] = obs
+
+    # conferência da vila: posto, porta, ponto de bot ou banca encostado num colisor aparece no log como TOWN_CONFLICT
+    ROUND = ("tree", "rock", "pillar", "well", "fountain", "lamp", "statue", "pine", "dead_tree", "stump", "hill")
+
+    def clearance(p):
+        best = 1e9
+        for o in town_obs:
+            if not o["solid"]:
+                continue
+            v = p - Vector(o["pos"])
+            sx, sz = o["size"][0], o["size"][2]
+            if o["kind"] in ROUND:
+                dd = v.length - max(sx, sz) * 0.5
+            else:
+                a_ = math.radians(o["rot"])
+                lx = v.x * math.cos(a_) - v.y * math.sin(a_)
+                lz = v.x * math.sin(a_) + v.y * math.cos(a_)
+                qx, qz = abs(lx) - sx * 0.5, abs(lz) - sz * 0.5
+                dd = math.hypot(max(qx, 0.0), max(qz, 0.0)) if (qx > 0 or qz > 0) else max(qx, qz)
+            best = min(best, dd)
+        return best
+    probes = [("posto " + k, v[:2], 0.5) for k, v in centerpiece["posts"].items()]
+    probes += [("livre %d" % i, q, 0.55) for i, q in enumerate(centerpiece["clear"])]
+    probes += [("bot %d" % i, q, 0.7) for i, q in enumerate(centerpiece["hangouts"])]
+    probes += [("fregues %d" % i, q, 0.5) for i, q in enumerate(centerpiece["front_posts"])]
+    for label, q, need in probes:
+        c_ = clearance(Vector(q))
+        if c_ < need:
+            print("TOWN_CONFLICT %s (%.2f, %.2f): folga %.2f m (pede %.2f)" % (label, q[0], q[1], c_, need))
 
     # ---------- castelo na colina (landmark NE) ----------
     (cx, cz), cr = CASTLE
@@ -590,17 +766,20 @@ def build(export=False):
     avoid = [(LAKE[0], LAKE[1] + 3.0), (fxz, 18.5), (CASTLE[0], CASTLE[1] + 2.0)]       # fazenda inteira, com o moinho (15 m) + [(c, r + 1.5) for c, r, _ in HILLS]
     # trail_ok: a trilha do marco sai do fim da estrada lago_fazenda (já dentro do círculo da fazenda) e chega 5 cm dentro da
     # margem; contorna cercas, feno e moinho sem tocar em nada sólido (conferido em production/qa/evidence/trails-all)
-    early_polys = {k: v for k, v in road_polys.items() if k not in LATE_ROADS}
+    early_polys = {k: v for k, v in legacy_polys.items() if k not in LATE_ROADS}
     places.build(types.SimpleNamespace(data=data, ob=ob, coll=coll, P=P, road_polys=early_polys, rivers=[river], river_w=RIVER_W,
                                        avoid=avoid, block=lambda c, r: spots.append((Vector(c), r)), trail_ok={"marco"}), PLACES)
     road_polys.update({k: v for k, v in early_polys.items() if k not in road_polys})      # as trilhas dos lugares
+    veg_polys = {k: legacy_polys.get(k, v) for k, v in road_polys.items()}      # o que a vegetação enxerga (ordem igual)
     for pid in LATE_PORTALS:
         add_portal(pid)
-    blocked_polys = [v for k, v in road_polys.items() if k not in LATE_ROADS] + [river]
+    blocked_polys = [v for k, v in veg_polys.items() if k not in LATE_ROADS] + [river]
 
     def free(x, z, margin):
         p = Vector((x, z))
-        if p.length < TOWN_R + 6 or p.length > rim_r(math.atan2(z, x)) - 3:
+        if p.length < OLD_TOWN_R + 6 or p.length > rim_r(math.atan2(z, x)) - 3:
+            return False
+        if any((p - Vector(h)).length < 9.0 for h in HILLS_GONE):
             return False
         if (p - Vector(LAKE[0])).length < LAKE[1] + 3 or (p - Vector(CASTLE[0])).length < CASTLE[1] + 2:
             return False
@@ -684,7 +863,7 @@ def build(export=False):
     patch("mata_noroeste", G((-62, -64)), 36, (0.31, 0.48, 0.3), grass=True)
     patch("colinas", POIS["colinas"], 31, (0.56, 0.6, 0.44), grass=True)
     patch("flores", G((34, 56)), 12, (0.66, 0.76, 0.48), grass=True)
-    patch("praia", POIS["praia"], 11, (0.86, 0.8, 0.6), jitter=0.16)         # areia da Praia dos Caranguejos
+    patch("praia", POIS["praia"], 11, (0.86, 0.8, 0.6), jitter=0.16)         # areal da margem sul: boca da garganta da Praia dos Caranguejos
     patch("clareira", (ccx, ccz), 10.5, (0.62, 0.52, 0.36))
     m_hay = mat("hay", (0.8, 0.64, 0.3))
     m_wheat = mat("wheat", (0.78, 0.66, 0.3))
@@ -756,22 +935,19 @@ def build(export=False):
     cone(coll, P + "fogueira_fogo", (fcx, fcz), 0.35, 0.8, m_fire, 0.12, 7)
 
     # --- placas nos cruzamentos (poste + duas tábuas apontando os caminhos) ---
-    for k, (sx_, sz_, r1, r2) in enumerate([G((x, z)) + (a, b) for x, z, a, b in ((-76.5, 26.5, 20, 160), (8.5, -41.0, -60, 100), (26.0, -46.0, 10, 200),
+    for k, (sx_, sz_, r1, r2) in enumerate([G((x, z)) + (a, b) for x, z, a, b in ((-76.5, 26.5, 20, 160), (26.0, -46.0, 10, 200),
                                             (91.5, -7.5, 120, -30), (2.5, 58.0, 170, 20))]):
         cyl(coll, P + "placa_poste_%d" % k, (sx_, sz_), 0.1, 0.09, 2.3, M["wood"], 0.0, 6)
         box(coll, P + "placa_tabua_a_%d" % k, (sx_, sz_), (1.1, 0.26, 0.06), r1, M["wood"], 1.85)
         box(coll, P + "placa_tabua_b_%d" % k, (sx_, sz_), (1.0, 0.24, 0.06), r2, M["wood"], 1.5)
-
-    # --- vila: caixas nas oficinas, lampiões no anel interno (as bancas soltas viraram a roseta da feira) ---
-    for (x, z) in ((-16.0, 1.6), (-16.4, -0.2), (16.0, 1.6), (16.4, -0.2)):
-        ob("crate", x, z, (0.9, 0.9, 0.9), 15.0)
-    for k in range(8):
-        a = math.radians(22.5 + 45 * k)
-        ob("lamp", math.cos(a) * 16.6, math.sin(a) * 16.6, (0.4, 3.0, 0.4))
+    for k, (sx_, sz_, r1, r2) in enumerate([(7.6, -51.0, -60, 100)]):      # bifurcação N / castelo (a placa ficava onde hoje é a torre do portão)
+        cyl(coll, P + "placa_poste_n%d" % k, (sx_, sz_), 0.1, 0.09, 2.3, M["wood"], 0.0, 6)
+        box(coll, P + "placa_tabua_a_n%d" % k, (sx_, sz_), (1.1, 0.26, 0.06), r1, M["wood"], 1.85)
+        box(coll, P + "placa_tabua_b_n%d" % k, (sx_, sz_), (1.0, 0.24, 0.06), r2, M["wood"], 1.5)
 
     # --- vegetação baixa: arbustos na beira das estradas (não bloqueiam) e pedras no pé dos penhascos ---
     bushes = 0
-    for name, poly in road_polys.items():
+    for name, poly in veg_polys.items():
         if name in LATE_ROADS:
             continue
         for i in range(4, len(poly) - 4, 6):
@@ -804,7 +980,8 @@ def build(export=False):
                    (1.7, 0.95, 1.7), nature.BUSH_COLS, solid=False, margin=2.8, spacing=3.0, scale=(0.8, 1.3), avoid=obs)
     nature.woodland_floor(ob, free, nrnd, [(POIS["bosque"], 29, 34), (G((-62, -64)), 31, 34), (G((40, 70)), 19, 13)], avoid=obs)
     nature.clear_banks(obs, [river], [LAKE], RIVER_W)
-    nature.shore(ob, nrnd, [river], [LAKE], list(road_polys.values()), RIVER_W)
+    # sem a trilha da Praia (entrou depois): os juncos do lago saem do mesmo sorteio de antes; o passe de estradas tira os que caem nela
+    nature.shore(ob, nrnd, [river], [LAKE], [v for k, v in road_polys.items() if k != "praia"], RIVER_W)
 
     # estradas que entraram depois (LATE_ROADS): moitas na beira com sorteio próprio, depois de todos os passes acima
     lrnd = random.Random(97)
@@ -839,31 +1016,21 @@ def build(export=False):
     sp("wolf", wx + 30, wz - 2, 9, 5, 18.0)
     sp("wolf", wx - 26, wz + 6, 9, 4, 18.0)
     sp("boar_king", ccx, ccz, 2, 1, 120.0)
-    # Praia dos Caranguejos: margem sul do lago; o Caranguejo-Rei sai da água (spawner com "emerge")
-    px, pz = POIS["praia"]
-    sp("crab", px - 8, pz + 1, 7, 6, 12.0)
-    sp("crab", px + 9, pz - 1, 7, 5, 12.0)
-    data["spawners"].append({"monster_id": "crab_king", "pos": [px, pz - 2.0], "radius": 2, "count": 1, "respawn": 150.0,
-                             "emerge": [lx, lz, LAKE[1]]})
+    # os caranguejos e o Caranguejo-Rei da margem sul mudaram para a Praia dos Caranguejos (field_crab_beach, 2026-11-21):
+    # aqui ficou o areal com a garganta (portal to_field_crab_beach)
 
     def face_to(x, z, tx, tz):
         return round(math.degrees(math.atan2(tx - x, tz - z)), 1)
-    npcs = {
-        "elder": (0.0, -13.0), "board": (6.5, -12.0), "smith": (7.85, -7.85), "alchemist": (12.5, 4.0),
-        "merchant": MERCHANT_AT, "storage": (-4.0, 12.0), "relic": (12.5, -4.0), "captain": (-3.0, 23.0),
-        "founder_statue": tuple(centerpiece["founder"]),
-        "guard_s": (4.5, 35.0), "guard_e": (35.0, -4.5), "guard_w": (-35.0, 4.5), "guard_n": (-4.5, -35.0),
-        "meadow_guard": G((-5.0, 47.0)),
-    }
-    for nid, (x, z) in npcs.items():
-        tgt = (0.0, 0.0) if Vector((x, z)).length < TOWN_R else (x * 0.5, z * 0.5)
-        if nid.startswith("guard_") or nid == "meadow_guard":
-            tgt = (x * 2, z * 2)       # guardas olham pra fora (o mercador, na frente da banca, olha para o meio da praça como os outros)
-        data["npcs"][nid] = [x, z, face_to(x, z, *tgt)]
-    # pontos de bot: no miolo aberto da praça (nas diagonais, de frente para os vãos), na borda da feira e no anel; nunca na
-    # faixa dos balcões (town_dress.FAIR_R +- 1,5 m)
-    data["hangouts"] = [[0, 10.8], [3.6, 3.6], [-3.6, 3.6], [-3.6, -3.6], [3.6, -3.6], [-11, 6], [11, 6], [-1.5, 13.5], [3.4, -10.6], [-8, 13],
-                        [-14, -12], [15.5, -15.5], [0, -19], [19, 2], [-19, -2], [2, 19]]
+    for nid, v in centerpiece["posts"].items():          # serviços: na porta/balcão do prédio de cada um (town_dress)
+        data["npcs"][nid] = [v[0], v[1], v[2]]
+    data["npcs"]["founder_statue"] = [FOUNDER[0], FOUNDER[1], face_to(FOUNDER[0], FOUNDER[1], 0.0, 0.0)]
+    for gname, (g, gdir) in gates.items():               # guardas: do lado de fora de cada portão, junto da torre, olhando para fora
+        out = g.normalized()
+        q = g + out * 2.6 - Vector((-out.y, out.x)) * 4.6
+        data["npcs"]["guard_" + gname.lower()] = [round(q.x, 2), round(q.y, 2), face_to(q.x, q.y, q.x * 2, q.y * 2)]
+    mg = G((-5.0, 47.0))
+    data["npcs"]["meadow_guard"] = [mg[0], mg[1], face_to(mg[0], mg[1], mg[0] * 2, mg[1] * 2)]
+    data["hangouts"] = [list(h) for h in centerpiece["hangouts"]]
 
     # ---------- pontos de evento de estrada (RoadEventSystem, GDD living-towns 3.5): à beira da estrada, fora do hub ----------
     data["events"] = []
@@ -887,7 +1054,7 @@ def build(export=False):
         return ""
 
     for kind, road, frac, side, mob in EVENT_POINTS:
-        poly = road_polys[road]
+        poly = legacy_polys[road]
         found, why = None, ""
         # o ponto pedido primeiro; se não servir, anda pela estrada (até 20% para cada lado) e troca de margem
         for df in (0.0, 0.04, -0.04, 0.08, -0.08, 0.12, -0.12, 0.16, -0.16, 0.2, -0.2):
@@ -930,6 +1097,13 @@ def build(export=False):
             p = p + (p - q).normalized() * 1.0
         s_["pos"] = [round(p.x, 2), round(p.y, 2)]
 
+    # a vegetação foi sorteada com a vila antiga (raio 30): o que caiu na faixa da muralha nova sai, e a vila entra na frente
+    VEG = ("tree", "pine", "bush", "flowers", "rock", "stump", "log", "reeds", "dead_tree")
+    before = len(obs)
+    obs[:] = [o for o in obs if not (o["kind"] in VEG and Vector(o["pos"]).length < TOWN_R + 4.5)]
+    print("muralha nova: %d objetos de vegetacao tirados da faixa" % (before - len(obs)))
+    obs[:] = town_obs + obs
+
     # ---------- marcadores no Blender (convenção do CLAUDE.md) ----------
     for i, o in enumerate(obs):
         if not o["visible"]:
@@ -965,7 +1139,14 @@ def build(export=False):
     o = bpy.data.objects.new("CAM_top", cam_top)
     o.location = (0, 0, 200)
     sc.collection.objects.link(o)
-    for name, (tx, tz) in (("CAM_game", (0.0, 4.0)), ("CAM_poi", POIS["lago"])):
+    cam_town = bpy.data.cameras.new("CAM_town")
+    cam_town.type = "ORTHO"
+    cam_town.ortho_scale = 2 * TOWN_R + 14
+    o2 = bpy.data.objects.new("CAM_town", cam_town)
+    o2.location = (0, 0, 200)
+    sc.collection.objects.link(o2)
+    views = [("CAM_game", (0.0, 4.0)), ("CAM_poi", POIS["lago"])] + [("CAM_d_" + k, v) for k, v in centerpiece["views"].items()]
+    for name, (tx, tz) in views:
         cd = bpy.data.cameras.new(name)
         cd.lens_unit = "FOV"
         cd.angle = math.radians(35 * 1.6)

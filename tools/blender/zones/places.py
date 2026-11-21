@@ -14,7 +14,7 @@ GATE_R = 5.5            # raio do morro da entrada de dungeon
 
 # Vale de Aldara cresceu ~20%: tudo fora da muralha se afasta do centro (a vila não muda). Uma função só, usada
 # pela zona, pelas entradas de dungeon dela e pelas chegadas das zonas vizinhas.
-ALDARA_KEEP_R = 36.0         # muralha (30) + folga: dentro disto nada se mexe
+ALDARA_KEEP_R = 36.0         # muralha ANTIGA (30) + folga: dentro disto nada se mexe (a muralha hoje tem raio 42, build_city_aldara.TOWN_R; o vale de fora não mudou)
 ALDARA_GROW = 1.2
 
 

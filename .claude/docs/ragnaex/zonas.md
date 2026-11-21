@@ -58,6 +58,8 @@ Referência: `C:\Users\luisf\Desktop\projects\erenpg` (`blender/scripts/build_va
   derivada do chão (`_dirt_color`), porque lá `road` é piso de pátio/corredor. A ponta de estrada que acaba num portal (≤ 6 m) tem o capim
   mascarado nos últimos 43 m e num disco na ponta (`_ends_at_portal`/`_mask_portal_end`, dentro do `_zone_mask`): a malha do GLB ali é mais larga
   que a polilinha da sim. Revisar: `production/qa/evidence/final-qa/roads/<mapa>/`.
+- Mar com ondas quebrando na areia: mapa em `WaterFx.SURF_MAPS` (uniform `surf_amount` do `spatial_env_water.gdshader`, padrão 0). Foto de
+  carregamento de zona com mar de outro lado: `"sea": "W"` em `loading_art.ZONES`. Zona girada no fim do build: `Zone.apply_turn` (Praia dos Caranguejos).
 - A dispersão de uma zona muda quando lugares/trilhas mudam: chegadas de portal precisam estar reservadas (`block`/`spots`).
 - Água e morros colidem na sim (`MapGeometry.build_collider_grid`): o rio só tem vão nas pontes, que nascem onde uma estrada
   (`kind: "road"`) cruza o rio. Bots usam `water_path`; mudou rio/ponte, rode os testes de travessia (`_cross_river`).

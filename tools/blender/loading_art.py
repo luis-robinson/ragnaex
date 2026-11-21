@@ -135,6 +135,8 @@ ZONES = {
                      "cam": {"at": (-5, 8), "az": -8, "dist": 122, "elev": 25, "pitch": 17, "fov": 50}},
     "field_hollow": {"name": "Mata dos Zumbidos", "ground": (0.3, 0.45, 0.29), "mood": "forest",
                      "cam": {"at": (4, 4), "az": -24, "dist": 104, "elev": 26, "pitch": 18, "fov": 50}},
+    "field_crab_beach": {"name": "Praia dos Caranguejos", "ground": (0.7, 0.71, 0.46), "mood": "coast", "sea": "W",      # mar a oeste (build_field_crab_beach.TURN)
+                         "cam": {"at": (6, 0), "az": 70, "dist": 112, "elev": 26, "pitch": 17, "fov": 50}},
     "field_grove": {"name": "Bosque dos Xamãs", "ground": (0.25, 0.42, 0.36), "mood": "forest",
                     "cam": {"at": (34, -2), "az": -24, "dist": 100, "elev": 26, "pitch": 18, "fov": 50}},
     "elf_city": {"name": "Cidade Élfica", "ground": (0.42, 0.6, 0.44), "mood": "elf",
@@ -869,12 +871,14 @@ def place_boss(zd, z, group, coll, sc, cam_pos, acc):
     return new
 
 
-def make_ground(zd, group, coll, size=3200.0, south=None):
-    """Chão até o horizonte. `south` = onde ele acaba ao sul (zona de mar: dali para baixo é água, ver make_sea)."""
+def make_ground(zd, group, coll, size=3200.0, south=None, west=None):
+    """Chão até o horizonte. `south` = onde ele acaba ao sul (zona de mar: dali para baixo é água, ver make_sea);
+    `west` = o mesmo para zona com o mar a oeste (`"sea": "W"`, Praia dos Caranguejos)."""
     me = bpy.data.meshes.new("LA_ground")
     s = size * 0.5
     y0 = -s if south is None else south
-    me.from_pydata([(-s, y0, 0), (s, y0, 0), (s, s, 0), (-s, s, 0)], [], [(0, 1, 2, 3)])
+    x0 = -s if west is None else west
+    me.from_pydata([(x0, y0, 0), (s, y0, 0), (s, s, 0), (x0, s, 0)], [], [(0, 1, 2, 3)])
     o = bpy.data.objects.new("LA_ground", me)
     o.location.z = -0.03
     coll.objects.link(o)
@@ -885,8 +889,9 @@ def make_ground(zd, group, coll, size=3200.0, south=None):
     return o
 
 
-def make_sea(group, coll, objs, size=3200.0):
-    """Mar aberto além da malha do GLB, na cor do material `agua_funda_*` dela."""
+def make_sea(group, coll, objs, size=3200.0, deg=0.0):
+    """Mar aberto além da malha do GLB, na cor do material `agua_funda_*` dela. `deg` = para onde fica o mar aberto
+    (0 = sul, -90 = oeste)."""
     src = next((m for m in bpy.data.materials if m.name.startswith("agua_funda")), None)
     col = lin((0.3, 0.6, 0.8))
     if src is not None:
@@ -917,7 +922,7 @@ def make_sea(group, coll, objs, size=3200.0):
     for r in radii:
         lim = math.radians(84.0 + min(44.0, (r - r0) * 0.7))
         for k in range(seg + 1):
-            a = lim * (k / seg * 2.0 - 1.0)             # 0 = para o sul (mar aberto)
+            a = lim * (k / seg * 2.0 - 1.0) + math.radians(deg)      # 0 = para o sul (mar aberto)
             verts.append((cx + math.sin(a) * r, cy - math.cos(a) * r, 0.0))
     for i in range(len(radii) - 1):
         for k in range(seg):
@@ -1230,8 +1235,12 @@ def build_zone(zid, top=False):
     if zd.get("sea"):
         with open(os.path.join(ZDATA, zid + ".json"), encoding="utf-8") as f:
             half = json.load(f).get("size", [260, 260])[1] * 0.5 + 45.0       # borda do chão do jogo (MapBuilder._ground)
-        make_ground(zd, group, coll, south=-half)
-        make_sea(group, coll, objs)
+        if zd["sea"] == "W":                      # mar a oeste (zona girada: Praia dos Caranguejos)
+            make_ground(zd, group, coll, west=-half)
+            make_sea(group, coll, objs, deg=-90.0)
+        else:
+            make_ground(zd, group, coll, south=-half)
+            make_sea(group, coll, objs)
     else:
         make_ground(zd, group, coll)
     extra = [{"kind": "lamp", "pos": [p[0], -p[1]], "size": [0.4, 2.4, 0.4], "la_w": (p[2] if len(p) > 2 else 1.0)}
