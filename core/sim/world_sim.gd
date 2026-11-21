@@ -2674,8 +2674,11 @@ func enhance_error(e: SimEntity, item_id: String, slot: int = -1, smith: String 
 	return ItemSystem.enhance_error(self, e, item_id, slot, smith)
 func enhance(e: SimEntity, item_id: String, slot: int = -1, smith: String = "") -> ItemDef:
 	return ItemSystem.enhance(self, e, item_id, slot, smith)
-func use_bag_upgrade(e: SimEntity, item_id: String) -> bool:
-	return ItemSystem.use_bag_upgrade(self, e, item_id)
+func equip_bag(e: SimEntity, item_id: String, slot: int = -1) -> bool:
+	return ItemSystem.equip_bag(self, e, item_id, slot)
+
+func unequip_bag(e: SimEntity, slot: int) -> bool:
+	return ItemSystem.unequip_bag(self, e, slot)
 func roll_legendary(killer: SimEntity, mob: SimEntity) -> String:
 	return ItemSystem.roll_legendary(self, killer, mob)
 func buy_legend_coin(e: SimEntity, count: int = 1) -> bool:

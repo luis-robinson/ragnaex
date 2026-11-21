@@ -75,7 +75,7 @@ var mounted := false                 # a cavalo (mais rápido; só fora de comba
 var mount_kind: String = "horse"     # qual bicho o H chama (Balance.MOUNT_KINDS; salvo; save antigo = cavalo). Mesma velocidade.
 var combat_timer: float = 0.0        # >0 = "em combate" (sem regen)
 var regen_hold: float = 0.0         # troll (F3): s até a regeneração voltar depois do fogo/veneno
-var bag_bonus: int = 0               # Bolsas Ampliadas usadas (0..Balance.BAG_UPGRADES)
+var bags: Array = ["", "", "", ""]  # bolsas vestidas (ids bag_t*; "" = vaga vazia; Balance.BAG_SLOTS vagas)
 var gather_left: float = 0.0        # >0 = colhendo (F perto de um ponto): andar/atacar/levar dano cancela
 var gather_node: Dictionary = {}
 var gather_hp: float = 0.0
@@ -409,7 +409,10 @@ func mastery_of(skill_id: String) -> int:
 
 ## Tipos diferentes que cabem na bolsa (cada pilha ocupa um espaço).
 func bag_capacity() -> int:
-	return Balance.BAG_BASE + Balance.BAG_STEP * bag_bonus
+	var n := Balance.BAG_BASE
+	for bid in bags:
+		n += ItemSystem.bag_size(str(bid))
+	return n
 
 ## Item novo não cabe (o que já tem empilha sempre).
 func bag_full_for(item_id: String) -> bool:

@@ -98,7 +98,9 @@
   Revisar: `-- --autostart=<classe> --bag_shot=<png>`. Armas novas por tier e
   lendários/conjuntos são gerados por loops em `gear_catalog.gd` (números em `Balance.GEAR_*`/`SET_*`/`LEGENDARY_*`).
 - **Forja/alquimia**: não fazem armas nem armaduras (essas caem de monstro: `WorldSim.gear_pool` por tier, filtradas pela classe; nível 1 na loja).
-  Fazem joias e capas por tier x tema (`RecipesCatalog.gear_recipes`, laço) e Bolsas Ampliadas (`bag_t0..3`, `Balance.BAG_*`; bolsa tem limite de pilhas).
+  Fazem joias e capas por tier x tema (`RecipesCatalog.gear_recipes`, laço) e Bolsas Ampliadas (`bag_t0..3`; bolsa tem limite de pilhas). Bolsas são vestidas em `Balance.BAG_SLOTS` (4) vagas, estilo WoW, repetidas valem
+  (`SimEntity.bags`, `ItemSystem.equip_bag/unequip_bag`, `Sim.equip_bag`; +`Balance.BAG_SIZES` 6/8/10/12; tirar/trocar recusa se os itens não cabem); barra das vagas no topo da
+  janela I (`windows._bag_bar`); revisar `--bag_shot=<png> --wins=inventory --bags=bag_t3,bag_t1`. Save: `bags` (o `bag_bonus` antigo vira N Bolsas II, `SaveSystem.load_bags`).
   Aprimoramento no ferreiro: `WorldSim.enhance`/`enhance_cost` (+1..+9, nunca quebra; `Balance.PLUS_*`), por CÓPIA: a peça aprimorada vira a versão `<id>+N` (`GameData.plus_item`, stats da base com o bônus; `ItemDef.base_id/plus`; saves voltam por `GameData.resolve_item`);
   brilho `plus_glow` no toon (`KitModel.plus_glow_color`). Revisar: `lineup.tscn -- --plus_demo --strip=<classe>` e `--bag_shot=<png> --wins= --enhance`.
 - **Boneco de treino** (2026-11-19): monstro `training_dummy` (`MonsterDef.dummy`, modelo `mob_training_dummy`, `mob_kit`), 99999 de vida, DEF/MDEF 0, nunca cai de 1 HP (`_deal_damage`/`_kill`),

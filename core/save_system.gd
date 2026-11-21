@@ -7,7 +7,7 @@ const SLOTS := 5
 ## Retrato do card do espaço (`PORTRAIT_PATH % n`): grava o game/menu/portrait.gd (Portrait.path), apaga o delete_slot.
 const PORTRAIT_PATH := "user://portrait_%d.png"
 var slot := 0
-const VERSION := 7      # 7 = skills pelo nível + rank no Mestre de Skills: nó de maestria (_m_) sai da teia, o rank fica e os pontos voltam (migrate_skill_ranks); 2 = portões de progressão e chefes abatidos; 3 = Rei Élfico guarda as Ruínas; 4 = teia de passivos (reembolso); 5 = Ato II: elemental que evolui, teia de ascensão (asc_tree) e barra de 10 (loadout 7-0); 6 = Ápices: peças dos híbridos que saíram viram as do Ápice (migrate_item_id)
+const VERSION := 8      # 8 = bolsas vestidas em vagas (bags; o bag_bonus N antigo vira N Bolsas II, mesma capacidade, load_bags); 7 = skills pelo nível + rank no Mestre de Skills: nó de maestria (_m_) sai da teia, o rank fica e os pontos voltam (migrate_skill_ranks); 2 = portões de progressão e chefes abatidos; 3 = Rei Élfico guarda as Ruínas; 4 = teia de passivos (reembolso); 5 = Ato II: elemental que evolui, teia de ascensão (asc_tree) e barra de 10 (loadout 7-0); 6 = Ápices: peças dos híbridos que saíram viram as do Ápice (migrate_item_id)
 
 ## Itens de build que saiu do jogo (save antigo): prefixo antigo -> [prefixo novo da peça, prefixo novo da arma]; o resto
 ## do id (nível, peça e o "+N" do aprimoramento) segue junto. Único lugar das migrações de id de item.
@@ -47,6 +47,23 @@ static func migrate_node_id(nid: String) -> String:
 	if t > 0 and TALENT_ID_MIGRATIONS.has(nid.substr(t + 3)):
 		return nid.substr(0, t + 3) + str(TALENT_ID_MIGRATIONS[nid.substr(t + 3)])
 	return nid
+
+## Bolsas vestidas do save: `bags` (ids válidos, BAG_SLOTS vagas) ou, save antigo, `bag_bonus` = N Bolsas Ampliadas usadas
+## em ordem (+8 cada) -> N Bolsas Ampliadas II (+8 cada) nas primeiras vagas: a mesma capacidade de antes.
+static func load_bags(d: Dictionary) -> Array:
+	var out: Array = []
+	out.resize(Balance.BAG_SLOTS)
+	out.fill("")
+	if d.has("bags"):
+		var src: Array = d["bags"] if d["bags"] is Array else []
+		for i in range(mini(src.size(), Balance.BAG_SLOTS)):
+			var bid := str(src[i])
+			if ItemSystem.bag_size(bid) > 0:
+				out[i] = bid
+	else:
+		for i in range(clampi(int(d.get("bag_bonus", 0)), 0, Balance.BAG_SLOTS)):
+			out[i] = "bag_t1"
+	return out
 
 static func migrate_item_id(id: String) -> String:
 	var core_id := id.get_slice("+", 0)
@@ -242,7 +259,7 @@ func save_player(p: SimEntity) -> void:
 		"loadout": p.skills.map(func(s): return s.id if s else ""),
 		"quests_active": p.quests_active, "quests_completed": p.quests_completed,
 		"bind": [p.bind_map, p.bind_pos.x, p.bind_pos.z],
-		"save_version": VERSION, "bosses_killed": p.bosses_killed.keys(), "gates_open": p.gates_open.keys(), "bag_bonus": p.bag_bonus, "mount": p.mount_kind,
+		"save_version": VERSION, "bosses_killed": p.bosses_killed.keys(), "gates_open": p.gates_open.keys(), "bags": p.bags.duplicate(), "mount": p.mount_kind,
 		"elemental": ElementalSystem.to_save(p),
 	}
 	# gravação atômica: escreve o .tmp inteiro, fecha e só então renomeia por cima do save (fechar no meio não trunca o save bom)
@@ -291,7 +308,7 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 		p.bind_pos = Vector3(float(bnd[1]), 0.0, float(bnd[2]))
 	else:
 		p.bind_map = ""
-	p.bag_bonus = clampi(int(d.get("bag_bonus", 0)), 0, Balance.BAG_UPGRADES)
+	p.bags = load_bags(d)
 	p.inventory = {}
 	for k in d.get("inventory", {}):
 		var iid := migrate_item_id(str(k))

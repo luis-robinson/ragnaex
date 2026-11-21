@@ -193,11 +193,12 @@ func hide_tip() -> void:
 ## Bolsa: grade de slots com ícone, quantidade e borda da raridade; ouro embaixo.
 ## Clique: equipar/usar · Shift+clique: poção em F1-F3 ou arma de 1 mão na mão secundária.
 const BAG_COLS := 6
-const BAG_MIN_SLOTS := 36
+const BAG_SLOT_PX := 46          # vagas de bolsa (topo da janela)
 const SLOT_PX := 56
 
 func _inventory(body: VBoxContainer) -> void:
 	var p: SimEntity = Sim.player
+	body.add_child(_bag_bar(p))
 	var grid := GridContainer.new()
 	grid.columns = BAG_COLS
 	grid.add_theme_constant_override("h_separation", 6)
@@ -215,8 +216,8 @@ func _inventory(body: VBoxContainer) -> void:
 			continue
 		grid.add_child(_bag_slot(it, int(p.inventory[item_id])))
 		n += 1
-	for i in range(maxi(0, maxi(BAG_MIN_SLOTS, int(ceil(n / float(BAG_COLS))) * BAG_COLS) - n)):
-		grid.add_child(_bag_slot(null, 0))
+	for i in range(maxi(0, int(ceil(maxi(p.bag_capacity(), n) / float(BAG_COLS))) * BAG_COLS - n)):
+		grid.add_child(_bag_slot(null, 0, n + i >= p.bag_capacity()))
 	body.add_child(UiKit.hsep(4))
 	var foot := HBoxContainer.new()
 	body.add_child(foot)
@@ -233,10 +234,79 @@ func _bag_key(item_id: String) -> String:
 	var group := 0 if it.is_equipment() else (1 if it.type == ItemDef.Type.CONSUMABLE else 2)
 	return "%d%d%s" % [group, 9 - it.rarity, it.name]
 
-func _bag_slot(it: ItemDef, count: int) -> Control:
+## Vagas de bolsa (estilo WoW): Balance.BAG_SLOTS quadrados com a bolsa vestida e o "+N", e o total de espaços.
+## Clique na vaga = tirar; arrastar uma Bolsa Ampliada da grade sobre a vaga = vestir/trocar.
+var bag_bar_slots: Array = []    # revisão (--bag_shot): os quadrados das vagas
+func _bag_bar(p: SimEntity) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	var title := UiKit.label("Bolsas", 13, UiKit.MUTED)
+	title.custom_minimum_size = Vector2(52, 0)
+	row.add_child(title)
+	bag_bar_slots.clear()
+	for i in range(Balance.BAG_SLOTS):
+		var bid := str(p.bags[i]) if i < p.bags.size() else ""
+		var it: ItemDef = GameData.items.get(bid) if bid != "" else null
+		var box := PanelContainer.new()
+		var sb := UiKit.panel_style(Color(0.05, 0.045, 0.07, 0.95) if it else Color(0.03, 0.03, 0.045, 0.6), UiKit.GOLD if it else Color(0.3, 0.27, 0.36), 5, 2 if it else 1)
+		sb.set_content_margin_all(3)
+		box.add_theme_stylebox_override("panel", sb)
+		box.custom_minimum_size = Vector2(BAG_SLOT_PX, BAG_SLOT_PX)
+		box.mouse_filter = Control.MOUSE_FILTER_STOP
+		var holder := Control.new()
+		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		box.add_child(holder)
+		if it:
+			var icon := UiKit.item_icon(it, BAG_SLOT_PX - 6)
+			icon.set_anchors_preset(Control.PRESET_FULL_RECT)
+			holder.add_child(icon)
+			var plus := UiKit.label("+%d" % ItemSystem.bag_size(bid), 12, UiKit.TEXT)
+			plus.anchor_left = 1.0; plus.anchor_right = 1.0; plus.anchor_top = 1.0; plus.anchor_bottom = 1.0
+			plus.offset_left = -30; plus.offset_right = 0; plus.offset_top = -17; plus.offset_bottom = 0
+			plus.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			holder.add_child(plus)
+			var tip := "[b]%s[/b]\n+%d espaços\n[color=#9f9]Clique: tirar  ·  arraste outra bolsa aqui para trocar[/color]" % [it.name, ItemSystem.bag_size(bid)]
+			box.mouse_entered.connect(func(): show_tip(tip))
+		else:
+			var dash := UiKit.label("+", 18, Color(0.4, 0.37, 0.46), false)
+			dash.set_anchors_preset(Control.PRESET_FULL_RECT)
+			dash.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			dash.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			holder.add_child(dash)
+			box.mouse_entered.connect(func(): show_tip("[b]Vaga de bolsa vazia[/b]\n[color=#9f9]Clique numa Bolsa Ampliada da bolsa ou arraste-a aqui[/color]"))
+		box.mouse_exited.connect(hide_tip)
+		box.gui_input.connect(_on_bag_bar_input.bind(i))
+		box.set_drag_forwarding(Callable(), _can_drop_on_bag_bar, _drop_on_bag_bar.bind(i))
+		row.add_child(box)
+		bag_bar_slots.append(box)
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(spacer)
+	var used := p.inventory.size()
+	var cap := p.bag_capacity()
+	row.add_child(UiKit.label("Espaços: %d / %d" % [used, cap], 14, UiKit.GOLD if used < cap else Color(1.0, 0.45, 0.4)))
+	return row
+
+func _on_bag_bar_input(ev: InputEvent, i: int) -> void:
+	if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT and not ev.pressed and not _dragging:
+		if Sim.unequip_bag(Sim.player, i):
+			hide_tip()
+			_rebuild("inventory")
+
+func _can_drop_on_bag_bar(_at: Vector2, data: Variant) -> bool:
+	return data is Dictionary and data.get("rx_drag") == "bag" and ItemSystem.bag_size(str(data["item"])) > 0
+
+func _drop_on_bag_bar(_at: Vector2, data: Variant, i: int) -> void:
+	Sim.equip_bag(Sim.player, str(data["item"]), i)
+	_rebuild("inventory")
+
+## `locked` = casa além da capacidade (só completa a linha da grade): mais apagada.
+func _bag_slot(it: ItemDef, count: int, locked := false) -> Control:
 	var box := PanelContainer.new()
 	var border: Color = UiKit.rarity_color(it.rarity) if it and it.is_equipment() else Color(0.28, 0.25, 0.33)
 	var sb := UiKit.panel_style(Color(0.05, 0.045, 0.07, 0.95), border, 5, 2 if it and it.rarity > 0 else 1)
+	if locked:
+		sb = UiKit.panel_style(Color(0.02, 0.02, 0.03, 0.35), Color(0.16, 0.15, 0.19), 5, 1)
 	sb.set_content_margin_all(4)
 	box.add_theme_stylebox_override("panel", sb)
 	box.custom_minimum_size = Vector2(SLOT_PX, SLOT_PX)
@@ -290,8 +360,8 @@ func _drag_preview(it: ItemDef) -> Control:
 	return wrap
 
 func _drag_from_bag(_at: Vector2, it: ItemDef) -> Variant:
-	if not it.is_equipment() and not (it.type == ItemDef.Type.CONSUMABLE and not it.consume.has("bag")):
-		return null             # equipamento vai para o boneco; consumível vai para F1-F3 da barra
+	if not it.is_equipment() and not it.type == ItemDef.Type.CONSUMABLE:
+		return null             # equipamento vai para o boneco; consumível para F1-F3 da barra; bolsa para uma vaga de bolsa
 	_dragging = true
 	hide_tip()
 	set_drag_preview(_drag_preview(it))
@@ -343,6 +413,8 @@ func _bag_glyph(it: ItemDef) -> String:
 func _bag_hint(it: ItemDef) -> String:
 	if it.is_equipment():
 		return "Clique: equipar" + ("  ·  Shift: mão secundária" if it.weapon_type in ItemDef.ONE_HANDED_MELEE else "")
+	if it.consume.has("bag"):
+		return "Clique: vestir numa vaga livre  ·  arraste sobre uma vaga para trocar"
 	if it.type == ItemDef.Type.CONSUMABLE:
 		return "Clique: usar  ·  arraste para F1-F3 (ou Shift+clique)"
 	return "Material (venda no mercador ou use na forja)"
@@ -364,7 +436,7 @@ func _on_item_click(it: ItemDef) -> void:
 		# Shift+clique numa arma de 1 mão: mão secundária (empunhar duas)
 		Sim.equip(p, it.id, Input.is_key_pressed(KEY_SHIFT) and it.weapon_type in ItemDef.ONE_HANDED_MELEE)
 	elif it.consume.has("bag"):
-		Sim.use_bag_upgrade(p, it.id)
+		Sim.equip_bag(p, it.id)
 		_rebuild("inventory")
 	elif it.type == ItemDef.Type.CONSUMABLE:
 		for i in range(3):

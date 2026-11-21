@@ -80,21 +80,68 @@ static func enhance(sim: WorldSim, e: SimEntity, item_id: String, slot: int = -1
 		Events.post(&"notification", "%s pronto!" % nxt.name)
 	return nxt
 
-## Bolsa Ampliada: na ordem (I antes da II...), até Balance.BAG_UPGRADES.
-static func use_bag_upgrade(sim: WorldSim, e: SimEntity, item_id: String) -> bool:
+## Espaços que uma bolsa soma vestida (Balance.BAG_SIZES pelo tier em `consume.bag`); 0 = não é bolsa / vaga vazia.
+static func bag_size(item_id: String) -> int:
+	if item_id == "":
+		return 0
 	var it: ItemDef = GameData.items.get(item_id)
-	if it == null or not it.consume.has("bag") or not e.has_item(item_id):
+	if it == null or not it.consume.has("bag"):
+		return 0
+	return int(Balance.BAG_SIZES[clampi(int(it.consume["bag"]), 0, Balance.BAG_SIZES.size() - 1)])
+
+## Pilhas na bolsa depois de trocar a vaga `slot` de `old` para `new` ("" = vazia): a nova sai da bolsa, a velha entra.
+static func _stacks_after(e: SimEntity, old: String, new: String) -> int:
+	var n := e.inventory.size()
+	if new != "" and int(e.inventory.get(new, 0)) == 1:
+		n -= 1
+	if old != "" and not (e.inventory.has(old) and (old != new or int(e.inventory[old]) > 1)):
+		n += 1
+	return n
+
+## Veste a bolsa `item_id` (da bolsa) na vaga `slot` (-1 = primeira vazia). Vaga ocupada = troca (a velha volta para
+## a bolsa). Recusa se a capacidade nova não comporta o que você carrega.
+static func equip_bag(sim: WorldSim, e: SimEntity, item_id: String, slot: int = -1) -> bool:
+	var size := bag_size(item_id)
+	if size <= 0 or not e.has_item(item_id):
 		return false
-	var want := int(it.consume["bag"])
-	if want != e.bag_bonus:
-		if e == sim.player:
-			Events.post(&"notification", "Use antes a Bolsa Ampliada %s" % ["I", "II", "III", "IV"][mini(e.bag_bonus, 3)] if want > e.bag_bonus else "Sua bolsa já é maior que esta")
+	if slot < 0:
+		slot = e.bags.find("")
+		if slot < 0:
+			_bag_note(sim, e, "As %d vagas de bolsa estão ocupadas: arraste a bolsa sobre uma vaga para trocar" % Balance.BAG_SLOTS)
+			return false
+	if slot >= e.bags.size():
+		return false
+	var old := str(e.bags[slot])
+	if old == item_id:
+		return false
+	if _stacks_after(e, old, item_id) > e.bag_capacity() - bag_size(old) + size:
+		_bag_note(sim, e, "Libere espaço antes: os itens não caberiam")
 		return false
 	e.remove_item(item_id, 1)
-	e.bag_bonus += 1
-	if e == sim.player:
-		Events.post(&"notification", "Bolsa ampliada: %d espaços" % e.bag_capacity())
+	e.bags[slot] = item_id
+	if old != "":
+		e.add_item(old, 1)
+	_bag_note(sim, e, "Bolsa: %d espaços" % e.bag_capacity())
+	Events.post(&"equipment_changed", e.id)
 	return true
+
+## Tira a bolsa da vaga `slot` (volta para a bolsa). Recusa se o que você carrega não caberia sem ela.
+static func unequip_bag(sim: WorldSim, e: SimEntity, slot: int) -> bool:
+	if slot < 0 or slot >= e.bags.size() or str(e.bags[slot]) == "":
+		return false
+	var old := str(e.bags[slot])
+	if _stacks_after(e, old, "") > e.bag_capacity() - bag_size(old):
+		_bag_note(sim, e, "Libere espaço antes: os itens não caberiam sem esta bolsa")
+		return false
+	e.bags[slot] = ""
+	e.add_item(old, 1)
+	_bag_note(sim, e, "Bolsa: %d espaços" % e.bag_capacity())
+	Events.post(&"equipment_changed", e.id)
+	return true
+
+static func _bag_note(sim: WorldSim, e: SimEntity, text: String) -> void:
+	if e == sim.player:
+		Events.post(&"notification", text)
 
 ## Sorteia se cai lendário para quem matou: cai como Moeda Lendária (chefe/Rei: LEGENDARY_COINS_BOSS moedas).
 static func roll_legendary(sim: WorldSim, killer: SimEntity, mob: SimEntity) -> String:

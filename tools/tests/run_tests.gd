@@ -12290,7 +12290,7 @@ func _check_forge(gd, sim) -> void:
 					for mat in rec.ingredients:
 						check(gd.items.has(mat) and _dropped_somewhere(gd, mat), "%s: material %s existe e cai/colhe-se" % [rid, mat])
 	check(n_jewel == 9 * n_tiers, "%d receitas de anel/amuleto/capa (%d)" % [9 * n_tiers, n_jewel])
-	for i in range(Balance.BAG_UPGRADES):
+	for i in range(Balance.BAG_SIZES.size()):
 		check(gd.recipes.has("rec_bag_t%d" % i) and UiKit.item_texture(gd.items["bag_t%d" % i]) != null, "Bolsa Ampliada %d: receita e ícone" % (i + 1))
 	var e: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Forja", "city_aldara", Vector3(0, 0, 6), 25)
 	e.brain = null
@@ -12342,14 +12342,42 @@ func _check_forge(gd, sim) -> void:
 		and sim.enhance_cost(sw, 0)["item"] == "iron_ore", "custo: ferro até +5, estelar do +6 em diante")
 	check(int(sim.enhance_cost(sw, 8)["gold"]) > int(sim.enhance_cost(sw, 0)["gold"]) * 10, "ouro cresce a cada nível")
 	check(Stats.plus_attr(4, 9) >= 2 and Stats.plus_attr(0, 9) == 0, "atributo da peça cresce com o aprimoramento")
-	# bolsa com limite + ampliação na ordem
+	# bolsa com limite + bolsas vestidas em vagas (estilo WoW, 2026-11-21)
+	e.inventory.clear()
 	var cap0 := e.bag_capacity()
-	check(cap0 == Balance.BAG_BASE, "bolsa começa com %d espaços" % Balance.BAG_BASE)
+	check(cap0 == Balance.BAG_BASE and e.bags.size() == Balance.BAG_SLOTS and e.bags.all(func(x): return x == ""), "bolsa começa com %d espaços e %d vagas vazias" % [Balance.BAG_BASE, Balance.BAG_SLOTS])
+	check(Balance.BAG_SIZES == [6, 8, 10, 12] and ItemSystem.bag_size("bag_t3") == 12 and ItemSystem.bag_size("iron_ore") == 0, "tamanhos das bolsas I-IV: 6/8/10/12")
 	e.add_item("bag_t1", 1)
-	check(not sim.use_bag_upgrade(e, "bag_t1"), "Bolsa II exige a I antes")
+	check(sim.equip_bag(e, "bag_t1") and e.bags[0] == "bag_t1" and not e.has_item("bag_t1") and e.bag_capacity() == cap0 + 8, "Bolsa II sem a I: vaga 1, +8 espaços")
+	e.add_item("bag_t0", 3)
+	for i in range(3):
+		sim.equip_bag(e, "bag_t0")
+	check(e.bags == ["bag_t1", "bag_t0", "bag_t0", "bag_t0"] and e.bag_capacity() == cap0 + 8 + 18, "repetidas valem: 3 Bolsas I nas outras vagas (%d)" % e.bag_capacity())
+	e.add_item("bag_t3", 1)
+	check(not sim.equip_bag(e, "bag_t3") and e.has_item("bag_t3"), "4 vagas cheias: não veste sem escolher a vaga")
+	check(sim.equip_bag(e, "bag_t3", 1) and e.bags[1] == "bag_t3" and e.has_item("bag_t0") and e.bag_capacity() == cap0 + 8 + 12 + 12, "troca na vaga 2: a Bolsa I volta para a bolsa")
+	check(sim.unequip_bag(e, 0) and e.bags[0] == "" and e.has_item("bag_t1") and e.bag_capacity() == cap0 + 24, "tirar a bolsa: volta para a bolsa")
+	check(not sim.unequip_bag(e, 0), "vaga vazia: nada a tirar")
+	sim.equip_bag(e, "bag_t1", 0)
+	# cheia: tirar uma bolsa que deixaria itens de fora é recusado
+	var big := e.bag_capacity()
+	for iid in gd.items:
+		if e.inventory.size() >= e.bag_capacity():
+			break
+		if not e.inventory.has(iid) and ItemSystem.bag_size(iid) == 0:
+			e.add_item(iid, 1)
+	check(e.inventory.size() == big and not sim.unequip_bag(e, 1) and e.bags[1] == "bag_t3", "bolsa cheia: não tira a bolsa que deixaria itens de fora")
 	e.add_item("bag_t0", 1)
-	check(sim.use_bag_upgrade(e, "bag_t0") and e.bag_capacity() == cap0 + Balance.BAG_STEP, "Bolsa I: +%d espaços" % Balance.BAG_STEP)
-	check(sim.use_bag_upgrade(e, "bag_t1") and e.bag_capacity() == cap0 + 2 * Balance.BAG_STEP, "Bolsa II depois da I")
+	check(not sim.equip_bag(e, "bag_t0", 1) and e.bags[1] == "bag_t3", "bolsa cheia: não troca por uma menor")
+	e.inventory.clear()
+	# save: bags gravadas e o bag_bonus antigo vira Bolsas II (mesma capacidade de antes: +8 cada)
+	check(SaveSystem.load_bags({"bags": ["bag_t3", "x", "", "bag_t0"]}) == ["bag_t3", "", "", "bag_t0"], "save: bolsas vestidas voltam (id ruim vira vaga vazia)")
+	check(SaveSystem.load_bags({"bag_bonus": 3}) == ["bag_t1", "bag_t1", "bag_t1", ""] and SaveSystem.load_bags({}) == ["", "", "", ""], "save antigo: bag_bonus 3 = 3 Bolsas II (+24, como antes)")
+	e.bags = ["", "", "", ""]
+	e.add_item("bag_t0", 1)
+	sim.equip_bag(e, "bag_t0")
+	e.add_item("bag_t1", 1)
+	sim.equip_bag(e, "bag_t1")
 	var fill := 0
 	for iid in gd.items:
 		if e.inventory.size() >= e.bag_capacity():

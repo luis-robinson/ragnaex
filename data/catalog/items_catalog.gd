@@ -115,11 +115,11 @@ static func build() -> Array:
 		_mat("sealed_letter", "Carta Selada", 0, "Lacre de cera do Ancião. Não abra.", Color(0.9, 0.85, 0.7)),
 		_mat("ranger_report", "Relatório do Ranger", 0, "Anotações do Ranger Teo sobre a Floresta.", Color(0.6, 0.75, 0.5)),
 		_mat("stolen_goods", "Carga Roubada", 0, "Caixotes que os bandidos tiraram das carroças.", Color(0.62, 0.48, 0.32)),
-		# bolsas ampliadas (alquimista costura): +Balance.BAG_STEP espaços cada, na ordem I -> IV
-		{"id": "bag_t0", "name": "Bolsa Ampliada I", "type": CON, "price": 40, "icon_color": Color(0.62, 0.45, 0.3), "description": "Use: +8 espaços na bolsa (1ª ampliação).", "consume": {"bag": 0}, "stack_max": 1},
-		{"id": "bag_t1", "name": "Bolsa Ampliada II", "type": CON, "price": 120, "icon_color": Color(0.5, 0.55, 0.35), "description": "Use: +8 espaços na bolsa (2ª ampliação).", "consume": {"bag": 1}, "stack_max": 1},
-		{"id": "bag_t2", "name": "Bolsa Ampliada III", "type": CON, "price": 260, "icon_color": Color(0.4, 0.45, 0.7), "description": "Use: +8 espaços na bolsa (3ª ampliação).", "consume": {"bag": 2}, "stack_max": 1},
-		{"id": "bag_t3", "name": "Bolsa Ampliada IV", "type": CON, "price": 500, "icon_color": Color(0.7, 0.45, 0.75), "description": "Use: +8 espaços na bolsa (última ampliação).", "consume": {"bag": 3}, "stack_max": 1},
+		# bolsas ampliadas (alquimista costura): vestidas nas vagas de bolsa, +Balance.BAG_SIZES[tier] espaços cada
+		{"id": "bag_t0", "name": "Bolsa Ampliada I", "type": CON, "price": 40, "icon_color": Color(0.62, 0.45, 0.3), "description": "Bolsa: +6 espaços. Vista numa das 4 vagas de bolsa (clique ou arraste); repetidas valem.", "consume": {"bag": 0}, "stack_max": 1},
+		{"id": "bag_t1", "name": "Bolsa Ampliada II", "type": CON, "price": 120, "icon_color": Color(0.5, 0.55, 0.35), "description": "Bolsa: +8 espaços. Vista numa das 4 vagas de bolsa (clique ou arraste); repetidas valem.", "consume": {"bag": 1}, "stack_max": 1},
+		{"id": "bag_t2", "name": "Bolsa Ampliada III", "type": CON, "price": 260, "icon_color": Color(0.4, 0.45, 0.7), "description": "Bolsa: +10 espaços. Vista numa das 4 vagas de bolsa (clique ou arraste); repetidas valem.", "consume": {"bag": 2}, "stack_max": 1},
+		{"id": "bag_t3", "name": "Bolsa Ampliada IV", "type": CON, "price": 500, "icon_color": Color(0.7, 0.45, 0.75), "description": "Bolsa: +12 espaços. Vista numa das 4 vagas de bolsa (clique ou arraste); repetidas valem.", "consume": {"bag": 3}, "stack_max": 1},
 		_mat("wolf_pelt", "Pele de Lobo", 9, "Couro resistente.", Color(0.55, 0.45, 0.35)),
 		_mat("boar_tusk", "Presa de Javali", 10, "Afiada. Boa para adornos.", Color(0.95, 0.9, 0.8)),
 		_mat("honey_comb", "Favo de Mel", 8, "Mel da Mata dos Zumbidos. O Apicultor Osvaldo e a alquimista disputam cada favo.", Color(0.98, 0.72, 0.2)),

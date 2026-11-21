@@ -1053,10 +1053,12 @@ const PLUS_GLOW_LOW := 5                   # +5: brilho leve
 const PLUS_GLOW_HIGH := 9                  # +9: brilho forte
 const PLUS_GOLD_BASE := 30                 # ouro = base × (tier+1) × nível^1.5
 const PLUS_STAR_FROM := 6                  # +6 em diante pede Minério Estelar (Ruínas); antes, Minério de Ferro
-## Bolsa: tipos de item diferentes que cabem (pilhas). Bolsa Ampliada I-IV soma BAG_STEP cada.
+## Bolsa: tipos de item diferentes que cabem (pilhas). Até BAG_SLOTS bolsas vestidas ao mesmo tempo (estilo WoW, repetidas
+## valem), cada uma soma BAG_SIZES[tier] (Bolsa Ampliada I-IV = bag_t0..3, `consume.bag` = tier). 2026-11-21: era consumível
+## em ordem (+8 cada, máx. 72); agora 4x IV = 40 + 48 = 88.
 const BAG_BASE := 40
-const BAG_STEP := 8
-const BAG_UPGRADES := 4
+const BAG_SLOTS := 4
+const BAG_SIZES := [6, 8, 10, 12]
 const GATHER_RANGE := 2.4                  # m até o ponto de colheita (F)
 const GATHER_TIME := 1.1                   # s colhendo (andar, atacar ou levar dano cancela)
 const GATHER_RESPAWN := 75.0               # s até o ponto voltar
