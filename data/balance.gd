@@ -214,16 +214,19 @@ const BOT_SKILL_RANK_PER_LEVELS := 6
 ## Quanto a teia rende no 30 (bot da build, com e sem tree_bonus; web_probe e _check_web_strength).
 ## Média das builds de ATK e HP dentro da faixa; cada build com ATK×HP dentro de WEB_GAIN_BUILD (tanque troca ATK por HP).
 const WEB_GAIN_ATK := [1.25, 1.5]          # 1,3 -> 1,25 (2026-11-10): anel/capa/amuleto mais fortes, a teia rende um pouco menos em proporção
-const WEB_GAIN_HP := [1.1, 1.35]           # 1,3 -> 1,35 (2026-11-18): notáveis de sobrevivência (ROLE_NOTABLES) põem HP na teia de propósito (média medida x1,30)
+const WEB_GAIN_HP := [1.1, 1.42]           # 1,35 -> 1,42 (2026-11-21): anel de base (CORE_NOTABLES) soma ~+5% de HP em todas as classes, de propósito (média medida x1,39-1,40)
 const WEB_GAIN_BUILD := [1.2, 2.3]
 const WEB_GAIN_LEVEL := 30                 # nível em que as faixas acima foram calibradas (Ato I); o Ato II mede à parte (web_probe --level=35 / --level=40)
 ## Faixas do Ato II (Fronteira da teia), mesmas regras do 30 nos níveis 40 e 45: crescem pouco (o equipamento do tier novo
 ## também cresce, e a razão é teia sobre o resto). F5 (ato2-horda): a ascensão (+14,5% no 40, +21,5% no 45) fica abaixo de
 ## um terço do ganho da teia medido em ATK×HP (média >= x1,45 no 40 e >= x1,65 no 45).
 const WEB_GAIN_LATE := {
-	40: {"atk": [1.3, 1.6], "hp": [1.12, 1.35], "build": [1.25, 2.5]},
+	40: {"atk": [1.3, 1.6], "hp": [1.12, 1.42], "build": [1.25, 2.5]},     # hp 1,35 -> 1,42: anel de base (2026-11-21)
 	45: {"atk": [1.35, 1.7], "hp": [1.12, 1.4], "build": [1.3, 2.8]},
 }
+## Teto próprio de ATK×HP por classe e nível (no lugar do "build" acima): o Elementalista tem a vida base mais baixa e o anel
+## de base dele é todo sobrevivência (Mana em Carne + HP), então a razão de HP sobe mais (medido 2,4-2,8 no 30; 2026-11-21).
+const WEB_GAIN_BUILD_CLASS := {"elementalist": {30: [1.2, 2.9], 40: [1.25, 3.0], 45: [1.3, 3.1]}}
 ## Fronteira (data/catalog/tree_catalog.gd `_outer_web`): casas livres até WEB_OUTER_GRID_K (a teia do 30 vai até 5), tudo do 31 em diante.
 const WEB_OUTER_GRID_K := 7
 const WEB_OUTER_CELLS := 6                 # casas por setor de build: 2 notáveis da build, 1 de elo, 1 de elo/papel, pedra-angular, Ápice
@@ -768,6 +771,44 @@ const GUARD_CRIT_BUFF := "guard_crit"    # Contra-Ataque: bloqueou -> +"guard_cr
 const GUARD_CRIT_TIME := 4.0
 const MANA_GUARD_CAP := 30.0             # % máx do dano recebido que sai da mana ("mana_guard", Barreira de Mana)
 const ROLE_LEECH_CAP := 20.0             # % máx de "crit_leech"/"low_leech" (cada um)
+## Notáveis de base (2026-11-21, pedido do usuário): anel de 5 nós em volta do Início da teia, nível 1, 1 ponto cada,
+## todos compráveis (TreeCatalog._core_ring; bots compram em ProgressionSystem.bot_spend). {classe: [[nome, {stats}]]};
+## stats só de Stats.STAT_KEYS. Regras das chaves novas em Combat.core_* / WorldSim._deal_damage / _heal.
+const CORE_NOTABLES := {
+	"elementalist": [["Barreira de Mana", {"mana_guard": 10}], ["Mana em Carne", {"mp_to_hp": 8}],
+		["Pele Arcana", {"hp_pct": 4, "dr_pct": 2}], ["Fluxo Vital", {"hp_pct": 5, "mp_pct": 5}], ["Reflexo Elemental", {"cc_resist_pct": 15}]],
+	"necromancer": [["Escudo de Carne", {"summon_guard": 15}], ["Fúria dos Mortos", {"summon_frenzy": 25}],
+		["Sangue em Ossos", {"leech_shield": 15}], ["Dreno Sombrio", {"lifesteal": 3}], ["Legião Robusta", {"pet_pct": 10}]],
+	"ranger": [["Olho de Águia", {"crit": 3.0}], ["Corda Rápida", {"aspd_pct": 6}], ["Esquiva do Mateiro", {"evasion": 3.0}],
+		["Couro de Trilha", {"hp_pct": 4, "dr_pct": 2}], ["Passo Leve", {"speed_pct": 4, "evasion": 1.5}]],
+	"assassin": [["Ponto Fraco", {"crit": 3.0}], ["Mãos Rápidas", {"aspd_pct": 6}], ["Sombra Fugidia", {"evasion": 3.0}],
+		["Pelas Costas", {"backstab": 10}], ["Sangue no Fio", {"crit_leech": 5}]],
+	"paladin": [["Peso da Fé", {"def_atk_pct": 10}], ["Escudo dos Irmãos", {"ally_guard": 15}], ["Firme na Queda", {"low_dr": 15}],
+		["Corpo Abençoado", {"hp_pct": 5}], ["Couraça Benta", {"def_pct": 5}]],
+	"berserker": [["Fúria da Beira", {"low_hp_atk": 30}], ["Sangue que Sobra", {"leech_shield": 15}], ["Sede", {"lifesteal": 3}],
+		["Ritmo de Guerra", {"aspd_pct": 5}], ["Couro Grosso", {"hp_pct": 4}]],
+	"bishop": [["Graça Transbordante", {"overheal_share": 50}], ["Barreira da Fé", {"mana_guard": 10}], ["Mãos Santas", {"heal_pct": 6}],
+		["Égide Leve", {"dr_pct": 3}], ["Corpo Consagrado", {"hp_pct": 4}]],
+	"druid": [["Casca Viva", {"dr_pct": 3, "hp_pct": 3}], ["Seiva", {"heal_taken_pct": 15}], ["Laço da Mata", {"pet_pct": 10}],
+		["Espinhos", {"thorns": 10}], ["Pelagem", {"evasion": 2.0}]],
+}
+const CORE_RING_R := 1.15                 # raio do anel em volta do Início (unidades da teia; folga: _check_tree_spacing)
+const MP_TO_HP_CAP := 20.0                # "mp_to_hp" (Mana em Carne): +HP máximo = % do MP máximo (teto)
+const SUMMON_GUARD_CAP := 30.0            # "summon_guard" (Escudo de Carne): % do dano recebido que vai para a invocação mais perto
+const SUMMON_GUARD_RANGE := 12.0          # m até a invocação
+const SUMMON_GUARD_STOP := 0.2            # invocação abaixo disto da vida não recebe mais (não some só por proteger)
+const SUMMON_FRENZY_HP := 0.5             # "summon_frenzy" (Fúria dos Mortos): invocação abaixo disto da vida bate +% do stat
+const LEECH_SHIELD_CAP := 30.0            # "leech_shield": roubo de vida que passa do máximo vira barreira até % da vida máxima
+const LEECH_SHIELD_TIME := 8.0            # s que a barreira do roubo dura (renova a cada golpe que sobra)
+const ALLY_GUARD_CAP := 30.0              # "ally_guard" (Escudo dos Irmãos): % do dano dos aliados do grupo que vai para você
+const ALLY_GUARD_RANGE := 8.0             # m até o aliado
+const ALLY_GUARD_STOP := 0.3              # abaixo disto da sua vida você para de receber o dano dos aliados
+const LOW_DR_HP := 0.5                    # "low_dr" (Firme na Queda): abaixo disto da vida, -% do dano recebido
+const LOW_DR_CAP := 30.0
+const LOW_HP_ATK_FLOOR := 0.1             # "low_hp_atk" (Fúria da Beira): bônus cheio com a vida nisto; zero com a vida cheia (linear)
+const LOW_HP_ATK_CAP := 50.0
+const OVERHEAL_SHARE_CAP := 100.0         # "overheal_share" (Graça Transbordante): % da cura que passa do máximo que vai a outro aliado
+const OVERHEAL_SHARE_RANGE := 10.0        # m até o aliado mais ferido
 ## Punhos de Fúria (Berserker de duas garras, FistSystem): esquivar dá Fúria do Punho e contra-ataca
 const FIST_FURY_BUFF := "fist_fury"
 const FIST_FURY_MAX := 5

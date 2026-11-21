@@ -170,7 +170,7 @@ static func role_on_hit(sim: WorldSim, attacker: SimEntity, target: SimEntity, a
 		if attacker.stats.low_leech > 0.0 and attacker.hp < attacker.stats.max_hp * Balance.LOW_LEECH_HP:
 			leech += attacker.stats.low_leech
 		if leech > 0.0:
-			attacker.hp = minf(attacker.stats.max_hp, attacker.hp + amount * leech / 100.0)
+			core_leech(attacker, amount * leech / 100.0)
 		if kind == "physical" and attacker.stats.hit_slow > 0.0 and target.is_alive() and target.kind == SimEntity.Kind.MONSTER:
 			target.put_debuff({"kind": "slow", "id": "hit_slow_%d" % attacker.id, "remaining": Balance.HIT_SLOW_TIME * target.stats.cc_mult(), "pct": attacker.stats.hit_slow})
 	if blocked and target.is_character() and target.is_alive():
@@ -180,6 +180,83 @@ static func role_on_hit(sim: WorldSim, attacker: SimEntity, target: SimEntity, a
 		if target.stats.block_reflect > 0.0 and attacker.is_alive() and kind in ["physical", "magical"]:
 			sim._deal_damage(target, attacker, maxi(1, int(amount * target.stats.block_reflect / 100.0)), false, false, "reflect")
 
+
+## --- Notáveis de base da teia (Balance.CORE_NOTABLES) ---
+## Dano a mais de quem bate: Fúria da Beira (quanto menor a vida do personagem) e Fúria dos Mortos (invocação ferida).
+static func core_damage_mult(sim: WorldSim, attacker: SimEntity) -> float:
+	if attacker.kind == SimEntity.Kind.SUMMON:
+		var owner: SimEntity = sim.entities.get(attacker.owner_id)
+		if owner != null and owner.stats != null and owner.stats.summon_frenzy > 0.0 and attacker.hp < attacker.stats.max_hp * Balance.SUMMON_FRENZY_HP:
+			return 1.0 + owner.stats.summon_frenzy / 100.0
+		return 1.0
+	if attacker.is_character() and attacker.stats.low_hp_atk > 0.0:
+		return 1.0 + attacker.stats.low_hp_atk / 100.0 * low_hp_frac(attacker)
+	return 1.0
+
+## Fração do bônus da Fúria da Beira: 0 com a vida cheia, 1 com a vida em LOW_HP_ATK_FLOOR ou menos (linear).
+static func low_hp_frac(e: SimEntity) -> float:
+	var hp_frac := e.hp / maxf(1.0, e.stats.max_hp)
+	return clampf((1.0 - hp_frac) / (1.0 - Balance.LOW_HP_ATK_FLOOR), 0.0, 1.0)
+
+## Firme na Queda: abaixo de LOW_DR_HP da vida, -low_dr% do dano recebido. Devolve o dano que fica.
+static func core_low_dr(target: SimEntity, amount: int) -> int:
+	if target.stats.low_dr > 0.0 and target.hp < target.stats.max_hp * Balance.LOW_DR_HP:
+		return maxi(1, int(round(amount * (1.0 - target.stats.low_dr / 100.0))))
+	return amount
+
+## Escudo de Carne (a sua invocação mais perto leva parte do seu dano) e Escudo dos Irmãos (o aliado do grupo com o nó
+## leva parte do dano de quem está perto dele). A parte desviada é aplicada como "intercept" (não desvia de novo).
+## Devolve o dano que fica com `target`.
+static func core_redirect(sim: WorldSim, attacker: SimEntity, target: SimEntity, amount: int) -> int:
+	if amount <= 1:
+		return amount
+	var m: Dictionary = sim.maps.get(target.map_id, {})
+	if target.stats.summon_guard > 0.0:
+		var best: SimEntity = null
+		var bd := Balance.SUMMON_GUARD_RANGE
+		for o in m.get("entities", []):
+			if o.kind == SimEntity.Kind.SUMMON and o.owner_id == target.id and o.is_alive() and o.hp > o.stats.max_hp * Balance.SUMMON_GUARD_STOP:
+				var d: float = o.position.distance_to(target.position)
+				if d <= bd:
+					bd = d
+					best = o
+		if best != null:
+			var part := int(round(amount * target.stats.summon_guard / 100.0))
+			if part > 0:
+				sim._deal_damage(attacker, best, part, false, false, "intercept")
+				amount -= part
+	if target.party_id >= 0 and amount > 1:
+		var p: Dictionary = sim.parties.get(target.party_id, {})
+		for id in p.get("members", []):
+			var g: SimEntity = sim.entities.get(id)
+			if g == null or g == target or not g.is_alive() or g.map_id != target.map_id or g.stats.ally_guard <= 0.0:
+				continue
+			if g.hp <= g.stats.max_hp * Balance.ALLY_GUARD_STOP or g.position.distance_to(target.position) > Balance.ALLY_GUARD_RANGE:
+				continue
+			var gp := int(round(amount * g.stats.ally_guard / 100.0))
+			gp = mini(gp, maxi(0, int(floor(g.hp - g.stats.max_hp * Balance.ALLY_GUARD_STOP))))      # nunca cai por proteger
+			if gp > 0:
+				sim._deal_damage(attacker, g, gp, false, false, "intercept")
+				amount -= gp
+			break                                  # um protetor por golpe
+	return amount
+
+## Cura de roubo de vida em `e`; com Sangue em Ossos / Sangue que Sobra o que passa do máximo vira barreira
+## (até leech_shield% da vida máxima, dura LEECH_SHIELD_TIME s).
+static func core_leech(e: SimEntity, heal: float) -> void:
+	if heal <= 0.0:
+		return
+	var over := e.hp + heal - e.stats.max_hp
+	e.hp = minf(e.stats.max_hp, e.hp + heal)
+	if over > 0.0 and e.stats.leech_shield > 0.0:
+		var cap := e.stats.max_hp * e.stats.leech_shield / 100.0
+		if e.shield_hp < cap:
+			e.shield_hp = minf(cap, e.shield_hp + over)
+			var left := Balance.LEECH_SHIELD_TIME
+			for x in e.buffs:
+				if x.get("id") == "shield":
+					left = maxf(left, float(x.get("remaining", 0.0)))
+			e.put_buff({"id": "shield", "remaining": left})
 
 static func calc_heal(healer: SimEntity, power: float, rng: RandomNumberGenerator) -> int:
 	var base := healer.stats.matk * power * healer.stats.heal_power

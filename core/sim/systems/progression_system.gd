@@ -522,6 +522,12 @@ static func bot_spend(sim: WorldSim, e: SimEntity, fresh: bool = false, batch: b
 		if ws and e.learned.has(sid) and not ws.ascension:
 			e.mastery[sid] = maxi(e.mastery_of(sid), bot_rank(e, ws))
 	var dirty := ClassTalentSystem.bot_pick(sim, e, batch)        # talentos de classe (grátis, pelo nível)
+	# 0) notáveis de base (anel do Início, Balance.CORE_NOTABLES): todos primeiro (1 ponto cada, sem nível)
+	for i in range((Balance.CORE_NOTABLES.get(cid, []) as Array).size() if bot_core else 0):
+		var cid_core := "%s_core_%d" % [cid, i]
+		if nodes.has(cid_core) and not e.tree.has(cid_core) and e.mastery_points > 0 and tree_block_reason(sim, e, cid_core) == "":
+			if tree_allocate(sim, e, cid_core, batch):
+				dirty = true
 	# 1) "Aprimorada" das skills da build (que o nível já libera), pelo caminho mais curto; depois "Ágil" ao lado
 	for sid in wanted:
 		var target := "%s_s_%s" % [cid, sid]
@@ -554,7 +560,7 @@ static func bot_spend(sim: WorldSim, e: SimEntity, fresh: bool = false, batch: b
 			guard += 1
 			var best := ""
 			for nid in order:           # 1º livre na ordem de nota = o mesmo que a varredura escolheria
-				if not e.tree.has(nid) and _web_open(e, nodes[nid]):
+				if not e.tree.has(nid) and (bot_core or not nodes[nid].has("core")) and _web_open(e, nodes[nid]):
 					best = nid
 					break
 			if best == "" or not tree_allocate(sim, e, best, batch):
@@ -569,7 +575,7 @@ static func bot_spend(sim: WorldSim, e: SimEntity, fresh: bool = false, batch: b
 		var best_score := -INF
 		for nid in nodes:
 			var n: Dictionary = nodes[nid]
-			if not (n["kind"] in ["stat", "notable"]) or e.tree.has(nid) or n.get("keystone", lean) != lean or tree_block_reason(sim, e, nid) != "":
+			if not (n["kind"] in ["stat", "notable"]) or e.tree.has(nid) or n.get("keystone", lean) != lean or (n.has("core") and not bot_core) or tree_block_reason(sim, e, nid) != "":
 				continue
 			var score := 2.0 if n["kind"] == "notable" else 1.0
 			if n["branch"] == e.build_id:
@@ -591,6 +597,8 @@ static func bot_spend(sim: WorldSim, e: SimEntity, fresh: bool = false, batch: b
 static var _web_cache := {}
 ## false = caminho antigo (varre a teia toda a cada ponto; equipamento de bot sem cache). Só o teste desliga.
 static var bot_spawn_cache := true
+## Bots compram os notáveis de base (CORE_NOTABLES) antes de tudo; os testes de outras mecânicas desligam para medir como antes.
+static var bot_core := true
 
 ## Nós stat/notável que o bot da build compraria no passo 4, por nota decrescente; empate na ordem da teia
 ## (o `>` estrito da varredura antiga fica com o primeiro). Ex.: `for nid in _web_order(nodes, "paladin", "cruzado", "atk")`.

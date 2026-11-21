@@ -11,7 +11,8 @@ const STAT_KEYS := ["atk_pct", "matk_pct", "def_pct", "speed_pct", "heal_pct", "
 	"dr_pct", "dr_int", "fire_pct", "frost_pct", "storm_pct", "titan_relief", "turret_max", "shadow_time", "shadow_share", "execute_pct",
 	"prey_crit", "falcon_pct", "block", "mp_on_kill", "mp_regen_combat", "trap_max",
 	"crit_dmg_pct", "dot_pct", "cc_resist_pct", "mp_cost_pct", "summon_time_pct",
-	"crit_leech", "low_leech", "mana_guard", "hit_slow", "heal_taken_pct", "def_atk_pct", "block_reflect", "guard_crit", "taunt_dmg_pct", "thorns", "phys_mend"]
+	"crit_leech", "low_leech", "mana_guard", "hit_slow", "heal_taken_pct", "def_atk_pct", "block_reflect", "guard_crit", "taunt_dmg_pct", "thorns", "phys_mend",
+	"mp_to_hp", "summon_guard", "summon_frenzy", "leech_shield", "ally_guard", "low_dr", "low_hp_atk", "overheal_share"]
 ## Chaves de buff que não são stat: id (renova, não acumula), duração e aura de ligar/desligar.
 const BUFF_META := ["id", "duration", "toggle", "end_cast", "end_power", "oath_lock",
 	"scale", "wound_hold", "keep_hp", "form_bound",
@@ -50,6 +51,15 @@ var def_atk_pct: float = 0.0     # % da DEF física que vira ATK físico (Peso d
 var block_reflect: float = 0.0   # % do golpe bloqueado devolvido ao atacante (Escudo Vingador)
 var guard_crit: float = 0.0      # +% de crítico por Balance.GUARD_CRIT_TIME s depois de bloquear (Contra-Ataque)
 var taunt_dmg_pct: float = 0.0   # % a mais de dano em monstro cujo alvo é você (Julgamento / Fúria do Urso)
+## Notáveis de base (Balance.CORE_NOTABLES; regras em Combat.core_*, WorldSim._deal_damage/_heal)
+var mp_to_hp: float = 0.0        # +HP máximo = % do MP máximo (Mana em Carne)
+var summon_guard: float = 0.0    # % do dano recebido que vai para a sua invocação mais perto (Escudo de Carne)
+var summon_frenzy: float = 0.0   # % a mais de dano da sua invocação abaixo de SUMMON_FRENZY_HP da vida (Fúria dos Mortos)
+var leech_shield: float = 0.0    # roubo de vida que passa do máximo vira barreira até % da vida máxima
+var ally_guard: float = 0.0      # % do dano dos aliados do grupo por perto que vai para você (Escudo dos Irmãos)
+var low_dr: float = 0.0          # -% de dano recebido abaixo de LOW_DR_HP da vida (Firme na Queda)
+var low_hp_atk: float = 0.0      # até +% de dano quanto menor a vida (Fúria da Beira)
+var overheal_share: float = 0.0  # % da sua cura que passa do máximo que vai para o aliado mais ferido (Graça Transbordante)
 var lifesteal: float = 0.0       # % do dano causado que volta como vida (golpes diretos; dano no tempo não conta)
 var shadow_time: float = 0.0    # nós "shadow_time" da teia de ascensão (Assassino): cada um +Balance.SHADOW_TIME_NODE s de clone
 var shadow_share: float = 0.0   # nós "shadow_share": cada um +Balance.SHADOW_SHARE_NODE pontos de % no dano do clone
@@ -323,6 +333,14 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 		s.block_reflect += float(b.get("block_reflect", 0))
 		s.guard_crit += float(b.get("guard_crit", 0))
 		s.taunt_dmg_pct += float(b.get("taunt_dmg_pct", 0))
+		s.mp_to_hp += float(b.get("mp_to_hp", 0))
+		s.summon_guard += float(b.get("summon_guard", 0))
+		s.summon_frenzy += float(b.get("summon_frenzy", 0))
+		s.leech_shield += float(b.get("leech_shield", 0))
+		s.ally_guard += float(b.get("ally_guard", 0))
+		s.low_dr += float(b.get("low_dr", 0))
+		s.low_hp_atk += float(b.get("low_hp_atk", 0))
+		s.overheal_share += float(b.get("overheal_share", 0))
 		s.thorns_pct += float(b.get("thorns", 0))      # soma com a arma lendária de espinhos
 		if s.has_shield:
 			s.block_chance += float(b.get("block", 0))           # +% de bloqueio (Asas com Bloqueio); sem escudo não vale
@@ -346,8 +364,16 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 	s.mana_guard = minf(s.mana_guard, Balance.MANA_GUARD_CAP)
 	s.crit_leech = minf(s.crit_leech, Balance.ROLE_LEECH_CAP)
 	s.low_leech = minf(s.low_leech, Balance.ROLE_LEECH_CAP)
+	s.summon_guard = minf(s.summon_guard, Balance.SUMMON_GUARD_CAP)
+	s.leech_shield = minf(s.leech_shield, Balance.LEECH_SHIELD_CAP)
+	s.ally_guard = minf(s.ally_guard, Balance.ALLY_GUARD_CAP)
+	s.low_dr = minf(s.low_dr, Balance.LOW_DR_CAP)
+	s.low_hp_atk = minf(s.low_hp_atk, Balance.LOW_HP_ATK_CAP)
+	s.overheal_share = minf(s.overheal_share, Balance.OVERHEAL_SHARE_CAP)
+	if s.mp_to_hp > 0.0:
+		s.max_hp += s.max_mp * minf(s.mp_to_hp, Balance.MP_TO_HP_CAP) / 100.0     # Mana em Carne (depois dos % de HP e MP)
 	if s.def_atk_pct > 0.0:
-		s.patk += s.pdef * s.def_atk_pct / 100.0          # tanque: a DEF vira dano (depois dos % de DEF e de ATK)
+		s.patk += s.pdef * s.def_atk_pct / 100.0          # tanque: a DEF soma ao dano (a DEF fica igual) (depois dos % de DEF e de ATK)
 	if s.titan_pair:
 		s.titan_speed = titan_speed_mult(s.titan_relief)
 	return s

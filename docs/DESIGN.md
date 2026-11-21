@@ -624,6 +624,16 @@ O HP base por nível das classes que não são tanque subiu 10-15% (`classes_cat
 Alvo do usuário: rota completa = +25-35% de HP efetivo contra antes (medir: `tools/tests/hp_probe.tscn -- [--levels=30,45] [--notes]`).
 Bots buscam os do papel deles (`ProgressionSystem._bot_role_notes`, até `BOT_ROLE_NOTE_PATH` nós). Check `_check_role_notables`.
 
+**Notáveis de base (2026-11-21)**: anel de 5 notáveis em volta do Início da teia (`Balance.CORE_NOTABLES`, `TreeCatalog._core_ring`, ids
+`<classe>_core_N`), nível 1, 1 ponto cada, todos compráveis; bots compram os 5 antes de tudo. Mecânicas novas (regras em `Combat.core_*`,
+`WorldSim._deal_damage`/`_heal`, tetos em `Balance`): Mana em Carne (`mp_to_hp`, +HP = % do MP), Escudo de Carne (`summon_guard`, parte do
+dano vai para a sua invocação mais perto), Fúria dos Mortos (`summon_frenzy`, invocação abaixo de 50% bate mais), Sangue em Ossos / Sangue
+que Sobra (`leech_shield`, roubo que passa do máximo vira barreira), Escudo dos Irmãos (`ally_guard`, parte do dano dos aliados do grupo a
+até 8 m vai para você), Firme na Queda (`low_dr`, menos dano abaixo de 50%), Fúria da Beira (`low_hp_atk`, mais dano quanto menor a vida),
+Graça Transbordante (`overheal_share`, a cura que passa do máximo vai ao aliado do grupo mais ferido). O "% da DEF em ATK" é extra (a DEF fica).
+O anel soma ~+5% de HP em todas as classes: `WEB_GAIN_HP` 1,35 -> 1,42 e teto próprio do Elementalista (`WEB_GAIN_BUILD_CLASS`).
+Check `_check_core_notables`; testes de outras mecânicas tiram o anel do bot (`_strip_core`).
+
 ## Lendários com visual próprio (`GearCatalog.SET_VISUALS`)
 Arte de referência em `reference/<classe>/set_N/` (frente, costas, ícones). Cada um vira um estilo do kit (`chibi_kit.SET_STYLES`,
 peças `arm_<estilo>_<slot>_*`), ícones renderizados em `assets/icons/<icone>_<peça>.png` e nomes da referência.

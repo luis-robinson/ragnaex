@@ -1951,6 +1951,8 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 		amount = maxi(1, int(round(amount * FusionEffects.damage_mult(attacker, target))))     # Fusão: Sentença Ardente (P2), Lua Caçadora (D2)
 	if attacker.is_character() and attacker != target and attacker.stats.taunt_dmg_pct > 0.0:
 		amount = maxi(1, int(round(amount * Combat.role_damage_mult(attacker, target))))     # notável de tanque: quem bate em você apanha mais
+	if attacker != target and not kind.begins_with("dot") and kind != "intercept" and (attacker.kind == SimEntity.Kind.SUMMON or (attacker.is_character() and attacker.stats.low_hp_atk > 0.0)):
+		amount = maxi(1, int(round(amount * Combat.core_damage_mult(self, attacker))))     # Fúria da Beira / Fúria dos Mortos
 	# maldições: alvo amaldiçoado recebe mais, atacante enfraquecido causa menos
 	var taken := Combat.taken_pct(target) if not target.debuffs.is_empty() else 0.0     # marcas com teto (MARK_TAKEN_CAP)
 	var weak := Combat.curse_sum(attacker, "weaken_pct")
@@ -1962,6 +1964,8 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 		amount = maxi(1, int(round(amount * (1.0 - target.ward))))
 	if target.stats.dr_pct > 0.0 and attacker != target:      # aura do tanque: menos dano em quem está no grupo dele
 		amount = maxi(1, int(round(amount * (1.0 - minf(target.stats.dr_pct, Balance.DR_CAP) / 100.0))))
+	if target.is_character() and attacker != target and target.stats.low_dr > 0.0:
+		amount = Combat.core_low_dr(target, amount)           # Firme na Queda (fora do DR_CAP, teto próprio)
 	amount = ChoirSystem.damage_in(self, attacker, target, amount)      # Barreira Sagrada: menos dano dentro (45: segura em 1)
 	# esquiva (Assassino): o golpe direto não pega (zona avisada no chão não: decisão 2026-11-13)
 	if dodgeable and not kind.begins_with("dot") and attacker != target and target.is_character() and target.stats.evasion > 0.0 and rng.randf() * 100.0 < target.stats.evasion:
@@ -1975,6 +1979,8 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 		UltimateSystem.on_taken(self, attacker, target, raw_amount, kind)     # Carga Suprema: só golpe que pegou (depois da esquiva)
 		if kind != "intercept":
 			amount = InterceptSystem.damage_in(self, attacker, target, amount)     # Proteção (Suprema do Guardião): fora do DR_CAP
+			if target.stats.summon_guard > 0.0 or target.party_id >= 0:
+				amount = Combat.core_redirect(self, attacker, target, amount)     # Escudo de Carne / Escudo dos Irmãos
 	# veneno na lâmina: golpe físico direto envenena (renova, não acumula)
 	if kind == "physical" and attacker != target and attacker.is_character() and attacker.stats.hit_poison > 0.0:
 		var pid := "blade_poison_%d" % attacker.id
@@ -2011,7 +2017,7 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 	if amount > 0 and attacker.kind == SimEntity.Kind.SUMMON and not attacker.buffs.is_empty():
 		NecroAscension.pact_leech(self, attacker, amount)           # Pacto dos Mortos: o que ela causa cura o necromante
 	if amount > 0 and not kind.begins_with("dot") and attacker != target and attacker.is_character() and attacker.is_alive() and attacker.stats.lifesteal > 0.0:
-		attacker.hp = minf(attacker.stats.max_hp, attacker.hp + amount * attacker.stats.lifesteal / 100.0)     # roubo de vida
+		Combat.core_leech(attacker, amount * attacker.stats.lifesteal / 100.0)     # roubo de vida (o que sobra vira barreira com o nó)
 	if amount > 0 and kind in ["magical", "shatter"] and attacker != target and attacker.is_character() and attacker.is_alive() and attacker.stats.radiance > 0.0:
 		_radiance(attacker, amount)
 	if amount > 0 and kind == "physical" and attacker != target and attacker.is_character() and attacker.is_alive() and attacker.stats.phys_mend > 0.0:
@@ -2048,12 +2054,14 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 		FusionEffects.on_hit_taken(self, attacker, target)     # Casca Partilhada (D3)
 	return true
 
-func _heal(src: SimEntity, target: SimEntity, amount: int) -> void:
+func _heal(src: SimEntity, target: SimEntity, amount: int, share := true) -> void:
 	if not target.is_alive() or amount <= 0:
 		return
 	var before := target.hp
 	var raw := target.hp + amount * target.heal_factor()
 	target.hp = minf(target.stats.max_hp, raw)
+	if share and raw > target.stats.max_hp and src.is_character() and src.stats.overheal_share > 0.0:
+		_overheal_share(src, target, raw - target.stats.max_hp)       # Graça Transbordante
 	Events.post(&"healed", src.id, target.id, int(target.hp - before))
 	if src.is_character() and target.hp > before:
 		UltimateSystem.on_heal(self, src, target, target.hp - before)     # Carga Suprema: só a cura efetiva
@@ -2069,6 +2077,21 @@ func _heal(src: SimEntity, target: SimEntity, amount: int) -> void:
 			target.buffs.append({"id": "shield", "remaining": Balance.LEG_WARD_TIME})
 		else:
 			sb[0]["remaining"] = maxf(float(sb[0]["remaining"]), Balance.LEG_WARD_TIME)
+
+## Graça Transbordante: overheal_share% da cura que passou do máximo de `target` vai para o personagem aliado mais
+## ferido (em %) a até OVERHEAL_SHARE_RANGE m dele, fora ele mesmo (sem repassar de novo).
+func _overheal_share(src: SimEntity, target: SimEntity, over: float) -> void:
+	var best: SimEntity = null
+	var bf := 1.0
+	for o in maps[target.map_id]["entities"]:
+		if o == target or not o.is_character() or not o.is_alive() or not src.is_friend(o):
+			continue
+		var f: float = o.hp / maxf(1.0, o.stats.max_hp)
+		if f < bf and o.position.distance_to(target.position) <= Balance.OVERHEAL_SHARE_RANGE:
+			bf = f
+			best = o
+	if best != null:
+		_heal(src, best, maxi(1, int(over * src.stats.overheal_share / 100.0 / maxf(0.01, best.heal_factor()))), false)
 
 ## Forma com tempo acabou: volta ao normal (mesmo aviso de quando desliga).
 func end_form(e: SimEntity) -> void:

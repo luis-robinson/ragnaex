@@ -33,6 +33,7 @@ func check(cond: bool, msg: String) -> void:
 func _ready() -> void:
 	Sim.running = false
 	ClassTalentSystem.bot_picks = false        # bots de teste sem talentos de classe sorteados (_check_class_talents escolhe os seus)
+	ProgressionSystem.bot_core = false         # bots de teste sem o anel de base (contas calibradas antes dele); _check_core_notables e a força da teia ligam
 	count_per = DevArgs.has("--count_per_check")
 	var only := DevArgs.value("--only")
 	if only != "":
@@ -3877,7 +3878,7 @@ func _check_shields(gd, sim) -> void:
 	var e2: SimEntity = mk.call("shield_asa_angelical")
 	e2.hp = 100.0
 	sim._deal_damage(foe, e2, 50, false, false, "physical")
-	check(e2.hp == 50.0, "sem bloqueio não reage")
+	check(e2.hp == 50.0, "sem bloqueio não reage (%.1f)" % e2.hp)
 	# aparar: janela ao erguer, 90% de redução, atordoa, dobra
 	var p: SimEntity = mk.call("shield_asa_angelical")
 	p.hp = 1000.0
@@ -4236,6 +4237,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_web_frontier(gd, sim)
 	_check_lanceiro_evasion(gd, sim)
 	_check_role_notables(gd, sim)
+	_check_core_notables(gd, sim)
 	_check_gather(gd, sim)
 	_check_quest_variety(gd, sim)
 	_check_monster_polish(gd, sim)
@@ -11702,6 +11704,144 @@ func _check_web_frontier(gd, sim) -> void:
 const ROLE_HP_PER_LEVEL_BEFORE := {"paladin": 16.0, "berserker": 14.0, "bishop": 9.0, "druid": 12.5, "ranger": 11.5,
 	"assassin": 11.0, "elementalist": 8.0, "necromancer": 9.0}
 
+## Notáveis de base (2026-11-21, Balance.CORE_NOTABLES): anel de 5 em volta do Início, nível 1, 1 ponto, ligado só a ele;
+## as 8 chaves novas fazem o que dizem; bots compram os 5.
+func _check_core_notables(gd, sim) -> void:
+	ProgressionSystem.bot_core = true
+	_core_notables_body(gd, sim)
+	ProgressionSystem.bot_core = false
+
+func _core_notables_body(gd, sim) -> void:
+	if not sim.maps.has("city_aldara"):
+		sim.load_map(gd.maps["city_aldara"])
+	for cid in gd.classes:
+		var tr: Dictionary = gd.trees[cid]
+		var list: Array = Balance.CORE_NOTABLES.get(cid, [])
+		check(list.size() == 5, "%s: 5 notáveis de base (%d)" % [cid, list.size()])
+		for i in range(list.size()):
+			var n: Dictionary = tr["nodes"].get("%s_core_%d" % [cid, i], {})
+			check(not n.is_empty() and n["kind"] == "notable" and int(n["level"]) == 1 and int(n["cost"]) == 1 and n["links"] == [tr["start"]] 				and (tr["nodes"][tr["start"]]["links"] as Array).has(n["id"]), "%s: notável de base %d no anel do Início, nível 1, 1 ponto" % [cid, i])
+			for k in list[i][1]:
+				check(Stats.STAT_KEYS.has(k) and TreeCatalog.STAT_NAMES.has(k) and TreeCatalog.STAT_SHORT.has(k) and TreeCatalog.STAT_FAMILY.has(k),
+					"notável de base %s/%s: stat %s conhecido e com texto" % [cid, list[i][0], k])
+		var bot: SimEntity = sim.spawn_bot(gd.classes[cid], "CoreBot", "city_aldara", Vector3(2, 0, 8), 5)
+		bot.brain = null
+		var got := 0
+		for i in range(list.size()):
+			if bot.tree.has("%s_core_%d" % [cid, i]):
+				got += 1
+		check(got == list.size(), "bot %s no 5 compra os notáveis de base (%d)" % [cid, got])
+		sim.despawn(bot)
+	var at := Vector3(6, 0, 8)
+	var made: Array = []
+	var mk := func(cid: String, pos: Vector3, buff: Dictionary) -> SimEntity:
+		var e: SimEntity = sim.spawn_bot(gd.classes[cid], "Core", "city_aldara", pos, 20)
+		e.brain = null
+		e.tree_bonus.clear()
+		e.ct.clear()                          # sem talentos de classe: só o nó testado
+		e.buffs.clear()
+		if not buff.is_empty():
+			var b := buff.duplicate()
+			b["id"] = "core_test"
+			b["remaining"] = 999.0
+			e.put_buff(b)
+		e.recompute_stats()
+		e.heal_full()
+		made.append(e)
+		return e
+	# Mana em Carne: +HP máximo = % do MP máximo
+	var fat: SimEntity = mk.call("elementalist", at, {})
+	var hp0 := fat.stats.max_hp
+	var mp0 := fat.stats.max_mp
+	fat.put_buff({"id": "core_test", "remaining": 999.0, "mp_to_hp": 8})
+	fat.recompute_stats()
+	check(is_equal_approx(fat.stats.max_hp, hp0 + mp0 * 0.08) and is_equal_approx(fat.stats.max_mp, mp0), "Mana em Carne: +8%% do MP vira HP, o MP fica (%.0f -> %.0f)" % [hp0, fat.stats.max_hp])
+	# Firme na Queda: -15% abaixo de 50% da vida
+	var pal: SimEntity = mk.call("paladin", at + Vector3(2, 0, 0), {"low_dr": 15})
+	check(Combat.core_low_dr(pal, 1000) == 1000, "Firme na Queda: vida cheia, dano igual")
+	pal.hp = pal.stats.max_hp * 0.4
+	check(Combat.core_low_dr(pal, 1000) == 850, "Firme na Queda: abaixo de 50%%, -15%% (%d)" % Combat.core_low_dr(pal, 1000))
+	# Fúria da Beira: 0 com a vida cheia, cheio na beira
+	var ber: SimEntity = mk.call("berserker", at + Vector3(3, 0, 0), {"low_hp_atk": 30})
+	check(is_equal_approx(Combat.core_damage_mult(sim, ber), 1.0), "Fúria da Beira: vida cheia sem bônus")
+	ber.hp = ber.stats.max_hp * Balance.LOW_HP_ATK_FLOOR
+	check(is_equal_approx(Combat.core_damage_mult(sim, ber), 1.3), "Fúria da Beira: +30%% na beira (%.2f)" % Combat.core_damage_mult(sim, ber))
+	ber.hp = ber.stats.max_hp * 0.55
+	var mid := Combat.core_damage_mult(sim, ber)
+	check(mid > 1.1 and mid < 1.2, "Fúria da Beira: metade do caminho, metade do bônus (%.2f)" % mid)
+	# Sangue que Sobra: roubo que passa do máximo vira barreira (teto)
+	ber.heal_full()
+	ber.shield_hp = 0.0
+	Combat.core_leech(ber, ber.stats.max_hp * 0.05)
+	var sb := ber.buffs.any(func(x): return x.get("id") == "shield")
+	check(ber.shield_hp <= 0.0, "sem o nó o roubo que sobra não vira barreira")
+	var bers: SimEntity = mk.call("berserker", at + Vector3(4, 0, 0), {"leech_shield": 15})
+	Combat.core_leech(bers, bers.stats.max_hp * 0.05)
+	sb = bers.buffs.any(func(x): return x.get("id") == "shield")
+	check(sb and is_equal_approx(bers.shield_hp, bers.stats.max_hp * 0.05), "Sangue que Sobra: o que sobra vira barreira (%.0f)" % bers.shield_hp)
+	Combat.core_leech(bers, bers.stats.max_hp)
+	check(is_equal_approx(bers.shield_hp, bers.stats.max_hp * 0.15), "Sangue que Sobra: barreira até 15%% da vida (%.0f)" % bers.shield_hp)
+	# Fúria dos Mortos e Escudo de Carne (invocação)
+	var nec: SimEntity = mk.call("necromancer", at + Vector3(0, 0, 3), {"summon_frenzy": 25, "summon_guard": 15})
+	var minion: SimEntity = sim.spawn_summon(nec, gd.monsters["skeleton_minion"], nec.position + Vector3(1.5, 0, 0), 0.0)
+	minion.brain = null
+	made.append(minion)
+	check(is_equal_approx(Combat.core_damage_mult(sim, minion), 1.0), "Fúria dos Mortos: invocação inteira sem bônus")
+	minion.hp = minion.stats.max_hp * 0.3
+	check(is_equal_approx(Combat.core_damage_mult(sim, minion), 1.25), "Fúria dos Mortos: invocação ferida +25%%")
+	minion.heal_full()
+	minion.stats.max_hp = 999999.0
+	minion.hp = 999999.0
+	var mob: SimEntity = sim.spawn_monster(gd.monsters["skeleton_minion"], "city_aldara", nec.position + Vector3(0, 0, 9))
+	mob.brain = null
+	made.append(mob)
+	var nhp := nec.hp
+	var mhp := minion.hp
+	sim._deal_damage(mob, nec, 1000, false, false, "physical", null, false)
+	check(nhp - nec.hp <= 850.0 and is_equal_approx(mhp - minion.hp, 150.0), "Escudo de Carne: 15%% do dano vai para a invocação (%.0f / %.0f)" % [nhp - nec.hp, mhp - minion.hp])
+	# Escudo dos Irmãos: aliado do grupo a até 8 m leva parte do seu dano
+	var tank: SimEntity = mk.call("paladin", at + Vector3(0, 0, 6), {"ally_guard": 15})
+	var ally: SimEntity = mk.call("ranger", at + Vector3(2, 0, 6), {})
+	tank.stats.max_hp = 999999.0
+	tank.hp = 999999.0
+	ally.stats.max_hp = 999999.0
+	ally.hp = 999999.0
+	PartySystem.party_invite(sim, tank, ally)
+	PartySystem.party_accept(sim, ally)
+	tank.stats.evasion = 0.0                   # a parte desviada pode ser esquivada pelo protetor: aqui tem de pegar
+	tank.stats.block_chance = 0.0
+	var thp := tank.hp
+	var ahp := ally.hp
+	sim._deal_damage(mob, ally, 1000, false, false, "physical", null, false)
+	check(is_equal_approx(ahp - ally.hp, 850.0) and is_equal_approx(thp - tank.hp, 150.0), "Escudo dos Irmãos: 15%% do dano do aliado vai para o protetor (%.0f / %.0f)" % [ahp - ally.hp, thp - tank.hp])
+	ally.position = tank.position + Vector3(Balance.ALLY_GUARD_RANGE + 3.0, 0, 0)
+	ahp = ally.hp
+	sim._deal_damage(mob, ally, 1000, false, false, "physical", null, false)
+	check(is_equal_approx(ahp - ally.hp, 1000.0), "Escudo dos Irmãos: longe, não protege")
+	PartySystem.party_leave(sim, ally)
+	# Graça Transbordante: a cura que passa do máximo vai para o aliado mais ferido
+	var bis: SimEntity = mk.call("bishop", at + Vector3(0, 0, 40), {"overheal_share": 50})
+	var full: SimEntity = mk.call("ranger", at + Vector3(1, 0, 40), {})
+	var hurt: SimEntity = mk.call("ranger", at + Vector3(2, 0, 40), {})
+	for o in [full, hurt]:                     # a cura que sobra vai para o grupo (aliado = mesmo grupo)
+		PartySystem.party_invite(sim, bis, o)
+		PartySystem.party_accept(sim, o)
+	hurt.hp = hurt.stats.max_hp * 0.3
+	var hb := hurt.hp
+	sim._heal(bis, full, 400)
+	var got_h := hurt.hp - hb
+	check(got_h > 150.0 and got_h <= 201.0, "Graça Transbordante: metade da cura que sobra vai ao mais ferido (%.0f)" % got_h)
+	hb = hurt.hp
+	PartySystem.party_leave(sim, bis)
+	var plain_b: SimEntity = mk.call("bishop", at + Vector3(3, 0, 40), {})
+	for o in [full, hurt]:
+		PartySystem.party_invite(sim, plain_b, o)
+		PartySystem.party_accept(sim, o)
+	sim._heal(plain_b, full, 400)
+	check(is_equal_approx(hurt.hp, hb), "sem o nó a cura que sobra se perde")
+	for e in made:
+		sim.despawn(e)
+
 func _check_role_notables(gd, sim) -> void:
 	if not sim.maps.has("city_aldara"):
 		sim.load_map(gd.maps["city_aldara"])
@@ -11882,6 +12022,11 @@ func _check_lanceiro_evasion(gd, sim) -> void:
 			sim.despawn(e)
 
 func _check_web_strength(gd, sim) -> void:
+	ProgressionSystem.bot_core = true            # a força da teia conta o anel de base (o que bots e jogador têm)
+	_web_strength_body(gd, sim)
+	ProgressionSystem.bot_core = false
+
+func _web_strength_body(gd, sim) -> void:
 	if not sim.maps.has("city_aldara"):
 		sim.load_map(gd.maps["city_aldara"])
 	var sum_atk := 0.0
@@ -11895,8 +12040,9 @@ func _check_web_strength(gd, sim) -> void:
 			sum_atk += r["atk"]
 			sum_hp += r["hp"]
 			n += 1
-			check(both >= Balance.WEB_GAIN_BUILD[0] and both <= Balance.WEB_GAIN_BUILD[1],
-				"teia %s/%s no 30: ATK x%.2f × HP x%.2f = x%.2f (faixa %s)" % [cid, b["id"], r["atk"], r["hp"], both, Balance.WEB_GAIN_BUILD])
+			var bb: Array = (Balance.WEB_GAIN_BUILD_CLASS.get(cid, {}) as Dictionary).get(Balance.WEB_GAIN_LEVEL, Balance.WEB_GAIN_BUILD)
+			check(both >= bb[0] and both <= bb[1],
+				"teia %s/%s no 30: ATK x%.2f × HP x%.2f = x%.2f (faixa %s)" % [cid, b["id"], r["atk"], r["hp"], both, bb])
 	var atk := sum_atk / maxf(1, n)
 	var hp := sum_hp / maxf(1, n)
 	check(atk >= Balance.WEB_GAIN_ATK[0] and atk <= Balance.WEB_GAIN_ATK[1], "teia no 30, média de %d builds: ATK x%.2f (alvo %s)" % [n, atk, Balance.WEB_GAIN_ATK])
@@ -11918,8 +12064,9 @@ func _check_web_strength(gd, sim) -> void:
 				m += 1
 				if int(r["left"]) > 0:
 					left.append("%s/%s=%d" % [cid, b["id"], int(r["left"])])
-				check(both >= band["build"][0] and both <= band["build"][1],
-					"teia %s/%s no %d: ATK x%.2f × HP x%.2f = x%.2f (faixa %s)" % [cid, b["id"], lv, r["atk"], r["hp"], both, band["build"]])
+				var lb: Array = (Balance.WEB_GAIN_BUILD_CLASS.get(cid, {}) as Dictionary).get(lv, band["build"])
+				check(both >= lb[0] and both <= lb[1],
+					"teia %s/%s no %d: ATK x%.2f × HP x%.2f = x%.2f (faixa %s)" % [cid, b["id"], lv, r["atk"], r["hp"], both, lb])
 		check(left.is_empty(), "teia no %d: bots gastam todos os pontos (sobra: %s)" % [lv, left])
 		check(sa / m >= band["atk"][0] and sa / m <= band["atk"][1], "teia no %d, média: ATK x%.2f (alvo %s)" % [lv, sa / m, band["atk"]])
 		check(sh / m >= band["hp"][0] and sh / m <= band["hp"][1], "teia no %d, média: HP x%.2f (alvo %s)" % [lv, sh / m, band["hp"]])
