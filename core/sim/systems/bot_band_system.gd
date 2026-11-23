@@ -5,15 +5,18 @@ class_name BotBandSystem
 
 ## Níveis de quem nasce no mapa `def`: a faixa do mapa até BOT_BAND_SLACK acima do teto.
 static func spawn_levels(def: MapDef) -> Vector2i:
-	return Vector2i(def.level_range.x, def.level_range.y + Balance.BOT_BAND_SLACK)
+	return Vector2i(def.level_range.x, mini(def.level_range.y + Balance.BOT_BAND_SLACK, Balance.MAX_LEVEL))      # nunca acima do teto (Cortejo 47-49: até 50)
 
 ## Povoado-casa da faixa de `level`: o de maior piso com piso + BOT_HOME_STEP_UP <= nível (Aldara abaixo disso).
-static func home_map(level: int) -> String:
+## Com `sim`: cristal de estágio (`MapsCatalog.CRYSTAL_IF`) só conta depois da quest (Posto do Cortejo, Fenda).
+static func home_map(level: int, sim: WorldSim = null) -> String:
 	var best := GameData.town_map_id()
 	var best_x := -1
 	for mid in MapsCatalog.CRYSTALS:
 		var def: MapDef = GameData.maps.get(mid)
 		if def == null:
+			continue
+		if sim != null and MapsCatalog.CRYSTAL_IF.has(mid) and not WorldState.active(sim, {"if": MapsCatalog.CRYSTAL_IF[mid]}):
 			continue
 		var x := def.level_range.x
 		if (mid == best or level >= x + Balance.BOT_HOME_STEP_UP) and x > best_x:
@@ -22,8 +25,8 @@ static func home_map(level: int) -> String:
 	return best
 
 ## Ponto de retorno do bot sem cristal vinculado: frente do cristal do povoado da faixa.
-static func home_of_bot(e: SimEntity) -> Dictionary:
-	var mid := home_map(e.level)
+static func home_of_bot(e: SimEntity, sim: WorldSim = null) -> Dictionary:
+	var mid := home_map(e.level, sim)
 	var def: MapDef = GameData.maps[mid]
 	if mid == GameData.town_map_id() or not MapsCatalog.CRYSTALS.has(mid):     # cidade inicial: a entrada, como o jogador sem cristal
 		return {"map": mid, "pos": def.spawn_point}

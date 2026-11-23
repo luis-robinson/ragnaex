@@ -204,7 +204,7 @@ func _micro_pressed(what: String) -> void:
 		hud.windows_script.toggle(what)
 
 ## Botão de ação: fundo fundo (afundado), ícone, sombra de recarga em leque, tecla e número.
-## Devolve o mesmo dicionário que o HUD já usa ({root, icon, tex, cd, cdt, lv}) + "sweep".
+## Devolve o mesmo dicionário que o HUD já usa ({root, icon, tex, cd, cdt, lv}) + "sweep" + "chg" (cargas da skill).
 static func make_button(key: String, px: int, rim: Color = Color(0.42, 0.33, 0.2)) -> Dictionary:
 	var p := PanelContainer.new()
 	var st := StyleBoxFlat.new()
@@ -257,11 +257,18 @@ static func make_button(key: String, px: int, rim: Color = Color(0.42, 0.33, 0.2
 	lv.offset_left = -30; lv.offset_right = -3; lv.offset_top = -16; lv.offset_bottom = 0
 	lv.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	box.add_child(lv)
+	var chg := UiKit.label("", 13, Color(1.0, 0.86, 0.4))      # cargas prontas (nó "em Cargas"), canto de cima à direita
+	chg.add_theme_constant_override("outline_size", 4)
+	chg.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	chg.anchor_left = 1.0; chg.anchor_right = 1.0
+	chg.offset_left = -24; chg.offset_right = -3; chg.offset_top = -1; chg.offset_bottom = 16
+	chg.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	box.add_child(chg)
 	for c in p.find_children("*", "Control", true, false):      # só o painel recebe o mouse (arrastar/soltar, botão direito)
 		(c as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p.mouse_entered.connect(func(): st.border_color = Color(1.0, 0.82, 0.4))
 	p.mouse_exited.connect(func(): st.border_color = rim)
-	return {"root": p, "icon": icon, "tex": tex, "cd": cd, "cdt": cdt, "lv": lv, "sweep": sweep, "style": st, "bevel": bevel}
+	return {"root": p, "icon": icon, "tex": tex, "cd": cd, "cdt": cdt, "lv": lv, "sweep": sweep, "style": st, "bevel": bevel, "chg": chg}
 
 ## XP do nível: texto no meio, preenchimento violeta e 20 gomos.
 func set_xp(level: int, cur: int, need: int) -> void:

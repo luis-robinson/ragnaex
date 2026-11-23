@@ -3,10 +3,13 @@ extends Node
 ## (sem = sem o proc e com o básico de antes, sem SIGNATURE_BASIC_TRIM).
 ##   godot --headless --path . tools/tests/dps_probe.tscn -- [--levels=10,20,30] [--secs=30] [--trials=3] [--class=fogo,...]
 ## Saída: "DPS <classe>/<build> nv=N sem=X com=Y (+Z%)" e FLAG fora de -5%..+10%.
+## --l50: no lugar da assinatura compara o conjunto do 50 (5 peças + armas do papel) sem e com os efeitos de peça
+##   (PieceEffects, --l50_off=all no "sem"); FLAG = ganho acima de Balance.LEG50_GAIN_MAX.
 
 const DT := 1.0 / 20.0
 const MAP := "field_forest"
 const SPOT := Vector3(-90, 0, 9)
+var _l50 := false
 
 func _ready() -> void:
 	await get_tree().process_frame
@@ -14,6 +17,7 @@ func _ready() -> void:
 	var secs := 30.0
 	var trials := 3
 	var only: Array = []
+	_l50 = OS.get_cmdline_user_args().has("--l50")
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--levels="): levels = Array(a.get_slice("=", 1).split(",")).map(func(x): return int(x))
 		if a.begins_with("--secs="): secs = float(a.get_slice("=", 1))
@@ -39,7 +43,7 @@ func _ready() -> void:
 				sum_off += off
 				sum_on += on
 				var d := (on / maxf(1.0, off) - 1.0) * 100.0
-				var flag := d < -5.0 or d > 10.0
+				var flag := (d > Balance.LEG50_GAIN_MAX * 100.0) if _l50 else (d < -5.0 or d > 10.0)
 				flags += 1 if flag else 0
 				print("DPS %-13s/%-15s nv=%2d sem=%6.1f com=%6.1f (%+.0f%%)%s" % [cid, bid, lv, off, on, d, "  FLAG" if flag else ""])
 	print("DPS_END total=%+.1f%% flags=%d" % [(sum_on / maxf(1.0, sum_off) - 1.0) * 100.0, flags])
@@ -54,16 +58,26 @@ func _fight(cid: String, bid: String, lv: int, secs: float, sig: bool, trial: in
 	if Sim.player:
 		Sim.despawn(Sim.player)
 	Sim.rng.seed = 1000 + trial * 31 + lv
-	Sim.signatures_on = sig
+	Sim.signatures_on = sig or _l50
+	PieceEffects.set_off("" if sig or not _l50 else "all")
 	var p: SimEntity = Sim.spawn_bot(GameData.classes[cid], "DPS", MAP, SPOT, lv)
 	p.build_id = bid
 	Sim._gear_bot(p)
+	if _l50:                          # conjunto da build no nível (o do 50 tem efeito em cada peça)
+		var sd: SetDef = GameData.sets.get(Sim.bot_legendary_set(p, lv))
+		if sd:
+			for iid in sd.armor:
+				p.equipment[(GameData.items[iid] as ItemDef).slot] = GameData.items[iid]
+			for iid in Sim.bot_set_weapons(p, sd):
+				var w: ItemDef = GameData.items[iid]
+				p.equipment[ItemDef.Slot.OFFHAND if w.slot == ItemDef.Slot.OFFHAND or iid.ends_with("_offhand") else ItemDef.Slot.WEAPON] = w
+		p.recompute_stats()
 	Sim._skill_bot(p)
 	p.brain = null
 	p.kind = SimEntity.Kind.PLAYER
 	Sim.player = p
 	p.recompute_stats()
-	if not sig:                      # básico de antes: sem o corte da assinatura
+	if not sig and not _l50:         # básico de antes: sem o corte da assinatura
 		var bs: SkillDef = p.basic_skill.duplicate()
 		bs.power = p.basic_skill.power / Balance.SIGNATURE_BASIC_TRIM
 		p.basic_skill = bs
@@ -95,6 +109,7 @@ func _fight(cid: String, bid: String, lv: int, secs: float, sig: bool, trial: in
 		mob.position = SPOT + Vector3(1.8, 0, 0)
 	var dmg: float = 1.0e7 - mob.hp
 	Sim.signatures_on = true
+	PieceEffects.set_off("")
 	Sim.despawn(mob)
 	Sim.player = null
 	Sim.despawn(p)

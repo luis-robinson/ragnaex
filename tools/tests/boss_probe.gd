@@ -77,7 +77,13 @@ const BOSSES := {"bandit_chief": "field_forest", "crab_king": "field_crab_beach"
 	# Kharzun (40-45): arenas de verdade (Canil no campo, Salão dos Matadores, alas e trono da cidadela). O spawner do Durgash
 	# tem `if` (os três clãs): a sonda o põe direto no lugar do spawner, sem a condição.
 	"boss_dire_mother": "field_kharzun", "boss_shazka": "dg_slayers", "boss_ulgra": "kharzun_citadel", "boss_gorbash": "kharzun_citadel",
-	"boss_kragmar": "kharzun_citadel", "boss_durgash": "kharzun_citadel"}
+	"boss_kragmar": "kharzun_citadel", "boss_durgash": "kharzun_citadel",
+	# Ato III, chefes de mundo (afinados para trio: faixa "group")
+	"boss_vindima": "field_perfume", "boss_prima_donna": "field_parade",
+	# Ato III, chefes das masmorras (WP8b; grupo de 4)
+	"boss_varo": "dg_cellars", "boss_countess": "dg_mirrors", "boss_ressoa": "dg_conservatory",
+	# Ato III, chefe da história (grupo de 4) e raide (5)
+	"vessaline": "rift_garden", "boss_sylvare_echo": "rift_heart"}
 ## Chefe sem spawner no mapa da sonda luta no lugar deste (arena provisória). Vazio: todos têm a sala deles.
 const ARENA_AT := {}
 ## field = chefe de campo (dá para solar); elite = monstro forte de missão (sem fases); group = conteúdo de grupo.
@@ -317,6 +323,7 @@ func _ready() -> void:
 		if a.begins_with("--set="): _set = a.get_slice("=", 1)
 		if a.begins_with("--set_who="): _set_who = Array(a.get_slice("=", 1).split(",")).map(func(x): return int(x))
 		if a.begins_with("--set_lv="): _set_lv = int(a.get_slice("=", 1))
+		if a.begins_with("--l50_off="): PieceEffects.set_off(a.get_slice("=", 1))     # Lendários do 50: peças sem efeito (all | head,gloves,...)
 		if a == "--set_weapon": _set_weapon = true
 		if a.begins_with("--acc="): _acc = a.get_slice("=", 1)
 		if a.begins_with("--acc_who="): _acc_who = Array(a.get_slice("=", 1).split(",")).map(func(x): return int(x))
@@ -1002,7 +1009,7 @@ func _wear_set(bot: SimEntity) -> void:
 	if _set_weapon:                     # --set_weapon: arma (pelo papel da build) e escudo do conjunto, Sim.bot_set_weapons
 		for iid in Sim.bot_set_weapons(bot, sd):
 			var w: ItemDef = GameData.items[iid]
-			bot.equipment[ItemDef.Slot.OFFHAND if w.slot == ItemDef.Slot.OFFHAND else ItemDef.Slot.WEAPON] = w
+			bot.equipment[ItemDef.Slot.OFFHAND if w.slot == ItemDef.Slot.OFFHAND or iid.ends_with("_offhand") else ItemDef.Slot.WEAPON] = w
 	bot.recompute_stats()
 	bot.heal_full()
 	Sim._slot_bot(bot)                  # barra refeita com o conjunto (como no jogo: equipamento antes das skills)

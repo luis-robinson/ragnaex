@@ -186,6 +186,19 @@ static func party_promote(sim: WorldSim, leader: SimEntity, target: SimEntity) -
 	Events.post(&"party_changed", p["id"])
 	return true
 
+## O jogador retoma a liderança de um bot líder (bots não disputam). Devolve se mudou.
+static func party_take_lead(sim: WorldSim, e: SimEntity) -> bool:
+	var p := party_of(sim, e)
+	if p.is_empty() or p["leader"] == e.id:
+		return false
+	var lead: SimEntity = sim.entities.get(p["leader"])
+	if lead and lead.kind != SimEntity.Kind.BOT:
+		return false
+	p["leader"] = e.id
+	party_say(sim, p, "%s agora é o líder." % e.name)
+	Events.post(&"party_changed", p["id"])
+	return true
+
 static func set_party(sim: WorldSim, e: SimEntity, party_id: int) -> void:
 	e.party_id = party_id
 	for o in sim.entities.values():

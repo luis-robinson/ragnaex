@@ -63,13 +63,17 @@ var _vis: Dictionary = {}            # nome -> visível (lógico, antes da fusã
 ## Kit extra (<kit>_a2.glb, tools/blender chibi_kit.build_kit_a2): peças de armadura que não cabem no kit principal (teto
 ## de malhas por boneco). Mesmo esqueleto do kit principal; só é lido quando uma peça dele é vestida (apply_equipment ->
 ## load_addon) e as malhas entram em _nodes como as outras (fusão, cor, brilho, flash). Sem o arquivo, o boneco veste o
-## estilo do nível 30 da build (GearCatalog.act2_fallback_style). Hoje: armaduras do Ato II do Paladino.
+## estilo do nível 30 da build (GearCatalog.act2_fallback_style). Hoje: armaduras do Ato II do Paladino (`_a2`) e os
+## conjuntos do nível 50 de todas as classes (`_a3`, Ato III; chibi_kit.build_kit_a3): um arquivo por sufixo de
+## ADDON_SUFFIXES, cada um lido só quando uma peça dele é vestida (addon_suffix_of diz em qual mora o estilo).
+const ADDON_SUFFIXES := ["_a2", "_a3"]
 static var _addon_scenes: Dictionary = {}    # caminho -> PackedScene (null = arquivo não existe)
 static var addon_loads := 0                  # arquivos extras lidos do disco (checks e medição)
 static var addon_last_ms := 0.0              # custo do último load_addon que anexou peças (ms; a 1ª vez inclui ler o arquivo)
-var addon_loaded := false                    # este boneco já tem as peças do kit extra
-var _addon_path := ""
-var _addon_tried := false
+var addon_loaded := false                    # este boneco já tem as peças de algum kit extra
+var _addon_path := ""                        # caminho do kit extra `_a2`; os outros sufixos saem dele (_addon_file)
+var _addon_tried: Dictionary = {}            # sufixo -> já tentou anexar
+var _addon_done: Dictionary = {}             # sufixo -> anexou
 
 ## kit_<classe>_<sexo>.glb (corpo + conjuntos da classe); senão kit_<classe>.glb antigo; senão o genérico kit_<male|female> (NPCs).
 static func path_for(body: String, class_id: String = "") -> String:
@@ -82,27 +86,36 @@ static func path_for(body: String, class_id: String = "") -> String:
 static func exists(body: String, class_id: String = "") -> bool:
 	return body != "" and ResourceLoader.exists(path_for(body, class_id))
 
-## Kit extra do kit escolhido por path_for: o mesmo caminho com o sufixo _a2 (kit_<classe>_<sexo>_a2.glb).
-static func addon_path_for(body: String, class_id: String = "") -> String:
-	return path_for(body, class_id).trim_suffix(".glb") + "_a2.glb"
+## Kit extra do kit escolhido por path_for: o mesmo caminho com o sufixo (kit_<classe>_<sexo>_a2.glb, ..._a3.glb).
+static func addon_path_for(body: String, class_id: String = "", suffix: String = "_a2") -> String:
+	return path_for(body, class_id).trim_suffix(".glb") + suffix + ".glb"
 
-static func addon_exists(body: String, class_id: String = "") -> bool:
-	return body != "" and ResourceLoader.exists(addon_path_for(body, class_id))
+static func addon_exists(body: String, class_id: String = "", suffix: String = "_a2") -> bool:
+	return body != "" and ResourceLoader.exists(addon_path_for(body, class_id, suffix))
 
-## Anexa as peças do kit extra a este boneco (uma vez; o arquivo é lido uma vez por caminho e fica guardado). false = não
-## há kit extra, ou o esqueleto dele não é o deste kit (ossos do skin em outra ordem: a fusão usa um skin só).
-func load_addon() -> bool:
-	if _addon_tried:
-		return addon_loaded
-	_addon_tried = true
-	if skeleton == null or _addon_path == "" or _nodes.is_empty():
+## Sufixo do kit extra em que mora um estilo de conjunto: nível 50 no fim do nome (`pal_g50`) = `_a3`; o resto = `_a2`.
+static func addon_suffix_of(style: String) -> String:
+	return "_a3" if style.ends_with("50") else "_a2"
+
+## Caminho do kit extra deste boneco para um sufixo (a partir do `_a2`, que create() guarda).
+func _addon_file(suffix: String) -> String:
+	return _addon_path if suffix == "_a2" or _addon_path == "" else _addon_path.trim_suffix("_a2.glb") + suffix + ".glb"
+
+## Anexa as peças de um kit extra a este boneco (uma vez por sufixo; o arquivo é lido uma vez por caminho e fica guardado).
+## false = não há esse kit extra, ou o esqueleto dele não é o deste kit (ossos do skin em outra ordem: a fusão usa um skin só).
+func load_addon(suffix: String = "_a2") -> bool:
+	if _addon_tried.has(suffix):
+		return _addon_done.get(suffix, false)
+	_addon_tried[suffix] = true
+	var path := _addon_file(suffix)
+	if skeleton == null or path == "" or _nodes.is_empty():
 		return false
 	var t0 := Time.get_ticks_usec()
-	if not _addon_scenes.has(_addon_path):
-		var found := ResourceLoader.exists(_addon_path)
-		_addon_scenes[_addon_path] = (load(_addon_path) as PackedScene) if found else null
+	if not _addon_scenes.has(path):
+		var found := ResourceLoader.exists(path)
+		_addon_scenes[path] = (load(path) as PackedScene) if found else null
 		addon_loads += 1 if found else 0
-	var ps: PackedScene = _addon_scenes[_addon_path]
+	var ps: PackedScene = _addon_scenes[path]
 	if ps == null:
 		return false
 	var ref: MeshInstance3D = null
@@ -134,9 +147,10 @@ func load_addon() -> bool:
 		added += 1
 	inst.free()
 	if added == 0:
-		push_warning("kit extra sem peças que sirvam neste esqueleto: %s" % _addon_path)
+		push_warning("kit extra sem peças que sirvam neste esqueleto: %s" % path)
 		return false
 	addon_loaded = true
+	_addon_done[suffix] = true
 	addon_last_ms = float(Time.get_ticks_usec() - t0) / 1000.0
 	return true
 
@@ -514,10 +528,14 @@ func apply_equipment(eq: Dictionary, bare_body: Color = Color(0.55, 0.42, 0.3), 
 				col = Color(0.3, 0.27, 0.33)
 		if style == "":
 			continue
-		if not _has_style(style, slot_name) and not (load_addon() and _has_style(style, slot_name)):
-			# peça do kit extra (Ato II) e o arquivo não está lá: veste o estilo do nível 30 da build, na cor do item
+		for _hop in range(3):
+			if _has_style(style, slot_name) or (load_addon(addon_suffix_of(style)) and _has_style(style, slot_name)):
+				break
+			# peça de kit extra e o arquivo não está lá: nível 50 -> estilo do Ato II da build -> o do nível 30, na cor do item
 			var fb := GearCatalog.act2_fallback_style(style)
-			style = fb if fb != "" else style
+			if fb == "":
+				break
+			style = fb
 		shown["arm_%s_%s_" % [style, slot_name]] = col
 		glow_cols["arm_%s_%s_" % [style, slot_name]] = GearCatalog.set_glow(it.set_id) if it else Color(0, 0, 0, 0)
 		acc_cols["arm_%s_%s_" % [style, slot_name]] = GearCatalog.set_accent(it.set_id) if it else Color(0, 0, 0, 0)
@@ -530,9 +548,9 @@ func apply_equipment(eq: Dictionary, bare_body: Color = Color(0.55, 0.42, 0.3), 
 	var off: ItemDef = eq.get(ItemDef.Slot.OFFHAND)
 	tall_shield = is_tall_shield(off)
 	for w: ItemDef in [main, off]:          # arma de estilo do Ato II que só existe no kit extra (hoje nenhuma: o Paladino mantém as do 30)
-		if w and w.weapon_style != "" and not _addon_tried and GearCatalog.act2_fallback_style(w.weapon_style) != "" \
+		if w and w.weapon_style != "" and not _addon_tried.has(addon_suffix_of(w.weapon_style)) and GearCatalog.act2_fallback_style(w.weapon_style) != "" \
 				and not _nodes.has("wpn_%s_%s_%s" % ["main" if w == main else "off", w.weapon_type, w.weapon_style]):
-			load_addon()
+			load_addon(addon_suffix_of(w.weapon_style))
 	if main:
 		weapons[main_node(main)] = main.icon_color
 		glow_cols[main_node(main)] = GearCatalog.set_glow(main.set_id)

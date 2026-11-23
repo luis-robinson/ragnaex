@@ -83,6 +83,7 @@ var recall_left: float = 0.0        # >0 = conjurando a volta à cidade (G): and
 var bind_map: String = ""          # cristal de retorno vinculado (G e renascer); "" = cidade inicial
 var bind_pos: Vector3 = Vector3.ZERO
 var cooldowns: Dictionary = {}       # skill_id -> segundos restantes
+var charges: Dictionary = {}         # skill_id -> [cargas usadas, s até a próxima voltar, s de uma carga] (ChargeSystem; fora do save)
 ## recarga de cada atalho de poção (F1-F3), independentes: vida em F1 e mana em F2 não se bloqueiam.
 ## (o mesmo item não fica em dois F, então por atalho = por poção)
 var potion_cds: Array[float] = [0.0, 0.0, 0.0]
@@ -179,6 +180,7 @@ var inventory: Dictionary = {}       # item_id -> count
 var leg_cast_at: float = 0.0       # arma lendária que lança magia: quando pode lançar de novo (Balance.LEG_CAST_ICD)
 var sig_ready_at: float = 0.0      # efeito-assinatura da build: quando pode disparar de novo (Balance.SIGNATURE_ICD)
 var legend_ready_at: float = 0.0   # arma lendária: quando o efeito com recarga (icd) pode disparar de novo
+var leg50_ready: Dictionary = {}  # Lendários do 50: "<build>_<peça>" -> quando o gatilho pode disparar de novo (PieceEffects)
 var shot_ready_at: float = 0.0     # Bala na Agulha (Corsário): quando a pistola pode atirar de graça de novo (Balance.LEG_SHOT_ICD)
 var combo_spent: int = 0           # Bravata gasta no último finalizador (Tiro Entre os Olhos), para o FX e os testes
 var lost_leader_t: float = 0.0     # s em outro mapa que o líder do grupo (bots: reaparecem ao lado dele)
@@ -359,6 +361,7 @@ func recompute_stats() -> void:
 			extra.append(scaled_bonus(Balance.FORM_STATS[form], form_mult))
 			if ct.has("form_stats"):
 				extra.append(ct["form_stats"])          # talento que só vale na forma (Uivo da Lua)
+			extra.append_array(PieceEffects.form_extra(self))     # peças do 50 (form_up)
 		stats = Stats.compute(class_def, level, equipment, buffs + extra)
 		if form != "" and not stats.meets([Balance.FORM_REQUIRES[form]]):
 			form = ""                # trocou de arma: volta à forma humana

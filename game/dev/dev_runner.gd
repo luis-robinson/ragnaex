@@ -9,6 +9,16 @@ var main: Node                    # game/main.gd
 
 ## Paradas nas fortalezas: já no mapa girado (zone_lib.FORT_TURN; o desenho original tem a chegada ao sul).
 const TOURS := {
+	# Ato III parte 1 (WP5): Lumeria e os dois campos (paradas = `poi` dos JSON; no Bairro, Mercado e Jardim, ao lado do sino/fonte sólidos)
+	"city_lumeria": [["chegada", Vector3(-96.0, 0, 0.0)], ["bairro", Vector3(-70.0, 0, -3.0)], ["praca", Vector3(0.0, 0, 0.0)], ["mercado", Vector3(5.0, 0, -56.0)], ["opera", Vector3(51.0, 0, -4.0)], ["jardim", Vector3(4.0, 0, 54.0)], ["relojoeiro", Vector3(46.61, 0, -48.36)], ["capela", Vector3(-31.84, 0, 43.24)], ["portao_n", Vector3(0.0, 0, -94.0)], ["portao_se", Vector3(72.01, 0, 60.42)]],
+	"field_perfume": [["chegada", Vector3(0.0, 0, 107.7)], ["quinta", Vector3(0.0, 0, 6.5)], ["terracos", Vector3(-76.0, 0, -2.0)], ["lagar", Vector3(10.0, 0, -72.0)], ["marco", Vector3(10.0, 0, -54.0)], ["nevoa", Vector3(-40.0, 0, -57.0)], ["santuario", Vector3(82.0, 0, -16.0)], ["fugidos", Vector3(-45.0, 0, 75.0)], ["tanoeiro", Vector3(22.0, 0, 66.0)], ["destiladora", Vector3(79.0, 0, -45.0)]],
+	"field_parade": [["chegada", Vector3(-76.7, 0, -64.4)], ["posto", Vector3(0.0, 0, 5.0)], ["arco", Vector3(-42.0, 0, -12.0)], ["arquibancadas", Vector3(-75.0, 0, 24.0)], ["carros", Vector3(10.0, 0, -75.0)], ["conservatorio", Vector3(75.0, 0, -8.0)], ["palco", Vector3(30.0, 0, 71.0)], ["veu", Vector3(16.0, 0, 61.0)], ["ponto", Vector3(41.0, 0, 17.0)], ["costureira", Vector3(-30.0, 0, 85.0)], ["altar", Vector3(59.0, 0, -67.0)], ["arraial", Vector3(-13.0, 0, -87.0)]],
+	# Ato III WP6: a Fenda (poi do JSON) e as masmorras/raide (chegada, salões, sala do chefe)
+	"rift_garden": [["chegada", Vector3(0.0, 0, -4.0)], ["posto", Vector3(0.0, 0, 4.0)], ["pavilhao", Vector3(0.0, 0, -62.0)], ["espelhos", Vector3(-84.0, 0, 8.0)], ["lago", Vector3(50.0, 0, 30.0)], ["labirinto", Vector3(-48.0, 0, 68.0)], ["coracao", Vector3(74.0, 0, -45.0)], ["anel_sul", Vector3(2.0, 0, 58.0)]],
+	"dg_cellars": [["chegada", Vector3(0.0, 0, 40.0)], ["toneis", Vector3(0.0, 0, 18.0)], ["lateral", Vector3(-27.5, 0, -5.0)], ["leste", Vector3(37.5, 0, 10.0)], ["lagar", Vector3(7.5, 0, -32.0)], ["lagar_prensa", Vector3(7.5, 0, -50.0)]],
+	"dg_mirrors": [["chegada", Vector3(0.0, 0, 40.0)], ["foyer", Vector3(0.0, 0, 21.5)], ["galeria", Vector3(0.0, 0, -7.5)], ["oeste", Vector3(-37.5, 0, -7.5)], ["leste", Vector3(37.5, 0, -7.5)], ["salao", Vector3(0.0, 0, -34.0)]],
+	"dg_conservatory": [["chegada", Vector3(0.0, 0, 40.0)], ["entrada", Vector3(0.0, 0, 19.0)], ["oeste", Vector3(-37.5, 0, -5.0)], ["leste", Vector3(37.5, 0, -5.0)], ["concerto", Vector3(0.0, 0, -34.0)]],
+	"rift_heart": [["chegada", Vector3(0.0, 0, 40.0)], ["arena", Vector3(0.0, 0, -4.0)], ["chefe", Vector3(0.0, 0, -28.0)]],
 	# Ato II, fase 1: Costa Partida, Porto Esperança e Grutas Goblin
 	"field_coast": [["ponte_costa", Vector3(-62.2, 0, 38.9)], ["encruzilhada", Vector3(4, 0, 6)], ["praia", Vector3(-12, 0, 62)], ["mae_das_mares", Vector3(4, 0, 60)], ["farol", Vector3(54, 0, 74)],
 		["santuario", Vector3(86, 0, 26)], ["ginetes", Vector3(62, 0, -50)], ["falesias", Vector3(-6, 0, -74)], ["palafitas", Vector3(-78, 0, 18)],
@@ -274,6 +284,9 @@ func after_start() -> void:
 	if DevArgs.flag("--boss_film"):     # --boss_film=<chefe>[,..] --out=<pasta>: cada skill do chefe lançada num grupo parado, 3 quadros por skill
 		_smoke_test = false
 		_boss_film(Array(DevArgs.value("--boss_film").split(",")), DevArgs.value("--out"))
+	if DevArgs.flag("--bot_leader_shot"):    # --bot_leader_shot=<png> [--bot_leader_wait=<s>]: bot líder completa o grupo e fala o plano; foto do chat + janela P
+		_smoke_test = false
+		_bot_leader_shot(DevArgs.value("--bot_leader_shot"))
 	if DevArgs.flag("--event_shot"):    # --event_shot=<png> [--event_point=N]: evento de estrada em andamento (RoadEventSystem) e sai
 		_smoke_test = false
 		_event_shot(DevArgs.value("--event_shot"))
@@ -769,6 +782,24 @@ func _ascend_player() -> void:
 ## Com --autostart: --level=N (teia gasta como bot da build, igual ao --tour) e --mount (fica montado: o jogador
 ## não leva golpe direto durante a espera, senão cai do cavalo). --spot ausente ou mapa inválido = erro e sai
 ## (antes caía calado em Aldara, nível 1).
+## --charge_demo (com --bag_shot e --level): barra com as skills da build e as de cargas em estados diferentes
+## (cheia, 1, 2 e 3 gastas), para a foto do número de cargas e do leque da próxima carga.
+func _charge_demo(p: SimEntity) -> void:
+	Sim._slot_bot(p)
+	var k := 0
+	for s: SkillDef in p.skills:
+		if s == null or ChargeSystem.max_of(p, s.id) <= 1:
+			continue
+		var used := k % (Balance.SKILL_CHARGE_MAX + 1)
+		k += 1
+		if used == 0:
+			continue
+		var full := s.cooldown * Balance.SKILL_CHARGE_RECHARGE_MULT
+		p.charges[s.id] = [used, full * 0.6, full]
+		if used >= Balance.SKILL_CHARGE_MAX:
+			p.cooldowns[s.id] = full * 0.6
+	print("CHARGE_DEMO %s" % str(p.charges.keys()))
+
 func _spot_shot(path: String) -> void:
 	var spot := DevArgs.value("--spot")
 	var xz := spot.get_slice(":", 1).split(",")
@@ -1288,6 +1319,48 @@ func _cast_buff_at_start(sid: String) -> void:
 
 ## Investida élfica: leva o jogador à Floresta, solta uma leva e fotografa a marcha na estrada norte e a luta no portão.
 ## O jogador fica de pé no caminho (vida cheia o tempo todo) para a câmera seguir a ação.
+## --bot_leader_shot=<png>: o bot mais perto entra no grupo do jogador e vira líder (BotLeaderSystem); espera
+## --bot_leader_wait s (padrão 30) recrutando/falando e fotografa o chat do grupo com a janela P aberta. Imprime BOT_LEADER_SHOT.
+func _bot_leader_shot(path: String) -> void:
+	var p := Sim.player
+	await get_tree().create_timer(2.0).timeout
+	Sim.sync()
+	var near: Array = Sim.map_entities(p.map_id).filter(func(e): return e.kind == SimEntity.Kind.BOT and e.party_id < 0 and e.is_alive() \
+		and absi(e.level - p.level) <= Balance.PARTY_LEVEL_GAP)
+	near.sort_custom(func(a, b): return a.position.distance_squared_to(p.position) < b.position.distance_squared_to(p.position))
+	if near.is_empty():
+		print("BOT_LEADER_SHOT sem bot por perto")
+		get_tree().quit()
+		return
+	var lead: SimEntity = near[0]
+	var lines: Array = []
+	var listen := func(who: String, text: String, ch: String): lines.append("[%s] %s: %s" % [ch, who, text])
+	Events.chat_message.connect(listen)
+	Sim.party_invite(p, lead)
+	Sim.party_accept(lead)
+	Sim.party_promote(p, lead)
+	var wait := float(DevArgs.value("--bot_leader_wait", "30"))
+	var t := 0.0
+	var n0 := -1
+	while t < wait + 30.0:
+		await get_tree().process_frame
+		t += get_process_delta_time()
+		p.hp = p.stats.max_hp
+		if t >= wait and n0 < 0:
+			n0 = lines.size()
+		if n0 >= 0 and lines.size() > n0 and str(lines.back()).begins_with("[party] %s:" % lead.name):
+			break                                 # foto logo depois de uma fala do líder: ela está no fim do chat
+	Sim.sync()
+	main.hud.windows_script.toggle("party")
+	await get_tree().create_timer(0.5).timeout
+	get_viewport().get_texture().get_image().save_png(path)
+	Events.chat_message.disconnect(listen)
+	for l in lines:
+		if str(l).begins_with("[party]"):
+			print("BOT_LEADER_SHOT %s" % l)
+	print("BOT_LEADER_SHOT lider=%s membros=%d plano=%s" % [lead.name, Sim.party_members(p).size(), Sim.party_plan(p)])
+	get_tree().quit()
+
 ## --event_shot=<png>: põe o jogador perto de um ponto de evento de estrada do mapa dele, começa o evento e fotografa
 ## (`_grito` logo no começo, `_luta` com os monstros em cima dele). Imprime EVENT_SHOT com o estado.
 func _event_shot(path: String) -> void:
@@ -1728,8 +1801,8 @@ func _tip_shot(path: String) -> void:
 ## Lich morto: festeiros nascem e os fogos começam (foto <png>_festa.png); depois a tela do fim do ato (<png>).
 func _act_end_shot(path: String) -> void:
 	Sim.sync()
-	var act := int(DevArgs.value("--act", "1"))           # --act=2: fim do Ato II (vá ao porto/acampamento com --map)
-	Sim.player.quests_completed.append(MapsCatalog.VICTORY2_QUEST if act == 2 else MapsCatalog.VICTORY_QUEST)
+	var act := int(DevArgs.value("--act", "1"))           # --act=2: fim do Ato II (vá ao porto/acampamento com --map); --act=3: Lumeria
+	Sim.player.quests_completed.append([MapsCatalog.VICTORY_QUEST, MapsCatalog.VICTORY_QUEST, MapsCatalog.VICTORY2_QUEST, MapsCatalog.VICTORY3_QUEST][clampi(act, 1, 3)])
 	await get_tree().create_timer(3.0).timeout
 	var fest: FestivalFx = main.world_root.get_node("FestivalFx")
 	for i in 3:
@@ -2340,6 +2413,8 @@ func _bag_shot(path: String) -> void:
 			Sim.player.build_id = Sim.player.class_def.builds[int(DevArgs.value("--build_i", "0"))]["id"]
 		ProgressionSystem.bot_spend(Sim, Sim.player, true)       # teia gasta como um bot da build (--build_i=N escolhe a build)
 		Sim.player.mastery_points += int(DevArgs.value("--spare", "4"))     # sobra para ver nós verdes
+		if DevArgs.has("--charge_demo"):    # barra com as skills da build e cargas gastas (1, 2 e 3 usadas): revisar o número e o leque
+			_charge_demo(Sim.player)
 	if DevArgs.has("--asc") or DevArgs.has("--ascend"):             # ascensão feita (precisa de --level=35+): Elementalista chama o elemental (--elem_stage=N, --elem_xp=N)
 		var ap: SimEntity = Sim.player
 		_ascend_player()
@@ -3029,6 +3104,11 @@ func _sig_shot(dir: String) -> void:
 		Sim._start_skill(boss, s, boss.skills.find(s), p.position if bid != "boss_dire_mother" else p.position + Vector3(0, 0, 5))
 		if bid == "boss_dire_mother":
 			p.position = boss.position + Vector3(0, 0, 8)
+		if bid == "boss_countess":                # Olhar Que Julga: um aliado atrás do 1º espelho (ele racha no golpe)
+			var cv: Array = BossSignatures.covers_of(Sim.maps[map_id], boss.id)
+			if not cv.is_empty():
+				var cp: Vector3 = cv[0]["pos"]
+				allies[0].position = cp + Vector3(cp.x - boss.position.x, 0, cp.z - boss.position.z).normalized() * 2.0
 		var wait_end := Time.get_ticks_msec() + int(float(shots[bid][1]) * 1000.0)
 		while Time.get_ticks_msec() < wait_end:
 			Sim.sync()

@@ -9,6 +9,7 @@ static func shield_reaction(sim: WorldSim, target: SimEntity, attacker: SimEntit
 	var fx: Dictionary = off.shield_effect if off else {}
 	var theme: String = fx.get("theme", "physical")
 	FusionEffects.on_block(sim, target, attacker)        # Fusões de escudo (P1 face escudo, P3)
+	PieceEffects.on_event(sim, target, "block", attacker)     # Lendários do 50 (botas do Guardião/Sacerdote)
 	if parried and attacker.is_alive() and attacker.position.distance_to(target.position) <= Balance.PARRY_MELEE_RANGE:
 		sim._apply_effects(target, attacker, {"stun": {"duration": Balance.PARRY_STUN}}, 1.0)
 	if target.shield_react_cd > 0.0 and not parried:
@@ -53,7 +54,7 @@ static func shield_class_bonus(sim: WorldSim, e: SimEntity, off: ItemDef, parrie
 	var ents: Array = sim.maps[e.map_id]["entities"]
 	if e.grace_cd <= 0.0:
 		e.grace_cd = Balance.SHIELD_GRACE_CD
-		sim._heal(e, hurt, int(hurt.stats.max_hp * Balance.SHIELD_GRACE_PCT / 100.0))
+		sim._heal(e, hurt, int(hurt.stats.max_hp * (Balance.SHIELD_GRACE_PCT + PieceEffects.cap(e, "grace")) / 100.0))
 	if parried:
 		for o in ents:
 			var ward: float = o.stats.max_hp * Balance.SHIELD_WARD_PCT / 100.0 if o.is_character() else 0.0

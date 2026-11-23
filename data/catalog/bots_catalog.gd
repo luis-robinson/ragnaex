@@ -238,6 +238,25 @@ const PARTY_LINES := {
 	"reply_hi": ["oi!", "eae", "salve", "opa"],
 	"reply_ask": ["boa pergunta", "acho que sim", "não sei, mas confia", "pergunta pro Ancião kkk", "hmm, talvez"],
 }
+## Bot líder do grupo do jogador conta o plano (BotLeaderSystem). Marcas: {role} papéis que faltam, {name}/{cls} convidado,
+## {mob}/{em}/{dest} viagem, {boss}, {map}, {p} jogador.
+const LEADER_LINES := {
+	"fill": ["Vamos completar o grupo: falta {role}.", "Antes de sair, vou chamar {role}.", "Grupo incompleto: procurando {role}."],
+	"lead_full": ["Deixa comigo, eu lidero. Grupo cheio, já vamos sair.", "Assumi a liderança. Grupo completo, preparem-se."],
+	"invite": ["Convidei {name} ({cls}).", "Chamei {name}, {cls}: {role} pra gente.", "Convite mandado pra {name} ({cls})."],
+	"recruit_walk": ["Ninguém livre aqui perto. Vou ao ponto de encontro chamar {role}.", "Vou até a praça procurar {role}."],
+	"go_partial": ["Não achei mais ninguém. Vamos assim mesmo: indo caçar {mob} {em}.", "Cansei de esperar: saindo com quem temos, rumo a {dest}."],
+	"trip": ["Indo caçar {mob} {em}.", "Próxima parada: {dest}, atrás de {mob}.", "Bora: caçada de {mob} {em}."],
+	"trip_full": ["Grupo cheio! Indo caçar {mob} {em}.", "Grupo completo, partiu {dest}: {mob} na mira.", "Tudo pronto. Indo caçar {mob} {em}."],
+	"hunt": ["Chegamos {em}. Fiquem perto, caçando {mob}.", "{dest}! Caçando {mob}, sigam comigo."],
+	"boss": ["Indo para {boss}, preparem-se!", "{boss} à vista! Tanque na frente, cura atrás.", "Chefe: {boss}. Guardem as recargas."],
+	"return": ["Voltando à cidade para reabastecer.", "Hora de reabastecer: voltando à cidade."],
+	"return_hurt": ["Estou mal de vida, voltando à cidade para me recuperar.", "Muito dano por hoje: voltando à cidade."],
+	"return_bag": ["Bolsa cheia: voltando à cidade para vender.", "Sem espaço na bolsa, voltando à cidade."],
+	"wait": ["Esperando {p} alcançar o grupo.", "{p}, te espero aqui, vem com a gente.", "Parando para {p} chegar."],
+	"wait_over": ["Vou na frente, {p}; alcança a gente.", "Seguindo, {p}. Te espero mais adiante."],
+}
+
 ## Palavras na fala do jogador (/p) que escolhem o tipo de resposta.
 const REPLY_KEYS := {
 	"reply_thanks": ["vlw", "valeu", "obrigad", "brigad", "thx"], "reply_go": ["bora", "vamos", "partiu", "vamo"],

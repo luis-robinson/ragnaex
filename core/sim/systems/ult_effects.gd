@@ -229,6 +229,7 @@ static func buff_summons(sim: WorldSim, e: SimEntity, b: Dictionary) -> void:
 static func cd_reset(e: SimEntity, effects: Dictionary) -> void:
 	for sid in effects.get("cd_reset", []):
 		e.cooldowns.erase(str(sid))
+		ChargeSystem.refill(e, str(sid))
 
 ## "hit_heal": {pct, max} = cura pct% da vida máxima por inimigo atingido, até `max` (Ceifa das Almas).
 static func hit_heal(sim: WorldSim, e: SimEntity, targets: Array, d: Dictionary) -> void:

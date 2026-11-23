@@ -28,12 +28,15 @@ const DUST_HOT := Color(1.0, 0.62, 0.25, 0.75)
 const VENOM := Color(0.5, 0.26, 0.72, 0.34)       # nuvem das cópias do Shazka: roxo de sombra (a borda quente diz que machuca)
 const SHARD_GLOW := Color(1.0, 0.45, 0.15)         # runas das lascas do Gorbash (o .glb traz verde)
 const SEG := 40
+const MIRROR_SCALE := 1.3                 # Espelho de Pé (~1,9 m no GLB): legível de cima; a área segura de verdade é o setor SAFE no chão
 
 var fx                                   # FxManager (main e mapa atual)
 var _am := ArrayMesh.new()
 var _mat: StandardMaterial3D
 var _rock_mat: StandardMaterial3D
 var _stones: Dictionary = {}             # id do pedregulho -> MeshInstance3D
+var _mirror_ap: Dictionary = {}          # id da cobertura com modelo (Espelho de Pé) -> AnimationPlayer (null = sem clipes)
+var _mirror_cracked: Dictionary = {}     # id -> já tocou o `crack`
 var _pools: Dictionary = {}              # id do hazard -> poça de lava do Kragmar (prop_kragmar_lavapool)
 var _pool_seen: Dictionary = {}
 var _props: Dictionary = {}              # chave -> modelo de assinatura (tambor, ilhas, marca, faixas, muralha, fumaça)
@@ -95,6 +98,8 @@ func _process(_delta: float) -> void:
 		if not seen.has(id):
 			(_stones[id] as Node).queue_free()
 			_stones.erase(id)
+			_mirror_ap.erase(id)
+			_mirror_cracked.erase(id)
 	for id in _pools.keys():
 		if not _pool_seen.has(id):
 			if _pools[id] != null:
@@ -164,6 +169,8 @@ func _hazard(h: Dictionary, now: float, m: Dictionary) -> void:
 			var pc := VENOM if h.get("decoy_cloud", false) else POOL
 			_disc(p, r, pc, 0.06)
 			_ring(p, r - 0.12, r, _rim if h.get("decoy_cloud", false) else Color(pc.r, pc.g, pc.b, 0.8), 0.065)
+		elif str(h.get("shape", "")) == "line":         # faixa que fica (cauda de fitas do Cortejo): a poça esticada
+			_strip(p, h["dir"], float(h["length"]), float(h["width"]), POOL, 0.06)
 		return
 	if h.get("invert", false):                     # Maré Cheia: a água fecha da borda, as ilhas ficam secas
 		var c: Vector3 = h.get("center", p)
@@ -256,7 +263,20 @@ func _hazard(h: Dictionary, now: float, m: Dictionary) -> void:
 func _stone(c: Dictionary) -> void:
 	var id := int(c["id"])
 	if _stones.has(id):
+		if c.get("cracked", false) and not _mirror_cracked.has(id):
+			_mirror_cracked[id] = true
+			var ap: AnimationPlayer = _mirror_ap.get(id)
+			if ap and ap.has_animation("crack"):
+				ap.play("crack")
+				if ap.has_animation("idle_cracked"):
+					ap.queue("idle_cracked")
 		return
+	if c.has("model"):
+		var mn := _mirror(c)
+		if mn:
+			add_child(mn)
+			_stones[id] = mn
+			return
 	var r := float(c["radius"])
 	var k := r / 1.2
 	var node: Node3D = MapBuilder.prop_model("avalanche_stone", Vector3(2.4, 2.56, 2.4) * k)
@@ -277,6 +297,39 @@ func _stone(c: Dictionary) -> void:
 	node.rotation.y = float(id) * 1.7
 	add_child(node)
 	_stones[id] = node
+
+## Espelho de Pé (Olhar Que Julga, Condessa): o GLB de monstro `c["model"]` em toon (como os props), virado para o dono
+## da cobertura; toca `idle` e, quando a sim marca `cracked`, `crack` e depois `idle_cracked` (_stone). null = sem o modelo.
+func _mirror(c: Dictionary) -> Node3D:
+	var path := "res://assets/models/%s.glb" % str(c["model"])
+	if not ResourceLoader.exists(path):
+		return null
+	var inst: Node3D = (load(path) as PackedScene).instantiate()
+	for mi in inst.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		for i in range(m.get_surface_override_material_count()):
+			var base := m.get_active_material(i)
+			var col: Color = base.albedo_color if base is BaseMaterial3D else Color(0.85, 0.88, 0.95)
+			var emission: float = base.emission_energy_multiplier if (base is BaseMaterial3D and base.emission_enabled) else 0.0
+			m.set_surface_override_material(i, Materials.toon(col, true, minf(emission, 2.0)))
+	var holder := Node3D.new()
+	holder.add_child(inst)
+	holder.scale = Vector3.ONE * MIRROR_SCALE
+	var p: Vector3 = c["pos"]
+	holder.position = Vector3(p.x, 0.0, p.z)
+	var owner: SimEntity = Sim.entities.get(int(c["owner"]))
+	if owner:
+		holder.rotation.y = atan2(owner.position.x - p.x, owner.position.z - p.z)
+	var aps := inst.find_children("*", "AnimationPlayer", true, false)
+	var ap: AnimationPlayer = aps[0] if not aps.is_empty() else null
+	if ap:
+		for a in ["idle", "idle_cracked"]:
+			if ap.has_animation(a):
+				ap.get_animation(a).loop_mode = Animation.LOOP_LINEAR     # glTF chega sem laço (recurso compartilhado)
+		if ap.has_animation("idle"):
+			ap.play("idle")
+	_mirror_ap[int(c["id"])] = ap
+	return holder
 
 ## Poça de lava do Kragmar: prop_kragmar_lavapool (lava ~2,2 m de raio na escala 1, borda 2,5 m), lava com o material de
 ## fogo (convenção glow_lava do MapBuilder). Nos 2 s finais afunda. false = sem o modelo (desenha o disco).

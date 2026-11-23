@@ -34,7 +34,13 @@ static func wound_hit(sim: WorldSim, e: SimEntity, t: SimEntity, le: Dictionary)
 	t.put_debuff({"kind": "wound", "id": "legend_wound_%d" % e.id, "remaining": Balance.LEG_WOUND_TIME, "stacks": n})
 	if n >= int(le.get("max", 5)):
 		var bid := "legend_wound_bleed_%d" % e.id
-		t.put_debuff({"kind": "dot", "id": bid, "remaining": Balance.LEG_WOUND_TIME, "dps": maxf(1.0, e.stats.patk * float(le.get("bleed", 8.0)) / 100.0) * e.stats.dot_mult(), "src": e.id, "bleed": true})
+		var bdps: float = maxf(1.0, e.stats.patk * float(le.get("bleed", 8.0)) / 100.0) * e.stats.dot_mult()
+		t.put_debuff({"kind": "dot", "id": bid, "remaining": Balance.LEG_WOUND_TIME, "dps": bdps, "src": e.id, "bleed": true})
+		var wj := PieceEffects.wake(e, "jump")          # Ferida Aberta Desperta: o sangramento salta para um vizinho
+		if not wj.is_empty():
+			var o := PieceEffects.nearest_foe(sim, e, t, Balance.LEG50_FOE_RANGE)
+			if o != null:
+				o.put_debuff({"kind": "dot", "id": bid, "remaining": Balance.LEG_WOUND_TIME, "dps": bdps * float(wj["pct"]) / 100.0, "src": e.id, "bleed": true})
 
 ## Lança uma skill de graça (sem mana nem recarga) a partir de `e`, mirando em `aim`: os efeitos que "lançam" algo.
 static func legend_cast(sim: WorldSim, e: SimEntity, skill_id: String, aim: Vector3) -> void:
@@ -102,6 +108,7 @@ static func signature_on_hit(sim: WorldSim, e: SimEntity, t: SimEntity, s: Skill
 	sim.signature_casting = true
 	sim.power_scale = Balance.SIGNATURE_POWER * float(Balance.SIGNATURE_BUILD_POWER.get(signature_build(e), 1.0))     # peso por build (dps_probe)
 	legend_cast(sim, e, sid, t.position)
+	PieceEffects.after_signature(sim, e, t, sid)        # Brasa Viva / Lua Cheia Despertas
 	sim.power_scale = 1.0
 	sim.signature_casting = false
 
@@ -123,7 +130,12 @@ static func legend_on_hit(sim: WorldSim, e: SimEntity, t: SimEntity, s: SkillDef
 			elif not own_cast and t.is_alive() and sim.time >= e.leg_cast_at and sim.rng.randf() * 100.0 < float(le["chance"]):
 				e.leg_cast_at = sim.time + Balance.LEG_CAST_ICD
 				sim.signature_casting = true
+				var keep := sim.power_scale
+				var wp := PieceEffects.wake(e, "power")        # Castigo Sagrado Desperto
+				if not wp.is_empty():
+					sim.power_scale = keep * (1.0 + float(wp["pct"]) / 100.0)
 				legend_cast(sim, e, str(le["skill"]), t.position)
+				sim.power_scale = keep
 				sim.signature_casting = false
 		"chain":
 			if single and not own_cast:
@@ -136,33 +148,58 @@ static func legend_on_hit(sim: WorldSim, e: SimEntity, t: SimEntity, s: SkillDef
 						left -= 1
 		"splash":
 			if single and not own_cast:
+				var sk: float = float(le["pct"]) / 100.0
+				var scrit := false
+				if not PieceEffects.wake(e, "chill").is_empty() and (Combat.is_chilled(t) or t.debuffs.any(func(d): return d.get("kind") == "root")):
+					sk *= e.stats.crit_mult()        # Pólvora Desperta: em alvo retardado/preso a explosão é crítica
+					scrit = true
 				for o: SimEntity in sim.maps[e.map_id]["entities"]:
 					if o != t and o.is_alive() and e.is_hostile_to(o) and o.position.distance_to(t.position) <= float(le.get("radius", 2.5)):
-						sim._deal_damage(e, o, maxi(1, int(amount * float(le["pct"]) / 100.0)), false, false, "splash")
+						sim._deal_damage(e, o, maxi(1, int(amount * sk)), scrit, false, "splash")
 		"stun":
 			if t.is_alive() and sim.time >= e.legend_ready_at and sim.rng.randf() * 100.0 < float(le["chance"]) + FusionEffects.stun_bonus(e):
 				e.legend_ready_at = sim.time + float(le.get("icd", 6.0))
 				sim._apply_effects(e, t, {"stun": {"duration": float(le["dur"])}}, 0.0)
 				FusionEffects.judge(sim, e, t)          # Ápice do Veredito: a rolagem que passa julga (mesmo se o chefe resistir)
+				PieceEffects.on_event(sim, e, "stun_proc", t)     # botas do Cruzado 50 (Julgado)
+				var ws := PieceEffects.wake(e, "splash")          # Julgamento Desperto: comuns em volta (chefe nunca)
+				if not ws.is_empty():
+					var left := Balance.LEG50_STUN_SPLASH_MAX
+					for o: SimEntity in sim.maps[e.map_id]["entities"]:
+						if left <= 0:
+							break
+						if o != t and o.is_alive() and e.is_hostile_to(o) and not (o.monster_def != null and o.monster_def.is_boss) \
+								and o.position.distance_to(t.position) <= Balance.LEG50_STUN_SPLASH + o.radius:
+							sim._apply_effects(e, o, {"stun": {"duration": float(ws["dur"])}}, 0.0)
+							left -= 1
 		"frenzy":
 			var n: int = mini(int(le.get("max", 5)), e.buff_stacks("legend_frenzy") + 1)
 			e.put_buff({"id": "legend_frenzy", "remaining": Balance.LEG_FRENZY_TIME, "stacks": n, "aspd_pct": float(le["pct"]) * n})
 			e.recompute_stats()
+			var we := PieceEffects.wake(e, "echo")          # Frenesi Desperto: cheio, às vezes bate de novo
+			if not we.is_empty() and n >= int(le.get("max", 5)) and t.is_alive() and sim.rng.randf() * 100.0 < float(we["chance"]):
+				sim._deal_damage(e, t, maxi(1, int(amount * float(we["pct"]) / 100.0)), false, false, "echo")
 		"bleed", "poison":
 			if t.is_alive() and sim.rng.randf() * 100.0 < float(le["chance"]):
-				var did := "legend_%s_%d" % [le["kind"], e.id]
-				t.put_debuff({"kind": "dot", "id": did, "remaining": Balance.LEG_DOT_TIME, "dps": maxf(1.0, e.stats.patk * float(le["pct"]) / 100.0) * e.stats.dot_mult(), "src": e.id})
+				legend_dot(sim, e, t, le)
 		"spare_shot":                       # Bala na Agulha (Corsário): o golpe às vezes dispara a pistola de graça no alvo
 			if single and not own_cast and t.is_alive() and e.is_hostile_to(t) and e.stats.offhand_type == "pistol" \
 					and sim.time >= e.shot_ready_at and sim.rng.randf() * 100.0 < float(le["chance"]):
-				e.shot_ready_at = sim.time + Balance.LEG_SHOT_ICD
+				e.shot_ready_at = sim.time + maxf(0.2, Balance.LEG_SHOT_ICD - float(PieceEffects.wake(e, "quick").get("icd_cut", 0.0)))
 				spare_shot(sim, e, t, float(le["pct"]))
 		"mark":
 			if t.is_alive():
 				sim._apply_effects(e, t, {"curse": {"id": "legend_mark", "duration": 4.0, "taken_pct": float(le["pct"])}}, 0.0)
 		"mend":                             # Mão que Cura (Clérigo de Batalha): o golpe cura o aliado mais ferido
 			if e.is_hostile_to(t):
+				var wm := PieceEffects.wake(e, "overflow")       # Mão que Cura Desperta: o que passa do máximo vira barreira
+				var mf: SimEntity = sim.most_hurt_friend(e, Balance.RADIANCE_RANGE) if not wm.is_empty() else null
+				var miss: float = mf.stats.max_hp - mf.hp if mf != null else 0.0
 				sim.mend(e, amount, float(le["pct"]) / 100.0)
+				if mf != null:
+					var over: float = amount * float(le["pct"]) / 100.0 * (Balance.MEND_SELF_MULT if mf == e else 1.0) - miss
+					if over > 0.0:
+						PieceEffects.overflow_barrier(mf, over, float(wm["pct"]))
 		"penance":                          # Penitência (Templário): cargas no alvo; na última explode em fogo sagrado
 			if t.is_alive() and not own_cast and e.is_hostile_to(t):
 				penance_hit(sim, e, t, le)
@@ -172,10 +209,25 @@ static func legend_on_hit(sim: WorldSim, e: SimEntity, t: SimEntity, s: SkillDef
 		"holy_edge":                        # Lâmina Justa (espada do Guardião): chance de dano sagrado a mais (conta ameaça)
 			if t.is_alive() and not own_cast and e.is_hostile_to(t) and (sim.signature_force or sim.rng.randf() * 100.0 < float(le["chance"])):
 				holy_edge(sim, e, t, float(le["pct"]))
+				var wo := PieceEffects.wake(e, "oath")          # Lâmina Justa Desperta: +Juramento
+				if not wo.is_empty():
+					PieceEffects.gain(sim, e, "oath", int(wo["n"]))
 		"bulwark":                          # Baluarte (maça/martelo do Paladino): golpe dá barreira, com recarga
 			if e.is_hostile_to(t) and sim.time >= e.legend_ready_at:
 				e.legend_ready_at = sim.time + float(le.get("icd", 4.0))
 				bulwark(sim, e, le)
+
+## Sangue da Matilha / Veneno Letal: dano no tempo da arma no alvo (renova). Desperto (Lobo 50, "copies"): até n cópias,
+## a nova entra no lugar da mais antiga.
+static func legend_dot(sim: WorldSim, e: SimEntity, t: SimEntity, le: Dictionary) -> void:
+	var did := "legend_%s_%d" % [le["kind"], e.id]
+	var w := PieceEffects.wake(e, "copies")
+	if not w.is_empty():
+		var i := int(e.leg50_ready.get("dot_i", 0))
+		e.leg50_ready["dot_i"] = (i + 1) % maxi(1, int(w["n"]))
+		if i > 0:
+			did += "_%d" % i
+	t.put_debuff({"kind": "dot", "id": did, "remaining": Balance.LEG_DOT_TIME, "dps": maxf(1.0, e.stats.patk * float(le["pct"]) / 100.0) * e.stats.dot_mult(), "src": e.id})
 
 ## Lâmina Justa: `pct`% do ATK em dano sagrado no alvo. Passa por _deal_damage: soma ameaça como qualquer golpe.
 static func holy_edge(sim: WorldSim, e: SimEntity, t: SimEntity, pct: float) -> void:
@@ -189,6 +241,15 @@ static func bulwark(sim: WorldSim, e: SimEntity, le: Dictionary) -> void:
 	sim._apply_effects(e, e, {"shield": {"amount_pct_hp": float(le["pct"]), "duration": time}}, 1.0)
 	e.put_buff({"id": Balance.LEG_BULWARK_BUFF, "remaining": time})
 	Events.post(&"buff_applied", e.id, Balance.LEG_BULWARK_BUFF, time)
+	var wa := PieceEffects.wake(e, "ally")          # Baluarte Desperto (Guardião): cobre o aliado mais ferido
+	if not wa.is_empty():
+		var ally := PieceEffects.most_hurt_other(sim, e, e, Balance.LEG50_ALLY_RANGE)
+		if ally != null:
+			sim._apply_effects(e, ally, {"shield": {"amount_pct_hp": float(le["pct"]) * float(wa["pct"]) / 100.0, "duration": time}}, 1.0)
+	var wd := PieceEffects.wake(e, "det")           # Baluarte Desperto (Templário): +Determinação
+	if not wd.is_empty() and not e.stats.shield_passive.is_empty():
+		for i in range(int(wd["n"])):
+			determination_gain(sim, e, false)
 
 ## Determinação (escudo lendário): +1 carga até `max`; cada carga = +`dmg`% de ATK/MATK e +`heal`% de cura recebida.
 ## Atacar dá carga no máximo a cada `icd` s e não renova o tempo; levar golpe dá carga e renova (`time` s). Sem golpe recebido
@@ -209,6 +270,8 @@ static func determination_gain(sim: WorldSim, e: SimEntity, refresh: bool) -> vo
 		return
 	var left: float = float(dp.get("time", 6.0)) if refresh or cur.is_empty() else float(cur["remaining"])
 	var atk_at: float = float(cur.get("atk_at", -INF)) if refresh else sim.time
+	if n >= int(dp.get("max", 5)) and old_n < n:
+		PieceEffects.on_event(sim, e, "det_full")          # escudo do Guardião/Batalha 50
 	e.put_buff({"id": Balance.LEG_DETERMINATION_BUFF, "remaining": left, "stacks": n, "atk_at": atk_at,
 		"atk_pct": float(dp.get("dmg", 0.0)) * n, "matk_pct": float(dp.get("dmg", 0.0)) * n, "heal_in_pct": float(dp.get("heal", 0.0)) * n})
 	e.recompute_stats()
@@ -243,10 +306,16 @@ static func penance_hit(sim: WorldSim, e: SimEntity, t: SimEntity, le: Dictionar
 	t.debuffs = t.debuffs.filter(func(d): return d.get("id") != did)
 	var at := t.position
 	FusionEffects.on_penance_burst(sim, e, t)       # Sentença Ardente (atordoa) / Égide Ardente (Juramento)
+	PieceEffects.on_event(sim, e, "penance_burst", t)     # botas do Templário 50
 	Events.post(&"skill_effect", "pal_sun_strike", at, at, float(le.get("radius", 2.5)))
+	var wz := PieceEffects.wake(e, "zone")          # Penitência Desperta: Chão Sagrado
+	var zs: SkillDef = GameData.skills.get("pal_sun_strike")
+	if not wz.is_empty() and zs != null:
+		TrapSystem.place_zone(sim, e, zs, at, zs.power, {"zone": Balance.HALLOWED_ZONE.merged({"id": "leg50_penance", "duration": float(wz["time"])}, true)})
+	var pm := PieceEffects.penance_mult(e)          # escudo do Templário 50: Determinação reforça a explosão
 	for o: SimEntity in sim.maps[e.map_id]["entities"].duplicate():
 		if o.is_alive() and e.is_hostile_to(o) and o.position.distance_to(at) <= float(le.get("radius", 2.5)) + o.radius:
-			var r := Combat.calc_damage(e, o, float(le["pct"]) / 100.0, SkillDef.Kind.PHYSICAL, sim.rng, at)
+			var r := Combat.calc_damage(e, o, float(le["pct"]) / 100.0 * pm, SkillDef.Kind.PHYSICAL, sim.rng, at)
 			sim._deal_damage(e, o, r["amount"], r["crit"], false, "penance", at)
 
 ## Arma lendária: Eco (o golpe direto bate de novo), Retaliação (devolve parte do corpo a corpo recebido). Eco e
@@ -256,6 +325,13 @@ static func legend_weapon(sim: WorldSim, attacker: SimEntity, target: SimEntity,
 		for b in target.buffs:
 			if b.get("id") == Balance.LEG_BULWARK_BUFF:
 				target.drop_buff(Balance.LEG_BULWARK_BUFF)          # Baluarte: a barreira acabou, a marca sai junto
+				var ww := PieceEffects.wake(target, "wave")      # Baluarte Desperto (Cruzado): onda sagrada ao quebrar
+				if not ww.is_empty() and target.is_alive():
+					Events.post(&"skill_effect", "pal_sun_strike", target.position, target.position, Balance.LEG50_WAVE_RADIUS)
+					for o: SimEntity in sim.maps[target.map_id]["entities"].duplicate():
+						if o.is_alive() and target.is_hostile_to(o) and o.position.distance_to(target.position) <= Balance.LEG50_WAVE_RADIUS + o.radius:
+							var rw := Combat.calc_damage(target, o, float(ww["pct"]) / 100.0, SkillDef.Kind.PHYSICAL, sim.rng, target.position)
+							sim._deal_damage(target, o, rw["amount"], rw["crit"], false, "holy_edge", target.position)
 				break
 	if amount <= 0 or attacker == target or not (kind in ["physical", "magical", "shatter"]):
 		return
@@ -263,7 +339,18 @@ static func legend_weapon(sim: WorldSim, attacker: SimEntity, target: SimEntity,
 		determination_gain(sim, target, true)      # levou golpe: +1 Determinação e renova o tempo
 	if target.is_character() and target.is_alive() and str(target.stats.legend.get("kind", "")) == "cast_when_hit" and sim.time >= target.legend_ready_at:
 		target.legend_ready_at = sim.time + float(target.stats.legend.get("icd", 20.0))      # Coração de Gelo / Casca Viva
+		var keep := sim.power_scale
+		var wp := PieceEffects.wake(target, "power")         # Coração de Gelo Desperto: a Nova bate mais
+		if not wp.is_empty():
+			sim.power_scale = keep * (1.0 + float(wp["pct"]) / 100.0)
 		legend_cast(sim, target, str(target.stats.legend["skill"]), attacker.position)
+		sim.power_scale = keep
+		var wa := PieceEffects.wake(target, "ally")          # Casca Viva Desperta: cobre o aliado mais ferido
+		var cs: SkillDef = GameData.skills.get(str(target.stats.legend["skill"]))
+		if not wa.is_empty() and cs != null:
+			var ally := PieceEffects.most_hurt_other(sim, target, target, Balance.FUSION_BARK_RANGE)
+			if ally != null:
+				sim._apply_effects(target, ally, {"shield": cs.effects.get("shield"), "buff": cs.effects.get("buff")}, 1.0)
 	if attacker.is_character() and str(attacker.stats.legend.get("kind", "")) == "echo" and attacker.stats.echo_chance > 0.0 and target.is_alive() and sim.rng.randf() * 100.0 < attacker.stats.echo_chance:
 		sim._deal_damage(attacker, target, maxi(1, int(amount * attacker.stats.echo_pct / 100.0)), false, false, "echo")
 	if kind == "physical" and target.is_character() and target.is_alive() and attacker.is_alive() and target.stats.thorns_pct > 0.0 \
@@ -277,6 +364,15 @@ static func legend_on_kill(sim: WorldSim, e: SimEntity, mob: SimEntity) -> void:
 		"raise_on_kill":
 			if sim.time >= e.legend_ready_at and GameData.monsters.has("skeleton_minion"):
 				e.legend_ready_at = sim.time + float(le.get("icd", 12.0))
-				sim.spawn_summon(e, GameData.monsters["skeleton_minion"], mob.position, float(le.get("time", 15.0)), true)
+				var sk := sim.spawn_summon(e, GameData.monsters["skeleton_minion"], mob.position, float(le.get("time", 15.0)), true)
+				var wp := PieceEffects.wake(e, "pet")          # Legião Desperta: o esqueleto bate mais
+				if sk != null and not wp.is_empty():
+					sk.buffs.append({"pet_atk_pct": float(wp["pct"]), "remaining": float(le.get("time", 15.0))})
+					sk.recompute_stats()
 		"heal_on_kill":
 			sim._heal(e, e, int(e.stats.max_hp * float(le["pct"]) / 100.0))
+			var wa := PieceEffects.wake(e, "ally")          # Ceifa Desperta: cura o aliado mais ferido também
+			if not wa.is_empty():
+				var ally := PieceEffects.most_hurt_other(sim, e, e, Balance.LEG50_ALLY_RANGE)
+				if ally != null:
+					sim._heal(e, ally, maxi(1, int(ally.stats.max_hp * float(wa["pct"]) / 100.0)))

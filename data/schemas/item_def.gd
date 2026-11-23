@@ -49,6 +49,9 @@ const RARITY_LEGENDARY := 4
 @export var shield_effect: Dictionary = {}
 ## stats extras do item (chaves de Stats.STAT_KEYS, somados como buff), ex. joias de mana: {"mp_on_kill": 10, "mp_regen_combat": 0.8}
 @export var bonus: Dictionary = {}
+## Lendário do 50: efeito próprio da peça (GearCatalog.LEG50 + Balance.LEG50_NUMBERS já resolvidos; regras em PieceEffects).
+## {"kind": stat|charges|legend_up|legend_wake|cap_up|skill_mods|form_up|dot_up|zone_on_cast|on_trigger|mana_guard_eff, "piece", "text", ...}
+@export var piece_fx: Dictionary = {}
 
 ## consumível: {"heal": 50, "heal_pct": 0.2, "mana": 30, "buff": {"id":"might","duration":30,"atk_pct":15}}
 @export var consume: Dictionary = {}

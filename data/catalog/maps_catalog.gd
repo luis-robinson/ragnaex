@@ -42,7 +42,7 @@ static func _sp(monster: String, x: float, z: float, radius: float, count: int, 
 	return {"monster_id": monster, "pos": Vector3(x, 0, z), "radius": radius, "count": count, "respawn": respawn}
 
 static func build() -> Array:
-	var out: Array = [_aldara(), _hollow(), _crab_beach(), _grove(), _forest(), _ruins(), _elf_city(), _port(), _coast(), _steppe(), _kharzun(), _kharzun_citadel()]
+	var out: Array = [_aldara(), _hollow(), _crab_beach(), _grove(), _forest(), _ruins(), _elf_city(), _port(), _coast(), _steppe(), _kharzun(), _kharzun_citadel(), _lumeria(), _perfume(), _parade(), _rift_garden()]
 	for fid in FORT_DEFS:
 		out.append(_fort(fid))
 	for did in DUNGEON_DEFS:
@@ -60,7 +60,10 @@ static func build() -> Array:
 ## Cristais de retorno (role "crystal", modelo prop_crystal): vincular = G e renascer ali. Posição (x, z) na praça.
 ## Quest que vincula o jogador ao cristal do mapa ao ser concluída (Ato II: morrer não manda de volta a Aldara).
 const QUEST_BIND := {"hx_crossing": "city_port"}
-const CRYSTALS := {"city_aldara": [-6.4, 5.2], "field_forest": [-5.5, -5.5], "field_ruins": [25.6, 4.6], "city_port": [6.5, 13.0], "field_steppe": [-6.9, 4.0], "field_kharzun": [-12.79, 5.69]}
+const CRYSTALS := {"city_aldara": [-6.4, 5.2], "field_forest": [-5.5, -5.5], "field_ruins": [25.6, 4.6], "city_port": [6.5, 13.0], "field_steppe": [-6.9, 4.0], "field_kharzun": [-12.79, 5.69],
+	"city_lumeria": [-71.43, -6.71], "field_parade": [5.3, 5.3], "rift_garden": [5.05, -6.46]}
+## Cristal que só aparece num estágio (Ato III: o Posto dos Lúcidos do Cortejo ganha cristal em L2 = hx3_cellars).
+const CRYSTAL_IF := {"field_parade": "hx3_cellars", "rift_garden": "hx3_veil"}      # Fenda: cristal no Posto da Aurora em L4 (crystal_hint do JSON)
 const CRYSTAL_LINES := ["Uma pedra azul que zumbe baixinho. Toque para lembrar deste lugar.", "Os viajantes juram que o cristal os puxa de volta para casa."]
 
 static func crystal_npc(map_id: String) -> Array:
@@ -69,6 +72,8 @@ static func crystal_npc(map_id: String) -> Array:
 	var p: Array = CRYSTALS[map_id]
 	var d := _npc("crystal_" + map_id, "Cristal de Retorno", float(p[0]), float(p[1]), "crystal", Color(0.45, 0.75, 1.0), CRYSTAL_LINES)
 	d["model"] = "prop_crystal"
+	if CRYSTAL_IF.has(map_id):
+		d["if"] = CRYSTAL_IF[map_id]
 	return [d]
 
 ## Mestres de Skills (role "trainer", Balance.SKILL_TRAINER_ROLES; plano tidy-painting-biscuit 2026-11-18): um por hub, posição escrita
@@ -86,6 +91,7 @@ const TRAINERS := {
 	"field_ruins": ["Valério, Mestre de Skills", -9.0, -22.0, 0.0, ["Fragmento de osso e insígnia de bandido nas skills do meio do caminho; minério estelar e relíquia nas de nível 24 em diante."]],
 	"city_port": ["Celina, Mestra de Skills", 4.0, -4.25, 180.0, ["A Ordem cruzou o mar com a colônia. Presa de orc e de goblin pagam as skills do Ato II."]],
 	"field_kharzun": ["Gaspar, Mestre de Skills", -11.0, -3.0, 90.0, ["Aço de orc e presa de troll: as skills mais altas pedem o que só esta montanha dá."]],
+	"city_lumeria": ["Leonor, Mestra de Skills", -84.36, 11.98, 142.0, ["Treino atrás das barricadas. Lá fora eles dançam rápido: quem não domina a própria skill vira par de baile."]],
 }
 
 ## O Mestre de Skills do hub `map_id` (lista vazia se o mapa não tem).
@@ -508,6 +514,12 @@ const GATHER := {
 	"kharzun_citadel": [["basalt_ore", "ore", [44.0, 44.0], 7.0, 3], ["dwarf_steel", "ore", [34.0, 2.0], 7.0, 3]],
 	"elf_city": [["herb_blue", "herb_blue", [-70.0, 30.0], 12.0, 5], ["forest_mushroom", "mushroom", [58.0, -40.0], 14.0, 5],
 		["star_ore", "star", [-40.0, -92.0], 12.0, 5], ["elf_steel", "crate", [70.0, 64.0], 10.0, 4]],
+	# Ato III (gather_hint dos JSON): Fitas do Festim nas caixas da festa, Porcelana Chorosa nos cacos de máscara; uvas,
+	# engrenagens e flores de papel são itens de missão do WP10 (sem item ainda)
+	"city_lumeria": [["festim_ribbon", "crate", [44.0, 44.0], 9.0, 4], ["weeping_porcelain", "relic", [10.0, -53.0], 6.0, 2]],
+	"field_perfume": [["festim_ribbon", "crate", [18.0, -66.0], 7.0, 4], ["weeping_porcelain", "relic", [80.0, -10.0], 6.0, 2], ["herb_blue", "herb_blue", [38.0, 16.0], 6.0, 3]],
+	"field_parade": [["festim_ribbon", "crate", [12.0, -62.0], 8.0, 5], ["festim_ribbon", "crate", [-64.0, 36.0], 7.0, 3], ["weeping_porcelain", "relic", [55.0, -63.0], 6.0, 2],
+		["weeping_porcelain", "relic", [-52.0, 74.0], 6.0, 2]],
 }
 
 ## Bichos de ambiente (só apresentação, game/world/ambient_life.gd): por mapa, [tipo, centro [x, z], raio, quantos].
@@ -536,6 +548,10 @@ const AMBIENT_LIFE := {
 		["ember", [100.0, -41.0], 10.0, 8], ["ember", [-60.0, 73.0], 10.0, 8], ["ember", [56.0, -76.0], 7.0, 8]],
 	"dg_slayers": [["bat", [0.0, 27.5], 9.0, 4], ["bat", [-15.0, -10.0], 9.0, 4], ["bat", [5.0, -50.0], 9.0, 3]],
 	"kharzun_citadel": [["bat", [0.0, 36.0], 12.0, 5], ["bat", [72.0, 24.0], 7.0, 4], ["bat", [0.0, -54.0], 12.0, 4]],
+	# Ato III: "pombos" (corvos) nos telhados do Bairro e da Praça, mariposas nas lanternas que nunca apagam
+	"city_lumeria": [["crow", [-75.0, 0.0], 16.0, 4], ["moth", [-75.0, 0.0], 6.0, 6], ["moth", [0.0, 0.0], 10.0, 8], ["crow", [0.0, -62.0], 14.0, 4], ["moth", [51.0, -4.0], 8.0, 6]],
+	"field_perfume": [["crow", [0.0, 0.0], 18.0, 3], ["crow", [-76.0, -2.0], 20.0, 4], ["moth", [-40.0, -57.0], 12.0, 8], ["moth", [-48.0, 79.0], 6.0, 6]],
+	"field_parade": [["crow", [0.0, 0.0], 16.0, 3], ["crow", [-75.0, 24.0], 18.0, 4], ["moth", [30.0, 71.0], 10.0, 8], ["moth", [10.0, -75.0], 10.0, 6]],
 }
 
 ## Ponto de colheita: [item, forma, centro, raio, quantos, (opcional) {"if"/"unless": quest}] (estágio por WorldState).
@@ -809,9 +825,11 @@ const ASSAULTS := {
 ## Fase 2 (Estepes de Cinza, 35-40): trolls, arqueiros, guerreiro orc e os três chefes já existem (sem substituto).
 const STAND_INS := {}   # Kharzun: os chefes reais chegaram (WP7/WP4); nada mais é substituto
 ## Quests que abrem portões e ainda não existem neste ramo (pacote de missões, WP9). INTEGRAÇÃO: esvazie quando chegarem.
-const PENDING_GATE_QUESTS := []
+const PENDING_GATE_QUESTS := []   # Ato III: as missões da Fenda/raide chegaram (WP10b)
 ## NPCs de cabana cujas quests vêm do pacote de missões (ainda fora deste ramo). INTEGRAÇÃO: esvazie quando as quests chegarem.
 const PENDING_GIVERS := []   # Kharzun: as cadeias do Xamã Exilado e dos Libertos chegaram (WP9)
+## Ato III parte 1 (WP5): cabanas que ainda não dão missão; as cadeias paralelas chegam no WP10 (GDD ato3-excesso-45-50 §5).
+const PENDING_GIVERS_ACT3 := []   # WP10: as 6 cabanas já dão missão (QuestsCatalog.ACT3_CHAINS)
 
 ## Id de monstro que existe no jogo: o do contrato ou, enquanto ele não chega, o substituto.
 static func mob(id: String) -> String:
@@ -1251,6 +1269,25 @@ const LIVING_NPCS := {
 		"kh_orc_porter": ["Orc Rendido Ugluk", Color(0.5, 0.58, 0.42), ["Durgash caiu. Ugluk carrega saco. Saco não grita com Ugluk.", "Humano dá comida se Ugluk carrega. Durgash dava chicote."],
 			["Saco pro humano.", "Ugluk carrega!", "Hmpf."], [-3.0, 10.5], [[-3.0, 10.5], [-1.5, 18.0], [4.0, 18.5], [3.5, 12.0]], {"if": "hx_warlord", "carry": "carry_sack", "model": "mob_orc_recruit"}],
 	},
+	# Lumeria (Ato III, GDD §10): Lúcidos carregando móveis em volta do sino abafado da praça do Bairro (anel de 6 m: fora dele há
+	# bancas, caixotes e lampiões) e um que traz portas do portão oeste
+	"city_lumeria": {
+		"lum_mover_a": ["Lúcido Sebastião", Color(0.56, 0.6, 0.7), ["Cadeira, mesa, armário: tudo vira muro. A festa não entra pela porta de ninguém aqui.", "Durmo de dia, carrego de noite. Quando eles cantam mais alto, carrego mais rápido."],
+			["Mais um armário para a porta!", "Segura aí, segura!", "Barricada não se faz sozinha."], [-69.0, 0.0], [[-69.0, 0.0, 6], [-70.1, 3.5], [-73.1, 5.7], [-76.9, 5.7], [-79.9, 3.5], [-81.0, 0.0, 6], [-79.9, -3.5], [-76.9, -5.7], [-73.1, -5.7], [-70.1, -3.5]], {"carry": "carry_crate", "flow": true}],
+		"lum_mover_b": ["Lúcida Conceição", Color(0.62, 0.58, 0.66), ["Eu era costureira do Duque. Agora costuro saco de areia.", "Não olhe muito para as lanternas. Elas chamam."],
+			["Areia para a porta norte!", "Cuidado com o pé!", "Ninguém dorme enquanto o muro não fecha."], [-69.3, -1.9], [[-69.3, -1.9, 6], [-71.5, -4.9], [-75.0, -6.0], [-78.5, -4.9], [-80.7, -1.9], [-80.7, 1.9, 6], [-78.5, 4.9], [-75.0, 6.0], [-71.5, 4.9], [-69.3, 1.9]], {"carry": "carry_sack", "flow": true}],
+		"lum_mover_c": ["Lúcido Tadeu", Color(0.5, 0.56, 0.62), ["Trouxe a porta da minha casa. Minha casa não precisa mais de porta.", "Do portão oeste se vê a montanha. Às vezes dá vontade de voltar."],
+			["Porta nova para o muro!", "Mais madeira!", "Quase lá."], [-93.22, 3.21], [[-93.22, 3.21, 5], [-88.6, 0.0], [-81.6, 0.0, 5], [-88.6, 0.0]], {"carry": "carry_log"}],
+	},
+	# Vinhas do Perfume (L2 Vindima, living_hint do JSON): vinhateiros libertos colhem nos terraços depois das Adegas
+	"field_perfume": {
+		"freed_vintner_a": ["Vinhateiro Liberto Joaquim", Color(0.56, 0.44, 0.58), ["Colher sem beber. Faz quarenta anos que eu não fazia isso.", "A uva ainda canta. Mas canta baixinho agora."],
+			["Uva madura!", "Mais uma caixa!", "Para a Quinta!"], [-66.0, 12.0], [[-66.0, 12.0, 6], [-58.0, 24.0], [-62.0, 36.0, 6], [-68.0, 8.0]], {"carry": "carry_crate", "if": "hx3_cellars"}],
+		"freed_vintner_b": ["Vinhateira Liberta Rosa", Color(0.6, 0.48, 0.56), ["As adegas estão quietas. Dá para ouvir o vento nas vinhas de novo.", "Bento chorou quando viu a gente colhendo."],
+			["Saco cheio!", "Os terraços voltaram a ser nossos.", "Cuidado com os galgos!"], [-54.0, -10.0], [[-54.0, -10.0, 6], [-64.0, -20.0], [-72.0, 1.0, 6]], {"carry": "carry_sack", "if": "hx3_cellars"}],
+		"freed_vintner_c": ["Vinhateiro Liberto Caetano", Color(0.52, 0.46, 0.6), ["Do outro lado do riacho as vinhas são as mais velhas. E as mais teimosas.", "Vinho claro. É isso que a gente vai fazer agora."],
+			["Caixa para o santuário!", "Mais um terraço limpo.", "Uva sem perfume, enfim."], [74.0, 26.0], [[74.0, 26.0, 6], [80.0, 38.0], [70.0, 46.0, 6]], {"carry": "carry_crate", "if": "hx3_cellars"}],
+	},
 }
 
 ## Acampamentos da Horda (fort_trolls/fire/war): cativos que carregam antes da retomada; a vida da Aurora depois.
@@ -1296,6 +1333,12 @@ const MOB_PATROLS := {
 	"fort_trolls": [["troll_whelp", 26.0, 3.0, 3.0, 2, 30.0, [[26.0, 3.0], [36.0, -11.0], [53.0, -14.0], [64.0, -4.0], [53.0, -14.0], [36.0, -11.0]], Q_FORT_TROLLS]],
 	"fort_fire": [["orc_archer", -36.0, -20.0, 3.0, 2, 30.0, [[-36.0, -20.0], [-31.0, -10.0], [-17.0, -11.0], [-5.0, -8.0], [-17.0, -11.0], [-31.0, -10.0]], Q_FORT_FIRE]],
 	"fort_war": [["orc_warrior", -39.0, 20.0, 3.0, 2, 30.0, [[-39.0, 20.0], [-35.0, 8.0], [-21.0, 8.0], [-7.0, 7.0], [-21.0, 8.0], [-35.0, 8.0]], Q_FORT_WAR]],
+	# Ato III (patrol_hint dos JSON): Ronda do Festim pelas ruas do anel leste de Lumeria (some em L3b, GDD §5) e a matilha de
+	# Galgos que corre os terraços do Perfume
+	"city_lumeria": [["masked_reveler", 15.5, -62.0, 3.0, 3, 24.0, [[15.5, -62.0], [24.2, -58.0], [31.6, -51.4], [38.0, -43.0], [43.2, -34.3], [47.7, -25.5], [50.8, -16.2],
+		[51.0, 6.5], [54.7, 15.4], [54.7, 25.6], [52.3, 35.3], [47.1, 43.8], [40.0, 51.0], [31.7, 57.4], [22.0, 61.5]], "hx3_veil_open"]],
+	"field_perfume": [["silk_hound", -70.0, 4.0, 3.0, 3, 26.0, [[-70.0, 4.0], [-73.9, -6.0], [-76.1, -15.7], [-74.8, -25.8], [-69.5, -33.9], [-62.0, -39.0], [-52.8, -36.6],
+		[-43.2, -36.3], [-33.7, -38.2], [-24.0, -41.0], [-14.6, -44.6], [-5.1, -48.7]], ""]],
 }
 
 ## Falas soltas (barks) de NPCs que já existiam: id -> falas curtas que aparecem sobre a cabeça quando o jogador passa.
@@ -1418,6 +1461,40 @@ const ROAD_EVENTS := {
 			"flee": ["Não aguento mais... vou correr pra vila!", "Ai! Me morderam! Fujam!"],
 			"bot_chat": ["Salvei um lavrador dos lobos lá na estrada!", "Tinha um lavrador cercado de lobos. Agora não tem mais lobo.", "Lobo na estrada de novo. Resolvido."],
 			"reward_item": "potion_hp_s", "reward_count": 2},
+	},
+	# Festim Sem Fim (GDD ato3-excesso-45-50 §7; decisão do usuário: só nos campos, nunca nas ruas de Lumeria). Prêmios: o GDD
+	# pede Vinho Claro e poção de vida G, que ainda não existem (WP10/WP11): poção M no lugar; Fita e Porcelana já existem.
+	"field_perfume": {
+		"banquet": {"name": "Banquete na Estrada", "mob": "masked_reveler", "mob_name": "Folião Anfitrião", "count": [3, 4],
+			"victim": ["Viajante Empanturrado", Color(0.72, 0.6, 0.5)], "home": [0.0, 6.0],
+			"cry": ["Chega! Eu não aguento mais comer!", "Me soltem da mesa! Socorro!", "Mais um prato não, por favor!"],
+			"thanks": ["Obrigado... acho que nunca mais olho para uma uva. Leve isto.", "Você me tirou da mesa. Fique com estas poções, eu não consigo nem olhar."],
+			"flee": ["Eles vão me fazer comer de novo! Vou correr para a Quinta!", "Não volto para aquela mesa!"],
+			"bot_chat": ["Tirei um viajante de um banquete na estrada. O cara estava verde.", "Banquete dos foliões no vinhedo de novo. Desmanchei a mesa.", "Folião servindo comida à força. Resolvido."],
+			"reward_item": "potion_hp_m", "reward_count": 3},
+		"sweet_smoke": {"name": "Fumo no Vinhedo", "mob": "living_censer", "mob_name": "Incensário Vivo", "count": [1, 2],
+			"victim": ["Vinhateiro Desmaiado", Color(0.5, 0.42, 0.56)], "home": [0.0, 6.0],
+			"cry": ["Que cheiro doce... não consigo levantar...", "Alguém... apague esse fumo...", "As uvas estão cantando..."],
+			"thanks": ["O ar limpou. Achei isto preso no incensário; é seu.", "Obrigado. Esse fumo deixa a gente feliz e parado. Tome."],
+			"flee": ["Preciso de ar! Vou para a Quinta!", "Minha cabeça... vou embora daqui."],
+			"bot_chat": ["Apaguei um incensário que estava dopando um vinhateiro.", "Fumo doce no vinhedo. Prenda a respiração e bata.", "Mais um incensário a menos nos terraços."],
+			"reward_item": "weeping_porcelain", "reward_count": 1},
+	},
+	"field_parade": {
+		"forced_dance": {"name": "Dança Forçada", "mob": "veil_dancer", "mob_name": "Bailarino do Véu", "count": [2, 3],
+			"victim": ["Moradora Presa na Roda", Color(0.82, 0.62, 0.7)], "home": [0.0, 4.0],
+			"cry": ["Meus pés não param! Socorro!", "Tirem-me desta roda!", "Não quero mais dançar!"],
+			"thanks": ["Meus pés... pararam. Obrigada. Leve isto, eu não preciso mais.", "Você quebrou a roda! Fique com estas poções."],
+			"flee": ["Vou correr antes que a música volte!", "Para o Posto, para o Posto!"],
+			"bot_chat": ["Quebrei uma roda de dança na avenida. Quem para leva a dança.", "Bailarinos prendendo gente de novo no Cortejo. Resolvido.", "Tirei uma moça da Dança Forçada."],
+			"reward_item": "potion_mp_m", "reward_count": 2},
+		"choir_corner": {"name": "Coro na Esquina", "mob": "chorister", "mob_name": "Corista da Esquina", "count": [2, 3],
+			"victim": ["Guarda que Canta", Color(0.62, 0.66, 0.78)], "home": [0.0, 4.0],
+			"cry": ["Lá-lá-lá... não consigo parar de cantar!", "Façam o coro calar! Lá-lá...", "Minha garganta... lá-lá-lá!"],
+			"thanks": ["Silêncio, enfim. Estas fitas estavam no meu pescoço; leve.", "Obrigado. Nunca mais canto nem no banho."],
+			"flee": ["Vou para o Posto antes que eu cante de novo!", "Não aguento a voz delas!"],
+			"bot_chat": ["Calei um coro de esquina no Cortejo.", "Coristas prendendo um guarda na cantoria. Resolvido.", "Coro na esquina de novo. Agora é silêncio."],
+			"reward_item": "festim_ribbon", "reward_count": 3},
 	},
 }
 
@@ -1546,6 +1623,22 @@ const PLACE_NPCS := {
 		"freed_foreman": ["Capataz Liberto Bráulio", "quest", Color(0.66, 0.56, 0.44), ["Quinze anos batendo pedra para a Horda. Agora bato para quem me soltou.", "O Canil fica a leste. Os lobos atrozes uivam a noite inteira; quando calarem, vou buscar os ovos."]],
 		"dwarf_runestone": ["Pedra Rúnica Partida", "board", Color(0.62, 0.6, 0.66), ["Runas anãs rachadas ao meio. A metade de cima fala de uma forja; a de baixo, de correntes.", "Alguém gravou por cima, em orc: 'a montanha é nossa'. As runas brilham mais forte que o risco."], "prop_statue"],
 	},
+	"city_lumeria": {
+		"clockmaker": ["Relojoeiro Otaviano", "quest", Color(0.62, 0.58, 0.5), ["O relógio da praça parou na meia-noite da primeira festa. Desde então é sempre meia-noite.", "Engrenagem eu tenho. Falta coragem para atravessar o Mercado."]],
+		"sealed_chapel": ["Capela Selada", "board", Color(0.84, 0.84, 0.9), ["Portas pregadas por dentro. Alguém rezou aqui até a voz acabar.", "Riscado na madeira: 'Ela não quer ser adorada. Ela quer ser desejada'."], "prop_statue"],
+	},
+	"field_perfume": {
+		"perfume_cooper": ["Tanoeiro Rufino", "quest", Color(0.6, 0.46, 0.32), ["Faço barril há trinta anos. Nunca vi vinho que não acaba.", "O barril que eu faço hoje, eles enchem amanhã. Eu queria fazer um que ficasse vazio."]],
+		"perfume_distiller": ["Destiladora Amália", "quest", Color(0.64, 0.56, 0.72), ["Do perfume eu tiro o sono. O que sobra é quase remédio.", "Traga fumo dos incensários. Eu ensino o que fazer com ele."]],
+		"fugitive_elder": ["Ancião Fugido Bartolomeu", "quest", Color(0.66, 0.62, 0.56), ["Saímos da cidade de madrugada, quando a música baixa. Três de nós ficaram para trás.", "Os que ficam na festa não lembram do próprio nome."]],
+		"fugitive_cook": ["Cozinheira Fugida Zuleica", "villager", Color(0.74, 0.6, 0.5), ["Cozinhei para o Duque vinte anos. Agora cozinho para quem fugiu. É melhor.", "Pão sem vinho. Aqui é assim."]],
+		"aurora_shrine_perfume": ["Santuário Profanado da Aurora", "board", Color(0.84, 0.8, 0.7), ["A pedra da Aurora está coberta de fitas e de batom. Alguém riu muito aqui.", "Por baixo das fitas, gravado: 'A luz também cansa. Deixe-a dormir'."], "prop_statue"],
+	},
+	"field_parade": {
+		"parade_prompter": ["Ponto Ermelindo", "quest", Color(0.58, 0.52, 0.62), ["Eu sopro as falas há quarenta anos. Os atores nunca erram. Nunca param.", "O Conservatório tem um coro que canta ferido. Eu sei a deixa para entrar."]],
+		"parade_seamstress": ["Costureira Benedita", "quest", Color(0.78, 0.62, 0.68), ["Costurei todos os figurinos do Cortejo. Se eu parar, eles dançam nus. Eles não ligariam.", "Flor de papel não murcha. Por isso eles gostam."]],
+		"broken_mask_altar": ["Altar da Máscara Partida", "board", Color(0.86, 0.84, 0.82), ["Um altar de cacos brancos. Cada máscara quebrada deixou aqui um rosto que lembrou o próprio nome.", "Escrito em giz: 'Sem máscara, ninguém dança'."], "prop_statue"],
+	},
 	"dg_pedreira": {
 		"miner_tadeu": ["Mestre Tadeu, o Mineiro", "quest", Color(0.7, 0.55, 0.35), ["Abrimos a pedreira atrás de ferro e acordamos a montanha.", "A oeste o musgo anda; a leste o cristal canta. O veio do fundo só abre quando os dois guardiões caírem."]],
 		"miner_rosa": ["Rosa, a Cartógrafa", "quest", Color(0.6, 0.7, 0.8), ["Eu mapeio, eles quebram. Não é uma boa parceria.", "Golem de cristal atira de longe. Chegue perto ou procure cobertura."]],
@@ -1570,6 +1663,12 @@ const DUNGEON_DEFS := {
 	"dg_goblin": {"name": "Grutas Goblin", "parent": "field_coast", "levels": Vector2i(32, 35), "ground": Color(0.34, 0.32, 0.24), "ambient": Color(0.85, 0.7, 0.6), "sun": 0.65},
 	# Salão dos Matadores (Monte Kharzun): vestíbulo, galeria de treino, cripta de venenos (lateral) e a arena do Mestre Matador
 	"dg_slayers": {"name": "Salão dos Matadores", "parent": "field_kharzun", "levels": Vector2i(42, 44), "ground": Color(0.26, 0.23, 0.29), "ambient": Color(0.74, 0.62, 0.9), "sun": 0.6},
+	# Ato III (WP6, build_dungeons.py): Adegas do Banquete (Lagar do Perfume), Galeria dos Espelhos (Ópera de Lumeria),
+	# Conservatório do Coro Ferido (opcional, onda 4) e a sala da raide (rift_heart, sem o prefixo dg_: entra aqui como masmorra)
+	"dg_cellars": {"name": "Adegas do Banquete", "parent": "field_perfume", "levels": Vector2i(46, 47), "ground": Color(0.3, 0.25, 0.27), "ambient": Color(0.86, 0.7, 0.78), "sun": 0.6},
+	"dg_mirrors": {"name": "Galeria dos Espelhos", "parent": "city_lumeria", "levels": Vector2i(48, 49), "ground": Color(0.46, 0.43, 0.46), "ambient": Color(0.9, 0.84, 0.94), "sun": 0.7},
+	"dg_conservatory": {"name": "Conservatório do Coro Ferido", "parent": "field_parade", "levels": Vector2i(48, 49), "ground": Color(0.4, 0.34, 0.3), "ambient": Color(0.92, 0.8, 0.7), "sun": 0.65},
+	"rift_heart": {"name": "O Coração do Jardim", "parent": "rift_garden", "levels": Vector2i(50, 50), "ground": Color(0.6, 0.6, 0.66), "ambient": Color(1.0, 0.88, 0.94), "sun": 0.75},
 }
 ## Portões de progressão por id de portal (só o jogador; ver WorldSim.portal_block_reason). `bosses` = selo: save antigo não abre.
 const PORTAL_GATES := {
@@ -1596,9 +1695,23 @@ const PORTAL_GATES := {
 	# Monte Kharzun: o Salão dos Matadores abre com a palavra do Xamã Exilado (sem nível); a Cidadela, com o aríete no portão (K2)
 	"to_dg_slayers": {"quest": "hx_slayers_open", "text": "A pedra do paredão não cede. O Xamã Exilado sabe a palavra que abre o Salão dos Matadores."},
 	"to_kharzun_citadel": {"level": 43, "quest": Q_KH_GATE, "text": "O portão da Cidadela está trancado por dentro. Leve o aríete da Aurora até ele antes de subir."},
+	# Ato III (GDD ato3-excesso-45-50 §2.1, AC3-01): a garganta leste do Kharzun só abre depois do epílogo do Ato II; a volta é livre
+	"to_city_lumeria": {"level": 45, "quest": ACT2_END_QUEST, "text": "A garganta leste segue fechada pela Aurora. Termine o que começou no Monte Kharzun antes de seguir as lanternas."},
+	# L1 Silêncio: o portão sudeste de Lumeria (Avenida do Cortejo) só abre com os sinos calados
+	"to_field_parade": {"level": 47, "quest": "hx3_bells", "text": "O portão sudeste vibra com os sinos. Enquanto o campanário tocar, o Cortejo não deixa ninguém passar."},
+	# Ato III (WP6, GDD §2.1/§2.3): masmorras, o Véu e a raide (as voltas são livres)
+	"to_dg_cellars": {"level": 46, "quest": "hx3_cellars_open", "text": "A porta do Lagar está escorada por dentro. O Vinhateiro Bento sabe como abri-la."},
+	"to_dg_mirrors": {"level": 48, "quest": "hx3_bells", "text": "As portas da Ópera tremem com os sinos. Enquanto o campanário tocar, o Palácio não abre."},
+	"to_dg_conservatory": {"level": 48, "quest": "hx3_choir_open", "text": "O Conservatório só abre para quem tem a batuta do Maestro do Coro. Fale com o Ponto, na tenda."},
+	"to_rift_garden": {"level": 49, "quests": ["hx3_mirrors", "hx3_veil_open"], "text": "O Véu ainda não se rasgou. Derrube a Condessa Refletida e leve a procissão dos Lúcidos até o Palco Grande."},
+	"to_rift_heart": {"level": 50, "quest": "hx3_veil", "text": "A Porta do Coração está selada enquanto a Anfitriã reinar no Pavilhão."},
 }
 const MERCHANT_SHOP := ["potion_hp_s", "potion_mp_s", "potion_hp_m", "potion_mp_m", "elixir_might", "elixir_stone", "cap_leather", "boots_leather"]
 const ZONE_PATH := "res://data/zones/%s.json"
+
+## Masmorra = prefixo dg_ OU entrada em DUNGEON_DEFS (a sala da raide `rift_heart` não tem o prefixo). Densidade de spawn de masmorra.
+static func is_dungeon_id(id: String) -> bool:
+	return id.begins_with("dg_") or DUNGEON_DEFS.has(id)
 
 static func _v3(a: Array) -> Vector3:
 	return Vector3(float(a[0]), 0, float(a[1]))
@@ -1638,6 +1751,8 @@ static func load_zone(id: String) -> Dictionary:
 		var cp: Array = CRYSTALS[id]
 		var c := _ob("pillar", float(cp[0]), float(cp[1]), 1.1, 2.6, 1.1, C_STONE, 0.0, true)
 		c["hidden"] = true
+		if CRYSTAL_IF.has(id):            # cristal de estágio: a coluna só colide com ele de pé
+			c["if"] = CRYSTAL_IF[id]
 		obs.append(c)
 	var portals: Array = []
 	for p in z["portals"]:
@@ -1648,7 +1763,7 @@ static func load_zone(id: String) -> Dictionary:
 		if PORTAL_GATES.has(p["id"]):
 			portals[-1]["gate"] = PORTAL_GATES[p["id"]]
 	var spawners: Array = []
-	var dense: float = Balance.SPAWN_COUNT_MULT_DUNGEON if id.begins_with("dg_") else Balance.SPAWN_COUNT_MULT
+	var dense: float = Balance.SPAWN_COUNT_MULT_DUNGEON if is_dungeon_id(id) else Balance.SPAWN_COUNT_MULT
 	for s in z["spawners"]:
 		var n := int(s["count"])
 		if n > 1:              # chefe único (count 1) continua único
@@ -2177,4 +2292,241 @@ static func _kharzun_citadel() -> MapDef:
 	z.merge({"id": CITADEL_ID, "name": "Cidadela de Kharzun", "is_town": false, "level_range": Vector2i(44, 45), "parent_map": "field_kharzun", "mounts_ok": true,
 		"conquest_vis": CITADEL_CONQUEST_VIS.duplicate(true),
 		"ground_color": col, "ground_color_alt": col.darkened(0.08), "ambient": Color(0.98, 0.74, 0.62), "sun_energy": 0.65, "bot_population": 0, "npcs": []})
+	return _mk(z)
+
+# ---------------------------------------------------------------------------
+## Ato III parte 1 — O Excesso (45-50; GDD design/gdd/ato3-excesso-45-50.md, WP5). Três mapas do Blender:
+## Lumeria, a Festa Eterna (tools/blender/zones/build_lumeria.py; hub = Bairro dos Lúcidos a oeste, centro (-75, 0)),
+## Vinhas do Perfume (build_perfume.py) e Avenida do Cortejo (build_parade.py; os dois com act3_fields.py).
+## Estágios L0-L4 (GDD §2.3) pelas missões abaixo (WP10); peças do GLB por `stage_tags` e NPCs por `stage_npcs` dos JSON.
+const Q3_BELLS := "hx3_bells"           # L1 Silêncio: sinos calam, Ferreiro Anão e Arauto chegam, portão do Cortejo abre
+const Q3_CELLARS := "hx3_cellars"       # L2 Vindima: névoa do Perfume cai, vinhateiros libertos colhem, cristal no Posto
+const Q3_MIRRORS := "hx3_mirrors"       # L3 Reflexo: metade das lanternas apaga, Duque libertado
+const Q3_VEIL_OPEN := "hx3_veil_open"   # L3b Véu: Posto da Aurora na boca do Véu, a Ronda do Festim para
+const Q3_VEIL := "hx3_veil"             # L4 Manhã
+const ACT3_STAGE_QUESTS := [Q3_BELLS, Q3_CELLARS, Q3_MIRRORS, Q3_VEIL_OPEN, Q3_VEIL]
+## Fim do Ato III parte 1 (D14): Vessaline cai (L4) e Lumeria amanhece (MANHA_LUMERIA); entregar o epílogo à Irmã Celeste =
+## tela "Fim do Ato III — Parte 1" (hud.show_act_end(3)).
+const VICTORY3_QUEST := Q3_VEIL
+const ACT3_END_QUEST := "hx3_epilogue"
+## Manhã em Lumeria (L4): gente varrendo confete no Bairro dos Lúcidos. Mesmo formato do FESTIVAL (mapa -> id -> [nome, papel, cor, falas, x, z, passeio m]).
+const MANHA_LUMERIA := {
+	"city_lumeria": {
+		"manha_sweeper": ["Varredor Quirino", "villager", Color(0.74, 0.7, 0.62), ["Quarenta anos de confete. Vou varrer até o Ato que vem.", "Bom dia! Faz tanto tempo que eu não dizia isso."], -66.0, 10.0, 3.0],
+		"manha_baker": ["Padeira Cândida", "villager", Color(0.9, 0.8, 0.62), ["Pão! Pão de verdade, sem vinho na massa.", "Acendi o forno às seis. Seis da manhã. Existe seis da manhã de novo."], -84.0, 10.0, 2.0],
+		"manha_child": ["Menino Elias", "villager", Color(0.7, 0.78, 0.9), ["A música parou! Dá para ouvir os passarinhos!", "Minha mãe dormiu a noite inteira. Ela nunca dorme."], -75.0, -12.0, 4.0],
+	},
+}
+## Procissão dos Lúcidos (hx3_veil_open, L3b): leva aliada que sai do portão norte do Posto e sobe até o Palco Grande (Véu).
+## O JSON do Cortejo não tem `assaults`: a rota fica aqui (pontos [x, z] conferidos no check `_check_act3_quests2`).
+const PROCESSION := {"from": [0.0, 17.0], "route": [[-2.0, 22.0], [-5.0, 28.0], [-8.0, 34.0], [-6.0, 42.0], [0.0, 50.0], [8.0, 56.0]], "target": [16.0, 61.0], "radius": 6.0,
+	"fighters": {"guard_knight": 1, "guard_spearman": 1, "guard_priest": 1}, "first": 6.0,
+	"if": "hx3_matriarch", "unless": Q3_VEIL_OPEN, "say": "Os Lúcidos saem do Posto em procissão, de olhos abertos, rumo ao Palco Grande!"}
+
+static func procession_assault() -> Dictionary:
+	var d: Dictionary = PROCESSION.duplicate(true)
+	d["id"] = "procissao"
+	d["from"] = _v3(PROCESSION["from"])
+	d["target"] = _v3(PROCESSION["target"])
+	d["route"] = (PROCESSION["route"] as Array).map(func(q): return _v3(q))
+	d["every"] = Balance.ASSAULT_FORT_EVERY
+	d["max"] = Balance.ASSAULT_FORT_MAX
+	d["power"] = Balance.ACT3_PROCESSION_POWER
+	return d
+const ACT3_MAPS := ["city_lumeria", "field_perfume", "field_parade"]
+## WP6: a Fenda (campo 49-50, build_rift.py), as três masmorras e a sala da raide (build_dungeons.py).
+const ACT3_WP6_MAPS := ["rift_garden", "dg_cellars", "dg_mirrors", "dg_conservatory", "rift_heart"]
+
+## Lumeria: serviços do Bairro dos Lúcidos. id -> [nome, papel, cor, falas, extras {shop, model}] (posição do JSON;
+## estágio de `stage_npcs`). O Ferreiro Anão daqui é Balin, irmão de Thrain (Thrain fica no Kharzun: nada some de lá).
+const LUMERIA_NPCS := {
+	"sister_celeste": ["Irmã Celeste", "quest", Color(0.9, 0.88, 0.96), ["Quarenta anos de música. No começo era bonito. Depois ninguém mais conseguiu parar.",
+		"Os Lúcidos são os que ainda dormem à noite. Trancamos o bairro com os próprios móveis. Bem-vindos ao lado de dentro."], {}],
+	"lumeria_smith": ["Ferreira Brites", "smith", Color(0.7, 0.52, 0.4), ["Aqui dentro eu conserto lâmina e faço joia. Lá fora eles só querem taça.", "O martelo é o único som do bairro que não é música."], {}],
+	"lumeria_alchemist": ["Boticário Severino", "alchemy", Color(0.56, 0.74, 0.62), ["Perfume é veneno que cheira bem. Eu destilo o contrário.", "Uva do Perfume dá sono doce. Dose certa, dá remédio."], {}],
+	"lumeria_merchant": ["Mercadora Joana", "merchant", Color(0.84, 0.7, 0.5), ["Poção e atadura, como em qualquer cerco. A diferença é que aqui o cerco canta.",
+		"Venda o que tirar dos foliões. Fita e porcelana valem mais que ouro neste bairro."], {"shop": "merchant"}],
+	"lumeria_storage": ["Guarda-volumes Lázaro", "storage", Color(0.5, 0.58, 0.74), ["O baú é o mesmo de Aldara, do porto e da montanha. A Aurora tem seus segredos.", "Deixe aqui o que pesa. Lá fora é preciso correr."], {}],
+	"lumeria_board": ["Quadro dos Lúcidos", "board", Color(0.76, 0.7, 0.78), ["Bilhetes presos com alfinete de chapéu: galgos nos vinhedos, coristas nas esquinas.", "Um papel em letra tremida: 'Quem trouxer fitas do Festim ganha pão e silêncio'."], {"model": "prop_statue"}],
+	"lumeria_relic": ["Irmão Teodósio, o Relicário", "relic", Color(0.95, 0.72, 0.36), ["Moeda lendária vira peça de lenda, aqui como em toda parte.", "Ouro compra moeda, se a pressa apertar. A festa lá fora não espera."], {}],
+	"lumeria_masters_herald": ["Arauto dos Mestres", "quest", Color(0.95, 0.85, 0.55), ["A Ordem mandou eu seguir quem ascendeu. Seguir, não salvar.", "Os sinos calaram. Agora dá para ouvir o que os mestres ensinam."], {}],
+	"lumeria_dwarf_smith": ["Ferreiro Anão Balin", "smith", Color(0.72, 0.5, 0.34), ["Thrain ficou na montanha. Eu vim com o aço que ele mandou.",
+		"Lendário de nível 40 ou mais? Aço Anão até o +5, Brasa de Kharzun daí em diante. Martelo anão não liga para música."], {}],
+	"duke_lumeria": ["Duque Aurelião de Lumeria", "quest", Color(0.86, 0.78, 0.92), ["Eu dei a primeira festa. Eu achei que seria só uma noite.", "Meu reflexo governou por mim quarenta anos. Ele governava melhor. Isso é o pior."], {"pos": [60.0, 2.0, 270.0]}],   # longe da porta da Ópera (>= 6 m do portal)
+}
+
+## Vinhas do Perfume: a Quinta (hub, sem cristal) e as cabanas. Mesmo formato de LUMERIA_NPCS.
+const PERFUME_NPCS := {
+	"perfume_vintner": ["Vinhateiro Bento", "quest", Color(0.56, 0.42, 0.58), ["Três gerações nesta quinta. Agora as vinhas bebem quem passa.", "O Lagar ao norte tem uma porta para as adegas. O Anfitrião mora lá embaixo."], {}],
+	"perfume_lucid_scout": ["Batedora Íris, dos Lúcidos", "villager", Color(0.6, 0.66, 0.78), ["Não respire fundo perto da névoa. Ela deixa a gente contente e parado.", "Galgos correm os terraços em matilha. Quem fica parado vira caça."], {}],
+}
+
+## Avenida do Cortejo: o Posto dos Lúcidos (hub; cristal em L2) e as cabanas. Mesmo formato.
+const PARADE_NPCS := {
+	"parade_post_captain": ["Capitão Lúcido Afonso", "quest", Color(0.56, 0.62, 0.76), ["O Cortejo passa por aqui desde que eu era menino. Nunca chegou a lugar nenhum.", "Os Convertidos ainda têm rosto de gente. É o que mais dói."], {}],
+	"parade_post_quartermaster": ["Intendente Matilde", "merchant", Color(0.8, 0.68, 0.5), ["Poção, corda e cera de ouvido. Aqui a cera vende mais que a poção.", "Venda o que tirar do Cortejo. Fita é moeda neste posto."], {"shop": "merchant"}],
+	"parade_post_medic": ["Médica Rosário", "merchant", Color(0.92, 0.9, 0.84), ["Pé de quem dançou três dias eu sei tratar. Mordida de galgo também.", "Poção antes da avenida, não depois."], {"shop": "healer"}],
+	"veil_aurora_officer": ["Tenente Selene, da Aurora", "quest", Color(0.92, 0.84, 0.56), ["A Aurora segura a boca do Véu. Do outro lado é jardim, e jardim nenhum é tão bonito sem motivo.", "Quem entra no Jardim volta diferente. Volte."], {}],
+}
+
+## Demônias da Sede (GDD ato3 §3.1) na Avenida (47-48): [monstro, x, z, raio, quantos, renascer s]. Ficam no catálogo (não no JSON
+## do Blender) até o próximo build da zona; o bando da Matriarca (+2 Sedutoras +1 Açoitadora) fica no sul, perto dos Carros.
+## TODO(rift_garden, WP6): a Fenda (49-50) leva todas + 2-3 Matriarcas em bandos mistos (ver production/session-state/agent-demon-catalog.md).
+const THIRST_SPAWNS := {
+	"field_parade": [["seductress", -62.0, -4.0, 6.0, 3, 26.0], ["seductress", 24.0, -56.0, 6.0, 3, 26.0],
+		["flayer", 20.0, 38.0, 6.0, 2, 26.0], ["flayer", 74.0, -46.0, 6.0, 2, 26.0],
+		["veil_singer", -14.0, 80.0, 6.0, 2, 28.0], ["veil_singer", -30.0, -30.0, 6.0, 2, 28.0],
+		["thirst_matriarch", 34.0, -86.0, 4.0, 1, 180.0]],
+}
+
+static func thirst_spawners(map_id: String) -> Array:
+	var out: Array = []
+	for r in THIRST_SPAWNS.get(map_id, []):
+		var n := int(r[4])
+		if n > 1:
+			n = int(round(n * Balance.SPAWN_COUNT_MULT))
+		out.append(_sp(mob(r[0]), float(r[1]), float(r[2]), float(r[3]), n, float(r[5]) * Balance.SPAWN_RESPAWN_MULT))
+	return out
+
+## Sentinelas das portas dos hubs dos campos (sem marcador no JSON: [x, z, virado°] escritos aqui; viram `dawn_garrison`).
+## A Quinta do Perfume e o Posto do Cortejo não têm muro que segure galgo: dois lanceiros e dois besteiros da Aurora.
+const ACT3_HUB_GUARDS := {
+	"field_perfume": {"perfume_g_spearman_0": [14.0, 3.0, 90.0], "perfume_g_crossbow_1": [-14.0, -3.0, 270.0], "perfume_g_spearman_2": [3.0, -14.0, 180.0], "perfume_g_crossbow_3": [-3.0, 14.0, 0.0]},
+	"field_parade": {"parade_g_spearman_0": [-12.0, 3.0, 270.0], "parade_g_crossbow_1": [12.0, -3.0, 90.0], "parade_g_spearman_2": [3.0, 12.0, 0.0], "parade_g_crossbow_3": [-3.0, -12.0, 180.0]},
+}
+
+## Dados do JSON de uma zona do Ato III (stage_tags, stage_npcs, ...).
+static func act3_zone_data(map_id: String) -> Dictionary:
+	var raw: Variant = JSON.parse_string(FileAccess.get_file_as_string(ZONE_PATH % map_id))
+	return raw if raw is Dictionary else {}
+
+## NPCs de uma tabela do Ato III prontos para o MapDef (posição do JSON; loja por `shop`).
+static func _act3_npcs(table: Dictionary, npc_pos: Dictionary, seed0: int) -> Array:
+	var out: Array = []
+	for nid in table:
+		var n: Array = table[nid]
+		var ex: Dictionary = n[4]
+		var p: Array = ex.get("pos", npc_pos.get(nid, [0.0, 0.0, 180.0]))
+		var shop: Array = []
+		if ex.get("shop", "") == "merchant":
+			shop = MERCHANT_SHOP + GearCatalog.shop_ids() + GearCatalog.starter_weapon_ids(GameData.items)
+		elif ex.get("shop", "") == "healer":
+			shop = HEALER_SHOP
+		var d := _npc(nid, n[0], float(p[0]), float(p[1]), n[1], n[2], n[3], float(p[2]), shop)
+		for k in ["model", "if", "unless", "dialog_after"]:
+			if ex.has(k):
+				d[k] = ex[k]
+		d["look_seed"] = seed0 + nid.length() * 11
+		out.append(d)
+	return out
+
+## Estágio de quem aparece/some (stage_npcs do JSON), portais de volta sem portão e o resto comum aos três mapas.
+static func _act3_finish(z: Dictionary, id: String, npcs: Array, raw: Dictionary) -> void:
+	var stage: Dictionary = raw.get("stage_npcs", {})
+	for d in npcs:
+		var rule: Dictionary = stage.get(d["id"], {})
+		for k in ["if", "unless"]:
+			if rule.has(k):
+				d[k] = rule[k]
+	for pt in z["portals"]:                    # ids reaproveitados (to_field_kharzun das Estepes, to_city_lumeria do Kharzun): a volta é livre
+		if pt["target_map"] in ["field_kharzun", "city_lumeria"]:
+			pt.erase("gate")
+	z["conquest_vis"] = (raw.get("stage_tags", []) as Array).duplicate(true)
+	z["npcs"] = npcs
+	z.erase("npc_pos")
+
+## Chefes de mundo do Ato III (WP8a, D11): um spawner por `world_boss_hint` do JSON (posição/raio do Blender), renasce em
+## Balance.WORLD_BOSS_RESPAWN_S. O chefe tem de existir no catálogo (MonstersCatalog.ACT3_FIELD_BOSSES).
+static func _world_bosses(z: Dictionary, raw: Dictionary) -> void:
+	for wb in raw.get("world_boss_hint", []):
+		if GameData.monsters.has(str(wb["id"])):
+			z["spawners"].append(_sp(str(wb["id"]), float(wb["pos"][0]), float(wb["pos"][1]), float(wb.get("radius", 2.0)), 1, Balance.WORLD_BOSS_RESPAWN_S))
+
+static func _hub_guards(map_id: String) -> Array:
+	var out: Array = []
+	for d in dawn_garrison(ACT3_HUB_GUARDS.get(map_id, {}), map_id.trim_prefix("field_") + "_g_"):
+		d["power"] = Balance.KHARZUN_GUARD_POWER
+		d["respawn"] = KHARZUN_RESPAWN
+		out.append(d)
+	return out
+
+## Lumeria, a Festa Eterna (45-47): cidade murada; o hub seguro é o Bairro dos Lúcidos (oeste). Festim só nos campos (decisão
+## do usuário): os pontos de evento do JSON ficam fora (`road_events` vazio).
+static func _lumeria() -> MapDef:
+	var z := load_zone("city_lumeria")
+	var raw := act3_zone_data("city_lumeria")
+	var npc_pos: Dictionary = z["npc_pos"]
+	var npcs := _place_npcs("city_lumeria", npc_pos) + _act3_npcs(LUMERIA_NPCS, npc_pos, 1100)
+	for d in dawn_garrison(npc_pos, "lumeria_g_"):          # guarnição das portas do Bairro
+		d["power"] = Balance.KHARZUN_GUARD_POWER
+		d["respawn"] = KHARZUN_RESPAWN
+		npcs.append(d)
+	npcs.append_array(crystal_npc("city_lumeria"))
+	npcs.append_array(trainer_npc("city_lumeria"))
+	npcs.append_array(living_npcs(LIVING_NPCS["city_lumeria"]))
+	npcs.append_array(festival("city_lumeria", MANHA_LUMERIA, VICTORY3_QUEST))   # L4: Manhã em Lumeria
+	_act3_finish(z, "city_lumeria", npcs, raw)
+	z.merge({"id": "city_lumeria", "name": "Lumeria, a Festa Eterna", "is_town": false, "hub": true, "level_range": Vector2i(45, 47), "road_events": [],
+		"ground_color": Color(0.76, 0.69, 0.64), "ground_color_alt": Color(0.71, 0.64, 0.6), "ambient": Color(1.0, 0.9, 0.92), "sun_energy": 1.1,
+		"bot_population": 8}, true)
+	return _mk(z)
+
+## Vinhas do Perfume (45-47): a Quinta do Vinhateiro no centro (sem cristal), Lagar ao norte (dg_cellars, WP6), chefe de mundo
+## Dona Vindima no Poço de Névoa (WP8a: spawner do world_boss_hint). Festim: Banquete e Fumo no Vinhedo.
+static func _perfume() -> MapDef:
+	var z := load_zone("field_perfume")
+	var raw := act3_zone_data("field_perfume")
+	var npc_pos: Dictionary = z["npc_pos"]
+	var npcs := _place_npcs("field_perfume", npc_pos) + _act3_npcs(PERFUME_NPCS, npc_pos, 1200)
+	npcs.append_array(_hub_guards("field_perfume"))
+	npcs.append_array(living_npcs(LIVING_NPCS["field_perfume"]))
+	_act3_finish(z, "field_perfume", npcs, raw)
+	_world_bosses(z, raw)
+	z.merge({"id": "field_perfume", "name": "Vinhas do Perfume", "is_town": false, "level_range": Vector2i(45, 47),
+		"ground_color": Color(0.6, 0.66, 0.48), "ground_color_alt": Color(0.56, 0.61, 0.45), "ambient": Color(0.96, 0.92, 0.98), "sun_energy": 1.15,
+		"bot_population": 6}, true)
+	return _mk(z)
+
+## Avenida do Cortejo (47-49): Posto dos Lúcidos no centro (cristal em L2), Palco Grande ao norte (Véu, L3b; rift_garden WP6),
+## chefe de mundo Prima-Donna (WP8). Festim: Dança Forçada e Coro na Esquina.
+static func _parade() -> MapDef:
+	var z := load_zone("field_parade")
+	var raw := act3_zone_data("field_parade")
+	var npc_pos: Dictionary = z["npc_pos"]
+	var npcs := _place_npcs("field_parade", npc_pos) + _act3_npcs(PARADE_NPCS, npc_pos, 1300)
+	npcs.append_array(_hub_guards("field_parade"))
+	npcs.append_array(crystal_npc("field_parade"))
+	_act3_finish(z, "field_parade", npcs, raw)
+	_world_bosses(z, raw)
+	z["spawners"].append_array(thirst_spawners("field_parade"))       # Demônias da Sede (§3.1)
+	z["assaults"].append(procession_assault())                         # L3b: procissão dos Lúcidos (hx3_veil_open)
+	z.merge({"id": "field_parade", "name": "Avenida do Cortejo", "is_town": false, "hub": true, "level_range": Vector2i(47, 49),
+		"ground_color": Color(0.66, 0.69, 0.5), "ground_color_alt": Color(0.61, 0.64, 0.47), "ambient": Color(1.0, 0.94, 0.9), "sun_energy": 1.1,
+		"bot_population": 5}, true)
+	return _mk(z)
+
+## A Fenda: Posto da Aurora na boca do Véu (hub sem muro, raio 14; NPCs do JSON). Mesmo formato de LUMERIA_NPCS.
+const RIFT_NPCS := {
+	"rift_aurora_captain": ["Capitã Aurélia, da Aurora", "quest", Color(0.94, 0.84, 0.52), ["A Aurora segura este posto e mais nada. Lá dentro o jardim escolhe quem volta.",
+		"O Pavilhão fica ao norte. A Anfitriã não sai de lá: quem dança com ela é que vai."], {}],
+	"rift_aurora_quartermaster": ["Intendente Bráulio", "merchant", Color(0.8, 0.7, 0.5), ["Poção, corda e pano para tapar o nariz. O perfume daqui derruba mais que lâmina.",
+		"Venda o que tirar das demônias. Porcelana vale ouro do lado de cá do Véu."], {"shop": "merchant"}],
+	"rift_aurora_medic": ["Irmã Clemência", "merchant", Color(0.92, 0.9, 0.86), ["Corte de fita-lâmina não fecha sozinho. Poção antes, não depois.", "Quem volta do Pavilhão volta sem cheiro. É assim que eu sei quem lutou."], {"shop": "healer"}],
+}
+
+## O Jardim Sem Fim (49-50, mapa próprio do Blender): Posto da Aurora (cristal em L4), Pavilhão da Anfitriã ao norte
+## (Vessaline, spawner do JSON), Porta do Coração (rift_heart, nível 50 + hx3_veil). Montaria vale (é campo, não masmorra).
+static func _rift_garden() -> MapDef:
+	var z := load_zone("rift_garden")
+	var raw := act3_zone_data("rift_garden")
+	var npc_pos: Dictionary = z["npc_pos"]
+	var npcs := _place_npcs("rift_garden", npc_pos) + _act3_npcs(RIFT_NPCS, npc_pos, 1400)
+	npcs.append_array(crystal_npc("rift_garden"))
+	_act3_finish(z, "rift_garden", npcs, raw)
+	for pt in z["portals"]:                    # to_field_parade: mesmo id do portão de Lumeria, mas a volta é livre
+		if pt["target_map"] == "field_parade":
+			pt.erase("gate")
+	z.merge({"id": "rift_garden", "name": "O Jardim Sem Fim", "is_town": false, "hub": true, "level_range": Vector2i(49, 50),
+		"ground_color": Color(0.72, 0.78, 0.7), "ground_color_alt": Color(0.68, 0.73, 0.66), "ambient": Color(1.0, 0.9, 0.94), "sun_energy": 1.05,
+		"bot_population": 4}, true)
 	return _mk(z)

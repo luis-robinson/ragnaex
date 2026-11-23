@@ -858,7 +858,7 @@ func _on_preview_input(ev: InputEvent) -> void:
 ## quadradas no braço, maestria (círculo) e evoluções (losango) ao lado, atributos (bolinhas) e notáveis (círculos com
 ## pedra) entre elas, anéis ligando os braços. Dourado = comprado, verde = dá pra comprar agora, cinza = bloqueado.
 const TREE_PX := Vector2(840, 620)
-const NODE_PX := {"start": 48, "skill": 40, "skill_up": 40, "talent": 26, "mastery": 24, "skill_quick": 24, "notable": 30, "stat": 16}
+const NODE_PX := {"start": 48, "skill": 40, "skill_up": 40, "talent": 26, "mastery": 24, "skill_quick": 24, "skill_charge": 24, "notable": 30, "stat": 16}
 const TREE_ROW_PX := 72.0       # px por unidade da árvore na vertical: ramo comprido rola em vez de apertar as linhas
 const TREE_TOP := 126.0         # espaço do nó inicial (e dos rótulos das evoluções do dash) e dos títulos dos painéis
 const C_OWNED := Color(1.0, 0.8, 0.35)
@@ -1227,6 +1227,7 @@ func _tree_node(p: SimEntity, n: Dictionary, at: Vector2) -> Control:
 		"talent": col = Color(0.78, 0.55, 1.0)
 		"stat", "notable": col = STAT_COLORS[fam]
 		"mastery", "skill_quick": col = Color(0.55, 0.95, 0.6)
+		"skill_charge": col = Color(1.0, 0.78, 0.35)
 		"start": col = p.class_def.color
 	var fill := col.darkened(0.25) if owned else (col.darkened(0.55) if can else Color(0.12, 0.11, 0.15))
 	var border := C_OWNED if owned else (C_CAN if can else C_LOCK)
@@ -1247,7 +1248,7 @@ func _tree_node(p: SimEntity, n: Dictionary, at: Vector2) -> Control:
 		glow.position = Vector2(-4, -4)
 		glow.size = Vector2(px + 8, px + 8)
 		glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		glow.add_theme_stylebox_override("panel", UiKit.panel_style(Color(C_CAN, 0.18), Color(C_CAN, 0.0), px if kind in ["mastery", "skill_quick", "start", "notable"] else 8, 0))
+		glow.add_theme_stylebox_override("panel", UiKit.panel_style(Color(C_CAN, 0.18), Color(C_CAN, 0.0), px if kind in ["mastery", "skill_quick", "skill_charge", "start", "notable"] else 8, 0))
 		if kind == "talent":
 			glow.rotation = PI / 4
 			glow.pivot_offset = Vector2(px + 8, px + 8) * 0.5
@@ -1257,7 +1258,7 @@ func _tree_node(p: SimEntity, n: Dictionary, at: Vector2) -> Control:
 	b.mouse_filter = Control.MOUSE_FILTER_PASS
 	b.size = Vector2(px, px)
 	b.custom_minimum_size = Vector2(px, px)
-	var radius := px / 2 if kind in ["stat", "mastery", "skill_quick", "start", "notable"] else (3 if kind == "talent" else 6)
+	var radius := px / 2 if kind in ["stat", "mastery", "skill_quick", "skill_charge", "start", "notable"] else (3 if kind == "talent" else 6)
 	var bw := (4 if kind == "notable" else 3) if owned or can else 2
 	var stb := UiKit.panel_style(fill, border, radius, bw)
 	for state in ["normal", "hover", "pressed", "disabled"]:
@@ -1277,6 +1278,8 @@ func _tree_node(p: SimEntity, n: Dictionary, at: Vector2) -> Control:
 			_up_badge(holder, px, owned, can)
 	elif kind == "skill_quick":
 		_quick_badge(holder, px, owned, can)
+	elif kind == "skill_charge":
+		_charge_badge(holder, px, owned, can)
 	elif kind in ["stat", "notable"] and n["branch"] != "ring":
 		# pequeno: o bônus curto embaixo; notável: o nome (o bônus fica na dica); junção/passagem: só na dica
 		var txt: String = TreeCatalog.stat_short(st) if kind == "stat" else str(n["name"])
@@ -1386,6 +1389,19 @@ func _quick_badge(holder: Control, px: int, owned: bool, can: bool) -> void:
 	holder.add_child(bolt)
 	_node_tag(holder, px, "Ágil", Color(0.6, 1.0, 0.65), owned or can)
 
+## "<Skill> em Cargas": três gomos empilhados no círculo pequeno e "Cargas" embaixo.
+func _charge_badge(holder: Control, px: int, owned: bool, can: bool) -> void:
+	var pips := Control.new()
+	pips.size = Vector2(px, px)
+	pips.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var col := Color(0.2, 0.12, 0.02) if owned else (Color(1.0, 0.85, 0.5) if can else Color(0.48, 0.48, 0.52))
+	pips.draw.connect(func():
+		var k := px / 24.0
+		for i in range(3):
+			pips.draw_rect(Rect2(Vector2(7.0, 5.0 + i * 5.0) * k, Vector2(10.0, 3.5) * k), col))
+	holder.add_child(pips)
+	_node_tag(holder, px, "Cargas", Color(1.0, 0.82, 0.45), owned or can)
+
 func _node_tag(holder: Control, px: int, txt: String, col: Color, lit: bool) -> void:
 	var tag := UiKit.label(txt, 10, col)
 	tag.add_theme_constant_override("outline_size", 3)
@@ -1418,15 +1434,15 @@ static func lock_line(level: int) -> String:
 	return "Abre no nível %d" % level
 
 func _tree_tip(p: SimEntity, n: Dictionary, owned: bool, why: String) -> String:
-	var kinds := {"skill": "Skill", "skill_up": "Aprimoramento", "skill_quick": "Aprimoramento", "talent": "Evolução", "stat": "Passivo", "notable": "Notável", "mastery": "Maestria", "start": "Início"}
+	var kinds := {"skill": "Skill", "skill_up": "Aprimoramento", "skill_quick": "Aprimoramento", "skill_charge": "Aprimoramento", "talent": "Evolução", "stat": "Passivo", "notable": "Notável", "mastery": "Maestria", "start": "Início"}
 	var t := "[b][color=#ffd966]%s[/color][/b]  [color=#aaa](%s)[/color]\n" % [n["name"], kinds.get(n["kind"], "")]
 	if n["kind"] == "skill":
 		t += UiKit.skill_tooltip(p, GameData.skills[n["ref"]]) + "\n"
 	elif n["kind"] == "mastery":
 		t += "%s\n[color=#ffd966]Maestria atual: %d/%d[/color]\n" % [n["desc"], p.mastery_of(n["ref"]), Balance.MASTERY_MAX]
-	elif n["kind"] in ["skill_up", "skill_quick"]:
+	elif n["kind"] in ["skill_up", "skill_quick", "skill_charge"]:
 		var sk: SkillDef = GameData.skills[n["ref"]]
-		t += "%s\n" % (TreeCatalog.up_desc(sk) if n["kind"] == "skill_up" else TreeCatalog.quick_desc(sk))
+		t += "%s\n" % (TreeCatalog.up_desc(sk) if n["kind"] == "skill_up" else (TreeCatalog.charge_desc(sk) if n["kind"] == "skill_charge" else TreeCatalog.quick_desc(sk)))
 		if p.knows(sk.id):
 			t += "[color=#ffd966]Rank da skill: M%d/%d[/color] [color=#aaa](sobe no Mestre de Skills)[/color]\n" % [p.mastery_of(sk.id), Balance.MASTERY_MAX]
 		else:
@@ -1631,7 +1647,7 @@ var _quests_tab := "quests"         # "quests" (ativas/concluídas) | "roteiro" 
 var _roteiro_band := ""             # "1_10" | "10_20" | "20_30" | "30_35" | "35_40" | "40_45" (vazio: o do nível do personagem)
 ## [faixa, rótulo, nível em que a faixa começa]
 const ROTEIROS := [["1_10", "1-10 Aldara", 1], ["10_20", "10-20 Floresta", 10], ["20_30", "20-30 Bastião", 20],
-	["30_35", "30-35 Costa", 30], ["35_40", "35-40 Estepes", 35], ["40_45", "40-45 Kharzun", 40]]
+	["30_35", "30-35 Costa", 30], ["35_40", "35-40 Estepes", 35], ["40_45", "40-45 Kharzun", 40], ["45_50", "45-50 Lumeria", 45]]
 
 func _set_quests_tab(t: String) -> void:
 	_quests_tab = t
@@ -1646,7 +1662,7 @@ func _roteiro(body: VBoxContainer, p: SimEntity) -> void:
 	var band := _roteiro_band
 	if band == "":
 		band = roteiro_band_for(p.level)
-	var row := HBoxContainer.new()
+	var row := HFlowContainer.new()        # 7 faixas não cabem numa linha: quebra
 	body.add_child(row)
 	for b in ROTEIROS:
 		var bb := UiKit.button(b[1], _set_roteiro_band.bind(b[0]), 112)
@@ -1811,6 +1827,10 @@ func _party(body: VBoxContainer) -> void:
 	else:
 		for m in members:
 			body.add_child(_party_row(p, m, m == leader, i_lead))
+		var plan: String = Sim.party_plan(p)
+		if leader and leader.kind == SimEntity.Kind.BOT:
+			body.add_child(UiKit.para("%s lidera e completa o grupo sozinho. Plano: %s" % [leader.name, plan if plan != "" else "decidindo..."], 12, UiKit.TEXT))
+			body.add_child(UiKit.button("Retomar a liderança", func(): Sim.party_take_lead(p); _rebuild("party"), 190))
 		body.add_child(UiKit.button("Sair do grupo", func(): Sim.party_leave(p), 150))
 	body.add_child(UiKit.para("XP de abates dividida com quem estiver a até %dm (+%d%% por membro, nível até %d de diferença). Curas e buffs em área só valem para o grupo." % [int(Balance.PARTY_SHARE_RANGE), int(Balance.PARTY_XP_BONUS * 100), Balance.PARTY_LEVEL_GAP], 11, UiKit.MUTED))
 	body.add_child(UiKit.hsep())

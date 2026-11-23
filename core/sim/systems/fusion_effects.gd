@@ -638,6 +638,12 @@ static func on_kill(sim: WorldSim, dead: SimEntity, killer: SimEntity) -> void:
 ## E1 Vapor (gelo no alvo que queima), Executor (execução só abaixo do limiar atual), Xamã (Fogo Lunar no alvo marcado),
 ## Caçador/Lanceiro (abrem retardando), Corsário (com Bravata quase cheia segura o Tiro Entre os Olhos até a salva sair).
 static func bot_skill_mult(e: SimEntity, t: SimEntity, s: SkillDef) -> float:
+	var piece := PieceEffects.bot_skill_mult(e, s)          # Lendários do 50: skill que dispara efeito de peça
+	if piece != 1.0:
+		return piece * _bot_skill_mult(e, t, s)
+	return _bot_skill_mult(e, t, s)
+
+static func _bot_skill_mult(e: SimEntity, t: SimEntity, s: SkillDef) -> float:
 	if t == null or face(e) == "":
 		return 1.0
 	match fid(e):

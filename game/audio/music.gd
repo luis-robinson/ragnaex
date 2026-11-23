@@ -20,7 +20,13 @@ const MAP_THEME := {"city_aldara": "aldara", "field_hollow": "campo", "field_cra
 	# Ato II (fase 2): Estepes e os três acampamentos da Horda (os "fort_" do Ato I seguem em "trevas")
 	"field_steppe": "horda", "fort_trolls": "horda", "fort_fire": "horda", "fort_war": "horda",
 	# Ato II (fase 3): Monte Kharzun e Salão dos Matadores (tambores de guerra); a Cidadela com coro grave (raide)
-	"field_kharzun": "kharzun", "dg_slayers": "kharzun", "kharzun_citadel": "kharzun_citadel"}
+	"field_kharzun": "kharzun", "dg_slayers": "kharzun", "kharzun_citadel": "kharzun_citadel",
+	# Ato III parte 1 (WP5, PROVISÓRIO até o WP12 trazer "lumeria"/"perfume"/"parade"): a festa da cidade e do Cortejo na
+	# faixa da taverna, os vinhedos no tema de campo
+	"city_lumeria": "taverna", "field_perfume": "campo", "field_parade": "taverna",
+	# Ato III WP6 (PROVISÓRIO até o WP12 trazer "rift"/"rift_raid"): Fenda no tema élfico (etéreo), raide no coro grave da Cidadela,
+	# Adegas e Conservatório como masmorra, Galeria dos Espelhos nas catacumbas
+	"rift_garden": "elfos", "rift_heart": "kharzun_citadel", "dg_cellars": "masmorra", "dg_mirrors": "catacumbas", "dg_conservatory": "masmorra"}
 
 var main                                # Main
 var current := ""

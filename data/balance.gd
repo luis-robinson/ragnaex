@@ -1,7 +1,7 @@
 extends Node
 ## Todas as constantes de balanceamento num lugar só (autoload `Balance`).
 
-const MAX_LEVEL := 45                # Ato II fase 3 (design/gdd/ato2-horda.md R7; Monte Kharzun 40-45): teto do Ato II
+const MAX_LEVEL := 50                # Ato III parte 1 (design/gdd/ato3-excesso-45-50.md §8; Lumeria 45-50). Era 45 (Ato II)
 const ASC_LEVEL := 35                # ascensão de classe libera neste nível (com a missão hx_asc_<classe>)
 const ATTRS := ["FOR", "AGI", "VIT", "WILL", "INT"]
 ## Escala dos atributos: cada ponto vale 1/ATTR_SCALE do antigo (a teia dá +1 na estrada e +5..+10 nos círculos).
@@ -175,8 +175,8 @@ const XP_MOB_BASE := 6.0
 const XP_MOB_PER_LEVEL := 4.5
 const XP_QUEST_SHARE := 0.45             # quests (não repetíveis) dão ~45% da faixa; abates, caçadas e quadros o resto
 ## 1-10: mais quests no 6-7; 10-20: quests pedem mais abates e pagam mais; 20-30: a guarnição e o grupo matam muito,
-## então a guerra paga mais por quest; 30-35, 35-40 e 40-45 (Ato II, (H) do GDD F1)
-const XP_QUEST_SHARE_BAND := {1: 0.5, 10: 0.55, 20: 0.65, 30: 0.55, 35: 0.55, 40: 0.5}
+## então a guerra paga mais por quest; 30-35, 35-40 e 40-45 (Ato II, (H) do GDD F1); 45-50 (Ato III §6.1) igual ao 40-45
+const XP_QUEST_SHARE_BAND := {1: 0.5, 10: 0.55, 20: 0.65, 30: 0.55, 35: 0.55, 40: 0.5, 45: 0.5}
 ## Ato II (GDD F1, "achatar"): do nível XP_ACT2_FROM em diante o tempo por nível cresce XP_MIN_PER_LEVEL_ACT2 por nível
 const XP_ACT2_FROM := 30
 const XP_MIN_PER_LEVEL_ACT2 := 0.75
@@ -184,14 +184,14 @@ const XP_MIN_PER_LEVEL_ACT2 := 0.75
 ## Parte da XP da faixa que começa em `band_start` que vem de quests.
 static func quest_share(band_start: int) -> float:
 	return float(XP_QUEST_SHARE_BAND.get(band_start, XP_QUEST_SHARE))
-const XP_BANDS := [[1, 10], [10, 20], [20, 30], [30, 35], [35, 40], [40, 45]]
+const XP_BANDS := [[1, 10], [10, 20], [20, 30], [30, 35], [35, 40], [40, 45], [45, 50]]
 const DEATH_XP_PENALTY := 0.03
 # pontos da teia (estilo Path of Exile): aprimoramentos das skills, evoluções, atributos e notáveis. 7 por nível (+1 no 10/20/30/40)
-# = 206 no 30, 241 no 35, 277 no 40 e 312 no 45, numa teia de ~250-360 nós: muita liberdade, mas não dá para pegar tudo.
+# = 206 no 30, 241 no 35, 277 no 40, 312 no 45 e 348 no 50, numa teia de ~250-360 nós: muita liberdade, mas não dá para pegar tudo.
 # 8 -> 7 (2026-11-18): a maestria saiu da teia (rank no Mestre de Skills), os ~45-65 pontos dela no 30 iam para atributos
 # (web_probe no 30 com 8: ATK x1,38 HP x1,39 > faixa); por círculo de skill o jogador gasta <= 2 (Aprimorada + Ágil).
 const MASTERY_POINTS_PER_LEVEL := 7
-const MASTERY_BONUS_LEVELS := [10, 20, 30, 40]  # +1 ponto extra (40: Ato II, GDD R7)
+const MASTERY_BONUS_LEVELS := [10, 20, 30, 40, 50]  # +1 ponto extra (40: Ato II, GDD R7; 50: Ato III §6.5)
 const MASTERY_MAX := 5
 const MASTERY_BONUS_PCT := 0.1     # cada nível de maestria: +10% nos bônus de buff e forma (só os positivos; tempo não muda)
 const SKILL_LEARN_COST := 1               # custo do nó "<Skill> Aprimorada" (o antigo nó da skill; skills vêm pelo nível desde 2026-11-18)
@@ -200,13 +200,22 @@ const SKILL_LEARN_COST := 1               # custo do nó "<Skill> Aprimorada" (o
 const SKILL_UP_POWER := 0.15               # nó "<Skill> Aprimorada" (<classe>_s_<id>): +15% de poder (dano/cura) da skill
 const SKILL_QUICK_PCT := 0.12              # nó "<Skill> Ágil" (<classe>_m_<id>): -12% de recarga e de MP da skill
 const SKILL_QUICK_COST := 1
+## Cargas de skill (2026-11-21): nó da teia "<Skill> em Cargas" (<classe>_k_<id>, kind skill_charge) nas skills de dano/controle
+## com recarga base >= SKILL_CHARGE_MIN_CD (fora buffs longos, auras, formas, invocações, Supremas, ascensão; TreeCatalog.charge_ok).
+## Com o nó a skill guarda até SKILL_CHARGE_MAX usos; as cargas voltam uma de cada vez (fila), cada uma em
+## recarga (já com Ágil/redução) x SKILL_CHARGE_RECHARGE_MULT. MP por uso. Regra em ChargeSystem. Ocupa o 2º passivo do círculo.
+const SKILL_CHARGE_MIN_CD := 8.0
+const SKILL_CHARGE_MAX := 3
+const SKILL_CHARGE_RECHARGE_MULT := 1.3
+const SKILL_CHARGE_COST := 1
 const SKILL_TRAINER_ROLES := ["trainer"]   # papel do NPC que sobe o rank (MapDef.npcs[].role; Mestre de Skills)
 const SKILL_RANK_LEVEL_STEP := 3           # rank r pede nível >= nível da skill + STEP × (r-1) (teto MAX_LEVEL)
 const SKILL_RANK_GOLD_BASE := 40           # ouro = base × (tier da skill + 1) × rank^1.5 (tier por COMMON_TIER_LEVELS)
-## Materiais por tier da skill (COMMON_TIER_LEVELS: 1, 8, 16, 24, 32, 40), os mesmos das joias (RecipesCatalog.JEWEL_MATS):
+## Materiais por tier da skill (COMMON_TIER_LEVELS: 1, 8, 16, 24, 32, 40, 48), os mesmos das joias (RecipesCatalog.JEWEL_MATS):
 ## [comum, raro]. Rank r pede r + 1 do comum; do rank SKILL_RANK_RARE_FROM em diante, (r - FROM + 1) do raro.
 const SKILL_RANK_MATS := [["iron_ore", "crab_shell"], ["spider_silk", "grave_dust"], ["bone_shard", "bandit_badge"],
-	["star_ore", "ancient_relic"], ["orc_tusk", "goblin_fang"], ["orc_steel", "troll_tusk"]]
+	["star_ore", "ancient_relic"], ["orc_tusk", "goblin_fang"], ["orc_steel", "troll_tusk"],
+	["dwarf_steel", "basalt_ore"]]     # 48: PROVISÓRIO (materiais de Kharzun) até existirem Fita do Festim/Porcelana Chorosa (Ato III §8, WP11)
 const SKILL_RANK_RARE_FROM := 4
 ## Bots não pagam rank: rank = nível / BOT_SKILL_RANK_PER_LEVELS (o antigo nível/6 da maestria), até o que o nível
 ## liberaria para um jogador (SKILL_RANK_LEVEL_STEP), nas skills da build. Começo rápido usa a mesma conta.
@@ -223,10 +232,11 @@ const WEB_GAIN_LEVEL := 30                 # nível em que as faixas acima foram
 const WEB_GAIN_LATE := {
 	40: {"atk": [1.3, 1.6], "hp": [1.12, 1.42], "build": [1.25, 2.5]},     # hp 1,35 -> 1,42: anel de base (2026-11-21)
 	45: {"atk": [1.35, 1.7], "hp": [1.12, 1.4], "build": [1.3, 2.8]},
+	50: {"atk": [1.4, 1.75], "hp": [1.12, 1.42], "build": [1.35, 3.0]},     # Ato III §6.5 (Orla)
 }
 ## Teto próprio de ATK×HP por classe e nível (no lugar do "build" acima): o Elementalista tem a vida base mais baixa e o anel
 ## de base dele é todo sobrevivência (Mana em Carne + HP), então a razão de HP sobe mais (medido 2,4-2,8 no 30; 2026-11-21).
-const WEB_GAIN_BUILD_CLASS := {"elementalist": {30: [1.2, 2.9], 40: [1.25, 3.0], 45: [1.3, 3.1]}}
+const WEB_GAIN_BUILD_CLASS := {"elementalist": {30: [1.2, 2.9], 40: [1.25, 3.0], 45: [1.3, 3.1], 50: [1.35, 3.2]}}
 ## Fronteira (data/catalog/tree_catalog.gd `_outer_web`): casas livres até WEB_OUTER_GRID_K (a teia do 30 vai até 5), tudo do 31 em diante.
 const WEB_OUTER_GRID_K := 7
 const WEB_OUTER_CELLS := 6                 # casas por setor de build: 2 notáveis da build, 1 de elo, 1 de elo/papel, pedra-angular, Ápice
@@ -246,6 +256,18 @@ const WEB_KEYSTONE_SCALE := 1.0
 const WEB_APEX_LEVEL := 45
 const WEB_APEX_ATTR := 12
 const WEB_APEX_MULT := 1.0                 # Ápice = todos os passivos da build x isto
+## Orla (Ato III §6.5, níveis 46-50; data/catalog/tree_catalog.gd `_rim_web`): anel de casas depois da Fronteira, sorteio próprio.
+## Por setor de build: 1 notável da build, 1 de elo (vizinha) e 1 pedra-angular menor (2 opções que se excluem); o Geral: 1 notável + 1 pedra menor.
+const WEB_RIM_GRID_K := 10                 # casas livres até isto (a Fronteira vai até WEB_OUTER_GRID_K)
+const WEB_RIM_MIN_K := 6.0                 # ... e a partir disto (em casas do centro): a Orla fica por fora, não tapa buraco de dentro
+const WEB_RIM_CELLS := 3
+const WEB_RIM_GERAL_CELLS := 2
+const WEB_RIM_LEVEL := [46, 49]            # nível exigido: borda de dentro -> fundo
+const WEB_RIM_KEYSTONE_LEVEL := 48
+const WEB_RIM_KEYSTONE_SCALE := 0.5        # pedra-angular menor = KEYSTONES x isto
+const WEB_RIM_KEYSTONE_ATTR := 4
+const WEB_RIM_NOTABLE_ATTR := 10           # atributo principal nos notáveis da Orla
+const WEB_RIM_PASSIVE_MULT := 0.6          # notável da build da Orla = passivo da build x isto (2 passivos)
 const BOT_WEB_SPEND_GUARD := 500           # compras de passivo por chamada do bot_spend (era 200: no 45 sobravam pontos)
 const SKILL_SLOTS := 6
 const LOADOUT_TOWN_ONLY := false            # true = trocar skills da barra só na cidade (2026-11-16: liberado em qualquer lugar)
@@ -295,6 +317,7 @@ const FORM_REQUIRES := {"wolf": "dual_mace", "bear": "mace2h", "phantom": "scyth
 const FORM_DURATION := {"phantom": 10.0, "lich": LORD_LICH_TIME}     # s; forma fora daqui fica até desligar (lobo, urso, demônio)
 const AMBUSH_MULT := 1.6                  # golpe que sai da furtividade
 ## Metamorfose de monstro (ShiftSystem; MonsterDef.shift_forms): xamã que vira bicho ao entrar em combate
+const ACT3_CONVERT_SHIFT_CAST := 0.25     # s: Convertido (Ato III) troca de forma rápido (WP9: com 1 s a conjuração comia a luta, 7% de vida perdida)
 const SHIFT_CAST_S := 1.0                 # s de conjuração antes de trocar de forma (MonsterDef.shift_cast > 0 vence)
 const SHIFT_REVERT_S := 6.0               # s fora de combate (sem alvo, combat_timer zerado) até voltar à forma base
 const SHIFT_AMBUSH_MULT := 1.8            # forma furtiva (lobo): o 1º golpe saindo da furtividade
@@ -389,6 +412,14 @@ const MOB_AURAS := {
 		"demoralize": {"id": "horde_dismay", "atk_pct": -15.0, "speed_pct": -10.0, "duration": 8.0, "radius": 12.0}},
 	# Estandarte do Clã do Lobo (Durgash F2, kharzun-fase3-plan §4): a Horda em volta corre e golpeia mais rápido
 	"clan_wolf": {"id": "clan_wolf", "radius": 30.0, "ally": {"atk_pct": 0.0, "aspd_pct": 20.0, "speed_pct": 25.0}},
+	# Ato III (ato3-excesso-45-50 §9): Mestre de Cerimônias. Ids de buff do Ato II como visual provisório (TODO(WP12): "festim"/"festim_dismay")
+	"festim": {"id": "horde_fury", "radius": 12.0, "ally": {"atk_pct": 0.0, "aspd_pct": 15.0, "speed_pct": 15.0},
+		"demoralize": {"id": "horde_dismay", "atk_pct": -15.0, "speed_pct": -10.0, "duration": 8.0, "radius": 12.0}},
+	# Matriarca da Sede (§3.1): o bando corre mais (+15% de velocidade); sem desânimo. Buff do Ato II como visual provisório (WP12)
+	"sede": {"id": "horde_fury", "radius": 12.0, "ally": {"atk_pct": 0.0, "aspd_pct": 0.0, "speed_pct": 15.0}},
+	# Pedestal da Visão (Eco de Sylvaré F2): o Eco e os outros pedestais em volta golpeiam mais forte. Sem esquiva de monstro (D4 = b):
+	# no lugar do "+esquiva" do GDD §4.1. Buff do Ato II como visual provisório (WP12)
+	"sense_sight": {"id": "horde_fury", "radius": 30.0, "ally": {"atk_pct": 15.0, "aspd_pct": 0.0, "speed_pct": 0.0}},
 }
 
 ## F3: regeneração do troll (MonsterDef.regen × isto × vida máxima por segundo; MobSystem.update_regen). Zero enquanto queima
@@ -423,8 +454,11 @@ static func troll_ttk(t_no_regen: float, regen_mult: float = 1.0) -> float:
 ## Decisão (2026-11-12, Kharzun WP3, mesma linha da 2ª decisão dos 35+): no 40+ os bots matam o comum em ~1 s mesmo com
 ## mod_unidade no teto (band_probe 40-45: vida perdida 7-9%); a vida do papel ganha este fator por cima do HORDE_LATE_35
 ## (luta mais longa, golpe normal). Chefes/elites fora (boss_probe / caçada única).
+## `atk` (decisão do usuário 2026-11-23): os bots ficaram mais fortes (acessórios, lendários, cargas) e o 40-44 voltou a 3-10% de
+## vida perdida (trivial em 7 de 10; alvo R8 do kharzun-fase3-plan: 14-20%). O ATK do papel ganha este fator (horde_stat "atk");
+## elite entra (só ATK); chefe NUNCA; lacaios de chefe não têm stat_role. Vale também no 45+ (ACT3_LATE_45.atk compensa).
 const HORDE_LATE_40_LEVEL := 40
-const HORDE_LATE_40 := {"comum": {"hp": 4.4, "cooldown": 0.8}, "bruto": {"hp": 1.3, "cooldown": 0.8}}
+const HORDE_LATE_40 := {"comum": {"hp": 4.4, "cooldown": 0.8, "atk": 1.8}, "bruto": {"hp": 1.3, "cooldown": 0.8, "atk": 2.0}, "elite": {"atk": 2.0}}
 
 ## Fator dos 35+ (HORDE_LATE_35) do papel: `key` = hp | startup | cooldown; 1.0 abaixo de HORDE_ATK_35_LEVEL ou sem entrada.
 ## No 40+ a mesma chave multiplica também HORDE_LATE_40 (vida e ritmo do golpe).
@@ -434,6 +468,8 @@ static func horde_late(role: String, key: String, level: int, fallback: float = 
 	var v := float((HORDE_LATE_35.get(role, {}) as Dictionary).get(key, fallback))
 	if level >= HORDE_LATE_40_LEVEL:
 		v *= float((HORDE_LATE_40.get(role, {}) as Dictionary).get(key, 1.0))
+	if level >= ACT3_LATE_45_LEVEL:          # Ato III (45+): vida de comum/bruto × ACT3_LATE_45 (fim do arquivo)
+		v *= float((ACT3_LATE_45.get(role, {}) as Dictionary).get(key, 1.0))
 	return v
 
 ## F2: um atributo de monstro da Horda. `stat` = hp | atk | def | mdef; `mods` = mod_unidade (só hp/atk; 1.0 se faltar).
@@ -445,7 +481,7 @@ static func horde_stat(role: String, stat: String, level: int, mods: Dictionary 
 			return base * (1.0 + HORDE_K_HP * dl) * float(mods.get("hp", 1.0)) * horde_late(role, "hp", level)
 		"atk":
 			var late: float = float(HORDE_ATK_35.get(role, 1.0)) if level >= HORDE_ATK_35_LEVEL else 1.0
-			return base * (1.0 + HORDE_K_ATK * dl) * float(mods.get("atk", 1.0)) * late
+			return base * (1.0 + HORDE_K_ATK * dl) * float(mods.get("atk", 1.0)) * late * horde_late(role, "atk", level)   # 45+: ACT3_LATE_45.atk
 		_:
 			return base + (HORDE_D_DEF_COMMON if role == "comum" else HORDE_D_DEF) * dl
 const PATROL_PACE := 0.45              # líder em ronda anda devagar (a escolta acompanha)
@@ -592,7 +628,7 @@ const ULT_NUMBERS := {
 	"ass_ult_grand_duel": {"duration": 6.0, "arc": 140.0, "gain": 2, "gap": 0.5, "crit": 20.0, "end_power": 0.9,
 		"hit_gain": 1, "hit_cap": 8, "duel_cap": 10, "duel_per": 0.06},
 	# Assassino Corsário: Chamado da Frota (balas avisadas em areia; Bravata cheia)
-	"ass_ult_fleet_call": {"duration": 6.0, "shots": 14, "radius": 6.0, "strike_radius": 2.0, "bias": 0.5, "warn": 0.4,
+	"ass_ult_fleet_call": {"duration": 6.0, "shots": 14, "radius": 6.0, "strike_radius": 2.0, "bias": 0.6, "warn": 0.4,
 		"power": 2.0, "push": 1.0, "range": 12.0},
 	# Elementalista Gelo: Inverno Eterno (pulsos ancorados; lentidão que acumula; congela no 3º pulso, uma vez por alvo)
 	"ele_ult_eternal_winter": {"duration": 8.0, "every": 1.0, "radius": 6.0, "power": 1.7, "slow_step": 15.0, "slow_max": 45.0,
@@ -922,12 +958,12 @@ const BOSS_CROWD_MULT := [1.0, 1.0, 1.0, 2.0, 3.5, 5.0]
 ## Chefe que o grupo de 4+ sorteado vence demais (alvo 65-85%) com o contrato solo 20-40% / trio 75-100% certo: × a mais no
 ## dano a partir de BOSS_CROWD_EXTRA_FROM pessoas (MobSystem.crowd_mult). Calibrado com boss_probe --party=4 sorteado.
 const BOSS_CROWD_EXTRA_FROM := 4
-const BOSS_CROWD_EXTRA := {"spider_queen": 1.8, "elf_king": 1.3}
+const BOSS_CROWD_EXTRA := {"spider_queen": 1.8, "elf_king": 1.3, "vessaline": 1.3}     # Vessaline (Ato III, D8): o grupo de 4 de 50 ascendido
 ## Chefe de raide (feito para 5): tabela própria no lugar de BOSS_CROWD_MULT (BOSS_CROWD_EXTRA não vale). O Durgash é medido
 ## para 5: com 4 bate MAIS (4,9) que com 5 (3,25), o grupo de 4 sofre e não vence antes do berserk (90 s × 20, MonsterDef); o de 5
 ## fica folgado. Calibrado com boss_probe --boss=boss_durgash --lvl=45 (completo de 5 >= 90%, 5 sorteados 60-80%, completo de 4
 ## <= ~20%; tabela em DESIGN.md, Chefes). Até o trio vale o comum.
-const BOSS_CROWD_RAID := {"boss_durgash": [1.0, 1.0, 1.0, 2.0, 4.9, 3.25]}
+const BOSS_CROWD_RAID := {"boss_durgash": [1.0, 1.0, 1.0, 2.0, 4.9, 3.25], "boss_sylvare_echo": [1.0, 1.0, 1.0, 2.0, 8.5, 4.55]}     # Eco (Ato III D9): 5 completo 8/10 em 95 s; com 4 bate mais (alvo <= 10%); trio = comum (GDD §4.2)
 ## Casulo de Seda (Rainha Aranha com 4+, MonsterDef.crowd_skills; efeito "cocoon", MobSystem.cocoon): a vítima fica presa até o casulo
 ## cair ou COCOON_TIME s; esgotado o tempo, o casulo aperta COCOON_BURST × a vida máxima. GDD design/gdd/spider-queen-4p.md.
 const COCOON_TIME := 7.0
@@ -1014,7 +1050,9 @@ const DURGASH_AXE_EVERY := 34.0             # s entre machados (recarga da skill
 const DURGASH_AXE_HOVER := 3.2              # apresentação: altura (m) do prop_durgash_throneaxe sobre o círculo antes de cair
 ## Bots nas assinaturas (sempre perfeitos, decisão do usuário 2026-11-13)
 const BOT_SIG_COVER_GAP := 0.8              # m atrás da pedra (além do raio dela) na Avalanche
-const BOT_SIG_SPREAD_DIST := 8.0            # m: até onde o marcado anda para espalhar (8 direções)
+const BOT_SIG_SPREAD_DIST := 8.0            # m: até onde o marcado anda para espalhar (16 direções, a isto e à metade)
+const BOT_SIG_SPREAD_GAP := 1.0             # m de folga entre marcas (além do touch do Cânone / soma dos raios) e da marca aos aliados
+const BOT_SIG_SPREAD_REPLAN := 0.4          # s: o marcado revê o ponto se outro marcado planejou perto dele (no máx. a cada isto)
 const BOT_SIG_SOAK_RANGE := 15.0            # m: bot não tanque a até isto vai dividir a marca
 const BOT_SIG_SOAK_MARGIN := 1.2            # s de folga: o bot parte para a marca de dividir quando o que falta mal dá para chegar + isto
 const BOT_SIG_SOAK_PAD := 0.8               # m para dentro da borda do círculo de dividir (chegou = fica)
@@ -1191,40 +1229,41 @@ const REGEN_HP_PCT := 0.02                 # fora de combate: % da vida por segu
 const REGEN_MP_PCT := 0.015                # fora de combate: % da mana por segundo (+ REGEN_MP_FLAT)
 const REGEN_MP_FLAT := 1.0
 ## Joias de mana (pedido do jogador 2026-11-16: "o Berserker fica sem mana"; tools/tests/mana_probe.tscn). Por tier de
-## COMMON_TIER_LEVELS [1, 8, 16, 24, 32, 40]; nos temas corpo a corpo (GearCatalog.THEMES). Amuleto: % da mana máxima a cada
+## COMMON_TIER_LEVELS [1, 8, 16, 24, 32, 40, 48]; nos temas corpo a corpo (GearCatalog.THEMES). Amuleto: % da mana máxima a cada
 ## abate (Stats.mp_on_kill). Capa: % da mana máxima por s a mais só em combate (Stats.mp_regen_combat). Anéis ficam sem.
 const MANA_ACC_THEMES := ["guerreiro", "cacador"]
-const MANA_KILL_PCT := [4.0, 5.0, 6.0, 7.0, 8.0, 10.0]
+const MANA_KILL_PCT := [4.0, 5.0, 6.0, 7.0, 8.0, 10.0, 12.0]     # 48 = k45
 const MANA_KILL_PCT_K45 := 12.0
-const MANA_COMBAT_REGEN := [0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+const MANA_COMBAT_REGEN := [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 1.0]
 const MANA_COMBAT_REGEN_K45 := 1.0
 ## Sábio: a mana do tema fica no amuleto, regen em combate (% da mana máxima por s; base REGEN_MP_PCT 1,5). Spec acessórios F5.
 const MANA_SAGE_THEMES := ["sabio"]
-const MANA_SAGE_REGEN := [0.15, 0.2, 0.25, 0.3, 0.35, 0.4]
+const MANA_SAGE_REGEN := [0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.5]
 const MANA_SAGE_REGEN_K45 := 0.5
 ## Acessórios (capa, amuleto, anel; spec production/qa/accessory-rework-spec-2026-11-17.md). Atributo = linear de hoje no nível
 ## ACC_CURVE_REF_LEVEL (t2) x GROWTH^((nível - REF) / STEP): ~+50% por tier, nenhum tier abaixo da fórmula linear antiga.
 const ACC_CURVE_REF_LEVEL := 16.0          # F1/F2: nível onde a curva nova = a linear antiga (fixo por decisão)
 const ACC_CURVE_GROWTH := 1.5              # F1/F2: x por passo (faixa segura 1,4-1,6)
 const ACC_CURVE_STEP := 8.0                # F1/F2: níveis por passo (= distância entre tiers)
-const ACC_RING_ATK := [0, 1, 2, 3, 4, 5]   # F3: ATK plano (guerreiro/caçador) ou MATK (sábio) do anel por tier (spec; alavanca 3/3/4 desfeita 2026-11-17)
+const ACC_RING_ATK := [0, 1, 2, 3, 4, 5, 6]   # (48 = k45) F3: ATK plano (guerreiro/caçador) ou MATK (sábio) do anel por tier (spec; alavanca 3/3/4 desfeita 2026-11-17)
 const ACC_RING_ATK_K45 := 6
-const ACC_AMULET_HP_PCT := [1.0, 1.5, 2.0, 2.5, 3.0, 3.0]   # F4: vida % do amuleto (todos os temas), por tier
+const ACC_AMULET_HP_PCT := [1.0, 1.5, 2.0, 2.5, 3.0, 3.0, 3.0]   # F4: vida % do amuleto (todos os temas), por tier
 const ACC_AMULET_HP_PCT_K45 := 3.0
 const ACC_UNIQUE_MULT := 1.25              # F6: único = x a comum do mesmo slot e nível...
 const ACC_UNIQUE_NEXT_CAP := 0.9           # ...limitado a x a comum do tier seguinte
 ## Acessórios lendários por build (spec production/qa/legendary-accessories-spec-2026-11-16.md, re-base da rev2 dos acessórios):
-## Manto/Medalhão/Anel/Sinete nos níveis HYBRID_LEVELS; atributos/DEF pela curva F1/F2 x LEGENDARY_MULT; papéis e mana no valor k45.
-## LEG_ACC_STEP = valor de cada stat por nível [35, 40, 45]; LEG_ACC_BUILDS = stat de cada peça por build.
+## Manto/Medalhão/Anel/Sinete nos níveis ACT2_SET_LEVELS; atributos/DEF pela curva F1/F2 x LEGENDARY_MULT; papéis e mana no valor k45.
+## LEG_ACC_STEP = valor de cada stat por nível de ACT2_SET_LEVELS [35, 40, 45, 50] (50 = 45 + passo do 40->45, Ato III §6.4);
+## LEG_ACC_BUILDS = stat de cada peça por build.
 const LEG_ACC_PIECES := ["cape", "amulet", "ring", "signet"]
 const LEG_ACC_STEP := {
-	"atk_pct": [1.5, 2.0, 2.5], "matk_pct": [1.5, 2.0, 2.5], "aspd_pct": [2.5, 3.0, 4.0], "crit": [1.5, 2.0, 2.5],
-	"crit_dmg_pct": [5.0, 6.5, 8.0], "lifesteal": [1.0, 1.5, 2.0], "hp_pct": [3.0, 4.0, 5.0], "def_pct": [3.0, 4.0, 5.0],
-	"dr_pct": [2.0, 2.5, 3.0], "block": [2.0, 3.0, 4.0], "evasion": [1.5, 2.0, 2.5], "threat_pct": [10.0, 15.0, 20.0],
-	"heal_pct": [3.0, 4.0, 5.0], "buff_pct": [6.0, 8.0, 10.0], "radiance": [2.0, 3.0, 4.0], "pet_pct": [5.0, 6.5, 8.0],
-	"fire_pct": [2.5, 3.0, 4.0], "frost_pct": [2.5, 3.0, 4.0], "storm_pct": [2.5, 3.0, 4.0], "backstab": [4.0, 5.0, 6.0],
-	"cdr": [1.5, 2.0, 2.5], "speed_pct": [3.0, 4.0, 5.0], "dot_pct": [6.0, 8.0, 10.0], "cc_resist_pct": [10.0, 15.0, 20.0],
-	"mp_cost_pct": [4.0, 5.0, 6.0], "summon_time_pct": [10.0, 15.0, 20.0],
+	"atk_pct": [1.5, 2.0, 2.5, 3.0], "matk_pct": [1.5, 2.0, 2.5, 3.0], "aspd_pct": [2.5, 3.0, 4.0, 5.0], "crit": [1.5, 2.0, 2.5, 3.0],
+	"crit_dmg_pct": [5.0, 6.5, 8.0, 9.5], "lifesteal": [1.0, 1.5, 2.0, 2.5], "hp_pct": [3.0, 4.0, 5.0, 6.0], "def_pct": [3.0, 4.0, 5.0, 6.0],
+	"dr_pct": [2.0, 2.5, 3.0, 3.5], "block": [2.0, 3.0, 4.0, 5.0], "evasion": [1.5, 2.0, 2.5, 3.0], "threat_pct": [10.0, 15.0, 20.0, 25.0],
+	"heal_pct": [3.0, 4.0, 5.0, 6.0], "buff_pct": [6.0, 8.0, 10.0, 12.0], "radiance": [2.0, 3.0, 4.0, 5.0], "pet_pct": [5.0, 6.5, 8.0, 9.5],
+	"fire_pct": [2.5, 3.0, 4.0, 5.0], "frost_pct": [2.5, 3.0, 4.0, 5.0], "storm_pct": [2.5, 3.0, 4.0, 5.0], "backstab": [4.0, 5.0, 6.0, 7.0],
+	"cdr": [1.5, 2.0, 2.5, 3.0], "speed_pct": [3.0, 4.0, 5.0, 6.0], "dot_pct": [6.0, 8.0, 10.0, 12.0], "cc_resist_pct": [10.0, 15.0, 20.0, 25.0],
+	"mp_cost_pct": [4.0, 5.0, 6.0, 7.0], "summon_time_pct": [10.0, 15.0, 20.0, 25.0],
 }
 const LEG_ACC_BUILDS := {
 	"guardiao": {"cape": "dr_pct", "amulet": "threat_pct", "ring": "block", "signet": "cc_resist_pct"},
@@ -1253,7 +1292,7 @@ const LEG_ACC_BUILDS := {
 	"pestilento": {"cape": "mp_cost_pct", "amulet": "dot_pct", "ring": "matk_pct", "signet": "cdr"},
 }
 const LEG_ACC_BUILD_MULT := {}            # ajuste fino por build (sem entrada = 1,0); F-LA1: G_acc > 0,08 = baixar
-const LEG_ACC_DROP_SHARE := 0.25          # chance do lendário sorteado no 35/40/45 ser um acessório (como SHIELD_LEGENDARY_SHARE)
+const LEG_ACC_DROP_SHARE := 0.25          # chance do lendário sorteado no 35/40/45/50 ser um acessório (como SHIELD_LEGENDARY_SHARE)
 ## Stats novos dos acessórios lendários (spec §3): tetos.
 const CRIT_DMG_CAP := 40.0                # % a mais no multiplicador do crítico (CRIT_MULT 1,5 -> até 1,9)
 const DOT_PCT_CAP := 60.0                 # % a mais de dano no tempo que você aplica
@@ -1270,7 +1309,7 @@ const GEAR_REF_LEVEL := 24.0
 const GEAR_LEVEL_OFFSET := 4.0
 const GEAR_ATTR_PRIMARY_PER_LEVEL := 0.62     # pontos do atributo principal por nível (peça de peso 1)
 const GEAR_ATTR_SECONDARY_PER_LEVEL := 0.3
-const COMMON_TIER_LEVELS := [1, 8, 16, 24, 32, 40]     # 32 e 40: Ato II (GDD F10)
+const COMMON_TIER_LEVELS := [1, 8, 16, 24, 32, 40, 48]     # 32 e 40: Ato II (GDD F10); 48: Ato III (§6.3)
 ## Preços e números dos catálogos (antes soltos em gear/items/skills_catalog, game_data e stats; mesmos valores)
 const STARTER_WEAPON_PRICES := [40, 220, 700, 1800]     # armas comuns escritas à mão, por tier (COMMON_TIER_LEVELS)
 const STARTER_ARMOR_PRICES := [30, 180, 600, 1500]
@@ -1293,7 +1332,7 @@ const OFFHAND_WEAPON_ATK_MULT := 0.6          # empunhando duas: a 2ª arma soma
 const GEAR_DROP_CHANCE := 0.02                # calça/capa/amuleto/anel comum, por monstro morto
 const GEAR_DROP_CHANCE_BOSS := 0.5
 const GEAR_SHOP_TIERS := 2                    # mercador vende esses tiers; os de cima só caem de monstro
-const LEGENDARY_LEVELS := [5, 10, 15, 20, 25, 30, 35, 40, 45]     # 35, 40 e 45: Ato II (GDD F10)
+const LEGENDARY_LEVELS := [5, 10, 15, 20, 25, 30, 35, 40, 45, 50]     # 35, 40 e 45: Ato II (GDD F10); 50: Ato III (§6.3, tier 9, 10 moedas)
 const LEGENDARY_MULT := 1.2                   # ATK/DEF/atributos vs. item comum do mesmo nível
 const LEGENDARY_DROP_CHANCE := 0.01           # por monstro morto (1 em 100); cada membro do grupo rola o seu
 const LEGENDARY_DROP_CHANCE_BOSS := 0.4
@@ -1323,6 +1362,63 @@ const BRAVADO_MAX := 5
 const BRAVADO_TIME := 12.0
 const LEG_PENANCE_TIME := 5.0              # Penitência (Templário): cargas no alvo somem sem golpe por este tempo
 const LEG_WOUND_TIME := 5.0                 # Ferida Aberta (Lanceiro): feridas no alvo somem juntas sem golpe por este tempo
+## Lendários do 50 (design/gdd/ato3-lendarios-50.md, onda 0): toda peça do conjunto de build do 50 tem efeito próprio
+## (ItemDef.piece_fx, de GearCatalog.LEG50 + LEG50_NUMBERS; regras em PieceEffects). Cada peça vale sozinha; efeito que cita
+## skill só age se o personagem a tem. Números SÓ aqui: LEG50_NUMBERS[<build>][<peça>] = {x, y, icd} (no GDD "LEG50_<BUILD>_<PEÇA>").
+## Orçamento F-L50a: armadura 0,01-0,03, arma 0,02-0,04, mão sec. 0,01-0,02, soma <= LEG50_GAIN_MAX (boss_probe --l50_off=all).
+const LEG50_LEVEL := 50
+const LEG50_GAIN_MAX := 0.12
+const LEG50_CHARGE_BONUS := 1                 # luvas de Cargas com o nó da teia já comprado: +1 carga...
+const LEG50_CHARGE_CAP := 4                   # ... até isto (sem o nó: SKILL_CHARGE_MAX)
+const LEG50_MANA_GUARD_CAP_ADD := 10.0        # teto da Barreira de Mana sobe no máximo isto (30 -> 40)
+const LEG50_MANA_EFF_CAP := 0.5               # 1 MP da Barreira absorve no máximo 1 + isto de dano
+const LEG50_ALLY_RANGE := 8.0                 # alcance dos efeitos de grupo das peças
+const LEG50_TRIGGER_ICD := 6.0                # recarga padrão de on_trigger sem "icd"
+const LEG50_BOT_TRIGGER_BIAS := 1.25          # bot: peso a mais da skill que dispara um efeito de peça vestida
+const LEG50_FOE_RANGE := 4.0                  # despertares que saltam para o inimigo mais perto (Lanceiro, Praga)
+const LEG50_STUN_SPLASH := 3.0                # Julgamento Desperto: raio do atordoar em volta do alvo...
+const LEG50_STUN_SPLASH_MAX := 2              # ... em até tantos inimigos comuns (chefe nunca)
+const LEG50_WAVE_RADIUS := 3.0                # Baluarte Desperto (Cruzado): raio da onda quando a barreira quebra
+const LEG50_FIST_SPLASH := 2.0                # Punho Vingativo Desperto: raio do contra-ataque em volta
+const LEG50_LOW_HP := 0.35                    # Égide Desperta: aliado abaixo disto da vida ganha a Égide maior
+const LEG50_PENANCE_MIN := 3                  # Penitência nunca explode com menos cargas que isto
+const LEG50_ZONE_RADIUS := 2.5                # chão deixado por despertar/peça sem raio próprio
+const LEG50_CAST_RANGE := 12.0                # gatilho que lança skill no inimigo mais perto: alcance da busca
+const LEG50_NUMBERS := {
+	"guardiao": {"head": {"x": 2}, "body": {"x": 6.0}, "legs": {"x": 5.0}, "boots": {"x": 2.0, "icd": 4.0},
+		"weapon": {"x": 1}, "weapon2": {"x": 50.0}, "offhand": {"x": 3.0, "icd": 12.0}},
+	"cruzado": {"head": {"x": 5.0}, "body": {"x": 10.0}, "legs": {"x": 5.0}, "boots": {"x": 5.0, "y": 3.0, "icd": 4.0},
+		"weapon": {"x": 0.6}, "weapon2": {"x": 60.0}},
+	"templario": {"head": {"x": 1}, "body": {"x": 1}, "legs": {"x": 4.0}, "boots": {"x": 1, "icd": 0.0},
+		"weapon": {"x": 4.0}, "weapon2": {"x": 1}, "offhand": {"x": 2.0}},
+	"carniceiro": {"head": {"x": 1}, "body": {"x": 6.0}, "legs": {"x": 6.0}, "boots": {"x": 5, "icd": 6.0},
+		"weapon": {"x": 10.0, "y": 40.0}, "offhand": {"x": 3.0}},
+	"executor": {"head": {"x": 3.0}, "body": {"x": 5.0}, "legs": {"x": 1}, "boots": {"icd": 15.0}, "weapon": {"x": 1}},
+	"punhos": {"head": {"x": 2.0, "y": 1.0, "icd": 3.0}, "body": {"x": 3.0}, "legs": {"x": 15.0}, "boots": {"x": 1, "icd": 4.0},
+		"weapon": {"x": 40.0}, "offhand": {"x": 3.0}},
+	"sacerdote": {"head": {"x": 8.0}, "body": {"x": 1}, "legs": {"x": 0.4}, "boots": {"icd": 6.0}, "weapon": {"x": 100.0}, "offhand": {"x": 2.0}},
+	"inquisidor": {"head": {"x": 4.0, "y": 4.0}, "legs": {"x": 8.0}, "gloves": {"x": 5.0}, "boots": {"x": 12.0}, "weapon": {"x": 25.0}},
+	"batalha": {"head": {"x": 3.0}, "body": {"x": 3.0}, "legs": {"x": 4.0}, "boots": {"x": 0.25, "y": 4.0}, "weapon": {"x": 8.0},
+		"offhand": {"x": 4.0, "icd": 12.0}},
+	"guardiao_verde": {"head": {"x": 5.0}, "body": {"x": 6.0}, "legs": {"x": 15.0}, "boots": {"x": 5.0, "icd": 0.0}, "weapon": {"x": 1}},
+	"fera": {"head": {"x": 6.0}, "body": {"x": 15.0}, "legs": {"x": 5.0}, "boots": {"icd": 4.0}, "weapon": {"x": 2}, "offhand": {"x": 3.0}},
+	"xama": {"head": {"x": 6.0}, "body": {"x": 15.0}, "legs": {"x": 8.0}, "boots": {"x": 0.25, "y": 5.0}, "weapon": {"x": 40.0}},
+	"cacador": {"head": {"x": 3.0}, "body": {"x": 6.0}, "legs": {"x": 10.0}, "boots": {"x": 60.0, "icd": 8.0}, "weapon": {"x": 15.0}},
+	"atirador": {"head": {"x": 5.0}, "body": {"x": 1}, "legs": {"x": 8.0}, "boots": {"x": 2.0, "icd": 0.0}, "weapon": {"x": 1.0}},
+	"lanceiro": {"head": {"x": 1}, "body": {"x": 2.0}, "legs": {"x": 10.0}, "boots": {"icd": 0.0}, "weapon": {"x": 50.0}},
+	"laminas": {"head": {"x": 6.0}, "body": {"x": 6.0}, "legs": {"x": 3.0}, "boots": {"x": 10.0, "icd": 0.0}, "weapon": {"x": 2.0},
+		"offhand": {"x": 4.0}},
+	"duelista": {"head": {"x": 1}, "body": {"x": 4.0}, "legs": {"x": 0.25}, "boots": {"x": 1.5, "icd": 0.0}, "weapon": {"x": 20.0},
+		"offhand": {"x": 1}},
+	"corsario": {"head": {"x": 1}, "body": {"x": 4.0}, "legs": {"x": 6.0}, "boots": {"x": 1}, "weapon": {"x": 5.0, "y": 0.3},
+		"offhand": {"x": 40.0, "icd": 0.0}},
+	"fogo": {"head": {"x": 6.0, "y": 5.0}, "body": {"x": 4.0}, "legs": {"x": 15.0}, "boots": {"x": 1}, "weapon": {"x": 2.0}},
+	"gelo": {"head": {"x": 0.25}, "body": {"x": 5.0}, "legs": {"x": 10.0}, "boots": {"x": 60.0, "icd": 0.0}, "weapon": {"x": 4.0, "y": 25.0}},
+	"raio": {"head": {"x": 4.0, "y": 0.3}, "body": {"x": 3.0}, "legs": {"x": 4.0}, "boots": {"x": 1.0, "icd": 0.0}, "weapon": {"x": 1}},
+	"invocador": {"head": {"x": 6.0}, "body": {"x": 5.0}, "legs": {"x": 12.0}, "boots": {"x": 12.0, "icd": 0.0}, "weapon": {"x": 3.0, "y": 25.0}},
+	"ceifador": {"head": {"x": 5.0}, "body": {"x": 5.0}, "legs": {"x": 5.0}, "boots": {"x": 1.0, "icd": 0.0}, "weapon": {"x": 3.0}},
+	"pestilento": {"head": {"x": 6.0}, "body": {"x": 2.0}, "legs": {"x": 5.0}, "boots": {"x": 20.0}, "weapon": {"icd": 0.0}},
+}
 const PLUS_ELF_LEVEL := 20                  # lendário deste nível (Glória) aprimora com materiais élficos
 const PLUS_ELF_GOLD_MULT := 0.6
 const PLUS_DAWN_LEVEL := 25                 # lendário 25+ (Bastião da Aurora) aprimora com Prata Consagrada e Fragmento da Aurora
@@ -1334,7 +1430,7 @@ const PLUS_KHARZUN_EMBER := "kharzun_ember_core"
 const KHARZUN_JEWEL_LEVEL := 45              # joias/capas de Kharzun (receita com troféu de chefe)
 const KHARZUN_JEWEL_MULT := 1.1               # sobre a peça comum do mesmo nível: o troféu pesa
 const KHARZUN_JEWEL_GOLD := 1500              # ouro da receita (tier 40 cobra 720)
-const PLUS_KHARZUN_SMITHS := ["dwarf_smith"]   # só o Ferreiro Anão Thrain aprimora o lendário 40+ (os outros ferreiros recusam)
+const PLUS_KHARZUN_SMITHS := ["dwarf_smith", "lumeria_dwarf_smith"]   # só os Ferreiros Anões (Thrain no Kharzun, Balin em Lumeria, D13) aprimoram o lendário 40+
 const LEGENDARY_COINS_BOSS := 2              # chefe (e Rei) solta 2 moedas lendárias; monstro comum, 1
 ## O lendário cai como Moeda Lendária; a Relicária troca: peça do tier i (LEGENDARY_LEVELS) custa i+1 moedas
 const LEGENDARY_START_MAP := "city_aldara"     # primeiro mapa: o 1º conjunto (tier de LEGENDARY_LEVELS[0]) cai mais
@@ -1357,7 +1453,10 @@ const SET_5PC_CDR_PER_TIER := 2.0
 ## Conjuntos híbridos (GDD Ato II R7.1; Fusões: design/gdd/ato2-proposals-2026-11-11.md §1). Um por par de builds da
 ## classe (A+B, B+C, C+A) em cada nível abaixo; o índice do tier segue LEGENDARY_LEVELS (35 = 6, 40 = 7, 45 = 8: legend_tier).
 ## Nível acima do MAX_LEVEL fica nos dados mas não cai nem aparece na Relicária (ItemSystem.relic_levels).
-const HYBRID_LEVELS := [35, 40, 45]
+const HYBRID_LEVELS := [35, 40, 45]          # Ato III D6: híbridos e Ápice NÃO vão ao 50 (parte 2 decide)
+## Níveis com a malha do Ato II (GearCatalog.ACT2_VISUALS: "colors"/"accents"/"glows" na ordem desta lista) e com acessórios
+## lendários (Manto/Medalhão/Anel/Sinete). 50 = Ato III parte 1 (D6: só conjunto da build e acessórios, sem híbrido/Ápice).
+const ACT2_SET_LEVELS := [35, 40, 45, 50]
 const HYBRID_4PC_SHARE := 0.5                 # 4 peças: a skill de A e a de B, cada uma com esta fração do bônus de 4 peças
 ## Fusão (5 peças do híbrido, no lugar do 5 peças normal). Números F-FUS1: valor(i) = v35 + passo × (i − 6).
 ## Orçamento F-FUS2: |G_fus − G_5n| ≤ FUSION_TOL e G_fus ≤ FUSION_GAIN_MAX (G medido com boss_probe --set).
@@ -1536,6 +1635,9 @@ const SIEGE_XP_SHARE := 0.8               # meta das sondas: XP/min do cerco <= 
 ## Guarnição do Acampamento Avançado (Kharzun 40-45): vida e ataque dos soldados da Aurora x isto. Regra: o acampamento segura
 ## o Contra-ataque (K0, Canil + Cidadela) sozinho em >= 75% (raid_probe --map=field_kharzun --bots=0).
 const KHARZUN_GUARD_POWER := 3.6
+## Procissão dos Lúcidos (Ato III, hx3_veil_open): soldados da leva aliada que sobe ao Palco Grande x isto. Abaixo da guarnição
+## de propósito: a procissão é escoltada, não limpa a avenida sozinha (MapsCatalog.PROCESSION).
+const ACT3_PROCESSION_POWER := 2.4
 const PARTY_MAX := 5                       # membros por grupo
 const PARTY_NEARBY_RANGE := 40.0          # m: janela P lista quem dá para convidar até esta distância
 const PARTY_SHARE_RANGE := 45.0            # m: membros vivos no mesmo mapa e dentro disto dividem XP e quests de abate
@@ -1553,6 +1655,23 @@ const BOT_TANK_PULL_HP := 0.6              # abaixo disto de vida o tanque não 
 const BOT_PARTY_ACCEPT := 0.8              # chance de um bot aceitar um convite válido
 const BOT_PARTY_FORM_CHANCE := 0.35        # bot que sai para caçar chama outros bots da vila
 const BOT_INVITE_PLAYER_CHANCE := 0.12     # ... ou chama o jogador, se ele estiver por perto e sem grupo
+## Bot líder do grupo do jogador (BotLeaderSystem, 2026-11-23): completa o grupo e conta o plano no canal do grupo.
+const BOT_LEADER_RECRUIT_RANGE := 45.0     # m: bots livres até aqui do líder entram na escolha
+const BOT_LEADER_LEVEL_GAP := 5            # níveis de diferença máx. de quem o líder chama (faixa do grupo)
+const BOT_LEADER_LEVEL_WEIGHT := 3.0       # nota do candidato: m de distância que cada nível de diferença vale
+const BOT_LEADER_ROLE_BONUS := 60.0        # nota: papel que falta vale isto em m (o 1º que falta vale o dobro)
+const BOT_LEADER_ROLE_PATIENCE := 25.0     # s recrutando na vila só com o papel que falta; depois chama qualquer um
+const BOT_LEADER_INVITE_CD := 6.0          # s entre dois convites do líder (um por vez: espera a resposta)
+const BOT_LEADER_DECLINE_MEMORY := 90.0    # s sem chamar de novo quem recusou
+const BOT_LEADER_FILL_MAX_S := 75.0        # s segurando a saída na vila para encher; depois sai com quem tem
+const BOT_LEADER_SCAN := 1.0               # s entre olhadas (ninguém para chamar, chefe à vista)
+const BOT_LEADER_WAIT_DIST := 28.0         # m: jogador mais longe que isto no mesmo mapa = o líder espera
+const BOT_LEADER_WAIT_RESUME := 12.0       # m: ... até ele chegar a isto
+const BOT_LEADER_WAIT_MAX_S := 45.0        # s esperando; depois vai na frente
+const BOT_LEADER_SAY_GAP := 5.0            # s mínimos entre duas falas do plano
+const BOT_LEADER_SAY_REPEAT := 40.0        # s até repetir o mesmo tipo de fala (convite: por pessoa; chefe: por chefe)
+const BOT_LEADER_SAY_STALE := 15.0         # s: fala que esperou a vez mais que isto some
+const BOT_LEADER_SAY_QUEUE := 2            # falas esperando a vez (cheia: a mais velha sai)
 ## IA de grupo (BotBrain; papel = role da build: tank, healer, dps, caster, ranged). Contra chefe/elite preso no tanque:
 ## quem bate de perto vai para as costas/flancos (fora de ±BOT_FRONT_ARC_DEG da frente), quem luta de longe fica a
 ## BOT_RANGED_DIST m num flanco de trás; quem cura fica a até BOT_HEALER_LEASH m do tanque.
@@ -1995,3 +2114,100 @@ static func set_pct_tier(tier: int) -> float:
 
 static func mastery_cost(current_level: int) -> int:
 	return current_level + 1
+
+## Ato III — monstros (design/gdd/ato3-excesso-45-50.md §3/§6.2; WP3). Números pela F2 (horde_stat, sem teto até 50);
+## o "demônio" (Bailarinos, Galgos, Coro, Reflexos) ganha este mod_unidade por cima do mod de cada monstro (D7):
+## vida ×0,8, ATK ×1,15 e intervalo do golpe básico ×0,8. Sem esquiva de monstro (D4 = b): "esquivo" = bote, recuo, furtividade.
+const ACT3_DEMON_MODS := {"hp": 0.8, "atk": 1.15, "cooldown": 0.8}
+const ACT3_MOD_FLOOR := 0.6                # mod_unidade final nunca abaixo disto (faixa do check F2: 0,6-2,0)
+const ACT3_REVELER_COOLDOWN := 0.8         # Folião Mascarado: básico rápido (intervalo × isto, além do fator 40+)
+const ACT3_FACTION := "feast"              # facção do Excesso (aura festim)
+## Decisão de calibragem (WP3, 2026-11-21; band_probe --from=45 --to=50 --trials=16): com a F2 pura os bots 45-49 matavam
+## comum/bruto em 1,0-2,2 s com 3-8% de vida perdida ("trivial" em 10 de 12). Mesmo remédio do HORDE_LATE_40: a vida do papel
+## ganha este fator do 45 em diante (elites pelo mod_unidade; chefes calibrados no boss_probe, WP8). Faixa segura 1,5-2,5.
+## `atk` (decisão do usuário 2026-11-23; GDD §6.2): com a vida ×2 a caçada ficou lenta o bastante, mas o bot perdia 3-15% da vida
+## (alvo AC3-07: 14-22%). O ATK do papel ganha este fator do 45 em diante (horde_stat "atk"); elite entra (só ATK, a vida dela é
+## do mod_unidade); chefe NUNCA (boss_probe, WP8). Lacaios de chefe não têm stat_role: não mudam. Faixa segura 1,0-2,5 (check).
+## O `atk` daqui multiplica o do HORDE_LATE_40 (horde_late): total 45+ = comum 1,8×0,89 ≈ 1,6, bruto 2,0×0,75 = 1,5, elite 2,0×1,05 = 2,1
+## (os números medidos no 1º passe); por isso fica < 1 no comum/bruto. O check confere o total (1,0-2,5).
+const ACT3_LATE_45_LEVEL := 45
+const ACT3_LATE_45 := {"comum": {"hp": 2.0, "atk": 0.89}, "bruto": {"hp": 2.0, "atk": 0.75}, "elite": {"atk": 1.05}}
+
+## Ato III — chefes de mundo (design/gdd/ato3-excesso-45-50.md §4, D11; WP8a): afinados para TRIO (faixa "grupo" do
+## boss_probe --bands), renascem a cada WORLD_BOSS_RESPAWN_S (spawner do mapa). Números das assinaturas só aqui.
+const WORLD_BOSS_RESPAWN_S := 600.0
+## Dona Vindima — Prensa (sair do centro): puxa quem está a até PRESS_PULL_R m e, PRESS_DELAY s depois, esmaga um círculo
+## de PRESS_RADIUS m em volta dela (R-A circle, on_self). Quem correu para fora leva 0.
+const ACT3_PRESS_POWER := 2.2
+const ACT3_PRESS_EVERY := 28.0
+const ACT3_PRESS_RADIUS := 6.0
+const ACT3_PRESS_DELAY := 1.5
+const ACT3_PRESS_PULL_R := 14.0
+## A Prima-Donna — Ária em Três Tempos (ritmo): 3 anéis em volta dela, perto (0-W), meio (W-2W), longe (2W-3W), um a cada
+## ARIA_STAGGER s depois de ARIA_DELAY (R-A ring com stagger, o mesmo molde das Ondas da Montanha).
+const ACT3_ARIA_POWER := 1.4
+const ACT3_ARIA_EVERY := 26.0
+const ACT3_ARIA_WIDTH := 4.0
+const ACT3_ARIA_DELAY := 1.5
+const ACT3_ARIA_STAGGER := 1.2
+
+## Ato III — chefes da história e da raide (§4.1/§4.2, D8/D9; WP8b). Vessaline (rift_garden, Pavilhão, grupo de 4):
+## Cortejo de Lâminas = CORTEGE_COUNT faixas encadeadas (BossSignatures.place_cortege), cada uma de CORTEGE_LEN m × CORTEGE_W m
+## numa vítima sorteada (nunca o tanque); todas aparecem juntas, a 1ª cai em CORTEGE_DELAY s e as outras a cada
+## CORTEGE_STAGGER s; ela investe pela faixa que caiu e a cauda deixa a faixa CORTEGE_LINGER s (tique CORTEGE_TICK).
+## O GDD pede 1,4 s; 1,5 = o mínimo de aviso de assinatura (BOSS_SIG_WARN_MIN).
+const ACT3_CORTEGE_POWER := 1.6
+const ACT3_CORTEGE_EVERY := 24.0
+const ACT3_CORTEGE_COUNT := 4
+const ACT3_CORTEGE_LEN := 10.0
+const ACT3_CORTEGE_W := 2.0
+const ACT3_CORTEGE_DELAY := 1.5
+const ACT3_CORTEGE_STAGGER := 0.7
+const ACT3_CORTEGE_LINGER := 3.0
+const ACT3_CORTEGE_TICK := 0.2               # power de cada tique (BOSS_LINGER_TICK s) na faixa que ficou
+## Palco Seguro (F3) e as ilhas do Eco (F3): ilhas FIXAS na arena (offsets da casa do chefe, do boss_hint do JSON), raio
+## STAGE_ISLAND_R; quem está fora de todas leva STAGE_POWER.
+const ACT3_STAGE_POWER := 1.8
+const ACT3_STAGE_EVERY := 30.0
+const ACT3_STAGE_DELAY := 3.0
+const ACT3_STAGE_ISLAND_R := 4.0
+## O Eco de Sylvaré (rift_heart, raide de 5): Sede Dividida = marca que alterna dividir (soak, dourado) e espalhar (spread,
+## roxo) a cada THIRST_EVERY s; entre BOTH_HP (vida) as duas juntas (F2). Pedestais dos Sentidos: Paladar cura
+## TASTE_PCT da vida do Eco por segundo (o matk do pedestal sai disto em _act3_adds), Audição bate em todos a cada NOTE_EVERY s.
+const ACT3_THIRST_EVERY := 20.0
+const ACT3_THIRST_SOAK_POWER := 2.0
+const ACT3_THIRST_SPREAD_POWER := 1.0
+const ACT3_THIRST_RADIUS := 4.0
+const ACT3_THIRST_TIME := 4.0
+const ACT3_THIRST_BOTH_HP := [0.4, 0.7]
+const ACT3_TASTE_PCT := 0.004               # GDD pedia 1%/s: igual ao dano da raide inteira (lutas de 250+ s na sonda); 0,4%/s = ~1/3
+const ACT3_NOTE_EVERY := 6.0
+
+## ---- Ato III, chefes das masmorras (WP8b; GDD ato3-excesso-45-50 §4.1/4.2; grupo de 4) ----
+## Varo — O Banquete (R-C): canal BANQUET_TIME s a cada BANQUET_EVERY s; no fim cura BANQUET_HEAL da vida e +BANQUET_ATK % de
+## ATK por BANQUET_BUFF_S s nele e nos lacaios; quebrado (BOSS_CHANNEL_BREAK_PCT ou atordoar) = +BANQUET_VULN % de dano por BANQUET_VULN_S s.
+const ACT3_BANQUET_EVERY := 35.0
+const ACT3_BANQUET_TIME := 4.0
+const ACT3_BANQUET_HEAL := 0.06
+const ACT3_BANQUET_ATK := 25.0
+const ACT3_BANQUET_BUFF_S := 12.0
+const ACT3_BANQUET_VULN := 15.0
+const ACT3_BANQUET_VULN_S := 6.0
+## Condessa — Olhar Que Julga (R-E): a cada GAZE_EVERY s sobem os Espelhos de Pé (cobertura de MIRROR_R m nos pontos do
+## boss_hint) e GAZE_WARN s depois o raio bate GAZE_POWER em todos a até GAZE_RADIUS m sem espelho entre si e ela.
+## Espelho que protegeu racha e fica MIRROR_CRACKED_S s no chão só como desenho.
+const ACT3_GAZE_EVERY := 30.0
+const ACT3_GAZE_WARN := 3.0
+const ACT3_GAZE_POWER := 2.4
+const ACT3_GAZE_RADIUS := 30.0
+const ACT3_MIRROR_R := 2.5
+const ACT3_MIRROR_CRACKED_S := 6.0
+## Ressoa — Cânone (R-B spread): CANON_COUNT marcas em vítimas sorteadas, raio CANON_RADIUS, caem em CANON_TIME s; marcas
+## com centros a <= CANON_TOUCH m dobram (× CANON_TOUCH_MULT) as duas.
+const ACT3_CANON_EVERY := 24.0
+const ACT3_CANON_POWER := 1.0
+const ACT3_CANON_COUNT := 3
+const ACT3_CANON_RADIUS := 2.0
+const ACT3_CANON_TIME := 4.0
+const ACT3_CANON_TOUCH := 4.0
+const ACT3_CANON_TOUCH_MULT := 2.0

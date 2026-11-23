@@ -12,7 +12,7 @@ const STAT_KEYS := ["atk_pct", "matk_pct", "def_pct", "speed_pct", "heal_pct", "
 	"prey_crit", "falcon_pct", "block", "mp_on_kill", "mp_regen_combat", "trap_max",
 	"crit_dmg_pct", "dot_pct", "cc_resist_pct", "mp_cost_pct", "summon_time_pct",
 	"crit_leech", "low_leech", "mana_guard", "hit_slow", "heal_taken_pct", "def_atk_pct", "block_reflect", "guard_crit", "taunt_dmg_pct", "thorns", "phys_mend",
-	"mp_to_hp", "summon_guard", "summon_frenzy", "leech_shield", "ally_guard", "low_dr", "low_hp_atk", "overheal_share"]
+	"mp_to_hp", "summon_guard", "summon_frenzy", "leech_shield", "ally_guard", "low_dr", "low_hp_atk", "overheal_share", "mana_guard_eff"]
 ## Chaves de buff que não são stat: id (renova, não acumula), duração e aura de ligar/desligar.
 const BUFF_META := ["id", "duration", "toggle", "end_cast", "end_power", "oath_lock",
 	"scale", "wound_hold", "keep_hp", "form_bound",
@@ -60,6 +60,12 @@ var ally_guard: float = 0.0      # % do dano dos aliados do grupo por perto que 
 var low_dr: float = 0.0          # -% de dano recebido abaixo de LOW_DR_HP da vida (Firme na Queda)
 var low_hp_atk: float = 0.0      # até +% de dano quanto menor a vida (Fúria da Beira)
 var overheal_share: float = 0.0  # % da sua cura que passa do máximo que vai para o aliado mais ferido (Graça Transbordante)
+var mana_guard_eff: float = 0.0  # Lendário do 50 (Gelo): 1 MP da Barreira de Mana absorve 1 + isto de dano (teto LEG50_MANA_EFF_CAP)
+## Lendários do 50 (PieceEffects): efeitos das peças vestidas
+var piece_charges: Dictionary = {}   # skill_id -> true: luvas de Cargas (ChargeSystem.max_of)
+var piece_caps: Dictionary = {}      # teto/parâmetro -> soma (PieceEffects.cap)
+var piece_mods: Dictionary = {}      # skill_id -> [mods no formato dos talentos] (ClassTalentSystem.apply_mods)
+var piece_fx: Array = []             # efeitos de evento/forma/dano no tempo das peças (PieceEffects)
 var lifesteal: float = 0.0       # % do dano causado que volta como vida (golpes diretos; dano no tempo não conta)
 var shadow_time: float = 0.0    # nós "shadow_time" da teia de ascensão (Assassino): cada um +Balance.SHADOW_TIME_NODE s de clone
 var shadow_share: float = 0.0   # nós "shadow_share": cada um +Balance.SHADOW_SHARE_NODE pontos de % no dano do clone
@@ -169,6 +175,7 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 				set_pieces[item.set_id] = {}
 			set_pieces[item.set_id][item.id] = true
 	var set_bonus: Array = []
+	PieceEffects.apply_stats(s, equipment, set_bonus)     # Lendários do 50: stat, cargas, tetos, mods, legend_up/wake
 	for sid in set_pieces:
 		var n: int = set_pieces[sid].size()
 		s.active_sets[sid] = n
@@ -341,6 +348,7 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 		s.low_dr += float(b.get("low_dr", 0))
 		s.low_hp_atk += float(b.get("low_hp_atk", 0))
 		s.overheal_share += float(b.get("overheal_share", 0))
+		s.mana_guard_eff += float(b.get("mana_guard_eff", 0))
 		s.thorns_pct += float(b.get("thorns", 0))      # soma com a arma lendária de espinhos
 		if s.has_shield:
 			s.block_chance += float(b.get("block", 0))           # +% de bloqueio (Asas com Bloqueio); sem escudo não vale
@@ -361,7 +369,8 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 	s.cc_resist_pct = minf(s.cc_resist_pct, Balance.CC_RESIST_CAP)
 	s.mp_cost_pct = minf(s.mp_cost_pct, Balance.MP_COST_CAP)
 	s.summon_time_pct = minf(s.summon_time_pct, Balance.SUMMON_TIME_CAP)
-	s.mana_guard = minf(s.mana_guard, Balance.MANA_GUARD_CAP)
+	s.mana_guard = minf(s.mana_guard, Balance.MANA_GUARD_CAP + minf(float(s.piece_caps.get("mana_guard", 0.0)), Balance.LEG50_MANA_GUARD_CAP_ADD))
+	s.mana_guard_eff = minf(s.mana_guard_eff, Balance.LEG50_MANA_EFF_CAP)
 	s.crit_leech = minf(s.crit_leech, Balance.ROLE_LEECH_CAP)
 	s.low_leech = minf(s.low_leech, Balance.ROLE_LEECH_CAP)
 	s.summon_guard = minf(s.summon_guard, Balance.SUMMON_GUARD_CAP)

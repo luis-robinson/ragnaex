@@ -66,6 +66,7 @@ static func update_traps(sim: WorldSim, m: Dictionary) -> void:
 				sim._apply_effects(owner, o, t["effects"], float(t["power"]))
 		Events.post(&"trap_removed", t["id"], true)
 		Events.post(&"skill_effect", t["skill"], pos, pos, float(t["radius"]))
+		PieceEffects.on_event(sim, owner, "trap")          # botas do Atirador 50
 
 ## Ergue a muralha: comprimento 2 × raio da skill (o talento de raio alarga), atravessada na direção de quem lança.
 static func place_wall(sim: WorldSim, e: SimEntity, s: SkillDef, aim: Vector3, power: float, effects: Dictionary) -> Dictionary:

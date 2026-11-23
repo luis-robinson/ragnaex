@@ -251,13 +251,13 @@ static func bot_set_weapons(sim: WorldSim, e: SimEntity, sd: SetDef) -> Array:
 const LEG_ACC_PREFIX := "leg_acc_"
 
 ## Acessórios lendários da build do bot (sonda de chefe; bots do mundo não vestem lendário): os 4 do maior nível de
-## Balance.HYBRID_LEVELS <= level (Anel em RING, Sinete em RING2). Vazio abaixo do 35 ou sem build.
+## Balance.ACT2_SET_LEVELS <= level (Anel em RING, Sinete em RING2). Vazio abaixo do 35 ou sem build.
 ## Ex.: bot_legendary_accessories(sim, executor, 44) = os 4 `leg_acc_berserker_executor_40_*`.
 static func bot_legendary_accessories(sim: WorldSim, e: SimEntity, level: int) -> Array:
 	if e.class_def == null or e.build_id == "":
 		return []
 	var lv := 0
-	for h in Balance.HYBRID_LEVELS:
+	for h in Balance.ACT2_SET_LEVELS:
 		if h <= level:
 			lv = h
 	if lv == 0:

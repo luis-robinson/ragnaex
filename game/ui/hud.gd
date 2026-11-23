@@ -562,7 +562,7 @@ func _hud_process(_delta: float) -> void:
 		var cd := float(p.cooldowns.get(sk.id, 0.0))
 		var no_mp := p.mp < sk.mp_cost_at(p.mastery_of(sk.id))
 		s["cd"].visible = no_weapon or (no_mp and cd <= 0.0)
-		s["sweep"].set_frac(_cd_frac(s, cd))
+		_set_charges(p, sk, s, cd)
 		s["cdt"].text = "✖" if no_weapon else (_cd_text(cd) if cd > 0.0 else ("MP" if no_mp else ""))
 		var aura_on: bool = (sk.effects.has("aura") and AuraSystem.aura_on(p, sk)) or (sk.effects.has("arcane") and Sim.arcane_on(p))
 		if aura_on and cd <= 0.0 and not no_weapon:
@@ -838,6 +838,28 @@ func _cd_frac(s: Dictionary, cd: float) -> float:
 	if cd > float(s.get("cd_max", 0.0)):
 		s["cd_max"] = cd
 	return cd / maxf(float(s["cd_max"]), 0.01)
+
+## Slot da barra com o nó "em Cargas": número de cargas prontas no canto e o leque da próxima carga
+## (claro enquanto sobra carga; escuro, como a recarga normal, com todas gastas). Sem o nó: leque de sempre.
+func _set_charges(p: SimEntity, sk: SkillDef, s: Dictionary, cd: float) -> void:
+	var mx := ChargeSystem.max_of(p, sk.id)
+	var chg: Label = s.get("chg")
+	if mx <= 1:
+		if chg and chg.text != "":
+			chg.text = ""
+		s["sweep"].set_color(CD_SWEEP_DARK)
+		s["sweep"].set_frac(_cd_frac(s, cd))
+		return
+	var n := ChargeSystem.available(p, sk.id)
+	var nx := ChargeSystem.next_charge(p, sk.id)
+	var txt := str(n)
+	if chg and chg.text != txt:
+		chg.text = txt
+	s["sweep"].set_color(CD_SWEEP_DARK if n <= 0 else CD_SWEEP_CHARGE)
+	s["sweep"].set_frac(nx.x / maxf(nx.y, 0.01) if nx.x > 0.0 else 0.0)
+
+const CD_SWEEP_DARK := Color(0, 0, 0, 0.62)
+const CD_SWEEP_CHARGE := Color(0, 0, 0, 0.3)
 
 func _cd_text(cd: float) -> String:
 	return "%.1f" % cd if cd < 3.0 else str(ceili(cd))
@@ -1249,6 +1271,8 @@ func _on_act_quest(id: int, qid: String) -> void:
 		show_act_end()
 	elif Sim.player and id == Sim.player.id and qid == MapsCatalog.ACT2_END_QUEST:
 		show_act_end(2)
+	elif Sim.player and id == Sim.player.id and qid == MapsCatalog.ACT3_END_QUEST:
+		show_act_end(3)
 
 ## Texto da tela de fim de ato: [título, subtítulo, história (%s = nome), agradecimento, depois].
 const ACT_END_TEXT := {
@@ -1258,6 +1282,9 @@ const ACT_END_TEXT := {
 	2: ["FIM DO ATO II", "A Horda",
 		"Da praia da Costa Partida ao trono de Kharzun: o porto ganhou muralha, as Estepes voltaram a ter estrada, os escravos das Minas saíram livres e Durgash, o Grão-Senhor da Guerra, caiu. A Horda largou as armas. Mas ela não subiu a montanha para conquistar: fugia de algo a leste. Porto Esperança canta o nome de %s.",
 		"Você completou o Ato II do RagnaEx. Obrigado por jogar!", "O mundo continua: caçadas, lendários de 45, a Prova dos Mestres e os chefes esperam por você."],
+	3: ["FIM DO ATO III — PARTE 1", "Manhã em Lumeria",
+		"Da garganta leste do Kharzun ao Pavilhão do Jardim Sem Fim: os sinos calaram, as Adegas secaram, a Condessa voltou para o espelho e Vessaline, a Anfitriã do Véu, caiu. Depois de quarenta anos de festa, Lumeria acordou com a vassoura na mão. Mas o Jardim não acaba no Pavilhão, e alguém ainda tem sede. Os Lúcidos dizem o nome de %s.",
+		"Você completou a Parte 1 do Ato III do RagnaEx. Obrigado por jogar!", "O mundo continua: a raide do Eco de Sylvaré, lendários de 50, os chefes do Excesso e o Conservatório esperam por você."],
 }
 
 func show_act_end(act: int = 1) -> void:
@@ -1406,8 +1433,11 @@ func _chat_command(text: String) -> void:
 			if t == null or not Sim.party_kick(p, t):
 				_notify("Não foi possível expulsar \"%s\" (só o líder expulsa)." % arg)
 		"/lider", "/promote":
-			var t := find_character(arg)
-			if t == null or not Sim.party_promote(p, t):
+			var t := find_character(arg) if arg != "" else p
+			if t == p:
+				if not Sim.party_take_lead(p):
+					_notify("Você já lidera (ou não está em um grupo com um bot líder).")
+			elif t == null or not Sim.party_promote(p, t):
 				_notify("Não foi possível passar a liderança para \"%s\"." % arg)
 		"/p", "/g", "/grupo":
 			if p.party_id < 0:

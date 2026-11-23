@@ -179,6 +179,11 @@ static func build() -> Array:
 		_mat("basalt_heart", "Coração de Basalto", 160, "A pedra que Gorbash carregava no peito. Bate uma vez por minuto.", Color(0.36, 0.3, 0.34)),
 		_mat("broken_hammer", "Martelo Partido", 160, "A cabeça do martelo de Kragmar, rachada ao meio. Ainda quente por dentro.", Color(0.25, 0.22, 0.24)),
 		_mat("durgash_banner", "Estandarte de Durgash", 240, "O estandarte do Grão-Senhor. Rasgado, chamuscado, e ainda pesado de tanta guerra.", Color(0.62, 0.12, 0.1)),
+		# Ato III, o Excesso (45-50; ato3-excesso-45-50 §3/§8): material comum e raro dos monstros (joias 48 e rank de skill no WP11)
+		_mat("festim_ribbon", "Fita do Festim", 68, "Fita de seda que nunca desbota. Ainda cheira a vinho e a música velha.", Color(0.92, 0.58, 0.68)),
+		_mat("weeping_porcelain", "Porcelana Chorosa", 140, "Caco de máscara branca com uma lágrima pintada. Está sempre um pouco úmido.", Color(0.94, 0.9, 0.84)),
+		# troféu da raide (O Eco de Sylvaré, missão hx3_echo; D9): joias/capas 50 no WP11
+		_mat("empty_crown", "Coroa Vazia", 400, "A coroa que flutuava sobre o Eco de Sylvaré. Fria, leve, e ninguém consegue usá-la por muito tempo.", Color(0.9, 0.82, 0.6)),
 		{"id": "letter_sealed", "name": "Carta Lacrada", "type": QST, "price": 0, "icon_color": Color(0.9, 0.85, 0.6), "description": "Carta do Ancião para a Capitã da guarda."},
 		# ---------------- armas tier 0 (lv1) ----------------
 		_weapon("sword_rusty", "Espada Enferrujada", "sword", 0, 8, 0, {"FOR": 3, "VIT": 1}, Color(0.6, 0.6, 0.6)),

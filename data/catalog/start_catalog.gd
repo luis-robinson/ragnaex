@@ -30,4 +30,11 @@ const PRESETS := {
 		"items": {"legend_coin": Balance.START_PRESET_COINS, "potion_hp_m": 30, "potion_mp_m": 30, "elixir_might": 5},
 		"party": [["paladin", "guardiao"], ["bishop", "sacerdote"], ["ranger", "cacador"], ["elementalist", "fogo"]],
 		"welcome": "Começo rápido (nível 30): Porto Esperança. O Governador pede ajuda contra os ginetes no portão; a paliçada ainda tem três vãos abertos."},
+	# Ato III (GDD ato3-excesso-45-50 §8; D2 = chegada direto em Lumeria): começa em Lumeria, no Bairro dos Lúcidos, diante do
+	# cristal (MapsCatalog.CRYSTALS). A 1ª missão do Ato III (`hx3_arrival`, REACH Lumeria) já vem ativa e se cumpre ao chegar.
+	45: {"label": "Nível 45", "hint": "Teste do Ato III: nível 45, Ato II concluído, ascensão feita, teias gastas, Moedas Lendárias de sobra para o conjunto 45, grupo completo (paladino, bispo, berserker e elementalista), em Lumeria.",
+		"level": 45, "gold": 20000, "gear_tier": 5, "done": ["hx_act2_epilogue"], "quest": "hx3_arrival", "spend_web": true, "map": "city_lumeria", "at": [-72.9, -4.3],
+		"items": {"legend_coin": Balance.START_PRESET_COINS, "potion_hp_m": 30, "potion_mp_m": 30, "elixir_might": 5},
+		"party": [["paladin", "guardiao"], ["bishop", "sacerdote"], ["berserker", "executor"], ["elementalist", "fogo"]],
+		"welcome": "Começo rápido (nível 45): Lumeria, Bairro dos Lúcidos, ao lado do cristal. A Irmã Celeste está na praça; a festa lá fora não para."},
 }

@@ -26,6 +26,7 @@ static func on_hit(sim: WorldSim, target: SimEntity, attacker: SimEntity, amount
 	if not in_arc(target, attacker.position if from == null else from, float(w.get("riposte_arc", 0.0))):
 		return -2
 	gain(target, int(w.get("riposte_gain", 1)))
+	PieceEffects.on_event(sim, target, "parry", attacker)     # botas do Duelista 50
 	if w.has("duel_cap"):                            # Duelo Supremo: aparar enche o contador do Duelo
 		w["duel"] = mini(int(w["duel_cap"]), int(w.get("duel", 0)) + int(w.get("riposte_gain", 1)))
 	var n := int(w.get("counters", 0))
@@ -35,7 +36,7 @@ static func on_hit(sim: WorldSim, target: SimEntity, attacker: SimEntity, amount
 			sim.ult_tag += 1                          # resposta do Duelo = dano de Suprema (medição)
 			counter(sim, target, attacker, Balance.RIPOSTE_COUNTER_PCT + legend_pct(target))
 			sim.ult_tag -= 1
-	elif n < Balance.RIPOSTE_MAX_COUNTERS and attacker.is_alive():
+	elif n < Balance.RIPOSTE_MAX_COUNTERS + int(PieceEffects.cap(target, "riposte_counters")) and attacker.is_alive():
 		w["counters"] = n + 1
 		counter(sim, target, attacker, Balance.RIPOSTE_COUNTER_PCT + legend_pct(target))
 	Events.post(&"blocked_hit", target.id)
@@ -85,7 +86,7 @@ static func legend_dodge(sim: WorldSim, target: SimEntity, attacker: SimEntity, 
 ## +n Ímpeto (até o máximo; o tempo renova a cada ganho).
 static func gain(e: SimEntity, n: int) -> void:
 	var cur := e.buff_stacks(Balance.RIPOSTE_MOMENTUM_BUFF)
-	var now := mini(Balance.RIPOSTE_MOMENTUM_MAX, cur + n)
+	var now := mini(Balance.RIPOSTE_MOMENTUM_MAX + int(PieceEffects.cap(e, "momentum")), cur + n)
 	e.put_buff({"id": Balance.RIPOSTE_MOMENTUM_BUFF, "remaining": Balance.RIPOSTE_MOMENTUM_TIME, "stacks": now,
 		"crit": Balance.RIPOSTE_MOMENTUM_CRIT * now})
 	e.recompute_stats()

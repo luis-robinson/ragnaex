@@ -487,6 +487,9 @@ static func item_tooltip(it: ItemDef) -> String:
 	t += "\n[color=#888]Preço: %d ouro[/color]" % it.price
 	if not it.legend_effect.is_empty():
 		t += "\n[color=#ffa040]✦ Efeito lendário: %s[/color]" % legend_effect_text(it.legend_effect)
+	if not it.piece_fx.is_empty():          # Lendário do 50: efeito próprio da peça (PieceEffects)
+		t += "
+[color=#7fd6ff]◆ Efeito da peça: %s[/color]" % str(it.piece_fx.get("text", ""))
 	if it.set_id != "":
 		t += set_block(it.set_id)
 	return t

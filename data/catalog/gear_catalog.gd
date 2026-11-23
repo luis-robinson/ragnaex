@@ -39,10 +39,10 @@ const WEAPON_NAMES := {
 }
 ## tipos que ganham versão comum gerada (os outros já existem em items_catalog)
 const NEW_COMMON_TYPES := ["sword2h", "mace", "mace2h", "axe", "orb", "scepter", "rifle", "spear", "pistol", "claw"]
-const COMMON_TIER_NAMES := ["de Bronze", "de Ferro", "de Mitril", "de Obsidiana", "de Adamante", "de Oricalco"]
+const COMMON_TIER_NAMES := ["de Bronze", "de Ferro", "de Mitril", "de Obsidiana", "de Adamante", "de Oricalco", "de Astralita"]     # 48: Ato III
 ## Cor própria de um tier comum (sem entrada = a mistura de sempre): o 32 e o 40 dividem a raridade épica e a mistura
 ## para no tier 3, então o tier do 40 (Oricalco) ganha o dourado-cobre dele para não sair igual ao de Adamante.
-const COMMON_TIER_TINT := {5: Color(0.93, 0.7, 0.42)}
+const COMMON_TIER_TINT := {5: Color(0.93, 0.7, 0.42), 6: Color(0.74, 0.84, 1.0)}     # 6 (48, Astralita): azul-estrela claro
 ## Tiers comuns sem armas/armaduras escritas à mão (items_catalog só vai até o tier 3): ganham TODAS as armas
 ## (WEAPONS) e cabeça/peito/luvas/botas por tipo de armadura geradas aqui (Ato II: tiers do 32 e do 40).
 const HAND_WRITTEN_TIERS := 4
@@ -97,8 +97,9 @@ const SHIELD_AFFINITY := {"bastiao": "paladin", "juramento": "paladin", "sol": "
 	"pal1": "paladin", "pal_g10": "paladin", "pal_g15": "paladin", "pal_g20": "paladin", "pal_g25": "paladin", "pal_g30": "paladin",
 	"pal_t5": "paladin", "pal_t10": "paladin", "pal_t15": "paladin", "pal_t20": "paladin", "pal_t25": "paladin", "pal_t30": "paladin",
 	"bis_b5": "bishop", "bis_b10": "bishop", "bis_b15": "bishop", "bis_b20": "bishop", "bis_b25": "bishop", "bis_b30": "bishop"}     # escudos de conjunto
-## epíteto por nível lendário (5..30; Ato II: 35 e 40)
-const TIER_EPITHETS := ["da Alvorada", "do Juramento", "da Vanguarda", "da Glória", "da Lenda", "da Eternidade", "da Ascensão", "do Triunfo", "do Apogeu"]
+## epíteto por nível lendário (5..30; Ato II: 35, 40 e 45; Ato III: 50)
+const TIER_EPITHETS := ["da Alvorada", "do Juramento", "da Vanguarda", "da Glória", "da Lenda", "da Eternidade", "da Ascensão", "do Triunfo", "do Apogeu",
+	"da Aurora Clara"]     # 50: Ato III (§8; aprovado pelo usuário 2026-11-23)
 ## Último nível lendário com visual próprio por build (SET_VISUALS). Acima (Ato II, fatia 1) o conjunto reaproveita o
 ## visual do último nível com visual (visual_of), com o nome genérico da regra; modelos próprios vêm no polimento.
 const OWN_VISUALS_UNTIL := 30
@@ -106,7 +107,9 @@ const LEGENDARY_COLOR := Color(1.0, 0.6, 0.15)
 ## Ato II (35/40/45): UM visual novo por build ("<classe>_<build>"), o mesmo nos três níveis e no Ápice da build (no híbrido,
 ## o da 1ª build do par). "style" = malhas arm_<style>_* do kit (tools/blender/<classe>_sets.py); "wpn" = estilo da arma
 ## (padrão = style) e "shield" = do escudo (padrão = o do conjunto 30). O nível muda só a cor: "colors" = cor do item
-## (tint) e "glows" = cor das peças acesas (material tint_glow* do kit, KitModel), na ordem de Balance.HYBRID_LEVELS.
+## (tint) e "glows" = cor das peças acesas (material tint_glow* do kit, KitModel), na ordem de Balance.ACT2_SET_LEVELS
+## (35 ferro de Kharzun, 40 cor de guerra, 45 apogeu, 50 "porcelana e ouro velho" do Ato III: marfim, destaque ouro velho,
+## brilho rosa-pó; aprovado pelo usuário em 2026-11-23, igual em todas as builds, GDD ato3 §8).
 ## Opcionais (sem a chave vale a regra antiga): "accents" = destaque (tint2: pano, crina, estandarte) escolhido por nível
 ## (set_accent; sem ela sai de ItemDef.accent(cor)); "name" + "suffix" (+ "nouns") = nome próprio da build: as peças viram
 ## "<substantivo> <suffix> <TIER_EPITHETS do nível>" e o conjunto "Conjunto <name> <epíteto>" (Ápice e híbrido mantêm os
@@ -116,139 +119,164 @@ const LEGENDARY_COLOR := Color(1.0, 0.6, 0.15)
 const ACT2_VISUALS := {
 	"berserker_carniceiro": {"style": "ber_g35",      # Montador de Warg: crânio de warg + crina, presas nos ombros, pele nas costas
 		"name": "Montador de Warg", "suffix": "do Montador de Warg", "icon": "ber_g35",
-		"colors": [Color(0.6, 0.36, 0.2), Color(0.34, 0.4, 0.5), Color(0.17, 0.14, 0.2)],
-		"accents": [Color(0.5, 0.13, 0.1), Color(0.84, 0.86, 0.9), Color(0.66, 0.08, 0.1)],
-		"glows": [Color(1.0, 0.5, 0.12), Color(0.45, 0.85, 1.0), Color(1.0, 0.14, 0.1)]},
+		"colors": [Color(0.6, 0.36, 0.2), Color(0.34, 0.4, 0.5), Color(0.17, 0.14, 0.2), Color(0.94, 0.9, 0.82)],
+		"accents": [Color(0.5, 0.13, 0.1), Color(0.84, 0.86, 0.9), Color(0.66, 0.08, 0.1), Color(0.7, 0.52, 0.2)],
+		"glows": [Color(1.0, 0.5, 0.12), Color(0.45, 0.85, 1.0), Color(1.0, 0.14, 0.1), Color(1.0, 0.62, 0.72)]},
 	"berserker_executor": {"style": "ber_e35",        # Quebra-Hordas: elmo de touro, gorjal, fornalha no peito, estandarte nas costas
 		"name": "Quebra-Hordas", "suffix": "do Quebra-Hordas", "icon": "ber_e35",
-		"colors": [Color(0.38, 0.4, 0.46), Color(0.72, 0.5, 0.22), Color(0.88, 0.84, 0.76)],
-		"accents": [Color(0.56, 0.14, 0.1), Color(0.68, 0.1, 0.12), Color(0.15, 0.13, 0.17)],
-		"glows": [Color(1.0, 0.55, 0.15), Color(1.0, 0.85, 0.4), Color(1.0, 0.2, 0.12)]},
+		"colors": [Color(0.38, 0.4, 0.46), Color(0.72, 0.5, 0.22), Color(0.88, 0.84, 0.76), Color(0.94, 0.9, 0.82)],
+		"accents": [Color(0.56, 0.14, 0.1), Color(0.68, 0.1, 0.12), Color(0.15, 0.13, 0.17), Color(0.7, 0.52, 0.2)],
+		"glows": [Color(1.0, 0.55, 0.15), Color(1.0, 0.85, 0.4), Color(1.0, 0.2, 0.12), Color(1.0, 0.62, 0.72)]},
 	"berserker_punhos": {"style": "ber_m35",          # Tambor do Trovão: diadema de chifres, aro de tambores nas costas, manoplas de ferro
 		"name": "Tambor do Trovão", "suffix": "do Tambor do Trovão", "icon": "ber_m35", "nouns": {"head": "Diadema"},
-		"colors": [Color(0.24, 0.3, 0.5), Color(0.2, 0.5, 0.4), Color(0.8, 0.22, 0.12)],
-		"accents": [Color(0.86, 0.88, 0.95), Color(0.88, 0.62, 0.16), Color(0.16, 0.13, 0.15)],
-		"glows": [Color(0.6, 0.9, 1.0), Color(1.0, 0.8, 0.3), Color(1.0, 0.92, 0.6)]},
+		"colors": [Color(0.24, 0.3, 0.5), Color(0.2, 0.5, 0.4), Color(0.8, 0.22, 0.12), Color(0.94, 0.9, 0.82)],
+		"accents": [Color(0.86, 0.88, 0.95), Color(0.88, 0.62, 0.16), Color(0.16, 0.13, 0.15), Color(0.7, 0.52, 0.2)],
+		"glows": [Color(0.6, 0.9, 1.0), Color(1.0, 0.8, 0.3), Color(1.0, 0.92, 0.6), Color(1.0, 0.62, 0.72)]},
 	"assassin_laminas": {"style": "ass_l35",          # Sombra da Horda: chapéu de guerra largo, meia-máscara de osso, turíbulo de veneno, lenço de duas pontas
 		"name": "Sombra da Horda", "suffix": "da Sombra da Horda", "icon": "ass_l35", "nouns": {"head": "Chapéu"},
-		"colors": [Color(0.48, 0.39, 0.31), Color(0.14, 0.36, 0.32), Color(0.12, 0.11, 0.15)],
-		"accents": [Color(0.6, 0.2, 0.12), Color(0.85, 0.78, 0.5), Color(0.86, 0.83, 0.8)],
-		"glows": [Color(0.75, 1.0, 0.3), Color(0.5, 1.0, 0.45), Color(0.95, 0.3, 1.0)]},
+		"colors": [Color(0.48, 0.39, 0.31), Color(0.14, 0.36, 0.32), Color(0.12, 0.11, 0.15), Color(0.94, 0.9, 0.82)],
+		"accents": [Color(0.6, 0.2, 0.12), Color(0.85, 0.78, 0.5), Color(0.86, 0.83, 0.8), Color(0.7, 0.52, 0.2)],
+		"glows": [Color(0.75, 1.0, 0.3), Color(0.5, 1.0, 0.45), Color(0.95, 0.3, 1.0), Color(1.0, 0.62, 0.72)]},
 	"assassin_duelista": {"style": "ass_d35",         # Lâmina de Gala: chapéu de cavaleiro com pena enorme, braço esquerdo blindado, lâminas cruzadas nas costas
 		"name": "Lâmina de Gala", "suffix": "da Lâmina de Gala", "icon": "ass_d35",
-		"colors": [Color(0.34, 0.38, 0.44), Color(0.66, 0.14, 0.16), Color(0.9, 0.88, 0.84)],
-		"accents": [Color(0.5, 0.12, 0.16), Color(0.92, 0.88, 0.78), Color(0.16, 0.24, 0.6)],
-		"glows": [Color(1.0, 0.7, 0.3), Color(1.0, 0.88, 0.5), Color(0.5, 0.85, 1.0)]},
+		"colors": [Color(0.34, 0.38, 0.44), Color(0.66, 0.14, 0.16), Color(0.9, 0.88, 0.84), Color(0.94, 0.9, 0.82)],
+		"accents": [Color(0.5, 0.12, 0.16), Color(0.92, 0.88, 0.78), Color(0.16, 0.24, 0.6), Color(0.7, 0.52, 0.2)],
+		"glows": [Color(1.0, 0.7, 0.3), Color(1.0, 0.88, 0.5), Color(0.5, 0.85, 1.0), Color(1.0, 0.62, 0.72)]},
 	"assassin_corsario": {"style": "ass_c35",         # Costa de Ferro: bicorne com caveira, sobretudo de gola de pele, corrente de âncora
 		"name": "Costa de Ferro", "suffix": "da Costa de Ferro", "icon": "ass_c35", "nouns": {"head": "Bicorne", "body": "Sobretudo"},
-		"colors": [Color(0.52, 0.39, 0.28), Color(0.14, 0.22, 0.42), Color(0.13, 0.13, 0.16)],
-		"accents": [Color(0.2, 0.26, 0.4), Color(0.7, 0.14, 0.12), Color(0.86, 0.84, 0.78)],
-		"glows": [Color(1.0, 0.6, 0.2), Color(1.0, 0.82, 0.35), Color(0.4, 1.0, 0.85)]},
+		"colors": [Color(0.52, 0.39, 0.28), Color(0.14, 0.22, 0.42), Color(0.13, 0.13, 0.16), Color(0.94, 0.9, 0.82)],
+		"accents": [Color(0.2, 0.26, 0.4), Color(0.7, 0.14, 0.12), Color(0.86, 0.84, 0.78), Color(0.7, 0.52, 0.2)],
+		"glows": [Color(1.0, 0.6, 0.2), Color(1.0, 0.82, 0.35), Color(0.4, 1.0, 0.85), Color(1.0, 0.62, 0.72)]},
 	# Ranger e Elementalista (onda 1B)
 	"ranger_cacador": {"style": "ran_c35",            # Batedor da Estepe: gorro de pele com cabeça e asas de falcão, manto de penas, aljavas cruzadas, capa de capim
 		"name": "Batedor da Estepe", "suffix": "do Batedor da Estepe", "icon": "ran_c35",
-		"colors": [Color(0.62, 0.52, 0.3), Color(0.58, 0.3, 0.22), Color(0.15, 0.17, 0.3)],
-		"accents": [Color(0.3, 0.42, 0.25), Color(0.92, 0.86, 0.7), Color(0.75, 0.8, 0.9)],
-		"glows": [Color(1.0, 0.7, 0.25), Color(0.7, 1.0, 0.85), Color(0.6, 0.85, 1.0)]},
+		"colors": [Color(0.62, 0.52, 0.3), Color(0.58, 0.3, 0.22), Color(0.15, 0.17, 0.3), Color(0.94, 0.9, 0.82)],
+		"accents": [Color(0.3, 0.42, 0.25), Color(0.92, 0.86, 0.7), Color(0.75, 0.8, 0.9), Color(0.7, 0.52, 0.2)],
+		"glows": [Color(1.0, 0.7, 0.25), Color(0.7, 1.0, 0.85), Color(0.6, 0.85, 1.0), Color(1.0, 0.62, 0.72)]},
 	"ranger_atirador": {"style": "ran_a35",           # Artilheiro de Cerco: touca de piloto, óculos e luneta de latão, cartucheiras em X, barril de pólvora com pavio aceso
 		"name": "Artilheiro de Cerco", "suffix": "do Artilheiro de Cerco", "icon": "ran_a35", "nouns": {"head": "Touca", "body": "Casaco"},
-		"colors": [Color(0.44, 0.39, 0.33), Color(0.3, 0.45, 0.22), Color(0.9, 0.86, 0.76)],
-		"accents": [Color(0.75, 0.55, 0.25), Color(0.85, 0.75, 0.4), Color(0.6, 0.15, 0.15)],
-		"glows": [Color(1.0, 0.55, 0.15), Color(1.0, 0.85, 0.4), Color(1.0, 0.22, 0.15)]},
+		"colors": [Color(0.44, 0.39, 0.33), Color(0.3, 0.45, 0.22), Color(0.9, 0.86, 0.76), Color(0.94, 0.9, 0.82)],
+		"accents": [Color(0.75, 0.55, 0.25), Color(0.85, 0.75, 0.4), Color(0.6, 0.15, 0.15), Color(0.7, 0.52, 0.2)],
+		"glows": [Color(1.0, 0.55, 0.15), Color(1.0, 0.85, 0.4), Color(1.0, 0.22, 0.15), Color(1.0, 0.62, 0.72)]},
 	"ranger_lanceiro": {"style": "ran_l35",           # Caça-Trolls: elmo com presas de troll enormes, gola e manto de couro de troll com espinhos, leque de dardos acesos
 		"name": "Caça-Trolls", "suffix": "do Caça-Trolls", "icon": "ran_l35", "nouns": {"head": "Elmo"},
-		"colors": [Color(0.46, 0.33, 0.22), Color(0.8, 0.38, 0.12), Color(0.12, 0.2, 0.17)],
-		"accents": [Color(0.7, 0.3, 0.15), Color(0.25, 0.2, 0.18), Color(0.75, 0.7, 0.5)],
-		"glows": [Color(1.0, 0.75, 0.2), Color(1.0, 0.92, 0.6), Color(0.6, 1.0, 0.35)]},
+		"colors": [Color(0.46, 0.33, 0.22), Color(0.8, 0.38, 0.12), Color(0.12, 0.2, 0.17), Color(0.94, 0.9, 0.82)],
+		"accents": [Color(0.7, 0.3, 0.15), Color(0.25, 0.2, 0.18), Color(0.75, 0.7, 0.5), Color(0.7, 0.52, 0.2)],
+		"glows": [Color(1.0, 0.75, 0.2), Color(1.0, 0.92, 0.6), Color(0.6, 1.0, 0.35), Color(1.0, 0.62, 0.72)]},
 	# Elementalista: o brilho do nível fica na faixa do elemento (fogo: brasa/chama/branco quente; gelo: verde-água/branco frio/aurora;
 	# raio: âmbar/ouro claro/ciano); o 2º elemento ("favor" do 30) continua em gemas fixas no kit (elementalist_sets.ACT2_SECOND)
 	"elementalist_fogo": {"style": "ele_f35",         # Forja Viva: braseiro de ferro na cabeça com chifres de chama, ombreiras de rocha com veios de magma, anel de brasas
 		"name": "Forja Viva", "suffix": "da Forja Viva", "icon": "ele_f35", "nouns": {"head": "Braseiro"},
-		"colors": [Color(0.42, 0.26, 0.2), Color(0.78, 0.2, 0.14), Color(0.16, 0.13, 0.17)],
-		"accents": [Color(0.8, 0.45, 0.15), Color(0.95, 0.75, 0.3), Color(0.7, 0.15, 0.1)],
-		"glows": [Color(1.0, 0.42, 0.1), Color(1.0, 0.75, 0.2), Color(1.0, 0.95, 0.7)]},
+		"colors": [Color(0.42, 0.26, 0.2), Color(0.78, 0.2, 0.14), Color(0.16, 0.13, 0.17), Color(0.94, 0.9, 0.82)],
+		"accents": [Color(0.8, 0.45, 0.15), Color(0.95, 0.75, 0.3), Color(0.7, 0.15, 0.1), Color(0.7, 0.52, 0.2)],
+		"glows": [Color(1.0, 0.42, 0.1), Color(1.0, 0.75, 0.2), Color(1.0, 0.95, 0.7), Color(1.0, 0.62, 0.72)]},
 	"elementalist_gelo": {"style": "ele_g35",         # Geleira: coroa alta e torta de cristais, ombreiras de lascas, túnica em camadas, capa de lascas de gelo
 		"name": "Geleira", "suffix": "da Geleira", "icon": "ele_g35",
-		"colors": [Color(0.2, 0.3, 0.36), Color(0.2, 0.42, 0.85), Color(0.86, 0.92, 0.97)],
-		"accents": [Color(0.62, 0.78, 0.82), Color(0.9, 0.95, 1.0), Color(0.32, 0.3, 0.72)],
-		"glows": [Color(0.55, 0.9, 0.95), Color(0.8, 0.96, 1.0), Color(0.75, 0.6, 1.0)]},
+		"colors": [Color(0.2, 0.3, 0.36), Color(0.2, 0.42, 0.85), Color(0.86, 0.92, 0.97), Color(0.94, 0.9, 0.82)],
+		"accents": [Color(0.62, 0.78, 0.82), Color(0.9, 0.95, 1.0), Color(0.32, 0.3, 0.72), Color(0.7, 0.52, 0.2)],
+		"glows": [Color(0.55, 0.9, 0.95), Color(0.8, 0.96, 1.0), Color(0.75, 0.6, 1.0), Color(1.0, 0.62, 0.72)]},
 	"elementalist_raio": {"style": "ele_r35",         # Para-raios: chapéu com haste de anéis, hastes nos ombros, túnica de faixas, bobinas com arco aceso
 		"name": "Para-raios", "suffix": "do Para-raios", "icon": "ele_r35",
-		"colors": [Color(0.4, 0.36, 0.44), Color(0.5, 0.3, 0.85), Color(0.14, 0.13, 0.24)],
-		"accents": [Color(0.8, 0.65, 0.25), Color(0.95, 0.85, 0.4), Color(0.4, 0.6, 0.9)],
-		"glows": [Color(1.0, 0.75, 0.25), Color(1.0, 0.95, 0.55), Color(0.6, 0.95, 1.0)]},
+		"colors": [Color(0.4, 0.36, 0.44), Color(0.5, 0.3, 0.85), Color(0.14, 0.13, 0.24), Color(0.94, 0.9, 0.82)],
+		"accents": [Color(0.8, 0.65, 0.25), Color(0.95, 0.85, 0.4), Color(0.4, 0.6, 0.9), Color(0.7, 0.52, 0.2)],
+		"glows": [Color(1.0, 0.75, 0.25), Color(1.0, 0.95, 0.55), Color(0.6, 0.95, 1.0), Color(1.0, 0.62, 0.72)]},
 	# Druida (onda 3): Lobo e Urso têm também a armadura de animal do estilo (form_wolf/form_bear: frm_<estilo>_*, FormModel pinta cor/destaque/brilho do nível)
 	"druid_xama": {"style": "dru_x35",                # Xamã da Estepe: crânio de carneiro com chifres enrolados, cocar de penas que desce pelas costas, talismãs de osso, túnica pintada
 		"name": "Xamã da Estepe", "suffix": "do Xamã da Estepe", "icon": "dru_x35", "nouns": {"head": "Cocar"},
-		"colors": [Color(0.55, 0.42, 0.28), Color(0.16, 0.42, 0.42), Color(0.22, 0.16, 0.34)],
-		"accents": [Color(0.62, 0.2, 0.12), Color(0.92, 0.6, 0.2), Color(0.56, 0.26, 0.82)],
-		"glows": [Color(1.0, 0.65, 0.2), Color(0.55, 1.0, 0.6), Color(0.72, 0.55, 1.0)]},
+		"colors": [Color(0.55, 0.42, 0.28), Color(0.16, 0.42, 0.42), Color(0.22, 0.16, 0.34), Color(0.94, 0.9, 0.82)],
+		"accents": [Color(0.62, 0.2, 0.12), Color(0.92, 0.6, 0.2), Color(0.56, 0.26, 0.82), Color(0.7, 0.52, 0.2)],
+		"glows": [Color(1.0, 0.65, 0.2), Color(0.55, 1.0, 0.6), Color(0.72, 0.55, 1.0), Color(1.0, 0.62, 0.72)]},
 	"druid_fera": {"style": "dru_w35",                # Matilha de Guerra: elmo de cabeça de lobo (rosto dentro da boca), crina em crista, ombreiras com garras, coleira de cravos, couro tachado
 		"name": "Matilha de Guerra", "suffix": "da Matilha de Guerra", "icon": "dru_w35", "nouns": {"head": "Elmo", "body": "Couro"},
-		"colors": [Color(0.36, 0.38, 0.44), Color(0.6, 0.14, 0.14), Color(0.13, 0.13, 0.17)],
-		"accents": [Color(0.56, 0.14, 0.1), Color(0.85, 0.83, 0.8), Color(0.8, 0.88, 0.95)],
-		"glows": [Color(1.0, 0.5, 0.15), Color(1.0, 0.85, 0.4), Color(0.5, 0.85, 1.0)]},
+		"colors": [Color(0.36, 0.38, 0.44), Color(0.6, 0.14, 0.14), Color(0.13, 0.13, 0.17), Color(0.94, 0.9, 0.82)],
+		"accents": [Color(0.56, 0.14, 0.1), Color(0.85, 0.83, 0.8), Color(0.8, 0.88, 0.95), Color(0.7, 0.52, 0.2)],
+		"glows": [Color(1.0, 0.5, 0.15), Color(1.0, 0.85, 0.4), Color(0.5, 0.85, 1.0), Color(1.0, 0.62, 0.72)]},
 	"druid_guardiao_verde": {"style": "dru_b35",      # Montanha Viva: elmo de pedra com crista de musgo, lajes nos ombros com cristais acesos, placas de casca e rocha, casco de pedra nas costas
 		"name": "Montanha Viva", "suffix": "da Montanha Viva", "icon": "dru_b35", "nouns": {"head": "Elmo", "body": "Casco"},
-		"colors": [Color(0.5, 0.46, 0.42), Color(0.25, 0.42, 0.5), Color(0.15, 0.14, 0.18)],
-		"accents": [Color(0.34, 0.48, 0.22), Color(0.82, 0.68, 0.25), Color(0.8, 0.82, 0.7)],
-		"glows": [Color(1.0, 0.7, 0.25), Color(0.5, 0.95, 1.0), Color(0.9, 0.4, 1.0)]},
+		"colors": [Color(0.5, 0.46, 0.42), Color(0.25, 0.42, 0.5), Color(0.15, 0.14, 0.18), Color(0.94, 0.9, 0.82)],
+		"accents": [Color(0.34, 0.48, 0.22), Color(0.82, 0.68, 0.25), Color(0.8, 0.82, 0.7), Color(0.7, 0.52, 0.2)],
+		"glows": [Color(1.0, 0.7, 0.25), Color(0.5, 0.95, 1.0), Color(0.9, 0.4, 1.0), Color(1.0, 0.62, 0.72)]},
 	# Paladino (onda 4): só a ARMADURA é nova; espadas, maças e escudos continuam os do nível 30 ("wpn"; o escudo já é o do 30 sem a
 	# chave "shield"). As malhas arm_pal_*35_* NÃO estão no kit principal (teto de 200 malhas): ficam no kit extra
 	# kit_paladin_<sexo>_a2.glb, que o KitModel só carrega quando uma peça dessas é vestida (chibi_kit.A2_STYLES / build_kit_a2).
 	"paladin_guardiao": {"style": "pal_g35", "wpn": "pal_g30",      # Baluarte de Kharzun: elmo de cerco de topo chato, crista em leque atravessada, ombreiras de torre com ameias, gola de pele
 		"name": "Baluarte de Kharzun", "suffix": "do Baluarte de Kharzun", "icon": "pal_g35",
-		"colors": [Color(0.42, 0.43, 0.48), Color(0.2, 0.34, 0.7), Color(0.15, 0.14, 0.2)],
-		"accents": [Color(0.58, 0.15, 0.12), Color(0.93, 0.9, 0.82), Color(0.9, 0.7, 0.25)],
-		"glows": [Color(1.0, 0.6, 0.2), Color(1.0, 0.88, 0.45), Color(0.5, 0.85, 1.0)]},
+		"colors": [Color(0.42, 0.43, 0.48), Color(0.2, 0.34, 0.7), Color(0.15, 0.14, 0.2), Color(0.94, 0.9, 0.82)],
+		"accents": [Color(0.58, 0.15, 0.12), Color(0.93, 0.9, 0.82), Color(0.9, 0.7, 0.25), Color(0.7, 0.52, 0.2)],
+		"glows": [Color(1.0, 0.6, 0.2), Color(1.0, 0.88, 0.45), Color(0.5, 0.85, 1.0), Color(1.0, 0.62, 0.72)]},
 	"paladin_cruzado": {"style": "pal_c35", "wpn": "pal_c30",       # Lança da Aurora: celada de bico, crina longa pelas costas, UMA ombreira gigante com espigão, meia-capa com gola de pele, tabardo partido
 		"name": "Lança da Aurora", "suffix": "da Lança da Aurora", "icon": "pal_c35",
-		"colors": [Color(0.6, 0.56, 0.5), Color(0.72, 0.14, 0.16), Color(0.93, 0.92, 0.88)],
-		"accents": [Color(0.62, 0.22, 0.14), Color(0.94, 0.9, 0.8), Color(0.18, 0.28, 0.68)],
-		"glows": [Color(1.0, 0.65, 0.25), Color(1.0, 0.85, 0.4), Color(1.0, 0.8, 0.7)]},
+		"colors": [Color(0.6, 0.56, 0.5), Color(0.72, 0.14, 0.16), Color(0.93, 0.92, 0.88), Color(0.94, 0.9, 0.82)],
+		"accents": [Color(0.62, 0.22, 0.14), Color(0.94, 0.9, 0.8), Color(0.18, 0.28, 0.68), Color(0.7, 0.52, 0.2)],
+		"glows": [Color(1.0, 0.65, 0.25), Color(1.0, 0.85, 0.4), Color(1.0, 0.8, 0.7), Color(1.0, 0.62, 0.72)]},
 	"paladin_templario": {"style": "pal_t35", "wpn": "pal_t30",     # Chama de Guerra: elmo-balde coroado com braseiro aceso, viseira em cruz, correntes com turíbulos acesos, saiote de escamas
 		"name": "Chama de Guerra", "suffix": "da Chama de Guerra", "icon": "pal_t35",
-		"colors": [Color(0.5, 0.36, 0.24), Color(0.9, 0.55, 0.16), Color(0.16, 0.14, 0.17)],
-		"accents": [Color(0.16, 0.14, 0.16), Color(0.6, 0.1, 0.1), Color(0.88, 0.85, 0.78)],
-		"glows": [Color(1.0, 0.45, 0.1), Color(1.0, 0.82, 0.3), Color(1.0, 0.95, 0.75)]},
+		"colors": [Color(0.5, 0.36, 0.24), Color(0.9, 0.55, 0.16), Color(0.16, 0.14, 0.17), Color(0.94, 0.9, 0.82)],
+		"accents": [Color(0.16, 0.14, 0.16), Color(0.6, 0.1, 0.1), Color(0.88, 0.85, 0.78), Color(0.7, 0.52, 0.2)],
+		"glows": [Color(1.0, 0.45, 0.1), Color(1.0, 0.82, 0.3), Color(1.0, 0.95, 0.75), Color(1.0, 0.62, 0.72)]},
 	# Necromancer e Bispo (onda 2B; nomes e ícones na passada final)
 	# Bispo: os ESCUDOS continuam os do nível 30 (sem a chave "shield", visual_of já deixa o estilo do 30): orçamento de malhas do kit.
 	"necromancer_invocador": {"style": "nec_i35",     # Ossuário de Guerra: coroa de ossos de dedos, crânio de orc em cada ombro, couraça de costelas, armação de espinha e costelas nas costas
 		"name": "Ossuário de Guerra", "suffix": "do Ossuário de Guerra", "icon": "nec_i35", "nouns": {"head": "Coroa", "body": "Couraça"},
-		"colors": [Color(0.4, 0.34, 0.3), Color(0.16, 0.42, 0.36), Color(0.3, 0.06, 0.1)],
-		"accents": [Color(0.5, 0.16, 0.14), Color(0.86, 0.82, 0.7), Color(0.8, 0.7, 0.4)],
-		"glows": [Color(0.55, 1.0, 0.5), Color(0.4, 1.0, 0.8), Color(0.6, 0.9, 1.0)]},
+		"colors": [Color(0.4, 0.34, 0.3), Color(0.16, 0.42, 0.36), Color(0.3, 0.06, 0.1), Color(0.94, 0.9, 0.82)],
+		"accents": [Color(0.5, 0.16, 0.14), Color(0.86, 0.82, 0.7), Color(0.8, 0.7, 0.4), Color(0.7, 0.52, 0.2)],
+		"glows": [Color(0.55, 1.0, 0.5), Color(0.4, 1.0, 0.8), Color(0.6, 0.9, 1.0), Color(1.0, 0.62, 0.72)]},
 	"necromancer_ceifador": {"style": "nec_c35",      # Ceifeiro do Campo: capuz alto de carrasco, laço de corda, lanternas acesas em correntes, capa de tiras de estandartes caídos
 		"name": "Ceifeiro do Campo", "suffix": "do Ceifeiro do Campo", "icon": "nec_c35",
-		"colors": [Color(0.36, 0.33, 0.32), Color(0.6, 0.12, 0.14), Color(0.84, 0.82, 0.8)],
-		"accents": [Color(0.55, 0.2, 0.15), Color(0.85, 0.78, 0.55), Color(0.14, 0.13, 0.16)],
-		"glows": [Color(1.0, 0.6, 0.2), Color(1.0, 0.85, 0.45), Color(0.45, 1.0, 0.6)]},
+		"colors": [Color(0.36, 0.33, 0.32), Color(0.6, 0.12, 0.14), Color(0.84, 0.82, 0.8), Color(0.94, 0.9, 0.82)],
+		"accents": [Color(0.55, 0.2, 0.15), Color(0.85, 0.78, 0.55), Color(0.14, 0.13, 0.16), Color(0.7, 0.52, 0.2)],
+		"glows": [Color(1.0, 0.6, 0.2), Color(1.0, 0.85, 0.45), Color(0.45, 1.0, 0.6), Color(1.0, 0.62, 0.72)]},
 	"necromancer_pestilento": {"style": "nec_s35",    # Sol Negro (na folha de arte: "Eclipse"; já existe o Conjunto Eclipse do 25): capuz com véu no rosto e crescente, lascas flutuando nos ombros, túnica lisa, disco de sol negro com aro aceso atrás da cabeça
 		"name": "Sol Negro", "suffix": "do Sol Negro", "icon": "nec_s35",
-		"colors": [Color(0.32, 0.3, 0.4), Color(0.16, 0.2, 0.6), Color(0.1, 0.09, 0.14)],
-		"accents": [Color(0.62, 0.5, 0.28), Color(0.82, 0.84, 0.92), Color(0.55, 0.1, 0.2)],
-		"glows": [Color(1.0, 0.7, 0.3), Color(0.9, 0.92, 1.0), Color(1.0, 0.25, 0.45)]},
+		"colors": [Color(0.32, 0.3, 0.4), Color(0.16, 0.2, 0.6), Color(0.1, 0.09, 0.14), Color(0.94, 0.9, 0.82)],
+		"accents": [Color(0.62, 0.5, 0.28), Color(0.82, 0.84, 0.92), Color(0.55, 0.1, 0.2), Color(0.7, 0.52, 0.2)],
+		"glows": [Color(1.0, 0.7, 0.3), Color(0.9, 0.92, 1.0), Color(1.0, 0.25, 0.45), Color(1.0, 0.62, 0.72)]},
 	"bishop_sacerdote": {"style": "bis_s35",          # Capelã de Campanha: chapéu largo de peregrino com borlas, manta e ataduras, bolsa, oratório portátil nas costas com velas acesas
 		"name": "Capelã de Campanha", "suffix": "da Capelã de Campanha", "icon": "bis_s35", "nouns": {"head": "Chapéu"},
-		"colors": [Color(0.52, 0.48, 0.36), Color(0.2, 0.5, 0.4), Color(0.9, 0.87, 0.8)],
-		"accents": [Color(0.62, 0.2, 0.16), Color(0.93, 0.92, 0.88), Color(0.8, 0.58, 0.2)],
-		"glows": [Color(1.0, 0.75, 0.35), Color(1.0, 0.9, 0.55), Color(0.75, 0.9, 1.0)]},
+		"colors": [Color(0.52, 0.48, 0.36), Color(0.2, 0.5, 0.4), Color(0.9, 0.87, 0.8), Color(0.94, 0.9, 0.82)],
+		"accents": [Color(0.62, 0.2, 0.16), Color(0.93, 0.92, 0.88), Color(0.8, 0.58, 0.2), Color(0.7, 0.52, 0.2)],
+		"glows": [Color(1.0, 0.75, 0.35), Color(1.0, 0.9, 0.55), Color(0.75, 0.9, 1.0), Color(1.0, 0.62, 0.72)]},
 	"bishop_inquisidor": {"style": "bis_i35",         # Farol da Aurora: tiara em gaiola com orbe aceso flutuando, mangas longas em camadas, túnica alta, gola de raios de sol atrás dos ombros
 		"name": "Farol da Aurora", "suffix": "do Farol da Aurora", "icon": "bis_i35", "nouns": {"head": "Tiara"},
-		"colors": [Color(0.55, 0.4, 0.36), Color(0.9, 0.6, 0.2), Color(0.2, 0.1, 0.3)],
-		"accents": [Color(0.3, 0.34, 0.5), Color(0.64, 0.13, 0.15), Color(0.9, 0.75, 0.35)],
-		"glows": [Color(1.0, 0.6, 0.25), Color(1.0, 0.95, 0.7), Color(1.0, 0.75, 0.9)]},
+		"colors": [Color(0.55, 0.4, 0.36), Color(0.9, 0.6, 0.2), Color(0.2, 0.1, 0.3), Color(0.94, 0.9, 0.82)],
+		"accents": [Color(0.3, 0.34, 0.5), Color(0.64, 0.13, 0.15), Color(0.9, 0.75, 0.35), Color(0.7, 0.52, 0.2)],
+		"glows": [Color(1.0, 0.6, 0.25), Color(1.0, 0.95, 0.7), Color(1.0, 0.75, 0.9), Color(1.0, 0.62, 0.72)]},
 	"bishop_batalha": {"style": "bis_b35",            # Martelo da Vanguarda: bacinete de ponta com camal de malha e asas varridas, manto único de placa, saiote blindado, livro acorrentado
 		"name": "Martelo da Vanguarda", "suffix": "do Martelo da Vanguarda", "icon": "bis_b35",
-		"colors": [Color(0.4, 0.42, 0.46), Color(0.2, 0.34, 0.66), Color(0.14, 0.14, 0.17)],
-		"accents": [Color(0.58, 0.2, 0.14), Color(0.92, 0.9, 0.84), Color(0.68, 0.1, 0.12)],
-		"glows": [Color(1.0, 0.55, 0.18), Color(1.0, 0.85, 0.4), Color(1.0, 0.95, 0.85)]},
+		"colors": [Color(0.4, 0.42, 0.46), Color(0.2, 0.34, 0.66), Color(0.14, 0.14, 0.17), Color(0.94, 0.9, 0.82)],
+		"accents": [Color(0.58, 0.2, 0.14), Color(0.92, 0.9, 0.84), Color(0.68, 0.1, 0.12), Color(0.7, 0.52, 0.2)],
+		"glows": [Color(1.0, 0.55, 0.18), Color(1.0, 0.85, 0.4), Color(1.0, 0.95, 0.85), Color(1.0, 0.62, 0.72)]},
 }
 ## Conjuntos lendários com visual próprio (kit: tools/blender/chibi_kit.py SET_STYLES; ícones: assets/icons/<icon>_<peça>.png).
 ## Referência de arte em reference/<classe>/set_N. Peças sem slot próprio no RagnaEx (polainas) vêm junto do corpo.
 ## Nomes das peças de conjunto (set_piece_name): substantivo da build + complemento do conjunto ("suffix" = "do X";
 ## "adj" = adjetivo que concorda com o substantivo: ADJ_FORMS[adj][NOUN_FORM]). "nouns" no conjunto troca o substantivo de
 ## uma peça (capuz, máscara...); "names" = conjunto todo escrito à mão. Calça: ARMOR_NAMES[armadura]["legs"] com o mesmo complemento.
+## Ato III (nível 50, GDD ato3-lendarios-50 §3.5/§8): visual PRÓPRIO da build no tema de Lumeria (porcelana com lágrima pintada,
+## máscaras, fitas de seda, lanternas, ouro velho). "style" = malhas arm_<style>_* do kit extra kit_<classe>_<sexo>_a3.glb
+## (tools/blender/<classe>_sets.py ACT3_SETS; KitModel.load_addon("_a3")); sem o arquivo o boneco veste o estilo do Ato II
+## (act2_fallback_style). Um só nível: "color" (tint = marfim), "accent" (tint2 = seda/fitas), "glow" (tint_glow = lágrima e
+## chama). Arma e escudo continuam os do Ato II/30 (onda 4). "icon" = prefixo dos ícones (set_icons.tscn, foto no 50).
+## Build sem entrada continua no visual do Ato II na 4ª cor de ACT2_VISUALS. Onda 1: uma build por classe.
+const ACT3_VISUALS := {
+	"paladin_guardiao": {"style": "pal_g50", "icon": "pal_g50",          # Vigília da Lágrima Dourada: elmo fechado com viseira-máscara e UMA lágrima, pires empilhados, lanterna na ombreira esquerda
+		"color": Color(0.94, 0.9, 0.82), "accent": Color(0.12, 0.16, 0.4), "glow": Color(1.0, 0.78, 0.3)},
+	"berserker_executor": {"style": "ber_e50", "icon": "ber_e50",        # Lâmina do Último Brinde: capuz de carrasco pontudo de seda negra, máscara branca com lágrima, correntes de taças
+		"color": Color(0.94, 0.9, 0.82), "accent": Color(0.1, 0.09, 0.13), "glow": Color(1.0, 0.8, 0.35)},
+	"bishop_sacerdote": {"style": "bis_s50", "icon": "bis_s50",          # Lanterna da Última Vigília: véu até o chão, coroa de 5 lanternas, máscara com duas lágrimas, asas de vidro
+		"color": Color(0.94, 0.9, 0.82), "accent": Color(0.6, 0.58, 0.9), "glow": Color(1.0, 0.88, 0.55)},
+	"druid_fera": {"style": "dru_w50", "icon": "dru_w50",                # Galope do Desfile: máscara de lobo sorridente (também no lobo: frm_dru_w50_*), fitas longas, guizos, colar de lanternas
+		"color": Color(0.94, 0.9, 0.82), "accent": Color(0.08, 0.34, 0.22), "glow": Color(1.0, 0.8, 0.4)},
+	"ranger_cacador": {"style": "ran_c50", "icon": "ran_c50",            # Arco da Lanterna Errante: capuz curto, máscara de pássaro, aljava-lanterna alta, capa de fitas
+		"color": Color(0.94, 0.9, 0.82), "accent": Color(0.46, 0.6, 0.42), "glow": Color(1.0, 0.85, 0.5)},
+	"assassin_laminas": {"style": "ass_l50", "icon": "ass_l50",          # Lágrima de Veneno: capuz justo, máscara que chora duas lágrimas verde-ouro, frascos acesos, cauda de fitas
+		"color": Color(0.94, 0.9, 0.82), "accent": Color(0.09, 0.27, 0.14), "glow": Color(0.75, 1.0, 0.3)},
+	"elementalist_fogo": {"style": "ele_f50", "icon": "ele_f50",         # Lanterna do Fim da Festa: coroa-lanterna alta, meia-máscara com lágrima de brasa, manto em fitas
+		"color": Color(0.94, 0.9, 0.82), "accent": Color(0.92, 0.42, 0.12), "glow": Color(1.0, 0.55, 0.15)},
+	"necromancer_invocador": {"style": "nec_i50", "icon": "nec_i50",     # Cortejo de Porcelana: capuz alto com máscaras-troféu, máscaras cegas nos ombros, tiras de seda
+		"color": Color(0.94, 0.9, 0.82), "accent": Color(0.4, 0.14, 0.38), "glow": Color(0.8, 0.45, 1.0)},
+}
+
 const PIECE_NOUNS := {
 	"paladin_guardiao": {"body": "Couraça", "boots": "Grevas", "gloves": "Manoplas", "head": "Elmo", "offhand": "Escudo", "weapon": "Espada"},
 	"paladin_cruzado": {"body": "Couraça", "boots": "Grevas", "gloves": "Manoplas", "head": "Elmo", "offhand": "Escudo", "weapon": "Espada"},
@@ -383,7 +411,7 @@ static func visual_of(sid: String) -> Dictionary:
 				v.erase(k)
 			v["reuse"] = base + str(olv)
 			var a2: Dictionary = ACT2_VISUALS.get(bid_of_set(sid), {})
-			var li := Balance.HYBRID_LEVELS.find(lv)
+			var li := Balance.ACT2_SET_LEVELS.find(lv)
 			if not a2.is_empty() and li >= 0:          # Ato II: malha nova da build, cor do nível (nomes e ícones seguem a regra do reaproveitado)
 				v["shield"] = a2.get("shield", v["style"])
 				v["style"] = a2["style"]
@@ -401,6 +429,14 @@ static func visual_of(sid: String) -> Dictionary:
 					v["set_name"] = "Conjunto %s %s" % [a2.get("name", str(a2["suffix"])), ep]
 					if a2.has("nouns"):
 						v["nouns"] = a2["nouns"]
+			var a3 := act3_of(sid)
+			if not a3.is_empty():          # Ato III (50): malha própria da build (kit extra _a3), cor/destaque/brilho e ícones dela; arma e escudo seguem os de cima
+				v["style"] = a3["style"]
+				v["color"] = a3["color"]
+				v["accent"] = a3["accent"]
+				v["glow"] = a3["glow"]
+				v["icon"] = a3["icon"]
+				v["act3"] = true
 			return v
 	return {}
 
@@ -417,10 +453,19 @@ static func act2_of(sid: String) -> Dictionary:
 				key = k
 	return ACT2_VISUALS.get(key, {})
 
+## Entrada de ACT3_VISUALS do conjunto de build do nível 50 ({} = outro nível, Ápice/híbrido ou build ainda sem a onda dela).
+static func act3_of(sid: String) -> Dictionary:
+	if int(sid.get_slice("_", sid.get_slice_count("_") - 1)) != Balance.LEG50_LEVEL:
+		return {}
+	return ACT3_VISUALS.get(bid_of_set(sid), {})
+
 ## Cor das peças acesas (tint_glow*) de um conjunto do Ato II no nível dele; alfa 0 = o kit fica com a cor da malha.
 static func set_glow(sid: String) -> Color:
+	var a3 := act3_of(sid)
+	if not a3.is_empty():
+		return a3["glow"]
 	var a2 := act2_of(sid)
-	var li := Balance.HYBRID_LEVELS.find(int(sid.get_slice("_", sid.get_slice_count("_") - 1)))
+	var li := Balance.ACT2_SET_LEVELS.find(int(sid.get_slice("_", sid.get_slice_count("_") - 1)))
 	if a2.is_empty() or li < 0:
 		return Color(0, 0, 0, 0)
 	return a2["glows"][li]
@@ -428,7 +473,10 @@ static func set_glow(sid: String) -> Color:
 ## Destaque (tint2) escolhido de um conjunto do Ato II no nível dele ("accents"); alfa 0 = o derivado da cor (ItemDef.accent).
 ## Híbrido: a armadura veste a cor da 2ª build do par, então o destaque também é o dela.
 static func set_accent(sid: String) -> Color:
-	var li := Balance.HYBRID_LEVELS.find(int(sid.get_slice("_", sid.get_slice_count("_") - 1)))
+	var a3 := act3_of(sid)
+	if not a3.is_empty():
+		return a3["accent"]
+	var li := Balance.ACT2_SET_LEVELS.find(int(sid.get_slice("_", sid.get_slice_count("_") - 1)))
 	if li < 0:
 		return Color(0, 0, 0, 0)
 	var key := bid_of_set(sid).replace("_apex_", "_")
@@ -448,6 +496,9 @@ static func set_accent(sid: String) -> Color:
 ## Estilo do nível 30 da build dona de um estilo do Ato II ("" = não é estilo do Ato II). O KitModel veste este quando as
 ## malhas do estilo não existem (kit extra `_a2` ausente): o boneco fica com o visual do 30 na cor do nível.
 static func act2_fallback_style(style: String) -> String:
+	for k: String in ACT3_VISUALS:          # estilo do 50 sem o kit extra _a3: o do Ato II da build (que por sua vez cai no do 30)
+		if ACT3_VISUALS[k]["style"] == style:
+			return str(ACT2_VISUALS.get(k, {}).get("style", ""))
 	for k: String in ACT2_VISUALS:
 		if ACT2_VISUALS[k]["style"] == style:
 			return str(SET_VISUALS.get("set_%s_%d" % [k, OWN_VISUALS_UNTIL], {}).get("style", ""))
@@ -1440,7 +1491,7 @@ static func apex_sets(classes: Dictionary, skills: Dictionary) -> Dictionary:
 	return {"items": items, "sets": sets}
 
 ## Acessórios lendários (spec production/qa/legendary-accessories-spec-2026-11-16.md, re-base da rev2): por build e nível de
-## Balance.HYBRID_LEVELS, Manto/Medalhão/Anel/Sinete. Não são conjunto (set_id ""). Atributos/DEF pela curva F1/F2 x
+## Balance.ACT2_SET_LEVELS (35/40/45/50), Manto/Medalhão/Anel/Sinete. Não são conjunto (set_id ""). Atributos/DEF pela curva F1/F2 x
 ## LEGENDARY_MULT; papéis no valor k45 (anel ATK ou MATK, amuleto vida %); mana herdada do k45 (FOR/AGI: tema guerreiro,
 ## INT/WILL: sábio; VIT nada); bônus da build por Balance.LEG_ACC_BUILDS/LEG_ACC_STEP. Id `leg_acc_<classe>_<build>_<nível>_<peça>`.
 const LEG_ACC_NAMES := {"cape": "Manto", "amulet": "Medalhão", "ring": "Anel", "signet": "Sinete"}
@@ -1469,8 +1520,8 @@ static func legendary_accessories(classes: Dictionary) -> Array:
 			var magic: bool = str(build["attr"]) in ["INT", "WILL"] or build["stat"] == "matk_pct"
 			var theme := leg_acc_theme(build)
 			var bmult := float(Balance.LEG_ACC_BUILD_MULT.get(bid, 1.0))
-			for hi in range(Balance.HYBRID_LEVELS.size()):
-				var lv: int = Balance.HYBRID_LEVELS[hi]
+			for hi in range(Balance.ACT2_SET_LEVELS.size()):
+				var lv: int = Balance.ACT2_SET_LEVELS[hi]
 				var tail := "%s %s" % [build["of"], TIER_EPITHETS[Balance.legend_tier(lv)]]
 				for piece in Balance.LEG_ACC_PIECES:
 					var base_piece: String = "ring" if piece == "signet" else piece
@@ -1495,6 +1546,260 @@ static func legendary_accessories(classes: Dictionary) -> Array:
 	return out
 
 ## Gera tudo. Retorna {"items": [ItemDef], "sets": [SetDef]}.
+## Lendários do 50 (design/gdd/ato3-lendarios-50.md, onda 0): efeito de cada peça do conjunto de build do 50 por família
+## (PieceEffects). Sem números aqui: "x"/"y"/"icd" (e "-x") são lidos de Balance.LEG50_NUMBERS[<build>][<peça>]; o texto
+## da dica usa {x}/{y}/{icd}. Peças: head body legs gloves boots weapon weapon2 (2ª arma do Paladino) offhand.
+const LEG50 := {
+	"guardiao": {
+		"head": {"kind": "cap_up", "caps": {"oath": "x"}, "text": "Juramento: +{x} cargas no máximo."},
+		"body": {"kind": "stat", "stats": {"ally_guard": "x"}, "text": "Escudo dos Irmãos +{x}%: parte do dano dos aliados por perto vem para você."},
+		"legs": {"kind": "stat", "stats": {"low_dr": "x"}, "text": "Firme na Queda +{x}%: menos dano recebido com pouca vida."},
+		"gloves": {"kind": "charges", "skill": "pal_shield_bash", "text": "Pancada de Escudo em Cargas."},
+		"boots": {"kind": "on_trigger", "on": "block", "do": [{"do": "cd_cut", "skill": "pal_taunt", "s": "x"}], "text": "Bloquear tira {x} s da recarga de Provocar (1 vez a cada {icd} s)."},
+		"weapon": {"kind": "legend_wake", "legend": "holy_edge", "wake": "oath", "n": "x", "text": "Lâmina Justa Desperta: o golpe sagrado extra dá +{x} Juramento."},
+		"weapon2": {"kind": "legend_wake", "legend": "bulwark", "wake": "ally", "pct": "x", "text": "Baluarte Desperto: a barreira também cobre o aliado mais ferido por perto com {x}% dela."},
+		"offhand": {"kind": "on_trigger", "on": "det_full", "do": [{"do": "barrier", "pct": "x", "allies": true}], "text": "Determinação cheia: barreira de {x}% da vida em você e nos aliados a 8 m (1 vez a cada {icd} s)."},
+	},
+	"cruzado": {
+		"head": {"kind": "legend_up", "legend": "stun", "adds": {"chance": "x"}, "text": "Julgamento: +{x}% de chance de atordoar."},
+		"body": {"kind": "stat", "stats": {"cc_resist_pct": "x"}, "text": "-{x}% de duração de atordoar, prender e lentidão em você."},
+		"legs": {"kind": "stat", "stats": {"skill_dmg": {"pal_crusader_strike": "x"}}, "text": "Golpe do Cruzado: +{x}% de dano."},
+		"gloves": {"kind": "charges", "skill": "pal_lunge", "text": "Estocada Sagrada em Cargas."},
+		"boots": {"kind": "on_trigger", "on": "stun_proc", "do": [{"do": "curse", "pct": "x", "time": "y"}], "text": "Quem o Julgamento atordoa fica Julgado: +{x}% de dano recebido por {y} s."},
+		"weapon": {"kind": "legend_wake", "legend": "stun", "wake": "splash", "dur": "x", "text": "Julgamento Desperto: atordoa também até 2 inimigos comuns a 3 m do alvo por {x} s (chefe nunca)."},
+		"weapon2": {"kind": "legend_wake", "legend": "bulwark", "wake": "wave", "pct": "x", "text": "Baluarte Desperto: quando a barreira quebra, onda sagrada de {x}% do ATK a 3 m."},
+	},
+	"templario": {
+		"head": {"kind": "legend_up", "legend": "penance", "adds": {"stacks": "-x"}, "text": "Penitência explode com {x} carga a menos (mínimo 3)."},
+		"body": {"kind": "skill_mods", "skill": "pal_blessed_hammers", "mod": {"add": {"orbit": {"count": "x"}}}, "text": "Martelos Abençoados: +{x} martelo em órbita."},
+		"legs": {"kind": "stat", "stats": {"def_atk_pct": "x"}, "text": "{x}% da DEF vira ATK."},
+		"gloves": {"kind": "charges", "skill": "pal_brand", "text": "Marca da Penitência em Cargas."},
+		"boots": {"kind": "on_trigger", "on": "penance_burst", "do": [{"do": "gain", "what": "oath", "n": "x"}], "text": "A explosão da Penitência dá +{x} Juramento."},
+		"weapon": {"kind": "legend_wake", "legend": "penance", "wake": "zone", "time": "x", "text": "Penitência Desperta: a explosão deixa Chão Sagrado por {x} s."},
+		"weapon2": {"kind": "legend_wake", "legend": "bulwark", "wake": "det", "n": "x", "text": "Baluarte Desperto: ganhar a barreira dá +{x} Determinação."},
+		"offhand": {"kind": "cap_up", "caps": {"penance_det": "x"}, "text": "Cada carga de Determinação: +{x}% no dano da explosão da Penitência."},
+	},
+	"carniceiro": {
+		"head": {"kind": "legend_up", "legend": "frenzy", "adds": {"max": "x"}, "text": "Frenesi: +{x} carga no máximo."},
+		"body": {"kind": "stat", "stats": {"leech_shield": "x"}, "text": "Roubo de vida que passa do máximo vira barreira (até {x}% da vida)."},
+		"legs": {"kind": "stat", "stats": {"low_hp_atk": "x"}, "text": "Fúria da Beira: até +{x}% de dano quanto menor a vida."},
+		"gloves": {"kind": "charges", "skill": "ber_throw_axe", "text": "Arremesso Brutal em Cargas."},
+		"boots": {"kind": "on_trigger", "on": "hit:ber_blade_rush", "do": [{"do": "gain", "what": "frenzy", "n": "x"}], "text": "Investida de Lâminas que acerta dá +{x} Frenesi (1 vez a cada {icd} s)."},
+		"weapon": {"kind": "legend_wake", "legend": "frenzy", "wake": "echo", "chance": "x", "pct": "y", "text": "Frenesi Desperto: com o Frenesi cheio, {x}% de chance de o golpe bater de novo com {y}%."},
+		"offhand": {"kind": "stat", "stats": {"crit_leech": "x"}, "text": "Sangue no Fio: {x}% do dano crítico volta como vida."},
+	},
+	"executor": {
+		"head": {"kind": "legend_up", "legend": "execute", "adds": {"below_pts": "x"}, "text": "Carrasco: o limiar sobe {x} pontos de % da vida."},
+		"body": {"kind": "stat", "stats": {"low_dr": "x"}, "text": "Firme na Queda +{x}%: menos dano recebido com pouca vida."},
+		"legs": {"kind": "skill_mods", "skill": "ber_sunder", "mod": {"add": {"sunder": {"add": "x"}}}, "text": "Fender Armadura põe +{x} carga de rachadura."},
+		"gloves": {"kind": "charges", "skill": "ber_decapitate", "text": "Decapitar em Cargas."},
+		"boots": {"kind": "on_trigger", "on": "kill", "do": [{"do": "cd_reset", "skill": "ber_execute"}], "text": "Abater zera a recarga de Executar (1 vez a cada {icd} s)."},
+		"weapon": {"kind": "legend_wake", "legend": "execute", "wake": "crit", "text": "Carrasco Desperto: abaixo do limiar, o Golpe Avassalador é crítico garantido."},
+	},
+	"punhos": {
+		"head": {"kind": "on_trigger", "on": "dodge", "do": [{"do": "mp", "pct": "x"}, {"do": "cd_cut", "skill": "ber_counter_stance", "s": "y"}], "text": "Esquivar devolve {x}% de MP e tira {y} s da Postura do Contra-Golpe (1 vez a cada {icd} s)."},
+		"body": {"kind": "stat", "stats": {"evasion": "x"}, "text": "+{x}% de esquiva."},
+		"legs": {"kind": "stat", "stats": {"hit_slow": "x"}, "text": "Golpe físico retarda o alvo {x}%."},
+		"gloves": {"kind": "charges", "skill": "ber_tiger_pounce", "text": "Bote do Tigre em Cargas."},
+		"boots": {"kind": "on_trigger", "on": "dodge", "do": [{"do": "gain", "what": "fury", "n": "x"}], "text": "Esquivar dá +{x} Fúria do Punho a mais (1 vez a cada {icd} s)."},
+		"weapon": {"kind": "legend_wake", "legend": "fist_counter", "wake": "splash", "pct": "x", "text": "Punho Vingativo Desperto: o contra-ataque atinge também os inimigos a 2 m com {x}%."},
+		"offhand": {"kind": "stat", "stats": {"crit": "x"}, "text": "+{x}% de crítico."},
+	},
+	"sacerdote": {
+		"head": {"kind": "stat", "stats": {"overheal_share": "x"}, "text": "Graça Transbordante: {x}% da cura que passa do máximo vai para o aliado mais ferido."},
+		"body": {"kind": "legend_up", "legend": "ward", "adds": {"targets": "x"}, "text": "Égide cobre também +{x} aliado (o mais ferido por perto)."},
+		"legs": {"kind": "stat", "stats": {"mp_regen_combat": "x"}, "text": "+{x}% da mana por segundo em combate."},
+		"gloves": {"kind": "charges", "skill": "bis_renew", "text": "Renovar em Cargas."},
+		"boots": {"kind": "on_trigger", "on": "block", "do": [{"do": "cleanse"}], "text": "Bloquear tira 1 efeito ruim do aliado mais ferido (1 vez a cada {icd} s)."},
+		"weapon": {"kind": "legend_wake", "legend": "ward", "wake": "low", "pct": "x", "text": "Égide Desperta: em aliado abaixo de 35% da vida a Égide vale +{x}%."},
+		"offhand": {"kind": "cap_up", "caps": {"grace": "x"}, "text": "Graça: o bloqueio cura +{x} pontos de % da vida."},
+	},
+	"inquisidor": {
+		"head": {"kind": "stat", "stats": {"radiance": "x", "radiance_cap": "y"}, "text": "Radiância +{x}% e teto +{y}."},
+		"body": {"kind": "charges", "skill": "bis_hammer", "text": "Martelo de Luz em Cargas."},
+		"legs": {"kind": "stat", "stats": {"mp_cost_pct": "x"}, "text": "-{x}% de custo de mana."},
+		"gloves": {"kind": "legend_up", "legend": "cast_on_basic", "adds": {"chance": "x"}, "text": "Castigo Sagrado: +{x}% de chance."},
+		"boots": {"kind": "stat", "stats": {"skill_dmg": {"bis_exorcism": "x"}}, "text": "Exorcismo: +{x}% de dano."},
+		"weapon": {"kind": "legend_wake", "legend": "cast_on_basic", "wake": "power", "pct": "x", "text": "Castigo Sagrado Desperto: o Castigo lançado pela arma bate +{x}%."},
+	},
+	"batalha": {
+		"head": {"kind": "skill_mods", "skill": "bis_faith_banner", "mod": {"add": {"zone": {"duration": "x"}}}, "text": "Estandarte da Fé dura +{x} s."},
+		"body": {"kind": "stat", "stats": {"phys_mend": "x"}, "text": "{x}% do dano físico cura o aliado mais ferido."},
+		"legs": {"kind": "stat", "stats": {"block": "x"}, "text": "+{x}% de bloqueio."},
+		"gloves": {"kind": "charges", "skill": "bis_holy_blow", "text": "Martelada da Fé em Cargas."},
+		"boots": {"kind": "zone_on_cast", "skill": "bis_faith_leap", "zone": {"ally_heal": "x", "duration": "y"}, "text": "Salto da Fé deixa um chão que cura os aliados por {y} s."},
+		"weapon": {"kind": "legend_wake", "legend": "mend", "wake": "overflow", "pct": "x", "text": "Mão que Cura Desperta: a cura que passa do máximo vira barreira (até {x}% da vida)."},
+		"offhand": {"kind": "on_trigger", "on": "det_full", "do": [{"do": "heal_allies", "pct": "x"}], "text": "Determinação cheia: cura {x}% da vida de você e dos aliados a 8 m (1 vez a cada {icd} s)."},
+	},
+	"guardiao_verde": {
+		"head": {"kind": "legend_up", "legend": "cast_when_hit", "adds": {"icd": "-x"}, "text": "Casca Viva: recarga -{x} s."},
+		"body": {"kind": "form_up", "form": "bear", "stats": {"hp_pct": "x"}, "text": "Na forma de urso: +{x}% de vida."},
+		"legs": {"kind": "stat", "stats": {"threat_pct": "x"}, "text": "+{x}% de ameaça."},
+		"gloves": {"kind": "charges", "skill": "dru_maul", "text": "Esmagar em Cargas."},
+		"boots": {"kind": "on_trigger", "on": "cast:dru_bellow", "do": [{"do": "barrier", "pct": "x", "allies": true}], "text": "Urro da Mata dá barreira de {x}% da vida a você e aos aliados a 8 m."},
+		"weapon": {"kind": "legend_wake", "legend": "cast_when_hit", "wake": "ally", "text": "Casca Viva Desperta: a Pele de Carvalho cobre também o aliado mais ferido por perto."},
+	},
+	"fera": {
+		"head": {"kind": "legend_up", "legend": "bleed", "adds": {"chance": "x"}, "text": "Sangue da Matilha: +{x}% de chance."},
+		"body": {"kind": "form_up", "form": "wolf", "mult": "x", "text": "Na forma de lobo: o bônus da forma vale +{x}%."},
+		"legs": {"kind": "stat", "stats": {"speed_pct": "x"}, "text": "+{x}% de velocidade."},
+		"gloves": {"kind": "charges", "skill": "dru_pounce", "text": "Bote em Cargas."},
+		"boots": {"kind": "on_trigger", "on": "hit:dru_pounce", "do": [{"do": "bleed"}], "text": "Bote aplica o Sangue da Matilha com 100% de chance (1 vez a cada {icd} s)."},
+		"weapon": {"kind": "legend_wake", "legend": "bleed", "wake": "copies", "n": "x", "text": "Sangue da Matilha Desperto: até {x} sangramentos seus no alvo."},
+		"offhand": {"kind": "stat", "stats": {"crit": "x"}, "text": "+{x}% de crítico."},
+	},
+	"xama": {
+		"head": {"kind": "stat", "stats": {"mana_guard": "x"}, "text": "Barreira de Mana: +{x}% do dano recebido sai da mana."},
+		"body": {"kind": "stat", "stats": {"summon_time_pct": "x"}, "text": "Invocações com tempo duram +{x}%."},
+		"legs": {"kind": "stat", "stats": {"buff_pct": "x"}, "text": "Bênçãos e escudos duram +{x}%."},
+		"gloves": {"kind": "charges", "skill": "dru_moonfire", "text": "Fogo Lunar em Cargas."},
+		"boots": {"kind": "zone_on_cast", "skill": "dru_starfall", "zone": {"foe_power": "x", "duration": "y"}, "text": "Chuva Estelar deixa chão lunar que fere os inimigos por {y} s."},
+		"weapon": {"kind": "legend_wake", "legend": "cast_on_basic", "wake": "jump", "pct": "x", "text": "Lua Cheia Desperta: o Fogo Lunar de graça salta para 1 inimigo perto com {x}%."},
+	},
+	"cacador": {
+		"head": {"kind": "legend_up", "legend": "mark", "adds": {"pct": "x"}, "text": "Marca do Caçador: +{x} pontos de dano recebido."},
+		"body": {"kind": "stat", "stats": {"summon_guard": "x"}, "text": "Escudo de Carne: {x}% do seu dano vai para o lince."},
+		"legs": {"kind": "stat", "stats": {"hit_slow": "x"}, "text": "Golpe físico retarda o alvo {x}%."},
+		"gloves": {"kind": "charges", "skill": "ran_frost_arrow", "text": "Flecha Gélida em Cargas."},
+		"boots": {"kind": "on_trigger", "on": "cast:ran_disengage", "do": [{"do": "cast", "skill": "ran_sic", "power": "x", "at": "foe"}], "text": "Recuar manda o lince dar o Ataque da Fera com {x}% de poder (1 vez a cada {icd} s)."},
+		"weapon": {"kind": "legend_wake", "legend": "mark", "wake": "pet", "pct": "x", "text": "Marca Desperta: o lince bate +{x}% no alvo marcado."},
+	},
+	"atirador": {
+		"head": {"kind": "cap_up", "caps": {"turret_time": "x"}, "text": "Torreta dura +{x} s."},
+		"body": {"kind": "stat", "stats": {"trap_max": "x"}, "text": "+{x} armadilha no limite."},
+		"legs": {"kind": "stat", "stats": {"crit_dmg_pct": "x"}, "text": "+{x}% de dano crítico."},
+		"gloves": {"kind": "charges", "skill": "ran_snipe", "text": "Tiro Certeiro em Cargas."},
+		"boots": {"kind": "on_trigger", "on": "trap", "do": [{"do": "cd_cut", "skill": "ran_disengage", "s": "x"}], "text": "Armadilha que dispara tira {x} s da recarga de Recuar."},
+		"weapon": {"kind": "legend_wake", "legend": "splash", "wake": "chill", "adds": {"radius": "x"}, "text": "Pólvora Desperta: raio +{x} m; em alvo retardado ou preso a explosão é crítica."},
+	},
+	"lanceiro": {
+		"head": {"kind": "legend_up", "legend": "open_wound", "adds": {"max": "x"}, "text": "Ferida Aberta: +{x} no máximo."},
+		"body": {"kind": "stat", "stats": {"lifesteal": "x"}, "text": "+{x}% de roubo de vida."},
+		"legs": {"kind": "stat", "stats": {"cc_resist_pct": "x"}, "text": "-{x}% de duração de controle em você."},
+		"gloves": {"kind": "charges", "skill": "ran_javelin", "text": "Dardo de Caça em Cargas."},
+		"boots": {"kind": "on_trigger", "on": "hit:ran_spear_leap", "do": [{"do": "wound_renew"}], "text": "Salto do Predador renova as Feridas Abertas no alvo."},
+		"weapon": {"kind": "legend_wake", "legend": "open_wound", "wake": "jump", "pct": "x", "text": "Ferida Aberta Desperta: com as feridas cheias, o sangramento salta para 1 inimigo a 4 m com {x}%."},
+	},
+	"laminas": {
+		"head": {"kind": "legend_up", "legend": "poison", "adds": {"chance": "x"}, "text": "Veneno Letal: +{x}% de chance."},
+		"body": {"kind": "stat", "stats": {"backstab": "x"}, "text": "+{x}% de dano pelas costas."},
+		"legs": {"kind": "stat", "stats": {"evasion": "x"}, "text": "+{x}% de esquiva."},
+		"gloves": {"kind": "charges", "skill": "ass_venom_dart", "text": "Dardo Venenoso em Cargas."},
+		"boots": {"kind": "on_trigger", "on": "cast:ass_vanish", "do": [{"do": "mp", "pct": "x"}, {"do": "cd_reset", "skill": "ass_venom_dart"}], "text": "Sumir devolve {x}% de MP e zera o Dardo Venenoso."},
+		"weapon": {"kind": "legend_wake", "legend": "poison", "wake": "evis_mp", "pct": "x", "text": "Veneno Letal Desperto: Eviscerar devolve {x}% de MP por veneno consumido."},
+		"offhand": {"kind": "stat", "stats": {"hit_poison": "x"}, "text": "Golpe físico envenena ({x} de dano por segundo)."},
+	},
+	"duelista": {
+		"head": {"kind": "cap_up", "caps": {"momentum": "x"}, "text": "Ímpeto: +{x} carga no máximo."},
+		"body": {"kind": "stat", "stats": {"guard_crit": "x"}, "text": "+{x}% de crítico depois de bloquear."},
+		"legs": {"kind": "skill_mods", "skill": "ass_guard", "mod": {"add": {"buff": {"duration": "x"}}}, "text": "Guarda do Duelista: janela de aparar +{x} s."},
+		"gloves": {"kind": "charges", "skill": "ass_lunge", "text": "Avanço do Duelista em Cargas."},
+		"boots": {"kind": "on_trigger", "on": "parry", "do": [{"do": "cd_cut", "skill": "ass_lunge", "s": "x"}], "text": "Aparar tira {x} s da recarga do Avanço."},
+		"weapon": {"kind": "legend_wake", "legend": "riposte", "wake": "pct", "adds": {"pct": "x"}, "text": "Riposte Desperta: +{x}% no contra-ataque."},
+		"offhand": {"kind": "cap_up", "caps": {"riposte_counters": "x"}, "text": "+{x} contra-ataque por janela de aparar."},
+	},
+	"corsario": {
+		"head": {"kind": "cap_up", "caps": {"bravado": "x"}, "text": "Bravata: +{x} carga no máximo."},
+		"body": {"kind": "stat", "stats": {"crit_leech": "x"}, "text": "Sangue no Fio: {x}% do dano crítico volta como vida."},
+		"legs": {"kind": "stat", "stats": {"def_pct": "x"}, "text": "+{x}% de DEF."},
+		"gloves": {"kind": "charges", "skill": "ass_pistol_shot", "text": "Tiro de Pistola em Cargas."},
+		"boots": {"kind": "skill_mods", "skill": "ass_grapple", "mod": {"add": {"combo_gain": "x"}}, "text": "Gancho de Abordagem dá +{x} Bravata."},
+		"weapon": {"kind": "legend_wake", "legend": "spare_shot", "wake": "quick", "adds": {"chance": "x"}, "icd_cut": "y", "text": "Bala na Agulha Desperta: +{x}% de chance e recarga -{y} s."},
+		"offhand": {"kind": "on_trigger", "on": "hit:ass_between_eyes", "do": [{"do": "ricochet", "pct": "x"}], "text": "Tiro Entre os Olhos ricocheteia em 1 inimigo perto com {x}%."},
+	},
+	"fogo": {
+		"head": {"kind": "stat", "stats": {"mana_guard": "x"}, "caps": {"mana_guard": "y"}, "text": "Barreira de Porcelana: +{x}% do dano sai da mana e o teto da Barreira sobe {y}."},
+		"body": {"kind": "stat", "stats": {"mp_to_hp": "x"}, "text": "Mana em Carne: +{x}% do MP vira vida máxima."},
+		"legs": {"kind": "dot_up", "dot": "fire", "time": "x", "text": "Queimaduras duram +{x}%."},
+		"gloves": {"kind": "charges", "skill": "ele_fireball", "text": "Bola de Fogo em Cargas."},
+		"boots": {"kind": "skill_mods", "skill": "ele_ember_seed", "mod": {"add": {"seed": {"max_targets": "x"}}}, "text": "Semente Ígnea espalha para +{x} alvo."},
+		"weapon": {"kind": "legend_wake", "legend": "cast_on_basic", "wake": "burn_mp", "pct": "x", "text": "Brasa Viva Desperta: a Bola de Fogo de graça em alvo queimando devolve {x}% de MP."},
+	},
+	"gelo": {
+		"head": {"kind": "mana_guard_eff", "stats": {"mana_guard_eff": "x"}, "text": "Barreira de Vidro: 1 MP da Barreira de Mana absorve 1 + {x} de dano."},
+		"body": {"kind": "stat", "stats": {"low_dr": "x"}, "text": "Firme na Queda +{x}%."},
+		"legs": {"kind": "cap_up", "caps": {"shatter": "x"}, "text": "Estilhaçar: +{x}% de dano em alvo retardado."},
+		"gloves": {"kind": "charges", "skill": "ele_ice_lance", "text": "Lança de Gelo em Cargas."},
+		"boots": {"kind": "on_trigger", "on": "cast:ele_blink", "do": [{"do": "cast", "skill": "ele_frost_nova", "power": "x", "at": "self"}], "text": "Piscar deixa uma Nova de Gelo com {x}% de poder."},
+		"weapon": {"kind": "legend_wake", "legend": "cast_when_hit", "wake": "power", "adds": {"icd": "-x"}, "pct": "y", "text": "Coração de Gelo Desperto: recarga -{x} s e a Nova bate +{y}%."},
+	},
+	"raio": {
+		"head": {"kind": "stat", "stats": {"mana_guard": "x", "mp_regen_combat": "y"}, "text": "Barreira de Mana +{x}% e +{y}% de mana por segundo em combate."},
+		"body": {"kind": "skill_mods", "skill": "ele_overload", "mod": {"add": {"buff": {"duration": "x"}}}, "text": "Sobrecarga dura +{x} s."},
+		"legs": {"kind": "stat", "stats": {"cdr": "x"}, "text": "-{x}% de recarga."},
+		"gloves": {"kind": "charges", "skill": "ele_chain", "text": "Corrente Elétrica em Cargas."},
+		"boots": {"kind": "on_trigger", "on": "hit:ele_bolt_step", "do": [{"do": "cd_cut", "skill": "ele_chain", "s": "x"}], "text": "Passo Relampejante que acerta tira {x} s da Corrente Elétrica."},
+		"weapon": {"kind": "legend_wake", "legend": "chain", "wake": "arc", "adds": {"targets": "x"}, "text": "Arco Voltaico Desperto: +{x} alvo."},
+	},
+	"invocador": {
+		"head": {"kind": "stat", "stats": {"summon_frenzy": "x"}, "text": "Fúria dos Mortos: invocações feridas batem +{x}%."},
+		"body": {"kind": "stat", "stats": {"summon_guard": "x"}, "text": "Escudo de Carne: {x}% do seu dano vai para a invocação mais perto."},
+		"legs": {"kind": "stat", "stats": {"summon_time_pct": "x"}, "text": "Invocações com tempo duram +{x}%."},
+		"gloves": {"kind": "charges", "skill": "nec_bone_spear", "text": "Lança de Osso em Cargas."},
+		"boots": {"kind": "on_trigger", "on": "cast:nec_dark_offering", "do": [{"do": "raise", "time": "x"}], "text": "Oferenda Sombria ergue 1 esqueleto da Legião por {x} s."},
+		"weapon": {"kind": "legend_wake", "legend": "raise_on_kill", "wake": "pet", "adds": {"icd": "-x"}, "pct": "y", "text": "Legião Desperta: recarga -{x} s; o esqueleto erguido bate +{y}%."},
+	},
+	"ceifador": {
+		"head": {"kind": "stat", "stats": {"leech_shield": "x"}, "text": "Roubo de vida que passa do máximo vira barreira (até {x}% da vida)."},
+		"body": {"kind": "stat", "stats": {"low_dr": "x"}, "text": "Firme na Queda +{x}%."},
+		"legs": {"kind": "stat", "stats": {"low_leech": "x"}, "text": "Sede na Beira: +{x}% de roubo de vida com pouca vida."},
+		"gloves": {"kind": "charges", "skill": "nec_soul_rend", "text": "Rasgar Alma em Cargas."},
+		"boots": {"kind": "on_trigger", "on": "hit:nec_death_spin", "do": [{"do": "heal", "pct": "x"}], "text": "Giro da Morte cura {x}% da vida por inimigo atingido."},
+		"weapon": {"kind": "legend_wake", "legend": "heal_on_kill", "wake": "ally", "pct": "x", "text": "Ceifa Desperta: o abate cura também o aliado mais ferido em {x}% da vida dele."},
+	},
+	"pestilento": {
+		"head": {"kind": "stat", "stats": {"mana_guard": "x"}, "text": "Barreira de Mana: +{x}% do dano recebido sai da mana."},
+		"body": {"kind": "skill_mods", "skill": "nec_pandemic", "mod": {"add": {"dot": {"duration": "x"}}}, "text": "Pandemia dura +{x} s."},
+		"legs": {"kind": "stat", "stats": {"mp_to_hp": "x"}, "text": "Mana em Carne: +{x}% do MP vira vida máxima."},
+		"gloves": {"kind": "charges", "skill": "nec_curse_agony", "text": "Agonia em Cargas."},
+		"boots": {"kind": "dot_up", "dot": "curse", "time": "x", "text": "Maldições duram +{x}%."},
+		"weapon": {"kind": "legend_wake", "legend": "cast_on_basic", "wake": "spread", "text": "Praga Desperta: alvo com a Agonia da arma que morre passa a Agonia a 1 inimigo a 4 m."},
+	},
+}
+const LEG50_KINDS := ["stat", "charges", "legend_up", "legend_wake", "cap_up", "skill_mods", "form_up", "dot_up", "zone_on_cast", "on_trigger", "mana_guard_eff"]
+
+## Troca "x"/"y"/"icd"/"-x" pelos números de `nums` em toda a árvore (dicionários e listas). Texto fica de fora.
+static func leg50_resolve(v: Variant, nums: Dictionary) -> Variant:
+	if v is Dictionary:
+		var out := {}
+		for k in v:
+			if k != "text":
+				out[k] = leg50_resolve(v[k], nums)
+		return out
+	if v is Array:
+		var arr: Array = []
+		for x in v:
+			arr.append(leg50_resolve(x, nums))
+		return arr
+	if v is String and v in ["x", "y", "icd", "-x", "-y"]:
+		var key: String = (v as String).trim_prefix("-")
+		return -float(nums.get(key, 0.0)) if (v as String).begins_with("-") else float(nums.get(key, 0.0))
+	return v
+
+## Efeito pronto da peça `piece` da build `bid` no 50 ({} se não há). Ex.: leg50_fx("fogo", "gloves") -> {"kind": "charges", "skill": "ele_fireball", ...}.
+static func leg50_fx(bid: String, piece: String) -> Dictionary:
+	var tpl: Dictionary = LEG50.get(bid, {}).get(piece, {})
+	if tpl.is_empty():
+		return {}
+	var nums: Dictionary = Balance.LEG50_NUMBERS.get(bid, {}).get(piece, {})
+	var out: Dictionary = leg50_resolve(tpl, nums)
+	out["piece"] = piece
+	out["build"] = bid
+	if not out.has("icd"):
+		out["icd"] = float(nums.get("icd", Balance.LEG50_TRIGGER_ICD))
+	out["text"] = leg50_text(str(tpl.get("text", "")), nums)
+	return out
+
+## Texto da dica com os números ({x}, {y}, {icd}; inteiro sem casas).
+static func leg50_text(text: String, nums: Dictionary) -> String:
+	var icd := float(nums.get("icd", Balance.LEG50_TRIGGER_ICD))
+	for k in ["x", "y"]:
+		text = text.replace("{%s}" % k, _num_txt(absf(float(nums.get(k, 0.0)))))
+	return text.replace("{icd}", _num_txt(icd))
+
+static func _num_txt(v: float) -> String:
+	return str(int(v)) if is_equal_approx(v, roundf(v)) else ("%.2f" % v).rstrip("0").replace(".", ",")
+
 static func build(classes: Dictionary, skills: Dictionary) -> Dictionary:
 	var items: Array = []
 	var sets: Array = []
@@ -1609,6 +1914,9 @@ static func build(classes: Dictionary, skills: Dictionary) -> Dictionary:
 						it.description = "%sArma do %s (%s): não conta nas peças; %s" % [hands, sd.name, cls.name, "tem efeito lendário próprio." if not it.legend_effect.is_empty() else "acompanha o conjunto."] + role_note(it, bid)
 					elif not sd.armor.has(it.id):
 						sd.armor.append(it.id)
+					if lv == Balance.LEG50_LEVEL:          # Lendário do 50: efeito próprio da peça (GDD ato3-lendarios-50)
+						var pk: String = "weapon2" if alts.has(it.id) else it.id.get_slice("_", it.id.get_slice_count("_") - 1)
+						it.piece_fx = leg50_fx(bid, pk)
 					items.append(it)
 					if alts.has(it.id):
 						sd.alt_pieces.append(it.id)

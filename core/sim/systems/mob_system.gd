@@ -45,9 +45,11 @@ static func pack_call(sim: WorldSim, mob: SimEntity, attacker: SimEntity) -> voi
 			o.aggro_timer = Balance.AGGRO_LOSE_TIME
 
 ## Escolta do líder (MonsterDef.escort): nasce em volta dele, cada um numa vaga do anel. Monstros normais (XP, loot).
+## `ids` (opcional) = monstro de cada vaga (bando misto: Matriarca + 2 Sedutoras + 1 Açoitadora); sem ele, todas são `id`.
 static func spawn_escort(sim: WorldSim, leader: SimEntity, sp: Dictionary) -> void:
 	var es: Dictionary = leader.monster_def.escort
 	var mdef: MonsterDef = GameData.monsters.get(str(es.get("id", "")))
+	var per_slot: Array = es.get("ids", [])
 	if mdef == null or not sim.maps.has(leader.map_id):
 		return
 	var m: Dictionary = sim.maps[leader.map_id]
@@ -62,7 +64,8 @@ static func spawn_escort(sim: WorldSim, leader: SimEntity, sp: Dictionary) -> vo
 		if have.has(i):
 			continue
 		var p := MapGeometry.random_walkable(sim, m["def"], leader.position + escort_offset(i, int(es.get("count", 1))), 1.5)
-		var f := sim.spawn_monster(mdef, leader.map_id, p)
+		var slot_def: MonsterDef = GameData.monsters.get(str(per_slot[i])) if i < per_slot.size() else null
+		var f := sim.spawn_monster(slot_def if slot_def else mdef, leader.map_id, p)
 		f.leader_id = leader.id
 		f.escort_slot = i
 		out.append(f.id)
@@ -86,7 +89,14 @@ static func spawn_adds(sim: WorldSim, boss: SimEntity, sm: Dictionary) -> void:
 	for i in range(int(sm.get("count", 1))):
 		if alive >= int(sm.get("max", 6)):
 			break
-		var add := sim.spawn_monster(mdef, boss.map_id, MapGeometry.random_walkable(sim, m["def"], boss.position, 5.0))
+		var at: Array = sm.get("at", [])               # pontos fixos da sala: [x, z] a partir do ponto de nascer do chefe (Tubos de Órgão)
+		var pos := MapGeometry.random_walkable(sim, m["def"], boss.position, 5.0)
+		if not at.is_empty():
+			var q: Array = at[i % at.size()]
+			pos = Vector3(boss.home_position.x + float(q[0]), 0, boss.home_position.z + float(q[1]))
+			if sm.get("abs", false):                   # [x, z] do mapa (Pedestais dos Sentidos: boss_hint.pedestals do JSON)
+				pos = Vector3(float(q[0]), 0, float(q[1]))
+		var add := sim.spawn_monster(mdef, boss.map_id, pos)
 		add.boss_id = boss.id
 		add.adds_epoch = boss.adds_epoch
 		add.aggro_target = boss.aggro_target
@@ -385,11 +395,16 @@ static func place_barrage(sim: WorldSim, e: SimEntity, s: SkillDef, aim: Vector3
 		"ring":
 			BossSignatures.place_rings(sim, e, s, power, bd, fx)
 			return
+		"cortege":
+			BossSignatures.place_cortege(sim, e, s, power, bd, fx)
+			return
 	var spots: Array = [Vector3(aim.x, 0, aim.z)]
 	if bd.get("on_self", false):                    # Têmpera na Lava: o 1º círculo (poça) cai embaixo do chefe
 		spots = [Vector3(e.position.x, 0, e.position.z)]
 	if bd.has("say"):
 		boss_say(sim, e, str(bd["say"]))
+	if bd.get("pull") is Dictionary:                # Prensa: puxa todos para junto antes do círculo em volta dela
+		BossSignatures.pull_in(sim, e, bd["pull"])
 	for o in victims(sim, e):
 		if spots.size() >= count:
 			break

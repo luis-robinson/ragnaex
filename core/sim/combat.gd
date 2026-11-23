@@ -154,9 +154,10 @@ static func role_damage_mult(attacker: SimEntity, target: SimEntity) -> float:
 static func role_mana_guard(target: SimEntity, amount: int) -> int:
 	if amount <= 0 or target.stats.mana_guard <= 0.0 or target.mp <= 0.0:
 		return amount
-	var take := minf(target.mp, amount * target.stats.mana_guard / 100.0)
+	var eff := 1.0 + target.stats.mana_guard_eff          # Barreira de Vidro (Gelo 50): 1 MP absorve 1 + eff
+	var take := minf(target.mp, amount * target.stats.mana_guard / 100.0 / eff)
 	target.mp -= take
-	return amount - int(take)
+	return amount - int(take * eff)
 
 ## Depois do dano aplicado (golpe direto): roubo no crítico e na beira da morte, lentidão do golpe físico,
 ## espinhos do escudo e o crítico do Contra-Ataque. `amount` = dano que entrou na vida.

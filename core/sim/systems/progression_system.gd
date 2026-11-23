@@ -236,6 +236,8 @@ static func gain_xp(sim: WorldSim, e: SimEntity, amount: int) -> void:
 
 ## Começo rápido (StartCatalog.PRESETS): nível com os pontos de skill de cada nível, equipamento comum do tier,
 ## itens, ouro e a cadeia de história até `quest` (concluída, sem recompensas) com `quest` ativa. Portões abrem pelo nível.
+## `done` = quests concluídas (com a cadeia delas e o resto abaixo do nível) quando não há `quest` a abrir (começo 45);
+## `spend_web` = teia e teia de ascensão gastas como as de um bot da 1ª build, barra montada (começo 45, ascensão feita).
 static func apply_start_preset(sim: WorldSim, e: SimEntity, preset_id: int) -> void:
 	var pr: Dictionary = StartCatalog.PRESETS.get(preset_id, {})
 	if pr.is_empty() or int(pr.get("level", 1)) <= 1:
@@ -255,9 +257,12 @@ static func apply_start_preset(sim: WorldSim, e: SimEntity, preset_id: int) -> v
 		sim._gear_bot(e)                   # mesmo critério dos bots: tier pelo nível, armas da build
 		e.build_id = keep
 	var qid: String = pr.get("quest", "")
-	if GameData.quests.has(qid):
+	if GameData.quests.has(qid) or not (pr.get("done", []) as Array).is_empty():
 		var lv := int(pr["level"])
-		var done_ids: Array = _chain_before(qid)
+		var done_ids: Array = _chain_before(qid) if GameData.quests.has(qid) else []
+		for did in pr.get("done", []):
+			done_ids.append(did)
+			done_ids.append_array(_chain_before(did))
 		for oid in GameData.quests:             # tudo da faixa anterior (laterais incluídas) já feito
 			var oq: QuestDef = GameData.quests[oid]
 			if not oq.repeatable and oq.level_req < lv and oid != qid:
@@ -265,12 +270,19 @@ static func apply_start_preset(sim: WorldSim, e: SimEntity, preset_id: int) -> v
 		for done in done_ids:
 			if not (done in e.quests_completed):
 				e.quests_completed.append(done)
-		QuestSystem.accept(e, GameData.quests[qid])
+		if GameData.quests.has(qid):
+			QuestSystem.accept(e, GameData.quests[qid])
 	if pr.has("map") and GameData.maps.has(pr["map"]):
 		var at: Array = pr.get("at", [])
 		var pos: Vector3 = Vector3(float(at[0]), 0, float(at[1])) if at.size() == 2 else GameData.maps[pr["map"]].spawn_point
 		sim.place_loaded(e, pr["map"], pos)       # começa longe de Aldara (o grupo nasce ao lado)
 	PortalSystem.grandfather_gates(sim, e, e.map_id)
+	if pr.get("spend_web", false) and not e.class_def.builds.is_empty():
+		if e.build_id == "":
+			e.build_id = e.class_def.builds[0]["id"]
+		bot_spend(sim, e, true)
+		bot_spend_asc(sim, e)
+		sim._slot_bot(e)
 	e.recompute_stats()
 	for s in e.skills:                       # ranks como os de um bot do nível nas skills da barra (Balance.BOT_SKILL_RANK_PER_LEVELS)
 		if s and not s.ascension:
@@ -424,7 +436,7 @@ static func tree_block_reason(sim: WorldSim, e: SimEntity, node_id: String) -> S
 	var n: Dictionary = tr["nodes"][node_id]
 	if e.tree.has(node_id):
 		return "já comprado"
-	if n["kind"] in ["skill_up", "skill_quick"] and not e.knows(n["ref"]):
+	if n["kind"] in ["skill_up", "skill_quick", "skill_charge"] and not e.knows(n["ref"]):
 		return "requer a skill (nível %d)" % int(n["level"])
 	if n["kind"] == "pick":                  # talento de escolha: sem vizinho; um por linha, troca na cidade
 		if e.level < int(n["level"]):
@@ -544,6 +556,11 @@ static func bot_spend(sim: WorldSim, e: SimEntity, fresh: bool = false, batch: b
 		var quick := "%s_m_%s" % [cid, sid]
 		if nodes.has(quick) and not e.tree.has(quick) and tree_block_reason(sim, e, quick) == "":
 			tree_allocate(sim, e, quick, batch)
+	# 2) "em Cargas" das skills da build (burst para chefes; BotBrain guarda as cargas para chefe/elite)
+	for sid in wanted if bot_charges else []:
+		var kn := ChargeSystem.node_id(cid, sid)
+		if nodes.has(kn) and not e.tree.has(kn) and tree_block_reason(sim, e, kn) == "":
+			tree_allocate(sim, e, kn, batch)
 	# 2b) notáveis de papel da classe para esta build (sobrevivência / dano de tanque), do mais perto ao mais longe
 	dirty = _bot_role_notes(sim, e, nodes, batch) or dirty
 	# 3) evoluções das skills aprendidas (metade, como antes)
@@ -599,6 +616,8 @@ static var _web_cache := {}
 static var bot_spawn_cache := true
 ## Bots compram os notáveis de base (CORE_NOTABLES) antes de tudo; os testes de outras mecânicas desligam para medir como antes.
 static var bot_core := true
+## Bots compram o nó "em Cargas" das skills da build; os testes calibrados antes dele desligam (como bot_core).
+static var bot_charges := true
 
 ## Nós stat/notável que o bot da build compraria no passo 4, por nota decrescente; empate na ordem da teia
 ## (o `>` estrito da varredura antiga fica com o primeiro). Ex.: `for nid in _web_order(nodes, "paladin", "cruzado", "atk")`.
@@ -678,7 +697,7 @@ static func _path_to(e: SimEntity, nodes: Dictionary, target: String) -> Array:
 		if cur == target:
 			break
 		for l in nodes[cur]["links"]:
-			if prev.has(l) or int(nodes[l]["level"]) > e.level or nodes[l]["kind"] in ["skill_quick", "talent"]:
+			if prev.has(l) or int(nodes[l]["level"]) > e.level or nodes[l]["kind"] in ["skill_quick", "skill_charge", "talent"]:
 				continue
 			prev[l] = cur
 			queue.append(l)

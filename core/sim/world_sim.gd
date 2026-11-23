@@ -916,6 +916,7 @@ func _cancel_cast(e: SimEntity) -> void:
 	if s and not e.skill_applied and e.current_skill_slot >= 0:
 		e.mp = minf(e.stats.max_mp, e.mp + e.stats.mp_cost_of(s.mp_cost_at(e.mastery_of(s.id))))
 		e.cooldowns.erase(s.id)
+		ChargeSystem.refund(e, s.id)
 		if e.jump_second:
 			RangerAscension.on_cancel(e, s)      # Salto Duplo: o 2º salto cancelado gasta a janela (a recarga cheia volta)
 	_end_skill(e)
@@ -1013,7 +1014,7 @@ func try_cast(e: SimEntity, slot: int, aim: Vector3, m: Dictionary) -> bool:
 			return false
 	s = ProgressionSystem.resolve_skill(self, e, s)
 	e.mp -= cost
-	e.cooldowns[s.id] = s.cooldown_at(lv) * e.stats.skill_cooldown_mult(s.id)
+	e.cooldowns[s.id] = ChargeSystem.on_cast(e, s, s.cooldown_at(lv) * e.stats.skill_cooldown_mult(s.id))     # nó "em Cargas": guarda usos
 	ShadowSystem.on_cast(e, s)             # Contra-Ataque em Cadeia: a Execução preparada não entra em recarga
 	if s.ascension:
 		TitanSystem.on_cast(e, s)          # Fúria Acesa: o Ciclone de Titã segura a Fúria/Glória
@@ -1151,6 +1152,8 @@ func _apply_skill_body(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 	var aim := Combat.clamp_aim(e, e.skill_aim, s.range)
 	if e.is_character() and not e.stats.fusion.is_empty():
 		FusionEffects.on_cast(self, e, s, aim)
+	if e.is_character() and not e.stats.piece_fx.is_empty():
+		PieceEffects.on_cast(self, e, s, aim)          # Lendários do 50: gatilho de lançar e chão
 	var any_hit := false
 	var wounded := 0                      # Sangria: atingidos que já sangravam (WoundSystem)
 	if s.mob_pick != "" and s.target == SkillDef.Target.TARGET and e.kind == SimEntity.Kind.MONSTER:
@@ -1435,6 +1438,7 @@ func _apply_skill_body(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 					var cb: Dictionary = effects["combust"]
 					if str(cb.get("kind", "fire")) == "poison":         # Eviscerar: os venenos saem e o golpe cresce por veneno
 						var pz: Array = WoundSystem.consume(e, t)
+						PieceEffects.on_poison_consume(e, int(pz[1]))     # Veneno Letal Desperto
 						burn_left = pz[0]
 						hit_power *= 1.0 + float(cb.get("per", 0.0)) * mini(int(pz[1]), int(cb.get("max", 5)))
 					else:
@@ -1516,7 +1520,7 @@ func gain_bravado(e: SimEntity, n: int) -> void:
 	if n <= 0 or e == null or not e.is_alive():
 		return
 	var cur := e.buff_stacks(Balance.BRAVADO_BUFF)
-	var now := mini(Balance.BRAVADO_MAX, cur + n)
+	var now := mini(Balance.BRAVADO_MAX + int(PieceEffects.cap(e, "bravado")), cur + n)
 	e.put_buff({"id": Balance.BRAVADO_BUFF, "remaining": Balance.BRAVADO_TIME, "stacks": now})
 	if now != cur:
 		Events.post(&"buff_applied", e.id, Balance.BRAVADO_BUFF, Balance.BRAVADO_TIME)
@@ -1533,7 +1537,8 @@ func _strike(e: SimEntity, t: SimEntity, s: SkillDef, power: float, kind: SkillD
 		Events.post(&"dodged", t.id)
 		return {"amount": 0, "crit": false, "blocked": false}
 	var frost := Combat.frost_mult(s, t)
-	var r := Combat.calc_damage(e, t, power * (frost * LegendEffects.legend_power(self, e, t) * TitanSystem.second_axe_mult(e, t, s) * FusionEffects.hit_mult(self, e, t, s)), kind, rng, from, force_crit)
+	force_crit = force_crit or PieceEffects.force_crit(e, t, s)          # Carrasco Desperto
+	var r := Combat.calc_damage(e, t, power * (frost * LegendEffects.legend_power(self, e, t) * TitanSystem.second_axe_mult(e, t, s) * FusionEffects.hit_mult(self, e, t, s) * PieceEffects.hit_mult(self, e, t, frost)), kind, rng, from, force_crit)
 	var dk := "magical" if s.kind == SkillDef.Kind.MAGICAL else "physical"
 	var ut := s.ultimate or is_ult_id(s.id)
 	if ut:
@@ -1547,6 +1552,7 @@ func _strike(e: SimEntity, t: SimEntity, s: SkillDef, power: float, kind: SkillD
 			RiposteSystem.duel_hit(e)                      # Duelo Supremo: o golpe da própria ação enche o Duelo (proc/lançamento de graça não)
 	LegendEffects.legend_on_hit(self, e, t, s, int(r["amount"]))
 	FusionEffects.on_hit(self, e, t, s, int(r["amount"]), bool(r["crit"]))
+	PieceEffects.on_hit(self, e, t, s, int(r["amount"]))          # Lendários do 50: gatilho hit:<skill>
 	LegendEffects.signature_on_hit(self, e, t, s, int(r["amount"]))
 	RangerAscension.on_strike(self, e, t, int(r["amount"]))      # Brado Elemental: a lança leva o elemento
 	if not e.asc_tree.is_empty():
@@ -1577,7 +1583,7 @@ func _apply_effects(src: SimEntity, t: SimEntity, effects: Dictionary, power: fl
 		elif not (bool(d.get("fire", false)) and t.monster_def != null and t.monster_def.burn_immune):   # Salamandra de Lava: não queima
 			var db := ClassTalentSystem.dot_boost(src)          # Podridão Lenta (necromante nv 5): dura e bate mais
 			var mob := _monster_side(src)
-			var nd := {"kind": "dot", "id": dot_id(src, d, mob), "remaining": float(d.get("duration", 4)) * float(db[0]) * (Balance.MONSTER_DOT_TIME_MULT if mob else 1.0),
+			var nd := {"kind": "dot", "id": dot_id(src, d, mob), "remaining": float(d.get("duration", 4)) * float(db[0]) * PieceEffects.dot_mult(src, d) * (Balance.MONSTER_DOT_TIME_MULT if mob else 1.0),
 				"dps": float(d.get("dps", 5)) * (src.stats.matk / 20.0) * float(db[1]) * src.stats.dot_mult(), "src": src.id, "fire": bool(d.get("fire", false))}
 			if d.get("ult", false) or ult_tag > 0 or is_ult_id(str(d.get("skill", ""))):
 				nd["ult"] = true                    # dano no tempo de Suprema: não enche a Carga Suprema
@@ -1972,6 +1978,7 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 		RiposteSystem.legend_dodge(self, target, attacker, kind)     # Riposte lendária: esquivou, responde e ganha Ímpeto
 		FistSystem.on_dodge(self, target, attacker, kind)          # Punhos de Fúria: esquiva vira Fúria e contra-ataque
 		FusionEffects.on_dodge(self, target, attacker)
+		PieceEffects.on_event(self, target, "dodge", attacker)          # Lendários do 50
 		ShadowSystem.on_dodge(target)                              # Duelista ascendido: esquiva prepara a Execução
 		Events.post(&"dodged", target.id)
 		return false
@@ -2071,12 +2078,24 @@ func _heal(src: SimEntity, target: SimEntity, amount: int, share := true) -> voi
 		elif target == player and src.kind == SimEntity.Kind.BOT:
 			BotChat.party_event(self, target, "healed_player", {}, src, 0.35)
 	if src.is_character() and src.stats.ward_pct > 0.0:      # arma lendária de cura: Égide (parte da cura vira barreira)
-		target.shield_hp = minf(target.shield_hp + amount * src.stats.ward_pct / 100.0, target.stats.max_hp * 0.3)
-		var sb: Array = target.buffs.filter(func(b): return b.get("id") == "shield")
-		if sb.is_empty():
-			target.buffs.append({"id": "shield", "remaining": Balance.LEG_WARD_TIME})
-		else:
-			sb[0]["remaining"] = maxf(float(sb[0]["remaining"]), Balance.LEG_WARD_TIME)
+		var wpct := src.stats.ward_pct
+		var lw := PieceEffects.wake(src, "low")             # Égide Desperta: aliado com pouca vida ganha mais
+		if not lw.is_empty() and before < target.stats.max_hp * Balance.LEG50_LOW_HP:
+			wpct *= 1.0 + float(lw["pct"]) / 100.0
+		_ward(target, amount * wpct / 100.0)
+		if share and int(src.stats.legend.get("targets", 0)) > 0:      # peito do Sacerdote 50: a Égide cobre +1 aliado
+			var other := PieceEffects.most_hurt_other(self, src, target, Balance.RADIANCE_RANGE)
+			if other != null:
+				_ward(other, amount * wpct / 100.0)
+
+## Barreira da Égide em `target` (soma, teto de 30% da vida; o buff "shield" mostra e marca o tempo).
+func _ward(target: SimEntity, add: float) -> void:
+	target.shield_hp = minf(target.shield_hp + add, target.stats.max_hp * 0.3)
+	var sb: Array = target.buffs.filter(func(b): return b.get("id") == "shield")
+	if sb.is_empty():
+		target.buffs.append({"id": "shield", "remaining": Balance.LEG_WARD_TIME})
+	else:
+		sb[0]["remaining"] = maxf(float(sb[0]["remaining"]), Balance.LEG_WARD_TIME)
 
 ## Graça Transbordante: overheal_share% da cura que passou do máximo de `target` vai para o personagem aliado mais
 ## ferido (em %) a até OVERHEAL_SHARE_RANGE m dele, fora ele mesmo (sem repassar de novo).
@@ -2123,6 +2142,7 @@ func _kill(e: SimEntity, killer: SimEntity) -> void:
 		BossSignatures.on_death(self, e)          # cópia solta veneno; chefe leva as cópias junto (R-F)
 	NecroAscension.on_death(self, e)          # Marca da Cova (levanta) e fim da Forma de Lich; antes de limpar debuffs/forma
 	FusionEffects.on_kill(self, e, killer)     # Fusões: Ceifa Partilhada, Colheita da Praga (lê as maldições do morto)
+	PieceEffects.on_kill(self, e, killer)      # Lendários do 50: abate e Praga Desperta (antes de limpar os debuffs)
 	e.mounted = false
 	e.cc_immune_left = 0.0
 	e.recall_left = 0.0
@@ -2234,6 +2254,8 @@ func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 	if not e.cooldowns.is_empty():                # vazio: sem alocar a lista de chaves (por entidade, todo tick)
 		for k in e.cooldowns.keys():
 			e.cooldowns[k] = maxf(0.0, e.cooldowns[k] - dt)
+	if not e.charges.is_empty():
+		ChargeSystem.tick(e, dt)                  # cargas de skill: a da frente da fila volta
 	if e.state == SimEntity.State.DEAD:
 		e.dead_time += dt
 		if e.kind == SimEntity.Kind.MONSTER or e.kind == SimEntity.Kind.SUMMON:
@@ -2630,6 +2652,10 @@ func party_chat_reply(text: String) -> bool:
 	return BotChat.party_reply(self, text)
 func party_seek_start(e: SimEntity) -> int:
 	return PartySystem.party_seek_start(self, e)
+func party_take_lead(e: SimEntity) -> bool:
+	return PartySystem.party_take_lead(self, e)
+func party_plan(e: SimEntity) -> String:
+	return BotLeaderSystem.plan_of(self, e)
 func _update_invites() -> void:
 	PartySystem.update_invites(self)
 # LootSystem

@@ -15,6 +15,9 @@ const CHANNEL_BREAK_FX := "boss_channel_break"
 const COUNTER_FX := "mob_ghar_counter"
 const COVER_BREAK_FX := "boss_cover_break"
 const DECOY_FX := "boss_decoy_pop"               # cópias aparecem / somem (fumaça)
+## Olhar Que Julga (Condessa, R-E com Espelhos de Pé): espelhos sobem / um espelho racha depois de proteger.
+const MIRROR_RISE_FX := "boss_mirror_rise"
+const MIRROR_CRACK_FX := "boss_mirror_crack"
 
 ## Rascunho do laço de update_hazards (não é estado: esvaziado no fim de cada laço). Reaproveitado para não alocar
 ## um Array por tique (revisão m5); um tique roda por vez, então não há reentrada.
@@ -113,7 +116,20 @@ static func barrage_extra(bd: Dictionary) -> Dictionary:
 		x["tick_power"] = float(bd.get("tick_power", 0.2))
 	if bd.get("empower") is Dictionary:
 		x["empower"] = bd["empower"]
+	if bd.get("pull") is Dictionary:
+		x["press"] = true                            # sonda: quem a Prensa esmagou (press_hits)
 	return x
+
+## Prensa (Dona Vindima): antes do círculo em volta dela, puxa para junto todo personagem a até `radius` m
+## (gancho de chefe, `pull` de _apply_effects; quem resiste a controle fica). Chamada por MobSystem.place_barrage (`barrage.pull`).
+static func pull_in(sim: WorldSim, e: SimEntity, d: Dictionary) -> void:
+	var gap := float(d.get("gap", Balance.BOSS_PULL_GAP))
+	var n := 0
+	for o in MobSystem.victims(sim, e, float(d.get("radius", Balance.ACT3_PRESS_PULL_R))):
+		sim._apply_effects(e, o, {"pull": {"gap": gap}}, 0.0)
+		n += 1
+	stat(sim, "press_pulled", n)
+	stat(sim, "presses")
 
 ## Faixas paralelas (shape "line"): `count` faixas na direção chefe→mira, uma sobre a mira, separadas por width + gap;
 ## caem em sequência (`stagger` s entre elas).
@@ -140,6 +156,59 @@ static func place_lines(sim: WorldSim, e: SimEntity, s: SkillDef, aim: Vector3, 
 	if bd.has("say"):
 		MobSystem.boss_say(sim, e, str(bd["say"]))
 	stat(sim, "stampedes")
+
+## Cortejo de Lâminas (Vessaline, GDD ato3 §4.1): `count` faixas ENCADEADAS (a k+1 começa onde a k acaba), cada uma de
+## `length` m na direção de uma vítima sorteada (nunca o tanque; nunca a mesma duas vezes seguidas). Aparecem todas juntas
+## (lê-se a coreografia inteira); a 1ª cai em `delay` s e as outras a cada `stagger` s; quando uma cai o chefe investe até o
+## fim dela (`dash_to`, update_hazards) e a cauda deixa a faixa `linger` s. Faixa encurta para não sair do chão andável nem
+## de `arena` m da casa do chefe.
+static func place_cortege(sim: WorldSim, e: SimEntity, s: SkillDef, power: float, bd: Dictionary, fx: Dictionary) -> void:
+	var m: Dictionary = sim.maps[e.map_id]
+	var pool: Array = MobSystem.victims(sim, e).filter(func(o): return o.is_character())
+	if pool.size() > 1:
+		pool = pool.filter(func(o): return o.id != e.aggro_target)
+	if pool.is_empty():
+		pool = MobSystem.victims(sim, e)
+	if pool.is_empty():
+		return
+	var n := int(bd.get("count", 4))
+	var length := float(bd.get("length", 10.0))
+	var w := float(bd.get("width", 2.0))
+	var delay := float(bd.get("delay", 1.5))
+	var stagger := float(bd.get("stagger", 0.7))
+	var arena := float(bd.get("arena", 0.0))
+	var home := _ground(e.home_position)
+	var at := _ground(e.position)
+	var last: SimEntity = null
+	for i in range(n):
+		var cand: Array = pool.filter(func(o): return o != last) if pool.size() > 1 else pool
+		var v: SimEntity = cand[sim.rng.randi() % cand.size()]
+		last = v
+		var dir := _ground(v.position) - at
+		dir = dir.normalized() if dir.length() > 0.5 else e.forward().rotated(Vector3.UP, sim.rng.randf_range(0.6, 2.5))
+		var len := length
+		while len > 2.0 and (not MapGeometry.is_walkable(sim, at + dir * len, m["def"], e.radius * 0.6) or (arena > 0.0 and (at + dir * len).distance_to(home) > arena)):
+			len -= 1.0
+		var h := {"owner": e.id, "pos": at, "dir": dir, "length": len, "width": w, "shape": "line", "radius": len,
+			"at": sim.time + delay + stagger * i, "power": power, "kind": s.kind, "effects": fx, "skill": s.id, "sig_line": true,
+			"dash_to": at + dir * len, "cortege": i, "aim_at": v.id}
+		h.merge(barrage_extra(bd))
+		add_hazard(m, h, sim.time)
+		at = at + dir * len
+	if bd.has("say"):
+		MobSystem.boss_say(sim, e, str(bd["say"]))
+	stat(sim, "corteges")
+
+## A faixa do Cortejo caiu: o chefe investe até o fim dela (com colisão; parado por controle ele fica).
+static func _cortege_dash(sim: WorldSim, m: Dictionary, owner: SimEntity, h: Dictionary) -> void:
+	if owner.state == SimEntity.State.STUNNED or owner.has_debuff("root"):
+		return
+	var to: Vector3 = h["dash_to"]
+	var d := _ground(to - owner.position)
+	if d.length() < 0.1:
+		return
+	owner.face_towards(to)
+	sim._move(owner, d, m)
 
 ## Anéis (shape "ring"): `count` anéis em volta do chefe, cada um `width` m de largura, de dentro para fora (um a cada
 ## `spacing` m; sem spacing = colados), `stagger` s um do outro. `pulses` pisadas (Ondas da Montanha): a pisada k sai
@@ -186,8 +255,14 @@ static func place_islands(sim: WorldSim, e: SimEntity, s: SkillDef, power: float
 			fx[k] = d[k]
 	var pending: Array = (m.get("hazards", []) as Array).filter(func(h): return not h.get("landed", false))
 	var spots: Array = []
+	for off in d.get("at", []):                       # ilhas FIXAS da arena (offsets da casa do chefe: Palco Seguro, Eco)
+		spots.append(_ground(e.home_position + Vector3(float(off[0]), 0, float(off[1]))))
+	for q in d.get("spots", []):                      # ... ou pontos [x, z] do mapa (boss_hint.islands do JSON; o spawner sorteia a casa num raio)
+		spots.append(Vector3(float(q[0]), 0, float(q[1])))
+	if not spots.is_empty():
+		n = spots.size()
 	var tank: SimEntity = sim.entities.get(e.aggro_target)
-	if tank and tank.is_alive() and tank.map_id == e.map_id:
+	if spots.is_empty() and tank and tank.is_alive() and tank.map_id == e.map_id:
 		spots.append(_ground(tank.position))
 	var tries := 0
 	while spots.size() < n and tries < n * 16:
@@ -251,6 +326,16 @@ static func place_marks(sim: WorldSim, e: SimEntity, s: SkillDef, power: float, 
 		pool = chars
 	if pool.is_empty():
 		return
+	var alt_mode := str(d.get("mode", "spread"))
+	var both := false
+	if alt_mode == "alternate":                       # Sede Dividida (Eco): dividir e espalhar se revezam; na faixa both_hp, as duas
+		var bh: Array = d.get("both_hp", [])
+		var hp := e.hp / maxf(1.0, e.stats.max_hp)
+		both = bh.size() == 2 and hp >= float(bh[0]) and hp <= float(bh[1])
+		alt_mode = "soak" if int(e.sig.get("alt", 0)) % 2 == 0 else "spread"
+		e.sig["alt"] = int(e.sig.get("alt", 0)) + 1
+		d = d.duplicate()
+		d["count"] = 1 + int(d.get("spread_count", 2)) if both else (1 if alt_mode == "soak" else int(d.get("spread_count", 2)))
 	var count := int(d.get("count", 1)) if pool.size() > 1 else int(d.get("solo_count", 1))
 	if bool(d.get("no_tank", true)) and pool.size() > 1:
 		pool = pool.filter(func(o): return o.id != e.aggro_target)
@@ -258,14 +343,20 @@ static func place_marks(sim: WorldSim, e: SimEntity, s: SkillDef, power: float, 
 	for k in ["slow", "stun", "root", "dot"]:
 		if d.has(k):
 			fx[k] = d[k]
-	var mode := str(d.get("mode", "spread"))
+	var mode := alt_mode
+	var batch := int(m.get("hazard_seq", 0)) + 1      # Cânone: marcas da mesma leva que se encostam dobram (_touch)
 	for i in range(mini(count, pool.size())):
 		var v: SimEntity = pool.pop_at(sim.rng.randi() % pool.size())
+		var vm := mode if not both else ("soak" if i == 0 else "spread")
 		var h := {"owner": e.id, "pos": _ground(v.position), "radius": float(d.get("radius", 4.0)), "at": sim.time + float(d.get("time", Balance.BOSS_MARK_TIME)),
-			"power": power, "kind": s.kind, "effects": fx, "skill": s.id, "follow": v.id, "victim": v.id, "mode": mode, "mark": true}
+			"power": float(d.get(vm + "_power", power)), "kind": s.kind, "effects": fx, "skill": s.id, "follow": v.id, "victim": v.id, "mode": vm, "mark": true}
 		if float(d.get("linger", 0.0)) > 0.0:
 			h["linger"] = float(d["linger"])
 			h["tick_power"] = float(d.get("tick_power", 0.2))
+		if float(d.get("touch", 0.0)) > 0.0:
+			h["touch"] = float(d["touch"])
+			h["touch_mult"] = float(d.get("touch_mult", 2.0))
+			h["batch"] = batch
 		add_hazard(m, h, sim.time)
 		stat(sim, "marks")
 	if d.has("say"):
@@ -308,6 +399,8 @@ static func update_hazards(sim: WorldSim, m: Dictionary) -> void:
 			hz.erase(h)
 			continue
 		_land(sim, m, owner, h)
+		if h.has("dash_to"):
+			_cortege_dash(sim, m, owner, h)
 		if h.get("cover", false):
 			add_cover(sim, m, owner, h["pos"])
 		if float(h.get("linger", 0.0)) > 0.0:
@@ -337,6 +430,10 @@ static func _land(sim: WorldSim, m: Dictionary, owner: SimEntity, h: Dictionary)
 				continue                     # Barreira Sagrada: a chuva de fora não entra na cúpula
 			hit.append(o)
 	var power := float(h["power"])
+	if h.has("touch"):
+		_touch(sim, m, h)
+		if h.get("doubled", false):
+			power *= float(h.get("touch_mult", 2.0))
 	if str(h.get("mode", "")) == "soak":
 		var n := hit.filter(func(o): return o.is_character()).size()
 		power /= float(maxi(Balance.BOSS_SOAK_MIN, n))         # F-S1: dividido por quem está dentro
@@ -352,7 +449,26 @@ static func _land(sim: WorldSim, m: Dictionary, owner: SimEntity, h: Dictionary)
 			stat(sim, "line_hits")
 		if h.get("sig_ring", false) and o.is_character():
 			stat(sim, "ring_hits")
+		if h.get("press", false) and o.is_character():
+			stat(sim, "press_hits")
 	Events.post(&"skill_effect", h["skill"], pos, pos, float(h["radius"]) if str(h.get("shape", "circle")) != "line" else float(h["width"]))
+
+## Cânone (Ressoa, R-B `touch`): na queda da 1ª marca da leva, cada marca cujo centro está a <= `touch` m de outra da
+## mesma leva fica `doubled` (as duas batem × touch_mult). As da leva caem no mesmo tique, então todas ainda estão na lista.
+static func _touch(sim: WorldSim, m: Dictionary, h: Dictionary) -> void:
+	if h.has("touch_done"):
+		return
+	var same: Array = (m.get("hazards", []) as Array).filter(func(g): return int(g.get("batch", -1)) == int(h["batch"]) and int(g["owner"]) == int(h["owner"]))
+	if not same.has(h):
+		same.append(h)
+	for g in same:
+		g["touch_done"] = true
+		for o in same:
+			if o != g and (g["pos"] as Vector3).distance_to(o["pos"]) <= float(g["touch"]):
+				g["doubled"] = true
+				break
+		if g.get("doubled", false):
+			stat(sim, "canon_double")
 
 ## Chão que fica: tique em quem está dentro; o dono dentro da poça se fortalece (empower).
 static func _tick_pool(sim: WorldSim, m: Dictionary, owner: SimEntity, h: Dictionary) -> void:
@@ -362,6 +478,8 @@ static func _tick_pool(sim: WorldSim, m: Dictionary, owner: SimEntity, h: Dictio
 			if o.is_alive() and owner.is_hostile_to(o) and inside(h, o.position, o.radius) and not ChoirSystem.shelters(sim, owner, o):
 				var r := Combat.calc_damage(owner, o, tp, int(h["kind"]), sim.rng, h["pos"])
 				sim._deal_damage(owner, o, r["amount"], false, false, "dot_pool", h["pos"])
+				if o.is_character():
+					stat(sim, "linger_line_ticks" if str(h.get("shape", "circle")) == "line" else "linger_ticks")     # sonda: tiques em personagem na faixa/poça que ficou
 	if h.get("empower") is Dictionary and inside(h, owner.position, 0.0):
 		_empower(sim, owner, h["empower"])
 
@@ -413,11 +531,15 @@ static func add_cover(sim: WorldSim, m: Dictionary, owner: SimEntity, p: Vector3
 	while mine.size() >= int(cd.get("max", Balance.TROLL_COVER_MAX)):
 		m["covers"].erase(mine.pop_front())
 	m["hazard_seq"] = int(m.get("hazard_seq", 0)) + 1
-	m["covers"].append({"id": m["hazard_seq"], "owner": owner.id, "pos": _ground(p), "radius": float(cd.get("radius", 1.2)), "until": sim.time + float(cd.get("time", 40.0))})
-	Events.post(&"skill_effect", "mob_boulder_toss", _ground(p), _ground(p), float(cd.get("radius", 1.2)))
+	var c := {"id": m["hazard_seq"], "owner": owner.id, "pos": _ground(p), "radius": float(cd.get("radius", 1.2)), "until": sim.time + float(cd.get("time", 40.0))}
+	if cd.has("model"):
+		c["model"] = str(cd["model"])                # Espelho de Pé: a apresentação desenha o modelo e o clipe de rachar
+	m["covers"].append(c)
+	Events.post(&"skill_effect", str(cd.get("fx", "mob_boulder_toss")), _ground(p), _ground(p), float(cd.get("radius", 1.2)))
 
+## Coberturas que ainda protegem (espelho rachado fica no chão só como desenho).
 static func covers_of(m: Dictionary, owner_id: int) -> Array:
-	return (m.get("covers", []) as Array).filter(func(c): return int(c["owner"]) == owner_id)
+	return (m.get("covers", []) as Array).filter(func(c): return int(c["owner"]) == owner_id and not c.get("cracked", false))
 
 static func _update_covers(sim: WorldSim, m: Dictionary) -> void:
 	var cv: Array = m["covers"]
@@ -431,6 +553,11 @@ static func avalanche_prep(sim: WorldSim, e: SimEntity, s: SkillDef) -> void:
 	var m: Dictionary = sim.maps[e.map_id]
 	stat(sim, "avalanches")
 	var d: Dictionary = s.effects["avalanche"]
+	if d.get("mirrors") is Array:                  # Olhar Que Julga: os espelhos velhos saem e sobem os novos nos pontos da sala
+		raise_mirrors(sim, m, e, d["mirrors"])
+		if d.has("say"):
+			MobSystem.boss_say(sim, e, str(d["say"]))
+		return
 	if not covers_of(m, e.id).is_empty():
 		return
 	var n := int(d.get("guarantee", Balance.BOSS_SIG_DEFAULTS["avalanche"]["guarantee"]))
@@ -443,6 +570,15 @@ static func avalanche_prep(sim: WorldSim, e: SimEntity, s: SkillDef) -> void:
 		if MapGeometry.is_walkable(sim, p, m["def"], 1.0) and placed.all(func(q): return q.distance_to(p) > 4.0):
 			placed.append(p)
 			add_cover(sim, m, e, p)
+
+## Condessa (GDD ato3 §4.1): um Espelho de Pé em cada ponto (`pts` = deslocamento [x, z] do ponto de nascer do chefe,
+## espelho dos `cover` do boss_hint do JSON da sala); os dela que estavam no chão (inteiros ou rachados) somem antes.
+static func raise_mirrors(sim: WorldSim, m: Dictionary, e: SimEntity, pts: Array) -> void:
+	if m.has("covers"):
+		m["covers"] = (m["covers"] as Array).filter(func(c): return int(c["owner"]) != e.id)
+	for q in pts:
+		add_cover(sim, m, e, e.home_position + Vector3(float(q[0]), 0, float(q[1])))
+	stat(sim, "mirrors_raised", pts.size())
 
 ## Pedra entre o chefe e o alvo (o segmento chefe→alvo cruza o círculo da pedra)?
 static func cover_between(m: Dictionary, boss: SimEntity, t: Vector3) -> Dictionary:
@@ -474,6 +610,12 @@ static func avalanche(sim: WorldSim, e: SimEntity, s: SkillDef, power: float, ef
 		if o.is_character():
 			stat(sim, "avalanche_hits")
 	for c in used:
+		if c.has("model"):                    # espelho: racha e fica rachado no chão (não protege mais) até o próximo Olhar
+			c["cracked"] = true
+			c["until"] = minf(float(c["until"]), sim.time + Balance.ACT3_MIRROR_CRACKED_S)
+			stat(sim, "mirrors_cracked")
+			Events.post(&"skill_effect", MIRROR_CRACK_FX, c["pos"], c["pos"], float(c["radius"]))
+			continue
 		m["covers"].erase(c)                  # a pedra que protegeu racha e some
 		Events.post(&"skill_effect", "mob_rock_quake", c["pos"], c["pos"], float(c["radius"]))
 		Events.post(&"skill_effect", COVER_BREAK_FX, c["pos"], c["pos"], float(c["radius"]))
@@ -523,7 +665,8 @@ static func _channel_break(sim: WorldSim, e: SimEntity) -> void:
 	e.skill_phase = ""
 	e.is_blocking = false
 	e.set_state(SimEntity.State.STUNNED, Balance.BOSS_CHANNEL_STAGGER)
-	e.put_debuff({"kind": "curse", "id": TORN_DEBUFF, "remaining": Balance.BOSS_CHANNEL_VULN_TIME, "taken_pct": Balance.BOSS_CHANNEL_VULN, "weaken_pct": 0.0})
+	var ob: Dictionary = cfg.get("on_break", {})      # Banquete (Varo): vuln/vuln_time próprios
+	e.put_debuff({"kind": "curse", "id": TORN_DEBUFF, "remaining": float(ob.get("vuln_time", Balance.BOSS_CHANNEL_VULN_TIME)), "taken_pct": float(ob.get("vuln", Balance.BOSS_CHANNEL_VULN)), "weaken_pct": 0.0})
 	if cfg.has("break_say"):
 		MobSystem.boss_say(sim, e, str(cfg["break_say"]))
 	Events.post(&"skill_effect", CHANNEL_BREAK_FX, e.position, e.position, float(cfg.get("break_radius", Balance.BOSS_CHANNEL_BREAK_RADIUS)))
@@ -537,7 +680,9 @@ static func _channel_done(sim: WorldSim, e: SimEntity, d: Dictionary) -> void:
 	var bd: Dictionary = od.get("buff", {})
 	if not bd.is_empty() and sim.maps.has(e.map_id):
 		for o: SimEntity in sim.maps[e.map_id]["entities"]:
-			if o == e or o.kind != SimEntity.Kind.MONSTER or not o.is_alive() or (o.boss_id != e.id and o.leader_id != e.id):
+			if o.kind != SimEntity.Kind.MONSTER or not o.is_alive() or (o != e and o.boss_id != e.id and o.leader_id != e.id):
+				continue
+			if o == e and not od.get("self", false):  # Banquete (Varo): `self` = ele também bebe (cura + fúria)
 				continue
 			if o.position.distance_squared_to(e.position) > r2:
 				continue

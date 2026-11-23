@@ -7,7 +7,7 @@ extends RefCounted
 ## de skill (skill no centro; maestria, evoluções e passivos em volta) e de notável (anel com o notável no meio, duas
 ## entradas). Setores por ramo (Geral + builds) em volta do início; skill de nível alto mais longe. Ver _class_tree.
 ##
-## Nó: {id, kind: start|skill_up|skill_quick|stat|notable|talent|pick, ref, name, desc, level, cost, pos: Vector2, links: [ids], stats: {}, branch}
+## Nó: {id, kind: start|skill_up|skill_quick|skill_charge|stat|notable|talent|pick, ref, name, desc, level, cost, pos: Vector2, links: [ids], stats: {}, branch}
 ## Skills vêm pelo nível (ProgressionSystem.grant_level_skills); no centro do círculo fica "<Skill> Aprimorada" (skill_up,
 ## id <classe>_s_<skill>) e do outro lado da entrada "<Skill> Ágil" (skill_quick, id <classe>_m_<skill>): ids, posições e
 ## ligações de sempre. O rank 1-5 da skill sobe no Mestre de Skills (ProgressionSystem.rank_up), fora da teia.
@@ -345,6 +345,11 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 			for s in range(slots):
 				if roles[s] == null:
 					roles[s] = q.pop_front() if not q.is_empty() else "p"
+			if charge_ok(sk):
+				for s in range(slots - 1, -1, -1):        # o último passivo vira "em Cargas"
+					if str(roles[s]) == "p":
+						roles[s] = "k"
+						break
 			for s in range(slots):
 				var a := base_a + TAU * s / float(slots)
 				var at := c + Vector2(cos(a), sin(a)) * WHEEL_R
@@ -355,6 +360,10 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 					nodes[sid] = _node(sid, "stat", "", stat_text(st), "Passivo: %s." % stat_text(st), 1, 1, at)
 					nodes[sid]["stats"] = st
 					_link(nodes, sid, hubs[corner])
+				elif str(roles[s]) == "k":            # "em Cargas" no lugar do último passivo (posição e ids dos outros ficam)
+					sid = "%s_k_%s" % [cls.id, sk.id]
+					nodes[sid] = _node(sid, "skill_charge", sk.id, charge_name(sk), charge_desc(sk), sk.unlock_level, Balance.SKILL_CHARGE_COST, at)
+					small_i[bi] = int(small_i.get(bi, 0)) + 1          # o sorteio de passivos anda igual (os outros não mudam)
 				elif str(roles[s]) == "m":            # "Ágil" do outro lado da entrada (era a maestria)
 					sid = "%s_m_%s" % [cls.id, sk.id]
 					nodes[sid] = _node(sid, "skill_quick", sk.id, quick_name(sk), quick_desc(sk), sk.unlock_level, Balance.SKILL_QUICK_COST, at)
@@ -431,6 +440,7 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 			_link(nodes, start if i == 0 else "%s_t_%s" % [cls.id, dash_talents[i - 1].id], tnid)
 	_role_notables(cls, nodes)
 	_outer_web(cls, nodes, branches, hubs, used_cells, sector_of, out_clusters, far)
+	_rim_web(cls, nodes, branches, hubs, used_cells, sector_of, out_clusters)
 	_core_ring(cls, nodes, start)
 	_class_picks(cls, nodes)
 	return {"start": start, "nodes": nodes, "panes": panes, "clusters": out_clusters}
@@ -496,12 +506,22 @@ static func _outer_web(cls: ClassDef, nodes: Dictionary, branches: Array, hubs: 
 		sector_of: Callable, out_clusters: Array, far: float) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(cls.id + "_teia_ato2")
-	var n_br := branches.size()
 	var k2: int = Balance.WEB_OUTER_GRID_K
 	var r_out := k2 * CELL
 	var lv_span: Array = Balance.WEB_OUTER_LEVEL
 	var level_at := func(p: Vector2) -> int:
 		return roundi(lerpf(lv_span[0], lv_span[1], clampf((p.length() - far) / maxf(1.0, r_out - far), 0.0, 1.0)))
+	var plan := _grow(cls, nodes, branches, hubs, used_cells, sector_of, rng, k2, CELL * 2.0, Balance.WEB_OUTER_GERAL_CELLS, Balance.WEB_OUTER_CELLS, level_at, "Fronteira")
+	_outer_circles(cls, nodes, branches, hubs, plan, rng, level_at, out_clusters)
+
+## Escolhe as casas livres de uma região nova (Fronteira, Orla) por setor, sempre encostadas na malha (sem ilha), e liga as
+## junções novas com estradas (árvore mínima + parte das outras). Devolve o plano [{cell, branch, slot}]. Usa o `rng` da
+## região na ordem de sempre (a Fronteira não muda). `geral_cells`/`build_cells` = casas do Geral (ramo 0) / de cada build; `min_len` = distância mínima do centro.
+static func _grow(cls: ClassDef, nodes: Dictionary, branches: Array, hubs: Dictionary, used_cells: Dictionary, sector_of: Callable,
+		rng: RandomNumberGenerator, k2: int, min_len: float, geral_cells: int, build_cells: int, level_at: Callable, label: String,
+		relax: bool = false) -> Array:
+	var n_br := branches.size()
+	var r_out := k2 * CELL
 	# casas livres por setor, perto -> longe
 	var cand: Array = []
 	for bi in range(n_br):
@@ -510,9 +530,9 @@ static func _outer_web(cls: ClassDef, nodes: Dictionary, branches: Array, hubs: 
 		for j in range(-k2, k2):
 			var key := Vector2i(i, j)
 			var c := Vector2((i + 0.5) * CELL, (j + 0.5) * CELL)
-			if used_cells.has(key) or c.length() > r_out or c.length() < CELL * 2.0:
+			if used_cells.has(key) or c.length() > r_out or (c.length() < min_len and not relax):
 				continue
-			cand[sector_of.call(c)].append({"i": i, "j": j, "c": c, "d": c.length() + rng.randf() * CELL * 0.35})
+			cand[sector_of.call(c)].append({"i": i, "j": j, "c": c, "d": c.length() + rng.randf() * CELL * 0.35, "inner": c.length() < min_len})
 	for bi in range(n_br):
 		cand[bi].sort_custom(func(a, b): return float(a["d"]) < float(b["d"]))
 	# escolhe as casas: em rodízio, cada setor pega a mais perto que encosta na malha (sem ilha)
@@ -522,14 +542,15 @@ static func _outer_web(cls: ClassDef, nodes: Dictionary, branches: Array, hubs: 
 		took.append(0)
 	var new_hubs := {}
 	var progress := true
+	var loose := false               # `relax`: setor que não acha casa por fora de min_len aceita uma de dentro
 	while progress:
 		progress = false
 		for bi in range(n_br):
-			if took[bi] >= _outer_cells(bi):
+			if took[bi] >= (geral_cells if bi == 0 else build_cells):
 				continue
 			for cell in cand[bi]:
 				var key := Vector2i(cell["i"], cell["j"])
-				if used_cells.has(key) or not _touches(hubs, key):
+				if used_cells.has(key) or not _touches(hubs, key) or (cell["inner"] and not loose):
 					continue
 				used_cells[key] = true
 				plan.append({"cell": cell, "branch": bi, "slot": took[bi]})
@@ -544,12 +565,15 @@ static func _outer_web(cls: ClassDef, nodes: Dictionary, branches: Array, hubs: 
 						var br: Dictionary = branches[sector_of.call(hp)]
 						var hid := "%s_h_%d_%d" % [cls.id, h.x + 50, h.y + 50]
 						var hst := {"attr_" + str(br["attr"]): ROAD_ATTR}
-						nodes[hid] = _node(hid, "stat", "", "Junção", "Junção da Fronteira: %s." % stat_text(hst), level_at.call(hp), 1, hp)
+						nodes[hid] = _node(hid, "stat", "", "Junção", "Junção da %s: %s." % [label, stat_text(hst)],level_at.call(hp), 1, hp)
 						nodes[hid]["stats"] = hst
 						nodes[hid]["branch"] = "ring"
 						hubs[h] = hid
 						new_hubs[h] = true
 				break
+		if not progress and relax and not loose:
+			loose = true
+			progress = true
 	# estradas novas: árvore mínima ligando as junções novas à malha (a antiga já é um bloco só) + parte das outras
 	var hub_keys: Array = hubs.keys()
 	hub_keys.sort()
@@ -577,12 +601,16 @@ static func _outer_web(cls: ClassDef, nodes: Dictionary, branches: Array, hubs: 
 		var br: Dictionary = branches[sector_of.call(mid)]
 		var tid := "%s_e_%d_%d_%d_%d" % [cls.id, a.x + 50, a.y + 50, b.x + 50, b.y + 50]
 		var est := {"attr_" + str(br["attr"]): ROAD_ATTR}
-		nodes[tid] = _node(tid, "stat", "", "Passagem", "Passagem da Fronteira: %s." % stat_text(est), level_at.call(mid), 1, mid)
+		nodes[tid] = _node(tid, "stat", "", "Passagem", "Passagem da %s: %s." % [label, stat_text(est)], level_at.call(mid), 1, mid)
 		nodes[tid]["stats"] = est
 		nodes[tid]["branch"] = "ring"
 		_link(nodes, hubs[a], tid)
 		_link(nodes, tid, hubs[b])
-	# círculos: no setor de build o último é o Ápice e o penúltimo a pedra-angular; o Geral fecha com a pedra-angular
+	return plan
+
+## Círculos da Fronteira: no setor de build o último é o Ápice e o penúltimo a pedra-angular; o Geral fecha com a pedra-angular.
+static func _outer_circles(cls: ClassDef, nodes: Dictionary, branches: Array, hubs: Dictionary, plan: Array, rng: RandomNumberGenerator,
+		level_at: Callable, out_clusters: Array) -> void:
 	var arm_i := rng.randi() % 4
 	var elo_done := {}                # Vector2i(ramo, vizinho) já com elo
 	for pl in plan:
@@ -604,48 +632,9 @@ static func _outer_web(cls: ClassDef, nodes: Dictionary, branches: Array, hubs: 
 		var cid := "%s_%d_%d" % [tag, cell["i"] + 50, cell["j"] + 50]
 		var lv: int = level_at.call(c)
 		var main := "attr_" + str(br["attr"])
-		var ring: Array = []
-		for s in range(5):
-			var a := base_a + TAU * s / 5.0
-			var sid := "%s_n_%s_%d" % [cls.id, cid, s]
-			var ra := "attr_" + str(br["attr"] if s % 4 == 0 else br["attr2"])
-			var st := {ra: (Balance.WEB_OUTER_RING_ATTR if s != 2 else Balance.WEB_OUTER_RING_ATTR2) if s % 2 == 0 else ROAD_ATTR}
-			nodes[sid] = _node(sid, "stat", "", stat_text(st), "Passivo da Fronteira: %s." % stat_text(st), lv, 1, c + Vector2(cos(a), sin(a)) * WHEEL_R)
-			nodes[sid]["stats"] = st
-			nodes[sid]["branch"] = br["id"]
-			ring.append(sid)
-		for s in range(5):
-			_link(nodes, ring[s], ring[(s + 1) % 5])
-		_link(nodes, ring[0], hubs[corner])           # entrada no canto perto (a casa encosta na malha: existe)
-		if hubs.has(far_corner):                        # 2ª entrada (atalho) pelo nó do anel virado para o outro canto
-			var a_far := (Vector2(far_corner.x, far_corner.y) * CELL - c).angle()
-			var best := 0
-			var bd := INF
-			for s in range(5):
-				var d := absf(angle_difference(base_a + TAU * s / 5.0, a_far))
-				if d < bd:
-					bd = d
-					best = s
-			_link(nodes, ring[best], hubs[far_corner])
+		var ring := _wheel(cls, nodes, hubs, br, c, cid, corner, far_corner, base_a, lv, "Fronteira")
 		if kind == "keystone":
-			var opts: Array = KEYSTONES.get(br["role"], KEYSTONES[""])
-			var ids: Array = ["%s_n_%s_k0" % [cls.id, cid], "%s_n_%s_k1" % [cls.id, cid]]
-			for o in range(2):
-				var ks: Array = opts[o]
-				var st := _build_power(_mult(ks[1], Balance.WEB_KEYSTONE_SCALE), br, cls)
-				st[main] = int(st.get(main, 0)) + Balance.WEB_KEYSTONE_ATTR
-				var a := base_a + PI * 0.5 + PI * o          # de lado em relação à entrada, cada uma junto de 2 nós do anel
-				var at := c + Vector2(cos(a), sin(a)) * KEYSTONE_R
-				nodes[ids[o]] = _node(ids[o], "notable", "", ks[0], "Pedra-angular: %s.\nExclui %s (só o reset desfaz)." % [stat_text(st), opts[1 - o][0]],
-					Balance.WEB_KEYSTONE_LEVEL, 1, at)
-				nodes[ids[o]]["stats"] = st
-				nodes[ids[o]]["branch"] = br["id"]
-				nodes[ids[o]]["keystone"] = ks[2]
-				nodes[ids[o]]["excludes"] = [ids[1 - o]]
-				var near: Array = range(5)
-				near.sort_custom(func(x, y): return (nodes[ring[x]]["pos"] as Vector2).distance_to(at) < (nodes[ring[y]]["pos"] as Vector2).distance_to(at))
-				_link(nodes, ids[o], ring[near[0]])
-				_link(nodes, ids[o], ring[near[1]])
+			_keystone_pair(cls, nodes, br, c, cid, base_a, ring, Balance.WEB_KEYSTONE_LEVEL, Balance.WEB_KEYSTONE_SCALE, Balance.WEB_KEYSTONE_ATTR, "")
 			out_clusters.append({"center": c, "r": WHEEL_R, "kind": "keystone", "branch": br["id"]})
 			continue
 		var nn := "%s_n_%s_x" % [cls.id, cid]
@@ -695,6 +684,141 @@ static func _outer_web(cls: ClassDef, nodes: Dictionary, branches: Array, hubs: 
 ## Quantas casas da Fronteira o ramo `bi` ganha (0 = Geral).
 static func _outer_cells(bi: int) -> int:
 	return Balance.WEB_OUTER_GERAL_CELLS if bi == 0 else Balance.WEB_OUTER_CELLS
+
+## Anel de 5 passivos de um círculo da Fronteira/Orla, ligado ao canto perto (a casa encosta na malha: existe) e, se houver,
+## ao canto de longe pelo nó virado para ele. Devolve os 5 ids. `label` vai na descrição ("Passivo da Orla: ...").
+static func _wheel(cls: ClassDef, nodes: Dictionary, hubs: Dictionary, br: Dictionary, c: Vector2, cid: String, corner: Vector2i,
+		far_corner: Vector2i, base_a: float, lv: int, label: String) -> Array:
+	var ring: Array = []
+	for s in range(5):
+		var a := base_a + TAU * s / 5.0
+		var sid := "%s_n_%s_%d" % [cls.id, cid, s]
+		var ra := "attr_" + str(br["attr"] if s % 4 == 0 else br["attr2"])
+		var st := {ra: (Balance.WEB_OUTER_RING_ATTR if s != 2 else Balance.WEB_OUTER_RING_ATTR2) if s % 2 == 0 else ROAD_ATTR}
+		nodes[sid] = _node(sid, "stat", "", stat_text(st), "Passivo da %s: %s." % [label, stat_text(st)], lv, 1, c + Vector2(cos(a), sin(a)) * WHEEL_R)
+		nodes[sid]["stats"] = st
+		nodes[sid]["branch"] = br["id"]
+		ring.append(sid)
+	for s in range(5):
+		_link(nodes, ring[s], ring[(s + 1) % 5])
+	_link(nodes, ring[0], hubs[corner])
+	if hubs.has(far_corner):
+		var a_far := (Vector2(far_corner.x, far_corner.y) * CELL - c).angle()
+		var best := 0
+		var bd := INF
+		for s in range(5):
+			var d := absf(angle_difference(base_a + TAU * s / 5.0, a_far))
+			if d < bd:
+				bd = d
+				best = s
+		_link(nodes, ring[best], hubs[far_corner])
+	return ring
+
+## Pedra-angular: duas opções do papel (KEYSTONES x `scale`, + `attr` do atributo da build) que se excluem, dentro do anel.
+## `suffix` vai no nome (" Menor" na Orla).
+static func _keystone_pair(cls: ClassDef, nodes: Dictionary, br: Dictionary, c: Vector2, cid: String, base_a: float, ring: Array,
+		level: int, scale: float, attr: int, suffix: String) -> void:
+	var main := "attr_" + str(br["attr"])
+	var opts: Array = KEYSTONES.get(br["role"], KEYSTONES[""])
+	var ids: Array = ["%s_n_%s_k0" % [cls.id, cid], "%s_n_%s_k1" % [cls.id, cid]]
+	for o in range(2):
+		var ks: Array = opts[o]
+		var st := _build_power(_mult(ks[1], scale), br, cls)
+		st[main] = int(st.get(main, 0)) + attr
+		var a := base_a + PI * 0.5 + PI * o          # de lado em relação à entrada, cada uma junto de 2 nós do anel
+		var at := c + Vector2(cos(a), sin(a)) * KEYSTONE_R
+		nodes[ids[o]] = _node(ids[o], "notable", "", str(ks[0]) + suffix, "Pedra-angular: %s.\nExclui %s (só o reset desfaz)." % [stat_text(st), str(opts[1 - o][0]) + suffix],
+			level, 1, at)
+		nodes[ids[o]]["stats"] = st
+		nodes[ids[o]]["branch"] = br["id"]
+		nodes[ids[o]]["keystone"] = ks[2]
+		nodes[ids[o]]["excludes"] = [ids[1 - o]]
+		var near: Array = range(5)
+		near.sort_custom(func(x, y): return (nodes[ring[x]]["pos"] as Vector2).distance_to(at) < (nodes[ring[y]]["pos"] as Vector2).distance_to(at))
+		_link(nodes, ids[o], ring[near[0]])
+		_link(nodes, ids[o], ring[near[1]])
+
+## --- Orla (Ato III parte 1, níveis 46-50; GDD ato3-excesso-45-50 §6.5) ---
+## Anel de casas por fora da Fronteira (de Balance.WEB_RIM_MIN_K a WEB_RIM_GRID_K casas do centro), sorteio próprio
+## (`<classe>_teia_ato3`): a teia do 45 não muda. Por setor de build: notável da build (nome abaixo, 2 passivos da build),
+## notável de elo com a vizinha e uma pedra-angular menor (KEYSTONES x WEB_RIM_KEYSTONE_SCALE, duas opções que se excluem);
+## o Geral: um notável de papel "Maior" e a pedra-angular menor. Tudo exige nível WEB_RIM_LEVEL (46 perto -> 49 longe).
+const RIM_BUILD_NAMES := {
+	"guardiao": "Muralha Sem Fim", "cruzado": "Fé Afiada", "templario": "Brasa Sagrada", "carniceiro": "Rodopio Sem Fim",
+	"executor": "Mão do Carrasco", "punhos": "Ritmo de Ferro", "sacerdote": "Graça Serena", "inquisidor": "Olhar da Luz",
+	"batalha": "Fé de Campanha", "guardiao_verde": "Tronco Velho", "fera": "Fome da Matilha", "xama": "Chuva Mansa",
+	"cacador": "Olho do Falcão", "atirador": "Cano Quente", "lanceiro": "Ponta Certeira", "laminas": "Fio Silencioso",
+	"duelista": "Passo de Esgrima", "corsario": "Sal e Pólvora", "fogo": "Chama Clara", "gelo": "Frio Sereno",
+	"raio": "Trovão Longo", "invocador": "Exército Fiel", "ceifador": "Foice Faminta", "pestilento": "Névoa Doce",
+}
+
+static func _rim_cells(bi: int) -> int:
+	return Balance.WEB_RIM_GERAL_CELLS if bi == 0 else Balance.WEB_RIM_CELLS
+
+static func _rim_web(cls: ClassDef, nodes: Dictionary, branches: Array, hubs: Dictionary, used_cells: Dictionary,
+		sector_of: Callable, out_clusters: Array) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(cls.id + "_teia_ato3")
+	var k2: int = Balance.WEB_RIM_GRID_K
+	var r_in: float = Balance.WEB_RIM_MIN_K * CELL
+	var r_out := k2 * CELL
+	var lv_span: Array = Balance.WEB_RIM_LEVEL
+	var level_at := func(p: Vector2) -> int:
+		return roundi(lerpf(lv_span[0], lv_span[1], clampf((p.length() - r_in) / maxf(1.0, r_out - r_in), 0.0, 1.0)))
+	var plan := _grow(cls, nodes, branches, hubs, used_cells, sector_of, rng, k2, r_in, Balance.WEB_RIM_GERAL_CELLS, Balance.WEB_RIM_CELLS, level_at, "Orla", true)
+	var arm_i := rng.randi() % 4
+	var elo_done := {}
+	for pl in plan:
+		var cell: Dictionary = pl["cell"]
+		var bi: int = pl["branch"]
+		var br: Dictionary = branches[bi]
+		var slot: int = pl["slot"]
+		var c: Vector2 = cell["c"] + Vector2(rng.randf_range(-1, 1), rng.randf_range(-1, 1)) * JITTER_CELL
+		var tag: String = br["id"] if br["id"] != "" else "geral"
+		var corner := Vector2i(cell["i"] + (1 if c.x < 0 else 0), cell["j"] + (1 if c.y < 0 else 0))
+		var far_corner := Vector2i(cell["i"] + (0 if c.x < 0 else 1), cell["j"] + (0 if c.y < 0 else 1))
+		var base_a := (Vector2(corner.x, corner.y) * CELL - c).normalized().angle()
+		var cid := "%s_%d_%d" % [tag, cell["i"] + 50, cell["j"] + 50]
+		var lv: int = level_at.call(c)
+		var main := "attr_" + str(br["attr"])
+		var ring := _wheel(cls, nodes, hubs, br, c, cid, corner, far_corner, base_a, lv, "Orla")
+		if slot == _rim_cells(bi) - 1:           # última casa do ramo: pedra-angular menor
+			_keystone_pair(cls, nodes, br, c, cid, base_a, ring, Balance.WEB_RIM_KEYSTONE_LEVEL, Balance.WEB_RIM_KEYSTONE_SCALE,
+				Balance.WEB_RIM_KEYSTONE_ATTR, " Menor")
+			out_clusters.append({"center": c, "r": WHEEL_R, "kind": "keystone", "branch": br["id"]})
+			continue
+		var nname := ""
+		var nst := {}
+		var other := _neighbor_build(c, bi, branches, true) if bi > 0 and slot == 1 else -1
+		if other >= 0 and elo_done.has(Vector2i(bi, other)):
+			other = -1
+		if bi > 0 and slot == 0:
+			nname = str(RIM_BUILD_NAMES.get(br["id"], br["name"]))
+			nst = _build_stats(br, cls, [2, 3], Balance.WEB_RIM_PASSIVE_MULT)
+			nst[main] = int(nst.get(main, 0)) + Balance.WEB_RIM_NOTABLE_ATTR
+		elif other >= 0:
+			elo_done[Vector2i(bi, other)] = true
+			var ob: Dictionary = branches[other]
+			nname = "Elo: %s e %s" % [br["name"], ob["name"]]
+			nst = _build_stats(ob, cls, [1], Balance.WEB_RIM_PASSIVE_MULT)
+			nst[main] = int(nst.get(main, 0)) + Balance.WEB_HYBRID_ATTR
+			var om := "attr_" + str(ob["attr"])
+			nst[om] = int(nst.get(om, 0)) + Balance.WEB_HYBRID_ATTR
+		else:
+			var arm: Array = ARM_NOTABLES.get(br["role"], ARM_NOTABLES[""])
+			var pick: Array = arm[arm_i % arm.size()]
+			arm_i += 1
+			nname = str(pick[0]) + " Maior"
+			nst = _build_power(_scaled(pick[1], Balance.WEB_OUTER_ARM_SCALE), br, cls)
+			nst[main] = int(nst.get(main, 0)) + Balance.WEB_RIM_NOTABLE_ATTR
+		var nn := "%s_n_%s_x" % [cls.id, cid]
+		nodes[nn] = _node(nn, "notable", "", nname, "Notável da Orla: %s." % stat_text(nst), lv, 1, c)
+		nodes[nn]["stats"] = nst
+		nodes[nn]["branch"] = br["id"]
+		nodes[nn]["rim"] = true
+		_link(nodes, nn, ring[2])
+		_link(nodes, nn, ring[3])
+		out_clusters.append({"center": c, "r": WHEEL_R, "kind": "notable", "branch": br["id"]})
 
 ## A casa encosta na malha (algum canto já é junção)?
 static func _touches(hubs: Dictionary, key: Vector2i) -> bool:
@@ -835,6 +959,36 @@ static func quick_name(s: SkillDef) -> String:
 
 static func quick_desc(s: SkillDef) -> String:
 	return "%s: -%d%% de recarga e de MP." % [s.name, roundi(Balance.SKILL_QUICK_PCT * 100.0)]
+
+## Efeitos que tiram a skill das cargas: ligar/desligar, forma, invocação, buff de hora certa, preparo de outra skill.
+const NO_CHARGE_EFFECTS := ["form", "aura", "summon", "stealth", "arcane", "pet_buff", "pet_command", "falcon_call", "falcon_eyes",
+	"elem_command", "elem_fusion", "choir_angel", "choir_barrier", "choir_return", "sacrifice", "cd_reset", "shadow_clone",
+	"decoys", "turret", "riposte", "channel", "summon_pact", "orbit", "pack", "rally", "shout", "zone", "trap"]
+const CHARGE_CONTROL := ["stun", "root", "slow", "taunt", "pull", "knockback"]
+
+## Skill que ganha o nó "<Skill> em Cargas": dano ou controle (físico/mágico), recarga base >= Balance.SKILL_CHARGE_MIN_CD,
+## sem buff longo/aura/forma/invocação, fora Suprema e ascensão. Ex.: `TreeCatalog.charge_ok(GameData.skills["ele_meteor"])`.
+static func charge_ok(s: SkillDef) -> bool:
+	if s.ultimate or s.ascension or s.cooldown < Balance.SKILL_CHARGE_MIN_CD:
+		return false
+	if not (s.kind in [SkillDef.Kind.PHYSICAL, SkillDef.Kind.MAGICAL]) or s.target == SkillDef.Target.SELF and s.effects.has("buff"):
+		return false
+	for k in NO_CHARGE_EFFECTS:
+		if s.effects.has(k):
+			return false
+	if s.power > 0.0:
+		return true
+	for k in CHARGE_CONTROL:
+		if s.effects.has(k):
+			return true
+	return false
+
+static func charge_name(s: SkillDef) -> String:
+	return "%s em Cargas" % s.name
+
+static func charge_desc(s: SkillDef) -> String:
+	return "%s: guarda até %d cargas; cada uma volta em %d%% da recarga, uma de cada vez. MP por uso." % [s.name,
+		Balance.SKILL_CHARGE_MAX, roundi(Balance.SKILL_CHARGE_RECHARGE_MULT * 100.0)]
 
 ## Texto do rank (maestria) da skill: o que cada rank do Mestre de Skills dá.
 static func mastery_desc(s: SkillDef) -> String:

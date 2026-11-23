@@ -70,6 +70,10 @@ const MOB_VOICE := {
 	"archdruid_wolf": ["wolf_howl", "wolf_snarl", ""], "archdruid_bear": ["bear_growl", "bear_roar", ""], "archdruid_treant": ["golem_rumble", "earth", ""],
 		"bear_cub": ["bear_growl", "bear_growl", ""], "bear_cub_den": ["", "bear_growl", ""], "bear": ["bear_growl", "bear_growl", ""],
 	"bear_mother": ["bear_roar", "bear_growl", "bear_roar"], "hive": ["wasp_buzz", "", "hive_crack"],
+	# Demônias da Sede (Ato III §3.1): sem banco próprio ainda; reaproveitam lua/sombra/fumaça
+	"seductress": ["lunar", "smoke_vanish", "die_monster"], "flayer": ["shadow", "swing", "die_monster"], "veil_singer": ["lunar", "lunar", "die_monster"], "thirst_matriarch": ["shadow", "smoke_vanish", "die_boss"],
+	# Ato III, chefes de mundo (WP8a): provisórios até os sons do WP12
+	"boss_vindima": ["nature", "earth", "golem_crumble"], "boss_prima_donna": ["lunar", "lunar", "die_boss"],
 }
 ## Skill com som próprio na fase ativa (no lugar do vento da arma) e no impacto (no lugar do som do tema).
 const CAST_SOUND := {"mob_drum_beat": "war_drum", "mob_war_drum": "war_drum", "mob_net_throw": "net",
@@ -98,6 +102,13 @@ const SIG_WARN := {
 	"mob_gorbash_waves": ["active", "sig_warn", "golem_rumble"],   # anéis das pisadas no chão
 	"mob_kragmar_temper": ["active", "sig_warn", "forge_hammer"],  # círculos das poças no chão (o martelo bate na lava)
 	"mob_durgash_throneaxe": ["active", "sig_warn", "war_drum"],   # círculo dourado na vítima (o trono chama o machado)
+	"mob_vindima_press": ["active", "sig_warn", "nature"],          # o puxão das vinhas e o círculo da prensa em volta dela
+	"mob_prima_aria": ["active", "sig_warn", "lunar"],             # os três anéis da ária no chão
+	"mob_vess_cortege": ["active", "sig_warn", "blood"],           # as 4 faixas do cortejo aparecem juntas
+	"mob_echo_thirst": ["active", "sig_warn", "lunar"],            # marca dourada (dividir) ou roxa (espalhar)
+	"mob_varo_banquet": ["active", "sig_warn", "potion"],          # o canal do Banquete começa (ele bebe)
+	"mob_countess_gaze": ["startup", "sig_warn", "gem"],           # 3 s de preparo: os Espelhos de Pé sobem
+	"mob_ressoa_canon": ["active", "sig_warn", "lunar"],           # as marcas do Cânone nas vítimas
 }
 ## Impacto/quebra das assinaturas (id do skill_effect, inclusive os que não são skill: BossSignatures.*_FX).
 const SIG_EFFECT := {
@@ -107,8 +118,12 @@ const SIG_EFFECT := {
 	"mob_ulgra_stampede": "earth", "mob_gorbash_waves": "troll_slam", BossSignatures.DECOY_FX: "smoke_vanish",
 	"mob_kragmar_temper": "lava_bubble",
 	"mob_durgash_throneaxe": "troll_slam",
+	"mob_vindima_press": "troll_slam", "mob_prima_aria": "lunar",
+	"mob_vess_cortege": "blood", "mob_echo_thirst": "lunar",
+	"mob_varo_banquet": "potion", "mob_countess_gaze": "holy", "mob_ressoa_canon": "lunar",
+	BossSignatures.MIRROR_RISE_FX: "gem", BossSignatures.MIRROR_CRACK_FX: "hive_crack",
 }
-const AURA_SOUND := {"agitator": "drum_beat", "agitator_boss": "drum_beat", "clan_wolf": "drum_beat"}
+const AURA_SOUND := {"agitator": "drum_beat", "agitator_boss": "drum_beat", "clan_wolf": "drum_beat", "festim": "drum_beat", "sede": "drum_beat", "sense_sight": "drum_beat"}   # festim: provisório até os sinos (WP12)
 const AURA_BEAT := 0.6           # s entre batidas do laço da aura
 ## Buff de monstro que pulsa enquanto dura: a carne do troll se fechando (MobSystem.update_regen). Um pulso por
 ## vez no mapa (o mais perto), a cada BUFF_BEAT s.

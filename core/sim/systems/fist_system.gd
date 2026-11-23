@@ -19,6 +19,11 @@ static func on_dodge(sim: WorldSim, target: SimEntity, attacker: SimEntity, kind
 		if str(target.stats.legend.get("kind", "")) == "fist_counter":
 			pct += float(target.stats.legend["pct"])
 		sim._deal_damage(target, attacker, maxi(1, int(target.stats.patk * pct / 100.0)), false, false, "riposte")
+		var w := PieceEffects.wake(target, "splash")         # Punho Vingativo Desperto: também em volta
+		if not w.is_empty() and str(target.stats.legend.get("kind", "")) == "fist_counter":
+			for o: SimEntity in sim.maps[target.map_id]["entities"].duplicate():
+				if o != attacker and o.is_alive() and target.is_hostile_to(o) and o.position.distance_to(attacker.position) <= Balance.LEG50_FIST_SPLASH + o.radius:
+					sim._deal_damage(target, o, maxi(1, int(target.stats.patk * pct * float(w["pct"]) / 10000.0)), false, false, "riposte")
 		Events.post(&"skill_effect", "ber_fist_flurry", target.position, attacker.position, 0.0)     # o soco do contra-ataque
 
 ## +n cargas de Fúria do Punho (até o máximo; renova o tempo). O bônus por carga vai no próprio buff (Stats soma).

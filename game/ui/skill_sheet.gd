@@ -52,6 +52,10 @@ static func rows(p: SimEntity, s: SkillDef) -> Array:
 	else:
 		out.append(["Custo", "%d MP" % roundi(r.mp_cost_at(lv))])
 		out.append(["Recarga", _secs(r.cooldown_at(lv))])
+		var mx := ChargeSystem.max_of(p, r.id)
+		if mx > 1:            # nó "em Cargas": mesma conta do try_cast (recarga com redução x SKILL_CHARGE_RECHARGE_MULT)
+			var each := r.cooldown_at(lv) * p.stats.skill_cooldown_mult(r.id) * Balance.SKILL_CHARGE_RECHARGE_MULT
+			out.append(["Cargas", "%d (recarga %s cada)" % [mx, _secs(each)]])
 	if r.startup >= 0.25:
 		out.append(["Preparo", _secs(r.startup)])
 	var reach := _reach(r)

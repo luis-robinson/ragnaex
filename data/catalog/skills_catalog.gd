@@ -439,6 +439,183 @@ static func build(classes: Dictionary) -> Array:
 		# Estandarte da Forja: brasas em volta (queima quem bate nele de perto)
 		{"id": "mob_forge_embers", "name": "Brasas do Clã", "target": T_SELF, "kind": K_MAG, "power": 0.6, "cooldown": 3.0, "radius": 5.0, "startup": 0.3, "active": 0.1, "recovery": 0.3, "icon_color": Color(1.0, 0.45, 0.1), "vfx": "fire",
 		 "effects": {"dot": {"dps": 10, "duration": 3}}},
+		# ---- Ato III, o Excesso (45-50; design/gdd/ato3-excesso-45-50.md §3, WP3): foliões, demônios do Véu, vinhas ----
+		# "Esquivos" sem esquiva (D4 = b): bote/salto (dash), furtividade curta, golpes em sequência (strikes) e atirador que recua (kite).
+		# Folião Mascarado: taça arremessada (projétil que retarda)
+		{"id": "mob_goblet_throw", "name": "Taça Arremessada", "clip": "atk_throw", "target": T_TARGET, "kind": K_PHYS, "power": 1.1, "cooldown": 7.0, "range": 9.0, "radius": 0.0, "max_targets": 1, "projectile_speed": 16.0, "startup": 0.45, "active": 0.1, "recovery": 0.4, "hit_stop_frames": 2, "icon_color": Color(0.75, 0.25, 0.35), "mob_pick": "far",
+		 "effects": {"slow": {"pct": 25, "duration": 2.5}}},
+		# Mestre de Cerimônias: brinde (grito do bando) e bastão de sinos em leque. TODO(WP12): buff próprio no lugar de war_cry
+		{"id": "mob_toast_rally", "name": "Brinde!", "clip": "shout", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 18.0, "radius": 6.0, "startup": 0.6, "active": 0.1, "recovery": 0.4, "icon_color": Color(0.95, 0.75, 0.35),
+		 "effects": {"rally": {"id": "war_cry", "radius": 10.0, "duration": 8.0, "atk_pct": 15.0, "speed_pct": 10.0}}},
+		{"id": "mob_bell_staff", "name": "Bastão de Sinos", "clip": "atk_sweep", "target": T_CONE, "kind": K_PHYS, "power": 1.4, "cooldown": 7.0, "radius": 3.0, "cone_angle_deg": 110, "startup": 0.5, "active": 0.15, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(0.9, 0.8, 0.4),
+		 "effects": {"slow": {"pct": 20, "duration": 2.0}}},
+		# Bailarino do Véu: três talhos de leque em sequência e o Salto Leque (bote de 8 m)
+		{"id": "mob_fan_strikes", "name": "Leques em Três Tempos", "target": T_CONE, "kind": K_PHYS, "power": 1.6, "cooldown": 6.0, "radius": 2.6, "cone_angle_deg": 100, "startup": 0.35, "active": 0.4, "recovery": 0.4, "hit_stop_frames": 2, "icon_color": Color(0.95, 0.75, 0.8), "vfx": "blood",
+		 "effects": {"strikes": {"weights": [0.3, 0.3, 0.4], "at": [0.0, 0.15, 0.3]}}},
+		{"id": "mob_fan_leap", "name": "Salto Leque", "target": T_DIR, "kind": K_PHYS, "power": 1.3, "cooldown": 8.0, "range": 9.0, "radius": 1.4, "startup": 0.45, "active": 0.15, "recovery": 0.5, "hit_stop_frames": 3, "icon_color": Color(0.95, 0.7, 0.75), "mob_pick": "soft", "vfx": "blood",
+		 "effects": {"dash": 8.0, "slow": {"pct": 30, "duration": 2}}},
+		# Primeiro Bailarino: quatro talhos (o último crítico) e o véu de fitas (some 1,5 s e volta com o salto).
+		# O GDD pede `repeat` (R-D) de 3 saltos: a sequência é regra de chefe (BossSignatures só roda em chefe) — aqui o salto tem recarga curta.
+		{"id": "mob_first_fan_strikes", "name": "Leques em Quatro Tempos", "target": T_CONE, "kind": K_PHYS, "power": 2.0, "cooldown": 7.0, "radius": 2.8, "cone_angle_deg": 110, "startup": 0.4, "active": 0.5, "recovery": 0.45, "hit_stop_frames": 2, "icon_color": Color(0.95, 0.8, 0.6), "vfx": "blood",
+		 "effects": {"strikes": {"weights": [0.2, 0.2, 0.25, 0.35], "at": [0.0, 0.12, 0.24, 0.4], "crit_last": true}}},
+		{"id": "mob_first_fan_leap", "name": "Salto Leque do Primeiro Bailarino", "target": T_DIR, "kind": K_PHYS, "power": 1.4, "cooldown": 5.0, "range": 9.0, "radius": 1.5, "startup": 0.45, "active": 0.15, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.95, 0.75, 0.6), "mob_pick": "soft", "vfx": "blood",
+		 "effects": {"dash": 8.0, "slow": {"pct": 30, "duration": 2}}},
+		{"id": "mob_ribbon_vanish", "name": "Véu de Fitas", "clip": "shout", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 14.0, "radius": 5.0, "startup": 0.3, "active": 0.1, "recovery": 0.3, "icon_color": Color(0.9, 0.8, 0.85), "vfx": "wind",
+		 "effects": {"stealth": 1.5}},
+		# Galgo de Seda: investida curta e mordida que sangra; Galgo Alfa: laço de fita no mais longe
+		{"id": "mob_silk_lunge", "name": "Investida de Seda", "target": T_DIR, "kind": K_PHYS, "power": 1.2, "cooldown": 7.0, "range": 7.0, "radius": 1.0, "startup": 0.4, "active": 0.12, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.92, 0.88, 0.8), "vfx": "blood",
+		 "effects": {"dash": 6.0}},
+		{"id": "mob_silk_bite", "name": "Mordida Sangrenta", "target": T_DIR, "kind": K_PHYS, "power": 1.1, "cooldown": 8.0, "range": 2.2, "radius": 1.0, "startup": 0.3, "active": 0.1, "recovery": 0.4, "hit_stop_frames": 3, "icon_color": Color(0.8, 0.25, 0.3), "vfx": "blood",
+		 "effects": {"dot": {"dps": 12, "duration": 4}}},
+		{"id": "mob_ribbon_lash", "name": "Laço de Fita", "clip": "atk_throw", "target": T_TARGET, "kind": K_PHYS, "power": 0.8, "cooldown": 11.0, "range": 12.0, "radius": 0.0, "max_targets": 1, "startup": 0.55, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.95, 0.8, 0.45), "mob_pick": "far",
+		 "effects": {"pull": {"gap": 0.8}, "slow": {"pct": 30, "duration": 2.0}}},
+		# Coro Ferido: Nota Aguda (círculo avisado no alvo, 1,2 s). Maestro: Uníssono = preparo longo de 1,5 s que o atordoar corta
+		# (o "canal" R-C é regra de chefe) e estocada da batuta. TODO(WP12): buff próprio no lugar de war_cry
+		{"id": "mob_shrill_note", "name": "Nota Aguda", "clip": "cast_ground", "target": T_GROUND, "kind": K_MAG, "power": 1.1, "cooldown": 8.0, "range": 11.0, "radius": 2.2, "startup": 0.5, "active": 0.1, "recovery": 0.45, "icon_color": Color(0.85, 0.75, 1.0), "vfx": "lunar",
+		 "effects": {"barrage": {"count": 1, "radius": 2.2, "delay": 1.2, "spread": 0.5}}},
+		{"id": "mob_unison", "name": "Uníssono", "clip": "shout", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 20.0, "radius": 8.0, "startup": 1.5, "active": 0.1, "recovery": 0.4, "icon_color": Color(0.8, 0.7, 1.0), "vfx": "lunar",
+		 "effects": {"rally": {"id": "war_cry", "radius": 12.0, "duration": 10.0, "atk_pct": 30.0}}},
+		{"id": "mob_baton_thrust", "name": "Estocada da Batuta", "clip": "atk_thrust", "target": T_DIR, "kind": K_PHYS, "power": 1.6, "cooldown": 7.0, "range": 5.0, "radius": 0.9, "startup": 0.5, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 4, "icon_color": Color(0.9, 0.85, 0.95)},
+		# Reflexo Vaidoso: some no espelho e volta num lampejo (as cópias R-F são regra de chefe)
+		{"id": "mob_mirror_fade", "name": "Sumir no Espelho", "clip": "shout", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 12.0, "radius": 4.0, "startup": 0.3, "active": 0.1, "recovery": 0.3, "icon_color": Color(0.85, 0.88, 0.95), "vfx": "lunar",
+		 "effects": {"stealth": 1.2}},
+		{"id": "mob_mirror_lunge", "name": "Lampejo do Espelho", "target": T_DIR, "kind": K_PHYS, "power": 1.5, "cooldown": 7.0, "range": 6.0, "radius": 1.0, "startup": 0.4, "active": 0.12, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.9, 0.9, 1.0), "vfx": "blood",
+		 "effects": {"dash": 5.0}},
+		# Incensário Vivo: Fumo Doce (círculos que ficam e pulsam, retardam) e balanço do turíbulo
+		{"id": "mob_sweet_smoke", "name": "Fumo Doce", "clip": "cast_ground", "target": T_GROUND, "kind": K_MAG, "power": 0.6, "cooldown": 10.0, "range": 10.0, "radius": 2.6, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.8, 0.65, 0.9), "vfx": "poison",
+		 "effects": {"barrage": {"count": 2, "radius": 2.6, "delay": 1.3, "spread": 5.0, "linger": 4.0, "tick_power": 0.15}, "slow": {"pct": 30, "duration": 2.0}}},
+		{"id": "mob_censer_swing", "name": "Balanço do Turíbulo", "target": T_SELF, "kind": K_PHYS, "power": 1.3, "cooldown": 8.0, "radius": 3.2, "startup": 0.6, "active": 0.2, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(0.7, 0.55, 0.3),
+		 "effects": {"slow": {"pct": 25, "duration": 2.0}}},
+		# Vinha Sedenta: cepa que prende e puxa
+		{"id": "mob_vine_grasp", "name": "Cepa Faminta", "clip": "atk_sweep", "target": T_TARGET, "kind": K_PHYS, "power": 0.9, "cooldown": 9.0, "range": 9.0, "radius": 0.0, "max_targets": 1, "startup": 0.55, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.55, 0.3, 0.55), "mob_pick": "far", "vfx": "nature",
+		 "effects": {"pull": {"gap": 0.8}, "root": {"duration": 1.5}}},
+		# ---- Demônias da Sede (§3.1): sem esquiva (D4); "esquiva" = furtividade, recuo, salto e distância ----
+		# Sedutora: some (o golpe seguinte é emboscada × Balance.AMBUSH_MULT), garras em 2 tempos e recua 5 m depois de bater
+		{"id": "mob_thirst_vanish", "name": "Véu da Sede", "clip": "shout", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 13.0, "radius": 4.5, "startup": 0.3, "active": 0.1, "recovery": 0.25, "icon_color": Color(0.95, 0.8, 0.85), "vfx": "wind",
+		 "effects": {"stealth": 1.5}},
+		{"id": "mob_thirst_claws", "name": "Garras em Dois Tempos", "target": T_CONE, "kind": K_PHYS, "power": 1.5, "cooldown": 6.0, "radius": 2.4, "cone_angle_deg": 90, "startup": 0.3, "active": 0.3, "recovery": 0.35, "hit_stop_frames": 2, "icon_color": Color(0.95, 0.72, 0.78), "vfx": "blood",
+		 "effects": {"strikes": {"weights": [0.45, 0.55], "at": [0.0, 0.18]}}},
+		{"id": "mob_thirst_recoil", "name": "Recuo de Véus", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 9.0, "radius": 2.6, "startup": 0.1, "active": 0.1, "recovery": 0.2, "lock_facing": true, "icon_color": Color(0.92, 0.82, 0.86), "vfx": "wind",
+		 "effects": {"dash": -5.0}},
+		# Açoitadora: chicote de fita-lâmina (cone longo, sangra) e laço que puxa quem está longe
+		{"id": "mob_thirst_whip", "name": "Chicote de Fitas", "clip": "atk_sweep", "target": T_CONE, "kind": K_PHYS, "power": 1.4, "cooldown": 7.0, "radius": 6.0, "cone_angle_deg": 45, "startup": 0.5, "active": 0.12, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.85, 0.3, 0.4), "vfx": "blood",
+		 "effects": {"dot": {"dps": 14, "duration": 4}}},
+		{"id": "mob_thirst_lash", "name": "Laço da Sede", "clip": "atk_throw", "target": T_TARGET, "kind": K_PHYS, "power": 0.8, "cooldown": 11.0, "range": 11.0, "radius": 0.0, "max_targets": 1, "startup": 0.55, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.9, 0.55, 0.6), "mob_pick": "far", "vfx": "blood",
+		 "effects": {"pull": {"gap": 0.8}, "slow": {"pct": 25, "duration": 2.0}}},
+		# Cantora do Véu: Lamento (golpe direto que retarda e a cura) e anel avisado em volta dela (R-A ring; dano = vermelho)
+		{"id": "mob_veil_lament", "name": "Lamento", "target": T_TARGET, "kind": K_MAG, "power": 1.2, "cooldown": 7.0, "range": 10.0, "radius": 0.0, "max_targets": 1, "startup": 0.5, "active": 0.1, "recovery": 0.4, "icon_color": Color(0.88, 0.75, 0.92), "vfx": "lunar",
+		 "effects": {"slow": {"pct": 30, "duration": 2.5}, "heal_pct_of_dmg": 0.5}},
+		{"id": "mob_veil_ring", "name": "Anel do Lamento", "clip": "cast_ground", "target": T_SELF, "kind": K_MAG, "power": 1.3, "cooldown": 12.0, "radius": 5.0, "startup": 0.5, "active": 0.1, "recovery": 0.45, "icon_color": Color(0.85, 0.7, 0.95), "vfx": "lunar",
+		 "effects": {"barrage": {"shape": "ring", "count": 1, "inner": 1.5, "width": 3.0, "delay": 1.2}}},
+		# Matriarca da Sede: garras longas, salto em leque e duas faixas avisadas (o `repeat` R-D é regra de chefe: aqui as
+		# 2 faixas saem em sequência pelo `stagger` e o salto tem recarga curta, como no Primeiro Bailarino)
+		{"id": "mob_matriarch_claws", "name": "Garras da Matriarca", "target": T_CONE, "kind": K_PHYS, "power": 1.9, "cooldown": 7.0, "radius": 2.8, "cone_angle_deg": 110, "startup": 0.4, "active": 0.4, "recovery": 0.45, "hit_stop_frames": 2, "icon_color": Color(0.95, 0.78, 0.6), "vfx": "blood",
+		 "effects": {"strikes": {"weights": [0.3, 0.3, 0.4], "at": [0.0, 0.15, 0.3], "crit_last": true}}},
+		{"id": "mob_matriarch_leap", "name": "Salto da Matriarca", "target": T_DIR, "kind": K_PHYS, "power": 1.4, "cooldown": 6.0, "range": 9.0, "radius": 1.5, "startup": 0.45, "active": 0.15, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.95, 0.75, 0.6), "mob_pick": "soft", "vfx": "blood",
+		 "effects": {"dash": 8.0, "slow": {"pct": 30, "duration": 2}}},
+		{"id": "mob_matriarch_trail", "name": "Rastro de Véus", "clip": "cast_ground", "target": T_GROUND, "kind": K_PHYS, "power": 1.5, "cooldown": 14.0, "range": 10.0, "radius": 2.0, "startup": 0.5, "active": 0.1, "recovery": 0.45, "icon_color": Color(0.95, 0.7, 0.7), "vfx": "blood",
+		 "effects": {"barrage": {"shape": "line", "count": 2, "width": 2.0, "gap": 2.5, "length": 14.0, "delay": 1.4, "stagger": 0.7}}},
+		# ---- Ato III, chefes de mundo (WP8a; GDD ato3-excesso-45-50 §4.1, D11: afinados para trio) ----
+		# Dona Vindima, a Vinha que Bebe (field_perfume, Poço de Névoa): pisada, chicote que puxa, cachos que caem, brotos e Fumo Doce
+		{"id": "mob_vindima_stomp", "name": "Pisada do Lagar", "clip": "atk_sweep", "target": T_CONE, "kind": K_PHYS, "power": 1.6, "cooldown": 7.0, "radius": 3.2, "cone_angle_deg": 100, "startup": 0.55, "active": 0.15, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(0.45, 0.25, 0.4), "vfx": "earth",
+		 "effects": {"slow": {"pct": 25, "duration": 2.0}}},
+		{"id": "mob_vindima_lash", "name": "Chicote de Vinha", "clip": "atk_throw", "target": T_TARGET, "kind": K_PHYS, "power": 1.0, "cooldown": 11.0, "range": 12.0, "radius": 0.0, "max_targets": 1, "startup": 0.55, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.5, 0.28, 0.5), "mob_pick": "far", "vfx": "nature",
+		 "effects": {"pull": {"gap": 0.8}, "slow": {"pct": 30, "duration": 2.0}}},
+		{"id": "mob_vindima_grapes", "name": "Cachos Maduros", "clip": "cast_ground", "target": T_GROUND, "kind": K_PHYS, "power": 1.2, "cooldown": 12.0, "range": 14.0, "radius": 2.4, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.55, 0.22, 0.45), "mob_pick": "random", "vfx": "poison",
+		 "effects": {"barrage": {"count": 3, "radius": 2.4, "delay": 1.4, "spread": 9.0}, "slow": {"pct": 30, "duration": 2.0}}},
+		{"id": "mob_vindima_sprouts", "name": "Brotos Sedentos", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 22.0, "radius": 0.0, "startup": 0.8, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.42, 0.2, 0.4), "vfx": "summon",
+		 "effects": {"boss_summon": {"id": "vine_sprout", "count": 2, "max": 3, "pick": "soft"}}},
+		{"id": "mob_vindima_smoke", "name": "Fumo Doce do Poço", "clip": "cast_ground", "target": T_GROUND, "kind": K_MAG, "power": 0.7, "cooldown": 11.0, "range": 12.0, "radius": 2.6, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.8, 0.65, 0.9), "mob_pick": "random", "vfx": "poison",
+		 "effects": {"barrage": {"count": 3, "radius": 2.6, "delay": 1.3, "spread": 7.0, "linger": 4.0, "tick_power": 0.15}, "slow": {"pct": 30, "duration": 2.0}}},
+		# Dona Vindima — Prensa (assinatura, verbo "sair do centro"): puxa todos a até 14 m e esmaga um círculo de 6 m em volta dela
+		# 1,5 s depois (R-A circle on_self + `pull` antes do círculo, BossSignatures.pull_in). Números em Balance.ACT3_PRESS_*
+		{"id": "mob_vindima_press", "name": "Prensa", "clip": "shout", "target": T_SELF, "kind": K_PHYS, "power": Balance.ACT3_PRESS_POWER, "cooldown": Balance.ACT3_PRESS_EVERY, "radius": 0.0, "startup": 0.6, "active": 0.1, "recovery": 0.5, "hit_stop_frames": 6, "icon_color": Color(0.5, 0.2, 0.42), "vfx": "earth", "boss_signature": true,
+		 "effects": {"barrage": {"count": 1, "radius": Balance.ACT3_PRESS_RADIUS, "delay": Balance.ACT3_PRESS_DELAY, "on_self": true, "pull": {"radius": Balance.ACT3_PRESS_PULL_R, "gap": 0.6},
+			"say": "Venham para a prensa, meus cachos! Ninguém sai do lagar!"}}},
+		# A Prima-Donna do Palco (field_parade, Palco Grande): leque, duas notas agudas, fortíssimo que empurra e o coro
+		{"id": "mob_prima_fan", "name": "Leque de Palco", "target": T_CONE, "kind": K_PHYS, "power": 1.5, "cooldown": 7.0, "radius": 2.8, "cone_angle_deg": 90, "startup": 0.45, "active": 0.12, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.95, 0.78, 0.82), "vfx": "blood"},
+		{"id": "mob_prima_notes", "name": "Duas Notas Agudas", "clip": "cast_ground", "target": T_GROUND, "kind": K_MAG, "power": 1.2, "cooldown": 9.0, "range": 13.0, "radius": 2.2, "startup": 0.5, "active": 0.1, "recovery": 0.45, "icon_color": Color(0.85, 0.75, 1.0), "mob_pick": "random", "vfx": "lunar",
+		 "effects": {"barrage": {"count": 2, "radius": 2.2, "delay": 1.2, "spread": 6.0}}},
+		{"id": "mob_prima_forte", "name": "Fortíssimo", "clip": "shout", "target": T_SELF, "kind": K_MAG, "power": 1.1, "cooldown": 14.0, "radius": 4.5, "startup": 0.5, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.9, 0.85, 1.0), "vfx": "wind",
+		 "effects": {"knockback": {"dist": 3.0}}},
+		{"id": "mob_prima_chorus", "name": "Chamar o Coro", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 22.0, "radius": 0.0, "startup": 0.8, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.82, 0.74, 0.9), "vfx": "summon",
+		 "effects": {"boss_summon": {"id": "chorister_echo", "count": 2, "max": 3, "pick": "far"}}},
+		# A Prima-Donna — Ária em Três Tempos (assinatura, verbo "ritmo"): 3 anéis em volta dela, perto/meio/longe, um a cada
+		# 1,2 s (R-A ring com stagger, molde das Ondas da Montanha). Números em Balance.ACT3_ARIA_*
+		{"id": "mob_prima_aria", "name": "Ária em Três Tempos", "clip": "shout", "target": T_SELF, "kind": K_MAG, "power": Balance.ACT3_ARIA_POWER, "cooldown": Balance.ACT3_ARIA_EVERY, "radius": 0.0, "startup": 0.6, "active": 2.6, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(0.9, 0.72, 0.95), "vfx": "lunar", "boss_signature": true,
+		 "effects": {"barrage": {"shape": "ring", "count": 3, "width": Balance.ACT3_ARIA_WIDTH, "inner": 0.0, "spacing": Balance.ACT3_ARIA_WIDTH, "delay": Balance.ACT3_ARIA_DELAY, "stagger": Balance.ACT3_ARIA_STAGGER,
+			"say": "Primeiro tempo... segundo... TERCEIRO!"}}},
+		# ---- Ato III, chefe da história e raide (WP8b; GDD ato3-excesso-45-50 §4.1, D8/D9). Números em Balance.ACT3_CORTEGE_*/STAGE_*/THIRST_* ----
+		# Vessaline — Cortejo de Lâminas (assinatura, verbo "ler a sequência"): 4 faixas encadeadas em vítimas sorteadas (nunca o
+		# tanque), todas desenhadas juntas; ela investe por cada uma quando cai e a cauda de fitas deixa a faixa (BossSignatures.place_cortege)
+		{"id": "mob_vess_cortege", "name": "Cortejo de Lâminas", "clip": "shout", "target": T_SELF, "kind": K_PHYS, "power": Balance.ACT3_CORTEGE_POWER, "cooldown": Balance.ACT3_CORTEGE_EVERY, "radius": 0.0, "startup": 0.6, "active": 0.1, "recovery": Balance.ACT3_CORTEGE_DELAY + Balance.ACT3_CORTEGE_STAGGER * (Balance.ACT3_CORTEGE_COUNT - 1), "hit_stop_frames": 4, "icon_color": Color(0.95, 0.85, 0.8), "vfx": "blood", "boss_signature": true,
+		 "effects": {"barrage": {"shape": "cortege", "count": Balance.ACT3_CORTEGE_COUNT, "length": Balance.ACT3_CORTEGE_LEN, "width": Balance.ACT3_CORTEGE_W, "delay": Balance.ACT3_CORTEGE_DELAY,
+			"stagger": Balance.ACT3_CORTEGE_STAGGER, "linger": Balance.ACT3_CORTEGE_LINGER, "tick_power": Balance.ACT3_CORTEGE_TICK, "arena": 19.0, "say": "Um, dois, três, quatro... o cortejo passa por cima!"}}},
+		# Vessaline F3 — Palco Seguro: as 4 ilhas do Pavilhão (rift_garden boss_hint.islands); quem fica fora leva o golpe (R-A invert)
+		{"id": "mob_vess_stage", "name": "Palco Seguro", "clip": "shout", "target": T_SELF, "kind": K_PHYS, "power": Balance.ACT3_STAGE_POWER, "cooldown": Balance.ACT3_STAGE_EVERY, "radius": 22.0, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.9, 0.86, 0.75), "vfx": "blood",
+		 "effects": {"islands": {"radius": Balance.ACT3_STAGE_ISLAND_R, "delay": Balance.ACT3_STAGE_DELAY, "spots": [[7.78, -66.22], [-7.78, -66.22], [-7.78, -81.78], [7.78, -81.78]],
+			"slow": {"pct": 40, "duration": 3.0}, "say": "Ao palco! Quem não tem lugar... vira cenário!"}}},
+		# O Eco de Sylvaré — Sede Dividida (assinatura, verbo "ler juntar × espalhar"): a marca alterna dividir (dourado) e espalhar
+		# (roxo) a cada ACT3_THIRST_EVERY s; entre ACT3_THIRST_BOTH_HP as duas juntas (BossSignatures.place_marks, mode "alternate")
+		{"id": "mob_echo_thirst", "name": "Sede Dividida", "clip": "cast_ground", "target": T_SELF, "kind": K_MAG, "power": Balance.ACT3_THIRST_SOAK_POWER, "cooldown": Balance.ACT3_THIRST_EVERY, "radius": 0.0, "startup": 0.5, "active": 0.1, "recovery": 0.4, "hit_stop_frames": 4, "icon_color": Color(0.95, 0.8, 0.45), "vfx": "lunar", "boss_signature": true,
+		 "effects": {"mark": {"mode": "alternate", "spread_count": 2, "solo_count": 1, "radius": Balance.ACT3_THIRST_RADIUS, "time": Balance.ACT3_THIRST_TIME, "no_tank": true,
+			"soak_power": Balance.ACT3_THIRST_SOAK_POWER, "spread_power": Balance.ACT3_THIRST_SPREAD_POWER, "both_hp": Balance.ACT3_THIRST_BOTH_HP}}},
+		# Eco F3: 4 cópias (R-F, como as Sombras Gêmeas) e as ilhas da sala (rift_heart boss_hint.islands)
+		{"id": "mob_echo_decoys", "name": "Reflexos da Sede", "clip": "shout", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 30.0, "radius": 0.0, "startup": 0.5, "active": 0.1, "recovery": 0.2, "icon_color": Color(0.86, 0.84, 0.94), "vfx": "shadow",
+		 "effects": {"stealth": 1.5, "decoys": {"id": "echo_decoy", "count": 4, "time": 12.0, "spread": 3.5, "say": "Qual de nós vocês querem provar?"}}},
+		{"id": "mob_echo_stage", "name": "Maré de Perfume", "clip": "shout", "target": T_SELF, "kind": K_MAG, "power": Balance.ACT3_STAGE_POWER, "cooldown": Balance.ACT3_STAGE_EVERY, "radius": 22.0, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.82, 0.74, 0.9), "vfx": "lunar",
+		 "effects": {"islands": {"radius": Balance.ACT3_STAGE_ISLAND_R, "delay": Balance.ACT3_STAGE_DELAY, "spots": [[0.0, -27.5], [8.66, -12.5], [-8.66, -12.5]],
+			"slow": {"pct": 40, "duration": 3.0}, "say": "O perfume sobe! Só as ilhas de mármore ficam limpas!"}}},
+		# Pedestais dos Sentidos (Eco F2; parados): Audição = nota em todos a cada ACT3_NOTE_EVERY s, Olfato = Fumo Doce, Paladar = cura
+		# o Eco quando ela está a até 14 m (o tanque pode arrastá-la para longe; os outros pedestais ficam a 17+ m e não saram)
+		{"id": "mob_sense_note", "name": "Nota do Ouvido", "clip": "shout", "target": T_SELF, "kind": K_MAG, "power": 1.0, "cooldown": Balance.ACT3_NOTE_EVERY, "radius": 24.0, "startup": 0.5, "active": 0.1, "recovery": 0.4, "icon_color": Color(0.85, 0.75, 1.0), "vfx": "lunar"},
+		{"id": "mob_sense_smoke", "name": "Fumo do Olfato", "clip": "cast_ground", "target": T_GROUND, "kind": K_MAG, "power": 0.8, "cooldown": 9.0, "range": 24.0, "radius": 2.6, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.8, 0.65, 0.9), "vfx": "poison",
+		 "effects": {"barrage": {"count": 2, "radius": 2.6, "delay": 1.5, "spread": 5.0, "linger": 4.0, "tick_power": 0.2}, "slow": {"pct": 30, "duration": 2.0}}},
+		{"id": "mob_sense_taste", "name": "Gole do Paladar", "clip": "shout", "target": T_SELF, "kind": K_HEAL, "power": 1.0, "cooldown": 3.0, "radius": 14.0, "startup": 0.4, "active": 0.1, "recovery": 0.3, "icon_color": Color(0.75, 0.25, 0.35), "vfx": "nature"},
+		# ---- Ato III, chefes das masmorras (WP8b; GDD ato3-excesso-45-50 §4.1; grupo de 4; números das assinaturas em Balance.ACT3_*) ----
+		# Varo Taça-Cheia (dg_cellars): talho com o garrafão, taça no mais longe, barrigada que empurra, Fumo Doce em fileiras (F3)
+		{"id": "mob_varo_cleave", "name": "Talho do Garrafão", "clip": "atk_sweep", "target": T_CONE, "kind": K_PHYS, "power": 1.8, "cooldown": 7.0, "radius": 3.4, "cone_angle_deg": 120, "startup": 0.6, "active": 0.15, "recovery": 0.5, "hit_stop_frames": 5, "icon_color": Color(0.5, 0.14, 0.22), "vfx": "blood"},
+		{"id": "mob_varo_goblet", "name": "Taça Arremessada do Anfitrião", "clip": "atk_throw", "target": T_TARGET, "kind": K_PHYS, "power": 1.3, "cooldown": 9.0, "range": 16.0, "radius": 0.0, "max_targets": 1, "projectile_speed": 16.0, "startup": 0.5, "active": 0.1, "recovery": 0.4, "hit_stop_frames": 3, "icon_color": Color(0.75, 0.25, 0.35), "mob_pick": "far", "vfx": "blood",
+		 "effects": {"slow": {"pct": 30, "duration": 2.0}}},
+		{"id": "mob_varo_belly", "name": "Barrigada", "clip": "shout", "target": T_SELF, "kind": K_PHYS, "power": 1.2, "cooldown": 13.0, "radius": 3.5, "startup": 0.5, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 4, "icon_color": Color(0.6, 0.2, 0.25), "vfx": "blood",
+		 "effects": {"knockback": {"dist": 3.0}}},
+		{"id": "mob_varo_smoke_lines", "name": "Fumo Doce em Fileiras", "clip": "cast_ground", "target": T_GROUND, "kind": K_MAG, "power": 1.1, "cooldown": 14.0, "range": 14.0, "radius": 1.25, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.8, 0.65, 0.9), "mob_pick": "random", "vfx": "poison",
+		 "effects": {"barrage": {"shape": "line", "count": 2, "width": 2.5, "gap": 3.0, "length": 16.0, "delay": 1.5, "stagger": 0.6, "linger": 4.0, "tick_power": 0.15}, "slow": {"pct": 30, "duration": 2.0}}},
+		# Varo — O Banquete (assinatura, verbo "interromper"; R-C): canal; no fim cura e dá fúria a ele e aos convidados;
+		# quebrado (dano ou atordoar) = vulnerável
+		{"id": "mob_varo_banquet", "name": "O Banquete", "clip": "cast_channel", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": Balance.ACT3_BANQUET_EVERY, "radius": 0.0, "startup": 0.5, "active": Balance.ACT3_BANQUET_TIME, "recovery": 0.4, "icon_color": Color(0.6, 0.15, 0.25), "vfx": "blood", "boss_signature": true,
+		 "effects": {"boss_channel": {"say": "Sirvam o banquete! Quem come comigo não morre de fome!", "warn": "INTERROMPAM O BANQUETE!", "break_say": "A taça... caiu da minha mão!", "break_radius": 2.5,
+			"on_break": {"vuln": Balance.ACT3_BANQUET_VULN, "vuln_time": Balance.ACT3_BANQUET_VULN_S},
+			"on_done": {"self": true, "buff": {"id": "mob_frenzy", "atk_pct": Balance.ACT3_BANQUET_ATK, "duration": Balance.ACT3_BANQUET_BUFF_S}, "radius": 24.0, "heal_pct": Balance.ACT3_BANQUET_HEAL, "vfx": "mob_varo_banquet", "say": "Ahhh... mais um prato!"}}}},
+		# A Condessa Refletida (dg_mirrors): florete em quatro tempos (o último crítico), Salto Leque, Máscaras (cópias, F2), Chuva de Cacos (F3)
+		{"id": "mob_countess_rapier", "name": "Florete em Quatro Tempos", "target": T_CONE, "kind": K_PHYS, "power": 2.0, "cooldown": 7.0, "radius": 2.8, "cone_angle_deg": 70, "startup": 0.45, "active": 0.5, "recovery": 0.45, "hit_stop_frames": 2, "icon_color": Color(0.88, 0.9, 0.98), "vfx": "blood",
+		 "effects": {"strikes": {"weights": [0.2, 0.2, 0.25, 0.35], "at": [0.0, 0.12, 0.24, 0.4], "crit_last": true}}},
+		{"id": "mob_countess_leap", "name": "Salto Leque da Condessa", "target": T_DIR, "kind": K_PHYS, "power": 1.4, "cooldown": 10.0, "range": 9.0, "radius": 1.5, "startup": 0.45, "active": 0.15, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.9, 0.9, 1.0), "mob_pick": "soft", "vfx": "blood",
+		 "effects": {"dash": 8.0, "slow": {"pct": 30, "duration": 2}}},
+		{"id": "mob_countess_masks", "name": "Máscaras Refletidas", "clip": "shout", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 26.0, "radius": 0.0, "startup": 0.5, "active": 0.1, "recovery": 0.2, "icon_color": Color(0.85, 0.88, 0.96), "vfx": "lunar",
+		 "effects": {"stealth": 1.5, "decoys": {"id": "countess_decoy", "count": 3, "time": 10.0, "spread": 3.0, "say": "Qual de nós é a verdadeira? Nenhuma, querida."}}},
+		{"id": "mob_countess_shards", "name": "Chuva de Cacos", "clip": "cast_ground", "target": T_GROUND, "kind": K_PHYS, "power": 1.2, "cooldown": 12.0, "range": 15.0, "radius": 2.2, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.85, 0.88, 0.96), "mob_pick": "random", "vfx": "blood",
+		 "effects": {"barrage": {"count": 4, "radius": 2.2, "delay": 1.4, "spread": 10.0}, "dot": {"dps": 12, "duration": 3}}},
+		# A Condessa — Olhar Que Julga (assinatura, verbo "usar cobertura"; R-E): sobem os Espelhos de Pé nos pontos da sala
+		# (MonsterDef.cover + `mirrors` = deslocamentos do boss_hint.cover do JSON), 3 s depois o raio bate em quem não tem
+		# espelho entre si e ela; o espelho que protegeu racha
+		{"id": "mob_countess_gaze", "name": "Olhar Que Julga", "clip": "shout", "target": T_SELF, "kind": K_MAG, "power": Balance.ACT3_GAZE_POWER, "cooldown": Balance.ACT3_GAZE_EVERY, "radius": 0.0, "startup": Balance.ACT3_GAZE_WARN, "active": 0.2, "recovery": 0.8, "hit_stop_frames": 6, "icon_color": Color(0.9, 0.92, 1.0), "vfx": "lunar", "boss_signature": true,
+		 "effects": {"avalanche": {"radius": Balance.ACT3_GAZE_RADIUS, "stun": 0.0, "mirrors": [[-7.97, 4.6], [0.0, -9.2], [7.97, 4.6]], "say": "Olhem para mim. Quem não tiver um espelho... que se julgue."}}},
+		# Mestra Ressoa, a Regente (dg_conservatory): estocada da batuta, duas notas agudas, fermata que empurra, Uníssono (F3, anel)
+		{"id": "mob_ressoa_baton", "name": "Estocada da Regente", "clip": "atk_thrust", "target": T_DIR, "kind": K_PHYS, "power": 1.8, "cooldown": 7.0, "range": 5.0, "radius": 0.9, "startup": 0.5, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 4, "icon_color": Color(0.9, 0.85, 0.95), "vfx": "blood"},
+		{"id": "mob_ressoa_notes", "name": "Notas Agudas da Regente", "clip": "cast_ground", "target": T_GROUND, "kind": K_MAG, "power": 1.2, "cooldown": 9.0, "range": 14.0, "radius": 2.2, "startup": 0.5, "active": 0.1, "recovery": 0.45, "icon_color": Color(0.85, 0.75, 1.0), "mob_pick": "random", "vfx": "lunar",
+		 "effects": {"barrage": {"count": 2, "radius": 2.2, "delay": 1.3, "spread": 8.0}}},
+		{"id": "mob_ressoa_fermata", "name": "Fermata", "clip": "shout", "target": T_SELF, "kind": K_MAG, "power": 1.1, "cooldown": 14.0, "radius": 4.0, "startup": 0.5, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.9, 0.85, 1.0), "vfx": "wind",
+		 "effects": {"knockback": {"dist": 2.0}}},
+		{"id": "mob_ressoa_unison", "name": "Uníssono do Órgão", "clip": "shout", "target": T_SELF, "kind": K_MAG, "power": 1.5, "cooldown": 16.0, "radius": 0.0, "startup": 0.6, "active": 0.1, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(0.8, 0.7, 1.0), "vfx": "lunar",
+		 "effects": {"barrage": {"shape": "ring", "count": 1, "inner": 4.0, "width": 5.0, "delay": 1.6, "say": "Todos juntos... UNÍSSONO!"}}},
+		# Tubo de Órgão (lacaio parado da Ressoa, F2): uma nota avisada num personagem sorteado
+		{"id": "mob_pipe_note", "name": "Nota do Tubo", "clip": "cast_ground", "target": T_GROUND, "kind": K_MAG, "power": 1.0, "cooldown": 10.0, "range": 24.0, "radius": 2.4, "startup": 0.4, "active": 0.1, "recovery": 0.4, "icon_color": Color(0.75, 0.65, 0.4), "mob_pick": "random", "vfx": "lunar",
+		 "effects": {"barrage": {"count": 1, "radius": 2.4, "delay": 1.5, "spread": 0.5}}},
+		# Mestra Ressoa — Cânone (assinatura, verbo "espalhar"; R-B spread + `touch`): 3 marcas; as que se encostam dobram o dano das duas
+		{"id": "mob_ressoa_canon", "name": "Cânone", "clip": "cast_ground", "target": T_SELF, "kind": K_MAG, "power": Balance.ACT3_CANON_POWER, "cooldown": Balance.ACT3_CANON_EVERY, "radius": 0.0, "startup": 0.5, "active": 0.1, "recovery": 0.4, "icon_color": Color(0.8, 0.6, 1.0), "vfx": "lunar", "boss_signature": true,
+		 "effects": {"mark": {"mode": "spread", "count": Balance.ACT3_CANON_COUNT, "solo_count": 1, "radius": Balance.ACT3_CANON_RADIUS, "time": Balance.ACT3_CANON_TIME, "touch": Balance.ACT3_CANON_TOUCH, "touch_mult": Balance.ACT3_CANON_TOUCH_MULT, "no_tank": true,
+			"say": "Cânone! Cada voz no seu lugar... ou as vozes se somam."}}},
 		# ---- elemental que evolui (ascensão do Elementalista): Maior (1) e Ancestral (2) por forma; área x ELEM_STAGE_MULT ----
 		{"id": "elem_salamander_spit", "name": "Cuspe da Salamandra", "vfx": "fire", "target": T_CONE, "kind": K_MAG, "power": 1.5, "cooldown": 5.0, "radius": _elem_area(5.0, 1), "cone_angle_deg": 60, "startup": 0.35, "active": 0.15, "recovery": 0.4, "hit_stop_frames": 3, "icon_color": Color(1, 0.45, 0.15),
 		 "effects": {"dot": {"dps": 8, "duration": 3}}},

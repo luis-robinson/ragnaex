@@ -101,7 +101,7 @@ static func home_of(e: SimEntity, sim: WorldSim = null) -> Dictionary:
 	if e.kind == SimEntity.Kind.BOT:
 		if sim != null and sim.player != null and sim.player != e and sim.same_party(e, sim.player):
 			return home_of(sim.player)
-		return BotBandSystem.home_of_bot(e)
+		return BotBandSystem.home_of_bot(e, sim)
 	var town := GameData.town_map_id()
 	return {"map": town, "pos": GameData.maps[town].spawn_point}
 

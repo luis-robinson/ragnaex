@@ -34,14 +34,15 @@ static func build() -> Array:
 
 ## Joias e capas de cada tier e tema (GearCatalog.THEME_PIECES x THEMES): anel e amuleto no ferreiro, capa na alquimista.
 ## Material principal e secundário do tier (das zonas daquele nível) + um do tema. Bolsas Ampliadas também saem daqui.
-## Um tier por Balance.COMMON_TIER_LEVELS (1, 8, 16, 24 e, no Ato II, 32 Costa Partida e 40 Estepes de Cinza); há check.
+## Um tier por Balance.COMMON_TIER_LEVELS (1, 8, 16, 24 e, no Ato II, 32 Costa Partida e 40 Estepes de Cinza; Ato III 48); há check.
+## Tier 48: PROVISÓRIO com materiais de Kharzun até existirem Fita do Festim/Porcelana Chorosa (GDD ato3 §8, WP11).
 const JEWEL_MATS := [["iron_ore", "crab_shell"], ["spider_silk", "grave_dust"], ["bone_shard", "bandit_badge"], ["star_ore", "ancient_relic"],
-	["orc_tusk", "goblin_fang"], ["orc_steel", "troll_tusk"]]
+	["orc_tusk", "goblin_fang"], ["orc_steel", "troll_tusk"], ["dwarf_steel", "basalt_ore"]]
 const CAPE_MATS := [["wolf_pelt", "slime_gel"], ["spider_silk", "wolf_pelt"], ["ent_bark", "forest_mushroom"], ["ghost_essence", "ancient_relic"],
-	["rider_pelt", "horde_badge"], ["troll_hide", "horde_badge"]]
-const THEME_MAT := {"guerreiro": ["boar_tusk", "boar_tusk", "bandit_badge", "golem_core", "horde_badge", "orc_tusk"],
-	"cacador": ["wolf_pelt", "spider_silk", "ent_bark", "bone_shard", "rider_pelt", "ember_feather"],
-	"sabio": ["herb_blue", "herb_blue", "forest_mushroom", "ghost_essence", "naga_scale", "naga_scale"]}
+	["rider_pelt", "horde_badge"], ["troll_hide", "horde_badge"], ["dire_pelt", "salamander_scale"]]
+const THEME_MAT := {"guerreiro": ["boar_tusk", "boar_tusk", "bandit_badge", "golem_core", "horde_badge", "orc_tusk", "orc_steel"],
+	"cacador": ["wolf_pelt", "spider_silk", "ent_bark", "bone_shard", "rider_pelt", "ember_feather", "dire_pelt"],
+	"sabio": ["herb_blue", "herb_blue", "forest_mushroom", "ghost_essence", "naga_scale", "naga_scale", "salamander_scale"]}
 const BAG_RECIPES := [[3, 40, {"wolf_pelt": 4, "slime_gel": 4}], [10, 150, {"spider_silk": 6, "wolf_pelt": 4}],
 	[16, 300, {"ent_bark": 6, "bandit_badge": 4}], [24, 600, {"ghost_essence": 5, "ancient_relic": 3}]]
 

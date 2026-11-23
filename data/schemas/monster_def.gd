@@ -33,7 +33,7 @@ extends Resource
 @export var coin_max: int = 0
 @export var intro: String = ""             ## chefe: fala ao entrar em combate (uma vez por luta)
 @export var last_words: String = ""        ## chefe: fala ao cair
-@export var escort: Dictionary = {}         ## líder com escolta: {id, count} nascem junto e o seguem (capitão e bestas)
+@export var escort: Dictionary = {}         ## líder com escolta: {id, count[, ids = monstro por vaga]} nascem junto e o seguem (capitão e bestas)
 @export var swap: Dictionary = {}           ## troca de arma com pouca vida: {hp (0-1), as: id do monstro cujo ataque/alcance passa a usar, stance}
 @export var front_guard: float = 0.0         ## escudo de frente (Guardião de Ossos): corta esta fração do golpe físico que vem da frente; costas e magia passam
 ## Troll Rei (R-E, GDD act2-boss-signatures 3.3): as skills listadas deixam um pedregulho (cobertura) no chão.

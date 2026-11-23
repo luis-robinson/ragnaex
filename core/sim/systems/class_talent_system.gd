@@ -92,6 +92,8 @@ static func refresh(e: SimEntity) -> void:
 ## efeitos; "radius" numa skill de aura estica também o raio do grupo e do pulso). Assim a ordem das escolhas não importa.
 static func apply_mods(e: SimEntity, s: SkillDef) -> SkillDef:
 	var list: Array = e.ct.get("skill_mods", {}).get(s.id, [])
+	if e.stats != null and e.stats.piece_mods.has(s.id):
+		list = list + e.stats.piece_mods[s.id]          # peças do 50 (PieceEffects, "skill_mods")
 	if list.is_empty():
 		return s
 	var out: SkillDef = s.duplicate()
@@ -191,7 +193,7 @@ static func trap_max(e: SimEntity) -> int:
 	return int(e.ct.get("trap_max", Balance.TRAP_MAX)) + int(e.stats.trap_max if e.stats else 0.0)     # + stat trap_max (Ápice do Atirador)
 
 static func oath_max(e: SimEntity) -> int:
-	return int(e.ct.get("oath_max", Balance.SHIELD_OATH_MAX))
+	return int(e.ct.get("oath_max", Balance.SHIELD_OATH_MAX)) + int(PieceEffects.cap(e, "oath"))     # + cabeça do Guardião 50
 
 ## Bônus da skill que vira permanente/aura: só os números positivos × força (a lentidão da Muralha fica de fora).
 static func passive_buff(skill_id: String, strength: float) -> Dictionary:

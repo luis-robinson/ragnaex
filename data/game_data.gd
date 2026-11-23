@@ -167,14 +167,14 @@ func legendary_pool(cls: ClassDef, level: int, build_id: String = "") -> Array:
 		for iid in sd.pieces + sd.alt_pieces:
 			if not (iid in out):
 				out.append(iid)
-	out.append_array(legendary_accessory_pool(cls, level, build_id))     # acessórios lendários 35/40/45 (fatia própria no sorteio)
+	out.append_array(legendary_accessory_pool(cls, level, build_id))     # acessórios lendários 35/40/45/50 (fatia própria no sorteio)
 	return out
 
-## Acessórios lendários da classe no nível (build_id != "": só os da build). Vazio fora de Balance.HYBRID_LEVELS.
+## Acessórios lendários da classe no nível (build_id != "": só os da build). Vazio fora de Balance.ACT2_SET_LEVELS.
 ## Ex.: legendary_accessory_pool(berserker, 45, "executor") = os 4 `leg_acc_berserker_executor_45_*`.
 func legendary_accessory_pool(cls: ClassDef, level: int, build_id: String = "") -> Array:
 	var out: Array = []
-	if not (level in Balance.HYBRID_LEVELS):
+	if not (level in Balance.ACT2_SET_LEVELS):
 		return out
 	for b in cls.builds:
 		if build_id != "" and b["id"] != build_id:
