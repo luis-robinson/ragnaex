@@ -27,15 +27,28 @@ func _ready() -> void:
 	ClassTalentsCatalog.warm()     # cache do catálogo pronto antes de a sim ir para a thread (o _built não tem trava)
 	load_all()
 
+## C8 (combat-plan 2026-11-23, decisão do usuário): skill de classe PESADA (poder >= Balance.HEAVY_SKILL_POWER_MULT x o do
+## básico da classe, já com BUILD_POWER) começa em pelo menos Balance.HEAVY_SKILL_STARTUP_MIN s. Fora: Suprema e investida
+## (dash: o preparo atrasaria a fuga). O clipe se ajusta ao preparo (EntityView.windup_timing). Check _check_heavy_startup.
+func _heavy_startup() -> void:
+	for sid in skills:
+		var s: SkillDef = skills[sid]
+		var cls: ClassDef = classes.get(s.class_id)
+		if cls == null or s.ultimate or s.effects.has("dash") or not (s.kind in [SkillDef.Kind.PHYSICAL, SkillDef.Kind.MAGICAL]):
+			continue
+		if s.power >= Balance.HEAVY_SKILL_POWER_MULT * basic_skill_for_class(cls).power:
+			s.startup = maxf(s.startup, Balance.HEAVY_SKILL_STARTUP_MIN)
+
 func load_all() -> void:
 	for c in ClassesCatalog.build():
 		classes[c.id] = c
 	for s in SkillsCatalog.build(classes):
-		s.power *= float(Balance.BUILD_POWER.get(s.build, 1.0))
+		s.power *= float((Balance.ULT_BUILD_POWER if s.ultimate else Balance.BUILD_POWER).get(s.build, 1.0))
 		if s.effects.get("slow") is Dictionary and (s.elements.has("frost") or s.vfx == "ice"):
 			s.effects["slow"] = (s.effects["slow"] as Dictionary).duplicate()
 			s.effects["slow"]["frost"] = true     # lentidão de gelo: também tira velocidade de ataque (Combat.frost_attack_mult)
 		skills[s.id] = s
+	_heavy_startup()
 	# pool de skills de cada classe = todas as skills dela, por nível (a ordem da janela K)
 	for cid in classes:
 		var pool: Array = []

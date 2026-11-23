@@ -2,12 +2,15 @@ extends Node
 ## Auditoria de números das skills de classe (só dados, sem lutar): poder efetivo por recarga, comparado com as irmãs
 ## da mesma classe e faixa de nível. Uso: --headless --path . tools/tests/skill_audit.tscn -- [--class=paladin,...]
 ## Poder efetivo = power + dano no tempo (dps × duração / 20, a escala do MATK) + bônus de controle; área conta ×1,5.
+## O poder sai sem o Balance.BUILD_POWER da build (2026-11-23): o peso da build acerta o dano da build inteira (dps_probe);
+## aqui se compara o desenho da skill com as irmãs (antes o Lâminas x2,3 fazia todo o Corsário parecer fraco).
 ## Saída: "AUDIT <classe> <skill> nv=N ef=X ef/cd=Y mediana=Z" e "WEAK ..." quando ef/cd < 60% da mediana da faixa (±6 níveis).
 
 const WEAK_RATIO := 0.6
+const BRAVADO_SPENT := 3          # Tiro Entre os Olhos: cargas de Bravata gastas no caso típico (máx. Balance.BRAVADO_MAX)
 
 static func effective(s: SkillDef) -> float:
-	var ef := s.power
+	var ef := s.power / float(Balance.BUILD_POWER.get(s.build, 1.0))
 	if s.effects.get("channel") is Dictionary:      # canalização: cada pulso bate o power inteiro
 		ef *= float(s.effects["channel"].get("ticks", 3))
 	var st = s.effects.get("strikes")
@@ -28,7 +31,7 @@ static func effective(s: SkillDef) -> float:
 		ef += 0.6                      # detonação: vale mais com queimaduras no alvo
 	var ob = s.effects.get("orbit")
 	if ob is Dictionary:                # martelos que giram: cada batida repete o power do lançamento
-		ef += s.power * float(ob.get("duration", 0.0)) / maxf(0.1, float(ob.get("every", 1.0)))
+		ef += s.power / float(Balance.BUILD_POWER.get(s.build, 1.0)) * float(ob.get("duration", 0.0)) / maxf(0.1, float(ob.get("every", 1.0)))
 	var zn = s.effects.get("zone")
 	if zn is Dictionary:                # chão que fica: cada pulso bate foe_power (alvo parado dentro o tempo todo)
 		ef += float(zn.get("foe_power", 0.0)) * floorf(float(zn.get("duration", 0.0)) / maxf(0.1, float(zn.get("pulse", 1.0))))
@@ -38,6 +41,8 @@ static func effective(s: SkillDef) -> float:
 	var sc = s.effects.get("sacrifice")
 	if sc is Dictionary:                # oferenda: conta 3 mortos-vivos a meia vida (o caso que o bot espera)
 		ef *= float(Balance.BOT_SACRIFICE_MIN) * (1.0 - 0.5 * float(sc.get("hp_weight", 0.5)))
+	if s.effects.get("combo_spend") is Dictionary:      # finalizador de Bravata (Corsário): conta BRAVADO_SPENT cargas
+		ef *= 1.0 + float(s.effects["combo_spend"].get("power_pct", 0.0)) / 100.0 * float(BRAVADO_SPENT)
 	if s.effects.has("sunder_consume"):
 		ef *= 1.0 + float(s.effects["sunder_consume"].get("per", 0.0)) * float(Balance.BOT_SUNDER_MIN)     # finalizador com 3 cargas
 	if s.effects.has("bounce"):

@@ -342,6 +342,8 @@ func spawn_bot(cls: ClassDef, bot_name: String, map_id: String, pos: Vector3, le
 ## Equipamento de bot pronto por "<classe>|<build>|<tier>|<raridade>|<secundária>|<titã>" -> [[slot, ItemDef], ...] na ordem
 ## em que a varredura de GameData.items os pôs. Refeito se GameData.items crescer (peças +N do aprimoramento).
 var _bot_gear_cache: Dictionary = {}
+## true = escolha de equipamento de bot de antes de 2026-11-23 (última peça da lista; só sondas A/B: boss_probe --old_gear).
+static var bot_gear_legacy := false
 var _bot_gear_items := -1
 
 ## Equipamento de bot: tier comum pelo nível; armas da build (principal + secundária).
@@ -387,6 +389,8 @@ func _gear_scan(b: SimEntity, build: Dictionary, tier: int, rarity: int, main_ty
 		var it: ItemDef = GameData.items[item_id]
 		if not it.is_equipment() or it.rarity != rarity or GearCatalog.craft_only(it):     # joia/capa 45 de troféu: só por receita
 			continue
+		if it.plus > 0:          # cópia +N criada no ferreiro (GameData.plus_item): fica no fim da lista e venceria a peça base
+			continue
 		if rarity == ItemDef.RARITY_LEGENDARY - 1:          # épico: vários tiers dividem a raridade, separa pelo nível
 			var it_tier := ItemSystem.item_tier(self, it)
 			if it_tier > tier or (tier > rarity and it_tier < tier):
@@ -405,13 +409,22 @@ func _gear_scan(b: SimEntity, build: Dictionary, tier: int, rarity: int, main_ty
 			if it.armor_style == build.get("armor", it.armor_style):
 				b.equipment[it.slot] = it
 		elif it.slot in [ItemDef.Slot.CAPE, ItemDef.Slot.AMULET, ItemDef.Slot.RING]:
-			if it.attr(build.get("attr", "")) > 0:
-				if it.slot == ItemDef.Slot.RING and b.equipment.has(ItemDef.Slot.RING):
-					b.equipment[ItemDef.Slot.RING2] = it
-				else:
-					b.equipment[it.slot] = it
+			# o de mais atributo principal da build (antes o último: FOR vestia capa/amuleto do Caçador, FOR só de 2º; C5)
+			var at: String = build.get("attr", "")
+			var acc: ItemDef = b.equipment.get(it.slot)
+			if bot_gear_legacy and it.attr(at) > 0:
+				b.equipment[ItemDef.Slot.RING2 if it.slot == ItemDef.Slot.RING and b.equipment.has(ItemDef.Slot.RING) else it.slot] = it
+			elif it.attr(at) > 0 and (acc == null or it.attr(at) >= acc.attr(at)):
+				b.equipment[it.slot] = it
+				if it.slot == ItemDef.Slot.RING:
+					b.equipment[ItemDef.Slot.RING2] = it     # os dois anéis: o melhor
 		else:
-			b.equipment[it.slot] = it
+			# cabeça/peito/luvas/botas: o tipo de armadura da build vence (antes a última da lista, pano, ficava
+			# e o corpo a corpo do 40+ vestia INT; combat-plan C5). Sem peça do tipo, fica a que houver.
+			var want: String = build.get("armor", "")
+			var cur: ItemDef = b.equipment.get(it.slot)
+			if bot_gear_legacy or want == "" or it.armor_style == want or cur == null or cur.armor_style != want:
+				b.equipment[it.slot] = it
 	if b.equipment.has(ItemDef.Slot.RING) and not b.equipment.has(ItemDef.Slot.RING2):
 		b.equipment[ItemDef.Slot.RING2] = b.equipment[ItemDef.Slot.RING]
 
@@ -894,6 +907,9 @@ func _can_chain(e: SimEntity, cmd: InputCommand) -> bool:
 		return false
 	if cmd.skill_slot < 0 and not cmd.ultimate and e.current_skill_slot < 0:      # slot -1 = básico (também a cópia montada)
 		return false            # básico atrás de básico mantém o ritmo dele (senão a velocidade de ataque sobe)
+	if cmd.skill_slot < 0 and not cmd.ultimate and e.skill_phase == "active" and e.current_skill.effects.get("channel") is Dictionary \
+			and e.channel_done < int(e.current_skill.effects["channel"].get("ticks", 3)):
+		return false            # canal: o básico (segurado) espera o último pulso; skill/dash apertados ainda cortam
 	var last_hit := 0.0
 	if e.current_skill.effects.get("strikes") is Dictionary:      # sequência de golpes: só depois do último
 		var at_s: Array = e.current_skill.effects["strikes"].get("at", [0.0])
@@ -1276,7 +1292,7 @@ func _apply_skill_body(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 	if effects.get("sacrifice") is Dictionary:     # Oferenda Sombria: suas invocações perto do ponto explodem (SummonRites)
 		var sac_hits := SummonRites.offer(self, e, s, aim, power, effects["sacrifice"])
 		if sac_hits > 0 and s.hit_stop_frames > 0 and e == player:
-			Events.post(&"hit_stop", s.hit_stop_frames)
+			Events.post(&"hit_stop", Combat.hit_stop_frames(s, s.hit_stop_frames, false, false), e.id, [])
 		return
 	if effects.has("fire_wall"):    # Muralha de Fogo: faixa que fica no chão e queima quem passa (TrapSystem)
 		TrapSystem.place_wall(self, e, s, aim, power, effects)
@@ -1489,7 +1505,16 @@ func _apply_skill_body(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 	if sure_crit:
 		stop = int(effects["strikes"].get("last_stop", stop))     # o golpe final da sequência para mais
 	if any_hit and stop > 0 and (e == player or targets.has(player)):
-		Events.post(&"hit_stop", stop)
+		Events.post(&"hit_stop", Combat.hit_stop_frames(s, stop, sure_crit, e.current_skill_slot < 0 and e.current_skill == s), e.id, _stop_ids(e, targets))
+
+## Quem para junto no hit-stop local: os alvos do jogador, ou só o jogador quando é ele quem apanha.
+func _stop_ids(e: SimEntity, targets: Array) -> Array:
+	if e != player:
+		return [player.id]
+	var ids: Array = []
+	for t in targets:
+		ids.append((t as SimEntity).id)
+	return ids
 
 ## Raio que salta ("chain"): do primeiro atingido para até `count` inimigos a `radius` m que a skill não pegou,
 ## com power × falloff (Lâmina Trovejante). Os saltos levam os efeitos da skill no inimigo, sem saltar de novo.
@@ -1593,7 +1618,9 @@ func _apply_effects(src: SimEntity, t: SimEntity, effects: Dictionary, power: fl
 				t.debuffs.append(nd)
 	if effects.get("slow") != null:
 		var d: Dictionary = effects["slow"]
-		t.debuffs.append({"kind": "slow", "remaining": float(d.get("duration", 2)) * t.stats.cc_mult(), "pct": float(d.get("pct", 30)), "frost": bool(d.get("frost", false))})
+		var sdr := 1.0 if CcDrSystem.slow_exempt(src, d) else CcDrSystem.apply(self, t, "slow")       # monstro: retorno decrescente (C7; gelo e canal fora)
+		if sdr > 0.0:
+			t.debuffs.append({"kind": "slow", "remaining": float(d.get("duration", 2)) * t.stats.cc_mult() * sdr, "pct": float(d.get("pct", 30)), "frost": bool(d.get("frost", false))})
 	if effects.get("pull") != null and t != src and src.is_hostile_to(t) and not (t.monster_def and t.monster_def.resists_cc()) and not t.is_perched() and maps.has(t.map_id):
 		var gap := float((effects["pull"] as Dictionary).get("gap", Balance.BOSS_PULL_GAP))
 		var to := src.position - t.position
@@ -1606,9 +1633,12 @@ func _apply_effects(src: SimEntity, t: SimEntity, effects: Dictionary, power: fl
 	if effects.get("provoke") is Dictionary and t.kind == SimEntity.Kind.MONSTER and src.is_hostile_to(t) and DruidAscension.may_provoke(self, src):
 		MobSystem.taunt(self, t, src, float(effects["provoke"].get("duration", Balance.TAUNT_DURATION)))
 	if effects.get("root") != null:
-		t.debuffs.append({"kind": "root", "remaining": float(effects["root"].get("duration", 2)) * t.stats.cc_mult()})
-	if effects.get("stun") != null and (t.kind != SimEntity.Kind.NPC or t.guard):
-		var dur := float(effects["stun"].get("duration", 1)) * t.stats.cc_mult()     # resistência a controle (acessório lendário)
+		var rdr := CcDrSystem.apply(self, t, "root")
+		if rdr > 0.0:
+			t.debuffs.append({"kind": "root", "remaining": float(effects["root"].get("duration", 2)) * t.stats.cc_mult() * rdr})
+	var stun_dr := CcDrSystem.apply(self, t, "stun") if effects.get("stun") != null and (t.kind != SimEntity.Kind.NPC or t.guard) else 0.0
+	if stun_dr > 0.0:
+		var dur := float(effects["stun"].get("duration", 1)) * t.stats.cc_mult() * stun_dr     # resistência a controle (acessório lendário) e retorno decrescente
 		if t.monster_def and t.monster_def.resists_cc():     # chefe: 40%; o Rei (elite) leva cheio
 			dur *= 0.4
 		t.is_blocking = false
@@ -1735,7 +1765,7 @@ func _update_projectiles(m: Dictionary, dt: float) -> void:
 					if p.effects.get("explode") is Dictionary:      # Bola de Fogo: explode no impacto
 						_explode(owner, p, t, m)
 					if p.skill.hit_stop_frames > 0 and (owner == player or t == player):
-						Events.post(&"hit_stop", p.skill.hit_stop_frames)
+						Events.post(&"hit_stop", Combat.hit_stop_frames(p.skill, p.skill.hit_stop_frames, false, false), owner.id, [t.id])
 					if not p.pierce:
 						remove = true
 						break
@@ -1831,7 +1861,7 @@ func _update_bouncer(p: SimProjectile, m: Dictionary, dt: float) -> bool:
 		_apply_effects(owner, tgt, {"stun": {"duration": float(p.bounce["stun"])}}, 0.0)
 	Events.post(&"skill_effect", p.skill.id, p.position, tgt.position, -1.0)     # raio < 0 = salto do escudo (FX do ricochete)
 	if int(r["amount"]) > 0 and p.skill.hit_stop_frames > 0 and (owner == player or tgt == player):
-		Events.post(&"hit_stop", maxi(2, p.skill.hit_stop_frames - p.hit_ids.size() + 1))
+		Events.post(&"hit_stop", Combat.hit_stop_frames(p.skill, maxi(2, p.skill.hit_stop_frames - p.hit_ids.size() + 1), false, false), owner.id, [tgt.id])
 	var nxt: SimEntity = _next_bounce(p, owner, m, tgt.position) if p.bounces_left > 0 else null
 	if nxt:
 		p.bounces_left -= 1

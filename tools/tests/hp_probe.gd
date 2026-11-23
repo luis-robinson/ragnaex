@@ -65,6 +65,16 @@ func measure(cls: ClassDef, build_id: String, lv: int) -> Dictionary:
 		e.recompute_stats()
 	Sim._skill_bot(e)
 	var st: Stats = e.stats
+	if DevArgs.has("--gear"):           # de onde vem o ATK/MATK: peça a peça e os pct da teia
+		var eq_a := 0.0
+		var eq_m := 0.0
+		for slot in e.equipment:
+			var it: ItemDef = e.equipment[slot]
+			eq_a += it.atk
+			eq_m += it.matk
+			print("GEAR %2d %-10s %-12s %-34s lv=%2d atk=%4d matk=%4d %s" % [lv, cls.id, build_id, it.id, it.level_req, it.atk, it.matk, it.attributes])
+		print("GEARSUM %2d %-12s %-15s eq_atk=%d eq_matk=%d attrs=%s patk=%d matk=%d crit=%.1f/%.1f fire=%.0f frost=%.0f storm=%.0f dot=%.0f critdmg=%.0f" % [lv, cls.id, build_id,
+			eq_a, eq_m, st.attrs, st.patk, st.matk, st.crit_phys, st.crit_mag, st.fire_pct, st.frost_pct, st.storm_pct, st.dot_pct, st.crit_dmg_pct])
 	var dr := minf(st.dr_pct, Balance.DR_CAP)
 	var eva := st.evasion
 	var notes := 0

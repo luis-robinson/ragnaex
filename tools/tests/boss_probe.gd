@@ -36,6 +36,7 @@ extends Node
 ##     [--seed=N]                  (semente da sim; padrão 1337. Rodadas com sementes diferentes somam lutas independentes)
 ##                                  Cada luta sorteia o grupo (classes distintas + build) e ressemeia a sim por (chefe, luta, semente)
 ##                                  (random_comp/fight_seed): o mesmo chefe dá o mesmo grupo e a mesma luta sozinho ou no meio de outros.
+##     [--old_gear]                (equipamento de bot de antes de 2026-11-23: WorldSim.bot_gear_legacy, A/B do C5)
 ##     [--rotation]                (classes pelo rodízio antigo, build do mesmo jeito: A/B do sorteio)
 ##     [--comp_stats]              (não luta: imprime COMPSTAT baralho/livre/rodízio — vezes por classe, lutas com tanque/cura)
 ##     [--show_comp]               (imprime o grupo de cada luta: COMP <chefe> #<luta> classe:build,...)
@@ -279,6 +280,7 @@ class KiteBrain extends StayBrain:
 
 func _ready() -> void:
 	await get_tree().process_frame
+	WorldSim.bot_gear_legacy = DevArgs.has("--old_gear")
 	Sim.load_map(GameData.maps[GameData.town_map_id()])      # bot que morre renasce na cidade
 	var parties := [1, 3]
 	var trials := 12
@@ -292,6 +294,7 @@ func _ready() -> void:
 			Sim.rng.seed = _seed
 		if a == "--show_comp": _show_comp = true
 		if a == "--rotation": _rotation = true
+		if a == "--no_cc_dr": CcDrSystem.enabled = false      # C7: sem retorno decrescente de controle (comparar)
 		if a.begins_with("--boss="): only = Array(a.get_slice("=", 1).split(","))
 		if a.begins_with("--class="): _force_class = a.get_slice("=", 1)
 		if a.begins_with("--build="): _force_build = a.get_slice("=", 1)

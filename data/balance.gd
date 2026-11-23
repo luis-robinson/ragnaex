@@ -9,8 +9,16 @@ const ATTRS := ["FOR", "AGI", "VIT", "WILL", "INT"]
 const ATTR_SCALE := 10
 ## Poder das skills de cada build (setor da teia) x isto, aplicado ao carregar (GameData.load_all). Calibrado com
 ## dps_probe (dano no boneco) e boss_probe --lead=<classe>:<build> (vitórias solo): ver docs/DESIGN.md "Equilíbrio entre builds".
-const BUILD_POWER := {"inquisidor": 0.6, "ceifador": 0.85, "invocador": 0.85, "carniceiro": 0.88, "batalha": 0.88,
+## 2026-11-23 (combat-plan C5, dps_probe --on_only --full_rot 30/40/45, depois do conserto do equipamento dos bots e das caudas
+## INT/AGI): raio 1,35 -> 0,6, cruzado -> 0,72, fogo -> 0,75, xamã -> 0,6, atirador -> 0,65 (acima da mediana); ceifador 0,85 -> 1,4,
+## inquisidor 0,6 -> 0,52, pestilento -> 1,45 (a cauda da INT os levou para baixo), carniceiro 0,88 -> 1,05, executor -> 1,12, punhos -> 1,12, corsário -> 1,15 (C6).
+## Supremas (GDD ultimates-lv40) foram calibradas (16-22, 2026-11-19) com o peso de build daquele dia: ficam com ele, para o
+## equilíbrio das builds não mexer nelas (antes = BUILD_POWER de 2026-11-19).
+const ULT_BUILD_POWER := {"inquisidor": 0.6, "ceifador": 0.85, "invocador": 0.85, "carniceiro": 0.88, "batalha": 0.88,
 	"laminas": 2.3, "duelista": 1.7, "fera": 1.6, "raio": 1.35, "guardiao": 1.5}
+const BUILD_POWER := {"inquisidor": 0.52, "ceifador": 1.4, "invocador": 0.85, "carniceiro": 1.05, "batalha": 0.88,
+	"laminas": 2.3, "duelista": 1.7, "fera": 1.6, "raio": 0.6, "guardiao": 1.5, "cruzado": 0.72, "fogo": 0.75, "xama": 0.6,
+	"atirador": 0.65, "pestilento": 1.45, "corsario": 1.15, "executor": 1.12, "punhos": 1.12}
 
 ## Peso da magia-assinatura por build (x SIGNATURE_POWER; sem entrada = 1.0), calibrado com dps_probe.
 const SIGNATURE_BUILD_POWER := {
@@ -111,6 +119,35 @@ const MDEF_PER_WILL := 1.5
 const CRIT_BASE := 5.0
 const CRIT_PER_AGI := 0.4             # % por ponto
 const MCRIT_PER_INT := 0.4
+## Cauda da INT (combat-plan C5, decisão do usuário 2026-11-23: "trazer os conjuradores para baixo" na escala 30->45).
+## INT (escala antiga) acima de INT_TAIL_REF vale INT_TAIL_MULT no MATK e no crítico mágico (Stats.int_power). REF = a INT de
+## um conjurador no 30 (66-83): o 30 quase não muda, o 45 (~180) perde ~25% de MATK. Medido com dps_probe --on_only.
+const INT_TAIL_REF := 75.0
+const INT_TAIL_MULT := 0.5
+## Mesma cauda na AGI do ATK de arco/mosquete/lança (Stats.agi_ranged_power): o couro dá AGI de atributo principal e o
+## Atirador/Lanceiro/Caçador cresciam como o conjurador (+53/+29/+27% no 45 depois do conserto do equipamento dos bots).
+const AGI_TAIL_REF := 75.0
+const AGI_TAIL_MULT := 0.5
+## Regra do projeto (C5): builds de dano dentro de ±DPS_SPREAD_PCT da mediana em alvo único (tanque/cura fora), nos níveis
+## DPS_SPREAD_LEVELS; luta de DPS_SPREAD_SECS s por build (check _check_dps_spread; medida longa: dps_probe --on_only --full_rot).
+const DPS_SPREAD_PCT := 25.0
+const DPS_SPREAD_LEVELS := [30, 45]
+const DPS_SPREAD_SECS := 30.0
+## C11 (combat-plan 2026-11-23): tempo de abate (s) de lixo e elite por faixa, bot da build TTK_REF_BUILD no nível do monstro,
+## monstro parado (check _check_ttk_targets; lixo = vida mediana da faixa, elite = maior vida fora chefe). Escritos a partir da
+## medida de 2026-11-23 (docs/DESIGN.md "Tempo de abate"); o band_probe mede a caçada de verdade (movimento, dano recebido).
+const TTK_REF_BUILD := ["assassin", "duelista"]
+const TTK_FIGHT_MAX := 60.0
+## Medido (s, lixo / elite): 1-10 0,4 / 2,3 (Colmeia) · 10-20 0,4 / 2,5 (Guardiã élfica) · 20-30 0,4 / 0,9 · 30-40 0,7 / 1,1 ·
+## 40-45 1,2 / 2,0 · 45-50 1,2 / 2,0. Faixa = medida x0,5 .. x2 (mexeu em vida de monstro ou no dano das builds: refaça).
+const TTK_TARGETS := [
+	{"name": "1-10", "from": 1, "to": 10, "trash": [0.2, 1.0], "elite": [1.2, 4.6]},
+	{"name": "10-20", "from": 11, "to": 20, "trash": [0.2, 1.0], "elite": [1.3, 5.0]},
+	{"name": "20-30", "from": 21, "to": 30, "trash": [0.2, 1.0], "elite": [0.5, 2.0]},
+	{"name": "30-40", "from": 31, "to": 40, "trash": [0.35, 1.5], "elite": [0.6, 2.2]},
+	{"name": "40-45", "from": 41, "to": 45, "trash": [0.6, 2.4], "elite": [1.0, 4.0]},
+	{"name": "45-50", "from": 46, "to": 50, "trash": [0.6, 2.4], "elite": [1.0, 4.0]},
+]
 const CRIT_MULT := 1.5
 const HEAL_PER_WILL := 0.03           # +3% de cura por ponto
 const BLOCK_BASE_SHIELD := 12.0       # % chance base com escudo
@@ -232,7 +269,7 @@ const WEB_GAIN_LEVEL := 30                 # nível em que as faixas acima foram
 const WEB_GAIN_LATE := {
 	40: {"atk": [1.3, 1.6], "hp": [1.12, 1.42], "build": [1.25, 2.5]},     # hp 1,35 -> 1,42: anel de base (2026-11-21)
 	45: {"atk": [1.35, 1.7], "hp": [1.12, 1.4], "build": [1.3, 2.8]},
-	50: {"atk": [1.4, 1.75], "hp": [1.12, 1.42], "build": [1.35, 3.0]},     # Ato III §6.5 (Orla)
+	50: {"atk": [1.35, 1.75], "hp": [1.12, 1.42], "build": [1.35, 3.0]},     # Ato III §6.5 (Orla). atk 1,4 -> 1,35 (2026-11-23, C5: a cauda da INT/AGI faz a INT/AGI da teia render menos no topo; média x1,38)
 }
 ## Teto próprio de ATK×HP por classe e nível (no lugar do "build" acima): o Elementalista tem a vida base mais baixa e o anel
 ## de base dele é todo sobrevivência (Mana em Carne + HP), então a razão de HP sobe mais (medido 2,4-2,8 no 30; 2026-11-21).
@@ -311,7 +348,7 @@ const FORM_STATS := {"wolf": {"aspd_pct": 25, "speed_pct": 20, "atk_pct": 10, "c
 	# Druida ascendido (Forma Ancestral, DruidAscension): a 3ª forma de cada build (H; F5)
 	"ent": {"def_pct": 55, "hp_pct": 31, "atk_pct": 10, "speed_pct": -12, "threat_pct": BEAR_THREAT_PCT + 30, "dr_pct": 2},     # Urso -> Ent: aguenta mais e segura o aggro
 	"alpha": {"aspd_pct": 28, "speed_pct": 22, "atk_pct": 12, "crit": 6},                       # Lobo -> Lobo Alfa
-	"bird": {"speed_pct": 25, "matk_pct": 3}}                                                   # Xamã -> Pássaro Arcano (voa: só desenho)
+	"bird": {"speed_pct": 25, "matk_pct": 8}}     # Xamã -> Pássaro Arcano (voa: só desenho). matk 3 -> 8 (2026-11-23, C5: com o BUILD_POWER do Xamã 0,6 a forma rendia x0,995)
 const FORM_REQUIRES := {"wolf": "dual_mace", "bear": "mace2h", "phantom": "scythe", "demon": "scythe", "lich": "scythe",
 	"ent": "mace2h", "alpha": "dual_mace", "bird": "staff"}
 const FORM_DURATION := {"phantom": 10.0, "lich": LORD_LICH_TIME}     # s; forma fora daqui fica até desligar (lobo, urso, demônio)
@@ -566,6 +603,7 @@ const HOP_GAP := 0.3                     # m entre quem salta (hop_strikes) e o 
 const INTERCEPT_BUFF := "intercept"      # buff da Proteção no paladino
 const DOT_AMP_KIND := "dot_amp"          # debuff que multiplica os danos no tempo de um lançador no alvo
 const ULT_SCALE_TIME := 0.3             # s da transição do boneco maior (Avatar da Fé, Colosso Primevo; EntityView)
+const ULT_HOLD_S := 0.1                 # s que a Suprema segura a pose do impacto (6 quadros a 60 Hz; faixa 4-8). Só desenho (EntityView)
 const WOUND_HOLD_RANGE := 30.0           # m: o Festim de Sangue segura as feridas do berserker nos inimigos até esta distância
 ## Força-alvo das Supremas de dano em alvo único (poder somado na duração ÷ golpe de poder 1,0; decisão do usuário 2026-11-19:
 ## +60% sobre o orçamento antigo de 10-14, ~1 por luta de chefe). Medida por _check_ultimate_b2_power (SimEntity.ult_dealt).
@@ -606,7 +644,9 @@ const ULT_NUMBERS := {
 	"dru_ult_primal_colossus": {"radius": 8.0, "taunt": 4.0, "duration": 15.0, "hp_pct": 50.0, "def_pct": 40.0, "atk_pct": 30.0, "threat_pct": 100.0,
 		"cc_resist_pct": 50.0, "scale": 1.5},
 	# Druida Lobo: Garras da Lua Rubra (hop_strikes a cada 0,8 s; prefere quem não sangra)
-	"dru_ult_blood_moon": {"count": 10, "every": 0.8, "radius": 10.0, "power": 0.8, "iframe": 0.15, "bleed_dps": 2.5, "bleed_time": 4.0},
+	# 2026-11-23 (C5): poder 0,8 -> 1,15. O bot Lobo vestia pano (bug do _gear_scan) e o golpe de comparação saía fraco; de couro
+	# a medida caiu para 13,3 (faixa 16-22).
+	"dru_ult_blood_moon": {"count": 10, "every": 0.8, "radius": 10.0, "power": 1.15, "iframe": 0.15, "bleed_dps": 2.5, "bleed_time": 4.0},
 	# Druida Xamã: Coração do Bosque Ancião (zona parada e intocável: Fogo Lunar em até 3 a 10 m + cura a 6 m)
 	"dru_ult_elder_heart": {"range": 9.0, "radius": 6.0, "power": 2.0, "root": 2.0, "duration": 12.0, "pulse": 1.5, "foe_radius": 10.0, "foe_max": 3,
 		"foe_power": 1.2, "heal": 0.35, "dot_dps": 5.0, "dot_time": 4.0},
@@ -798,7 +838,11 @@ const ROLE_NOTABLES := {
 		["Fúria do Urso", {"taunt_dmg_pct": 12}], ["Ira da Mata", {"crit": 4.0, "atk_pct": 3}]]}],
 	"paladin": [{"kind": "damage", "branch": "guardiao", "bots": ["guardiao"], "list": [
 		["Peso da Fé", {"def_atk_pct": 10}], ["Escudo Vingador", {"block_reflect": 40}],
-		["Contra-Ataque", {"guard_crit": 15}], ["Julgamento", {"taunt_dmg_pct": 12}]]}],
+		["Contra-Ataque", {"guard_crit": 15}], ["Julgamento", {"taunt_dmg_pct": 12}]]},
+		# Cruzado e Templário não tinham grupo: o bot comprava 0 notáveis de papel (combat-plan C10, 2026-11-23)
+		{"kind": "survival", "branch": ["", "cruzado", "templario"], "bots": ["cruzado", "templario"], "list": [
+		["Fé Inabalável", {"hp_pct": 3, "cc_resist_pct": 15}], ["Couraça Bendita", {"dr_pct": 3, "hp_pct": 3}],
+		["Vigor do Cruzado", {"hp_pct": 4}], ["Sangue Consagrado", {"heal_taken_pct": 15, "hp_pct": 2}]]}],
 }
 const BOT_ROLE_NOTE_PATH := 14           # nós no máximo que o bot anda até um notável de papel (mais longe: deixa)
 const LOW_LEECH_HP := 0.35               # "low_leech" (Sede na Beira): roubo de vida a mais abaixo desta fração da vida
@@ -1146,6 +1190,18 @@ const CT_CRUSADE_AURA := 0.6                # Aura de Cruzada (Paladino 20): for
 const ATTACK_SPEED_CAP := 60.0              # % máximo de velocidade de ataque
 const CHAIN_AFTER_IMPACT := 0.05            # depois do impacto, outra skill/ataque já pode sair (o quadro do golpe ainda aparece)
 const HIT_STOP_FRAMES_BASIC := 2
+## C8 (combat-plan 2026-11-23, decisão do usuário): skill PESADA = poder >= HEAVY_SKILL_POWER_MULT x o do básico da classe;
+## começa em pelo menos HEAVY_SKILL_STARTUP_MIN s (antecipação que se lê de cima; o clipe se ajusta sozinho, EntityView.windup_timing).
+## Teto do preparo fora das Supremas: SKILL_STARTUP_MAX. Exceção escrita (conteudo.md): invocação, área grande (raio >=
+## BIG_AREA_RADIUS, ou golpe no chão com raio >= GROUND_AREA_RADIUS: o preparo é o aviso), canal e ascensão podem passar do teto até SKILL_STARTUP_EXCEPTION_MAX. Check _check_heavy_startup.
+const HEAVY_SKILL_POWER_MULT := 2.0
+const HEAVY_SKILL_STARTUP_MIN := 0.2
+const SKILL_STARTUP_MAX := 0.3
+const BIG_AREA_RADIUS := 4.0
+const GROUND_AREA_RADIUS := 2.0
+const SKILL_STARTUP_EXCEPTION_MAX := 0.6
+const HIT_STOP_HEAVY_FRAMES := 6           # C2 (combat-plan 2026-11-23): piso do golpe pesado (físico com preparo >= CAST_HEAVY_STARTUP) e do finalizador
+const HIT_STOP_CAP_FRAMES := 12            # teto de toda parada (quadros a 60 Hz), já com o stop_mult da família de arma; parada é sempre LOCAL
 const DASH_DISTANCE := 3.8             # 2026-11-18 playtest: era 3,2 m / 0,18 s (+19%, mesma velocidade)
 const DASH_TIME := 0.2
 const DASH_IFRAMES := 0.2             # s invulnerável a golpe direto depois de sair o dash (o dash inteiro; dano no tempo continua)
@@ -1297,6 +1353,8 @@ const LEG_ACC_DROP_SHARE := 0.25          # chance do lendário sorteado no 35/4
 const CRIT_DMG_CAP := 40.0                # % a mais no multiplicador do crítico (CRIT_MULT 1,5 -> até 1,9)
 const DOT_PCT_CAP := 60.0                 # % a mais de dano no tempo que você aplica
 const CC_RESIST_CAP := 50.0               # % a menos de duração de atordoar/prender/lentidão em você
+const CC_DR_WINDOW := 8.0                 # C7 (combat-plan 2026-11-23): retorno decrescente de controle nos MONSTROS (CcDrSystem):
+const CC_DR_MULTS := [1.0, 0.5, 0.25]     # 1ª/2ª/3ª lentidão, raiz ou atordoar em CC_DR_WINDOW s; depois imune CC_DR_WINDOW s
 const MP_COST_CAP := 30.0                 # % a menos de custo de mana das skills
 const SUMMON_TIME_CAP := 60.0             # % a mais de duração das invocações com tempo
 const HIT_FLASH_TIME := 0.12               # piscada branca de quem apanha
@@ -1954,7 +2012,7 @@ const BOT_ANGEL_HURT := 0.7               # fora de chefe: anjo só com alguém 
 ## Bônus de cada forma em FORM_STATS (ent, alpha, bird); arma exigida em FORM_REQUIRES.
 const ANC_FORM_BASE := {"ent": "bear", "alpha": "wolf"}      # a ancestral vale pela forma de base (Espreitar como Lobo Alfa; variantes que ela não tem)
 const ANC_FORM_BUILD := {"ent": "guardiao_verde", "alpha": "fera", "bird": "xama"}
-const ANC_ROOTS_POWER := 1.3              # Raízes Ancestrais (Ent): dano em volta (H)
+const ANC_ROOTS_POWER := 2.4              # Raízes Ancestrais (Ent): dano em volta (H). 1,3 -> 2,4 (C6 2026-11-23: skill_audit 41% -> 62%)
 const ANC_ROOTS_RADIUS := 6.0             # m
 const ANC_ROOTS_ROOT := 2.5               # s presos
 const ANC_ROOTS_TAUNT := 4.0              # s provocados (chefes: metade, MobSystem.taunt)

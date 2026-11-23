@@ -1,5 +1,14 @@
 class_name Combat
 extends RefCounted
+
+## Quadros de hit-stop de um golpe (C2): básico = os dele; golpe físico pesado (preparo >= CAST_HEAVY_STARTUP) e
+## finalizador ganham o piso HIT_STOP_HEAVY_FRAMES; tudo com teto HIT_STOP_CAP_FRAMES. 0 continua 0 (sem parada).
+static func hit_stop_frames(s: SkillDef, frames: int, finisher: bool, basic: bool) -> int:
+	if frames <= 0:
+		return 0
+	if not basic and (finisher or (s.kind == SkillDef.Kind.PHYSICAL and s.startup >= Balance.CAST_HEAVY_STARTUP)):
+		frames = maxi(frames, Balance.HIT_STOP_HEAVY_FRAMES)
+	return mini(frames, Balance.HIT_STOP_CAP_FRAMES)
 ## Fórmulas de dano/cura/bloqueio e seleção de alvos. Funções puras sobre SimEntity.
 
 ## Ordem na faixa: quem está no eixo, depois quem está de lado, por último quem está atrás; dentro de cada grupo, o mais perto.

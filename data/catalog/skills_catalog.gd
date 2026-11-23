@@ -1156,7 +1156,7 @@ static func _more() -> Dictionary:
 			"Ata um curativo: cura 20% da vida na hora e +20% de velocidade por 4 s (o companheiro também, se estiver com você).",
 			{"id": "field_dressing", "duration": 4, "speed_pct": 20},
 			{"heal_pct": 20, "pet_buff": "if_any", "startup": 0.15, "recovery": 0.2, "cancel_after": 0.1, "clip": "buff_power", "vfx": "nature"}),
-		_s("ran_snipe", "Tiro Certeiro", 8, "atirador", ["rifle"], T_DIR, K_PHYS, 2.6, 14, 9, "Tiro instantâneo de longuíssimo alcance (além do alcance do mosquete).", {"range": 15.0, "radius": 0.4, "startup": 0.45, "max_targets": 1}),
+		_s("ran_snipe", "Tiro Certeiro", 8, "atirador", ["rifle"], T_DIR, K_PHYS, 2.6, 14, 9, "Tiro instantâneo de longuíssimo alcance (além do alcance do mosquete).", {"range": 15.0, "radius": 0.4, "startup": 0.3, "max_targets": 1}),     # C8: teto 0,3 s (era 0,45)
 		_s("ran_piercing", "Flecha Perfurante", 12, "cacador", ["bow"], T_DIR, K_PHYS, 1.9, 12, 6, "Flecha que atravessa inimigos.", {"range": 11.0, "radius": 0.5, "projectile_speed": 26.0, "projectile_pierce": true}),
 		_s("ran_headshot", "Tiro na Cabeça", 18, "atirador", ["rifle"], T_TARGET, K_PHYS, 3.4, 20, 12, "Tiro preciso no alvo: atordoa 0.5s.", {"range": 12.0, "stun": _dur(0.5), "hit_stop_frames": 5}),
 		_buff("ran_deadeye", "Olho de Águia", 24, "atirador", ["rifle"], 20, 28, "+20 crit e +15% ATK por 10s.", {"id": "deadeye", "duration": 10, "crit": 20, "atk_pct": 15}),
@@ -1344,7 +1344,7 @@ static func _more() -> Dictionary:
 		_s("ele_asc_command", "Comando Elemental", Balance.ASC_LEVEL, "", [], T_SELF, K_BUFF, 0.0, 0, 0,
 			"Ascensão. Sem elemental: chama o seu (na forma escolhida, com o estágio que ele alcançou). Com ele: troca o modo — atacar (segue o seu alvo), proteger (provoca quem bate em você e ganha defesa) ou apoiar (fogo dá ataque, gelo dá escudo, raio dá velocidade ao grupo).",
 			{"elem_command": true, "ascension": true, "startup": 0.1, "recovery": 0.15, "cancel_after": 0.05, "vfx": "summon", "clip": "summon"}),
-		_s("ele_asc_fusion", "Fusão Elemental", Balance.ASC_LEVEL, "", [], T_TARGET, K_MAG, 3.0, 8, 40,
+		_s("ele_asc_fusion", "Fusão Elemental", Balance.ASC_LEVEL, "", [], T_TARGET, K_MAG, 5.0, 8, 25,     # C6 2026-11-23: 3,0/40 s -> 5,0/25 s (skill_audit 23% -> 62%)
 			"Ascensão. Você solta a magia-assinatura da forma do seu elemental no alvo (fogo queima, gelo retarda, raio atordoa; até 5 inimigos a 2.5 m) e por 8s ganha +MATK e bônus no elemento dele (maior com o estágio).",
 			{"elem_fusion": true, "ascension": true, "vfx": "lightning", "range": 9.0, "radius": 2.5, "max_targets": 5, "startup": 0.3, "recovery": 0.3, "cancel_after": 0.15, "hit_stop_frames": 4}),
 		# Fogo (orbe)
@@ -1375,7 +1375,7 @@ static func _more() -> Dictionary:
 		_s("ele_bolt_step", "Passo Relampejante", 13, "raio", ["staff"], T_GROUND, K_MAG, 1.7, 14, 9,
 			"Vira raio e reaparece no cursor (até 7 m): o pouso fere quem está a 2,4 m e pode atordoar.",
 			{"range": 7.0, "radius": 2.4, "dash": 7.0, "startup": 0.1, "active": 0.15, "recovery": 0.2, "cancel_after": 0.1, "hit_stop_frames": 3,
-			 "clip": "atk_charge", "vfx": "lightning", "icon_color": Color(0.7, 0.8, 1.0)}),
+			 "vfx": "lightning", "icon_color": Color(0.7, 0.8, 1.0)}),
 		_s("ele_thunder", "Trovão", 21, "raio", ["staff"], T_GROUND, K_MAG, 2.8, 26, 12, "Trovão no cursor: atordoa 0.8s.", {"range": 9.0, "radius": 2.2, "stun": _dur(0.8), "hit_stop_frames": 5}),
 		_s("ele_storm_lord", "Senhor da Tempestade", 28, "raio", ["staff"], T_GROUND, K_MAG, 3.6, 38, 18, "Tempestade elétrica gigante (4,2 m) no cursor.", {"range": 10.0, "radius": 4.2}),
 	],
@@ -1664,7 +1664,9 @@ static func _originals() -> Dictionary:
 	],
 	"assassin": [
 		_s("ass_backstab", "Apunhalar", 1, "", ["dagger", "sword"], T_TARGET, K_PHYS, 1.7, 7, 2.5, "Golpe rápido com chance de crítico altíssima (pelas costas, ainda mais).",
-			{"range": 2.2, "startup": 0.08, "active": 0.05, "recovery": 0.22, "cancel_after": 0.05, "icon_color": Color(0.8, 0.5, 1), "buff": {"id": "focus", "duration": 0.3, "crit": 40}, "radius": 1.5, "max_targets": 99}),
+			# C8 2026-11-23: pesada (2,4x o básico) -> preparo 0,2 s pela regra (GameData._heavy_startup); recuperação 0,22 -> 0,3 para o
+			# atk_flurry não correr demais depois do impacto (combat_probe)
+			{"range": 2.2, "startup": 0.2, "active": 0.05, "recovery": 0.3, "cancel_after": 0.05, "icon_color": Color(0.8, 0.5, 1), "buff": {"id": "focus", "duration": 0.3, "crit": 40}, "radius": 1.5, "max_targets": 99}),
 		_s("ass_shadowstep", "Passo das Sombras", 3, "", [], T_GROUND, K_PHYS, 1.2, 12, 7.0, "Teleporta até o cursor e corta tudo ao redor.",
 			{"range": 7.0, "radius": 1.8, "startup": 0.05, "active": 0.05, "recovery": 0.25, "icon_color": Color(0.5, 0.3, 0.7), "dash": 6.5}),
 		_s("ass_poison", "Lâmina Venenosa", 6, "laminas", ["dual_dagger"], T_CONE, K_PHYS, 1.1, 10, 6.0, "Corte em cone que envenena por 6s.",
@@ -1679,7 +1681,8 @@ static func _originals() -> Dictionary:
 	"elementalist": [
 		_s("ele_fireball", "Bola de Fogo", 1, "", [], T_DIR, K_MAG, 1.7, 11, 2.5, "Projétil de fogo que explode no impacto (1,5 m): o alvo leva o golpe cheio, quem está em volta 45%, e todos queimam por 3s.",
 			{"range": 9.0, "radius": 0.5, "projectile_speed": 16.0, "explode": {"radius": Balance.FIREBALL_EXPLODE_RADIUS, "power_pct": Balance.FIREBALL_EXPLODE_PCT}, "startup": 0.22, "active": 0.05, "recovery": 0.3, "icon_color": Color(1, 0.5, 0.2), "dot": {"dps": 5, "duration": 3}}),
-		_s("ele_frost_nova", "Nova de Gelo", 3, "gelo", ["staff"], T_SELF, K_MAG, 1.5, 16, 9.0, "Congela e retarda tudo ao redor.",
+		_s("ele_frost_nova", "Nova de Gelo", 3, "gelo", ["staff"], T_SELF, K_MAG, 1.85, 16, 9.0,     # C6: 1,5 -> 1,85 (skill_audit 54% -> 63%)
+			 "Congela e retarda tudo ao redor.",
 			{"radius": 3.5, "startup": 0.15, "active": 0.05, "recovery": 0.3, "icon_color": Color(0.6, 0.9, 1), "root": {"duration": 1.2}, "slow": {"pct": 50, "duration": 3}}),
 		_s("ele_lightning", "Relâmpago", 6, "raio", ["staff"], T_DIR, K_MAG, 2.0, 14, 4.0, "Raio instantâneo em linha reta.",
 			{"range": 10.0, "radius": 0.6, "max_targets": 3, "startup": 0.2, "active": 0.05, "recovery": 0.3, "hit_stop_frames": 4, "icon_color": Color(0.8, 0.8, 1)}),

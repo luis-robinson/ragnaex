@@ -256,20 +256,21 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 	s.max_mp = base_mp + WILL * Balance.MP_PER_WILL
 	# ataque físico: arco usa AGI; lança AGI + FOR; adaga mistura; resto FOR
 	if s.is_ranged_weapon:
-		s.patk = eq_atk + AGI * Balance.PATK_PER_AGI_RANGED + FOR * Balance.PATK_PER_FOR_RANGED
+		s.patk = eq_atk + agi_ranged_power(AGI) * Balance.PATK_PER_AGI_RANGED + FOR * Balance.PATK_PER_FOR_RANGED
 	elif s.weapon_type == "spear":       # lança: AGI primeiro, FOR ajuda
-		s.patk = eq_atk + AGI * Balance.PATK_PER_AGI_SPEAR + FOR * Balance.PATK_PER_FOR_SPEAR
+		s.patk = eq_atk + agi_ranged_power(AGI) * Balance.PATK_PER_AGI_SPEAR + FOR * Balance.PATK_PER_FOR_SPEAR
 	elif s.weapon_type in ["dagger", "claw"]:      # adaga e garra: AGI pesa mais
 		s.patk = eq_atk + FOR * Balance.PATK_PER_FOR * Balance.PATK_FOR_DAGGER_SHARE + AGI * Balance.PATK_PER_AGI_DAGGER
 	else:
 		s.patk = eq_atk + FOR * Balance.PATK_PER_FOR + AGI * Balance.PATK_PER_AGI_OTHER
 	s.patk += Balance.ATK_BASE + level * Balance.ATK_PER_LEVEL
-	s.matk = eq_matk + INT * Balance.MATK_PER_INT + Balance.ATK_BASE + level * Balance.ATK_PER_LEVEL
+	var int_eff := int_power(INT)        # INT acima de INT_TAIL_REF rende menos (C5: conjurador crescia x3,3 do 30 ao 45)
+	s.matk = eq_matk + int_eff * Balance.MATK_PER_INT + Balance.ATK_BASE + level * Balance.ATK_PER_LEVEL
 	s.pdef = eq_def + VIT * Balance.PDEF_PER_VIT
 	s.mdef = eq_mdef + WILL * Balance.MDEF_PER_WILL
 	s.crit_phys = Balance.CRIT_BASE + AGI * Balance.CRIT_PER_AGI
 	s.evasion = agi_evasion(AGI)          # esquiva passiva da AGI; buffs/passivos somam depois, teto no fim
-	s.crit_mag = Balance.CRIT_BASE + INT * Balance.MCRIT_PER_INT
+	s.crit_mag = Balance.CRIT_BASE + int_eff * Balance.MCRIT_PER_INT
 	s.heal_power = 1.0 + WILL * Balance.HEAL_PER_WILL
 	if s.has_shield:
 		s.block_chance = Balance.BLOCK_BASE_SHIELD + maxf(FOR, WILL) * Balance.BLOCK_PER_FOR_SHIELD     # fé segura escudo tanto quanto força
@@ -399,6 +400,25 @@ static func titan_dps_ratio(n: int) -> float:
 ## Ex.: VIT_SWORD_PER_PCT 20, VIT 500 -> +25%.
 static func vit_sword_pct(vit: float, two_handed: bool = false) -> float:     # 2 mãos: VIT_SWORD_PER_PCT_2H (rende o dobro)
 	return clampf(vit / (Balance.VIT_SWORD_PER_PCT_2H if two_handed else Balance.VIT_SWORD_PER_PCT), 0.0, Balance.VIT_SWORD_CAP)
+
+## INT que conta no MATK e no crítico mágico (escala antiga): igual até Balance.INT_TAIL_REF, depois cada ponto vale
+## INT_TAIL_MULT. Ex.: INT_TAIL_REF 75, MULT 0,5: int_power(60) = 60; int_power(180) = 75 + 105 x 0,5 = 127,5.
+## Por quê (combat-plan C5, 2026-11-23): o pano dá INT como atributo principal (a placa dá VIT e a FOR só de 2º) e a INT
+## dá MATK e crítico juntos; do 32 em diante o conjurador ganhava o dobro do atributo de dano do corpo a corpo.
+static func int_power(int_old: float) -> float:
+	var x := maxf(0.0, int_old)
+	if x <= Balance.INT_TAIL_REF:
+		return x
+	return Balance.INT_TAIL_REF + (x - Balance.INT_TAIL_REF) * Balance.INT_TAIL_MULT
+
+## AGI que conta no ATK de arco, mosquete e lança (escala antiga): a mesma cauda da INT (couro dá AGI de atributo principal,
+## como o pano dá INT). Balance.AGI_TAIL_REF / AGI_TAIL_MULT. Crítico e esquiva continuam pela AGI inteira.
+## Ex.: REF 75, MULT 0,5: agi_ranged_power(180) = 127,5.
+static func agi_ranged_power(agi_old: float) -> float:
+	var x := maxf(0.0, agi_old)
+	if x <= Balance.AGI_TAIL_REF:
+		return x
+	return Balance.AGI_TAIL_REF + (x - Balance.AGI_TAIL_REF) * Balance.AGI_TAIL_MULT
 
 ## Esquiva passiva (% de evitar um golpe direto inteiro) pela AGI na escala antiga (atributo / ATTR_SCALE); curva em Balance.EVASION_AGI_*.
 ## Só personagens usam: monstro não passa por compute e a sim só testa esquiva em is_character().

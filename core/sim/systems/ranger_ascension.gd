@@ -184,7 +184,7 @@ static func land(sim: WorldSim, e: SimEntity, s: SkillDef, m: Dictionary) -> voi
 		any = true
 	Events.post(&"skill_effect", s.id, to, to, s.radius)
 	if any and s.hit_stop_frames > 0 and e == sim.player:
-		Events.post(&"hit_stop", s.hit_stop_frames)
+		Events.post(&"hit_stop", Combat.hit_stop_frames(s, s.hit_stop_frames, false, false), e.id, [])
 
 ## Lançou (WorldSim.try_cast, depois da recarga posta): Salto Duplo. Com a janela aberta é o 2º salto (recarga cheia
 ## × DOUBLE_JUMP_CD_MULT, não abre outra janela); senão guarda a recarga cheia para quando a janela do pouso fechar sem uso.

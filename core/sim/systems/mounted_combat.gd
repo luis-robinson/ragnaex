@@ -133,7 +133,7 @@ static func arcane_cast(sim: WorldSim, e: SimEntity, s: SkillDef, effects: Dicti
 	Events.post(&"skill_effect", s.id, e.position, e.position, R)
 	sim._apply_effects(e, e, {"buff": wings_buff(e, effects.get("buff"))}, 0.0)
 	if any_hit and s.hit_stop_frames > 0 and e == sim.player:
-		Events.post(&"hit_stop", s.hit_stop_frames)
+		Events.post(&"hit_stop", Combat.hit_stop_frames(s, s.hit_stop_frames, false, false), e.id, [])
 
 ## Buff das asas com os refinos da teia (ficam no próprio buff: o tick e a aura não releem a teia):
 ## Asas com Bloqueio (+bloqueio) e Asas Protetoras ("ward": metade da MP e a aura de redução de dano no grupo).

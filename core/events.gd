@@ -36,7 +36,7 @@ signal skill_cast(entity_id: int, skill_id: String, phase: String) # "startup" |
 signal skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: float)
 signal projectile_spawned(projectile)      # SimProjectile
 signal projectile_removed(projectile_id: int)
-signal hit_stop(frames: int)
+signal hit_stop(frames: int, attacker_id: int, target_ids: Array)     # parada LOCAL: só quem bateu e quem apanhou (C2)
 signal xp_gained(entity_id: int, amount: int)
 signal level_up(entity_id: int, new_level: int)
 signal item_gained(entity_id: int, item_id: String, count: int)

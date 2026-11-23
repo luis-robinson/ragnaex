@@ -83,6 +83,7 @@ var recall_left: float = 0.0        # >0 = conjurando a volta à cidade (G): and
 var bind_map: String = ""          # cristal de retorno vinculado (G e renascer); "" = cidade inicial
 var bind_pos: Vector3 = Vector3.ZERO
 var cooldowns: Dictionary = {}       # skill_id -> segundos restantes
+var cc_dr: Dictionary = {}           # categoria de controle -> [aplicações, sim.time do fim da janela] (CcDrSystem; só monstros, fora do save)
 var charges: Dictionary = {}         # skill_id -> [cargas usadas, s até a próxima voltar, s de uma carga] (ChargeSystem; fora do save)
 ## recarga de cada atalho de poção (F1-F3), independentes: vida em F1 e mana em F2 não se bloqueiam.
 ## (o mesmo item não fica em dois F, então por atalho = por poção)

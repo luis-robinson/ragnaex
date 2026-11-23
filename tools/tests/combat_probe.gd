@@ -411,7 +411,7 @@ func _probe_skill(s: SkillDef) -> Dictionary:
 			break
 		if p.state != SimEntity.State.CASTING and not hold_basic:
 			break
-	var channel := cast.startup >= 0.5 and cast.kind != SkillDef.Kind.PHYSICAL
+	var channel := (cast.startup >= 0.5 and cast.kind != SkillDef.Kind.PHYSICAL) or cast.effects.has("channel")     # canal (C1): o básico segurado espera o último pulso; skill/dash cortam
 	var lock_s := (impact_tick if impact_tick >= 0 else lock_ticks) * DT + maxf(0, chain_ticks) * DT
 	if lat > 1:
 		_flag("%s latência %d ticks" % [tag, lat])
@@ -501,7 +501,7 @@ func _anim_check(tag: String, s: SkillDef) -> void:
 	var length := view.anim.get_animation(clip).length
 	var impact := float(EntityView.IMPACT_FRAME.get(clip, 5) - 1) / 24.0
 	var startup := maxf(s.startup, 0.06)
-	var wt := EntityView.windup_timing(impact, startup)
+	var wt := EntityView.windup_timing(impact, startup, EntityView.coil_for(s, clip))     # V2: começa na pose armada (como a EntityView)
 	var raw1 := (impact - wt.x) / startup
 	var s1 := wt.y
 	var off := (impact - wt.x) / s1 - startup
