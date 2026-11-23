@@ -8,6 +8,13 @@
   materiais da faixa da skill (`Balance.SKILL_RANK_*`; `ProgressionSystem.rank_cost/rank_error/rank_up`, `Sim.skill_rank_*`; bots: `bot_rank`);
   check `_check_skill_ranks`. Na teia o círculo da skill tem "<Skill> Aprimorada" (`_s_`, kind `skill_up`, `Balance.SKILL_UP_POWER`) e
   "<Skill> Ágil" (`_m_`, kind `skill_quick`, `SKILL_QUICK_PCT`), aplicados em `ProgressionSystem._web_upgrades` (check `_check_skill_upgrade_nodes`). `ClassDef.skill_ids` é preenchido sozinho.
+  **Cargas** (2026-11-21): skill de dano/controle com recarga base ≥ `Balance.SKILL_CHARGE_MIN_CD` (fora buff longo, aura, forma, invocação, Suprema,
+  ascensão: `TreeCatalog.charge_ok`) ganha no círculo "<Skill> em Cargas" (`_k_`, kind `skill_charge`, no lugar do último passivo; ids/posições
+  dos outros não mudam). Com ele guarda `SKILL_CHARGE_MAX` usos, MP por uso, e as cargas voltam uma de cada vez (fila) em recarga ×
+  `SKILL_CHARGE_RECHARGE_MULT`. Regra em `ChargeSystem` (`e.charges`, fora do save; `e.cooldowns[id]` continua = "tempo até poder lançar",
+  0 enquanto sobra carga; dash antes do impacto devolve, `cd_reset` enche). Barra: número no canto + leque claro da próxima carga (`hud._set_charges`);
+  ficha J: linha "Cargas". Bots compram o nó das skills da build (`ProgressionSystem.bot_charges`; os testes desligam como `bot_core`) e
+  guardam a última carga para chefe/elite (`BotBrain._charge_spend_ok`). Check `_check_skill_charges`.
   Campos em `data/schemas/skill_def.gd`; efeitos suportados por `WorldSim._apply_effects`
   (`dot, slow, stun, root, buff, shield, dash, summon, heal_pct_of_dmg, taunt, boss_summon, wither, mend_pct_of_dmg, combust, bounce, aura, orbit, zone, sunder, sunder_consume, seed, sacrifice, wound_heal, wound_extend, riposte, momentum_spend`; `combust` com `kind: "poison"` = Eviscerar consome os venenos (`WoundSystem`); `riposte` = janela de aparar do Duelista e `momentum_spend` gasta o Ímpeto (`RiposteSystem`; checks `_check_eviscerate_poison`, `_check_bleed_whirl`, `_check_riposte`); `orbit` = martelos que giram e batem de novo com o poder do lançamento (`AuraSystem.start_orbit/orbit_tick`, Martelos Abençoados); aura = liga/desliga em `AuraSystem`, `bounce` = projétil que ricocheteia; `strikes` = sequência de golpes de personagem: N golpes nos tempos `at`, partes `weights` do power, `crit_last` = último crítico garantido, `clips` = um clipe por golpe na `EntityView`; encadear só depois do último; check `_check_crusader_skills`; `SkillDef.clip`/`vfx` forçam clipe e tema); `dot` de skill de fogo vira queimadura sozinho e gelo estilhaça alvo retardado (`Combat.frost_mult`). Mira: SELF/DIRECTION/GROUND/CONE/TARGET.
   A skill entra sozinha na **teia** (estilo Path of Exile, `data/catalog/tree_catalog.gd`): malha de junções e estradas (grade `CELL` irregular,
@@ -196,6 +203,10 @@
   `Balance.SIEGE_*` (cadência "Intenso": leva a cada 90 s). Checks `--only=siege`; medir: `raid_probe.tscn -- --map=city_port --side=cerco_ne --bots=0`
   (uma rota) e `-- --map=city_port --siege_run=1800 --bots=0 --level=32 [--quests=...]` (relógio de verdade: repelidas, intervalo entre eventos,
   XP/min); fotos: `-- --autostart=paladin --siege_shot=<pasta> [--quests=hx_palisade]`.
+- **Bot líder** (2026-11-23): jogador passa a liderança (janela P "Líder" ou `/lider <nome>`; retoma com "Retomar a liderança" ou `/lider`) → `BotLeaderSystem`
+  (estado em `BotBrain.lead`): completa o grupo (papel que falta primeiro, um convite por vez, segura a saída na vila até encher), espera o jogador e conta o plano
+  no canal do grupo (falas `BotsCatalog.LEADER_LINES`, ritmo `Balance.BOT_LEADER_*`; janela P mostra o plano, `Sim.party_plan`). Só no grupo do jogador. Check `_check_bot_leader`;
+  filmar `-- --autostart=<c> --bot_leader_shot=<png> [--bot_leader_wait=<s>]`.
 - **Grupo (party)**: regras na sim (`PartySystem`, via `Sim.party_*`, `kill_sharers`; aliado = `SimEntity.is_friend`), números em `Balance.PARTY_*`,
   bots em `BotBrain._follow/_gather_party/wants_party`; UI em `hud.gd` (quadros/convite/comandos de chat) e janela `party` (P).
   IA de grupo por papel da build (posição contra chefe, ameaça, cura no tanque, tirar lacaio; `Balance.BOT_*`, check `_check_bot_group`; tanque seguidor abre sozinho no chefe a até `BOT_TANK_PULL_BOSS` m do líder, `BotBrain._tank_pull`, check `_check_tank_pull`). Medir:

@@ -60,6 +60,13 @@ Referência: `C:\Users\luisf\Desktop\projects\erenpg` (`blender/scripts/build_va
   que a polilinha da sim. Revisar: `production/qa/evidence/final-qa/roads/<mapa>/`.
 - Mar com ondas quebrando na areia: mapa em `WaterFx.SURF_MAPS` (uniform `surf_amount` do `spatial_env_water.gdshader`, padrão 0). Foto de
   carregamento de zona com mar de outro lado: `"sea": "W"` em `loading_art.ZONES`. Zona girada no fim do build: `Zone.apply_turn` (Praia dos Caranguejos).
+- **Ato III, Fenda e masmorras** (WP6, 2026-11-23): `build_rift.py` = `rift_garden` (laço: Posto da Aurora no centro com o Véu, anel de
+  mármore, Pavilhão da Vessaline ao norte com 20 m livres, Alameda dos Espelhos, Lago de Perfume, Labirinto de Sebes, Porta do Coração);
+  sebe = `build_rift.hedge/hedge_ring` (muro baixo com colisor). Masmorras `dg_cellars`, `dg_mirrors`, `dg_conservatory` e a raide
+  `rift_heart` saem do `build_dungeons` (entradas em `places.DUNGEONS` com `return`; opções novas de salão `pillars: False` e bando de
+  ligação `None` = sem bando) e o acabamento de `zones/act3_dress.py` (`DRESS[<id>]`; pontos da mecânica do chefe em `data["boss_hint"]`).
+  Passagem para mapa ainda fora do catálogo fica em `future_portals`; quando o mapa entra: id em `act3_ready.READY` e
+  `python tools/blender/zones/act3_ready.py --apply` (reescreve só o JSON, igual ao que o build gravaria; os builds chamam `promote`).
 - A dispersão de uma zona muda quando lugares/trilhas mudam: chegadas de portal precisam estar reservadas (`block`/`spots`).
 - Água e morros colidem na sim (`MapGeometry.build_collider_grid`): o rio só tem vão nas pontes, que nascem onde uma estrada
   (`kind: "road"`) cruza o rio. Bots usam `water_path`; mudou rio/ponte, rode os testes de travessia (`_cross_river`).

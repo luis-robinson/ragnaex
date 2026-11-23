@@ -146,6 +146,7 @@ preparação mais rápida). Todo estágio de cima nasce com `escort` dos de baix
 - **43–45** encosta/Portão + cidadela: Brutamontes, Guarda de Clã, Golem de Basalto, elites de todas as linhas.
 **Bandos de grupo**: Senhor da Guerra + 2 Guerreiros + Agitador; Brutamontes + 2 Trolls + Lança-Pedras; Matador + 2 Assassinos.
 Alvo R8: `band_probe --from=40 --to=45` 0 `travou`, tempo por abate a ±25% da faixa 20–30, vida perdida 14–20% por caçada (35–40 deu 16%).
+Recalibrado 2026-11-23 (usuário): ATK do papel ×`HORDE_LATE_40.atk` (comum 1,8 / bruto 2,0 / elite 2,0); medição antes/depois em `ato2-horda` F2.
 Materiais: Pele de Lobo Atroz, Escama de Salamandra, Basalto Rúnico, Aço Negro Orc (já existe), Aço Anão, Brasa de Kharzun.
 
 ---

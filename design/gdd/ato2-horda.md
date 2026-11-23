@@ -495,6 +495,13 @@ XP por papel: comum ×1,0 · bruto ×1,7 · elite `ELITE_XP_MULT` (6) · chefe ~
 O poder do jogador sobe ~×2 de 30 a 45 (ATK base ×1,43 × equipamento ×1,44) **(H)**: conferir com as sondas.
 **Example:** Troll (bruto, tanque ×1,8 de HP) nível 38: HP 1200 × 1,52 × 1,8 = **3283**; ATK 88 × 1,32 = **116**; DEF 38 + 14,4 = **52**.
 
+**Fatores tardios (`horde_late`, só em `data/balance.gd`; chefe nunca, lacaios de chefe não têm papel F2):** 35+ `HORDE_LATE_35`
+(vida do bruto ×1,3, golpe básico mais rápido, `skill_delay`); 40+ `HORDE_LATE_40` = vida comum ×4,4 / bruto ×1,3 e intervalo ×0,8
+(2026-11-12) e **ATK comum ×1,8 / bruto ×2,0 / elite ×2,0** (decisão do usuário 2026-11-23). Motivo do ATK: os bots ficaram mais fortes
+(acessórios, lendários, cargas) e `band_probe --from=40 --to=44 --only=duel --trials=40` media 5–9% de vida perdida (trivial em 7 de 10),
+abaixo do alvo R8 de 14–20% (`kharzun-fase3-plan` §3). O fator vale também no 45+, onde `ACT3_LATE_45.atk` compensa (Ato III §6.2).
+Efeito colateral: as investidas de Kharzun (Canil: Ginete, Lobo Atroz, Senhor da Guerra) batem mais forte.
+
 ### F3. Regeneração do troll
 `regen_por_s = TROLL_REGEN_PCT × max_hp`, zero enquanto queima ou está envenenado e por `TROLL_REGEN_LINGER` s depois.
 "Envenenado" = qualquer dano no tempo que não é queimadura, inclusive os sangramentos do Carniceiro (decisão do autor, 2026-11-12:

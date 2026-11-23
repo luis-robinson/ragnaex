@@ -634,6 +634,14 @@ Graça Transbordante (`overheal_share`, a cura que passa do máximo vai ao aliad
 O anel soma ~+5% de HP em todas as classes: `WEB_GAIN_HP` 1,35 -> 1,42 e teto próprio do Elementalista (`WEB_GAIN_BUILD_CLASS`).
 Check `_check_core_notables`; testes de outras mecânicas tiram o anel do bot (`_strip_core`).
 
+**Orla (Ato III parte 1, níveis 46-50; GDD `ato3-excesso-45-50` §6.5)**: anel de casas por fora da Fronteira (`TreeCatalog._rim_web`,
+sorteio próprio `<classe>_teia_ato3`: a teia do 45 não muda; a escolha de casas e as estradas da Fronteira e da Orla saem do mesmo
+`TreeCatalog._grow`). Por setor de build `WEB_RIM_CELLS` (3) círculos: notável da build (`RIM_BUILD_NAMES`, 2 passivos da build ×
+`WEB_RIM_PASSIVE_MULT`), notável de elo com a vizinha e uma **pedra-angular menor** (KEYSTONES × `WEB_RIM_KEYSTONE_SCALE`, "... Menor",
+nível `WEB_RIM_KEYSTONE_LEVEL` 48); o Geral 2 (notável "Maior" + pedra menor). Casas de `WEB_RIM_MIN_K` a `WEB_RIM_GRID_K` casas do
+centro, nível `WEB_RIM_LEVEL` (46 perto, 49 longe). Pontos: 7 por nível + 1 no 50 = 348 no 50. Faixa `WEB_GAIN_LATE[50]` (ATK x1,4-1,75,
+HP x1,12-1,42, build x1,35-3,0; Elementalista x1,35-3,2). Checks `_check_web_rim`, `_check_web_strength`.
+
 ## Lendários com visual próprio (`GearCatalog.SET_VISUALS`)
 Arte de referência em `reference/<classe>/set_N/` (frente, costas, ícones). Cada um vira um estilo do kit (`chibi_kit.SET_STYLES`,
 peças `arm_<estilo>_<slot>_*`), ícones renderizados em `assets/icons/<icone>_<peça>.png` e nomes da referência.
@@ -648,11 +656,15 @@ Cada classe começa com arma(s) + elmo, corpo, luvas e botas próprios (estilo e
 Bosque, Batedor, Sombras, Aprendiz Arcano, Acólito). O corpo tem os atributos da antiga peça única; o resto só dá defesa.
 
 ## Equipamento lendário e conjuntos (`data/catalog/gear_catalog.gd`, gerado por loops)
-A cada 5 níveis (5/10/15/20/25/30, e 35/40/45 no Ato II) cada **build** tem um conjunto lendário: elmo, corpo, luvas, botas, arma (+ secundária).
+A cada 5 níveis (5/10/15/20/25/30, 35/40/45 no Ato II e 50 no Ato III) cada **build** tem um conjunto lendário: elmo, corpo, luvas, botas, arma (+ secundária).
 Os conjuntos do 35, do 40 e do 45 reaproveitam o visual do 30 (`GearCatalog.visual_of`, nomes genéricos "... da Ascensão", "... do Triunfo" e "... do Apogeu") até ganharem modelos próprios.
 Bônus: (2) +atributo secundário · (3) +atributo principal (ex. INT +2) · (4) +20% na skill assinatura (ex. Bola de Fogo) ·
 (5) +% no stat da build e −% de recarga de outra skill. Os números crescem por tier (`Balance.SET_*`); os percentuais, acima do tier 5,
-crescem pela metade (`Balance.set_pct_tier`: 4 peças 42% no 35, 44% no 40 e 46% no 45; 5 peças 17/18/19%, recarga 21/22/23%).
+crescem pela metade (`Balance.set_pct_tier`: 4 peças 42% no 35, 44% no 40, 46% no 45 e 48% no 50; 5 peças 17/18/19/20%, recarga 21/22/23/24%).
+**Ato III, 50 (GDD `ato3-excesso-45-50` §8, D6 do usuário)**: SÓ o conjunto da build (24) e os acessórios lendários 50; híbridos e Ápices
+param no 45 (`Balance.HYBRID_LEVELS` = 35/40/45). A malha é a do Ato II da build numa 4ª cor da escada (`Balance.ACT2_SET_LEVELS` =
+35/40/45/50 indexa `colors`/`accents`/`glows` de `GearCatalog.ACT2_VISUALS`; 50 = "porcelana e ouro velho", marfim + ouro velho + brilho
+rosa-pó, PROVISÓRIA e igual em todas as builds até a paleta ser aprovada), epíteto "da Aurora Clara" (provisório).
 **35/40/45: mais dois tipos coexistem com o da build** (138 conjuntos): **híbridos** (só P3 Templário+Guardião, Bi3 Batalha+Sacerdote e os
 3 pares do Elementalista e do Necromante; 5 peças = Fusão) e **Ápices** (`design/gdd/apice-sets.md`; 14 builds: as 3 do Berserker, Ranger,
 Druida e Assassino, mais Cruzado e Iluminado). Ápice = armadura/atributos da build, as armas da build como peças alternativas (efeito
@@ -663,10 +675,10 @@ Calibração F-AP2 (2026-11-17; Ghar 40, `--hp=2 --tank_lock --asc`, 80-160 luta
 Carniceiro, Executor (`heavy` 11: G_ap 0,11), Punhos, Iluminado (`aurora` 16: 0,12). Fora, decisão pendente do usuário: **Cruzado** G_ap ~0,04 contra
 0,09 (já no teto +30%: `judged` 10,4, `stun_ch` 7,8); **Lobo** 0,06-0,16 entre rodadas (alvo 0,12; `hunt` 13, no teto); **Xamã** 0,04-0,10 contra
 0,076 (`moon` 12, `jump` 65). As bases b4/b5 são de antes das mudanças de DoT/CC do mesmo dia: refazer F-AP2 inteiro antes de mexer de novo.
-Save 6: peças dos híbridos que saíram viram as do Ápice (`SaveSystem._migrate_hybrid`). Equipamento comum: tiers 1/8/16/24/32/40 (o do 32, "de Adamante", e o do 40, "de Oricalco", só gerados; raridade épica; o de Oricalco tem cor própria, `GearCatalog.COMMON_TIER_TINT`).
+Save 6: peças dos híbridos que saíram viram as do Ápice (`SaveSystem._migrate_hybrid`). Equipamento comum: tiers 1/8/16/24/32/40/48 (o do 32, "de Adamante", o do 40, "de Oricalco", e o do 48, "de Astralita" (Ato III), só gerados; raridade épica; Oricalco e Astralita têm cor própria, `GearCatalog.COMMON_TIER_TINT`). Joias/capas 48 e rank de skill 48+ usam, PROVISORIAMENTE, materiais de Kharzun (Aço Anão, Basalto Rúnico, Pele de Lobo Atroz, Escama de Salamandra) até a Fita do Festim e a Porcelana Chorosa existirem.
 Drop: o lendário cai como **Moeda Lendária** (1 em 100 monstros; chefes 40% e 2 moedas; Reis sempre). **Iara, a Relicária** (praça de Aldara)
 troca moedas por qualquer peça lendária da sua classe (conjuntos das builds, maça do conjunto, escudos nomeados): tier i de
-`LEGENDARY_LEVELS` custa i+1 moedas (nível 5 = 1, nível 10 = 2 ... nível 30 = 6, nível 35 = 7, nível 40 = 8, nível 45 = 9), até o seu nível (`WorldSim.relic_*`). A janela tem uma aba por build (abre na do conjunto que você veste, senão na do braço da teia com mais nós) e uma linha
+`LEGENDARY_LEVELS` custa i+1 moedas (nível 5 = 1, nível 10 = 2 ... nível 30 = 6, nível 35 = 7, nível 40 = 8, nível 45 = 9, nível 50 = 10), até o seu nível (`WorldSim.relic_*`). A janela tem uma aba por build (abre na do conjunto que você veste, senão na do braço da teia com mais nós) e uma linha
 por conjunto (bônus, armadura | arma, maça, escudo; ✓ = já tem, vestida, na bolsa ou no depósito); **Trocar o que falta** leva de uma vez as peças
 de armadura que você ainda não tem (moedas × peças; a arma troca à parte). Escudos nomeados ficam na aba Escudos. Ela também vende
 Moeda Lendária por ouro (`Balance.LEGEND_COIN_PRICE` = 500, `ItemSystem.buy_legend_coin`). **Reset das skills** com o Ancião Ravi
@@ -689,6 +701,18 @@ Estradas e junções custam 1 ponto e dão +1 do atributo do setor; os atributos
 ~x1,4 de ataque e ~x1,2 de HP a um bot da build. No 40 (`-- --level=40`, medido 2026-11-11): média ATK x1,31 e HP x1,32 (HP 0,02 acima da faixa do 30), builds com ATK×HP de 1,30 a 2,10.
 Save antigo recebe os pontos de volta. Bots compram o caminho mais curto até a Aprimorada das skills da build, a Ágil ao lado e depois
 notáveis/atributos (`ProgressionSystem.bot_spend`).
+**Cargas de skill** (2026-11-21, combate de rajada): toda skill de dano ou controle (físico/mágico) com recarga base ≥ 8 s
+(`SKILL_CHARGE_MIN_CD`), fora buffs longos, auras, formas, invocações, Supremas e ascensão (`TreeCatalog.charge_ok`), ganha no círculo dela o nó
+**"<Skill> em Cargas"** (`<classe>_k_<id>`, 1 ponto, no lugar do último passivo do círculo). Com ele a skill guarda até 3 usos
+(`SKILL_CHARGE_MAX`); MP a cada uso; as cargas voltam **uma de cada vez** (fila), cada uma em recarga do lançamento (já com Ágil, rank e
+redução) × 1,3 (`SKILL_CHARGE_RECHARGE_MULT`). Sem o nó nada muda. Dash antes do impacto devolve a carga; encadear gasta a próxima.
+As cargas não vão no save (carrega cheio). Barra: número de cargas no canto do ícone e leque claro da próxima carga (escuro com todas gastas);
+ficha J: "Cargas: 3 (recarga X s cada)". Bots compram o nó das skills da build depois da Ágil e guardam a última carga para chefe/elite
+(no lixo só gastam com 2+ prontas). Hoje: Paladino 12, Berserker 15, Bispo 11, Druida 11, Ranger 11, Assassino 18, Elementalista 19,
+Necromante 13 skills com o nó. Check `_check_skill_charges`. Medido antes/depois (2026-11-21): web_probe 30 ATK x1,33→1,32 / HP x1,40→1,40,
+50 ATK x1,45→1,44 / HP x1,36→1,36 (faixas passam); combat_probe 0 FLAG; dps_probe nv 30 (boneco, bot guarda a última carga) mediana
+2060→2099, Punhos +29% (era o mais baixo), demais −5%..+10%; boss_probe grupo de 4 (Guardião, Sacerdote, Fogo, Lâminas), 20 lutas:
+Senhor da Cripta 28,6→26,3 s, Rei Elfo 36,1→34,5 s, Rei Lich 30,6→30,9 s, 20/20 vitórias.
 **Talentos de classe** (aba "Talentos"): a cada 5 níveis (5 a 45) uma linha com 3 escolhas que mudam o jeito de jogar
 (`ClassTalentsCatalog`): buffs que ficam **permanentes** ou viram **aura** para o grupo (15 m), invocações que **ficam para sempre**
 (elemental, esqueletos, lobos, Ent), **recusa a morrer** (1 HP e imortal por alguns segundos, com recarga), execução, emboscada mais forte,
@@ -706,6 +730,19 @@ A aba abre rolada na linha liberada mais nova. Buff de talento aparece com ∞ n
 Todo buff ativo aparece **no boneco** enquanto dura (borda/padrão na pele, bolha de escudo, cristal de gelo, chama, auréola, rastros, gotas,
 fumaça; buff de talento ou aura do grupo só com a borda fraca) — tabela e revisão em `docs/buffs_visual.md`; buff novo precisa de linha em `BuffLooks.LOOKS`.
 Nível 30 só cai do Dragonete. Raridades: comum, incomum, raro, épico, **lendário** (laranja).
+
+### Lendários do 50: efeito em toda peça (onda 0, 2026-11-21; GDD `design/gdd/ato3-lendarios-50.md`)
+- Cada peça do conjunto de build do 50 (cabeça, peito, calça, luvas, botas, arma, 2ª arma do Paladino, mão secundária) tem
+  `ItemDef.piece_fx` (fichas em `GearCatalog.LEG50`, números SÓ em `Balance.LEG50_NUMBERS`; regras em `PieceEffects`).
+  Cada peça vale sozinha (pode misturar builds da mesma classe); efeito que cita skill só age se o personagem a tem; o bônus de 2-5 peças continua por conjunto.
+- Famílias: `stat`/`mana_guard_eff` (somam como bônus de item no `Stats.compute`), `charges` (luvas: a skill vira "em Cargas";
+  com o nó da teia +1, teto `LEG50_CHARGE_CAP` 4), `cap_up` (Juramento, Bravata, Ímpeto, teto da Barreira até 40, torreta, Graça,
+  respostas do aparo, Estilhaçar, Penitência), `skill_mods` (formato dos talentos), `legend_up`/`legend_wake` (a arma do 50 **desperta**:
+  mantém `legend.kind` e números, ganha `legend.wake`; só com a arma da build), `form_up`, `dot_up`, `zone_on_cast`, `on_trigger`
+  (bloquear, aparar, esquivar, abater, lançar/acertar skill, atordoar do Julgamento, explosão da Penitência, armadilha, Determinação cheia).
+- Orçamento F-L50a: soma das peças ≤ `LEG50_GAIN_MAX` 0,12 (medido 0,118 no Durgash, grupo Guardião/Sacerdote/Executor/Fogo no 50,
+  `boss_probe --l50_off=all`). Sondas: `boss_probe --set=b5 --set_lv=50 --set_weapon --l50_off=<peça|all>`, `dps_probe --levels=50 --l50`,
+  `hp_probe --levels=50 --l50`. Checks `--only=leg50`.
 
 ## Equilíbrio entre builds
 
@@ -736,14 +773,14 @@ Nível 30 só cai do Dragonete. Raridades: comum, incomum, raro, épico, **lend�
   Raio 17, Sacerdote 17, Guardião Verde 16, Atirador 16, Lâminas 14 (antes do retrabalho dos chefes; histórico).
 
 ## Progressão (lenta)
-Lv 1-45 (Ato I até o 30, Ato II 30-45; fórmula no parágrafo "Ritmo" abaixo e em `design/gdd/progression.md`).
+Lv 1-50 (Ato I até o 30, Ato II 30-45, Ato III parte 1 45-50; fórmula no parágrafo "Ritmo" abaixo e em `design/gdd/progression.md`).
 Spawners enchem de uma vez ao carregar o mapa (`primed`); depois cada abate volta no tempo de respawn. Monstro sem alvo e sem personagem
 a `Balance.DORMANT_RANGE` (40 m) dorme (não pensa/anda/atualiza). Separação usa grade de 3 m por tick (`WorldSim._index_map`) e monstros
 procuram alvo só na lista de personagens do tick. Dungeons do mapa (`build_dungeons.py`): bando no meio de cada corredor (menos o da
 chegada), salões com área de spawn do tamanho do salão.
 Ritmo (MVP até o 30, ~15 h): `Balance.xp_for_level` sai do tempo planejado no nível (6,5 + 1,75×(lv−1) min) × 3 abates/min ×
 XP de um monstro do nível (6 + 4,5×lv) ÷ 0,55. Ato II (nível máximo 45, Monte Kharzun 40-45): do 30 em diante os minutos crescem só 0,75 por nível
-(`XP_MIN_PER_LEVEL_ACT2`; 30→31 = 44 030, 34→35 = 52 250, 35→36 = 54 400, 39→40 = 63 360, 44→45 = 75 390; faixa 35-40 = 294 200 de XP, ~5,2 h; faixa 40-45 ~5,5 h); faixas 30-35 e 35-40 com 55% de quest, 40-45 com 50%; +1 ponto de teia também no 40 (356 pontos no 45); pontos de ascensão: 21 no 40, 36 no 45. Quests não repetíveis dão 50% / 55% / 65% de cada faixa (1-10, 10-20, 20-30; `XP_QUEST_SHARE_BAND`; a curva conta 45%, então quem faz quest sobe mais rápido que o tempo planejado):
+(`XP_MIN_PER_LEVEL_ACT2`; 30→31 = 44 030, 34→35 = 52 250, 35→36 = 54 400, 39→40 = 63 360, 44→45 = 75 390; faixa 35-40 = 294 200 de XP, ~5,2 h; faixa 40-45 ~5,5 h); faixas 30-35 e 35-40 com 55% de quest, 40-45 com 50%; +1 ponto de teia também no 40 (312 pontos no 45); pontos de ascensão: 21 no 40, 36 no 45. Ato III parte 1 (nível máximo 50, GDD `ato3-excesso-45-50` §6.1): mesma F1, 45→46 = 77 900 ... 49→50 = 88 340, faixa 45-50 ~5,8 h com 50% de quest; +1 ponto de teia no 50 (348 no 50); ascensão parada no 45 (D5: nenhum ponto nem refino novo); save do 45 com XP 0 volta a subir. Quests não repetíveis dão 50% / 55% / 65% de cada faixa (1-10, 10-20, 20-30; `XP_QUEST_SHARE_BAND`; a curva conta 45%, então quem faz quest sobe mais rápido que o tempo planejado):
 `QuestsCatalog.scale_xp` mantém o peso relativo escrito em cada quest e escala o total da faixa. Caçadas pagam no NPC da zona do monstro.
 A faixa 1-10 dá 50% (`XP_QUEST_SHARE_BAND`) e cada nível de 2 a 19 tem quests valendo ≥ 35% do nível (há check): o 6-7 ganhou 7 laterais
 de moradores de Aldara (`v1_tico`..`v7_marco`: javalis, chá do Ancião, peles e bando de lobos da Caçadora Ivy, Gruta, recibo para o Nils, Marco).
@@ -1315,6 +1352,17 @@ Materiais novos: Couro de Troll, Presa de Troll, Pena de Flecha de Fogo, Aço Ne
 Besteiro, Insígnia de Ghar. Modelos em `mob_kit.horde_parts` (trolls cinza-azulados com pedras incrustadas; orcs de elmo de ferro; Ghar
 com chifres e estandarte). Besteiros empunham besta de verdade (`act2_bosses.crossbow`, clipe do mosquete) e os trolls têm corpo próprio (`chibi_kit.BODIES["troll"]`: ombros largos, braços compridos) e postura curvada somada a todos os clipes (`act2_bosses.posture`); os chefes do Ato II ganham peças grandes em `act2_bosses.boss_extras`. Pendente: som próprio do troll (usa a voz orc).
 
+**Chefes de mundo do Ato III** (2026-11-23, WP8a; GDD `design/gdd/ato3-excesso-45-50.md` §4, D11) — `MonstersCatalog._act3_field_bosses`
+(`ACT3_FIELD_BOSSES`), afinados para TRIO (faixa "grupo" do `boss_probe --bands`), spawner do `world_boss_hint` do JSON com renascimento
+`Balance.WORLD_BOSS_RESPAWN_S` (600 s; `MapsCatalog._world_bosses`). Lacaios 0 XP. Saque: Porcelana Chorosa 2-3 + Fitas 4-6 garantidas, elixir, 30% moeda;
+moedas lendárias 3-5 (menos que os chefes de grupo: renasce a cada 10 min). Check `_check_act3_field_bosses`.
+| Chefe | Onde / nível | F2 | Fases | Assinatura |
+|---|---|---|---|---|
+| Dona Vindima, a Vinha que Bebe (`boss_vindima`) | `field_perfume`, Poço de Névoa, 47 | chefe hp ×2,0, atk ×1,1, berserk 180 s | 100%: Pisada (cone), Chicote de Vinha (puxa o mais longe), Cachos Maduros (3 círculos); 70%: 2 Vinhas (`vine_sprout`, até 3) + ward 0,4, Brotos a cada 22 s; 35%: Fumo Doce do Poço (3 poças 4 s) + fúria ×1,3 | **Prensa** (28 s): puxa todos a até 14 m (`barrage.pull` → `BossSignatures.pull_in`) e 1,5 s depois esmaga um círculo de 6 m em volta dela (power 2,2). `Balance.ACT3_PRESS_*` |
+| A Prima-Donna do Palco (`boss_prima_donna`) | `field_parade`, Palco Grande, 48 | chefe hp ×2,0, atk ×1,1, matk = atk, berserk 180 s | 100%: Leque de Palco (cone), Duas Notas Agudas (círculos em 2 alvos), Fortíssimo (empurra 3 m); 70%: 2 Coristas do Palco (até 3) + ward 0,5, Coro a cada 22 s; 30%: fúria ×1,3 | **Ária em Três Tempos** (26 s): anéis 0-4, 4-8, 8-12 m caem em 1,5 / 2,7 / 3,9 s (R-A ring com stagger, molde das Ondas da Montanha; o `repeat` R-D re-lança a mesma skill e não serve para anéis diferentes) (power 1,4). `Balance.ACT3_ARIA_*` |
+Sonda (40 lutas, `--bands`, semente 1337 / trio também `--seed=7`): Vindima solo 25% (132 s), trio 90% em 53 s (0,3 mortes; s7: 85% em 50 s), kite 0/13, BAND OK;
+Prima-Donna solo 22,5% (99 s), trio 97,5% em 33 s (0,1 mortes; s7: 97,5% em 30 s), kite 0/13, BAND OK. Prensa acerta ~0,23 personagens por uso no trio; Ária ~0,7 por série.
+
 **Assinaturas dos chefes** (2026-11-13, GDD `design/gdd/act2-boss-signatures.md`; regras em `BossSignatures`, avisos em
 `BossSigView`, bots em `BotBrain._sig_spot`, checks `_check_boss_signatures`/`_check_boss_sig_rules`/`_check_boss_sig_bots`).
 Cada chefe do Ato II ganha UMA mecânica própria por cima do kit (nada saiu); números globais em `Balance.BOSS_SIG_*`/`BOT_SIG_*`,
@@ -1376,6 +1424,24 @@ Bispo Batalha) ≥ 90%. 40 lutas = semente padrão + `--seed=7`; antes = `--no_s
 | Durgash (raide de 5) | 65% (52/80), 70-73 s | 15% (6/40), 1,2 morte por machado (power 6,0, 26 s, 3,5 m; completo de 5 34/40, 115 s) | power 6,0 → 2,0, 26 → 34 s, 3,5 → 4,0 m; só 2 ajudantes; marcado só para no fim | **57,5% (46/80), 68-74 s (abaixo da faixa; aceito pelo autor 2026-11-13)** | 40/40, 0,7 morte, 93 s; completo de 4 7/40 (18%), 3,6 mortes, 133 s | 2,8-3,7 dentro por machado; 0,02-0,13 morte por machado |
 Durgash, varredura de `unit_mods` (2026-11-13, pedido do autor: 5 sorteados 62-65% sem passar o completo de 4 de 20%; `boss_probe --dmg/--hp`, 40 lutas, semente padrão): atk ×1,0 → 5 sorteados 23/40, completo de 4 7/40 · ×0,95 + vida ×1,04 → 23/40, 3/40 · ×0,92 → 23/40 · ×0,85 → 24/40 · ×0,85 + vida ×1,04 → 24/40, **13/40** · ×0,83 → 30/40, **18/40** · ×0,80 → 59/80 · ×0,75 → 31/40. O ATK do chefe solta o completo de 4 antes de mexer nos sorteados (o 4 perde no berserk dos 128 s; menos dano = chega vivo), então nenhum `unit_mods` cumpre as duas metas: ficou atk 1,0 / vida 4,3. O que separa 4 de 5 é o reforço de raide (`BOSS_CROWD_RAID`), decisão do autor.
 
+
+
+### Ato III — chefes das masmorras (WP8b, 2026-11-23; GDD `ato3-excesso-45-50` §4)
+Grupo de 4. Números das assinaturas só em `Balance.ACT3_BANQUET_*`/`GAZE_*`/`MIRROR_*`/`CANON_*`; pontos da sala = `boss_hint` do JSON
+(check `_check_act3_dungeon_bosses`).
+| Chefe | Onde | Kit e fases | Assinatura |
+|---|---|---|---|
+| Varo Taça-Cheia (`boss_varo`, hp ×4,0, atk ×1,95) | `dg_cellars`, 47 | Talho do Garrafão, Taça do Anfitrião (no mais longe), Barrigada (empurra); 70%: 3 Convidados nos pontos `adds` (escolta, sem ward); 35%: Fumo Doce em fileiras (R-A line, fica 4 s) + fúria ×1,15; berserk 200 s | **O Banquete** (R-C): canal 4 s a cada 35 s; no fim cura 6% e +25% ATK 12 s nele e nos convidados (`on_done.self`); quebrado = +15% de dano 6 s (`on_break`) |
+| A Condessa Refletida (`boss_countess`, hp ×4,0, atk ×2,3) | `dg_mirrors`, 49 | Florete em Quatro Tempos (`strikes`, último crítico), Salto Leque; 65%: Máscaras Refletidas (3 cópias R-F, `countess_decoy`); 30%: Chuva de Cacos + fúria ×1,3; berserk 200 s | **Olhar Que Julga** (R-E): a cada 30 s sobem 3 Espelhos de Pé nos pontos `cover`; 3 s depois raio (2,4) em quem não tem espelho entre si e ela (30 m). **Espelhos = coberturas intocáveis** em `m["covers"]` (aprovado pelo usuário), não entidades; o que protegeu racha (`crack` → `idle_cracked`, `BossSigView`) e deixa de proteger |
+| Mestra Ressoa (`boss_ressoa`, opcional, hp ×3,2, atk ×1,6, leash 36 m) | `dg_conservatory`, 49 | Estocada da Regente, Notas Agudas, Fermata (empurra 2 m); 65%: 4 Tubos de Órgão parados nos pontos `adds` (ward 0,6, Nota do Tubo); 30%: Uníssono (anel 4-9 m) + fúria ×1,3; berserk 200 s | **Cânone** (R-B spread + `touch`): 3 marcas (2 m, 4 s, nunca no tanque); marcas com centros a ≤ 4 m dobram o dano das duas |
+
+Calibração (`boss_probe --asc`, 40 lutas por semente, 1337 e 7; completo = Guardião/Sacerdote/Executor/Fogo):
+| Chefe | Completo de 4 (alvo ≥ 95%, 0,3-1 morte) | 4 sorteados (alvo 65-85%) | Assinatura |
+|---|---|---|---|
+| Varo | 80/80, 54-55 s, 0,7/0,8 morte | 65/80 (81%), 40-41 s | canal quebrado 94-96% |
+| Condessa | 80/80, 54 s, 0,1/0,3 morte (média 0,2: um pouco abaixo) | 63/80 (79%), 46-51 s | 0,01 atingido por Olhar no completo; ~1/3 dos espelhos racha |
+| Ressoa | 78/80 (97,5%), 54-65 s, 0,2/0,4 morte | 66/80 (82,5%), 44-48 s | ~40% das marcas dobram (bots espalham mal) |
+Leash 26 → 36 m na Ressoa: com 26 ela resetava no meio da luta (os Tubos nasciam de novo: ~8 lacaios por luta e lutas de 115-225 s).
 
 ## Quests (cadeia)
 q01 bem-vindo (TALK) → q02 slimes → q03 gel → q04 primeira poção (CRAFT) → q05 presas → q06 lobos → q07 rei javali →
@@ -1498,12 +1564,12 @@ Medalhão (amuleto), Anel e Sinete (os dois no slot de anel), id `leg_acc_<class
 Não são conjunto (`set_id` vazio, não contam peças); atributos da build pela curva × `LEGENDARY_MULT` (anel principal 94/121/155, amuleto
 109/141/181, capa DEF/MDEF 13/9, 17/12, 22/16); papéis no valor k45 (anel/sinete +6 ATK ou MATK, medalhão vida +3%) e mana herdada do k45
 (build FOR/AGI: medalhão 12% ao abater, manto 1%/s em combate; INT/WILL: medalhão 0,5%/s em combate; VIT nada). Cada peça soma um bônus da
-build (`Balance.LEG_ACC_BUILDS` → `LEG_ACC_STEP[stat][35/40/45]`, ajuste `LEG_ACC_BUILD_MULT`). A mesma peça nos dois anéis (ou ela e a +N)
+build (`Balance.LEG_ACC_BUILDS` → `LEG_ACC_STEP[stat][35/40/45/50]`, o 50 = 45 + o passo do 40→45 (Ato III §6.4), ajuste `LEG_ACC_BUILD_MULT`). A mesma peça nos dois anéis (ou ela e a +N)
 dá o bônus uma vez (`Stats.compute`). Stats novos (tetos em `Balance`): `crit_dmg_pct` (crítico × `CRIT_MULT` + v/100, teto 40),
 `dot_pct` (dano no tempo aplicado, fixado na aplicação, 60), `cc_resist_pct` (atordoar/prender/lentidão em você duram menos, 50),
 `mp_cost_pct` (custo de skill, arredonda para cima, mínimo 1, 30), `summon_time_pct` (invocação com tempo; companheiro permanente igual, 60).
-Fontes: o sorteio lendário do 35/40/45 dá acessório com chance `Balance.LEG_ACC_DROP_SHARE` (25%, fatia própria como o escudo nomeado) e a
-Relicária troca (7/8/9 moedas; "trocar o conjunto" não inclui acessórios). Bots do mundo não vestem; `Sim.bot_legendary_accessories` (sonda
+Fontes: o sorteio lendário do 35/40/45/50 dá acessório com chance `Balance.LEG_ACC_DROP_SHARE` (25%, fatia própria como o escudo nomeado) e a
+Relicária troca (7/8/9/10 moedas; "trocar o conjunto" não inclui acessórios). Bots do mundo não vestem; `Sim.bot_legendary_accessories` (sonda
 `boss_probe --acc=leg`). Sinete tem arte própria (`ItemIcons._a_ring_signet`).
 Tiers 0 e 1 estão no mercador; todos caem de monstro (`Balance.GEAR_DROP_CHANCE`). Conjuntos lendários seguem com as peças de antes.
 
@@ -1554,6 +1620,10 @@ espalhados pelos pontos de encontro. Medir: `sim_probe.tscn -- --ticks=18000 --c
 - **Bots**: aceitam convites (nível próximo); no grupo, quem não é líder segue o líder (por portais também), cura quem
   está abaixo de 60% de HP e ataca o que bate no grupo. Bot que sai pra caçar às vezes chama bots da vila e, raramente, o jogador
   (um convite por vez, com recarga). Grupo só de bots costuma se desfazer quando voltam à vila.
+- **Bot líder** (2026-11-23, `BotLeaderSystem`, `Balance.BOT_LEADER_*`): o jogador passa a liderança a um bot (P "Líder" ou `/lider nome`; retoma com
+  "Retomar a liderança" ou `/lider`). O bot completa o grupo até 5 (bots livres do mapa a até 45 m e 5 níveis; tanque, depois cura, depois dano;
+  um convite a cada 6 s; segura a saída na vila até 75 s ou ir ao ponto de encontro), espera o jogador que ficou a mais de 28 m (até 45 s) e conta o plano
+  no chat do grupo ("[Grupo]", verde): o que falta, quem convidou, para onde vai caçar, chefe à vista, volta à cidade (no máx. 1 fala a cada 5 s).
 - **UI**: quadros dos membros abaixo do seu (HP/MP, ♛ líder, mapa se longe), janela Grupo (P) com membros e "Por perto" para convidar (só quem aceitaria agora: fora de grupo, sem convite pendente, nível compatível, até `PARTY_NEARBY_RANGE` m; `PartySystem.invitable_near`; quem não é líder ou tem o grupo cheio vê o motivo),
   popup de convite (Aceitar/Recusar), nomes e pontos do minimapa em verde. Chat: `/party` (até `PARTY_SEEK_MAX` bots do mapa, sozinhos ou líderes com vaga e de nível próximo, te convidam um por vez; recusou → o próximo), `/convidar nome`, `/sair`, `/expulsar nome`,
   `/lider nome`, `/p texto` (canal do grupo).
