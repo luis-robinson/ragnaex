@@ -9,7 +9,9 @@ o cursor, LMB básico, skills como skillshots/área no cursor).
 1. **Responsividade**: input nunca é engolido (buffer de 15 ticks, que não vence enquanto a própria skill prepara), startup curto,
    recovery cancelável por movimento/dash, hit-stop curto. **Encadear (estilo Diablo)**: 0,05 s depois do impacto outra skill ou o
    básico já sai, sem esperar a animação acabar; o golpe atual sempre acerta (tudo é aplicado no impacto). Básico atrás de básico
-   mantém o ritmo dele; monstros não encadeiam (`WorldSim._can_chain`, `Balance.CHAIN_AFTER_IMPACT`).
+   mantém o ritmo dele; monstros não encadeiam (`WorldSim._can_chain`, `Balance.CHAIN_AFTER_IMPACT`). **Canal** (`channel`: Mente
+   Açoitada, Drenar Alma, Raio do Vazio, Ciclone do Titã): o básico (inclusive o segurado) espera o último pulso; skill, Suprema ou
+   dash apertados ainda cortam o canal depois do 1º pulso (C1, 2026-11-23; check `_check_channel_hold`).
    **Dash com i-frames**: o dash inteiro (`Balance.DASH_IFRAMES`, 0,18 s) é invulnerável a golpe direto, skill, projétil e chuva
    de chefe, e efeito de inimigo (atordoar, prender, gancho) não pega; dano no tempo que já estava em você continua. Vale também
    no dash que cancela uma skill. Na tela aparece como esquiva (`Events.dodged`).
@@ -218,7 +220,11 @@ Trovão, Estilhaçar, Zero Absoluto e as combinações com raio sempre; as outra
 anel de gelo nos pés e tom azul, queimando = brasas e tom laranja (`EntityView._update_status`, parâmetro `status` do `toon.gdshader`).
 **Controle em chefe** (`MonsterDef.resists_cc`, decisão 2026-11-17): só chefe de verdade resiste — atordoar dura 40%, provocar 50%,
 gancho/empurrão não o move. O Rei que surge depois de muitos abates (elite, `elite_of`) continua `is_boss` para loot/barra/IA, mas leva
-o controle cheio. Talento de classe pode **somar** ao efeito da skill (`skill_mods.add`, depois de maestria e evolução: Golpe Restaurador
+o controle cheio. **Retorno decrescente nos monstros** (C7, decisão 2026-11-23, `CcDrSystem`): por categoria (lentidão, raiz,
+atordoar), a 2ª aplicação dentro de `CC_DR_WINDOW` 8 s da anterior dura 50%, a 3ª 25% (`CC_DR_MULTS`), depois imune 8 s àquela
+categoria (tentar não estende). Os 40% do chefe multiplicam por cima. Jogador e bots não têm. Só conta o controle de skill
+(`WorldSim._apply_effects`); lentidão de gelo (`slow.frost`) e de pulso de canal ficam cheias (decisão 2026-11-23, `CcDrSystem.slow_exempt`); chão que renova a cada pulso (zonas, miasma, tempestade) e a lentidão de golpe de equipamento ficam de fora.
+Check `_check_cc_dr`. Talento de classe pode **somar** ao efeito da skill (`skill_mods.add`, depois de maestria e evolução: Golpe Restaurador
 +12% de cura por dano, Golpe Ardente +5 s de queimadura, Castigo +0,4 s no Martelo de Luz) em vez de trocar o número (`effects`).
 
 **Necromancer**: só **foice**; Invocador, Ceifador e Sombras são focos que se misturam. Invocações com limite **por tipo**
@@ -771,6 +777,46 @@ Nível 30 só cai do Dragonete. Raridades: comum, incomum, raro, épico, **lend�
 - Fim de 2026-11-07 (vitórias de 40): Carniceiro 36, Inquisidor 34, Pestilento 34, Clérigo 33, Ceifador 32, Invocador 32, Cruzado 30,
   Xamã 29, Templário 28, Arremessador 26, Duelista 25, Caçador 23, Lanceiro 23 (2026-11-07, substituiu o Patrulheiro), Fogo 22, Guardião 21, Gelo 20, Fera 19, Executor 18, Trapaceiro 18,
   Raio 17, Sacerdote 17, Guardião Verde 16, Atirador 16, Lâminas 14 (antes do retrabalho dos chefes; histórico).
+- **Dano em alvo único ±25% (combat-plan C5, 2026-11-23; decisão do usuário: "trazer os conjuradores para baixo").** Regra: builds de
+  dano dentro de ±`Balance.DPS_SPREAD_PCT` (25%) da mediana no 30 e no 45 (tanque e cura fora). Medida: `dps_probe.tscn -- --on_only
+  --full_rot --levels=30,40,45` (linhas SPREAD/MEDIAN; `--full_rot` usa buffs/invocações e liga a forma; `--real_mp` não enche a mana:
+  difere <= 5 pontos, a mana cheia não favorecia os conjuradores; `--by_skill` = % do dano por fonte; `--old_gear` = equipamento de bot
+  antigo). Check `_check_dps_spread` (lutas de 30 s, ~1 min).
+  Causa do salto x3,3 dos conjuradores do 30 ao 45: (1) **bug do equipamento de bot** (`WorldSim._gear_scan`): cabeça/peito/luvas/botas
+  ficavam com a última peça da lista (pano), então TODO bot corpo a corpo/AGI do 32+ vestia INT/VON (Executor 45: FOR 992, vida 1617;
+  conserto: FOR 1262, vida 2452) e capa/amuleto de FOR vinham do Caçador; (2) o pano dá **INT de atributo principal** (a placa dá VIT e a
+  FOR só de 2º) e a INT rende MATK e crítico mágico juntos: do 32 em diante (as peças geradas trazem cabeça/luvas/botas) o conjurador
+  ganhava o dobro do atributo de dano. O couro faz o mesmo com a AGI do arco/mosquete/lança. Conserto na fonte: **cauda** da INT
+  (`Stats.int_power`: acima de `INT_TAIL_REF` 75, escala antiga, cada ponto vale `INT_TAIL_MULT` 0,5 no MATK e no crítico mágico) e da
+  AGI de arco/mosquete/lança (`Stats.agi_ranged_power`, `AGI_TAIL_*`; crítico e esquiva continuam pela AGI inteira); o 30 quase não muda.
+  Depois, `BUILD_POWER` centrou cada build (ver comentário no `balance.gd`).
+  | Build (% da mediana) | 30 antes | 30 depois | 45 antes | 45 depois |
+  |---|---|---|---|---|
+  | Raio | +81 | +4 | +151 | +4 |
+  | Fogo | +46 | +14 | +92 | +11 |
+  | Gelo | +25 | +2 | +59 | -1 |
+  | Iluminado | +45 | +15 | +53 | -6 |
+  | Xamã | +0 | +17 | +23 | +7 |
+  | Cruzado | +41 | +22 | +19 | +7 |
+  | Atirador | +32 | -2 | +18 | +2 |
+  | Executor | -10 | -8 | -31 | -16 |
+  | Gêmeos | -8 | -15 | -27 | -20 |
+  | Lobo | -29 | -11 | -37 | -15 |
+  | Invocador | -41 | +17 | -32 | +2 |
+  | Ceifador | -11 | +15 | +11 | -15 |
+  | Sombras | +0 | -9 | +12 | -15 |
+  | Corsário | -11 | +0 | -22 | -4 |
+  Antes = rotação só de dano, equipamento antigo (mediana 2104 / 5252); depois = `--full_rot` (mediana 2476 / 5820); fora de ±25%: 12 -> 0.
+  Bots Cruzado/Templário ganharam notáveis de sobrevivência (`ROLE_NOTABLES.paladin[1]`, C10; compravam 0). Piso do `skill_audit`
+  (60% da mediana da classe, sem o `BUILD_POWER`): `_check_skill_audit_floor`, utilidades em `run_tests.AUDIT_UTILITY`.
+- **Tempo de abate de lixo e elite (combat-plan C11, 2026-11-23).** Duas medidas:
+  (a) parada (check `_check_ttk_targets`, `Balance.TTK_TARGETS`): Duelista (perto da mediana de dano) no nível do monstro contra o
+  monstro sem cérebro; lixo = vida mediana da faixa, elite = maior vida (fora chefe/Rei). Medido: 1-10 0,4 / 2,3 s · 10-20 0,4 / 2,5 ·
+  20-30 0,4 / 0,9 · 30-40 0,7 / 1,1 · 40-45 1,2 / 2,0 · 45-50 1,2 / 2,0; alvo = x0,5..x2 disso.
+  (b) caçada (`band_probe.tscn -- --only=duel --from=1 --to=45 --trials=4`; 4 seguidos, movimento e dano recebido): lixo ~1,0 s (1-10),
+  ~1,7 (10-20), ~1,1 (20-30), ~1,0 (30-40), ~1,4 (40-45), ~3,5 (45-50, arena); elites 3-8,5 s (Guardiã élfica 8,5, Trent 5,8, Carniçal 4,8,
+  Senhor da Guerra 3,4, Troll Bruto 3,6, Golem de Basalto 3,3). Leitura: o lixo cai em 1-2 golpes de skill (o próprio band_probe marca
+  "trivial" < 3 s em 30 dos 70); subir a vida do lixo é decisão de mundo (world-builder/usuário), não destas metas.
 
 ## Progressão (lenta)
 Lv 1-50 (Ato I até o 30, Ato II 30-45, Ato III parte 1 45-50; fórmula no parágrafo "Ritmo" abaixo e em `design/gdd/progression.md`).
@@ -1532,6 +1578,23 @@ Longe fica na borda; perto vira seta sobre o ponto com anel. Revisar: `-- --auto
 Anda durante golpes e magias rápidas (60%; magias longas 25%; investidas 0), o rosto segue o cursor depois do impacto, e o básico até o impacto.
 Dash interrompe qualquer skill (antes do impacto devolve MP e recarga). Buffer de 0,25 s; o ataque segurado não apaga o que está na fila.
 Pernas correm por cima do golpe (`LegOverlay`) e o clipe é ajustado em duas fases: preparo até o impacto, resto até o fim da skill.
+**Antecipação sem atraso** (V2, 2026-11-23; decisão D1: o preparo das skills rápidas não muda): a skill (não o básico, não a Suprema
+nem a sequência de golpes) começa o clipe na 1ª pose de preparação (`EntityView.COIL_FRAME`, `coil_for`, `windup_timing(..., coil)`)
+se o preparo ainda corre a ≥ `COIL_MIN_SPEED` 1x; o impacto continua no tick do dano (`combat_probe` 0 FLAG). Skill rápida de
+personagem ganha brilho na arma / fagulha do tema na mão até o impacto (`WindupGlint`: golpe < 0,3 s, magia < 0,2 s) e o vento
+`whoosh`/`whoosh_magic` `Sfx.WHOOSH_LEAD` 0,08 s antes do tick (cancelou = sem som; no golpe de skill ele substitui o `swing`).
+**Gesto por arquétipo** (C1, 2026-11-23; só skill de classe, `SkillDef.clip` escrito vence): golpe físico de uma mão no chão =
+salto (avanço) / arremesso (veneno, estrepes, zona) / golpe de cima, nunca `cast_ground`; canalização física = giro; magia em linha
+= gesto da classe (`CAST_BY_CLASS`), nunca o básico; cura pelo tema da classe (`HEAL_BY_CLASS`: Druida natureza, Necromante dreno,
+Bispo/Paladino luz); vento com gesto próprio; maldição do Necromante (`cast_curse`) ≠ veneno do Assassino (arremesso); invocação
+do Necromante ergue do chão, Druida/Ranger chamam; buff de grupo das classes de luta = brado de ânimo; tiro de arco com preparo
+≥ 0,2 s segura a corda; leque de pistolas. Clipes novos que o kit ainda não tem tocam o de antes (`CLIP_FALLBACK`); clipe novo no
+kit precisa de `IMPACT_FRAME`. Ver tudo: `tools/tests/clip_route_probe.tscn`. Checks `_check_clip_routing`, `_check_anticipation`.
+**Hit-stop** (C2, 2026-11-23): sempre LOCAL, só quem bateu e quem apanhou seguram o quadro (`EntityView.hit_react`); nada mexe no
+`Engine.time_scale` (só o `--speed` de dev). Evento `Events.hit_stop(frames, attacker_id, target_ids)` sai só com o jogador envolvido;
+degraus em `Combat.hit_stop_frames`: básico `HIT_STOP_FRAMES_BASIC` 2, golpe físico pesado (preparo ≥ `CAST_HEAVY_STARTUP`) e
+finalizador ≥ `HIT_STOP_HEAVY_FRAMES` 6, teto `HIT_STOP_CAP_FRAMES` 12 (também depois do `stop_mult` da família de arma, `WeaponArcs`).
+Arco de arma: `WeaponArcs.on_hit_stop`; o resto (golpe de monstro, projétil, aparar): `FxManager._local_stop`. Check `_check_hit_stop_local`.
 
 ## Escudos
 14 escudos nomeados (`GearCatalog.SHIELDS`), lendários, cada um com silhueta, ícone e reação ao bloquear (cura, barreira, mana, reflexo, veneno, queimadura, lentidão, raiz, atordoar). A barreira dura `Balance.SHIELD_BARRIER_TIME` (5 s) e nunca encurta um escudo maior.
@@ -1694,6 +1757,10 @@ Jogar/Excluir; sem personagem cai direto na Criação) → **Criação** (classe
   Retrato do card em `user://portrait_<n>.png` (fotografado ao salvar; some com o personagem). `main.save_game()` é o ponto de salvar do HUD.
 - Esc → "Salvar e voltar ao menu" volta direto a Personagens com o card do personagem selecionado. Falha no Carregamento também (faixa vermelha).
 - Começos rápidos (`--preset=N`) e saves falsos só existem como flags de dev (`--dev_presets`, `--menu_saves`). Esc → Configurações é o mesmo `SettingsPanel` do Título.
+- Configurações têm duas abas: **Geral** (Gráficos, volumes, Dicas) e **Acessibilidade** (`AccessSettings`, seção `access` do `settings.cfg`):
+  Tremor da tela 0-100%, Clarões 0-100% (hit flash, clarões de skill/Suprema), Avisos Desligado / Alto contraste / Daltônico (padrão por mecânica:
+  dano = borda grossa + listras, seguro = tracejada, dividir = anéis de dentro, espalhar = segmentada, controle = ondulada; Daltônico troca para
+  laranja/azul/amarelo/roxo) e Efeitos dos aliados Tudo / Reduzido (1 em 2) / Mínimo (nunca os seus, nunca avisos). Padrões = o comportamento de antes.
 
 ## Fora de escopo (por enquanto)
 Rede real, PvP, guildas, dungeons instanciadas, música e som ambiente.

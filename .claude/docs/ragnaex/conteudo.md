@@ -148,11 +148,19 @@
   contrária (`glow_*` verde/ciano de prop de aviso vira quente, ex. `SHARD_GLOW`). Golpe físico de monstro = tema `blood`, não `physical`.
   Dano de zona avisada no chão (assinatura/perigo de chefe) NÃO é esquivado pela AGI (decisão 2026-11-13): passa por `BossSignatures._hit` →
   `_deal_damage(..., dodgeable=false)`; só sair da zona salva. Mecânica nova de chão de chefe usa o mesmo caminho (check em `_check_boss_sig_rules`).
+- **Preparo das skills (C8, decisão do usuário 2026-11-23)**: skill de classe **pesada** = poder >= `Balance.HEAVY_SKILL_POWER_MULT` (2x) o do
+  básico da classe (já com `BUILD_POWER`) começa em >= `HEAVY_SKILL_STARTUP_MIN` (0,2 s): `GameData._heavy_startup` sobe sozinho ao carregar
+  (o clipe acompanha, `EntityView.windup_timing`); investida (`dash`) e Suprema ficam fora. Teto `SKILL_STARTUP_MAX` (0,3 s), com **exceção escrita**
+  até `SKILL_STARTUP_EXCEPTION_MAX` (0,6 s) para: invocação (`summon`), área grande (raio >= `BIG_AREA_RADIUS` 4 m), golpe no chão (GROUND) com raio
+  >= `GROUND_AREA_RADIUS` 2 m (o preparo é o aviso para o grupo), canal e skill de ascensão. Subiu o preparo e o clipe corre demais depois do impacto
+  (`combat_probe` FLAG)? Aumente a `recovery` (ex.: Apunhalar 0,3). Check `_check_heavy_startup`.
 - **Resposta/fluidez do combate**: `--headless --path . tools/tests/combat_probe.tscn -- [--class=<id>,...] [--verbose]` (nível 30, cada build, bonecos parados):
   latência do comando, trava, encadear no básico, buffer, dash cancela, impacto do clipe no tick do dano, golpe que para antes da fase ativa
   e quanto o boneco fica parado entre básicos segurados. `FLAG` = problema; mexeu em timing de skill ou clipe, rode e deixe em 0 (o Cruzado tem 0,16 s de ritmo de arma pesada, aceito).
   Formas de bicho: `EntityView.FORM_CLIP` manda o gesto humano para `maul/pounce/slam/roar/brace` (`druid_sets.form_clips`); gesto longo repete na fase ativa (`ACTIVE_LOOP`).
   Filme de clipe de monstro/forma: `lineup.tscn -- --mob_strip=<modelo> --anim=<clipe>`.
+- **Barra do chefe (C4, 2026-11-23)**: `game/ui/boss_bar.gd` (`BossBar`, topo central do HUD; estáticos puros `pick/engaged/phase_marks/cast_info/mech_of`): chefe de verdade (`BossLock.is_lockable`) a até `Balance.BOSS_LOCK_RELEASE` m brigando com você ou o grupo (ameaça/aggro/dano) ou o travado; nome, fases ◆/◇ + marcas na vida, %, "Protegido" (ward), conjuração (canal de assinatura com "interrompa!", contragolpe, Muralha, preparação/canal ≥ `CAST_MIN_S`) na cor da gramática de perigo (`AccessSettings.tele_color`). Check `_check_boss_bar`; revisar `-- --autostart=<c> --boss_bar_shot=<pasta> [--boss=<id>] [--bar_skill=<id>]`.
+- **Retorno no corpo e no som (C3, 2026-11-23)**: `HitReact` (game/fx/hit_react.gd, nó do main, ouve `damage_dealt`): personagem com golpe ≥ 8% da vida inclina o tronco por cima do clipe (`HitFlinch`, SkeletonModifier3D aditivo, ~0,3 s, sem tirar o controle); chefe tem postura (não encolhe no clarão; só golpe ≥ 5% ou interrompido). Controle no corpo: `BuffLooks.CC_LOOKS` (estrelas, raízes `CcLook.roots`, rastro `CcLook.drag`, anel de gelo só no lento de gelo). Som por alvo: `Sfx.HIT_SOUND` (arma) e `Sfx.IMPACT_SOUND` (tema), banco `hit_blunt/hit_chop/hit_pierce/impact_*`. Check `_check_hit_feedback`.
 - **Trava no chefe (Tab, 2026-11-18)**: só apresentação, `game/player/boss_lock.gd` (`BossLock`, funções puras) + `PlayerController` (ação `lock_target` no InputMap).
   Só chefe de verdade (`is_boss`, sem `elite_of`, sem `decoy`) até `Balance.BOSS_LOCK_RANGE`; o sob o cursor vence o mais perto; sem chefe = aviso "Nenhum chefe por perto".
   Travado: W/S = raio, A/D = órbita no raio guardado (persegue um ponto `BOSS_LOCK_ORBIT_AHEAD` à frente no círculo: não espirala), mira de TUDO = chefe (a sim limita GROUND ao alcance).

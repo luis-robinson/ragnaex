@@ -14,6 +14,11 @@
   mapa, monstros acordados, draws, GPU e as fases da sim; reproduzir com `-- --soak=<s> [--soak_map=<dungeon>]` (joga sozinho e imprime FPS a cada 5 s).
 - Qualidade de imagem: `GraphicsSettings` (game/visual/graphics_settings.gd, menu Esc → Gráficos, salvo em `user://settings.cfg`): Nítido (125%, 100% em tela grande)
   ou FSR 2 Qualidade/Equilibrado/Desempenho. Comparar sem mexer no salvo: `-- --perf --gfx=<n>`.
+- Acessibilidade: `AccessSettings` (game/visual/access_settings.gd, aba Acessibilidade das Configurações, seção `access` do `settings.cfg`): `shake` (× no
+  `CameraRig.add_shake`, ruído suave + tranco no sentido do golpe), `flash` (hit flash, `SkillFx.flash`), `contrast` (padrões `TelePattern` por cima dos avisos
+  do `BossSigView`/`FxManager._telegraph`, mesma malha do quadro no BossSigView) e `ally_fx` (`FxManager._ally_fx_skip`/`ally_pass`: efeitos e números dos
+  outros personagens; os seus e os de monstro nunca). Só nesta partida: `-- --contrast=0|1|2 --ally_fx=0|1|2 --shake=<0..1> --flash=<0..1>`; foto da aba:
+  `--select_shot=<png> --title_settings --settings_tab=access`. Check `_check_accessibility_settings` (`--only=accessibility`).
 - Medir (espera os spawners encherem e a fila de bonecos esvaziar, `PERF settle_s`; `sync_step` = média/pior espera do `Sim.sync` por passo; `physics_max1s_ms` = pior passo de cada segundo, não média): `.\tools\godot.ps1 --path . -- --perf [--perf_at=x,z] [--no_merge] [--cull_test=hide|noproc] [--no_prune] [--no_away]` (cidade cheia ~8 s: FPS, draw calls, nós, memória, custo do tick).
   Draws por passada (`canvas_pass` = HUD 2D, `visible_pass`, `shadow_pass`) e `entity_surfaces`; experimentos `--hide_minimap`, `--hide_props=<prefixo,...>`, `--no_prop_shadow`, `--shadow_max=<m>`, `--no_vcol_merge`.
 - Fusões com cor no vértice: peças que só mudam de cor dividem a superfície (cor sRGB + `spec_strength` no alfa do `COLOR`; material branco com

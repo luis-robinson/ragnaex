@@ -55,6 +55,9 @@ de 1 s em quem está a 3,5 m, faísca dourada no atingido). A bancada agora limp
 
 **Ainda fracas no visual (próximas)**: a maioria das skills com preparo padrão de 0,15 s mostra o impacto no 2º quadro (pouca antecipação),
 físicos de tema "aço" ainda são o leque branco genérico, `dru_moonfire` tem retorno pequeno no acerto.
+**2026-11-23 (C1 + V2)**: a skill começa o clipe na pose armada (`EntityView.COIL_FRAME`), com brilho na arma/fagulha do tema
+(`WindupGlint`) e vento 0,08 s antes do impacto; o gesto segue o arquétipo da classe (cura, maldição, invocação, brado, tiro
+carregado, leque de pistola; `clip_route_probe.tscn` lista). Folhas em `production/qa/evidence/anim-c1v2/showcase/`.
 
 ## Pendências conhecidas
 - Flecha física ainda leva o rastro branco de partículas do tema "physical" (fica bonito, mas lê como magia leve).
@@ -102,3 +105,23 @@ forma, identidade, retorno (0-2 cada; passa com ≥ 8).
 Pendências: as folhas de 2,4 s não mostram os fechamentos (Golpe de Mestre do Duelo aos 6 s, implosão do Eclipse aos 8 s,
 explosão dos esqueletos aos 20 s); as SELF usam os clipes comuns (`shout`/`buff_power`); a arma do Disparo fica escondida
 atrás da cabeça chibi quando ele mira para o norte (câmera do jogo).
+
+## Camadas de efeito V1 + Supremas (2026-11-23) — bancada `--showcase=<classe> --skill=<id>`
+
+Tetos por camada em `SkillFx.TIERS` (básico / skill / pesada / Suprema: tamanho do enfeite, clarão, alfa de superfície, % da tela
+quase branca no impacto, partículas por rajada), aro tingido por tema `SkillFx.RING` (o branco ficou para o crítico), físico em aço.
+Supremas seguram a pose do impacto `Balance.ULT_HOLD_S` (6 quadros). A bancada imprime `SHOWCASE_WHITE` (teto da Suprema 12%).
+Check `_check_vfx_tiers`. Evidência: `production/qa/evidence/vfx-v1/before|after/`.
+
+| Skill | Antes (pose/tempo/forma/identidade/retorno) | Depois | Branco no pior quadro | O que mudou |
+|---|---|---|---|---|
+| `ber_ult_seven_winds` Sete Ventos | 3 (1/1/0/0/1) | 9 (1/2/2/2/2) | 7,1% | rastro teal, 7 crescentes que giram 51° por salto, espiral de 7 ventos no chão, aro e clarão no último |
+| `dru_ult_blood_moon` Garras da Lua Rubra | 4 (2/1/0/0/1) | 9 (2/2/2/2/1) | 2,5% | lua carmim com crescente ao lado da cabeça (no ar, não no chão), crescente dessaturado no chão por salto, sangue no alvo |
+| `bis_ult_judgement_sun` Sol do Julgamento | 6 (1/2/2/1/0) | 9 (1/2/2/2/2) | 6,4% (era a tela creme) | facho estreito, 12 raios dourados até o raio real, leito da zona dourado a 0,1, motas pequenas em mistura |
+| `nec_dark_offering` Oferenda Sombria | 5 (1/2/1/0/1) | 9 (1/2/2/2/2) | 2,1% | cada morto-vivo implode (disco violeta escuro que fecha), um aro só por lançamento, lascas de osso |
+| `pal_ult_hammer_sky` Céu de Martelos | — | 9 (2/2/2/2/1) | 6,9% | só os tetos (aro tingido, clarão) |
+| `bis_ult_faith_avatar` Avatar da Fé | — | 9 (2/2/2/2/1) | 10,2% | só os tetos; o mais perto do teto de branco (auréola + halo do martelo) |
+| `dru_ult_elder_heart` Coração do Bosque Ancião | — | 9 (1/2/2/2/2) | 3,8% | zona sem os discos de 1 m (as motas eram quads de 1 m cortados pelo chão) |
+
+Pendências: o rastro das motas dos martelos (Céu de Martelos) ainda é claro; números de dano cobrem o impacto nas folhas
+(não é do V1); a pose segurada não aparece na folha de 8 quadros (0,34 s entre quadros), está provada pelo check e pelo `combat_probe --ult`.
