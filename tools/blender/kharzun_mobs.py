@@ -100,10 +100,11 @@ def _nudge(rig, clip, keys):
         fc.update()
 
 
-# quadros do "attack" do Lança-Pedras (atk_throw com o impacto no 5): 3 = preparo, 4,33 = meio, 5 = solta, 9 = fim do embalo
+# quadros do "attack" do Lança-Pedras (atk_throw com o impacto no 5, chibi_kit.MOB_RETIME): 2,5 = preparo, 4 = meio,
+# 5 = solta, 9 = fim do embalo
 THROWER_THROW = {
-    3: {"spine": (-12, -6, 0), "chest": (-8, 0, 0), "upper_arm.L": (-25, 0, 0), "thigh.L": (-10, 0, 0), "hips_loc": (0, -0.04, -0.07)},
-    4.33: {"spine": (-10, 0, 0), "upper_arm.R": (-40, 30, -45)},
+    2.5: {"spine": (-12, -6, 0), "chest": (-8, 0, 0), "upper_arm.L": (-25, 0, 0), "thigh.L": (-10, 0, 0), "hips_loc": (0, -0.04, -0.07)},
+    4.0: {"spine": (-10, 0, 0), "upper_arm.R": (-40, 30, -45)},
     5: {"spine": (-20, 0, 0), "upper_arm.R": (-80, 60, -90), "hips_loc": (0, 0.0, 0.03)},          # pedra à frente, na altura do peito
     9: {"spine": (0, 10, 0), "upper_arm.R": (0, 60, -90), "upper_arm.L": (25, 0, -10), "thigh.R": (-12, 0, 0), "shin.R": (10, 0, 0),
         "hips_loc": (0, -0.05, 0.1)},                                                              # braço desce à frente, 0,5 m longe da perna

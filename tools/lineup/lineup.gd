@@ -264,6 +264,10 @@ func _build_strip() -> void:
 	cam.fov = 30.0
 	add_child(cam)
 	cam.look_at_from_position(Vector3(0, 1.4, 15.0 if frames >= 8 else 2.4 * float(frames)), Vector3(0, 0.7 if frames >= 8 else 1.0, 0), Vector3.UP)
+	if DevArgs.flag("--high") or "--high" in OS.get_cmdline_user_args():     # --high: o filme visto do ângulo da câmera do jogo (52° de cima), mais perto
+		var hd := 15.0 if frames >= 8 else 2.4 * float(frames)
+		var ha := deg_to_rad(52.0)
+		cam.look_at_from_position(Vector3(0, 0.8 + hd * sin(ha), hd * cos(ha)), Vector3(0, 0.8, 0), Vector3.UP)
 	_side = true
 
 func _build_mounted() -> void:

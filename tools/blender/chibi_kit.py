@@ -1148,14 +1148,22 @@ def _rolled(euler_deg, roll_deg):
 
 
 def _block_pose(ph):
+    """Guarda sem escudo. Revisão 2026-11-23 (pacote C9): era uma pose parada (2-3° em 4 ossos). Agora respira (peito e
+    ombros, fases defasadas) e troca o peso entre os pés: o quadril vai e volta para o lado e afunda, o joelho da frente
+    dobra, o tronco torce um pouco e a cabeça compensa (continua olhando o golpe); os braços da guarda sobem e descem juntos."""
     s = math.sin(ph)
+    b = math.sin(ph + 0.6)           # respiração (peito)
+    w = math.sin(ph - 0.9)           # peso: atrasado em relação à respiração
     p = {
-        "spine": (10 + 1.5 * s, -6, 0), "chest": (2 * math.sin(ph + 0.6), 0, 0), "head": (-2, 4, 0),
-        "upper_arm.L": (-58 + 2 * s, -22, 0), "forearm.L": (-78, 0, 0), "hand.L": (0, 0, 0),
-        "upper_arm.R": (-74 + 2 * s, 34, 0), "forearm.R": (-62 - 3 * s, 0, 0), "hand.R": (150, 0, -60),
-        "thigh.R": (-20, 0, 0), "shin.R": (26 + 2 * s, 0, 0), "thigh.L": (14, 0, 0), "shin.L": (14, 0, 0),
+        "hips": (0, 3.5 * w, 1.5 * w),
+        "spine": (10 + 2.5 * s, -6 - 4 * w, 0), "chest": (1 + 3.5 * b, -2.5 * w, 0), "neck": (0, 2 * w, 0),
+        "head": (-2 - 2.5 * b, 4 + 4.5 * w, -1.5 * w),
+        "upper_arm.L": (-58 + 4.5 * b, -22, 0), "forearm.L": (-78 - 5 * math.sin(ph + 1.4), 0, 0), "hand.L": (0, 0, 0),
+        "upper_arm.R": (-74 + 4 * math.sin(ph + 0.3), 34 - 3 * w, 0), "forearm.R": (-62 - 5.5 * math.sin(ph + 1.0), 0, 0), "hand.R": (150, 0, -60),
+        "thigh.R": (-20 - 5 * w, 0, 0), "shin.R": (26 + 8 * w, 0, 0), "foot.R": (-3 * w, 0, 0),
+        "thigh.L": (14 + 3.5 * w, 0, 0), "shin.L": (14 - 4.5 * w, 0, 0),
     }
-    return p, (0, -0.035 - 0.006 * s, 0)
+    return p, (0.014 * w, -0.04 - 0.012 * w, 0.006 * s)
 
 
 def _shield_guard_pose(ph):
@@ -1226,6 +1234,31 @@ def animate_crusader(rig, sex):
     import crusader_chain_data
     for name, (end, keys) in crusader_chain_data.SOLVED[sex].items():
         _pose_action(rig, name, [(f, dict(pose), hips) for f, pose, hips in keys], end)
+
+
+# Clipes de arquétipo do pacote C2 (2026-11-23): gesto próprio por tipo de skill, só nos kits das classes que usam.
+# Quadro de impacto (= EntityView.IMPACT_FRAME) e kits que levam cada um (None = todos, inclusive os genéricos de NPC).
+C2_IMPACT = {"cast_heal_nature": 8, "cast_curse": 8, "cast_wind": 9, "summon_rise": 11, "summon_call": 9, "atk_bow_charge": 12,
+             "atk_pistol_pair": 6, "atk_pistol_fan": 6, "atk_scythe_reap": 8, "shout_rally": 7}
+C2_CLASSES = {"cast_heal_nature": ("druid",), "cast_curse": ("necromancer",), "cast_wind": ("druid", "elementalist", "ranger"),
+              "summon_rise": ("necromancer",), "summon_call": ("druid", "ranger", "elementalist"), "atk_bow_charge": ("ranger",),
+              "atk_pistol_pair": ("assassin",), "atk_pistol_fan": ("assassin",), "atk_scythe_reap": ("necromancer",), "shout_rally": None}
+# kits em que o clipe sai ESPELHADO: o Ranger leva o arco na esquerda, então assobia com a direita e ergue o arco
+C2_MIRROR = {"summon_call": ("ranger",)}
+IMPACT.update(C2_IMPACT)
+
+
+def animate_archetypes(rig, sex, class_id=None):
+    """Clipes de arquétipo (cura da natureza, maldição, vento, erguer/chamar invocação, tiro carregado, par e leque de
+    pistola, ceifada, grito de aliado). Poses resolvidas por FK em archetype_clips_solve.py (desenho das chaves lá),
+    gravadas em archetype_clips_data.py. Fora do animate_v3: os monstros e os clipes que já existiam não mudam."""
+    import archetype_clips_data
+    for name, (end, keys) in archetype_clips_data.SOLVED[sex].items():
+        own = C2_CLASSES.get(name)
+        if own is None or class_id in own:
+            if class_id in C2_MIRROR.get(name, ()):
+                keys = [(f, _mirror(pose), (-hips[0], hips[1], hips[2])) for f, pose, hips in keys]
+            _pose_action(rig, name, [(f, dict(pose), hips) for f, pose, hips in keys], end)
 
 
 def shield_clip(style, clip):
@@ -1401,9 +1434,18 @@ def _skill_clips(rig):
     gather = dict(ARM_CHEST, **{"spine": (8, 0, 0), "head": (6, 0, 0)}, **legs_wide)
     shake = dict(gather, **{"spine": (10, 3, 0), "chest": (2, -3, 0)})
     push = dict(ARM_FRONT, **{"spine": (16, 0, 0), "chest": (6, 0, 0), "head": (2, 0, 0), "thigh.R": (-28, 0, 0), "shin.R": (24, 0, 0), "thigh.L": (14, 0, 0)})
-    _pose_action(rig, "cast_channel", [(1, R, None), (4, gather, (0, -0.03, 0)), (7, shake, (0, -0.03, 0)), (10, gather, (0, -0.04, 0)),
-                                       (12, shake, (0, -0.04, 0)), (14, push, (0, -0.02, 0.06)), (19, push, (0, -0.02, 0.05)),
-                                       (24, R, None)], 24)
+    # revisão 2026-11-23 (pacote C9): as mãos tremiam 3° no peito, escondidas pela cabeça (de cima e de lado não lia).
+    # Agora o corpo pulsa duas vezes: encolhe baixo com as mãos no peito e abre os braços para os lados subindo e torcendo
+    # (a silhueta alarga, dá para ver de cima), e só então empurra. Impacto (14) e duração (24) iguais.
+    sink = {"thigh.R": (-34, 0, 0), "shin.R": (46, 0, 0), "thigh.L": (-22, 0, 0), "shin.L": (40, 0, 0)}
+    gather = dict(ARM_CHEST, **{"spine": (16, -6, 0), "chest": (4, -2, 0), "head": (10, 4, 0)}, **sink)
+    swell_a = dict(_both(ARM_SIDE_LOW_R), **{"spine": (0, 12, 0), "chest": (-6, 4, 0), "head": (-10, -8, 0)}, **legs_wide)
+    gather_b = dict(_blend(ARM_CHEST, ARM_FRONT, 0.3), **{"spine": (18, 6, 0), "chest": (4, 2, 0), "head": (10, -4, 0)}, **sink)
+    swell_b = dict(_both(ARM_SIDE_LOW_R), **{"spine": (-2, -12, 0), "chest": (-6, -4, 0), "head": (-10, 8, 0)}, **legs_wide)
+    push_b = dict(push, **{"spine": (20, 0, 0), "chest": (8, 0, 0), "thigh.R": (-32, 0, 0), "shin.R": (28, 0, 0)})
+    _pose_action(rig, "cast_channel", [(1, R, None), (4, gather, (0, -0.09, 0)), (7, swell_a, (0, -0.01, 0)), (10, gather_b, (0, -0.1, -0.02)),
+                                       (12, swell_b, (0, 0.0, -0.02)), (14, push, (0, -0.02, 0.06)), (16, push_b, (0, -0.04, 0.08)),
+                                       (19, push, (0, -0.02, 0.05)), (24, R, None)], 24)
     # --- no alvo: estende o braço da arma pro alvo, o outro pra trás ---
     point = dict(R, **{"upper_arm.R": ARM_FRONT["upper_arm.R"], "forearm.R": (-5, 0, 0), "hand.R": ARM_FRONT["hand.R"],
                        "upper_arm.L": (30, 0, -20), "forearm.L": (-30, 0, 0), "spine": (6, 22, 0), "chest": (2, 8, 0), "head": (0, -18, 0),
@@ -1425,8 +1467,26 @@ def _skill_clips(rig):
                       "upper_arm.R": ARM_FRONT["upper_arm.R"], "forearm.R": (-10, 0, 0), "hand.R": ARM_FRONT["hand.R"],
                       "upper_arm.L": (-40, -30, 0), "forearm.L": (-70, 0, 0),
                       "thigh.R": (-56, 0, 0), "shin.R": (50, 0, 0), "thigh.L": (42, 0, 0), "shin.L": (46, 0, 0)})
-    _pose_action(rig, "atk_charge", [(1, _blend(R, lean, 0.4), (0, -0.04, 0)), (3, lean, (0, -0.1, 0.12)), (5, lean, (0, -0.1, 0.16)),
-                                     (10, lean, (0, -0.08, 0.12)), (14, _blend(lean, R, 0.6), None), (18, R, None)], 18)
+    # revisão 2026-11-23 (pacote C9): a pose `lean` ficava parada do quadro 3 ao 10 (só o quadril andava 4 cm). Agora é uma
+    # passada de carga: recolhe a arma com o joelho da frente alto (3), bate com o ombro e o braço esticado (5 = impacto,
+    # igual), o corpo passa do ponto e afunda com o braço solto atrasado atrás (7), as pernas trocam e o corpo sobe (10) e
+    # só então desarma. O tronco torce de um lado para o outro e a cabeça acompanha atrasada.
+    coil = dict(lean, **{"spine": (36, -24, 0), "chest": (8, -8, 0), "head": (-26, 20, 0),
+                         "forearm.R": (-46, 0, 0),      # só o cotovelo recolhe: a mão fica na pose resolvida (arma longa não vira no chão)
+                         "upper_arm.L": (-58, -30, 0), "forearm.L": (-82, 0, 0),
+                         "thigh.R": (-40, 0, 0), "shin.R": (62, 0, 0), "thigh.L": (30, 0, 0), "shin.L": (32, 0, 0)})
+    ram = dict(lean, **{"spine": (36, 12, 0), "chest": (8, 8, 0), "head": (-26, -12, 0), "forearm.R": (-4, 0, 0),
+                        "upper_arm.L": (14, 0, -24), "forearm.L": (-50, 0, 0),
+                        "thigh.R": (-60, 0, 0), "shin.R": (42, 0, 0), "thigh.L": (48, 0, 0), "shin.L": (34, 0, 0)})
+    carry = dict(ram, **{"spine": (36, 22, 0), "chest": (8, 10, 0), "head": (-18, -20, 0), "forearm.R": (-9, 0, 0),
+                         "upper_arm.L": (28, 0, -30), "forearm.L": (-36, 0, 0),
+                         "thigh.R": (-34, 0, 0), "shin.R": (56, 0, 0), "thigh.L": (22, 0, 0), "shin.L": (62, 0, 0)})
+    stride = dict(lean, **{"spine": (36, -10, 0), "chest": (8, -4, 0), "head": (-26, 8, 0), "forearm.R": (-18, 0, 0),
+                           "upper_arm.L": (-46, -30, 0), "forearm.L": (-76, 0, 0),
+                           "thigh.R": (36, 0, 0), "shin.R": (42, 0, 0), "thigh.L": (-52, 0, 0), "shin.L": (62, 0, 0)})
+    _pose_action(rig, "atk_charge", [(1, _blend(R, lean, 0.4), (0, -0.04, 0)), (3, coil, (0, -0.11, 0.08)), (5, ram, (0, -0.08, 0.19)),
+                                     (7, carry, (0, -0.11, 0.21)), (10, stride, (0, -0.05, 0.15)), (14, _blend(stride, R, 0.6), (0, -0.03, 0.05)),
+                                     (18, R, None)], 18)
     # --- arremesso: arma pra trás no alto e lança pra frente com o corpo ---
     cock = dict(R, **ARM_BACK_HIGH_R, **{"spine": (-6, -30, 0), "chest": (-4, -8, 0), "head": (0, 22, 0),
                                        "upper_arm.L": ARM_FRONT["upper_arm.L"], "forearm.L": (-20, 0, 0),
@@ -1542,7 +1602,17 @@ def _family_clips(rig):
     # --- sombra: se fecha sobre si e atira os braços pra fora ---
     hunch = dict(_arms(ARM_CHEST, ARM_CHEST), **{"spine": (34, 0, 0), "chest": (12, 0, 0), "head": (24, 0, 0)}, **low)
     fling = dict(open_both, **{"spine": (-8, 0, 0), "chest": (-6, 0, 0), "head": (-4, 0, 0)}, **lunge)
-    _pose_action(rig, "cast_shadow", [(1, R, None), (5, hunch, (0, -0.14, 0)), (8, fling, (0, -0.04, 0.06)), (12, fling, (0, -0.04, 0.05)), (16, _blend(fling, R, 0.6), None), (21, R, None)], 21)
+    # revisão 2026-11-23 (pacote C9): os braços iam só para os lados e para baixo (de perfil sumiam atrás do corpo). Agora o
+    # corpo se fecha torcido, as duas mãos rasgam para a frente e para baixo no impacto (8, igual: lê de lado, com o bote),
+    # e no embalo os braços abrem alto para os lados com o tronco arqueado para trás (asas: lê de frente e de cima).
+    hunch = dict(hunch, **{"spine": (34, -16, 0), "chest": (12, -6, 0), "head": (24, 12, 0)})
+    rip = dict(down_both, **{"spine": (28, 6, 0), "chest": (10, 2, 0), "head": (4, -4, 0)}, **lunge)
+    spread = dict(ARM_SIDE, **{"spine": (-14, 0, 0), "chest": (-8, 0, 0), "head": (-12, 0, 0),
+                               "thigh.R": (-30, 0, 0), "shin.R": (30, 0, 0), "thigh.L": (22, 0, 0), "shin.L": (20, 0, 0)})
+    spread_b = dict(spread, **{"spine": (-8, 6, 0), "chest": (-6, 2, 0), "head": (-8, -4, 0)})
+    _pose_action(rig, "cast_shadow", [(1, R, None), (3, _blend(R, hunch, 0.6), (0, -0.08, -0.01)), (5, hunch, (0, -0.16, -0.03)), (8, rip, (0, -0.06, 0.1)),
+                                      (11, spread, (0, 0.03, 0.08)), (14, spread_b, (0, -0.01, 0.06)), (17, _blend(spread_b, R, 0.6), (0, -0.01, 0.02)),
+                                      (21, R, None)], 21)
     # --- natureza: mãos no chão e puxa a terra pra cima ---
     reach = dict(down_both, **{"spine": (48, 0, 0), "chest": (12, 0, 0), "head": (-10, 0, 0)}, **low)
     lift = dict(front_both, **{"spine": (-10, 0, 0), "chest": (-6, 0, 0), "head": (-14, 0, 0)}, **wide)
@@ -1555,7 +1625,15 @@ def _family_clips(rig):
     _pose_action(rig, "buff_guard", [(1, R, None), (3, _blend(R, brace, 0.5), (0, 0.04, 0)), (6, brace, (0, -0.15, 0)), (12, brace, (0, -0.14, 0)), (15, _blend(brace, R, 0.5), None), (19, R, None)], 19)
     breathe = dict(_arms(ARM_CHEST, ARM_CHEST), **{"spine": (14, 0, 0), "head": (10, 0, 0)}, **low)
     loose = dict(_arms(ARM_V, ARM_SIDE_LOW_R), **{"spine": (-12, 14, 0), "chest": (-4, 6, 0), "head": (-12, -8, 0)}, **wide)
-    _pose_action(rig, "buff_focus", [(1, R, None), (5, breathe, (0, -0.1, 0)), (8, loose, (0, 0.07, 0)), (13, loose, (0, 0.08, 0)), (16, _blend(loose, R, 0.5), None), (20, R, None)], 20)
+    # revisão 2026-11-23 (pacote C9): soltava com um braço ao lado da cabeça e o outro ao lado do corpo (de perfil e de cima
+    # não se via braço nenhum). Agora recolhe torcido e baixo e solta (8, igual) destorcendo: a mão livre espalmada à frente
+    # (lê de lado e de cima) e a arma erguida (lê de frente), corpo na ponta dos pés; depois assenta com um balanço.
+    breathe = dict(breathe, **{"spine": (16, -22, 0), "chest": (2, -8, 0), "head": (10, 18, 0)})
+    loose = dict(_arms(ARM_V, ARM_FRONT), **{"spine": (-12, 18, 0), "chest": (-6, 8, 0), "head": (-10, -14, 0), "forearm.L": (-6, 0, 0),
+                                             "foot.R": (16, 0, 0), "foot.L": (16, 0, 0)}, **wide)
+    loose_b = dict(loose, **{"spine": (-6, 10, 0), "chest": (-2, 4, 0), "head": (-6, -8, 0), "forearm.L": (-22, 0, 0), "foot.R": (0, 0, 0), "foot.L": (0, 0, 0)})
+    _pose_action(rig, "buff_focus", [(1, R, None), (3, _blend(R, breathe, 0.6), (0, -0.06, 0)), (5, breathe, (0, -0.12, -0.02)), (8, loose, (0, 0.07, 0.03)),
+                                     (10, loose, (0, 0.09, 0.03)), (13, loose_b, (0, 0.02, 0.02)), (16, _blend(loose_b, R, 0.5), (0, -0.02, 0)), (20, R, None)], 20)
 
 def _settle_attacks(rig):
     """Golpes com antecipação (meio caminho pra preparação) e acomodação (meio caminho de volta) — impacto igual."""
@@ -2104,6 +2182,11 @@ MOB_ATTACK = {"sword": "atk_1h_a", "mace": "atk_1h_a", "axe": "atk_1h_a", "dagge
               "axe2h": "atk_sweep", "scythe": "atk_sweep", "bow": "atk_bow", "staff": "atk_staff", "wand": "atk_staff", "scepter": "atk_staff",
               "rifle": "atk_rifle", None: "atk_claw"}
 MOB_IMPACT = 5           # EntityView.IMPACT_FRAME["attack"]: o "attack" dos monstros bate no quadro 5
+# Golpes largos encolhidos para o impacto no quadro 5 (pacote C9, 2026-11-23): por igual, o braço da arma varria ~180° em
+# 1,7 quadro (68-72° por quadro de 60 Hz no Durgash, Ghar, Senhor da Guerra, Carniçal Gigante e Lança-Pedras). Aqui o recuo
+# fica mais curto e a descida do golpe ganha os quadros: {quadro do clipe do kit: quadro no "attack"}; o impacto continua no 5.
+MOB_RETIME = {"atk_sweep": {5: 2.6, 7: 4.0},      # 5 = preparo, 7 = meio do arco (antes 3,29 e 4,43)
+              "atk_throw": {4: 2.5, 6: 4.0}}      # 4 = braço atrás, 6 = meio do arremesso (antes 3 e 4,33)
 MOB_KEEP = ("idle", "run", "attack", "cast", "hit", "die", "block")
 # chefes humanoides guardam também os gestos das skills especiais (EntityView._action_clip pede pelo nome do kit)
 MOB_BOSS_KEEP = ("atk_spin", "atk_charge", "atk_leap", "atk_sweep", "atk_throw", "atk_claw", "cast_ground", "cast_channel", "cast_target",
@@ -2124,14 +2207,27 @@ def _rename_track(rig, src, dst):
     t.strips[0].action.name = dst
 
 
-def _retimed_copy(rig, src, dst, impact_to):
+def _retimed_copy(rig, src, dst, impact_to, marks=None):
     """Cópia do clipe `src` com o impacto (IMPACT[src]) movido para o quadro `impact_to`: a preparação encolhe/estica
-    por igual, o resto do clipe mantém o tempo."""
+    por igual, o resto do clipe mantém o tempo. marks = {quadro do src: quadro na cópia} (antes do impacto): a preparação
+    é remapeada por trechos em vez de por igual (MOB_RETIME: o golpe em si fica com mais quadros que o recuo)."""
     act = _tracks(rig)[src].strips[0].action
     imp = IMPACT.get(src, 6)
     end = act.frame_range[1]
     k1 = (impact_to - 1) / max(1.0, imp - 1)
-    g = lambda f: 1 + (f - 1) * k1 if f <= imp else impact_to + (f - imp)
+    pts = sorted([(1.0, 1.0), (float(imp), float(impact_to))] + [(float(a), float(b)) for a, b in (marks or {}).items() if 1 < a < imp])
+
+    def g(f):
+        if f > imp:
+            return impact_to + (f - imp)
+        if not marks:
+            return 1 + (f - 1) * k1
+        if f <= 1:
+            return 1 + (f - 1) * k1
+        for (a0, b0), (a1, b1) in zip(pts, pts[1:]):
+            if f <= a1:
+                return b0 + (f - a0) * (b1 - b0) / (a1 - a0)
+        return float(impact_to)
     new = act.copy()
     new.name = dst
     for fc in _fcurves(new):
@@ -2160,7 +2256,7 @@ def mob_clips(rig, weapon=None, offhand=None, attack=None, boss=False, extra_kee
     animate_combat(rig)
     animate_v3(rig)
     src = attack or ("atk_dual_a" if offhand in ("dagger", "sword", "axe", "mace") else MOB_ATTACK.get(weapon, "atk_1h_a"))
-    _retimed_copy(rig, src, "attack", MOB_IMPACT)
+    _retimed_copy(rig, src, "attack", MOB_IMPACT, MOB_RETIME.get(src))
     idle = {"bow": "idle_bow", "staff": "idle_staff", "wand": "idle_staff", "scythe": "idle_staff", "scepter": "idle_staff"}.get(weapon)
     if idle:
         _rename_track(rig, idle, "idle")
@@ -3047,6 +3143,7 @@ def build_kit(sex, out_dir=None, class_id=None):
         animate_tall_shield(base["rig"])      # corrida e guarda dos escudos altos (shield_kit.TALL)
     if class_id in CHAIN_CLASSES:
         animate_crusader(base["rig"], sex)    # sequência de duas mãos do Golpe do Cruzado (atk_2h_chain_a/b/c)
+    animate_archetypes(base["rig"], sex, class_id)   # pacote C2: gestos por arquétipo (C2_CLASSES)
     clear_weapons(base["rig"], class_id)  # golpes de cima cravavam a ponta no chão (espada -0,2 m, montante -0,5 m, lança -0,9 m)
     # Godot não aceita "." em nome de nó
     for o in bpy.context.scene.objects:
