@@ -38,7 +38,7 @@ const SLOT_ART := {ItemDef.Slot.HEAD: "head", ItemDef.Slot.BODY: "body", ItemDef
 const MATERIAL_ART := [["legend_coin", "legend_coin"], ["honey", "sap"], ["stinger", "tusk"], ["shell", "shell"], ["mushroom", "mushroom"], ["relic", "relic"], ["basket", "basket"],
 	["letter", "letter"], ["report", "letter"], ["star_ore", "star"], ["goods", "basket"], ["gel", "gel"], ["pelt", "pelt"], ["hide", "pelt"], ["tusk", "tusk"], ["fang", "tusk"], ["herb", "herb"],
 	["ore", "ore"], ["silk", "silk"], ["bark", "bark"], ["badge", "badge"], ["bone", "bone"], ["dust", "dust"],
-	["essence", "essence"], ["core", "core"], ["scale", "scale"], ["feather", "feather"], ["steel", "ingot"], ["sap", "sap"], ["heartwood", "bark"], ["_log", "bark"]]
+	["essence", "essence"], ["core", "core"], ["scale", "scale"], ["feather", "feather"], ["steel", "ingot"], ["sap", "sap"], ["heartwood", "bark"], ["_log", "bark"], ["ribbon", "silk"], ["porcelain", "shell"], ["crown", "crown"]]
 ## inclinação da arte (rad): armas na diagonal, como na mão
 const ANGLE := {"sword": 0.74, "sword2h": 0.74, "dagger": 0.74, "mace": 0.6, "mace2h": 0.5, "axe": 0.42, "axe2h": 0.4, "staff": 0.6,
 	"wand": 0.66, "scythe": 0.2, "scepter": 0.6, "rifle": 0.76, "spear": 0.74, "pistol": -0.2, "claw": 0.3, "bow": -0.74, "tusk": 0.3, "bone": 0.7, "herb": 0.18}
@@ -1174,6 +1174,16 @@ func _a_bark() -> void:
 	_poly([-0.62, -0.92, 0.5, -0.82, 0.4, -0.66, -0.56, -0.74], "wood", 0.0, 0.0)
 	for q in [[0.42, 0.42], [-0.46, -0.1], [0.12, 0.62]]:
 		_ell(q[0], q[1], 0.14, 0.1, "green", 0.035)
+
+func _a_crown() -> void:
+	# coroa vazia (troféu da raide do Ato III): aro com três pontas e gemas, vão escuro no meio
+	_poly([-0.82, 0.62, -0.86, -0.42, -0.46, -0.02, 0.0, -0.78, 0.46, -0.02, 0.86, -0.42, 0.82, 0.62], "tint", 0.06, 0.18)
+	_poly([-0.82, 0.62, -0.82, 0.3, 0.82, 0.3, 0.82, 0.62], "trim", 0.04, 0.1)
+	_poly([-0.4, 0.3, -0.36, 0.12, 0.36, 0.12, 0.4, 0.3], "metal", 0.0, 0.0)
+	for g in [[-0.86, -0.42], [0.0, -0.78], [0.86, -0.42]]:
+		_dot(g[0], g[1], 0.09, Color(0.95, 0.72, 0.8))
+	_dot(0.0, 0.46, 0.08, Color(0.95, 0.72, 0.8))
+	_shine(-0.5, 0.0, 0.14, 0.06, 0.55)
 
 func _a_badge() -> void:
 	_poly([0, -0.96, 0.78, -0.7, 0.72, 0.1, 0, 0.98, -0.72, 0.1, -0.78, -0.7], "trim", 0.06, 0.1)

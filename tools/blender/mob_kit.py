@@ -2973,6 +2973,14 @@ def build_all(out_dir, only=None):
     import grove_mobs
     importlib.reload(grove_mobs)
     builders.update(grove_mobs.BUILDERS)
+    # Ato III parte 1 (45-50): Demônias da Sede e Vessaline (lumeria_mobs.py)
+    import lumeria_mobs
+    importlib.reload(lumeria_mobs)
+    builders.update(lumeria_mobs.BUILDERS)
+    # Ato III: chefes de mundo (Dona Vindima, Prima-Donna) e os lacaios deles (lumeria_bosses.py)
+    import lumeria_bosses
+    importlib.reload(lumeria_bosses)
+    builders.update(lumeria_bosses.BUILDERS)
     for name, fn in builders.items():
         if only and name not in only:
             continue
@@ -2987,7 +2995,7 @@ def build_all(out_dir, only=None):
                                                                               "mob_frost_mage", "mob_lich_king", "mob_skeleton", "mob_zombie", "mob_lich", "mob_skeleton_king", "form_demon", "form_lich",
                     "mob_elf_warrior", "mob_elf_archer", "mob_elf_warden", "mob_elf_king", "mob_elf_mage",
                     "mob_elf_captain_hunter", "mob_elf_captain_sky", "mob_elf_captain_sap", "mob_elf_citizen", "mob_elf_citizen_f",
-                    "mob_elf_fighter", "mob_elf_bowman") or name.startswith(("mob_goblin_", "mob_orc_", "mob_naga_", "mob_troll")) or name in ("mob_tide_mother", "mob_agitator_lord", "mob_crossbow_master", "mob_ghar") or name in kharzun_mobs.HUMANOIDS or name in grove_mobs.HUMANOIDS:
+                    "mob_elf_fighter", "mob_elf_bowman") or name.startswith(("mob_goblin_", "mob_orc_", "mob_naga_", "mob_troll")) or name in ("mob_tide_mother", "mob_agitator_lord", "mob_crossbow_master", "mob_ghar") or name in kharzun_mobs.HUMANOIDS or name in grove_mobs.HUMANOIDS or name in lumeria_mobs.HUMANOIDS or name in lumeria_bosses.HUMANOIDS:
             ck.export_glb(arm, os.path.join(out_dir, name + ".glb"))
         else:
             lp.export_glb(os.path.join(out_dir, name + ".glb"), [arm])

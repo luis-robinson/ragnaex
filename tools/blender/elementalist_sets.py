@@ -651,3 +651,75 @@ def register(ck):
     for style, cfg in ELE_SETS.items():
         ck.SET_STYLES[style] = (lambda st, cf: (lambda base, mats: (build(ck, base, mats, st, cf), paladin_sets.join_slots("arm_%s_" % st))))(style, cfg)
         ck.SET_WEAPONS[style + "_staff"] = (lambda st, cf: (lambda base, mats: build_staff(ck, base, mats, st, cf)))(style, cfg)
+
+
+# ---------------------------------------------------------------------------
+# Ato III (nível 50, GDD ato3-lendarios-50): UM visual novo por build no tema de Lumeria. Malhas no kit extra
+# kit_elementalist_<sexo>_a3.glb (chibi_kit.A3_STYLES); motivos comuns em lumeria_kit.py. Função simples (sem o par
+# (elemento, fn) de ACT2_SETS): o 2º elemento não entra no visual do 50.
+#   ele_f50 Fogo = Lanterna do Fim da Festa: coroa-lanterna alta (UMA lanterna grande acesa no alto da cabeça, sustentada
+#           por quatro braços de ouro, e duas pequenas pendendo dos lados), meia-máscara de porcelana com lágrima de brasa,
+#           manto em fitas de seda (tint2, laranja-brasa) caindo da gola pelas costas e pelos ombros, lanterna em cada ombro.
+def build_feast_end_lantern(ck, base, mats, style):
+    """ele_f50 — Lanterna do Fim da Festa (Fogo)."""
+    import lumeria_kit as lk
+    import berserker_sets as bs
+    V = Vector
+    rig, body, b, j = base["rig"], base["body"], base["b"], base["j"]
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, porc, glow = M["t"], M["t2"], M["gold"], M["porc"], M["glow"]
+    P = "arm_%s_" % style
+    c, r = V(base["head_c"]), b["head"]
+    d = b["depth"]
+    front = -b["chest"] * d - 0.03
+    back = b["chest"] * d + 0.03
+    zc, zn, zw = ck.Z["chest"], ck.Z["neck"], ck.Z["waist"]
+    # ---------------- túnica ----------------
+    ck.armor_piece(body, rig, P + "body_robe", "torso", t, 0.014, 0.014, 0.03)
+    ck.armor_piece(body, rig, P + "body_legs", "legs", porc, 0.008, 0.012)
+    ck.skirt(P + "body_skirt", b, body, rig, t, 0.075, 1.72)
+    bs._belt(ck, base, P + "body_belt", zw - 0.04, zw + 0.035, 1.21, t2)
+    # ---------------- cabeça: cabelo solto, aro de ouro, lanterna grande no alto, duas pendentes, meia-máscara ----------------
+    head = _act2_hair(ck, base, P)
+    head.append(ck.tube(P + "head_ring", c + V((0, 0, r * 0.5)), c + V((0, 0, r * 0.66)), r * 1.1, r * 1.01, gold, 20))
+    lc = c + V((0, 0, r * 1.72))
+    ls_ = r * 0.44
+    head += lk.lantern(ck, P + "head_lantern", lc, ls_, M, segs=8)
+    for k in range(4):                   # braços de ouro: do aro até o pé da lanterna, em arco
+        a = math.tau * (k + 0.5) / 4
+        dv = V((math.cos(a), math.sin(a), 0))
+        p0, p1, p2 = c + dv * r * 1.03 + V((0, 0, r * 0.6)), c + dv * r * 0.82 + V((0, 0, r * 1.06)), lc + dv * ls_ * 0.5 + V((0, 0, -ls_ * 0.95))
+        head += [ck.tube(P + "head_arm%d_a" % k, p0, p1, r * 0.06, r * 0.05, gold, 5), ck.tube(P + "head_arm%d_b" % k, p1, p2, r * 0.05, r * 0.045, gold, 5),
+                 ck.blade(P + "head_flame%d" % k, p0 + V((0, 0, r * 0.02)), p0 + dv * r * 0.22 + V((0, 0, r * 0.52)), r * 0.24, r * 0.07, gold, (-dv.y, dv.x, 0), 0.35)]
+    for sx in (-1, 1):                   # lanterninhas pendentes dos lados do aro
+        hp_ = c + V((sx * r * 1.1, -r * 0.05, r * 0.52))
+        head += lk.lantern(ck, P + "head_side_lantern%d" % sx, hp_ + V((sx * r * 0.1, 0, -r * 0.48)), r * 0.17, M, hang=hp_)
+    head += lk.mask(ck, P + "head_mask", c + V((0, -r * 0.97, -r * 0.1)), r * 0.52, M, tears=(1,), wide=1.5, tall=0.62, tear_len=0.42, eye_z=-0.08)
+    ck._rigid(bs._outward(head), rig, "head")
+    # ---------------- corpo: gola de ouro, manto em fitas, estola ----------------
+    chest = [ck.tube(P + "body_collar", V((0, 0, zn - 0.07)), V((0, 0, zn + 0.02)), b["chest"] * 0.82, b["chest"] * 0.52, gold, 16),
+             ck.ball(P + "body_brooch", 0.04, (0, front - 0.02, zn - 0.09), glow, (1, 0.6, 1.2))]
+    n = 7
+    for k in range(n):                   # manto: sete fitas em leque das costas aos ombros, pontas em alturas alternadas
+        a = math.radians(-96 + k * 32)
+        p0 = V((math.sin(a) * b["chest"] * 0.8, 0.02 + math.cos(a) * (back - 0.04), zn - 0.04))
+        p1 = V((math.sin(a) * (b["shoulder"] + 0.22), 0.05 + math.cos(a) * (back + 0.2), zw - 0.08 + (0.1 if k % 2 else 0.0) + abs(k - 3) * 0.035))
+        chest.append(lk.silk(ck, P + "body_mantle%d" % k, p0, p1, (math.cos(a), -math.sin(a) * 0.7, 0), 0.13, 0.19, t2, (math.sin(a) * 0.03, math.cos(a) * 0.04, 0), 4))
+        chest.append(ck.ball(P + "body_mantle_tip%d" % k, 0.022, p1 + V((0, 0, -0.01)), gold))
+    ck._rigid(bs._outward(chest), rig, "chest")
+    wf = -b["waist"] * d * 1.22
+    stole = [lk.silk(ck, P + "body_stole%d" % sx, (sx * 0.06, wf - 0.022, zw - 0.02), (sx * 0.085, wf - 0.1, zw - 0.4), (1, 0, 0), 0.09, 0.11, t2, (0, -0.012, 0), 3) for sx in (-1, 1)]
+    stole += [ck.ball(P + "body_buckle", 0.042, (0, wf - 0.014, zw), porc, (1.1, 0.5, 1.1)),
+              ck.ball(P + "body_buckle_tear", 0.018, (0, wf - 0.036, zw - 0.008), glow, (0.8, 0.6, 1.7))]
+    ck._rigid(bs._outward(stole), rig, "hips")
+    for s, sx in ((".R", -1), (".L", 1)):                 # ombros: pires de ouro com uma lanterna de pé
+        tag = s.replace(".", "_")
+        sh = V(j["shoulder" + s])
+        pc = sh + V((sx * 0.1, 0, 0.0))
+        pa = lk.saucers(ck, P + "body_dish" + tag, pc, b["arm"] * 2.5, 1, M, 0.05, 0.2, (sx * 0.4, 0, 1), [porc])
+        pa += lk.lantern(ck, P + "body_lantern" + tag, pc + V((sx * 0.07, 0, 0.14)), 0.075, M)
+        ck._rigid(bs._outward(pa), rig, "upper_arm" + s)
+    lk.limbs(ck, base, mats, P, M, "cloth", boots_m=porc)
+
+
+ACT3_SETS = {"ele_f50": build_feast_end_lantern}

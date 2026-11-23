@@ -1030,3 +1030,73 @@ def register(ck):
                 ck.SET_WEAPONS["%s_off" % style] = (lambda st, cf: (lambda base, mats: build_pistol(ck, base, mats, st, cf)))(style, CORSAIR_PISTOLS[style])
                 continue
             ck.SET_WEAPONS["%s_%s" % (style, hand)] = (lambda st, cf, h: (lambda base, mats: build_weapon(ck, base, mats, st, cf, h)))(style, cfg, hand)
+
+
+# ---------------------------------------------------------------------------
+# Ato III (nível 50, GDD ato3-lendarios-50): UM visual novo por build no tema de Lumeria. Malhas no kit extra
+# kit_assassin_<sexo>_a3.glb (chibi_kit.A3_STYLES); motivos comuns em lumeria_kit.py.
+#   ass_l50 Lâminas = Lágrima de Veneno: capuz justo de seda (tint2, verde-veneno escuro) com crista, máscara de porcelana
+#           que chora duas lágrimas compridas (tint_glow, verde-ouro) até o queixo, cauda de duas fitas longas saindo da
+#           nuca, frascos de vidro com veneno aceso no cinto e na bandoleira, lâminas de porcelana nos ombros.
+def build_venom_tear(ck, base, mats, style):
+    """ass_l50 — Lágrima de Veneno (Lâminas)."""
+    import lumeria_kit as lk
+    import berserker_sets as bs
+    V = Vector
+    rig, body, b, j = base["rig"], base["body"], base["b"], base["j"]
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, porc, glow, dark = M["t"], M["t2"], M["gold"], M["porc"], M["glow"], M["dark"]
+    P = "arm_%s_" % style
+    c, r = V(base["head_c"]), b["head"]
+    d = b["depth"]
+    front = -b["chest"] * d - 0.03
+    back = b["chest"] * d + 0.03
+    zc, zn, zw = ck.Z["chest"], ck.Z["neck"], ck.Z["waist"]
+    # ---------------- cabeça: capuz justo com crista, máscara chorosa ----------------
+    head = [ck._shell(P + "head_hood", c, r * 1.08, -0.85, -0.85, -0.8, 0.035, t2),
+            ck.tube(P + "head_band", c + V((0, 0, r * 0.42)), c + V((0, 0, r * 0.53)), r * 1.125, r * 1.08, gold, 18)]
+    for k in range(3):                   # crista de três lâminas curtas no alto, caindo para trás
+        root = c + V((0, -r * 0.45 + k * r * 0.5, r * (1.0 - k * 0.08)))
+        head.append(ck.blade(P + "head_crest%d" % k, root, root + V((0, r * 0.75, r * (0.72 - k * 0.1))), r * 0.62, r * 0.12, porc if k != 1 else gold, (0, 1, -0.5), 0.4))
+    head += [ck.ball(P + "head_brow", 1.0, c + V((0, -r * 0.72, r * 0.82)), porc, (r * 0.2, r * 0.1, r * 0.2)),
+             ck.ball(P + "head_brow_tear", r * 0.07, c + V((0, -r * 0.8, r * 0.86)), glow, (0.8, 0.6, 1.5))]
+    head += lk.mask(ck, P + "head_mask", c + V((0, -r * 1.03, -r * 0.06)), r * 0.72, M, tears=(-1, 1), wide=1.16, tear_len=0.72)
+    ck._rigid(bs._outward(head), rig, "head")
+    # ---------------- corpo: traje justo, lenço, bandoleira de frascos, cauda de fitas ----------------
+    ck.armor_piece(body, rig, P + "body_suit", "torso", t, 0.012, 0.014, 0.02)
+    ck.armor_piece(body, rig, P + "body_legs", "legs", dark, 0.008, 0.012)
+    s0, s1 = V((-b["chest"] * 0.85, front + 0.02, zn - 0.08)), V((b["waist"] * 0.95, front - 0.005, zw + 0.07))
+    chest = [ck.tube(P + "body_scarf", V((0, 0, zn - 0.07)), V((0, 0, zn + 0.035)), b["chest"] * 0.8, b["chest"] * 0.5, t2, 14),
+             ck.tube(P + "body_strap", s0, s1, 0.024, 0.024, dark, 5)]
+    for k in range(3):                   # frascos na bandoleira
+        chest += lk.vial(ck, P + "body_vial%d" % k, s0.lerp(s1, 0.3 + k * 0.24) + V((0, -0.035, 0.02)), 0.026, M)
+    for sx in (-1, 1):                   # cauda: duas fitas longas da nuca até a altura do joelho, abrindo
+        p0 = V((sx * 0.04, back + 0.02, zn - 0.02))
+        chest.append(lk.silk(ck, P + "body_tail%d" % sx, p0, p0 + V((sx * 0.22, 0.34, -0.62)), (1, 0, 0), 0.085, 0.13, t2, (sx * 0.05, 0.06, 0), 5))
+    chest.append(ck.ball(P + "body_tail_knot", 0.05, (0, back + 0.03, zn - 0.03), t2, (1.5, 0.7, 0.8)))
+    ck._rigid(bs._outward(chest), rig, "chest")
+    bs._belt(ck, base, P + "body_belt", zw - 0.04, zw + 0.03, 1.2, gold)
+    wf = -b["waist"] * d * 1.22
+    hips = [ck.ball(P + "body_buckle", 0.038, (0, wf - 0.012, zw - 0.005), porc, (1.0, 0.5, 1.2)),
+            ck.ball(P + "body_buckle_tear", 0.016, (0, wf - 0.032, zw - 0.012), glow, (0.8, 0.6, 1.7))]
+    for k, fx in enumerate((-1.0, -0.6, 0.6, 1.0)):       # quatro frascos de veneno no cinto
+        x = fx * b["waist"] * 1.05
+        y = -math.sqrt(max(0.0, 1.0 - (x / (b["waist"] * 1.26)) ** 2)) * b["waist"] * d * 1.26
+        hips += lk.vial(ck, P + "body_belt_vial%d" % k, (x, y - 0.025, zw - 0.035), 0.03, M)
+    for sx in (-1, 1):                   # abas de seda no quadril
+        hips.append(lk.silk(ck, P + "body_flap%d" % sx, (sx * b["waist"] * 1.18, 0.0, zw - 0.03), (sx * (b["waist"] * 1.18 + 0.07), 0.04, zw - 0.3), (0, 1, 0), 0.15, 0.11, t2, (sx * 0.02, 0, 0), 2))
+    ck._rigid(bs._outward(hips), rig, "hips")
+    for s, sx in ((".R", -1), (".L", 1)):                 # ombros: três lâminas de porcelana sobrepostas, a de cima com fio de ouro
+        tag = s.replace(".", "_")
+        sh = V(j["shoulder" + s])
+        pa = [ck.ball(P + "body_pad" + tag, b["arm"] * 2.0, sh + V((sx * 0.045, 0, 0.02)), t2, (1.15, 1.1, 0.55))]
+        for k in range(3):
+            root = sh + V((sx * (0.0 + k * 0.03), 0, 0.085 - k * 0.04))
+            pa.append(ck.blade(P + "body_blade%d%s" % (k, tag), root, root + V((sx * (0.27 - k * 0.04), 0.03, 0.07 - k * 0.07)), 0.2 - k * 0.02, 0.026,
+                               gold if k == 1 else porc, (0, 1, 0), 0.4))
+        pa.append(ck.ball(P + "body_blade_tear" + tag, 0.022, sh + V((sx * 0.1, -0.075, 0.09)), glow, (0.8, 0.6, 1.7)))
+        ck._rigid(bs._outward(pa), rig, "upper_arm" + s)
+    lk.limbs(ck, base, mats, P, M, "leather", ribbon=0.75, boots_m=dark, fist_m=dark)
+
+
+ACT3_SETS = {"ass_l50": build_venom_tear}

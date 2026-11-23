@@ -931,3 +931,78 @@ def register(ck):
     for style, cfg in BIS_SCEPTERS.items():
         ck.SET_WEAPONS[style + "_scepter"] = (lambda st, cf: (lambda base, mats: build_scepter(ck, base, mats, st, cf)))(style, cfg)
     shield_kit.FAMILIES.update(BIS_SHIELDS)
+
+
+# ---------------------------------------------------------------------------
+# Ato III (nível 50, GDD ato3-lendarios-50): UM visual novo por build no tema de Lumeria. Malhas no kit extra
+# kit_bishop_<sexo>_a3.glb (chibi_kit.A3_STYLES); motivos comuns em lumeria_kit.py.
+#   bis_s50 Sacerdote = Lanterna da Última Vigília: véu de seda (tint2, lavanda) que cobre a cabeça e desce até o chão,
+#           coroa de ouro com 5 lanternas acesas em volta, máscara de porcelana com lágrimas sob os dois olhos, asas curtas
+#           de vidro facetado nas costas, túnica marfim com estola.
+def build_vigil_lantern(ck, base, mats, style):
+    """bis_s50 — Lanterna da Última Vigília (Sacerdote)."""
+    import lumeria_kit as lk
+    import berserker_sets as bs
+    V = Vector
+    rig, body, b, j = base["rig"], base["body"], base["b"], base["j"]
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, porc, glow, glass = M["t"], M["t2"], M["gold"], M["porc"], M["glow"], M["glass"]
+    P = "arm_%s_" % style
+    c, r = V(base["head_c"]), b["head"]
+    d = b["depth"]
+    front = -b["chest"] * d - 0.03
+    back = b["chest"] * d + 0.03
+    zc, zn, zw = ck.Z["chest"], ck.Z["neck"], ck.Z["waist"]
+    # ---------------- túnica ----------------
+    ck.armor_piece(body, rig, P + "body_robe", "torso", t, 0.014, 0.014, 0.03)
+    ck.armor_piece(body, rig, P + "body_legs", "legs", porc, 0.008, 0.012)
+    ck.skirt(P + "body_skirt", b, body, rig, t, 0.07, 1.75)
+    bs._belt(ck, base, P + "body_belt", zw - 0.04, zw + 0.035, 1.21, gold)
+    # ---------------- cabeça: véu, coroa de 5 lanternas, máscara com duas lágrimas ----------------
+    head = [ck._shell(P + "head_veil", c, r * 1.1, 0.1, -1.0, -0.72, 0.035, t2),
+            ck.tube(P + "head_crown", c + V((0, 0, r * 0.6)), c + V((0, 0, r * 0.74)), r * 1.065, r * 0.975, gold, 20)]
+    head += lk.mask(ck, P + "head_mask", c + V((0, -r * 1.0, -r * 0.1)), r * 0.62, M, tears=(-1, 1), wide=1.25, tear_len=0.42)
+    for k in range(5):                   # lanternas em volta da coroa, a da frente mais alta
+        a = math.tau * k / 5 - math.pi / 2
+        dv = V((math.cos(a), math.sin(a), 0))
+        s_ = r * (0.27 if k == 0 else 0.22)
+        foot = c + dv * r * 1.0 + V((0, 0, r * 0.68))
+        lc = c + dv * r * 1.06 + V((0, 0, r * 0.7 + s_ * 1.7 + (r * 0.12 if k == 0 else 0.0)))
+        head.append(ck.tube(P + "head_post%d" % k, foot, lc + V((0, 0, -s_ * 0.9)), s_ * 0.16, s_ * 0.3, gold, 5))
+        head += lk.lantern(ck, P + "head_lantern%d" % k, lc, s_, M)
+    for sx in (-1, 1):                   # véu caindo pelos lados do rosto até os ombros
+        p0 = c + V((sx * r * 0.98, -r * 0.1, -r * 0.3))
+        head.append(lk.silk(ck, P + "head_veil_side%d" % sx, p0, p0 + V((sx * r * 0.12, r * 0.1, -r * 0.95)), (0, 1, 0), r * 0.7, r * 0.5, t2, (sx * r * 0.06, 0, 0), 3))
+    ck._rigid(bs._outward(head), rig, "head")
+    # véu comprido pelas costas até o chão (pesos do corpo, como a saia) + barra de ouro
+    train = [lk.silk(ck, P + "body_train", (0, back + 0.1, zn + 0.1), (0, back + 0.42, 0.06), (1, 0, 0), 0.4, 0.72, t2, (0, 0.05, 0), 7, 0.016),
+             lk.silk(ck, P + "body_train_hem", (0, back + 0.405, 0.14), (0, back + 0.432, 0.045), (1, 0, 0), 0.74, 0.76, gold, (0, 0, 0), 1, 0.014)]
+    lk.skinned(ck, base, bs._outward(train))
+    # ---------------- corpo: gola, estola, asas de vidro ----------------
+    chest = [ck.tube(P + "body_collar", V((0, 0, zn - 0.06)), V((0, 0, zn + 0.02)), b["chest"] * 0.74, b["chest"] * 0.5, gold, 16),
+             ck.ball(P + "body_brooch", 0.04, (0, front - 0.012, zc + 0.1), porc, (1, 0.5, 1.15)),
+             ck.ball(P + "body_brooch_tear", 0.018, (0, front - 0.034, zc + 0.09), glow, (0.8, 0.6, 1.7))]
+    for sx in (-1, 1):                   # asas curtas: três lascas de vidro em leque, a de cima mais longa
+        root = V((sx * 0.06, back + 0.03, zc + 0.08))
+        for k in range(3):
+            tip = root + V((sx * (0.46 - k * 0.08), 0.2 + k * 0.02, 0.34 - k * 0.26))
+            chest.append(ck.blade(P + "body_wing%d_%d" % (sx, k), root + V((0, 0, -k * 0.05)), tip, 0.2 - k * 0.03, 0.03, glass, (0, 0, 1), 0.38))
+        chest.append(ck.ball(P + "body_wing_root%d" % sx, 0.05, root + V((0, 0.01, -0.03)), gold, (1, 0.6, 1.4)))
+    ck._rigid(bs._outward(chest), rig, "chest")
+    wf = -b["waist"] * d * 1.22
+    hips = [lk.silk(ck, P + "body_stole%d" % sx, (sx * 0.055, wf - 0.02, zw - 0.02), (sx * 0.075, wf - 0.085, zw - 0.36), (1, 0, 0), 0.085, 0.1, t2, (0, -0.012, 0), 3) for sx in (-1, 1)]
+    hips += [ck.ball(P + "body_buckle", 0.04, (0, wf - 0.014, zw), porc, (1.1, 0.5, 1.1))]
+    hips += lk.lantern(ck, P + "body_hip_lantern", (-b["waist"] * 1.32, -0.03, zw - 0.14), 0.05, M, hang=(-b["waist"] * 1.25, -0.03, zw - 0.02))
+    ck._rigid(bs._outward(hips), rig, "hips")
+    for s, sx in ((".R", -1), (".L", 1)):                 # ombros: pires de porcelana com laço de seda
+        tag = s.replace(".", "_")
+        sh = V(j["shoulder" + s])
+        pa = lk.saucers(ck, P + "body_dish" + tag, sh + V((sx * 0.07, 0, 0.0)), b["arm"] * 2.5, 2, M, 0.045, 0.28, (sx * 0.45, 0, 1), [porc, porc])
+        for i, sy in enumerate((-1, 1)):
+            p0 = sh + V((sx * 0.14, sy * 0.05, 0.02))
+            pa.append(lk.silk(ck, P + "body_bow%d%s" % (i, tag), p0, p0 + V((sx * 0.1, sy * 0.07, -0.2 - i * 0.04)), (1, sy * 0.6, 0), 0.06, 0.08, t2, (sx * 0.03, 0, 0), 2))
+        ck._rigid(bs._outward(pa), rig, "upper_arm" + s)
+    lk.limbs(ck, base, mats, P, M, "cloth", boots_m=porc)
+
+
+ACT3_SETS = {"bis_s50": build_vigil_lantern}

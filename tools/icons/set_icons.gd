@@ -5,6 +5,7 @@ extends Node
 ## Peças: head/body/gloves/boots = malhas arm_<estilo>_<peça>_*; weapon = a espada do conjunto. Escudo: shield_icons.tscn.
 ## Ato II (GearCatalog.ACT2_VISUALS com "icon" igual ao estilo): UMA foto por build, do conjunto do nível ACT2_ICON_LEVEL
 ## (cor, destaque e brilho do 40); os três níveis, o Ápice e o híbrido usam o mesmo arquivo.
+## Ato III (GearCatalog.ACT3_VISUALS): uma foto por build do conjunto do nível 50 (--only=<pre>_<b>50).
 
 const SIZE := 128
 const ACT2_ICON_LEVEL := 40
@@ -54,6 +55,10 @@ func _ready() -> void:
 		var a2_sid := "set_%s_%d" % [key, ACT2_ICON_LEVEL]
 		if GameData.sets.has(a2_sid):
 			jobs[a2_sid] = GearCatalog.visual_of(a2_sid)
+	for key in GearCatalog.ACT3_VISUALS:          # Ato III: uma foto por build do nível 50 (malhas do kit extra _a3, cores do 50)
+		var a3_sid := "set_%s_%d" % [key, Balance.LEG50_LEVEL]
+		if GameData.sets.has(a3_sid):
+			jobs[a3_sid] = GearCatalog.visual_of(a3_sid)
 	for set_id in jobs:
 		var vis: Dictionary = jobs[set_id]
 		if vis.get("icon", "") != vis.get("style", "-") or (only != "" and not (vis["style"] in only.split(","))):

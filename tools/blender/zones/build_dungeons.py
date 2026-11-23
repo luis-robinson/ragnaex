@@ -10,6 +10,7 @@ import random
 import bpy
 from mathutils import Vector
 import act2_dress
+import act3_dress
 import places
 from zone_lib import Zone, poly_dist, disc, mat
 
@@ -182,7 +183,10 @@ def build_graph(did, g, export):
         # bando no meio do corredor: bicho de um dos salões das pontas; corredor que sai da chegada fica livre
         if "chegada" in (a, b) or "vestibulo" in (a, b):
             continue
-        pack = L.get("packs", {}).get("%s>%s" % (a, b))           # bando escolhido para esta ligação (places.DUNGEONS)
+        packs = L.get("packs", {})
+        pack = packs.get("%s>%s" % (a, b))                        # bando escolhido para esta ligação (places.DUNGEONS)
+        if "%s>%s" % (a, b) in packs and pack is None:
+            continue                                              # `None` = ligação sem bando (corredor curto na porta do chefe)
         mobs = rooms[b].get("mobs") or rooms[a].get("mobs")
         if pack:
             z.spawner(pack[0], mid[0], mid[1], CORRIDOR_PACK_R, pack[1], 30.0)
@@ -200,7 +204,7 @@ def build_graph(did, g, export):
             z.spawner(room["boss"], x, y, 2, 1, room.get("respawn", 240.0))      # `respawn` do salão (s); sem ele, 4 min
             if room.get("statue", True):                                         # `statue` False = salão sem a estátua do fundo
                 z.ob("statue", x, y - room["r"] + 3.5, (1.8, 3.0, 1.8), color=g["glow"])
-            for q, _ in places._ring((x, y), room["r"] - 1.2, 8, 0.4):
+            for q, _ in places._ring((x, y), room["r"] - 1.2, 8 if room.get("pillars", True) else 0, 0.4):      # `pillars` False = salão sem cobertura
                 z.ob("pillar", q.x, q.y, (1.0, 3.6, 1.0), color=tuple(c * 1.25 for c in g["rock"]))
     for nid, (x, y, face) in L.get("npcs", {}).items():
         z.npc(nid, x, y, face)
@@ -218,6 +222,8 @@ def build_graph(did, g, export):
         for i in range(4, len(poly) - 3, 9):
             p, t = poly[i], (poly[i + 1] - poly[i]).normalized()
             q = p + Vector((-t.y, t.x)) * (WALKWAY * 0.5 + 0.1) * (1 if i % 2 else -1)
+            if did in act3_dress.DRESS:
+                continue                                          # Ato III: a luz dos corredores é do acabamento (act3_dress)
             if all((q - Vector(r["pos"])).length > r["r"] + 1.0 for r in rooms.values()):     # postes só nos corredores
                 z.ob("elf_lantern" if g.get("style") == "tree" else "lamp", q.x, q.y, (0.6, 2.4, 0.6) if g.get("style") == "tree" else (0.4, 2.4, 0.4))
     z.data["hangouts"] = []
@@ -227,6 +233,8 @@ def build_graph(did, g, export):
         act2_dress.dragon_lair(z, rooms, L["edges"])
     if did == "dg_slayers":               # Salão dos Matadores: bonecos de treino, alvos, venenos, panos roxos, arena do Mestre
         act2_dress.slayers(z, rooms, L["edges"])
+    if did in act3_dress.DRESS:           # Ato III: Adegas, Galeria dos Espelhos, Conservatório, Coração do Jardim
+        act3_dress.DRESS[did](z, rooms, L["edges"])
     boss_pos = next(r["pos"] for r in L["rooms"].values() if "boss" in r)
     return z.finish(export, poi=boss_pos, ground=g["floor"])
 

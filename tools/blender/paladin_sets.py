@@ -1333,3 +1333,83 @@ def register_a2(ck):
     """Estilos do Ato II no kit EXTRA (chibi_kit.A2_STYLES): fn(base, mats), 1 malha por slot."""
     for style, fn in ACT2_SETS.items():
         ck.A2_STYLES[style] = (lambda st, f: (lambda base, mats: (f(ck, base, mats, st), join_slots("arm_%s_" % st))))(style, fn)
+
+
+# ---------------------------------------------------------------------------
+# Ato III (nível 50, GDD ato3-lendarios-50): UM visual novo por build no tema de Lumeria (porcelana com lágrima pintada,
+# máscaras, fitas de seda, espelhos/vidro, lanternas, ouro velho). Malhas no kit extra kit_paladin_<sexo>_a3.glb
+# (chibi_kit.A3_STYLES / build_kit_a3); motivos comuns em lumeria_kit.py. tint = marfim, tint2 = fitas, tint_glow = lágrima e chama.
+#   pal_g50 Guardião = Vigília da Lágrima Dourada: elmo fechado liso com viseira-máscara de porcelana e UMA lágrima, pires
+#           empilhados no alto do elmo e nos ombros (torre larga), fitas azul-noite caindo dos pires, lanterna acesa de pé
+#           na ombreira esquerda, peitoral de porcelana com a lágrima pintada.
+def build_tear_vigil(ck, base, mats, style):
+    """pal_g50 — Vigília da Lágrima Dourada (Guardião, placa)."""
+    import lumeria_kit as lk
+    V = Vector
+    rig, body, b, j = base["rig"], base["body"], base["b"], base["j"]
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, porc, glow, metal, bs = M["t"], M["t2"], M["gold"], M["porc"], M["glow"], M["metal"], M["bs"]
+    P = "arm_%s_" % style
+    c, r = V(base["head_c"]), b["head"]
+    # ---------------- cabeça: elmo fechado, viseira-máscara com uma lágrima, pires no alto com botão aceso, fitas na nuca ----------------
+    head = [ck._shell(P + "head_helm", c, r * 1.13, -0.8, -0.72, -0.62, 0.04, t),
+            ck.tube(P + "head_rim", c + V((0, 0, -r * 0.68)), c + V((0, 0, -r * 0.55)), r * 1.15, r * 1.21, gold, 20),
+            ck.tube(P + "head_brow", c + V((0, 0, r * 0.5)), c + V((0, 0, r * 0.6)), r * 1.17, r * 1.12, gold, 20),
+            ck.tube(P + "head_silk", c + V((0, 0, r * 0.6)), c + V((0, 0, r * 0.82)), r * 1.115, r * 0.965, t2, 20)]
+    for k in range(4):                   # filete de ouro da testa à nuca, por cima do elmo
+        a0, a1 = math.radians(-58 + k * 29), math.radians(-58 + (k + 1) * 29)
+        head.append(ck.tube(P + "head_seam%d" % k, c + V((0, math.sin(a0) * r * 1.25, math.cos(a0) * r * 1.25)), c + V((0, math.sin(a1) * r * 1.25, math.cos(a1) * r * 1.25)), r * 0.05, r * 0.05, gold, 5))
+    head += lk.mask(ck, P + "head_mask", c + V((0, -r * 1.06, -r * 0.06)), r * 0.72, M, tears=(1,), wide=1.22, tear_len=0.62)
+    head += lk.saucers(ck, P + "head_top", c + V((0, 0, r * 1.02)), r * 0.62, 3, M, r * 0.15, 0.27)
+    head.append(ck.ball(P + "head_top_flame", r * 0.17, c + V((0, 0, r * 1.56)), glow, (1, 1, 1.35)))
+    for sx in (-1, 1):                   # duas fitas curtas na nuca
+        p0 = c + V((sx * r * 0.3, r * 1.08, r * 0.35))
+        head.append(lk.silk(ck, P + "head_ribbon%d" % sx, p0, p0 + V((sx * r * 0.35, r * 0.45, -r * 1.2)), (1, 0, 0), r * 0.26, r * 0.34, t2, (0, r * 0.12, 0), 3))
+    ck._rigid(bs._outward(head), rig, "head")
+    # ---------------- corpo ----------------
+    ck.armor_piece(body, rig, P + "body_plate", "torso", t, 0.018, 0.016, 0.05)
+    ck.armor_piece(body, rig, P + "body_legs", "legs", metal, 0.008, 0.012)
+    d = b["depth"]
+    front = -b["chest"] * d - 0.035
+    back = b["chest"] * d + 0.035
+    zc, zn, zw = ck.Z["chest"], ck.Z["neck"], ck.Z["waist"]
+    chest = [ck.tube(P + "body_gorget", V((0, 0, zn - 0.06)), V((0, 0, zn + 0.03)), b["chest"] * 0.7, b["chest"] * 0.52, gold, 16),
+             ck.ball(P + "body_breast", 1.0, (0, front + 0.02, zc + 0.02), porc, (b["chest"] * 0.78, 0.05, 0.15)),
+             ck.ball(P + "body_breast_rim", 1.0, (0, front + 0.032, zc + 0.02), gold, (b["chest"] * 0.86, 0.04, 0.165)),
+             ck.ball(P + "body_breast_tear", 0.03, (0, front - 0.03, zc + 0.03), glow, (0.8, 0.6, 2.0)),
+             ck.ball(P + "body_breast_drop", 0.036, (0, front - 0.028, zc - 0.045), glow, (1, 0.6, 1.2)),
+             ck.ball(P + "body_back_dish", 1.0, (0, back - 0.015, zc + 0.02), porc, (b["chest"] * 0.7, 0.045, 0.14)),
+             ck.ball(P + "body_back_boss", 0.045, (0, back + 0.03, zc + 0.02), gold, (1, 0.5, 1))]
+    ck._rigid(bs._outward(chest), rig, "chest")
+    bs._belt(ck, base, P + "body_belt", zw - 0.04, zw + 0.035, 1.2, gold)
+    wf = -b["waist"] * d * 1.22
+    hips = [ck.ball(P + "body_buckle", 0.045, (0, wf - 0.012, zw), porc, (1.0, 0.5, 1.0)),
+            ck.ball(P + "body_buckle_tear", 0.02, (0, wf - 0.034, zw - 0.005), glow, (0.8, 0.6, 1.6))]
+    for side, y in (("f", wf - 0.02), ("b", -wf + 0.02)):         # tabardo de seda com barra de ouro
+        hips += [_banner(ck, P + "body_tabard_" + side, y, zw - 0.03, 0.105, 0.33, 0.016, t2),
+                 _banner(ck, P + "body_tabard_hem_" + side, y + (0.005 if side == "f" else -0.005), zw - 0.03, 0.12, 0.36, 0.01, gold)]
+    ck._rigid(bs._outward(hips), rig, "hips")
+    for s, sx in ((".R", -1), (".L", 1)):                         # ombreiras: três pires empilhados, fitas caindo, lanterna na esquerda
+        tag = s.replace(".", "_")
+        sh = V(j["shoulder" + s])
+        pc = sh + V((sx * 0.15, 0, -0.03))
+        tilt = V((sx * 0.55, 0, 1)).normalized()
+        pa = lk.saucers(ck, P + "body_pauldron" + tag, pc, b["arm"] * 3.6, 3, M, 0.062, 0.2, tilt)
+        top = pc + tilt * 0.19
+        if s == ".L":                    # lanterna de pé na ponta de fora da ombreira (por fora da cabeça: lê de cima)
+            pa += lk.lantern(ck, P + "body_lantern", top + V((sx * 0.07, 0, 0.11)), 0.095, M)
+        else:
+            pa.append(ck.ball(P + "body_pauldron_knob" + tag, 0.05, top + V((0, 0, 0.02)), gold, (1, 1, 0.8)))
+        for i, sy in enumerate((-1, 1)):
+            p0 = pc + V((sx * 0.12, sy * 0.12, 0.0))
+            pa.append(lk.silk(ck, P + "body_pribbon%d%s" % (i, tag), p0, p0 + V((sx * 0.12, sy * 0.07, -0.36 - i * 0.05)), (1, sy * 0.7, 0), 0.085, 0.11, t2, (sx * 0.04, 0, 0), 3))
+        ck._rigid(bs._outward(pa), rig, "upper_arm" + s)
+        hp = V(j["hip" + s])
+        tas = [ck.box(P + "body_fauld_%d%s" % (k, tag), (0.04, 0.16 - k * 0.014, 0.11), hp + V((sx * (b["thigh"] + 0.04 + k * 0.006), 0, -0.02 - k * 0.075)),
+                      porc if k == 0 else t, 0.014) for k in range(2)]
+        tas.append(ck.ball(P + "body_fauld_stud" + tag, 0.022, hp + V((sx * (b["thigh"] + 0.068), 0, -0.02)), gold))
+        ck._rigid(tas, rig, "thigh" + s)
+    lk.limbs(ck, base, mats, P, M, "plate")
+
+
+ACT3_SETS = {"pal_g50": build_tear_vigil}

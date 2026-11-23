@@ -1053,3 +1053,85 @@ def register(ck):
         ck.SET_STYLES[style] = (lambda st, cf: (lambda base, mats: (build_lancer(ck, base, mats, st, cf), paladin_sets.join_slots("arm_%s_" % st))))(style, cfg)
     for style, cfg in RAN_SPEARS.items():
         ck.SET_WEAPONS[style + "_spear"] = (lambda st, cf: (lambda base, mats: build_spear(ck, base, mats, st, cf)))(style, cfg)
+
+
+# ---------------------------------------------------------------------------
+# Ato III (nível 50, GDD ato3-lendarios-50): UM visual novo por build no tema de Lumeria. Malhas no kit extra
+# kit_ranger_<sexo>_a3.glb (chibi_kit.A3_STYLES); motivos comuns em lumeria_kit.py.
+#   ran_c50 Caçador = Arco da Lanterna Errante: capuz curto de seda (tint2, verde-sálvia), máscara de pássaro em porcelana
+#           com bico de ponta de ouro e penas na sobrancelha, aljava-lanterna alta nas costas (gaiola de ouro com a chama
+#           dentro, flechas saindo por cima), capa curta em cinco fitas, ombreira de penas de porcelana.
+def build_wandering_lantern(ck, base, mats, style):
+    """ran_c50 — Arco da Lanterna Errante (Caçador)."""
+    import lumeria_kit as lk
+    import berserker_sets as bs
+    V = Vector
+    rig, body, b, j = base["rig"], base["body"], base["b"], base["j"]
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, porc, glow, leather = M["t"], M["t2"], M["gold"], M["porc"], M["glow"], M["leather"]
+    P = "arm_%s_" % style
+    c, r = V(base["head_c"]), b["head"]
+    d = b["depth"]
+    front = -b["chest"] * d - 0.03
+    back = b["chest"] * d + 0.03
+    zc, zn, zw = ck.Z["chest"], ck.Z["neck"], ck.Z["waist"]
+    # ---------------- cabeça: capuz curto com bico atrás, máscara de pássaro ----------------
+    head = [ck._shell(P + "head_hood", c, r * 1.11, 0.12, -0.8, -0.6, 0.04, t2),
+            ck.tube(P + "head_hood_tip", c + V((0, r * 0.75, r * 0.6)), c + V((0, r * 1.5, r * 0.28)), r * 0.42, r * 0.03, t2, 8)]
+    head += lk.mask(ck, P + "head_mask", c + V((0, -r * 1.0, -r * 0.02)), r * 0.66, M, kind="bird", tears=(1,), wide=1.3, tall=0.85, tear_len=0.34)
+    ck._rigid(bs._outward(head), rig, "head")
+    # ---------------- corpo: gibão, capa curta de fitas, aljava-lanterna ----------------
+    ck.armor_piece(body, rig, P + "body_jerkin", "torso", t, 0.014, 0.014, 0.03)
+    ck.armor_piece(body, rig, P + "body_legs", "legs", leather, 0.008, 0.012)
+    chest = [ck.tube(P + "body_collar", V((0, 0, zn - 0.06)), V((0, 0, zn + 0.02)), b["chest"] * 0.78, b["chest"] * 0.52, t2, 14),
+             ck.ball(P + "body_clasp", 0.036, (0, front - 0.03, zn - 0.07), porc, (1, 0.5, 1.15)),
+             ck.ball(P + "body_clasp_tear", 0.016, (0, front - 0.05, zn - 0.08), glow, (0.8, 0.6, 1.7)),
+             ck.tube(P + "body_strap", (b["chest"] * 0.8, front + 0.03, zn - 0.06), (-b["chest"] * 0.7, front - 0.01, zw + 0.08), 0.022, 0.022, leather, 5)]
+    for k in range(5):                   # capa curta: cinco fitas em leque pelas costas e pelos ombros
+        a = math.radians(-64 + k * 32)
+        p0 = V((math.sin(a) * b["chest"] * 0.75, back - 0.03 + math.cos(a) * 0.03, zn - 0.03))
+        p1 = V((math.sin(a) * (b["shoulder"] + 0.2), back + 0.1 + math.cos(a) * 0.16, zw + 0.02 + abs(k - 2) * 0.07))
+        chest.append(lk.silk(ck, P + "body_cape%d" % k, p0, p1, (math.cos(a), -math.sin(a) * 0.6, 0), 0.13, 0.17, t2, (0, 0.035, 0), 4))
+    # aljava-lanterna: gaiola alta de ouro, inclinada, com a chama dentro; flechas com penas de seda saindo por cima
+    q0, q1 = V((-0.12, back + 0.1, zw + 0.02)), V((0.3, back + 0.2, zn + 0.42))
+    ax = (q1 - q0).normalized()
+    u = ax.cross(V((0, 1, 0))).normalized()
+    w = ax.cross(u).normalized()
+    chest += [ck.tube(P + "body_quiver_flame", q0.lerp(q1, 0.12), q0.lerp(q1, 0.88), 0.07, 0.076, glow, 8),
+              ck.tube(P + "body_quiver_foot", q0 - ax * 0.03, q0.lerp(q1, 0.12), 0.06, 0.095, gold, 8),
+              ck.tube(P + "body_quiver_mouth", q0.lerp(q1, 0.88), q1, 0.096, 0.104, gold, 8)]
+    for k in range(3):
+        m_ = q0.lerp(q1, 0.3 + k * 0.2)
+        chest.append(ck.tube(P + "body_quiver_ring%d" % k, m_ - ax * 0.012, m_ + ax * 0.012, 0.096, 0.096, gold, 8))
+    for k in range(4):
+        a = math.tau * (k + 0.5) / 4
+        o = (u * math.cos(a) + w * math.sin(a)) * 0.09
+        chest.append(ck.tube(P + "body_quiver_post%d" % k, q0.lerp(q1, 0.1) + o, q0.lerp(q1, 0.9) + o, 0.009, 0.009, gold, 4))
+    for k in range(4):
+        a = math.tau * k / 4 + 0.4
+        o = (u * math.cos(a) + w * math.sin(a)) * 0.035
+        s0, s1 = q1 + o, q1 + o * 1.8 + ax * (0.2 + 0.03 * (k % 2))
+        chest += [ck.tube(P + "body_arrow%d" % k, s0, s1, 0.008, 0.008, leather, 4),
+                  ck.blade(P + "body_fletch%d" % k, s1 - ax * 0.1, s1 + ax * 0.02, 0.06, 0.012, porc if k % 2 else t2, o, 0.5)]
+    ck._rigid(bs._outward(chest), rig, "chest")
+    bs._belt(ck, base, P + "body_belt", zw - 0.04, zw + 0.03, 1.2, leather)
+    wf = -b["waist"] * d * 1.22
+    hips = [ck.ball(P + "body_buckle", 0.036, (0, wf - 0.012, zw - 0.005), gold, (1.1, 0.5, 1.1))]
+    hips += lk.lantern(ck, P + "body_hip_lantern", (b["waist"] * 1.3, -0.04, zw - 0.15), 0.055, M, hang=(b["waist"] * 1.22, -0.04, zw - 0.02))
+    for sx in (-1, 1):                   # abas curtas do gibão
+        hips.append(lk.silk(ck, P + "body_tail%d" % sx, (sx * 0.07, -wf + 0.01, zw - 0.02), (sx * 0.11, -wf + 0.07, zw - 0.27), (1, 0, 0), 0.12, 0.14, t, (0, 0.02, 0), 2))
+    ck._rigid(bs._outward(hips), rig, "hips")
+    for s, sx in ((".R", -1), (".L", 1)):
+        tag = s.replace(".", "_")
+        sh = V(j["shoulder" + s])
+        pa = [ck.ball(P + "body_pad" + tag, b["arm"] * 2.1, sh + V((sx * 0.05, 0, 0.03)), t2, (1.15, 1.1, 0.55))]
+        if s == ".L":                    # ombreira de penas de porcelana no braço do arco
+            for k in range(4):
+                a = math.radians(-50 + k * 33)
+                root = sh + V((sx * 0.06, math.sin(a) * 0.05, 0.05))
+                pa.append(ck.blade(P + "body_feather%d" % k, root, root + V((sx * 0.25, math.sin(a) * 0.2, 0.02 - abs(k - 1.5) * 0.03)), 0.1, 0.022, porc if k % 2 == 0 else gold, (0, 1, 0), 0.5))
+        ck._rigid(bs._outward(pa), rig, "upper_arm" + s)
+    lk.limbs(ck, base, mats, P, M, "leather", ribbon=0.6, boots_m=leather)
+
+
+ACT3_SETS = {"ran_c50": build_wandering_lantern}

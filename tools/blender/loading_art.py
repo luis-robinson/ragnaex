@@ -120,6 +120,11 @@ BOSSES = {
     "boss_agitator_lord": {"model": "mob_agitator_lord", "scale": 1.7},
     "boss_shazka": {"model": "mob_shazka", "scale": 1.5},
     "dragonling": {"model": "mob_dragon", "scale": 2.2},
+    # Ato III: modelos próprios do WP7 (= MonstersCatalog.act3_boss_model com o GLB em assets/models)
+    "boss_varo": {"model": "mob_varo", "scale": 1.7},
+    "boss_countess": {"model": "mob_countess", "scale": 1.5},
+    "boss_ressoa": {"model": "mob_ressoa", "scale": 1.45},
+    "boss_sylvare_echo": {"model": "mob_sylvare_echo", "scale": 1.25},
 }
 
 # id -> nome (MapDef.name), chão (ground_color), clima, câmera. `boss` (masmorras) = chefe na foto: `id` (BOSSES),
@@ -242,7 +247,35 @@ ZONES = {
                         "hall": {"focus": (5, 12.5), "fill": 0.4},
                         "boss": {"id": "dragonling", "clip": "idle", "frame": 1, "turn": -32, "foot": 1.2, "foot_col": (1.0, 0.62, 0.3)},
                         "cam": {"at": (5, 12.5), "h": 1.8, "az": 205, "dist": 15.5, "elev": 11, "pitch": 6, "fov": 46}},
+    # Ato III parte 1 (WP5 registrou os mapas): `hide` = lotes de estágio que não são do começo (L0 = a festa acesa)
+    "city_lumeria": {"name": "Lumeria, a Festa Eterna", "ground": (0.76, 0.69, 0.64), "mood": "dawn",
+                     "hide": ["l1_portao_aberto", "l1_forja_ana", "l3_duque", "l4_manha"],
+                     "cam": {"at": (4, 4), "az": -28, "dist": 150, "elev": 25, "pitch": 14, "fov": 50}},
+    "field_perfume": {"name": "Vinhas do Perfume", "ground": (0.6, 0.66, 0.48), "mood": "day", "hide": ["l2_colheita"],
+                      "cam": {"at": (-4, 26), "az": 16, "dist": 128, "elev": 25, "pitch": 15, "fov": 50}},
+    "field_parade": {"name": "Avenida do Cortejo", "ground": (0.66, 0.69, 0.5), "mood": "dawn", "hide": ["l2_cristal", "l3b_veu"],
+                     "cam": {"at": (-6, -6), "az": -24, "dist": 128, "elev": 25, "pitch": 15, "fov": 50}},
+    # Ato III WP6: a Fenda (L0: porta do Coração selada) e as masmorras/raide (Blender y = -z do jogo: chefe em z -45 -> y 45)
+    "rift_garden": {"name": "O Jardim Sem Fim", "ground": (0.72, 0.78, 0.7), "mood": "dawn", "hide": ["l4_manha"],
+                    "cam": {"at": (0, 14), "az": -20, "dist": 140, "elev": 25, "pitch": 15, "fov": 50}},
+    "dg_cellars": {"name": "Adegas do Banquete", "ground": (0.3, 0.25, 0.27), "mood": "dungeon", "ambient": (0.86, 0.7, 0.78),
+                   "hall": {"focus": (7.5, 47), "fill": 0.4},
+                   "boss": {"id": "boss_varo", "clip": "idle", "frame": 12, "turn": 24, "foot": 1.0, "foot_col": TORCH},
+                   "cam": {"at": (7.5, 41), "h": 1.5, "az": -16, "dist": 22, "elev": 12, "pitch": 9, "fov": 44}},     # az -16: o estandarte da frente sai de cima do Varo
+    "dg_mirrors": {"name": "Galeria dos Espelhos", "ground": (0.46, 0.43, 0.46), "mood": "dungeon", "ambient": (0.9, 0.84, 0.94),
+                   "hall": {"focus": (0, 47), "fill": 0.5},
+                   "boss": {"id": "boss_countess", "clip": "idle", "frame": 12, "turn": 24, "foot": 1.0},
+                   "cam": {"at": (0, 41), "h": 1.5, "az": -12, "dist": 22, "elev": 12, "pitch": 9, "fov": 44}},
+    "dg_conservatory": {"name": "Conservatório do Coro Ferido", "ground": (0.4, 0.34, 0.3), "mood": "dungeon", "ambient": (0.92, 0.8, 0.7),
+                        "hall": {"focus": (0, 47), "fill": 0.45},
+                        "boss": {"id": "boss_ressoa", "clip": "idle", "frame": 12, "turn": -24, "foot": 1.0},
+                        "cam": {"at": (0, 41), "h": 1.5, "az": 14, "dist": 22, "elev": 12, "pitch": 9, "fov": 44}},
+    "rift_heart": {"name": "O Coração do Jardim", "ground": (0.6, 0.6, 0.66), "mood": "dungeon", "ambient": (1.0, 0.88, 0.94),
+                   "hall": {"focus": (0, 17.5), "fill": 0.6},
+                   "boss": {"id": "boss_sylvare_echo", "clip": "idle", "frame": 12, "turn": 20, "foot": 1.2, "foot_col": (0.9, 0.86, 1.0)},
+                   "cam": {"at": (0, 12), "h": 1.6, "az": -10, "dist": 26, "elev": 13, "pitch": 9, "fov": 44}},
 }
+
 
 # ---------------------------------------------------------------------------------------------------------------------
 # cor

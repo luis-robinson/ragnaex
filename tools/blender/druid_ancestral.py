@@ -617,6 +617,9 @@ def build(out_dir, only=None):
             # Folga própria para as garras (paradas ficam 19 mm acima do chão) foi testada e recusada: o bote acabava com a
             # perna 48° fora da pose (tranco na volta ao idle).
             GROUND_REPORT[kind] = ds.clear_form_ground(ck, arm, skip="frm_%s_" % a2)
+            for a3, form in ds.ACT3_FORM.items():          # nível 50 (Ato III): o Alfa veste a armadura do lobo, posta DEPOIS da conta de chão
+                if form == "wolf":
+                    ds.form_armor3(ck, lp, arm, "wolf", a3, tint, tint2)
         else:
             if kind == "bird":
                 bird_loops(lp, arm)

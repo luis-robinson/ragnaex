@@ -206,6 +206,79 @@ DUNGEONS["dg_covil_dragao"] = {
         "edges": [("chegada", "tunel"), ("tunel", "covil")],
     },
 }
+# ---------------------------------------------------------------------------------------------------------------
+# Ato III parte 1 (GDD ato3-excesso-45-50 §2.2, §4): as masmorras de Lumeria e o Coração do Jardim. As portas ficam em
+# peças próprias das zonas (Lagar, Ópera, Conservatório, Porta do Coração): aqui só `return` (a frente da porta na zona).
+# O acabamento vem de act3_dress (um por masmorra); os pontos das mecânicas dos chefes saem em data["boss_hint"].
+# Ids de trabalho dos chefes (WP8): boss_varo, boss_countess, boss_ressoa, boss_sylvare_echo.
+# ---------------------------------------------------------------------------------------------------------------
+# Adegas do Banquete (Vinhas do Perfume, 46-47): tonéis -> lagar -> salão do banquete do Varo; a despensa fica de lado.
+# Pedra escura e úmida, poças de vinho FOSCAS (`pool_glow` False). O salão do Varo (20 m de raio) fica livre no miolo:
+# as mesas do banquete encostam na parede (act3_dress.cellars).
+DUNGEONS["dg_cellars"] = {
+    "zone": "field_perfume", "return": (10.0, -70.0), "name": "Adegas do Banquete", "seed": 41,
+    "rock": (0.3, 0.27, 0.31), "floor": (0.44, 0.4, 0.42), "glow": (0.9, 0.74, 0.5),
+    "layout": {
+        "rooms": {
+            "toneis": {"pos": (0, 20), "r": 12, "mobs": [("masked_reveler", 4), ("living_censer", 2)], "mob_off": (0.0, -7.0), "floor": (0.43, 0.38, 0.37)},
+            "despensa": {"pos": (30, 8), "r": 8, "mobs": [("veil_dancer", 3)], "floor": (0.47, 0.43, 0.38)},
+            "lagar": {"pos": (-26, -8), "r": 11, "mobs": [("veil_dancer", 3), ("living_censer", 1)], "mob_off": (5.0, 5.0), "floor": (0.41, 0.36, 0.41),
+                      "pool": (0.36, 0.22, 0.31), "pool_r": 0.3, "pool_glow": False},
+            "banquete": {"pos": (6, -36), "r": 16, "boss": "boss_varo", "statue": False, "floor": (0.5, 0.43, 0.41)},
+        },
+        "edges": [("chegada", "toneis"), ("toneis", "despensa"), ("toneis", "lagar"), ("lagar", "banquete")],
+        "packs": {"toneis>despensa": ("veil_dancer", 2), "toneis>lagar": ("masked_reveler", 2), "lagar>banquete": ("ceremony_master", 1)},
+        # `mob_off` do lagar: a prensa de fuso ocupa o centro do salão (act3_dress.cellars)
+    },
+}
+# Galeria dos Espelhos (Palácio de Lumeria, 48-49): cruz. Foyer -> galeria longa (o eixo norte-sul) -> Salão Espelhado da
+# Condessa; camarins a oeste e o ateliê das molduras a leste. Piso xadrez em tons do próprio chão. O Salão (20 m de raio)
+# não tem pilar nem estátua: a única cobertura são os 3 Espelhos de Pé que a Condessa ergue (lacaios `standing_mirror`).
+DUNGEONS["dg_mirrors"] = {
+    "zone": "city_lumeria", "return": (62.4, -4.0), "name": "Galeria dos Espelhos", "seed": 43,
+    "rock": (0.6, 0.53, 0.58), "floor": (0.6, 0.57, 0.59), "glow": (0.8, 0.86, 0.98),
+    "layout": {
+        "rooms": {
+            "foyer": {"pos": (0, 22), "r": 11, "mobs": [("vain_reflection", 3)], "mob_off": (0.0, -6.0), "floor": (0.63, 0.59, 0.6)},
+            "galeria": {"pos": (0, -6), "r": 10, "mobs": [("vain_reflection", 2), ("seductress", 2)], "floor": (0.6, 0.58, 0.62)},
+            "camarins": {"pos": (-30, -6), "r": 9, "mobs": [("seductress", 3), ("flayer", 1)], "floor": (0.64, 0.57, 0.58)},
+            "atelie": {"pos": (30, -6), "r": 9, "mobs": [("veil_singer", 2), ("first_dancer", 1)], "floor": (0.62, 0.6, 0.55)},
+            "salao": {"pos": (0, -36), "r": 16, "boss": "boss_countess", "statue": False, "pillars": False, "floor": (0.58, 0.58, 0.63)},
+        },
+        "edges": [("chegada", "foyer"), ("foyer", "galeria"), ("galeria", "camarins"), ("galeria", "atelie"), ("galeria", "salao")],
+        # o corredor da Condessa é curto: sem bando na porta dela (None)
+        "packs": {"foyer>galeria": ("vain_reflection", 2), "galeria>camarins": ("seductress", 2), "galeria>atelie": ("veil_singer", 2), "galeria>salao": None},
+    },
+}
+# Conservatório do Coro Ferido (Avenida do Cortejo, 48-49; opcional, onda 4): três salões em anel (átrio e duas alas) que
+# se fecham na sala de concerto da Mestra Ressoa. Bancadas em semicírculo, tubos de órgão de ouro velho.
+DUNGEONS["dg_conservatory"] = {
+    "zone": "field_parade", "return": (70.5, -10.0), "name": "Conservatório do Coro Ferido", "seed": 47,
+    "rock": (0.46, 0.42, 0.56), "floor": (0.56, 0.54, 0.6), "glow": (0.72, 0.9, 1.0),
+    "layout": {
+        "rooms": {
+            "atrio": {"pos": (0, 20), "r": 11, "mobs": [("chorister", 4)], "mob_off": (0.0, -6.0), "floor": (0.58, 0.55, 0.6)},
+            "ala_oeste": {"pos": (-30, -4), "r": 10, "mobs": [("chorister", 3), ("vain_reflection", 2)], "floor": (0.55, 0.52, 0.62)},
+            "ala_leste": {"pos": (30, -4), "r": 10, "mobs": [("chorister", 3), ("first_dancer", 1)], "floor": (0.6, 0.56, 0.56)},
+            "concerto": {"pos": (0, -36), "r": 16, "boss": "boss_ressoa", "statue": False, "pillars": False, "floor": (0.57, 0.56, 0.64)},
+        },
+        "edges": [("chegada", "atrio"), ("atrio", "ala_oeste"), ("atrio", "ala_leste"), ("ala_oeste", "concerto"), ("ala_leste", "concerto")],
+        "packs": {"atrio>ala_oeste": ("chorister", 2), "atrio>ala_leste": ("chorister", 2), "ala_oeste>concerto": ("choir_maestro", 1), "ala_leste>concerto": None},
+    },
+}
+# O Coração do Jardim (raide, 50; a Porta do Coração do rift_garden, L4): um limiar e a arena redonda de 40 m do Eco de
+# Sylvaré. Piso de espelho fosco, borda de pétalas, 4 pedestais dos Sentidos (lacaios `sense_*`: pontos em boss_hint).
+DUNGEONS["rift_heart"] = {
+    "zone": "rift_garden", "return": (74.0, -47.0), "name": "O Coração do Jardim", "seed": 53,
+    "rock": (0.76, 0.6, 0.68), "floor": (0.63, 0.66, 0.72), "glow": (0.96, 0.9, 0.98),
+    "layout": {
+        "rooms": {
+            "limiar": {"pos": (0, 24), "r": 7, "floor": (0.66, 0.66, 0.7)},
+            "coracao": {"pos": (0, -14), "r": 16, "boss": "boss_sylvare_echo", "statue": False, "pillars": False, "floor": (0.63, 0.66, 0.72)},
+        },
+        "edges": [("chegada", "limiar"), ("limiar", "coracao")],
+    },
+}
 DUNGEON_ARRIVE = (0.0, 44.0)   # chegada dentro de toda dungeon; a saída fica em DUNGEON_EXIT
 DUNGEON_EXIT = (0.0, 50.0)
 

@@ -8,11 +8,12 @@ lake no JSON: colide, vão só nas pontes) e `glow_lava` para o jogo (brilha e t
 POIs: Minas de Escravos (oeste), Canil dos Lobos Atrozes (leste), Forja Negra (nordeste, além da lava), Salão dos
 Matadores (noroeste, boca num paredão: dg_slayers), Portão da Cidadela (norte, barbacã na garganta: kharzun_citadel).
 Lugares: Cabana do Xamã Exilado, Posto dos Libertos, Santuário Partido dos Anões, emboscada dos ginetes.
-Sul = garganta das Estepes de Cinza (chegada).
+Sul = garganta das Estepes de Cinza (chegada). Leste-nordeste = garganta de Lumeria (Ato III; aberta DEPOIS da zona
+aprovada: `east_gorge`, no fim do build, para o resto do mapa sair igual).
 
     set RAGNAEX_ROOT=<projeto ou worktree>
     blender -b --factory-startup --python tools/blender/zones/run_zone.py -- build_kharzun <pasta_png> --export
-    (KHARZUN_POI=<minas|canil|forja|matadores|portao|presa|xama|libertos|santuario|lago|chegada> escolhe o alvo da CAM_poi)
+    (KHARZUN_POI=<minas|canil|forja|matadores|portao|presa|xama|libertos|santuario|lago|chegada|lumeria> escolhe o alvo da CAM_poi)
 """
 import math
 import os
@@ -34,6 +35,12 @@ STEPPE_ARRIVE = (0.0, -102.2)           # chegada em field_steppe (field_steppe.
 # NÃO em data["portals"] (portal para mapa que não existe quebra `_check_portal_arrivals` e a viagem dos bots).
 # Os dois mapas já existem (WP6: build_dungeons dg_slayers, build_kharzun_citadel): a lista fica vazia e os portais saem de verdade.
 FUTURE_MAPS = ()
+# Ato III (design/gdd/ato3-excesso-45-50.md, WP2): garganta a leste-nordeste para Lumeria (id to_city_lumeria; portão do
+# catálogo: nível 45 + hx_act2_epilogue). WP5 registrou city_lumeria: LUMERIA_READY = True põe o portal em data["portals"].
+LUMERIA_READY = True
+LUMERIA_DEG = -12.0                     # entre o Lago de Fogo e o Canil; sai da estrada Forja-Canil em (80, -20)
+LUMERIA_ARRIVE = (-96.0, 0.0)           # chegada em city_lumeria (build_lumeria imprime "BACK kharzun")
+LUMERIA_ROAD = [(80.0, -20.0), (88.5, -22.8)]
 CITADEL_ARRIVE = (0.0, 96.0)            # chegada no mapa da cidadela (desenho "chegada ao sul", como as fortalezas)
 HUB_R = 26.0
 HUB_GATES = [0.0, 90.0, 180.0, -90.0]   # graus: leste (Canil), sul (Estepes), oeste (Minas), norte (montanha)
@@ -507,6 +514,76 @@ def kharzun_fang(z):
     return y + 6.4
 
 
+def east_gorge(z):
+    """Garganta de Lumeria (Ato III), aberta depois da zona aprovada: roda no FIM do build, quando a dispersão e o
+    acabamento já sortearam tudo, para o resto do mapa sair byte a byte igual. Faz a estrada (ramal da Forja-Canil), o
+    largo de chegada e dois postes com as lanternas que nunca apagam ("a noite que anda"); tira do corredor o que a
+    dispersão pôs lá (obstáculos do JSON e peças 3D dos lotes do acabamento) e grava o portal em future_portals."""
+    out, inn = polar(z, LUMERIA_DEG, 7), polar(z, LUMERIA_DEG, 16)
+    poly = z.road("lumeria", LUMERIA_ROAD + [inn, out], end_clearing=False)
+    z.arrival(inn, out, r=5.0, name="chegada_lumeria")
+    core = poly[3:]                                           # os 2 primeiros pontos ficam em cima da estrada da Forja
+
+    def near(p, r):
+        v = Vector(p)
+        return poly_dist(v, core) < zone_lib.ROAD_W * 0.5 + 1.4 + r or (v - Vector(inn)).length < 6.5 + r
+
+    gone = [o for o in z.data["obstacles"] if o["kind"] in ("tree", "dead_tree", "rock", "bush", "stump", "crystal", "pillar")
+            and o.get("y", 0.0) < 0.5 and near(o["pos"], max(o["size"][0], o["size"][2]) * 0.5)]
+    for o in gone:
+        z.data["obstacles"].remove(o)
+    print("GARGANTA lumeria: %d obstaculos tirados do corredor: %s" % (len(gone), [(o["kind"], o["pos"]) for o in gone]))
+    cut = 0
+    for ob in z.coll.objects:                                 # peças 3D do acabamento (lotes por célula) caídas no corredor
+        if "_det_" not in ob.name or "_chao_" in ob.name or ob.type != "MESH":
+            continue
+        ox, oy = ob.location.x, ob.location.y
+        bm = bmesh.new()
+        bm.from_mesh(ob.data)
+        seen, kill = set(), []
+        for f0 in bm.faces:
+            if f0.index in seen:
+                continue
+            isl, st = [], [f0]
+            seen.add(f0.index)
+            while st:
+                f = st.pop()
+                isl.append(f)
+                for e in f.edges:
+                    for g in e.link_faces:
+                        if g.index not in seen:
+                            seen.add(g.index)
+                            st.append(g)
+            vs = {v for f in isl for v in f.verts}
+            cx, cy = sum(v.co.x for v in vs) / len(vs) + ox, sum(v.co.y for v in vs) / len(vs) + oy
+            if max(v.co.z for v in vs) > 0.06 and near((cx, -cy), 0.3):
+                kill += isl
+        if kill:
+            cut += 1
+            bmesh.ops.delete(bm, geom=kill, context="FACES")
+            bm.to_mesh(ob.data)
+        bm.free()
+    print("GARGANTA lumeria: %d lotes do acabamento aparados" % cut)
+    # as lanternas de Lumeria: dois postes claros na boca da garganta, lanterna rosa acesa e uma fita desbotada
+    a = math.radians(LUMERIA_DEG)
+    side = (-math.sin(a), math.cos(a))
+    post, glow = mat("lumeria_poste", (0.84, 0.78, 0.72)), mat("glow_lanterna_rosa", (1.0, 0.68, 0.78))
+    for k, sgn in enumerate((-1, 1)):
+        q = (inn[0] + side[0] * sgn * 4.6 + math.cos(a) * 4.0, inn[1] + side[1] * sgn * 4.6 + math.sin(a) * 4.0)
+        cyl(z.coll, z.P + "lumeria_poste_%d" % k, q, 0.14, 0.09, 4.6, post, 0.0, 6)
+        box(z.coll, z.P + "lumeria_lanterna_%d" % k, q, (0.5, 0.6, 0.5), 45.0, glow, 4.5)
+        cone(z.coll, z.P + "lumeria_tampa_%d" % k, q, 0.4, 0.3, post, 5.1, 4)
+        horde.cloth(z.coll, z.P + "lumeria_fita_%d" % k, q, 0.7, 2.6, 90.0 - LUMERIA_DEG + 180.0 * k, mat("bandeira_lumeria", (0.9, 0.7, 0.76)), 1.7, tail="swallow")
+        z.ob("pillar", q[0], q[1], (0.6, 4.6, 0.6), visible=False)
+    z.data["poi"]["garganta_lumeria"] = list(inn)
+    print("BACK lumeria (target_pos do portal de Lumeria para Kharzun)", inn)
+    if LUMERIA_READY:                                         # o mapa existe (WP5): portal de verdade
+        z.portal("to_city_lumeria", out, "city_lumeria", LUMERIA_ARRIVE, "Lumeria, a Festa Eterna (Lv 45-47)")
+        return None
+    return {"id": "to_city_lumeria", "pos": list(out), "arrive": list(inn), "target_map": "city_lumeria", "target_pos": list(LUMERIA_ARRIVE),
+            "label": "Lumeria, a Festa Eterna (Lv 45-47)", "level": 45, "quest": "hx_act2_epilogue"}
+
+
 # ---------------------------------------------------------------------------------------------------------------
 def check_spawners(z):
     """Aviso (não erro) para spawner fora das regras dos testes: 40-120 m do hub, dentro da borda, fora da lava e de morro."""
@@ -601,6 +678,7 @@ def build(export=False):
 
     sl = places.gate_return(places.DUNGEONS["dg_slayers"])
     z.patch("matadores", sl, 14.0, (0.31, 0.25, 0.37), y=0.0056)      # chão arroxeado diante do Salão
+    z.late_gorges.append(math.radians(LUMERIA_DEG))        # garganta de Lumeria: a encosta baixa ali, o sorteio do anel não muda
     z.cliffs(snow=False)
     prnd = random.Random(53)
     for i, deg in enumerate(range(-156, -22, 12)):          # encosta norte: picos com veios de lava além da borda (só visual)
@@ -723,11 +801,14 @@ def build(export=False):
     # só agora (o acabamento reserva o chão em volta de todo portal, os futuros também)
     future = [dict(p, arrive=list(cit_in) if p["target_map"] == "kharzun_citadel" else list(places.gate_return(places.DUNGEONS["dg_slayers"])))
               for p in z.data["portals"] if p["target_map"] in FUTURE_MAPS]
-    if future:
-        z.data["future_portals"] = future
     z.data["portals"] = [p for p in z.data["portals"] if p["target_map"] not in FUTURE_MAPS]
+    gorge = east_gorge(z)
+    if gorge:
+        future.append(gorge)
+    z.data["future_portals"] = future
     g = places.DUNGEONS["dg_slayers"]["gate"]
     poi = {"minas": MINES, "canil": KENNEL, "forja": FORGE, "matadores": (g[0] + 9.0, g[1] + 9.0), "portao": (BARBICAN[0], BARBICAN[1] + 9.0),
            "presa": (FANG[0] - 6.0, FANG[1] + 10.0), "xama": SHAMAN, "libertos": FREED, "santuario": SHRINE, "lago": (FIRE_LAKE[0] - 12.0, FIRE_LAKE[1] + 6.0),
-           "chegada": arrive, "ponte": (1.5, -46.0)}[os.environ.get("KHARZUN_POI", "forja")]
+           "chegada": arrive, "ponte": (1.5, -46.0),
+           "lumeria": tuple(z.data["poi"]["garganta_lumeria"])}[os.environ.get("KHARZUN_POI", "forja")]
     return z.finish(export, poi=poi, ground=GROUND)

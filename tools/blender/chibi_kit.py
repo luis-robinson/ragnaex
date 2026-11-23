@@ -2965,6 +2965,13 @@ import elementalist_sets as _elementalist_sets    # conjuntos e cajados do Eleme
 _elementalist_sets.register(sys.modules[__name__])
 import necromancer_sets as _necromancer_sets      # conjuntos e foices do Necromancer
 _necromancer_sets.register(sys.modules[__name__])
+# Ato III (nível 50, tema Lumeria): estilos <pre>_<b>50 de ACT3_SETS de cada <classe>_sets.py, TODOS no kit extra
+# kit_<classe>_<sexo>_a3.glb (build_kit_a3); o kit principal não ganha malha. fn(base, mats), 1 malha por slot.
+A3_STYLES = {}
+for _m in (_paladin_sets, _berserker_sets, _bishop_sets, _druid_sets, _ranger_sets, _assassin_sets, _elementalist_sets, _necromancer_sets):
+    for _st, _fn in getattr(_m, "ACT3_SETS", {}).items():
+        A3_STYLES[_st] = (lambda st, f: (lambda base, mats: (f(sys.modules[__name__], base, mats, st), _paladin_sets.join_slots("arm_%s_" % st))))(_st, _fn)
+ADDON_STYLES = {"_a2": A2_STYLES, "_a3": A3_STYLES}          # sufixo do arquivo -> estilos (KitModel.ADDON_SUFFIXES)
 
 
 # Kit por classe: corpo + peças comuns + só os conjuntos/armas/escudos da classe. O kit_<male|female> genérico (NPCs) não
@@ -3051,22 +3058,27 @@ def build_kit(sex, out_dir=None, class_id=None):
     return base
 
 
+def addon_classes(suffix="_a2"):
+    """Classes com kit extra desse sufixo (alguma entrada em ADDON_STYLES[suffix])."""
+    return [cid for cid in CLASS_BODY if any(style_class(k) == cid for k in ADDON_STYLES[suffix])]
+
+
 def a2_classes():
     """Classes com kit extra (alguma entrada em A2_STYLES)."""
-    return [cid for cid in CLASS_BODY if any(style_class(k) == cid for k in A2_STYLES)]
+    return addon_classes("_a2")
 
 
-def build_kit_a2(sex, out_dir=None, class_id=None):
-    """Kit extra da classe: só as malhas arm_<estilo>_<slot>_all de A2_STYLES, presas ao MESMO esqueleto do kit principal
-    (mesmos ossos, na mesma ordem: o jogo funde as peças dos dois arquivos numa malha só). Sem corpo, sem armas, sem clipes.
-    Exporta kit_<classe>_<sexo>_a2.glb se out_dir."""
+def build_kit_addon(sex, out_dir=None, class_id=None, suffix="_a2", only_styles=None):
+    """Kit extra da classe: só as malhas arm_<estilo>_<slot>_all de ADDON_STYLES[suffix], presas ao MESMO esqueleto do kit
+    principal (mesmos ossos, na mesma ordem: o jogo funde as peças dos dois arquivos numa malha só). Sem corpo, sem armas,
+    sem clipes. Exporta kit_<classe>_<sexo><suffix>.glb se out_dir. only_styles = só esses estilos (prévia; não exporte assim)."""
     import os
     clear()
     base = build_base("base", sex, 0.0, KIT_HAIR, "hair")
     base["player_kit"] = True
     mats = _kit_mats()
-    for key, fn in A2_STYLES.items():
-        if style_class(key) == class_id:
+    for key, fn in ADDON_STYLES[suffix].items():
+        if style_class(key) == class_id and (only_styles is None or key in only_styles):
             fn(base, mats)
     if class_id in SHIELD_CLASSES:
         add_shield_tip(base["rig"])           # mesmo osso extra (e na mesma posição da lista) do kit principal
@@ -3077,7 +3089,7 @@ def build_kit_a2(sex, out_dir=None, class_id=None):
             o.name = o.name.replace(".", "_")
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
-        path = os.path.join(out_dir, "kit_%s_%s_a2.glb" % (class_id, sex))
+        path = os.path.join(out_dir, "kit_%s_%s%s.glb" % (class_id, sex, suffix))
         deselect_everything()
         rig.hide_set(False)
         rig.select_set(True)
@@ -3089,13 +3101,31 @@ def build_kit_a2(sex, out_dir=None, class_id=None):
     return base
 
 
-def build_kits_a2(out_dir, only=None):
-    """Kits extras (kit_<classe>_<sexo>_a2.glb) das classes de a2_classes(). only = lista de classes."""
-    for cid in a2_classes():
+def build_kit_a2(sex, out_dir=None, class_id=None):
+    """Kit extra do Ato II (kit_<classe>_<sexo>_a2.glb): ver build_kit_addon."""
+    return build_kit_addon(sex, out_dir, class_id, "_a2")
+
+
+def build_kit_a3(sex, out_dir=None, class_id=None):
+    """Kit extra do Ato III, nível 50 (kit_<classe>_<sexo>_a3.glb): ver build_kit_addon."""
+    return build_kit_addon(sex, out_dir, class_id, "_a3")
+
+
+def build_kits_addon(out_dir, only=None, suffix="_a2"):
+    """Kits extras (kit_<classe>_<sexo><suffix>.glb) das classes de addon_classes(suffix). only = lista de classes."""
+    for cid in addon_classes(suffix):
         if only is None or cid in only:
             for sex in ("male", "female"):
-                build_kit_a2(sex, out_dir, cid)
-    print("a2 kits done")
+                build_kit_addon(sex, out_dir, cid, suffix)
+    print("%s kits done" % suffix.strip("_"))
+
+
+def build_kits_a2(out_dir, only=None):
+    build_kits_addon(out_dir, only, "_a2")
+
+
+def build_kits_a3(out_dir, only=None):
+    build_kits_addon(out_dir, only, "_a3")
 
 
 def build_kits(out_dir, only=None):
@@ -3108,4 +3138,5 @@ def build_kits(out_dir, only=None):
             for sex in ("male", "female"):
                 build_kit(sex, out_dir, cid)
     build_kits_a2(out_dir, only)              # kits extras (Ato II do Paladino)
+    build_kits_a3(out_dir, only)              # kits extras do nível 50 (Ato III, todas as classes)
     print("kits done")

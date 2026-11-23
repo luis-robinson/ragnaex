@@ -706,3 +706,87 @@ def register(ck):
     for style, cfg in NEC_SETS.items():
         ck.SET_STYLES[style] = (lambda st, cf: (lambda base, mats: (build(ck, base, mats, st, cf), paladin_sets.join_slots("arm_%s_" % st))))(style, cfg)
         ck.SET_WEAPONS[style + "_scythe"] = (lambda st, cf: (lambda base, mats: build_scythe(ck, base, mats, st, cf)))(style, cfg)
+
+
+# ---------------------------------------------------------------------------
+# Ato III (nível 50, GDD ato3-lendarios-50): UM visual novo por build no tema de Lumeria. Malhas no kit extra
+# kit_necromancer_<sexo>_a3.glb (chibi_kit.A3_STYLES); motivos comuns em lumeria_kit.py. Função simples (sem o par
+# (tipo, fn) de ACT2_SETS).
+#   nec_i50 Invocador = Cortejo de Porcelana: capuz alto de seda (tint2, ameixa) que cai para trás, com máscaras cegas
+#           penduradas como troféus; UMA máscara de porcelana sem olhos em cada ombro, grande, virada para fora e para cima
+#           (assinatura, lida de cima); lágrima pintada no rosto; túnica marfim com tiras de seda até o tornozelo.
+def build_porcelain_cortege(ck, base, mats, style):
+    """nec_i50 — Cortejo de Porcelana (Invocador)."""
+    import lumeria_kit as lk
+    import berserker_sets as bs
+    V = Vector
+    rig, body, b, j = base["rig"], base["body"], base["b"], base["j"]
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, porc, glow = M["t"], M["t2"], M["gold"], M["porc"], M["glow"]
+    P = "arm_%s_" % style
+    c, r = V(base["head_c"]), b["head"]
+    d = b["depth"]
+    front = -b["chest"] * d - 0.03
+    back = b["chest"] * d + 0.03
+    zc, zn, zw = ck.Z["chest"], ck.Z["neck"], ck.Z["waist"]
+    # ---------------- túnica ----------------
+    _a2_robe(ck, base, mats, P, t, mats["dark"], 0.07, 1.74, gold, t2)
+    # ---------------- cabeça: capuz alto caindo para trás, troféus pendurados, lágrima pintada sob o olho esquerdo ----------------
+    k0, k1, k2 = c + V((0, r * 0.1, r * 0.55)), c + V((0, r * 0.55, r * 1.5)), c + V((0, r * 1.35, r * 1.75))
+    head = [ck._shell(P + "head_hood", c, r * 1.12, 0.2, -0.95, -0.7, 0.04, t2),
+            ck.tube(P + "head_peak0", k0, k1, r * 0.88, r * 0.5, t2, 12),
+            ck.tube(P + "head_peak1", k1, k2, r * 0.5, r * 0.2, t2, 10),
+            ck.ball(P + "head_peak_end", r * 0.22, k2, t2),
+            ck.ball(P + "head_tear", r * 0.055, c + V((r * 0.38, -r * 0.93, -r * 0.28)), glow, (0.8, 0.6, 2.2)),
+            ck.ball(P + "head_tear_drop", r * 0.075, c + V((r * 0.38, -r * 0.9, -r * 0.42)), glow, (1, 0.6, 1.2))]
+    for i, (ang, drop) in enumerate(((0.0, 0.5), (math.radians(125), 0.3), (math.radians(-125), 0.3))):       # troféus: atrás, e um de cada lado
+        dv = V((math.sin(ang), math.cos(ang), 0))
+        hang = (k2 if i == 0 else c + dv * r * 1.08 + V((0, 0, r * 0.3)))
+        mc = hang + dv * r * 0.12 + V((0, 0, -r * drop))
+        head.append(ck.tube(P + "head_trophy_cord%d" % i, hang, mc + V((0, 0, r * 0.2)), 0.008, 0.008, gold, 4))
+        head += lk.mask(ck, P + "head_trophy%d" % i, mc, r * 0.26, M, facing=(dv.x, dv.y, 0.15), eyes=False, tears=(1,), wide=1.1, tear_len=0.4)
+    ck._rigid(bs._outward(head), rig, "head")
+    # ---------------- corpo: gola alta, corrente com medalhão-máscara, tiras de seda ----------------
+    chest = [ck.tube(P + "body_collar", V((0, 0, zn - 0.07)), V((0, 0, zn + 0.03)), b["chest"] * 0.82, b["chest"] * 0.55, t2, 14),
+             ck.tube(P + "body_collar_rim", V((0, 0, zn - 0.085)), V((0, 0, zn - 0.065)), b["chest"] * 0.86, b["chest"] * 0.84, gold, 14)]
+    chest += lk.mask(ck, P + "body_pendant", (0, front - 0.03, zc + 0.03), 0.075, M, eyes=False, tears=(-1, 1), tear_len=0.4)
+    for sx in (-1, 1):
+        chest.append(ck.tube(P + "body_pendant_chain%d" % sx, (sx * b["chest"] * 0.6, front + 0.05, zn - 0.07), (sx * 0.03, front - 0.03, zc + 0.1), 0.009, 0.009, gold, 4))
+        chest.append(lk.silk(ck, P + "body_back%d" % sx, (sx * 0.07, back - 0.01, zn - 0.06), (sx * 0.13, back + 0.1, zw + 0.02), (1, 0, 0), 0.12, 0.15, t2, (0, 0.03, 0), 3))
+    ck._rigid(bs._outward(chest), rig, "chest")
+    wf = -b["waist"] * d * 1.22
+    strips = []
+    for k in range(6):                   # tiras de seda do cinto até o tornozelo, em volta da saia (pesos do corpo)
+        a = math.tau * (k + 0.5) / 6
+        dv = V((math.cos(a), math.sin(a) * d * 1.05, 0))
+        p0 = dv * b["waist"] * 1.24 + V((0, 0, zw - 0.03))
+        p1 = dv * b["waist"] * 2.12 + V((0, 0, 0.12 + 0.05 * (k % 2)))
+        strips.append(lk.silk(ck, P + "body_strip%d" % k, p0, p1, (-math.sin(a), math.cos(a), 0), 0.09, 0.14, t2, dv * 0.012, 5, 0.014))
+    lk.skinned(ck, base, bs._outward(strips))
+    hips = lk.mask(ck, P + "body_buckle", (0, wf - 0.02, zw - 0.005), 0.055, M, eyes=False, tears=(1,), tear_len=0.4)
+    ck._rigid(bs._outward(hips), rig, "hips")
+    for s, sx in ((".R", -1), (".L", 1)):                 # ombros de máscaras: rosto cego virado para fora e para cima
+        tag = s.replace(".", "_")
+        sh = V(j["shoulder" + s])
+        pa = [ck.ball(P + "body_pad" + tag, b["arm"] * 2.4, sh + V((sx * 0.07, 0, 0.02)), t2, (1.15, 1.15, 0.6))]
+        pa += lk.mask(ck, P + "body_shoulder_mask" + tag, sh + V((sx * 0.21, -0.02, 0.1)), 0.18, M, facing=(sx * 0.66, -0.3, 0.69), eyes=False,
+                      tears=(sx,), wide=1.12, tear_len=0.5)
+        for i, sy in enumerate((-1, 1)):
+            p0 = sh + V((sx * 0.14, sy * 0.09, -0.02))
+            pa.append(lk.silk(ck, P + "body_fall%d%s" % (i, tag), p0, p0 + V((sx * 0.1, sy * 0.05, -0.3 - i * 0.05)), (1, sy * 0.7, 0), 0.075, 0.1, t2, (sx * 0.03, 0, 0), 3))
+        ck._rigid(bs._outward(pa), rig, "upper_arm" + s)
+    # mangas, punhos de ouro e botas (a casca das botas já vem em _a2_robe)
+    for s, sx in ((".R", -1), (".L", 1)):
+        tag = s.replace(".", "_")
+        el_, wr, an = V(j["elbow" + s]), V(j["wrist" + s]), V(j["ankle" + s])
+        g = [ck.tube(P + "gloves_sleeve" + tag, el_.lerp(wr, 0.2), wr + V((0, 0, -0.014)), 0.076, 0.118, t, 14),
+             ck.tube(P + "gloves_cuff" + tag, wr + V((0, 0, 0.01)), wr + V((0, 0, -0.022)), 0.123, 0.123, gold, 14),
+             ck.tube(P + "gloves_band" + tag, el_.lerp(wr, 0.45), el_.lerp(wr, 0.58), 0.094, 0.103, t2, 12)]
+        g += lk.mask(ck, P + "gloves_mask" + tag, el_.lerp(wr, 0.62) + V((sx * 0.105, 0, 0)), 0.05, M, facing=(sx, 0, 0), eyes=False, tears=(), rim=False)
+        ck._rigid(bs._outward(g), rig, "forearm" + s)
+        ck._rigid([ck.ball(P + "gloves_fist" + tag, b["hand"] * 1.15, ck.hand_center(base, s), porc, (1, 1, 1.1))], rig, "hand" + s)
+        ck._rigid(bs._outward([ck.tube(P + "boots_cuff" + tag, an + V((0, 0, 0.06)), an + V((0, 0, 0.096)), 0.084, 0.09, gold, 12),
+                               ck.ball(P + "boots_tear" + tag, 0.02, an + V((0, -0.088, 0.075)), glow, (0.7, 0.6, 1.5))]), rig, "shin" + s)
+
+
+ACT3_SETS = {"nec_i50": build_porcelain_cortege}

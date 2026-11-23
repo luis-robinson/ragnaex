@@ -972,3 +972,84 @@ def register(ck):
         ck.SET_WEAPONS["ber_axe_" + style] = (lambda st, cf: (lambda base, mats: build_axe(ck, base, mats, st, cf, "main")))(style, cfg)
         if cfg["type"] == "axe":                           # Gêmeos: o segundo machado, na mão esquerda
             ck.SET_WEAPONS["ber_off_" + style] = (lambda st, cf: (lambda base, mats: build_axe(ck, base, mats, st, cf, "off")))(style, cfg)
+
+
+# ---------------------------------------------------------------------------
+# Ato III (nível 50, GDD ato3-lendarios-50): UM visual novo por build no tema de Lumeria. Malhas no kit extra
+# kit_berserker_<sexo>_a3.glb (chibi_kit.A3_STYLES); motivos comuns em lumeria_kit.py.
+#   ber_e50 Executor = Lâmina do Último Brinde: capuz de carrasco alto e pontudo de seda (tint2, negro) com mantelete,
+#           máscara branca de porcelana com UMA lágrima, correntes de taças cruzadas no peito e na cintura, ombreira
+#           direita em cúpula de porcelana com espelho, espelhos nas braçadeiras, avental de seda com barra de ouro.
+def build_last_toast(ck, base, mats, style):
+    """ber_e50 — Lâmina do Último Brinde (Executor)."""
+    import lumeria_kit as lk
+    import paladin_sets as ps
+    V = Vector
+    rig, body, b, j = base["rig"], base["body"], base["b"], base["j"]
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, porc, glow, glass = M["t"], M["t2"], M["gold"], M["porc"], M["glow"], M["glass"]
+    P = "arm_%s_" % style
+    c, r = V(base["head_c"]), b["head"]
+    # ---------------- cabeça: capuz pontudo, mantelete nos ombros, máscara com a lágrima no olho direito ----------------
+    tip0, tip1 = c + V((0, r * 0.12, r * 1.55)), c + V((0, r * 0.5, r * 2.3))
+    head = [ck._shell(P + "head_hood", c, r * 1.12, -0.85, -0.85, -0.82, 0.04, t2),
+            ck.tube(P + "head_cone0", c + V((0, 0, r * 0.6)), tip0, r * 0.9, r * 0.44, t2, 12),
+            ck.tube(P + "head_cone1", tip0, tip1, r * 0.44, r * 0.03, t2, 10),
+            ck.tube(P + "head_band", c + V((0, 0, r * 0.58)), c + V((0, 0, r * 0.72)), r * 1.115, r * 1.03, gold, 16),
+            ck.ball(P + "head_tip_bell", r * 0.1, tip1, gold)]
+    head += lk.mask(ck, P + "head_mask", c + V((0, -r * 1.06, -r * 0.05)), r * 0.7, M, tears=(-1,), wide=1.16, tear_len=0.66)
+    ck._rigid(_outward(head), rig, "head")
+    # ---------------- corpo: colete, mantelete do capuz, correntes de taças, avental de seda ----------------
+    ck.armor_piece(body, rig, P + "body_vest", "torso", t, 0.014, 0.014, 0.02)
+    ck.armor_piece(body, rig, P + "body_legs", "legs", mats["dark"], 0.008, 0.012)
+    d = b["depth"]
+    front = -b["chest"] * d - 0.03
+    back = b["chest"] * d + 0.03
+    zc, zn, zw = ck.Z["chest"], ck.Z["neck"], ck.Z["waist"]
+    rs_, ls_ = V(j["shoulder.R"]), V(j["shoulder.L"])
+    chest = [ck.tube(P + "body_mantle", V((0, 0, zn - 0.1)), V((0, 0, zn + 0.05)), b["shoulder"] * 1.42, b["chest"] * 0.6, t2, 14),
+             ck.tube(P + "body_mantle_hem", V((0, 0, zn - 0.115)), V((0, 0, zn - 0.09)), b["shoulder"] * 1.46, b["shoulder"] * 1.44, gold, 14)]
+    for v in chest[0].data.vertices:
+        v.co.y *= 0.82
+    for v in chest[1].data.vertices:
+        v.co.y *= 0.82
+    # correntes de taças: uma de ombro a quadril pela frente, outra de través nas costas
+    a0, a1 = rs_ + V((0.04, -0.15, -0.06)), V((b["waist"] * 0.95, front - 0.01, zw + 0.06))
+    chest += ps._chain(ck, P + "body_chain_f", a0, a1, 0.05, gold, 7, 0.014)
+    for k in range(3):
+        q = 0.25 + k * 0.27
+        chest += lk.goblet(ck, P + "body_cup_f%d" % k, a0.lerp(a1, q) + V((0, -0.035, -0.045 * math.sin(math.pi * q) - 0.01)), 0.05, M)
+    b0, b1 = ls_ + V((-0.04, 0.15, -0.06)), V((-b["waist"] * 0.95, back + 0.01, zw + 0.06))
+    chest += ps._chain(ck, P + "body_chain_b", b0, b1, 0.05, gold, 7, 0.014)
+    for k in range(2):
+        q = 0.35 + k * 0.33
+        chest += lk.goblet(ck, P + "body_cup_b%d" % k, b0.lerp(b1, q) + V((0, 0.035, -0.045 * math.sin(math.pi * q) - 0.01)), 0.05, M)
+    ck._rigid(_outward(chest), rig, "chest")
+    _belt(ck, base, P + "body_belt", zw - 0.05, zw + 0.04, 1.2, gold)
+    wf = -b["waist"] * d * 1.22
+    hips = [ck.ball(P + "body_buckle", 1.0, (0, wf - 0.012, zw - 0.005), glass, (0.055, 0.02, 0.055)),
+            ck.ball(P + "body_buckle_rim", 1.0, (0, wf - 0.004, zw - 0.005), porc, (0.068, 0.02, 0.068))]
+    for side, y in (("f", wf - 0.02), ("b", -wf + 0.02)):         # avental de seda negra com barra de ouro
+        hips += [ps._banner(ck, P + "body_apron_" + side, y, zw - 0.04, 0.11, 0.36, 0.016, t2),
+                 ps._banner(ck, P + "body_apron_hem_" + side, y + (0.005 if side == "f" else -0.005), zw - 0.04, 0.125, 0.39, 0.01, gold),
+                 ck.ball(P + "body_apron_tear_" + side, 0.026, (0, y + (-0.012 if side == "f" else 0.012), zw - 0.2), glow, (0.8, 0.5, 1.7))]
+    for sx in (-1, 1):                   # taças penduradas no cinto, uma de cada lado
+        hips += lk.goblet(ck, P + "body_cup_hip%d" % sx, (sx * b["waist"] * 1.28, -0.02, zw - 0.06), 0.055, M)
+    ck._rigid(_outward(hips), rig, "hips")
+    for s, sx in ((".R", -1), (".L", 1)):
+        tag = s.replace(".", "_")
+        sh = V(j["shoulder" + s])
+        if s == ".R":                    # cúpula de porcelana com aro de ouro e espelho redondo virado para fora
+            pc = sh + V((sx * 0.13, 0, 0.02))
+            pa = [ck.ball(P + "body_dome" + tag, b["arm"] * 3.3, pc, porc, (1.1, 1.15, 0.75)),
+                  ck.tube(P + "body_dome_rim" + tag, pc + V((0, 0, -0.055)), pc + V((0, 0, -0.02)), b["arm"] * 3.75, b["arm"] * 3.6, gold, 14),
+                  ck.ball(P + "body_dome_mirror" + tag, 1.0, pc + V((sx * 0.17, -0.02, 0.07)), glass, (0.035, 0.085, 0.085)),
+                  ck.ball(P + "body_dome_frame" + tag, 1.0, pc + V((sx * 0.155, -0.02, 0.07)), gold, (0.03, 0.1, 0.1)),
+                  ck.ball(P + "body_dome_tear" + tag, 0.03, pc + V((sx * 0.02, -0.2, 0.06)), glow, (0.8, 0.5, 1.8))]
+        else:                            # ombro esquerdo: pires pequeno
+            pa = lk.saucers(ck, P + "body_dish" + tag, sh + V((sx * 0.1, 0, 0.0)), b["arm"] * 2.3, 2, M, 0.05, 0.25, (sx * 0.5, 0, 1))
+        ck._rigid(_outward(pa), rig, "upper_arm" + s)
+    lk.limbs(ck, base, mats, P, M, "leather", mirror=True)
+
+
+ACT3_SETS = {"ber_e50": build_last_toast}
