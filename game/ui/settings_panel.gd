@@ -1,6 +1,7 @@
 class_name SettingsPanel
 extends VBoxContainer
-## Configurações compartilhadas (spec `design/ux/start-flow.md` §3 "Configurações", §6): Gráficos, volumes e Dicas.
+## Configurações compartilhadas (spec `design/ux/start-flow.md` §3 "Configurações", §6): abas Geral (Gráficos, volumes, Dicas) e
+## Acessibilidade (tremor, clarões, avisos com padrão, efeitos dos aliados: `AccessSettings`).
 ## O menu Esc do HUD põe estas linhas dentro do painel dele; a tela de título abre `SettingsPanel.overlay(...)`.
 ## A verdade continua em `GraphicsSettings`/`AudioSettings` (e `Tips` para as dicas): aqui só a interface.
 
@@ -21,7 +22,33 @@ func _init() -> void:
 	name = "SettingsPanel"
 	add_theme_constant_override("separation", 8)
 
+var general_box: VBoxContainer          # aba Geral: Gráficos, volumes, Dicas
+var access_box: VBoxContainer           # aba Acessibilidade (AccessSettings)
+var tab_buttons: Array[Button] = []
+var shake_slider: HSlider
+var flash_slider: HSlider
+var contrast_button: Button
+var ally_button: Button
+
 func _ready() -> void:
+	var tabs := HBoxContainer.new()
+	tabs.name = "Tabs"
+	tabs.add_theme_constant_override("separation", 4)
+	add_child(tabs)
+	var group := ButtonGroup.new()
+	for i in 2:
+		var tb := UiKit.button(["Geral", "Acessibilidade"][i], show_tab.bind(i), WIDTH / 2 - 2)
+		tb.name = ["TabGeneral", "TabAccess"][i]
+		tb.toggle_mode = true
+		tb.button_group = group
+		tb.focus_mode = Control.FOCUS_ALL
+		tb.add_theme_font_size_override("font_size", 13)
+		tabs.add_child(tb)
+		tab_buttons.append(tb)
+	general_box = VBoxContainer.new()
+	general_box.name = "General"
+	general_box.add_theme_constant_override("separation", 8)
+	add_child(general_box)
 	gfx_button = UiKit.button("", Callable(), WIDTH)
 	gfx_button.name = "Graphics"
 	gfx_button.text = "Gráficos: " + GraphicsSettings.name()
@@ -29,16 +56,91 @@ func _ready() -> void:
 FSR 2: renderiza menor e reconstrói — mais FPS em PC fraco, contorno pode tremular."
 	gfx_button.pressed.connect(_cycle_graphics)
 	gfx_button.add_theme_font_size_override("font_size", 13)
-	add_child(gfx_button)
+	general_box.add_child(gfx_button)
 	for bus in AudioSettings.BUSES:
-		add_child(_volume_row(bus))
+		general_box.add_child(_volume_row(bus))
 	tips_button = UiKit.button("", Callable(), WIDTH)
 	tips_button.name = "Tips"
 	tips_button.tooltip_text = "Cartões curtos que explicam cada mecânica na primeira vez que ela aparece."
 	tips_button.pressed.connect(_toggle_tips)
 	tips_button.add_theme_font_size_override("font_size", 13)
-	add_child(tips_button)
+	general_box.add_child(tips_button)
 	_tips_text()
+	_build_access()
+	show_tab(0)
+
+## Mostra a aba `i` (0 = Geral, 1 = Acessibilidade).
+func show_tab(i: int) -> void:
+	general_box.visible = i == 0
+	access_box.visible = i == 1
+	for k in tab_buttons.size():
+		tab_buttons[k].set_pressed_no_signal(k == i)
+
+# ------------------------------------------------------------------ acessibilidade
+func _build_access() -> void:
+	access_box = VBoxContainer.new()
+	access_box.name = "Access"
+	access_box.add_theme_constant_override("separation", 8)
+	add_child(access_box)
+	shake_slider = _pct_row(access_box, "Shake", "Tremor da tela", AccessSettings.shake,
+		"Quanto a câmera treme nos golpes fortes. 0% = câmera parada.", func(x: float): AccessSettings.set_shake(x))
+	flash_slider = _pct_row(access_box, "Flash", "Clarões", AccessSettings.flash,
+		"Brilho do personagem atingido e dos clarões de skills e Supremas. 0% = sem clarões.", func(x: float): AccessSettings.set_flash(x))
+	contrast_button = UiKit.button("", _cycle_contrast, WIDTH)
+	contrast_button.name = "Contrast"
+	contrast_button.focus_mode = Control.FOCUS_ALL
+	contrast_button.tooltip_text = "Avisos de chefe e monstro com desenho próprio por mecânica (não só a cor):
+dano = borda grossa e listras · seguro = borda tracejada · dividir = anéis por dentro
+espalhar = borda em segmentos · controle = borda ondulada.
+Daltônico troca também as cores por laranja / azul / amarelo / roxo."
+	contrast_button.add_theme_font_size_override("font_size", 13)
+	access_box.add_child(contrast_button)
+	ally_button = UiKit.button("", _cycle_ally, WIDTH)
+	ally_button.name = "AllyFx"
+	ally_button.focus_mode = Control.FOCUS_ALL
+	ally_button.tooltip_text = "Efeitos e números de dano dos OUTROS personagens (grupo e bots).
+Os seus e os avisos de perigo aparecem sempre."
+	ally_button.add_theme_font_size_override("font_size", 13)
+	access_box.add_child(ally_button)
+	_access_text()
+
+## Linha: nome + barra 0-100% + valor (salva ao mexer).
+func _pct_row(box: Container, id: String, text: String, value: float, tip: String, on_change: Callable) -> HSlider:
+	var row := HBoxContainer.new()
+	row.name = "Row_" + id
+	row.tooltip_text = tip
+	var l := UiKit.label(text, 12)
+	l.custom_minimum_size.x = 96
+	row.add_child(l)
+	var sl := HSlider.new()
+	sl.name = id
+	sl.min_value = 0.0
+	sl.max_value = 1.0
+	sl.step = 0.05
+	sl.value = value
+	sl.tooltip_text = tip
+	sl.custom_minimum_size.x = 100
+	sl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(sl)
+	var pct := UiKit.label("%d%%" % roundi(value * 100.0), 12)
+	pct.custom_minimum_size.x = 40
+	pct.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	row.add_child(pct)
+	sl.value_changed.connect(func(x: float): on_change.call(x); pct.text = "%d%%" % roundi(x * 100.0))
+	box.add_child(row)
+	return sl
+
+func _cycle_contrast() -> void:
+	AccessSettings.cycle_contrast()
+	_access_text()
+
+func _cycle_ally() -> void:
+	AccessSettings.cycle_ally_fx()
+	_access_text()
+
+func _access_text() -> void:
+	contrast_button.text = "Avisos: " + AccessSettings.contrast_name()
+	ally_button.text = "Efeitos dos aliados: " + AccessSettings.ally_fx_name()
 
 func _cycle_graphics() -> void:
 	gfx_button.text = "Gráficos: " + GraphicsSettings.cycle(get_viewport())

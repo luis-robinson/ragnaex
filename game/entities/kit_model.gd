@@ -774,11 +774,15 @@ func _setup_trails(main: ItemDef, off: ItemDef) -> void:
 	if skeleton == null:
 		return
 	if main and main.weapon_type != "bow":
-		_add_trail(main_node(main), "hand.R", main.icon_color)
+		_add_trail(main_node(main), "hand.R", main.icon_color, main.weapon_type in THIN_TRAIL_WEAPONS)
 	if off and (off.weapon_type in ItemDef.ONE_HANDED_MELEE or off.weapon_type in Balance.TITAN_WEAPONS):
 		_add_trail(off_node_of(off), "hand.L", off.icon_color)
 
-func _add_trail(node_name: String, bone: String, col: Color) -> void:
+## Cajado/foice/cetro: fita fina só na cabeça da arma (V5); as outras armas seguem a fita larga.
+const THIN_TRAIL_WEAPONS := ["staff", "scythe", "scepter"]
+const THIN_TRAIL_BASE := 0.72
+
+func _add_trail(node_name: String, bone: String, col: Color, thin := false) -> void:
 	var mi: MeshInstance3D = _nodes.get(node_name)
 	var idx := skeleton.find_bone(bone)
 	if mi == null or idx < 0:
@@ -794,7 +798,7 @@ func _add_trail(node_name: String, bone: String, col: Color) -> void:
 				best = d
 				far = v
 	var tip := rest.affine_inverse() * far
-	_trails.append({"bone": idx, "tip": tip * 1.05, "base": tip * 0.18, "color": col.lerp(Color(0.85, 0.95, 1.0), 0.35) * 1.6, "samples": []})
+	_trails.append({"bone": idx, "tip": tip * 1.05, "base": tip * (THIN_TRAIL_BASE if thin else 0.18), "color": col.lerp(Color(0.85, 0.95, 1.0), 0.35) * 1.6, "samples": []})
 
 func _process(delta: float) -> void:
 	_time += delta

@@ -38,6 +38,7 @@ func _ready() -> void:
 	if apply_settings:           # antes de desenhar: preset de gráficos salvo e barramentos/volumes (§9)
 		GraphicsSettings.load_and_apply(get_viewport())
 		AudioSettings.load_and_apply()
+		AccessSettings.load_settings()
 	menu_set = MenuSet.new()
 	menu_set.name = "MenuSet"
 	add_child(menu_set)

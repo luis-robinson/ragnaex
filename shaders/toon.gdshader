@@ -4,7 +4,9 @@ render_mode cull_back, depth_draw_opaque;
 // Toon "Tree of Savior": 3 tons suaves, sombra azulada, rim e brilho especular (toon_light.gdshaderinc).
 uniform vec4 albedo : source_color = vec4(0.8, 0.8, 0.8, 1.0);
 uniform sampler2D albedo_tex : source_color, filter_linear_mipmap, hint_default_white;
-uniform float flash : hint_range(0.0, 1.0) = 0.0;   // hit flash (branco)
+uniform float flash : hint_range(0.0, 1.0) = 0.0;   // hit flash (intensidade, já × Acessibilidade)
+uniform vec3 flash_color : source_color = vec3(1.0);   // cor do hit flash (tipo de dano; EntityView/HitTint). Por boneco: não entra na chave de fusão
+uniform float flash_full : hint_range(0.0, 1.0) = 1.0;   // 1 = corpo todo (crítico: branco; padrão = como antes), 0 = só a borda (fresnel) na cor do dano
 uniform vec4 status : source_color = vec4(0.0, 0.0, 0.0, 0.0);   // estado (gelo azulado, queimando laranja): cor + força em alpha
 uniform float emission_amount : hint_range(0.0, 2.0) = 0.0;
 uniform vec4 plus_glow : source_color = vec4(0.0, 0.0, 0.0, 0.0);   // aprimoramento +5/+9: cor + força em alpha (borda pulsando)
@@ -87,8 +89,12 @@ void fragment() {
 		}
 		bglow = buff_rim.rgb * a * ((0.05 + 1.4 * rim) * pulse + pat * 0.25);
 	}
-	ALBEDO = mix(base, vec3(1.0), flash);
-	EMISSION = base * emission_amount + vec3(flash) * 0.6 + status.rgb * status.a * 0.35 + bglow;
+	// hit flash: borda (fresnel) na cor do dano + um véu leve no corpo; corpo todo só no crítico (flash_full = 1)
+	float fl_rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
+	float fl_body = flash * mix(clamp(0.2 + 0.8 * fl_rim, 0.0, 1.0), 1.0, flash_full);
+	float fl_emit = flash * mix(0.25 + 1.1 * fl_rim, 0.6, flash_full);
+	ALBEDO = mix(base, flash_color, fl_body);
+	EMISSION = base * emission_amount + flash_color * fl_emit + status.rgb * status.a * 0.35 + bglow;
 	if (plus_glow.a > 0.0) {
 		float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
 		float pulse = 0.75 + 0.25 * sin(TIME * 2.6);

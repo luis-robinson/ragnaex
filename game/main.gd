@@ -41,6 +41,7 @@ func _ready() -> void:
 	Events.quest_completed.connect(_on_quest_done_visual)
 	Engine.max_physics_steps_per_frame = 2     # quadro lento não vira bola de neve de ticks (a sim desacelera um pouco na batalha grande)
 	SimSync.install(get_tree(), not DevArgs.has("--sim_sync"))     # sim numa thread enquanto o quadro desenha
+	AccessSettings.load_settings()                      # tremor, clarões, avisos com padrão, efeitos dos aliados
 	GraphicsSettings.load_and_apply(get_viewport())     # Nítido (125%, 100% em tela grande) ou FSR 2 (menu Esc → Gráficos)
 	world_root = Node3D.new()
 	world_root.name = "World"
@@ -60,7 +61,11 @@ func _ready() -> void:
 	sfx.name = "Sfx"
 	sfx.main = self
 	add_child(sfx)
-	var music := Music.new()                 # música por lugar, chefe e investida (assets/audio/music, volume no Esc)
+	var hit_react := HitReact.new()          # golpe forte: tronco do personagem inclina; chefe com postura (C3 2026-11-23)
+	hit_react.name = "HitReact"
+	hit_react.main = self
+	add_child(hit_react)
+	var music := Music.new()                # música por lugar, chefe e investida (assets/audio/music, volume no Esc)
 	music.name = "Music"
 	music.main = self
 	add_child(music)

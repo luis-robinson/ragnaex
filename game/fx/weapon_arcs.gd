@@ -195,7 +195,6 @@ const DUAL_ARC := {
 	"atk_thrust|axe": [[1.0, "W"], []], "atk_thrust|mace": [[1.0, "W"], []], "atk_thrust|sword": [[1.0, "W"], []],
 	"atk_thrust|dagger": [[1.0, "W"], [1.0, "W"]], "atk_thrust|claw": [[1.0, "W"], [1.0, "W"]],
 }
-const STOP_CAP_FRAMES := 8.0         # teto da parada (quadros a 60 Hz) depois do stop_mult: o clipe não fica para trás da sim
 const MARK_INNER := 0.78             # risco no chão: faixa fina
 const MARK_LIFE_MULT := 1.4          # e dura um pouco mais que o arco
 const MARK_LIFE_MAX := 0.2           # marca no chão: vida, opacidade e brilho com teto (o chão saturado é dos avisos de golpe)
@@ -428,7 +427,7 @@ static func stop_frames(frames: int, family: String) -> float:
 	return stop_frames_mult(frames, m)
 
 static func stop_frames_mult(frames: int, mult: float) -> float:
-	return minf(float(frames) * mult, STOP_CAP_FRAMES)
+	return minf(float(frames) * mult, float(Balance.HIT_STOP_CAP_FRAMES))     # teto comum (C2); era 8 só nos arcos
 
 ## Arco em pé: plano vertical ao longo de `fwd`, girado no eixo do golpe para a câmera (até s_roll; `to_cam` zero =
 ## sem giro), elipse com `radius` à frente e s_up de altura; a cabeça termina rente ao chão (nunca abaixo).

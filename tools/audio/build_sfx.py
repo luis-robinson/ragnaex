@@ -819,6 +819,125 @@ def s_ui_close(rng):
 	return tone(0.09, 820, 520, decay=30, attack=0.002)
 
 
+# ---------------------------------------------------------------- impactos por alvo (plano de combate 2026-11-23, C3d)
+# Curtos (<= 0,3 s) e secos: tocam em cada alvo atingido, por cima do som da skill/golpe.
+def s_hit_blunt(rng):
+	"""Maça/cetro/cajado/punho: baque grave + estalo de madeira/metal abafado."""
+	out = zeros(0.26)
+	f = rng.uniform(85, 110)
+	add(out, tone(0.22, f, f * 0.55, decay=18), 0, 1.0)
+	add(out, lowpass(noise(0.08, rng, decay=40), 1800), 0, 0.7)
+	add(out, bandpass(noise(0.03, rng, decay=120), 900, 3000), 0.004, 0.35)
+	return out
+
+
+def s_hit_chop(rng):
+	"""Machado: corte pesado (ruído médio rasgado) + baque."""
+	out = zeros(0.28)
+	add(out, bandpass(noise(0.12, rng, decay=22), 500, 4200), 0, 0.9)
+	add(out, tone(0.2, rng.uniform(120, 150), 60, decay=16), 0.006, 0.8)
+	add(out, highpass(noise(0.02, rng, decay=160), 3500), 0, 0.4)
+	return out
+
+
+def s_hit_pierce(rng):
+	"""Flecha/bala/lança: estalo agudo curto + batida seca."""
+	out = zeros(0.2)
+	add(out, highpass(noise(0.03, rng, decay=140), 2500), 0, 0.8)
+	add(out, tone(0.12, rng.uniform(190, 240), 110, decay=30), 0.003, 0.7)
+	add(out, bandpass(noise(0.06, rng, decay=55), 700, 2400), 0.004, 0.4)
+	return out
+
+
+def s_impact_fire(rng):
+	out = zeros(0.3)
+	add(out, lowpass(noise(0.28, rng, decay=12, attack=0.004), 2600, 700), 0, 1.0)
+	add(out, tone(0.18, 140, 70, decay=20), 0, 0.5)
+	for _ in range(4):
+		add(out, highpass(noise(0.01, rng, decay=300), 3000), rng.uniform(0.02, 0.2), rng.uniform(0.2, 0.4))
+	return out
+
+
+def s_impact_ice(rng):
+	out = zeros(0.3)
+	add(out, highpass(noise(0.05, rng, decay=70), 3000), 0, 0.7)
+	for _ in range(4):
+		add(out, tone(0.22, rng.uniform(2600, 4800), decay=rng.uniform(16, 24)), rng.uniform(0, 0.05), rng.uniform(0.2, 0.35))
+	add(out, tone(0.1, 180, 120, decay=30), 0, 0.4)
+	return out
+
+
+def s_impact_lightning(rng):
+	out = zeros(0.25)
+	nz = noise(0.2, rng, decay=16)
+	gate = [1.0 if (i // n_of(0.006)) % 2 == 0 or rng.random() < 0.3 else 0.1 for i in range(len(nz))]
+	add(out, highpass([a * b for a, b in zip(nz, gate)], 1200), 0, 1.0)
+	add(out, tone(0.12, 110, 60, decay=26), 0, 0.5)
+	return out
+
+
+def s_impact_holy(rng):
+	out = zeros(0.32)
+	r = rng.choice([7, 9, 12])
+	add(out, bell(0.3, NOTE(r), decay=11), 0, 0.5)
+	add(out, bell(0.3, NOTE(r + 7), decay=13), 0.01, 0.3)
+	add(out, tone(0.1, 160, 100, decay=30), 0, 0.5)
+	return out
+
+
+def s_impact_shadow(rng):
+	out = zeros(0.3)
+	a = rng.uniform(150, 190)
+	add(out, lowpass(tone(0.28, a, a * 0.5, kind="saw", decay=10, attack=0.006), 800), 0, 0.8)
+	add(out, lowpass(noise(0.2, rng, decay=14), 900), 0, 0.5)
+	return out
+
+
+def s_impact_nature(rng):
+	out = zeros(0.28)
+	add(out, bandpass(noise(0.16, rng, decay=20), 400, 2600), 0, 0.8)
+	for _ in range(3):
+		add(out, bandpass(noise(0.03, rng, decay=90), 1200, 4000), rng.uniform(0.0, 0.08), 0.4)
+	add(out, tone(0.14, 130, 80, decay=24), 0, 0.5)
+	return out
+
+
+def s_impact_arcane(rng):
+	out = zeros(0.28)
+	f = rng.uniform(500, 700)
+	add(out, tone(0.25, f, f * 0.6, kind="tri", decay=14), 0, 0.6)
+	add(out, tone(0.25, f * 1.5, f * 0.9, decay=16), 0.005, 0.3)
+	add(out, bandpass(noise(0.08, rng, decay=40), 900, 5000), 0, 0.4)
+	return out
+
+
+def s_whoosh(rng):
+	"""Vento da arma ANTES do impacto (pacote V2): cresce e corta seco no fim (o impacto/hit entra em cima)."""
+	dur = rng.uniform(0.13, 0.16)
+	nz = noise(dur, rng, decay=0.0, attack=0.002)
+	body = bandpass(lowpass(nz, 500, 3800), 220, 7000)          # o filtro abre: a lâmina chega perto
+	n = len(body)
+	env = [(i / n) ** 1.8 * (1.0 if i < n * 0.9 else (n - i) / (n * 0.1)) for i in range(n)]
+	out = zeros(dur)
+	add(out, [x * a for x, a in zip(body, env)], 0, 1.0)
+	add(out, [x * a for x, a in zip(lowpass(noise(dur, rng, decay=0.0), 260), env)], 0, 0.5)     # peso grave
+	return out
+
+
+def s_whoosh_magic(rng):
+	"""Magia rápida: sopro aéreo com um brilho que sobe (energia chegando na mão) e corta no impacto."""
+	dur = rng.uniform(0.12, 0.15)
+	n = n_of(dur)
+	nz = bandpass(noise(dur, rng, decay=0.0), 1200, 7000)
+	env = [(i / n) ** 1.6 * (1.0 if i < n * 0.88 else (n - i) / (n * 0.12)) for i in range(n)]
+	out = zeros(dur)
+	add(out, [x * a for x, a in zip(nz, env)], 0, 0.7)
+	f = rng.uniform(700, 900)
+	sh = tone(dur, f, f * 1.8, kind="sine", decay=0.0, attack=0.02)
+	add(out, [x * a for x, a in zip(sh, env)], 0, 0.25)
+	return out
+
+
 SYNTH = {
 	"ice": (s_ice, 3), "lightning": (s_lightning, 3), "holy": (s_holy, 3), "shadow": (s_shadow, 2),
 	"poison": (s_poison, 3), "nature": (s_nature, 2), "wind": (s_wind, 2), "earth": (s_earth, 2),
@@ -841,6 +960,13 @@ SYNTH = {
 	# Mata dos Zumbidos (4-8): vespas, ursos e a colmeia
 	"wasp_buzz": (s_wasp_buzz, 3), "wasp_die": (s_wasp_die, 2), "bear_growl": (s_bear_growl, 3),
 	"bear_roar": (s_bear_roar, 2), "hive_crack": (s_hive_crack, 2),
+	# impactos por alvo (plano de combate 2026-11-23, C3d): golpe físico por família de arma, magia por tema
+	"hit_blunt": (s_hit_blunt, 3), "hit_chop": (s_hit_chop, 3), "hit_pierce": (s_hit_pierce, 3),
+	"impact_fire": (s_impact_fire, 3), "impact_ice": (s_impact_ice, 3), "impact_lightning": (s_impact_lightning, 3),
+	"impact_holy": (s_impact_holy, 3), "impact_shadow": (s_impact_shadow, 3), "impact_nature": (s_impact_nature, 3),
+	"impact_arcane": (s_impact_arcane, 3),
+	# vento antes do impacto das skills rápidas (pacote V2, 2026-11-23)
+	"whoosh": (s_whoosh, 3), "whoosh_magic": (s_whoosh_magic, 3),
 }
 
 

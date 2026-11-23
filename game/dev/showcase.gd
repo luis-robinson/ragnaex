@@ -270,6 +270,7 @@ func _finish(p: SimEntity) -> void:
 			sheet.fill_rect(Rect2i(ix + CELL - 1 - b, iy, 1, CELL), Color(1, 0.85, 0.2))
 		var n := _i
 		sheet.save_png("%s/%s_%03d_%s.png" % [out_dir, cid, n, s.id])
+		_white_report(s, impact)
 		var picks: Array = []
 		for k in [0, impact, mini(impact + 2, _frames.size() - 1), _frames.size() - 1]:
 			var t: Image = _frames[k].duplicate()
@@ -298,6 +299,28 @@ func _finish(p: SimEntity) -> void:
 	p.recompute_stats()
 	_phase = "wait"
 	_t = 0.0
+
+## V1: % do quadro com luminância > 0,9 (amostra a cada 3 px), no impacto e o pior da folha, contra o teto da camada
+## (SkillFx.TIERS[...]["white"]). Linha `SHOWCASE_WHITE`; `FLAG` quando passa.
+func _white_report(s: SkillDef, impact: int) -> void:
+	var worst := 0.0
+	var at_impact := 0.0
+	for k in range(_frames.size()):
+		var f: Image = _frames[k]
+		var hot := 0
+		var tot := 0
+		for y in range(0, f.get_height(), 3):
+			for x in range(0, f.get_width(), 3):
+				tot += 1
+				if f.get_pixel(x, y).get_luminance() > 0.9:
+					hot += 1
+		var pct := 100.0 * hot / maxf(1.0, tot)
+		worst = maxf(worst, pct)
+		if k == impact:
+			at_impact = pct
+	var tier := SkillFx.tier_of(s)
+	var budget := SkillFx.cap("white", tier)
+	print("SHOWCASE_WHITE %s tier=%s impacto=%.1f%% pior=%.1f%% teto=%.0f%%%s" % [s.id, tier, at_impact, worst, budget, "  FLAG" if worst > budget else ""])
 
 func _clear_intruders(p: SimEntity) -> void:
 	for e in Sim.map_entities(p.map_id).duplicate():

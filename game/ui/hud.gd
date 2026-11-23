@@ -69,6 +69,7 @@ var fps_label: Label                 # contador de FPS (canto direito, embaixo d
 var gather_label: Label              # "[F] Colher ..." perto de um ponto; "Colhendo..." durante
 var lock_tag: PanelContainer        # Tab: "Travado: <chefe>" no topo enquanto a trava no chefe vale (BossLock)
 var lock_label: Label
+var boss_bar: BossBar                 # barra do chefe no topo central (vida, fases, conjuração; C4 2026-11-23)
 var raid_banner: PanelContainer      # faixa no topo durante uma investida no mapa do jogador (Sim.raid_status)
 var raid_label: Label
 ## Fala de chefe (abertura/fase/queda): faixa própria, opaca, abaixo da investida; não divide a linha das notificações
@@ -79,6 +80,9 @@ var _boss_left := 0.0
 const BOSS_LINE_TIME := 4.0
 const BOSS_LANE_TOP := 84.0
 const NOTIF_TOP := 132.0                # notificações começam abaixo da faixa do chefe
+const RAID_TOP := 42.0                  # faixa da investida (desce para baixo da barra do chefe: _stack_top_lane)
+const RAID_H := 36.0
+const LANE_GAP := 4.0
 var _raid_t := 0.0
 var _fps_t := 0.0
 
@@ -133,7 +137,8 @@ func set_lock(target_id: int) -> void:
 	if lock_tag == null:
 		return
 	var e: SimEntity = Sim.get_entity(target_id) if target_id >= 0 else null
-	lock_tag.visible = e != null
+	lock_tag.visible = e != null and not boss_bar.visible
+	boss_bar.lock_id = e.id if e else -1
 	if e and e.monster_def:
 		lock_label.text = "◆ Travado: %s   (Tab solta)" % e.monster_def.name
 
@@ -428,7 +433,7 @@ func _build_notifications() -> void:
 	root.add_child(gather_label)
 	raid_banner = UiKit.panel(Color(0.22, 0.07, 0.05, 0.88), Color(0.95, 0.5, 0.25))
 	raid_banner.anchor_left = 0.5; raid_banner.anchor_right = 0.5
-	raid_banner.offset_left = -230; raid_banner.offset_right = 230; raid_banner.offset_top = 42; raid_banner.offset_bottom = 78
+	raid_banner.offset_left = -230; raid_banner.offset_right = 230; raid_banner.offset_top = RAID_TOP; raid_banner.offset_bottom = RAID_TOP + RAID_H
 	raid_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	raid_banner.visible = false
 	raid_label = UiKit.label("", 17, Color(1.0, 0.82, 0.55))
@@ -460,6 +465,8 @@ func _build_notifications() -> void:
 	lock_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lock_tag.add_child(lock_label)
 	root.add_child(lock_tag)
+	boss_bar = BossBar.new()
+	root.add_child(boss_bar)
 
 ## Coluna da direita: minimapa (com o nome do mapa embaixo) e o rastreador de quests.
 func _build_top_right() -> void:
@@ -526,6 +533,9 @@ func _hud_process(_delta: float) -> void:
 	if _raid_t <= 0.0:
 		_raid_t = 0.2
 		_update_raid_banner(p)
+	boss_bar.update(Sim, p, _delta)
+	lock_tag.visible = boss_bar.lock_id >= 0 and not boss_bar.visible     # com a barra, o "Travado" vai nela
+	_stack_top_lane()
 	if _boss_left > 0.0:
 		_boss_left -= _delta
 		boss_banner.modulate.a = clampf(_boss_left / 0.6, 0.0, 1.0)
@@ -1030,12 +1040,29 @@ func _boss_line(text: String) -> bool:
 	_boss_left = BOSS_LINE_TIME
 	return true
 
+## Topo central empilhado: barra do chefe → faixa da investida → fala do chefe → notificações. Investida no mapa
+## de um chefe não cobre mais a barra (cada faixa desce para baixo da que está visível acima dela).
+func _stack_top_lane() -> void:
+	var y := 0.0
+	if boss_bar.visible:
+		y = boss_bar.offset_top + boss_bar.size.y + LANE_GAP
+	var rt := maxf(RAID_TOP, y)
+	if raid_banner.offset_top != rt:
+		raid_banner.offset_top = rt
+		raid_banner.offset_bottom = rt + RAID_H
+	if raid_banner.visible:
+		y = rt + maxf(RAID_H, raid_banner.size.y) + LANE_GAP     # o texto pode crescer a faixa
+	boss_banner.offset_top = maxf(BOSS_LANE_TOP, y)
+	if boss_banner.visible:
+		y = boss_banner.offset_top + boss_banner.size.y + LANE_GAP
+	notif_box.offset_top = maxf(NOTIF_TOP, y)
+
 ## Retângulos da HUD (tela) onde nome do mundo não aparece: quadro do personagem, barra, chat, minimapa, quests, faixas.
 func label_blockers() -> Array[Rect2]:
 	var out: Array[Rect2] = []
 	if root == null or not root.visible:
 		return out
-	var cs: Array[Control] = [player_frame, action_bar, minimap, boss_banner, raid_banner]
+	var cs: Array[Control] = [player_frame, action_bar, minimap, boss_banner, raid_banner, boss_bar]
 	if quest_tracker:
 		cs.append(quest_tracker.get_parent() as Control)
 	if chat_log:

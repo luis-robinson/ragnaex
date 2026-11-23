@@ -20,7 +20,7 @@ const PALETTE := {
 	"wind": [Color(0.75, 1.0, 0.92), Color(1.0, 1.0, 1.0)],
 	"heal": [Color(0.45, 1.0, 0.55), Color(1.0, 1.0, 0.7)],
 	"summon": [Color(0.45, 0.95, 0.75), Color(0.2, 0.35, 0.3)],
-	"physical": [Color(0.92, 0.94, 1.0), Color(1.0, 0.95, 0.8)],
+	"physical": [Color(0.74, 0.83, 0.95), Color(0.86, 0.80, 0.72)],     # aço frio / estanho (branco = só crítico, D5)
 }
 ## partículas por tema: gravidade (y), velocidade, vida, tamanho, malha, se brilha (aditivo) e espalhamento
 const PARTS := {
@@ -40,6 +40,64 @@ const PARTS := {
 	"summon": {"g": 1.2, "v": [0.5, 1.6], "life": 1.0, "size": 0.14, "mesh": "quad", "add": true, "spread": 50},
 	"physical": {"g": -4.0, "v": [3.0, 6.0], "life": 0.25, "size": 0.07, "mesh": "quad", "add": true, "spread": 70},
 }
+
+## Tetos por camada (V1, production/qa/spell-attack-anim-research-2026-11-23.md): só desenho, nunca a hitbox (aro = raio real).
+## size = [piso, teto] do enfeite em m; light = energia máx. do clarão (× AccessSettings.flash); fill = alfa máx. de superfície
+## grande (coluna, leito, disco); wide_fill = alfa máx. de superfície com mais de WIDE_M de raio; white = % máx. da tela com
+## luminância > 0,9 no impacto (medido na bancada, SHOWCASE_WHITE); parts = partículas máx. por rajada.
+const TIERS := {
+	"basic": {"size": [0.0, 3.0], "light": 1.5, "fill": 0.25, "wide_fill": 0.15, "white": 2.0, "parts": 14},
+	"skill": {"size": [0.0, 6.0], "light": 2.5, "fill": 0.35, "wide_fill": 0.2, "white": 5.0, "parts": 30},
+	"heavy": {"size": [0.0, 8.0], "light": 3.0, "fill": 0.4, "wide_fill": 0.2, "white": 8.0, "parts": 40},
+	"ultimate": {"size": [2.5, 10.0], "light": 3.5, "fill": 0.45, "wide_fill": 0.12, "white": 12.0, "parts": 60},
+}
+const TIER_ORDER := ["basic", "skill", "heavy", "ultimate"]
+const WIDE_M := 2.0
+## Cor do aro/borda/coluna por tema: tingida (valor ≤ 0,92, saturação ≥ 0,15). O branco não é a cor do "poder".
+## Físico fica no espaço do metal (attack-arc-colours.md §1: saturação ≤ 0,25, luminância ≥ 0,6).
+const RING := {
+	"fire": Color(0.92, 0.5, 0.18),
+	"ice": Color(0.5, 0.78, 0.92),
+	"lightning": Color(0.55, 0.68, 0.92),
+	"holy": Color(0.92, 0.72, 0.28),
+	"lunar": Color(0.66, 0.56, 0.9),
+	"shadow": Color(0.55, 0.3, 0.8),
+	"poison": Color(0.48, 0.85, 0.3),
+	"bone": Color(0.78, 0.74, 0.6),
+	"nature": Color(0.5, 0.82, 0.32),
+	"earth": Color(0.72, 0.56, 0.38),
+	"blood": Color(0.85, 0.25, 0.25),
+	"wind": Color(0.5, 0.88, 0.78),
+	"heal": Color(0.5, 0.9, 0.55),
+	"summon": Color(0.45, 0.85, 0.7),
+	"physical": Color(0.74, 0.83, 0.92),
+}
+## Camada do efeito sendo desenhado agora (FxManager troca em volta de cada skill_effect; fora dele = "skill").
+static var tier := "skill"
+
+## Camada da skill: Suprema > pesada (preparo longo, parada grande, área grande, explosão/meteoro) > skill; básico à parte.
+static func tier_of(s: SkillDef) -> String:
+	if s == null:
+		return "skill"
+	if s.ultimate:
+		return "ultimate"
+	if s.id.begins_with("basic_"):
+		return "basic"
+	if s.startup >= 0.25 or s.hit_stop_frames >= 5 or s.radius >= 3.5 or s.effects.has("explode") or "meteor" in s.id:
+		return "heavy"
+	return "skill"
+
+static func cap(key: String, t: String = "") -> float:
+	var row: Dictionary = TIERS.get(t if t != "" else tier, TIERS["skill"])
+	return float(row[key])
+
+## Alfa máximo de uma superfície de raio `r` m na camada de agora.
+static func fill_cap(r: float) -> float:
+	return cap("wide_fill") if r > WIDE_M else cap("fill")
+
+## Cor de aro do tema (nunca branco).
+static func ring(theme: String) -> Color:
+	return RING.get(theme, RING["physical"])
 
 static var _soft: Texture2D = null
 
@@ -89,7 +147,7 @@ static func burst(root: Node, pos: Vector3, theme: String, amount: int = 24, up:
 	var p := CPUParticles3D.new()
 	p.one_shot = true
 	p.explosiveness = 0.9
-	p.amount = amount
+	p.amount = maxi(1, mini(amount, int(cap("parts"))))     # teto da camada (V1)
 	p.lifetime = pp["life"]
 	p.direction = up
 	p.spread = pp["spread"]
@@ -171,7 +229,7 @@ static func sector(root: Node, origin: Vector3, dir: Vector3, radius: float, ang
 	var segs := maxi(8, int(angle_deg / 8.0))
 	var a0 := -deg_to_rad(angle_deg) * 0.5
 	var c0 := col(theme, 0)
-	var c1 := col(theme, 1)
+	var c1 := ring(theme)                  # fio tingido do tema (o branco ficou para o crítico)
 	mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
 	for i in range(segs):
 		var ta := a0 + deg_to_rad(angle_deg) * float(i) / segs
@@ -237,8 +295,8 @@ static func circle(root: Node, pos: Vector3, radius: float, theme: String, durat
 	tm.rings = 40
 	tm.ring_segments = 4
 	mi.mesh = tm
-	var m := _mat(col(theme, 1))
-	m.albedo_color = col(theme, 1)
+	var m := _mat(ring(theme))
+	m.albedo_color = Color(ring(theme), 0.9)
 	mi.material_override = m
 	mi.position = pos + Vector3(0, 0.1, 0)
 	mi.scale = Vector3(radius * 0.3, 0.3, radius * 0.3)
@@ -260,8 +318,8 @@ static func column(root: Node, pos: Vector3, radius: float, theme: String, durat
 	cm.cap_top = false
 	cm.cap_bottom = false
 	mi.mesh = cm
-	var m := _mat(col(theme, 1))
-	m.albedo_color = Color(col(theme, 1), 0.38)
+	var m := _mat(ring(theme))
+	m.albedo_color = Color(ring(theme), minf(0.38, fill_cap(radius)))     # coluna larga não lava a tela (V1)
 	mi.material_override = m
 	mi.position = pos + Vector3(0, 1.8, 0)
 	mi.scale = Vector3(0.2, 1.0, 0.2)
@@ -329,9 +387,11 @@ static func arc_bolt(root: Node, a: Vector3, b: Vector3, theme: String = "lightn
 
 ## Luz rápida (explosão, raio, impacto mágico).
 static func flash(root: Node, pos: Vector3, theme: String, energy: float = 3.0, rng: float = 5.0) -> void:
+	if AccessSettings.flash <= 0.0:
+		return                                     # Acessibilidade → Clarões 0%
 	var l := OmniLight3D.new()
 	l.light_color = col(theme, 1)
-	l.light_energy = energy
+	l.light_energy = minf(energy, cap("light")) * AccessSettings.flash     # teto da camada (V1)
 	l.omni_range = rng
 	l.position = pos
 	root.add_child(l)
@@ -351,8 +411,8 @@ static func wave(root: Node, origin: Vector3, dir: Vector3, length: float, width
 	var bm := BoxMesh.new()
 	bm.size = Vector3(width, 0.5, 1.2)
 	mi.mesh = bm
-	var m := _mat(col(at, 1))
-	m.albedo_color = Color(col(at, 1), 0.75)
+	var m := _mat(ring(at))
+	m.albedo_color = Color(ring(at), 0.75)
 	mi.material_override = m
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mi.position = origin + dir * 0.6 + Vector3(0, 0.45, 0)
@@ -407,8 +467,8 @@ static func slash_x(root: Node, pos: Vector3, theme: String, size: float = 1.4) 
 		var qm := QuadMesh.new()
 		qm.size = Vector2(size, 0.12)
 		mi.mesh = qm
-		var m := _mat(col(theme, 1))
-		m.albedo_color = col(theme, 1)
+		var m := _mat(ring(theme))
+		m.albedo_color = ring(theme)
 		m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 		mi.material_override = m
 		mi.position = pos + Vector3(0, 0.9, 0)
@@ -477,12 +537,15 @@ static func meteor(root: Node, pos: Vector3, radius: float, theme: String, fall:
 	tail.material_override = tmm
 	ball.add_child(tail)
 	var tw := root.create_tween()
+	var t0 := tier                         # a explosão sai depois: guarda a camada de quem lançou
 	tw.tween_property(ball, "position", pos + Vector3(0, 0.4, 0), fall).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
 	tw.tween_callback(func():
 		ball.queue_free()
+		tier = t0
 		explosion(root, pos, radius, theme)
 		circle(root, pos, radius, theme, 0.7)
-		flash(root, pos + Vector3(0, 1.0, 0), theme, 3.0, radius * 2.5))
+		flash(root, pos + Vector3(0, 1.0, 0), theme, 3.0, radius * 2.5)
+		tier = "skill")
 
 ## Aura no pé de quem recebe um buff (segue a view; dura o buff).
 static func aura(root: Node, follow: Node3D, theme: String, duration: float, radius: float = 0.75) -> void:
@@ -752,8 +815,8 @@ static func ricochet(root: Node, pos: Vector3, theme: String) -> void:
 	tm.inner_radius = 0.8
 	tm.outer_radius = 1.0
 	mi.mesh = tm
-	var m := _mat(col(theme, 1))
-	m.albedo_color = col(theme, 1)
+	var m := _mat(ring(theme))
+	m.albedo_color = ring(theme)
 	mi.material_override = m
 	mi.position = at
 	mi.scale = Vector3.ONE * 0.2
@@ -963,3 +1026,191 @@ static func rope(root: Node, a: Vector3, b: Vector3) -> void:
 	tw.chain().tween_callback(mi.queue_free)
 	root.get_tree().create_timer(0.4).timeout.connect(hook.queue_free)
 	burst(root, b, "physical", 10, Vector3.UP, 0.15, 0.9)
+
+# ---------------------------------------------------------------------------
+# Supremas (V1): formas próprias onde a forma genérica do tema virava "um aro branco fino".
+
+## Crescente plano (faixa em arco) de raio `radius` virado para `dir`, na altura `y`; abre e some em `life` s.
+## `add` = soma (brilha) ou mistura (lê em chão claro sem estourar).
+static func crescent(root: Node, center: Vector3, dir: Vector3, radius: float, angle_deg: float, c: Color, alpha: float, life: float, y: float = 0.05, add: bool = false) -> void:
+	var mesh := ImmediateMesh.new()
+	var segs := maxi(8, int(angle_deg / 10.0))
+	var a0 := -deg_to_rad(angle_deg) * 0.5
+	mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in range(segs):
+		var ta := a0 + deg_to_rad(angle_deg) * float(i) / segs
+		var tb := a0 + deg_to_rad(angle_deg) * float(i + 1) / segs
+		var fa := sin(PI * float(i) / segs)              # pontas finas, meio cheio
+		var fb := sin(PI * float(i + 1) / segs)
+		var ia := Vector3(sin(ta), 0, cos(ta)) * radius * (1.0 - 0.28 * fa)
+		var ib := Vector3(sin(tb), 0, cos(tb)) * radius * (1.0 - 0.28 * fb)
+		var oa := Vector3(sin(ta), 0, cos(ta)) * radius
+		var ob := Vector3(sin(tb), 0, cos(tb)) * radius
+		for v in [[ia, fa], [oa, fa], [ob, fb], [ia, fa], [ob, fb], [ib, fb]]:
+			mesh.surface_set_color(Color(c, alpha * (0.35 + 0.65 * float(v[1]))))
+			mesh.surface_add_vertex(v[0])
+	mesh.surface_end()
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	var m := _mat(Color.WHITE, add)
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.position = center + Vector3(0, y, 0)
+	mi.rotation.y = atan2(dir.x, dir.z)
+	mi.scale = Vector3.ONE * 0.6
+	root.add_child(mi)
+	var tw := root.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(mi, "scale", Vector3.ONE, life * 0.35).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_property(m, "albedo_color:a", 0.0, life * 0.7).set_delay(life * 0.3)
+	tw.chain().tween_callback(mi.queue_free)
+
+## Sete Ventos: espiral de 7 crescentes curtos no chão em volta de `pos` (um por vento), em mistura (não lava o chão).
+static func wind_spiral(root: Node, pos: Vector3, radius: float, theme: String = "wind", life: float = 0.7) -> void:
+	for k in range(7):
+		var a := TAU * k / 7.0
+		var r := radius * (0.45 + 0.55 * float(k) / 6.0)
+		var tangent := Vector3(cos(a), 0, -sin(a))
+		crescent(root, pos + Vector3(sin(a), 0, cos(a)) * r, tangent, 0.9 + 0.12 * k, 130.0, ring(theme), 0.42, life, 0.07)
+
+static var _disc_tex: Texture2D = null
+
+## Disco de borda dura (lua, implosão).
+static func disc_tex() -> Texture2D:
+	if _disc_tex == null:
+		var g := Gradient.new()
+		g.set_color(0, Color(1, 1, 1, 1))
+		g.set_color(1, Color(1, 1, 1, 0))
+		g.add_point(0.9, Color(1, 1, 1, 1))
+		var t := GradientTexture2D.new()
+		t.gradient = g
+		t.fill = GradientTexture2D.FILL_RADIAL
+		t.fill_from = Vector2(0.5, 0.5)
+		t.fill_to = Vector2(1.0, 0.5)
+		t.width = 64
+		t.height = 64
+		_disc_tex = t
+	return _disc_tex
+
+static func _moon_quad(size: float, c: Color, prio: int) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var qm := QuadMesh.new()
+	qm.size = Vector2(size, size)
+	mi.mesh = qm
+	var m := _mat(c, false)
+	m.albedo_color = c
+	m.albedo_texture = disc_tex()
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	m.render_priority = prio
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return mi
+
+const BLOOD_MOON := Color(0.72, 0.16, 0.28)          # lua carmim-violeta (no ar: o vermelho no CHÃO é aviso de chefe)
+const BLOOD_MOON_RIM := Color(1.0, 0.62, 0.66)
+const BLOOD_MOON_BITE := Color(0.16, 0.05, 0.1)
+const BLOOD_MOON_MARK := Color(0.55, 0.25, 0.4)      # crescente no chão: dessaturado, alfa ≤ 0,4
+
+## Lua Rubra: lua carmim flutuando sobre `follow` por `life` s (aro rosado atrás, disco escuro deslocado = crescente).
+static func blood_moon(follow: Node3D, life: float) -> Node3D:
+	var holder := Node3D.new()
+	holder.name = "BloodMoon"
+	follow.add_child(holder)
+	holder.top_level = true                # ao lado da cabeça, na direita da câmera: não cobre a placa de nome
+	var cam := follow.get_viewport().get_camera_3d() if follow.is_inside_tree() else null
+	var side := Vector3(0.7, 0, -0.7)
+	if cam:
+		side = cam.global_basis.x
+		side.y = 0.0
+		side = side.normalized() if side.length() > 0.01 else Vector3(0.7, 0, -0.7)
+	var off := side * BLOOD_MOON_SIDE + Vector3.UP * BLOOD_MOON_UP
+	holder.global_position = follow.global_position + off
+	holder.create_tween().tween_method(_follow_moon.bind(holder, follow, off), 0.0, 1.0, maxf(0.1, life))
+	holder.add_child(_moon_quad(1.45, Color(BLOOD_MOON_RIM, 0.35), 0))
+	holder.add_child(_moon_quad(1.2, Color(BLOOD_MOON, 0.9), 1))
+	var bite := _moon_quad(1.0, Color(BLOOD_MOON_BITE, 0.85), 2)
+	bite.position = Vector3(0.32, 0.5, 0.0)        # deslocado para cima e de lado: sobra o crescente (de cima, +y sobe na tela)
+	holder.add_child(bite)
+	holder.scale = Vector3.ONE * 0.1
+	var tw := holder.create_tween()
+	tw.tween_property(holder, "scale", Vector3.ONE, 0.3).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	tw.tween_interval(maxf(0.1, life - 0.6))
+	tw.tween_property(holder, "scale", Vector3.ONE * 0.05, 0.3).set_ease(Tween.EASE_IN)
+	tw.tween_callback(holder.queue_free)
+	return holder
+
+const BLOOD_MOON_SIDE := 1.3            # m para a direita da câmera
+const BLOOD_MOON_UP := 2.3              # m acima dos pés
+
+static func _follow_moon(_t: float, holder: Node3D, follow: Node3D, off: Vector3) -> void:
+	if is_instance_valid(holder) and is_instance_valid(follow):
+		holder.global_position = follow.global_position + off
+
+## Sol do Julgamento: raios finos do tema no chão, de 0,3 do raio até o raio real (mistura: não lava o chão claro).
+static func sun_rays(root: Node, pos: Vector3, radius: float, theme: String, count: int = 12, life: float = 0.9) -> void:
+	var mesh := ImmediateMesh.new()
+	var c := ring(theme)
+	mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+	for k in range(count):
+		var a := TAU * k / float(count)
+		var d := Vector3(sin(a), 0, cos(a))
+		var side := Vector3(cos(a), 0, -sin(a)) * 0.14
+		var base := d * radius * 0.3
+		for v in [[base - side, 0.7], [base + side, 0.7], [d * radius, 0.0]]:
+			mesh.surface_set_color(Color(c, float(v[1])))
+			mesh.surface_add_vertex(v[0])
+	mesh.surface_end()
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	var m := _mat(Color.WHITE, false)
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.position = pos + Vector3(0, 0.08, 0)
+	mi.scale = Vector3(0.3, 1.0, 0.3)
+	root.add_child(mi)
+	var tw := root.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(mi, "scale", Vector3.ONE, life * 0.3).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_property(mi, "rotation:y", 0.35, life)
+	tw.tween_property(m, "albedo_color:a", 0.0, life * 0.6).set_delay(life * 0.4)
+	tw.chain().tween_callback(mi.queue_free)
+
+## Oferenda Sombria: disco escuro que encolhe até o ponto (implosão), aro violeta que fecha junto, fiapos e lascas de osso.
+static func implosion(root: Node, pos: Vector3, radius: float) -> void:
+	var r := maxf(0.6, radius * 0.6)
+	var mi := MeshInstance3D.new()
+	var qm := QuadMesh.new()
+	qm.size = Vector2(2.0, 2.0)
+	qm.orientation = PlaneMesh.FACE_Y
+	mi.mesh = qm
+	var m := _mat(Color(0.12, 0.05, 0.2), false)
+	m.albedo_color = Color(0.12, 0.05, 0.2, 0.65)
+	m.albedo_texture = disc_tex()
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.position = pos + Vector3(0, 0.07, 0)
+	mi.scale = Vector3(r, 1.0, r)
+	root.add_child(mi)
+	var rim := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = 0.9
+	tm.outer_radius = 1.0
+	tm.rings = 36
+	tm.ring_segments = 4
+	rim.mesh = tm
+	var rm := _mat(ring("shadow"), false)
+	rm.albedo_color = Color(ring("shadow"), 0.8)
+	rim.material_override = rm
+	rim.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	rim.position = pos + Vector3(0, 0.1, 0)
+	rim.scale = Vector3(r, 0.3, r)
+	root.add_child(rim)
+	var tw := root.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(mi, "scale", Vector3(0.05, 1.0, 0.05), 0.32).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_property(rim, "scale", Vector3(0.05, 0.3, 0.05), 0.32).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_property(m, "albedo_color:a", 0.0, 0.2).set_delay(0.3)
+	tw.tween_property(rm, "albedo_color:a", 0.0, 0.2).set_delay(0.3)
+	tw.chain().tween_callback(func(): mi.queue_free(); rim.queue_free())
+	burst(root, pos + Vector3(0, 0.6, 0), "shadow", 10, Vector3.UP, 0.4, 0.9)
+	burst(root, pos + Vector3(0, 0.4, 0), "bone", 8, Vector3.UP, 0.25, 1.0)

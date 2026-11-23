@@ -6,16 +6,17 @@ var camera: CameraRig
 var main                          # Main (para saber o mapa atual)
 var _projectiles: Dictionary = {}   # id -> Node3D
 var _loot_nodes: Array = []
-var _hit_stop_left := 0.0
 var floats: FloatText            # textos flutuantes (pool, faixas por alvo, "Esquiva! ×N")
 var reticle: MeshInstance3D
 var dir_reticle: MeshInstance3D
 var cone_reticle: MeshInstance3D
 var _reticle_shader: Shader
+var impacts: ImpactFx
 var arcs: WeaponArcs             # arcos de golpe por família de arma + faíscas + hit-stop local
 
 var show_reticle := true      # bancada de skills desliga (o cursor do mouse não interessa nas fotos)
 
+static var live: FxManager = null    # o FxManager atual (TeleportFx, chamado pela EntityView)
 static var fx_shadows := false    # --fx_shadows: efeitos voltam a projetar sombra (medir)
 
 ## Efeito não projeta sombra: cada objeto com sombra era redesenhado em cada cascata + pré-passada
@@ -25,6 +26,7 @@ func _on_node_added(n: Node) -> void:
 		(n as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 func _ready() -> void:
+	live = self
 	get_tree().node_added.connect(_on_node_added)
 	floats = FloatText.new()
 	add_child(floats)
@@ -38,6 +40,9 @@ func _ready() -> void:
 	arcs = WeaponArcs.new()
 	arcs.fx = self
 	add_child(arcs)
+	impacts = ImpactFx.new()            # faíscas por material, marcas do chão e clarão de soltura (V3/V5)
+	impacts.fx = self
+	add_child(impacts)
 	Events.skill_effect.connect(_on_skill_effect)
 	Events.projectile_spawned.connect(_on_projectile)
 	Events.projectile_removed.connect(_on_projectile_removed)
@@ -77,10 +82,6 @@ func _make_reticle(shape: int) -> MeshInstance3D:
 
 # ---------------------------------------------------------------------------
 func _process(delta: float) -> void:
-	if _hit_stop_left > 0.0:
-		_hit_stop_left -= delta / maxf(Engine.time_scale, 0.01)
-		if _hit_stop_left <= 0.0:
-			Engine.time_scale = 1.0
 	_update_projectiles(delta)
 	if show_reticle:
 		_update_reticle()
@@ -162,7 +163,11 @@ func _on_damage(attacker_id: int, target_id: int, amount: int, crit: bool, block
 	var t: SimEntity = Sim.get_entity(target_id)
 	if t == null or t.map_id != main.current_map_id:
 		return
-	arcs.on_damage(attacker_id, target_id, _mine(attacker_id) or _mine(target_id))
+	var own := _own(attacker_id) or _own(target_id)
+	# faíscas do arco: as suas sempre; as do grupo só com "Efeitos dos aliados: Tudo" (AccessSettings)
+	arcs.on_damage(attacker_id, target_id, own or ((_mine(attacker_id) or _mine(target_id)) and AccessSettings.ally_fx == AccessSettings.Density.ALL))
+	if not own and not AccessSettings.ally_pass():
+		return                                 # número de dano dos outros (grupo, bots) reduzido/desligado
 	if not _mine(attacker_id) and not _mine(target_id):
 		# briga dos outros (guarnição x investida): número só de perto e por amostra, senão a batalha grande trava o quadro
 		if Sim.player == null or t.position.distance_to(Sim.player.position) > 16.0 or randf() > 0.25:
@@ -221,15 +226,37 @@ func _on_damage(attacker_id: int, target_id: int, amount: int, crit: bool, block
 		txt += "!"
 		size = 1.6
 		col = Color(1, 0.75, 0.2) if t != Sim.player else Color(1, 0.3, 0.3)
+		if t != Sim.player:              # crítico mágico: cor do elemento (decisão 2026-11-23; físico segue dourado)
+			HitTint.ensure()
+			col = HitTint.crit_number_color(kind, HitTint.caster_theme(attacker_id), col)
 	if blocked:
 		txt = "⛨ " + txt
 		col = Color(0.75, 0.8, 1)
 	_float_text(t.position + Vector3(0, 1.6 * t.scale, 0), txt, col, size, t.id)
 	# flash na câmera quando o jogador leva dano forte
 	if t == Sim.player and amount > t.stats.max_hp * 0.12:
-		camera.add_shake(0.12)
+		var src: SimEntity = Sim.get_entity(attacker_id)
+		camera.add_shake(0.12, (t.position - src.position) if src else Vector3.ZERO)     # tranco no sentido do golpe
 
 ## Do jogador ou do grupo dele (e as invocações deles): o que sempre mostra número.
+## Só o jogador e as invocações dele (o grupo conta como aliado: AccessSettings.ally_fx reduz os efeitos dele).
+func _own(id: int) -> bool:
+	var p: SimEntity = Sim.player
+	if p == null:
+		return false
+	if id == p.id:
+		return true
+	var e: SimEntity = Sim.get_entity(id)
+	return e != null and e.owner_id == p.id
+
+## Personagem (não monstro) que não é o jogador nem invocação dele: efeito dele passa pelo AccessSettings.ally_pass.
+func _ally_fx_skip(e: SimEntity) -> bool:
+	if e == null or AccessSettings.ally_fx == AccessSettings.Density.ALL:
+		return false
+	if e.kind == SimEntity.Kind.MONSTER or _own(e.id):
+		return false
+	return not AccessSettings.ally_pass()
+
 func _mine(id: int) -> bool:
 	var p: SimEntity = Sim.player
 	if p == null:
@@ -244,6 +271,8 @@ func _mine(id: int) -> bool:
 func _on_heal(_src: int, target_id: int, amount: int) -> void:
 	var t: SimEntity = Sim.get_entity(target_id)
 	if t and t.map_id == main.current_map_id and amount > 0:
+		if not _own(target_id) and not _own(_src) and not AccessSettings.ally_pass():
+			return                             # cura dos outros: reduzida/desligada (AccessSettings)
 		_float_text(t.position + Vector3(0, 1.7 * t.scale, 0), "+%d" % amount, Color(0.5, 1, 0.5), 1.1, t.id)
 		SkillFx.burst(self, t.position + Vector3(0, 0.3, 0), "heal", 14, Vector3.UP, 0.35)
 
@@ -278,19 +307,27 @@ func _on_shield_block(target_id: int, attacker_id: int, theme: String, parried: 
 		SkillFx.slash_x(self, at, "holy", 2.0)
 		_float_text(t.position + Vector3(0, 3.0 * t.scale, 0), "APARADO!", Color(1.0, 0.86, 0.3), 1.6, t.id, true)
 		if t == Sim.player or a == Sim.player:
-			_on_hit_stop(5)
+			_local_stop(5, [t.id, a.id] if a else [t.id])
 
-## hit_stop da sim: golpe de família com arco congela só quem bateu e quem apanhou (WeaponArcs); o resto, global.
-func _on_hit_stop_event(frames: int) -> void:
+## hit_stop da sim: SEMPRE local (C2, combat-plan 2026-11-23), nunca Engine.time_scale. Golpe de família com arco
+## congela quem bateu e quem apanhou com o stop_mult da família (WeaponArcs); o resto (golpe de monstro, projétil,
+## golpe sem arco) congela os mesmos dois pelos quadros da sim, com teto Balance.HIT_STOP_CAP_FRAMES.
+func _on_hit_stop_event(frames: int, attacker_id: int = -1, target_ids: Array = []) -> void:
 	if arcs.on_hit_stop(frames):
 		camera.add_shake(0.03 * frames)
 		return
-	_on_hit_stop(frames)
+	_local_stop(frames, [attacker_id] + target_ids)
 
-func _on_hit_stop(frames: int) -> void:
-	Engine.time_scale = 0.05
-	_hit_stop_left = frames / 60.0
-	camera.add_shake(0.03 * frames)
+## Parada local: as views da lista seguram o quadro (EntityView.hit_react); o resto do mundo segue.
+func _local_stop(frames: int, ids: Array) -> void:
+	var stop := minf(float(frames), float(Balance.HIT_STOP_CAP_FRAMES)) / 60.0
+	if main != null:
+		for id in ids:
+			var v = main.views.get(id)
+			if v:
+				v.hit_react(Vector3.ZERO, stop)
+	if camera:
+		camera.add_shake(0.03 * frames)
 
 ## Golpe final de "strikes" (Golpe do Cruzado): clarão e tremida a mais (só apresentação).
 const STRIKE_FINAL_FLASH := 4.0
@@ -328,8 +365,14 @@ func _fusion_theme(origin: Vector3, fallback: String) -> String:
 			return FUSION_THEMES.get(ElementalSystem.default_form(o), fallback)
 	return fallback
 
-## Efeito da skill pelo TEMA (SkillDef.vfx) e na FORMA real da hitbox (SkillFx).
+## Efeito da skill: desenha dentro da camada dela (SkillFx.TIERS: tetos de tamanho, clarão, alfa e partículas; V1).
 func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: float) -> void:
+	SkillFx.tier = SkillFx.tier_of(GameData.skill_or_basic(skill_id))
+	_skill_effect_body(skill_id, origin, aim, radius)
+	SkillFx.tier = "skill"
+
+## Efeito da skill pelo TEMA (SkillDef.vfx) e na FORMA real da hitbox (SkillFx).
+func _skill_effect_body(skill_id: String, origin: Vector3, aim: Vector3, radius: float) -> void:
 	if Sim.ticking_map != "" and Sim.ticking_map != main.current_map_id:
 		return                 # efeito de outro mapa (a sim roda todos): antes aparecia no seu, nas coordenadas do outro
 	if Sim.player and origin.distance_to(Sim.player.position) > main.VIEW_CULL_DIST and aim.distance_to(Sim.player.position) > main.VIEW_CULL_DIST:
@@ -345,9 +388,15 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: f
 	var s: SkillDef = GameData.skill_or_basic(skill_id)
 	if s == null:
 		return
+	if AccessSettings.ally_fx != AccessSettings.Density.ALL and not skill_id.begins_with("mob_") and _ally_fx_skip(arcs._attacker(skill_id, origin)):
+		return                 # efeito de outro personagem (grupo, bot): reduzido/desligado; o seu e os de monstro sempre
 	var th := theme_of(s)
+	_build_accent(s, skill_id, origin, aim, radius)     # V4: forma/cor da build por cima do tema (Supremas inclusas)
 	if s.ultimate or skill_id.begins_with("ber_ult_"):
 		_ult_b1_fx(skill_id, origin, aim)     # Supremas B1: estandarte, árvore, fendas...
+	if custom_fx_of(s) != "":
+		_custom_fx(s, th, origin, aim, radius)    # V1: saltos (Sete Ventos, Lua Rubra) e Oferenda têm forma própria
+		return
 	if s.effects.has("elem_fusion"):                      # Fusão: a cor/forma do elemento do elemental de quem lançou
 		th = _fusion_theme(origin, th)
 	if s.ultimate and th == "lightning" and s.effects.get("storm") is Dictionary and origin.distance_to(aim) < 0.05:
@@ -491,6 +540,31 @@ func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, radius: f
 ## espalhados no cone; Tiro Entre os Olhos = tiro grosso e tremida de câmera.
 ## Golpe em linha de monstro (Empalar, Estocada): depois do impacto não deixa faixa no chão. A faixa rosa sem borda
 ## ficava 0,45 s e lia como um aviso fora da gramática (arte R2 #6); o aviso de verdade é o _telegraph, antes do golpe.
+## Acento da build (V4, BuildAccent): rajada pequena da forma/cor da build no ponto do efeito, sempre no ar.
+## Fora: monstro, básico (repete demais), batida dos martelos que giram e o rastro do tiro que atravessou.
+func _build_accent(s: SkillDef, skill_id: String, origin: Vector3, aim: Vector3, radius: float) -> void:
+	if skill_id.begins_with("mob_") or skill_id.begins_with("basic_") or radius == ORBIT_PULSE or radius <= PIERCE_TRACE:
+		return
+	var key := BuildAccent.of_skill(s, arcs._attacker(skill_id, origin) if s.build == "" else null)
+	if key == "":
+		return
+	var dir := aim - origin
+	dir.y = 0.0
+	dir = dir.normalized() if dir.length() > 0.01 else Vector3.FORWARD
+	var r := maxf(radius, 1.0)
+	var extra := 4 if s.ultimate else 0
+	match s.target:
+		SkillDef.Target.TARGET:
+			BuildAccent.burst(self, aim + Vector3(0, 0.9, 0), key, 8 + extra, Vector3.UP, 0.3)
+		SkillDef.Target.GROUND:
+			BuildAccent.burst(self, aim + Vector3(0, 0.5, 0), key, 10 + extra, Vector3.UP, minf(r * 0.35, 1.4))
+		SkillDef.Target.CONE:
+			BuildAccent.burst(self, origin + dir * r * 0.6 + Vector3(0, 0.8, 0), key, 9 + extra, dir + Vector3.UP * 0.5, 0.4)
+		SkillDef.Target.SELF:
+			BuildAccent.burst(self, origin + Vector3(0, 0.7, 0), key, 10 + extra, Vector3.UP, clampf(r * 0.3, 0.6, 1.2))     # em volta: a cabeça chibi esconde o centro
+		_:
+			BuildAccent.burst(self, origin + dir * 0.8 + Vector3(0, 1.0, 0), key, 7 + extra, dir + Vector3.UP * 0.3, 0.2)
+
 static func mob_hit_ground_free(skill_id: String) -> bool:
 	return skill_id.begins_with("mob_")
 
@@ -538,7 +612,11 @@ func _ground_impact(s: SkillDef, th: String, at: Vector3, radius: float, area_th
 			if falling_hammer_skill(s):
 				camera.add_shake(0.1)     # o martelo (preparação) pousa agora e faz o estouro
 				return
-			SkillFx.column(self, at, radius * 0.55, th, 0.6)
+			if s.ultimate:                 # Sol do Julgamento: facho estreito + raios no chão (antes a coluna larga lavava a tela de creme)
+				SkillFx.column(self, at, radius * 0.25, th, 0.6)
+				SkillFx.sun_rays(self, at, radius, th, 12, 0.9)
+			else:
+				SkillFx.column(self, at, radius * 0.55, th, 0.6)
 			SkillFx.burst(self, at + Vector3(0, 0.3, 0), th, 26, Vector3.UP, radius * 0.4)
 		"ice":
 			SkillFx.burst(self, at + Vector3(0, 2.5, 0), th, 30, Vector3.DOWN, radius * 0.5, 1.2)
@@ -597,6 +675,11 @@ func _on_skill_cast(entity_id: int, skill_id: String, phase: String) -> void:
 	if e == null or e.map_id != main.current_map_id or skill_id == "dash" or skill_id == "jump":
 		return
 	var s: SkillDef = GameData.skill_or_basic(skill_id)
+	if _ally_fx_skip(e):
+		return                 # preparação de outro personagem (AccessSettings); monstro nunca passa aqui (avisos ficam)
+	# skill rápida (V2): brilho na arma / fagulha do tema na mão até o impacto (a pose armada já sai no 1º quadro)
+	if WindupGlint.wants(e, s) and main.views.has(e.id):
+		WindupGlint.spawn(self, main.views[e.id], s, theme_of(s))
 	# meteoro: começa a cair já na preparação, pra chegar no chão no instante do dano
 	if s and s.target == SkillDef.Target.GROUND and s.vfx == "fire" and ("meteor" in s.id or "phoenix" in s.id):
 		SkillFx.meteor(self, e.skill_aim, s.radius, s.vfx, maxf(0.15, s.startup))
@@ -641,7 +724,9 @@ const CONTROL_TELEGRAPH := {"mob_entangle": true}   # skills de monstro que avis
 
 func _telegraph(e: SimEntity, s: SkillDef) -> void:
 	var dur := maxf(0.2, s.startup)
-	var dc := DANGER_CONTROL if CONTROL_TELEGRAPH.has(s.id) else DANGER
+	var mech := AccessSettings.Mech.CONTROL if CONTROL_TELEGRAPH.has(s.id) else AccessSettings.Mech.DAMAGE
+	var dc := AccessSettings.tele_color(mech, DANGER_CONTROL if CONTROL_TELEGRAPH.has(s.id) else DANGER)
+	var pat: TelePattern = TelePattern.new() if AccessSettings.patterns_on() else null     # modos de contraste: padrão por cima
 	var root := Node3D.new()
 	add_child(root)
 	var rw := DANGER_RIM_W * (1.6 if e.monster_def and e.monster_def.is_boss else 1.0)
@@ -656,6 +741,8 @@ func _telegraph(e: SimEntity, s: SkillDef) -> void:
 			base = _fan(s.radius, ang, Color(dc, DANGER_BASE_A))
 			fill = _fan(s.radius, ang, Color(dc, DANGER_FILL_A))
 			rim = _danger_rim("fan", s.radius, ang, 0.0, rw)
+			if pat:
+				pat.fan(mech, s.radius, ang, DANGER_RIM, Color(dc, 0.55), 0.03)
 		SkillDef.Target.DIRECTION:
 			var length := float(s.effects.get("dash", s.range))
 			var w := maxf(1.2, s.radius * 2.0)
@@ -664,6 +751,8 @@ func _telegraph(e: SimEntity, s: SkillDef) -> void:
 			base = _strip(length, w, Color(dc, DANGER_BASE_A))
 			fill = _strip(length, w, Color(dc, DANGER_FILL_A))
 			rim = _danger_rim("strip", w * 0.5, 0.0, length, rw)
+			if pat:
+				pat.strip(mech, Vector3.ZERO, Vector3(0, 0, 1), length, w, DANGER_RIM, Color(dc, 0.55), 0.03)
 		_:
 			var r := s.radius if s.radius > 0.0 else 1.6
 			root.position = (e.skill_aim if s.target in [SkillDef.Target.GROUND, SkillDef.Target.TARGET] else e.position) + Vector3(0, 0.05, 0)     # alvo único: a marca fica em quem vai levar
@@ -675,7 +764,10 @@ func _telegraph(e: SimEntity, s: SkillDef) -> void:
 			base = _disc(r, Color(dc, DANGER_BASE_A))
 			fill = _disc(r, Color(dc, DANGER_FILL_A))
 			rim = _danger_rim("disc", r, 0.0, 0.0, rw)
+			if pat:
+				pat.circle(mech, Vector3.ZERO, r, DANGER_RIM, Color(dc, 0.55), 0.03)
 	_danger_grow(root, base, fill, rim, s.target == SkillDef.Target.DIRECTION, dur)
+	_add_pattern(root, pat)
 
 var _tele_spots: Array = []                          # [nó, posição, raio] das marcas em alvo único ainda vivas
 
@@ -693,8 +785,22 @@ func _on_hazard_placed(map_id: String, pos: Vector3, radius: float, delay: float
 	var root := Node3D.new()
 	add_child(root)
 	root.position = pos + Vector3(0, 0.05, 0)
-	_danger_grow(root, _disc(radius, Color(DANGER, DANGER_BASE_A)), _disc(radius, Color(DANGER, DANGER_FILL_A)),
+	var dc := AccessSettings.tele_color(AccessSettings.Mech.DAMAGE, DANGER)
+	_danger_grow(root, _disc(radius, Color(dc, DANGER_BASE_A)), _disc(radius, Color(dc, DANGER_FILL_A)),
 		_danger_rim("disc", radius, 0.0, 0.0, DANGER_RIM_W * 1.6), false, maxf(0.2, delay))
+	if AccessSettings.patterns_on():
+		var pat := TelePattern.new()
+		pat.circle(AccessSettings.Mech.DAMAGE, Vector3.ZERO, radius, DANGER_RIM, Color(dc, 0.55), 0.03)
+		_add_pattern(root, pat)
+
+## Padrão do modo de contraste (TelePattern) montado uma vez no aviso; some junto com o `root`.
+func _add_pattern(root: Node3D, pat: TelePattern) -> void:
+	if pat == null:
+		return
+	var mi := pat.commit()
+	if mi:
+		mi.name = "TelePattern"
+		root.add_child(mi)
 
 ## Golpe avisado de Suprema (aliado: StormSystem): mesma forma do aviso de chefe, mas em AREIA/dourado (gramática: dano
 ## de inimigo é vermelho; o seu nunca). O miolo cresce até o impacto.
@@ -1274,6 +1380,8 @@ func _on_projectile(p: SimProjectile) -> void:
 	n.add_child(mi)
 	# físico: flecha (dono com arco) ou lâmina girando (arremesso), em vez da bola de energia
 	var owner: SimEntity = Sim.get_entity(p.owner_id)
+	# flecha física (arco sem tema): sem rastro brilhante nem luz; projétil mágico segue brilhando (V5)
+	var phys_arrow: bool = owner != null and owner.stats != null and owner.stats.weapon_type == "bow" and th in ["", "physical"]
 	var bow_shot: bool = owner != null and owner.stats != null and owner.stats.weapon_type == "bow" and p.skill != null and p.skill.id.begins_with("basic_")
 	if p.skill and p.skill.effects.has("bounce") and not p.skill.effects.get("shot", false):     # bala (Corsário) fica a bolinha de fogo
 		mi.mesh = null
@@ -1320,7 +1428,10 @@ func _on_projectile(p: SimProjectile) -> void:
 		tpm.albedo_texture = SkillFx.soft()
 		trail_p.material_override = tpm
 		n.add_child(trail_p)
-	if th == "" or p.is_basic:
+		var ak := BuildAccent.of_skill(p.skill, owner)      # V4: rastro curto na forma/cor da build atrás do projétil
+		if ak != "":
+			n.add_child(BuildAccent.trail(ak, sm.radius))
+	if (th == "" or p.is_basic) and not phys_arrow:
 		var trail := MeshInstance3D.new()
 		var tm := CylinderMesh.new()
 		tm.top_radius = sm.radius * 0.6
@@ -1337,6 +1448,7 @@ func _on_projectile(p: SimProjectile) -> void:
 	var light := OmniLight3D.new()
 	light.light_color = pcol
 	light.light_energy = 1.0
+	light.visible = not phys_arrow
 	light.omni_range = 3.0
 	n.add_child(light)
 	n.set_meta("vfx", th)
@@ -1526,6 +1638,9 @@ func _miasma_fx(id: int, pos: Vector3, radius: float) -> void:
 	tw.tween_property(n, "scale", Vector3.ONE, 0.3).set_ease(Tween.EASE_OUT)
 	n.tree_exiting.connect(tw.kill)
 
+const ZONE_BED_A := 0.1                  # leito da zona (mistura, cor principal do tema; V1)
+const ZONE_MOTES_MAX := 24.0             # motas da zona: poucas e pequenas
+const ZONE_MOTE_M := 0.16                # m: lado do quad de cada mota
 ## Chão que fica (TrapSystem.place_zone): disco claro nos tons do tema (nunca vermelho cheio: gramática de aviso de chefe),
 ## borda que respira no ritmo do pulso e motas subindo; o Estandarte da Fé ganha o mastro com o pano no centro.
 func _zone_fx(id: int, map_id: String) -> void:
@@ -1545,7 +1660,8 @@ func _zone_fx(id: int, map_id: String) -> void:
 	n.set_meta("theme", theme)
 	add_child(n)
 	_traps[id] = n
-	var bed := _disc(radius, Color(light.r, light.g, light.b, 0.16))
+	light = SkillFx.ring(theme)               # V1: tom do tema, nunca creme (o leito creme + motas grandes lavavam a tela)
+	var bed := _disc(radius, Color(col.r, col.g, col.b, ZONE_BED_A))
 	bed.position.y = 0.035
 	n.add_child(bed)
 	var ring := MeshInstance3D.new()
@@ -1560,7 +1676,7 @@ func _zone_fx(id: int, map_id: String) -> void:
 	ring.position.y = 0.05
 	n.add_child(ring)
 	var motes := CPUParticles3D.new()       # motas de luz subindo do chão
-	motes.amount = int(clampf(radius * radius * 2.5, 16.0, 60.0))
+	motes.amount = int(clampf(radius * radius * 1.2, 10.0, ZONE_MOTES_MAX))
 	motes.lifetime = 1.6
 	motes.preprocess = 0.8
 	motes.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
@@ -1573,21 +1689,20 @@ func _zone_fx(id: int, map_id: String) -> void:
 	motes.gravity = Vector3(0, 0.6, 0)
 	motes.initial_velocity_min = 0.3
 	motes.initial_velocity_max = 0.8
-	motes.scale_amount_min = 0.12
-	motes.scale_amount_max = 0.25
+	motes.scale_amount_min = 0.6
+	motes.scale_amount_max = 1.0
 	var qm := QuadMesh.new()
-	qm.size = Vector2.ONE
+	qm.size = Vector2.ONE * ZONE_MOTE_M          # tamanho na malha (a escala da partícula não encolhia o quad de 1 m: discos cortados pelo chão)
 	var fm := StandardMaterial3D.new()
 	fm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	fm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	fm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	fm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA     # mistura (V1): somadas, o brilho da tela virava discos creme de 2 m
 	fm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	fm.vertex_color_use_as_albedo = true
 	fm.albedo_texture = SkillFx.soft()
 	qm.material = fm
 	motes.mesh = qm
 	var ramp := Gradient.new()
-	ramp.set_color(0, Color(light, 0.9))
+	ramp.set_color(0, Color(light, 0.75))
 	ramp.set_color(1, Color(col, 0.0))
 	motes.color_ramp = ramp
 	motes.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -1861,3 +1976,72 @@ func _elder_tree(pos: Vector3, life: float) -> void:
 	tw.tween_interval(maxf(0.1, life - 0.8))
 	tw.tween_property(root, "scale", Vector3.ONE * 0.05, 0.4)
 	tw.tween_callback(root.queue_free)
+
+# ---------------------------------------------------------------------------
+# V1: skills com forma própria (a forma genérica do tema virava "aro branco fino" ou anéis empilhados).
+
+## "" = desenho genérico do tema; "hop" = saltos entre inimigos (Sete Ventos, Lua Rubra); "offering" = Oferenda Sombria.
+static func custom_fx_of(s: SkillDef) -> String:
+	if s == null:
+		return ""
+	if s.effects.get("hop_strikes") is Dictionary:
+		return "hop"
+	if s.effects.get("sacrifice") is Dictionary:
+		return "offering"
+	return ""
+
+func _custom_fx(s: SkillDef, th: String, origin: Vector3, aim: Vector3, radius: float) -> void:
+	match custom_fx_of(s):
+		"hop":
+			_hop_fx(s, th, origin, aim)
+		"offering":
+			_offering_fx(aim, radius)
+
+const HOP_CUT_STEP_DEG := 51.0         # cada salto gira o crescente: os 7 cortes abrem um leque em volta do alvo
+const HOP_TARGET_AHEAD := 1.0          # m: o alvo fica logo à frente de onde o lançador reaparece (HopSystem._jump)
+
+## Um salto (HopSystem posta origem = de onde saiu, aim = onde reapareceu). Vento: rastro, crescente e espiral no 1º,
+## aro e clarão no último. Lunar (Lua Rubra): lua carmim no ar no 1º, crescente dessaturado no chão, sangue e as garras.
+func _hop_fx(s: SkillDef, th: String, origin: Vector3, aim: Vector3) -> void:
+	var hs: Dictionary = s.effects["hop_strikes"]
+	var count := int(hs.get("count", 3))
+	var who: SimEntity = null
+	for o in Sim.map_entities(main.current_map_id):
+		if o.is_character() and o.is_alive() and o.position.distance_to(aim) < 0.3:
+			who = o
+			break
+	var k := count - 1
+	if who != null and str(who.hop.get("skill", "")) == s.id:
+		k = clampi(count - int(who.hop.get("left", 1)) - 1, 0, count - 1)     # o evento sai no sync, com o salto já descontado
+	var dir := aim - origin
+	dir.y = 0.0
+	dir = dir.normalized() if dir.length() > 0.05 else (who.forward() if who else Vector3.FORWARD)
+	var hit := aim + dir * HOP_TARGET_AHEAD
+	if th == "lunar":
+		if k == 0 and who != null and main.views.has(who.id) and (main.views[who.id] as Node3D).get_node_or_null("BloodMoon") == null:
+			SkillFx.blood_moon(main.views[who.id], float(hs.get("every", 0.8)) * count + 0.4)
+		SkillFx.crescent(self, hit, dir.rotated(Vector3.UP, 0.6 * k), 1.3, 220.0, SkillFx.BLOOD_MOON_MARK, 0.4, 0.9, 0.06)
+		SkillFx.burst(self, hit + Vector3(0, 0.8, 0), "blood", 12, Vector3.UP, 0.3)
+		arcs.swing(s.id, s, th, aim, dir)            # garras do lobo onde pousou (WeaponArcs, forma)
+		return
+	SkillFx.streak(self, origin, dir, origin.distance_to(aim), th)
+	SkillFx.crescent(self, hit, dir.rotated(Vector3.UP, deg_to_rad(HOP_CUT_STEP_DEG * k)), 1.6, 200.0, SkillFx.ring(th), 0.85, 0.32, 0.9)
+	SkillFx.burst(self, hit + Vector3(0, 0.9, 0), th, 14, Vector3.UP, 0.3)
+	if k == 0:
+		SkillFx.wind_spiral(self, hit, 2.6, th, 0.8)
+	if k >= count - 1:
+		SkillFx.circle(self, hit, 3.0, th, 0.5)
+		SkillFx.flash(self, hit + Vector3(0, 1.0, 0), th, 3.0, 6.0)
+		camera.add_shake(0.08)
+
+var _offer_ring_t := -10.0
+const OFFER_RING_WINDOW := 0.2         # s: as explosões de uma mesma Oferenda dividem um aro só
+
+## Oferenda Sombria: cada invocação implode (disco escuro que fecha); um aro violeta só por lançamento.
+func _offering_fx(at: Vector3, radius: float) -> void:
+	SkillFx.implosion(self, at, radius)
+	var now := Time.get_ticks_msec() / 1000.0
+	if now - _offer_ring_t > OFFER_RING_WINDOW:
+		_offer_ring_t = now
+		SkillFx.circle(self, at, radius, "shadow", 0.6)
+		SkillFx.flash(self, at + Vector3(0, 0.8, 0), "shadow", 1.5, radius * 1.5)

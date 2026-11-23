@@ -35,6 +35,11 @@ const VOL := {
 	"sig_warn": -4.0, "drum_tear": -3.0,
 	# Mata dos Zumbidos (4-8)
 	"wasp_buzz": -10.0, "wasp_die": -9.0, "bear_growl": -7.0, "bear_roar": -4.0, "hive_crack": -5.0,
+	# impactos por alvo (plano de combate 2026-11-23, C3d): golpe físico por família de arma, magia por tema
+	"hit_blunt": -7.0, "hit_chop": -7.0, "hit_pierce": -8.0, "impact_fire": -11.0, "impact_ice": -11.0, "impact_lightning": -12.0,
+	"impact_holy": -12.0, "impact_shadow": -11.0, "impact_nature": -11.0, "impact_arcane": -12.0,
+	# vento antes do impacto das skills rápidas (pacote V2, 2026-11-23)
+	"whoosh": -9.0, "whoosh_magic": -13.0,
 }
 ## Tema visual (FxManager.theme_of) -> som da skill. Físico não tem: quem soa é o golpe (swing/hit).
 const THEME_SOUND := {
@@ -43,6 +48,14 @@ const THEME_SOUND := {
 	"heal": "heal", "summon": "summon",
 }
 const RANGED_SOUND := {"bow": "bow", "rifle": "gun", "pistol": "gun"}
+## Golpe físico no alvo pela família da arma de quem bateu ("hit" = lâmina, o som de sempre; sem arma = "hit").
+const HIT_SOUND := {"sword": "hit", "sword2h": "hit", "dagger": "hit", "scythe": "hit",
+	"mace": "hit_blunt", "mace2h": "hit_blunt", "scepter": "hit_blunt", "staff": "hit_blunt", "wand": "hit_blunt", "claw": "hit_blunt",
+	"axe": "hit_chop", "axe2h": "hit_chop", "bow": "hit_pierce", "rifle": "hit_pierce", "pistol": "hit_pierce", "spear": "hit_pierce"}
+## Dano mágico no alvo pelo tema (FxManager.theme_of da skill/básico de quem bateu); tema fora da lista = arcano.
+const IMPACT_SOUND := {"fire": "impact_fire", "ice": "impact_ice", "lightning": "impact_lightning", "holy": "impact_holy",
+	"lunar": "impact_holy", "shadow": "impact_shadow", "bone": "impact_shadow", "blood": "impact_shadow", "nature": "impact_nature",
+	"poison": "impact_nature", "earth": "impact_nature", "wind": "impact_nature"}
 ## Voz de monstro pelo id (ou prefixo dele): [ao entrar em luta, ao lançar skill, ao morrer]; "" = nada.
 ## Ginete = lobo + goblin: uiva ao ver você, rosna no bote e o goblin guincha ao cair.
 const MOB_VOICE := {
@@ -340,10 +353,41 @@ func _on_skill_cast(id: int, skill_id: String, phase: String) -> void:
 				play_at(CAST_SOUND[skill_id], e.position)
 			return
 	var ranged := e.stats != null and RANGED_SOUND.has(e.stats.weapon_type)
+	var whoosh := whoosh_of(e, s, ranged)
+	if phase == "startup" and whoosh != "":
+		_schedule_whoosh(e, s, whoosh)
 	if phase == "startup" and s.kind != SkillDef.Kind.PHYSICAL and s.kind != SkillDef.Kind.HEAL and s.startup >= 0.2:
 		play_at("cast", e.position, _mine(e))
-	elif phase == "active" and s.kind == SkillDef.Kind.PHYSICAL and not ranged:
+	elif phase == "active" and s.kind == SkillDef.Kind.PHYSICAL and not ranged and whoosh == "":
 		play_at("swing", e.position, _mine(e), -3.0 if e.kind == SimEntity.Kind.MONSTER else 0.0)
+
+## Vento antes do impacto (pacote V2, 2026-11-23): skill de personagem (não o básico, não monstro) soa WHOOSH_LEAD s
+## antes do tick do dano; golpe corpo a corpo = "whoosh" (no lugar do "swing" da fase ativa), magia rápida =
+## "whoosh_magic" (a demorada já tem o "cast" da preparação). "" = sem vento.
+const WHOOSH_LEAD := 0.08
+const WHOOSH_MAGIC_MAX_STARTUP := 0.2
+static func whoosh_of(e: SimEntity, s: SkillDef, ranged: bool) -> String:
+	if e == null or s == null or e.kind == SimEntity.Kind.MONSTER or s.id.begins_with("basic_"):
+		return ""
+	if s.kind == SkillDef.Kind.PHYSICAL:
+		return "" if ranged else "whoosh"
+	if s.kind == SkillDef.Kind.MAGICAL and s.startup < WHOOSH_MAGIC_MAX_STARTUP:
+		return "whoosh_magic"
+	return ""
+
+## Toca o vento WHOOSH_LEAD s antes do fim do preparo, se a skill ainda estiver no preparo (cancelada = nada).
+func _schedule_whoosh(e: SimEntity, s: SkillDef, sound: String) -> void:
+	var wait := s.startup - WHOOSH_LEAD
+	if wait <= 0.01:
+		play_at(sound, e.position, _mine(e))
+		return
+	var id := e.id
+	get_tree().create_timer(wait).timeout.connect(_whoosh_now.bind(id, s, sound))
+
+func _whoosh_now(id: int, s: SkillDef, sound: String) -> void:
+	var e: SimEntity = Sim.get_entity(id)
+	if _here(e) and e.state == SimEntity.State.CASTING and e.current_skill == s:
+		play_at(sound, e.position, _mine(e))
 
 ## Impacto de skill (não do básico, que soa no golpe): som do tema no ponto mirado.
 func _on_skill_effect(skill_id: String, origin: Vector3, aim: Vector3, _radius: float) -> void:
@@ -393,10 +437,25 @@ func _on_damage(attacker_id: int, target_id: int, amount: int, crit: bool, block
 		play_at("hurt", t.position)
 		return
 	var mine := _mine(a) or _mine(t)
-	if kind != "magical":
-		play_at("hit", t.position, mine)
+	if kind == "magical":
+		play_at(impact_sound(a), t.position, mine)
+	else:
+		play_at(hit_sound(a), t.position, mine)
 	if crit and mine:
 		play_at("crit", t.position, true)
+
+## Som do golpe físico no alvo pela arma de quem bateu (HIT_SOUND).
+static func hit_sound(a: SimEntity) -> String:
+	if a == null or a.stats == null:
+		return "hit"
+	return str(HIT_SOUND.get(a.stats.weapon_type, "hit"))
+
+## Som do impacto mágico no alvo pelo tema da skill em curso (ou do básico) de quem bateu (IMPACT_SOUND).
+static func impact_sound(a: SimEntity) -> String:
+	if a == null:
+		return "impact_arcane"
+	var s: SkillDef = a.current_skill if a.current_skill != null else a.basic_skill
+	return str(IMPACT_SOUND.get(FxManager.theme_of(s), "impact_arcane"))
 
 ## Metamorfose de monstro (ShiftSystem): giro de folhas na conjuração, voz do bicho ao virar.
 const SHIFT_SOUND := {"cast": "summon", "shaman_bear": "bear_roar", "shaman_wolf": "wolf_howl", "shaman_hawk": "wind", "revert": "nature"}

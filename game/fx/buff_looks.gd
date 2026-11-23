@@ -85,6 +85,23 @@ const LOOKS := {
 }
 const FAMILIES := ["armor", "shield", "power", "holy", "speed", "smoke", "poison", "dark", "aura", "wings", "form"]
 
+## Controle no corpo (debuff `kind` -> [forma, cor]); não são buffs (sem fonte em sources()), por isso fora de LOOKS.
+## stars = estrelas girando na cabeça, roots = raízes nos pés (CcLook.roots), drag = rastro de poeira fria nos pés
+## (CcLook.drag), frost = anel de gelo (lento de gelo: slow.frost). Check _check_cc_looks: todo kind de controle tem linha.
+const CC_LOOKS := {
+	"stun": ["stars", Color(1.0, 0.9, 0.35)],
+	"root": ["roots", Color(0.46, 0.32, 0.17)],
+	"slow": ["drag", Color(0.74, 0.8, 0.92)],
+	"slow_frost": ["frost", Color(0.6, 0.9, 1.0)],
+}
+const CC_SHAPES := ["stars", "roots", "drag", "frost"]
+
+## [forma, cor] do controle `kind` (lento de gelo = "slow_frost"); [] = sem visual.
+static func cc_look(kind: String, frost: bool = false) -> Array:
+	if kind == "slow" and frost:
+		kind = "slow_frost"
+	return CC_LOOKS.get(kind, [])
+
 ## Buffs que a sim põe direto no código (sem catálogo): id -> onde.
 const SYSTEM_BUFFS := {
 	"legend_frenzy": "LegendEffects (arma lendária: frenesi)",

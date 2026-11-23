@@ -606,8 +606,8 @@ func _check_weapon_arcs(gd, sim) -> void:
 	arcs._swings[p.id] = {"frame": Engine.get_process_frames(), "fam": WeaponArcs.FAMILIES["sword"], "targets": [], "slot": {}}
 	fm._on_hit_stop_event(Balance.HIT_STOP_FRAMES_BASIC)
 	check(Engine.time_scale == ts, "arcos: hit-stop do básico com arco é local (FxManager não mexe no time_scale)")
-	fm._on_hit_stop_event(4)
-	check(Engine.time_scale < ts, "arcos: 2º hit_stop no mesmo quadro (outro golpe) cai no global, o arco não engole")
+	fm._on_hit_stop_event(4, p.id, [])
+	check(Engine.time_scale == ts, "hit-stop: 2º hit_stop no mesmo quadro (golpe sem arco) também é local (C2)")
 	Engine.time_scale = ts
 	check(not arcs.on_hit_stop(4), "arcos: golpe com arco consome um hit_stop só")
 	fm.free()
@@ -703,8 +703,8 @@ func _check_weapon_arcs_wave1(gd) -> void:
 	for sid in gd.skills:
 		var s: SkillDef = gd.skills[sid]
 		for fam in WeaponArcs.FAMILIES:
-			check(WeaponArcs.stop_frames(s.hit_stop_frames, fam) <= WeaponArcs.STOP_CAP_FRAMES, "arcos: parada de %s com %s no teto" % [sid, fam])
-	check(WeaponArcs.stop_frames(5, "sword2h") == WeaponArcs.STOP_CAP_FRAMES, "arcos: Golpe do Cruzado (5 x 2,0) para no teto")
+			check(WeaponArcs.stop_frames(s.hit_stop_frames, fam) <= Balance.HIT_STOP_CAP_FRAMES, "arcos: parada de %s com %s no teto" % [sid, fam])
+	check(WeaponArcs.stop_frames(5, "sword2h") == 10.0 and WeaponArcs.stop_frames(7, "sword2h") == Balance.HIT_STOP_CAP_FRAMES, "arcos: Golpe do Cruzado (5 x 2,0 = 10; 7 x 2,0 para no teto 12)")
 	check(WeaponArcs.stop_frames(2, "mace2h") == 4.0, "arcos: básico de duas mãos para 4 quadros")
 	# forma de bicho (urso com malho): onda 6 = garras no chão da forma, nunca o crescente do malho
 	var ent := SimEntity.new()
@@ -789,7 +789,7 @@ func _check_weapon_arcs_wave2(gd) -> void:
 			var clip := EntityView.clip_for_skill(s, "axe2h", off, 0)
 			check(not WeaponArcs.arc_entry(clip, "axe2h").is_empty(), "arcos onda 2: %s com machado de 2 mãos (%s) toca %s, que tem linha" % [s.id, off, clip])
 	check(n >= 2, "arcos onda 2: %d golpes em cone do Executor conferidos" % n)
-	check(WeaponArcs.stop_frames(4, "axe2h") == WeaponArcs.STOP_CAP_FRAMES, "arcos onda 2: Rachar (4 x 2,0) para no teto")
+	check(WeaponArcs.stop_frames(4, "axe2h") == 8.0, "arcos onda 2: Rachar (4 x 2,0 = 8, abaixo do teto 12)")
 
 ## Onda 4 dos arcos (2026-11-15): duas armas = uma lasca por mão (ou a estocada da mão de trás) na cor da família dela.
 ## Lados conferidos contra a tabela de golpes (pares iguais, as duas mãos), todo golpe em cone dos pares tem lasca ou é
@@ -1093,7 +1093,7 @@ func _check_weapon_arcs_wave6(gd) -> void:
 		for slot in arcs._pools[shape]:
 			slot["on"] = false
 	check(FileAccess.get_file_as_string("res://game/fx/fx_manager.gd").contains("or arcs.last_form):"), "arcos onda 6: golpe no alvo na forma mantém o corte no alvo")
-	check(WeaponArcs.stop_frames(6, "form_bear") == WeaponArcs.STOP_CAP_FRAMES and WeaponArcs.stop_frames(2, "form_bear") == 3.0, "arcos onda 6: parada do urso 1,5x com teto (Avalanche 6 x 1,5 -> 8)")
+	check(WeaponArcs.stop_frames(6, "form_bear") == 9.0 and WeaponArcs.stop_frames(10, "form_bear") == Balance.HIT_STOP_CAP_FRAMES and WeaponArcs.stop_frames(2, "form_bear") == 3.0, "arcos onda 6: parada do urso 1,5x com teto (Avalanche 6 x 1,5 = 9; teto 12)")
 	var evs := FileAccess.get_file_as_string("res://game/entities/entity_view.gd")
 	check(evs.contains("WeaponArcs.form_hook(entity"), "arcos onda 6: EntityView chama o gancho da 2ª garra")
 	check(evs.contains("WeaponArcs.form_hook(entity, _form_land, true)"), "arcos onda 6: garras do bote saem quando o boneco pousa (a sim teleporta)")
@@ -1178,6 +1178,131 @@ func _check_arc_user_calls(gd, arcs: WeaponArcs, fake: FakeMain) -> void:
 	for shape in arcs._pools:
 		for slot in arcs._pools[shape]:
 			slot["on"] = false
+
+## Roteamento de clipes por arquétipo (pacote C1, 2026-11-23): golpe físico de classe nunca cai num gesto de conjurar
+## (`cast_*`) sem `SkillDef.clip` escrito; cura pelo tema da classe; vento não divide o gesto do gelo; maldição do
+## Necromante e veneno do Assassino com gestos diferentes; magia em linha não vira o golpe básico; clipe novo (C2) que o
+## kit ainda não tem toca o de antes (CLIP_FALLBACK) e, quando chegar, precisa do quadro de impacto.
+func _check_clip_routing(gd) -> void:
+	var basic_swings := ["atk_staff", "atk_1h_a", "atk_1h_b", "atk_2h"]
+	var n_phys := 0
+	var n_heal := 0
+	for cid in gd.classes:
+		var c: ClassDef = gd.classes[cid]
+		for b in c.builds:
+			var w: String = b["main"][0]
+			var off: String = b["off"][0] if b["off"].size() > 0 else ""
+			for sid in c.skill_ids:
+				var s: SkillDef = gd.skills[sid]
+				if not (s.build in [b["id"], ""]):
+					continue
+				var clip := EntityView.clip_for_skill(s, w, off, 0)
+				var plays := EntityView.fallback_clip(clip)
+				if s.kind == SkillDef.Kind.PHYSICAL and s.clip == "" and not EntityView.TELEPORTS.has(sid):     # teleporte: gesto de sumir (_check_teleport_look)
+					n_phys += 1
+					check(not clip.begins_with("cast_") and not plays.begins_with("cast_"), "clipes C1: %s (físico, %s) não conjura: %s" % [sid, w, clip])
+				if s.kind == SkillDef.Kind.HEAL and s.clip == "" and EntityView.HEAL_BY_CLASS.has(cid):
+					n_heal += 1
+					check(clip == EntityView.HEAL_BY_CLASS[cid], "clipes C1: cura %s segue o tema da classe %s (%s)" % [sid, cid, clip])
+				if s.kind == SkillDef.Kind.MAGICAL and s.clip == "" and s.target == SkillDef.Target.DIRECTION:
+					check(not (clip in basic_swings), "clipes C1: magia em linha %s não toca o golpe básico (%s)" % [sid, clip])
+				if s.vfx == "wind" and s.clip == "" and s.kind == SkillDef.Kind.MAGICAL:
+					check(clip != "cast_ice" and plays != "cast_ice", "clipes C1: vento %s não usa o gesto do gelo" % sid)
+	check(n_phys >= 100 and n_heal >= 8, "clipes C1: %d físicos e %d curas conferidos" % [n_phys, n_heal])
+	check(EntityView.clip_for_skill(gd.skills["dru_regrowth"], "mace2h") == "cast_heal_nature" and EntityView.clip_for_skill(gd.skills["bis_heal"], "mace") == "cast_holy",
+		"clipes C1: cura do Druida = natureza, do Bispo = luz")
+	var curse := EntityView.clip_for_skill(gd.skills["nec_curse"], "scythe")
+	var venom := EntityView.clip_for_skill(gd.skills["ass_smoke"], "dagger")
+	check(curse == "cast_curse" and venom != curse and EntityView.fallback_clip(venom) != EntityView.fallback_clip(curse), "clipes C1: maldição (%s) e veneno (%s) com gestos diferentes" % [curse, venom])
+	check(EntityView.clip_for_skill(gd.skills["ass_caltrops"], "dagger") == "atk_throw", "clipes C1: Abrolhos de uma mão = arremesso (era cast_ground)")
+	check(EntityView.clip_for_skill(gd.skills["nec_raise"], "scythe") == "summon_rise" and EntityView.clip_for_skill(gd.skills["ran_companion"], "bow") == "summon_call",
+		"clipes C1: Necromante ergue do chão, Ranger chama")
+	check(EntityView.clip_for_skill(gd.skills["ass_broadside"], "sword", "pistol") == "atk_pistol_fan", "clipes C1: Bordada (leque) = leque de pistola")
+	check(EntityView.clip_for_skill(gd.skills["ran_power_shot"], "bow") == "atk_bow_charge" and EntityView.clip_for_skill(gd.skills["ran_power_shot"], "rifle") == "atk_rifle",
+		"clipes C1: Tiro Poderoso de arco segura a corda; de rifle continua o tiro")
+	# monstro: nada muda (as regras novas só valem para skill de classe)
+	var mob := SkillDef.new()
+	mob.id = "mob_test_wind"
+	mob.kind = SkillDef.Kind.MAGICAL
+	mob.target = SkillDef.Target.DIRECTION
+	check(EntityView.clip_for_skill(mob, "staff") == "atk_staff", "clipes C1: magia em linha de monstro continua no gesto dele")
+	# reserva: todo clipe novo toca um clipe que já existe e tem impacto; forma de bicho tem par
+	for k in EntityView.CLIP_FALLBACK:
+		var fb: String = EntityView.CLIP_FALLBACK[k]
+		check(EntityView.IMPACT_FRAME.has(fb) and not EntityView.CLIP_FALLBACK.has(fb), "clipes C1: %s cai em %s (clipe de hoje, com impacto)" % [k, fb])
+		check(EntityView.FORM_CLIP.has(k) or k in ["atk_bow_charge", "atk_pistol_pair", "atk_pistol_fan"], "clipes C1: %s tem gesto de bicho" % k)
+	# quando o clipe novo chegar ao kit, ele precisa do quadro de impacto (senão o golpe cai no quadro 5)
+	for cid in ["necromancer", "druid", "ranger", "assassin"]:
+		var k := KitModel.create("male", Color.WHITE, 0.025, cid)
+		add_child(k)
+		for nm in EntityView.CLIP_FALLBACK:
+			if k.resolve(nm) != "":
+				check(EntityView.IMPACT_FRAME.has(nm), "clipes C1: %s chegou ao kit de %s: precisa de IMPACT_FRAME" % [nm, cid])
+		k.free()
+
+## Teleporte (2026-11-23): Passo das Sombras, Piscar, Passo Relampejante e o passo da Shazka somem e reaparecem; sem arco
+## de pulo nem clipe de avanço. `--only=teleport_look`
+func _check_teleport_look(gd) -> void:
+	var jumps := ["dash", "atk_leap", "atk_charge", "jump"]
+	for sid in ["ass_shadowstep", "ele_blink", "ele_bolt_step", "mob_shazka_step"]:
+		var s: SkillDef = gd.skill_or_basic(sid)
+		check(s != null, "teleporte: %s existe" % sid)
+		if s == null:
+			continue
+		for w in ["dagger", "dual_dagger", "staff", ""]:
+			var clip := EntityView.clip_for_skill(s, w)
+			check(not (clip in jumps) and not (EntityView.fallback_clip(clip) in jumps), "teleporte: %s (%s) não toca clipe de pulo/avanço (%s)" % [sid, w, clip])
+		check(TeleportFx.STYLES.has(EntityView.teleport_style(s)), "teleporte: %s tem estilo de efeito (%s)" % [sid, EntityView.teleport_style(s)])
+		check(s.effects.has("dash") and not EntityView.draws_arc(s, 7.0), "teleporte: %s é dash na sim e não desenha arco de pulo" % sid)
+		check(s.clip == "", "teleporte: %s sem clipe forçado no catálogo (era atk_charge)" % sid)
+	check(EntityView.TELEPORTS.size() == 4, "teleporte: 4 skills na tabela (%d)" % EntityView.TELEPORTS.size())
+	for st in EntityView.TELEPORTS.values():
+		check(TeleportFx.STYLES.has(st) and SkillFx.RING.has(TeleportFx.theme_of(st)) and TeleportFx.theme_of(st) != "blood",
+			"teleporte: estilo %s tem tema com aro (sem vermelho)" % st)
+	# salto de verdade continua com o arco; passo curto não
+	check(EntityView.draws_arc(gd.skills["ber_leap"] if gd.skills.has("ber_leap") else null, 6.0), "teleporte: salto comum (ber_leap) ainda desenha o arco")
+	check(not EntityView.draws_arc(null, 2.0), "teleporte: passo de 2 m não vira arco")
+	# todo dash do catálogo que o texto chama de teleporte / reaparecer está na tabela
+	var not_tp := ["mob_shadow_step"]          # "avanço curto" (sem sumir)
+	for sid in gd.skills:
+		var k: SkillDef = gd.skills[sid]
+		var txt := k.description.to_lower()
+		if k.effects.has("dash") and ("teleporta" in txt or "reaparece" in txt) and not (sid in not_tp):
+			check(EntityView.TELEPORTS.has(sid), "teleporte: %s diz que teleporta e está em EntityView.TELEPORTS" % sid)
+
+## Antecipação sem atraso (pacote V2, 2026-11-23): a skill começa o clipe na pose armada (COIL_FRAME) sem tirar o impacto
+## do tick do dano nem deixar o preparo abaixo de 1x; básico e Suprema ficam como antes; brilho e vento só para skill de
+## personagem; o vento tem som no banco e volume.
+func _check_anticipation(gd) -> void:
+	for clip in EntityView.COIL_FRAME:
+		check(EntityView.IMPACT_FRAME.has(clip) and int(EntityView.COIL_FRAME[clip]) > 1 and int(EntityView.COIL_FRAME[clip]) < int(EntityView.IMPACT_FRAME[clip]),
+			"antecipação: pose armada de %s antes do impacto" % clip)
+		var impact := float(int(EntityView.IMPACT_FRAME[clip]) - 1) / 24.0
+		var coil := float(int(EntityView.COIL_FRAME[clip]) - 1) / 24.0
+		for st in [0.06, 0.1, 0.12, 0.15, 0.2, 0.3, 0.5]:
+			var base := EntityView.windup_timing(impact, st)
+			var wt := EntityView.windup_timing(impact, st, coil)
+			check(wt.x >= base.x and wt.x <= maxf(coil, base.x) + 0.0001, "antecipação: %s %.2fs começa entre o normal e a pose armada" % [clip, st])
+			if wt.y > EntityView.ANIM_MIN_SPEED + 0.001 and wt.y < EntityView.ANIM_MAX_SPEED - 0.001:
+				check(absf((impact - wt.x) / wt.y - st) < 0.005, "antecipação: %s %.2fs impacto no tick do dano" % [clip, st])
+			if wt.x > base.x + 0.0001:
+				check(wt.y >= EntityView.COIL_MIN_SPEED - 0.001, "antecipação: %s %.2fs pula para a pose sem câmera lenta (%.2fx)" % [clip, st, wt.y])
+	var quick: SkillDef = gd.skills["ass_quick_stab"]
+	check(EntityView.coil_for(quick, "atk_sweep") > 0.0, "antecipação: skill rápida começa na pose armada")
+	var basic: SkillDef = gd.basic_skill_for_class(gd.classes["paladin"], "sword", "shield", "")
+	check(EntityView.coil_for(basic, "atk_1h_a") == 0.0 and EntityView.coil_for(gd.skills["pal_crusader_strike"], "atk_2h_chain_a") == 0.0,
+		"antecipação: básico e sequência de golpes ficam como antes")
+	var e := SimEntity.new()
+	e.kind = SimEntity.Kind.PLAYER
+	check(WindupGlint.wants(e, quick) and not WindupGlint.wants(e, basic), "antecipação: brilho na skill rápida, não no básico")
+	check(Sfx.whoosh_of(e, quick, false) == "whoosh" and Sfx.whoosh_of(e, basic, false) == "" and Sfx.whoosh_of(e, quick, true) == "",
+		"antecipação: vento antes do golpe de skill (não no básico nem no tiro)")
+	check(Sfx.whoosh_of(e, gd.skills["ele_spark"], false) in ["whoosh_magic", ""], "antecipação: magia rápida tem o vento de magia")
+	e.kind = SimEntity.Kind.MONSTER
+	check(not WindupGlint.wants(e, quick) and Sfx.whoosh_of(e, quick, false) == "", "antecipação: monstro fica no aviso de perigo (sem brilho/vento)")
+	for nm in ["whoosh", "whoosh_magic"]:
+		check(Sfx.VOL.has(nm) and ResourceLoader.exists("res://assets/audio/sfx/%s_1.wav" % nm), "antecipação: som %s no banco com volume" % nm)
+	check(Sfx.WHOOSH_LEAD >= 0.06 and Sfx.WHOOSH_LEAD <= 0.1, "antecipação: vento 60-100 ms antes do impacto")
 
 func _check_windup_timing() -> void:
 	for pair in [[0.375, 0.12], [0.29, 0.12], [0.33, 0.5], [0.2, 0.06]]:
@@ -2105,6 +2230,182 @@ func _check_settings_panel(_gd, sim) -> void:
 	sim.player = had_player
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(Tips.cfg_path))
 	Tips.cfg_path = old
+## Hit flash por tipo de dano (D5) e impactos por material (V3/V5): paleta, crítico branco, marcas do chão com teto e vida 1,5-4 s,
+## faíscas só nas famílias sem arco de lâmina, ribbons finos de cajado, flecha física sem rastro.
+func _check_vfx_v3v5() -> void:
+	check(HitTint.theme_for("physical", "fire") == "physical", "hit tint: golpe físico é aço mesmo com skill de fogo")
+	check(HitTint.theme_for("magical", "ice") == "ice" and HitTint.theme_for("dot_fire", "") == "fire" and HitTint.theme_for("shatter", "") == "ice", "hit tint: mágico pega o tema da skill, kinds de elemento mandam")
+	check(HitTint.color_for("magical", "holy") != HitTint.color_for("magical", "shadow"), "hit tint: dourado e roxo diferem")
+	var gold := Color(1, 0.75, 0.2)
+	check(HitTint.crit_number_color("physical", "fire", gold) == gold and HitTint.crit_number_color("magical", "fire", gold) == HitTint.COLORS["fire"] and HitTint.crit_number_color("dot_fire", "", gold) == HitTint.COLORS["fire"], "número de crítico: mágico na cor do elemento, físico segue dourado")
+	for th in ["physical", "fire", "ice", "lightning", "holy", "shadow", "nature", "poison", "blood"]:
+		check(HitTint.COLORS.has(th), "hit tint: paleta tem " + th)
+	HitTint.clear()
+	check(not HitTint.crit_of(12345) and HitTint.flash_look(12345)[1] == 0.0, "hit tint: sem golpe = borda (flash_full 0)")
+	check(ImpactFx.spark_kind("mace") == "blunt" and ImpactFx.spark_kind("spear") == "pierce" and ImpactFx.spark_kind("bow") == "puff" and ImpactFx.spark_kind("sword") == "", "impacto: poeira na maça, risco na lança, fumaça no arco, lâmina fica com WeaponArcs")
+	check(is_equal_approx(ImpactFx.mark_life(ImpactFx.MARK_MIN_RADIUS), ImpactFx.MARK_LIFE_MIN) and is_equal_approx(ImpactFx.mark_life(99.0), ImpactFx.MARK_LIFE_MAX), "impacto: marca dura 1,5 a 4 s")
+	check(ImpactFx.MARK_ALPHA <= 0.6 and ImpactFx.MARK_POOL <= 12, "impacto: marca fosca e com teto de nós")
+	for th in ImpactFx.MARKS:
+		var c: Color = ImpactFx.MARKS[th][1]
+		check(not (c.h > 0.95 or c.h < 0.04) or c.s < 0.45 or c.v < 0.35, "impacto: marca '%s' sem vermelho saturado (reservado ao aviso)" % th)
+	check(KitModel.THIN_TRAIL_WEAPONS.has("staff") and KitModel.THIN_TRAIL_BASE > 0.5, "V5: fita fina em cajado/foice/cetro")
+
+## Acessibilidade (AccessSettings; production/qa/combat-best-practices-2026-11-23.md §8, critério 15): padrões = o de antes,
+## salvar/ler num arquivo próprio (nunca o settings.cfg de verdade), tremor 0 = câmera sem deslocamento, efeitos dos aliados
+## nunca escondem os seus nem os de monstro (avisos), modos de contraste ligam um padrão diferente por mecânica.
+func _check_accessibility_settings(sim) -> void:
+	var old_path := AccessSettings.cfg_path
+	var old := [AccessSettings.shake, AccessSettings.flash, AccessSettings.contrast, AccessSettings.ally_fx]
+	AccessSettings.cfg_path = "user://test_access_settings.cfg"
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(AccessSettings.cfg_path))
+	# padrões = comportamento de antes
+	AccessSettings.load_settings()
+	check(AccessSettings.shake == 1.0 and AccessSettings.flash == 1.0 and AccessSettings.contrast == AccessSettings.Contrast.OFF
+		and AccessSettings.ally_fx == AccessSettings.Density.ALL, "acessibilidade: sem arquivo = padrões (100%, desligado, tudo)")
+	check(not AccessSettings.patterns_on() and AccessSettings.pattern_of(AccessSettings.Mech.DAMAGE).is_empty(), "acessibilidade: padrão = avisos sem desenho extra")
+	check(AccessSettings.tele_color(AccessSettings.Mech.DAMAGE, FxManager.DANGER) == FxManager.DANGER
+		and AccessSettings.tele_color(AccessSettings.Mech.CONTROL, FxManager.DANGER_CONTROL) == FxManager.DANGER_CONTROL, "acessibilidade: padrão = cores de sempre")
+	var all_pass := true
+	for i in 6:
+		all_pass = all_pass and AccessSettings.ally_pass()
+	check(all_pass, "acessibilidade: padrão = todos os efeitos dos aliados")
+	var tp := TelePattern.new()
+	tp.circle(AccessSettings.Mech.DAMAGE, Vector3.ZERO, 4.0, Color.WHITE, Color.RED, 0.1)
+	check(tp.count() == 0, "acessibilidade: desligado não desenha padrão")
+	# salvar e ler de volta
+	AccessSettings.set_shake(0.35)
+	AccessSettings.set_flash(0.2)
+	AccessSettings.cycle_contrast()
+	AccessSettings.cycle_contrast()
+	AccessSettings.cycle_ally_fx()
+	AccessSettings.reset_defaults()
+	AccessSettings.load_settings()
+	check(is_equal_approx(AccessSettings.shake, 0.35) and is_equal_approx(AccessSettings.flash, 0.2) and AccessSettings.contrast == AccessSettings.Contrast.COLORBLIND
+		and AccessSettings.ally_fx == AccessSettings.Density.REDUCED, "acessibilidade: salva e lê de volta (seção access)")
+	var cfg := ConfigFile.new()
+	check(cfg.load(AccessSettings.cfg_path) == OK and cfg.has_section("access"), "acessibilidade: grava no arquivo pedido")
+	# tremor: escala 0 = nenhum deslocamento; 1 = treme (ruído suave) e puxa para o lado do golpe
+	var nz := FastNoiseLite.new()
+	nz.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	nz.frequency = 0.5
+	check(CameraRig.shake_offset(nz, 0.3, 0.37, Vector3(1, 0, 0), 0.3, 0.0) == Vector3.ZERO, "tremor: escala 0 = sem deslocamento")
+	var moved := 0
+	for i in 10:
+		if CameraRig.shake_offset(nz, 0.3, 0.05 * i + 0.01, Vector3.ZERO, 0.3, 1.0).length() > 0.001:
+			moved += 1
+	check(moved >= 8, "tremor: escala 1 desloca a câmera (%d/10)" % moved)
+	var a0 := CameraRig.shake_offset(nz, 0.3, 0.2, Vector3.ZERO, 0.3, 1.0)
+	var a1 := CameraRig.shake_offset(nz, 0.3, 0.2 + 1.0 / 60.0, Vector3.ZERO, 0.3, 1.0)
+	check(a0.distance_to(a1) < 0.3 * 0.5, "tremor: ruído suave (quadro a quadro anda pouco)")
+	var biased := CameraRig.shake_offset(nz, 0.3, 0.2, Vector3(1, 0, 0), 0.3, 1.0)
+	check(biased.x - a0.x > 0.1, "tremor: puxa na direção do golpe")
+	var rig := CameraRig.new()
+	add_child(rig)
+	AccessSettings.shake = 0.0
+	rig.add_shake(0.5, Vector3(1, 0, 0))
+	rig._process(1.0 / 60.0)
+	var pitch := deg_to_rad(rig.pitch_deg)
+	var want := Vector3(0, sin(pitch), cos(pitch)).normalized() * rig.distance
+	check(rig.cam.position.is_equal_approx(want), "tremor 0%: a câmera fica exatamente no lugar")
+	AccessSettings.shake = 1.0
+	rig._process(1.0 / 60.0)
+	check(not rig.cam.position.is_equal_approx(want), "tremor 100%: a câmera treme")
+	rig.free()
+	# efeitos dos aliados: nunca os seus, nunca os de monstro (avisos)
+	var had_player = sim.player
+	var me := SimEntity.new()
+	me.id = 990001
+	me.kind = SimEntity.Kind.PLAYER
+	var pet := SimEntity.new()
+	pet.id = 990002
+	pet.kind = SimEntity.Kind.SUMMON
+	pet.owner_id = me.id
+	var bot := SimEntity.new()
+	bot.id = 990003
+	bot.kind = SimEntity.Kind.BOT
+	var mob := SimEntity.new()
+	mob.id = 990004
+	mob.kind = SimEntity.Kind.MONSTER
+	sim.player = me
+	for e: SimEntity in [me, pet, bot, mob]:
+		sim.entities[e.id] = e
+	var fxm := FxManager.new()
+	for d: int in [AccessSettings.Density.ALL, AccessSettings.Density.REDUCED, AccessSettings.Density.MINIMAL]:
+		AccessSettings.ally_fx = d
+		var hid := 0
+		var mine_ok := true
+		for i in 4:
+			mine_ok = mine_ok and not fxm._ally_fx_skip(me) and not fxm._ally_fx_skip(pet) and not fxm._ally_fx_skip(mob)
+			if fxm._ally_fx_skip(bot):
+				hid += 1
+		check(mine_ok, "aliados %s: os seus, da invocação e de monstro sempre aparecem" % AccessSettings.DENSITY_NAMES[d])
+		check(hid == [0, 2, 4][d], "aliados %s: esconde %d de 4 efeitos de bot (%d)" % [AccessSettings.DENSITY_NAMES[d], [0, 2, 4][d], hid])
+	check(fxm._own(me.id) and fxm._own(pet.id) and not fxm._own(bot.id), "aliados: _own = jogador e invocações dele")
+	fxm.free()
+	for e: SimEntity in [me, pet, bot, mob]:
+		sim.entities.erase(e.id)
+	sim.player = had_player
+	# contraste: um desenho diferente por mecânica, paleta segura no daltônico
+	var edges := {}
+	for mode: int in [AccessSettings.Contrast.HIGH, AccessSettings.Contrast.COLORBLIND]:
+		AccessSettings.contrast = mode
+		for m: int in AccessSettings.PATTERNS:
+			var pat := AccessSettings.pattern_of(m)
+			edges[pat["edge"]] = true
+			var t2 := TelePattern.new()
+			t2.circle(m, Vector3.ZERO, 4.0, Color.WHITE, Color.RED, 0.1)
+			var n_circle := t2.count()
+			t2.clear()
+			t2.strip(m, Vector3.ZERO, Vector3(0, 0, 1), 8.0, 2.0, Color.WHITE, Color.RED, 0.1)
+			var n_strip := t2.count()
+			t2.clear()
+			t2.fan(m, 5.0, deg_to_rad(90.0), Color.WHITE, Color.RED, 0.1)
+			check(n_circle > 0 and n_strip > 0 and t2.count() > 0 and t2.count() % 3 == 0 and t2.c.size() == t2.v.size(),
+				"contraste %s: mecânica %d desenha padrão" % [AccessSettings.CONTRAST_NAMES[mode], m])
+	check(edges.size() == AccessSettings.PATTERNS.size(), "contraste: borda própria por mecânica (%d)" % edges.size())
+	check(AccessSettings.pattern_of(AccessSettings.Mech.DAMAGE)["hatch"] and not AccessSettings.pattern_of(AccessSettings.Mech.SAFE)["hatch"], "contraste: listras só no dano")
+	var hatched := TelePattern.new()
+	hatched.circle(AccessSettings.Mech.DAMAGE, Vector3.ZERO, 4.0, Color.WHITE, Color.RED, 0.1)
+	var plain := TelePattern.new()
+	plain.circle(AccessSettings.Mech.DAMAGE, Vector3.ZERO, 4.0, Color.WHITE, Color.RED, 0.1, 0.0, 0.0, TAU, false)
+	check(hatched.count() > plain.count(), "contraste: dano com listras (área com setor seguro fica sem)")
+	var cb := AccessSettings.tele_color(AccessSettings.Mech.DAMAGE, FxManager.DANGER)
+	check(cb != FxManager.DANGER and cb.r > cb.b and cb.g > 0.2, "daltônico: dano vira laranja")
+	var safe_cb := AccessSettings.tele_color(AccessSettings.Mech.SAFE, BossSigView.SAND)
+	check(safe_cb.b > safe_cb.r, "daltônico: seguro vira azul")
+	check(AccessSettings.tele_color(AccessSettings.Mech.DAMAGE, FxManager.DANGER_RIM) == FxManager.DANGER_RIM, "daltônico: borda creme (neutra) fica")
+	var cols: Array = AccessSettings.COLORBLIND.values()
+	var far := true
+	for i in cols.size():
+		for j in range(i + 1, cols.size()):
+			var ci: Color = cols[i]
+			var cj: Color = cols[j]
+			far = far and Vector3(ci.r - cj.r, ci.g - cj.g, ci.b - cj.b).length() > 0.12
+	check(far, "daltônico: cores da paleta distintas entre si")
+	AccessSettings.contrast = AccessSettings.Contrast.HIGH
+	check(AccessSettings.tele_color(AccessSettings.Mech.DAMAGE, Color(FxManager.DANGER, 0.3)).a > 0.3, "alto contraste: área mais cheia")
+	# aba Acessibilidade do painel (grava no arquivo de teste)
+	AccessSettings.reset_defaults()
+	var sp := SettingsPanel.create()
+	add_child(sp)
+	check(sp.access_box != null and not sp.access_box.visible and sp.general_box.visible, "acessibilidade: painel abre na aba Geral")
+	sp.show_tab(1)
+	check(sp.access_box.visible and not sp.general_box.visible, "acessibilidade: aba Acessibilidade")
+	check(is_equal_approx(sp.shake_slider.value, 1.0) and is_equal_approx(sp.flash_slider.value, 1.0) and sp.contrast_button.text == "Avisos: Desligado"
+		and sp.ally_button.text == "Efeitos dos aliados: Tudo", "acessibilidade: linhas com os valores atuais")
+	sp.contrast_button.pressed.emit()
+	sp.ally_button.pressed.emit()
+	sp.shake_slider.value = 0.5
+	check(AccessSettings.contrast == AccessSettings.Contrast.HIGH and AccessSettings.ally_fx == AccessSettings.Density.REDUCED and is_equal_approx(AccessSettings.shake, 0.5)
+		and sp.contrast_button.text == "Avisos: Alto contraste", "acessibilidade: botões e barra mudam e mostram")
+	sp.free()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(AccessSettings.cfg_path))
+	AccessSettings.cfg_path = old_path
+	AccessSettings.reset_defaults()
+	AccessSettings.shake = old[0]
+	AccessSettings.flash = old[1]
+	AccessSettings.contrast = old[2]
+	AccessSettings.ally_fx = old[3]
 ## Carregamento (design/ux/start-flow.md §7, §10): etapas com pesos somando 1 e textos, dica de Tips.TIPS, barra que não
 ## volta, destino do pedido (cidade / começo rápido), cargas em thread que existem e degradê quando falta a arte da zona.
 func _check_loading_steps() -> void:
@@ -2706,6 +3007,8 @@ func run_all(gd, sim, balance, save) -> void:
 
 	_check_menu_set()
 	_check_settings_panel(gd, sim)
+	_check_accessibility_settings(sim)
+	_check_vfx_v3v5()
 	_check_loading_steps()
 	_check_loading_art(gd)
 	_check_title_screen(sim, save)
@@ -2717,7 +3020,11 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_dot_cap(GameData, Sim)
 	_check_ui_polish_r2(GameData, Sim)
 	_check_windup_timing()
+	_check_clip_routing(gd)
+	_check_anticipation(gd)
+	_check_teleport_look(gd)
 	_check_weapon_arcs(gd, sim)
+	_check_build_accents(gd)
 	_check_pose_fade()
 	_check_hand_twist()
 	_check_form_leg_twist()
@@ -2974,6 +3281,8 @@ func _check_zone(gd, sim) -> void:
 	_check_hotbar_clear(gd, sim)
 	_check_ui_click_gate()
 	_check_boss_lock()
+	_check_boss_bar(gd, sim)
+	_check_hit_feedback(gd, sim)
 	_check_summon_ai(gd, sim)
 	_check_summon_lost(gd, sim)
 	_check_party_invitable(gd, sim)
@@ -3243,6 +3552,7 @@ func _check_guard_arc(gd, sim) -> void:
 	d.is_blocking = true
 	d.parry_left = 0.2
 	d.stats.evasion = 0.0                               # sem a esquiva passiva da AGI (sorteio): o teste é do aparo
+	d.stats.dr_pct = 0.0                                # notável de sobrevivência do Cruzado/Templário (ROLE_NOTABLES, C10)
 	var hp: float = d.hp
 	sim._deal_damage(foe, d, 100, false, false, "physical", at.call(180.0))
 	check(d.parry_left > 0.0 and hp - d.hp >= 99.0, "aparo não vale pelas costas")
@@ -3857,6 +4167,7 @@ func _check_shields(gd, sim) -> void:
 		e.equipment[ItemDef.Slot.OFFHAND] = gd.items[shield]
 		e.recompute_stats()
 		e.stats.evasion = 0.0                 # o golpe tem de pegar (esquiva da AGI/equipamento sortearia no sim.rng compartilhado)
+		e.stats.dr_pct = 0.0                  # notáveis de sobrevivência do Cruzado/Templário (Balance.ROLE_NOTABLES): o golpe sem corte
 		e.heal_full()
 		return e
 	var foe: SimEntity = sim.spawn_bot(gd.classes["berserker"], "Bate", "city_aldara", Vector3(1.5, 0, 6), 30)
@@ -3927,6 +4238,9 @@ func _check_skill_clips() -> void:
 		for clip in EntityView.IMPACT_FRAME:
 			if EntityView.CLASS_ONLY_CLIPS.has(clip):     # clipe só do kit de uma classe: o genérico não leva (conferido abaixo)
 				check(not k.anim.has_animation(clip), "kit_%s: clipe %s fica só no kit da classe" % [body, clip])
+				continue
+			if EntityView.CLIP_FALLBACK.has(clip) and not k.anim.has_animation(clip):     # clipe de arquétipo (C2) só nos kits das classes que o usam: o genérico cai no substituto
+				check(k.resolve(str(EntityView.CLIP_FALLBACK[clip])) != "", "kit_%s: clipe %s cai no substituto %s" % [body, clip, EntityView.CLIP_FALLBACK[clip]])
 				continue
 			if clip != "attack" and not (clip in EntityView.FORM_CLIP.values()) and not EntityView.MOB_ONLY_CLIPS.has(clip):     # gestos de bicho ficam nas formas (_check_form_clips)
 				check(k.resolve(clip) != "", "kit_%s: clipe %s" % [body, clip])
@@ -4081,6 +4395,9 @@ func _check_combat_feel(gd, sim) -> void:
 	for e in [a, b, c]:
 		sim.despawn(e)
 	_check_skill_chain(gd, sim)
+	_check_channel_hold(gd, sim)
+	_check_hit_stop_local(gd)
+	_check_cc_dr(gd, sim)
 	_check_crusader_skills(gd, sim)
 	_check_paladin_weapon_roles(gd, sim)
 	_check_berserker_builds(gd, sim)
@@ -4119,6 +4436,12 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_monster_shift(gd, sim)
 	_check_training_dummy(gd, sim)
 	_check_keep_buffs(gd)
+	_check_heavy_startup(gd)
+	_check_dps_spread(gd, sim)
+	_check_skill_audit_floor(gd)
+	_check_bot_role_notes(gd, sim)
+	_check_ttk_targets(gd, sim)
+	_check_bot_gear_plus(gd, sim)
 	_check_frost_aspd(gd, sim)
 	_check_frost_armor_dr(gd, sim)
 	_check_ultimate_unlock(gd, sim)
@@ -4128,6 +4451,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_ultimate_storm(gd, sim)
 	_check_ultimate_barrage(gd, sim)
 	_check_ultimate_hop(gd, sim)
+	_check_vfx_tiers(gd)
 	_check_ultimate_intercept(gd, sim)
 	_check_ultimate_small_keys(gd, sim)
 	_check_ultimate_bots(gd, sim)
@@ -5711,6 +6035,7 @@ func _check_elemental_debuffs(gd, sim) -> void:
 	var stuns := 0
 	for i in range(400):
 		mob.set_state(SimEntity.State.IDLE)
+		mob.cc_dr.clear()                   # mede a chance, não o retorno decrescente (C7, _check_cc_dr)
 		sim._storm_proc(el, gd.skills["ele_lightning"], mob)
 		if mob.state == SimEntity.State.STUNNED:
 			stuns += 1
@@ -8407,6 +8732,182 @@ func _check_crusader_skills(gd, sim) -> void:
 	sim.despawn(pal)
 	sim.despawn(mob)
 
+## C7 (combat-plan 2026-11-23): retorno decrescente de controle nos monstros (CcDrSystem). `--only=cc_dr`
+func _check_cc_dr(gd, sim) -> void:
+	var at := ALDARA_FIELD + Vector3(-6, 0, 9)
+	var src: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Controle", "city_aldara", at, 30)
+	src.brain = null
+	var mob: SimEntity = sim.spawn_monster(gd.monsters["golem"], "city_aldara", at + Vector3(3, 0, 0))
+	mob.brain = null
+	var w: float = Balance.CC_DR_WINDOW
+	var base := 2.0
+	var stun := {"stun": {"duration": base}}
+	var durs: Array = []
+	for i in range(4):
+		mob.set_state(SimEntity.State.IDLE)
+		sim._apply_effects(src, mob, stun, 0.0)
+		durs.append(mob.state_duration if mob.state == SimEntity.State.STUNNED else 0.0)
+		sim.time += 1.0
+	var want: Array = []
+	for k in Balance.CC_DR_MULTS:
+		want.append(base * float(k) * mob.stats.cc_mult())
+	check(absf(float(durs[0]) - float(want[0])) < 0.01 and absf(float(durs[1]) - float(want[1])) < 0.01 and absf(float(durs[2]) - float(want[2])) < 0.01,
+		"controle DR: atordoar no monstro 100%% / 50%% / 25%% dentro de %.0f s (%s)" % [w, str(durs)])
+	check(float(durs[3]) == 0.0, "controle DR: 4ª aplicação na janela = imune (%s)" % str(durs))
+	# a imunidade não se estende tentando de novo; depois dela volta cheio
+	sim.time += w - 3.0          # 3ª aplicação foi há 2 s: imune até 8 s depois dela
+	mob.set_state(SimEntity.State.IDLE)
+	sim._apply_effects(src, mob, stun, 0.0)
+	check(mob.state != SimEntity.State.STUNNED, "controle DR: ainda imune antes de %.0f s" % w)
+	sim.time += 2.0
+	mob.set_state(SimEntity.State.IDLE)
+	sim._apply_effects(src, mob, stun, 0.0)
+	check(mob.state == SimEntity.State.STUNNED and absf(mob.state_duration - float(want[0])) < 0.01, "controle DR: depois de %.0f s de imunidade (tentar não estende) volta cheio" % w)
+	# categorias separadas: lentidão e raiz contam à parte do atordoar
+	mob.set_state(SimEntity.State.IDLE)
+	mob.debuffs.clear()
+	sim._apply_effects(src, mob, {"slow": {"pct": 30, "duration": base}, "root": {"duration": base}}, 0.0)
+	var sl: Array = mob.debuffs.filter(func(d): return d.get("kind") == "slow")
+	var rt: Array = mob.debuffs.filter(func(d): return d.get("kind") == "root")
+	check(sl.size() == 1 and rt.size() == 1 and absf(float(sl[0]["remaining"]) - float(want[0])) < 0.01, "controle DR: lentidão e raiz têm contagem própria (cheias depois de atordoar)")
+	sim.time += 1.0
+	mob.debuffs.clear()
+	sim._apply_effects(src, mob, {"slow": {"pct": 30, "duration": base}}, 0.0)
+	sim._apply_effects(src, mob, {"slow": {"pct": 30, "duration": base}}, 0.0)
+	sim._apply_effects(src, mob, {"slow": {"pct": 30, "duration": base}}, 0.0)
+	var sl2: Array = mob.debuffs.filter(func(d): return d.get("kind") == "slow").map(func(d): return snappedf(float(d["remaining"]), 0.01))
+	check(sl2.size() == 2 and absf(float(sl2[0]) - float(want[1])) < 0.01 and absf(float(sl2[1]) - float(want[2])) < 0.01, "controle DR: lentidão 2ª/3ª = 50%%/25%%, 4ª imune (%s)" % str(sl2))
+	# lentidão de gelo e de pulso de canal: fora do retorno decrescente (decisão 2026-11-23); a comum continua caindo
+	sim.time += w + 1.0
+	mob.debuffs.clear()
+	for i in range(4):
+		sim._apply_effects(src, mob, {"slow": {"pct": 30, "duration": base, "frost": true}}, 0.0)
+	var fr: Array = mob.debuffs.filter(func(d): return d.get("kind") == "slow" and absf(float(d["remaining"]) - float(want[0])) < 0.01)
+	check(fr.size() == 4, "controle DR: lentidão de gelo 4x seguidas fica cheia (%d de 4)" % fr.size())
+	mob.debuffs.clear()
+	var flay: SkillDef = gd.skills["nec_mind_flay"]
+	sim._start_skill(src, flay, 0, mob.position)
+	src.skill_applied = true
+	src.skill_phase = "active"
+	for i in range(4):
+		sim._apply_effects(src, mob, {"slow": {"pct": 40, "duration": base}}, 0.0)
+	var ch: Array = mob.debuffs.filter(func(d): return d.get("kind") == "slow" and absf(float(d["remaining"]) - float(want[0])) < 0.01)
+	check(ch.size() == 4, "controle DR: lentidão do pulso de canal 4x fica cheia (%d de 4)" % ch.size())
+	sim._end_skill(src)
+	src.set_state(SimEntity.State.IDLE)
+	mob.debuffs.clear()
+	for i in range(4):
+		sim._apply_effects(src, mob, {"slow": {"pct": 30, "duration": base}}, 0.0)
+	var nm: Array = mob.debuffs.filter(func(d): return d.get("kind") == "slow").map(func(d): return snappedf(float(d["remaining"]), 0.01))
+	check(nm.size() == 3 and absf(float(nm[2]) - float(want[2])) < 0.01, "controle DR: lentidão comum ainda cai (100/50/25, imune) %s" % str(nm))
+	# jogador/bots: sem retorno decrescente
+	var ally: SimEntity = sim.spawn_bot(gd.classes["berserker"], "SemDR", "city_aldara", at + Vector3(0, 0, 3), 30)
+	ally.brain = null
+	var pd: Array = []
+	for i in range(4):
+		ally.set_state(SimEntity.State.IDLE)
+		sim._apply_effects(mob, ally, stun, 0.0)
+		pd.append(snappedf(ally.state_duration, 0.01) if ally.state == SimEntity.State.STUNNED else 0.0)
+	check(pd.all(func(x): return absf(float(x) - base * ally.stats.cc_mult()) < 0.01), "controle DR: personagem não tem retorno decrescente (%s)" % str(pd))
+	# chefe: os 40% continuam e multiplicam o DR
+	var bdef: MonsterDef = null
+	for mid in gd.monsters:
+		if gd.monsters[mid].resists_cc() and not gd.monsters[mid].dummy:
+			bdef = gd.monsters[mid]
+			break
+	var boss: SimEntity = sim.spawn_monster(bdef, "city_aldara", at + Vector3(-4, 0, 0))
+	boss.brain = null
+	var bd: Array = []
+	for i in range(2):
+		boss.set_state(SimEntity.State.IDLE)
+		sim._apply_effects(src, boss, stun, 0.0)
+		bd.append(boss.state_duration if boss.state == SimEntity.State.STUNNED else 0.0)
+	var bc: float = boss.stats.cc_mult()
+	check(absf(float(bd[0]) - base * 0.4 * bc) < 0.01 and absf(float(bd[1]) - base * 0.4 * float(Balance.CC_DR_MULTS[1]) * bc) < 0.01, "controle DR: chefe %s leva 40%% e o DR soma (%s)" % [bdef.id, str(bd)])
+	for e in [src, mob, ally, boss]:
+		sim.despawn(e)
+
+## C2 (combat-plan 2026-11-23): hit-stop sempre local. Nenhum código de jogo/sim mexe no Engine.time_scale por golpe
+## (só o --speed do DevRunner); degraus: básico 2, pesado/finalizador >= 6, teto 12. `--only=hit_stop_local`
+func _check_hit_stop_local(gd) -> void:
+	var bad: Array = []
+	var dirs: Array = ["res://core", "res://game"]
+	while not dirs.is_empty():
+		var d: String = dirs.pop_back()
+		for sub in DirAccess.get_directories_at(d):
+			dirs.append(d + "/" + sub)
+		for f in DirAccess.get_files_at(d):
+			if not f.ends_with(".gd") or f == "dev_runner.gd":
+				continue
+			var txt := FileAccess.get_file_as_string(d + "/" + f)
+			if txt.contains("Engine.time_scale =") or txt.contains("Engine.time_scale="):
+				bad.append(f)
+	check(bad.is_empty(), "hit-stop: nenhum código de golpe põe Engine.time_scale (só o --speed do DevRunner): %s" % str(bad))
+	var basic: SkillDef = gd.skills.values().filter(func(s): return s.id == "basic_attack" or s.hit_stop_frames == Balance.HIT_STOP_FRAMES_BASIC).front()
+	check(Combat.hit_stop_frames(basic, Balance.HIT_STOP_FRAMES_BASIC, false, true) == Balance.HIT_STOP_FRAMES_BASIC, "hit-stop: básico para %d quadros" % Balance.HIT_STOP_FRAMES_BASIC)
+	var heavy: Array = gd.skills.values().filter(func(s): return s.kind == SkillDef.Kind.PHYSICAL and s.startup >= Balance.CAST_HEAVY_STARTUP and s.hit_stop_frames > 0)
+	var light_heavy: Array = heavy.filter(func(s): return Combat.hit_stop_frames(s, s.hit_stop_frames, false, false) < Balance.HIT_STOP_HEAVY_FRAMES)
+	check(heavy.size() > 5 and light_heavy.is_empty(), "hit-stop: golpe pesado (%d) para >= %d quadros (%s)" % [heavy.size(), Balance.HIT_STOP_HEAVY_FRAMES, str(light_heavy.slice(0, 3))])
+	var any_s: SkillDef = gd.skills.values().front()
+	check(Combat.hit_stop_frames(any_s, 2, true, false) >= Balance.HIT_STOP_HEAVY_FRAMES, "hit-stop: finalizador para >= %d quadros" % Balance.HIT_STOP_HEAVY_FRAMES)
+	check(Combat.hit_stop_frames(any_s, 40, true, false) == Balance.HIT_STOP_CAP_FRAMES and WeaponArcs.stop_frames_mult(10, 3.0) == Balance.HIT_STOP_CAP_FRAMES, "hit-stop: teto de %d quadros (sim e arcos)" % Balance.HIT_STOP_CAP_FRAMES)
+	check(Combat.hit_stop_frames(any_s, 0, true, false) == 0, "hit-stop: skill sem parada continua sem parada")
+
+## C1 (combat-plan 2026-11-23): segurar o básico durante um canal não encerra o canal (todos os pulsos saem);
+## uma skill apertada de propósito ainda encadeia depois do 1º pulso (regra de encadear). `--only=channel_hold`
+func _check_channel_hold(gd, sim) -> void:
+	var m: Dictionary = sim.maps["city_aldara"]
+	var dt := 1.0 / 60.0
+	var at := Vector3(0, 0, 6)
+	var tested := 0
+	var cut: Array = []
+	for cid in gd.classes:
+		for sid in gd.classes[cid].skill_ids:
+			var s: SkillDef = gd.skills.get(sid)
+			if s == null or not s.effects.has("channel"):
+				continue
+			var n := int(s.effects["channel"].get("ticks", 3))
+			var e: SimEntity = sim.spawn_bot(gd.classes[cid], "Canal", "city_aldara", at, 45)
+			e.brain = null
+			e.mp = e.stats.max_mp
+			sim._start_skill(e, s, 0, at + Vector3(0, 0, 4))
+			var pulses := 0
+			for tick in range(int((s.startup + s.active + s.recovery) / dt) + 10):
+				var held := InputCommand.new()
+				held.aim = at + Vector3(0, 0, 4)
+				held.attack = true
+				sim._apply_command(e, held, m, dt)
+				if e.current_skill != s:
+					break
+				sim._update_entity(e, m, dt)
+				if e.current_skill == s:
+					pulses = maxi(pulses, e.channel_done)
+			tested += 1
+			if pulses < n:
+				cut.append("%s %d/%d" % [sid, pulses, n])
+			sim.despawn(e)
+	check(tested >= 4, "canais testados com o básico segurado (%d)" % tested)
+	check(cut.is_empty(), "segurar o básico não corta o canal: todos os pulsos saem (%d cortados: %s)" % [cut.size(), str(cut.slice(0, 6))])
+	# skill apertada de propósito ainda encadeia depois do 1º pulso
+	var cls = gd.classes["necromancer"]
+	var nec: SimEntity = sim.spawn_bot(cls, "Canal2", "city_aldara", at, 45)
+	nec.brain = null
+	var flay: SkillDef = gd.skills["nec_mind_flay"]
+	sim._start_skill(nec, flay, 0, at + Vector3(0, 0, 4))
+	nec.skill_applied = true
+	nec.skill_phase = "active"
+	nec.channel_done = 1
+	nec.state_time = flay.startup + Balance.CHAIN_AFTER_IMPACT + 0.01
+	var press := InputCommand.new()
+	press.skill_slot = 1
+	var basic := InputCommand.new()
+	basic.attack = true
+	check(sim._can_chain(nec, press), "canal: skill apertada encadeia depois do 1º pulso")
+	check(not sim._can_chain(nec, basic), "canal: o básico (segurado) não encadeia no meio do canal")
+	nec.channel_done = int(flay.effects["channel"].get("ticks", 3))
+	check(sim._can_chain(nec, basic), "canal: depois do último pulso o básico encadeia de novo")
+	sim.despawn(nec)
+
 func _check_skill_chain(gd, sim) -> void:
 	var m: Dictionary = sim.maps["city_aldara"]
 	var dt := 1.0 / 60.0
@@ -9415,6 +9916,58 @@ func _check_repeatable_labels(gd) -> void:
 ## no GLB (centenas de chãos de dungeon dentro de cada elfo/grifo/casa élfica).
 ## Peça que brilha no GLB do monstro (brasa, runa, olho: emissão > 1) continua brilhando depois do toon e da fusão
 ## (EntityView.mob_glow -> emission_amount); m_white (emissão 1,0 só para clarear) não brilha. O hit flash segue nos materiais.
+## V4 (decisão D3): toda build tem acento (cor + forma) em BuildAccent.ACCENTS, as irmãs da classe diferem na forma e na cor,
+## nenhuma cor cai na paleta de aviso/segura, forma existe em SHAPES, e toda skill de build e toda Suprema acham o acento.
+## `--only=build_accents`
+func _check_build_accents(gd) -> void:
+	var keys := {}
+	for cid in gd.classes:
+		var cls: ClassDef = gd.classes[cid]
+		var sib: Array = []
+		for b in cls.builds:
+			var k := BuildAccent.key_of(cid, str(b["id"]))
+			keys[k] = true
+			check(BuildAccent.ACCENTS.has(k), "acento V4: build %s tem entrada em BuildAccent.ACCENTS" % k)
+			if not BuildAccent.ACCENTS.has(k):
+				continue
+			var c := BuildAccent.color(k)
+			var sh := BuildAccent.shape(k)
+			check(BuildAccent.SHAPES.has(sh), "acento V4: forma '%s' de %s existe em SHAPES" % [sh, k])
+			var clash := BuildAccent.reserved_clash(c)
+			check(clash == "", "acento V4: cor de %s (%s) longe da paleta de aviso/segura (%s)" % [k, c.to_html(false), clash])
+			for o in sib:
+				check(BuildAccent.shape(o) != sh, "acento V4: irmãs %s e %s com formas diferentes" % [k, o])
+				var d := BuildAccent.rgb_dist(c, BuildAccent.color(o))
+				check(d >= BuildAccent.SIBLING_MIN_DIST, "acento V4: irmãs %s e %s com cores distintas (%.2f)" % [k, o, d])
+			sib.append(k)
+	for k in BuildAccent.ACCENTS:
+		check(keys.has(k), "acento V4: %s é de uma build que existe" % k)
+	var miss: Array = []
+	for sid in gd.skills:
+		var s: SkillDef = gd.skills[sid]
+		if s.build != "" and s.class_id != "" and gd.classes.has(s.class_id) and BuildAccent.of_skill(s) == "":
+			miss.append(sid)
+	check(miss.is_empty(), "acento V4: toda skill de build acha o acento sem precisar de quem lançou (%s)" % str(miss.slice(0, 6)))
+	var ults := 0
+	for cid in gd.ultimates:
+		for bid in gd.ultimates[cid]:
+			var us: SkillDef = gd.skills.get(gd.ultimates[cid][bid])
+			if us != null and BuildAccent.of_skill(us) == BuildAccent.key_of(cid, bid):
+				ults += 1
+	check(ults == 24, "acento V4: as 24 Supremas levam o acento da build delas (%d)" % ults)
+	# skill geral (build "") herda a build de quem lança
+	var e := SimEntity.new()
+	e.class_def = gd.classes["paladin"]
+	e.build_id = "templario"
+	var gen: SkillDef = null
+	for sid in gd.skills:
+		var s2: SkillDef = gd.skills[sid]
+		if s2.class_id == "paladin" and s2.build == "" and not s2.ultimate:
+			gen = s2
+			break
+	check(gen != null and BuildAccent.of_skill(gen, e) == "paladin_templario", "acento V4: skill geral usa a build de quem lançou")
+	check(BuildAccent.PARTICLES_MAX <= 14, "acento V4: teto de partículas por evento <= 14")
+
 func _check_mob_glow(gd, sim) -> void:
 	var white := StandardMaterial3D.new()
 	white.resource_name = "m_white"
@@ -13966,6 +14519,10 @@ func _check_skill_visuals(gd) -> void:
 			continue                     # gesto de bicho: só nas formas (_check_form_clips); de monstro ou só do kit de uma classe: _check_skill_clips
 		for k in kits:
 			var name: String = k.resolve(clip)
+			if name == "" and EntityView.CLIP_FALLBACK.has(clip):     # clipe de arquétipo (C2) só nos kits das classes: o genérico cai no substituto
+				name = k.resolve(str(EntityView.CLIP_FALLBACK[clip]))
+				check(name != "", "clipe %s cai no substituto no kit" % clip)
+				continue
 			check(name != "", "clipe %s existe no kit" % clip)
 			if name != "":
 				var frames: float = k.anim.get_animation(name).length * 24.0
@@ -19934,6 +20491,8 @@ func _check_bot_unstuck(gd, sim) -> void:
 		for o: SimEntity in fm["entities"].duplicate():
 			if o.kind == SimEntity.Kind.MONSTER and o.position.distance_to(outside) < 45.0:
 				sim.despawn(o)
+		var rng_keep2: int = sim.rng.state
+		sim.rng.seed = 20444                 # cérebro do bot e o mundo do forte sorteiam pelo rng da sim: sem semente o resultado mudava com a ordem da suíte
 		var mob: SimEntity = sim.spawn_monster(gd.monsters["skel_archer"], "fort_bones", inner)
 		mob.brain = null
 		var hb: SimEntity = sim.spawn_bot(gd.classes["berserker"], "Muro", "fort_bones", outside, 26)
@@ -19969,6 +20528,7 @@ func _check_bot_unstuck(gd, sim) -> void:
 		check(near or b2.hunt_target_id != mob.id, "... e em 25 s chega pelo portão ou larga o alvo (alvo %d, monstro %d, em %s)" % [b2.hunt_target_id, mob.id, hb.position])
 		sim.despawn(hb)
 		sim.despawn(mob)
+		sim.rng.state = rng_keep2
 	# R3: a ponta do rio de Aldara a 1,6 m do lago conta como água (antes a linha passava pela fresta e o bot encalhava)
 	var slots := 0
 	for w in tdef.water:
@@ -20002,6 +20562,8 @@ func _check_bot_unstuck(gd, sim) -> void:
 		if not sim.maps.has(inn):
 			sim.load_map(gd.maps[inn])
 		var dp: Vector3 = door["pos"]
+		var rng_keep5: int = sim.rng.state
+		sim.rng.seed = 20508                 # idem (R5): o seguidor e o mundo da vila sorteiam pelo rng da sim
 		var lead: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Casa", town, dp, 10)
 		lead.brain = null
 		var spot: Vector3 = dp + (c - dp).normalized() * 9.0
@@ -20010,17 +20572,24 @@ func _check_bot_unstuck(gd, sim) -> void:
 		sim.party_accept(fol)
 		sim._pending_map_changes.append({"e": lead, "map": inn, "pos": gd.maps[inn].spawn_point})
 		sim._process_map_changes()
-		var on_door := false
+		# "subir na porta" = ficar nela (o bug: esperava em cima da soleira ou era puxado). Passar rente por um instante, no
+		# desvio de um obstáculo a caminho do ponto de espera, não conta (semente 20508: 0,25 s a 1,10 m, e segue até o ponto)
+		var door_t := 0.0
+		var door_worst := 0.0
 		for i in range(int((Balance.PARTY_CATCHUP_TIME + 3.0) * 20)):
 			sim.tick(0.05)
 			if fol.map_id == town and Vector2(fol.position.x - dp.x, fol.position.z - dp.z).length() <= float(door.get("radius", 2.0)) + 0.3:
-				on_door = true
+				door_t += 0.05
+				door_worst = maxf(door_worst, door_t)
+			else:
+				door_t = 0.0
 		var dd := fol.position.distance_to(dp)
-		check(not on_door, "seguidor não sobe na porta só do jogador (líder lá dentro)")
+		check(door_worst <= 0.5 and door_t == 0.0, "seguidor não fica na porta só do jogador (líder lá dentro; %.2f s seguidos no máximo)" % door_worst)
 		check(fol.map_id == town and dd < Balance.BOT_DOOR_WAIT + 2.0, "seguidor espera do lado de fora, perto da porta (%s, %.1f m)" % [fol.map_id, dd])
 		sim.party_leave(fol)
 		sim.despawn(fol)
 		sim.despawn(lead)
+		sim.rng.state = rng_keep5
 
 ## Contorno do povoado murado (BotBrain._ring): o sentido escolhido (o caminho mais curto) vale até chegar; não vira no meio
 ## por um pensamento sem ponto livre (ex.: em cima da ponte da Floresta, colada no muro leste) nem por velocidade/ponto de
@@ -26326,6 +26895,141 @@ func _check_road_events(gd, _sim) -> void:
 
 ## Tab = trava no chefe (BossLock, game/player/boss_lock.gd; decisão 2026-11-18): só chefe de verdade, regras de soltar,
 ## movimento W/S/A/D em volta do chefe (A/D puro orbita sem espiralar) e mira = chefe para todo tipo de alvo.
+## C4 (combat-plan 2026-11-23): barra do chefe no topo do HUD (BossBar). Só apresentação. `--only=boss_bar`
+func _check_boss_bar(gd, sim) -> void:
+	var p: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Barra", "city_aldara", Vector3(-40, 0, -40), 36)
+	p.brain = null
+	var mate: SimEntity = sim.spawn_bot(gd.classes["bishop"], "Colega", "city_aldara", Vector3(-41, 0, -40), 36)
+	mate.brain = null
+	p.party_id = 900
+	mate.party_id = 900
+	var boss: SimEntity = sim.spawn_monster(gd.monsters["boss_agitator_lord"], "city_aldara", Vector3(-40, 0, -48))
+	boss.brain = null
+	var ents: Array = sim.map_entities("city_aldara")
+	var R := Balance.BOSS_LOCK_RELEASE
+	boss.threat.clear(); boss.damage_by.clear(); boss.aggro_target = -1
+	check(BossBar.pick(ents, p, R) == null, "Barra do chefe: chefe que não briga com você nem com o grupo não aparece")
+	check(BossBar.pick(ents, p, R, boss.id) == boss, "Barra do chefe: o travado no Tab aparece mesmo antes da luta")
+	boss.threat[mate.id] = 50.0
+	check(BossBar.pick(ents, p, R) == boss, "Barra do chefe: briga com alguém do seu grupo = aparece")
+	boss.threat.clear()
+	boss.aggro_target = p.id
+	check(BossBar.pick(ents, p, R) == null, "Barra do chefe: alvo sem luta em curso (fight_time 0, como depois do reset) não aparece")
+	boss.fight_time = 1.0
+	check(BossBar.pick(ents, p, R) == boss, "Barra do chefe: chefe com você como alvo aparece")
+	var keep := boss.position
+	boss.position = p.position + Vector3(0, 0, R + 2.0)
+	check(BossBar.pick(ents, p, R) == null, "Barra do chefe: longe demais (> %.0f m) some" % R)
+	boss.position = keep
+	var md: MonsterDef = boss.monster_def
+	var marks: Array = BossBar.phase_marks(md)
+	check(marks.size() == md.phases.size() and marks.size() >= 1, "Barra do chefe: uma marca por fase (%d)" % marks.size())
+	check(BossBar.phase_text(md, 1).begins_with("◆") and BossBar.phase_text(md, 0).begins_with("◇"), "Barra do chefe: fase começada = ◆, que falta = ◇")
+	var bar := BossBar.new()
+	boss.hp = boss.stats.max_hp * 0.55
+	boss.phase = 1
+	boss.ward = 0.4
+	bar.lock_id = boss.id
+	bar.show_boss(sim, boss)
+	check(absf(bar._hp.frac - 0.55) < 0.01 and bar._hp.text.begins_with("55%"), "Barra do chefe: vida em %% (%s)" % bar._hp.text)
+	check(bar._hp.marks == marks, "Barra do chefe: marcas das fases na faixa da vida")
+	check(bar._ward.text.contains("40"), "Barra do chefe: protegido pelos lacaios mostra o corte (%s)" % bar._ward.text)
+	check(bar._name.text.contains(md.name) and bar._name.text.contains("Travado"), "Barra do chefe: nome + travado")
+	check(not bar._cast.visible, "Barra do chefe: sem conjuração, sem barra de conjuração")
+	var drum: SkillDef = gd.skills["mob_drum_frenzy"]
+	sim._add_skills(boss, [drum.id])
+	sim._start_skill(boss, drum, boss.skills.find(drum), p.position)
+	var ci: Dictionary = BossBar.cast_info(sim, boss)
+	check(not ci.is_empty() and ci.get("name", "") == drum.name and float(ci.get("left", 0.0)) > 0.0, "Barra do chefe: preparação de %.1f s ganha barra" % drum.startup)
+	BossSignatures.channel_start(sim, boss, drum, drum.effects)
+	ci = BossBar.cast_info(sim, boss)
+	check(not ci.is_empty() and ci.get("break", false) and absf(float(ci.get("left", 0.0)) - drum.active) < 0.05, "Barra do chefe: canal da assinatura com o tempo e 'interrompa!'")
+	bar.show_boss(sim, boss)
+	check(bar._cast.visible and bar._cast.text.contains("interrompa"), "Barra do chefe: barra de conjuração aparece (%s)" % bar._cast.text)
+	sim.reset_boss(boss)
+	check(not BossBar.cast_info(sim, boss).get("break", false), "Barra do chefe: reset limpa o canal da assinatura")
+	check(BossBar.pick(sim.map_entities("city_aldara"), p, R) == null, "Barra do chefe: chefe resetado (ameaça limpa) some")
+	check(BossBar.mech_of(gd.skills["mob_entangle"]) == AccessSettings.Mech.CONTROL, "Barra do chefe: controle (Enredar) em roxo")
+	check(BossBar.mech_of(gd.skills["mob_durgash_throneaxe"]) == AccessSettings.Mech.SOAK, "Barra do chefe: dividir (Machado do Trono) em dourado")
+	check(BossBar.mech_of(gd.skills["mob_tide_flood"]) == AccessSettings.Mech.SAFE, "Barra do chefe: ilhas da maré (lugar seguro) em frio")
+	check(BossBar.mech_of(drum) == AccessSettings.Mech.DAMAGE, "Barra do chefe: o resto em carmim")
+	boss.state = SimEntity.State.DEAD
+	check(BossBar.pick(sim.map_entities("city_aldara"), p, R, boss.id) == null, "Barra do chefe: chefe morto some (até travado)")
+	bar.free()
+	for e in [p, mate, boss]:
+		sim.despawn(e)
+
+## C3 (combat-plan 2026-11-23): golpe forte no corpo, postura do chefe, controle no corpo, som por alvo. `--only=hit_feedback`
+func _check_hit_feedback(gd, sim) -> void:
+	var p: SimEntity = sim.spawn_bot(gd.classes["berserker"], "Tranco", "city_aldara", Vector3(-40, 0, -40), 30)
+	p.brain = null
+	var mx := p.stats.max_hp
+	check(HitReact.strength(p, int(mx * 0.03), false, "physical") == 0.0, "Tranco: golpe pequeno (3%) não mexe o personagem")
+	var s10 := HitReact.strength(p, int(mx * 0.10), false, "physical")
+	check(s10 >= HitReact.MIN_STRENGTH and s10 < 1.0, "Tranco: golpe forte (10%%) inclina (%.2f)" % s10)
+	check(HitReact.strength(p, int(mx * 0.5), false, "magical") == 1.0, "Tranco: golpe enorme = força 1")
+	check(HitReact.strength(p, int(mx * 0.3), true, "physical") == 0.0 and HitReact.strength(p, int(mx * 0.3), false, "dot") == 0.0,
+		"Tranco: bloqueado e dano no tempo não mexem")
+	var boss: SimEntity = sim.spawn_monster(gd.monsters["boss_agitator_lord"], "city_aldara", Vector3(-40, 0, -50))
+	boss.brain = null
+	var bh := boss.stats.max_hp
+	check(HitReact.poised(boss), "Postura: chefe não encolhe no clarão de cada golpe")
+	check(HitReact.strength(boss, int(bh * 0.02), false, "physical") == 0.0, "Postura: golpe comum (2%) no chefe não o faz encolher")
+	check(HitReact.strength(boss, int(bh * 0.06), false, "physical") == 1.0, "Postura: golpe grande (>= %.0f%%) quebra a postura" % (HitReact.BOSS_POISE_PCT * 100.0))
+	check(HitReact.strength(boss, 0, false, "interrupt") == 1.0, "Postura: interrompido encolhe")
+	var mob_id := ""
+	for mid in gd.monsters:
+		if not gd.monsters[mid].is_boss:
+			mob_id = mid
+			break
+	var mob: SimEntity = sim.spawn_monster(gd.monsters[mob_id], "city_aldara", Vector3(-44, 0, -50))
+	mob.brain = null
+	check(not HitReact.poised(mob) and HitReact.strength(mob, 9999, false, "physical") == 0.0, "Postura: monstro comum segue o encolher do clarão (EntityView)")
+	var sk := Skeleton3D.new()
+	for b in ["hips", "spine", "chest", "neck"]:
+		sk.add_bone(b)
+	sk.set_bone_parent(1, 0)
+	sk.set_bone_parent(2, 1)
+	sk.set_bone_parent(3, 2)
+	add_child(sk)
+	var hf := HitFlinch.new()
+	sk.add_child(hf)
+	hf.setup(sk)
+	check(hf._bones.size() == 3 and not hf.active, "Tranco: HitFlinch acha tronco, peito e pescoço e fica desligado")
+	hf.kick(Vector3(0, 0, 1), 1.0)
+	check(hf.active and hf.busy(), "Tranco: golpe liga a reação")
+	hf._process(HitFlinch.IN_S + HitFlinch.OUT_S + 0.01)
+	check(not hf.active and not hf.busy(), "Tranco: volta sozinha em %.2f s (nunca segura o boneco)" % (HitFlinch.IN_S + HitFlinch.OUT_S))
+	sk.queue_free()
+	for k in ["stun", "root", "slow"]:
+		var row: Array = BuffLooks.cc_look(k)
+		check(row.size() == 2 and row[0] in BuffLooks.CC_SHAPES, "Controle no corpo: '%s' tem visual (%s)" % [k, row])
+		check(SkillDef.EFFECT_KEYS.has(k), "Controle no corpo: '%s' é efeito de skill" % k)
+	check(BuffLooks.cc_look("slow", true)[0] == "frost" and BuffLooks.cc_look("slow")[0] == "drag" and BuffLooks.cc_look("root")[0] == "roots",
+		"Controle no corpo: lento de gelo = anel de gelo, lento comum = rastro, preso = raízes")
+	var rt: Node3D = CcLook.roots(0.5, 1.0)
+	check(rt.get_child_count() >= CcLook.ROOT_COUNT, "Controle no corpo: raízes em volta dos pés (%d peças)" % rt.get_child_count())
+	rt.free()
+	var dg: CPUParticles3D = CcLook.drag(0.5, 1.0)
+	check(not dg.local_coords and not dg.emitting, "Controle no corpo: rastro fica no mundo (para trás) e nasce desligado")
+	dg.free()
+	for n in Sfx.HIT_SOUND.values() + Sfx.IMPACT_SOUND.values() + ["impact_arcane"]:
+		check(Sfx.VOL.has(n) and (ResourceLoader.exists("res://assets/audio/sfx/%s_1.wav" % n) or ResourceLoader.exists("res://assets/audio/sfx/%s_1.ogg" % n)), "Som por alvo '%s' no banco com volume (build_sfx --only=%s)" % [n, n])
+	p.stats.weapon_type = "axe"
+	check(Sfx.hit_sound(p) == "hit_chop", "Som por alvo: machado do Berserker = corte pesado (%s)" % Sfx.hit_sound(p))
+	check(Sfx.hit_sound(null) == "hit", "Som por alvo: sem atacante = golpe de sempre")
+	var fire_sk: SkillDef = null
+	for sid in gd.skills:
+		if FxManager.theme_of(gd.skills[sid]) == "fire" and gd.skills[sid].kind == SkillDef.Kind.MAGICAL:
+			fire_sk = gd.skills[sid]
+			break
+	var keep_sk := p.current_skill
+	p.current_skill = fire_sk
+	check(Sfx.impact_sound(p) == "impact_fire", "Som por alvo: magia de fogo soa fogo no alvo")
+	p.current_skill = keep_sk
+	for e in [p, boss, mob]:
+		sim.despawn(e)
+
 func _check_boss_lock() -> void:
 	var mk_mob := func(id: int, pos: Vector3, boss: bool, elite: String, decoy: bool) -> SimEntity:
 		var md := MonsterDef.new()
@@ -27068,6 +27772,286 @@ func _check_frost_aspd(gd, sim) -> void:
 	sim.despawn(t)
 
 ## Buffs de "ligar e esquecer" duram Balance.BUFF_KEEP_S (decisão 2026-11-19); o escudo absorvente das armaduras fica curto
+## C6 (combat-plan 2026-11-23): piso do skill_audit (tools/tests/skill_audit.gd, poder efetivo por recarga sem o BUILD_POWER
+## contra a mediana da classe na faixa ±6 níveis): toda skill de dano >= SkillAudit.WEAK_RATIO, fora as de utilidade escritas em
+## AUDIT_UTILITY (controle/mobilidade/marca: o valor delas não é o golpe) e as pendentes de AUDIT_PENDING (fracas de antes, fora
+## do pacote C6; não pode entrar skill nova aqui). `--only=skill_audit_floor`
+const AUDIT_UTILITY := ["ass_shadowstep", "ass_smoke", "nec_curse_weakness", "nec_curse_doom", "ran_net", "ran_anchor", "ass_paralyze",
+	"dru_entangle", "pal_shield_bash", "ber_blade_rush", "ass_grapple", "ran_predator"]
+const AUDIT_PENDING := ["pal_brand", "pal_retribution", "ber_warcry", "bis_holy_nova", "dru_pounce", "ran_snare_toss", "nec_drain",
+	"nec_grave_grasp", "nec_grim"]
+func _check_skill_audit_floor(gd) -> void:
+	var audit: GDScript = load("res://tools/tests/skill_audit.gd")
+	for cid in gd.classes:
+		var list: Array = []
+		for sid in gd.classes[cid].skill_ids:
+			var sk: SkillDef = gd.skills[sid]
+			if audit.damaging(sk):
+				list.append(sk)
+		for sk: SkillDef in list:
+			if sk.id in AUDIT_UTILITY or sk.id in AUDIT_PENDING:
+				continue
+			var rates: Array = []
+			for o: SkillDef in list:
+				if absi(o.unlock_level - sk.unlock_level) <= 6:
+					rates.append(audit.effective(o) / maxf(1.0, o.cooldown))
+			rates.sort()
+			var med: float = rates[rates.size() / 2]
+			var r: float = audit.effective(sk) / maxf(1.0, sk.cooldown)
+			check(r >= med * audit.WEAK_RATIO, "C6: %s rende %.0f%% da mediana da classe (piso %.0f%%)" % [sk.id, 100.0 * r / med, 100.0 * audit.WEAK_RATIO])
+
+## C11 (combat-plan 2026-11-23): tempo de abate de lixo e elite por faixa (Balance.TTK_TARGETS). Por faixa: entre os monstros comuns
+## que nascem em algum mapa (xp > 0, fora chefe/boneco/Rei), "lixo" = o de vida mediana e "elite" = o de mais vida; um bot da build
+## de referência (Balance.TTK_REF_BUILD, perto da mediana de dano) no nível do monstro o derruba parado (sem cérebro: só o ataque).
+## Imprime "TTK <faixa> lixo/elite <id> <s>". A medida com movimento e dano recebido é a do band_probe (docs/DESIGN.md). `--only=ttk_targets`
+func _check_ttk_targets(gd, sim) -> void:
+	var spawned := {}
+	for mid in gd.maps:
+		for sp in gd.maps[mid].spawners:
+			spawned[str(sp["monster_id"])] = true
+	var keep := [ProgressionSystem.bot_core, ProgressionSystem.bot_charges, ClassTalentSystem.bot_picks]
+	ProgressionSystem.bot_core = true
+	ProgressionSystem.bot_charges = true
+	ClassTalentSystem.bot_picks = true
+	var was_player: SimEntity = sim.player
+	var was_away: int = sim.away_every
+	sim.away_every = 100000
+	for band: Dictionary in Balance.TTK_TARGETS:
+		var mobs: Array = []
+		for mid in spawned:
+			var md: MonsterDef = gd.monsters.get(mid)
+			if md and md.xp > 0 and not md.is_boss and not md.dummy and md.elite_of == "" and md.level >= int(band["from"]) and md.level <= int(band["to"]):
+				mobs.append(md)
+		check(mobs.size() >= 3, "C11: faixa %s tem monstros (%d)" % [band["name"], mobs.size()])
+		if mobs.size() < 3:
+			continue
+		mobs.sort_custom(func(a, b): return a.hp < b.hp or (a.hp == b.hp and a.id < b.id))
+		for kind in ["trash", "elite"]:
+			var md: MonsterDef = mobs[mobs.size() / 2] if kind == "trash" else mobs.back()
+			var t := ttk_fight(gd, sim, Balance.TTK_REF_BUILD[0], Balance.TTK_REF_BUILD[1], md)
+			var lim: Array = band[kind]
+			print("TTK %s %s %s nv=%d hp=%.0f %.1fs (alvo %.1f-%.1f)" % [band["name"], kind, md.id, md.level, md.hp, t, lim[0], lim[1]])
+			check(t >= float(lim[0]) and t <= float(lim[1]), "C11: %s %s (%s) cai em %.1f s (alvo %.1f-%.1f s)" % [band["name"], kind, md.id, t, lim[0], lim[1]])
+	sim.player = was_player
+	sim.away_every = was_away
+	ProgressionSystem.bot_core = keep[0]
+	ProgressionSystem.bot_charges = keep[1]
+	ClassTalentSystem.bot_picks = keep[2]
+
+## Lutas por medida do C11 (mediana): uma luta só oscila um golpe crítico inteiro (lixo do 20-30 cai em 3 a 8 ticks).
+const TTK_TRIALS := 5
+
+## Equipamento de bot não pega as cópias +N do ferreiro (GameData.plus_item): elas entram no fim de GameData.items e a
+## varredura (o último do tipo vence) vestia o bot com +N depois que alguém aprimorava; a força dos bots (e o C11/C5 na
+## suíte inteira) dependia disso. `--only=bot_gear_plus`
+func _check_bot_gear_plus(gd, sim) -> void:
+	var b: SimEntity = sim.spawn_bot(gd.classes["berserker"], "MaisN", "city_aldara", Vector3(0, 0, 8), 30)
+	b.brain = null
+	b.build_id = "executor"
+	sim._gear_bot(b)
+	var before := {}
+	for slot in b.equipment:
+		before[slot] = (b.equipment[slot] as ItemDef).id
+		gd.plus_item(b.equipment[slot], 3)
+	sim._gear_bot(b)
+	var plus: Array = []
+	for slot in b.equipment:
+		if (b.equipment[slot] as ItemDef).plus > 0:
+			plus.append((b.equipment[slot] as ItemDef).id)
+	check(not before.is_empty() and plus.is_empty(), "bot não veste cópia +N do ferreiro (%s)" % str(plus))
+	check(before.keys().all(func(k): return b.equipment.has(k) and (b.equipment[k] as ItemDef).id == before[k]), "bot: mesmo equipamento com e sem cópias +N na lista")
+	sim.despawn(b)
+
+## Segundos para um bot da build no nível do monstro derrubar `md` parado (rotação do dps_fight; teto Balance.TTK_FIGHT_MAX).
+## Mediana de TTK_TRIALS lutas (sementes fixas). Os outros do Bosque ficam sem cérebro durante a medida: antes um bot de passagem
+## (ou monstro) entrava na luta e o tempo dependia do que a suíte tinha feito antes (falhava só na suíte inteira).
+func ttk_fight(gd, sim, cid: String, bid: String, md: MonsterDef) -> float:
+	var m: Dictionary = sim.maps["field_forest"]
+	var rng_keep: int = sim.rng.state          # as sementes da medida não mudam o sorteio dos checks seguintes
+	var frozen := {}
+	for o: SimEntity in m["entities"]:
+		if o.brain != null:
+			frozen[o] = o.brain
+			o.brain = null
+	var ts: Array = []
+	for i in range(TTK_TRIALS):
+		ts.append(_ttk_fight_once(gd, sim, cid, bid, md, 2000 + md.level + 101 * i))
+	for o: SimEntity in frozen:
+		if is_instance_valid(o):
+			o.brain = frozen[o]
+	sim.rng.state = rng_keep
+	ts.sort()
+	return float(ts[ts.size() / 2])
+
+func _ttk_fight_once(gd, sim, cid: String, bid: String, md: MonsterDef, seed: int) -> float:
+	var map_id := "field_forest"
+	var spot := Vector3(-90, 0, 9)
+	var m: Dictionary = sim.maps[map_id]
+	sim.rng.seed = seed
+	var p: SimEntity = sim.spawn_bot(gd.classes[cid], "TTK", map_id, spot, maxi(1, md.level))
+	p.build_id = bid
+	sim._gear_bot(p)
+	sim.rng.seed = seed                 # a teia (evoluções sorteadas) sai da semente, não do que o spawn_bot gastou do rng
+	sim._skill_bot(p)
+	p.brain = null
+	var old_kind := p.kind
+	p.kind = SimEntity.Kind.PLAYER
+	sim.player = p
+	p.recompute_stats()
+	var mob: SimEntity = sim.spawn_monster(md, map_id, spot + Vector3(1.8, 0, 0))
+	mob.brain = null
+	var dt := 1.0 / 20.0
+	var t := 0.0
+	var k := 0
+	while t < Balance.TTK_FIGHT_MAX and mob.is_alive():
+		var c := InputCommand.new()
+		c.aim = mob.position
+		c.attack = true
+		k += 1
+		if k % 6 == 0:
+			for i in range(p.skills.size()):
+				var sk: SkillDef = p.skills[(k / 6 + i) % p.skills.size()]
+				if sk and float(p.cooldowns.get(sk.id, 0.0)) <= 0.0 and sk.kind in [SkillDef.Kind.PHYSICAL, SkillDef.Kind.MAGICAL, SkillDef.Kind.BUFF]:
+					c.skill_slot = (k / 6 + i) % p.skills.size()
+					break
+		sim.set_player_command(c)
+		sim.tick(dt)
+		t += dt
+		p.hp = p.stats.max_hp
+		if mob.is_alive():
+			mob.position = spot + Vector3(1.8, 0, 0)
+	if is_instance_valid(mob) and sim.get_entity(mob.id) != null:
+		sim.despawn(mob)
+	p.kind = old_kind
+	sim.player = null
+	sim.despawn(p)
+	return t
+
+## C10 (combat-plan 2026-11-23): bot de toda build compra notáveis de papel (Balance.ROLE_NOTABLES); Cruzado e Templário
+## compravam 0 (sem grupo). `--only=bot_role_notes`
+func _check_bot_role_notes(gd, sim) -> void:
+	for cid in gd.classes:
+		for b in gd.classes[cid].builds:
+			var e: SimEntity = sim.spawn_bot(gd.classes[cid], "Papel", "city_aldara", Vector3(0, 0, 8), 30)
+			e.brain = null
+			e.build_id = b["id"]
+			sim._skill_bot(e)
+			var nodes: Dictionary = ProgressionSystem.tree_of(sim, e)["nodes"]
+			var n := 0
+			for nid in e.tree:
+				if nodes.has(nid) and nodes[nid].has("role_note"):
+					n += 1
+			check(n >= 3, "C10: bot %s/%s compra notáveis de papel no 30 (%d)" % [cid, b["id"], n])
+			sim.despawn(e)
+
+## C5 (combat-plan 2026-11-23): dano em alvo único das builds de dano dentro de ±Balance.DPS_SPREAD_PCT da mediana nos níveis
+## Balance.DPS_SPREAD_LEVELS (tanque e cura fora: compensam com utilidade). Mesma luta do dps_probe --on_only --full_rot (bot da
+## build com equipamento comum do nível e a teia que ele compra, boneco parado, rotação pela barra), mais curta. `--only=dps_spread`
+func _check_dps_spread(gd, sim) -> void:
+	var keep := [ProgressionSystem.bot_core, ProgressionSystem.bot_charges, ClassTalentSystem.bot_picks]
+	ProgressionSystem.bot_core = true            # o bot como no jogo (anel de base, cargas, talentos)
+	ProgressionSystem.bot_charges = true
+	ClassTalentSystem.bot_picks = true
+	var was_player: SimEntity = sim.player
+	var was_away: int = sim.away_every
+	sim.away_every = 100000                      # os outros mapas param (a luta é só no Bosque): a conta fica 10x mais barata
+	for lv in Balance.DPS_SPREAD_LEVELS:
+		var rows := {}
+		for cid in gd.classes:
+			for b in gd.classes[cid].builds:
+				if str(b.get("role", "")) in ["tank", "healer"]:
+					continue
+				rows["%s/%s" % [cid, b["id"]]] = dps_fight(gd, sim, cid, b["id"], lv, Balance.DPS_SPREAD_SECS)
+		var vals: Array = rows.values()
+		vals.sort()
+		var med: float = vals[vals.size() / 2]
+		for k in rows:
+			var d: float = (float(rows[k]) / maxf(1.0, med) - 1.0) * 100.0
+			print("DPS_SPREAD nv=%d %-26s %6.0f %+4.0f%%" % [lv, k, rows[k], d])
+			check(absf(d) <= Balance.DPS_SPREAD_PCT, "C5: %s nv %d dano %.0f/s = %+.0f%% da mediana %.0f (alvo ±%.0f%%)" % [k, lv, rows[k], d, med, Balance.DPS_SPREAD_PCT])
+	sim.player = was_player
+	sim.away_every = was_away
+	ProgressionSystem.bot_core = keep[0]
+	ProgressionSystem.bot_charges = keep[1]
+	ClassTalentSystem.bot_picks = keep[2]
+
+## Dano por segundo de um bot da build no nível contra um boneco parado no Bosque (luta do dps_probe --full_rot: forma ligada,
+## aura ligada, rotação de dano/buff/invocação pela barra, mana cheia). Ex.: dps_fight(gd, sim, "elementalist", "fogo", 45, 10.0).
+func dps_fight(gd, sim, cid: String, bid: String, lv: int, secs: float) -> float:
+	var map_id := "field_forest"
+	var spot := Vector3(-90, 0, 9)
+	var m: Dictionary = sim.maps[map_id]
+	sim.rng.seed = 1000 + lv
+	var p: SimEntity = sim.spawn_bot(gd.classes[cid], "DPS", map_id, spot, lv)
+	p.build_id = bid
+	sim._gear_bot(p)
+	sim._skill_bot(p)
+	p.brain = null
+	var old_kind := p.kind
+	p.kind = SimEntity.Kind.PLAYER
+	sim.player = p
+	p.recompute_stats()
+	for sk in p.skills:
+		if sk and sk.effects.has("aura") and not AuraSystem.aura_on(p, sk):
+			sim._apply_skill(p, sk, m)
+	for sk in p.skills:
+		if sk and sk.effects.has("form") and not sk.ascension:
+			sim._apply_skill(p, sk, m)
+			break
+	var mob: SimEntity = sim.spawn_monster(gd.monsters["spider"], map_id, spot + Vector3(1.8, 0, 0))
+	mob.brain = null
+	mob.stats.max_hp = 1.0e7
+	mob.hp = 1.0e7
+	var kinds: Array = [SkillDef.Kind.PHYSICAL, SkillDef.Kind.MAGICAL, SkillDef.Kind.BUFF, SkillDef.Kind.SUMMON]
+	var dt := 1.0 / 20.0
+	var t := 0.0
+	var k := 0
+	while t < secs:
+		var c := InputCommand.new()
+		c.aim = mob.position
+		c.attack = true
+		k += 1
+		if k % 6 == 0:
+			for i in range(p.skills.size()):
+				var sk: SkillDef = p.skills[(k / 6 + i) % p.skills.size()]
+				if sk and float(p.cooldowns.get(sk.id, 0.0)) <= 0.0 and sk.kind in kinds and not sk.effects.has("form") and not sk.effects.has("aura"):
+					c.skill_slot = (k / 6 + i) % p.skills.size()
+					break
+		sim.set_player_command(c)
+		sim.tick(dt)
+		t += dt
+		p.mp = p.stats.max_mp
+		p.hp = p.stats.max_hp
+		mob.position = spot + Vector3(1.8, 0, 0)
+	var dmg: float = 1.0e7 - mob.hp
+	sim.despawn(mob)
+	for e in (m["entities"] as Array).duplicate():          # invocações do bot saem junto
+		if e.owner_id == p.id:
+			sim.despawn(e)
+	p.kind = old_kind
+	sim.player = null
+	sim.despawn(p)
+	return dmg / secs
+
+## C8 (combat-plan 2026-11-23): skill pesada (poder >= HEAVY_SKILL_POWER_MULT x básico da classe) começa em >= HEAVY_SKILL_STARTUP_MIN s;
+## nenhuma skill de classe (fora Suprema) passa de SKILL_STARTUP_MAX, salvo a exceção escrita (invocação, área grande, canal,
+## ascensão) até SKILL_STARTUP_EXCEPTION_MAX. Investida (dash) fica fora do piso: o preparo atrasaria a fuga. `--only=heavy_startup`
+func _check_heavy_startup(gd) -> void:
+	var heavy := 0
+	for sid in gd.skills:
+		var s: SkillDef = gd.skills[sid]
+		var cls: ClassDef = gd.classes.get(s.class_id)
+		if cls == null or s.ultimate or not (s.kind in [SkillDef.Kind.PHYSICAL, SkillDef.Kind.MAGICAL]) or s.power <= 0.0:
+			continue
+		var basic: SkillDef = gd.basic_skill_for_class(cls)
+		if s.power >= Balance.HEAVY_SKILL_POWER_MULT * basic.power and not s.effects.has("dash"):
+			heavy += 1
+			check(s.startup >= Balance.HEAVY_SKILL_STARTUP_MIN - 0.001, "C8: %s pesada (poder %.1f = %.1fx básico) começa em >= %.2f s (%.2f)" % [sid, s.power, s.power / basic.power, Balance.HEAVY_SKILL_STARTUP_MIN, s.startup])
+		var exc: bool = s.effects.has("summon") or s.radius >= Balance.BIG_AREA_RADIUS or s.effects.has("channel") or s.ascension 			or (s.target == SkillDef.Target.GROUND and s.radius >= Balance.GROUND_AREA_RADIUS)
+		check(s.startup <= (Balance.SKILL_STARTUP_EXCEPTION_MAX if exc else Balance.SKILL_STARTUP_MAX) + 0.001,
+			"C8: %s preparo %.2f s <= %.2f%s" % [sid, s.startup, Balance.SKILL_STARTUP_EXCEPTION_MAX if exc else Balance.SKILL_STARTUP_MAX, " (exceção: invocação/área/canal/ascensão)" if exc else ""])
+	check(heavy >= 40, "C8: há skills pesadas no catálogo (%d)" % heavy)
+
 ## e a descrição diz o tempo novo. `--only=keep_buffs`
 const KEEP_BUFFS := ["ele_frost_armor", "nec_bone_armor", "dru_oak_skin", "pal_blessed_armor", "dru_bark", "bis_blessing", "bis_ward",
 	"bis_battle_hymn", "dru_grove", "nec_dark_pact", "ran_pack", "ass_plague_blade"]
@@ -28025,6 +29009,10 @@ func _check_zone_pulse(gd, sim) -> void:
 	m["traps"] = (m["traps"] as Array).filter(func(t): return t["kind"] != TrapSystem.ZONE)
 
 func _check_sunder(gd, sim) -> void:
+	# a assinatura do Executor (Golpe Avassalador, que GASTA a rachadura) sai por sorteio no acerto do Fender: com ela ligada
+	# as cargas zeravam conforme o estado do rng da suíte (falhava só na suíte inteira). Aqui conta só o Fender/finalizador.
+	var sig_was: bool = sim.signatures_on
+	sim.signatures_on = false
 	var at := Vector3(-30, 0, 70)
 	var exe: SimEntity = _fill_bot(gd, sim, "berserker", "executor", at)
 	var foe: SimEntity = _fill_dummy(gd, sim, at + Vector3(0, 0, 1.8))
@@ -28080,6 +29068,7 @@ func _check_sunder(gd, sim) -> void:
 	check(bb._fill_ok(exe, sim, gd.skills["ber_execute"], foe), "bot: Fender em recarga, o finalizador não fica esperando")
 	sim.despawn(exe)
 	sim.despawn(foe)
+	sim.signatures_on = sig_was
 
 ## Onda 2 (GDD skills-fill §8.1): Eviscerar consome os venenos SEUS no alvo (não queimadura, não sangramento do Lanceiro,
 ## não veneno de outro), explode o que faltava e ganha poder por veneno.
@@ -28747,6 +29736,8 @@ func _check_ultimate_barrage(gd, sim) -> void:
 	e.party_id = 9100
 	var mob := _ult_mob(gd, sim, "golem", at + Vector3(4, 0, 0.5))
 	var s: SkillDef = gd.skills["mob_dragon_meteor"]
+	var rng_keep: int = sim.rng.state      # devolve o rng no fim: os checks seguintes não mudam de sorteio
+	sim.rng.seed = 9100                 # os pontos que faltam saem sorteados (StormSystem._random_spot, 18 tentativas): sem semente, o rng da suíte às vezes dava 2
 	StormSystem.place_barrage(sim, e, s, at + Vector3(4, 0, 0), 1.0, {"barrage": {"count": 3, "radius": 2.0, "delay": 0.4, "spread": 4.0}})
 	var mine: Array = (m.get("ally_strikes", []) as Array).filter(func(h): return int(h["owner"]) == e.id)
 	check(mine.size() == 3 and (m.get("hazards", []) as Array).filter(func(h): return int(h["owner"]) == e.id).is_empty(), "barrage do jogador: 3 círculos na lista própria, nenhum em hazards")
@@ -28760,6 +29751,7 @@ func _check_ultimate_barrage(gd, sim) -> void:
 	e.party_id = -1
 	for o in [e, ally, mob]:
 		sim.despawn(o)
+	sim.rng.state = rng_keep
 
 ## Acha dois pontos andáveis a ~5 m com parede entre eles (para "não salta através de parede").
 func _ult_wall_pair(sim, m: Dictionary) -> Array:
@@ -28776,6 +29768,53 @@ func _ult_wall_pair(sim, m: Dictionary) -> Array:
 	return []
 
 ## hop_strikes: 7 golpes; um alvo só = 7 nele; intocável com iframe "all"; nunca através de parede; sem alvo acaba; dash corta.
+## V1 (production/qa/spell-attack-anim-research-2026-11-23.md): camadas do desenho das skills (SkillFx.TIERS), cor de aro
+## tingida por tema (nunca branco), pose segurada da Suprema e forma própria das que eram "aro branco". `--only=vfx_tiers`
+func _check_vfx_tiers(gd) -> void:
+	var prev: Dictionary = {}
+	for t in SkillFx.TIER_ORDER:
+		check(SkillFx.TIERS.has(t), "vfx_tiers: camada %s existe" % t)
+		var row: Dictionary = SkillFx.TIERS.get(t, {})
+		for k in ["size", "light", "fill", "wide_fill", "white", "parts"]:
+			check(row.has(k), "vfx_tiers: %s tem %s" % [t, k])
+		check(float(row["wide_fill"]) <= float(row["fill"]), "vfx_tiers: %s superfície larga não passa da estreita" % t)
+		if not prev.is_empty():
+			check(float(row["size"][1]) >= float(prev["size"][1]) and float(row["light"]) >= float(prev["light"]) and float(row["white"]) >= float(prev["white"]) \
+				and int(row["parts"]) >= int(prev["parts"]), "vfx_tiers: %s não é menor que a camada anterior" % t)
+		prev = row
+	var ult: Dictionary = SkillFx.TIERS["ultimate"]
+	check(float(ult["size"][0]) >= 2.0, "vfx_tiers: Suprema tem piso de tamanho (>= 2 m, maior que um arco de básico)")
+	check(float(ult["white"]) <= 15.0 and float(ult["wide_fill"]) <= 0.15, "vfx_tiers: Suprema não lava a tela (branco <= 15%%, superfície larga <= 0,15)")
+	for sid in gd.skills:
+		var s: SkillDef = gd.skills[sid]
+		var t := SkillFx.tier_of(s)
+		check(SkillFx.TIERS.has(t), "vfx_tiers: %s cai numa camada (%s)" % [sid, t])
+		if s.ultimate:
+			check(t == "ultimate", "vfx_tiers: Suprema %s é camada ultimate" % sid)
+		elif sid.begins_with("basic_"):
+			check(t == "basic", "vfx_tiers: básico %s é camada basic" % sid)
+		if s.effects.get("hop_strikes") is Dictionary or s.effects.get("sacrifice") is Dictionary:
+			check(FxManager.custom_fx_of(s) != "", "vfx_tiers: %s (saltos/oferenda) tem desenho próprio" % sid)
+	for th in SkillFx.PALETTE:
+		check(SkillFx.RING.has(th), "vfx_tiers: tema %s tem cor de aro (SkillFx.RING)" % th)
+		var rc: Color = SkillFx.ring(th)
+		check(rc.v <= 0.921, "vfx_tiers: aro de %s não é branco (valor %.2f <= 0,92)" % [th, rc.v])
+		if th == "physical":
+			check(rc.s <= 0.25 and rc.get_luminance() >= 0.6, "vfx_tiers: aro físico no espaço do metal (sat %.2f, lum %.2f)" % [rc.s, rc.get_luminance()])
+		else:
+			check(rc.s >= 0.15, "vfx_tiers: aro de %s tingido (sat %.2f >= 0,15)" % [th, rc.s])
+		var c0: Color = SkillFx.col(th, 0)
+		check(not (c0.s < 0.12 and c0.v > 0.9), "vfx_tiers: cor principal de %s não é quase branca" % th)
+	var hold_f: float = Balance.ULT_HOLD_S * 60.0
+	check(hold_f >= 3.99 and hold_f <= 8.01, "vfx_tiers: Suprema segura a pose 4-8 quadros (%.1f)" % hold_f)
+	var one: SkillDef = gd.skills.get("bis_ult_judgement_sun")
+	if one:
+		check(not EntityView.ult_holding(one, one.startup - 0.01) and EntityView.ult_holding(one, one.startup + 0.01) \
+			and not EntityView.ult_holding(one, one.startup + Balance.ULT_HOLD_S + 0.01), "vfx_tiers: a pose segura só depois do impacto, por ULT_HOLD_S")
+	var chain: SkillDef = gd.skills.get("pal_ult_dawn_judgement")
+	if chain:
+		check(not EntityView.ult_holding(chain, chain.startup + 0.01), "vfx_tiers: sequência de golpes (Juízo da Alvorada) não segura (tem a parada dela)")
+
 func _check_ultimate_hop(gd, sim) -> void:
 	var m: Dictionary = sim.maps["city_aldara"]
 	var pair := _ult_wall_pair(sim, m)
@@ -28874,7 +29913,11 @@ func _check_ultimate_intercept(gd, sim) -> void:
 	sim.despawn(p2)
 	# para a 25%
 	p.hp = p.stats.max_hp * 0.26
-	sim._deal_damage(mob, a, int(p.stats.max_hp * 0.2), false, false, "physical")
+	# golpe que leva a parte do protetor abaixo de 25% (30% de 5% da vida dele = 1,5%) sem matar o aliado: com 20% da vida
+	# do paladino (vida maior desde o conserto do equipamento de bot, 2026-11-23) o bispo morria e o último golpe não contava
+	a.hp = a.stats.max_hp
+	sim._deal_damage(mob, a, int(p.stats.max_hp * 0.05), false, false, "physical")
+	check(a.is_alive(), "intercept: o golpe que encerra não mata o aliado (fixture)")
 	check(not InterceptSystem.active(p), "intercept: protetor abaixo de 25%% encerra a Proteção")
 	a.hp = a.stats.max_hp
 	hp_a = a.hp

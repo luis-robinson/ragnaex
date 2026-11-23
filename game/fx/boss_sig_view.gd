@@ -48,6 +48,13 @@ var _v := PackedVector3Array()
 var _next := {}                          # dono -> hora da próxima faixa/anel a cair (a próxima fica acesa)
 var _c := PackedColorArray()
 var _rim := RED_EDGE                     # borda creme do quadro (alfa pulsa)
+## Modos de contraste (AccessSettings): padrão por mecânica por cima do aviso, juntado na mesma malha do quadro.
+var _pat := TelePattern.new()
+const PAT_Y := 0.09                      # m: padrões acima de tudo do aviso (0,05-0,085)
+
+## Cor do aviso no modo de contraste atual (desligado = a mesma).
+static func _k(col: Color, mech: int) -> Color:
+	return AccessSettings.tele_color(mech, col)
 
 func _ready() -> void:
 	mesh = _am
@@ -66,6 +73,7 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	_v.clear()
 	_c.clear()
+	_pat.clear()
 	_rim.a = lerpf(FxManager.DANGER_RIM_LOW_A, RED_EDGE.a, 0.5 + 0.5 * cos(Sim.time * PI / FxManager.DANGER_RIM_PULSE))
 	var map_id: String = fx.main.current_map_id if fx and fx.main else ""
 	var m: Dictionary = Sim.maps.get(map_id, {})
@@ -111,6 +119,9 @@ func _process(_delta: float) -> void:
 				(_props[k] as Node).queue_free()
 			_props.erase(k)
 	_am.clear_surfaces()
+	if _pat.count() > 0:                   # padrões dos modos de contraste: por cima, na mesma superfície
+		_v.append_array(_pat.v)
+		_c.append_array(_pat.c)
 	if _v.is_empty():
 		return
 	var arr := []
@@ -166,20 +177,27 @@ func _hazard(h: Dictionary, now: float, m: Dictionary) -> void:
 		if str(h.get("shape", "circle")) == "circle" and h.get("empower") is Dictionary and _lava_pool(h, now):
 			return                                     # Têmpera na Lava: modelo da poça (some aos poucos no fim)
 		if str(h.get("shape", "circle")) == "circle":
-			var pc := VENOM if h.get("decoy_cloud", false) else POOL
+			var mech := AccessSettings.Mech.CONTROL if h.get("decoy_cloud", false) else AccessSettings.Mech.DAMAGE
+			var pc := _k(VENOM if h.get("decoy_cloud", false) else POOL, mech)
 			_disc(p, r, pc, 0.06)
 			_ring(p, r - 0.12, r, _rim if h.get("decoy_cloud", false) else Color(pc.r, pc.g, pc.b, 0.8), 0.065)
+			_pat.circle(mech, p, r, _rim, Color(pc, 0.6), PAT_Y)
 		elif str(h.get("shape", "")) == "line":         # faixa que fica (cauda de fitas do Cortejo): a poça esticada
-			_strip(p, h["dir"], float(h["length"]), float(h["width"]), POOL, 0.06)
+			var lc := _k(POOL, AccessSettings.Mech.DAMAGE)
+			_strip(p, h["dir"], float(h["length"]), float(h["width"]), lc, 0.06)
+			_pat.strip(AccessSettings.Mech.DAMAGE, p, h["dir"], float(h["length"]), float(h["width"]), _rim, Color(lc, 0.6), PAT_Y)
 		return
 	if h.get("invert", false):                     # Maré Cheia: a água fecha da borda, as ilhas ficam secas
 		var c: Vector3 = h.get("center", p)
 		var rr := float(h.get("range", Balance.BOSS_INVERT_RANGE))
 		if int(h["group"]) == int(h["id"]):
-			_ring(c, rr * (1.0 - t * 0.98), rr, WATER, 0.05)
-			_ring(c, rr - 0.25, rr, Color(0.6, 0.85, 1.0, 0.9), 0.055)
-		_disc(p, float(h["radius"]), SAND, 0.08)
+			var wc := _k(WATER, AccessSettings.Mech.DAMAGE)          # a água que fecha é o perigo
+			_ring(c, rr * (1.0 - t * 0.98), rr, wc, 0.05)
+			_ring(c, rr - 0.25, rr, _k(Color(0.6, 0.85, 1.0, 0.9), AccessSettings.Mech.DAMAGE), 0.055)
+			_pat.circle(AccessSettings.Mech.DAMAGE, c, rr, _rim, Color(wc, 0.6), PAT_Y, rr * (1.0 - t * 0.98))
+		_disc(p, float(h["radius"]), _k(SAND, AccessSettings.Mech.SAFE), 0.08)
 		_ring(p, float(h["radius"]) - 0.35, float(h["radius"]), FOAM, 0.085)
+		_pat.circle(AccessSettings.Mech.SAFE, p, float(h["radius"]) - 0.5, FOAM, FOAM, PAT_Y + 0.004)
 		var k := float(h["radius"]) / 2.5                # prop_tide_island: ilha de 2,5 m; prop_tide_floodring: espuma 2,6-3,4 m em volta
 		for pair in [["is_%d", "tide_island"], ["fl_%d", "tide_floodring"]]:
 			var n := _prop(str(pair[0]) % int(h["id"]), str(pair[1]))
@@ -192,31 +210,35 @@ func _hazard(h: Dictionary, now: float, m: Dictionary) -> void:
 	if h.get("mark", false):
 		var r := float(h["radius"])
 		if str(h.get("mode", "")) == "soak":         # dividir: círculo dourado com vagas que acendem
-			_disc(p, r, GOLD, 0.07)
-			_ring(p, r - 0.2, r, GOLD_RIM, 0.075)
+			var soak := AccessSettings.Mech.SOAK
+			_disc(p, r, _k(GOLD, soak), 0.07)
+			_ring(p, r - 0.2, r, _k(GOLD_RIM, soak), 0.075)
+			_pat.circle(soak, p, r, _k(GOLD_RIM, soak), _k(GOLD_LIT, soak), PAT_Y)
 			var inside := 0
 			for o: SimEntity in m.get("chars", m["entities"]):
 				if o.is_alive() and o.is_character() and Vector2(o.position.x - p.x, o.position.z - p.z).length() <= r + o.radius:
 					inside += 1
 			for k in range(3):
 				var a := TAU * k / 3.0 + now * 0.6
-				_disc(p + Vector3(sin(a), 0, cos(a)) * (r * 0.62), 0.35, GOLD_LIT if k < inside else GOLD_DIM, 0.08)
+				_disc(p + Vector3(sin(a), 0, cos(a)) * (r * 0.62), 0.35, _k(GOLD_LIT if k < inside else GOLD_DIM, soak), 0.08)
 			# Machado do Trono: prop_durgash_throneaxe (3,25 m, ponta da lâmina na origem) gira devagar sobre o círculo
 			# e desce até cravar no chão quando a marca cai; o anel de dentro fecha com o tempo
-			_ring(p, maxf(0.0, r * (1.0 - t) - 0.12), maxf(0.12, r * (1.0 - t)), GOLD_RIM, 0.078)
+			_ring(p, maxf(0.0, r * (1.0 - t) - 0.12), maxf(0.12, r * (1.0 - t)), _k(GOLD_RIM, soak), 0.078)
 			if str(h.get("skill", "")) == "mob_durgash_throneaxe":
 				var ax := _prop("ax_%d" % int(h["id"]), "durgash_throneaxe", true)
 				if ax:
 					ax.position = Vector3(p.x, Balance.DURGASH_AXE_HOVER * (1.0 - t * t), p.z)
 					ax.rotation.y = now * 1.2
 		else:                                         # espalhar: retícula vermelha + anel que encolhe até a explosão
+			var spread := AccessSettings.Mech.SPREAD
 			_ring(p, r - 0.18, r, _rim, 0.07)
-			_ring(p, maxf(0.0, r * (1.0 - t) - 0.15), maxf(0.15, r * (1.0 - t)), RED_SOLID, 0.075)
-			_disc(p, r, Color(RED, 0.16), 0.065)
+			_ring(p, maxf(0.0, r * (1.0 - t) - 0.15), maxf(0.15, r * (1.0 - t)), _k(RED_SOLID, spread), 0.075)
+			_disc(p, r, _k(Color(RED, 0.16), spread), 0.065)
+			_pat.circle(spread, p, r + 0.2, _rim, _rim, PAT_Y)
 			for k in range(4):
 				var a := TAU * k / 4.0
 				var d := Vector3(sin(a), 0, cos(a))
-				_strip(p + d * (r * 0.55), d, r * 0.55, 0.16, RED_SOLID, 0.072)
+				_strip(p + d * (r * 0.55), d, r * 0.55, 0.16, _k(RED_SOLID, spread), 0.072)
 			var br := _prop("br_%d" % int(h["id"]), "vorgul_brand")       # Marca do Atirador: retícula 1 m (escala pelo raio) + seta sobre a vítima
 			if br:
 				br.position = Vector3(p.x, 0.0, p.z)
@@ -235,7 +257,9 @@ func _hazard(h: Dictionary, now: float, m: Dictionary) -> void:
 			var ln := float(h["length"])
 			_stampede(h, p, dir, ln, w, hot)
 			_strip(p, dir, ln, w, DUST if not hot else Color(0.8, 0.5, 0.22, 0.55), 0.06)
-			_strip(p, dir, ln, w, Color(RED, 0.5 if hot else 0.3), 0.065, t)
+			_strip(p, dir, ln, w, _k(Color(RED, 0.5 if hot else 0.3), AccessSettings.Mech.DAMAGE), 0.065, t)
+			_pat.strip(AccessSettings.Mech.DAMAGE, p, dir, ln, w, _rim if hot else Color(RED_EDGE, 0.6),
+				_k(Color(RED_SOLID, 0.55 if hot else 0.3), AccessSettings.Mech.DAMAGE), PAT_Y)
 			var side := Vector3(-dir.z, 0, dir.x)
 			for k in [-1.0, 1.0]:
 				_strip(p + side * (w * 0.5 - 0.1) * k, dir, ln, 0.18, DUST_HOT if hot else Color(0.85, 0.6, 0.35, 0.6), 0.07)
@@ -250,10 +274,12 @@ func _hazard(h: Dictionary, now: float, m: Dictionary) -> void:
 		"ring":                                       # Ondas da Montanha: rachadura; o próximo anel aceso
 			var hot: bool = is_equal_approx(float(_next.get(int(h["owner"]), -1.0)), float(h["at"]))
 			if hot:                                   # só o que cai agora é cheio; os outros, rachadura fina (não pinta a arena toda)
-				_ring(p, float(h["inner"]), float(h["radius"]), Color(RED, 0.12), 0.07)          # área fraca
+				var dmg := AccessSettings.Mech.DAMAGE
+				_ring(p, float(h["inner"]), float(h["radius"]), _k(Color(RED, 0.12), dmg), 0.07)          # área fraca
 				var mid := (float(h["inner"]) + float(h["radius"])) * 0.5                                 # miolo enche do meio para as bordas
 				var half := (float(h["radius"]) - float(h["inner"])) * 0.5 * t
-				_ring(p, mid - half, mid + half, Color(RED, 0.28), 0.072)
+				_ring(p, mid - half, mid + half, _k(Color(RED, 0.28), dmg), 0.072)
+				_pat.circle(dmg, p, float(h["radius"]), _rim, _k(Color(RED_SOLID, 0.55), dmg), PAT_Y, float(h["inner"]))
 				_shards(h, p, t)
 			var edge := _rim if hot else Color(0.35, 0.22, 0.15, 0.55)
 			_ring(p, float(h["radius"]) - 0.12, float(h["radius"]), edge, 0.065)
@@ -412,7 +438,8 @@ func _boss(e: SimEntity, m: Dictionary, now: float) -> void:
 	if e.current_skill != null and e.skill_phase == "startup" and e.current_skill.effects.has("avalanche"):
 		var rr := float((e.current_skill.effects["avalanche"] as Dictionary).get("radius", 18.0))
 		_ring(p, rr - 0.3, rr, _rim, 0.06)
-		_ring(p, 0.0, rr, Color(RED, 0.10), 0.05)
+		_ring(p, 0.0, rr, _k(Color(RED, 0.10), AccessSettings.Mech.DAMAGE), 0.05)
+		_pat.circle(AccessSettings.Mech.DAMAGE, p, rr, _rim, _k(Color(RED_SOLID, 0.5), AccessSettings.Mech.DAMAGE), PAT_Y, 0.0, 0.0, TAU, BossSignatures.covers_of(m, e.id).is_empty())     # com abrigo: sem listras (o setor seguro fica limpo)
 		for c in BossSignatures.covers_of(m, e.id):
 			var cp: Vector3 = c["pos"]
 			var d := Vector2(cp.x - p.x, cp.z - p.z)
@@ -421,7 +448,8 @@ func _boss(e: SimEntity, m: Dictionary, now: float) -> void:
 				continue
 			var mid := atan2(d.x, d.y)
 			var half := asin(clampf(float(c["radius"]) / dl, 0.0, 1.0))
-			_ring(p, dl, rr, SAFE, 0.065, mid - half, mid + half)
+			_ring(p, dl, rr, _k(SAFE, AccessSettings.Mech.SAFE), 0.065, mid - half, mid + half)
+			_pat.circle(AccessSettings.Mech.SAFE, p, rr, FOAM, FOAM, PAT_Y + 0.004, dl, mid - half, mid + half)
 
 # --- modelos das assinaturas (dressing: o aviso colorido continua sendo a leitura do perigo) ---
 

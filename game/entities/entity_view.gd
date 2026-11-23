@@ -30,7 +30,12 @@ var _shown_def: MonsterDef = null   # metamorfose de monstro (ShiftSystem): o Mo
 var _stealth_shown := false
 var _alpha_shown := 0.0              # transparência aplicada (furtivo 0.7, forma fantasma 0.45)
 var _last_flash := 0.0
+var _last_tint := Color(0, 0, 0, 0)       # cor do hit flash já enviada ao toon (alfa 0 = nenhuma; HitTint)
+var _was_hit := false                   # hit flash do quadro anterior (o tranco do monstro não depende da escala do clarão)
 var _flinch := 0.0
+var _hit_flinch: HitFlinch = null   # golpe forte em personagem: tronco inclina por cima do clipe (HitReact)
+var _root_fx: Node3D = null           # raízes nos pés (preso; CcLook.roots)
+var _drag_fx: CPUParticles3D = null   # poeira fria nos pés (lento sem gelo; CcLook.drag)
 var _stop_left := 0.0                # hit-stop local (WeaponArcs): s com a animação parada
 var _push := Vector3.ZERO            # empurrão de desenho do golpe (WeaponArcs); a sim não se mexe
 var _push_t := 1.0
@@ -70,6 +75,16 @@ var _smooth_pos: Vector3
 var _arc_from := Vector3.ZERO          # salto/teleporte de skill: arco visual de _arc_from até a posição da sim
 var _arc_t := 1.0
 const ARC_TIME := 0.28
+## Teleporte (2026-11-23): a sim move o corpo de uma vez (dash); estas somem e reaparecem em vez do arco de pulo.
+## Estilo = forma do efeito em TeleportFx (shadow / arcane / lightning).
+const TELEPORTS := {"ass_shadowstep": "shadow", "ele_blink": "arcane", "ele_bolt_step": "lightning", "mob_shazka_step": "shadow"}
+const ARC_MIN_JUMP := 2.5             # m: salto de posição durante a skill que vira arco de desenho
+const TP_VANISH_MIN := 0.05           # s: o sumiço dura pelo menos isto (Piscar tem 0,02 de preparo)
+const TP_APPEAR := 0.16               # s: reaparecer no destino
+const TP_GLOW := 0.5                  # brilho do corpo no reaparecer (× AccessSettings.flash)
+var _tp_t := 1.0
+var _tp_style := ""
+var _tp_on := false
 var _last_state := -1
 var _is_player := false
 var _base_scale := 1.0
@@ -890,13 +905,63 @@ func _morph(delta: float) -> void:
 	model_root.scale = Vector3(wide, k, wide) * _base_scale
 	var glow := clampf(1.0 - absf(t - 0.25) / 0.25, 0.0, 1.0)
 	for m in _mats:
-		m.set_shader_parameter("flash", maxf(glow * 0.55, 1.0 if entity.hit_flash > 0.0 else 0.0))
+		m.set_shader_parameter("flash", maxf(glow * 0.55, 1.0 if entity.hit_flash > 0.0 else 0.0) * AccessSettings.flash)
+		m.set_shader_parameter("flash_full", 1.0)      # o brilho do aparecer é do corpo todo
+		m.set_shader_parameter("flash_color", Color.WHITE)
+		_last_tint = Color(0, 0, 0, 0)
 	if _ghost_on:
 		_ghost_set("appear", smoothstep(0.2, 0.75, t))
-		_ghost_set("flash", glow * 0.6)
+		_ghost_set("flash", glow * 0.6 * AccessSettings.flash)
 	if _morph_t >= 1.0:
 		model_root.scale = Vector3.ONE * _base_scale
 		_last_flash = -1.0                            # o hit flash volta a mandar no próximo quadro
+
+## Corpo no teleporte: vira fenda no preparo, reaparece no destino passando um pouco do tamanho e piscando na cor do
+## estilo (TeleportFx faz o efeito em volta). Mesmo jeito do _morph: escala do model_root e flash do toon.
+func _teleport_body(delta: float) -> void:
+	var s := entity.current_skill
+	var k := 0.0
+	var glow := 0.0
+	if entity.state == SimEntity.State.CASTING and not entity.skill_applied and teleport_style(s) != "":
+		k = clampf(entity.state_time / maxf(s.startup, TP_VANISH_MIN), 0.0, 1.0)
+		_tp_style = teleport_style(s)
+		glow = k
+	elif _tp_t < 1.0:
+		_tp_t = minf(1.0, _tp_t + delta / TP_APPEAR)
+		k = (1.0 - _tp_t) * (1.0 - _tp_t) - 0.1 * sin(_tp_t * PI) * _tp_t
+		glow = 1.0 - _tp_t
+	if k == 0.0 and glow <= 0.0:
+		if _tp_on:
+			_tp_on = false
+			model_root.scale = Vector3.ONE * _base_scale
+			_last_flash = -1.0                        # o hit flash volta a mandar no próximo quadro
+		return
+	_tp_on = true
+	model_root.scale = teleport_shape(k) * _base_scale
+	var c := SkillFx.ring(TeleportFx.theme_of(_tp_style))
+	for m in _mats:
+		m.set_shader_parameter("flash", glow * TP_GLOW * AccessSettings.flash)
+		m.set_shader_parameter("flash_full", 1.0)
+		m.set_shader_parameter("flash_color", c)
+	_last_tint = Color(0, 0, 0, 0)
+
+## Hit flash por tipo de dano (D5): borda na cor do dano; corpo todo branco só no crítico. Reenvia só quando a cor muda.
+func _apply_flash_look(hit: bool) -> void:
+	if not hit:
+		_last_tint = Color(0, 0, 0, 0)
+		return
+	if _mats.is_empty():
+		return
+	HitTint.ensure()
+	var crit := HitTint.crit_of(entity.id)
+	var c: Color = HitTint.CRIT_COLOR if crit else HitTint.color_of(entity.id)
+	if c == _last_tint:
+		return
+	_last_tint = c
+	var full := 1.0 if crit else 0.0
+	for m in _mats:
+		m.set_shader_parameter("flash_color", c)
+		m.set_shader_parameter("flash_full", full)
 
 func _ghost_set(param: String, v: float) -> void:
 	for gm in _ghost_mats.values():
@@ -1182,6 +1247,19 @@ static func sky_lift(e: SimEntity) -> float:
 	var k := clampf((e.state_time - s.startup) / maxf(s.active, 0.01), 0.0, 1.0)
 	return Balance.DRAGON_JUMP_HEIGHT * (1.0 - pow(2.0 * k - 1.0, 4.0))
 
+## Estilo de teleporte da skill ("" = não é teleporte).
+static func teleport_style(s: SkillDef) -> String:
+	return str(TELEPORTS.get(s.id, "")) if s != null else ""
+
+## Pura: o salto de `jump` m durante a skill vira arco de pulo? Teleporte nunca (some e reaparece).
+static func draws_arc(s: SkillDef, jump: float) -> bool:
+	return jump > ARC_MIN_JUMP and teleport_style(s) == ""
+
+## Escala do corpo no teleporte: k 0 = inteiro, 1 = sumido (fenda fina e alta); k < 0 = passa um pouco do tamanho.
+static func teleport_shape(k: float) -> Vector3:
+	var w := lerpf(1.0, 0.08, k)
+	return Vector3(w, lerpf(1.0, 1.3, k), w)
+
 func _process_view(delta: float) -> void:
 	_dt = delta
 	_update_ult_scale(delta)
@@ -1190,10 +1268,16 @@ func _process_view(delta: float) -> void:
 	if quest_mark:
 		_update_quest_mark(delta)
 	# posição suavizada (a sim roda a 60Hz; interpola um pouco)
-	# salto de skill (a sim teleporta): mostra um arco em vez de piscar no destino
-	if entity.state == SimEntity.State.CASTING and _smooth_pos.distance_to(entity.position) > 2.5 and _arc_t >= 1.0:
-		_arc_from = _smooth_pos
-		_arc_t = 0.0
+	# salto de skill (a sim move de uma vez): arco de desenho; teleporte some na origem e reaparece no destino, sem arco
+	if entity.state == SimEntity.State.CASTING and _arc_t >= 1.0 and _smooth_pos.distance_to(entity.position) > ARC_MIN_JUMP:
+		if draws_arc(entity.current_skill, _smooth_pos.distance_to(entity.position)):
+			_arc_from = _smooth_pos
+			_arc_t = 0.0
+		else:
+			_tp_style = teleport_style(entity.current_skill)
+			TeleportFx.play(entity, _tp_style, _smooth_pos, entity.position)
+			_smooth_pos = entity.position     # a câmera (CameraRig) segue suave até lá
+			_tp_t = 0.0
 	var lift := 0.0
 	if _arc_t < 1.0:
 		_arc_t = minf(1.0, _arc_t + delta / ARC_TIME)
@@ -1240,14 +1324,18 @@ func _process_view(delta: float) -> void:
 		_set_ghost(ghost)
 	_animate(delta)
 	_morph(delta)
+	_teleport_body(delta)
 	_anim_lod(delta)
 	_update_bars()
-	var flash := 1.0 if entity.hit_flash > 0.0 else 0.0
+	var hit := entity.hit_flash > 0.0
+	var flash := AccessSettings.flash if hit else 0.0     # hit flash × Acessibilidade → Clarões (0 = sem)
 	if entity.kind == SimEntity.Kind.MONSTER:
-		if flash > 0.0 and _last_flash == 0.0 and entity.is_alive():
-			_flinch = 0.22
+		if hit and not _was_hit and entity.is_alive() and not HitReact.poised(entity):
+			_flinch = 0.22          # chefe tem postura: só encolhe por HitReact (golpe grande ou interrompido)
 		_flinch = maxf(0.0, _flinch - delta)
 		_corpse_fade()
+	_was_hit = hit
+	_apply_flash_look(hit)
 	if not _mats.is_empty():
 		if flash != _last_flash:
 			_last_flash = flash
@@ -1282,7 +1370,9 @@ func _update_status() -> void:
 	var cursed := false
 	var prey := false
 	var amp := false
-	var chill := 0                       # 0 nada, 1 retardado, 2 preso
+	var chill := 0                       # 0 nada, 1 retardado pelo gelo (o anel de gelo)
+	var rooted := false                  # preso: raízes nos pés (BuffLooks.CC_LOOKS)
+	var drag := false                    # lento sem gelo: poeira fria nos pés
 	if entity.is_alive():
 		for d in entity.debuffs:
 			match d.get("kind"):
@@ -1297,11 +1387,14 @@ func _update_status() -> void:
 					else:
 						cursed = true
 				"slow":
-					chill = maxi(chill, 1)
+					if d.get("frost", false):
+						chill = maxi(chill, 1)
+					else:
+						drag = true
 				Balance.DOT_AMP_KIND:
 					amp = true
 				"root":
-					chill = 2
+					rooted = true
 	if stunned and _stun_fx == null:
 		_stun_fx = _make_stars()
 	if _stun_fx:
@@ -1336,6 +1429,16 @@ func _update_status() -> void:
 		_amp_fx.visible = amp
 		if amp:
 			_amp_fx.rotation.y -= get_process_delta_time() * 3.0
+	if rooted and _root_fx == null:
+		_root_fx = CcLook.roots(entity.radius, _base_scale)
+		add_child(_root_fx)
+	if _root_fx:
+		_root_fx.visible = rooted
+	if drag and _drag_fx == null:
+		_drag_fx = CcLook.drag(entity.radius, _base_scale)
+		add_child(_drag_fx)
+	if _drag_fx and _drag_fx.emitting != drag:
+		_drag_fx.emitting = drag
 	if chill > 0 and _chill_fx == null:
 		_chill_fx = _make_frost_ring()
 	if _chill_fx:
@@ -1660,7 +1763,8 @@ func _animate(delta: float) -> void:
 		fr.position.z = -sin(_bob) * 0.18 if moving else lerpf(fr.position.z, 0.05, minf(1.0, delta * 10.0))
 
 ## frame (24 fps, base 1) do impacto de cada golpe do kit (tools/blender/chibi_kit.py: IMPACT)
-const IMPACT_FRAME := {"maul": 7, "pounce": 9, "slam": 8, "roar": 7, "brace": 6, "atk_rifle": 6, "atk_1h_a": 7, "atk_1h_b": 7, "atk_2h": 10, "atk_dual_a": 5, "atk_dual_b": 5, "atk_dagger": 5,
+const IMPACT_FRAME := {"cast_heal_nature": 8, "cast_curse": 8, "cast_wind": 9, "summon_rise": 11, "summon_call": 9, "atk_bow_charge": 12, "atk_pistol_pair": 6, "atk_pistol_fan": 6, "atk_scythe_reap": 8, "shout_rally": 7,
+	"maul": 7, "pounce": 9, "slam": 8, "roar": 7, "brace": 6, "atk_rifle": 6, "atk_1h_a": 7, "atk_1h_b": 7, "atk_2h": 10, "atk_dual_a": 5, "atk_dual_b": 5, "atk_dagger": 5,
 	"atk_bow": 8, "atk_staff": 7, "atk_spin": 8, "atk_thrust": 6, "cast": 10, "cast_buff": 8, "attack": 5,
 	"cast_ground": 10, "cast_channel": 14, "cast_target": 8, "atk_leap": 12, "atk_charge": 5, "atk_throw": 7,
 	"atk_shoot_multi": 8, "summon": 11, "atk_pistol": 6, "atk_slash_shot": 9, "atk_sweep": 8, "atk_finisher": 10, "atk_flurry": 5, "atk_claw": 6, "shout": 7,
@@ -1720,12 +1824,17 @@ func _sig_base(base: String) -> String:
 ## canalizada, no alvo, invocação, leque de flechas), depois pela família da arma empunhada.
 ## Gestos de fase ativa longa (giro, canalização, pisão): repetem até a fase ativa acabar em vez de parar na pose final.
 const RECALL_ANIM_SPEED := 0.75      # conjuração da volta à cidade: gesto calmo, em laço
-const ACTIVE_LOOP := ["atk_spin", "cast_channel", "cast_shadow", "slam", "atk_thrust"]     # atk_thrust: Lança Incansável (estocadas em canal)
+const ACTIVE_LOOP := ["atk_spin", "cast_channel", "cast_shadow", "slam", "atk_thrust", "atk_scythe_reap"]     # atk_thrust: Lança Incansável (estocadas em canal)
 ## Sequência de golpes (efeito "strikes", Golpe do Cruzado): um clipe por golpe (`strikes.clips`), cada impacto no tick
 ## do golpe dele. Os clipes atk_2h_chain_a/b/c (chibi_kit.animate_crusader) têm o impacto nos quadros 5/6/7 = os preparos
 ## que saem daqui (0,16 / 0,21 / 0,24 s), então tocam a ~1x; mudou `at` ou STRIKE_NEXT_AT: refaça os clipes. O próximo clipe entra depois desta fração do intervalo entre os golpes (o resto é a preparação dele).
 const STRIKE_NEXT_AT := 0.25
 var _strike_shown := 0                # golpe da sequência cujo clipe está tocando
+
+## Suprema de um golpe só segurando a pose do impacto: do fim do preparo até + Balance.ULT_HOLD_S (V1/D2; sequência
+## "strikes" tem a parada dela). Só desenho: o tempo da skill na sim não muda.
+static func ult_holding(s: SkillDef, state_time: float) -> bool:
+	return s != null and s.ultimate and not s.effects.has("strikes") and state_time >= s.startup and state_time < s.startup + Balance.ULT_HOLD_S
 
 ## Segundos depois do fim do preparo em que cai o último golpe da sequência (0 = skill de um golpe só).
 static func strike_last_at(s: SkillDef) -> float:
@@ -1769,10 +1878,13 @@ const ANIM_MAX_SPEED := 3.2
 const WINDUP_MAX_SPEED := 2.2        # preparo mais curto que isso: o clipe começa no meio da preparação em vez de correr 3x
 
 ## Onde começar o clipe e a que velocidade, para o impacto cair no fim do preparo da skill: Vector2(início_s, velocidade).
-static func windup_timing(impact: float, startup: float) -> Vector2:
+## `coil` (s, coil_for) = começar na pose armada quando o preparo ainda fica >= COIL_MIN_SPEED.
+static func windup_timing(impact: float, startup: float, coil := 0.0) -> Vector2:
 	var t0 := maxf(0.0, impact - startup * WINDUP_MAX_SPEED)
+	if coil > 0.0 and coil < impact:
+		t0 = maxf(t0, minf(coil, impact - startup * COIL_MIN_SPEED))
 	return Vector2(t0, clampf((impact - t0) / startup, ANIM_MIN_SPEED, ANIM_MAX_SPEED))
-const LEAP_IDS := ["leap", "pounce", "shadowstep", "stampede"]
+const LEAP_IDS := ["leap", "pounce", "stampede"]     # Passo das Sombras saiu: é teleporte (TELEPORTS)
 const SHOUT_IDS := ["warcry", "taunt"]
 const FINISHER_IDS := ["execute", "decapitate", "assassinate", "overhead", "butcher", "grim", "headshot"]
 const FLURRY_IDS := ["flurry", "thousand", "twin", "hack", "dance", "backstab", "eviscerate"]
@@ -1780,7 +1892,45 @@ const CLAW_IDS := ["claw", "rend", "savage", "maul"]
 const GUARD_IDS := ["shield", "armor", "skin", "ward", "bark", "wall", "aegis", "martyr"]
 ## gesto por elemento (magias e curas)
 const CAST_BY_THEME := {"fire": "cast_fire", "ice": "cast_ice", "lightning": "cast_bolt", "holy": "cast_holy", "heal": "cast_holy", "shadow": "cast_shadow",
-	"bone": "cast_shadow", "poison": "cast_shadow", "nature": "cast_nature", "lunar": "cast_nature", "earth": "cast_nature", "wind": "cast_ice", "summon": "summon"}
+	"bone": "cast_shadow", "poison": "cast_shadow", "nature": "cast_nature", "lunar": "cast_nature", "earth": "cast_nature", "wind": "cast_wind", "summon": "summon"}
+## Roteamento por arquétipo (pacote C1, 2026-11-23; production/qa/spell-attack-anim-research-2026-11-23.md). Só skills de
+## classe (`SkillDef.class_id`); monstros seguem as regras de sempre. `SkillDef.clip` escrito continua vencendo (exceto o
+## refino de invocação/pistola em `refine_clip`).
+## Cura pelo tema da classe: o Druida cura com a natureza, o Necromante drena, Bispo/Paladino com a luz.
+const HEAL_BY_CLASS := {"druid": "cast_heal_nature", "necromancer": "cast_shadow", "bishop": "cast_holy", "paladin": "cast_holy"}
+## Magia de classe em linha cujo tema não tem gesto próprio: o gesto da classe (nunca o golpe básico da arma).
+const CAST_BY_CLASS := {"bishop": "cast_holy", "paladin": "cast_holy", "druid": "cast_nature", "necromancer": "cast_shadow", "assassin": "cast_shadow"}
+## Maldição do Necromante (palavra no id ou tema veneno): puxa do chão, não o rasgo da sombra.
+const CURSE_IDS := ["curse", "plague", "pandemic", "rot", "decay", "swarm", "agony", "doom", "weakness", "wither", "blight", "hex"]
+## Invocação: o Necromante ergue do chão; Druida e Ranger chamam (assobio/braço).
+const SUMMON_BY_CLASS := {"necromancer": "summon_rise", "druid": "summon_call", "ranger": "summon_call"}
+## Brado de grupo (buff em área para os aliados) dessas classes: brado de ânimo, não o de ameaça.
+const RALLY_CLASSES := ["berserker", "paladin", "assassin", "ranger", "druid"]
+const RALLY_MIN_RADIUS := 3.0
+## Arco: tiro com preparo a partir disto (s) segura a corda puxada (atk_bow_charge).
+const BOW_CHARGE_STARTUP := 0.2
+## Clipes novos (C2, chibi_kit) -> clipe de hoje que toca enquanto o kit/GLB não tiver o novo (`_clip`). Clipe novo que
+## chegar: entra em IMPACT_FRAME (e COIL_FRAME) com o quadro do chibi_kit.IMPACT; há check (`_check_clip_routing`).
+const CLIP_FALLBACK := {"cast_heal_nature": "cast_nature", "cast_curse": "cast_shadow", "cast_wind": "cast", "summon_rise": "summon",
+	"summon_call": "summon", "atk_bow_charge": "atk_bow", "atk_pistol_pair": "atk_pistol", "atk_pistol_fan": "atk_pistol",
+	"atk_scythe_reap": "cast_shadow", "shout_rally": "shout"}
+## Antecipação sem atraso (pacote V2): quadro (24 fps, base 1) da 1ª pose de preparação de cada clipe = a primeira chave
+## depois do repouso em chibi_kit (_pose_action). A skill começa o clipe ali (o 1º quadro já é a pose armada) em vez de
+## correr os quadros neutros; o impacto continua no tick do dano (windup_timing). Clipe fora da tabela: sem salto.
+const COIL_FRAME := {"cast_heal_nature": 3, "cast_curse": 3, "cast_wind": 4, "summon_rise": 4, "summon_call": 3, "atk_bow_charge": 3, "atk_pistol_pair": 3, "atk_pistol_fan": 3, "atk_scythe_reap": 3, "shout_rally": 4,
+	"atk_1h_a": 4, "atk_1h_b": 4, "atk_2h": 7, "atk_dual_a": 3, "atk_dual_b": 3, "atk_dagger": 3, "atk_thrust": 3,
+	"atk_bow": 3, "atk_staff": 3, "cast": 3, "cast_buff": 3, "cast_ground": 5, "cast_channel": 4, "cast_target": 5, "atk_leap": 4,
+	"atk_charge": 3, "atk_throw": 4, "atk_shoot_multi": 4, "summon": 6, "atk_pistol": 3, "atk_slash_shot": 3, "atk_sweep": 5,
+	"atk_finisher": 5, "atk_flurry": 3, "atk_claw": 4, "shout": 4, "cast_fire": 5, "cast_ice": 5, "cast_bolt": 5, "cast_holy": 4,
+	"cast_shadow": 3, "cast_nature": 5, "buff_power": 4, "buff_guard": 3, "buff_focus": 5, "atk_rifle": 3}
+const COIL_MIN_SPEED := 1.0         # pular para a pose armada nunca deixa o preparo abaixo de 1x (não vira câmera lenta)
+
+## Segundos do clipe em que a skill começa (pose armada; 0 = do começo). Básico, Suprema, sequência de golpes e clipe sem
+## linha em COIL_FRAME ficam como antes.
+static func coil_for(s: SkillDef, clip: String) -> float:
+	if s == null or s.id.begins_with("basic_") or s.ultimate or s.effects.get("strikes") is Dictionary or not COIL_FRAME.has(clip):
+		return 0.0
+	return float(int(COIL_FRAME[clip]) - 1) / 24.0
 
 static func _has_token(id: String, tokens: Array) -> bool:
 	return tokens.any(func(t): return t in id)
@@ -1789,6 +1939,8 @@ static func _has_token(id: String, tokens: Array) -> bool:
 static func _buff_clip(s: SkillDef) -> String:
 	if s.effects.has("shield") or _has_token(s.id, GUARD_IDS):
 		return "buff_guard"
+	if s.class_id in RALLY_CLASSES and s.radius >= RALLY_MIN_RADIUS and s.effects.has("buff") and not (s.vfx in ["holy", "nature"]):
+		return "shout_rally"            # buff de grupo: brado de ânimo
 	if s.vfx == "holy":
 		return "cast_holy"
 	if s.vfx in ["blood", "earth"]:
@@ -1796,6 +1948,40 @@ static func _buff_clip(s: SkillDef) -> String:
 	if s.vfx == "nature":
 		return "cast_nature"
 	return "buff_focus"
+## Gesto por arquétipo da classe ("" = segue as regras de tema/forma): cura por classe, maldição do Necromante,
+## veneno do Assassino (arremesso), ceifa da foice.
+static func _archetype_clip(s: SkillDef, w: String) -> String:
+	if s.class_id == "" or s.effects.has("dash"):
+		return ""
+	if s.kind == SkillDef.Kind.HEAL and HEAL_BY_CLASS.has(s.class_id):
+		return HEAL_BY_CLASS[s.class_id]
+	if s.kind != SkillDef.Kind.MAGICAL:
+		return ""
+	match s.class_id:
+		"necromancer":
+			if s.vfx == "poison" or _has_token(s.id, CURSE_IDS):
+				return "cast_curse"
+			if w == "scythe" and s.target in [SkillDef.Target.CONE, SkillDef.Target.SELF] and s.vfx in ["shadow", "bone", "blood"]:
+				return "atk_scythe_reap"
+		"assassin":
+			if s.vfx == "poison":
+				return "atk_throw"          # bomba/frasco: lança, não conjura a sombra do Necromante
+		"druid":
+			if s.vfx in ["poison", "shadow"]:
+				return "cast_nature"
+	return ""
+
+## Refino de um clipe já escolhido (também do `SkillDef.clip` escrito): invocação pela classe, pistola em leque/par.
+static func refine_clip(s: SkillDef, clip: String) -> String:
+	if clip == "summon" and SUMMON_BY_CLASS.has(s.class_id):
+		return SUMMON_BY_CLASS[s.class_id]
+	if clip == "atk_pistol":
+		if s.target == SkillDef.Target.CONE:
+			return "atk_pistol_fan"
+		if s.effects.get("strikes") is Dictionary:
+			return "atk_pistol_pair"
+	return clip
+
 const THROW_IDS := ["throw", "dart", "fan", "net", "trap"]
 func _action_clip(s: SkillDef) -> String:
 	var w := entity.stats.weapon_type if entity.stats else ""
@@ -1814,27 +2000,34 @@ static func clip_for_skill(s: SkillDef, weapon := "", offhand := "", combo := 0,
 		return "attack"                   # bicho: o básico é a mordida dele
 	var w := weapon
 	var off := offhand
+	if not basic and TELEPORTS.has(s.id):
+		return "cast_buff" if s.class_id != "" else "buff_focus"    # teleporte: gesto curto de sumir (o corpo some no meio), nunca avanço/salto; chefe não tem cast_buff (MOB_BOSS_KEEP)
 	if not basic and s.clip != "" and not form:
-		return s.clip                 # clipe escrito na skill (a palavra do id enganava a regra)
+		return refine_clip(s, s.clip)     # clipe escrito na skill (a palavra do id enganava a regra)
 	if not basic:
 		if "disengage" in s.id:
 			return "jump"                 # salto pra trás
-		if _has_token(s.id, SHOUT_IDS):
-			return "shout"
+		if _has_token(s.id, SHOUT_IDS) or (s.kind == SkillDef.Kind.BUFF and s.target == SkillDef.Target.SELF and s.effects.has("taunt")):
+			return "shout"                # brado de ameaça (provoca)
 		if "kick" in s.id:
 			return "atk_thrust"
 		for k in LEAP_IDS:
 			if k in s.id:
 				return "atk_charge" if s.startup < 0.15 else "atk_leap"      # salto instantâneo (sombra): avanço curto
 		if s.effects.has("channel"):
+			if s.kind == SkillDef.Kind.PHYSICAL and s.class_id != "":
+				return "atk_spin"           # golpe canalizado de guerreiro (Ciclone): gira, não conjura
 			return "cast_channel"
 		for k in THROW_IDS:
 			if k in s.id:
 				return "atk_throw"
 		if s.kind == SkillDef.Kind.SUMMON:
-			return "summon"
+			return refine_clip(s, "summon")
 		if s.kind == SkillDef.Kind.BUFF:
 			return _buff_clip(s)
+		var arch := _archetype_clip(s, w)
+		if arch != "":
+			return arch
 		if s.kind in [SkillDef.Kind.MAGICAL, SkillDef.Kind.HEAL] and CAST_BY_THEME.has(s.vfx) and not s.effects.has("dash"):
 			return CAST_BY_THEME[s.vfx]
 		if s.effects.has("dash") and s.kind == SkillDef.Kind.PHYSICAL:
@@ -1850,6 +2043,9 @@ static func clip_for_skill(s: SkillDef, weapon := "", offhand := "", combo := 0,
 				return "atk_sweep"
 		if w == "bow" and s.target in [SkillDef.Target.CONE, SkillDef.Target.GROUND] and s.radius >= 3.0:
 			return "atk_shoot_multi"
+		if w == "bow" and s.kind == SkillDef.Kind.PHYSICAL and s.class_id != "" and s.startup >= BOW_CHARGE_STARTUP \
+				and s.target in [SkillDef.Target.DIRECTION, SkillDef.Target.TARGET]:
+			return "atk_bow_charge"       # tiro carregado: segura a corda puxada
 	match s.kind:
 		SkillDef.Kind.BUFF:
 			return "cast_target" if s.target == SkillDef.Target.TARGET else "cast_buff"
@@ -1865,16 +2061,28 @@ static func clip_for_skill(s: SkillDef, weapon := "", offhand := "", combo := 0,
 			if s.target == SkillDef.Target.TARGET:
 				return "cast_target"
 			if s.target == SkillDef.Target.DIRECTION:
+				if s.class_id != "":
+					return str(CAST_BY_CLASS.get(s.class_id, "cast"))     # magia de classe em linha: gesto de magia, não o básico
 				return "atk_staff" if w in ["staff", "wand", "scythe", "scepter", ""] or off == "orb" else ("atk_2h" if w in TWO_HANDED_MELEE else "atk_1h_a")
 			return "cast"
 		SkillDef.Kind.MOVEMENT:
-			return "cast_buff"
+			return "dash" if s.class_id != "" else "cast_buff"     # piscar/avanço de classe: o arranque do dash
 	# físico
 	if not basic:
 		if s.target == SkillDef.Target.SELF:
 			return "atk_spin"
 		if s.target == SkillDef.Target.GROUND and w not in ["bow", "rifle"]:
-			return "atk_leap" if w in TWO_HANDED_MELEE or w == "spear" else "cast_ground"
+			if w in TWO_HANDED_MELEE or w == "spear":
+				return "atk_leap"
+			if s.class_id == "":
+				return "cast_ground"
+			# golpe de chão de uma mão (C1): guerreiro não conjura. Avanço = salto; o que fica no chão (veneno, estrepes,
+			# zona) = arremesso; o resto = golpe de cima no chão
+			if s.effects.has("dash"):
+				return "atk_leap"
+			if s.effects.has("dot") or s.effects.has("zone") or s.effects.has("slow") or s.effects.has("trap"):
+				return "atk_throw"
+			return "atk_finisher"
 	if w == "bow":
 		return "atk_bow"
 	if w == "rifle":
@@ -1900,15 +2108,26 @@ const FORM_CLIP := {"atk_claw": "maul", "atk_flurry": "maul", "atk_finisher": "m
 	"shout": "roar", "cast": "roar", "cast_nature": "roar", "cast_buff": "roar", "cast_target": "roar", "cast_channel": "roar",
 	"buff_power": "roar", "buff_focus": "roar", "summon": "roar", "buff_guard": "brace",
 	"atk_throw": "maul", "cast_fire": "roar", "cast_ice": "roar", "cast_bolt": "roar", "cast_holy": "roar",
-	"cast_shadow": "roar"}
+	"cast_shadow": "roar", "cast_heal_nature": "roar", "cast_curse": "roar", "cast_wind": "roar", "summon_rise": "roar",
+	"summon_call": "roar", "shout_rally": "roar", "atk_scythe_reap": "maul"}
 
 func _clip(name: String) -> String:
+	var c := _clip_raw(name)
+	if c == "" and CLIP_FALLBACK.has(name):
+		c = _clip_raw(CLIP_FALLBACK[name])     # clipe novo (C2) que este kit/GLB ainda não tem: o gesto de antes
+	return c
+
+func _clip_raw(name: String) -> String:
 	if kit and form_view == null:
 		return kit.resolve(name)
 	if anim.has_animation(name):
 		return name
 	var alt: String = FORM_CLIP.get(name, "")
 	return alt if alt != "" and anim.has_animation(alt) else ""
+
+## Clipe que toca quando o kit não tem `clip` (CLIP_FALLBACK; o próprio nome se não for clipe novo).
+static func fallback_clip(clip: String) -> String:
+	return str(CLIP_FALLBACK.get(clip, clip))
 
 ## Escudo arremessado (efeito "bounce") ainda no ar: a mão do escudo fica vazia até ele voltar.
 func _shield_in_flight() -> bool:
@@ -1935,10 +2154,14 @@ func _update_trail(st: int) -> void:
 		on = t >= s.startup * 0.35 and t <= s.startup + s.active + 0.12
 		if s.effects.get("shot", false) and s.range > 3.0:
 			on = false                     # tiro de pistola: o sabre fica parado, sem rastro
+		if teleport_style(s) != "":
+			on = false                     # teleporte: a fita esticaria da origem até o destino
 		if _arc_ribbon_off(s):
 			on = false                     # família com arco (WeaponArcs.FAMILIES): o crescente substitui a fita
 		var th := FxManager.theme_of(s)
 		var magic := s.kind != SkillDef.Kind.PHYSICAL and th != "physical" and th != ""
+		if magic and s.id.begins_with("basic_") and entity.stats and entity.stats.weapon_type in KitModel.THIN_TRAIL_WEAPONS:
+			on = false                     # básico de cajado/foice: sem fita (ela é do gesto da skill, V5)
 		kit.trail_tint = SkillFx.col(th, 0) if magic else Color(0, 0, 0, 0)     # magia: o rastro do cajado/cetro na cor do tema
 	kit.trail_on = on
 
@@ -1955,6 +2178,26 @@ func _arc_ribbon_off(s: SkillDef) -> bool:
 	return _ribbon_off
 
 ## Modificador de troca de clipe do modelo mostrado (kit ou bicho).
+## Golpe forte (HitReact): personagem inclina o tronco por cima do clipe (HitFlinch, aditivo, sem tirar o controle);
+## monstro/chefe encolhe no clipe "hit" como no clarão (o _flinch só desce no ramo de monstro). `dir` = do atacante para este boneco.
+func react_hit(dir: Vector3, strength: float) -> void:
+	if entity.kind == SimEntity.Kind.MONSTER:
+		if entity.is_alive():
+			_flinch = 0.22
+		return
+	if kit == null or form_view != null or kit.skeleton == null:
+		return          # forma de bicho: sem osso de tronco do kit
+		return
+	if _hit_flinch == null:
+		_hit_flinch = HitFlinch.new()
+		kit.skeleton.add_child(_hit_flinch)
+		_hit_flinch.setup(kit.skeleton)
+	_hit_flinch.kick(dir, strength)
+
+## Reação de golpe forte em curso (teste e filme).
+func flinching() -> bool:
+	return (_hit_flinch != null and _hit_flinch.busy()) or _flinch > 0.0
+
 func pose_fade() -> PoseFade:
 	if form_view:
 		return form_view.fade
@@ -2016,6 +2259,9 @@ func _animate_glb(st: int) -> void:
 			return
 		if s and not fresh and _strike_step(s):
 			return                             # sequência de golpes: o próximo clipe já entrou ou ainda vai entrar
+		if s and not fresh and not _retimed and ult_holding(s, entity.state_time):
+			anim.speed_scale = 0.0             # Suprema: segura a pose do impacto (V1/D2); o dano já saiu no tick, a sim não muda
+			return
 		if s and not fresh and not _retimed and entity.state_time >= s.startup + strike_last_at(s) and anim.is_playing():
 			# impacto: o que resta do clipe acaba junto com a skill (sem pose congelada nem corte);
 			# giro/canalização acaba junto com a fase ativa (e repete enquanto ela durar)
@@ -2044,7 +2290,8 @@ func _animate_glb(st: int) -> void:
 			if clip != "":
 				var impact := float(IMPACT_FRAME.get(clip, 5) - 1) / 24.0
 				var startup := maxf(s.startup if s else 0.15, 0.06)
-				var wt := windup_timing(impact, startup)
+				var coil := coil_for(s, clip) if kit and form_view == null and entity.kind != SimEntity.Kind.MONSTER else 0.0
+				var wt := windup_timing(impact, startup, coil)
 				_aim_hold = -1.0
 				if s and s.ultimate and startup > 0.6:     # mira longa: sobe a arma no ritmo normal e segura (não arrasta o preparo)
 					_aim_hold = maxf(0.0, impact - 0.05)

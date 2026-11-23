@@ -176,6 +176,15 @@ func before_start(returning: bool) -> String:
 	if DevArgs.flag("--gfx"):        # --gfx=<n>: preset de GraphicsSettings só nesta partida (não salva); comparar FPS/imagem
 		GraphicsSettings.preset = clampi(int(DevArgs.value("--gfx")), 0, GraphicsSettings.PRESETS.size() - 1)
 		GraphicsSettings.apply(main.get_viewport())
+	# Acessibilidade só nesta partida (não salva): --contrast=0|1|2 (avisos), --ally_fx=0|1|2, --shake=0..1, --flash=0..1
+	if DevArgs.flag("--contrast"):
+		AccessSettings.contrast = clampi(int(DevArgs.value("--contrast")), 0, AccessSettings.CONTRAST_NAMES.size() - 1)
+	if DevArgs.flag("--ally_fx"):
+		AccessSettings.ally_fx = clampi(int(DevArgs.value("--ally_fx")), 0, AccessSettings.DENSITY_NAMES.size() - 1)
+	if DevArgs.flag("--shake"):
+		AccessSettings.set_shake(float(DevArgs.value("--shake")), false)
+	if DevArgs.flag("--flash"):
+		AccessSettings.set_flash(float(DevArgs.value("--flash")), false)
 	if DevArgs.has("--fx_shadows"):      # medir: efeitos com sombra (como era)
 		FxManager.fx_shadows = true
 	if DevArgs.has("--no_buff_fx"):     # medir: sem buffs no boneco (BuffAura)
@@ -332,6 +341,12 @@ func after_start() -> void:
 	if DevArgs.flag("--lock_shot"):     # --lock_shot=<pasta> [--boss=<id>]: Tab trava no chefe, D gira em volta e W chega perto (fotos + raio no log)
 		_smoke_test = false
 		_lock_shot.call_deferred(DevArgs.value("--lock_shot"))
+	if DevArgs.flag("--boss_bar_shot"):  # --boss_bar_shot=<pasta> [--boss=<id>]: barra do chefe no topo do HUD (C4 2026-11-23)
+		_smoke_test = false
+		_boss_bar_shot.call_deferred(DevArgs.value("--boss_bar_shot"))
+	if DevArgs.flag("--react_film"):    # --react_film=<pasta> [--boss=<id>] [--mob=<id>] [--part=flinch,poise,cc]: retorno no corpo (C3 2026-11-23)
+		_smoke_test = false
+		_react_film.call_deferred(DevArgs.value("--react_film"))
 	if DevArgs.flag("--shift_shot"):    # --shift_shot=<pasta> [--form=bear|wolf|hawk]: xamã metamorfo no Bosque (antes, conjura, forma, furtivo/distância, volta)
 		_smoke_test = false
 		_shift_shot.call_deferred(DevArgs.value("--shift_shot"), DevArgs.value("--form"))
@@ -3212,6 +3227,343 @@ func _lock_shot(dir: String) -> void:
 	await _lock_snap(dir + "/lock_3_solto.png", p, boss)
 	print("LOCK_SHOT released=%s" % (not main.controller.lock.active()))
 	get_tree().quit()
+
+## Barra do chefe (BossBar, C4 2026-11-23): jogador imortal a 7 m do chefe parado, que briga com ele (ameaça), com 55% da vida.
+## Grava <pasta>/bar_0_luta.png (vida + fases), bar_1_canal.png (Rufar da Turba no meio do canal: barra de conjuração),
+## bar_2_trava_ward.png (Tab travado, 20%, protegido pelos lacaios) e bar_3_reset.png (chefe resetado: a barra some).
+## Imprime BOSS_BAR <foto> visible=<bool> cast=<texto>.
+func _boss_bar_shot(dir: String) -> void:
+	DirAccess.make_dir_recursive_absolute(dir)
+	var bid := DevArgs.value("--boss", "boss_agitator_lord")
+	var p: SimEntity = Sim.player
+	p.brain = null
+	var map_id := ""
+	var home := Vector3.ZERO
+	for mid in GameData.maps:
+		for sp in GameData.maps[mid].spawners:
+			if sp["monster_id"] == bid and map_id == "":
+				map_id = mid
+				home = sp["pos"]
+	if map_id == "":
+		push_error("BOSS_BAR: %s sem spawner" % bid)
+		get_tree().quit()
+		return
+	Sim.sync()
+	Sim._change_map(p, map_id, home + Vector3(7, 0, 0))
+	var arrive := Time.get_ticks_msec() + 2000
+	while Time.get_ticks_msec() < arrive:
+		Sim.sync()
+		p.iframe_left = 1.0
+		p.stats.max_hp = 1.0e9
+		p.hp = 1.0e9
+		await get_tree().process_frame
+	Sim.sync()
+	var boss: SimEntity = null
+	for e: SimEntity in Sim.maps[map_id]["entities"]:
+		if e.monster_def != null and e.monster_def.id == bid and e.is_alive():
+			boss = e
+	if boss == null:
+		boss = Sim.spawn_monster(GameData.monsters[bid], map_id, home)
+	boss.brain = null
+	for e: SimEntity in Sim.maps[map_id]["entities"]:
+		if e.kind == SimEntity.Kind.MONSTER and e != boss:
+			e.brain = null
+	p.position = boss.position + Vector3(0, 0, 7.0)
+	boss.face_towards(p.position)
+	main.camera.distance = 22.0
+	boss.hp = boss.stats.max_hp * 0.55
+	boss.phase = mini(1, boss.monster_def.phases.size())
+	boss.threat[p.id] = 100.0
+	boss.aggro_target = p.id
+	await _bar_snap(dir + "/bar_0_luta.png", p, 0.8)
+	Sim.sync()
+	var s: SkillDef = GameData.skills.get(DevArgs.value("--bar_skill", "mob_drum_frenzy"))
+	if s:
+		Sim._add_skills(boss, [s.id])
+		Sim._start_skill(boss, s, boss.skills.find(s), p.position)
+	await _bar_snap(dir + "/bar_1_canal.png", p, s.startup + 1.2 if s else 0.5)
+	if DevArgs.has("--bar_raid"):          # investida no mapa do chefe + fala do chefe + aviso: as faixas empilham (hud._stack_top_lane)
+		var hud = main.hud
+		hud._raid_t = 999.0
+		hud.raid_label.text = "Investida: 7 de 12 inimigos na muralha"
+		hud.raid_banner.visible = true
+		hud._boss_line("%s: Pedra não sangra." % boss.name)
+		hud._notify("Aviso de teste: notificação abaixo das faixas")
+		await _bar_snap(dir + "/bar_4_raid.png", p, 0.4)
+		var r1: Rect2 = hud.boss_bar.get_global_rect()
+		var r2: Rect2 = hud.raid_banner.get_global_rect()
+		var r3: Rect2 = hud.boss_banner.get_global_rect()
+		print("BOSS_BAR raid stack bar=%s raid=%s line=%s overlap=%s" % [r1, r2, r3, r1.intersects(r2) or r2.intersects(r3) or r1.intersects(r3)])
+		hud._raid_t = 0.0
+	Sim.sync()
+	boss.hp = boss.stats.max_hp * 0.2
+	boss.phase = boss.monster_def.phases.size()
+	boss.threat[p.id] = 100.0
+	boss.aggro_target = p.id
+	main.controller.toggle_lock(Vector3(9999, 0, 9999))
+	var until := Time.get_ticks_msec() + 500
+	while Time.get_ticks_msec() < until:
+		Sim.sync()
+		boss.ward = 0.5                       # foto: como se os lacaios da fase vivessem
+		p.iframe_left = 1.0
+		await get_tree().process_frame
+	await _bar_snap(dir + "/bar_2_trava_ward.png", p, 0.0)
+	Sim.sync()
+	main.controller.toggle_lock(Vector3.ZERO)
+	Sim.reset_boss(boss)
+	boss.aggro_target = -1                 # o cérebro largaria o alvo no reset (aqui está desligado)
+	await _bar_snap(dir + "/bar_3_reset.png", p, 0.6)
+	get_tree().quit()
+
+## Filme do retorno no corpo (C3, plano de combate 2026-11-23). Jogador escondido em Aldara; tudo fora do filme parado e escondido.
+## flinch.png: linhas = golpe de 10% e 25% da vida no paladino da direita (o da esquerda é a régua), vindo do centro; colunas = REACT_TIMES.
+## poise.png: cima monstro comum, baixo chefe; 5 "membros do grupo" batem 1,5% da vida em revezamento (POISE_EVERY s);
+##   a última coluna é um golpe de 6% no chefe. Imprime REACT_FILM poise mob=<quadros encolhido>/<n> boss=<n>/<n>.
+## cc_game.png / cc_close.png: preso (raízes), atordoado (estrelas), lento andando em círculo (rastro) e lento de gelo (anel).
+const REACT_TIMES := [0.0, 0.03, 0.06, 0.1, 0.15, 0.22, 0.3, 0.4]
+const POISE_EVERY := 0.18
+const POISE_SHOTS := [0.35, 0.8, 1.25, 1.7, 2.15]
+
+func _react_film(dir: String) -> void:
+	DirAccess.make_dir_recursive_absolute(dir)
+	var parts: String = DevArgs.value("--part", "flinch,poise,cc")
+	var p: SimEntity = Sim.player
+	p.brain = null
+	Sim.sync()
+	Sim._change_map(p, "city_aldara", Vector3(4, 0, 34))
+	await get_tree().create_timer(1.5).timeout
+	Sim.sync()
+	for e: SimEntity in Sim.maps[p.map_id]["entities"]:
+		if e != p:
+			e.brain = null
+	var bid: String = DevArgs.value("--boss", "boss_troll_king")
+	var mob_id: String = DevArgs.value("--mob", "")
+	if mob_id == "":
+		for mid in GameData.maps:
+			for sp in GameData.maps[mid].spawners:
+				var md: MonsterDef = GameData.monsters.get(sp["monster_id"])
+				if mob_id == "" and md != null and not md.is_boss and md.level >= 30 and not md.dummy:
+					mob_id = md.id
+	var right: Vector3 = main.camera.cam.global_basis.x
+	right = Vector3(right.x, 0, right.z).normalized()
+	var cam_pos: Vector3 = main.camera.cam.global_position
+	var flash0 := AccessSettings.flash
+	AccessSettings.flash = 0.0 if DevArgs.has("--no_flash") else flash0     # sem o clarão branco a pose aparece nos 1ºs quadros
+	if "flinch" in parts:
+		await _rf_flinch(dir, p, right, cam_pos)
+	if "poise" in parts:
+		await _rf_poise(dir, p, right, cam_pos, bid, mob_id)
+	if "cc" in parts:
+		await _rf_cc(dir, p, right, cam_pos, mob_id)
+	AccessSettings.flash = flash0
+	print("REACT_FILM_END")
+	get_tree().quit()
+
+## Esconde todo boneco fora de `keep` (e as placas de nome/vida).
+func _rf_hide(keep: Array) -> void:
+	for v in main.views.values():
+		var ev: EntityView = v
+		var show: bool = keep.has(ev.entity)
+		ev.model_root.visible = show
+		if not show:
+			ev.hide_name_dev()
+			if ev.hp_bar:
+				ev.hp_bar.visible = false
+
+func _rf_grab() -> Image:
+	await RenderingServer.frame_post_draw
+	return get_viewport().get_texture().get_image()
+
+## Recorte de altura `hf` da tela (largura = hf × aspect) centrado no ponto do mundo.
+func _rf_crop(img: Image, at: Vector3, hf: float, aspect: float) -> Image:
+	var c: Vector2 = main.camera.cam.unproject_position(at)
+	var sx := img.get_width() / get_viewport().get_visible_rect().size.x
+	var ch := int(img.get_height() * hf)
+	var cw := int(ch * aspect)
+	var r := Rect2i(int(c.x * sx) - cw / 2, int(c.y * sx) - ch / 2, cw, ch)
+	var out := Image.create(cw, ch, false, img.get_format())
+	out.fill(Color(0, 0, 0))
+	var src := r.intersection(Rect2i(0, 0, img.get_width(), img.get_height()))
+	out.blit_rect(img, src, src.position - r.position)
+	return out
+
+func _rf_sheet(rows: Array, path: String) -> void:
+	var w: int = rows[0][0].get_width()
+	var h: int = rows[0][0].get_height()
+	var cols := 0
+	for r in rows:
+		cols = maxi(cols, r.size())
+	var sheet := Image.create(w * cols, h * rows.size(), false, rows[0][0].get_format())
+	for y in rows.size():
+		for x in rows[y].size():
+			sheet.blit_rect(rows[y][x], Rect2i(0, 0, w, h), Vector2i(x * w, y * h))
+			sheet.fill_rect(Rect2i(x * w, y * h, 1, h), Color(0, 0, 0))
+	sheet.save_png(path)
+	print("REACT_FILM %s" % path)
+
+func _rf_flinch(dir: String, p: SimEntity, right: Vector3, cam_pos: Vector3) -> void:
+	main.camera.distance = 9.0
+	var cls: ClassDef = GameData.classes["paladin"]
+	var rows: Array = []
+	for pct in [10, 25]:
+		var pair: Array = []
+		for k in 2:
+			var b := Sim.spawn_bot(cls, "F%d" % k, p.map_id, p.position + right * (-0.9 + 1.8 * k), 30)
+			b.brain = null
+			b.ct = {}
+			b.buffs.clear()
+			b.recompute_stats()
+			b.face_towards(Vector3(cam_pos.x, 0, cam_pos.z))
+			pair.append(b)
+		await get_tree().create_timer(1.0).timeout
+		_rf_hide(pair)
+		await get_tree().create_timer(0.3).timeout
+		Sim.sync()
+		var t: SimEntity = pair[1]
+		var meas := {}
+		var tv: EntityView = main.views.get(t.id)
+		if tv and tv.kit and tv.kit.skeleton:
+			tv.kit.skeleton.skeleton_updated.connect(_rf_measure.bind(tv.kit.skeleton, right, meas))
+		Sim._deal_damage(p, t, int(t.stats.max_hp * pct / 100.0), false, false, "physical")
+		var t0 := Time.get_ticks_msec()
+		var frames: Array = []
+		var busy: Array = []
+		for at in REACT_TIMES:
+			while (Time.get_ticks_msec() - t0) / 1000.0 < float(at):
+				await get_tree().process_frame
+			var img: Image = await _rf_grab()
+			frames.append(_rf_crop(img, p.position + Vector3(0, 0.55, 0), 0.75, 0.95))
+			busy.append(main.views[t.id].flinching() if main.views.has(t.id) else false)
+			busy.append("%.2f" % float(meas.get("d", 0.0)))
+		rows.append(frames)
+		print("REACT_FILM flinch %d%% strength=%.2f busy=%s" % [pct, HitReact.strength(t, int(t.stats.max_hp * pct / 100.0), false, "physical"), busy])
+		for b in pair:
+			Sim.despawn(b)
+		await get_tree().create_timer(0.3).timeout
+	_rf_sheet(rows, dir.path_join("flinch.png"))
+
+## Deslocamento (m, para a direita da tela) da cabeça em relação ao quadril, lido depois dos modificadores (skeleton_updated).
+func _rf_measure(sk: Skeleton3D, right: Vector3, out: Dictionary) -> void:
+	var h := sk.find_bone("head")
+	var hip := sk.find_bone("hips")
+	if h >= 0 and hip >= 0:
+		out["d"] = (sk.global_transform.basis * (sk.get_bone_global_pose(h).origin - sk.get_bone_global_pose(hip).origin)).dot(right)
+
+func _rf_poise(dir: String, p: SimEntity, right: Vector3, cam_pos: Vector3, bid: String, mob_id: String) -> void:
+	main.camera.distance = 16.0
+	var face := Vector3(cam_pos.x, 0, cam_pos.z)
+	var mob := Sim.spawn_monster(GameData.monsters[mob_id], p.map_id, p.position - right * 5.0)
+	var boss := Sim.spawn_monster(GameData.monsters[bid], p.map_id, p.position - right * 0.5)
+	var group: Array = []
+	for k in 5:
+		var cid: String = ["paladin", "berserker", "ranger", "elementalist", "bishop"][k]
+		var g := Sim.spawn_bot(GameData.classes[cid], "G%d" % k, p.map_id, p.position - (face - p.position).normalized() * 3.0 + right * (k - 2), 30)
+		g.brain = null
+		group.append(g)
+	for e: SimEntity in [mob, boss]:
+		e.brain = null
+		e.face_towards(face)
+	await get_tree().create_timer(1.2).timeout
+	_rf_hide([mob, boss])
+	await get_tree().create_timer(0.3).timeout
+	var mv: EntityView = main.views[mob.id]
+	var bv: EntityView = main.views[boss.id]
+	var top: Array = []
+	var bottom: Array = []
+	var n := 0
+	var mob_f := 0
+	var boss_f := 0
+	var t0 := Time.get_ticks_msec()
+	var next_hit := 0.0
+	var k := 0
+	var shot := 0
+	while true:
+		var el := (Time.get_ticks_msec() - t0) / 1000.0
+		if el > 2.4:
+			break
+		Sim.sync()
+		if el >= next_hit:
+			next_hit += POISE_EVERY
+			var g: SimEntity = group[k % group.size()]
+			k += 1
+			for e: SimEntity in [mob, boss]:
+				e.hp = e.stats.max_hp
+				Sim._deal_damage(g, e, maxi(1, int(e.stats.max_hp * 0.015)), false, false, "physical")
+				e.face_towards(face)
+		var img: Image = await _rf_grab()
+		n += 1
+		mob_f += 1 if mv.flinching() else 0
+		boss_f += 1 if bv.flinching() else 0
+		if shot < POISE_SHOTS.size() and el >= float(POISE_SHOTS[shot]):
+			shot += 1
+			top.append(_rf_crop(img, mob.position + Vector3(0, 1.0, 0), 0.6, 0.75))
+			bottom.append(_rf_crop(img, boss.position + Vector3(0, 2.0, 0), 0.6, 0.75))
+	print("REACT_FILM poise mob=%d/%d boss=%d/%d (golpes de 1,5%% a cada %.2f s)" % [mob_f, n, boss_f, n, POISE_EVERY])
+	await get_tree().create_timer(0.5).timeout
+	Sim.sync()
+	boss.hp = boss.stats.max_hp
+	Sim._deal_damage(group[0], boss, int(boss.stats.max_hp * 0.06), false, false, "physical")
+	await get_tree().create_timer(0.06).timeout
+	var big: Image = await _rf_grab()
+	print("REACT_FILM poise big_hit boss_flinch=%s" % bv.flinching())
+	top.append(_rf_crop(big, mob.position + Vector3(0, 1.0, 0), 0.6, 0.75))
+	bottom.append(_rf_crop(big, boss.position + Vector3(0, 2.0, 0), 0.6, 0.75))
+	_rf_sheet([top, bottom], dir.path_join("poise.png"))
+	for e in [mob, boss] + group:
+		Sim.despawn(e)
+	await get_tree().create_timer(0.3).timeout
+
+func _rf_cc(dir: String, p: SimEntity, right: Vector3, cam_pos: Vector3, mob_id: String) -> void:
+	var face := Vector3(cam_pos.x, 0, cam_pos.z)
+	var cls: ClassDef = GameData.classes["paladin"]
+	var subs: Array = []
+	for k in 4:
+		var e := Sim.spawn_monster(GameData.monsters[mob_id], p.map_id, p.position + right * (-5.0 + 2.0 * k))
+		e.brain = null
+		e.face_towards(face)
+		subs.append(e)
+	var ally := Sim.spawn_bot(cls, "R", p.map_id, p.position + (face - p.position).normalized() * 2.5 - right * 3.5, 30)
+	ally.brain = null
+	ally.face_towards(face)
+	subs[0].debuffs.append({"kind": "root", "remaining": 999.0})
+	ally.debuffs.append({"kind": "root", "remaining": 999.0})
+	subs[1].set_state(SimEntity.State.STUNNED, 999.0)
+	subs[2].debuffs.append({"kind": "slow", "remaining": 999.0, "pct": 30.0})
+	subs[3].debuffs.append({"kind": "slow", "remaining": 999.0, "pct": 30.0, "frost": true})
+	await get_tree().create_timer(1.0).timeout
+	_rf_hide(subs + [ally])
+	var walk_c: Vector3 = subs[2].position
+	for cam in [[24.0, "cc_game.png"], [12.0, "cc_close.png"]]:
+		main.camera.distance = float(cam[0])
+		var t0 := Time.get_ticks_msec()
+		var img: Image
+		while (Time.get_ticks_msec() - t0) / 1000.0 < 2.2:
+			Sim.sync()
+			var a := (Time.get_ticks_msec() - t0) / 1000.0 * 1.4
+			var w: SimEntity = subs[2]
+			var to := walk_c + Vector3(cos(a), 0, sin(a)) * 1.4
+			w.velocity = (to - w.position) * 60.0
+			w.position = to
+			w.face_towards(to + Vector3(-sin(a), 0, cos(a)))
+			w.state = SimEntity.State.MOVING
+			subs[1].set_state(SimEntity.State.STUNNED, 999.0)
+			img = await _rf_grab()
+		var full: Image = _rf_crop(img, p.position - right * 2.0 + Vector3(0, 0.8, 0), 0.55 if cam[0] > 20.0 else 0.8, 1.9)
+		full.save_png(dir.path_join(str(cam[1])))
+		print("REACT_FILM %s" % dir.path_join(str(cam[1])))
+	for e in subs + [ally]:
+		Sim.despawn(e)
+
+func _bar_snap(path: String, p: SimEntity, wait: float) -> void:
+	var until := Time.get_ticks_msec() + int(wait * 1000.0)
+	while Time.get_ticks_msec() < until:
+		Sim.sync()
+		p.iframe_left = 1.0
+		await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(path)
+	var bar: BossBar = main.hud.boss_bar
+	print("BOSS_BAR %s visible=%s cast=%s" % [path, bar.visible, bar._cast.text if bar._cast.visible else "-"])
 
 func _lock_snap(path: String, p: SimEntity, boss: SimEntity) -> void:
 	Sim.sync()

@@ -97,7 +97,7 @@ func _explode(at: Vector3, col: Color) -> void:
 	p.emitting = true
 	var light := OmniLight3D.new()
 	light.light_color = col
-	light.light_energy = 8.0
+	light.light_energy = 8.0 * AccessSettings.flash     # Acessibilidade → Clarões
 	light.omni_range = 18.0
 	add_child(light)
 	light.global_position = at
