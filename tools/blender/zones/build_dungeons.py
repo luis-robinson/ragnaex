@@ -243,4 +243,6 @@ def build(export=False, only=None):
     for did, g in places.DUNGEONS.items():
         if only and did not in only:
             continue
+        if g.get("reserved"):             # entrada reservada (só a boca na zona; o mapa ainda não existe): sem GLB/JSON
+            continue
         (build_graph if "layout" in g else build_one)(did, g, export)

@@ -33345,5 +33345,31 @@
    ]
   }
  ],
+ "events": [
+  {
+   "kind": "prisoner",
+   "pos": [
+    45.0,
+    -73.2
+   ],
+   "mob": "elf_warrior"
+  },
+  {
+   "kind": "prisoner",
+   "pos": [
+    84.3,
+    -30.5
+   ],
+   "mob": "elf_warrior"
+  },
+  {
+   "kind": "prisoner",
+   "pos": [
+    -82.4,
+    50.9
+   ],
+   "mob": "elf_warrior"
+  }
+ ],
  "turn": 0.0
 }

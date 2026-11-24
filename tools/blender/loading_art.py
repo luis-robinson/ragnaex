@@ -144,6 +144,8 @@ ZONES = {
                          "cam": {"at": (6, 0), "az": 70, "dist": 112, "elev": 26, "pitch": 17, "fov": 50}},
     "field_grove": {"name": "Bosque dos Xamãs", "ground": (0.25, 0.42, 0.36), "mood": "forest",
                     "cam": {"at": (34, -2), "az": -24, "dist": 100, "elev": 26, "pitch": 18, "fov": 50}},
+    "field_marsh": {"name": "Brejo das Teias", "ground": (0.30, 0.38, 0.27), "mood": "forest",
+                    "cam": {"at": (10, 20), "az": -20, "dist": 100, "elev": 26, "pitch": 18, "fov": 50}},
     "elf_city": {"name": "Cidade Élfica", "ground": (0.42, 0.6, 0.44), "mood": "elf",
                  "cam": {"at": (0, 0), "az": 18, "dist": 155, "elev": 24, "pitch": 13, "fov": 50}},
     "field_ruins": {"name": "Bastião da Aurora", "ground": (0.55, 0.56, 0.46), "mood": "dawn", "hide": ["limpo_"],

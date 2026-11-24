@@ -2992,6 +2992,10 @@ def build_all(out_dir, only=None):
     import lumeria_revelers
     importlib.reload(lumeria_revelers)
     builders.update(lumeria_revelers.BUILDERS)
+    # Brejo das Teias (12-16): Sapo-Boi, Bocarra (Sapa-Mãe) e a Tecelã do Brejo, todos de peças rígidas (marsh_mobs.py)
+    import marsh_mobs
+    importlib.reload(marsh_mobs)
+    builders.update(marsh_mobs.BUILDERS)
     for name, fn in builders.items():
         if only and name not in only:
             continue

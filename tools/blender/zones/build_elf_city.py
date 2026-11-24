@@ -15,6 +15,7 @@ import places
 import zone_lib
 importlib.reload(zone_lib)
 from zone_lib import Zone, cyl, box, blob, disc, cone
+from dress import Dress
 
 ZONE = "elf_city"
 RING_R = 66.0             # cidade grande: dois anéis de casas, bairros e o exército dentro do muro
@@ -43,10 +44,285 @@ PLACES = [
 ]
 
 
+# Pontos de evento de estrada (P4 "Patrulha com Prisioneiro", GDD elf-band-living 3.3): (tipo, (x, z), monstro), pontos
+# conferidos no jogo pelo pacote LIVING (beira das estradas arco_norte, arco_leste e arco_oeste). Viram data["events"]
+# (-> MapDef.road_events); as regras ficam em MapsCatalog.ROAD_EVENTS["elf_city"]["prisoner"] (só `unless: el6_king`).
+EVENT_POINTS = [
+    ("prisoner", (45.0, -73.2), "elf_warrior"),
+    ("prisoner", (84.3, -30.5), "elf_warrior"),
+    ("prisoner", (-82.4, 50.9), "elf_warrior"),
+]
+# Faixa élfica viva (GDD elf-band-living 3.4): o cenário troca com o Rei. Dois lotes com `tag` (MapDef.conquest_vis):
+# guerra (`unless: el6_king`) e trégua (`if: el6_king`), no mesmo ponto; nada aqui colide nem entra no JSON.
+WAR_TAG, TRUCE_TAG = "elfa_guerra_det", "elfa_tregua_det"
+GATE_DEG = [90.0, 0.0, 180.0, -125.0, -55.0, -90.0]   # S (cerco), L (treino), O (poço), NO (grifos), NE (trents), N (Coração)
+ELF_GREEN, ELF_SILVER, MOURN_WHITE = (0.2, 0.5, 0.36), (0.84, 0.86, 0.88), (0.95, 0.95, 0.9)
+PALE_WOOD = (0.8, 0.76, 0.64)
+CAPTIVES = {"forte_matilha": (11.8, -82.8), "forte_ninho": (-44.5, -75.0), "forte_seiva": (83.0, 14.8)}     # = LIVING_NPCS elv_captive_*
+# Cochos de seiva: (parada, para que lado da parada fica o cocho). Os coletores (elv_sap_a / elv_sap_b) param FORA dos
+# portões leste e noroeste (decisão 2026-11-24: fora da praça, menos bonecos lá); o da Árvore-Mãe é só cenário, no lado
+# sudeste, que a câmera vê (entre a lanterna da porta do Coração e a raiz sul).
+SAP_STOPS = [((71.1, -0.5), (0.61, -0.79)), ((-37.8, -63.0), (0.95, -0.32)), ((4.8, 14.7), (-0.31, -0.95))]
+# Vigília da Viúva Elandra: (centro, raio, onde ela fica). Sudeste da praça (o noroeste fica atrás do tronco na câmera).
+VIGIL = ((6.5, 16.0), 2.6, (9.4, 16.3))
+ENVOY_TENT = ((-11.5, 17.5), -48.0)           # pedido (-9.4, 15.6): caía na ponta de uma raiz da Árvore-Mãe; o emissário fica em (-7.5, 19.0)
+YARD_DUMMIES = [((45.3, -17.9), 20.0), ((46.7, -20.3), -30.0)]     # diante da Recruta Nerys (41, -21.5), fora da rota do aprendiz
+YARD_TARGET = ((49.2, -17.2), 60.0)
+YARD_RACKS = [((51.4, -26.6), 75.0), ((51.6, -20.4), 105.0), ((37.0, -26.4), 100.0)]
+YARD_CRATES = [((47.6, -22.3), 1.0, 20.0), ((48.8, -21.7), 0.9, -15.0), ((47.9, -23.6), 1.0, 40.0)]
+
+
+class OneLot(Dress):
+    """Lote de conquista num lote só: tudo vai para UMA malha por tipo (objetos, pano, cada brilho), não uma por célula
+    de 36 m. As peças são poucas e espalhadas pela cidade inteira: por célula seriam ~25 malhas com sombra por estado."""
+
+    def _bm(self, g, m, x, z):
+        return Dress._bm(self, g, m, 0.0, 0.0)
+
+    def _bm_cloth(self, m, x, z):
+        return Dress._bm_cloth(self, m, 0.0, 0.0)
+
+
 def polar(z, ang_deg, inset):
     a = math.radians(ang_deg)
     r = z.rim_r(a) - inset
     return (round(math.cos(a) * r, 1), round(math.sin(a) * r, 1))
+
+
+def gate_posts():
+    """Os dois mastros de cada portão (6 do anel, por fora do muro, e 3 dos fortes): [(ponto, giro do pano)], o pano
+    sai para longe do vão."""
+    out = []
+    for a in GATE_DEG:
+        r = math.radians(a)
+        u, t = Vector((math.cos(r), math.sin(r))), Vector((-math.sin(r), math.cos(r)))
+        for k in (-1, 1):
+            out.append((tuple(u * (RING_R + 2.6) + t * 4.7 * k), zone_lib.along(t.x * k, t.y * k)))
+    for p in PLACES:
+        if p["type"] != "fort":
+            continue
+        c, d = Vector(p["pos"]), places.direction(p["face"])
+        side = Vector((-d.y, d.x))
+        for k in (-1, 1):
+            out.append((tuple(c + d * (float(p.get("r", 13.0)) + 1.7) + side * 4.5 * k), zone_lib.along(side.x * k, side.y * k)))
+    return out
+
+
+def cage_spots():
+    """Jaula de cada forte: ao lado do preso (2,8 m para o lado em que ele já está do eixo do portão), porta para ele."""
+    out = []
+    for p in PLACES:
+        if p["id"] not in CAPTIVES:
+            continue
+        c, d = Vector(p["pos"]), places.direction(p["face"])
+        side = Vector((-d.y, d.x))
+        q = Vector(CAPTIVES[p["id"]])
+        k = 1.0 if (q - c).dot(side) >= 0.0 else -1.0
+        out.append((tuple(q + side * 2.8 * k), zone_lib.along(-side.x * k, -side.y * k)))
+    return out
+
+
+def cage(d, c, rot, opened):
+    """Jaula élfica de varas claras (2 x 2,2 x 2 m): estrado, quatro esteios, travessas e grades. A frente (+x local) é a
+    porta: fechada com grade e tranca, ou aberta para fora e a jaula vazia."""
+    g = "jaula"
+    wood = d.m("jaula_casca", (0.44, 0.34, 0.25))
+    bar = d.m("jaula_vara", PALE_WOOD)
+    a = math.radians(rot)
+    L = lambda x, zz: (c[0] + x * math.cos(a) + zz * math.sin(a), c[1] - x * math.sin(a) + zz * math.cos(a))
+    d.box(g, wood, c, (2.2, 0.16, 2.2), rot, 0.0)
+    for sx in (-1, 1):
+        for sz in (-1, 1):
+            d.cyl(g, wood, L(sx * 1.0, sz * 1.0), 0.1, 0.08, 2.25, 0.1, 5)
+    for y in (0.16, 2.2):
+        for sz in (-1, 1):
+            d.box(g, wood, L(0.0, sz * 1.0), (2.1, 0.1, 0.1), rot, y)
+        for sx in (-1, 1):
+            d.box(g, wood, L(sx * 1.0, 0.0), (0.1, 0.1, 2.1), rot, y)
+    for i in range(5):                                                             # teto de ripas com vão: de cima ainda lê como jaula
+        d.box(g, wood, L(0.0, -0.96 + i * 0.48), (2.3, 0.08, 0.2), rot, 2.3)
+    for i in range(1, 6):
+        k = -1.0 + i / 3.0
+        for sz in (-1, 1):
+            d.cyl(g, bar, L(k, sz * 1.0), 0.035, 0.035, 2.05, 0.2, 4)
+        d.cyl(g, bar, L(-1.0, k), 0.035, 0.035, 2.05, 0.2, 4)
+    if not opened:
+        for i in range(1, 6):
+            d.cyl(g, bar, L(1.0, -1.0 + i / 3.0), 0.035, 0.035, 2.05, 0.2, 4)
+        d.box(g, wood, L(1.02, 0.0), (0.08, 0.12, 2.0), rot, 1.1)                 # tranca atravessada
+        d.box(g, d.m("ferro", (0.6, 0.62, 0.66)), L(1.08, 0.55), (0.1, 0.24, 0.2), rot, 1.04)
+        st = d.m("alvo_palha", (0.8, 0.68, 0.4))                                   # palha e a cuia do preso
+        d.box(g, st, L(-0.3, 0.3), (1.2, 0.1, 1.0), rot + 12.0, 0.16)
+        d.cyl(g, wood, L(0.5, -0.55), 0.14, 0.2, 0.14, 0.16, 6)
+    else:
+        hinge = L(1.0, -1.0)                                                       # a porta gira no esteio e fica escancarada
+        da = rot + 115.0
+        ra = math.radians(da)
+        mid = (hinge[0] + math.cos(ra) * 1.0, hinge[1] - math.sin(ra) * 1.0)
+        for y in (0.2, 2.1):
+            d.box(g, wood, mid, (2.0, 0.08, 0.08), da, y)
+        for i in range(1, 6):
+            q = (hinge[0] + math.cos(ra) * i / 3.0, hinge[1] - math.sin(ra) * i / 3.0)
+            d.cyl(g, bar, q, 0.035, 0.035, 1.9, 0.2, 4)
+        d.box(g, wood, L(1.9, 0.7), (0.08, 0.12, 2.0), rot + 70.0, 0.0)           # a tranca largada no chão
+
+
+def bow(d, c, rot, lean, g="arcos"):
+    """Arco élfico sem corda, de pé e inclinado (dentro de um caixote)."""
+    a = math.radians(rot)
+    ux, uz = math.cos(a), -math.sin(a)
+    pts = []
+    for i in range(7):
+        t = i / 6.0
+        up = 0.25 + 1.7 * t
+        out = lean * up + 0.3 * math.sin(math.pi * t)
+        pts.append((c[0] + ux * out, up, c[1] + uz * out))
+    d.tube(g, d.m("arco_claro", (0.86, 0.8, 0.6)), pts, 0.05, 0.04, 4)
+
+
+def banner_war(d, c, rot):
+    """Estandarte de guerra élfico: mastro claro, pano verde comprido e uma fita de prata do outro lado do mastro."""
+    d.flag(c, ELF_GREEN, h=4.8, rot=rot, pole=PALE_WOOD, g="estandarte", tatter=False, w=1.25, drop=2.2)
+    sm = d.m("pano_prata", ELF_SILVER)
+    d.cloth("estandarte", sm, c, 0.85, 0.95, rot + 180.0, 3.75, 0.08, "swallow", d.m("pano_prata_barra", tuple(k * 0.82 for k in ELF_SILVER)))
+    d.cyl("estandarte", d.m("mastro_ponta", ELF_SILVER), c, 0.1, 0.0, 0.38, 4.8, 4)
+
+
+def banner_truce(d, c, rot):
+    """O mesmo mastro, sem o estandarte: fita branca de luto a meio mastro e o pano verde dobrado ao pé."""
+    d.cyl("estandarte", d.m("mastro_fl_80", PALE_WOOD), c, 0.09, 0.06, 4.8, 0.0, 5)
+    wm = d.m("pano_luto", MOURN_WHITE)
+    d.cloth("estandarte", wm, c, 0.5, 1.5, rot, 1.7, 0.08, "swallow", d.m("pano_luto_barra", tuple(k * 0.86 for k in MOURN_WHITE)))
+    a = math.radians(rot)
+    q = (c[0] + math.cos(a) * 0.75, c[1] - math.sin(a) * 0.75)
+    gm = d.m("pano_dobrado", ELF_GREEN)
+    d.box("estandarte", gm, q, (0.8, 0.14, 0.55), rot + 14.0, 0.0)
+    d.box("estandarte", d.m("pano_dobrado_esc", tuple(k * 0.82 for k in ELF_GREEN)), q, (0.72, 0.12, 0.5), rot + 4.0, 0.14)
+    d.box("estandarte", gm, q, (0.62, 0.1, 0.42), rot + 20.0, 0.26)
+    d.box("estandarte", d.m("pano_prata_fita", ELF_SILVER), q, (0.12, 0.38, 0.6), rot + 14.0, 0.0)
+
+
+def sap_station(d, stop, side):
+    """Coleta de seiva: cocho de casca com a seiva acesa e baldes em volta, a 1,7 m da parada para o lado `side` (a
+    parada do coletor fica livre)."""
+    v = Vector(stop)
+    u = -Vector(side).normalized()
+    t = Vector((-u.y, u.x))
+    c = v - u * 1.7
+    rot = zone_lib.along(t.x, t.y)
+    wood = d.m("cocho", (0.46, 0.36, 0.26))
+    sap = d.m("glow_seiva", (0.78, 1.0, 0.6))
+    d.box("seiva", wood, tuple(c), (2.2, 0.5, 0.8), rot, 0.12)
+    for k in (-1, 1):
+        d.box("seiva", wood, tuple(c + t * 0.8 * k), (0.2, 0.3, 0.9), rot, 0.0)
+    d.box("seiva", sap, tuple(c), (1.96, 0.05, 0.56), rot, 0.6)
+    for dt, du, full in ((1.7, 0.2, True), (-1.75, -0.1, True), (-2.3, 0.75, False), (1.2, 1.0, False)):
+        q = tuple(c + t * dt + u * du)
+        d.cyl("seiva", d.m("balde", (0.66, 0.54, 0.36)), q, 0.2, 0.26, 0.42, 0.0, 7)
+        d.cyl("seiva", d.m("balde_aro", (0.5, 0.52, 0.56)), q, 0.27, 0.27, 0.06, 0.3, 7, cap=False)
+        if full:
+            d.cyl("seiva", sap, q, 0.22, 0.22, 0.03, 0.4, 7)
+    d.tube("seiva", wood, [(c.x - u.x * 0.2, 1.5, c.y - u.y * 0.2), (c.x - u.x * 0.1, 1.0, c.y - u.y * 0.1), (c.x, 0.7, c.y)], 0.06, 0.04, 4)   # bica
+
+
+def vigil(d, c, r, widow):
+    """Vigília de luto: flores brancas e lanternas baixas em roda (peças soltas, nada pintado no chão), um apoio no
+    meio com o manto do rei dobrado. Pula o que cairia dentro de uma raiz da Árvore-Mãe ou em cima da viúva."""
+    leaf = d.m("vigilia_folha", (0.36, 0.56, 0.36))
+    white = d.m("vigilia_flor", MOURN_WHITE)
+    post = d.m("vigilia_haste", PALE_WOOD)
+    light = d.m("glow_vela", (1.0, 0.95, 0.78))
+    roots = [math.tau * i / 10 + 0.2 for i in range(10)]
+
+    def in_root(q):
+        for a in roots:
+            u = Vector((math.cos(a), math.sin(a)))
+            along, lat = q.dot(u), abs(q.x * u.y - q.y * u.x)
+            if TREE_R * 0.8 < along < TREE_R * 3.1 and lat < 1.5:
+                return True
+        return False
+
+    n = 14
+    for i in range(n):
+        a = math.tau * i / n
+        q = Vector((c[0] + math.cos(a) * r, c[1] + math.sin(a) * r))
+        if in_root(q) or (q - Vector(widow)).length < 1.0:
+            continue
+        if i % 2 == 0:                                     # lanterna baixa: pé, copo aceso, chapéu
+            d.cyl("vigilia", post, tuple(q), 0.1, 0.06, 0.34, 0.0, 5)
+            d.cyl("vigilia", light, tuple(q), 0.13, 0.16, 0.24, 0.34, 6)
+            d.cyl("vigilia", post, tuple(q), 0.24, 0.0, 0.16, 0.58, 6)
+        else:                                              # maço de flores brancas
+            d.tuft("vigilia", leaf, tuple(q), 0.4, 0.42, 5)
+            for k in range(5):
+                b = a + math.tau * k / 5
+                f = (q.x + math.cos(b) * 0.24, q.y + math.sin(b) * 0.24)
+                d.cyl("vigilia", white, f, 0.0, 0.11, 0.1, 0.3 + 0.06 * (k % 2), 5)
+    d.cyl("vigilia", post, c, 0.42, 0.34, 0.5, 0.0, 6)     # apoio de madeira clara
+    d.box("vigilia", d.m("pano_dobrado", ELF_GREEN), c, (0.6, 0.12, 0.44), 30.0, 0.5)
+    d.box("vigilia", d.m("pano_prata_fita", ELF_SILVER), c, (0.12, 0.14, 0.46), 30.0, 0.5)
+    d.cyl("vigilia", light, (c[0] + 0.05, c[1] - 0.05), 0.1, 0.12, 0.2, 0.64, 6)
+
+
+def living_dress(z):
+    """Lotes da faixa élfica viva. Random próprio (Dress), nenhum colisor, nada em z.data: o JSON não muda."""
+    posts = gate_posts()
+    cages = cage_spots()
+    # neutro: bonecos de treino e um alvo na beira do pátio do Quartel, para a recruta (só enfeite, não é TRAINING_DUMMIES)
+    d = Dress(z, 31)
+    for c, rot in YARD_DUMMIES:
+        d.drill_post(c, rot, shield=ROOF, boss=ELF_SILVER)
+    d.target(*YARD_TARGET)
+    d.flush()
+    # guerra (some com o Rei)
+    w = OneLot(z, 32, tag=WAR_TAG, when={"unless": "el6_king"})
+    for c, rot in posts:
+        banner_war(w, c, rot)
+    for c, rot in YARD_RACKS:
+        w.weapon_rack(c, rot)
+    for stop, side in SAP_STOPS:
+        sap_station(w, stop, side)
+    for c, rot in cages:
+        cage(w, c, rot, False)
+    w.flush()
+    # trégua (aparece com o Rei)
+    t = OneLot(z, 33, tag=TRUCE_TAG, when={"if": "el6_king"})
+    for c, rot in posts:
+        banner_truce(t, c, rot)
+    vigil(t, *VIGIL)
+    for c, s, rot in YARD_CRATES:                          # caixotes de arcos entregues
+        t.crate(c, s, rot, g="arcos")
+        for k in range(3):
+            bow(t, (c[0] + (k - 1) * 0.24 * s, c[1] + (k % 2) * 0.2 - 0.1), rot + 60.0 * k, 0.16 + 0.05 * k)
+    for c, rot in cages:
+        cage(t, c, rot, True)
+    t.tent_aurora(ENVOY_TENT[0], ENVOY_TENT[1], 1.0)       # barraca do emissário humano (lona clara, barra azul da Aurora)
+    a = math.radians(ENVOY_TENT[1])
+    t.crate((ENVOY_TENT[0][0] + math.cos(a) * 2.5, ENVOY_TENT[0][1] - math.sin(a) * 2.5), 0.8, ENVOY_TENT[1] + 15.0)
+    t.flush()
+
+
+def event_points(z):
+    """data["events"] nos pontos pedidos; EVENT_CONFLICT se um deles quebrar as regras do _check_road_events."""
+    data = z.data
+    data["events"] = []
+    for kind, pos, mob in EVENT_POINTS:
+        q = Vector(pos)
+        far = lambda c, r: (q - Vector(c[:2])).length >= r
+        why = ""
+        if q.length < 40.0:
+            why = "hub"
+        elif not all(far(p["pos"], 25.0) for p in data["portals"]) or not far(data["spawn"], 25.0):
+            why = "portal/chegada"
+        elif not all(far(v, 25.0) for v in data["npcs"].values()):
+            why = "npc"
+        elif not all(far(o["pos"], max(o["size"][0], o["size"][2]) * 0.5 + 0.6) for o in data["obstacles"] if o.get("solid", True) and o["kind"] != "cliff"):
+            why = "obstaculo"
+        elif not all(far(e["pos"], 30.0) for e in data["events"]):
+            why = "outro ponto"
+        if why:
+            print("EVENT_CONFLICT %s em %s: %s" % (kind, pos, why))
+        data["events"].append({"kind": kind, "pos": [round(q.x, 2), round(q.y, 2)], "mob": mob})
 
 
 def great_tree(z, c):
@@ -101,7 +377,7 @@ def build(export=False):
     z.portal("to_forest", portal, "field_forest", (-5.3, -101.0), "Floresta Sombria")
 
     # ---------- hub: anel da cidade em volta da Grande Árvore ----------
-    gate_deg = [90.0, 0.0, 180.0, -125.0, -55.0, -90.0]   # S (cerco), L (treino), O (poço), NO (grifos), NE (trents), N (Coração)
+    gate_deg = GATE_DEG
     gates = [math.radians(a) for a in gate_deg]
     H = lambda r, a: (math.cos(math.radians(a)) * r, math.sin(math.radians(a)) * r)
     z.patch("clareira", (0, 0), RING_R + 10, (0.5, 0.66, 0.46), grass=True)
@@ -293,4 +569,6 @@ def build(export=False):
     z.spawner("trent", GROVE[0], GROVE[1], 12, 4, 30.0)
     z.spawner("elf_archer", MOONWELL[0] + 8, MOONWELL[1] + 20, 6, 3, 22.0)      # margem oeste do riacho, ao sul do poço (antes caía na água)
     z.spawner("elf_lynx", -24.0, -76.0, 9, 4, 18.0)
+    event_points(z)
+    living_dress(z)
     return z.finish(export, poi=AERIE, ground=(0.4, 0.58, 0.42))

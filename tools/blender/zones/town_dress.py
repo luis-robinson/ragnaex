@@ -562,6 +562,67 @@ def wagon(d, c, rot, canvas=(0.9, 0.87, 0.78), g="carroca"):
     d.box(g, wood, c, (3.2, 0.4, 0.06), rot, 0.8)
 
 
+# Faixa élfica viva (GDD elf-band-living 3.4): o Posto esvazia depois do Rei. Dois lotes com `tag` (MapDef.conquest_vis de
+# field_forest): guerra (`unless: el6_king`) = esteiras de dormir em volta das 4 carroças + a carroça do Simão; paz
+# (`if: el6_king`) = só as esteiras de quem ficou (Dalva e Bento, a família do mercado) e, no lugar da carroça que partiu,
+# a carga que ela deixou (mesma pegada: o colisor oculto fica no lote neutro e vale para os dois). Nada aqui colide.
+POSTO_WAR, POSTO_PEACE = "posto_guerra_det", "posto_paz_det"
+POSTO_LEAVER = 3             # índice em WAGON_DEG: a carroça do canto nordeste (lado da garganta) vai embora
+WAGON_DRAWS = 32             # sorteios que uma carroça gasta no lote (4 rodas x 8 lados do `cyl`)
+# esteiras por carroça: (raio, ângulo) a partir do centro, atrás da roda de carroças e fora das ruas, dos NPCs de serviço,
+# dos bonecos de treino, da bigorna e das bancas; a esteira fica deitada no raio, cabeça para fora
+POSTO_BEDS = (((9.2, 63.0), (9.6, 33.0)), ((8.9, 127.0), (8.9, 154.0)), ((8.6, -112.0), (9.2, -155.0)), ((9.0, -45.0), (8.8, -19.0)))
+POSTO_BEDS_PEACE = ((0, 0), (1, 0), (1, 1))          # (carroça, esteira) que continuam depois do Rei
+BED_COLS = (((0.62, 0.32, 0.27), (0.86, 0.8, 0.66)), ((0.4, 0.48, 0.6), (0.82, 0.8, 0.72)), ((0.74, 0.6, 0.36), (0.5, 0.36, 0.26)),
+            ((0.44, 0.54, 0.4), (0.84, 0.78, 0.6)))
+
+
+class _OneLot(Dress):
+    """Lote de conquista pequeno: tudo numa malha por tipo (o centro do Posto cai no canto de 4 células de 36 m)."""
+
+    def _bm(self, g, m, x, z):
+        return Dress._bm(self, g, m, 0.0, 0.0)
+
+    def _bm_cloth(self, m, x, z):
+        return Dress._bm_cloth(self, m, 0.0, 0.0)
+
+
+def bedroll(d, c, rot, k=0, bundle=False, g="esteira"):
+    """Esteira de dormir de refugiado: manta de lã com listra, rolo de travesseiro na cabeça e, às vezes, a trouxa ao lado.
+    1,75 x 0,72 m, rente ao chão (de cima: retângulo de cor surrada). `rot` = ao longo da esteira (cabeça em +x)."""
+    col, stripe = BED_COLS[k % len(BED_COLS)]
+    wool = d.m("esteira_la_%d" % k, col)
+    band = d.m("esteira_listra_%d" % k, stripe)
+    a = math.radians(rot)
+    ux, uz = math.cos(a), -math.sin(a)
+    at = lambda t, s=0.0: (c[0] + ux * t - uz * s, c[1] + uz * t + ux * s)
+    d.box(g, d.m("esteira_palha", (0.7, 0.62, 0.42)), c, (1.85, 0.04, 0.8), rot, 0.0)
+    d.box(g, wool, at(-0.12), (1.5, 0.07, 0.72), rot, 0.03)
+    for t in (-0.62, 0.3):
+        d.box(g, band, at(t), (0.16, 0.075, 0.73), rot, 0.03)
+    d.log(g, band, at(0.74), 0.11, 0.62, rot + 90.0)
+    if bundle:
+        d.sack(at(0.5, 0.72), 0.7, g, color=(0.66, 0.58, 0.44))
+        d.box(g, wool, at(-0.3, 0.66), (0.5, 0.16, 0.34), rot + 20.0, 0.0)
+
+
+def left_cargo(d, c, rot, canvas, g="carga"):
+    """O que a carroça que partiu deixou para o Posto, na pegada dela (3,3 x 1,9 m): caixotes, barril, sacos e a lona dobrada."""
+    a = math.radians(rot)
+    ux, uz = math.cos(a), -math.sin(a)
+    at = lambda t, s=0.0: (c[0] + ux * t - uz * s, c[1] + uz * t + ux * s)
+    d.crate(at(-1.05, 0.15), 1.0, rot + 6.0, 0.0, g)
+    d.crate(at(-0.05, -0.3), 0.9, rot - 10.0, 0.0, g)
+    d.crate(at(-0.95, 0.1), 0.6, rot + 30.0, 1.0, g)
+    d.barrel(at(1.05, 0.35), 1.05, 0.0, g)
+    d.sack(at(0.95, -0.5), 1.1, g)
+    d.sack(at(0.1, 0.55), 1.0, g)
+    d.sack(at(-0.3, 0.62), 0.8, g, color=(0.66, 0.58, 0.44))
+    lona = d.m("pano_lona_%d" % int(canvas[0] * 100), canvas)
+    d.box(g, lona, at(-0.05, -0.3), (0.8, 0.14, 0.6), rot + 4.0, 0.9)
+    d.box(g, d.m("pano_lona_costura", tuple(k * 0.86 for k in canvas)), at(-0.05, -0.3), (0.82, 0.05, 0.2), rot + 4.0, 1.04)
+
+
 def posto(z, hub):
     """Centro do Posto: fogueira grande com o caldeirão da Bia, roda de 4 carroças de lona, varais de peles (SO) e a Trompa
     do Cerco junto ao portão norte. Devolve o resumo gravado em data["town"]["centerpiece"]."""
@@ -600,12 +661,26 @@ def posto(z, hub):
         d.log("fogueira", wood, q, 0.24, 1.7, 90.0 - a)
     # --- roda de carroças dos refugiados ---
     wagons = []
+    war, peace = _OneLot(z, seed=84, tag=POSTO_WAR), _OneLot(z, seed=85, tag=POSTO_PEACE)
     for i, a in enumerate(WAGON_DEG):
         c = H(WAGON_R, a)
         rot = -a - 90.0                     # ao longo da tangente
-        wagon(d, c, rot, canvas=((0.9, 0.87, 0.78), (0.86, 0.82, 0.7))[i % 2])
+        canvas = ((0.9, 0.87, 0.78), (0.86, 0.82, 0.7))[i % 2]
+        if i == POSTO_LEAVER:               # a carroça que parte depois do Rei: lote de guerra; o neutro gasta os mesmos sorteios
+            wagon(war, c, rot, canvas=canvas)
+            for _ in range(WAGON_DRAWS):
+                d.rnd.random()
+            left_cargo(peace, c, rot, canvas)
+        else:
+            wagon(d, c, rot, canvas=canvas)
         z.ob("crate", c[0], c[1], (3.3, 2.1, 1.9), rot, visible=False)
         wagons.append([round(c[0], 2), round(c[1], 2), round(rot, 1)])
+        for k, (br, ba) in enumerate(POSTO_BEDS[i]):          # esteiras: cheias na guerra, só as de quem ficou na paz
+            bedroll(war, H(br, ba), -ba, i * 2 + k, bundle=(k == 0))
+            if (i, k) in POSTO_BEDS_PEACE:
+                bedroll(peace, H(br, ba), -ba, i * 2 + k, bundle=(k == 0))
+    war.flush()
+    peace.flush()
     # --- varais de peles (SO, na frente das casas): moldura e couros ocre, sem colisor ---
     hide = [d.m("pele_a", (0.74, 0.58, 0.36)), d.m("pele_b", (0.66, 0.5, 0.32)), d.m("pele_c", (0.8, 0.68, 0.48))]
     pole = d.m("varal_pau", (0.44, 0.33, 0.24))

@@ -31,6 +31,36 @@ GROVE_ARRIVE_IN = (-85.2, -6.0)     # chegada no Bosque (build_field_grove: pola
 LATE_TRAIL = [(42.0, -6.0), (55.0, -3.0), (67.0, 2.5), (78.0, 8.0)]      # sai da estrada leste, depois da ponte
 LATE_W = 3.0                        # trilha estreita, como as do Bosque
 LATE_DECOR = ("tree", "pine", "dead_tree", "rock", "bush", "flowers", "log", "stump", "reed")
+# Garganta sul (Brejo das Teias, 2026-11-24), também aberta depois (mesmo padrão): sai do arco sul, entre o pântano e o rio.
+MARSH_ANG = 100.0
+MARSH_ARRIVE_IN = (-7.4, -84.7)     # chegada no Brejo (build_field_marsh: polar(-95, 15))
+LATE_TRAIL_S = [(-4.0, 80.0), (-8.0, 88.0), (-13.0, 96.0)]
+# Cerco Vivo do Posto (GDD elf-siege-posto; SIEGE["field_forest"]): uma rota por lado, pontos conferidos contra os colisores
+# (>= 1,8 m de folga em todo trecho; _check_elf_siege AC-4). Os flancos acabam nos portões oeste (-29, 0) e leste (19, 0);
+# nenhum `from` a menos de 20 m da chegada do portal élfico. `unless` = quest que cala o lado ("a|b" = qualquer uma).
+Q_KING = "el6_king"
+NORTH_ROUTE = [(2.0, -66.0), (-8.0, -46.0), (2.0, -34.0), (-5.0, -27.0), (-5.0, -20.0)]
+RAIDS = [
+    ("muralha_norte", (8.0, -80.0), NORTH_ROUTE, (-5.0, -14.0), Q_KING),
+    ("flanco_oeste", (-30.0, -80.0), [(-40.0, -72.0), (-48.0, -58.0), (-41.0, -55.0), (-22.0, -54.0), (-12.0, -43.0), (-12.0, -40.0),
+                                      (-34.0, -8.0), (-34.0, -2.0), (-30.0, 0.0)], (-17.0, -1.0), "els_steel|" + Q_KING),
+    ("flanco_leste", (26.0, -82.0), [(5.0, -74.0), (-4.0, -48.0), (4.0, -39.0), (12.0, -40.0), (13.0, -28.0), (24.0, -4.0), (23.0, 0.0)],
+     (8.0, 0.0), "els_lynx|" + Q_KING),
+    ("patrulha_norte", (8.0, -80.0), NORTH_ROUTE, (-5.0, -14.0), Q_KING),
+    ("assedio_crista", (12.0, -40.0), [], (-5.0, -14.0), Q_KING),          # kind harass no catálogo: arqueiros na crista
+]
+RAID_R = 12.0
+# Chamas (leva que chegou e não foi repelida; só visual, game/world/siege_fx.gd): na fachada do quartel, da forja e do alojamento
+# (raio, ângulo a partir do centro do Posto: 0,3 m antes da parede virada para a praça), e a fumaça no horizonte da garganta élfica.
+FIRE_SPOTS = [(12.2, -45.0), (13.0, -135.0), (14.2, -160.0)]
+SMOKE_POS = (-5.0, -105.0)
+# Pontos de evento de estrada ("Emboscada dos Salteadores", GDD elf-band-living 3.3): (tipo, (x, z), monstro) na estrada de
+# Aldara, na estrada sul e no arco norte; viram data["events"] (-> MapDef.road_events), regras em MapsCatalog.ROAD_EVENTS.
+EVENT_POINTS = [
+    ("ambush", (-79.2, 9.9), "bandit"),
+    ("ambush", (27.5, 58.2), "bandit"),
+    ("ambush", (24.4, -81.9), "bandit"),
+]
 PLACES = [
     {"type": "cabin", "id": "herborista", "pos": (-44.0, 30.0), "face": 60.0, "npc": "herbalist_maren", "roof": (0.36, 0.46, 0.32)},
     {"type": "cabin", "id": "cacador", "pos": (70.0, -16.0), "face": 170.0, "npc": "hunter_dario", "roof": (0.46, 0.32, 0.24)},
@@ -45,6 +75,45 @@ def polar(z, ang_deg, inset):
     a = math.radians(ang_deg)
     r = z.rim_r(a) - inset
     return (round(math.cos(a) * r, 1), round(math.sin(a) * r, 1))
+
+
+def clear_late(obs, poly, spots, w):
+    """Tira a decoração que ficou no caminho de uma garganta aberta depois (trilha `poly` de largura `w` e largos `spots`)."""
+    def in_the_way(o):
+        if o["kind"] not in LATE_DECOR or not o["visible"] or o.get("y"):
+            return False
+        p = zone_lib.Vector(o["pos"])
+        half = (o["size"][0] + o["size"][2]) * 0.25
+        pad = 1.6 if o.get("solid", True) else 0.4
+        return zone_lib.poly_dist(p, poly) < w * 0.5 + pad + half or any((p - c).length < r + half for c, r in spots)
+    gone = [o for o in obs if in_the_way(o)]
+    obs[:] = [o for o in obs if not in_the_way(o)]
+    return gone
+
+
+def event_points(z):
+    """data["events"] nos pontos pedidos; EVENT_CONFLICT se um deles quebrar as regras do _check_event_points."""
+    data = z.data
+    data["events"] = []
+    hub = zone_lib.Vector(HUB)
+    for kind, pos, mob in EVENT_POINTS:
+        q = zone_lib.Vector(pos)
+        far = lambda c, r: (q - zone_lib.Vector(c[:2])).length >= r
+        arrivals = [data["spawn"]] + [v for k, v in data.items() if k.startswith("arrive_from_")]
+        why = ""
+        if (q - hub).length < 40.0:
+            why = "hub"
+        elif not all(far(p["pos"], 25.0) for p in data["portals"]) or not all(far(a, 25.0) for a in arrivals):
+            why = "portal/chegada"
+        elif not all(far(v, 25.0) for v in data["npcs"].values()):
+            why = "npc"
+        elif not all(far(o["pos"], max(o["size"][0], o["size"][2]) * 0.5 + 0.6) for o in data["obstacles"] if o.get("solid", True) and o["kind"] != "cliff"):
+            why = "obstaculo"
+        elif not all(far(e["pos"], 30.0) for e in data["events"]):
+            why = "outro ponto"
+        if why:
+            print("EVENT_CONFLICT %s em %s: %s" % (kind, pos, why))
+        data["events"].append({"kind": kind, "pos": [round(q.x, 2), round(q.y, 2)], "mob": mob})
 
 
 def build(export=False):
@@ -135,8 +204,12 @@ def build(export=False):
     z.road("arvore", [(-8, -46), (2, -66), (8, -80)])
     # rota das investidas: garganta élfica -> junção da Árvore-Mãe -> estrada norte -> portão norte
     z.road("elfos", [elf_portal, elf_arrive, (-4, -92), (8, -80)], end_clearing=False)
-    route = [(-4.0, -92.0), (8.0, -80.0), (2.0, -66.0), (-8.0, -46.0), (2.0, -34.0), (HUB[0], -CAMP_R - 4.0), (HUB[0], -CAMP_R + 4.0)]
-    z.data["raid"] = {"from": list(elf_arrive), "route": [list(p) for p in route], "target": list(HUB), "radius": CAMP_R}
+    # Cerco Vivo: uma rota por lado (o `raid` antigo nascia na chegada do portal élfico e saiu). Sem peças de paliçada:
+    # os trechos são os portões oeste e leste. Quem solta as levas é o SiegeSystem (relógio do mapa).
+    z.data["raids"] = [{"side": side, "from": list(src), "route": [list(p) for p in pts], "target": list(tgt), "radius": RAID_R, "unless": unless}
+                       for side, src, pts, tgt, unless in RAIDS]
+    z.data["fx"] = [{"kind": "fire", "pos": [round(v, 2) for v in H(r, a)]} for r, a in FIRE_SPOTS]
+    z.data["fx"].append({"kind": "smoke", "pos": list(SMOKE_POS), "unless": Q_KING})
     # arcos entre POIs (sem becos): norte = aranhas → Árvore-Mãe → bandidos; sul = ents → pântano → aranhas SO
     gate2 = math.atan2(-80 - BANDITS[1], 44 - BANDITS[0])
     g2_out = (BANDITS[0] + math.cos(gate2) * (BANDIT_R + 3), BANDITS[1] + math.sin(gate2) * (BANDIT_R + 3))
@@ -173,6 +246,9 @@ def build(export=False):
     grove_portal = polar(z, GROVE_ANG, 7)
     grove_arrive = polar(z, GROVE_ANG, 15)
     z.late_gorges.append(math.atan2(grove_portal[1], grove_portal[0]))
+    marsh_portal = polar(z, MARSH_ANG, 7)
+    marsh_arrive = polar(z, MARSH_ANG, 15)
+    z.late_gorges.append(math.atan2(marsh_portal[1], marsh_portal[0]))
     z.cliffs()
 
     places.build(z, PLACES)
@@ -232,17 +308,29 @@ def build(export=False):
     late_poly = z.road("leste", LATE_TRAIL + [grove_arrive, grove_portal], w=LATE_W, end_clearing=False)
     z.arrival(grove_arrive, toward=grove_portal, r=6.0, name="chegada_leste")
     spots = [(zone_lib.Vector(grove_arrive), 7.0), (zone_lib.Vector(grove_portal), 7.0)]
-    def in_the_way(o):
-        if o["kind"] not in LATE_DECOR or not o["visible"] or o.get("y"):
-            return False
-        p = zone_lib.Vector(o["pos"])
-        half = (o["size"][0] + o["size"][2]) * 0.25
-        pad = 1.6 if o.get("solid", True) else 0.4
-        return zone_lib.poly_dist(p, late_poly) < LATE_W * 0.5 + pad + half or any((p - c).length < r + half for c, r in spots)
-    gone = [o for o in obs if in_the_way(o)]
-    obs[:] = [o for o in obs if not in_the_way(o)]
+    gone = clear_late(obs, late_poly, spots, LATE_W)
     z.data["arrive_from_field_grove"] = list(grove_arrive)
     print("garganta leste: portal %s chegada %s; %d objetos tirados do caminho: %s"
           % (grove_portal, grove_arrive, len(gone), [(o["kind"], o["pos"]) for o in gone]))
+
+    # ---------- garganta sul: Brejo das Teias (por último, mesmo padrão: nada acima muda) ----------
+    z.portal("to_field_marsh", marsh_portal, "field_marsh", MARSH_ARRIVE_IN, "Brejo das Teias (Lv 12-16)")
+    south_poly = z.road("sul", LATE_TRAIL_S + [marsh_arrive, marsh_portal], w=LATE_W, end_clearing=False)
+    z.arrival(marsh_arrive, toward=marsh_portal, r=6.0, name="chegada_sul")
+    spots = [(zone_lib.Vector(marsh_arrive), 7.0), (zone_lib.Vector(marsh_portal), 7.0)]
+    gone = clear_late(obs, south_poly, spots, LATE_W)
+    z.data["arrive_from_field_marsh"] = list(marsh_arrive)
+    print("garganta sul: portal %s chegada %s; %d objetos tirados do caminho: %s"
+          % (marsh_portal, marsh_arrive, len(gone), [(o["kind"], o["pos"]) for o in gone]))
+    for o in obs:                    # o que sobrou de sólido perto da trilha (lugar, penhasco...): tem de dar vazio
+        if o.get("solid", True) and not o.get("y"):
+            p = zone_lib.Vector(o["pos"])
+            half = max(o["size"][0], o["size"][2]) * 0.5
+            if zone_lib.poly_dist(p, south_poly) < LATE_W * 0.5 + 1.0 + half or (p - zone_lib.Vector(marsh_arrive)).length < 6.0 + half:
+                print("GORGE_CONFLICT sul: %s em %s (%s)" % (o["kind"], o["pos"], o["size"]))
+    lake_d = zone_lib.poly_dist(zone_lib.Vector((-30.0, 84.0)), south_poly) - 10.0
+    river_d = min(zone_lib.poly_dist(q, rv) for q in south_poly for rv in z.rivers) - z.river_w * 0.5
+    print("garganta sul: folga do pantano %.1f m, do rio %.1f m" % (lake_d, river_d))
+    event_points(z)
     print("chegada da Floresta:", arrive, "portal:", portal)
     return z.finish(export, poi=BANDITS, ground=(0.36, 0.52, 0.34))

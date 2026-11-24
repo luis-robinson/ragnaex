@@ -279,6 +279,14 @@ DUNGEONS["rift_heart"] = {
         "edges": [("chegada", "limiar"), ("limiar", "coracao")],
     },
 }
+# Viveiro de Seiva (Brejo das Teias, GDD brejo-das-teias 3.8): entrada RESERVADA. O mapa ainda não existe: `reserved`
+# faz o places.dungeon() pôr só a boca (com o arco de raízes élfico e o veio de seiva), fechar a boca com um colisor e
+# gravar a passagem em data["future_portals"]; o build_dungeons pula a entrada. Quando o mapa existir: tirar `reserved`,
+# preencher `layout`/`boss` e refazer o Brejo (o colisor da boca some e o portal entra em `portals`).
+DUNGEONS["dg_viveiro"] = {
+    "zone": "field_marsh", "gate": (78.0, 2.0), "face": 190.0, "name": "Viveiro de Seiva", "seed": 31, "reserved": True, "level": 17,
+    "rock": (0.4, 0.32, 0.22), "floor": (0.5, 0.44, 0.3), "glow": (0.95, 0.75, 0.3), "rooms": [], "boss": "",
+}
 DUNGEON_ARRIVE = (0.0, 44.0)   # chegada dentro de toda dungeon; a saída fica em DUNGEON_EXIT
 DUNGEON_EXIT = (0.0, 50.0)
 
@@ -438,7 +446,11 @@ def dungeon(s, p):
     mouth = c + d * (GATE_R + 0.4)
     box(s.coll, name + "_boca", tuple(mouth), (4.0, 1.4, 3.0), _rot(d), mat("dungeon_boca", (0.03, 0.03, 0.05)))
     box(s.coll, name + "_verga", tuple(mouth + d * 0.3), (5.6, 1.2, 0.9), _rot(d), rock, y0=3.0)
-    box(s.coll, name + "_brilho", tuple(mouth + d * 0.75), (3.2, 0.1, 2.4), _rot(d), mat("glow_" + p["dungeon"], g["glow"]), y0=0.05)
+    reserved = bool(g.get("reserved"))
+    if reserved:
+        _root_arch(s, name, p["dungeon"], g, mouth, d, side)
+    else:
+        box(s.coll, name + "_brilho", tuple(mouth + d * 0.75), (3.2, 0.1, 2.4), _rot(d), mat("glow_" + p["dungeon"], g["glow"]), y0=0.05)
     for k in (-1, 1):
         q = mouth + d * 0.8 + side * 2.6 * k
         s.ob("pillar", q.x, q.y, (0.9, 3.2, 0.9), color=(0.6, 0.58, 0.56))
@@ -446,11 +458,78 @@ def dungeon(s, p):
         s.ob("lamp", q.x, q.y, (0.4, 2.8, 0.4))
     s.ob("hill", c.x, c.y, ((GATE_R + 0.6) * 2, 5.0, (GATE_R + 0.6) * 2), visible=False)
     portal = c + d * (GATE_R + 1.6)
-    s.data["portals"].append({"id": "to_" + p["dungeon"], "pos": [round(portal.x, 2), round(portal.y, 2)], "radius": 2.0,
-                              "target_map": p["dungeon"], "target_pos": list(DUNGEON_ARRIVE), "label": g["name"]})
+    if reserved:                      # mapa que ainda não existe: a passagem fica marcada e a boca, fechada
+        fp = {"id": "to_" + p["dungeon"], "pos": [round(portal.x, 2), round(portal.y, 2)], "target_map": p["dungeon"],
+              "arrive": list(DUNGEON_ARRIVE), "label": g["name"]}
+        if "level" in g:
+            fp["level"] = g["level"]
+        s.data.setdefault("future_portals", []).append(fp)
+        q = mouth + d * 1.0
+        s.ob("wall", q.x, q.y, (4.5, 3.0, 2.0), _rot(d), visible=False)
+    else:
+        s.data["portals"].append({"id": "to_" + p["dungeon"], "pos": [round(portal.x, 2), round(portal.y, 2)], "radius": 2.0,
+                                  "target_map": p["dungeon"], "target_pos": list(DUNGEON_ARRIVE), "label": g["name"]})
     _trail(s, p["id"], c, c + d * (GATE_R + 5.0))
     s.block(tuple(c), GATE_R + 5.0)
     s.block(tuple(c + d * (GATE_R + 3.0)), 6.0)
+
+
+def _tube(coll, name, pts, r0, r1, material, sides=6):
+    """Tubo que afina ao longo de pontos (x, y_up, z) do jogo: raiz, veio."""
+    import bmesh
+    import bpy
+    P = [Vector((q[0], -q[2], q[1])) for q in pts]
+    bm = bmesh.new()
+    rings = []
+    n = len(P)
+    for i, q in enumerate(P):
+        t = (P[min(n - 1, i + 1)] - P[max(0, i - 1)]).normalized()
+        up = Vector((0, 0, 1)) if abs(t.z) < 0.9 else Vector((1, 0, 0))
+        u = t.cross(up).normalized()
+        v = t.cross(u).normalized()
+        r = r0 + (r1 - r0) * i / (n - 1)
+        rings.append([bm.verts.new(q + (u * math.cos(math.tau * k / sides) + v * math.sin(math.tau * k / sides)) * r) for k in range(sides)])
+    for i in range(n - 1):
+        for k in range(sides):
+            bm.faces.new((rings[i][k], rings[i][(k + 1) % sides], rings[i + 1][(k + 1) % sides], rings[i + 1][k]))
+    bm.faces.new(rings[-1])
+    bm.faces.new(list(reversed(rings[0])))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+    me = bpy.data.meshes.new(name + "_mesh")
+    bm.to_mesh(me)
+    bm.free()
+    o = bpy.data.objects.new(name, me)
+    coll.objects.link(o)
+    me.materials.append(material)
+    return o
+
+
+def _root_arch(s, name, did, g, mouth, d, side):
+    """Arco de raízes élfico sobre a boca de uma entrada reservada: duas raízes grossas que sobem dos lados e se cruzam
+    no alto, duas mais finas trançadas por fora e o veio de seiva aceso (`glow_<dungeon>`) pela frente de cada uma. O
+    brilho fica nas raízes, nunca num disco no chão (a gramática de perigo é dona dos anéis acesos)."""
+    bark = mat("bark_" + did, (0.36, 0.26, 0.17))
+    bark_l = mat("bark_l_" + did, (0.48, 0.36, 0.24))
+    glow = mat("glow_" + did, g["glow"])
+
+    def P(lat, up, fwd):
+        q = mouth + side * lat + d * fwd
+        return (q.x, up, q.y)
+
+    box(s.coll, name + "_fundo", tuple(mouth - d * 0.35), (4.6, 4.0, 1.2), _rot(d), mat("dungeon_boca", (0.03, 0.03, 0.05)))      # o escuro da boca até o arco
+
+    for k in (-1, 1):
+        main = [(3.5 * k, 0.0, 1.5), (3.15 * k, 1.3, 0.9), (2.75 * k, 2.6, 0.6), (1.9 * k, 3.8, 0.5), (0.7 * k, 4.5, 0.5), (-0.9 * k, 4.75, 0.55), (-2.2 * k, 4.3, 0.7)]
+        _tube(s.coll, name + "_raiz_%d" % k, [P(*q) for q in main], 0.62, 0.2, bark, 7)
+        thin = [(4.4 * k, 0.0, 0.4), (3.7 * k, 1.5, 0.35), (3.3 * k, 3.0, 0.2), (2.4 * k, 4.3, 0.15), (1.0 * k, 5.1, 0.2), (-0.4 * k, 5.3, 0.3)]
+        _tube(s.coll, name + "_raiz_fina_%d" % k, [P(*q) for q in thin], 0.34, 0.1, bark_l, 6)
+        foot = [(4.6 * k, 0.0, 2.6), (3.9 * k, 0.35, 2.0), (3.4 * k, 0.5, 1.3)]
+        _tube(s.coll, name + "_raiz_pe_%d" % k, [P(*q) for q in foot], 0.2, 0.42, bark, 6)
+        vein = [(lat, up + 0.02, fwd + 0.5 - 0.02 * i) for i, (lat, up, fwd) in enumerate(main[:6])]
+        vein[0] = (vein[0][0], 0.25, vein[0][2])
+        _tube(s.coll, name + "_veio_%d" % k, [P(*q) for q in vein], 0.1, 0.05, glow, 4)
+    for i, lat in enumerate((-1.1, 0.0, 1.2)):               # gotas de seiva penduradas do alto do arco
+        _tube(s.coll, name + "_gota_%d" % i, [P(lat, 4.35, 0.75), P(lat, 3.9 - 0.2 * (i % 2), 0.78), P(lat, 3.55 - 0.2 * (i % 2), 0.8)], 0.05, 0.11, glow, 5)
 
 
 def _tree_door(s, p, g):
