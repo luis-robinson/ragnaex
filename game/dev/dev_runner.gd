@@ -64,7 +64,12 @@ const TOURS := {
 		["hub", Vector3(0, 0, 5)], ["chegada", Vector3(-100, 0, 9)], ["ponte", Vector3(26, 0, -6)],
 		["bandidos_portao", Vector3(52, 0, -40)], ["bandidos_centro", Vector3(66, 0, -56)], ["aranhas", Vector3(-50, 0, -50)],
 		["ents", Vector3(56, 0, 54)], ["arvore_mae", Vector3(8, 0, -76)], ["pantano", Vector3(-30, 0, 66)],
-		["borda_norte", Vector3(-18, 0, -104)], ["borda_leste", Vector3(94, 0, 25)]],
+		["borda_norte", Vector3(-18, 0, -104)], ["borda_leste", Vector3(94, 0, 25)],
+		["garganta_sul", Vector3(-17, 0, 101)], ["trilha_sul", Vector3(-8, 0, 88)], ["posto_norte", Vector3(-6, 0, -8)]],
+	"field_marsh": [["chegada", Vector3(-7.4, 0, -82)], ["hub", Vector3(0, 0, 4)], ["charco", Vector3(-62, 0, -12)], ["mata_teias", Vector3(54, 0, -42)],
+		["cais", Vector3(-38, 0, 64)], ["ponta_bocarra", Vector3(44, 0, 66)], ["benzedeira", Vector3(-56, 0, 28)], ["bento", Vector3(22, 0, -66)],
+		["altar", Vector3(-22, 0, -50)], ["viveiro", Vector3(66, 0, 2)], ["lagoa", Vector3(-12, 0, 42)], ["cipreste", Vector3(-26, 0, -30)],
+		["ponte_corrego", Vector3(38, 0, 28)], ["ponte_sul", Vector3(-31, 0, 71)]],
 	"fort_ghoul": [["chegada", Vector3(90, 0, 0)], ["lagoa", Vector3(74, 0, 14)], ["ninho_oeste", Vector3(58, 0, 52)], ["ponte_oeste", Vector3(42.7, 0, 52.7)], ["ponte_leste", Vector3(38.3, 0, -42.5)], ["ninho_leste", Vector3(18, 0, -50)], ["brecha", Vector3(6, 0, 0)], ["patio", Vector3(-22, 0, -4)], ["cranio", Vector3(-50, 0, 0)]],
 	"fort_bones": [["chegada", Vector3(0, 0, 90)], ["cemiterio", Vector3(-60, 0, 84)], ["ponte_ossos", Vector3(-6, 0, 50)], ["cripta_oeste", Vector3(-50, 0, 66)], ["cripta_leste", Vector3(52, 0, 16)], ["patamar", Vector3(-20, 0, 0)], ["portao", Vector3(0, 0, 4)], ["patio", Vector3(4, 0, -22)]],
 	"fort_frost": [["chegada", Vector3(0, 0, -90)], ["lago", Vector3(12, 0, -56)], ["navio", Vector3(30, 0, -84)], ["acamp_oeste", Vector3(54, 0, -40)], ["acamp_leste", Vector3(-52, 0, -30)], ["ponte_gelo", Vector3(0, 0, -10)], ["patio", Vector3(-4, 0, 22)]],
@@ -79,7 +84,8 @@ const TOURS := {
 		["anel_externo", Vector3(-42, 0, -4)], ["casas_norte", Vector3(-6, 0, -46)], ["portao_sul", Vector3(0, 0, 66)], ["chegada", Vector3(0, 0, 92)],
 		["forte_matilha", Vector3(16, 0, -76)], ["forte_ninho", Vector3(-40, 0, -68)], ["forte_seiva", Vector3(76, 0, 14)], ["bosque", Vector3(60, 0, -50)],
 		["poco", Vector3(-90, 0, 8)], ["cerco", Vector3(30, 0, 74)],
-		["ponte_oeste", Vector3(-80.9, 0, 1.7)], ["ponte_sudoeste", Vector3(-53.1, 0, 83.6)], ["margem_oeste", Vector3(-76, 0, 60)]],
+		["ponte_oeste", Vector3(-80.9, 0, 1.7)], ["ponte_sudoeste", Vector3(-53.1, 0, 83.6)], ["margem_oeste", Vector3(-76, 0, 60)],
+		["praca_vigilia", Vector3(7, 0, 17.5)], ["praca_emissario", Vector3(-8, 0, 19.5)], ["portao_leste_seiva", Vector3(70, 0, 1)], ["portao_no_seiva", Vector3(-38, 0, -61)]],      # cenário que troca com o Rei (lotes elfa_guerra_det / elfa_tregua_det)
 }
 const TOUR := [["ponte_lago", Vector3(-15.5, 0, 70)], ["anciao", Vector3(2, 0, -8)], ["lenhador", Vector3(-92, 0, -46)], ["eremita", Vector3(47, 0, 96)], ["covil", Vector3(-20, 0, -48)], ["marco", Vector3(-54, 0, 78)], ["gruta", Vector3(84, 0, -29)],
 	["hub", Vector3(0, 0, 4)], ["portao_sul", Vector3(0, 0, 38)], ["lago", Vector3(6, 0, 58)],

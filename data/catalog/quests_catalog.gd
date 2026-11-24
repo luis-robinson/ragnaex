@@ -19,7 +19,8 @@ const HUNT_GIVERS := {"city_aldara": "board", "field_hollow": "hollow_brena", "f
 	"field_coast": "ptav_board", "city_port": "ptav_board",
 	"field_steppe": "wind_totem", "fort_trolls": "wind_totem", "fort_fire": "wind_totem", "fort_war": "wind_totem",
 	"field_kharzun": "kharzun_board", "dg_slayers": "kharzun_board", "kharzun_citadel": "kharzun_board",
-	"city_lumeria": "lumeria_board", "field_perfume": "lumeria_board", "field_parade": "lumeria_board"}
+	"city_lumeria": "lumeria_board", "field_perfume": "lumeria_board", "field_parade": "lumeria_board",
+	"field_marsh": "marsh_altar"}
 
 ## Quests da história e laterais dão Balance.quest_share da XP de cada faixa de nível (o meio, 10-20, dá mais): o peso relativo entre elas
 ## fica (o número escrito em cada uma), o total da faixa é escalado. Repetíveis (caçadas e quadros) ficam como estão.
@@ -125,6 +126,87 @@ static func grove() -> Array:
 		 "dialog_offer": "Leve a notícia ao Teo. Diga que o posto fica: alguém precisa ensinar os xamãs a voltar.",
 		 "dialog_progress": "Volte pela garganta do oeste do bosque e procure o Ranger Teo no Posto dos Caçadores.",
 		 "dialog_complete": "Os tambores pararam mesmo. Achei que ia ter de mandar a guarda inteira. Tome, foi bem merecido."},
+	]
+
+## Brejo das Teias (12-16): campo opcional ao sul da Floresta, Palafitas do Brejo (Barqueira Ondina). Nada da linha principal
+## depende destas quests (check). GDD design/gdd/brejo-das-teias.md §3.5; textos provisórios (passe do writer).
+const MARSH_QUESTS := ["m0_brejo", "m1_leeches", "m2_toad_skin", "m3_spiders", "m4_weavers", "m5_amber", "m6_smugglers", "m7_ledger",
+	"m8_bento", "m9_letter", "m10_bocarra", "m11_report"]
+
+static func marsh() -> Array:
+	return [
+		{"id": "m0_brejo", "title": "Mosquito e Aranha", "giver_npc": "ranger_post", "turnin_npc": "marsh_guide", "type": REACH, "target_id": "field_marsh", "count": 1, "level_req": 12,
+		 "reward_xp": 120, "reward_gold": 50, "reward_items": {"potion_hp_m": 2}, "map_hint": "Brejo das Teias (garganta ao sul da Floresta Sombria)",
+		 "description": "Desça pela garganta do sul da Floresta e encontre a Barqueira Ondina nas Palafitas do Brejo.",
+		 "dialog_offer": "A Meri jura que do pântano só vem mosquito e aranha. Mas tem fumaça subindo lá do sul toda tarde, e mosquito não acende fogo. Vá ver quem mora no brejo.",
+		 "dialog_progress": "Saia pelo portão sul do Posto, siga a estrada sul até o pântano e pegue a trilha estreita para a garganta (Brejo das Teias no mapa, M). As palafitas ficam no meio do vale.",
+		 "dialog_complete": "Gente do Posto? Faz tempo. Sente aí perto do fogo, mas não encoste na água: tudo aqui morde."},
+		{"id": "m1_leeches", "title": "Sangue no Junco", "giver_npc": "marsh_guide", "type": KILL, "target_id": "marsh_leech", "count": 10, "level_req": 12, "prereq_quest": "m0_brejo",
+		 "reward_xp": 220, "reward_gold": 70, "reward_items": {"potion_hp_m": 2}, "map_hint": "Brejo: Charco dos Sapos (oeste) e beira oeste da lagoa",
+		 "description": "Derrube 10 Sanguessugas do Brejo.",
+		 "dialog_offer": "As sanguessugas engordaram e agora sobem nas tábuas atrás da gente. Derrube 10 e o caminho do charco volta a ser caminho.",
+		 "dialog_progress": "Elas são rápidas e frágeis: bata com o básico (botão esquerdo) e não deixe três grudarem de uma vez. Charco a oeste das palafitas.",
+		 "dialog_complete": "Dez. As tábuas agradecem, e minhas canelas também."},
+		{"id": "m2_toad_skin", "title": "Couro de Sapo-Boi", "giver_npc": "marsh_healer", "type": COLLECT, "target_id": "toad_skin", "count": 6, "level_req": 13, "prereq_quest": "m0_brejo",
+		 "reward_xp": 240, "reward_gold": 80, "reward_items": {"potion_hp_m": 2, "potion_mp_m": 1}, "map_hint": "Brejo: Sapos-Boi no Charco e na margem sul",
+		 "description": "Traga 6 Couros de Sapo-Boi para a Benzedeira Zefa.",
+		 "dialog_offer": "Couro de sapo-boi, seco no fumeiro, tira febre de brejo. Tem refugiado do Posto tremendo de frio. Me traga 6.",
+		 "dialog_progress": "O Sapo-Boi cospe uma gosma verde que deixa lento: quando ele abrir a boca, saia do lado ou bloqueie (botão direito). Charco a oeste e margem sul da lagoa.",
+		 "dialog_complete": "Couro bom, grosso. Amanhã o fumeiro cheira mal e o Posto dorme melhor."},
+		{"id": "m3_spiders", "title": "Teia no Caminho", "giver_npc": "marsh_guide", "type": KILL, "target_id": "marsh_spider", "count": 10, "level_req": 13, "prereq_quest": "m1_leeches",
+		 "reward_xp": 260, "reward_gold": 85, "reward_items": {"potion_hp_m": 2}, "map_hint": "Brejo: Mata das Teias (nordeste)",
+		 "description": "Derrube 10 Aranhas do Brejo na Mata das Teias.",
+		 "dialog_offer": "A Mata das Teias era de onde tirávamos lenha seca. Agora é um forro de seda de árvore em árvore, e a seda brilha de noite. Abra caminho: 10 aranhas.",
+		 "dialog_progress": "A aranha cospe teia num leque na frente dela e te prende: saia pelo lado ou bloqueie (botão direito). Mata das Teias, a nordeste, pela estrada do leste.",
+		 "dialog_complete": "Viu a cor da seda? Dourada, igual à água do córrego. Isso não é coisa de aranha."},
+		{"id": "m4_weavers", "title": "As Tecelãs", "giver_npc": "marsh_guide", "type": KILL, "target_id": "web_weaver", "count": 6, "level_req": 14, "prereq_quest": "m3_spiders",
+		 "reward_xp": 280, "reward_gold": 90, "reward_items": {"potion_mp_m": 2}, "map_hint": "Brejo: fundo da Mata das Teias",
+		 "description": "Derrube 6 Tecelãs do Brejo.",
+		 "dialog_offer": "As grandes, claras, ficam lá atrás tecendo e cuspindo veneno. Enquanto elas viverem, a mata volta a fechar. Seis delas.",
+		 "dialog_progress": "A Tecelã fica longe e solta uma poça verde no chão: saia da poça e feche a distância com o dash (Shift) ou use uma skill de alcance (1-6). Puxe uma de cada vez.",
+		 "dialog_complete": "Agora dá para entrar na mata sem virar casulo. A Zefa quer o que elas guardavam, aposto."},
+		{"id": "m5_amber", "title": "Água Cor de Mel", "giver_npc": "marsh_healer", "type": COLLECT, "target_id": "amber_sap", "count": 5, "level_req": 14, "prereq_quest": "m2_toad_skin",
+		 "reward_xp": 300, "reward_gold": 95, "reward_items": {"elixir_stone": 1}, "map_hint": "Brejo: Tecelãs e gotas na borda da Mata das Teias (F colhe)",
+		 "description": "Traga 5 Âmbares de Seiva para a Benzedeira Zefa.",
+		 "dialog_offer": "Gota dourada endurecida nas teias. A mesma cor da água que desce do leste. Quero saber o que é antes que alguém beba. Cinco gotas.",
+		 "dialog_progress": "As Tecelãs carregam âmbar, e há gotas presas na borda da Mata das Teias: chegue perto e aperte F para colher (fora de combate).",
+		 "dialog_complete": "Isto não é resina de árvore daqui. É seiva, e seiva élfica. Vem do leste, de onde as raízes velhas entram na terra. Leve esta pedra, vai precisar."},
+		{"id": "m6_smugglers", "title": "Barris sem Dono", "giver_npc": "marsh_guide", "type": KILL, "target_id": "marsh_smuggler", "count": 8, "level_req": 15, "prereq_quest": "m0_brejo",
+		 "reward_xp": 300, "reward_gold": 100, "reward_items": {"potion_hp_m": 2}, "map_hint": "Brejo: Cais dos Contrabandistas (sudoeste)",
+		 "description": "Derrube 8 Contrabandistas no Cais do canal.",
+		 "dialog_offer": "Tem gente no cais do canal enchendo barril com a água de mel e mandando rio abaixo. Gente armada. O Lino diz que não é da conta dele. É da minha. Oito deles.",
+		 "dialog_progress": "O Contrabandista joga um laço que prende os pés: quando ele girar a corda, bloqueie (botão direito) ou saia da linha. Dois fazem ronda na trilha sul; puxe a ronda antes de entrar no cais.",
+		 "dialog_complete": "O canal ficou quieto. Mas alguém pagava esses barris, e não era em cobre."},
+		{"id": "m7_ledger", "title": "O Livro de Cargas", "giver_npc": "marsh_guide", "type": COLLECT, "target_id": "smuggler_ledger", "count": 3, "level_req": 15, "prereq_quest": "m6_smugglers",
+		 "reward_xp": 260, "reward_gold": 90, "map_hint": "Brejo: Contrabandistas do Cais",
+		 "description": "Traga 3 Páginas do Livro de Cargas dos contrabandistas.",
+		 "dialog_offer": "Contrabandista anota tudo, senão o chefe arranca o dedo. Ache as páginas do livro de cargas. Três bastam para eu ler quem compra.",
+		 "dialog_progress": "Os Contrabandistas do Cais carregam páginas soltas (cerca de uma a cada três). Lute perto das tábuas do cais: o laço puxa para a lama.",
+		 "dialog_complete": "'Doze barris para o Posto de Troca do Norte. Pago em aço élfico.' Alguém do nosso lado compra seiva dos elfos. Isso o Teo precisa ouvir."},
+		{"id": "m8_bento", "title": "O Cabreiro Sumido", "giver_npc": "marsh_guide", "turnin_npc": "marsh_bento", "type": TALK, "target_id": "marsh_bento", "count": 1, "level_req": 14, "prereq_quest": "m3_spiders",
+		 "reward_xp": 180, "reward_gold": 60, "reward_items": {"potion_hp_m": 1}, "map_hint": "Seu Bento (cabana entre a garganta e a Mata das Teias)",
+		 "description": "Ache o homem que vive escondido na cabana ao norte da Mata das Teias.",
+		 "dialog_offer": "Tem um cabreiro morando numa cabana perto das teias. Chegou com três cabras e nenhuma vontade de conversar. Talvez você tenha mais sorte.",
+		 "dialog_progress": "A cabana fica entre a garganta de chegada e a Mata das Teias, a nordeste das palafitas. Fale com ele (clique ou E).",
+		 "dialog_complete": "Do Posto? A Dalva... ela está no Posto? Eu achei que tinha ficado na Árvore-Mãe. Espere, não vá ainda."},
+		{"id": "m9_letter", "title": "Notícia para o Portão Norte", "giver_npc": "marsh_bento", "turnin_npc": "post_refugee_a", "type": COLLECT, "target_id": "bento_letter", "count": 1, "level_req": 14, "prereq_quest": "m8_bento",
+		 "give_items": {"bento_letter": 1}, "reward_xp": 200, "reward_gold": 70, "map_hint": "Refugiada Dalva (Posto dos Caçadores, Floresta Sombria)",
+		 "description": "Leve a carta do Bento para a Refugiada Dalva no Posto dos Caçadores.",
+		 "dialog_offer": "Não volto enquanto os elfos descerem pelo norte: eles me caçaram até a beira do brejo. Leve isto para ela. Diga que as cabras estão vivas. E eu também.",
+		 "dialog_progress": "Volte pela garganta norte do Brejo e procure a Refugiada Dalva no Posto dos Caçadores, perto do portão norte.",
+		 "dialog_complete": "É a letra dele. Torta, como sempre. Vivo... e cuidando das cabras, aquele teimoso. Obrigada. Eu espero mais um pouco, agora sei pelo quê."},
+		{"id": "m10_bocarra", "title": "A Sapa-Mãe", "giver_npc": "marsh_guide", "type": KILL, "target_id": "bog_mother", "count": 1, "level_req": 16, "prereq_quest": "m4_weavers", "prereq_all": ["m5_amber"] as Array[String],
+		 "reward_xp": 650, "reward_gold": 200, "reward_gear_tier": 2, "reward_items": {"elixir_might": 1}, "map_hint": "Brejo: Ponta da Bocarra (sudeste da lagoa)",
+		 "description": "Derrote Bocarra, a Sapa-Mãe, na Ponta da lagoa. Leve um grupo.",
+		 "dialog_offer": "A Bocarra bebe da água de mel desde que eu era menina. Hoje engole barco. Junte gente e acabe com ela antes que os girinos dela cheguem às palafitas.",
+		 "dialog_progress": "Com grupo de 3 a 5 é bem mais seguro. A língua puxa quem está longe: bloqueie (botão direito) ou deixe o tanque na frente. O círculo no chão antes da barrigada é aviso: saia dele. Com 60% da vida ela chama girinos: mate-os antes de voltar nela.",
+		 "dialog_complete": "A lagoa ficou quieta de um jeito que eu nunca ouvi. Tome, é o que os barqueiros juntaram. E conte ao Teo o que você viu aqui embaixo."},
+		{"id": "m11_report", "title": "O Que Desce do Leste", "giver_npc": "marsh_guide", "turnin_npc": "ranger_post", "type": TALK, "target_id": "ranger_post", "count": 1, "level_req": 16, "prereq_quest": "m10_bocarra", "prereq_all": ["m7_ledger"] as Array[String],
+		 "reward_xp": 200, "reward_gold": 90, "reward_items": {"potion_hp_m": 2}, "map_hint": "Ranger Teo (Posto dos Caçadores, Floresta Sombria)",
+		 "description": "Conte ao Ranger Teo sobre a seiva no Brejo e o livro dos contrabandistas.",
+		 "dialog_offer": "Leve as páginas ao Teo. E diga a ele que o córrego âmbar nasce numa porta de raiz a leste. Fechada. Por enquanto.",
+		 "dialog_progress": "Volte pela garganta norte do Brejo e procure o Ranger Teo no Posto dos Caçadores.",
+		 "dialog_complete": "Seiva élfica escorrendo para o sul e alguém do Posto comprando barril... Vou ficar de olho no Posto de Troca. Bom trabalho, e fique com isto."},
 	]
 
 ## Mata dos Zumbidos (4-8): ramo lateral ao sul de Aldara, acampamento da Mateira Brena. Não trava nada da história
@@ -711,6 +793,8 @@ static func build() -> Array:
 	]
 	L.append_array(hollow())
 	L.append_array(grove())
+	if MapsCatalog.marsh_ready():          # Brejo das Teias: só com o mapa na sim (giver/turnin precisam existir)
+		L.append_array(marsh())
 	L.append_array(act2())
 	L.append_array(act2_steppe())
 	L.append_array(act2_kharzun())

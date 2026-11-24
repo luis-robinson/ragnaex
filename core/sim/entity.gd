@@ -212,6 +212,7 @@ var npc_wait: float = 0.0            # parado olhando em volta antes do próximo
 var npc_hold: float = 0.0            # conversando: fica parado
 var npc_leg: int = 0                 # ronda: índice do próximo ponto
 var npc_stuck: float = 0.0
+var npc_alarm := false               # morador com `alarm` correndo para o abrigo (leva viva no mapa; NpcSystem)
 # Supremas do 40 (UltimateSystem; estado de luta, não vai no save)
 var ult_charge: float = 0.0           # Carga Suprema 0..Balance.ULT_MAX
 var ult_dealt: float = 0.0           # dano das suas Supremas até agora (só medição: sondas/testes; não vai no save)

@@ -6,6 +6,7 @@ extends RefCounted
 ##   trecho (`cerco_<id>`) vale e a Horda entra por ele; fechado = a leva daquele lado vai ao portão (`gate_route`).
 ## - Pressão 0-3 (`pressure`): frequência (SIEGE_EVERY_MULT), tamanho (SIEGE_SIZE_MULT), leva grande (SIEGE_BIG_NTH) e
 ##   assédio (só p >= 2). p = 1 usa a rota `low_route` (patrulha rara); p = 0 = paz.
+## - Por mapa: números em Balance.SIEGE_MAP (num), ordem dos lados em `rotation`, tema da salva em `volley_skill` (Posto dos Caçadores).
 ## - Uma leva por vez no mapa, revezando os lados; depois de repelida, calmaria (SIEGE_QUIET_MIN).
 ## - Assédio (`harass_route`): atiradores nascem no ponto de tiro, SIEGE_HARASS_WINDUP s depois soltam uma salva de círculos
 ##   avisados (dano = % da vida, não esquivável) perto de uma brecha aberta, e somem. Matar o atirador cancela os círculos dele.
@@ -23,9 +24,16 @@ const SERVICE_ROLES := ["smith", "alchemy", "merchant", "storage", "crystal", "b
 static func managed(def: MapDef) -> bool:
 	return not def.siege.is_empty()
 
+## Número do cerco no mapa: Balance.SIEGE_MAP[<mapa>][key] se houver, senão o SIEGE_* geral (`base`).
+static func num(def: MapDef, key: String, base: float) -> float:
+	if def == null:
+		return base
+	return float((Balance.SIEGE_MAP.get(def.id, {}) as Dictionary).get(key, base))
+
 static func state(m: Dictionary) -> Dictionary:
 	if not m.has("siege"):
-		m["siege"] = {"wave_t": Balance.SIEGE_FIRST_WAVE, "harass_t": Balance.SIEGE_FIRST_HARASS, "quiet": 0.0, "n": 0, "side": 0, "horns": 0,
+		var def: MapDef = m.get("def")
+		m["siege"] = {"wave_t": num(def, "first_wave", Balance.SIEGE_FIRST_WAVE), "harass_t": num(def, "first_harass", Balance.SIEGE_FIRST_HARASS), "quiet": 0.0, "n": 0, "side": 0, "horns": 0,
 			"scorch": false, "p": 2, "shooters": [], "age": 0.0, "shot": false, "seen": {}, "horn_t": {}, "horned": {}, "scan": 0.0, "salvo": {}}
 	return m["siege"]
 
@@ -75,8 +83,8 @@ static func big_nth(sim: WorldSim, m: Dictionary, nth: int) -> int:
 static func wave_interval(r: Dictionary, p: int, u: float) -> float:
 	return maxf(Balance.SIEGE_QUIET_MIN, float(r.get("every", 90.0)) * float(Balance.SIEGE_EVERY_MULT.get(p, 1.0)) + u * float(r.get("jitter", 0.0)))
 
-static func harass_interval(p: int, u: float) -> float:
-	return maxf(Balance.SIEGE_QUIET_MIN * 0.5, Balance.SIEGE_HARASS_EVERY * float(Balance.SIEGE_HARASS_MULT.get(p, 1.0)) + u * Balance.SIEGE_HARASS_JITTER)
+static func harass_interval(p: int, u: float, def: MapDef = null) -> float:
+	return maxf(Balance.SIEGE_QUIET_MIN * 0.5, num(def, "harass_every", Balance.SIEGE_HARASS_EVERY) * float(Balance.SIEGE_HARASS_MULT.get(p, 1.0)) + u * Balance.SIEGE_HARASS_JITTER)
 
 static func update(sim: WorldSim, m: Dictionary, dt: float) -> void:
 	var def: MapDef = m["def"]
@@ -120,7 +128,18 @@ static func next_route(sim: WorldSim, m: Dictionary, p: int) -> int:
 	var def: MapDef = m["def"]
 	var all := RaidSystem.routes(def)
 	var st := state(m)
-	if p >= 2:
+	if p >= 2 and def.siege.has("rotation"):        # ordem própria dos lados ("gate" = o portão; trecho fechado também cai no portão)
+		var rot: Array = def.siege["rotation"]
+		var key := str(rot[int(st["side"]) % rot.size()])
+		for seg in def.siege.get("segments", []):
+			if str(seg["id"]) == key:
+				var si := route_index(def, str(seg["route"]))
+				if si >= 0 and WorldState.active(sim, all[si]):
+					return si
+		var gi := route_index(def, str(def.siege.get("gate_route", "")))
+		if gi >= 0 and WorldState.active(sim, all[gi]):
+			return gi
+	elif p >= 2:
 		var segs: Array = def.siege.get("segments", [])
 		if not segs.is_empty():
 			var seg: Dictionary = segs[int(st["side"]) % segs.size()]
@@ -283,13 +302,13 @@ static func start_harass(sim: WorldSim, m: Dictionary) -> Array:
 	if mdef == null:
 		return []
 	var ids: Array = []
-	for _k in Balance.SIEGE_HARASS_SHOOTERS:
+	for _k in int(num(def, "harass_shooters", Balance.SIEGE_HARASS_SHOOTERS)):
 		var e := sim.spawn_monster(mdef, def.id, MapGeometry.random_walkable(sim, def, r["from"], 2.5))
 		ids.append(e.id)
 	st["shooters"] = ids
 	st["age"] = 0.0
 	st["shot"] = false
-	st["harass_t"] = harass_interval(pressure(sim, def), sim.rng.randf_range(-1.0, 1.0))
+	st["harass_t"] = harass_interval(pressure(sim, def), sim.rng.randf_range(-1.0, 1.0), def)
 	if sim.player != null and sim.player.map_id == def.id:
 		Events.post(&"chat_message", "Sistema", str(def.siege.get("say_harass", "Flechas de fogo sobre a paliçada!")), "system")
 	Events.post(&"siege_event", def.id, "harass")
@@ -369,6 +388,8 @@ static func volley(sim: WorldSim, m: Dictionary, shooters: Array) -> int:
 	var st := state(m)
 	var aim := harass_aim(sim, def)
 	var safe := safe_points(def)
+	var skill := str(def.siege.get("volley_skill", VOLLEY_SKILL))       # tema/som da salva do mapa (Posto: flecha de raiz)
+	var pct := num(def, "harass_dmg_pct", Balance.SIEGE_HARASS_DMG_PCT)
 	st["salvo"] = {}
 	var n := 0
 	for k in Balance.SIEGE_HARASS_CIRCLES:
@@ -376,9 +397,9 @@ static func volley(sim: WorldSim, m: Dictionary, shooters: Array) -> int:
 		if p == Vector3.INF:
 			continue
 		var h := {"owner": int(shooters[k % shooters.size()]), "pos": p, "radius": Balance.SIEGE_HARASS_RADIUS, "at": sim.time + Balance.SIEGE_HARASS_WARN,
-			"power": 0.0, "kind": SkillDef.Kind.PHYSICAL, "effects": {}, "skill": VOLLEY_SKILL, "hp_pct": Balance.SIEGE_HARASS_DMG_PCT}
+			"power": 0.0, "kind": SkillDef.Kind.PHYSICAL, "effects": {}, "skill": skill, "hp_pct": pct}
 		BossSignatures.add_hazard(m, h, sim.time)
-		Events.post(&"hazard_placed", def.id, p, Balance.SIEGE_HARASS_RADIUS, Balance.SIEGE_HARASS_WARN, VOLLEY_SKILL)
+		Events.post(&"hazard_placed", def.id, p, Balance.SIEGE_HARASS_RADIUS, Balance.SIEGE_HARASS_WARN, skill)
 		n += 1
 	return n
 

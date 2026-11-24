@@ -194,6 +194,12 @@ static func build() -> Array:
 		_mat("hostess_fan", "Leque da Anfitriã", 320, "O leque de Vessaline, de seda e lâminas finas. Fechado, parece um sorriso.", Color(0.95, 0.6, 0.72)),
 		# Vinhas do Perfume: uva das Vinhas Sedentas (hx3_grapes) e base do Vinho Claro (alquimia)
 		_mat("bitter_grapes", "Uvas Amargas", 22, "Cacho roxo das Vinhas Sedentas. Amarga como quem acorda depois da festa.", Color(0.48, 0.22, 0.55)),
+		# Brejo das Teias (12-16, GDD brejo-das-teias §3.6). Arte pintada (item_icons.tscn -- --only=<id>).
+		_mat("toad_skin", "Couro de Sapo-Boi", 14, "Grosso, frio e meio pegajoso. A Benzedeira Zefa jura que tira febre.", Color(0.45, 0.52, 0.28)),
+		_mat("amber_sap", "Âmbar de Seiva", 24, "Gota dourada que endureceu na teia. Morna na mão, cheira a casca de árvore velha.", Color(0.95, 0.72, 0.28)),
+		_mat("bog_heart", "Coração da Bocarra", 90, "Bate devagar, como quem coaxa dormindo. O mascate oferece o dobro só para ver.", Color(0.5, 0.58, 0.3)),
+		_mat("smuggler_ledger", "Página do Livro de Cargas", 0, "Folha molhada com contas de barris de 'água de mel'. Alguém paga em aço élfico.", Color(0.7, 0.62, 0.45)),
+		_mat("bento_letter", "Carta do Bento", 0, "Dobrada em quatro, com cheiro de brejo. 'Para a Dalva, no Posto.'", Color(0.85, 0.8, 0.65)),
 		{"id": "letter_sealed", "name": "Carta Lacrada", "type": QST, "price": 0, "icon_color": Color(0.9, 0.85, 0.6), "description": "Carta do Ancião para a Capitã da guarda."},
 		# ---------------- armas tier 0 (lv1) ----------------
 		_weapon("sword_rusty", "Espada Enferrujada", "sword", 0, 8, 0, {"FOR": 3, "VIT": 1}, Color(0.6, 0.6, 0.6)),

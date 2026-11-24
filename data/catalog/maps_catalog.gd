@@ -43,6 +43,8 @@ static func _sp(monster: String, x: float, z: float, radius: float, count: int, 
 
 static func build() -> Array:
 	var out: Array = [_aldara(), _hollow(), _crab_beach(), _grove(), _forest(), _ruins(), _elf_city(), _port(), _coast(), _steppe(), _kharzun(), _kharzun_citadel(), _lumeria(), _perfume(), _parade(), _rift_garden()]
+	if marsh_ready():
+		out.append(_marsh())
 	for fid in FORT_DEFS:
 		out.append(_fort(fid))
 	for did in DUNGEON_DEFS:
@@ -375,6 +377,7 @@ static func _place_npcs(id: String, npc_pos: Dictionary) -> Array:
 		var d := _npc(nid, n[0], float(p[0]), float(p[1]), n[1], n[2], n[3], float(p[2]))
 		if n.size() > 4:
 			d["model"] = n[4]          # pedra/marco que "fala": prop no lugar do boneco
+		d.merge(PLACE_NPC_COND.get(nid, {}))
 		out.append(d)
 	return out
 
@@ -516,6 +519,8 @@ const GATHER := {
 	# Porto Esperança: conchas na areia ao lado do cais
 	# Mata dos Zumbidos: ervas nas trilhas, cogumelos à sombra, favos nas caixas de abelha que os ursos derrubaram (clareira da Colmeia)
 	"field_grove": [["herb_blue", "herb_blue", [-40.0, 14.0], 10.0, 4], ["forest_mushroom", "mushroom", [-20.0, -40.0], 12.0, 5], ["herb_green", "herb", [10.0, 40.0], 12.0, 4]],
+	# Brejo das Teias (GDD brejo-das-teias §3.7): erva azul no Charco, âmbar na borda da Mata das Teias, cogumelo na beira da lagoa
+	"field_marsh": [["herb_blue", "herb_blue", [-60.0, -32.0], 10.0, 4], ["amber_sap", "star", [48.0, -36.0], 9.0, 3], ["forest_mushroom", "mushroom", [-30.0, 40.0], 10.0, 4]],
 	"field_hollow": [["herb_green", "herb", [-20.0, 4.0], 10.0, 5], ["herb_green", "herb", [4.0, 30.0], 10.0, 4], ["forest_mushroom", "mushroom", [-30.0, 50.0], 12.0, 5],
 		["forest_mushroom", "mushroom", [44.0, 8.0], 10.0, 4], ["honey_comb", "crate", [10.0, 63.0], 9.0, 5]],
 	"city_port": [["crab_shell", "shell", [16.0, 60.0], 5.0, 3], ["palisade_log", "crate", [-33.0, 62.0], 6.0, 6]],      # toras do estaleiro (hx_df_logs)
@@ -544,6 +549,9 @@ const GATHER := {
 
 ## Bichos de ambiente (só apresentação, game/world/ambient_life.gd): por mapa, [tipo, centro [x, z], raio, quantos].
 const AMBIENT_LIFE := {
+	# Cidade Élfica (faixa élfica viva): gaviões altos sobre o lago oeste no lugar dos grifos (só visual), borboletas no jardim da
+	# Saelis, mariposas nas lanternas da feira e corvos sobre o Forte da Matilha
+	"elf_city": [["hawk", [-98.0, 20.0], 22.0, 2], ["butterfly", [-35.4, 35.4], 8.0, 6], ["moth", [35.4, 35.4], 8.0, 6], ["crow", [14.0, -90.0], 12.0, 3]],
 	# Vale de Aldara: galinhas no cercado do celeiro e na fazenda, corvos no trigal (GDD living-towns R5)
 	# Posto dos Caçadores: corvos sobre a paliçada e mariposas na luz da Fogueira Comunal
 	"field_forest": [["crow", [-5.0, 0.0], 18.0, 4], ["moth", [-5.0, 0.0], 5.0, 7]],
@@ -747,6 +755,14 @@ const VILLAGERS := {
 ## Extras dos moradores de Aldara que trabalham na Feira do Trigo (GDD living-towns R1/R2): a Padeira fica na banca dela
 ## (pregão) e o Carregador leva os sacos da carroça do celeiro às bancas.
 const VILLAGER_EXTRAS := {
+	# Faixa élfica viva (GDD elf-band-living §3.1/3.2): a Mensageira Aryn cumpre a fala ("recados para os fortes") e para em cada forte
+	# até o Rei; a ronda da Lúthia contorna a cerca do pátio do Quartel (a perna antiga cruzava a cerca em 34,6/-23,5); Dalva e Tito
+	# correm para a Fogueira Comunal quando há leva viva no Posto (`alarm`, NpcSystem).
+	"elf_courier": {"unless": "el6_king", "flow": true, "barks": ["Recado para o forte!", "Não me atrase, humano.", "Ida e volta, todo dia."],
+		"route": [[40.6, 10.9], [42.0, 0.0], [52.8, 0.0], [64.0, 0.0], [66.0, 0.0], [69.3, 1.9], [72.0, 4.0], [72.8, 7.9], [73.0, 10.0], [74.6, 13.2, 8], [73.0, 10.0], [72.8, 7.9], [72.0, 4.0], [69.3, 1.9], [66.0, 0.0], [56.0, 0.0], [46.0, -3.0], [40.7, -10.4], [32.0, -19.0], [30.6, -28.8], [22.0, -35.5], [13.0, -39.9], [4.0, -41.5], [0.0, -46.4], [0.0, -56.0], [0.0, -64.0], [0.0, -66.0], [3.1, -68.0], [6.0, -70.0], [8.7, -72.7], [10.0, -74.0], [11.4, -75.6, 8], [10.0, -74.0], [8.7, -72.7], [6.0, -70.0], [3.1, -68.0], [0.0, -66.0], [0.0, -56.0], [-3.0, -46.0], [-7.9, -41.2], [-17.0, -37.0], [-26.6, -38.0], [-30.3, -43.2], [-34.0, -48.5], [-36.7, -52.4], [-37.9, -54.1], [-39.4, -58.2], [-41.0, -64.0], [-40.6, -67.2, 8], [-41.0, -64.0], [-39.4, -58.2], [-37.9, -54.1], [-36.7, -52.4], [-34.0, -48.5], [-30.3, -43.2], [-26.8, -32.4], [-33.0, -24.0], [-39.0, -15.5], [-41.7, 5.3], [-38.0, 15.0], [-34.0, 24.7], [-26.0, 32.0], [-17.9, 38.0], [-8.0, 40.5], [2.6, 41.9], [13.0, 39.5], [22.5, 35.5], [24.5, 31.0], [30.0, 24.0], [36.8, 20.2]]},
+	"elf_walker_b": {"route": [[-39.5, -14.4], [-17.7, -38.1], [14.4, -39.5], [30.6, -28.8], [32.0, -19.0], [38.1, -17.7], [39.5, 14.4], [17.7, 38.1], [-14.4, 39.5], [-38.1, 17.7]]},
+	"post_refugee_a": {"alarm": [-5.0, 3.9]},
+	"post_refugee_kid": {"alarm": [-1.2, 1.0]},
 	"vil_baker": {"barks": ["Pão quentinho!", "Saiu do forno agora!", "Leva um pra viagem!"]},
 	"vil_porter": {"carry": "carry_sack", "barks": ["Saco de farinha passando!", "Ai, minhas costas...", "Mais um pra banca da Rosa!"]},
 }
@@ -977,7 +993,52 @@ const PORT_RAIDS := {
 const Q_STAKES := "hx_stakes"
 const Q_DF_LOGS := "hx_df_logs"
 const Q_DF_TOWER := "hx_df_tower"
+## Cerco do Posto dos Caçadores (design/gdd/elf-siege-posto.md). Mesmo total da investida antiga (~25 elfos / 240 s), dividido:
+## uma leva de 10-12 a cada ~120 s, revezando portão oeste (flanco das teias), portão norte e portão leste (flanco do bosque).
+## Escalões (Balance.SIEGE_STAGGER): linces, espadas, arqueiros/magos e grifos saem uns depois dos outros.
+const FOREST_FLANK_WAVE := [{"mobs": {"elf_lynx": 2, "elf_raider": 4, "elf_raider_archer": 3, "elf_raider_mage": 1}}, {"mobs": {"griffin_raider": 2, "elf_lynx": 1}, "every_nth": 3}]
+const FOREST_GATE_WAVE := [{"mobs": {"elf_lynx": 2, "elf_raider": 5, "elf_raider_archer": 3, "elf_raider_mage": 2}}, {"mobs": {"griffin_raider": 2, "elf_lynx": 1}, "every_nth": 3}]
+## reforço por passo de força (nível do jogador acima de Balance.RAID_SCALE_FROM): somado a cada leva
+const FOREST_SCALE_EXTRA := {3: {"elf_raider": 2}, 5: {"elf_raider_archer": 1}}
+const FOREST_RAIDS := {
+	"muralha_norte": {"every": 120.0, "jitter": 20.0, "lifetime": 200.0, "waves": FOREST_GATE_WAVE, "scale_extra": FOREST_SCALE_EXTRA,
+		"say_start": "Trompas élficas na garganta norte! A leva desce a estrada rumo ao portão norte do Posto!",
+		"say_arrived": "Os elfos chegaram ao portão norte do Posto!",
+		"say_repelled": "A investida quebrou no portão norte. O Posto resiste!",
+		"say_retreat": "Os elfos sobreviventes recuam para a garganta.", "say_strong": "As trompas soam mais graves: a investida veio reforçada!"},
+	"flanco_oeste": {"every": 120.0, "jitter": 20.0, "lifetime": 200.0, "waves": FOREST_FLANK_WAVE, "scale_extra": FOREST_SCALE_EXTRA,
+		"say_start": "Trompas a noroeste: uma leva élfica rodeia pela trilha das teias rumo ao Portão Oeste!",
+		"say_arrived": "Os elfos chegaram ao Portão Oeste! Segurem o portão das teias!",
+		"say_repelled": "O Portão Oeste segurou. O Posto resiste!",
+		"say_retreat": "Os elfos largam o Portão Oeste e somem na mata.", "say_strong": "As trompas soam mais graves: a investida veio reforçada!"},
+	"flanco_leste": {"every": 120.0, "jitter": 20.0, "lifetime": 200.0, "waves": FOREST_FLANK_WAVE, "scale_extra": FOREST_SCALE_EXTRA,
+		"say_start": "Linces farejam o bosque a nordeste: uma leva élfica desce rumo ao Portão Leste!",
+		"say_arrived": "Os elfos chegaram ao Portão Leste, junto da ponte! Segurem o portão!",
+		"say_repelled": "O Portão Leste segurou. O Posto resiste!",
+		"say_retreat": "Os elfos largam o Portão Leste e voltam para o bosque.", "say_strong": "As trompas soam mais graves: a investida veio reforçada!"},
+	"patrulha_norte": {"every": 150.0, "jitter": 30.0, "lifetime": 160.0, "waves": [{"mobs": {"elf_raider": 2, "elf_lynx": 2}}],
+		"say_start": "Uma patrulha élfica desce a estrada da garganta.",
+		"say_arrived": "A patrulha élfica chegou ao portão norte.",
+		"say_repelled": "A patrulha élfica foi espantada.",
+		"say_retreat": "A patrulha élfica volta para a garganta."},
+	"assedio_crista": {"kind": "harass"},
+}
+## Rotas do cerco do Posto: `raids` de data/zones/field_forest.json (build_field_forest.RAIDS, uma por lado; `unless` da rota do
+## flanco = condição do trecho, SiegeSystem.segment_cond; tudo cala com el6_king). O `raid` antigo (from = chegada élfica) saiu.
+const Q_ELF_KING := "el6_king"
+## Reserva do Posto (`responder`): corre para o portão atacado (SiegeSystem._responders).
+const FOREST_SIEGE_RESPONDERS := ["guard_w_0_3", "guard_w_3_1"]
 const SIEGE := {
+	"field_forest": {"kind": "gates",
+		"segments": [{"id": "oeste", "quest": "els_steel", "label": "Portão das Teias", "route": "flanco_oeste"},
+			{"id": "leste", "quest": "els_lynx", "label": "Portão da Ponte", "route": "flanco_leste"}],
+		"close_all": Q_ELF_KING, "rotation": ["oeste", "gate", "leste", "gate"],
+		"gate_route": "muralha_norte", "low_route": "patrulha_norte", "harass_route": "assedio_crista", "harass_mob": "elf_raider_archer",
+		"volley_skill": "mob_root_arrow",
+		"pressure": [{"p": 0, "if": Q_ELF_KING}, {"p": 3, "if": "el5_wardens"}, {"p": 2, "if": "el1_alarm"}, {"p": 1}],
+		"say_harass": "Arqueiros élficos na crista a nordeste do portão norte! Saiam dos círculos ou derrubem os arqueiros!",
+		"say_horn": "Uma trompa élfica soa na estrada: os batedores chamaram a próxima leva!",
+		"say_scorch": "Os elfos incendiaram as barracas do Posto! Repilam a próxima leva para apagar o fogo."},
 	"city_port": {
 		"segments": [{"id": "ne", "quest": Q_STAKES, "label": "Vão da Garganta", "route": "cerco_ne"},
 			{"id": "e", "quest": Q_DF_LOGS, "label": "Trecho do Farolete", "route": "cerco_e"},
@@ -1112,6 +1173,30 @@ const PIER_REACH := 2.0
 ## `stay` = fica no posto (sem passeio: pescador na vara), `facing` = para onde olha (graus), `perch` = altura visual do piso
 ## (pescador no cais: a sim é plana e o cais é só visual, então o posto fica fora da água andável e o boneco sobe ao tabuleiro).
 ## Postos dos pescadores = varas de `act2_dress.port/coast` (fishing_pole): atrás do cabo, olhando para a água.
+## Pontos de evento de estrada que o build da zona ainda não grava (protótipo da faixa élfica viva; BLENDER REQUEST: virar
+## `SPAWN_event_<tipo>_NN` no build_<zona>.py nos mesmos pontos). Só valem se o JSON não tiver `events`. mapa -> [[tipo, x, z, monstro]].
+const CATALOG_EVENT_POINTS := {
+	"field_forest": [["ambush", -79.2, 9.9, "bandit"], ["ambush", 27.5, 58.2, "bandit"], ["ambush", 24.4, -81.9, "bandit"]],
+	"elf_city": [["prisoner", 45.0, -73.2, "elf_warrior"], ["prisoner", 84.3, -30.5, "elf_warrior"], ["prisoner", -82.4, 50.9, "elf_warrior"]],
+}
+
+static func catalog_event_points(id: String) -> Array:
+	var out: Array = []
+	for p in CATALOG_EVENT_POINTS.get(id, []):
+		out.append({"kind": str(p[0]), "pos": Vector3(float(p[1]), 0.0, float(p[2])), "mob": str(p[3])})
+	return out
+
+## Cenário da Cidade Élfica que troca com o Rei (GDD elf-band-living 3.4): lotes com `tag` do build_elf_city.py (`living_dress`),
+## nunca sólidos. Guerra: estandartes verde-prata nos 6 portões e nos 3 fortes, cavaletes de lanças no Quartel, cochos de seiva na
+## praça, jaulas fechadas nos fortes. Trégua: mastros com fita de luto, vigília na praça, caixotes de arcos entregues, jaulas
+## abertas, barraca do emissário humano.
+const ELF_CONQUEST_VIS := [{"tag": "elfa_guerra_det", "unless": "el6_king"}, {"tag": "elfa_tregua_det", "if": "el6_king"}]
+## O Posto dos Caçadores esvazia com o Rei: lotes com `tag` do town_dress.posto (build_field_forest.py), nunca sólidos. Guerra:
+## esteiras de dormir em volta das 4 carroças e a carroça do Simão; paz: só as esteiras de quem ficou e a carga que a carroça deixou.
+const POSTO_CONQUEST_VIS := [{"tag": "posto_guerra_det", "unless": "el6_king"}, {"tag": "posto_paz_det", "if": "el6_king"}]
+
+## Faixa élfica viva (GDD design/gdd/elf-band-living.md): teto de NPCs de rotina vivos ao mesmo tempo na Cidade Élfica, por estado.
+const ELF_LIVING_MAX := 10
 const LIVING_NPCS := {
 	# Floresta Sombria (GDD living-towns R8): lenhadores trazem toras da mata do oeste até a forja do Posto e o caçador volta
 	# da estrada sul com as peles para o mercado (pontos das estradas do JSON; `flow` + paradas [x, z, s] nas pontas).
@@ -1122,6 +1207,72 @@ const LIVING_NPCS := {
 			["Mais uma pra forja!", "Cuidado com o pé!", "Lenha seca, lenha boa."], [-15.5, -2.6], [[-15.5, -2.6, 10], [-22, 0], [-29, 0], [-31.37, 2.5], [-33.65, 5.19], [-36.35, 6.89], [-39.19, 6.65], [-41.86, 4.9], [-44.8, 2.36], [-47.89, -0.27], [-51, -2.29], [-54, -3], [-56.43, -2.14], [-58.57, -0.2], [-60.72, 2.36, 12], [-58.57, -0.2], [-56.43, -2.14], [-54, -3], [-51, -2.29], [-47.89, -0.27], [-44.8, 2.36], [-41.86, 4.9], [-39.19, 6.65], [-36.35, 6.89], [-33.65, 5.19], [-31.37, 2.5], [-29, 0], [-22, 0]], {"carry": "carry_log", "flow": true}],
 		"post_hunter": ["Caçador Raul", Color(0.52, 0.5, 0.36), ["Pele de lobo, pele de javali, e uma que eu não sei de quê. O Joca diz que compra.", "No sul os bandidos armam emboscada na estrada. Eu ando pelo mato."],
 			["Peles frescas!", "Hoje a caça foi boa.", "Bia, guarda um prato pra mim!"], [6.0, 50.0], [[6, 50, 10], [3.16, 47.79], [0.5, 45.27], [-1.88, 42.57], [-3.88, 39.84], [-5.43, 37.22], [-6.54, 34.18], [-6.48, 30.72], [-5.66, 27.37], [-5, 24], [-5, 14], [-3.6, 10, 10], [-5, 14], [-5, 24], [-5.66, 27.37], [-6.48, 30.72], [-6.54, 34.18], [-5.43, 37.22], [-3.88, 39.84], [-1.88, 42.57], [0.5, 45.27], [3.16, 47.79]], {"carry": "carry_sack", "flow": true}],
+		# Faixa élfica viva (GDD elf-band-living §3.1): vigia da Trompa do Cerco (grita no alarme), carroça de refugiados de Aldara e
+		# refugiados que correm para a Fogueira Comunal (`alarm` = abrigo enquanto houver leva viva no mapa) até o Rei; depois, a família
+		# voltando para casa pela estrada da garganta e o marido da Dalva (que ficou para soltar as cabras).
+		"post_l_horn": ["Vigia Lauro", Color(0.55, 0.5, 0.42), ["Esta trompa era do meu avô. Ele tocava para chamar o gado. Eu toco para chamar a gente.", "Quando ela soar, larga o que estiver fazendo e corre pra fogueira. Quem segura o portão é a guarda."],
+			["Olho na garganta...", "Tudo quieto. Por enquanto.", "Ouvi um galho. Foi um galho."], [-2.4, -18.5], 0.0, {"stay": true, "facing": 180.0,
+			"alarm_cry": ["Elfos na garganta! Todo mundo pra fogueira!", "A TROMPA! Eles vêm aí!", "Pro centro! Pro centro, já!"]}],
+		"post_l_cart": ["Carroceira Joana", Color(0.62, 0.5, 0.38), ["Trago o que Aldara manda: farinha, flecha, atadura. E gente. Sempre mais gente.", "Na estrada do oeste os salteadores esperam carroça sozinha. A Mula Teimosa não para por nada."],
+			["Eia, Teimosa!", "Abre o portão oeste!", "Mais uma família pra fogueira da Bia."], [-90.7, 9.8], [[-90.7, 9.8], [-79.2, 9.9], [-70.0, 9.0], [-60.7, 2.4], [-54.0, -3.0], [-44.8, 2.4], [-36.4, 6.9], [-29.0, 0.0], [-22.0, 0.0], [-18.0, 1.8, 16], [-22.0, 0.0], [-29.0, 0.0], [-36.4, 6.9], [-44.8, 2.4], [-54.0, -3.0], [-60.7, 2.4], [-70.0, 9.0], [-79.2, 9.9]],
+			{"carry": "cart_draft", "flow": true, "unless": "el6_king"}],
+		"post_l_refugee_a": ["Refugiado Simão", Color(0.58, 0.52, 0.46), ["Tinha um pomar perto da Árvore-Mãe. Agora tenho uma carroça emprestada e um cobertor.", "Os elfos não nos odeiam. Eles só não nos veem. É pior."],
+			["Mais um dia...", "Cadê a minha trouxa?", "Ô Bia, sobrou caldo?"], [-5.0, -3.9], [[-5.0, -3.9], [-1.1, 0.0], [-5.0, 3.9], [-5.0, 12.0], [-5.0, 3.9], [-1.1, 0.0]], {"alarm": [-1.2, -1.4], "unless": "el6_king"}],
+		"post_l_refugee_b": ["Refugiada Cida", Color(0.66, 0.55, 0.5), ["Estico as peles no varal do Joca e levo as secas pra Bia. Ninguém aqui fica parado.", "Se a trompa toca, eu largo tudo. Até as peles."],
+			["Pele seca, pele molhada...", "Ai, que cheiro.", "Já vou, já vou!"], [-9.5, 10.5], [[-9.5, 10.5, 6], [-8.0, 8.0], [-6.5, 4.6, 6], [-8.0, 8.0]], {"carry": "carry_sack", "alarm": [-8.9, -0.8], "unless": "el6_king"}],
+		"post_l_return": ["Refugiado Simão", Color(0.58, 0.52, 0.46), ["O Rei caiu e a garganta abriu. Vou ver o que sobrou do meu pomar.", "Se as árvores ainda estiverem de pé, eu volto com maçã pra todo mundo."],
+			["Pra casa!", "Será que o pomar...", "Olha a estrada livre!"], [-5.0, -14.0], [[-5.0, -14.0], [-5.0, -20.3], [-5.0, -24.0], [0.2, -29.6], [1.7, -35.3], [-1.8, -40.7], [-8.0, -46.0, 10], [-1.8, -40.7], [1.7, -35.3], [0.2, -29.6], [-5.0, -24.0], [-5.0, -20.3]],
+			{"carry": "carry_sack", "flow": true, "if": "el6_king"}],
+		"post_l_husband": ["Seu Bento", Color(0.5, 0.46, 0.4), ["Soltei as cabras e me escondi num tronco oco até o fim. Os elfos passaram por mim cem vezes.", "A Dalva esperou no portão todo dia. Agora quem não larga a mão dela sou eu."],
+			["Dalva, olha as cabras!", "Tô aqui, mulher. Tô aqui.", "Nunca mais saio de perto."], [-13.0, 6.2], 0.0, {"stay": true, "facing": 60.0, "if": BENTO_HOME}],
+	},
+	# Faixa élfica viva (GDD elf-band-living §3.1): a Cidade Élfica trabalha para a guerra até o Rei (`unless`) e entra em luto e trégua
+	# depois (`if`). Rotas em chão livre conferidas no _check_living_routes; fortes = lugares do JSON (forte_matilha/ninho/seiva).
+	# Coletores de seiva (2026-11-24, decisão do usuário): param FORA dos portões leste/noroeste (cochos = build_elf_city.SAP_STOPS), não na praça:
+	# menos bonecos na praça em guerra. Vigília, viúva e emissário ficam no sul/sudeste da Árvore-Mãe (o norte fica atrás do tronco na câmera).
+	# Teto: MapsCatalog.ELF_LIVING_MAX vivos por estado. A Mensageira Aryn (guerra) é a `elf_courier` do ELF_CITIZENS (rota em VILLAGER_EXTRAS).
+	"elf_city": {
+		"elv_apprentice": ["Aprendiz Fendrel", Color(0.62, 0.48, 0.36), ["A Mestra Thalindra forja, eu carrego. Lança para o quartel, lança para o muro.", "Ela canta enquanto bate o aço. Eu só conto os passos."],
+			["Lanças para o quartel!", "Abram caminho!", "Mais uma caixa..."], [42.5, -33.5], [[42.5, -33.5, 10], [44.0, -27.0], [44.1, -23.5, 8], [42.5, -15.0], [41.5, -11.0], [46.0, -6.0], [52.8, 0.0], [62.4, 0.0, 6], [52.8, 0.0], [46.0, -6.0], [41.5, -11.0], [42.5, -15.0], [44.1, -23.5], [44.0, -27.0]],
+			{"carry": "carry_crate", "model": "mob_elf_citizen", "unless": "el6_king"}],
+		"elv_sap_a": ["Coletor Ithil", Color(0.7, 0.62, 0.3), ["Tiro a seiva da Árvore-Mãe e levo ao Forte da Seiva. O capitão bebe e fica... diferente.", "A casca está mais quente que no verão passado. Árvore não devia ter febre."],
+			["Seiva para o forte!", "Não derrame, não derrame...", "Ela está quente hoje."], [71.1, -0.5], [[71.1, -0.5, 10], [72.0, 4.0], [72.8, 7.9], [73.0, 10.0], [74.6, 12.6, 8],
+			[73.0, 10.0], [72.8, 7.9], [72.0, 4.0]], {"carry": "carry_sack", "flow": true, "model": "mob_elf_citizen", "unless": "el6_king"}],
+		"elv_sap_b": ["Coletora Merien", Color(0.66, 0.6, 0.34), ["A árvore geme quando a gente tira. Baixinho. Só quem encosta a orelha ouve.", "O Forte do Ninho quer seiva para os grifos. Grifo bebendo seiva. Onde já se viu."],
+			["Mais um balde...", "Desculpa, árvore.", "Para o Ninho!"], [-37.8, -63.0], [[-37.8, -63.0, 10], [-41.0, -64.0], [-40.2, -66.6, 8],
+			[-41.0, -64.0]], {"carry": "carry_sack", "flow": true, "model": "mob_elf_citizen_f", "unless": "el6_king"}],
+		"elv_recruit": ["Recruta Nerys", Color(0.5, 0.66, 0.52), ["O Caelan treme no muro. Eu tremo no pátio. A gente se reveza.", "Mira na folha, não no humano. É o que o sargento diz. Não ajuda."],
+			["Um, dois... solta!", "Errei. De novo.", "Arco firme, arco firme."], [41.0, -21.5], 0.0, {"stay": true, "facing": 60.0, "model": "mob_elf_citizen_f", "unless": "el6_king"}],
+		"elv_captive_hunter": ["Cativo Abel", Color(0.6, 0.55, 0.48), ["Sou lenhador de Aldara. A Sylvara me pegou cortando onde não devia. Agora eu limpo jaula de lince.", "Os linces comem antes dos presos. Eu como depois dos linces."],
+			["Me tirem daqui!", "Shhh, o lince...", "Socorro..."], [11.8, -82.8], 0.0, {"stay": true, "facing": 0.0, "unless": "el6_king"}],
+		"elv_captive_sky": ["Cativa Rosa", Color(0.66, 0.56, 0.5), ["Me fazem dar peixe aos grifos. Se o peixe acaba, eu sou o próximo prato, dizem. Riem.", "Os grifos são mansos com quem tem medo. Eu tenho muito."],
+			["Peixe, peixe...", "Não me olha assim, bicho.", "Alguém aí?"], [-44.5, -75.0], 0.0, {"stay": true, "facing": 40.0, "unless": "el6_king"}],
+		"elv_captive_sap": ["Cativo Nestor", Color(0.6, 0.56, 0.5), ["Carrego os baldes de seiva até o capitão. O cheiro sobe na cabeça. Já vi a árvore falar.", "Não beba a seiva. Nunca. Nem um gole."],
+			["Balde pesado...", "A árvore chora.", "Me soltem!"], [83.0, 14.8], 0.0, {"stay": true, "facing": -90.0, "unless": "el6_king"}],
+		"elv_camp_runner": ["Batedor Quim", Color(0.55, 0.5, 0.4), ["Flechas da cabana da Yara para a patrulha, recado da patrulha para a Yara. Corre, Quim.", "Daqui se ouve a canção dos elfos de noite. Bonita. Dá raiva de ser bonita."],
+			["Flechas chegando!", "Recado pra Yara!", "Abaixa, abaixa!"], [30.0, 76.0], [[30.0, 76.0, 8], [29.6, 75.2], [30.1, 72.1], [37.4, 70.7], [43.9, 68.8], [50.7, 65.9], [56.2, 62.6], [57.5, 61.7], [60.4, 63.6], [62.4, 66.2], [63.6, 68.8, 8],
+			[62.4, 66.2], [60.4, 63.6], [57.5, 61.7], [56.2, 62.6], [50.7, 65.9], [43.9, 68.8], [37.4, 70.7], [30.1, 72.1], [29.6, 75.2]], {"carry": "carry_sack", "flow": true, "unless": "el6_king"}],
+		"elv_courier_peace": ["Mensageira Aryn", Color(0.55, 0.75, 0.85), ["Agora levo recados aos humanos. A resposta da trégua, a lista dos presos, o caminho dos refugiados.", "Corro do mesmo jeito. Só que agora ninguém atira em mim no caminho."],
+			["Recado da trégua!", "Para a cabana da Yara!", "Sem pressa hoje. Quase."], [0.0, 40.0], [[0.0, 40.0], [0.0, 52.8], [0.0, 64.0], [0.0, 66.0], [-1.7, 68.8], [-4.1, 71.9], [-2.7, 75.6], [4.2, 74.9], [11.3, 74.2], [18.4, 73.5], [25.2, 72.7], [29.6, 73.5], [29.8, 75.4, 10],
+			[29.6, 73.5], [25.2, 72.7], [18.4, 73.5], [11.3, 74.2], [4.2, 74.9], [-2.7, 75.6], [-4.1, 71.9], [-1.7, 68.8], [0.0, 66.0], [0.0, 64.0], [0.0, 52.8]], {"flow": true, "model": "mob_elf_citizen_f", "if": "el6_king"}],
+		"elv_apprentice_peace": ["Aprendiz Fendrel", Color(0.62, 0.48, 0.36), ["Agora levo as lanças de volta. A Mestra Thalindra diz que lança boa vira enxada boa.", "O quartel está vazio. Dá para ouvir os pássaros lá dentro."],
+			["Lança vira enxada!", "De volta à forja!", "Mais leve na volta."], [42.5, -33.5], [[42.5, -33.5, 10], [44.0, -27.0], [44.1, -23.5, 8], [42.5, -15.0], [41.5, -11.0], [46.0, -6.0], [52.8, 0.0], [62.4, 0.0, 6], [52.8, 0.0], [46.0, -6.0], [41.5, -11.0], [42.5, -15.0], [44.1, -23.5], [44.0, -27.0]],
+			{"carry": "carry_crate", "model": "mob_elf_citizen", "if": "el6_king"}],
+		"elv_sap_peace": ["Coletora Merien", Color(0.66, 0.6, 0.34), ["Devolvo a seiva à terra do jardim da Saelis. A árvore parou de gemer.", "Sem rei para beber, a seiva dorme. Eu também durmo melhor."],
+			["De volta à terra.", "Dorme, árvore.", "A Saelis vai gostar."], [-12.5, 8.5], [[-12.5, 8.5, 10], [-20.0, 12.0], [-23.4, 13.5], [-28.0, 21.0], [-30.0, 30.0, 10], [-28.0, 21.0], [-23.4, 13.5], [-20.0, 12.0]],
+			{"carry": "carry_sack", "model": "mob_elf_citizen_f", "if": "el6_king"}],
+		"elv_mourner": ["Viúva Elandra", Color(0.4, 0.42, 0.55), ["Aelthar foi meu rei antes de ser o rei da seiva. Choro pelo primeiro.", "Acendemos uma lanterna por cada um que caiu nos fortes. Dos dois lados."],
+			["...", "Descanse, menino.", "A árvore está quieta."], [9.4, 16.3], 0.0, {"stay": true, "facing": 264.0, "model": "mob_elf_citizen_f", "if": "el6_king"}],
+		"elv_envoy": ["Emissário Bento Sá", Color(0.6, 0.62, 0.72), ["A Comandante Hela me mandou esperar aqui. Paz não se assina. Se espera.", "Eles me dão chá de flor-da-lua. Amargo. Eu bebo e agradeço."],
+			["Pela trégua.", "Bom dia, senhora élfica.", "Ainda esperando..."], [-7.5, 19.0], 0.0, {"stay": true, "facing": 200.0, "if": "el6_king"}],
+		"elv_fort_hunter": ["Guarda Desarmado Faelan", Color(0.42, 0.58, 0.46), ["O forte é só madeira agora. Soltei os linces na mata; eles voltaram para dormir na jaula.", "A Sylvara corria mais que todos. Não correu mais que o fim."],
+			["Arco na parede.", "Sem ronda hoje.", "Os linces sentem falta dela."], [11.8, -82.8], 0.0, {"stay": true, "facing": 0.0, "model": "mob_elf_citizen", "if": "el6_king"}],
+		"elv_fort_sky": ["Tratadora Lysa", Color(0.5, 0.62, 0.7), ["Abri as jaulas. Os grifos ficaram. Bicho preso esquece que tem asa.", "A Rosa, a humana, me ensinou a escamar peixe direito. Devo isso a ela."],
+			["Voa, voa...", "Ninguém vai te montar mais.", "Peixe fresco, sem ordem."], [-44.5, -75.0], 0.0, {"stay": true, "facing": 40.0, "model": "mob_elf_citizen_f", "if": "el6_king"}],
+		"elv_fort_sap": ["Sentinela Desarmada Ilyra", Color(0.6, 0.6, 0.42), ["Derramamos os baldes de seiva no chão. A terra bebeu tudo e ficou verde em uma noite.", "Ainda sinto o cheiro. Doce. Errado."],
+			["Nada para guardar.", "Chão verde...", "Vai, humano, passa."], [83.0, 14.8], 0.0, {"stay": true, "facing": -90.0, "model": "mob_elf_citizen_f", "if": "el6_king"}],
+		"elv_camp_cook": ["Cozinheira Nena", Color(0.86, 0.74, 0.55), ["Fogueira acesa de dia, sem medo de flecha. Faz tempo que eu não fazia isso.", "Até elfo vem provar o caldo agora. Reclamam do sal."],
+			["Caldo quente!", "Senta, senta.", "Hoje ninguém fica de guarda com fome."], [66.0, 66.0], 0.0, {"stay": true, "facing": 180.0, "if": "el6_king"}],
 	},
 	# Vale de Aldara (GDD living-towns P1): a Feira do Trigo com feirantes no posto (pregão) e fregueses de banca em banca (R2),
 	# e a Carroça da Colheita que vai da fazenda ao celeiro (avenida sul) e volta (R1; `flow` = não para nos pontos da estrada,
@@ -1373,6 +1524,9 @@ const MOB_PATROLS := {
 	"dg_goblin": [["goblin_lancer", 0.0, 25.0, 3.0, 2, 30.0, [[0.0, 25.0], [-19.0, 18.0], [-36.0, -2.0], [-18.0, -2.0], [1.0, -2.0], [-18.0, -2.0], [-36.0, -2.0], [-19.0, 18.0]], ""]],
 	"fort_trolls": [["troll_whelp", 26.0, 3.0, 3.0, 2, 30.0, [[26.0, 3.0], [36.0, -11.0], [53.0, -14.0], [64.0, -4.0], [53.0, -14.0], [36.0, -11.0]], Q_FORT_TROLLS]],
 	"fort_fire": [["orc_archer", -36.0, -20.0, 3.0, 2, 30.0, [[-36.0, -20.0], [-31.0, -10.0], [-17.0, -11.0], [-5.0, -8.0], [-17.0, -11.0], [-31.0, -10.0]], Q_FORT_FIRE]],
+	# Posto dos Caçadores: linces batedores com trompa na estrada da garganta e na trilha das teias (até o Rei cair)
+	"field_forest": [["elf_lynx", 2.0, -66.0, 3.0, 2, 60.0, [[2.0, -66.0], [8.0, -80.0], [2.0, -66.0], [-8.0, -46.0]], Q_ELF_KING, {"horn": true}],
+		["elf_lynx", -40.0, -72.0, 3.0, 2, 60.0, [[-40.0, -72.0], [-48.0, -58.0], [-22.0, -54.0], [-48.0, -58.0]], Q_ELF_KING, {"horn": true}]],
 	"fort_war": [["orc_warrior", -39.0, 20.0, 3.0, 2, 30.0, [[-39.0, 20.0], [-35.0, 8.0], [-21.0, 8.0], [-7.0, 7.0], [-21.0, 8.0], [-35.0, 8.0]], Q_FORT_WAR]],
 	# Ato III (patrol_hint dos JSON): Ronda do Festim pelas ruas do anel leste de Lumeria (some em L3b, GDD §5) e a matilha de
 	# Galgos que corre os terraços do Perfume
@@ -1462,7 +1616,7 @@ static func living_npcs(table: Dictionary, prefix: String = "", cond: Dictionary
 			d["wander"] = float(r)
 		if not (v[3] as Array).is_empty():
 			d["barks"] = v[3]
-		for k in ["if", "unless", "model", "power", "carry", "perch", "reach", "flow"]:
+		for k in ["if", "unless", "model", "power", "carry", "perch", "reach", "flow", "alarm", "alarm_cry"]:
 			if ex.has(k):
 				d[k] = ex[k]
 		for k in cond:
@@ -1494,6 +1648,26 @@ static func _apply_barks(npcs: Array) -> void:
 ## `victim` = [nome, cor] do NPC (nunca morre), `home` = para onde ele volta, `reward_item` x `reward_count` para cada um
 ## que contribuiu (consumível; nunca equipamento nem moeda lendária).
 const ROAD_EVENTS := {
+	# Faixa élfica viva (GDD elf-band-living §3.3): Emboscada na Trilha (P3, estradas da Floresta) e Patrulha com Prisioneiro (P4, estradas
+	# entre os fortes; `unless` = o tipo deixa de valer depois do Rei, RoadEventSystem.valid_points).
+	"field_forest": {
+		"ambush": {"name": "Emboscada na Trilha", "mob": "bandit", "mob_name": "Salteador da Trilha", "count": [2, 3],
+			"victim": ["Carroceiro Tião", Color(0.6, 0.5, 0.38)], "home": [-5.0, 0.0],
+			"cry": ["Salteadores! Levaram a mula e querem a carroça!", "Socorro! Bandidos na trilha!", "Larguem a carga, seus ratos!"],
+			"thanks": ["Ufa! A carga era farinha pro Posto. Leve estas poções, o Fen me dá outras.", "Você chegou na hora. Fique com isto, é o que eu posso."],
+			"flee": ["São muitos! Vou correr pro Posto!", "Fica com a carroça, eu fico com a vida!"],
+			"bot_chat": ["Espantei uns salteadores de cima de um carroceiro na trilha.", "Emboscada na estrada da Floresta de novo. Resolvido.", "Bandido em trilha é bandido no chão."],
+			"reward_item": "potion_hp_m", "reward_count": 2},
+	},
+	"elf_city": {
+		"prisoner": {"name": "Patrulha com Prisioneiro", "mob": "elf_warrior", "mob_name": "Escolta Élfica", "count": [2, 3], "unless": "el6_king",
+			"victim": ["Refugiado Amarrado", Color(0.62, 0.54, 0.46)], "home": [32.3, 77.2],
+			"cry": ["Me levam pro forte! Alguém!", "Humano! Aqui! Corta essa corda!", "Não quero ir pro Ninho!"],
+			"thanks": ["A corda... obrigado. Vou pra cabana da Yara. Leve isto, roubei dos elfos.", "Livre! Fique com estas poções, eram da escolta."],
+			"flee": ["Me soltei! Vou correr pra cabana da Yara!", "Não fico pra ver o fim disso!"],
+			"bot_chat": ["Soltei um refugiado de uma escolta élfica na estrada dos fortes.", "Patrulha élfica levando prisioneiro. Não leva mais.", "Mais um humano tirado da corda."],
+			"reward_item": "potion_mp_m", "reward_count": 2},
+	},
 	"city_aldara": {
 		"wolves": {"name": "Lobos no Lavrador", "mob": "wolf", "mob_name": "Lobo Faminto", "count": [2, 3],
 			"victim": ["Lavrador Chico", Color(0.66, 0.54, 0.34)], "home": [-66.5, 67.0],
@@ -1557,16 +1731,8 @@ const BREN := ["Capitão Bren", "villager", Color(0.45, 0.5, 0.7), ["O Gaivota a
 
 ## Investidas por zona: levas (`every_nth` = só a cada N levas), ritmo e falas. A rota vem do JSON (Blender).
 const RAIDS := {
-	"field_forest": {"every": 240.0, "first": 75.0, "jitter": 45.0, "lifetime": 210.0,
-		"waves": [{"mobs": {"elf_raider": 9, "elf_raider_archer": 6, "elf_lynx": 3, "elf_raider_mage": 3}},
-			{"mobs": {"elf_lynx": 3, "elf_raider_archer": 3}, "every_nth": 2}, {"mobs": {"griffin_raider": 3}, "every_nth": 3}],
-		"say_start": "Trompas élficas na garganta norte! Uma investida desce rumo ao Posto dos Caçadores!",
-		"say_arrived": "Os elfos chegaram ao portão norte do Posto!",
-		"say_repelled": "A investida élfica foi repelida. O Posto resiste!",
-		"say_retreat": "Os elfos sobreviventes recuam para a garganta.",
-		# reforço por passo de força (nível do jogador, ver Balance.RAID_SCALE_*): somado a toda leva a partir do passo
-		"scale_extra": {3: {"elf_raider": 3}, 5: {"elf_raider_archer": 3}},
-		"say_strong": "As trompas soam mais graves: a investida veio reforçada!"},
+	# Posto dos Caçadores: Cerco Vivo (design/gdd/elf-siege-posto.md; SIEGE["field_forest"], rotas no `raids` do JSON: build_field_forest.RAIDS)
+	"field_forest": FOREST_RAIDS,
 	# Porto Esperança (Ato II): os ginetes descem a garganta nordeste (rotas cerco/muralha/patrulha = C0/C1/C3)
 	"city_port": PORT_RAIDS,
 	# Monte Kharzun (Ato II, 40-45): Contra-ataque da Horda em duas frentes (Canil e Cidadela), até K1b/K2
@@ -1626,8 +1792,22 @@ static func forest_npcs(npc_pos: Dictionary) -> Array:
 		out.append(d)
 	return out
 
+## Seu Bento volta ao Posto (post_l_husband) só com o Rei caído E a carta entregue; até lá mora no Brejo (marsh_bento).
+## Lista = todas (WorldState.active). Sem o Brejo no jogo (marsh_ready) vale só o Rei: `bento_home()`.
+const BENTO_HOME := ["el6_king", "m9_letter"]
+static func bento_home() -> Variant:
+	return BENTO_HOME if marsh_ready() else "el6_king"
+## Condições (`if`/`unless`) de NPC de lugar, por id.
+const PLACE_NPC_COND := {"marsh_bento": {"unless": BENTO_HOME}}
+
 ## NPCs dos lugares (places.py), por zona: nome, papel, cor, falas. A posição vem do JSON.
 const PLACE_NPCS := {
+	# Brejo das Teias (12-16): cabanas da Benzedeira e do Bento, Altar Afogado (pedidos de caça). GDD brejo-das-teias §3.4
+	"field_marsh": {
+		"marsh_healer": ["Benzedeira Zefa", "quest", Color(0.62, 0.55, 0.42), ["Sapo-boi tem couro que tira febre e sanguessuga tira sangue ruim. O brejo dá tudo, só cobra caro.", "A água que desce do leste está cor de mel. Bicho que bebe dela cresce. Gente, não sei."]],
+		"marsh_bento": ["Seu Bento, o Cabreiro", "quest", Color(0.58, 0.5, 0.38), ["As cabras correram para o sul e eu fui atrás. Quando vi, o brejo tinha fechado em volta.", "Não volto para o Posto com elfo descendo do norte. Daqui eu vejo quem chega."]],
+		"marsh_altar": ["Altar Afogado", "board", Color(0.6, 0.66, 0.5), ["Pedra élfica meio enterrada na lama, com um veio dourado. Pedidos de caça presos com espinho.", "Gravado em élfico: 'A seiva desce. Sempre desce.'"], "prop_ruin"],
+	},
 	"city_aldara": {
 		"woodcutter_nils": ["Nils, o Lenhador", "quest", Color(0.7, 0.5, 0.35), ["Do outro lado do rio a mata é minha. Pelo menos era, antes dos lobos.", "A cidade fica pra lá da ponte. Daqui só se ouve o machado."]],
 		"hermit_ines": ["Eremita Inês", "quest", Color(0.6, 0.75, 0.7), ["Vim pra cá atrás de silêncio. A gruta a nordeste não deixa: ela goteja e borbulha.", "Algo grande mora lá embaixo e não é um slime comum."]],
@@ -1805,6 +1985,8 @@ static func load_zone(id: String) -> Dictionary:
 		portals.append(_portal(p["id"], float(p["pos"][0]), float(p["pos"][1]), p["target_map"], float(p["target_pos"][0]), float(p["target_pos"][1]), label))
 		if PORTAL_GATES.has(p["id"]):
 			portals[-1]["gate"] = PORTAL_GATES[p["id"]]
+		elif MARSH_GATES.has(p["id"]):       # Brejo das Teias: portão fora de PORTAL_GATES enquanto o portal não está no JSON da Floresta
+			portals[-1]["gate"] = MARSH_GATES[p["id"]]
 	var spawners: Array = []
 	var dense: float = Balance.SPAWN_COUNT_MULT_DUNGEON if is_dungeon_id(id) else Balance.SPAWN_COUNT_MULT
 	for s in z["spawners"]:
@@ -1934,12 +2116,20 @@ static func _aldara() -> MapDef:
 static func _forest() -> MapDef:
 	var z := load_zone("field_forest")
 	var p: Array = z["npc_pos"].get("ranger_post", [0.0, 0.0, 180.0])
+	if (z["road_events"] as Array).is_empty():         # faixa élfica viva: pontos do catálogo até o build gravar (BLENDER REQUEST)
+		z["road_events"] = catalog_event_points("field_forest")
 	var extra := _place_npcs("field_forest", z["npc_pos"]) + forest_npcs(z["npc_pos"]) + villagers(POST_VILLAGERS) + living_npcs(LIVING_NPCS["field_forest"]) + crystal_npc("field_forest") + trainer_npc("field_forest")
+	for d in extra:                       # Cerco: reserva que corre ao portão atacado
+		if FOREST_SIEGE_RESPONDERS.has(str(d.get("id", ""))):
+			d["responder"] = true
+		if str(d.get("id", "")) == "post_l_husband":
+			d["if"] = bento_home()        # sem o Brejo no jogo não há carta: vale só o Rei
+	z["siege"] = SIEGE["field_forest"]
 	z.erase("npc_pos")
 	z.merge({
 		"id": "field_forest", "name": "Floresta Sombria", "is_town": false, "hub": true, "level_range": Vector2i(10, 20),
 		"ground_color": Color(0.36, 0.52, 0.34), "ground_color_alt": Color(0.32, 0.48, 0.31), "ambient": Color(0.75, 0.85, 0.8), "sun_energy": 0.95,
-		"bot_population": 6,
+		"bot_population": 6, "conquest_vis": POSTO_CONQUEST_VIS.duplicate(true),
 		"npcs": [_npc("ranger_post", "Ranger Teo", float(p[0]), float(p[1]), "quest", Color(0.5, 0.75, 0.55),
 			["Ninhos de aranha a noroeste e no sudoeste, perto do pântano. Os bandidos se fecharam na paliçada a nordeste; ents no bosque a sudeste.",
 			"A Árvore-Mãe ao norte se vê de qualquer lugar. Atrás dela, a garganta dos elfos: é de lá que vêm as investidas.", "Não lute com o Chefe sozinho abaixo do nível 17."], float(p[2]))] + extra,
@@ -1996,6 +2186,42 @@ static func _crab_beach() -> MapDef:
 	return _mk(z)
 
 # ---------------------------------------------------------------------------
+## Brejo das Teias (12-16, campo opcional ao sul da Floresta; GDD design/gdd/brejo-das-teias.md): tools/blender/zones/build_field_marsh.py.
+## Palafitas do Brejo no centro (sem muro nem cristal), Charco dos Sapos (O), Mata das Teias (NE), Cais dos Contrabandistas (SO),
+## Ponta da Bocarra (SE, mini-chefe), Viveiro de Seiva reservado (L, future_portals). O mapa só entra quando o JSON do Brejo existe
+## E o da Floresta já tem a garganta sul (`arrive_from_field_marsh`): antes disso nada do Brejo aparece (quests também esperam).
+const MARSH_ID := "field_marsh"
+const MARSH_NPCS := {
+	"marsh_guide": ["Barqueira Ondina", "quest", Color(0.45, 0.58, 0.55), ["Charco dos sapos a oeste, teias a nordeste, contrabandista no canal do sudoeste. A Bocarra fica na ponta da lagoa: dessa ninguém chega perto.", "Ande nas tábuas e nas trilhas. Lama funda segura a bota e a aranha não espera."]],
+	"marsh_merchant": ["Mascate Lino", "merchant", Color(0.75, 0.62, 0.4), ["Aqui embaixo se paga em seda e couro de sapo. Poção eu tenho, troco não.", "Tudo o que sobe o canal passa por mim. Quase tudo."]],
+}
+## Portão do portal da Floresta para o Brejo (só por nível: o Brejo é opcional). Lido no load_zone ao lado de PORTAL_GATES.
+const MARSH_GATES := {"to_field_marsh": {"level": 12, "text": "A Soldada Meri barra a trilha do sul: \"Lá embaixo é sapo do tamanho de boi. Volte no nível 12.\""}}
+
+## O Brejo está pronto para a sim: JSON da zona exportado e garganta sul da Floresta no JSON dela.
+static func marsh_ready() -> bool:
+	if not FileAccess.file_exists(ZONE_PATH % MARSH_ID) or not FileAccess.file_exists(ZONE_PATH % "field_forest"):
+		return false
+	return FileAccess.get_file_as_string(ZONE_PATH % "field_forest").contains("arrive_from_field_marsh")
+
+static func _marsh() -> MapDef:
+	var z := load_zone(MARSH_ID)
+	var npcs: Array = []
+	for nid in MARSH_NPCS:
+		var n: Array = MARSH_NPCS[nid]
+		var p: Array = z["npc_pos"].get(nid, [0.0, 0.0, 180.0])
+		npcs.append(_npc(nid, n[0], float(p[0]), float(p[1]), n[1], n[2], n[3], float(p[2]),
+			["potion_hp_s", "potion_hp_m", "potion_mp_s", "potion_mp_m"] if n[1] == "merchant" else []))
+	npcs.append_array(_place_npcs(MARSH_ID, z["npc_pos"]))
+	z.erase("npc_pos")
+	z.merge({
+		"id": MARSH_ID, "name": "Brejo das Teias", "is_town": false, "level_range": Vector2i(12, 16),
+		"ground_color": Color(0.3, 0.38, 0.27), "ground_color_alt": Color(0.27, 0.35, 0.25), "ambient": Color(0.74, 0.82, 0.74), "sun_energy": 0.9,
+		"bot_population": 3, "npcs": npcs,
+	})
+	return _mk(z)
+
+# ---------------------------------------------------------------------------
 ## Bosque dos Xamãs (14-18, ramo lateral a leste da Floresta): tools/blender/zones/build_field_grove.py. Posto da Guardiã sem muro
 ## nem cristal na entrada; aldeia hostil dos xamãs no centro-leste, bosque do Arquidruida ao sudeste.
 const GROVE_NPCS := {
@@ -2039,12 +2265,14 @@ static func elf_city_groups() -> Array:
 static func _elf_city() -> MapDef:
 	var z := load_zone("elf_city")
 	z["spawners"] = (z["spawners"] as Array) + elf_city_groups()
-	var extra := _place_npcs("elf_city", z["npc_pos"]) + villagers(ELF_CITIZENS) + trainer_npc("elf_city")
+	var extra := _place_npcs("elf_city", z["npc_pos"]) + villagers(ELF_CITIZENS) + trainer_npc("elf_city") + living_npcs(LIVING_NPCS["elf_city"])
+	if (z["road_events"] as Array).is_empty():
+		z["road_events"] = catalog_event_points("elf_city")
 	z.erase("npc_pos")
 	z.merge({
 		"id": "elf_city", "name": "Cidade Élfica", "is_town": false, "level_range": Vector2i(17, 21),
 		"ground_color": Color(0.42, 0.6, 0.44), "ground_color_alt": Color(0.38, 0.56, 0.41), "ambient": Color(0.82, 0.95, 0.86), "sun_energy": 1.05,
-		"bot_population": 5, "npcs": extra,
+		"bot_population": 5, "npcs": extra, "conquest_vis": ELF_CONQUEST_VIS.duplicate(true),
 	})
 	return _mk(z)
 

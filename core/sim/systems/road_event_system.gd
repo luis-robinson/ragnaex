@@ -68,7 +68,8 @@ static func valid_points(sim: WorldSim, m: Dictionary) -> Array:
 		return out
 	for i in def.road_events.size():
 		var p: Dictionary = def.road_events[i]
-		if rules(def.id, str(p["kind"])).is_empty():
+		var rule := rules(def.id, str(p["kind"]))
+		if rule.is_empty() or not WorldState.active(sim, rule):     # tipo com `if`/`unless` (ex.: escolta élfica some depois do Rei)
 			continue
 		var d: float = (p["pos"] as Vector3).distance_to(sim.player.position)
 		if d < Balance.EVENT_NEAR_M or d > Balance.EVENT_FAR_M:

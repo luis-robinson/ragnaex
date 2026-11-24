@@ -65,6 +65,8 @@ static func create(id: String) -> AmbientLife:
 
 func _ready() -> void:
 	_rng.seed = hash(map_id)
+	Events.raid_event.connect(_on_alarm)
+	Events.siege_event.connect(_on_alarm)
 	for g in MapsCatalog.AMBIENT_LIFE.get(map_id, []):
 		_build_group(str(g[0]), Vector3(float(g[1][0]), 0.0, float(g[1][1])), float(g[2]), int(g[3]))
 	for i in Balance.BARK_MAX_ACTIVE:
@@ -350,6 +352,38 @@ func _update_barks(delta: float) -> void:
 		free["eid"] = e.id
 		free["left"] = Balance.BARK_TIME
 		return
+
+# --- alarme do povoado (GDD elf-band-living §3.2) --------------------------------------------------------------------------
+## Leva de investida/cerco começou no mapa: quem tem `alarm_cry` grita (vence o ritmo das barks) e a trompa toca uma vez
+## (no máximo a cada ALARM_GAP s). Só apresentação; quem corre para o abrigo é a sim (NpcSystem, `alarm`).
+const ALARM_KINDS := ["start", "horn", "harass"]
+const ALARM_SOUND := "cortege_horn"      # pedido ao sound-designer: `alarm_horn` próprio (grave, curto)
+const ALARM_GAP := 12.0
+var _alarm_last := -999.0
+
+func _on_alarm(mid: String, kind: String) -> void:
+	if mid != map_id or not kind in ALARM_KINDS or _t - _alarm_last < ALARM_GAP or not Sim.maps.has(map_id):
+		return
+	_alarm_last = _t
+	var cried := false
+	for e: SimEntity in Sim.maps[map_id]["entities"]:
+		var lines: Array = e.npc_data.get("alarm_cry", []) if e.kind == SimEntity.Kind.NPC else []
+		if lines.is_empty():
+			continue
+		for bb in _bubbles:
+			if int(bb["eid"]) < 0 or int(bb["eid"]) == e.id:
+				var l: Label3D = bb["label"]
+				l.text = str(lines[_rng.randi() % lines.size()])
+				l.global_position = e.position + Vector3(0, BARK_Y, 0)
+				l.modulate.a = 1.0
+				l.visible = true
+				bb["eid"] = e.id
+				bb["left"] = Balance.BARK_TIME * 1.5
+				_bark_next[e.id] = _t + Balance.BARK_COOLDOWN_MAX
+				cried = true
+				break
+	if cried:
+		Sfx.ui(ALARM_SOUND)
 
 func _speaking(eid: int) -> bool:
 	for bb in _bubbles:

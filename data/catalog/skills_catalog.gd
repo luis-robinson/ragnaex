@@ -183,6 +183,13 @@ static func build(classes: Dictionary) -> Array:
 		 "effects": {"pull": {"gap": 0.6}, "stun": {"duration": 0.4}, "dot": {"dps": 6, "duration": 4}}},
 		{"id": "mob_web_pull", "name": "Fio da Rainha", "clip": "atk_throw", "target": T_TARGET, "kind": K_PHYS, "power": 0.7, "cooldown": 11.0, "range": 15.0, "radius": 0.0, "max_targets": 1, "startup": 0.55, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.85, 0.85, 0.9), "mob_pick": "far", "vfx": "poison",
 		 "effects": {"pull": {"gap": 0.6}, "slow": {"pct": 40, "duration": 3}}},
+		# Brejo das Teias (GDD brejo-das-teias §3.3): Bocarra, a Sapa-Mãe
+		{"id": "mob_toad_tongue", "name": "Língua da Bocarra", "clip": "atk_throw", "target": T_TARGET, "kind": K_PHYS, "power": 0.8, "cooldown": 11.0, "range": 12.0, "radius": 0.0, "max_targets": 1, "startup": 0.55, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.85, 0.5, 0.55), "mob_pick": "far", "vfx": "poison",
+		 "effects": {"pull": {"gap": 0.6}, "slow": {"pct": 35, "duration": 2}}},
+		{"id": "mob_bog_flop", "name": "Barrigada", "target": T_DIR, "kind": K_PHYS, "power": 1.5, "cooldown": 13.0, "range": 8.0, "radius": 3.2, "startup": 0.7, "active": 0.15, "recovery": 0.6, "hit_stop_frames": 4, "icon_color": Color(0.45, 0.55, 0.3), "vfx": "blood",
+		 "effects": {"dash": 7.0, "stun": {"duration": 0.6}}},
+		{"id": "mob_call_tadpoles", "name": "Desova", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 24.0, "radius": 0.0, "startup": 0.8, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.35, 0.45, 0.25),
+		 "effects": {"boss_summon": {"id": "bog_tadpole", "count": 2, "max": 4}}},
 		{"id": "mob_grapple_hook", "name": "Arpéu", "clip": "atk_throw", "target": T_TARGET, "kind": K_PHYS, "power": 0.8, "cooldown": 12.0, "range": 14.0, "radius": 0.0, "max_targets": 1, "startup": 0.5, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.7, 0.6, 0.5), "mob_pick": "far", "vfx": "physical",
 		 "effects": {"pull": {"gap": 0.6}, "stun": {"duration": 0.4}}},
 		{"id": "mob_tusk_rush", "name": "Disparada", "target": T_DIR, "kind": K_PHYS, "power": 1.4, "cooldown": 10.0, "range": 13, "radius": 1.2, "startup": 0.7, "active": 0.15, "recovery": 0.6, "hit_stop_frames": 4, "icon_color": Color(0.8, 0.55, 0.35), "mob_pick": "far", "vfx": "earth",

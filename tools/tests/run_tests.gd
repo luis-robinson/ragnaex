@@ -2497,6 +2497,8 @@ func _check_loading_art(gd) -> void:
 			var zid := mt.get_string(1)
 			zones[zid] = true
 			var md: MapDef = gd.maps.get(zid)
+			if md == null and zid == MapsCatalog.MARSH_ID and not MapsCatalog.marsh_ready():
+				continue        # Brejo: a foto já existe, o mapa entra quando a Floresta ganhar a garganta sul (MapsCatalog.marsh_ready)
 			if md == null:
 				bad_zone.append("%s: mapa não existe" % zid)
 				continue
@@ -3027,6 +3029,8 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_tent_cloth()
 	_reseed(sim, "_check_item_icons")
 	_check_item_icons(gd)
+	_reseed(sim, "_check_marsh_content")
+	_check_marsh_content(gd, sim)
 	_reseed(sim, "_check_tree_spacing")
 	_check_tree_spacing()
 	_reseed(sim, "_check_web_fog")
@@ -4625,6 +4629,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_town_identity(gd, sim)
 	_check_living_routes(gd, sim)
 	_check_road_events(gd, sim)
+	_check_elf_living(gd, sim)
 	_check_act3_maps(gd, sim)
 	_check_act3_wp6_maps(gd, sim)
 	_check_act3_quests(gd, sim)
@@ -4638,6 +4643,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_siege_segments(gd)
 	_check_siege_clock(gd)
 	_check_siege_rules(gd)
+	_check_elf_siege(gd)
 	_check_elf_loot(gd, sim)
 	_check_hunter_post(gd, sim)
 	_check_start_presets(gd, sim)
@@ -9283,7 +9289,7 @@ func _check_raid_tactics(gd, sim) -> void:
 	var base_n := 0
 	for mid in fd.raid["waves"][0]["mobs"]:
 		base_n += int(fd.raid["waves"][0]["mobs"][mid])
-	check(base_n >= 18 and fd.raid["waves"][0]["mobs"].has("elf_raider_mage"), "investida: leva base 3x com magos (%d)" % base_n)
+	check(base_n >= 10 and fd.raid["waves"][0]["mobs"].has("elf_raider_mage"), "investida: leva base com magos (%d; cerco do Posto: 10-12 por leva, elf-siege-posto F2)" % base_n)
 	check(gd.monsters["elf_lynx"].skill_ids.has("mob_lynx_leap") and gd.skills["mob_lynx_leap"].effects["dash"] >= 7.0, "lince de guerra salta longe")
 	var ws := WorldSim.new()
 	ws.rng.seed = 11
@@ -9785,6 +9791,7 @@ func _check_dawn_factions(gd) -> void:
 func _check_world_state(gd) -> void:
 	var fd: MapDef = gd.maps["field_forest"]
 	var def: MapDef = fd.duplicate()
+	def.siege = {}                        # relógio de cada rota (o Posto real usa o cerco, elf-siege-posto)
 	def.id = "ws_test"
 	def.raid = {}
 	def.raids = []
@@ -9848,7 +9855,7 @@ func _check_world_state(gd) -> void:
 	check(RaidSystem.state(m, 1)["ids"].is_empty(), "investida: lado retomado não solta mais leva")
 	var last_n := int(round(1.0 * Balance.RAID_RECLAIM_MULT * Balance.RAID_LAST_FRONT_MULT))
 	check(RaidSystem.state(m, 0)["ids"].size() == last_n, "investida: o lado que sobra se enfurece e, sendo o último, joga tudo (1 lobo -> %d, x%.1f x%.1f): %d" % [last_n, Balance.RAID_RECLAIM_MULT, Balance.RAID_LAST_FRONT_MULT, RaidSystem.state(m, 0)["ids"].size()])
-	check(RaidSystem.routes(fd).size() == 1, "Floresta continua com uma rota")
+	check(RaidSystem.routes(fd).size() == 5 and not fd.siege.is_empty(), "Floresta: o teste mexe numa cópia (rotas e cerco do Posto intactos)")
 	for id in RaidSystem.state(m, 0)["ids"]:
 		ws.despawn(ws.entities.get(id))
 	def.raid = {}
@@ -11069,7 +11076,7 @@ func _check_sfx_bank(gd) -> void:
 	check(Sfx.place_bells_at("city_lumeria", []) != Vector3.INF and Sfx.place_bells_at("city_lumeria", ["hx3_bells"]) == Vector3.INF
 		and Sfx.place_bells_at("field_perfume", []) == Vector3.INF and sfx.bank.has("bells"), "Ato III: sinos de Lumeria tocam até hx3_bells (L1)")
 	for mid in Sfx.PLACE_BELLS:
-		check(gd.maps.has(mid) and gd.quests.has(str(Sfx.PLACE_BELLS[mid]["until"])), "Sfx.PLACE_BELLS %s: mapa e missão existem" % mid)
+		check(gd.maps.has(mid) and gd.quests.has(str(Sfx.PLACE_BELLS[mid].get("until", Sfx.PLACE_BELLS[mid].get("since", "")))), "Sfx.PLACE_BELLS %s: mapa e missão existem (until/since)" % mid)
 	# soltura do arco (playtest 2026-11-16): ruído que morre rápido, nunca uma nota sustentada de "teclado"
 	check(sfx.bank.has("bow") and (sfx.bank["bow"] as Array).size() >= 3, "arco tem 3+ variações de som")
 	for i in range(1, 9):
@@ -11324,13 +11331,17 @@ func _check_villagers(gd, sim) -> void:
 				var home: Vector3 = v.npc_data["pos"]
 				var lim: float = float(v.npc_data.get("wander", 0.0)) + 1.5 if v.npc_data.has("wander") else 40.0
 				far = maxf(far, home.distance_to(v.position) - lim)
-				went[v.id] = maxf(float(went.get(v.id, 0.0)), v.position.distance_to(start[v.id]))     # passear e voltar para casa também conta
+				went[v.id] = float(went.get(v.id, 0.0)) + v.position.distance_to(start[v.id])     # caminho andado (quem passeia num raio pequeno também conta)
+				start[v.id] = v.position
 				if not sim.is_walkable(v.position, def, 0.3):
 					bad.append(v.npc_data["id"])
+	var still: Array = []
 	for v in vil:
 		if float(went.get(v.id, 0.0)) > 1.0:
 			moved += 1
-	check(moved >= vil.size() - 2, "moradores andam (%d/%d se moveram em 40 s)" % [moved, vil.size()])
+		else:
+			still.append("%s(espera %.1f, segura %.1f)" % [v.npc_data["id"], v.npc_wait, v.npc_hold])
+	check(moved >= vil.size() - 2, "moradores andam (%d/%d se moveram em 40 s; parados %s)" % [moved, vil.size(), still])
 	check(far <= 0.0, "moradores ficam perto de casa (excesso %.1f m)" % far)
 	check(bad.is_empty(), "moradores nunca entram em sólido (%s)" % str(bad.slice(0, 3)))
 	check(smith.position == smith_at, "ferreiro fica no posto")
@@ -15521,7 +15532,7 @@ func _check_review_fixes(gd, sim) -> void:
 	for mid in gd.maps:
 		for pt in gd.maps[mid].portals:
 			if pt.has("gate"):
-				check(pt["id"].begins_with("to_") and gd.maps[pt["target_map"]].parent_map != "" and pt["target_map"] != gd.maps[mid].parent_map or pt["target_map"] in ["city_port", "field_forest", "field_ruins", "elf_city", "fort_ghoul", "fort_bones", "fort_frost", "lich_citadel", "field_steppe", "fort_trolls", "fort_fire", "fort_war", "field_kharzun", "city_lumeria", "field_parade", "rift_garden"] or (pt["id"].begins_with("door_in_") and gd.maps[pt["target_map"]].interior), "portão %s só na ida" % pt["id"])     # porta trancada de casa (Salão do Duque): só a entrada tem portão
+				check(pt["id"].begins_with("to_") and gd.maps[pt["target_map"]].parent_map != "" and pt["target_map"] != gd.maps[mid].parent_map or pt["target_map"] in ["city_port", "field_forest", "field_ruins", "elf_city", "fort_ghoul", "fort_bones", "fort_frost", "lich_citadel", "field_steppe", "fort_trolls", "fort_fire", "fort_war", "field_kharzun", "city_lumeria", "field_parade", "rift_garden", "field_marsh"] or (pt["id"].begins_with("door_in_") and gd.maps[pt["target_map"]].interior), "portão %s só na ida" % pt["id"])     # porta trancada de casa (Salão do Duque): só a entrada tem portão
 	for x in [chief, near, mob, other, nec, ber, pal, bis]:
 		sim.despawn(x)
 
@@ -16418,7 +16429,7 @@ func _check_dry_land(gd, sim) -> void:
 ## Mapa-múndi em "zonas" (x = leste, y = sul; 1 = uma zona de ~240 m). Dois continentes: Aldara (Ato I) e Kharzun (Ato II),
 ## ligados só por navio. Zona nova de superfície = uma linha aqui (o check exige).
 const WORLD := {
-	"field_ruins": Vector2(-1.0, 0.0), "city_aldara": Vector2(0.0, 0.0), "field_hollow": Vector2(-0.5, 1.0), "field_crab_beach": Vector2(0.1, 1.1), "field_grove": Vector2(2.0, 0.0), "field_forest": Vector2(1.0, 0.0), "elf_city": Vector2(1.0, -1.0),
+	"field_ruins": Vector2(-1.0, 0.0), "city_aldara": Vector2(0.0, 0.0), "field_hollow": Vector2(-0.5, 1.0), "field_crab_beach": Vector2(0.1, 1.1), "field_grove": Vector2(2.0, 0.0), "field_forest": Vector2(1.0, 0.0), "elf_city": Vector2(1.0, -1.0), "field_marsh": Vector2(0.85, 1.0),
 	"fort_ghoul": Vector2(-2.0, 0.0), "fort_bones": Vector2(-1.0, -1.0), "fort_frost": Vector2(-1.0, 1.0), "lich_citadel": Vector2(-0.35, -0.7),
 	"field_coast": Vector2(9.0, 0.0), "city_port": Vector2(10.0, 0.1), "field_steppe": Vector2(9.3, -1.0),
 	"fort_trolls": Vector2(8.3, -1.0), "fort_war": Vector2(10.15, -1.5), "fort_fire": Vector2(10.1, -0.4), "field_kharzun": Vector2(9.3, -2.0),
@@ -16522,17 +16533,19 @@ func _check_siege_data(gd) -> void:
 			var cond := SiegeSystem.segment_cond(def, seg)
 			var sid: String = seg["id"]
 			check(gd.quests.has(seg["quest"]) and str(seg.get("label", "")) != "", "AC-1 %s/%s: quest existe e o trecho tem nome" % [mid, sid])
-			check(str(tags.get("pal_%s_obra" % sid, {}).get("unless", "")) == cond and str(tags.get("pal_%s_pronta" % sid, {}).get("if", "")) == cond,
-				"AC-1 %s/%s: tags pal_%s_obra (unless) e pal_%s_pronta (if) com a condição do trecho" % [mid, sid, sid, sid])
-			var cols: int = def.obstacles.filter(func(o): return o.get("solid", true) and str(o.get("if", "")) == cond).size()
-			check(cols >= 1, "AC-1 %s/%s: colisor de estágio com o `if` do trecho (%d)" % [mid, sid, cols])
+			if str(cfg.get("kind", "")) != "gates":          # cerco em portões (Posto, elf-siege-posto): o trecho é um portão, sem obra nem colisor
+				check(str(tags.get("pal_%s_obra" % sid, {}).get("unless", "")) == cond and str(tags.get("pal_%s_pronta" % sid, {}).get("if", "")) == cond,
+					"AC-1 %s/%s: tags pal_%s_obra (unless) e pal_%s_pronta (if) com a condição do trecho" % [mid, sid, sid, sid])
+				var cols: int = def.obstacles.filter(func(o): return o.get("solid", true) and str(o.get("if", "")) == cond).size()
+				check(cols >= 1, "AC-1 %s/%s: colisor de estágio com o `if` do trecho (%d)" % [mid, sid, cols])
 			check(routes.has(seg["route"]) and str(routes[seg["route"]].get("unless", "")) == cond, "AC-1 %s/%s: rota %s com `unless` do trecho" % [mid, sid, seg["route"]])
 		for p in [1, 2, 3]:
 			check(Balance.SIEGE_EVERY_MULT.has(p) and Balance.SIEGE_SIZE_MULT.has(p) and Balance.SIEGE_BIG_NTH.has(p), "cerco: Balance.SIEGE_* cobre a pressão %d" % p)
 		for mk in def.fx:
 			check(SiegeFx.LOOKS.has(mk["kind"]), "%s: marcador de efeito %s tem visual (SiegeFx.LOOKS)" % [mid, mk["kind"]])
-		check(def.fx.filter(func(mk): return mk["kind"] == "fire").size() >= Balance.SIEGE_FIRE_SPOTS and def.fx.any(func(mk): return mk["kind"] == "smoke"),
-			"%s: marcadores FX de fogo (Chamas) e de fumaça no horizonte" % mid)
+		if str(cfg.get("kind", "")) != "gates" or not def.fx.is_empty():     # Posto: FX vêm com o pedido do Blender (elf-siege-posto R13)
+			check(def.fx.filter(func(mk): return mk["kind"] == "fire").size() >= Balance.SIEGE_FIRE_SPOTS and def.fx.any(func(mk): return mk["kind"] == "smoke"),
+				"%s: marcadores FX de fogo (Chamas) e de fumaça no horizonte" % mid)
 		check(def.fx.filter(func(mk): return mk["kind"] != "fire").size() + Balance.SIEGE_FIRE_SPOTS <= SiegeFx.MAX_EMITTERS, "AC-15 %s: no máximo %d emissores de fumaça/fogo" % [mid, SiegeFx.MAX_EMITTERS])
 		var horns: int = def.spawners.filter(func(sp): return sp.get("horn", false)).size()
 		check(horns >= 2, "%s: 2+ rondas de batedores com trompa (%d)" % [mid, horns])
@@ -16990,6 +17003,8 @@ func _check_raids(gd, sim) -> void:
 	var ws := WorldSim.new()
 	ws.rng.seed = 7
 	var def: MapDef = gd.maps["field_forest"].duplicate()
+	def.siege = {}                        # relógio próprio do RaidSystem (o Posto usa o cerco; aqui mede a investida genérica)
+	def.raids = []
 	var target: Vector3 = def.raid.get("target", def.town_center) if not def.raid.is_empty() else Vector3.ZERO
 	var from: Vector3 = def.raid.get("from", Vector3(10, 0, -70)) if not def.raid.is_empty() else Vector3(10, 0, -70)
 	var route: Array = def.raid.get("route", [Vector3(5, 0, -45), Vector3(2, 0, -25)]) if not def.raid.is_empty() else [Vector3(5, 0, -45), Vector3(2, 0, -25)]
@@ -17121,6 +17136,138 @@ func _check_elf_loot(gd, sim) -> void:
 	sim.despawn(b)
 
 ## Posto dos Caçadores (hub da Floresta): sentinelas, serviços, rota das investidas andável e portões do cerco.
+## Cerco do Posto dos Caçadores (design/gdd/elf-siege-posto.md AC-1..AC-6): portões que fecham com quests, pressão pela
+## história, paz depois do Rei, rotas longe da chegada e a leva em escalões (nada nasce empilhado).
+func _check_elf_siege(gd) -> void:
+	var def: MapDef = gd.maps["field_forest"]
+	var cfg: Dictionary = def.siege
+	check(not cfg.is_empty(), "AC-1 Posto: MapDef.siege ligado (SiegeSystem no lugar do relógio da investida)")
+	if cfg.is_empty():
+		return
+	var all := RaidSystem.routes(def)
+	var sides := {}
+	for r in all:
+		sides[str(r.get("side", ""))] = r
+	for key in ["gate_route", "low_route", "harass_route"]:
+		check(sides.has(str(cfg.get(key, ""))), "AC-1 Posto: cerco.%s é rota do mapa" % key)
+	for r in all:
+		check(str(r.get("unless", "")).contains("el6_king"), "AC-1/R10 Posto: rota %s cala com el6_king" % r.get("side", ""))
+	var segs: Array = cfg.get("segments", [])
+	check(segs.size() == 2, "AC-1 Posto: dois trechos (oeste, leste)")
+	for seg in segs:
+		var q: QuestDef = gd.quests.get(str(seg["quest"]))
+		check(q != null and q.level_req <= 20, "AC-1 Posto/%s: quest %s existe e é da faixa 10-20" % [seg["id"], seg["quest"]])
+		check(str(sides.get(str(seg["route"]), {}).get("unless", "")) == SiegeSystem.segment_cond(def, seg), "AC-1 Posto/%s: rota do flanco cala com o trecho" % seg["id"])
+	# AC-2 pressão pela história
+	var ws := _siege_world(gd, "field_forest")
+	for row in [[[], 1], [["el1_alarm"], 2], [["el1_alarm", "els_lynx", "els_steel"], 2], [["el1_alarm", "el5_wardens"], 3],
+			[["el1_alarm", "el5_wardens", "el6_king"], 0], [["elf_fort_hunter", "elf_fort_sky", "elf_fort_sap", "el1_alarm"], 2]]:
+		ws.player.quests_completed.clear()
+		ws.player.quests_completed.append_array(row[0])
+		check(SiegeSystem.pressure(ws, def) == row[1], "AC-2 Posto: quests %s -> pressão %d (deu %d)" % [row[0], row[1], SiegeSystem.pressure(ws, def)])
+	# paz: 600 s de relógio sem leva nem assédio
+	var wp := _siege_world(gd, "field_forest", ["el1_alarm", "el5_wardens", "el6_king"])
+	var mp: Dictionary = wp.maps["field_forest"]
+	var ev := 0
+	for _k in 1200:
+		SiegeSystem.update(wp, mp, 0.5)
+		if SiegeSystem.active_route(mp) >= 0 or not (SiegeSystem.state(mp)["shooters"] as Array).is_empty():
+			ev += 1
+	check(ev == 0, "AC-2/R10 Posto: depois do Rei, 600 s de relógio = 0 levas e 0 assédios (%d)" % ev)
+	check(not RaidSystem.routes(def).any(func(r): return WorldState.active(wp, r)), "R10 Posto: depois do Rei nenhuma rota vale")
+	check(def.spawners.filter(func(sp): return sp.get("horn", false) and str(sp.get("unless", "")) == "el6_king").size() >= 2, "R8 Posto: 2+ rondas de batedores com trompa até o Rei")
+	check(def.npcs.filter(func(n): return n.get("responder", false) and n.has("fighter")).size() == MapsCatalog.FOREST_SIEGE_RESPONDERS.size(), "R9 Posto: reserva (responder) nas sentinelas")
+	check(gd.skills.has(str(cfg.get("volley_skill", ""))) and gd.monsters.has(str(cfg.get("harass_mob", ""))), "R7 Posto: tema da salva e atirador existem")
+	check(SiegeSystem.num(def, "harass_dmg_pct", Balance.SIEGE_HARASS_DMG_PCT) < Balance.SIEGE_HARASS_DMG_PCT and SiegeSystem.num(gd.maps["city_port"], "harass_dmg_pct", -1.0) == -1.0,
+		"R7 Posto: assédio mais fraco no Posto e o Porto sem troca (SIEGE_MAP)")
+	# AC-3 trechos: aberto = flanco; fechado = portão norte; rotação oeste, norte, leste, norte
+	var gate := SiegeSystem.route_index(def, str(cfg["gate_route"]))
+	var rot: Array = cfg["rotation"]
+	for k in rot.size():
+		var w2 := _siege_world(gd, "field_forest", ["el1_alarm"])
+		var m2: Dictionary = w2.maps["field_forest"]
+		SiegeSystem.state(m2)["side"] = k
+		var want := gate
+		for seg in segs:
+			if seg["id"] == rot[k]:
+				want = SiegeSystem.route_index(def, str(seg["route"]))
+		check(SiegeSystem.next_route(w2, m2, 2) == want, "AC-3 Posto: vez %d (%s) com os portões abertos" % [k, rot[k]])
+		w2.player.quests_completed.append_array(["els_steel", "els_lynx"])
+		check(SiegeSystem.next_route(w2, m2, 2) == gate, "AC-3 Posto: vez %d com os dois portões fechados = portão norte" % k)
+		check(SiegeSystem.next_route(w2, m2, 1) == SiegeSystem.route_index(def, str(cfg["low_route"])), "AC-3 Posto: p = 1 = patrulha")
+	# AC-4 rotas longe da chegada, em chão livre
+	var arrivals: Array = [def.spawn_point]
+	for mid in gd.maps:
+		for pt in gd.maps[mid].portals:
+			if str(pt.get("target_map", "")) == "field_forest" and pt.has("target_pos"):
+				arrivals.append(pt["target_pos"])
+	var w4 := _siege_world(gd, "field_forest")
+	var m4: Dictionary = w4.maps["field_forest"]
+	for r in all:
+		var near := INF
+		for a in arrivals:
+			near = minf(near, Vector2(r["from"].x - a.x, r["from"].z - a.z).length())
+		check(near >= 20.0, "AC-4 Posto: rota %s nasce a %.0f m da chegada (>= 20)" % [r.get("side", ""), near])
+		var pts: Array = [r["from"]] + r.get("route", []) + [r["target"]]
+		for q in pts:
+			check(not MapGeometry.point_in_solid(w4, q, m4), "AC-4 Posto: %s em chão livre em %s" % [r.get("side", ""), q])
+		for j in range(r.get("route", []).size()):
+			check(MapGeometry.line_walkable(w4, m4, pts[j], pts[j + 1], 0.0, 0.5), "AC-4 Posto: perna %d de %s sem colisor" % [j, r.get("side", "")])
+	# AC-5 escalões: só o 1º no tick do início; o resto em >= 3 instantes espaçados >= gap; espalhados no arco
+	var stag: Dictionary = Balance.SIEGE_STAGGER["field_forest"]
+	var w5 := _siege_world(gd, "field_forest", ["el1_alarm"])
+	var m5: Dictionary = w5.maps["field_forest"]
+	SiegeSystem.state(m5)["hold"] = true
+	RaidSystem.state(m5, gate)["n"] = 2                    # a 3ª leva traz a leva grande (grifos)
+	var first: Array = SiegeSystem.start_wave(w5, m5, gate)
+	var st5 := RaidSystem.state(m5, gate)
+	var total := int(st5["total"])
+	check(total >= 12 and first.size() < total and first.all(func(id): return int(stag["order"].get(w5.entities[id].monster_def.id, 1)) == 0),
+		"AC-5 Posto: no início nasce só o 1º escalão (linces: %d de %d)" % [first.size(), total])
+	var times := {}
+	var pos_by_t := {}
+	for id in first:
+		pos_by_t[0.0] = (pos_by_t.get(0.0, []) as Array) + [w5.entities[id].position]
+	times[0.0] = true
+	var seen := {}
+	for id in first:
+		seen[id] = true
+	var t := 0.0
+	while t < 40.0:
+		RaidSystem.update_raids(w5, m5, 0.25)
+		t += 0.25
+		for id in st5["ids"]:
+			if not seen.has(id):
+				seen[id] = true
+				var at := snappedf(float(st5["born"][id]), 0.25)
+				times[at] = true
+				pos_by_t[at] = (pos_by_t.get(at, []) as Array) + [w5.entities[id].position]
+	var ts: Array = times.keys()
+	ts.sort()
+	var min_gap := INF
+	for k in range(1, ts.size()):
+		min_gap = minf(min_gap, float(ts[k]) - float(ts[k - 1]))
+	check(seen.size() == total and ts.size() >= 3 and min_gap >= float(stag["gap"]) - 0.3, "AC-5 Posto: %d invasores em %d escalões, intervalo mín. %.1f s" % [seen.size(), ts.size(), min_gap])
+	var tight := 0
+	var wide := 0.0
+	for at in pos_by_t:
+		var ps: Array = pos_by_t[at]
+		for a in ps.size():
+			for b in range(a + 1, ps.size()):
+				if (ps[a] as Vector3).distance_to(ps[b]) < 0.6:
+					tight += 1
+				wide = maxf(wide, (ps[a] as Vector3).distance_to(ps[b]))
+	check(tight == 0 and wide >= float(stag["arc"]) * 0.5, "AC-5 Posto: escalão espalhado no arco (largura %.1f m, %d pares colados)" % [wide, tight])
+	var e0: SimEntity = w5.entities[first[0]]
+	check(RaidSystem.mustering(w5, e0) == false, "R6 Posto: o 1º escalão já marcha depois do `muster` próprio")
+	# AC-6 regressão: no Porto a leva toda nasce no mesmo tick
+	var wpo := _siege_world(gd, "city_port")
+	var mpo: Dictionary = wpo.maps["city_port"]
+	SiegeSystem.state(mpo)["hold"] = true
+	var ne := SiegeSystem.route_index(gd.maps["city_port"], "cerco_ne")
+	var got: Array = SiegeSystem.start_wave(wpo, mpo, ne)
+	check(got.size() == 7 and (RaidSystem.state(mpo, ne).get("pending", []) as Array).is_empty(), "AC-6: no Porto a leva nasce inteira no mesmo tick (sem SIEGE_STAGGER)")
+
 func _check_hunter_post(gd, sim) -> void:
 	var def: MapDef = gd.maps["field_forest"]
 	var npcs: Array = def.npcs
@@ -17140,7 +17287,7 @@ func _check_hunter_post(gd, sim) -> void:
 		check(sim.is_walkable(def.raid["from"], def, 0.45), "investida: nasce em chão livre")
 		for q in def.raid["route"]:
 			check(sim.is_walkable(q, def, 0.45), "investida: ponto %s da rota andável" % [q])
-		check(def.raid["from"].distance_to(def.raid["target"]) > 80.0, "investida: garganta longe do Posto")
+		check(def.raid["from"].distance_to(def.town_center) > 70.0, "investida: garganta longe do Posto")
 	var gates := {}
 	for mid in gd.maps:
 		for pt in gd.maps[mid].portals:
@@ -17244,11 +17391,11 @@ func _check_raid_status(gd, sim) -> void:
 	var m: Dictionary = sim.maps["field_forest"]
 	var before: Dictionary = sim.raid_status("field_forest")
 	check(not before.is_empty() and before.has("next_in") and before.has("target"), "investida: estado com contagem e alvo")
-	if not (m.get("raid", {}).get("ids", []) as Array).is_empty():
-		return                              # outro check deixou uma leva viva: não mexe
+	if not (m.get("raid", {}).get("ids", []) as Array).is_empty() or SiegeSystem.active_route(m) >= 0:
+		return                              # outro check (ou o relógio do cerco) deixou uma leva viva: não mexe
 	var ids: Array = RaidSystem.start_raid(sim, m)
 	var rs: Dictionary = sim.raid_status("field_forest")
-	check(rs["active"] and rs["total"] == ids.size() and rs["alive"] == ids.size() and rs["phase"] == "march", "investida: leva ativa marchando (%d/%d)" % [rs["alive"], rs["total"]])
+	check(rs["active"] and rs["total"] >= ids.size() and rs["alive"] == ids.size() and rs["phase"] == "march", "investida: leva ativa marchando (%d/%d, %s, rota %d; escalões: total conta quem ainda vai nascer)" % [rs["alive"], rs["total"], rs["phase"], rs["route"]])
 	var first: SimEntity = sim.entities.get(ids[0])
 	first.hp = 0.0
 	first.set_state(SimEntity.State.DEAD)
@@ -17257,6 +17404,7 @@ func _check_raid_status(gd, sim) -> void:
 		var x: SimEntity = sim.entities.get(id)
 		if x != null:
 			sim.despawn(x)
+	RaidSystem.state(m)["pending"] = []          # escalões que ainda nasceriam (cerco do Posto)
 	RaidSystem.update_raids(sim, m, 0.1)
 	check(not sim.raid_status("field_forest")["active"], "investida: leva desfeita volta à contagem")
 
@@ -17270,7 +17418,11 @@ func _check_raid_defense(gd, sim) -> void:
 	if def.raid.is_empty():
 		return
 	def.spawners = []
+	def.siege = {}                        # investida genérica de uma rota até a praça (o Posto usa o cerco em três portões)
+	def.raids = []
 	def.raid = def.raid.duplicate(true)
+	def.raid["target"] = def.town_center
+	def.raid["radius"] = def.town_radius
 	def.raid["first"] = 999.0
 	def.raid["lifetime"] = 400.0
 	def.raid["waves"] = [{"mobs": {"elf_raider": 2, "elf_raider_archer": 1}}]
@@ -17340,6 +17492,7 @@ func _check_raid_scaling(gd, sim) -> void:
 	ws.rng.seed = 5
 	var def: MapDef = gd.maps["field_forest"].duplicate()
 	def.spawners = []
+	def.siege = {}                        # leva inteira no mesmo tick (sem escalões) para contar o tamanho
 	ws.load_map(gd.maps[GameData.town_map_id()])
 	var m: Dictionary = ws.load_map(def)
 	for o in m["entities"].duplicate():
@@ -17377,7 +17530,7 @@ func _check_raid_scaling(gd, sim) -> void:
 	var kz := RaidSystem.scaled_def(ws, base, 0, "field_kharzun")
 	check(is_equal_approx(kz.hp, base.hp * Balance.RAID_POWER * kmp) and is_equal_approx(kz.atk, base.atk * Balance.RAID_POWER * kmp) and is_equal_approx(kz.matk, base.matk * Balance.RAID_POWER * kmp)
 		and is_equal_approx(kz.def, s0.def), "investida de Kharzun: vida/ATK x RAID_MAP_POWER %.2f (defesa igual)" % kmp)
-	check(is_equal_approx(RaidSystem.scaled_def(ws, base, 0, "field_forest").hp, s0.hp) and (kz != s0 or is_equal_approx(kmp, 1.0)), "investida: mapa sem RAID_MAP_POWER = x1, guardado por mapa")
+	check(is_equal_approx(RaidSystem.scaled_def(ws, base, 0, "field_steppe").hp, s0.hp) and (kz != s0 or is_equal_approx(kmp, 1.0)), "investida: mapa sem RAID_MAP_POWER = x1, guardado por mapa")
 	var kdef: MapDef = gd.maps["field_kharzun"]
 	var km: Dictionary = ws.load_map(kdef)
 	var kids: Array = RaidSystem.start_raid(ws, km)
@@ -18732,6 +18885,8 @@ func _check_band_consistency(gd, sim) -> void:
 	for mid in ["field_forest", "elf_city"]:
 		var mons: Array = []
 		for sp in gd.maps[mid].spawners:
+			if sp.get("horn", false):         # batedores do cerco são tropa da investida, não bicho do campo
+				continue
 			var md: MonsterDef = gd.monsters[sp["monster_id"]]
 			if not md.is_boss and md.hp < 1500 and not mons.has(md):
 				mons.append(md)
@@ -25501,7 +25656,8 @@ func _check_living_kharzun(gd, sim) -> void:
 	var lq := Sfx.nearest_lava(def, bridge + Vector3(0, 0, 8))
 	check(lq != Vector3.INF and lq.distance_to(bridge + Vector3(0, 0, 8)) < Sfx.LAVA_RANGE, "Kharzun: lava borbulha perto da ponte norte")
 	check(Sfx.nearest_lava(gd.maps["city_aldara"], Vector3.ZERO) == Vector3.INF, "som de lava só onde há lava (Aldara não)")
-	check(Sfx.HAMMER_NPCS.keys().all(func(k): return by_id.has(k)), "martelo da forja: todos os ferreiros/fundidores existem no Kharzun")
+	check(Sfx.HAMMER_NPCS.keys().all(func(k): return by_id.has(k) or (k == "elf_smith" and gd.maps["elf_city"].npcs.any(func(n): return n["id"] == k))),
+		"martelo da forja: todos os ferreiros/fundidores existem no Kharzun (e a Thalindra na Cidade Élfica)")
 	check(Sfx.QUEST_SOUND.get(MapsCatalog.Q_KH_MINES, "") == "chain_break" and Sfx.VOL.has("chain_break"), "corrente parte quando as Minas são libertadas")
 	var sfx := Sfx.new()
 	sfx._load_bank()
@@ -26576,11 +26732,12 @@ const ALDARA_FIELD_B := Vector3(34, 0, -44)
 ## aberta, nada de estátua/chafariz no miolo, nada alto perto do hub, cristal na praça e um bairro por lado (2026-11-21, vila
 ## de bairros: Quartel e pátio de treino ao norte, Mercado a leste, casas/Taverna/celeiro ao sul, Ofícios a oeste). Cada NPC
 ## de serviço atende do lado de FORA, na porta/balcão do prédio dele.
-const TOWN_LIVING := ["city_aldara", "field_forest", "city_lumeria"]         # mapas com LIVING_NPCS ligado (AC-B1; Lumeria = Ato III, GDD §10)
+const TOWN_LIVING := ["city_aldara", "field_forest", "city_lumeria", "elf_city"]         # mapas com LIVING_NPCS ligado (AC-B1; Lumeria = Ato III, GDD §10)
 ## serviço -> [prédio do town.centerpiece.buildings, lado do bairro: eixo e sinal]
 const ALDARA_SERVICES := {"elder": ["elder", "z", -1.0], "captain": ["quartel", "z", -1.0], "merchant": ["tobias", "x", 1.0], "relic": ["relic", "x", 1.0],
 	"storage": ["armazem", "x", 1.0], "smith": ["smithy", "x", -1.0], "alchemist": ["botica", "x", -1.0]}
 func _check_town_identity(gd, sim) -> void:
+	_check_elf_town_identity(gd, sim)          # faixa élfica viva (GDD elf-band-living AC-5)
 	var def: MapDef = gd.maps["city_aldara"]
 	var z: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(MapsCatalog.ZONE_PATH % "city_aldara"))
 	var cp: Dictionary = (z["town"] as Dictionary).get("centerpiece", {})
@@ -27455,6 +27612,249 @@ func _check_road_events(gd, _sim) -> void:
 	# nada no save
 	check(not FileAccess.get_file_as_string("res://core/save_system.gd").contains("road_event"), "eventos: nada de evento no save")
 	ws.free()
+	# faixa élfica viva (GDD elf-band-living §3.3): pontos da Floresta e da Cidade Élfica pelas mesmas regras
+	for mid in ["field_forest", "elf_city"]:
+		_check_event_points(gd, mid)
+
+## Pontos de evento de um mapa (regras do GDD living-towns 3.5) + prêmio consumível e falas de cada tipo.
+func _check_event_points(gd, mid: String) -> void:
+	var def: MapDef = gd.maps[mid]
+	var kinds: Dictionary = MapsCatalog.ROAD_EVENTS.get(mid, {})
+	check(not kinds.is_empty() and def.road_events.size() >= 2 and def.road_events.size() <= 4, "eventos %s: 2-4 pontos e regra no catálogo (%d)" % [mid, def.road_events.size()])
+	var ws := WorldSim.new()
+	ws.load_map(def)
+	var bad: Array = []
+	for i in def.road_events.size():
+		var pos: Vector3 = def.road_events[i]["pos"]
+		var rule := RoadEventSystem.rules(mid, str(def.road_events[i]["kind"]))
+		if rule.is_empty() or not gd.monsters.has(str(def.road_events[i].get("mob", rule.get("mob", "")))):
+			bad.append("%d sem regra/monstro" % i)
+		if not ws.is_walkable(pos, def, 0.6) or _wet_or_solid(ws, def, pos) != "":
+			bad.append("%d fora de chão livre" % i)
+		if pos.distance_to(def.town_center) < 40.0 or (def.town_radius > 0.0 and pos.distance_to(def.town_center) < def.town_radius + 5.0):
+			bad.append("%d no hub" % i)
+		for pt in def.portals:
+			if pos.distance_to(pt["pos"]) < 25.0:
+				bad.append("%d perto do portal %s" % [i, pt["id"]])
+		for other in gd.maps:
+			for pt in gd.maps[other].portals:
+				if pt["target_map"] == mid and pos.distance_to(pt["target_pos"]) < 25.0:
+					bad.append("%d perto da chegada de %s" % [i, other])
+		for n in def.npcs:
+			if pos.distance_to(n["pos"]) < 25.0 and not n.has("route") and not n.has("wander"):
+				bad.append("%d perto do NPC %s" % [i, n["id"]])
+		for sp in def.spawners:
+			var smd: MonsterDef = gd.monsters.get(str(sp["monster_id"]))
+			if smd != null and smd.is_boss and pos.distance_to(sp["pos"]) < 25.0:
+				bad.append("%d perto do chefe %s" % [i, smd.id])
+		for j in range(i + 1, def.road_events.size()):
+			if pos.distance_to(def.road_events[j]["pos"]) < 30.0:
+				bad.append("%d colado no ponto %d" % [i, j])
+	check(bad.is_empty(), "eventos %s: pontos válidos (%s)" % [mid, "; ".join(bad.slice(0, 6))])
+	for kind in kinds:
+		var r: Dictionary = kinds[kind]
+		var it: ItemDef = gd.items.get(str(r.get("reward_item", "")))
+		check(it != null and it.type == ItemDef.Type.CONSUMABLE, "eventos %s: prêmio de %s é consumível (%s)" % [mid, kind, r.get("reward_item", "")])
+		check(["cry", "thanks", "flee", "bot_chat"].all(func(k): return not (r.get(k, []) as Array).is_empty()), "eventos %s: %s tem todas as falas" % [mid, kind])
+	ws.free()
+
+## Faixa élfica viva (GDD design/gdd/elf-band-living.md): rotinas da Cidade Élfica, fortes, acampamentos e Posto; troca de
+## estado só com o Rei (el6_king); alarme do Posto com leva viva; evento `prisoner` some depois do Rei; sons de lugar.
+const ELF_WAR_IDS := ["elf_courier", "elv_apprentice", "elv_sap_a", "elv_sap_b", "elv_recruit", "elv_captive_hunter", "elv_captive_sky", "elv_captive_sap", "elv_camp_runner"]
+const ELF_PEACE_IDS := ["elv_courier_peace", "elv_apprentice_peace", "elv_sap_peace", "elv_mourner", "elv_envoy", "elv_fort_hunter", "elv_fort_sky", "elv_fort_sap", "elv_camp_cook"]
+const POST_WAR_IDS := ["post_l_cart", "post_l_refugee_a", "post_l_refugee_b"]
+const POST_PEACE_IDS := ["post_l_return", "post_l_husband"]
+## forte (lugar do JSON) -> [preso (guerra), elfo (trégua), capitão]
+const ELF_FORT_NPCS := {"forte_matilha": ["elv_captive_hunter", "elv_fort_hunter", "elf_captain_hunter"], "forte_ninho": ["elv_captive_sky", "elv_fort_sky", "elf_captain_sky"],
+	"forte_seiva": ["elv_captive_sap", "elv_fort_sap", "elf_captain_sap"]}
+func _check_elf_living(gd, _sim) -> void:
+	var def: MapDef = gd.maps["elf_city"]
+	var by_id := {}
+	for n in def.npcs:
+		by_id[n["id"]] = n
+	var missing: Array = (ELF_WAR_IDS + ELF_PEACE_IDS).filter(func(id): return not by_id.has(id))
+	check(missing.is_empty(), "élfica viva: NPCs da rotina no mapa (faltam %s)" % [missing])
+	if not missing.is_empty():
+		return
+	check(ELF_WAR_IDS.all(func(id): return WorldState._ids(by_id[id].get("unless", [])).has("el6_king") and not by_id[id].has("if")),
+		"élfica viva: conjunto de guerra some com o Rei (unless el6_king)")
+	check(ELF_PEACE_IDS.all(func(id): return WorldState._ids(by_id[id].get("if", [])).has("el6_king")), "élfica viva: conjunto da trégua nasce com o Rei (if el6_king)")
+	var living: Dictionary = MapsCatalog.LIVING_NPCS.get("elf_city", {})
+	check(living.size() <= 2 * MapsCatalog.ELF_LIVING_MAX and ELF_WAR_IDS.size() <= MapsCatalog.ELF_LIVING_MAX and ELF_PEACE_IDS.size() <= MapsCatalog.ELF_LIVING_MAX,
+		"élfica viva: orçamento de NPCs vivos por estado (%d/%d <= %d)" % [ELF_WAR_IDS.size(), ELF_PEACE_IDS.size(), MapsCatalog.ELF_LIVING_MAX])
+	# troca de verdade numa sim: sem o Rei = guerra; com o Rei = trégua
+	var ws := WorldSim.new()
+	var m: Dictionary = ws.load_map(def)
+	var p: SimEntity = ws.spawn_player(gd.classes["paladin"], "Rei", def.id)
+	var alive := func() -> Dictionary:
+		var out := {}
+		for e in m["entities"]:
+			if e.kind == SimEntity.Kind.NPC:
+				out[str(e.npc_data.get("id", ""))] = e
+		return out
+	WorldState.sync_npcs(ws, m)
+	var a0: Dictionary = alive.call()
+	check(ELF_WAR_IDS.all(func(id): return a0.has(id)) and not ELF_PEACE_IDS.any(func(id): return a0.has(id)), "élfica viva: antes do Rei só a guerra está na cidade")
+	p.quests_completed.append("el6_king")
+	WorldState.sync_npcs(ws, m)
+	var a1: Dictionary = alive.call()
+	check(ELF_PEACE_IDS.all(func(id): return a1.has(id)) and not ELF_WAR_IDS.any(func(id): return a1.has(id)), "élfica viva: depois do Rei a cidade troca para a trégua")
+	# fortes: preso e elfo parados no forte, em chão livre, longe do capitão; Aryn passa em cada forte
+	var aryn: Array = by_id["elf_courier"].get("route", [])
+	for fid in ELF_FORT_NPCS:
+		var pl: Array = def.places.filter(func(q): return q["id"] == fid)
+		if pl.is_empty():
+			check(false, "élfica viva: forte %s no JSON" % fid)
+			continue
+		var fp: Vector3 = Vector3(float(pl[0]["pos"][0]), 0.0, float(pl[0]["pos"][1])) if pl[0]["pos"] is Array else pl[0]["pos"]
+		var cap: Array = def.spawners.filter(func(sp): return sp["monster_id"] == ELF_FORT_NPCS[fid][2])
+		for k in 2:
+			var n: Dictionary = by_id[ELF_FORT_NPCS[fid][k]]
+			var np: Vector3 = n["pos"]
+			check(not n.has("route") and np.distance_to(fp) <= 16.0 and ws.is_walkable(np, def, 0.4) and (cap.is_empty() or np.distance_to(cap[0]["pos"]) >= 6.0),
+				"élfica viva: %s parado no %s, em chão livre, a >= 6 m do capitão (%.1f m do forte)" % [n["id"], fid, np.distance_to(fp)])
+		check(aryn.any(func(q): return Vector3(float(q[0]), 0.0, float(q[1])).distance_to(fp) <= 18.0 and (q as Array).size() > 2),
+			"élfica viva: a Mensageira Aryn para no %s" % fid)
+	# cenário que troca com o Rei: dois lotes do GLB (build_elf_city.living_dress), guerra `unless` e trégua `if`; nada com condição é sólido
+	var war_vis: Array = def.conquest_vis.filter(func(c): return str(c.get("tag", "")) == "elfa_guerra_det" and str(c.get("unless", "")) == "el6_king" and not c.has("if"))
+	var truce_vis: Array = def.conquest_vis.filter(func(c): return str(c.get("tag", "")) == "elfa_tregua_det" and str(c.get("if", "")) == "el6_king" and not c.has("unless"))
+	check(war_vis.size() == 1 and truce_vis.size() == 1 and def.conquest_vis.size() == 2, "élfica viva: lotes de guerra e de trégua trocam com o Rei (%d regras)" % def.conquest_vis.size())
+	_check_glb_tags(def)
+	var staged: Array = def.obstacles.filter(func(o): return o.has("if") or o.has("unless"))
+	check(staged.all(func(o): return not bool(o.get("solid", true))), "élfica viva: adereço de estágio da cidade nunca é sólido (%d)" % staged.size())
+	check(def.road_events.size() == 3 and def.road_events.all(func(e): return e["kind"] == "prisoner"), "élfica viva: 3 pontos de evento `prisoner` vêm do JSON da zona (%d)" % def.road_events.size())
+	ws.free()
+	# Posto: rotinas, trégua e alarme
+	var fdef: MapDef = gd.maps["field_forest"]
+	var fby := {}
+	for n in fdef.npcs:
+		fby[n["id"]] = n
+	check((POST_WAR_IDS + POST_PEACE_IDS + ["post_l_horn"]).all(func(id): return fby.has(id)), "Posto vivo: rotinas novas no mapa")
+	# cenário do Posto que troca com o Rei: dois lotes do GLB (town_dress.posto), guerra `unless` e paz `if`; pontos de emboscada do JSON
+	var pwar: Array = fdef.conquest_vis.filter(func(c): return str(c.get("tag", "")) == "posto_guerra_det" and str(c.get("unless", "")) == "el6_king" and not c.has("if"))
+	var ppeace: Array = fdef.conquest_vis.filter(func(c): return str(c.get("tag", "")) == "posto_paz_det" and str(c.get("if", "")) == "el6_king" and not c.has("unless"))
+	check(pwar.size() == 1 and ppeace.size() == 1 and fdef.conquest_vis.size() == 2, "Posto vivo: lotes de guerra e de paz trocam com o Rei (%d regras)" % fdef.conquest_vis.size())
+	_check_glb_tags(fdef)
+	check(fdef.road_events.size() == 3 and fdef.road_events.all(func(e): return e["kind"] == "ambush"), "Posto vivo: 3 pontos de evento `ambush` vêm do JSON da zona (%d)" % fdef.road_events.size())
+	check(FileAccess.get_file_as_string(MapsCatalog.ZONE_PATH % "field_forest").contains("\"events\""), "Posto vivo: `events` gravado pelo build_field_forest.py")
+	if not (POST_WAR_IDS + POST_PEACE_IDS + ["post_l_horn"]).all(func(id): return fby.has(id)):
+		return
+	check(POST_WAR_IDS.all(func(id): return WorldState._ids(fby[id].get("unless", [])).has("el6_king")) and POST_PEACE_IDS.all(func(id): return WorldState._ids(fby[id].get("if", [])).has("el6_king")),
+		"Posto vivo: carroça/refugiados até o Rei; família voltando e o marido da Dalva depois")
+	check(not CarryPose.draft_of(str(fby["post_l_cart"].get("carry", ""))).is_empty(), "Posto vivo: carroça dos refugiados com animal de tiro")
+	check(not (fby["post_l_horn"].get("alarm_cry", []) as Array).is_empty(), "Posto vivo: vigia da trompa tem grito de alarme")
+	var alarmed: Array = fdef.npcs.filter(func(n): return n.has("alarm"))
+	check(alarmed.size() >= 4 and fby.has("post_refugee_a") and fby["post_refugee_a"].has("alarm"), "Posto vivo: 4+ moradores correm no alarme, a Dalva entre eles (%d)" % alarmed.size())
+	var ws2 := WorldSim.new()
+	var fm: Dictionary = ws2.load_map(fdef)
+	ws2.spawn_player(gd.classes["paladin"], "Alarme", fdef.id)
+	WorldState.sync_npcs(ws2, fm)
+	var runners: Array = fm["entities"].filter(func(e): return e.kind == SimEntity.Kind.NPC and e.npc_data.has("alarm"))
+	check(runners.size() >= 4, "Posto vivo: moradores com alarme nascem (%d)" % runners.size())
+	RaidSystem.start_raid(ws2, fm)
+	check(RoadEventSystem.raid_on(fm), "Posto vivo: leva viva no mapa")
+	var dt := 1.0 / 30.0
+	for i in int(25.0 / dt):
+		ws2.time += dt
+		for e: SimEntity in runners:
+			NpcSystem.update_npc(ws2, e, fm, dt)
+	var far: Array = runners.filter(func(e): return e.position.distance_to(Vector3(float(e.npc_data["alarm"][0]), 0.0, float(e.npc_data["alarm"][1]))) > 1.5)
+	check(far.is_empty(), "Posto vivo: no alarme todos chegam ao abrigo em 25 s (fora: %s)" % [far.map(func(e): return e.npc_data["id"])])
+	for key in fm.keys():
+		if str(key).begins_with("raid"):
+			for id in (fm[key] as Dictionary).get("ids", []):
+				if ws2.entities.has(id):
+					ws2.despawn(ws2.entities[id])
+			fm[key]["ids"] = []
+	check(not RoadEventSystem.raid_on(fm), "Posto vivo: leva encerrada")
+	for i in int(20.0 / dt):
+		ws2.time += dt
+		for e: SimEntity in runners:
+			NpcSystem.update_npc(ws2, e, fm, dt)
+	var stuck: Array = runners.filter(func(e): return e.npc_alarm or e.position.distance_to(Vector3(float(e.npc_data["alarm"][0]), 0.0, float(e.npc_data["alarm"][1]))) < 1.0)
+	check(stuck.size() < runners.size(), "Posto vivo: sem leva, os moradores voltam à rotina (%d ainda no abrigo)" % stuck.size())
+	ws2.free()
+	# evento da escolta élfica não vale depois do Rei
+	var ws3 := WorldSim.new()
+	var em: Dictionary = ws3.load_map(def)
+	var hero: SimEntity = ws3.spawn_player(gd.classes["paladin"], "Evento", def.id)
+	var pi := -1
+	for i in def.road_events.size():
+		if str(def.road_events[i]["kind"]) == "prisoner":
+			pi = i
+	check(pi >= 0 and str(RoadEventSystem.rules(def.id, "prisoner").get("unless", "")) == "el6_king", "élfica viva: evento Patrulha com Prisioneiro com unless el6_king")
+	if pi >= 0:
+		var pp: Vector3 = def.road_events[pi]["pos"]
+		hero.position = pp + Vector3(0, 0, 50.0)
+		if not ws3.is_walkable(hero.position, def, 0.3):
+			hero.position = pp + Vector3(50.0, 0, 0)
+		var before := RoadEventSystem.valid_points(ws3, em).has(pi)
+		hero.quests_completed.append("el6_king")
+		check(before and not RoadEventSystem.valid_points(ws3, em).has(pi), "élfica viva: depois do Rei o ponto do prisioneiro não vale mais")
+	ws3.free()
+	# sons de lugar: forja élfica e sinos de luto só depois do Rei
+	check(Sfx.HAMMER_NPCS.has("elf_smith"), "élfica viva: martelo da forja da Thalindra")
+	check(Sfx.place_bells_at("elf_city", []) == Vector3.INF and Sfx.place_bells_at("elf_city", ["el6_king"]) != Vector3.INF, "élfica viva: sinos de luto só depois do Rei")
+	check(AmbientLife.count_for("elf_city") >= 6, "élfica viva: bichos de ambiente na cidade (%d)" % AmbientLife.count_for("elf_city"))
+	_check_bento_home(gd, fdef)
+
+## Seu Bento (decisão do usuário 2026-11-24): só aparece no Posto com o Rei caído E a carta entregue (m9_letter); até lá mora
+## no Brejo (marsh_bento), que some quando ele volta. Lista em `if` = todas; lista em `unless` = só some com todas feitas.
+func _check_bento_home(gd, fdef: MapDef) -> void:
+	var ws := WorldSim.new()
+	ws.player = SimEntity.new()
+	var both := {"if": ["wa", "wb"]}
+	var none := {"unless": ["wa", "wb"]}
+	check(not WorldState.active(ws, both) and WorldState.active(ws, none), "condição E: nenhuma quest feita")
+	ws.player.quests_completed.append("wa")
+	check(not WorldState.active(ws, both) and WorldState.active(ws, none), "condição E: só uma das duas ainda não troca")
+	ws.player.quests_completed.append("wb")
+	check(WorldState.active(ws, both) and not WorldState.active(ws, none), "condição E: as duas feitas trocam")
+	ws.player = null
+	ws.free()
+	if not MapsCatalog.marsh_ready():
+		return
+	var need: Array = ["el6_king", "m9_letter"]
+	var hs: Array = fdef.npcs.filter(func(n): return n["id"] == "post_l_husband")
+	var mdef: MapDef = gd.maps[MapsCatalog.MARSH_ID]
+	var ms: Array = mdef.npcs.filter(func(n): return n["id"] == "marsh_bento")
+	check(hs.size() == 1 and WorldState._ids(hs[0].get("if", [])) == need and not hs[0].has("unless"), "Bento: no Posto só com o Rei E a carta (if %s)" % [hs[0].get("if", "") if hs.size() == 1 else "?"])
+	check(ms.size() == 1 and WorldState._ids(ms[0].get("unless", [])) == need and not ms[0].has("if"), "Bento: no Brejo até o Rei E a carta (unless %s)" % [ms[0].get("unless", "") if ms.size() == 1 else "?"])
+	check(gd.quests.has("m9_letter") and gd.quests["m9_letter"].giver_npc == "marsh_bento" and gd.quests["m8_bento"].turnin_npc == "marsh_bento"
+		and not gd.quests.values().any(func(q): return q.id != "m8_bento" and q.id != "m9_letter" and (q.giver_npc == "marsh_bento" or q.turnin_npc == "marsh_bento")),
+		"Bento: nenhuma quest depois da carta precisa dele no Brejo")
+	var sim := WorldSim.new()
+	var fm: Dictionary = sim.load_map(fdef)
+	var mm: Dictionary = sim.load_map(mdef)
+	var p: SimEntity = sim.spawn_player(gd.classes["paladin"], "Bento", fdef.id)
+	var where := func() -> Array:
+		WorldState.sync_npcs(sim, fm)
+		WorldState.sync_npcs(sim, mm)
+		return [fm["entities"].any(func(e): return e.kind == SimEntity.Kind.NPC and e.npc_data.get("id", "") == "post_l_husband"),
+			mm["entities"].any(func(e): return e.kind == SimEntity.Kind.NPC and e.npc_data.get("id", "") == "marsh_bento")]
+	check(where.call() == [false, true], "Bento: no começo está no Brejo")
+	p.quests_completed.append("el6_king")
+	check(where.call() == [false, true], "Bento: só o Rei caído não o traz ao Posto")
+	p.quests_completed.erase("el6_king")
+	p.quests_completed.append("m9_letter")
+	check(where.call() == [false, true], "Bento: só a carta não o traz ao Posto")
+	p.quests_completed.append("el6_king")
+	check(where.call() == [true, false], "Bento: Rei caído e carta entregue = no Posto, e a cabana do Brejo fica vazia")
+	sim.free()
+
+## Cidade Élfica com identidade (GDD elf-band-living AC-5): Árvore-Mãe no centro, feira, pátio do Quartel com a forja perto.
+func _check_elf_town_identity(gd, sim) -> void:
+	var def: MapDef = gd.maps["elf_city"]
+	if not sim.maps.has(def.id):
+		sim.load_map(def)
+	var tree := def.obstacles.any(func(o): return (o["pos"] as Vector3).length() < 0.5 and (o["size"] as Vector3).x >= 16.0 and bool(o.get("solid", true)))
+	check(tree, "Cidade Élfica: a Árvore-Mãe é o colisor do centro (r >= 8 m)")
+	var stalls := def.obstacles.filter(func(o): return o["kind"] == "stall" and (o["pos"] as Vector3).distance_to(Vector3(35.4, 0, 35.4)) < 12.0)
+	check(stalls.size() >= 6, "Cidade Élfica: feira com 6+ bancas (%d)" % stalls.size())
+	var smith: Array = def.npcs.filter(func(n): return n["id"] == "elf_smith")
+	check(smith.size() == 1 and (smith[0]["pos"] as Vector3).distance_to(Vector3(44.1, 0, -23.5)) < 16.0, "Cidade Élfica: a Ferreira trabalha junto do pátio do Quartel")
+	var in_solid: Array = def.npcs.filter(func(n): return MapsCatalog.LIVING_NPCS.get("elf_city", {}).has(n["id"]) and not sim.is_walkable(n["pos"], def, 0.3)).map(func(n): return n["id"])
+	check(not MapsCatalog.LIVING_NPCS.get("elf_city", {}).is_empty() and in_solid.is_empty(), "Cidade Élfica: nenhum NPC vivo nasce dentro de um colisor (%s)" % [in_solid])
 
 ## Tab = trava no chefe (BossLock, game/player/boss_lock.gd; decisão 2026-11-18): só chefe de verdade, regras de soltar,
 ## movimento W/S/A/D em volta do chefe (A/D puro orbita sem espiralar) e mira = chefe para todo tipo de alvo.
@@ -32244,3 +32644,140 @@ func _l50body_bots(gd, sim) -> void:
 				if k in ["oath", "momentum", "bravado", "riposte_counters"] and float(fx["caps"][k]) > 2.0:
 					big.append("%s.%s" % [bid, piece])
 	check(big.is_empty(), "leg50: cap_up de cargas de classe no máximo +2 (%s)" % [big])
+
+## Brejo das Teias (field_marsh, 12-16, GDD design/gdd/brejo-das-teias.md): monstros, saque, itens e quests coerentes mesmo antes
+## do mapa existir (as quests vêm de QuestsCatalog.marsh() direto); com o JSON do Brejo e a garganta sul da Floresta, o mapa entra e
+## valem também NPCs, portais, portão, colheita e lugares.
+func _check_marsh_content(gd, sim) -> void:
+	var ids: Array = MonstersCatalog.MARSH_MOBS + [MonstersCatalog.MARSH_BOSS, "bog_tadpole"]
+	for mid in ids:
+		var md: MonsterDef = gd.monsters.get(mid)
+		check(md != null, "Brejo: monstro %s existe" % mid)
+		if md == null:
+			continue
+		check(md.level >= 12 and md.level <= 16, "Brejo: %s na faixa 12-16 (%d)" % [mid, md.level])
+		check(ResourceLoader.exists("res://assets/models/%s.glb" % md.model), "Brejo: modelo de %s (%s) existe" % [mid, md.model])
+		for sk in md.skill_ids:
+			check(gd.skills.has(sk), "Brejo: skill %s de %s existe" % [sk, mid])
+		if mid == "bog_tadpole":
+			check(md.xp == 0 and md.loot_table == "", "Brejo: girino é lacaio (0 XP, sem saque)")
+			continue
+		check(gd.loot_tables.has(md.loot_table), "Brejo: tabela %s existe" % md.loot_table)
+		if not gd.loot_tables.has(md.loot_table):
+			continue
+		var best := 0.0
+		for en in gd.loot_tables[md.loot_table].entries:
+			var it: ItemDef = gd.items.get(str(en["item"]))
+			check(it != null, "Brejo: item %s do saque de %s existe" % [en["item"], mid])
+			if it == null:
+				continue
+			if it.type == ItemDef.Type.EQUIPMENT and not md.is_boss:
+				check(float(en["chance"]) <= 0.05, "Brejo: equipamento raro %s em %s <= 0,05" % [it.id, mid])
+			if it.type == ItemDef.Type.MATERIAL:
+				best = maxf(best, float(en["chance"]))
+		if not md.is_boss:
+			check(best >= 0.3 and best <= 0.7, "Brejo: %s dá material principal com 0,3-0,7 (%.2f)" % [mid, best])
+	var boss: MonsterDef = gd.monsters.get(MonstersCatalog.MARSH_BOSS)
+	if boss:
+		check(boss.is_boss and boss.berserk_after > 0.0 and boss.phases.size() >= 1, "Brejo: Bocarra é chefe com fases e fúria")
+		check(boss.skill_ids.has("mob_toad_tongue") and boss.skill_ids.has("mob_bog_flop"), "Brejo: Bocarra tem as duas skills próprias")
+		var guaranteed := false
+		for en in gd.loot_tables[boss.loot_table].entries:
+			guaranteed = guaranteed or (str(en["item"]) == "bog_heart" and float(en["chance"]) >= 1.0)
+		check(guaranteed, "Brejo: Bocarra garante o material de tier (bog_heart)")
+		for ph in boss.phases:
+			var sm: Dictionary = ph.get("summon", {})
+			check(sm.is_empty() or (gd.monsters.has(sm["id"]) and gd.monsters[sm["id"]].xp == 0), "Brejo: lacaio da fase existe e dá 0 XP")
+	for iid in ["toad_skin", "amber_sap", "bog_heart", "smuggler_ledger", "bento_letter"]:
+		check(gd.items.has(iid), "Brejo: item %s existe" % iid)
+	# quests: direto do catálogo (antes do mapa elas não entram em gd.quests)
+	var qs: Array = QuestsCatalog.marsh()
+	var qids := {}
+	for d in qs:
+		qids[d["id"]] = d
+	check(qids.keys() == Array(QuestsCatalog.MARSH_QUESTS), "Brejo: MARSH_QUESTS lista as quests do Brejo em ordem")
+	check(qs.size() >= 8 and qs.size() <= 12, "Brejo: 8-12 quests laterais (%d)" % qs.size())
+	var npc_ok := {}
+	for nid in MapsCatalog.MARSH_NPCS:
+		npc_ok[nid] = true
+	for nid in MapsCatalog.PLACE_NPCS.get(MapsCatalog.MARSH_ID, {}):
+		npc_ok[nid] = true
+	for mapid in gd.maps:
+		for n in gd.maps[mapid].npcs:
+			npc_ok[n["id"]] = true
+	var weight := 0
+	for d in qs:
+		var qid: String = d["id"]
+		var lv: int = d["level_req"]
+		weight += int(d.get("reward_xp", 0))
+		check(lv >= 12 and lv <= 16, "Brejo: %s no nível 12-16" % qid)
+		check(npc_ok.has(d["giver_npc"]) and npc_ok.has(d.get("turnin_npc", d["giver_npc"])), "Brejo: %s tem giver/turnin que existem" % qid)
+		for pq in [d.get("prereq_quest", "")] + Array(d.get("prereq_all", [])):
+			check(pq == "" or qids.has(pq), "Brejo: pré-requisito %s de %s é do Brejo" % [pq, qid])
+		var qt: int = d["type"]
+		var tid: String = d["target_id"]
+		if qt == QuestsCatalog.KILL:
+			check(gd.monsters.has(tid) and tid in ids, "Brejo: %s mata monstro do Brejo" % qid)
+		elif qt == QuestsCatalog.COLLECT:
+			check(gd.items.has(tid) and ((d.get("give_items", {}) as Dictionary).has(tid) or _dropped_somewhere(gd, tid)), "Brejo: %s coleta item com fonte" % qid)
+		elif qt == QuestsCatalog.TALK:
+			check(npc_ok.has(tid), "Brejo: %s fala com NPC que existe" % qid)
+		elif qt == QuestsCatalog.REACH:
+			check(tid == MapsCatalog.MARSH_ID, "Brejo: %s chega ao Brejo" % qid)
+		check(str(d.get("dialog_progress", "")).length() > 40, "Brejo: %s tem dica prática" % qid)
+	check(weight >= 2500 and weight <= 4000, "Brejo: peso de XP das quests 2500-4000 (%d; dilui a faixa 10-20 só uns 4%%)" % weight)
+	# opcional: nada fora do Brejo depende dele
+	for qid in gd.quests:
+		if qids.has(qid):
+			continue
+		var q: QuestDef = gd.quests[qid]
+		check(not qids.has(q.prereq_quest) and not q.prereq_all.any(func(x): return qids.has(x)), "Brejo é opcional: %s não pede quest do Brejo" % qid)
+	check(MapsCatalog.MARSH_GATES["to_field_marsh"]["level"] == 12 and not MapsCatalog.MARSH_GATES["to_field_marsh"].has("quest"), "Brejo: portão só por nível 12")
+	check(QuestsCatalog.HUNT_GIVERS.get(MapsCatalog.MARSH_ID, "") == "marsh_altar", "Brejo: caçadas no Altar Afogado")
+	check(Music.MAP_THEME.has(MapsCatalog.MARSH_ID), "Brejo: tem música")
+	check(MapsCatalog.GATHER.get(MapsCatalog.MARSH_ID, []).any(func(g): return g[0] == "amber_sap"), "Brejo: âmbar se colhe")
+	if not MapsCatalog.marsh_ready():
+		check(not gd.maps.has(MapsCatalog.MARSH_ID) and not gd.quests.has("m0_brejo"), "Brejo: sem o JSON, nada do Brejo entra na sim")
+		return
+	# ---- com o mapa ----
+	var mm: MapDef = gd.maps.get(MapsCatalog.MARSH_ID)
+	check(mm != null and mm.level_range == Vector2i(12, 16) and not mm.is_town, "Brejo: mapa 12-16 registrado")
+	if mm == null:
+		return
+	for qid in QuestsCatalog.MARSH_QUESTS:
+		check(gd.quests.has(qid), "Brejo: quest %s carregou" % qid)
+	var in_map := {}
+	for n in mm.npcs:
+		in_map[n["id"]] = true
+	for nid in npc_ok:
+		if MapsCatalog.MARSH_NPCS.has(nid) or MapsCatalog.PLACE_NPCS[MapsCatalog.MARSH_ID].has(nid):
+			check(in_map.has(nid), "Brejo: NPC %s está no mapa" % nid)
+	var spawned := {}
+	for sp in mm.spawners:
+		spawned[sp["monster_id"]] = true
+	for mid in MonstersCatalog.MARSH_MOBS + [MonstersCatalog.MARSH_BOSS]:
+		check(spawned.has(mid), "Brejo: %s tem spawner" % mid)
+	var back := mm.portals.filter(func(p): return p["target_map"] == "field_forest")
+	check(back.size() == 1, "Brejo: um portal de volta à Floresta")
+	var go: Array = gd.maps["field_forest"].portals.filter(func(p): return p["id"] == "to_field_marsh")
+	check(go.size() == 1 and (go[0] as Dictionary).get("gate", {}).get("level", 0) == 12, "Floresta: portal do Brejo com portão do nível 12")
+	if go.size() == 1 and back.size() == 1:
+		check(sim.is_walkable(go[0]["target_pos"], mm, 0.45) and sim.is_walkable(back[0]["target_pos"], gd.maps["field_forest"], 0.45), "Brejo: chegadas andáveis nos dois lados")
+	# colheita em chão livre: >= 80% do círculo de cada ponto é andável (o do Charco caía na beira da água: 23/40)
+	if not sim.maps.has(mm.id):
+		sim.load_map(mm)
+	for g in MapsCatalog.GATHER[MapsCatalog.MARSH_ID]:
+		var gc := Vector3(float(g[2][0]), 0.0, float(g[2][1]))
+		var free := 0
+		var total := 0
+		for ix in range(-8, 9):
+			for iz in range(-8, 9):
+				var q := gc + Vector3(ix, 0.0, iz) * (float(g[3]) / 8.0)
+				if q.distance_to(gc) > float(g[3]):
+					continue
+				total += 1
+				if sim.is_walkable(q, mm, 0.4) and _wet_or_solid(sim, mm, q) == "":
+					free += 1
+		check(free >= total * 0.8, "Brejo: colheita de %s em (%.0f, %.0f) em chão livre (%d/%d)" % [g[0], gc.x, gc.z, free, total])
+	_check_zone_layout(gd, sim, mm)
+	_check_places(gd, sim, mm)

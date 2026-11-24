@@ -158,7 +158,8 @@ const MOB_LOOP := {"living_censer": "smoke_hiss"}
 const LOOP_EVERY := {"festim_bell": 1.8, "thirst_sigh": 2.6, "smoke_hiss": 2.2}
 ## Sinos do lugar (mapa -> ponto do campanário, missão que os cala, s entre peais, m até onde o som "chega perto"):
 ## Lumeria toca até os Sinos Mudos (L1, hx3_bells); longe do campanário o peal soa do ponto a `near` m (fraco, mas sempre).
-const PLACE_BELLS := {"city_lumeria": {"pos": Vector2(0.0, -6.0), "until": "hx3_bells", "every": 6.0, "near": 32.0}}
+const PLACE_BELLS := {"city_lumeria": {"pos": Vector2(0.0, -6.0), "until": "hx3_bells", "every": 6.0, "near": 32.0},
+	"elf_city": {"pos": Vector2(0.0, -10.0), "since": "el6_king", "every": 14.0, "near": 30.0}}     # faixa élfica viva: sino de luto pelo Rei
 ## Buff de monstro que pulsa enquanto dura: a carne do troll se fechando (MobSystem.update_regen). Um pulso por
 ## vez no mapa (o mais perto), a cada BUFF_BEAT s.
 const BUFF_SOUND := {"troll_regen": "troll_regen"}
@@ -166,7 +167,8 @@ const BUFF_BEAT := 1.6
 ## Laços do lugar (Kharzun): lava borbulhando no ponto de lava mais perto e martelo na bigorna dos ferreiros/fundidores.
 const LAVA_RANGE := 16.0         # m da borda da lava ao jogador
 const LAVA_BEAT := 1.7
-const HAMMER_NPCS := {"dwarf_smith": true, "kharzun_smith": true, "forge_dwarf_a": true, "forge_dwarf_b": true}
+const HAMMER_NPCS := {"dwarf_smith": true, "kharzun_smith": true, "forge_dwarf_a": true, "forge_dwarf_b": true,
+	"elf_smith": true}      # faixa élfica viva: forja da Thalindra
 const HAMMER_RANGE := 18.0
 const HAMMER_BEAT := 2.6
 ## Missão concluída que soa no mundo (a corrente das Minas parte quando os escravos são soltos).
@@ -680,7 +682,7 @@ static func place_bells_at(map_id: String, done: Array) -> Vector3:
 	if not PLACE_BELLS.has(map_id):
 		return Vector3.INF
 	var b: Dictionary = PLACE_BELLS[map_id]
-	if str(b["until"]) in done:
+	if (b.has("until") and str(b["until"]) in done) or (b.has("since") and not str(b["since"]) in done):
 		return Vector3.INF
 	var v: Vector2 = b["pos"]
 	return Vector3(v.x, 0.0, v.y)

@@ -85,6 +85,7 @@ func _ready() -> void:
 		var r := _run(m, n, level, trials)
 		print("RAID bots=%d reforcos=%d repelidas=%d/%d chegada=%.0fs duracao=%.0fs mediana=%.0fs luta_mediana=%.0fs chegaram=%.1f/%.1f sentinelas_mortas=%.1f sentinelas_vida_min=%.0f%% bots_mortos=%.1f presos=%d%s" % [
 			n, r["allies"], r["repelled"], trials, r["arrive"], r["dur"], r["median"], r["fight_median"], r["reached"], r["size"], r["guards"], r["guard_hp"] * 100.0, r["bots"], r["stuck"], "  FLAG" if r["stuck"] > 0 else ""])
+		print("SPREAD bots=%d chegada_desvio=%.1fs aglomerado_max=%d vivos_max=%d" % [n, float(r.get("spread", 0.0)) / maxf(1.0, float(r.get("spread_n", 0))), int(r.get("clump_max", 0)), int(r.get("live_max", 0))])
 	print("RAID_END")
 	get_tree().quit()
 
@@ -119,7 +120,7 @@ func _run(m: Dictionary, nbots: int, level: int, trials: int) -> Dictionary:
 		var ids := RaidSystem.start_raid(Sim, m, route_i)
 		var reached := {}                # invasores que entraram no raio do alvo (chegaram à brecha/portão)
 		var hp_min := 1.0                # menor fração de vida somada da guarnição durante a leva
-		out["size"] += ids.size()
+		out["size"] += int(st.get("total", ids.size()))      # escalões: conta quem ainda vai nascer
 		var t := 0.0
 		var arrive := -1.0
 		var guard_dead := {}
@@ -127,6 +128,7 @@ func _run(m: Dictionary, nbots: int, level: int, trials: int) -> Dictionary:
 		var last_pos := {}
 		var still := {}
 		var stuck_ids := {}
+		var arr_t := {}                  # SPREAD: id -> s em que entrou no raio do alvo
 		while t < LIMIT and not st["ids"].is_empty():
 			Sim.tick(DT)
 			t += DT
@@ -143,12 +145,29 @@ func _run(m: Dictionary, nbots: int, level: int, trials: int) -> Dictionary:
 					var inv: SimEntity = Sim.entities.get(id)
 					if inv != null and inv.position.distance_to(r["target"]) < radius:
 						reached[id] = true
+						if not arr_t.has(id):
+							arr_t[id] = t
 				var hp := 0.0
 				var hp_max := 0.0
 				for g in guards:
 					hp += maxf(0.0, g.hp) if g.is_alive() else 0.0
 					hp_max += g.stats.max_hp
 				hp_min = minf(hp_min, hp / maxf(1.0, hp_max))
+			if int(t / DT) % 20 == 0:              # SPREAD: maior bolo (círculo de 6 m) de invasores em marcha e vivos ao mesmo tempo
+				var live_inv: Array = []
+				for id in st["ids"]:
+					var v: SimEntity = Sim.entities.get(id)
+					if v != null and v.is_alive():
+						live_inv.append(v)
+				out["live_max"] = maxi(int(out.get("live_max", 0)), live_inv.size())
+				for a in live_inv:
+					if arr_t.has(a.id):
+						continue
+					var c := 0
+					for b in live_inv:
+						if not arr_t.has(b.id) and a.position.distance_to(b.position) < 6.0:
+							c += 1
+					out["clump_max"] = maxi(int(out.get("clump_max", 0)), c)
 			if int(t / DT) % 20 == 0:              # 1x por segundo: vigia de elfo parado fora de luta
 				for id in st["ids"]:
 					var e: SimEntity = Sim.entities.get(id)
@@ -172,6 +191,16 @@ func _run(m: Dictionary, nbots: int, level: int, trials: int) -> Dictionary:
 		if arrive >= 0.0:
 			fights.append(t - arrive)
 		out["reached"] += reached.size()
+		if arr_t.size() >= 2:                     # SPREAD: desvio padrão dos tempos de chegada (s)
+			var mean := 0.0
+			for id in arr_t:
+				mean += float(arr_t[id])
+			mean /= arr_t.size()
+			var var_ := 0.0
+			for id in arr_t:
+				var_ += pow(float(arr_t[id]) - mean, 2.0)
+			out["spread"] = float(out.get("spread", 0.0)) + sqrt(var_ / arr_t.size())
+			out["spread_n"] = int(out.get("spread_n", 0)) + 1
 		out["guard_hp"] += hp_min
 		out["guards"] += guard_dead.size()
 		out["bots"] += bot_dead.size()

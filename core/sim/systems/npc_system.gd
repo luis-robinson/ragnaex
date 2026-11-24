@@ -26,6 +26,16 @@ static func update_npc(sim: WorldSim, e: SimEntity, m: Dictionary, dt: float) ->
 	if e.npc_hold > 0.0:
 		e.npc_hold -= dt
 		return
+	if nd.has("alarm"):                      # faixa élfica viva: leva viva no mapa = corre para o abrigo e fica lá
+		var on := alarm_on(sim, m)
+		if on != e.npc_alarm:
+			e.npc_alarm = on
+			e.npc_goal = npc_next_goal(sim, e, m["def"])
+			e.npc_wait = 0.0
+			e.npc_stuck = 0.0
+		if on and e.position.distance_to(e.npc_goal) < 0.35:
+			npc_stop(sim, e)
+			return
 	if e.npc_wait > 0.0:
 		e.npc_wait -= dt
 		if e.npc_wait <= 0.0:
@@ -65,6 +75,14 @@ static func update_npc(sim: WorldSim, e: SimEntity, m: Dictionary, dt: float) ->
 	else:
 		e.npc_stuck = 0.0
 
+## Alarme do povoado (GDD elf-band-living §3.2): alguma leva de investida/cerco viva no mapa. Uma conta por mapa por instante
+## da sim (cache em m["alarm_at"]/m["alarm_on"]); não gasta sim.rng.
+static func alarm_on(sim: WorldSim, m: Dictionary) -> bool:
+	if float(m.get("alarm_at", -1.0)) != sim.time:
+		m["alarm_at"] = sim.time
+		m["alarm_on"] = RoadEventSystem.raid_on(m)
+	return bool(m["alarm_on"])
+
 static func npc_stop(sim: WorldSim, e: SimEntity) -> void:
 	e.velocity = Vector3.ZERO
 	if e.state != SimEntity.State.IDLE:
@@ -73,6 +91,8 @@ static func npc_stop(sim: WorldSim, e: SimEntity) -> void:
 static func npc_next_goal(sim: WorldSim, e: SimEntity, def: MapDef) -> Vector3:
 	var nd := e.npc_data
 	var home: Vector3 = nd.get("pos", e.position)
+	if e.npc_alarm and nd.has("alarm"):
+		return Vector3(float(nd["alarm"][0]), 0.0, float(nd["alarm"][1]))
 	if nd.has("route"):
 		var pts: Array = nd["route"]
 		var p: Array = pts[e.npc_leg % pts.size()]

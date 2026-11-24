@@ -536,7 +536,7 @@ const SIGNATURE_BASIC_TRIM := 0.94     # o básico perde isto para o DPS total f
 const RAID_POWER := 1.5                 # invasores: HP/ATK/MATK x isto (centro do 2º mapa)
 ## Força da investida só neste mapa (vida/ATK/MATK dos invasores x isto, sobre RAID_POWER); comuns do campo não mudam.
 ## Kharzun (usuário 2026-11-13): o elenco 40+ ficou mais forte; a leva sem bots voltou a ~9/10 repelidas.
-const RAID_MAP_POWER := {"field_kharzun": 0.85, "city_port": 1.2}
+const RAID_MAP_POWER := {"field_kharzun": 0.85, "city_port": 1.2, "field_forest": 1.2}   # Posto: leva dividida em escalões (elf-siege-posto) precisa de corpo
 ## Vida a mais só (x, sobre RAID_MAP_POWER): invasor que aguenta aventureiro de nível 30+ sem bater mais na guarnição.
 const RAID_MAP_HP := {"city_port": 1.4}
 const RAID_SMART := 1.5                 # invasores: alcance de aggro x isto e skills isto vezes mais seguidas
@@ -1698,6 +1698,19 @@ const SIEGE_FIRE_SPOTS := 3               # focos de Chamas (apresentação)
 const SIEGE_BOT_DEFENDERS := 1            # bots fora do grupo do jogador que largam o que fazem para defender cada leva (o resto fica: a guarnição segura, ajudar pesa)
 const SIEGE_GUARD_REPEL := 0.75           # meta das sondas: guarnição sozinha repele esta fração (raid_probe --bots=0)
 const SIEGE_XP_SHARE := 0.8               # meta das sondas: XP/min do cerco <= isto x a caça da faixa
+## Cerco por mapa (design/gdd/elf-siege-posto.md §7): troca os SIEGE_* acima só no mapa da chave (nome em minúsculas, sem SIEGE_;
+## SiegeSystem.num). Porto sem entrada = valores de cima. Posto (nível 14-19): primeira leva mais tarde, assédio mais raro e mais fraco.
+const SIEGE_MAP := {
+	"field_forest": {"first_wave": 60.0, "first_harass": 40.0, "harass_every": 60.0, "harass_dmg_pct": 8.0, "harass_shooters": 2},
+}
+## Escalões da leva (só mapas com entrada; elf-siege-posto R6/F6): o grupo `order[<monstro>]` nasce `gap` s depois do anterior,
+## espalhado num arco de `arc` m perpendicular à 1ª perna da rota; cada invasor marcha numa vaga lateral de até ±`lane` m (só se
+## o ponto deslocado é andável) e junta `muster` s contados do próprio nascimento (no lugar de RAID_MUSTER). Monstro fora de
+## `order` = escalão 1. Sem entrada: a leva inteira nasce no mesmo tick num disco de 3,5 m (como sempre).
+const SIEGE_STAGGER := {
+	"field_forest": {"gap": 4.0, "arc": 12.0, "lane": 3.0, "muster": 4.0,
+		"order": {"elf_lynx": 0, "elf_raider": 1, "elf_raider_archer": 2, "elf_raider_mage": 2, "griffin_raider": 3}},
+}
 ## Guarnição do Acampamento Avançado (Kharzun 40-45): vida e ataque dos soldados da Aurora x isto. Regra: o acampamento segura
 ## o Contra-ataque (K0, Canil + Cidadela) sozinho em >= 75% (raid_probe --map=field_kharzun --bots=0).
 const KHARZUN_GUARD_POWER := 3.6

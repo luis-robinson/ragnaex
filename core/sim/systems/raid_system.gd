@@ -121,6 +121,8 @@ static func start_raid(sim: WorldSim, m: Dictionary, i: int = 0) -> Array:
 	st["t"] = 0.0
 	st["arrived"] = false
 	st["retreat"] = false
+	st.erase("pending")
+	st.erase("born")
 	var from: Vector3 = r["from"]
 	var spawned: Array = []
 	var step := power_step(sim, m)
@@ -165,6 +167,14 @@ static func start_raid(sim: WorldSim, m: Dictionary, i: int = 0) -> Array:
 		elif r.has("say_reclaim"):
 			Events.post(&"chat_message", "Sistema", str(r["say_reclaim"]), "system")
 	var top := 0
+	var stag: Dictionary = Balance.SIEGE_STAGGER.get(def.id, {})
+	if not stag.is_empty() and SiegeSystem.managed(def):      # escalões (elf-siege-posto R6): nasce o 1º agora, o resto em st["pending"]
+		spawned = _stagger_spawn(sim, m, st, r, i, n, groups, step, stag)
+		for id in spawned:
+			top = maxi(top, (sim.entities[id] as SimEntity).monster_def.level)
+		for p in st["pending"]:
+			top = maxi(top, (p["def"] as MonsterDef).level)
+		groups = []
 	for mobs in groups:
 		for mid in mobs:
 			var mdef: MonsterDef = scaled_def(sim, GameData.monsters.get(mid), step, def.id)
@@ -189,7 +199,7 @@ static func start_raid(sim: WorldSim, m: Dictionary, i: int = 0) -> Array:
 			if r.has("say_leader"):
 				Events.post(&"chat_message", "Sistema", str(r["say_leader"]), "system")
 	st["ids"] = spawned
-	st["total"] = spawned.size()
+	st["total"] = spawned.size() + (st.get("pending", []) as Array).size()
 	st["step"] = step
 	st["level"] = top
 	Events.post(&"chat_message", "Sistema", str(r.get("say_start", "Uma investida inimiga se aproxima!")), "system")
@@ -205,6 +215,11 @@ static func _update_wave(sim: WorldSim, m: Dictionary, st: Dictionary, dt: float
 	var target: Vector3 = r["target"]
 	var from: Vector3 = r["from"]
 	var radius: float = float(r.get("radius", 25.0))
+	if not (st.get("pending", []) as Array).is_empty():
+		if st["retreat"]:
+			st["pending"] = []                    # recuo: quem faltava nascer não vem
+		else:
+			_release(sim, m, st, i, false)
 	var alive: Array = []
 	for id in st["ids"]:
 		var e: SimEntity = sim.entities.get(id)
@@ -221,6 +236,9 @@ static func _update_wave(sim: WorldSim, m: Dictionary, st: Dictionary, dt: float
 			if not def.sortie.is_empty() and float(m.get("sortie_cd", 0.0)) <= 0.0:
 				m["sortie_cd"] = float(def.sortie.get("cooldown", Balance.RAID_SORTIE_COOLDOWN))
 				st["sortie"] = WorldState.spawn_sortie(sim, m, i)
+	if alive.is_empty() and not (st.get("pending", []) as Array).is_empty():
+		st["ids"] = _release(sim, m, st, i, true)     # a leva viva caiu toda: o próximo escalão sai já
+		return
 	if alive.is_empty():
 		WorldState.end_sortie(sim, st.get("sortie", []))
 		st["sortie"] = []
@@ -372,15 +390,29 @@ static func march_point(sim: WorldSim, e: SimEntity) -> Vector3:
 		route.reverse()
 		route.append(r["from"])
 	e.raid_leg = clampi(e.raid_leg, 0, route.size() - 1)
+	var lane := float((Balance.SIEGE_STAGGER.get((m["def"] as MapDef).id, {}) as Dictionary).get("lane", 0.0)) if SiegeSystem.managed(m["def"]) else 0.0
+	if lane > 0.0 and not st["retreat"] and e.raid_leg < route.size() - 1:     # vaga lateral na marcha (não no alvo nem no recuo)
+		var p: Vector3 = route[e.raid_leg]
+		var prev: Vector3 = route[e.raid_leg - 1] if e.raid_leg > 0 else r["from"]
+		var dir := (p - prev).normalized() if p.distance_to(prev) > 0.1 else Vector3(0, 0, 1)
+		var q := p + Vector3(-dir.z, 0.0, dir.x) * lane * (float(e.id % 5) - 2.0) / 2.0
+		if MapGeometry.is_walkable(sim, q, m["def"]):
+			return q
 	return route[e.raid_leg]
 
 static func march_len(sim: WorldSim, e: SimEntity) -> int:
 	var m: Dictionary = sim.maps[e.map_id]
 	return route_def(m["def"], e.raid_route).get("route", []).size() + (2 if state(m, e.raid_route)["retreat"] else 1)
 
-## Começo da leva: junta na garganta (Balance.RAID_MUSTER s) antes de marchar.
+## Começo da leva: junta na garganta (Balance.RAID_MUSTER s) antes de marchar. Leva em escalões: `muster` s do nascimento.
 static func mustering(sim: WorldSim, e: SimEntity) -> bool:
-	return float(state(sim.maps[e.map_id], e.raid_route)["t"]) < Balance.RAID_MUSTER
+	var m: Dictionary = sim.maps[e.map_id]
+	var st := state(m, e.raid_route)
+	var born: Dictionary = st.get("born", {})
+	if born.has(e.id):
+		var stag: Dictionary = Balance.SIEGE_STAGGER.get((m["def"] as MapDef).id, {})
+		return float(st["t"]) - float(born[e.id]) < float(stag.get("muster", Balance.RAID_MUSTER))
+	return float(st["t"]) < Balance.RAID_MUSTER
 
 static func retreating(sim: WorldSim, e: SimEntity) -> bool:
 	return state(sim.maps[e.map_id], e.raid_route)["retreat"]
@@ -398,3 +430,71 @@ static func nearest_leg(sim: WorldSim, e: SimEntity) -> int:
 			best = i
 	e.raid_leg = saved
 	return best
+
+# ----------------------------------------------------------------------------
+# Escalões (Balance.SIEGE_STAGGER; design/gdd/elf-siege-posto.md R6/F6)
+# ----------------------------------------------------------------------------
+
+## Monta os escalões da leva (ordem por monstro), nasce o 1º e guarda o resto em st["pending"] ({at, def, pos}).
+static func _stagger_spawn(sim: WorldSim, m: Dictionary, st: Dictionary, r: Dictionary, i: int, n: int, groups: Array, step: int, stag: Dictionary) -> Array:
+	var def: MapDef = m["def"]
+	var order: Dictionary = stag.get("order", {})
+	var by := {}                                   # escalão -> [MonsterDef]
+	for mobs in groups:
+		for mid in mobs:
+			var mdef: MonsterDef = scaled_def(sim, GameData.monsters.get(mid), step, def.id)
+			if mdef == null:
+				continue
+			var k := int(order.get(str(mid), 1))
+			if not by.has(k):
+				by[k] = []
+			for _k in int(mobs[mid]):
+				by[k].append(mdef)
+	var keys: Array = by.keys()
+	keys.sort()
+	var from: Vector3 = r["from"]
+	var route: Array = r.get("route", [])
+	var first: Vector3 = route[0] if not route.is_empty() else r["target"]
+	var dir := (first - from).normalized() if first.distance_to(from) > 0.1 else Vector3(0, 0, 1)
+	var perp := Vector3(-dir.z, 0.0, dir.x)
+	var arc := float(stag.get("arc", 12.0))
+	var gap := float(stag.get("gap", 6.0))
+	st["pending"] = []
+	st["born"] = {}
+	st["wave_n"] = n
+	for rank in keys.size():
+		var list: Array = by[keys[rank]]
+		for j in list.size():
+			var s := (float(j) + 0.5) / float(list.size()) - 0.5
+			var pos := MapGeometry.random_walkable(sim, def, from + perp * s * arc, 1.5)
+			st["pending"].append({"at": rank * gap, "def": list[j], "pos": pos})
+	return _release(sim, m, st, i, false)
+
+## Nasce o que já tem hora (`force` = o próximo escalão agora, mesmo antes da hora). Devolve os ids novos.
+static func _release(sim: WorldSim, m: Dictionary, st: Dictionary, i: int, force: bool) -> Array:
+	var pend: Array = st.get("pending", [])
+	var out: Array = []
+	if pend.is_empty():
+		return out
+	var now := float(st["t"])
+	var cut := now
+	if force:
+		cut = maxf(now, float(pend[0]["at"]))
+		var shift := cut - now                         # o resto anda junto: os escalões seguem espaçados
+		for p in pend:
+			p["at"] = float(p["at"]) - shift
+		cut = now
+	var keep: Array = []
+	for p in pend:
+		if float(p["at"]) > cut + 0.001:
+			keep.append(p)
+			continue
+		var e := sim.spawn_monster(p["def"], (m["def"] as MapDef).id, p["pos"])
+		e.raid_id = int(st.get("wave_n", st["n"]))
+		e.raid_leg = 0
+		e.raid_route = i
+		st["born"][e.id] = now
+		out.append(e.id)
+	st["pending"] = keep
+	(st["ids"] as Array).append_array(out)
+	return out

@@ -38,7 +38,7 @@ const SLOT_ART := {ItemDef.Slot.HEAD: "head", ItemDef.Slot.BODY: "body", ItemDef
 const MATERIAL_ART := [["goblet", "goblet"], ["frame", "frame"], ["baton", "baton"], ["_fan", "fan"], ["grapes", "grapes"], ["legend_coin", "legend_coin"], ["honey", "sap"], ["stinger", "tusk"], ["shell", "shell"], ["mushroom", "mushroom"], ["relic", "relic"], ["basket", "basket"],
 	["letter", "letter"], ["report", "letter"], ["star_ore", "star"], ["goods", "basket"], ["gel", "gel"], ["pelt", "pelt"], ["hide", "pelt"], ["tusk", "tusk"], ["fang", "tusk"], ["herb", "herb"],
 	["ore", "ore"], ["silk", "silk"], ["bark", "bark"], ["badge", "badge"], ["bone", "bone"], ["dust", "dust"],
-	["essence", "essence"], ["core", "core"], ["scale", "scale"], ["feather", "feather"], ["steel", "ingot"], ["sap", "sap"], ["heartwood", "bark"], ["_log", "bark"], ["ribbon", "silk"], ["porcelain", "shell"], ["crown", "crown"]]
+	["essence", "essence"], ["core", "core"], ["scale", "scale"], ["feather", "feather"], ["steel", "ingot"], ["sap", "sap"], ["heartwood", "bark"], ["_log", "bark"], ["ribbon", "silk"], ["porcelain", "shell"], ["crown", "crown"], ["skin", "pelt"], ["bog_heart", "core"], ["ledger", "ledger"]]
 ## inclinação da arte (rad): armas na diagonal, como na mão
 const ANGLE := {"sword": 0.74, "sword2h": 0.74, "dagger": 0.74, "mace": 0.6, "mace2h": 0.5, "axe": 0.42, "axe2h": 0.4, "staff": 0.6,
 	"wand": 0.66, "scythe": 0.2, "scepter": 0.6, "rifle": 0.76, "spear": 0.74, "pistol": -0.2, "claw": 0.3, "bow": -0.74, "tusk": 0.3, "bone": 0.7, "herb": 0.18}
@@ -959,6 +959,19 @@ func _a_letter() -> void:
 	_poly(seal, "wax", 0.045, 0.08)
 	_poly([-0.06, 0.36, 0.06, 0.36, 0.1, 0.62, -0.1, 0.62], "wax", 0.03, 0.03)
 	_circ(0, 0.12, 0.12, "wax", 0.0)
+
+## Página de livro de contas: folha solta com o canto rasgado, linhas de conta e uma mancha de água na cor do item.
+func _a_ledger() -> void:
+	_poly([-0.66, -0.86, 0.7, -0.8, 0.74, 0.5, 0.46, 0.58, 0.36, 0.86, -0.72, 0.8], "paper", 0.055, 0.12)
+	_poly([0.74, 0.5, 0.46, 0.58, 0.36, 0.86], PAL["paper"][2], 0.03, 0.0)
+	for i in range(5):
+		var y := -0.56 + i * 0.26
+		_mark([-0.48, y, 0.2 + 0.1 * (i % 2), y + 0.02], PAL["paper"][2].darkened(0.45), 0.04)
+		_mark([0.38, y + 0.02, 0.54, y + 0.02], PAL["paper"][2].darkened(0.45), 0.04)
+	_mark([0.3, -0.7, 0.3, 0.44], PAL["paper"][2].darkened(0.2), 0.025)
+	if not _sil:
+		_cv.draw_circle(Vector2(-0.3, 0.42), 0.3, Color(_tint.darkened(0.25), 0.35))
+		_cv.draw_circle(Vector2(-0.22, 0.36), 0.18, Color(_tint.darkened(0.35), 0.3))
 
 func _a_gold() -> void:
 	for p in [[-0.42, 0.56], [0.36, 0.6], [0.0, 0.68], [-0.2, 0.32], [0.24, 0.3], [0.02, 0.02], [-0.5, 0.14]]:

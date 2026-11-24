@@ -241,7 +241,7 @@ func _duels(trials: int) -> void:
 			arena = sp
 	for mon_id in GameData.monsters:
 		var md: MonsterDef = GameData.monsters[mon_id]
-		if arena.is_empty() or seen.has(mon_id) or md.is_boss or md.xp <= 0 or md.level < lv_from or md.level > lv_to + 1 or md.stat_role == "":
+		if arena.is_empty() or seen.has(mon_id) or md.is_boss or md.xp <= 0 or md.level < lv_from or md.level > lv_to + 1 or (md.stat_role == "" and not (mon_id in only_mobs)):
 			continue
 		if not only_mobs.is_empty() and not (mon_id in only_mobs):
 			continue

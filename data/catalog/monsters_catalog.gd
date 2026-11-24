@@ -481,6 +481,7 @@ static func build() -> Array:
 	L.append_array(_act3_adds())
 	L.append_array(_act3_field_bosses())
 	L.append_array(_act3_wp6_bosses())
+	L.append_array(_marsh())
 	var out: Array = []
 	for d in L:
 		out.append(_mk(_f2(d)))
@@ -1224,4 +1225,53 @@ static func build_loot() -> Array:
 		_lt("lt_vessaline", [{"item": "hostess_fan", "chance": 1.0}, {"item": "weeping_porcelain", "chance": 1.0, "min": 3, "max": 4}, {"item": "festim_ribbon", "chance": 1.0, "min": 5, "max": 8}, {"item": "elixir_might", "chance": 1.0}, {"item": "legend_coin", "chance": 0.6}]),
 		_lt("lt_sylvare_echo", [{"item": "empty_crown", "chance": 1.0}, {"item": "weeping_porcelain", "chance": 1.0, "min": 4, "max": 5}, {"item": "festim_ribbon", "chance": 1.0, "min": 6, "max": 9}, {"item": "elixir_stone", "chance": 1.0}, {"item": "legend_coin", "chance": 1.0, "min": 1, "max": 2}]),
 		_lt("lt_dragonling", [{"item": "dragon_scale", "chance": 1.0, "min": 2, "max": 4}, {"item": "golem_core", "chance": 1.0, "min": 1, "max": 2}, {"item": "amulet_golem", "chance": 0.5}, {"item": "elixir_might", "chance": 1.0, "min": 1, "max": 2}, {"item": "crown_spectral", "chance": 0.4}]),
+	] + _marsh_loot()
+
+# ======== Brejo das Teias (field_marsh, 12-16, campo opcional ao sul da Floresta; GDD design/gdd/brejo-das-teias.md §3.3) ========
+## Modelos novos pedidos ao Blender (BLENDER REQUEST C); até o GLB existir, o monstro usa o modelo de reserva recolorido.
+const MARSH_MODELS := {"bog_toad": ["mob_bog_toad", "mob_slime"], "bog_mother": ["mob_bog_mother", "mob_slime"], "web_weaver": ["mob_web_weaver", "mob_spider"]}
+const MARSH_MOBS := ["marsh_leech", "bog_toad", "marsh_spider", "web_weaver", "marsh_smuggler"]
+const MARSH_BOSS := "bog_mother"
+
+static func marsh_model(id: String) -> String:
+	var m: Array = MARSH_MODELS[id]
+	return str(m[0]) if ResourceLoader.exists("res://assets/models/%s.glb" % m[0]) else str(m[1])
+
+static func _marsh() -> Array:
+	return [
+		{"id": "marsh_leech", "name": "Sanguessuga do Brejo", "level": 12, "hp": 240, "atk": 30, "def": 4, "mdef": 5, "move_speed": 5.0, "attack_range": 1.4, "attack_cooldown": 0.9, "attack_startup": 0.2, "xp": 64, "aggro_range": 7.0, "leash_range": 20.0,
+		 "radius": 0.38, "scale": 0.95, "color": Color(0.3, 0.36, 0.2), "shape": "capsule", "loot_table": "lt_marsh_leech", "gold_min": 6, "gold_max": 13, "model": "mob_larva"},
+		{"id": "bog_toad", "name": "Sapo-Boi", "level": 13, "hp": 400, "atk": 40, "def": 9, "mdef": 6, "move_speed": 4.2, "attack_range": 1.8, "attack_cooldown": 1.3, "attack_startup": 0.4, "xp": 80, "aggro_range": 8.0, "leash_range": 20.0,
+		 "radius": 0.6, "scale": 1.1, "color": Color(0.42, 0.5, 0.26), "shape": "sphere", "loot_table": "lt_bog_toad", "gold_min": 7, "gold_max": 15, "model": marsh_model("bog_toad"),
+		 "skill_ids": ["mob_acid_spit"] as Array[String]},
+		{"id": "marsh_spider", "name": "Aranha do Brejo", "level": 14, "hp": 380, "atk": 42, "def": 8, "mdef": 6, "move_speed": 4.7, "attack_range": 1.7, "attack_cooldown": 1.2, "attack_startup": 0.3, "xp": 84, "aggro_range": 8.0, "leash_range": 20.0,
+		 "radius": 0.55, "scale": 1.05, "color": Color(0.38, 0.44, 0.28), "shape": "box", "loot_table": "lt_marsh_spider", "gold_min": 7, "gold_max": 16, "model": "mob_spider",
+		 "skill_ids": ["mob_web"] as Array[String]},
+		# atiradora: fica longe e solta poça de veneno (mesma ideia do Chamador: mate primeiro)
+		{"id": "web_weaver", "name": "Tecelã do Brejo", "level": 15, "hp": 300, "atk": 16, "matk": 34, "def": 6, "mdef": 10, "move_speed": 4.4, "attack_range": 8.0, "attack_cooldown": 1.7, "attack_startup": 0.45, "xp": 90, "aggro_range": 10.0, "leash_range": 22.0, "ranged": true,
+		 "radius": 0.5, "scale": 0.9, "color": Color(0.78, 0.7, 0.45), "shape": "box", "loot_table": "lt_web_weaver", "gold_min": 8, "gold_max": 18, "model": marsh_model("web_weaver"),
+		 "skill_ids": ["mob_venom_pool"] as Array[String]},
+		{"id": "marsh_smuggler", "name": "Contrabandista", "level": 15, "hp": 460, "atk": 47, "def": 10, "mdef": 7, "move_speed": 4.8, "attack_range": 1.8, "attack_cooldown": 1.1, "attack_startup": 0.3, "xp": 94, "aggro_range": 9.0, "leash_range": 22.0,
+		 "radius": 0.45, "scale": 1.0, "color": Color(0.3, 0.4, 0.42), "shape": "capsule", "loot_table": "lt_marsh_smuggler", "gold_min": 10, "gold_max": 22, "model": "mob_bandit_thief",
+		 "skill_ids": ["mob_snare_shot"] as Array[String]},
+		# mini-chefe do campo (Ponta da Bocarra): puxa com a língua, salta na barriga (chão avisado), chama girinos
+		{"id": "bog_mother", "name": "Bocarra, a Sapa-Mãe", "level": 16, "hp": 62000, "atk": 86, "def": 13, "mdef": 12, "move_speed": 3.8, "attack_range": 2.4, "attack_cooldown": 1.4, "attack_startup": 0.4, "xp": 800, "aggro_range": 11.0, "leash_range": 25.0,
+		 "radius": 1.1, "scale": 2.2, "color": Color(0.4, 0.48, 0.24), "shape": "sphere", "is_boss": true, "berserk_after": 150, "loot_table": "lt_bog_mother", "gold_min": 90, "gold_max": 180, "model": marsh_model("bog_mother"),
+		 "skill_ids": ["mob_toad_tongue", "mob_bog_flop", "mob_acid_spit", "mob_call_tadpoles"] as Array[String],
+		 "intro": "Mais um que cai na lama...", "last_words": "Croo... ac...",
+		 "phases": [{"hp": 0.7, "say": "Croooac! Filhotes, jantar!", "summon": {"id": "bog_tadpole", "count": 3, "max": 5}},
+			{"hp": 0.4, "say": "A Bocarra se enterra na lama e os girinos a cercam!", "skills": ["mob_venom_pool"], "ward": 0.4, "summon": {"id": "bog_tadpole", "count": 3, "max": 6}},
+			{"hp": 0.15, "say": "A Bocarra infla e a lama ferve!", "enrage": 1.25}]},
+		{"id": "bog_tadpole", "name": "Girino da Bocarra", "level": 16, "hp": 260, "atk": 30, "def": 6, "mdef": 6, "move_speed": 5.0, "attack_range": 1.4, "attack_cooldown": 1.0, "xp": 0, "aggro_range": 14.0, "leash_range": 40.0,
+		 "radius": 0.35, "scale": 0.6, "color": Color(0.22, 0.26, 0.18), "shape": "capsule", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_larva"},
+	]
+
+static func _marsh_loot() -> Array:
+	return [
+		_lt("lt_marsh_leech", [{"item": "herb_green", "chance": 0.4}, {"item": "toad_skin", "chance": 0.1}, {"item": "potion_hp_m", "chance": 0.05}]),
+		_lt("lt_bog_toad", [{"item": "toad_skin", "chance": 0.55}, {"item": "herb_blue", "chance": 0.3}, {"item": "cap_leather", "chance": 0.03}]),
+		_lt("lt_marsh_spider", [{"item": "spider_silk", "chance": 0.6, "min": 1, "max": 2}, {"item": "amber_sap", "chance": 0.15}, {"item": "hood_silk", "chance": 0.04}]),
+		_lt("lt_web_weaver", [{"item": "amber_sap", "chance": 0.4}, {"item": "spider_silk", "chance": 0.5}, {"item": "amulet_silk", "chance": 0.03}]),
+		_lt("lt_marsh_smuggler", [{"item": "smuggler_ledger", "chance": 0.35}, {"item": "bandit_badge", "chance": 0.45}, {"item": "iron_ore", "chance": 0.3}, {"item": "potion_hp_m", "chance": 0.1}, {"item": "boots_wolf", "chance": 0.04}]),
+		_lt("lt_bog_mother", [{"item": "bog_heart", "chance": 1.0}, {"item": "toad_skin", "chance": 1.0, "min": 3, "max": 5}, {"item": "amber_sap", "chance": 1.0, "min": 2, "max": 3}, {"item": "amulet_silk", "chance": 0.3}, {"item": "elixir_might", "chance": 0.5}]),
 	]
