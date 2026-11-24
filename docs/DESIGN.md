@@ -1055,6 +1055,11 @@ Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MS
   alguém chega; os lobos não passam de 30 m do ponto e não dão XP/ouro/saque/quest. Prêmio único para quem contribuiu: XP = 4% do nível,
   5 + 2/nível moedas (dividido) e 2 Poções de Vida (P). Bots de fora do grupo esperam 25 s (`EVENT_BOT_GRACE`) e avisam no chat quando
   resolvem sozinhos. Minimapa: ponto dourado que pulsa. Nada vai para o save. Check `_check_road_events`.
+- **Faixa élfica viva** (GDD `design/gdd/elf-band-living.md`, 2026-11-24): Cidade Élfica, fortes, acampamentos do cerco e Posto com rotinas
+  (`LIVING_NPCS["elf_city"]`, `elv_*`; Mensageira Aryn para em cada forte). Só a queda do Rei (`el6_king`) muda o mundo: conjunto "guerra"
+  (`unless`) troca pelo "trégua" (`if`: luto, emissário humano, presos somem dos fortes e o marido da Dalva aparece no Posto; sino de luto
+  `Sfx.PLACE_BELLS` `since`). Alarme do Posto: com leva viva, moradores com `alarm` correm para a Fogueira Comunal e a trompa toca.
+  Eventos: **Emboscada na Trilha** (Floresta, salteadores) e **Patrulha com Prisioneiro** (estradas dos fortes, só até o Rei).
 
 ## Chefes (mecânicas e calibragem, 2026-11-09)
 Todo chefe de grupo tem resposta de longe, invocação e três fases; quem kita não fica de graça.
@@ -1402,6 +1407,16 @@ derrubou a guarnição sozinha de 9/10 para 36/50 repelidas e 1 bot de 10/10 par
 Materiais novos: Couro de Troll, Presa de Troll, Pena de Flecha de Fogo, Aço Negro Orc; dos chefes: Coração de Rocha, Brasa do Mestre
 Besteiro, Insígnia de Ghar. Modelos em `mob_kit.horde_parts` (trolls cinza-azulados com pedras incrustadas; orcs de elmo de ferro; Ghar
 com chifres e estandarte). Besteiros empunham besta de verdade (`act2_bosses.crossbow`, clipe do mosquete) e os trolls têm corpo próprio (`chibi_kit.BODIES["troll"]`: ombros largos, braços compridos) e postura curvada somada a todos os clipes (`act2_bosses.posture`); os chefes do Ato II ganham peças grandes em `act2_bosses.boss_extras`. Pendente: som próprio do troll (usa a voz orc).
+
+**Cerco do Posto dos Caçadores** (2026-11-24, GDD `design/gdd/elf-siege-posto.md`; substitui a investida única de 240 s da Floresta).
+Mesmo `SiegeSystem` do porto, em portões: a leva desce a garganta norte e ataca, revezando, o **Portão Oeste** (flanco das teias; fecha com
+`els_steel`), o **portão norte** e o **Portão Leste** (flanco do bosque; fecha com `els_lynx`); portão fechado manda a leva ao norte. Pressão:
+1 (patrulha rara) até `el1_alarm`, 2 depois, 3 com `el5_wardens`, **0 com `el6_king`** (paz; os fortes não mudam nada). Leva de 10-12 elfos a cada
+~120 s (mesmo total de antes, dividido), nascendo em **escalões** (`Balance.SIEGE_STAGGER`: linces, espadas, arqueiros/magos, grifos, 4 s entre
+eles, num arco de 12 m, cada um numa vaga lateral) longe da chegada do portal; assédio de 2 Arqueiros Batedores na crista nordeste (8% da vida
+por círculo, `Balance.SIEGE_MAP`); 2 pares de linces batedores com trompa; reserva de 2 sentinelas. Invasores × 1,2 (`RAID_MAP_POWER`). Medido
+(nível 16, só a guarnição): norte 20/20, oeste 16/20, leste 7/20; com 1 bot 18-20/20; relógio real 30 min 75/92/90% com 0/1/3 bots;
+chegada espalhada (desvio 19-22 s), 13-18 vivos ao mesmo tempo (antes até 36). Rotas no `raids` de `data/zones/field_forest.json` (`build_field_forest.RAIDS`).
 
 **Chefes de mundo do Ato III** (2026-11-23, WP8a; GDD `design/gdd/ato3-excesso-45-50.md` §4, D11) — `MonstersCatalog._act3_field_bosses`
 (`ACT3_FIELD_BOSSES`), afinados para TRIO (faixa "grupo" do `boss_probe --bands`), spawner do `world_boss_hint` do JSON com renascimento

@@ -196,6 +196,9 @@
   Evento de estrada: ponto em `EVENT_POINTS` do `build_<zona>.py` (vira `SPAWN_event_<tipo>_NN` e `events` no JSON → `MapDef.road_events`; `EVENT_CONFLICT` = ponto fora das regras)
   + regras em `MapsCatalog.ROAD_EVENTS[<mapa>][<tipo>]` (monstro, vítima, falas, prêmio consumível) + números `Balance.EVENT_*`; sim em `RoadEventSystem`
   (`Sim.road_event_status/road_event_start`). Filmar: `-- --autostart=<classe> --event_shot=<png> [--event_point=N]`. Check `_check_road_events`.
+  Faixa élfica viva (GDD `elf-band-living`, 2026-11-24): `alarm: [x, z]` num NPC de rotina = abrigo enquanto houver leva de investida/cerco viva no mapa
+  (`NpcSystem.alarm_on` = `RoadEventSystem.raid_on`; `alarm_cry` = grito + trompa em `AmbientLife._on_alarm`); regra de evento aceita `if`/`unless`
+  (o tipo some do sorteio); `MapsCatalog.CATALOG_EVENT_POINTS` = pontos provisórios só para mapa cujo JSON não tem `events`. Check `_check_elf_living`.
 - **Investida / sentinela**: rota em `z.data["raid"]` no `build_<zona>.py` (from, route, target, radius) + levas/ritmo/falas em `MapsCatalog.RAIDS`;
   `RaidSystem` (relógio só com o jogador no mapa) e a marcha em `MonsterBrain._march`. Sentinela = NPC com `fighter` (monstro `guard_*` dá
   atributos), `gear` e `route`, em `MapsCatalog.FOREST_NPCS`; `GuardBrain`. Calibrar: `--headless --path . tools/tests/raid_probe.tscn -- [--trials=20] [--bots=0,1,3]`
