@@ -18,6 +18,10 @@ var skill_slots: Array = []         # 1-6 e, ascendido, 7 8 9 0 (Balance.ASC_SLO
 var asc_box: HBoxContainer          # as 4 vagas da ascensão (escondidas até a missão de ascensão)
 var potion_slots: Array = []
 var util_slots: Array = []          # [montaria (H), volta à cidade (G)]
+var dash_slot: Dictionary = {}      # esquiva (Shift), entre as skills e as poções
+var _row: HBoxContainer
+const ROW_SEP := 5
+const ROW_SEP_ASC := 3              # ascendida (7-0 + Shift): vagas mais juntas, a barra cabe entre o chat e a borda em 1600
 ## [tecla, ícone (assets/icons/action_<id>.png), dica]
 const UTIL := [["H", "mount", "Montar / desmontar (H)
 %s: anda %d%% mais rápido. Não dá para montar em combate."],
@@ -52,6 +56,7 @@ func build() -> void:
 	row.add_theme_constant_override("separation", 5)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_child(row)
+	_row = row
 	level_cap = Crest.new()
 	level_cap.kind = "level"
 	row.add_child(level_cap)
@@ -76,6 +81,16 @@ func build() -> void:
 		asc_box.add_child(s["root"])
 		skill_slots.append(s)
 	row.add_child(_divider())
+	dash_slot = make_button("Shift", POTION_PX)       # esquiva: leque da recarga e cargas no canto (hud._update_dash_slot)
+	dash_slot["root"].size_flags_vertical = Control.SIZE_SHRINK_END
+	dash_slot["tex"].texture = UiKit.icon_texture("action_dash")
+	dash_slot["bevel"].set_empty(false)
+	dash_slot["id"] = "dash"
+	var dchg: Label = dash_slot["chg"]                 # cargas embaixo à direita (em cima fica o "Shift")
+	dchg.anchor_top = 1.0; dchg.anchor_bottom = 1.0
+	dchg.offset_top = -17; dchg.offset_bottom = 0
+	dash_slot["root"].tooltip_text = dash_tip("", 1, Balance.DASH_COOLDOWN)
+	row.add_child(dash_slot["root"])                 # mesmo grupo das poções (sem divisória própria: a barra ascendida cabe em 1600)
 	for i in range(3):
 		var s := make_button("F%d" % (i + 1), POTION_PX)
 		s["root"].size_flags_vertical = Control.SIZE_SHRINK_END
@@ -130,6 +145,18 @@ func set_mount_kind(kind: String) -> void:
 			s["tex"].texture = UiKit.icon_texture(mount_icon(kind))
 			s["root"].tooltip_text = UTIL[0][2] % [mname, roundi((Balance.MOUNT_SPEED_MULT - 1.0) * 100.0)]
 
+## Dica da vaga do dash: tecla, recarga de agora e a evolução comprada (nome do TalentDef do dash), se houver.
+static func dash_tip(evolution: String, charges: int, cooldown: float) -> String:
+	var t := "Esquiva (Shift)
+Avança na direção em que você anda e fica intocável por um instante.
+Recarga: %.1f s" % cooldown
+	if charges > 1:
+		t += " · %d cargas seguidas" % charges
+	if evolution != "":
+		t += "
+Evolução: %s" % evolution
+	return t
+
 ## Tecla da vaga i da barra (0-9): "1".."9", e "0" na décima.
 static func key_of(i: int) -> String:
 	return str((i + 1) % 10)
@@ -155,6 +182,9 @@ func update_ult(p: SimEntity) -> void:
 ## Mostra as vagas 7-0 quando a barra do personagem tem mais de 6 (ascensão).
 func set_slot_count(n: int) -> void:
 	asc_box.visible = n > Balance.SKILL_SLOTS
+	var sep := ROW_SEP_ASC if asc_box.visible else ROW_SEP
+	if _row and _row.get_theme_constant("separation") != sep:
+		_row.add_theme_constant_override("separation", sep)
 
 ## Moldura: filete dourado por dentro e rebites de bronze no alto e embaixo.
 func _draw() -> void:

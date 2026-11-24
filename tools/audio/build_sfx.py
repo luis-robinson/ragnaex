@@ -386,6 +386,15 @@ def s_ult_ready(rng):
 	return out
 
 
+def s_dash_ready(rng):
+	# dash de volta (só o seu): "tic" curto e baixo, sino agudo seco + estalo fino; bem mais discreto que o ult_ready
+	out = zeros(0.22)
+	add(out, bell(0.18, NOTE(19), decay=26), 0.0, 0.32)
+	add(out, bell(0.14, NOTE(26), decay=34), 0.012, 0.12)
+	add(out, highpass(noise(0.03, rng, decay=60), 6000), 0.0, 0.06)
+	return out
+
+
 def s_quest_accept(rng):
 	out = zeros(0.5)
 	add(out, bell(0.3, NOTE(7), decay=9), 0, 0.5)
@@ -1165,7 +1174,7 @@ SYNTH = {
 	"poison": (s_poison, 3), "nature": (s_nature, 2), "wind": (s_wind, 2), "earth": (s_earth, 2),
 	"blood": (s_blood, 3), "lunar": (s_lunar, 2), "summon": (s_summon, 2), "heal": (s_heal, 2),
 	"bone": (s_bone, 3), "cast": (s_cast, 3), "dodge": (s_dodge, 3), "crit": (s_crit, 3),
-	"hurt": (s_hurt, 2), "bow": (s_bow, 4), "gun": (s_gun, 2), "level_up": (s_level_up, 1), "ult_ready": (s_ult_ready, 1),
+	"hurt": (s_hurt, 2), "bow": (s_bow, 4), "gun": (s_gun, 2), "level_up": (s_level_up, 1), "ult_ready": (s_ult_ready, 1), "dash_ready": (s_dash_ready, 1),
 	"quest_accept": (s_quest_accept, 1), "quest_done": (s_quest_done, 1), "recall": (s_recall, 1),
 	"recall_done": (s_recall_done, 1), "death": (s_death, 1), "firework": (s_firework, 3), "ui_open": (s_ui_open, 1), "ui_close": (s_ui_close, 1),
 	# Ato II (A Horda)

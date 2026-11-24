@@ -88,6 +88,10 @@ func _ready() -> void:
 	lock_marker.name = "LockMarker"
 	lock_marker.main = self
 	world_root.add_child(lock_marker)
+	var dash_gauge := DashGauge.new()          # Shift: gomos da recarga do dash nos pés do jogador (+ pista de pronto)
+	dash_gauge.name = "DashGauge"
+	dash_gauge.main = self
+	world_root.add_child(dash_gauge)
 	controller.lock_changed.connect(_on_lock_changed)
 
 	start_req = StartRequest.take()

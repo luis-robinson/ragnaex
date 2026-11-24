@@ -3284,6 +3284,7 @@ func _check_zone(gd, sim) -> void:
 	_check_character_window(gd, sim)
 	_check_hotbar_drag(gd, sim)
 	_check_action_bar(gd, sim)
+	_check_dash_display(gd, sim)
 	_check_craft_tooltip(gd, sim)
 	_check_hotbar_clear(gd, sim)
 	_check_ui_click_gate()
@@ -10517,6 +10518,61 @@ func _check_action_bar(_gd, _sim) -> void:
 	bar.set_xp(30, 0, 0)
 	check(bar.xp.frac == 1.0 and bar.xp.text.contains("máximo"), "barra: nível máximo")
 	check(ActionBar.MICRO.size() == 8, "barra: atalhos I C J K L P M Esc")
+	bar.free()
+
+## Dash (Shift) na tela (2026-11-24): gomos nos pés só do seu personagem (DashGauge, puro: fração por carga), vaga Shift na barra
+## entre as skills e as poções com leque e número de cargas, e pista de pronto (brilho + som dash_ready) só na volta da recarga cheia.
+func _check_dash_display(gd, sim) -> void:
+	var full := Balance.DASH_COOLDOWN
+	# 1 carga: pronto, recarga pela metade, recarga quase no fim
+	var st := DashGauge.pip_state(0.0, 0, 1, 1.0)
+	check(st["fills"] == [1.0] and st["ready"] == 1 and st["cycle"] == "", "dash: 1 carga pronta = gomo cheio")
+	st = DashGauge.pip_state(full * 0.5, 0, 1, 1.0)
+	check(is_equal_approx(float(st["fills"][0]), 0.5) and st["ready"] == 0 and st["cycle"] == "full" and is_equal_approx(float(st["left"]), 0.5), "dash: metade da recarga = gomo pela metade")
+	st = DashGauge.pip_state(full, 0, 1, 1.0)
+	check(is_equal_approx(float(st["fills"][0]), 0.0), "dash: recarga começando = gomo vazio")
+	# evolução que encurta a recarga: a fração usa o total certo
+	st = DashGauge.pip_state(full * 0.5 * 0.5, 0, 1, 0.5)
+	check(is_equal_approx(float(st["fills"][0]), 0.5), "dash: cooldown_mult 0,5 = metade do total menor")
+	# 2 cargas (Passo Duplo): uma gasta = intervalo curto, a outra enche; as duas gastas = recarga cheia nas duas
+	var gap := Balance.DASH_CHARGE_WINDOW * 0.25
+	st = DashGauge.pip_state(gap * 0.5, 1, 2, 1.0)
+	check(st["cycle"] == "gap" and is_equal_approx(float(st["fills"][0]), 0.5) and float(st["fills"][1]) == 0.0 and st["have"] == 1 and st["ready"] == 0, "dash 2 cargas: intervalo entre cargas (%s)" % [st])
+	st = DashGauge.pip_state(0.0, 1, 2, 1.0)
+	check(st["fills"] == [1.0, 0.0] and st["ready"] == 1, "dash 2 cargas: uma pronta, uma gasta")
+	st = DashGauge.pip_state(full * 0.25, 0, 2, 1.0)
+	check(st["cycle"] == "full" and is_equal_approx(float(st["fills"][0]), 0.75) and is_equal_approx(float(st["fills"][1]), 0.75) and st["have"] == 0, "dash 2 cargas: recarga cheia enche as duas")
+	check(DashGauge.pip_state(0.0, 0, 9, 1.0)["fills"].size() == DashGauge.MAX_PIPS, "dash: no máximo %d gomos" % DashGauge.MAX_PIPS)
+	# pista de pronto: uma vez, na passagem da recarga cheia; nunca parado, no nascer ou no intervalo
+	check(DashGauge.ready_cue(0.02, 0.0, 0), "dash: pista quando a recarga cheia acaba")
+	check(not DashGauge.ready_cue(0.0, 0.0, 0), "dash: sem pista parado em pronto (nem no nascer)")
+	check(not DashGauge.ready_cue(0.5, 0.48, 0), "dash: sem pista no meio da recarga")
+	check(not DashGauge.ready_cue(0.02, 0.0, 1), "dash: sem pista no intervalo entre cargas")
+	var cues := 0
+	var prev := 0.0
+	for cd in [0.0, full, 1.0, 0.5, 0.01, 0.0, 0.0, 0.0]:
+		if DashGauge.ready_cue(prev, cd, 0):
+			cues += 1
+		prev = cd
+	check(cues == 1, "dash: a pista toca uma vez por recarga (%d)" % cues)
+	# evolução de 2 cargas chega pelo dash_params da sim
+	var a: SimEntity = sim.spawn_bot(gd.classes["assassin"], "Passos", "city_aldara", Vector3(0, 0, 4), 30)
+	a.talents["ass_t_double_step"] = true
+	var dp: Dictionary = sim.dash_params(a)
+	check(int(dp["charges"]) == 2 and DashGauge.pip_state(0.0, 0, int(dp["charges"]), 1.0)["fills"].size() == 2, "dash: Passo Duplo = 2 gomos")
+	sim.despawn(a)
+	# barra: vaga Shift entre as skills e as poções, ícone, dica com a tecla
+	var bar := ActionBar.new()
+	bar.build()
+	var ds: Dictionary = bar.dash_slot
+	check(not ds.is_empty() and ds.get("id") == "dash" and ds.has("sweep") and ds.has("chg"), "barra: vaga do dash com leque e número de cargas")
+	if not ds.is_empty():
+		var row: Node = (ds["root"] as Control).get_parent()
+		var di: int = (ds["root"] as Control).get_index()
+		check(row == (bar.potion_slots[0]["root"] as Control).get_parent() and di > (bar.asc_box as Control).get_index() and di < (bar.potion_slots[0]["root"] as Control).get_index(), "barra: Shift fica entre as skills e as poções")
+		check(str(ds["root"].tooltip_text).contains("(Shift)") and ds["tex"].texture != null, "barra: Shift tem ícone e dica com a tecla")
+	check(ResourceLoader.exists("res://assets/icons/action_dash.png"), "ícone action_dash (make_icons -- --only=action)")
+	check(Sfx.VOL.has("dash_ready") and float(Sfx.VOL["dash_ready"]) <= -12.0 and ResourceLoader.exists("res://assets/audio/sfx/dash_ready_1.wav"), "som dash_ready baixo no banco (build_sfx --only=dash_ready)")
 	bar.free()
 
 ## Janela C compacta: os 11 slots no boneco (cada um uma vez), as duas abas cabem sem rolar e a janela cabe em 1280×720

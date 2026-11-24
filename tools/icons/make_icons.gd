@@ -100,7 +100,7 @@ const STATUS_ICONS := {"burn": ["fire", "flame"], "poison": ["poison", "drop"], 
 	"juramento": ["holy", "cross"], "buff": ["heal", "sun"]}
 ## ações fixas da barra (action_<chave>.png): montaria (H) e volta à cidade (G). [tema, símbolo]
 ## montaria que não é o cavalo: action_mount_<Balance.MOUNT_KINDS> (ActionBar.mount_icon)
-const ACTION_ICONS := {"mount": ["earth", "horse"], "mount_dire_wolf": ["earth", "wolf"], "recall": ["lunar", "portal"]}
+const ACTION_ICONS := {"mount": ["earth", "horse"], "mount_dire_wolf": ["earth", "wolf"], "recall": ["lunar", "portal"], "dash": ["wind", "dash"]}
 ## classe: [tema, símbolo, símbolo de trás (ou "")]
 const CLASS_ICONS := {
 	"paladin": ["holy", "shield", "sword"], "berserker": ["blood", "axe", "axe"], "bishop": ["heal", "cross", ""], "druid": ["nature", "leaf", "paw"],
@@ -982,6 +982,16 @@ func _g_wolf() -> void:
 	_c(0.13, -0.2, 0.03, INK, 0.0)
 	_l([0.4, -0.22, 0.4, 0.34], 4, 0.07)                                       # cabresto
 	_l([-0.3, -0.42, 0.4, -0.12], 4, 0.06)
+
+## Esquiva (Shift): bota inclinada para a frente com asinha no calcanhar e três rastros de vento atrás (desenho próprio).
+func _g_dash() -> void:
+	_l([-0.98, -0.34, -0.5, -0.34], 4, 0.08)                                    # rastros (atrás, à esquerda)
+	_l([-0.98, 0.06, -0.36, 0.06], 4, 0.08)
+	_l([-0.9, 0.46, -0.48, 0.46], 4, 0.08)
+	_p([-0.22, -0.84, 0.4, -0.84, 0.44, 0.1, 0.92, 0.36, 0.98, 0.84, -0.26, 0.84])
+	_p([-0.26, 0.6, 0.98, 0.6, 0.98, 0.84, -0.26, 0.84], 3, 0.04)              # sola
+	_l([-0.22, -0.62, 0.4, -0.62], 4, 0.06)                                     # punho da bota
+	_p([-0.2, -0.42, -0.66, -0.78, -0.52, -0.46, -0.74, -0.38, -0.5, -0.2, -0.2, -0.16], Color(0.94, 0.97, 1.0), 0.05)     # asinha
 
 ## Volta à cidade: portal em arco de pedra com redemoinho de luz dentro e degrau embaixo (desenho próprio).
 func _g_portal() -> void:

@@ -326,6 +326,9 @@ func after_start() -> void:
 	if DevArgs.flag("--reflection_shot"):   # --reflection_shot=<pasta>: Reflexo Vaidoso no tom de quem olha (2 classes + sem alvo)
 		_smoke_test = false
 		Callable(preload("res://game/dev/reflection_shot.gd"), "run").call_deferred(self, main, DevArgs.value("--reflection_shot"))
+	if DevArgs.flag("--dash_shot"):     # --dash_shot=<pasta> [--dash_talent=<id>]: gomos do dash nos pés + vaga Shift (DashGauge)
+		_smoke_test = false
+		Callable(preload("res://game/dev/dash_shot.gd"), "run").call_deferred(self, main, DevArgs.value("--dash_shot"))
 	if DevArgs.flag("--quest_shot"):    # --quest_shot=<png>: seta amarela do minimapa (objetivo neste mapa / noutro mapa) e sai
 		_smoke_test = false
 		_quest_shot(DevArgs.value("--quest_shot"))

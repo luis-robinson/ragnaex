@@ -601,12 +601,49 @@ Arraste outra poção da bolsa para cá · botão direito esvazia" % it.name) if
 		s["bevel"].set_empty(it == null)
 		s["cdt"].text = _cd_text(pcd) if pcd > 0.0 and it else ""
 	_update_util_slots(p, _delta)
+	_update_dash_slot(p, _delta)
 	_elem_t -= _delta
 	if _elem_t <= 0.0:
 		_elem_t = 0.2
 		_update_elem_frame(p)
 	_update_party_frames()
 	_update_status_bar(p)
+
+var _dash_dp: Dictionary = {}
+var _dash_dp_t := 0.0
+var _dash_tip := ""
+
+## Shift (dash) na barra: leque escuro na recarga cheia, claro no intervalo entre cargas (como _set_charges),
+## cargas que você tem no canto (só com 2+), véu morto/preso. Só lê a sim (Sim.dash_params a cada 0,5 s).
+func _update_dash_slot(p: SimEntity, delta: float) -> void:
+	var s: Dictionary = action_bar.dash_slot
+	if s.is_empty():
+		return
+	_dash_dp_t -= delta
+	if _dash_dp.is_empty() or _dash_dp_t <= 0.0:
+		_dash_dp_t = 0.5
+		_dash_dp = Sim.dash_params(p)
+		var evo: Array = []
+		for tid in p.talents:
+			var t: TalentDef = GameData.talents.get(tid)
+			if t and t.skill_id == TalentDef.DASH and p.stats.meets(t.requires):
+				evo.append(t.name)
+		var tip := ActionBar.dash_tip(", ".join(evo), int(_dash_dp["charges"]), Balance.DASH_COOLDOWN * float(_dash_dp["cooldown_mult"]))
+		if tip != _dash_tip:
+			_dash_tip = tip
+			s["root"].tooltip_text = tip
+	var n := int(_dash_dp["charges"])
+	var st := DashGauge.pip_state(p.dash_cd, p.dash_charges_used, n, float(_dash_dp["cooldown_mult"]))
+	var full: bool = st["cycle"] == "full"
+	s["sweep"].set_color(CD_SWEEP_DARK if full else CD_SWEEP_CHARGE)
+	s["sweep"].set_frac(float(st["left"]))
+	var txt := _cd_text(p.dash_cd) if full else ""
+	if s["cdt"].text != txt:
+		s["cdt"].text = txt
+	var ctxt := str(st["have"]) if n > 1 else ""
+	if s["chg"].text != ctxt:
+		s["chg"].text = ctxt
+	s["cd"].visible = not p.is_alive() or p.has_debuff("root")
 
 ## H (montaria) e G (volta à cidade) na barra: aro dourado quando ligados; os dois mostram a conjuração
 ## enchendo em leque claro.
