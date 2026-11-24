@@ -934,7 +934,7 @@ def _staff50(ck, base, mats, style):
     ln = 1.45
     bot, top = g - up * ln * 0.42, g + up * ln * 0.58
     parts = [ck.tube(n + "shaft", bot, top, 0.031, 0.029, M["t"], 8),
-             ck.tube(n + "foot", bot - up * 0.06, bot + up * 0.03, 0.012, 0.036, M["gold"], 8)]
+             ck.tube(n + "foot", bot - up * 0.035, bot + up * 0.03, 0.014, 0.036, M["gold"], 8)]
     for k in range(4):
         z = 0.1 + k * 0.12
         parts.append(ck.tube(n + "wrap%d" % k, g + up * (z - 0.016), g + up * (z + 0.016), 0.038, 0.038, M["gold"] if k % 2 == 0 else M["t2"], 8))
@@ -988,7 +988,7 @@ def build_staff50(ck, base, mats, style):
             a = math.radians(90 + (k - 3) * 28)
             dv = side * math.cos(a) + um * math.sin(a)
             wd = side * -math.sin(a) + um * math.cos(a)
-            ln = 0.2 + (0.09 if k == 3 else 0.04 if k % 2 else 0.0)
+            ln = 0.13 + (0.08 if k == 3 else 0.04 if k % 2 else 0.0)        # leque mais curto (era 0,2 +): a ponta dos cristais entrava 0,12 m no chão com o cajado virado
             parts.append(ck.blade(n + "shard%d" % k, c + dv * 0.13 - face * 0.02, c + dv * (0.15 + ln) - face * 0.03, 0.1, 0.04, glow if k % 2 == 0 else glass, wd, 0.35))
         parts += [ck.blade(n + "pendant", c - um * 0.15, c - um * 0.3 + face * 0.02, 0.06, 0.045, glass, side, 0.35),
                   ck.ball(n + "boss", 0.03, c - um * 0.155 + face * 0.01, gold)]

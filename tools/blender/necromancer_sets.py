@@ -793,6 +793,33 @@ def build_porcelain_cortege(ck, base, mats, style):
 #   nec_c50 Ceifador = Colheita do Último Brinde: capuz RASGADO de seda (tint2, borra de vinho) com bico caído e farrapos
 #           pendendo da barra, máscara de porcelana SEM boca com uma lágrima, GOLA ALTA de taças quebradas (cacos de vidro
 #           e ouro abrindo em volta do pescoço, lidos de cima), taça derramando no ombro, barra da túnica em farrapos.
+def _toast_goblet(ck, name, foot, s, M, lean_x, lean_f):
+    """Taça grande de ouro velho (altura 1,75 s) com o pé em foot, tombada lean_x rad para o lado (+ = +X) e lean_f para a
+    frente: pé largo, haste com nó, copa aberta com borda de porcelana e o vinho aceso (tint_glow) na boca, escorrendo
+    pelo lado para onde tomba. Silhueta de taça lida de longe (a lk.goblet pequena sumia atrás do capuz)."""
+    from mathutils import Matrix
+    V = Vector
+    gold, porc, glow = M["gold"], M["porc"], M["glow"]
+    out = [ck.tube(name + "_foot", V((0, 0, 0)), V((0, 0, s * 0.14)), s * 0.6, s * 0.2, gold, 8),
+           ck.tube(name + "_stem", V((0, 0, s * 0.12)), V((0, 0, s * 0.8)), s * 0.13, s * 0.13, gold, 6),
+           ck.ball(name + "_knob", s * 0.23, V((0, 0, s * 0.46)), gold, (1, 1, 0.8)),
+           ck.ball(name + "_bowl_base", s * 0.4, V((0, 0, s * 0.88)), gold, (1, 1, 0.7)),
+           ck.tube(name + "_bowl", V((0, 0, s * 0.82)), V((0, 0, s * 1.7)), s * 0.36, s * 0.86, gold, 10),
+           ck.tube(name + "_rim", V((0, 0, s * 1.64)), V((0, 0, s * 1.76)), s * 0.9, s * 0.93, porc, 10),
+           ck.ball(name + "_wine", s * 0.8, V((0, 0, s * 1.72)), glow, (1, 1, 0.22))]
+    sg = 1.0 if lean_x >= 0 else -1.0
+    out.append(ck.ball(name + "_lip_spill", s * 0.26, V((sg * s * 0.86, 0, s * 1.68)), glow, (0.7, 1.0, 0.8)))
+    m = Matrix.Rotation(lean_f, 3, "X") @ Matrix.Rotation(lean_x, 3, "Y")
+    foot = V(foot)
+    for o in out:
+        for v in o.data.vertices:
+            v.co = m @ v.co + foot
+    lip = m @ V((sg * s * 0.9, 0, s * 1.66)) + foot       # fio de vinho caindo a prumo da borda, com a gota na ponta
+    out += [ck.tube(name + "_stream", lip, lip + V((0, 0, -s * 1.5)), s * 0.14, s * 0.08, glow, 5),
+            ck.ball(name + "_drop", s * 0.2, lip + V((0, 0, -s * 1.68)), glow, (1, 1, 1.35))]
+    return out
+
+
 def build_last_toast_harvest(ck, base, mats, style):
     """nec_c50 — Colheita do Último Brinde (Ceifador)."""
     import lumeria_kit as lk
@@ -818,10 +845,24 @@ def build_last_toast_harvest(ck, base, mats, style):
     ck.skirt(P + "body_skirt", b, body, rig, t, 0.09, 1.7)
     bs._belt(ck, base, P + "body_belt", zw - 0.04, zw + 0.035, 1.21, gold)
     # ---------------- cabeça: capuz rasgado, máscara sem boca ----------------
-    k0, k1 = c + V((0, r * 0.25, r * 0.7)), c + V((0, r * 1.25, r * 0.95))
+    # capuz de ceifador com silhueta própria: bico caído sobre a testa (com gota acesa), ponta longa dobrada para trás em
+    # três trechos terminando num guizo, e duas abas de pano emoldurando a máscara (antes: casca redonda + um cone curto)
+    k0, k1, k2, k3 = c + V((0, r * 0.15, r * 0.72)), c + V((0, r * 1.05, r * 1.3)), c + V((0, r * 1.85, r * 1.05)), c + V((0, r * 2.2, r * 0.3))
     head = [ck._shell(P + "head_hood", c, r * 1.14, 0.42, -0.9, -0.62, 0.04, t2),
-            ck.tube(P + "head_peak", k0, k1, r * 0.8, r * 0.12, t2, 10),
+            ck.tube(P + "head_peak", k0, k1, r * 0.84, r * 0.46, t2, 8),
+            ck.tube(P + "head_peak1", k1, k2, r * 0.46, r * 0.26, t2, 8),
+            ck.tube(P + "head_peak2", k2, k3, r * 0.26, r * 0.1, t2, 6),
+            ck.ball(P + "head_peak_elbow", r * 0.46, k1, t2),
+            ck.ball(P + "head_peak_elbow1", r * 0.26, k2, t2),
+            ck.tube(P + "head_peak_ring", k1.lerp(k2, 0.45), k1.lerp(k2, 0.6), r * 0.4, r * 0.37, gold, 8),
+            ck.blade(P + "head_brow", c + V((0, -r * 0.35, r * 1.02)), c + V((0, -r * 1.52, r * 0.56)), r * 1.5, r * 0.14, t2, (1, 0, 0), 0.3),
+            ck.blade(P + "head_brow_trim", c + V((0, -r * 0.5, r * 0.93)), c + V((0, -r * 1.6, r * 0.5)), r * 1.3, r * 0.08, gold, (1, 0, 0), 0.3),
+            ck.ball(P + "head_brow_drop", r * 0.1, c + V((0, -r * 1.56, r * 0.4)), glow, (0.8, 0.8, 1.6)),
             ck.tube(P + "head_hood_trim", c + V((0, -r * 0.2, r * 0.44)), c + V((0, -r * 0.2, r * 0.52)), r * 1.14, r * 1.1, gold, 18)]
+    head += lk.bell(ck, P + "head_peak_bell", k3 + V((0, 0, -r * 0.14)), r * 0.17, M)
+    for sx in (-1, 1):                   # abas do capuz: descem dos lados da máscara e abrem para fora
+        e0 = c + V((sx * r * 1.02, -r * 0.5, r * 0.5))
+        head.append(ck.blade(P + "head_drape%d" % sx, e0, e0 + V((sx * r * 0.34, -r * 0.2, -r * 1.5)), r * 0.7, r * 0.09, t2, (0.25 * sx, 1, 0), 0.25))
     for k in range(9):                   # farrapos: tiras desiguais pendendo da barra do capuz, dos lados e atrás
         a = math.radians(70 + k * 27.5)  # 70° (lado esquerdo) a 290° (lado direito), passando pela nuca
         dv = V((math.sin(a), -math.cos(a), 0))
@@ -834,6 +875,8 @@ def build_last_toast_harvest(ck, base, mats, style):
     chest = [ck.tube(P + "body_collar", V((0, 0, zn - 0.08)), V((0, 0, zn + 0.0)), b["chest"] * 0.86, b["chest"] * 0.6, gold, 16)]
     n = 11
     for k in range(n):                   # cacos: abrem para fora e para cima, de ombro a ombro pela nuca (a frente fica livre)
+        if k in (1, 2):                  # vão no ombro esquerdo: é onde fica a taça grande (os cacos a escondiam)
+            continue
         a = math.radians(48 + k * 26.4)
         dv = V((math.sin(a), -math.cos(a) * 0.9, 0))
         root = dv * b["chest"] * 0.72 + V((0, 0, zn - 0.03))
@@ -853,7 +896,7 @@ def build_last_toast_harvest(ck, base, mats, style):
         ln = 0.2 + 0.14 * ((k * 3) % 4) / 3.0
         hips.append(ck.blade(P + "body_rag%d" % k, p0, p0 + dv * ln * 0.45 + V((0, 0, -ln)), 0.13, 0.016, t2, (-math.sin(a), math.cos(a), 0), 0.3))
     ck._rigid(bs._outward(hips), rig, "hips")
-    for s, sx in ((".R", -1), (".L", 1)):                 # ombros: manta rasgada; no direito, taça grande derramando vinho aceso
+    for s, sx in ((".R", -1), (".L", 1)):                 # ombros: manta rasgada; no esquerdo, taça grande derramando vinho aceso
         tag = s.replace(".", "_")
         sh = V(j["shoulder" + s])
         pa = [ck.ball(P + "body_pad" + tag, b["arm"] * 2.5, sh + V((sx * 0.06, 0, 0.02)), t2, (1.2, 1.2, 0.6))]
@@ -861,11 +904,8 @@ def build_last_toast_harvest(ck, base, mats, style):
             a = math.radians(-70 + k * 47)
             p0 = sh + V((sx * (0.06 + math.cos(a) * 0.12), math.sin(a) * 0.13, 0.0))
             pa.append(ck.blade(P + "body_shred%d%s" % (k, tag), p0, p0 + V((sx * math.cos(a) * 0.08, math.sin(a) * 0.07, -0.2 - (k % 2) * 0.09)), 0.11, 0.016, t2, (-math.sin(a), sx * math.cos(a), 0), 0.3))
-        if s == ".R":
-            top = sh + V((sx * 0.2, 0, 0.24))
-            pa += lk.goblet(ck, P + "body_shoulder_cup", top, 0.11, M)
-            pa += [ck.ball(P + "body_spill0", 0.03, top + V((sx * 0.085, -0.02, -0.03)), glow, (0.8, 0.8, 1.8)),
-                   ck.ball(P + "body_spill1", 0.036, top + V((sx * 0.1, -0.02, -0.12)), glow, (1, 1, 1.3))]
+        if s == ".L":                    # taça no ombro ESQUERDO (no direito a foice da mão direita a cobria)
+            pa += _toast_goblet(ck, P + "body_shoulder_cup", sh + V((sx * 0.27, -0.02, 0.09)), 0.15, M, sx * 0.3, 0.16)
         else:
             pa += lk.mask(ck, P + "body_shoulder_mask", sh + V((sx * 0.17, -0.02, 0.1)), 0.13, M, facing=(sx * 0.6, -0.3, 0.74), eyes=False, tears=(sx,), tear_len=0.45)
         ck._rigid(bs._outward(pa), rig, "upper_arm" + s)
@@ -1041,7 +1081,8 @@ def build_scythe50(ck, base, mats, style):
         parts += lk.lantern(ck, n + "lamp", hook - V((0, 0, 0.125)), 0.062, M, hang=hook)
         for i, dx in enumerate((-0.035, 0.035)):
             p0 = top + V((dx, 0.035, -0.11))
-            parts.append(lk.silk(ck, n + "strip%d" % i, p0, p0 + V((dx * 1.5, 0.1 + i * 0.05, -0.4 + i * 0.1)), (1, 0, 0), 0.06, 0.045, t2, (0, 0.03, 0), 4, 0.011))
+            # tiras curtas (eram 0,40/0,30): compridas, caíam até meia haste e atravessavam o capuz no cast_shadow (0,26 m)
+            parts.append(lk.silk(ck, n + "strip%d" % i, p0, p0 + V((dx * 1.5, 0.08 + i * 0.04, -0.2 + i * 0.05)), (1, 0, 0), 0.06, 0.045, t2, (0, 0.025, 0), 3, 0.011))
     elif kind == "c":
         dark = _obsidian(ck)
         parts += _scythe50_blade(ck, n, "blade", top, fw, 0.8 * S / 1.3, 0.095, 0.11, dark, glow)
@@ -1069,8 +1110,9 @@ def build_scythe50(ck, base, mats, style):
         for i in range(5):
             k = i / 4
             y = 0.04 + 0.34 * k
-            wd = 0.34 * (1 - k) + 0.05
-            pts.append(top + V((0, y, 0.14 * y / 0.4 - wd * 0.5)))
+            wd = 0.23 * (1 - k) + 0.05   # aleta dentro do envelope da foice do Ato II (crescente de trás): com 0,39 de
+            # altura pendurada ela descia a meia haste e atravessava o capuz no cast_curse / buff_power (0,21 m)
+            pts.append(top + V((0, y, 0.14 * y / 0.4 - wd * 0.5 + 0.07 * (1 - k))))
             widths.append(wd)
         parts.append(rs.ribbon(ck, n + "fin", pts, (0, 0, 1), widths, 0.012, t2))
         dead = dict(M, glow=M["ink"])    # lanterna apagada

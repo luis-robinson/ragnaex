@@ -1076,9 +1076,18 @@ def build_red_ribbon_feast(ck, base, mats, style):
     hair = bpy.data.materials.get("hair") or t
     # ---------------- cabeça: cabelo, coque, faixa com pontas longas, meia-máscara de sorriso rasgado ----------------
     head = [ck._shell(P + "head_hair", c + V((0, r * 0.04, r * 0.02)), r * 1.06, 0.3, -0.55, -0.2, 0.04, hair),
-            ck.ball(P + "head_knot", r * 0.3, c + V((0, r * 0.35, r * 1.2)), hair, (1, 1, 1.15)),
+            ck.ball(P + "head_knot", r * 0.24, c + V((0, r * 0.35, r * 1.16)), hair, (1, 1, 1.1)),
             ck.tube(P + "head_knot_tie", c + V((0, r * 0.3, r * 0.98)), c + V((0, r * 0.33, r * 1.08)), r * 0.24, r * 0.2, gold, 8),
             ck.tube(P + "head_band", c + V((0, 0, r * 0.3)), c + V((0, 0, r * 0.5)), r * 1.13, r * 1.09, t2, 18)]
+    # juba brava: rabo em chafariz saindo do coque e uma coroa de mechas espetadas para trás e para os lados
+    # (a casca lisa sozinha lia como cúpula de elmo vista de cima)
+    kt = c + V((0, r * 0.35, r * 1.2))
+    for i, (dx, dy, dz, w) in enumerate(((0.0, 1.5, 0.7, 0.36), (-0.8, 1.15, 0.55, 0.3), (0.8, 1.15, 0.55, 0.3), (0.0, 0.7, 1.1, 0.28))):
+        head.append(ck.tube(P + "head_plume%d" % i, kt, kt + V((dx * r, dy * r, dz * r)), r * w, r * 0.03, hair, 5))
+    head += lk.locks(ck, P + "head_mane", c + V((0, r * 0.04, r * 0.02)), r * 1.06, hair,
+                     [(-100, 6, 0.42, 0.56, 0.0), (-62, 20, 0.5, 0.6, 0.0), (-22, 8, 0.55, 0.62, 0.05), (22, 22, 0.55, 0.62, 0.0), (62, 6, 0.5, 0.6, 0.05),
+                      (100, 20, 0.42, 0.56, 0.0), (-78, -26, 0.36, 0.52, 0.2), (-40, -30, 0.42, 0.56, 0.25), (0, -32, 0.46, 0.58, 0.28), (40, -30, 0.42, 0.56, 0.25),
+                      (78, -26, 0.36, 0.52, 0.2), (-34, 50, 0.3, 0.5, 0.0), (34, 50, 0.3, 0.5, 0.0)], sweep=(0, 0.55, 0.12))
     for sx in (-1, 1):                   # pontas da faixa: longas, abrindo para trás (lidas de cima)
         p0 = c + V((sx * r * 0.12, r * 1.1, r * 0.4))
         head.append(lk.silk(ck, P + "head_tail%d" % sx, p0, p0 + V((sx * r * 0.75, r * 1.0, -r * 1.3)), (1, 0, 0.2), r * 0.26, r * 0.4, t2, (0, r * 0.16, 0), 4))
@@ -1133,7 +1142,7 @@ def build_red_ribbon_feast(ck, base, mats, style):
             p1 = p0 + V((sx * (0.26 + i * 0.08), 0.16 + sy * 0.1, -0.42 + i * 0.12))
             pa.append(lk.silk(ck, P + "body_ribbon%d%s" % (i, tag), p0, p1, (0.35 * sx, 1, 0), 0.08, 0.13, t2, (sx * 0.08, 0, 0.03), 4))
         ck._rigid(bs._outward(pa), rig, "upper_arm" + s)
-    lk.limbs(ck, base, mats, P, M, "leather", ribbon=1.25, boots_m=leather)
+    lk.limbs(ck, base, mats, P, M, "leather", ribbon=1.05, boots_m=leather)      # 1,25 varria o chão no atk_finisher/atk_leap
 
 
 def _fox_mask(ck, name, c, s, M):

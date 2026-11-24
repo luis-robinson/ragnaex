@@ -1414,7 +1414,10 @@ def build_tear_vigil(ck, base, mats, style):
 
 #   pal_c50 Cruzado = Cortejo do Juízo Claro: elmo aberto com MEIA-máscara de porcelana partida em diagonal (filete de ouro
 #           na quebra, lágrima no olho que ficou), penacho de seda (tint2, vinho), ombreiras altas em barbatana, espelho
-#           redondo no peito, fitas cruzadas nas costas e capa longa em cinco tiras de seda até o tornozelo.
+#           redondo no peito, fitas cruzadas nas costas e capa em cinco tiras de seda até o joelho (presa ao peito).
+CAPE50_Z = 0.24                          # barra da capa em tiras do pal_c50 (joelho do chibi = 0,2)
+
+
 def build_clear_judgement(ck, base, mats, style):
     """pal_c50 — Cortejo do Juízo Claro (Cruzado, placa)."""
     import lumeria_kit as lk
@@ -1465,11 +1468,14 @@ def build_clear_judgement(ck, base, mats, style):
               ck.ball(P + "body_cross_tear", 0.018, (0, back + 0.062, (zn + zw) * 0.5 - 0.005), glow, (0.8, 0.6, 1.7))]
     ck._rigid(bs._outward(chest), rig, "chest")
     cape = []
-    for k in range(5):                   # capa longa: cinco tiras do alto das costas até o tornozelo, abrindo (pesos do corpo)
+    # capa em cinco tiras do alto das costas até o joelho, abrindo para trás. Presa ao PEITO (como a capa do kit e a
+    # meia-capa do pal_c35): com os pesos do corpo e a barra no tornozelo as tiras seguiam as pernas e entravam
+    # 0,32-0,40 m no chão nos agachamentos (atk_leap, atk_finisher, buff_guard, cast_holy).
+    for k in range(5):
         q = (k - 2) / 2.0
-        cape.append(lk.silk(ck, P + "body_cape%d" % k, (q * b["chest"] * 0.8, back + 0.05, zn - 0.02), (q * 0.42, back + 0.36 - abs(q) * 0.08, 0.12 + (k % 2) * 0.07),
-                            (1, -q * 0.3, 0), 0.115, 0.17, t2, (0, 0.05, 0), 6, 0.016))
-    lk.skinned(ck, base, bs._outward(cape))
+        cape.append(lk.silk(ck, P + "body_cape%d" % k, (q * b["chest"] * 0.8, back + 0.05, zn - 0.02), (q * 0.46, back + 0.4 - abs(q) * 0.08, CAPE50_Z + (k % 2) * 0.06),
+                            (1, -q * 0.3, 0), 0.115, 0.18, t2, (0, 0.05, 0), 6, 0.016))
+    ck._rigid(bs._outward(cape), rig, "chest")
     bs._belt(ck, base, P + "body_belt", zw - 0.04, zw + 0.035, 1.2, gold)
     hips = [_banner(ck, P + "body_tabard_f", wf - 0.02, zw - 0.03, 0.1, 0.34, 0.016, t2),
             _banner(ck, P + "body_tabard_hem_f", wf - 0.015, zw - 0.03, 0.115, 0.37, 0.01, gold),

@@ -3305,6 +3305,7 @@ func _check_zone(gd, sim) -> void:
 	_check_zone_dress(gd)
 	_check_model_leaks()
 	_check_mob_glow(gd, sim)
+	_check_reflection_tint(gd, sim)
 	_check_repeatable_labels(gd)
 	_check_reset_and_coin(gd, sim)
 	_check_escort(gd, sim)
@@ -10018,6 +10019,73 @@ func _check_mob_glow(gd, sim) -> void:
 	check(flash_ok, "Kragmar: superfície que brilha recebe o hit flash")
 	v.free()
 	sim.despawn(boss)
+
+## Reflexo Vaidoso (GDD ato3-excesso-45-50: "mostra a silhueta de quem olha"): a silhueta do vidro (material `*_shade`) fica
+## numa superfície própria da fusão e pega o tom do alvo (armadura do peito / cor da classe, escurecido); sem alvo, o azul-cinza
+## do modelo. Outros monstros de peças rígidas fundem como antes (mesmo nº de superfícies). `--only=reflection`
+func _check_reflection_tint(gd, sim) -> void:
+	# spawn_bot sorteia no rng da sim: guarda e devolve o estado para não mudar os checks que vêm depois
+	var rng_state: int = sim.rng.state
+	var refl: SimEntity = sim.spawn_monster(gd.monsters["vain_reflection"], "city_aldara", Vector3(6, 0, 9))
+	var v := EntityView.new()
+	add_child(v)
+	v.setup(refl, false)
+	var merged := v.find_children("RigidMerged", "MeshInstance3D", true, false)
+	check(merged.size() == 1, "Reflexo: peças rígidas viram uma malha (%d)" % merged.size())
+	var shade = v.get("shade_mat")
+	check(shade is ShaderMaterial, "Reflexo: a view guarda o material da silhueta")
+	var own := 0
+	if merged.size() == 1 and shade is ShaderMaterial:
+		var mm := merged[0] as MeshInstance3D
+		for si in mm.mesh.get_surface_count():
+			if mm.get_surface_override_material(si) == shade:
+				own += 1
+		check(shade.get_shader_parameter("vcol_srgb") != true, "Reflexo: a silhueta não é cor no vértice (pode trocar de cor)")
+	check(own == 1, "Reflexo: a silhueta é uma superfície própria da fusão (%d)" % own)
+	var pal: SimEntity = sim.spawn_bot(gd.classes["paladin"], "EspelhoA", "city_aldara", Vector3(7, 0, 9), 45)
+	var ele: SimEntity = sim.spawn_bot(gd.classes["elementalist"], "EspelhoB", "city_aldara", Vector3(5, 0, 9), 45)
+	if shade is ShaderMaterial and v.has_method("update_shade"):
+		var idle: Color = shade.get_shader_parameter("albedo")
+		refl.aggro_target = pal.id
+		v.call("update_shade")
+		var c_pal: Color = shade.get_shader_parameter("albedo")
+		check(c_pal.is_equal_approx(v.call("reflection_tone", pal)), "Reflexo: mirando o Paladino, a silhueta pega o tom dele (%s)" % c_pal.to_html(false))
+		refl.aggro_target = ele.id
+		v.call("update_shade")
+		var c_ele: Color = shade.get_shader_parameter("albedo")
+		check(c_ele.is_equal_approx(v.call("reflection_tone", ele)) and not c_ele.is_equal_approx(c_pal),
+			"Reflexo: troca de alvo troca o tom (%s -> %s)" % [c_pal.to_html(false), c_ele.to_html(false)])
+		check(c_ele.v < v.call("reflection_source", ele).v, "Reflexo: o tom sai mais escuro que a cor de quem olha (reflexo)")
+		refl.aggro_target = -1
+		v.call("update_shade")
+		check((shade.get_shader_parameter("albedo") as Color).is_equal_approx(idle), "Reflexo: sem alvo volta ao azul-cinza do modelo")
+		refl.aggro_target = 999999
+		v.call("update_shade")
+		check((shade.get_shader_parameter("albedo") as Color).is_equal_approx(idle), "Reflexo: alvo que sumiu = azul-cinza")
+	else:
+		check(false, "Reflexo: EntityView.update_shade existe")
+	v.free()
+	for e in [refl, pal, ele]:
+		sim.despawn(e)
+	sim.rng.state = rng_state
+	# outros monstros de peças rígidas: a fusão não muda (contagem medida antes da mudança)
+	var counts := {}
+	for mid in REFLECTION_BASELINE:
+		var m: SimEntity = sim.spawn_monster(gd.monsters[mid], "city_aldara", Vector3(6, 0, 12))
+		var w := EntityView.new()
+		add_child(w)
+		w.setup(m, false)
+		var rm := w.find_children("RigidMerged", "MeshInstance3D", true, false)
+		counts[mid] = (rm[0] as MeshInstance3D).mesh.get_surface_count() if rm.size() == 1 else -1
+		w.free()
+		sim.despawn(m)
+	print("REFLECTION_BASELINE ", counts)
+	for mid in REFLECTION_BASELINE:
+		check(counts[mid] == REFLECTION_BASELINE[mid], "fusão de %s sem mudança: %d superfícies (antes %d)" % [mid, counts[mid], REFLECTION_BASELINE[mid]])
+	sim.rng.state = rng_state
+
+## Superfícies da malha fundida (RigidMerge) medidas ANTES de a silhueta do Reflexo ganhar superfície própria.
+const REFLECTION_BASELINE := {"boar": 1, "living_censer": 3, "standing_mirror": 2}
 
 func _check_model_leaks() -> void:
 	var dir := DirAccess.open("res://assets/models")

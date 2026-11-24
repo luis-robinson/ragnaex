@@ -1159,13 +1159,23 @@ def build_last_ball_salvo(ck, base, mats, style):
     # ---------------- cabeça: cabelo, cartola, óculos espelhados ----------------
     up = V((0.0, 0.12, 1.0)).normalized()                 # cartola levemente caída para trás
     h0 = c + V((0, 0, r * 0.6))
-    head = [ck._shell(P + "head_hair", c + V((0, r * 0.04, r * 0.02)), r * 1.06, 0.25, -0.85, -0.25, 0.04, hair),
+    hc = c + V((0, r * 0.04, r * 0.02))
+    head = [ck._shell(P + "head_hair", hc, r * 1.06, 0.25, -0.5, -0.25, 0.04, hair),
             ck.tube(P + "head_brim", h0, h0 + up * r * 0.09, r * 1.42, r * 1.46, t2, 20),
             ck.tube(P + "head_crown", h0 + up * r * 0.08, h0 + up * r * 1.45, r * 0.8, r * 0.92, t2, 16),
             ck.tube(P + "head_crown_top", h0 + up * r * 1.45, h0 + up * r * 1.5, r * 0.95, r * 0.9, t2, 16),
             ck.tube(P + "head_hatband", h0 + up * r * 0.1, h0 + up * r * 0.4, r * 0.84, r * 0.86, t, 16),
             ck.tube(P + "head_hatband_rim", h0 + up * r * 0.4, h0 + up * r * 0.46, r * 0.875, r * 0.875, gold, 16)]
     head += lk.mirror(ck, P + "head_hat_mirror", h0 + up * r * 0.72 + V((0, -r * 0.88, 0)), r * 0.2, M, facing=(0, -1, 0.1), rays=6)
+    # cabelo de baile: barra de mechas abrindo na nuca, franja em pontas e dois cachos em rosca que passam da aba
+    # (a casca lisa sozinha lia como cúpula de elmo debaixo da cartola)
+    head += lk.locks(ck, P + "head_lock", hc, r * 1.06, hair,
+                     [(-75, -30, 0.3, 0.36, 0.3), (-45, -34, 0.36, 0.38, 0.34), (-15, -36, 0.4, 0.38, 0.36), (15, -36, 0.4, 0.38, 0.36), (45, -34, 0.36, 0.38, 0.34),
+                      (75, -30, 0.3, 0.36, 0.3), (150, 22, 0.16, 0.3, 0.3), (180, 26, 0.18, 0.3, 0.3), (-150, 22, 0.16, 0.3, 0.3)])
+    for sx in (-1, 1):
+        q0 = c + V((sx * r * 1.0, r * 0.12, r * 0.05))
+        head += lk.ringlet(ck, P + "head_curl%d" % sx, q0, q0 + V((sx * r * 0.85, r * 0.1, -r * 1.45)), r * 0.42, hair, 4)
+        head.append(ck.ball(P + "head_curl_bow%d" % sx, r * 0.15, q0 + V((sx * r * 0.14, -r * 0.05, r * 0.05)), gold))
     for sx in (-1, 1):                   # pontas da fita da cartola, para trás
         p0 = h0 + up * r * 0.25 + V((sx * r * 0.14, r * 0.84, 0))
         head.append(lk.silk(ck, P + "head_hat_tail%d" % sx, p0, p0 + V((sx * r * 0.5, r * 0.75, -r * 0.85)), (1, 0, 0), r * 0.2, r * 0.3, t, (0, r * 0.12, 0), 3))
@@ -1228,11 +1238,12 @@ def _antler(ck, name, root, sx, r, material):
     p0 = V(root)
     p1 = p0 + V((sx * r * 1.15, r * 0.5, r * 1.3))
     bend = V((sx * r * 0.34, r * 0.1, -r * 0.12))
-    out = curve(ck, name + "_beam", p0, p1, bend, r * 0.18, material, 5, 7, r * 0.05)
-    for i, (k, ln) in enumerate(((0.26, 0.62), (0.56, 0.7), (0.84, 0.5))):
+    # grossa e simples (lida a 24 m): haste robusta e duas pontas cheias; a ponta da haste fecha o garfo de cima
+    out = curve(ck, name + "_beam", p0, p1, bend, r * 0.3, material, 4, 6, r * 0.1)
+    for i, (k, ln) in enumerate(((0.3, 0.8), (0.68, 0.9))):
         q = p0.lerp(p1, k) + bend * math.sin(math.pi * k)
-        tip = q + V((sx * r * 0.12 * (1 if i != 1 else -0.6), -r * 0.6 * ln, r * ln))
-        out += curve(ck, name + "_tine%d" % i, q, tip, (0, -r * 0.1, -r * 0.06), r * 0.12, material, 3, 6, r * 0.025)
+        tip = q + V((sx * r * 0.16 * (1 if i == 0 else -0.5), -r * 0.62 * ln, r * ln))
+        out += curve(ck, name + "_tine%d" % i, q, tip, (0, -r * 0.1, -r * 0.06), r * 0.21, material, 2, 6, r * 0.06)
     return out
 
 
@@ -1458,15 +1469,21 @@ def build_spear50(ck, base, mats, style="ran_l50"):
     for k, z in enumerate((-0.42, 0.42, 0.9)):       # cintas de ouro na haste de porcelana
         parts.append(ck.tube(n + "gold_band%d" % k, g + ax * z, g + ax * (z + 0.035), 0.027, 0.027, gold, 8))
     parts.append(ck.tube(n + "rune", g + ax * 1.02 * L, g + ax * 1.1 * L, 0.027, 0.027, glow, 8))
-    # flâmulas: fitas largas deitadas (largura em X) que voam para trás; lidas pela câmera de cima
+    # flâmulas: fitas largas deitadas (largura em X), AMARRADAS ao longo da haste (correm do alvado para a mão, só um
+    # palmo fora dela). Soltas para trás (0,84 m de lado) elas entravam 0,30 m no chão nas estocadas para baixo
+    # (atk_leap, atk_finisher, cast_ground); rente à haste ficam dentro do envelope da lança do Ato II.
+    up = ax.cross(side).normalized()     # perpendicular à haste, para trás e para cima
     f0 = top - ax * 0.1
+    a1 = f0 - ax * 0.5 + up * 0.06 + side * 0.07
     parts += [ck.ball(n + "flag_knot", 0.034, f0, gold),
-              lk.silk(ck, n + "flag_a", f0, f0 + V((0.08, 0.72, -0.12)), (1, 0, 0.15), 0.27, 0.12, t2, (0.06, 0, 0.06), 5, 0.012),
-              lk.silk(ck, n + "flag_a_edge", f0 + V((0.08, 0.72, -0.12)), f0 + V((0.09, 0.84, -0.14)), (1, 0, 0.15), 0.12, 0.02, gold, (0, 0, 0), 2, 0.012)]
+              lk.silk(ck, n + "flag_a", f0, a1, (1, 0, 0.15), 0.27, 0.13, t2, up * 0.02, 5, 0.012),
+              lk.silk(ck, n + "flag_a_edge", a1, a1 - ax * 0.1 + up * 0.01, (1, 0, 0.15), 0.13, 0.02, gold, (0, 0, 0), 2, 0.012)]
     f1 = top - ax * 0.34
+    b1 = f1 - ax * 0.4 - up * 0.07 - side * 0.09
     parts += [ck.tube(n + "flag_ring", f1 - ax * 0.015, f1 + ax * 0.015, 0.03, 0.03, gold, 8),
-              lk.silk(ck, n + "flag_b", f1, f1 + V((-0.1, 0.52, -0.18)), (1, 0, -0.15), 0.21, 0.1, t2, (-0.05, 0, 0.05), 4, 0.012),
-              lk.silk(ck, n + "flag_b_tail", f1 + V((-0.1, 0.52, -0.18)), f1 + V((-0.12, 0.63, -0.22)), (1, 0, -0.15), 0.1, 0.02, glow, (0, 0, 0), 2, 0.012)]
+              lk.silk(ck, n + "flag_b", f1, b1, (1, 0, -0.15), 0.21, 0.1, t2, up * -0.03, 4, 0.012),
+              lk.silk(ck, n + "flag_b_tail", b1, b1 - ax * 0.09 - up * 0.01, (1, 0, -0.15), 0.1, 0.02, glow, (0, 0, 0), 2, 0.012),
+              ck.tube(n + "flag_tie", top - ax * 0.62, top - ax * 0.59, 0.03, 0.03, gold, 8)]
     for k in range(3):                   # cacho de guizos sob o alvado
         parts += lk.bell(ck, n + "bell%d" % k, top - ax * (0.2 + k * 0.035) + V(((k - 1) * 0.04, -0.03, -0.035 - (k % 2) * 0.02)), 0.027, M)
     obj = ck._join(outward(parts), "wpn_main_spear_%s" % style)

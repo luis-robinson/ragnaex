@@ -484,8 +484,12 @@ def vain_reflection(cid="mob_vain_reflection"):
     for sx in (-1, 1):                 # festões de ouro da cintura à barra (as "dobras" do vestido) e fitas nos cantos
         parts.append((ck.tube("swag%d" % sx, (sx * 0.08, -0.02, 1.02), (sx * 0.27, -0.02, 0.24), 0.02, 0.02, gold, 4), "body"))
         parts.append((lm._veil("hemribbon%d" % sx, V((sx * 0.5, 0.03, 0.36)), V((sx * 0.56, 0.1, 0.1)), 0.09, 0.06, veil, (sx * 0.02, 0.03, 0), 3, 0.3), "body"))
-    parts.append((P("shade_body", [(-0.15, 0.3), (0.15, 0.3), (0.1, 0.62), (-0.1, 0.62)], -0.02, 0.012, shade), "glass"))
-    parts.append((ck.ball("shade_head", 1.0, (0, -0.02, 0.76), shade, (0.14, 0.008, 0.14)), "glass"))
+    # silhueta de quem olha (o jogo pinta `m_<cid>_shade` com a cor da classe do alvo): chibi GRANDE e saltado do vidro
+    # (frente em y -0,047; o vidro acaba em -0,015 e os festões em -0,04). Pequena e a 1 cm do vidro ela mal se lia
+    # da câmera de 52 graus. Cabeça = disco chato de 12 lados; corpo = trapézio com ombros.
+    sy, st = -0.04, 0.014
+    parts.append((P("shade_body", [(-0.21, 0.24), (0.21, 0.24), (0.2, 0.3), (0.13, 0.62), (-0.13, 0.62), (-0.2, 0.3)], sy, st, shade), "glass"))
+    parts.append((P("shade_head", [(math.cos(math.tau * k / 12) * 0.165, 0.79 + math.sin(math.tau * k / 12) * 0.165) for k in range(12)], sy, st, shade), "glass"))
     parts.append((P("glint_a", [(-0.34, 0.42), (-0.25, 0.42), (-0.1, 0.92), (-0.17, 0.92)], -0.017, 0.008, mir2), "glass"))
     parts.append((P("glint_b", [(0.22, 0.34), (0.28, 0.34), (0.36, 0.56), (0.31, 0.56)], -0.017, 0.008, mir2), "glass"))
     # ---- corpete: vidro estreito da cintura aos ombros, moldura dos lados, cinto e ombros de ouro, véu num ombro ----
@@ -524,7 +528,7 @@ def vain_reflection(cid="mob_vain_reflection"):
                   (ck.blade(s + "_shard_back", p0 + V((0, 0.022, 0)), p1.lerp(p0, 0.06) + V((0, 0.022, 0)), 0.18, 0.02, gold, (1, 0, 0.3 * sx), 0.3), s),
                   (ck.ball(s + "_cuff", 0.05, p0.lerp(p1, 0.3) + V((0, 0.005, 0)), gold2, (1.5, 0.9, 0.7)), s)]
     for obj, bone in parts:
-        round_ = obj.name.startswith(("frame_j", "shoulder", "waistgem", "tear", "crest_gem", "face", "drape", "hemribbon", "shade_head")) or "_cuff" in obj.name
+        round_ = obj.name.startswith(("frame_j", "shoulder", "waistgem", "tear", "crest_gem", "face", "drape", "hemribbon")) or "_cuff" in obj.name
         for p in obj.data.polygons:
             p.use_smooth = round_ and not obj.name.startswith("face_glint")
         mk.lp.attach(bs._outward([obj])[0], arm, bone)

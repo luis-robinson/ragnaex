@@ -174,6 +174,8 @@ static func mat_key(m: Material, allow_vcol: bool = false) -> String:
 	if not (m is ShaderMaterial):
 		return "o%d" % m.get_instance_id()
 	var sm := m as ShaderMaterial
+	if is_shade(m):
+		return "s|%d" % m.get_instance_id()      # silhueta que muda de cor por bicho (Reflexo): superfície própria, fora da cor no vértice
 	var col = sm.get_shader_parameter("albedo")
 	var tex = sm.get_shader_parameter("albedo_tex")
 	if allow_vcol and _vcol_ok(sm):
@@ -182,6 +184,13 @@ static func mat_key(m: Material, allow_vcol: bool = false) -> String:
 	return "%s|%s|%s|%s|%s|%d|%d" % [str(col), str(sm.get_shader_parameter("spec_strength")), str(sm.get_shader_parameter("emission_amount")),
 		str(sm.get_shader_parameter("shadow_strength")), str(sm.get_shader_parameter("rim_strength")), 1 if sm.next_pass else 0,
 		tex.get_instance_id() if tex else 0]
+
+## Material de silhueta (nome do Blender termina em `_shade`, guardado no toon pelo EntityView): a cor é trocada por
+## instância depois da fusão, então não pode ir para o vértice nem dividir superfície. Só o Reflexo Vaidoso tem hoje.
+static func is_shade(m: Material) -> bool:
+	return m != null and m.resource_name.ends_with(SHADE_SUFFIX)
+
+const SHADE_SUFFIX := "_shade"
 
 ## Toon sem textura: a cor pode ir para o vértice.
 static func _vcol_ok(sm: ShaderMaterial) -> bool:

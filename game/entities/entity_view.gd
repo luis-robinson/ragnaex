@@ -8,6 +8,9 @@ var model_root: Node3D
 var anim: AnimationPlayer = null
 var mat: ShaderMaterial = null          # material único (hit flash) dos placeholders
 var _mats: Array = []                   # todos os materiais toon do GLB (hit flash)
+var shade_mat: ShaderMaterial = null    # silhueta no vidro do Reflexo Vaidoso (`*_shade`): pega o tom de quem ele mira
+var _shade_idle := Color()              # azul-cinza do modelo (sem alvo)
+var _shade_seen := -2                   # aggro_target da última pintura da silhueta
 var kit: KitModel = null                # personagens/NPCs: kit modular com as peças do equipamento
 var form_view: FormModel = null
 var horse: FormModel = null              # montado: o cavalo (o boneco senta na sela)
@@ -353,6 +356,38 @@ func _find_anim(n: Node) -> AnimationPlayer:
 			return r
 	return null
 
+## Reflexo Vaidoso (GDD ato3-excesso-45-50: "mostra a silhueta de quem olha"): a silhueta do vidro pega o tom do alvo
+## atual (só lê a sim). Sem alvo, ou alvo que sumiu: o azul-cinza do modelo.
+func update_shade() -> void:
+	if shade_mat == null:
+		return
+	_shade_seen = entity.aggro_target
+	var t: SimEntity = Sim.get_entity(entity.aggro_target) if entity.aggro_target >= 0 else null
+	shade_mat.set_shader_parameter("albedo", reflection_tone(t) if t != null else _shade_idle)
+
+## Cor de quem olha: a da classe (as armaduras de tier têm todas a mesma cor de ícone, não distinguem); sem classe
+## (guarda, NPC com equipamento), a armadura do peito; monstro/NPC pela cor própria.
+static func reflection_source(t: SimEntity) -> Color:
+	if t.class_def != null:
+		return t.class_def.color
+	var body: ItemDef = t.equipment.get(ItemDef.Slot.BODY)
+	if body != null:
+		return body.icon_color
+	if t.monster_def != null:
+		return t.monster_def.color
+	return Color(t.npc_data.get("color", REFLECTION_IDLE))
+
+## Tom da silhueta: a cor de quem olha puxada para o vidro e escurecida (lê como reflexo, não como pintura).
+const REFLECTION_IDLE := Color(0.42, 0.46, 0.55)     # só se o alvo não tiver cor nenhuma
+const REFLECTION_GLASS := Color(0.45, 0.5, 0.6)      # azul do vidro misturado no tom
+const REFLECTION_GLASS_MIX := 0.3
+const REFLECTION_DARKEN := 0.35
+
+static func reflection_tone(t: SimEntity) -> Color:
+	var c := reflection_source(t).lerp(REFLECTION_GLASS, REFLECTION_GLASS_MIX).darkened(REFLECTION_DARKEN)
+	c.a = 1.0
+	return c
+
 ## Monstro que usa o modelo de outro (Slime Azul em mob_slime, Presa-Rachada em mob_boar): o corpo puxa para a cor dele,
 ## medida contra a cor do monstro dono do modelo; olhos, brilho e chifre/presa não mudam. O dono do modelo fica como está.
 const FIXED_MATS := ["m_eye", "m_white", "m_horn"]
@@ -415,6 +450,11 @@ func _apply_toon_recursive(n: Node) -> void:
 			if glow > 0.0:
 				col = glow_color(base)      # brasa/runa/olho: o tom do Blender (o import clareia), sem tingir pela variante
 			var tm := Materials.toon_unique(col)
+			if RigidMerge.is_shade(base):
+				tm.resource_name = base.resource_name     # a fusão separa a superfície pelo nome (RigidMerge.mat_key)
+				shade_mat = tm
+				_shade_idle = col
+				_shade_seen = -2
 			if glow > 0.0:
 				tm.set_shader_parameter("emission_amount", glow)
 			if base is BaseMaterial3D and base.albedo_texture:
@@ -1062,6 +1102,7 @@ func _swap_monster_model() -> void:
 	_stance_main.clear()
 	_stance_alt.clear()
 	_stance_seen = ""
+	shade_mat = null
 	_prey_fx = null
 	_model_top = 0.0
 	_act_skill = null
@@ -1296,6 +1337,8 @@ func _process_view(delta: float) -> void:
 		_push_t += delta
 		var k := clampf(_push_t / PUSH_IN, 0.0, 1.0) * (1.0 - smoothstep(PUSH_IN, PUSH_IN + PUSH_OUT, _push_t))
 		position += _push * k
+	if shade_mat and entity.aggro_target != _shade_seen:
+		update_shade()
 	if entity.falcon != (falcon_view != null):
 		_swap_falcon()
 	if falcon_view:

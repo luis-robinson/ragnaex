@@ -323,6 +323,9 @@ func after_start() -> void:
 	if DevArgs.flag("--aura_shot"):     # --aura_shot=<png>: bando da Horda com Agitador ao lado do jogador (anel do raio da aura no chão, buffados marcados)
 		_smoke_test = false
 		_aura_shot(DevArgs.value("--aura_shot"))
+	if DevArgs.flag("--reflection_shot"):   # --reflection_shot=<pasta>: Reflexo Vaidoso no tom de quem olha (2 classes + sem alvo)
+		_smoke_test = false
+		Callable(preload("res://game/dev/reflection_shot.gd"), "run").call_deferred(self, main, DevArgs.value("--reflection_shot"))
 	if DevArgs.flag("--quest_shot"):    # --quest_shot=<png>: seta amarela do minimapa (objetivo neste mapa / noutro mapa) e sai
 		_smoke_test = false
 		_quest_shot(DevArgs.value("--quest_shot"))

@@ -1124,15 +1124,29 @@ def build_mirror_foil(ck, base, mats, style):
     # ---------------- cabeça: cabelo, chapéu de pluma, dominó espelhado ----------------
     up = V((0.26, 0.05, 1.0)).normalized()
     h0 = c + V((0, r * 0.02, r * 0.58))
-    head = [ck._shell(P + "head_hair", c + V((0, r * 0.04, r * 0.02)), r * 1.06, 0.3, -0.8, -0.25, 0.04, hair),
+    hc = c + V((0, r * 0.04, r * 0.02))
+    head = [ck._shell(P + "head_hair", hc, r * 1.06, 0.3, -0.45, -0.25, 0.04, hair),
             ck.tube(P + "head_brim", h0, h0 + up * r * 0.08, r * 1.62, r * 1.7, t2, 20),
             ck.tube(P + "head_brim_rim", h0 + up * r * 0.015, h0 + up * r * 0.06, r * 1.73, r * 1.73, gold, 20),
             ck.tube(P + "head_crown", h0 + up * r * 0.07, h0 + up * r * 0.62, r * 0.86, r * 0.74, t2, 14),
             ck.tube(P + "head_hatband", h0 + up * r * 0.1, h0 + up * r * 0.26, r * 0.9, r * 0.88, gold, 14)]
+    # cabelo de mosqueteiro: mechas abertas dos lados e na nuca, franja em pontas e um rabo baixo atado com laço de seda,
+    # jogado para o ombro esquerdo (a casca lisa sozinha lia como cúpula de elmo debaixo do chapéu)
+    head += lk.locks(ck, P + "head_lock", hc, r * 1.06, hair,
+                     [(-100, -24, 0.34, 0.36, 0.4), (-68, -30, 0.4, 0.38, 0.42), (-36, -32, 0.3, 0.36, 0.3), (36, -32, 0.3, 0.36, 0.3), (68, -30, 0.4, 0.38, 0.42),
+                      (100, -24, 0.34, 0.36, 0.4), (150, 24, 0.16, 0.3, 0.3), (180, 28, 0.18, 0.3, 0.3), (-150, 24, 0.16, 0.3, 0.3)])
+    tie = c + V((r * 0.1, r * 1.0, -r * 0.42))
+    head += lk.ringlet(ck, P + "head_tail", tie, tie + V((r * 0.95, r * 0.5, -r * 1.25)), r * 0.38, hair, 4)
+    head.append(ck.ball(P + "head_tail_knot", r * 0.16, tie + V((0, r * 0.06, r * 0.02)), gold))
+    for i, sx in enumerate((-1, 1)):
+        head.append(ck.blade(P + "head_tail_bow%d" % i, tie + V((0, r * 0.08, 0)), tie + V((sx * r * 0.6, r * 0.34, r * 0.26)), r * 0.42, r * 0.08, t2, (0, 0.3, 1), 0.6))
     pr = h0 + up * r * 0.3 + V((-r * 0.75, -r * 0.3, 0))    # pluma: presa do lado direito, varre para trás e para cima
     head += [ck.blade(P + "head_plume", pr, pr + V((-r * 0.5, r * 2.0, r * 1.0)), r * 0.85, r * 0.16, porc, (0.4, 0, 1), 0.4),
              ck.blade(P + "head_plume_gold", pr + V((0, 0, -r * 0.1)), pr + V((-r * 0.75, r * 1.55, r * 0.5)), r * 0.55, r * 0.12, gold, (0.4, 0, 1), 0.4),
              ck.blade(P + "head_plume_glow", pr + V((0, 0, r * 0.1)), pr + V((-r * 0.2, r * 1.5, r * 1.25)), r * 0.3, r * 0.1, glow, (0.4, 0, 1), 0.4)]
+    # plumas DEITADAS sobre a aba, em leque para trás: de cima a pluma em pé some de perfil e o chapéu lia como cúpula
+    for i, (dx, dy, dz, w, m_) in enumerate(((-0.55, 2.3, 0.3, 0.95, porc), (0.5, 2.25, 0.42, 0.8, porc), (-0.1, 2.5, 0.55, 0.6, glow))):
+        head.append(ck.blade(P + "head_plume_flat%d" % i, pr + V((r * 0.1, 0, r * 0.12)), pr + V((dx * r, dy * r, dz * r)), r * w, r * 0.14, m_, (1, 0, 0.15), 0.5))
     head += lk.mirror(ck, P + "head_hat_pin", pr + V((-r * 0.1, -r * 0.05, 0)), r * 0.2, M, facing=(-0.8, -0.6, 0.1))
     mz = r * 0.05
     head += [ck.ball(P + "head_domino", 1.0, c + V((0, -r * 0.985, mz)), glass, (r * 0.8, r * 0.17, r * 0.3)),
@@ -1231,11 +1245,16 @@ def build_sunken_ball_flag(ck, base, mats, style):
             ck.strand(P + "head_tail", c + V((0, r * 0.95, -r * 0.1)), r * 0.7, r * 0.28, r * 0.22, hair, taper=0.9, lean=(0.0, 0.5)),
             ck._shell(P + "head_crown", c + V((0, 0, r * 0.12)), r * 1.07, 0.45, 0.2, 0.25, 0.035, t2),
             _bicorne_flap(ck, P + "head_brim", c + V((0, 0, r * 0.62)), r * 1.82, r * 0.9, r * 0.1, r * 0.28, t2)]
+    # mechas abrindo na nuca, por baixo da aba de trás (a casca lisa lia como cúpula vista de costas)
+    head += lk.locks(ck, P + "head_lock", c + V((0, r * 0.04, r * 0.02)), r * 1.06, hair,
+                     [(-80, -28, 0.3, 0.38, 0.32), (-48, -34, 0.36, 0.4, 0.36), (48, -34, 0.36, 0.4, 0.36), (80, -28, 0.3, 0.38, 0.32)])
     hz = r * 0.7
     for i, sy in enumerate((-1, 1)):     # abas: a da frente e a de trás, inclinadas uma para a outra
         fc = c + V((0, sy * r * 0.62, hz))
         flap = [_bicorne_flap(ck, P + "head_flap%d" % i, fc, r * 1.74, r * 0.09, r * 0.78, r * 0.4, t2),
-                _bicorne_flap(ck, P + "head_flap_trim%d" % i, fc - V((0, sy * r * 0.035, 0)), r * 1.83, r * 0.05, r * 0.87, r * 0.4, gold)]
+                _bicorne_flap(ck, P + "head_flap_trim%d" % i, fc - V((0, sy * r * 0.035, 0)), r * 1.83, r * 0.05, r * 0.87, r * 0.4, gold),
+                # forro de seda na face de dentro: sem ele a aba de trás mostrava o debrum inteiro (ouro maciço) vista de frente
+                _bicorne_flap(ck, P + "head_flap_lining%d" % i, fc - V((0, sy * r * 0.075, 0)), r * 1.72, r * 0.045, r * 0.77, r * 0.4, t2)]
         head += _tilt(flap, fc, sy * 0.36)
     ck_c = c + V((0, -r * 0.74, r * 1.02))                   # roseta na aba da frente: disco de porcelana com a lágrima
     head += [ck.ball(P + "head_cockade", 1.0, ck_c, porc, (r * 0.2, r * 0.07, r * 0.2)),

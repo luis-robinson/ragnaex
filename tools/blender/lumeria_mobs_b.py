@@ -9,7 +9,7 @@
                      Galgo esguio (peito fundo, barriga recolhida, pernas compridas), máscara lisa SEM olhos com a lágrima
                      pintada, crina de fitas de seda do cangote ao lombo, coleira com guizos, rabo-chicote com borla de fita
   mob_parade_alpha   Galgo Alfa do Cortejo (49, bruto): o mesmo galgo maior (`look={"alpha": k}`, k = tamanho; o comum sai em HOUND_SIZE), arreio dourado (peitoral,
-                     cilha, manta, canga de dois chifres com guizos), tirantes de fita soltos para trás (o carro vazio) e
+                     cilha, manta, rosetas com guizo na cernelha; sem canga nem tirantes: não puxa carro) e
                      penacho na cabeça
   mob_choir_maestro  Maestro do Coro (49, elite): a família da Corista (lumeria_bosses.chorister: mesma túnica lilás, capuz,
                      boca costurada, tubos de órgão) em versão regente: fraque de penas em camadas, dragonas de pena, tubos
@@ -532,12 +532,16 @@ def hound(cid, fur=lm.PORC, dark=ROSE, light=ROSE_L, look=None):
     mk.quad_combat(arm, "hound")
     _hound_gestures(arm)
     _plant(arm, HOUND_CLIPS + ("attack", "hit"))
+    _plant(arm, ("die",), DIE_SINK)
     return arm
 
 
-def _plant(arm, clips):
+DIE_SINK = 0.02                     # no die o bicho deitado pode afundar isto (fitas/patas rentes ao chão, sem flutuar)
+
+
+def _plant(arm, clips, sink=0.0):
     """Patas no chão nos golpes: o rig tem pernas de um osso só, então agachar/empinar enterra as patas. Em cada quadro em que
-    alguma peça (fora o rabo) desce de z = 0, o corpo sobe o que falta (chave em `body` loc Y); nomes e tempos não mudam."""
+    alguma peça (fora o rabo) desce de z = -sink, o corpo sobe o que falta (chave em `body` loc Y); nomes e tempos não mudam."""
     ad = arm.animation_data
     pb = arm.pose.bones["body"]
     objs = [o for o in arm.children if o.type == "MESH" and o.parent_bone != "tail"]
@@ -554,7 +558,7 @@ def _plant(arm, clips):
             bpy.context.scene.frame_set(f)
             bpy.context.view_layer.update()
             low = min((o.matrix_world @ v.co).z for o in objs for v in o.data.vertices)
-            fix[f] = (pb.location.y, max(0.0, -low))
+            fix[f] = (pb.location.y, max(0.0, -low - sink))
         if max(d for _y, d in fix.values()) > 0.004:
             for f, (y, d) in fix.items():
                 pb.location.y = y + d
@@ -569,8 +573,8 @@ def _plant(arm, clips):
 
 
 def _alpha_harness(add, M, gold, gold2, rose, deep, pale, glow, hc):
-    """Arreio do Galgo Alfa: peitoral, cilha e sobrecilha de ouro, manta rosa com filete, canga de dois chifres com guizos,
-    tirantes de fita soltos para trás (puxava o carro alegórico) e penacho de fitas na cabeça."""
+    """Arreio do Galgo Alfa: peitoral, cilha e sobrecilha de ouro, manta rosa com filete, rosetas com guizo na cernelha e
+    penacho de fitas na cabeça. Sem canga nem tirantes: é o alfa da matilha, não um bicho de tiro."""
     zc_ = HIP - 0.05
     add(_hoop("girth", -0.25, -0.17, zc_, 0.2, 0.2, gold), "body")
     add(_hoop("girth2", 0.14, 0.2, HIP + 0.065, 0.118, 0.115, gold), "body")
@@ -585,19 +589,11 @@ def _alpha_harness(add, M, gold, gold2, rose, deep, pale, glow, hc):
             pts.append(V((math.cos(a) * rr * (LEAN + 0.12), y0, HIP + 0.02 + math.sin(a) * (rr + lift) - 0.06 * (i in (0, 6)))))
         add(lm._band(nm, pts, [wd] * 7, 0.016, mt, (0, 1, 0)), "body")
     for sx in (-1, 1):
-        # canga: dois chifres de ouro que sobem da cernelha, guizo na ponta
-        p0 = V((sx * 0.09, -0.3, _top(-0.3) - 0.03))
-        p1 = p0 + V((sx * 0.16, 0.06, 0.3))
-        for o in bs._tusk(ck, "hame%d" % sx, p0, p1, V((sx * 0.06, 0, 0.0)), 0.034, gold2, 4, 6):
+        # roseta de ouro com guizo na cernelha, rente ao corpo (a canga de chifres e os tirantes saíram: lia como bicho de carro)
+        p0 = V((sx * 0.105, -0.3, _top(-0.3) - 0.035))
+        add(ck.ball("rosette%d" % sx, 0.05, p0, gold2, (0.6, 1.0, 1.0)), "body")
+        for o in lk.bell(ck, "rosebell%d" % sx, p0 + V((sx * 0.035, 0, -0.05)), 0.03, M):
             add(o, "body")
-        for o in lk.bell(ck, "hamebell%d" % sx, p1 + V((0, 0, -0.01)), 0.04, M):
-            add(o, "body")
-        # argola da cilha e o tirante de fita que cai para trás e arrasta um pouco
-        rg = V((sx * 0.155, -0.2, zc_ - 0.02))
-        add(ck.tube("tracering%d" % sx, rg + V((-sx * 0.01, 0, 0)), rg + V((sx * 0.02, 0, 0)), 0.04, 0.04, gold2, 8), "body")
-        pts = [rg, rg + V((sx * 0.05, 0.28, -0.07)), rg + V((sx * 0.08, 0.6, -0.1)), rg + V((sx * 0.1, 0.88, -0.17)), rg + V((sx * 0.13, 1.1, -0.3))]
-        add(lm._band("trace%d" % sx, pts, (0.06, 0.075, 0.075, 0.07, 0.05), 0.014, rose if sx < 0 else pale, (0, 0, 1)), "body")
-        add(ck.ball("tracehook%d" % sx, 0.035, pts[-1], gold2), "body")
     # penacho: três fitas em pé no alto da cabeça
     for i, (dx, hh, mt) in enumerate(((-0.05, 0.26, rose), (0.0, 0.36, pale), (0.05, 0.26, deep))):
         p0 = hc + V((dx * 0.4, 0.04, 0.08))

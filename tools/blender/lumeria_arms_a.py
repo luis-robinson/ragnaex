@@ -163,7 +163,7 @@ def pal_c50(ck, base, mats, style="pal_c50"):
     p += _hilt(ck, n, M, G, 5, t2)
     pp = -Z * (G + 0.04)
     p += [ck.ball(n + "pommel", 0.04, pp, gold)] + _ring(ck, n + "pring", pp - Z * 0.05, X, Z, 0.04, 0.012, gold, 10)
-    p += _tails(ck, n + "rib", pp - Z * 0.06, dn, t2, 0.17, 0.055, 0.05)
+    p += _tails(ck, n + "rib", pp - Z * 0.06, dn, t2, 0.11, 0.055, 0.05)       # fitas curtas: com 0,17 roçavam o chão no atk_leap
     out = [_finish(ck, base, p, "wpn_main_sword2h_%s" % style, ".R", AXIS_1H)]
     # malho de espelhos (medidas do mace2h de paladin_sets.build_mace)
     n = "w_%s_m_" % style
@@ -292,7 +292,7 @@ def ber_g50(ck, base, mats, style="ber_g50"):
                 z = 0.2 + k * 0.1
                 sm.append(ck.tube(n + "silk%d" % k, g + fwd * z, g + fwd * (z + 0.045), 0.034, 0.034, t2, 8))
             tie = g - fwd * 0.15         # fitas rubras no pé do cabo e uma na gola da cabeça
-            for i, (dx, ln) in enumerate(((-0.07, 0.36), (0.08, 0.3))):
+            for i, (dx, ln) in enumerate(((-0.07, 0.22), (0.08, 0.17))):      # eram 0,36/0,30: varriam o chão no atk_flurry / atk_finisher
                 sm.append(lk.silk(ck, n + "rib%d" % i, tie, tie + Vector((dx, 0.06, -ln)), (1, 0.3, 0), 0.05, 0.07, t2, (0, 0.035, 0), 4))
             neck = hc - fwd * (0.16 * S) - o * 0.03
             sm.append(lk.silk(ck, n + "rib_head", neck, neck + Vector((0.03, 0.09, -0.26)), (1, 0.3, 0), 0.045, 0.06, t2, (0, 0.03, 0), 3))

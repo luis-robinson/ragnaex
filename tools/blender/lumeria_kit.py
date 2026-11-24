@@ -282,3 +282,28 @@ def gourd(ck, name, c, s, M, hang=None):
     if hang is not None:
         out.append(ck.tube(name + "_hang", V(hang), c + V((0, 0, s * 1.2)), max(s * 0.06, 0.006), max(s * 0.06, 0.006), gold, 4))
     return out
+
+
+def locks(ck, name, c, r, material, specs, segs=5, sweep=(0, 0, 0)):
+    """Mechas em cone por cima da casca lisa de cabelo (sem elas a casca lê como cúpula de elmo vista de cima).
+    specs = [(az, el, comprimento, largura, queda)], em graus e em frações de r: az 0 = nuca (+Y), 90 = esquerda (+X),
+    180 = testa; el = elevação; queda = quanto a ponta desce. A raiz nasce dentro da casca, a ponta passa dela.
+    sweep (frações de r) empurra todas as pontas para o mesmo lado: cabelo penteado/soprado, não ouriço."""
+    out = []
+    for i, (az, el, ln, w, droop) in enumerate(specs):
+        a, e = math.radians(az), math.radians(el)
+        dv = Vector((math.sin(a) * math.cos(e), math.cos(a) * math.cos(e), math.sin(e)))
+        root = Vector(c) + dv * r * 0.8
+        tip = Vector(c) + dv * r * (1.0 + ln) + Vector((0, 0, -droop * r)) + Vector(sweep) * r
+        out.append(ck.tube("%s%d" % (name, i), root, tip, w * r, w * r * 0.1, material, segs))
+    return out
+
+
+def ringlet(ck, name, top, tip, r0, material, n=4, segs=6):
+    """Cacho em rosca (gomos em dente de serra, do maior ao menor) pendendo de top até tip."""
+    top, tip = Vector(top), Vector(tip)
+    out = []
+    for i in range(n):
+        rk = r0 * (1.0 - 0.6 * i / n)
+        out.append(ck.tube("%s%d" % (name, i), top.lerp(tip, i / n), top.lerp(tip, (i + 1) / n), rk, rk * (0.62 if i < n - 1 else 0.12), material, segs))
+    return out

@@ -974,9 +974,10 @@ def build_vigil_lantern(ck, base, mats, style):
         p0 = c + V((sx * r * 0.98, -r * 0.1, -r * 0.3))
         head.append(lk.silk(ck, P + "head_veil_side%d" % sx, p0, p0 + V((sx * r * 0.12, r * 0.1, -r * 0.95)), (0, 1, 0), r * 0.7, r * 0.5, t2, (sx * r * 0.06, 0, 0), 3))
     ck._rigid(bs._outward(head), rig, "head")
-    # véu comprido pelas costas até o chão (pesos do corpo, como a saia) + barra de ouro
-    train = [lk.silk(ck, P + "body_train", (0, back + 0.1, zn + 0.1), (0, back + 0.42, 0.06), (1, 0, 0), 0.4, 0.72, t2, (0, 0.05, 0), 7, 0.016),
-             lk.silk(ck, P + "body_train_hem", (0, back + 0.405, 0.14), (0, back + 0.432, 0.045), (1, 0, 0), 0.74, 0.76, gold, (0, 0, 0), 1, 0.014)]
+    # véu comprido pelas costas até a canela (pesos do corpo, como a saia) + barra de ouro; até o chão ele afundava
+    # 0,3 m nos agachamentos (atk_finisher, buff_guard, cast_holy)
+    train = [lk.silk(ck, P + "body_train", (0, back + 0.1, zn + 0.1), (0, back + 0.37, 0.22), (1, 0, 0), 0.4, 0.68, t2, (0, 0.05, 0), 7, 0.016),
+             lk.silk(ck, P + "body_train_hem", (0, back + 0.355, 0.3), (0, back + 0.382, 0.205), (1, 0, 0), 0.7, 0.72, gold, (0, 0, 0), 1, 0.014)]
     lk.skinned(ck, base, bs._outward(train))
     # ---------------- corpo: gola, estola, asas de vidro ----------------
     chest = [ck.tube(P + "body_collar", V((0, 0, zn - 0.06)), V((0, 0, zn + 0.02)), b["chest"] * 0.74, b["chest"] * 0.5, gold, 16),
@@ -1030,13 +1031,21 @@ def build_noon_mirror(ck, base, mats, style):
     bs._belt(ck, base, P + "body_belt", zw - 0.04, zw + 0.035, 1.21, gold)
     # ---------------- cabeça: touca, mitra de vidro, espelho na frente, ínfulas, máscara ----------------
     m0, m1, m2 = c + V((0, 0, r * 0.52)), c + V((0, 0, r * 1.6)), c + V((0, 0, r * 2.35))
-    mitre = [ck.tube(P + "head_mitre0", m0, m1, r * 0.95, r * 0.8, glass, 6), ck.tube(P + "head_mitre1", m1, m2, r * 0.8, r * 0.04, glass, 6)]
+    # mitra de PORCELANA facetada com ouro velho (era de vidro: no toon lia transparente/sem matéria): corpo de porcelana,
+    # coifa de cima em seda (tint2), cinta e ponteira de ouro, arestas grossas e uma faixa de seda de pé na frente e atrás
+    m3 = m1.lerp(m2, 0.62)
+    mitre = [ck.tube(P + "head_mitre0", m0, m1, r * 0.95, r * 0.8, porc, 6), ck.tube(P + "head_mitre1", m1, m3, r * 0.8, r * 0.33, t2, 6),
+             ck.tube(P + "head_mitre_tip", m3, m2, r * 0.345, r * 0.04, gold, 6),
+             ck.tube(P + "head_mitre_girdle", m1 + V((0, 0, -r * 0.12)), m1 + V((0, 0, r * 0.1)), r * 0.88, r * 0.8, gold, 6),
+             ck.tube(P + "head_mitre_base", m0 + V((0, 0, r * 0.1)), m0 + V((0, 0, r * 0.22)), r * 0.99, r * 0.96, gold, 6)]
+    for sy in (-1, 1):                   # faixa vertical (frente e costas), por cima da faceta
+        mitre.append(ck.box(P + "head_mitre_orphrey%d" % sy, (r * 0.34, r * 0.2, r * 0.9), m0.lerp(m1, 0.5) + V((0, sy * r * 0.86, r * 0.04)), t2, 0.004))
     edges = []
     for k in range(6):                   # arestas de ouro nas quinas das facetas
         a = math.tau * (k + 0.5) / 6 + math.pi / 2
         dv = V((math.cos(a), math.sin(a), 0))
-        edges += [ck.tube(P + "head_edge%d_a" % k, m0 + dv * r * 0.96, m1 + dv * r * 0.81, r * 0.045, r * 0.045, gold, 4),
-                  ck.tube(P + "head_edge%d_b" % k, m1 + dv * r * 0.81, m2 + dv * r * 0.04, r * 0.045, r * 0.03, gold, 4)]
+        edges += [ck.tube(P + "head_edge%d_a" % k, m0 + dv * r * 0.955, m1 + dv * r * 0.805, r * 0.032, r * 0.032, gold, 4),
+                  ck.tube(P + "head_edge%d_b" % k, m1 + dv * r * 0.81, m3 + dv * r * 0.33, r * 0.07, r * 0.05, gold, 4)]
     for o in mitre + edges:              # estreita de frente para trás
         for v in o.data.vertices:
             v.co.y = c.y + (v.co.y - c.y) * 0.5

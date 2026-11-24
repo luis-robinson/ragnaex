@@ -1583,6 +1583,11 @@ def _along(objs, c, axis):
     return objs
 
 
+# Altura a mais do cajado do Xamã 50 sobre os outros cajados. Era 0,16 (a lua passava da aba do chapéu), mas a CABEÇA
+# (estrela e lanterninhas de lado) é que entrava no chão quando o cajado vira para baixo: cast_bolt -0,21 m, atk_1h_b -0,11.
+MOON_STAFF_EXTRA = 0.0
+
+
 def build_moon_staff(ck, base, mats, style):
     """Cajado do Xamã no nível 50 (wpn_main_staff_<estilo>): crescente de ouro com a lua cheia acesa dentro."""
     import lumeria_kit as lk
@@ -1596,33 +1601,33 @@ def build_moon_staff(ck, base, mats, style):
     fwd = up.cross(side).normalized()
     n = "st_%s_" % style
     ln = 1.3
-    foot, top = g - up * ln * 0.42, g + up * (ln * 0.57 + 0.16)        # 0,16 mais alto que os outros cajados: a lua passa da aba do chapéu
+    foot, top = g - up * ln * 0.42, g + up * (ln * 0.57 + MOON_STAFF_EXTRA)
     parts = [ck.tube(n + "shaft", foot, top, 0.032, 0.026, t, 8), ck.tube(n + "ferrule", foot - up * 0.03, foot + up * 0.07, 0.022, 0.04, gold, 8),
              ck.tube(n + "neck", top - up * 0.06, top + up * 0.03, 0.036, 0.05, gold, 8)]
     for k in range(4):                   # aros de ouro pela haste; punho de seda
         p = foot.lerp(top, 0.16 + k * 0.2)
         parts.append(ck.tube(n + "ring%d" % k, p - up * 0.014, p + up * 0.014, 0.039, 0.039, gold, 8))
     parts.append(ck.tube(n + "grip", g - up * 0.07, g + up * 0.07, 0.036, 0.036, t2, 8))
-    c0 = top + up * 0.24
-    rr = 0.2
+    c0 = top + up * 0.2
+    rr = 0.165
     for k in range(6):                   # crescente aberto para cima (lê de cima e de frente), mais grosso embaixo
         a0, a1 = math.radians(-150 + k * 50), math.radians(-150 + (k + 1) * 50)
         w0, w1 = 0.016 + 0.042 * math.sin(math.pi * k / 6), 0.016 + 0.042 * math.sin(math.pi * (k + 1) / 6)
         parts.append(ck.tube(n + "moon%d" % k, c0 + side * math.sin(a0) * rr - up * math.cos(a0) * rr, c0 + side * math.sin(a1) * rr - up * math.cos(a1) * rr, w0, w1, gold, 6))
-    full = [ck.ball(n + "full", 0.118, (0, 0, 0), glow, (1, 1, 1.08)),
-            ck.tube(n + "full_top", (0, 0, 0.115), (0, 0, 0.15), 0.06, 0.038, gold, 6), ck.tube(n + "full_bottom", (0, 0, -0.155), (0, 0, -0.115), 0.032, 0.06, gold, 6)]
+    full = [ck.ball(n + "full", 0.105, (0, 0, 0), glow, (1, 1, 1.08)),
+            ck.tube(n + "full_top", (0, 0, 0.102), (0, 0, 0.135), 0.055, 0.036, gold, 6), ck.tube(n + "full_bottom", (0, 0, -0.14), (0, 0, -0.102), 0.03, 0.055, gold, 6)]
     for k in range(4):                   # varetas da lanterna
         a = math.tau * (k + 0.5) / 4
-        full.append(ck.tube(n + "full_rib%d" % k, (math.cos(a) * 0.12, math.sin(a) * 0.12, -0.06), (math.cos(a) * 0.12, math.sin(a) * 0.12, 0.06), 0.009, 0.008, gold, 4))
+        full.append(ck.tube(n + "full_rib%d" % k, (math.cos(a) * 0.107, math.sin(a) * 0.107, -0.055), (math.cos(a) * 0.107, math.sin(a) * 0.107, 0.055), 0.009, 0.008, gold, 4))
     parts += _along(full, c0 + up * 0.01, up)
-    parts.append(ck.ball(n + "star", 0.036, c0 + up * 0.28, glow))
+    parts.append(ck.ball(n + "star", 0.032, c0 + up * 0.2, glow))
     for sx in (-1, 1):
         tip = c0 + side * sx * math.sin(math.radians(150)) * rr + up * math.cos(math.radians(30)) * rr
         parts.append(ck.ball(n + "tip%d" % sx, 0.026, tip, gold))
-        hang = c0 + side * sx * (rr + 0.03) - up * 0.02
-        parts += _paper_lantern(ck, n + "lantern%d" % sx, hang + V((0, 0, -0.11)), 0.045, M, hang=hang)
+        hang = c0 + side * sx * rr * 0.42 - up * rr * 0.88              # lanterninhas sob o arco, rentes à haste
+        parts += _paper_lantern(ck, n + "lantern%d" % sx, hang - up * 0.07, 0.036, M, hang=hang)
         p0 = top + side * sx * 0.035 - up * 0.02
-        parts.append(lk.silk(ck, n + "ribbon%d" % sx, p0, p0 + side * sx * 0.13 - up * 0.36 + fwd * 0.03, fwd, 0.06, 0.09, t2, side * sx * 0.035, 3))
+        parts.append(lk.silk(ck, n + "ribbon%d" % sx, p0, p0 + side * sx * 0.07 - up * 0.26 + fwd * 0.02, fwd, 0.06, 0.085, t2, side * sx * 0.025, 3))
     obj = ck._join(rs.outward(parts), "wpn_main_staff_%s" % style)
     ck._smooth(obj.data)
     ck.skin_rigid(obj, base["rig"], "hand.R")
@@ -1685,8 +1690,14 @@ def build_harvest_maul(ck, base, mats, style):
         tear = [ck.ball(n + "tear%d" % sx, 0.034, (0, 0, 0.04), glow, (0.8, 2.0, 0.5)), ck.ball(n + "drop%d" % sx, 0.046, (0, -0.045, 0.04), glow, (1.0, 1.25, 0.5))]
         parts += _along(tear, fc, side * sx)
         p0 = fc - fwd * 0.12 + side * sx * 0.01
-        parts.append(lk.silk(ck, n + "ribbon%d" % sx, p0, p0 + side * sx * 0.1 - fwd * 0.34, ridge, 0.075, 0.11, t2, side * sx * 0.04, 3))
-    parts += _along(lk.gourd(ck, n + "gourd", (0, 0, 0), 0.115, M), hc + fwd * 0.275, fwd)
+        # as duas fitas saem do tampo de FORA (-X): a do tampo de dentro (+X, virada para o corpo) entrava 0,24 m na
+        # máscara de urso nos lançamentos (cast_heal_nature, cast_buff, atk_leap)
+        if sx < 0:
+            for k, (rl, off) in enumerate(((0.34, 0.035), (0.24, -0.04))):
+                q0 = p0 + ridge * off
+                parts.append(lk.silk(ck, n + "ribbon%d" % k, q0, q0 + side * sx * (0.1 - k * 0.04) - fwd * rl + ridge * off * 0.8, ridge, 0.07, 0.1 - k * 0.02, t2, side * sx * 0.04, 3))
+    # cabaça menor e mais baixa no tonel (era 0,115 a 0,275 do centro): entrava 0,27 m na máscara de urso nos lançamentos
+    parts += _along(lk.gourd(ck, n + "gourd", (0, 0, 0), 0.085, M), hc + fwd * 0.215, fwd)
     obj = ck._join(rs.outward(parts), "wpn_main_mace2h_%s" % style)
     ck._smooth(obj.data)
     ck.skin_rigid(obj, base["rig"], "hand.R")
