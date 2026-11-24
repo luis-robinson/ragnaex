@@ -257,7 +257,7 @@ const ACT2_VISUALS := {
 ## (tools/blender/<classe>_sets.py ACT3_SETS; KitModel.load_addon("_a3")); sem o arquivo o boneco veste o estilo do Ato II
 ## (act2_fallback_style). Um só nível: "color" (tint = marfim), "accent" (tint2 = seda/fitas), "glow" (tint_glow = lágrima e
 ## chama). Arma e escudo continuam os do Ato II/30 (onda 4). "icon" = prefixo dos ícones (set_icons.tscn, foto no 50).
-## Build sem entrada continua no visual do Ato II na 4ª cor de ACT2_VISUALS. Ondas 1 e 2: duas builds por classe.
+## Build sem entrada continua no visual do Ato II na 4ª cor de ACT2_VISUALS. Ondas 1-3: as 24 builds.
 const ACT3_VISUALS := {
 	"paladin_guardiao": {"style": "pal_g50", "icon": "pal_g50",          # Vigília da Lágrima Dourada: elmo fechado com viseira-máscara e UMA lágrima, pires empilhados, lanterna na ombreira esquerda
 		"color": Color(0.94, 0.9, 0.82), "accent": Color(0.12, 0.16, 0.4), "glow": Color(1.0, 0.78, 0.3)},
@@ -292,6 +292,24 @@ const ACT3_VISUALS := {
 		"color": Color(0.94, 0.9, 0.82), "accent": Color(0.72, 0.86, 0.95), "glow": Color(0.6, 0.95, 1.0)},
 	"necromancer_ceifador": {"style": "nec_c50", "icon": "nec_c50",      # Colheita do Último Brinde: capuz rasgado, máscara sem boca, gola alta de taças quebradas, taça derramando no ombro
 		"color": Color(0.94, 0.9, 0.82), "accent": Color(0.35, 0.1, 0.16), "glow": Color(1.0, 0.35, 0.4)},     # vinho mais claro: 0,22 ficava preto no toon
+	# Onda 3 (parte A): a 3ª build de Paladino, Berserker, Bispo e Druida
+	"paladin_templario": {"style": "pal_t50", "icon": "pal_t50",         # Sentença de Ouro Velho: elmo de juiz de olhos fechados, auréola em pé com 5 lanterninhas, véu âmbar, tabardo pesado com espelhinhos
+		"color": Color(0.94, 0.9, 0.82), "accent": Color(0.85, 0.45, 0.1), "glow": Color(1.0, 0.68, 0.22)},
+	"berserker_punhos": {"style": "ber_m50", "icon": "ber_m50",          # Dança dos Mil Guizos: lenço de seda com máscara de raposa e arco de guizos, mangas em sino com guizos na barra, cinto de lanterninhas
+		"color": Color(0.94, 0.9, 0.82), "accent": Color(0.1, 0.55, 0.5), "glow": Color(1.0, 0.75, 0.45)},
+	"bishop_batalha": {"style": "bis_b50", "icon": "bis_b50",            # Hino da Taça Partida: estandarte de seda com sinos nas costas, máscara partida remendada com ouro, ombreiras de placa com lanterna
+		"color": Color(0.94, 0.9, 0.82), "accent": Color(0.9, 0.56, 0.52), "glow": Color(1.0, 0.8, 0.5)},
+	"druid_xama": {"style": "dru_x50", "icon": "dru_x50",                # Céu de Lanternas: chapéu de abas largas com 6 lanternas de papel e lua crescente, máscara de lua, manto estrelado
+		"color": Color(0.94, 0.9, 0.82), "accent": Color(0.32, 0.22, 0.6), "glow": Color(1.0, 0.9, 0.6)},
+	# Onda 3 (parte B): a 3ª build de Ranger, Assassino, Elementalista e Necromante
+	"ranger_lanceiro": {"style": "ran_l50", "icon": "ran_l50",           # Lança do Cortejo: máscara de cervo de porcelana com galhada de ouro velho e flâmulas, ombreira de pires com cacho de sinos, faixa de cortejo
+		"color": Color(0.94, 0.9, 0.82), "accent": Color(0.66, 0.16, 0.34), "glow": Color(1.0, 0.62, 0.7)},
+	"assassin_corsario": {"style": "ass_c50", "icon": "ass_c50",         # Bandeira do Baile Afundado: bicorne largo com lanterna de navio no alto, tapa-olho de porcelana com lágrima, espelhos na bandoleira, faixa de seda, ombreiras de concha
+		"color": Color(0.94, 0.9, 0.82), "accent": Color(0.92, 0.52, 0.5), "glow": Color(0.55, 1.0, 0.9)},     # coral: o verde-mar (0,45/0,7/0,6) sumia na grama vista de cima
+	"elementalist_raio": {"style": "ele_r50", "icon": "ele_r50",         # Sino do Trovão Claro: chapéu-sino alto com para-raios e sinos de vidro, meia-máscara com raio pintado, pelerine em pontas, fitas eriçadas
+		"color": Color(0.94, 0.9, 0.82), "accent": Color(0.28, 0.3, 0.78), "glow": Color(1.0, 0.95, 0.5)},
+	"necromancer_pestilento": {"style": "nec_s50", "icon": "nec_s50",    # Véu do Espelho Negro: capuz alto em pé, espelho negro no lugar do rosto com lágrima dourada, aletas de seda nos ombros, véu comprido, lanternas apagadas
+		"color": Color(0.94, 0.9, 0.82), "accent": Color(0.5, 0.5, 0.57), "glow": Color(1.0, 0.8, 0.35)},     # cinza-véu quase neutro: o toon puxa a saturação (0,44/0,4/0,56 saía roxo)
 }
 
 const PIECE_NOUNS := {

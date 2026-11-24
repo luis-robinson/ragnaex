@@ -797,4 +797,115 @@ def build_frost_mirror(ck, base, mats, style):
     lk.limbs(ck, base, mats, P, M, "cloth", boots_m=porc)
 
 
-ACT3_SETS = {"ele_f50": build_feast_end_lantern, "ele_g50": build_frost_mirror}
+def _glass_bell(ck, name, top, s, M, hang=None):
+    """Sino de vidro (altura ~2s) pendurado por top: campânula de vidro, alça e aro de ouro, badalo aceso (tint_glow)."""
+    V = Vector
+    top = V(top)
+    out = [ck.tube(name + "_dome", top + V((0, 0, -s * 1.9)), top + V((0, 0, -s * 0.9)), s * 1.0, s * 0.62, M["glass"], 8),
+           ck.ball(name + "_crown", s * 0.64, top + V((0, 0, -s * 0.88)), M["glass"], (1, 1, 0.8)),
+           ck.tube(name + "_lip", top + V((0, 0, -s * 2.0)), top + V((0, 0, -s * 1.86)), s * 1.08, s * 1.04, M["gold"], 8),
+           ck.tube(name + "_handle", top + V((0, 0, -s * 0.5)), top, s * 0.2, s * 0.14, M["gold"], 5),
+           ck.ball(name + "_clapper", s * 0.42, top + V((0, 0, -s * 2.12)), M["glow"])]
+    if hang is not None:
+        out.append(ck.tube(name + "_hang", V(hang), top, max(s * 0.07, 0.006), max(s * 0.07, 0.006), M["gold"], 4))
+    return out
+
+
+def _bolt(ck, name, pts, w, material, wdir):
+    """Raio em ziguezague passando pelos pontos (faixa fina e rígida, afinando até a ponta)."""
+    import berserker_sets as bs
+    n = len(pts)
+    return bs._ribbon(ck, name, pts, wdir, [w * (1.0 - 0.75 * i / (n - 1)) for i in range(n)], w * 0.3, material)
+
+
+#   ele_r50 Raio = Sino do Trovão Claro: CHAPÉU-SINO alto de seda (tint2, índigo) com a boca aberta em campânula, faixa
+#           marfim, para-raios de ouro no alto e cinco SINOS DE VIDRO de badalo aceso pendendo da boca (assinatura, lida de
+#           cima); meia-máscara com um RAIO pintado no lugar da lágrima; pelerine em pontas de raio; um sino de vidro em pé
+#           e duas fitas eriçadas em ziguezague em cada ombro; guizos nos punhos e tornozelos.
+def build_clear_thunder_bell(ck, base, mats, style):
+    """ele_r50 — Sino do Trovão Claro (Raio)."""
+    import lumeria_kit as lk
+    import berserker_sets as bs
+    V = Vector
+    rig, body, b, j = base["rig"], base["body"], base["b"], base["j"]
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, porc, glow, glass = M["t"], M["t2"], M["gold"], M["porc"], M["glow"], M["glass"]
+    P = "arm_%s_" % style
+    c, r = V(base["head_c"]), b["head"]
+    d = b["depth"]
+    front = -b["chest"] * d - 0.03
+    back = b["chest"] * d + 0.03
+    zc, zn, zw = ck.Z["chest"], ck.Z["neck"], ck.Z["waist"]
+    wf = -b["waist"] * d * 1.22
+    # ---------------- túnica ----------------
+    ck.armor_piece(body, rig, P + "body_robe", "torso", t, 0.014, 0.014, 0.03)
+    ck.armor_piece(body, rig, P + "body_legs", "legs", porc, 0.008, 0.012)
+    ck.skirt(P + "body_skirt", b, body, rig, t, 0.075, 1.72)
+    bs._belt(ck, base, P + "body_belt", zw - 0.04, zw + 0.035, 1.21, t2)
+    # ---------------- cabeça: cabelo solto, chapéu-sino, para-raios, sinos de vidro, meia-máscara com raio ----------------
+    up = V((0.0, 0.1, 1.0)).normalized()
+    h0 = c + V((0, r * 0.02, r * 0.5))
+    head = _act2_hair(ck, base, P)
+    head += [ck.tube(P + "head_lip", h0, h0 + up * r * 0.34, r * 1.52, r * 1.0, t2, 20),
+             ck.tube(P + "head_lip_rim", h0 - up * r * 0.04, h0 + up * r * 0.035, r * 1.56, r * 1.53, gold, 20),
+             ck.tube(P + "head_body", h0 + up * r * 0.32, h0 + up * r * 1.3, r * 1.0, r * 0.74, t2, 16),
+             ck.ball(P + "head_dome", 1.0, h0 + up * r * 1.3, t2, (r * 0.74, r * 0.74, r * 0.5)),
+             ck.tube(P + "head_hatband", h0 + up * r * 0.36, h0 + up * r * 0.6, r * 1.02, r * 0.955, t, 16),
+             ck.tube(P + "head_hatband_rim", h0 + up * r * 0.6, h0 + up * r * 0.66, r * 0.965, r * 0.945, gold, 16),
+             ck.tube(P + "head_rod_base", h0 + up * r * 1.68, h0 + up * r * 1.86, r * 0.26, r * 0.1, gold, 8),
+             ck.tube(P + "head_rod", h0 + up * r * 1.8, h0 + up * r * 2.55, r * 0.06, r * 0.035, gold, 6),
+             ck.ball(P + "head_rod_orb", r * 0.15, h0 + up * r * 2.62, glow)]
+    for i, a in enumerate((0.0, math.pi * 0.5)):             # cruzeta do para-raios, com pontas
+        dv = V((math.cos(a), math.sin(a), 0))
+        q = h0 + up * r * 2.2
+        head += [ck.tube(P + "head_rod_arm%d" % i, q - dv * r * 0.3, q + dv * r * 0.3, r * 0.035, r * 0.035, gold, 5),
+                 ck.ball(P + "head_rod_tip%d_a" % i, r * 0.07, q - dv * r * 0.3, gold), ck.ball(P + "head_rod_tip%d_b" % i, r * 0.07, q + dv * r * 0.3, gold)]
+    head.append(_bolt(ck, P + "head_hat_bolt", [h0 + up * r * z + V((x * r, -r * (1.02 - (z - 0.34) * 0.27), 0))
+                                               for x, z in ((0.12, 1.25), (-0.1, 1.02), (0.1, 0.96), (-0.04, 0.72))], r * 0.2, glow, (1, 0, 0)))
+    for k, deg in enumerate((-18, 30, 90, 150, 198)):        # sinos de vidro pendendo da boca do chapéu (lados e nuca)
+        a = math.radians(deg)
+        hp_ = h0 + V((math.cos(a) * r * 1.46, math.sin(a) * r * 1.46, 0))
+        head += _glass_bell(ck, P + "head_bell%d" % k, hp_ + V((0, 0, -r * 0.1)), r * (0.2 if k != 2 else 0.24), M, hang=hp_)
+    head += lk.mask(ck, P + "head_mask", c + V((0, -r * 0.97, -r * 0.1)), r * 0.52, M, tears=(), wide=1.5, tall=0.62, eye_z=-0.08)
+    bx = r * 0.36                        # o raio pintado: ziguezague aceso sob o olho esquerdo, com filete de ouro por trás
+    zig = ((0.0, -0.2), (0.09, -0.4), (-0.03, -0.44), (0.07, -0.72))
+    pts = [c + V((bx + x * r, -math.sqrt(max(0.05, 1.0 - ((bx + x * r) / r) ** 2 - z * z)) * r * 1.0 - r * 0.045, z * r)) for x, z in zig]
+    head += [_bolt(ck, P + "head_tear_bolt", pts, r * 0.15, glow, (1, 0, 0)),
+             _bolt(ck, P + "head_tear_bolt_rim", [p + V((0, r * 0.03, 0)) for p in pts], r * 0.23, gold, (1, 0, 0))]
+    ck._rigid(bs._outward(head), rig, "head")
+    # ---------------- corpo: gola de ouro, pelerine em pontas de raio, corrente de sinos ----------------
+    chest = [ck.tube(P + "body_collar", V((0, 0, zn - 0.07)), V((0, 0, zn + 0.02)), b["chest"] * 0.82, b["chest"] * 0.52, gold, 16)]
+    n = 10
+    for k in range(n):                   # pelerine: dez pontas de seda abrindo em estrela sobre os ombros, alternando o comprimento
+        a = math.tau * (k + 0.5) / n
+        dv = V((math.cos(a), math.sin(a) * 0.82, 0))
+        root = dv * b["chest"] * 0.62 + V((0, 0, zn - 0.035))
+        ln = (b["shoulder"] + 0.2) * (1.0 if k % 2 == 0 else 0.8)
+        tip = dv * ln + V((0, 0, zn - 0.2 + (0.05 if k % 2 else 0.0)))
+        chest.append(ck.blade(P + "body_ray%d" % k, root, tip, 0.24, 0.022, t2, (-dv.y, dv.x, 0), 0.4))
+        if k % 2 == 0:
+            chest.append(ck.ball(P + "body_ray_tip%d" % k, 0.02, tip, gold))
+    for k in range(3):                   # três sinos de vidro numa corrente no peito
+        x = (k - 1) * b["chest"] * 0.42
+        hp_ = V((x, front - 0.035, zc + 0.07 - abs(k - 1) * -0.02))
+        chest += _glass_bell(ck, P + "body_bell%d" % k, hp_, 0.03 if k != 1 else 0.036, M)
+    chest.append(ck.tube(P + "body_bell_chain", V((-b["chest"] * 0.5, front - 0.03, zc + 0.09)), V((b["chest"] * 0.5, front - 0.03, zc + 0.09)), 0.008, 0.008, gold, 4))
+    ck._rigid(bs._outward(chest), rig, "chest")
+    stole = [lk.silk(ck, P + "body_stole%d" % sx, (sx * 0.06, wf - 0.022, zw - 0.02), (sx * 0.085, wf - 0.1, zw - 0.4), (1, 0, 0), 0.09, 0.11, t2, (0, -0.012, 0), 3) for sx in (-1, 1)]
+    stole += lk.bell(ck, P + "body_buckle", (0, wf - 0.035, zw - 0.005), 0.046, M)
+    stole.append(_bolt(ck, P + "body_back_bolt", [V((x, -wf + 0.05 + i * 0.03, zw - 0.03 - i * 0.11)) for i, x in enumerate((0.0, 0.07, -0.05, 0.05, -0.01))], 0.14, t2, (1, 0, 0)))
+    ck._rigid(bs._outward(stole), rig, "hips")
+    for s, sx in ((".R", -1), (".L", 1)):                 # ombros: pires de porcelana com um sino de vidro em pé e duas fitas eriçadas
+        tag = s.replace(".", "_")
+        sh = V(j["shoulder" + s])
+        pc = sh + V((sx * 0.09, 0, 0.0))
+        pa = lk.saucers(ck, P + "body_dish" + tag, pc, b["arm"] * 2.6, 1, M, 0.05, 0.2, (sx * 0.4, 0, 1), [porc])
+        pa += _glass_bell(ck, P + "body_shoulder_bell" + tag, pc + V((sx * 0.04, 0, 0.27)), 0.1, M)
+        for i, sy in enumerate((-1, 1)):
+            zz = [pc + V((sx * 0.1, sy * 0.1, 0.03)), pc + V((sx * 0.2, sy * 0.13, 0.16)), pc + V((sx * 0.18, sy * 0.19, 0.24)), pc + V((sx * 0.34, sy * 0.25, 0.4 - i * 0.06))]
+            pa.append(_bolt(ck, P + "body_bristle%d%s" % (i, tag), zz, 0.1, t2, (sy * 0.35, 1, 0)))
+        ck._rigid(bs._outward(pa), rig, "upper_arm" + s)
+    lk.limbs(ck, base, mats, P, M, "cloth", bells=True, boots_m=porc)
+
+
+ACT3_SETS = {"ele_f50": build_feast_end_lantern, "ele_g50": build_frost_mirror, "ele_r50": build_clear_thunder_bell}

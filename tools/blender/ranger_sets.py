@@ -1222,4 +1222,113 @@ def build_last_ball_salvo(ck, base, mats, style):
     lk.limbs(ck, base, mats, P, M, "leather", boots_m=leather)
 
 
-ACT3_SETS = {"ran_c50": build_wandering_lantern, "ran_a50": build_last_ball_salvo}
+def _antler(ck, name, root, sx, r, material):
+    """Galhada de cervo (um lado): haste que abre para fora e para trás, com três pontas subindo para a frente."""
+    V = Vector
+    p0 = V(root)
+    p1 = p0 + V((sx * r * 1.15, r * 0.5, r * 1.3))
+    bend = V((sx * r * 0.34, r * 0.1, -r * 0.12))
+    out = curve(ck, name + "_beam", p0, p1, bend, r * 0.18, material, 5, 7, r * 0.05)
+    for i, (k, ln) in enumerate(((0.26, 0.62), (0.56, 0.7), (0.84, 0.5))):
+        q = p0.lerp(p1, k) + bend * math.sin(math.pi * k)
+        tip = q + V((sx * r * 0.12 * (1 if i != 1 else -0.6), -r * 0.6 * ln, r * ln))
+        out += curve(ck, name + "_tine%d" % i, q, tip, (0, -r * 0.1, -r * 0.06), r * 0.12, material, 3, 6, r * 0.025)
+    return out
+
+
+#   ran_l50 Lanceiro = Lança do Cortejo: MÁSCARA DE CERVO em porcelana (focinho comprido, orelhas deitadas, lágrima) com
+#           GALHADA de ouro velho aberta para os lados (assinatura, lida de cima), touca curta de seda (tint2, ferrugem) e
+#           uma flâmula caindo de cada galho; ombreira de pires com SINOS pendurados no ombro esquerdo, faixa de cortejo
+#           atravessada no peito com medalhão, colar de pontas de chifre, tanga de seda e guizos nos punhos e tornozelos.
+def build_cortege_lance(ck, base, mats, style):
+    """ran_l50 — Lança do Cortejo (Lanceiro)."""
+    import lumeria_kit as lk
+    import berserker_sets as bs
+    V = Vector
+    rig, body, b, j = base["rig"], base["body"], base["b"], base["j"]
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, porc, glow, leather, ink = M["t"], M["t2"], M["gold"], M["porc"], M["glow"], M["leather"], M["ink"]
+    P = "arm_%s_" % style
+    c, r = V(base["head_c"]), b["head"]
+    d = b["depth"]
+    front = -b["chest"] * d - 0.03
+    back = b["chest"] * d + 0.03
+    zc, zn, zw = ck.Z["chest"], ck.Z["neck"], ck.Z["waist"]
+    wf = -b["waist"] * d * 1.22
+    # ---------------- cabeça: touca curta, máscara de cervo, galhada com flâmulas ----------------
+    s = r * 0.66
+    mc = c + V((0, -r * 1.0, -r * 0.02))
+    head = [ck._shell(P + "head_hood", c, r * 1.1, 0.2, -0.78, -0.55, 0.04, t2),
+            ck.tube(P + "head_band", c + V((0, 0, r * 0.5)), c + V((0, 0, r * 0.62)), r * 1.16, r * 1.1, gold, 18)]
+    head += lk.mask(ck, P + "head_mask", mc, s, M, tears=(1,), wide=1.22, tall=0.86, tear_len=0.36)
+    head += [ck.ball(P + "head_snout", 1.0, mc + V((0, -s * 0.62, -s * 0.42)), porc, (s * 0.3, s * 0.84, s * 0.27)),
+             ck.ball(P + "head_nose", s * 0.14, mc + V((0, -s * 1.4, -s * 0.38)), ink, (1.3, 0.8, 0.8)),
+             ck.tube(P + "head_snout_line", mc + V((0, -s * 0.5, -s * 0.13)), mc + V((0, -s * 1.25, -s * 0.2)), s * 0.035, s * 0.02, gold, 5),
+             ck.ball(P + "head_brow", s * 0.11, mc + V((0, -s * 0.31, s * 0.5)), glow, (0.8, 0.5, 1.5))]
+    for sx in (-1, 1):
+        e0 = c + V((sx * r * 0.86, -r * 0.42, r * 0.36))
+        head += [ck.blade(P + "head_ear%d" % sx, e0, e0 + V((sx * r * 0.95, r * 0.12, r * 0.26)), r * 0.5, r * 0.13, porc, (0, 0.2, 1), 0.4),
+                 ck.blade(P + "head_ear_in%d" % sx, e0 + V((sx * r * 0.1, -r * 0.07, 0.0)), e0 + V((sx * r * 0.8, r * 0.02, r * 0.2)), r * 0.26, r * 0.1, gold, (0, 0.2, 1), 0.4)]
+        a0 = c + V((sx * r * 0.42, r * 0.05, r * 0.92))
+        head += _antler(ck, P + "head_antler%d" % sx, a0, sx, r, gold)
+        head.append(ck.ball(P + "head_antler_bur%d" % sx, r * 0.2, a0 + V((0, 0, r * 0.05)), porc, (1, 1, 0.6)))
+        f0 = a0 + V((sx * r * 0.95, r * 0.42, r * 0.92))       # flâmula: presa no galho, cai para trás e para fora
+        head.append(lk.silk(ck, P + "head_pennant%d" % sx, f0, f0 + V((sx * r * 0.42, r * 1.25, -r * 1.05)), (1, 0, 0), r * 0.4, r * 0.08, t2, (0, r * 0.1, 0), 4))
+        head.append(ck.ball(P + "head_pennant_knot%d" % sx, r * 0.09, f0, glow))
+    ck._rigid(bs._outward(head), rig, "head")
+    # ---------------- corpo: gibão, faixa de cortejo, colar de pontas, lenço nas costas ----------------
+    ck.armor_piece(body, rig, P + "body_jerkin", "torso", t, 0.014, 0.014, 0.03)
+    ck.armor_piece(body, rig, P + "body_legs", "legs", leather, 0.008, 0.012)
+    s0, s1 = V((b["chest"] * 0.84, front + 0.035, zn - 0.07)), V((-b["waist"] * 0.95, front - 0.005, zw + 0.06))
+    chest = [ck.tube(P + "body_collar", V((0, 0, zn - 0.06)), V((0, 0, zn + 0.025)), b["chest"] * 0.78, b["chest"] * 0.52, t2, 14),
+             ck.tube(P + "body_collar_rim", V((0, 0, zn - 0.075)), V((0, 0, zn - 0.055)), b["chest"] * 0.82, b["chest"] * 0.8, gold, 14),
+             ck.tube(P + "body_sash", s0, s1, 0.04, 0.04, t2, 6),
+             ck.tube(P + "body_sash_back", V((b["chest"] * 0.84, back - 0.035, zn - 0.07)), V((-b["waist"] * 0.95, back - 0.02, zw + 0.06)), 0.04, 0.04, t2, 6)]
+    mp = s0.lerp(s1, 0.5) + V((0, -0.04, 0))
+    chest += [ck.ball(P + "body_medal", 1.0, mp, porc, (0.055, 0.018, 0.055)),
+              ck.ball(P + "body_medal_rim", 1.0, mp + V((0, 0.006, 0)), gold, (0.064, 0.014, 0.064)),
+              ck.ball(P + "body_medal_tear", 0.02, mp + V((0, -0.016, -0.004)), glow, (0.8, 0.6, 1.7))]
+    for k in range(5):                   # colar de pontas de chifre, de ouro velho
+        a = math.pi * (0.22 + 0.56 * k / 4.0)
+        p = V((math.cos(a) * b["chest"] * 0.56, -math.sin(a) * b["chest"] * 0.6 - 0.025, zn - 0.085 - math.sin(a) * 0.03))
+        chest.append(ck.tube(P + "body_tine%d" % k, p, p + V((0, -0.014, -0.085 if k % 2 == 0 else -0.06)), 0.017, 0.003, gold, 6))
+    kz = zn - 0.05                       # lenço de seda em bico nas costas, com guizo na ponta
+    chest += [ck.blade(P + "body_kerchief", (0, back + 0.012, kz), (0, back + 0.07, zw + 0.04), 0.5, 0.02, t2, (1, 0, 0), 0.12),
+              ck.blade(P + "body_kerchief_edge", (0, back + 0.004, kz + 0.01), (0, back + 0.066, zw - 0.0), 0.56, 0.014, gold, (1, 0, 0), 0.12)]
+    chest += lk.bell(ck, P + "body_kerchief_bell", (0, back + 0.085, zw + 0.0), 0.034, M)
+    ck._rigid(bs._outward(chest), rig, "chest")
+    bs._belt(ck, base, P + "body_belt", zw - 0.04, zw + 0.03, 1.2, leather)
+    hips = [ck.ball(P + "body_buckle", 0.04, (0, wf - 0.012, zw - 0.005), porc, (1.05, 0.5, 1.15)),
+            ck.ball(P + "body_buckle_tear", 0.017, (0, wf - 0.034, zw - 0.012), glow, (0.8, 0.6, 1.7)),
+            lk.silk(ck, P + "body_cloth_f", (0, wf - 0.012, zw - 0.03), (0, wf - 0.06, zw - 0.3), (1, 0, 0), 0.17, 0.1, t2, (0, -0.012, 0), 3),
+            lk.silk(ck, P + "body_cloth_b", (0, -wf + 0.012, zw - 0.03), (0, -wf + 0.08, zw - 0.34), (1, 0, 0), 0.2, 0.12, t2, (0, 0.02, 0), 3)]
+    for sx in (-1, 1):                   # guizos no quadril
+        hp_ = V((sx * b["waist"] * 1.22, -0.02, zw - 0.03))
+        hips.append(ck.tube(P + "body_hip_cord%d" % sx, hp_, hp_ + V((sx * 0.012, 0, -0.07)), 0.006, 0.006, gold, 4))
+        hips += lk.bell(ck, P + "body_hip_bell%d" % sx, hp_ + V((sx * 0.016, 0, -0.1)), 0.036, M)
+    ck._rigid(bs._outward(hips), rig, "hips")
+    for sfx, sx in ((".R", -1), (".L", 1)):
+        tag = sfx.replace(".", "_")
+        sh = V(j["shoulder" + sfx])
+        if sfx == ".L":                  # ombro esquerdo: pires empilhados com um cacho de sinos na borda e uma flâmula
+            pc = sh + V((sx * 0.07, 0, 0.0))
+            rr = b["arm"] * 2.7
+            pa = lk.saucers(ck, P + "body_dish" + tag, pc, rr, 2, M, 0.05, 0.24, (sx * 0.35, 0, 1), [porc, t2])
+            for k in range(5):
+                a = math.radians(-80 + k * 40)
+                hp_ = pc + V((sx * math.cos(a) * rr * 0.98 + sx * 0.02, math.sin(a) * rr * 0.98, 0.0))
+                bc = hp_ + V((sx * 0.012, 0, -0.06 - (k % 2) * 0.035))
+                pa.append(ck.tube(P + "body_bell_cord%d" % k, hp_, bc, 0.006, 0.006, gold, 4))
+                pa += lk.bell(ck, P + "body_bell%d" % k, bc + V((0, 0, -0.03)), 0.038 if k == 2 else 0.032, M)
+            pa.append(ck.ball(P + "body_dish_tear", 0.03, pc + V((sx * 0.035, 0, 0.11)), glow, (1, 1, 1.2)))
+            pa.append(lk.silk(ck, P + "body_pennant", pc + V((sx * 0.03, 0.09, 0.02)), pc + V((sx * 0.2, 0.3, -0.3)), (1, -0.6, 0), 0.17, 0.03, t2, (0, 0.03, 0.02), 4))
+        else:                            # ombro direito (o da lança): calota de seda com aro e dois guizos
+            pa = [ck.ball(P + "body_pad" + tag, b["arm"] * 2.2, sh + V((sx * 0.05, 0, 0.03)), t2, (1.15, 1.1, 0.56)),
+                  ck.tube(P + "body_pad_rim" + tag, sh + V((sx * 0.05, 0, -0.02)), sh + V((sx * 0.05, 0, 0.004)), b["arm"] * 2.5, b["arm"] * 2.42, gold, 12)]
+            for i, sy in enumerate((-1, 1)):
+                pa += lk.bell(ck, P + "body_pad_bell%d" % i, sh + V((sx * 0.13, sy * 0.07, -0.05)), 0.03, M)
+        ck._rigid(bs._outward(pa), rig, "upper_arm" + sfx)
+    lk.limbs(ck, base, mats, P, M, "leather", bells=True, boots_m=leather)
+
+
+ACT3_SETS = {"ran_c50": build_wandering_lantern, "ran_a50": build_last_ball_salvo, "ran_l50": build_cortege_lance}

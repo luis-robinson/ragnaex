@@ -872,4 +872,113 @@ def build_last_toast_harvest(ck, base, mats, style):
     lk.limbs(ck, base, mats, P, M, "cloth", boots_m=dark)
 
 
-ACT3_SETS = {"nec_i50": build_porcelain_cortege, "nec_c50": build_last_toast_harvest}
+def _obsidian(ck):
+    """Vidro negro lustroso do espelho do conjunto das Sombras (cor fixa)."""
+    return ck.mat("m_lum_obsidian", (0.05, 0.05, 0.09), 0.08)
+
+
+def _black_mirror(ck, name, c, rx, rz, M, facing=(0, -1, 0), tear=0, points=0):
+    """Espelho NEGRO oval (meias-medidas rx, rz) com moldura de ouro velho, virado para facing. tear = lado da lágrima
+    (tint_glow) escorrendo pelo vidro (+1 = esquerda do boneco) ; points = pontas de ouro em coroa por cima da moldura."""
+    import lumeria_kit as lk
+    out = [ck.ball(name + "_glass", 1.0, (0, -rx * 0.07, 0), _obsidian(ck), (rx, rx * 0.2, rz)),
+           ck.ball(name + "_frame", 1.0, (0, rx * 0.06, 0), M["gold"], (rx * 1.15, rx * 0.17, rz * 1.12)),
+           ck.ball(name + "_glint", 1.0, (-rx * 0.38, -rx * 0.25, rz * 0.42), M["porc"], (rx * 0.1, rx * 0.04, rz * 0.24))]
+    if tear:
+        x = tear * rx * 0.4
+        out += [ck.ball(name + "_tear", rx * 0.085, (x, -rx * 0.25, -rz * 0.08), M["glow"], (0.8, 0.6, rz / rx * 3.2)),
+                ck.ball(name + "_drop", rx * 0.14, (x, -rx * 0.24, -rz * 0.46), M["glow"], (1, 0.6, 1.3))]
+    for k in range(points):
+        a = math.radians(90 + (k - (points - 1) * 0.5) * 30)
+        dv = Vector((math.cos(a), 0, math.sin(a)))
+        root = Vector((dv.x * rx * 1.05, rx * 0.06, dv.z * rz * 1.05))
+        out.append(ck.blade(name + "_point%d" % k, root, root + dv * rx * (0.62 if k == points // 2 else 0.42), rx * 0.34, rx * 0.12, M["gold"], (-dv.z, 0, dv.x), 0.3))
+    return lk.place(out, c, facing)
+
+
+#   nec_s50 Sombras = Véu do Espelho Negro: capuz ALTO e em pé de seda (tint2, violeta-crepúsculo) com a ponta curvada
+#           para trás, de onde pende uma lanterna APAGADA; no lugar do rosto, um ESPELHO NEGRO oval de moldura de ouro com
+#           uma lágrima dourada escorrendo pelo vidro (assinatura); aletas de seda com varetas de ouro abrindo nos ombros
+#           (lidas de cima); véu comprido pelas costas; lanternas apagadas no cinto.
+def build_black_mirror_veil(ck, base, mats, style):
+    """nec_s50 — Véu do Espelho Negro (Sombras)."""
+    import lumeria_kit as lk
+    import berserker_sets as bs
+    V = Vector
+    rig, body, b, j = base["rig"], base["body"], base["b"], base["j"]
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, porc, glow, dark = M["t"], M["t2"], M["gold"], M["porc"], M["glow"], M["dark"]
+    Moff = dict(M)                       # lanterna apagada: o miolo é vidro negro, não tint_glow
+    Moff["glow"] = _obsidian(ck)
+    P = "arm_%s_" % style
+    c, r = V(base["head_c"]), b["head"]
+    d = b["depth"]
+    front = -b["chest"] * d - 0.03
+    back = b["chest"] * d + 0.03
+    zc, zn, zw = ck.Z["chest"], ck.Z["neck"], ck.Z["waist"]
+    wf = -b["waist"] * d * 1.22
+    # ---------------- túnica ----------------
+    _a2_robe(ck, base, mats, P, t, dark, 0.06, 1.8, gold, dark)
+    # ---------------- cabeça: capuz alto em pé, espelho negro no lugar do rosto, lanterna apagada na ponta ----------------
+    k0, k1, k2 = c + V((0, r * 0.12, r * 0.5)), c + V((0, r * 0.3, r * 1.95)), c + V((0, r * 1.0, r * 2.0))
+    head = [ck._shell(P + "head_hood", c, r * 1.15, 0.62, -1.0, -0.72, 0.04, t2),
+            ck.tube(P + "head_peak0", k0, k1, r * 0.92, r * 0.2, t2, 12),
+            ck.tube(P + "head_peak1", k1, k2, r * 0.2, r * 0.07, t2, 8),
+            ck.ball(P + "head_peak_knee", r * 0.2, k1, t2),
+            ck.tube(P + "head_peak_band", k0.lerp(k1, 0.5), k0.lerp(k1, 0.58), r * 0.6, r * 0.55, gold, 12)]
+    head += lk.lantern(ck, P + "head_dead_lantern", k2 + V((0, 0, -r * 0.8)), r * 0.28, Moff, hang=k2)
+    head += _black_mirror(ck, P + "head_mirror", c + V((0, -r * 1.0, -r * 0.05)), r * 0.78, r * 0.9, M, tear=1, points=3)
+    for sx in (-1, 1):                   # duas pontas do véu caindo das laterais do capuz para trás
+        p0 = c + V((sx * r * 1.0, r * 0.35, -r * 0.55))
+        head.append(lk.silk(ck, P + "head_veil%d" % sx, p0, p0 + V((sx * r * 0.3, r * 0.5, -r * 0.95)), (0.5, -1, 0), r * 0.5, r * 0.3, t2, (sx * r * 0.06, 0, 0), 3))
+    ck._rigid(bs._outward(head), rig, "head")
+    # ---------------- corpo: gola, medalhão de espelho negro, véu comprido nas costas ----------------
+    chest = [ck.tube(P + "body_collar", V((0, 0, zn - 0.07)), V((0, 0, zn + 0.03)), b["chest"] * 0.82, b["chest"] * 0.55, t2, 14),
+             ck.tube(P + "body_collar_rim", V((0, 0, zn - 0.085)), V((0, 0, zn - 0.065)), b["chest"] * 0.86, b["chest"] * 0.84, gold, 14)]
+    chest += _black_mirror(ck, P + "body_pendant", (0, front - 0.035, zc + 0.03), 0.055, 0.07, M, tear=-1)
+    for sx in (-1, 1):
+        chest.append(ck.tube(P + "body_pendant_chain%d" % sx, (sx * b["chest"] * 0.6, front + 0.05, zn - 0.07), (sx * 0.03, front - 0.03, zc + 0.1), 0.009, 0.009, gold, 4))
+    ck._rigid(bs._outward(chest), rig, "chest")
+    veil = []
+    for k in range(3):                   # véu: três panos da gola até a barriga da perna (pesos do corpo)
+        q = k - 1
+        p0 = V((q * b["chest"] * 0.62, back + 0.02 - abs(q) * 0.04, zn - 0.05))
+        p1 = V((q * 0.34, back + 0.3 - abs(q) * 0.08, 0.16 + abs(q) * 0.14))
+        veil.append(lk.silk(ck, P + "body_veil%d" % k, p0, p1, (1, -q * 0.4, 0), 0.17, 0.26, t2, (0, 0.05, 0), 6, 0.014))
+    lk.skinned(ck, base, bs._outward(veil))
+    hips = _black_mirror(ck, P + "body_buckle", (0, wf - 0.022, zw - 0.005), 0.045, 0.055, M, tear=1)
+    for sx in (-1, 1):                   # lanternas apagadas no cinto
+        hp_ = V((sx * b["waist"] * 1.24, -0.03, zw - 0.02))
+        hips += lk.lantern(ck, P + "body_dead_lantern%d" % sx, hp_ + V((sx * 0.02, 0, -0.15)), 0.058, Moff, hang=hp_)
+    ck._rigid(bs._outward(hips), rig, "hips")
+    for s, sx in ((".R", -1), (".L", 1)):                 # ombros: aletas de seda em leque (três varetas de ouro cada), abrindo para fora
+        tag = s.replace(".", "_")
+        sh = V(j["shoulder" + s])
+        pa = [ck.ball(P + "body_pad" + tag, b["arm"] * 2.3, sh + V((sx * 0.06, 0, 0.02)), t2, (1.15, 1.15, 0.6)),
+              ck.tube(P + "body_pad_rim" + tag, sh + V((sx * 0.06, 0, -0.03)), sh + V((sx * 0.06, 0, -0.008)), b["arm"] * 2.62, b["arm"] * 2.55, gold, 12)]
+        root = sh + V((sx * 0.05, 0, 0.06))
+        tips = []
+        for k in range(3):
+            a = math.radians(-42 + k * 42)
+            tips.append(root + V((sx * (0.34 - abs(k - 1) * 0.05), math.sin(a) * 0.3, 0.2 - abs(k - 1) * 0.07)))
+        for k in range(3):
+            pa += [ck.blade(P + "body_fin%d%s" % (k, tag), root, tips[k], 0.24, 0.018, t2, (0, 1, 0.15), 0.62),
+                   ck.tube(P + "body_fin_rod%d%s" % (k, tag), root + V((0, 0, 0.012)), tips[k] + V((0, 0, 0.012)), 0.012, 0.005, gold, 4)]
+        pa.append(ck.ball(P + "body_fin_hub" + tag, 0.036, root + V((0, 0, 0.01)), gold))
+        pa.append(ck.ball(P + "body_fin_tear" + tag, 0.018, root + V((sx * 0.02, -0.02, 0.04)), glow))
+        ck._rigid(bs._outward(pa), rig, "upper_arm" + s)
+    # mangas, punhos de ouro e botas (a casca das botas já vem em _a2_robe)
+    for s, sx in ((".R", -1), (".L", 1)):
+        tag = s.replace(".", "_")
+        el_, wr, an = V(j["elbow" + s]), V(j["wrist" + s]), V(j["ankle" + s])
+        g = [ck.tube(P + "gloves_sleeve" + tag, el_.lerp(wr, 0.2), wr + V((0, 0, -0.014)), 0.076, 0.118, t, 14),
+             ck.tube(P + "gloves_cuff" + tag, wr + V((0, 0, 0.01)), wr + V((0, 0, -0.022)), 0.123, 0.123, gold, 14),
+             ck.blade(P + "gloves_fin" + tag, el_.lerp(wr, 0.3) + V((sx * 0.07, 0.02, 0)), el_.lerp(wr, 0.75) + V((sx * 0.24, 0.07, 0.02)), 0.15, 0.016, t2, (0, 0.3, 1), 0.5),
+             ck.ball(P + "gloves_tear" + tag, 0.02, el_.lerp(wr, 0.7) + V((sx * 0.1, -0.03, 0)), glow, (0.6, 1.0, 1.6))]
+        ck._rigid(bs._outward(g), rig, "forearm" + s)
+        ck._rigid([ck.ball(P + "gloves_fist" + tag, b["hand"] * 1.15, ck.hand_center(base, s), _obsidian(ck), (1, 1, 1.1))], rig, "hand" + s)
+        ck._rigid(bs._outward([ck.tube(P + "boots_cuff" + tag, an + V((0, 0, 0.06)), an + V((0, 0, 0.096)), 0.084, 0.09, gold, 12),
+                               ck.ball(P + "boots_tear" + tag, 0.02, an + V((0, -0.088, 0.075)), glow, (0.7, 0.6, 1.5))]), rig, "shin" + s)
+
+
+ACT3_SETS = {"nec_i50": build_porcelain_cortege, "nec_c50": build_last_toast_harvest, "nec_s50": build_black_mirror_veil}

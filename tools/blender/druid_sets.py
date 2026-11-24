@@ -1430,5 +1430,121 @@ def _bear_armor3(ck, lk, M, put, P, bulk, hip, hc, tint, tint2):
                 put(slot, bone_name, lk.silk(ck, P + "%s_ribbon_%s" % (slot, bone_name), p0, p0 + V((sx * 0.14, 0.3, 0.0)), (0, 0.2, 1), 0.08, 0.11, tint2, (sx * 0.04, 0, 0.03), 3))
 
 
-ACT3_SETS = {"dru_w50": build_parade_gallop, "dru_b50": build_masked_harvest}
+def _paper_lantern(ck, name, c, s, M, hang=None):
+    """Lanterna de papel (meia-altura ~s): bojo aceso (tint_glow), tampas de ouro velho e borla de seda (tint2)."""
+    V = Vector
+    c = V(c)
+    gold = M["gold"]
+    out = [ck.ball(name + "_paper", s * 0.82, c, M["glow"], (1, 1, 1.2)),
+           ck.tube(name + "_top", c + V((0, 0, s * 0.82)), c + V((0, 0, s * 1.02)), s * 0.5, s * 0.34, gold, 6),
+           ck.tube(name + "_bottom", c + V((0, 0, -s * 1.02)), c + V((0, 0, -s * 0.82)), s * 0.34, s * 0.5, gold, 6),
+           ck.tube(name + "_tassel", c + V((0, 0, -s * 1.7)), c + V((0, 0, -s * 1.02)), s * 0.2, s * 0.08, M["t2"], 5)]
+    if hang is not None:
+        out.append(ck.tube(name + "_hang", V(hang), c + V((0, 0, s * 1.0)), max(s * 0.07, 0.006), max(s * 0.07, 0.006), gold, 4))
+    return out
+
+
+#   dru_x50 Xamã = Céu de Lanternas: CHAPÉU de abas largas de seda (tint2, índigo), inclinado para trás, com 6 lanternas de
+#           papel acesas penduradas na aba, estrelas de ouro e uma lua crescente no alto; máscara de LUA (metade porcelana
+#           com lágrima, metade noite com estrelas); manto de seda estrelado pelas costas até a canela.
+def build_lantern_sky(ck, base, mats, style):
+    """dru_x50 — Céu de Lanternas (Xamã, cajado)."""
+    import lumeria_kit as lk
+    import berserker_sets as bs
+    import elementalist_sets as es
+    from mathutils import Quaternion
+    V = Vector
+    rig, body, b, j = base["rig"], base["body"], base["b"], base["j"]
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, porc, glow, silk = M["t"], M["t2"], M["gold"], M["porc"], M["glow"], M["silk"]
+    P = "arm_%s_" % style
+    c, r = V(base["head_c"]), b["head"]
+    d = b["depth"]
+    front = -b["chest"] * d - 0.03
+    back = b["chest"] * d + 0.03
+    zc, zn, zw = ck.Z["chest"], ck.Z["neck"], ck.Z["waist"]
+    wf = -b["waist"] * d * 1.22
+    # ---------------- túnica ----------------
+    ck.armor_piece(body, rig, P + "body_robe", "torso", t, 0.014, 0.014, 0.03)
+    ck.armor_piece(body, rig, P + "body_legs", "legs", porc, 0.008, 0.012)
+    ck.skirt(P + "body_skirt", b, body, rig, t, 0.1, 1.6)
+    bs._belt(ck, base, P + "body_belt", zw - 0.04, zw + 0.035, 1.21, gold)
+    # ---------------- cabeça: cabelo solto, chapéu de abas largas inclinado, lanternas na aba, máscara de lua ----------------
+    head = es._act2_hair(ck, base, P)
+    q = Quaternion((1, 0, 0), math.radians(-13))          # a frente da aba sobe: o rosto aparece na câmera alta
+    hat0 = c + V((0, r * 0.05, r * 0.4))
+    R = r * 1.95
+
+    def hp(x, y, z):
+        return hat0 + q @ V((x, y, z))
+
+    hat = [ck.tube(P + "head_brim", V((0, 0, 0)), V((0, 0, r * 0.26)), R, r * 1.1, t2, 18),
+           ck.tube(P + "head_brim_rim", V((0, 0, -r * 0.03)), V((0, 0, r * 0.04)), R * 1.03, R * 1.02, gold, 18),
+           ck.tube(P + "head_crown", V((0, 0, r * 0.2)), V((0, 0, r * 1.0)), r * 1.14, r * 0.36, t2, 18),
+           ck.tube(P + "head_crown_band", V((0, 0, r * 0.22)), V((0, 0, r * 0.44)), r * 1.18, r * 0.95, gold, 18),
+           ck.ball(P + "head_crown_knob", r * 0.16, V((0, 0, r * 1.06)), gold)]
+    for k in range(5):                   # lua crescente de ouro em pé no alto do chapéu
+        a0, a1 = math.radians(-150 + k * 60), math.radians(-150 + (k + 1) * 60)
+        rr = r * 0.36
+        m0 = V((math.sin(a0) * rr, 0, r * 1.5 - math.cos(a0) * rr))
+        m1 = V((math.sin(a1) * rr, 0, r * 1.5 - math.cos(a1) * rr))
+        w0, w1 = (0.02 + 0.09 * math.sin(math.pi * k / 5)) * r, (0.02 + 0.09 * math.sin(math.pi * (k + 1) / 5)) * r
+        hat.append(ck.tube(P + "head_moon%d" % k, m0, m1, w0, w1, gold, 6))
+    hat.append(ck.ball(P + "head_moon_star", r * 0.1, V((0, 0, r * 1.52)), glow))
+    for k in range(6):                   # estrelas de ouro pintadas na aba, entre as lanternas
+        a = math.tau * k / 6
+        rr = r * 1.45
+        hat.append(ck.ball(P + "head_star%d" % k, r * 0.1, V((math.sin(a) * rr, -math.cos(a) * rr, r * 0.26 * (R - rr) / (R - r * 1.1) + r * 0.01)), gold if k % 2 else glow, (1, 1, 0.4)))
+    for o in hat:
+        for v in o.data.vertices:
+            v.co = hat0 + q @ v.co
+    head += hat
+    for k in range(6):                   # lanternas de papel penduradas na beira da aba (nenhuma bem na frente do rosto)
+        a = math.tau * (k + 0.5) / 6
+        s_ = r * (0.25 if k % 2 == 0 else 0.21)
+        top = hp(math.sin(a) * R * 0.97, -math.cos(a) * R * 0.97, -r * 0.02)
+        head += _paper_lantern(ck, P + "head_lantern%d" % k, top + V((0, 0, -r * 0.2 - s_)), s_, M, hang=top)
+    s_ = r * 0.66
+    mc = c + V((0, -r * 1.0, -r * 0.08))
+    wx, dy = 0.82 * 1.18 * s_, 0.34 * s_
+    head += lk.mask(ck, P + "head_mask", mc, s_, M, tears=(-1,), wide=1.18, tear_len=0.4)
+    night = [ck.ball(P + "head_mask_night", 1.0, (0.42 * wx, -0.02 * s_, 0), silk, (0.7 * wx, dy * 1.25, 0.9 * s_)),
+             ck.ball(P + "head_mask_lid", s_ * 0.14, (0.5 * wx, -dy * 1.22 - 0.01 * s_, 0.14 * s_), gold, (1.3, 0.5, 0.2))]
+    for k, (x, z) in enumerate(((0.3, 0.5), (0.72, -0.2), (0.4, -0.5))):
+        night.append(ck.ball(P + "head_mask_star%d" % k, s_ * 0.07, (x * wx, -dy * 1.25 * math.sqrt(max(0.0, 1.0 - ((x - 0.42) / 0.7) ** 2 - (z / 0.9) ** 2)) - 0.02 * s_, z * s_), gold))
+    head += lk.place(night, mc)
+    ck._rigid(bs._outward(head), rig, "head")
+    # ---------------- corpo: capelinha, broche de lua, manto estrelado nas costas (pesos do corpo) ----------------
+    cape = ck.tube(P + "body_mantle", V((0, 0, zn - 0.14)), V((0, 0, zn + 0.03)), b["shoulder"] * 1.36, b["chest"] * 0.55, t2, 16)
+    hem = ck.tube(P + "body_mantle_hem", V((0, 0, zn - 0.155)), V((0, 0, zn - 0.13)), b["shoulder"] * 1.4, b["shoulder"] * 1.38, gold, 16)
+    for o in (cape, hem):
+        for v in o.data.vertices:
+            v.co.y *= 0.8
+    chest = [cape, hem,
+             ck.ball(P + "body_brooch", 0.045, (0, front - 0.055, zn - 0.09), porc, (1, 0.5, 1)),
+             ck.ball(P + "body_brooch_night", 0.04, (0.014, front - 0.062, zn - 0.085), silk, (1, 0.5, 1)),
+             ck.ball(P + "body_brooch_tear", 0.016, (-0.03, front - 0.075, zn - 0.1), glow, (0.8, 0.6, 1.6))]
+    for k in range(7):                   # estrelas na capelinha
+        a = math.radians(-135 + k * 45)
+        chest.append(ck.ball(P + "body_mantle_star%d" % k, 0.022, (math.sin(a) * b["shoulder"] * 1.04, -math.cos(a) * b["shoulder"] * 0.83, zn - 0.075), glow if k % 2 == 0 else gold, (1, 1, 0.8)))
+    ck._rigid(bs._outward(chest), rig, "chest")
+    p0, p1 = V((0, back + 0.06, zn - 0.06)), V((0, back + 0.34, 0.13))
+    train = [lk.silk(ck, P + "body_cloak", p0, p1, (1, 0, 0), 0.4, 0.74, t2, (0, 0, 0), 6, 0.016),
+             lk.silk(ck, P + "body_cloak_hem", p0.lerp(p1, 0.93), p1 + (p1 - p0) * 0.03, (1, 0, 0), 0.75, 0.78, gold, (0, 0, 0), 1, 0.02)]
+    stars = ((-0.5, 0.2), (0.45, 0.14), (0.0, 0.34), (-0.62, 0.5), (0.55, 0.46), (0.12, 0.6), (-0.3, 0.72), (0.6, 0.78), (-0.7, 0.84), (0.2, 0.86))
+    nrm = (p1 - p0).cross(V((1, 0, 0))).normalized()
+    if nrm.y < 0:
+        nrm = -nrm
+    for k, (fx, fk) in enumerate(stars):
+        w = 0.4 + (0.74 - 0.4) * fk
+        train.append(ck.ball(P + "body_cloak_star%d" % k, 0.024 if k % 3 else 0.034, p0.lerp(p1, fk) + V((fx * w * 0.5, 0, 0)) + nrm * 0.012, glow if k % 2 == 0 else gold, (1, 0.5, 1)))
+    lk.skinned(ck, base, bs._outward(train))
+    hips = [lk.silk(ck, P + "body_sash%d" % sx, (sx * 0.05, wf - 0.02, zw - 0.02), (sx * 0.09, wf - 0.075, zw - 0.34), (1, 0, 0), 0.08, 0.1, t2, (0, -0.012, 0), 3) for sx in (-1, 1)]
+    hips.append(ck.ball(P + "body_buckle", 0.04, (0, wf - 0.014, zw), gold, (1.1, 0.5, 1.1)))
+    hips += _paper_lantern(ck, P + "body_hip_lantern", (b["waist"] * 1.36, -0.02, zw - 0.15), 0.05, M, hang=(b["waist"] * 1.26, -0.02, zw - 0.02))
+    ck._rigid(bs._outward(hips), rig, "hips")
+    lk.limbs(ck, base, mats, P, M, "cloth", boots_m=porc)
+
+
+ACT3_SETS = {"dru_w50": build_parade_gallop, "dru_b50": build_masked_harvest, "dru_x50": build_lantern_sky}
 ACT3_FORM = {"dru_w50": "wolf", "dru_b50": "bear"}          # armadura de animal do nível 50 (form_armor3); Xamã e ancestrais do Urso: ondas 3 e 4

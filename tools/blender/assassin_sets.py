@@ -1179,4 +1179,120 @@ def build_mirror_foil(ck, base, mats, style):
     lk.limbs(ck, base, mats, P, M, "leather", ribbon=0.4, mirror=True, boots_m=dark, fist_m=porc)
 
 
-ACT3_SETS = {"ass_l50": build_venom_tear, "ass_d50": build_mirror_foil}
+def _bicorne_flap(ck, name, c, wx, wy, wz, droop, material):
+    """Aba em pé do bicorne: meia-lua larga (wx) e fina (wy), de altura wz, com as pontas caindo (droop)."""
+    o = ck.ball(name, 1.0, (0, 0, 0), material, (wx, wy, wz))
+    c = Vector(c)
+    for v in o.data.vertices:
+        z = v.co.z if v.co.z > 0 else v.co.z * 0.25
+        v.co = Vector((v.co.x, v.co.y, z - (v.co.x / wx) ** 2 * droop)) + c
+    return o
+
+
+def _scallop(ck, name, c, sx, s, M, ribs=5):
+    """Concha de vieira em porcelana (ombreira): leque de gomos abrindo para fora e para cima, nervuras de ouro."""
+    V = Vector
+    c = V(c)
+    out = [ck.ball(name + "_hinge", s * 0.34, c, M["gold"], (1, 1, 0.7))]
+    for k in range(ribs):
+        a = math.radians(-64 + k * 128.0 / (ribs - 1))
+        dv = V((sx * math.cos(a), math.sin(a), 0.42)).normalized()
+        ln = s * (1.75 - 0.3 * abs(k - (ribs - 1) * 0.5))
+        wd = V((-sx * math.sin(a), math.cos(a), 0))
+        out.append(ck.blade(name + "_rib%d" % k, c, c + dv * ln, s * 1.35, s * 0.3, M["porc"], wd, 0.7))
+        out.append(ck.tube(name + "_vein%d" % k, c + V((0, 0, s * 0.1)), c + dv * ln * 0.96 + V((0, 0, s * 0.1)), s * 0.05, s * 0.02, M["gold"], 4))
+    return out
+
+
+#   ass_c50 Corsário = Bandeira do Baile Afundado: BICORNE largo de seda (tint2, coral) com as duas abas em pé debruadas
+#           de ouro e uma LANTERNA DE NAVIO acesa no alto, entre elas (assinatura, lida de cima); tapa-olho de porcelana com
+#           a lágrima pintada; casaca marfim de saia aberta com ESPELHOS de bronze na bandoleira; faixa de seda larga com
+#           laço e duas pontas compridas; ombreiras de concha de vieira.
+def build_sunken_ball_flag(ck, base, mats, style):
+    """ass_c50 — Bandeira do Baile Afundado (Corsário)."""
+    import lumeria_kit as lk
+    import berserker_sets as bs
+    import bpy
+    V = Vector
+    rig, body, b, j = base["rig"], base["body"], base["b"], base["j"]
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, porc, glow, glass = M["t"], M["t2"], M["gold"], M["porc"], M["glow"], M["glass"]
+    leather, dark, ink = M["leather"], M["dark"], M["ink"]
+    hair = bpy.data.materials.get("hair") or t
+    P = "arm_%s_" % style
+    c, r = V(base["head_c"]), b["head"]
+    d = b["depth"]
+    front = -b["chest"] * d - 0.03
+    back = b["chest"] * d + 0.03
+    zc, zn, zw = ck.Z["chest"], ck.Z["neck"], ck.Z["waist"]
+    wf = -b["waist"] * d * 1.22
+    # ---------------- cabeça: cabelo com rabo, bicorne de duas abas, lanterna de navio, tapa-olho ----------------
+    head = [ck._shell(P + "head_hair", c + V((0, r * 0.04, r * 0.02)), r * 1.06, 0.25, -0.75, -0.2, 0.04, hair),
+            ck.strand(P + "head_tail", c + V((0, r * 0.95, -r * 0.1)), r * 0.7, r * 0.28, r * 0.22, hair, taper=0.9, lean=(0.0, 0.5)),
+            ck._shell(P + "head_crown", c + V((0, 0, r * 0.12)), r * 1.07, 0.45, 0.2, 0.25, 0.035, t2),
+            _bicorne_flap(ck, P + "head_brim", c + V((0, 0, r * 0.62)), r * 1.82, r * 0.9, r * 0.1, r * 0.28, t2)]
+    hz = r * 0.7
+    for i, sy in enumerate((-1, 1)):     # abas: a da frente e a de trás, inclinadas uma para a outra
+        fc = c + V((0, sy * r * 0.62, hz))
+        flap = [_bicorne_flap(ck, P + "head_flap%d" % i, fc, r * 1.74, r * 0.09, r * 0.78, r * 0.4, t2),
+                _bicorne_flap(ck, P + "head_flap_trim%d" % i, fc - V((0, sy * r * 0.035, 0)), r * 1.83, r * 0.05, r * 0.87, r * 0.4, gold)]
+        head += _tilt(flap, fc, sy * 0.36)
+    ck_c = c + V((0, -r * 0.74, r * 1.02))                   # roseta na aba da frente: disco de porcelana com a lágrima
+    head += [ck.ball(P + "head_cockade", 1.0, ck_c, porc, (r * 0.2, r * 0.07, r * 0.2)),
+             ck.ball(P + "head_cockade_rim", 1.0, ck_c + V((0, r * 0.02, 0)), gold, (r * 0.25, r * 0.05, r * 0.25)),
+             ck.ball(P + "head_cockade_tear", r * 0.07, ck_c + V((0, -r * 0.06, -r * 0.01)), glow, (0.8, 0.6, 1.6))]
+    lc = c + V((0, 0, r * 1.78))
+    ls_ = r * 0.36
+    head += lk.lantern(ck, P + "head_lantern", lc, ls_, M, segs=6)
+    head += [ck.tube(P + "head_lantern_stem", c + V((0, 0, r * 1.0)), lc + V((0, 0, -ls_ * 0.95)), r * 0.2, r * 0.13, gold, 6),
+             ck.tube(P + "head_lantern_ring", lc + V((0, 0, ls_ * 1.4)), lc + V((0, 0, ls_ * 1.52)), ls_ * 0.3, ls_ * 0.3, gold, 6)]
+    ez = r * 0.03                        # tapa-olho no olho esquerdo (+X), com a lágrima pintada escorrendo por baixo
+    head += [ck.ball(P + "head_patch", 1.0, c + V((r * 0.42, -r * 0.97, ez)), porc, (r * 0.3, r * 0.1, r * 0.27)),
+             ck.ball(P + "head_patch_rim", 1.0, c + V((r * 0.42, -r * 0.94, ez)), gold, (r * 0.35, r * 0.09, r * 0.32)),
+             ck.ball(P + "head_patch_lid", r * 0.1, c + V((r * 0.42, -r * 1.06, ez)), gold, (1.5, 0.4, 0.22)),
+             ck.tube(P + "head_patch_strap", c + V((0, r * 0.04, ez - r * 0.05)), c + V((0, r * 0.04, ez + r * 0.06)), r * 1.085, r * 1.085, leather, 18),
+             ck.ball(P + "head_tear", r * 0.055, c + V((r * 0.42, -r * 0.92, ez - r * 0.42)), glow, (0.8, 0.6, 2.2)),
+             ck.ball(P + "head_tear_drop", r * 0.08, c + V((r * 0.42, -r * 0.88, ez - r * 0.58)), glow, (1, 0.6, 1.2))]
+    ck._rigid(bs._outward(head), rig, "head")
+    # ---------------- corpo: casaca de saia aberta, bandoleira de espelhos, faixa de seda ----------------
+    ck.armor_piece(body, rig, P + "body_coat", "torso", t, 0.015, 0.016, 0.03)
+    ck.armor_piece(body, rig, P + "body_legs", "legs", dark, 0.008, 0.012)
+    _open_skirt(ck, P + "body_coatskirt", b, body, rig, t, zw - 0.36, 1.7, gap=0.72)
+    s0, s1 = V((-b["chest"] * 0.84, front + 0.035, zn - 0.07)), V((b["waist"] * 0.95, front - 0.005, zw + 0.08))
+    chest = [ck.tube(P + "body_collar", V((0, 0, zn - 0.05)), V((0, 0, zn + 0.07)), b["chest"] * 0.64, b["chest"] * 0.76, t2, 14),
+             ck.tube(P + "body_collar_rim", V((0, 0, zn + 0.06)), V((0, 0, zn + 0.08)), b["chest"] * 0.78, b["chest"] * 0.78, gold, 14),
+             ck.tube(P + "body_baldric", s0, s1, 0.034, 0.034, t2, 6),
+             ck.tube(P + "body_baldric_back", V((-b["chest"] * 0.84, back - 0.035, zn - 0.07)), V((b["waist"] * 0.95, back - 0.02, zw + 0.08)), 0.034, 0.034, t2, 6),
+             ck.ball(P + "body_jabot", 0.046, (0, front - 0.012, zn - 0.08), porc, (1.2, 0.5, 1.2)),
+             ck.ball(P + "body_jabot_tear", 0.018, (0, front - 0.035, zn - 0.085), glow, (0.8, 0.6, 1.7))]
+    for k in range(4):                   # espelhos de bronze na bandoleira
+        mp = s0.lerp(s1, 0.2 + k * 0.2) + V((0, -0.036, 0))
+        chest += lk.mirror(ck, P + "body_mirror%d" % k, mp, 0.036, M, facing=(0, -1, 0.15))
+    chest += lk.mirror(ck, P + "body_back_mirror", (0, back + 0.02, zc + 0.03), 0.075, M, facing=(0, 1, 0.2), rays=8)
+    ck._rigid(bs._outward(chest), rig, "chest")
+    bs._belt(ck, base, P + "body_sash", zw - 0.06, zw + 0.045, 1.25, t2)
+    kx = -b["waist"] * 1.1                                   # laço no quadril direito, duas pontas compridas
+    ky = -math.sqrt(max(0.0, 1.0 - (kx / (b["waist"] * 1.3)) ** 2)) * b["waist"] * d * 1.3
+    hips = [ck.ball(P + "body_sash_knot", 0.05, (kx, ky - 0.01, zw - 0.01), t2, (1, 0.8, 1)),
+            ck.ball(P + "body_sash_pin", 0.022, (kx, ky - 0.05, zw - 0.01), glow)]
+    for k in range(2):
+        hips.append(lk.silk(ck, P + "body_sash_tail%d" % k, (kx, ky - 0.012, zw - 0.03), (kx - 0.05 - k * 0.07, ky + 0.0 + k * 0.05, zw - 0.36 - k * 0.07), (0.6, 1, 0), 0.1, 0.13, t2,
+                            (-0.02, -0.02, 0), 3))
+    hips += lk.mirror(ck, P + "body_buckle", (0, wf - 0.03, zw - 0.005), 0.044, M)
+    ck._rigid(bs._outward(hips), rig, "hips")
+    for sfx, sx in ((".R", -1), (".L", 1)):                 # ombreiras: concha de vieira de porcelana sobre calota de seda
+        tag = sfx.replace(".", "_")
+        sh = V(j["shoulder" + sfx])
+        pa = [ck.ball(P + "body_pad" + tag, b["arm"] * 2.2, sh + V((sx * 0.05, 0, 0.02)), t2, (1.15, 1.1, 0.58))]
+        pa += _scallop(ck, P + "body_shell" + tag, sh + V((sx * 0.02, 0, 0.075)), sx, 0.16, M)
+        ck._rigid(bs._outward(pa), rig, "upper_arm" + sfx)
+    lk.limbs(ck, base, mats, P, M, "leather", boots_m=dark, fist_m=porc)
+    for sfx, sx in ((".R", -1), (".L", 1)):                 # canhão da bota de balde, com aro de ouro
+        tag = sfx.replace(".", "_")
+        kn, an = V(j["knee" + sfx]), V(j["ankle" + sfx])
+        top = an.lerp(kn, 0.9)
+        ck._rigid(bs._outward([ck.tube(P + "boots_bucket" + tag, top - V((0, 0, 0.03)), top + V((0, 0, 0.05)), 0.094, 0.126, t2, 14),
+                               ck.tube(P + "boots_bucket_rim" + tag, top + V((0, 0, 0.044)), top + V((0, 0, 0.062)), 0.128, 0.128, gold, 14)]), rig, "shin" + sfx)
+
+
+ACT3_SETS = {"ass_l50": build_venom_tear, "ass_d50": build_mirror_foil, "ass_c50": build_sunken_ball_flag}

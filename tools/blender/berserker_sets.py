@@ -1136,4 +1136,120 @@ def build_red_ribbon_feast(ck, base, mats, style):
     lk.limbs(ck, base, mats, P, M, "leather", ribbon=1.25, boots_m=leather)
 
 
-ACT3_SETS = {"ber_e50": build_last_toast, "ber_g50": build_red_ribbon_feast}
+def _fox_mask(ck, name, c, s, M):
+    """Máscara de raposa de porcelana (base oval de lumeria_kit + focinho fino, orelhas altas com miolo de seda, riscos
+    de bigode em tint2, marca acesa na testa e lágrima no olho esquerdo)."""
+    import lumeria_kit as lk
+    porc, gold, ink, glow, t2 = M["porc"], M["gold"], M["ink"], M["glow"], M["t2"]
+    wide = 1.12
+    wx, dy = 0.82 * wide * s, 0.34 * s
+
+    def surf(x, z):
+        return -dy * math.sqrt(max(0.0, 1.0 - (x / wx) ** 2 - (z / s) ** 2))
+
+    out = lk.mask(ck, name, (0, 0, 0), s, M, tears=(1,), wide=wide, tear_len=0.3, eye_z=0.2)
+    out += [ck.tube(name + "_snout0", (0, -s * 0.2, -s * 0.3), (0, -s * 0.72, -s * 0.4), s * 0.36, s * 0.2, porc, 8),
+            ck.tube(name + "_snout1", (0, -s * 0.72, -s * 0.4), (0, -s * 1.12, -s * 0.46), s * 0.2, s * 0.07, porc, 8),
+            ck.ball(name + "_nose", s * 0.11, (0, -s * 1.14, -s * 0.44), ink, (1.2, 0.8, 0.9)),
+            ck.ball(name + "_brow", s * 0.1, (0, surf(0, s * 0.58) - s * 0.01, s * 0.58), glow, (0.9, 0.5, 1.5))]
+    for sx in (-1, 1):
+        out += [ck.blade(name + "_ear%d" % sx, (sx * wx * 0.5, s * 0.04, s * 0.66), (sx * wx * 1.08, s * 0.25, s * 2.3), s * 1.05, s * 0.14, porc, (1, 0, 0), 0.3),
+                ck.blade(name + "_ear_in%d" % sx, (sx * wx * 0.56, -s * 0.05, s * 0.84), (sx * wx * 1.02, s * 0.14, s * 2.0), s * 0.6, s * 0.12, t2, (1, 0, 0), 0.3),
+                ck.ball(name + "_ear_tip%d" % sx, s * 0.09, (sx * wx * 1.08, s * 0.25, s * 2.3), gold)]
+        for k in range(3):               # riscos de bigode pintados na bochecha
+            x0, z0 = sx * wx * 0.5, -s * (0.2 + k * 0.17)
+            x1, z1 = sx * wx * 0.86, -s * (0.1 + k * 0.2)
+            out.append(ck.tube(name + "_whisker%d_%d" % (sx, k), (x0, surf(x0, z0) - s * 0.03, z0), (x1, surf(x1, z1) - s * 0.03, z1), s * 0.045, s * 0.02, t2, 5))
+    return lk.place(out, c)
+
+
+#   ber_m50 Punhos = Dança dos Mil Guizos: lenço de seda (tint2, jade) na cabeça com máscara de RAPOSA de porcelana (orelhas
+#           altas, focinho fino, bigodes pintados) e arco de guizos de orelha a orelha; mangas longas de seda que caem dos
+#           ombros e dos antebraços com guizos na barra; cinto de lanterninhas acesas; guizos nos punhos e tornozelos.
+def build_thousand_bells(ck, base, mats, style):
+    """ber_m50 — Dança dos Mil Guizos (Punhos de Fúria)."""
+    import lumeria_kit as lk
+    import paladin_sets as ps
+    import berserker_sets as bs
+    V = Vector
+    rig, body, b, j = base["rig"], base["body"], base["b"], base["j"]
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, porc, glow, leather = M["t"], M["t2"], M["gold"], M["porc"], M["glow"], M["leather"]
+    P = "arm_%s_" % style
+    c, r = V(base["head_c"]), b["head"]
+    d = b["depth"]
+    front = -b["chest"] * d - 0.03
+    back = b["chest"] * d + 0.03
+    zn, zw = ck.Z["neck"], ck.Z["waist"]
+    wf = -b["waist"] * d * 1.22
+    # ---------------- cabeça: lenço de seda, máscara de raposa, arco de guizos, duas pontas do lenço com guizo ----------------
+    head = [ck._shell(P + "head_wrap", c, r * 1.1, 0.3, -0.78, -0.45, 0.04, t2),
+            ck.tube(P + "head_band", c + V((0, 0, r * 0.34)), c + V((0, 0, r * 0.5)), r * 1.15, r * 1.11, gold, 18)]
+    head += _fox_mask(ck, P + "head_mask", c + V((0, -r * 1.0, -r * 0.04)), r * 0.7, M)
+    n = 7
+    prev = None
+    for k in range(n):                   # arco de guizos por cima da cabeça, atrás das orelhas
+        a = math.radians(-72 + k * 24)
+        p = c + V((math.sin(a) * r * 1.3, r * 0.28, math.cos(a) * r * 1.3))
+        head += lk.bell(ck, P + "head_arc_bell%d" % k, p, r * (0.13 if k % 2 == 0 else 0.1), M)
+        if prev is not None:
+            head.append(ck.tube(P + "head_arc%d" % k, prev, p, r * 0.035, r * 0.035, t2, 4))
+        prev = p
+    for sx in (-1, 1):
+        p0 = c + V((sx * r * 0.12, r * 1.1, r * 0.3))
+        p1 = p0 + V((sx * r * 0.7, r * 0.8, -r * 1.3))
+        head.append(lk.silk(ck, P + "head_tail%d" % sx, p0, p1, (1, 0, 0.2), r * 0.26, r * 0.4, t2, (0, r * 0.16, 0), 4))
+        head += lk.bell(ck, P + "head_tail_bell%d" % sx, p1 + V((0, 0, -r * 0.1)), r * 0.12, M)
+    ck._rigid(bs._outward(head), rig, "head")
+    # ---------------- corpo: colete marfim, faixa de seda atravessada, cinto de lanterninhas, tanga de seda ----------------
+    ck.armor_piece(body, rig, P + "body_vest", "torso", t, 0.012, 0.014, 0.02)
+    ck.armor_piece(body, rig, P + "body_legs", "legs", t, 0.016, 0.014)
+    chest = [ck.tube(P + "body_sash_f", (-b["chest"] * 0.85, front + 0.03, zn - 0.07), (b["waist"] * 0.95, front + 0.0, zw + 0.06), 0.045, 0.045, t2, 6),
+             ck.tube(P + "body_sash_b", (-b["chest"] * 0.85, back - 0.03, zn - 0.07), (b["waist"] * 0.95, back - 0.0, zw + 0.06), 0.045, 0.045, t2, 6),
+             ck.tube(P + "body_torc", V((0, 0, zn - 0.05)), V((0, 0, zn - 0.015)), b["chest"] * 0.62, b["chest"] * 0.56, gold, 14),
+             ck.ball(P + "body_knot", 0.05, (-b["chest"] * 0.8, front - 0.0, zn - 0.09), porc, (1, 0.6, 1)),
+             ck.ball(P + "body_knot_tear", 0.02, (-b["chest"] * 0.8, front - 0.03, zn - 0.095), glow, (0.8, 0.6, 1.6))]
+    chest += lk.bell(ck, P + "body_torc_bell", (0, front - 0.0, zn - 0.075), 0.035, M)
+    ck._rigid(bs._outward(chest), rig, "chest")
+    bs._belt(ck, base, P + "body_belt", zw - 0.05, zw + 0.04, 1.22, t2)
+    hips = [ck.ball(P + "body_buckle", 0.05, (0, wf - 0.016, zw - 0.005), gold, (1, 0.5, 1))]
+    for k, fx in enumerate((-1.0, -0.6, 0.6, 1.0)):        # cinto de lanterninhas: quatro na frente, duas atrás, uma de cada lado
+        x = fx * b["waist"] * 1.08
+        y = -math.sqrt(max(0.0, 1.0 - (x / (b["waist"] * 1.27)) ** 2)) * b["waist"] * d * 1.27
+        hips += lk.lantern(ck, P + "body_lantern%d" % k, (x, y - 0.04, zw - 0.13), 0.04, M, hang=(x, y - 0.012, zw - 0.04), segs=5)
+        if k in (1, 2):
+            hips += lk.lantern(ck, P + "body_lantern_b%d" % k, (x, -y + 0.04, zw - 0.13), 0.04, M, hang=(x, -y + 0.012, zw - 0.04), segs=5)
+    for sx in (-1, 1):
+        hips += lk.lantern(ck, P + "body_lantern_side%d" % sx, (sx * b["waist"] * 1.36, 0.0, zw - 0.14), 0.046, M, hang=(sx * b["waist"] * 1.28, 0.0, zw - 0.04), segs=5)
+    for side, y in (("f", wf - 0.02), ("b", -wf + 0.02)):
+        hips += [ps._banner(ck, P + "body_loin_" + side, y, zw - 0.04, 0.085, 0.3, 0.018, t2),
+                 ps._banner(ck, P + "body_loin_hem_" + side, y, zw - 0.04, 0.1, 0.33, 0.01, gold)]
+    ck._rigid(bs._outward(hips), rig, "hips")
+    for s, sx in ((".R", -1), (".L", 1)):                 # manga de seda caindo do ombro: aro de ouro, pano largo com barra e guizos
+        tag = s.replace(".", "_")
+        sh, el, wr = V(j["shoulder" + s]), V(j["elbow" + s]), V(j["wrist" + s])
+        p0 = sh + V((sx * 0.03, 0.0, 0.03))               # manga em sino: abre do ombro até abaixo do cotovelo
+        p1 = el + V((sx * 0.1, 0.0, -0.16))
+        ax = (p1 - p0).normalized()
+        rb = 0.17
+        pa = [ck.ball(P + "body_cap" + tag, b["arm"] * 2.1, sh + V((sx * 0.05, 0, 0.02)), porc, (1.1, 1.1, 0.6)),
+              ck.tube(P + "body_cap_rim" + tag, sh + V((sx * 0.05, 0, -0.02)), sh + V((sx * 0.05, 0, 0.004)), b["arm"] * 2.4, b["arm"] * 2.3, gold, 12),
+              ck.tube(P + "body_sleeve" + tag, p0, p1, b["arm"] * 1.5, rb, t2, 10),
+              ck.tube(P + "body_sleeve_hem" + tag, p1 - ax * 0.03, p1 + ax * 0.012, rb * 0.97, rb * 1.06, gold, 10)]
+        side = ax.cross(V((0, 1, 0))).normalized()
+        for k in range(4):               # guizos na barra da manga
+            a = math.tau * (k + 0.5) / 4
+            pa += lk.bell(ck, P + "body_sleeve_bell%d%s" % (k, tag), p1 + (side * math.cos(a) + V((0, 1, 0)) * math.sin(a)) * rb * 1.05 + ax * 0.03, 0.034, M)
+        ck._rigid(bs._outward(pa), rig, "upper_arm" + s)
+        # manga do antebraço: pano de seda pendurado do antebraço, com guizos na ponta (voa nos socos)
+        q0 = el.lerp(wr, 0.45) + V((sx * 0.05, 0.02, 0.0))
+        q1 = q0 + V((sx * 0.1, 0.1, -0.33))
+        ga = [lk.silk(ck, P + "gloves_drape" + tag, q0, q1, (1, 0.5 * sx, 0), 0.13, 0.2, t2, (sx * 0.05, 0, 0), 3, 0.014),
+              lk.silk(ck, P + "gloves_drape_hem" + tag, q0.lerp(q1, 0.88), q1 + (q1 - q0) * 0.04, (1, 0.5 * sx, 0), 0.21, 0.215, gold, (0, 0, 0), 1, 0.018)]
+        for k in range(2):
+            ga += lk.bell(ck, P + "gloves_drape_bell%d%s" % (k, tag), q1 + V(((k - 0.5) * 0.13, (k - 0.5) * 0.065 * sx, -0.035)), 0.03, M)
+        ck._rigid(bs._outward(ga), rig, "forearm" + s)
+    lk.limbs(ck, base, mats, P, M, "leather", bells=True, boots_m=leather)
+
+
+ACT3_SETS = {"ber_e50": build_last_toast, "ber_g50": build_red_ribbon_feast, "ber_m50": build_thousand_bells}

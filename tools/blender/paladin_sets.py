@@ -1493,4 +1493,89 @@ def build_clear_judgement(ck, base, mats, style):
     lk.limbs(ck, base, mats, P, M, "plate")
 
 
-ACT3_SETS = {"pal_g50": build_tear_vigil, "pal_c50": build_clear_judgement}
+#   pal_t50 Templário = Sentença de Ouro Velho: elmo fechado de juiz (máscara estreita de olhos FECHADOS, lágrima no olho
+#           direito) com AURÉOLA em pé atrás da cabeça: arco de ouro com 5 lanterninhas acesas; véu de seda (tint2, âmbar)
+#           caindo da nuca; tabardo pesado e largo com espelhinhos em fila; ombreiras redondas com espelho e lanterna pendurada.
+def build_old_gold_sentence(ck, base, mats, style):
+    """pal_t50 — Sentença de Ouro Velho (Templário, placa)."""
+    import lumeria_kit as lk
+    import berserker_sets as bs
+    V = Vector
+    rig, body, b, j = base["rig"], base["body"], base["b"], base["j"]
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, porc, glow, metal = M["t"], M["t2"], M["gold"], M["porc"], M["glow"], M["metal"]
+    P = "arm_%s_" % style
+    c, r = V(base["head_c"]), b["head"]
+    d = b["depth"]
+    front = -b["chest"] * d - 0.03
+    back = b["chest"] * d + 0.03
+    zc, zn, zw = ck.Z["chest"], ck.Z["neck"], ck.Z["waist"]
+    wf = -b["waist"] * d * 1.22
+    # ---------------- cabeça: elmo fechado, máscara de olhos fechados, auréola de 5 lanternas, véu ----------------
+    head = [ck._shell(P + "head_helm", c, r * 1.13, -0.8, -0.72, -0.62, 0.04, t),
+            ck.tube(P + "head_rim", c + V((0, 0, -r * 0.68)), c + V((0, 0, -r * 0.55)), r * 1.15, r * 1.21, gold, 20),
+            ck.tube(P + "head_brow", c + V((0, 0, r * 0.56)), c + V((0, 0, r * 0.68)), r * 1.14, r * 1.07, gold, 20),
+            ck.tube(P + "head_cap", c + V((0, 0, r * 1.1)), c + V((0, 0, r * 1.27)), r * 0.4, r * 0.24, gold, 10)]
+    head += lk.mask(ck, P + "head_mask", c + V((0, -r * 1.07, -r * 0.06)), r * 0.72, M, tears=(-1,), eyes=False, wide=1.02, tear_len=0.6)
+    for sx in (-1, 1):                   # grade de ouro dos lados da máscara (elmo de juiz)
+        for k in range(2):
+            x = sx * r * (0.74 + k * 0.17)
+            y = -math.sqrt(max(0.0, (r * 1.2) ** 2 - x * x))
+            head.append(ck.tube(P + "head_bar%d_%d" % (sx, k), c + V((x, y, -r * 0.5)), c + V((x, y, r * 0.42)), r * 0.035, r * 0.035, gold, 4))
+    hc = c + V((0, r * 0.82, r * 0.25))                   # centro da auréola: arco em pé atrás do elmo
+    R = r * 1.62
+    n = 10
+    for k in range(n):
+        a0, a1 = math.radians(-100 + k * 20), math.radians(-100 + (k + 1) * 20)
+        head.append(ck.tube(P + "head_halo%d" % k, hc + V((math.sin(a0) * R, 0, math.cos(a0) * R)), hc + V((math.sin(a1) * R, 0, math.cos(a1) * R)), r * 0.07, r * 0.07, gold, 6))
+    for k in range(5):                   # 5 lanterninhas no arco, raio de ouro do elmo até cada uma
+        a = math.radians(-76 + k * 38)
+        dv = V((math.sin(a), 0, math.cos(a)))
+        s_ = r * (0.31 if k == 2 else 0.26)
+        head.append(ck.blade(P + "head_ray%d" % k, hc + dv * r * 0.95, hc + dv * R, r * 0.26, r * 0.05, gold, (dv.z, 0, -dv.x), 0.3))
+        head += lk.lantern(ck, P + "head_lantern%d" % k, hc + dv * (R + s_ * 1.05), s_, M)
+    for sx in (-1, 1):                   # véu: duas tiras largas da nuca até o meio das costas
+        p0 = c + V((sx * r * 0.3, r * 1.1, r * 0.1))
+        head += [lk.silk(ck, P + "head_veil%d" % sx, p0, p0 + V((sx * r * 0.34, r * 0.5, -r * 1.55)), (1, 0, 0), r * 0.5, r * 0.62, t2, (0, r * 0.14, 0), 4),
+                 ck.ball(P + "head_veil_end%d" % sx, r * 0.08, p0 + V((sx * r * 0.34, r * 0.5, -r * 1.62)), gold)]
+    ck._rigid(bs._outward(head), rig, "head")
+    # ---------------- corpo: couraça, tabardo pesado com espelhinhos, ombreiras com lanterna pendurada ----------------
+    ck.armor_piece(body, rig, P + "body_plate", "torso", t, 0.018, 0.016, 0.05)
+    ck.armor_piece(body, rig, P + "body_legs", "legs", metal, 0.008, 0.012)
+    chest = [ck.tube(P + "body_gorget", V((0, 0, zn - 0.06)), V((0, 0, zn + 0.03)), b["chest"] * 0.7, b["chest"] * 0.52, gold, 16),
+             ck.box(P + "body_tabard_chest", (b["chest"] * 1.1, 0.03, zn - zw - 0.1), (0, front + 0.012, (zn + zw) * 0.5 - 0.01), t2, 0.01),
+             ck.box(P + "body_tabard_chest_hem", (b["chest"] * 1.24, 0.02, zn - zw - 0.07), (0, front + 0.02, (zn + zw) * 0.5 - 0.01), gold, 0.008),
+             ck.box(P + "body_tabard_back", (b["chest"] * 1.1, 0.03, zn - zw - 0.1), (0, back - 0.012, (zn + zw) * 0.5 - 0.01), t2, 0.01),
+             ck.box(P + "body_tabard_back_hem", (b["chest"] * 1.24, 0.02, zn - zw - 0.07), (0, back - 0.02, (zn + zw) * 0.5 - 0.01), gold, 0.008)]
+    chest += lk.mirror(ck, P + "body_mirror", (0, front - 0.012, zc + 0.03), 0.06, M, tear=True)
+    chest += lk.mirror(ck, P + "body_mirror_back", (0, back + 0.012, zc + 0.03), 0.06, M, facing=(0, 1, 0))
+    ck._rigid(bs._outward(chest), rig, "chest")
+    bs._belt(ck, base, P + "body_belt", zw - 0.045, zw + 0.04, 1.22, gold)
+    hips = []
+    for side, y, f in (("f", wf - 0.025, -1), ("b", -wf + 0.025, 1)):         # tabardo largo até o joelho, barra de ouro, 3 espelhinhos em fila
+        hips += [_banner(ck, P + "body_tabard_" + side, y, zw - 0.03, 0.15, 0.4, 0.022, t2),
+                 _banner(ck, P + "body_tabard_hem_" + side, y, zw - 0.03, 0.17, 0.435, 0.01, gold)]
+        for k in range(3):
+            hips += lk.mirror(ck, P + "body_tabard_mirror_%s%d" % (side, k), (0, y + f * 0.014, zw - 0.09 - k * 0.095), 0.034 - k * 0.004, M, facing=(0, f, 0))
+    ck._rigid(bs._outward(hips), rig, "hips")
+    for s, sx in ((".R", -1), (".L", 1)):                 # ombreiras redondas em duas lâminas, espelho em cima, lanterna pendurada na ponta
+        tag = s.replace(".", "_")
+        sh = V(j["shoulder" + s])
+        pa = []
+        for k in range(2):
+            pc = sh + V((sx * (0.06 + k * 0.06), 0, 0.06 - k * 0.06))
+            pa += [ck.ball(P + "body_pauldron%d%s" % (k, tag), b["arm"] * (3.2 - k * 0.3), pc, t if k == 0 else porc, (1.12, 1.15, 0.6)),
+                   ck.ball(P + "body_pauldron_rim%d%s" % (k, tag), b["arm"] * (3.38 - k * 0.3), pc + V((0, 0, -0.022)), gold, (1.12, 1.15, 0.42))]
+        pa += lk.mirror(ck, P + "body_pauldron_mirror" + tag, sh + V((sx * 0.2, -0.03, 0.2)), 0.075, M, facing=(sx * 0.5, -0.3, 0.8))          # por fora da cabeça chibi
+        tip = sh + V((sx * 0.245, 0, -0.02))
+        pa += lk.lantern(ck, P + "body_lantern" + tag, tip + V((sx * 0.02, 0, -0.13)), 0.05, M, hang=tip)
+        ck._rigid(bs._outward(pa), rig, "upper_arm" + s)
+        hp = V(j["hip" + s])
+        tas = [ck.box(P + "body_fauld_%d%s" % (k, tag), (0.04, 0.16 - k * 0.014, 0.11), hp + V((sx * (b["thigh"] + 0.04 + k * 0.006), 0, -0.02 - k * 0.075)),
+                      t if k == 0 else porc, 0.014) for k in range(2)]
+        tas.append(ck.ball(P + "body_fauld_stud" + tag, 0.022, hp + V((sx * (b["thigh"] + 0.068), 0, -0.02)), gold))
+        ck._rigid(tas, rig, "thigh" + s)
+    lk.limbs(ck, base, mats, P, M, "plate")
+
+
+ACT3_SETS = {"pal_g50": build_tear_vigil, "pal_c50": build_clear_judgement, "pal_t50": build_old_gold_sentence}

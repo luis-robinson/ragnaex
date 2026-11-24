@@ -1076,4 +1076,106 @@ def build_noon_mirror(ck, base, mats, style):
     lk.limbs(ck, base, mats, P, M, "cloth", boots_m=porc)
 
 
-ACT3_SETS = {"bis_s50": build_vigil_lantern, "bis_i50": build_noon_mirror}
+#   bis_b50 Clérigo de Batalha = Hino da Taça Partida: ESTANDARTE de seda (tint2, coral) num mastro nas costas, acima da
+#           cabeça, com a taça partida bordada e sinos na barra; capacete aberto com uma taça de ouro no alto; máscara de
+#           porcelana PARTIDA e remendada com ouro (fios em zigue-zague); ombreiras de placa com lanterna de pé.
+def build_broken_cup_hymn(ck, base, mats, style):
+    """bis_b50 — Hino da Taça Partida (Clérigo de Batalha)."""
+    import lumeria_kit as lk
+    import berserker_sets as bs
+    import paladin_sets as ps
+    V = Vector
+    rig, body, b, j = base["rig"], base["body"], base["b"], base["j"]
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, porc, glow, metal = M["t"], M["t2"], M["gold"], M["porc"], M["glow"], M["metal"]
+    P = "arm_%s_" % style
+    c, r = V(base["head_c"]), b["head"]
+    d = b["depth"]
+    front = -b["chest"] * d - 0.03
+    back = b["chest"] * d + 0.03
+    zc, zn, zw = ck.Z["chest"], ck.Z["neck"], ck.Z["waist"]
+    wf = -b["waist"] * d * 1.22
+    # ---------------- túnica curta de batalha ----------------
+    ck.armor_piece(body, rig, P + "body_robe", "torso", t, 0.016, 0.014, 0.04)
+    ck.armor_piece(body, rig, P + "body_legs", "legs", metal, 0.008, 0.012)
+    ck.skirt(P + "body_skirt", b, body, rig, t, 0.2, 1.55)
+    bs._belt(ck, base, P + "body_belt", zw - 0.04, zw + 0.035, 1.21, gold)
+    # ---------------- cabeça: capacete aberto com camal de seda, taça no alto, máscara remendada com ouro ----------------
+    head = [ck._shell(P + "head_helm", c, r * 1.12, 0.3, -0.35, -0.2, 0.04, t),
+            ck._shell(P + "head_coif", c, r * 1.07, 0.1, -0.95, -0.7, 0.03, t2),
+            ck.tube(P + "head_brow", c + V((0, 0, r * 0.36)), c + V((0, 0, r * 0.5)), r * 1.2, r * 1.15, gold, 20)]
+    for k in range(4):                   # crista de ouro da testa à nuca
+        a0, a1 = math.radians(-62 + k * 31), math.radians(-62 + (k + 1) * 31)
+        head.append(ck.tube(P + "head_crest%d" % k, c + V((0, math.sin(a0) * r * 1.23, math.cos(a0) * r * 1.23)), c + V((0, math.sin(a1) * r * 1.23, math.cos(a1) * r * 1.23)), r * 0.07, r * 0.07, gold, 5))
+    head += [ck.tube(P + "head_boss", c + V((0, 0, r * 1.1)), c + V((0, 0, r * 1.26)), r * 0.34, r * 0.2, gold, 10),
+             ck.ball(P + "head_boss_tear", r * 0.13, c + V((0, 0, r * 1.3)), glow, (1, 1, 1.2))]
+    s_ = r * 0.68
+    mc = c + V((0, -r * 1.02, -r * 0.06))
+    wx = 0.82 * 1.2 * s_
+    head += lk.mask(ck, P + "head_mask", mc, s_, M, tears=(1,), wide=1.2, tear_len=0.4)
+
+    def surf(x, z):
+        return mc.y - 0.34 * s_ * math.sqrt(max(0.0, 1.0 - (x / wx) ** 2 - (z / s_) ** 2)) - 0.03 * s_
+
+    cracks = [[(-0.5, 0.82), (-0.24, 0.5), (-0.36, 0.14), (-0.04, -0.14), (0.12, -0.5), (0.34, -0.82)],          # a quebra principal e dois ramos
+              [(-0.36, 0.14), (-0.66, -0.02), (-0.8, -0.3)], [(-0.04, -0.14), (0.3, -0.2), (0.52, -0.44)]]
+    for i, line in enumerate(cracks):
+        for k in range(len(line) - 1):
+            (x0, z0), (x1, z1) = line[k], line[k + 1]
+            head.append(ck.tube(P + "head_crack%d_%d" % (i, k), (mc.x + x0 * wx, surf(x0 * wx, z0 * s_), mc.z + z0 * s_), (mc.x + x1 * wx, surf(x1 * wx, z1 * s_), mc.z + z1 * s_),
+                                s_ * 0.05, s_ * 0.05, gold, 5))
+    ck._rigid(bs._outward(head), rig, "head")
+    # ---------------- corpo: gola, peitoral de porcelana rachado, estola; estandarte nas costas ----------------
+    chest = [ck.tube(P + "body_collar", V((0, 0, zn - 0.06)), V((0, 0, zn + 0.02)), b["chest"] * 0.74, b["chest"] * 0.5, gold, 16),
+             ck.ball(P + "body_breast", 1.0, (0, front + 0.02, zc + 0.01), porc, (b["chest"] * 0.74, 0.045, 0.14)),
+             ck.ball(P + "body_breast_rim", 1.0, (0, front + 0.03, zc + 0.01), gold, (b["chest"] * 0.82, 0.035, 0.154)),
+             ck.tube(P + "body_breast_crack0", (-b["chest"] * 0.3, front - 0.02, zc + 0.12), (0.01, front - 0.028, zc + 0.02), 0.011, 0.011, gold, 5),
+             ck.tube(P + "body_breast_crack1", (0.01, front - 0.028, zc + 0.02), (b["chest"] * 0.22, front - 0.02, zc - 0.1), 0.011, 0.011, gold, 5),
+             ck.ball(P + "body_breast_tear", 0.024, (b["chest"] * 0.28, front - 0.02, zc + 0.04), glow, (0.8, 0.6, 1.8))]
+    py = max(back + 0.2, c.y + r * 1.42)                  # mastro: sai da cintura, passa por trás da cabeça e sobe reto
+    z0, z1 = c.z + r * 0.75, c.z + r * 2.45
+    chest += [ck.tube(P + "body_pole0", (0, back + 0.02, zw + 0.04), (0, py, z0), 0.022, 0.02, gold, 6),
+              ck.tube(P + "body_pole1", (0, py, z0), (0, py, z1 + 0.06), 0.02, 0.018, gold, 6),
+              ck.tube(P + "body_pole_bar", (-0.215, py, z1), (0.215, py, z1), 0.016, 0.016, gold, 6),
+              ck.ball(P + "body_pole_socket", 0.045, (0, back + 0.03, zw + 0.06), gold, (1, 0.7, 1.2)),
+              ck.ball(P + "body_pole_finial", 0.045, (0, py, z1 + 0.1), glow, (1, 1, 1.3)),
+              ck.tube(P + "body_pole_cup", (0, py, z1 + 0.03), (0, py, z1 + 0.09), 0.02, 0.05, gold, 8)]
+    by = py + 0.03
+    length = z1 - (c.z + r * 0.75)
+    chest += [ps._banner(ck, P + "body_banner", by, z1 - 0.01, 0.19, length, 0.02, t2),
+              ps._banner(ck, P + "body_banner_hem", by, z1 - 0.01, 0.21, length + 0.04, 0.01, gold)]
+    ez = z1 - length * 0.36
+    for f in (-1, 1):                    # a taça partida bordada nas duas faces: cálice de ouro com a rachadura acesa
+        y = by + f * 0.013
+        chest += [ck.ball(P + "body_emblem_cup%d" % f, 1.0, (0, y, ez + 0.03), gold, (0.075, 0.008, 0.06)),
+                  ck.box(P + "body_emblem_stem%d" % f, (0.022, 0.012, 0.07), (0, y, ez - 0.05), gold, 0.004),
+                  ck.box(P + "body_emblem_foot%d" % f, (0.09, 0.012, 0.022), (0, y, ez - 0.09), gold, 0.004),
+                  ck.tube(P + "body_emblem_crack%d" % f, (-0.035, y + f * 0.006, ez + 0.085), (0.02, y + f * 0.006, ez - 0.02), 0.009, 0.009, glow, 4)]
+    for k, x in enumerate((-0.215, 0.215)):               # sinos nas pontas da travessa e na ponta do pano
+        chest += lk.bell(ck, P + "body_bar_bell%d" % k, (x, py, z1 - 0.045), 0.034, M)
+    chest += lk.bell(ck, P + "body_banner_bell", (0, by, z1 - length - 0.06), 0.04, M)
+    for k, x in enumerate((-0.17, 0.17)):
+        chest += lk.bell(ck, P + "body_banner_bell_side%d" % k, (x, by, z1 - length * 0.8 - 0.05), 0.03, M)
+    ck._rigid(bs._outward(chest), rig, "chest")
+    hips = [lk.silk(ck, P + "body_stole%d" % sx, (sx * 0.055, wf - 0.02, zw - 0.02), (sx * 0.075, wf - 0.07, zw - 0.3), (1, 0, 0), 0.085, 0.1, t2, (0, -0.012, 0), 3) for sx in (-1, 1)]
+    hips += [ck.ball(P + "body_buckle", 0.04, (0, wf - 0.014, zw), porc, (1.1, 0.5, 1.1)),
+             ck.tube(P + "body_buckle_crack", (-0.025, wf - 0.034, zw + 0.03), (0.02, wf - 0.034, zw - 0.03), 0.007, 0.007, gold, 4)]
+    ck._rigid(bs._outward(hips), rig, "hips")
+    for s, sx in ((".R", -1), (".L", 1)):                 # ombreiras de placa em duas lâminas com lanterna de pé
+        tag = s.replace(".", "_")
+        sh = V(j["shoulder" + s])
+        pa = []
+        for k in range(2):
+            pc = sh + V((sx * (0.05 + k * 0.06), 0, 0.045 - k * 0.055))
+            pa += [ck.ball(P + "body_pauldron%d%s" % (k, tag), b["arm"] * (2.7 - k * 0.25), pc, t if k == 0 else porc, (1.12, 1.15, 0.6)),
+                   ck.ball(P + "body_pauldron_rim%d%s" % (k, tag), b["arm"] * (2.88 - k * 0.25), pc + V((0, 0, -0.02)), gold, (1.12, 1.15, 0.42))]
+        pa += lk.lantern(ck, P + "body_lantern" + tag, sh + V((sx * 0.25, 0, 0.13)), 0.07, M)   # por fora da cabeça chibi: lê de frente e de cima
+        ck._rigid(bs._outward(pa), rig, "upper_arm" + s)
+        hp = V(j["hip" + s])
+        tas = [ck.box(P + "body_fauld_%d%s" % (k, tag), (0.035, 0.14 - k * 0.014, 0.1), hp + V((sx * (b["thigh"] + 0.075 + k * 0.006), 0, 0.0 - k * 0.07)),
+                      porc if k == 0 else t, 0.012) for k in range(2)]
+        ck._rigid(tas, rig, "thigh" + s)
+    lk.limbs(ck, base, mats, P, M, "plate")
+
+
+ACT3_SETS = {"bis_s50": build_vigil_lantern, "bis_i50": build_noon_mirror, "bis_b50": build_broken_cup_hymn}
