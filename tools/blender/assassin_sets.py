@@ -1296,3 +1296,130 @@ def build_sunken_ball_flag(ck, base, mats, style):
 
 
 ACT3_SETS = {"ass_l50": build_venom_tear, "ass_d50": build_mirror_foil, "ass_c50": build_sunken_ball_flag}
+
+
+# ---------------------------------------------------------------------------
+# Ato III, onda 4 (GDD ato3-lendarios-50 §8.1): armas DESPERTAS do nível 50, no tema do conjunto 50 de cada build. Malhas SÓ
+# no kit extra kit_assassin_<sexo>_a3.glb (chibi_kit.A3_WEAPONS lê ACT3_WEAPONS). Mesmos eixos, punho e comprimento das armas
+# do Ato II (build_weapon / pistol_parts). tint = porcelana do item, tint2 = seda, tint_glow = lágrima.
+#   ass_l50 Lágrima de Veneno: par de adagas de lâmina de porcelana em gota com a lágrima de veneno acesa correndo pelo meio,
+#           guarda de gancho de ouro, frasco de veneno no pomo e uma fita de seda em cada adaga.
+#   ass_d50 Florete do Espelho: par de floretes de lâmina de vidro-espelho com filete de ouro, guarda em prato de espelho
+#           com aro de ouro, arco da mão, pomo de porcelana com a lágrima e fita curta.
+#   ass_c50 Bandeira do Baile Afundado: sabre de porcelana com lágrima acesa, guarda de concha com espelho de bronze no arco
+#           da mão, lanterna de navio no pomo e faixa de seda de duas pontas; pistola de porcelana e ouro com boca de
+#           bacamarte, lanterna sob o cano, espelho no fecho e fita na coronha.
+def build_weapon50(ck, base, mats, style, hand):
+    """Adaga (ass_l50), florete (ass_d50) ou sabre (ass_c50) do nível 50 na mão (main = direita, off = esquerda), 1 malha."""
+    import lumeria_kit as lk
+    import paladin_sets
+    import ranger_sets as rs
+    V = Vector
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, porc, glow, glass = M["t"], M["t2"], M["gold"], M["porc"], M["glow"], M["glass"]
+    tag = ".R" if hand == "main" else ".L"
+    sx = -1 if hand == "main" else 1                 # lado de fora da mão
+    g = V(ck.hand_center(base, tag))
+    kind = style[4]                                  # l | d | c
+    dag = kind == "l"
+    fwd = (V((0, -1, 0.3)) if dag else V((0, -0.55, 0.83))).normalized()
+    side = V((1, 0, 0))
+    ridge = fwd.cross(side).normalized()
+    L, G = (0.27 * 1.22, 0.055) if dag else (0.66 * (1.08 if kind == "d" else 1.06), 0.08)
+    w = 0.038 if dag else 0.028
+    n = "w_%s_%s_" % (style, hand)
+    start = G + 0.025
+    gc = g + fwd * (G + 0.012)
+    pm = g - fwd * (G + 0.03)
+    blade = paladin_sets._blade
+    parts = [ck.tube(n + "grip", g - fwd * G, g + fwd * G, 0.021, 0.021, mats["leather"], 8),
+             ck.tube(n + "guard", gc - side * 0.09, gc + side * 0.09, 0.017, 0.017, gold, 8)]
+    for k in range(2 if dag else 3):
+        z = -G + (k + 0.5) * 2 * G / (2 if dag else 3)
+        parts.append(ck.tube(n + "wrap_%d" % k, g + fwd * (z - 0.007), g + fwd * (z + 0.007), 0.025, 0.025, t2, 8))
+
+    def knuckle_bow():                               # arco da mão: da guarda até o pomo, por fora dos dedos
+        pts = [gc]
+        for i in range(7):
+            a = math.pi * i / 6
+            pts.append(g + fwd * (G * math.cos(a) * 1.05) + ridge * (math.sin(a) * 0.075))
+        return [ck.tube(n + "bow_%d" % i, pts[i], pts[i + 1], 0.01, 0.01, gold, 6) for i in range(len(pts) - 1)]
+
+    if kind == "l":
+        parts.append(blade(ck, n + "blade", g, fwd, side, start, L, w * 0.85, w * 1.5, 0.085, 0.014, 0.0, t))
+        for sg in (-1, 1):                           # a lágrima de veneno: gota larga na ponta, fio fino até a guarda
+            parts.append(blade(ck, n + "tear_%d" % sg, g + ridge * sg * 0.012, fwd, side, start + 0.02, L * 0.8, w * 0.22, w * 0.62, 0.035, 0.004, 0.0, glow))
+        parts += [ck.blade(n + "hook", gc + side * sx * 0.08, gc + side * sx * 0.13 + fwd * 0.09, 0.032, 0.013, gold, ridge),
+                  ck.ball(n + "guard_tear", 0.022, gc - side * sx * 0.095, glow, (1.2, 1, 1)),
+                  ck.tube(n + "pommel", pm + fwd * 0.012, pm - fwd * 0.012, 0.026, 0.02, gold, 8)]
+        parts += lk.vial(ck, n + "vial", pm - fwd * 0.005, 0.021, M)
+        parts.append(lk.silk(ck, n + "ribbon", pm, pm + V((sx * 0.07, 0.24, 0.03)), (1, 0, 0.2 * sx), 0.045, 0.065, t2, (0, 0, 0.03), 3, 0.01))
+    elif kind == "d":
+        parts.append(blade(ck, n + "blade", g, fwd, side, start, L, w * 0.95, w * 0.7, 0.1, 0.012, 0.0, glass))
+        for sg in (-1, 1):
+            parts.append(blade(ck, n + "core_%d" % sg, g + ridge * sg * 0.011, fwd, side, start + 0.02, L * 0.86, w * 0.22, w * 0.16, 0.03, 0.003, 0.0, gold))
+            parts.append(ck.ball(n + "tear_%d" % sg, 0.016, g + fwd * (start + 0.1) + ridge * sg * 0.013, glow, (1, 1, 2.2)))
+        # prato de espelho: disco de vidro virado para a ponta, aro de ouro por trás
+        parts += [ck.tube(n + "dish", gc + fwd * 0.004, gc + fwd * 0.02, 0.088, 0.07, glass, 12),
+                  ck.tube(n + "dish_rim", gc - fwd * 0.012, gc + fwd * 0.006, 0.07, 0.096, gold, 12),
+                  ck.ball(n + "pommel", 0.038, pm, t), ck.ball(n + "pommel_tear", 0.02, pm - fwd * 0.036, glow, (1, 1, 1.4))]
+        for k in (-1, 1):
+            parts.append(ck.ball(n + "quillon%d" % k, 0.024, gc + side * k * 0.1, t))
+        parts += knuckle_bow()
+        parts.append(lk.silk(ck, n + "ribbon", pm, pm + V((sx * 0.08, 0.17, -0.1)), (1, 0, 0), 0.04, 0.06, t2, (0, 0.03, 0), 3, 0.01))
+    else:
+        parts.append(blade(ck, n + "blade", g, fwd, side, start, L, w * 1.05, w * 1.75, 0.1, 0.013, 0.0, t))
+        for sg in (-1, 1):
+            parts.append(blade(ck, n + "tear_%d" % sg, g + ridge * sg * 0.011, fwd, side, start + 0.02, L * 0.8, w * 0.3, w * 0.55, 0.03, 0.004, 0.0, glow))
+        parts.append(ck.tube(n + "blade_cap", g + fwd * start, g + fwd * (start + 0.07), 0.034, 0.028, gold, 6))
+        parts += [ck.ball(n + "cup", 0.08, gc - fwd * 0.015, porc, (1.0, 1.0, 0.45)),
+                  ck.tube(n + "cup_rim", gc + fwd * 0.004, gc + fwd * 0.018, 0.074, 0.08, gold, 10)]
+        parts += knuckle_bow()
+        parts += lk.mirror(ck, n + "mirror", g + ridge * 0.086, 0.036, M, facing=ridge)      # espelho de bronze no arco da mão
+        lc = pm - fwd * 0.045                        # lanterna de navio no pomo
+        parts += rs.aim(lk.lantern(ck, n + "lamp", lc, 0.032, M), lc, fwd)
+        for i, dx in enumerate((-0.07, 0.07)):       # faixa de seda: duas pontas
+            parts.append(lk.silk(ck, n + "sash%d" % i, pm, pm + V((dx + sx * 0.03, 0.17 + i * 0.05, -0.13)), (1, 0, 0), 0.045, 0.07, t2, (0, 0.03, 0), 3, 0.01))
+    name = ("wpn_main_%s_%s" if hand == "main" else "wpn_off_%s_%s") % ("dagger" if dag else "sword", style)
+    obj = ck._join(rs.outward(parts), name)
+    ck._smooth(obj.data)
+    ck.skin_rigid(obj, base["rig"], "hand" + tag)
+    return obj
+
+
+def build_pistol50(ck, base, mats, style="ass_c50"):
+    """ass_c50 — pistola do Baile Afundado (mão esquerda, eixo de pistol_parts)."""
+    import lumeria_kit as lk
+    import ranger_sets as rs
+    V = Vector
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, glow = M["t"], M["t2"], M["gold"], M["glow"]
+    g = V(ck.hand_center(base, ".L"))
+    fwd = V((0, -0.55, 0.83)).normalized()
+    side = V((1, 0, 0))
+    bar = -fwd.cross(side).normalized()
+    n = "p_%s_" % style
+    Lb = 0.36
+    m2 = dict(mats, wood=t, metal=gold, trim=gold, dark=gold)
+    parts = pistol_parts(ck, n, g, m2, {"barrel": Lb, "bell": True, "gem": True, "glow": True}, glow)
+    top = g + fwd * 0.07
+    parts += [ck.tube(n + "bore", top + fwd * 0.006 + bar * (Lb + 0.002), top + fwd * 0.006 + bar * (Lb + 0.014), 0.03, 0.042, glow, 10),
+              ck.ball(n + "butt_tear", 0.02, g - fwd * 0.115 - bar * 0.045, glow, (1, 1, 1.4))]
+    lc = top + bar * 0.2 - fwd * 0.085               # lanterna de navio sob o cano (para baixo com o braço esticado)
+    parts += rs.aim(lk.lantern(ck, n + "lamp", lc, 0.034, M), lc, fwd)
+    parts.append(ck.tube(n + "lamp_hang", top + bar * 0.2 - fwd * 0.02, lc + fwd * 0.04, 0.007, 0.007, gold, 4))
+    parts += lk.mirror(ck, n + "mirror", top + bar * 0.01 + side * 0.022, 0.03, M, facing=side)      # espelho de bronze no fecho
+    bt = g - fwd * 0.09 - bar * 0.04
+    for i, dx in enumerate((-0.05, 0.06)):
+        parts.append(lk.silk(ck, n + "ribbon%d" % i, bt, bt + V((dx, 0.15 + i * 0.05, -0.12)), (1, 0, 0), 0.04, 0.06, t2, (0, 0.03, 0), 3, 0.01))
+    obj = ck._join(rs.outward(parts), "wpn_off_pistol_%s" % style)
+    ck._smooth(obj.data)
+    ck.skin_rigid(obj, base["rig"], "hand.L")
+    return obj
+
+
+ACT3_WEAPONS = {"ass_c50_off": build_pistol50}
+for _st in ("ass_l50", "ass_d50", "ass_c50"):
+    for _hand in ("main", "off"):
+        if (_st, _hand) != ("ass_c50", "off"):
+            ACT3_WEAPONS["%s_%s" % (_st, _hand)] = (lambda st, h: (lambda ck, base, mats: build_weapon50(ck, base, mats, st, h)))(_st, _hand)

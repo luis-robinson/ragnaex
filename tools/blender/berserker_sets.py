@@ -1253,3 +1253,15 @@ def build_thousand_bells(ck, base, mats, style):
 
 
 ACT3_SETS = {"ber_e50": build_last_toast, "ber_g50": build_red_ribbon_feast, "ber_m50": build_thousand_bells}
+
+
+# Armas despertas do nível 50 (onda 4): malhas wpn_<main|off>_<tipo>_<estilo> só no kit extra _a3 (chibi_kit.A3_WEAPONS);
+# as funções ficam em lumeria_arms_a.py (uma por estilo, faz todas as armas da build). Chave = <estilo>_arms.
+def _arms(style):
+    def fn(ck, base, mats):
+        import lumeria_arms_a
+        return getattr(lumeria_arms_a, style)(ck, base, mats, style)
+    return fn
+
+
+ACT3_WEAPONS = {st + "_arms": _arms(st) for st in ("ber_g50", "ber_e50", "ber_m50")}

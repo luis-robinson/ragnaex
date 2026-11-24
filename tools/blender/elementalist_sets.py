@@ -909,3 +909,112 @@ def build_clear_thunder_bell(ck, base, mats, style):
 
 
 ACT3_SETS = {"ele_f50": build_feast_end_lantern, "ele_g50": build_frost_mirror, "ele_r50": build_clear_thunder_bell}
+
+
+# ---------------------------------------------------------------------------
+# Ato III, onda 4 (GDD ato3-lendarios-50 §8.1): cajados DESPERTOS do nível 50, no tema do conjunto 50 de cada build. Malhas
+# SÓ no kit extra kit_elementalist_<sexo>_a3.glb (chibi_kit.A3_WEAPONS lê ACT3_WEAPONS). Mesmo eixo, mão e comprimento dos
+# cajados do Ato II (build_staff2). Haste de porcelana (tint), fitas de seda (tint2), chama/lágrima/badalo em tint_glow.
+#   ele_f50 Lanterna do Fim da Festa: UMA lanterna grande acesa no alto, com labareda saindo pela tampa, e duas lanterninhas
+#           pendendo de braços de ouro.
+#   ele_g50 Espelho da Geada: espelho redondo com lágrima, virado para a frente e para cima, coroado por um LEQUE de sete
+#           cristais-espelho (o mesmo leque da coroa do conjunto).
+#   ele_r50 Sino do Trovão Claro: para-raios de ouro com raios acesos na ponta e um SINO DE VIDRO grande de badalo aceso
+#           pendendo de um báculo; sino menor atrás; fitas eriçadas em ziguezague.
+def _staff50(ck, base, mats, style):
+    """Haste comum dos cajados do 50: devolve (M, n, g, up, side, fwd, top, parts)."""
+    import lumeria_kit as lk
+    V = Vector
+    M = lk.lum_mats(ck, mats)
+    g = V(ck.hand_center(base, ".R"))
+    up = V((-0.22, -0.12, 1.0)).normalized()
+    side = V((1, 0, 0))
+    fwd = up.cross(side).normalized()
+    n = "es_%s_" % style
+    ln = 1.45
+    bot, top = g - up * ln * 0.42, g + up * ln * 0.58
+    parts = [ck.tube(n + "shaft", bot, top, 0.031, 0.029, M["t"], 8),
+             ck.tube(n + "foot", bot - up * 0.06, bot + up * 0.03, 0.012, 0.036, M["gold"], 8)]
+    for k in range(4):
+        z = 0.1 + k * 0.12
+        parts.append(ck.tube(n + "wrap%d" % k, g + up * (z - 0.016), g + up * (z + 0.016), 0.038, 0.038, M["gold"] if k % 2 == 0 else M["t2"], 8))
+    parts += [ck.tube(n + "collar", top - up * 0.035, top + up * 0.035, 0.056, 0.05, M["gold"], 10),
+              ck.ball(n + "tear", 0.024, top - up * 0.1 - fwd * 0.034, M["glow"], (0.8, 0.6, 2.0))]
+    return M, n, g, up, side, fwd, top, parts
+
+
+def _staff50_ribbons(ck, n, top, up, M, zig=False):
+    """Duas fitas de seda (tint2) caindo do colar para trás; zig = eriçadas em ziguezague (Raio)."""
+    import lumeria_kit as lk
+    V = Vector
+    out = []
+    for i, sx in enumerate((-1, 1)):
+        p0 = top - up * 0.05 + V((sx * 0.04, 0.02, 0))
+        if zig:
+            pts = [p0, p0 + V((sx * 0.1, 0.07, -0.05)), p0 + V((sx * 0.07, 0.11, -0.15)), p0 + V((sx * 0.17, 0.17, -0.2)), p0 + V((sx * 0.14, 0.2, -0.32))]
+            out.append(_bolt(ck, n + "ribbon%d" % i, pts, 0.07, M["t2"], (0.3, -1, 0)))
+        else:
+            out.append(lk.silk(ck, n + "ribbon%d" % i, p0, p0 + V((sx * 0.12, 0.16, -0.36 - i * 0.07)), (1, -0.5 * sx, 0), 0.06, 0.09, M["t2"], (0, 0.04, 0), 4, 0.011))
+    return out
+
+
+def build_staff50(ck, base, mats, style):
+    """Cajado desperto do nível 50 (ele_f50 lanterna, ele_g50 espelho, ele_r50 sino), 1 malha na mão direita."""
+    import lumeria_kit as lk
+    import ranger_sets as rs
+    V = Vector
+    M, n, g, up, side, fwd, top, parts = _staff50(ck, base, mats, style)
+    gold, glow, glass, porc, t2 = M["gold"], M["glow"], M["glass"], M["porc"], M["t2"]
+    kind = style[4]                      # f | g | r
+    if kind == "f":
+        zc = top + V((0, 0, 0.21))       # modelada em pé e depois deitada no eixo do cajado
+        head = lk.lantern(ck, n + "lamp", zc, 0.125, M, segs=8)
+        head += [ck.tube(n + "stem", top, top + V((0, 0, 0.1)), 0.03, 0.07, gold, 8),
+                 ck.blade(n + "flame", zc + V((0, 0, 0.15)), zc + V((0, 0, 0.42)), 0.13, 0.09, glow, (1, 0, 0), 0.32),
+                 ck.blade(n + "flame_b", zc + V((0, 0, 0.15)), zc + V((0.04, 0, 0.33)), 0.09, 0.11, glow, (0, 1, 0), 0.35)]
+        parts += rs.aim(head, top, up)
+        for sx in (-1, 1):               # lanterninhas pendendo de braços de ouro
+            end = top + up * 0.12 + side * sx * 0.2
+            parts += rs.curve(ck, n + "arm%d" % sx, top + up * 0.02, end, up * 0.05, 0.018, gold, 3, 5, 0.01)
+            parts += lk.lantern(ck, n + "lamp_s%d" % sx, end + V((0, 0, -0.1)), 0.048, M, hang=end)
+        parts += _staff50_ribbons(ck, n, top, up, M)
+    elif kind == "g":
+        face = (V((0, -1, 0)) + up * 0.45).normalized()
+        um = (up - face * up.dot(face)).normalized()          # "para cima" no plano do espelho
+        c = top + up * 0.25
+        parts += [ck.tube(n + "stem", top, c - um * 0.13, 0.026, 0.02, gold, 6)]
+        parts += lk.mirror(ck, n + "mirror", c, 0.145, M, facing=face, tear=True)
+        for k in range(7):               # leque de cristais-espelho por trás do espelho
+            a = math.radians(90 + (k - 3) * 28)
+            dv = side * math.cos(a) + um * math.sin(a)
+            wd = side * -math.sin(a) + um * math.cos(a)
+            ln = 0.2 + (0.09 if k == 3 else 0.04 if k % 2 else 0.0)
+            parts.append(ck.blade(n + "shard%d" % k, c + dv * 0.13 - face * 0.02, c + dv * (0.15 + ln) - face * 0.03, 0.1, 0.04, glow if k % 2 == 0 else glass, wd, 0.35))
+        parts += [ck.blade(n + "pendant", c - um * 0.15, c - um * 0.3 + face * 0.02, 0.06, 0.045, glass, side, 0.35),
+                  ck.ball(n + "boss", 0.03, c - um * 0.155 + face * 0.01, gold)]
+        parts += _staff50_ribbons(ck, n, top, up, M)
+    else:
+        tip = top + up * 0.62
+        parts += [ck.tube(n + "rod", top, tip, 0.022, 0.008, gold, 6), ck.ball(n + "rod_ball", 0.03, top + up * 0.5, gold)]
+        for k in range(2):
+            parts += [ck.tube(n + "rod_ring%d" % k, top + up * (0.1 + k * 0.1), top + up * (0.118 + k * 0.1), 0.05 - k * 0.012, 0.05 - k * 0.012, gold, 8)]
+        for sx in (-1, 1):               # raios acesos saindo da ponta
+            pts = [tip - up * 0.1, tip - up * 0.03 + side * sx * 0.09, tip + up * 0.03 + side * sx * 0.05, tip + up * 0.14 + side * sx * 0.16]
+            parts.append(_bolt(ck, n + "bolt%d" % sx, pts, 0.06, glow, fwd))
+        # báculo para a frente com o sino grande; atrás, um sino menor
+        hook = top + up * 0.3 + V((0, -0.22, 0.02))
+        parts += rs.curve(ck, n + "crook", top + up * 0.26, hook, up * 0.1, 0.02, gold, 4, 6, 0.012)
+        parts += _glass_bell(ck, n + "bell", hook - V((0, 0, 0.03)), 0.085, M, hang=hook)
+        hook2 = top + up * 0.2 + V((0, 0.15, 0.0))
+        parts += rs.curve(ck, n + "crook_b", top + up * 0.16, hook2, up * 0.06, 0.016, gold, 3, 5, 0.01)
+        parts += _glass_bell(ck, n + "bell_b", hook2 - V((0, 0, 0.02)), 0.055, M, hang=hook2)
+        parts += _staff50_ribbons(ck, n, top, up, M, zig=True)
+    obj = ck._join(rs.outward(parts), "wpn_main_staff_%s" % style)
+    ck._smooth(obj.data)
+    ck.skin_rigid(obj, base["rig"], "hand.R")
+    return obj
+
+
+ACT3_WEAPONS = {}
+for _st in ACT3_SETS:
+    ACT3_WEAPONS[_st + "_staff"] = (lambda st: (lambda ck, base, mats: build_staff50(ck, base, mats, st)))(_st)

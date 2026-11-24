@@ -982,3 +982,105 @@ def build_black_mirror_veil(ck, base, mats, style):
 
 
 ACT3_SETS = {"nec_i50": build_porcelain_cortege, "nec_c50": build_last_toast_harvest, "nec_s50": build_black_mirror_veil}
+
+
+# ---------------------------------------------------------------------------
+# Ato III, onda 4 (GDD ato3-lendarios-50 §8.1): foices DESPERTAS do nível 50, no tema do conjunto 50 de cada build. Malhas SÓ
+# no kit extra kit_necromancer_<sexo>_a3.glb (chibi_kit.A3_WEAPONS lê ACT3_WEAPONS). Mesmo eixo, mão e tamanho das foices do
+# Ato II (build_scythe2). Cabo de porcelana (tint), seda (tint2), fio/lágrima/chama em tint_glow.
+#   nec_i50 Cortejo de Porcelana: lâmina de porcelana de fio aceso, máscara cega de porcelana deitada sobre o encaixe,
+#           LANTERNA acesa pendendo de um gancho atrás (a "foice com lanterna" da ficha) e duas tiras de seda.
+#   nec_c50 Colheita do Último Brinde: lâmina larga de VIDRO ESCURO de fio aceso, taça quebrada de ouro no encaixe derramando
+#           o brinde, cacos de vidro em gola e farrapos de seda.
+#   nec_s50 Véu do Espelho Negro: ESPELHO NEGRO oval com a lágrima no encaixe, lâmina fina de porcelana com fio de ouro,
+#           aleta de seda aberta atrás numa vareta de ouro e lanterna APAGADA pendendo da ponta da vareta.
+def _scythe50_blade(ck, n, tag, root, dirn, length, width, curve, material, edge=None):
+    """Lâmina de foice em arco (mesma curva de build_scythe2); edge = material do fio por baixo."""
+    V = Vector
+    out = []
+    prev = root
+    pe = None
+    for i in range(1, 8):
+        a = i / 7
+        p = root + dirn * (length * a) + V((0, 0, curve * math.sin(a * math.pi) - 0.22 * length * a * a))
+        w = width * (1 - a) + 0.008
+        out.append(ck.tube(n + "%s%d" % (tag, i), prev, p, w + 0.004, w, material, 4))
+        if edge is not None:
+            q = p - V((0, 0, w * 0.75))
+            if pe is not None:
+                out.append(ck.tube(n + "%s_edge%d" % (tag, i), pe, q, 0.014, 0.011, edge, 4))
+            pe = q
+        prev = p
+    return out
+
+
+def build_scythe50(ck, base, mats, style):
+    """Foice desperta do nível 50 (nec_i50 lanterna, nec_c50 vidro escuro, nec_s50 espelho negro), 1 malha na mão direita."""
+    import lumeria_kit as lk
+    import ranger_sets as rs
+    V = Vector
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, porc, glow, glass = M["t"], M["t2"], M["gold"], M["porc"], M["glow"], M["glass"]
+    g = V(ck.hand_center(base, ".R"))
+    n = "sc_%s_" % style
+    S = 1.36                             # tamanho das foices do Ato II
+    top = g + V((0, 0, 0.9 * S))
+    fw = V((0, -1, 0))
+    kind = style[4]                      # i | c | s
+    parts = [ck.tube(n + "shaft", g - V((0, 0, 0.34)), top, 0.025, 0.023, t, 8),
+             ck.ball(n + "pommel", 0.036, g - V((0, 0, 0.36)), gold),
+             ck.tube(n + "socket", top - V((0, 0, 0.1)), top + V((0, 0, 0.04)), 0.036, 0.044, gold, 8)]
+    for k in range(3):
+        z = 0.1 + k * 0.11
+        parts.append(ck.tube(n + "wrap%d" % k, g + V((0, 0, z - 0.014)), g + V((0, 0, z + 0.014)), 0.031, 0.031, gold if k % 2 == 0 else t2, 8))
+    if kind == "i":
+        parts += _scythe50_blade(ck, n, "blade", top, fw, 0.78 * S / 1.3, 0.08, 0.12, porc, glow)
+        parts += lk.mask(ck, n + "mask", top + V((0, 0.0, 0.085)), 0.085, M, facing=(0, -0.45, 1), eyes=False, tears=(1,), tear_len=0.4)
+        hook = top + V((0, 0.2, 0.05))
+        parts.append(ck.tube(n + "arm", top - V((0, 0, 0.03)), hook, 0.018, 0.012, gold, 5))
+        parts += lk.lantern(ck, n + "lamp", hook - V((0, 0, 0.125)), 0.062, M, hang=hook)
+        for i, dx in enumerate((-0.035, 0.035)):
+            p0 = top + V((dx, 0.035, -0.11))
+            parts.append(lk.silk(ck, n + "strip%d" % i, p0, p0 + V((dx * 1.5, 0.1 + i * 0.05, -0.4 + i * 0.1)), (1, 0, 0), 0.06, 0.045, t2, (0, 0.03, 0), 4, 0.011))
+    elif kind == "c":
+        dark = _obsidian(ck)
+        parts += _scythe50_blade(ck, n, "blade", top, fw, 0.8 * S / 1.3, 0.095, 0.11, dark, glow)
+        # taça quebrada no encaixe: copa de ouro com a borda em cacos, o brinde aceso dentro e escorrendo
+        parts += [ck.tube(n + "cup", top + V((0, 0, 0.03)), top + V((0, 0, 0.16)), 0.035, 0.085, gold, 10),
+                  ck.ball(n + "wine", 0.07, top + V((0, 0, 0.15)), glow, (1, 1, 0.35)),
+                  ck.ball(n + "spill", 0.022, top + V((0.05, -0.06, 0.08)), glow, (0.8, 0.8, 2.6))]
+        for k in range(5):
+            a = math.tau * k / 5 + 0.5
+            dv = V((math.cos(a), math.sin(a), 0))
+            parts.append(ck.blade(n + "rim%d" % k, top + dv * 0.075 + V((0, 0, 0.14)), top + dv * 0.1 + V((0, 0, 0.22 + 0.05 * (k % 2))), 0.07, 0.014, gold, V((-dv.y, dv.x, 0)), 0.35))
+        for k in range(5):               # gola de cacos de vidro sob a taça
+            a = math.tau * (k + 0.5) / 5 + 1.6
+            dv = V((math.cos(a), math.sin(a) * 0.8, 0))
+            parts.append(ck.blade(n + "shard%d" % k, top + dv * 0.035 + V((0, 0, -0.03)), top + dv * (0.16 + 0.04 * (k % 2)) + V((0, 0, 0.03)), 0.075, 0.02, glass, V((-dv.y, dv.x, 0)), 0.4))
+        for i, (dx, ln) in enumerate(((-0.04, 0.3), (0.0, 0.46), (0.04, 0.24))):      # farrapos
+            p0 = top + V((dx, 0.035, -0.11))
+            parts.append(lk.silk(ck, n + "rag%d" % i, p0, p0 + V((dx * 1.4, 0.1, -ln)), (1, 0, 0), 0.05, 0.012, t2, (0, 0.035, 0), 3, 0.011))
+    else:
+        parts += _scythe50_blade(ck, n, "blade", top, fw, 0.76 * S / 1.3, 0.06, 0.13, porc, gold)
+        parts += _black_mirror(ck, n + "mirror", top + V((0, -0.01, 0.15)), 0.085, 0.115, M, facing=(0, -1, 0.35), tear=1, points=3)
+        end = top + V((0, 0.4, 0.14))    # vareta de ouro para trás com a aleta de seda
+        parts.append(ck.tube(n + "rod", top + V((0, 0, 0.0)), end, 0.016, 0.01, gold, 5))
+        pts, widths = [], []
+        for i in range(5):
+            k = i / 4
+            y = 0.04 + 0.34 * k
+            wd = 0.34 * (1 - k) + 0.05
+            pts.append(top + V((0, y, 0.14 * y / 0.4 - wd * 0.5)))
+            widths.append(wd)
+        parts.append(rs.ribbon(ck, n + "fin", pts, (0, 0, 1), widths, 0.012, t2))
+        dead = dict(M, glow=M["ink"])    # lanterna apagada
+        parts += lk.lantern(ck, n + "lamp", end - V((0, 0, 0.1)), 0.048, dead, hang=end)
+    obj = ck._join(rs.outward(parts), "wpn_main_scythe_%s" % style)
+    ck._smooth(obj.data)
+    ck.skin_rigid(obj, base["rig"], "hand.R")
+    return obj
+
+
+ACT3_WEAPONS = {}
+for _st in ACT3_SETS:
+    ACT3_WEAPONS[_st + "_scythe"] = (lambda st: (lambda ck, base, mats: build_scythe50(ck, base, mats, st)))(_st)

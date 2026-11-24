@@ -1332,3 +1332,147 @@ def build_cortege_lance(ck, base, mats, style):
 
 
 ACT3_SETS = {"ran_c50": build_wandering_lantern, "ran_a50": build_last_ball_salvo, "ran_l50": build_cortege_lance}
+
+
+# ---------------------------------------------------------------------------
+# Ato III, onda 4 (GDD ato3-lendarios-50 §8.1): armas DESPERTAS do nível 50, uma por build, no tema do conjunto 50.
+# Malhas SÓ no kit extra kit_ranger_<sexo>_a3.glb (chibi_kit.A3_WEAPONS lê ACT3_WEAPONS: chave começa pelo estilo). Mesma mão,
+# mesmo eixo e mesmo tamanho das armas do Ato II (clipes, corda do arco e folga do chão continuam valendo).
+# tint = porcelana do item, tint2 = seda da build, tint_glow = lágrima/chama; ouro velho e vidro fixos (lumeria_kit).
+#   ran_c50 Arco da Lanterna Errante: arco de porcelana com pontas em bico de pássaro (ouro) e penas, lanterninha acesa
+#           pendurada num braço de ouro acima da mão, fitas de seda nas pontas.
+#   ran_a50 Salva do Último Baile: mosquete de baile, coronha de porcelana, cano de ouro velho com boca em trompa, luneta de
+#           lente acesa, lanterna sob o cano e laço de seda de duas pontas.
+#   ran_l50 Lança do Cortejo (assinatura): lâmina de porcelana com lágrima acesa, travessa em galhada de ouro, DUAS flâmulas
+#           de seda compridas abertas de lado (lidas de cima) e cacho de guizos sob o alvado.
+def aim(objs, pivot, zdir):
+    """Gira peças modeladas em pé (eixo +Z) em volta de pivot até o eixo apontar para zdir."""
+    q = Vector((0, 0, 1)).rotation_difference(Vector(zdir).normalized())
+    p = Vector(pivot)
+    for o in objs:
+        for v in o.data.vertices:
+            v.co = q @ (v.co - p) + p
+    return objs
+
+
+def build_bow50(ck, base, mats, style="ran_c50"):
+    """ran_c50 — Arco da Lanterna Errante (mão esquerda, como todo arco)."""
+    import lumeria_kit as lk
+    V = Vector
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, porc, glow = M["t"], M["t2"], M["gold"], M["porc"], M["glow"]
+    g = V(ck.hand_center(base, ".L"))
+    S, cv = 1.26, 1.15                   # tamanho e curva do arco do Ato II (ran_c35)
+    n = "b_%s_" % style
+    pts = []
+    for i in range(13):
+        tt = i / 6.0 - 1.0
+        y = -0.15 * cv * (1 - tt * tt) + 0.03 + 0.06 * cv * max(0.0, abs(tt) - 0.75) / 0.25 * (abs(tt) > 0.75)
+        pts.append(g + V((0.0, y * S, tt * 0.5 * S)))
+    parts = [ck.tube(n + "limb%d" % i, pts[i], pts[i + 1], 0.026 - abs(i - 6) * 0.0016, 0.026 - abs(i + 1 - 6) * 0.0016, t if 1 < i < 10 else gold, 6) for i in range(12)]
+    parts += [ck.tube(n + "string", pts[0], pts[-1], 0.004, 0.004, ck.mat("m_string", (0.95, 0.95, 0.9)), 4),
+              ck.tube(n + "grip", g - V((0, 0, 0.065)), g + V((0, 0, 0.065)), 0.032, 0.032, t2, 8)]
+    for k in (-1, 1):                    # anéis de ouro fechando a empunhadura
+        parts.append(ck.tube(n + "grip_ring%d" % k, g + V((0, 0, k * 0.07 - 0.01)), g + V((0, 0, k * 0.07 + 0.01)), 0.037, 0.037, gold, 8))
+    for sz, tip, nb in ((1, pts[-1], pts[-2]), (-1, pts[0], pts[1])):
+        dirv = (tip - nb).normalized()
+        # bico de pássaro (ouro) virado para a frente e três penas de porcelana/ouro para trás
+        parts += curve(ck, n + "beak%d" % sz, tip, tip + dirv * 0.1 * S + V((0, -0.085, 0)) * S, V((0, 0, sz * 0.03)), 0.026, gold, 3, 6)
+        parts.append(ck.ball(n + "head%d" % sz, 0.034, tip, porc, (1, 1.1, 1.1)))
+        for k in range(3):
+            q = tip - dirv * 0.07 * k
+            parts.append(ck.blade(n + "feather%d_%d" % (sz, k), q, q + V((0, 0.17 + k * 0.035, sz * (0.07 - k * 0.03))) * S, 0.06 * S, 0.014, (porc, gold, t2)[k], (1, 0, 0)))
+    # fitas de seda: a de cima cai para trás, a de baixo voa para trás (a ponta de baixo fica rente ao chão)
+    parts.append(lk.silk(ck, n + "ribbon_top", pts[-1], pts[-1] + V((0.03, 0.17, -0.22)), (1, 0, 0), 0.05, 0.075, t2, (0, 0.04, 0), 3, 0.01))
+    parts.append(lk.silk(ck, n + "ribbon_low", pts[0], pts[0] + V((-0.03, 0.24, 0.05)), (1, 0, 0), 0.05, 0.075, t2, (0, 0, 0.03), 3, 0.01))
+    # lanterna errante: braço de ouro para a frente, acima da mão (a flecha passa por baixo)
+    arm = pts[9] + V((0, -0.1, 0.03))
+    parts.append(ck.tube(n + "lamp_arm", pts[9], arm, 0.012, 0.009, gold, 5))
+    parts += lk.lantern(ck, n + "lamp", arm + V((0, 0, -0.105)), 0.058, M, hang=arm)
+    # lágrimas acesas na empunhadura e filete aceso nos braços
+    for k in (-1, 1):
+        parts.append(ck.ball(n + "tear%d" % k, 0.03, g + V((0, -0.04, k * 0.1)), glow, (0.9, 0.6, 1.5)))
+    for i in (2, 3, 4, 7, 8, 9):         # filete aceso acompanhando a curva, pela frente dos braços
+        parts.append(ck.tube(n + "glow%d" % i, pts[i] + V((0, -0.02, 0)), pts[i + 1] + V((0, -0.02, 0)), 0.011, 0.011, glow, 4))
+    obj = ck._join(outward(parts), "wpn_main_bow_%s" % style)
+    ck._smooth(obj.data)
+    ck.skin_rigid(obj, base["rig"], "hand.L")
+    return obj
+
+
+def build_rifle50(ck, base, mats, style="ran_a50"):
+    """ran_a50 — Salva do Último Baile (mão direita, eixo do mosquete do kit)."""
+    import lumeria_kit as lk
+    V = Vector
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, porc, glow = M["t"], M["t2"], M["gold"], M["porc"], M["glow"]
+    g = V(ck.hand_center(base, ".R"))
+    fwd = V((0, -0.55, 0.83)).normalized()
+    side = V((1, 0, 0))
+    up = fwd.cross(side).normalized() * -1.0
+    n = "r_%s_" % style
+    m2 = dict(mats, wood=porc, metal=gold, trim=gold, dark=t2)
+    parts = rifle_parts(ck, n, g, m2, {"bands": 3, "carved": True, "scope": True, "glow": "tint"}, glow)
+    bz = up * 0.035
+    parts += [ck.tube(n + "horn", g + fwd * 0.84 + bz, g + fwd * 0.95 + bz, 0.028, 0.064, gold, 10),          # boca em trompa
+              ck.tube(n + "bore", g + fwd * 0.93 + bz, g + fwd * 0.955 + bz, 0.03, 0.052, glow, 10),
+              ck.ball(n + "tear", 0.022, g - fwd * 0.25 - up * 0.01 + side * 0.075, glow, (0.5, 0.8, 1.6)),
+              ck.ball(n + "tear_b", 0.022, g - fwd * 0.25 - up * 0.01 - side * 0.075, glow, (0.5, 0.8, 1.6)),
+              ck.ball(n + "medal_b", 0.03, g - fwd * 0.25 - up * 0.01 - side * 0.055, gold, (0.4, 1, 1)),
+              ck.tube(n + "butt", g - fwd * 0.445 - up * 0.04, g - fwd * 0.41 - up * 0.04, 0.064, 0.064, gold, 8)]
+    # lanterna sob o cano (para baixo quando o braço aponta)
+    lc = g + fwd * 0.56 - up * 0.1
+    parts += aim(lk.lantern(ck, n + "lamp", lc, 0.042, M), lc, up)
+    parts.append(ck.tube(n + "lamp_hang", g + fwd * 0.56 + up * 0.01, lc + up * 0.05, 0.008, 0.008, gold, 4))
+    # laço de seda de duas pontas preso na última cinta
+    kn = g + fwd * 0.66 - up * 0.045
+    parts.append(ck.ball(n + "knot", 0.028, kn, t2))
+    for i, sx in enumerate((-1, 1)):
+        parts.append(lk.silk(ck, n + "bow%d" % i, kn, kn - fwd * (0.2 + i * 0.05) - up * 0.1 + side * sx * 0.1, side + fwd * 0.3, 0.05, 0.075, t2, up * -0.03, 3, 0.01))
+    obj = ck._join(outward(parts), "wpn_main_rifle_%s" % style)
+    ck._smooth(obj.data)
+    ck.skin_rigid(obj, base["rig"], "hand.R")
+    return obj
+
+
+def build_spear50(ck, base, mats, style="ran_l50"):
+    """ran_l50 — Lança do Cortejo (mão direita, eixo das lanças do kit): as flâmulas de seda são a assinatura."""
+    import lumeria_kit as lk
+    V = Vector
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, porc, glow = M["t"], M["t2"], M["gold"], M["porc"], M["glow"]
+    g = V(ck.hand_center(base, ".R"))
+    ax = V(SPEAR_AXIS).normalized()
+    side = V((1, 0, 0))
+    n = "s_%s_" % style
+    L = 1.16                             # comprimento da lança do Ato II (ran_l35)
+    m2 = dict(mats, wood=t, metal=gold, trim=gold)
+    parts = spear_parts(ck, n, g, ax, m2, {"head": "none", "len": L, "gold": True})
+    top = g + ax * 1.22 * L
+    parts += [ck.blade(n + "head", top, top + ax * 0.5, 0.17, 0.028, porc, side, 0.32),
+              ck.blade(n + "head_tear", top + ax * 0.05, top + ax * 0.4, 0.06, 0.04, glow, side, 0.3),
+              ck.tube(n + "head_tip", top + ax * 0.44, top + ax * 0.53, 0.016, 0.003, gold, 6)]
+    for sx in (-1, 1):                   # travessa em galhada: duas pontas de ouro por lado
+        parts += curve(ck, n + "tine%d" % sx, top - ax * 0.03, top + ax * 0.17 + side * sx * 0.16, side * sx * 0.05 - ax * 0.03, 0.024, gold, 3, 6)
+        parts += curve(ck, n + "tine_b%d" % sx, top - ax * 0.03 + side * sx * 0.07, top + ax * 0.02 + side * sx * 0.2, ax * -0.02, 0.016, gold, 2, 5)
+    for k, z in enumerate((-0.42, 0.42, 0.9)):       # cintas de ouro na haste de porcelana
+        parts.append(ck.tube(n + "gold_band%d" % k, g + ax * z, g + ax * (z + 0.035), 0.027, 0.027, gold, 8))
+    parts.append(ck.tube(n + "rune", g + ax * 1.02 * L, g + ax * 1.1 * L, 0.027, 0.027, glow, 8))
+    # flâmulas: fitas largas deitadas (largura em X) que voam para trás; lidas pela câmera de cima
+    f0 = top - ax * 0.1
+    parts += [ck.ball(n + "flag_knot", 0.034, f0, gold),
+              lk.silk(ck, n + "flag_a", f0, f0 + V((0.08, 0.72, -0.12)), (1, 0, 0.15), 0.27, 0.12, t2, (0.06, 0, 0.06), 5, 0.012),
+              lk.silk(ck, n + "flag_a_edge", f0 + V((0.08, 0.72, -0.12)), f0 + V((0.09, 0.84, -0.14)), (1, 0, 0.15), 0.12, 0.02, gold, (0, 0, 0), 2, 0.012)]
+    f1 = top - ax * 0.34
+    parts += [ck.tube(n + "flag_ring", f1 - ax * 0.015, f1 + ax * 0.015, 0.03, 0.03, gold, 8),
+              lk.silk(ck, n + "flag_b", f1, f1 + V((-0.1, 0.52, -0.18)), (1, 0, -0.15), 0.21, 0.1, t2, (-0.05, 0, 0.05), 4, 0.012),
+              lk.silk(ck, n + "flag_b_tail", f1 + V((-0.1, 0.52, -0.18)), f1 + V((-0.12, 0.63, -0.22)), (1, 0, -0.15), 0.1, 0.02, glow, (0, 0, 0), 2, 0.012)]
+    for k in range(3):                   # cacho de guizos sob o alvado
+        parts += lk.bell(ck, n + "bell%d" % k, top - ax * (0.2 + k * 0.035) + V(((k - 1) * 0.04, -0.03, -0.035 - (k % 2) * 0.02)), 0.027, M)
+    obj = ck._join(outward(parts), "wpn_main_spear_%s" % style)
+    ck._smooth(obj.data)
+    ck.skin_rigid(obj, base["rig"], "hand.R")
+    return obj
+
+
+ACT3_WEAPONS = {"ran_c50_bow": build_bow50, "ran_a50_rifle": build_rifle50, "ran_l50_spear": build_spear50}

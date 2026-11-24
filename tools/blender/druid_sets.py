@@ -561,7 +561,8 @@ def build_forms(out_dir, only=None):
         for o in bpy.context.scene.objects:
             if "." in o.name:
                 o.name = o.name.replace(".", "_")
-        lp.export_glb(os.path.join(out_dir, "form_%s.glb" % kind), [arm])
+        if out_dir:                      # None = só monta a cena (prévia)
+            lp.export_glb(os.path.join(out_dir, "form_%s.glb" % kind), [arm])
         restore_tints(saved)
     print("forms done")
     if only is not None:
@@ -1387,7 +1388,19 @@ def _bear_armor3(ck, lk, M, put, P, bulk, hip, hc, tint, tint2):
     r = 0.2 * bulk
     back = V((0, 0.0, hip + 0.22 * bulk))
     neck = V((0, -0.5, hip + 0.18))
-    put("head", "head", lk.mask(ck, P + "head_mask", hc + V((0, -r * 0.42, r * 0.56)), r * 0.84, M, facing=(0, -0.6, 0.8), kind="bear", tears=(1,), wide=1.22, tear_len=0.3))
+    mask = lk.mask(ck, P + "head_mask", hc + V((0, -r * 0.42, r * 0.56)), r * 0.84, M, facing=(0, -0.6, 0.8), kind="bear", tears=(1,), wide=1.22, tear_len=0.3)
+    # Onda 4: o focinho e o nariz DE VERDADE do urso saíam por baixo da máscara (ela fica deitada na testa). O focinho pintado
+    # da máscara sai e entra uma luva de porcelana com aro de ouro e nariz de tinta POR CIMA do focinho do bicho (medidas de
+    # mob_kit.quadruped: focinho 0,12*bulk em hc+(0,-0.2,-0.05), nariz 0,045*bulk em hc+(0,-0.32*bulk,-0.01)).
+    import bpy
+    for o in [o for o in mask if o.name.endswith(("_snout", "_nose", "_muzzle"))]:
+        mask.remove(o)
+        bpy.data.objects.remove(o, do_unlink=True)
+    put("head", "head", mask)
+    put("head", "head", [ck.ball(P + "head_snout", 1.0, hc + V((0, -0.2, -0.045)), M["porc"], (0.09 * bulk, 0.136 * bulk, 0.083 * bulk)),
+                         ck.tube(P + "head_snout_rim", hc + V((0, -0.285, -0.045)), hc + V((0, -0.255, -0.045)), 0.128, 0.134, gold, 10),
+                         ck.ball(P + "head_nose", 0.055 * bulk, hc + V((0, -0.32 * bulk, -0.008)), M["ink"], (1.1, 1.0, 0.95)),
+                         ck.tube(P + "head_muzzle", hc + V((0, -0.2 - 0.136 * bulk + 0.012, -0.06)), hc + V((0, -0.2 - 0.118 * bulk, -0.12)), 0.012, 0.012, gold, 5)])
     put("head", "head", ck.tube(P + "head_tie", hc + V((0, r * 0.32, -r * 0.2)), hc + V((0, r * 0.47, -r * 0.2)), r * 1.02, r * 1.04, tint2, 12))
     for sx in (-1, 1):
         p0 = hc + V((sx * r * 0.2, r * 0.62, r * 0.8))
@@ -1547,4 +1560,142 @@ def build_lantern_sky(ck, base, mats, style):
 
 
 ACT3_SETS = {"dru_w50": build_parade_gallop, "dru_b50": build_masked_harvest, "dru_x50": build_lantern_sky}
-ACT3_FORM = {"dru_w50": "wolf", "dru_b50": "bear"}          # armadura de animal do nível 50 (form_armor3); Xamã e ancestrais do Urso: ondas 3 e 4
+ACT3_FORM = {"dru_w50": "wolf", "dru_b50": "bear"}          # armadura de animal do nível 50 (form_armor3); Ent e Pássaro: druid_ancestral.ACT3_STYLE (onda 4)
+
+
+# ---------------------------------------------------------------------------
+# Onda 4 do nível 50: armas "despertas" (GDD ato3-lendarios-50 §3.3). Malhas SÓ no kit extra kit_druid_<sexo>_a3.glb
+# (chibi_kit.A3_WEAPONS lê ACT3_WEAPONS; o kit principal não ganha malha). Mesmos eixos, punho e alcance das armas do Ato II
+# (build_staff / build_fang_mace / build_stone_maul): os clipes e a conta de chão das armas (clear_weapons) continuam valendo.
+#   dru_x50 Xamã = Lua Cheia Desperta: haste de porcelana com aros de ouro, crescente de ouro velho no alto abraçando uma
+#           lanterna de papel acesa (a lua cheia), duas lanterninhas penduradas nas pontas e fitas de seda (tint2).
+#   dru_w50 Lobo = Guizo do Desfile (uma em cada mão): miolo de porcelana, seis presas de OURO que se fecham em gaiola em
+#           volta de uma chama acesa, guizo no pomo, duas fitas de seda (tint2).
+#   dru_b50 Urso = Tambor da Colheita: tonel de porcelana com aros de ouro, tampos de casca envernizada com lágrima acesa,
+#           lanterna-cabaça grande no topo, fitas verde-musgo (tint2) nas duas pontas.
+def _along(objs, c, axis):
+    """Leva peças modeladas na origem com o eixo em +Z até c, com o eixo virado para axis."""
+    q = Vector((0, 0, 1)).rotation_difference(Vector(axis).normalized())
+    c = Vector(c)
+    for o in objs:
+        for v in o.data.vertices:
+            v.co = q @ v.co + c
+    return objs
+
+
+def build_moon_staff(ck, base, mats, style):
+    """Cajado do Xamã no nível 50 (wpn_main_staff_<estilo>): crescente de ouro com a lua cheia acesa dentro."""
+    import lumeria_kit as lk
+    import ranger_sets as rs
+    V = Vector
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, glow, porc = M["t"], M["t2"], M["gold"], M["glow"], M["porc"]
+    g = V(ck.hand_center(base, ".R"))
+    up = V((-0.22, -0.12, 1.0)).normalized()
+    side = V((1, 0, 0))
+    fwd = up.cross(side).normalized()
+    n = "st_%s_" % style
+    ln = 1.3
+    foot, top = g - up * ln * 0.42, g + up * (ln * 0.57 + 0.16)        # 0,16 mais alto que os outros cajados: a lua passa da aba do chapéu
+    parts = [ck.tube(n + "shaft", foot, top, 0.032, 0.026, t, 8), ck.tube(n + "ferrule", foot - up * 0.03, foot + up * 0.07, 0.022, 0.04, gold, 8),
+             ck.tube(n + "neck", top - up * 0.06, top + up * 0.03, 0.036, 0.05, gold, 8)]
+    for k in range(4):                   # aros de ouro pela haste; punho de seda
+        p = foot.lerp(top, 0.16 + k * 0.2)
+        parts.append(ck.tube(n + "ring%d" % k, p - up * 0.014, p + up * 0.014, 0.039, 0.039, gold, 8))
+    parts.append(ck.tube(n + "grip", g - up * 0.07, g + up * 0.07, 0.036, 0.036, t2, 8))
+    c0 = top + up * 0.24
+    rr = 0.2
+    for k in range(6):                   # crescente aberto para cima (lê de cima e de frente), mais grosso embaixo
+        a0, a1 = math.radians(-150 + k * 50), math.radians(-150 + (k + 1) * 50)
+        w0, w1 = 0.016 + 0.042 * math.sin(math.pi * k / 6), 0.016 + 0.042 * math.sin(math.pi * (k + 1) / 6)
+        parts.append(ck.tube(n + "moon%d" % k, c0 + side * math.sin(a0) * rr - up * math.cos(a0) * rr, c0 + side * math.sin(a1) * rr - up * math.cos(a1) * rr, w0, w1, gold, 6))
+    full = [ck.ball(n + "full", 0.118, (0, 0, 0), glow, (1, 1, 1.08)),
+            ck.tube(n + "full_top", (0, 0, 0.115), (0, 0, 0.15), 0.06, 0.038, gold, 6), ck.tube(n + "full_bottom", (0, 0, -0.155), (0, 0, -0.115), 0.032, 0.06, gold, 6)]
+    for k in range(4):                   # varetas da lanterna
+        a = math.tau * (k + 0.5) / 4
+        full.append(ck.tube(n + "full_rib%d" % k, (math.cos(a) * 0.12, math.sin(a) * 0.12, -0.06), (math.cos(a) * 0.12, math.sin(a) * 0.12, 0.06), 0.009, 0.008, gold, 4))
+    parts += _along(full, c0 + up * 0.01, up)
+    parts.append(ck.ball(n + "star", 0.036, c0 + up * 0.28, glow))
+    for sx in (-1, 1):
+        tip = c0 + side * sx * math.sin(math.radians(150)) * rr + up * math.cos(math.radians(30)) * rr
+        parts.append(ck.ball(n + "tip%d" % sx, 0.026, tip, gold))
+        hang = c0 + side * sx * (rr + 0.03) - up * 0.02
+        parts += _paper_lantern(ck, n + "lantern%d" % sx, hang + V((0, 0, -0.11)), 0.045, M, hang=hang)
+        p0 = top + side * sx * 0.035 - up * 0.02
+        parts.append(lk.silk(ck, n + "ribbon%d" % sx, p0, p0 + side * sx * 0.13 - up * 0.36 + fwd * 0.03, fwd, 0.06, 0.09, t2, side * sx * 0.035, 3))
+    obj = ck._join(rs.outward(parts), "wpn_main_staff_%s" % style)
+    ck._smooth(obj.data)
+    ck.skin_rigid(obj, base["rig"], "hand.R")
+    return obj
+
+
+def build_bell_mace(ck, base, mats, style, hand="main"):
+    """Maça do Lobo no nível 50 (wpn_main_mace_<estilo> / wpn_off_mace_<estilo>): presas de ouro em gaiola com chama acesa."""
+    import lumeria_kit as lk
+    import ranger_sets as rs
+    V = Vector
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, glow, porc = M["t"], M["t2"], M["gold"], M["glow"], M["porc"]
+    g, fwd, side, ridge = _a2_weapon_axes(ck, base, hand)
+    n = "m_%s_%s_" % (style, hand)
+    hc = g + fwd * 0.55
+    parts = [ck.tube(n + "shaft", g - fwd * 0.13, g + fwd * 0.44, 0.03, 0.028, t, 8),
+             ck.tube(n + "collar", g + fwd * 0.36, g + fwd * 0.44, 0.05, 0.066, gold, 10),
+             ck.ball(n + "core", 0.1, hc - fwd * 0.01, porc, (1, 1, 1)), ck.tube(n + "band", hc - fwd * 0.04, hc + fwd * 0.0, 0.106, 0.106, gold, 12),
+             ck.ball(n + "flame", 0.082, hc + fwd * 0.15, glow, (1, 1, 1.1)), ck.ball(n + "knob", 0.03, hc + fwd * 0.3, gold)]
+    parts += lk.bell(ck, n + "pommel", g - fwd * 0.17, 0.05, M)
+    for k in range(3):
+        parts.append(ck.tube(n + "wrap%d" % k, g + fwd * (-0.08 + k * 0.07), g + fwd * (-0.055 + k * 0.07), 0.035, 0.035, t2 if k != 1 else gold, 8))
+    for k in range(6):                   # presas de ouro: saem do aro, abrem e fecham em gaiola em volta da chama
+        a = math.tau * k / 6
+        dv = side * math.cos(a) + ridge * math.sin(a)
+        parts += rs.curve(ck, n + "fang%d" % k, hc - fwd * 0.03 + dv * 0.09, hc + fwd * 0.28 + dv * 0.012, dv * 0.105, 0.027, gold, 5, 6, 0.01)
+    for sx in (-1, 1):                   # fitas de seda saindo do colar
+        p0 = g + fwd * 0.38 + side * sx * 0.05
+        parts.append(lk.silk(ck, n + "ribbon%d" % sx, p0, p0 + side * sx * 0.15 - fwd * 0.26 + ridge * 0.03, ridge, 0.055, 0.085, t2, side * sx * 0.03, 3))
+    obj = ck._join(rs.outward(parts), ("wpn_main_mace_%s" % style) if hand == "main" else ("wpn_off_mace_%s" % style))
+    ck._smooth(obj.data)
+    ck.skin_rigid(obj, base["rig"], "hand.R" if hand == "main" else "hand.L")
+    return obj
+
+
+def build_harvest_maul(ck, base, mats, style):
+    """Malho do Urso no nível 50 (wpn_main_mace2h_<estilo>): tonel de porcelana, tampos de casca com lágrima, cabaça acesa no topo."""
+    import lumeria_kit as lk
+    import ranger_sets as rs
+    V = Vector
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, glow, porc = M["t"], M["t2"], M["gold"], M["glow"], M["porc"]
+    bark = _lum_bark(ck)
+    g, fwd, side, ridge = _a2_weapon_axes(ck, base, "main")
+    n = "m_%s_main_" % style
+    hc = g + fwd * 0.98
+    parts = [ck.tube(n + "shaft", g - fwd * 0.36, g + fwd * 0.9, 0.036, 0.034, bark, 8), ck.tube(n + "butt", g - fwd * 0.45, g - fwd * 0.35, 0.03, 0.05, gold, 8),
+             ck.tube(n + "socket", g + fwd * 0.76, g + fwd * 0.86, 0.044, 0.07, gold, 8)]
+    for k in range(4):
+        parts.append(ck.tube(n + "wrap%d" % k, g + fwd * (-0.26 + k * 0.12), g + fwd * (-0.235 + k * 0.12), 0.041, 0.041, t2 if k % 2 == 0 else gold, 8))
+    parts += [ck.tube(n + "head", hc - side * 0.23, hc + side * 0.23, 0.155, 0.155, t, 10),
+              ck.ball(n + "belly", 1.0, hc, t, (0.2, 0.17, 0.17))]
+    for k in (-1, 0, 1):                 # aros de ouro do tonel
+        parts.append(ck.tube(n + "hoop%d" % k, hc + side * (k * 0.15 - 0.018), hc + side * (k * 0.15 + 0.018), 0.168 if k == 0 else 0.162, 0.168 if k == 0 else 0.162, gold, 10))
+    for sx in (-1, 1):
+        fc = hc + side * sx * 0.23
+        parts += [ck.tube(n + "face%d" % sx, fc, fc + side * sx * 0.03, 0.15, 0.13, bark, 10),
+                  ck.tube(n + "face_rim%d" % sx, fc - side * sx * 0.012, fc + side * sx * 0.012, 0.166, 0.166, gold, 10)]
+        tear = [ck.ball(n + "tear%d" % sx, 0.034, (0, 0, 0.04), glow, (0.8, 2.0, 0.5)), ck.ball(n + "drop%d" % sx, 0.046, (0, -0.045, 0.04), glow, (1.0, 1.25, 0.5))]
+        parts += _along(tear, fc, side * sx)
+        p0 = fc - fwd * 0.12 + side * sx * 0.01
+        parts.append(lk.silk(ck, n + "ribbon%d" % sx, p0, p0 + side * sx * 0.1 - fwd * 0.34, ridge, 0.075, 0.11, t2, side * sx * 0.04, 3))
+    parts += _along(lk.gourd(ck, n + "gourd", (0, 0, 0), 0.115, M), hc + fwd * 0.275, fwd)
+    obj = ck._join(rs.outward(parts), "wpn_main_mace2h_%s" % style)
+    ck._smooth(obj.data)
+    ck.skin_rigid(obj, base["rig"], "hand.R")
+    return obj
+
+
+ACT3_WEAPONS = {          # chave começa pelo estilo (chibi_kit.style_class decide a classe); fn(ck, base, mats)
+    "dru_x50_staff": lambda ck, base, mats: build_moon_staff(ck, base, mats, "dru_x50"),
+    "dru_w50_mace": lambda ck, base, mats: build_bell_mace(ck, base, mats, "dru_w50"),
+    "dru_w50_offmace": lambda ck, base, mats: build_bell_mace(ck, base, mats, "dru_w50", "off"),
+    "dru_b50_mace": lambda ck, base, mats: build_harvest_maul(ck, base, mats, "dru_b50"),
+}

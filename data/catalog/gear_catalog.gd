@@ -256,7 +256,8 @@ const ACT2_VISUALS := {
 ## máscaras, fitas de seda, lanternas, ouro velho). "style" = malhas arm_<style>_* do kit extra kit_<classe>_<sexo>_a3.glb
 ## (tools/blender/<classe>_sets.py ACT3_SETS; KitModel.load_addon("_a3")); sem o arquivo o boneco veste o estilo do Ato II
 ## (act2_fallback_style). Um só nível: "color" (tint = marfim), "accent" (tint2 = seda/fitas), "glow" (tint_glow = lágrima e
-## chama). Arma e escudo continuam os do Ato II/30 (onda 4). "icon" = prefixo dos ícones (set_icons.tscn, foto no 50).
+## chama). "wpn" (opcional, padrão = style) = estilo das armas do 50 (onda 4: wpn_main/off_<tipo>_<estilo> no _a3; sem a
+## malha, KitModel._wpn_style cai na arma do Ato II e depois na do 30). Escudo continua o do Ato II/30. "icon" = prefixo dos ícones (set_icons.tscn, foto no 50).
 ## Build sem entrada continua no visual do Ato II na 4ª cor de ACT2_VISUALS. Ondas 1-3: as 24 builds.
 const ACT3_VISUALS := {
 	"paladin_guardiao": {"style": "pal_g50", "icon": "pal_g50",          # Vigília da Lágrima Dourada: elmo fechado com viseira-máscara e UMA lágrima, pires empilhados, lanterna na ombreira esquerda
@@ -472,6 +473,7 @@ static func visual_of(sid: String) -> Dictionary:
 				v["glow"] = a3["glow"]
 				v["icon"] = a3["icon"]
 				v["act3"] = true
+				v["wpn"] = a3.get("wpn", a3["style"])          # arma desperta (onda 4): wpn_<mão>_<tipo>_<estilo do 50> no _a3; sem a malha o KitModel cai na do Ato II/30
 			return v
 	return {}
 

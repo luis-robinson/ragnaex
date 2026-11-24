@@ -3068,6 +3068,13 @@ for _m in (_paladin_sets, _berserker_sets, _bishop_sets, _druid_sets, _ranger_se
     for _st, _fn in getattr(_m, "ACT3_SETS", {}).items():
         A3_STYLES[_st] = (lambda st, f: (lambda base, mats: (f(sys.modules[__name__], base, mats, st), _paladin_sets.join_slots("arm_%s_" % st))))(_st, _fn)
 ADDON_STYLES = {"_a2": A2_STYLES, "_a3": A3_STYLES}          # sufixo do arquivo -> estilos (KitModel.ADDON_SUFFIXES)
+# Onda 4: armas despertas do nível 50 (wpn_main_<tipo>_<estilo> / wpn_off_<tipo>_<estilo>) também no kit extra _a3.
+# ACT3_WEAPONS de cada <classe>_sets.py = {chave que começa pelo estilo: fn(ck, base, mats)}; o kit principal não muda.
+A3_WEAPONS = {}
+for _m in (_paladin_sets, _berserker_sets, _bishop_sets, _druid_sets, _ranger_sets, _assassin_sets, _elementalist_sets, _necromancer_sets):
+    for _k, _fn in getattr(_m, "ACT3_WEAPONS", {}).items():
+        A3_WEAPONS[_k] = (lambda f: (lambda base, mats: f(sys.modules[__name__], base, mats)))(_fn)
+ADDON_WEAPONS = {"_a3": A3_WEAPONS}                           # sufixo do arquivo -> armas do kit extra
 
 
 # Kit por classe: corpo + peças comuns + só os conjuntos/armas/escudos da classe. O kit_<male|female> genérico (NPCs) não
@@ -3177,10 +3184,14 @@ def build_kit_addon(sex, out_dir=None, class_id=None, suffix="_a2", only_styles=
     for key, fn in ADDON_STYLES[suffix].items():
         if style_class(key) == class_id and (only_styles is None or key in only_styles):
             fn(base, mats)
+    for key, fn in ADDON_WEAPONS.get(suffix, {}).items():     # armas do kit extra (onda 4): chave = <estilo>_<...>
+        if style_class(key) == class_id and (only_styles is None or any(key.startswith(st) for st in only_styles)):
+            fn(base, mats)
     if class_id in SHIELD_CLASSES:
         add_shield_tip(base["rig"])           # mesmo osso extra (e na mesma posição da lista) do kit principal
     rig = base["rig"]
     keep = [o for o in bpy.context.scene.objects if o.type == "MESH" and o.name.startswith("arm_")]
+    keep += [o for o in bpy.context.scene.objects if o.type == "MESH" and o.name.startswith("wpn_")]      # armas do kit extra
     for o in keep:
         if "." in o.name:
             o.name = o.name.replace(".", "_")

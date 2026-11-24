@@ -143,8 +143,9 @@ func apply_equipment(eq: Dictionary) -> void:
 	for pair in [["head", ItemDef.Slot.HEAD], ["body", ItemDef.Slot.BODY], ["gloves", ItemDef.Slot.GLOVES], ["boots", ItemDef.Slot.BOOTS]]:
 		var it: ItemDef = eq.get(pair[1])
 		if it and it.armor_style != "":
-			shown["frm_%s_%s_" % [it.armor_style, pair[0]]] = it.icon_color
-			sets["frm_%s_%s_" % [it.armor_style, pair[0]]] = it.set_id
+			var st := _style_here(it.armor_style, pair[0])
+			shown["frm_%s_%s_" % [st, pair[0]]] = it.icon_color
+			sets["frm_%s_%s_" % [st, pair[0]]] = it.set_id
 	for mi in _pieces:
 		var vis := false
 		var col := Color.WHITE
@@ -165,6 +166,20 @@ func apply_equipment(eq: Dictionary) -> void:
 			if glow.a > 0.0:
 				for m in _glows.get(mi.name, []):
 					m.set_shader_parameter("albedo", Color(glow.r, glow.g, glow.b))
+
+## Estilo com peça nesta forma: o do item; sem ela (ex.: armadura do 50 ainda não feita no Ent/Pássaro) o do Ato II da
+## build e depois o do 30 (GearCatalog.act2_fallback_style), na cor do item.
+func _style_here(style: String, slot: String) -> String:
+	for _hop in range(3):
+		var pre := "frm_%s_%s_" % [style, slot]
+		for mi in _pieces:
+			if String(mi.name).begins_with(pre):
+				return style
+		var fb := GearCatalog.act2_fallback_style(style)
+		if fb == "":
+			break
+		style = fb
+	return style
 
 ## Nomes das peças de animal de um estilo (testes).
 func pieces_of(style: String) -> Array:

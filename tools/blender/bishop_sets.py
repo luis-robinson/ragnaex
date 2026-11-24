@@ -1179,3 +1179,15 @@ def build_broken_cup_hymn(ck, base, mats, style):
 
 
 ACT3_SETS = {"bis_s50": build_vigil_lantern, "bis_i50": build_noon_mirror, "bis_b50": build_broken_cup_hymn}
+
+
+# Armas despertas do nível 50 (onda 4): malhas wpn_<main|off>_<tipo>_<estilo> só no kit extra _a3 (chibi_kit.A3_WEAPONS);
+# as funções ficam em lumeria_arms_a.py (uma por estilo, faz todas as armas da build). Chave = <estilo>_arms.
+def _arms(style):
+    def fn(ck, base, mats):
+        import lumeria_arms_a
+        return getattr(lumeria_arms_a, style)(ck, base, mats, style)
+    return fn
+
+
+ACT3_WEAPONS = {st + "_arms": _arms(st) for st in ("bis_s50", "bis_i50", "bis_b50")}

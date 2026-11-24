@@ -1739,6 +1739,11 @@ func _check_axe_kit() -> void:
 		check(not meshes.is_empty(), "machados: %s existe" % kit)
 		if meshes.is_empty():
 			continue
+		# machados do 50 moram no kit extra `_a3` (onda 4), não no kit principal
+		var extra := _kit_meshes(kit + "_a3") if kit.begins_with("kit_berserker") else {}
+		for n in extra:
+			if n != "__inst" and String(n).begins_with("wpn_"):
+				meshes[n] = extra[n]
 		var want: Array = ["wpn_main_axe", "wpn_main_axe2h"]
 		if kit.begins_with("kit_berserker"):
 			want.append("wpn_off_axe")
@@ -1759,6 +1764,8 @@ func _check_axe_kit() -> void:
 				flat = float(pr[2])
 				flat_at = "%s:%s" % [kit, n]
 		(meshes["__inst"] as Node).free()
+		if extra.has("__inst"):
+			(extra["__inst"] as Node).free()
 	check(worst >= AXE_BLADE_MIN, "machados: cabeça lê como machado, lâmina >= %.1fx o cabo (pior %.2fx em %s)" % [AXE_BLADE_MIN, worst, worst_at])
 	check(flat >= AXE_FLAT_MIN, "machados: cabeça é chapa, não bola (achatamento >= %.1f; pior %.2f em %s)" % [AXE_FLAT_MIN, flat, flat_at])
 
@@ -11628,7 +11635,8 @@ func _check_act2_visuals(gd, _sim) -> void:
 				for wid in sd.pieces + sd.alt_pieces:
 					var w: ItemDef = gd.items[wid]
 					if w.slot == ItemDef.Slot.WEAPON and w.weapon_type != "shield":
-						check(w.weapon_style == str(a2.get("wpn", style)), "%s: arma do Ato II (%s)" % [wid, w.weapon_style])
+						var want_wpn: String = str(a2.get("wpn", style)) if a3.is_empty() else str(a3.get("wpn", a3["style"]))     # 50: arma desperta (_check_leg50_weapons)
+						check(w.weapon_style == want_wpn, "%s: arma do Ato II/50 (%s)" % [wid, w.weapon_style])
 				check(GearCatalog.set_glow(id).is_equal_approx(a3.get("glow", glows[li])), "%s: brilho do nível" % id)
 		check(seen.size() == cols.size(), "%s: 35, 40, 45 e 50 com cores diferentes" % key)
 		_check_act2_extras(gd, key, a2)
@@ -11661,6 +11669,130 @@ func _check_act2_visuals(gd, _sim) -> void:
 			k.free()
 	_check_kit_addon(gd)
 	_check_leg50_visuals(gd)
+	_check_leg50_weapons(gd)
+
+## Arma desperta do 50 (GDD ato3-lendarios-50 §3.3/§8, onda 4): armas, 2ª arma (WEAPON_ROLES) e armas da mão secundária do
+## conjunto 50 levam o estilo do 50 e o KitModel usa wpn_<mão>_<tipo>_<estilo> do kit extra _a3; sem a malha (ou sem o
+## arquivo) usa a arma do conjunto 45 (Ato II/30), nunca a comum do tipo. Escudo continua o do Ato II/30. Formas do Druida
+## vestem frm_<estilo do 50>_* e, sem a peça, a do Ato II (FormModel._style_here).
+func _check_leg50_weapons(gd) -> void:
+	var lv := Balance.LEG50_LEVEL
+	var lv45: int = Balance.HYBRID_LEVELS[-1]
+	var want_by_class := {}          # classe -> {nome da malha: true} das armas do 50
+	var jobs: Array = []             # [classe, item 50, item 45, mão, conjunto 50]
+	for key: String in GearCatalog.ACT3_VISUALS:
+		var a3: Dictionary = GearCatalog.ACT3_VISUALS[key]
+		var cid: String = key.get_slice("_", 0)
+		var wstyle: String = a3.get("wpn", a3["style"])
+		var sd: SetDef = gd.sets.get("set_%s_%d" % [key, lv])
+		if sd == null:
+			check(false, "leg50 arma: conjunto 50 de %s existe" % key)
+			continue
+		if not want_by_class.has(cid):
+			want_by_class[cid] = {}
+		var n_wpn := 0
+		for wid: String in sd.pieces + sd.alt_pieces:
+			var w: ItemDef = gd.items[wid]
+			var w45: ItemDef = gd.items.get(wid.replace("_%d_" % lv, "_%d_" % lv45))
+			check(w45 != null and w45.weapon_type == w.weapon_type, "leg50 arma: %s tem a peça do 45 (%s)" % [wid, wid.replace("_%d_" % lv, "_%d_" % lv45)])
+			if w45 == null:
+				continue
+			if w.weapon_type == "shield":
+				check(w.shield_style != "" and w.shield_style == w45.shield_style, "leg50 arma: %s mantém o escudo do Ato II/30 (%s)" % [wid, w.shield_style])
+				check(w.icon != "" and ResourceLoader.exists("res://assets/icons/%s.png" % w.icon), "leg50 arma: escudo %s com ícone (%s)" % [wid, w.icon])
+				jobs.append([cid, w, w45, "off", sd])
+				continue
+			if not (w.slot == ItemDef.Slot.WEAPON or w.weapon_type == "pistol"):
+				continue
+			n_wpn += 1
+			var hand := "off" if wid.ends_with("_offhand") else "main"
+			check(w.weapon_style == wstyle, "leg50 arma: %s leva o estilo do 50 (%s)" % [wid, w.weapon_style])
+			check(w.icon != "" and ResourceLoader.exists("res://assets/icons/%s.png" % w.icon), "leg50 arma: ícone de %s (%s)" % [wid, w.icon])
+			want_by_class[cid]["wpn_%s_%s_%s" % [hand, w.weapon_type, wstyle]] = true
+			jobs.append([cid, w, w45, hand, sd])
+		check(n_wpn >= 1, "leg50 arma: %s tem arma no conjunto 50 (%d)" % [key, n_wpn])
+	for cid: String in want_by_class:
+		for body in ["male", "female"]:
+			var path := KitModel.addon_path_for(body, cid, "_a3")
+			var ps := load(path) as PackedScene if ResourceLoader.exists(path) else null
+			check(ps != null, "leg50 arma: %s abre" % path.get_file())
+			if ps == null:
+				continue
+			var inst: Node = ps.instantiate()
+			var meshes := inst.find_children("*", "MeshInstance3D", true, false)
+			var names := {}
+			for mi: MeshInstance3D in meshes:
+				names[String(mi.name)] = true
+				if String(mi.name).begins_with("wpn_"):
+					check(want_by_class[cid].has(String(mi.name)), "leg50 arma: %s em %s é arma de um conjunto 50 da classe" % [mi.name, path.get_file()])
+					check(mi.skin != null, "leg50 arma: %s com skin no esqueleto do kit (load_addon só aceita malha com skin)" % mi.name)
+			inst.free()
+			check(meshes.size() <= 24, "leg50 arma: %s com no máximo 24 malhas (%d)" % [path.get_file(), meshes.size()])
+			var k := KitModel.create(body, Color.WHITE, 0.025, cid)
+			check(k != null and k.load_addon("_a3"), "leg50 arma: kit_%s_%s carrega o _a3" % [cid, body])
+			if k == null:
+				continue
+			for nm: String in want_by_class[cid]:
+				check(names.has(nm), "leg50 arma: %s existe em %s" % [nm, path.get_file()])
+				check(not names.has(nm) or k._nodes.has(nm), "leg50 arma: %s passa pelo load_addon (mesmo esqueleto e skin)" % nm)
+			k.free()
+	for job: Array in jobs:
+		var cid: String = job[0]
+		var w: ItemDef = job[1]
+		var w45: ItemDef = job[2]
+		var hand: String = job[3]
+		var sd: SetDef = job[4]
+		var eq := {}
+		for pid in sd.pieces:
+			var it: ItemDef = gd.items[pid]
+			eq[ItemDef.Slot.OFFHAND if pid.ends_with("_offhand") else it.slot] = it
+		eq[ItemDef.Slot.OFFHAND if hand == "off" else ItemDef.Slot.WEAPON] = w      # 2ª arma (maça de defesa): empunhada no lugar da 1ª
+		for body in ["male", "female"]:
+			for missing in [false, true]:          # true = sem o arquivo _a3: arma do 45 (Ato II/30)
+				var k := KitModel.create(body, Color.WHITE, 0.025, cid)
+				if k == null:
+					continue
+				if missing:
+					k._addon_path = "res://assets/models/kit_nao_existe_a2.glb"
+				k.apply_equipment(eq)
+				var node: String = k.off_node_of(w) if hand == "off" else k.main_node(w)
+				var node45: String = k.off_node_of(w45) if hand == "off" else k.main_node(w45)
+				var own := "wpn_%s_%s_%s" % [hand, w.weapon_type, w.weapon_style]
+				var want: String = own if w.weapon_type != "shield" and k._nodes.has(own) else node45
+				check(node == want and k._nodes.has(node) and k._vis.get(node, false),
+					"leg50 arma: %s (%s%s) na mão mostra %s (quer %s)" % [w.id, body, ", sem _a3" if missing else "", node, want])
+				if w.weapon_type != "shield" and not missing:
+					check(node == own, "leg50 arma: %s (%s) usa a malha própria do 50 %s (%s)" % [w.id, body, own, node])
+				k.free()
+	# formas do Druida: armadura de animal do 50 na forma; sem a peça, a do Ato II da build
+	var forms := {"wolf": "druid_fera", "alpha": "druid_fera", "bear": "druid_guardiao_verde", "ent": "druid_guardiao_verde", "bird": "druid_xama"}
+	for form: String in forms:
+		var key: String = forms[form]
+		if not GearCatalog.ACT3_VISUALS.has(key):
+			continue
+		var st50: String = GearCatalog.ACT3_VISUALS[key]["style"]
+		var st35: String = GearCatalog.ACT2_VISUALS[key]["style"]
+		var eq := {}
+		for pid in (gd.sets["set_%s_%d" % [key, lv]] as SetDef).armor:
+			eq[(gd.items[pid] as ItemDef).slot] = gd.items[pid]
+		for drop50 in [false, true]:          # true = forma sem as peças do 50 (malha atrasada): veste a do Ato II
+			var f := FormModel.create(form)
+			check(f != null, "leg50 forma: form_%s abre" % form)
+			if f == null:
+				continue
+			check(drop50 or not f.pieces_of(st50).is_empty(), "leg50 forma: form_%s tem frm_%s_*" % [form, st50])
+			if drop50:
+				f._pieces = f._pieces.filter(func(mi): return not String(mi.name).begins_with("frm_%s_" % st50))
+			f.apply_equipment(eq)
+			var want_st := st35 if drop50 or f.pieces_of(st50).is_empty() else st50
+			var slots_on := 0
+			for slot in ["head", "body", "gloves", "boots"]:
+				var on := false
+				for mi: MeshInstance3D in f._pieces:
+					on = on or (mi.visible and String(mi.name).begins_with("frm_%s_%s_" % [want_st, slot]))
+				slots_on += 1 if on else 0
+			check(slots_on == 4, "leg50 forma: form_%s com o conjunto 50 veste %s nos 4 slots (%d)%s" % [form, want_st, slots_on, " (sem as peças do 50)" if drop50 else ""])
+			f.free()
 
 ## Lendários do 50 com visual próprio (GDD ato3-lendarios-50 AC-L50-06; GearCatalog.ACT3_VISUALS): cada estilo <pre>_<b>50 mora
 ## no kit extra kit_<classe>_<sexo>_a3.glb (4 malhas por build, addon <= 24), o kit principal não ganha malha, as peças de
@@ -11729,7 +11861,8 @@ func _check_leg50_visuals(gd) -> void:
 			check(fb == 4, "leg50 visual: sem o kit extra o boneco veste outro estilo da build (%d peças, %s %s)" % [fb, cid, body])
 			k2.free()
 	check(styles.size() >= 8 and per_class.size() == gd.classes.size(), "leg50 visual: onda 1 = uma build por classe (%d estilos, %d classes)" % [styles.size(), per_class.size()])
-	var forms := {"res://assets/models/form_wolf.glb": "dru_w50", "res://assets/models/form_alpha.glb": "dru_w50", "res://assets/models/form_bear.glb": "dru_b50"}
+	var forms := {"res://assets/models/form_wolf.glb": "dru_w50", "res://assets/models/form_alpha.glb": "dru_w50", "res://assets/models/form_bear.glb": "dru_b50",
+		"res://assets/models/form_ent.glb": "dru_b50", "res://assets/models/form_bird.glb": "dru_x50"}          # Ent e Pássaro: onda 4
 	for path: String in forms:          # Lobo (forma e Alfa) e Urso (onda 2): a armadura de animal do 50 existe na forma (FormModel liga por armor_style)
 		var ps := load(path) as PackedScene
 		var inst: Node = ps.instantiate() if ps else null

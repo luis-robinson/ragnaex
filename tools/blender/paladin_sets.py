@@ -1579,3 +1579,15 @@ def build_old_gold_sentence(ck, base, mats, style):
 
 
 ACT3_SETS = {"pal_g50": build_tear_vigil, "pal_c50": build_clear_judgement, "pal_t50": build_old_gold_sentence}
+
+
+# Armas despertas do nível 50 (onda 4): malhas wpn_<main|off>_<tipo>_<estilo> só no kit extra _a3 (chibi_kit.A3_WEAPONS);
+# as funções ficam em lumeria_arms_a.py (uma por estilo, faz todas as armas da build). Chave = <estilo>_arms.
+def _arms(style):
+    def fn(ck, base, mats):
+        import lumeria_arms_a
+        return getattr(lumeria_arms_a, style)(ck, base, mats, style)
+    return fn
+
+
+ACT3_WEAPONS = {st + "_arms": _arms(st) for st in ("pal_g50", "pal_c50", "pal_t50")}

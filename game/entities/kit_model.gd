@@ -547,7 +547,7 @@ func apply_equipment(eq: Dictionary, bare_body: Color = Color(0.55, 0.42, 0.3), 
 	var main: ItemDef = eq.get(ItemDef.Slot.WEAPON)
 	var off: ItemDef = eq.get(ItemDef.Slot.OFFHAND)
 	tall_shield = is_tall_shield(off)
-	for w: ItemDef in [main, off]:          # arma de estilo do Ato II que só existe no kit extra (hoje nenhuma: o Paladino mantém as do 30)
+	for w: ItemDef in [main, off]:          # arma que só existe no kit extra (Ato III: armas do 50 no _a3; sem ela, main_node/off_node_of caem na do Ato II/30)
 		if w and w.weapon_style != "" and not _addon_tried.has(addon_suffix_of(w.weapon_style)) and GearCatalog.act2_fallback_style(w.weapon_style) != "" \
 				and not _nodes.has("wpn_%s_%s_%s" % ["main" if w == main else "off", w.weapon_type, w.weapon_style]):
 			load_addon(addon_suffix_of(w.weapon_style))
@@ -687,15 +687,24 @@ func set_flash(v: float) -> void:
 ## Uma fita por arma de golpe (principal; secundária se for arma de 1 mão). Arco não tem rastro.
 ## Malha da arma na mão: a própria do conjunto (wpn_main_<tipo>_<estilo>) se o kit tiver, senão a comum do tipo.
 func main_node(main: ItemDef) -> String:
-	var styled := "wpn_main_%s_%s" % [main.weapon_type, main.weapon_style]
-	return styled if main.weapon_style != "" and _nodes.has(styled) else "wpn_main_" + main.weapon_type
+	var st := _wpn_style("main", main.weapon_type, main.weapon_style)
+	return "wpn_main_%s_%s" % [main.weapon_type, st] if st != "" else "wpn_main_" + main.weapon_type
 
 ## Malha da mão secundária: escudo nomeado/de conjunto, arma própria de conjunto (wpn_off_<tipo>_<estilo>) ou a comum do tipo.
 func off_node_of(off: ItemDef) -> String:
 	if off.shield_style != "":
 		return "wpn_off_%s_%s" % [off.weapon_type, off.shield_style]
-	var styled := "wpn_off_%s_%s" % [off.weapon_type, off.weapon_style]
-	return styled if off.weapon_style != "" and _nodes.has(styled) else "wpn_off_" + off.weapon_type
+	var st := _wpn_style("off", off.weapon_type, off.weapon_style)
+	return "wpn_off_%s_%s" % [off.weapon_type, st] if st != "" else "wpn_off_" + off.weapon_type
+
+## Estilo de arma que o kit tem: o pedido; sem a malha (arma do 50 ainda não feita ou _a3 ausente) o do Ato II da build e
+## depois o do 30 (GearCatalog.act2_fallback_style). "" = arma comum do tipo.
+func _wpn_style(hand: String, wtype: String, style: String) -> String:
+	for _hop in range(3):
+		if style == "" or _nodes.has("wpn_%s_%s_%s" % [hand, wtype, style]):
+			return style
+		style = GearCatalog.act2_fallback_style(style)
+	return ""
 
 ## Malhas espelhadas já montadas: "<id da malha>_<osso>" -> ArrayMesh (o kit é o mesmo em todos os bonecos).
 static var _mirror_cache: Dictionary = {}
