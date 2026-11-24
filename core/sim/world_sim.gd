@@ -196,10 +196,9 @@ func spawn_character(kind: SimEntity.Kind, cls: ClassDef, char_name: String, map
 	var tr: Dictionary = GameData.trees.get(cls.id, {})
 	if not tr.is_empty():
 		e.tree[tr["start"]] = true          # só o início: "<Skill> Aprimorada" das iniciais se compra como as outras
-	for item_id in cls.starting_equipment:
-		var item: ItemDef = GameData.items.get(item_id)
-		if item:
-			e.equipment[item.slot] = item
+	var start_eq := cls.starting_slots()     # 2ª arma repetida vai para a mão secundária (duas adagas)
+	for slot in start_eq:
+		e.equipment[slot] = start_eq[slot]
 	e.basic_skill = GameData.basic_skill_for_class(cls)
 	e.potion_slots = ["potion_hp_s", "potion_mp_s", ""]
 	e.add_item("potion_hp_s", 5)

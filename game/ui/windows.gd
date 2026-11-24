@@ -616,6 +616,12 @@ func _char_status(p: SimEntity, side: VBoxContainer) -> void:
 		var extra := ""
 		if a == "AGI":           # esquiva passiva: quanto desta AGI vira esquiva (a do Assassino soma por cima)
 			extra = "\nEsquiva pela AGI: %.1f%% (chance de evitar um golpe direto inteiro; teto %.0f%%)" % [Stats.agi_evasion(float(s.attrs[a]) / Balance.ATTR_SCALE), Balance.EVASION_CAP]
+		for src in s.attr_converted:         # Druida: a forma/arma converte atributos
+			var cv: Dictionary = s.attr_converted[src]
+			if src == a:
+				extra += "\n[color=#9c6]%d convertidos em %s pela forma.[/color]" % [int(cv["n"]), str(cv["to"])]
+			elif str(cv["to"]) == a:
+				extra += "\n[color=#9c6]+%d vindos de %s pela forma.[/color]" % [int(cv["n"]), str(src)]
 		attr_tips[a] = "[b]%s[/b]\n%s%s\n[color=#aaa]Vem do equipamento e dos nós de atributo da teia.[/color]" % [UiKit.attr_name(a), ATTR_DESC.get(a, ""), extra]
 	_char_group(side, "Atributos", attr_pairs, [], attr_tips)
 	var atk_extra: Array = []

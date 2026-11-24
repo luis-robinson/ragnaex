@@ -4518,6 +4518,8 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_bot_group(gd, sim)
 	_check_tank_pull(gd, sim)
 	_check_bot_leader(gd, sim)
+	_check_druid_attr_convert(gd)
+	_check_assassin_start_daggers(gd, sim)
 	_check_bot_raid(gd, sim)
 	_check_bot_opener(gd, sim)
 	_check_bot_threat_budget(gd, sim)
@@ -19618,6 +19620,60 @@ func _check_tank_pull(gd, sim) -> void:
 		sim.party_leave(o)
 	for o in [lead, tank, dps, other]:
 		sim.despawn(o)
+
+## Assassino começa com duas adagas (2026-11-24, pedido do usuário): a 2ª vai para a mão secundária (ClassDef.starting_slots),
+## no spawn da sim e na prévia da criação; classe com uma arma só continua com a secundária vazia.
+func _check_assassin_start_daggers(gd, sim) -> void:
+	var ass: ClassDef = gd.classes["assassin"]
+	var eq := ass.starting_slots()
+	var w: ItemDef = eq.get(ItemDef.Slot.WEAPON)
+	var o: ItemDef = eq.get(ItemDef.Slot.OFFHAND)
+	check(w != null and w.weapon_type == "dagger" and o != null and o.weapon_type == "dagger", "assassin_start: duas adagas no equipamento inicial")
+	var e: SimEntity = sim.spawn_character(SimEntity.Kind.BOT, ass, "TAD", "city_aldara", Vector3(-8, 0, 9), 1)
+	var we: ItemDef = e.equipment.get(ItemDef.Slot.WEAPON)
+	var oe: ItemDef = e.equipment.get(ItemDef.Slot.OFFHAND)
+	check(we != null and we.weapon_type == "dagger" and oe != null and oe.weapon_type == "dagger", "assassin_start: o assassino nasce empunhando duas adagas")
+	check(e.stats.offhand_type == "dagger", "assassin_start: stats veem a adaga da mão secundária (%s)" % e.stats.offhand_type)
+	sim.despawn(e)
+	var pal: ClassDef = gd.classes["paladin"]
+	var pe := pal.starting_slots()
+	check(pe.has(ItemDef.Slot.WEAPON) and (pe.get(ItemDef.Slot.OFFHAND) == null or (pe[ItemDef.Slot.OFFHAND] as ItemDef).weapon_type != (pe[ItemDef.Slot.WEAPON] as ItemDef).weapon_type),
+		"assassin_start: paladino não ganha 2ª arma")
+
+## Conversão de atributos do Druida (2026-11-24): cajado = mago (FOR->INT, AGI->WILL), duas maças = dano (INT->FOR, WILL->AGI),
+## malho = tanque (FOR->VIT, INT->WILL), 100%; total de pontos igual; outra classe com as mesmas armas não converte.
+func _check_druid_attr_convert(gd) -> void:
+	var dru: ClassDef = gd.classes["druid"]
+	var other: ClassDef = gd.classes["paladin"]
+	var pump := [{"attr_FOR": 50, "attr_AGI": 40, "attr_VIT": 30, "attr_WILL": 20, "attr_INT": 10}]
+	var setups := {
+		"staff|": [["staff_oak", ""], {"FOR": "INT", "AGI": "WILL"}],
+		"mace|mace": [["mace_t0", "mace_t0"], {"INT": "FOR", "WILL": "AGI"}],
+		"mace2h|": [["mace2h_t0", ""], {"FOR": "VIT", "INT": "WILL"}]}
+	for key in setups:
+		var ids: Array = setups[key][0]
+		var rule: Dictionary = setups[key][1]
+		var eq := {ItemDef.Slot.WEAPON: gd.items[ids[0]]}
+		if ids[1] != "":
+			eq[ItemDef.Slot.OFFHAND] = gd.items[ids[1]]
+		var raw := Stats.compute(other, 20, eq, pump)
+		var st := Stats.compute(dru, 20, eq, pump)
+		check(raw.attr_converted.is_empty(), "druid_convert: paladino com %s não converte" % key)
+		var want: Dictionary = raw.attrs.duplicate()
+		for a in rule:
+			want[rule[a]] += int(raw.attrs[a]) * Balance.ATTR_CONVERT_PCT / 100
+			want[a] -= int(raw.attrs[a]) * Balance.ATTR_CONVERT_PCT / 100
+		var tot_raw := 0
+		var tot := 0
+		for a in Balance.ATTRS:
+			tot_raw += int(raw.attrs[a])
+			tot += int(st.attrs[a])
+		check(st.attrs == want, "druid_convert: %s converte %s (tem %s, esperado %s)" % [key, str(rule), str(st.attrs), str(want)])
+		check(tot == tot_raw, "druid_convert: %s mantém o total de pontos (%d = %d)" % [key, tot, tot_raw])
+		check(st.attr_converted.size() == rule.size(), "druid_convert: %s registra a conversão para a ficha" % key)
+	# a regra cobre a arma de cada forma (FORM_REQUIRES: dual_mace / mace2h / staff)
+	check(Balance.ATTR_CONVERT["druid"].has("staff|") and Balance.ATTR_CONVERT["druid"].has("mace|mace") and Balance.ATTR_CONVERT["druid"].has("mace2h|"),
+		"druid_convert: há regra para cajado, duas maças e malho")
 
 ## Bot líder do grupo do jogador (BotLeaderSystem, 2026-11-23): o jogador passa a liderança, o bot completa o grupo com o
 ## papel que falta primeiro, um convite por vez (BOT_LEADER_INVITE_CD), conta o plano no grupo sem spam

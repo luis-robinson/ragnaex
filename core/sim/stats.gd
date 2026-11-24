@@ -96,6 +96,7 @@ var legend: Dictionary = {}      # efeito da arma lendária equipada (GearCatalo
 var shield_passive: Dictionary = {}     # escudo lendário com papel (GearCatalog.apply_shield_role): Determinação; vazio = nenhum
 var fusion: Dictionary = {}      # Fusão do híbrido com 5 peças (números do tier + "face" = build da arma na mão; FusionEffects)
 var attrs := {"FOR": 0, "AGI": 0, "VIT": 0, "WILL": 0, "INT": 0}
+var attr_converted := {}         # origem -> {"to": destino, "n": pontos}: conversão do Druida (Balance.ATTR_CONVERT; ficha C)
 var has_shield: bool = false
 var weapon_type: String = ""     # mão principal
 var offhand_type: String = ""    # shield | orb | arma de 1 mão (empunhando duas) | ""
@@ -148,6 +149,25 @@ static func plus_attr(base: int, pl: int) -> int:
 	if base <= 0 or pl <= 0:
 		return 0
 	return maxi(int(round(base * pl * Balance.PLUS_ATTR_PCT)), pl / 3 * Balance.ATTR_SCALE)
+
+## Regras de conversão da classe para as armas em `s` ({} = nenhuma). Ex.: Druida de cajado -> {"FOR": "INT", "AGI": "WILL"}.
+static func convert_rule(class_id: String, s: Stats) -> Dictionary:
+	var by_weapon: Dictionary = Balance.ATTR_CONVERT.get(class_id, {})
+	return by_weapon.get(s.weapon_type + "|" + s.offhand_type, {})
+
+## Passa ATTR_CONVERT_PCT% de cada atributo de origem para o destino (as origens são lidas antes de mexer: sem cadeia).
+static func convert_attrs(s: Stats, class_id: String) -> void:
+	var rule := convert_rule(class_id, s)
+	if rule.is_empty():
+		return
+	var src := s.attrs.duplicate()
+	for a in rule:
+		var n: int = int(src[a]) * Balance.ATTR_CONVERT_PCT / 100
+		if n <= 0:
+			continue
+		s.attrs[a] -= n
+		s.attrs[rule[a]] += n
+		s.attr_converted[a] = {"to": rule[a], "n": n}
 
 static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Array) -> Stats:
 	var s := Stats.new()
@@ -225,6 +245,8 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 		var sd_cdr: Dictionary = b.get("skill_cdr", {})
 		for k in sd_cdr:
 			s.skill_cdr_pct[k] = float(s.skill_cdr_pct.get(k, 0.0)) + float(sd_cdr[k])
+	if cls:
+		convert_attrs(s, cls.id)
 	s.is_ranged_weapon = s.weapon_type in ["bow", "rifle"]
 	s.is_magic_weapon = s.weapon_type in ["staff", "wand", "scythe", "scepter"]
 	if cls and cls.id in Balance.VIT_SWORD_CLASSES and s.weapon_type in Balance.VIT_SWORD_WEAPONS:

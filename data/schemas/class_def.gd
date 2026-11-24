@@ -34,6 +34,20 @@ extends Resource
 ## Guiam bots (equipamento + skills), conjuntos lendários e o agrupamento da janela de skills.
 @export var builds: Array = []
 
+## Equipamento inicial por slot (ItemDef.Slot -> ItemDef). Arma repetida com a principal ocupada vai para a mão
+## secundária se a classe aceita o tipo lá (Assassino: duas adagas). Ex.: starting_slots()[ItemDef.Slot.OFFHAND].
+func starting_slots() -> Dictionary:
+	var eq := {}
+	for iid in starting_equipment:
+		var it: ItemDef = GameData.items.get(iid)
+		if it == null:
+			continue
+		var slot: int = it.slot
+		if slot == ItemDef.Slot.WEAPON and eq.has(slot) and it.weapon_type in offhand_types:
+			slot = ItemDef.Slot.OFFHAND
+		eq[slot] = it
+	return eq
+
 func build_by_id(build_id: String) -> Dictionary:
 	for b in builds:
 		if b["id"] == build_id:

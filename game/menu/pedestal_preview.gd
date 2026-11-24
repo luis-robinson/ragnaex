@@ -119,10 +119,7 @@ static func equipment_of(d: Dictionary, cls: ClassDef) -> Dictionary:
 		if it:
 			eq[SaveSystem.saved_slot(int(k), it)] = it
 	if eq.is_empty():
-		for iid in cls.starting_equipment:
-			var it: ItemDef = GameData.items.get(iid)
-			if it:
-				eq[it.slot] = it
+		eq = cls.starting_slots()
 	return eq
 
 # ------------------------------------------------------------------ montagem

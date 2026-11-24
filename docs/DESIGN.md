@@ -135,6 +135,11 @@ Juramento): +1% de poder a cada 20 VIT, teto +25% (era 45%: o Guardião passava 
 nos bots (teia + equipamento comum / lendário do nível): Guardião 30 ≈ 580 / 1280, 45 ≈ 1000 / 2020; Cruzado 30 ≈ 195 / 135,
 45 ≈ 305 / 205; Templário 30 ≈ 330 / 125, 45 ≈ 500 / 205. Check `_check_paladin_vit`.
 
+**Conversão do Druida** (2026-11-24, decisão do usuário: o Druida pode ser tudo, então a forma molda os atributos; sempre ligada, sem nó):
+pela arma, que é a exigida pela forma (`Balance.ATTR_CONVERT`, 100% = `ATTR_CONVERT_PCT`), depois de somar equipamento/buffs/conjuntos/teia
+(`Stats.convert_attrs`): cajado (humano/Pássaro) FOR→INT e AGI→WILL; duas maças (Lobo/Alfa) INT→FOR e WILL→AGI; malho (Urso/Ent) FOR→VIT e
+INT→WILL. Total de pontos igual; a ficha C mostra o que converteu (`Stats.attr_converted`). Check `_check_druid_attr_convert`.
+
 **Druida**: **Xamã** (cajado de duas mãos, túnicas) = magia da natureza, invocações (Lobos Espirituais, Ent Guardião) e Bênção do Bosque;
 passivos de MATK e duração de bênçãos. **Lobo** (duas maças, couro) e **Urso** (malho, placa) viram bicho: `Forma de Lobo`/`Forma de Urso`
 são skills que ligam/desligam (`SimEntity.form`; bot não desfaz). Transformado: stats da forma (`Balance.FORM_STATS`) e as skills da build

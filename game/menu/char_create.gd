@@ -186,11 +186,9 @@ static func signature_skill(cls: ClassDef) -> SkillDef:
 
 ## Equipamento inicial da classe (slot -> ItemDef); `head = false` tira chapéu/capuz (Visual).
 static func starter_equipment(cls: ClassDef, head := true) -> Dictionary:
-	var eq := {}
-	for iid in cls.starting_equipment:
-		var it: ItemDef = GameData.items.get(iid)
-		if it and (head or it.slot != ItemDef.Slot.HEAD):
-			eq[it.slot] = it
+	var eq := cls.starting_slots()
+	if not head:
+		eq.erase(ItemDef.Slot.HEAD)
 	return eq
 
 ## Clipe lógico da demonstração da classe (a mesma regra do jogo, com a arma inicial).

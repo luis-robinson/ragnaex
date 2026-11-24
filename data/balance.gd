@@ -12,13 +12,14 @@ const ATTR_SCALE := 10
 ## 2026-11-23 (combat-plan C5, dps_probe --on_only --full_rot 30/40/45, depois do conserto do equipamento dos bots e das caudas
 ## INT/AGI): raio 1,35 -> 0,6, cruzado -> 0,72, fogo -> 0,75, xamã -> 0,6, atirador -> 0,65 (acima da mediana); ceifador 0,85 -> 1,4,
 ## inquisidor 0,6 -> 0,52, pestilento -> 1,45 (a cauda da INT os levou para baixo), carniceiro 0,88 -> 1,05, executor -> 1,12, punhos -> 1,12, corsário -> 1,15 (C6).
+## 2026-11-24: punhos 1,12 -> 1,16 (a conversão de atributos do Druida subiu a mediana do 30; Punhos caiu para -25%; 1,2 deixava o 45 em +24%, perto do teto).
 ## Supremas (GDD ultimates-lv40) foram calibradas (16-22, 2026-11-19) com o peso de build daquele dia: ficam com ele, para o
 ## equilíbrio das builds não mexer nelas (antes = BUILD_POWER de 2026-11-19).
 const ULT_BUILD_POWER := {"inquisidor": 0.6, "ceifador": 0.85, "invocador": 0.85, "carniceiro": 0.88, "batalha": 0.88,
 	"laminas": 2.3, "duelista": 1.7, "fera": 1.6, "raio": 1.35, "guardiao": 1.5}
 const BUILD_POWER := {"inquisidor": 0.52, "ceifador": 1.4, "invocador": 0.85, "carniceiro": 1.05, "batalha": 0.88,
 	"laminas": 2.3, "duelista": 1.7, "fera": 1.6, "raio": 0.6, "guardiao": 1.5, "cruzado": 0.72, "fogo": 0.75, "xama": 0.6,
-	"atirador": 0.65, "pestilento": 1.45, "corsario": 1.15, "executor": 1.12, "punhos": 1.12}
+	"atirador": 0.65, "pestilento": 1.45, "corsario": 1.15, "executor": 1.12, "punhos": 1.16}
 
 ## Peso da magia-assinatura por build (x SIGNATURE_POWER; sem entrada = 1.0), calibrado com dps_probe.
 const SIGNATURE_BUILD_POWER := {
@@ -351,6 +352,14 @@ const FORM_STATS := {"wolf": {"aspd_pct": 25, "speed_pct": 20, "atk_pct": 10, "c
 	"bird": {"speed_pct": 25, "matk_pct": 8}}     # Xamã -> Pássaro Arcano (voa: só desenho). matk 3 -> 8 (2026-11-23, C5: com o BUILD_POWER do Xamã 0,6 a forma rendia x0,995)
 const FORM_REQUIRES := {"wolf": "dual_mace", "bear": "mace2h", "phantom": "scythe", "demon": "scythe", "lich": "scythe",
 	"ent": "mace2h", "alpha": "dual_mace", "bird": "staff"}
+## Druida (2026-11-24, decisão do usuário): conversão de atributos pela forma/arma (a forma exige a arma: FORM_REQUIRES).
+## Cajado (humano/Pássaro) = mago, duas maças (Lobo/Alfa) = dano, malho (Urso/Ent) = tanque. ATTR_CONVERT_PCT% do atributo de
+## origem vai para o destino depois de somar equipamento/buffs/conjuntos/teia (Stats.compute). Chave de arma: "<principal>|<secundária>".
+const ATTR_CONVERT_PCT := 100
+const ATTR_CONVERT := {"druid": {
+	"staff|": {"FOR": "INT", "AGI": "WILL"},
+	"mace|mace": {"INT": "FOR", "WILL": "AGI"}, "mace|": {"INT": "FOR", "WILL": "AGI"},
+	"mace2h|": {"FOR": "VIT", "INT": "WILL"}}}
 const FORM_DURATION := {"phantom": 10.0, "lich": LORD_LICH_TIME}     # s; forma fora daqui fica até desligar (lobo, urso, demônio)
 const AMBUSH_MULT := 1.6                  # golpe que sai da furtividade
 ## Metamorfose de monstro (ShiftSystem; MonsterDef.shift_forms): xamã que vira bicho ao entrar em combate

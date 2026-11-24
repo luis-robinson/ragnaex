@@ -103,7 +103,7 @@ static func build() -> Array:
 					"of": "do Clérigo de Batalha", "signature": {"skill": "bis_holy_nova", "look": "holy"}, "legend": {"kind": "mend", "name": "Mão que Cura"}}),
 			]}),
 		_mk({"id": "druid", "body_type": "female", "hair_color": Color(0.4, 0.28, 0.16), "name": "Druida", "role": "caster", "color": Color(0.45, 0.8, 0.35),
-			"description": "Natureza. Xamã de cajado que invoca e abençoa, lobo veloz que some nas sombras (duas maças) ou urso que segura a linha (malho).",
+			"description": "Natureza. Xamã de cajado que invoca e abençoa, lobo veloz que some nas sombras (duas maças) ou urso que segura a linha (malho). A forma molda o corpo: de cajado FOR/AGI viram INT/WILL, de duas maças INT/WILL viram FOR/AGI, de malho FOR/INT viram VIT/WILL.",
 			"weapon_types": _s(["staff", "mace", "mace2h"]), "offhand_types": _s(["mace"]),
 			"base_hp": 110.0, "base_mp": 75.0, "hp_per_level": 14.0, "mp_per_level": 8.0, "move_speed": 5.5,
 			"basic_attack_power": 0.9, "basic_attack_cooldown": 0.7, "basic_attack_range": 6.5, "basic_attack_is_ranged": true, "basic_attack_kind": 1,
@@ -147,7 +147,7 @@ static func build() -> Array:
 			"weapon_types": _s(["dagger", "sword"]), "offhand_types": _s(["dagger", "sword", "pistol"]),
 			"base_hp": 100.0, "base_mp": 60.0, "hp_per_level": 12.5, "mp_per_level": 6.0, "move_speed": 6.2,
 			"basic_attack_power": 0.75, "basic_attack_cooldown": 0.38, "basic_attack_range": 1.7,
-			"starting_equipment": _s(["dagger_iron"] + ItemsCatalog.starter_ids("assassin")),
+			"starting_equipment": _s(["dagger_iron", "dagger_iron"] + ItemsCatalog.starter_ids("assassin")),     # duas adagas: a 2ª vai para a mão secundária (ClassDef.starting_slots)
 			"starting_skills": _s(["ass_backstab", "ass_quick_stab"]),
 			"builds": [
 				_b("laminas", "Lâminas", "dps", ["dagger"], ["dagger"], "leather", "AGI", "FOR", "aspd_pct",
