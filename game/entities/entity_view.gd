@@ -1346,11 +1346,12 @@ func _process_view(delta: float) -> void:
 	elif mat:
 		mat.set_shader_parameter("flash", flash)
 	_update_status()
-	if buff_aura == null and BuffAura.enabled and (not entity.buffs.is_empty() or entity.shield_hp > 0.0):
+	var look_debuff := _has_look_debuff()
+	if buff_aura == null and BuffAura.enabled and (not entity.buffs.is_empty() or entity.shield_hp > 0.0 or look_debuff):
 		buff_aura = BuffAura.new()
 		buff_aura.setup(self)
 		add_child(buff_aura)
-	if buff_aura and (buff_aura.active or not entity.buffs.is_empty()):
+	if buff_aura and (buff_aura.active or not entity.buffs.is_empty() or look_debuff):
 		buff_aura.update(delta)
 	var ally := _is_party_mate()
 	var plv: int = Sim.player.level if Sim.player else 0
@@ -1463,6 +1464,13 @@ func _update_status() -> void:
 				m.set_shader_parameter("status", st)
 		elif mat:
 			mat.set_shader_parameter("status", st)
+
+## Algum debuff com visual próprio no corpo (BuffLooks.DEBUFF_LOOKS: Fumo Doce, Banquete quebrado)?
+func _has_look_debuff() -> bool:
+	for d in entity.debuffs:
+		if BuffLooks.DEBUFF_LOOKS.has(str(d.get("id", ""))):
+			return true
+	return false
 
 ## Borda/padrão de buff na pele (BuffAura): uniform buff_rim do toon em todos os materiais do boneco.
 func set_buff_rim(c: Color, style: int) -> void:

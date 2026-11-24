@@ -10,7 +10,8 @@ const FADE := 1.6                      # s da troca entre temas
 const CHECK_EVERY := 0.5
 const BOSS_RANGE := 32.0               # m: chefe em luta até aqui troca para o tema de chefe
 const THEMES := ["aldara", "taverna", "campo", "elfos", "bastiao", "masmorra", "caverna", "catacumbas", "trevas", "cidadela", "chefe", "investida",
-	"porto", "costa", "goblins", "horda", "kharzun", "kharzun_citadel"]
+	"porto", "costa", "goblins", "horda", "kharzun", "kharzun_citadel",
+	"lumeria", "lumeria_morning", "perfume", "parade", "rift", "rift_raid", "espelhos", "adegas", "coro"]
 ## mapa -> tema; o resto sai de theme_for() (masmorras, fortalezas, interiores)
 const MAP_THEME := {"city_aldara": "aldara", "field_hollow": "campo", "field_crab_beach": "costa", "field_grove": "campo", "in_tavern": "taverna", "field_forest": "campo", "elf_city": "elfos",
 	"field_ruins": "bastiao", "lich_citadel": "cidadela", "dg_catacumbas": "catacumbas", "dg_catacumbas_trono": "catacumbas",
@@ -21,12 +22,13 @@ const MAP_THEME := {"city_aldara": "aldara", "field_hollow": "campo", "field_cra
 	"field_steppe": "horda", "fort_trolls": "horda", "fort_fire": "horda", "fort_war": "horda",
 	# Ato II (fase 3): Monte Kharzun e Salão dos Matadores (tambores de guerra); a Cidadela com coro grave (raide)
 	"field_kharzun": "kharzun", "dg_slayers": "kharzun", "kharzun_citadel": "kharzun_citadel",
-	# Ato III parte 1 (WP5, PROVISÓRIO até o WP12 trazer "lumeria"/"perfume"/"parade"): a festa da cidade e do Cortejo na
-	# faixa da taverna, os vinhedos no tema de campo
-	"city_lumeria": "taverna", "field_perfume": "campo", "field_parade": "taverna",
-	# Ato III WP6 (PROVISÓRIO até o WP12 trazer "rift"/"rift_raid"): Fenda no tema élfico (etéreo), raide no coro grave da Cidadela,
-	# Adegas e Conservatório como masmorra, Galeria dos Espelhos nas catacumbas
-	"rift_garden": "elfos", "rift_heart": "kharzun_citadel", "dg_cellars": "masmorra", "dg_mirrors": "catacumbas", "dg_conservatory": "masmorra"}
+	# Ato III parte 1 (WP12): valsa de caixinha de música desafinada na cidade (de manhã, L4, ver theme_for_stage), cordas lentas
+	# nas Vinhas, a marcha que se repete demais no Cortejo; Fenda no coro etéreo sem percussão, raide no coro com órgão;
+	# Adegas na valsa da morte, Galeria dos Espelhos no baile dos fantasmas, Conservatório no coro ferido
+	"city_lumeria": "lumeria", "field_perfume": "perfume", "field_parade": "parade",
+	"rift_garden": "rift", "rift_heart": "rift_raid", "dg_cellars": "adegas", "dg_mirrors": "espelhos", "dg_conservatory": "coro", "in_duke_hall": "lumeria"}
+## Tema por estágio (só lê `quests_completed` do jogador): mapa -> [missão, tema depois dela]. Manhã em Lumeria (L4, GDD ato3 §2.3).
+const STAGE_THEME := {"city_lumeria": ["hx3_veil", "lumeria_morning"]}
 
 var main                                # Main
 var current := ""
@@ -64,6 +66,14 @@ static func theme_for(map_id: String) -> String:
 	if map_id.begins_with("in_"):
 		return "aldara"
 	return ""
+
+## Tema do mapa no estágio do mundo: a troca de STAGE_THEME vale quando a missão está em `done`; senão theme_for.
+static func theme_for_stage(map_id: String, done: Array) -> String:
+	if STAGE_THEME.has(map_id):
+		var st: Array = STAGE_THEME[map_id]
+		if str(st[0]) in done:
+			return str(st[1])
+	return theme_for(map_id)
 
 func _stream(theme: String) -> AudioStream:
 	if _streams.has(theme):
@@ -107,7 +117,7 @@ func _wanted() -> String:
 	var rs: Dictionary = RaidSystem.status(Sim, p.map_id)
 	if bool(rs.get("active", false)) and str(rs.get("phase", "")) != "retreat":
 		return "investida"
-	return theme_for(p.map_id)
+	return theme_for_stage(p.map_id, p.quests_completed)
 
 ## Chefe de verdade (não os elites "Rei") vivo, em luta (com alvo) e perto do jogador.
 func _boss_fight(p: SimEntity) -> bool:

@@ -938,6 +938,228 @@ def s_whoosh_magic(rng):
 	return out
 
 
+# ---------------------------------------------------------------- Ato III parte 1 (O Excesso, WP12)
+def _vib(dur, f, rate=5.5, depth=0.012, decay=0.0, attack=0.05, harm=None):
+	"""Nota cantada: senoide com vibrato (fase acumulada) e harmônicos leves."""
+	out, ph = [], 0.0
+	harm = harm or [(2, 0.3), (3, 0.12)]
+	for i in range(n_of(dur)):
+		t = i / SR
+		ph += 2 * math.pi * f * (1 + depth * math.sin(2 * math.pi * rate * t)) / SR
+		v = math.sin(ph) + sum(a * math.sin(ph * k) for k, a in harm)
+		out.append(v * min(1.0, t / attack) * math.exp(-decay * t))
+	return out
+
+
+def _glass(out, rng, at, n=14, lo=2600, hi=7200, spread=0.45, gain=1.0):
+	"""Cacos: estalos agudos que se espalham no tempo e tilintam (sininhos curtos e desafinados)."""
+	add(out, highpass(noise(0.03, rng, decay=120, attack=0.0003), 2500), at, 1.0 * gain)
+	for _ in range(n):
+		t = at + rng.uniform(0.0, 1.0) ** 1.6 * spread
+		f = rng.uniform(lo, hi)
+		add(out, tone(0.18, f, f * rng.uniform(0.98, 1.01), decay=rng.uniform(18, 40), attack=0.0005), t, rng.uniform(0.15, 0.4) * gain)
+		add(out, highpass(noise(0.012, rng, decay=200, attack=0.0002), 3000), t, 0.25 * gain)
+
+
+def s_bells(rng):
+	"""Campanário de Lumeria (L0): três badaladas de sino grande, a 2ª um quarto de tom acima (a cidade desafinou)."""
+	out = zeros(4.2)
+	f = rng.uniform(196, 208)
+	for at, mul in [(0.0, 1.0), (1.25, 2 ** (0.5 / 12)), (2.5, 0.75)]:
+		add(out, tone(1.7, f * mul, decay=1.4, attack=0.002, harm=[(2.0, 0.5), (2.4, 0.35), (3.0, 0.2), (4.2, 0.12), (5.4, 0.06)]), at, 0.8)
+		add(out, lowpass(noise(0.03, rng, decay=90, attack=0.0004), 3000), at, 0.4)
+	return lowpass(out, 5000)
+
+
+def s_festim_bell(rng):
+	"""Sineta do Mestre de Cerimônias (aura do Festim): duas batidas leves de sineta de mão."""
+	out = zeros(0.8)
+	f = rng.uniform(1250, 1400)
+	add(out, bell(0.6, f, decay=7), 0.0, 0.6)
+	add(out, bell(0.5, f * 1.06, decay=8), 0.16, 0.45)
+	return out
+
+
+def s_hound_bells(rng):
+	"""Guizos dos Galgos de Seda: chacoalhar de guizos de coleira que correm (sininhos fechados)."""
+	out = zeros(0.6)
+	for k in range(rng.randint(7, 10)):
+		t = k * rng.uniform(0.045, 0.06) + rng.uniform(0, 0.015)
+		f = rng.uniform(2900, 4300)
+		add(out, tone(0.12, f, decay=35, attack=0.0008, harm=[(1.5, 0.4), (2.2, 0.2)]), t, rng.uniform(0.3, 0.55))
+		add(out, bandpass(noise(0.02, rng, decay=150), 3000, 8000), t, 0.25)
+	return out
+
+
+def s_fan_open(rng):
+	"""Leque-lâmina abrindo (Salto Leque): as varetas de aço estalam em série e o fio canta no fim."""
+	out = zeros(0.6)
+	n = rng.randint(6, 8)
+	for k in range(n):
+		add(out, bandpass(noise(0.015, rng, decay=200, attack=0.0002), 1800 + k * 250, 7000), k * 0.022, 0.6)
+	f = rng.uniform(2300, 2600)
+	add(out, tone(0.4, f, f * 1.02, decay=9, attack=0.002, harm=[(2.7, 0.3), (4.1, 0.1)]), n * 0.022, 0.35)
+	add(out, highpass(noise(0.18, rng, decay=18), 4000), n * 0.022, 0.25)
+	return out
+
+
+def s_shrill_note(rng):
+	"""Nota aguda do Coro Ferido: soprano estridente, curta, um pouco acima do tom e com vibrato nervoso."""
+	f = rng.uniform(1240, 1400)
+	out = zeros(0.55)
+	add(out, _vib(0.5, f, rate=8.0, depth=0.02, decay=4.0, attack=0.02, harm=[(2, 0.35), (3, 0.25), (4, 0.1)]), 0.0, 0.7)
+	add(out, _vib(0.45, f * 1.03, rate=7.0, depth=0.02, decay=5.0, attack=0.03), 0.02, 0.3)
+	return highpass(out, 500)
+
+
+def s_mirror_crack(rng):
+	"""Espelho rachando (Condessa: o espelho da cobertura racha): rangido do vidro, a rachadura correndo e os cacos."""
+	out = zeros(1.1)
+	add(out, bandpass(tone(0.25, rng.uniform(900, 1100), rng.uniform(1500, 1800), kind="saw", decay=6, attack=0.05), 800, 3000), 0.0, 0.25)
+	for k in range(6):
+		add(out, highpass(noise(0.01, rng, decay=250, attack=0.0002), 2000), 0.2 + k * rng.uniform(0.02, 0.04), 0.6)
+	_glass(out, rng, 0.38, n=16)
+	return out
+
+
+def s_mirror_hum(rng):
+	"""Espelhos de Pé subindo (Olhar da Condessa): dedo molhado na borda da taça, um acorde de vidro que cresce."""
+	out = zeros(1.5)
+	f = rng.uniform(820, 900)
+	for mul, g in [(1.0, 0.5), (1.5, 0.3), (2.01, 0.2)]:
+		add(out, swell(_vib(1.4, f * mul, rate=3.0, depth=0.004, attack=0.3, harm=[(2, 0.1)]), 0.75), 0.0, g)
+	return out
+
+
+def s_mirror_flash(rng):
+	"""Lampejo do espelho (o Olhar bate): brilho de vidro que sobe rápido e some."""
+	out = zeros(0.7)
+	add(out, tone(0.5, 1800, 4200, decay=6, attack=0.01), 0.0, 0.3)
+	for _ in range(8):
+		add(out, tone(0.25, rng.uniform(3000, 6500), decay=14), rng.uniform(0.05, 0.3), rng.uniform(0.12, 0.25))
+	add(out, highpass(noise(0.25, rng, decay=12), 5000), 0.05, 0.2)
+	return out
+
+
+def s_smoke_hiss(rng):
+	"""Fumo Doce do Incensário: sopro de brasa que chia baixo e a corrente balançando."""
+	out = zeros(1.0)
+	add(out, swell(bandpass(noise(0.95, rng, decay=1.2, attack=0.08), 1500, 6500), 0.35), 0.0, 0.7)
+	for k in range(2):
+		add(out, bandpass(noise(0.02, rng, decay=120), 2500, 6000), 0.1 + k * 0.35 + rng.uniform(0, 0.05), 0.25)
+	return out
+
+
+def s_goblet_break(rng):
+	"""Taça quebrando (Folião/Varo atira a taça): o vidro estoura e o vinho respinga."""
+	out = zeros(0.9)
+	_glass(out, rng, 0.0, n=12, lo=2200, hi=6000, spread=0.3)
+	for _ in range(8):
+		add(out, lowpass(noise(0.03, rng, decay=60), 1400), rng.uniform(0.08, 0.35), rng.uniform(0.2, 0.4))
+	return out
+
+
+def s_thirst_sigh(rng):
+	"""Suspiro da Velada (aura da Matriarca e marca do Eco): respiração rouca que sobe e um sussurro de dois tons."""
+	out = zeros(1.2)
+	add(out, swell(bandpass(noise(1.1, rng, decay=0.5, attack=0.1), 400, 2400), 0.45), 0.0, 0.7)
+	f = rng.uniform(300, 340)
+	add(out, swell(lowpass(_vib(1.0, f, rate=4.0, depth=0.01, attack=0.2, harm=[(2, 0.2)]), 900), 0.5), 0.1, 0.2)
+	add(out, swell(lowpass(_vib(0.9, f * 1.06, rate=4.5, depth=0.01, attack=0.2), 900), 0.5), 0.2, 0.15)
+	return out
+
+
+def s_thirst_drain(rng):
+	"""Sede bebendo (a marca estoura): goles graves e úmidos puxados para baixo."""
+	out = zeros(0.8)
+	for k in range(3):
+		f = rng.uniform(180, 230)
+		add(out, lowpass(tone(0.18, f, f * 0.55, decay=14, attack=0.005), 800), k * 0.17, 0.6)
+		add(out, bandpass(noise(0.08, rng, decay=30), 300, 1500), k * 0.17, 0.35)
+	return out
+
+
+def s_press_creak(rng):
+	"""Prensa da Vindima (aviso): o fuso de madeira rangendo ao baixar."""
+	out = zeros(1.2)
+	rate = rng.uniform(28, 40)
+	cr = bandpass(noise(1.1, rng, decay=0.8, attack=0.05), 300, 2000)
+	add(out, [x * (0.2 + 0.8 * max(0.0, math.sin(i / SR * math.pi * rate)) ** 6) for i, x in enumerate(cr)], 0.0, 0.9)
+	add(out, lowpass(tone(1.1, 110, 85, kind="saw", decay=1.2, attack=0.1), 500), 0.0, 0.3)
+	return out
+
+
+def s_press_slam(rng):
+	"""Prensa caindo: tora de madeira batendo e o mosto esguichando."""
+	out = zeros(1.0)
+	add(out, tone(0.5, 90, 45, decay=9), 0.0, 0.9)
+	add(out, lowpass(noise(0.08, rng, decay=40, attack=0.0005), 1800), 0.0, 0.7)
+	for _ in range(10):
+		add(out, lowpass(noise(0.04, rng, decay=45), 1600), rng.uniform(0.05, 0.5), rng.uniform(0.2, 0.4))
+	return out
+
+
+def s_gulp(rng):
+	"""Banquete do Varo (aviso): três goles fundos de quem bebe direto do barril."""
+	out = zeros(1.0)
+	for k in range(3):
+		f = rng.uniform(140, 170)
+		add(out, lowpass(tone(0.16, f * 1.3, f, decay=16, attack=0.01), 700), 0.05 + k * 0.28, 0.8)
+		add(out, bandpass(noise(0.06, rng, decay=40), 200, 900), 0.08 + k * 0.28, 0.4)
+	return out
+
+
+def s_toast_clink(rng):
+	"""Brinde (o Banquete fecha): duas taças batendo e o tilintar que fica."""
+	out = zeros(1.0)
+	f = rng.uniform(2100, 2400)
+	add(out, bell(0.9, f, decay=4.5), 0.0, 0.5)
+	add(out, bell(0.9, f * 1.13, decay=4.5), 0.004, 0.4)
+	add(out, highpass(noise(0.01, rng, decay=300), 3000), 0.0, 0.5)
+	return out
+
+
+def s_aria(rng):
+	"""Ária da Prima-Donna (aviso): soprano que sobe em três degraus, um para cada anel."""
+	out = zeros(1.6)
+	f = rng.uniform(620, 680)
+	for k, mul in enumerate([1.0, 1.26, 1.5]):
+		add(out, _vib(0.6, f * mul, rate=5.5, depth=0.015, decay=1.5, attack=0.06, harm=[(2, 0.25), (3, 0.08)]), k * 0.42, 0.55)
+	return lowpass(out, 5000)
+
+
+def s_canon(rng):
+	"""Cânone da Regente (aviso): a mesma frase cantada três vezes, uma voz entrando atrás da outra."""
+	out = zeros(1.8)
+	f = rng.uniform(440, 480)
+	for at, octv in [(0.0, 1.0), (0.3, 1.5), (0.6, 2.0)]:
+		for k, mul in enumerate([1.0, 1.125, 1.26, 1.0]):
+			add(out, _vib(0.3, f * mul * octv, rate=5.0, depth=0.01, decay=3.0, attack=0.03), at + k * 0.26, 0.35)
+	return lowpass(out, 5000)
+
+
+def s_cortege_horn(rng):
+	"""Cortejo da Anfitriã (aviso): fanfarra de metais que sobe e desafina na última nota, com caixa rufando."""
+	out = zeros(1.6)
+	f = rng.uniform(290, 310)
+	for k, mul in enumerate([1.0, 1.335, 1.5, 2.0 * 2 ** (-0.6 / 12)]):
+		add(out, lowpass(tone(0.36 if k < 3 else 0.7, f * mul, kind="saw", decay=2.0, attack=0.02), 2200), k * 0.22, 0.45)
+	for k in range(18):
+		add(out, bandpass(noise(0.03, rng, decay=90), 1500, 6000), k * 0.05, 0.18)
+	return out
+
+
+def s_cortege_march(rng):
+	"""Cortejo passando (as faixas batem): passos de marcha pesados, bumbo e guizos."""
+	out = zeros(1.2)
+	for k in range(4):
+		_drum_hit(out, rng, rng.uniform(70, 80), k * 0.24, 0.6, ring=0.25)
+		add(out, bandpass(noise(0.05, rng, decay=40), 200, 1200), k * 0.24, 0.4)
+	for _ in range(10):
+		add(out, tone(0.1, rng.uniform(3000, 4200), decay=35), rng.uniform(0.0, 1.0), 0.15)
+	return out
+
+
 SYNTH = {
 	"ice": (s_ice, 3), "lightning": (s_lightning, 3), "holy": (s_holy, 3), "shadow": (s_shadow, 2),
 	"poison": (s_poison, 3), "nature": (s_nature, 2), "wind": (s_wind, 2), "earth": (s_earth, 2),
@@ -967,6 +1189,12 @@ SYNTH = {
 	"impact_arcane": (s_impact_arcane, 3),
 	# vento antes do impacto das skills rápidas (pacote V2, 2026-11-23)
 	"whoosh": (s_whoosh, 3), "whoosh_magic": (s_whoosh_magic, 3),
+	# Ato III parte 1 (O Excesso, WP12): sinos de Lumeria, guizos, leques, coro, espelhos, fumo, taças e as 7 assinaturas
+	"bells": (s_bells, 2), "festim_bell": (s_festim_bell, 3), "hound_bells": (s_hound_bells, 3), "fan_open": (s_fan_open, 3),
+	"shrill_note": (s_shrill_note, 3), "mirror_crack": (s_mirror_crack, 2), "mirror_hum": (s_mirror_hum, 2), "mirror_flash": (s_mirror_flash, 2),
+	"smoke_hiss": (s_smoke_hiss, 3), "goblet_break": (s_goblet_break, 3), "thirst_sigh": (s_thirst_sigh, 2), "thirst_drain": (s_thirst_drain, 2),
+	"press_creak": (s_press_creak, 2), "press_slam": (s_press_slam, 2), "gulp": (s_gulp, 2), "toast_clink": (s_toast_clink, 2),
+	"aria": (s_aria, 2), "canon": (s_canon, 2), "cortege_horn": (s_cortege_horn, 2), "cortege_march": (s_cortege_march, 2),
 }
 
 

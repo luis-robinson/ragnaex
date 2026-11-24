@@ -18,6 +18,7 @@ static func build() -> Array:
 		_r("potion_mp_m", 1, "alchemy", 8, 10, {"herb_blue": 3, "spider_silk": 1}),
 		_r("elixir_might", 1, "alchemy", 10, 40, {"boar_tusk": 2, "herb_green": 2, "wolf_pelt": 1}),
 		_r("elixir_stone", 1, "alchemy", 14, 40, {"ent_bark": 2, "iron_ore": 1, "herb_blue": 1}),
+		_r("clear_wine", 2, "alchemy", 46, 120, {"bitter_grapes": 3, "festim_ribbon": 1}),     # Vinho Claro (Destiladora, hx3_vd_wine)
 		_r("ring_gel", 1, "alchemy", 3, 20, {"slime_gel": 8, "herb_blue": 2}),
 		_r("amulet_silk", 1, "alchemy", 10, 60, {"spider_silk": 6, "herb_blue": 3}),
 		_r("ring_spectral", 1, "alchemy", 18, 150, {"ghost_essence": 4, "spider_silk": 3}),
@@ -27,6 +28,7 @@ static func build() -> Array:
 	]
 	L.append_array(gear_recipes())
 	L.append_array(kharzun_recipes())
+	L.append_array(lumeria_recipes())
 	var out: Array = []
 	for d in L:
 		out.append(_mk(d))
@@ -35,14 +37,14 @@ static func build() -> Array:
 ## Joias e capas de cada tier e tema (GearCatalog.THEME_PIECES x THEMES): anel e amuleto no ferreiro, capa na alquimista.
 ## Material principal e secundário do tier (das zonas daquele nível) + um do tema. Bolsas Ampliadas também saem daqui.
 ## Um tier por Balance.COMMON_TIER_LEVELS (1, 8, 16, 24 e, no Ato II, 32 Costa Partida e 40 Estepes de Cinza; Ato III 48); há check.
-## Tier 48: PROVISÓRIO com materiais de Kharzun até existirem Fita do Festim/Porcelana Chorosa (GDD ato3 §8, WP11).
+## Tier 48 (Ato III, GDD ato3 §3/§8): Fita do Festim / Porcelana Chorosa; tema = fita (Guerreiro), Uvas Amargas (Caçador), erva azul (Sábio).
 const JEWEL_MATS := [["iron_ore", "crab_shell"], ["spider_silk", "grave_dust"], ["bone_shard", "bandit_badge"], ["star_ore", "ancient_relic"],
-	["orc_tusk", "goblin_fang"], ["orc_steel", "troll_tusk"], ["dwarf_steel", "basalt_ore"]]
+	["orc_tusk", "goblin_fang"], ["orc_steel", "troll_tusk"], ["festim_ribbon", "weeping_porcelain"]]
 const CAPE_MATS := [["wolf_pelt", "slime_gel"], ["spider_silk", "wolf_pelt"], ["ent_bark", "forest_mushroom"], ["ghost_essence", "ancient_relic"],
-	["rider_pelt", "horde_badge"], ["troll_hide", "horde_badge"], ["dire_pelt", "salamander_scale"]]
-const THEME_MAT := {"guerreiro": ["boar_tusk", "boar_tusk", "bandit_badge", "golem_core", "horde_badge", "orc_tusk", "orc_steel"],
-	"cacador": ["wolf_pelt", "spider_silk", "ent_bark", "bone_shard", "rider_pelt", "ember_feather", "dire_pelt"],
-	"sabio": ["herb_blue", "herb_blue", "forest_mushroom", "ghost_essence", "naga_scale", "naga_scale", "salamander_scale"]}
+	["rider_pelt", "horde_badge"], ["troll_hide", "horde_badge"], ["festim_ribbon", "weeping_porcelain"]]
+const THEME_MAT := {"guerreiro": ["boar_tusk", "boar_tusk", "bandit_badge", "golem_core", "horde_badge", "orc_tusk", "festim_ribbon"],
+	"cacador": ["wolf_pelt", "spider_silk", "ent_bark", "bone_shard", "rider_pelt", "ember_feather", "bitter_grapes"],
+	"sabio": ["herb_blue", "herb_blue", "forest_mushroom", "ghost_essence", "naga_scale", "naga_scale", "herb_blue"]}
 const BAG_RECIPES := [[3, 40, {"wolf_pelt": 4, "slime_gel": 4}], [10, 150, {"spider_silk": 6, "wolf_pelt": 4}],
 	[16, 300, {"ent_bark": 6, "bandit_badge": 4}], [24, 600, {"ghost_essence": 5, "ancient_relic": 3}]]
 
@@ -61,6 +63,25 @@ static func kharzun_recipes() -> Array:
 			ing[KHARZUN_THEME_TROPHY[theme]] = 1
 			out.append(_r("%s_%s_k45" % [piece, theme], 1, "alchemy" if piece == "cape" else "smith", Balance.KHARZUN_JEWEL_LEVEL,
 				Balance.KHARZUN_JEWEL_GOLD, ing))
+	return out
+
+## Joias e capas 50 (Lumeria, GearCatalog.lumeria_jewels; GDD ato3 §8): Fitas + Porcelanas + o troféu do tema; a capa pede
+## também o Leque da Anfitriã e o amuleto a Coroa Vazia (raide). Troféu -> chefe que o solta.
+const LUMERIA_TROPHIES := {"varo_goblet": "boss_varo", "countess_frame": "boss_countess", "broken_baton": "boss_ressoa",
+	"hostess_fan": "vessaline", "empty_crown": "boss_sylvare_echo"}
+const LUMERIA_THEME_TROPHY := {"guerreiro": "varo_goblet", "cacador": "countess_frame", "sabio": "broken_baton"}
+const LUMERIA_PIECE_TROPHY := {"cape": "hostess_fan", "amulet": "empty_crown"}
+
+static func lumeria_recipes() -> Array:
+	var out: Array = []
+	for piece in GearCatalog.THEME_PIECES:
+		for theme in GearCatalog.THEMES:
+			var ing := {"festim_ribbon": Balance.LUMERIA_JEWEL_RIBBON, "weeping_porcelain": Balance.LUMERIA_JEWEL_PORCELAIN}
+			ing[LUMERIA_THEME_TROPHY[theme]] = 1
+			if LUMERIA_PIECE_TROPHY.has(piece):
+				ing[LUMERIA_PIECE_TROPHY[piece]] = 1
+			out.append(_r("%s_%s_l50" % [piece, theme], 1, "alchemy" if piece == "cape" else "smith", Balance.LUMERIA_JEWEL_LEVEL,
+				Balance.LUMERIA_JEWEL_GOLD, ing))
 	return out
 
 static func gear_recipes() -> Array:

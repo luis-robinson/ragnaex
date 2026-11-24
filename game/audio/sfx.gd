@@ -40,6 +40,11 @@ const VOL := {
 	"impact_holy": -12.0, "impact_shadow": -11.0, "impact_nature": -11.0, "impact_arcane": -12.0,
 	# vento antes do impacto das skills rápidas (pacote V2, 2026-11-23)
 	"whoosh": -9.0, "whoosh_magic": -13.0,
+	# Ato III parte 1 (O Excesso, WP12): sinos, guizos, leques, coro, espelhos, fumo, taças e as 7 assinaturas
+	"bells": -6.0, "festim_bell": -12.0, "hound_bells": -9.0, "fan_open": -7.0, "shrill_note": -9.0, "mirror_crack": -4.0,
+	"mirror_hum": -7.0, "mirror_flash": -7.0, "smoke_hiss": -14.0, "goblet_break": -7.0, "thirst_sigh": -12.0, "thirst_drain": -6.0,
+	"press_creak": -5.0, "press_slam": -3.0, "gulp": -5.0, "toast_clink": -6.0, "aria": -6.0, "canon": -7.0,
+	"cortege_horn": -5.0, "cortege_march": -4.0,
 }
 ## Tema visual (FxManager.theme_of) -> som da skill. Físico não tem: quem soa é o golpe (swing/hit).
 const THEME_SOUND := {
@@ -83,10 +88,15 @@ const MOB_VOICE := {
 	"archdruid_wolf": ["wolf_howl", "wolf_snarl", ""], "archdruid_bear": ["bear_growl", "bear_roar", ""], "archdruid_treant": ["golem_rumble", "earth", ""],
 		"bear_cub": ["bear_growl", "bear_growl", ""], "bear_cub_den": ["", "bear_growl", ""], "bear": ["bear_growl", "bear_growl", ""],
 	"bear_mother": ["bear_roar", "bear_growl", "bear_roar"], "hive": ["wasp_buzz", "", "hive_crack"],
-	# Demônias da Sede (Ato III §3.1): sem banco próprio ainda; reaproveitam lua/sombra/fumaça
-	"seductress": ["lunar", "smoke_vanish", "die_monster"], "flayer": ["shadow", "swing", "die_monster"], "veil_singer": ["lunar", "lunar", "die_monster"], "thirst_matriarch": ["shadow", "smoke_vanish", "die_boss"],
-	# Ato III, chefes de mundo (WP8a): provisórios até os sons do WP12
-	"boss_vindima": ["nature", "earth", "golem_crumble"], "boss_prima_donna": ["lunar", "lunar", "die_boss"],
+	# Ato III (WP12): guizos dos Galgos de Seda (e do Galgo do Convertido), Reflexo que racha ao cair, Incensário que chia
+	"silk_hound": ["hound_bells", "hound_bells", "die_monster"], "parade_alpha": ["hound_bells", "dire_howl", "die_monster"],
+	"convert_hound": ["hound_bells", "hound_bells", "die_monster"], "vain_reflection": ["mirror_hum", "", "mirror_crack"],
+	"living_censer": ["smoke_hiss", "", "golem_crumble"], "chorister": ["", "", "die_monster"],
+	# Veladas (Ato III §3.1): sem banco próprio ainda; reaproveitam lua/sombra/fumaça (a Matriarca suspira)
+	"seductress": ["lunar", "smoke_vanish", "die_monster"], "flayer": ["shadow", "swing", "die_monster"], "veil_singer": ["lunar", "lunar", "die_monster"], "thirst_matriarch": ["thirst_sigh", "smoke_vanish", "die_boss"],
+	# Ato III, chefes (WP12): a prensa range na Vindima, a ária na Prima-Donna, o gole no Varo, o vidro na Condessa
+	"boss_vindima": ["press_creak", "nature", "golem_crumble"], "boss_prima_donna": ["aria", "shrill_note", "die_boss"],
+	"boss_varo": ["gulp", "", "die_boss"], "boss_countess": ["mirror_hum", "", "mirror_crack"], "boss_ressoa": ["canon", "", "die_boss"],
 }
 ## Skill com som próprio na fase ativa (no lugar do vento da arma) e no impacto (no lugar do som do tema).
 const CAST_SOUND := {"mob_drum_beat": "war_drum", "mob_war_drum": "war_drum", "mob_net_throw": "net",
@@ -95,10 +105,14 @@ const CAST_SOUND := {"mob_drum_beat": "war_drum", "mob_war_drum": "war_drum", "m
 	# Estandartes de Clã (Pedra e Forja): o pé do mastro batendo na pedra ao pulsar
 	"mob_stone_mend": "banner_plant", "mob_forge_embers": "banner_plant",
 	# Mata dos Zumbidos: o rugido da Ursa-Mãe e a colmeia soltando o enxame
-	"mob_bear_roar": "bear_roar", "mob_hive_swarm": "wasp_buzz", "mob_entangle": "nature", "mob_call_pack": "wolf_howl", "mob_call_boar": "drum_beat", "mob_call_rabbits": "drum_beat", "mob_call_deer": "drum_beat"}
+	"mob_bear_roar": "bear_roar", "mob_hive_swarm": "wasp_buzz", "mob_entangle": "nature", "mob_call_pack": "wolf_howl", "mob_call_boar": "drum_beat", "mob_call_rabbits": "drum_beat", "mob_call_deer": "drum_beat",
+	# Ato III (WP12): o leque-lâmina abre no salto; o Incensário sopra o Fumo Doce
+	"mob_fan_leap": "fan_open", "mob_first_fan_leap": "fan_open", "mob_sweet_smoke": "smoke_hiss"}
 const EFFECT_SOUND := {"mob_tide_pull": "tide", "mob_tide_wave": "tide", "mob_tide_geysers": "tide",
 	"mob_troll_slam": "troll_slam", "mob_rock_quake": "troll_slam",
-	"mob_boulder_toss": "boulder", "mob_basalt_stomp": "troll_slam", "mob_brute_quake": "troll_slam"}
+	"mob_boulder_toss": "boulder", "mob_basalt_stomp": "troll_slam", "mob_brute_quake": "troll_slam",
+	# Ato III (WP12): a nota aguda do Coro estoura no chão; a taça do Folião/Varo quebra no alvo
+	"mob_shrill_note": "shrill_note", "mob_goblet_throw": "goblet_break", "mob_varo_goblet": "goblet_break"}
 ## Aura de monstro (MonsterDef.aura) que soa em laço enquanto o dono vive: o tambor do Agitador.
 ## Assinaturas dos chefes (design/gdd/act2-boss-signatures.md): aviso quando o desenho aparece no chão.
 ## skill -> [fase do skill_cast em que o desenho aparece, sons...]. Toca cheio: o aviso é para o grupo todo.
@@ -115,13 +129,13 @@ const SIG_WARN := {
 	"mob_gorbash_waves": ["active", "sig_warn", "golem_rumble"],   # anéis das pisadas no chão
 	"mob_kragmar_temper": ["active", "sig_warn", "forge_hammer"],  # círculos das poças no chão (o martelo bate na lava)
 	"mob_durgash_throneaxe": ["active", "sig_warn", "war_drum"],   # círculo dourado na vítima (o trono chama o machado)
-	"mob_vindima_press": ["active", "sig_warn", "nature"],          # o puxão das vinhas e o círculo da prensa em volta dela
-	"mob_prima_aria": ["active", "sig_warn", "lunar"],             # os três anéis da ária no chão
-	"mob_vess_cortege": ["active", "sig_warn", "blood"],           # as 4 faixas do cortejo aparecem juntas
-	"mob_echo_thirst": ["active", "sig_warn", "lunar"],            # marca dourada (dividir) ou roxa (espalhar)
-	"mob_varo_banquet": ["active", "sig_warn", "potion"],          # o canal do Banquete começa (ele bebe)
-	"mob_countess_gaze": ["startup", "sig_warn", "gem"],           # 3 s de preparo: os Espelhos de Pé sobem
-	"mob_ressoa_canon": ["active", "sig_warn", "lunar"],           # as marcas do Cânone nas vítimas
+	"mob_vindima_press": ["active", "sig_warn", "press_creak"],     # o puxão das vinhas e o círculo da prensa: o fuso range
+	"mob_prima_aria": ["active", "sig_warn", "aria"],              # os três anéis da ária no chão: três notas que sobem
+	"mob_vess_cortege": ["active", "sig_warn", "cortege_horn"],    # as 4 faixas do cortejo: a fanfarra desafinada
+	"mob_echo_thirst": ["active", "sig_warn", "thirst_sigh"],      # marca dourada (dividir) ou roxa (espalhar): o suspiro da Velada
+	"mob_varo_banquet": ["active", "sig_warn", "gulp"],            # o canal do Banquete começa (ele bebe do barril)
+	"mob_countess_gaze": ["startup", "sig_warn", "mirror_hum"],    # 3 s de preparo: os Espelhos de Pé sobem (vidro cantando)
+	"mob_ressoa_canon": ["active", "sig_warn", "canon"],           # as marcas do Cânone nas vítimas: a frase em três vozes
 }
 ## Impacto/quebra das assinaturas (id do skill_effect, inclusive os que não são skill: BossSignatures.*_FX).
 const SIG_EFFECT := {
@@ -131,13 +145,20 @@ const SIG_EFFECT := {
 	"mob_ulgra_stampede": "earth", "mob_gorbash_waves": "troll_slam", BossSignatures.DECOY_FX: "smoke_vanish",
 	"mob_kragmar_temper": "lava_bubble",
 	"mob_durgash_throneaxe": "troll_slam",
-	"mob_vindima_press": "troll_slam", "mob_prima_aria": "lunar",
-	"mob_vess_cortege": "blood", "mob_echo_thirst": "lunar",
-	"mob_varo_banquet": "potion", "mob_countess_gaze": "holy", "mob_ressoa_canon": "lunar",
-	BossSignatures.MIRROR_RISE_FX: "gem", BossSignatures.MIRROR_CRACK_FX: "hive_crack",
+	"mob_vindima_press": "press_slam", "mob_prima_aria": "shrill_note",
+	"mob_vess_cortege": "cortege_march", "mob_echo_thirst": "thirst_drain",
+	"mob_varo_banquet": "toast_clink", "mob_countess_gaze": "mirror_flash", "mob_ressoa_canon": "shrill_note",
+	BossSignatures.MIRROR_RISE_FX: "mirror_hum", BossSignatures.MIRROR_CRACK_FX: "mirror_crack",
 }
-const AURA_SOUND := {"agitator": "drum_beat", "agitator_boss": "drum_beat", "clan_wolf": "drum_beat", "festim": "drum_beat", "sede": "drum_beat", "sense_sight": "drum_beat"}   # festim: provisório até os sinos (WP12)
+const AURA_SOUND := {"agitator": "drum_beat", "agitator_boss": "drum_beat", "clan_wolf": "drum_beat", "festim": "festim_bell", "sede": "thirst_sigh", "sense_sight": "drum_beat"}
 const AURA_BEAT := 0.6           # s entre batidas do laço da aura
+## Monstro sem aura que soa em laço enquanto vive (id -> som): o Incensário chiando o Fumo Doce.
+const MOB_LOOP := {"living_censer": "smoke_hiss"}
+## Som de laço mais longo que a batida do tambor: s entre dois toques do MESMO monstro (o resto segue AURA_BEAT).
+const LOOP_EVERY := {"festim_bell": 1.8, "thirst_sigh": 2.6, "smoke_hiss": 2.2}
+## Sinos do lugar (mapa -> ponto do campanário, missão que os cala, s entre peais, m até onde o som "chega perto"):
+## Lumeria toca até os Sinos Mudos (L1, hx3_bells); longe do campanário o peal soa do ponto a `near` m (fraco, mas sempre).
+const PLACE_BELLS := {"city_lumeria": {"pos": Vector2(0.0, -6.0), "until": "hx3_bells", "every": 6.0, "near": 32.0}}
 ## Buff de monstro que pulsa enquanto dura: a carne do troll se fechando (MobSystem.update_regen). Um pulso por
 ## vez no mapa (o mais perto), a cada BUFF_BEAT s.
 const BUFF_SOUND := {"troll_regen": "troll_regen"}
@@ -170,6 +191,8 @@ var _beat := 0.0
 var _buff_beat := 0.0
 var _lava_beat := 0.0
 var _hammer_beat := 0.0
+var _bell_beat := 0.0
+var _loop_at: Dictionary = {}              # id do monstro -> tempo (s) do último toque do laço (LOOP_EVERY)
 var _angry: Dictionary = {}                # id do monstro -> true (já em luta na última varredura)
 var _voice_at: Dictionary = {}             # voz -> tempo (s) da última
 
@@ -584,8 +607,15 @@ func _scan_mobs(delta: float) -> void:
 			continue
 		if e.position.distance_to(p.position) >= FAR:
 			continue
-		if beat and AURA_SOUND.has(e.monster_def.aura):
-			play_at(AURA_SOUND[e.monster_def.aura], e.position)
+		var loop_snd := loop_sound(e.monster_def)
+		if loop_snd != "":
+			if LOOP_EVERY.has(loop_snd):
+				var tn := _now()
+				if tn - float(_loop_at.get(e.id, -100.0)) >= float(LOOP_EVERY[loop_snd]):
+					_loop_at[e.id] = tn
+					play_at(loop_snd, e.position)
+			elif beat:
+				play_at(loop_snd, e.position)
 		if pulse and not e.buffs.is_empty():
 			var d: float = e.position.distance_to(p.position)
 			if d < pulse_d:
@@ -637,14 +667,41 @@ static func nearest_lava(def: MapDef, pos: Vector3) -> Vector3:
 			best = Vector3(q.x, 0.0, q.y)
 	return best
 
-## Laços do lugar: lava perto e martelo da forja (um de cada por vez, no mais perto).
+## Som em laço do monstro: a aura dele (AURA_SOUND) ou o laço próprio pelo id (MOB_LOOP); "" = nenhum.
+static func loop_sound(def: MonsterDef) -> String:
+	if def == null:
+		return ""
+	if AURA_SOUND.has(def.aura):
+		return AURA_SOUND[def.aura]
+	return str(MOB_LOOP.get(def.id, ""))
+
+## Sinos do lugar ainda tocam? (só lê `done` = quests_completed do jogador). Ponto do campanário ou Vector3.INF.
+static func place_bells_at(map_id: String, done: Array) -> Vector3:
+	if not PLACE_BELLS.has(map_id):
+		return Vector3.INF
+	var b: Dictionary = PLACE_BELLS[map_id]
+	if str(b["until"]) in done:
+		return Vector3.INF
+	var v: Vector2 = b["pos"]
+	return Vector3(v.x, 0.0, v.y)
+
+## Laços do lugar: lava perto e martelo da forja (um de cada por vez, no mais perto) e os sinos da cidade.
 func _place_loops(delta: float) -> void:
 	_lava_beat -= delta
 	_hammer_beat -= delta
+	_bell_beat -= delta
 	if main == null or not Sim.maps.has(main.current_map_id):
 		return
 	var p: SimEntity = Sim.player
 	var m: Dictionary = Sim.maps[main.current_map_id]
+	if _bell_beat <= 0.0:
+		var bell := place_bells_at(main.current_map_id, p.quests_completed)
+		if bell != Vector3.INF:
+			var b: Dictionary = PLACE_BELLS[main.current_map_id]
+			_bell_beat = float(b["every"])
+			play_at("bells", p.position + (bell - p.position).limit_length(float(b["near"])))
+		else:
+			_bell_beat = 1.0
 	if _lava_beat <= 0.0:
 		_lava_beat = LAVA_BEAT
 		var q := nearest_lava(m["def"], p.position)

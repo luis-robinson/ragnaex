@@ -328,7 +328,7 @@ static func place_marks(sim: WorldSim, e: SimEntity, s: SkillDef, power: float, 
 		return
 	var alt_mode := str(d.get("mode", "spread"))
 	var both := false
-	if alt_mode == "alternate":                       # Sede Dividida (Eco): dividir e espalhar se revezam; na faixa both_hp, as duas
+	if alt_mode == "alternate":                       # Brinde Dividido (Eco): dividir e espalhar se revezam; na faixa both_hp, as duas
 		var bh: Array = d.get("both_hp", [])
 		var hp := e.hp / maxf(1.0, e.stats.max_hp)
 		both = bh.size() == 2 and hp >= float(bh[0]) and hp <= float(bh[1])
@@ -666,7 +666,7 @@ static func _channel_break(sim: WorldSim, e: SimEntity) -> void:
 	e.is_blocking = false
 	e.set_state(SimEntity.State.STUNNED, Balance.BOSS_CHANNEL_STAGGER)
 	var ob: Dictionary = cfg.get("on_break", {})      # Banquete (Varo): vuln/vuln_time próprios
-	e.put_debuff({"kind": "curse", "id": TORN_DEBUFF, "remaining": float(ob.get("vuln_time", Balance.BOSS_CHANNEL_VULN_TIME)), "taken_pct": float(ob.get("vuln", Balance.BOSS_CHANNEL_VULN)), "weaken_pct": 0.0})
+	e.put_debuff({"kind": "curse", "id": str(ob.get("vuln_id", TORN_DEBUFF)), "remaining": float(ob.get("vuln_time", Balance.BOSS_CHANNEL_VULN_TIME)), "taken_pct": float(ob.get("vuln", Balance.BOSS_CHANNEL_VULN)), "weaken_pct": 0.0})
 	if cfg.has("break_say"):
 		MobSystem.boss_say(sim, e, str(cfg["break_say"]))
 	Events.post(&"skill_effect", CHANNEL_BREAK_FX, e.position, e.position, float(cfg.get("break_radius", Balance.BOSS_CHANNEL_BREAK_RADIUS)))

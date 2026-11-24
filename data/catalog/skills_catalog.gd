@@ -474,7 +474,7 @@ static func build(classes: Dictionary) -> Array:
 		{"id": "mob_shrill_note", "name": "Nota Aguda", "clip": "cast_ground", "target": T_GROUND, "kind": K_MAG, "power": 1.1, "cooldown": 8.0, "range": 11.0, "radius": 2.2, "startup": 0.5, "active": 0.1, "recovery": 0.45, "icon_color": Color(0.85, 0.75, 1.0), "vfx": "lunar",
 		 "effects": {"barrage": {"count": 1, "radius": 2.2, "delay": 1.2, "spread": 0.5}}},
 		{"id": "mob_unison", "name": "Uníssono", "clip": "shout", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 20.0, "radius": 8.0, "startup": 1.5, "active": 0.1, "recovery": 0.4, "icon_color": Color(0.8, 0.7, 1.0), "vfx": "lunar",
-		 "effects": {"rally": {"id": "war_cry", "radius": 12.0, "duration": 10.0, "atk_pct": 30.0}}},
+		 "effects": {"rally": {"id": "unison", "radius": 12.0, "duration": 10.0, "atk_pct": 30.0}}},
 		{"id": "mob_baton_thrust", "name": "Estocada da Batuta", "clip": "atk_thrust", "target": T_DIR, "kind": K_PHYS, "power": 1.6, "cooldown": 7.0, "range": 5.0, "radius": 0.9, "startup": 0.5, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 4, "icon_color": Color(0.9, 0.85, 0.95)},
 		# Reflexo Vaidoso: some no espelho e volta num lampejo (as cópias R-F são regra de chefe)
 		{"id": "mob_mirror_fade", "name": "Sumir no Espelho", "clip": "shout", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 12.0, "radius": 4.0, "startup": 0.3, "active": 0.1, "recovery": 0.3, "icon_color": Color(0.85, 0.88, 0.95), "vfx": "lunar",
@@ -483,15 +483,15 @@ static func build(classes: Dictionary) -> Array:
 		 "effects": {"dash": 5.0}},
 		# Incensário Vivo: Fumo Doce (círculos que ficam e pulsam, retardam) e balanço do turíbulo
 		{"id": "mob_sweet_smoke", "name": "Fumo Doce", "clip": "cast_ground", "target": T_GROUND, "kind": K_MAG, "power": 0.6, "cooldown": 10.0, "range": 10.0, "radius": 2.6, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.8, 0.65, 0.9), "vfx": "poison",
-		 "effects": {"barrage": {"count": 2, "radius": 2.6, "delay": 1.3, "spread": 5.0, "linger": 4.0, "tick_power": 0.15}, "slow": {"pct": 30, "duration": 2.0}}},
+		 "effects": {"barrage": {"count": 2, "radius": 2.6, "delay": 1.3, "spread": 5.0, "linger": 4.0, "tick_power": 0.15}, "slow": {"pct": 30, "duration": 2.0, "id": "sweet_smoke"}}},
 		{"id": "mob_censer_swing", "name": "Balanço do Turíbulo", "target": T_SELF, "kind": K_PHYS, "power": 1.3, "cooldown": 8.0, "radius": 3.2, "startup": 0.6, "active": 0.2, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(0.7, 0.55, 0.3),
 		 "effects": {"slow": {"pct": 25, "duration": 2.0}}},
 		# Vinha Sedenta: cepa que prende e puxa
 		{"id": "mob_vine_grasp", "name": "Cepa Faminta", "clip": "atk_sweep", "target": T_TARGET, "kind": K_PHYS, "power": 0.9, "cooldown": 9.0, "range": 9.0, "radius": 0.0, "max_targets": 1, "startup": 0.55, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.55, 0.3, 0.55), "mob_pick": "far", "vfx": "nature",
 		 "effects": {"pull": {"gap": 0.8}, "root": {"duration": 1.5}}},
-		# ---- Demônias da Sede (§3.1): sem esquiva (D4); "esquiva" = furtividade, recuo, salto e distância ----
+		# ---- Veladas (§3.1): sem esquiva (D4); "esquiva" = furtividade, recuo, salto e distância ----
 		# Sedutora: some (o golpe seguinte é emboscada × Balance.AMBUSH_MULT), garras em 2 tempos e recua 5 m depois de bater
-		{"id": "mob_thirst_vanish", "name": "Véu da Sede", "clip": "shout", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 13.0, "radius": 4.5, "startup": 0.3, "active": 0.1, "recovery": 0.25, "icon_color": Color(0.95, 0.8, 0.85), "vfx": "wind",
+		{"id": "mob_thirst_vanish", "name": "Véu Baixado", "clip": "shout", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 13.0, "radius": 4.5, "startup": 0.3, "active": 0.1, "recovery": 0.25, "icon_color": Color(0.95, 0.8, 0.85), "vfx": "wind",
 		 "effects": {"stealth": 1.5}},
 		{"id": "mob_thirst_claws", "name": "Garras em Dois Tempos", "target": T_CONE, "kind": K_PHYS, "power": 1.5, "cooldown": 6.0, "radius": 2.4, "cone_angle_deg": 90, "startup": 0.3, "active": 0.3, "recovery": 0.35, "hit_stop_frames": 2, "icon_color": Color(0.95, 0.72, 0.78), "vfx": "blood",
 		 "effects": {"strikes": {"weights": [0.45, 0.55], "at": [0.0, 0.18]}}},
@@ -500,14 +500,14 @@ static func build(classes: Dictionary) -> Array:
 		# Açoitadora: chicote de fita-lâmina (cone longo, sangra) e laço que puxa quem está longe
 		{"id": "mob_thirst_whip", "name": "Chicote de Fitas", "clip": "atk_sweep", "target": T_CONE, "kind": K_PHYS, "power": 1.4, "cooldown": 7.0, "radius": 6.0, "cone_angle_deg": 45, "startup": 0.5, "active": 0.12, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.85, 0.3, 0.4), "vfx": "blood",
 		 "effects": {"dot": {"dps": 14, "duration": 4}}},
-		{"id": "mob_thirst_lash", "name": "Laço da Sede", "clip": "atk_throw", "target": T_TARGET, "kind": K_PHYS, "power": 0.8, "cooldown": 11.0, "range": 11.0, "radius": 0.0, "max_targets": 1, "startup": 0.55, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.9, 0.55, 0.6), "mob_pick": "far", "vfx": "blood",
+		{"id": "mob_thirst_lash", "name": "Laço de Fita", "clip": "atk_throw", "target": T_TARGET, "kind": K_PHYS, "power": 0.8, "cooldown": 11.0, "range": 11.0, "radius": 0.0, "max_targets": 1, "startup": 0.55, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.9, 0.55, 0.6), "mob_pick": "far", "vfx": "blood",
 		 "effects": {"pull": {"gap": 0.8}, "slow": {"pct": 25, "duration": 2.0}}},
 		# Cantora do Véu: Lamento (golpe direto que retarda e a cura) e anel avisado em volta dela (R-A ring; dano = vermelho)
 		{"id": "mob_veil_lament", "name": "Lamento", "target": T_TARGET, "kind": K_MAG, "power": 1.2, "cooldown": 7.0, "range": 10.0, "radius": 0.0, "max_targets": 1, "startup": 0.5, "active": 0.1, "recovery": 0.4, "icon_color": Color(0.88, 0.75, 0.92), "vfx": "lunar",
 		 "effects": {"slow": {"pct": 30, "duration": 2.5}, "heal_pct_of_dmg": 0.5}},
 		{"id": "mob_veil_ring", "name": "Anel do Lamento", "clip": "cast_ground", "target": T_SELF, "kind": K_MAG, "power": 1.3, "cooldown": 12.0, "radius": 5.0, "startup": 0.5, "active": 0.1, "recovery": 0.45, "icon_color": Color(0.85, 0.7, 0.95), "vfx": "lunar",
 		 "effects": {"barrage": {"shape": "ring", "count": 1, "inner": 1.5, "width": 3.0, "delay": 1.2}}},
-		# Matriarca da Sede: garras longas, salto em leque e duas faixas avisadas (o `repeat` R-D é regra de chefe: aqui as
+		# Matriarca Velada: garras longas, salto em leque e duas faixas avisadas (o `repeat` R-D é regra de chefe: aqui as
 		# 2 faixas saem em sequência pelo `stagger` e o salto tem recarga curta, como no Primeiro Bailarino)
 		{"id": "mob_matriarch_claws", "name": "Garras da Matriarca", "target": T_CONE, "kind": K_PHYS, "power": 1.9, "cooldown": 7.0, "radius": 2.8, "cone_angle_deg": 110, "startup": 0.4, "active": 0.4, "recovery": 0.45, "hit_stop_frames": 2, "icon_color": Color(0.95, 0.78, 0.6), "vfx": "blood",
 		 "effects": {"strikes": {"weights": [0.3, 0.3, 0.4], "at": [0.0, 0.15, 0.3], "crit_last": true}}},
@@ -555,13 +555,13 @@ static func build(classes: Dictionary) -> Array:
 		{"id": "mob_vess_stage", "name": "Palco Seguro", "clip": "shout", "target": T_SELF, "kind": K_PHYS, "power": Balance.ACT3_STAGE_POWER, "cooldown": Balance.ACT3_STAGE_EVERY, "radius": 22.0, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.9, 0.86, 0.75), "vfx": "blood",
 		 "effects": {"islands": {"radius": Balance.ACT3_STAGE_ISLAND_R, "delay": Balance.ACT3_STAGE_DELAY, "spots": [[7.78, -66.22], [-7.78, -66.22], [-7.78, -81.78], [7.78, -81.78]],
 			"slow": {"pct": 40, "duration": 3.0}, "say": "Ao palco! Quem não tem lugar... vira cenário!"}}},
-		# O Eco de Sylvaré — Sede Dividida (assinatura, verbo "ler juntar × espalhar"): a marca alterna dividir (dourado) e espalhar
+		# O Eco de Amarante — Brinde Dividido (assinatura, verbo "ler juntar × espalhar"): a marca alterna dividir (dourado) e espalhar
 		# (roxo) a cada ACT3_THIRST_EVERY s; entre ACT3_THIRST_BOTH_HP as duas juntas (BossSignatures.place_marks, mode "alternate")
-		{"id": "mob_echo_thirst", "name": "Sede Dividida", "clip": "cast_ground", "target": T_SELF, "kind": K_MAG, "power": Balance.ACT3_THIRST_SOAK_POWER, "cooldown": Balance.ACT3_THIRST_EVERY, "radius": 0.0, "startup": 0.5, "active": 0.1, "recovery": 0.4, "hit_stop_frames": 4, "icon_color": Color(0.95, 0.8, 0.45), "vfx": "lunar", "boss_signature": true,
+		{"id": "mob_echo_thirst", "name": "Brinde Dividido", "clip": "cast_ground", "target": T_SELF, "kind": K_MAG, "power": Balance.ACT3_THIRST_SOAK_POWER, "cooldown": Balance.ACT3_THIRST_EVERY, "radius": 0.0, "startup": 0.5, "active": 0.1, "recovery": 0.4, "hit_stop_frames": 4, "icon_color": Color(0.95, 0.8, 0.45), "vfx": "lunar", "boss_signature": true,
 		 "effects": {"mark": {"mode": "alternate", "spread_count": 2, "solo_count": 1, "radius": Balance.ACT3_THIRST_RADIUS, "time": Balance.ACT3_THIRST_TIME, "no_tank": true,
 			"soak_power": Balance.ACT3_THIRST_SOAK_POWER, "spread_power": Balance.ACT3_THIRST_SPREAD_POWER, "both_hp": Balance.ACT3_THIRST_BOTH_HP}}},
 		# Eco F3: 4 cópias (R-F, como as Sombras Gêmeas) e as ilhas da sala (rift_heart boss_hint.islands)
-		{"id": "mob_echo_decoys", "name": "Reflexos da Sede", "clip": "shout", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 30.0, "radius": 0.0, "startup": 0.5, "active": 0.1, "recovery": 0.2, "icon_color": Color(0.86, 0.84, 0.94), "vfx": "shadow",
+		{"id": "mob_echo_decoys", "name": "Reflexos do Brinde", "clip": "shout", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 30.0, "radius": 0.0, "startup": 0.5, "active": 0.1, "recovery": 0.2, "icon_color": Color(0.86, 0.84, 0.94), "vfx": "shadow",
 		 "effects": {"stealth": 1.5, "decoys": {"id": "echo_decoy", "count": 4, "time": 12.0, "spread": 3.5, "say": "Qual de nós vocês querem provar?"}}},
 		{"id": "mob_echo_stage", "name": "Maré de Perfume", "clip": "shout", "target": T_SELF, "kind": K_MAG, "power": Balance.ACT3_STAGE_POWER, "cooldown": Balance.ACT3_STAGE_EVERY, "radius": 22.0, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.82, 0.74, 0.9), "vfx": "lunar",
 		 "effects": {"islands": {"radius": Balance.ACT3_STAGE_ISLAND_R, "delay": Balance.ACT3_STAGE_DELAY, "spots": [[0.0, -27.5], [8.66, -12.5], [-8.66, -12.5]],
@@ -585,8 +585,8 @@ static func build(classes: Dictionary) -> Array:
 		# quebrado (dano ou atordoar) = vulnerável
 		{"id": "mob_varo_banquet", "name": "O Banquete", "clip": "cast_channel", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": Balance.ACT3_BANQUET_EVERY, "radius": 0.0, "startup": 0.5, "active": Balance.ACT3_BANQUET_TIME, "recovery": 0.4, "icon_color": Color(0.6, 0.15, 0.25), "vfx": "blood", "boss_signature": true,
 		 "effects": {"boss_channel": {"say": "Sirvam o banquete! Quem come comigo não morre de fome!", "warn": "INTERROMPAM O BANQUETE!", "break_say": "A taça... caiu da minha mão!", "break_radius": 2.5,
-			"on_break": {"vuln": Balance.ACT3_BANQUET_VULN, "vuln_time": Balance.ACT3_BANQUET_VULN_S},
-			"on_done": {"self": true, "buff": {"id": "mob_frenzy", "atk_pct": Balance.ACT3_BANQUET_ATK, "duration": Balance.ACT3_BANQUET_BUFF_S}, "radius": 24.0, "heal_pct": Balance.ACT3_BANQUET_HEAL, "vfx": "mob_varo_banquet", "say": "Ahhh... mais um prato!"}}}},
+			"on_break": {"vuln": Balance.ACT3_BANQUET_VULN, "vuln_time": Balance.ACT3_BANQUET_VULN_S, "vuln_id": "banquet_vuln"},
+			"on_done": {"self": true, "buff": {"id": "banquet", "atk_pct": Balance.ACT3_BANQUET_ATK, "duration": Balance.ACT3_BANQUET_BUFF_S}, "radius": 24.0, "heal_pct": Balance.ACT3_BANQUET_HEAL, "vfx": "mob_varo_banquet", "say": "Ahhh... mais um prato!"}}}},
 		# A Condessa Refletida (dg_mirrors): florete em quatro tempos (o último crítico), Salto Leque, Máscaras (cópias, F2), Chuva de Cacos (F3)
 		{"id": "mob_countess_rapier", "name": "Florete em Quatro Tempos", "target": T_CONE, "kind": K_PHYS, "power": 2.0, "cooldown": 7.0, "radius": 2.8, "cone_angle_deg": 70, "startup": 0.45, "active": 0.5, "recovery": 0.45, "hit_stop_frames": 2, "icon_color": Color(0.88, 0.9, 0.98), "vfx": "blood",
 		 "effects": {"strikes": {"weights": [0.2, 0.2, 0.25, 0.35], "at": [0.0, 0.12, 0.24, 0.4], "crit_last": true}}},

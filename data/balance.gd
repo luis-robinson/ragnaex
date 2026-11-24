@@ -252,7 +252,7 @@ const SKILL_RANK_GOLD_BASE := 40           # ouro = base × (tier da skill + 1) 
 ## [comum, raro]. Rank r pede r + 1 do comum; do rank SKILL_RANK_RARE_FROM em diante, (r - FROM + 1) do raro.
 const SKILL_RANK_MATS := [["iron_ore", "crab_shell"], ["spider_silk", "grave_dust"], ["bone_shard", "bandit_badge"],
 	["star_ore", "ancient_relic"], ["orc_tusk", "goblin_fang"], ["orc_steel", "troll_tusk"],
-	["dwarf_steel", "basalt_ore"]]     # 48: PROVISÓRIO (materiais de Kharzun) até existirem Fita do Festim/Porcelana Chorosa (Ato III §8, WP11)
+	["festim_ribbon", "weeping_porcelain"]]     # 48: Ato III (Fita do Festim / Porcelana Chorosa, GDD ato3 §3/§8)
 const SKILL_RANK_RARE_FROM := 4
 ## Bots não pagam rank: rank = nível / BOT_SKILL_RANK_PER_LEVELS (o antigo nível/6 da maestria), até o que o nível
 ## liberaria para um jogador (SKILL_RANK_LEVEL_STEP), nas skills da build. Começo rápido usa a mesma conta.
@@ -449,12 +449,12 @@ const MOB_AURAS := {
 		"demoralize": {"id": "horde_dismay", "atk_pct": -15.0, "speed_pct": -10.0, "duration": 8.0, "radius": 12.0}},
 	# Estandarte do Clã do Lobo (Durgash F2, kharzun-fase3-plan §4): a Horda em volta corre e golpeia mais rápido
 	"clan_wolf": {"id": "clan_wolf", "radius": 30.0, "ally": {"atk_pct": 0.0, "aspd_pct": 20.0, "speed_pct": 25.0}},
-	# Ato III (ato3-excesso-45-50 §9): Mestre de Cerimônias. Ids de buff do Ato II como visual provisório (TODO(WP12): "festim"/"festim_dismay")
-	"festim": {"id": "horde_fury", "radius": 12.0, "ally": {"atk_pct": 0.0, "aspd_pct": 15.0, "speed_pct": 15.0},
-		"demoralize": {"id": "horde_dismay", "atk_pct": -15.0, "speed_pct": -10.0, "duration": 8.0, "radius": 12.0}},
-	# Matriarca da Sede (§3.1): o bando corre mais (+15% de velocidade); sem desânimo. Buff do Ato II como visual provisório (WP12)
-	"sede": {"id": "horde_fury", "radius": 12.0, "ally": {"atk_pct": 0.0, "aspd_pct": 0.0, "speed_pct": 15.0}},
-	# Pedestal da Visão (Eco de Sylvaré F2): o Eco e os outros pedestais em volta golpeiam mais forte. Sem esquiva de monstro (D4 = b):
+	# Ato III (ato3-excesso-45-50 §9): Mestre de Cerimônias (visual próprio no WP12: fitas do Festim; desânimo = fitas murchas)
+	"festim": {"id": "festim", "radius": 12.0, "ally": {"atk_pct": 0.0, "aspd_pct": 15.0, "speed_pct": 15.0},
+		"demoralize": {"id": "festim_dismay", "atk_pct": -15.0, "speed_pct": -10.0, "duration": 8.0, "radius": 12.0}},
+	# Matriarca Velada (§3.1): o bando corre mais (+15% de velocidade); sem desânimo (visual próprio no WP12: névoa rosa)
+	"sede": {"id": "sede", "radius": 12.0, "ally": {"atk_pct": 0.0, "aspd_pct": 0.0, "speed_pct": 15.0}},
+	# Pedestal da Visão (Eco de Amarante F2): o Eco e os outros pedestais em volta golpeiam mais forte. Sem esquiva de monstro (D4 = b):
 	# no lugar do "+esquiva" do GDD §4.1. Buff do Ato II como visual provisório (WP12)
 	"sense_sight": {"id": "horde_fury", "radius": 30.0, "ally": {"atk_pct": 15.0, "aspd_pct": 0.0, "speed_pct": 0.0}},
 }
@@ -1422,7 +1422,7 @@ const LEG_PENANCE_TIME := 5.0              # Penitência (Templário): cargas no
 const LEG_WOUND_TIME := 5.0                 # Ferida Aberta (Lanceiro): feridas no alvo somem juntas sem golpe por este tempo
 ## Lendários do 50 (design/gdd/ato3-lendarios-50.md, onda 0): toda peça do conjunto de build do 50 tem efeito próprio
 ## (ItemDef.piece_fx, de GearCatalog.LEG50 + LEG50_NUMBERS; regras em PieceEffects). Cada peça vale sozinha; efeito que cita
-## skill só age se o personagem a tem. Números SÓ aqui: LEG50_NUMBERS[<build>][<peça>] = {x, y, icd} (no GDD "LEG50_<BUILD>_<PEÇA>").
+## skill só age se o personagem a tem. Números SÓ aqui: LEG50_NUMBERS[<build>][<peça>] = {x, y, icd, n} (n = max_hits do on_trigger hit:<skill>; no GDD "LEG50_<BUILD>_<PEÇA>").
 ## Orçamento F-L50a: armadura 0,01-0,03, arma 0,02-0,04, mão sec. 0,01-0,02, soma <= LEG50_GAIN_MAX (boss_probe --l50_off=all).
 const LEG50_LEVEL := 50
 const LEG50_GAIN_MAX := 0.12
@@ -1474,7 +1474,7 @@ const LEG50_NUMBERS := {
 	"gelo": {"head": {"x": 0.25}, "body": {"x": 5.0}, "legs": {"x": 10.0}, "boots": {"x": 60.0, "icd": 0.0}, "weapon": {"x": 4.0, "y": 25.0}},
 	"raio": {"head": {"x": 4.0, "y": 0.3}, "body": {"x": 3.0}, "legs": {"x": 4.0}, "boots": {"x": 1.0, "icd": 0.0}, "weapon": {"x": 1}},
 	"invocador": {"head": {"x": 6.0}, "body": {"x": 5.0}, "legs": {"x": 12.0}, "boots": {"x": 12.0, "icd": 0.0}, "weapon": {"x": 3.0, "y": 25.0}},
-	"ceifador": {"head": {"x": 5.0}, "body": {"x": 5.0}, "legs": {"x": 5.0}, "boots": {"x": 1.0, "icd": 0.0}, "weapon": {"x": 3.0}},
+	"ceifador": {"head": {"x": 5.0}, "body": {"x": 5.0}, "legs": {"x": 5.0}, "boots": {"x": 1.0, "icd": 0.0, "n": 5.0}, "weapon": {"x": 3.0}},     # botas: n = até 5 inimigos distintos por Giro
 	"pestilento": {"head": {"x": 6.0}, "body": {"x": 2.0}, "legs": {"x": 5.0}, "boots": {"x": 20.0}, "weapon": {"icd": 0.0}},
 }
 const PLUS_ELF_LEVEL := 20                  # lendário deste nível (Glória) aprimora com materiais élficos
@@ -1488,6 +1488,14 @@ const PLUS_KHARZUN_EMBER := "kharzun_ember_core"
 const KHARZUN_JEWEL_LEVEL := 45              # joias/capas de Kharzun (receita com troféu de chefe)
 const KHARZUN_JEWEL_MULT := 1.1               # sobre a peça comum do mesmo nível: o troféu pesa
 const KHARZUN_JEWEL_GOLD := 1500              # ouro da receita (tier 40 cobra 720)
+## Joias e capas 50 de Lumeria (Ato III §8, WP11): receita com troféu de chefe do Excesso (RecipesCatalog.lumeria_recipes).
+const LUMERIA_JEWEL_LEVEL := 50
+const LUMERIA_JEWEL_MULT := 1.1               # sobre a peça comum do mesmo nível (como o k45): o troféu pesa
+const LUMERIA_JEWEL_GOLD := 2400              # ouro da receita (tier 48 cobra 980, k45 1500)
+const LUMERIA_JEWEL_RIBBON := 10              # Fitas do Festim por receita
+const LUMERIA_JEWEL_PORCELAIN := 6            # Porcelanas Chorosas por receita
+## Vinho Claro (alquimia, cadeia da Destiladora; GDD ato3 §5): poção forte de MP
+const CLEAR_WINE_MANA_PCT := 0.6
 const PLUS_KHARZUN_SMITHS := ["dwarf_smith", "lumeria_dwarf_smith"]   # só os Ferreiros Anões (Thrain no Kharzun, Balin em Lumeria, D13) aprimoram o lendário 40+
 const LEGENDARY_COINS_BOSS := 2              # chefe (e Rei) solta 2 moedas lendárias; monstro comum, 1
 ## O lendário cai como Moeda Lendária; a Relicária troca: peça do tier i (LEGENDARY_LEVELS) custa i+1 moedas
@@ -2229,7 +2237,7 @@ const ACT3_STAGE_POWER := 1.8
 const ACT3_STAGE_EVERY := 30.0
 const ACT3_STAGE_DELAY := 3.0
 const ACT3_STAGE_ISLAND_R := 4.0
-## O Eco de Sylvaré (rift_heart, raide de 5): Sede Dividida = marca que alterna dividir (soak, dourado) e espalhar (spread,
+## O Eco de Amarante (rift_heart, raide de 5): Brinde Dividido = marca que alterna dividir (soak, dourado) e espalhar (spread,
 ## roxo) a cada THIRST_EVERY s; entre BOTH_HP (vida) as duas juntas (F2). Pedestais dos Sentidos: Paladar cura
 ## TASTE_PCT da vida do Eco por segundo (o matk do pedestal sai disto em _act3_adds), Audição bate em todos a cada NOTE_EVERY s.
 const ACT3_THIRST_EVERY := 20.0

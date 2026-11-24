@@ -1,5 +1,5 @@
 """Banco de música do RagnaEx: faixas CC0 do OpenGameArt (licença conferida na página de cada uma em 2026-11-10: só "CC0",
-nenhuma com licença dupla; as do Ato II — porto, costa, goblins — em 2026-11-11; horda, kharzun e kharzun_citadel em 2026-11-12). Baixa para .godot/music_cache, copia para assets/audio/music/<tema>.<ext> e escreve
+nenhuma com licença dupla; as do Ato II — porto, costa, goblins — em 2026-11-11; horda, kharzun e kharzun_citadel em 2026-11-12; as do Ato III em 2026-11-23). Baixa para .godot/music_cache, copia para assets/audio/music/<tema>.<ext> e escreve
 assets/audio/music/CREDITS.md. Os temas são os de game/audio/music.gd (Music.MAP_THEME, "chefe", "investida").
 
     python tools/audio/build_music.py        (depois: godot --headless --path . --import)
@@ -38,6 +38,16 @@ TRACKS = {
     # Ato II (fase 3): Monte Kharzun e Salão dos Matadores (tambores e tímpanos de guerra) e a Cidadela (coro grave); CC0 conferida 2026-11-12
     "kharzun": ("war%20theme_0.ogg", "", "War Theme", "Spring Spring", "war-theme"),
     "kharzun_citadel": ("Fantasy%20Choir%202.mp3", "", "Fantasy Choir 2 (Fantasy Choir: 3 Orchestral Pieces)", "cesisco", "fantasy-choir-3-orchestral-pieces"),
+    # Ato III parte 1 (O Excesso, WP12): CC0 conferida na página de cada faixa em 2026-11-23 (só "CC0", nenhuma dupla)
+    "lumeria": ("4_music_box_tracks_ogg.zip", "musicbox1_spooky_waltz.ogg", "Spooky Waltz (4 Music Box Tracks)", "Aureolus_Omicron", "4-music-box-tracks"),
+    "lumeria_morning": ("morning_2d.2_0.ogg", "", "Morning Sky", "Centurion_of_war", "morning-sky"),
+    "perfume": ("slowerstringsmelody_1.ogg", "", "Slow Strings Melody", "Tozan", "slower-strings-melody"),
+    "parade": ("childrens_march_theme.zip", "Children's March Theme.ogg", "Children's March Theme", "CleytonKauffman", "childrens-march-theme"),
+    "rift": ("Heavenly%20Loop_0.ogg", "", "Heavenly Loop", "isaiah658", "heavenly-loop"),
+    "rift_raid": ("kokopellis_graveyard_theme.zip", "Kokopelli's Graveyard.ogg", "Kokopelli's Graveyard Theme", "CleytonKauffman", "kokopellis-graveyard-theme"),
+    "espelhos": ("apparitions_ball.ogg", "", "Apparitions Ball", "Bobjt", "apparitions-ball"),
+    "adegas": ("death_waltz.ogg", "", "Death Waltz", "northivanastan", "death-waltz"),
+    "coro": ("Fantasy%20Choir%203.mp3", "", "Fantasy Choir 3 (Fantasy Choir: 3 Orchestral Pieces)", "cesisco", "fantasy-choir-3-orchestral-pieces"),
 }
 
 

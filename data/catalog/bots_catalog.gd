@@ -76,8 +76,9 @@ const MAP_KIND := {
 	"city_aldara": "aldara", "field_hollow": "hollow", "field_crab_beach": "beach", "field_grove": "grove", "field_forest": "forest", "elf_city": "elf_city", "field_ruins": "dawn",
 	"fort_ghoul": "fort", "fort_bones": "fort", "fort_frost": "fort", "lich_citadel": "citadel",
 	"field_kharzun": "kharzun", "dg_slayers": "slayers", "kharzun_citadel": "kharzun_citadel",
+	"city_lumeria": "lumeria",
 }
-const WALLED := ["aldara", "forest", "dawn", "kharzun"]     # tipos com vila/povoado murado (variante <tipo>_town)
+const WALLED := ["aldara", "forest", "dawn", "kharzun", "lumeria"]     # tipos com vila/povoado murado (variante <tipo>_town)
 
 ## Depois que o Lich cai (MapsCatalog.VICTORY_QUEST feita): a cidade e o Bastião comemoram no chat.
 const VICTORY_LINES := ["O LICH CAIU!!! festa na praça", "{p} matou o Azhar, alguém viu?? lendário", "GG {p}, a noite acabou de vez",
@@ -136,6 +137,13 @@ const PLACE_LINES := {
 		"não corre na frente, tem Matador escondido"],
 	"kharzun_citadel": ["a Cidadela de Durgash, chegamos", "três clãs e depois o trono", "estandarte no chão? quebra primeiro", "se cair aqui eu choro kkk",
 		"guarda de clã bloqueia de frente, vai pelo lado"],
+	# Lumeria (Ato III, WP12): "lumeria_town" = dentro do Bairro dos Lúcidos; "lumeria" = a festa lá fora
+	"lumeria_town": ["Bairro dos Lúcidos, enfim um lugar quieto", "o sino abafado da praça é o único que não toca", "alguém viu a Irmã Celeste dormir alguma vez?",
+		"não aceita taça de ninguém lá fora, sério", "a barricada é de armário, mas segura", "vincula o cristal antes de sair pra festa",
+		"alguém pra Ópera? Galeria dos Espelhos só com grupo", "a Leonor treina skill aqui atrás das barricadas"],
+	"lumeria": ["essa música não para nunca", "folião de máscara joga taça, cuidado", "não olha muito pras lanternas", "confete até dentro da bota",
+		"o Mestre de Cerimônias tem sineta, mata ele primeiro", "galgo de seda tem guizo, dá pra ouvir chegando", "o campanário desafinou de novo",
+		"tô dançando sem querer, alguém me tira daqui kkk", "corista grita e o chão marca, sai do anel"],
 	"raid": ["INVESTIDA! todo mundo pro portão", "eles tão vindo, segura a muralha", "defende o portão, não persegue longe", "mais uma leva, aguenta!",
 		"quem tem área, solta agora", "a sentinela não segura sozinha, ajuda aí"],
 }

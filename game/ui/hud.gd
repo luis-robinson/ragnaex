@@ -1310,8 +1310,8 @@ const ACT_END_TEXT := {
 		"Da praia da Costa Partida ao trono de Kharzun: o porto ganhou muralha, as Estepes voltaram a ter estrada, os escravos das Minas saíram livres e Durgash, o Grão-Senhor da Guerra, caiu. A Horda largou as armas. Mas ela não subiu a montanha para conquistar: fugia de algo a leste. Porto Esperança canta o nome de %s.",
 		"Você completou o Ato II do RagnaEx. Obrigado por jogar!", "O mundo continua: caçadas, lendários de 45, a Prova dos Mestres e os chefes esperam por você."],
 	3: ["FIM DO ATO III — PARTE 1", "Manhã em Lumeria",
-		"Da garganta leste do Kharzun ao Pavilhão do Jardim Sem Fim: os sinos calaram, as Adegas secaram, a Condessa voltou para o espelho e Vessaline, a Anfitriã do Véu, caiu. Depois de quarenta anos de festa, Lumeria acordou com a vassoura na mão. Mas o Jardim não acaba no Pavilhão, e alguém ainda tem sede. Os Lúcidos dizem o nome de %s.",
-		"Você completou a Parte 1 do Ato III do RagnaEx. Obrigado por jogar!", "O mundo continua: a raide do Eco de Sylvaré, lendários de 50, os chefes do Excesso e o Conservatório esperam por você."],
+		"Da garganta leste do Kharzun ao Pavilhão do Jardim Sem Fim: os sinos calaram, as Adegas secaram, a Condessa voltou para o espelho e Vessaline, a Anfitriã do Véu, caiu. Depois de quarenta anos de festa, Lumeria acordou com a vassoura na mão. Mas o Jardim não acaba no Pavilhão, e a dona da coroa vazia ainda tem sede. Hoje Lumeria dorme, e os Lúcidos repetem o nome de %s.",
+		"Você completou a Parte 1 do Ato III do RagnaEx. Obrigado por jogar!", "O mundo continua: a raide do Eco de Amarante, lendários de 50, os chefes do Excesso e o Conservatório esperam por você."],
 }
 
 func show_act_end(act: int = 1) -> void:

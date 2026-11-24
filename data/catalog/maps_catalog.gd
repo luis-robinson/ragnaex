@@ -480,6 +480,25 @@ const INTERIORS := {
 		"npcs": {"pwh_quartermaster": ["Intendente Moura", "villager", Color(0.6, 0.55, 0.7), ["Cada prego que chega, eu anoto. Cada prego que some, eu descubro quem levou.", "Pólvora no canto seco, farinha no alto, rum trancado. Regra do armazém."], 4.6, -0.8, 270.0, 0.0],
 			"pwh_stevedore": ["Estivador Bóris", "villager", Color(0.62, 0.48, 0.36), ["Empilho caixa desde o primeiro navio. Já sei o que tem dentro pelo peso.", "Essa aqui chacoalha. Não é para chacoalhar."], -3.4, -1.6, 120.0, 2.5],
 			"pwh_stowaway": ["Tinoco", "villager", Color(0.95, 0.72, 0.4), ["Shhh! Eu vim escondido no navio. A Intendente acha que eu sou caixa.", "Se perguntarem, você não me viu atrás dos barris."], 6.2, -2.4, 200.0, 0.0]}},
+	# Lumeria (Ato III, GDD ato3 §5 "O Duque"): o Salão do Duque no Palácio, porta lateral a leste; abre com hx3_duke_hall
+	# (PORTAL_GATES["door_in_duke_hall"]). Joalheira do 48 (anel/amuleto/capa do tier comum 48: npc[9] = "jewels48").
+	"in_duke_hall": {"map": "city_lumeria", "name": "Salão do Duque", "label": "Salão do Duque", "house": [75.0, -4.0], "size": [22.0, 16.0],
+		"floor": Color(0.82, 0.76, 0.7), "light": Color(1.0, 0.88, 0.86),
+		"furniture": [["rug", 0.0, 0.5, 3.0, 0.05, 12.0, 0.0, Color(0.55, 0.14, 0.22), false],
+			["pillar", -4.5, -4.5, 0.9, 3.0, 0.9, 0.0, Color(0.93, 0.89, 0.82), true], ["pillar", 4.5, -4.5, 0.9, 3.0, 0.9, 0.0, Color(0.93, 0.89, 0.82), true],
+			["pillar", -4.5, -0.5, 0.9, 3.0, 0.9, 0.0, Color(0.93, 0.89, 0.82), true], ["pillar", 4.5, -0.5, 0.9, 3.0, 0.9, 0.0, Color(0.93, 0.89, 0.82), true],
+			["pillar", -4.5, 3.5, 0.9, 3.0, 0.9, 0.0, Color(0.93, 0.89, 0.82), true], ["pillar", 4.5, 3.5, 0.9, 3.0, 0.9, 0.0, Color(0.93, 0.89, 0.82), true],
+			["fireplace", 0.0, -7.3, 2.6, 2.8, 0.9, 0.0, C_STONE, true], ["lamp", -2.4, -7.0, 0.4, 2.2, 0.4, 0.0, Color(0.9, 0.74, 0.36), true],
+			["lamp", 2.4, -7.0, 0.4, 2.2, 0.4, 0.0, Color(0.9, 0.74, 0.36), true],
+			["counter", -7.4, -4.6, 4.0, 1.1, 0.9, 0.0, Color(0.42, 0.2, 0.24), true], ["shelf", -8.8, -7.4, 2.2, 2.2, 0.5, 0.0, Color(0.9, 0.74, 0.36), true],
+			["shelf", -6.2, -7.4, 2.2, 2.2, 0.5, 0.0, Color(0.95, 0.6, 0.72), true], ["statue", 8.0, -6.2, 1.2, 2.6, 1.2, 0.0, Color(0.94, 0.9, 0.84), true],
+			["bench", -9.6, 2.0, 2.4, 0.5, 0.8, 90.0, C_WOOD, true], ["bench", 9.6, 2.0, 2.4, 0.5, 0.8, 90.0, C_WOOD, true],
+			["flowers", -9.4, 6.4, 1.2, 0.6, 1.2, 0.0, Color(0.95, 0.6, 0.72), false], ["flowers", 9.4, 6.4, 1.2, 0.6, 1.2, 0.0, Color(0.95, 0.6, 0.72), false],
+			["rug", 7.4, 2.4, 3.2, 0.05, 2.2, 0.0, Color(0.42, 0.2, 0.3), false]],
+		"tables": [[7.4, 2.4]],
+		"npcs": {"duke_jeweller": ["Joalheira Celina", "merchant", Color(0.95, 0.7, 0.78), ["Anéis, amuletos e capas de quem já acordou. Nada aqui foi usado em baile.", "O Duque mandou derreter as máscaras do salão. Eu guardei só o ouro."], -7.4, -6.0, 0.0, 0.0, "", "jewels48"],
+			"duke_butler": ["Mordomo Anselmo", "villager", Color(0.5, 0.42, 0.55), ["Quarenta anos de pé, segurando a mesma bandeja. Agora eu sento quando quero.", "O salão está aberto a quem ficou acordado. Limpe os pés: o tapete é de antes da festa."], 2.0, -4.6, 180.0, 2.0],
+			"duke_lucid": ["Lúcida Marieta", "villager", Color(0.6, 0.62, 0.7), ["Pão, silêncio e um teto. Ninguém aqui pede mais nada.", "Eu dancei aqui uma vez. Hoje eu só como sentada no chão, e é melhor."], 7.4, 0.8, 180.0, 0.0]}},
 }
 
 ## Pontos de colheita (F): item, forma, centro [x, z], raio e quantos. A sim espalha em chão livre (sempre igual por mapa).
@@ -514,10 +533,11 @@ const GATHER := {
 	"kharzun_citadel": [["basalt_ore", "ore", [44.0, 44.0], 7.0, 3], ["dwarf_steel", "ore", [34.0, 2.0], 7.0, 3]],
 	"elf_city": [["herb_blue", "herb_blue", [-70.0, 30.0], 12.0, 5], ["forest_mushroom", "mushroom", [58.0, -40.0], 14.0, 5],
 		["star_ore", "star", [-40.0, -92.0], 12.0, 5], ["elf_steel", "crate", [70.0, 64.0], 10.0, 4]],
-	# Ato III (gather_hint dos JSON): Fitas do Festim nas caixas da festa, Porcelana Chorosa nos cacos de máscara; uvas,
-	# engrenagens e flores de papel são itens de missão do WP10 (sem item ainda)
+	# Ato III (gather_hint dos JSON): Fitas do Festim nas caixas da festa, Porcelana Chorosa nos cacos de máscara, Uvas Amargas
+	# nos terraços (WP11); engrenagens e flores de papel seguem sem item (as missões usam KILL/COLLECT de material)
 	"city_lumeria": [["festim_ribbon", "crate", [44.0, 44.0], 9.0, 4], ["weeping_porcelain", "relic", [10.0, -53.0], 6.0, 2]],
-	"field_perfume": [["festim_ribbon", "crate", [18.0, -66.0], 7.0, 4], ["weeping_porcelain", "relic", [80.0, -10.0], 6.0, 2], ["herb_blue", "herb_blue", [38.0, 16.0], 6.0, 3]],
+	"field_perfume": [["festim_ribbon", "crate", [18.0, -66.0], 7.0, 4], ["weeping_porcelain", "relic", [80.0, -10.0], 6.0, 2], ["herb_blue", "herb_blue", [38.0, 16.0], 6.0, 3],
+		["bitter_grapes", "herb", [-66.0, -16.0], 14.0, 6], ["bitter_grapes", "herb", [76.0, 32.0], 10.0, 4]],      # Uvas Amargas (gather_hint; hx3_grapes, Vinho Claro)
 	"field_parade": [["festim_ribbon", "crate", [12.0, -62.0], 8.0, 5], ["festim_ribbon", "crate", [-64.0, 36.0], 7.0, 3], ["weeping_porcelain", "relic", [55.0, -63.0], 6.0, 2],
 		["weeping_porcelain", "relic", [-52.0, 74.0], 6.0, 2]],
 }
@@ -548,8 +568,9 @@ const AMBIENT_LIFE := {
 		["ember", [100.0, -41.0], 10.0, 8], ["ember", [-60.0, 73.0], 10.0, 8], ["ember", [56.0, -76.0], 7.0, 8]],
 	"dg_slayers": [["bat", [0.0, 27.5], 9.0, 4], ["bat", [-15.0, -10.0], 9.0, 4], ["bat", [5.0, -50.0], 9.0, 3]],
 	"kharzun_citadel": [["bat", [0.0, 36.0], 12.0, 5], ["bat", [72.0, 24.0], 7.0, 4], ["bat", [0.0, -54.0], 12.0, 4]],
-	# Ato III: "pombos" (corvos) nos telhados do Bairro e da Praça, mariposas nas lanternas que nunca apagam
-	"city_lumeria": [["crow", [-75.0, 0.0], 16.0, 4], ["moth", [-75.0, 0.0], 6.0, 6], ["moth", [0.0, 0.0], 10.0, 8], ["crow", [0.0, -62.0], 14.0, 4], ["moth", [51.0, -4.0], 8.0, 6]],
+	# Ato III (WP12): pombos nos telhados do Bairro e da Praça, mariposas nas lanternas que nunca apagam, borboletas no Jardim das Fontes
+	"city_lumeria": [["dove", [-75.0, 0.0], 16.0, 5], ["moth", [-75.0, 0.0], 6.0, 6], ["moth", [0.0, 0.0], 10.0, 8], ["dove", [0.0, -62.0], 14.0, 5], ["moth", [51.0, -4.0], 8.0, 6],
+		["butterfly", [4.0, 62.0], 10.0, 8], ["butterfly", [-31.8, 43.2], 6.0, 5]],
 	"field_perfume": [["crow", [0.0, 0.0], 18.0, 3], ["crow", [-76.0, -2.0], 20.0, 4], ["moth", [-40.0, -57.0], 12.0, 8], ["moth", [-48.0, 79.0], 6.0, 6]],
 	"field_parade": [["crow", [0.0, 0.0], 16.0, 3], ["crow", [-75.0, 24.0], 18.0, 4], ["moth", [30.0, 71.0], 10.0, 8], ["moth", [10.0, -75.0], 10.0, 6]],
 }
@@ -637,8 +658,10 @@ static func _interior(id: String, doors: Dictionary) -> MapDef:
 		var nd := _npc(nid, n[0], float(n[4]), float(n[5]), n[1], n[2], n[3], float(n[6]))
 		if float(n[7]) > 0.0:
 			nd["wander"] = float(n[7])
-		if n.size() > 8:                    # quadro/objeto que "fala": prop no lugar do boneco
+		if n.size() > 8 and str(n[8]) != "":     # quadro/objeto que "fala": prop no lugar do boneco
 			nd["model"] = n[8]
+		if n.size() > 9:                    # loja do morador (só "jewels48" hoje: joias/capas do tier comum 48)
+			nd["shop"] = interior_shop(str(n[9]))
 		nd["look_seed"] = absi(nid.hash()) % 100000
 		npcs.append(nd)
 	var back: Dictionary = doors.get(id, {"door": Vector3.ZERO, "front": Vector3(0, 0, 1)})
@@ -646,9 +669,20 @@ static func _interior(id: String, doors: Dictionary) -> MapDef:
 	var exit := _portal("exit_" + id, 0.0, h * 0.5 - 0.45, host, out_pos.x, out_pos.z, "Sair")
 	exit["radius"] = 0.9
 	exit["door"] = true
-	return _mk({"id": id, "name": d["name"], "is_town": true, "interior": true, "level_range": Vector2i(1, 30) if host == "city_aldara" else Vector2i(30, 45), "parent_map": host,
+	var band: Vector2i = {"city_aldara": Vector2i(1, 30), "city_lumeria": Vector2i(45, 50)}.get(host, Vector2i(30, 45))
+	return _mk({"id": id, "name": d["name"], "is_town": true, "interior": true, "level_range": band, "parent_map": host,
 		"size": Vector2(w, h), "ground_color": d["floor"], "ground_color_alt": (d["floor"] as Color).darkened(0.1), "ambient": d["light"],
 		"sun_energy": 0.9, "spawn_point": Vector3(0, 0, h * 0.5 - 2.6), "obstacles": obs, "portals": [exit], "npcs": npcs, "bot_population": 0})
+
+## Mercadoria de morador de interior. "jewels48" = anel, amuleto e capa dos 3 temas no tier comum 48 (Joalheira do Duque).
+static func interior_shop(key: String) -> Array:
+	var out: Array = []
+	if key == "jewels48":
+		var top: int = Balance.COMMON_TIER_LEVELS.size() - 1
+		for piece in GearCatalog.THEME_PIECES:
+			for theme in GearCatalog.THEMES:
+				out.append("%s_%s_t%d" % [piece, theme, top])
+	return out
 
 ## Portas das casas em Aldara (entram no MapDef do vale).
 static func _door_portals(doors: Dictionary, host: String = "city_aldara") -> Array:
@@ -662,6 +696,8 @@ static func _door_portals(doors: Dictionary, host: String = "city_aldara") -> Ar
 		pt["radius"] = 0.8
 		pt["player_only"] = true             # bots e moradores passam na frente sem entrar
 		pt["door"] = true
+		if PORTAL_GATES.has(pt["id"]):        # casa que só abre com missão (Salão do Duque)
+			pt["gate"] = PORTAL_GATES[pt["id"]]
 		out.append(pt)
 	return out
 
@@ -1278,6 +1314,11 @@ const LIVING_NPCS := {
 			["Areia para a porta norte!", "Cuidado com o pé!", "Ninguém dorme enquanto o muro não fecha."], [-69.3, -1.9], [[-69.3, -1.9, 6], [-71.5, -4.9], [-75.0, -6.0], [-78.5, -4.9], [-80.7, -1.9], [-80.7, 1.9, 6], [-78.5, 4.9], [-75.0, 6.0], [-71.5, 4.9], [-69.3, 1.9]], {"carry": "carry_sack", "flow": true}],
 		"lum_mover_c": ["Lúcido Tadeu", Color(0.5, 0.56, 0.62), ["Trouxe a porta da minha casa. Minha casa não precisa mais de porta.", "Do portão oeste se vê a montanha. Às vezes dá vontade de voltar."],
 			["Porta nova para o muro!", "Mais madeira!", "Quase lá."], [-93.22, 3.21], [[-93.22, 3.21, 5], [-88.6, 0.0], [-81.6, 0.0, 5], [-88.6, 0.0]], {"carry": "carry_log"}],
+		# L4 Manhã em Lumeria (WP12, GDD §2.3): varredores tirando o confete da praça do Bairro e da rua do portão oeste
+		"lum_sweeper_a": ["Varredora Benedita", Color(0.7, 0.68, 0.62), ["Confete de quarenta anos. Embaixo dele ainda tem a calçada que meu avô assentou.", "O sino calou e eu dormi doze horas. Doze!"],
+			["Olha a vassoura!", "Mais um monte de fita.", "Bom dia, bom dia!"], [-70.1, -3.5], [[-70.1, -3.5, 8], [-73.1, -5.7], [-76.9, -5.7], [-79.9, -3.5, 8], [-81.0, 0.0], [-79.9, 3.5, 8], [-76.9, 5.7], [-73.1, 5.7], [-70.1, 3.5, 8], [-69.0, 0.0]], {"if": "hx3_veil", "flow": true}],
+		"lum_sweeper_b": ["Varredor Anselmo", Color(0.64, 0.66, 0.7), ["Varro até o portão oeste e volto. Amanhã varro até o portão norte.", "Achei uma máscara no confete. Joguei no fogo. Não quero nem saber."],
+			["Licença, licença!", "Montinho de confete passando.", "A manhã chegou, gente!"], [-81.6, 0.0], [[-81.6, 0.0, 8], [-88.6, 0.0], [-93.22, 3.21, 8], [-88.6, 0.0]], {"if": "hx3_veil", "carry": "carry_sack"}],
 	},
 	# Vinhas do Perfume (L2 Vindima, living_hint do JSON): vinhateiros libertos colhem nos terraços depois das Adegas
 	"field_perfume": {
@@ -1483,7 +1524,7 @@ const ROAD_EVENTS := {
 	"field_parade": {
 		"forced_dance": {"name": "Dança Forçada", "mob": "veil_dancer", "mob_name": "Bailarino do Véu", "count": [2, 3],
 			"victim": ["Moradora Presa na Roda", Color(0.82, 0.62, 0.7)], "home": [0.0, 4.0],
-			"cry": ["Meus pés não param! Socorro!", "Tirem-me desta roda!", "Não quero mais dançar!"],
+			"cry": ["Meus pés não param! Socorro!", "Me tirem desta roda!", "Não quero mais dançar!"],
 			"thanks": ["Meus pés... pararam. Obrigada. Leve isto, eu não preciso mais.", "Você quebrou a roda! Fique com estas poções."],
 			"flee": ["Vou correr antes que a música volte!", "Para o Posto, para o Posto!"],
 			"bot_chat": ["Quebrei uma roda de dança na avenida. Quem para leva a dança.", "Bailarinos prendendo gente de novo no Cortejo. Resolvido.", "Tirei uma moça da Dança Forçada."],
@@ -1636,7 +1677,7 @@ const PLACE_NPCS := {
 	},
 	"field_parade": {
 		"parade_prompter": ["Ponto Ermelindo", "quest", Color(0.58, 0.52, 0.62), ["Eu sopro as falas há quarenta anos. Os atores nunca erram. Nunca param.", "O Conservatório tem um coro que canta ferido. Eu sei a deixa para entrar."]],
-		"parade_seamstress": ["Costureira Benedita", "quest", Color(0.78, 0.62, 0.68), ["Costurei todos os figurinos do Cortejo. Se eu parar, eles dançam nus. Eles não ligariam.", "Flor de papel não murcha. Por isso eles gostam."]],
+		"parade_seamstress": ["Costureira Benedita", "quest", Color(0.78, 0.62, 0.68), ["Costurei todos os figurinos do Cortejo. Se eu parar, eles dançam pelados. E nem iam notar.", "Flor de papel não murcha. Por isso eles gostam tanto."]],
 		"broken_mask_altar": ["Altar da Máscara Partida", "board", Color(0.86, 0.84, 0.82), ["Um altar de cacos brancos. Cada máscara quebrada deixou aqui um rosto que lembrou o próprio nome.", "Escrito em giz: 'Sem máscara, ninguém dança'."], "prop_statue"],
 	},
 	"dg_pedreira": {
@@ -1705,6 +1746,8 @@ const PORTAL_GATES := {
 	"to_dg_conservatory": {"level": 48, "quest": "hx3_choir_open", "text": "O Conservatório só abre para quem tem a batuta do Maestro do Coro. Fale com o Ponto, na tenda."},
 	"to_rift_garden": {"level": 49, "quests": ["hx3_mirrors", "hx3_veil_open"], "text": "O Véu ainda não se rasgou. Derrube a Condessa Refletida e leve a procissão dos Lúcidos até o Palco Grande."},
 	"to_rift_heart": {"level": 50, "quest": "hx3_veil", "text": "A Porta do Coração está selada enquanto a Anfitriã reinar no Pavilhão."},
+	# Salão do Duque (porta lateral do Palácio, casa que abre): o Duque reabre o salão em hx3_duke_hall
+	"door_in_duke_hall": {"level": 48, "quest": "hx3_duke_hall", "text": "A porta lateral do Palácio está trancada. O Duque Aurelião só reabre o salão quando as máscaras forem quebradas."},
 }
 const MERCHANT_SHOP := ["potion_hp_s", "potion_mp_s", "potion_hp_m", "potion_mp_m", "elixir_might", "elixir_stone", "cap_leather", "boots_leather"]
 const ZONE_PATH := "res://data/zones/%s.json"
@@ -2312,7 +2355,7 @@ const ACT3_END_QUEST := "hx3_epilogue"
 ## Manhã em Lumeria (L4): gente varrendo confete no Bairro dos Lúcidos. Mesmo formato do FESTIVAL (mapa -> id -> [nome, papel, cor, falas, x, z, passeio m]).
 const MANHA_LUMERIA := {
 	"city_lumeria": {
-		"manha_sweeper": ["Varredor Quirino", "villager", Color(0.74, 0.7, 0.62), ["Quarenta anos de confete. Vou varrer até o Ato que vem.", "Bom dia! Faz tanto tempo que eu não dizia isso."], -66.0, 10.0, 3.0],
+		"manha_sweeper": ["Varredor Quirino", "villager", Color(0.74, 0.7, 0.62), ["Quarenta anos de confete. Vou varrer até o ano que vem.", "Bom dia! Faz tanto tempo que eu não dizia isso."], -66.0, 10.0, 3.0],
 		"manha_baker": ["Padeira Cândida", "villager", Color(0.9, 0.8, 0.62), ["Pão! Pão de verdade, sem vinho na massa.", "Acendi o forno às seis. Seis da manhã. Existe seis da manhã de novo."], -84.0, 10.0, 2.0],
 		"manha_child": ["Menino Elias", "villager", Color(0.7, 0.78, 0.9), ["A música parou! Dá para ouvir os passarinhos!", "Minha mãe dormiu a noite inteira. Ela nunca dorme."], -75.0, -12.0, 4.0],
 	},
@@ -2340,7 +2383,7 @@ const ACT3_WP6_MAPS := ["rift_garden", "dg_cellars", "dg_mirrors", "dg_conservat
 ## Lumeria: serviços do Bairro dos Lúcidos. id -> [nome, papel, cor, falas, extras {shop, model}] (posição do JSON;
 ## estágio de `stage_npcs`). O Ferreiro Anão daqui é Balin, irmão de Thrain (Thrain fica no Kharzun: nada some de lá).
 const LUMERIA_NPCS := {
-	"sister_celeste": ["Irmã Celeste", "quest", Color(0.9, 0.88, 0.96), ["Quarenta anos de música. No começo era bonito. Depois ninguém mais conseguiu parar.",
+	"sister_celeste": ["Irmã Celeste", "quest", Color(0.9, 0.88, 0.96), ["Quarenta anos de música. No começo era bonito. Depois ninguém soube mais como parar.",
 		"Os Lúcidos são os que ainda dormem à noite. Trancamos o bairro com os próprios móveis. Bem-vindos ao lado de dentro."], {}],
 	"lumeria_smith": ["Ferreira Brites", "smith", Color(0.7, 0.52, 0.4), ["Aqui dentro eu conserto lâmina e faço joia. Lá fora eles só querem taça.", "O martelo é o único som do bairro que não é música."], {}],
 	"lumeria_alchemist": ["Boticário Severino", "alchemy", Color(0.56, 0.74, 0.62), ["Perfume é veneno que cheira bem. Eu destilo o contrário.", "Uva do Perfume dá sono doce. Dose certa, dá remédio."], {}],
@@ -2352,7 +2395,7 @@ const LUMERIA_NPCS := {
 	"lumeria_masters_herald": ["Arauto dos Mestres", "quest", Color(0.95, 0.85, 0.55), ["A Ordem mandou eu seguir quem ascendeu. Seguir, não salvar.", "Os sinos calaram. Agora dá para ouvir o que os mestres ensinam."], {}],
 	"lumeria_dwarf_smith": ["Ferreiro Anão Balin", "smith", Color(0.72, 0.5, 0.34), ["Thrain ficou na montanha. Eu vim com o aço que ele mandou.",
 		"Lendário de nível 40 ou mais? Aço Anão até o +5, Brasa de Kharzun daí em diante. Martelo anão não liga para música."], {}],
-	"duke_lumeria": ["Duque Aurelião de Lumeria", "quest", Color(0.86, 0.78, 0.92), ["Eu dei a primeira festa. Eu achei que seria só uma noite.", "Meu reflexo governou por mim quarenta anos. Ele governava melhor. Isso é o pior."], {"pos": [60.0, 2.0, 270.0]}],   # longe da porta da Ópera (>= 6 m do portal)
+	"duke_lumeria": ["Duque Aurelião de Lumeria", "quest", Color(0.86, 0.78, 0.92), ["Eu dei a primeira festa. Eu achei que seria uma noite só.", "Meu reflexo governou por mim quarenta anos. E governou melhor. É isso que mais dói."], {"pos": [60.0, 2.0, 270.0]}],   # longe da porta da Ópera (>= 6 m do portal)
 }
 
 ## Vinhas do Perfume: a Quinta (hub, sem cristal) e as cabanas. Mesmo formato de LUMERIA_NPCS.
@@ -2369,7 +2412,7 @@ const PARADE_NPCS := {
 	"veil_aurora_officer": ["Tenente Selene, da Aurora", "quest", Color(0.92, 0.84, 0.56), ["A Aurora segura a boca do Véu. Do outro lado é jardim, e jardim nenhum é tão bonito sem motivo.", "Quem entra no Jardim volta diferente. Volte."], {}],
 }
 
-## Demônias da Sede (GDD ato3 §3.1) na Avenida (47-48): [monstro, x, z, raio, quantos, renascer s]. Ficam no catálogo (não no JSON
+## Veladas (GDD ato3 §3.1) na Avenida (47-48): [monstro, x, z, raio, quantos, renascer s]. Ficam no catálogo (não no JSON
 ## do Blender) até o próximo build da zona; o bando da Matriarca (+2 Sedutoras +1 Açoitadora) fica no sul, perto dos Carros.
 ## TODO(rift_garden, WP6): a Fenda (49-50) leva todas + 2-3 Matriarcas em bandos mistos (ver production/session-state/agent-demon-catalog.md).
 const THIRST_SPAWNS := {
@@ -2465,6 +2508,7 @@ static func _lumeria() -> MapDef:
 	npcs.append_array(trainer_npc("city_lumeria"))
 	npcs.append_array(living_npcs(LIVING_NPCS["city_lumeria"]))
 	npcs.append_array(festival("city_lumeria", MANHA_LUMERIA, VICTORY3_QUEST))   # L4: Manhã em Lumeria
+	z["portals"] = (z["portals"] as Array) + _door_portals(_interior_doors(z, "city_lumeria"), "city_lumeria")   # Salão do Duque
 	_act3_finish(z, "city_lumeria", npcs, raw)
 	z.merge({"id": "city_lumeria", "name": "Lumeria, a Festa Eterna", "is_town": false, "hub": true, "level_range": Vector2i(45, 47), "road_events": [],
 		"ground_color": Color(0.76, 0.69, 0.64), "ground_color_alt": Color(0.71, 0.64, 0.6), "ambient": Color(1.0, 0.9, 0.92), "sun_energy": 1.1,
@@ -2498,7 +2542,7 @@ static func _parade() -> MapDef:
 	npcs.append_array(crystal_npc("field_parade"))
 	_act3_finish(z, "field_parade", npcs, raw)
 	_world_bosses(z, raw)
-	z["spawners"].append_array(thirst_spawners("field_parade"))       # Demônias da Sede (§3.1)
+	z["spawners"].append_array(thirst_spawners("field_parade"))       # Veladas (§3.1)
 	z["assaults"].append(procession_assault())                         # L3b: procissão dos Lúcidos (hx3_veil_open)
 	z.merge({"id": "field_parade", "name": "Avenida do Cortejo", "is_town": false, "hub": true, "level_range": Vector2i(47, 49),
 		"ground_color": Color(0.66, 0.69, 0.5), "ground_color_alt": Color(0.61, 0.64, 0.47), "ambient": Color(1.0, 0.94, 0.9), "sun_energy": 1.1,
@@ -2511,7 +2555,7 @@ const RIFT_NPCS := {
 		"O Pavilhão fica ao norte. A Anfitriã não sai de lá: quem dança com ela é que vai."], {}],
 	"rift_aurora_quartermaster": ["Intendente Bráulio", "merchant", Color(0.8, 0.7, 0.5), ["Poção, corda e pano para tapar o nariz. O perfume daqui derruba mais que lâmina.",
 		"Venda o que tirar das demônias. Porcelana vale ouro do lado de cá do Véu."], {"shop": "merchant"}],
-	"rift_aurora_medic": ["Irmã Clemência", "merchant", Color(0.92, 0.9, 0.86), ["Corte de fita-lâmina não fecha sozinho. Poção antes, não depois.", "Quem volta do Pavilhão volta sem cheiro. É assim que eu sei quem lutou."], {"shop": "healer"}],
+	"rift_aurora_medic": ["Irmã Clemência", "merchant", Color(0.92, 0.9, 0.86), ["Corte de fita-lâmina não fecha sozinho. Poção antes, não depois.", "Quem volta do Pavilhão volta sem cheiro nenhum. É assim que eu sei quem lutou."], {"shop": "healer"}],
 }
 
 ## O Jardim Sem Fim (49-50, mapa próprio do Blender): Posto da Aurora (cristal em L4), Pavilhão da Anfitriã ao norte

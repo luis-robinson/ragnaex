@@ -93,6 +93,10 @@ static func wake(e: SimEntity, name: String) -> Dictionary:
 static func knows(e: SimEntity, sid: String) -> bool:
 	return e.learned.has(sid) or e.mastery.has(sid)
 
+## Chave da conta de alvos (max_hits) em e.leg50_ready: { id do alvo: true }.
+static func _hits_key(fx: Dictionary) -> String:
+	return "%s_%s_hits" % [fx.get("build", ""), fx.get("piece", "")]
+
 static func _ready(sim: WorldSim, e: SimEntity, fx: Dictionary) -> bool:
 	var key := "%s_%s" % [fx.get("build", ""), fx.get("piece", "")]
 	if sim.time < float(e.leg50_ready.get(key, -INF)):
@@ -107,13 +111,28 @@ static func on_event(sim: WorldSim, e: SimEntity, ev: String, t: SimEntity = nul
 	if e == null or not e.is_character() or e.stats == null or e.stats.piece_fx.is_empty() or not e.is_alive():
 		return
 	for fx: Dictionary in e.stats.piece_fx:
-		if fx["kind"] == "on_trigger" and str(fx["on"]) == ev and _ready(sim, e, fx):
+		if fx["kind"] != "on_trigger" or str(fx["on"]) != ev:
+			continue
+		var hits: Dictionary = {}
+		if int(fx.get("max_hits", 0)) > 0 and t != null:     # teto de alvos distintos por lançamento (on_cast zera)
+			hits = e.leg50_ready.get(_hits_key(fx), {})
+			if hits.has(t.id) or hits.size() >= int(fx["max_hits"]):
+				continue
+		if _ready(sim, e, fx):
+			if int(fx.get("max_hits", 0)) > 0 and t != null:
+				hits[t.id] = true
+				e.leg50_ready[_hits_key(fx)] = hits
 			for a: Dictionary in fx["do"]:
 				_act(sim, e, t, a, amount)
 
 ## Lançou `s` (no impacto, WorldSim._apply_skill_body): gatilho cast:<id> e chão de zone_on_cast.
 static func on_cast(sim: WorldSim, e: SimEntity, s: SkillDef, aim: Vector3) -> void:
-	if sim.signature_casting or e.stats == null or e.stats.piece_fx.is_empty():
+	if e.stats == null or e.stats.piece_fx.is_empty():
+		return
+	for fx: Dictionary in e.stats.piece_fx:      # lançou de novo: a conta de alvos do hit:<id> recomeça
+		if fx["kind"] == "on_trigger" and int(fx.get("max_hits", 0)) > 0 and str(fx["on"]) == "hit:" + s.id:
+			e.leg50_ready.erase(_hits_key(fx))
+	if sim.signature_casting:
 		return
 	on_event(sim, e, "cast:" + s.id)
 	for fx: Dictionary in e.stats.piece_fx:

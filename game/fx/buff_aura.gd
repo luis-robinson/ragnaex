@@ -78,6 +78,13 @@ const PRESETS := {
 	"smoke": {"at": Vector3(0, 0.1, 0), "ring": 0.45, "dir": Vector3.UP, "v": [0.2, 0.5], "spread": 20.0, "g": 0.2, "life": 1.4, "size": [4, 7.2], "mesh": "soft", "add": false, "ratio": 0.8, "ramp": "smoke"},
 	"drip": {"at": Vector3(-0.34, 0.8, 0.22), "r": 0.08, "dir": Vector3.DOWN, "v": [0.0, 0.2], "spread": 20.0, "g": -5.0, "life": 0.45, "size": [0.6, 0.9], "mesh": "sphere", "add": false, "ratio": 1.0, "ramp": "color"},
 	"shadow": {"at": Vector3(0, 0.7, 0), "r": 0.45, "dir": Vector3.UP, "v": [0.3, 0.7], "spread": 30.0, "g": 0.4, "life": 1.2, "size": [3.2, 5.6], "mesh": "soft", "add": false, "ratio": 0.8, "ramp": "smoke"},
+	# Ato III (Lumeria): cor própria em "colors" (não a do tema); "lum" = some no aliado com AccessSettings.ally_fx abaixo de Tudo
+	"confetti": {"at": Vector3(0, 1.7, 0), "r": 0.45, "dir": Vector3.UP, "v": [0.5, 1.1], "spread": 70.0, "g": -2.2, "life": 1.3, "size": [0.35, 0.6], "mesh": "box", "add": false, "ratio": 0.6, "ramp": "color", "spin": true, "lum": true, "colors": [Color(1.0, 0.68, 0.72), Color(1.0, 0.86, 0.5)]},
+	"ribbons": {"at": Vector3(0, 0.25, 0), "ring": 0.5, "dir": Vector3.UP, "v": [0.5, 0.9], "spread": 10.0, "g": 0.2, "life": 1.6, "size": [0.9, 1.4], "mesh": "ribbon", "add": false, "ratio": 0.55, "ramp": "color", "spin": true, "lum": true, "colors": [Color(0.82, 0.68, 1.0), Color(1.0, 0.9, 0.62)]},
+	"ribbons_wilt": {"at": Vector3(0, 1.5, 0), "r": 0.4, "dir": Vector3.DOWN, "v": [0.1, 0.3], "spread": 60.0, "g": -1.0, "life": 1.5, "size": [0.9, 1.3], "mesh": "ribbon", "add": false, "ratio": 0.45, "ramp": "color", "spin": true, "lum": true, "colors": [Color(0.66, 0.56, 0.62), Color(0.5, 0.46, 0.52)]},
+	"rose_mist": {"at": Vector3(0, 0.1, 0), "ring": 0.45, "dir": Vector3.UP, "v": [0.15, 0.4], "spread": 20.0, "g": 0.15, "life": 1.5, "size": [3.6, 6.4], "mesh": "soft", "add": false, "ratio": 0.7, "ramp": "smoke", "lum": true, "colors": [Color(0.96, 0.66, 0.78), Color(1.0, 0.84, 0.9)]},
+	"wine": {"at": Vector3(0, 1.15, 0.18), "r": 0.22, "dir": Vector3.DOWN, "v": [0.0, 0.25], "spread": 30.0, "g": -4.5, "life": 0.5, "size": [0.6, 0.9], "mesh": "sphere", "add": false, "ratio": 0.8, "ramp": "color", "lum": true, "colors": [Color(0.62, 0.12, 0.26), Color(0.85, 0.3, 0.42)]},
+	"shards": {"at": Vector3(0, 1.75, 0), "r": 0.35, "dir": Vector3.UP, "v": [0.3, 0.8], "spread": 65.0, "g": -4.0, "life": 0.8, "size": [0.3, 0.55], "mesh": "box", "add": false, "ratio": 0.7, "ramp": "color", "spin": true, "lum": true, "colors": [Color(0.97, 0.94, 0.9), Color(0.95, 0.8, 0.45)]},
 }
 
 func setup(v: EntityView) -> void:
@@ -115,9 +122,16 @@ func _scan() -> void:
 	var popped := false
 	var moving := e.state == SimEntity.State.MOVING or e.state == SimEntity.State.DASHING
 	var wings_t := 0.0
-	if not hide:
-		for b in e.buffs:
-			var id: String = b.get("id", "")
+	# aliado (não você) com densidade de efeitos abaixo de Tudo: as partículas da Festa (preset "lum") ficam só na borda
+	var lum_quiet := not view._is_player and e.is_character() and AccessSettings.ally_fx != AccessSettings.Density.ALL
+	for pass_i in 2:                 # 0 = buffs; 1 = debuffs com visual (BuffLooks.DEBUFF_LOOKS: Fumo Doce, Banquete quebrado)
+		if hide:
+			break
+		var arr: Array = e.buffs if pass_i == 0 else e.debuffs
+		for b in arr:
+			var id: String = str(b.get("id", ""))
+			if pass_i == 1 and not BuffLooks.DEBUFF_LOOKS.has(id):
+				continue
 			var lk: Dictionary = BuffLooks.look(id, e)
 			if lk.is_empty():
 				continue
@@ -163,6 +177,8 @@ func _scan() -> void:
 				halo_t = maxf(halo_t, fade)
 				_halo_col = lk["accent"] if lk["theme"] == "holy" else lk["color"]
 			var parts: String = lk["parts"]
+			if lum_quiet and parts != "" and bool((PRESETS.get(parts, {}) as Dictionary).get("lum", false)):
+				parts = ""
 			if parts != "" and parts != p1:
 				p2 = p1
 				p2_th = p1_th
@@ -425,6 +441,9 @@ static func _pmat(preset: String, theme: String) -> ParticleProcessMaterial:
 	var pr: Dictionary = PRESETS[preset]
 	var c := SkillFx.col(theme, 0)
 	var a := SkillFx.col(theme, 1)
+	if pr.has("colors"):                          # Lumeria: cor do preset, não do tema
+		c = pr["colors"][0]
+		a = pr["colors"][1]
 	if preset == "smoke" and theme == "shadow":
 		c = Color(0.62, 0.62, 0.68)               # cortina de fumaça: cinza
 	if preset == "shadow":
@@ -456,7 +475,7 @@ static func _pmat(preset: String, theme: String) -> ParticleProcessMaterial:
 		m.angular_velocity_max = 180.0
 		m.angle_min = 0.0
 		m.angle_max = 360.0
-	if preset in ["smoke", "shadow"]:
+	if preset in ["smoke", "shadow", "rose_mist"]:
 		var sc := CurveTexture.new()
 		var cv := Curve.new()
 		cv.add_point(Vector2(0, 0.5)); cv.add_point(Vector2(1, 1.0))
@@ -488,6 +507,11 @@ static func _pmesh(kind: String, add: bool) -> Mesh:
 			var s := SphereMesh.new()
 			s.radius = 0.05; s.height = 0.1; s.radial_segments = 6; s.rings = 3
 			mesh = s
+		"ribbon":                      # fita da Festa: tira fina de frente para a câmera, girando (spin)
+			var rq := QuadMesh.new()
+			rq.size = Vector2(0.035, 0.24)
+			mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+			mesh = rq
 		"streak":                      # risco deitado no chão, no sentido do movimento (lê de cima)
 			var p := PlaneMesh.new()
 			p.size = Vector2(0.05, 0.5)

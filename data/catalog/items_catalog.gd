@@ -100,6 +100,9 @@ static func build() -> Array:
 		{"id": "potion_mp_s", "name": "Poção de Mana (P)", "type": CON, "price": 18, "icon_color": Color(0.35, 0.5, 1), "description": "Recupera 40 MP.", "consume": {"mana": 40}, "consume_cooldown": 4.0},
 		{"id": "potion_mp_m", "name": "Poção de Mana (M)", "type": CON, "price": 50, "icon_color": Color(0.2, 0.35, 1), "description": "Recupera 35% do MP.", "consume": {"mana_pct": 0.35}, "consume_cooldown": 4.0, "level_req": 8},
 		{"id": "elixir_might", "name": "Elixir da Força", "type": CON, "price": 90, "icon_color": Color(1, 0.7, 0.2), "description": "+20% ATK/MATK por 45s.", "consume": {"buff": {"id": "elixir", "duration": 45, "atk_pct": 20, "matk_pct": 20}}, "consume_cooldown": 6.0},
+		{"id": "clear_wine", "name": "Vinho Claro", "type": CON, "price": 120, "icon_color": Color(0.86, 0.82, 1.0), "level_req": 46,
+		 "description": "Vinho filtrado na seda do Festim: recupera %d%% do MP." % roundi(Balance.CLEAR_WINE_MANA_PCT * 100.0),
+		 "consume": {"mana_pct": Balance.CLEAR_WINE_MANA_PCT}, "consume_cooldown": 4.0},
 		{"id": "elixir_stone", "name": "Elixir de Pedra", "type": CON, "price": 90, "icon_color": Color(0.6, 0.6, 0.7), "description": "+25% DEF por 45s.", "consume": {"buff": {"id": "stoneskin", "duration": 45, "def_pct": 25}}, "consume_cooldown": 6.0},
 		# ---------------- materiais ----------------
 		{"id": "legend_coin", "name": "Moeda Lendária", "type": MAT, "price": 0, "stack_max": 999, "icon_color": Color(1.0, 0.62, 0.18),
@@ -182,8 +185,15 @@ static func build() -> Array:
 		# Ato III, o Excesso (45-50; ato3-excesso-45-50 §3/§8): material comum e raro dos monstros (joias 48 e rank de skill no WP11)
 		_mat("festim_ribbon", "Fita do Festim", 68, "Fita de seda que nunca desbota. Ainda cheira a vinho e a música velha.", Color(0.92, 0.58, 0.68)),
 		_mat("weeping_porcelain", "Porcelana Chorosa", 140, "Caco de máscara branca com uma lágrima pintada. Está sempre um pouco úmido.", Color(0.94, 0.9, 0.84)),
-		# troféu da raide (O Eco de Sylvaré, missão hx3_echo; D9): joias/capas 50 no WP11
-		_mat("empty_crown", "Coroa Vazia", 400, "A coroa que flutuava sobre o Eco de Sylvaré. Fria, leve, e ninguém consegue usá-la por muito tempo.", Color(0.9, 0.82, 0.6)),
+		# troféu da raide (O Eco de Amarante, missão hx3_echo; D9): joias/capas 50 no WP11
+		_mat("empty_crown", "Coroa Vazia", 400, "A coroa que flutuava sobre o Eco de Amarante. Fria, leve, e ninguém consegue usá-la por muito tempo.", Color(0.9, 0.82, 0.6)),
+		# troféus dos chefes do Ato III (joias e capas 50, RecipesCatalog.LUMERIA_TROPHIES; caem dos chefes)
+		_mat("varo_goblet", "Taça de Varo", 260, "A taça que o Anfitrião nunca deixava esvaziar. Agora está seca, e pesa mais assim.", Color(0.78, 0.18, 0.3)),
+		_mat("countess_frame", "Moldura da Condessa", 260, "Moldura dourada sem espelho. Quem olha pelo vão ainda vê alguém olhando de volta.", Color(0.9, 0.74, 0.36)),
+		_mat("broken_baton", "Batuta Partida", 260, "A batuta da Mestra Ressoa, quebrada no último compasso. Não marca mais tempo nenhum.", Color(0.36, 0.28, 0.5)),
+		_mat("hostess_fan", "Leque da Anfitriã", 320, "O leque de Vessaline, de seda e lâminas finas. Fechado, parece um sorriso.", Color(0.95, 0.6, 0.72)),
+		# Vinhas do Perfume: uva das Vinhas Sedentas (hx3_grapes) e base do Vinho Claro (alquimia)
+		_mat("bitter_grapes", "Uvas Amargas", 22, "Cacho roxo das Vinhas Sedentas. Amarga como quem acorda depois da festa.", Color(0.48, 0.22, 0.55)),
 		{"id": "letter_sealed", "name": "Carta Lacrada", "type": QST, "price": 0, "icon_color": Color(0.9, 0.85, 0.6), "description": "Carta do Ancião para a Capitã da guarda."},
 		# ---------------- armas tier 0 (lv1) ----------------
 		_weapon("sword_rusty", "Espada Enferrujada", "sword", 0, 8, 0, {"FOR": 3, "VIT": 1}, Color(0.6, 0.6, 0.6)),

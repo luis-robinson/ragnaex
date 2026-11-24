@@ -82,7 +82,23 @@ const LOOKS := {
 	# Supremas B2: Laço Selvagem (você, o lince e o lince espiritual), Olho da Tempestade, Maré dos Mortos, Ceifa das Almas
 	"wild_bond": ["power", "nature"], "wild_bond_pet": ["power", "nature"], "wild_bond_spirit": ["dark", "nature"],
 	"grand_duel": ["armor", "physical"], "storm_eye": ["speed", "lightning"], "tide_of_dead": ["dark", "bone"], "tide_frenzy": ["power", "bone"], "soul_reaping": ["power", "shadow"],
+	# Ato III (Lumeria, WP12): motivos da Festa (fitas, confete, névoa rosa, cacos de porcelana); cor/partículas em LUMERIA
+	"festim": ["power", "blood"], "festim_dismay": ["dark", "shadow"], "sede": ["speed", "blood"], "unison": ["power", "lunar"],
+	"banquet": ["power", "blood"], "banquet_vuln": ["dark", "blood"], "sweet_smoke": ["smoke", "poison"],
 }
+## Ato III (Lumeria): id -> [partículas (BuffAura.PRESETS, com cor própria), cor da borda, destaque]. Sem casca de chama:
+## a festa não pega fogo. Paleta da Festa (§4.4): rosa, ouro, vinho, lilás, porcelana; nada saturado no chão.
+const LUMERIA := {
+	"festim": ["confetti", Color(1.0, 0.72, 0.62), Color(1.0, 0.86, 0.52)],          # aura do Mestre de Cerimônias: confete rosa-ouro
+	"festim_dismay": ["ribbons_wilt", Color(0.7, 0.58, 0.66), Color(0.55, 0.5, 0.56)],   # Mestre caído: fitas murchas caindo
+	"sede": ["rose_mist", Color(0.96, 0.56, 0.68), Color(1.0, 0.8, 0.86)],          # aura da Matriarca: névoa rosa nos pés
+	"unison": ["ribbons", Color(0.8, 0.66, 1.0), Color(1.0, 0.9, 0.62)],            # Uníssono do Maestro: fitas lilás subindo em volta
+	"banquet": ["wine", Color(0.82, 0.24, 0.38), Color(1.0, 0.82, 0.5)],             # Banquete (Varo e convidados): vinho escorrendo
+	"banquet_vuln": ["shards", Color(0.96, 0.92, 0.86), Color(0.95, 0.8, 0.45)],     # Banquete quebrado: a porcelana racha e cai
+	"sweet_smoke": ["rose_mist", Color(0.86, 0.66, 0.92), Color(1.0, 0.84, 0.92)],   # Fumo Doce: névoa lilás-rosa nos pés
+}
+## Debuffs (SimEntity.debuffs) que também aparecem no boneco pela BuffAura (o resto dos debuffs é do CcLook/estado).
+const DEBUFF_LOOKS := {"banquet_vuln": true, "sweet_smoke": true}
 const FAMILIES := ["armor", "shield", "power", "holy", "speed", "smoke", "poison", "dark", "aura", "wings", "form"]
 
 ## Controle no corpo (debuff `kind` -> [forma, cor]); não são buffs (sem fonte em sources()), por isso fora de LOOKS.
@@ -146,6 +162,13 @@ const SYSTEM_BUFFS := {
 	"apex_tempest": "FusionEffects._tempest (Ápice do Carniceiro: Frenesi da Tormenta)",
 	"apex_cadence": "FusionEffects._cadence (Ápice do Duelista: Cadência)",
 	"apex_judged": "FusionEffects.judge (Ápice do Cruzado: alvo Julgado)",
+	"festim": "AuraSystem.mob_aura (aura festim do Mestre de Cerimônias, Balance.MOB_AURAS)",
+	"festim_dismay": "AuraSystem.on_mob_death (Mestre de Cerimônias caído: foliões desanimados)",
+	"sede": "AuraSystem.mob_aura (aura sede da Matriarca Velada)",
+	"unison": "MobSystem.rally (Uníssono do Maestro do Coro: mob_unison)",
+	"banquet": "BossSignatures._channel_done (Banquete do Varo: on_done.buff)",
+	"banquet_vuln": "BossSignatures._channel_break (Banquete quebrado: on_break.vuln_id, debuff)",
+	"sweet_smoke": "WorldSim._apply_effects (lento do Fumo Doce com id: debuff)",
 }
 
 ## Padrão na pele (uniform buff_style do toon) por tema.
@@ -204,6 +227,12 @@ static func look(id: String, e: SimEntity = null) -> Dictionary:
 		d["accent"] = Color(1.0, 0.95, 0.7)
 	if fam == "smoke":
 		d["color"] = Color(0.7, 0.72, 0.78)
+	if LUMERIA.has(id):
+		var lum: Array = LUMERIA[id]
+		d["parts"] = lum[0]
+		d["color"] = lum[1]
+		d["accent"] = lum[2]
+		d["shell"] = 0
 	_cache[key] = d
 	if key.begins_with("shield:"):
 		_shield_cache[e.class_def.id] = d

@@ -257,7 +257,7 @@ const ACT2_VISUALS := {
 ## (tools/blender/<classe>_sets.py ACT3_SETS; KitModel.load_addon("_a3")); sem o arquivo o boneco veste o estilo do Ato II
 ## (act2_fallback_style). Um só nível: "color" (tint = marfim), "accent" (tint2 = seda/fitas), "glow" (tint_glow = lágrima e
 ## chama). Arma e escudo continuam os do Ato II/30 (onda 4). "icon" = prefixo dos ícones (set_icons.tscn, foto no 50).
-## Build sem entrada continua no visual do Ato II na 4ª cor de ACT2_VISUALS. Onda 1: uma build por classe.
+## Build sem entrada continua no visual do Ato II na 4ª cor de ACT2_VISUALS. Ondas 1 e 2: duas builds por classe.
 const ACT3_VISUALS := {
 	"paladin_guardiao": {"style": "pal_g50", "icon": "pal_g50",          # Vigília da Lágrima Dourada: elmo fechado com viseira-máscara e UMA lágrima, pires empilhados, lanterna na ombreira esquerda
 		"color": Color(0.94, 0.9, 0.82), "accent": Color(0.12, 0.16, 0.4), "glow": Color(1.0, 0.78, 0.3)},
@@ -275,6 +275,23 @@ const ACT3_VISUALS := {
 		"color": Color(0.94, 0.9, 0.82), "accent": Color(0.92, 0.42, 0.12), "glow": Color(1.0, 0.55, 0.15)},
 	"necromancer_invocador": {"style": "nec_i50", "icon": "nec_i50",     # Cortejo de Porcelana: capuz alto com máscaras-troféu, máscaras cegas nos ombros, tiras de seda
 		"color": Color(0.94, 0.9, 0.82), "accent": Color(0.4, 0.14, 0.38), "glow": Color(0.8, 0.45, 1.0)},
+	# Onda 2: a 2ª build de cada classe
+	"paladin_cruzado": {"style": "pal_c50", "icon": "pal_c50",           # Cortejo do Juízo Claro: elmo de meia-máscara partida em diagonal, penacho, ombreiras em barbatana, espelho no peito, capa em tiras
+		"color": Color(0.94, 0.9, 0.82), "accent": Color(0.45, 0.08, 0.14), "glow": Color(1.0, 0.82, 0.45)},
+	"berserker_carniceiro": {"style": "ber_g50", "icon": "ber_g50",      # Banquete das Fitas Rubras: ombros nus, meia-máscara de sorriso rasgado, cinto de taças de vidro, fitas rubras nos punhos
+		"color": Color(0.94, 0.9, 0.82), "accent": Color(0.72, 0.1, 0.12), "glow": Color(1.0, 0.45, 0.35)},
+	"bishop_inquisidor": {"style": "bis_i50", "icon": "bis_i50",         # Espelho do Meio-Dia: mitra alta de vidro facetado com espelho, espelhos de sol nos ombros, fitas douradas
+		"color": Color(0.94, 0.9, 0.82), "accent": Color(0.85, 0.66, 0.25), "glow": Color(1.0, 0.95, 0.7)},
+	"druid_guardiao_verde": {"style": "dru_b50", "icon": "dru_b50",      # Guarda da Colheita Mascarada: máscara de urso (também no urso: frm_dru_b50_*), ombros de casca envernizada, lanternas-cabaça
+		"color": Color(0.94, 0.9, 0.82), "accent": Color(0.3, 0.4, 0.16), "glow": Color(1.0, 0.7, 0.3)},
+	"ranger_atirador": {"style": "ran_a50", "icon": "ran_a50",           # Salva do Último Baile: cartola de seda, óculos espelhados, bandoleira de cartuchos dourados, dragonas, lanterna no cinto
+		"color": Color(0.94, 0.9, 0.82), "accent": Color(0.08, 0.26, 0.32), "glow": Color(1.0, 0.85, 0.5)},
+	"assassin_duelista": {"style": "ass_d50", "icon": "ass_d50",         # Florete do Espelho: chapéu de pluma, dominó espelhado, botões de vidro, meia-capa de fitas
+		"color": Color(0.94, 0.9, 0.82), "accent": Color(0.2, 0.2, 0.55), "glow": Color(0.7, 0.9, 1.0)},
+	"elementalist_gelo": {"style": "ele_g50", "icon": "ele_g50",         # Espelho da Geada: coroa de cristais-espelho em leque, ombreiras de cacos de vidro, manto branco-azulado
+		"color": Color(0.94, 0.9, 0.82), "accent": Color(0.72, 0.86, 0.95), "glow": Color(0.6, 0.95, 1.0)},
+	"necromancer_ceifador": {"style": "nec_c50", "icon": "nec_c50",      # Colheita do Último Brinde: capuz rasgado, máscara sem boca, gola alta de taças quebradas, taça derramando no ombro
+		"color": Color(0.94, 0.9, 0.82), "accent": Color(0.35, 0.1, 0.16), "glow": Color(1.0, 0.35, 0.4)},     # vinho mais claro: 0,22 ficava preto no toon
 }
 
 const PIECE_NOUNS := {
@@ -985,6 +1002,28 @@ static func kharzun_jewels() -> Array:
 			out.append(it)
 	return out
 
+## Joias e capas de Lumeria (nível 50, só por receita com troféu dos chefes do Excesso: RecipesCatalog.lumeria_recipes; GDD
+## ato3 §8). Como as de Kharzun: tema/atributos das comuns no nível 50 com Balance.LUMERIA_JEWEL_MULT, papéis e mana do tier 48;
+## raridade épica (abaixo dos acessórios lendários 50, que são x LEGENDARY_MULT). Ids `<peça>_<tema>_l50`.
+static func lumeria_jewels() -> Array:
+	var out: Array = []
+	var lv: int = Balance.LUMERIA_JEWEL_LEVEL
+	var top: int = Balance.COMMON_TIER_LEVELS.size() - 1
+	for piece in THEME_PIECES:
+		for theme in THEMES:
+			var t: Array = THEMES[theme]
+			var col: Color = (t[3] as Color).lerp(Color(0.95, 0.7, 0.78), 0.35)      # rosa-pó do Festim na cor do tema
+			var it := armor_item("%s_%s_l50" % [piece, theme], "%s %s de Lumeria" % [THEME_PIECES[piece], t[0]], piece, "leather", t[1], t[2], lv,
+				ItemDef.RARITY_LEGENDARY - 1, Balance.LUMERIA_JEWEL_MULT, col)
+			it.armor_style = "cape" if piece == "cape" else ""
+			it.bonus = mana_bonus(piece, theme, top)
+			if piece != "cape":
+				it.def = 0.0
+				it.mdef = 0.0
+			acc_roles(it, piece, top, theme in Balance.MANA_SAGE_THEMES)
+			out.append(it)
+	return out
+
 ## Joias de mana por tier (`tier` = índice em COMMON_TIER_LEVELS, -1 = k45). Corpo a corpo (Balance.MANA_ACC_THEMES): amuleto
 ## devolve mana ao abater, capa regenera mana em combate. Sábio (MANA_SAGE_THEMES): o amuleto regenera mana em combate. Anel nada.
 ## Ex.: mana_bonus("amulet", "sabio", 5) = {"mp_regen_combat": 0.4}.
@@ -1001,7 +1040,7 @@ static func mana_bonus(piece: String, theme: String, tier: int) -> Dictionary:
 
 ## Peça que só sai da forja (joias/capas 45 com troféu): bots não a recebem de graça ao nascer.
 static func craft_only(it: ItemDef) -> bool:
-	return it.id.ends_with("_k45")
+	return it.id.ends_with("_k45") or it.id.ends_with("_l50")
 
 ## Escudos nomeados como itens lendários (peso da mão secundária).
 ## Para quem é o escudo nomeado: "paladin", "bishop" ou "both" (SHIELD_AFFINITY; sem entrada = ambos).
@@ -1744,7 +1783,7 @@ const LEG50 := {
 		"body": {"kind": "stat", "stats": {"low_dr": "x"}, "text": "Firme na Queda +{x}%."},
 		"legs": {"kind": "stat", "stats": {"low_leech": "x"}, "text": "Sede na Beira: +{x}% de roubo de vida com pouca vida."},
 		"gloves": {"kind": "charges", "skill": "nec_soul_rend", "text": "Rasgar Alma em Cargas."},
-		"boots": {"kind": "on_trigger", "on": "hit:nec_death_spin", "do": [{"do": "heal", "pct": "x"}], "text": "Giro da Morte cura {x}% da vida por inimigo atingido."},
+		"boots": {"kind": "on_trigger", "on": "hit:nec_death_spin", "max_hits": "n", "do": [{"do": "heal", "pct": "x"}], "text": "Giro da Morte cura {x}% da vida por inimigo atingido (até {n} inimigos)."},
 		"weapon": {"kind": "legend_wake", "legend": "heal_on_kill", "wake": "ally", "pct": "x", "text": "Ceifa Desperta: o abate cura também o aliado mais ferido em {x}% da vida dele."},
 	},
 	"pestilento": {
@@ -1771,7 +1810,7 @@ static func leg50_resolve(v: Variant, nums: Dictionary) -> Variant:
 		for x in v:
 			arr.append(leg50_resolve(x, nums))
 		return arr
-	if v is String and v in ["x", "y", "icd", "-x", "-y"]:
+	if v is String and v in ["x", "y", "icd", "n", "-x", "-y"]:
 		var key: String = (v as String).trim_prefix("-")
 		return -float(nums.get(key, 0.0)) if (v as String).begins_with("-") else float(nums.get(key, 0.0))
 	return v
@@ -1793,7 +1832,7 @@ static func leg50_fx(bid: String, piece: String) -> Dictionary:
 ## Texto da dica com os números ({x}, {y}, {icd}; inteiro sem casas).
 static func leg50_text(text: String, nums: Dictionary) -> String:
 	var icd := float(nums.get("icd", Balance.LEG50_TRIGGER_ICD))
-	for k in ["x", "y"]:
+	for k in ["x", "y", "n"]:
 		text = text.replace("{%s}" % k, _num_txt(absf(float(nums.get(k, 0.0)))))
 	return text.replace("{icd}", _num_txt(icd))
 
@@ -1821,6 +1860,7 @@ static func build(classes: Dictionary, skills: Dictionary) -> Dictionary:
 						piece, armor, LEGS[armor][1], LEGS[armor][2], lv, common_rarity(tier), 1.0, col))
 		items.append_array(wearables(tier))
 	items.append_array(kharzun_jewels())
+	items.append_array(lumeria_jewels())
 	items.append_array(named_shields())
 	# 2) conjuntos lendários: classe × build × nível
 	var mult: float = Balance.LEGENDARY_MULT

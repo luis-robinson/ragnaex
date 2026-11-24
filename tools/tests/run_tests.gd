@@ -4540,6 +4540,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_act3_maps(gd, sim)
 	_check_act3_wp6_maps(gd, sim)
 	_check_act3_quests(gd, sim)
+	_check_act3_rewards(gd, sim)
 	_check_living_act2(gd, sim)
 	_check_living_kharzun(gd, sim)
 	_check_creatures_act2(gd, sim)
@@ -4610,6 +4611,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_skill_charges(gd, sim)
 	_check_leg50_pieces(gd, sim)
 	_check_leg50_rules(gd, sim)
+	_check_leg50_spin_cap(gd, sim)
 	_check_leg50_bots(gd, sim)
 	_check_skill_ranks(gd, sim)
 	_check_trainers(gd)
@@ -5368,6 +5370,16 @@ func _check_buff_visuals(gd, sim) -> void:
 	for id in BuffLooks.LOOKS:
 		check(srcs.any(func(x): return x["id"] == id), "BuffLooks.LOOKS[%s] é dado por algo (linha morta?)" % id)
 	check(BuffLooks.look("frost_armor")["shell"] == 2 and BuffLooks.look("frost_armor")["parts"] == "snow", "Armadura de Gelo: casca de cristal + neve")
+	# Ato III (WP12): buffs da Festa com visual próprio (fitas, confete, névoa rosa, vinho, porcelana), não mais os do Ato II
+	var act3_ids := {"festim": Balance.MOB_AURAS["festim"]["id"], "sede": Balance.MOB_AURAS["sede"]["id"], "festim_dismay": Balance.MOB_AURAS["festim"]["demoralize"]["id"],
+		"unison": gd.skills["mob_unison"].effects["rally"]["id"], "banquet": gd.skills["mob_varo_banquet"].effects["boss_channel"]["on_done"]["buff"]["id"],
+		"banquet_vuln": gd.skills["mob_varo_banquet"].effects["boss_channel"]["on_break"]["vuln_id"], "sweet_smoke": gd.skills["mob_sweet_smoke"].effects["slow"]["id"]}
+	for want in act3_ids:
+		var lk3: Dictionary = BuffLooks.look(want)
+		check(act3_ids[want] == want and BuffLooks.LUMERIA.has(want) and BuffAura.PRESETS.has(lk3.get("parts", "")) and bool(BuffAura.PRESETS[lk3["parts"]].get("lum", false)),
+			"Ato III: buff %s com visual da Festa (dado dá '%s', partículas %s)" % [want, act3_ids[want], lk3.get("parts", "")])
+	for did in BuffLooks.DEBUFF_LOOKS:
+		check(BuffLooks.LOOKS.has(did), "BuffLooks.DEBUFF_LOOKS %s tem linha em LOOKS" % did)
 	# BuffAura num boneco de verdade (sem cena: a view não entra na árvore, só o cálculo)
 	var e: SimEntity = sim.spawn_bot(gd.classes["elementalist"], "Gelo", "city_aldara", Vector3(-44, 0, -44), 30)
 	e.brain = null
@@ -8502,7 +8514,8 @@ func _check_paladin_weapon_roles(gd, sim) -> void:
 	var hp_before: float = pal.stats.max_hp * 0.5
 	pal.hp = hp_before
 	sim._heal(pal, pal, 100)
-	check(absf(pal.hp - hp_before - 100.0 * (1.0 + float(dp["heal"]) * mx / 100.0)) < 1.0, "Determinação: a cura recebida aumenta de verdade (+%.0f)" % (pal.hp - hp_before))
+	# a base (hf0) pode já ter cura recebida de nó/passivo do Paladino (notáveis de papel, 2026-11-23): a conta parte dela
+	check(absf(pal.hp - hp_before - 100.0 * hf0 * (1.0 + float(dp["heal"]) * mx / 100.0)) < 1.0, "Determinação: a cura recebida aumenta de verdade (+%.0f, base x%.2f)" % [pal.hp - hp_before, hf0])
 	sim._update_entity(pal, m, float(dp["time"]) + 0.1)
 	check(pal.buff_stacks(dbuf) == 0 and absf(pal.stats.patk - patk0) < 0.01, "Determinação: %.0f s sem apanhar perde todas as cargas" % float(dp["time"]))
 	# Baluarte: golpe dá barreira (% da vida), recarga, não acumula; a marca sai com a barreira
@@ -10753,6 +10766,26 @@ func _check_sfx_bank(gd) -> void:
 		check(Sfx.SIG_EFFECT.has(k), "quebra/contragolpe de assinatura '%s' tem som (Sfx.SIG_EFFECT)" % k)
 	for k in Sfx.SIG_EFFECT:
 		check(sfx.bank.has(Sfx.SIG_EFFECT[k]) and (gd.skills.has(k) or k in sig_fx), "Sfx.SIG_EFFECT '%s' cita skill/efeito que existe e som do banco" % k)
+	# Ato III (WP12, GDD ato3 §10): nada de placeholder nas 7 assinaturas; sinos de Lumeria até hx3_bells; laços do Incensário/auras
+	var act3_sigs := ["mob_vindima_press", "mob_varo_banquet", "mob_prima_aria", "mob_ressoa_canon", "mob_countess_gaze", "mob_vess_cortege", "mob_echo_thirst"]
+	var old_ph := ["nature", "lunar", "blood", "potion", "gem", "holy", "troll_slam", "hive_crack"]
+	for sid in act3_sigs:
+		var row: Array = Sfx.SIG_WARN.get(sid, [])
+		check(row.size() >= 3 and not (str(row[2]) in old_ph), "Ato III: aviso da assinatura %s com som próprio (%s)" % [sid, row])
+		check(Sfx.SIG_EFFECT.has(sid) and not (str(Sfx.SIG_EFFECT[sid]) in old_ph), "Ato III: impacto da assinatura %s com som próprio (%s)" % [sid, Sfx.SIG_EFFECT.get(sid, "")])
+	check(Sfx.SIG_EFFECT[BossSignatures.MIRROR_CRACK_FX] == "mirror_crack", "Ato III: espelho da Condessa racha com som de vidro")
+	check(Sfx.voice_of(gd.monsters["silk_hound"])[0] == "hound_bells" and Sfx.voice_of(gd.monsters["parade_alpha"])[0] == "hound_bells", "Ato III: Galgos de Seda com guizos")
+	check(Sfx.CAST_SOUND.get("mob_fan_leap", "") == "fan_open" and Sfx.EFFECT_SOUND.get("mob_shrill_note", "") == "shrill_note"
+		and Sfx.EFFECT_SOUND.get("mob_goblet_throw", "") == "goblet_break", "Ato III: leque-lâmina, nota aguda e taça quebrando")
+	check(Sfx.AURA_SOUND.get("festim", "") == "festim_bell" and Sfx.loop_sound(gd.monsters["living_censer"]) == "smoke_hiss", "Ato III: sineta do Festim e chiado do Incensário em laço")
+	for mid in Sfx.MOB_LOOP:
+		check(gd.monsters.has(mid) and sfx.bank.has(Sfx.MOB_LOOP[mid]), "Sfx.MOB_LOOP: monstro %s existe e o som está no banco" % mid)
+	for snd in Sfx.LOOP_EVERY:
+		check(sfx.bank.has(snd), "Sfx.LOOP_EVERY: som %s no banco" % snd)
+	check(Sfx.place_bells_at("city_lumeria", []) != Vector3.INF and Sfx.place_bells_at("city_lumeria", ["hx3_bells"]) == Vector3.INF
+		and Sfx.place_bells_at("field_perfume", []) == Vector3.INF and sfx.bank.has("bells"), "Ato III: sinos de Lumeria tocam até hx3_bells (L1)")
+	for mid in Sfx.PLACE_BELLS:
+		check(gd.maps.has(mid) and gd.quests.has(str(Sfx.PLACE_BELLS[mid]["until"])), "Sfx.PLACE_BELLS %s: mapa e missão existem" % mid)
 	# soltura do arco (playtest 2026-11-16): ruído que morre rápido, nunca uma nota sustentada de "teclado"
 	check(sfx.bank.has("bow") and (sfx.bank["bow"] as Array).size() >= 3, "arco tem 3+ variações de som")
 	for i in range(1, 9):
@@ -11696,16 +11729,16 @@ func _check_leg50_visuals(gd) -> void:
 			check(fb == 4, "leg50 visual: sem o kit extra o boneco veste outro estilo da build (%d peças, %s %s)" % [fb, cid, body])
 			k2.free()
 	check(styles.size() >= 8 and per_class.size() == gd.classes.size(), "leg50 visual: onda 1 = uma build por classe (%d estilos, %d classes)" % [styles.size(), per_class.size()])
-	var forms: Array = ["res://assets/models/form_wolf.glb", "res://assets/models/form_alpha.glb"]
-	for path: String in forms:          # Lobo: a armadura de animal do 50 existe na forma e no Alfa (FormModel liga por armor_style)
+	var forms := {"res://assets/models/form_wolf.glb": "dru_w50", "res://assets/models/form_alpha.glb": "dru_w50", "res://assets/models/form_bear.glb": "dru_b50"}
+	for path: String in forms:          # Lobo (forma e Alfa) e Urso (onda 2): a armadura de animal do 50 existe na forma (FormModel liga por armor_style)
 		var ps := load(path) as PackedScene
 		var inst: Node = ps.instantiate() if ps else null
 		var found := 0
 		if inst:
-			for mi in inst.find_children("frm_dru_w50_*", "MeshInstance3D", true, false):
+			for mi in inst.find_children("frm_%s_*" % forms[path], "MeshInstance3D", true, false):
 				found += 1
 			inst.free()
-		check(found >= 4, "leg50 visual: %s tem a armadura frm_dru_w50_* (%d malhas)" % [path.get_file(), found])
+		check(found >= 4, "leg50 visual: %s tem a armadura frm_%s_* (%d malhas)" % [path.get_file(), forms[path], found])
 
 ## Kit extra (kit_<classe>_<sexo>_a2.glb; KitModel.load_addon): as armaduras do Ato II do Paladino ficam fora do kit principal
 ## (teto de 200 malhas por boneco) e só são lidas quando uma peça delas é vestida; sem o arquivo, visual do nível 30.
@@ -15077,7 +15110,7 @@ func _check_review_fixes(gd, sim) -> void:
 	for mid in gd.maps:
 		for pt in gd.maps[mid].portals:
 			if pt.has("gate"):
-				check(pt["id"].begins_with("to_") and gd.maps[pt["target_map"]].parent_map != "" and pt["target_map"] != gd.maps[mid].parent_map or pt["target_map"] in ["city_port", "field_forest", "field_ruins", "elf_city", "fort_ghoul", "fort_bones", "fort_frost", "lich_citadel", "field_steppe", "fort_trolls", "fort_fire", "fort_war", "field_kharzun", "city_lumeria", "field_parade", "rift_garden"], "portão %s só na ida" % pt["id"])
+				check(pt["id"].begins_with("to_") and gd.maps[pt["target_map"]].parent_map != "" and pt["target_map"] != gd.maps[mid].parent_map or pt["target_map"] in ["city_port", "field_forest", "field_ruins", "elf_city", "fort_ghoul", "fort_bones", "fort_frost", "lich_citadel", "field_steppe", "fort_trolls", "fort_fire", "fort_war", "field_kharzun", "city_lumeria", "field_parade", "rift_garden"] or (pt["id"].begins_with("door_in_") and gd.maps[pt["target_map"]].interior), "portão %s só na ida" % pt["id"])     # porta trancada de casa (Salão do Duque): só a entrada tem portão
 	for x in [chief, near, mob, other, nec, ber, pal, bis]:
 		sim.despawn(x)
 
@@ -18150,7 +18183,7 @@ func _check_boss_mechanics(gd) -> void:
 					or (sk.target == SkillDef.Target.SELF and sk.effects.has("pull") and sk.radius >= 9.0):
 				ranged_answer = true
 			# assinaturas que miram quem não é o tanque a até BOSS_PICK_RANGE (MobSystem.victims), como o mob_pick:
-			# marca R-B (place_marks; Sede Dividida do Eco) e o Cortejo (place_cortege; faixas de 10 m+ rumo às vítimas, Vessaline)
+			# marca R-B (place_marks; Brinde Dividido do Eco) e o Cortejo (place_cortege; faixas de 10 m+ rumo às vítimas, Vessaline)
 			if sk.effects.has("mark") or (sk.effects.has("barrage") and str(sk.effects["barrage"].get("shape", "")) == "cortege"
 					and float(sk.effects["barrage"].get("length", 0.0)) >= 10.0):
 				ranged_answer = true
@@ -20283,6 +20316,15 @@ func _check_music(gd) -> void:
 	# os mapas dg_slayers/kharzun_citadel podem ainda não existir neste ramo)
 	check(Music.theme_for("field_kharzun") == "kharzun" and Music.theme_for("dg_slayers") == "kharzun" and Music.theme_for("kharzun_citadel") == "kharzun_citadel",
 		"música: Monte Kharzun e Salão dos Matadores com 'kharzun', Cidadela com 'kharzun_citadel'")
+	# Ato III parte 1 (WP12, GDD ato3 §10): tema próprio por mapa (nada de placeholder do Ato I/II) e a Manhã em Lumeria (L4)
+	var act3_music := {"city_lumeria": "lumeria", "field_perfume": "perfume", "field_parade": "parade", "rift_garden": "rift", "rift_heart": "rift_raid",
+		"dg_cellars": "adegas", "dg_mirrors": "espelhos", "dg_conservatory": "coro"}
+	for mid in act3_music:
+		check(Music.theme_for(mid) == act3_music[mid], "música Ato III: %s toca '%s' (%s)" % [mid, act3_music[mid], Music.theme_for(mid)])
+	check(Music.theme_for_stage("city_lumeria", []) == "lumeria" and Music.theme_for_stage("city_lumeria", ["hx3_veil"]) == "lumeria_morning"
+		and Music.theme_for_stage("field_perfume", ["hx3_veil"]) == "perfume", "música Ato III: Lumeria troca para a manhã calma só depois de hx3_veil (L4)")
+	for mid in Music.STAGE_THEME:
+		check(gd.quests.has(str(Music.STAGE_THEME[mid][0])) and str(Music.STAGE_THEME[mid][1]) in Music.THEMES, "música: STAGE_THEME %s cita missão e tema que existem" % mid)
 	var credits := FileAccess.get_file_as_string(Music.DIR + "CREDITS.md")
 	check(Music.THEMES.all(func(th): return credits.contains("| %s |" % th)), "música: CREDITS.md cita cada tema")
 	check("Music" in AudioSettings.BUSES and AudioSettings.LABELS.has("Music") and AudioSettings.DEFAULTS.has("Music"), "música: barramento Music com volume no menu")
@@ -20829,9 +20871,9 @@ func _check_kharzun_roster(gd, sim) -> void:
 ## existem, modelo substituto (ou o pretendido, quando o WP7 o criar), Convertido que vira forma (ShiftSystem), Bailarino de
 ## 3 golpes (strikes), aura festim que desanima quando o dono cai e lacaios de chefe com 0 XP. D4 = b: sem esquiva de monstro.
 ## Ato III, chefe da história e raide (WP8b; GDD ato3-excesso-45-50 §4.1, D8/D9): Vessaline (rift_garden, grupo de 4) e o
-## Eco de Sylvaré (rift_heart, raide de 5). Fases/números dos dados, pontos das ilhas e pedestais = boss_hint do JSON, e as
+## Eco de Amarante (rift_heart, raide de 5). Fases/números dos dados, pontos das ilhas e pedestais = boss_hint do JSON, e as
 ## regras: Cortejo (4 faixas encadeadas nunca no tanque, todas desenhadas juntas, ela investe pela que cai, a faixa fica),
-## Palco Seguro (ilhas fixas), Sede Dividida (alterna dividir/espalhar, as duas na F2), pedestais nos pontos e o Paladar ~1%/s.
+## Palco Seguro (ilhas fixas), Brinde Dividido (alterna dividir/espalhar, as duas na F2), pedestais nos pontos e o Paladar ~1%/s.
 func _check_act3_finale_bosses(gd) -> void:
 	var hint := {}
 	for z in ["rift_garden", "rift_heart"]:
@@ -20850,7 +20892,7 @@ func _check_act3_finale_bosses(gd) -> void:
 	check(vhp == [0.7, 0.4, 0.15] and float(vd.phases[0].get("ward", 0.0)) == 0.5 and str(vd.phases[0]["summon"]["id"]) == "dancer_escort"
 		and "mob_vess_stage" in vd.phases[1].get("skills", []) and float(vd.phases[2].get("enrage", 0.0)) > 1.0, "Vessaline: F2 70%% bailarinos (ward 0,5), F3 40%% Palco Seguro, F4 15%% fúria (%s)" % [vhp])
 	check(is_equal_approx(ed.berserk_after, 120.0) and is_equal_approx(ed.berserk_mult, 20.0) and Balance.BOSS_CROWD_RAID.has("boss_sylvare_echo") and "mob_echo_thirst" in ed.skill_ids,
-		"Eco: berserk ×20 aos 120 s, tabela de raide, Sede Dividida desde a F1")
+		"Eco: berserk ×20 aos 120 s, tabela de raide, Brinde Dividido desde a F1")
 	var senses: Array = []
 	var spots: Array = []
 	for ph in ed.phases:
@@ -20933,7 +20975,7 @@ func _check_act3_finale_bosses(gd) -> void:
 	var isl: Array = m["hazards"].map(func(h): return [snappedf(Vector3(h["pos"]).x, 0.01), snappedf(Vector3(h["pos"]).z, 0.01)])
 	check(isl.size() == 4 and m["hazards"].all(func(h): return h.get("invert", false) and is_equal_approx(float(h["radius"]), Balance.ACT3_STAGE_ISLAND_R)), "Palco Seguro: 4 ilhas fixas (%s)" % [isl])
 	m["hazards"] = []
-	# Sede Dividida: dividir, depois espalhar; na F2 as duas
+	# Brinde Dividido: dividir, depois espalhar; na F2 as duas
 	ws.despawn(boss)
 	var e2: MonsterDef = ed.duplicate()
 	e2.phases = []
@@ -20950,8 +20992,8 @@ func _check_act3_finale_bosses(gd) -> void:
 		var ms: Array = m["hazards"].map(func(h): return str(h["mode"]))
 		ms.sort()
 		modes.append(ms)
-		check(m["hazards"].all(func(h): return int(h["victim"]) != tank.id), "Sede Dividida: nunca no tanque")
-	check(modes[0] == ["soak"] and modes[1] == ["spread", "spread"] and modes[2] == ["soak", "spread", "spread"], "Sede Dividida: dividir, espalhar, e as duas na F2 (%s)" % [modes])
+		check(m["hazards"].all(func(h): return int(h["victim"]) != tank.id), "Brinde Dividido: nunca no tanque")
+	check(modes[0] == ["soak"] and modes[1] == ["spread", "spread"] and modes[2] == ["soak", "spread", "spread"], "Brinde Dividido: dividir, espalhar, e as duas na F2 (%s)" % [modes])
 	m["hazards"] = []
 	ws.despawn(echo)
 	# pedestais nos pontos do JSON
@@ -21277,12 +21319,13 @@ func _check_act3_dungeon_bosses(gd) -> void:
 	var atk0: float = vb.stats.patk
 	BossSignatures._channel_done(ws, vb, cfg)
 	check(absf(vb.hp / vb.stats.max_hp - (0.5 + Balance.ACT3_BANQUET_HEAL)) < 0.005, "Banquete: no fim ele cura %.0f%% (%.3f)" % [Balance.ACT3_BANQUET_HEAL * 100.0, vb.hp / vb.stats.max_hp])
-	check(BossSignatures.has_buff(vb, BossSignatures.FRENZY_BUFF) and BossSignatures.has_buff(guest, BossSignatures.FRENZY_BUFF) and vb.stats.patk > atk0, "Banquete: fúria nele (ATK %.0f -> %.0f) e no convidado" % [atk0, vb.stats.patk])
+	var bq_buff := str(cfg["on_done"]["buff"]["id"])     # WP12: "banquet" (visual próprio)
+	check(BossSignatures.has_buff(vb, bq_buff) and BossSignatures.has_buff(guest, bq_buff) and vb.stats.patk > atk0, "Banquete: fúria nele (ATK %.0f -> %.0f) e no convidado" % [atk0, vb.stats.patk])
 	vb.sig["channel"] = {"skill": "mob_varo_banquet", "until": ws.time + 4.0, "start": ws.time, "dmg": 0.0, "need": 1.0, "cfg": cfg}
 	BossSignatures._channel_break(ws, vb)
 	var torn: Dictionary = {}
 	for d in vb.debuffs:
-		if str(d.get("id", "")) == BossSignatures.TORN_DEBUFF:
+		if str(d.get("id", "")) == str(cfg["on_break"].get("vuln_id", BossSignatures.TORN_DEBUFF)):
 			torn = d
 	check(is_equal_approx(float(torn.get("taken_pct", 0.0)), Balance.ACT3_BANQUET_VULN) and is_equal_approx(float(torn.get("remaining", 0.0)), Balance.ACT3_BANQUET_VULN_S), "Banquete quebrado: +%.0f%% de dano por %.0f s (%s)" % [Balance.ACT3_BANQUET_VULN, Balance.ACT3_BANQUET_VULN_S, torn])
 	ws.despawn(guest)
@@ -21470,7 +21513,7 @@ func _check_act3_monsters(gd, sim) -> void:
 	for id in ["organ_pipe", "standing_mirror", "sense_sight", "sense_hearing", "sense_smell", "sense_taste"]:
 		check(gd.monsters[id].move_speed == 0.0, "Ato III: %s fica parado" % id)
 
-## Demônias da Sede (design/gdd/ato3-excesso-45-50.md §3.1): 4 demônias 46-49 pela F2 + mod de demônio, sem esquiva (D4),
+## Veladas (design/gdd/ato3-excesso-45-50.md §3.1): 4 demônias 46-49 pela F2 + mod de demônio, sem esquiva (D4),
 ## só efeitos que existem (furtividade/emboscada, golpes em sequência, recuo, sangramento, laço, kite, cura pelo dano, anel e
 ## faixas avisados), bando misto da Matriarca (escolta por vaga), aura `sede`, saque do Ato III, voz, modelo final automático,
 ## spawners na Avenida longe do hub e em chão andável.
@@ -21584,7 +21627,7 @@ func _check_demon_family(gd, sim) -> void:
 			var p: Vector3 = s["pos"]
 			check(wr.is_walkable(p, rg, 0.6) and Vector2(p.x - rg.town_center.x, p.z - rg.town_center.z).length() > rg.town_radius + 12.0,
 				"Fenda: %s em %s andável e longe do Posto" % [s["monster_id"], str(p)])
-		check(kinds_r.size() == 4, "Fenda: as 4 demônias da Sede nascem lá (%s)" % str(kinds_r.keys()))
+		check(kinds_r.size() == 4, "Fenda: as 4 Veladas nascem lá (%s)" % str(kinds_r.keys()))
 		wr.free()
 
 ## AC-16: HP/ATK/DEF dos monstros 30-45 = fórmula F2 com mod_unidade (±2%); exemplo do Troll 38 = 3283/116/52.
@@ -21614,7 +21657,7 @@ func _check_horde_stats(gd) -> void:
 			"F2: %s (%s %d) = %.0f/%.1f/%.1f (fórmula %.0f/%.1f/%.1f)" % [id, md.stat_role, md.level, md.hp, md.atk, md.def, hp, atk, df])
 		for k in md.unit_mods:
 			# raide de 5 (Durgash, kharzun-fase3-plan D4/§4: ponto de partida hp ×2,4; luta de ~100 s do grupo cheio, decisão do autor 2026-11-13) pode ir a 4,5
-			# raide do Ato III (Eco de Sylvaré, GDD ato3 §4.2: ponto de partida hp ×2,8, TODO WP8b calibrar) idem
+			# raide do Ato III (Eco de Amarante, GDD ato3 §4.2: ponto de partida hp ×2,8, TODO WP8b calibrar) idem
 			# chefes de grupo do Ato III (47-50, WP8b): bots de 50 ascendidos derrubam um chefe ×2 em ~35 s (alvo 90-150 s); a vida
 			# do papel não muda (ACT3_LATE_45 não vale para chefe), então o mod_unidade de vida deles vai a 6,5 (cópia = mesma vida)
 			var top := 4.5 if id in ["boss_durgash", "boss_sylvare_echo", "echo_decoy"] and k == "hp" else 2.0
@@ -26451,6 +26494,115 @@ func _check_act3_quests(gd, sim) -> void:
 ## WP10b (GDD ato3 §5, §2.3, D9, D14): linha principal até o epílogo, estágios L2/L3/L3b/L4 ligam as peças dos JSON, procissão
 ## (leva aliada) só durante o Véu e com rota andável, portões da Fenda/raide citam missões que existem, raide com título e troféu,
 ## Duque e Regente, tela "Fim do Ato III — Parte 1" ligada à entrega do epílogo.
+## WP11 (GDD ato3-excesso-45-50 §3/§5/§8): tier 48 com materiais do Ato III, troféus dos chefes -> joias/capas 50 (épicas, entre
+## a comum 48 e o acessório lendário 50), títulos da raide e da Máscara Partida, Uvas Amargas e Vinho Claro de volta nas
+## missões, Salão do Duque (casa que abre em Lumeria, portão da missão, Joalheira do 48). `--only=act3_rewards`
+func _check_act3_rewards(gd, sim) -> void:
+	var top: int = Balance.COMMON_TIER_LEVELS.size() - 1
+	var act3_mats := ["festim_ribbon", "weeping_porcelain", "bitter_grapes", "herb_blue"]
+	# 1) tier 48: joias/capas e rank de skill com Fita/Porcelana (nada de Kharzun)
+	check(Array(Balance.SKILL_RANK_MATS[top]) == ["festim_ribbon", "weeping_porcelain"], "rank de skill do 48: Fita do Festim e Porcelana Chorosa (%s)" % [Balance.SKILL_RANK_MATS[top]])
+	check(Array(RecipesCatalog.JEWEL_MATS[top]) == ["festim_ribbon", "weeping_porcelain"] and Array(RecipesCatalog.CAPE_MATS[top]) == ["festim_ribbon", "weeping_porcelain"],
+		"joias/capas 48: Fita e Porcelana")
+	for piece in GearCatalog.THEME_PIECES:
+		for theme in GearCatalog.THEMES:
+			var rec: RecipeDef = gd.recipes.get("rec_%s_%s_t%d" % [piece, theme, top])
+			check(rec != null and rec.ingredients.keys().all(func(m): return m in act3_mats), "receita %s_%s 48 só com materiais do Ato III (%s)" % [piece, theme, rec.ingredients if rec else {}])
+	# 2) troféus e joias/capas 50
+	for t in RecipesCatalog.LUMERIA_TROPHIES:
+		var boss: String = RecipesCatalog.LUMERIA_TROPHIES[t]
+		var m: MonsterDef = gd.monsters.get(boss)
+		check(gd.items.has(t) and UiKit.item_texture(gd.items[t]) != null and ResourceLoader.exists("res://assets/icons/art_%s.png" % t), "troféu %s: item e arte" % t)
+		check(m != null and m.is_boss and gd.loot_tables.has(m.loot_table)
+			and gd.loot_tables[m.loot_table].entries.any(func(en): return en["item"] == t and float(en["chance"]) >= 1.0), "troféu %s: %s sempre solta" % [t, boss])
+	var n50 := 0
+	for piece in GearCatalog.THEME_PIECES:
+		for theme in GearCatalog.THEMES:
+			var rid := "rec_%s_%s_l50" % [piece, theme]
+			var rec: RecipeDef = gd.recipes.get(rid)
+			var it: ItemDef = gd.items.get("%s_%s_l50" % [piece, theme])
+			var t6: ItemDef = gd.items.get("%s_%s_t%d" % [piece, theme, top])
+			var k45: ItemDef = gd.items.get("%s_%s_k45" % [piece, theme])
+			check(rec != null and it != null, "Lumeria: receita e item %s" % rid)
+			if rec == null or it == null or t6 == null or k45 == null:
+				continue
+			n50 += 1
+			check(rec.level_req == 50 and it.level_req == 50 and rec.station == ("alchemy" if piece == "cape" else "smith") and rec.result_item == it.id, "%s: nível 50 e estação" % rid)
+			check(rec.ingredients.has(RecipesCatalog.LUMERIA_THEME_TROPHY[theme]) and rec.ingredients.has("festim_ribbon") and rec.ingredients.has("weeping_porcelain"),
+				"%s: fita, porcelana e o troféu do tema" % rid)
+			check(rec.ingredients.has("hostess_fan") == (piece == "cape") and rec.ingredients.has("empty_crown") == (piece == "amulet"),
+				"%s: capa pede o Leque da Anfitriã, amuleto a Coroa Vazia" % rid)
+			var sum := func(x: ItemDef) -> float: return x.attributes.values().reduce(func(a, b): return a + b, 0.0)
+			check(sum.call(it) > sum.call(t6) and sum.call(it) > sum.call(k45) and it.rarity == ItemDef.RARITY_LEGENDARY - 1 and not it.is_legendary(),
+				"%s: épica e mais forte que a 48 e a k45 (%.0f > %.0f, %.0f)" % [rid, sum.call(it), sum.call(t6), sum.call(k45)])
+			check(it.def >= t6.def and it.atk >= t6.atk and it.matk >= t6.matk and float(it.bonus.get("hp_pct", 0)) >= float(t6.bonus.get("hp_pct", 0)), "%s: papel do slot >= o do 48" % rid)
+			check(GearCatalog.craft_only(it) and not sim.gear_pool(top).has(it) and UiKit.item_texture(it) != null, "%s: só pela forja, com ícone" % rid)
+			check(not it.id.begins_with("leg_acc_") and it.class_restriction.is_empty(), "%s: fora dos acessórios lendários (sem classe, id próprio)" % rid)
+	check(n50 == 9, "Lumeria: 9 joias/capas 50 (%d)" % n50)
+	# não dobra com os acessórios lendários 50: o lendário (x LEGENDARY_MULT) segue acima da joia de troféu
+	var leg_ring: ItemDef = gd.items.get("leg_acc_berserker_executor_50_ring")
+	var l50_ring: ItemDef = gd.items.get("ring_guerreiro_l50")
+	if leg_ring and l50_ring:
+		var s_leg: float = leg_ring.attributes.values().reduce(func(a, b): return a + b, 0.0)
+		var s_l50: float = l50_ring.attributes.values().reduce(func(a, b): return a + b, 0.0)
+		check(s_leg > s_l50 and leg_ring.is_legendary(), "anel lendário 50 (%.0f) acima do anel de troféu 50 (%.0f)" % [s_leg, s_l50])
+	var b50: SimEntity = sim.spawn_bot(gd.classes["berserker"], "Joia50", "city_aldara", Vector3(0, 0, 6), 50)
+	check(not b50.equipment.values().any(func(x): return x != null and str(x.id).ends_with("_l50")), "bot 50 não nasce com joia de troféu")
+	sim.despawn(b50)
+	# 3) títulos
+	var p: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Titulos", "city_aldara", Vector3(0, 0, 6), 50)
+	p.brain = null
+	check(gd.quests["hx3_mk_title"].reward_title == "Sem Máscara" and gd.quests["hx3_echo"].reward_title == "Quem Não Dançou", "Ato III: títulos Sem Máscara e Quem Não Dançou")
+	p.quests_completed.append("hx3_mk_title")
+	check(p.honor_title() == "Sem Máscara", "título: a Máscara Partida dá Sem Máscara (%s)" % p.honor_title())
+	p.quests_completed.append("hx3_echo")
+	check(p.honor_title() == "Quem Não Dançou", "título: a raide dá Quem Não Dançou (%s)" % p.honor_title())
+	sim.despawn(p)
+	# 4) Uvas Amargas e Vinho Claro
+	var gq: QuestDef = gd.quests.get("hx3_grapes")
+	check(gq != null and gq.type == QuestDef.Type.COLLECT and gq.target_id == "bitter_grapes" and gq.count == 6 and gq.prereq_quest == "hx3_vines"
+		and gd.quests["hx3_cellars_open"].prereq_quest == "hx3_grapes" and "hx3_grapes" in QuestsCatalog.ACT3_MAIN, "Vinhas: KILL 8 Vinhas e depois COLLECT 6 Uvas Amargas antes da Porta do Lagar")
+	check(MapsCatalog.GATHER["field_perfume"].any(func(g): return g[0] == "bitter_grapes")
+		and gd.loot_tables["lt_thirsty_vine"].entries.any(func(en): return en["item"] == "bitter_grapes"), "Uvas Amargas: colhe-se nas Vinhas e cai da Vinha Sedenta")
+	var wq: QuestDef = gd.quests.get("hx3_vd_wine")
+	var wr: RecipeDef = gd.recipes.get("rec_clear_wine")
+	check(wq != null and wq.type == QuestDef.Type.CRAFT and wq.target_id == "clear_wine" and wq.prereq_quest == "hx3_vd_filter"
+		and QuestsCatalog.ACT3_CHAINS["perfume_distiller"] == "hx3_vd_wine", "Destiladora: a cadeia termina em CRAFT Vinho Claro")
+	check(wr != null and wr.station == "alchemy" and wr.ingredients.has("bitter_grapes") and wr.ingredients.keys().all(func(m): return _dropped_somewhere(gd, m)),
+		"Vinho Claro: receita no caldeirão com materiais que se obtêm")
+	var wine: ItemDef = gd.items.get("clear_wine")
+	check(wine != null and wine.type == ItemDef.Type.CONSUMABLE and is_equal_approx(float(wine.consume.get("mana_pct", 0)), Balance.CLEAR_WINE_MANA_PCT)
+		and Balance.CLEAR_WINE_MANA_PCT > float(gd.items["potion_mp_m"].consume["mana_pct"]), "Vinho Claro: poção forte de MP (%.0f%%)" % (Balance.CLEAR_WINE_MANA_PCT * 100.0))
+	for iid in ["bitter_grapes", "clear_wine"]:
+		check(ResourceLoader.exists("res://assets/icons/art_%s.png" % iid) and UiKit.item_texture(gd.items[iid]) != null, "%s: arte" % iid)
+	check(ItemIcons.art_key(gd.items["clear_wine"]) == "wine" and ItemIcons.art_key(gd.items["bitter_grapes"]) == "grapes", "arte do vinho e das uvas com forma própria")
+	# 5) Salão do Duque
+	var hall: MapDef = gd.maps.get("in_duke_hall")
+	var town: MapDef = gd.maps["city_lumeria"]
+	check(hall != null and hall.interior and hall.parent_map == "city_lumeria" and hall.level_range == Vector2i(45, 50), "Salão do Duque: interior de Lumeria, faixa 45-50")
+	var door: Dictionary = {}
+	for pt in town.portals:
+		if pt["id"] == "door_in_duke_hall":
+			door = pt
+	check(not door.is_empty() and door.get("gate", {}).get("quest", "") == "hx3_duke_hall", "Salão do Duque: porta em Lumeria, fechada até hx3_duke_hall")
+	if not door.is_empty():
+		var seen := _reach(sim, town, town.spawn_point)
+		check(_reached(seen, door["pos"]), "Salão do Duque: porta alcançável a pé da chegada (%s)" % door["pos"])
+		var pl := SimEntity.new()
+		pl.kind = SimEntity.Kind.PLAYER
+		pl.level = 50
+		check(PortalSystem.portal_block_reason(sim, pl, door) != "", "Salão do Duque: trancado antes da missão")
+		pl.quests_completed.append("hx3_duke_hall")
+		check(PortalSystem.portal_block_reason(sim, pl, door) == "", "Salão do Duque: abre com hx3_duke_hall")
+	if hall != null:
+		var jw: Dictionary = {}
+		for n in hall.npcs:
+			if n["id"] == "duke_jeweller":
+				jw = n
+		var shop: Array = jw.get("shop", [])
+		check(jw.get("role", "") == "merchant" and shop.size() == 9 and shop.all(func(i): return gd.items.has(i) and gd.items[i].level_req == 48),
+			"Salão do Duque: Joalheira vende as 9 joias/capas do 48 (%s)" % [shop])
+
 func _check_act3_quests_wp10b(gd, sim) -> void:
 	for qid in ["hx3_cellars", "hx3_mirrors", "hx3_veil_open", "hx3_garden", "hx3_veil", "hx3_epilogue", "hx3_echo", "hx3_choir_boss", "hx3_duke_mirrors", "hx3_duke_hall"]:
 		check(gd.quests.has(qid), "WP10b: missão %s existe" % qid)
@@ -31464,7 +31616,7 @@ func _leg50_has_num(v) -> bool:
 		return false
 	if v is Array:
 		return v.any(func(x): return _leg50_has_num(x))
-	return v is String and v in ["x", "y", "-x", "-y", "icd"]
+	return v is String and v in ["x", "y", "-x", "-y", "icd", "n"]
 
 func _leg50_skills(fx: Dictionary) -> Array:
 	var out: Array = []
@@ -31599,6 +31751,46 @@ func _l50body_rules(gd, sim) -> void:
 	for o in [prey, foe, low]:
 		if sim.entities.has(o.id):
 			sim.despawn(o)
+
+## Adendo §13 linha 15: botas do Ceifador curam por inimigo atingido pelo Giro da Morte, até `max_hits` alvos
+## distintos por lançamento; lançar de novo zera a conta.
+func _check_leg50_spin_cap(gd, sim) -> void:
+	PieceEffects.set_off("")
+	var e := _leg50_dress(gd, sim, "necromancer", "ceifador", ["leg_necromancer_ceifador_50_boots"])
+	var spin: SkillDef = gd.skills["nec_death_spin"]
+	var nums: Dictionary = Balance.LEG50_NUMBERS["ceifador"]["boots"]
+	var cap := int(nums.get("n", 0))
+	var per := maxi(1, int(e.stats.max_hp * float(nums["x"]) / 100.0))
+	check(cap == 5, "leg50 spin: teto de alvos das botas do Ceifador = 5 (%d)" % cap)
+	var mobs: Array = []
+	for i in range(8):
+		var mo: SimEntity = sim.spawn_monster(_leg50_xp_mob(gd), "city_aldara", e.position + Vector3(1.5, 0, 0).rotated(Vector3.UP, i * TAU / 8.0))
+		mo.hp = mo.stats.max_hp * 50.0
+		mobs.append(mo)
+	# 1º Giro: 8 atingidos (e o 1º de novo) curam só 5x
+	e.hp = 1.0
+	PieceEffects.on_cast(sim, e, spin, e.position)
+	for mo: SimEntity in mobs:
+		PieceEffects.on_hit(sim, e, mo, spin, 100)
+	PieceEffects.on_hit(sim, e, mobs[0], spin, 100)
+	var got1 := int(e.hp - 1.0)
+	check(got1 == per * maxi(1, cap), "leg50 spin: 1 Giro em 8 inimigos cura só %d (%d x %d%%); curou %d" % [per * maxi(1, cap), cap, int(nums["x"]), got1])
+	# 2º Giro: a conta zera
+	e.hp = 1.0
+	PieceEffects.on_cast(sim, e, spin, e.position)
+	for mo: SimEntity in mobs:
+		PieceEffects.on_hit(sim, e, mo, spin, 100)
+	var got2 := int(e.hp - 1.0)
+	check(got2 == got1, "leg50 spin: lançar de novo zera a conta (%d -> %d)" % [got1, got2])
+	# outra skill não mexe na conta
+	e.hp = 1.0
+	PieceEffects.on_cast(sim, e, spin, e.position)
+	PieceEffects.on_cast(sim, e, e.basic_skill, e.position)
+	PieceEffects.on_hit(sim, e, mobs[0], spin, 100)
+	check(int(e.hp - 1.0) == per, "leg50 spin: golpe do Giro depois de um básico ainda cura (%d)" % int(e.hp - 1.0))
+	for mo: SimEntity in mobs:
+		sim.despawn(mo)
+	sim.despawn(e)
 
 func _leg50_xp_mob(gd) -> MonsterDef:
 	for mid in gd.monsters:

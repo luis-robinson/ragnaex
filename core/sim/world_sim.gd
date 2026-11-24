@@ -1621,6 +1621,8 @@ func _apply_effects(src: SimEntity, t: SimEntity, effects: Dictionary, power: fl
 		var sdr := 1.0 if CcDrSystem.slow_exempt(src, d) else CcDrSystem.apply(self, t, "slow")       # monstro: retorno decrescente (C7; gelo e canal fora)
 		if sdr > 0.0:
 			t.debuffs.append({"kind": "slow", "remaining": float(d.get("duration", 2)) * t.stats.cc_mult() * sdr, "pct": float(d.get("pct", 30)), "frost": bool(d.get("frost", false))})
+			if d.has("id"):                     # visual próprio do lento (BuffLooks.DEBUFF_LOOKS, ex. Fumo Doce)
+				t.debuffs[t.debuffs.size() - 1]["id"] = str(d["id"])
 	if effects.get("pull") != null and t != src and src.is_hostile_to(t) and not (t.monster_def and t.monster_def.resists_cc()) and not t.is_perched() and maps.has(t.map_id):
 		var gap := float((effects["pull"] as Dictionary).get("gap", Balance.BOSS_PULL_GAP))
 		var to := src.position - t.position

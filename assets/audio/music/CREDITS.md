@@ -20,3 +20,12 @@
 | horda | Orcs Victorious (2024) | Bobjt | https://opengameart.org/content/orcs-victorious |
 | kharzun | War Theme | Spring Spring | https://opengameart.org/content/war-theme |
 | kharzun_citadel | Fantasy Choir 2 (Fantasy Choir: 3 Orchestral Pieces) | cesisco | https://opengameart.org/content/fantasy-choir-3-orchestral-pieces |
+| lumeria | Spooky Waltz (4 Music Box Tracks) | Aureolus_Omicron | https://opengameart.org/content/4-music-box-tracks |
+| lumeria_morning | Morning Sky | Centurion_of_war | https://opengameart.org/content/morning-sky |
+| perfume | Slow Strings Melody | Tozan | https://opengameart.org/content/slower-strings-melody |
+| parade | Children's March Theme | CleytonKauffman | https://opengameart.org/content/childrens-march-theme |
+| rift | Heavenly Loop | isaiah658 | https://opengameart.org/content/heavenly-loop |
+| rift_raid | Kokopelli's Graveyard Theme | CleytonKauffman | https://opengameart.org/content/kokopellis-graveyard-theme |
+| espelhos | Apparitions Ball | Bobjt | https://opengameart.org/content/apparitions-ball |
+| adegas | Death Waltz | northivanastan | https://opengameart.org/content/death-waltz |
+| coro | Fantasy Choir 3 (Fantasy Choir: 3 Orchestral Pieces) | cesisco | https://opengameart.org/content/fantasy-choir-3-orchestral-pieces |

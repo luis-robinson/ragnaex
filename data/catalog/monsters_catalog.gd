@@ -825,7 +825,7 @@ const ACT3_DEMONS := ["veil_dancer", "first_dancer", "silk_hound", "parade_alpha
 	"convert_dancer", "convert_hound", "seductress", "flayer", "veil_singer", "thirst_matriarch"]
 const ACT3_ADDS := ["vine_sprout", "reveler_guest", "chorister_echo", "dancer_escort", "organ_pipe", "standing_mirror",
 	"sense_sight", "sense_hearing", "sense_smell", "sense_taste"]
-## Demônias da Sede (§3.1): monstro -> modelo final (feito pelo blender-modeler) e o substituto de hoje. `thirst_model` escolhe
+## Veladas (§3.1): monstro -> modelo final (feito pelo blender-modeler) e o substituto de hoje. `thirst_model` escolhe
 ## sozinho: com o GLB final em assets/models usa ele, senão o substituto (nada a trocar quando o modelo chegar).
 const ACT3_THIRST := ["seductress", "flayer", "veil_singer", "thirst_matriarch"]
 const THIRST_STANDIN := {"seductress": "mob_elf_fighter", "flayer": "mob_elf_warrior", "veil_singer": "mob_elf_mage", "thirst_matriarch": "mob_elf_warden"}
@@ -853,42 +853,42 @@ static func _act3() -> Array:
 		# ---- Foliões (humanos): Folião Mascarado (básico rápido + taça) → Convertido (vira demônio) → Mestre de Cerimônias (aura) ----
 		{"id": "masked_reveler", "name": "Folião Mascarado", "level": 45, "stat_role": "comum", "unit_mods": {"hp": 1.0, "atk": 1.2}, "faction": F,
 		 "move_speed": 5.0, "attack_range": 2.0, "attack_cooldown": 1.1 * Balance.ACT3_REVELER_COOLDOWN, "attack_startup": 0.3, "xp": 1300, "aggro_range": 10.0, "leash_range": 24.0,
-		 "radius": 0.45, "scale": 1.0, "color": Color(0.5, 0.12, 0.2), "shape": "capsule", "loot_table": "lt_reveler", "gold_min": 60, "gold_max": 120, "model": "mob_bandit",
+		 "radius": 0.45, "scale": 1.0, "color": Color(0.5, 0.12, 0.2), "shape": "capsule", "loot_table": "lt_reveler", "gold_min": 60, "gold_max": 120, "model": "mob_reveler",
 		 "skill_ids": ["mob_goblet_throw"] as Array[String]},
 		# Convertido: ao ganhar alvo vira Bailarino (peso 2) ou Galgo (peso 1); XP/saque/quest pela base (ShiftSystem)
 		{"id": "convert", "name": "Convertido", "level": 47, "stat_role": "comum", "unit_mods": {"hp": 1.0, "atk": 1.15}, "faction": F,
 		 "move_speed": 4.8, "attack_range": 2.0, "attack_cooldown": 1.2, "attack_startup": 0.35, "xp": 1450, "aggro_range": 10.0, "leash_range": 24.0,
-		 "radius": 0.45, "scale": 1.0, "color": Color(0.85, 0.7, 0.72), "shape": "capsule", "loot_table": "lt_convert", "gold_min": 66, "gold_max": 132, "model": "mob_cultist",
+		 "radius": 0.45, "scale": 1.0, "color": Color(0.85, 0.7, 0.72), "shape": "capsule", "loot_table": "lt_convert", "gold_min": 66, "gold_max": 132, "model": "mob_convert",
 		 "shift_forms": [{"form": "convert_dancer", "weight": 2}, {"form": "convert_hound", "weight": 1}], "shift_cast": Balance.ACT3_CONVERT_SHIFT_CAST},
 		{"id": "convert_dancer", "name": "Bailarino", "level": 47, "stat_role": "comum", "unit_mods": {"hp": 1.0, "atk": 1.3}, "demon": true, "faction": F,
 		 "move_speed": 5.6, "attack_range": 2.0, "attack_cooldown": 1.1, "attack_startup": 0.28, "xp": 0, "aggro_range": 10.0, "leash_range": 24.0,
-		 "radius": 0.42, "scale": 1.05, "color": Color(0.94, 0.88, 0.84), "shape": "capsule", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_elf_fighter",
+		 "radius": 0.42, "scale": 1.05, "color": Color(0.94, 0.88, 0.84), "shape": "capsule", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_veil_dancer",
 		 "skill_ids": ["mob_fan_leap", "mob_fan_strikes"] as Array[String]},
 		{"id": "convert_hound", "name": "Galgo", "level": 47, "stat_role": "comum", "unit_mods": {"hp": 0.95, "atk": 1.35}, "demon": true, "faction": F, "shift_stealth": true,
 		 "move_speed": 6.5, "attack_range": 1.8, "attack_cooldown": 1.0, "attack_startup": 0.25, "xp": 0, "aggro_range": 10.0, "leash_range": 24.0,
-		 "radius": 0.5, "scale": 1.1, "color": Color(0.92, 0.88, 0.8), "shape": "box", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_lynx",
+		 "radius": 0.5, "scale": 1.0, "color": Color(0.92, 0.88, 0.8), "shape": "box", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_silk_hound",
 		 "skill_ids": ["mob_silk_bite", "mob_silk_lunge"] as Array[String]},
 		{"id": "ceremony_master", "name": "Mestre de Cerimônias", "level": 47, "stat_role": "elite", "unit_mods": {"hp": 1.6, "atk": 1.5}, "faction": F, "aura": "festim",
 		 "move_speed": 4.4, "attack_range": 2.4, "attack_cooldown": 1.3, "attack_startup": 0.45, "xp": 3200, "aggro_range": 10.0, "leash_range": 26.0,
-		 "radius": 0.7, "scale": 1.4, "color": Color(0.45, 0.1, 0.18), "shape": "capsule", "loot_table": "lt_ceremony_master", "gold_min": 150, "gold_max": 300, "model": "mob_bandit_chief",
+		 "radius": 0.7, "scale": 1.25, "color": Color(0.45, 0.1, 0.18), "shape": "capsule", "loot_table": "lt_ceremony_master", "gold_min": 150, "gold_max": 300, "model": "mob_ceremony_master",
 		 "skill_ids": ["mob_bell_staff", "mob_toast_rally"] as Array[String], "escort": {"id": "masked_reveler", "count": 3}},
 		# ---- Bailarinos do Véu (demônios): três talhos + Salto Leque; o Primeiro Bailarino lidera 2 ----
 		{"id": "veil_dancer", "name": "Bailarino do Véu", "level": 46, "stat_role": "comum", "unit_mods": {"hp": 1.0, "atk": 1.0}, "demon": true, "faction": F,
 		 "move_speed": 5.6, "attack_range": 2.0, "attack_cooldown": 1.1, "attack_startup": 0.28, "xp": 1350, "aggro_range": 10.0, "leash_range": 24.0,
-		 "radius": 0.42, "scale": 1.05, "color": Color(0.94, 0.88, 0.84), "shape": "capsule", "loot_table": "lt_veil_dancer", "gold_min": 62, "gold_max": 124, "model": "mob_elf_fighter",
+		 "radius": 0.42, "scale": 1.05, "color": Color(0.94, 0.88, 0.84), "shape": "capsule", "loot_table": "lt_veil_dancer", "gold_min": 62, "gold_max": 124, "model": "mob_veil_dancer",
 		 "skill_ids": ["mob_fan_leap", "mob_fan_strikes"] as Array[String]},
 		{"id": "first_dancer", "name": "Primeiro Bailarino", "level": 48, "stat_role": "elite", "unit_mods": {"hp": 2.0, "atk": 1.6}, "demon": true, "faction": F,
 		 "move_speed": 5.8, "attack_range": 2.2, "attack_cooldown": 1.1, "attack_startup": 0.3, "xp": 3400, "aggro_range": 11.0, "leash_range": 26.0,
-		 "radius": 0.5, "scale": 1.25, "color": Color(0.96, 0.9, 0.78), "shape": "capsule", "loot_table": "lt_first_dancer", "gold_min": 160, "gold_max": 320, "model": "mob_elf_warden",
+		 "radius": 0.5, "scale": 1.2, "color": Color(0.96, 0.9, 0.78), "shape": "capsule", "loot_table": "lt_first_dancer", "gold_min": 160, "gold_max": 320, "model": "mob_first_dancer",
 		 "skill_ids": ["mob_ribbon_vanish", "mob_first_fan_leap", "mob_first_fan_strikes"] as Array[String], "escort": {"id": "veil_dancer", "count": 2}},
 		# ---- Galgos de Seda (bestas do Véu): matilha de 3 pelo spawner; o Alfa puxa o mais longe e lidera 2 ----
 		{"id": "silk_hound", "name": "Galgo de Seda", "level": 46, "stat_role": "comum", "unit_mods": {"hp": 1.15, "atk": 1.1}, "demon": true, "faction": F,
 		 "move_speed": 6.5, "attack_range": 1.8, "attack_cooldown": 1.0, "attack_startup": 0.25, "xp": 1250, "aggro_range": 11.0, "leash_range": 24.0,
-		 "radius": 0.5, "scale": 1.1, "color": Color(0.92, 0.88, 0.8), "shape": "box", "loot_table": "lt_silk_hound", "gold_min": 56, "gold_max": 112, "model": "mob_lynx",
+		 "radius": 0.5, "scale": 1.0, "color": Color(0.92, 0.88, 0.8), "shape": "box", "loot_table": "lt_silk_hound", "gold_min": 56, "gold_max": 112, "model": "mob_silk_hound",
 		 "skill_ids": ["mob_silk_bite", "mob_silk_lunge"] as Array[String]},
 		{"id": "parade_alpha", "name": "Galgo Alfa do Cortejo", "level": 49, "stat_role": "bruto", "unit_mods": {"hp": 1.4, "atk": 1.1}, "demon": true, "faction": F,
 		 "move_speed": 6.0, "attack_range": 2.2, "attack_cooldown": 1.2, "attack_startup": 0.35, "xp": 2000, "aggro_range": 12.0, "leash_range": 26.0,
-		 "radius": 0.75, "scale": 1.45, "color": Color(0.9, 0.82, 0.6), "shape": "box", "loot_table": "lt_parade_alpha", "gold_min": 80, "gold_max": 160, "model": "mob_dire_wolf",
+		 "radius": 0.75, "scale": 1.3, "color": Color(0.9, 0.82, 0.6), "shape": "box", "loot_table": "lt_parade_alpha", "gold_min": 80, "gold_max": 160, "model": "mob_parade_alpha",
 		 "skill_ids": ["mob_silk_lunge", "mob_ribbon_lash"] as Array[String], "escort": {"id": "silk_hound", "count": 2}},
 		# ---- Coro Ferido (sônicos): Corista atira e recua (kite); Maestro canta o Uníssono e lidera 3 ----
 		{"id": "chorister", "name": "Corista Ferida", "level": 46, "stat_role": "comum", "unit_mods": {"hp": 1.15, "atk": 1.2}, "matk_mult": 1.0, "demon": true, "faction": F, "ranged": true, "kite": true,
@@ -897,24 +897,24 @@ static func _act3() -> Array:
 		 "skill_ids": ["mob_shrill_note"] as Array[String]},
 		{"id": "choir_maestro", "name": "Maestro do Coro", "level": 49, "stat_role": "elite", "unit_mods": {"hp": 2.0, "atk": 1.6}, "matk_mult": 0.6, "demon": true, "faction": F,
 		 "move_speed": 4.8, "attack_range": 2.6, "attack_cooldown": 1.3, "attack_startup": 0.4, "xp": 3600, "aggro_range": 11.0, "leash_range": 26.0,
-		 "radius": 0.55, "scale": 1.3, "color": Color(0.3, 0.22, 0.38), "shape": "capsule", "loot_table": "lt_choir_maestro", "gold_min": 170, "gold_max": 340, "model": "mob_frost_mage",
+		 "radius": 0.55, "scale": 1.25, "color": Color(0.3, 0.22, 0.38), "shape": "capsule", "loot_table": "lt_choir_maestro", "gold_min": 170, "gold_max": 340, "model": "mob_choir_maestro",
 		 "skill_ids": ["mob_baton_thrust", "mob_unison", "mob_shrill_note"] as Array[String], "escort": {"id": "chorister", "count": 3}},     # a última da lista sai primeiro: nota, Uníssono, batuta (WP9: abria no canto e morria sem golpear; batuta primeiro = 44-47%)
 		# ---- Reflexos (espelhos): vida de demônio (o ×0,6 do GDD deixava a luta trivial: band_probe 1,5 s), some no espelho e volta num lampejo ----
 		{"id": "vain_reflection", "name": "Reflexo Vaidoso", "level": 48, "stat_role": "comum", "unit_mods": {"hp": 1.4, "atk": 1.35}, "demon": true, "faction": F,
 		 "move_speed": 5.4, "attack_range": 2.0, "attack_cooldown": 1.1, "attack_startup": 0.28, "xp": 1400, "aggro_range": 10.0, "leash_range": 24.0,
-		 "radius": 0.45, "scale": 1.05, "color": Color(0.82, 0.86, 0.92), "shape": "capsule", "loot_table": "lt_vain_reflection", "gold_min": 64, "gold_max": 128, "model": "mob_ghost",
+		 "radius": 0.45, "scale": 1.05, "color": Color(0.82, 0.86, 0.92), "shape": "capsule", "loot_table": "lt_vain_reflection", "gold_min": 64, "gold_max": 128, "model": "mob_vain_reflection",
 		 "skill_ids": ["mob_mirror_lunge", "mob_mirror_fade"] as Array[String]},
 		# ---- Incensários (névoa): lento e grosso, Fumo Doce que fica no chão ----
 		{"id": "living_censer", "name": "Incensário Vivo", "level": 47, "stat_role": "bruto", "unit_mods": {"hp": 1.4, "atk": 1.0}, "matk_mult": 0.8, "faction": F,
 		 "move_speed": 3.2, "attack_range": 2.4, "attack_cooldown": 1.6, "attack_startup": 0.5, "xp": 1550, "aggro_range": 9.0, "leash_range": 22.0,
-		 "radius": 0.75, "scale": 1.3, "color": Color(0.62, 0.48, 0.25), "shape": "capsule", "loot_table": "lt_living_censer", "gold_min": 66, "gold_max": 132, "model": "mob_golem",
+		 "radius": 0.75, "scale": 1.15, "color": Color(0.62, 0.48, 0.25), "shape": "capsule", "loot_table": "lt_living_censer", "gold_min": 66, "gold_max": 132, "model": "mob_living_censer",
 		 "skill_ids": ["mob_censer_swing", "mob_sweet_smoke"] as Array[String]},
 		# ---- Vinhas (nativas do field_perfume, fora da facção): parada, prende e puxa, regenera 0,3 (0,5 do GDD travou o Sacerdote: band_probe) (fogo/veneno cortam, F3) ----
 		{"id": "thirsty_vine", "name": "Vinha Sedenta", "level": 46, "stat_role": "bruto", "unit_mods": {"hp": 1.6, "atk": 1.0}, "regen": 0.3,
 		 "move_speed": 0.0, "attack_range": 3.0, "attack_cooldown": 1.5, "attack_startup": 0.45, "xp": 1500, "aggro_range": 9.0, "leash_range": 20.0,
 		 "radius": 0.8, "scale": 1.3, "color": Color(0.42, 0.2, 0.4), "shape": "cone", "loot_table": "lt_thirsty_vine", "gold_min": 60, "gold_max": 120, "model": "mob_thirsty_vine",
 		 "skill_ids": ["mob_vine_grasp"] as Array[String]},
-		# ---- Demônias da Sede (§3.1, família principal dos demônios; aprovada 2026-11-23): chifres para trás, véus, sem asas ----
+		# ---- Veladas (§3.1, família principal dos demônios; aprovada 2026-11-23): chifres para trás, véus, sem asas ----
 		# Sem esquiva (D4): some e embosca, recua, salta e atira de longe. `model` = thirst_model (final se o GLB existir).
 		# band_probe 2026-11-23 (12 duelos): Sedutora 1,0/1,05 e Cantora 1,1/1,2 davam 2,9-3,1 s com 4-7% de vida: subiram a vida.
 		{"id": "seductress", "name": "Sedutora", "level": 46, "stat_role": "comum", "unit_mods": {"hp": 1.25, "atk": 1.1}, "demon": true, "faction": F,
@@ -930,7 +930,7 @@ static func _act3() -> Array:
 		 "radius": 0.42, "scale": 1.0, "color": Color(0.92, 0.86, 0.9), "shape": "capsule", "loot_table": "lt_veil_singer", "gold_min": 64, "gold_max": 128, "model": thirst_model("veil_singer"),
 		 "skill_ids": ["mob_veil_lament", "mob_veil_ring"] as Array[String]},
 		# Matriarca: elite do bando (2 Sedutoras + 1 Açoitadora: `escort.ids` por vaga) e aura `sede` (aliados +15% velocidade)
-		{"id": "thirst_matriarch", "name": "Matriarca da Sede", "level": 49, "stat_role": "elite", "unit_mods": {"hp": 2.0, "atk": 1.6}, "demon": true, "faction": F, "aura": "sede",
+		{"id": "thirst_matriarch", "name": "Matriarca Velada", "level": 49, "stat_role": "elite", "unit_mods": {"hp": 2.0, "atk": 1.6}, "demon": true, "faction": F, "aura": "sede",
 		 "move_speed": 5.6, "attack_range": 2.4, "attack_cooldown": 1.15, "attack_startup": 0.32, "xp": 3600, "aggro_range": 11.0, "leash_range": 26.0,
 		 "radius": 0.55, "scale": 1.3, "color": Color(0.96, 0.88, 0.8), "shape": "capsule", "loot_table": "lt_thirst_matriarch", "gold_min": 170, "gold_max": 340, "model": thirst_model("thirst_matriarch"),
 		 "skill_ids": ["mob_matriarch_trail", "mob_matriarch_leap", "mob_matriarch_claws"] as Array[String],
@@ -942,7 +942,7 @@ static func _act3() -> Array:
 	return out
 
 ## Lacaios dos chefes do Ato III (§4; 0 XP, sem saque, números à mão como os do Kharzun). As fases/assinaturas que os
-## chamam são do WP8; pedestais (Eco de Sylvaré) com ~3,5% da vida da raide (F2 chefe 50 × 2,8), auras/skills no WP8.
+## chamam são do WP8; pedestais (Eco de Amarante) com ~3,5% da vida da raide (F2 chefe 50 × 2,8), auras/skills no WP8.
 static func _act3_adds() -> Array:
 	var F := Balance.ACT3_FACTION
 	var add := {"xp": 0, "loot_table": "", "gold_min": 0, "gold_max": 0, "faction": F, "aggro_range": 16.0, "leash_range": 40.0}
@@ -950,11 +950,11 @@ static func _act3_adds() -> Array:
 		{"id": "vine_sprout", "name": "Vinha Sedenta", "level": 47, "hp": 6000, "atk": 110, "def": 60, "mdef": 24, "move_speed": 0.0, "attack_range": 3.0, "attack_cooldown": 1.5, "attack_startup": 0.45,
 		 "radius": 0.8, "scale": 1.0, "color": Color(0.42, 0.2, 0.4), "shape": "cone", "model": "mob_thirsty_vine", "skill_ids": ["mob_vine_grasp"] as Array[String]},
 		{"id": "reveler_guest", "name": "Convidado do Banquete", "level": 47, "hp": 4200, "atk": 100, "def": 28, "mdef": 22, "move_speed": 5.0, "attack_range": 2.0, "attack_cooldown": 0.9, "attack_startup": 0.3,
-		 "radius": 0.45, "scale": 1.0, "color": Color(0.5, 0.12, 0.2), "shape": "capsule", "model": "mob_bandit", "skill_ids": ["mob_goblet_throw"] as Array[String]},
+		 "radius": 0.45, "scale": 1.0, "color": Color(0.5, 0.12, 0.2), "shape": "capsule", "model": "mob_reveler", "skill_ids": ["mob_goblet_throw"] as Array[String]},
 		{"id": "chorister_echo", "name": "Corista do Palco", "level": 48, "hp": 3600, "atk": 90, "matk": 90, "def": 24, "mdef": 30, "ranged": true, "kite": true, "move_speed": 4.8, "attack_range": 9.0, "attack_cooldown": 1.5, "attack_startup": 0.4,
 		 "radius": 0.45, "scale": 1.0, "color": Color(0.82, 0.74, 0.9), "shape": "capsule", "model": "mob_chorister", "skill_ids": ["mob_shrill_note"] as Array[String]},
 		{"id": "dancer_escort", "name": "Primeiro Bailarino", "level": 50, "hp": 6400, "atk": 150, "def": 40, "mdef": 30, "move_speed": 5.8, "attack_range": 2.2, "attack_cooldown": 0.9, "attack_startup": 0.3,
-		 "radius": 0.5, "scale": 1.25, "color": Color(0.96, 0.9, 0.78), "shape": "capsule", "model": "mob_elf_warden", "skill_ids": ["mob_first_fan_leap", "mob_first_fan_strikes"] as Array[String]},
+		 "radius": 0.5, "scale": 1.2, "color": Color(0.96, 0.9, 0.78), "shape": "capsule", "model": "mob_first_dancer", "skill_ids": ["mob_first_fan_leap", "mob_first_fan_strikes"] as Array[String]},
 		# Cópia da Condessa (Máscaras Refletidas, R-F): mesmo nome e modelo; morre com 1 golpe; dano = Balance.SHAZKA_DECOY_DMG
 		{"id": "countess_decoy", "name": "A Condessa Refletida", "level": 49, "stat_role": "chefe", "unit_mods": {"hp": 4.0, "atk": 2.3}, "decoy": true,
 		 "move_speed": 5.2, "attack_range": 2.4, "attack_cooldown": 1.0, "attack_startup": 0.35, "radius": 0.7, "scale": 1.5, "color": Color(0.86, 0.88, 0.96), "shape": "capsule",
@@ -994,8 +994,8 @@ static func _act3_field_bosses() -> Array:
 		 "move_speed": 4.2, "attack_range": 3.0, "attack_cooldown": 1.3, "attack_startup": 0.45, "xp": 6500, "aggro_range": 12.0, "leash_range": 26.0,
 		 "radius": 1.0, "scale": 1.8, "color": Color(0.45, 0.22, 0.42), "shape": "cone", "is_boss": true, "berserk_after": 180, "loot_table": "lt_vindima", "gold_min": 600, "gold_max": 900, "model": "mob_vindima",
 		 "skill_ids": ["mob_vindima_stomp", "mob_vindima_lash", "mob_vindima_grapes", "mob_vindima_press"] as Array[String], "coin_chance": 1.0, "coin_min": 3, "coin_max": 5,
-		 "intro": "(as vinhas do poço se erguem numa saia de folhas; a matrona de cepa sorri com a boca do tonel) Tanta sede... e vocês tão cheios.",
-		 "last_words": "(o tonel racha e o vinho escorre para a névoa) Era só... mais um gole...",
+		 "intro": "(as vinhas do poço se erguem numa saia de folhas; a matrona de cepa sorri com a boca do tonel) Visitas! Tão secas... Venham, a mamãe enche.",
+		 "last_words": "(o tonel racha e o vinho escorre para a névoa) Só... mais um gole... para a mamãe...",
 		 "phases": [{"hp": 0.7, "say": "Brotos! Bebam com a mamãe!", "skills": ["mob_vindima_sprouts"], "ward": 0.4, "summon": {"id": "vine_sprout", "count": 2, "max": 3}},
 			{"hp": 0.35, "say": "(a névoa do poço engrossa, doce e lilás)", "skills": ["mob_vindima_smoke"], "enrage": 1.3}]},
 		# ---- A Prima-Donna do Palco (field_parade, Palco Grande, 48): ritmo (Ária em Três Tempos) ----
@@ -1003,8 +1003,8 @@ static func _act3_field_bosses() -> Array:
 		 "move_speed": 4.8, "attack_range": 2.6, "attack_cooldown": 1.2, "attack_startup": 0.4, "xp": 6700, "aggro_range": 12.0, "leash_range": 26.0,
 		 "radius": 0.8, "scale": 1.4, "color": Color(0.92, 0.84, 0.9), "shape": "capsule", "is_boss": true, "berserk_after": 180, "loot_table": "lt_prima_donna", "gold_min": 620, "gold_max": 920, "model": "mob_prima_donna",
 		 "skill_ids": ["mob_prima_fan", "mob_prima_notes", "mob_prima_forte", "mob_prima_aria"] as Array[String], "coin_chance": 1.0, "coin_min": 3, "coin_max": 5,
-		 "intro": "(os pássaros de porcelana da gaiola-vestido abrem o bico juntos) Silêncio na plateia. Quem não acompanhar o compasso... fica no palco para sempre.",
-		 "last_words": "(a última nota racha a gaiola; os pássaros voam) Bis... ninguém pediu... bis...",
+		 "intro": "(os pássaros de porcelana da gaiola-vestido abrem o bico juntos) Silêncio na plateia. Quem perder o compasso... fica no palco para sempre.",
+		 "last_words": "(a última nota racha a gaiola; os pássaros voam) E o bis...? Ninguém... pediu bis...",
 		 "phases": [{"hp": 0.7, "say": "Coro! Para o palco!", "skills": ["mob_prima_chorus"], "ward": 0.5, "summon": {"id": "chorister_echo", "count": 2, "max": 3, "pick": "far"}},
 			{"hp": 0.3, "say": "O GRANDE FINAL!", "enrage": 1.3}]},
 	]
@@ -1012,7 +1012,7 @@ static func _act3_field_bosses() -> Array:
 ## Ato III — chefes das masmorras, da Fenda e da raide (WP6: só para os spawners dos mapas novos resolverem).
 ## TODO(WP8b): SUBSTITUTOS. Vida/ATK já pela F2 de chefe (GDD §6.2) × unit_mods (H), mas skills = as dos monstros da faixa,
 ## fases mínimas (lacaio 0 XP + fúria), sem assinatura, falas placeholder. A mecânica de verdade (Banquete, Olhar Que Julga,
-## Cânone, Cortejo de Lâminas, Sede Dividida; §4.1) e a calibração em grupo (boss_probe, §4.2) são do WP8b.
+## Cânone, Cortejo de Lâminas, Brinde Dividido; §4.1) e a calibração em grupo (boss_probe, §4.2) são do WP8b.
 ## Modelo: o pretendido (ACT3_WP6_BOSS_MODELS) se o GLB existe, senão o substituto (`act3_boss_model`).
 const ACT3_WP6_BOSSES := ["boss_varo", "boss_countess", "boss_ressoa", "vessaline", "boss_sylvare_echo"]
 const ACT3_WP6_BOSS_MODELS := {"boss_varo": "mob_varo", "boss_countess": "mob_countess", "boss_ressoa": "mob_ressoa", "vessaline": "mob_vessaline", "boss_sylvare_echo": "mob_sylvare_echo"}
@@ -1033,8 +1033,8 @@ static func _act3_wp6_bosses() -> Array:
 		 "gold_min": 620, "gold_max": 920, "model": act3_boss_model("boss_varo"),
 		 "skill_ids": ["mob_varo_cleave", "mob_varo_goblet", "mob_varo_belly", "mob_varo_banquet"] as Array[String],
 		 "coin_chance": 1.0, "coin_min": 3, "coin_max": 5,
-		 "intro": "(placeholder) Mais convidados! Sentem, sentem. Ninguém sai da mesa antes do último brinde.",
-		 "last_words": "(placeholder) A garrafa... ainda tinha um gole...",
+		 "intro": "Mais convidados! Sentem, sentem. Ninguém se levanta da mesa antes do último brinde. E o último brinde nunca chega.",
+		 "last_words": "(o garrafão rola e para) Ainda tinha... um gole...",
 		 "phases": [{"hp": 0.7, "say": "Garçons! Mais cadeiras!", "summon": {"id": "reveler_guest", "count": 3, "max": 3, "at": [[-3.61, -9.32], [7.53, -6.59], [8.76, 4.82]]}},
 			{"hp": 0.35, "say": "(o guardanapo cai) Agora é sério.", "skills": ["mob_varo_smoke_lines"], "enrage": 1.15}]},
 		# A Condessa Refletida (dg_mirrors, 49, grupo de 4; WP8b): Olhar Que Julga (cobertura R-E, verbo "usar cobertura").
@@ -1047,8 +1047,8 @@ static func _act3_wp6_bosses() -> Array:
 		 "skill_ids": ["mob_countess_rapier", "mob_countess_leap", "mob_countess_gaze"] as Array[String],
 		 "cover": {"radius": Balance.ACT3_MIRROR_R, "time": 40.0, "max": 3, "model": "mob_standing_mirror", "fx": "boss_mirror_rise", "skills": []},
 		 "coin_chance": 1.0, "coin_min": 3, "coin_max": 5,
-		 "intro": "(placeholder) Olhem bem. É a última vez que vocês se veem de frente.",
-		 "last_words": "(placeholder) (as duas máscaras racham juntas) Qual de nós... caiu?",
+		 "intro": "Olhem bem para nós. É a última vez que vocês se veem de frente.",
+		 "last_words": "(as duas máscaras racham juntas) Qual de nós... caiu?",
 		 "phases": [{"hp": 0.65, "say": "Tantos rostos... escolham um.", "skills": ["mob_countess_masks"]},
 			{"hp": 0.3, "say": "(os espelhos da sala racham)", "skills": ["mob_countess_shards"], "enrage": 1.3}]},
 		# Mestra Ressoa, a Regente (dg_conservatory, 49, opcional; WP8b): Cânone (marca R-B spread, verbo "espalhar").
@@ -1059,10 +1059,10 @@ static func _act3_wp6_bosses() -> Array:
 		 "gold_min": 660, "gold_max": 980, "model": act3_boss_model("boss_ressoa"),
 		 "skill_ids": ["mob_ressoa_baton", "mob_ressoa_notes", "mob_ressoa_fermata", "mob_ressoa_canon"] as Array[String],
 		 "coin_chance": 1.0, "coin_min": 3, "coin_max": 5,
-		 "intro": "(placeholder) Afinem. O concerto começa quando eu baixar a batuta.",
-		 "last_words": "(placeholder) (os tubos soltam um acorde longo e calam) ...fermata.",
-		 "phases": [{"hp": 0.65, "say": "Órgão!", "ward": 0.6, "summon": {"id": "organ_pipe", "count": 4, "max": 4, "at": [[-7.78, 7.78], [-7.78, -7.78], [7.78, -7.78], [7.78, 7.78]]}},
-			{"hp": 0.3, "say": "Uníssono!", "skills": ["mob_ressoa_unison"], "enrage": 1.3}]},
+		 "intro": "Afinem. O concerto começa quando eu baixar a batuta. E não termina.",
+		 "last_words": "(os tubos soltam um acorde longo e calam) ...fermata.",
+		 "phases": [{"hp": 0.65, "say": "Órgão, entre!", "ward": 0.6, "summon": {"id": "organ_pipe", "count": 4, "max": 4, "at": [[-7.78, 7.78], [-7.78, -7.78], [7.78, -7.78], [7.78, 7.78]]}},
+			{"hp": 0.3, "say": "Todos juntos. Uníssono!", "skills": ["mob_ressoa_unison"], "enrage": 1.3}]},
 		# Vessaline, a Anfitriã do Véu (rift_garden, Pavilhão, 50, CHEFE PRINCIPAL, grupo de 4, D8; WP8b): F1 Cortejo de Lâminas
 		# (assinatura) + leques + Salto Leque (soft); F2 70% 2 Primeiros Bailarinos (ward 0,5); F3 40% Palco Seguro (ilhas fixas do
 		# Pavilhão) + Fumo Doce; F4 15% fúria; berserk 210 s. Calibrado com boss_probe --party=4 (agent-act3-finale.md).
@@ -1071,29 +1071,29 @@ static func _act3_wp6_bosses() -> Array:
 		 "radius": 0.9, "scale": 1.7, "color": Color(0.96, 0.9, 0.9), "shape": "capsule", "is_boss": true, "berserk_after": 210, "loot_table": "lt_vessaline",
 		 "gold_min": 900, "gold_max": 1300, "model": act3_boss_model("vessaline"), "skill_ids": ["mob_first_fan_strikes", "mob_first_fan_leap", "mob_vess_cortege"] as Array[String],
 		 "coin_chance": 1.0, "coin_min": 4, "coin_max": 6,
-		 "intro": "(placeholder) Chegaram tarde. A festa já é vocês.",
-		 "last_words": "(placeholder) (a lágrima dourada escorre) Nunca... ninguém quis ir embora...",
-		 "phases": [{"hp": 0.7, "say": "Primeiros Bailarinos!", "ward": 0.5, "summon": {"id": "dancer_escort", "count": 2, "max": 2}},
+		 "intro": "(a cauda de fitas se abre devagar) Chegaram tarde, queridos. A festa já começou em vocês.",
+		 "last_words": "(a lágrima dourada escorre) Ninguém... nunca quis ir embora... Ela vai sentir falta de vocês.",
+		 "phases": [{"hp": 0.7, "say": "Primeiros Bailarinos, recebam os convidados!", "ward": 0.5, "summon": {"id": "dancer_escort", "count": 2, "max": 2}},
 			{"hp": 0.4, "say": "(as fitas da cauda se abrem) O palco é pequeno para todos. Escolham bem o seu lugar.", "skills": ["mob_vess_stage", "mob_sweet_smoke"]},
-			{"hp": 0.15, "say": "Dancem até o fim!", "enrage": 1.3}]},
-		# O Eco de Sylvaré (rift_heart, RAIDE de 5, 50, D9; WP8b): F1 Sede Dividida (assinatura: marca que alterna dividir/espalhar);
+			{"hp": 0.15, "say": "Fiquem. Fiquem e dancem até o fim!", "enrage": 1.3}]},
+		# O Eco de Amarante (rift_heart, RAIDE de 5, 50, D9; WP8b): F1 Brinde Dividido (assinatura: marca que alterna dividir/espalhar);
 		# F2 70% Os Quatro Sentidos = 4 pedestais nos pontos do JSON (4 fases no mesmo limiar, como os estandartes do Durgash; ward 0,6);
 		# F3 40% 4 cópias + ilhas da sala; F4 15% fúria; berserk ×20 aos 120 s. Dano por gente em BOSS_CROWD_RAID (tabela do Durgash).
-		{"id": "boss_sylvare_echo", "name": "O Eco de Sylvaré", "level": 50, "stat_role": "chefe", "unit_mods": {"hp": 4.5, "atk": 1.6}, "matk_mult": 1.0, "faction": F,
+		{"id": "boss_sylvare_echo", "name": "O Eco de Amarante", "level": 50, "stat_role": "chefe", "unit_mods": {"hp": 4.5, "atk": 1.6}, "matk_mult": 1.0, "faction": F,
 		 "move_speed": 4.4, "attack_range": 2.8, "attack_cooldown": 1.2, "attack_startup": 0.4, "xp": 9500, "aggro_range": 14.0, "leash_range": 40.0,
 		 "radius": 1.0, "scale": 1.25, "color": Color(0.86, 0.84, 0.94), "shape": "capsule", "is_boss": true, "berserk_after": 120, "berserk_mult": 20.0, "loot_table": "lt_sylvare_echo",
 		 "gold_min": 1000, "gold_max": 1500, "model": act3_boss_model("boss_sylvare_echo"), "skill_ids": ["mob_shrill_note", "mob_mirror_lunge", "mob_echo_thirst"] as Array[String],
 		 "coin_chance": 1.0, "coin_min": 5, "coin_max": 8,
-		 "intro": "(placeholder) (a coroa vazia gira devagar; o perfume fala) Vocês vieram provar. Todos vêm.",
-		 "last_words": "(placeholder) (os espelhos do vestido caem um a um) ...sem sede... enfim...",
+		 "intro": "(a coroa vazia gira devagar; o perfume fala) Vocês vieram provar. Todos vêm.",
+		 "last_words": "(os espelhos do vestido caem um a um) Só um eco... A dona da coroa... ainda tem sede...",
 		 "phases": [{"hp": 0.7, "say": "Vejam. Ouçam. Cheirem. PROVEM.", "ward": 0.6, "summon": {"id": "sense_sight", "count": 1, "max": 1, "abs": true, "at": [[8.49, -25.99]]}},
 			{"hp": 0.7, "summon": {"id": "sense_hearing", "count": 1, "max": 2, "abs": true, "at": [[8.49, -9.01]]}},
 			{"hp": 0.7, "summon": {"id": "sense_smell", "count": 1, "max": 3, "abs": true, "at": [[-8.49, -9.01]]}},
 			{"hp": 0.7, "summon": {"id": "sense_taste", "count": 1, "max": 4, "abs": true, "at": [[-8.49, -25.99]]}},
 			{"hp": 0.4, "say": "(os espelhos do vestido se soltam e flutuam) Qual reflexo tem sede?", "skills": ["mob_echo_decoys", "mob_echo_stage"]},
 			{"hp": 0.15, "say": "(o vapor perfumado ferve)", "enrage": 1.3}]},
-		# Cópia do Eco (Reflexos da Sede, R-F): mesmo nome, modelo e vida; morre com 1 golpe; dano = Balance.SHAZKA_DECOY_DMG
-		{"id": "echo_decoy", "name": "O Eco de Sylvaré", "level": 50, "stat_role": "chefe", "unit_mods": {"hp": 4.5, "atk": 1.6}, "faction": F, "decoy": true,
+		# Cópia do Eco (Reflexos do Brinde, R-F): mesmo nome, modelo e vida; morre com 1 golpe; dano = Balance.SHAZKA_DECOY_DMG
+		{"id": "echo_decoy", "name": "O Eco de Amarante", "level": 50, "stat_role": "chefe", "unit_mods": {"hp": 4.5, "atk": 1.6}, "faction": F, "decoy": true,
 		 "move_speed": 4.4, "attack_range": 2.8, "attack_cooldown": 1.2, "attack_startup": 0.4, "xp": 0, "aggro_range": 16.0, "leash_range": 40.0,
 		 "radius": 1.0, "scale": 1.25, "color": Color(0.86, 0.84, 0.94), "shape": "capsule", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": act3_boss_model("boss_sylvare_echo")},
 	]
@@ -1213,15 +1213,15 @@ static func build_loot() -> Array:
 		_lt("lt_choir_maestro", [{"item": "weeping_porcelain", "chance": 0.7, "min": 1, "max": 2}, {"item": "festim_ribbon", "chance": 1.0, "min": 2, "max": 3}, {"item": "elixir_might", "chance": 0.05}]),
 		_lt("lt_vain_reflection", [{"item": "weeping_porcelain", "chance": 0.35}, {"item": "festim_ribbon", "chance": 0.4}, {"item": "potion_mp_m", "chance": 0.1}]),
 		_lt("lt_living_censer", [{"item": "festim_ribbon", "chance": 0.6, "min": 1, "max": 2}, {"item": "weeping_porcelain", "chance": 0.15}, {"item": "elixir_stone", "chance": 0.04}]),
-		_lt("lt_thirsty_vine", [{"item": "festim_ribbon", "chance": 0.4}, {"item": "herb_green", "chance": 0.5, "min": 1, "max": 3}, {"item": "potion_hp_m", "chance": 0.1}]),
+		_lt("lt_thirsty_vine", [{"item": "festim_ribbon", "chance": 0.4}, {"item": "bitter_grapes", "chance": 0.6, "min": 1, "max": 2}, {"item": "herb_green", "chance": 0.5, "min": 1, "max": 3}, {"item": "potion_hp_m", "chance": 0.1}]),
 		# Ato III, chefes de mundo (WP8a): material de tier garantido (Porcelana Chorosa + Fitas); troféu próprio = pendente (§3 não lista)
 		_lt("lt_vindima", [{"item": "weeping_porcelain", "chance": 1.0, "min": 2, "max": 3}, {"item": "festim_ribbon", "chance": 1.0, "min": 4, "max": 6}, {"item": "elixir_might", "chance": 1.0}, {"item": "legend_coin", "chance": 0.3}]),
 		_lt("lt_prima_donna", [{"item": "weeping_porcelain", "chance": 1.0, "min": 2, "max": 3}, {"item": "festim_ribbon", "chance": 1.0, "min": 4, "max": 6}, {"item": "elixir_stone", "chance": 1.0}, {"item": "legend_coin", "chance": 0.3}]),
-		# Ato III WP6 (TODO WP8b: troféu próprio de cada chefe): material de tier garantido
-		_lt("lt_varo", [{"item": "weeping_porcelain", "chance": 1.0, "min": 2, "max": 3}, {"item": "festim_ribbon", "chance": 1.0, "min": 4, "max": 6}, {"item": "elixir_might", "chance": 1.0}, {"item": "legend_coin", "chance": 0.35}]),
-		_lt("lt_countess", [{"item": "weeping_porcelain", "chance": 1.0, "min": 2, "max": 3}, {"item": "festim_ribbon", "chance": 1.0, "min": 4, "max": 6}, {"item": "elixir_stone", "chance": 1.0}, {"item": "legend_coin", "chance": 0.35}]),
-		_lt("lt_ressoa", [{"item": "weeping_porcelain", "chance": 1.0, "min": 2, "max": 3}, {"item": "festim_ribbon", "chance": 1.0, "min": 4, "max": 6}, {"item": "elixir_might", "chance": 1.0}, {"item": "legend_coin", "chance": 0.35}]),
-		_lt("lt_vessaline", [{"item": "weeping_porcelain", "chance": 1.0, "min": 3, "max": 4}, {"item": "festim_ribbon", "chance": 1.0, "min": 5, "max": 8}, {"item": "elixir_might", "chance": 1.0}, {"item": "legend_coin", "chance": 0.6}]),
-		_lt("lt_sylvare_echo", [{"item": "weeping_porcelain", "chance": 1.0, "min": 4, "max": 5}, {"item": "festim_ribbon", "chance": 1.0, "min": 6, "max": 9}, {"item": "elixir_stone", "chance": 1.0}, {"item": "legend_coin", "chance": 1.0, "min": 1, "max": 2}]),
+		# Ato III WP6: troféu do chefe (joias/capas 50, RecipesCatalog.LUMERIA_TROPHIES; WP11) + material de tier garantido
+		_lt("lt_varo", [{"item": "varo_goblet", "chance": 1.0}, {"item": "weeping_porcelain", "chance": 1.0, "min": 2, "max": 3}, {"item": "festim_ribbon", "chance": 1.0, "min": 4, "max": 6}, {"item": "elixir_might", "chance": 1.0}, {"item": "legend_coin", "chance": 0.35}]),
+		_lt("lt_countess", [{"item": "countess_frame", "chance": 1.0}, {"item": "weeping_porcelain", "chance": 1.0, "min": 2, "max": 3}, {"item": "festim_ribbon", "chance": 1.0, "min": 4, "max": 6}, {"item": "elixir_stone", "chance": 1.0}, {"item": "legend_coin", "chance": 0.35}]),
+		_lt("lt_ressoa", [{"item": "broken_baton", "chance": 1.0}, {"item": "weeping_porcelain", "chance": 1.0, "min": 2, "max": 3}, {"item": "festim_ribbon", "chance": 1.0, "min": 4, "max": 6}, {"item": "elixir_might", "chance": 1.0}, {"item": "legend_coin", "chance": 0.35}]),
+		_lt("lt_vessaline", [{"item": "hostess_fan", "chance": 1.0}, {"item": "weeping_porcelain", "chance": 1.0, "min": 3, "max": 4}, {"item": "festim_ribbon", "chance": 1.0, "min": 5, "max": 8}, {"item": "elixir_might", "chance": 1.0}, {"item": "legend_coin", "chance": 0.6}]),
+		_lt("lt_sylvare_echo", [{"item": "empty_crown", "chance": 1.0}, {"item": "weeping_porcelain", "chance": 1.0, "min": 4, "max": 5}, {"item": "festim_ribbon", "chance": 1.0, "min": 6, "max": 9}, {"item": "elixir_stone", "chance": 1.0}, {"item": "legend_coin", "chance": 1.0, "min": 1, "max": 2}]),
 		_lt("lt_dragonling", [{"item": "dragon_scale", "chance": 1.0, "min": 2, "max": 4}, {"item": "golem_core", "chance": 1.0, "min": 1, "max": 2}, {"item": "amulet_golem", "chance": 0.5}, {"item": "elixir_might", "chance": 1.0, "min": 1, "max": 2}, {"item": "crown_spectral", "chance": 0.4}]),
 	]

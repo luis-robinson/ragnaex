@@ -26,6 +26,10 @@ const KINDS := {
 	"bat": {"color": Color(0.5, 0.38, 0.56), "tip": Color(0.27, 0.2, 0.32), "body": Color(0.4, 0.3, 0.38), "span": 0.55, "h": [2.6, 4.6], "w": 1.3, "flap": 7.0, "fly": true,
 		"lit": true, "shadow": true},
 	"moth": {"color": Color(0.98, 0.92, 0.7), "span": 0.18, "h": [0.5, 1.6], "w": 0.9, "flap": 9.0, "fly": true},
+	# Lumeria (Ato III, WP12): pombo cinza-pérola nos telhados (como o corvo, mais claro) e borboleta rosa no Jardim (como a mariposa, maior)
+	"dove": {"color": Color(0.78, 0.78, 0.84), "tip": Color(0.5, 0.5, 0.58), "body": Color(0.7, 0.7, 0.76), "span": 0.6, "h": [4.5, 7.5], "w": 0.8, "flap": 3.6, "fly": true,
+		"lit": true, "shadow": true},
+	"butterfly": {"color": Color(1.0, 0.72, 0.8), "span": 0.26, "h": [0.6, 2.0], "w": 0.7, "flap": 7.0, "fly": true},
 	"crab": {"color": Color(0.9, 0.42, 0.26), "span": 0.4, "h": [0.0, 0.0], "w": 0.0, "flap": 0.0, "fly": false},
 	# galinha (Aldara: cercado do celeiro e fazenda): modelo do Blender (`model`, cor no vértice; tools/blender/life_props.py
 	# `hen`), anda de frente com saltinho e bica o chão parada; 1 draw por grupo
@@ -246,7 +250,7 @@ func _animate(g: Dictionary, delta: float) -> void:
 		var sx := float(k["span"]) * SHADOW_SIZE.x
 		var sz := float(k["span"]) * SHADOW_SIZE.y
 		var flap_hz: float = k["flap"]
-		var erratic: bool = g["kind"] in ["bat", "moth", "ember"]
+		var erratic: bool = g["kind"] in ["bat", "moth", "ember", "butterfly"]
 		for i in beasts.size():
 			var b: Dictionary = beasts[i]
 			b["a"] = float(b["a"]) + float(b["w"]) * delta
