@@ -1099,4 +1099,84 @@ def build_venom_tear(ck, base, mats, style):
     lk.limbs(ck, base, mats, P, M, "leather", ribbon=0.75, boots_m=dark, fist_m=dark)
 
 
-ACT3_SETS = {"ass_l50": build_venom_tear}
+
+#   ass_d50 Duelista = Florete do Espelho: chapéu de aba larga caída de lado (tint2, azul-real) com PLUMA grande de
+#           porcelana e ouro, máscara de baile ESPELHADA (dominó de vidro com aro de ouro, cantos em asa, lágrima), casaca
+#           com botões de vidro, meia-capa de cinco fitas no ombro esquerdo, espelho no ombro direito.
+def build_mirror_foil(ck, base, mats, style):
+    """ass_d50 — Florete do Espelho (Duelista)."""
+    import lumeria_kit as lk
+    import berserker_sets as bs
+    import bpy
+    V = Vector
+    rig, body, b, j = base["rig"], base["body"], base["b"], base["j"]
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, porc, glow, glass = M["t"], M["t2"], M["gold"], M["porc"], M["glow"], M["glass"]
+    leather, dark, ink = M["leather"], M["dark"], M["ink"]
+    hair = bpy.data.materials.get("hair") or t
+    P = "arm_%s_" % style
+    c, r = V(base["head_c"]), b["head"]
+    d = b["depth"]
+    front = -b["chest"] * d - 0.03
+    back = b["chest"] * d + 0.03
+    zc, zn, zw = ck.Z["chest"], ck.Z["neck"], ck.Z["waist"]
+    wf = -b["waist"] * d * 1.22
+    # ---------------- cabeça: cabelo, chapéu de pluma, dominó espelhado ----------------
+    up = V((0.26, 0.05, 1.0)).normalized()
+    h0 = c + V((0, r * 0.02, r * 0.58))
+    head = [ck._shell(P + "head_hair", c + V((0, r * 0.04, r * 0.02)), r * 1.06, 0.3, -0.8, -0.25, 0.04, hair),
+            ck.tube(P + "head_brim", h0, h0 + up * r * 0.08, r * 1.62, r * 1.7, t2, 20),
+            ck.tube(P + "head_brim_rim", h0 + up * r * 0.015, h0 + up * r * 0.06, r * 1.73, r * 1.73, gold, 20),
+            ck.tube(P + "head_crown", h0 + up * r * 0.07, h0 + up * r * 0.62, r * 0.86, r * 0.74, t2, 14),
+            ck.tube(P + "head_hatband", h0 + up * r * 0.1, h0 + up * r * 0.26, r * 0.9, r * 0.88, gold, 14)]
+    pr = h0 + up * r * 0.3 + V((-r * 0.75, -r * 0.3, 0))    # pluma: presa do lado direito, varre para trás e para cima
+    head += [ck.blade(P + "head_plume", pr, pr + V((-r * 0.5, r * 2.0, r * 1.0)), r * 0.85, r * 0.16, porc, (0.4, 0, 1), 0.4),
+             ck.blade(P + "head_plume_gold", pr + V((0, 0, -r * 0.1)), pr + V((-r * 0.75, r * 1.55, r * 0.5)), r * 0.55, r * 0.12, gold, (0.4, 0, 1), 0.4),
+             ck.blade(P + "head_plume_glow", pr + V((0, 0, r * 0.1)), pr + V((-r * 0.2, r * 1.5, r * 1.25)), r * 0.3, r * 0.1, glow, (0.4, 0, 1), 0.4)]
+    head += lk.mirror(ck, P + "head_hat_pin", pr + V((-r * 0.1, -r * 0.05, 0)), r * 0.2, M, facing=(-0.8, -0.6, 0.1))
+    mz = r * 0.05
+    head += [ck.ball(P + "head_domino", 1.0, c + V((0, -r * 0.985, mz)), glass, (r * 0.8, r * 0.17, r * 0.3)),
+             ck.ball(P + "head_domino_frame", 1.0, c + V((0, -r * 0.94, mz)), gold, (r * 0.87, r * 0.15, r * 0.37)),
+             ck.ball(P + "head_tear", r * 0.055, c + V((r * 0.4, -r * 0.95, mz - r * 0.44)), glow, (0.8, 0.6, 2.2)),
+             ck.ball(P + "head_tear_drop", r * 0.08, c + V((r * 0.4, -r * 0.92, mz - r * 0.6)), glow, (1, 0.6, 1.2))]
+    for sx in (-1, 1):
+        head += [ck.ball(P + "head_slit%d" % sx, r * 0.13, c + V((sx * r * 0.36, -r * 1.12, mz)), ink, (1.4, 0.45, 0.5)),
+                 ck.blade(P + "head_wing%d" % sx, c + V((sx * r * 0.7, -r * 0.85, mz)), c + V((sx * r * 1.3, -r * 0.35, mz + r * 0.42)), r * 0.3, r * 0.07, gold, (0, 0, 1), 0.4)]
+    ck._rigid(bs._outward(head), rig, "head")
+    # ---------------- corpo: casaca, botões de vidro, meia-capa de fitas ----------------
+    ck.armor_piece(body, rig, P + "body_coat", "torso", t, 0.014, 0.014, 0.03)
+    ck.armor_piece(body, rig, P + "body_legs", "legs", dark, 0.008, 0.012)
+    chest = [ck.tube(P + "body_collar", V((0, 0, zn - 0.05)), V((0, 0, zn + 0.06)), b["chest"] * 0.62, b["chest"] * 0.72, t2, 14),
+             ck.ball(P + "body_jabot", 0.05, (0, front - 0.015, zn - 0.085), porc, (1.1, 0.5, 1.3)),
+             ck.ball(P + "body_jabot_tear", 0.018, (0, front - 0.04, zn - 0.09), glow, (0.8, 0.6, 1.7))]
+    for sx in (-1, 1):                   # duas fileiras de botões de vidro com engaste de ouro
+        for k in range(3):
+            p = V((sx * b["chest"] * 0.36, front - 0.008 + k * 0.004, zc + 0.06 - k * 0.075))
+            chest += [ck.ball(P + "body_button%d_%d" % (sx, k), 0.021, p + V((0, -0.01, 0)), glass), ck.ball(P + "body_button_set%d_%d" % (sx, k), 0.026, p, gold, (1, 0.4, 1))]
+    ls_ = V(j["shoulder.L"])
+    for k in range(5):                   # meia-capa: cinco fitas do ombro esquerdo, cobrindo o lado e as costas
+        a = math.radians(20 + k * 38)    # 20° (frente-esquerda) a 172° (costas)
+        dv = V((math.sin(a), -math.cos(a), 0))
+        p0 = V((ls_.x * 0.55 + dv.x * 0.07, dv.y * (back - 0.02), zn - 0.03))
+        p1 = V((ls_.x * 0.75 + dv.x * 0.3, dv.y * (back + 0.2) + 0.03, zw - 0.02 - (k % 2) * 0.08))
+        chest.append(lk.silk(ck, P + "body_cape%d" % k, p0, p1, (-dv.y, dv.x, 0), 0.12, 0.18, t2, dv * 0.03, 4))
+    chest += [ck.tube(P + "body_cape_cord", ls_ + V((0.0, -0.1, 0.0)), V((-b["chest"] * 0.7, front + 0.02, zn - 0.07)), 0.012, 0.012, gold, 4)]
+    ck._rigid(bs._outward(chest), rig, "chest")
+    bs._belt(ck, base, P + "body_belt", zw - 0.04, zw + 0.03, 1.2, t2)
+    hips = lk.mirror(ck, P + "body_buckle", (0, wf - 0.018, zw - 0.005), 0.042, M)
+    for sx in (-1, 1):                   # abas da casaca
+        hips.append(lk.silk(ck, P + "body_tail%d" % sx, (sx * 0.07, -wf + 0.01, zw - 0.02), (sx * 0.13, -wf + 0.1, zw - 0.38), (1, 0, 0), 0.13, 0.16, t, (0, 0.03, 0), 3))
+        hips.append(lk.silk(ck, P + "body_skirt%d" % sx, (sx * b["waist"] * 1.18, 0.0, zw - 0.03), (sx * (b["waist"] * 1.18 + 0.06), 0.02, zw - 0.26), (0, 1, 0), 0.16, 0.13, t, (sx * 0.02, 0, 0), 2))
+    ck._rigid(bs._outward(hips), rig, "hips")
+    for s, sx in ((".R", -1), (".L", 1)):
+        tag = s.replace(".", "_")
+        sh = V(j["shoulder" + s])
+        pa = [ck.ball(P + "body_pad" + tag, b["arm"] * 2.2, sh + V((sx * 0.05, 0, 0.02)), t2 if s == ".L" else porc, (1.15, 1.1, 0.6)),
+              ck.tube(P + "body_pad_rim" + tag, sh + V((sx * 0.05, 0, -0.03)), sh + V((sx * 0.05, 0, -0.005)), b["arm"] * 2.5, b["arm"] * 2.4, gold, 12)]
+        if s == ".R":                    # ombro direito (o do florete): espelho virado para cima
+            pa += lk.mirror(ck, P + "body_shoulder_mirror", sh + V((sx * 0.1, 0, 0.1)), 0.1, M, facing=(sx * 0.5, -0.15, 0.85), rays=8)
+        ck._rigid(bs._outward(pa), rig, "upper_arm" + s)
+    lk.limbs(ck, base, mats, P, M, "leather", ribbon=0.4, mirror=True, boots_m=dark, fist_m=porc)
+
+
+ACT3_SETS = {"ass_l50": build_venom_tear, "ass_d50": build_mirror_foil}

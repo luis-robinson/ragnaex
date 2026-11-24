@@ -467,7 +467,7 @@ def conservatory(z, rooms, edges):
 
 
 # ----------------------------------------------------------------------------------------------------------------
-# O Coração do Jardim (rift_heart, raide): limiar e a arena do Eco de Sylvaré
+# O Coração do Jardim (rift_heart, raide): limiar e a arena do Eco de Amarante
 # ----------------------------------------------------------------------------------------------------------------
 PETALS = [(0.96, 0.78, 0.84), (0.98, 0.9, 0.92), (0.86, 0.76, 0.94)]
 

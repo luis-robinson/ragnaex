@@ -1134,4 +1134,92 @@ def build_wandering_lantern(ck, base, mats, style):
     lk.limbs(ck, base, mats, P, M, "leather", ribbon=0.6, boots_m=leather)
 
 
-ACT3_SETS = {"ran_c50": build_wandering_lantern}
+
+#   ran_a50 Atirador = Salva do Último Baile: CARTOLA alta de seda (tint2, petróleo) com fita marfim e duas pontas, óculos
+#           redondos de vidro espelhado com aro de ouro (lágrima pintada sob a lente esquerda), colete com bandoleira de
+#           cartuchos dourados, dragonas de franja, capinha no ombro esquerdo, abas de casaca e lanterna no cinto.
+def build_last_ball_salvo(ck, base, mats, style):
+    """ran_a50 — Salva do Último Baile (Atirador)."""
+    import lumeria_kit as lk
+    import berserker_sets as bs
+    import bpy
+    V = Vector
+    rig, body, b, j = base["rig"], base["body"], base["b"], base["j"]
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, porc, glow, glass = M["t"], M["t2"], M["gold"], M["porc"], M["glow"], M["glass"]
+    leather, dark, ink = M["leather"], M["dark"], M["ink"]
+    hair = bpy.data.materials.get("hair") or t
+    P = "arm_%s_" % style
+    c, r = V(base["head_c"]), b["head"]
+    d = b["depth"]
+    front = -b["chest"] * d - 0.03
+    back = b["chest"] * d + 0.03
+    zc, zn, zw = ck.Z["chest"], ck.Z["neck"], ck.Z["waist"]
+    wf = -b["waist"] * d * 1.22
+    # ---------------- cabeça: cabelo, cartola, óculos espelhados ----------------
+    up = V((0.0, 0.12, 1.0)).normalized()                 # cartola levemente caída para trás
+    h0 = c + V((0, 0, r * 0.6))
+    head = [ck._shell(P + "head_hair", c + V((0, r * 0.04, r * 0.02)), r * 1.06, 0.25, -0.85, -0.25, 0.04, hair),
+            ck.tube(P + "head_brim", h0, h0 + up * r * 0.09, r * 1.42, r * 1.46, t2, 20),
+            ck.tube(P + "head_crown", h0 + up * r * 0.08, h0 + up * r * 1.45, r * 0.8, r * 0.92, t2, 16),
+            ck.tube(P + "head_crown_top", h0 + up * r * 1.45, h0 + up * r * 1.5, r * 0.95, r * 0.9, t2, 16),
+            ck.tube(P + "head_hatband", h0 + up * r * 0.1, h0 + up * r * 0.4, r * 0.84, r * 0.86, t, 16),
+            ck.tube(P + "head_hatband_rim", h0 + up * r * 0.4, h0 + up * r * 0.46, r * 0.875, r * 0.875, gold, 16)]
+    head += lk.mirror(ck, P + "head_hat_mirror", h0 + up * r * 0.72 + V((0, -r * 0.88, 0)), r * 0.2, M, facing=(0, -1, 0.1), rays=6)
+    for sx in (-1, 1):                   # pontas da fita da cartola, para trás
+        p0 = h0 + up * r * 0.25 + V((sx * r * 0.14, r * 0.84, 0))
+        head.append(lk.silk(ck, P + "head_hat_tail%d" % sx, p0, p0 + V((sx * r * 0.5, r * 0.75, -r * 0.85)), (1, 0, 0), r * 0.2, r * 0.3, t, (0, r * 0.12, 0), 3))
+    gz = r * 0.04
+    for sx in (-1, 1):                   # óculos: lente espelhada grande com aro de ouro
+        head += lk.mirror(ck, P + "head_lens%d" % sx, c + V((sx * r * 0.42, -r * 0.99, gz)), r * 0.27, M, facing=(sx * 0.32, -1, 0.0))
+    head += [ck.tube(P + "head_bridge", c + V((-r * 0.16, -r * 1.07, gz)), c + V((r * 0.16, -r * 1.07, gz)), r * 0.045, r * 0.045, gold, 5),
+             ck.tube(P + "head_goggle_strap", c + V((0, r * 0.04, gz - r * 0.05)), c + V((0, r * 0.04, gz + r * 0.07)), r * 1.085, r * 1.085, leather, 18),
+             ck.ball(P + "head_tear", r * 0.055, c + V((r * 0.42, -r * 0.92, gz - r * 0.42)), glow, (0.8, 0.6, 2.2)),
+             ck.ball(P + "head_tear_drop", r * 0.08, c + V((r * 0.42, -r * 0.88, gz - r * 0.58)), glow, (1, 0.6, 1.2))]
+    ck._rigid(bs._outward(head), rig, "head")
+    # ---------------- corpo: colete, bandoleira de cartuchos, casaca ----------------
+    ck.armor_piece(body, rig, P + "body_jerkin", "torso", t, 0.014, 0.014, 0.03)
+    ck.armor_piece(body, rig, P + "body_legs", "legs", leather, 0.008, 0.012)
+    s0, s1 = V((b["chest"] * 0.82, front + 0.03, zn - 0.07)), V((-b["waist"] * 0.92, front - 0.005, zw + 0.07))
+    chest = [ck.tube(P + "body_collar", V((0, 0, zn - 0.06)), V((0, 0, zn + 0.03)), b["chest"] * 0.76, b["chest"] * 0.52, t2, 14),
+             ck.tube(P + "body_strap", s0, s1, 0.03, 0.03, leather, 5),
+             ck.ball(P + "body_cravat", 0.045, (0, front - 0.02, zn - 0.08), porc, (1.2, 0.5, 1.0)),
+             ck.ball(P + "body_cravat_tear", 0.018, (0, front - 0.04, zn - 0.085), glow, (0.8, 0.6, 1.7))]
+    for k in range(6):                   # cartuchos dourados na bandoleira
+        m_ = s0.lerp(s1, 0.16 + k * 0.135) + V((0, -0.032, 0))
+        chest.append(ck.tube(P + "body_shell%d" % k, m_ + V((0, 0, -0.035)), m_ + V((0, 0, 0.035)), 0.014, 0.011, gold, 6))
+    for k in range(3):                   # botões de vidro do colete
+        chest.append(ck.ball(P + "body_button%d" % k, 0.017, (-b["chest"] * 0.28, front - 0.012, zc + 0.07 - k * 0.07), glass))
+    ck._rigid(bs._outward(chest), rig, "chest")
+    bs._belt(ck, base, P + "body_belt", zw - 0.04, zw + 0.03, 1.2, leather)
+    hips = [ck.ball(P + "body_buckle", 0.036, (0, wf - 0.012, zw - 0.005), gold, (1.1, 0.5, 1.1))]
+    for k in range(5):                   # cartuchos no cinto, do lado direito
+        x = -b["waist"] * (0.3 + k * 0.2)
+        y = -math.sqrt(max(0.0, 1.0 - (x / (b["waist"] * 1.26)) ** 2)) * b["waist"] * d * 1.26
+        hips.append(ck.tube(P + "body_belt_shell%d" % k, (x, y - 0.012, zw - 0.045), (x, y - 0.012, zw + 0.03), 0.013, 0.01, gold, 6))
+    hips += lk.lantern(ck, P + "body_hip_lantern", (b["waist"] * 1.32, -0.04, zw - 0.16), 0.06, M, hang=(b["waist"] * 1.22, -0.04, zw - 0.02))
+    for sx in (-1, 1):                   # abas da casaca: longas, atrás
+        hips.append(lk.silk(ck, P + "body_tail%d" % sx, (sx * 0.075, -wf + 0.01, zw - 0.02), (sx * 0.14, -wf + 0.11, zw - 0.42), (1, 0, 0), 0.13, 0.17, t2, (0, 0.03, 0), 3))
+        hips.append(ck.ball(P + "body_tail_button%d" % sx, 0.016, (sx * 0.06, -wf + 0.03, zw - 0.03), gold))
+    ck._rigid(bs._outward(hips), rig, "hips")
+    for s, sx in ((".R", -1), (".L", 1)):                 # dragonas: disco de seda com aro e franja de ouro; capinha na esquerda
+        tag = s.replace(".", "_")
+        sh = V(j["shoulder" + s])
+        pc = sh + V((sx * 0.07, 0, 0.035))
+        rr = b["arm"] * 2.5
+        pa = [ck.ball(P + "body_epaulette" + tag, 1.0, pc, t2, (rr, rr * 1.05, 0.035)),
+              ck.tube(P + "body_epaulette_rim" + tag, pc + V((0, 0, -0.03)), pc + V((0, 0, -0.005)), rr * 1.04, rr * 1.0, gold, 14)]
+        for k in range(7):
+            a = math.radians(-90 + k * 30)
+            o = V((sx * math.cos(a) * rr, math.sin(a) * rr, -0.02))
+            pa.append(ck.tube(P + "body_fringe%d%s" % (k, tag), pc + o, pc + o * 1.08 + V((0, 0, -0.085)), 0.014, 0.01, gold, 4))
+        if s == ".L":
+            for k in range(3):
+                a = math.radians(-50 + k * 50)
+                p0 = sh + V((sx * 0.08, math.sin(a) * 0.1, 0.01))
+                pa.append(lk.silk(ck, P + "body_capelet%d" % k, p0, p0 + V((sx * 0.13, math.sin(a) * 0.16 + 0.03, -0.36)), (0, 1, 0), 0.15, 0.19, t2, (sx * 0.035, 0, 0), 3))
+        ck._rigid(bs._outward(pa), rig, "upper_arm" + s)
+    lk.limbs(ck, base, mats, P, M, "leather", boots_m=leather)
+
+
+ACT3_SETS = {"ran_c50": build_wandering_lantern, "ran_a50": build_last_ball_salvo}

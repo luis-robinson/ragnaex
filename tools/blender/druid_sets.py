@@ -1214,6 +1214,85 @@ def build_parade_gallop(ck, base, mats, style):
     lk.limbs(ck, base, mats, P, M, "leather", bells=True, boots_m=leather)
 
 
+#   dru_b50 Urso = Guarda da Colheita Mascarada: máscara de urso em porcelana (orelhas redondas, focinho curto, lágrima;
+#           também no urso: frm_dru_b50_*), ombros largos de casca envernizada em lajes com aro de ouro, lanternas-cabaça
+#           acesas na cintura e no ombro esquerdo, fitas de seda (tint2, verde-musgo).
+def build_masked_harvest(ck, base, mats, style):
+    """dru_b50 — Guarda da Colheita Mascarada (Urso)."""
+    import lumeria_kit as lk
+    import berserker_sets as bs
+    import elementalist_sets as es
+    V = Vector
+    rig, body, b, j = base["rig"], base["body"], base["b"], base["j"]
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, porc, glow, leather = M["t"], M["t2"], M["gold"], M["porc"], M["glow"], M["leather"]
+    bark = _lum_bark(ck)
+    P = "arm_%s_" % style
+    c, r = V(base["head_c"]), b["head"]
+    d = b["depth"]
+    front = -b["chest"] * d - 0.03
+    back = b["chest"] * d + 0.03
+    zc, zn, zw = ck.Z["chest"], ck.Z["neck"], ck.Z["waist"]
+    wf = -b["waist"] * d * 1.22
+    # ---------------- cabeça: cabelo solto, máscara de urso, coroa de espigas/folhas de ouro, laço ----------------
+    head = es._act2_hair(ck, base, P)
+    head += lk.mask(ck, P + "head_mask", c + V((0, -r * 0.98, -r * 0.02)), r * 0.72, M, kind="bear", tears=(1,), wide=1.28, tear_len=0.3)
+    head.append(ck.tube(P + "head_tie", c + V((0, 0, r * 0.3)), c + V((0, 0, r * 0.46)), r * 1.14, r * 1.1, t2, 18))
+    for k in range(5):                   # folhas largas de ouro e porcelana em leque atrás da faixa (coroa da colheita)
+        a = math.radians(-64 + k * 32)
+        root = c + V((math.sin(a) * r * 0.9, r * 0.4, r * 0.42 + math.cos(a) * r * 0.42))
+        head.append(ck.blade(P + "head_leaf%d" % k, root, root + V((math.sin(a) * r * 0.62, r * 0.3, math.cos(a) * r * 0.62 + r * 0.08)), r * 0.52, r * 0.08, gold if k % 2 == 0 else porc, (math.cos(a), 0, -math.sin(a)), 0.45))
+    for sx in (-1, 1):
+        p0 = c + V((sx * r * 0.1, r * 1.1, r * 0.36))
+        head.append(lk.silk(ck, P + "head_tail%d" % sx, p0, p0 + V((sx * r * 0.5, r * 0.5, -r * 1.3)), (1, 0, 0), r * 0.26, r * 0.36, t2, (0, r * 0.14, 0), 3))
+    ck._rigid(bs._outward(head), rig, "head")
+    # ---------------- corpo: couro claro, gola de seda, colar de cabacinhas, cinto de lanternas-cabaça ----------------
+    ck.armor_piece(body, rig, P + "body_vest", "torso", t, 0.016, 0.014, 0.03)
+    ck.armor_piece(body, rig, P + "body_legs", "legs", leather, 0.008, 0.012)
+    chest = [ck.tube(P + "body_collar", V((0, 0, zn - 0.05)), V((0, 0, zn + 0.015)), b["chest"] * 0.72, b["chest"] * 0.52, t2, 14),
+             ck.ball(P + "body_breast", 1.0, (0, front + 0.02, zc + 0.01), bark, (b["chest"] * 0.7, 0.045, 0.13)),
+             ck.ball(P + "body_breast_rim", 1.0, (0, front + 0.03, zc + 0.01), gold, (b["chest"] * 0.77, 0.035, 0.143)),
+             ck.ball(P + "body_breast_tear", 0.026, (0, front - 0.022, zc + 0.02), glow, (0.8, 0.6, 1.9)),
+             ck.ball(P + "body_back_plate", 1.0, (0, back - 0.01, zc + 0.02), bark, (b["chest"] * 0.8, 0.06, 0.17)),
+             ck.ball(P + "body_back_rim", 1.0, (0, back - 0.022, zc + 0.02), gold, (b["chest"] * 0.87, 0.05, 0.184))]
+    ck._rigid(bs._outward(chest), rig, "chest")
+    bs._belt(ck, base, P + "body_belt", zw - 0.04, zw + 0.03, 1.2, gold)
+    hips = []
+    for k, fx in enumerate((-1.0, -0.55, 0.55, 1.0)):     # lanternas-cabaça penduradas no cinto
+        x = fx * b["waist"] * 1.1
+        y = -math.sqrt(max(0.0, 1.0 - (x / (b["waist"] * 1.27)) ** 2)) * b["waist"] * d * 1.27
+        hips += lk.gourd(ck, P + "body_gourd%d" % k, (x, y - 0.04, zw - 0.13), 0.05 if k in (0, 3) else 0.042, M, hang=(x, y - 0.01, zw - 0.03))
+    for side, y in (("f", wf - 0.02), ("b", -wf + 0.02)):
+        hips.append(ps_banner(ck, P + "body_loin_" + side, y, zw - 0.03, 0.09, 0.28, 0.016, t2))
+    for sx in (-1, 1):
+        p0 = V((sx * b["waist"] * 1.2, 0.03, zw - 0.02))
+        hips.append(lk.silk(ck, P + "body_sash%d" % sx, p0, p0 + V((sx * 0.1, 0.1, -0.34)), (0.3 * sx, 1, 0), 0.08, 0.11, t2, (sx * 0.04, 0, 0), 3))
+    ck._rigid(bs._outward(hips), rig, "hips")
+    for s, sx in ((".R", -1), (".L", 1)):                 # ombros de casca envernizada: três lajes sobrepostas com aro de ouro
+        tag = s.replace(".", "_")
+        sh = V(j["shoulder" + s])
+        pa = []
+        for k in range(3):
+            pc = sh + V((sx * (0.04 + k * 0.075), 0, 0.075 - k * 0.045))
+            pa += [ck.ball(P + "body_bark%d%s" % (k, tag), 1.0, pc, bark, (0.13 - k * 0.008, 0.2 - k * 0.015, 0.07)),
+                   ck.ball(P + "body_bark_rim%d%s" % (k, tag), 1.0, pc + V((0, 0, -0.022)), gold, (0.14 - k * 0.008, 0.212 - k * 0.015, 0.05))]
+        top = sh + V((sx * 0.06, 0, 0.14))
+        if s == ".L":
+            pa += lk.gourd(ck, P + "body_shoulder_gourd", top + V((sx * 0.03, 0, 0.09)), 0.085, M)
+        else:
+            pa += [ck.blade(P + "body_leaf%d" % k, top + V((0, (k - 1) * 0.05, -0.02)), top + V((sx * 0.1, (k - 1) * 0.13, 0.15)), 0.09, 0.02, gold, (0, 1, 0), 0.45) for k in range(3)]
+        for i, sy in enumerate((-1, 1)):
+            p0 = sh + V((sx * 0.22, sy * 0.1, -0.02))
+            pa.append(lk.silk(ck, P + "body_ribbon%d%s" % (i, tag), p0, p0 + V((sx * 0.1, sy * 0.06 + 0.04, -0.32 - i * 0.06)), (1, sy * 0.7, 0), 0.08, 0.11, t2, (sx * 0.04, 0, 0), 3))
+        ck._rigid(bs._outward(pa), rig, "upper_arm" + s)
+    lk.limbs(ck, base, mats, P, M, "leather", ribbon=0.5, boots_m=leather)
+
+
+def _lum_bark(ck):
+    """Casca envernizada (castanho-mel lustroso) do conjunto do Urso."""
+    return ck.mat("m_lum_bark", (0.4, 0.22, 0.1), 0.25)
+
+
 def ps_banner(ck, name, y, top, half_w, length, thick, material):
     import paladin_sets
     return paladin_sets._banner(ck, name, y, top, half_w, length, thick, material)
@@ -1237,6 +1316,10 @@ def form_armor3(ck, lp, arm, kind, style, tint, tint2):
     r = 0.2 * bulk
     back = V((0, 0.0, hip + 0.22 * bulk))
     neck = V((0, -0.5, hip + 0.18))
+    if kind == "bear":
+        _bear_armor3(ck, lk, M, put, P, bulk, hip, hc, tint, tint2)
+        _form_join(ck, lp, arm, groups, style)
+        return
     # cabeça: máscara inclinada sobre a testa e o focinho (orelhas e sorriso lidos de cima), laço na nuca
     put("head", "head", lk.mask(ck, P + "head_mask", hc + V((0, -r * 0.5, r * 0.52)), r * 0.86, M, facing=(0, -0.62, 0.78), kind="wolf", tears=(), wide=1.2))
     put("head", "head", ck.tube(P + "head_tie", hc + V((0, r * 0.3, -r * 0.2)), hc + V((0, r * 0.45, -r * 0.2)), r * 1.0, r * 1.02, tint2, 12))
@@ -1277,6 +1360,11 @@ def form_armor3(ck, lp, arm, kind, style, tint, tint2):
                 put(slot, bone_name, lk.saucers(ck, P + "%s_dish_%s" % (slot, bone_name), pad, leg_r * 1.7, 2, M, 0.04, 0.28, (sx * 0.5, 0, 1), [porc, tint]))
                 p0 = pad + V((sx * 0.1, 0.02, 0.02))
                 put(slot, bone_name, lk.silk(ck, P + "%s_ribbon_%s" % (slot, bone_name), p0, p0 + V((sx * 0.14, 0.3, 0.02)), (0, 0.2, 1), 0.07, 0.1, tint2, (sx * 0.04, 0, 0.03), 3))
+    _form_join(ck, lp, arm, groups, style)
+
+
+def _form_join(ck, lp, arm, groups, style):
+    """Fecha a armadura de animal do 50: normais para fora, uma malha por (slot, osso), presa ao osso."""
     import bmesh
     for (slot, bone_name), objs in groups.items():
         for o in objs:                   # normais para fora (o toon corta a face de trás)
@@ -1290,5 +1378,57 @@ def form_armor3(ck, lp, arm, kind, style, tint, tint2):
         lp.attach(obj, arm, bone_name)
 
 
-ACT3_SETS = {"dru_w50": build_parade_gallop}
-ACT3_FORM = {"dru_w50": "wolf"}          # armadura de animal do nível 50 (form_armor3); Urso/Xamã: ondas 2 e 3
+def _bear_armor3(ck, lk, M, put, P, bulk, hip, hc, tint, tint2):
+    """Urso do nível 50 (dru_b50): máscara de urso em porcelana sobre a testa e o focinho, lajes de casca envernizada com
+    aro de ouro no lombo, coleira de seda com lanternas-cabaça, fitas verde-musgo, braçadeiras de casca nas patas."""
+    V = Vector
+    gold, porc, glow = M["gold"], M["porc"], M["glow"]
+    bark = _lum_bark(ck)
+    r = 0.2 * bulk
+    back = V((0, 0.0, hip + 0.22 * bulk))
+    neck = V((0, -0.5, hip + 0.18))
+    put("head", "head", lk.mask(ck, P + "head_mask", hc + V((0, -r * 0.42, r * 0.56)), r * 0.84, M, facing=(0, -0.6, 0.8), kind="bear", tears=(1,), wide=1.22, tear_len=0.3))
+    put("head", "head", ck.tube(P + "head_tie", hc + V((0, r * 0.32, -r * 0.2)), hc + V((0, r * 0.47, -r * 0.2)), r * 1.02, r * 1.04, tint2, 12))
+    for sx in (-1, 1):
+        p0 = hc + V((sx * r * 0.2, r * 0.62, r * 0.8))
+        put("head", "head", ck.blade(P + "head_bow%d" % sx, p0, p0 + V((sx * r * 0.9, r * 0.5, r * 0.45)), r * 0.7, r * 0.14, tint2, (0, 1, 0.3), 0.55))
+    for k in range(3):                   # lombo: três lajes de casca sobrepostas, da cernelha à anca, com aro de ouro e fita de seda entre elas
+        pc = back + V((0, -0.2 + k * 0.24, 0.035 - k * 0.012))
+        put("body", "body", ck.ball(P + "body_bark%d" % k, 1.0, pc, bark, (0.27 * bulk * (1.0 - k * 0.07), 0.19, 0.075 * bulk)))
+        put("body", "body", ck.ball(P + "body_bark_rim%d" % k, 1.0, pc + V((0, 0, -0.022)), gold, (0.285 * bulk * (1.0 - k * 0.07), 0.2, 0.055 * bulk)))
+    put("body", "body", ck.ball(P + "body_dish", 0.11 * bulk, back + V((0, -0.2, 0.1)), porc, (1.0, 1.1, 0.32)))
+    put("body", "body", ck.ball(P + "body_dish_tear", 0.035, back + V((0, -0.2, 0.14)), glow, (0.7, 1.9, 0.5)))
+    for sx in (-1, 1):
+        put("body", "body", lk.gourd(ck, P + "body_gourd%d" % sx, back + V((sx * 0.33 * bulk, 0.06, -0.1)), 0.075, M, hang=back + V((sx * 0.25 * bulk, 0.06, 0.03))))
+        for i in range(2):
+            p0 = back + V((sx * 0.26 * bulk, 0.2 + i * 0.16, 0.0))
+            put("body", "body", lk.silk(ck, P + "body_ribbon%d_%d" % (sx, i), p0, p0 + V((sx * 0.14, 0.3, -0.12 + i * 0.1)), (0, 0.2, 1), 0.09, 0.13, tint2, (sx * 0.05, 0, 0.04), 3))
+    for k in range(10):                  # coleira de seda: cabacinhas acesas por cima do pescoço, contas de ouro embaixo
+        a = math.tau * k / 10
+        dv = V((math.cos(a), 0, math.sin(a)))
+        p = neck + V((dv.x * 0.2 * bulk, 0, dv.z * 0.17 * bulk + 0.02))
+        put("body", "body", ck.ball(P + "body_collar%d" % k, 0.055, p, tint2, (1, 0.8, 1)))
+        if dv.z > 0.2 and k % 2 == 0:
+            put("body", "body", lk.gourd(ck, P + "body_collar_gourd%d" % k, p + dv * 0.1 + V((0, 0, 0.02)), 0.055, M))
+        elif dv.z > -0.5:
+            put("body", "body", ck.ball(P + "body_collar_bead%d" % k, 0.034, p + dv * 0.06, gold))
+    for slot, legs in (("gloves", ("leg_fr", "leg_fl")), ("boots", ("leg_br", "leg_bl"))):
+        for bone_name in legs:
+            sx = 1 if bone_name.endswith("r") else -1
+            sy = -1 if slot == "gloves" else 1
+            top = V((sx * 0.17 * bulk, sy * 0.36, hip))
+            foot = V((sx * 0.19 * bulk, sy * 0.38, 0.07))
+            leg_r = 0.09 * bulk
+            put(slot, bone_name, ck.tube(P + "%s_band_%s" % (slot, bone_name), top.lerp(foot, 0.48), top.lerp(foot, 0.7), leg_r * 1.24, leg_r * 1.16, bark, 10))
+            put(slot, bone_name, ck.tube(P + "%s_rim_%s" % (slot, bone_name), top.lerp(foot, 0.7), top.lerp(foot, 0.75), leg_r * 1.3, leg_r * 1.3, gold, 10))
+            put(slot, bone_name, ck.ball(P + "%s_tear_%s" % (slot, bone_name), 0.026, top.lerp(foot, 0.58) + V((sx * leg_r * 1.25, 0, 0)), glow, (0.6, 1.0, 1.7)))
+            if slot == "gloves":
+                pad = top + V((sx * 0.03, 0, 0.05))
+                put(slot, bone_name, ck.ball(P + "%s_pad_%s" % (slot, bone_name), 1.0, pad, bark, (leg_r * 1.5, leg_r * 1.9, leg_r * 0.8)))
+                put(slot, bone_name, ck.ball(P + "%s_pad_rim_%s" % (slot, bone_name), 1.0, pad + V((0, 0, -0.02)), gold, (leg_r * 1.62, leg_r * 2.02, leg_r * 0.6)))
+                p0 = pad + V((sx * 0.1, 0.02, 0.0))
+                put(slot, bone_name, lk.silk(ck, P + "%s_ribbon_%s" % (slot, bone_name), p0, p0 + V((sx * 0.14, 0.3, 0.0)), (0, 0.2, 1), 0.08, 0.11, tint2, (sx * 0.04, 0, 0.03), 3))
+
+
+ACT3_SETS = {"dru_w50": build_parade_gallop, "dru_b50": build_masked_harvest}
+ACT3_FORM = {"dru_w50": "wolf", "dru_b50": "bear"}          # armadura de animal do nível 50 (form_armor3); Xamã e ancestrais do Urso: ondas 3 e 4

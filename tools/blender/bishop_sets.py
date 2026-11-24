@@ -1005,4 +1005,75 @@ def build_vigil_lantern(ck, base, mats, style):
     lk.limbs(ck, base, mats, P, M, "cloth", boots_m=porc)
 
 
-ACT3_SETS = {"bis_s50": build_vigil_lantern}
+#   bis_i50 Iluminado = Espelho do Meio-Dia: mitra ALTA e estreita de vidro facetado com arestas de ouro e um espelho
+#           redondo na frente (lágrima pintada), ínfulas de seda (tint2, dourada) caindo pelas costas, espelho redondo com
+#           raios de sol em cada ombro (virado para cima: lê da câmera), manto curto com fitas douradas, máscara pequena.
+def build_noon_mirror(ck, base, mats, style):
+    """bis_i50 — Espelho do Meio-Dia (Iluminado)."""
+    import lumeria_kit as lk
+    import berserker_sets as bs
+    V = Vector
+    rig, body, b, j = base["rig"], base["body"], base["b"], base["j"]
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, porc, glow, glass = M["t"], M["t2"], M["gold"], M["porc"], M["glow"], M["glass"]
+    P = "arm_%s_" % style
+    c, r = V(base["head_c"]), b["head"]
+    d = b["depth"]
+    front = -b["chest"] * d - 0.03
+    back = b["chest"] * d + 0.03
+    zc, zn, zw = ck.Z["chest"], ck.Z["neck"], ck.Z["waist"]
+    wf = -b["waist"] * d * 1.22
+    # ---------------- túnica ----------------
+    ck.armor_piece(body, rig, P + "body_robe", "torso", t, 0.014, 0.014, 0.03)
+    ck.armor_piece(body, rig, P + "body_legs", "legs", porc, 0.008, 0.012)
+    ck.skirt(P + "body_skirt", b, body, rig, t, 0.07, 1.7)
+    bs._belt(ck, base, P + "body_belt", zw - 0.04, zw + 0.035, 1.21, gold)
+    # ---------------- cabeça: touca, mitra de vidro, espelho na frente, ínfulas, máscara ----------------
+    m0, m1, m2 = c + V((0, 0, r * 0.52)), c + V((0, 0, r * 1.6)), c + V((0, 0, r * 2.35))
+    mitre = [ck.tube(P + "head_mitre0", m0, m1, r * 0.95, r * 0.8, glass, 6), ck.tube(P + "head_mitre1", m1, m2, r * 0.8, r * 0.04, glass, 6)]
+    edges = []
+    for k in range(6):                   # arestas de ouro nas quinas das facetas
+        a = math.tau * (k + 0.5) / 6 + math.pi / 2
+        dv = V((math.cos(a), math.sin(a), 0))
+        edges += [ck.tube(P + "head_edge%d_a" % k, m0 + dv * r * 0.96, m1 + dv * r * 0.81, r * 0.045, r * 0.045, gold, 4),
+                  ck.tube(P + "head_edge%d_b" % k, m1 + dv * r * 0.81, m2 + dv * r * 0.04, r * 0.045, r * 0.03, gold, 4)]
+    for o in mitre + edges:              # estreita de frente para trás
+        for v in o.data.vertices:
+            v.co.y = c.y + (v.co.y - c.y) * 0.5
+    head = [ck._shell(P + "head_coif", c, r * 1.09, 0.15, -0.9, -0.7, 0.035, t),
+            ck.tube(P + "head_band", c + V((0, 0, r * 0.46)), c + V((0, 0, r * 0.62)), r * 1.12, r * 1.03, gold, 20),
+            ck.ball(P + "head_finial", r * 0.13, m2 + V((0, 0, r * 0.06)), glow)] + mitre + edges
+    head += lk.mirror(ck, P + "head_mirror", c + V((0, -r * 0.5, r * 1.2)), r * 0.31, M, facing=(0, -1, 0.12), rays=8, tear=True)
+    for sx in (-1, 1):                   # ínfulas: duas fitas largas da base da mitra até o meio das costas
+        p0 = c + V((sx * r * 0.28, r * 1.05, r * 0.5))
+        head += [lk.silk(ck, P + "head_lappet%d" % sx, p0, p0 + V((sx * r * 0.3, r * 0.5, -r * 1.7)), (1, 0, 0), r * 0.3, r * 0.4, t2, (0, r * 0.14, 0), 4),
+                 ck.ball(P + "head_lappet_end%d" % sx, r * 0.09, p0 + V((sx * r * 0.3, r * 0.5, -r * 1.76)), gold)]
+    head += lk.mask(ck, P + "head_mask", c + V((0, -r * 1.0, -r * 0.1)), r * 0.6, M, tears=(1,), wide=1.25, tear_len=0.42)
+    ck._rigid(bs._outward(head), rig, "head")
+    # ---------------- corpo: manto curto com fitas douradas, broche-espelho, estola ----------------
+    cape = ck.tube(P + "body_mantle", V((0, 0, zn - 0.13)), V((0, 0, zn + 0.03)), b["shoulder"] * 1.34, b["chest"] * 0.55, t, 16)
+    hem = ck.tube(P + "body_mantle_hem", V((0, 0, zn - 0.145)), V((0, 0, zn - 0.12)), b["shoulder"] * 1.38, b["shoulder"] * 1.36, gold, 16)
+    for o in (cape, hem):
+        for v in o.data.vertices:
+            v.co.y *= 0.8
+    chest = [cape, hem]
+    chest += lk.mirror(ck, P + "body_brooch", (0, front - 0.05, zn - 0.09), 0.05, M)
+    for k in range(6):                   # fitas douradas do manto: caem da barra, pelas costas e pelos lados
+        a = math.radians(-100 + k * 40)
+        p0 = V((math.sin(a) * b["shoulder"] * 1.25, math.cos(a) * b["shoulder"] * 1.0, zn - 0.12))
+        p1 = p0 + V((math.sin(a) * 0.08, math.cos(a) * 0.1, -0.26 - (k % 2) * 0.07))
+        chest.append(lk.silk(ck, P + "body_fringe%d" % k, p0, p1, (math.cos(a), -math.sin(a), 0), 0.085, 0.1, t2, (0, 0, 0), 3))
+    ck._rigid(bs._outward(chest), rig, "chest")
+    hips = [lk.silk(ck, P + "body_stole%d" % sx, (sx * 0.055, wf - 0.02, zw - 0.02), (sx * 0.08, wf - 0.09, zw - 0.4), (1, 0, 0), 0.09, 0.105, t2, (0, -0.012, 0), 3) for sx in (-1, 1)]
+    hips += lk.mirror(ck, P + "body_buckle", (0, wf - 0.02, zw), 0.045, M)
+    ck._rigid(bs._outward(hips), rig, "hips")
+    for s, sx in ((".R", -1), (".L", 1)):                 # ombros: espelho redondo com raios, virado para cima e para fora
+        tag = s.replace(".", "_")
+        sh = V(j["shoulder" + s])
+        pa = [ck.ball(P + "body_pad" + tag, b["arm"] * 2.3, sh + V((sx * 0.07, 0, 0.0)), porc, (1.15, 1.15, 0.6))]
+        pa += lk.mirror(ck, P + "body_sun" + tag, sh + V((sx * 0.13, 0, 0.1)), 0.115, M, facing=(sx * 0.5, -0.12, 0.86), rays=10)
+        ck._rigid(bs._outward(pa), rig, "upper_arm" + s)
+    lk.limbs(ck, base, mats, P, M, "cloth", boots_m=porc)
+
+
+ACT3_SETS = {"bis_s50": build_vigil_lantern, "bis_i50": build_noon_mirror}

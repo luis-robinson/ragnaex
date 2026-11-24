@@ -722,4 +722,79 @@ def build_feast_end_lantern(ck, base, mats, style):
     lk.limbs(ck, base, mats, P, M, "cloth", boots_m=porc)
 
 
-ACT3_SETS = {"ele_f50": build_feast_end_lantern}
+
+#   ele_g50 Gelo = Espelho da Geada: coroa de sete cristais-espelho em LEQUE (de orelha a orelha, inclinada para trás),
+#           espelho redondo na testa, meia-máscara com lágrima, ombreiras de cacos de vidro, manto de seda (tint2,
+#           branco-azulado) em cinco panos largos pelas costas.
+def build_frost_mirror(ck, base, mats, style):
+    """ele_g50 — Espelho da Geada (Gelo)."""
+    import lumeria_kit as lk
+    import berserker_sets as bs
+    import bpy
+    V = Vector
+    rig, body, b, j = base["rig"], base["body"], base["b"], base["j"]
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, porc, glow, glass = M["t"], M["t2"], M["gold"], M["porc"], M["glow"], M["glass"]
+    leather, dark, ink = M["leather"], M["dark"], M["ink"]
+    hair = bpy.data.materials.get("hair") or t
+    P = "arm_%s_" % style
+    c, r = V(base["head_c"]), b["head"]
+    d = b["depth"]
+    front = -b["chest"] * d - 0.03
+    back = b["chest"] * d + 0.03
+    zc, zn, zw = ck.Z["chest"], ck.Z["neck"], ck.Z["waist"]
+    wf = -b["waist"] * d * 1.22
+    # ---------------- túnica ----------------
+    ck.armor_piece(body, rig, P + "body_robe", "torso", t, 0.014, 0.014, 0.03)
+    ck.armor_piece(body, rig, P + "body_legs", "legs", porc, 0.008, 0.012)
+    ck.skirt(P + "body_skirt", b, body, rig, t, 0.075, 1.72)
+    bs._belt(ck, base, P + "body_belt", zw - 0.04, zw + 0.035, 1.21, t2)
+    # ---------------- cabeça: cabelo solto, aro, leque de cristais, espelho na testa, meia-máscara ----------------
+    head = _act2_hair(ck, base, P)
+    head.append(ck.tube(P + "head_ring", c + V((0, 0, r * 0.5)), c + V((0, 0, r * 0.66)), r * 1.1, r * 1.01, gold, 20))
+    for k in range(7):
+        a = math.radians(-81 + k * 27)
+        q = abs(k - 3) / 3.0
+        dv = V((math.sin(a), 0.38, math.cos(a))).normalized()
+        root = c + V((math.sin(a) * r * 0.82, r * 0.12, r * 0.42 + math.cos(a) * r * 0.5))
+        ln = r * (1.55 - 0.55 * q)
+        wd = V((math.cos(a), 0, -math.sin(a)))
+        head += [ck.blade(P + "head_crystal%d" % k, root, root + dv * ln, r * 0.46, r * 0.12, glass, wd, 0.3),
+                 ck.blade(P + "head_crystal_back%d" % k, root + V((0, r * 0.07, 0)), root + V((0, r * 0.07, 0)) + dv * ln * 0.8, r * 0.6, r * 0.07, gold, wd, 0.3)]
+        if k < 6:                        # lasca curta acesa entre dois cristais
+            a2 = math.radians(-81 + (k + 0.5) * 27)
+            r2 = c + V((math.sin(a2) * r * 0.86, r * 0.02, r * 0.42 + math.cos(a2) * r * 0.54))
+            head.append(ck.blade(P + "head_shard%d" % k, r2, r2 + V((math.sin(a2), 0.3, math.cos(a2))).normalized() * r * 0.5, r * 0.18, r * 0.08, glow, (math.cos(a2), 0, -math.sin(a2)), 0.35))
+    head += lk.mirror(ck, P + "head_brow_mirror", c + V((0, -r * 0.93, r * 0.62)), r * 0.2, M, facing=(0, -1, 0.5))
+    head += lk.mask(ck, P + "head_mask", c + V((0, -r * 0.97, -r * 0.1)), r * 0.52, M, tears=(-1,), wide=1.5, tall=0.62, tear_len=0.42, eye_z=-0.08)
+    ck._rigid(bs._outward(head), rig, "head")
+    # ---------------- corpo: gola de ouro, broche-espelho, manto em panos ----------------
+    chest = [ck.tube(P + "body_collar", V((0, 0, zn - 0.07)), V((0, 0, zn + 0.02)), b["chest"] * 0.82, b["chest"] * 0.52, gold, 16)]
+    chest += lk.mirror(ck, P + "body_brooch", (0, front - 0.03, zn - 0.09), 0.05, M, tear=True)
+    ck._rigid(bs._outward(chest), rig, "chest")
+    mantle = []
+    for k in range(5):                   # manto: cinco panos largos da gola até a barriga da perna (pesos do corpo)
+        q = (k - 2) / 2.0
+        p0 = V((q * b["chest"] * 0.95, back + 0.02 - abs(q) * 0.07, zn - 0.04))
+        p1 = V((q * 0.5, back + 0.34 - abs(q) * 0.14, 0.2 + abs(q) * 0.16))
+        mantle.append(lk.silk(ck, P + "body_mantle%d" % k, p0, p1, (1, -q * 0.5, 0), 0.15, 0.24, t2, (0, 0.05, 0), 6, 0.016))
+    lk.skinned(ck, base, bs._outward(mantle))
+    stole = [lk.silk(ck, P + "body_stole%d" % sx, (sx * 0.06, wf - 0.022, zw - 0.02), (sx * 0.085, wf - 0.1, zw - 0.4), (1, 0, 0), 0.09, 0.11, t2, (0, -0.012, 0), 3) for sx in (-1, 1)]
+    stole += lk.mirror(ck, P + "body_buckle", (0, wf - 0.02, zw), 0.042, M)
+    ck._rigid(bs._outward(stole), rig, "hips")
+    for s, sx in ((".R", -1), (".L", 1)):                 # ombreiras de vidro: pires de porcelana com cinco cacos em pé, abrindo para fora
+        tag = s.replace(".", "_")
+        sh = V(j["shoulder" + s])
+        pc = sh + V((sx * 0.09, 0, 0.0))
+        pa = lk.saucers(ck, P + "body_dish" + tag, pc, b["arm"] * 2.7, 1, M, 0.05, 0.2, (sx * 0.4, 0, 1), [porc])
+        for k in range(5):
+            a = math.radians(-70 + k * 35)
+            root = pc + V((sx * 0.02, math.sin(a) * 0.07, 0.03))
+            tip = root + V((sx * (0.12 + math.cos(a) * 0.14), math.sin(a) * 0.17, 0.2 - abs(k - 2) * 0.045))
+            pa.append(ck.blade(P + "body_glass%d%s" % (k, tag), root, tip, 0.11, 0.035, glass if k % 2 == 0 else gold, (-math.sin(a), sx * math.cos(a), 0), 0.35))
+        pa.append(ck.ball(P + "body_glass_core" + tag, 0.04, pc + V((sx * 0.03, 0, 0.08)), glow, (1, 1, 1.3)))
+        ck._rigid(bs._outward(pa), rig, "upper_arm" + s)
+    lk.limbs(ck, base, mats, P, M, "cloth", boots_m=porc)
+
+
+ACT3_SETS = {"ele_f50": build_feast_end_lantern, "ele_g50": build_frost_mirror}

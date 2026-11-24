@@ -1,4 +1,4 @@
-"""Ato III, parte 1 (45-50) — Demônias da Sede (design/gdd/ato3-excesso-45-50.md §3.1 e §4): a família demoníaca principal
+"""Ato III, parte 1 (45-50) — Veladas (design/gdd/ato3-excesso-45-50.md §3.1 e §4): a família demoníaca principal
 da Avenida do Cortejo e da Fenda. Uma base de corpo comum (`demoness`: porcelana marfim esguia, pernas compridas, máscara
 branca lisa com UMA lágrima pintada, capuz-véu, chifres lisos PARA TRÁS em ouro velho, véus rosa-pó em camadas) com as
 variantes em KINDS. Sem asas, sem cauda de demônio, sem chifre para cima/frente: a silhueta é chifre para trás + véus.
@@ -6,7 +6,7 @@ variantes em KINDS. Sem asas, sem cauda de demônio, sem chifre para cima/frente
   mob_seductress        Sedutora (46): chifres médios, dois véus compridos nas costas, saia de pontas aberta na frente, garras de ouro
   mob_flayer            Açoitadora (47): mais alta, chifres longos, véu-capa de duas camadas, chicote de fitas-lâmina na mão direita
   mob_veil_singer       Cantora do Véu (48): véu do rosto até o peito (a lágrima pintada no véu), chifres curtos, mãos abertas acesas
-  mob_thirst_matriarch  Matriarca da Sede (49, elite): mais larga, chifres grandes com argolas, coroa de fitas, pires nos ombros,
+  mob_thirst_matriarch  Matriarca Velada (49, elite): mais larga, chifres grandes com argolas, coroa de fitas, pires nos ombros,
                         cauda de véus que arrasta no chão
   mob_vessaline         Vessaline (chefe, 50): a mais alta, rosto liso (sem olhos) com a lágrima DOURADA, pente de ouro, vestido
                         inteiro e a cauda de fitas-lâmina (TAIL_LEN m no modelo; com `scale` 1,8 no catálogo = ~6 m no jogo)

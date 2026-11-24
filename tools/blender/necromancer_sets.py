@@ -789,4 +789,87 @@ def build_porcelain_cortege(ck, base, mats, style):
                                ck.ball(P + "boots_tear" + tag, 0.02, an + V((0, -0.088, 0.075)), glow, (0.7, 0.6, 1.5))]), rig, "shin" + s)
 
 
-ACT3_SETS = {"nec_i50": build_porcelain_cortege}
+
+#   nec_c50 Ceifador = Colheita do Último Brinde: capuz RASGADO de seda (tint2, borra de vinho) com bico caído e farrapos
+#           pendendo da barra, máscara de porcelana SEM boca com uma lágrima, GOLA ALTA de taças quebradas (cacos de vidro
+#           e ouro abrindo em volta do pescoço, lidos de cima), taça derramando no ombro, barra da túnica em farrapos.
+def build_last_toast_harvest(ck, base, mats, style):
+    """nec_c50 — Colheita do Último Brinde (Ceifador)."""
+    import lumeria_kit as lk
+    import berserker_sets as bs
+    import bpy
+    V = Vector
+    rig, body, b, j = base["rig"], base["body"], base["b"], base["j"]
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, porc, glow, glass = M["t"], M["t2"], M["gold"], M["porc"], M["glow"], M["glass"]
+    leather, dark, ink = M["leather"], M["dark"], M["ink"]
+    hair = bpy.data.materials.get("hair") or t
+    P = "arm_%s_" % style
+    c, r = V(base["head_c"]), b["head"]
+    d = b["depth"]
+    front = -b["chest"] * d - 0.03
+    back = b["chest"] * d + 0.03
+    zc, zn, zw = ck.Z["chest"], ck.Z["neck"], ck.Z["waist"]
+    wf = -b["waist"] * d * 1.22
+    import paladin_sets as ps
+    # ---------------- túnica ----------------
+    ck.armor_piece(body, rig, P + "body_robe", "torso", t, 0.014, 0.014, 0.03)
+    ck.armor_piece(body, rig, P + "body_legs", "legs", dark, 0.008, 0.012)
+    ck.skirt(P + "body_skirt", b, body, rig, t, 0.09, 1.7)
+    bs._belt(ck, base, P + "body_belt", zw - 0.04, zw + 0.035, 1.21, gold)
+    # ---------------- cabeça: capuz rasgado, máscara sem boca ----------------
+    k0, k1 = c + V((0, r * 0.25, r * 0.7)), c + V((0, r * 1.25, r * 0.95))
+    head = [ck._shell(P + "head_hood", c, r * 1.14, 0.42, -0.9, -0.62, 0.04, t2),
+            ck.tube(P + "head_peak", k0, k1, r * 0.8, r * 0.12, t2, 10),
+            ck.tube(P + "head_hood_trim", c + V((0, -r * 0.2, r * 0.44)), c + V((0, -r * 0.2, r * 0.52)), r * 1.14, r * 1.1, gold, 18)]
+    for k in range(9):                   # farrapos: tiras desiguais pendendo da barra do capuz, dos lados e atrás
+        a = math.radians(70 + k * 27.5)  # 70° (lado esquerdo) a 290° (lado direito), passando pela nuca
+        dv = V((math.sin(a), -math.cos(a), 0))
+        root = c + dv * r * 1.1 + V((0, 0, -r * 0.5))
+        ln = r * (0.75 + 0.5 * ((k * 7) % 4) / 3.0)
+        head.append(ck.blade(P + "head_tatter%d" % k, root, root + dv * r * 0.22 + V((0, 0, -ln)), r * 0.42, r * 0.06, t2, (-dv.y, dv.x, 0), 0.3))
+    head += lk.mask(ck, P + "head_mask", c + V((0, -r * 1.03, -r * 0.08)), r * 0.76, M, tears=(-1,), wide=1.16, tall=1.04, tear_len=0.7, eye_z=0.22)
+    ck._rigid(bs._outward(head), rig, "head")
+    # ---------------- corpo: gola de taças quebradas, corrente de taças, farrapos na barra ----------------
+    chest = [ck.tube(P + "body_collar", V((0, 0, zn - 0.08)), V((0, 0, zn + 0.0)), b["chest"] * 0.86, b["chest"] * 0.6, gold, 16)]
+    n = 11
+    for k in range(n):                   # cacos: abrem para fora e para cima, de ombro a ombro pela nuca (a frente fica livre)
+        a = math.radians(48 + k * 26.4)
+        dv = V((math.sin(a), -math.cos(a) * 0.9, 0))
+        root = dv * b["chest"] * 0.72 + V((0, 0, zn - 0.03))
+        tip = dv * (r * (1.5 + 0.2 * (k % 2))) + V((0, 0, zn + 0.2 + 0.05 * ((k * 5) % 3)))
+        chest.append(ck.blade(P + "body_shard%d" % k, root, tip, 0.17, 0.026, glass if k % 2 == 0 else gold, (-dv.y, dv.x, 0), 0.6))
+    a0, a1 = V((-b["chest"] * 0.8, front + 0.02, zn - 0.09)), V((b["chest"] * 0.8, front + 0.02, zn - 0.09))
+    chest += ps._chain(ck, P + "body_chain", a0, a1, 0.12, gold, 8, 0.012)
+    for k in range(3):
+        q = 0.25 + k * 0.25
+        chest += lk.goblet(ck, P + "body_cup%d" % k, a0.lerp(a1, q) + V((0, -0.05, -0.12 * math.sin(math.pi * q) - 0.005)), 0.042, M)
+    ck._rigid(bs._outward(chest), rig, "chest")
+    hips = lk.mask(ck, P + "body_buckle", (0, wf - 0.02, zw - 0.005), 0.055, M, tears=(-1,), tear_len=0.4)
+    for k in range(10):                  # farrapos de seda caindo do cinto, em volta da saia
+        a = math.tau * (k + 0.5) / 10
+        dv = V((math.cos(a), math.sin(a) * d * 1.05, 0))
+        p0 = dv * b["waist"] * 1.25 + V((0, 0, zw - 0.04))
+        ln = 0.2 + 0.14 * ((k * 3) % 4) / 3.0
+        hips.append(ck.blade(P + "body_rag%d" % k, p0, p0 + dv * ln * 0.45 + V((0, 0, -ln)), 0.13, 0.016, t2, (-math.sin(a), math.cos(a), 0), 0.3))
+    ck._rigid(bs._outward(hips), rig, "hips")
+    for s, sx in ((".R", -1), (".L", 1)):                 # ombros: manta rasgada; no direito, taça grande derramando vinho aceso
+        tag = s.replace(".", "_")
+        sh = V(j["shoulder" + s])
+        pa = [ck.ball(P + "body_pad" + tag, b["arm"] * 2.5, sh + V((sx * 0.06, 0, 0.02)), t2, (1.2, 1.2, 0.6))]
+        for k in range(4):
+            a = math.radians(-70 + k * 47)
+            p0 = sh + V((sx * (0.06 + math.cos(a) * 0.12), math.sin(a) * 0.13, 0.0))
+            pa.append(ck.blade(P + "body_shred%d%s" % (k, tag), p0, p0 + V((sx * math.cos(a) * 0.08, math.sin(a) * 0.07, -0.2 - (k % 2) * 0.09)), 0.11, 0.016, t2, (-math.sin(a), sx * math.cos(a), 0), 0.3))
+        if s == ".R":
+            top = sh + V((sx * 0.2, 0, 0.24))
+            pa += lk.goblet(ck, P + "body_shoulder_cup", top, 0.11, M)
+            pa += [ck.ball(P + "body_spill0", 0.03, top + V((sx * 0.085, -0.02, -0.03)), glow, (0.8, 0.8, 1.8)),
+                   ck.ball(P + "body_spill1", 0.036, top + V((sx * 0.1, -0.02, -0.12)), glow, (1, 1, 1.3))]
+        else:
+            pa += lk.mask(ck, P + "body_shoulder_mask", sh + V((sx * 0.17, -0.02, 0.1)), 0.13, M, facing=(sx * 0.6, -0.3, 0.74), eyes=False, tears=(sx,), tear_len=0.45)
+        ck._rigid(bs._outward(pa), rig, "upper_arm" + s)
+    lk.limbs(ck, base, mats, P, M, "cloth", boots_m=dark)
+
+
+ACT3_SETS = {"nec_i50": build_porcelain_cortege, "nec_c50": build_last_toast_harvest}

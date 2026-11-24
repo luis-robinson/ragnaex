@@ -35,7 +35,7 @@ const SLOT_ART := {ItemDef.Slot.HEAD: "head", ItemDef.Slot.BODY: "body", ItemDef
 	ItemDef.Slot.BOOTS: "boots", ItemDef.Slot.CAPE: "cape", ItemDef.Slot.AMULET: "amulet", ItemDef.Slot.RING: "ring",
 	ItemDef.Slot.RING2: "ring", ItemDef.Slot.ACCESSORY: "ring"}
 ## material: palavra no id -> arte (o primeiro que bater)
-const MATERIAL_ART := [["legend_coin", "legend_coin"], ["honey", "sap"], ["stinger", "tusk"], ["shell", "shell"], ["mushroom", "mushroom"], ["relic", "relic"], ["basket", "basket"],
+const MATERIAL_ART := [["goblet", "goblet"], ["frame", "frame"], ["baton", "baton"], ["_fan", "fan"], ["grapes", "grapes"], ["legend_coin", "legend_coin"], ["honey", "sap"], ["stinger", "tusk"], ["shell", "shell"], ["mushroom", "mushroom"], ["relic", "relic"], ["basket", "basket"],
 	["letter", "letter"], ["report", "letter"], ["star_ore", "star"], ["goods", "basket"], ["gel", "gel"], ["pelt", "pelt"], ["hide", "pelt"], ["tusk", "tusk"], ["fang", "tusk"], ["herb", "herb"],
 	["ore", "ore"], ["silk", "silk"], ["bark", "bark"], ["badge", "badge"], ["bone", "bone"], ["dust", "dust"],
 	["essence", "essence"], ["core", "core"], ["scale", "scale"], ["feather", "feather"], ["steel", "ingot"], ["sap", "sap"], ["heartwood", "bark"], ["_log", "bark"], ["ribbon", "silk"], ["porcelain", "shell"], ["crown", "crown"]]
@@ -63,6 +63,8 @@ static func art_key(it: ItemDef) -> String:
 			return "bag"
 		if it.id.begins_with("elixir"):
 			return "elixir"
+		if it.id.contains("wine"):
+			return "wine"
 		return "potion_m" if it.id.ends_with("_m") or it.id.ends_with("_l") else "potion_s"
 	if it.type == ItemDef.Type.QUEST:
 		return "letter"
@@ -1184,6 +1186,79 @@ func _a_crown() -> void:
 		_dot(g[0], g[1], 0.09, Color(0.95, 0.72, 0.8))
 	_dot(0.0, 0.46, 0.08, Color(0.95, 0.72, 0.8))
 	_shine(-0.5, 0.0, 0.14, 0.06, 0.55)
+
+func _a_goblet() -> void:
+	# Taça de Varo: cálice dourado com vinho escuro na boca, haste fina e pé largo
+	_poly([-0.62, -0.78, 0.62, -0.78, 0.5, -0.24, 0.22, 0.06, -0.22, 0.06, -0.5, -0.24], "gold", 0.06, 0.16)
+	_ell(0, -0.78, 0.62, 0.14, "tint", 0.045)
+	_ell(-0.08, -0.8, 0.36, 0.07, _tint.lightened(0.3), 0.0)
+	_poly([-0.09, 0.04, 0.09, 0.04, 0.1, 0.62, -0.1, 0.62], "gold", 0.045, 0.05)
+	_ell(0, 0.28, 0.16, 0.08, "gold", 0.035)
+	_poly([-0.56, 0.86, -0.32, 0.6, 0.32, 0.6, 0.56, 0.86], "gold", 0.05, 0.08)
+	_dot(0.0, -0.36, 0.09, _tint.lightened(0.15))
+	_shine(-0.36, -0.5, 0.08, 0.16, 0.7)
+
+func _a_frame() -> void:
+	# Moldura da Condessa: moldura oval dourada com volutas e o vão vazio (escuro) no meio
+	_ell(0, 0, 0.74, 0.9, "tint")
+	_ell(0, 0, 0.5, 0.66, INK, 0.0)
+	_ell(0, 0, 0.44, 0.6, Color(0.24, 0.22, 0.3), 0.0)
+	_mark(_arc(0, 0, 0.32, PI * 1.15, PI * 1.45, 8), Color(1, 1, 1, 0.35), 0.05)
+	for q in [[0.0, -0.9], [0.0, 0.9], [-0.74, 0.0], [0.74, 0.0]]:
+		_circ(q[0], q[1], 0.13, "gold")
+	_dot(0.0, -0.9, 0.05, Color(0.95, 0.72, 0.8))
+	_shine(-0.46, -0.52, 0.1, 0.05, 0.6)
+
+func _a_baton() -> void:
+	# Batuta Partida: cabo escuro com anel de ouro e a vara clara quebrada em dois pedaços (ponta lascada)
+	_poly([-0.92, 0.7, -0.62, 0.42, -0.3, 0.74, -0.6, 1.0], "darkwood", 0.055, 0.1)
+	_poly([-0.66, 0.4, -0.56, 0.3, -0.24, 0.62, -0.34, 0.72], "gold", 0.04, 0.05)
+	_poly([-0.58, 0.32, -0.46, 0.2, 0.06, -0.12, 0.0, 0.02, 0.12, 0.08, -0.3, 0.6], "tint", 0.05, 0.1)
+	_poly([0.2, -0.2, 0.3, -0.06, 0.38, -0.2, 0.92, -0.86, 0.8, -0.96, 0.26, -0.34], "tint", 0.05, 0.1)
+	_mark([0.06, -0.12, 0.12, -0.2, 0.08, -0.26], INK, 0.03)
+	for q in [[0.18, 0.06], [0.06, -0.22], [0.3, 0.04]]:
+		_dot(q[0], q[1], 0.04, PAL["bone"][0] as Color)
+	_shine(-0.2, 0.12, 0.05, 0.12, 0.5)
+
+func _a_fan() -> void:
+	# Leque da Anfitriã: leque aberto de seda com varetas de lâmina e borla
+	var a: Array = [0.0, 0.72]
+	for i in range(13):
+		var t := PI * 1.12 + PI * 0.76 * i / 12.0
+		a.append(cos(t) * 0.96); a.append(0.72 + sin(t) * 0.96)
+	_poly(a, "tint", 0.055, 0.18)
+	for i in range(7):
+		var t := PI * 1.12 + PI * 0.76 * i / 6.0
+		_mark([0.0, 0.72, cos(t) * 0.94, 0.72 + sin(t) * 0.94], _pal("tint")[2], 0.03)
+		_poly([cos(t) * 0.9 - 0.03, 0.72 + sin(t) * 0.9, cos(t) * 1.04, 0.72 + sin(t) * 1.04, cos(t) * 0.9 + 0.03, 0.72 + sin(t) * 0.9], "metal", 0.02, 0.0)
+	_circ(0.0, 0.72, 0.1, "trim")
+	_line([0.0, 0.8, 0.06, 0.96], "tint_dark", 0.05)
+	_shine(-0.4, -0.02, 0.14, 0.06, 0.5)
+
+func _a_grapes() -> void:
+	# Uvas Amargas: cacho em gotas com cabinho e folha
+	_line([0.0, -0.98, 0.04, -0.66], "wood", 0.07)
+	_poly([0.06, -0.84, 0.52, -1.0, 0.7, -0.7, 0.3, -0.62], "green", 0.04, 0.06)
+	for q in [[-0.34, -0.46], [0.0, -0.5], [0.34, -0.46], [-0.18, -0.16], [0.18, -0.16], [-0.42, -0.14], [0.42, -0.14],
+			[0.0, 0.14], [-0.28, 0.16], [0.28, 0.16], [-0.14, 0.44], [0.14, 0.44], [0.0, 0.72]]:
+		_circ(q[0], q[1], 0.2, "tint", 0.04)
+		_dot(q[0] - 0.07, q[1] - 0.07, 0.04, Color(1, 1, 1, 0.55))
+
+func _a_wine() -> void:
+	# Vinho Claro: garrafa alta de vidro com o vinho claro, rolha e fita do Festim no gargalo
+	_poly([-0.4, -0.2, 0.4, -0.2, 0.5, 0.06, 0.5, 0.9, 0.38, 1.0, -0.38, 1.0, -0.5, 0.9, -0.5, 0.06], "glass", 0.055, 0.1)
+	if not _sil:
+		var body := _P([-0.42, 0.12, 0.42, 0.12, 0.42, 0.88, 0.34, 0.94, -0.34, 0.94, -0.42, 0.88])
+		_fill(body, _tint)
+		for d in Geometry2D.clip_polygons(body, _shift(body, _light_local() * 0.16)):
+			_fill(d, _tint.darkened(0.35))
+		_cv.draw_line(Vector2(-0.42, 0.12), Vector2(0.42, 0.12), _tint.lightened(0.45), 0.05, true)
+	_poly([-0.14, -0.78, 0.14, -0.78, 0.16, -0.18, -0.16, -0.18], "glass", 0.045, 0.04)
+	_poly([-0.12, -1.0, 0.12, -1.0, 0.14, -0.76, -0.14, -0.76], "cork", 0.04, 0.04)
+	_poly([-0.2, -0.5, 0.2, -0.5, 0.2, -0.38, -0.2, -0.38], Color(0.92, 0.58, 0.68), 0.03, 0.03)
+	_poly([0.16, -0.46, 0.4, -0.2, 0.3, -0.12, 0.12, -0.38], Color(0.92, 0.58, 0.68), 0.03, 0.03)
+	_poly([-0.36, 0.36, 0.36, 0.36, 0.36, 0.66, -0.36, 0.66], "paper", 0.035, 0.04)
+	_shine(-0.32, 0.2, 0.06, 0.22, 0.6)
 
 func _a_badge() -> void:
 	_poly([0, -0.96, 0.78, -0.7, 0.72, 0.1, 0, 0.98, -0.72, 0.1, -0.78, -0.7], "trim", 0.06, 0.1)

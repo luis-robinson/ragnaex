@@ -1,4 +1,4 @@
-"""Prévia sem janela das Demônias da Sede (lumeria_mobs.py): folha frente / costas / lado / câmera do jogo (52°) de frente e
+"""Prévia sem janela das Veladas (lumeria_mobs.py): folha frente / costas / lado / câmera do jogo (52°) de frente e
 de costas / cabeça de perto, mais uma folha de poses (um quadro de cada clipe pedido) e a conta de chão por clipe.
   blender -b --factory-startup --python tools/blender/lumeria_mobs_preview.py -- --out=<pasta ABSOLUTA> [--only=mob_a,mob_b]
       [--poses=idle:1,run:5,attack:5,die:30] [--ground] [--export=<pasta ABSOLUTA dos GLB>] [--module=lumeria_bosses]

@@ -26,7 +26,7 @@
                      someiro de ouro com 9 tubos de órgão em leque + 4 graves atrás (bocas e topos acesos), a máscara da
                      lágrima pendurada na frente; casaca de veludo com abas, peitilho creme, dragonas, batuta. Skinned.
   mob_organ_pipe     Tubo de Órgão (lacaio parado da Ressoa): coluna de 5 tubos num soco, bocas/topos acesos (`core` = a nota).
-  mob_sylvare_echo   O Eco de Sylvaré (raide, 50): vestido de espelhos SEM corpo (saia de facetas em 3 camadas, corpete vazio,
+  mob_sylvare_echo   O Eco de Amarante (raide, 50): vestido de espelhos SEM corpo (saia de facetas em 3 camadas, corpete vazio,
                      gola de cacos), coroa vazia flutuando sobre o vapor perfumado (`core`) e uma lágrima só; duas luvas
                      vazias (a de +X leva um caco de espelho). Flutua a 0,1 m. Peças rígidas (ECHO_BONES).
   mob_sense_pedestal[_sight|_hearing|_smell|_taste]   Pedestais dos Sentidos (lacaios parados do Eco): coluna de porcelana com
@@ -79,7 +79,7 @@ VELVET_D = (0.3, 0.07, 0.16)
 CREAM = (0.96, 0.91, 0.83)
 WIG = (0.93, 0.7, 0.76)             # peruca empoada (rosa-pó claro: separa do rosto de porcelana)
 ROSE = (0.86, 0.56, 0.64)
-ROBE = (0.55, 0.43, 0.72)           # túnica do coro: lilás (as Demônias da Sede são rosa-pó)
+ROBE = (0.55, 0.43, 0.72)           # túnica do coro: lilás (as Veladas são rosa-pó)
 ROBE_D = (0.28, 0.18, 0.42)
 ROBE_L = (0.93, 0.88, 0.93)
 NOTE = (1.0, 0.62, 0.86)           # boca dos tubos / som
@@ -630,7 +630,7 @@ def thirsty_vine(cid="mob_thirsty_vine"):
 
 
 # ---------------------------------------------------------------------------
-# humanoides (corpo do kit, como as Demônias da Sede)
+# humanoides (corpo do kit, como as Veladas)
 # ---------------------------------------------------------------------------
 def _feast_base(cid, cfg):
     ck.BODIES["feast"] = lm._body(cfg)
@@ -1339,7 +1339,7 @@ def sense_pedestal(cid="mob_sense_pedestal", kind=""):
 
 
 # ---------------------------------------------------------------------------
-# O Eco de Sylvaré (raide, rift_heart, 50): vestido de espelhos SEM corpo sob uma coroa vazia
+# O Eco de Amarante (raide, rift_heart, 50): vestido de espelhos SEM corpo sob uma coroa vazia
 # ---------------------------------------------------------------------------
 ECHO_BONES = {
     "root": ((0, 0, 0), (0, 0, 0.2), None),                   # só sobe/desce e gira (flutua)

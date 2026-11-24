@@ -453,7 +453,7 @@ def build(export=False):
     sp(M["flayer"], -16.0, 84.0, 6, 2, 28.0)
     sp(M["singer"], -72.0, -48.0, 6, 2, 28.0)                 # Cantoras do Véu (à distância): cantos abertos
     sp(M["singer"], 92.0, 16.0, 6, 2, 28.0)
-    sp(M["matriarch"], -52.0, -72.0, 4, 1, 180.0)             # Matriarcas da Sede (2 Sedutoras + 1 Açoitadora de escolta)
+    sp(M["matriarch"], -52.0, -72.0, 4, 1, 180.0)             # Matriarcas Veladas (2 Sedutoras + 1 Açoitadora de escolta)
     sp(M["matriarch"], 52.0, -76.0, 4, 1, 180.0)
     sp(M["matriarch"], -84.0, 46.0, 4, 1, 180.0)
     sp(M["first"], MIRRORS[0], MIRRORS[1] - 8.0, 4, 1, 150.0) # Primeiros Bailarinos (2 Bailarinos de escolta)

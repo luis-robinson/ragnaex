@@ -1,6 +1,6 @@
 """Ato III — Lumeria (lendários do nível 50, GDD design/gdd/ato3-lendarios-50.md): motivos comuns dos conjuntos
 `<pre>_<b>50` (ACT3_SETS de cada <classe>_sets.py): máscara de porcelana com lágrima pintada, lanterna, fita de seda,
-pires empilhados, guizo, frasco, taça e as luvas/botas da família.
+pires empilhados, guizo, frasco, taça, espelho redondo, lanterna-cabaça, corte de meia-máscara e as luvas/botas da família.
 
 Materiais: `tint` (cor do item: marfim-porcelana), `tint2` (destaque da build: seda, fitas, véu, capuz), `tint_glow`
 (lágrima, chama das lanternas, líquido dos frascos: GearCatalog pinta por conjunto), e fixos `m_lum_porcelain`,
@@ -38,7 +38,7 @@ def place(objs, c, facing=(0, -1, 0)):
 
 def mask(ck, name, c, s, M, facing=(0, -1, 0), kind="oval", tears=(1,), eyes=True, wide=1.0, tall=1.0, tear_len=0.5, rim=True, eye_z=0.16):
     """Máscara de porcelana (meia-altura s) com olhos de tinta e lágrima(s) pintada(s) em tint_glow.
-    kind: oval | bird (bico comprido) | wolf (focinho, orelhas, sorriso de ouro) ; tears = lados com lágrima (+1 = esquerda
+    kind: oval | bird (bico comprido) | wolf (focinho, orelhas, sorriso de ouro) | bear (focinho curto, orelhas redondas) ; tears = lados com lágrima (+1 = esquerda
     do boneco, +X) ; eyes=False = máscara cega (troféu) ; wide/tall esticam o oval ; eye_z = altura dos olhos (fração de s)."""
     V = Vector
     wx, dy, sz = 0.82 * wide * s, 0.34 * s, s * tall
@@ -86,6 +86,14 @@ def mask(ck, name, c, s, M, facing=(0, -1, 0), kind="oval", tears=(1,), eyes=Tru
                     ck.blade(name + "_ear_in%d" % sx, (sx * wx * 0.55, -s * 0.06, sz * 0.84), (sx * wx * 1.0, s * 0.1, sz * 1.72), s * 0.36, s * 0.12, gold, (1, 0, 0), 0.35),
                     ck.tube(name + "_grin%d" % sx, (sx * s * 0.06, -s * 1.02, -s * 0.36), (sx * s * 0.36, -s * 0.62, -s * 0.34), s * 0.04, s * 0.04, gold, 5),
                     ck.tube(name + "_grin_up%d" % sx, (sx * s * 0.36, -s * 0.62, -s * 0.34), (sx * wx * 0.74, surf(sx * wx * 0.74, -sz * 0.16) - s * 0.02, -sz * 0.16), s * 0.04, s * 0.015, gold, 5)]
+    elif kind == "bear":                 # focinho curto e largo, nariz de tinta, orelhas redondas com miolo de ouro, lágrima na testa
+        out += [ck.ball(name + "_snout", 1.0, (0, -s * 0.36, -s * 0.3), porc, (s * 0.46, s * 0.44, s * 0.36)),
+                ck.ball(name + "_nose", s * 0.16, (0, -s * 0.78, -s * 0.2), ink, (1.3, 0.7, 0.8)),
+                ck.tube(name + "_muzzle", (0, -s * 0.78, -s * 0.3), (0, -s * 0.74, -s * 0.5), s * 0.03, s * 0.03, gold, 5),
+                ck.ball(name + "_brow", s * 0.1, (0, surf(0, sz * 0.55) + s * 0.01, sz * 0.55), glow, (0.8, 0.5, 1.5))]
+        for sx in (-1, 1):
+            out += [ck.ball(name + "_ear%d" % sx, s * 0.36, (sx * wx * 0.82, s * 0.08, sz * 1.02), porc, (1.0, 0.45, 1.0)),
+                    ck.ball(name + "_ear_in%d" % sx, s * 0.21, (sx * wx * 0.82, -s * 0.05, sz * 1.02), gold, (1.0, 0.4, 1.0))]
     return place(out, c, facing)
 
 
@@ -222,3 +230,55 @@ def skinned(ck, base, objs):
         ck._smooth(o.data)
         ck.transfer_weights(o, base["body"], base["rig"])
     return objs
+
+
+def cut(objs, co, no):
+    """Corta as peças pelo plano (co, no) e joga fora o lado para onde no aponta (meia-máscara); fecha o corte. Peça que some sai da lista."""
+    import bmesh
+    import bpy
+    out = []
+    for o in objs:
+        bm = bmesh.new()
+        bm.from_mesh(o.data)
+        res = bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], dist=1e-5, plane_co=Vector(co), plane_no=Vector(no).normalized(), clear_outer=True)
+        edges = [e for e in res["geom_cut"] if isinstance(e, bmesh.types.BMEdge)]
+        if edges:
+            bmesh.ops.triangle_fill(bm, use_beauty=True, edges=edges)
+        if len(bm.faces) == 0:
+            bm.free()
+            bpy.data.objects.remove(o)
+            continue
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
+        bm.to_mesh(o.data)
+        bm.free()
+        out.append(o)
+    return out
+
+
+def mirror(ck, name, c, rad, M, facing=(0, -1, 0), rays=0, tear=False):
+    """Espelho redondo (raio rad) com moldura de ouro velho, virado para facing; rays = raios de ouro em volta; tear = lágrima pintada."""
+    out = [ck.ball(name + "_glass", 1.0, (0, -rad * 0.06, 0), M["glass"], (rad, rad * 0.16, rad)),
+           ck.ball(name + "_frame", 1.0, (0, rad * 0.06, 0), M["gold"], (rad * 1.17, rad * 0.14, rad * 1.17))]
+    for k in range(rays):
+        a = math.tau * k / rays
+        dv = Vector((math.cos(a), 0, math.sin(a)))
+        out.append(ck.blade(name + "_ray%d" % k, dv * rad * 1.05 + Vector((0, rad * 0.05, 0)), dv * rad * 1.7 + Vector((0, rad * 0.05, 0)), rad * 0.42, rad * 0.12, M["gold"], (-dv.z, 0, dv.x), 0.3))
+    if tear:
+        out += [ck.ball(name + "_tear", rad * 0.13, (rad * 0.3, -rad * 0.2, -rad * 0.1), M["glow"], (0.8, 0.6, 2.4)),
+                ck.ball(name + "_drop", rad * 0.17, (rad * 0.3, -rad * 0.2, -rad * 0.45), M["glow"], (1, 0.6, 1.2))]
+    return place(out, c, facing)
+
+
+def gourd(ck, name, c, s, M, hang=None):
+    """Lanterna-cabaça (meia-altura ~s) centrada em c: bojo aceso (tint_glow) em dois gomos, cinta e talo de ouro velho."""
+    V = Vector
+    c = V(c)
+    gold = M["gold"]
+    out = [ck.ball(name + "_belly", s * 0.78, c + V((0, 0, -s * 0.3)), M["glow"], (1, 1, 0.92)),
+           ck.ball(name + "_top", s * 0.5, c + V((0, 0, s * 0.5)), M["glow"]),
+           ck.tube(name + "_band", c + V((0, 0, s * 0.12)), c + V((0, 0, s * 0.26)), s * 0.5, s * 0.42, gold, 8),
+           ck.tube(name + "_stem", c + V((0, 0, s * 0.9)), c + V((0, 0, s * 1.2)), s * 0.14, s * 0.07, gold, 5),
+           ck.ball(name + "_foot", s * 0.2, c + V((0, 0, -s * 1.0)), gold, (1, 1, 0.5))]
+    if hang is not None:
+        out.append(ck.tube(name + "_hang", V(hang), c + V((0, 0, s * 1.2)), max(s * 0.06, 0.006), max(s * 0.06, 0.006), gold, 4))
+    return out

@@ -125,6 +125,9 @@ def slime(cid="mob_slime", color=(0.42, 0.88, 0.48)):
 def quadruped(cid, fur, dark, light, kind="wolf", rider=None, look=None):
     """look (só urso da Mata dos Zumbidos): {"head": k} = cabeça k vezes maior (filhote); {"boss": cor} = Ursa-Mãe
     (crescente claro no peito, cicatrizes da cor dada no ombro e no olho, tufo escuro no cangote)."""
+    if kind == "hound":          # Galgo de Seda / Galgo Alfa (Ato III): corpo próprio em lumeria_mobs_b.hound, mesmo rig e clipes
+        import lumeria_mobs_b
+        return lumeria_mobs_b.hound(cid, fur, dark, light, look)
     look = look or {}
     hip0 = 0.4 if kind == "boar" else (0.5 if kind == "bear" else 0.45)
     # rabo com osso próprio (balança no idle e ondula na corrida); só os quadrúpedes têm
@@ -2973,7 +2976,7 @@ def build_all(out_dir, only=None):
     import grove_mobs
     importlib.reload(grove_mobs)
     builders.update(grove_mobs.BUILDERS)
-    # Ato III parte 1 (45-50): Demônias da Sede e Vessaline (lumeria_mobs.py)
+    # Ato III parte 1 (45-50): Veladas e Vessaline (lumeria_mobs.py)
     import lumeria_mobs
     importlib.reload(lumeria_mobs)
     builders.update(lumeria_mobs.BUILDERS)
@@ -2981,6 +2984,14 @@ def build_all(out_dir, only=None):
     import lumeria_bosses
     importlib.reload(lumeria_bosses)
     builders.update(lumeria_bosses.BUILDERS)
+    # Ato III: Bailarinos do Véu, Galgos de Seda e o Maestro do Coro (lumeria_mobs_b.py)
+    import lumeria_mobs_b
+    importlib.reload(lumeria_mobs_b)
+    builders.update(lumeria_mobs_b.BUILDERS)
+    # Ato III: Foliões (Folião, Convertido, Mestre de Cerimônias), Reflexo Vaidoso e Incensário Vivo (lumeria_revelers.py)
+    import lumeria_revelers
+    importlib.reload(lumeria_revelers)
+    builders.update(lumeria_revelers.BUILDERS)
     for name, fn in builders.items():
         if only and name not in only:
             continue
@@ -2995,7 +3006,7 @@ def build_all(out_dir, only=None):
                                                                               "mob_frost_mage", "mob_lich_king", "mob_skeleton", "mob_zombie", "mob_lich", "mob_skeleton_king", "form_demon", "form_lich",
                     "mob_elf_warrior", "mob_elf_archer", "mob_elf_warden", "mob_elf_king", "mob_elf_mage",
                     "mob_elf_captain_hunter", "mob_elf_captain_sky", "mob_elf_captain_sap", "mob_elf_citizen", "mob_elf_citizen_f",
-                    "mob_elf_fighter", "mob_elf_bowman") or name.startswith(("mob_goblin_", "mob_orc_", "mob_naga_", "mob_troll")) or name in ("mob_tide_mother", "mob_agitator_lord", "mob_crossbow_master", "mob_ghar") or name in kharzun_mobs.HUMANOIDS or name in grove_mobs.HUMANOIDS or name in lumeria_mobs.HUMANOIDS or name in lumeria_bosses.HUMANOIDS:
+                    "mob_elf_fighter", "mob_elf_bowman") or name.startswith(("mob_goblin_", "mob_orc_", "mob_naga_", "mob_troll")) or name in ("mob_tide_mother", "mob_agitator_lord", "mob_crossbow_master", "mob_ghar") or name in kharzun_mobs.HUMANOIDS or name in grove_mobs.HUMANOIDS or name in lumeria_mobs.HUMANOIDS or name in lumeria_bosses.HUMANOIDS or name in lumeria_revelers.HUMANOIDS or name in lumeria_mobs_b.HUMANOIDS:
             ck.export_glb(arm, os.path.join(out_dir, name + ".glb"))
         else:
             lp.export_glb(os.path.join(out_dir, name + ".glb"), [arm])

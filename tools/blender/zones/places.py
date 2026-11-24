@@ -267,7 +267,7 @@ DUNGEONS["dg_conservatory"] = {
     },
 }
 # O Coração do Jardim (raide, 50; a Porta do Coração do rift_garden, L4): um limiar e a arena redonda de 40 m do Eco de
-# Sylvaré. Piso de espelho fosco, borda de pétalas, 4 pedestais dos Sentidos (lacaios `sense_*`: pontos em boss_hint).
+# Amarante. Piso de espelho fosco, borda de pétalas, 4 pedestais dos Sentidos (lacaios `sense_*`: pontos em boss_hint).
 DUNGEONS["rift_heart"] = {
     "zone": "rift_garden", "return": (74.0, -47.0), "name": "O Coração do Jardim", "seed": 53,
     "rock": (0.76, 0.6, 0.68), "floor": (0.63, 0.66, 0.72), "glow": (0.96, 0.9, 0.98),

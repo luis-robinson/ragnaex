@@ -1412,4 +1412,85 @@ def build_tear_vigil(ck, base, mats, style):
     lk.limbs(ck, base, mats, P, M, "plate")
 
 
-ACT3_SETS = {"pal_g50": build_tear_vigil}
+#   pal_c50 Cruzado = Cortejo do Juízo Claro: elmo aberto com MEIA-máscara de porcelana partida em diagonal (filete de ouro
+#           na quebra, lágrima no olho que ficou), penacho de seda (tint2, vinho), ombreiras altas em barbatana, espelho
+#           redondo no peito, fitas cruzadas nas costas e capa longa em cinco tiras de seda até o tornozelo.
+def build_clear_judgement(ck, base, mats, style):
+    """pal_c50 — Cortejo do Juízo Claro (Cruzado, placa)."""
+    import lumeria_kit as lk
+    import berserker_sets as bs
+    V = Vector
+    rig, body, b, j = base["rig"], base["body"], base["b"], base["j"]
+    M = lk.lum_mats(ck, mats)
+    t, t2, gold, porc, glow, glass = M["t"], M["t2"], M["gold"], M["porc"], M["glow"], M["glass"]
+    P = "arm_%s_" % style
+    c, r = V(base["head_c"]), b["head"]
+    d = b["depth"]
+    front = -b["chest"] * d - 0.03
+    back = b["chest"] * d + 0.03
+    zc, zn, zw = ck.Z["chest"], ck.Z["neck"], ck.Z["waist"]
+    wf = -b["waist"] * d * 1.22
+    metal = M["metal"]
+    # ---------------- cabeça: elmo aberto, meia-máscara em diagonal, penacho e duas fitas ----------------
+    head = [ck._shell(P + "head_helm", c, r * 1.13, 0.3, -0.8, -0.6, 0.04, t),
+            ck.tube(P + "head_rim", c + V((0, 0, -r * 0.66)), c + V((0, 0, -r * 0.54)), r * 1.15, r * 1.21, gold, 20),
+            ck.tube(P + "head_brow", c + V((0, 0, r * 0.42)), c + V((0, 0, r * 0.54)), r * 1.2, r * 1.14, gold, 20)]
+    s_ = r * 0.76
+    mc = c + V((0, -r * 1.05, -r * 0.05))
+    dn = V((-0.75, 0, -0.66)).normalized()
+    co = mc + V((-0.05 * s_, 0, -0.12 * s_))
+    head += lk.cut(lk.mask(ck, P + "head_mask", mc, s_, M, tears=(1,), wide=1.22, tear_len=0.45), co, dn)
+    dv = V((0.66, 0, -0.75)).normalized()
+    pts = []
+    for q in (-0.95, -0.5, 0.0, 0.5, 0.95):          # filete de ouro ao longo da quebra, acompanhando a curva da máscara
+        pts.append(co + dv * s_ * q + V((0, -0.34 * s_ * math.sqrt(max(0.0, 1.0 - q * q * 0.9)) - 0.03 * s_, 0)))
+    for k in range(4):
+        head.append(ck.tube(P + "head_break%d" % k, pts[k], pts[k + 1], s_ * 0.05, s_ * 0.05, gold, 5))
+    head += [ck.blade(P + "head_plume", c + V((0, -r * 0.5, r * 0.95)), c + V((0, r * 1.75, r * 1.55)), r * 1.05, r * 0.36, t2, (0, -0.3, 1), 0.35),
+             ck.tube(P + "head_plume_foot", c + V((0, -r * 0.45, r * 0.98)), c + V((0, -r * 0.35, r * 1.28)), r * 0.2, r * 0.13, gold, 8)]
+    for sx in (-1, 1):
+        p0 = c + V((sx * r * 0.3, r * 1.08, r * 0.3))
+        head.append(lk.silk(ck, P + "head_ribbon%d" % sx, p0, p0 + V((sx * r * 0.4, r * 0.5, -r * 1.25)), (1, 0, 0), r * 0.24, r * 0.32, t2, (0, r * 0.12, 0), 3))
+    ck._rigid(bs._outward(head), rig, "head")
+    # ---------------- corpo: couraça, espelho no peito, fitas cruzadas nas costas, capa em tiras ----------------
+    ck.armor_piece(body, rig, P + "body_plate", "torso", t, 0.018, 0.016, 0.05)
+    ck.armor_piece(body, rig, P + "body_legs", "legs", metal, 0.008, 0.012)
+    chest = [ck.tube(P + "body_gorget", V((0, 0, zn - 0.06)), V((0, 0, zn + 0.03)), b["chest"] * 0.7, b["chest"] * 0.52, gold, 16)]
+    chest += lk.mirror(ck, P + "body_mirror", (0, front - 0.005, zc + 0.02), 0.085, M, rays=8, tear=True)
+    for sx in (-1, 1):                   # fitas cruzadas nas costas (X de seda) com um broche de porcelana no cruzamento
+        p0 = V((sx * b["chest"] * 0.85, back + 0.005, zn - 0.05))
+        p1 = V((-sx * b["waist"] * 0.95, back + 0.02 + (0.012 if sx > 0 else 0.0), zw + 0.05))
+        chest.append(lk.silk(ck, P + "body_cross%d" % sx, p0, p1, (1, 0, sx * 0.9), 0.08, 0.08, t2, (0, 0.012, 0), 3))
+    chest += [ck.ball(P + "body_cross_boss", 0.045, (0, back + 0.04, (zn + zw) * 0.5), porc, (1, 0.5, 1)),
+              ck.ball(P + "body_cross_tear", 0.018, (0, back + 0.062, (zn + zw) * 0.5 - 0.005), glow, (0.8, 0.6, 1.7))]
+    ck._rigid(bs._outward(chest), rig, "chest")
+    cape = []
+    for k in range(5):                   # capa longa: cinco tiras do alto das costas até o tornozelo, abrindo (pesos do corpo)
+        q = (k - 2) / 2.0
+        cape.append(lk.silk(ck, P + "body_cape%d" % k, (q * b["chest"] * 0.8, back + 0.05, zn - 0.02), (q * 0.42, back + 0.36 - abs(q) * 0.08, 0.12 + (k % 2) * 0.07),
+                            (1, -q * 0.3, 0), 0.115, 0.17, t2, (0, 0.05, 0), 6, 0.016))
+    lk.skinned(ck, base, bs._outward(cape))
+    bs._belt(ck, base, P + "body_belt", zw - 0.04, zw + 0.035, 1.2, gold)
+    hips = [_banner(ck, P + "body_tabard_f", wf - 0.02, zw - 0.03, 0.1, 0.34, 0.016, t2),
+            _banner(ck, P + "body_tabard_hem_f", wf - 0.015, zw - 0.03, 0.115, 0.37, 0.01, gold),
+            ck.ball(P + "body_buckle", 0.045, (0, wf - 0.014, zw), porc, (1.0, 0.5, 1.0)),
+            ck.ball(P + "body_buckle_tear", 0.02, (0, wf - 0.036, zw - 0.005), glow, (0.8, 0.6, 1.6))]
+    ck._rigid(bs._outward(hips), rig, "hips")
+    for s, sx in ((".R", -1), (".L", 1)):                 # ombreiras altas: pires + barbatana de porcelana subindo para fora, fio de ouro
+        tag = s.replace(".", "_")
+        sh = V(j["shoulder" + s])
+        pc = sh + V((sx * 0.1, 0, -0.01))
+        pa = lk.saucers(ck, P + "body_pauldron" + tag, pc, b["arm"] * 3.1, 2, M, 0.06, 0.22, (sx * 0.5, 0, 1))
+        root = pc + V((sx * 0.02, 0, 0.08))
+        pa += [ck.blade(P + "body_fin" + tag, root, root + V((sx * 0.26, 0.02, 0.36)), 0.3, 0.045, porc, (0, 1, 0), 0.4),
+               ck.blade(P + "body_fin_gold" + tag, root + V((sx * 0.03, 0, 0.0)), root + V((sx * 0.21, 0.02, 0.27)), 0.38, 0.03, gold, (0, 1, 0), 0.4),
+               ck.ball(P + "body_fin_tear" + tag, 0.026, root + V((sx * 0.14, -0.035, 0.16)), glow, (0.8, 0.6, 1.8))]
+        ck._rigid(bs._outward(pa), rig, "upper_arm" + s)
+        hp = V(j["hip" + s])
+        tas = [ck.box(P + "body_fauld_%d%s" % (k, tag), (0.04, 0.15 - k * 0.014, 0.11), hp + V((sx * (b["thigh"] + 0.04 + k * 0.006), 0, -0.02 - k * 0.075)),
+                      t if k == 0 else porc, 0.014) for k in range(2)]
+        ck._rigid(tas, rig, "thigh" + s)
+    lk.limbs(ck, base, mats, P, M, "plate")
+
+
+ACT3_SETS = {"pal_g50": build_tear_vigil, "pal_c50": build_clear_judgement}
