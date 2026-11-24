@@ -20,7 +20,8 @@ const HUNT_GIVERS := {"city_aldara": "board", "field_hollow": "hollow_brena", "f
 	"field_steppe": "wind_totem", "fort_trolls": "wind_totem", "fort_fire": "wind_totem", "fort_war": "wind_totem",
 	"field_kharzun": "kharzun_board", "dg_slayers": "kharzun_board", "kharzun_citadel": "kharzun_board",
 	"city_lumeria": "lumeria_board", "field_perfume": "lumeria_board", "field_parade": "lumeria_board",
-	"field_marsh": "marsh_altar"}
+	"field_marsh": "marsh_altar",
+	"field_crab_beach": "beach_fisher"}     # caçadas de caranguejo com o Pescador Joca, na própria praia (2026-11-24)
 
 ## Quests da história e laterais dão Balance.quest_share da XP de cada faixa de nível (o meio, 10-20, dá mais): o peso relativo entre elas
 ## fica (o número escrito em cada uma), o total da faixa é escalado. Repetíveis (caçadas e quadros) ficam como estão.
@@ -37,7 +38,7 @@ static func scale_xp(quests: Dictionary) -> void:
 				qs.append(q)
 		if sum <= 0:
 			continue
-		var k := Balance.quest_share(a) * Balance.band_xp(a, b) / float(sum)
+		var k := Balance.quest_share(a) * Balance.band_xp_base(a, b) / float(sum)
 		for q in qs:
 			q.reward_xp = int(round(q.reward_xp * k / 10.0)) * 10
 

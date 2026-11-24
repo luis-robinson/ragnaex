@@ -371,16 +371,17 @@ func _dialog(body: VBoxContainer) -> void:
 				cv.add_child(UiKit.repeat_label(q, 11))
 			cv.add_child(UiKit.para('"%s"' % q.dialog_progress, 12))
 	# quests disponíveis
-	for q in QuestSystem.available_from_npc(p, npc_id):
-		var card := UiKit.panel(Color(0.2, 0.18, 0.1, 0.95), UiKit.GOLD)
+	for q in QuestSystem.by_relevance(p, QuestSystem.available_from_npc(p, npc_id)):     # repetível de nível baixo vai para o fim
+		var low := QuestSystem.is_low_level(p, q)
+		var card := UiKit.panel(Color(0.13, 0.12, 0.12, 0.95) if low else Color(0.2, 0.18, 0.1, 0.95), UiKit.MUTED if low else UiKit.GOLD)
 		body.add_child(card)
 		var cv := VBoxContainer.new()
 		card.add_child(cv)
-		if q.repeatable:                      # repetível: azul, com o símbolo e o lembrete
-			var t := UiKit.label("↻ %s  (Lv %d)  ·  Repetível" % [q.title, q.level_req], 14, UiKit.QUEST_REPEAT)
+		if q.repeatable:                      # repetível: azul, com o símbolo e o lembrete (cinza se de nível baixo)
+			var t := UiKit.label("↻ %s  (Lv %d)  ·  %s" % [q.title, q.level_req, "Nível baixo" if low else "Repetível"], 14, UiKit.MUTED if low else UiKit.QUEST_REPEAT)
 			t.add_theme_font_override("font", UiKit.mark_font())
 			cv.add_child(t)
-			cv.add_child(UiKit.para("Pode fazer de novo quantas vezes quiser; a recompensa vem toda vez.", 11, UiKit.QUEST_REPEAT))
+			cv.add_child(UiKit.para("Pode fazer de novo quantas vezes quiser; a recompensa vem toda vez.", 11, UiKit.MUTED if low else UiKit.QUEST_REPEAT))
 		else:
 			cv.add_child(UiKit.label("! %s  (Lv %d)" % [q.title, q.level_req], 14, UiKit.GOLD))
 		cv.add_child(UiKit.para('"%s"' % q.dialog_offer, 12))

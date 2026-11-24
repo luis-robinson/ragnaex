@@ -1777,7 +1777,7 @@ func _quests(body: VBoxContainer) -> void:
 	body.add_child(UiKit.label("Ativas:", 13, UiKit.GOLD))
 	if p.quests_active.is_empty():
 		body.add_child(UiKit.label("Nenhuma quest ativa. Procure NPCs marcados com [Quest].", 12, UiKit.MUTED))
-	for qid in p.quests_active:
+	for qid in QuestSystem.by_relevance(p, p.quests_active.keys()):     # repetível de nível baixo no fim
 		var q: QuestDef = GameData.quests[qid]
 		var prog := QuestSystem.progress(p, q)
 		var card := UiKit.panel(UiKit.BG_LIGHT, Color(0.3, 0.28, 0.35))

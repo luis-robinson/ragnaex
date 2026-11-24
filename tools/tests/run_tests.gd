@@ -4521,6 +4521,9 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_druid_attr_convert(gd)
 	_check_assassin_start_daggers(gd, sim)
 	_check_dash_nodes(gd, sim)
+	_check_web_early_reach(gd)
+	_check_quest_low_level(gd)
+	_check_crab_beach_more(gd)
 	_check_bot_raid(gd, sim)
 	_check_bot_opener(gd, sim)
 	_check_bot_threat_budget(gd, sim)
@@ -10720,7 +10723,7 @@ func _check_dash_display(gd, sim) -> void:
 	check(cues == 1, "dash: a pista toca uma vez por recarga (%d)" % cues)
 	# evolução de 2 cargas chega pelo dash_params da sim
 	var a: SimEntity = sim.spawn_bot(gd.classes["assassin"], "Passos", "city_aldara", Vector3(0, 0, 4), 30)
-	a.talents["ass_t_double_step"] = true
+	a.talents = {"ass_t_double_step": true}     # o bot do 30 já compra evoluções (Passo Extra daria 3 cargas)
 	var dp: Dictionary = sim.dash_params(a)
 	check(int(dp["charges"]) == 2 and DashGauge.pip_state(0.0, 0, int(dp["charges"]), 0.0, full)["fills"].size() == 2, "dash: Passo Duplo = 2 gomos")
 	sim.despawn(a)
@@ -11378,9 +11381,9 @@ func _check_druid_start(gd, sim) -> void:
 ## Ato II (design/gdd/ato2-horda.md F1, R7): XP achatada depois do 30, faixa nova, pontos e nível de ascensão.
 func _check_act2_xp_curve(gd) -> void:
 	check(Balance.MAX_LEVEL >= 40 and Balance.ASC_LEVEL == 35, "nível máximo do Ato II (%d) e ascensão no 35" % Balance.MAX_LEVEL)
-	check(Balance.xp_for_level(Balance.MAX_LEVEL) == 0, "sem XP no nível máximo")
-	check(Balance.xp_for_level(34) == 52250, "F1: 34 -> 35 = 52 250 (%d)" % Balance.xp_for_level(34))
-	check(absf(Balance.xp_for_level(30) - 44030.0) <= 440.3, "F1: 30 -> 31 ≈ 44 030 ±1%% (%d)" % Balance.xp_for_level(30))
+	check(Balance.xp_base_for_level(Balance.MAX_LEVEL) == 0, "sem XP no nível máximo")
+	check(Balance.xp_base_for_level(34) == 52250, "F1: 34 -> 35 = 52 250 (%d)" % Balance.xp_base_for_level(34))
+	check(absf(Balance.xp_base_for_level(30) - 44030.0) <= 440.3, "F1: 30 -> 31 ≈ 44 030 ±1%% (%d)" % Balance.xp_base_for_level(30))
 	check(is_equal_approx(Balance.level_minutes(30), 57.25), "F1: minutos no 30 = 57,25 (%.2f)" % Balance.level_minutes(30))
 	for lv in range(30, 44):
 		check(is_equal_approx(Balance.level_minutes(lv + 1) - Balance.level_minutes(lv), Balance.XP_MIN_PER_LEVEL_ACT2), "F1: minutos crescem 0,75 de %d para %d" % [lv, lv + 1])
@@ -11391,8 +11394,8 @@ func _check_act2_xp_curve(gd) -> void:
 	check(Balance.XP_BANDS.has([35, 40]) and is_equal_approx(Balance.quest_share(35), 0.55), "faixa 35-40 com 55%% de XP de missão")
 	var f1_35_40 := {35: 54400, 36: 56580, 37: 58800, 38: 61060, 39: 63360}
 	for l in f1_35_40:
-		check(Balance.xp_for_level(l) == f1_35_40[l], "F1: %d -> %d = %d (%d)" % [l, l + 1, f1_35_40[l], Balance.xp_for_level(l)])
-	check(Balance.band_xp(35, 40) == 294200, "F1: faixa 35-40 = 294 200 de XP (%d)" % Balance.band_xp(35, 40))
+		check(Balance.xp_base_for_level(l) == f1_35_40[l], "F1: %d -> %d = %d (%d)" % [l, l + 1, f1_35_40[l], Balance.xp_base_for_level(l)])
+	check(Balance.band_xp_base(35, 40) == 294200, "F1: faixa 35-40 = 294 200 de XP (%d)" % Balance.band_xp_base(35, 40))
 	var h_35_40 := 0.0
 	for l in range(35, 40):
 		h_35_40 += Balance.level_minutes(l) / 60.0
@@ -11432,7 +11435,7 @@ func _check_level_cap_50(gd, sim) -> void:
 	check(Balance.MAX_LEVEL == 50 and Balance.ASC_MAX_LEVEL == 45, "teto 50 e ascensão parada no 45 (D5) (%d, %d)" % [Balance.MAX_LEVEL, Balance.ASC_MAX_LEVEL])
 	var f1 := {45: 77900, 46: 80460, 47: 83050, 48: 85670, 49: 88340}
 	for l in f1:
-		check(absi(Balance.xp_for_level(l) - int(f1[l])) <= 10, "F1 estendida: %d -> %d ≈ %d (%d)" % [l, l + 1, f1[l], Balance.xp_for_level(l)])
+		check(absi(Balance.xp_base_for_level(l) - int(f1[l])) <= 10, "F1 estendida (base): %d -> %d ≈ %d (%d)" % [l, l + 1, f1[l], Balance.xp_base_for_level(l)])
 	check(Balance.xp_for_level(50) == 0 and Balance.xp_for_level(49) > Balance.xp_for_level(48), "sem XP no 50; curva cresce até o 49")
 	var h := 0.0
 	for l in range(45, 50):
@@ -12793,7 +12796,7 @@ func _check_act2_gear_40(gd, sim) -> void:
 func _check_kharzun_cap(gd, sim) -> void:
 	check(Balance.MAX_LEVEL >= 45 and Balance.ASC_MAX_LEVEL == 45, "teto do Ato II: nível 45 (agora %d, Ato III), ascensão até o 45" % Balance.MAX_LEVEL)
 	check(Balance.XP_BANDS.has([40, 45]) and is_equal_approx(Balance.quest_share(40), 0.5), "faixa 40-45 com 50%% de XP de missão (F1)")
-	check(absf(Balance.xp_for_level(44) - 75390.0) <= 753.9, "F1: 44 -> 45 ≈ 75 390 ±1%% (%d)" % Balance.xp_for_level(44))
+	check(absf(Balance.xp_base_for_level(44) - 75390.0) <= 753.9, "F1: 44 -> 45 ≈ 75 390 ±1%% na curva base (%d)" % Balance.xp_base_for_level(44))
 	var h := 0.0
 	for l in range(40, 45):
 		h += Balance.level_minutes(l) / 60.0
@@ -12859,7 +12862,7 @@ func _check_kharzun_cap(gd, sim) -> void:
 		ProgressionSystem.gain_xp(sim, b, Balance.xp_for_level(44) + 500)
 		var rest45 := 0 if Balance.MAX_LEVEL == 45 else 500          # teto 50 (Ato III): o resto fica para o 46
 		check(b.level == 45 and b.xp == rest45, "%s: 44 -> 45 pela XP (nv %d, xp %d)" % [cid, b.level, b.xp])
-		ProgressionSystem.gain_xp(sim, b, 100000)
+		ProgressionSystem.gain_xp(sim, b, Balance.xp_for_level(45))     # um nível inteiro de XP exigida (era 100 000 fixo)
 		check(b.level == (45 if Balance.MAX_LEVEL == 45 else 46), "%s: depois do 45 a XP %s (nv %d)" % [cid, "não acumula" if Balance.MAX_LEVEL == 45 else "leva ao 46", b.level])
 		check(not sim.tree_block_reason(b, nid).begins_with("requer nível"), "%s: talento 45 abre no 45 (%s)" % [cid, sim.tree_block_reason(b, nid)])
 		sim.despawn(b)
@@ -12883,7 +12886,7 @@ func _check_xp_budget(gd) -> void:
 		hours += Balance.level_minutes(lv) / 60.0
 	check(hours > 13.0 and hours < 17.0, "ritmo planejado até o 30: %.1f h" % hours)
 	for band in Balance.XP_BANDS:
-		var need := Balance.band_xp(band[0], band[1])
+		var need := Balance.band_xp_base(band[0], band[1])
 		var qx := 0
 		var n := 0
 		for qid in gd.quests:
@@ -12907,9 +12910,13 @@ func _check_xp_budget(gd) -> void:
 			var q: QuestDef = gd.quests[qid]
 			if not q.repeatable and q.level_req == lv:
 				qx_lv += q.reward_xp
-		check(qx_lv >= Balance.xp_for_level(lv) * 0.35, "nível %d: quests dão %d de %d XP (>= 35%%)" % [lv, qx_lv, Balance.xp_for_level(lv)])
-	var kills_l25: float = Balance.xp_for_level(25) * (1.0 - Balance.XP_QUEST_SHARE) / gd.monsters["skeleton"].xp
+		check(qx_lv >= Balance.xp_base_for_level(lv) * 0.35, "nível %d: quests dão %d de %d XP (>= 35%%)" % [lv, qx_lv, Balance.xp_base_for_level(lv)])
+	var kills_l25: float = Balance.xp_base_for_level(25) * (1.0 - Balance.XP_QUEST_SHARE) / gd.monsters["skeleton"].xp
 	check(kills_l25 > 100 and kills_l25 < 400, "nível 25: ~%d abates de esqueleto (não milhares)" % int(kills_l25))
+	# 2026-11-24 (pedido do usuário): subir exige XP_LEVEL_MULT x a curva base; as recompensas ficam na base
+	for lv in [1, 10, 25, 30, 44, 49]:
+		check(Balance.xp_for_level(lv) == int(round(Balance.xp_base_for_level(lv) * Balance.XP_LEVEL_MULT)), "XP exigida no %d = %.1fx a base (%d)" % [lv, Balance.XP_LEVEL_MULT, Balance.xp_for_level(lv)])
+	check(is_equal_approx(Balance.XP_LEVEL_MULT, 2.0) and Balance.band_xp(1, 10) == Balance.band_xp_base(1, 10) * 2, "XP exigida dobrada (faixa 1-10: %d)" % Balance.band_xp(1, 10))
 
 ## Teia no 30 (design/gdd/progression.md): a média das builds dá ~x1,4 de ATK e ~x1,2 de HP (Balance.WEB_GAIN_*);
 ## cada build fica com ATK×HP em WEB_GAIN_BUILD (tanque troca ATK por HP, curandeiro tem pouco ATK).
@@ -13453,7 +13460,7 @@ func _check_quest_variety(gd, sim) -> void:
 	check(not e.has_item("sealed_letter"), "desistir tira a carta")
 	sim.despawn(e)
 	# caçada: quem paga é da zona do monstro
-	var zone_giver := {"slime": "board", "crab": "board", "spider": "stone_druid", "skeleton": "dawn_board", "zombie": "board"}
+	var zone_giver := {"slime": "board", "crab": "beach_fisher", "spider": "stone_druid", "skeleton": "dawn_board", "zombie": "board"}
 	for mon in zone_giver:
 		if gd.quests.has("h_" + mon):
 			check(gd.quests["h_" + mon].giver_npc == zone_giver[mon], "caçada de %s paga por %s" % [mon, zone_giver[mon]])
@@ -19622,6 +19629,84 @@ func _check_tank_pull(gd, sim) -> void:
 	for o in [lead, tank, dps, other]:
 		sim.despawn(o)
 
+## Praia dos Caranguejos mais cheia (2026-11-24, pedido do usuário): spawners = JSON x SPAWN_COUNT_MULT x SPAWN_MAP_MULT (raio x √mult),
+## chefe único continua único, outro mapa não muda; as caçadas dos caranguejos saem do Pescador Joca (HUNT_GIVERS).
+func _check_crab_beach_more(gd) -> void:
+	var z: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/zones/field_crab_beach.json"))
+	var md: MapDef = gd.maps["field_crab_beach"]
+	var more: float = float(Balance.SPAWN_MAP_MULT.get("field_crab_beach", 1.0))
+	check(is_equal_approx(more, 2.0), "crab_beach: Praia com x2 de monstros")
+	var raw := 0
+	var now := 0
+	var ok := true
+	for i in range(z["spawners"].size()):
+		var js: Dictionary = z["spawners"][i]
+		var sp: Dictionary = md.spawners[i]
+		var n := int(js["count"])
+		var want := n if n <= 1 else int(round(n * Balance.SPAWN_COUNT_MULT * more))
+		var want_r: float = float(js["radius"]) * (1.0 if n <= 1 else sqrt(more))
+		ok = ok and str(sp["monster_id"]) == str(js["monster_id"]) and int(sp["count"]) == want and is_equal_approx(float(sp["radius"]), want_r)
+		raw += int(round(n * Balance.SPAWN_COUNT_MULT)) if n > 1 else n
+		now += int(sp["count"])
+	check(ok, "crab_beach: cada spawner = JSON x %.1f x %.1f, raio x √%.1f (chefe único fica 1)" % [Balance.SPAWN_COUNT_MULT, more, more])
+	check(now >= raw * 2 - 2, "crab_beach: %d monstros (antes %d)" % [now, raw])
+	var hollow: MapDef = gd.maps["field_hollow"]
+	var hz: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/zones/field_hollow.json"))
+	var h0: Dictionary = hz["spawners"][0]
+	check(int(hollow.spawners[0]["count"]) == (int(h0["count"]) if int(h0["count"]) <= 1 else int(round(int(h0["count"]) * Balance.SPAWN_COUNT_MULT))),
+		"crab_beach: outro mapa (Ravina) não muda")
+	for mid in ["crab", "crab_hermit", "crab_sand"]:
+		var q: QuestDef = gd.quests.get("h_" + mid)
+		check(q != null and q.giver_npc == "beach_fisher" and q.repeatable, "crab_beach: caçada de %s com o Pescador Joca (%s)" % [mid, q.giver_npc if q else "sem quest"])
+
+## Repetível de nível baixo (2026-11-24, pedido do usuário): personagem > nível da repetível + QUEST_LOW_LEVEL_GAP = baixa
+## (só repetível); by_relevance põe as baixas no fim mantendo a ordem dos dois grupos (NPC, painel do HUD, janela L).
+func _check_quest_low_level(gd) -> void:
+	var rep: QuestDef = null
+	var story: QuestDef = null
+	for qid in gd.quests:
+		var q: QuestDef = gd.quests[qid]
+		if q.repeatable and rep == null and q.level_req >= 2:
+			rep = q
+		elif not q.repeatable and story == null and q.level_req >= 2:
+			story = q
+	check(rep != null and story != null, "quest_low_level: há repetível e quest da história para testar")
+	var e := SimEntity.new()
+	e.level = rep.level_req + Balance.QUEST_LOW_LEVEL_GAP
+	check(not QuestSystem.is_low_level(e, rep), "quest_low_level: %d níveis acima ainda não é baixa" % Balance.QUEST_LOW_LEVEL_GAP)
+	e.level += 1
+	check(QuestSystem.is_low_level(e, rep), "quest_low_level: %d níveis acima é baixa" % (Balance.QUEST_LOW_LEVEL_GAP + 1))
+	e.level = story.level_req + 20
+	check(not QuestSystem.is_low_level(e, story), "quest_low_level: quest da história nunca é baixa")
+	var high := QuestDef.new()
+	high.repeatable = true
+	high.level_req = e.level
+	e.level = rep.level_req + Balance.QUEST_LOW_LEVEL_GAP + 1
+	high.level_req = e.level
+	var ord := QuestSystem.by_relevance(e, [rep, story, high])
+	check(ord == [story, high, rep], "quest_low_level: baixa vai para o fim, o resto na ordem (%s)" % str(ord.map(func(q): return q.level_req)))
+
+## Skills cedo perto do início na teia (2026-11-24, pedido do usuário; TreeCatalog._early_shortcuts): a Aprimorada de toda
+## skill inicial custa <= WEB_START_REACH_MAX pontos de caminho e a de nível <= WEB_EARLY_LEVEL <= WEB_EARLY_REACH_MAX.
+func _check_web_early_reach(gd) -> void:
+	for cid in gd.trees:
+		var cls: ClassDef = gd.classes[cid]
+		var nodes: Dictionary = gd.trees[cid]["nodes"]
+		var best := TreeCatalog.path_costs(nodes, str(gd.trees[cid]["start"]))
+		var far: Array = []
+		for nid in nodes:
+			if nodes[nid]["kind"] != "skill_up":
+				continue
+			var sk: SkillDef = gd.skills.get(nodes[nid]["ref"])
+			if sk == null or sk.ascension:
+				continue
+			var cost: int = int(best.get(nid, [999])[0])
+			if sk.id in cls.starting_skills and cost > Balance.WEB_START_REACH_MAX:
+				far.append("%s(inicial)=%d" % [sk.id, cost])
+			elif sk.unlock_level <= Balance.WEB_EARLY_LEVEL and cost > Balance.WEB_EARLY_REACH_MAX:
+				far.append("%s(lv%d)=%d" % [sk.id, sk.unlock_level, cost])
+		check(far.is_empty(), "web_early_reach: %s skills cedo perto do início (%s)" % [cid, str(far)])
+
 ## Nós genéricos do dash (2026-11-24, decisão do usuário; Balance.DASH_NODES): toda classe tem Passada Longa (10), Fôlego e
 ## Esquiva Firme (20) e Passo Extra (30) na teia, ligados à evolução de dash dela; cargas somam até DASH_MAX_CHARGES;
 ## a 2ª carga volta com a recarga reduzida mesmo depois que o dash chegou (e.dash_params some na chegada).
@@ -24038,11 +24123,11 @@ func _check_act2_steppe_quests(gd, sim) -> void:
 	check(in_band.size() >= 10, "faixa 35-40: pelo menos 10 missões com XP (%d)" % in_band.size())
 	for lv in range(35, 40):
 		check(in_band.any(func(q): return q.level_req == lv), "faixa 35-40: nível %d tem missão" % lv)
-	if Balance.XP_BANDS.has([35, 40]) and Balance.band_xp(35, 40) > 0:
+	if Balance.XP_BANDS.has([35, 40]) and Balance.band_xp_base(35, 40) > 0:
 		var qx := 0
 		for q in in_band:
 			qx += q.reward_xp
-		var share := float(qx) / float(Balance.band_xp(35, 40))
+		var share := float(qx) / float(Balance.band_xp_base(35, 40))
 		check(share >= 0.40 and share <= 0.60, "faixa 35-40: missões dão %.0f%% da XP" % (share * 100.0))
 	ws.free()
 
@@ -26277,7 +26362,7 @@ func _check_kharzun_quests(gd, sim) -> void:
 			cnt += 1
 	check(cnt >= 10 and sum > 0, "Kharzun: %d missões com XP na faixa 40-45" % cnt)
 	if Balance.XP_BANDS.any(func(bd): return bd[0] == 40):
-		var share: float = sum / float(Balance.band_xp(40, 45))
+		var share: float = sum / float(Balance.band_xp_base(40, 45))
 		check(share >= 0.38 and share <= 0.53, "Kharzun: missões dão %.0f%% da XP 40-45" % (share * 100.0))
 	# Prova 45: uma por classe, só a classe, 0 XP, depois da ascensão
 	for cid in gd.classes:
@@ -28478,7 +28563,9 @@ func _check_crab_beach(gd, sim) -> void:
 			if sp["pos"].distance_to(spot) < float(sp["radius"]) + mm.aggro_range + 4.0:
 				crowded.append(mid)
 	var total: int = int(count["crab"]) + int(count["crab_hermit"]) + int(count["crab_sand"])
-	check(packs >= 9 and total >= 60 and total <= 75, "Praia: 9+ matilhas e 60-75 caranguejos (%d matilhas, %d bichos)" % [packs, total])
+	var lo := int(60 * float(Balance.SPAWN_MAP_MULT.get("field_crab_beach", 1.0)))     # x2 desde 2026-11-24 (pedido do usuário)
+	var hi := int(75 * float(Balance.SPAWN_MAP_MULT.get("field_crab_beach", 1.0)))
+	check(packs >= 9 and total >= lo and total <= hi, "Praia: 9+ matilhas e %d-%d caranguejos (%d matilhas, %d bichos)" % [lo, hi, packs, total])
 	if total > 0:
 		check(float(count["crab"]) / total >= 0.5 and float(count["crab"]) / total <= 0.68, "Praia: ~60%% de Caranguejo comum (%d de %d)" % [count["crab"], total])
 		check(float(count["crab_hermit"]) / total >= 0.15 and float(count["crab_sand"]) / total >= 0.15, "Praia: ~20%% de eremitas e ~20%% da areia (%d e %d de %d)" % [count["crab_hermit"], count["crab_sand"], total])
@@ -30011,10 +30098,12 @@ func _check_fill_misc(gd, sim) -> void:
 
 func _check_zone_pulse(gd, sim) -> void:
 	var m: Dictionary = sim.maps["city_aldara"]
+	var foreign: Array = m["traps"]          # zonas/armadilhas dos bots do mundo: fora durante o teste (curavam o aliado de fora)
+	m["traps"] = []
 	var at := Vector3(-30, 0, 60)
 	var tem: SimEntity = _fill_bot(gd, sim, "paladin", "templario", at)
 	var ally: SimEntity = _fill_bot(gd, sim, "paladin", "guardiao", at + Vector3(0, 0, 4))
-	var out_ally: SimEntity = _fill_bot(gd, sim, "paladin", "guardiao", at + Vector3(0, 0, -8))
+	var out_ally: SimEntity = _fill_bot(gd, sim, "paladin", "guardiao", at + Vector3(0, 0, -12))     # > RADIANCE_RANGE do bispo: a cura do golpe (mend) não o alcança
 	tem.party_id = 9393
 	ally.party_id = 9393
 	out_ally.party_id = 9393
@@ -30066,13 +30155,14 @@ func _check_zone_pulse(gd, sim) -> void:
 	var a0 := ally.hp
 	sim.time += 1.05
 	TrapSystem.update_traps(sim, m)
-	check(ally.hp > a0 and is_equal_approx(out_ally.hp, out_ally.stats.max_hp * 0.4), "Estandarte da Fé: cura o aliado dentro, não o de fora")
+	check(ally.hp > a0 and is_equal_approx(out_ally.hp, out_ally.stats.max_hp * 0.4), "Estandarte da Fé: cura o aliado dentro, não o de fora (de fora %.0f/%.0f; %d armadilhas do mundo guardadas)" % [out_ally.hp, out_ally.stats.max_hp, foreign.size()])
 	check(foe.debuffs.any(func(d): return d.get("kind") == "slow"), "Estandarte da Fé: retarda o inimigo dentro")
 	check((m["traps"] as Array).any(func(t): return t["kind"] == TrapSystem.ZONE and t["owner"] == cle.id and t["zone"] == "faith_banner"), "Estandarte da Fé: zona com o id do estandarte (desenho do mastro)")
 	for e in [tem, ally, out_ally, cle, foe]:
 		e.party_id = -1
 		sim.despawn(e)
-	m["traps"] = (m["traps"] as Array).filter(func(t): return t["kind"] != TrapSystem.ZONE)
+	m["traps"] = (m["traps"] as Array).filter(func(t): return t["kind"] != TrapSystem.ZONE) + foreign
+	print("  zone_pulse: %d armadilhas/zonas dos bots do mundo guardadas durante o teste" % foreign.size())
 
 func _check_sunder(gd, sim) -> void:
 	# a assinatura do Executor (Golpe Avassalador, que GASTA a rachadura) sai por sorteio no acerto do Fender: com ela ligada

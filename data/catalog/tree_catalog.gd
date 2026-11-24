@@ -300,6 +300,7 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 			keep.append(e)
 		elif rng.randf() < EDGE_KEEP:
 			keep.append(e)
+	keep.append_array(_early_shortcuts(cls, clusters, hubs, keep))     # não sorteia nada: o resto da teia sai igual
 	for e in keep:
 		var a: Vector2i = e[0]
 		var b: Vector2i = e[1]
@@ -451,6 +452,57 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 	_core_ring(cls, nodes, start)
 	_class_picks(cls, nodes)
 	return {"start": start, "nodes": nodes, "panes": panes, "clusters": out_clusters}
+
+## Atalhos das skills cedo (Balance.WEB_EARLY_LEVEL): para cada círculo de skill inicial/de nível baixo, o caminho mais curto
+## na grade de junções do início (0,0) até o canto de entrada da casa; devolve as estradas desse caminho que a árvore
+## sorteada não tem (formato de `keep`: [a, b, 0.0]). Busca em largura com vizinhos em ordem fixa (determinístico).
+static func _early_shortcuts(cls: ClassDef, clusters: Array, hubs: Dictionary, keep: Array) -> Array:
+	var have := {}
+	for e in keep:
+		have[[e[0], e[1]]] = true
+	var dirs: Array = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+	var prev := {Vector2i(0, 0): Vector2i(0, 0)}
+	var queue: Array = [Vector2i(0, 0)]
+	while not queue.is_empty():
+		var h: Vector2i = queue.pop_front()
+		for d: Vector2i in dirs:
+			var n := h + d
+			if hubs.has(n) and not prev.has(n):
+				prev[n] = h
+				queue.append(n)
+	var out: Array = []
+	for cl in clusters:
+		if cl["kind"] != "skill":
+			continue
+		var sk: SkillDef = cl["skill"]
+		if sk.unlock_level > Balance.WEB_EARLY_LEVEL and not (sk.id in cls.starting_skills):
+			continue
+		var cc: Vector2 = cl["cell"]["c"]
+		var at := Vector2i(cl["cell"]["i"] + (1 if cc.x < 0 else 0), cl["cell"]["j"] + (1 if cc.y < 0 else 0))
+		while prev.has(at) and at != Vector2i(0, 0):
+			var p: Vector2i = prev[at]
+			var key: Array = [p, at] if (p.x < at.x or p.y < at.y) else [at, p]     # mesma ordem das estradas (a -> a+1)
+			if not have.has(key):
+				have[key] = true
+				out.append([key[0], key[1], 0.0])
+			at = p
+	return out
+
+## Custo (pontos) e saltos do caminho mais barato do início até cada nó (Dijkstra pelo custo do nó em que se entra):
+## nó -> [pontos, saltos]. Ex.: path_costs(GameData.trees["berserker"]["nodes"], start)[nid][0]. Usado por web_probe --reach e testes.
+static func path_costs(nodes: Dictionary, start: String) -> Dictionary:
+	var best := {start: [0, 0]}
+	var open: Array = [start]
+	while not open.is_empty():
+		open.sort_custom(func(a, b): return int(best[a][0]) < int(best[b][0]))
+		var cur: String = open.pop_front()
+		for l in nodes[cur]["links"]:
+			var c: int = int(best[cur][0]) + int(nodes[l]["cost"])
+			if not best.has(l) or c < int(best[l][0]):
+				best[l] = [c, int(best[cur][1]) + 1]
+				if not (l in open):
+					open.append(l)
+	return best
 
 const DASH_RING_GAP := 0.9       # unidades entre a evolução de dash da classe e o 1º nó do anel genérico
 ## Nó genérico de dash (Balance.DASH_NODES)? O id termina no id da linha (ex.: ass_t_dash_extra).

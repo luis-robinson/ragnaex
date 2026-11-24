@@ -1241,7 +1241,7 @@ func refresh_quest_tracker() -> void:
 	if p.quests_active.is_empty():
 		t = "[b][color=#ffd966]Quests[/color][/b]\n[color=#888]Nenhuma. Fale com NPCs [Quest].[/color]"
 	var tracked := tracked_quest()
-	var order: Array = p.quests_active.keys()
+	var order: Array = QuestSystem.by_relevance(p, p.quests_active.keys())     # repetível de nível baixo no fim
 	if order.has(tracked):
 		order.erase(tracked)
 		order.push_front(tracked)
@@ -1256,7 +1256,7 @@ func refresh_quest_tracker() -> void:
 		var prog := QuestSystem.progress(p, q)
 		var done := prog >= q.count
 		var col := "#9f9" if done else ("#ffd966" if qid == tracked else "#eee")
-		var rep := "  [color=#59bfff]↻ repetível[/color]" if q.repeatable else ""
+		var rep := ("  [color=#888]↻ nível baixo[/color]" if QuestSystem.is_low_level(p, q) else "  [color=#59bfff]↻ repetível[/color]") if q.repeatable else ""
 		t += "[url=%s][color=%s]%s%s[/color][/url]  %d/%d%s%s\n" % [qid, col, "▶ " if qid == tracked else "", q.title, prog, q.count, rep, "  ✔ entregar" if done else ""]
 		para += 1
 		if not done:

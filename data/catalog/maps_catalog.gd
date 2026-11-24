@@ -1989,11 +1989,14 @@ static func load_zone(id: String) -> Dictionary:
 			portals[-1]["gate"] = MARSH_GATES[p["id"]]
 	var spawners: Array = []
 	var dense: float = Balance.SPAWN_COUNT_MULT_DUNGEON if is_dungeon_id(id) else Balance.SPAWN_COUNT_MULT
+	var more: float = float(Balance.SPAWN_MAP_MULT.get(id, 1.0))     # mapa com gente a mais: conta x mult, raio x √mult
 	for s in z["spawners"]:
 		var n := int(s["count"])
+		var r := float(s["radius"])
 		if n > 1:              # chefe único (count 1) continua único
-			n = int(round(n * dense))
-		spawners.append(_sp(mob(s["monster_id"]), float(s["pos"][0]), float(s["pos"][1]), float(s["radius"]), n, float(s["respawn"]) * Balance.SPAWN_RESPAWN_MULT))
+			n = int(round(n * dense * more))
+			r *= sqrt(more)
+		spawners.append(_sp(mob(s["monster_id"]), float(s["pos"][0]), float(s["pos"][1]), r, n, float(s["respawn"]) * Balance.SPAWN_RESPAWN_MULT))
 		if s.has("emerge"):            # chefe que sai da água: [x, z, raio] do lago
 			spawners[-1]["emerge"] = s["emerge"]
 		if s.has("route"):             # ronda: o líder (e a escolta dele) percorre estes pontos
@@ -2163,7 +2166,8 @@ static func _hollow() -> MapDef:
 # ---------------------------------------------------------------------------
 ## Praia dos Caranguejos (3-8, área de farm ao sul do Vale): tools/blender/zones/build_field_crab_beach.py. Enseada com a baía a
 ## oeste; chegada e rancho do Pescador Joca na ponta norte (sem muro nem cristal), Recife do Rei na ponta sul (o Caranguejo-Rei
-## sai do mar: spawner com `emerge`). Matilhas de `crab`, `crab_hermit` e `crab_sand` pela praia e pelas dunas (contagens no build).
+## sai do mar: spawner com `emerge`). Matilhas de `crab`, `crab_hermit` e `crab_sand` pela praia e pelas dunas (contagens no build,
+## x Balance.SPAWN_MAP_MULT na sim). O Joca dá as caçadas repetíveis da praia (QuestsCatalog.HUNT_GIVERS) e os Cascos para a Rede.
 const BEACH_NPCS := {
 	"beach_fisher": ["Pescador Joca", "quest", Color(0.36, 0.56, 0.7), ["Trinta anos de rede e nunca vi tanta pinça numa praia só. Bom pra você, ruim pro meu píer.",
 		"Casco de caranguejo dá o melhor peso de rede que existe. Traga os que achar, eu pago sempre.",

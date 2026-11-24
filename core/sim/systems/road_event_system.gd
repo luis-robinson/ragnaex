@@ -231,7 +231,7 @@ static func on_mob_killed(sim: WorldSim, mob: SimEntity, killer: SimEntity) -> v
 static func reward_of(level: int, n: int) -> Dictionary:
 	n = maxi(1, n)
 	var share := (1.0 + Balance.PARTY_XP_BONUS * (n - 1)) / float(n)
-	return {"xp": int(round(Balance.xp_for_level(level) * Balance.EVENT_XP_FRAC * share)),
+	return {"xp": int(round(Balance.xp_base_for_level(level) * Balance.EVENT_XP_FRAC * share)),
 		"gold": maxi(1, int(ceil((Balance.EVENT_COIN_BASE + Balance.EVENT_COIN_PER_LV * level) / float(n))))}
 
 ## Termina o evento: "resolved" paga quem contribuiu (uma vez), qualquer outro fim só limpa. Os monstros que sobraram

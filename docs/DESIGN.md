@@ -20,6 +20,7 @@ o cursor, LMB básico, skills como skillshots/área no cursor).
    (`WorldSim._tick_dash_refill`; antes só voltavam depois de gastar todas). Na tela: gomos nos pés do seu personagem só enquanto
    alguma carga enche (`DashGauge`), vaga Shift na barra com leque e número de cargas, brilho + som `dash_ready` quando uma carga
    volta. Checks `_check_dash_charge_refill`, `_check_dash_display`; foto: `-- --dash_shot=<pasta> [--dash_talent=<id>]`.
+   **Skills cedo perto do início na teia** (2026-11-24, pedido do usuário): a malha de estradas é uma árvore sorteada e o caminho até uma casa vizinha podia dar a volta (Berserker pagava 12 pontos até as skills do nível 1). Agora skill inicial ou de nível <= `Balance.WEB_EARLY_LEVEL` (10) ganha atalhos: as estradas que faltam no caminho mais curto da grade até a entrada do círculo (`TreeCatalog._early_shortcuts`; só acrescenta nós, sem sorteio: ids/posições/saves iguais). Iniciais <= `WEB_START_REACH_MAX` (4) pontos, nível <= 10 <= `WEB_EARLY_REACH_MAX` (10). Medir: `web_probe.tscn -- --reach[=<classe>]`; check `_check_web_early_reach`.
    **Nós genéricos do dash** (2026-11-24, decisão do usuário): toda classe ganha na teia, em anel na casa do dash (depois da
    evolução própria dela), Passada Longa (10: +20% distância), Fôlego (20: −25% recarga), Esquiva Firme (20: +0,15 s invulnerável)
    e Passo Extra (30: +1 carga). Números em `Balance.DASH_NODES`/`DASH_NODE_COST`; ids `<prefixo>_t_dash_*` (`TalentsCatalog.dash_nodes`,
@@ -840,6 +841,9 @@ Spawners enchem de uma vez ao carregar o mapa (`primed`); depois cada abate volt
 a `Balance.DORMANT_RANGE` (40 m) dorme (não pensa/anda/atualiza). Separação usa grade de 3 m por tick (`WorldSim._index_map`) e monstros
 procuram alvo só na lista de personagens do tick. Dungeons do mapa (`build_dungeons.py`): bando no meio de cada corredor (menos o da
 chegada), salões com área de spawn do tamanho do salão.
+**XP exigida em dobro** (2026-11-24, pedido do usuário: os mapas já têm opcionais bastante): `Balance.xp_for_level` = `xp_base_for_level` × `XP_LEVEL_MULT` (2,0). A curva base (abaixo, números F1) continua calibrando as **recompensas** (`QuestsCatalog.scale_xp` pela `band_xp_base`, eventos de estrada): quests dão a mesma XP de antes, ~metade da fatia planejada da faixa exigida; o resto vem de caçadas, quadros, eventos e masmorras. Os tempos em horas abaixo são da curva base.
+**Repetíveis de nível baixo**: personagem mais de `Balance.QUEST_LOW_LEVEL_GAP` (3) níveis acima da repetível = "Nível baixo" (cinza no NPC/quadro e no painel; vai para o fim das listas: `QuestSystem.is_low_level/by_relevance`). Check `_check_quest_low_level`.
+
 Ritmo (MVP até o 30, ~15 h): `Balance.xp_for_level` sai do tempo planejado no nível (6,5 + 1,75×(lv−1) min) × 3 abates/min ×
 XP de um monstro do nível (6 + 4,5×lv) ÷ 0,55. Ato II (nível máximo 45, Monte Kharzun 40-45): do 30 em diante os minutos crescem só 0,75 por nível
 (`XP_MIN_PER_LEVEL_ACT2`; 30→31 = 44 030, 34→35 = 52 250, 35→36 = 54 400, 39→40 = 63 360, 44→45 = 75 390; faixa 35-40 = 294 200 de XP, ~5,2 h; faixa 40-45 ~5,5 h); faixas 30-35 e 35-40 com 55% de quest, 40-45 com 50%; +1 ponto de teia também no 40 (312 pontos no 45); pontos de ascensão: 21 no 40, 36 no 45. Ato III parte 1 (nível máximo 50, GDD `ato3-excesso-45-50` §6.1): mesma F1, 45→46 = 77 900 ... 49→50 = 88 340, faixa 45-50 ~5,8 h com 50% de quest; +1 ponto de teia no 50 (348 no 50); ascensão parada no 45 (D5: nenhum ponto nem refino novo); save do 45 com XP 0 volta a subir. Quests não repetíveis dão 50% / 55% / 65% de cada faixa (1-10, 10-20, 20-30; `XP_QUEST_SHARE_BAND`; a curva conta 45%, então quem faz quest sobe mais rápido que o tempo planejado):
@@ -896,6 +900,10 @@ Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MS
   (quest repetível `beach_shells`: 10 cascos), Recife do Rei na outra ponta (Caranguejo-Rei da Praia sai do mar, `emerge`). Área de farm:
   11 matilhas, ~70 caranguejos (comum, **Eremita** que se fecha na concha `mob_shell_hide`, **da Areia** que dá o bote `mob_sand_leap`;
   mesmo saque `lt_crab`). Medir: `tools/tests/farm_probe.tscn` (abates/min por bot; use `vivos_medio`/`zerou`). Check `_check_crab_beach`.
+  **2026-11-24 (pedido do usuário: "o mapa é muito vazio")**: x2 por `Balance.SPAWN_MAP_MULT` (por cima do `SPAWN_COUNT_MULT`; raio x √2,
+  mesma densidade por bando e mais área; o Caranguejo-Rei segue único): ~130 caranguejos. Sim igual (9,3 ms/tick; a maioria dorme). As
+  caçadas repetíveis da praia (Caranguejo, Eremita, da Areia) saem do **Joca** (`QuestsCatalog.HUNT_GIVERS`), não mais do quadro de Aldara.
+  Check `_check_crab_beach_more`.
   O build desenha com o mar ao sul e gira o mapa 90° no fim (`TURN`, `(x, z) -> (-z, x)`): a chegada fica no rumo oposto à saída de Aldara.
   **Campina (1-10)** no mesmo vale: lago dos slimes (sul), slime azul no lago/fazenda, bosque dos javalis (leste),
   colinas dos lobos com torre em ruínas (norte), clareira do Rei Javali (oeste, além da ponte), castelo na colina (NE, landmark).

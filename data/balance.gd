@@ -206,6 +206,9 @@ const DMG_VARIANCE := 0.1
 # --- progressão (lenta: ~15 kills/nível no início, ~500 perto do 30; ~3800 kills até o máximo) ---
 ## XP por nível sai do tempo de jogo: minutos no nível (XP_MIN_BASE + XP_MIN_PER_LEVEL × (lv-1)) × abates por minuto ×
 ## XP de um monstro do nível (XP_MOB_BASE + XP_MOB_PER_LEVEL × lv) ÷ parte que vem de abates. Dá ~2h (1-10), ~5h (10-20), ~8h (20-30).
+## 2026-11-24 (pedido do usuário: os mapas já têm opcionais bastante): subir de nível exige XP_LEVEL_MULT × a curva base;
+## as recompensas continuam na curva base (quests ~45% da faixa BASE = ~22% da exigida; o resto vem do opcional).
+const XP_LEVEL_MULT := 2.0
 const XP_MIN_BASE := 6.5
 const XP_MIN_PER_LEVEL := 1.75
 const XP_KILLS_PER_MIN := 3.0            # solo, contando o caminho entre um e outro
@@ -263,6 +266,12 @@ const BOT_SKILL_RANK_PER_LEVELS := 6
 const WEB_GAIN_ATK := [1.25, 1.5]          # 1,3 -> 1,25 (2026-11-10): anel/capa/amuleto mais fortes, a teia rende um pouco menos em proporção
 const WEB_GAIN_HP := [1.1, 1.42]           # 1,35 -> 1,42 (2026-11-21): anel de base (CORE_NOTABLES) soma ~+5% de HP em todas as classes, de propósito (média medida x1,39-1,40)
 const WEB_GAIN_BUILD := [1.2, 2.3]
+## Skills cedo perto do início (2026-11-24, pedido do usuário: o Berserker pagava 12 pontos de estrada até as skills do nível 1).
+## Skill inicial ou de nível <= WEB_EARLY_LEVEL ganha atalhos: as estradas que faltam no caminho mais curto da grade até a
+## entrada do círculo (TreeCatalog._early_shortcuts). Só acrescenta nós: ids e posições da teia não mudam (saves valem).
+const WEB_EARLY_LEVEL := 10
+const WEB_EARLY_REACH_MAX := 10            # pontos de caminho até a Aprimorada de skill de nível <= WEB_EARLY_LEVEL (check; web_probe --reach FLAG)
+const WEB_START_REACH_MAX := 4             # ... e das skills iniciais da classe
 const WEB_GAIN_LEVEL := 30                 # nível em que as faixas acima foram calibradas (Ato I); o Ato II mede à parte (web_probe --level=35 / --level=40)
 ## Faixas do Ato II (Fronteira da teia), mesmas regras do 30 nos níveis 40 e 45: crescem pouco (o equipamento do tier novo
 ## também cresce, e a razão é teia sobre o resto). F5 (ato2-horda): a ascensão (+14,5% no 40, +21,5% no 45) fica abaixo de
@@ -788,8 +797,14 @@ const AWAY_MAP_EVERY := 4
 const SPAWN_COUNT_MULT := 1.6            # campos e vale da cidade
 const SPAWN_COUNT_MULT_DUNGEON := 2.0    # dungeons: salões cheios para grupo (laço em MapsCatalog sobre os spawners do JSON)
 const SPAWN_RESPAWN_MULT := 0.75         # renasce mais rápido
+## Mapa que precisa de mais gente (por cima do SPAWN_COUNT_MULT; o raio do spawner cresce √mult: mesma densidade, mais área).
+## Praia dos Caranguejos x2 (2026-11-24, pedido do usuário: "o mapa é muito vazio").
+const SPAWN_MAP_MULT := {"field_crab_beach": 2.0}
 ## Caçadas repetíveis geradas (QuestsCatalog.hunts)
 const HUNT_COUNT := 10
+## Repetível de nível baixo (2026-11-24, pedido do usuário): personagem mais de QUEST_LOW_LEVEL_GAP níveis acima do nível
+## da repetível = "nível baixo" (rótulo cinza e vai para o fim das listas; QuestSystem.is_low_level/by_relevance).
+const QUEST_LOW_LEVEL_GAP := 3
 const HUNT_XP_MULT := 1.6                # XP da quest = XP do monstro × quantidade × isto
 const HUNT_GOLD_PER_LEVEL := 6.0
 ## Necromancer: maldições e canalização
@@ -2181,7 +2196,12 @@ const BOT_FALCON_EYES_SCORE := 3.2        # bot: Olhos do Céu em chefe (abertur
 static func points_at(level: int) -> int:
 	return MASTERY_POINTS_PER_LEVEL + (1 if level in MASTERY_BONUS_LEVELS else 0)
 
+## XP exigida para subir do nível `level` = curva base × XP_LEVEL_MULT (o que a barra mostra e o que sobe de nível).
 static func xp_for_level(level: int) -> int:
+	return int(round(xp_base_for_level(level) * XP_LEVEL_MULT))
+
+## Curva base (tempo de jogo planejado, GDD F1): calibra as RECOMPENSAS (XP das quests por faixa, eventos de estrada).
+static func xp_base_for_level(level: int) -> int:
 	if level >= MAX_LEVEL:
 		return 0
 	var mob_xp := XP_MOB_BASE + XP_MOB_PER_LEVEL * level
@@ -2198,11 +2218,18 @@ static func level_minutes(level: int) -> float:
 		return XP_MIN_BASE + XP_MIN_PER_LEVEL * (level - 1)
 	return XP_MIN_BASE + XP_MIN_PER_LEVEL * (XP_ACT2_FROM - 1) + XP_MIN_PER_LEVEL_ACT2 * (level - XP_ACT2_FROM)
 
-## XP total para atravessar a faixa [de, até).
+## XP total exigida para atravessar a faixa [de, até).
 static func band_xp(from_lv: int, to_lv: int) -> int:
 	var t := 0
 	for lv in range(from_lv, to_lv):
 		t += xp_for_level(lv)
+	return t
+
+## A mesma faixa na curva base (recompensas: QuestsCatalog.scale_xp).
+static func band_xp_base(from_lv: int, to_lv: int) -> int:
+	var t := 0
+	for lv in range(from_lv, to_lv):
+		t += xp_base_for_level(lv)
 	return t
 
 ## Tier efetivo dos bônus percentuais de conjunto: i_ef = min(i, 5) + 0,5 × max(0, i − 5) (GDD Ato II F10).

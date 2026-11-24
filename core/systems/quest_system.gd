@@ -16,6 +16,23 @@ static func available_from_npc(e: SimEntity, npc_id: String) -> Array:
 			out.append(q)
 	return out
 
+## Repetível de nível baixo para `e`: nível dele > nível da quest + Balance.QUEST_LOW_LEVEL_GAP (só as repetíveis;
+## as da história nunca). Ex.: caçada Lv 5 com o personagem no 9 = baixa; no 8 ainda não.
+static func is_low_level(e: SimEntity, q: QuestDef) -> bool:
+	return q.repeatable and e.level > q.level_req + Balance.QUEST_LOW_LEVEL_GAP
+
+## As mesmas quests com as de nível baixo no fim (ordem relativa mantida nos dois grupos). Só para mostrar (UI).
+static func by_relevance(e: SimEntity, quests: Array) -> Array:
+	var top: Array = []
+	var low: Array = []
+	for q in quests:
+		var qd: QuestDef = q if q is QuestDef else GameData.quests.get(q)
+		if qd != null and is_low_level(e, qd):
+			low.append(q)
+		else:
+			top.append(q)
+	return top + low
+
 static func can_accept(e: SimEntity, q: QuestDef) -> bool:
 	if e.quests_active.has(q.id) or (q.id in e.quests_completed and not q.repeatable):
 		return false
