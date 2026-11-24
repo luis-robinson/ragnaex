@@ -20372,8 +20372,8 @@
   {
    "monster_id": "dire_wolf_rider",
    "pos": [
-    64.0,
-    57.0
+    62.0,
+    56.0
    ],
    "radius": 7.0,
    "count": 1,
@@ -20486,7 +20486,7 @@
   {
    "monster_id": "goblin_agitator",
    "pos": [
-    -84.0,
+    -81.0,
     2.0
    ],
    "radius": 3,
@@ -20765,7 +20765,7 @@
    "monster_id": "basalt_golem",
    "pos": [
     -86.0,
-    66.0
+    64.0
    ],
    "radius": 5,
    "count": 1,

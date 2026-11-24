@@ -1585,7 +1585,9 @@ def _along(objs, c, axis):
 
 # Altura a mais do cajado do Xamã 50 sobre os outros cajados. Era 0,16 (a lua passava da aba do chapéu), mas a CABEÇA
 # (estrela e lanterninhas de lado) é que entrava no chão quando o cajado vira para baixo: cast_bolt -0,21 m, atk_1h_b -0,11.
-MOON_STAFF_EXTRA = 0.0
+# Polimento 2026-11-24: -0,06 (com a lua 0,03 mais perto do colar e o crescente em 0,155) tira o último quadro do cast_bolt
+# em que a ponta de fora do crescente passava 0,06 m do chão (o cajado deita de lado: cada cm de altura vale 0,57 cm).
+MOON_STAFF_EXTRA = -0.06
 
 
 def build_moon_staff(ck, base, mats, style):
@@ -1608,8 +1610,8 @@ def build_moon_staff(ck, base, mats, style):
         p = foot.lerp(top, 0.16 + k * 0.2)
         parts.append(ck.tube(n + "ring%d" % k, p - up * 0.014, p + up * 0.014, 0.039, 0.039, gold, 8))
     parts.append(ck.tube(n + "grip", g - up * 0.07, g + up * 0.07, 0.036, 0.036, t2, 8))
-    c0 = top + up * 0.2
-    rr = 0.165
+    c0 = top + up * 0.17
+    rr = 0.155
     for k in range(6):                   # crescente aberto para cima (lê de cima e de frente), mais grosso embaixo
         a0, a1 = math.radians(-150 + k * 50), math.radians(-150 + (k + 1) * 50)
         w0, w1 = 0.016 + 0.042 * math.sin(math.pi * k / 6), 0.016 + 0.042 * math.sin(math.pi * (k + 1) / 6)
@@ -1693,7 +1695,7 @@ def build_harvest_maul(ck, base, mats, style):
         # as duas fitas saem do tampo de FORA (-X): a do tampo de dentro (+X, virada para o corpo) entrava 0,24 m na
         # máscara de urso nos lançamentos (cast_heal_nature, cast_buff, atk_leap)
         if sx < 0:
-            for k, (rl, off) in enumerate(((0.34, 0.035), (0.24, -0.04))):
+            for k, (rl, off) in enumerate(((0.34, 0.035), (0.15, -0.04))):      # a 2ª mais curta: a ponta dela entrava 0,20 m na máscara em cast/buff_guard
                 q0 = p0 + ridge * off
                 parts.append(lk.silk(ck, n + "ribbon%d" % k, q0, q0 + side * sx * (0.1 - k * 0.04) - fwd * rl + ridge * off * 0.8, ridge, 0.07, 0.1 - k * 0.02, t2, side * sx * 0.04, 3))
     # cabaça menor e mais baixa no tonel (era 0,115 a 0,275 do centro): entrava 0,27 m na máscara de urso nos lançamentos

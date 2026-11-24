@@ -2521,6 +2521,15 @@ func _check_loading_art(gd) -> void:
 	var no_zone: Array = gd.maps.keys().filter(func(mid): return gd.maps[mid].model != "" and not gd.maps[mid].interior and not zones.has(mid))
 	check(no_zone.is_empty(), "loading_art: todo mapa com cenário está em ZONES (%s)" % [no_zone])
 
+## Cada `_check_*` de topo começa de uma semente derivada do NOME dele (igual no run_all e no --only):
+## o resultado não depende de quais checks rodaram antes e acrescentar/tirar um check não muda os sorteios dos outros.
+## Mexe só no ESTADO do rng da sim (a `seed` volta ao padrão: o evento de estrada deriva a dele da `seed`) e no rng global
+## (`randi()`/`shuffle()` fora da sim). Não mexe no mundo: entidades/tempo seguem acumulando entre os checks.
+func _reseed(sim, check_name: String) -> void:
+	sim.rng.seed = WorldSim.RNG_SEED
+	sim.rng.state = absi(hash(check_name)) + 1
+	seed(hash(check_name))
+
 ## `--only`: chama direto os `_check_*` que batem com algum pedaço, montando os argumentos pelo nome (gd, sim, save).
 func run_only(tokens: Array, gd, sim, save) -> void:
 	gd_ref = gd
@@ -2545,6 +2554,7 @@ func run_only(tokens: Array, gd, sim, save) -> void:
 		if not ok:
 			continue
 		print("--- %s" % mname)
+		_reseed(sim, mname)
 		callv(mname, args)
 		ran += 1
 	save.delete_slot(TEST_SLOT)
@@ -2764,6 +2774,7 @@ func run_all(gd, sim, balance, save) -> void:
 			check(gd.skills.has(sid), "skill %s existe" % sid)
 		for eid in c.starting_equipment:
 			check(gd.items.has(eid), "item inicial %s existe" % eid)
+	_reseed(sim, "_check_builds")
 	_check_builds(gd)
 	for mid in gd.monsters:
 		var m = gd.monsters[mid]
@@ -2887,6 +2898,7 @@ func run_all(gd, sim, balance, save) -> void:
 	p.add_item("iron_ore", 2)
 	p.gold += 100
 	check(ProgressionSystem.rank_up(sim, p, "ber_cleave", true) and p.mastery["ber_cleave"] == 1, "rank da skill sobe com ouro e material (Mestre de Skills)")
+	_reseed(sim, "_check_skill_points")
 	_check_skill_points(gd, sim, p)
 	# loot/quests/craft
 	var elder_quests = QuestSystem.available_from_npc(p, "elder")
@@ -2973,71 +2985,136 @@ func run_all(gd, sim, balance, save) -> void:
 	save.slot = keep_slot
 	save.delete_slot(TEST_SLOT)
 	check(not save.has_slot(TEST_SLOT), "excluir espaço apaga só ele")
+	_reseed(sim, "_check_save_slots")
 	_check_save_slots(sim, save)
+	_reseed(sim, "_check_zone")
 	_check_zone(gd, sim)
+	_reseed(sim, "_check_character_models")
 	_check_character_models(gd, sim)
+	_reseed(sim, "_check_jump")
 	_check_jump(gd, sim)
+	_reseed(sim, "_check_tree")
 	_check_tree(gd, sim, save)
+	_reseed(sim, "_check_class_talents")
 	_check_class_talents(gd, sim)
+	_reseed(sim, "_check_talent_fx_cast")
 	_check_talent_fx_cast(gd, sim)
+	_reseed(sim, "_check_bot_spawn_cache")
 	_check_bot_spawn_cache(gd, sim)
+	_reseed(sim, "_check_skill_visuals")
 	_check_skill_visuals(gd)
+	_reseed(sim, "_check_party")
 	_check_party(gd, sim)
+	_reseed(sim, "_check_bot_chat")
 	_check_bot_chat(gd, sim)
+	_reseed(sim, "_check_act2_playtest")
 	_check_act2_playtest(gd, sim, save)
+	_reseed(sim, "_check_threat_loot")
 	_check_threat_loot(gd, sim)
+	_reseed(sim, "_check_self_aoe")
 	_check_self_aoe(gd, sim)
+	_reseed(sim, "_check_review_fixes")
 	_check_review_fixes(gd, sim)
+	_reseed(sim, "_check_dragon_eggs")
 	_check_dragon_eggs(gd, sim)
+	_reseed(sim, "_check_tank_kit")
 	_check_tank_kit(gd, sim)
+	_reseed(sim, "_check_boss_kit")
 	_check_boss_kit(gd, sim)
+	_reseed(sim, "_check_boss_mechanics")
 	_check_boss_mechanics(gd)
+	_reseed(sim, "_check_tent_cloth")
 	_check_tent_cloth()
+	_reseed(sim, "_check_item_icons")
 	_check_item_icons(gd)
+	_reseed(sim, "_check_tree_spacing")
 	_check_tree_spacing()
+	_reseed(sim, "_check_web_fog")
 	_check_web_fog()
+	_reseed(sim, "_check_web_fog_lock")
 	_check_web_fog_lock(gd, sim)
+	_reseed(sim, "_check_dungeon_mood")
 	_check_dungeon_mood(gd)
+	_reseed(sim, "_check_portal_gates")
 	_check_portal_gates()
+	_reseed(sim, "_check_progression")
 	_check_progression(gd, sim)
+	_reseed(sim, "_check_arc")
 	_check_arc(gd, sim, save_ref)
+	_reseed(sim, "_check_build_depth")
 	_check_build_depth(gd, sim)
+	_reseed(sim, "_check_water")
 	_check_water(gd, sim)
+	_reseed(sim, "_check_bridges")
 	_check_bridges(gd, sim)
+	_reseed(sim, "_check_dry_land")
 	_check_dry_land(gd, sim)
+	_reseed(sim, "_check_world_layout")
 	_check_world_layout(gd)
+	_reseed(sim, "_check_outdoor")
 	_check_outdoor(gd)
+	_reseed(sim, "_check_graphics_settings")
 	_check_graphics_settings()
+	_reseed(sim, "_check_start_flow")
 	_check_start_flow()
+	_reseed(sim, "_check_char_create")
 	_check_char_create()
+	_reseed(sim, "_check_char_list")
 	_check_char_list(sim, save)
 
+	_reseed(sim, "_check_menu_set")
 	_check_menu_set()
+	_reseed(sim, "_check_settings_panel")
 	_check_settings_panel(gd, sim)
+	_reseed(sim, "_check_accessibility_settings")
 	_check_accessibility_settings(sim)
+	_reseed(sim, "_check_vfx_v3v5")
 	_check_vfx_v3v5()
+	_reseed(sim, "_check_loading_steps")
 	_check_loading_steps()
+	_reseed(sim, "_check_loading_art")
 	_check_loading_art(gd)
+	_reseed(sim, "_check_title_screen")
 	_check_title_screen(sim, save)
+	_reseed(sim, "_check_form_clips")
 	_check_form_clips()
+	_reseed(sim, "_check_view_queue")
 	_check_view_queue()
+	_reseed(sim, "_check_late_view_state")
 	_check_late_view_state(GameData, Sim)
+	_reseed(sim, "_check_float_text_crowd")
 	_check_float_text_crowd(GameData)
+	_reseed(sim, "_check_dot_pulse")
 	_check_dot_pulse(GameData, Sim)
+	_reseed(sim, "_check_dot_cap")
 	_check_dot_cap(GameData, Sim)
+	_reseed(sim, "_check_ui_polish_r2")
 	_check_ui_polish_r2(GameData, Sim)
+	_reseed(sim, "_check_windup_timing")
 	_check_windup_timing()
+	_reseed(sim, "_check_clip_routing")
 	_check_clip_routing(gd)
+	_reseed(sim, "_check_anticipation")
 	_check_anticipation(gd)
+	_reseed(sim, "_check_teleport_look")
 	_check_teleport_look(gd)
+	_reseed(sim, "_check_weapon_arcs")
 	_check_weapon_arcs(gd, sim)
+	_reseed(sim, "_check_build_accents")
 	_check_build_accents(gd)
+	_reseed(sim, "_check_pose_fade")
 	_check_pose_fade()
+	_reseed(sim, "_check_hand_twist")
 	_check_hand_twist()
+	_reseed(sim, "_check_form_leg_twist")
 	_check_form_leg_twist()
+	_reseed(sim, "_check_shield_mounts")
 	_check_shield_mounts()
+	_reseed(sim, "_check_axe_kit")
 	_check_axe_kit()
+	_reseed(sim, "_check_anim_review")
 	_check_anim_review()
+	_reseed(sim, "_check_mastery_desc")
 	_check_mastery_desc()
 	# builds: paladino = tanque (escudo) ou 2 mãos; berserker = 2 mãos ou duas armas de 1 mão (machado/espada misturados)
 	var pb: Array = gd.classes["paladin"].builds.map(func(b): return b["id"])
@@ -10527,15 +10604,25 @@ func _check_action_bar(_gd, _sim) -> void:
 func _check_random_walkable_fallback(gd, sim) -> void:
 	var rng_state: int = sim.rng.state            # sorteia no rng da sim: devolve para não mudar os checks seguintes
 	var md: MapDef = gd.maps["field_kharzun"]
-	var tried := 0
-	for sp in md.spawners:
-		var c: Vector3 = sp["pos"]
-		if sim.is_walkable(c, md):
-			continue
-		tried += 1
+	# acha pontos dentro de obstáculo com chão andável a até 3 m (varrendo a grade; não depende de spawner)
+	var picked: Array = []
+	var x := -100.0
+	while x <= 100.0 and picked.size() < 3:
+		var z := -100.0
+		while z <= 100.0 and picked.size() < 3:
+			var c := Vector3(x, 0, z)
+			if not sim.is_walkable(c, md):
+				for k in range(8):
+					var a := TAU * float(k) / 8.0
+					if sim.is_walkable(c + Vector3(cos(a) * 3.0, 0, sin(a) * 3.0), md):
+						picked.append(c)
+						break
+			z += 7.0
+		x += 7.0
+	check(picked.size() == 3, "random_walkable: achou 3 pontos em obstáculo na beira do chão para testar (%d)" % picked.size())
+	for c in picked:
 		var p: Vector3 = sim.random_walkable(md, c, 0.0)
-		check(sim.is_walkable(p, md) and p.distance_to(c) <= 6.5, "random_walkable: centro em obstáculo (%s em %s) cai no andável mais perto (%.1f m)" % [sp["monster_id"], c, p.distance_to(c)])
-	check(tried > 0, "random_walkable: field_kharzun tem spawner com o centro em obstáculo para testar (%d)" % tried)
+		check(sim.is_walkable(p, md) and p.distance_to(c) <= 6.5, "random_walkable: centro em obstáculo %s cai no andável mais perto (%.1f m)" % [c, p.distance_to(c)])
 	sim.rng.state = rng_state
 
 ## Cargas do dash (decisão do usuário 2026-11-24): cada carga gasta volta sozinha, uma de cada vez, na recarga cheia
@@ -15183,6 +15270,7 @@ func _check_party(gd, sim) -> void:
 	# bot seguidor: anda até o líder; com o líder em outro mapa, vai pro portal
 	a.brain = null
 	var f = b
+	f.hp = f.stats.max_hp          # a Prece de cima deixa o seguidor ferido: com poção na bolsa ele bebe em vez de andar (dependia do sorteio do equipamento do bot)
 	f.position = a.position + Vector3(12, 0, 0)
 	var cmd: InputCommand = f.brain.think(f, sim, m, 0.05)
 	var to_leader := Vector2(a.position.x - f.position.x, a.position.z - f.position.z).normalized()

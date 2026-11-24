@@ -584,6 +584,29 @@ def east_gorge(z):
             "label": "Lumeria, a Festa Eterna (Lv 45-47)", "level": 45, "quest": "hx_act2_epilogue"}
 
 
+# Spawners cujo centro caía dentro de um sólido (sim.is_walkable falso): (monstro, centro do build, centro certo).
+# Mudam só no FIM do build (move_spawners), depois do acabamento: ele reserva o chão em volta dos spawners e, com o
+# centro trocado antes, sorteava outra zona. Assim o JSON muda só nestas três entradas e o GLB sai byte a byte igual.
+SPAWN_MOVES = [
+    ("dire_wolf_rider", (64.0, 57.0), (62.0, 56.0)),      # emboscada: o centro é o lampião do acampamento; 2 m para o lado da trilha
+    ("goblin_agitator", (-84.0, 2.0), (-81.0, 2.0)),      # Minas: dentro da fogueira (-84, 2.5); 3 m ao lado
+    ("basalt_golem", (-86.0, 66.0), (-86.0, 64.0)),       # encostava numa árvore queimada (-85.7, 67.8)
+]
+
+
+def move_spawners(z):
+    for mid, old, new in SPAWN_MOVES:
+        hit = [s for s in z.data["spawners"] if s["monster_id"] == mid and tuple(s["pos"]) == old]
+        if len(hit) != 1:
+            print("SPAWN_MOVE_MISS %s em %s: %d spawners" % (mid, old, len(hit)))
+            continue
+        hit[0]["pos"] = list(new)
+        near = [o for o in z.data["obstacles"] if o.get("solid", True) and o.get("y", 0.0) < 0.5
+                and math.hypot(o["pos"][0] - new[0], o["pos"][1] - new[1]) < max(o["size"][0], o["size"][2]) * 0.71 + 0.6]
+        if near:
+            print("SPAWN_MOVE_WARN %s em %s: sólido perto %s" % (mid, new, [(o["kind"], o["pos"]) for o in near]))
+
+
 # ---------------------------------------------------------------------------------------------------------------
 def check_spawners(z):
     """Aviso (não erro) para spawner fora das regras dos testes: 40-120 m do hub, dentro da borda, fora da lava e de morro."""
@@ -803,6 +826,7 @@ def build(export=False):
               for p in z.data["portals"] if p["target_map"] in FUTURE_MAPS]
     z.data["portals"] = [p for p in z.data["portals"] if p["target_map"] not in FUTURE_MAPS]
     gorge = east_gorge(z)
+    move_spawners(z)
     if gorge:
         future.append(gorge)
     z.data["future_portals"] = future

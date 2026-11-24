@@ -988,8 +988,10 @@ def build_staff50(ck, base, mats, style):
             a = math.radians(90 + (k - 3) * 28)
             dv = side * math.cos(a) + um * math.sin(a)
             wd = side * -math.sin(a) + um * math.cos(a)
-            ln = 0.13 + (0.08 if k == 3 else 0.04 if k % 2 else 0.0)        # leque mais curto (era 0,2 +): a ponta dos cristais entrava 0,12 m no chão com o cajado virado
-            parts.append(ck.blade(n + "shard%d" % k, c + dv * 0.13 - face * 0.02, c + dv * (0.15 + ln) - face * 0.03, 0.1, 0.04, glow if k % 2 == 0 else glass, wd, 0.35))
+            ln = 0.13 + (0.05 if k == 3 else 0.04 if k % 2 else 0.0)        # leque mais curto (era 0,2 +): a ponta dos cristais entrava 0,12 m no chão com o cajado virado
+            # pontas inclinadas para a FRENTE (+face 0,05; era -0,03) e a do meio 0,03 mais curta: com o cajado deitado de costas para o
+            # chão (atk_finisher/atk_leap) a ponta de trás do leque passava 0,07 m do chão
+            parts.append(ck.blade(n + "shard%d" % k, c + dv * 0.13 - face * 0.02, c + dv * (0.15 + ln) + face * 0.05, 0.1, 0.04, glow if k % 2 == 0 else glass, wd, 0.35))
         parts += [ck.blade(n + "pendant", c - um * 0.15, c - um * 0.3 + face * 0.02, 0.06, 0.045, glass, side, 0.35),
                   ck.ball(n + "boss", 0.03, c - um * 0.155 + face * 0.01, gold)]
         parts += _staff50_ribbons(ck, n, top, up, M)
