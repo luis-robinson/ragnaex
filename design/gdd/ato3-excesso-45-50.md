@@ -27,7 +27,7 @@
 
 | # | Decisão | Opções | Recomendado | Por quê (uma linha) |
 |---|---|---|---|---|
-| D1 | Nomes de trabalho | (a) **Amarante, a Que Nunca Murcha** (deusa, nunca aparece em pessoa na parte 1) · **Lumeria, a Festa Eterna** · **Vinhas do Perfume** · **Avenida do Cortejo** · **o Jardim Sem Fim** atrás do **Véu Rasgado** · (b) outros do narrative-director | **(a)** como placeholder | Originais, pronunciáveis em pt-BR; nada lembra nome de Warhammer. Texto final = narrative-director. **2026-11-24 (usuário):** Sylvaré → Amarante; Demônias da Sede → as Veladas (Matriarca Velada; assinatura Brinde Dividido). Demais trocas da proposta (`production/narrative/act3-names-proposal.md` §1-§5) ainda sem decisão. |
+| D1 | Nomes de trabalho | (a) **Amarante, a Que Nunca Murcha** (deusa, nunca aparece em pessoa na parte 1) · **Lumeria, a Festa Eterna** · **Vinhas do Perfume** · **Avenida do Cortejo** · **o Roseiral Sem Fim** atrás do **Véu Rasgado** · (b) outros do narrative-director | **(a)** como placeholder | Originais, pronunciáveis em pt-BR; nada lembra nome de Warhammer. Texto final = narrative-director. **2026-11-24 (usuário):** Sylvaré → Amarante; Demônias da Sede → as Veladas (Matriarca Velada; assinatura Brinde Dividido). Também aprovadas: Irmã Celeste → Irmã Clara, Cantora do Véu → Carpideira, Jardim Sem Fim → Roseiral Sem Fim e os 5 NPCs duplicados (Intendente → Teobaldo, porque Gaspar e Valério já existiam). |
 | D2 | Onde o portal do Kharzun chega | (a) **direto no hub**: portão oeste de Lumeria, Bairro dos Lúcidos · (b) no `field_perfume`, com a cidade a ~100 m | **(a)** | Padrão do Ato II (o navio chega no Porto); o 1º passo de terra nova é um lugar seguro com cristal. |
 | D3 | Quantos mapas | (a) **`city_lumeria` + `field_perfume` + `field_parade` + `rift_garden` + 2 masmorras + 1 opcional + sala da raide (`rift_heart`)** · (b) sem a 3ª masmorra | **(a)** com a 3ª masmorra (Conservatório) em **onda 4** (cortável) | O usuário pediu 2–3; a 3ª entra se o tick e o slot de Blender deixarem. |
 | D4 | "Esquivos" — esquiva de monstro | (a) **campo novo `MonsterDef.evasion`** (0–25%) lido na rolagem de esquiva que já existe (hoje só personagem esquiva: `target.is_character()`, `world_sim.gd` l.1971); chefes sempre 0 · (b) sem esquiva de monstro: "esquivo" = saltos, `dash`, furtividade do `ShiftSystem`, `kite`, golpe rápido | **(a)** | É a palavra que o usuário usou e é a mesma regra do jogador (não é mecânica nova de encanto); 1 campo + 1 condição + check. **Muda esquema (`automation_always_ask`)**. Chefe 0 para não deixar a sonda ruidosa. |
@@ -60,7 +60,7 @@ não deixa ninguém ir para casa."
   sinos e limpa os vinhedos. Os inimigos são **humanos** (foliões, convertidos) e o perfume que deixa tudo lento.
 - **47–49 — o Cortejo**: o desfile que nunca termina leva para o palco onde o Véu foi rasgado; aparecem os **demônios** de verdade
   (bailarinos, galgos, coros, reflexos). O grupo aprende que **quem fica parado leva a dança**.
-- **49–50 — o Jardim Sem Fim**: o reino de Amarante começa no palco. A Anfitriã fecha a parte 1; o Eco de Amarante é o teste de 5.
+- **49–50 — o Roseiral Sem Fim**: o reino de Amarante começa no palco. A Anfitriã fecha a parte 1; o Eco de Amarante é o teste de 5.
 - **SDT**: Autonomia (masmorras e chefes de mundo opcionais, ordem livre entre Adegas e Galeria após L1) · Competência (cada chefe
   ensina um verbo de movimento: sair, interromper, usar cobertura, ritmo, ler a sequência) · Relação (os Lúcidos, o vinhateiro, a
   cidade que acorda em L4, o Ferreiro Anão que veio junto).
@@ -89,10 +89,10 @@ JSON comparado antes/depois fora do portal novo + `SPAWN_chegada_city_lumeria`).
 ### 2.2 Tabela das zonas
 | Mapa | Faixa | Hub / serviços | POIs (60–120 m do centro) | Marco | Leitura de cima |
 |---|---|---|---|---|---|
-| `city_lumeria` — Lumeria, a Festa Eterna (cidade ~240 × 240 m, muralha circular) | 45–47 (bairros de fora) | **Bairro dos Lúcidos** (W, murado, raio ~28 m, portas trancadas com barricadas de móveis): cristal, Irmã Celeste (líder), ferreiro, alquimista, mercador, Mestre de Skills, quadro de caçadas, Relicária, Ferreiro Anão (L1), Arauto (L1) | Praça dos Sinos (centro, campanário), Mercado das Taças (N), Ópera/Palácio do Duque (E, entrada `dg_mirrors`), Jardim das Fontes de Vinho (S), portões N e SE | **Campanário de vidro rosado** (torre de 18 m na praça, fora das estradas) | telhados claros em leque, ruas de pedra creme, **guirlandas e lanternas** em fileiras (leem de cima como linhas pontilhadas), confete no chão em tons do próprio chão (`floor_tones`); o Bairro dos Lúcidos é a mancha **cinza-azulada** sem enfeite |
+| `city_lumeria` — Lumeria, a Festa Eterna (cidade ~240 × 240 m, muralha circular) | 45–47 (bairros de fora) | **Bairro dos Lúcidos** (W, murado, raio ~28 m, portas trancadas com barricadas de móveis): cristal, Irmã Clara (líder), ferreiro, alquimista, mercador, Mestre de Skills, quadro de caçadas, Relicária, Ferreiro Anão (L1), Arauto (L1) | Praça dos Sinos (centro, campanário), Mercado das Taças (N), Ópera/Palácio do Duque (E, entrada `dg_mirrors`), Jardim das Fontes de Vinho (S), portões N e SE | **Campanário de vidro rosado** (torre de 18 m na praça, fora das estradas) | telhados claros em leque, ruas de pedra creme, **guirlandas e lanternas** em fileiras (leem de cima como linhas pontilhadas), confete no chão em tons do próprio chão (`floor_tones`); o Bairro dos Lúcidos é a mancha **cinza-azulada** sem enfeite |
 | `field_perfume` — Vinhas do Perfume (vale) | 45–47 | Cabana do Vinhateiro (sem cristal) | Vinhedo em terraços (W), Lagar dos Pés Roxos (N, entrada `dg_cellars`), Santuário Profanado da Aurora (E), Acampamento dos Fugidos (S), Poço de Névoa (centro-N, chefe de mundo Vindima) | **Lagar gigante** com roda de pedra | fileiras curvas de videira roxa (faixas paralelas), névoa lilás baixa (fx), estradas de terra clara, manchas de uva pisada em tons do chão |
 | `field_parade` — Avenida do Cortejo (vale) | 47–49 | Posto dos Lúcidos (acampamento pequeno, cristal em L2) | Arquibancadas (W), Carros Alegóricos Tombados (N), Conservatório (E, `dg_conservatory`), Palco Grande (centro-S, chefe de mundo Prima-Donna; em L3b abre o Véu) | **Arco do Triunfo de fitas** sobre a avenida (fora da rota, ao lado) | **uma avenida larga** (8 m) em S, ladeada por palcos baixos e bandeirolas dobradas (`Dress.flag`), chão de mosaico desbotado; o resto é campo de festa abandonado |
-| `rift_garden` — o Jardim Sem Fim (mapa próprio, gerado por laço) | 49–50 | Posto da Aurora na boca do Véu (L3b; cristal em L4) | Alameda dos Espelhos, Lago de Perfume (colide como água), Labirinto de Sebes (POI, sem becos acidentais), **Pavilhão da Anfitriã** (N, arena do chefe 50), Porta do Coração (`rift_heart`, L4) | **Coroa de cristal flutuante** sobre o pavilhão (visual, sim plana) | sebes altas como **muros baixos** (≤ 3 m perto da estrada), céu rosa-pérola, flores gigantes, chão de mármore claro; a cor quente fica no céu e nas flores, **nunca** saturada no chão (§4.4) |
+| `rift_garden` — o Roseiral Sem Fim (mapa próprio, gerado por laço) | 49–50 | Posto da Aurora na boca do Véu (L3b; cristal em L4) | Alameda dos Espelhos, Lago de Perfume (colide como água), Labirinto de Sebes (POI, sem becos acidentais), **Pavilhão da Anfitriã** (N, arena do chefe 50), Porta do Coração (`rift_heart`, L4) | **Coroa de cristal flutuante** sobre o pavilhão (visual, sim plana) | sebes altas como **muros baixos** (≤ 3 m perto da estrada), céu rosa-pérola, flores gigantes, chão de mármore claro; a cor quente fica no céu e nas flores, **nunca** saturada no chão (§4.4) |
 | `dg_cellars` — Adegas do Banquete (masmorra, `parent_map: field_perfume`) | 46–47 | — | `layout` 3 salões + 1 lateral: tonéis, mesa do banquete, câmara do lagar | — | pedra escura úmida, poças de vinho foscas (`pool_glow: False`) |
 | `dg_mirrors` — Galeria dos Espelhos (masmorra, `parent_map: city_lumeria`) | 48–49 | — | `layout` em cruz: foyer, galeria longa, camarins, Salão Espelhado | — | piso xadrez em tons do chão, espelhos = lacaios parados (R-E) |
 | `dg_conservatory` — Conservatório do Coro Ferido (opcional, `parent_map: field_parade`) | 48–49 | — | 3 salões em anel + sala de concerto | — | bancadas em semicírculo, tubos de órgão |
@@ -152,12 +152,12 @@ que já existem (rascunho do autor, ajustável no WP3/WP8).
 |---|---|---|---|---|
 | **Sedutora** | 46 | comum demônio | entra em luta furtiva (`stealth`), 1º golpe é emboscada; garras rápidas (`strikes` 2); depois de bater, recua 5 m (`dash` para trás) | corpo esguio de porcelana marfim, chifres lisos para trás em ouro velho, véus rosa-pó em camadas, máscara com a lágrima |
 | **Açoitadora** | 47 | comum demônio | chicote de fita-lâmina (cone longo 6 m) com sangramento (`wound`); `pull` no mais longe (`mob_pick: far`) | mais alta, chifres longos para trás, véu-capa, chicote de fitas na mão direita |
-| **Cantora do Véu** | 48 | comum demônio (à distância) | `kite`; Lamento: projétil com `slow` 30% e `heal_pct_of_dmg` (cura a si); anel avisado (`barrage` R-A `ring`) a cada ~12 s | véu longo cobrindo o rosto até o peito, chifres curtos para trás, mãos abertas |
+| **Carpideira** | 48 | comum demônio (à distância) | `kite`; Lamento: projétil com `slow` 30% e `heal_pct_of_dmg` (cura a si); anel avisado (`barrage` R-A `ring`) a cada ~12 s | véu longo cobrindo o rosto até o peito, chifres curtos para trás, mãos abertas |
 | **Matriarca Velada** | 49 | elite (hp ×0,8) | escolta 2 Sedutoras + 1 Açoitadora; `repeat` (R-D) de 2 saltos avisados em linha (R-A `line`); aura de facção `sede` (aliados +15% vel.) | maior, chifres grandes para trás com argolas de ouro, véus em cauda, coroa de fitas |
 
 Modelos: uma base de corpo comum (`mob_kit`) com variantes por monstro; **nada de asa, cauda de demônio ou chifre curvo para
 cima/frente**; a silhueta é chifre para trás + véus. Vessaline = a maior delas, com a cauda de fitas-lâmina (§4); a Condessa =
-demônia de vestido espelhado e máscara dupla. Pacing: Avenida (47–48) Sedutora/Açoitadora/Cantora; Fenda (49–50) todas + Matriarca.
+demônia de vestido espelhado e máscara dupla. Pacing: Avenida (47–48) Sedutora/Açoitadora/Carpideira; Fenda (49–50) todas + Matriarca.
 Bando: Matriarca + 2 Sedutoras + 1 Açoitadora.
 
 **Esquiva** (D4): só comuns/elites demônios; teto `MOB_EVASION_CAP` 25; esquiva **não** pega dano no tempo, área avisada
@@ -228,7 +228,7 @@ flores/fitas/céu podem ser saturados porque não são planos no chão. Check de
 XP por `QuestsCatalog.scale_xp` (40–50% da faixa, **10+ por faixa**). Ids `hx3_*`. **Sem** missão de escolha-tentação (decisão).
 
 **Linha principal (13)**:
-1. `hx3_arrival` *Música Atrás da Montanha* — REACH `city_lumeria` + TALK Irmã Celeste (L0). Dada pelo Comandante no Kharzun após o epílogo.
+1. `hx3_arrival` *Música Atrás da Montanha* — REACH `city_lumeria` + TALK Irmã Clara (L0). Dada pelo Comandante no Kharzun após o epílogo.
 2. `hx3_masks` *Sem Máscara* — KILL 12 Foliões nos bairros de fora.
 3. `hx3_bells` *Os Sinos Mudos* — KILL Mestre de Cerimônias do campanário + REACH o campanário → **L1**.
 4. `hx3_vines` *Vinho que Não Acaba* — KILL 8 Vinhas Sedentas + COLLECT 6 Uvas Amargas (`field_perfume`).
@@ -239,9 +239,9 @@ XP por `QuestsCatalog.scale_xp` (40–50% da faixa, **10+ por faixa**). Ids `hx3
 9. `hx3_mirrors` *A Condessa Refletida* — KILL Condessa → **L3** (6 e 9 em **qualquer ordem** depois de 3: `prereq_all` no 10).
 10. `hx3_veil_open` *O Véu Rasgado* — defender a procissão dos Lúcidos até o Palco Grande (leva aliada + `RaidSystem` sobre ela,
     mesmo molde de `hx_citadel_gate`) → **L3b**.
-11. `hx3_garden` *O Jardim Sem Fim* — REACH `rift_garden` + KILL 4 Primeiros Bailarinos.
+11. `hx3_garden` *O Roseiral Sem Fim* — REACH `rift_garden` + KILL 4 Primeiros Bailarinos.
 12. `hx3_veil` *A Anfitriã* — KILL Vessaline → **L4**.
-13. `hx3_epilogue` *Manhã em Lumeria* — TALK Irmã Celeste → tela "Fim do Ato III — Parte 1" (D14).
+13. `hx3_epilogue` *Manhã em Lumeria* — TALK Irmã Clara → tela "Fim do Ato III — Parte 1" (D14).
 
 **Paralelas que crescem** (toda cabana/acampamento abre cadeia — `_check_places`; nenhuma é escolha moral):
 - *O Relojoeiro* (3, Casa do Relojoeiro, Lumeria): engrenagens no Mercado → COLLECT Porcelana Chorosa → o relógio da praça volta a
@@ -252,7 +252,7 @@ XP por `QuestsCatalog.scale_xp` (40–50% da faixa, **10+ por faixa**). Ids `hx3
 - *A Máscara Partida* (2, Altar do Cortejo): quebrar 5 máscaras (COLLECT de Convertidos) → **título** "Sem Máscara".
 - *O Duque* (2, Palácio, L3+): libertar o Duque → abre o *Salão do Duque* (interior, `MapsCatalog.INTERIORS`), mercador de joias 48.
 - *O Conservatório* (2, Tenda do Ponto, opcional): `hx3_choir_open` → Mestra Ressoa.
-- **Raide** `hx3_echo` *O Eco* (Irmã Celeste, L4): KILL Eco de Amarante → moedas + título "Quem Não Dançou" + Coroa Vazia; 0 XP.
+- **Raide** `hx3_echo` *O Eco* (Irmã Clara, L4): KILL Eco de Amarante → moedas + título "Quem Não Dançou" + Coroa Vazia; 0 XP.
 - **Repetíveis**: quadro dos Lúcidos (`repeatable`, caçadas geradas ↻: Galgo de Seda, Incensário, Reflexo, Vinha) + *Fitas do Festim*
   (COLLECT 10 Fitas → moedas e material raro).
 **Contagem**: 13 principais + 15 paralelas (fora a raide) = **28 não repetíveis** na faixa 45–50 (≥ 10 ✓).
@@ -314,7 +314,7 @@ elite F2 do Ato II no 45 (Golem de Basalto, Kharzun) também ganha o fator de el
 
 Medido (`band_probe --from=45 --to=49 --only=duel --trials=40`, 2026-11-23; vida perdida % / abate s, antes → depois):
 Folião 10/3,7 → 18/4,4 · Convertido 6/4,5 → 7/4,9 · Bailarino 6/3,2 → 13/3,0 · Galgo 10/4,7 → 20/5,2 · Corista 9/3,9 → 23/4,8 ·
-Reflexo 11/3,4 → 19/4,4 · Sedutora 11/4,5 → 21/4,2 · Açoitadora 9/4,3 → 17/5,1 · Cantora 7/3,5 → 22/4,0 · Galgo Alfa (B) 15/2,6 → 21/1,9 ·
+Reflexo 11/3,4 → 19/4,4 · Sedutora 11/4,5 → 21/4,2 · Açoitadora 9/4,3 → 17/5,1 · Carpideira 7/3,5 → 22/4,0 · Galgo Alfa (B) 15/2,6 → 21/1,9 ·
 Incensário (B) 10/3,6 → 14/3,1 · Vinha (B) 12/5,4 → 16/4,2 · Mestre de Cerimônias (E) 5/3,3 → 18/3,6 · Primeiro Bailarino (E) 5/3,8 → 17/3,2 ·
 Maestro (E) 3/2,7 → 8/3,1 · Matriarca (E) 7/4,0 → 19/4,0 · Golem de Basalto (E, Ato II) 7/4,1 → 12/4,6. Mortes 0 → 0-1 de 40.
 **2º passe (2026-11-23):** o 40–44 também ganhou ATK (`HORDE_LATE_40.atk` comum 1,8 / bruto 2,0 / elite 2,0, ato2-horda F2), e
@@ -547,7 +547,7 @@ Check = `check(...)` em `tools/tests/run_tests.gd` (nomes **propostos**). Evidê
 2. **D5**: ascensão congelada no 45 na parte 1 (recomendado) ou pontos/refinos até 50?
 3. **D6**: híbridos 50 junto com os conjuntos de build? E Ápice 50 fica para a parte 2?
 4. **D2**: o portal chega direto no Bairro dos Lúcidos (recomendado) ou no campo de vinhedos?
-5. Nomes finais (Amarante e Veladas DECIDIDOS 2026-11-24; restam Irmã Celeste, Cantora do Véu, nomes duplicados de NPC; mantidos: Amarante, Lumeria, Vessaline, Varo, Condessa, Prima-Donna, Ressoa, Dona Vindima, Irmã Celeste, os Lúcidos) — narrative-director.
+5. Nomes finais (Amarante e Veladas DECIDIDOS 2026-11-24; Clara, Carpideira, Roseiral e NPCs também, 2026-11-24; mantidos: Amarante, Lumeria, Vessaline, Varo, Condessa, Prima-Donna, Ressoa, Dona Vindima, Irmã Clara, os Lúcidos) — narrative-director.
 6. Festim nas ruas: aceitar 1 condição de estágio em `ROAD_EVENTS` (`unless`) para ele parar em L3b, ou deixar pontos só nos campos?
 7. Montaria nova (Galgo de Seda) na parte 1, ou fica para a parte 2 (D12)?
 8. A raide dá algo visível (aura/insígnia) além do título e da Coroa Vazia?

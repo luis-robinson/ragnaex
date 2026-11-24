@@ -124,7 +124,7 @@ const DAWN_CONQUEST_VIS := [
 ## renascendo em DAWN_RESPAWN s (a luta é constante). Os do posto avançado só ficam enquanto o front não caiu? Ficam sempre.
 const DAWN_ROLE_NAMES := {"wall": ["Besteiro da Torre"], "knight": ["Sir Gareth", "Sir Edwin", "Dama Rowena", "Sir Alaric", "Dama Isolde", "Sir Cedric"],
 	"spearman": ["Lanceiro Tomás", "Lanceira Bia", "Lanceiro Hugo", "Lanceira Nell", "Lanceiro Pim", "Lanceiro Joca", "Lanceira Mar", "Lanceiro Davi", "Lanceira Clô", "Lanceiro Rui", "Lanceira Ada", "Lanceiro Teo"],
-	"paladin": ["Paladino Benedito", "Paladina Aurélia"], "priest": ["Irmã Clara", "Irmã Inês", "Irmã Lúcia"],
+	"paladin": ["Paladino Benedito", "Paladina Aurélia"], "priest": ["Irmã Eulália", "Irmã Inês", "Irmã Lúcia"],
 	"crossbow": ["Besteiro Fábio", "Besteira Lia", "Besteiro Caio", "Besteira Bel", "Besteiro Nico", "Besteira Su", "Besteiro Gil", "Besteira Ana", "Besteiro Leo"]}
 const DAWN_ROLE_LINES := {"wall": ["Daqui de cima eu vejo todos chegando.", "Um virote não mata, mas atrasa."], "knight": ["Portão firme. Nenhum osso passa por aqui.", "Escudos à frente quando a trompa soar."],
 	"spearman": ["A lança mantém o morto longe. É o que basta.", "Dizem que o Carniçal come os que caem. Não caia."],
@@ -1312,12 +1312,12 @@ const LIVING_NPCS := {
 			["Mais um armário para a porta!", "Segura aí, segura!", "Barricada não se faz sozinha."], [-69.0, 0.0], [[-69.0, 0.0, 6], [-70.1, 3.5], [-73.1, 5.7], [-76.9, 5.7], [-79.9, 3.5], [-81.0, 0.0, 6], [-79.9, -3.5], [-76.9, -5.7], [-73.1, -5.7], [-70.1, -3.5]], {"carry": "carry_crate", "flow": true}],
 		"lum_mover_b": ["Lúcida Conceição", Color(0.62, 0.58, 0.66), ["Eu era costureira do Duque. Agora costuro saco de areia.", "Não olhe muito para as lanternas. Elas chamam."],
 			["Areia para a porta norte!", "Cuidado com o pé!", "Ninguém dorme enquanto o muro não fecha."], [-69.3, -1.9], [[-69.3, -1.9, 6], [-71.5, -4.9], [-75.0, -6.0], [-78.5, -4.9], [-80.7, -1.9], [-80.7, 1.9, 6], [-78.5, 4.9], [-75.0, 6.0], [-71.5, 4.9], [-69.3, 1.9]], {"carry": "carry_sack", "flow": true}],
-		"lum_mover_c": ["Lúcido Tadeu", Color(0.5, 0.56, 0.62), ["Trouxe a porta da minha casa. Minha casa não precisa mais de porta.", "Do portão oeste se vê a montanha. Às vezes dá vontade de voltar."],
+		"lum_mover_c": ["Lúcido Fausto", Color(0.5, 0.56, 0.62), ["Trouxe a porta da minha casa. Minha casa não precisa mais de porta.", "Do portão oeste se vê a montanha. Às vezes dá vontade de voltar."],
 			["Porta nova para o muro!", "Mais madeira!", "Quase lá."], [-93.22, 3.21], [[-93.22, 3.21, 5], [-88.6, 0.0], [-81.6, 0.0, 5], [-88.6, 0.0]], {"carry": "carry_log"}],
 		# L4 Manhã em Lumeria (WP12, GDD §2.3): varredores tirando o confete da praça do Bairro e da rua do portão oeste
-		"lum_sweeper_a": ["Varredora Benedita", Color(0.7, 0.68, 0.62), ["Confete de quarenta anos. Embaixo dele ainda tem a calçada que meu avô assentou.", "O sino calou e eu dormi doze horas. Doze!"],
+		"lum_sweeper_a": ["Varredora Firmina", Color(0.7, 0.68, 0.62), ["Confete de quarenta anos. Embaixo dele ainda tem a calçada que meu avô assentou.", "O sino calou e eu dormi doze horas. Doze!"],
 			["Olha a vassoura!", "Mais um monte de fita.", "Bom dia, bom dia!"], [-70.1, -3.5], [[-70.1, -3.5, 8], [-73.1, -5.7], [-76.9, -5.7], [-79.9, -3.5, 8], [-81.0, 0.0], [-79.9, 3.5, 8], [-76.9, 5.7], [-73.1, 5.7], [-70.1, 3.5, 8], [-69.0, 0.0]], {"if": "hx3_veil", "flow": true}],
-		"lum_sweeper_b": ["Varredor Anselmo", Color(0.64, 0.66, 0.7), ["Varro até o portão oeste e volto. Amanhã varro até o portão norte.", "Achei uma máscara no confete. Joguei no fogo. Não quero nem saber."],
+		"lum_sweeper_b": ["Varredor Otílio", Color(0.64, 0.66, 0.7), ["Varro até o portão oeste e volto. Amanhã varro até o portão norte.", "Achei uma máscara no confete. Joguei no fogo. Não quero nem saber."],
 			["Licença, licença!", "Montinho de confete passando.", "A manhã chegou, gente!"], [-81.6, 0.0], [[-81.6, 0.0, 8], [-88.6, 0.0], [-93.22, 3.21, 8], [-88.6, 0.0]], {"if": "hx3_veil", "carry": "carry_sack"}],
 	},
 	# Vinhas do Perfume (L2 Vindima, living_hint do JSON): vinhateiros libertos colhem nos terraços depois das Adegas
@@ -1747,7 +1747,7 @@ const PORTAL_GATES := {
 	"to_rift_garden": {"level": 49, "quests": ["hx3_mirrors", "hx3_veil_open"], "text": "O Véu ainda não se rasgou. Derrube a Condessa Refletida e leve a procissão dos Lúcidos até o Palco Grande."},
 	"to_rift_heart": {"level": 50, "quest": "hx3_veil", "text": "A Porta do Coração está selada enquanto a Anfitriã reinar no Pavilhão."},
 	# Salão do Duque (porta lateral do Palácio, casa que abre): o Duque reabre o salão em hx3_duke_hall
-	"door_in_duke_hall": {"level": 48, "quest": "hx3_duke_hall", "text": "A porta lateral do Palácio está trancada. O Duque Aurelião só reabre o salão quando as máscaras forem quebradas."},
+	"door_in_duke_hall": {"level": 48, "quest": "hx3_duke_hall", "text": "A porta lateral do Palácio está trancada. O Duque Leopoldo só reabre o salão quando as máscaras forem quebradas."},
 }
 const MERCHANT_SHOP := ["potion_hp_s", "potion_mp_s", "potion_hp_m", "potion_mp_m", "elixir_might", "elixir_stone", "cap_leather", "boots_leather"]
 const ZONE_PATH := "res://data/zones/%s.json"
@@ -2348,7 +2348,7 @@ const Q3_MIRRORS := "hx3_mirrors"       # L3 Reflexo: metade das lanternas apaga
 const Q3_VEIL_OPEN := "hx3_veil_open"   # L3b Véu: Posto da Aurora na boca do Véu, a Ronda do Festim para
 const Q3_VEIL := "hx3_veil"             # L4 Manhã
 const ACT3_STAGE_QUESTS := [Q3_BELLS, Q3_CELLARS, Q3_MIRRORS, Q3_VEIL_OPEN, Q3_VEIL]
-## Fim do Ato III parte 1 (D14): Vessaline cai (L4) e Lumeria amanhece (MANHA_LUMERIA); entregar o epílogo à Irmã Celeste =
+## Fim do Ato III parte 1 (D14): Vessaline cai (L4) e Lumeria amanhece (MANHA_LUMERIA); entregar o epílogo à Irmã Clara =
 ## tela "Fim do Ato III — Parte 1" (hud.show_act_end(3)).
 const VICTORY3_QUEST := Q3_VEIL
 const ACT3_END_QUEST := "hx3_epilogue"
@@ -2383,7 +2383,7 @@ const ACT3_WP6_MAPS := ["rift_garden", "dg_cellars", "dg_mirrors", "dg_conservat
 ## Lumeria: serviços do Bairro dos Lúcidos. id -> [nome, papel, cor, falas, extras {shop, model}] (posição do JSON;
 ## estágio de `stage_npcs`). O Ferreiro Anão daqui é Balin, irmão de Thrain (Thrain fica no Kharzun: nada some de lá).
 const LUMERIA_NPCS := {
-	"sister_celeste": ["Irmã Celeste", "quest", Color(0.9, 0.88, 0.96), ["Quarenta anos de música. No começo era bonito. Depois ninguém soube mais como parar.",
+	"sister_celeste": ["Irmã Clara", "quest", Color(0.9, 0.88, 0.96), ["Quarenta anos de música. No começo era bonito. Depois ninguém soube mais como parar.",
 		"Os Lúcidos são os que ainda dormem à noite. Trancamos o bairro com os próprios móveis. Bem-vindos ao lado de dentro."], {}],
 	"lumeria_smith": ["Ferreira Brites", "smith", Color(0.7, 0.52, 0.4), ["Aqui dentro eu conserto lâmina e faço joia. Lá fora eles só querem taça.", "O martelo é o único som do bairro que não é música."], {}],
 	"lumeria_alchemist": ["Boticário Severino", "alchemy", Color(0.56, 0.74, 0.62), ["Perfume é veneno que cheira bem. Eu destilo o contrário.", "Uva do Perfume dá sono doce. Dose certa, dá remédio."], {}],
@@ -2395,7 +2395,7 @@ const LUMERIA_NPCS := {
 	"lumeria_masters_herald": ["Arauto dos Mestres", "quest", Color(0.95, 0.85, 0.55), ["A Ordem mandou eu seguir quem ascendeu. Seguir, não salvar.", "Os sinos calaram. Agora dá para ouvir o que os mestres ensinam."], {}],
 	"lumeria_dwarf_smith": ["Ferreiro Anão Balin", "smith", Color(0.72, 0.5, 0.34), ["Thrain ficou na montanha. Eu vim com o aço que ele mandou.",
 		"Lendário de nível 40 ou mais? Aço Anão até o +5, Brasa de Kharzun daí em diante. Martelo anão não liga para música."], {}],
-	"duke_lumeria": ["Duque Aurelião de Lumeria", "quest", Color(0.86, 0.78, 0.92), ["Eu dei a primeira festa. Eu achei que seria uma noite só.", "Meu reflexo governou por mim quarenta anos. E governou melhor. É isso que mais dói."], {"pos": [60.0, 2.0, 270.0]}],   # longe da porta da Ópera (>= 6 m do portal)
+	"duke_lumeria": ["Duque Leopoldo de Lumeria", "quest", Color(0.86, 0.78, 0.92), ["Eu dei a primeira festa. Eu achei que seria uma noite só.", "Meu reflexo governou por mim quarenta anos. E governou melhor. É isso que mais dói."], {"pos": [60.0, 2.0, 270.0]}],   # longe da porta da Ópera (>= 6 m do portal)
 }
 
 ## Vinhas do Perfume: a Quinta (hub, sem cristal) e as cabanas. Mesmo formato de LUMERIA_NPCS.
@@ -2553,12 +2553,12 @@ static func _parade() -> MapDef:
 const RIFT_NPCS := {
 	"rift_aurora_captain": ["Capitã Aurélia, da Aurora", "quest", Color(0.94, 0.84, 0.52), ["A Aurora segura este posto e mais nada. Lá dentro o jardim escolhe quem volta.",
 		"O Pavilhão fica ao norte. A Anfitriã não sai de lá: quem dança com ela é que vai."], {}],
-	"rift_aurora_quartermaster": ["Intendente Bráulio", "merchant", Color(0.8, 0.7, 0.5), ["Poção, corda e pano para tapar o nariz. O perfume daqui derruba mais que lâmina.",
+	"rift_aurora_quartermaster": ["Intendente Teobaldo", "merchant", Color(0.8, 0.7, 0.5), ["Poção, corda e pano para tapar o nariz. O perfume daqui derruba mais que lâmina.",
 		"Venda o que tirar das demônias. Porcelana vale ouro do lado de cá do Véu."], {"shop": "merchant"}],
 	"rift_aurora_medic": ["Irmã Clemência", "merchant", Color(0.92, 0.9, 0.86), ["Corte de fita-lâmina não fecha sozinho. Poção antes, não depois.", "Quem volta do Pavilhão volta sem cheiro nenhum. É assim que eu sei quem lutou."], {"shop": "healer"}],
 }
 
-## O Jardim Sem Fim (49-50, mapa próprio do Blender): Posto da Aurora (cristal em L4), Pavilhão da Anfitriã ao norte
+## O Roseiral Sem Fim (49-50, mapa próprio do Blender): Posto da Aurora (cristal em L4), Pavilhão da Anfitriã ao norte
 ## (Vessaline, spawner do JSON), Porta do Coração (rift_heart, nível 50 + hx3_veil). Montaria vale (é campo, não masmorra).
 static func _rift_garden() -> MapDef:
 	var z := load_zone("rift_garden")
@@ -2570,7 +2570,7 @@ static func _rift_garden() -> MapDef:
 	for pt in z["portals"]:                    # to_field_parade: mesmo id do portão de Lumeria, mas a volta é livre
 		if pt["target_map"] == "field_parade":
 			pt.erase("gate")
-	z.merge({"id": "rift_garden", "name": "O Jardim Sem Fim", "is_town": false, "hub": true, "level_range": Vector2i(49, 50),
+	z.merge({"id": "rift_garden", "name": "O Roseiral Sem Fim", "is_town": false, "hub": true, "level_range": Vector2i(49, 50),
 		"ground_color": Color(0.72, 0.78, 0.7), "ground_color_alt": Color(0.68, 0.73, 0.66), "ambient": Color(1.0, 0.9, 0.94), "sun_energy": 1.05,
 		"bot_population": 4}, true)
 	return _mk(z)

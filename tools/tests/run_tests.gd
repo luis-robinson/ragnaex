@@ -21560,9 +21560,9 @@ func _check_demon_family(gd, sim) -> void:
 		"Açoitadora: chicote em cone de 6 m que sangra e laço no mais longe")
 	var vs: MonsterDef = gd.monsters["veil_singer"]
 	check(vs.ranged and vs.kite and fx.call("veil_singer", "heal_pct_of_dmg") and fx.call("veil_singer", "slow") and gd.skills["mob_veil_lament"].projectile_speed <= 0.0,
-		"Cantora: atira e recua; Lamento direto (cura pelo dano) e retarda")
+		"Carpideira: atira e recua; Lamento direto (cura pelo dano) e retarda")
 	var ring: Dictionary = gd.skills["mob_veil_ring"].effects["barrage"]
-	check(str(ring.get("shape", "")) == "ring" and float(ring.get("inner", 0.0)) > 0.0 and float(ring.get("delay", 0.0)) >= 1.0 and gd.skills["mob_veil_ring"].cooldown >= 10.0, "Cantora: anel avisado (R-A ring) a cada ~12 s")
+	check(str(ring.get("shape", "")) == "ring" and float(ring.get("inner", 0.0)) > 0.0 and float(ring.get("delay", 0.0)) >= 1.0 and gd.skills["mob_veil_ring"].cooldown >= 10.0, "Carpideira: anel avisado (R-A ring) a cada ~12 s")
 	var mt: MonsterDef = gd.monsters["thirst_matriarch"]
 	var es: Dictionary = mt.escort
 	var ids: Array = es.get("ids", [])
@@ -26481,11 +26481,11 @@ func _check_act3_quests(gd, sim) -> void:
 	check(not smith.is_empty() and not WorldState.active(w, smith), "L0: Ferreiro Anão ainda não chegou")
 	p.quests_completed.append(MapsCatalog.Q3_BELLS)
 	check(WorldState.active(w, smith), "L1: hx3_bells traz o Ferreiro Anão")
-	# chegada: REACH Lumeria se cumpre no mapa e entrega na Irmã Celeste
+	# chegada: REACH Lumeria se cumpre no mapa e entrega na Irmã Clara
 	var arr: QuestDef = gd.quests["hx3_arrival"]
 	p.quests_active[arr.id] = 0
 	QuestSystem.on_position(p)
-	check(QuestSystem.is_complete(p, arr) and QuestSystem.turnins_at(p, "sister_celeste").has(arr), "hx3_arrival: chegar a Lumeria cumpre e entrega na Celeste")
+	check(QuestSystem.is_complete(p, arr) and QuestSystem.turnins_at(p, "sister_celeste").has(arr), "hx3_arrival: chegar a Lumeria cumpre e entrega na Clara")
 	w.despawn(p)
 	check(StartCatalog.PRESETS[45].get("quest", "") == "hx3_arrival", "começo 45: já traz a chegada a Lumeria")
 	check(FileAccess.file_exists("res://docs/roteiro_45_50.md"), "roteiro 45-50 existe")
@@ -26620,10 +26620,10 @@ func _check_act3_quests_wp10b(gd, sim) -> void:
 	check(echo.reward_xp == 0 and echo.reward_title == "Quem Não Dançou" and echo.reward_items.has("legend_coin") and echo.reward_items.has("empty_crown")
 		and gd.items.has("empty_crown") and ResourceLoader.exists("res://assets/icons/art_empty_crown.png"), "raide: 0 XP, título, moedas e o troféu Coroa Vazia (com arte)")
 	check(gd.quests["hx3_garden"].turnin_npc == "rift_aurora_captain" and gd.quests["hx3_garden"].giver_npc == "veil_aurora_officer", "Jardim: Tenente Selene manda, Capitã Aurélia recebe")
-	# fim do Ato III parte 1: epílogo da Capitã para a Celeste, tela própria, hud liga a entrega
+	# fim do Ato III parte 1: epílogo da Capitã para a Clara, tela própria, hud liga a entrega
 	var ep: QuestDef = gd.quests[MapsCatalog.ACT3_END_QUEST]
 	check(ep.prereq_quest == MapsCatalog.VICTORY3_QUEST and MapsCatalog.VICTORY3_QUEST == MapsCatalog.Q3_VEIL and ep.turnin_npc == "sister_celeste" and ep.type == QuestDef.Type.TALK,
-		"Fim do Ato III: epílogo depois da Anfitriã, entregue à Irmã Celeste")
+		"Fim do Ato III: epílogo depois da Anfitriã, entregue à Irmã Clara")
 	var H = load("res://game/ui/hud.gd")
 	check(H.ACT_END_TEXT.has(3) and str(H.ACT_END_TEXT[3][0]) == "FIM DO ATO III — PARTE 1" and str(H.ACT_END_TEXT[3][2]).count("%s") == 1 and (H.ACT_END_TEXT[3] as Array).size() == 5,
 		"Fim do Ato III: tela com texto próprio")

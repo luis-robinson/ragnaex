@@ -1,6 +1,6 @@
 # Act III, Part 1 — Names Proposal (for approval, NOT applied)
 
-> Owner: narrative-director · 2026-11-23 · Status: **Partly approved 2026-11-24** — APPLIED: Sylvaré → Amarante, Demônias da Sede → as Veladas (Matriarca Velada, signature Brinde Dividido; mob skills Véu Baixado, Laço de Fita, Reflexos do Brinde). Still undecided: Irmã Celeste, Cantora do Véu, §5 duplicates, Roseiral.
+> Owner: narrative-director · 2026-11-23 · Status: **Partly approved 2026-11-24** — APPLIED: Sylvaré → Amarante, Demônias da Sede → as Veladas (Matriarca Velada, signature Brinde Dividido; mob skills Véu Baixado, Laço de Fita, Reflexos do Brinde). Later the same day ALL other renames were approved and applied: Irmã Clara, Carpideira(s), Roseiral Sem Fim, Varredora Firmina, Varredor Otílio, Lúcido Fausto, Duque Leopoldo; quartermaster = **Intendente Teobaldo** (Gaspar and Valério were taken). The Dawn garrison priest pool name "Irmã Clara" became "Irmã Eulália".
 > If you approve a rename, it becomes a separate changeset: display strings in the catalogs, GDD, roteiro and tests that quote
 > the names (`run_tests.gd`). Ids such as `sister_celeste`, `vessaline` and `boss_sylvare_echo` stay as they are.
 > Pronunciation: pt-BR syllables, stressed syllable in CAPS.

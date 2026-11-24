@@ -5,7 +5,7 @@ variantes em KINDS. Sem asas, sem cauda de demônio, sem chifre para cima/frente
 
   mob_seductress        Sedutora (46): chifres médios, dois véus compridos nas costas, saia de pontas aberta na frente, garras de ouro
   mob_flayer            Açoitadora (47): mais alta, chifres longos, véu-capa de duas camadas, chicote de fitas-lâmina na mão direita
-  mob_veil_singer       Cantora do Véu (48): véu do rosto até o peito (a lágrima pintada no véu), chifres curtos, mãos abertas acesas
+  mob_veil_singer       Carpideira (48): véu do rosto até o peito (a lágrima pintada no véu), chifres curtos, mãos abertas acesas
   mob_thirst_matriarch  Matriarca Velada (49, elite): mais larga, chifres grandes com argolas, coroa de fitas, pires nos ombros,
                         cauda de véus que arrasta no chão
   mob_vessaline         Vessaline (chefe, 50): a mais alta, rosto liso (sem olhos) com a lágrima DOURADA, pente de ouro, vestido
@@ -20,7 +20,7 @@ variantes em KINDS. Sem asas, sem cauda de demônio, sem chifre para cima/frente
                         (MIRROR_CROOK); `core` e `floor` ficam em escala ~0 enquanto o espelho está inteiro
 
 Tamanho: como os outros monstros, quem decide é `MonsterDef.scale`; os modelos saem com ~1,75-1,95 m (sugestão de escala no
-relatório do WP7: Sedutora 1,0 · Açoitadora 1,05 · Cantora 1,0 · Matriarca 1,3 · Vessaline 1,8).
+relatório do WP7: Sedutora 1,0 · Açoitadora 1,05 · Carpideira 1,0 · Matriarca 1,3 · Vessaline 1,8).
 Pernas compridas: `_stretch` sobe as juntas de chibi_kit.Z só durante a montagem e `_hips_scale` multiplica o deslocamento do
 quadril dos clipes pela mesma razão (o ajoelhar da morte chega ao chão).
 Cauda/véus no chão: osso `tail` (filho de `root`, na origem). `_tail_anim` cancela a inclinação do `root` (a queda da morte

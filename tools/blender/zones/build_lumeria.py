@@ -499,7 +499,7 @@ def lucid_life(z, d):
         d.box("roda", slab, q, (1.7, 0.012, 0.5), -(45.0 * k + 22.5), 0.0186)
     wood = d.m("lucido_madeira", (0.5, 0.46, 0.46))
     cloth = d.m("lucido_toalha", (0.86, 0.88, 0.92))
-    tq = H(8.6, 96.0, BC)                                     # mesa comum (onde a Irmã Celeste reparte o pão)
+    tq = H(8.6, 96.0, BC)                                     # mesa comum (onde a Irmã Clara reparte o pão)
     d.box("mesa", wood, tq, (4.2, 0.76, 1.2), 8.0, 0.0)
     d.box("mesa", cloth, tq, (3.2, 0.05, 1.3), 8.0, 0.76)
     for k in range(4):

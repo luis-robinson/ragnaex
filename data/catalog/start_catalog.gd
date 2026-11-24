@@ -36,5 +36,5 @@ const PRESETS := {
 		"level": 45, "gold": 20000, "gear_tier": 5, "done": ["hx_act2_epilogue"], "quest": "hx3_arrival", "spend_web": true, "map": "city_lumeria", "at": [-72.9, -4.3],
 		"items": {"legend_coin": Balance.START_PRESET_COINS, "potion_hp_m": 30, "potion_mp_m": 30, "elixir_might": 5},
 		"party": [["paladin", "guardiao"], ["bishop", "sacerdote"], ["berserker", "executor"], ["elementalist", "fogo"]],
-		"welcome": "Começo rápido (nível 45): Lumeria, Bairro dos Lúcidos, ao lado do cristal. A Irmã Celeste está na praça; a festa lá fora não para."},
+		"welcome": "Começo rápido (nível 45): Lumeria, Bairro dos Lúcidos, ao lado do cristal. A Irmã Clara está na praça; a festa lá fora não para."},
 }

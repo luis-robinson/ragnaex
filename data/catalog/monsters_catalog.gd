@@ -916,7 +916,7 @@ static func _act3() -> Array:
 		 "skill_ids": ["mob_vine_grasp"] as Array[String]},
 		# ---- Veladas (§3.1, família principal dos demônios; aprovada 2026-11-23): chifres para trás, véus, sem asas ----
 		# Sem esquiva (D4): some e embosca, recua, salta e atira de longe. `model` = thirst_model (final se o GLB existir).
-		# band_probe 2026-11-23 (12 duelos): Sedutora 1,0/1,05 e Cantora 1,1/1,2 davam 2,9-3,1 s com 4-7% de vida: subiram a vida.
+		# band_probe 2026-11-23 (12 duelos): Sedutora 1,0/1,05 e Carpideira 1,1/1,2 davam 2,9-3,1 s com 4-7% de vida: subiram a vida.
 		{"id": "seductress", "name": "Sedutora", "level": 46, "stat_role": "comum", "unit_mods": {"hp": 1.25, "atk": 1.1}, "demon": true, "faction": F,
 		 "move_speed": 5.6, "attack_range": 2.0, "attack_cooldown": 1.1, "attack_startup": 0.28, "xp": 1350, "aggro_range": 10.0, "leash_range": 24.0,
 		 "radius": 0.42, "scale": 1.0, "color": Color(0.95, 0.9, 0.86), "shape": "capsule", "loot_table": "lt_seductress", "gold_min": 62, "gold_max": 124, "model": thirst_model("seductress"),
@@ -925,7 +925,7 @@ static func _act3() -> Array:
 		 "move_speed": 5.2, "attack_range": 2.4, "attack_cooldown": 1.2, "attack_startup": 0.32, "xp": 1450, "aggro_range": 10.0, "leash_range": 24.0,
 		 "radius": 0.45, "scale": 1.05, "color": Color(0.9, 0.82, 0.8), "shape": "capsule", "loot_table": "lt_flayer", "gold_min": 66, "gold_max": 132, "model": thirst_model("flayer"),
 		 "skill_ids": ["mob_thirst_lash", "mob_thirst_whip"] as Array[String]},
-		{"id": "veil_singer", "name": "Cantora do Véu", "level": 48, "stat_role": "comum", "unit_mods": {"hp": 1.3, "atk": 1.25}, "matk_mult": 1.0, "demon": true, "faction": F, "ranged": true, "kite": true,
+		{"id": "veil_singer", "name": "Carpideira", "level": 48, "stat_role": "comum", "unit_mods": {"hp": 1.3, "atk": 1.25}, "matk_mult": 1.0, "demon": true, "faction": F, "ranged": true, "kite": true,
 		 "move_speed": 4.8, "attack_range": 9.0, "attack_cooldown": 1.6, "attack_startup": 0.4, "xp": 1400, "aggro_range": 11.0, "leash_range": 24.0,
 		 "radius": 0.42, "scale": 1.0, "color": Color(0.92, 0.86, 0.9), "shape": "capsule", "loot_table": "lt_veil_singer", "gold_min": 64, "gold_max": 128, "model": thirst_model("veil_singer"),
 		 "skill_ids": ["mob_veil_lament", "mob_veil_ring"] as Array[String]},

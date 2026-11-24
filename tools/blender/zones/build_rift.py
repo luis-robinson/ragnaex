@@ -1,4 +1,4 @@
-"""A Fenda: o Jardim Sem Fim (rift_garden, Ato III parte 1, Lv 49-50), atrás do Véu Rasgado do Palco Grande.
+"""A Fenda: o Roseiral Sem Fim (rift_garden, Ato III parte 1, Lv 49-50), atrás do Véu Rasgado do Palco Grande.
 GDD design/gdd/ato3-excesso-45-50.md (§2.2, §3.1, §4). Zona em LAÇO: aceita montaria, tudo liga em anel.
 
   * CENTRO   Posto da Aurora na boca do Véu (hub): anel de sebe baixa com três vãos (leste, oeste, sul). O Véu fica
@@ -451,7 +451,7 @@ def build(export=False):
     sp(M["flayer"], -40.0, -24.0, 6, 2, 28.0)                 # Açoitadoras
     sp(M["flayer"], 41.0, 20.0, 6, 2, 28.0)
     sp(M["flayer"], -16.0, 84.0, 6, 2, 28.0)
-    sp(M["singer"], -72.0, -48.0, 6, 2, 28.0)                 # Cantoras do Véu (à distância): cantos abertos
+    sp(M["singer"], -72.0, -48.0, 6, 2, 28.0)                 # Carpideiras (à distância): cantos abertos
     sp(M["singer"], 92.0, 16.0, 6, 2, 28.0)
     sp(M["matriarch"], -52.0, -72.0, 4, 1, 180.0)             # Matriarcas Veladas (2 Sedutoras + 1 Açoitadora de escolta)
     sp(M["matriarch"], 52.0, -76.0, 4, 1, 180.0)

@@ -502,7 +502,7 @@ static func build(classes: Dictionary) -> Array:
 		 "effects": {"dot": {"dps": 14, "duration": 4}}},
 		{"id": "mob_thirst_lash", "name": "Laço de Fita", "clip": "atk_throw", "target": T_TARGET, "kind": K_PHYS, "power": 0.8, "cooldown": 11.0, "range": 11.0, "radius": 0.0, "max_targets": 1, "startup": 0.55, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.9, 0.55, 0.6), "mob_pick": "far", "vfx": "blood",
 		 "effects": {"pull": {"gap": 0.8}, "slow": {"pct": 25, "duration": 2.0}}},
-		# Cantora do Véu: Lamento (golpe direto que retarda e a cura) e anel avisado em volta dela (R-A ring; dano = vermelho)
+		# Carpideira: Lamento (golpe direto que retarda e a cura) e anel avisado em volta dela (R-A ring; dano = vermelho)
 		{"id": "mob_veil_lament", "name": "Lamento", "target": T_TARGET, "kind": K_MAG, "power": 1.2, "cooldown": 7.0, "range": 10.0, "radius": 0.0, "max_targets": 1, "startup": 0.5, "active": 0.1, "recovery": 0.4, "icon_color": Color(0.88, 0.75, 0.92), "vfx": "lunar",
 		 "effects": {"slow": {"pct": 30, "duration": 2.5}, "heal_pct_of_dmg": 0.5}},
 		{"id": "mob_veil_ring", "name": "Anel do Lamento", "clip": "cast_ground", "target": T_SELF, "kind": K_MAG, "power": 1.3, "cooldown": 12.0, "radius": 5.0, "startup": 0.5, "active": 0.1, "recovery": 0.45, "icon_color": Color(0.85, 0.7, 0.95), "vfx": "lunar",

@@ -256,7 +256,7 @@ ZONES = {
     "field_parade": {"name": "Avenida do Cortejo", "ground": (0.66, 0.69, 0.5), "mood": "dawn", "hide": ["l2_cristal", "l3b_veu"],
                      "cam": {"at": (-6, -6), "az": -24, "dist": 128, "elev": 25, "pitch": 15, "fov": 50}},
     # Ato III WP6: a Fenda (L0: porta do Coração selada) e as masmorras/raide (Blender y = -z do jogo: chefe em z -45 -> y 45)
-    "rift_garden": {"name": "O Jardim Sem Fim", "ground": (0.72, 0.78, 0.7), "mood": "dawn", "hide": ["l4_manha"],
+    "rift_garden": {"name": "O Roseiral Sem Fim", "ground": (0.72, 0.78, 0.7), "mood": "dawn", "hide": ["l4_manha"],
                     "cam": {"at": (0, 14), "az": -20, "dist": 140, "elev": 25, "pitch": 15, "fov": 50}},
     "dg_cellars": {"name": "Adegas do Banquete", "ground": (0.3, 0.25, 0.27), "mood": "dungeon", "ambient": (0.86, 0.7, 0.78),
                    "hall": {"focus": (7.5, 47), "fill": 0.4},

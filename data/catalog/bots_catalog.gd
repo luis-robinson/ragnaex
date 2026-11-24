@@ -138,7 +138,7 @@ const PLACE_LINES := {
 	"kharzun_citadel": ["a Cidadela de Durgash, chegamos", "três clãs e depois o trono", "estandarte no chão? quebra primeiro", "se cair aqui eu choro kkk",
 		"guarda de clã bloqueia de frente, vai pelo lado"],
 	# Lumeria (Ato III, WP12): "lumeria_town" = dentro do Bairro dos Lúcidos; "lumeria" = a festa lá fora
-	"lumeria_town": ["Bairro dos Lúcidos, enfim um lugar quieto", "o sino abafado da praça é o único que não toca", "alguém viu a Irmã Celeste dormir alguma vez?",
+	"lumeria_town": ["Bairro dos Lúcidos, enfim um lugar quieto", "o sino abafado da praça é o único que não toca", "alguém viu a Irmã Clara dormir alguma vez?",
 		"não aceita taça de ninguém lá fora, sério", "a barricada é de armário, mas segura", "vincula o cristal antes de sair pra festa",
 		"alguém pra Ópera? Galeria dos Espelhos só com grupo", "a Leonor treina skill aqui atrás das barricadas"],
 	"lumeria": ["essa música não para nunca", "folião de máscara joga taça, cuidado", "não olha muito pras lanternas", "confete até dentro da bota",

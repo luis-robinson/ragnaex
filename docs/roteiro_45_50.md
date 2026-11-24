@@ -2,7 +2,7 @@
 
 Tema: o excesso. A leste do Monte Kharzun, as "fogueiras que andam" eram lanternas: Lumeria dá a mesma festa há quarenta
 anos e ninguém consegue parar. Os Lúcidos, os que ainda dormem à noite, trancaram o Bairro (oeste da cidade) com os
-próprios móveis. A Irmã Celeste lidera. Lá fora: foliões mascarados, bailarinos do Véu, galgos de seda, coristas feridas,
+próprios móveis. A Irmã Clara lidera. Lá fora: foliões mascarados, bailarinos do Véu, galgos de seda, coristas feridas,
 reflexos vaidosos. Ao norte, as Vinhas do Perfume (45-47); a sudeste, a Avenida do Cortejo (47-49). Texto provisório
 (passe do narrative-director depois).
 
@@ -15,11 +15,11 @@ O cenário cresce com as missões (estágios do `design/gdd/ato3-excesso-45-50.m
   cristal no Posto dos Lúcidos.
 - **L3 Reflexo** (`hx3_mirrors`, a Condessa na Galeria): metade das lanternas da cidade apaga, o Duque aparece no Palácio.
 - **L3b Véu** (`hx3_veil_open`): a procissão dos Lúcidos chega ao Palco Grande; a cortina rasga, a Tenente Selene finca a
-  Aurora na boca do Véu e o portal para o Jardim Sem Fim abre (nível 49 + Condessa + Véu). Enquanto a missão corre, a
+  Aurora na boca do Véu e o portal para o Roseiral Sem Fim abre (nível 49 + Condessa + Véu). Enquanto a missão corre, a
   procissão (leva aliada) sai do portão norte do Posto a cada 90 s.
 - **L4 Manhã** (`hx3_veil`, Vessaline): lanternas apagadas, confete varrido, gente nova no Bairro (Varredor, Padeira,
   Menino), cristal no Posto da Aurora do Jardim, a Porta do Coração (raide) abre no nível 50. Entregar o epílogo à Irmã
-  Celeste = tela **"Fim do Ato III — Parte 1"**.
+  Clara = tela **"Fim do Ato III — Parte 1"**.
 
 Quem chega: pela garganta leste do Monte Kharzun, aberta pelo epílogo do Ato II (A Festa no Porto), no nível 45. O começo
 rápido 45 já nasce no Bairro dos Lúcidos com a chegada ativa.
@@ -28,9 +28,9 @@ rápido 45 já nasce no Bairro dos Lúcidos com a chegada ativa.
 
 | Quest | Quem dá | O que é |
 |---|---|---|
-| Música Atrás da Montanha | Comandante Isolda Brasa (Kharzun) → Irmã Celeste | Atravessar a garganta leste e chegar a Lumeria. |
-| Sem Máscara | Irmã Celeste | 12 Foliões Mascarados nas ruas de fora (batem rápido, taça deixa lento). |
-| Os Sinos Mudos | Irmã Celeste | Os 2 Mestres de Cerimônias (campanário e Ópera; grupo, derrube o Mestre antes do bando). **L1: sinos calam, portão do Cortejo abre.** Peça + Moeda. |
+| Música Atrás da Montanha | Comandante Isolda Brasa (Kharzun) → Irmã Clara | Atravessar a garganta leste e chegar a Lumeria. |
+| Sem Máscara | Irmã Clara | 12 Foliões Mascarados nas ruas de fora (batem rápido, taça deixa lento). |
+| Os Sinos Mudos | Irmã Clara | Os 2 Mestres de Cerimônias (campanário e Ópera; grupo, derrube o Mestre antes do bando). **L1: sinos calam, portão do Cortejo abre.** Peça + Moeda. |
 | Engrenagens no Mercado (Relojoeiro) | Relojoeiro Otaviano | 8 Foliões no Mercado das Taças. |
 | O Que Rezava (Fugidos) | Ancião Fugido Bartolomeu (Vinhas) | Ir até a Capela Selada de Lumeria. |
 
@@ -38,23 +38,23 @@ rápido 45 já nasce no Bairro dos Lúcidos com a chegada ativa.
 
 | Quest | Quem dá | O que é |
 |---|---|---|
-| Vinho que Não Acaba | Irmã Celeste → Vinhateiro Bento | 8 Vinhas Sedentas nos terraços (prende e puxa; fogo e veneno cortam a regeneração). |
+| Vinho que Não Acaba | Irmã Clara → Vinhateiro Bento | 8 Vinhas Sedentas nos terraços (prende e puxa; fogo e veneno cortam a regeneração). |
 | Uvas Amargas | Bento | 6 Uvas Amargas: cachos nos terraços (F) e nas próprias Vinhas Sedentas. |
 | A Porta do Lagar | Bento | 4 Incensários Vivos em volta do Lagar (saia do Fumo Doce). Abre a porta das Adegas. |
 | Porcelana para o Ponteiro (Relojoeiro) | Otaviano | 4 Porcelanas Chorosas (cacos de máscara, F). |
-| Meia-Noite e Um (Relojoeiro) | Otaviano → Irmã Celeste | Depois dos Sinos: avisar que o relógio da praça volta a andar. Moeda. |
+| Meia-Noite e Um (Relojoeiro) | Otaviano → Irmã Clara | Depois dos Sinos: avisar que o relógio da praça volta a andar. Moeda. |
 | Fumo Doce (Destiladora) | Destiladora Amália | 5 Incensários Vivos. |
 | Filtro de Seda (Destiladora) | Amália | 8 Fitas do Festim: poções de mana e um Elixir de Pedra. |
 | Vinho Claro (Destiladora) | Amália | Fazer 2 Vinhos Claros no caldeirão da alquimista do Bairro (3 Uvas Amargas + 1 Fita). Poção forte de MP (60%). Moeda. |
 | Barril Vazio (Tanoeiro) | Tanoeiro Rufino | 6 Bailarinos do Véu perto do Lagar (bloqueie os três golpes). |
 | Batom na Pedra (Fugidos) | Bartolomeu | Ir ao Santuário Profanado da Aurora (leste). |
-| Uma Porta que Fecha (Fugidos) | Bartolomeu → Irmã Celeste | Pedir lugar no Bairro para os três fugidos. Moeda. |
+| Uma Porta que Fecha (Fugidos) | Bartolomeu → Irmã Clara | Pedir lugar no Bairro para os três fugidos. Moeda. |
 
 ## Nível 47: a Avenida do Cortejo
 
 | Quest | Quem dá | O que é |
 |---|---|---|
-| O Cortejo | Irmã Celeste → Capitão Lúcido Afonso | Portão sudeste (nível 47 + Os Sinos Mudos), chegar ao Posto dos Lúcidos. |
+| O Cortejo | Irmã Clara → Capitão Lúcido Afonso | Portão sudeste (nível 47 + Os Sinos Mudos), chegar ao Posto dos Lúcidos. |
 | Guizos na Avenida | Afonso | 10 Galgos de Seda (o Alfa conta; bloqueie o bote). |
 | Os Convertidos | Afonso | 10 Convertidos (viram Bailarino ou Galgo; conta pela base). Peça + Moeda. |
 | Aro de Porcelana (Tanoeiro) | Rufino | 3 Porcelanas Chorosas: o primeiro barril vazio da Quinta. Moeda. |
@@ -69,7 +69,7 @@ rápido 45 já nasce no Bairro dos Lúcidos com a chegada ativa.
 |---|---|---|
 | A Batuta (Ponto) | Ermelindo | O Maestro do Coro (grupo; interrompa o Uníssono). Abre o Conservatório (masmorra opcional). Moeda. |
 | Espelho Não Veste (Costureira) | Benedita | 6 Reflexos Vaidosos (some no espelho: guarde o golpe forte para a volta). Moeda. |
-| As Que Têm Sede | Afonso | 10 Veladas (Sedutora, Açoitadora ou Cantora do Véu; ande com o grupo, a Sedutora chega escondida). |
+| As Que Têm Sede | Afonso | 10 Veladas (Sedutora, Açoitadora ou Carpideira; ande com o grupo, a Sedutora chega escondida). |
 | Quem Conduz a Dança (Máscara Partida) | Altar | 3 Primeiros Bailarinos (grupo; saia da linha dos saltos). **Título "Sem Máscara".** |
 
 ## Nível 49: a Matriarca
@@ -82,25 +82,25 @@ rápido 45 já nasce no Bairro dos Lúcidos com a chegada ativa.
 
 | Quest | Quem dá | O que é |
 |---|---|---|
-| A Condessa Refletida | Irmã Celeste | A Condessa na Galeria dos Espelhos, sob a Ópera (grupo; esconda-se atrás dos Espelhos de Pé). **L3.** Peça + 2 Moedas. |
-| O Reflexo do Duque (Duque) | Duque Aurelião | 8 Reflexos Vaidosos em Lumeria. |
-| O Salão do Duque (Duque) | Duque Aurelião | 5 Porcelanas Chorosas: o Palácio reabre para os Lúcidos. Peça + Moeda. **Abre o Salão do Duque** (porta lateral a leste do Palácio): a Joalheira Celina vende anel, amuleto e capa do 48. |
+| A Condessa Refletida | Irmã Clara | A Condessa na Galeria dos Espelhos, sob a Ópera (grupo; esconda-se atrás dos Espelhos de Pé). **L3.** Peça + 2 Moedas. |
+| O Reflexo do Duque (Duque) | Duque Leopoldo | 8 Reflexos Vaidosos em Lumeria. |
+| O Salão do Duque (Duque) | Duque Leopoldo | 5 Porcelanas Chorosas: o Palácio reabre para os Lúcidos. Peça + Moeda. **Abre o Salão do Duque** (porta lateral a leste do Palácio): a Joalheira Celina vende anel, amuleto e capa do 48. |
 
 ## Nível 49: o Véu e o Jardim
 
 | Quest | Quem dá | O que é |
 |---|---|---|
 | O Véu Rasgado | Afonso | Depois da Matriarca, das Adegas e da Galeria: escoltar a procissão dos Lúcidos até o Palco Grande e derrubar 12 demônias que caem sobre ela. **L3b: o Véu abre.** |
-| O Jardim Sem Fim | Tenente Selene → Capitã Aurélia | Atravessar o Véu e derrubar 4 Primeiros Bailarinos nas alamedas do Jardim. |
+| O Roseiral Sem Fim | Tenente Selene → Capitã Aurélia | Atravessar o Véu e derrubar 4 Primeiros Bailarinos nas alamedas do Jardim. |
 | A Anfitriã | Capitã Aurélia | Vessaline no Pavilhão (grupo de 4; leia as quatro faixas do Cortejo de Lâminas). **L4: Manhã.** Peça + 4 Moedas. |
-| Manhã em Lumeria | Capitã Aurélia → Irmã Celeste | Contar à Celeste que a festa acabou. **Tela "Fim do Ato III — Parte 1".** |
+| Manhã em Lumeria | Capitã Aurélia → Irmã Clara | Contar à Clara que a festa acabou. **Tela "Fim do Ato III — Parte 1".** |
 | A Regente (Ponto, opcional) | Ermelindo | Mestra Ressoa no Conservatório (grupo; espalhem as marcas, derrubem os Tubos). Peça + 2 Moedas. |
 
 ## Nível 50: a raide
 
 | Quest | Quem dá | O que é |
 |---|---|---|
-| O Eco | Irmã Celeste | Depois do epílogo: o Eco de Amarante no Coração do Jardim (raide de 5; dourado = juntar, roxo = espalhar). 0 XP, **título "Quem Não Dançou"**, 6 Moedas e o troféu **Coroa Vazia**. |
+| O Eco | Irmã Clara | Depois do epílogo: o Eco de Amarante no Coração do Jardim (raide de 5; dourado = juntar, roxo = espalhar). 0 XP, **título "Quem Não Dançou"**, 6 Moedas e o troféu **Coroa Vazia**. |
 
 ## Recompensas do nível 48-50 (WP11)
 
