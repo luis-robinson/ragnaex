@@ -1219,6 +1219,15 @@ const JUMP_VELOCITY := 6.2          # m/s para cima (Espaço): ~0,96 m de altura
 const JUMP_GRAVITY := 20.0          # m/s²: ~0,62 s no ar
 const DASH_COOLDOWN := 1.6
 const DASH_CHARGE_WINDOW := 0.9       # com 2+ cargas: tempo entre um dash e o próximo
+## Nós genéricos de dash na teia (2026-11-24, decisão do usuário): todas as classes, em anel na casa do dash
+## (TalentsCatalog.dash_nodes, TreeCatalog). [id, nome, nível, mods de TalentDef].
+const DASH_MAX_CHARGES := 3            # teto das cargas somadas ("charges" fixa o mínimo, "charges_add" soma)
+const DASH_NODE_COST := 2              # pontos por nó, como as evoluções do dash
+const DASH_NODES := [
+	["dash_long", "Passada Longa", 10, {"distance_mult": 1.2}],
+	["dash_breath", "Fôlego", 20, {"cooldown_mult": 0.75}],
+	["dash_evade", "Esquiva Firme", 20, {"iframes": 0.15}],
+	["dash_extra", "Passo Extra", 30, {"charges_add": 1}]]
 const POTION_COOLDOWN := 4.0
 const AGGRO_LOSE_TIME := 6.0
 const CORPSE_TIME := 1.6

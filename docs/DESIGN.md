@@ -20,6 +20,12 @@ o cursor, LMB básico, skills como skillshots/área no cursor).
    (`WorldSim._tick_dash_refill`; antes só voltavam depois de gastar todas). Na tela: gomos nos pés do seu personagem só enquanto
    alguma carga enche (`DashGauge`), vaga Shift na barra com leque e número de cargas, brilho + som `dash_ready` quando uma carga
    volta. Checks `_check_dash_charge_refill`, `_check_dash_display`; foto: `-- --dash_shot=<pasta> [--dash_talent=<id>]`.
+   **Nós genéricos do dash** (2026-11-24, decisão do usuário): toda classe ganha na teia, em anel na casa do dash (depois da
+   evolução própria dela), Passada Longa (10: +20% distância), Fôlego (20: −25% recarga), Esquiva Firme (20: +0,15 s invulnerável)
+   e Passo Extra (30: +1 carga). Números em `Balance.DASH_NODES`/`DASH_NODE_COST`; ids `<prefixo>_t_dash_*` (`TalentsCatalog.dash_nodes`,
+   anel em `TreeCatalog._dash_ring`). Cargas: `charges` fixa o mínimo (Passo Duplo), `charges_add` soma, teto `DASH_MAX_CHARGES` 3
+   (só o Assassino chega a 3). A volta das cargas seguintes lê a recarga das evoluções (antes ignorava o `cooldown_mult` depois que o
+   dash chegava). Check `_check_dash_nodes`.
 2. **Mira pelo mouse**: toda skill tem forma no chão (retículo) — SELF / DIRECTION / GROUND / CONE / TARGET.
 3. **Equipamento é poder, build é escolha**: atributos vêm só de itens; level dá HP/MP base e pontos de skill;
    a arma empunhada decide quais skills funcionam.

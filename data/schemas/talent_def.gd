@@ -7,7 +7,8 @@ extends Resource
 ##   {"set": {"radius": 6.0}, "mult": {"power": 1.2, "cooldown": 0.8, "range": 1.5}, "effects": {"stun": {"duration": 1}}}
 ## mods para dash (somam/multiplicam os padrões de Balance.DASH_*):
 ##   {"distance_mult": 1.6, "charges": 2, "ghost": true, "stun": 1.0, "power": 0.8, "radius": 1.6,
-##    "heal_pct": 5, "buff": {"id": "x", "duration": 3, "speed_pct": 30}, "cooldown_mult": 0.8}
+##    "heal_pct": 5, "buff": {"id": "x", "duration": 3, "speed_pct": 30}, "cooldown_mult": 0.8,
+##    "charges_add": 1 (soma às cargas, teto Balance.DASH_MAX_CHARGES), "iframes": 0.15 (s a mais de invulnerável)}
 
 const DASH := "dash"
 

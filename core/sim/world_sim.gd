@@ -721,7 +721,7 @@ func _apply_command(e: SimEntity, cmd: InputCommand, m: Dictionary, dt: float) -
 		else:
 			e.dash_cd = Balance.DASH_CHARGE_WINDOW * 0.25
 		e.is_blocking = false
-		e.iframe_left = Balance.DASH_IFRAMES
+		e.iframe_left = Balance.DASH_IFRAMES + float(dp["iframes"])     # nó Esquiva Firme
 		FusionEffects.ghost(self, e)                 # Passo Fantasma (A1): o dash deixa o próximo golpe furtivo
 		e.set_state(SimEntity.State.DASHING, Balance.DASH_TIME)
 		Events.post(&"skill_cast", e.id, "dash", "active")
@@ -2526,15 +2526,16 @@ func _tick_dash_refill(e: SimEntity, dt: float) -> void:
 		return
 	e.dash_charges_used -= 1
 	if e.dash_charges_used > 0:
-		e.dash_refill += Balance.DASH_COOLDOWN * float(e.dash_params.get("cooldown_mult", 1.0))
+		e.dash_refill += Balance.DASH_COOLDOWN * float(dash_params(e)["cooldown_mult"])     # e.dash_params some na chegada do dash
 	else:
 		e.dash_refill = 0.0
 
 func dash_params(e: SimEntity) -> Dictionary:
 	var dp := {"distance": 1.0, "charges": 1, "ghost": false, "cooldown_mult": 1.0, "stun": 0.0,
-		"power": 0.0, "radius": 0.0, "heal_pct": 0.0, "buff": null, "slow": null}
+		"power": 0.0, "radius": 0.0, "heal_pct": 0.0, "buff": null, "slow": null, "iframes": 0.0}
 	if not e.is_character():
 		return dp
+	var add_charges := 0
 	for tid in e.talents:
 		var t: TalentDef = GameData.talents.get(tid)
 		if t == null or t.skill_id != TalentDef.DASH or not e.stats.meets(t.requires):
@@ -2543,6 +2544,8 @@ func dash_params(e: SimEntity) -> Dictionary:
 		dp["distance"] *= float(md.get("distance_mult", 1.0))
 		dp["cooldown_mult"] *= float(md.get("cooldown_mult", 1.0))
 		dp["charges"] = maxi(int(dp["charges"]), int(md.get("charges", 1)))
+		add_charges += int(md.get("charges_add", 0))
+		dp["iframes"] += float(md.get("iframes", 0.0))
 		dp["ghost"] = dp["ghost"] or bool(md.get("ghost", false))
 		dp["stun"] = maxf(dp["stun"], float(md.get("stun", 0.0)))
 		dp["power"] += float(md.get("power", 0.0))
@@ -2552,6 +2555,7 @@ func dash_params(e: SimEntity) -> Dictionary:
 			dp["buff"] = md["buff"]
 		if md.has("slow"):
 			dp["slow"] = md["slow"]
+	dp["charges"] = mini(int(dp["charges"]) + add_charges, Balance.DASH_MAX_CHARGES)     # nó Passo Extra soma por cima do Passo Duplo
 	return dp
 
 ## Efeitos ao fim do dash: dano/atordoar/lentidão em volta, cura, buff.

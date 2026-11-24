@@ -4520,6 +4520,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_bot_leader(gd, sim)
 	_check_druid_attr_convert(gd)
 	_check_assassin_start_daggers(gd, sim)
+	_check_dash_nodes(gd, sim)
 	_check_bot_raid(gd, sim)
 	_check_bot_opener(gd, sim)
 	_check_bot_threat_budget(gd, sim)
@@ -19620,6 +19621,52 @@ func _check_tank_pull(gd, sim) -> void:
 		sim.party_leave(o)
 	for o in [lead, tank, dps, other]:
 		sim.despawn(o)
+
+## Nós genéricos do dash (2026-11-24, decisão do usuário; Balance.DASH_NODES): toda classe tem Passada Longa (10), Fôlego e
+## Esquiva Firme (20) e Passo Extra (30) na teia, ligados à evolução de dash dela; cargas somam até DASH_MAX_CHARGES;
+## a 2ª carga volta com a recarga reduzida mesmo depois que o dash chegou (e.dash_params some na chegada).
+func _check_dash_nodes(gd, sim) -> void:
+	for cid in gd.classes:
+		var tr: Dictionary = gd.trees.get(cid, {})
+		var nodes: Dictionary = tr.get("nodes", {})
+		var found := 0
+		for row: Array in Balance.DASH_NODES:
+			var t: TalentDef = null
+			for tid in gd.talents:
+				var x: TalentDef = gd.talents[tid]
+				if x.class_id == cid and x.skill_id == TalentDef.DASH and x.id.ends_with("_t_" + str(row[0])):
+					t = x
+			if t == null:
+				continue
+			found += 1
+			check(t.unlock_level == int(row[2]) and t.cost == Balance.DASH_NODE_COST and t.description != "",
+				"dash_nodes: %s nível %d custo %d com texto" % [t.id, t.unlock_level, t.cost])
+			var nid := "%s_t_%s" % [cid, t.id]
+			check(nodes.has(nid) and not (nodes[nid]["links"] as Array).is_empty(), "dash_nodes: %s está na teia e ligado" % nid)
+		check(found == Balance.DASH_NODES.size(), "dash_nodes: %s tem os %d nós de dash (%d)" % [cid, Balance.DASH_NODES.size(), found])
+	# cargas somam com teto; distância, recarga, invulnerável
+	var a = sim.spawn_character(SimEntity.Kind.BOT, gd.classes["assassin"], "TDN", "city_aldara", Vector3(-8, 0, 10), 30)
+	a.talents = {"ass_t_double_step": true, "ass_t_dash_extra": true}
+	check(int(sim.dash_params(a)["charges"]) == 3, "dash_nodes: Passo Duplo + Passo Extra = 3 cargas (%d)" % int(sim.dash_params(a)["charges"]))
+	var p = sim.spawn_character(SimEntity.Kind.BOT, gd.classes["paladin"], "TDP", "city_aldara", Vector3(-9, 0, 10), 30)
+	p.talents = {}
+	check(int(sim.dash_params(p)["charges"]) == 1, "dash_nodes: paladino sem nó tem 1 carga")
+	p.talents = {"pal_t_dash_extra": true, "pal_t_dash_long": true, "pal_t_dash_breath": true, "pal_t_dash_evade": true}
+	var dp: Dictionary = sim.dash_params(p)
+	check(int(dp["charges"]) == 2, "dash_nodes: paladino com Passo Extra tem 2 cargas (%d)" % int(dp["charges"]))
+	check(is_equal_approx(float(dp["distance"]), 1.2) and is_equal_approx(float(dp["cooldown_mult"]), 0.75) and is_equal_approx(float(dp["iframes"]), 0.15),
+		"dash_nodes: distância x1,2, recarga x0,75, +0,15 s invulnerável (%s)" % str(dp))
+	check(int(sim.dash_params(p)["charges"]) <= Balance.DASH_MAX_CHARGES, "dash_nodes: teto de cargas")
+	# regressão: a 2ª carga volta com o Fôlego mesmo com e.dash_params vazio (o dash já chegou)
+	p.dash_params = {}
+	p.dash_charges_used = 2
+	p.dash_refill = 0.0
+	sim._tick_dash_refill(p, 0.016)
+	check(is_equal_approx(p.dash_refill, Balance.DASH_COOLDOWN * 0.75 - 0.016), "dash_nodes: 2ª carga volta em %.2f s com Fôlego (%.2f)" % [Balance.DASH_COOLDOWN * 0.75, p.dash_refill + 0.016])
+	p.dash_charges_used = 0
+	p.dash_refill = 0.0
+	sim.despawn(a)
+	sim.despawn(p)
 
 ## Assassino começa com duas adagas (2026-11-24, pedido do usuário): a 2ª vai para a mão secundária (ClassDef.starting_slots),
 ## no spawn da sim e na prévia da criação; classe com uma arma só continua com a secundária vazia.

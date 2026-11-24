@@ -97,6 +97,8 @@ static func talent_tags(t: TalentDef) -> Array:
 		if m.has("buff") and (m["buff"] as Dictionary).has("speed_pct"): out.append("+%d%% veloc." % int(m["buff"]["speed_pct"]))
 		if m.has("distance_mult"): out.append("+%d%% dist." % roundi((float(m["distance_mult"]) - 1.0) * 100.0))
 		if m.has("charges"): out.append("%d cargas" % int(m["charges"]))
+		if m.has("charges_add"): out.append("+%d carga" % int(m["charges_add"]))
+		if m.has("iframes"): out.append("+%.2f s invulnerável" % float(m["iframes"]))
 		if m.has("ghost"): out.append("atravessa")
 		if m.has("cooldown_mult"): out.append("-%d%% recarga" % roundi((1.0 - float(m["cooldown_mult"])) * 100.0))
 	else:
@@ -431,19 +433,65 @@ static func _class_tree(cls: ClassDef, skills: Dictionary, talents: Dictionary) 
 	# evoluções do dash: círculo pequeno na primeira casa do Geral, em corrente a partir do início
 	if not dash_cell.is_empty():
 		var c: Vector2 = dash_cell["c"]
-		for i in range(dash_talents.size()):
-			var t: TalentDef = dash_talents[i]
+		var chain: Array = dash_talents.filter(func(t): return not is_dash_node(t))
+		var ring: Array = dash_talents.filter(func(t): return is_dash_node(t))
+		for i in range(chain.size()):
+			var t: TalentDef = chain[i]
 			var tnid := "%s_t_%s" % [cls.id, t.id]
 			nodes[tnid] = _node(tnid, "talent", t.id, t.name, t.description, t.unlock_level, t.cost, c * (0.55 + 0.3 * i))      # espora do início
 
 			nodes[tnid]["branch"] = "start"
-			_link(nodes, start if i == 0 else "%s_t_%s" % [cls.id, dash_talents[i - 1].id], tnid)
+			_link(nodes, start if i == 0 else "%s_t_%s" % [cls.id, chain[i - 1].id], tnid)
+		ring.sort_custom(func(a, b): return dash_node_index(a) < dash_node_index(b))
+		if not ring.is_empty():
+			_dash_ring(cls, nodes, c, ring, start if chain.is_empty() else "%s_t_%s" % [cls.id, chain[-1].id])
 	_role_notables(cls, nodes)
 	_outer_web(cls, nodes, branches, hubs, used_cells, sector_of, out_clusters, far)
 	_rim_web(cls, nodes, branches, hubs, used_cells, sector_of, out_clusters)
 	_core_ring(cls, nodes, start)
 	_class_picks(cls, nodes)
 	return {"start": start, "nodes": nodes, "panes": panes, "clusters": out_clusters}
+
+const DASH_RING_GAP := 0.9       # unidades entre a evolução de dash da classe e o 1º nó do anel genérico
+## Nó genérico de dash (Balance.DASH_NODES)? O id termina no id da linha (ex.: ass_t_dash_extra).
+static func is_dash_node(t: TalentDef) -> bool:
+	return dash_node_index(t) >= 0
+
+## Posição da linha do nó genérico em Balance.DASH_NODES (-1 = não é).
+static func dash_node_index(t: TalentDef) -> int:
+	for i in range(Balance.DASH_NODES.size()):
+		if t.id.ends_with("_t_" + str(Balance.DASH_NODES[i][0])):
+			return i
+	return -1
+
+## Nós genéricos do dash em anel no centro da casa do dash (2026-11-24): o 1º (nível mais baixo) de frente para a
+## evolução de dash da classe (`entry`), o último do outro lado; cada nó liga aos vizinhos do anel (losango, sem fechar
+## pela frente: o do nível 30 só abre por um dos dois do 20).
+static func _dash_ring(cls: ClassDef, nodes: Dictionary, c: Vector2, ring: Array, entry: String) -> void:
+	var from: Vector2 = nodes[entry]["pos"]
+	var gap := maxf(from.distance_to(c), WHEEL_R + DASH_RING_GAP)     # o nó da frente não encosta na evolução da classe
+	c = from + (c - from).normalized() * gap
+	var back: float = (from - c).angle()
+	var ids: Array = []
+	var n := ring.size()
+	for i in range(n):
+		var t: TalentDef = ring[i]
+		var tnid := "%s_t_%s" % [cls.id, t.id]
+		# 0 = frente (para a entrada); depois alterna lados e o último fica no fundo
+		var slot: float = 0.0 if i == 0 else (PI if i == n - 1 and n > 2 else (PI * 0.5 if i % 2 == 1 else -PI * 0.5))
+		var at := c + Vector2.from_angle(back + slot) * WHEEL_R
+		nodes[tnid] = _node(tnid, "talent", t.id, t.name, t.description, t.unlock_level, t.cost, at)
+		nodes[tnid]["branch"] = "start"
+		ids.append(tnid)
+	_link(nodes, entry, ids[0])
+	for i in range(1, n):
+		var last := i == n - 1 and n > 2
+		if last:
+			_link(nodes, ids[i], ids[1])
+			if n > 3:
+				_link(nodes, ids[i], ids[2])
+		else:
+			_link(nodes, ids[0], ids[i])
 
 ## --- Fronteira (Ato II, níveis 31-45; GDD ato2-horda R7) ---
 ## Região de fora da teia do 30: casas livres até Balance.WEB_OUTER_GRID_K, por setor, sempre encostadas na malha (sem ilha).

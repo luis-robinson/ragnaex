@@ -20,7 +20,7 @@ static func _t(id: String, cls: String, skill: String, lvl: int, cost: int, name
 
 static func build() -> Array:
 	var D := TalentDef.DASH
-	return [
+	var out: Array = [
 		# --- Paladino ---
 		_t("pal_t_shield_charge", "paladin", D, 5, 2, "Investida de Escudo", "O dash atordoa por 1s e fere quem estiver no ponto de chegada. Exige escudo.",
 			{"stun": 1.0, "power": 0.6, "radius": 1.6}, ["shield"]),
@@ -122,3 +122,32 @@ static func build() -> Array:
 		_t("nec_t_plague", "necromancer", "nec_plague", 14, 2, "Praga Alastrante", "Praga com área 35% maior.",
 			{"mult": {"radius": 1.35}}),
 	]
+	out.append_array(dash_nodes(out))
+	return out
+
+## Nós genéricos de dash (Balance.DASH_NODES), um de cada para toda classe que tem evolução de dash.
+## Id `<prefixo da classe>_t_<id>` (ex.: ass_t_dash_extra); a teia os põe em anel na casa do dash.
+static func dash_nodes(base: Array) -> Array:
+	var out: Array = []
+	var seen := {}
+	for t: TalentDef in base:
+		if t.skill_id != TalentDef.DASH or seen.has(t.class_id):
+			continue
+		seen[t.class_id] = true
+		var pre: String = t.id.split("_")[0]
+		for row: Array in Balance.DASH_NODES:
+			out.append(_t("%s_t_%s" % [pre, row[0]], t.class_id, TalentDef.DASH, int(row[2]), Balance.DASH_NODE_COST,
+				str(row[1]), dash_text(row[3]), (row[3] as Dictionary).duplicate()))
+	return out
+
+## Texto do nó genérico de dash, lido dos números (Balance.DASH_NODES).
+static func dash_text(m: Dictionary) -> String:
+	if m.has("distance_mult"):
+		return "O dash vai %d%% mais longe." % roundi((float(m["distance_mult"]) - 1.0) * 100.0)
+	if m.has("cooldown_mult"):
+		return "Recarga do dash %d%% menor." % roundi((1.0 - float(m["cooldown_mult"])) * 100.0)
+	if m.has("iframes"):
+		return "Fica invulnerável %.2f s a mais depois do dash." % float(m["iframes"])
+	if m.has("charges_add"):
+		return "+%d carga de dash (até %d cargas)." % [int(m["charges_add"]), Balance.DASH_MAX_CHARGES]
+	return ""
