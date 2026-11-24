@@ -15,6 +15,11 @@ o cursor, LMB básico, skills como skillshots/área no cursor).
    **Dash com i-frames**: o dash inteiro (`Balance.DASH_IFRAMES`, 0,18 s) é invulnerável a golpe direto, skill, projétil e chuva
    de chefe, e efeito de inimigo (atordoar, prender, gancho) não pega; dano no tempo que já estava em você continua. Vale também
    no dash que cancela uma skill. Na tela aparece como esquiva (`Events.dodged`).
+   **Recarga e cargas do dash** (2026-11-24): recarga `Balance.DASH_COOLDOWN` × `cooldown_mult` da evolução. Com 2+ cargas
+   (Passo Duplo) o próximo dash sai depois de `DASH_CHARGE_WINDOW` × 0,25, e cada carga gasta volta sozinha, uma de cada vez
+   (`WorldSim._tick_dash_refill`; antes só voltavam depois de gastar todas). Na tela: gomos nos pés do seu personagem só enquanto
+   alguma carga enche (`DashGauge`), vaga Shift na barra com leque e número de cargas, brilho + som `dash_ready` quando uma carga
+   volta. Checks `_check_dash_charge_refill`, `_check_dash_display`; foto: `-- --dash_shot=<pasta> [--dash_talent=<id>]`.
 2. **Mira pelo mouse**: toda skill tem forma no chão (retículo) — SELF / DIRECTION / GROUND / CONE / TARGET.
 3. **Equipamento é poder, build é escolha**: atributos vêm só de itens; level dá HP/MP base e pontos de skill;
    a arma empunhada decide quais skills funcionam.

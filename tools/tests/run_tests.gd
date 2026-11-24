@@ -3285,6 +3285,8 @@ func _check_zone(gd, sim) -> void:
 	_check_hotbar_drag(gd, sim)
 	_check_action_bar(gd, sim)
 	_check_dash_display(gd, sim)
+	_check_dash_charge_refill(gd, sim)
+	_check_random_walkable_fallback(gd, sim)
 	_check_craft_tooltip(gd, sim)
 	_check_hotbar_clear(gd, sim)
 	_check_ui_click_gate()
@@ -10520,46 +10522,110 @@ func _check_action_bar(_gd, _sim) -> void:
 	check(ActionBar.MICRO.size() == 8, "barra: atalhos I C J K L P M Esc")
 	bar.free()
 
+## random_walkable com o centro dentro de obstáculo e nenhum sorteio no chão: devolve o andável mais perto (antes devolvia
+## o próprio centro e o monstro nascia no obstáculo; achado pelo spawner goblin_agitator de field_kharzun, 2026-11-24).
+func _check_random_walkable_fallback(gd, sim) -> void:
+	var rng_state: int = sim.rng.state            # sorteia no rng da sim: devolve para não mudar os checks seguintes
+	var md: MapDef = gd.maps["field_kharzun"]
+	var tried := 0
+	for sp in md.spawners:
+		var c: Vector3 = sp["pos"]
+		if sim.is_walkable(c, md):
+			continue
+		tried += 1
+		var p: Vector3 = sim.random_walkable(md, c, 0.0)
+		check(sim.is_walkable(p, md) and p.distance_to(c) <= 6.5, "random_walkable: centro em obstáculo (%s em %s) cai no andável mais perto (%.1f m)" % [sp["monster_id"], c, p.distance_to(c)])
+	check(tried > 0, "random_walkable: field_kharzun tem spawner com o centro em obstáculo para testar (%d)" % tried)
+	sim.rng.state = rng_state
+
+## Cargas do dash (decisão do usuário 2026-11-24): cada carga gasta volta sozinha, uma de cada vez, na recarga cheia
+## (DASH_COOLDOWN × cooldown_mult); com 1 carga nada muda. Antes as cargas só voltavam depois de gastar todas.
+func _check_dash_charge_refill(gd, sim) -> void:
+	var m: Dictionary = sim.maps["city_aldara"]
+	var dt := 1.0 / 60.0
+	var dash := func(e: SimEntity) -> void:
+		e.set_state(SimEntity.State.IDLE)
+		var c := InputCommand.new()
+		c.move = Vector2(1, 0)
+		c.dash = true
+		sim._apply_command(e, c, m, dt)
+	var run := func(e: SimEntity, secs: float) -> void:
+		var t := 0.0
+		while t < secs:
+			sim._update_entity(e, m, dt)
+			t += dt
+	var a: SimEntity = sim.spawn_bot(gd.classes["assassin"], "Recarga", "city_aldara", Vector3(0, 0, 4), 30)
+	a.brain = null
+	a.talents["ass_t_double_step"] = true
+	var full: float = Balance.DASH_COOLDOWN * float(sim.dash_params(a)["cooldown_mult"])
+	check(int(sim.dash_params(a)["charges"]) == 2, "dash: Passo Duplo dá 2 cargas")
+	a.dash_cd = 0.0
+	a.dash_charges_used = 0
+	dash.call(a)
+	check(a.dash_charges_used == 1 and a.dash_cd <= Balance.DASH_CHARGE_WINDOW * 0.25 + 0.001, "dash 2 cargas: 1º dash gasta 1 e a 2ª sai logo")
+	run.call(a, full + 0.1)
+	check(a.dash_charges_used == 0 and a.dash_cd == 0.0, "dash 2 cargas: a carga gasta volta sozinha na recarga cheia (usadas %d)" % a.dash_charges_used)
+	dash.call(a)
+	run.call(a, Balance.DASH_CHARGE_WINDOW * 0.25 + 0.05)
+	dash.call(a)
+	check(a.dash_charges_used == 2 and a.dash_cd > full * 0.8, "dash 2 cargas: sem carga, espera a 1ª voltar (cd %.2f)" % a.dash_cd)
+	run.call(a, full + 0.05)
+	check(a.dash_charges_used == 1 and a.dash_cd == 0.0, "dash 2 cargas: voltam uma de cada vez (usadas %d, cd %.2f)" % [a.dash_charges_used, a.dash_cd])
+	run.call(a, full)
+	check(a.dash_charges_used == 0, "dash 2 cargas: a 2ª volta depois de mais uma recarga")
+	sim.despawn(a)
+	# 1 carga: igual a antes
+	var b: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Recarga1", "city_aldara", Vector3(0, 0, 6), 30)
+	b.brain = null
+	b.talents.clear()
+	b.dash_cd = 0.0
+	b.dash_charges_used = 0
+	dash.call(b)
+	check(is_equal_approx(b.dash_cd, Balance.DASH_COOLDOWN) and b.dash_charges_used == 1, "dash 1 carga: recarga cheia na hora")
+	run.call(b, Balance.DASH_COOLDOWN + 0.05)
+	check(b.dash_cd == 0.0 and b.dash_charges_used == 0, "dash 1 carga: volta pronto")
+	sim.despawn(b)
+
 ## Dash (Shift) na tela (2026-11-24): gomos nos pés só do seu personagem (DashGauge, puro: fração por carga), vaga Shift na barra
 ## entre as skills e as poções com leque e número de cargas, e pista de pronto (brilho + som dash_ready) só na volta da recarga cheia.
 func _check_dash_display(gd, sim) -> void:
 	var full := Balance.DASH_COOLDOWN
-	# 1 carga: pronto, recarga pela metade, recarga quase no fim
-	var st := DashGauge.pip_state(0.0, 0, 1, 1.0)
+	var gap := Balance.DASH_CHARGE_WINDOW * 0.25
+	# 1 carga: pronto, recarga pela metade, recarga começando (dash_cd e dash_refill andam juntos)
+	var st := DashGauge.pip_state(0.0, 0, 1, 0.0, full)
 	check(st["fills"] == [1.0] and st["ready"] == 1 and st["cycle"] == "", "dash: 1 carga pronta = gomo cheio")
-	st = DashGauge.pip_state(full * 0.5, 0, 1, 1.0)
+	st = DashGauge.pip_state(full * 0.5, 1, 1, full * 0.5, full)
 	check(is_equal_approx(float(st["fills"][0]), 0.5) and st["ready"] == 0 and st["cycle"] == "full" and is_equal_approx(float(st["left"]), 0.5), "dash: metade da recarga = gomo pela metade")
-	st = DashGauge.pip_state(full, 0, 1, 1.0)
+	st = DashGauge.pip_state(full, 1, 1, full, full)
 	check(is_equal_approx(float(st["fills"][0]), 0.0), "dash: recarga começando = gomo vazio")
 	# evolução que encurta a recarga: a fração usa o total certo
-	st = DashGauge.pip_state(full * 0.5 * 0.5, 0, 1, 0.5)
+	st = DashGauge.pip_state(full * 0.25, 1, 1, full * 0.25, full * 0.5)
 	check(is_equal_approx(float(st["fills"][0]), 0.5), "dash: cooldown_mult 0,5 = metade do total menor")
-	# 2 cargas (Passo Duplo): uma gasta = intervalo curto, a outra enche; as duas gastas = recarga cheia nas duas
-	var gap := Balance.DASH_CHARGE_WINDOW * 0.25
-	st = DashGauge.pip_state(gap * 0.5, 1, 2, 1.0)
-	check(st["cycle"] == "gap" and is_equal_approx(float(st["fills"][0]), 0.5) and float(st["fills"][1]) == 0.0 and st["have"] == 1 and st["ready"] == 0, "dash 2 cargas: intervalo entre cargas (%s)" % [st])
-	st = DashGauge.pip_state(0.0, 1, 2, 1.0)
-	check(st["fills"] == [1.0, 0.0] and st["ready"] == 1, "dash 2 cargas: uma pronta, uma gasta")
-	st = DashGauge.pip_state(full * 0.25, 0, 2, 1.0)
-	check(st["cycle"] == "full" and is_equal_approx(float(st["fills"][0]), 0.75) and is_equal_approx(float(st["fills"][1]), 0.75) and st["have"] == 0, "dash 2 cargas: recarga cheia enche as duas")
-	check(DashGauge.pip_state(0.0, 0, 9, 1.0)["fills"].size() == DashGauge.MAX_PIPS, "dash: no máximo %d gomos" % DashGauge.MAX_PIPS)
-	# pista de pronto: uma vez, na passagem da recarga cheia; nunca parado, no nascer ou no intervalo
-	check(DashGauge.ready_cue(0.02, 0.0, 0), "dash: pista quando a recarga cheia acaba")
-	check(not DashGauge.ready_cue(0.0, 0.0, 0), "dash: sem pista parado em pronto (nem no nascer)")
-	check(not DashGauge.ready_cue(0.5, 0.48, 0), "dash: sem pista no meio da recarga")
-	check(not DashGauge.ready_cue(0.02, 0.0, 1), "dash: sem pista no intervalo entre cargas")
+	# 2 cargas (Passo Duplo): cada carga gasta volta sozinha, uma de cada vez
+	st = DashGauge.pip_state(gap * 0.5, 1, 2, full * 0.9, full)
+	check(st["cycle"] == "gap" and float(st["fills"][0]) == 1.0 and st["have"] == 1 and st["ready"] == 0, "dash 2 cargas: intervalo curto depois do 1º (%s)" % [st])
+	st = DashGauge.pip_state(0.0, 1, 2, full * 0.5, full)
+	check(st["cycle"] == "refill" and float(st["fills"][0]) == 1.0 and is_equal_approx(float(st["fills"][1]), 0.5) and st["ready"] == 1, "dash 2 cargas: uma pronta, a gasta enchendo (%s)" % [st])
+	st = DashGauge.pip_state(full * 0.25, 2, 2, full * 0.25, full)
+	check(st["cycle"] == "full" and is_equal_approx(float(st["fills"][0]), 0.75) and float(st["fills"][1]) == 0.0 and st["have"] == 0, "dash 2 cargas: sem carga, a 1ª enche e a 2ª espera (%s)" % [st])
+	check(DashGauge.pip_state(0.0, 0, 9, 0.0, full)["fills"].size() == DashGauge.MAX_PIPS, "dash: no máximo %d gomos" % DashGauge.MAX_PIPS)
+	# pista de pronto: quando uma carga volta; nunca parado, no nascer ou no intervalo entre cargas
+	check(DashGauge.ready_cue(1, 0), "dash: pista quando a carga volta")
+	check(DashGauge.ready_cue(2, 1), "dash 2 cargas: pista a cada carga que volta")
+	check(not DashGauge.ready_cue(0, 0), "dash: sem pista parado em pronto (nem no nascer)")
+	check(not DashGauge.ready_cue(0, 1), "dash: sem pista ao gastar")
 	var cues := 0
-	var prev := 0.0
-	for cd in [0.0, full, 1.0, 0.5, 0.01, 0.0, 0.0, 0.0]:
-		if DashGauge.ready_cue(prev, cd, 0):
+	var prev := 0
+	for u in [0, 1, 1, 1, 0, 0, 0]:
+		if DashGauge.ready_cue(prev, u):
 			cues += 1
-		prev = cd
+		prev = u
 	check(cues == 1, "dash: a pista toca uma vez por recarga (%d)" % cues)
 	# evolução de 2 cargas chega pelo dash_params da sim
 	var a: SimEntity = sim.spawn_bot(gd.classes["assassin"], "Passos", "city_aldara", Vector3(0, 0, 4), 30)
 	a.talents["ass_t_double_step"] = true
 	var dp: Dictionary = sim.dash_params(a)
-	check(int(dp["charges"]) == 2 and DashGauge.pip_state(0.0, 0, int(dp["charges"]), 1.0)["fills"].size() == 2, "dash: Passo Duplo = 2 gomos")
+	check(int(dp["charges"]) == 2 and DashGauge.pip_state(0.0, 0, int(dp["charges"]), 0.0, full)["fills"].size() == 2, "dash: Passo Duplo = 2 gomos")
 	sim.despawn(a)
 	# barra: vaga Shift entre as skills e as poções, ícone, dica com a tecla
 	var bar := ActionBar.new()

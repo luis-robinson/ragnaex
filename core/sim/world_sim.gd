@@ -712,11 +712,13 @@ func _apply_command(e: SimEntity, cmd: InputCommand, m: Dictionary, dt: float) -
 		var dp := dash_params(e)
 		e.dash_params = dp
 		e.dash_dir = d.normalized()
-		# cargas: com 2+, o próximo dash sai logo; a recarga cheia só quando gasta todas
-		e.dash_charges_used += 1
-		if e.dash_charges_used >= int(dp["charges"]):
-			e.dash_charges_used = 0
-			e.dash_cd = Balance.DASH_COOLDOWN * float(dp["cooldown_mult"])
+		# cargas: com 2+, o próximo dash sai logo; cada carga gasta volta sozinha, uma de cada vez (_tick_dash_refill)
+		var charges := int(dp["charges"])
+		if e.dash_charges_used <= 0:
+			e.dash_refill = Balance.DASH_COOLDOWN * float(dp["cooldown_mult"])
+		e.dash_charges_used = mini(e.dash_charges_used + 1, charges)
+		if e.dash_charges_used >= charges:
+			e.dash_cd = e.dash_refill                 # sem carga: espera a próxima voltar
 		else:
 			e.dash_cd = Balance.DASH_CHARGE_WINDOW * 0.25
 		e.is_blocking = false
@@ -2254,6 +2256,8 @@ func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 			pcd[ps] = maxf(0.0, pcd[ps] - dt)
 	if e.dash_cd > 0.0:
 		e.dash_cd = maxf(0.0, e.dash_cd - dt)
+	if e.dash_charges_used > 0:
+		_tick_dash_refill(e, dt)
 	if e.iframe_left > 0.0:
 		e.iframe_left = maxf(0.0, e.iframe_left - dt)
 	if e.sky_left > 0.0:
@@ -2515,6 +2519,18 @@ func _move_ghost(e: SimEntity, delta: Vector3, m: Dictionary) -> void:
 # DASH + EVOLUÇÕES
 # ----------------------------------------------------------------------------
 ## Parâmetros do dash do personagem com as evoluções compradas (e cuja arma exigida ele empunha).
+## Cargas do dash: a carga gasta mais antiga volta depois de DASH_COOLDOWN × cooldown_mult; com mais gastas, a próxima
+## começa a encher logo em seguida (uma de cada vez). Com 1 carga, dash_refill e dash_cd andam juntos (nada muda).
+func _tick_dash_refill(e: SimEntity, dt: float) -> void:
+	e.dash_refill -= dt
+	if e.dash_refill > 0.0:
+		return
+	e.dash_charges_used -= 1
+	if e.dash_charges_used > 0:
+		e.dash_refill += Balance.DASH_COOLDOWN * float(e.dash_params.get("cooldown_mult", 1.0))
+	else:
+		e.dash_refill = 0.0
+
 func dash_params(e: SimEntity) -> Dictionary:
 	var dp := {"distance": 1.0, "charges": 1, "ghost": false, "cooldown_mult": 1.0, "stun": 0.0,
 		"power": 0.0, "radius": 0.0, "heal_pct": 0.0, "buff": null, "slow": null}

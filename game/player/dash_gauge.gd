@@ -25,7 +25,7 @@ var _mat: ShaderMaterial
 var _alpha := 0.0
 var _hold := 0.0
 var _glint := 0.0
-var _prev_cd := 0.0
+var _prev_used := 0
 var _player_id := -1
 var _dp: Dictionary = {}
 var _dp_t := 0.0
@@ -101,28 +101,33 @@ func _ready() -> void:
 	add_child(_mesh)
 	visible = false
 
-## Estado das cargas para desenhar (puro). `fills[i]`: 0 = gasta, 1 = pronta; `ready` = dashes que saem agora;
-## `have` = cargas que você tem (a do intervalo entre cargas conta); `left` = quanto falta da recarga (leque da barra);
-## `cycle` = "full" (recarga cheia, depois de gastar todas), "gap" (intervalo entre cargas) ou "".
-## Espelha WorldSim (dash): com 2+ cargas, gastar uma = intervalo de DASH_CHARGE_WINDOW × 0,25; gastar a última = recarga cheia.
-static func pip_state(dash_cd: float, used: int, charges: int, cooldown_mult: float) -> Dictionary:
+## Estado das cargas para desenhar (puro). `fills[i]`: 0 = gasta, 1 = pronta, fração = a próxima enchendo;
+## `ready` = dashes que saem agora; `have` = cargas que você tem; `left` = quanto falta para a próxima carga voltar
+## (leque da barra); `cycle` = "full" (sem carga, esperando a próxima), "gap" (intervalo curto entre cargas),
+## "refill" (tem carga e uma gasta está voltando) ou "".
+## Espelha WorldSim (dash + _tick_dash_refill): cada carga gasta volta sozinha, uma de cada vez, em `refill_full` s.
+static func pip_state(dash_cd: float, used: int, charges: int, refill: float, refill_full: float) -> Dictionary:
 	var n := clampi(charges, 1, MAX_PIPS)
-	var u := clampi(used, 0, n - 1)
+	var u := clampi(used, 0, n)
+	var have := n - u
+	var f := 0.0
+	if u > 0:
+		f = clampf(1.0 - refill / maxf(refill_full, 0.01), 0.0, 1.0)
 	var fills: Array = []
-	if dash_cd <= 0.0:
-		for i in range(n):
-			fills.append(1.0 if i < n - u else 0.0)
-		return {"fills": fills, "ready": n - u, "have": n - u, "left": 0.0, "cycle": ""}
-	var full := u == 0
-	var total: float = Balance.DASH_COOLDOWN * cooldown_mult if full else Balance.DASH_CHARGE_WINDOW * 0.25
-	var f := clampf(1.0 - dash_cd / maxf(total, 0.01), 0.0, 1.0)
 	for i in range(n):
-		fills.append(f if (full or i < n - u) else 0.0)
-	return {"fills": fills, "ready": 0, "have": 0 if full else n - u, "left": 1.0 - f, "cycle": "full" if full else "gap"}
+		fills.append(1.0 if i < have else (f if i == have else 0.0))
+	var cycle := ""
+	if have == 0:
+		cycle = "full"
+	elif dash_cd > 0.0:
+		cycle = "gap"
+	elif u > 0:
+		cycle = "refill"
+	return {"fills": fills, "ready": have if dash_cd <= 0.0 else 0, "have": have, "left": 1.0 - f if u > 0 else 0.0, "cycle": cycle}
 
-## Pista de "dash de volta" (pura): só na passagem de recarga CHEIA para pronto (nunca no nascer, nem no intervalo entre cargas).
-static func ready_cue(prev_cd: float, dash_cd: float, used: int) -> bool:
-	return prev_cd > 0.0 and dash_cd <= 0.0 and used == 0
+## Pista de "dash de volta" (pura): quando uma carga gasta volta (nunca no nascer, nem no intervalo entre cargas).
+static func ready_cue(prev_used: int, used: int) -> bool:
+	return used < prev_used
 
 ## Parâmetros do dash do jogador (evoluções), relidos a cada 0,5 s (Sim.dash_params percorre os talentos).
 func params_of(p: SimEntity, delta: float) -> Dictionary:
@@ -138,25 +143,25 @@ func _process(delta: float) -> void:
 		visible = false
 		_alpha = 0.0
 		_player_id = -1 if p == null else p.id
-		_prev_cd = p.dash_cd if p else 0.0
+		_prev_used = p.dash_charges_used if p else 0
 		return
 	if p.id != _player_id:             # personagem novo / mundo novo: nada de pista no nascer
 		_player_id = p.id
-		_prev_cd = p.dash_cd
+		_prev_used = p.dash_charges_used
 	var dp := params_of(p, delta)
-	var st := pip_state(p.dash_cd, p.dash_charges_used, int(dp["charges"]), float(dp["cooldown_mult"]))
-	if ready_cue(_prev_cd, p.dash_cd, p.dash_charges_used):
+	var st := pip_state(p.dash_cd, p.dash_charges_used, int(dp["charges"]), p.dash_refill, Balance.DASH_COOLDOWN * float(dp["cooldown_mult"]))
+	if ready_cue(_prev_used, p.dash_charges_used):
 		_glint = GLINT_S
 		var sfx: Node = main.get_node_or_null("Sfx")
 		if sfx:
 			sfx.play_ui("dash_ready")
-	_prev_cd = p.dash_cd
-	if p.dash_cd > 0.0:
+	_prev_used = p.dash_charges_used
+	if p.dash_cd > 0.0 or p.dash_charges_used > 0:
 		_hold = LINGER
 	else:
 		_hold = maxf(0.0, _hold - delta)
 	_glint = maxf(0.0, _glint - delta)
-	var want := 1.0 if (p.dash_cd > 0.0 or _hold > 0.0) else 0.0
+	var want := 1.0 if (p.dash_cd > 0.0 or p.dash_charges_used > 0 or _hold > 0.0) else 0.0
 	_alpha = lerpf(_alpha, want, minf(1.0, delta * (FADE_IN if want > _alpha else FADE_OUT)))
 	var views: Dictionary = main.views
 	if _alpha < 0.01 or not views.has(p.id):

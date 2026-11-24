@@ -97,7 +97,8 @@ var potion_cd: float:
 			potion_cds[i] = v
 var dash_cd: float = 0.0
 var dash_dir: Vector3 = Vector3.ZERO
-var dash_charges_used: int = 0       # evolução "2 cargas": dashes já usados na janela atual
+var dash_charges_used: int = 0       # cargas do dash gastas (voltam uma de cada vez, WorldSim._tick_dash_refill)
+var dash_refill: float = 0.0         # s até a carga gasta mais antiga voltar
 var dash_params: Dictionary = {}     # dash resolvido no início (distância, fantasma, atordoa...)
 var is_blocking: bool = false
 var parry_left: float = 0.0          # s restantes da janela de aparar

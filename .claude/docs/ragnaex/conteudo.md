@@ -95,6 +95,9 @@
   Loja do mercador (`npc_ui._shop`): grade da mercadoria e da bolsa, abas, clique/Shift, "vender materiais" (`junk_of`); revisar `--bag_shot=<png> --wins= --shop`.
   Bolsa ↔ boneco por arrastar e soltar (`windows._drag_from_bag/_drop_on_slot/_drop_on_bag`; clique = soltar sem arrastar); conferir com `--bag_shot=<png> --dnd_check`.
   Barra do HUD: poção da bolsa → F1-F3 e skill da janela K → 1-6 por arrastar (`hud._drop_potion_slot/_drop_skill_slot`, botão direito esvazia); mouse simulado: `--bag_shot=<png> --wins= --hotbar_drag_check`. Clique em janela não ataca/bloqueia (o segurar só vale se o clique começou no mundo, `player_controller.attack_down/block_down`): `-- --autostart=<c> --bag_shot=<png> --wins= --ui_click_check` (check `_check_ui_click_gate`). A barra (moldura, recarga em leque, atalhos, XP em 20 gomos) é `game/ui/action_bar.gd`; revisar com `-- --autostart=<c> [--preset=20] --screenshot=<png>`.
+  Dash (Shift) na barra: vaga `ActionBar.dash_slot` (grupo das poções; leque + número de cargas, `hud._update_dash_slot`) e gomos nos pés
+  (`game/player/dash_gauge.gd`, `DashGauge.pip_state`); revisar `-- --autostart=<c> --dash_shot=<pasta> [--dash_talent=ass_t_double_step]`.
+  Reflexo Vaidoso no tom de quem olha: material `*_shade` fica fora da fusão (`RigidMerge.is_shade`) e `EntityView.update_shade`; foto `--reflection_shot=<pasta>`.
   Montaria (H): o ícone segue o tipo escolhido (`ActionBar.mount_icon/set_mount_kind`, `action_mount_<kind>.png`, fallback cavalo); tipo novo =
   entrada `mount_<kind>` em `ACTION_ICONS` do `make_icons.gd` (+ glifo, ex. `_g_wolf`) e `make_icons.tscn -- --only=action` + `--import` (check em `_check_action_bar`).
   Cuidador de montarias (`npc_ui.mount_options/pick_mount`, estáticos; botões "Em uso / Trocar para / (travado)" + linha com a quest que destrava;

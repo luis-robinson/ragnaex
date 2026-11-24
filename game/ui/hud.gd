@@ -633,11 +633,11 @@ func _update_dash_slot(p: SimEntity, delta: float) -> void:
 			_dash_tip = tip
 			s["root"].tooltip_text = tip
 	var n := int(_dash_dp["charges"])
-	var st := DashGauge.pip_state(p.dash_cd, p.dash_charges_used, n, float(_dash_dp["cooldown_mult"]))
+	var st := DashGauge.pip_state(p.dash_cd, p.dash_charges_used, n, p.dash_refill, Balance.DASH_COOLDOWN * float(_dash_dp["cooldown_mult"]))
 	var full: bool = st["cycle"] == "full"
 	s["sweep"].set_color(CD_SWEEP_DARK if full else CD_SWEEP_CHARGE)
 	s["sweep"].set_frac(float(st["left"]))
-	var txt := _cd_text(p.dash_cd) if full else ""
+	var txt := _cd_text(p.dash_refill) if full else ""
 	if s["cdt"].text != txt:
 		s["cdt"].text = txt
 	var ctxt := str(st["have"]) if n > 1 else ""

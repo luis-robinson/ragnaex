@@ -406,4 +406,13 @@ static func random_walkable(sim: WorldSim, def: MapDef, center: Vector3, radius:
 		var p := center + Vector3(cos(a) * d, 0.0, sin(a) * d)
 		if is_walkable(sim, p, def):
 			return p
+	# 12 sorteios sem chão (centro dentro de obstáculo): o ponto andável mais perto, em anéis, sem sortear mais
+	var r := 0.5
+	while r <= radius + 6.0:
+		for k in range(16):
+			var ang := TAU * float(k) / 16.0
+			var q := center + Vector3(cos(ang) * r, 0.0, sin(ang) * r)
+			if is_walkable(sim, q, def):
+				return q
+		r += 0.5
 	return def.clamp_inside(center, 1.0)
