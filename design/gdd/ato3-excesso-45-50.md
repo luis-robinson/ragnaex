@@ -27,7 +27,7 @@
 
 | # | Decisão | Opções | Recomendado | Por quê (uma linha) |
 |---|---|---|---|---|
-| D1 | Nomes de trabalho | (a) **Sylvaré, a Sede Perfeita** (deusa, nunca aparece em pessoa na parte 1) · **Lumeria, a Festa Eterna** · **Vinhas do Perfume** · **Avenida do Cortejo** · **o Jardim Sem Fim** atrás do **Véu Rasgado** · (b) outros do narrative-director | **(a)** como placeholder | Originais, pronunciáveis em pt-BR; nada lembra nome de Warhammer. Texto final = narrative-director. |
+| D1 | Nomes de trabalho | (a) **Amarante, a Que Nunca Murcha** (deusa, nunca aparece em pessoa na parte 1) · **Lumeria, a Festa Eterna** · **Vinhas do Perfume** · **Avenida do Cortejo** · **o Jardim Sem Fim** atrás do **Véu Rasgado** · (b) outros do narrative-director | **(a)** como placeholder | Originais, pronunciáveis em pt-BR; nada lembra nome de Warhammer. Texto final = narrative-director. **2026-11-24 (usuário):** Sylvaré → Amarante; Demônias da Sede → as Veladas (Matriarca Velada; assinatura Brinde Dividido). Demais trocas da proposta (`production/narrative/act3-names-proposal.md` §1-§5) ainda sem decisão. |
 | D2 | Onde o portal do Kharzun chega | (a) **direto no hub**: portão oeste de Lumeria, Bairro dos Lúcidos · (b) no `field_perfume`, com a cidade a ~100 m | **(a)** | Padrão do Ato II (o navio chega no Porto); o 1º passo de terra nova é um lugar seguro com cristal. |
 | D3 | Quantos mapas | (a) **`city_lumeria` + `field_perfume` + `field_parade` + `rift_garden` + 2 masmorras + 1 opcional + sala da raide (`rift_heart`)** · (b) sem a 3ª masmorra | **(a)** com a 3ª masmorra (Conservatório) em **onda 4** (cortável) | O usuário pediu 2–3; a 3ª entra se o tick e o slot de Blender deixarem. |
 | D4 | "Esquivos" — esquiva de monstro | (a) **campo novo `MonsterDef.evasion`** (0–25%) lido na rolagem de esquiva que já existe (hoje só personagem esquiva: `target.is_character()`, `world_sim.gd` l.1971); chefes sempre 0 · (b) sem esquiva de monstro: "esquivo" = saltos, `dash`, furtividade do `ShiftSystem`, `kite`, golpe rápido | **(a)** | É a palavra que o usuário usou e é a mesma regra do jogador (não é mecânica nova de encanto); 1 campo + 1 condição + check. **Muda esquema (`automation_always_ask`)**. Chefe 0 para não deixar a sonda ruidosa. |
@@ -35,7 +35,7 @@
 | D6 | Híbridos e Ápice no 50 | (a) **conjunto de build 50 + híbrido 50** (mesmas regras do 45, tier 9); **Ápice fica no 45** · (b) só conjunto de build · (c) tudo, com Ápice 50 | **(a)** | O híbrido sai de laço (`GearCatalog`) quase de graça; o Ápice tem regra própria por build (`FusionEffects`) = trabalho de 24 regras. |
 | D7 | Escala dos monstros 45–50 | (a) **F2 continua** (`Balance.horde_stat`, linear até 50) com `mod_unidade` "demônio" (vida ×0,8, ATK ×1,15, golpe mais rápido) · (b) âncora nova `ACT3_ANCHOR45` | **(a)** | A F2 é linear e já calibrada no 45 (KAC-09); uma âncora nova obriga a recalibrar tudo. |
 | D8 | Chefe principal 50 | (a) **grupo de 4** (como os chefes de clã; `BOSS_CROWD_MULT` normal) · (b) raide de 5 | **(a)** | O usuário quer a raide "mais difícil que o chefe principal"; o principal fecha a história para quem joga com 4. |
-| D9 | Raide opcional | (a) **"O Eco de Sylvaré"**, sala própria `rift_heart` (`BOSS_CROWD_RAID`, berserk ×20) aberta depois do chefe 50; 5 completo ~80% em ~120 s, 4 completo ≤ 10% · (b) raide = versão "difícil" do chefe principal | **(a)** | Luta própria, recompensa própria (título + moedas + troféu), sem desvalorizar a luta da história. |
+| D9 | Raide opcional | (a) **"O Eco de Amarante"**, sala própria `rift_heart` (`BOSS_CROWD_RAID`, berserk ×20) aberta depois do chefe 50; 5 completo ~80% em ~120 s, 4 completo ≤ 10% · (b) raide = versão "difícil" do chefe principal | **(a)** | Luta própria, recompensa própria (título + moedas + troféu), sem desvalorizar a luta da história. |
 | D10 | Os foliões da cidade | (a) **hostis só nos bairros de fora**; o Bairro dos Lúcidos (hub) é murado e seguro; bairros viram seguros por estágio (L1–L4) · (b) foliões neutros que só atacam quem chega perto | **(a)** | Regra de `zonas.md` (hub seguro, 10+ bots) com o mundo que cresce (R4 do Ato II); (b) pede regra nova de aggro. |
 | D11 | Chefes de mundo | (a) **2 chefes de campo** (Vindima, Prima-Donna), afinados para **trio**, renascem em `WORLD_BOSS_RESPAWN_S` (600 s) · (b) afinados para 5 | **(a)** | Faixa "grupo" da Mãe-Loba (trio 75–100%) já existe no `boss_probe --bands`; 5 já é a raide. |
 | D12 | Montaria/visual por estágio | (a) **sem montaria nova**; a Fenda **aceita montaria** (`mounts_ok`), masmorras não · (b) montaria nova (Galgo de Seda) | **(a)** | Escopo; lobo atroz acabou de sair. Fica como pergunta aberta. |
@@ -60,14 +60,14 @@ não deixa ninguém ir para casa."
   sinos e limpa os vinhedos. Os inimigos são **humanos** (foliões, convertidos) e o perfume que deixa tudo lento.
 - **47–49 — o Cortejo**: o desfile que nunca termina leva para o palco onde o Véu foi rasgado; aparecem os **demônios** de verdade
   (bailarinos, galgos, coros, reflexos). O grupo aprende que **quem fica parado leva a dança**.
-- **49–50 — o Jardim Sem Fim**: o reino de Sylvaré começa no palco. A Anfitriã fecha a parte 1; o Eco de Sylvaré é o teste de 5.
+- **49–50 — o Jardim Sem Fim**: o reino de Amarante começa no palco. A Anfitriã fecha a parte 1; o Eco de Amarante é o teste de 5.
 - **SDT**: Autonomia (masmorras e chefes de mundo opcionais, ordem livre entre Adegas e Galeria após L1) · Competência (cada chefe
   ensina um verbo de movimento: sair, interromper, usar cobertura, ritmo, ler a sequência) · Relação (os Lúcidos, o vinhateiro, a
   cidade que acorda em L4, o Ferreiro Anão que veio junto).
 - **Arco narrativo (ganchos já no jogo)**: Cap. Odran ("Eles fogem do leste", `port_memorial`), Urzog ("Alguma coisa empurra ela do
   leste"), o Totem ("O que quebrou o grande veio do leste. Não dê nome"), Ushka e **`hx_ec_vision` "A Noite que Anda"** ("Uma noite
   que anda, a leste, sem lua"). A parte 1 **revela** a noite: são as lanternas de Lumeria que nunca se apagam — vistas de longe, um
-  clarão sem lua. A Horda fugiu porque os clãs que desceram para a festa nunca voltaram. O nome de Sylvaré só é dito na Fenda.
+  clarão sem lua. A Horda fugiu porque os clãs que desceram para a festa nunca voltaram. O nome de Amarante só é dito na Fenda.
 - **Ritmo** (F1): ~68,5 min no 45 → ~71,5 no 49; faixa 45–50 ≈ **5,8 h** (missões 50% do XP).
 
 ---
@@ -141,7 +141,7 @@ e laços, membros longos, cores marfim + rosa-pó + ouro velho (demônios) e vel
 | **Incensários** (névoa) | Incensário Vivo | 47 | bruto (hp ×1,4) | lento; Fumo Doce: `barrage` R-A `linger` 4 s, `tick` 0,5 s (dano mágico pequeno + `slow` 30%); flutua (não pisa poça) | turíbulo de bronze do tamanho de um homem, correntes como pernas, fumaça lilás |
 | **Vinhas** (nativas, `field_perfume`) | Vinha Sedenta | 46 | bruto (hp ×1,6, parada) | não anda; `root` 1,5 s + `pull` no mais longe; regeneração pequena (`regen` 0,5, F3 — fogo/veneno cortam) | cepa retorcida com cachos-bocas, folhas roxas |
 
-### 3.1 Demônias da Sede (família principal dos demônios — aprovada pelo usuário em 2026-11-23)
+### 3.1 Veladas (família principal dos demônios — aprovada pelo usuário em 2026-11-23)
 
 Pedido do usuário (súcubos). Decisões: **família aprovada; chifres para TRÁS; SEM asas, só véus.** Viram a família demoníaca
 principal da Avenida do Cortejo e da Fenda; **Vessaline** e a **Condessa Refletida** (chefe da Galeria) saem dela. Os Bailarinos
@@ -153,7 +153,7 @@ que já existem (rascunho do autor, ajustável no WP3/WP8).
 | **Sedutora** | 46 | comum demônio | entra em luta furtiva (`stealth`), 1º golpe é emboscada; garras rápidas (`strikes` 2); depois de bater, recua 5 m (`dash` para trás) | corpo esguio de porcelana marfim, chifres lisos para trás em ouro velho, véus rosa-pó em camadas, máscara com a lágrima |
 | **Açoitadora** | 47 | comum demônio | chicote de fita-lâmina (cone longo 6 m) com sangramento (`wound`); `pull` no mais longe (`mob_pick: far`) | mais alta, chifres longos para trás, véu-capa, chicote de fitas na mão direita |
 | **Cantora do Véu** | 48 | comum demônio (à distância) | `kite`; Lamento: projétil com `slow` 30% e `heal_pct_of_dmg` (cura a si); anel avisado (`barrage` R-A `ring`) a cada ~12 s | véu longo cobrindo o rosto até o peito, chifres curtos para trás, mãos abertas |
-| **Matriarca da Sede** | 49 | elite (hp ×0,8) | escolta 2 Sedutoras + 1 Açoitadora; `repeat` (R-D) de 2 saltos avisados em linha (R-A `line`); aura de facção `sede` (aliados +15% vel.) | maior, chifres grandes para trás com argolas de ouro, véus em cauda, coroa de fitas |
+| **Matriarca Velada** | 49 | elite (hp ×0,8) | escolta 2 Sedutoras + 1 Açoitadora; `repeat` (R-D) de 2 saltos avisados em linha (R-A `line`); aura de facção `sede` (aliados +15% vel.) | maior, chifres grandes para trás com argolas de ouro, véus em cauda, coroa de fitas |
 
 Modelos: uma base de corpo comum (`mob_kit`) com variantes por monstro; **nada de asa, cauda de demônio ou chifre curvo para
 cima/frente**; a silhueta é chifre para trás + véus. Vessaline = a maior delas, com a cauda de fitas-lâmina (§4); a Condessa =
@@ -187,13 +187,13 @@ ligada; 40 lutas, `--seed` padrão e 7; `intro`/`last_words` placeholder até o 
 | **Mestra Ressoa, a Regente** (opcional, onda 4) | `dg_conservatory`, 49 | grupo de 4 | F1: batuta (estocada), Nota Aguda; F2 65%: 4 Tubos de Órgão (lacaios parados, `ward` 0,6, cada um um `barrage` rotativo); F3 30%: `enrage` + Uníssono | **Cânone** · *espalhar*: marca (R-B `spread`) em 3 vítimas `random`; cada marca que encosta noutra (≤ 4 m) dobra o dano das duas |
 | **A Condessa Refletida** | `dg_mirrors`, 49 | grupo de 4 | F1: florete (`strikes` 4 golpes, `crit_last`), Salto Leque; F2 65%: `decoys` 3 cópias (R-F: sem sombra, 1 golpe); F3 30%: espelhos rachados + `enrage` | **Olhar Que Julga** · *usar cobertura*: a cada 30 s (K) ergue 3 **Espelhos de Pé** (lacaios parados `cover: 2,5`, R-E); 3 s depois, raio de toda a sala (`avalanche`-like, segmento chefe→alvo) em todos que **não** estão atrás de um espelho; cada espelho racha depois de proteger |
 | **Vessaline, a Anfitriã do Véu** (**chefe principal**) | `rift_garden`, Pavilhão, 50 | **grupo de 4** (D8) | F1 100%: Cortejo (abaixo), leque (`cone`), Salto Leque `mob_pick: soft`; F2 70%: `summon` 2 Primeiros Bailarinos, `ward` 0,5; F3 40%: **Palco Seguro** = ilhas (R-A `invert`, como a Maré Cheia) + Fumo Doce; F4 15%: `enrage` + `say`; berserk 210 s | **Cortejo de Lâminas** · *ler a sequência*: `repeat` (R-D) de **4 investidas** (`dash` 10 m) em vítimas `random` (nunca o tanque), cada uma desenhada como faixa (R-A `line`, largura 2 m) **1,4 s antes** e todas as 4 faixas aparecem juntas na 1ª (lê-se a coreografia inteira); a cauda de fitas deixa a faixa com `linger` 3 s |
-| **O Eco de Sylvaré** (**raide**, D9) | `rift_heart`, 50 | **raide de 5** | F1 100%: marca dupla que alterna `soak` (dourado) e `spread` (roxo) a cada 20 s (R-B); F2 70%: **Os Quatro Sentidos** — 4 pedestais (lacaios parados, vida ~3,5% do chefe cada, `ward` 0,6 com ≥ 1 vivo), cada um uma aura: Visão (aliados demônios +esquiva 10 → só cópias), Audição (Nota Aguda em todos a cada 6 s), Olfato (Fumo Doce em volta), Paladar (cura 1%/s do chefe); F3 40%: `decoys` 4 + ilhas `invert`; F4 15%: `enrage`; berserk ×20 (`berserk_mult`) aos ~120 s | **Sede Dividida** · *ler juntar × espalhar*: a mesma marca R-B ora pede juntar (soak, `power` total 2,0 dividido), ora espalhar (spread); a cor e os pips dizem qual. Na F2 as duas vêm ao mesmo tempo em vítimas diferentes |
+| **O Eco de Amarante** (**raide**, D9) | `rift_heart`, 50 | **raide de 5** | F1 100%: marca dupla que alterna `soak` (dourado) e `spread` (roxo) a cada 20 s (R-B); F2 70%: **Os Quatro Sentidos** — 4 pedestais (lacaios parados, vida ~3,5% do chefe cada, `ward` 0,6 com ≥ 1 vivo), cada um uma aura: Visão (aliados demônios +esquiva 10 → só cópias), Audição (Nota Aguda em todos a cada 6 s), Olfato (Fumo Doce em volta), Paladar (cura 1%/s do chefe); F3 40%: `decoys` 4 + ilhas `invert`; F4 15%: `enrage`; berserk ×20 (`berserk_mult`) aos ~120 s | **Brinde Dividido** · *ler juntar × espalhar*: a mesma marca R-B ora pede juntar (soak, `power` total 2,0 dividido), ora espalhar (spread); a cor e os pips dizem qual. Na F2 as duas vêm ao mesmo tempo em vítimas diferentes |
 
 Modelos dos chefes: Dona Vindima = cepa gigante em forma de matrona com saia de folhas e tonel no ventre; Varo = humano obeso
 de capa vinho, garrafão-maça, guardanapo no pescoço; Prima-Donna = cantora de vestido-gaiola com pássaros de porcelana; Ressoa =
 regente com cabeça de tubos de órgão; Condessa = nobre de vestido espelhado e rosto de máscara dupla (frente/costas);
 Vessaline = demônio alta, rosto liso com a lágrima dourada, **cauda de fitas-lâmina de 6 m** (a silhueta é a cauda); Eco de
-Sylvaré = **vestido de espelhos sem corpo sob uma coroa vazia** e vapor perfumado onde seria o rosto (sem chifres, sem braços extras).
+Amarante = **vestido de espelhos sem corpo sob uma coroa vazia** e vapor perfumado onde seria o rosto (sem chifres, sem braços extras).
 
 **Implementação WP8b (2026-11-23, aprovado pelo usuário):** os Espelhos de Pé da Condessa são **coberturas intocáveis** (`m["covers"]`, como os pedregulhos do Troll Rei), não entidades: bots não os matam por engano e reaproveitam a busca de cobertura. Sobem nos pontos `cover` do `boss_hint` (deslocamentos no `mirrors` da skill); o que protegeu racha (`crack` → `idle_cracked` no `BossSigView`) e deixa de proteger. F3 "espelhos rachados" = Chuva de Cacos + fúria. Cânone: marca R-B com `touch` (centros a ≤ 4 m dobram). Banquete: R-C com `on_done.self` e `on_break.vuln/vuln_time`. Números em `Balance.ACT3_BANQUET_*/GAZE_*/MIRROR_*/CANON_*`.
 
@@ -212,7 +212,7 @@ Sylvaré = **vestido de espelhos sem corpo sob uma coroa vazia** e vapor perfuma
 ### 4.3 Gramática de cor (FxManager.DANGER, regra de `conteudo.md`)
 - **Dano** = vermelho-laranja (área fraca + borda + miolo que cresce): Prensa, faixas do Cortejo, Fumo Doce, anéis da Ária.
 - **Seguro** = frio/areia: ilhas do Palco Seguro, sombra dos Espelhos de Pé (cobertura).
-- **Dividir (soak)** = dourado com pips; **espalhar/controle** = roxo: marcas do Cânone e da Sede Dividida, `pull`, `root`.
+- **Dividir (soak)** = dourado com pips; **espalhar/controle** = roxo: marcas do Cânone e do Brinde Dividido, `pull`, `root`.
 - Identidade pela **forma**, nunca pela cor contrária: o rosa/magenta da facção fica nos corpos, fitas e céu; **nenhum `glow_*`
   rosa no chão** (rosa saturado no chão confunde com dano e com roxo de controle). Golpe físico de demônio = tema `blood`.
 
@@ -252,7 +252,7 @@ XP por `QuestsCatalog.scale_xp` (40–50% da faixa, **10+ por faixa**). Ids `hx3
 - *A Máscara Partida* (2, Altar do Cortejo): quebrar 5 máscaras (COLLECT de Convertidos) → **título** "Sem Máscara".
 - *O Duque* (2, Palácio, L3+): libertar o Duque → abre o *Salão do Duque* (interior, `MapsCatalog.INTERIORS`), mercador de joias 48.
 - *O Conservatório* (2, Tenda do Ponto, opcional): `hx3_choir_open` → Mestra Ressoa.
-- **Raide** `hx3_echo` *O Eco* (Irmã Celeste, L4): KILL Eco de Sylvaré → moedas + título "Quem Não Dançou" + Coroa Vazia; 0 XP.
+- **Raide** `hx3_echo` *O Eco* (Irmã Celeste, L4): KILL Eco de Amarante → moedas + título "Quem Não Dançou" + Coroa Vazia; 0 XP.
 - **Repetíveis**: quadro dos Lúcidos (`repeatable`, caçadas geradas ↻: Galgo de Seda, Incensário, Reflexo, Vinha) + *Fitas do Festim*
   (COLLECT 10 Fitas → moedas e material raro).
 **Contagem**: 13 principais + 15 paralelas (fora a raide) = **28 não repetíveis** na faixa 45–50 (≥ 10 ✓).
@@ -388,6 +388,15 @@ sistema hoje não filtra por estágio; alternativa sem regra nova = pontos só n
   ouro 20 000, grupo pronto de 4 (Guardião, Sacerdote, Executor, Fogo — trocando o da classe do jogador), mapa `field_kharzun` perto da
   garganta leste, `welcome` com a dica da garganta.
 - Chefes: moedas lendárias (regra atual) + troféus para joias/capas 50; títulos da raide e da *Máscara Partida*.
+- **Implementado (WP11, 2026-11-23)**: tier 48 de joias/capas e `SKILL_RANK_MATS` = Fita/Porcelana (tema: fita, Uvas Amargas,
+  erva azul). Troféus (`RecipesCatalog.LUMERIA_TROPHIES`, 100% no saque do chefe): Taça de Varo, Moldura da Condessa, Batuta
+  Partida, Leque da Anfitriã, Coroa Vazia. Joias/capas **50 "de Lumeria"** (`<peça>_<tema>_l50`, épicas, `GearCatalog.lumeria_jewels`,
+  F10 com `LUMERIA_JEWEL_MULT` 1,1, papéis/mana do tier 48; acima da comum 48 e do k45, abaixo do acessório lendário 50): 10 Fitas
+  + 6 Porcelanas + troféu do tema (Guerreiro Taça, Caçador Moldura, Sábio Batuta); capa + Leque, amuleto + Coroa. Títulos já
+  saíam pelo `honor_title` (sem campo novo). Uvas Amargas (`hx3_grapes`, entre `hx3_vines` e `hx3_cellars_open`) e Vinho Claro
+  (`hx3_vd_wine`, CRAFT, 60% do MP). Salão do Duque = `MapsCatalog.INTERIORS["in_duke_hall"]` (porta lateral leste do Palácio,
+  portão `hx3_duke_hall`), Joalheira Celina vende as 9 peças do 48. Mudanças nos efeitos dos lendários 50 vs adendo: tabela no
+  §13 de `ato3-lendarios-50.md`.
 
 ---
 
@@ -538,7 +547,7 @@ Check = `check(...)` em `tools/tests/run_tests.gd` (nomes **propostos**). Evidê
 2. **D5**: ascensão congelada no 45 na parte 1 (recomendado) ou pontos/refinos até 50?
 3. **D6**: híbridos 50 junto com os conjuntos de build? E Ápice 50 fica para a parte 2?
 4. **D2**: o portal chega direto no Bairro dos Lúcidos (recomendado) ou no campo de vinhedos?
-5. Nomes finais (Sylvaré, Lumeria, Vessaline, Varo, Condessa, Prima-Donna, Ressoa, Dona Vindima, Irmã Celeste, os Lúcidos) — narrative-director.
+5. Nomes finais (Amarante e Veladas DECIDIDOS 2026-11-24; restam Irmã Celeste, Cantora do Véu, nomes duplicados de NPC; mantidos: Amarante, Lumeria, Vessaline, Varo, Condessa, Prima-Donna, Ressoa, Dona Vindima, Irmã Celeste, os Lúcidos) — narrative-director.
 6. Festim nas ruas: aceitar 1 condição de estágio em `ROAD_EVENTS` (`unless`) para ele parar em L3b, ou deixar pontos só nos campos?
 7. Montaria nova (Galgo de Seda) na parte 1, ou fica para a parte 2 (D12)?
 8. A raide dá algo visível (aura/insígnia) além do título e da Coroa Vazia?

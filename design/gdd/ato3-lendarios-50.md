@@ -577,3 +577,45 @@ Evidência: `production/qa/evidence/ato3p1/leg50/<build>_{front,back,game}.png`.
 4. Tabela própria `ACT3_VISUALS` ou nível 50 dentro de `ACT2_VISUALS` (ordem de `ACT2_SET_LEVELS`)? Proposto: dentro (menos código), com estilo próprio.
 5. Ordem da onda 1 — trocar Lobo por Urso (tanque) ou Lâminas por Duelista?
 6. Nomes finais dos 24 conjuntos e das armas "Despertas": narrative-director.
+
+---
+
+## 13. Adendo x implementado (onda 0) — para revisão do usuário
+
+Levantado no WP11 (2026-11-23) comparando as fichas do §5 com `GearCatalog.LEG50` + `Balance.LEG50_NUMBERS` + `PieceEffects`.
+Ganho medido da onda 0: **0,118** (teto F-L50b 0,12, sem folga). O agente da onda 0 não deixou o motivo de cada troca: a coluna
+"motivo" é o **provável** (lido do código e do orçamento), a confirmar. Decisão do usuário por linha: manter o implementado ou voltar ao adendo.
+
+**Trocas de efeito (o jogador sente diferente):**
+
+| # | Build · peça | Adendo (§5) | Implementado | Motivo provável |
+|---|---|---|---|---|
+| 1 | Guardião · cabeça | Juramento +`x` carga e dura +`y` s | Juramento +2 cargas (sem duração) | Juramento não tem teto de duração para o `cap_up`; só a carga entrou |
+| 2 | Guardião · escudo | Determinação cheia: +`x`% DEF aos aliados a 8 m | Determinação cheia: barreira de 3% da vida em você e nos aliados a 8 m, 1×/12 s | reusa a ação `barrier` do `on_trigger` (sem buff de grupo novo); efeito de grupo visível |
+| 3 | Cruzado · calça | +`x`% no **último** golpe da sequência (`strikes.weights`) | +5% no dano do Golpe do Cruzado inteiro (`skill_dmg`) | mexer em `weights` muda o ritmo/hit-stop calibrado da sequência; `skill_dmg` é a chave pronta |
+| 4 | Cruzado · botas | alvo atordoado fica Julgado (`apex_judged`) por `x` s | atordoado pelo Julgamento leva +5% de dano por 3 s (`curse` próprio) | não ativar a regra do Ápice fora do Ápice (FusionEffects lê o conjunto) |
+| 5 | Punhos · botas | Punho Vingativo também dispara ao esquivar (1×/`x` s) | esquivar dá +1 Fúria do Punho (1×/4 s) | disparar o contra-ataque na esquiva dobrava o dano da cauda AGI; a Fúria é o recurso que já existe |
+| 6 | Sacerdote · arma | Égide ao romper cura `x`% da vida do protegido | Égide em aliado abaixo de 35% da vida vale +100% | "ao romper" pedia gancho novo no fim do escudo; o `low` usa o valor da Égide na hora de pôr |
+| 7 | Inquisidor · botas | Exorcismo atinge +1 alvo | Exorcismo +12% de dano | +1 alvo em área de Inquisidor estourava o ganho em grupo de lixo; dano direto é medível no chefe |
+| 8 | Inquisidor · arma | a Radiância do Castigo da arma conta ×`x` | o Castigo lançado pela arma bate +25% | Radiância já tem teto/cauda própria (`radiance_cap` na cabeça); multiplicador de dano é o caminho do `legend_wake` `power` |
+| 9 | Batalha · escudo | Determinação cheia renova o Hino de Batalha | Determinação cheia: cura 4% da vida em você e nos aliados a 8 m, 1×/12 s | renovar um buff longo (60 s, `BUFF_KEEP_S`) não muda nada; cura de grupo tem efeito real |
+| 10 | Lâminas · botas | depois de Sumir, a 1ª facada é furtiva (`FusionEffects.ghost`) | Sumir devolve 10% de MP e zera o Dardo Venenoso | `ghost` é regra do Ápice; MP + recarga é a dor real da build (falta de mana) |
+| 11 | Corsário · mão sec. | Tiro Entre os Olhos **com Bravata cheia** ricocheteia 1× | Tiro Entre os Olhos sempre ricocheteia com 40% | o gatilho `hit:<skill>` não lê a Bravata; a condição saiu e o número caiu para 40% |
+| 12 | Gelo · arma | Coração de Gelo: recarga −`x` s; a Nova deixa a lentidão +`y` s | recarga −4 s; a Nova bate +25% | lentidão de gelo está fora do retorno decrescente (decisão de 2026-11-23): +duração = controle grátis em chefe |
+| 13 | Raio · botas | Passo Relampejante eletrifica quem cruzar (`FUSION_SHOCK_TIME`) | Passo Relampejante que acerta tira 1 s da Corrente Elétrica | eletrificar é regra do Ápice; corte de recarga usa `on_trigger` `cd_cut` |
+| 14 | Pestilento · peito | Pandemia espalha +1 maldição | Pandemia dura +2 s | +1 maldição espalhada multiplicava em grupo de lixo (orçamento 0,12) |
+| 15 | Guardião Verde, Ceifador, Invocador · botas | (sem número / teto 5 alvos / ergue esqueleto "de graça") | Urro: barreira 5% sem recarga; Giro da Morte cura 1% por inimigo **sem teto de 5**; Oferenda ergue esqueleto por 12 s | ajustes de número; ~~o teto de 5 do Ceifador não foi implementado~~ **CORRIGIDO 2026-11-23**: `max_hits` (= `LEG50_NUMBERS.ceifador.boots.n` 5) no `on_trigger` `hit:<skill>`, 5 inimigos distintos por lançamento, lançar de novo zera (`PieceEffects`; check `_check_leg50_spin_cap`). Usuário decidiu manter os demais efeitos implementados. |
+
+**Ajustes menores (mesmo efeito, condição ou unidade diferente):**
+
+| Build · peça | Adendo | Implementado |
+|---|---|---|
+| Carniceiro · botas | Investida que acerta **enche** o Frenesi | +5 Frenesi, 1×/6 s |
+| Executor · botas | abater alvo **abaixo do limiar** zera Executar, 1×/`x` s | qualquer abate zera Executar, 1×/15 s |
+| Sacerdote · botas | bloquear tira 1 debuff **do aliado curado** pela Graça | tira 1 debuff do aliado mais ferido, 1×/6 s |
+| Fera · botas | Bote **saindo de Espreitar** sangra com 100% | qualquer Bote sangra com 100%, 1×/4 s |
+| Lanceiro · botas | Salto em alvo **com feridas cheias** renova | qualquer acerto do Salto renova as feridas |
+| Duelista · calça | `cap_up` riposte_window | `skill_mods` da Guarda do Duelista (+0,25 s de janela): mesmo efeito |
+| Lâminas · arma, Fogo · arma | devolve `x` **MP** | devolve `x`**% do MP** (2%) — escala com o nível |
+
+As demais peças seguem o §5 (números em `LEG50_NUMBERS`).

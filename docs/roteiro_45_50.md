@@ -39,11 +39,13 @@ rápido 45 já nasce no Bairro dos Lúcidos com a chegada ativa.
 | Quest | Quem dá | O que é |
 |---|---|---|
 | Vinho que Não Acaba | Irmã Celeste → Vinhateiro Bento | 8 Vinhas Sedentas nos terraços (prende e puxa; fogo e veneno cortam a regeneração). |
+| Uvas Amargas | Bento | 6 Uvas Amargas: cachos nos terraços (F) e nas próprias Vinhas Sedentas. |
 | A Porta do Lagar | Bento | 4 Incensários Vivos em volta do Lagar (saia do Fumo Doce). Abre a porta das Adegas. |
 | Porcelana para o Ponteiro (Relojoeiro) | Otaviano | 4 Porcelanas Chorosas (cacos de máscara, F). |
 | Meia-Noite e Um (Relojoeiro) | Otaviano → Irmã Celeste | Depois dos Sinos: avisar que o relógio da praça volta a andar. Moeda. |
 | Fumo Doce (Destiladora) | Destiladora Amália | 5 Incensários Vivos. |
 | Filtro de Seda (Destiladora) | Amália | 8 Fitas do Festim: poções de mana e um Elixir de Pedra. |
+| Vinho Claro (Destiladora) | Amália | Fazer 2 Vinhos Claros no caldeirão da alquimista do Bairro (3 Uvas Amargas + 1 Fita). Poção forte de MP (60%). Moeda. |
 | Barril Vazio (Tanoeiro) | Tanoeiro Rufino | 6 Bailarinos do Véu perto do Lagar (bloqueie os três golpes). |
 | Batom na Pedra (Fugidos) | Bartolomeu | Ir ao Santuário Profanado da Aurora (leste). |
 | Uma Porta que Fecha (Fugidos) | Bartolomeu → Irmã Celeste | Pedir lugar no Bairro para os três fugidos. Moeda. |
@@ -67,14 +69,14 @@ rápido 45 já nasce no Bairro dos Lúcidos com a chegada ativa.
 |---|---|---|
 | A Batuta (Ponto) | Ermelindo | O Maestro do Coro (grupo; interrompa o Uníssono). Abre o Conservatório (masmorra opcional). Moeda. |
 | Espelho Não Veste (Costureira) | Benedita | 6 Reflexos Vaidosos (some no espelho: guarde o golpe forte para a volta). Moeda. |
-| As Que Têm Sede | Afonso | 10 Demônias da Sede (Sedutora, Açoitadora ou Cantora do Véu; ande com o grupo, a Sedutora chega escondida). |
+| As Que Têm Sede | Afonso | 10 Veladas (Sedutora, Açoitadora ou Cantora do Véu; ande com o grupo, a Sedutora chega escondida). |
 | Quem Conduz a Dança (Máscara Partida) | Altar | 3 Primeiros Bailarinos (grupo; saia da linha dos saltos). **Título "Sem Máscara".** |
 
 ## Nível 49: a Matriarca
 
 | Quest | Quem dá | O que é |
 |---|---|---|
-| A Matriarca | Afonso | A Matriarca da Sede e o bando dela, perto dos Carros Tombados (grupo; saia da linha dos saltos). Peça + Moeda. |
+| A Matriarca | Afonso | A Matriarca Velada e o bando dela, perto dos Carros Tombados (grupo; saia da linha dos saltos). Peça + Moeda. |
 
 ## Nível 48-49: a Galeria dos Espelhos e o Duque (a Galeria em qualquer ordem com as Adegas, depois dos Sinos)
 
@@ -82,7 +84,7 @@ rápido 45 já nasce no Bairro dos Lúcidos com a chegada ativa.
 |---|---|---|
 | A Condessa Refletida | Irmã Celeste | A Condessa na Galeria dos Espelhos, sob a Ópera (grupo; esconda-se atrás dos Espelhos de Pé). **L3.** Peça + 2 Moedas. |
 | O Reflexo do Duque (Duque) | Duque Aurelião | 8 Reflexos Vaidosos em Lumeria. |
-| O Salão do Duque (Duque) | Duque Aurelião | 5 Porcelanas Chorosas: o Palácio reabre para os Lúcidos. Peça + Moeda. |
+| O Salão do Duque (Duque) | Duque Aurelião | 5 Porcelanas Chorosas: o Palácio reabre para os Lúcidos. Peça + Moeda. **Abre o Salão do Duque** (porta lateral a leste do Palácio): a Joalheira Celina vende anel, amuleto e capa do 48. |
 
 ## Nível 49: o Véu e o Jardim
 
@@ -98,7 +100,18 @@ rápido 45 já nasce no Bairro dos Lúcidos com a chegada ativa.
 
 | Quest | Quem dá | O que é |
 |---|---|---|
-| O Eco | Irmã Celeste | Depois do epílogo: o Eco de Sylvaré no Coração do Jardim (raide de 5; dourado = juntar, roxo = espalhar). 0 XP, **título "Quem Não Dançou"**, 6 Moedas e o troféu **Coroa Vazia**. |
+| O Eco | Irmã Celeste | Depois do epílogo: o Eco de Amarante no Coração do Jardim (raide de 5; dourado = juntar, roxo = espalhar). 0 XP, **título "Quem Não Dançou"**, 6 Moedas e o troféu **Coroa Vazia**. |
+
+## Recompensas do nível 48-50 (WP11)
+
+- **Joias e capas 48** (ferreiro/alquimista, receita do tier): Fitas do Festim + Porcelanas Chorosas (+ fita, Uvas Amargas ou erva
+  azul pelo tema). Também à venda no Salão do Duque. O rank de skill do 48 pede Fita (comum) e Porcelana (rara).
+- **Troféus de chefe**: Taça de Varo (Adegas), Moldura da Condessa (Galeria), Batuta Partida (Conservatório), Leque da
+  Anfitriã (Vessaline) e Coroa Vazia (raide). Cada chefe sempre solta o seu.
+- **Joias e capas 50 "de Lumeria"** (épicas, nível 50): 10 Fitas + 6 Porcelanas + o troféu do tema (Guerreiro = Taça,
+  Caçador = Moldura, Sábio = Batuta); a capa pede também o Leque, o amuleto a Coroa Vazia. Anel/amuleto no ferreiro, capa
+  na alquimista. Ficam entre a comum do 48 e o acessório lendário 50.
+- **Títulos**: "Sem Máscara" (Quem Conduz a Dança) e "Quem Não Dançou" (O Eco), no nome e na janela do personagem.
 
 Repetíveis: o **Quadro dos Lúcidos** (no Bairro) paga as caçadas da faixa (foliões, galgos, coristas, incensários,
 bailarinos, reflexos, convertidos) e as **Fitas do Festim** (10 fitas: ouro e uma Porcelana Chorosa).
