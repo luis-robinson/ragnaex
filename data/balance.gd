@@ -1201,8 +1201,13 @@ const CT_DOTS := {
 	"dru_claw": {"dps": 4, "duration": 4 + CT_DOT_EXTRA_S},          # Garras Afiadas
 	"dru_moonfire": {"dps": 5, "duration": 4 + CT_DOT_EXTRA_S},      # Lua Crescente
 	"ele_fireball": {"dps": 5, "duration": 3 + CT_DOT_EXTRA_S},      # Bola Ardente
-	"ass_cross_slash": {"atk_pct": 12, "duration": 4.0},           # Corte em X: sangra 12% do ATK/s (como a Estocada Dupla do lanceiro)
 }
+## Golpe Gêmeo (2026-11-25): veneno da 2ª estocada (dano no tempo sem fogo nem sangramento = ferida, o Eviscerar consome)
+const TWIN_POISON := {"dps": 8, "duration": 5}
+## Corte Cruzado (2026-11-25): sangramento do X (% do ATK por segundo; o mesmo atacante renova)
+const CROSS_BLEED := {"atk_pct": 8, "duration": 4.0}
+## Corte em X (assassino 10): o Corte Cruzado já sangra 8% do ATK/s por 4 s (2026-11-25); o talento SOMA (merge_add) -> 12%/s por 6 s
+const CT_X_CUT_ADD := {"dot": {"atk_pct": 4.0, "duration": 2.0}}
 const CT_CURSES := {   # Maldição Contagiosa: curse da skill x CT_CURSE_MULT e + CT_CURSE_EXTRA_S
 	"nec_curse_doom": {"id": "doom", "duration": 10.0 + CT_CURSE_EXTRA_S, "taken_pct": 20 * CT_CURSE_MULT},
 	"nec_curse_weakness": {"id": "weakness", "duration": 8.0 + CT_CURSE_EXTRA_S, "weaken_pct": 25 * CT_CURSE_MULT},

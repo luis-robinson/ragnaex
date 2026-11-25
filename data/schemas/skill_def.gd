@@ -127,6 +127,8 @@ const FORM_LABELS := {"wolf": "lobo", "bear": "urso", "phantom": "fantasma", "de
 ##     último) com power × weights[i]/soma; `crit_last` = o último é crítico garantido (bloqueio ainda vence), `last_stop`
 ##     = quadros de parada dele. Encadear outra skill só depois do último (WorldSim._can_chain); dash corta o resto.
 ##     `clips` = só apresentação: clipe de cada golpe (EntityView toca um por golpe, impacto no tick dele).
+##     `last_effects` = efeitos só no último golpe (atordoar do Juízo da Alvorada, veneno da 2ª estocada do Golpe Gêmeo;
+##     o `dot` dali também leva o id da skill).
 ## "repeat": {"times": 3, "gap": 0.6} → (R-D) a skill sai `times` vezes seguidas, re-mirando a mesma vítima; root/stun cortam.
 ## "avalanche": {"radius": 18, "stun": 1.0, "guarantee": 2} → (R-E) onda em volta; quem tem pedregulho (MonsterDef.cover)
 ##     entre si e o chefe não leva, e a pedra racha. Sem pedra no chão no começo, arremessa `guarantee` antes.

@@ -4510,6 +4510,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_ranger_builds(gd, sim)
 	_check_assassin_builds(gd, sim)
 	_check_eviscerate_poison(gd, sim)
+	_check_twin_cross(gd, sim)
 	_check_riposte(gd, sim)
 	_check_agi_evasion(gd, sim)
 	_check_assassin_ascension(gd, sim)
@@ -30397,6 +30398,145 @@ func _check_eviscerate_poison(gd, sim) -> void:
 	check(dmg[1] > dmg[0] * (want - 0.1), "Eviscerar com 3 venenos bate x%.2f+ (%.0f x %.0f)" % [want - 0.1, dmg[1], dmg[0]])
 	for e in [lam, other, foe]:
 		sim.despawn(e)
+
+## Lança `sid` de verdade (pipeline da skill, tick a tick) num boneco e soma o dano direto e o do tempo (8 s).
+## Devolve {"direct", "dot", "hits": [[quanto, crítico, t]], "debuffs": [debuffs no alvo logo depois do último golpe]}.
+func _twin_cross_cast(sim, e: SimEntity, foe: SimEntity, sid: String, def: SkillDef = null) -> Dictionary:
+	var m: Dictionary = sim.maps[e.map_id]
+	var dt := 1.0 / 60.0
+	var out := {"direct": 0.0, "dot": 0.0, "hits": [], "debuffs": []}
+	var t_now := [0.0]
+	var on_dmg := func(src: int, tid: int, amount: int, crit: bool, _b: bool, kind: String) -> void:
+		if src != e.id or tid != foe.id:
+			return
+		if kind.begins_with("dot"):
+			out["dot"] = float(out["dot"]) + amount
+		else:
+			out["direct"] = float(out["direct"]) + amount
+			(out["hits"] as Array).append([amount, crit, t_now[0]])
+	Events.damage_dealt.connect(on_dmg)
+	foe.hp = foe.stats.max_hp
+	foe.debuffs.clear()
+	e.cooldowns.clear()
+	e.charges.clear()
+	e.mp = e.stats.max_mp
+	var s: SkillDef = sim.resolve_skill(e, def if def != null else GameData.skills[sid])
+	e.face_towards(foe.position)
+	sim._start_skill(e, s, 0, foe.position)
+	var last_n := 0
+	for i in range(int(8.5 / dt)):
+		sim._update_entity(e, m, dt)
+		sim._update_entity(foe, m, dt)
+		t_now[0] += dt
+		if (out["hits"] as Array).size() != last_n:
+			last_n = (out["hits"] as Array).size()
+			out["debuffs"] = foe.debuffs.duplicate(true)
+	Events.damage_dealt.disconnect(on_dmg)
+	if e.state == SimEntity.State.CASTING:
+		sim._end_skill(e)
+	return out
+
+## Golpe Gêmeo x Corte Cruzado (pedido do usuário 2026-11-25: eram a mesma skill com nomes diferentes).
+## Gêmeo = 2 estocadas rápidas num alvo, a 2ª envenena (ferida: o Eviscerar consome). Cruzado = um X grande em leque que sangra.
+func _check_twin_cross(gd, sim) -> void:
+	var at := Vector3(-30, 0, 70)
+	var res := {}
+	for row in [["laminas", "ass_twin_strike"], ["duelista", "ass_cross_slash"]]:
+		var a: SimEntity = _fill_bot(gd, sim, "assassin", row[0], at)
+		a.stats.crit_phys = 0.0
+		a.stats.backstab = 0.0                 # o boneco gira ao apanhar: sem o pelas costas (crítico de sorte)
+		a.talents = {}                         # o bot nasce com evoluções compradas (Golpe Certeiro = 2ª estocada crítica)
+		a.legend_ready_at = 1e9
+		a.sig_ready_at = 1e9
+		var foe: SimEntity = _fill_dummy(gd, sim, at + Vector3(0, 0, 1.6))
+		foe.stats.evasion = 0.0
+		foe.stats.block_chance = 0.0
+		foe.face_towards(a.position)          # de frente: sem o bônus pelas costas
+		var tot := [0.0, 0.0]
+		var last := {}
+		# a skill de antes (1 golpe, sem dano no tempo: Gêmeo 1,8, Cruzado 1,6) no mesmo boneco = o orçamento
+		var old: SkillDef = (gd.skills[row[1]] as SkillDef).duplicate()
+		old.power *= (1.8 / 1.7) if row[1] == "ass_twin_strike" else (1.6 / 1.45)      # power do catálogo já vem com o BUILD_POWER
+		old.effects = {}
+		var old_tot := 0.0
+		for k in range(12):
+			last = _twin_cross_cast(sim, a, foe, row[1])
+			tot[0] += float(last["direct"])
+			tot[1] += float(last["dot"])
+			var o := _twin_cross_cast(sim, a, foe, row[1], old)
+			old_tot += float(o["direct"]) + float(o["dot"])
+		res[row[1]] = {"direct": tot[0] / 12.0, "dot": tot[1] / 12.0, "last": last, "old": old_tot / 12.0}
+		print("TWINX %s direct=%.0f dot=%.0f total=%.0f antes=%.0f patk=%.0f matk=%.0f hits=%d" % [row[1], tot[0] / 12.0, tot[1] / 12.0, (tot[0] + tot[1]) / 12.0, old_tot / 12.0, a.stats.patk, a.stats.matk, (last["hits"] as Array).size()])
+		if row[1] == "ass_twin_strike":
+			# Golpe Certeiro (evolução): a 2ª estocada é sempre crítica
+			a.talents = {"ass_t_twin_strike": true}
+			var ev := _twin_cross_cast(sim, a, foe, row[1])
+			var eh: Array = ev["hits"]
+			check(eh.size() == 2 and not eh[0][1] and eh[1][1], "Golpe Certeiro: só a 2ª estocada é crítica (%s)" % str(eh.map(func(h): return h[1])))
+			a.talents = {}
+		else:
+			# Corte em X (talento de classe): soma ao sangramento da base (12%/s por 6 s)
+			a.ct = {"skill_mods": {"ass_cross_slash": [{"mult": {"power": Balance.CT_SKILL_POWER}, "add": Balance.CT_X_CUT_ADD}]}}
+			var xr := _twin_cross_cast(sim, a, foe, row[1])
+			var bl: Array = (xr["debuffs"] as Array).filter(func(d): return d.get("bleed", false))
+			var want_t: float = float(Balance.CROSS_BLEED["duration"]) + float(Balance.CT_X_CUT_ADD["dot"]["duration"])
+			check(bl.size() == 1 and float(bl[0]["remaining"]) > want_t - 0.2, "Corte em X: sangramento mais longo (%.1f s)" % (float(bl[0]["remaining"]) if bl.size() > 0 else 0.0))
+			check(float(xr["dot"]) > float(last["dot"]) * 1.8, "Corte em X: sangramento bem mais forte (%.0f x %.0f)" % [xr["dot"], last["dot"]])
+			a.ct = {}
+			# Cruz Larga (evolução): leque mais largo e mais longo
+			a.talents = {"ass_t_cross_slash": true}
+			var wide: SkillDef = sim.resolve_skill(a, gd.skills["ass_cross_slash"])
+			var base_cs: SkillDef = gd.skills["ass_cross_slash"]
+			check(wide.cone_angle_deg > base_cs.cone_angle_deg * 1.2 and wide.radius > base_cs.radius * 1.2, "Cruz Larga: X mais largo (%.0f°, %.1f m)" % [wide.cone_angle_deg, wide.radius])
+			a.talents = {}
+		for x in [a, foe]:
+			sim.despawn(x)
+	# Golpe Gêmeo: 2 estocadas num alvo, a 2ª envenena (ferida: Eviscerar consome); clipes de estocada, não o talho
+	var tw: SkillDef = gd.skills["ass_twin_strike"]
+	var tst: Dictionary = tw.effects.get("strikes", {})
+	check(tw.target == SkillDef.Target.TARGET and Combat.strike_count(tst) == 2, "Golpe Gêmeo: 2 golpes num alvo só")
+	check(not tw.effects.has("dot") and (tst.get("last_effects", {}) as Dictionary).get("dot") is Dictionary, "Golpe Gêmeo: o veneno sai só na 2ª estocada")
+	check(tw.startup <= 0.3 and tw.active >= float((tst["at"] as Array).back()), "Golpe Gêmeo: preparo curto e a fase ativa cobre as 2 estocadas")
+	var tclips: Array = tst.get("clips", [])
+	check(tclips.size() == 2 and not tclips.has("atk_sweep") and not tclips.has("atk_flurry"), "Golpe Gêmeo: um clipe de estocada por golpe (%s)" % str(tclips))
+	var twl: Dictionary = res["ass_twin_strike"]["last"]
+	var th: Array = twl["hits"]
+	check(th.size() == 2, "Golpe Gêmeo: 2 estocadas acertam (%d)" % th.size())
+	if th.size() == 2:
+		check(absf(float(th[1][2]) - float(th[0][2]) - float((tst["at"] as Array)[1])) <= 0.03, "Golpe Gêmeo: a 2ª sai %.2f s depois da 1ª" % float((tst["at"] as Array)[1]))
+	var after: Array = twl["debuffs"]
+	var wounds := 0
+	for d in after:
+		if d.get("kind") == "dot" and str(d.get("id", "")).ends_with("_ass_twin_strike") and not d.get("bleed", false) and not d.get("fire", false):
+			wounds += 1
+	check(wounds == 1, "Golpe Gêmeo: deixa 1 veneno da skill no alvo (ferida do WoundSystem) (%d)" % wounds)
+	check(float(res["ass_twin_strike"]["dot"]) > 0.0, "Golpe Gêmeo: o veneno causa dano")
+	# Corte Cruzado: um X só, em leque largo, que sangra (% do ATK), tema sangue e clipe de X (não o talho de lado)
+	var cs: SkillDef = gd.skills["ass_cross_slash"]
+	check(cs.target == SkillDef.Target.CONE and cs.cone_angle_deg >= 100.0 and not cs.effects.has("strikes"), "Corte Cruzado: um golpe só em leque largo")
+	check(cs.effects.get("dot") is Dictionary and (cs.effects["dot"] as Dictionary).has("atk_pct"), "Corte Cruzado: faz sangrar (% do ATK)")
+	check(cs.vfx == "blood" and EntityView.clip_for_skill(cs, "sword", "sword") != EntityView.clip_for_skill(tw, "dagger", "dagger"), "Corte Cruzado: tema sangue e gesto diferente do Golpe Gêmeo")
+	var csl: Dictionary = res["ass_cross_slash"]["last"]
+	check((csl["hits"] as Array).size() == 1 and (csl["debuffs"] as Array).any(func(d): return d.get("bleed", false)), "Corte Cruzado: 1 golpe e o alvo sangra")
+	# orçamento: o dano por lançamento ficou perto do da skill de antes, no mesmo boneco (±12%)
+	for sid in ["ass_twin_strike", "ass_cross_slash"]:
+		var tot2: float = float(res[sid]["direct"]) + float(res[sid]["dot"])
+		var was: float = float(res[sid]["old"])
+		check(was > 0.0 and absf(tot2 / was - 1.0) <= 0.12, "%s: dano por lançamento perto do de antes (%.0f x %.0f)" % [sid, tot2, was])
+	# ícones: não são mais as mesmas lâminas cruzadas
+	var ia: Image = (load("res://assets/icons/skill_ass_twin_strike.png") as Texture2D).get_image()
+	var ib: Image = (load("res://assets/icons/skill_ass_cross_slash.png") as Texture2D).get_image()
+	ia.convert(Image.FORMAT_RGBA8)
+	ib.convert(Image.FORMAT_RGBA8)
+	var diff := 0.0
+	var n := 0
+	for y in range(0, mini(ia.get_height(), ib.get_height()), 4):
+		for x in range(0, mini(ia.get_width(), ib.get_width()), 4):
+			var ca := ia.get_pixel(x, y)
+			var cb := ib.get_pixel(x, y)
+			diff += absf(ca.r - cb.r) + absf(ca.g - cb.g) + absf(ca.b - cb.b)
+			n += 1
+	check(n > 0 and diff / n > 0.25, "ícones do Golpe Gêmeo e do Corte Cruzado bem diferentes (%.2f)" % (diff / maxf(1.0, n)))
 
 ## Onda 2 (GDD §8.2): Sangria cura por alvo que sangrava; Presas Gêmeas estende as feridas.
 func _check_bleed_whirl(gd, sim) -> void:

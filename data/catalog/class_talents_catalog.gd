@@ -268,7 +268,7 @@ static func _make() -> Dictionary:
 				_o("ass_c_pistol_open", "Tiro de Abertura", "Tiro de Pistola +25% de dano e recarrega 20% mais rápido.", "dano", {"skill_mods": {"ass_pistol_shot": {"mult": {"power": Balance.CT_OPENER_POWER, "cooldown": Balance.CT_OPENER_CD}}}}),
 				_o("ass_c_ambush", "Emboscada", "O golpe saindo da furtividade dá 2,0× de dano (era 1,6×).", "dano", {"ambush_mult": 2.0})]],
 			[10, [_o("ass_c_vanish", "Sombra Rápida", "Sumir recarrega 40% mais rápido e dura 50% a mais.", "utilidade", {"skill_mods": {"ass_vanish": {"mult": {"cooldown": 0.6, "duration": 1.5}}}}),
-				_o("ass_c_x_cut", "Corte em X", "Corte Cruzado +20% de dano e faz sangrar (12% do ATK por segundo, 4 s).", "dano", {"skill_mods": {"ass_cross_slash": {"mult": {"power": Balance.CT_SKILL_POWER}, "effects": {"dot": Balance.CT_DOTS["ass_cross_slash"]}}}}),
+				_o("ass_c_x_cut", "Corte em X", "Corte Cruzado +20%% de dano e sangramento mais fundo: %d%% do ATK por segundo por %d s (sem ele: %d%% por %d s)." % [int(Balance.CROSS_BLEED["atk_pct"] + Balance.CT_X_CUT_ADD["dot"]["atk_pct"]), int(Balance.CROSS_BLEED["duration"] + Balance.CT_X_CUT_ADD["dot"]["duration"]), int(Balance.CROSS_BLEED["atk_pct"]), int(Balance.CROSS_BLEED["duration"])], "dano", {"skill_mods": {"ass_cross_slash": {"mult": {"power": Balance.CT_SKILL_POWER}, "add": Balance.CT_X_CUT_ADD}}}),
 				_o("ass_c_evade", "Bailarino", "+6% de esquiva e +60 de AGI.", "sobrevivência", {"stats": {"evasion": 6.0, "attr_AGI": 60}})]],
 			[15, [_o("ass_c_guard", "Duelista", "Guarda do Duelista fica sempre ativa em você (50% da força).", "permanente", {"permanent": ["ass_guard"], "strength": 0.5}),
 				_o("ass_c_backstab", "Pelas Costas", "+20% de dano pelas costas.", "dano", {"stats": {"backstab": 20}}),

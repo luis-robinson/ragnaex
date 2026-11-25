@@ -1143,8 +1143,6 @@ func _apply_skill_body(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 			effects[k] = s.talent_effects[k]
 	if s.talent_effects.get("add") is Dictionary:     # talento de classe que soma (Golpe Restaurador, Golpe Ardente...)
 		ClassTalentSystem.merge_add(effects, s.talent_effects["add"])
-	if effects.get("dot") is Dictionary:     # dano no tempo leva o id da skill (teto de cópias por skill: _put_dot)
-		effects["dot"] = (effects["dot"] as Dictionary).merged({"skill": s.id})
 	if effects.get("dice") is Array and not (effects["dice"] as Array).is_empty():     # Dados da Sorte: sorteia UM dos buffs (rng da sim)
 		var faces: Array = effects["dice"]
 		effects["buff"] = (faces[rng.randi() % faces.size()] as Dictionary).duplicate()
@@ -1163,6 +1161,8 @@ func _apply_skill_body(e: SimEntity, s: SkillDef, m: Dictionary) -> void:
 		effects.erase("dash")                  # salto da sequência: só no 1º golpe (Juízo da Alvorada)
 	if strike_i >= 0 and strike_i == Combat.strike_count(effects["strikes"]) - 1 and effects["strikes"].get("last_effects") is Dictionary:
 		effects.merge(effects["strikes"]["last_effects"], true)     # o golpe final atordoa (Juízo da Alvorada)
+	if effects.get("dot") is Dictionary:     # dano no tempo leva o id da skill (teto de cópias por skill: _put_dot); depois do
+		effects["dot"] = (effects["dot"] as Dictionary).merged({"skill": s.id})     # last_effects (veneno da 2ª estocada do Golpe Gêmeo)
 	if effects.has("leap_iframe") and effects.has("dash"):
 		e.iframe_left = maxf(e.iframe_left, float(effects["leap_iframe"]))     # intocável no salto
 	e.combat_timer = Balance.AGGRO_LOSE_TIME

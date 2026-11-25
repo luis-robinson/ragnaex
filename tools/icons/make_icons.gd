@@ -85,8 +85,12 @@ const GLYPHS := {
 	"flag": ["bis_faith_banner", "ass_black_flag", "pal_ult_dawn_bastion"],
 	"boot": ["ele_bolt_step", "bis_choir_wings", "ber_glad_rush"],
 }
-const TWIN := ["ass_twin_shadow", "ber_glad_finale", "ber_fist_flurry", "ass_cross_slash", "ran_double_thrust", "ass_thrust", "ass_master", "ber_hack", "ber_twin_fang", "ran_twin_cut", "ass_twin_strike", "ass_blade_flurry", "ber_axe_storm", "ber_bladestorm", "ass_dance", "pal_flurry", "ber_crimson_flurry", "ber_ult_blood_feast", "ass_ult_grand_duel"]
+const TWIN := ["ass_twin_shadow", "ber_glad_finale", "ber_fist_flurry", "ran_double_thrust", "ass_thrust", "ass_master", "ber_hack", "ber_twin_fang", "ran_twin_cut", "ass_blade_flurry", "ber_axe_storm", "ber_bladestorm", "ass_dance", "pal_flurry", "ber_crimson_flurry", "ber_ult_blood_feast", "ass_ult_grand_duel"]
 ## três golpes em sequência (efeito "strikes"): três lâminas em escada
+## duas estocadas paralelas no mesmo alvo (Golpe Gêmeo): lâminas lado a lado apontando juntas, rastro de bote atrás
+const PAIR := ["ass_twin_strike"]
+## um X grande de duas lâminas, mais aberto e maior que o TWIN, com o risco do corte cruzando (Corte Cruzado)
+const BIG_X := ["ass_cross_slash"]
 const TRIO := ["pal_crusader_strike", "pal_ult_dawn_judgement"]
 const ORBIT := ["pal_blessed_hammers", "pal_ult_hammer_sky"]          # 3 símbolos girando em volta do centro (Martelos Abençoados)
 const RAIN := ["ele_ult_meteor_rain", "ran_rain", "ran_volley", "dru_starfall", "ele_blizzard", "ele_storm_lord", "ass_ult_fleet_call", "ele_ult_eternal_winter"]
@@ -172,8 +176,8 @@ func _ready() -> void:
 ## O que muda a aparência além do símbolo: dois ícones iguais na mesma classe confundem na barra.
 func _signature(s: SkillDef) -> String:
 	var shape := "buff" if s.kind == SkillDef.Kind.BUFF else str(s.target if s.target != SkillDef.Target.SELF or s.power > 0.0 else 9)
-	return "%s/%s/%s/%s/%s/%s/%s" % [s.vfx, shape, s.effects.has("dash"), s.effects.has("dot"), s.effects.has("heal_pct_of_dmg") or s.effects.has("mend_pct_of_dmg"),
-		"3" if s.id in TRIO else "t" if s.id in TWIN else ("r" if s.id in RAIN else ("f" if s.id in FAN else ("w" if s.id in WALL else ""))), s.kind == SkillDef.Kind.BUFF]
+	return "%s/%s/%s/%s/%s/%s/%s" % [s.vfx, shape, s.effects.has("dash"), _dot_kind(s), s.effects.has("heal_pct_of_dmg") or s.effects.has("mend_pct_of_dmg"),
+		"3" if s.id in TRIO else "p" if s.id in PAIR else "x" if s.id in BIG_X else "t" if s.id in TWIN else ("r" if s.id in RAIN else ("f" if s.id in FAN else ("w" if s.id in WALL else ""))), s.kind == SkillDef.Kind.BUFF]
 
 func _save_sheet(path: String) -> void:
 	var cols := 16
@@ -210,8 +214,9 @@ func _paint() -> void:
 	var badges: Array = []
 	if s.kind == SkillDef.Kind.BUFF:
 		badges.append("up")
-	if s.effects.has("dot"):
-		badges.append("drops")
+	var dk := _dot_kind(s)
+	if dk != "":
+		badges.append(dk)
 	if s.effects.has("heal_pct_of_dmg") or s.effects.has("mend_pct_of_dmg"):
 		badges.append("leech")
 	var at := Vector2(256, 256)
@@ -252,6 +257,19 @@ func _paint() -> void:
 	elif id in TRIO:
 		for k in [-1, 0, 1]:
 			_glyph(g, at + Vector2(k * 84, k * 34), base + k * 0.18, sc * 0.62)
+	elif id in PAIR:
+		var dir := Vector2.from_angle(0.42 - PI * 0.5)
+		var side := Vector2(-dir.y, dir.x)
+		for k in [-1, 1]:
+			var p0: Vector2 = at + side * (58.0 * k) + dir * (24.0 if k > 0 else -24.0)
+			for q in [-14.0, 14.0]:         # rastro do bote atrás do cabo
+				_canvas.draw_line(p0 - dir * 150.0 + side * q, p0 - dir * 225.0 + side * q, Color(_t[4], 0.5), 7.0, true)
+			_glyph(g, p0, 0.42, sc * 0.78)
+	elif id in BIG_X:
+		_canvas.draw_line(at + Vector2(-190, -150), at + Vector2(190, 150), Color(_t[4], 0.35), 16.0, true)
+		_canvas.draw_line(at + Vector2(190, -150), at + Vector2(-190, 150), Color(_t[4], 0.35), 16.0, true)
+		_glyph(g, at, -0.78, sc * 1.02, true)
+		_glyph(g, at, 0.78, sc * 1.02)
 	elif id in TWIN:
 		_glyph(g, at, -0.55, sc * 0.9, true)
 		_glyph(g, at, 0.55, sc * 0.9)
@@ -395,11 +413,27 @@ func _badge(kind: String, c: Vector2) -> void:
 			for dy in [14.0, -16.0]:
 				var pl := PackedVector2Array([c + Vector2(-28, 12 + dy), c + Vector2(0, -14 + dy), c + Vector2(28, 12 + dy)])
 				_canvas.draw_polyline(pl, Color(1, 1, 0.9), 12.0, true)
-		"drops":
-			_drop_at(c + Vector2(-16, 10), 20.0, _t[4])
-			_drop_at(c + Vector2(18, -6), 16.0, _t[4])
+		"drops", "poison", "bleed":
+			var dc: Color = Color(0.55, 0.95, 0.25) if kind == "poison" else (Color(0.95, 0.16, 0.2) if kind == "bleed" else _t[4])
+			_drop_at(c + Vector2(-16, 10), 20.0, dc)
+			_drop_at(c + Vector2(18, -6), 16.0, dc)
 		"leech":
 			_drop_at(c + Vector2(0, 8), 28.0, Color(1.0, 0.45, 0.5))
+
+## Selo do dano no tempo, dos dados: `dot` da skill ou do último golpe da sequência (strikes.last_effects).
+## % do ATK = sangramento (gotas vermelhas); sem fogo num golpe do tema físico = veneno (gotas verdes, a ferida que o
+## Eviscerar consome); o resto = gotas na cor do tema. "" = sem dano no tempo.
+func _dot_kind(s: SkillDef) -> String:
+	var d = s.effects.get("dot")
+	if not (d is Dictionary) and s.effects.get("strikes") is Dictionary:
+		d = (s.effects["strikes"].get("last_effects", {}) as Dictionary).get("dot")
+	if not (d is Dictionary):
+		return ""
+	if (d as Dictionary).has("atk_pct"):
+		return "bleed"
+	if not d.get("fire", false) and s.vfx == "physical":
+		return "poison"
+	return "drops"
 
 func _drop_at(p: Vector2, r: float, col: Color) -> void:
 	var pts := PackedVector2Array()

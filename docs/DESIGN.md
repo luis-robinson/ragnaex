@@ -182,6 +182,11 @@ esquivado não causa nada, evento `dodged`), Sumir (`stealth` sem forma: só o L
 Ritmo envenenar → **Eviscerar** (2026-11-19, GDD `skills-fill-2026-11-19` §8.1; `WoundSystem`): o golpe consome os venenos SEUS no alvo
 (dano no tempo seu que não é queimadura nem o sangramento por % do ATK do Lanceiro), o que faltava explode ×1,25 e o golpe ganha +10%
 por veneno (até 5; `Balance.EVISCERATE_POISON`, efeito `combust` com `kind: "poison"`; poder 2,2).
+**Golpe Gêmeo × Corte Cruzado** (2026-11-25, eram a mesma skill com nomes diferentes): o Gêmeo (Lâminas) são 2 estocadas rápidas num
+alvo (`strikes` 0,45/0,55 do poder 1,7, clipes `atk_dagger` → `atk_thrust`) e a 2ª deixa um veneno (`strikes.last_effects.dot`,
+`Balance.TWIN_POISON`; é ferida, o Eviscerar consome); evolução Golpe Certeiro = a 2ª é sempre crítica. O Cruzado (Duelista) é UM X grande
+(clipe `atk_claw`, tema sangue) no leque de 110° que sangra (`Balance.CROSS_BLEED`, % do ATK, renova); evolução Cruz Larga = raio e leque ×1,25;
+talento Corte em X = +20% e SOMA ao sangramento (`Balance.CT_X_CUT_ADD`, 12%/s por 6 s). Dano por lançamento igual ao de antes (`_check_twin_cross`).
 **Duelista** (duas espadas, `atk_pct`): **aparar e contra-atacar** (2026-11-19, GDD §8.3, `RiposteSystem`): a Guarda do Duelista abre uma janela de
 1 s (recarga 8 s; buff `duel_guard`): golpe direto de perto (4 m) e de frente sai 0 (chefe: −60%), responde com 80% do ATK (+ a Riposte
 lendária; até 2 por janela) e dá 1 **Ímpeto** (buff `impeto`, +5 de crítico por carga, até 3, 10 s). Dano no tempo, zona avisada e golpe pelas

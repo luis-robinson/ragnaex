@@ -118,7 +118,19 @@ static func _effect_rows(p: SimEntity, r: SkillDef, longer: float) -> Array:
 		var sh: Dictionary = fx["shield"]
 		var amt := p.stats.max_hp * float(sh.get("amount_pct_hp", 20)) / 100.0
 		out.append(["Escudo", "%d de vida (%d%%) por %s" % [roundi(amt), roundi(float(sh.get("amount_pct_hp", 20))), _secs(float(sh.get("duration", 5)) * longer)]])
-	if fx.get("dot") is Dictionary:
+	var last_fx = fx["strikes"].get("last_effects") if fx.get("strikes") is Dictionary else null
+	if last_fx is Dictionary and (last_fx as Dictionary).get("dot") is Dictionary:      # veneno só no último golpe (Golpe Gêmeo)
+		var ld: Dictionary = last_fx["dot"]
+		var ldb: Array = ClassTalentSystem.dot_boost(p)
+		var ldps := float(ld.get("dps", 5)) * (p.stats.matk / 20.0) * float(ldb[1]) * p.stats.dot_mult()
+		var lt := float(ld.get("duration", 4)) * float(ldb[0])
+		out.append(["Efeito", "o último golpe envenena: %d por s por %s (%d no total)" % [roundi(ldps), _secs(lt), roundi(ldps * lt)]])
+	if fx.get("dot") is Dictionary and (fx["dot"] as Dictionary).has("atk_pct"):      # sangramento: % do ATK (WorldSim._apply_effects)
+		var bd: Dictionary = fx["dot"]
+		var bdps := maxf(1.0, p.stats.patk * float(bd["atk_pct"]) / 100.0) * p.stats.dot_mult()
+		var bt := float(bd.get("duration", Balance.BLEED_TIME_DEFAULT))
+		out.append(["Efeito", "sangramento: %d%% do ATK, %d por s por %s (%d no total; renova)" % [roundi(float(bd["atk_pct"])), roundi(bdps), _secs(bt), roundi(bdps * bt)]])
+	elif fx.get("dot") is Dictionary:
 		var d: Dictionary = fx["dot"]
 		var db: Array = ClassTalentSystem.dot_boost(p)
 		var dps := float(d.get("dps", 5)) * (p.stats.matk / 20.0) * float(db[1]) * p.stats.dot_mult()

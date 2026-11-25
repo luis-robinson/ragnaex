@@ -856,6 +856,11 @@ static func _buff(id: String, name: String, lvl: int, build: String, req: Array,
 static func _keep_s() -> String:
 	return "%ds" % int(Balance.BUFF_KEEP_S)
 
+## Sequência do Golpe Gêmeo (efeito "strikes"): estocada da direita e bote; o veneno sai só na 2ª (last_effects).
+## A evolução Golpe Certeiro (TalentsCatalog) reusa com crit_last.
+static func twin_strikes() -> Dictionary:
+	return {"weights": [0.45, 0.55], "at": [0.0, 0.14], "last_stop": 4, "clips": ["atk_dagger", "atk_thrust"], "last_effects": {"dot": Balance.TWIN_POISON.duplicate()}}
+
 static func _dot(dps: float, dur: float) -> Dictionary:
 	return {"dps": dps, "duration": dur}
 
@@ -1268,7 +1273,12 @@ static func _more() -> Dictionary:
 	"assassin": [
 		_s("ass_quick_stab", "Estocada Rápida", 1, "", [], T_CONE, K_PHYS, 1.2, 5, 2, "Estocada curta em até 2 alvos.", {"radius": 2.2, "cone_angle_deg": 70, "max_targets": 2}),
 		# Lâminas (duas adagas): veneno, esquiva, furtividade e pelas costas
-		_s("ass_twin_strike", "Golpe Gêmeo", 2, "laminas", ["dual_dagger"], T_TARGET, K_PHYS, 1.8, 8, 3, "Duas adagas no mesmo alvo."),
+		# Golpe Gêmeo (2026-11-25): duas estocadas rápidas no mesmo alvo; a 2ª deixa veneno (ferida: o Eviscerar consome).
+		# Partes 0,45/0,55 do power (1,7; era 1 golpe de 1,8) + o veneno: mesmo dano por lançamento.
+		_s("ass_twin_strike", "Golpe Gêmeo", 2, "laminas", ["dual_dagger"], T_TARGET, K_PHYS, 1.7, 8, 3,
+			"Duas estocadas rápidas no mesmo alvo. A segunda envenena por %ds (o Eviscerar consome o veneno)." % int(Balance.TWIN_POISON["duration"]),
+			{"startup": 0.12, "active": 0.16, "recovery": 0.28, "cancel_after": 0.08, "hit_stop_frames": 2, "clip": "atk_dagger",
+			 "strikes": twin_strikes()}),
 		_s("ass_blade_flurry", "Rajada de Lâminas", 8, "laminas", ["dual_dagger"], T_CONE, K_PHYS, 1.6, 12, 6, "Cortes rápidos em leque.", {"radius": 2.6, "cone_angle_deg": 110}),
 		_s("ass_eviscerate", "Eviscerar", 13, "laminas", ["dual_dagger"], T_TARGET, K_PHYS, 2.2, 18, 9,
 			"Corte profundo que consome os seus venenos no alvo: o veneno que faltava explode na hora e o golpe ganha +%d%% de dano por veneno (até %d)." % [roundi(float(Balance.EVISCERATE_POISON["per"]) * 100.0), int(Balance.EVISCERATE_POISON["max"])],
@@ -1276,7 +1286,11 @@ static func _more() -> Dictionary:
 		_s("ass_dance", "Dança da Morte", 19, "laminas", ["dual_dagger"], T_SELF, K_PHYS, 2.4, 22, 11, "Gira entre os inimigos ao redor.", {"radius": 3.0}),
 		_s("ass_thousand", "Mil Cortes", 26, "laminas", ["dual_dagger"], T_TARGET, K_PHYS, 4.0, 30, 16, "Rajada final em um alvo.", {"hit_stop_frames": 7}),
 		# Duelista: duas espadas, equilibrado (golpes largos, guarda, avanço e golpe de mestre)
-		_s("ass_cross_slash", "Corte Cruzado", 2, "duelista", ["dual_sword"], T_CONE, K_PHYS, 1.6, 9, 4, "Duas espadas em X num leque largo.", {"radius": 2.9, "cone_angle_deg": 110}),
+		# Corte Cruzado (2026-11-25): UM X grande das duas espadas no leque largo que faz sangrar (% do ATK, não acumula).
+		# Power 1,45 (era 1,6) + sangramento de 8% do ATK/s por 4 s: mesmo dano por alvo.
+		_s("ass_cross_slash", "Corte Cruzado", 2, "duelista", ["dual_sword"], T_CONE, K_PHYS, 1.45, 9, 4,
+			"Abre as duas espadas e corta um X grande num leque largo: quem é atingido sangra %d%% do ATK por segundo por %ds." % [int(Balance.CROSS_BLEED["atk_pct"]), int(Balance.CROSS_BLEED["duration"])],
+			{"radius": 2.9, "cone_angle_deg": 110, "startup": 0.18, "recovery": 0.32, "cancel_after": 0.1, "hit_stop_frames": 4, "clip": "atk_claw", "vfx": "blood", "dot": Balance.CROSS_BLEED.duplicate()}),
 		_s("ass_thrust", "Estocada Dupla", 6, "duelista", ["dual", "pistol"], T_TARGET, K_PHYS, 2.0, 11, 6, "Duas estocadas no alvo que fazem sangrar.", {"range": 2.6, "dot": _dot(6, 4)}),
 		_buff("ass_guard", "Guarda do Duelista", 9, "duelista", ["dual", "pistol"], 8, Balance.RIPOSTE_CD,
 			"Apara por %.0fs: golpe de perto e de frente não causa dano (de chefe, -%d%%), você responde com %d%% do ATK e ganha 1 Ímpeto (+%d de crítico por carga, até %d; o Golpe de Mestre gasta)." % [Balance.RIPOSTE_WINDOW, roundi(Balance.RIPOSTE_BOSS_CUT * 100.0), int(Balance.RIPOSTE_COUNTER_PCT), int(Balance.RIPOSTE_MOMENTUM_CRIT), Balance.RIPOSTE_MOMENTUM_MAX],
