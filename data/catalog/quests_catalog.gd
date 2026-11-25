@@ -20,7 +20,7 @@ const HUNT_GIVERS := {"city_aldara": "board", "field_hollow": "hollow_brena", "f
 	"field_steppe": "wind_totem", "fort_trolls": "wind_totem", "fort_fire": "wind_totem", "fort_war": "wind_totem",
 	"field_kharzun": "kharzun_board", "dg_slayers": "kharzun_board", "kharzun_citadel": "kharzun_board",
 	"city_lumeria": "lumeria_board", "field_perfume": "lumeria_board", "field_parade": "lumeria_board",
-	"field_marsh": "marsh_altar",
+	"field_marsh": "marsh_altar", "field_oaths": "oaths_stone",
 	"field_crab_beach": "beach_fisher"}     # caçadas de caranguejo com o Pescador Joca, na própria praia (2026-11-24)
 
 ## Quests da história e laterais dão Balance.quest_share da XP de cada faixa de nível (o meio, 10-20, dá mais): o peso relativo entre elas
@@ -251,6 +251,97 @@ static func marsh() -> Array:
 		 "dialog_offer": "Leve as páginas ao Teo. E diga a ele que o córrego âmbar nasce numa porta de raiz a leste. Fechada. Por enquanto.",
 		 "dialog_progress": "Volte pela garganta norte do Brejo e procure o Ranger Teo no Posto dos Caçadores.",
 		 "dialog_complete": "Seiva élfica escorrendo para o sul e alguém do Posto comprando barril... Vou ficar de olho no Posto de Troca. Bom trabalho, e fique com isto."},
+	]
+
+## Campo dos Juramentos (24-28): campo opcional atrás da Escavação da Vera (GDD design/gdd/campo-dos-juramentos.md §3.5). Laterais;
+## nada da linha principal depende delas (check). O ramo de Sir Malcom espera a Fortaleza dos Ossos (`dw_bones_boss`): é quando ele
+## sai livre. Textos provisórios (passe do writer). Peso de XP = número escrito (scale_xp da faixa 20-30).
+const OATHS_QUESTS := ["oj0_vala", "oj1_crows", "oj2_ranks", "oj3_feathers", "oj4_malcom", "oj5_seals", "oj6_diggers", "oj7_tomb",
+	"oj8_orders", "oj9_shades", "oj10_bearer", "oj11_senna", "oj12_osric"]
+
+static func oaths() -> Array:
+	return [
+		{"id": "oj0_vala", "title": "Do Outro Lado da Vala", "giver_npc": "digger_vera", "turnin_npc": "oaths_guide", "type": REACH, "target_id": "field_oaths", "count": 1, "level_req": 24,
+		 "reward_xp": 1200, "reward_gold": 150, "reward_items": {"potion_hp_m": 3}, "map_hint": "Campo dos Juramentos (vala atrás da Escavação da Vera, sudeste do Bastião)",
+		 "description": "Atravesse a vala da escavação e encontre a Batedora Cândida no Acampamento da Vigília.",
+		 "dialog_offer": "Cavei fundo demais. A vala atravessou a encosta e do outro lado tem um campo inteiro de gente morta em fila. A Aurora mandou uma batedora acampar lá. Vá ver se ela ainda está viva.",
+		 "dialog_progress": "Saia da escavação pela trilha estreita a sudeste (Campo dos Juramentos no mapa, M). O acampamento da Vigília fica no meio do vale, junto do sino rachado.",
+		 "dialog_complete": "Gente viva, finalmente. Sente, mas não perto do sino: ele toca quando quer."},
+		{"id": "oj1_crows", "title": "Bico e Garra", "giver_npc": "oaths_guide", "type": KILL, "target_id": "carrion_crow", "count": 12, "level_req": 24, "prereq_quest": "oj0_vala",
+		 "reward_xp": 2600, "reward_gold": 220, "reward_items": {"potion_hp_m": 2}, "map_hint": "Campo: Ruas Afundadas (nordeste) e beira do Cemitério",
+		 "description": "Derrube 12 Corvos de Carniça.",
+		 "dialog_offer": "Os corvos daqui ficaram do tamanho de cachorro, e vêm em bando. Comem o que o Culto desenterra e depois vêm atrás da nossa comida. Doze deles.",
+		 "dialog_progress": "O Corvo é rápido e frágil, mas vem em três ou quatro: puxe um bando de cada vez e use golpes em área (1-6) quando eles se juntarem em você. Ruas Afundadas a nordeste.",
+		 "dialog_complete": "Doze. O céu ficou mais limpo. A Corveira vai reclamar, mas ela reclama de tudo."},
+		{"id": "oj2_ranks", "title": "Fileiras Mortas", "giver_npc": "oaths_guide", "type": KILL, "target_id": "oath_sworn", "count": 10, "level_req": 25, "prereq_quest": "oj1_crows",
+		 "reward_xp": 3000, "reward_gold": 240, "reward_items": {"potion_mp_m": 2}, "map_hint": "Campo: Cemitério dos Cavaleiros (oeste) e beira da estrada oeste",
+		 "description": "Derrube 10 Juramentados no Cemitério dos Cavaleiros.",
+		 "dialog_offer": "Os Juramentados eram cavaleiros da Aurora. Ainda guardam a posição de uma batalha perdida, e qualquer um que entra no cemitério vira inimigo. Abra a fileira: dez deles.",
+		 "dialog_progress": "O Juramentado segura o escudo na frente: dê a volta ou espere a investida dele passar e bata nas costas. Cemitério a oeste, pela estrada do oeste.",
+		 "dialog_complete": "Caíram em fila, do jeito que lutaram. Pelo menos agora descansam deitados."},
+		{"id": "oj3_feathers", "title": "Penas para a Corveira", "giver_npc": "oaths_crowkeeper", "type": COLLECT, "target_id": "carrion_feather", "count": 8, "level_req": 25, "prereq_quest": "oj0_vala",
+		 "reward_xp": 2800, "reward_gold": 230, "reward_items": {"elixir_stone": 1}, "map_hint": "Campo: Corvos de Carniça (Ruas Afundadas, Cemitério)",
+		 "description": "Traga 8 Penas de Carniça para a Corveira Matilde.",
+		 "dialog_offer": "Pena de carniça não apodrece. Escrevo com ela, empluma flecha com ela e, quando amarro uma no poste, os corvos sabem que a casa é minha. Me traga oito.",
+		 "dialog_progress": "Os Corvos de Carniça soltam penas (mais ou menos uma a cada dois). Eles voam em bando nas Ruas Afundadas e na beira do Cemitério: lute de costas para uma coluna para não ser cercado.",
+		 "dialog_complete": "Boas, duras. Repare: nenhuma bica de Juramentado. Corvo sabe o que não se come."},
+		{"id": "oj4_malcom", "title": "O Prisioneiro dos Ossos", "giver_npc": "oaths_guide", "turnin_npc": "oaths_malcom", "type": TALK, "target_id": "oaths_malcom", "count": 1, "level_req": 25,
+		 "prereq_quest": "oj0_vala", "prereq_all": ["dw_bones_boss"] as Array[String],
+		 "reward_xp": 1200, "reward_gold": 120, "map_hint": "Sir Malcom (Acampamento da Vigília, diante do sino)",
+		 "description": "Fale com Sir Malcom, que chegou à Vigília depois da queda da Fortaleza dos Ossos.",
+		 "dialog_offer": "Chegou um cavaleiro magro, de corrente ainda no pulso. Diz que você o tirou da Fortaleza dos Ossos. Está parado diante do sino desde ontem. Fale com ele.",
+		 "dialog_progress": "Sir Malcom está de pé diante do sino rachado, no meio do acampamento. Clique nele ou aperte E.",
+		 "dialog_complete": "Você. Eu lembro da sua voz no escuro. Enterramos o Vorhag aqui, sabia? Um caixão leve demais. Agora eu quero saber o que tinha dentro."},
+		{"id": "oj5_seals", "title": "Selos de Juramento", "giver_npc": "oaths_malcom", "type": COLLECT, "target_id": "oath_seal", "count": 6, "level_req": 26, "prereq_quest": "oj4_malcom",
+		 "reward_xp": 3200, "reward_gold": 260, "reward_items": {"potion_hp_m": 2}, "map_hint": "Campo: Juramentados e Besteiros (Cemitério, Colina)",
+		 "description": "Traga 6 Selos de Juramento para Sir Malcom.",
+		 "dialog_offer": "Todo cavaleiro que jurou à noite carregava um selo de chumbo com o próprio nome. Quero ler esses nomes. Seis selos, dos Juramentados e dos besteiros deles.",
+		 "dialog_progress": "Juramentados e Besteiros Juramentados levam selos. O besteiro atira de longe: feche a distância com o dash (Shift) e não fique na frente do escudo dos outros.",
+		 "dialog_complete": "'Proteger esta terra.' Em todos. A mesma frase que o Vorhag dizia. Não juraram à noite. Juraram a esta terra, e alguém respondeu."},
+		{"id": "oj6_diggers", "title": "Quem Abre as Covas", "giver_npc": "oaths_malcom", "type": KILL, "target_id": "night_digger", "count": 10, "level_req": 26, "prereq_quest": "oj4_malcom",
+		 "reward_xp": 3200, "reward_gold": 260, "reward_items": {"potion_mp_m": 2}, "map_hint": "Campo: Vala dos Cavadores (sudoeste)",
+		 "description": "Derrube 10 Cavadores da Noite na Vala.",
+		 "dialog_offer": "O Culto está abrindo as covas dos meus irmãos na vala do sudoeste. Não quero saber por quê antes de eles pararem. Dez Cavadores.",
+		 "dialog_progress": "O Cavador atira raio sombrio de longe e fica atrás dos montes de terra: entre na vala pelo lado da trilha sul e puxe a ronda de dois antes de entrar no acampamento.",
+		 "dialog_complete": "Não levavam ossos. Levavam papel. Eu vi um deles copiando o nome de uma lápide."},
+		{"id": "oj7_tomb", "title": "O Túmulo Vazio", "giver_npc": "oaths_malcom", "type": KILL, "target_id": "grave_hauler", "count": 6, "level_req": 27, "prereq_quest": "oj6_diggers",
+		 "reward_xp": 3400, "reward_gold": 280, "reward_items": {"potion_hp_m": 2}, "map_hint": "Campo: Túmulo de Vorhag (fundo do Cemitério) e Vala",
+		 "description": "Derrube 6 Carregadores de Covas, dois deles vigiando o Túmulo de Vorhag.",
+		 "dialog_offer": "Os brutos do Culto arrombaram a porta do túmulo do Vorhag e ficam de guarda. Tire-os de lá. Seis deles, entre o túmulo e a vala. Depois eu entro.",
+		 "dialog_progress": "O Carregador é lento e bate forte num leque na frente: quando ele erguer a pá, saia pelo lado ou bloqueie (botão direito). Dois ficam na porta do mausoléu, no fundo do Cemitério.",
+		 "dialog_complete": "Entrei. Está vazio. Não foi roubado: a terra de dentro nunca foi mexida. Enterramos um caixão vazio, e ninguém de nós percebeu."},
+		{"id": "oj8_orders", "title": "Ordens de Escavação", "giver_npc": "oaths_guide", "type": COLLECT, "target_id": "digger_orders", "count": 3, "level_req": 27, "prereq_quest": "oj6_diggers",
+		 "reward_xp": 3000, "reward_gold": 250, "map_hint": "Campo: Cavadores da Noite (Vala dos Cavadores)",
+		 "description": "Traga 3 Ordens de Escavação dos Cavadores da Noite.",
+		 "dialog_offer": "O Malcom disse que eles levam papel. Papel de culto quer dizer ordem de alguém. Me traga três dessas ordens e eu leio quem manda.",
+		 "dialog_progress": "Os Cavadores da Noite carregam ordens dobradas (cerca de uma a cada três). Lute na beira da vala, longe das covas abertas, para não puxar o acampamento inteiro.",
+		 "dialog_complete": "São listas de nomes. Nomes de mortos, com a data em que morreram. E no fim de todas: 'para o Escrivão'. Quem é o Escrivão?"},
+		{"id": "oj9_shades", "title": "O Sino que Toca Sozinho", "giver_npc": "oaths_bellringer", "type": KILL, "target_id": "vel_shade", "count": 10, "level_req": 27, "prereq_quest": "oj0_vala",
+		 "reward_xp": 3000, "reward_gold": 250, "reward_items": {"potion_mp_m": 2}, "map_hint": "Campo: Ruas Afundadas (nordeste) e frente do Zigurate (leste)",
+		 "description": "Dissipe 10 Sombras de Vel'Thar.",
+		 "dialog_offer": "Toda vez que o sino toca sozinho, sobem sombras das ruas afundadas. Não são da Aurora: usam roupa de um tempo que eu nunca vi. Dissipe dez e talvez o sino durma.",
+		 "dialog_progress": "A Sombra drena de longe: feche a distância com dash (Shift) e não lute no meio das colunas. Ruas Afundadas a nordeste e a frente do Zigurate, a leste.",
+		 "dialog_complete": "O sino ficou quieto. Pela primeira vez em vinte anos, quieto. Ouvi, antes de parar, alguém lendo nomes lá embaixo."},
+		{"id": "oj10_bearer", "title": "O Porta-Estandarte", "giver_npc": "oaths_malcom", "type": KILL, "target_id": "fallen_bearer", "count": 1, "level_req": 28,
+		 "prereq_quest": "oj5_seals", "prereq_all": ["oj7_tomb"] as Array[String],
+		 "reward_xp": 7000, "reward_gold": 600, "reward_gear_tier": 3, "reward_items": {"elixir_might": 1}, "map_hint": "Campo: Colina do Estandarte (sudeste, ponte do córrego)",
+		 "description": "Derrote Sir Edran, o Porta-Estandarte Caído, na Colina do Estandarte. Leve um grupo.",
+		 "dialog_offer": "Edran carregou o estandarte da Aurora naquela noite. Foi ele quem o fincou para o outro lado. Ainda está na colina, segurando a linha. Junte gente e acabe com a vigília dele.",
+		 "dialog_progress": "Com grupo de 3 a 5 é bem mais seguro. Quando o chão marcar o círculo do estandarte, saia: ele cai 1 s depois e ergue dois Juramentados. Com o chefe protegido (40%), mate os erguidos primeiro; o leque do mastro na frente dele atordoa: fique de lado ou bloqueie (botão direito).",
+		 "dialog_complete": "Ele pediu para me dizer que o pano ainda é dourado. É. Debaixo da fuligem, é. Fique com o que ele guardava; o estandarte eu levo."},
+		{"id": "oj11_senna", "title": "O Que os Mortos Ouvem", "giver_npc": "oaths_malcom", "turnin_npc": "ruins_scholar", "type": TALK, "target_id": "ruins_scholar", "count": 1, "level_req": 28,
+		 "prereq_quest": "oj10_bearer", "prereq_all": ["oj8_orders", "oj9_shades"] as Array[String],
+		 "reward_xp": 2500, "reward_gold": 200, "reward_items": {"potion_hp_m": 2}, "map_hint": "Erudita Senna (praça do Bastião da Aurora)",
+		 "description": "Leve à Erudita Senna o que o Campo contou: o túmulo vazio, as listas de nomes e a voz sob o zigurate.",
+		 "dialog_offer": "Caixão vazio, selos com a mesma frase, listas de nomes 'para o Escrivão', uma voz lendo debaixo do zigurate. Eu sou cavaleiro, não erudito. Leve isso à Senna, no Bastião.",
+		 "dialog_progress": "Volte pela garganta noroeste do Campo e procure a Erudita Senna na praça do Bastião da Aurora.",
+		 "dialog_complete": "Um Escrivão que guarda nomes de mortos, debaixo de um zigurate de Vel'Thar... Vel'Thar tinha arquivos. Se alguém ainda lê os nomes lá embaixo, eu quero saber para quem."},
+		{"id": "oj12_osric", "title": "Um Nome para o Osric", "giver_npc": "oaths_malcom", "turnin_npc": "gravedigger_osric", "type": COLLECT, "target_id": "bearer_banner_scrap", "count": 1, "level_req": 28, "prereq_quest": "oj10_bearer",
+		 "give_items": {"bearer_banner_scrap": 1}, "reward_xp": 1800, "reward_gold": 150, "map_hint": "Osric, o Coveiro (cemitério do Bastião da Aurora)",
+		 "description": "Leve o retalho do estandarte de Edran para Osric, o Coveiro, no Bastião.",
+		 "dialog_offer": "O Osric enterra os nossos mortos há vinte anos sem saber o nome de metade. Leve este retalho do estandarte. Diga a ele: Edran, porta-estandarte. Que ponha o nome numa pedra.",
+		 "dialog_progress": "Volte pela garganta noroeste do Campo e procure Osric, o Coveiro, no cemitério do Bastião da Aurora.",
+		 "dialog_complete": "Edran. Eu cavei a cova dele duas vezes e nunca soube o nome. Agora sei. Obrigado. Pedra nova, amanhã cedo."},
 	]
 
 ## Viveiro de Seiva (17-19): mini-masmorra sob a raiz do Brejo (GDD design/gdd/viveiro-de-seiva.md §3.7). Laterais, giver no Brejo;
@@ -518,6 +609,11 @@ static func build() -> Array:
 		 "also_counts": ["tower_bat", "ghost"],
 		 "reward_xp": 2300, "reward_gold": 460, "reward_items": {"holy_silver": 1}, "map_hint": "Bastião: front sul; Torre do Mago Gélido",
 		 "description": "Abata 12 adeptos, morcegos ou espectros. Repetível.", "dialog_offer": "Pedido pregado com cera: 'Os adeptos rondam o portão sul. Doze a menos.'", "dialog_progress": "Front sul.", "dialog_complete": "A cera da vela pinga sobre o pedido cumprido."},
+		# Cerco Vivo do Bastião (design/gdd/bastiao-cerco-vivo.md R13): repelir levas no portão atacado (SiegeSystem.on_wave_end -> DEFEND)
+		{"id": "b_walls", "title": "Capela: Muralhas da Aurora", "giver_npc": "dawn_board", "type": DEFEND, "target_id": "field_ruins", "count": 3, "level_req": 21, "prereq_quest": "dw_gates", "repeatable": true,
+		 "reward_xp": 1800, "reward_gold": 360, "reward_items": {"potion_hp_m": 2}, "map_hint": "Bastião: o portão que a trompa anunciar",
+		 "description": "Ajude a repelir 3 levas contra o Bastião, junto do portão atacado. Repetível.", "dialog_offer": "Pedido pregado com cera: 'Três levas quebradas no muro e a Capela paga o pão e a poção.'",
+		 "dialog_progress": "Quando a trompa tocar, corra ao portão que o chat anunciar. Só conta se você estiver lá e a leva for repelida.", "dialog_complete": "A cera da vela pinga sobre o pedido cumprido."},
 		{"id": "q13_cores", "title": "Coração de Pedra", "giver_npc": "smith", "type": COLLECT, "target_id": "golem_core", "count": 2, "level_req": 24, "prereq_quest": "dw_gates",
 		 "reward_xp": 4500, "reward_gold": 800, "reward_items": {"bone_shard": 5}, "map_hint": "Cripta de Vel'Thar: golens dos salões (front norte do Bastião)",
 		 "description": "Traga 2 Núcleos de Golem para Brom.",
@@ -873,6 +969,8 @@ static func build() -> Array:
 		L.append_array(marsh())
 	if MapsCatalog.viveiro_ready():        # Viveiro de Seiva: só com a masmorra na sim (REACH e KILL apontam para ela)
 		L.append_array(viveiro())
+	if MapsCatalog.oaths_ready():          # Campo dos Juramentos: só com o mapa na sim (giver/turnin precisam existir)
+		L.append_array(oaths())
 	L.append_array(dawn_rests())
 	L.append_array(act2())
 	L.append_array(act2_steppe())

@@ -12,11 +12,17 @@ extends RefCounted
 ##   avisados (dano = % da vida, não esquivável) perto de uma brecha aberta, e somem. Matar o atirador cancela os círculos dele.
 ## - Batedores (spawner com `horn`): em luta há SIEGE_HORN_DELAY s tocam a trompa e adiantam a próxima leva.
 ## - Reserva (`responder` no NPC sentinela): corre para o alvo da leva e volta ao posto quando ela acaba.
-## - Repelida: buff Colônia de Pé em quem defendeu (e conta nas quests DEFEND); chegou e não foi repelida: Chamas (visual).
+## - Repelida: buff de moral do lugar (`morale_buff`; sem ela, Colônia de Pé) em quem defendeu (e conta nas quests DEFEND);
+##   chegou e não foi repelida: Chamas (visual).
+## - Opt-in por mapa (design/gdd/bastiao-cerco-vivo.md S1/S2): Balance.SIEGE_MAP[<mapa>] com tabelas por pressão (`every_mult`,
+##   `size_mult`, `big_nth`, `harass_mult`) no lugar das gerais; `skip_closed` no `siege` = trecho fechado sai do revezamento
+##   (sem portão: pula para o próximo aberto na hora, sem gastar calmaria). Sem as chaves = comportamento de sempre.
 ## Estado m["siege"]: {wave_t, harass_t, quiet, n, side, horns, scorch, p, shooters, age, shot, seen, horn_t, horned, hold}
 ##   `hold` = relógios parados (sondas/testes que soltam as levas à mão).
 
 const MORALE_BUFF := "colonia_de_pe"
+## Buffs de moral (um por lugar, mesmo efeito): Porto = MORALE_BUFF; Posto e Bastião pela chave `morale_buff` do `siege`.
+const MORALE_BUFFS := ["colonia_de_pe", "posto_de_pe", "muralha_de_pe"]
 const VOLLEY_SKILL := "mob_fire_arrows"        # tema/som do círculo da salva (flechas de fogo)
 const SCAN := 0.5
 const SERVICE_ROLES := ["smith", "alchemy", "merchant", "storage", "crystal", "board"]
@@ -29,6 +35,15 @@ static func num(def: MapDef, key: String, base: float) -> float:
 	if def == null:
 		return base
 	return float((Balance.SIEGE_MAP.get(def.id, {}) as Dictionary).get(key, base))
+
+## S1: valor da tabela por pressão do mapa (Balance.SIEGE_MAP[<mapa>][key][p]) ou da tabela geral `base`.
+static func ptab(def: MapDef, key: String, base: Dictionary, p: int, fallback: float) -> float:
+	var t: Dictionary = (Balance.SIEGE_MAP.get(def.id, {}) as Dictionary).get(key, base) if def != null else base
+	return float(t.get(p, fallback))
+
+## Id do buff de moral do lugar (o efeito é o mesmo em todos).
+static func morale_buff(def: MapDef) -> String:
+	return str(def.siege.get("morale_buff", MORALE_BUFF)) if def != null else MORALE_BUFF
 
 static func state(m: Dictionary) -> Dictionary:
 	if not m.has("siege"):
@@ -71,20 +86,20 @@ static func active_route(m: Dictionary) -> int:
 static func size_mult(sim: WorldSim, m: Dictionary) -> float:
 	if not managed(m["def"]):
 		return 1.0
-	return float(Balance.SIEGE_SIZE_MULT.get(pressure(sim, m["def"]), 1.0))
+	return ptab(m["def"], "size_mult", Balance.SIEGE_SIZE_MULT, pressure(sim, m["def"]), 1.0)
 
 ## De quantas em quantas levas vem a leva grande (grupos com `every_nth` > 1).
 static func big_nth(sim: WorldSim, m: Dictionary, nth: int) -> int:
 	if nth <= 1 or not managed(m["def"]):
 		return nth
-	return int(Balance.SIEGE_BIG_NTH.get(pressure(sim, m["def"]), nth))
+	return int(ptab(m["def"], "big_nth", Balance.SIEGE_BIG_NTH, pressure(sim, m["def"]), nth))
 
 ## F1: s até a próxima leva pela rota `r` na pressão `p` (u = sorteio -1..1).
-static func wave_interval(r: Dictionary, p: int, u: float) -> float:
-	return maxf(Balance.SIEGE_QUIET_MIN, float(r.get("every", 90.0)) * float(Balance.SIEGE_EVERY_MULT.get(p, 1.0)) + u * float(r.get("jitter", 0.0)))
+static func wave_interval(r: Dictionary, p: int, u: float, def: MapDef = null) -> float:
+	return maxf(Balance.SIEGE_QUIET_MIN, float(r.get("every", 90.0)) * ptab(def, "every_mult", Balance.SIEGE_EVERY_MULT, p, 1.0) + u * float(r.get("jitter", 0.0)))
 
 static func harass_interval(p: int, u: float, def: MapDef = null) -> float:
-	return maxf(Balance.SIEGE_QUIET_MIN * 0.5, num(def, "harass_every", Balance.SIEGE_HARASS_EVERY) * float(Balance.SIEGE_HARASS_MULT.get(p, 1.0)) + u * Balance.SIEGE_HARASS_JITTER)
+	return maxf(Balance.SIEGE_QUIET_MIN * 0.5, num(def, "harass_every", Balance.SIEGE_HARASS_EVERY) * ptab(def, "harass_mult", Balance.SIEGE_HARASS_MULT, p, 1.0) + u * Balance.SIEGE_HARASS_JITTER)
 
 static func update(sim: WorldSim, m: Dictionary, dt: float) -> void:
 	var def: MapDef = m["def"]
@@ -141,7 +156,14 @@ static func next_route(sim: WorldSim, m: Dictionary, p: int) -> int:
 			return gi
 	elif p >= 2:
 		var segs: Array = def.siege.get("segments", [])
-		if not segs.is_empty():
+		if not segs.is_empty() and def.siege.get("skip_closed", false):      # S2: do lado da vez ao próximo trecho aberto
+			for k in segs.size():
+				var seg: Dictionary = segs[(int(st["side"]) + k) % segs.size()]
+				var i := route_index(def, str(seg["route"]))
+				if i >= 0 and WorldState.active(sim, all[i]):
+					st["side"] = int(st["side"]) + k          # _start_wave avança 1 depois: o revezamento segue deste trecho
+					return i
+		elif not segs.is_empty():
 			var seg: Dictionary = segs[int(st["side"]) % segs.size()]
 			var i := route_index(def, str(seg["route"]))
 			if i >= 0 and WorldState.active(sim, all[i]):
@@ -170,7 +192,7 @@ static func start_wave(sim: WorldSim, m: Dictionary, i: int) -> Array:
 	st["n"] = int(st["n"]) + 1
 	st["horns"] = 0
 	st["seen"] = {}
-	st["wave_t"] = wave_interval(r, pressure(sim, m["def"]), sim.rng.randf_range(-1.0, 1.0))
+	st["wave_t"] = wave_interval(r, pressure(sim, m["def"]), sim.rng.randf_range(-1.0, 1.0), m["def"])
 	return RaidSystem.start_raid(sim, m, i)
 
 ## Fim de uma leva (RaidSystem._update_wave): repelida -> calmaria, Colônia de Pé, DEFEND, apaga as Chamas;
@@ -190,9 +212,10 @@ static func on_wave_end(sim: WorldSim, m: Dictionary, _i: int, repelled: bool, a
 			var e: SimEntity = sim.entities.get(id)
 			if e == null or not e.is_alive() or e.map_id != def.id:
 				continue
-			e.put_buff({"id": "colonia_de_pe", "remaining": Balance.SIEGE_MORALE_TIME, "duration": Balance.SIEGE_MORALE_TIME,
+			var mb := morale_buff(def)
+			e.put_buff({"id": mb, "remaining": Balance.SIEGE_MORALE_TIME, "duration": Balance.SIEGE_MORALE_TIME,
 				"xp_pct": Balance.SIEGE_MORALE_XP_PCT, "map": def.id})
-			Events.post(&"buff_applied", e.id, MORALE_BUFF, Balance.SIEGE_MORALE_TIME)
+			Events.post(&"buff_applied", e.id, mb, Balance.SIEGE_MORALE_TIME)
 			if e.kind == SimEntity.Kind.PLAYER:
 				QuestSystem.on_defend(e, def.id)
 		Events.post(&"siege_event", def.id, "repelled")
@@ -216,7 +239,7 @@ static func bot_may_defend(m: Dictionary, wave: int) -> bool:
 ## Colônia de Pé: multiplicador da XP de abate de `e` neste mapa (LootSystem).
 static func xp_mult(e: SimEntity, map_id: String) -> float:
 	for b in e.buffs:
-		if b.get("id") == MORALE_BUFF and str(b.get("map", "")) == map_id:
+		if MORALE_BUFFS.has(b.get("id")) and str(b.get("map", "")) == map_id:
 			return 1.0 + float(b.get("xp_pct", 0.0)) / 100.0
 	return 1.0
 

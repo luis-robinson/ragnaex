@@ -45,6 +45,28 @@ OATHS_ARRIVE_IN = (-53.1, -63.2)   # chegada no Campo (build_field_oaths: polar(
 LATE_TRAIL_SE = [(54.0, 80.0), (50.0, 88.0), (46.5, 95.0)]
 LATE_W = 3.0
 LATE_DECOR = ("tree", "pine", "dead_tree", "rock", "bush", "flowers", "log", "stump", "reed", "ruin")
+# Cerco Vivo do Bastião (2026-11-25, GDD bastiao-cerco-vivo, BLENDER REQUEST): uma rota por front (trecho do SiegeSystem), a
+# patrulha antes de dw_gates e o ponto de tiro do assédio. Os `from` ficam >= 25 m de toda chegada de portal (a leva antiga
+# nascia NA chegada do Covil) e o alvo é o pátio de dentro do portão (12 m para dentro), não a praça. Pontos conferidos fora
+# d'água/sólidos, ponte do oeste como única travessia e vão da barricada de estacas (r 72) no norte e no sul. Levas, ritmo e
+# falas ficam em MapsCatalog.RAIDS["field_ruins"][<side>]. Bloco de dado puro: não sorteia nem põe obstáculo (o resto do JSON
+# sai igual; as `assaults` continuam derivadas das rotas antigas, guardadas em `raids`).
+Q_GATES = "dw_gates"
+Q_FORTS = ["dw_ghoul_boss", "dw_bones_boss", "dw_frost_boss"]
+SIEGE_R = 20.0
+SIEGE_ROUTES = [
+    # side, from, route, target, radius, if/unless
+    ("cerco_ghoul", (-99.0, -30.0), [(-90.0, -12.5), (-84.94, -13.45), (-62.0, 0.0)], (-44.0, 0.0), SIEGE_R, {"unless": "dw_ghoul_boss"}),
+    ("cerco_bones", (-24.0, -76.0), [(-14.0, -74.0), (-5.0, -71.0), (0.0, -62.0)], (0.0, -44.0), SIEGE_R, {"unless": "dw_bones_boss"}),
+    ("cerco_frost", (18.0, 76.0), [(8.0, 72.0), (0.0, 62.0)], (0.0, 44.0), SIEGE_R, {"unless": "dw_frost_boss"}),
+    ("patrulha_oeste", (-99.0, -30.0), [(-90.0, -12.5), (-84.94, -13.45), (-62.0, 0.0)], (-44.0, 0.0), SIEGE_R, {"unless": Q_GATES}),
+    # kind harass no catálogo: arqueiros de osso no outeiro a nordeste do portão norte (sem marcha; a salva mira o portão)
+    ("assedio_norte", (26.5, -56.0), [], (0.0, -44.0), 10.0, {"unless": "dw_bones_boss"}),
+]
+OUTEIRO = (26.5, -56.0)
+# Chamas (leva que chegou e não foi repelida; só visual, game/world/siege_fx.gd): pátio de dentro de cada portão de front; somem
+# com as três fortalezas retomadas (unless em lista = todas feitas)
+SIEGE_FIRES = [(-40.0, 6.0), (6.0, -40.0), (-6.0, 40.0)]
 
 PLACES = [
     {"type": "cabin", "id": "coveiro", "pos": (74.0, -38.0), "face": 160.0, "npc": "gravedigger_osric", "roof": (0.34, 0.32, 0.36), "wall": (0.5, 0.46, 0.42)},
@@ -273,7 +295,7 @@ def build(export=False):
         z.block(post, 5.0)
         raids.append({"side": side, "from": list(gorge_in), "route": [list(mid), list(outer)], "target": [0.0, 0.0], "radius": RING_R - 6.0,
                       "unless": f["quest"]})
-    z.data["raids"] = raids
+    z.data["raids"] = raids              # rotas antigas: só as `assaults` leem; o fim do build troca pelas do cerco (mesma chave)
     # reforço das fortalezas retomadas: sai da mesma garganta da investida, faz a mesma rota até o portão do lado e segue a
     # avenida até a borda da praça; ronda ali, do lado dele (a catedral no meio da praça não é contornada pela ronda)
     deg_of = {s: f["deg"] for s, f in FRONTS.items()}
@@ -388,4 +410,43 @@ def build(export=False):
         dd = (zone_lib.Vector(sp["pos"]) - zone_lib.Vector(oaths_arrive)).length
         if dd < 30.0:
             print("garganta sudeste: spawner %s %s a %.1f m da chegada" % (sp["monster_id"], sp["pos"], dd))
+    siege(z)
     return z.finish(export, poi=DRAGON, ground=(0.55, 0.56, 0.46))
+
+
+def siege(z):
+    """Cerco Vivo: rotas do SiegeSystem, Chamas e o outeiro de ossos do assédio (só malha: sem obstáculo no JSON, os atiradores
+    ficam em cima). Entra no fim e não sorteia do `z`: o resto do JSON sai igual."""
+    routes = []
+    for side, src, pts, tgt, rad, cond in SIEGE_ROUTES:
+        r = {"side": side, "from": list(src), "route": [list(q) for q in pts], "target": list(tgt), "radius": rad}
+        r.update(cond)
+        routes.append(r)
+    z.data["raids"] = routes
+    z.data["fx"] = [{"kind": "fire", "pos": list(p), "unless": list(Q_FORTS)} for p in SIEGE_FIRES]
+    outeiro(z, OUTEIRO)
+
+
+def outeiro(z, c):
+    """Outeiro de ossos (< 2 m): monte de terra cinza baixo, ossos deitados, crânios e estacas tortas na borda. Lê de cima
+    como um disco claro de ossos fora do muro; nada alto, nada sólido."""
+    rnd = random.Random(52)                                  # sorteio próprio: não mexe no da zona
+    earth = z.M.setdefault("outeiro_terra", zone_lib.mat("outeiro_terra", (0.5, 0.47, 0.42)))
+    bone = z.M.setdefault("outeiro_osso", zone_lib.mat("outeiro_osso", (0.9, 0.86, 0.74)))
+    wood = z.M.setdefault("outeiro_estaca", zone_lib.mat("outeiro_estaca", (0.36, 0.28, 0.22)))
+    cyl(z.coll, z.P + "prop_outeiro_monte", c, 3.6, 2.2, 0.45, earth, 0.0, 14, 0.12, 52)
+    cyl(z.coll, z.P + "prop_outeiro_topo", c, 2.2, 1.2, 0.3, earth, 0.45, 12, 0.1, 53)
+    for k in range(14):                                      # ossos deitados no monte
+        a = rnd.uniform(0, math.tau)
+        r = rnd.uniform(0.3, 3.0)
+        p = (c[0] + math.cos(a) * r, c[1] + math.sin(a) * r)
+        h = 0.75 if r < 1.6 else (0.45 if r < 2.4 else 0.15)
+        box(z.coll, z.P + "prop_outeiro_osso_%d" % k, p, (rnd.uniform(0.7, 1.2), 0.16, 0.16), rnd.uniform(0, 180), bone, h - 0.05)
+    for k in range(3):                                       # crânios
+        a = math.tau * k / 3 + 0.4
+        p = (c[0] + math.cos(a) * 1.1, c[1] + math.sin(a) * 1.1)
+        cyl(z.coll, z.P + "prop_outeiro_cranio_%d" % k, p, 0.26, 0.2, 0.34, bone, 0.72, 8)
+    for k in range(7):                                       # estacas na borda (1,2-1,7 m)
+        a = math.tau * (k + rnd.uniform(-0.2, 0.2)) / 7
+        p = (c[0] + math.cos(a) * 3.3, c[1] + math.sin(a) * 3.3)
+        zone_lib.cone(z.coll, z.P + "prop_outeiro_estaca_%d" % k, p, 0.12, rnd.uniform(1.2, 1.7), wood, 0.0, 6)

@@ -39,6 +39,7 @@ func _ready() -> void:
 		GraphicsSettings.load_and_apply(get_viewport())
 		AudioSettings.load_and_apply()
 		AccessSettings.load_settings()
+		KeyBindings.load_settings()      # teclas trocadas (aba Controles)
 	menu_set = MenuSet.new()
 	menu_set.name = "MenuSet"
 	add_child(menu_set)

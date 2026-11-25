@@ -2257,6 +2257,109 @@ func _check_vfx_v3v5() -> void:
 		check(not (c.h > 0.95 or c.h < 0.04) or c.s < 0.45 or c.v < 0.35, "impacto: marca '%s' sem vermelho saturado (reservado ao aviso)" % th)
 	check(KitModel.THIN_TRAIL_WEAPONS.has("staff") and KitModel.THIN_TRAIL_BASE > 0.5, "V5: fita fina em cajado/foice/cetro")
 
+## Teclas trocáveis (Configurações → Controles, KeyBindings): padrões do project.godot (H/G/M viraram ações), trocar a
+## poção 1 para Z (InputMap, nome na barra/dicas), troca com a outra ação quando a tecla já é usada, teclas fixas recusadas,
+## gravar só o que difere do padrão e ler de volta (arquivo próprio do teste, nunca o settings.cfg do jogador), restaurar,
+## chat/janela aberta não deixa a tecla trocada agir, a aba Controles captura a próxima tecla.
+func _check_key_bindings(_sim) -> void:
+	var old_path := KeyBindings.cfg_path
+	KeyBindings.cfg_path = "user://test_key_bindings.cfg"
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(KeyBindings.cfg_path))
+	KeyBindings.load_settings()
+	for a in KeyBindings.actions():
+		check(InputMap.has_action(a) and KeyBindings.default_event(a) != null, "teclas: %s existe no InputMap com padrão" % a)
+	var seen := {}
+	for a in KeyBindings.actions():
+		var code := KeyBindings.encode(KeyBindings.event_of(a))
+		check(not seen.has(code), "teclas: %s não divide a tecla padrão com %s" % [a, seen.get(code, "")])
+		seen[code] = a
+	check(KeyBindings.label("potion_1") == "F1" and KeyBindings.label("mount") == "H" and KeyBindings.label("recall") == "G"
+		and KeyBindings.label("ui_map") == "M" and KeyBindings.label("dash") == "Shift" and KeyBindings.label("jump") == "Espaço",
+		"teclas: padrões F1 / H / G / M / Shift / Espaço")
+	check(KeyBindings.label("attack") == "Botão esquerdo" and KeyBindings.short("attack") == "M1", "teclas: botão do mouse por extenso e curto")
+	check(ActionBar.key_of(0) == "1" and ActionBar.key_of(9) == "0", "teclas: barra 1..0 pelo padrão")
+	check(KeyBindings.fill("{move} anda") == "WASD anda", "teclas: {move} = WASD")
+	# trocar a poção 1 para Z
+	var z := KeyBindings.event_from_text("Z")
+	check(z is InputEventKey and (z as InputEventKey).physical_keycode == KEY_Z, "teclas: 'Z' vira a tecla Z física")
+	check(KeyBindings.rebind("potion_1", z) == "", "teclas: Z livre, ninguém troca")
+	var evs := InputMap.action_get_events("potion_1")
+	check(evs.size() == 1 and evs[0] is InputEventKey and (evs[0] as InputEventKey).physical_keycode == KEY_Z, "teclas: InputMap da poção 1 = Z")
+	var press := InputEventKey.new()
+	press.physical_keycode = KEY_Z
+	press.pressed = true
+	check(press.is_action_pressed("potion_1") and not press.is_action_pressed("potion_2"), "teclas: apertar Z = poção 1")
+	check(KeyBindings.label("potion_1") == "Z" and KeyBindings.short("potion_1") == "Z", "teclas: nome da poção 1 = Z")
+	check(KeyBindings.fill("{potion_1}-{potion_3}") == "Z-F3" and Hud.hint_text().contains("Z F2 F3 poções"), "teclas: dicas e canto do HUD mostram Z")
+	check(KeyBindings.fill(Tips.TIPS["potion"]).begins_with("Z F2 F3"), "teclas: dica das poções com Z")
+	# tecla de outra ação: as duas trocam
+	var f2 := KeyBindings.event_from_text("F2")
+	check(KeyBindings.rebind("potion_1", f2) == "potion_2", "teclas: F2 já era da poção 2 -> troca")
+	check(KeyBindings.label("potion_1") == "F2" and KeyBindings.label("potion_2") == "Z", "teclas: depois da troca poção 1 = F2, poção 2 = Z")
+	# fixas recusadas (Esc, F11, Enter)
+	for k in [KEY_ESCAPE, KEY_F11, KEY_ENTER]:
+		var fx := InputEventKey.new()
+		fx.physical_keycode = k
+		KeyBindings.rebind("jump", fx)
+		check(KeyBindings.label("jump") == "Espaço", "teclas: %s é fixa, Pular continua Espaço" % OS.get_keycode_string(k))
+	check(not KeyBindings.is_remappable("ui_chat"), "teclas: chat (Enter) fica fora da lista")
+	# mouse
+	KeyBindings.rebind("block", KeyBindings.event_from_text("mouse4"))
+	check(KeyBindings.label("block") == "Mouse 4" and KeyBindings.short("block") == "M4", "teclas: bloquear no Mouse 4")
+	# gravar só o que mudou e ler de volta
+	KeyBindings.save()
+	var cfg := ConfigFile.new()
+	check(cfg.load(KeyBindings.cfg_path) == OK and cfg.has_section("keys") and cfg.get_section_keys("keys").size() == 3
+		and not cfg.has_section_key("keys", "jump"), "teclas: grava só as 3 trocadas (seção keys)")
+	KeyBindings.reset_defaults()
+	check(KeyBindings.label("potion_1") == "F1", "teclas: reset volta a F1")
+	KeyBindings.load_settings()
+	check(KeyBindings.label("potion_1") == "F2" and KeyBindings.label("potion_2") == "Z" and KeyBindings.label("block") == "Mouse 4",
+		"teclas: lê de volta (F2, Z, Mouse 4)")
+	var rev := KeyBindings.revision
+	KeyBindings.rebind("potion_1", z)
+	check(KeyBindings.revision > rev, "teclas: troca sobe a revisão (barra e HUD redesenham)")
+	# chat/janela aberta: a tecla trocada não age; fora dela age
+	var pc := PlayerController.new()
+	pc.ui_blocking = true
+	pc._unhandled_input(press)
+	var blocked: bool = pc._pending.potion_slot == -1
+	pc.ui_blocking = false
+	pc._unhandled_input(press)
+	check(blocked and pc._pending.potion_slot == 0, "teclas: Z com o chat aberto não bebe poção; fora do chat bebe a 1")
+	var hk := InputEventKey.new()
+	hk.physical_keycode = KEY_H
+	hk.pressed = true
+	pc._pending = InputCommand.new()
+	pc._unhandled_input(hk)
+	check(pc._pending.mount, "teclas: H (ação mount) monta")
+	pc.free()
+	# aba Controles: clicar e apertar a tecla
+	check(SettingsPanel.tab_index("controls") == 2 and SettingsPanel.tab_index("2") == 2 and SettingsPanel.tab_index("x") == -1, "teclas: --settings_tab aceita id e índice")
+	var sp := SettingsPanel.create()
+	add_child(sp)
+	sp.show_tab(2)
+	check(sp.controls_box.visible and not sp.general_box.visible and sp.key_buttons.size() == KeyBindings.actions().size(), "teclas: aba Controles lista todas as ações")
+	sp._start_capture("potion_3")
+	check((sp.key_buttons["potion_3"] as Button).text.begins_with("pressione"), "teclas: clicar pede uma tecla")
+	var x := InputEventKey.new()
+	x.physical_keycode = KEY_X
+	x.pressed = true
+	var msg := sp.apply_capture(x)
+	check(KeyBindings.label("potion_3") == "X" and (sp.key_buttons["potion_3"] as Button).text == "X" and msg.contains("X"), "teclas: a próxima tecla vira a da ação")
+	sp._start_capture("potion_3")
+	sp.cancel_capture()
+	check(KeyBindings.label("potion_3") == "X" and sp.capturing == "", "teclas: cancelar não muda nada")
+	sp._restore_keys()
+	check(KeyBindings.label("potion_1") == "F1" and KeyBindings.label("potion_3") == "F3" and (sp.key_buttons["potion_1"] as Button).text == "F1", "teclas: Restaurar padrões")
+	cfg = ConfigFile.new()
+	check(cfg.load(KeyBindings.cfg_path) == OK and not cfg.has_section("keys"), "teclas: padrões não gravam nada")
+	sp.free()
+	check(KeyBindings.apply_spec("potion_1:Z,nada:Q") == 1 and KeyBindings.label("potion_1") == "Z", "teclas: --bind=potion_1:Z")
+	KeyBindings.reset_defaults()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(KeyBindings.cfg_path))
+	KeyBindings.cfg_path = old_path
+
 ## Acessibilidade (AccessSettings; production/qa/combat-best-practices-2026-11-23.md §8, critério 15): padrões = o de antes,
 ## salvar/ler num arquivo próprio (nunca o settings.cfg de verdade), tremor 0 = câmera sem deslocamento, efeitos dos aliados
 ## nunca escondem os seus nem os de monstro (avisos), modos de contraste ligam um padrão diferente por mecânica.
@@ -2499,8 +2602,6 @@ func _check_loading_art(gd) -> void:
 			var md: MapDef = gd.maps.get(zid)
 			if md == null and zid == MapsCatalog.MARSH_ID and not MapsCatalog.marsh_ready():
 				continue        # Brejo: a foto já existe, o mapa entra quando a Floresta ganhar a garganta sul (MapsCatalog.marsh_ready)
-			if md == null and zid == "field_oaths":
-				continue        # Campo dos Juramentos: Blender pronto, catálogo ainda não (WP7 dados tira esta exceção; o portal do Bastião sai em _drop_dangling_portals)
 			if md == null:
 				bad_zone.append("%s: mapa não existe" % zid)
 				continue
@@ -3035,6 +3136,8 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_marsh_content(gd, sim)
 	_reseed(sim, "_check_viveiro")
 	_check_viveiro(gd, sim)
+	_reseed(sim, "_check_field_oaths")
+	_check_field_oaths(gd, sim)
 	_reseed(sim, "_check_tree_spacing")
 	_check_tree_spacing()
 	_reseed(sim, "_check_web_fog")
@@ -3076,6 +3179,8 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_settings_panel(gd, sim)
 	_reseed(sim, "_check_accessibility_settings")
 	_check_accessibility_settings(sim)
+	_reseed(sim, "_check_key_bindings")
+	_check_key_bindings(sim)
 	_reseed(sim, "_check_vfx_v3v5")
 	_check_vfx_v3v5()
 	_reseed(sim, "_check_loading_steps")
@@ -3403,7 +3508,7 @@ func _check_zone(gd, sim) -> void:
 	_check_dawn_factions(gd)
 	_check_dawn_conquest(gd)
 	_check_dawn_relief(gd)
-	_check_raid_sync(gd)
+	_check_bastion_siege(gd)
 	_check_dawn_towers(gd)
 	_check_dawn_clean_fronts(gd)
 	_check_signature(gd, sim)
@@ -9556,68 +9661,153 @@ func _check_dawn_towers(gd) -> void:
 		w2.tick(0.05)
 	check(boss.call().is_empty(), "Covil: retomado, o chefe não volta")
 
-## Bastião (2026-11-21): os três lados atacam juntos num relógio único (Balance.RAID_SYNC_MAPS); o relógio para
-## enquanto alguma leva vive e com o jogador fora do mapa; fortaleza retomada cala só o lado dela.
-func _check_raid_sync(gd) -> void:
-	var ws := WorldSim.new()
-	ws.rng.seed = 11
-	ws.load_map(gd.maps[GameData.town_map_id()])
+## Cerco Vivo do Bastião (design/gdd/bastiao-cerco-vivo.md AC-1..AC-5; SIM CHANGES S1/S2): dados, pressão 0-4, trecho fechado
+## por quest de outro mapa pulado sem calmaria, tamanho x1,0 em toda pressão (D4), p0 sem leva nem assédio, Porto/Posto nas tabelas gerais.
+func _check_bastion_siege(gd) -> void:
 	var def: MapDef = gd.maps["field_ruins"]
-	var m: Dictionary = ws.load_map(def)
+	var cfg: Dictionary = def.siege
+	check(not cfg.is_empty() and not Balance.RAID_SYNC_MAPS.has("field_ruins") and not cfg.has("gate_route") and not cfg.has("close_all") and bool(cfg.get("skip_closed", false)),
+		"AC-1 Bastião: Cerco Vivo (SIEGE) sem relógio único, sem gate_route/close_all, com skip_closed")
+	if cfg.is_empty():
+		return
+	var routes := {}
+	for r in RaidSystem.routes(def):
+		routes[str(r.get("side", ""))] = r
+	var arrivals: Array = [def.spawn_point]
+	for mid in gd.maps:
+		for pt in gd.maps[mid].portals:
+			if str(pt.get("target_map", "")) == "field_ruins":
+				arrivals.append(pt["target_pos"])
+	var gap_of := func(p: Vector3) -> float:
+		var d := INF
+		for q in arrivals:
+			d = minf(d, Vector2(p.x - q.x, p.z - q.z).length())
+		return d
+	check((cfg["segments"] as Array).size() == 3, "AC-1 Bastião: 3 trechos (pântano, ossos, gelo)")
+	for seg in cfg["segments"]:
+		var r: Dictionary = routes.get(str(seg["route"]), {})
+		check(gd.quests.has(seg["quest"]) and str(r.get("unless", "")) == str(seg["quest"]) and not (r.get("waves", []) as Array).is_empty() and str(seg.get("label", "")) != "",
+			"AC-1 Bastião/%s: rota %s com o unless do chefe, levas e nome" % [seg["id"], seg["route"]])
+		var near := INF
+		for g in def.town_gates:
+			near = minf(near, (g as Vector3).distance_to(r.get("target", Vector3(9999, 0, 9999))))
+		check(near <= 20.0, "AC-5 Bastião/%s: alvo a %.1f m de um portão (<= 20)" % [seg["id"], near])
+	for side in routes:
+		var gap: float = gap_of.call(routes[side]["from"])
+		check(gap >= 25.0, "AC-5 Bastião: saída de %s a %.1f m de chegada/spawn (>= 25)" % [side, gap])
+	check(str(routes.get(str(cfg["low_route"]), {}).get("unless", "")) == "dw_gates", "AC-1 Bastião: patrulha_oeste com unless dw_gates")
+	var hr: Dictionary = routes.get(str(cfg["harass_route"]), {})
+	check(str(hr.get("kind", "")) == "harass" and str(hr.get("unless", "")) == "dw_bones_boss", "AC-1 Bastião: assédio kind harass, só enquanto a Fortaleza dos Ossos resiste")
+	check(gd.monsters.has(str(cfg["harass_mob"])) and gd.monsters[cfg["harass_mob"]].ranged and gd.skills.has(str(cfg["volley_skill"])), "Bastião: arqueiro de osso e tema da salva existem")
+	check(is_equal_approx(float(def.sortie.get("cooldown", 0.0)), 270.0), "R10 Bastião: surtida com recarga de 270 s")
+	check(def.npcs.filter(func(n): return n.get("responder", false)).size() == MapsCatalog.DAWN_SIEGE_RESPONDERS.size() and MapsCatalog.DAWN_SIEGE_RESPONDERS.size() >= 2,
+		"R11 Bastião: reserva do portão leste corre para o portão atacado")
+	check(def.spawners.filter(func(sp): return sp.get("horn", false)).size() == 3, "R9 Bastião: 3 rondas de batedores com trompa")
+	check(gd.quests.has("b_walls") and gd.quests["b_walls"].type == QuestDef.Type.DEFEND and gd.quests["b_walls"].target_id == "field_ruins" and gd.quests["b_walls"].repeatable,
+		"R13 Bastião: Muralhas da Aurora (DEFEND repetível)")
+	# buff de moral por lugar (mesmo efeito, nome/visual próprios)
+	var port: MapDef = gd.maps["city_port"]
+	var post: MapDef = gd.maps["field_forest"]
+	check(SiegeSystem.morale_buff(port) == "colonia_de_pe" and SiegeSystem.morale_buff(post) == "posto_de_pe" and SiegeSystem.morale_buff(def) == "muralha_de_pe",
+		"moral do cerco: Colônia de Pé (Porto), Posto de Pé (Posto), Muralha de Pé (Bastião)")
+	for mb in SiegeSystem.MORALE_BUFFS:
+		check(BuffLooks.LOOKS.has(mb) and (mb == SiegeSystem.MORALE_BUFF or ResourceLoader.exists("res://assets/icons/status_%s.png" % mb)),
+			"moral do cerco: %s com visual no corpo e ícone (make_icons -- --only=status_%s)" % [mb, mb])
+	var who := SimEntity.new()
+	who.buffs.append({"id": "muralha_de_pe", "remaining": 10.0, "xp_pct": Balance.SIEGE_MORALE_XP_PCT, "map": "field_ruins"})
+	check(is_equal_approx(SiegeSystem.xp_mult(who, "field_ruins"), 1.0 + Balance.SIEGE_MORALE_XP_PCT / 100.0) and is_equal_approx(SiegeSystem.xp_mult(who, "city_port"), 1.0),
+		"moral do cerco: Muralha de Pé dá +XP só no Bastião")
+	# S1: tabelas por mapa; Porto/Posto seguem as gerais
+	for p in [1, 2, 3]:
+		check(is_equal_approx(SiegeSystem.ptab(port, "size_mult", Balance.SIEGE_SIZE_MULT, p, 1.0), float(Balance.SIEGE_SIZE_MULT[p]))
+			and is_equal_approx(SiegeSystem.ptab(post, "every_mult", Balance.SIEGE_EVERY_MULT, p, 1.0), float(Balance.SIEGE_EVERY_MULT[p]))
+			and is_equal_approx(SiegeSystem.ptab(post, "big_nth", Balance.SIEGE_BIG_NTH, p, 1.0), float(Balance.SIEGE_BIG_NTH[p])),
+			"AC-6 S1: Porto e Posto usam as tabelas gerais na pressão %d" % p)
+	for p in [2, 3, 4]:
+		check(is_equal_approx(SiegeSystem.ptab(def, "size_mult", Balance.SIEGE_SIZE_MULT, p, 0.0), 1.0), "D4 Bastião: tamanho x1,0 na pressão %d" % p)
+	var rr := {"every": 150.0, "jitter": 20.0}
+	check(is_equal_approx(SiegeSystem.wave_interval(rr, 4, 0.5, def), 100.0) and is_equal_approx(SiegeSystem.wave_interval(rr, 3, 0.0, def), 115.5)
+		and is_equal_approx(SiegeSystem.wave_interval(rr, 2, 0.0, def), 150.0) and is_equal_approx(SiegeSystem.wave_interval(rr, 3, 0.0, port), 150.0 * float(Balance.SIEGE_EVERY_MULT[3])),
+		"F1 Bastião: 150 / 115 / 90+10 s por pressão (S1); Porto segue a tabela geral")
+	check(not port.siege.get("skip_closed", false) and not post.siege.get("skip_closed", false), "AC-6 S2: Porto e Posto sem skip_closed")
+	# AC-2: pressão por conjunto de quests
+	var ws := _siege_world(gd, "field_ruins")
+	var m: Dictionary = ws.maps["field_ruins"]
 	m["spawners"].clear()
 	for e in m["entities"].duplicate():
 		if e.kind == SimEntity.Kind.MONSTER:
 			ws.despawn(e)
-	var n_routes := RaidSystem.routes(def).size()
-	check(Balance.RAID_SYNC_MAPS.has("field_ruins") and n_routes == 3, "Bastião: três rotas num relógio único")
-	ws.player = ws.spawn_player(gd.classes["paladin"], "Sino", GameData.town_map_id())
-	var live := func() -> Array:
-		var out: Array = []
-		for i in n_routes:
-			if not (RaidSystem.state(m, i)["ids"] as Array).is_empty():
-				out.append(i)
-		return out
-	RaidSystem.sync_state(m)["timer"] = 0.2
-	for i in 20:
-		ws.tick(0.05)
-	check(live.call().is_empty(), "Bastião: relógio parado com o jogador fora do mapa")
-	ws.place_loaded(ws.player, def.id, def.spawn_point)
-	for i in 10:
-		ws.tick(0.05)
-	check(live.call().size() == 3, "Bastião: os três lados soltam a leva juntos (%s)" % str(live.call()))
-	var sizes: Array = []
-	for i in n_routes:
-		sizes.append((RaidSystem.state(m, i)["ids"] as Array).size())
-	check(sizes.all(func(x): return x >= 38), "Bastião: levas maiores (%s)" % str(sizes))
-	# uma leva acaba, as outras vivem: o relógio não anda
-	var first: int = live.call()[0]
-	for id in RaidSystem.state(m, first)["ids"]:
-		ws.despawn(ws.entities.get(id))
-	var t0 := float(RaidSystem.sync_state(m)["timer"])
-	for i in 40:
-		ws.tick(0.05)
-	check(RaidSystem.state(m, first)["ids"].is_empty() and live.call().size() == 2 and is_equal_approx(float(RaidSystem.sync_state(m)["timer"]), t0),
-		"Bastião: relógio parado enquanto alguma leva vive")
-	# todas acabam: relógio volta ao intervalo; o Covil retomado cala só o oeste
-	for i in n_routes:
-		for id in RaidSystem.state(m, i)["ids"]:
-			ws.despawn(ws.entities.get(id))
-	ws.tick(0.05)
-	var every := float(Balance.RAID_SYNC_MAPS["field_ruins"]["every"])
-	var jit := float(Balance.RAID_SYNC_MAPS["field_ruins"]["jitter"])
-	var tm := float(RaidSystem.sync_state(m)["timer"])
-	check(live.call().is_empty() and tm > every - jit - 1.0 and tm <= every + jit, "Bastião: relógio volta ao intervalo (%.0f s)" % tm)
+	for row in [[[], 1], [["dw_gates"], 2], [["dw_gates", "dw_ghoul_boss"], 3], [["dw_gates", "dw_bones_boss"], 3], [["dw_gates", "dw_frost_boss"], 3],
+			[["dw_gates", "dw_ghoul_boss", "dw_bones_boss"], 4], [["dw_gates", "dw_ghoul_boss", "dw_frost_boss"], 4], [["dw_gates", "dw_bones_boss", "dw_frost_boss"], 4],
+			[["dw_gates"] + MapsCatalog.DAWN_FORT_QUESTS, 0]]:
+		ws.player.quests_completed.clear()
+		ws.player.quests_completed.append_array(row[0])
+		check(SiegeSystem.pressure(ws, def) == row[1], "AC-2 Bastião: quests %s -> pressão %d (deu %d)" % [row[0], row[1], SiegeSystem.pressure(ws, def)])
+	# AC-3/S2: Covil concluído FORA do Bastião fecha o trecho; o revezamento nunca cai nele nem perde a vez
+	ws.player.quests_completed.clear()
+	ws.player.quests_completed.append("dw_gates")
+	ws.player.map_id = "fort_ghoul"                      # concluída no forte (só a lista de quests do personagem conta)
 	ws.player.quests_completed.append("dw_ghoul_boss")
-	RaidSystem.sync_state(m)["timer"] = 0.1
-	for i in 10:
-		ws.tick(0.05)
-	var sides: Array = live.call().map(func(i): return str(RaidSystem.route_def(def, i).get("side", "")))
-	check(sides.size() == 2 and not ("ghoul" in sides), "Bastião: fortaleza retomada cala só o lado dela (%s)" % str(sides))
-	for i in n_routes:
-		for id in RaidSystem.state(m, i)["ids"]:
+	ws.player.map_id = "field_ruins"
+	var ss := SiegeSystem.status(ws, "field_ruins")
+	check(bool((ss.get("segments", {}) as Dictionary).get("ghoul", false)) and not bool(ss["segments"].get("bones", true)) and int(ss["p"]) == 3,
+		"AC-3 Bastião: Covil concluído fora fecha só o trecho do pântano (p3)")
+	var st := SiegeSystem.state(m)
+	var picked: Array = []
+	for k in 10:
+		var i := SiegeSystem.next_route(ws, m, 3)
+		picked.append(str(RaidSystem.route_def(def, i).get("side", "")) if i >= 0 else "-1")
+		st["side"] = int(st["side"]) + 1
+	check(not picked.has("cerco_ghoul") and not picked.has("-1") and picked.count("cerco_bones") == 5 and picked.count("cerco_frost") == 5,
+		"AC-3/S2 Bastião: 10 turnos sem o pântano fechado, sem turno perdido, os dois abertos revezam %s" % str(picked))
+	# AC-4: a mesma rota nasce com o mesmo número em p2, p3 e p4 (D4)
+	var fi := SiegeSystem.route_index(def, "cerco_frost")
+	RaidSystem.state(m)["force_level"] = 22
+	var sizes: Array = []
+	for qs in [["dw_gates"], ["dw_gates", "dw_ghoul_boss"], ["dw_gates", "dw_ghoul_boss", "dw_bones_boss"]]:
+		ws.player.quests_completed.clear()
+		ws.player.quests_completed.append_array(qs)
+		var rs := RaidSystem.state(m, fi)
+		rs["n"] = 0
+		RaidSystem.start_raid(ws, m, fi)
+		sizes.append(int(rs["total"]))
+		for id in rs["ids"]:
 			ws.despawn(ws.entities.get(id))
-	# outros mapas seguem com relógio por rota
-	check(not Balance.RAID_SYNC_MAPS.has("field_forest"), "Floresta: relógio por rota (sem ataque simultâneo)")
+		rs["ids"] = []
+		rs["pending"] = []
+	check(sizes[0] == 32 and sizes[1] == sizes[0] and sizes[2] == sizes[0], "AC-4 Bastião: leva do gelo igual em p2/p3/p4 (%s)" % str(sizes))
+	var big := RaidSystem.state(m, fi)
+	big["n"] = 1                                  # p4: leva grande a cada 2 levas do mapa
+	RaidSystem.start_raid(ws, m, fi)
+	check(int(big["total"]) == 35, "F2 Bastião p4: leva grande a cada 2 (+3 cavaleiros = %d)" % int(big["total"]))
+	for id in big["ids"]:
+		ws.despawn(ws.entities.get(id))
+	big["ids"] = []
+	big["pending"] = []
+	# p0: 600 s sem leva nem assédio
+	ws.player.quests_completed.clear()
+	ws.player.quests_completed.append_array(["dw_gates"] + MapsCatalog.DAWN_FORT_QUESTS)
+	st["wave_t"] = 0.0
+	st["harass_t"] = 0.0
+	var waves := 0
+	var shots := 0
+	for k in 600:
+		SiegeSystem.update(ws, m, 1.0)
+		if SiegeSystem.active_route(m) >= 0:
+			waves += 1
+		shots += (st["shooters"] as Array).size()
+	check(waves == 0 and shots == 0, "AC-2 Bastião p0: 600 s sem leva (%d) e sem assédio (%d)" % [waves, shots])
+	# p2: assédio com os arqueiros de osso; p4 (Ossos retomada): a rota do assédio não vale
+	ws.player.quests_completed.clear()
+	ws.player.quests_completed.append("dw_gates")
+	var sh := SiegeSystem.start_harass(ws, m)
+	check(sh.size() == int(Balance.SIEGE_MAP["field_ruins"]["harass_shooters"]), "Bastião p2: assédio com %d arqueiros de osso" % sh.size())
+	for id in sh:
+		ws.despawn(ws.entities.get(id))
+	st["shooters"] = []
+	ws.player.quests_completed.append_array(["dw_ghoul_boss", "dw_bones_boss"])
+	check(not WorldState.active(ws, hr), "Bastião p4: com a Fortaleza dos Ossos retomada não há assédio")
+	ws.free()
 
 func _check_dawn_relief(gd) -> void:
 	var ws := WorldSim.new()
@@ -9628,37 +9818,12 @@ func _check_dawn_relief(gd) -> void:
 	for e in m["entities"].duplicate():
 		if e.kind == SimEntity.Kind.MONSTER:
 			ws.despawn(e)
-	var bones := -1
-	for i in RaidSystem.routes(def).size():
-		if RaidSystem.route_def(def, i).get("side", "") == "bones":
-			bones = i
-	var sizes: Array = []
-	for k in [0, 1, 2]:
-		RaidSystem.state(m)["force_reclaimed"] = k
-		RaidSystem.state(m, bones)["n"] = 1
-		var ids := RaidSystem.start_raid(ws, m, bones)
-		sizes.append(ids.size())
-		for id in ids:
-			ws.despawn(ws.entities.get(id))
-		RaidSystem.state(m, bones)["ids"] = []
-	var cap: int = int(Balance.RAID_WAVE_CAP_MAP.get("field_ruins", Balance.RAID_WAVE_CAP))
-	var last_cap: int = maxi(Balance.RAID_WAVE_CAP_LAST, cap)
-	check(sizes[0] == 38 and sizes[1] >= 57 and sizes[1] <= 61 and sizes[2] > sizes[1] and sizes[2] <= last_cap + 7,
-		"fúria: leva dos Ossos 38 -> ~57 -> último front (as outras duas retomadas) no teto, com elites e líder %s" % str(sizes))
-	RaidSystem.state(m)["force_reclaimed"] = 5
-	var big := RaidSystem.start_raid(ws, m, bones)
-	check(big.size() <= last_cap + 7, "fúria: teto da leva do último front (%d)" % big.size())
-	check(big.any(func(id): return ws.entities.has(id) and ws.entities[id].monster_def.elite_of == str(RaidSystem.route_def(def, bones).get("leader", ""))),
-		"fúria: o último front vem com o líder elite")
-	for id in big:
-		ws.despawn(ws.entities.get(id))
-	RaidSystem.state(m, bones)["ids"] = []
-	RaidSystem.state(m).erase("force_reclaimed")
+	SiegeSystem.state(m)["hold"] = true                  # Cerco Vivo: o relógio do cerco não solta levas aqui (bastiao-cerco-vivo)
+	check(RaidSystem.reclaimed(ws, m) == 0, "Bastião: sob o cerco não há fúria (forte retomado sobe a pressão, não a leva)")
 	# reforço: só a fortaleza retomada manda gente, e ela desce até a praça
 	ws.player = ws.spawn_player(gd.classes["paladin"], "Aurora", def.id)
 	for i in RaidSystem.routes(def).size():
 		RaidSystem.state(m, i)["timer"] = 9999.0
-	RaidSystem.sync_state(m)["timer"] = 9999.0
 	var relief := func() -> Array:
 		return m["entities"].filter(func(e): return e.guard and str(e.npc_data.get("id", "")).begins_with("assault_"))
 	for i in int(30.0 * 20):
@@ -9678,22 +9843,23 @@ func _check_dawn_relief(gd) -> void:
 		return m["entities"].filter(func(e): return e.guard and e.npc_data.get("sortie", false))
 	var frost := -1
 	for i in RaidSystem.routes(def).size():
-		if RaidSystem.route_def(def, i).get("side", "") == "frost":
+		if RaidSystem.route_def(def, i).get("side", "") == "cerco_frost":
 			frost = i
 	var st := RaidSystem.state(m, frost)
 	var wave := RaidSystem.start_raid(ws, m, frost)
 	for id in wave:                                   # leva já na muralha
-		ws.entities[id].position = RaidSystem.route_def(def, frost)["target"] + Vector3(0, 0, 40)
+		ws.entities[id].position = RaidSystem.route_def(def, frost)["target"] + Vector3(0, 0, 10)
 	ws.tick(0.05)
 	var so: Array = sortie.call()
 	check(so.size() == 20, "surtida: 20 soldados saem da catedral (%d)" % so.size())
 	check(so.all(func(e): return (e.npc_data["march"][1] as Vector3).distance_to(RaidSystem.gate_point(def, frost)) < 0.5), "surtida vai ao portão atacado")
-	check(float(m.get("sortie_cd", 0.0)) > 170.0, "surtida: recarga de 3 min")
+	check(float(m.get("sortie_cd", 0.0)) > 260.0, "surtida: recarga de 4,5 min (bastiao-cerco-vivo R10)")
 	st["arrived"] = false
 	ws.tick(0.05)
 	check(sortie.call().size() == 20, "surtida: a segunda chegada dentro da recarga não solta outra")
 	for id in wave:
 		ws.despawn(ws.entities.get(id))
+	st["pending"] = []                                # escalões que faltavam (SIEGE_STAGGER) não vêm
 	for i in int((Balance.RAID_SORTIE_LINGER + 5.0) * 20):
 		ws.tick(0.05)
 	check(sortie.call().is_empty(), "surtida: leva acabou, os soldados voltam e somem")
@@ -9701,9 +9867,9 @@ func _check_dawn_relief(gd) -> void:
 func _check_dawn_conquest(gd) -> void:
 	var bd: MapDef = gd.maps["field_ruins"]
 	var routes := RaidSystem.routes(bd)
-	check(routes.size() == 3, "Bastião: investida pelos três lados (%d)" % routes.size())
+	check(routes.size() == 5 and not bd.siege.is_empty(), "Bastião: Cerco Vivo com 3 fronts, patrulha e assédio (%d rotas)" % routes.size())
 	var sides := routes.map(func(r): return [str(r.get("side", "")), str(r.get("unless", ""))])
-	check(sides.has(["ghoul", "dw_ghoul_boss"]) and sides.has(["bones", "dw_bones_boss"]) and sides.has(["frost", "dw_frost_boss"]), "Bastião: cada front cala com a fortaleza dele %s" % str(sides))
+	check(sides.has(["cerco_ghoul", "dw_ghoul_boss"]) and sides.has(["cerco_bones", "dw_bones_boss"]) and sides.has(["cerco_frost", "dw_frost_boss"]), "Bastião: cada front cala com a fortaleza dele %s" % str(sides))
 	var garrison := bd.npcs.filter(func(n): return n.has("fighter"))
 	check(garrison.size() >= 24 and garrison.all(func(n): return float(n.get("respawn", 99.0)) <= 15.0 and str(n.get("model", "")).begins_with("mob_loyal_")),
 		"Bastião: guarnição da Aurora (%d) renasce em até 15 s" % garrison.size())
@@ -10666,6 +10832,7 @@ func _check_dash_charge_refill(gd, sim) -> void:
 			t += dt
 	var a: SimEntity = sim.spawn_bot(gd.classes["assassin"], "Recarga", "city_aldara", Vector3(0, 0, 4), 30)
 	a.brain = null
+	a.talents.clear()                       # só o Passo Duplo: a build sorteada do bot (nó Passo Extra etc.) mudava com o conteúdo novo
 	a.talents["ass_t_double_step"] = true
 	var full: float = Balance.DASH_COOLDOWN * float(sim.dash_params(a)["cooldown_mult"])
 	check(int(sim.dash_params(a)["charges"]) == 2, "dash: Passo Duplo dá 2 cargas")
@@ -15552,7 +15719,7 @@ func _check_review_fixes(gd, sim) -> void:
 	for mid in gd.maps:
 		for pt in gd.maps[mid].portals:
 			if pt.has("gate"):
-				check(pt["id"].begins_with("to_") and gd.maps[pt["target_map"]].parent_map != "" and pt["target_map"] != gd.maps[mid].parent_map or pt["target_map"] in ["city_port", "field_forest", "field_ruins", "elf_city", "fort_ghoul", "fort_bones", "fort_frost", "lich_citadel", "field_steppe", "fort_trolls", "fort_fire", "fort_war", "field_kharzun", "city_lumeria", "field_parade", "rift_garden", "field_marsh"] or (pt["id"].begins_with("door_in_") and gd.maps[pt["target_map"]].interior), "portão %s só na ida" % pt["id"])     # porta trancada de casa (Salão do Duque): só a entrada tem portão
+				check(pt["id"].begins_with("to_") and gd.maps[pt["target_map"]].parent_map != "" and pt["target_map"] != gd.maps[mid].parent_map or pt["target_map"] in ["city_port", "field_forest", "field_ruins", "elf_city", "fort_ghoul", "fort_bones", "fort_frost", "lich_citadel", "field_steppe", "fort_trolls", "fort_fire", "fort_war", "field_kharzun", "city_lumeria", "field_parade", "rift_garden", "field_marsh", "field_oaths"] or (pt["id"].begins_with("door_in_") and gd.maps[pt["target_map"]].interior), "portão %s só na ida" % pt["id"])     # porta trancada de casa (Salão do Duque): só a entrada tem portão
 	for x in [chief, near, mob, other, nec, ber, pal, bis]:
 		sim.despawn(x)
 
@@ -16449,7 +16616,7 @@ func _check_dry_land(gd, sim) -> void:
 ## Mapa-múndi em "zonas" (x = leste, y = sul; 1 = uma zona de ~240 m). Dois continentes: Aldara (Ato I) e Kharzun (Ato II),
 ## ligados só por navio. Zona nova de superfície = uma linha aqui (o check exige).
 const WORLD := {
-	"field_ruins": Vector2(-1.0, 0.0), "city_aldara": Vector2(0.0, 0.0), "field_hollow": Vector2(-0.5, 1.0), "field_crab_beach": Vector2(0.1, 1.1), "field_grove": Vector2(2.0, 0.0), "field_forest": Vector2(1.0, 0.0), "elf_city": Vector2(1.0, -1.0), "field_marsh": Vector2(0.85, 1.0),
+	"field_ruins": Vector2(-1.0, 0.0), "city_aldara": Vector2(0.0, 0.0), "field_hollow": Vector2(-0.5, 1.0), "field_crab_beach": Vector2(0.1, 1.1), "field_grove": Vector2(2.0, 0.0), "field_forest": Vector2(1.0, 0.0), "elf_city": Vector2(1.0, -1.0), "field_marsh": Vector2(0.85, 1.0), "field_oaths": Vector2(-0.47, 0.85),
 	"fort_ghoul": Vector2(-2.0, 0.0), "fort_bones": Vector2(-1.0, -1.0), "fort_frost": Vector2(-1.0, 1.0), "lich_citadel": Vector2(-0.35, -0.7),
 	"field_coast": Vector2(9.0, 0.0), "city_port": Vector2(10.0, 0.1), "field_steppe": Vector2(9.3, -1.0),
 	"fort_trolls": Vector2(8.3, -1.0), "fort_war": Vector2(10.15, -1.5), "fort_fire": Vector2(10.1, -0.4), "field_kharzun": Vector2(9.3, -2.0),
@@ -16541,8 +16708,10 @@ func _check_siege_data(gd) -> void:
 		for r in RaidSystem.routes(def):
 			routes[str(r.get("side", ""))] = r
 		var segs: Array = cfg.get("segments", [])
-		check(segs.size() >= 2 and gd.quests.has(str(cfg.get("close_all", ""))), "%s: cerco com trechos (%d) e quest que fecha tudo" % [mid, segs.size()])
+		check(segs.size() >= 2 and (gd.quests.has(str(cfg.get("close_all", ""))) or cfg.get("skip_closed", false)), "%s: cerco com trechos (%d) e quest que fecha tudo (ou trecho fechado pulado)" % [mid, segs.size()])
 		for key in ["gate_route", "low_route", "harass_route"]:
+			if key == "gate_route" and cfg.get("skip_closed", false):      # Bastião: trecho fechado = lado calado, sem portão
+				continue
 			check(routes.has(str(cfg.get(key, ""))), "%s: cerco.%s é uma rota do mapa" % [mid, key])
 		check(str(routes.get(str(cfg.get("harass_route", "")), {}).get("kind", "")) == "harass", "%s: rota do assédio é kind harass (sem levas próprias)" % mid)
 		check(gd.monsters.has(str(cfg.get("harass_mob", ""))) and gd.monsters[cfg["harass_mob"]].ranged, "%s: atirador do assédio é monstro à distância que existe" % mid)
@@ -16553,7 +16722,7 @@ func _check_siege_data(gd) -> void:
 			var cond := SiegeSystem.segment_cond(def, seg)
 			var sid: String = seg["id"]
 			check(gd.quests.has(seg["quest"]) and str(seg.get("label", "")) != "", "AC-1 %s/%s: quest existe e o trecho tem nome" % [mid, sid])
-			if str(cfg.get("kind", "")) != "gates":          # cerco em portões (Posto, elf-siege-posto): o trecho é um portão, sem obra nem colisor
+			if not (str(cfg.get("kind", "")) in ["gates", "fronts"]):          # cerco em portões (Posto, Bastião): o trecho é um portão, sem obra nem colisor
 				check(str(tags.get("pal_%s_obra" % sid, {}).get("unless", "")) == cond and str(tags.get("pal_%s_pronta" % sid, {}).get("if", "")) == cond,
 					"AC-1 %s/%s: tags pal_%s_obra (unless) e pal_%s_pronta (if) com a condição do trecho" % [mid, sid, sid, sid])
 				var cols: int = def.obstacles.filter(func(o): return o.get("solid", true) and str(o.get("if", "")) == cond).size()
@@ -16564,7 +16733,7 @@ func _check_siege_data(gd) -> void:
 		for mk in def.fx:
 			check(SiegeFx.LOOKS.has(mk["kind"]), "%s: marcador de efeito %s tem visual (SiegeFx.LOOKS)" % [mid, mk["kind"]])
 		if str(cfg.get("kind", "")) != "gates" or not def.fx.is_empty():     # Posto: FX vêm com o pedido do Blender (elf-siege-posto R13)
-			check(def.fx.filter(func(mk): return mk["kind"] == "fire").size() >= Balance.SIEGE_FIRE_SPOTS and def.fx.any(func(mk): return mk["kind"] == "smoke"),
+			check(def.fx.filter(func(mk): return mk["kind"] == "fire").size() >= Balance.SIEGE_FIRE_SPOTS and (str(cfg.get("kind", "")) == "fronts" or def.fx.any(func(mk): return mk["kind"] == "smoke")),
 				"%s: marcadores FX de fogo (Chamas) e de fumaça no horizonte" % mid)
 		check(def.fx.filter(func(mk): return mk["kind"] != "fire").size() + Balance.SIEGE_FIRE_SPOTS <= SiegeFx.MAX_EMITTERS, "AC-15 %s: no máximo %d emissores de fumaça/fogo" % [mid, SiegeFx.MAX_EMITTERS])
 		var horns: int = def.spawners.filter(func(sp): return sp.get("horn", false)).size()
@@ -19660,11 +19829,11 @@ func _check_crab_beach_more(gd) -> void:
 		now += int(sp["count"])
 	check(ok, "crab_beach: cada spawner = JSON x %.1f x %.1f, raio x √%.1f (chefe único fica 1)" % [Balance.SPAWN_COUNT_MULT, more, more])
 	check(now >= raw * 2 - 2, "crab_beach: %d monstros (antes %d)" % [now, raw])
-	var hollow: MapDef = gd.maps["field_hollow"]
-	var hz: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/zones/field_hollow.json"))
+	var hollow: MapDef = gd.maps["field_forest"]       # mapa sem SPAWN_MAP_MULT (a Mata dos Zumbidos também tem x2 desde 2026-11-25)
+	var hz: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/zones/field_forest.json"))
 	var h0: Dictionary = hz["spawners"][0]
 	check(int(hollow.spawners[0]["count"]) == (int(h0["count"]) if int(h0["count"]) <= 1 else int(round(int(h0["count"]) * Balance.SPAWN_COUNT_MULT))),
-		"crab_beach: outro mapa (Ravina) não muda")
+		"crab_beach: outro mapa (Floresta) não muda")
 	for mid in ["crab", "crab_hermit", "crab_sand"]:
 		var q: QuestDef = gd.quests.get("h_" + mid)
 		check(q != null and q.giver_npc == "beach_fisher" and q.repeatable, "crab_beach: caçada de %s com o Pescador Joca (%s)" % [mid, q.giver_npc if q else "sem quest"])
@@ -28617,6 +28786,9 @@ func _check_field_hollow(gd, sim) -> void:
 	if sw:
 		var bs: Dictionary = sw.effects.get("boss_summon", {})
 		check(bs.get("id", "") == "hive_wasp" and gd.monsters["hive_wasp"].xp == 0, "Colmeia: invoca Vespa da Colmeia sem XP")
+		# 2026-11-25 (pedido do usuário): Colmeia mais resistente e mais rápida; mapa com o dobro de monstros
+		check(hv.hp >= 1800 and sw.cooldown <= 5.0 and int(bs.get("max", 0)) >= 6, "Colmeia: 1800+ de vida, Enxame a cada 5 s, até 6 vespas (%d, %.1f s, %d)" % [hv.hp, sw.cooldown, int(bs.get("max", 0))])
+		check(float(Balance.SPAWN_MAP_MULT.get("field_hollow", 1.0)) == 2.0, "Mata: dobro de monstros (SPAWN_MAP_MULT)")
 		var reach := MonsterBrain._skill_reach(sw, false)
 		check(reach > 3.0 and reach <= hv.aggro_range, "Colmeia: Enxame sai com o alvo dentro do aggro (%.1f m)" % reach)
 		var at := Vector3(10, 0, 64.5)
@@ -29243,6 +29415,14 @@ func _check_dps_spread(gd, sim) -> void:
 	ProgressionSystem.bot_charges = true
 	ClassTalentSystem.bot_picks = true
 	var was_player: SimEntity = sim.player
+	var rng_keep: int = sim.rng.state
+	# mundo próprio (cidade + Floresta, sem bots): o sorteio da luta não depende do resto do mundo nem do conteúdo novo
+	# (com o mundo do teste, um mapa a mais mudava quem sorteia no tick e a conta andava ±10%)
+	var ws := WorldSim.new()
+	ws.load_map(gd.maps[GameData.town_map_id()])
+	ws.load_map(gd.maps["field_forest"])
+	ws.away_every = 100000
+	ws.rng.state = absi(hash("_check_dps_spread")) + 1
 	var was_away: int = sim.away_every
 	sim.away_every = 100000                      # os outros mapas param (a luta é só no Bosque): a conta fica 10x mais barata
 	for lv in Balance.DPS_SPREAD_LEVELS:
@@ -29251,7 +29431,7 @@ func _check_dps_spread(gd, sim) -> void:
 			for b in gd.classes[cid].builds:
 				if str(b.get("role", "")) in ["tank", "healer"]:
 					continue
-				rows["%s/%s" % [cid, b["id"]]] = dps_fight(gd, sim, cid, b["id"], lv, Balance.DPS_SPREAD_SECS)
+				rows["%s/%s" % [cid, b["id"]]] = dps_fight(gd, ws, cid, b["id"], lv, Balance.DPS_SPREAD_SECS)
 		var vals: Array = rows.values()
 		vals.sort()
 		var med: float = vals[vals.size() / 2]
@@ -29259,6 +29439,8 @@ func _check_dps_spread(gd, sim) -> void:
 			var d: float = (float(rows[k]) / maxf(1.0, med) - 1.0) * 100.0
 			print("DPS_SPREAD nv=%d %-26s %6.0f %+4.0f%%" % [lv, k, rows[k], d])
 			check(absf(d) <= Balance.DPS_SPREAD_PCT, "C5: %s nv %d dano %.0f/s = %+.0f%% da mediana %.0f (alvo ±%.0f%%)" % [k, lv, rows[k], d, med, Balance.DPS_SPREAD_PCT])
+	sim.rng.seed = WorldSim.RNG_SEED
+	sim.rng.state = rng_keep
 	sim.player = was_player
 	sim.away_every = was_away
 	ProgressionSystem.bot_core = keep[0]
@@ -33278,6 +33460,199 @@ func _check_viveiro(gd, sim) -> void:
 	if go.size() == 1:
 		check(sim.is_walkable(go[0]["target_pos"], vm, 0.45), "Viveiro: chegada andável")
 	check(vm.portals.any(func(pt): return pt["target_map"] == MapsCatalog.MARSH_ID), "Viveiro: portal de volta ao Brejo")
+
+## Campo dos Juramentos (field_oaths, 24-28, GDD design/gdd/campo-dos-juramentos.md): monstros, saque, itens, skills de Sir Edran e
+## quests coerentes mesmo antes do mapa (as quests vêm de QuestsCatalog.oaths() direto); com o JSON do Campo e a garganta SE do
+## Bastião: mapa, NPCs (Sir Malcom só com dw_bones_boss), portais nos dois lados (o do Bastião sobrevive ao _drop_dangling_portals),
+## portão só por nível 24, colheita, layout, lugares e a arena do chefe.
+func _check_field_oaths(gd, sim) -> void:
+	var ids: Array = MonstersCatalog.OATHS_MOBS + [MonstersCatalog.OATHS_BOSS, MonstersCatalog.OATHS_ADD]
+	for mid in ids:
+		var md: MonsterDef = gd.monsters.get(mid)
+		check(md != null, "Campo: monstro %s existe" % mid)
+		if md == null:
+			continue
+		check(md.level >= 24 and md.level <= 28, "Campo: %s na faixa 24-28 (%d)" % [mid, md.level])
+		check(ResourceLoader.exists("res://assets/models/%s.glb" % md.model), "Campo: modelo de %s (%s) existe" % [mid, md.model])
+		for sk in md.skill_ids:
+			check(gd.skills.has(sk), "Campo: skill %s de %s existe" % [sk, mid])
+		if mid == MonstersCatalog.OATHS_ADD:
+			check(md.xp == 0 and md.loot_table == "", "Campo: Juramentado Erguido é lacaio (0 XP, sem saque)")
+			continue
+		check(gd.loot_tables.has(md.loot_table), "Campo: tabela %s existe" % md.loot_table)
+		if not gd.loot_tables.has(md.loot_table):
+			continue
+		var best := 0.0
+		for en in gd.loot_tables[md.loot_table].entries:
+			var it: ItemDef = gd.items.get(str(en["item"]))
+			check(it != null, "Campo: item %s do saque de %s existe" % [en["item"], mid])
+			if it == null:
+				continue
+			if it.type == ItemDef.Type.EQUIPMENT and not md.is_boss:
+				check(float(en["chance"]) <= 0.05, "Campo: equipamento raro %s em %s <= 0,05" % [it.id, mid])
+			if it.type == ItemDef.Type.MATERIAL:
+				best = maxf(best, float(en["chance"]))
+		if not md.is_boss:
+			check(best >= 0.3 and best <= 0.7, "Campo: %s dá material principal com 0,3-0,7 (%.2f)" % [mid, best])
+	# modelos novos do Blender (oaths_mobs.py) em uso; o corvo fica no gavião até existir o GLB
+	for mid in MonstersCatalog.OATHS_MODELS:
+		var want: Array = MonstersCatalog.OATHS_MODELS[mid]
+		var md: MonsterDef = gd.monsters.get(mid)
+		if md and ResourceLoader.exists("res://assets/models/%s.glb" % want[0]):
+			check(md.model == want[0], "Campo: %s usa o modelo novo %s" % [mid, want[0]])
+	check(gd.monsters.has("oath_sworn") and gd.monsters["oath_sworn"].front_guard > 0.0, "Campo: Juramentado tem guarda frontal")
+	var boss: MonsterDef = gd.monsters.get(MonstersCatalog.OATHS_BOSS)
+	if boss:
+		check(boss.is_boss and boss.berserk_after > 0.0 and boss.intro != "" and boss.last_words != "" and boss.leash_range >= 25.0, "Campo: Sir Edran é chefe com fúria, falas e leash 25")
+		check(absf(boss.scale - 1.4) < 0.001, "Campo: Sir Edran na escala do modelo (1,4)")
+		for sk in ["mob_banner_plant", "mob_banner_sweep"]:
+			check(boss.skill_ids.has(sk), "Campo: Sir Edran tem %s" % sk)
+		var plant: SkillDef = gd.skills.get("mob_banner_plant")
+		var sweep: SkillDef = gd.skills.get("mob_banner_sweep")
+		check(plant != null and plant.target == SkillDef.Target.GROUND and plant.effects.has("barrage") and plant.mob_pick == "far"
+			and str(plant.effects.get("boss_summon", {}).get("id", "")) == MonstersCatalog.OATHS_ADD and plant.clip == "cast_ground",
+			"Campo: Estandarte Fincado = círculo avisado em quem está longe + ergue Juramentados (clipe cast_ground)")
+		check(sweep != null and sweep.target == SkillDef.Target.CONE and sweep.effects.has("stun") and sweep.clip == "atk_sweep" and sweep.vfx == "blood",
+			"Campo: Varredura do Mastro = leque que atordoa (clipe atk_sweep, tema blood)")
+		var guaranteed := false
+		for en in gd.loot_tables[boss.loot_table].entries:
+			guaranteed = guaranteed or (str(en["item"]) == "fallen_standard" and float(en["chance"]) >= 1.0)
+		check(guaranteed, "Campo: Sir Edran garante o material de tier (fallen_standard)")
+		var warded := boss.phases.filter(func(ph): return ph.has("ward") and ph.has("summon"))
+		check(boss.phases.size() == 3 and warded.size() == 1 and boss.phases.any(func(ph): return ph.has("enrage")), "Campo: fases 70% ergue, 40% ward com erguidos, 15% fúria")
+		for ph in boss.phases:
+			var sm: Dictionary = ph.get("summon", {})
+			check(sm.is_empty() or (gd.monsters.has(sm["id"]) and gd.monsters[sm["id"]].xp == 0), "Campo: lacaio da fase existe e dá 0 XP")
+	for iid in ["carrion_feather", "oath_seal", "fallen_standard", "digger_orders", "bearer_banner_scrap"]:
+		check(gd.items.has(iid) and gd.items[iid].type == ItemDef.Type.MATERIAL, "Campo: material %s existe" % iid)
+		check(ResourceLoader.exists("res://assets/icons/art_%s.png" % iid), "Campo: arte pintada de %s" % iid)
+	# quests: direto do catálogo (antes do mapa elas não entram em gd.quests)
+	var qs: Array = QuestsCatalog.oaths()
+	var qids := {}
+	for d in qs:
+		qids[d["id"]] = d
+	check(qids.keys() == Array(QuestsCatalog.OATHS_QUESTS) and qs.size() == 13, "Campo: OATHS_QUESTS lista as 13 quests em ordem")
+	var npc_ok := {}
+	for nid in MapsCatalog.OATHS_NPCS:
+		npc_ok[nid] = true
+	for nid in MapsCatalog.PLACE_NPCS.get(MapsCatalog.OATHS_ID, {}):
+		npc_ok[nid] = true
+	for nid in ["digger_vera", "gravedigger_osric", "ruins_scholar"]:      # do Bastião
+		npc_ok[nid] = true
+	var weight := 0
+	var per_lv := {}
+	for d in qs:
+		var qid: String = d["id"]
+		var lv: int = d["level_req"]
+		weight += int(d.get("reward_xp", 0))
+		per_lv[lv] = int(per_lv.get(lv, 0)) + 1
+		check(lv >= 24 and lv <= 28, "Campo: %s no nível 24-28" % qid)
+		check(npc_ok.has(d["giver_npc"]) and npc_ok.has(d.get("turnin_npc", d["giver_npc"])), "Campo: %s tem giver/turnin que existem" % qid)
+		for pq in [d.get("prereq_quest", "")] + Array(d.get("prereq_all", [])):
+			check(pq == "" or qids.has(pq) or pq == MapsCatalog.OATHS_MALCOM_IF, "Campo: pré-requisito %s de %s é do Campo (ou dw_bones_boss)" % [pq, qid])
+		var tid: String = d["target_id"]
+		match int(d["type"]):
+			QuestsCatalog.KILL:
+				check(tid in ids, "Campo: %s mata monstro do Campo" % qid)
+			QuestsCatalog.COLLECT:
+				check(gd.items.has(tid) and ((d.get("give_items", {}) as Dictionary).has(tid) or _dropped_somewhere(gd, tid)), "Campo: %s coleta item com fonte" % qid)
+			QuestsCatalog.TALK:
+				check(npc_ok.has(tid), "Campo: %s fala com NPC que existe" % qid)
+			QuestsCatalog.REACH:
+				check(tid == MapsCatalog.OATHS_ID, "Campo: %s chega ao Campo" % qid)
+		check(str(d.get("dialog_progress", "")).length() > 40, "Campo: %s tem dica prática" % qid)
+		if d["giver_npc"] == "oaths_malcom" or d.get("turnin_npc", "") == "oaths_malcom":
+			var chain: Array = [qid]          # todo o ramo do Malcom espera o Vorhag cair (ele só existe livre depois)
+			var need := false
+			while not chain.is_empty() and not need:
+				var cur: Dictionary = qids.get(chain.pop_back(), {})
+				need = Array(cur.get("prereq_all", [])).has(MapsCatalog.OATHS_MALCOM_IF)
+				for pq in [cur.get("prereq_quest", "")] + Array(cur.get("prereq_all", [])):
+					if qids.has(pq):
+						chain.append(pq)
+			check(need, "Campo: %s (Sir Malcom) só depois de dw_bones_boss" % qid)
+	check(weight >= 30000 and weight <= 45000, "Campo: peso de XP das quests 30000-45000 (%d)" % weight)
+	for lv in [25, 26, 27, 28]:
+		check(int(per_lv.get(lv, 0)) >= 2, "Campo: 2+ quests no nível %d (%d)" % [lv, int(per_lv.get(lv, 0))])
+	# opcional: nada fora do Campo depende dele (a linha principal q12_ruins/dw_* nunca pede oj*)
+	for qid in gd.quests:
+		if qids.has(qid):
+			continue
+		var q: QuestDef = gd.quests[qid]
+		check(not qids.has(q.prereq_quest) and not q.prereq_all.any(func(x): return qids.has(x)), "Campo é opcional: %s não pede quest do Campo" % qid)
+	var gate: Dictionary = MapsCatalog.OATHS_GATES["to_field_oaths"]
+	check(int(gate["level"]) == 24 and not gate.has("quest") and not gate.has("quests"), "Campo: portão só por nível 24")
+	check(QuestsCatalog.HUNT_GIVERS.get(MapsCatalog.OATHS_ID, "") == "oaths_stone", "Campo: caçadas na Pedra dos Nomes")
+	check(Music.theme_for(MapsCatalog.OATHS_ID) == "trevas", "Campo: música trevas")
+	check(MapsCatalog.GATHER.get(MapsCatalog.OATHS_ID, []).size() == 3, "Campo: 3 pontos de colheita")
+	if not MapsCatalog.oaths_ready():
+		check(not gd.maps.has(MapsCatalog.OATHS_ID) and not gd.quests.has("oj0_vala"), "Campo: sem o JSON, nada do Campo entra na sim")
+		check(not gd.maps["field_ruins"].portals.any(func(p): return p["target_map"] == MapsCatalog.OATHS_ID), "Campo: sem o mapa, o portal do Bastião sai (_drop_dangling_portals)")
+		return
+	# ---- com o mapa ----
+	var mm: MapDef = gd.maps.get(MapsCatalog.OATHS_ID)
+	check(mm != null and mm.level_range == Vector2i(24, 28) and not mm.is_town and mm.bot_population == 3 and mm.model == "map_field_oaths", "Campo: mapa 24-28 registrado (3 bots, cenário do Blender)")
+	if mm == null:
+		return
+	for qid in QuestsCatalog.OATHS_QUESTS:
+		check(gd.quests.has(qid), "Campo: quest %s carregou" % qid)
+	var in_map := {}
+	for n in mm.npcs:
+		in_map[n["id"]] = n
+	for nid in npc_ok:
+		if MapsCatalog.OATHS_NPCS.has(nid) or MapsCatalog.PLACE_NPCS[MapsCatalog.OATHS_ID].has(nid):
+			check(in_map.has(nid), "Campo: NPC %s está no mapa" % nid)
+	check(in_map.has("oaths_malcom") and in_map["oaths_malcom"].get("if", "") == MapsCatalog.OATHS_MALCOM_IF, "Campo: Sir Malcom só existe com dw_bones_boss")
+	var mal_fort := false
+	for n in gd.maps["fort_bones"].npcs:
+		if str(n.get("name", "")) == "Sir Malcom":
+			mal_fort = str(n.get("unless", "")) == MapsCatalog.OATHS_MALCOM_IF
+	check(mal_fort, "Campo: o Malcom preso da Fortaleza some com dw_bones_boss (nunca dois)")
+	check(not mm.npcs.any(func(n): return n["role"] == "crystal" or n["role"] == "trainer"), "Campo: sem cristal nem Mestre de Skills")
+	var spawned := {}
+	var boss_at := Vector3.INF
+	for sp in mm.spawners:
+		spawned[sp["monster_id"]] = true
+		check(not sp.has("if") and not sp.has("unless"), "Campo: spawner %s sem condição (o Campo fica povoado)" % sp["monster_id"])
+		if sp["monster_id"] == MonstersCatalog.OATHS_BOSS:
+			boss_at = sp["pos"]
+	for mid in MonstersCatalog.OATHS_MOBS + [MonstersCatalog.OATHS_BOSS]:
+		check(spawned.has(mid), "Campo: %s tem spawner" % mid)
+	var back := mm.portals.filter(func(p): return p["target_map"] == "field_ruins")
+	check(back.size() == 1, "Campo: um portal de volta ao Bastião")
+	var go: Array = gd.maps["field_ruins"].portals.filter(func(p): return p["id"] == "to_field_oaths")
+	check(go.size() == 1 and go[0]["target_map"] == MapsCatalog.OATHS_ID and int((go[0] as Dictionary).get("gate", {}).get("level", 0)) == 24,
+		"Bastião: portal do Campo sobrevive ao _drop_dangling_portals, com portão do nível 24")
+	if go.size() == 1 and back.size() == 1:
+		check(sim.is_walkable(go[0]["target_pos"], mm, 0.45) and sim.is_walkable(back[0]["target_pos"], gd.maps["field_ruins"], 0.45), "Campo: chegadas andáveis nos dois lados")
+	# mundo próprio: carregar o Campo no `sim` compartilhado mudaria as contas dos checks seguintes (C5 roda nele)
+	var ws := WorldSim.new()
+	ws.load_map(gd.maps[GameData.town_map_id()])
+	ws.load_map(gd.maps["field_ruins"])
+	ws.load_map(mm)
+	sim = ws
+	if boss_at != Vector3.INF:          # arena livre: 12 pontos a 8 m da Colina andáveis
+		var bad := 0
+		for i in range(12):
+			var a := TAU * float(i) / 12.0
+			if not sim.is_walkable(boss_at + Vector3(cos(a), 0, sin(a)) * 8.0, mm, 0.6):
+				bad += 1
+		check(bad <= 1, "Campo: arena da Colina do Estandarte andável a 8 m (%d fora)" % bad)
+	for g in MapsCatalog.GATHER[MapsCatalog.OATHS_ID]:
+		var gc := Vector3(float(g[2][0]), 0.0, float(g[2][1]))
+		var free := 0
+		var total := 0
+		for ix in range(-8, 9):
+			for iz in range(-8, 9):
+				var q := gc + Vector3(ix, 0.0, iz) * (float(g[3]) / 8.0)
+				if q.distance_to(gc) > float(g[3]):
+					continue
+				total += 1
+				if sim.is_walkable(q, mm, 0.4) and _wet_or_solid(sim, mm, q) == "":
+					free += 1
+		check(free >= total * 0.8, "Campo: colheita de %s em (%.0f, %.0f) em chão livre (%d/%d)" % [g[0], gc.x, gc.z, free, total])
+	_check_zone_layout(gd, sim, mm)
+	_check_places(gd, sim, mm)
 
 func _check_marsh_content(gd, sim) -> void:
 	var ids: Array = MonstersCatalog.MARSH_MOBS + [MonstersCatalog.MARSH_BOSS, "bog_tadpole"]

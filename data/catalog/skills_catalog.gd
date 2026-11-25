@@ -183,6 +183,12 @@ static func build(classes: Dictionary) -> Array:
 		 "effects": {"pull": {"gap": 0.6}, "stun": {"duration": 0.4}, "dot": {"dps": 6, "duration": 4}}},
 		{"id": "mob_web_pull", "name": "Fio da Rainha", "clip": "atk_throw", "target": T_TARGET, "kind": K_PHYS, "power": 0.7, "cooldown": 11.0, "range": 15.0, "radius": 0.0, "max_targets": 1, "startup": 0.55, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.85, 0.85, 0.9), "mob_pick": "far", "vfx": "poison",
 		 "effects": {"pull": {"gap": 0.6}, "slow": {"pct": 40, "duration": 3}}},
+		# Campo dos Juramentos (GDD campo-dos-juramentos §3.3): Sir Edran, o Porta-Estandarte Caído. Estandarte Fincado = um círculo
+		# avisado no ponto de quem está longe (cai 1,4 s depois, não esquivável) e ergue 2 Juramentados em volta dele
+		{"id": "mob_banner_plant", "name": "Estandarte Fincado", "clip": "cast_ground", "target": T_GROUND, "kind": K_PHYS, "power": 1.2, "cooldown": 20.0, "range": 15.0, "radius": 5.0, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.85, 0.72, 0.4), "mob_pick": "far", "vfx": "shadow",
+		 "effects": {"barrage": {"count": 1, "radius": 5.0, "delay": 1.4, "spread": 0.0}, "slow": {"pct": 30, "duration": 2}, "boss_summon": {"id": "oath_risen", "count": 2, "max": 4}}},
+		{"id": "mob_banner_sweep", "name": "Varredura do Mastro", "clip": "atk_sweep", "target": T_CONE, "kind": K_PHYS, "power": 1.6, "cooldown": 10.0, "radius": 4.5, "cone_angle_deg": 120, "startup": 0.5, "active": 0.15, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(0.8, 0.7, 0.45), "vfx": "blood",
+		 "effects": {"stun": {"duration": 0.5}}},
 		# Brejo das Teias (GDD brejo-das-teias §3.3): Bocarra, a Sapa-Mãe
 		{"id": "mob_toad_tongue", "name": "Língua da Bocarra", "clip": "atk_throw", "target": T_TARGET, "kind": K_PHYS, "power": 0.8, "cooldown": 11.0, "range": 12.0, "radius": 0.0, "max_targets": 1, "startup": 0.55, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.85, 0.5, 0.55), "mob_pick": "far", "vfx": "poison",
 		 "effects": {"pull": {"gap": 0.6}, "slow": {"pct": 35, "duration": 2}}},
@@ -247,8 +253,8 @@ static func build(classes: Dictionary) -> Array:
 		 "effects": {"boss_summon": {"id": "archdruid_wolf", "count": 2, "max": 4}}},
 		{"id": "mob_entangle", "name": "Enlaçar", "target": T_GROUND, "kind": K_MAG, "power": 0.6, "cooldown": 10.0, "range": 14.0, "radius": 2.4, "startup": 1.3, "active": 0.2, "recovery": 0.5, "hit_stop_frames": 3, "icon_color": Color(0.45, 0.7, 0.3), "vfx": "nature", "mob_pick": "random",
 		 "effects": {"root": {"duration": 2.5}}},
-		{"id": "mob_hive_swarm", "name": "Enxame", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 10.0, "radius": 12.0, "startup": 0.6, "active": 0.1, "recovery": 0.4, "icon_color": Color(0.95, 0.8, 0.25),
-		 "effects": {"boss_summon": {"id": "hive_wasp", "count": 2, "max": 4}}},
+		{"id": "mob_hive_swarm", "name": "Enxame", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 5.0, "radius": 12.0, "startup": 0.6, "active": 0.1, "recovery": 0.4, "icon_color": Color(0.95, 0.8, 0.25),
+		 "effects": {"boss_summon": {"id": "hive_wasp", "count": 2, "max": 6}}},     # 2026-11-25: recarga 10 -> 5 s, máx 4 -> 6
 		{"id": "mob_toxic_rain", "name": "Chuva Ácida", "target": T_GROUND, "kind": K_MAG, "power": 0.9, "cooldown": 12.0, "range": 12.0, "radius": 2.0, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.45, 0.85, 0.5), "mob_pick": "far",
 		 "effects": {"barrage": {"count": 3, "radius": 2.0, "delay": 1.4, "spread": 7.0}, "dot": {"dps": 5, "duration": 4}}},
 		# lacaios no ritmo da recarga (chefe: invocar vale a qualquer distância; o `max` limita quantos vivem juntos)

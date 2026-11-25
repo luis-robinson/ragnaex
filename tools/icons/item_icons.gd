@@ -36,7 +36,7 @@ const SLOT_ART := {ItemDef.Slot.HEAD: "head", ItemDef.Slot.BODY: "body", ItemDef
 	ItemDef.Slot.RING2: "ring", ItemDef.Slot.ACCESSORY: "ring"}
 ## material: palavra no id -> arte (o primeiro que bater)
 const MATERIAL_ART := [["goblet", "goblet"], ["frame", "frame"], ["baton", "baton"], ["_fan", "fan"], ["grapes", "grapes"], ["legend_coin", "legend_coin"], ["honey", "sap"], ["stinger", "tusk"], ["shell", "shell"], ["mushroom", "mushroom"], ["relic", "relic"], ["basket", "basket"],
-	["letter", "letter"], ["report", "letter"], ["star_ore", "star"], ["goods", "basket"], ["gel", "gel"], ["pelt", "pelt"], ["hide", "pelt"], ["tusk", "tusk"], ["fang", "tusk"], ["herb", "herb"],
+	["letter", "letter"], ["report", "letter"], ["orders", "letter"], ["oath_seal", "badge"], ["standard", "silk"], ["banner_scrap", "silk"], ["star_ore", "star"], ["goods", "basket"], ["gel", "gel"], ["pelt", "pelt"], ["hide", "pelt"], ["tusk", "tusk"], ["fang", "tusk"], ["herb", "herb"],
 	["ore", "ore"], ["silk", "silk"], ["bark", "bark"], ["badge", "badge"], ["bone", "bone"], ["dust", "dust"],
 	["essence", "essence"], ["core", "core"], ["scale", "scale"], ["feather", "feather"], ["steel", "ingot"], ["sap", "sap"], ["heartwood", "bark"], ["_log", "bark"], ["ribbon", "silk"], ["porcelain", "shell"], ["crown", "crown"], ["skin", "pelt"], ["bog_heart", "core"], ["ledger", "ledger"]]
 ## inclinação da arte (rad): armas na diagonal, como na mão

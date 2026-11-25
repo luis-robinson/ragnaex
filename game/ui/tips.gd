@@ -6,21 +6,22 @@ extends Control
 ## Só apresentação: lê o estado do jogador e reage a Events.
 
 ## id -> texto (pt-BR). A ordem não importa: cada uma tem seu gatilho em `_poll`/eventos.
+## "{ação}" vira a tecla de agora (KeyBindings.fill) na hora de mostrar.
 const TIPS := {
-	"move": "WASD anda. O personagem sempre encara o mouse: é para lá que golpes e skills vão.",
-	"attack": "Clique esquerdo ataca na direção do mouse. Segure para continuar batendo.",
-	"skills": "1-6 usam as skills da barra. Segure o número para ver a mira e solte para lançar.",
-	"dash": "Shift dá um dash com um instante de invencibilidade. Botão direito segura a guarda.",
-	"potion": "F1-F3 bebem as poções da barra. Arraste outras poções da bolsa para lá.",
-	"gather": "F colhe ervas, minérios e caixas brilhando: viram poção, joia e entrega de quest.",
-	"quest": "NPCs com ! têm quest: chegue perto e aperte F. L mostra suas quests e o roteiro.",
-	"bag": "Item novo na bolsa! I abre a bolsa; arraste a peça para o boneco (C) para equipar.",
-	"web": "Skills chegam com o nível; o rank sobe no Mestre de Skills. K abre a teia: caminhos, atributos e aprimoramentos.",
-	"talents": "Talentos de classe liberados: aba Talentos na janela K (trocar, só na cidade).",
-	"recall": "Longe de casa? G volta para a cidade depois de alguns segundos parado.",
-	"mount": "H chama o cavalo: corre bem mais, mas golpes e dano derrubam você da sela.",
-	"party": "Convite de grupo! P abre o grupo: caçar junto divide a XP e o saque.",
-	"camera": "Q e E giram a câmera. M abre o mapa da zona.",
+	"move": "{move} anda. O personagem sempre encara o mouse: é para lá que golpes e skills vão.",
+	"attack": "{attack} ataca na direção do mouse. Segure para continuar batendo.",
+	"skills": "{skill_1}-{skill_6} usam as skills da barra. Segure a tecla para ver a mira e solte para lançar.",
+	"dash": "{dash} dá um dash com um instante de invencibilidade. {block} segura a guarda.",
+	"potion": "{potion_1} {potion_2} {potion_3} bebem as poções da barra. Arraste outras poções da bolsa para lá.",
+	"gather": "{interact} colhe ervas, minérios e caixas brilhando: viram poção, joia e entrega de quest.",
+	"quest": "NPCs com ! têm quest: chegue perto e aperte {interact}. {ui_quests} mostra suas quests e o roteiro.",
+	"bag": "Item novo na bolsa! {ui_inventory} abre a bolsa; arraste a peça para o boneco ({ui_character}) para equipar.",
+	"web": "Skills chegam com o nível; o rank sobe no Mestre de Skills. {ui_skills} abre a teia: rotas, atributos e aprimoramentos.",
+	"talents": "Talentos de classe liberados: aba Talentos na janela {ui_skills} (trocar, só na cidade).",
+	"recall": "Longe de casa? {recall} volta para a cidade depois de alguns segundos parado.",
+	"mount": "{mount} chama o cavalo: corre bem mais, mas golpes e dano derrubam você da sela.",
+	"party": "Convite de grupo! {ui_party} abre o grupo: caçar junto divide a XP e o saque.",
+	"camera": "{cam_rotate_left} e {cam_rotate_right} giram a câmera. {ui_map} abre o mapa da zona.",
 	"death": "Ao cair você volta para a cidade e perde um pouco de XP. Nada da bolsa se perde.",
 }
 const SHOW_TIME := 9.0             # s na tela
@@ -170,7 +171,7 @@ func _show_card(id: String) -> void:
 	h.add_theme_constant_override("separation", 10)
 	_card.add_child(h)
 	h.add_child(UiKit.label("Dica", 13, UiKit.GOLD))
-	_label = UiKit.label(TIPS[id], 14, UiKit.TEXT)
+	_label = UiKit.label(KeyBindings.fill(TIPS[id]), 14, UiKit.TEXT)     # "{ação}" = tecla de agora
 	_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_label.custom_minimum_size.x = 460
 	h.add_child(_label)

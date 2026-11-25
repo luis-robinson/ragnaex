@@ -45,6 +45,8 @@ static func build() -> Array:
 	var out: Array = [_aldara(), _hollow(), _crab_beach(), _grove(), _forest(), _ruins(), _elf_city(), _port(), _coast(), _steppe(), _kharzun(), _kharzun_citadel(), _lumeria(), _perfume(), _parade(), _rift_garden()]
 	if marsh_ready():
 		out.append(_marsh())
+	if oaths_ready():
+		out.append(_oaths())
 	for fid in FORT_DEFS:
 		out.append(_fort(fid))
 	for did in DUNGEON_DEFS:
@@ -536,6 +538,8 @@ const GATHER := {
 	# Mata dos Zumbidos: ervas nas trilhas, cogumelos à sombra, favos nas caixas de abelha que os ursos derrubaram (clareira da Colmeia)
 	"field_grove": [["herb_blue", "herb_blue", [-40.0, 14.0], 10.0, 4], ["forest_mushroom", "mushroom", [-20.0, -40.0], 12.0, 5], ["herb_green", "herb", [10.0, 40.0], 12.0, 4]],
 	# Brejo das Teias (GDD brejo-das-teias §3.7): erva azul no Charco, âmbar na borda da Mata das Teias, cogumelo na beira da lagoa
+	# Campo dos Juramentos (GDD campo-dos-juramentos §3.7): cacos nas Ruas Afundadas, pedra-estrela no pé do Zigurate, erva azul a oeste
+	"field_oaths": [["ancient_relic", "relic", [54.0, -60.0], 10.0, 4], ["star_ore", "ore", [70.0, -14.0], 8.0, 3], ["herb_blue", "herb_blue", [-60.0, 24.0], 10.0, 4]],
 	"field_marsh": [["herb_blue", "herb_blue", [-60.0, -32.0], 10.0, 4], ["amber_sap", "star", [48.0, -36.0], 9.0, 3], ["forest_mushroom", "mushroom", [-30.0, 40.0], 10.0, 4]],
 	"field_hollow": [["herb_green", "herb", [-20.0, 4.0], 10.0, 5], ["herb_green", "herb", [4.0, 30.0], 10.0, 4], ["forest_mushroom", "mushroom", [-30.0, 50.0], 12.0, 5],
 		["forest_mushroom", "mushroom", [44.0, 8.0], 10.0, 4], ["honey_comb", "crate", [10.0, 63.0], 9.0, 5]],
@@ -847,7 +851,7 @@ const FOREST_NPCS := {
 ##   fighters {guard_id: n}, every (s entre levas), max (vivos ao mesmo tempo), first, say, if/unless (quests).
 ## Surtida da catedral: quando uma leva chega à muralha, estes saem pela porta até o portão atacado (recarga em Balance).
 const SORTIES := {
-	"field_ruins": {"from": Vector3(-16.0, 0.0, 0.0), "cooldown": 180.0,
+	"field_ruins": {"from": Vector3(-16.0, 0.0, 0.0), "cooldown": 270.0,     # bastiao-cerco-vivo R10: ~1 surtida a cada 2ª leva em p3/p4
 		"fighters": {"guard_knight": 6, "guard_spearman": 6, "guard_paladin": 2, "guard_crossbow": 3, "guard_priest": 3},
 		"say": "Os portões da catedral se abrem: vinte soldados da Aurora saem em socorro do portão!"},
 }
@@ -1049,7 +1053,7 @@ const Q_ELF_KING := "el6_king"
 ## Reserva do Posto (`responder`): corre para o portão atacado (SiegeSystem._responders).
 const FOREST_SIEGE_RESPONDERS := ["guard_w_0_3", "guard_w_3_1"]
 const SIEGE := {
-	"field_forest": {"kind": "gates",
+	"field_forest": {"kind": "gates", "morale_buff": "posto_de_pe",
 		"segments": [{"id": "oeste", "quest": "els_steel", "label": "Portão das Teias", "route": "flanco_oeste"},
 			{"id": "leste", "quest": "els_lynx", "label": "Portão da Ponte", "route": "flanco_leste"}],
 		"close_all": Q_ELF_KING, "rotation": ["oeste", "gate", "leste", "gate"],
@@ -1068,7 +1072,26 @@ const SIEGE := {
 		"say_harass": "Flechas de fogo da crista nordeste! Saiam dos círculos!",
 		"say_horn": "Uma trompa soa na estrada: os batedores chamaram a próxima leva!",
 		"say_scorch": "Os ginetes puseram fogo nas casas! Repilam a próxima leva para apagar as chamas."},
+	# Bastião da Aurora (design/gdd/bastiao-cerco-vivo.md): os 3 fronts são trechos; forte retomado = lado calado (sem gate_route,
+	# skip_closed = S2); pressão conta fortes (p4 = último front, p0 = os três). Tabelas por pressão em Balance.SIEGE_MAP.field_ruins (S1).
+	"field_ruins": {"kind": "fronts",      # trechos = portões de pedra: sem obra/colisor de estágio, sem fumaça no horizonte
+		"segments": [{"id": "ghoul", "quest": "dw_ghoul_boss", "label": "Portão do Pântano", "route": "cerco_ghoul"},
+			{"id": "bones", "quest": "dw_bones_boss", "label": "Portão dos Ossos", "route": "cerco_bones"},
+			{"id": "frost", "quest": "dw_frost_boss", "label": "Portão do Gelo", "route": "cerco_frost"}],
+		"skip_closed": true, "low_route": "patrulha_oeste", "harass_route": "assedio_norte", "harass_mob": "skel_archer",
+		"volley_skill": "mob_volley", "morale_buff": "muralha_de_pe",
+		"pressure": [{"p": 0, "if": DAWN_FORT_QUESTS},
+			{"p": 4, "if": ["dw_ghoul_boss", "dw_bones_boss"]}, {"p": 4, "if": ["dw_ghoul_boss", "dw_frost_boss"]}, {"p": 4, "if": ["dw_bones_boss", "dw_frost_boss"]},
+			{"p": 3, "if": "dw_ghoul_boss"}, {"p": 3, "if": "dw_bones_boss"}, {"p": 3, "if": "dw_frost_boss"},
+			{"p": 2, "if": "dw_gates"}, {"p": 1}],
+		"say_harass": "Arqueiros de osso no outeiro a nordeste do Portão dos Ossos! Saiam dos círculos ou derrubem os arqueiros!",
+		"say_horn": "Uma trompa soa na estrada de um front: os batedores chamaram a próxima leva!",
+		"say_scorch": "Os mortos puseram fogo no pátio do portão! Repilam a próxima leva para apagar as chamas."},
 }
+## Fortes do Bastião: os três retomados = fim do cerco (pressão 0).
+const DAWN_FORT_QUESTS := ["dw_ghoul_boss", "dw_bones_boss", "dw_frost_boss"]
+## Reserva do Bastião (`responder`): os lanceiros do portão leste (o lado sem front) correm para o portão atacado.
+const DAWN_SIEGE_RESPONDERS := ["dawn_g_east_spearman_0", "dawn_g_east_spearman_1"]
 
 ## Condição (`if`) de um posto de besteiros do muro novo: o trecho dele fechado, ou a paliçada inteira (torres do portão).
 static func port_wall_cond(nid: String) -> String:
@@ -1588,6 +1611,10 @@ const MOB_PATROLS := {
 	# Posto dos Caçadores: linces batedores com trompa na estrada da garganta e na trilha das teias (até o Rei cair)
 	"field_forest": [["elf_lynx", 2.0, -66.0, 3.0, 2, 60.0, [[2.0, -66.0], [8.0, -80.0], [2.0, -66.0], [-8.0, -46.0]], Q_ELF_KING, {"horn": true}],
 		["elf_lynx", -40.0, -72.0, 3.0, 2, 60.0, [[-40.0, -72.0], [-48.0, -58.0], [-22.0, -54.0], [-48.0, -58.0]], Q_ELF_KING, {"horn": true}]],
+	# Bastião: batedores com trompa nas estradas dos três fronts (somem com o forte do lado; bastiao-cerco-vivo R9)
+	"field_ruins": [["rot_wolf", -74.0, -20.0, 3.0, 2, 60.0, [[-74.0, -20.0], [-66.0, -8.0], [-74.0, 14.0], [-66.0, -8.0]], "dw_ghoul_boss", {"horn": true}],
+		["skeleton", -14.0, -72.0, 3.0, 2, 60.0, [[-14.0, -72.0], [-6.0, -64.0], [2.0, -72.0], [-6.0, -64.0]], "dw_bones_boss", {"horn": true}],
+		["tower_bat", 14.0, 74.0, 3.0, 2, 60.0, [[14.0, 74.0], [4.0, 66.0], [-14.0, 76.0], [4.0, 66.0]], "dw_frost_boss", {"horn": true}]],
 	"fort_war": [["orc_warrior", -39.0, 20.0, 3.0, 2, 30.0, [[-39.0, 20.0], [-35.0, 8.0], [-21.0, 8.0], [-7.0, 7.0], [-21.0, 8.0], [-35.0, 8.0]], Q_FORT_WAR]],
 	# Ato III (patrol_hint dos JSON): Ronda do Festim pelas ruas do anel leste de Lumeria (some em L3b, GDD §5) e a matilha de
 	# Galgos que corre os terraços do Perfume
@@ -1836,38 +1863,38 @@ const RAIDS := {
 	"field_kharzun": KHARZUN_RAIDS,
 	# Estepes de Cinza (Ato II): três lados, regra do Bastião
 	"field_steppe": STEPPE_RAIDS,
-	# Bastião da Aurora: três fronts, cada um com a leva do seu lado (a rota é calada pela quest do chefe da fortaleza).
-	# Os três atacam juntos (Balance.RAID_SYNC_MAPS) e a força sobe até o nível 30 (RAID_SCALE_TO_MAP); levas +50% (2026-11-21)
-	"field_ruins": {
-		"ghoul": {"every": 200.0, "first": 70.0, "jitter": 40.0, "lifetime": 200.0,
-			"waves": [{"mobs": {"larva": 39, "rot_zombie": 18, "rot_ghoul": 12, "rot_wolf": 6}}, {"mobs": {"rot_bear": 3}, "every_nth": 2}],
-			"say_sync": "Trompas nos três portões: o pântano, os ossos e o gelo marcham juntos. O Bastião está cercado!",
-			"say_start": "O pântano do oeste se mexe: a ninhada do Carniçal marcha contra o Bastião!",
-			"say_arrived": "Os mortos do Carniçal chegaram ao portão oeste!",
-			"say_repelled": "A investida do Carniçal foi queimada no portão oeste!",
-			"say_retreat": "A ninhada recua para o pântano.",
-			"reclaim_extra": {1: {"rot_bear": 2}, 2: {"citadel_horror": 2}},
-			"say_reclaim": "O pântano ferve de raiva pelas fortalezas perdidas: a ninhada vem maior!",
-			"leader": "citadel_horror", "say_leader": "Um Horror da Cidadela lidera a ninhada: o último front do Carniçal vem com tudo!"},
-		"bones": {"every": 230.0, "first": 140.0, "jitter": 40.0, "lifetime": 210.0,
-			"waves": [{"mobs": {"skeleton": 18, "skel_archer": 12, "skel_guard": 8}}],
-			"say_start": "Tambores de osso ao norte: a legião da Fortaleza dos Ossos marcha!",
-			"say_arrived": "Os esqueletos chegaram ao portão norte! Escudos à frente!",
-			"say_repelled": "A legião dos ossos foi quebrada no portão norte!",
-			"say_retreat": "Os esqueletos recuam em fileira para o norte.",
-			"reclaim_extra": {1: {"skel_guard": 2}, 2: {"citadel_knight": 2}},
-			"say_reclaim": "Os tambores de osso batem mais forte: a legião vem maior pelas fortalezas perdidas!",
-			"leader": "citadel_knight", "say_leader": "Um Guarda da Cidadela comanda a legião: o último front dos Ossos vem com tudo!"},
-		"frost": {"every": 260.0, "first": 210.0, "jitter": 40.0, "lifetime": 210.0,
-			"waves": [{"mobs": {"cultist": 11, "tower_bat": 12, "ghost": 9, "citadel_adept": 6}}, {"mobs": {"citadel_knight": 3}, "every_nth": 2}],
-			"say_start": "Um vento gelado vem do sul: os adeptos da Torre marcham com morcegos e espectros!",
-			"say_arrived": "Os adeptos chegaram ao portão sul!",
-			"say_repelled": "O frio recua: o portão sul resistiu!",
-			"say_retreat": "Os adeptos recuam para a Torre.",
-			"reclaim_extra": {1: {"citadel_adept": 2}, 2: {"citadel_knight": 2}},
-			"say_reclaim": "O frio do sul fica cruel: a Torre manda mais adeptos pelas fortalezas perdidas!",
-			"leader": "citadel_adept", "say_leader": "Um Adepto da Cidadela conduz a nevasca: a Torre joga tudo no último front!"},
-	},
+	# Bastião da Aurora: Cerco Vivo (design/gdd/bastiao-cerco-vivo.md; SIEGE["field_ruins"], rotas no `raids` do JSON: build_field_ruins).
+	# Uma leva por vez, revezando os portões dos fronts abertos; o forte retomado fecha o trecho dele (o lado cala) e a pressão sobe a
+	# frequência, nunca o tamanho (D4). A força acompanha o jogador até o 30 (Balance.RAID_SCALE_TO_MAP).
+	"field_ruins": DAWN_RAIDS,
+}
+
+## Levas do Cerco Vivo do Bastião (bastiao-cerco-vivo §3.4): normal + leva grande (`every_nth` -> Balance.SIEGE_MAP.field_ruins.big_nth).
+const DAWN_RAIDS := {
+	"cerco_ghoul": {"every": 150.0, "jitter": 20.0, "lifetime": 180.0,
+		"waves": [{"mobs": {"larva": 20, "rot_zombie": 10, "rot_ghoul": 7, "rot_wolf": 4}}, {"mobs": {"rot_bear": 3, "citadel_horror": 1}, "every_nth": 3}],
+		"say_start": "Trompas no pântano! A ninhada do Carniçal marcha contra o Portão do Pântano, a oeste!",
+		"say_arrived": "Os mortos do Carniçal chegaram ao Portão do Pântano!",
+		"say_repelled": "A ninhada foi queimada no Portão do Pântano. O Bastião resiste!",
+		"say_retreat": "A ninhada recua para o pântano.", "say_strong": "O pântano ferve: a ninhada veio reforçada!"},
+	"cerco_bones": {"every": 150.0, "jitter": 20.0, "lifetime": 180.0,
+		"waves": [{"mobs": {"skeleton": 16, "skel_archer": 10, "skel_guard": 7}}, {"mobs": {"skel_guard": 3, "citadel_knight": 1}, "every_nth": 3}],
+		"say_start": "Tambores de osso ao norte! A legião de Vorhag marcha contra o Portão dos Ossos!",
+		"say_arrived": "Os esqueletos chegaram ao Portão dos Ossos! Escudos à frente!",
+		"say_repelled": "A legião foi quebrada no Portão dos Ossos. O Bastião resiste!",
+		"say_retreat": "Os esqueletos recuam em fileira para o norte.", "say_strong": "Os tambores batem mais forte: a legião veio reforçada!"},
+	"cerco_frost": {"every": 150.0, "jitter": 20.0, "lifetime": 180.0,
+		"waves": [{"mobs": {"cultist": 9, "tower_bat": 10, "ghost": 8, "citadel_adept": 5}}, {"mobs": {"citadel_knight": 3}, "every_nth": 3}],
+		"say_start": "Um vento gelado vem do sul! Os adeptos da Torre marcham contra o Portão do Gelo!",
+		"say_arrived": "Os adeptos chegaram ao Portão do Gelo!",
+		"say_repelled": "O frio recua: o Portão do Gelo resistiu!",
+		"say_retreat": "Os adeptos recuam para a Torre.", "say_strong": "A nevasca engrossa: a Torre mandou mais gente!"},
+	"patrulha_oeste": {"every": 150.0, "jitter": 20.0, "lifetime": 150.0, "waves": [{"mobs": {"larva": 6, "rot_zombie": 2}}],
+		"say_start": "Larvas se arrastam do pântano rumo ao Portão do Pântano.",
+		"say_arrived": "As larvas chegaram ao Portão do Pântano.",
+		"say_repelled": "As larvas foram esmagadas no portão.",
+		"say_retreat": "As larvas voltam para o pântano."},
+	"assedio_norte": {"kind": "harass"},
 }
 
 ## NPCs do Posto dos Caçadores prontos para o MapDef (posições do JSON).
@@ -1904,6 +1931,12 @@ const PLACE_NPCS := {
 		"marsh_healer": ["Benzedeira Zefa", "quest", Color(0.62, 0.55, 0.42), ["Sapo-boi tem couro que tira febre e sanguessuga tira sangue ruim. O brejo dá tudo, só cobra caro.", "A água que desce do leste está cor de mel. Bicho que bebe dela cresce. Gente, não sei."]],
 		"marsh_bento": ["Seu Bento, o Cabreiro", "quest", Color(0.58, 0.5, 0.38), ["As cabras correram para o sul e eu fui atrás. Quando vi, o brejo tinha fechado em volta.", "Não volto para o Posto com elfo descendo do norte. Daqui eu vejo quem chega."]],
 		"marsh_altar": ["Altar Afogado", "board", Color(0.6, 0.66, 0.5), ["Pedra élfica meio enterrada na lama, com um veio dourado. Pedidos de caça presos com espinho.", "Gravado em élfico: 'A seiva desce. Sempre desce.'"], "prop_ruin"],
+	},
+	# Campo dos Juramentos (24-28): cabanas do Sineiro e da Corveira, Pedra dos Nomes (pedidos de caça). GDD campo-dos-juramentos §3.4
+	"field_oaths": {
+		"oaths_bellringer": ["Velho Sineiro Abel", "quest", Color(0.6, 0.56, 0.5), ["O sino tocou a retirada naquela noite. Toca sozinho desde então.", "Quando ele toca de dia, as Sombras saem das ruas afundadas. Quando toca de noite, eu tampo os ouvidos."]],
+		"oaths_crowkeeper": ["Corveira Matilde", "quest", Color(0.3, 0.3, 0.36), ["Corvo come de tudo. Menos dos Juramentados. Corvo sabe.", "Pena de carniça é leve e não apodrece. Serve de pena de escrever, de flecha e de aviso."]],
+		"oaths_stone": ["Pedra dos Nomes", "board", Color(0.72, 0.7, 0.64), ["Nomes riscados a ponta de espada. Uns riscados duas vezes.", "Pedidos de caça presos com cera de vela entre os nomes dos mortos."], "prop_ruin"],
 	},
 	"city_aldara": {
 		"woodcutter_nils": ["Nils, o Lenhador", "quest", Color(0.7, 0.5, 0.35), ["Do outro lado do rio a mata é minha. Pelo menos era, antes dos lobos.", "A cidade fica pra lá da ponte. Daqui só se ouve o machado."]],
@@ -2088,6 +2121,8 @@ static func load_zone(id: String) -> Dictionary:
 			portals[-1]["gate"] = PORTAL_GATES[p["id"]]
 		elif MARSH_GATES.has(p["id"]):       # Brejo das Teias: portão fora de PORTAL_GATES enquanto o portal não está no JSON da Floresta
 			portals[-1]["gate"] = MARSH_GATES[p["id"]]
+		elif OATHS_GATES.has(p["id"]):       # Campo dos Juramentos: portão só por nível (campo opcional)
+			portals[-1]["gate"] = OATHS_GATES[p["id"]]
 	z["spawners"] = (z["spawners"] as Array) + catalog_spawners(id)     # Restos da Noite e ecos (CATALOG_SPAWNERS)
 	var spawners: Array = []
 	var dense: float = Balance.SPAWN_COUNT_MULT_DUNGEON if is_dungeon_id(id) else Balance.SPAWN_COUNT_MULT
@@ -2317,6 +2352,48 @@ const VIVEIRO_ID := "dg_viveiro"
 static func viveiro_ready() -> bool:
 	return FileAccess.file_exists(ZONE_PATH % VIVEIRO_ID) and marsh_ready()
 
+# ---------------------------------------------------------------------------
+## Campo dos Juramentos (24-28, campo opcional atrás da Escavação da Vera, SE do Bastião; GDD design/gdd/campo-dos-juramentos.md):
+## tools/blender/zones/build_field_oaths.py. Acampamento da Vigília no centro (sem muro nem cristal), Cemitério dos Cavaleiros (O),
+## Ruas Afundadas (NE), Vala dos Cavadores (SO, camp), Colina do Estandarte (SE, Sir Edran), Zigurate do Arquivo reservado (L,
+## future_portals). Entra quando o JSON do Campo existe E o do Bastião tem a garganta (`arrive_from_field_oaths`).
+const OATHS_ID := "field_oaths"
+## Sir Malcom só existe livre depois da Fortaleza dos Ossos (o preso de FORT_NPCS some na retomada): nunca dois ao mesmo tempo.
+const OATHS_MALCOM_IF := "dw_bones_boss"
+const OATHS_NPCS := {
+	"oaths_guide": ["Batedora Cândida", "quest", Color(0.62, 0.58, 0.42), ["Os mortos ficam nas fileiras deles. Os vivos cavam. Desconfie dos vivos.", "Cemitério a oeste, ruas afundadas a nordeste, a vala dos cavadores a sudoeste. Na colina do sudeste ninguém sobe sozinho."]],
+	"oaths_merchant": ["Vivandeira Rosália", "merchant", Color(0.72, 0.6, 0.45), ["Água benta acabou. Tenho poção e pão duro.", "Compro o que você tirar dos mortos. Eles não reclamam, e eu não pergunto."]],
+	"oaths_malcom": ["Sir Malcom", "quest", Color(0.78, 0.7, 0.45), ["Enterramos o Vorhag aqui. Um caixão leve demais.", "Jurei à Aurora antes de Vorhag jurar à noite. Fomos irmãos. Quero saber por quê."]],
+}
+## Portão do portal do Bastião para o Campo (só por nível: o Campo é opcional). Lido no load_zone ao lado de PORTAL_GATES.
+const OATHS_GATES := {"to_field_oaths": {"level": 24, "text": "Vera segura a lanterna na boca da vala: \"Do outro lado tem cavaleiro morto que ainda marcha em fila. Volte no nível 24.\""}}
+
+## O Campo está pronto para a sim: JSON da zona exportado e garganta SE do Bastião no JSON dele.
+static func oaths_ready() -> bool:
+	if not FileAccess.file_exists(ZONE_PATH % OATHS_ID) or not FileAccess.file_exists(ZONE_PATH % "field_ruins"):
+		return false
+	return FileAccess.get_file_as_string(ZONE_PATH % "field_ruins").contains("arrive_from_field_oaths")
+
+static func _oaths() -> MapDef:
+	var z := load_zone(OATHS_ID)
+	var npcs: Array = []
+	for nid in OATHS_NPCS:
+		var n: Array = OATHS_NPCS[nid]
+		var p: Array = z["npc_pos"].get(nid, [0.0, 0.0, 180.0])
+		var d := _npc(nid, n[0], float(p[0]), float(p[1]), n[1], n[2], n[3], float(p[2]),
+			["potion_hp_s", "potion_hp_m", "potion_mp_s", "potion_mp_m"] if n[1] == "merchant" else [])
+		if nid == "oaths_malcom":
+			d["if"] = OATHS_MALCOM_IF
+		npcs.append(d)
+	npcs.append_array(_place_npcs(OATHS_ID, z["npc_pos"]))
+	z.erase("npc_pos")
+	z.merge({
+		"id": OATHS_ID, "name": "Campo dos Juramentos", "is_town": false, "level_range": Vector2i(24, 28),
+		"ground_color": Color(0.52, 0.52, 0.44), "ground_color_alt": Color(0.48, 0.48, 0.41), "ambient": Color(0.78, 0.78, 0.84), "sun_energy": 0.88,     # capim seco cinza (= loading_art.ZONES)
+		"bot_population": 3, "npcs": npcs,
+	})
+	return _mk(z)
+
 static func _marsh() -> MapDef:
 	var z := load_zone(MARSH_ID)
 	var npcs: Array = []
@@ -2396,12 +2473,17 @@ static func _ruins() -> MapDef:
 	var p: Array = z["npc_pos"].get("ruins_scholar", [0.0, 0.0, 180.0])
 	if (z["road_events"] as Array).is_empty():         # faixa da Aurora viva: pontos do catálogo até o build gravar (BLENDER REQUEST)
 		z["road_events"] = catalog_event_points("field_ruins")
-	var extra := _place_npcs("field_ruins", z["npc_pos"]) + dawn_services(z["npc_pos"]) + dawn_garrison(z["npc_pos"]) + crystal_npc("field_ruins") + trainer_npc("field_ruins") + festival("field_ruins") + living_npcs(LIVING_NPCS["field_ruins"])
+	var garrison := dawn_garrison(z["npc_pos"])
+	for d in garrison:                                   # reserva do cerco (SiegeSystem._responders)
+		if DAWN_SIEGE_RESPONDERS.has(str(d["id"])):
+			d["responder"] = true
+	var extra := _place_npcs("field_ruins", z["npc_pos"]) + dawn_services(z["npc_pos"]) + garrison + crystal_npc("field_ruins") + trainer_npc("field_ruins") + festival("field_ruins") + living_npcs(LIVING_NPCS["field_ruins"])
 	var bp: Array = z["npc_pos"].get("port_captain_bren", [0.0, 0.0, 180.0])
 	extra.append(_npc("port_captain_bren", BREN[0], float(bp[0]), float(bp[1]), BREN[1], BREN[2], BREN[3], float(bp[2])))
 	z.erase("npc_pos")
 	z.merge({
 		"id": "field_ruins", "name": "Bastião da Aurora", "is_town": false, "hub": true, "level_range": Vector2i(20, 30), "sortie": SORTIES["field_ruins"],
+		"siege": SIEGE["field_ruins"],
 		"conquest_vis": DAWN_CONQUEST_VIS,
 		"ground_color": Color(0.55, 0.56, 0.46), "ground_color_alt": Color(0.5, 0.52, 0.43), "ambient": Color(0.78, 0.78, 0.86), "sun_energy": 0.9,
 		"bot_population": 3,     # 2026-11-18 playtest: era 6

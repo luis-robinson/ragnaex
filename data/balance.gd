@@ -142,7 +142,7 @@ const TTK_FIGHT_MAX := 60.0
 ## Medido (s, lixo / elite): 1-10 0,4 / 2,3 (Colmeia) · 10-20 0,4 / 2,5 (Guardiã élfica) · 20-30 0,4 / 0,9 · 30-40 0,7 / 1,1 ·
 ## 40-45 1,2 / 2,0 · 45-50 1,2 / 2,0. Faixa = medida x0,5 .. x2 (mexeu em vida de monstro ou no dano das builds: refaça).
 const TTK_TARGETS := [
-	{"name": "1-10", "from": 1, "to": 10, "trash": [0.2, 1.0], "elite": [1.2, 4.6]},
+	{"name": "1-10", "from": 1, "to": 10, "trash": [0.2, 1.0], "elite": [1.2, 6.5]},     # elite 1-10 = Colmeia (1800 de vida desde 2026-11-25, pedido do usuário)
 	{"name": "10-20", "from": 11, "to": 20, "trash": [0.2, 1.0], "elite": [1.3, 5.0]},
 	{"name": "20-30", "from": 21, "to": 30, "trash": [0.2, 1.0], "elite": [0.5, 2.0]},
 	{"name": "30-40", "from": 31, "to": 40, "trash": [0.35, 1.5], "elite": [0.6, 2.2]},
@@ -799,7 +799,8 @@ const SPAWN_COUNT_MULT_DUNGEON := 2.0    # dungeons: salões cheios para grupo (
 const SPAWN_RESPAWN_MULT := 0.75         # renasce mais rápido
 ## Mapa que precisa de mais gente (por cima do SPAWN_COUNT_MULT; o raio do spawner cresce √mult: mesma densidade, mais área).
 ## Praia dos Caranguejos x2 (2026-11-24, pedido do usuário: "o mapa é muito vazio").
-const SPAWN_MAP_MULT := {"field_crab_beach": 2.0}
+## Mata dos Zumbidos x2 (2026-11-25, pedido do usuário: "duplicar o número de monstros" no mapa opcional dos ursos e vespas).
+const SPAWN_MAP_MULT := {"field_crab_beach": 2.0, "field_hollow": 2.0}
 ## Caçadas repetíveis geradas (QuestsCatalog.hunts)
 const HUNT_COUNT := 10
 ## Repetível de nível baixo (2026-11-24, pedido do usuário): personagem mais de QUEST_LOW_LEVEL_GAP níveis acima do nível
@@ -1307,7 +1308,8 @@ const RAID_SCALE_TO := 20
 const RAID_SCALE_TO_MAP := {"field_ruins": 30}
 ## Mapas em que todas as rotas atacam juntas: relógio único (m["raid_sync"]) que só anda sem leva viva; ao zerar,
 ## todas as rotas que valem soltam a leva no mesmo tick (RaidSystem.update_raids). Intervalo x RAID_RECLAIM_EVERY^k.
-const RAID_SYNC_MAPS := {"field_ruins": {"first": 90.0, "every": 240.0, "jitter": 30.0}}
+## Vazio desde o Cerco Vivo do Bastião (design/gdd/bastiao-cerco-vivo.md R1: o field_ruins passou para o SiegeSystem).
+const RAID_SYNC_MAPS := {}
 ## Teto de invasores por leva por mapa (no lugar de RAID_WAVE_CAP; o último front segue em RAID_WAVE_CAP_LAST).
 const RAID_WAVE_CAP_MAP := {"field_ruins": 80}
 const RAID_SCALE_HP_PCT := 8.0
@@ -1738,8 +1740,14 @@ const SIEGE_GUARD_REPEL := 0.75           # meta das sondas: guarnição sozinha
 const SIEGE_XP_SHARE := 0.8               # meta das sondas: XP/min do cerco <= isto x a caça da faixa
 ## Cerco por mapa (design/gdd/elf-siege-posto.md §7): troca os SIEGE_* acima só no mapa da chave (nome em minúsculas, sem SIEGE_;
 ## SiegeSystem.num). Porto sem entrada = valores de cima. Posto (nível 14-19): primeira leva mais tarde, assédio mais raro e mais fraco.
+## Tabelas por pressão (S1 do design/gdd/bastiao-cerco-vivo.md; SiegeSystem.ptab): `every_mult`/`size_mult`/`big_nth`/`harass_mult`
+## trocam SIEGE_EVERY_MULT/SIZE_MULT/BIG_NTH/HARASS_MULT inteiras no mapa. Bastião: pressão 1-4, tamanho x1,0 sempre (D4),
+## frequência sobe a cada forte retomado (F1: 150 / 115 / 90 s); assédio 10% entre o Posto (8) e o Porto (12).
 const SIEGE_MAP := {
 	"field_forest": {"first_wave": 60.0, "first_harass": 40.0, "harass_every": 60.0, "harass_dmg_pct": 8.0, "harass_shooters": 2},
+	"field_ruins": {"first_wave": 60.0, "first_harass": 40.0, "harass_every": 55.0, "harass_dmg_pct": 10.0, "harass_shooters": 3,
+		"every_mult": {1: 2.0, 2: 1.0, 3: 0.77, 4: 0.6}, "size_mult": {1: 0.6, 2: 1.0, 3: 1.0, 4: 1.0},
+		"big_nth": {1: 99, 2: 3, 3: 3, 4: 2}, "harass_mult": {2: 1.0, 3: 0.75}},
 }
 ## Escalões da leva (só mapas com entrada; elf-siege-posto R6/F6): o grupo `order[<monstro>]` nasce `gap` s depois do anterior,
 ## espalhado num arco de `arc` m perpendicular à 1ª perna da rota; cada invasor marcha numa vaga lateral de até ±`lane` m (só se
@@ -1748,6 +1756,10 @@ const SIEGE_MAP := {
 const SIEGE_STAGGER := {
 	"field_forest": {"gap": 4.0, "arc": 12.0, "lane": 3.0, "muster": 4.0,
 		"order": {"elf_lynx": 0, "elf_raider": 1, "elf_raider_archer": 2, "elf_raider_mage": 2, "griffin_raider": 3}},
+	# Bastião (bastiao-cerco-vivo R8): rápidos, linha, pesados, atrás/elite
+	"field_ruins": {"gap": 5.0, "arc": 14.0, "lane": 3.0, "muster": 4.0,
+		"order": {"larva": 0, "rot_wolf": 0, "tower_bat": 0, "rot_zombie": 1, "skeleton": 1, "cultist": 1, "rot_ghoul": 2, "skel_guard": 2, "ghost": 2,
+			"skel_archer": 3, "citadel_adept": 3, "rot_bear": 3, "citadel_knight": 3, "citadel_horror": 3}},
 }
 ## Guarnição do Acampamento Avançado (Kharzun 40-45): vida e ataque dos soldados da Aurora x isto. Regra: o acampamento segura
 ## o Contra-ataque (K0, Canil + Cidadela) sozinho em >= 75% (raid_probe --map=field_kharzun --bots=0).

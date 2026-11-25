@@ -140,7 +140,7 @@ func set_lock(target_id: int) -> void:
 	lock_tag.visible = e != null and not boss_bar.visible
 	boss_bar.lock_id = e.id if e else -1
 	if e and e.monster_def:
-		lock_label.text = "◆ Travado: %s   (Tab solta)" % e.monster_def.name
+		lock_label.text = "◆ Travado: %s   (%s solta)" % [e.monster_def.name, KeyBindings.label("lock_target")]
 
 func on_game_started() -> void:
 	root.visible = true
@@ -504,12 +504,23 @@ func _build_top_right() -> void:
 	minimap.hud = self
 
 func _build_hints() -> Label:
-	hint_label = UiKit.label("WASD mover · LMB atacar · RMB bloquear · Shift dash\n1-6 skills · F1-F3 poções · Espaço pular · F interagir\nQ/E girar câmera · Enter chat · F11 tela cheia\nH montar · G voltar à cidade · Tab travar no chefe
-arraste skills e poções para a barra", 12, UiKit.MUTED)
+	hint_label = UiKit.label(hint_text(), 12, UiKit.MUTED)
 	hint_label.custom_minimum_size.x = SIDE_W
 	hint_label.size_flags_vertical = Control.SIZE_SHRINK_END
 	hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	return hint_label
+
+## Dica das teclas no canto (sempre as teclas de agora, KeyBindings; Esc/Enter/F11 são fixas).
+const HINT := "{move} mover · {attack} atacar · {block} bloquear · {dash} dash
+{skill_1}-{skill_6} skills · {potion_1} {potion_2} {potion_3} poções · {jump} pular · {interact} interagir
+{cam_rotate_left}/{cam_rotate_right} girar câmera · Enter chat · F11 tela cheia
+{mount} montar · {recall} voltar à cidade · {lock_target} travar no chefe
+arraste skills e poções para a barra"
+
+static func hint_text() -> String:
+	return KeyBindings.fill(HINT, true)
+
+var _keys_rev := -1                 # KeyBindings.revision já desenhada (dica do canto)
 
 # ---------------------------------------------------------------------------
 static var prof_us := 0.0           # --soak: tempo de script do HUD (sem o minimapa)
@@ -525,6 +536,9 @@ func _hud_process(_delta: float) -> void:
 		var fps := Engine.get_frames_per_second()
 		fps_label.text = "%d FPS" % fps
 		fps_label.add_theme_color_override("font_color", Color(0.6, 0.95, 0.6) if fps >= 55 else (Color(1.0, 0.85, 0.4) if fps >= 35 else Color(1.0, 0.45, 0.4)))
+	if _keys_rev != KeyBindings.revision and hint_label:
+		_keys_rev = KeyBindings.revision
+		hint_label.text = hint_text()
 	var p: SimEntity = Sim.player
 	if p == null or not root.visible:
 		return
@@ -593,7 +607,7 @@ func _hud_process(_delta: float) -> void:
 		s["tex"].texture = UiKit.item_texture(it)
 		s["tex"].modulate = Color.WHITE
 		s["root"].tooltip_text = ("%s
-Arraste outra poção da bolsa para cá · botão direito esvazia" % it.name) if it else "Arraste uma poção da bolsa (I) para cá"
+Arraste outra poção da bolsa para cá · botão direito esvazia" % it.name) if it else "Arraste uma poção da bolsa (%s) para cá" % KeyBindings.label("ui_inventory")
 		s["lv"].text = str(count) if it else ""
 		s["cd"].visible = count == 0 and it != null
 		var pcd: float = p.potion_cds[i]            # cada F tem a sua recarga
@@ -724,7 +738,9 @@ const STATUS_NAMES := {"burn": ["Queimando", "Fogo: perde HP com o tempo."], "po
 	"wither": ["Definhando", "Cura recebida reduzida."], "shield": ["Barreira", "Absorve dano."],
 	"juramento": ["Juramento", "Cargas do escudo: bloquear acumula."],
 	"bastion": ["Bastião", "Defendendo as muralhas na investida: mais defesa e regenera vida."],
-	"colonia_de_pe": ["Colônia de Pé", "Você ajudou a repelir uma investida: +10% de XP de abate neste mapa."]}
+	"colonia_de_pe": ["Colônia de Pé", "Você ajudou a repelir uma investida: +10% de XP de abate neste mapa."],
+	"muralha_de_pe": ["Muralha de Pé", "Você ajudou a segurar um portão do Bastião: +10% de XP de abate neste mapa."],
+	"posto_de_pe": ["Posto de Pé", "Você ajudou a segurar um portão do Posto: +10% de XP de abate neste mapa."]}
 
 func _update_status_bar(p: SimEntity) -> void:
 	var want: Array = []                  # [chave, buff?, tempo, cargas, ícone, nome, descrição]
@@ -947,7 +963,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if _chat_focus:
 		return
-	if event is InputEventKey and event.pressed and not event.echo and (event as InputEventKey).physical_keycode == KEY_M:
+	if event.is_action_pressed("ui_map") and not event.is_echo():
 		toggle_world_map()
 		get_viewport().set_input_as_handled()
 		return
@@ -989,7 +1005,7 @@ func toggle_world_map() -> void:
 	mm.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	box.add_child(mm)
 	mm.set_map(def)
-	var hint := UiKit.label("M ou Esc fecha · ➜ portais · ! ? quests · losango azul = cristal · vermelho = monstros · verde = seu grupo", 13, UiKit.MUTED)
+	var hint := UiKit.label(KeyBindings.label("ui_map") + " ou Esc fecha · ➜ portais · ! ? quests · losango azul = cristal · vermelho = monstros · verde = seu grupo", 13, UiKit.MUTED)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(hint)
 	world_map = shade
@@ -1309,7 +1325,7 @@ func _update_gather_prompt(p: SimEntity) -> void:
 		gather_label.text = "Colhendo %s %s" % ["▮".repeat(int(k * 10.0)), "▯".repeat(10 - int(k * 10.0))]
 		return
 	var node := Sim.nearest_gather(p)
-	gather_label.text = "" if node.is_empty() else "[F] Colher %s" % GameData.items[node["item"]].name
+	gather_label.text = "" if node.is_empty() else "[%s] Colher %s" % [KeyBindings.label("interact"), GameData.items[node["item"]].name]
 
 func _on_dialog(npc_id: String) -> void:
 	npc_ui.open(npc_id)
@@ -1564,7 +1580,7 @@ func refresh_party() -> void:
 		v.add_child(mp)
 		party_frames.append({"id": m.id, "frame": fr, "hp": hp, "shield": hsh, "mp": mp, "info": info})
 	if leader == p:
-		party_box.add_child(UiKit.label("♛ Você lidera (P)", 10, UiKit.MUTED))
+		party_box.add_child(UiKit.label("♛ Você lidera (%s)" % KeyBindings.label("ui_party"), 10, UiKit.MUTED))
 
 func _update_party_frames() -> void:
 	for f in party_frames:

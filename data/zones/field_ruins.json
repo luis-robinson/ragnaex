@@ -24438,12 +24438,16 @@
  ],
  "raids": [
   {
-   "side": "ghoul",
+   "side": "cerco_ghoul",
    "from": [
-    -96.1,
-    0.0
+    -99.0,
+    -30.0
    ],
    "route": [
+    [
+     -90.0,
+     -12.5
+    ],
     [
      -84.94,
      -13.45
@@ -24454,22 +24458,26 @@
     ]
    ],
    "target": [
-    0.0,
+    -44.0,
     0.0
    ],
-   "radius": 50.0,
+   "radius": 20.0,
    "unless": "dw_ghoul_boss"
   },
   {
-   "side": "bones",
+   "side": "cerco_bones",
    "from": [
-    0.0,
-    -88.2
+    -24.0,
+    -76.0
    ],
    "route": [
     [
-     13.45,
-     -84.94
+     -14.0,
+     -74.0
+    ],
+    [
+     -5.0,
+     -71.0
     ],
     [
      0.0,
@@ -24478,21 +24486,21 @@
    ],
    "target": [
     0.0,
-    0.0
+    -44.0
    ],
-   "radius": 50.0,
+   "radius": 20.0,
    "unless": "dw_bones_boss"
   },
   {
-   "side": "frost",
+   "side": "cerco_frost",
    "from": [
-    0.0,
-    99.8
+    18.0,
+    76.0
    ],
    "route": [
     [
-     -13.45,
-     84.94
+     8.0,
+     72.0
     ],
     [
      0.0,
@@ -24501,10 +24509,51 @@
    ],
    "target": [
     0.0,
+    44.0
+   ],
+   "radius": 20.0,
+   "unless": "dw_frost_boss"
+  },
+  {
+   "side": "patrulha_oeste",
+   "from": [
+    -99.0,
+    -30.0
+   ],
+   "route": [
+    [
+     -90.0,
+     -12.5
+    ],
+    [
+     -84.94,
+     -13.45
+    ],
+    [
+     -62.0,
+     0.0
+    ]
+   ],
+   "target": [
+    -44.0,
     0.0
    ],
-   "radius": 50.0,
-   "unless": "dw_frost_boss"
+   "radius": 20.0,
+   "unless": "dw_gates"
+  },
+  {
+   "side": "assedio_norte",
+   "from": [
+    26.5,
+    -56.0
+   ],
+   "route": [],
+   "target": [
+    0.0,
+    -44.0
+   ],
+   "radius": 10.0,
+   "unless": "dw_bones_boss"
   }
  ],
  "assaults": [
@@ -24665,6 +24714,44 @@
  "arrive_from_field_oaths": [
   44.8,
   100.7
+ ],
+ "fx": [
+  {
+   "kind": "fire",
+   "pos": [
+    -40.0,
+    6.0
+   ],
+   "unless": [
+    "dw_ghoul_boss",
+    "dw_bones_boss",
+    "dw_frost_boss"
+   ]
+  },
+  {
+   "kind": "fire",
+   "pos": [
+    6.0,
+    -40.0
+   ],
+   "unless": [
+    "dw_ghoul_boss",
+    "dw_bones_boss",
+    "dw_frost_boss"
+   ]
+  },
+  {
+   "kind": "fire",
+   "pos": [
+    -6.0,
+    40.0
+   ],
+   "unless": [
+    "dw_ghoul_boss",
+    "dw_bones_boss",
+    "dw_frost_boss"
+   ]
+  }
  ],
  "turn": 0.0
 }

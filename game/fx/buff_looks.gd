@@ -25,7 +25,9 @@ const LOOKS := {
 	"bone_armor": ["armor", "bone"], "bonewall": ["armor", "bone"],
 	"blessed_armor": ["armor", "holy"], "ward": ["armor", "holy"], "bulwark": ["armor", "holy"],
 	"hallowed": ["armor", "holy"],            # Chão Sagrado (Templário): +DEF enquanto está dentro da zona
-	"shield_wall": ["armor", "holy"], "bastion": ["armor", "holy"], "colonia_de_pe": ["holy", "holy"], "juramento": ["armor", "holy"],
+	"shield_wall": ["armor", "holy"], "bastion": ["armor", "holy"], "colonia_de_pe": ["holy", "holy"],
+	"juramento": ["armor", "holy"],
+	"muralha_de_pe": ["holy", "fire"], "posto_de_pe": ["holy", "nature"],      # moral do cerco por lugar (Bastião, Posto): mesmo efeito, cor própria
 	"duel_guard": ["armor", "physical"], "chakra": ["armor", "holy"],
 	"guard_crit": ["power", "holy"],          # Contra-Ataque (notável do Guardião): bloqueou -> crítico por pouco tempo
 	# escudo de HP
@@ -133,6 +135,8 @@ const SYSTEM_BUFFS := {
 	"glory": "GladiatorSystem (Modo Gladiador: Glória por crítico, abate e Brado da Arena)",
 	"bastion": "RaidSystem (sentinela: reunir)",
 	"colonia_de_pe": "SiegeSystem (Colônia de Pé: leva repelida, +XP de abate no mapa)",
+	"muralha_de_pe": "SiegeSystem (Muralha de Pé: moral do Bastião, siege.morale_buff)",
+	"posto_de_pe": "SiegeSystem (Posto de Pé: moral do Posto dos Caçadores, siege.morale_buff)",
 	"juramento": "ShieldSystem (Juramento ao bloquear)",
 	"guard_crit": "Combat.role_on_hit (notável Contra-Ataque: bloqueou, +crítico)",
 	"blessed_hammers": "AuraSystem.start_orbit (Martelos Abençoados: efeito orbit)",

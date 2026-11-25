@@ -52,10 +52,11 @@ func _run() -> void:
 	elif DevArgs.flag("--select_shot"):
 		if DevArgs.has("--title_settings") and start.has_method("_on_settings") and str(start.get("state")) == "title":
 			start.call("_on_settings")     # foto das Configurações sobre o Título
-			if DevArgs.value("--settings_tab") == "access":     # --settings_tab=access: aba Acessibilidade
+			var tab := SettingsPanel.tab_index(DevArgs.value("--settings_tab"))     # --settings_tab=access|controls|<índice>
+			if tab > 0:
 				var sp := start.find_child("SettingsPanel", true, false) as SettingsPanel
 				if sp:
-					sp.show_tab(1)
+					sp.show_tab(tab)
 		await _wait(2.0)
 		print("SELECT_SHOT screen=%s maps=%d entities=%d" % [str(start.get("state")), Sim.maps.size(), Sim.entities.size()])
 		_shot(DevArgs.value("--select_shot"))

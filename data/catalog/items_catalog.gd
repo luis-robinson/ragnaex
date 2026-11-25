@@ -200,6 +200,12 @@ static func build() -> Array:
 		_mat("bog_heart", "Coração da Bocarra", 90, "Bate devagar, como quem coaxa dormindo. O mascate oferece o dobro só para ver.", Color(0.5, 0.58, 0.3)),
 		_mat("smuggler_ledger", "Página do Livro de Cargas", 0, "Folha molhada com contas de barris de 'água de mel'. Alguém paga em aço élfico.", Color(0.7, 0.62, 0.45)),
 		_mat("bento_letter", "Carta do Bento", 0, "Dobrada em quatro, com cheiro de brejo. 'Para a Dalva, no Posto.'", Color(0.85, 0.8, 0.65)),
+		# Campo dos Juramentos (24-28, GDD campo-dos-juramentos §3.6). Arte pintada (item_icons.tscn -- --only=<id>).
+		_mat("carrion_feather", "Pena de Carniça", 18, "Preta-azulada, leve e dura. Não apodrece: a Corveira Matilde escreve com elas.", Color(0.2, 0.22, 0.3)),
+		_mat("oath_seal", "Selo de Juramento", 26, "Disco de chumbo com um nome gravado e a frase 'proteger esta terra'. Frio como água de poço.", Color(0.62, 0.62, 0.58)),
+		_mat("fallen_standard", "Estandarte da Aurora Caído", 120, "Pano dourado queimado nas bordas, ainda preso ao pedaço do mastro. Pesa mais do que devia.", Color(0.86, 0.7, 0.32)),
+		_mat("digger_orders", "Ordem de Escavação", 0, "Papel dobrado com uma lista de nomes de mortos. Embaixo: 'para o Escrivão'.", Color(0.78, 0.72, 0.58)),
+		_mat("bearer_banner_scrap", "Retalho do Estandarte", 0, "Um palmo de pano dourado que Sir Malcom cortou do estandarte de Edran. 'Para o Osric.'", Color(0.9, 0.76, 0.4)),
 		{"id": "letter_sealed", "name": "Carta Lacrada", "type": QST, "price": 0, "icon_color": Color(0.9, 0.85, 0.6), "description": "Carta do Ancião para a Capitã da guarda."},
 		# ---------------- armas tier 0 (lv1) ----------------
 		_weapon("sword_rusty", "Espada Enferrujada", "sword", 0, 8, 0, {"FOR": 3, "VIT": 1}, Color(0.6, 0.6, 0.6)),

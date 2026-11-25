@@ -557,7 +557,7 @@ static func mount_options(sim: WorldSim, p: SimEntity) -> Array:
 		var free: bool = sim.mount_unlocked(p, mk)
 		var using: bool = p.mount_kind == mk
 		var text := "Em uso: %s" % mname if using else "Trocar para: %s" % mname
-		var tip := "A tecla H chama esta montaria."
+		var tip := "A tecla %s chama esta montaria." % KeyBindings.label("mount")
 		if not free:
 			var qid: String = Balance.MOUNT_KINDS[mk]["quest"]
 			var qd: QuestDef = GameData.quests.get(qid)
@@ -818,8 +818,8 @@ func _trainer(body: VBoxContainer) -> void:
 	win.custom_minimum_size = Vector2(860, 480)
 	_scroll.custom_minimum_size = Vector2(830, 430)
 	body.add_child(UiKit.label("Ouro: %d   ·   Nível: %d" % [p.gold, p.level], 13, UiKit.GOLD))
-	body.add_child(UiKit.para("Cada rank (até %d) deixa a skill mais forte. O rank pede o nível da skill + %d por rank já feito e se paga em ouro e materiais da faixa da skill (o raro só do rank %d em diante). Aprimorada e Ágil continuam na teia (K)." % [
-		Balance.MASTERY_MAX, Balance.SKILL_RANK_LEVEL_STEP, Balance.SKILL_RANK_RARE_FROM], 11, UiKit.MUTED))
+	body.add_child(UiKit.para("Cada rank (até %d) deixa a skill mais forte. O rank pede o nível da skill + %d por rank já feito e se paga em ouro e materiais da faixa da skill (o raro só do rank %d em diante). Aprimorada e Ágil continuam na teia (%s)." % [
+		Balance.MASTERY_MAX, Balance.SKILL_RANK_LEVEL_STEP, Balance.SKILL_RANK_RARE_FROM, KeyBindings.label("ui_skills")], 11, UiKit.MUTED))
 	var ids := trainer_skills(Sim, p)
 	if ids.is_empty():
 		body.add_child(UiKit.para("Você ainda não conhece nenhuma skill para treinar.", 12, UiKit.MUTED))

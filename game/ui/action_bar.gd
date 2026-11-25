@@ -2,6 +2,7 @@ class_name ActionBar
 extends PanelContainer
 ## Barra de ações (estilo MMO clássico): moldura de bronze no centro de baixo com as skills 1-6, as poções F1-F3,
 ## montaria (H) e volta à cidade (G), o menu de atalhos (I C K L P M Esc) e a barra de XP de 20 gomos por baixo de tudo. Arte toda desenhada aqui.
+## As teclas mostradas são as de agora (KeyBindings): `refresh_keys` redesenha quando o jogador troca uma tecla.
 
 const BRONZE := Color(0.62, 0.47, 0.25)
 const BRONZE_DARK := Color(0.28, 0.2, 0.1)
@@ -22,18 +23,21 @@ var dash_slot: Dictionary = {}      # esquiva (Shift), entre as skills e as poç
 var _row: HBoxContainer
 const ROW_SEP := 5
 const ROW_SEP_ASC := 3              # ascendida (7-0 + Shift): vagas mais juntas, a barra cabe entre o chat e a borda em 1600
-## [tecla, ícone (assets/icons/action_<id>.png), dica]
-const UTIL := [["H", "mount", "Montar / desmontar (H)
+## [ação do InputMap, ícone (assets/icons/action_<id>.png), dica ("{tecla}" = tecla de agora)]
+const UTIL := [["mount", "mount", "Montar / desmontar ({tecla})
 %s: anda %d%% mais rápido. Não dá para montar em combate."],
-	["G", "recall", "Voltar à cidade (G)
+	["recall", "recall", "Voltar à cidade ({tecla})
 Conjura %.1f s, também em combate. Andar ou agir cancela; levar dano interrompe."]]
 var _mount_kind := ""                # montaria mostrada no H (só troca quando o tipo muda)
 var xp: XpBar
 var level_cap: Crest
 var ult: UltFrame                   # moldura redonda da Suprema (R), à esquerda do 1-6
-## [tecla, nome, janela que abre (@map/@menu = mapa grande / menu do Esc)]
-const MICRO := [["I", "Bolsa", "inventory"], ["C", "Personagem", "character"], ["J", "Skills", "book"], ["K", "Teia", "skills"],
-	["L", "Quests", "quests"], ["P", "Grupo", "party"], ["M", "Mapa", "@map"], ["Esc", "Menu", "@menu"]]
+## [ação do InputMap ("" = Esc, fixa), nome, janela que abre (@map/@menu = mapa grande / menu do Esc)]
+const MICRO := [["ui_inventory", "Bolsa", "inventory"], ["ui_character", "Personagem", "character"], ["ui_book", "Skills", "book"],
+	["ui_skills", "Teia", "skills"], ["ui_quests", "Quests", "quests"], ["ui_party", "Grupo", "party"], ["ui_map", "Mapa", "@map"],
+	["", "Menu", "@menu"]]
+var micro_buttons: Array = []       # [Button, ação, nome] na ordem de MICRO
+var _keys_rev := -1                 # KeyBindings.revision já desenhada
 
 func build() -> void:
 	var st := StyleBoxFlat.new()
@@ -63,11 +67,11 @@ func build() -> void:
 	ult = UltFrame.new()
 	ult.custom_minimum_size = Vector2(ULT_PX, ULT_PX)
 	ult.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	ult.tooltip_text = "Suprema (R)"
+	ult.tooltip_text = "Suprema (%s)" % KeyBindings.label("ultimate")
 	row.add_child(ult)
 	row.add_child(_divider())
 	for i in range(Balance.SKILL_SLOTS):
-		var s := make_button("%d" % (i + 1), SKILL_PX)
+		var s := make_button(key_of(i), SKILL_PX)
 		row.add_child(s["root"])
 		skill_slots.append(s)
 	asc_box = HBoxContainer.new()
@@ -81,7 +85,7 @@ func build() -> void:
 		asc_box.add_child(s["root"])
 		skill_slots.append(s)
 	row.add_child(_divider())
-	dash_slot = make_button("Shift", POTION_PX)       # esquiva: leque da recarga e cargas no canto (hud._update_dash_slot)
+	dash_slot = make_button(KeyBindings.short("dash"), POTION_PX)       # esquiva: leque da recarga e cargas no canto (hud._update_dash_slot)
 	dash_slot["root"].size_flags_vertical = Control.SIZE_SHRINK_END
 	dash_slot["tex"].texture = UiKit.icon_texture("action_dash")
 	dash_slot["bevel"].set_empty(false)
@@ -92,19 +96,19 @@ func build() -> void:
 	dash_slot["root"].tooltip_text = dash_tip("", 1, Balance.DASH_COOLDOWN)
 	row.add_child(dash_slot["root"])                 # mesmo grupo das poções (sem divisória própria: a barra ascendida cabe em 1600)
 	for i in range(3):
-		var s := make_button("F%d" % (i + 1), POTION_PX)
+		var s := make_button(KeyBindings.short("potion_%d" % (i + 1)), POTION_PX)
 		s["root"].size_flags_vertical = Control.SIZE_SHRINK_END
 		row.add_child(s["root"])
 		potion_slots.append(s)
 	row.add_child(_divider())
 	for u in UTIL:
-		var s := make_button(u[0], POTION_PX)
+		var s := make_button(KeyBindings.short(u[0]), POTION_PX)
 		s["root"].size_flags_vertical = Control.SIZE_SHRINK_END
 		s["tex"].texture = UiKit.icon_texture("action_" + u[1])
 		s["bevel"].set_empty(false)
 		s["id"] = u[1]
 		if u[1] != "mount":
-			s["root"].tooltip_text = u[2] % Balance.RECALL_TIME
+			s["root"].tooltip_text = util_tip(u[2], u[0]) % Balance.RECALL_TIME
 		row.add_child(s["root"])
 		util_slots.append(s)
 	set_mount_kind(Balance.MOUNT_DEFAULT)
@@ -116,17 +120,56 @@ func build() -> void:
 	grid.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(grid)
 	for m in MICRO:
-		grid.add_child(_micro(m[0], m[1], m[2]))
+		var mb := _micro(micro_key(m[0]), m[1], m[2])
+		grid.add_child(mb)
+		micro_buttons.append([mb, m[0], m[1]])
 	var cap := Crest.new()
 	cap.kind = "sun"
 	row.add_child(cap)
 	xp = XpBar.new()
 	xp.custom_minimum_size = Vector2(0, 14)
 	col.add_child(xp)
+	refresh_keys()
 
 func _process(_delta: float) -> void:
+	if _keys_rev != KeyBindings.revision:
+		refresh_keys()
 	if Sim.player:
 		set_mount_kind(Sim.player.mount_kind)
+
+## Tecla do botão de atalho de uma ação ("" = Esc, fixa).
+static func micro_key(action: String) -> String:
+	return KeyBindings.short(action) if action != "" else "Esc"
+
+## Dica de UTIL com a tecla de agora no lugar de "{tecla}".
+static func util_tip(tip: String, action: String) -> String:
+	return tip.replace("{tecla}", KeyBindings.label(action))
+
+## Redesenha toda tecla mostrada na barra (vagas, atalhos, dicas) com as de agora.
+func refresh_keys() -> void:
+	_keys_rev = KeyBindings.revision
+	for i in skill_slots.size():
+		(skill_slots[i]["key"] as Label).text = key_of(i)
+	if not dash_slot.is_empty():
+		(dash_slot["key"] as Label).text = KeyBindings.short("dash")
+		dash_slot["root"].tooltip_text = dash_tip("", 1, Balance.DASH_COOLDOWN)
+	for i in potion_slots.size():
+		(potion_slots[i]["key"] as Label).text = KeyBindings.short("potion_%d" % (i + 1))
+	for i in util_slots.size():
+		(util_slots[i]["key"] as Label).text = KeyBindings.short(UTIL[i][0])
+		if UTIL[i][0] == "recall":
+			util_slots[i]["root"].tooltip_text = util_tip(UTIL[i][2], "recall") % Balance.RECALL_TIME
+	for mb in micro_buttons:
+		var b: Button = mb[0]
+		b.text = micro_key(mb[1])
+		b.tooltip_text = "%s (%s)" % [mb[2], b.text]
+	if ult:
+		ult.key_text = KeyBindings.short("ultimate")
+		ult.queue_redraw()
+	var mk := _mount_kind
+	_mount_kind = ""
+	if mk != "":
+		set_mount_kind(mk)
 
 ## Ícone do H para o tipo de montaria (Balance.MOUNT_KINDS): action_mount = cavalo, action_mount_<tipo> = os outros
 ## (tools/icons/make_icons.gd ACTION_ICONS); tipo sem arte usa o do cavalo.
@@ -143,13 +186,13 @@ func set_mount_kind(kind: String) -> void:
 	for s in util_slots:
 		if s["id"] == "mount":
 			s["tex"].texture = UiKit.icon_texture(mount_icon(kind))
-			s["root"].tooltip_text = UTIL[0][2] % [mname, roundi((Balance.MOUNT_SPEED_MULT - 1.0) * 100.0)]
+			s["root"].tooltip_text = util_tip(UTIL[0][2], "mount") % [mname, roundi((Balance.MOUNT_SPEED_MULT - 1.0) * 100.0)]
 
 ## Dica da vaga do dash: tecla, recarga de agora e a evolução comprada (nome do TalentDef do dash), se houver.
 static func dash_tip(evolution: String, charges: int, cooldown: float) -> String:
-	var t := "Esquiva (Shift)
+	var t := "Esquiva (%s)
 Avança na direção em que você anda e fica intocável por um instante.
-Recarga: %.1f s" % cooldown
+Recarga: %.1f s" % [KeyBindings.label("dash"), cooldown]
 	if charges > 1:
 		t += " · %d cargas seguidas" % charges
 	if evolution != "":
@@ -157,9 +200,9 @@ Recarga: %.1f s" % cooldown
 Evolução: %s" % evolution
 	return t
 
-## Tecla da vaga i da barra (0-9): "1".."9", e "0" na décima.
+## Tecla da vaga i da barra (0-9): a de agora da ação skill_<i+1> (padrão "1".."9", e "0" na décima).
 static func key_of(i: int) -> String:
-	return str((i + 1) % 10)
+	return KeyBindings.short("skill_%d" % (i + 1))
 
 ## Moldura do R pelo estado da sim (só lê): ícone da Suprema da build, anel de carga, cheia, trava e o porquê.
 func update_ult(p: SimEntity) -> void:
@@ -169,13 +212,14 @@ func update_ult(p: SimEntity) -> void:
 	var gap := maxf(0.0, p.ult_gap_until - Sim.time)
 	ult.set_state(s, frac, why != "", gap)
 	var tip := ""
+	var rk := KeyBindings.label("ultimate")
 	if s == null:
-		tip = "Suprema (R)\n%s" % (why if why != "" else "Sua build ainda não tem Suprema")
+		tip = "Suprema (%s)\n%s" % [rk, why if why != "" else "Sua build ainda não tem Suprema"]
 	elif why != "":
-		tip = "%s — Suprema (R)\n%s\n\n%s" % [s.name, why, s.description]
+		tip = "%s — Suprema (%s)\n%s\n\n%s" % [s.name, rk, why, s.description]
 	else:
-		var st := "Recarregando: %ds" % ceili(gap) if gap > 0.0 else ("PRONTA: aperte R" if frac >= 1.0 else "Carga Suprema: %d%%" % int(frac * 100.0))
-		tip = "%s — Suprema (R)\n%s\n\n%s\n\nA carga enche lutando (dano, cura e dano recebido); esvazia fora de combate e zera ao morrer ou trocar de mapa." % [s.name, st, s.description]
+		var st := "Recarregando: %ds" % ceili(gap) if gap > 0.0 else ("PRONTA: aperte %s" % rk if frac >= 1.0 else "Carga Suprema: %d%%" % int(frac * 100.0))
+		tip = "%s — Suprema (%s)\n%s\n\n%s\n\nA carga enche lutando (dano, cura e dano recebido); esvazia fora de combate e zera ao morrer ou trocar de mapa." % [s.name, rk, st, s.description]
 	if ult.tooltip_text != tip:
 		ult.tooltip_text = tip
 
@@ -298,7 +342,7 @@ static func make_button(key: String, px: int, rim: Color = Color(0.42, 0.33, 0.2
 		(c as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p.mouse_entered.connect(func(): st.border_color = Color(1.0, 0.82, 0.4))
 	p.mouse_exited.connect(func(): st.border_color = rim)
-	return {"root": p, "icon": icon, "tex": tex, "cd": cd, "cdt": cdt, "lv": lv, "sweep": sweep, "style": st, "bevel": bevel, "chg": chg}
+	return {"root": p, "icon": icon, "tex": tex, "cd": cd, "cdt": cdt, "lv": lv, "sweep": sweep, "style": st, "bevel": bevel, "chg": chg, "key": k}
 
 ## XP do nível: texto no meio, preenchimento violeta e 20 gomos.
 func set_xp(level: int, cur: int, need: int) -> void:
@@ -319,6 +363,7 @@ class UltFrame extends Control:
 	var frac := 0.0
 	var locked := true
 	var gap := 0.0                     # s de trava depois de soltar (anel cinza + número)
+	var key_text := "R"                # tecla da Suprema (KeyBindings; ActionBar.refresh_keys troca)
 	var _tex: Texture2D = null
 	var _pulse := 0.0
 	func set_state(s: SkillDef, f: float, lock: bool, g: float) -> void:
@@ -380,7 +425,7 @@ class UltFrame extends Control:
 		var font := get_theme_default_font()
 		var key_at := c + Vector2(-R * 0.72, -R * 0.42)
 		draw_circle(key_at + Vector2(4.5, -4.0), 8.0, Color(0.05, 0.04, 0.03, 0.85))
-		draw_string(font, key_at, "R", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, GOLD_HI if ready else Color(0.92, 0.9, 0.85))
+		draw_string(font, key_at, key_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, GOLD_HI if ready else Color(0.92, 0.9, 0.85))
 		if gap > 0.0 and not locked:                       # trava depois de soltar: os segundos no meio
 			var t := str(ceili(gap))
 			var tw := font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x

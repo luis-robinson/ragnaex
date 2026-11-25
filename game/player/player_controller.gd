@@ -3,6 +3,7 @@ extends Node
 ## Lê teclado/mouse e monta o InputCommand do jogador a cada tick de física.
 ## WASD relativo à câmera, mira = ponto do chão sob o mouse (MOBA), LMB ataque, RMB bloqueio,
 ## 1-6 skills, F1-F3 poções, Shift dash, Espaço pula, F interage, H monta, G volta à cidade, Tab trava no chefe (BossLock).
+## Teclas = ações do InputMap (padrão no project.godot); o jogador troca em Configurações → Controles (KeyBindings).
 
 signal lock_changed(target_id: int)   ## trava no chefe mudou (-1 = solta); HUD e marcador ouvem
 
@@ -53,10 +54,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		_pending.jump = true
 	if event.is_action_pressed("ultimate") and not event.is_echo():
 		_pending.ultimate = true       # R: Suprema
-	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_H:
-		_pending.mount = true          # H: montar/desmontar
-	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_G:
-		_pending.recall = true         # G: voltar à cidade
+	if event.is_action_pressed("mount") and not event.is_echo():
+		_pending.mount = true          # H: montar/desmontar (trocável, KeyBindings)
+	if event.is_action_pressed("recall") and not event.is_echo():
+		_pending.recall = true         # G: voltar à cidade (trocável, KeyBindings)
 
 ## Botões H/G da barra de ações: o mesmo comando das teclas.
 func queue_mount() -> void:

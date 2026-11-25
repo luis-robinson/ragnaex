@@ -101,7 +101,8 @@ const FALLBACK := ["sword", "star", "heart", "sun", "skull", "boot"]    # por Sk
 ## estados na barra de buffs/debuffs do HUD (status_<chave>.png): [tema, símbolo]
 const STATUS_ICONS := {"burn": ["fire", "flame"], "poison": ["poison", "drop"], "slow": ["ice", "snowflake"], "root": ["nature", "thorn"],
 	"stun": ["lightning", "star"], "curse": ["shadow", "skull"], "wither": ["bone", "bone"], "shield": ["holy", "shield"],
-	"juramento": ["holy", "cross"], "buff": ["heal", "sun"]}
+	"juramento": ["holy", "cross"], "buff": ["heal", "sun"],
+	"muralha_de_pe": ["holy", "armor"], "posto_de_pe": ["nature", "bow"]}      # moral do cerco por lugar (SiegeSystem.morale_buff)
 ## ações fixas da barra (action_<chave>.png): montaria (H) e volta à cidade (G). [tema, símbolo]
 ## montaria que não é o cavalo: action_mount_<Balance.MOUNT_KINDS> (ActionBar.mount_icon)
 const ACTION_ICONS := {"mount": ["earth", "horse"], "mount_dire_wolf": ["earth", "wolf"], "recall": ["lunar", "portal"], "dash": ["wind", "dash"]}
@@ -130,10 +131,12 @@ func _ready() -> void:
 		for sid in GLYPHS[g]:
 			glyph_of[sid] = g
 	for cid in CLASS_ICONS:
-		if not (only in ["action", "status"]) and not GameData.skills.has(only):      # --only=action/status/<skill_id>: só esses arquivos
+		if not (only in ["action", "status"]) and not only.begins_with("status_") and not GameData.skills.has(only):      # --only=action/status/<skill_id>: só esses arquivos
 			_queue.append({"file": "class_" + cid, "cls": cid})
-	if only == "" or only == "status":
+	if only == "" or only == "status" or only.begins_with("status_"):     # --only=status_<chave>: só esse
 		for k in STATUS_ICONS:
+			if only.begins_with("status_") and only != "status_" + k:
+				continue
 			_queue.append({"file": "status_" + k, "status": k})
 	if only == "" or only == "action":
 		for k in ACTION_ICONS:

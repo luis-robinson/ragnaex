@@ -88,7 +88,9 @@ const BOSSES := {"bandit_chief": "field_forest", "crab_king": "field_crab_beach"
 	# Brejo das Teias (12-16): Ponta da Bocarra
 	"bog_mother": "field_marsh",
 	# Viveiro de Seiva (17-19): O Berço
-	"boss_sap_mother": "dg_viveiro"}
+	"boss_sap_mother": "dg_viveiro",
+	# Campo dos Juramentos (24-28): Colina do Estandarte
+	"fallen_bearer": "field_oaths"}
 ## Chefe sem spawner no mapa da sonda luta no lugar deste (arena provisória). Vazio: todos têm a sala deles.
 const ARENA_AT := {}
 ## field = chefe de campo (dá para solar); elite = monstro forte de missão (sem fases); group = conteúdo de grupo.
@@ -508,7 +510,8 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 	m["spawners"].clear()
 	for ri in RaidSystem.routes(m["def"]).size():
 		RaidSystem.state(m, ri)["timer"] = INF       # investidas paradas (Bastião): os bots largavam o chefe para defender o portão
-	RaidSystem.sync_state(m)["timer"] = INF          # Bastião: relógio único dos três lados
+	if SiegeSystem.managed(m["def"]):
+		SiegeSystem.state(m)["hold"] = true          # Bastião: Cerco Vivo parado
 	var at := Vector3.ZERO
 	for sp in m["def"].spawners:
 		if sp["monster_id"] == bid or (sp["monster_id"] == ARENA_AT.get(bid, "") and at == Vector3.ZERO):

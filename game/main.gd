@@ -41,6 +41,7 @@ func _ready() -> void:
 	Events.quest_completed.connect(_on_quest_done_visual)
 	Engine.max_physics_steps_per_frame = 2     # quadro lento não vira bola de neve de ticks (a sim desacelera um pouco na batalha grande)
 	SimSync.install(get_tree(), not DevArgs.has("--sim_sync"))     # sim numa thread enquanto o quadro desenha
+	KeyBindings.load_settings()                         # teclas trocadas (Configurações → Controles), antes de ler input
 	AccessSettings.load_settings()                      # tremor, clarões, avisos com padrão, efeitos dos aliados
 	GraphicsSettings.load_and_apply(get_viewport())     # Nítido (125%, 100% em tela grande) ou FSR 2 (menu Esc → Gráficos)
 	world_root = Node3D.new()

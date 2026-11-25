@@ -992,11 +992,15 @@ Câmera: 52°, 24 m por padrão, zoom de 14 a 34 m. Render a 125% da tela com MS
       - norte: ossos, com a Cripta;
       - sul: campo gelado da Torre.
     - Cada front tem a sua rota (`MapDef.raids`, `RAIDS["field_ruins"][lado]`) e monstros que somem quando a fortaleza do lado cai (`unless`).
-    - **Cerco dos três lados (2026-11-21):** os fronts atacam JUNTOS num relógio único (`Balance.RAID_SYNC_MAPS`: 1º ataque em 90 s,
-      depois 240 ± 30 s contados do fim da última leva; parado enquanto alguma leva vive e com o jogador fora do mapa; `RaidSystem.start_sync`).
-      Fortaleza retomada cala só o lado dela. Levas +50%: Carniçal 75 (+3 ursos a cada 2), Ossos 38, Torre 38 (+3 cavaleiros a cada 2),
-      teto `RAID_WAVE_CAP_MAP["field_ruins"]` 80 por leva. A força acompanha o jogador até o nível 30 (`RAID_SCALE_TO_MAP`; passo 5 no 20, 15 no 30:
-      vida x2,2, ATK/DEF x1,9 sobre o base). Medir: `raid_probe.tscn -- --map=field_ruins --sync --bots=0,3 --level=N --raid_level=N`.
+    - **Cerco Vivo (2026-11-25, `design/gdd/bastiao-cerco-vivo.md`):** o Bastião usa o `SiegeSystem` (`MapsCatalog.SIEGE["field_ruins"]`, `kind: "fronts"`):
+      os 3 fronts são trechos (`cerco_ghoul/bones/frost`, alvo no pátio do portão, raio 20), **uma leva por vez** revezando os abertos (33-45 invasores, em
+      escalões `SIEGE_STAGGER["field_ruins"]`). Forte retomado fecha o trecho (o lado cala, `skip_closed` = pula sem calmaria) e sobe a **pressão**
+      (1 patrulha `patrulha_oeste` antes de `dw_gates`, 2 cerco, 3 um forte, 4 dois fortes, 0 os três = paz): só a frequência sobe (150 / 115 / 90 s),
+      tamanho x1,0 (`Balance.SIEGE_MAP["field_ruins"]`, tabelas por pressão). Assédio de 3 arqueiros de osso no outeiro a nordeste do portão norte
+      (10% da vida por círculo) até a Fortaleza dos Ossos cair; batedores com trompa nas três estradas; surtida da catedral com recarga 270 s;
+      reserva = lanceiros do portão leste. Repelida dá **Muralha de Pé** (+10% XP de abate no Bastião) e conta "Muralhas da Aurora" (DEFEND).
+      A força acompanha o jogador até o nível 30 (`RAID_SCALE_TO_MAP`). O relógio único (`RAID_SYNC_MAPS`) ficou vazio.
+      Medir: `raid_probe.tscn -- --map=field_ruins --side=cerco_<lado> --quests=dw_gates` e `--siege_run=1800 --quests=...`.
     - O leste é o lado seguro (Aldara, cabanas, rochedo do Dragonete).
     - **Guerra que muda com a conquista:**
       - **Fúria:** cada fortaleza retomada multiplica as levas dos fronts que sobram por `RAID_RECLAIM_MULT` (1,5) e soma elites (`reclaim_extra`), com teto de `RAID_WAVE_CAP_MAP["field_ruins"]` (80) por leva (`RaidSystem.reclaimed`).

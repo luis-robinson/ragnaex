@@ -66,6 +66,10 @@ const TOURS := {
 		["ents", Vector3(56, 0, 54)], ["arvore_mae", Vector3(8, 0, -76)], ["pantano", Vector3(-30, 0, 66)],
 		["borda_norte", Vector3(-18, 0, -104)], ["borda_leste", Vector3(94, 0, 25)],
 		["garganta_sul", Vector3(-17, 0, 101)], ["trilha_sul", Vector3(-8, 0, 88)], ["posto_norte", Vector3(-6, 0, -8)]],
+	"field_oaths": [["chegada", Vector3(-53, 0, -63)], ["vigilia", Vector3(0, 0, 4)], ["cemiterio", Vector3(-70, 0, 8)], ["tumulo_vorhag", Vector3(-78, 0, -6)],
+		["ruas", Vector3(50, 0, -48)], ["vala", Vector3(-40, 0, 56)], ["colina", Vector3(46, 0, 58)], ["zigurate", Vector3(72, 0, 6)],
+		["estandarte", Vector3(-26, 0, -10)], ["sineiro", Vector3(-56, 0, -34)], ["corveira", Vector3(18, 0, -72)], ["pedra_nomes", Vector3(-14, 0, -54)],
+		["ponte_se", Vector3(42.5, 0, 43)], ["ponte_sul", Vector3(-16, 0, 79)]],
 	"field_marsh": [["chegada", Vector3(-7.4, 0, -82)], ["hub", Vector3(0, 0, 4)], ["charco", Vector3(-62, 0, -12)], ["mata_teias", Vector3(54, 0, -42)],
 		["cais", Vector3(-38, 0, 64)], ["ponta_bocarra", Vector3(44, 0, 66)], ["benzedeira", Vector3(-56, 0, 28)], ["bento", Vector3(22, 0, -66)],
 		["altar", Vector3(-22, 0, -50)], ["viveiro", Vector3(66, 0, 2)], ["lagoa", Vector3(-12, 0, 42)], ["cipreste", Vector3(-26, 0, -30)],
@@ -170,6 +174,8 @@ static func _arg_value(args: PackedStringArray, name: String, default: String = 
 func before_start(returning: bool) -> String:
 	var autostart := autostart_class(DevArgs.all(), returning)
 	_shot_path = DevArgs.value("--screenshot")
+	if DevArgs.flag("--bind"):          # --bind=potion_1:Z[,ação:tecla]: teclas trocadas só nesta partida (não grava o settings.cfg)
+		print("BIND %d %s" % [KeyBindings.apply_spec(DevArgs.value("--bind")), DevArgs.value("--bind")])
 	_tour_map = DevArgs.value("--tour_map", _tour_map)
 	if DevArgs.flag("--tour"):
 		_tour_dir = DevArgs.value("--tour")
@@ -1925,9 +1931,17 @@ func _perf_run() -> void:
 		RaidSystem.state(m)["force_reclaimed"] = int(DevArgs.value("--perf_raid"))
 		var ri := 0
 		for i in RaidSystem.routes(def).size():
-			if RaidSystem.route_def(def, i).get("side", "") == "bones":
+			if RaidSystem.route_def(def, i).get("side", "") in ["bones", "cerco_ghoul"]:
 				ri = i
+		if SiegeSystem.managed(def):                 # Cerco Vivo: a maior leva (grande, p2) com todos os escalões de uma vez
+			SiegeSystem.state(m)["hold"] = true
+			if not Sim.player.quests_completed.has("dw_gates") and def.id == "field_ruins":
+				Sim.player.quests_completed.append("dw_gates")
+			RaidSystem.state(m, ri)["n"] = int(SiegeSystem.big_nth(Sim, m, 3)) - 1
 		var ids := RaidSystem.start_raid(Sim, m, ri)
+		var rst := RaidSystem.state(m, ri)
+		while not (rst.get("pending", []) as Array).is_empty():
+			RaidSystem._release(Sim, m, rst, ri, true)           # _release já soma em rst["ids"] (o mesmo Array de `ids`)
 		var gate := RaidSystem.gate_point(def, ri)
 		for id in ids:
 			Sim.entities[id].position = Sim.random_walkable(def, gate * 1.25, 8.0)

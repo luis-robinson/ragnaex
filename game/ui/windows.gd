@@ -15,7 +15,8 @@ var _preview_yaw := 0.0
 var _preview_drag := 0.0
 
 const TITLES := {"inventory": "Bolsa", "character": "Personagem", "skills": "Teia de Skills", "quests": "Quests", "party": "Grupo", "book": "Skills"}
-const KEYS := {"inventory": "I", "character": "C", "skills": "K", "quests": "L", "party": "P", "book": "J"}
+## Janela -> ação do InputMap que a abre (a tecla de agora sai de KeyBindings).
+const KEYS := {"inventory": "ui_inventory", "character": "ui_character", "skills": "ui_skills", "quests": "ui_quests", "party": "ui_party", "book": "ui_book"}
 ## tamanho do conteúdo (a moldura soma título e bordas); base 1600×900
 const SIZES := {"inventory": Vector2(392, 470), "character": Vector2(566, 340), "skills": Vector2(1110, 720), "quests": Vector2(620, 600), "party": Vector2(430, 480), "book": Vector2(1010, 690)}
 
@@ -131,7 +132,7 @@ func _rebuild(name: String) -> void:
 	v.add_child(bar)
 	var hb := HBoxContainer.new()
 	bar.add_child(hb)
-	var t := UiKit.label("%s  [%s]" % [TITLES.get(name, name), KEYS.get(name, "")], 15, UiKit.GOLD)
+	var t := UiKit.label("%s  [%s]" % [TITLES.get(name, name), KeyBindings.label(KEYS[name]) if KEYS.has(name) else ""], 15, UiKit.GOLD)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hb.add_child(t)
@@ -225,7 +226,7 @@ func _inventory(body: VBoxContainer) -> void:
 	g.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	foot.add_child(g)
 	foot.add_child(UiKit.label("%d itens" % p.inventory_weight(), 12, UiKit.MUTED))
-	body.add_child(UiKit.para("Arraste: equipamento para o boneco (C), poção para F1-F3  ·  clique: equipar / usar  ·  Shift+clique: arma na mão secundária", 11, UiKit.MUTED))
+	body.add_child(UiKit.para(KeyBindings.fill("Arraste: equipamento para o boneco ({ui_character}), poção para {potion_1} {potion_2} {potion_3}") + "  ·  clique: equipar / usar  ·  Shift+clique: arma na mão secundária", 11, UiKit.MUTED))
 
 func _bag_key(item_id: String) -> String:
 	var it: ItemDef = GameData.items.get(item_id)
@@ -416,7 +417,7 @@ func _bag_hint(it: ItemDef) -> String:
 	if it.consume.has("bag"):
 		return "Clique: vestir numa vaga livre  ·  arraste sobre uma vaga para trocar"
 	if it.type == ItemDef.Type.CONSUMABLE:
-		return "Clique: usar  ·  arraste para F1-F3 (ou Shift+clique)"
+		return KeyBindings.fill("Clique: usar  ·  arraste para {potion_1} {potion_2} {potion_3} (ou Shift+clique)")
 	return "Material (venda no mercador ou use na forja)"
 
 func _on_item_click(it: ItemDef) -> void:
@@ -478,7 +479,7 @@ func _character(body: VBoxContainer) -> void:
 		info += "  ·  ascensão %d" % Sim.asc_points(p)
 	var il := UiKit.label(info + "  ·  quests %d" % p.quests_completed.size(), 12, UiKit.MUTED)
 	head.add_child(il)
-	_tip_on(il, "Função da classe · pontos de skill para gastar na teia (K)%s · quests completadas" % (" · pontos de ascensão" if Sim.has_ascension(p) else ""))
+	_tip_on(il, "Função da classe · pontos de skill para gastar na teia (%s)%s · quests completadas" % [KeyBindings.label("ui_skills")," · pontos de ascensão" if Sim.has_ascension(p) else ""])
 	var honor := p.honor_title()
 	if honor != "":                  # título de honra (Prova 45): só fama, 0 poder
 		var tl := UiKit.label("Título: %s" % honor, 13, Color(1.0, 0.85, 0.45))
@@ -911,8 +912,8 @@ func _skills(body: VBoxContainer) -> void:
 		top.add_child(UiKit.label("■ skill aprimorada  ◆ evolução  • ágil  ◉ notável  · atributo    dourado = comprado  verde = disponível", 12, UiKit.MUTED))
 	elif _skills_tab == "asc":
 		var why := "" if Sim.has_ascension(p) else "  · liberada no nível %d com a missão de ascensão" % Balance.ASC_LEVEL
-		top.add_child(UiKit.label("%d pontos por nível (%d-%d) + %d da missão · skills vão nas teclas 7 8 9 0%s" % [Balance.ASC_POINTS_PER_LEVEL,
-			Balance.ASC_LEVEL, Balance.ASC_MAX_LEVEL, Balance.ASC_QUEST_POINTS, why], 12, UiKit.MUTED))
+		top.add_child(UiKit.label("%d pontos por nível (%d-%d) + %d da missão · skills vão nas teclas %s%s" % [Balance.ASC_POINTS_PER_LEVEL,
+			Balance.ASC_LEVEL, Balance.ASC_MAX_LEVEL, Balance.ASC_QUEST_POINTS, KeyBindings.fill("{skill_7} {skill_8} {skill_9} {skill_10}"), why], 12, UiKit.MUTED))
 	else:
 		top.add_child(UiKit.label("Talentos de classe: um por linha (a cada 5 níveis) · grátis · trocar: na cidade", 12, UiKit.MUTED))
 	var row := HBoxContainer.new()
@@ -1493,11 +1494,11 @@ func _bar_column(p: SimEntity) -> Control:
 	var col := VBoxContainer.new()
 	col.custom_minimum_size.x = 300
 	col.add_theme_constant_override("separation", 6)
-	col.add_child(UiKit.label("Barra (1-6)" if p.skills.size() <= Balance.SKILL_SLOTS else "Barra (1-6 · ascensão 7 8 9 0)", 14, UiKit.GOLD))
+	col.add_child(UiKit.label(KeyBindings.fill("Barra ({skill_1}-{skill_6})" if p.skills.size() <= Balance.SKILL_SLOTS else "Barra ({skill_1}-{skill_6} · ascensão {skill_7} {skill_8} {skill_9} {skill_10})"), 14, UiKit.GOLD))
 	col.add_child(_bar_grid(p, 3, 96))
 	col.add_child(UiKit.hsep(4))
-	col.add_child(UiKit.button("Abrir Skills  [J]", func(): toggle("book"), 200))
-	col.add_child(UiKit.para("Na janela de Skills (J): as skills por build, com dano, custo, recarga, área e efeitos de agora (mudam com a teia, os talentos, o rank e o equipamento). Arraste para a barra ou use os botões 1-6.", 11, UiKit.MUTED))
+	col.add_child(UiKit.button("Abrir Skills  [%s]" % KeyBindings.label("ui_book"), func(): toggle("book"), 200))
+	col.add_child(UiKit.para(KeyBindings.fill("Na janela de Skills ({ui_book}): as skills por build, com dano, custo, recarga, área e efeitos de agora (mudam com a teia, os talentos, o rank e o equipamento). Arraste para a barra ou use os botões {skill_1}-{skill_6}."), 11, UiKit.MUTED))
 	return col
 
 # --- Janela de Skills (J) ------------------------------------------------------------------------
@@ -1594,7 +1595,7 @@ func _book_card(p: SimEntity, sk: SkillDef) -> Control:
 	if slot >= 0:
 		sub += " · na barra: %s" % ActionBar.key_of(slot)
 	if sk.ultimate:
-		sub = "Suprema · Nv %d + Ascensão · tecla R · %s" % [sk.unlock_level, SkillSheet.TARGETS.get(r.target, "")]
+		sub = "Suprema · Nv %d + Ascensão · tecla %s · %s" % [sk.unlock_level, KeyBindings.label("ultimate"), SkillSheet.TARGETS.get(r.target, "")]
 	names.add_child(UiKit.label(sub, 11, UiKit.GOLD if slot >= 0 else UiKit.MUTED))
 	if not known and sk.ultimate:
 		v.add_child(UiKit.label("Libera no nível %d com a missão de ascensão" % sk.unlock_level, 12, Color(1.0, 0.62, 0.5)))

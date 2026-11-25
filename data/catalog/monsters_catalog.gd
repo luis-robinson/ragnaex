@@ -62,8 +62,9 @@ static func build() -> Array:
 		{"id": "bear", "name": "Urso Pardo", "level": 7, "hp": 190, "atk": 21, "def": 7, "mdef": 3, "move_speed": 3.8, "attack_range": 1.9, "attack_cooldown": 1.6, "attack_startup": 0.45, "xp": 38, "aggro_range": 7.0,
 		 "radius": 0.75, "scale": 1.1, "color": Color(0.45, 0.3, 0.2), "shape": "box", "loot_table": "lt_bear", "gold_min": 4, "gold_max": 10, "model": "mob_bear",
 		 "skill_ids": ["mob_bear_swipe"] as Array[String]},
-		# Colmeia: parada e sem golpe; quem chega perto leva vespas (lacaios 0 XP no ritmo da recarga, no máximo 4 vivas)
-		{"id": "hive", "name": "Colmeia Gigante", "level": 7, "hp": 900, "atk": 1, "def": 6, "mdef": 4, "move_speed": 0.0, "attack_range": 0.0, "attack_cooldown": 60.0, "xp": 60, "aggro_range": 12.0, "leash_range": 40.0,
+		# Colmeia: parada e sem golpe; quem chega perto leva vespas (lacaios 0 XP no ritmo da recarga, no máximo 6 vivas).
+		# 2026-11-25 (pedido do usuário: "mais resistente e solta vespas mais rápido"): vida 900 -> 1800, DEF 6 -> 9.
+		{"id": "hive", "name": "Colmeia Gigante", "level": 7, "hp": 1800, "atk": 1, "def": 9, "mdef": 4, "move_speed": 0.0, "attack_range": 0.0, "attack_cooldown": 60.0, "xp": 60, "aggro_range": 12.0, "leash_range": 40.0,
 		 "radius": 1.0, "scale": 1.0, "color": Color(0.8, 0.6, 0.25), "shape": "box", "loot_table": "lt_hive", "gold_min": 6, "gold_max": 14, "model": "mob_hive",
 		 "skill_ids": ["mob_hive_swarm"] as Array[String]},
 		{"id": "bear_mother", "name": "Ursa-Mãe", "level": 8, "hp": 2300, "atk": 27, "def": 10, "mdef": 4, "move_speed": 3.8, "attack_range": 2.4, "attack_cooldown": 1.6, "attack_startup": 0.5, "xp": 190, "aggro_range": 9.0, "leash_range": 24.0,
@@ -483,6 +484,7 @@ static func build() -> Array:
 	L.append_array(_act3_wp6_bosses())
 	L.append_array(_marsh())
 	L.append_array(_viveiro())
+	L.append_array(_oaths())
 	L.append_array(_dawn_rests())
 	L.append_array(_dawn_echoes(L))
 	var out: Array = []
@@ -1228,7 +1230,7 @@ static func build_loot() -> Array:
 		_lt("lt_vessaline", [{"item": "hostess_fan", "chance": 1.0}, {"item": "weeping_porcelain", "chance": 1.0, "min": 3, "max": 4}, {"item": "festim_ribbon", "chance": 1.0, "min": 5, "max": 8}, {"item": "elixir_might", "chance": 1.0}, {"item": "legend_coin", "chance": 0.6}]),
 		_lt("lt_sylvare_echo", [{"item": "empty_crown", "chance": 1.0}, {"item": "weeping_porcelain", "chance": 1.0, "min": 4, "max": 5}, {"item": "festim_ribbon", "chance": 1.0, "min": 6, "max": 9}, {"item": "elixir_stone", "chance": 1.0}, {"item": "legend_coin", "chance": 1.0, "min": 1, "max": 2}]),
 		_lt("lt_dragonling", [{"item": "dragon_scale", "chance": 1.0, "min": 2, "max": 4}, {"item": "golem_core", "chance": 1.0, "min": 1, "max": 2}, {"item": "amulet_golem", "chance": 0.5}, {"item": "elixir_might", "chance": 1.0, "min": 1, "max": 2}, {"item": "crown_spectral", "chance": 0.4}]),
-	] + _marsh_loot() + _viveiro_loot() + _dawn_echo_loot()
+	] + _marsh_loot() + _viveiro_loot() + _oaths_loot() + _dawn_echo_loot()
 
 # ======== Brejo das Teias (field_marsh, 12-16, campo opcional ao sul da Floresta; GDD design/gdd/brejo-das-teias.md §3.3) ========
 ## Modelos novos pedidos ao Blender (BLENDER REQUEST C); até o GLB existir, o monstro usa o modelo de reserva recolorido.
@@ -1277,6 +1279,65 @@ static func _marsh_loot() -> Array:
 		_lt("lt_web_weaver", [{"item": "amber_sap", "chance": 0.4}, {"item": "spider_silk", "chance": 0.5}, {"item": "amulet_silk", "chance": 0.03}]),
 		_lt("lt_marsh_smuggler", [{"item": "smuggler_ledger", "chance": 0.35}, {"item": "bandit_badge", "chance": 0.45}, {"item": "iron_ore", "chance": 0.3}, {"item": "potion_hp_m", "chance": 0.1}, {"item": "boots_wolf", "chance": 0.04}]),
 		_lt("lt_bog_mother", [{"item": "bog_heart", "chance": 1.0}, {"item": "toad_skin", "chance": 1.0, "min": 3, "max": 5}, {"item": "amber_sap", "chance": 1.0, "min": 2, "max": 3}, {"item": "amulet_silk", "chance": 0.3}, {"item": "elixir_might", "chance": 0.5}]),
+	]
+
+# ======== Campo dos Juramentos (field_oaths, 24-28, campo opcional atrás da Escavação da Vera; GDD design/gdd/campo-dos-juramentos.md §3.3) ========
+## Modelos novos do Blender (oaths_mobs.py); até o GLB existir, o monstro usa o modelo de reserva recolorido.
+const OATHS_MODELS := {"carrion_crow": ["mob_carrion_crow", "mob_shaman_hawk"], "oath_sworn": ["mob_oath_sworn", "mob_loyal_knight"],
+	"grave_hauler": ["mob_grave_hauler", "mob_bandit_thug"], "fallen_bearer": ["mob_fallen_bearer", "mob_death_knight"]}
+const OATHS_MOBS := ["carrion_crow", "oath_sworn", "oath_archer", "vel_shade", "night_digger", "grave_hauler"]
+const OATHS_BOSS := "fallen_bearer"
+const OATHS_ADD := "oath_risen"
+
+static func oaths_model(id: String) -> String:
+	var m: Array = OATHS_MODELS[id]
+	return str(m[0]) if ResourceLoader.exists("res://assets/models/%s.glb" % m[0]) else str(m[1])
+
+static func _oaths() -> Array:
+	return [
+		# bando rápido e frágil: vem em 3-4 (Ruas, beira do Cemitério)
+		{"id": "carrion_crow", "name": "Corvo de Carniça", "level": 24, "hp": 420, "atk": 60, "def": 8, "mdef": 10, "move_speed": 5.8, "attack_range": 1.6, "attack_cooldown": 0.9, "attack_startup": 0.2, "xp": 115, "aggro_range": 10.0, "leash_range": 22.0,
+		 "radius": 0.45, "scale": 1.0, "color": Color(0.16, 0.18, 0.26), "shape": "sphere", "loot_table": "lt_carrion_crow", "gold_min": 12, "gold_max": 26, "model": oaths_model("carrion_crow")},
+		# escudo de frente (como o Guardião de Ossos): dê a volta e bata pelas costas
+		{"id": "oath_sworn", "name": "Juramentado", "level": 25, "hp": 920, "atk": 86, "def": 30, "mdef": 14, "move_speed": 4.3, "attack_range": 1.9, "attack_cooldown": 1.3, "attack_startup": 0.35, "xp": 170, "aggro_range": 8.0, "leash_range": 22.0, "front_guard": 0.5,
+		 "radius": 0.5, "scale": 1.0, "color": Color(0.72, 0.74, 0.76), "shape": "capsule", "loot_table": "lt_oath_sworn", "gold_min": 16, "gold_max": 34, "model": oaths_model("oath_sworn"),
+		 "skill_ids": ["mob_charge"] as Array[String]},
+		{"id": "oath_archer", "name": "Besteiro Juramentado", "level": 26, "hp": 480, "atk": 70, "def": 14, "mdef": 12, "move_speed": 4.2, "attack_range": 9.0, "attack_cooldown": 1.4, "attack_startup": 0.4, "xp": 150, "aggro_range": 10.0, "leash_range": 22.0, "ranged": true,
+		 "radius": 0.45, "scale": 1.0, "color": Color(0.7, 0.72, 0.74), "shape": "capsule", "loot_table": "lt_oath_archer", "gold_min": 15, "gold_max": 32, "model": "mob_loyal_crossbow",
+		 "skill_ids": ["mob_volley"] as Array[String]},
+		# morto da cidade antiga (sépia, não o azul do Lich): drena de longe
+		{"id": "vel_shade", "name": "Sombra de Vel'Thar", "level": 27, "hp": 440, "atk": 30, "matk": 76, "def": 10, "mdef": 26, "move_speed": 4.2, "attack_range": 7.0, "attack_cooldown": 1.7, "attack_startup": 0.45, "xp": 160, "aggro_range": 9.0, "leash_range": 22.0, "ranged": true,
+		 "radius": 0.45, "scale": 1.0, "color": Color(0.78, 0.62, 0.38), "shape": "cone", "loot_table": "lt_vel_shade", "gold_min": 18, "gold_max": 40, "model": "mob_ghost",
+		 "skill_ids": ["mob_soul_drain"] as Array[String]},
+		{"id": "night_digger", "name": "Cavador da Noite", "level": 27, "hp": 520, "atk": 22, "matk": 74, "def": 10, "mdef": 24, "move_speed": 4.4, "attack_range": 8.0, "attack_cooldown": 1.6, "attack_startup": 0.45, "xp": 170, "aggro_range": 10.0, "leash_range": 22.0, "ranged": true,
+		 "radius": 0.45, "scale": 1.0, "color": Color(0.42, 0.32, 0.22), "shape": "capsule", "loot_table": "lt_night_digger", "gold_min": 18, "gold_max": 38, "model": "mob_cultist",
+		 "skill_ids": ["mob_shadow_bolt"] as Array[String]},
+		{"id": "grave_hauler", "name": "Carregador de Covas", "level": 28, "hp": 1150, "atk": 96, "def": 30, "mdef": 12, "move_speed": 4.3, "attack_range": 2.2, "attack_cooldown": 1.3, "attack_startup": 0.35, "xp": 230, "aggro_range": 9.0, "leash_range": 22.0,
+		 "radius": 0.6, "scale": 1.1, "color": Color(0.26, 0.24, 0.24), "shape": "capsule", "loot_table": "lt_grave_hauler", "gold_min": 22, "gold_max": 46, "model": oaths_model("grave_hauler"),
+		 "skill_ids": ["mob_bone_cleave"] as Array[String]},
+		# mini-chefe do campo (Colina do Estandarte): leque do mastro na frente, estandarte fincado em quem está longe (ergue Juramentados)
+		{"id": "fallen_bearer", "name": "Sir Edran, o Porta-Estandarte Caído", "level": 28, "hp": 72000, "atk": 110, "matk": 70, "def": 30, "mdef": 24, "move_speed": 4.4, "attack_range": 2.6, "attack_cooldown": 1.3, "attack_startup": 0.4, "xp": 1600, "aggro_range": 11.0, "leash_range": 25.0,
+		 "radius": 0.7, "scale": 1.4, "color": Color(0.62, 0.6, 0.5), "shape": "capsule", "is_boss": true, "berserk_after": 160, "loot_table": "lt_fallen_bearer", "gold_min": 120, "gold_max": 240, "model": oaths_model("fallen_bearer"),
+		 "skill_ids": ["mob_banner_sweep", "mob_banner_plant", "mob_charge"] as Array[String],
+		 "intro": "Eu carreguei a Aurora até aqui. Depois carreguei outra coisa.", "last_words": "Diga ao Malcom... que o pano... ainda é dourado...",
+		 "phases": [{"hp": 0.7, "say": "Levantem as fileiras! A linha não se rompe!", "summon": {"id": "oath_risen", "count": 2, "max": 4}},
+			{"hp": 0.4, "say": "Sir Edran crava o mastro e as fileiras fecham em volta dele!", "ward": 0.4, "summon": {"id": "oath_risen", "count": 2, "max": 4}},
+			{"hp": 0.15, "say": "Pela Aurora... pela noite... tanto faz!", "enrage": 1.25}]},
+		{"id": "oath_risen", "name": "Juramentado Erguido", "level": 28, "hp": 340, "atk": 44, "def": 16, "mdef": 8, "move_speed": 4.2, "attack_range": 1.8, "attack_cooldown": 1.3, "xp": 0, "aggro_range": 14.0, "leash_range": 40.0,
+		 "radius": 0.45, "scale": 0.95, "color": Color(0.42, 0.44, 0.48), "shape": "capsule", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": oaths_model("oath_sworn")},
+	]
+
+static func _oaths_loot() -> Array:
+	return [
+		_lt("lt_carrion_crow", [{"item": "carrion_feather", "chance": 0.55}, {"item": "bone_shard", "chance": 0.3}, {"item": "potion_hp_m", "chance": 0.05}]),
+		_lt("lt_oath_sworn", [{"item": "oath_seal", "chance": 0.45}, {"item": "bone_shard", "chance": 0.4}, {"item": "holy_silver", "chance": 0.1}, {"item": "ring_spectral", "chance": 0.03}]),
+		_lt("lt_oath_archer", [{"item": "oath_seal", "chance": 0.35}, {"item": "bone_shard", "chance": 0.5}, {"item": "star_ore", "chance": 0.2}]),
+		_lt("lt_vel_shade", [{"item": "ghost_essence", "chance": 0.55}, {"item": "ancient_relic", "chance": 0.3}, {"item": "potion_mp_m", "chance": 0.1}, {"item": "crown_spectral", "chance": 0.03}]),
+		_lt("lt_night_digger", [{"item": "digger_orders", "chance": 0.35}, {"item": "ancient_relic", "chance": 0.4}, {"item": "iron_ore", "chance": 0.3}, {"item": "potion_hp_m", "chance": 0.1}]),
+		_lt("lt_grave_hauler", [{"item": "bone_shard", "chance": 0.6, "min": 1, "max": 2}, {"item": "holy_silver", "chance": 0.14}, {"item": "star_ore", "chance": 0.3}, {"item": "ring_spectral", "chance": 0.04}]),
+		# material de tier do Campo: Estandarte da Aurora Caído garantido
+		_lt("lt_fallen_bearer", [{"item": "fallen_standard", "chance": 1.0}, {"item": "oath_seal", "chance": 1.0, "min": 3, "max": 5}, {"item": "holy_silver", "chance": 1.0, "min": 2, "max": 3},
+			{"item": "dawn_shard", "chance": 0.15}, {"item": "crown_spectral", "chance": 0.3}, {"item": "elixir_might", "chance": 0.5}]),
 	]
 
 # ======== Viveiro de Seiva (dg_viveiro, 17-19, mini-masmorra élfica sob a raiz do Brejo; GDD design/gdd/viveiro-de-seiva.md) ========
