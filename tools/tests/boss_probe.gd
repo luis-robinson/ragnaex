@@ -86,7 +86,9 @@ const BOSSES := {"bandit_chief": "field_forest", "crab_king": "field_crab_beach"
 	# Ato III, chefe da história (grupo de 4) e raide (5)
 	"vessaline": "rift_garden", "boss_sylvare_echo": "rift_heart",
 	# Brejo das Teias (12-16): Ponta da Bocarra
-	"bog_mother": "field_marsh"}
+	"bog_mother": "field_marsh",
+	# Viveiro de Seiva (17-19): O Berço
+	"boss_sap_mother": "dg_viveiro"}
 ## Chefe sem spawner no mapa da sonda luta no lugar deste (arena provisória). Vazio: todos têm a sala deles.
 const ARENA_AT := {}
 ## field = chefe de campo (dá para solar); elite = monstro forte de missão (sem fases); group = conteúdo de grupo.

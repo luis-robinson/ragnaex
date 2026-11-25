@@ -76,6 +76,49 @@ static func hunts(monsters: Dictionary, maps: Dictionary, existing: Dictionary) 
 			"dialog_progress": "Procure em %s." % where[id], "dialog_complete": "Pago. O trabalho continua amanhã."}))
 	return out
 
+## Faixa da Aurora, conquista B (GDD dawn-band-refactor-proposal §5 B, D5/D7, 2026-11-25; texto provisório, writer revisa):
+## uma missão por front retomado apresenta os Restos da Noite (níveis 24-28, fecham o buraco 25-29) e a Capela dos Pedidos
+## dá a caçada repetível do eco de cada chefe, que volta ao fundo do forte retomado (MapsCatalog.CATALOG_SPAWNERS).
+static func dawn_rests() -> Array:
+	return [
+		{"id": "dw_rest_marsh", "title": "O Brejo Não Dorme", "giver_npc": "gravedigger_osric", "type": KILL, "target_id": "rest_ghoul", "count": 12, "level_req": 24, "prereq_quest": "dw_ghoul_boss",
+		 "also_counts": ["rest_bear"], "reward_xp": 900, "reward_gold": 700, "reward_items": {"potion_hp_m": 3}, "map_hint": "Bastião: front oeste, o pântano retomado (e o fundo do Covil do Carniçal)",
+		 "description": "Abata 12 Carniçais ou Ursos do Brejo Seco no front oeste retomado.",
+		 "dialog_offer": "O Carniçal caiu, mas o brejo secou com os filhos dele dentro. Agora levantam secos, duros, com fome. Eu enterro; você derruba primeiro.",
+		 "dialog_progress": "Saia pelo portão oeste. O Urso do Brejo Seco bate devagar e forte: dê um passo para trás (Shift) quando ele erguer a pata.",
+		 "dialog_complete": "Doze. Vou precisar de mais pá. A noite recua, mas não morre."},
+		{"id": "dw_rest_bones", "title": "Ossos Sem Senhor", "giver_npc": "ruins_scholar", "type": KILL, "target_id": "rest_bones", "count": 12, "level_req": 26, "prereq_quest": "dw_bones_boss",
+		 "also_counts": ["rest_bone_archer"], "reward_xp": 1000, "reward_gold": 800, "reward_items": {"holy_silver": 2}, "map_hint": "Bastião: front norte, a garganta dos ossos (e o fundo da Fortaleza dos Ossos)",
+		 "description": "Desfaça 12 Ossos ou Arqueiros Sem Senhor no front norte retomado.",
+		 "dialog_offer": "Sem o juramento de Vorhag os ossos não sabem a quem servir. Andam em círculo, atacam o que se mexe. Quero saber se ainda obedecem a alguém. Derrube e me traga o que viu.",
+		 "dialog_progress": "Os arqueiros ficam longe: feche a distância com o avanço (Shift) e derrube primeiro quem atira.",
+		 "dialog_complete": "Nenhum obedece mais. Isso me assusta mais do que se obedecessem."},
+		{"id": "dw_rest_thaw", "title": "O Degelo", "giver_npc": "high_priest", "type": KILL, "target_id": "rest_thaw_wraith", "count": 10, "level_req": 27, "prereq_quest": "dw_frost_boss",
+		 "also_counts": ["rest_lost_adept"], "reward_xp": 1100, "reward_gold": 900, "reward_items": {"potion_mp_m": 3}, "map_hint": "Bastião: front sul, a estrada da Torre (e o fundo da Torre do Mago Gélido)",
+		 "description": "Dissipe 10 Espectros em Degelo ou Adeptos Desgarrados no front sul retomado.",
+		 "dialog_offer": "O gelo de Morvath derrete e solta o que ele guardava. Espectros pela metade, adeptos sem mestre. Antes que encontrem o caminho da Cidadela, apague-os.",
+		 "dialog_progress": "Espectro e adepto atacam de longe: chegue perto e não fique parado no gelo que eles jogam.",
+		 "dialog_complete": "Que a Luz receba os que o gelo prendeu. Os outros, você já mandou."},
+		{"id": "b_echo_ghoul", "title": "Capela: Eco do Carniçal", "giver_npc": "dawn_board", "type": KILL, "target_id": "echo_ghoul_giant", "count": 1, "level_req": 24, "prereq_quest": "dw_ghoul_boss", "repeatable": true,
+		 "reward_xp": 7000, "reward_gold": 600, "map_hint": "Covil do Carniçal: o fundo norte, atrás das jaulas (leve um grupo)",
+		 "description": "Derrube o Eco do Carniçal Gigante no fundo do Covil. Repetível.",
+		 "dialog_offer": "Pregado com cera: 'Ouvimos mastigar no fundo do Covil. O que morreu lá não ficou todo morto.'",
+		 "dialog_progress": "Fundo norte do Covil. Quando a ninhada vier, derrube as larvas antes (Tab trava no chefe e deixa as mãos livres).",
+		 "dialog_complete": "A cera derrete sozinha quando o eco cai. Por enquanto."},
+		{"id": "b_echo_vorhag", "title": "Capela: Eco de Vorhag", "giver_npc": "dawn_board", "type": KILL, "target_id": "echo_death_knight", "count": 1, "level_req": 26, "prereq_quest": "dw_bones_boss", "repeatable": true,
+		 "reward_xp": 8500, "reward_gold": 750, "map_hint": "Fortaleza dos Ossos: a ala oeste que ninguém limpou (leve um grupo)",
+		 "description": "Derrube o Eco de Vorhag na ala oeste da Fortaleza dos Ossos. Repetível.",
+		 "dialog_offer": "Pregado com cera, letra de Sir Malcom: 'Ele ainda jura na ala oeste. Não sabe mais a quem. Façam-no descansar, quantas vezes for preciso.'",
+		 "dialog_progress": "Ala oeste da Fortaleza dos Ossos. Saia da onda de morte no fim e derrube os soldados que ele ergue.",
+		 "dialog_complete": "Alguém riscou embaixo: 'Obrigado, irmão.'"},
+		{"id": "b_echo_morvath", "title": "Capela: Eco de Morvath", "giver_npc": "dawn_board", "type": KILL, "target_id": "echo_frost_mage", "count": 1, "level_req": 28, "prereq_quest": "dw_frost_boss", "repeatable": true,
+		 "reward_xp": 10000, "reward_gold": 900, "map_hint": "Torre do Mago Gélido: o fundo da estrada, perto da entrada (leve um grupo)",
+		 "description": "Derrube o Eco de Morvath perto da entrada da Torre. Repetível.",
+		 "dialog_offer": "Pregado com cera, a letra treme de frio: 'O gelo voltou a crescer na estrada da Torre. E tem alguém dentro dele.'",
+		 "dialog_progress": "Saia do círculo azul da nevasca e mate os espectros dele: com eles vivos o eco se protege.",
+		 "dialog_complete": "A cera está quente de novo."},
+	]
+
 ## Bosque dos Xamãs (14-18): ramo lateral a leste da Floresta, Posto da Guardiã Aiyra. Não trava a Cidade Élfica nem nada da história.
 static func grove() -> Array:
 	return [
@@ -208,6 +251,38 @@ static func marsh() -> Array:
 		 "dialog_offer": "Leve as páginas ao Teo. E diga a ele que o córrego âmbar nasce numa porta de raiz a leste. Fechada. Por enquanto.",
 		 "dialog_progress": "Volte pela garganta norte do Brejo e procure o Ranger Teo no Posto dos Caçadores.",
 		 "dialog_complete": "Seiva élfica escorrendo para o sul e alguém do Posto comprando barril... Vou ficar de olho no Posto de Troca. Bom trabalho, e fique com isto."},
+	]
+
+## Viveiro de Seiva (17-19): mini-masmorra sob a raiz do Brejo (GDD design/gdd/viveiro-de-seiva.md §3.7). Laterais, giver no Brejo;
+## nada fora do Brejo/Viveiro depende delas (check). Textos provisórios (passe do writer). v4 revela o lore oculto da seiva.
+const VIVEIRO_QUESTS := ["v1_root_door", "v2_tanks", "v3_sap_mother", "v4_what_grows"]
+
+static func viveiro() -> Array:
+	return [
+		{"id": "v1_root_door", "title": "A Porta de Raiz", "giver_npc": "marsh_guide", "type": REACH, "target_id": "dg_viveiro", "count": 1, "level_req": 17, "prereq_quest": "m0_brejo",
+		 "reward_xp": 150, "reward_gold": 60, "reward_items": {"potion_hp_m": 2}, "map_hint": "Brejo: porta de raiz a leste das palafitas (Viveiro de Seiva)",
+		 "description": "Entre pela porta de raiz de onde nasce o Córrego Âmbar.",
+		 "dialog_offer": "A porta de raiz do leste abriu uma fresta. A água de mel sai mais quente agora, e de noite se ouve vidro estalando lá dentro. Vá olhar, mas não sozinho.",
+		 "dialog_progress": "Siga a trilha que sai da Mata das Teias para o leste até o arco de raiz com veio dourado e entre (nível 17). Lá dentro é masmorra: leve poções nas teclas F1-F3.",
+		 "dialog_complete": "Vidro? Debaixo da terra? Então os elfos guardam alguma coisa lá. Conte tudo à Zefa."},
+		{"id": "v2_tanks", "title": "Vidro e Seiva", "giver_npc": "marsh_healer", "type": KILL, "target_id": "sap_tank", "count": 4, "level_req": 17, "prereq_quest": "v1_root_door",
+		 "reward_xp": 300, "reward_gold": 90, "reward_items": {"potion_mp_m": 2}, "map_hint": "Viveiro de Seiva: Sala dos Tanques e o Berço",
+		 "description": "Quebre 4 Tanques de Seiva no Viveiro.",
+		 "dialog_offer": "Tanques cheios de seiva com muda dentro... é daí que vaza. Quebre quatro. O que estiver dentro não pode beber mais.",
+		 "dialog_progress": "Os tanques não revidam: limpe a sala antes e bata neles com o básico (botão esquerdo). Os do Berço, em volta da Muda-Mãe, viram mudas na luta: quebre antes de chegar perto dela.",
+		 "dialog_complete": "Quanto mais vidro quebrado, menos mel no córrego. E menos sapo do tamanho de boi, se Deus quiser."},
+		{"id": "v3_sap_mother", "title": "A Muda-Mãe", "giver_npc": "marsh_guide", "type": KILL, "target_id": "boss_sap_mother", "count": 1, "level_req": 19, "prereq_quest": "v1_root_door", "prereq_all": ["v2_tanks"] as Array[String],
+		 "reward_xp": 700, "reward_gold": 220, "reward_gear_tier": 2, "reward_items": {"elixir_might": 1}, "map_hint": "Viveiro de Seiva: O Berço (fundo)",
+		 "description": "Derrube A Muda-Mãe no Berço do Viveiro. Leve um grupo.",
+		 "dialog_offer": "A Zefa diz que tem uma muda maior que as outras, enraizada num tanque partido, bebendo dos outros. Enquanto ela beber, o Brejo engorda. Junte gente e corte essa raiz.",
+		 "dialog_progress": "Grupo de 3 a 5. Quebre os tanques em volta dela ANTES de puxar: cada tanque inteiro vira uma muda nas fases (70% e 40%), e com muda viva ela leva metade do dano. Círculos dourados no chão: saia deles. Com 40% vêm dois anéis em volta dela: fique no vão entre eles ou longe. A raiz que puxa vem em quem está longe: o tanque segura o chefe de costas para o grupo.",
+		 "dialog_complete": "O córrego clareou. Ainda é mel, mas mel ralo. Pegue: é o que os barqueiros juntaram. E a Zefa quer falar com você."},
+		{"id": "v4_what_grows", "title": "O Que Cresce Sob a Raiz", "giver_npc": "marsh_healer", "turnin_npc": "ranger_post", "type": TALK, "target_id": "ranger_post", "count": 1, "level_req": 19, "prereq_quest": "v3_sap_mother",
+		 "reward_xp": 250, "reward_gold": 100, "reward_items": {"mother_sap": 1}, "map_hint": "Ranger Teo (Posto dos Caçadores, Floresta Sombria)",
+		 "description": "Leve ao Ranger Teo o que a Benzedeira Zefa entendeu da seiva.",
+		 "dialog_offer": "Eu pus a seiva do Berço em tudo: no sapo, na aranha, numa planta de vaso. Não deixa ninguém louco. Ela pega o que o bicho já é e faz maior. Fome vira mais fome. Se o rei dos elfos bebe disso... era ambição antes. Conte ao Teo.",
+		 "dialog_progress": "Volte pela garganta norte do Brejo e procure o Ranger Teo no Posto dos Caçadores (M mostra o caminho).",
+		 "dialog_complete": "Então a seiva não fez o rei. Só deixou ele maior do que já era. Isso não absolve ninguém, mas explica muita coisa. Leve esta gota: o Gunnar sabe o que fazer com ela."},
 	]
 
 ## Mata dos Zumbidos (4-8): ramo lateral ao sul de Aldara, acampamento da Mateira Brena. Não trava nada da história
@@ -796,6 +871,9 @@ static func build() -> Array:
 	L.append_array(grove())
 	if MapsCatalog.marsh_ready():          # Brejo das Teias: só com o mapa na sim (giver/turnin precisam existir)
 		L.append_array(marsh())
+	if MapsCatalog.viveiro_ready():        # Viveiro de Seiva: só com a masmorra na sim (REACH e KILL apontam para ela)
+		L.append_array(viveiro())
+	L.append_array(dawn_rests())
 	L.append_array(act2())
 	L.append_array(act2_steppe())
 	L.append_array(act2_kharzun())

@@ -482,6 +482,9 @@ static func build() -> Array:
 	L.append_array(_act3_field_bosses())
 	L.append_array(_act3_wp6_bosses())
 	L.append_array(_marsh())
+	L.append_array(_viveiro())
+	L.append_array(_dawn_rests())
+	L.append_array(_dawn_echoes(L))
 	var out: Array = []
 	for d in L:
 		out.append(_mk(_f2(d)))
@@ -1225,7 +1228,7 @@ static func build_loot() -> Array:
 		_lt("lt_vessaline", [{"item": "hostess_fan", "chance": 1.0}, {"item": "weeping_porcelain", "chance": 1.0, "min": 3, "max": 4}, {"item": "festim_ribbon", "chance": 1.0, "min": 5, "max": 8}, {"item": "elixir_might", "chance": 1.0}, {"item": "legend_coin", "chance": 0.6}]),
 		_lt("lt_sylvare_echo", [{"item": "empty_crown", "chance": 1.0}, {"item": "weeping_porcelain", "chance": 1.0, "min": 4, "max": 5}, {"item": "festim_ribbon", "chance": 1.0, "min": 6, "max": 9}, {"item": "elixir_stone", "chance": 1.0}, {"item": "legend_coin", "chance": 1.0, "min": 1, "max": 2}]),
 		_lt("lt_dragonling", [{"item": "dragon_scale", "chance": 1.0, "min": 2, "max": 4}, {"item": "golem_core", "chance": 1.0, "min": 1, "max": 2}, {"item": "amulet_golem", "chance": 0.5}, {"item": "elixir_might", "chance": 1.0, "min": 1, "max": 2}, {"item": "crown_spectral", "chance": 0.4}]),
-	] + _marsh_loot()
+	] + _marsh_loot() + _viveiro_loot() + _dawn_echo_loot()
 
 # ======== Brejo das Teias (field_marsh, 12-16, campo opcional ao sul da Floresta; GDD design/gdd/brejo-das-teias.md §3.3) ========
 ## Modelos novos pedidos ao Blender (BLENDER REQUEST C); até o GLB existir, o monstro usa o modelo de reserva recolorido.
@@ -1274,4 +1277,122 @@ static func _marsh_loot() -> Array:
 		_lt("lt_web_weaver", [{"item": "amber_sap", "chance": 0.4}, {"item": "spider_silk", "chance": 0.5}, {"item": "amulet_silk", "chance": 0.03}]),
 		_lt("lt_marsh_smuggler", [{"item": "smuggler_ledger", "chance": 0.35}, {"item": "bandit_badge", "chance": 0.45}, {"item": "iron_ore", "chance": 0.3}, {"item": "potion_hp_m", "chance": 0.1}, {"item": "boots_wolf", "chance": 0.04}]),
 		_lt("lt_bog_mother", [{"item": "bog_heart", "chance": 1.0}, {"item": "toad_skin", "chance": 1.0, "min": 3, "max": 5}, {"item": "amber_sap", "chance": 1.0, "min": 2, "max": 3}, {"item": "amulet_silk", "chance": 0.3}, {"item": "elixir_might", "chance": 0.5}]),
+	]
+
+# ======== Viveiro de Seiva (dg_viveiro, 17-19, mini-masmorra élfica sob a raiz do Brejo; GDD design/gdd/viveiro-de-seiva.md) ========
+## Modelos novos do Blender (contrato production/session-state/viveiro-contract.md); até o GLB existir, reserva recolorida.
+const VIVEIRO_MODELS := {"sap_sprout": ["mob_sap_sprout", "mob_trent"], "sap_tank": ["mob_sap_tank", "mob_dragon_egg"], "boss_sap_mother": ["mob_sap_mother", "mob_trent"]}
+const VIVEIRO_MOBS := ["sap_sprout", "sap_spider", "elf_tender", "sap_tank"]
+const VIVEIRO_BOSS := "boss_sap_mother"
+const VIVEIRO_ADD := "sap_hatchling"
+
+static func viveiro_model(id: String) -> String:
+	var m: Array = VIVEIRO_MODELS[id]
+	return str(m[0]) if ResourceLoader.exists("res://assets/models/%s.glb" % m[0]) else str(m[1])
+
+static func _viveiro() -> Array:
+	return [
+		{"id": "sap_sprout", "name": "Muda de Seiva", "level": 17, "hp": 540, "atk": 52, "def": 11, "mdef": 8, "move_speed": 4.2, "attack_range": 1.8, "attack_cooldown": 1.3, "attack_startup": 0.35, "xp": 112, "aggro_range": 8.0, "leash_range": 20.0,
+		 "radius": 0.55, "scale": 0.8, "color": Color(0.62, 0.5, 0.26), "shape": "capsule", "loot_table": "lt_sap_sprout", "gold_min": 9, "gold_max": 20, "model": viveiro_model("sap_sprout"),
+		 "skill_ids": ["mob_sap_lash_small"] as Array[String]},
+		# atiradora: fica longe e solta poça (a mesma da Tecelã do Brejo)
+		{"id": "sap_spider", "name": "Aranha de Seiva", "level": 18, "hp": 420, "atk": 18, "matk": 46, "def": 8, "mdef": 12, "move_speed": 4.4, "attack_range": 8.0, "attack_cooldown": 1.7, "attack_startup": 0.45, "xp": 120, "aggro_range": 10.0, "leash_range": 22.0, "ranged": true,
+		 "radius": 0.5, "scale": 0.95, "color": Color(0.9, 0.68, 0.28), "shape": "box", "loot_table": "lt_sap_spider", "gold_min": 9, "gold_max": 21, "model": "mob_spider",
+		 "skill_ids": ["mob_venom_pool"] as Array[String]},
+		# tratador élfico: atira de longe e rega (cura) as mudas e a Muda-Mãe em volta: mate primeiro
+		{"id": "elf_tender", "name": "Tratador do Viveiro", "level": 18, "hp": 480, "atk": 20, "matk": 44, "def": 9, "mdef": 14, "move_speed": 4.6, "attack_range": 8.0, "attack_cooldown": 1.8, "attack_startup": 0.45, "xp": 124, "aggro_range": 10.0, "leash_range": 22.0, "ranged": true,
+		 "radius": 0.45, "scale": 1.0, "color": Color(0.7, 0.72, 0.35), "shape": "capsule", "loot_table": "lt_elf_tender", "gold_min": 10, "gold_max": 22, "model": "mob_elf_mage",
+		 "skill_ids": ["mob_tender_mend"] as Array[String]},
+		# tanque de vidro com uma muda dentro: parado, não revida, quebra (no Berço é o "ovo" da Muda-Mãe: choca nas fases)
+		{"id": "sap_tank", "name": "Tanque de Seiva", "level": 18, "hp": 650, "atk": 1, "def": 14, "mdef": 14, "move_speed": 0.0, "attack_range": 0.0, "attack_cooldown": 60.0, "xp": 0, "aggro_range": 0.0, "leash_range": 40.0,
+		 "radius": 0.6, "scale": 1.0, "color": Color(0.95, 0.75, 0.32), "shape": "capsule", "loot_table": "lt_sap_tank", "gold_min": 0, "gold_max": 0, "model": viveiro_model("sap_tank"), "egg": true},
+		# chefe (O Berço): enraizada no tanque partido; os 4 tanques em volta despertam em mudas (70%: metade, 40%: o resto + ward)
+		{"id": "boss_sap_mother", "name": "A Muda-Mãe", "level": 19, "hp": 86000, "atk": 98, "matk": 80, "def": 15, "mdef": 16, "move_speed": 2.6, "attack_range": 3.0, "attack_cooldown": 1.5, "attack_startup": 0.45, "xp": 1100, "aggro_range": 11.0, "leash_range": 22.0,
+		 "radius": 1.8, "scale": 2.0, "color": Color(0.62, 0.48, 0.24), "shape": "capsule", "is_boss": true, "berserk_after": 150, "loot_table": "lt_sap_mother", "gold_min": 110, "gold_max": 220, "model": viveiro_model("boss_sap_mother"),
+		 "skill_ids": ["mob_sap_lash", "mob_sap_root_hook", "mob_sap_rain"] as Array[String],
+		 "intro": "Mais mãos... a seiva sempre manda mais mãos.", "last_words": "A raiz... ainda... bebe...",
+		 "eggs": {"id": "sap_tank", "count": 4, "r": 7.0, "hatch": "sap_hatchling"},
+		 "phases": [{"hp": 0.7, "say": "Bebam, pequenas! Acordem!", "skills": ["mob_sap_sprout_call"], "hatch": 0.5},
+			{"hp": 0.4, "say": "A Muda-Mãe se fecha em casca enquanto as mudas a protegem!", "skills": ["mob_sap_pulse"], "ward": 0.5, "hatch": 1.0},
+			{"hp": 0.15, "say": "A seiva ferve no Berço!", "enrage": 1.3}]},
+		{"id": "sap_hatchling", "name": "Muda Desperta", "level": 19, "hp": 900, "atk": 46, "def": 12, "mdef": 10, "move_speed": 4.4, "attack_range": 1.8, "attack_cooldown": 1.3, "attack_startup": 0.35, "xp": 0, "aggro_range": 14.0, "leash_range": 40.0,
+		 "radius": 0.5, "scale": 0.75, "color": Color(0.9, 0.7, 0.3), "shape": "capsule", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": viveiro_model("sap_sprout")},
+	]
+
+static func _viveiro_loot() -> Array:
+	return [
+		_lt("lt_sap_sprout", [{"item": "amber_sap", "chance": 0.45}, {"item": "ent_bark", "chance": 0.3}, {"item": "potion_hp_m", "chance": 0.06}]),
+		_lt("lt_sap_spider", [{"item": "spider_silk", "chance": 0.5, "min": 1, "max": 2}, {"item": "amber_sap", "chance": 0.35}, {"item": "amulet_silk", "chance": 0.03}]),
+		_lt("lt_elf_tender", [{"item": "amber_sap", "chance": 0.45}, {"item": "elf_steel", "chance": 0.3}, {"item": "potion_mp_m", "chance": 0.1}]),
+		_lt("lt_sap_tank", [{"item": "amber_sap", "chance": 0.6, "min": 1, "max": 2}]),
+		# material de tier do Gunnar: Seiva da Árvore-Mãe (Glória +6..+9, ItemSystem.enhance_cost) garantida
+		_lt("lt_sap_mother", [{"item": "mother_sap", "chance": 1.0, "min": 2, "max": 3}, {"item": "amber_sap", "chance": 1.0, "min": 3, "max": 5}, {"item": "elf_steel", "chance": 1.0, "min": 2, "max": 3},
+			{"item": "heartwood", "chance": 0.5}, {"item": "elixir_might", "chance": 0.5}, {"item": "legend_coin", "chance": 0.3}]),
+	]
+
+# ======== Restos da Noite e ecos dos chefes (faixa da Aurora 20-30, conquista B; GDD dawn-band-refactor-proposal §5 B, D5) ========
+## Restos: o front retomado e o fundo do forte retomado (MapsCatalog.CATALOG_SPAWNERS, `if` = chefe do forte) ficam com mortos
+## sem senhor para a caçada de 24-29. Modelos e loot dos monstros do front (sem modelo novo).
+static func _dawn_rests() -> Array:
+	return [
+		{"id": "rest_ghoul", "name": "Carniçal do Brejo Seco", "level": 25, "hp": 700, "atk": 56, "def": 13, "mdef": 10, "move_speed": 5.0, "attack_range": 1.7, "attack_cooldown": 1.0, "attack_startup": 0.25, "xp": 150, "aggro_range": 9.0,
+		 "radius": 0.45, "scale": 1.05, "color": Color(0.55, 0.52, 0.36), "shape": "capsule", "loot_table": "lt_rot", "gold_min": 14, "gold_max": 28, "model": "mob_ghoul",
+		 "skill_ids": ["mob_venom_claw"] as Array[String]},
+		{"id": "rest_bear", "name": "Urso do Brejo Seco", "level": 26, "hp": 1300, "atk": 122, "def": 24, "mdef": 12, "move_speed": 4.2, "attack_range": 2.2, "attack_cooldown": 1.4, "attack_startup": 0.4, "xp": 215, "aggro_range": 8.0,
+		 "radius": 0.8, "scale": 1.3, "color": Color(0.44, 0.42, 0.3), "shape": "box", "loot_table": "lt_rot", "gold_min": 18, "gold_max": 36, "model": "mob_rot_bear",
+		 "skill_ids": ["mob_rot_maul"] as Array[String]},
+		{"id": "rest_bones", "name": "Ossos Sem Senhor", "level": 26, "hp": 1000, "atk": 92, "def": 22, "mdef": 11, "move_speed": 4.0, "attack_range": 1.8, "attack_cooldown": 1.2, "xp": 165, "aggro_range": 8.0,
+		 "radius": 0.45, "scale": 1.0, "color": Color(0.8, 0.78, 0.7), "shape": "capsule", "loot_table": "lt_bones", "gold_min": 18, "gold_max": 38, "model": "mob_skel_blade",
+		 "skill_ids": ["mob_bone_cleave"] as Array[String]},
+		{"id": "rest_bone_archer", "name": "Arqueiro Sem Senhor", "level": 27, "hp": 440, "atk": 66, "def": 13, "mdef": 11, "move_speed": 4.2, "attack_range": 9.0, "attack_cooldown": 1.6, "attack_startup": 0.4, "xp": 170, "aggro_range": 10.0, "ranged": true,
+		 "radius": 0.45, "scale": 1.0, "color": Color(0.78, 0.76, 0.66), "shape": "capsule", "loot_table": "lt_bones", "gold_min": 16, "gold_max": 34, "model": "mob_skel_archer",
+		 "skill_ids": ["mob_volley"] as Array[String]},
+		{"id": "rest_thaw_wraith", "name": "Espectro em Degelo", "level": 28, "hp": 500, "atk": 32, "matk": 82, "def": 11, "mdef": 28, "move_speed": 4.4, "attack_range": 7.0, "attack_cooldown": 1.7, "attack_startup": 0.45, "xp": 190, "aggro_range": 9.0, "ranged": true,
+		 "radius": 0.45, "scale": 1.0, "color": Color(0.7, 0.88, 0.95), "shape": "cone", "loot_table": "lt_ghost", "gold_min": 20, "gold_max": 42, "model": "mob_ghost",
+		 "skill_ids": ["mob_frost_shard"] as Array[String]},
+		{"id": "rest_lost_adept", "name": "Adepto Desgarrado", "level": 28, "hp": 460, "atk": 20, "matk": 80, "def": 9, "mdef": 24, "move_speed": 4.4, "attack_range": 8.0, "attack_cooldown": 1.6, "attack_startup": 0.45, "xp": 185, "aggro_range": 10.0, "ranged": true,
+		 "radius": 0.45, "scale": 1.0, "color": Color(0.36, 0.12, 0.16), "shape": "capsule", "loot_table": "lt_cult", "gold_min": 18, "gold_max": 38, "model": "mob_cultist",
+		 "skill_ids": ["mob_shadow_bolt"] as Array[String]},
+	]
+
+## Eco do chefe (repetível): cópia do chefe do forte com outro nome, nível, vida/ataque/XP x Balance.DAWN_ECHO_*, sem moeda
+## lendária e loot próprio (garante Prata Consagrada). Nasce no fundo do forte retomado (spawner `if` no catálogo, recarga
+## Balance.DAWN_ECHO_RESPAWN); quem dá a caçada é a Capela dos Pedidos (QuestsCatalog.dawn_rests). Nenhuma regra nova na sim.
+## chefe -> [id do eco, nome, nível, intro, últimas palavras]
+const DAWN_ECHOES := {
+	"ghoul_giant": ["echo_ghoul_giant", "Eco do Carniçal Gigante", 25, "A ninhada... ainda... tem fome.", "De novo... a terra... me cospe..."],
+	"death_knight": ["echo_death_knight", "Eco de Vorhag", 27, "Eu jurei. Ainda não sei a quem.", "Malcom... você... ainda reza por mim?"],
+	"frost_mage": ["echo_frost_mage", "Eco de Morvath", 29, "O gelo lembra o que eu esqueci.", "Derretendo... outra vez..."],
+}
+static func _dawn_echoes(L: Array) -> Array:
+	var out: Array = []
+	for d in L:
+		if not DAWN_ECHOES.has(d["id"]):
+			continue
+		var e: Array = DAWN_ECHOES[d["id"]]
+		var c: Dictionary = (d as Dictionary).duplicate(true)
+		c["id"] = e[0]
+		c["name"] = e[1]
+		c["level"] = e[2]
+		c["hp"] = int(round(float(d["hp"]) * Balance.DAWN_ECHO_HP))
+		c["atk"] = int(round(float(d["atk"]) * Balance.DAWN_ECHO_ATK))
+		if d.has("matk"):
+			c["matk"] = int(round(float(d["matk"]) * Balance.DAWN_ECHO_ATK))
+		c["xp"] = int(round(float(d["xp"]) * Balance.DAWN_ECHO_XP))
+		c["intro"] = e[3]
+		c["last_words"] = e[4]
+		c["loot_table"] = "lt_" + e[0]
+		c["coin_chance"] = 0.0
+		c["coin_min"] = 0
+		c["coin_max"] = 0
+		c["gold_min"] = int(float(d["gold_min"]) * 0.5)
+		c["gold_max"] = int(float(d["gold_max"]) * 0.5)
+		out.append(c)
+	return out
+
+static func _dawn_echo_loot() -> Array:
+	return [
+		_lt("lt_echo_ghoul_giant", [{"item": "holy_silver", "chance": 1.0, "min": 1, "max": 2}, {"item": "rot_gel", "chance": 1.0, "min": 2, "max": 3}, {"item": "dawn_shard", "chance": 0.1}, {"item": "elixir_might", "chance": 0.2}]),
+		_lt("lt_echo_death_knight", [{"item": "holy_silver", "chance": 1.0, "min": 1, "max": 2}, {"item": "bone_shard", "chance": 1.0, "min": 2, "max": 3}, {"item": "dawn_shard", "chance": 0.12}, {"item": "elixir_might", "chance": 0.2}]),
+		_lt("lt_echo_frost_mage", [{"item": "holy_silver", "chance": 1.0, "min": 2, "max": 3}, {"item": "ghost_essence", "chance": 1.0, "min": 2, "max": 3}, {"item": "dawn_shard", "chance": 0.15}, {"item": "elixir_might", "chance": 0.2}]),
 	]

@@ -2499,6 +2499,8 @@ func _check_loading_art(gd) -> void:
 			var md: MapDef = gd.maps.get(zid)
 			if md == null and zid == MapsCatalog.MARSH_ID and not MapsCatalog.marsh_ready():
 				continue        # Brejo: a foto já existe, o mapa entra quando a Floresta ganhar a garganta sul (MapsCatalog.marsh_ready)
+			if md == null and zid == "field_oaths":
+				continue        # Campo dos Juramentos: Blender pronto, catálogo ainda não (WP7 dados tira esta exceção; o portal do Bastião sai em _drop_dangling_portals)
 			if md == null:
 				bad_zone.append("%s: mapa não existe" % zid)
 				continue
@@ -3031,6 +3033,8 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_item_icons(gd)
 	_reseed(sim, "_check_marsh_content")
 	_check_marsh_content(gd, sim)
+	_reseed(sim, "_check_viveiro")
+	_check_viveiro(gd, sim)
 	_reseed(sim, "_check_tree_spacing")
 	_check_tree_spacing()
 	_reseed(sim, "_check_web_fog")
@@ -4636,6 +4640,8 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_living_routes(gd, sim)
 	_check_road_events(gd, sim)
 	_check_elf_living(gd, sim)
+	_check_dawn_rests(gd, sim)
+	_check_dawn_living(gd, sim)
 	_check_act3_maps(gd, sim)
 	_check_act3_wp6_maps(gd, sim)
 	_check_act3_quests(gd, sim)
@@ -6145,12 +6151,15 @@ func _check_elemental_debuffs(gd, sim) -> void:
 	check(not Combat.storm_can_stun(gd.skills["ele_thunder"]) and not Combat.storm_can_stun(gd.skills["ele_overload"]) and not Combat.storm_can_stun(gd.skills["ele_fireball"]),
 		"Trovão, Sobrecarga e Bola de Fogo não rolam o atordoar do raio")
 	var stuns := 0
+	var rng_keep: int = sim.rng.state            # sorteio próprio: a taxa não depende de quantos sorteios o conteúdo novo gastou antes
+	sim.rng.seed = 15015
 	for i in range(400):
 		mob.set_state(SimEntity.State.IDLE)
 		mob.cc_dr.clear()                   # mede a chance, não o retorno decrescente (C7, _check_cc_dr)
 		sim._storm_proc(el, gd.skills["ele_lightning"], mob)
 		if mob.state == SimEntity.State.STUNNED:
 			stuns += 1
+	sim.rng.state = rng_keep
 	var rate := stuns / 4.0
 	check(absf(rate - Balance.STORM_STUN_CHANCE) < 6.0, "raio atordoa em ~%.0f%% dos golpes (%.1f%%)" % [Balance.STORM_STUN_CHANCE, rate])
 	sim.despawn(mob)
@@ -9711,8 +9720,8 @@ func _check_dawn_conquest(gd) -> void:
 	ws.player = ws.spawn_player(gd.classes["paladin"], "Aurora", fd.id)
 	var npc_ids := func(prefix: String) -> Array:
 		return m["entities"].filter(func(e): return e.kind == SimEntity.Kind.NPC and str(e.npc_data.get("id", "")).begins_with(prefix))
-	var undead := func() -> int:
-		return m["entities"].filter(func(e): return e.kind == SimEntity.Kind.MONSTER and e.is_alive()).size()
+	var undead := func() -> int:      # o bolsão dos Restos e o eco (CATALOG_SPAWNERS) ficam de propósito
+		return m["entities"].filter(func(e): return e.kind == SimEntity.Kind.MONSTER and e.is_alive() and not e.monster_def.id.begins_with("rest_") and not e.monster_def.id.begins_with("echo_")).size()
 	for i in 60:
 		ws.tick(0.05)
 	check(undead.call() > 10 and npc_ids.call("fort_bones_prisoner_").size() == 3 and npc_ids.call("fort_bones_settler_").is_empty(), "Ossos: antes, mortos (%d) e prisioneiros" % undead.call())
@@ -26920,7 +26929,7 @@ const ALDARA_FIELD_B := Vector3(34, 0, -44)
 ## aberta, nada de estátua/chafariz no miolo, nada alto perto do hub, cristal na praça e um bairro por lado (2026-11-21, vila
 ## de bairros: Quartel e pátio de treino ao norte, Mercado a leste, casas/Taverna/celeiro ao sul, Ofícios a oeste). Cada NPC
 ## de serviço atende do lado de FORA, na porta/balcão do prédio dele.
-const TOWN_LIVING := ["city_aldara", "field_forest", "city_lumeria", "elf_city"]         # mapas com LIVING_NPCS ligado (AC-B1; Lumeria = Ato III, GDD §10)
+const TOWN_LIVING := ["city_aldara", "field_forest", "city_lumeria", "elf_city", "field_ruins"]         # mapas com LIVING_NPCS ligado (AC-B1; Lumeria = Ato III, GDD §10)
 ## serviço -> [prédio do town.centerpiece.buildings, lado do bairro: eixo e sinal]
 const ALDARA_SERVICES := {"elder": ["elder", "z", -1.0], "captain": ["quartel", "z", -1.0], "merchant": ["tobias", "x", 1.0], "relic": ["relic", "x", 1.0],
 	"storage": ["armazem", "x", 1.0], "smith": ["smithy", "x", -1.0], "alchemist": ["botica", "x", -1.0]}
@@ -27801,7 +27810,7 @@ func _check_road_events(gd, _sim) -> void:
 	check(not FileAccess.get_file_as_string("res://core/save_system.gd").contains("road_event"), "eventos: nada de evento no save")
 	ws.free()
 	# faixa élfica viva (GDD elf-band-living §3.3): pontos da Floresta e da Cidade Élfica pelas mesmas regras
-	for mid in ["field_forest", "elf_city"]:
+	for mid in ["field_forest", "elf_city", "field_ruins"]:
 		_check_event_points(gd, mid)
 
 ## Pontos de evento de um mapa (regras do GDD living-towns 3.5) + prêmio consumível e falas de cada tipo.
@@ -27985,6 +27994,133 @@ func _check_elf_living(gd, _sim) -> void:
 	check(Sfx.place_bells_at("elf_city", []) == Vector3.INF and Sfx.place_bells_at("elf_city", ["el6_king"]) != Vector3.INF, "élfica viva: sinos de luto só depois do Rei")
 	check(AmbientLife.count_for("elf_city") >= 6, "élfica viva: bichos de ambiente na cidade (%d)" % AmbientLife.count_for("elf_city"))
 	_check_bento_home(gd, fdef)
+
+## Faixa da Aurora, conquista B (GDD dawn-band-refactor-proposal §5 B, D5/D7/D8): Restos da Noite no front retomado e bolsão
+## com o eco do chefe no fundo do forte (spawners do catálogo com `if`), rótulos dos fortes, XP de missão da faixa.
+const DAWN_REST_IDS := ["rest_ghoul", "rest_bear", "rest_bones", "rest_bone_archer", "rest_thaw_wraith", "rest_lost_adept"]
+const DAWN_BOSS_QUESTS := ["dw_ghoul_boss", "dw_bones_boss", "dw_frost_boss"]
+func _check_dawn_rests(gd, _sim) -> void:
+	check(MapsCatalog.FORT_DEFS["fort_bones"]["levels"] == Vector2i(21, 24) and MapsCatalog.FORT_DEFS["fort_frost"]["levels"] == Vector2i(23, 26), "Aurora: rótulos Ossos 21-24 e Torre 23-26 (D8)")
+	check(is_equal_approx(Balance.quest_share(20), 0.78), "Aurora: faixa 20-30 com 78%% de XP de missão (D7)")
+	for id in DAWN_REST_IDS:
+		var md: MonsterDef = gd.monsters.get(id)
+		check(md != null and not md.is_boss and md.xp > 0 and md.level >= 24 and md.level <= 29 and gd.loot_tables.has(md.loot_table) and ResourceLoader.exists("res://assets/models/%s.glb" % md.model),
+			"Aurora: Resto %s nível 24-29, dá XP, loot e modelo" % id)
+		check(gd.quests.has("h_" + id) and gd.quests["h_" + id].giver_npc == "dawn_board", "Aurora: caçada repetível do Resto %s na Capela" % id)
+	for boss in MonstersCatalog.DAWN_ECHOES:
+		var eid: String = MonstersCatalog.DAWN_ECHOES[boss][0]
+		var ed: MonsterDef = gd.monsters.get(eid)
+		var bd: MonsterDef = gd.monsters[boss]
+		var lt: LootTable = gd.loot_tables.get(ed.loot_table) if ed != null else null
+		check(ed != null and ed.is_boss and ed.model == bd.model and ed.level >= 24 and ed.level <= 29 and ed.hp < bd.hp and ed.coin_chance <= 0.0 and ed.phases.size() == bd.phases.size()
+			and ed.intro != "" and ed.last_words != "", "Aurora: %s é chefe 24-29, modelo e fases do original, menos vida, sem moeda" % eid)
+		check(lt != null and lt.entries.any(func(en): return en["item"] == "holy_silver" and float(en["chance"]) >= 1.0), "Aurora: %s garante Prata Consagrada" % eid)
+		var qs: Array = gd.quests.values().filter(func(q): return q.target_id == eid)
+		check(qs.size() == 1 and qs[0].repeatable and qs[0].giver_npc == "dawn_board" and DAWN_BOSS_QUESTS.has(qs[0].prereq_quest) and qs[0].dialog_progress != "",
+			"Aurora: caçada repetível do %s na Capela, depois do chefe" % eid)
+	for qid in ["dw_rest_marsh", "dw_rest_bones", "dw_rest_thaw"]:
+		var q: QuestDef = gd.quests.get(qid)
+		check(q != null and not q.repeatable and DAWN_BOSS_QUESTS.has(q.prereq_quest) and DAWN_REST_IDS.has(q.target_id) and q.level_req >= 24 and q.level_req <= 28 and q.reward_xp > 0,
+			"Aurora: missão %s apresenta os Restos (24-28)" % qid)
+	# spawners do catálogo: no mapa, com `if` do chefe, em chão livre, longe da guarnição, das chegadas e dos portais
+	var ws := WorldSim.new()
+	for mid in MapsCatalog.CATALOG_SPAWNERS:
+		var def: MapDef = gd.maps[mid]
+		var m: Dictionary = ws.load_map(def)
+		var mine: Array = def.spawners.filter(func(sp): return DAWN_REST_IDS.has(sp["monster_id"]) or str(sp["monster_id"]).begins_with("echo_"))
+		check(mine.size() == (MapsCatalog.CATALOG_SPAWNERS[mid] as Array).size(), "Aurora %s: spawners do catálogo no MapDef (%d)" % [mid, mine.size()])
+		var bad: Array = []
+		for sp in mine:
+			var pos: Vector3 = sp["pos"]
+			if not DAWN_BOSS_QUESTS.has(str(sp.get("if", ""))) or sp.has("unless"):
+				bad.append("%s sem if do chefe" % sp["monster_id"])
+			if not ws.is_walkable(pos, def, 0.6) or _wet_or_solid(ws, def, pos) != "":
+				bad.append("%s (%.0f, %.0f) fora de chão livre" % [sp["monster_id"], pos.x, pos.z])
+			if pos.distance_to(def.spawn_point) < 25.0:
+				bad.append("%s colado na chegada" % sp["monster_id"])
+			for pt in def.portals:
+				if pos.distance_to(pt["pos"]) < 20.0:
+					bad.append("%s perto do portal %s" % [sp["monster_id"], pt["id"]])
+			for n in def.npcs:
+				var gap: float = Balance.GUARD_AGGRO + Balance.GUARD_LEASH if n.has("fighter") else 12.0
+				if mid != "field_ruins" and pos.distance_to(n["pos"]) < gap:
+					bad.append("%s a %.0f m de %s" % [sp["monster_id"], pos.distance_to(n["pos"]), n["id"]])
+		check(bad.is_empty(), "Aurora %s: Restos e eco em lugar bom (%s)" % [mid, "; ".join(bad.slice(0, 5))])
+		# sem o chefe: calados; com o chefe: valem
+		var p: SimEntity = ws.spawn_player(gd.classes["paladin"], "Aurora", mid)
+		var q0: String = str(mine[0]["if"]) if not mine.is_empty() else ""
+		var off := mine.all(func(sp): return not WorldState.active(ws, sp))
+		p.quests_completed.append_array(DAWN_BOSS_QUESTS)
+		check(off and mine.all(func(sp): return WorldState.active(ws, sp)) and q0 != "", "Aurora %s: Restos só depois do chefe" % mid)
+		ws.despawn(p)
+		ws.player = null
+		ws.maps.erase(mid)
+	# o front de antes continua some-com-o-chefe (unless), e os Restos não pisam nele (são outros spawners)
+	var old: Array = gd.maps["field_ruins"].spawners.filter(func(sp): return sp.has("unless") and DAWN_BOSS_QUESTS.has(str(sp["unless"])))
+	check(old.size() >= 9, "Aurora: os 11 spawners do front continuam com unless do chefe (%d)" % old.size())
+	ws.free()
+
+## Faixa da Aurora viva (GDD dawn-band-refactor-proposal §6, B1-B6 + E1): rotinas do Bastião, alarme com leva viva, troca no Lich.
+const DAWN_WAR_IDS := ["dawn_l_water_a", "dawn_l_water_b", "dawn_l_bolts", "dawn_l_burial", "dawn_l_refugee_a", "dawn_l_refugee_b"]
+const DAWN_PEACE_IDS := ["dawn_l_mason_a", "dawn_l_mason_b"]
+func _check_dawn_living(gd, _sim) -> void:
+	var def: MapDef = gd.maps["field_ruins"]
+	var by := {}
+	for n in def.npcs:
+		by[n["id"]] = n
+	check((DAWN_WAR_IDS + DAWN_PEACE_IDS + ["dawn_l_horn", "dawn_l_dig_cart"]).all(func(id): return by.has(id)), "Bastião vivo: rotinas no mapa")
+	if not (DAWN_WAR_IDS + DAWN_PEACE_IDS + ["dawn_l_horn", "dawn_l_dig_cart"]).all(func(id): return by.has(id)):
+		return
+	var ws := WorldSim.new()
+	ws.player = SimEntity.new()
+	var war: Array = MapsCatalog.LIVING_NPCS["field_ruins"].keys().filter(func(id): return WorldState.active(ws, by[id]))
+	ws.player.quests_completed.append_array(DAWN_BOSS_QUESTS + ["dw_lich"])
+	var peace: Array = MapsCatalog.LIVING_NPCS["field_ruins"].keys().filter(func(id): return WorldState.active(ws, by[id]))
+	ws.player = null
+	ws.free()
+	check(DAWN_WAR_IDS.all(func(id): return war.has(id)) and DAWN_PEACE_IDS.all(func(id): return not war.has(id)) and war.size() <= MapsCatalog.DAWN_LIVING_MAX,
+		"Bastião vivo: no cerco valem as rotinas de guerra (%d <= %d)" % [war.size(), MapsCatalog.DAWN_LIVING_MAX])
+	check(DAWN_PEACE_IDS.all(func(id): return peace.has(id)) and DAWN_WAR_IDS.all(func(id): return not peace.has(id)) and peace.has("dawn_l_dig_cart") and peace.size() <= MapsCatalog.DAWN_LIVING_MAX,
+		"Bastião vivo: depois do Lich, pedreiros e a carroça da escavação (%d)" % peace.size())
+	check(not CarryPose.draft_of(str(by["dawn_l_dig_cart"].get("carry", ""))).is_empty(), "Bastião vivo: carroça da escavação com animal de tiro")
+	check(not (by["dawn_l_horn"].get("alarm_cry", []) as Array).is_empty(), "Bastião vivo: vigia do portão oeste tem grito de alarme")
+	var relic: Vector3 = Vector3.ZERO
+	for q in by["dawn_l_dig_cart"]["route"]:
+		if (q as Array).size() > 2 and Vector2(float(q[0]), float(q[1])).distance_to(Vector2(53, 82)) > 5.0:
+			relic = Vector3(float(q[0]), 0.0, float(q[1]))
+	check(relic.distance_to(by["dawn_relic"]["pos"]) <= 15.0, "Bastião vivo: a carroça da escavação para perto do Irmão Anselmo (%.1f m)" % relic.distance_to(by["dawn_relic"]["pos"]))
+	# alarme: com leva viva, os civis chegam às portas da catedral; sem leva, voltam à rotina
+	var ws2 := WorldSim.new()
+	var fm: Dictionary = ws2.load_map(def)
+	ws2.spawn_player(gd.classes["paladin"], "Alarme", def.id)
+	WorldState.sync_npcs(ws2, fm)
+	var runners: Array = fm["entities"].filter(func(e): return e.kind == SimEntity.Kind.NPC and e.npc_data.has("alarm"))
+	check(runners.size() >= 4, "Bastião vivo: 4+ civis com alarme nascem (%d)" % runners.size())
+	RaidSystem.start_raid(ws2, fm)
+	check(RoadEventSystem.raid_on(fm), "Bastião vivo: leva viva no mapa")
+	var dt := 1.0 / 30.0
+	for i in int(30.0 / dt):
+		ws2.time += dt
+		for e: SimEntity in runners:
+			NpcSystem.update_npc(ws2, e, fm, dt)
+	var far: Array = runners.filter(func(e): return e.position.distance_to(Vector3(float(e.npc_data["alarm"][0]), 0.0, float(e.npc_data["alarm"][1]))) > 1.5)
+	check(far.is_empty(), "Bastião vivo: no alarme todos chegam à catedral em 30 s (fora: %s)" % [far.map(func(e): return e.npc_data["id"])])
+	for key in fm.keys():
+		if str(key).begins_with("raid"):
+			for id in (fm[key] as Dictionary).get("ids", []):
+				if ws2.entities.has(id):
+					ws2.despawn(ws2.entities[id])
+			fm[key]["ids"] = []
+	for i in int(20.0 / dt):
+		ws2.time += dt
+		for e: SimEntity in runners:
+			NpcSystem.update_npc(ws2, e, fm, dt)
+	var stuck: Array = runners.filter(func(e): return e.npc_alarm)
+	check(stuck.is_empty(), "Bastião vivo: sem leva, os civis voltam à rotina (%d no alarme)" % stuck.size())
+	ws2.free()
+	# evento E1 só enquanto o Lich vive
+	check(str(RoadEventSystem.rules(def.id, "relic").get("unless", "")) == "dw_lich" and def.road_events.size() >= 2, "Bastião vivo: Relíquia na Estrada com unless dw_lich (%d pontos)" % def.road_events.size())
+	check(AmbientLife.count_for("field_ruins") >= 6, "Bastião vivo: bichos de ambiente (%d)" % AmbientLife.count_for("field_ruins"))
 
 ## Seu Bento (decisão do usuário 2026-11-24): só aparece no Posto com o Rei caído E a carta entregue (m9_letter); até lá mora
 ## no Brejo (marsh_bento), que some quando ele volta. Lista em `if` = todas; lista em `unless` = só some com todas feitas.
@@ -32841,6 +32977,168 @@ func _l50body_bots(gd, sim) -> void:
 ## Brejo das Teias (field_marsh, 12-16, GDD design/gdd/brejo-das-teias.md): monstros, saque, itens e quests coerentes mesmo antes
 ## do mapa existir (as quests vêm de QuestsCatalog.marsh() direto); com o JSON do Brejo e a garganta sul da Floresta, o mapa entra e
 ## valem também NPCs, portais, portão, colheita e lugares.
+## Viveiro de Seiva (dg_viveiro, 17-19; GDD design/gdd/viveiro-de-seiva.md): monstros, saque (Seiva da Árvore-Mãe garantida =
+## material +6 da Glória no Gunnar), ninho de tanques da Muda-Mãe (choca em 70%/40%, ward com muda viva), portão só por nível,
+## quests laterais. Com o JSON do Blender: mapa, spawners, portal do Brejo e anel dos tanques andável.
+func _check_viveiro(gd, sim) -> void:
+	var ids: Array = MonstersCatalog.VIVEIRO_MOBS + [MonstersCatalog.VIVEIRO_BOSS, MonstersCatalog.VIVEIRO_ADD]
+	for mid in ids:
+		var md: MonsterDef = gd.monsters.get(mid)
+		check(md != null, "Viveiro: monstro %s existe" % mid)
+		if md == null:
+			continue
+		check(md.level >= 17 and md.level <= 19, "Viveiro: %s na faixa 17-19 (%d)" % [mid, md.level])
+		check(ResourceLoader.exists("res://assets/models/%s.glb" % md.model), "Viveiro: modelo de %s (%s) existe" % [mid, md.model])
+		for sk in md.skill_ids:
+			check(gd.skills.has(sk), "Viveiro: skill %s de %s existe" % [sk, mid])
+		if mid == MonstersCatalog.VIVEIRO_ADD:
+			check(md.xp == 0 and md.loot_table == "", "Viveiro: Muda Desperta é lacaio (0 XP, sem saque)")
+			continue
+		check(gd.loot_tables.has(md.loot_table), "Viveiro: tabela %s existe" % md.loot_table)
+		if not gd.loot_tables.has(md.loot_table):
+			continue
+		var best := 0.0
+		for en in gd.loot_tables[md.loot_table].entries:
+			var it: ItemDef = gd.items.get(str(en["item"]))
+			check(it != null, "Viveiro: item %s do saque de %s existe" % [en["item"], mid])
+			if it == null:
+				continue
+			if it.type == ItemDef.Type.EQUIPMENT and not md.is_boss:
+				check(float(en["chance"]) <= 0.05, "Viveiro: equipamento raro %s em %s <= 0,05" % [it.id, mid])
+			if it.type == ItemDef.Type.MATERIAL:
+				best = maxf(best, float(en["chance"]))
+		if not md.is_boss:
+			check(best >= 0.3 and best <= 0.7, "Viveiro: %s dá material principal com 0,3-0,7 (%.2f)" % [mid, best])
+	var tank: MonsterDef = gd.monsters.get("sap_tank")
+	check(tank != null and tank.egg and tank.move_speed == 0.0 and tank.xp == 0, "Viveiro: Tanque de Seiva é parado, ovo e 0 XP")
+	var boss: MonsterDef = gd.monsters.get(MonstersCatalog.VIVEIRO_BOSS)
+	if boss == null:
+		return
+	check(boss.is_boss and boss.berserk_after > 0.0 and boss.intro != "" and boss.last_words != "", "Viveiro: Muda-Mãe é chefe com fúria e falas")
+	check(str(boss.eggs.get("id", "")) == "sap_tank" and int(boss.eggs.get("count", 0)) == 4 and str(boss.eggs.get("hatch", "")) == MonstersCatalog.VIVEIRO_ADD,
+		"Viveiro: os 4 tanques do Berço são o ninho da Muda-Mãe e chocam em Muda Desperta (%s)" % [boss.eggs])
+	var hatches := boss.phases.filter(func(ph): return ph.has("hatch"))
+	var warded := boss.phases.filter(func(ph): return ph.has("ward") and ph.has("hatch"))
+	check(hatches.size() == 2 and warded.size() == 1 and boss.phases.any(func(ph): return ph.has("enrage")), "Viveiro: fases 70% choca, 40% choca + ward, 15% fúria")
+	for sk in ["mob_sap_lash", "mob_sap_root_hook", "mob_sap_rain"]:
+		check(boss.skill_ids.has(sk), "Viveiro: Muda-Mãe tem %s" % sk)
+	check(warded.size() == 1 and (warded[0]["skills"] as Array).has("mob_sap_pulse") and gd.skills.has("mob_sap_pulse"), "Viveiro: Pulso do Berço entra com a fase de 40%")
+	var rain: SkillDef = gd.skills.get("mob_sap_rain")
+	var pulse: SkillDef = gd.skills.get("mob_sap_pulse")
+	check(rain != null and rain.effects.has("barrage") and rain.mob_pick == "random", "Viveiro: Chuva de Seiva = círculos avisados em alvo aleatório")
+	check(pulse != null and str(pulse.effects.get("barrage", {}).get("shape", "")) == "ring", "Viveiro: Pulso do Berço = anéis em volta dela")
+	var sap_n := 0
+	for en in gd.loot_tables[boss.loot_table].entries:
+		if str(en["item"]) == "mother_sap" and float(en["chance"]) >= 1.0:
+			sap_n = int(en.get("min", 1))
+	check(sap_n >= 1, "Viveiro: Muda-Mãe garante Seiva da Árvore-Mãe (material de tier do Gunnar)")
+	var glory: ItemDef = null
+	for iid in gd.items:
+		var it: ItemDef = gd.items[iid]
+		if it.is_legendary() and it.level_req == Balance.PLUS_ELF_LEVEL and it.base_id == "":
+			glory = it
+			break
+	if glory:
+		check(str(sim.enhance_cost(glory, Balance.PLUS_STAR_FROM - 1)["item"]) == "mother_sap", "Viveiro: a seiva do chefe é o material do +6 da Glória (%s)" % glory.id)
+	# ninho na sim (palco = Ninho Profundo, que já existe): 4 tanques no anel, 70% choca 2, 40% choca o resto e liga o ward
+	var ws := WorldSim.new()
+	ws.load_map(gd.maps[GameData.town_map_id()])
+	var m: Dictionary = ws.load_map(gd.maps["dg_ninho"])
+	m["spawners"].clear()
+	for e in m["entities"].duplicate():
+		ws.despawn(e)
+	var at: Vector3 = gd.maps["dg_ninho"].spawn_point + Vector3(0, 0, -20)
+	var b: SimEntity = ws.spawn_monster(boss, "dg_ninho", at)
+	MobSystem.ensure_eggs(ws, b)
+	var eggs := MobSystem.eggs_of(ws, b)
+	check(eggs.size() == 4 and eggs.all(func(t): return absf(t.position.distance_to(at) - 7.0) < 0.1), "Viveiro: 4 tanques nascem a 7 m da Muda-Mãe (%d)" % eggs.size())
+	ws.despawn(eggs[0])                       # o grupo quebrou um antes de puxar
+	var hero: SimEntity = ws.spawn_bot(gd.classes["paladin"], "Tanque", "dg_ninho", at + Vector3(2, 0, 0), 19)
+	hero.brain = null
+	b.aggro_target = hero.id
+	b.hp = b.stats.max_hp * 0.69
+	MobSystem.update_boss(ws, b, 0.05)
+	check(MobSystem.eggs_of(ws, b).size() == 1 and MobSystem.adds_alive(ws, b) == 2, "Viveiro: 70% choca metade dos 3 inteiros (2 mudas, 1 tanque fica)")
+	b.hp = b.stats.max_hp * 0.39
+	MobSystem.update_boss(ws, b, 0.05)
+	MobSystem.update_boss(ws, b, Balance.BOSS_WARD_CHECK + 0.05)
+	check(MobSystem.eggs_of(ws, b).is_empty() and b.ward > 0.0, "Viveiro: 40% choca o resto e a Muda-Mãe fica com ward (%.2f)" % b.ward)
+	for o in m["entities"].duplicate():
+		if o.boss_id == b.id:
+			ws.despawn(o)
+	MobSystem.update_boss(ws, b, Balance.BOSS_WARD_CHECK + 0.05)
+	check(b.ward == 0.0, "Viveiro: sem muda viva o ward cai")
+	# portão e música
+	var gate: Dictionary = MapsCatalog.PORTAL_GATES.get("to_dg_viveiro", {})
+	check(int(gate.get("level", 0)) == 17 and not gate.has("quest") and not gate.has("quests"), "Viveiro: portão só por nível 17 (opcional)")
+	check(Music.theme_for(MapsCatalog.VIVEIRO_ID) == "elfos", "Viveiro: música élfica")
+	check(MapsCatalog.DUNGEON_DEFS[MapsCatalog.VIVEIRO_ID]["parent"] == MapsCatalog.MARSH_ID and MapsCatalog.DUNGEON_DEFS[MapsCatalog.VIVEIRO_ID]["levels"] == Vector2i(17, 19), "Viveiro: masmorra 17-19 no Brejo")
+	# quests (do catálogo: sem o mapa elas não entram em gd.quests)
+	var qs: Array = QuestsCatalog.viveiro()
+	var qids := {}
+	for d in qs:
+		qids[d["id"]] = d
+	check(qids.keys() == Array(QuestsCatalog.VIVEIRO_QUESTS) and qs.size() >= 3 and qs.size() <= 4, "Viveiro: 3-4 quests laterais em VIVEIRO_QUESTS")
+	var npc_ok := {"ranger_post": true}
+	for nid in MapsCatalog.MARSH_NPCS:
+		npc_ok[nid] = true
+	for nid in MapsCatalog.PLACE_NPCS.get(MapsCatalog.MARSH_ID, {}):
+		npc_ok[nid] = true
+	var weight := 0
+	for d in qs:
+		var qid: String = d["id"]
+		weight += int(d.get("reward_xp", 0))
+		check(int(d["level_req"]) >= 17 and int(d["level_req"]) <= 19, "Viveiro: %s no nível 17-19" % qid)
+		check(npc_ok.has(d["giver_npc"]) and npc_ok.has(d.get("turnin_npc", d["giver_npc"])), "Viveiro: %s tem giver/turnin que existem" % qid)
+		for pq in [d.get("prereq_quest", "")] + Array(d.get("prereq_all", [])):
+			check(pq == "" or qids.has(pq) or pq in QuestsCatalog.MARSH_QUESTS, "Viveiro: pré-requisito %s de %s é do Brejo/Viveiro" % [pq, qid])
+		var tid: String = d["target_id"]
+		match int(d["type"]):
+			QuestsCatalog.KILL:
+				check(tid in ids, "Viveiro: %s mata monstro do Viveiro" % qid)
+			QuestsCatalog.REACH:
+				check(tid == MapsCatalog.VIVEIRO_ID, "Viveiro: %s chega ao Viveiro" % qid)
+			QuestsCatalog.TALK:
+				check(npc_ok.has(tid), "Viveiro: %s fala com NPC que existe" % qid)
+		check(str(d.get("dialog_progress", "")).length() > 40, "Viveiro: %s tem dica prática" % qid)
+	check(weight >= 1000 and weight <= 2000, "Viveiro: peso de XP 1000-2000 (%d)" % weight)
+	for qid in gd.quests:
+		if qids.has(qid) or qid in QuestsCatalog.MARSH_QUESTS:
+			continue
+		var q: QuestDef = gd.quests[qid]
+		check(not qids.has(q.prereq_quest) and not q.prereq_all.any(func(x): return qids.has(x)), "Viveiro é opcional: %s não pede quest do Viveiro" % qid)
+	if not MapsCatalog.viveiro_ready():
+		check(not gd.maps.has(MapsCatalog.VIVEIRO_ID) and not gd.quests.has("v1_root_door"), "Viveiro: sem o JSON, nada do Viveiro entra na sim")
+		return
+	# ---- com o mapa ----
+	var vm: MapDef = gd.maps.get(MapsCatalog.VIVEIRO_ID)
+	check(vm != null and vm.level_range == Vector2i(17, 19) and vm.parent_map == MapsCatalog.MARSH_ID and vm.bot_population == 0, "Viveiro: mapa 17-19 registrado (bots só com o grupo)")
+	if vm == null:
+		return
+	for qid in QuestsCatalog.VIVEIRO_QUESTS:
+		check(gd.quests.has(qid), "Viveiro: quest %s carregou" % qid)
+	var spawned := {}
+	var boss_at := Vector3.INF
+	for sp in vm.spawners:
+		spawned[sp["monster_id"]] = true
+		if sp["monster_id"] == MonstersCatalog.VIVEIRO_BOSS:
+			boss_at = sp["pos"]
+	for mid in MonstersCatalog.VIVEIRO_MOBS + [MonstersCatalog.VIVEIRO_BOSS]:
+		check(spawned.has(mid), "Viveiro: %s tem spawner" % mid)
+	if boss_at != Vector3.INF:
+		var n := int(boss.eggs["count"])
+		var bad := 0
+		for i in range(n):
+			var a := TAU * float(i) / float(n) + 0.3
+			if not sim.is_walkable(boss_at + Vector3(cos(a), 0, sin(a)) * float(boss.eggs["r"]), vm, 0.6):
+				bad += 1
+		check(bad == 0, "Viveiro: anel dos tanques do Berço andável (%d fora)" % bad)
+	var go: Array = gd.maps[MapsCatalog.MARSH_ID].portals.filter(func(pt): return pt["target_map"] == MapsCatalog.VIVEIRO_ID)
+	check(go.size() == 1 and int((go[0] as Dictionary).get("gate", {}).get("level", 0)) == 17, "Brejo: portal do Viveiro com portão 17")
+	if go.size() == 1:
+		check(sim.is_walkable(go[0]["target_pos"], vm, 0.45), "Viveiro: chegada andável")
+	check(vm.portals.any(func(pt): return pt["target_map"] == MapsCatalog.MARSH_ID), "Viveiro: portal de volta ao Brejo")
+
 func _check_marsh_content(gd, sim) -> void:
 	var ids: Array = MonstersCatalog.MARSH_MOBS + [MonstersCatalog.MARSH_BOSS, "bog_tadpole"]
 	for mid in ids:
@@ -32921,7 +33219,7 @@ func _check_marsh_content(gd, sim) -> void:
 	check(weight >= 2500 and weight <= 4000, "Brejo: peso de XP das quests 2500-4000 (%d; dilui a faixa 10-20 só uns 4%%)" % weight)
 	# opcional: nada fora do Brejo depende dele
 	for qid in gd.quests:
-		if qids.has(qid):
+		if qids.has(qid) or qid in QuestsCatalog.VIVEIRO_QUESTS:      # o Viveiro de Seiva é o ramo do Brejo (pede m0_brejo)
 			continue
 		var q: QuestDef = gd.quests[qid]
 		check(not qids.has(q.prereq_quest) and not q.prereq_all.any(func(x): return qids.has(x)), "Brejo é opcional: %s não pede quest do Brejo" % qid)

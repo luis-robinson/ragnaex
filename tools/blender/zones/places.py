@@ -279,13 +279,33 @@ DUNGEONS["rift_heart"] = {
         "edges": [("chegada", "limiar"), ("limiar", "coracao")],
     },
 }
-# Viveiro de Seiva (Brejo das Teias, GDD brejo-das-teias 3.8): entrada RESERVADA. O mapa ainda não existe: `reserved`
-# faz o places.dungeon() pôr só a boca (com o arco de raízes élfico e o veio de seiva), fechar a boca com um colisor e
-# gravar a passagem em data["future_portals"]; o build_dungeons pula a entrada. Quando o mapa existir: tirar `reserved`,
-# preencher `layout`/`boss` e refazer o Brejo (o colisor da boca some e o portal entra em `portals`).
+# Viveiro de Seiva (Brejo das Teias, GDD brejo-das-teias 3.8-3.9; mini-masmorra 17-19): berçário élfico de mudas da
+# Árvore-Mãe sob a raiz. Raízes Encharcadas -> Estufa das Mudas (de lado) e -> Sala dos Tanques (3 Tanques de Seiva
+# parados nos pousos: spawners e data["boss_hint"]["tanks"] saem de viveiro_dress) -> O Berço da Muda-Mãe (miolo livre,
+# sem estátua nem pilar). `arch: "root"` = a boca na zona leva o arco de raízes élfico com o veio de seiva.
+# Entrada RESERVADA de outro mapa (`reserved`: True): o places.dungeon() põe só a boca, fecha-a com um colisor e grava a
+# passagem em data["future_portals"]; o build_dungeons pula a entrada.
 DUNGEONS["dg_viveiro"] = {
-    "zone": "field_marsh", "gate": (78.0, 2.0), "face": 190.0, "name": "Viveiro de Seiva", "seed": 31, "reserved": True, "level": 17,
-    "rock": (0.4, 0.32, 0.22), "floor": (0.5, 0.44, 0.3), "glow": (0.95, 0.75, 0.3), "rooms": [], "boss": "",
+    "zone": "field_marsh", "gate": (78.0, 2.0), "face": 190.0, "name": "Viveiro de Seiva", "seed": 31, "level": 17, "arch": "root",
+    "rock": (0.4, 0.32, 0.22), "floor": (0.5, 0.44, 0.3), "glow": (0.95, 0.75, 0.3), "top": (0.27, 0.3, 0.2),      # alto das paredes: musgo escuro (o chão claro lê-se de cima)
+    "layout": {
+        "rooms": {
+            "raizes": {"pos": (0, 20), "r": 11, "mobs": [("sap_sprout", 4), ("sap_spider", 1)], "mob_off": (0.0, -6.0), "floor": (0.36, 0.32, 0.25)},
+            "estufa": {"pos": (-30, 6), "r": 10, "mobs": [("elf_tender", 2), ("sap_sprout", 2)], "floor": (0.38, 0.52, 0.3)},
+            "tanques": {"pos": (26, -8), "r": 12, "floor": (0.44, 0.53, 0.53)},
+            "berco": {"pos": (-6, -36), "r": 16, "boss": "boss_sap_mother", "statue": False, "pillars": False, "floor": (0.63, 0.5, 0.27)},
+        },
+        "edges": [("chegada", "raizes"), ("raizes", "estufa"), ("raizes", "tanques"), ("tanques", "berco")],
+        "packs": {"raizes>estufa": ("sap_spider", 2), "raizes>tanques": ("sap_sprout", 2), "tanques>berco": ("elf_tender", 1)},
+    },
+}
+# Arquivo de Vel'Thar (Campo dos Juramentos, GDD campo-dos-juramentos 3.8; mini-masmorra 27-29 do WP8): entrada RESERVADA
+# no pé do zigurate do Campo (leste, boca para oeste). `arch: "ziggurat"` = o morro vira um zigurate de 3 degraus de pedra
+# clara (<= 8 m) e a boca, uma porta de pedra com selo (`_ziggurat`); `reserved` fecha a passagem e a grava em
+# data["future_portals"] (o build_dungeons pula a entrada). Quando o mapa existir: tirar `reserved`, `layout`/`boss`.
+DUNGEONS["dg_archive"] = {
+    "zone": "field_oaths", "gate": (84.0, 6.0), "face": 180.0, "name": "Arquivo de Vel'Thar", "seed": 37, "reserved": True, "level": 27,
+    "arch": "ziggurat", "rock": (0.7, 0.66, 0.56), "floor": (0.56, 0.52, 0.44), "glow": (0.86, 0.7, 0.42), "rooms": [], "boss": "",
 }
 DUNGEON_ARRIVE = (0.0, 44.0)   # chegada dentro de toda dungeon; a saída fica em DUNGEON_EXIT
 DUNGEON_EXIT = (0.0, 50.0)
@@ -441,14 +461,22 @@ def dungeon(s, p):
     name = s.P + "dungeon_" + p["id"]
     rock = mat("rock_" + p["dungeon"], g["rock"])
     _ground(s, p["id"], tuple(c + d * (GATE_R + 3.0)), 5.5, (0.42, 0.38, 0.34))
-    cyl(s.coll, name + "_morro", tuple(c), GATE_R + 1.4, GATE_R * 0.8, 2.6, rock, segs=12, jitter=0.25, seed=3)
-    cyl(s.coll, name + "_topo", tuple(c - d), GATE_R * 0.85, GATE_R * 0.35, 3.6, rock, y0=2.6, segs=10, jitter=0.3, seed=5)
+    reserved = bool(g.get("reserved"))
+    arch = g.get("arch", "root" if reserved else "")
+    if arch == "ziggurat":
+        _ziggurat(s, name, g, c, d, rock)
+    else:
+        cyl(s.coll, name + "_morro", tuple(c), GATE_R + 1.4, GATE_R * 0.8, 2.6, rock, segs=12, jitter=0.25, seed=3)
+        cyl(s.coll, name + "_topo", tuple(c - d), GATE_R * 0.85, GATE_R * 0.35, 3.6, rock, y0=2.6, segs=10, jitter=0.3, seed=5)
     mouth = c + d * (GATE_R + 0.4)
     box(s.coll, name + "_boca", tuple(mouth), (4.0, 1.4, 3.0), _rot(d), mat("dungeon_boca", (0.03, 0.03, 0.05)))
     box(s.coll, name + "_verga", tuple(mouth + d * 0.3), (5.6, 1.2, 0.9), _rot(d), rock, y0=3.0)
-    reserved = bool(g.get("reserved"))
-    if reserved:
+    if arch == "ziggurat":
+        _sealed_door(s, name, p["dungeon"], g, mouth, d, side, rock, reserved)
+    elif arch == "root":
         _root_arch(s, name, p["dungeon"], g, mouth, d, side)
+        if not reserved:              # boca aberta: o brilho da passagem por dentro do arco
+            box(s.coll, name + "_brilho", tuple(mouth + d * 0.3), (3.2, 0.1, 2.6), _rot(d), mat("glow_" + p["dungeon"], g["glow"]), y0=0.05)
     else:
         box(s.coll, name + "_brilho", tuple(mouth + d * 0.75), (3.2, 0.1, 2.4), _rot(d), mat("glow_" + p["dungeon"], g["glow"]), y0=0.05)
     for k in (-1, 1):
@@ -530,6 +558,58 @@ def _root_arch(s, name, did, g, mouth, d, side):
         _tube(s.coll, name + "_veio_%d" % k, [P(*q) for q in vein], 0.1, 0.05, glow, 4)
     for i, lat in enumerate((-1.1, 0.0, 1.2)):               # gotas de seiva penduradas do alto do arco
         _tube(s.coll, name + "_gota_%d" % i, [P(lat, 4.35, 0.75), P(lat, 3.9 - 0.2 * (i % 2), 0.78), P(lat, 3.55 - 0.2 * (i % 2), 0.8)], 0.05, 0.11, glow, 5)
+
+
+ZIG_TIERS = [(12.0, 3.2, 0.0), (9.0, 2.4, 0.8), (6.0, 1.8, 1.4)]     # (lado, altura, recuo para trás da boca): 7,4 m + altar 0,6
+
+
+def _ziggurat(s, name, g, c, d, rock):
+    """Zigurate baixo de 3 degraus de pedra clara (<= 8 m) no lugar do morro: cada degrau tem um lábio mais escuro (lê
+    de cima como anéis quadrados), escada na frente dos dois degraus de cima e um altar no topo. Sólido pelo degrau de
+    baixo (caixa oculta, além da colina redonda do dungeon())."""
+    rot = _rot(d)
+    lip = mat("rock_zig_labio", tuple(k * 0.8 for k in g["rock"]))
+    top = mat("rock_zig_topo", g.get("top", tuple(min(1.0, k * 1.1) for k in g["rock"])))
+    y0 = 0.0
+    for i, (L, h, back) in enumerate(ZIG_TIERS):
+        q = c - d * back
+        box(s.coll, name + "_degrau_%d" % i, tuple(q), (L, h - 0.22, L), rot, rock, y0=y0)
+        box(s.coll, name + "_labio_%d" % i, tuple(q), (L + 0.35, 0.22, L + 0.35), rot, lip, y0=y0 + h - 0.22)
+        box(s.coll, name + "_tampo_%d" % i, tuple(q), (L - 0.3, 0.02, L - 0.3), rot, top, y0=y0 + h)
+        y0 += h
+    for i in (1, 2):                                          # escada na frente dos degraus de cima
+        L, h, back = ZIG_TIERS[i]
+        y_base = sum(t[1] for t in ZIG_TIERS[:i])
+        for k in range(3):                                    # k = 0 o degrau de fora (baixo), 2 o colado na face
+            q = c - d * back + d * (L * 0.5 + 0.25 + 0.5 * (2 - k))
+            box(s.coll, name + "_escada_%d_%d" % (i, k), tuple(q), (2.2, h * (k + 1) / 3.0, 0.5), rot, lip, y0=y_base)
+    q = c - d * ZIG_TIERS[-1][2]
+    box(s.coll, name + "_altar", tuple(q), (2.4, 0.6, 2.4), rot, lip, y0=y0)
+    box(s.coll, name + "_altar_tampo", tuple(q), (2.8, 0.14, 2.8), rot, top, y0=y0 + 0.6)
+    s.ob("wall", c.x, c.y, (ZIG_TIERS[0][0], 5.0, ZIG_TIERS[0][0]), rot, visible=False)
+
+
+def _sealed_door(s, name, did, g, mouth, d, side, rock, reserved):
+    """Porta do zigurate: batentes de pedra, laje com o selo (cruz e moldura de runas no tom `glow` da dungeon) quando a
+    passagem está reservada; aberta, só o brilho por dentro."""
+    rot = _rot(d)
+    dark = mat("rock_%s_porta" % did, tuple(k * 0.62 for k in g["rock"]))
+    for k in (-1, 1):
+        box(s.coll, name + "_batente_%d" % k, tuple(mouth + d * 0.55 + side * 2.05 * k), (0.7, 3.0, 0.8), rot, rock)
+    if not reserved:
+        box(s.coll, name + "_brilho", tuple(mouth + d * 0.75), (3.2, 0.1, 2.4), rot, mat("glow_" + did, g["glow"]), y0=0.05)
+        return
+    glow = mat("glow_" + did, g["glow"])
+    door = mouth + d * 0.72
+    box(s.coll, name + "_laje", tuple(door), (3.5, 2.9, 0.3), rot, dark)
+    f = door + d * 0.17
+    box(s.coll, name + "_selo_v", tuple(f), (0.16, 1.5, 0.06), rot, glow, y0=0.75)
+    box(s.coll, name + "_selo_h", tuple(f), (1.5, 0.16, 0.06), rot, glow, y0=1.42)
+    for k in (-1, 1):                                         # moldura do selo e runas da verga
+        box(s.coll, name + "_selo_lado_%d" % k, tuple(f + side * 0.85 * k), (0.1, 1.7, 0.06), rot, glow, y0=0.65)
+        box(s.coll, name + "_selo_aro_%d" % k, tuple(f), (1.8, 0.1, 0.06), rot, glow, y0=1.42 + 0.9 * k)
+    for i in range(5):
+        box(s.coll, name + "_runa_%d" % i, tuple(mouth + d * 0.95 + side * (i - 2) * 0.95), (0.34, 0.3, 0.06), rot, glow, y0=3.3)
 
 
 def _tree_door(s, p, g):

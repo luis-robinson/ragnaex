@@ -190,6 +190,21 @@ static func build(classes: Dictionary) -> Array:
 		 "effects": {"dash": 7.0, "stun": {"duration": 0.6}}},
 		{"id": "mob_call_tadpoles", "name": "Desova", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 24.0, "radius": 0.0, "startup": 0.8, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.35, 0.45, 0.25),
 		 "effects": {"boss_summon": {"id": "bog_tadpole", "count": 2, "max": 4}}},
+		# Viveiro de Seiva (GDD viveiro-de-seiva §3.4/§3.5): mudas, tratadores e A Muda-Mãe (chefe 19)
+		{"id": "mob_sap_lash_small", "name": "Chicote de Muda", "target": T_CONE, "kind": K_PHYS, "power": 1.2, "cooldown": 8.0, "radius": 2.6, "cone_angle_deg": 90, "startup": 0.5, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.85, 0.65, 0.3), "vfx": "blood",
+		 "effects": {"slow": {"pct": 30, "duration": 2}}},
+		{"id": "mob_tender_mend", "name": "Rega de Seiva", "clip": "shout", "target": T_SELF, "kind": K_HEAL, "power": 1.0, "cooldown": 10.0, "radius": 8.0, "startup": 0.8, "active": 0.1, "recovery": 0.4, "icon_color": Color(0.95, 0.78, 0.35), "vfx": "nature"},
+		{"id": "mob_sap_lash", "name": "Açoite de Raiz", "target": T_CONE, "kind": K_PHYS, "power": 1.6, "cooldown": 7.0, "radius": 3.8, "cone_angle_deg": 110, "startup": 0.65, "active": 0.15, "recovery": 0.5, "hit_stop_frames": 5, "icon_color": Color(0.6, 0.45, 0.25), "vfx": "blood"},
+		{"id": "mob_sap_root_hook", "name": "Raiz que Puxa", "clip": "cast", "target": T_TARGET, "kind": K_PHYS, "power": 0.7, "cooldown": 12.0, "range": 14.0, "radius": 0.0, "max_targets": 1, "startup": 0.6, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.7, 0.55, 0.3), "mob_pick": "far", "vfx": "nature",
+		 "effects": {"pull": {"gap": 0.6}, "root": {"duration": 0.8}}},
+		{"id": "mob_sap_rain", "name": "Chuva de Seiva", "clip": "cast_ground", "target": T_GROUND, "kind": K_MAG, "power": 1.2, "cooldown": 13.0, "range": 15.0, "radius": 2.4, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.95, 0.75, 0.3), "mob_pick": "random", "vfx": "nature",
+		 "effects": {"barrage": {"count": 5, "radius": 2.4, "delay": 1.5, "spread": 10.0}, "slow": {"pct": 40, "duration": 2}}},
+		# Brotar (a partir de 70%): a raiz dela fura o chão e solta uma Muda Desperta no ritmo da recarga (lacaio 0 XP)
+		{"id": "mob_sap_sprout_call", "name": "Brotar", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 30.0, "radius": 0.0, "startup": 0.8, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.9, 0.7, 0.3), "vfx": "summon",
+		 "effects": {"boss_summon": {"id": "sap_hatchling", "count": 1, "max": 2}}},
+		# Pulso do Berço (só a partir de 40%): dois anéis em volta dela, um depois do outro; o vão entre eles é seguro
+		{"id": "mob_sap_pulse", "name": "Pulso do Berço", "clip": "slam", "target": T_SELF, "kind": K_MAG, "power": 1.1, "cooldown": 16.0, "radius": 0.0, "startup": 0.7, "active": 0.1, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(0.95, 0.7, 0.25), "vfx": "nature",
+		 "effects": {"barrage": {"shape": "ring", "count": 2, "width": 2.0, "inner": 2.0, "spacing": 5.0, "delay": 1.6, "stagger": 0.6, "say": "O Berço pulsa!"}}},
 		{"id": "mob_grapple_hook", "name": "Arpéu", "clip": "atk_throw", "target": T_TARGET, "kind": K_PHYS, "power": 0.8, "cooldown": 12.0, "range": 14.0, "radius": 0.0, "max_targets": 1, "startup": 0.5, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.7, 0.6, 0.5), "mob_pick": "far", "vfx": "physical",
 		 "effects": {"pull": {"gap": 0.6}, "stun": {"duration": 0.4}}},
 		{"id": "mob_tusk_rush", "name": "Disparada", "target": T_DIR, "kind": K_PHYS, "power": 1.4, "cooldown": 10.0, "range": 13, "radius": 1.2, "startup": 0.7, "active": 0.15, "recovery": 0.6, "hit_stop_frames": 4, "icon_color": Color(0.8, 0.55, 0.35), "mob_pick": "far", "vfx": "earth",

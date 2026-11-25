@@ -35,6 +35,16 @@ DRAGON = (72.0, 52.0)
 DOCK_DEG = -15.0                   # cais leste (Ato II): baía na garganta, navio do Capitão Bren para Porto Esperança
 PORT_ARRIVE = (-3.0, 52.0)         # chegada em city_port (build_city_port.SHIP_ARRIVE)
 DEAD_TREES = [(0.42, 0.38, 0.32), (0.5, 0.45, 0.36)]
+# Garganta sudeste (Campo dos Juramentos, 2026-11-25; GDD campo-dos-juramentos 3.1), aberta DEPOIS da zona aprovada, no
+# padrão das gargantas tardias da Floresta (build_field_forest): o anel usa `late_gorges` e portal, trilha e largo entram
+# no FIM do build; o resto do JSON sai byte a byte igual, fora a decoração tirada do caminho (log "garganta sudeste").
+# A trilha de 3 m continua a da Escavação da Vera (sai dela em (54, 80)). Bloco fechado em si: quem mexer nas rotas de
+# cerco deste build não precisa tocar aqui (só não passe rota pela trilha de 66 graus).
+OATHS_ANG = 66.0
+OATHS_ARRIVE_IN = (-53.1, -63.2)   # chegada no Campo (build_field_oaths: polar(-130, 15))
+LATE_TRAIL_SE = [(54.0, 80.0), (50.0, 88.0), (46.5, 95.0)]
+LATE_W = 3.0
+LATE_DECOR = ("tree", "pine", "dead_tree", "rock", "bush", "flowers", "log", "stump", "reed", "ruin")
 
 PLACES = [
     {"type": "cabin", "id": "coveiro", "pos": (74.0, -38.0), "face": 160.0, "npc": "gravedigger_osric", "roof": (0.34, 0.32, 0.36), "wall": (0.5, 0.46, 0.42)},
@@ -55,6 +65,21 @@ def polar(z, ang_deg, inset):
 
 
 H = lambda r, a: (round(math.cos(math.radians(a)) * r, 2), round(math.sin(math.radians(a)) * r, 2))
+
+
+def clear_late(obs, poly, spots, w):
+    """Tira a decoração que ficou no caminho de uma garganta aberta depois (trilha `poly` de largura `w` e largos `spots`).
+    Mesma regra do build_field_forest.clear_late."""
+    def in_the_way(o):
+        if o["kind"] not in LATE_DECOR or not o["visible"] or o.get("y"):
+            return False
+        p = zone_lib.Vector(o["pos"])
+        half = (o["size"][0] + o["size"][2]) * 0.25
+        pad = 1.6 if o.get("solid", True) else 0.4
+        return zone_lib.poly_dist(p, poly) < w * 0.5 + pad + half or any((p - c).length < r + half for c, r in spots)
+    gone = [o for o in obs if in_the_way(o)]
+    obs[:] = [o for o in obs if not in_the_way(o)]
+    return gone
 
 
 def cathedral(z, c, S=0.72):
@@ -309,6 +334,9 @@ def build(export=False):
         if z.free(fx, fy, 2.0, 0.0):
             z.ob("flowers", fx, fy, (1.8, 0.5, 1.8), color=col, when=cw)
 
+    oaths_portal = polar(z, OATHS_ANG, 7)
+    oaths_arrive = polar(z, OATHS_ANG, 15)
+    z.late_gorges.append(math.atan2(oaths_portal[1], oaths_portal[0]))       # garganta tardia: o resto do anel sai igual
     z.cliffs(snow=False)
     sea.sink_cliffs(z, margin=2.0)
     places.build(z, PLACES)
@@ -340,4 +368,24 @@ def build(export=False):
             x, y = H(88.0 + (i % 2) * 8.0, f["deg"] - 18.0 + i * 12.0)
             z.spawner(mid_, x, y, 8, n, resp, when={"unless": f["quest"]})
     # o Dragonete Ancestral (chefe opcional do 30) saiu do campo: mora no Covil do Dragonete (dg_covil_dragao, boca no rochedo)
+
+    # ---------- garganta sudeste: Campo dos Juramentos (entra por último: nada acima muda) ----------
+    z.portal("to_field_oaths", oaths_portal, "field_oaths", OATHS_ARRIVE_IN, "Campo dos Juramentos (Lv 24-28)")
+    se_poly = z.road("vala", LATE_TRAIL_SE + [oaths_arrive, oaths_portal], w=LATE_W, end_clearing=False)
+    z.arrival(oaths_arrive, toward=oaths_portal, r=6.0, name="chegada_sudeste")
+    spots = [(zone_lib.Vector(oaths_arrive), 7.0), (zone_lib.Vector(oaths_portal), 7.0)]
+    gone = clear_late(obs, se_poly, spots, LATE_W)
+    z.data["arrive_from_field_oaths"] = list(oaths_arrive)
+    print("garganta sudeste: portal %s chegada %s; %d objetos tirados do caminho: %s"
+          % (oaths_portal, oaths_arrive, len(gone), [(o["kind"], o["pos"]) for o in gone]))
+    for o in obs:                    # o que sobrou de sólido perto da trilha (casa, cerca, lampião...): tem de dar vazio
+        if o.get("solid", True) and not o.get("y") and o["kind"] != "cliff":
+            p = zone_lib.Vector(o["pos"])
+            half = max(o["size"][0], o["size"][2]) * 0.5
+            if zone_lib.poly_dist(p, se_poly) < LATE_W * 0.5 + 1.8 + half or (p - zone_lib.Vector(oaths_arrive)).length < 6.0 + half:
+                print("GORGE_CONFLICT sudeste: %s em %s (%s)" % (o["kind"], o["pos"], o["size"]))
+    for sp in z.data["spawners"]:
+        dd = (zone_lib.Vector(sp["pos"]) - zone_lib.Vector(oaths_arrive)).length
+        if dd < 30.0:
+            print("garganta sudeste: spawner %s %s a %.1f m da chegada" % (sp["monster_id"], sp["pos"], dd))
     return z.finish(export, poi=DRAGON, ground=(0.55, 0.56, 0.46))

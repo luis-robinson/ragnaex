@@ -48,6 +48,8 @@ static func build() -> Array:
 	for fid in FORT_DEFS:
 		out.append(_fort(fid))
 	for did in DUNGEON_DEFS:
+		if did == VIVEIRO_ID and not viveiro_ready():      # Viveiro de Seiva: só com o JSON do Blender
+			continue
 		out.append(_dungeon(did))
 	var doors := {}
 	for host in interior_hosts():
@@ -57,7 +59,21 @@ static func build() -> Array:
 	for md in out:
 		md.gather = gather_rules(md.id)
 		_apply_barks(md.npcs)
+	_drop_dangling_portals(out)
 	return out
+
+## Portal para mapa que não entrou no catálogo (ex.: garganta do Bastião exportada antes do Campo dos Juramentos ser ligado) sai:
+## ninguém (jogador ou bot) atravessa para um mapa que a sim não conhece.
+static func _drop_dangling_portals(maps: Array) -> void:
+	var ids := {}
+	for md in maps:
+		ids[(md as MapDef).id] = true
+	for md in maps:
+		var keep: Array = []
+		for p in (md as MapDef).portals:
+			if ids.has(String(p.get("target_map", ""))):
+				keep.append(p)
+		(md as MapDef).portals = keep
 
 ## Cristais de retorno (role "crystal", modelo prop_crystal): vincular = G e renascer ali. Posição (x, z) na praça.
 ## Quest que vincula o jogador ao cristal do mapa ao ser concluída (Ato II: morrer não manda de volta a Aldara).
@@ -211,7 +227,7 @@ static func dawn_garrison(npc_pos: Dictionary, prefix: String = "dawn_g_") -> Ar
 		seed += 13
 		if role == "paladin":                 # paladinos rondam o anel da praça
 			var a0 := atan2(float(p[1]), float(p[0]))
-			d["route"] = [0, 1, 2, 3, 4, 5].map(func(i): return [cos(a0 + i * TAU / 6.0) * 30.0, sin(a0 + i * TAU / 6.0) * 30.0])
+			d["route"] = range(12).map(func(i): return [cos(a0 + i * TAU / 12.0) * 30.0, sin(a0 + i * TAU / 12.0) * 30.0])     # 12 pontos: a corda de 6 cortava o cristal (25,6; 4,6)
 		out.append(d)
 	return out
 
@@ -232,9 +248,9 @@ static func dawn_services(npc_pos: Dictionary) -> Array:
 const FORT_DEFS := {
 	"fort_ghoul": {"name": "Covil do Carniçal", "levels": Vector2i(20, 23), "quest": "dw_ghoul_boss", "posts": "dw_ghoul_posts",
 		"ground": Color(0.4, 0.38, 0.24), "ambient": Color(0.72, 0.78, 0.62), "sun": 0.75},
-	"fort_bones": {"name": "Fortaleza dos Ossos", "levels": Vector2i(23, 26), "quest": "dw_bones_boss", "posts": "dw_bones_posts",
+	"fort_bones": {"name": "Fortaleza dos Ossos", "levels": Vector2i(21, 24), "quest": "dw_bones_boss", "posts": "dw_bones_posts",
 		"ground": Color(0.56, 0.54, 0.5), "ambient": Color(0.72, 0.72, 0.8), "sun": 0.75},
-	"fort_frost": {"name": "Torre do Mago Gélido", "levels": Vector2i(26, 29), "quest": "dw_frost_boss", "posts": "dw_frost_posts",
+	"fort_frost": {"name": "Torre do Mago Gélido", "levels": Vector2i(23, 26), "quest": "dw_frost_boss", "posts": "dw_frost_posts",
 		"ground": Color(0.74, 0.82, 0.9), "ambient": Color(0.75, 0.85, 1.0), "sun": 0.85},
 	"lich_citadel": {"name": "Cidadela do Lich", "levels": Vector2i(29, 30), "quest": "dw_lich", "posts": "dw_lich",
 		"ground": Color(0.32, 0.28, 0.36), "ambient": Color(0.62, 0.55, 0.78), "sun": 0.6},
@@ -555,6 +571,10 @@ const AMBIENT_LIFE := {
 	# Vale de Aldara: galinhas no cercado do celeiro e na fazenda, corvos no trigal (GDD living-towns R5)
 	# Posto dos Caçadores: corvos sobre a paliçada e mariposas na luz da Fogueira Comunal
 	"field_forest": [["crow", [-5.0, 0.0], 18.0, 4], ["moth", [-5.0, 0.0], 5.0, 7]],
+	# Bastião da Aurora (faixa da Aurora viva, B6): corvos sobre o front oeste e o cemitério do Osric, morcegos no front sul,
+	# mariposas nas lanternas da praça (pombas depois do Lich pedem bicho condicional na apresentação: em aberto)
+	"field_ruins": [["crow", [-84.0, 0.0], 14.0, 4], ["bat", [0.0, 88.0], 12.0, 4], ["moth", [13.8, 23.8], 5.0, 6], ["moth", [-13.8, -23.8], 5.0, 6],
+		["crow", [74.0, -38.0], 8.0, 3]],
 	# Mata dos Zumbidos: corvos sobre o acampamento, mariposas na fogueira e no Prado de Flores
 	"field_grove": [["crow", [-58.0, -6.0], 14.0, 3], ["moth", [-58.0, -6.0], 5.0, 6], ["crow", [50.0, 13.0], 22.0, 5]],
 	"field_hollow": [["crow", [2.0, -12.0], 16.0, 3], ["moth", [2.0, -12.0], 5.0, 6], ["moth", [-45.0, 30.0], 10.0, 6]],
@@ -1178,6 +1198,8 @@ const PIER_REACH := 2.0
 const CATALOG_EVENT_POINTS := {
 	"field_forest": [["ambush", -79.2, 9.9, "bandit"], ["ambush", 27.5, 58.2, "bandit"], ["ambush", 24.4, -81.9, "bandit"]],
 	"elf_city": [["prisoner", 45.0, -73.2, "elf_warrior"], ["prisoner", 84.3, -30.5, "elf_warrior"], ["prisoner", -82.4, 50.9, "elf_warrior"]],
+	# Bastião (E1, Relíquia na Estrada): fora do anel, longe dos postos da guarnição, das chegadas e dos portais (BLENDER REQUEST WP6)
+	"field_ruins": [["relic", -84.0, 36.0, "cultist"], ["relic", -72.0, -72.0, "cultist"], ["relic", -66.0, 72.0, "cultist"]],
 }
 
 static func catalog_event_points(id: String) -> Array:
@@ -1197,6 +1219,8 @@ const POSTO_CONQUEST_VIS := [{"tag": "posto_guerra_det", "unless": "el6_king"}, 
 
 ## Faixa élfica viva (GDD design/gdd/elf-band-living.md): teto de NPCs de rotina vivos ao mesmo tempo na Cidade Élfica, por estado.
 const ELF_LIVING_MAX := 10
+## Faixa da Aurora viva: teto de NPCs de rotina vivos ao mesmo tempo no Bastião, por estado (cerco / depois do Lich).
+const DAWN_LIVING_MAX := 10
 const LIVING_NPCS := {
 	# Floresta Sombria (GDD living-towns R8): lenhadores trazem toras da mata do oeste até a forja do Posto e o caçador volta
 	# da estrada sul com as peles para o mercado (pontos das estradas do JSON; `flow` + paradas [x, z, s] nas pontas).
@@ -1225,6 +1249,43 @@ const LIVING_NPCS := {
 			{"carry": "carry_sack", "flow": true, "if": "el6_king"}],
 		"post_l_husband": ["Seu Bento", Color(0.5, 0.46, 0.4), ["Soltei as cabras e me escondi num tronco oco até o fim. Os elfos passaram por mim cem vezes.", "A Dalva esperou no portão todo dia. Agora quem não larga a mão dela sou eu."],
 			["Dalva, olha as cabras!", "Tô aqui, mulher. Tô aqui.", "Nunca mais saio de perto."], [-13.0, 6.2], 0.0, {"stay": true, "facing": 60.0, "if": BENTO_HOME}],
+	},
+	# Faixa da Aurora viva (GDD dawn-band-refactor-proposal §6, D6 "B"; WP5 2026-11-25; falas provisórias, writer revisa): o Bastião trabalha
+	# para o cerco. Aguadeiras da catedral levam água benta aos 4 portões, o aprendiz do Doran leva virotes às torres, o ajudante do
+	# Osric puxa a carroça dos mortos do portão oeste ao cemitério (até os 3 fortes caírem), a carroça da escavação traz cacos de
+	# Vel'Thar ao Irmão Anselmo. Alarme: com leva viva no mapa os civis correm para as portas da catedral (`alarm`) e o vigia grita.
+	# Depois do Lich (`if: dw_lich`): pedreiros reconstroem o anel. Teto: MapsCatalog.DAWN_LIVING_MAX por estado.
+	"field_ruins": {
+		"dawn_l_water_a": ["Irmã Benta", Color(0.95, 0.92, 0.82), ["Água benta não mata morto. Mas faz ele pensar duas vezes.", "Norte e oeste são meus. A Irmã Clara cuida do leste e do sul."],
+			["Água benta no portão norte!", "Abram, é a água!", "Um balde por torre, nem mais."], [12.0, -3.0], [[12.0, -3.0, 6], [22.0, -5.0], [29.0, -7.8], [26.0, -15.0], [21.2, -21.2], [15.0, -26.0], [7.8, -29.0], [0.0, -30.0], [0.0, -37.0], [0.0, -44.0], [0.0, -50.0, 10], [0.0, -44.0], [0.0, -37.0], [0.0, -30.0], [-7.8, -29.0], [-15.0, -26.0], [-21.2, -21.2], [-26.0, -15.0], [-29.0, -7.8], [-30.0, 0.0], [-37.0, 0.0], [-44.0, 0.0], [-50.0, 0.0, 10], [-44.0, 0.0], [-37.0, 0.0], [-30.0, 0.0], [-29.0, 7.8], [-26.0, 15.0], [-21.2, 21.2], [-15.0, 26.0], [-7.8, 29.0], [0.0, 30.0], [7.8, 29.0], [15.0, 26.0], [21.2, 21.2], [26.0, 15.0], [29.0, 7.8], [22.0, 5.0]],
+			{"carry": "carry_sack", "flow": true, "alarm": [0.0, -11.5], "unless": "dw_lich"}],
+		"dawn_l_water_b": ["Irmã Clara", Color(0.93, 0.9, 0.86), ["Cada portão bebe um balde por noite. A Luz não tem pressa, mas eu tenho.", "No sul faz frio de verdade. A água benta congela no balde."],
+			["Água benta no portão sul!", "Com licença, soldado!", "Mais um balde e eu descanso."], [12.0, 3.0], [[12.0, 3.0, 6], [24.0, 2.0], [31.0, 0.0], [37.0, 0.0], [44.0, 0.0], [50.0, 0.0, 10], [44.0, 0.0], [37.0, 0.0], [30.0, 0.0], [29.0, 7.8], [26.0, 15.0], [21.2, 21.2], [15.0, 26.0], [7.8, 29.0], [0.0, 30.0], [0.0, 37.0], [0.0, 44.0], [0.0, 50.0, 10], [0.0, 44.0], [0.0, 37.0], [0.0, 30.0], [7.8, 29.0], [15.0, 26.0], [21.2, 21.2], [26.0, 15.0], [29.0, 7.8], [22.0, 5.0]],
+			{"carry": "carry_sack", "flow": true, "alarm": [0.0, 11.5], "unless": "dw_lich"}],
+		"dawn_l_bolts": ["Aprendiz Tibério", Color(0.62, 0.5, 0.4), ["O mestre Doran forja, eu carrego. Cada caixa tem cem virotes e pesa como um morto.", "Os besteiros da torre gastam mais virote do que eu consigo levar."],
+			["Virotes pra torre!", "Cem virotes, contados!", "Quem pediu virote?"], [22.0, 10.0], [[22.0, 10.0, 8], [29.0, 7.8], [31.0, 1.5], [37.0, 1.5], [44.0, 1.5], [44.3, 7.8], [43.5, 11.6], [43.5, 11.6, 8], [44.8, 3.9], [44.8, -3.9], [43.5, -11.6, 8], [44.3, -7.8], [44.8, -3.9], [44.0, -1.5], [37.0, -1.5], [31.0, -1.5], [30.0, 6.0]],
+			{"carry": "carry_crate", "flow": true, "unless": "dw_lich"}],
+		"dawn_l_burial": ["Dimas, Ajudante do Coveiro", Color(0.5, 0.5, 0.56), ["Eu puxo, o Osric enterra. Do portão oeste ao cemitério, toda vez que a trompa cala.", "Os nossos vão em pano branco. Os deles, a gente queima antes."],
+			["Mais um. Dos nossos.", "Abram caminho pra carroça.", "Devagar, que ele já não tem pressa."], [-48.0, 3.0], [[-48.0, 3.0, 10], [-44.0, 0.0], [-37.0, 0.0], [-30.0, 0.0], [-29.0, 7.8], [-26.0, 15.0], [-21.2, 21.2], [-15.0, 26.0], [-7.8, 29.0], [0.0, 30.0], [7.8, 29.0], [15.0, 26.0], [21.2, 21.2], [26.0, 15.0], [29.0, 7.8], [30.0, 0.0], [37.0, 0.0], [44.0, 0.0], [51.0, 0.0], [57.0, 0.0], [64.0, 2.0], [70.0, 4.0], [76.0, 2.0], [82.0, -1.0], [88.0, -4.0], [88.0, -12.0], [88.0, -19.0], [89.0, -23.0], [84.0, -29.0], [79.0, -33.0], [75.0, -35.0, 14], [79.0, -33.0], [84.0, -29.0], [89.0, -23.0], [88.0, -19.0], [88.0, -12.0], [88.0, -4.0], [82.0, -1.0], [76.0, 2.0], [70.0, 4.0], [64.0, 2.0], [57.0, 0.0], [51.0, 0.0], [44.0, 0.0], [37.0, 0.0], [30.0, 0.0], [29.0, 7.8], [26.0, 15.0], [21.2, 21.2], [15.0, 26.0], [7.8, 29.0], [0.0, 30.0], [-7.8, 29.0], [-15.0, 26.0], [-21.2, 21.2], [-26.0, 15.0], [-29.0, 7.8], [-30.0, 0.0], [-37.0, 0.0], [-44.0, 0.0]],
+			{"carry": "cart", "flow": true, "unless": ["dw_ghoul_boss", "dw_bones_boss", "dw_frost_boss"]}],
+		"dawn_l_dig_cart": ["Carregador Nuno", Color(0.66, 0.54, 0.38), ["A Vera cava, eu trago. Caco de Vel'Thar vai pro Irmão Anselmo, e ele não deixa ninguém olhar.", "Tem nome escrito nesses cacos. Muito nome. Parece uma lista."],
+			["Cacos de Vel'Thar!", "Eia, Pardo!", "Cuidado que quebra!"], [53.0, 82.0], [[53.0, 82.0, 12], [53.0, 77.0], [53.0, 71.0], [54.0, 64.0], [56.0, 59.0], [59.0, 53.0], [63.0, 48.0], [66.0, 42.0], [72.0, 38.0], [78.0, 34.0], [80.0, 29.0], [79.0, 23.0], [77.0, 17.0], [74.0, 10.0], [72.0, 4.0], [64.0, 2.0], [57.0, 0.0], [51.0, 0.0], [44.0, 0.0], [37.0, 0.0], [31.0, -2.0], [29.9, -2.6], [28.7, -8.6], [26.4, -14.2], [23.0, -19.3], [20.0, -22.0, 14], [23.0, -19.3], [26.4, -14.2], [28.7, -8.6], [29.9, -2.6], [31.0, -2.0], [37.0, 0.0], [44.0, 0.0], [51.0, 0.0], [57.0, 0.0], [64.0, 2.0], [72.0, 4.0], [74.0, 10.0], [77.0, 17.0], [79.0, 23.0], [80.0, 29.0], [78.0, 34.0], [72.0, 38.0], [66.0, 42.0], [63.0, 48.0], [59.0, 53.0], [56.0, 59.0], [54.0, 64.0], [53.0, 71.0], [53.0, 77.0]],
+			{"carry": "cart_draft", "flow": true}],
+		"dawn_l_refugee_a": ["Refugiada Marta", Color(0.66, 0.56, 0.5), ["Morava no pântano antes do Carniçal. Agora moro numa barraca do lado da feira.", "Quando a trompa toca, a gente corre pra catedral. A Lyria abre a porta pra todo mundo."],
+			["Cadê meu menino?", "Pão de ontem, de novo.", "Será que o pântano volta a ser pântano?"], [26.0, 15.0], [[26.0, 15.0, 8], [23.0, 19.0], [19.0, 23.0], [13.0, 27.0, 8], [19.0, 23.0], [23.0, 19.0]],
+			{"alarm": [12.0, 4.0], "unless": "dw_lich"}],
+		"dawn_l_refugee_b": ["Velho Ambrósio", Color(0.6, 0.58, 0.54), ["Fui sentinela de Vel'Thar no tempo do meu avô. Quer dizer, meu avô foi. Eu só ouvi.", "Carrego lenha pro relicário. O Anselmo diz que os cacos gostam de calor."],
+			["Ai, as costas...", "Lenha seca, lenha boa.", "No meu tempo os mortos ficavam quietos."], [23.0, -19.0], [[23.0, -19.0, 8], [19.0, -23.0], [13.0, -27.0], [7.0, -29.0, 8], [13.0, -27.0], [19.0, -23.0]],
+			{"carry": "carry_sack", "alarm": [12.0, -4.0], "unless": "dw_lich"}],
+		"dawn_l_horn": ["Vigia Severo", Color(0.58, 0.56, 0.62), ["Daqui do portão oeste eu ouço o pântano respirar. Quando ele prende o fôlego, eu toco.", "Trompa curta, eles vêm de um lado. Três vezes, de todos."],
+			["Olho no pântano...", "Quieto demais.", "Ouvi osso. Foi osso."], [-46.0, 4.0], 0.0, {"stay": true, "facing": 270.0,
+			"alarm_cry": ["Trompas no pântano! Para a catedral!", "Eles vêm aí! Civis para dentro!", "Portões! Todo mundo para a catedral, já!"]}],
+		"dawn_l_mason_a": ["Pedreiro Gaspar", Color(0.72, 0.66, 0.56), ["A noite caiu e o muro ficou. Agora é tapar os buracos que ela deixou.", "Pedra de Vel'Thar no muro novo. O Anselmo benzeu cada uma."],
+			["Pedra passando!", "Mais uma pro anel!", "Ninguém encosta na argamassa!"], [46.0, 0.0], [[46.0, 0.0, 10], [44.0, 0.0], [37.0, 0.0], [30.0, 0.0], [29.0, 7.8], [26.0, 15.0], [21.2, 21.2], [15.0, 26.0], [7.8, 29.0], [0.0, 30.0], [-7.8, 29.0], [-15.0, 26.0], [-21.2, 21.2], [-26.0, 15.0], [-29.0, 7.8], [-30.0, 0.0], [-37.0, 0.0], [-44.0, 0.0], [-46.0, 0.0, 10], [-44.0, 0.0], [-37.0, 0.0], [-30.0, 0.0], [-29.0, 7.8], [-26.0, 15.0], [-21.2, 21.2], [-15.0, 26.0], [-7.8, 29.0], [0.0, 30.0], [7.8, 29.0], [15.0, 26.0], [21.2, 21.2], [26.0, 15.0], [29.0, 7.8], [30.0, 0.0], [37.0, 0.0], [44.0, 0.0]],
+			{"carry": "carry_rock", "flow": true, "if": "dw_lich"}],
+		"dawn_l_mason_b": ["Pedreira Dulce", Color(0.7, 0.62, 0.58), ["Do portão norte ao sul, pedra por pedra. Em um ano ninguém lembra que teve cerco.", "Eu lembro. Por isso faço o muro bonito."],
+			["Olha a pedra!", "Prumo, prumo!", "Essa é pro portão sul."], [0.0, -50.0], [[0.0, -50.0, 10], [0.0, -44.0], [0.0, -37.0], [0.0, -30.0], [7.8, -29.0], [15.0, -26.0], [21.2, -21.2], [26.0, -15.0], [29.0, -7.8], [30.0, 0.0], [29.0, 7.8], [26.0, 15.0], [21.2, 21.2], [15.0, 26.0], [7.8, 29.0], [0.0, 30.0], [0.0, 37.0], [0.0, 44.0], [0.0, 50.0, 10], [0.0, 44.0], [0.0, 37.0], [0.0, 30.0], [7.8, 29.0], [15.0, 26.0], [21.2, 21.2], [26.0, 15.0], [29.0, 7.8], [30.0, 0.0], [29.0, -7.8], [26.0, -15.0], [21.2, -21.2], [15.0, -26.0], [7.8, -29.0], [0.0, -30.0], [0.0, -37.0], [0.0, -44.0]],
+			{"carry": "carry_rock", "flow": true, "if": "dw_lich"}],
 	},
 	# Faixa élfica viva (GDD elf-band-living §3.1): a Cidade Élfica trabalha para a guerra até o Rei (`unless`) e entra em luto e trégua
 	# depois (`if`). Rotas em chão livre conferidas no _check_living_routes; fortes = lugares do JSON (forte_matilha/ninho/seiva).
@@ -1668,6 +1729,17 @@ const ROAD_EVENTS := {
 			"bot_chat": ["Soltei um refugiado de uma escolta élfica na estrada dos fortes.", "Patrulha élfica levando prisioneiro. Não leva mais.", "Mais um humano tirado da corda."],
 			"reward_item": "potion_mp_m", "reward_count": 2},
 	},
+	# Faixa da Aurora viva (E1): Penitentes do Culto da Noite cercam o carregador do relicário (cacos de Vel'Thar para o Irmão
+	# Anselmo). Só enquanto o Lich vive.
+	"field_ruins": {
+		"relic": {"name": "Relíquia na Estrada", "mob": "cultist", "mob_name": "Penitente da Noite", "count": [2, 3], "unless": "dw_lich",
+			"victim": ["Carregador do Relicário", Color(0.66, 0.56, 0.42)], "home": [20.0, -22.0],
+			"cry": ["Penitentes! Querem os cacos!", "Socorro! Isto é do Irmão Anselmo!", "Larguem! São só pedras velhas!"],
+			"thanks": ["Os cacos estão inteiros. O Anselmo vai querer saber. Leve estas poções.", "Obrigado. Eles disseram um nome... Azhar. Fique com isto."],
+			"flee": ["São muitos! Vou correr pra catedral!", "Fiquem com os cacos, eu fico com a vida!"],
+			"bot_chat": ["Espantei uns Penitentes de cima de um carregador do relicário.", "Culto da Noite atrás de cacos de Vel'Thar de novo. Resolvido.", "Penitente na estrada é penitente no chão."],
+			"reward_item": "potion_hp_m", "reward_count": 2},
+	},
 	"city_aldara": {
 		"wolves": {"name": "Lobos no Lavrador", "mob": "wolf", "mob_name": "Lobo Faminto", "count": [2, 3],
 			"victim": ["Lavrador Chico", Color(0.66, 0.54, 0.34)], "home": [-66.5, 67.0],
@@ -1712,6 +1784,31 @@ const ROAD_EVENTS := {
 			"reward_item": "festim_ribbon", "reward_count": 3},
 	},
 }
+
+## Spawners que vêm do catálogo, no formato do JSON (passam pela mesma conta de densidade do load_zone): a sim honra `if`/`unless`
+## em qualquer spawner (WorldState), então não precisa refazer a zona no Blender. Faixa da Aurora, conquista B (D5, 2026-11-25):
+## **Restos da Noite** no front retomado do Bastião (`if` = chefe do forte; metade da densidade do front, monstros 25-28) e o
+## **bolsão** no fundo de cada forte retomado ("a ala que ninguém limpou", >= 35 m da guarnição e dos postos) com o **eco** do chefe
+## (count 1, Balance.DAWN_ECHO_RESPAWN). mapa -> [[monstro, x, z, raio, quantos, recarga s, quest do `if`]].
+const CATALOG_SPAWNERS := {
+	"field_ruins": [
+		["rest_ghoul", -87.5, -9.2, 8.0, 3, 22.0, "dw_ghoul_boss"], ["rest_bear", -91.3, -29.7, 8.0, 2, 26.0, "dw_ghoul_boss"], ["rest_ghoul", -83.7, 27.2, 8.0, 2, 22.0, "dw_ghoul_boss"],
+		["rest_bones", -27.2, -83.7, 8.0, 3, 20.0, "dw_bones_boss"], ["rest_bone_archer", -46.0, -78.0, 6.0, 2, 22.0, "dw_bones_boss"],
+		["rest_lost_adept", 27.2, 83.7, 8.0, 3, 22.0, "dw_frost_boss"], ["rest_thaw_wraith", -9.2, 87.5, 8.0, 3, 24.0, "dw_frost_boss"],
+	],
+	"fort_ghoul": [["rest_ghoul", -14.0, 74.0, 7.0, 3, 22.0, "dw_ghoul_boss"], ["rest_bear", -4.0, 84.0, 6.0, 1, 30.0, "dw_ghoul_boss"],
+		["echo_ghoul_giant", -24.0, 86.0, 2.0, 1, Balance.DAWN_ECHO_RESPAWN, "dw_ghoul_boss"]],
+	"fort_bones": [["rest_bones", -62.0, 20.0, 7.0, 3, 20.0, "dw_bones_boss"], ["rest_bone_archer", -70.0, 32.0, 6.0, 2, 22.0, "dw_bones_boss"],
+		["echo_death_knight", -74.0, 8.0, 2.0, 1, Balance.DAWN_ECHO_RESPAWN, "dw_bones_boss"]],
+	"fort_frost": [["rest_thaw_wraith", 30.0, -60.0, 7.0, 3, 24.0, "dw_frost_boss"], ["rest_lost_adept", 22.0, -54.0, 6.0, 2, 22.0, "dw_frost_boss"],
+		["echo_frost_mage", 20.0, -72.0, 2.0, 1, Balance.DAWN_ECHO_RESPAWN, "dw_frost_boss"]],
+}
+
+static func catalog_spawners(id: String) -> Array:
+	var out: Array = []
+	for r in CATALOG_SPAWNERS.get(id, []):
+		out.append({"monster_id": r[0], "pos": [r[1], r[2]], "radius": r[3], "count": r[4], "respawn": r[5], "if": r[6]})
+	return out
 
 ## Rondas de monstro de MOB_PATROLS como spawners (mesmo formato do JSON).
 static func mob_patrols(id: String) -> Array:
@@ -1890,6 +1987,8 @@ const DUNGEON_DEFS := {
 	"dg_mirrors": {"name": "Galeria dos Espelhos", "parent": "city_lumeria", "levels": Vector2i(48, 49), "ground": Color(0.46, 0.43, 0.46), "ambient": Color(0.9, 0.84, 0.94), "sun": 0.7},
 	"dg_conservatory": {"name": "Conservatório do Coro Ferido", "parent": "field_parade", "levels": Vector2i(48, 49), "ground": Color(0.4, 0.34, 0.3), "ambient": Color(0.92, 0.8, 0.7), "sun": 0.65},
 	"rift_heart": {"name": "O Coração do Jardim", "parent": "rift_garden", "levels": Vector2i(50, 50), "ground": Color(0.6, 0.6, 0.66), "ambient": Color(1.0, 0.88, 0.94), "sun": 0.75},
+	# Viveiro de Seiva (GDD viveiro-de-seiva): berçário élfico sob a raiz do Brejo; só entra com data/zones/dg_viveiro.json (viveiro_ready)
+	"dg_viveiro": {"name": "Viveiro de Seiva", "parent": "field_marsh", "levels": Vector2i(17, 19), "ground": Color(0.5, 0.44, 0.3), "ambient": Color(0.95, 0.84, 0.62), "sun": 0.65},
 }
 ## Portões de progressão por id de portal (só o jogador; ver WorldSim.portal_block_reason). `bosses` = selo: save antigo não abre.
 const PORTAL_GATES := {
@@ -1927,6 +2026,8 @@ const PORTAL_GATES := {
 	"to_rift_garden": {"level": 49, "quests": ["hx3_mirrors", "hx3_veil_open"], "text": "O Véu ainda não se rasgou. Derrube a Condessa Refletida e leve a procissão dos Lúcidos até o Palco Grande."},
 	"to_rift_heart": {"level": 50, "quest": "hx3_veil", "text": "A Porta do Coração está selada enquanto a Anfitriã reinar no Pavilhão."},
 	# Salão do Duque (porta lateral do Palácio, casa que abre): o Duque reabre o salão em hx3_duke_hall
+	# Viveiro de Seiva (Brejo das Teias): só nível, sem quest (o Brejo e o Viveiro são opcionais)
+	"to_dg_viveiro": {"level": 17, "text": "A raiz se fecha como um punho. A seiva lá dentro queima quem ainda é fraco: volte no nível 17."},
 	"door_in_duke_hall": {"level": 48, "quest": "hx3_duke_hall", "text": "A porta lateral do Palácio está trancada. O Duque Leopoldo só reabre o salão quando as máscaras forem quebradas."},
 }
 const MERCHANT_SHOP := ["potion_hp_s", "potion_mp_s", "potion_hp_m", "potion_mp_m", "elixir_might", "elixir_stone", "cap_leather", "boots_leather"]
@@ -1987,6 +2088,7 @@ static func load_zone(id: String) -> Dictionary:
 			portals[-1]["gate"] = PORTAL_GATES[p["id"]]
 		elif MARSH_GATES.has(p["id"]):       # Brejo das Teias: portão fora de PORTAL_GATES enquanto o portal não está no JSON da Floresta
 			portals[-1]["gate"] = MARSH_GATES[p["id"]]
+	z["spawners"] = (z["spawners"] as Array) + catalog_spawners(id)     # Restos da Noite e ecos (CATALOG_SPAWNERS)
 	var spawners: Array = []
 	var dense: float = Balance.SPAWN_COUNT_MULT_DUNGEON if is_dungeon_id(id) else Balance.SPAWN_COUNT_MULT
 	var more: float = float(Balance.SPAWN_MAP_MULT.get(id, 1.0))     # mapa com gente a mais: conta x mult, raio x √mult
@@ -2208,6 +2310,13 @@ static func marsh_ready() -> bool:
 		return false
 	return FileAccess.get_file_as_string(ZONE_PATH % "field_forest").contains("arrive_from_field_marsh")
 
+## Viveiro de Seiva (17-19): a masmorra entra quando o Blender exportou o JSON dela (o portal do Brejo sai de future_portals
+## na mesma leva). Antes disso nada do Viveiro aparece (quests também esperam).
+const VIVEIRO_ID := "dg_viveiro"
+
+static func viveiro_ready() -> bool:
+	return FileAccess.file_exists(ZONE_PATH % VIVEIRO_ID) and marsh_ready()
+
 static func _marsh() -> MapDef:
 	var z := load_zone(MARSH_ID)
 	var npcs: Array = []
@@ -2285,7 +2394,9 @@ static func _elf_city() -> MapDef:
 static func _ruins() -> MapDef:
 	var z := load_zone("field_ruins")
 	var p: Array = z["npc_pos"].get("ruins_scholar", [0.0, 0.0, 180.0])
-	var extra := _place_npcs("field_ruins", z["npc_pos"]) + dawn_services(z["npc_pos"]) + dawn_garrison(z["npc_pos"]) + crystal_npc("field_ruins") + trainer_npc("field_ruins") + festival("field_ruins")
+	if (z["road_events"] as Array).is_empty():         # faixa da Aurora viva: pontos do catálogo até o build gravar (BLENDER REQUEST)
+		z["road_events"] = catalog_event_points("field_ruins")
+	var extra := _place_npcs("field_ruins", z["npc_pos"]) + dawn_services(z["npc_pos"]) + dawn_garrison(z["npc_pos"]) + crystal_npc("field_ruins") + trainer_npc("field_ruins") + festival("field_ruins") + living_npcs(LIVING_NPCS["field_ruins"])
 	var bp: Array = z["npc_pos"].get("port_captain_bren", [0.0, 0.0, 180.0])
 	extra.append(_npc("port_captain_bren", BREN[0], float(bp[0]), float(bp[1]), BREN[1], BREN[2], BREN[3], float(bp[2])))
 	z.erase("npc_pos")

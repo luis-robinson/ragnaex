@@ -10692,21 +10692,6 @@
    "solid": true
   },
   {
-   "kind": "wall",
-   "pos": [
-    71.2,
-    0.8
-   ],
-   "size": [
-    4.5,
-    3.0,
-    2.0
-   ],
-   "rot": 80.0,
-   "visible": false,
-   "solid": true
-  },
-  {
    "kind": "dead_tree",
    "pos": [
     63.88,
@@ -27301,6 +27286,20 @@
     103.5
    ],
    "label": "Floresta Sombria"
+  },
+  {
+   "id": "to_dg_viveiro",
+   "pos": [
+    71.01,
+    0.77
+   ],
+   "radius": 2.0,
+   "target_map": "dg_viveiro",
+   "target_pos": [
+    0.0,
+    44.0
+   ],
+   "label": "Viveiro de Seiva"
   }
  ],
  "spawners": [
@@ -28799,22 +28798,6 @@
     78.0,
     2.0
    ]
-  }
- ],
- "future_portals": [
-  {
-   "id": "to_dg_viveiro",
-   "pos": [
-    71.01,
-    0.77
-   ],
-   "target_map": "dg_viveiro",
-   "arrive": [
-    0.0,
-    44.0
-   ],
-   "label": "Viveiro de Seiva",
-   "level": 17
   }
  ],
  "turn": 0.0

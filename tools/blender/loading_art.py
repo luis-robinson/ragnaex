@@ -125,6 +125,8 @@ BOSSES = {
     "boss_countess": {"model": "mob_countess", "scale": 1.5},
     "boss_ressoa": {"model": "mob_ressoa", "scale": 1.45},
     "boss_sylvare_echo": {"model": "mob_sylvare_echo", "scale": 1.25},
+    # Viveiro de Seiva: modelo próprio (viveiro_mobs.py; = MonstersCatalog.viveiro_model com o GLB em assets/models)
+    "boss_sap_mother": {"model": "mob_sap_mother", "scale": 2.0},
 }
 
 # id -> nome (MapDef.name), chão (ground_color), clima, câmera. `boss` (masmorras) = chefe na foto: `id` (BOSSES),
@@ -146,6 +148,9 @@ ZONES = {
                     "cam": {"at": (34, -2), "az": -24, "dist": 100, "elev": 26, "pitch": 18, "fov": 50}},
     "field_marsh": {"name": "Brejo das Teias", "ground": (0.30, 0.38, 0.27), "mood": "forest",
                     "cam": {"at": (10, 20), "az": -20, "dist": 100, "elev": 26, "pitch": 18, "fov": 50}},
+    # Campo dos Juramentos (24-28; build_field_oaths): a Vigília e o Estandarte Partido, o córrego e a Colina ao fundo
+    "field_oaths": {"name": "Campo dos Juramentos", "ground": (0.52, 0.52, 0.44), "mood": "dawn",
+                    "cam": {"at": (10, 10), "az": 160, "dist": 100, "elev": 26, "pitch": 18, "fov": 50}},
     "elf_city": {"name": "Cidade Élfica", "ground": (0.42, 0.6, 0.44), "mood": "elf",
                  "cam": {"at": (0, 0), "az": 18, "dist": 155, "elev": 24, "pitch": 13, "fov": 50}},
     "field_ruins": {"name": "Bastião da Aurora", "ground": (0.55, 0.56, 0.46), "mood": "dawn", "hide": ["limpo_"],
@@ -276,6 +281,13 @@ ZONES = {
                    "hall": {"focus": (0, 17.5), "fill": 0.6},
                    "boss": {"id": "boss_sylvare_echo", "clip": "idle", "frame": 12, "turn": 20, "foot": 1.2, "foot_col": (0.9, 0.86, 1.0)},
                    "cam": {"at": (0, 12), "h": 1.6, "az": -10, "dist": 26, "elev": 13, "pitch": 9, "fov": 44}},
+    # Viveiro de Seiva (Brejo das Teias, 17-19): a Muda-Mãe no Berço (jogo (-7.5, -45) -> Blender y 45), a raiz-mãe ao fundo
+    "dg_viveiro": {"name": "Viveiro de Seiva", "ground": (0.5, 0.44, 0.3), "mood": "dungeon", "ambient": (0.95, 0.84, 0.62),
+                   "hall": {"focus": (-7.5, 47), "fill": 0.5},
+                   # luz fria (verde-clara) na Muda-Mae: separa do ambar dos tanques
+                   "boss": {"id": "boss_sap_mother", "clip": "atk_sweep", "frame": 4, "turn": 22, "foot": 2.0, "foot_col": (0.78, 1.0, 0.8),
+                            "back": 1.6, "back_col": (0.7, 0.95, 0.85)},
+                   "cam": {"at": (-7.5, 44.5), "h": 3.2, "az": -34, "dist": 17, "elev": 11, "pitch": 6, "fov": 46}},
 }
 
 

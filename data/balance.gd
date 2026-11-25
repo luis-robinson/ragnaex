@@ -217,7 +217,7 @@ const XP_MOB_PER_LEVEL := 4.5
 const XP_QUEST_SHARE := 0.45             # quests (não repetíveis) dão ~45% da faixa; abates, caçadas e quadros o resto
 ## 1-10: mais quests no 6-7; 10-20: quests pedem mais abates e pagam mais; 20-30: a guarnição e o grupo matam muito,
 ## então a guerra paga mais por quest; 30-35, 35-40 e 40-45 (Ato II, (H) do GDD F1); 45-50 (Ato III §6.1) igual ao 40-45
-const XP_QUEST_SHARE_BAND := {1: 0.5, 10: 0.55, 20: 0.65, 30: 0.55, 35: 0.55, 40: 0.5, 45: 0.5}
+const XP_QUEST_SHARE_BAND := {1: 0.5, 10: 0.55, 20: 0.78, 30: 0.55, 35: 0.55, 40: 0.5, 45: 0.5}
 ## Ato II (GDD F1, "achatar"): do nível XP_ACT2_FROM em diante o tempo por nível cresce XP_MIN_PER_LEVEL_ACT2 por nível
 const XP_ACT2_FROM := 30
 const XP_MIN_PER_LEVEL_ACT2 := 0.75
@@ -2335,3 +2335,10 @@ const ACT3_CANON_RADIUS := 2.0
 const ACT3_CANON_TIME := 4.0
 const ACT3_CANON_TOUCH := 4.0
 const ACT3_CANON_TOUCH_MULT := 2.0
+
+# ---- Faixa da Aurora 20-30, conquista B (GDD dawn-band-refactor-proposal §5 B; D5/D7, 2026-11-25) ----
+## XP_QUEST_SHARE_BAND[20] 0,65 -> 0,78 (decisão D7 extra): a faixa sobe de ~39% para ~45% de XP de missão.
+const DAWN_ECHO_HP := 0.75          # eco do chefe: vida x (repetível, grupo menor que na retomada)
+const DAWN_ECHO_ATK := 1.05         # ataque x (nível 2-3 acima do original, menos o Morvath)
+const DAWN_ECHO_XP := 0.5           # XP x (repetível: metade da primeira vez)
+const DAWN_ECHO_RESPAWN := 600.0    # s até o eco voltar ao fundo do forte (antes de SPAWN_RESPAWN_MULT)

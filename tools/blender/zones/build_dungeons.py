@@ -12,8 +12,10 @@ from mathutils import Vector
 import act2_dress
 import act3_dress
 import places
+import viveiro_dress
 from zone_lib import Zone, poly_dist, disc, mat
 
+DRESS = dict(act3_dress.DRESS, **viveiro_dress.DRESS)      # acabamento por masmorra: fn(z, rooms, edges)
 SCALE = 1.25           # dungeons maiores para grupos: salões, distâncias e corredores (a chegada/saída não muda)
 ROOMS = [(-20 * SCALE, 22 * SCALE), (20 * SCALE, 2 * SCALE), (-14 * SCALE, -18 * SCALE)]
 BOSS_ROOM = (8 * SCALE, -40 * SCALE)
@@ -167,7 +169,7 @@ def build_graph(did, g, export):
     L = _scaled_layout(g["layout"])
     z = Zone(did, size=MAP_SIZE, rim=(RIM_R, 3.0, 2.0, 1.5), seed=g["seed"], spawn=places.DUNGEON_ARRIVE, palette={
         "cliff_rock": g["rock"], "cliff_rock_d": tuple(c * 0.75 for c in g["rock"]), "cliff_grass": tuple(c * 1.1 for c in g["rock"]),
-        "hill_grass": tuple(c * 1.2 for c in g["rock"]), "road": g["floor"], "street": g["floor"],
+        "hill_grass": tuple(g.get("top", tuple(c * 1.2 for c in g["rock"]))), "road": g["floor"], "street": g["floor"],      # `top` = cor do alto das paredes
     })
     rooms = dict(L["rooms"])
     rooms["chegada"] = {"pos": places.DUNGEON_ARRIVE, "r": 8}
@@ -222,8 +224,8 @@ def build_graph(did, g, export):
         for i in range(4, len(poly) - 3, 9):
             p, t = poly[i], (poly[i + 1] - poly[i]).normalized()
             q = p + Vector((-t.y, t.x)) * (WALKWAY * 0.5 + 0.1) * (1 if i % 2 else -1)
-            if did in act3_dress.DRESS:
-                continue                                          # Ato III: a luz dos corredores é do acabamento (act3_dress)
+            if did in DRESS:
+                continue                                          # Ato III e Viveiro: a luz dos corredores é do acabamento
             if all((q - Vector(r["pos"])).length > r["r"] + 1.0 for r in rooms.values()):     # postes só nos corredores
                 z.ob("elf_lantern" if g.get("style") == "tree" else "lamp", q.x, q.y, (0.6, 2.4, 0.6) if g.get("style") == "tree" else (0.4, 2.4, 0.4))
     z.data["hangouts"] = []
@@ -233,8 +235,8 @@ def build_graph(did, g, export):
         act2_dress.dragon_lair(z, rooms, L["edges"])
     if did == "dg_slayers":               # Salão dos Matadores: bonecos de treino, alvos, venenos, panos roxos, arena do Mestre
         act2_dress.slayers(z, rooms, L["edges"])
-    if did in act3_dress.DRESS:           # Ato III: Adegas, Galeria dos Espelhos, Conservatório, Coração do Jardim
-        act3_dress.DRESS[did](z, rooms, L["edges"])
+    if did in DRESS:                      # Ato III (Adegas, Galeria dos Espelhos, Conservatório, Coração do Jardim) e o Viveiro de Seiva
+        DRESS[did](z, rooms, L["edges"])
     boss_pos = next(r["pos"] for r in L["rooms"].values() if "boss" in r)
     return z.finish(export, poi=boss_pos, ground=g["floor"])
 
