@@ -248,6 +248,14 @@ const PARTY_LINES := {
 }
 ## Bot líder do grupo do jogador conta o plano (BotLeaderSystem). Marcas: {role} papéis que faltam, {name}/{cls} convidado,
 ## {mob}/{em}/{dest} viagem, {boss}, {map}, {p} jogador.
+## Bot tomou uma Poção de Caça ao chegar na caça (HuntPotionSystem.bot_drink); {pocao} = nome do item.
+const HUNT_POTION_LINES := {
+	"xp": ["tomei um {pocao}, bora caçar", "{pocao} no bucho, hoje eu upo", "fiz {pocao} na alquimista, meia hora de xp extra",
+		"quem tá caçando aqui? tomei {pocao}, vamo aproveitar"],
+	"drop": ["tomei {pocao}, hoje cai lendário", "{pocao} ativo, quero ver dropar carta", "gastei meus materiais no {pocao}, que caia algo bom",
+		"sorte no copo: {pocao}. bora"],
+}
+
 const LEADER_LINES := {
 	"fill": ["Vamos completar o grupo: falta {role}.", "Antes de sair, vou chamar {role}.", "Grupo incompleto: procurando {role}."],
 	"lead_full": ["Deixa comigo, eu lidero. Grupo cheio, já vamos sair.", "Assumi a liderança. Grupo completo, preparem-se."],

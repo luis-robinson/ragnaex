@@ -886,6 +886,11 @@ func _buff_source(id: String) -> Dictionary:
 			var b = sk.effects.get("buff")
 			if b is Dictionary and b.has("id") and not _buff_src.has(b["id"]):
 				_buff_src[b["id"]] = {"tex": UiKit.icon_texture("skill_" + sid), "name": sk.name, "desc": sk.description}
+		for kind in HuntPotionSystem.KINDS:          # Poções de Caça: um buff por tipo (o grau muda o %); ícone do grau Comum
+			var hit: ItemDef = GameData.items.get(HuntPotionSystem.item_id(kind, 1))
+			if hit:
+				_buff_src[HuntPotionSystem.BUFF_IDS[kind]] = {"tex": UiKit.item_texture(hit), "name": ItemsCatalog.HUNT_NAMES[kind],
+					"desc": ("Poção de Caça: mais XP de monstro (missão e evento não)" if kind == "xp" else "Poção de Caça: mais chance de saque: equipamento, Moeda Lendária e cartas (ouro não)") + ". Morrer não tira."}
 		for iid in GameData.items:
 			var it: ItemDef = GameData.items[iid]
 			var b = it.consume.get("buff")

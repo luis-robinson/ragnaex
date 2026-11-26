@@ -244,6 +244,7 @@ func _ready() -> void:
 	Events.level_up.connect(_on_level_up)
 	Events.ultimate_ready.connect(func(id: int): _player_sound(id, "ult_ready", true))     # Carga Suprema cheia (R)
 	Events.item_gained.connect(_on_item_gained)
+	Events.card_found.connect(func(_id: int, _c: String): play_ui("gem"); play_ui("coins"))     # Carta de Monstro caiu no seu mapa
 	Events.potion_used.connect(func(id: int, _s: int): _player_sound(id, "potion"))
 	Events.equipment_changed.connect(_on_equipment_changed)
 	Events.quest_accepted.connect(func(id: int, _q: String): _player_sound(id, "quest_accept", true))

@@ -2,7 +2,7 @@ class_name ItemDef
 extends Resource
 ## Itens: materiais, consumíveis e equipamentos. Equipamento é o que dá pontos de atributo.
 
-enum Type { MATERIAL, CONSUMABLE, EQUIPMENT, QUEST }
+enum Type { MATERIAL, CONSUMABLE, EQUIPMENT, QUEST, CARD }     # CARD = Carta de Monstro (CardsCatalog; novos no fim)
 ## Slots novos ficam no fim para não mudar os ints do save. ACCESSORY não é mais usado: o save antigo
 ## move o que estava lá para AMULET ou RING (SaveSystem.saved_slot). RING2 = segundo anel, mesmo item.slot RING.
 enum Slot { NONE, WEAPON, OFFHAND, HEAD, BODY, BOOTS, ACCESSORY, GLOVES, LEGS, CAPE, AMULET, RING, RING2 }

@@ -215,6 +215,7 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 				state = S.HUNT
 				timer = rng.randf_range(150.0, 360.0)
 				target_pos = Vector3.ZERO
+				HuntPotionSystem.bot_drink(sim, e, rng)        # às vezes chega com Poção de Caça (fala no chat)
 				return cmd
 			if e.map_id != travel_map:              # passou por um portal no meio do caminho: prazo novo para a próxima etapa
 				travel_map = e.map_id
@@ -1433,7 +1434,7 @@ func _find_npc(def: MapDef, role: String) -> Dictionary:
 func _sell_materials(e: SimEntity) -> void:
 	for item_id in e.inventory.keys():
 		var it: ItemDef = GameData.items.get(item_id)
-		if it and it.type == ItemDef.Type.MATERIAL and it.price > 0:      # moeda lendária não se vende
+		if it and (it.type == ItemDef.Type.MATERIAL or it.type == ItemDef.Type.CARD) and it.price > 0:      # moeda lendária não se vende; carta: bot não encaixa, vende
 			var n := int(e.inventory[item_id])
 			e.remove_item(item_id, n)
 			e.gold += it.price * n

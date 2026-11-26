@@ -12,12 +12,13 @@ const STAT_KEYS := ["atk_pct", "matk_pct", "def_pct", "speed_pct", "heal_pct", "
 	"prey_crit", "falcon_pct", "block", "mp_on_kill", "mp_regen_combat", "trap_max",
 	"crit_dmg_pct", "dot_pct", "cc_resist_pct", "mp_cost_pct", "summon_time_pct",
 	"crit_leech", "low_leech", "mana_guard", "hit_slow", "heal_taken_pct", "def_atk_pct", "block_reflect", "guard_crit", "taunt_dmg_pct", "thorns", "phys_mend",
-	"mp_to_hp", "summon_guard", "summon_frenzy", "leech_shield", "ally_guard", "low_dr", "low_hp_atk", "overheal_share", "mana_guard_eff", "matk_to_hp"]
+	"mp_to_hp", "summon_guard", "summon_frenzy", "leech_shield", "ally_guard", "low_dr", "low_hp_atk", "overheal_share", "mana_guard_eff", "matk_to_hp",
+	"xp_pct", "drop_pct"]
 ## Chaves de buff que não são stat: id (renova, não acumula), duração e aura de ligar/desligar.
 const BUFF_META := ["id", "duration", "toggle", "end_cast", "end_power", "oath_lock",
 	"scale", "wound_hold", "keep_hp", "form_bound",
 	"riposte_arc", "riposte_gain", "riposte_gap", "momentum_fill", "mob_stat",
-	"duel_cap", "hit_gain", "hit_cap", "duel_per", "minion_share"]     # Duelo Supremo: contador do Duelo (RiposteSystem.duel_hit). onda B1: escala do boneco, feridas presas, % de vida mantida, some com a forma
+	"duel_cap", "hit_gain", "hit_cap", "duel_per", "minion_share", "keep_death", "map"]     # Duelo Supremo: contador do Duelo (RiposteSystem.duel_hit). onda B1: escala do boneco, feridas presas, % de vida mantida, some com a forma
 ## Chaves de bônus de conjunto que não são stat (SetDef: atributos e bônus por skill).
 const SET_BONUS_META := ["attrs", "skill_dmg", "skill_cdr", "fusion"]
 
@@ -86,6 +87,8 @@ var frost_pct: float = 0.0       # % de dano das skills de gelo
 var storm_pct: float = 0.0       # % de dano das skills de raio
 var backstab: float = 0.0        # % a mais de dano (e +crítico) golpeando pelas costas
 var cdr: float = 0.0             # % de recarga a menos em todas as skills (talentos de escolha)
+var xp_pct: float = 0.0          # +% XP de abate (Poções de Caça; buff com "map" fica de fora: SiegeSystem.xp_mult)
+var drop_pct: float = 0.0        # +% chance de saque: equipamento, Moeda Lendária, cartas (LootSystem.drop_mult)
 var threat_pct: float = 0.0      # % a mais de ameaça gerada pelo dano (Aura do Bastião: o tanque segura o monstro)
 var dr_pct: float = 0.0          # % a menos de todo dano recebido (aura do tanque no grupo; teto Balance.DR_CAP)
 var echo_chance: float = 0.0     # arma lendária (dano): % de chance do golpe direto bater de novo...
@@ -331,6 +334,9 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 		s.backstab += float(b.get("backstab", 0))
 		s.cdr += float(b.get("cdr", 0))
 		s.threat_pct += float(b.get("threat_pct", 0))
+		if not b.has("map"):
+			s.xp_pct += float(b.get("xp_pct", 0))
+		s.drop_pct += float(b.get("drop_pct", 0))
 		s.dr_pct += float(b.get("dr_pct", 0))
 		if b.get("dr_int", false):         # Armadura de Gelo: corte de dano pela INT
 			s.dr_pct += frost_armor_dr(float(s.attrs["INT"]))
@@ -394,6 +400,8 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 	s.cc_resist_pct = minf(s.cc_resist_pct, Balance.CC_RESIST_CAP)
 	s.mp_cost_pct = minf(s.mp_cost_pct, Balance.MP_COST_CAP)
 	s.summon_time_pct = minf(s.summon_time_pct, Balance.SUMMON_TIME_CAP)
+	s.xp_pct = minf(s.xp_pct, Balance.XP_PCT_CAP)
+	s.drop_pct = minf(s.drop_pct, Balance.DROP_PCT_CAP)
 	s.mana_guard = minf(s.mana_guard, Balance.MANA_GUARD_CAP + minf(float(s.piece_caps.get("mana_guard", 0.0)), Balance.LEG50_MANA_GUARD_CAP_ADD))
 	s.mana_guard_eff = minf(s.mana_guard_eff, Balance.LEG50_MANA_EFF_CAP)
 	s.crit_leech = minf(s.crit_leech, Balance.ROLE_LEECH_CAP)

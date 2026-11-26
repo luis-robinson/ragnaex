@@ -263,6 +263,8 @@ func save_player(p: SimEntity) -> void:
 		"elemental": ElementalSystem.to_save(p),
 		"auto_potion": ItemSystem.auto_potion_config(p),
 		"knows_game": p.knows_game, "unlocked": p.unlocked.keys(),     # introdução dos sistemas (UnlockSystem)
+		"hunt_buffs": HuntPotionSystem.to_save(p),     # Poções de Caça: o tempo que sobra (campo opcional)
+		"cards": p.cards.duplicate(), "bestiary": p.bestiary.duplicate(),     # Cartas de Monstro (campos opcionais)
 	}
 	# gravação atômica: escreve o .tmp inteiro, fecha e só então renomeia por cima do save (fechar no meio não trunca o save bom)
 	var tmp := tmp_of(slot)
@@ -405,6 +407,8 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 	p.mount_kind = MountSystem.from_save(p, str(d.get("mount", Balance.MOUNT_DEFAULT)))     # save antigo: cavalo
 	UnlockSystem.from_save(p, d)              # save antigo: tudo até o nível dele aberto
 	ElementalSystem.from_save(p, d)            # save antigo (< 5): experiência 0, forma = a do último elemental
+	HuntPotionSystem.from_save(p, d)           # Poções de Caça: save sem o campo = sem poção
+	CardSystem.from_save(p, d)                 # Cartas de Monstro: save sem os campos = vazio
 	# teia de ascensão (save < 5: vazia). Nó que não existe mais: a teia volta ao início (os pontos são calculados)
 	p.asc_tree = {}
 	var atr: Dictionary = GameData.asc_trees.get(p.class_def.id, {})

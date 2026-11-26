@@ -29,6 +29,7 @@ static func build() -> Array:
 	L.append_array(gear_recipes())
 	L.append_array(kharzun_recipes())
 	L.append_array(lumeria_recipes())
+	L.append_array(hunt_recipes())
 	var out: Array = []
 	for d in L:
 		out.append(_mk(d))
@@ -47,6 +48,22 @@ const THEME_MAT := {"guerreiro": ["boar_tusk", "boar_tusk", "bandit_badge", "gol
 	"sabio": ["herb_blue", "herb_blue", "forest_mushroom", "ghost_essence", "naga_scale", "naga_scale", "herb_blue"]}
 const BAG_RECIPES := [[3, 40, {"wolf_pelt": 4, "slime_gel": 4}], [10, 150, {"spider_silk": 6, "wolf_pelt": 4}],
 	[16, 300, {"ent_bark": 6, "bandit_badge": 4}], [24, 600, {"ghost_essence": 5, "ancient_relic": 3}]]
+
+## Poções de Caça (design/gdd/pocoes-de-caca.md §3.1): materiais de monstros comuns da faixa de cada grau
+## (Menor 1-10, Comum 20-30, Maior 30-45); nível e ouro em Balance.HUNT_POTION_GRADES. Há check de que tudo cai de monstro.
+const HUNT_MATS := {
+	"xp": [{"slime_gel": 2, "wolf_pelt": 1, "herb_blue": 2}, {"bone_shard": 3, "ghost_essence": 2, "herb_blue": 2},
+		{"horde_badge": 3, "naga_scale": 2, "herb_blue": 3}],
+	"drop": [{"crab_shell": 2, "wasp_stinger": 2, "herb_green": 1}, {"rot_gel": 3, "star_ore": 2, "herb_green": 2},
+		{"goblin_fang": 3, "troll_hide": 2, "herb_green": 3}]}
+
+static func hunt_recipes() -> Array:
+	var out: Array = []
+	for kind in HuntPotionSystem.KINDS:
+		for gi in range(Balance.HUNT_POTION_GRADES.size()):
+			var g: Array = Balance.HUNT_POTION_GRADES[gi]
+			out.append(_r(HuntPotionSystem.item_id(kind, gi), 1, "alchemy", int(g[0]), int(g[1]), HUNT_MATS[kind][gi]))
+	return out
 
 ## Joias e capas 45 (Monte Kharzun, GearCatalog.kharzun_jewels): materiais da montanha + um troféu de chefe por tema
 ## (capas pedem também o Estandarte de Durgash). Troféu -> chefe que o solta (loot do chefe: WP7).

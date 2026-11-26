@@ -17,7 +17,7 @@ static func on_monster_killed(sim: WorldSim, mob: SimEntity, killer: SimEntity) 
 		var each := mob.monster_def.xp * (Balance.FIELD_MOB_XP_MULT if mob.field_mob else 1.0) * (1.0 + Balance.PARTY_XP_BONUS * (sharers.size() - 1)) / sharers.size()
 		for c in sharers:
 			var mult := clampf(1.0 + (mob.level - c.level) * 0.08, 0.3, 1.6)
-			ProgressionSystem.gain_xp(sim, c, int(each * mult * SiegeSystem.xp_mult(c, mob.map_id)))
+			ProgressionSystem.gain_xp(sim, c, int(each * mult * xp_mult(c, mob.map_id)))
 			QuestSystem.on_kill(c, mob.monster_def.elite_of if mob.monster_def.elite_of != "" else mob.monster_def.id)
 			if mob.monster_def.is_boss:
 				c.bosses_killed[mob.monster_def.id] = true
@@ -80,12 +80,29 @@ static func on_monster_killed(sim: WorldSim, mob: SimEntity, killer: SimEntity) 
 		for pl in personal:                     # lendário fica preso ao dono por mais tempo (ninguém pega o seu)
 			drop(m, mob, i, 0.6, pl[0], int(pl[2]), 120.0, pl[1].id, sim.time + 110.0)
 			i += 1
+		CardSystem.on_kill(sim, sharers, mob)     # Cartas de Monstro: bestiário, cura no abate e sorteio pessoal (regra do lendário)
 	# remove do spawner
 	for sp in m["spawners"]:
 		sp["alive"].erase(mob.id)
 	if credit and credit.is_character():
 		count_kill(sim, m, mob)
 		LegendEffects.legend_on_kill(sim, credit, mob)
+
+## Multiplicador da XP de ABATE de `c` (Poções de Caça + Colônia de Pé do mapa; teto Balance.XP_PCT_CAP somado).
+## Só no abate de monstro: missão e evento não passam por aqui (design/gdd/pocoes-de-caca.md §3.2).
+static func xp_mult(c: SimEntity, map_id: String) -> float:
+	var pct := (SiegeSystem.xp_mult(c, map_id) - 1.0) * 100.0
+	if c.stats != null:
+		pct += c.stats.xp_pct
+	return 1.0 + minf(pct, Balance.XP_PCT_CAP) / 100.0
+
+## Multiplicador da chance de saque de `e` (Elixir da Fortuna e futuras cartas; teto Balance.DROP_PCT_CAP).
+## Vale para equipamento (roll_gear), Moeda Lendária (ItemSystem.roll_legendary) e o sorteio de cartas; ouro e material não.
+## Ex.: `if sim.rng.randf() < minf(1.0, chance * LootSystem.drop_mult(killer))`.
+static func drop_mult(e: SimEntity) -> float:
+	if e == null or e.stats == null:
+		return 1.0
+	return 1.0 + minf(e.stats.drop_pct, Balance.DROP_PCT_CAP) / 100.0
 
 ## Itens desta tabela que `c` ainda precisa para uma quest de coleta ativa (o chefe garante 1 por abate; o número pedido não muda).
 static func quest_needs(c: SimEntity, lt: LootTable) -> Array:
@@ -206,7 +223,7 @@ static func split_gold(sim: WorldSim, sharers: Array, gold: int) -> void:
 	var each := gold / sharers.size()
 	var extra := gold % sharers.size()     # o resto vai um por um: nada some, nada é criado
 	for i in range(sharers.size()):
-		var share := each + (1 if i < extra else 0)
+		var share := int((each + (1 if i < extra else 0)) * CardSystem.gold_mult(sharers[i]))     # carta de ouro (gold_pct)
 		sharers[i].gold += share
 		if sharers[i] == sim.player and share > 0:
 			Events.post(&"notification", "+%d ouro (grupo)" % share)
@@ -215,7 +232,7 @@ static func split_gold(sim: WorldSim, sharers: Array, gold: int) -> void:
 static func roll_gear(sim: WorldSim, killer: SimEntity, mob: SimEntity) -> String:
 	if killer == null or not killer.is_character():
 		return ""
-	if sim.rng.randf() >= (Balance.GEAR_DROP_CHANCE_BOSS if mob.monster_def.is_boss else Balance.GEAR_DROP_CHANCE):
+	if sim.rng.randf() >= minf(1.0, (Balance.GEAR_DROP_CHANCE_BOSS if mob.monster_def.is_boss else Balance.GEAR_DROP_CHANCE) * drop_mult(killer)):
 		return ""
 	var tier := 0
 	for i in range(Balance.COMMON_TIER_LEVELS.size()):
@@ -299,11 +316,14 @@ static func can_loot(sim: WorldSim, e: SimEntity, l: Dictionary) -> bool:
 
 static func pickup(sim: WorldSim, e: SimEntity, l: Dictionary) -> void:
 	if l["item"] == "gold":
-		e.gold += int(l["count"])
+		var g := int(l["count"] * CardSystem.gold_mult(e))     # carta de ouro (gold_pct)
+		e.gold += g
 		if e == sim.player:
-			Events.post(&"notification", "+%d ouro" % int(l["count"]))
+			Events.post(&"notification", "+%d ouro" % g)
 	else:
 		e.add_item(l["item"], int(l["count"]))
+		if l.get("card", false):
+			CardSystem.on_pickup(sim, e, l["item"])     # bestiário: carta achada
 		QuestSystem.on_item_changed(e, l["item"])
 		if e == sim.player:
 			var it: ItemDef = GameData.items.get(l["item"])

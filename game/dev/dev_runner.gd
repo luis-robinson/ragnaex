@@ -299,6 +299,9 @@ func after_start() -> void:
 	if DevArgs.flag("--bag_shot"):      # foto da bolsa e da ficha com uma amostra de cada tipo de item
 		_smoke_test = false
 		_bag_shot(DevArgs.value("--bag_shot"))
+	if DevArgs.flag("--cards_shot"):    # --cards_shot=<pasta>: janela C aba Cartas, Bestiário e baú de carta no chão; sai
+		_smoke_test = false
+		_cards_shot(DevArgs.value("--cards_shot"))
 	if DevArgs.flag("--auto_potion_shot"):     # --auto_potion_shot=<pasta>: aba Auto-poção no Esc e o "A" nas vagas da barra; sai
 		_smoke_test = false
 		_auto_potion_shot(DevArgs.value("--auto_potion_shot"))
@@ -1859,6 +1862,47 @@ func _menu_check() -> void:
 	print("RETURN_CHECK views=%d fila=%d" % [main.views.size(), main.view_queue.size()])     # fila com gente longe: a volta não pode tropeçar nela
 	main.hud._menu_to_title()
 
+## --cards_shot=<pasta>: Cartas de Monstro (GDD cartas.md): encaixa 5 cartas (2 núcleos, Matilha completa), bestiário com a
+## Praia completa e alguns vistos, abre a janela C na aba Cartas (a_cards.png), o Bestiário (b_bestiary.png) e solta um baú de
+## carta comum e um de núcleo ao lado do jogador (c_drop.png).
+func _cards_shot(dir: String) -> void:
+	DirAccess.make_dir_recursive_absolute(dir)
+	await get_tree().create_timer(2.5).timeout
+	Sim.sync()
+	var p: SimEntity = Sim.player
+	for c in ["card_wolf", "card_grove_wolf", "card_rot_wolf", "card_golem_ancient", "card_bone_captain", "card_crab", "card_spider", "card_crab_king"]:
+		p.add_item(c, 1)
+	for pair in [["boots", "card_wolf"], ["weapon", "card_grove_wolf"], ["accessory", "card_rot_wolf"], ["chest", "card_golem_ancient"], ["head", "card_bone_captain"]]:
+		var err: String = Sim.card_socket(p, pair[0], pair[1])
+		if err != "":
+			print("CARDS_SHOT encaixe ", pair, " ", err)
+	for cid in CardSystem.cards_of_map("field_crab_beach") + ["card_wolf", "card_grove_wolf", "card_rot_wolf", "card_golem_ancient", "card_bone_captain", "card_spider"]:
+		p.bestiary[GameData.cards[cid].monster_id] = CardSystem.SEEN | CardSystem.FOUND
+	for mid in ["slime", "slime_blue", "boar", "zombie", "bone_archer", "wasp"]:
+		p.bestiary[mid] = int(p.bestiary.get(mid, 0)) | CardSystem.SEEN
+	var w = main.hud.windows_script
+	w._char_tab = "cards"
+	w.toggle("character")
+	w.toggle("inventory")
+	await get_tree().create_timer(0.8).timeout
+	get_viewport().get_texture().get_image().save_png(dir.path_join("a_cards.png"))
+	w.close_all()
+	w.toggle("bestiary")
+	await get_tree().create_timer(0.8).timeout
+	get_viewport().get_texture().get_image().save_png(dir.path_join("b_bestiary.png"))
+	w.close_all()
+	var lm: Dictionary = Sim.maps[p.map_id]
+	for i in range(2):
+		var cid: String = ["card_wasp", "card_bear_mother"][i]
+		var lp: Vector3 = p.position + Vector3(-1.2 + i * 2.4, 0, 2.0)
+		lm["loot"].append({"pos": lp, "item": cid, "count": 1, "timer": 999.0, "owner": p.id, "free_at": 999999.0, "card": true})
+		Events.loot_dropped.emit(p.map_id, lp, cid, 1)
+	Events.chat_message.emit("Cartas", "%s achou a %s!" % [p.name, GameData.cards["card_bear_mother"].name], "system")
+	await get_tree().create_timer(1.2).timeout
+	get_viewport().get_texture().get_image().save_png(dir.path_join("c_drop.png"))
+	print("CARDS_SHOT ok cards=%s stats=%s" % [p.cards, p.card_fx.get("stats", {})])
+	get_tree().quit()
+
 ## --auto_potion_shot=<pasta>: liga Vida (F1) e Elixir (F3) com poções na barra, abre o Esc na aba Auto-poção
 ## (<pasta>/auto_tab.png) e fecha para a barra com o "A" (<pasta>/auto_bar.png + recorte auto_bar_crop.png).
 func _auto_potion_shot(dir: String) -> void:
@@ -2497,6 +2541,8 @@ func _bag_shot(path: String) -> void:
 		Sim.elem_command(ap, ElementalSystem.default_form(ap), "")
 	if DevArgs.has("--status_demo"):     # buffs e debuffs de amostra na barra (revisar ícones e tempos)
 		Sim.player.buffs.append({"id": "elixir", "remaining": 44.0, "atk_pct": 20})
+		Sim.player.buffs.append({"id": "hunt_xp", "remaining": 1740.0, "keep_death": true, "xp_pct": 25.0})     # Poções de Caça
+		Sim.player.buffs.append({"id": "hunt_drop", "remaining": 620.0, "keep_death": true, "drop_pct": 50.0})
 		Sim.player.buffs.append({"id": "frost_armor", "remaining": 7.2, "def_pct": 30})
 		Sim.player.buffs.append({"id": "juramento", "remaining": 5.0, "stacks": 3})
 		Sim.player.debuffs.append({"kind": "dot", "remaining": 3.4, "dps": 0.0, "fire": true, "src": -1})
@@ -2545,7 +2591,7 @@ func _bag_shot(path: String) -> void:
 		await get_tree().create_timer(0.3).timeout
 		print("CRAFT_CHECK start=%d after_bots=%d after_rebuild=%d" % [at0, at1, main.hud.npc_ui._scroll.scroll_vertical])
 	if DevArgs.has("--craft_tip") or DevArgs.flag("--craft_tip"):      # forja/caldeirão: mouse sobre o cartão (--craft_tip=<receita>, padrão: 1º amuleto)
-		var station := "alchemist" if DevArgs.value("--craft_tip").begins_with("rec_cape") or DevArgs.value("--craft_tip").begins_with("rec_bag") or DevArgs.value("--craft_tip").begins_with("rec_potion") else "smith"
+		var station := "alchemist" if DevArgs.value("--craft_tip").begins_with("rec_cape") or DevArgs.value("--craft_tip").begins_with("rec_bag") or DevArgs.value("--craft_tip").begins_with("rec_potion") or DevArgs.value("--craft_tip").begins_with("rec_hunt") else "smith"
 		main.hud.windows_script.close_all()
 		main.hud.npc_ui.force_compact = DevArgs.has("--npc_compact")      # janela estreita: uma coluna
 		if DevArgs.has("--craft_mats") and GameData.recipes.has(DevArgs.value("--craft_tip")):     # material para 5 da receita (lote)

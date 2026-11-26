@@ -1909,3 +1909,14 @@ grupo batem pouco para um grupo completo** (decisão de equilíbrio em aberto). 
 a antiga em vitórias (36 contra 41/48, a diferença é toda o Senhor da Cripta: o Dreno de Almas "far" a 6× mata de uma vez o conjurador
 que fica no flanco a 7 m) e morre menos (1,86 contra 1,96 por luta).
 Dungeons: 25% maiores (`build_dungeons.SCALE`) e `SPAWN_COUNT_MULT_DUNGEON` 2x de monstros, para grupos.
+
+## Cartas de Monstro (Ato I, 2026-11-26)
+
+GDD `design/gdd/cartas.md`, lista `design/gdd/cartas-ato1.md`. 109 cartas (75 comuns em 25 grupos de 3, 34 núcleos: 28 de
+chefe + 6 de monstro comum). 6 encaixes do personagem (arma, mão secundária, cabeça, peito, botas, acessório), cada carta com
+encaixe fixo; no máximo `Balance.CARD_CORE_MAX` núcleos; 2/3 do mesmo grupo ligam o combo (`Balance.CARD_GROUP_BONUS`).
+Sorteio pessoal no abate (regra do lendário) com `CARD_CHANCE_*` × `LootSystem.drop_mult`; Rei × `CARD_ELITE_MULT`; Eco dá a carta
+do chefe. Tirar é grátis. Bots acham, comentam e vendem; nunca encaixam. Regras em `core/sim/systems/card_system.gd`
+(ganchos novos: família, ao acertar, cura no abate, ouro, dash; `xp_pct` é o stat das Poções de Caça). Interface: aba Cartas da
+janela C e o Bestiário (`game/ui/card_ui.gd`; título por mapa completo, sem poder). Save: `cards`, `bestiary` (opcionais).
+Check `--only=cards`; sonda `tools/tests/card_probe.tscn`; fotos `-- --autostart=<c> --cards_shot=<pasta>`.

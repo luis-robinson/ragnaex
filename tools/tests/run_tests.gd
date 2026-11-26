@@ -35,6 +35,7 @@ func _ready() -> void:
 	ClassTalentSystem.bot_picks = false        # bots de teste sem talentos de classe sorteados (_check_class_talents escolhe os seus)
 	ProgressionSystem.bot_core = false         # bots de teste sem o anel de base (contas calibradas antes dele); _check_core_notables e a força da teia ligam
 	ProgressionSystem.bot_charges = false      # bots de teste sem o nó "em Cargas" (contas calibradas antes dele); _check_skill_charges e a força da teia ligam
+	HuntPotionSystem.bots_drink = false        # bots de teste sem Poção de Caça (_check_hunt_potions liga)
 	count_per = DevArgs.has("--count_per_check")
 	var only := DevArgs.value("--only")
 	if only != "":
@@ -2399,6 +2400,182 @@ func _check_auto_potion(gd, sim, save) -> void:
 	sim.despawn(e)
 	sim.despawn(back)
 
+## Poções de Caça (design/gdd/pocoes-de-caca.md §8): itens/receitas com fonte, tetos, XP só de abate, Fortuna sem ouro,
+## duração fixa, renova (não soma), fica na morte e no save. `--only=hunt_potion`
+func _check_hunt_potions(gd, sim, _save) -> void:
+	# 1) 6 itens + 6 receitas no Alquimista; todo material cai de monstro comum
+	var sources := {}
+	for mid in gd.monsters:
+		var md: MonsterDef = gd.monsters[mid]
+		var lt: LootTable = gd.loot_tables.get(md.loot_table)
+		if lt == null or md.is_boss or md.xp <= 0:
+			continue
+		for en in lt.entries:
+			sources[str(en["item"])] = true
+	for kind in HuntPotionSystem.KINDS:
+		for gi in range(3):
+			var iid := HuntPotionSystem.item_id(kind, gi)
+			var it: ItemDef = gd.items.get(iid)
+			check(it != null and it.type == ItemDef.Type.CONSUMABLE and it.level_req <= 1 and it.consume.get("buff") is Dictionary
+				and it.consume["buff"]["id"] == HuntPotionSystem.BUFF_IDS[kind] and bool(it.consume["buff"].get("keep_death", false)),
+				"poção de caça %s: consumível sem nível para tomar, buff que fica na morte" % iid)
+			var rec: RecipeDef = gd.recipes.get("rec_" + iid)
+			check(rec != null and rec.station == "alchemy" and rec.level_req == int(Balance.HUNT_POTION_GRADES[gi][0])
+				and rec.gold_cost == int(Balance.HUNT_POTION_GRADES[gi][1]), "receita de %s no Alquimista, nível %d" % [iid, int(Balance.HUNT_POTION_GRADES[gi][0])])
+			if rec:
+				for ing in rec.ingredients:
+					check(sources.has(ing), "%s: material %s cai de monstro comum" % [iid, ing])
+			check(not (iid in MapsCatalog.MERCHANT_SHOP) and not (iid in MapsCatalog.HEALER_SHOP), "%s: mercador não vende (só a alquimia faz)" % iid)
+	check([int(Balance.HUNT_POTION_GRADES[0][0]), int(Balance.HUNT_POTION_GRADES[1][0]), int(Balance.HUNT_POTION_GRADES[2][0])] == [5, 20, 35]
+		and is_equal_approx(Balance.HUNT_POTION_TIME, 1800.0), "graus feitos no 5/20/35, 30 min (§4)")
+	# 2) beber: 30 min fixos (bênção não estica), renova sem somar, Saber + Fortuna juntos
+	var e: SimEntity = sim.spawn_bot(gd.classes["bishop"], "HuntPot", "city_aldara", Vector3(8, 0, -8), 30)
+	e.brain = null
+	e.inventory.clear()
+	for kind in HuntPotionSystem.KINDS:
+		for gi in range(3):
+			e.add_item(HuntPotionSystem.item_id(kind, gi), 2)
+	e.put_buff({"id": "hp_test_longer", "remaining": 999.0, "buff_pct": 50})
+	e.recompute_stats()
+	var drink := func(iid: String) -> void:
+		e.potion_slots[2] = iid
+		e.potion_cds[2] = 0.0
+		sim.use_potion(e, 2)
+	drink.call("hunt_xp_2")
+	var hb: Array = e.buffs.filter(func(b): return b.get("id") == "hunt_xp")
+	check(e.stats.buff_duration > 0.0 and hb.size() == 1 and is_equal_approx(float(hb[0]["remaining"]), Balance.HUNT_POTION_TIME)
+		and is_equal_approx(e.stats.xp_pct, 25.0), "Tônico Comum: 1800 s fixos (bênção não estica), xp_pct 25 (%.1f)" % e.stats.xp_pct)
+	drink.call("hunt_xp_3")
+	check(e.buffs.filter(func(b): return b.get("id") == "hunt_xp").size() == 1 and is_equal_approx(e.stats.xp_pct, 35.0), "Tônico Maior por cima renova: 35, não 60")
+	drink.call("hunt_drop_3")
+	check(is_equal_approx(e.stats.drop_pct, 50.0) and is_equal_approx(e.stats.xp_pct, 35.0), "Saber + Fortuna juntos")
+	# grau mais fraco com o forte ativo: recusa e não gasta (decisão 2026-11-26); igual renova
+	var left_s: float = float(e.buffs.filter(func(b): return b.get("id") == "hunt_xp")[0]["remaining"])
+	e.buffs.filter(func(b): return b.get("id") == "hunt_xp")[0]["remaining"] = 100.0
+	var n1: int = _ap_n(e, "hunt_xp_1")
+	e.potion_slots[2] = "hunt_xp_1"
+	e.potion_cds[2] = 0.0
+	check(not sim.use_potion(e, 2) and _ap_n(e, "hunt_xp_1") == n1 and is_equal_approx(e.stats.xp_pct, 35.0)
+		and HuntPotionSystem.weaker(e, gd.items["hunt_xp_1"].consume["buff"]) and not HuntPotionSystem.weaker(e, gd.items["hunt_xp_3"].consume["buff"]),
+		"Tônico Menor com o Maior ativo: recusado, não gasta")
+	drink.call("hunt_xp_3")
+	check(left_s > 0.0 and is_equal_approx(float(e.buffs.filter(func(b): return b.get("id") == "hunt_xp")[0]["remaining"]), Balance.HUNT_POTION_TIME)
+		and _ap_n(e, "hunt_xp_3") == 0, "mesmo grau renova os 30 min")
+	e.drop_buff("hp_test_longer")
+	# 3) tetos somando fontes; drop_mult é o helper das cartas
+	e.put_buff({"id": "hp_test_cap", "remaining": 99.0, "xp_pct": 80.0, "drop_pct": 120.0})
+	e.recompute_stats()
+	check(is_equal_approx(e.stats.xp_pct, Balance.XP_PCT_CAP) and is_equal_approx(LootSystem.xp_mult(e, "city_aldara"), 1.0 + Balance.XP_PCT_CAP / 100.0)
+		and is_equal_approx(LootSystem.drop_mult(e), 1.0 + Balance.DROP_PCT_CAP / 100.0), "tetos: XP x%.2f, saque x%.2f" % [LootSystem.xp_mult(e, "city_aldara"), LootSystem.drop_mult(e)])
+	e.drop_buff("hp_test_cap")
+	e.put_buff({"id": "colonia_de_pe", "remaining": 99.0, "xp_pct": Balance.SIEGE_MORALE_XP_PCT, "map": "city_aldara"})
+	e.recompute_stats()
+	check(is_equal_approx(e.stats.xp_pct, 35.0) and is_equal_approx(LootSystem.xp_mult(e, "city_aldara"), 1.0 + (35.0 + Balance.SIEGE_MORALE_XP_PCT) / 100.0)
+		and is_equal_approx(LootSystem.xp_mult(e, "field_forest"), 1.35), "Colônia de Pé soma só no mapa dela e não vira stat global")
+	e.drop_buff("colonia_de_pe")
+	e.recompute_stats()
+	check(is_equal_approx(LootSystem.drop_mult(e), 1.5) and is_equal_approx(LootSystem.drop_mult(null), 1.0), "Fortuna Maior: saque x1,5 (cartas chamam LootSystem.drop_mult)")
+	# 4) XP: abate x1,35; missão (sim.gain_xp) igual
+	var mdef: MonsterDef = gd.monsters["wolf"].duplicate(true)
+	mdef.level = e.level
+	mdef.xp = 400
+	mdef.loot_table = ""
+	mdef.gold_min = 10
+	mdef.gold_max = 10
+	var kill_xp := func() -> int:
+		var mob: SimEntity = sim.spawn_monster(mdef, "city_aldara", e.position + Vector3(2, 0, 0))
+		mob.brain = null
+		mob.level = e.level
+		e.xp = 0
+		sim._kill(mob, e)
+		sim.despawn(mob)
+		return e.xp
+	var with_xp: int = kill_xp.call()
+	var saved_buffs: Array = e.buffs.duplicate(true)
+	e.buffs = e.buffs.filter(func(b): return not HuntPotionSystem.is_hunt_buff(b))
+	e.recompute_stats()
+	var base_xp: int = kill_xp.call()
+	check(base_xp > 0 and absi(with_xp - int(base_xp * 1.35)) <= 2, "Saber Maior: XP de abate x1,35 (%d -> %d)" % [base_xp, with_xp])
+	e.xp = 0
+	sim.gain_xp(e, 100)
+	var q_plain: int = e.xp
+	e.buffs = saved_buffs.duplicate(true)
+	e.recompute_stats()
+	e.xp = 0
+	sim.gain_xp(e, 100)
+	check(q_plain == 100 and e.xp == 100, "XP de missão (sim.gain_xp) não muda com a poção")
+	# 5) Fortuna: equipamento sobe, ouro igual
+	var mob2: SimEntity = sim.spawn_monster(mdef, "city_aldara", e.position + Vector3(3, 0, 0))
+	mob2.brain = null
+	var count_gear := func() -> int:
+		var n := 0
+		for i in range(4000):
+			if LootSystem.roll_gear(sim, e, mob2) != "":
+				n += 1
+		return n
+	sim.rng.state = 12345
+	var g_with: int = count_gear.call()
+	var keep: Array = e.buffs.duplicate(true)
+	e.buffs = e.buffs.filter(func(b): return b.get("id") != "hunt_drop")
+	e.recompute_stats()
+	sim.rng.state = 12345
+	var g_base: int = count_gear.call()
+	check(g_base > 20 and float(g_with) / float(g_base) > 1.25 and float(g_with) / float(g_base) < 1.8, "Fortuna: equipamento cai ~x1,5 (%d -> %d em 4000)" % [g_base, g_with])
+	sim.despawn(mob2)
+	var gold_of := func() -> int:
+		var m: Dictionary = sim.maps["city_aldara"]
+		var n0: int = m["loot"].size()
+		var mob: SimEntity = sim.spawn_monster(mdef, "city_aldara", e.position + Vector3(2, 0, 0))
+		mob.brain = null
+		sim.rng.state = 777
+		sim._kill(mob, e)
+		sim.despawn(mob)
+		var g := 0
+		while m["loot"].size() > n0:
+			var l: Dictionary = m["loot"].pop_back()
+			if l["item"] == "gold":
+				g += int(l["count"])
+		return g
+	var gold_base: int = gold_of.call()
+	e.buffs = keep
+	e.recompute_stats()
+	var gold_with: int = gold_of.call()
+	check(gold_base == 10 and gold_with == gold_base, "Fortuna não mexe no ouro (%d / %d)" % [gold_base, gold_with])
+	# 6) morte não tira; o save leva o resto
+	var left0: float = float(e.buffs.filter(func(b): return b.get("id") == "hunt_drop")[0]["remaining"])
+	e.put_buff({"id": "elixir", "remaining": 30.0, "atk_pct": 20})
+	sim._kill(e, null)
+	var ids: Array = e.buffs.map(func(b): return b.get("id"))
+	check("hunt_xp" in ids and "hunt_drop" in ids and not ("elixir" in ids), "morrer tira o elixir comum, não as Poções de Caça")
+	var arr := HuntPotionSystem.to_save(e)
+	var e2: SimEntity = sim.spawn_bot(gd.classes["bishop"], "HuntPot2", "city_aldara", Vector3(9, 0, -9), 30)
+	e2.brain = null
+	HuntPotionSystem.from_save(e2, JSON.parse_string(JSON.stringify({"hunt_buffs": arr})))
+	var r2: Array = e2.buffs.filter(func(b): return b.get("id") == "hunt_drop")
+	check(arr.size() == 2 and r2.size() == 1 and is_equal_approx(float(r2[0]["remaining"]), left0) and is_equal_approx(e2.stats.drop_pct, 50.0)
+		and bool(r2[0].get("keep_death", false)), "save leva as Poções de Caça com o tempo que sobrava")
+	HuntPotionSystem.from_save(e2, {"hunt_buffs": [{"id": "elixir", "remaining": 5.0, "atk_pct": 99}]})
+	HuntPotionSystem.from_save(e2, {})
+	check(not e2.buffs.any(func(b): return b.get("id") == "elixir"), "save: só ids de caça voltam; save antigo sem o campo = nada")
+	# 7) bots: desligado nos testes; ligado, toma, paga e fala
+	check(not HuntPotionSystem.bots_drink, "testes: bots sem Poção de Caça (calibragem)")
+	e2.buffs = e2.buffs.filter(func(b): return not HuntPotionSystem.is_hunt_buff(b))
+	HuntPotionSystem.bots_drink = true
+	var r := RandomNumberGenerator.new()
+	var drank := ""
+	e2.gold = 100000
+	for i in range(200):
+		r.seed = i
+		drank = HuntPotionSystem.bot_drink(sim, e2, r)
+		if drank != "":
+			break
+	HuntPotionSystem.bots_drink = false
+	check(drank != "" and e2.gold < 100000 and e2.buffs.any(HuntPotionSystem.is_hunt_buff), "bot toma Poção de Caça às vezes e paga o ouro (%s)" % drank)
+	check(BotsCatalog.HUNT_POTION_LINES["xp"].size() >= 3 and BotsCatalog.HUNT_POTION_LINES["drop"].size() >= 3, "falas de bot com poção")
+	check(BuffLooks.HUNT.has("hunt_xp") and BuffLooks.look("hunt_drop")["parts"] == "motes", "buff de caça tem visual no corpo")
+	sim.despawn(e)
+	sim.despawn(e2)
+
 func _ap_n(e: SimEntity, item_id: String) -> int:
 	return int(e.inventory.get(item_id, 0))
 
@@ -2699,6 +2876,243 @@ func _check_loading_steps() -> void:
 ## Arte do carregamento: todo mapa com cenário (fora os interiores) tem `assets/ui/loading/<mapa>.jpg` (como
 ## `LoadingScreen.art_for` resolve), e `ZONES`/`BOSSES` de `tools/blender/loading_art.py` (espelho à mão) batem com
 ## o catálogo: nome e chão do mapa, chefe da masmorra no mapa, modelo e escala do chefe. Lê o .py como texto.
+## Cartas de Monstro (GDD design/gdd/cartas.md §8, lista cartas-ato1.md): uma carta por monstro elegível do Ato I, grupos de 3
+## em encaixes diferentes, encaixar/tirar (grátis), teto de núcleos, combos nos stats, sorteio com rng fixo, bestiário,
+## save no TEST_SLOT, bots nunca encaixam e os ganchos (família, ouro, dash, cura no abate). `--only=cards`
+func _check_cards(gd, sim, save) -> void:
+	# 1) elegíveis do Ato I: XP > 0, nível <= 30, não é forma de metamorfose nem Eco, nasce só em mapa até o 30 (ou investida)
+	var forms := {}
+	for mid in gd.monsters:
+		for f in gd.monsters[mid].shift_forms:
+			forms[str(f.get("form", ""))] = true
+	var want: Array = []
+	for mid in gd.monsters:
+		var md: MonsterDef = gd.monsters[mid]
+		if md.xp <= 0 or md.level > 30 or md.dummy or forms.has(mid) or CardsCatalog.ECHOES.has(mid) or md.elite_of != "":
+			continue
+		var ok := true
+		for m in CardSystem.maps_of(mid):
+			if gd.maps[m].level_range.y > 30:
+				ok = false
+		if ok:
+			want.append(mid)
+	var by_mob := {}
+	for cid in gd.cards:
+		var cd: CardDef = gd.cards[cid]
+		by_mob[cd.monster_id] = int(by_mob.get(cd.monster_id, 0)) + 1
+	var missing: Array = want.filter(func(m): return int(by_mob.get(m, 0)) != 1)
+	var extra: Array = by_mob.keys().filter(func(m): return not (m in want))
+	check(missing.is_empty() and extra.is_empty(), "cards: uma carta por monstro elegível do Ato I (faltam/repetidas %s, sobram %s)" % [missing, extra])
+	check(gd.cards.size() == want.size(), "cards: %d cartas = %d elegíveis" % [gd.cards.size(), want.size()])
+	for e in CardsCatalog.ECHOES:
+		check(gd.card_of.get(e, "") == "card_" + CardsCatalog.ECHOES[e], "cards: Eco %s dá a carta do chefe" % e)
+	# 2) grupos, núcleos e números
+	var groups := {}
+	var n_common := 0
+	var n_core := 0
+	var bad: Array = []
+	for cid in gd.cards:
+		var cd: CardDef = gd.cards[cid]
+		if not (cd.slot in Balance.CARD_SLOTS) or cd.value <= 0.0 or not gd.items.has(cid) or gd.items[cid].type != ItemDef.Type.CARD:
+			bad.append(cid)
+		if cd.effect in ["family_dmg", "family_def"] and not CardsCatalog.FAMILY.has(cd.family):
+			bad.append(cid)
+		if cd.core:
+			n_core += 1
+			if cd.group != "":
+				bad.append(cid)
+		else:
+			n_common += 1
+			if not groups.has(cd.group):
+				groups[cd.group] = []
+			groups[cd.group].append(cd.slot)
+		if not gd.card_family.has(cd.monster_id):
+			bad.append(cid + ":familia")
+		if CardsCatalog.describe(cd.effect, cd.value, cd.family).begins_with(cd.effect):
+			bad.append(cid + ":texto")
+	check(bad.is_empty(), "cards: encaixe, número, item, família e texto de toda carta (%s)" % [bad])
+	var bad_g: Array = []
+	for g in groups:
+		var slots: Array = groups[g]
+		var uniq := {}
+		for s in slots:
+			uniq[s] = true
+		if slots.size() != 3 or uniq.size() != 3 or not Balance.CARD_GROUP_BONUS.has(g) or not CardsCatalog.GROUP_NAMES.has(g):
+			bad_g.append(g)
+	for g in Balance.CARD_GROUP_BONUS:
+		if not groups.has(g):
+			bad_g.append(g)
+	check(bad_g.is_empty(), "cards: todo grupo tem 3 comuns em encaixes diferentes e bônus de 2/3 (%s)" % [bad_g])
+	check(n_common == 75 and n_core == 34 and groups.size() == 25, "cards: Ato I = 75 comuns, 34 núcleos, 25 grupos (%d/%d/%d)" % [n_common, n_core, groups.size()])
+	var unk: Array = CatalogUtil.unknown_keys.filter(func(k): return str(k).begins_with("CardDef"))
+	check(unk.is_empty(), "cards: CardDef sem chave desconhecida (%s)" % [unk])
+	# 3) encaixar / tirar / núcleos
+	var p: SimEntity = sim.player
+	var keep := [p.inventory.duplicate(), p.cards.duplicate(), p.bestiary.duplicate(), p.gold, p.map_id]
+	p.inventory.clear()
+	p.cards.clear()
+	CardSystem.refresh(p)
+	p.add_item("card_wolf", 1)
+	check(sim.card_socket(p, "weapon", "card_wolf") != "" and p.has_item("card_wolf"), "cards: carta de botas não entra no encaixe da arma")
+	var spd0: float = p.stats.move_speed
+	check(sim.card_socket(p, "boots", "card_wolf") == "" and not p.has_item("card_wolf") and p.cards.get("boots") == "card_wolf", "cards: encaixa no encaixe dela e sai da bolsa")
+	var t1: float = Balance.CARD_COMMON["speed_pct"][0]
+	check(is_equal_approx(p.stats.move_speed, spd0 * (1.0 + t1 / 100.0)), "cards: Lobo dá +%.0f%% de velocidade (%.3f -> %.3f)" % [t1, spd0, p.stats.move_speed])
+	var gold0 := p.gold
+	check(sim.card_unsocket(p, "boots") == "" and p.has_item("card_wolf") and p.cards.is_empty() and p.gold == gold0 and p.card_fx.is_empty(), "cards: tirar volta para a bolsa de graça")
+	check(is_equal_approx(p.stats.move_speed, spd0), "cards: sem carta a velocidade volta")
+	for c in ["card_boar_king", "card_golem_ancient", "card_bone_captain"]:
+		p.add_item(c, 1)
+	check(sim.card_socket(p, "weapon", "card_boar_king") == "" and sim.card_socket(p, "chest", "card_golem_ancient") == "", "cards: dois núcleos entram")
+	check(sim.card_socket(p, "head", "card_bone_captain") != "" and not p.cards.has("head"), "cards: o 3º núcleo é recusado (CARD_CORE_MAX %d)" % Balance.CARD_CORE_MAX)
+	p.add_item("card_count_vargo", 1)
+	check(sim.card_socket(p, "weapon", "card_count_vargo") == "" and p.has_item("card_boar_king") and p.cards["weapon"] == "card_count_vargo", "cards: trocar núcleo no mesmo encaixe vale e o antigo volta")
+	p.cards.clear()
+	p.inventory.clear()
+	CardSystem.refresh(p)
+	# 4) combos (Matilha: Lobo botas, Lobo do Bosque arma, Lobo Pútrido acessório)
+	for c in ["card_wolf", "card_grove_wolf", "card_rot_wolf"]:
+		p.add_item(c, 1)
+	sim.card_socket(p, "boots", "card_wolf")
+	var as0: float = p.stats.attack_speed
+	sim.card_socket(p, "weapon", "card_grove_wolf")
+	var b2: Dictionary = Balance.CARD_GROUP_BONUS["wolf_pack"][0]
+	check(is_equal_approx(float(p.card_fx["stats"].get("speed_pct", 0.0)), t1 + float(b2["speed_pct"])), "cards: 2 da Matilha ligam o bônus de 2 (%s)" % str(p.card_fx["stats"]))
+	sim.card_socket(p, "accessory", "card_rot_wolf")
+	var b3: Dictionary = Balance.CARD_GROUP_BONUS["wolf_pack"][1]
+	check(is_equal_approx(p.stats.attack_speed, minf(as0 + float(b3["aspd_pct"]), Balance.ATTACK_SPEED_CAP)) and CardSystem.group_counts(p)["wolf_pack"] == 3, "cards: as 3 ligam o bônus de 3 (vel. de ataque %.1f -> %.1f)" % [as0, p.stats.attack_speed])
+	check(p.stats.xp_pct >= float(Balance.CARD_COMMON["xp_pct"][2]) - 0.001, "cards: Lobo Pútrido soma xp_pct (stat das Poções de Caça)")
+	p.cards.clear()
+	p.inventory.clear()
+	CardSystem.refresh(p)
+	# 5) sorteio (rng fixo) e bestiário
+	var at: Vector3 = p.position + Vector3(3, 0, 0)
+	var wolf: SimEntity = sim.spawn_monster(gd.monsters["wolf"], p.map_id, at)
+	wolf.brain = null
+	var m: Dictionary = sim.maps[p.map_id]
+	var n_loot: int = m["loot"].size()
+	CardSystem.on_kill(sim, [p], wolf, 0)
+	check(m["loot"].size() == n_loot and int(p.bestiary.get("wolf", 0)) & CardSystem.SEEN != 0, "cards: sem sorteio nada cai, mas o Lobo fica visto")
+	CardSystem.on_kill(sim, [p], wolf, 1)
+	var l: Dictionary = m["loot"].back() if m["loot"].size() > n_loot else {}
+	check(l.get("item", "") == "card_wolf" and int(l.get("owner", -1)) == p.id and l.get("card", false), "cards: carta cai como baú preso ao dono")
+	var bt: SimEntity = sim.spawn_bot(gd.classes["ranger"], "CartaOutro", p.map_id, at + Vector3(1, 0, 0), 10)
+	bt.brain = null
+	check(not LootSystem.can_loot(sim, bt, l) and LootSystem.can_loot(sim, p, l), "cards: só o dono pega antes do tempo")
+	LootSystem.pickup(sim, p, l)
+	m["loot"].erase(l)
+	check(p.has_item("card_wolf") and int(p.bestiary.get("wolf", 0)) & CardSystem.FOUND != 0, "cards: pegar marca achada no bestiário")
+	check(is_equal_approx(CardSystem.drop_chance(sim, p, wolf, "card_wolf"), minf(Balance.CARD_CHANCE_COMMON * LootSystem.drop_mult(p), 1.0)), "cards: chance comum = CARD_CHANCE_COMMON")
+	var king_def: MonsterDef = gd.monsters["wolf"].duplicate()
+	king_def.id = "wolf_king_test"
+	king_def.elite_of = "wolf"
+	var king: SimEntity = sim.spawn_monster(king_def, p.map_id, at + Vector3(0, 0, 2))
+	king.brain = null
+	check(CardSystem.card_for_mob(king) == "card_wolf" and is_equal_approx(CardSystem.drop_chance(sim, p, king, "card_wolf"), minf(Balance.CARD_CHANCE_COMMON * Balance.CARD_ELITE_MULT * LootSystem.drop_mult(p), 1.0)), "cards: Rei dá a carta da base com chance x%.0f" % Balance.CARD_ELITE_MULT)
+	var boss: SimEntity = sim.spawn_monster(gd.monsters["bear_mother"], p.map_id, at + Vector3(0, 0, -2))
+	boss.brain = null
+	check(is_equal_approx(CardSystem.drop_chance(sim, p, boss, "card_bear_mother"), minf(Balance.CARD_CHANCE_BOSS * LootSystem.drop_mult(p), 1.0)), "cards: chefe usa CARD_CHANCE_BOSS")
+	var minion: SimEntity = sim.spawn_monster(gd.monsters["wolf"], p.map_id, at + Vector3(2, 0, 2))
+	minion.brain = null
+	minion.boss_id = boss.id
+	check(CardSystem.card_for_mob(minion) == "" and CardSystem.card_for_mob(sim.spawn_monster(gd.monsters["bone_servant"], p.map_id, at)) == "", "cards: lacaio de chefe e monstro sem carta não sorteiam")
+	# sorteio real: com rng fixo, 9000 abates dão perto de 9000 x CARD_CHANCE_COMMON cartas
+	var hits := 0
+	var roll_chance: float = CardSystem.drop_chance(sim, p, wolf, "card_wolf")
+	for i in range(9000):
+		if sim.rng.randf() < roll_chance:
+			hits += 1
+	var card_want: float = 9000.0 * roll_chance
+	check(hits > card_want * 0.5 and hits < card_want * 1.5, "cards: 9000 sorteios com rng fixo dão %d cartas (~%.0f)" % [hits, card_want])
+	# 6) save TEST_SLOT
+	p.cards = {}
+	p.add_item("card_crab", 1)
+	sim.card_socket(p, "offhand", "card_crab")
+	p.bestiary["slime"] = CardSystem.SEEN
+	var keep_slot: int = save.slot
+	save.slot = TEST_SLOT
+	save.save_player(p)
+	var d: Dictionary = save.load_data()
+	var back: SimEntity = sim.spawn_bot(gd.classes[p.class_def.id], "CartaVolta", p.map_id, at + Vector3(0, 0, 4), p.level)
+	back.brain = null
+	save.apply_to(back, d)
+	check(back.cards == p.cards and back.bestiary == p.bestiary and not back.card_fx.is_empty(), "cards: save grava e lê encaixes e bestiário (%s %s)" % [back.cards, back.bestiary])
+	var old := d.duplicate(true)
+	old.erase("cards")
+	old.erase("bestiary")
+	save.apply_to(back, old)
+	check(back.cards.is_empty() and back.bestiary.is_empty() and back.card_fx.is_empty(), "cards: save antigo sem os campos = vazio")
+	var gone := d.duplicate(true)
+	gone["cards"] = {"boots": "card_nao_existe", "weapon": "card_wolf"}
+	save.apply_to(back, gone)
+	check(back.cards.is_empty(), "cards: carta que não existe (ou no encaixe errado) some ao carregar")
+	save.delete_slot(TEST_SLOT)
+	save.slot = keep_slot
+	# 7) bots nunca encaixam
+	var bot: SimEntity = sim.spawn_bot(gd.classes["paladin"], "CartaBot", p.map_id, at + Vector3(0, 0, 6), 10)
+	bot.brain = null
+	bot.add_item("card_wolf", 1)
+	check(sim.card_socket(bot, "boots", "card_wolf") != "" and bot.cards.is_empty() and bot.has_item("card_wolf"), "cards: bot não encaixa (fica na bolsa)")
+	# 8) ganchos: família, ouro, dash, cura no abate
+	p.cards = {}
+	p.inventory.clear()
+	p.add_item("card_bone_archer", 1)
+	p.add_item("card_bone_recruit", 1)
+	sim.card_socket(p, "weapon", "card_bone_archer")
+	sim.card_socket(p, "offhand", "card_bone_recruit")
+	var zombie: SimEntity = sim.spawn_monster(gd.monsters["zombie"], p.map_id, at + Vector3(-2, 0, 0))
+	zombie.brain = null
+	var fam_dmg: float = Balance.CARD_COMMON["family_dmg"][0] + float(Balance.CARD_GROUP_BONUS["catacomb_dead"][0]["family_dmg"]["undead"])
+	check(is_equal_approx(CardSystem.damage_mult(p, zombie), 1.0 + fam_dmg / 100.0), "cards: +%.0f%% de dano em morto-vivo (carta + combo)" % fam_dmg)
+	check(is_equal_approx(CardSystem.damage_mult(zombie, p), 1.0 - Balance.CARD_COMMON["family_def"][0] / 100.0), "cards: -%.0f%% de dano de morto-vivo" % Balance.CARD_COMMON["family_def"][0])
+	check(is_equal_approx(CardSystem.damage_mult(p, wolf), 1.0), "cards: família errada não muda o dano")
+	var d0: float = float(sim.dash_params(p)["distance"])
+	p.cards = {}
+	p.add_item("card_bear_cub", 1)
+	p.add_item("card_hive", 1)
+	p.add_item("card_slime_king", 1)
+	sim.card_socket(p, "boots", "card_bear_cub")
+	sim.card_socket(p, "accessory", "card_hive")
+	check(is_equal_approx(float(sim.dash_params(p)["distance"]), d0 * (1.0 + Balance.CARD_COMMON["dash_pct"][0] / 100.0)), "cards: Filhote de Urso +%.0f%% de dash" % Balance.CARD_COMMON["dash_pct"][0])
+	var g0 := p.gold
+	LootSystem.pickup(sim, p, {"item": "gold", "count": 100})
+	check(p.gold - g0 == int(100 * (1.0 + Balance.CARD_COMMON["gold_pct"][0] / 100.0)), "cards: Colmeia +%.0f%% de ouro de monstro (%d)" % [Balance.CARD_COMMON["gold_pct"][0], p.gold - g0])
+	sim.card_unsocket(p, "accessory")
+	sim.card_socket(p, "accessory", "card_slime_king")
+	p.hp = p.stats.max_hp * 0.5
+	var hp0: float = p.hp
+	CardSystem.on_kill(sim, [p], zombie, 0)
+	check(is_equal_approx(p.hp, hp0 + p.stats.max_hp * Balance.CARD_CORE["kill_heal"][1] / 100.0), "cards: Rei Slime cura %.0f%% da vida no abate" % Balance.CARD_CORE["kill_heal"][1])
+	# 9) bestiário: títulos por mapa completo
+	p.bestiary = {}
+	check(CardSystem.titles(p).is_empty(), "cards: sem cartas, sem título")
+	for cid in CardSystem.cards_of_map("field_crab_beach"):
+		p.bestiary[gd.cards[cid].monster_id] = CardSystem.SEEN | CardSystem.FOUND
+	var tl: Array = CardSystem.titles(p)
+	check(tl.size() == 1 and tl[0]["map"] == "field_crab_beach", "cards: Praia completa dá o título (%s)" % [tl])
+	check(CardUi.zones(p).size() > 10, "cards: bestiário lista as zonas do Ato I")
+	p.inventory = keep[0]; p.cards = keep[1]; p.bestiary = keep[2]; p.gold = keep[3]
+	CardSystem.refresh(p)
+
+## Arte das Cartas (GDD cartas.md §9.4): toda carta do Ato I (GameData.cards; sem catálogo, a regra do §3.1 em
+## card_icons.gd) tem a foto assets/icons/card_<monstro>.png. Refazer: tools/icons/card_icons.tscn -- --band=1-30. `--only=card_icons`
+func _check_card_icons(gd) -> void:
+	var tool = load("res://tools/icons/card_icons.gd")
+	check(tool != null, "card_icons: card_icons.gd carrega")
+	if tool == null:
+		return
+	var ids: Array = tool.card_monsters(1, 30)
+	check(ids.size() > 0, "card_icons: há monstros com carta no Ato I")
+	var missing: Array = []
+	for mid in ids:
+		if not ResourceLoader.exists("res://assets/icons/card_%s.png" % mid):
+			missing.append(mid)
+	check(missing.is_empty(), "card_icons: carta do Ato I sem arte (rode card_icons.tscn -- --only=...): %s" % [missing])
+	for cid in gd.cards:
+		var m: MonsterDef = gd.monsters.get(gd.cards[cid].monster_id)
+		if m and m.level <= 30:
+			check(ids.has(m.id), "card_icons: carta %s do Ato I está na lista da ferramenta" % cid)
+
 func _check_loading_art(gd) -> void:
 	var missing: Array = []
 	for mid in gd.maps:
@@ -3336,12 +3750,18 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_key_bindings(sim)
 	_reseed(sim, "_check_auto_potion")
 	_check_auto_potion(gd, sim, save)
+	_reseed(sim, "_check_hunt_potions")
+	_check_hunt_potions(gd, sim, save)
+	_reseed(sim, "_check_cards")
+	_check_cards(gd, sim, save)
 	_reseed(sim, "_check_vfx_v3v5")
 	_check_vfx_v3v5()
 	_reseed(sim, "_check_loading_steps")
 	_check_loading_steps()
 	_reseed(sim, "_check_loading_art")
 	_check_loading_art(gd)
+	_reseed(sim, "_check_card_icons")
+	_check_card_icons(gd)
 	_reseed(sim, "_check_title_screen")
 	_check_title_screen(sim, save)
 	_reseed(sim, "_check_form_clips")

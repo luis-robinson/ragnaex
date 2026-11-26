@@ -20,6 +20,9 @@ var bot_names: Array = []
 var bot_lines: Dictionary = {}
 var bot_chat: Dictionary = {}    # "<tipo>:<chave>" -> falas (BotsCatalog.pools, escolhidas por BotChat)
 var _basic_cache: Dictionary = {}
+var cards: Dictionary = {}        # id da carta ("card_<monstro>") -> CardDef (CardsCatalog; GDD cartas.md)
+var card_family: Dictionary = {}  # monster_id -> família (CardsCatalog.FAMILY; family_dmg/family_def)
+var card_of: Dictionary = {}      # monster_id -> id da carta (Ecos de chefe apontam para a do chefe)
 var ultimates: Dictionary = {}    # class_id -> {build_id -> skill_id} (Supremas do 40, SkillDef.ultimate; UltimateSystem)
 var basic_skills: Dictionary = {}   # id -> SkillDef dos básicos gerados (o FX acha o tema por aqui)
 
@@ -81,6 +84,16 @@ func load_all() -> void:
 	_scale_attrs()
 	for m in MonstersCatalog.build():
 		monsters[m.id] = m
+	for c in CardsCatalog.build(monsters):          # Cartas de Monstro: uma por monstro + o item da bolsa
+		cards[c.id] = c
+		card_of[c.monster_id] = c.id
+		items[c.id] = CardsCatalog.item_for(c)
+	for f in CardsCatalog.FAMILY:
+		for fm in CardsCatalog.FAMILY[f]:
+			card_family[fm] = f
+	for echo in CardsCatalog.ECHOES:
+		if card_of.has(CardsCatalog.ECHOES[echo]):
+			card_of[echo] = card_of[CardsCatalog.ECHOES[echo]]
 	for l in MonstersCatalog.build_loot():
 		loot_tables[l.id] = l
 	for q in QuestsCatalog.build():

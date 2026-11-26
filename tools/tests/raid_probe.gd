@@ -30,6 +30,7 @@ var quests: PackedStringArray = []   # --quests=<id,...>: quests feitas (WorldSt
 
 func _ready() -> void:
 	await get_tree().process_frame
+	HuntPotionSystem.bots_drink = false        # calibragem sem Poção de Caça (design/gdd/pocoes-de-caca.md §3.5)
 	var trials := 20
 	var bot_counts := [0, 1, 3]
 	var level := 15

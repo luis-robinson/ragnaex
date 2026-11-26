@@ -147,7 +147,7 @@ static func _bag_note(sim: WorldSim, e: SimEntity, text: String) -> void:
 static func roll_legendary(sim: WorldSim, killer: SimEntity, mob: SimEntity) -> String:
 	if killer == null or not killer.is_character():
 		return ""
-	if sim.rng.randf() >= legendary_chance(sim, mob):
+	if sim.rng.randf() >= minf(1.0, legendary_chance(sim, mob) * LootSystem.drop_mult(killer)):     # Elixir da Fortuna
 		return ""
 	return "legend_coin"            # o lendário vira Moeda Lendária (troca na Relicária: WorldSim.relic_exchange)
 
@@ -410,6 +410,10 @@ static func use_potion(sim: WorldSim, e: SimEntity, slot: int) -> bool:
 			Events.post(&"notification", "Sem poção nesse slot")
 		return false
 	var item: ItemDef = GameData.items[item_id]
+	if item.consume.get("buff") is Dictionary and HuntPotionSystem.weaker(e, item.consume["buff"]):
+		if e == sim.player:                 # Poção de Caça mais fraca que a ativa: recusa, não gasta (decisão 2026-11-26)
+			Events.post(&"notification", "Você já está sob um efeito mais forte")
+		return false
 	e.remove_item(item_id, 1)
 	e.potion_cds[slot] = item.consume_cooldown          # recarga só deste atalho (F1/F2/F3 são independentes)
 	var c := item.consume

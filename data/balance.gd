@@ -2386,3 +2386,78 @@ const DAWN_ECHO_HP := 0.75          # eco do chefe: vida x (repetível, grupo me
 const DAWN_ECHO_ATK := 1.05         # ataque x (nível 2-3 acima do original, menos o Morvath)
 const DAWN_ECHO_XP := 0.5           # XP x (repetível: metade da primeira vez)
 const DAWN_ECHO_RESPAWN := 600.0    # s até o eco voltar ao fundo do forte (antes de SPAWN_RESPAWN_MULT)
+
+# ---- Poções de Caça (design/gdd/pocoes-de-caca.md §4/§7) ----
+const XP_PCT_CAP := 60.0            # teto de +% de XP de abate somando todas as fontes (poção, Colônia de Pé, cartas)
+const DROP_PCT_CAP := 100.0         # teto de +% de chance de saque (equipamento, Moeda Lendária, cartas; ouro e material não)
+const HUNT_POTION_TIME := 1800.0    # s de jogo (30 min); não estica com buff_duration, morrer não tira
+const HUNT_POTION_CD := 6.0         # s de recarga do atalho depois de tomar
+## Grau (Menor, Comum, Maior) -> [nível para fazer, ouro da receita, +% XP do Saber, +% saque da Fortuna, preço de venda]
+const HUNT_POTION_GRADES := [[5, 30, 15.0, 20.0, 20], [20, 150, 25.0, 35.0, 80], [35, 400, 35.0, 50.0, 200]]
+const BOT_HUNT_POTION_CHANCE := 0.2 # chance de um bot tomar uma ao chegar no mapa de caça (paga o ouro da receita)
+
+# --- Cartas de Monstro (GDD design/gdd/cartas.md §4/§7; lista do Ato I em cartas-ato1.md) ---
+const CARD_SLOTS := ["weapon", "offhand", "head", "chest", "boots", "accessory"]     # encaixes do personagem (ordem da janela C)
+const CARD_CHANCE_COMMON := 1.0 / 250.0    # carta comum por abate (D3: ~2-3 cartas/h a ~700 abates/h medidos; usuário 2026-11-26)
+const CARD_CHANCE_CORE := 1.0 / 2000.0     # núcleo de monstro comum (mesma escala do comum)
+const CARD_CHANCE_BOSS := 1.0 / 12.0       # núcleo de chefe
+const CARD_CHANCE_ECHO := 1.0 / 24.0       # Eco de chefe: a carta do chefe original
+const CARD_ELITE_MULT := 10.0              # Rei (elite_of) da base
+const CARD_CORE_MAX := 2                   # núcleos encaixados ao mesmo tempo (D8)
+const CARD_TIER_LEVELS := [10, 20]         # nível do monstro <= 10 = T1, <= 20 = T2, acima = T3
+const CARD_FAMILY_DEF_CAP := 25.0          # teto do -% de dano recebido de uma família
+const CARD_POISON_ATK_PCT := 15.0          # proc_poison: dps = % do maior entre ATK/MATK
+const CARD_POISON_S := 4.0
+const CARD_SLOW_PCT := 25.0                # proc_slow
+const CARD_SLOW_S := 2.0
+const CARD_STUN_S := 0.8                   # proc_stun (núcleo)
+const CARD_PRICE_COMMON := 30              # preço da carta (o mercador paga a fração de venda de sempre)
+const CARD_PRICE_CORE := 120
+const CARD_LOOT_TIME := 120.0              # s que o baú da carta fica no chão
+const CARD_LOCK_TIME := 110.0              # s presa ao dono (regra do lendário)
+## Efeito comum -> [T1, T2, T3]
+const CARD_COMMON := {
+	"family_dmg": [6.0, 8.0, 10.0], "family_def": [5.0, 7.0, 9.0], "proc_poison": [6.0, 8.0, 10.0], "proc_slow": [8.0, 10.0, 12.0],
+	"crit": [1.0, 1.5, 2.0], "thorns": [4.0, 6.0, 8.0], "block": [2.0, 3.0, 4.0], "cc_resist_pct": [8.0, 10.0, 12.0],
+	"mp_regen_combat": [0.2, 0.3, 0.4], "xp_pct": [3.0, 4.0, 5.0], "hp_pct": [2.0, 3.0, 4.0], "def_pct": [3.0, 4.0, 5.0],
+	"heal_taken_pct": [4.0, 5.0, 6.0], "speed_pct": [3.0, 4.0, 5.0], "dash_pct": [8.0, 10.0, 12.0], "evasion": [1.0, 1.5, 2.0],
+	"gold_pct": [6.0, 8.0, 10.0], "mp_on_kill": [2.0, 3.0, 4.0], "lifesteal": [0.5, 0.75, 1.0]}
+## Efeito de núcleo -> [T1, T2, T3]
+const CARD_CORE := {
+	"dr_pct": [6.0, 8.0, 10.0], "kill_heal": [2.0, 3.0, 4.0], "proc_stun": [3.0, 4.0, 5.0], "hp_pct": [5.0, 7.0, 9.0],
+	"def_pct": [8.0, 10.0, 12.0], "atk_pct": [4.0, 5.0, 6.0], "matk_pct": [4.0, 5.0, 6.0], "lifesteal": [2.0, 3.0, 4.0],
+	"cdr": [4.0, 6.0, 8.0], "crit": [3.0, 4.0, 5.0], "crit_dmg_pct": [10.0, 15.0, 20.0], "aspd_pct": [5.0, 7.0, 9.0],
+	"dot_pct": [8.0, 12.0, 16.0], "low_dr": [10.0, 15.0, 20.0], "low_leech": [4.0, 5.0, 6.0], "cc_resist_pct": [20.0, 25.0, 30.0],
+	"heal_pct": [5.0, 7.0, 9.0], "heal_taken_pct": [8.0, 10.0, 12.0], "buff_pct": [10.0, 15.0, 20.0],
+	"summon_time_pct": [10.0, 15.0, 20.0], "pet_pct": [8.0, 12.0, 16.0], "mp_cost_pct": [6.0, 9.0, 12.0],
+	"mp_regen_combat": [0.6, 0.8, 1.0], "frost_pct": [6.0, 8.0, 10.0], "fire_pct": [6.0, 8.0, 10.0], "thorns": [10.0, 15.0, 20.0],
+	"block": [4.0, 6.0, 8.0], "speed_pct": [6.0, 8.0, 10.0], "evasion": [3.0, 4.0, 5.0], "threat_pct": [15.0, 20.0, 25.0],
+	"backstab": [8.0, 10.0, 12.0], "gold_pct": [15.0, 20.0, 25.0]}
+## Combos (D7): grupo -> [bônus com 2 do grupo, bônus a mais com as 3]. Chaves de Stats.STAT_KEYS ou ganchos das cartas
+## (family_dmg/family_def = {família: %}).
+const CARD_GROUP_BONUS := {
+	"aldara_fields": [{"hp_pct": 2.0}, {"mp_pct": 5.0}],
+	"crab_beach": [{"def_pct": 3.0}, {"thorns": 6.0}],
+	"hollow_swarm": [{"crit": 1.0}, {"dot_pct": 8.0}],
+	"bears": [{"hp_pct": 3.0}, {"low_dr": 8.0}],
+	"wolf_pack": [{"speed_pct": 3.0}, {"aspd_pct": 5.0}],
+	"catacomb_dead": [{"family_dmg": {"undead": 4.0}}, {"cc_resist_pct": 10.0}],
+	"wraiths": [{"evasion": 1.0}, {"mp_cost_pct": 6.0}],
+	"quarry_golems": [{"def_pct": 3.0}, {"dr_pct": 3.0}],
+	"road_gang": [{"gold_pct": 5.0}, {"backstab": 8.0}],
+	"outlaws": [{"atk_pct": 2.0, "matk_pct": 2.0}, {"crit_dmg_pct": 8.0}],
+	"spiders": [{"dot_pct": 5.0}, {"hit_slow": 15.0}],
+	"woken_grove": [{"heal_taken_pct": 5.0}, {"hp_pct": 4.0}],
+	"elf_beasts": [{"pet_pct": 8.0}, {"dash_pct": 10.0}],
+	"marsh": [{"lifesteal": 0.5}, {"heal_pct": 5.0}],
+	"grove_circle": [{"summon_time_pct": 10.0}, {"heal_pct": 5.0}],
+	"elf_scouts": [{"family_def": {"elf": 4.0}}, {"atk_pct": 3.0, "matk_pct": 3.0}],
+	"tree_guard": [{"crit": 1.0}, {"dr_pct": 3.0}],
+	"ghouls": [{"lifesteal": 0.5}, {"low_leech": 4.0}],
+	"rot": [{"hp_pct": 3.0}, {"dot_pct": 10.0}],
+	"bone_legion": [{"def_pct": 3.0}, {"block": 3.0}],
+	"masterless": [{"cdr": 3.0}, {"crit_dmg_pct": 10.0}],
+	"lich_cult": [{"matk_pct": 3.0}, {"mp_cost_pct": 8.0}],
+	"gravediggers": [{"gold_pct": 8.0}, {"xp_pct": 5.0}],
+	"oathsworn": [{"evasion": 1.5}, {"dr_pct": 3.0}],
+	"velthar_archive": [{"cdr": 3.0}, {"atk_pct": 3.0, "matk_pct": 3.0}]}

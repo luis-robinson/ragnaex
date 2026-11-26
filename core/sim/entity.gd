@@ -182,6 +182,12 @@ var build_id: String = ""            # bots: build escolhida (guia equipamento/s
 var knows_game := true               # "Já conheço o jogo": tudo aberto (bots, testes, dev); false = introdução (UnlockSystem)
 var unlocked: Dictionary = {}        # sistema (Balance.UNLOCK_LEVELS) -> true: já abertos na introdução (salvo)
 var inventory: Dictionary = {}       # item_id -> count
+## Cartas de Monstro (CardSystem; GDD cartas.md): encaixe (Balance.CARD_SLOTS) -> id da carta. Só o jogador encaixa.
+var cards: Dictionary = {}
+## Bestiário: monster_id -> bits (1 = visto, 2 = carta achada). Salvo.
+var bestiary: Dictionary = {}
+## Efeitos somados das cartas encaixadas + combos (CardSystem.refresh; fora do save). Vazio = nenhuma carta.
+var card_fx: Dictionary = {}
 var leg_cast_at: float = 0.0       # arma lendária que lança magia: quando pode lançar de novo (Balance.LEG_CAST_ICD)
 var sig_ready_at: float = 0.0      # efeito-assinatura da build: quando pode disparar de novo (Balance.SIGNATURE_ICD)
 var legend_ready_at: float = 0.0   # arma lendária: quando o efeito com recarga (icd) pode disparar de novo
@@ -371,6 +377,8 @@ func recompute_stats() -> void:
 			stats.max_hp = summon_hp
 	else:
 		var extra: Array = [tree_bonus] if not tree_bonus.is_empty() else []
+		if not card_fx.is_empty():
+			extra.append(card_fx["stats"])          # cartas encaixadas + combos (CardSystem)
 		if form != "":
 			extra.append(scaled_bonus(Balance.FORM_STATS[form], form_mult))
 			if ct.has("form_stats"):
@@ -379,7 +387,7 @@ func recompute_stats() -> void:
 		stats = Stats.compute(class_def, level, equipment, buffs + extra)
 		if form != "" and not stats.meets([Balance.FORM_REQUIRES[form]]):
 			form = ""                # trocou de arma: volta à forma humana
-			stats = Stats.compute(class_def, level, equipment, buffs + ([tree_bonus] if not tree_bonus.is_empty() else []))
+			stats = Stats.compute(class_def, level, equipment, buffs + ([tree_bonus] if not tree_bonus.is_empty() else []) + ([card_fx["stats"]] if not card_fx.is_empty() else []))
 		TitanSystem.apply(self, stats)          # Garras de Titã (Punhos ascendido)
 		if class_def:
 			basic_skill = GameData.basic_skill_for_class(class_def, stats.weapon_type, stats.offhand_type, LegendEffects.signature_build(self))

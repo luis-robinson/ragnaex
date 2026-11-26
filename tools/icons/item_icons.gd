@@ -61,6 +61,10 @@ static func art_key(it: ItemDef) -> String:
 	if it.type == ItemDef.Type.CONSUMABLE:
 		if it.id.begins_with("bag_"):
 			return "bag"
+		if it.id.begins_with("hunt_xp"):
+			return "tonic"              # Poções de Caça: Tônico do Saber
+		if it.id.begins_with("hunt_drop"):
+			return "fortune"            # Elixir da Fortuna
 		if it.id.begins_with("elixir"):
 			return "elixir"
 		if it.id.contains("wine"):
@@ -946,6 +950,47 @@ func _a_elixir() -> void:
 	_poly([-0.24, -0.86, 0.24, -0.86, 0.2, -0.7, -0.2, -0.7], "gold", 0.04, 0.04)
 	_circ(0, -0.98, 0.12, "gold")
 	_shine(-0.3, 0.42, 0.06, 0.18, 0.6)
+
+## Tônico do Saber (Poções de Caça): frasco alto e fino, estrela no líquido; pontos dourados = grau (raridade 1-3).
+func _a_tonic() -> void:
+	_poly([-0.36, -0.3, 0.36, -0.3, 0.42, 0.0, 0.42, 0.9, 0.32, 1.0, -0.32, 1.0, -0.42, 0.9, -0.42, 0.0], "glass", 0.055, 0.1)
+	if not _sil:
+		var body := _P([-0.34, 0.12, 0.34, 0.12, 0.34, 0.88, 0.26, 0.94, -0.26, 0.94, -0.34, 0.88])
+		_fill(body, _tint)
+		for d in Geometry2D.clip_polygons(body, _shift(body, _light_local() * 0.16)):
+			_fill(d, _tint.darkened(0.4))
+		_cv.draw_line(Vector2(-0.33, 0.12), Vector2(0.33, 0.12), _tint.lightened(0.45), 0.05, true)
+		var st: Array = []
+		for i in range(11):
+			var rr := 0.22 if i % 2 == 0 else 0.09
+			var a := -PI / 2.0 + i * TAU / 10.0
+			st.append(cos(a) * rr); st.append(0.52 + sin(a) * rr)
+		_mark(st, Color(1, 1, 1, 0.8), 0.04)
+	_poly([-0.14, -0.66, 0.14, -0.66, 0.14, -0.28, -0.14, -0.28], "glass", 0.04, 0.03)
+	_poly([-0.2, -0.98, 0.2, -0.98, 0.22, -0.64, -0.22, -0.64], "cork", 0.045, 0.05)
+	_grade_pips()
+	_shine(-0.28, 0.32, 0.05, 0.22, 0.6)
+
+## Elixir da Fortuna (Poções de Caça): frasco redondo com uma moeda de trevo boiando; pontos dourados = grau.
+func _a_fortune() -> void:
+	_ell(0, 0.34, 0.64, 0.62, "glass")
+	_liquid(0, 0.34, 0.64, 0.4)
+	_circ(0, 0.5, 0.22, "gold", 0.04)
+	if not _sil:
+		var leaf := Color(0.32, 0.62, 0.26)
+		for i in range(4):
+			var a := PI / 4.0 + i * PI / 2.0
+			_dot(cos(a) * 0.08, 0.5 + sin(a) * 0.08, 0.06, leaf)
+	_poly([-0.17, -0.62, 0.17, -0.62, 0.17, -0.24, -0.17, -0.24], "glass", 0.045, 0.04)
+	_poly([-0.24, -0.72, 0.24, -0.72, 0.24, -0.58, -0.24, -0.58], "gold", 0.04, 0.03)
+	_poly([-0.15, -0.98, 0.15, -0.98, 0.18, -0.7, -0.18, -0.7], "cork", 0.045, 0.05)
+	_grade_pips()
+	_shine(-0.34, 0.12, 0.1, 0.18, 0.7)
+
+## Grau da poção de caça: um ponto dourado por nível de raridade (1-3), à direita do gargalo.
+func _grade_pips() -> void:
+	for i in range(clampi(_r, 0, 3)):
+		_circ(0.6, -0.84 + i * 0.26, 0.09, "gold", 0.03)
 
 func _a_letter() -> void:
 	_poly([-0.9, -0.56, 0.9, -0.56, 0.9, 0.62, -0.9, 0.62], "paper", 0.055, 0.12)

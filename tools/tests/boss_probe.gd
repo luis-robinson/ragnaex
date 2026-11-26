@@ -288,6 +288,7 @@ class KiteBrain extends StayBrain:
 
 func _ready() -> void:
 	await get_tree().process_frame
+	HuntPotionSystem.bots_drink = false        # calibragem sem Poção de Caça (design/gdd/pocoes-de-caca.md §3.5)
 	WorldSim.bot_gear_legacy = DevArgs.has("--old_gear")
 	Sim.load_map(GameData.maps[GameData.town_map_id()])      # bot que morre renasce na cidade
 	var parties := [1, 3]

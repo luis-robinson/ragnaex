@@ -23,6 +23,7 @@ var flags := 0
 
 func _ready() -> void:
 	await get_tree().process_frame
+	HuntPotionSystem.bots_drink = false        # calibragem sem Poção de Caça (design/gdd/pocoes-de-caca.md §3.5)
 	var trials := 6
 	var only := ""
 	for a in OS.get_cmdline_user_args():

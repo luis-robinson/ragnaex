@@ -14,11 +14,11 @@ var _preview_model: Node3D = null       # prévia 3D da janela de personagem
 var _preview_yaw := 0.0
 var _preview_drag := 0.0
 
-const TITLES := {"inventory": "Bolsa", "character": "Personagem", "skills": "Teia de Skills", "quests": "Quests", "party": "Grupo", "book": "Skills"}
+const TITLES := {"inventory": "Bolsa", "character": "Personagem", "skills": "Teia de Skills", "quests": "Quests", "party": "Grupo", "book": "Skills", "bestiary": "Bestiário"}
 ## Janela -> ação do InputMap que a abre (a tecla de agora sai de KeyBindings).
 const KEYS := {"inventory": "ui_inventory", "character": "ui_character", "skills": "ui_skills", "quests": "ui_quests", "party": "ui_party", "book": "ui_book"}
 ## tamanho do conteúdo (a moldura soma título e bordas); base 1600×900
-const SIZES := {"inventory": Vector2(392, 470), "character": Vector2(566, 340), "skills": Vector2(1110, 720), "quests": Vector2(620, 600), "party": Vector2(430, 480), "book": Vector2(1010, 690)}
+const SIZES := {"inventory": Vector2(392, 470), "character": Vector2(566, 340), "skills": Vector2(1110, 720), "quests": Vector2(620, 600), "party": Vector2(430, 480), "book": Vector2(1010, 690), "bestiary": Vector2(520, 560)}
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -44,6 +44,7 @@ func _ready() -> void:
 	Events.quest_accepted.connect(func(id, _q): _maybe_refresh(id, ["quests"]))
 	Events.quest_completed.connect(func(id, _q): _maybe_refresh(id, ["quests"]))
 	Events.quest_abandoned.connect(func(id, _q): _maybe_refresh(id, ["quests"]))
+	Events.cards_changed.connect(func(id): _maybe_refresh(id, ["character", "inventory", "bestiary"]))     # Cartas de Monstro
 	Events.party_changed.connect(func(_p): _maybe_refresh(Sim.player.id if Sim.player else -1, ["party"]))
 
 func _maybe_refresh(entity_id: int, names: Array) -> void:
@@ -134,7 +135,7 @@ func _rebuild(name: String) -> void:
 	v.add_child(bar)
 	var hb := HBoxContainer.new()
 	bar.add_child(hb)
-	var t := UiKit.label("%s  [%s]" % [TITLES.get(name, name), KeyBindings.label(KEYS[name]) if KEYS.has(name) else ""], 15, UiKit.GOLD)
+	var t := UiKit.label(("%s  [%s]" % [TITLES.get(name, name), KeyBindings.label(KEYS[name])]) if KEYS.has(name) else str(TITLES.get(name, name)), 15, UiKit.GOLD)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hb.add_child(t)
@@ -157,6 +158,7 @@ func _rebuild(name: String) -> void:
 		"quests": _quests(body)
 		"party": _party(body)
 		"book": _book(body)
+		"bestiary": CardUi.bestiary(self, body)
 	panel.reset_size()
 	if pos.x < 0:
 		pos = _pos.get(name, _default_pos(name, panel.size))
@@ -364,6 +366,11 @@ func _drag_preview(it: ItemDef) -> Control:
 	return wrap
 
 func _drag_from_bag(_at: Vector2, it: ItemDef) -> Variant:
+	if it.type == ItemDef.Type.CARD:            # carta: para o encaixe dela na aba Cartas (janela C)
+		_dragging = true
+		hide_tip()
+		set_drag_preview(_drag_preview(it))
+		return {"rx_drag": "card", "item": it.id}
 	if not it.is_equipment() and not it.type == ItemDef.Type.CONSUMABLE:
 		return null             # equipamento vai para o boneco; consumível para F1-F3 da barra; bolsa para uma vaga de bolsa
 	_dragging = true
@@ -381,9 +388,14 @@ func _drag_from_slot(_at: Vector2, slot: int) -> Variant:
 	return {"rx_drag": "slot", "slot": slot}
 
 func _can_drop_on_bag(_at: Vector2, data: Variant) -> bool:
-	return data is Dictionary and data.get("rx_drag") == "slot"
+	return data is Dictionary and data.get("rx_drag") in ["slot", "card_slot"]
 
 func _drop_on_bag(_at: Vector2, data: Variant) -> void:
+	if data.get("rx_drag") == "card_slot":
+		var err := Sim.card_unsocket(Sim.player, str(data["slot"]))     # carta volta para a bolsa (grátis)
+		if err != "":
+			Events.notification.emit(err)
+		return
 	Sim.unequip(Sim.player, int(data["slot"]))
 
 ## O item cabe nesse slot do boneco? (mesmo slot; anel em qualquer dos dois; arma de 1 mão na secundária se a classe usa)
@@ -412,6 +424,8 @@ func _bag_glyph(it: ItemDef) -> String:
 		return _slot_glyph(it)
 	if it.type == ItemDef.Type.CONSUMABLE:
 		return "POÇ" if it.id.begins_with("potion") else "USO"
+	if it.type == ItemDef.Type.CARD:
+		return "CAR"
 	return it.name.substr(0, 3).to_upper()
 
 func _bag_hint(it: ItemDef) -> String:
@@ -421,6 +435,8 @@ func _bag_hint(it: ItemDef) -> String:
 		return "Clique: vestir numa vaga livre  ·  arraste sobre uma vaga para trocar"
 	if it.type == ItemDef.Type.CONSUMABLE:
 		return KeyBindings.fill("Clique: usar  ·  arraste para {potion_1} {potion_2} {potion_3} (ou Shift+clique)")
+	if it.type == ItemDef.Type.CARD:
+		return KeyBindings.fill("Clique ou arraste para a aba Cartas ({ui_character}): encaixar  ·  repetida: venda no mercador")
 	return "Material (venda no mercador ou use na forja)"
 
 func _on_item_click(it: ItemDef) -> void:
@@ -435,6 +451,9 @@ func _on_item_click(it: ItemDef) -> void:
 		Sim.set_potion_slot(p, slot, it.id)
 		Events.notification.emit("%s → F%d" % [it.name, slot + 1])
 		_rebuild("inventory")
+		return
+	if it.type == ItemDef.Type.CARD:
+		CardUi.click_card(it)
 		return
 	if it.is_equipment():
 		# Shift+clique numa arma de 1 mão: mão secundária (empunhar duas)
@@ -467,6 +486,7 @@ const ATTR_DESC := {"FOR": "+ATK físico · bloqueio", "AGI": "+arco/adaga · +c
 	"WILL": "+cura · +MP · +DEF mágica", "INT": "+dano mágico · +crítico mágico"}
 var _char_tab := "status"           # "status" | "sets"
 var char_slots := {}                # slot -> quadrado do boneco (checks e revisão)
+var card_sockets := {}              # encaixe de carta -> quadrado (aba Cartas; checks e revisão)
 
 func _character(body: VBoxContainer) -> void:
 	var p: SimEntity = Sim.player
@@ -518,14 +538,17 @@ func _character(body: VBoxContainer) -> void:
 	tabs.add_theme_constant_override("separation", 4)
 	side.add_child(tabs)
 	var n_sets := p.stats.active_sets.size()          # só conjuntos (a arma lendária não é conjunto nem peça)
-	for t in [["status", "Status"], ["sets", "Conjuntos" + (" (%d)" % n_sets if n_sets > 0 else "")]]:
-		var tb := UiKit.button(t[1], _set_char_tab.bind(t[0]), 110)
+	var n_cards := p.cards.size()
+	for t in [["status", "Status"], ["sets", "Conjuntos" + (" (%d)" % n_sets if n_sets > 0 else "")], ["cards", "Cartas" + (" (%d)" % n_cards if n_cards > 0 else "")]]:
+		var tb := UiKit.button(t[1], _set_char_tab.bind(t[0]), 90)
 		tb.toggle_mode = true
 		tb.button_pressed = _char_tab == t[0]
 		tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tabs.add_child(tb)
 	if _char_tab == "sets":
 		_char_sets(p, side)
+	elif _char_tab == "cards":
+		CardUi.sockets_tab(self, p, side)
 	else:
 		_char_status(p, side)
 

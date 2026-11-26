@@ -12,6 +12,7 @@ const DT := 1.0 / 20.0
 
 func _ready() -> void:
 	await get_tree().process_frame
+	HuntPotionSystem.bots_drink = false        # calibragem sem Poção de Caça (design/gdd/pocoes-de-caca.md §3.5)
 	var map_id := "field_crab_beach"
 	var n_bots := 1
 	var level := 5

@@ -73,6 +73,28 @@ static func _starter_items() -> Array:
 			out.append(d)
 	return out
 
+## Poções de Caça (design/gdd/pocoes-de-caca.md): nome e cor do líquido por tipo; o grau escurece/acende.
+const HUNT_NAMES := {"xp": "Tônico do Saber", "drop": "Elixir da Fortuna"}
+const HUNT_GRADE_NAMES := ["Menor", "Comum", "Maior"]
+const HUNT_COLORS := {"xp": Color(0.45, 0.62, 1.0), "drop": Color(1.0, 0.78, 0.22)}
+
+## 2 tipos x 3 graus (`hunt_<tipo>_<1-3>`), números de Balance.HUNT_POTION_GRADES. Sem nível para tomar (o nível é para
+## fazer: RecipesCatalog.hunt_recipes); o efeito é o buff de HuntPotionSystem.buff_of.
+static func hunt_potions() -> Array:
+	var out: Array = []
+	for kind in HuntPotionSystem.KINDS:
+		for gi in range(HUNT_GRADE_NAMES.size()):
+			var g: Array = Balance.HUNT_POTION_GRADES[gi]
+			var pct := int(g[2] if kind == "xp" else g[3])
+			var what := "de XP de monstro (missão e evento não)" if kind == "xp" else "de chance de saque: equipamento, Moeda Lendária e cartas (ouro e material não)"
+			var c: Color = HUNT_COLORS[kind]
+			out.append({"id": HuntPotionSystem.item_id(kind, gi), "name": "%s %s" % [HUNT_NAMES[kind], HUNT_GRADE_NAMES[gi]], "type": CON,
+				"price": int(g[4]), "rarity": gi + 1, "icon_color": c.darkened(0.25) if gi == 0 else (c if gi == 1 else c.lightened(0.2)),
+				"consume_cooldown": Balance.HUNT_POTION_CD, "consume": {"buff": HuntPotionSystem.buff_of(kind, gi)},
+				"description": "Poção de Caça: +%d%% %s por %d min de jogo. Morrer não tira. Outra do mesmo tipo renova (não soma); uma mais fraca não entra." % [
+					pct, what, int(Balance.HUNT_POTION_TIME / 60.0)]})
+	return out
+
 static func _mk(d: Dictionary) -> ItemDef:
 	var it := ItemDef.new()
 	CatalogUtil.fill(it, d)
@@ -275,6 +297,7 @@ static func build() -> Array:
 		_armor("amulet_golem", "Amuleto do Golem", S_M, 3, 0, 0, {"FOR": 6, "VIT": 6, "WILL": 4}, Color(0.9, 0.6, 0.2)),
 	]
 	L.append_array(_starter_items())
+	L.append_array(hunt_potions())
 	var out: Array = []
 	for d in L:
 		var it := _mk(d)

@@ -1701,7 +1701,7 @@ func _apply_effects(src: SimEntity, t: SimEntity, effects: Dictionary, power: fl
 		t.mp = minf(t.stats.max_mp, t.mp + t.stats.max_mp * float(effects["mana_pct"]) / 100.0)
 	if effects.get("buff") != null:
 		var b: Dictionary = effects["buff"].duplicate()
-		b["remaining"] = INF if b.get("toggle", false) else float(b.get("duration", 10)) * longer     # aura: até desligar ou morrer
+		b["remaining"] = INF if b.get("toggle", false) else float(b.get("duration", 10)) * (1.0 if b.get("keep_death", false) else longer)     # poção de caça: tempo fixo     # aura: até desligar ou morrer
 		var max0: float = t.stats.max_hp
 		t.put_buff(b)
 		t.recompute_stats()
@@ -1998,6 +1998,8 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 		amount = maxi(1, int(round(amount * ClassTalentSystem.damage_mult(attacker, target))))     # ferido / execução
 	if attacker.is_character() and attacker != target and not attacker.stats.fusion.is_empty():
 		amount = maxi(1, int(round(amount * FusionEffects.damage_mult(attacker, target))))     # Fusão: Sentença Ardente (P2), Lua Caçadora (D2)
+	if attacker != target and (not attacker.card_fx.is_empty() or not target.card_fx.is_empty()):
+		amount = maxi(1, int(round(amount * CardSystem.damage_mult(attacker, target))))     # cartas de família
 	if attacker.is_character() and attacker != target and attacker.stats.taunt_dmg_pct > 0.0:
 		amount = maxi(1, int(round(amount * Combat.role_damage_mult(attacker, target))))     # notável de tanque: quem bate em você apanha mais
 	if attacker != target and not kind.begins_with("dot") and kind != "intercept" and (attacker.kind == SimEntity.Kind.SUMMON or (attacker.is_character() and attacker.stats.low_hp_atk > 0.0)):
@@ -2031,6 +2033,8 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 			amount = InterceptSystem.damage_in(self, attacker, target, amount)     # Proteção (Suprema do Guardião): fora do DR_CAP
 			if target.stats.summon_guard > 0.0 or target.party_id >= 0:
 				amount = Combat.core_redirect(self, attacker, target, amount)     # Escudo de Carne / Escudo dos Irmãos
+	if not attacker.card_fx.is_empty() and attacker != target and not kind.begins_with("dot"):
+		CardSystem.on_hit(self, attacker, target)          # cartas: chance de veneno/lentidão/atordoar
 	# veneno na lâmina: golpe físico direto envenena (renova, não acumula)
 	if kind == "physical" and attacker != target and attacker.is_character() and attacker.stats.hit_poison > 0.0:
 		var pid := "blade_poison_%d" % attacker.id
@@ -2212,7 +2216,10 @@ func _kill(e: SimEntity, killer: SimEntity) -> void:
 		SeedSystem.on_death(self, e)         # Semente Ígnea: o alvo morreu antes, estoura agora
 	if e.falcon:
 		FalconSystem.dismiss(e)
-	e.buffs.clear()
+	if e.is_character() and not e.buffs.is_empty():
+		e.buffs = e.buffs.filter(HuntPotionSystem.is_hunt_buff)     # Poções de Caça: morrer não tira
+	else:
+		e.buffs.clear()
 	e.debuffs.clear()
 	e.shield_hp = 0.0
 	e.set_state(SimEntity.State.DEAD)
@@ -2571,6 +2578,7 @@ func dash_params(e: SimEntity) -> Dictionary:
 			dp["buff"] = md["buff"]
 		if md.has("slow"):
 			dp["slow"] = md["slow"]
+	dp["distance"] *= CardSystem.dash_mult(e)          # carta de dash (dash_pct)
 	dp["charges"] = mini(int(dp["charges"]) + add_charges, Balance.DASH_MAX_CHARGES)     # nó Passo Extra soma por cima do Passo Duplo
 	return dp
 
@@ -2969,3 +2977,12 @@ func apply_plan(e: SimEntity, plan: Array) -> int:
 			break
 		n += 1
 	return n
+# CardSystem (Cartas de Monstro, GDD design/gdd/cartas.md)
+## Encaixa a carta da bolsa no encaixe do personagem ("" = ok; senão o motivo). Só o jogador.
+func card_socket(e: SimEntity, slot: String, card_id: String) -> String:
+	return CardSystem.socket(self, e, slot, card_id)
+## Tira a carta do encaixe para a bolsa, de graça.
+func card_unsocket(e: SimEntity, slot: String) -> String:
+	return CardSystem.unsocket(self, e, slot)
+func card_socket_error(e: SimEntity, slot: String, card_id: String) -> String:
+	return CardSystem.socket_error(self, e, slot, card_id)

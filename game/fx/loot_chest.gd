@@ -106,6 +106,9 @@ static func make(item_id: String) -> LootChest:
 		n.add_child(spr)
 	# brilho da raridade (comum quase nada; lendário forte)
 	var r: int = 4 if relic else (it.rarity if it else 1)
+	if it and it.type == ItemDef.Type.CARD:     # Carta de Monstro: sempre com facho, na cor da carta (dourado no núcleo)
+		r = 4
+		rar_col = it.icon_color
 	var l := OmniLight3D.new()
 	l.light_color = rar_col
 	l.light_energy = 0.35 + 0.25 * r

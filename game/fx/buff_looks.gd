@@ -20,6 +20,7 @@ extends RefCounted
 const LOOKS := {
 	# defesa
 	"frost_armor": ["armor", "ice"], "crystal_ward": ["armor", "ice"],
+	"hunt_xp": ["armor", "lunar"], "hunt_drop": ["armor", "holy"],      # Poções de Caça: motas leves na cor da poção (HUNT)
 	"stoneskin": ["armor", "earth"], "shell_hide": ["armor", "earth"],      # Concha (Caranguejo-Eremita)
 	"bark": ["armor", "nature"], "oak_skin": ["armor", "nature"], "bellow": ["armor", "nature"],
 	"bone_armor": ["armor", "bone"], "bonewall": ["armor", "bone"],
@@ -99,6 +100,8 @@ const LUMERIA := {
 	"banquet_vuln": ["shards", Color(0.96, 0.92, 0.86), Color(0.95, 0.8, 0.45)],     # Banquete quebrado: a porcelana racha e cai
 	"sweet_smoke": ["rose_mist", Color(0.86, 0.66, 0.92), Color(1.0, 0.84, 0.92)],   # Fumo Doce: névoa lilás-rosa nos pés
 }
+## Poções de Caça (design/gdd/pocoes-de-caca.md): id -> [cor, destaque] das motas (Saber azul-lunar, Fortuna dourada).
+const HUNT := {"hunt_xp": [Color(0.55, 0.7, 1.0), Color(0.85, 0.92, 1.0)], "hunt_drop": [Color(1.0, 0.82, 0.3), Color(1.0, 0.95, 0.65)]}
 ## Debuffs (SimEntity.debuffs) que também aparecem no boneco pela BuffAura (o resto dos debuffs é do CcLook/estado).
 const DEBUFF_LOOKS := {"banquet_vuln": true, "sweet_smoke": true}
 const FAMILIES := ["armor", "shield", "power", "holy", "speed", "smoke", "poison", "dark", "aura", "wings", "form"]
@@ -231,6 +234,11 @@ static func look(id: String, e: SimEntity = null) -> Dictionary:
 		d["accent"] = Color(1.0, 0.95, 0.7)
 	if fam == "smoke":
 		d["color"] = Color(0.7, 0.72, 0.78)
+	if HUNT.has(id):                               # Poções de Caça: 30 min no corpo, só motas leves (sem borda forte)
+		d["parts"] = "motes"
+		d["color"] = HUNT[id][0]
+		d["accent"] = HUNT[id][1]
+		d["shell"] = 0
 	if LUMERIA.has(id):
 		var lum: Array = LUMERIA[id]
 		d["parts"] = lum[0]
