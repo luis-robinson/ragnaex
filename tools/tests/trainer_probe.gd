@@ -21,12 +21,19 @@ func _ready() -> void:
 ## Ponto livre mais perto da âncora (folga >= 1,0 m, 2,5 m de todo NPC, 1,5 m de ponto de bot, fora da faixa das bancas de Aldara).
 const ANCHORS := {"city_aldara": [-13.0, -5.0], "field_forest": [-13.0, -1.0], "elf_city": [28.0, 80.0], "field_ruins": [-9.0, -22.0],
 	"city_port": [4.0, -5.0], "field_kharzun": [-12.0, -3.0]}
+## --anchors=mapa:x:z,mapa:x:z troca as âncoras (outro NPC de serviço; ex. Intendente das Caçadas).
 func _pick() -> void:
-	for mid in ANCHORS:
+	var anchors: Dictionary = ANCHORS
+	if DevArgs.flag("--anchors"):
+		anchors = {}
+		for t in DevArgs.value("--anchors").split(","):
+			var q := t.split(":")
+			anchors[q[0]] = [float(q[1]), float(q[2])]
+	for mid in anchors:
 		var def: MapDef = GameData.maps[mid]
 		if not Sim.maps.has(mid):
 			Sim.load_map(def)
-		var a: Array = ANCHORS[mid]
+		var a: Array = anchors[mid]
 		var best := Vector3.INF
 		var bd := INF
 		for ix in range(-28, 29):

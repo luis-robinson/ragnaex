@@ -129,6 +129,21 @@ static func build() -> Array:
 		# ---------------- materiais ----------------
 		{"id": "legend_coin", "name": "Moeda Lendária", "type": MAT, "price": 0, "stack_max": 999, "icon_color": Color(1.0, 0.62, 0.18),
 		 "description": "Troque com Iara, a Relicária (praça de Aldara), por uma peça lendária: nível 5 = 1 moeda, nível 10 = 2, nível 15 = 3..."},
+		# Prêmios de MVP (mvp-premios.md §3.2/§3.3): pergaminhos de refino (o mercador não compra: preço 0) e o Baú do MVP por faixa
+		{"id": "refine_scroll", "name": "Pergaminho de Refino", "type": MAT, "price": 0, "stack_max": 99, "rarity": 3, "icon_color": Color(0.95, 0.82, 0.45),
+		 "description": "Use em qualquer ferreiro: uma peça de +0 a +4 vira +5, sem ouro nem minério. Nunca quebra."},
+		{"id": "refine_scroll_superior", "name": "Pergaminho de Refino Superior", "type": MAT, "price": 0, "stack_max": 99, "rarity": 4, "icon_color": Color(0.7, 0.85, 1.0),
+		 "description": "Use em qualquer ferreiro: uma peça em +5 ou +6 vira +7, sem ouro nem minério. Nunca quebra."},
+		{"id": "mvp_chest_0", "name": "Baú do MVP (1-10)", "type": MAT, "price": 0, "stack_max": 99, "rarity": 3, "icon_color": Color(0.62, 0.44, 0.26), "consume": {"mvp_chest": 0},
+		 "description": "Prêmio do Chefe de Mundo. Clique para abrir: escolha 1 de 3 pacotes de material de refino."},
+		{"id": "mvp_chest_1", "name": "Baú do MVP (10-20)", "type": MAT, "price": 0, "stack_max": 99, "rarity": 3, "icon_color": Color(0.42, 0.56, 0.3), "consume": {"mvp_chest": 1},
+		 "description": "Prêmio do Chefe de Mundo. Clique para abrir: escolha 1 de 3 pacotes de material de refino."},
+		{"id": "mvp_chest_2", "name": "Baú do MVP (20-30)", "type": MAT, "price": 0, "stack_max": 99, "rarity": 3, "icon_color": Color(0.5, 0.5, 0.56), "consume": {"mvp_chest": 2},
+		 "description": "Prêmio do Chefe de Mundo. Clique para abrir: escolha 1 de 3 pacotes de material de refino."},
+		{"id": "mvp_chest_3", "name": "Baú do MVP (30-40)", "type": MAT, "price": 0, "stack_max": 99, "rarity": 3, "icon_color": Color(0.62, 0.5, 0.36), "consume": {"mvp_chest": 3},
+		 "description": "Prêmio do Chefe de Mundo. Clique para abrir: escolha 1 de 3 pacotes de material de refino."},
+		{"id": "mvp_chest_4", "name": "Baú do MVP (40-50)", "type": MAT, "price": 0, "stack_max": 99, "rarity": 4, "icon_color": Color(0.36, 0.3, 0.42), "consume": {"mvp_chest": 4},
+		 "description": "Prêmio do Chefe de Mundo. Clique para abrir: escolha 1 de 3 pacotes de material de refino."},
 		_mat("slime_gel", "Gel de Slime", 4, "Pegajoso. Alquimistas adoram.", Color(0.4, 0.9, 0.5)),
 		_mat("crab_shell", "Casco de Caranguejo", 7, "Duro e leve. O ferreiro faz escudos e grevas com ele.", Color(0.9, 0.45, 0.32)),
 		# colhidos no mundo (F perto do ponto que brilha) e de entrega (quest)

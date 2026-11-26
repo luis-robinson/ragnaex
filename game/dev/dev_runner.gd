@@ -299,6 +299,9 @@ func after_start() -> void:
 	if DevArgs.flag("--bag_shot"):      # foto da bolsa e da ficha com uma amostra de cada tipo de item
 		_smoke_test = false
 		_bag_shot(DevArgs.value("--bag_shot"))
+	if DevArgs.flag("--mvp_shot"):      # --mvp_shot=<pasta>: prêmio de MVP, Baú, loja do Intendente, pergaminho no ferreiro, aba Montaria; sai
+		_smoke_test = false
+		_mvp_shot(DevArgs.value("--mvp_shot"), DevArgs.value("--mvp_kind", "war_boar"), DevArgs.value("--mvp_barding", "barding_iron"))
 	if DevArgs.flag("--cards_shot"):    # --cards_shot=<pasta>: janela C aba Cartas, Bestiário e baú de carta no chão; sai
 		_smoke_test = false
 		_cards_shot(DevArgs.value("--cards_shot"))
@@ -314,6 +317,9 @@ func after_start() -> void:
 	if DevArgs.flag("--world_boss"):    # --world_boss=<id>[,..] [--world_boss_shot=<pasta>]: chefe de mundo SÓ PARA TESTE (sem nascer na hora ainda)
 		_smoke_test = false
 		_world_boss.call_deferred(Array(DevArgs.value("--world_boss").split(",")), DevArgs.value("--world_boss_shot"))
+	if DevArgs.flag("--moments_shot"):  # --moments_shot=<pasta>: Momentos do Mundo (aviso no chat + mapa, luta com bots chegando, caravana, Feira, Acampamento); sai
+		_smoke_test = false
+		_moments_shot.call_deferred(DevArgs.value("--moments_shot"))
 	if DevArgs.flag("--arena_shot"):    # --arena_shot=<pasta>: Campo de Caça da Guilda (aba, sem entrada, pausa, leva 10 com chefe, resumo); sai
 		_smoke_test = false
 		_arena_shot(DevArgs.value("--arena_shot"))
@@ -2078,6 +2084,74 @@ func _cards_shot(dir: String) -> void:
 	await get_tree().create_timer(1.2).timeout
 	get_viewport().get_texture().get_image().save_png(dir.path_join("c_drop.png"))
 	print("CARDS_SHOT ok cards=%s stats=%s" % [p.cards, p.card_fx.get("stats", {})])
+	get_tree().quit()
+
+## --mvp_shot=<pasta> [--mvp_kind=<tipo>] [--mvp_barding=<estilo>] (mvp-premios.md): a_award (resumo do prêmio do Javali),
+## b_chest (escolha do Baú), c_shop (Intendente das Caçadas), d_refine (botão do Pergaminho no ferreiro), e_mount_tab (aba
+## Montaria com o tipo/armadura) e f_mounted (montado no mundo). Chama MvpSystem.award direto (sem a luta).
+func _mvp_shot(dir: String, kind: String, barding: String) -> void:
+	DirAccess.make_dir_recursive_absolute(dir)
+	await get_tree().create_timer(2.5).timeout
+	Sim.sync()
+	var p: SimEntity = Sim.player
+	var w = main.hud.windows_script
+	var shot := func(f: String) -> void:
+		get_viewport().get_texture().get_image().save_png(dir.path_join(f))
+	Sim.mvp_award("ancestral_boar", [p.id], {"scroll": true, "super": false, "cosmetic": true, "card": true})
+	await get_tree().create_timer(0.8).timeout
+	shot.call("a_award.png")
+	main.hud.mvp_ui._close_award()
+	main.hud.mvp_ui.open_chest("mvp_chest_0")
+	await get_tree().create_timer(0.6).timeout
+	shot.call("b_chest.png")
+	main.hud.mvp_ui._close_chest()
+	# loja: lutas e insígnias de exemplo
+	p.mvp_coins = 74
+	p.mvp_fights = {"ancestral_boar": Balance.MVP_MOUNT_FIGHTS, "ancient_elk": 2}
+	main.hud.npc_ui.open("hunt_city_aldara")
+	main.hud.npc_ui.mode = "hunt"
+	main.hud.npc_ui._rebuild()
+	await get_tree().create_timer(0.6).timeout
+	shot.call("c_shop.png")
+	main.hud.npc_ui.close()
+	# pergaminho no ferreiro: peito em +2
+	var sl: int = ItemDef.Slot.BODY
+	var body: ItemDef = p.equipment.get(sl)
+	if body:
+		p.equipment[sl] = GameData.plus_item(RefinePanel.base_of(body), 2)
+		p.add_item(Balance.MVP_SCROLL, 2)
+		var smith := ""
+		for n in Sim.maps[p.map_id]["def"].npcs:
+			if n["role"] == "smith" and smith == "":
+				smith = n["id"]
+		main.hud.npc_ui.open(smith)
+		main.hud.npc_ui.mode = "enhance"
+		main.hud.npc_ui.refine_panel.select(p.equipment[sl].id, sl)
+		main.hud.npc_ui._rebuild()
+		await get_tree().create_timer(0.6).timeout
+		shot.call("d_refine.png")
+		main.hud.npc_ui.close()
+	# aba Montaria
+	var boss := str(Balance.MOUNT_KINDS.get(kind, {}).get("mvp", ""))
+	for key in MvpSystem.cosmetics_of(boss):
+		MvpSystem.grant_cosmetic(Sim, p, key)
+	MvpSystem.grant_cosmetic(Sim, p, "barding:" + barding)
+	Sim.set_mount_look(p, kind, 1, barding)
+	p.mounted = true
+	w._char_tab = "mount"
+	w.toggle("character")
+	await get_tree().create_timer(1.5).timeout
+	shot.call("e_mount_tab.png")
+	var cwin: Dictionary = w.wins.get("character", {})
+	if cwin.has("scroll"):                 # listas de Cor e Armadura (embaixo da prévia)
+		(cwin["scroll"] as ScrollContainer).scroll_vertical = 100000
+		await get_tree().create_timer(0.4).timeout
+		shot.call("e2_mount_tab_lists.png")
+	w.close_all()
+	main.camera.distance = 9.0
+	await get_tree().create_timer(1.2).timeout
+	shot.call("f_mounted.png")
+	print("MVP_SHOT ok coins=%d kind=%s dye=%d barding=%s model=%s cosmetics=%s" % [p.mvp_coins, p.mount_kind, p.mount_dye, p.mount_barding, MountLook.model_of(p.mount_kind), p.mount_cosmetics.keys()])
 	get_tree().quit()
 
 ## --auto_potion_shot=<pasta>: liga Vida (F1) e Elixir (F3) com poções na barra, abre o Esc na aba Auto-poção
@@ -4200,3 +4274,111 @@ func _wb_hide_popups() -> void:
 				n = n.get_parent()
 			if n is CanvasItem:
 				(n as CanvasItem).visible = false
+
+## --moments_shot=<pasta> (momentos-do-mundo §3.3/§8): a_aviso.png (chat + faixa), b_mapa.png (marca no mapa grande),
+## c_luta.png (Javali Ancestral com os bots da faixa chegando; imprime quantos chegaram), d_caravana.png, e_feira.png,
+## f_acampamento.png. Usa os caminhos de verdade (WorldBossSystem/ChainSystem), sem save.
+func _moments_shot(dir: String) -> void:
+	DirAccess.make_dir_recursive_absolute(dir)
+	var p: SimEntity = Sim.player
+	await _wait_s(1.0)
+	Sim.sync()
+	if p.map_id != "city_aldara":
+		Sim._change_map(p, "city_aldara", Vector3(2.0, 0.0, 6.0))
+		await _wait_s(2.5)
+	Sim.sync()
+	p.level = maxi(p.level, 8)
+	p.position = Vector3(2.0, 0.0, 6.0)
+	Sim.world_boss_warn("ancestral_boar", 100.0)
+	await _wait_s(2.0)
+	await _moments_png(dir, "a_aviso")
+	main.hud.toggle_world_map()
+	await _wait_s(1.0)
+	await _moments_png(dir, "b_mapa")
+	main.hud.toggle_world_map()
+	# nasce; bots da faixa no Vale (e na vila) correm para lá
+	Sim.sync()
+	var boss: SimEntity = Sim.world_boss_spawn("ancestral_boar")
+	if boss == null:
+		print("MOMENTS_SHOT: chefe não nasceu")
+		get_tree().quit()
+		return
+	var classes: Array = GameData.classes.keys()
+	classes.sort()
+	var bots: Array = []
+	for i in 8:
+		var from := Vector3(-30.0 + 6.0 * i, 0.0, 30.0 - 3.0 * i)
+		var b := Sim.spawn_bot(GameData.classes[classes[i % classes.size()]], "Caçador%d" % i, "city_aldara", MapGeometry.random_walkable(Sim, Sim.maps["city_aldara"]["def"], from, 4.0), 8 + i % 3)
+		bots.append(b)
+	var spot := boss.position
+	var until := Time.get_ticks_msec() + 26000
+	var close := 0
+	while Time.get_ticks_msec() < until:
+		Sim.sync()
+		p.iframe_left = 1.0
+		p.hp = p.stats.max_hp
+		p.position = spot + Vector3(0.0, 0.0, 9.0)
+		close = bots.filter(func(b): return b.is_alive() and b.position.distance_to(boss.position) <= Balance.WORLD_BOSS_ARRIVE_M).size()
+		if close >= 6 and Time.get_ticks_msec() > until - 18000:
+			break
+		_wb_hide_popups()
+		await get_tree().process_frame
+	main.camera.distance = 30.0
+	await _wait_s(0.6)
+	await _moments_png(dir, "c_luta")
+	print("MOMENTS_SHOT luta: %d de %d bots chegaram (%.0f m)" % [close, bots.size(), Balance.WORLD_BOSS_ARRIVE_M])
+	Sim.sync()
+	WorldBossSystem.despawn(Sim, "shot")
+	for b in bots:
+		Sim.despawn(b)
+	main.camera.distance = 24.0
+	# caravana (passo da cadeia) no ponto mais perto
+	var def: MapDef = Sim.maps["city_aldara"]["def"]
+	var pt: Vector3 = def.road_events[0]["pos"]
+	p.position = MapGeometry.random_walkable(Sim, def, pt + (def.town_center - pt).normalized() * 45.0, 3.0)
+	var m: Dictionary = Sim.maps["city_aldara"]
+	RoadEventSystem.finish(Sim, m, "expired")
+	Sim.chain_start("campina", 0)
+	await _wait_s(0.3)
+	Sim.sync()
+	p.position = pt + (def.town_center - pt).normalized() * 9.0
+	await _wait_s(2.5)
+	await _moments_png(dir, "d_caravana")
+	Sim.sync()
+	var ev: Dictionary = RoadEventSystem.state(Sim, m)["active"]
+	if not ev.is_empty():
+		ev["credit"][p.id] = true
+	RoadEventSystem.finish(Sim, m, "resolved")      # chegou: Feira
+	p.position = Vector3(0.5, 0.0, 4.0)
+	await _wait_s(3.0)
+	await _moments_png(dir, "e_feira")
+	Sim.sync()
+	ChainSystem.end_mark(Sim, "campina", "ended")
+	ChainSystem.state(Sim, "campina")["cool"] = 0.0
+	Sim.chain_start("campina", 1)
+	Sim.sync()
+	RoadEventSystem.finish(Sim, m, "failed")         # caiu: Acampamento Bandido
+	var camp: Vector3 = Sim.chain_status("city_aldara")["pos"]
+	p.position = MapGeometry.random_walkable(Sim, def, camp + (def.town_center - camp).normalized() * 6.0, 2.0)
+	var stop := Time.get_ticks_msec() + 3000
+	while Time.get_ticks_msec() < stop:
+		Sim.sync()
+		p.iframe_left = 1.0
+		p.hp = p.stats.max_hp
+		await get_tree().process_frame
+	await _moments_png(dir, "f_acampamento")
+	print("MOMENTS_SHOT ok -> %s" % dir)
+	get_tree().quit()
+
+func _wait_s(s: float) -> void:
+	var until := Time.get_ticks_msec() + int(s * 1000.0)
+	while Time.get_ticks_msec() < until:
+		Sim.sync()
+		if Sim.player:
+			Sim.player.iframe_left = 1.0
+		await get_tree().process_frame
+
+func _moments_png(dir: String, fname: String) -> void:
+	_wb_hide_popups()
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png("%s/%s.png" % [dir, fname])

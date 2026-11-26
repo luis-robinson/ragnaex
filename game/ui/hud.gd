@@ -77,8 +77,11 @@ var lock_tag: PanelContainer        # Tab: "Travado: <chefe>" no topo enquanto a
 var lock_label: Label
 var boss_bar: BossBar                 # barra do chefe no topo central (vida, fases, conjuração; C4 2026-11-23)
 var arena_hud: ArenaHud               # Campo de Caça da Guilda: leva/pausa/Próxima/Sair + resumo no fim
+var mvp_ui: MvpUi                     # Prêmios de MVP: resumo do prêmio e escolha do Baú do MVP (mvp-premios.md)
 var raid_banner: PanelContainer      # faixa no topo durante uma investida no mapa do jogador (Sim.raid_status)
 var raid_label: Label
+var moment_banner: PanelContainer    # Momentos do Mundo: chefe de mundo (aviso/vivo) e marca de cadeia do mapa (contagem)
+var moment_label: Label
 ## Fala de chefe (abertura/fase/queda): faixa própria, opaca, abaixo da investida; não divide a linha das notificações
 ## nem fica solta por cima do nome do chefe no mundo (R2: grito sobre o nome). Nomes do mundo sob a faixa somem (label_blockers).
 var boss_banner: PanelContainer
@@ -475,7 +478,16 @@ func _build_notifications() -> void:
 	raid_label = UiKit.label("", 17, Color(1.0, 0.82, 0.55))
 	raid_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	raid_banner.add_child(raid_label)
+	moment_banner = UiKit.panel(Color(0.18, 0.1, 0.03, 0.86), Color(1.0, 0.78, 0.3))
+	moment_banner.anchor_left = 0.5; moment_banner.anchor_right = 0.5
+	moment_banner.offset_left = -260; moment_banner.offset_right = 260; moment_banner.offset_top = RAID_TOP; moment_banner.offset_bottom = RAID_TOP + RAID_H
+	moment_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	moment_banner.visible = false
+	moment_label = UiKit.label("", 15, Color(1.0, 0.88, 0.55))
+	moment_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	moment_banner.add_child(moment_label)
 	root.add_child(raid_banner)
+	root.add_child(moment_banner)
 	notif_box = VBoxContainer.new()
 	notif_box.anchor_left = 0.5; notif_box.anchor_right = 0.5
 	notif_box.offset_left = -300; notif_box.offset_right = 300; notif_box.offset_top = NOTIF_TOP
@@ -506,6 +518,8 @@ func _build_notifications() -> void:
 	arena_hud = ArenaHud.new()
 	root.add_child(arena_hud)
 	arena_hud.make_summary(root)
+	mvp_ui = MvpUi.new(self)
+	root.add_child(mvp_ui)
 
 ## Coluna da direita: minimapa (com o nome do mapa embaixo) e o rastreador de quests.
 func _build_top_right() -> void:
@@ -592,6 +606,7 @@ func _hud_process(_delta: float) -> void:
 	if _raid_t <= 0.0:
 		_raid_t = 0.2
 		_update_raid_banner(p)
+		_update_moment_banner(p)
 	boss_bar.update(Sim, p, _delta)
 	arena_hud.update(_delta)
 	lock_tag.visible = boss_bar.lock_id >= 0 and not boss_bar.visible     # com a barra, o "Travado" vai nela
@@ -1163,6 +1178,11 @@ func _stack_top_lane() -> void:
 		raid_banner.offset_bottom = rt + RAID_H
 	if raid_banner.visible:
 		y = rt + maxf(RAID_H, raid_banner.size.y) + LANE_GAP     # o texto pode crescer a faixa
+	if moment_banner.visible:
+		var mt := maxf(RAID_TOP, y)
+		moment_banner.offset_top = mt
+		moment_banner.offset_bottom = mt + RAID_H
+		y = mt + maxf(RAID_H, moment_banner.size.y) + LANE_GAP
 	boss_banner.offset_top = maxf(BOSS_LANE_TOP, y)
 	if boss_banner.visible:
 		y = boss_banner.offset_top + boss_banner.size.y + LANE_GAP
@@ -1173,7 +1193,7 @@ func label_blockers() -> Array[Rect2]:
 	var out: Array[Rect2] = []
 	if root == null or not root.visible:
 		return out
-	var cs: Array[Control] = [player_frame, action_bar, minimap, boss_banner, raid_banner, boss_bar]
+	var cs: Array[Control] = [player_frame, action_bar, minimap, boss_banner, raid_banner, moment_banner, boss_bar]
 	if quest_tracker:
 		cs.append(quest_tracker.get_parent() as Control)
 	if chat_log:
@@ -1411,6 +1431,31 @@ func _update_raid_banner(p: SimEntity) -> void:
 		raid_label.text = "Trompas ao longe: investida em %d s" % ceili(float(rs["next_in"]))
 		raid_label.add_theme_color_override("font_color", Color(0.95, 0.9, 0.7))
 		raid_banner.visible = true
+
+## Faixa dos Momentos do Mundo (GDD momentos-do-mundo §3.3): chefe de mundo avisado/vivo (todos os mapas) e a marca da
+## cadeia do mapa do jogador, com a contagem. Texto puro: `moment_text` (estático, testável).
+func _update_moment_banner(p: SimEntity) -> void:
+	var txt := moment_text(Sim.world_boss_status(), Sim.chain_status(p.map_id))
+	moment_banner.visible = txt != ""
+	moment_label.text = txt
+
+static func clock_text(s: float) -> String:
+	var t := maxi(0, ceili(s))
+	return "%d:%02d" % [floori(t / 60.0), t % 60]
+
+static func moment_text(wb: Dictionary, ch: Dictionary) -> String:
+	var parts: Array = []
+	if bool(wb.get("active", false)):
+		parts.append("Chefe de Mundo: %s %s · %d%% · some em %s" % [wb["name"], wb["place"], roundi(float(wb["hp_pct"]) * 100.0), clock_text(float(wb["left"]))])
+	elif bool(wb.get("warned", false)):
+		parts.append("Chefe de Mundo: %s desperta %s em %s" % [wb["name"], wb["place"], clock_text(float(wb["next_in"]))])
+	if not ch.is_empty():
+		if str(ch["phase"]) == "mark":
+			parts.append("%s · %s" % [ch["label"], clock_text(float(ch["left"]))])
+		elif str(ch["phase"]) == "step":
+			parts.append("%s em perigo na estrada!" % ch["name"])
+	return "
+".join(parts)
 
 func _update_gather_prompt(p: SimEntity) -> void:
 	if gather_label == null:

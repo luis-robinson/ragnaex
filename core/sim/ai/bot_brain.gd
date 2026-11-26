@@ -186,6 +186,11 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 	if threat != null and not in_town and state != S.RETURN:
 		return _fight(e, sim, m, threat, cmd)
 
+	# --- Chefe de Mundo vivo (momentos-do-mundo §3.1): bot da faixa no mapa ou a 1 portal larga tudo e vai lá ---
+	var wboss := WorldBossSystem.bot_goal(sim, e)
+	if wboss != null:
+		return _world_boss(e, sim, m, wboss, cmd, dt)
+
 	# --- líder do grupo do jogador: completa o grupo, espera o jogador e conta o plano ---
 	if e.party_id >= 0 or not lead.is_empty():
 		var lcmd := BotLeaderSystem.lead(self, e, sim, m, cmd, dt)
@@ -292,6 +297,24 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 				# fim da viagem: grupo só de bots se desfaz às vezes (com o jogador, fica)
 				if e.party_id >= 0 and not _party_has_player(e, sim) and rng.randf() < 0.5:
 					sim.party_leave(e)
+	return cmd
+
+## Chefe de Mundo (WorldBossSystem.bot_goal): no mapa dele corre até lá e briga a WORLD_BOSS_BOT_ENGAGE m (o lacaio que
+## bate em mim vem antes, pelo combate reativo); no mapa vizinho anda até o portal. Depois volta à rotina (estado HUNT).
+func _world_boss(e: SimEntity, sim, m: Dictionary, boss: SimEntity, cmd: InputCommand, dt: float) -> InputCommand:
+	if e.map_id == boss.map_id:
+		state = S.HUNT
+		timer = maxf(timer, 60.0)
+		if e.position.distance_squared_to(boss.position) <= Balance.WORLD_BOSS_BOT_ENGAGE * Balance.WORLD_BOSS_BOT_ENGAGE:
+			return _fight(e, sim, m, boss, cmd)
+		cmd.move = _steer(e, boss.position, dt)
+		cmd.aim = boss.position
+		return cmd
+	var portal := _find_portal(m["def"], boss.map_id)
+	if portal.is_empty():
+		return cmd
+	cmd.move = _steer(e, portal["pos"], dt)
+	cmd.aim = portal["pos"]
 	return cmd
 
 ## Campo de Caça (ArenaSystem): o monstro de agora ou o mais perto da arena; sem nenhum, volta ao centro.

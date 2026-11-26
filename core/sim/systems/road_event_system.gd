@@ -118,7 +118,8 @@ static func point_level(def: MapDef, pos: Vector3) -> int:
 	return clampi(lv, def.level_range.x, def.level_range.y)
 
 ## Começa um evento agora (o relógio também chama). `point` < 0 = sorteia entre os válidos. Devolve o evento ({} = não deu).
-static func start(sim: WorldSim, m: Dictionary, point: int = -1) -> Dictionary:
+## `over` = regra no lugar da do ponto (passo de cadeia, ChainSystem: MomentsCatalog.CHAINS[..]["step"], tipo `kind`).
+static func start(sim: WorldSim, m: Dictionary, point: int = -1, over: Dictionary = {}) -> Dictionary:
 	var def: MapDef = m["def"]
 	var st := state(sim, m)
 	if not (st["active"] as Dictionary).is_empty() or raid_on(m) or def.road_events.is_empty():
@@ -130,8 +131,9 @@ static func start(sim: WorldSim, m: Dictionary, point: int = -1) -> Dictionary:
 			return {}
 		point = ok[rng.randi() % ok.size()]
 	var p: Dictionary = def.road_events[point]
-	var rule := rules(def.id, str(p["kind"]))
-	var base: MonsterDef = GameData.monsters.get(str(p.get("mob", rule.get("mob", ""))))
+	var rule := rules(def.id, str(p["kind"])) if over.is_empty() else over
+	var kind := str(p["kind"]) if over.is_empty() else str(over.get("kind", "chain"))
+	var base: MonsterDef = GameData.monsters.get(str(rule.get("mob", "")) if not over.is_empty() else str(p.get("mob", rule.get("mob", ""))))
 	if rule.is_empty() or base == null:
 		return {}
 	var pos: Vector3 = p["pos"]
@@ -154,15 +156,20 @@ static func start(sim: WorldSim, m: Dictionary, point: int = -1) -> Dictionary:
 		mob.face_towards(pos)
 		ids.append(mob.id)
 	var v: Array = rule.get("victim", ["Viajante", Color(0.6, 0.5, 0.4)])
-	var npc := sim._spawn_npc({"id": "road_event_victim", "name": str(v[0]), "role": "villager", "color": v[1], "pos": pos,
+	var vd := {"id": "road_event_victim", "name": str(v[0]), "role": "villager", "color": v[1], "pos": pos,
 		"dialog": rule.get("cry", []), "barks": rule.get("cry", []), "look_seed": 4100 + point * 7 + int(st["count"]), "facing": 180.0,
-		"road_event": str(p["kind"])}, def.id)
+		"road_event": kind}
+	if rule.has("carry"):
+		vd["carry"] = str(rule["carry"])          # caravana: a carroça puxada (CarryPose)
+	var npc := sim._spawn_npc(vd, def.id)
 	st["count"] = int(st["count"]) + 1
-	st["active"] = {"kind": str(p["kind"]), "i": point, "pos": pos, "ids": ids, "npc": npc.id, "t": 0.0, "engaged": false, "t_engaged": 0.0,
+	st["active"] = {"kind": kind, "i": point, "pos": pos, "ids": ids, "npc": npc.id, "t": 0.0, "engaged": false, "t_engaged": 0.0,
 		"credit": {}, "grace": false}
+	if not over.is_empty():
+		st["active"]["rule"] = over
 	_set_grace(sim, st["active"])
 	_say(sim, npc, rule.get("cry", []), rng)
-	Events.post(&"road_event_started", def.id, str(p["kind"]), pos)
+	Events.post(&"road_event_started", def.id, kind, pos)
 	return st["active"]
 
 static func _say(sim: WorldSim, npc: SimEntity, lines: Array, rng: RandomNumberGenerator) -> void:
@@ -244,7 +251,7 @@ static func finish(sim: WorldSim, m: Dictionary, outcome: String) -> void:
 		return
 	st["active"] = {}
 	var rng: RandomNumberGenerator = st["rng"]
-	var rule := rules(def.id, str(a["kind"]))
+	var rule: Dictionary = a["rule"] if a.has("rule") else rules(def.id, str(a["kind"]))
 	var npc: SimEntity = sim.entities.get(a["npc"])
 	for id in a["ids"]:
 		var mob: SimEntity = sim.entities.get(id)
@@ -288,6 +295,8 @@ static func finish(sim: WorldSim, m: Dictionary, outcome: String) -> void:
 	st["timer"] = Balance.EVENT_EVERY_S + rng.randf() * Balance.EVENT_JITTER_S
 	st["last"] = {"kind": a["kind"], "i": a["i"], "outcome": outcome, "paid": (a["credit"] as Dictionary).size() if outcome == "resolved" else 0}
 	Events.post(&"road_event_ended", def.id, str(a["kind"]), outcome)
+	if a.has("chain"):
+		ChainSystem.on_step_end(sim, a, outcome)     # passo de cadeia: o desfecho liga a marca de mundo
 
 static func _update_leaving(sim: WorldSim, m: Dictionary, st: Dictionary) -> void:
 	var leaving: Array = st["leaving"]

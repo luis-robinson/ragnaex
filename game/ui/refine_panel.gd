@@ -3,7 +3,8 @@ extends RefCounted
 ## Refino no ferreiro (GDD design/gdd/forja-e-refino-ui.md §3.2): abas Vestido/Bolsa, prévia antes → depois
 ## (GameData.plus_item, o mesmo da sim), "Até +N" pagando todos os passos (N chamadas de Sim.enhance, para no 1º erro),
 ## material especial em toda linha, retorno no sucesso (pisca, som enhance_ok, "A peça brilha!").
-## O botão do Pergaminho de Refino (mvp-premios.md) fica de fora até a spec dele existir.
+## Pergaminho de Refino (mvp-premios.md §3.3): botão "Usar Pergaminho (+5)" / Superior (+7) quando você tem o pergaminho;
+## desligado com o motivo fora da faixa; segundo clique confirma (Sim.use_refine_scroll, sem ouro nem material).
 
 const LIST_W := 420
 const DETAIL_W := 520
@@ -20,6 +21,7 @@ var flash_id := ""                       # peça que acabou de subir (pisca no p
 var flash_note := ""                     # "A peça brilha!" ao cruzar +5/+9
 var row_buttons := {}                    # "id|slot" -> linha (testes/revisão)
 var go_button: Button = null             # "Refinar" do detalhe aberto
+var scroll_buttons := {}                 # id do pergaminho -> botão do detalhe aberto (testes/revisão)
 
 func _init(owner = null) -> void:
 	ui = owner
@@ -364,6 +366,7 @@ func _detail(dv: VBoxContainer, p: SimEntity, it: ItemDef, slot: int, smith: Str
 	var sp := Control.new()
 	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	foot.add_child(sp)
+	_scroll_row(dv, p, it, slot)
 	var err := Sim.enhance_error(p, it.id, slot, smith)
 	var go := UiKit.button("Refinar até +%d" % target if target > cur + 1 else "Refinar", Callable(), 150)
 	go.pressed.connect(_on_go.bind(go, it.id, slot, target, int(pl["gold"])))
@@ -377,6 +380,54 @@ func _detail(dv: VBoxContainer, p: SimEntity, it: ItemDef, slot: int, smith: Str
 		dv.add_child(UiKit.para("Ouro ou material não pagam até +%d." % target, 12, Color(1.0, 0.6, 0.45)))
 	elif mx > cur + 1:
 		dv.add_child(UiKit.label("O que você tem paga até +%d." % mx, 11, UiKit.MUTED))
+
+## Pergaminhos que o jogador tem: um botão cada (desligado com o motivo quando não vale nesta peça).
+func _scroll_row(dv: VBoxContainer, p: SimEntity, it: ItemDef, slot: int) -> void:
+	scroll_buttons.clear()
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	for sc in [Balance.MVP_SCROLL, Balance.MVP_SUPER_SCROLL]:
+		var have := int(p.inventory.get(sc, 0))
+		if have <= 0:
+			continue
+		var err := Sim.refine_scroll_error(p, it.id, slot, sc)
+		var b := UiKit.button("Usar %s (+%d) (tem %d)" % ["Pergaminho" if sc == Balance.MVP_SCROLL else "Superior", MvpSystem.scroll_target(sc), have], Callable(), 230)
+		b.pressed.connect(_on_scroll.bind(b, it.id, slot, sc))
+		b.disabled = err != ""
+		b.tooltip_text = err if err != "" else "Leva a peça direto a +%d, sem ouro nem material. Clique duas vezes para confirmar." % MvpSystem.scroll_target(sc)
+		scroll_buttons[sc] = b
+		row.add_child(b)
+		if err != "":
+			row.add_child(UiKit.label(err, 11, Color(1.0, 0.6, 0.45)))
+	if row.get_child_count() > 0:
+		dv.add_child(row)
+
+## Pergaminho: o 1º clique vira a confirmação, o 2º gasta.
+func _on_scroll(b: Button, item_id: String, slot: int, sc: String) -> void:
+	if not b.text.begins_with("Confirmar"):
+		b.text = "Confirmar: gastar 1 %s?" % GameData.items[sc].name
+		return
+	do_scroll(item_id, slot, sc)
+
+## Usa o pergaminho (Sim.use_refine_scroll); retorno igual ao do refino.
+func do_scroll(item_id: String, slot: int, sc: String) -> ItemDef:
+	var before: ItemDef = GameData.items.get(item_id)
+	var b0 := before.plus if before else 0
+	ui.hold_refresh = true
+	var last := Sim.use_refine_scroll(Sim.player, item_id, slot, sc)
+	ui.hold_refresh = false
+	if last:
+		sel_id = last.id
+		sel_slot = slot
+		target = 0
+		flash_id = last.id
+		if (b0 < Balance.PLUS_GLOW_LOW and last.plus >= Balance.PLUS_GLOW_LOW):
+			flash_note = "A peça brilha!"
+		Sfx.ui("enhance_ok")
+	if ui.hud:
+		ui.hud.windows_script.hide_tip()
+	ui._rebuild()
+	return last
 
 func _step_target(d: int) -> void:
 	target += d

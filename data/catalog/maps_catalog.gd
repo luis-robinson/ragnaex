@@ -126,6 +126,28 @@ static func trainer_npc(map_id: String) -> Array:
 	d["look_seed"] = 700 + map_id.length() * 13
 	return [d]
 
+## Intendente das Caçadas (mvp-premios.md §3.6; MvpSystem): loja de Insígnias de Caçada e correio dos prêmios de MVP, nas
+## capitais. Posição escrita aqui, perto do Mestre de Skills (`trainer_probe.tscn -- --pick --anchors=...`).
+## mapa -> [nome, x, z, facing, falas].
+const INTENDANT_COLOR := Color(0.78, 0.36, 0.3)
+const INTENDANT_LINES := ["Caçou o Chefe de Mundo? Insígnia se troca aqui: pergaminho de refino, cor e armadura de montaria.",
+	"Bolsa cheia na hora do prêmio? O baú e o pergaminho esperam no meu correio."]
+const INTENDANTS := {
+	"city_aldara": ["Intendente Bruna, das Caçadas", -2.0, -17.0, 180.0, ["O Javali Ancestral acorda de tempos em tempos no Vale. Quem ajuda a derrubar leva insígnia."]],
+	"field_ruins": ["Intendente Osvaldo, das Caçadas", -5.0, -22.0, 180.0, ["Alce, basilisco... a Aurora paga quem segura os grandes longe das muralhas."]],
+	"field_kharzun": ["Intendente Ragna, das Caçadas", -10.0, -0.5, 90.0, ["O Rei dos Lobos de Ferro anda pelo Kharzun. A barda dele vale mais que muita espada."]],
+	"city_lumeria": ["Intendente Aurélio, das Caçadas", -80.0, 12.0, 142.0, ["Até o gamo daqui é de porcelana. Traga insígnias e eu arranjo um igual para você montar."]],
+}
+
+## O Intendente das Caçadas do hub `map_id` (lista vazia se o mapa não tem).
+static func intendant_npc(map_id: String) -> Array:
+	if not INTENDANTS.has(map_id):
+		return []
+	var t: Array = INTENDANTS[map_id]
+	var d := _npc("hunt_" + map_id, t[0], float(t[1]), float(t[2]), "hunt", INTENDANT_COLOR, INTENDANT_LINES + (t[4] as Array), float(t[3]))
+	d["look_seed"] = 900 + map_id.length() * 17
+	return [d]
+
 ## Bastião da Aurora (terceiro andar): serviços na praça da catedral; posições do JSON.
 const DAWN_NPCS := {
 	"dawn_commander": ["Marechal Aldric", "quest", Color(0.4, 0.5, 0.8), ["Três portões, três fortalezas, uma cidade. Seguramos o que dá e retomamos o resto.", "O pântano a oeste é o mais fraco deles. Começamos por lá."]],
@@ -2295,6 +2317,7 @@ static func _aldara() -> MapDef:
 	npcs.append_array(_place_npcs("city_aldara", npc_pos))
 	npcs.append_array(crystal_npc("city_aldara"))
 	npcs.append_array(trainer_npc("city_aldara"))
+	npcs.append_array(intendant_npc("city_aldara"))
 	npcs.append_array(villagers())
 	npcs.append_array(living_npcs(LIVING_NPCS["city_aldara"]))
 	npcs.append_array(festival("city_aldara"))
@@ -2540,7 +2563,7 @@ static func _ruins() -> MapDef:
 	for d in garrison:                                   # reserva do cerco (SiegeSystem._responders)
 		if DAWN_SIEGE_RESPONDERS.has(str(d["id"])):
 			d["responder"] = true
-	var extra := _place_npcs("field_ruins", z["npc_pos"]) + dawn_services(z["npc_pos"]) + garrison + crystal_npc("field_ruins") + trainer_npc("field_ruins") + festival("field_ruins") + living_npcs(LIVING_NPCS["field_ruins"])
+	var extra := _place_npcs("field_ruins", z["npc_pos"]) + dawn_services(z["npc_pos"]) + garrison + crystal_npc("field_ruins") + trainer_npc("field_ruins") + intendant_npc("field_ruins") + festival("field_ruins") + living_npcs(LIVING_NPCS["field_ruins"])
 	var bp: Array = z["npc_pos"].get("port_captain_bren", [0.0, 0.0, 180.0])
 	extra.append(_npc("port_captain_bren", BREN[0], float(bp[0]), float(bp[1]), BREN[1], BREN[2], BREN[3], float(bp[2])))
 	z.erase("npc_pos")
@@ -2778,6 +2801,7 @@ static func _kharzun() -> MapDef:
 		npcs.append(d)
 	npcs.append_array(crystal_npc("field_kharzun"))
 	npcs.append_array(trainer_npc("field_kharzun"))
+	npcs.append_array(intendant_npc("field_kharzun"))
 	npcs.append_array(festival("field_kharzun", FESTIVAL_ACT2, VICTORY2_QUEST))   # K4: festa no acampamento
 	for pt in z["portals"]:                          # a volta às Estepes é livre (o id to_field_steppe é o portão da Costa)
 		if pt["target_map"] == "field_steppe":
@@ -2994,6 +3018,7 @@ static func _lumeria() -> MapDef:
 		npcs.append(d)
 	npcs.append_array(crystal_npc("city_lumeria"))
 	npcs.append_array(trainer_npc("city_lumeria"))
+	npcs.append_array(intendant_npc("city_lumeria"))
 	npcs.append_array(living_npcs(LIVING_NPCS["city_lumeria"]))
 	npcs.append_array(festival("city_lumeria", MANHA_LUMERIA, VICTORY3_QUEST))   # L4: Manhã em Lumeria
 	z["portals"] = (z["portals"] as Array) + _door_portals(_interior_doors(z, "city_lumeria"), "city_lumeria")   # Salão do Duque

@@ -748,7 +748,29 @@ const BOT_MOUNT_CHANCE := 0.04            # por pensamento, bot andando fora de 
 ## Tipos de montaria (por personagem, `SimEntity.mount_kind`, salvo). Todas com a MESMA velocidade (Kharzun D5:
 ## o lobo atroz é visual, não poder). `quest` = missão que libera ("" = desde o começo); quem a entrega já sai montando
 ## o bicho novo e troca no tratador (MOUNT_KEEPER_NPCS). Modelo e pelagem: EntityView.MOUNT_LOOKS.
-const MOUNT_KINDS := {"horse": {"name": "Cavalo", "quest": ""}, "dire_wolf": {"name": "Lobo Atroz", "quest": "hx_ov_hatch"}}
+## `mvp` = Chefe de Mundo que dá o tipo (mvp-premios.md §3.4; MvpSystem): liberado pela coleção `mount_cosmetics`, não por missão.
+const MOUNT_KINDS := {"horse": {"name": "Cavalo", "quest": "", "mvp": ""}, "dire_wolf": {"name": "Lobo Atroz", "quest": "hx_ov_hatch", "mvp": ""},
+	"war_boar": {"name": "Javali de Guerra", "quest": "", "mvp": "ancestral_boar"},
+	"forest_elk": {"name": "Alce do Bosque", "quest": "", "mvp": "ancient_elk"},
+	"ruins_lizard": {"name": "Lagarto das Ruínas", "quest": "", "mvp": "ruins_basilisk"},
+	"armored_rhino": {"name": "Rinoceronte Couraçado", "quest": "", "mvp": "war_rhino"},
+	"iron_wolf": {"name": "Lobo de Ferro Couraçado", "quest": "", "mvp": "iron_wolf_king"},
+	"porcelain_stag": {"name": "Gamo de Porcelana", "quest": "", "mvp": "porcelain_stag"}}
+## Cores por tipo (índice 0 = pelagem padrão; cavalo/lobo: todas livres; tipo de MVP: a 0 vem com o tipo, as outras são prêmio)
+const MOUNT_DYES := {
+	"horse": [Color(0.55, 0.38, 0.24), Color(0.25, 0.18, 0.14), Color(0.9, 0.88, 0.84), Color(0.7, 0.45, 0.25), Color(0.5, 0.5, 0.52), Color(0.85, 0.7, 0.45)],
+	"dire_wolf": [Color(0.56, 0.56, 0.6), Color(0.68, 0.67, 0.66), Color(0.36, 0.36, 0.4), Color(0.82, 0.83, 0.86), Color(0.6, 0.57, 0.53)],
+	"war_boar": [Color(0.45, 0.3, 0.2), Color(0.28, 0.2, 0.15), Color(0.62, 0.46, 0.3), Color(0.5, 0.36, 0.34)],
+	"forest_elk": [Color(0.55, 0.4, 0.26), Color(0.4, 0.3, 0.2), Color(0.72, 0.6, 0.44), Color(0.5, 0.62, 0.66)],
+	"ruins_lizard": [Color(0.42, 0.52, 0.32), Color(0.56, 0.5, 0.36), Color(0.36, 0.42, 0.46), Color(0.6, 0.36, 0.26)],
+	"armored_rhino": [Color(0.5, 0.48, 0.46), Color(0.38, 0.34, 0.3), Color(0.62, 0.56, 0.46), Color(0.34, 0.36, 0.42)],
+	"iron_wolf": [Color(0.4, 0.4, 0.44), Color(0.28, 0.28, 0.32), Color(0.6, 0.6, 0.64), Color(0.5, 0.42, 0.34)],
+	"porcelain_stag": [Color(0.94, 0.92, 0.88), Color(0.86, 0.8, 0.86), Color(0.8, 0.86, 0.92), Color(0.9, 0.84, 0.72)],
+}
+## Armaduras de montaria (só aparência; mvp-premios.md §9.1): estilo -> nome. Servem em todo tipo que tem os nós barding_<estilo>_*.
+const MOUNT_BARDINGS := {"barding_iron": "Barda de Ferro", "barding_war_boar": "Barda do Javali", "barding_forest_elk": "Barda do Alce",
+	"barding_ruins_lizard": "Barda das Ruínas", "barding_armored_rhino": "Barda do Rinoceronte", "barding_iron_wolf": "Barda do Rei de Ferro",
+	"barding_porcelain_stag": "Barda de Porcelana"}
 const MOUNT_DEFAULT := "horse"
 const MOUNT_KEEPER_NPCS := ["kharzun_wolf_keeper"]     # quem troca a montaria (Tratadora de Lobos, acampamento de Kharzun)
 ## Combate Montado (ascensão do Paladino, GDD ato2-horda F8): montado ele bate e usa skills `mountable`
@@ -2635,3 +2657,69 @@ const GBANK_REQUEST_GOLD_PER_LV := 15
 const GBANK_REQUEST_CONTRIB := {"material": 60, "card": 90, "kill": 120}
 const GBANK_REQUEST_ITEM_N := 3          # consumível de presente do bot
 const WORLD_BOSS_HP_MOD_MAX := 30.0      # teto do mod_unidade de vida dos chefes de mundo do Ato II/III (luta aberta de 8-15; momentos-do-mundo §10)
+
+## Prêmios de MVP (design/gdd/mvp-premios.md; MvpSystem). Faixa = índice pelo começo da faixa do chefe (MonstersCatalog.WORLD_BOSSES):
+## 0 = 1-10, 1 = 10-20, 2 = 20-30, 3 = 30-40, 4 = 40-45 e 45-50.
+const MVP_BAND_STARTS := [1, 10, 20, 30, 40]
+const MVP_COINS := [2, 3, 3, 4, 5]                 # Insígnias de Caçada por luta (§4)
+const MVP_SCROLL_CHANCE := 0.25                     # Pergaminho de Refino (15-35%)
+const MVP_SUPER_SCROLL_CHANCE := 0.08               # Pergaminho Superior (5-12%), só da faixa MVP_SUPER_MIN_BAND em diante
+const MVP_SUPER_MIN_BAND := 4
+const MVP_COSMETIC_CHANCE := 0.05                   # cosmético de montaria do chefe (3-10%)
+const MVP_CARD_CHANCE := 0.02                       # Carta de MVP (1-3%): carta de núcleo do chefe, se existir
+const MVP_DUP_COINS := 6                            # já tem tudo do chefe: vira insígnias
+const MVP_SCROLL := "refine_scroll"                 # +0..+4 -> +5 (o mesmo id de GBANK_SCROLLS)
+const MVP_SUPER_SCROLL := "refine_scroll_superior"  # +5..+6 -> +7
+const MVP_SCROLL_TARGET := 5
+const MVP_SUPER_TARGET := 7
+## Baú do MVP: 3 pacotes por faixa, cada um ~1-2 passos de refino (§3.2). {"items": {id: n}, "gold": n}
+const MVP_CHEST := [
+	[{"items": {"iron_ore": 5}, "gold": 0}, {"items": {"star_ore": 2}, "gold": 0}, {"items": {"iron_ore": 2}, "gold": 300}],
+	[{"items": {"iron_ore": 8}, "gold": 0}, {"items": {"star_ore": 3}, "gold": 0}, {"items": {"elf_steel": 3}, "gold": 0}],
+	[{"items": {"star_ore": 3}, "gold": 0}, {"items": {"holy_silver": 3}, "gold": 0}, {"items": {"dawn_shard": 2}, "gold": 0}],
+	[{"items": {"star_ore": 4}, "gold": 0}, {"items": {"holy_silver": 4}, "gold": 0}, {"items": {"dawn_shard": 3}, "gold": 0}],
+	[{"items": {"dwarf_steel": 5}, "gold": 0}, {"items": {"kharzun_ember_core": 2}, "gold": 0}, {"items": {"star_ore": 4}, "gold": 600}],
+]
+## Loja do Intendente das Caçadas (§3.6): preços em insígnias
+const MVP_SHOP_SCROLL := 12
+const MVP_SHOP_SUPER := 40
+const MVP_SHOP_SUPER_LEVEL := 40
+const MVP_SHOP_DYE := 15
+const MVP_SHOP_BARDING := 30
+const MVP_SHOP_MOUNT := 60
+## Barda genérica (serve em todo tipo): quais chefes a dão além da barda temática deles ("1-2 por chefe", §3.4)
+const MVP_GENERIC_BARDING := {"barding_iron": ["ancestral_boar", "war_rhino"]}
+const MVP_MOUNT_FIGHTS := 5                         # lutas contra o chefe antes de o tipo dele ficar à venda
+## Bots (§3.7): compram pergaminho com as insígnias e usam na peça vestida mais fraca; vitrine = parte dos bots já
+## nasce com o bicho de um MVP da faixa deles (sorteio fixo pelo id, sem gastar o rng da sim)
+const BOT_MVP_SHOWCASE := 0.08
+
+# ======== Momentos do Mundo (design/gdd/momentos-do-mundo.md §3-§4, §9; WorldBossSystem/ChainSystem) ========
+## Chefe de Mundo: próximo = EVERY × (ROLL.x + ROLL.y × sorteio) min de jogo, só com o jogador no ato da faixa
+## (ato pelo topo da faixa/mapa: até ACT_TOPS[0] = Ato I, até ACT_TOPS[1] = Ato II, depois Ato III). Um vivo por vez.
+const WORLD_BOSS_EVERY := 40.0                 # min (§9.1; faixa segura 25-60)
+const WORLD_BOSS_ROLL := Vector2(0.8, 0.4)     # §4: × (0,8 + 0,4 × rng)
+const WORLD_BOSS_WARN_S := 120.0               # aviso no chat de todos os mapas antes de nascer
+const WORLD_BOSS_LIFE := 15.0                  # min vivo sem morrer: some com fala de despedida
+const WORLD_BOSS_HOLD_S := 30.0                # outro chefe vivo / cerco ou investida no mapa: tenta de novo a cada isto
+const WORLD_BOSS_ACT_TOPS := [30, 45]
+## Participação (§4): ganha se dano+cura >= SHARE_MIN × vida do chefe / participantes (quem fez algum dano ou cura)
+const WORLD_BOSS_SHARE_MIN := 0.25             # 0,1-0,4: 0,25 = um quarto da parte justa
+const WORLD_BOSS_SHARE_RANGE := 40.0           # cura conta se o curado está a até isto do chefe
+const WORLD_BOSS_XP_MULT := 1.0                # XP igual para todos = MonsterDef.xp × isto (regra de nível de sempre)
+## Bots (§3.1): da faixa (± SLACK níveis), no mapa do chefe ou a 1 portal; brigam a ENGAGE m; "chegou" = ARRIVE m (sonda)
+const WORLD_BOSS_BOT_SLACK := 3
+const WORLD_BOSS_BOT_ENGAGE := 24.0
+const WORLD_BOSS_ARRIVE_M := 18.0
+const WORLD_BOSS_BOT_SHOUT := 0.2              # chance de um bot que vai gritar no chat
+## Cadeias (§3.2, §4): um passo a cada TICK min com chance STEP_CHANCE (só com o jogador no mapa, um passo por zona);
+## a marca dura MARK_MIN min de jogo; depois dela, COOLDOWN_MIN min sem passo novo.
+const CHAIN_TICK := 3.0                        # min
+const CHAIN_STEP_CHANCE := 0.35
+const CHAIN_FIRST_MIN := 4.0                   # min no mapa até o 1º sorteio
+const CHAIN_MARK_MIN := 15.0
+const CHAIN_COOLDOWN_MIN := 10.0
+const CHAIN_FAIR_DISCOUNT := 0.15              # Feira: lojas do mapa (e casas dele) -15%
+const CHAIN_CAMP_BANDITS := 5                  # Acampamento Bandido: bandidos além do mandachuva
+const CHAIN_CAMP_RADIUS := 5.0
+const CHAIN_CAMP_OFFSET := 9.0                 # o acampamento fica a isto da estrada (do ponto onde a caravana caiu)

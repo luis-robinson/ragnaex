@@ -118,6 +118,8 @@ static func barrage_extra(bd: Dictionary) -> Dictionary:
 		x["empower"] = bd["empower"]
 	if bd.get("pull") is Dictionary:
 		x["press"] = true                            # sonda: quem a Prensa esmagou (press_hits)
+	if bd.get("warn_all", false):
+		x["warn_all"] = true                         # anéis: todos os que caem logo aparecem na gramática de perigo (BossSigView)
 	return x
 
 ## Prensa (Dona Vindima): antes do círculo em volta dela, puxa para junto todo personagem a até `radius` m

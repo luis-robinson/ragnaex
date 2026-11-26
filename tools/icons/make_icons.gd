@@ -107,8 +107,12 @@ const STATUS_ICONS := {"burn": ["fire", "flame"], "poison": ["poison", "drop"], 
 ## montaria que não é o cavalo: action_mount_<Balance.MOUNT_KINDS> (ActionBar.mount_icon)
 ## Serviço de NPC (ícone sobre a cabeça e no minimapa, NpcServices): papel -> [tema, símbolo]; arquivo service_<papel>.png
 const SERVICE_ICONS := {"merchant": ["holy", "coin"], "smith": ["fire", "anvil"], "alchemy": ["poison", "flask"], "storage": ["earth", "chest"],
-	"trainer": ["lunar", "book"], "relic": ["shadow", "gem"], "crystal": ["ice", "crystal"], "board": ["physical", "scroll"], "mount": ["earth", "horse"]}
-const ACTION_ICONS := {"mount": ["earth", "horse"], "mount_dire_wolf": ["earth", "wolf"], "recall": ["lunar", "portal"], "dash": ["wind", "dash"]}
+	"trainer": ["lunar", "book"], "relic": ["shadow", "gem"], "crystal": ["ice", "crystal"], "board": ["physical", "scroll"], "mount": ["earth", "horse"],
+	"hunt": ["blood", "flag"]}     # Intendente das Caçadas (mvp-premios.md §3.6)
+const ACTION_ICONS := {"mount": ["earth", "horse"], "mount_dire_wolf": ["earth", "wolf"], "recall": ["lunar", "portal"], "dash": ["wind", "dash"],
+	# montarias dos Chefes de Mundo (mvp-premios.md §3.4; ActionBar.mount_icon)
+	"mount_war_boar": ["earth", "boar"], "mount_forest_elk": ["nature", "elk"], "mount_ruins_lizard": ["earth", "lizard"],
+	"mount_armored_rhino": ["earth", "rhino"], "mount_iron_wolf": ["earth", "iron_wolf"], "mount_porcelain_stag": ["lunar", "stag"]}
 ## classe: [tema, símbolo, símbolo de trás (ou "")]
 const CLASS_ICONS := {
 	"paladin": ["holy", "shield", "sword"], "berserker": ["blood", "axe", "axe"], "bishop": ["heal", "cross", ""], "druid": ["nature", "leaf", "paw"],
@@ -1025,6 +1029,82 @@ func _g_wolf() -> void:
 	_c(0.13, -0.2, 0.03, INK, 0.0)
 	_l([0.4, -0.22, 0.4, 0.34], 4, 0.07)                                       # cabresto
 	_l([-0.3, -0.42, 0.4, -0.12], 4, 0.06)
+
+## Javali de Guerra (MVP da Campina): cabeça de perfil para a direita, crina eriçada, focinho em disco, presa branca.
+func _g_boar() -> void:
+	var brown := Color(0.5, 0.34, 0.22)
+	var dark := Color(0.26, 0.17, 0.12)
+	_p([-0.9, 0.4, -0.82, -0.2, -0.66, -0.56, -0.44, -0.78, -0.3, -0.62, -0.12, -0.84, 0.0, -0.6, 0.2, -0.7, 0.2, -0.4], dark)     # crina
+	_p([-0.86, 0.86, -0.84, 0.0, -0.5, -0.44, -0.04, -0.52, 0.4, -0.3, 0.74, -0.06, 0.9, 0.2, 0.86, 0.5, 0.5, 0.62, 0.0, 0.7, -0.3, 0.9], brown)
+	_p([-0.4, -0.5, -0.24, -0.86, -0.1, -0.46], brown)                             # orelha
+	_c(0.84, 0.32, 0.16, Color(0.82, 0.56, 0.5))                                    # focinho
+	_c(0.84, 0.28, 0.04, INK, 0.0)
+	_c(0.9, 0.38, 0.04, INK, 0.0)
+	_p([0.5, 0.5, 0.66, 0.06, 0.62, 0.52], Color(1.0, 0.96, 0.86), 0.04)           # presa
+	_c(0.18, -0.18, 0.08, INK, 0.03)
+	_c(0.2, -0.2, 0.03, Color(1, 1, 1), 0.0)
+
+## Alce do Bosque (MVP da Floresta): cabeça longa de perfil com a galhada larga em pá.
+func _g_elk() -> void:
+	var brown := Color(0.56, 0.4, 0.26)
+	var horn := Color(0.9, 0.82, 0.64)
+	_p([-0.62, -0.5, -0.9, -0.82, -0.66, -0.96, -0.5, -0.72, -0.34, -0.98, -0.16, -0.78, -0.24, -0.5], horn, 0.05)     # galhada atrás
+	_p([-0.1, -0.5, -0.04, -0.86, 0.14, -0.98, 0.22, -0.74, 0.4, -0.94, 0.52, -0.7, 0.2, -0.42], horn, 0.05)           # galhada da frente
+	_p([-0.6, 0.96, -0.66, 0.2, -0.46, -0.38, -0.08, -0.46, 0.3, -0.2, 0.86, 0.1, 0.96, 0.34, 0.84, 0.52, 0.36, 0.5, 0.06, 0.66, 0.0, 0.96], brown)
+	_p([0.62, 0.06, 0.96, 0.34, 0.84, 0.52, 0.56, 0.46], Color(0.4, 0.28, 0.2), 0.0)     # focinho escuro
+	_c(0.9, 0.3, 0.045, INK, 0.0)
+	_c(0.04, -0.2, 0.08, INK, 0.03)
+	_c(0.06, -0.22, 0.03, Color(1, 1, 1), 0.0)
+	_p([0.1, 0.62, 0.2, 0.96, 0.32, 0.6], brown, 0.04)                            # barbela
+
+## Lagarto das Ruínas (MVP das Ruínas): cabeça chata e comprida, crista de espinhos, olho amarelo de fenda.
+func _g_lizard() -> void:
+	var green := Color(0.44, 0.56, 0.32)
+	var belly := Color(0.8, 0.76, 0.52)
+	for k in range(4):
+		var x := -0.8 + k * 0.32
+		_p([x, -0.16, x + 0.12, -0.6 + k * 0.08, x + 0.24, -0.16], Color(0.6, 0.36, 0.26), 0.04)     # crista
+	_p([-0.94, 0.7, -0.9, -0.16, -0.2, -0.3, 0.5, -0.14, 0.96, 0.08, 0.96, 0.3, 0.5, 0.42, -0.2, 0.5, -0.5, 0.86], green)
+	_p([-0.1, 0.36, 0.5, 0.3, 0.92, 0.26, 0.5, 0.44, -0.2, 0.5], belly, 0.0)
+	_l([0.0, 0.24, 0.9, 0.2], INK, 0.03)                                          # boca
+	_c(0.2, -0.06, 0.11, Color(1.0, 0.82, 0.2), 0.03)
+	_l([0.2, -0.14, 0.2, 0.02], INK, 0.04)
+	_c(0.86, 0.04, 0.03, INK, 0.0)
+
+## Rinoceronte Couraçado (MVP das Estepes): cabeçorra cinza, chifre grande no focinho, placa de couro na testa.
+func _g_rhino() -> void:
+	var grey := Color(0.56, 0.54, 0.52)
+	var plate := Color(0.4, 0.38, 0.36)
+	_p([-0.92, 0.9, -0.94, -0.1, -0.6, -0.5, -0.1, -0.56, 0.4, -0.3, 0.78, 0.0, 0.96, 0.4, 0.8, 0.7, 0.2, 0.8, -0.3, 0.96], grey)
+	_p([0.5, -0.12, 0.62, -0.92, 0.84, -0.04], Color(0.9, 0.86, 0.76), 0.05)        # chifre
+	_p([0.2, -0.36, 0.3, -0.64, 0.44, -0.3], Color(0.86, 0.82, 0.72), 0.04)         # chifre menor
+	_p([-0.62, -0.44, -0.16, -0.54, 0.18, -0.34, -0.2, -0.12, -0.7, -0.08], plate, 0.04)     # placa
+	_p([-0.66, -0.48, -0.56, -0.86, -0.4, -0.5], grey)                               # orelha
+	_c(-0.08, -0.02, 0.07, INK, 0.03)
+	_c(0.9, 0.5, 0.04, INK, 0.0)
+
+## Lobo de Ferro Couraçado (MVP do Kharzun): o lobo atroz com elmo de ferro na testa e rebites.
+func _g_iron_wolf() -> void:
+	_g_wolf()
+	var steel := Color(0.7, 0.72, 0.78)
+	_p([-0.42, -0.42, -0.06, -0.6, 0.38, -0.3, 0.6, -0.06, 0.2, -0.04, -0.3, -0.14], steel, 0.05)
+	for q in [[-0.24, -0.34], [0.08, -0.4], [0.36, -0.2]]:
+		_c(q[0], q[1], 0.04, Color(0.4, 0.42, 0.48), 0.0)
+	_l([-0.3, -0.14, 0.2, -0.04], Color(1.0, 0.8, 0.3), 0.04)                        # filete dourado
+
+## Gamo de Porcelana (MVP de Lumeria): cabeça branca de perfil, galhada fina dourada, lágrima azul sob o olho.
+func _g_stag() -> void:
+	var white := Color(0.95, 0.93, 0.9)
+	var gold := Color(1.0, 0.8, 0.36)
+	_l([-0.3, -0.46, -0.44, -0.96], gold, 0.05)
+	_l([-0.4, -0.76, -0.7, -0.9], gold, 0.04)
+	_l([-0.36, -0.62, -0.12, -0.92], gold, 0.04)
+	_l([0.0, -0.46, 0.06, -0.96], gold, 0.05)
+	_l([0.04, -0.74, 0.34, -0.88], gold, 0.04)
+	_p([-0.56, 0.96, -0.6, 0.3, -0.42, -0.36, -0.06, -0.44, 0.3, -0.22, 0.86, 0.1, 0.94, 0.3, 0.8, 0.44, 0.3, 0.4, 0.06, 0.6, 0.04, 0.96], white)
+	_c(0.9, 0.24, 0.045, INK, 0.0)
+	_p([0.0, -0.2, 0.2, -0.24, 0.1, -0.1], INK, 0.03)
+	_p([0.08, -0.06, 0.14, 0.12, 0.02, 0.12], Color(0.4, 0.7, 1.0), 0.0)            # lágrima
 
 ## Esquiva (Shift): bota inclinada para a frente com asinha no calcanhar e três rastros de vento atrás (desenho próprio).
 func _g_dash() -> void:

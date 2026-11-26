@@ -15,7 +15,7 @@ var kit: KitModel = null                # personagens/NPCs: kit modular com as p
 var form_view: FormModel = null
 var horse: FormModel = null              # montado: o cavalo (o boneco senta na sela)
 var _horse_kept: FormModel = null        # o mesmo cavalo volta a cada montada (criar um é caro)
-var _horse_kind := ""                     # tipo do bicho guardado (SimEntity.mount_kind)
+var _horse_kind := ""                     # tipo|cor|armadura do bicho guardado (_mount_key)
 var _shown_mount := false
 var _ride_legs: RideLegs = null           # pernas presas na sela enquanto golpeia montado (Combate Montado)
 const HORSE_SCALE := 1.75
@@ -24,7 +24,10 @@ const HORSE_COATS := [Color(0.55, 0.38, 0.24), Color(0.25, 0.18, 0.14), Color(0.
 ## Lobo atroz (Kharzun, hx_ov_hatch): pelagens cinzentas (cinza-chumbo, cinza-cinza, quase preto, prata, cinza-pardo)
 const WOLF_COATS := [Color(0.56, 0.56, 0.6), Color(0.68, 0.67, 0.66), Color(0.36, 0.36, 0.4), Color(0.82, 0.83, 0.86), Color(0.6, 0.57, 0.53)]
 ## Modelo e pelagens por tipo de montaria (SimEntity.mount_kind, Balance.MOUNT_KINDS)
-const MOUNT_LOOKS := {"horse": ["mob_horse", HORSE_COATS], "dire_wolf": ["mob_dire_wolf_mount", WOLF_COATS]}
+const MOUNT_LOOKS := {"horse": ["mob_horse", HORSE_COATS], "dire_wolf": ["mob_dire_wolf_mount", WOLF_COATS],
+	# Chefes de Mundo (mvp-premios.md; modelo/cor/armadura de verdade em MountLook, que cai no cavalo sem o GLB)
+	"war_boar": ["mob_mount_war_boar", []], "forest_elk": ["mob_mount_forest_elk", []], "ruins_lizard": ["mob_mount_ruins_lizard", []],
+	"armored_rhino": ["mob_mount_armored_rhino", []], "iron_wolf": ["mob_mount_iron_wolf", []], "porcelain_stag": ["mob_mount_porcelain_stag", []]}
 const FORM_SCALE := {"wolf": 1.15, "bear": 1.4, "demon": 1.3, "lich": 1.2,     # o bicho do druida é maior que o lobo comum
 	"ent": 1.2, "alpha": 1.4, "bird": 1.3}                         # formas ancestrais (ascensão do Druida)
 var _fly := 0.0                      # Pássaro Arcano: altura do voo no desenho (a sim é plana)
@@ -884,6 +887,7 @@ func _npc_role_label() -> String:
 		"storage": return "Depósito"
 		"relic": return "Relicária"
 		"board": return "Quadro"
+		"hunt": return "Intendente das Caçadas"
 		"guard": return "Guarda"
 		"villager": return "Morador"
 	return "NPC"
@@ -898,21 +902,21 @@ func _swap_mount() -> void:
 	kit.transform = Transform3D.IDENTITY
 	if not _shown_mount:
 		return
-	var look: Array = MOUNT_LOOKS.get(entity.mount_kind, MOUNT_LOOKS["horse"])
-	if _horse_kept != null and _horse_kind != entity.mount_kind:      # trocou de bicho no tratador: o guardado sai
+	var mkey := _mount_key()
+	if _horse_kept != null and _horse_kind != mkey:      # trocou de bicho/cor/armadura: o guardado sai
 		_horse_kept.queue_free()
 		_horse_kept = null
 	if _horse_kept == null:
-		var mount_model: String = DevArgs.value("--mount_model", look[0])      # revisão: --mount_model=<modelo> força outro bicho
-		_horse_kept = FormModel.create_from("res://assets/models/%s.glb" % mount_model)
+		var forced := DevArgs.value("--mount_model", "")      # revisão: --mount_model=<modelo> força outro bicho
+		_horse_kept = FormModel.create_from(MountLook.path_of(forced)) if forced != "" else MountLook.create(entity.mount_kind, entity.mount_dye, entity.mount_barding, entity.id)
 		if _horse_kept == null:
 			return
-		_horse_kind = entity.mount_kind
+		_horse_kind = mkey
 		_horse_kept.scale = Vector3.ONE * HORSE_SCALE / maxf(_base_scale, 0.01)
-		# o bicho já olha para +Z (frente do boneco)
-		var coats: Array = look[1]
-		_horse_kept.paint(coats[entity.id % coats.size()])
-		RigidMerge.merge(_horse_kept, mount_model)
+		# o bicho já olha para +Z (frente do boneco); cor e armadura: MountLook (mount_dye -1 = pelagem pelo id, bots)
+		if forced != "":
+			_horse_kept.paint(MountLook.coat(entity.mount_kind, entity.mount_dye, entity.id))
+		RigidMerge.merge(_horse_kept, forced if forced != "" else MountLook.merge_key(entity.mount_kind, entity.mount_barding))
 		model_root.add_child(_horse_kept)
 	horse = _horse_kept
 	horse.visible = true
@@ -924,6 +928,10 @@ func _swap_mount() -> void:
 		_ride_legs = RideLegs.new()
 		_ride_legs.setup(kit.skeleton)
 		kit.skeleton.add_child(_ride_legs)      # depois do LegOverlay: a sela vence a corrida
+
+## Tipo + cor + armadura da montaria (troca = refaz o bicho guardado).
+func _mount_key() -> String:
+	return "%s|%d|%s" % [entity.mount_kind, entity.mount_dye, entity.mount_barding]
 
 ## O boneco acompanha o lombo do cavalo (sobe/desce e balança no galope).
 func _ride_saddle() -> void:
@@ -1370,8 +1378,8 @@ func _process_view(delta: float) -> void:
 		_swap_form()
 	if entity.kind == SimEntity.Kind.MONSTER and entity.monster_def != _shown_def and entity.is_alive():
 		_swap_monster_model()          # metamorfose: morto fica com o corpo da forma
-	if kit and entity.mounted != _shown_mount:
-		_swap_mount()
+	if kit and (entity.mounted != _shown_mount or (_shown_mount and _horse_kind != _mount_key())):
+		_swap_mount()                      # montou/desceu, ou trocou tipo/cor/armadura na aba Montaria
 	var want_alpha := 0.7 if entity.stealth_left > 0.0 else 0.0     # furtivo quase some
 	if (entity.stealth_left > 0.0) != _stealth_shown or not is_equal_approx(want_alpha, _alpha_shown):
 		_stealth_shown = entity.stealth_left > 0.0

@@ -267,12 +267,15 @@ func save_player(p: SimEntity) -> void:
 		"hunt_buffs": HuntPotionSystem.to_save(p),     # Poções de Caça: o tempo que sobra (campo opcional)
 		"cards": p.cards.duplicate(), "bestiary": p.bestiary.duplicate(),     # Cartas de Monstro (campos opcionais)
 	}
+	data.merge(MvpSystem.to_save(p))                  # Prêmios de MVP: insígnias, lutas, coleção, correio e mount_look (opcionais)
 	if p == Sim.player and Sim.roster_on:            # Bots com Memória (campos opcionais; save antigo sorteia o elenco)
 		data["roster"] = RosterSystem.to_save(Sim)
 		data["guild"] = GuildSystem.to_save(Sim)
 	if p == Sim.player:
 		data["arena"] = ArenaSystem.to_save(Sim)       # Campo de Caça: entradas e recordes (campo opcional)
-		data.merge(GuildBankSystem.to_save(Sim))     # Banco da Guilda: guild_bank, guild_contrib, guild_missions, guild_requests (opcionais)
+		data.merge(GuildBankSystem.to_save(Sim))
+		data["world_boss"] = WorldBossSystem.to_save(Sim)     # Chefes de Mundo: relógios das faixas (campo opcional)
+		data["moments"] = ChainSystem.to_save(Sim)            # marcas de mundo das cadeias com o tempo que falta (opcional)     # Banco da Guilda: guild_bank, guild_contrib, guild_missions, guild_requests (opcionais)
 	# gravação atômica: escreve o .tmp inteiro, fecha e só então renomeia por cima do save (fechar no meio não trunca o save bom)
 	var tmp := tmp_of(slot)
 	var f := FileAccess.open(tmp, FileAccess.WRITE)
@@ -411,7 +414,7 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 	p.quests_completed.clear()
 	for q in d.get("quests_completed", []):
 		p.quests_completed.append(str(q))
-	p.mount_kind = MountSystem.from_save(p, str(d.get("mount", Balance.MOUNT_DEFAULT)))     # save antigo: cavalo
+	MvpSystem.from_save(p, d)                  # coleção de montaria, insígnias, correio; depois o tipo e o mount_look (save antigo: cavalo)
 	UnlockSystem.from_save(p, d)              # save antigo: tudo até o nível dele aberto
 	ElementalSystem.from_save(p, d)            # save antigo (< 5): experiência 0, forma = a do último elemental
 	HuntPotionSystem.from_save(p, d)           # Poções de Caça: save sem o campo = sem poção
@@ -420,6 +423,8 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 		RosterSystem.from_save(Sim, d)         # Bots com Memória: guarda o elenco para o Sim.roster_start (sem o campo = sorteia)
 		ArenaSystem.from_save(Sim, d)          # Campo de Caça: save sem o campo = ARENA_CHARGES_START entradas
 		GuildBankSystem.from_save(Sim, d)      # Banco da Guilda (sem os campos = banco vazio; o 1º pulso dá as boas-vindas)
+		WorldBossSystem.from_save(Sim, d)      # Chefes de Mundo: save sem o campo = relógios novos
+		ChainSystem.from_save(Sim, d)          # cadeias: marcas que valiam voltam com o tempo que faltava
 	# teia de ascensão (save < 5: vazia). Nó que não existe mais: a teia volta ao início (os pontos são calculados)
 	p.asc_tree = {}
 	var atr: Dictionary = GameData.asc_trees.get(p.class_def.id, {})

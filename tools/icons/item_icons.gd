@@ -35,7 +35,7 @@ const SLOT_ART := {ItemDef.Slot.HEAD: "head", ItemDef.Slot.BODY: "body", ItemDef
 	ItemDef.Slot.BOOTS: "boots", ItemDef.Slot.CAPE: "cape", ItemDef.Slot.AMULET: "amulet", ItemDef.Slot.RING: "ring",
 	ItemDef.Slot.RING2: "ring", ItemDef.Slot.ACCESSORY: "ring"}
 ## material: palavra no id -> arte (o primeiro que bater)
-const MATERIAL_ART := [["goblet", "goblet"], ["frame", "frame"], ["baton", "baton"], ["_fan", "fan"], ["grapes", "grapes"], ["legend_coin", "legend_coin"], ["honey", "sap"], ["stinger", "tusk"], ["shell", "shell"], ["mushroom", "mushroom"], ["relic", "relic"], ["basket", "basket"],
+const MATERIAL_ART := [["mvp_chest", "chest"], ["refine_scroll", "scroll"], ["goblet", "goblet"], ["frame", "frame"], ["baton", "baton"], ["_fan", "fan"], ["grapes", "grapes"], ["legend_coin", "legend_coin"], ["honey", "sap"], ["stinger", "tusk"], ["shell", "shell"], ["mushroom", "mushroom"], ["relic", "relic"], ["basket", "basket"],
 	["letter", "letter"], ["report", "letter"], ["orders", "letter"], ["oath_seal", "badge"], ["standard", "silk"], ["banner_scrap", "silk"], ["star_ore", "star"], ["goods", "basket"], ["gel", "gel"], ["pelt", "pelt"], ["hide", "pelt"], ["tusk", "tusk"], ["fang", "tusk"], ["herb", "herb"],
 	["ore", "ore"], ["silk", "silk"], ["bark", "bark"], ["badge", "badge"], ["bone", "bone"], ["dust", "dust"],
 	["essence", "essence"], ["core", "core"], ["scale", "scale"], ["feather", "feather"], ["steel", "ingot"], ["sap", "sap"], ["heartwood", "bark"], ["_log", "bark"], ["ribbon", "silk"], ["porcelain", "shell"], ["crown", "crown"], ["skin", "pelt"], ["bog_heart", "core"], ["ledger", "ledger"], ["vel_ink", "gel"], ["_page", "letter"]]
@@ -1056,6 +1056,32 @@ func _a_relic() -> void:
 	for q in [[-0.3, 0.05, -0.05, 0.35], [0.05, 0.05, 0.3, 0.35], [0.3, 0.05, 0.05, 0.35]]:
 		_mark(q, Color(0.35, 0.25, 0.15), 0.05)
 	_shine(-0.45, -0.4, 0.14, 0.07, 0.55)
+
+## Baú do MVP (mvp-premios.md): baú de madeira com tampa curva, cintas e fecho dourados; a madeira puxa a cor da faixa.
+func _a_chest() -> void:
+	_poly([-0.86, -0.1, 0.86, -0.1, 0.82, 0.8, -0.82, 0.8], "tint", 0.06, 0.2)
+	var lid: Array = [-0.86, -0.1]
+	for i in range(9):
+		var t := PI + PI * i / 8.0
+		lid.append(cos(t) * 0.86); lid.append(-0.1 + sin(t) * 0.52)
+	_poly(lid, "tint", 0.06, 0.16)
+	for x in [-0.56, 0.56]:
+		_poly([x - 0.1, -0.6, x + 0.1, -0.6, x + 0.1, 0.8, x - 0.1, 0.8], "gold", 0.03, 0.05)
+	_poly([-0.86, -0.16, 0.86, -0.16, 0.86, -0.02, -0.86, -0.02], "gold", 0.03, 0.03)
+	_poly([-0.16, -0.18, 0.16, -0.18, 0.16, 0.2, -0.16, 0.2], "gold", 0.035, 0.05)
+	_dot(0, 0.04, 0.05, Color(0.2, 0.12, 0.06))
+	_shine(-0.4, -0.4, 0.16, 0.07, 0.6)
+
+## Pergaminho de Refino: rolo de papel aberto com runa da forja na cor do item e as pontas enroladas.
+func _a_scroll() -> void:
+	_poly([-0.62, -0.62, 0.62, -0.62, 0.62, 0.62, -0.62, 0.62], "paper", 0.055, 0.12)
+	for y in [-0.7, 0.7]:
+		_ell(0, y, 0.78, 0.16, "paper")
+		_ell(-0.78, y, 0.07, 0.16, PAL["paper"][2] as Color, 0.0)
+	_mark([-0.3, -0.3, 0.0, -0.46, 0.3, -0.3, 0.3, 0.1, 0.0, 0.32, -0.3, 0.1, -0.3, -0.3], _pal("tint")[2], 0.07)     # runa
+	_mark([0.0, -0.46, 0.0, 0.32], _pal("tint")[1], 0.06)
+	_dot(0, -0.08, 0.1, _pal("tint")[0])
+	_shine(-0.4, -0.4, 0.12, 0.06, 0.5)
 
 func _a_basket() -> void:
 	# cesto de vime com alça e pano por cima

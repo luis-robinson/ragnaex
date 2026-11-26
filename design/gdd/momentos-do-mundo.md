@@ -1,6 +1,7 @@
 # Momentos do Mundo — chefes de mundo e cadeias de eventos
 
-> Status: **APROVADA PARA IMPLEMENTAR** (2026-11-25, revisão de diversão). Nada implementado. Decisões do usuário em §9.
+> Status: **IMPLEMENTADA (onda 5, 2026-11-26)**: Chefes de Mundo com hora marcada (WorldBossSystem) e a cadeia piloto da
+> Campina (ChainSystem); Floresta e Ruínas depois do teste (§9.2). Decisões do usuário em §9; números e regras em §10-§11.
 > Prêmios do Chefe de Mundo: `mvp-premios.md`.
 > Já existe: eventos de estrada (`RoadEventSystem`), investidas (`RaidSystem`), Cerco Vivo (`SiegeSystem`), conquista dos fortes (`WorldState`).
 
@@ -88,35 +89,102 @@ contagem no HUD enquanto a marca vale, e fala dos NPCs da zona.
 | 40-45 | Kharzun | Lobo-Rei de Ferro (lobo gigante de armadura) | Lobo de Ferro Couraçado |
 | 45-50 | Lumeria | Gamo de Porcelana da Festa | Gamo de Porcelana |
 
-## 10. Chefes de mundo: números (2026-11-26, dados; nascimento/anúncio/prêmios = onda 5)
+## 10. Chefes de mundo: números (2026-11-26; onda 5: lugares refeitos e calibragem fechada)
 
-Dados em `MonstersCatalog.WORLD_BOSSES` / `_world_bosses()` (lugar provisório = clareira com 13 m livres, o da sonda) e
-`SkillsCatalog._world_boss_skills()` (`mob_wb_*`). Só para teste até a onda 5: `-- --autostart=<classe> --world_boss=<id>`
-(nasce a 12 m) ou `--world_boss_shot=<pasta>` (fotos da luta e da assinatura). Check `_check_world_boss_data`.
+Dados em `MonstersCatalog.WORLD_BOSSES` / `_world_bosses()` e `SkillsCatalog._world_boss_skills()` (`mob_wb_*`). Nascem pelo
+`WorldBossSystem` (§11). Teste: `-- --autostart=<classe> --world_boss=<id>` (nasce a 12 m), `--world_boss_shot=<pasta>`,
+`--moments_shot=<pasta>` (o evento inteiro). Checks `_check_world_boss_data`, `_check_world_boss_event`.
 Todos: chefe de verdade no topo da faixa, escala 3,0 (lobo 2,8), 3 fases (70% lacaios + golpe novo, 40% ward 0,5 com lacaios,
 15% fúria ×1,3), fúria por tempo aos 330 s, lacaios 0 XP (`wb_*`), uma assinatura de chão avisada (não esquivável pela AGI).
 
 | Chefe | Nv | Vida | ATK | Assinatura (forma) | Outros golpes |
 |---|---|---|---|---|---|
 | Javali Ancestral | 10 | 210 000 | 44 | Trilha Ancestral: 3 faixas encadeadas que ele corre (cortejo), atordoa 0,8 s | presa em cone, pisão lento, disparada no longe, vara |
-| Alce Ancião | 20 | 600 000 | 76 | Erupção de Cristal: 3 anéis × 2 pulsos (o lugar seguro anda), prende 1,2 s | galhada, galope, chuva de lascas, bramido (empurra), manada |
-| Basilisco das Ruínas | 30 | 1 200 000 | 125 | Olhar que Petrifica: faixa de 10 × 30 m, 2 s de aviso, atordoa 2,5 s | mordida venenosa, cauda (atordoa), bote, cuspe ácido (poça), estátuas |
+| Alce Ancião | 20 | 600 000 | 76 | Erupção de Cristal: 3 anéis × 2 pulsos (o lugar seguro anda), prende 1,2 s; todo anel que cai em até 3 s já aparece na gramática de perigo (`warn_all`), não só o próximo | galhada, galope, chuva de lascas, bramido (empurra), manada |
+| Basilisco das Ruínas | 30 | 1 050 000 | 115 | Olhar que Petrifica: faixa de 10 × 30 m, 2 s de aviso, atordoa 2,5 s | mordida venenosa, cauda (atordoa), bote, cuspe ácido (poça), estátuas |
 | Rinoceronte de Guerra | 40 | F2 chefe ×22 (≈3,27 M) | F2 ×0,95 (≈133) | Atropelo da Horda: 3 faixas paralelas em sequência, atordoa 1 s | chifrada, investida, pisão, Tambores (grito +20% ATK/vel. de ataque na Horda), lanças, guerreiros |
 | Lobo-Rei de Ferro | 45 | F2 chefe ×10 (≈1,78 M) | F2 ×0,9 (≈144) | Marca da Caçada: 3 marcas que seguem (nunca o tanque) e explodem: espalhar | garra (sangra), salto no longe, queda de ferro (atordoa), uivo da alcateia |
 | Gamo de Porcelana | 50 | F2 chefe ×18 (≈3,73 M) | F2 ×0,78 (≈140) | Clarão das Lanternas: ilhas de luz (mín. 4, 3,5 m); fora delas leva o golpe | galhada, deslize, cascos (atordoa), lanternas que caem, convidados |
 
-Sonda: `boss_probe.tscn -- --party=8 --boss=<id> --trials=20` (8 bots do nível, uma classe de cada; grupo de 5 + 3 soltos;
-`BOSS_CROWD_MULT` para em 5). Alvo: 70-85% de vitórias, luta de 3-5 min.
+**Lugares (onda 5).** Os provisórios estavam ruins: o Rinoceronte a 13 m do portal do Forte de Guerra (os bots saíam do mapa
+aos ~30 s e o chefe resetava com 100%: era a causa dos 5/20), o Gamo em cima da estrada e a 27 m de portal, o Javali e o
+Basilisco em cima da estrada e dentro de spawner, o Alce a 18 m de portal. Refeitos com a sonda
+`world_boss_probe.tscn -- --spots --search` (alcançável a pé da chegada; >= 6 m do eixo de estrada; >= 40 m de portal;
+>= 4 m além do raio de qualquer spawner; fora do povoado; 50-125 m do hub). Livre em volta: 13 m no Javali, 10 m nos
+outros, 8 m no Alce (a Floresta Sombria não tem clareira maior; árvores são obstáculo, não parede).
+
+| Chefe | Mapa | Lugar antigo | Lugar novo |
+|---|---|---|---|
+| Javali Ancestral | city_aldara | -84, 24 | -78, 6 |
+| Alce Ancião | field_forest | 78, 18 | 53, -10 |
+| Basilisco das Ruínas | field_ruins | -72, 42 | -70, 59 |
+| Rinoceronte de Guerra | field_steppe | 72, -54 | 38, -46 |
+| Lobo-Rei de Ferro | field_kharzun | 84, 42 | 83, 44 |
+| Gamo de Porcelana | field_parade | 30, 77 | 62, 68 |
+
+Sonda: `boss_probe.tscn -- --party=8 --boss=<id> --trials=20 [--why]` (8 bots do nível, uma classe de cada; grupo de 5 + 3
+soltos; `BOSS_CROWD_MULT` para em 5). Alvo: 70-85% de vitórias, luta de 3-5 min. Resultado nos lugares novos:
 
 | Chefe | Vitórias | Tempo médio (vitórias) | Mortes/luta | Situação |
 |---|---|---|---|---|
-| Javali Ancestral | 16/20 (80%) | 170 s | 0,7 | no alvo |
-| Alce Ancião | 11/20 (55%) | 284 s | 4,5 | abaixo do alvo (aberto) |
-| Basilisco das Ruínas | 16/20 (80%) | 251 s | 4,4 | no alvo |
-| Rinoceronte de Guerra | 5/20 (25%) | 240 s | 6,2 | muito abaixo (aberto) |
-| Lobo-Rei de Ferro | 14/20 (70%) | 173 s | 2,3 | no alvo (limite de baixo) |
-| Gamo de Porcelana | 10/20 (50%) | 183 s | 3,8 | abaixo do alvo (aberto) |
+| Javali Ancestral | 17/20 (85%) | 161 s | 1,6 | no alvo (limite de cima) |
+| Alce Ancião | 16/20 (80%) | 209 s | 2,6 | no alvo (era 11/20: só o lugar mudou) |
+| Basilisco das Ruínas | 17/20 (85%) | 250 s | 3,9 | no alvo (limite de cima) depois de vida 1,2 M -> 1,05 M e ATK 125 -> 115 (no lugar novo, sem mexer, deu 10/20) |
+| Rinoceronte de Guerra | 16/20 (80%) | 193 s | 2,3 | no alvo (era 5/20: o portal) |
+| Lobo-Rei de Ferro | 15/20 (75%) | 195 s | 3,0 | no alvo |
+| Gamo de Porcelana | 14/20 (70%) | 231 s | 2,6 | no alvo (limite de baixo; era 10/20) |
 
-Abertos: Alce, Rinoceronte e Gamo ainda difíceis demais para 8 bots (o lugar de nascer mudou na última rodada e mexeu muito
-no resultado: o Rinoceronte foi de 6/8 a 6/20 só com a troca de lugar). Próximo passo: medir com `--why` qual golpe mata
-(suspeitos: Tambores + Atropelo no Rinoceronte, Ilhas no Gamo para 8 pessoas, Bramido/anéis no Alce) antes de mexer em vida/ATK.
+O que mais bate nos bots (`--why`, lugares novos): o básico do chefe (38-61% do dano), depois o 1º golpe de cone/área; a
+assinatura fica em 0-9% (os bots saem dela). Só o Basilisco mudou de número; Alce, Rinoceronte e Gamo entraram no alvo só
+com o lugar novo.
+
+Abertos: o Javali está no limite de cima (85%); se o teste de jogo achar fácil, ATK 44 → 48. A sonda não traz de volta o bot
+que morreu (no jogo ele renasce no povoado e volta pelo `BotBrain._world_boss`), então a luta aberta real com 10+ bots tende
+a ser mais fácil que a sonda.
+
+## 11. Nascimento, anúncio, participação e a cadeia piloto (onda 5, 2026-11-26)
+
+Implementação: `core/sim/systems/world_boss_system.gd`, `core/sim/systems/chain_system.gd`, falas em
+`data/catalog/moments_catalog.gd` (provisórias, para o roteirista), números em `Balance.WORLD_BOSS_*` / `CHAIN_*`.
+
+| Knob | Valor | Faixa segura | Efeito |
+|---|---|---|---|
+| `WORLD_BOSS_EVERY` | 40 min | 25-60 | ritmo dos chefes (× 0,8-1,2, `WORLD_BOSS_ROLL`) |
+| `WORLD_BOSS_WARN_S` | 120 s | 60-180 | aviso no chat + marca antes de nascer |
+| `WORLD_BOSS_LIFE` | 15 min | 10-20 | quanto tempo ele espera ser derrubado |
+| `WORLD_BOSS_SHARE_MIN` | 0,25 | 0,1-0,4 | fração da parte justa (vida / participantes) para ganhar o prêmio |
+| `WORLD_BOSS_SHARE_RANGE` | 40 m | 25-50 | cura conta se o curado está a isto do chefe |
+| `WORLD_BOSS_BOT_SLACK` | 3 níveis | 0-5 | bots fora da faixa que ainda vão |
+| `CHAIN_TICK` / `CHAIN_STEP_CHANCE` | 3 min / 0,35 | 2-6 / 0,2-0,6 | frequência dos passos de cadeia (~1 a cada 8-9 min no mapa) |
+| `CHAIN_MARK_MIN` | 15 min | 10-20 | duração da Feira / do Acampamento |
+| `CHAIN_COOLDOWN_MIN` | 10 min | 5-20 | pausa depois da marca |
+| `CHAIN_FAIR_DISCOUNT` | 0,15 | 0,1-0,25 | desconto da Feira |
+
+Regras decididas na implementação (além do texto acima; para o designer revisar):
+1. **Um Chefe de Mundo por vez** no servidor; o relógio de outra faixa que zera espera ele cair/sumir (HUD e
+   `Sim.world_boss_status` mostram um só).
+2. **Ato do jogador** = topo da faixa do mapa onde ele está (masmorra/casa = a zona de fora): Ato I até 30, Ato II até 45
+   (`WORLD_BOSS_ACT_TOPS`). No Ato I os três relógios do Ato I andam juntos (cada um no seu sorteio).
+3. **Save**: relógios das faixas; chefe vivo ou avisado no save volta AVISADO (2 min) no load. Marcas de cadeia voltam com o
+   tempo que faltava (o acampamento no mesmo lugar).
+4. **Prêmio por participação**: o chefe do evento não usa o abate comum (sem XP para quem mais bateu nem saque de tabela).
+   XP igual = `xp` do chefe × `WORLD_BOSS_XP_MULT` com a regra de nível de sempre; o resto é do `MvpSystem.award`
+   (contrato wave5 A). Golpe final não importa.
+5. **Bots**: da faixa ± 3 níveis, no mapa do chefe ou num mapa com portal direto para ele, fora do grupo do jogador.
+   Brigam a `WORLD_BOSS_BOT_ENGAGE` m; lacaio que bate neles vem antes (combate reativo). Alguns gritam no chat.
+6. **Caravana do Tobias** = evento de estrada da Campina com a regra da cadeia (salteadores do nível do ponto, carroça
+   puxada `cart_draft`, prêmio consumível), nos 4 pontos de evento do Vale. Resolvido = chegou; falhou OU expirou (ninguém
+   ajudou) = caiu; investida no mapa = cancelado sem marca.
+7. **Feira**: desconto em toda loja do mapa da cadeia e das casas dele (`ChainSystem.shop_mult`; preço na loja =
+   `Sim.shop_price`), 3 feirantes na praça (Tobias com carroça, malabarista, temperista) com falas. O "NPC de jogo de sorte"
+   do §3.2 ficou de fora (mecânica nova: pedir ao designer).
+8. **Acampamento Bandido**: mandachuva nv 10 (`camp_bandit_boss`, 2 400 de vida, XP e saque) + 5 bandidos nv 8
+   (`camp_bandit`) a `CHAIN_CAMP_OFFSET` m da estrada onde a caravana caiu; não renascem; todos caídos = a marca acaba antes
+   ("desfeito"). Sem tenda/cenário próprio (só monstros): pedir arte se o teste pedir.
+9. **Leitura (§3.3)**: chat de sistema (todos os mapas), faixa no topo do HUD com a contagem (`Hud.moment_text`), marca no
+   minimapa e no mapa grande (chefe: disco laranja com raios; acampamento: losango vermelho-terra; Feira: anel dourado),
+   falas dos NPCs do passo e dos feirantes. Música: o tema de chefe já toca perto do chefe (nada novo para as cadeias).
+
+Sonda §8: `world_boss_probe.tscn -- --boss=<id> --trials=10 [--bots=10] [--limit=480]` (metade dos bots no povoado do mapa,
+metade no vizinho a 1 portal). Check `_check_world_boss_event`: 10 bots da faixa saindo da praça de Aldara, >= 6 chegam em 70 s.
+Fotos: `production/qa/evidence/momentos/` (`--moments_shot`).

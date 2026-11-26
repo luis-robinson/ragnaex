@@ -293,6 +293,7 @@ func _draw_dynamic_body() -> void:
 		var ep := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.008)
 		d.draw_circle(er, 3.5, Color(1.0, 0.86, 0.3))
 		d.draw_arc(er, 6.0 + 3.0 * ep, 0.0, TAU, 20, Color(1.0, 0.86, 0.3, 0.9 - 0.6 * ep), 1.5, true)
+	_draw_moments(d, origin, p)
 	for id in _marks:                     # NPC com pendência de quest (os pontos comuns estão na malha _dots)
 		var mark: String = _marks[id]
 		if mark == "":
@@ -417,6 +418,48 @@ func _draw_labels(d: Node2D, origin: Vector2) -> void:
 			d.draw_string_outline(font, rel + off, nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 3, Color(0.05, 0.04, 0.03))
 			d.draw_string(font, rel + off, nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1.0, 0.95, 0.8))
 			break
+
+## Momentos do Mundo (GDD momentos-do-mundo §3.3): Chefe de Mundo avisado/vivo neste mapa = disco laranja-vermelho com
+## coroa de raios que pulsa (longe fica na borda); marca de cadeia = Acampamento Bandido (losango vermelho-terra) ou
+## Feira (anel dourado na praça). No mapa grande, com o nome.
+func _draw_moments(d: Node2D, origin: Vector2, p: SimEntity) -> void:
+	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.007)
+	var wb: Dictionary = Sim.world_boss_status()
+	if (bool(wb.get("active", false)) or bool(wb.get("warned", false))) and str(wb["map"]) == p.map_id:
+		var at: Array = wb["at"]
+		var r := ((Vector2(float(at[0]), float(at[1])) - origin) * zoom).limit_length(side * 0.5 - 12.0)
+		var col := Color(1.0, 0.38, 0.18) if bool(wb["active"]) else Color(1.0, 0.7, 0.25)
+		for k in 8:
+			var ang := TAU * float(k) / 8.0
+			d.draw_line(r + Vector2(cos(ang), sin(ang)) * 6.5, r + Vector2(cos(ang), sin(ang)) * (9.0 + 2.0 * pulse), col, 1.5, true)
+		d.draw_circle(r, 5.0, col)
+		d.draw_arc(r, 5.0, 0.0, TAU, 20, Color(0.15, 0.05, 0.02), 1.2, true)
+		if big:
+			_moment_label(d, r, str(wb["name"]), col)
+	var ch: Dictionary = Sim.chain_status(p.map_id)
+	if ch.is_empty() or str(ch["phase"]) != "mark" or not (ch["pos"] is Vector3) or ch["pos"] == Vector3.INF:
+		return
+	var pos: Vector3 = ch["pos"]
+	var cr := ((Vector2(pos.x, pos.z) - origin) * zoom).limit_length(side * 0.5 - 12.0)
+	if str(ch["mark"]).ends_with("bandits"):
+		var col2 := Color(0.85, 0.32, 0.22)
+		d.draw_colored_polygon(PackedVector2Array([cr + Vector2(0, -6), cr + Vector2(6, 0), cr + Vector2(0, 6), cr + Vector2(-6, 0)]), col2)
+		d.draw_arc(cr, 8.0 + 2.0 * pulse, 0.0, TAU, 20, Color(col2, 0.8 - 0.5 * pulse), 1.5, true)
+		if big:
+			_moment_label(d, cr, "Acampamento Bandido", col2)
+	else:
+		var col3 := Color(1.0, 0.86, 0.35)
+		d.draw_arc(cr, 7.0 + 2.0 * pulse, 0.0, TAU, 24, col3, 2.0, true)
+		d.draw_circle(cr, 3.0, col3)
+		if big:
+			_moment_label(d, cr, "Feira", col3)
+
+func _moment_label(d: Node2D, at: Vector2, txt: String, col: Color) -> void:
+	var font := ThemeDB.fallback_font
+	var w := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
+	var q := at + Vector2(-w * 0.5, -14.0)
+	d.draw_string_outline(font, q, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, 4, Color(0.05, 0.03, 0.02))
+	d.draw_string(font, q, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, col)
 
 ## Seta amarela da quest rastreada: longe = presa na borda apontando o rumo; perto = sobre o ponto
 ## (ponta para baixo, sempre de pé) com um anel. Objetivo noutro mapa aponta para o portal do caminho.

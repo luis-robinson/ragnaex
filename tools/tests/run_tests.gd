@@ -3917,6 +3917,10 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_card_icons(gd)
 	_reseed(sim, "_check_world_boss_data")
 	_check_world_boss_data(gd)
+	_reseed(sim, "_check_world_boss_event")
+	_check_world_boss_event(gd)
+	_reseed(sim, "_check_chain")
+	_check_chain(gd)
 	_reseed(sim, "_check_title_screen")
 	_check_title_screen(sim, save)
 	_reseed(sim, "_check_form_clips")
@@ -5360,6 +5364,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_bot_leader(gd, sim)
 	_check_roster(gd, sim, save_ref)
 	_check_guild_bank(gd, sim, save_ref)
+	_check_mvp(gd, sim, save_ref)
 	_check_druid_attr_convert(gd)
 	_check_assassin_start_daggers(gd, sim)
 	_check_dash_nodes(gd, sim)
@@ -14441,7 +14446,8 @@ func _check_mount_keeper_ui(gd, sim) -> void:
 	var e: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Montaria", "city_aldara", Vector3(0, 0, 6), 45)
 	e.brain = null
 	var opts: Array = ui.mount_options(sim, e)
-	check(opts.size() == Balance.MOUNT_KINDS.size() and opts.all(func(o): return o["text"] != "" and o["tip"] != ""), "tratador: um botão com texto e dica por montaria (%d)" % opts.size())
+	var quest_kinds: Array = Balance.MOUNT_KINDS.keys().filter(func(k): return str(Balance.MOUNT_KINDS[k].get("mvp", "")) == "")
+	check(opts.size() == quest_kinds.size() and opts.all(func(o): return o["text"] != "" and o["tip"] != ""), "tratador: um botão com texto e dica por montaria de missão, sem as de MVP (%d)" % opts.size())
 	var h0: Dictionary = _mount_opt(opts, "horse")
 	var w0: Dictionary = _mount_opt(opts, "dire_wolf")
 	check(h0.get("disabled", false) and str(h0.get("text", "")).contains("Em uso"), "tratador: cavalo em uso fica desligado (%s)" % h0.get("text", ""))
@@ -27640,8 +27646,9 @@ func _check_kharzun_rewards(gd, sim) -> void:
 	check(keeper_after.any(func(l): return str(l).contains("escolheu você")), "tratadora: com %s a fala é do lobo liberado" % wolf_q)
 	# lobo atroz (D5)
 	check(Balance.MOUNT_KINDS.has("dire_wolf") and Balance.MOUNT_KINDS["dire_wolf"]["quest"] == "hx_ov_hatch" and gd.quests.has("hx_ov_hatch"), "Kharzun: lobo atroz liberado por hx_ov_hatch")
-	for k in Balance.MOUNT_KINDS:
-		check(EntityView.MOUNT_LOOKS.has(k) and ResourceLoader.exists("res://assets/models/%s.glb" % EntityView.MOUNT_LOOKS[k][0]), "montaria %s: modelo" % k)
+	for k in Balance.MOUNT_KINDS:      # tipos de MVP: modelo em produção (o _check_mvp tolera a falta e confere o cavalo de reserva)
+		if str(Balance.MOUNT_KINDS[k].get("mvp", "")) == "":
+			check(EntityView.MOUNT_LOOKS.has(k) and ResourceLoader.exists("res://assets/models/%s.glb" % EntityView.MOUNT_LOOKS[k][0]), "montaria %s: modelo" % k)
 	check(EntityView.WOLF_COATS.all(func(c): return absf(c.r - c.g) < 0.08 and absf(c.g - c.b) < 0.08), "lobo atroz: pelagens cinzentas")
 	check(p.mount_kind == "horse" and not ws.set_mount_kind(p, "dire_wolf") and p.mount_kind == "horse", "lobo atroz: sem a missão, só cavalo")
 	check(MountSystem.from_save(p, "dire_wolf") == "horse" and MountSystem.from_save(p, "xyz") == "horse", "lobo atroz: save sem a missão (ou antigo) volta ao cavalo")
@@ -35577,6 +35584,232 @@ func _roster_snap(sim) -> Array:
 ## Banco da Guilda (design/gdd/banco-da-guilda.md §8): pulso de depósito no tier certo, retiradas da Recruta,
 ## Contribuição do lendário (e devolução), encomenda de Veterano (bots fora do mundo, resultado reservado), pedido dos
 ## bots (Contribuição + afinidade + lembrança), save. `--only=guild_bank`
+## Prêmios de MVP (design/gdd/mvp-premios.md §8; MvpSystem, MountSystem, MountLook, MountTab, MvpUi). `--only=mvp`.
+## Modelos das montarias novas podem faltar (Blender em andamento): o check aceita o cavalo de reserva, mas os dados são estritos.
+const MVP_KIND_BOSS := {"war_boar": "ancestral_boar", "forest_elk": "ancient_elk", "ruins_lizard": "ruins_basilisk",
+	"armored_rhino": "war_rhino", "iron_wolf": "iron_wolf_king", "porcelain_stag": "porcelain_stag"}
+
+func _check_mvp(gd, sim, save) -> void:
+	# --- dados (contrato wave5 B) ---
+	for k in MVP_KIND_BOSS:
+		var mk: Dictionary = Balance.MOUNT_KINDS.get(k, {})
+		var boss: String = MVP_KIND_BOSS[k]
+		check(str(mk.get("mvp", "")) == boss and str(mk.get("quest", "x")) == "" and str(mk.get("name", "")) != "", "mvp: tipo %s do chefe %s" % [k, boss])
+		check(MonstersCatalog.WORLD_BOSSES.has(boss) and gd.monsters.has(boss), "mvp: %s é Chefe de Mundo com def" % boss)
+		var dyes: Array = Balance.MOUNT_DYES.get(k, [])
+		check(dyes.size() >= 3 and dyes.size() <= 4, "mvp: %s tem 3-4 cores (%d)" % [k, dyes.size()])
+		check(Balance.MOUNT_BARDINGS.has("barding_" + k), "mvp: barda temática barding_%s" % k)
+		check(MountLook.MODELS.get(k, "") == "mob_mount_" + k, "mvp: modelo de %s = mob_mount_%s" % [k, k])
+		check(ResourceLoader.exists("res://assets/icons/action_mount_%s.png" % k), "mvp: ícone do H para %s" % k)
+		var mdl := MountLook.model_of(k)
+		check(mdl == ("mob_mount_" + k if MountLook.has_model(k) else "mob_horse"), "mvp: %s usa o próprio modelo ou cai no cavalo (%s)" % [k, mdl])
+		var cos := MvpSystem.cosmetics_of(boss)
+		check(cos.has("kind:" + k) and cos.has("barding:barding_" + k) and cos.filter(func(c): return str(c).begins_with("dye:")).size() == dyes.size() - 1,
+			"mvp: %s dá tipo, cores 2..N e a barda (%s)" % [boss, cos])
+	for k in Balance.MOUNT_KINDS:
+		check(Balance.MOUNT_DYES.has(k) and MountLook.MODELS.has(k), "mvp: tipo %s tem cores e modelo em MountLook" % k)
+	check(Balance.MOUNT_BARDINGS.has("barding_iron") and MvpSystem.boss_of_cosmetic("barding:barding_iron") != "", "mvp: barda de ferro (genérica) sai de algum chefe")
+	check(MountLook.barding_style_of("barding_iron_wolf_head") == "barding_iron_wolf" and MountLook.barding_style_of("barding_iron_body") == "barding_iron"
+		and MountLook.barding_style_of("body") == "", "mvp: peça de barda pelo prefixo mais longo (ferro x lobo de ferro)")
+	check(Balance.MVP_SCROLL in Balance.GBANK_SCROLLS and gd.items.has(Balance.MVP_SCROLL) and gd.items.has(Balance.MVP_SUPER_SCROLL), "mvp: pergaminhos existem (id do banco da guilda)")
+	for sc in [Balance.MVP_SCROLL, Balance.MVP_SUPER_SCROLL]:
+		check(gd.items[sc].price == 0 and ResourceLoader.exists("res://assets/icons/art_%s.png" % sc), "mvp: %s não vende no mercador e tem arte" % sc)
+	check(Balance.MVP_CHEST.size() == Balance.MVP_BAND_STARTS.size() and Balance.MVP_COINS.size() == Balance.MVP_BAND_STARTS.size(), "mvp: baú e insígnias por faixa")
+	for b in range(Balance.MVP_CHEST.size()):
+		var cid := MvpSystem.chest_id(b)
+		check(gd.items.has(cid) and int(gd.items[cid].consume.get("mvp_chest", -1)) == b and ResourceLoader.exists("res://assets/icons/art_%s.png" % cid), "mvp: %s existe com arte" % cid)
+		var packs_b: Array = Balance.MVP_CHEST[b]
+		check(packs_b.size() == 3 and packs_b.all(func(pk): return not (pk["items"] as Dictionary).is_empty() and (pk["items"] as Dictionary).keys().all(func(i): return gd.items.has(i))),
+			"mvp: faixa %d com 3 pacotes de material que existe" % b)
+	check(Balance.MVP_SCROLL_CHANCE >= 0.15 and Balance.MVP_SCROLL_CHANCE <= 0.35 and Balance.MVP_SUPER_SCROLL_CHANCE >= 0.05 and Balance.MVP_SUPER_SCROLL_CHANCE <= 0.12
+		and Balance.MVP_COSMETIC_CHANCE >= 0.03 and Balance.MVP_COSMETIC_CHANCE <= 0.10 and Balance.MVP_CARD_CHANCE >= 0.01 and Balance.MVP_CARD_CHANCE <= 0.03, "mvp: chances nas faixas do §7")
+	var bands := {}
+	for boss in MonstersCatalog.WORLD_BOSSES:
+		bands[boss] = MvpSystem.band_of(boss)
+	check(bands.get("ancestral_boar") == 0 and bands.get("ancient_elk") == 1 and bands.get("ruins_basilisk") == 2 and bands.get("war_rhino") == 3
+		and bands.get("iron_wolf_king") == 4 and bands.get("porcelain_stag") == 4 and MvpSystem.band_of("slime") == -1, "mvp: faixa de cada chefe (%s)" % bands)
+	# Intendente das Caçadas nas 4 capitais
+	for mid in ["city_aldara", "field_ruins", "field_kharzun", "city_lumeria"]:
+		var it_npc: Dictionary = {}
+		for n in gd.maps[mid].npcs:
+			if n.get("role", "") == "hunt":
+				it_npc = n
+		check(not it_npc.is_empty() and NpcServices.service_of(it_npc) == "hunt" and sim.is_walkable(it_npc["pos"], gd.maps[mid], 0.5), "mvp: Intendente das Caçadas em %s, em chão livre" % mid)
+	# --- 1. três participantes ganham, o 4º (abaixo do mínimo: fora da lista) nada ---
+	var at := Vector3(4, 0, 30)
+	var ps: Array = []
+	for i in range(4):
+		var b: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Mvp%d" % i, "city_aldara", at + Vector3(i, 0, 0), 15)
+		b.brain = null
+		if i == 0:
+			b.kind = SimEntity.Kind.PLAYER     # o 1º faz papel de jogador (correio, baú fechado)
+		b.inventory.clear()
+		ps.append(b)
+	var none := {"scroll": false, "super": false, "cosmetic": false, "card": false}
+	var res: Dictionary = MvpSystem.award(sim, "ancient_elk", [ps[0].id, ps[1].id, ps[2].id], none)
+	check(res.size() == 3 and ps[0].mvp_coins == Balance.MVP_COINS[1] and ps[0].has_item("mvp_chest_1") and int(ps[0].mvp_fights.get("ancient_elk", 0)) == 1,
+		"mvp: participante ganha %d insígnias, o baú da faixa e conta a luta" % Balance.MVP_COINS[1])
+	check(ps[1].mvp_coins > 0 and ps[2].mvp_coins > 0, "mvp: os 3 participantes ganham insígnias (bots também)")
+	check(ps[3].mvp_coins == 0 and ps[3].inventory.is_empty() and ps[3].mvp_fights.is_empty() and not res.has(ps[3].id), "mvp: quem ficou abaixo do mínimo não ganha nada")
+	check(MvpSystem.award(sim, "slime", [ps[0].id]).is_empty(), "mvp: monstro que não é Chefe de Mundo não premia")
+	var e: SimEntity = ps[0]
+	# --- 2. baú: 3 pacotes da faixa; escolher 1 põe só ele ---
+	var packs: Array = MvpSystem.chest_packs("mvp_chest_1")
+	check(packs == Balance.MVP_CHEST[1], "mvp: baú 10-20 abre os pacotes da faixa 10-20")
+	var inv0: Dictionary = e.inventory.duplicate()
+	var g0 := e.gold
+	check(not MvpSystem.open_chest(sim, e, "mvp_chest_1", 5), "mvp: baú recusa pacote que não existe")
+	check(MvpSystem.open_chest(sim, e, "mvp_chest_1", 1) and not e.has_item("mvp_chest_1"), "mvp: abriu o baú (some da bolsa)")
+	var gained := {}
+	for iid in e.inventory:
+		var dd := int(e.inventory[iid]) - int(inv0.get(iid, 0))
+		if dd != 0:
+			gained[iid] = dd
+	check(gained == packs[1]["items"] and e.gold - g0 == int(packs[1]["gold"]), "mvp: só o pacote escolhido entra (%s)" % gained)
+	# bolsa cheia -> correio; pegar depois
+	var fill: Array = gd.items.keys().filter(func(k): return gd.items[k].type == ItemDef.Type.MATERIAL and not str(k).begins_with("mvp_") and not str(k).begins_with("refine_"))
+	var fi := 0
+	while e.inventory.size() < e.bag_capacity() and fi < fill.size():
+		e.inventory[fill[fi]] = 1
+		fi += 1
+	MvpSystem.award(sim, "ancient_elk", [e.id], {"scroll": true, "super": false, "cosmetic": false, "card": false})
+	check(int(e.mvp_mail.get("mvp_chest_1", 0)) == 1 and int(e.mvp_mail.get(Balance.MVP_SCROLL, 0)) == 1 and not e.has_item("mvp_chest_1"), "mvp: bolsa cheia, baú e pergaminho vão para o correio")
+	e.inventory.clear()
+	check(MvpSystem.take_mail(sim, e) == 2 and e.mvp_mail.is_empty() and e.has_item("mvp_chest_1") and e.has_item(Balance.MVP_SCROLL), "mvp: o correio do Intendente passa tudo para a bolsa")
+	check(MvpSystem.open_chest_error(e, "mvp_chest_1", 0) == "", "mvp: baú guardado abre depois")
+	# --- 3. pergaminho: +2 -> +5 sem ouro/minério; em +5 recusa ---
+	var sl: int = ItemDef.Slot.BODY
+	var piece: ItemDef = e.equipment.get(sl)
+	check(piece != null, "mvp: peça vestida para o pergaminho")
+	if piece:
+		e.equipment[sl] = GameData.plus_item(RefinePanel.base_of(piece), 2)
+		e.add_item("iron_ore", 10)
+		var gold0 := e.gold
+		var ore0 := int(e.inventory["iron_ore"])
+		var nxt: ItemDef = sim.use_refine_scroll(e, e.equipment[sl].id, sl, Balance.MVP_SCROLL)
+		check(nxt != null and nxt.plus == Balance.MVP_SCROLL_TARGET and e.equipment[sl] == nxt and e.gold == gold0 and int(e.inventory["iron_ore"]) == ore0 and not e.has_item(Balance.MVP_SCROLL),
+			"mvp: pergaminho leva +2 a +5 sem ouro nem minério e é gasto")
+		if nxt:
+			e.add_item(Balance.MVP_SCROLL, 1)
+			check(sim.refine_scroll_error(e, nxt.id, sl, Balance.MVP_SCROLL) != "" and sim.use_refine_scroll(e, nxt.id, sl, Balance.MVP_SCROLL) == null and e.has_item(Balance.MVP_SCROLL),
+				"mvp: pergaminho em peça +5 recusa com motivo e não gasta")
+			check(sim.refine_scroll_error(e, nxt.id, sl, Balance.MVP_SUPER_SCROLL) != "", "mvp: Superior sem tê-lo recusa")
+			e.add_item(Balance.MVP_SUPER_SCROLL, 2)
+			var sup: ItemDef = sim.use_refine_scroll(e, nxt.id, sl, Balance.MVP_SUPER_SCROLL)
+			check(sup != null and sup.plus == Balance.MVP_SUPER_TARGET, "mvp: Superior leva +5 a +7")
+			if sup:
+				check(sim.use_refine_scroll(e, sup.id, sl, Balance.MVP_SUPER_SCROLL) == null and e.equipment[sl].plus == Balance.MVP_SUPER_TARGET, "mvp: nunca passa de +7")
+		e.equipment[sl] = GameData.plus_item(RefinePanel.base_of(piece), 1)
+		check(sim.refine_scroll_error(e, e.equipment[sl].id, sl, Balance.MVP_SUPER_SCROLL) != "", "mvp: Superior em peça +1 recusa")
+		e.equipment[sl] = piece
+	var kh: ItemDef = null
+	for iid in gd.items:
+		var it: ItemDef = gd.items[iid]
+		if ItemSystem.kharzun_tier(it) and it.base_id == "" and it.is_equipment():
+			kh = it
+			break
+	if kh:
+		e.add_item(kh.id, 1)
+		e.add_item(Balance.MVP_SCROLL, 1)
+		check(sim.enhance_error(e, kh.id, -1, "smith") != "" and sim.refine_scroll_error(e, kh.id, -1, Balance.MVP_SCROLL) == "", "mvp: lendário 40+ aceita o pergaminho em qualquer ferreiro")
+	# --- 4. cosmético repetido vira insígnias ---
+	var r1: Dictionary = MvpSystem.award(sim, "ancestral_boar", [e.id], {"scroll": false, "cosmetic": true, "card": false})
+	var got := str(r1[e.id]["cosmetic"])
+	check(got != "" and MvpSystem.owns(e, got) and got in MvpSystem.cosmetics_of("ancestral_boar") and int(r1[e.id]["dup"]) == 0, "mvp: cosmético sorteado entra na coleção (%s)" % got)
+	for key in MvpSystem.cosmetics_of("ancestral_boar"):
+		MvpSystem.grant_cosmetic(sim, e, key)
+	var c0 := e.mvp_coins
+	var r2: Dictionary = MvpSystem.award(sim, "ancestral_boar", [e.id], {"scroll": false, "cosmetic": true, "card": false})
+	check(int(r2[e.id]["dup"]) == Balance.MVP_DUP_COINS and str(r2[e.id]["cosmetic"]) == "" and e.mvp_coins - c0 == Balance.MVP_COINS[0] + Balance.MVP_DUP_COINS,
+		"mvp: já tem tudo do chefe: o cosmético vira %d insígnias" % Balance.MVP_DUP_COINS)
+	var r3: Dictionary = MvpSystem.award(sim, "ancestral_boar", [e.id], {"scroll": false, "cosmetic": false, "card": true})
+	check(str(r3[e.id]["card"]) == "card_ancestral_boar" and e.has_item("card_ancestral_boar"), "mvp: Carta de MVP = a carta de núcleo do chefe")
+	var r4: Dictionary = MvpSystem.award(sim, "war_rhino", [e.id], {"scroll": false, "cosmetic": false, "card": true})
+	check(str(r4[e.id]["card"]) == "" or gd.cards.has("card_war_rhino"), "mvp: chefe do Ato II sem carta pula a carta")
+	check(not MvpSystem.award(sim, "ancient_elk", [e.id], {"super": true})[e.id]["super"], "mvp: Superior só das faixas 40+")
+	# --- montaria: escolha e aparência ---
+	check(MountSystem.unlocked(e, "war_boar") and not MountSystem.unlocked(e, "forest_elk"), "mvp: tipo do chefe liberado pela coleção")
+	check(not sim.set_mount_look(e, "forest_elk", 0, ""), "mvp: tipo travado não escolhe")
+	check(sim.set_mount_look(e, "war_boar", 2, "barding_war_boar") and e.mount_kind == "war_boar" and e.mount_dye == 2 and e.mount_barding == "barding_war_boar",
+		"mvp: aba Montaria escolhe tipo, cor e armadura")
+	check(not sim.set_mount_look(e, "war_boar", 0, "barding_porcelain_stag") and e.mount_barding == "barding_war_boar", "mvp: armadura travada não escolhe")
+	check(MountTab.kind_rows(e).all(func(r): return r["owned"] or str(r["source"]) != ""), "mvp: tipo travado diz de onde vem")
+	check(MountTab.dye_rows(e, "forest_elk").filter(func(r): return not r["owned"]).all(func(r): return str(r["source"]).contains(gd.monsters["ancient_elk"].name)), "mvp: cor travada diz o chefe")
+	check(MountTab.barding_rows(e).size() == Balance.MOUNT_BARDINGS.size() + 1, "mvp: armaduras = Nenhuma + %d" % Balance.MOUNT_BARDINGS.size())
+	check(ActionBar.mount_icon("war_boar") == "action_mount_war_boar", "mvp: H com o ícone do javali")
+	check(MvpUi.award_lines(r2[e.id]).any(func(l): return str(l).contains("repetido")), "mvp: resumo do prêmio cita o repetido")
+	# --- 6. loja: tipo só depois de MVP_MOUNT_FIGHTS lutas ---
+	var s: SimEntity = ps[1]
+	s.kind = SimEntity.Kind.PLAYER
+	s.mvp_fights.clear()
+	s.mount_cosmetics.clear()
+	s.mvp_coins = 500
+	var rows0: Array = MvpSystem.shop_rows(s)
+	check(rows0.size() == 2 and rows0[0]["id"] == Balance.MVP_SCROLL and int(rows0[0]["price"]) == Balance.MVP_SHOP_SCROLL, "mvp: sem luta a loja só tem os pergaminhos")
+	s.mvp_fights["ancient_elk"] = 1
+	var rows1: Array = MvpSystem.shop_rows(s)
+	var kr: Array = rows1.filter(func(r): return r["id"] == "kind:forest_elk")
+	var dr: Array = rows1.filter(func(r): return str(r["id"]).begins_with("dye:forest_elk"))
+	check(kr.size() == 1 and not kr[0]["ok"] and not dr.is_empty() and dr.all(func(r): return r["ok"]), "mvp: com 1 luta as cores saem, o tipo não")
+	check(rows1.all(func(r): return not str(r["id"]).begins_with("card_") and not str(r["id"]).begins_with("mvp_chest")), "mvp: a loja nunca vende carta nem baú")
+	check(sim.mvp_buy(s, "kind:forest_elk") != "" and not MountSystem.unlocked(s, "forest_elk"), "mvp: comprar o tipo antes das lutas recusa")
+	s.mvp_fights["ancient_elk"] = Balance.MVP_MOUNT_FIGHTS
+	var c1 := s.mvp_coins
+	check(sim.mvp_buy(s, "kind:forest_elk") == "" and MountSystem.unlocked(s, "forest_elk") and c1 - s.mvp_coins == Balance.MVP_SHOP_MOUNT, "mvp: com %d lutas o tipo é comprável" % Balance.MVP_MOUNT_FIGHTS)
+	c1 = s.mvp_coins
+	check(sim.mvp_buy(s, Balance.MVP_SCROLL) == "" and s.has_item(Balance.MVP_SCROLL) and c1 - s.mvp_coins == Balance.MVP_SHOP_SCROLL, "mvp: pergaminho por %d insígnias" % Balance.MVP_SHOP_SCROLL)
+	s.level = Balance.MVP_SHOP_SUPER_LEVEL - 1
+	check(sim.mvp_buy(s, Balance.MVP_SUPER_SCROLL) != "", "mvp: Superior só com nível %d" % Balance.MVP_SHOP_SUPER_LEVEL)
+	s.mvp_coins = 0
+	check(sim.mvp_buy(s, "dye:forest_elk:1") != "", "mvp: sem insígnias não compra")
+	# --- bots: insígnias viram pergaminho no equipamento ---
+	var bot: SimEntity = ps[2]
+	for k2 in bot.equipment:
+		if bot.equipment[k2] != null:
+			bot.equipment[k2] = GameData.plus_item(RefinePanel.base_of(bot.equipment[k2]), 0)
+	bot.mvp_coins = Balance.MVP_SHOP_SCROLL * 2
+	MvpSystem.award(sim, "ancient_elk", [bot.id], {"scroll": false, "cosmetic": false, "card": false})
+	var fives := 0
+	for k2 in bot.equipment:
+		if bot.equipment[k2] != null and bot.equipment[k2].plus == Balance.MVP_SCROLL_TARGET:
+			fives += 1
+	check(fives == 2 and bot.mvp_coins < Balance.MVP_SHOP_SCROLL and not bot.has_item("mvp_chest_1"), "mvp: bot compra pergaminhos com as insígnias, refina 2 peças e abre o baú (%d)" % fives)
+	var show_n := 0
+	for i in range(200):
+		var fake := SimEntity.new()
+		fake.kind = SimEntity.Kind.BOT
+		fake.id = 10000 + i
+		fake.level = 50
+		MvpSystem.bot_showcase(fake)
+		if fake.mount_kind != "horse":
+			show_n += 1
+			check(MountSystem.unlocked(fake, fake.mount_kind), "mvp: bot vitrine tem o tipo na coleção")
+	check(show_n > 0 and show_n < 50, "mvp: só uma parte dos bots é vitrine (%d/200)" % show_n)
+	# --- 7. save: grava e lê; save antigo abre vazio ---
+	var keep_slot: int = save.slot
+	save.slot = TEST_SLOT
+	e.mvp_mail = {"mvp_chest_2": 1}
+	save.save_player(e)
+	var d: Dictionary = save.load_data()
+	var back: SimEntity = sim.spawn_bot(gd.classes["paladin"], "MvpVolta", "city_aldara", at + Vector3(0, 0, 3), 15)
+	back.brain = null
+	save.apply_to(back, d)
+	check(back.mvp_coins == e.mvp_coins and back.mvp_fights == e.mvp_fights and back.mount_cosmetics.keys().size() == e.mount_cosmetics.size()
+		and back.mount_kind == "war_boar" and back.mount_dye == 2 and back.mount_barding == "barding_war_boar" and back.mvp_mail == e.mvp_mail,
+		"mvp: save grava e lê insígnias, lutas, coleção, correio e a montaria escolhida")
+	check(d.get("mount_look") is Dictionary and d["mount_look"].get("kind") == "war_boar" and d["mount_look"].has("dye") and d["mount_look"].has("barding"), "mvp: mount_look no formato do contrato")
+	var old := d.duplicate(true)
+	for k3 in ["mvp_coins", "mvp_fights", "mount_cosmetics", "mvp_mail", "mount_look"]:
+		old.erase(k3)
+	old["mount"] = "war_boar"
+	save.apply_to(back, old)
+	check(back.mvp_coins == 0 and back.mvp_fights.is_empty() and back.mount_cosmetics.is_empty() and back.mvp_mail.is_empty() and back.mount_kind == "horse"
+		and back.mount_barding == "" and back.mount_dye == 0, "mvp: save antigo abre sem nada (e o tipo sem coleção volta ao cavalo)")
+	save.delete_slot(TEST_SLOT)
+	save.slot = keep_slot
+	for b2 in ps + [back]:
+		sim.despawn(b2)
+
 func _check_guild_bank(gd, sim, save) -> void:
 	var pl: SimEntity = sim.player
 	if pl.party_id >= 0:
@@ -35639,8 +35872,9 @@ func _check_guild_bank(gd, sim, save) -> void:
 	var mat: String = GuildBankSystem.band_materials(tier)[0]
 	var st := GuildBankSystem._add(sim, mat, Balance.GBANK_STACK_TAKE + 7, "Bot", false, 0, 0)
 	sim.gbank["takes"] = 1.0
+	var mat_before: int = int(pl.inventory.get(mat, 0))     # a suíte inteira pode já ter deixado esse material na bolsa
 	sim.guild_bank_take(int(st["uid"]))
-	check(pl.inventory.get(mat, 0) == Balance.GBANK_STACK_TAKE and int(st["count"]) == 7 and GuildBankSystem.takes_left(sim) == 0,
+	check(int(pl.inventory.get(mat, 0)) - mat_before == Balance.GBANK_STACK_TAKE and int(st["count"]) == 7 and GuildBankSystem.takes_left(sim) == 0,
 		"guild_bank: pilha tirada leva %d unidades numa retirada" % Balance.GBANK_STACK_TAKE)
 	# --- 3. lendário depositado: Contribuição da fórmula; tirar de volta devolve
 	var leg_id := ""
@@ -35949,3 +36183,322 @@ func _arena_xp(sim, pl: SimEntity, mdef: MonsterDef, map_id: String) -> int:
 	pl.level = l0
 	pl.party_id = party
 	return got
+
+## Chefe de Mundo com hora marcada (momentos-do-mundo §3.1, §4, §5, §8, §9; WorldBossSystem). `--only=world_boss_event`
+## Números na faixa, falas, lugares (livres, alcançáveis, longe de estrada/portal/spawner), relógio só no ato da faixa,
+## aviso no chat + marca, um por vez, cerco espera, nasce no lugar, bots da faixa vão (>= 6 de 10 chegam), prêmio igual
+## para quem passou do mínimo (dano ou cura) e nada para quem não, some no fim da vida com fala, save dos relógios.
+func _check_world_boss_event(gd) -> void:
+	check(is_equal_approx(Balance.WORLD_BOSS_EVERY, 40.0) and is_equal_approx(Balance.WORLD_BOSS_ROLL.x, 0.8) and is_equal_approx(Balance.WORLD_BOSS_ROLL.y, 0.4)
+		and is_equal_approx(Balance.WORLD_BOSS_WARN_S, 120.0) and is_equal_approx(Balance.WORLD_BOSS_LIFE, 15.0)
+		and Balance.WORLD_BOSS_SHARE_MIN > 0.0 and Balance.WORLD_BOSS_SHARE_MIN <= 0.5, "chefe de mundo: números do GDD (40 min ±, aviso 2 min, 15 min de vida, mínimo 0-0,5)")
+	var probe = load("res://tools/tests/world_boss_probe.gd")
+	var acts := {}
+	for bid in MonstersCatalog.WORLD_BOSSES:
+		var lines: Dictionary = MomentsCatalog.WORLD_BOSS_LINES.get(bid, {})
+		check(["warn", "spawn", "farewell", "killed", "place"].all(func(k): return str(lines.get(k, "")) != ""), "chefe de mundo %s: falas de aviso, nascer, despedida, queda e lugar" % bid)
+		acts[WorldBossSystem.act_of_boss(bid)] = true
+		var def: MapDef = gd.maps[str(MonstersCatalog.WORLD_BOSSES[bid]["map"])]
+		Sim.load_map(def)
+		var r: Dictionary = probe.judge(def, WorldBossSystem.spot(bid), probe.reach(def, def.spawn_point))
+		var clear_need := 8.0 if bid == "ancient_elk" else 10.0
+		check(r["reach"] and float(r["clear"]) >= clear_need and float(r["road"]) >= 6.0 and float(r["portal"]) >= 40.0 and float(r["spawner"]) >= 4.0 and not def.in_town(WorldBossSystem.spot(bid)),
+			"chefe de mundo %s: lugar alcançável, %.0f m livres, %.0f m da estrada, %.0f m do portal, fora dos spawners (%.0f)" % [bid, r["clear"], r["road"], r["portal"], r["spawner"]])
+	check(acts.size() == 3 and WorldBossSystem.act_of_map("city_aldara") == 1 and WorldBossSystem.act_of_map("dg_gruta") == 1 and WorldBossSystem.act_of_map("field_kharzun") == 2,
+		"chefe de mundo: 3 atos (masmorra conta como a zona de fora)")
+	# participação (§4): mínimo = SHARE_MIN × vida / participantes
+	var hp := 4000.0
+	var need := Balance.WORLD_BOSS_SHARE_MIN * hp / 3.0
+	check(WorldBossSystem.qualifies({1: need + 1.0, 2: need - 1.0, 3: need}, hp) == [1, 3] and WorldBossSystem.qualifies({}, hp).is_empty(),
+		"chefe de mundo: ganha quem fez >= mínimo; quem ficou abaixo, não")
+	var ws := WorldSim.new()
+	ws.rng.seed = 41
+	var am: Dictionary = ws.load_map(gd.maps["city_aldara"])
+	ws.load_map(gd.maps["field_hollow"])
+	ws.load_map(gd.maps["field_kharzun"])
+	am["spawners"].clear()
+	for o in am["entities"].duplicate():
+		if o.kind == SimEntity.Kind.MONSTER:
+			ws.despawn(o)
+	var chat: Array = []
+	var evs: Array = []
+	var on_chat := func(_who: String, text: String, channel: String): chat.append([channel, text])
+	var on_warn := func(b: String, mid: String, sec: float): evs.append(["warn", b, mid, sec])
+	var on_spawn := func(b: String, mid: String): evs.append(["spawn", b, mid])
+	var on_gone := func(b: String, mid: String): evs.append(["gone", b, mid])
+	var on_kill := func(b: String, ids: Array): evs.append(["kill", b, ids.duplicate()])
+	Events.chat_message.connect(on_chat)
+	Events.world_boss_warning.connect(on_warn)
+	Events.world_boss_spawned.connect(on_spawn)
+	Events.world_boss_despawned.connect(on_gone)
+	Events.world_boss_killed.connect(on_kill)
+	WorldBossSystem.tick(ws, 1.0)
+	check(ws.world_boss.is_empty(), "chefe de mundo: sem jogador o relógio não existe")
+	var p := ws.spawn_player(gd.classes["paladin"], "Teste", "city_aldara")
+	WorldBossSystem.tick(ws, 0.0)
+	var bands: Dictionary = ws.world_boss["bands"]
+	check(bands.size() == 6 and bands.values().all(func(b): return float(b["left"]) >= 32.0 * 60.0 - 0.1 and float(b["left"]) <= 48.0 * 60.0 + 0.1), "chefe de mundo: 1º nascimento em 32-48 min")
+	var before := {}
+	for bid in bands:
+		before[bid] = float(bands[bid]["left"])
+	WorldBossSystem.tick(ws, 60.0)
+	check(bands.keys().all(func(b): return is_equal_approx(float(bands[b]["left"]), before[b] - (60.0 if WorldBossSystem.act_of_boss(b) == 1 else 0.0))),
+		"chefe de mundo: no Ato I só os relógios do Ato I andam")
+	# aviso: zera o do Javali
+	bands["ancestral_boar"]["left"] = 0.5
+	chat.clear()
+	evs.clear()
+	WorldBossSystem.tick(ws, 1.0)
+	var st0: Dictionary = WorldBossSystem.status(ws)
+	check(evs.size() == 1 and evs[0][0] == "warn" and evs[0][1] == "ancestral_boar" and is_equal_approx(float(evs[0][3]), Balance.WORLD_BOSS_WARN_S)
+		and chat.any(func(c): return c[0] == "system" and str(c[1]) == MomentsCatalog.WORLD_BOSS_LINES["ancestral_boar"]["warn"]),
+		"chefe de mundo: aviso 2 min antes no chat de sistema (todos os mapas) + evento")
+	var sp0 := WorldBossSystem.spot("ancestral_boar")
+	check(bool(st0["warned"]) and not bool(st0["active"]) and str(st0["map"]) == "city_aldara" and is_equal_approx(float(st0["next_in"]), Balance.WORLD_BOSS_WARN_S)
+		and Vector2(float(st0["at"][0]), float(st0["at"][1])).is_equal_approx(Vector2(sp0.x, sp0.z))
+		and Hud.moment_text(st0, {}).contains("Javali Ancestral") and (load("res://game/ui/minimap.gd") as GDScript).source_code.contains("func _draw_moments("),
+		"chefe de mundo: status avisado com mapa, lugar (marca do mapa) e contagem no HUD")
+	check(float(bands["ancestral_boar"]["left"]) >= 32.0 * 60.0 - 0.1, "chefe de mundo: o relógio da faixa recomeça no aviso")
+	# cerco/investida no mapa: espera
+	am["raid"] = {"ids": [p.id]}
+	WorldBossSystem.tick(ws, Balance.WORLD_BOSS_WARN_S)
+	check((ws.world_boss["active"] as Dictionary).is_empty() and not (ws.world_boss["warn"] as Dictionary).is_empty(), "chefe de mundo: investida no mapa = espera")
+	am.erase("raid")
+	WorldBossSystem.tick(ws, Balance.WORLD_BOSS_HOLD_S + 0.1)
+	var a: Dictionary = ws.world_boss["active"]
+	var boss: SimEntity = ws.entities.get(int(a.get("id", -1)))
+	check(boss != null and boss.world_boss and boss.map_id == "city_aldara" and boss.position.distance_to(sp0) < 0.1
+		and evs.any(func(e): return e[0] == "spawn"), "chefe de mundo: nasce no lugar dele depois da espera")
+	if boss == null:
+		_wb_cleanup(ws, [on_chat, on_warn, on_spawn, on_gone, on_kill])
+		return
+	# um por vez: outro relógio do ato em 0 não avisa
+	bands["ancient_elk"]["left"] = 0.0
+	WorldBossSystem.tick(ws, 1.0)
+	check((ws.world_boss["warn"] as Dictionary).is_empty(), "chefe de mundo: um por vez (o outro espera)")
+	bands["ancient_elk"]["left"] = 600.0
+	# bots: da faixa no mapa ou a 1 portal vão; fora da faixa / longe, não
+	var b_in := ws.spawn_bot(gd.classes["ranger"], "Perto", "city_aldara", Vector3(0, 0, 4), 9)
+	var b_hi := ws.spawn_bot(gd.classes["ranger"], "Alto", "city_aldara", Vector3(0, 0, 4), 30)
+	var b_near := ws.spawn_bot(gd.classes["ranger"], "Vizinho", "field_hollow", gd.maps["field_hollow"].spawn_point, 8)
+	var b_far := ws.spawn_bot(gd.classes["ranger"], "Longe", "field_kharzun", gd.maps["field_kharzun"].spawn_point, 8)
+	check(WorldBossSystem.bot_goal(ws, b_in) == boss and WorldBossSystem.bot_goal(ws, b_near) == boss and WorldBossSystem.bot_goal(ws, b_hi) == null
+		and WorldBossSystem.bot_goal(ws, b_far) == null, "chefe de mundo: bots da faixa no mapa ou a 1 portal vão; fora da faixa ou longe, não")
+	for b in [b_in, b_hi, b_near, b_far]:
+		ws.despawn(b)
+	# §8: >= 6 de 10 bots da faixa chegam (chefe imortal aqui: só a corrida)
+	var classes: Array = gd.classes.keys()
+	classes.sort()
+	var runners: Array = []
+	for i in 10:
+		var from: Vector3 = gd.maps["city_aldara"].town_center + Vector3(cos(i * 0.63), 0, sin(i * 0.63)) * 8.0
+		runners.append(ws.spawn_bot(gd.classes[classes[i % classes.size()]], "Corre%d" % i, "city_aldara", MapGeometry.random_walkable(ws, gd.maps["city_aldara"], from, 3.0), 8 + i % 3))
+	p.position = gd.maps["city_aldara"].town_center
+	var came := {}
+	for i in int(70.0 * 20.0):
+		boss.hp = boss.stats.max_hp
+		ws.tick(1.0 / 20.0)
+		if i % 10 == 0:
+			for b: SimEntity in runners:
+				if b.is_alive() and b.position.distance_to(boss.position) <= Balance.WORLD_BOSS_ARRIVE_M:
+					came[b.id] = true
+	check(came.size() >= 6, "chefe de mundo: >= 6 de 10 bots da faixa chegam em 70 s (%d)" % came.size())
+	# prêmio igual (§9.3): dano ou cura acima do mínimo; abaixo, nada
+	var r1: SimEntity = runners[0]
+	var r2: SimEntity = runners[1]
+	var r3: SimEntity = runners[2]
+	var r4: SimEntity = runners[3]
+	for r in [r1, r2, r3, r4]:
+		r.level = 9
+		r.xp = 0
+	var x0 := {}
+	for r in runners:
+		x0[r.id] = [r.level, r.xp]
+	boss.damage_by.clear()
+	boss.damage_by[r1.id] = boss.stats.max_hp * 0.3
+	boss.damage_by[r2.id] = boss.stats.max_hp * 0.3
+	boss.damage_by[r3.id] = 5.0
+	a = ws.world_boss["active"]
+	a["heal"] = {}
+	r1.hp = 1.0
+	r1.position = boss.position + Vector3(3, 0, 0)
+	var hp_before := r1.hp
+	ws._heal(r4, r1, 100000)
+	check(float(a["heal"].get(r4.id, 0.0)) > 0.0 and float(a["heal"].get(r4.id, 0.0)) <= r1.hp - hp_before + 0.5, "chefe de mundo: cura perto do chefe conta para a participação (só a efetiva)")
+	a["heal"][r4.id] = boss.stats.max_hp * 0.2
+	evs.clear()
+	ws._deal_damage(r1, boss, int(boss.hp + 99999), false, false, "physical")
+	var kill: Array = evs.filter(func(e): return e[0] == "kill")
+	var ids: Array = kill[0][2] if not kill.is_empty() else []
+	check(not boss.is_alive() and ids.has(r1.id) and ids.has(r2.id) and ids.has(r4.id) and not ids.has(r3.id), "chefe de mundo: participantes = dano ou cura acima do mínimo (%s)" % str(ids))
+	var g1 := "%d/%d" % [r1.level - int(x0[r1.id][0]), r1.xp - int(x0[r1.id][1])]
+	var g2 := "%d/%d" % [r2.level - int(x0[r2.id][0]), r2.xp - int(x0[r2.id][1])]
+	var g3 := "%d/%d" % [r3.level - int(x0[r3.id][0]), r3.xp - int(x0[r3.id][1])]
+	var g4 := "%d/%d" % [r4.level - int(x0[r4.id][0]), r4.xp - int(x0[r4.id][1])]
+	check(g1 == g2 and g1 == g4 and g1 != "0/0", "chefe de mundo: XP igual para os participantes (%s %s %s)" % [g1, g2, g4])
+	check(g3 == "0/0" and r1.bosses_killed.has("ancestral_boar") and not r3.bosses_killed.has("ancestral_boar"), "chefe de mundo: quem ficou abaixo do mínimo não ganha nada (%s)" % g3)
+	check((ws.world_boss["active"] as Dictionary).is_empty() and chat.any(func(c): return str(c[1]) == MomentsCatalog.WORLD_BOSS_LINES["ancestral_boar"]["killed"]), "chefe de mundo: queda anunciada e libera o próximo")
+	# vida: some em WORLD_BOSS_LIFE com despedida
+	var b2 := WorldBossSystem.spawn(ws, "ancestral_boar")
+	chat.clear()
+	evs.clear()
+	WorldBossSystem.tick(ws, Balance.WORLD_BOSS_LIFE * 60.0 + 1.0)
+	check(b2 != null and not ws.entities.has(b2.id) and evs.any(func(e): return e[0] == "gone") and chat.any(func(c): return str(c[1]) == MomentsCatalog.WORLD_BOSS_LINES["ancestral_boar"]["farewell"]),
+		"chefe de mundo: some em 15 min com fala de despedida")
+	# save: relógios voltam; avisado/vivo volta avisado
+	bands["porcelain_stag"]["left"] = 777.0
+	WorldBossSystem.warn(ws, "ruins_basilisk", 30.0)
+	var sv: Dictionary = JSON.parse_string(JSON.stringify({"world_boss": WorldBossSystem.to_save(ws)}))
+	var ws2 := WorldSim.new()
+	WorldBossSystem.from_save(ws2, sv)
+	check(is_equal_approx(float(ws2.world_boss["bands"]["porcelain_stag"]["left"]), 777.0) and str(ws2.world_boss["warn"].get("boss", "")) == "ruins_basilisk"
+		and is_equal_approx(float(ws2.world_boss["warn"]["left"]), Balance.WORLD_BOSS_WARN_S), "chefe de mundo: save guarda os relógios; avisado volta avisado")
+	WorldBossSystem.from_save(ws2, {})
+	check((ws2.world_boss["bands"] as Dictionary).size() == 6 and (ws2.world_boss["warn"] as Dictionary).is_empty(), "chefe de mundo: save antigo = relógios novos")
+	ws2.free()
+	_wb_cleanup(ws, [on_chat, on_warn, on_spawn, on_gone, on_kill])
+
+func _wb_cleanup(ws: WorldSim, cbs: Array) -> void:
+	for sig in [Events.chat_message, Events.world_boss_warning, Events.world_boss_spawned, Events.world_boss_despawned, Events.world_boss_killed,
+			Events.chain_step]:
+		for cb in cbs:
+			if (sig as Signal).is_connected(cb):
+				(sig as Signal).disconnect(cb)
+	ws.free()
+
+## Cadeia piloto da Campina (momentos-do-mundo §3.2-§3.3, §4, §5, §8, §9.2; ChainSystem). `--only=chain`
+## Passo = evento de estrada da caravana; chegou = Feira (lojas -15% no Vale e nas casas dele, feirantes) e caiu =
+## Acampamento Bandido (mandachuva + bandidos; limpo = acaba antes); marca de 15 min que volta ao normal no fim e passa
+## pelo save com o tempo que faltava; sem o jogador no mapa nada anda; investida cancela o passo.
+func _check_chain(gd) -> void:
+	var c: Dictionary = MomentsCatalog.CHAINS.get("campina", {})
+	check(not c.is_empty() and str(c["map"]) == "city_aldara", "cadeia: piloto da Campina no Vale de Aldara")
+	if c.is_empty():
+		return
+	var step: Dictionary = c["step"]
+	var it: ItemDef = gd.items.get(str(step.get("reward_item", "")))
+	check(gd.monsters.has(str(step["mob"])) and it != null and it.type == ItemDef.Type.CONSUMABLE and ["cry", "thanks", "flee", "bot_chat"].all(func(k): return not (step.get(k, []) as Array).is_empty()),
+		"cadeia: passo da caravana com monstro, prêmio consumível e falas")
+	var cboss: MonsterDef = gd.monsters.get(str(c["fell"]["boss"]))
+	check(cboss != null and gd.monsters.has(str(c["fell"]["mob"])) and gd.loot_tables.has(cboss.loot_table) and cboss.level <= 10,
+		"cadeia: mandachuva e bandidos do acampamento existem, faixa 1-10, com saque")
+	check(is_equal_approx(Balance.CHAIN_MARK_MIN, 15.0) and Balance.CHAIN_STEP_CHANCE > 0.0 and Balance.CHAIN_STEP_CHANCE <= 1.0 and Balance.CHAIN_TICK > 0.0
+		and Balance.CHAIN_FAIR_DISCOUNT > 0.0 and Balance.CHAIN_FAIR_DISCOUNT <= 0.3, "cadeia: números do GDD (marca 15 min, chance, desconto)")
+	var def: MapDef = gd.maps["city_aldara"]
+	var ws := WorldSim.new()
+	ws.rng.seed = 77
+	var m: Dictionary = ws.load_map(def)
+	m["spawners"].clear()
+	for o in m["entities"].duplicate():
+		if o.kind == SimEntity.Kind.MONSTER:
+			ws.despawn(o)
+	for n in c["arrived"]["npcs"]:
+		check(ws.is_walkable(Vector3(float(n[2]), 0, float(n[3])), def, 0.45), "cadeia: feirante %s em chão livre" % n[0])
+	ChainSystem.update(ws, m, 600.0)
+	check(ws.chains.is_empty(), "cadeia: sem o jogador no mapa nada anda")
+	var chat: Array = []
+	var phases: Array = []
+	var on_chat := func(_who: String, text: String, channel: String): chat.append([channel, text])
+	var on_step := func(cid: String, _mid: String, ph: String): phases.append([cid, ph])
+	Events.chat_message.connect(on_chat)
+	Events.chain_step.connect(on_step)
+	var p := ws.spawn_player(gd.classes["berserker"], "Teste", def.id)
+	var p0: Vector3 = def.road_events[0]["pos"]
+	p.position = p0 + (def.town_center - p0).normalized() * 50.0
+	# relógio: um sorteio a cada CHAIN_TICK min (só com o jogador no mapa) até o passo sair
+	var started := false
+	for i in 40:
+		ChainSystem.update(ws, m, Balance.CHAIN_TICK * 60.0)
+		if str(ChainSystem.state(ws, "campina")["phase"]) == "step":
+			started = true
+			break
+	var ev: Dictionary = RoadEventSystem.state(ws, m)["active"]
+	check(started and str(ev.get("chain", "")) == "campina" and str(ev.get("kind", "")) == "caravan" and phases.any(func(q): return q[1] == "started")
+		and chat.any(func(q): return str(q[1]) == str(c["announce"])), "cadeia: o relógio solta o passo (caravana atacada) com anúncio")
+	if not started:
+		_wb_cleanup(ws, [on_chat, on_step])
+		return
+	var victim: SimEntity = ws.entities.get(int(ev.get("npc", -1)))
+	check(victim != null and str(victim.npc_data.get("carry", "")) == "cart_draft" and (ev.get("ids", []) as Array).size() >= 2, "cadeia: caravana (carroça puxada) e salteadores na estrada")
+	check(RoadEventSystem.start(ws, m).is_empty() and ChainSystem.start_step(ws, "campina").is_empty(), "cadeia: um passo/evento por zona")
+	check(str(ws.chain_status(def.id).get("phase", "")) == "step", "cadeia: status no passo (HUD)")
+	# chegou: Feira
+	ev["credit"][p.id] = true
+	RoadEventSystem.finish(ws, m, "resolved")
+	var fair := str(c["arrived"]["mark"])
+	var cs: Dictionary = ws.chain_status(def.id)
+	check(WorldState.mark_on(ws, fair) and is_equal_approx(WorldState.mark_left(ws, fair), Balance.CHAIN_MARK_MIN * 60.0) and str(cs["phase"]) == "mark" and str(cs["mark"]) == fair
+		and Hud.moment_text({}, cs).contains("15:00"), "cadeia: caravana chegou = Feira por 15 min (contagem no HUD)")
+	var fair_ids: Array = (ChainSystem.state(ws, "campina")["ids"] as Array).duplicate()
+	check(fair_ids.size() == (c["arrived"]["npcs"] as Array).size() and fair_ids.all(func(id): return ws.entities.has(id) and ws.entities[id].kind == SimEntity.Kind.NPC),
+		"cadeia: feirantes na praça")
+	var interior := ""
+	for mid in gd.maps:
+		if gd.maps[mid].interior and gd.maps[mid].parent_map == "city_aldara":
+			interior = mid
+	check(is_equal_approx(ChainSystem.shop_mult(ws, "city_aldara"), 1.0 - Balance.CHAIN_FAIR_DISCOUNT) and is_equal_approx(ChainSystem.shop_mult(ws, "field_forest"), 1.0)
+		and (interior == "" or is_equal_approx(ChainSystem.shop_mult(ws, interior), 1.0 - Balance.CHAIN_FAIR_DISCOUNT)), "cadeia: Feira = lojas do Vale (e casas dele) com desconto, outras zonas não")
+	var pot: ItemDef = gd.items["potion_hp_s"]
+	p.gold = 10000
+	var price := ws.shop_price(p, pot)
+	check(ws.shop_buy(p, "potion_hp_s", 2) and 10000 - p.gold == 2 * price and price < pot.price, "cadeia: compra na Feira sai com desconto (%d < %d)" % [price, pot.price])
+	check(WorldState.active(ws, {"mark": fair}) and not WorldState.active(ws, {"no_mark": fair}), "cadeia: WorldState honra mark/no_mark")
+	# save no meio: a marca volta com o tempo que faltava
+	ChainSystem.tick_marks(ws, 100.0)
+	var sv: Dictionary = JSON.parse_string(JSON.stringify({"moments": ChainSystem.to_save(ws)}))
+	var ws2 := WorldSim.new()
+	ChainSystem.from_save(ws2, sv)
+	check(is_equal_approx(WorldState.mark_left(ws2, fair), Balance.CHAIN_MARK_MIN * 60.0 - 100.0), "cadeia: save no meio da marca guarda o tempo que faltava (%.0f s)" % WorldState.mark_left(ws2, fair))
+	ws2.free()
+	# fim do prazo: tudo volta ao normal
+	chat.clear()
+	ChainSystem.tick_marks(ws, Balance.CHAIN_MARK_MIN * 60.0)
+	check(not WorldState.mark_on(ws, fair) and fair_ids.all(func(id): return not ws.entities.has(id)) and is_equal_approx(ChainSystem.shop_mult(ws, "city_aldara"), 1.0)
+		and chat.any(func(q): return str(q[1]) == str(c["arrived"]["end"])), "cadeia: no fim da Feira os feirantes somem e as lojas voltam ao preço")
+	var cst: Dictionary = ChainSystem.state(ws, "campina")
+	check(float(cst["cool"]) > float(cst["clock"]) and ChainSystem.status(ws, def.id)["phase"] == "idle", "cadeia: depois da marca, CHAIN_COOLDOWN_MIN sem passo novo")
+	# caiu: Acampamento Bandido
+	cst["cool"] = 0.0
+	RoadEventSystem.state(ws, m)["cd"].clear()
+	var p1: Vector3 = def.road_events[1]["pos"]
+	p.position = p1 + (def.town_center - p1).normalized() * 50.0
+	var ev2 := ChainSystem.start_step(ws, "campina", 1)
+	RoadEventSystem.finish(ws, m, "failed")
+	var band := str(c["fell"]["mark"])
+	var camp: Array = (ChainSystem.state(ws, "campina")["ids"] as Array).duplicate()
+	var boss_ok: bool = camp.any(func(id): return ws.entities.has(id) and ws.entities[id].monster_def.id == str(c["fell"]["boss"]))
+	check(not ev2.is_empty() and WorldState.mark_on(ws, band) and camp.size() == 1 + Balance.CHAIN_CAMP_BANDITS and boss_ok
+		and camp.all(func(id): return ws.entities[id].position.distance_to(p1) <= Balance.CHAIN_CAMP_OFFSET + Balance.CHAIN_CAMP_RADIUS + 6.0 and ws.is_walkable(ws.entities[id].position, def, 0.4)),
+		"cadeia: caravana caiu = Acampamento Bandido na estrada (mandachuva + %d bandidos)" % Balance.CHAIN_CAMP_BANDITS)
+	var cpos: Vector3 = ws.chain_status(def.id)["pos"]
+	check(cpos.distance_to(p1) <= Balance.CHAIN_CAMP_OFFSET + 0.5 and not is_equal_approx(ChainSystem.shop_mult(ws, "city_aldara"), 1.0 - Balance.CHAIN_FAIR_DISCOUNT), "cadeia: marca do acampamento no mapa; sem desconto")
+	# save: acampamento volta no mesmo lugar
+	var sv2: Dictionary = JSON.parse_string(JSON.stringify({"moments": ChainSystem.to_save(ws)}))
+	var ws3 := WorldSim.new()
+	ws3.load_map(def)
+	ChainSystem.from_save(ws3, sv2)
+	check(WorldState.mark_on(ws3, band) and ChainSystem.camp_spot(ws3, def, band).distance_to(ChainSystem.camp_spot(ws, def, band)) < 0.1, "cadeia: acampamento volta do save no mesmo lugar")
+	ws3.free()
+	chat.clear()
+	for id in camp:
+		var e: SimEntity = ws.entities.get(id)
+		if e != null and e.is_alive():
+			ws._deal_damage(p, e, int(e.hp + 99999), false, false, "physical")
+	ChainSystem.update(ws, m, 0.1)
+	check(not WorldState.mark_on(ws, band) and chat.any(func(q): return str(q[1]) == str(c["fell"]["cleared"])) and phases.any(func(q): return q[1] == "cleared"),
+		"cadeia: acampamento limpo = a marca acaba antes do prazo")
+	# expirou (ninguém ajudou) também é "caiu"; investida cancela sem marca
+	cst["cool"] = 0.0
+	RoadEventSystem.state(ws, m)["cd"].clear()
+	p.position = p0 + (def.town_center - p0).normalized() * 50.0
+	ChainSystem.start_step(ws, "campina", 0)
+	RoadEventSystem.finish(ws, m, "expired")
+	check(WorldState.mark_on(ws, band), "cadeia: ninguém ajudou a caravana = caiu")
+	ChainSystem.end_mark(ws, "campina", "ended")
+	cst["cool"] = 0.0
+	RoadEventSystem.state(ws, m)["cd"].clear()
+	ChainSystem.start_step(ws, "campina", 0)
+	RoadEventSystem.finish(ws, m, "raid")
+	check(not WorldState.mark_on(ws, band) and not WorldState.mark_on(ws, fair) and str(ChainSystem.state(ws, "campina")["phase"]) == "idle" and phases.any(func(q): return q[1] == "aborted"),
+		"cadeia: investida cancela o passo sem marca")
+	_wb_cleanup(ws, [on_chat, on_step])

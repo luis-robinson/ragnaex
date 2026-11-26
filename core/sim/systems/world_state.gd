@@ -17,7 +17,9 @@ static func done(sim: WorldSim) -> Array:
 ## A entrada (spawner, NPC, rota) vale agora?
 static func active(sim: WorldSim, d: Dictionary) -> bool:
 	if not d.has("if") and not d.has("unless"):
-		return true
+		return not (d.has("mark") or d.has("no_mark")) or marks_ok(sim, d)
+	if not marks_ok(sim, d):
+		return false
 	var q := done(sim)
 	if d.has("if"):
 		for id in _ids(d["if"]):
@@ -192,3 +194,43 @@ static func end_sortie(sim: WorldSim, ids: Array) -> void:
 		e.npc_data["sortie_left"] = Balance.RAID_SORTIE_LINGER
 		e.raid_leg = 0
 		e.aggro_target = -1
+
+# ----------------------------------------------------------------------------
+# Marcas de mundo com prazo (Momentos do Mundo §3.2: cadeias). sim.world_marks = {id: {"left": s de jogo, "map": id}}.
+# Entrada com `mark` (id) vale só com a marca ligada; `no_mark` só com ela desligada. Vão para o save com o tempo que falta.
+# ----------------------------------------------------------------------------
+static func marks_ok(sim: WorldSim, d: Dictionary) -> bool:
+	if d.has("mark") and not mark_on(sim, str(d["mark"])):
+		return false
+	if d.has("no_mark") and mark_on(sim, str(d["no_mark"])):
+		return false
+	return true
+
+static func mark_on(sim: WorldSim, id: String) -> bool:
+	return sim.world_marks.has(id)
+
+## s que faltam (0 = desligada).
+static func mark_left(sim: WorldSim, id: String) -> float:
+	return float((sim.world_marks.get(id, {}) as Dictionary).get("left", 0.0))
+
+static func set_mark(sim: WorldSim, id: String, seconds: float, map_id: String = "") -> void:
+	sim.world_marks[id] = {"left": maxf(0.0, seconds), "map": map_id}
+	Events.post(&"world_mark", id, true)
+
+static func clear_mark(sim: WorldSim, id: String) -> void:
+	if sim.world_marks.erase(id):
+		Events.post(&"world_mark", id, false)
+
+## Passa o tempo de jogo; devolve as marcas que venceram agora (já desligadas).
+static func tick_marks(sim: WorldSim, dt: float) -> Array:
+	var out: Array = []
+	if sim.world_marks.is_empty():
+		return out
+	for id in sim.world_marks.keys():
+		var mk: Dictionary = sim.world_marks[id]
+		mk["left"] = float(mk["left"]) - dt
+		if float(mk["left"]) <= 0.0:
+			out.append(id)
+	for id in out:
+		clear_mark(sim, str(id))
+	return out

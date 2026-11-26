@@ -69,11 +69,13 @@ static func craft(e: SimEntity, r: RecipeDef, notify: bool = true) -> bool:
 	return true
 
 # --- loja ---
-static func buy(e: SimEntity, item_id: String, count: int = 1) -> bool:
+## `mult` = preço de agora (Feira das cadeias: WorldSim.shop_buy); cada unidade arredonda como WorldSim.shop_price.
+static func buy(e: SimEntity, item_id: String, count: int = 1, mult: float = 1.0) -> bool:
 	var it: ItemDef = GameData.items.get(item_id)
 	if it == null:
 		return false
-	var cost := it.price * count
+	var each := it.price if is_equal_approx(mult, 1.0) or it.price <= 0 else maxi(1, roundi(it.price * mult))
+	var cost := each * count
 	if e.gold < cost:
 		Events.post(&"notification", "Ouro insuficiente")
 		return false

@@ -42,6 +42,9 @@ var roster: Array = []             # elenco fixo do save: entradas (RosterSystem
 var guilds: Dictionary = {}        # guild_id -> guilda (GuildSystem): a do elenco/jogador e as de bots do mundo
 var social: Dictionary = {}        # relógio social, rival, convite da guilda, pedido de socorro, títulos (RosterSystem)
 var arena: Dictionary = {}         # Campo de Caça da Guilda (ArenaSystem): entradas, recordes, corrida em andamento
+var world_boss: Dictionary = {}    # Chefes de Mundo com hora marcada (WorldBossSystem): relógios por faixa, aviso, chefe vivo
+var chains: Dictionary = {}        # cadeias de eventos (ChainSystem): passo ativo, relógio, acampamento/feirantes por cadeia
+var world_marks: Dictionary = {}   # marcas de mundo com prazo (WorldState.set_mark): {id: {left, map}}
 var gbank: Dictionary = {}         # Banco da Guilda (GuildBankSystem): itens, ouro, Contribuição, encomendas, pedidos
 
 ## Semente fixa já na criação: WorldSim.new() fora da árvore (testes, sondas) nunca roda _ready,
@@ -138,6 +141,9 @@ func reset_world() -> void:
 	social.clear()
 	arena.clear()
 	gbank.clear()
+	world_boss.clear()
+	chains.clear()
+	world_marks.clear()
 
 # ----------------------------------------------------------------------------
 # MAPAS
@@ -594,6 +600,7 @@ func tick(dt: float) -> void:
 		RaidSystem.update_raids(self, m, mdt)
 		SiegeSystem.update(self, m, mdt)
 		RoadEventSystem.update(self, m, mdt)
+		ChainSystem.update(self, m, mdt)
 		if profile:
 			_prof("r_spawners", pt); pt = Time.get_ticks_usec()
 		TrapSystem.update_traps(self, m)
@@ -624,6 +631,9 @@ func tick(dt: float) -> void:
 	PortalSystem.process_map_changes(self)
 	PartySystem.party_catchup(self, dt)
 	BotChat.update(self)
+	if player != null:
+		WorldBossSystem.tick(self, dt)       # Chefes de Mundo: relógio por faixa (só no ato do jogador), aviso, vida
+		ChainSystem.tick_marks(self, dt)     # marcas de mundo das cadeias: prazo de jogo
 	if player != null or not arena.is_empty():
 		ArenaSystem.tick(self, dt)           # Campo de Caça: entradas (1 por hora) e a corrida em andamento
 	if roster_on:
@@ -2142,7 +2152,9 @@ func _heal(src: SimEntity, target: SimEntity, amount: int, share := true) -> voi
 	if target.roster_id >= 0 and roster_on:
 		RosterSystem.on_heal(self, src, target, before)      # "salvou": o jogador curou o bot do elenco abaixo de 25%
 	if src.is_character() and target.hp > before:
-		UltimateSystem.on_heal(self, src, target, target.hp - before)     # Carga Suprema: só a cura efetiva
+		UltimateSystem.on_heal(self, src, target, target.hp - before)
+		if not world_boss.is_empty() and not (world_boss.get("active", {}) as Dictionary).is_empty():
+			WorldBossSystem.on_heal(self, src, target, target.hp - before)     # participação no Chefe de Mundo     # Carga Suprema: só a cura efetiva
 	if src != target and src.party_id >= 0 and src.party_id == target.party_id and target.hp - before >= target.stats.max_hp * 0.15:
 		if src == player and target.kind == SimEntity.Kind.BOT:
 			BotChat.party_event(self, target, "healed_by_player", {}, target, 0.5)
@@ -2971,6 +2983,29 @@ func mount_unlocked(e: SimEntity, kind: String) -> bool:
 	return MountSystem.unlocked(e, kind)
 func set_mount_kind(e: SimEntity, kind: String) -> bool:
 	return MountSystem.set_kind(self, e, kind)
+## Aba Montaria (C): tipo + cor + armadura (só aparência; MountSystem.set_look). "" de look_error = vale.
+func set_mount_look(e: SimEntity, kind: String, dye: int, barding: String) -> bool:
+	return MountSystem.set_look(self, e, kind, dye, barding)
+func mount_look_error(e: SimEntity, kind: String, dye: int, barding: String) -> String:
+	return MountSystem.look_error(e, kind, dye, barding)
+# MvpSystem (Prêmios de MVP, design/gdd/mvp-premios.md)
+## Chefe de Mundo caiu: prêmios de cada participante (WorldBossSystem chama). {id: resumo}
+func mvp_award(boss_id: String, participants: Array, force: Dictionary = {}) -> Dictionary:
+	return MvpSystem.award(self, boss_id, participants, force)
+func mvp_open_chest(e: SimEntity, item_id: String, pick: int) -> bool:
+	return MvpSystem.open_chest(self, e, item_id, pick)
+func mvp_take_mail(e: SimEntity) -> int:
+	return MvpSystem.take_mail(self, e)
+func mvp_buy(e: SimEntity, id: String) -> String:
+	return MvpSystem.buy(self, e, id)
+## Bot da população do mundo: às vezes já nasce com a montaria de um MVP da faixa (mvp-premios.md §3.7).
+func mvp_bot_showcase(e: SimEntity) -> void:
+	MvpSystem.bot_showcase(e)
+## Pergaminho de Refino no ferreiro (+0..+4 -> +5; Superior +5..+6 -> +7), sem ouro nem material.
+func refine_scroll_error(e: SimEntity, item_id: String, slot: int, scroll_id: String) -> String:
+	return MvpSystem.scroll_error(e, item_id, slot, scroll_id)
+func use_refine_scroll(e: SimEntity, item_id: String, slot: int, scroll_id: String) -> ItemDef:
+	return MvpSystem.use_scroll(self, e, item_id, slot, scroll_id)
 func gather_ready(node: Dictionary) -> bool:
 	return GatherSystem.node_ready(self, node)
 # UltimateSystem (Supremas do 40)
@@ -3131,3 +3166,32 @@ func arena_status() -> Dictionary:
 ## Resumo da última corrida ({} = nenhuma).
 func arena_last() -> Dictionary:
 	return (arena.get("last", {}) as Dictionary).duplicate()
+
+# --- Momentos do Mundo (WorldBossSystem/ChainSystem; design/gdd/momentos-do-mundo.md) ---
+## Chefe de Mundo (contrato A): {active, boss, map, at [x, z], warn_until, next_in, hp_pct} (+ left, name, warned, place).
+func world_boss_status() -> Dictionary:
+	return WorldBossSystem.status(self)
+
+## Dev/testes: avisa agora (`seconds` até nascer) o chefe de mundo `boss_id`.
+func world_boss_warn(boss_id: String, seconds: float = -1.0) -> void:
+	WorldBossSystem.warn(self, boss_id, seconds)
+
+## Dev/testes: nasce já no lugar dele (null = não deu: outro vivo, mapa fora do mundo).
+func world_boss_spawn(boss_id: String) -> SimEntity:
+	return WorldBossSystem.spawn(self, boss_id)
+
+## Cadeia do mapa: {chain, name, phase, mark, label, left, pos} ({} = nenhuma).
+func chain_status(map_id: String) -> Dictionary:
+	return ChainSystem.status(self, map_id)
+
+## Dev/testes: começa o passo da cadeia agora ({} = não deu).
+func chain_start(chain_id: String, point: int = -1) -> Dictionary:
+	return ChainSystem.start_step(self, chain_id, point)
+
+## Preço de loja de `item` para `e` agora (Feira: desconto no mapa da cadeia).
+func shop_price(e: SimEntity, it: ItemDef) -> int:
+	return maxi(1, roundi(it.price * ChainSystem.shop_mult(self, e.map_id))) if it.price > 0 else it.price
+
+## Compra na loja com o preço de agora (shop_price).
+func shop_buy(e: SimEntity, item_id: String, count: int = 1) -> bool:
+	return CraftSystem.buy(e, item_id, count, ChainSystem.shop_mult(self, e.map_id))

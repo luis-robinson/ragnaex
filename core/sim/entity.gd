@@ -73,6 +73,12 @@ var basic_cd: float = 0.0
 var basic_skill: SkillDef = null     # ataque básico (gerado por classe/monstro)
 var mounted := false                 # a cavalo (mais rápido; só fora de combate)
 var mount_kind: String = "horse"     # qual bicho o H chama (Balance.MOUNT_KINDS; salvo; save antigo = cavalo). Mesma velocidade.
+var mount_dye: int = -1              # cor escolhida (índice em Balance.MOUNT_DYES[mount_kind]); -1 = pelagem pelo id (bots)
+var mount_barding: String = ""        # armadura de montaria (Balance.MOUNT_BARDINGS; "" = nenhuma). Só aparência
+var mount_cosmetics: Dictionary = {}  # coleção (MvpSystem): "kind:<tipo>", "dye:<tipo>:<i>", "barding:<estilo>" -> true
+var mvp_coins: int = 0                # Insígnias de Caçada (moeda, fora da bolsa)
+var mvp_fights: Dictionary = {}       # chefe de mundo -> lutas premiadas (loja: cores/bardas com 1, tipo com MVP_MOUNT_FIGHTS)
+var mvp_mail: Dictionary = {}         # correio do Intendente (bolsa cheia no prêmio): item_id -> qtd
 var combat_timer: float = 0.0        # >0 = "em combate" (sem regen)
 var regen_hold: float = 0.0         # troll (F3): s até a regeneração voltar depois do fogo/veneno
 var bags: Array = ["", "", "", ""]  # bolsas vestidas (ids bag_t*; "" = vaga vazia; Balance.BAG_SLOTS vagas)
@@ -220,6 +226,7 @@ var stance := ""                     # monstro que trocou de arma (MonsterDef.sw
 var road_event := false              # monstro de evento de estrada (RoadEventSystem): sem XP/saque/quest de abate
 var road_grace := false              # graça dos bots: bot de fora do grupo `road_grace_party` não o mira (nem ele ao bot)
 var road_grace_party: int = -1
+var world_boss := false              # Chefe de Mundo do evento (WorldBossSystem): prêmio por participação, não pelo abate
 var dormant := false                 # monstro sem ninguém por perto: não pensa nem anda (WorldSim._dormant)
 var npc_goal: Vector3 = Vector3.ZERO  # NPC que passeia: para onde está indo
 var npc_wait: float = 0.0            # parado olhando em volta antes do próximo passo

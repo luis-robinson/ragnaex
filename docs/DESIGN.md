@@ -293,6 +293,7 @@ peça restrita só para a classe dela; poções e materiais para todos) e `can_c
 **Ícones dos conjuntos** (`tools/icons/set_icons.tscn`): enquadramento automático pelos vértices; arma vista pela face larga em diagonal
 (eixos principais), uma luva só, cabeça com o rosto do boneco como manequim.
 **Montaria (H)**: conjuração de `Balance.MOUNT_CAST_TIME` (1,5 s; vale em combate e andando; barra de conjuração e leque no botão H); agir, pular, bloquear, começar a volta (G), ser atordoado ou levar golpe interrompe; H de novo cancela. Fora de forma animal; `Balance.MOUNT_SPEED_MULT` 1,7. Bots só montam fora de combate. Não monta em masmorra nem em interior (`MapDef.parent_map`), exceto masmorra com `MapDef.mounts_ok` (só a Cidadela de Kharzun: pátios abertos; `MapDef.no_mount()`).
+**Prêmios de MVP** (`design/gdd/mvp-premios.md`, 2026-11-26; `MvpSystem`): todo participante do Chefe de Mundo acima do mínimo ganha `Balance.MVP_COINS[faixa]` Insígnias de Caçada (`SimEntity.mvp_coins`, fora da bolsa), o Baú do MVP da faixa (`mvp_chest_<0-4>`: clique abre, escolhe 1 de 3 pacotes de `MVP_CHEST`) e sorteios independentes: Pergaminho de Refino 25% (+0..+4 → +5, qualquer ferreiro, sem ouro/material), Superior 8% só faixa 40+ (+5/+6 → +7), cosmético de montaria 5% (tipo, cor ou barda do chefe que falta; tudo já tido = `MVP_DUP_COINS`), Carta de MVP 2% (núcleo do chefe; Ato II/III sem carta pula). Bolsa cheia = correio do **Intendente das Caçadas** (Aldara, Bastião, Kharzun, Lumeria; loja: pergaminho 12, Superior 40 no nível 40+, cores 15 / bardas 30 de chefe enfrentado, tipo 60 depois de `MVP_MOUNT_FIGHTS` lutas; nunca carta nem baú). Bots gastam insígnias em pergaminhos nas peças vestidas; parte dos bots do mundo nasce com o bicho de um MVP (vitrine). **Aba Montaria** (C): prévia girando, Tipo/Cor/Armadura (só aparência, `Sim.set_mount_look`; save `mount_look`, `mount_cosmetics`, `mvp_*`); tipo sem modelo ainda mostra o cavalo (`MountLook`). O Tratador continua liberando o Lobo Atroz pela missão.
 
 **Ascensão do Paladino (Ato II, 35; `ProgressionSystem.has_ascension` = nível `Balance.ASC_LEVEL` + missão `hx_asc_paladin`)** — `MountedCombat` (core/sim/systems/mounted_combat.gd):
 - As skills da ascensão (Carga Montada, Pisotear, Modo Arcano; `SkillDef.ascension`) ficam **fora da teia comum**: são compradas na teia de ascensão (com maestria) e vão na barra só nas vagas 7-0 (ver "Teia e barra de ascensão").
@@ -1934,3 +1935,22 @@ Check `--only=cards`; sonda `tools/tests/card_probe.tscn`; fotos `-- --autostart
   morto assiste até a pausa e volta com 50% se alguém seguir de pé. Grupo todo caído/saída = volta para onde entrou com o resumo;
   recorde gravado na hora em que a leva começa (fechar o jogo no meio conta). O save nunca grava a posição dentro da arena.
 - Sonda: `tools/tests/arena_probe.tscn -- --level=20,30,40 --runs=5` (meta leva 12-18, 15-25 min, tick ≤ 10 ms com 30 vivos). Check `_check_arena`.
+
+## Momentos do Mundo (2026-11-26; GDD `design/gdd/momentos-do-mundo.md`) — `WorldBossSystem`, `ChainSystem`, `Balance.WORLD_BOSS_*`/`CHAIN_*`
+- **Chefe de Mundo com hora marcada**: um por faixa (`MonstersCatalog.WORLD_BOSSES`: mapa, lugar, faixa). Relógio por faixa
+  `WORLD_BOSS_EVERY` (40) × (0,8 + 0,4 × sorteio) min de jogo, que só anda com o jogador no ATO da faixa (Ato I até nível 30,
+  Ato II até 45, Ato III; masmorra conta como a zona de fora). Um chefe de mundo por vez. Aviso `WORLD_BOSS_WARN_S` (2 min)
+  antes no chat de sistema (todos os mapas) + marca no minimapa/mapa grande + faixa com contagem no HUD (`Hud.moment_text`);
+  cerco/investida no mapa = espera. Bots da faixa (± `WORLD_BOSS_BOT_SLACK`) no mapa ou a 1 portal largam tudo e vão
+  (`BotBrain._world_boss`), fora o grupo do jogador. Prêmio igual (sem top 3): todo mundo com dano + cura (cura conta com o
+  curado a `WORLD_BOSS_SHARE_RANGE` m do chefe) >= `WORLD_BOSS_SHARE_MIN` × vida / participantes ganha a XP do chefe (regra de
+  nível de sempre) e passa para o `MvpSystem.award` (moedas, baú, pergaminhos, carta, montaria; contrato wave5 A). Some em
+  `WORLD_BOSS_LIFE` (15) min com fala de despedida. Save: relógios das faixas (`world_boss`); avisado/vivo volta avisado.
+- **Cadeias** (piloto: Campina): `MomentsCatalog.CHAINS`. A cada `CHAIN_TICK` min com o jogador no mapa, chance
+  `CHAIN_STEP_CHANCE` de soltar o passo (evento de estrada com a regra da cadeia: Caravana do Tobias atacada). Resolveu =
+  Feira (`campina_fair`: lojas do Vale e das casas dele -`CHAIN_FAIR_DISCOUNT`, feirantes na praça); falhou/expirou =
+  Acampamento Bandido (`campina_bandits`: mandachuva + `CHAIN_CAMP_BANDITS` bandidos ao lado da estrada; limpo = acaba
+  antes). Marca de mundo (`WorldState.set_mark`, entradas `mark`/`no_mark`) dura `CHAIN_MARK_MIN` (15) min de jogo e vai
+  no save com o tempo que faltava (`moments`); depois, `CHAIN_COOLDOWN_MIN` sem passo. Investida cancela o passo.
+- Medir: `tools/tests/world_boss_probe.tscn -- --spots [--search]` (lugares) e `-- --boss=<id> --trials=10` (bots chegando);
+  fotos: `-- --autostart=<c> --moments_shot=<pasta>`. Checks `--only=world_boss_event,chain`.

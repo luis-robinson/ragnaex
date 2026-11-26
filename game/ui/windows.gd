@@ -45,6 +45,7 @@ func _ready() -> void:
 	Events.quest_completed.connect(func(id, _q): _maybe_refresh(id, ["quests"]))
 	Events.quest_abandoned.connect(func(id, _q): _maybe_refresh(id, ["quests"]))
 	Events.cards_changed.connect(func(id): _maybe_refresh(id, ["character", "inventory", "bestiary"]))     # Cartas de Monstro
+	Events.mvp_changed.connect(func(id): _maybe_refresh(id, ["character"]))     # coleção/escolha da montaria (aba Montaria)
 	Events.party_changed.connect(func(_p): _maybe_refresh(Sim.player.id if Sim.player else -1, ["party"]))
 
 func _maybe_refresh(entity_id: int, names: Array) -> void:
@@ -440,6 +441,8 @@ func _bag_glyph(it: ItemDef) -> String:
 func _bag_hint(it: ItemDef) -> String:
 	if it.is_equipment():
 		return "Clique: equipar" + ("  ·  Shift: mão secundária" if it.weapon_type in ItemDef.ONE_HANDED_MELEE else "")
+	if it.consume.has("mvp_chest"):
+		return "Clique: abrir e escolher 1 de 3 pacotes"
 	if it.consume.has("bag"):
 		return "Clique: vestir numa vaga livre  ·  arraste sobre uma vaga para trocar"
 	if it.type == ItemDef.Type.CONSUMABLE:
@@ -463,6 +466,10 @@ func _on_item_click(it: ItemDef) -> void:
 		return
 	if it.type == ItemDef.Type.CARD:
 		CardUi.click_card(it)
+		return
+	if it.consume.has("mvp_chest"):           # Baú do MVP: escolha 1 de 3 pacotes (MvpUi)
+		if hud and hud.mvp_ui:
+			hud.mvp_ui.open_chest(it.id)
 		return
 	if it.is_equipment():
 		# Shift+clique numa arma de 1 mão: mão secundária (empunhar duas)
@@ -493,7 +500,7 @@ const SLOT_SHORT := {ItemDef.Slot.WEAPON: "Arma", ItemDef.Slot.OFFHAND: "Mão se
 	ItemDef.Slot.AMULET: "Amuleto", ItemDef.Slot.RING: "Anel", ItemDef.Slot.RING2: "Anel"}
 const ATTR_DESC := {"FOR": "+ATK físico · bloqueio", "AGI": "+arco/adaga · +crítico físico · +esquiva", "VIT": "+HP · +DEF física",
 	"WILL": "+cura · +MP · +DEF mágica", "INT": "+dano mágico · +crítico mágico"}
-var _char_tab := "status"           # "status" | "sets"
+var _char_tab := "status"           # "status" | "sets" | "cards" | "mount"
 var char_slots := {}                # slot -> quadrado do boneco (checks e revisão)
 var card_sockets := {}              # encaixe de carta -> quadrado (aba Cartas; checks e revisão)
 
@@ -548,8 +555,9 @@ func _character(body: VBoxContainer) -> void:
 	side.add_child(tabs)
 	var n_sets := p.stats.active_sets.size()          # só conjuntos (a arma lendária não é conjunto nem peça)
 	var n_cards := p.cards.size()
-	for t in [["status", "Status"], ["sets", "Conjuntos" + (" (%d)" % n_sets if n_sets > 0 else "")], ["cards", "Cartas" + (" (%d)" % n_cards if n_cards > 0 else "")]]:
-		var tb := UiKit.button(t[1], _set_char_tab.bind(t[0]), 90)
+	for t in [["status", "Status"], ["sets", "Conjuntos" + (" (%d)" % n_sets if n_sets > 0 else "")], ["cards", "Cartas" + (" (%d)" % n_cards if n_cards > 0 else "")], ["mount", "Montaria"]]:
+		var tb := UiKit.button(t[1], _set_char_tab.bind(t[0]), 64)
+		tb.add_theme_font_size_override("font_size", 12)
 		tb.toggle_mode = true
 		tb.button_pressed = _char_tab == t[0]
 		tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -558,6 +566,8 @@ func _character(body: VBoxContainer) -> void:
 		_char_sets(p, side)
 	elif _char_tab == "cards":
 		CardUi.sockets_tab(self, p, side)
+	elif _char_tab == "mount":                  # aba Montaria (mvp-premios.md §3.5)
+		MountTab.build(self, p, side)
 	else:
 		_char_status(p, side)
 

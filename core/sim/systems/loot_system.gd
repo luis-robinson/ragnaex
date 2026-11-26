@@ -6,6 +6,9 @@ static func on_monster_killed(sim: WorldSim, mob: SimEntity, killer: SimEntity) 
 	var m: Dictionary = sim.maps[mob.map_id]
 	if mob.monster_def.last_words != "":
 		MobSystem.boss_say(sim, mob, mob.monster_def.last_words)
+	if mob.world_boss:                       # Chefe de Mundo do evento: prêmio igual por participação (WorldBossSystem)
+		WorldBossSystem.on_boss_killed(sim, mob, killer)
+		return
 	if mob.road_event:                       # monstro de evento de estrada: o prêmio é do evento (sem XP, saque nem quest)
 		RoadEventSystem.on_mob_killed(sim, mob, killer)
 		return

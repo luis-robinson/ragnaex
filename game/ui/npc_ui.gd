@@ -5,7 +5,7 @@ var hud
 var win: PanelContainer = null
 var npc_id := ""
 var npc: Dictionary = {}
-var mode := "dialog"   # dialog | shop | craft | enhance | storage | relic | trainer
+var mode := "dialog"   # dialog | shop | craft | enhance | storage | relic | trainer | hunt
 var craft_panel: CraftPanel       # forja/caldeirão (game/ui/craft_panel.gd)
 var refine_panel: RefinePanel     # refino (game/ui/refine_panel.gd)
 var hold_refresh := false         # lote da forja/refino: reconstrói uma vez só no fim
@@ -98,6 +98,7 @@ func _rebuild() -> void:
 		"storage": _storage(body)
 		"relic": _relic(body)
 		"trainer": _trainer(body)
+		"hunt": MvpUi.hunt_panel(self, body)
 	win.reset_size()
 	win.position = (get_viewport_rect().size - win.size) * 0.5
 	if compact:
@@ -456,6 +457,11 @@ func _dialog(body: VBoxContainer) -> void:
 			actions.add_child(UiKit.button("Aprimorar skills", func(): mode = "trainer"; _rebuild(), 170))
 		"storage":
 			actions.add_child(UiKit.button("Abrir o depósito", func(): mode = "storage"; _rebuild(), 160))
+		"hunt":                                   # Intendente das Caçadas (mvp-premios.md §3.6)
+			var nm := p.mvp_mail.size()
+			actions.add_child(UiKit.button("Loja de insígnias (%d)" % p.mvp_coins, func(): mode = "hunt"; _rebuild(), 190))
+			if nm > 0:
+				actions.add_child(UiKit.button("Correio (%d)" % nm, func(): Sim.mvp_take_mail(p); _rebuild(), 130))
 		"relic":
 			actions.add_child(UiKit.button("Trocar moedas lendárias", func(): mode = "relic"; relic_tab = ""; _rebuild(), 200))
 			var bc := UiKit.button("Comprar moeda (%d ouro)" % Balance.LEGEND_COIN_PRICE, _on_buy_coin, 200)
@@ -507,8 +513,9 @@ func _shop(body: VBoxContainer) -> void:
 			stock.append(it)
 	for it in stock:
 		var err := Sim.equip_error(p, it) if it.slot != ItemDef.Slot.NONE else ""
-		var cell := _shop_cell(it, "", "%d" % it.price, p.gold < it.price or err != "")
-		var tip := UiKit.item_tooltip(it) + "\n[color=#ffd966]Preço: %d ouro[/color]\n[color=#9f9]clique: compra 1 · Shift: compra 5[/color]" % it.price
+		var price := Sim.shop_price(p, it)        # Feira (cadeia da Campina): desconto no mapa
+		var cell := _shop_cell(it, "", "%d" % price, p.gold < price or err != "")
+		var tip := UiKit.item_tooltip(it) + "\n[color=#ffd966]Preço: %d ouro%s[/color]\n[color=#9f9]clique: compra 1 · Shift: compra 5[/color]" % [price, " (feira)" if price < it.price else ""]
 		if err != "":
 			tip += "\n[color=#f88]%s[/color]" % err
 		_tip(cell, tip)
@@ -561,12 +568,14 @@ func _shop_tab_has(it: ItemDef) -> bool:
 		"gear": return it.slot != ItemDef.Slot.NONE
 	return true
 
-## Botões do tratador de montarias (Balance.MOUNT_KEEPER_NPCS): um por tipo, na ordem de Balance.MOUNT_KINDS.
+## Botões do tratador de montarias (Balance.MOUNT_KEEPER_NPCS): um por tipo de missão (sem `mvp`), na ordem de Balance.MOUNT_KINDS.
 ## Cada um: {kind, text, disabled, locked, tip}; travado = missão não entregue, desligado também o que já está em uso.
 static func mount_options(sim: WorldSim, p: SimEntity) -> Array:
 	var out: Array = []
 	for kind in Balance.MOUNT_KINDS:
 		var mk: String = kind
+		if str(Balance.MOUNT_KINDS[mk].get("mvp", "")) != "":      # tipos de MVP: só na aba Montaria (C), não no tratador
+			continue
 		var mname: String = Balance.MOUNT_KINDS[mk]["name"]
 		var free: bool = sim.mount_unlocked(p, mk)
 		var using: bool = p.mount_kind == mk
@@ -618,10 +627,10 @@ func _on_shop_buy(ev: InputEvent, item_id: String) -> void:
 	if not (ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT):
 		return
 	var it: ItemDef = GameData.items[item_id]
-	var n := mini(5 if Input.is_key_pressed(KEY_SHIFT) else 1, Sim.player.gold / maxi(1, it.price))
+	var n := mini(5 if Input.is_key_pressed(KEY_SHIFT) else 1, Sim.player.gold / maxi(1, Sim.shop_price(Sim.player, it)))
 	if n <= 0:
 		Events.notification.emit("Ouro insuficiente")
-	elif CraftSystem.buy(Sim.player, item_id, n):
+	elif Sim.shop_buy(Sim.player, item_id, n):
 		_rebuild()
 
 func _on_shop_sell(ev: InputEvent, item_id: String) -> void:

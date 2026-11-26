@@ -94,3 +94,13 @@ signal guild_mission_back(notice: Dictionary)     # encomenda voltou: cartão à
 # Campo de Caça da Guilda (ArenaSystem; design/gdd/arena-da-guilda.md)
 signal arena_wave(wave: int, info: Dictionary)   # leva começou: {size, elite, boss, mod, mod_label}
 signal arena_ended(summary: Dictionary)          # corrida acabou: {wave, reason, gold, cards, time, record, new_record, names}
+# Prêmios de MVP (MvpSystem; design/gdd/mvp-premios.md)
+signal mvp_award(entity_id: int, summary: Dictionary)     # o que um participante ganhou do Chefe de Mundo (MvpSystem.award)
+signal mvp_changed(entity_id: int)                         # insígnias, coleção de montaria, escolha ou correio mudaram
+# Momentos do Mundo (WorldBossSystem/ChainSystem; design/gdd/momentos-do-mundo.md, contrato wave5-contract.md A)
+signal world_boss_warning(boss_id: String, map_id: String, seconds: float)     # aviso 2 min antes (chat de todos os mapas)
+signal world_boss_spawned(boss_id: String, map_id: String)
+signal world_boss_despawned(boss_id: String, map_id: String)                   # sumiu sem morrer (WORLD_BOSS_LIFE)
+signal world_boss_killed(boss_id: String, participants: Array)                 # ids acima de WORLD_BOSS_SHARE_MIN
+signal chain_step(chain_id: String, map_id: String, phase: String)             # started | arrived | fell | aborted | cleared | ended
+signal world_mark(mark_id: String, on: bool)                                   # marca de mundo ligou/desligou (WorldState)

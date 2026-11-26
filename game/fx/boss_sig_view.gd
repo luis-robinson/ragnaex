@@ -13,6 +13,7 @@ extends MeshInstance3D
 const RED := Color(0.9, 0.08, 0.16, 0.40)          # carmim (FxManager.DANGER)
 const RED_SOLID := Color(0.95, 0.1, 0.16, 0.9)     # traços cheios em carmim (retícula, anel que fecha)
 const RED_EDGE := Color(1.0, 0.95, 0.8, 0.95)      # borda creme (FxManager.DANGER_RIM); desenhe com _rim (pulsa)
+const RING_WARN_ALL_S := 3.0                        # anel `warn_all`: falta isto para cair = já aparece em perigo (não só o próximo)
 const GOLD_RIM := Color(1.0, 0.78, 0.22, 0.95)     # dividir: borda e anel que fecha
 const GOLD_LIT := Color(1.0, 0.84, 0.3, 0.95)      # dividir: vaga ocupada
 const GOLD_DIM := Color(0.42, 0.3, 0.1, 0.7)       # dividir: vaga vazia
@@ -282,8 +283,14 @@ func _hazard(h: Dictionary, now: float, m: Dictionary) -> void:
 				_pat.circle(dmg, p, float(h["radius"]), _rim, _k(Color(RED_SOLID, 0.55), dmg), PAT_Y, float(h["inner"]))
 				_shards(h, p, t)
 			var edge := _rim if hot else Color(0.35, 0.22, 0.15, 0.55)
-			_ring(p, float(h["radius"]) - 0.12, float(h["radius"]), edge, 0.065)
-			_ring(p, float(h["inner"]), float(h["inner"]) + 0.12, edge, 0.065)
+			var ew := 0.12
+			if not hot and h.get("warn_all", false) and float(h["at"]) - now <= RING_WARN_ALL_S:
+				# Erupção de Cristal (Alce Ancião): todo anel que cai logo já sai na gramática de perigo, mais fraco que o aceso
+				_ring(p, float(h["inner"]), float(h["radius"]), _k(Color(RED, 0.07), AccessSettings.Mech.DAMAGE), 0.066)
+				edge = Color(RED_EDGE, 0.7)
+				ew = 0.2
+			_ring(p, float(h["radius"]) - ew, float(h["radius"]), edge, 0.065)
+			_ring(p, float(h["inner"]), float(h["inner"]) + ew, edge, 0.065)
 
 ## Pedregulho do Troll Rei: o modelo prop_avalanche_stone (toon, MapBuilder.prop_model; raio 1,2 m no modelo), na escala da cobertura.
 func _stone(c: Dictionary) -> void:

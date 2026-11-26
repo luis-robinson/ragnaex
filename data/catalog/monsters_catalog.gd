@@ -487,6 +487,7 @@ static func build() -> Array:
 	L.append_array(_archive())
 	L.append_array(_oaths())
 	L.append_array(_world_bosses())
+	L.append_array(_chain_monsters())
 	L.append_array(_dawn_rests())
 	L.append_array(_dawn_echoes(L))
 	var out: Array = []
@@ -1232,7 +1233,7 @@ static func build_loot() -> Array:
 		_lt("lt_vessaline", [{"item": "hostess_fan", "chance": 1.0}, {"item": "weeping_porcelain", "chance": 1.0, "min": 3, "max": 4}, {"item": "festim_ribbon", "chance": 1.0, "min": 5, "max": 8}, {"item": "elixir_might", "chance": 1.0}, {"item": "legend_coin", "chance": 0.6}]),
 		_lt("lt_sylvare_echo", [{"item": "empty_crown", "chance": 1.0}, {"item": "weeping_porcelain", "chance": 1.0, "min": 4, "max": 5}, {"item": "festim_ribbon", "chance": 1.0, "min": 6, "max": 9}, {"item": "elixir_stone", "chance": 1.0}, {"item": "legend_coin", "chance": 1.0, "min": 1, "max": 2}]),
 		_lt("lt_dragonling", [{"item": "dragon_scale", "chance": 1.0, "min": 2, "max": 4}, {"item": "golem_core", "chance": 1.0, "min": 1, "max": 2}, {"item": "amulet_golem", "chance": 0.5}, {"item": "elixir_might", "chance": 1.0, "min": 1, "max": 2}, {"item": "crown_spectral", "chance": 0.4}]),
-	] + _marsh_loot() + _viveiro_loot() + _archive_loot() + _oaths_loot() + _dawn_echo_loot() + _world_boss_loot()
+	] + _marsh_loot() + _viveiro_loot() + _archive_loot() + _oaths_loot() + _dawn_echo_loot() + _world_boss_loot() + _chain_loot()
 
 # ======== Brejo das Teias (field_marsh, 12-16, campo opcional ao sul da Floresta; GDD design/gdd/brejo-das-teias.md §3.3) ========
 ## Modelos novos pedidos ao Blender (BLENDER REQUEST C); até o GLB existir, o monstro usa o modelo de reserva recolorido.
@@ -1531,16 +1532,18 @@ static func _dawn_echo_loot() -> Array:
 	]
 
 # ======== Chefes de Mundo (GDD design/gdd/momentos-do-mundo.md §3.1/§9-§10): um por faixa, luta aberta de 8-15 ========
-## Feitos para a multidão (BOSS_CROWD_MULT já escala o dano até PARTY_MAX). Sem spawner ainda: o nascimento com hora marcada,
-## o anúncio e os prêmios por participação são da onda 5. Hoje: `--world_boss=<id>` (DevRunner) e a boss_probe.
-## id -> {map = zona da faixa, at = [x, z] do lugar de nascer provisório (o da sonda: clareira com 13 m livres em volta), band = [de, até]}.
+## Feitos para a multidão (BOSS_CROWD_MULT já escala o dano até PARTY_MAX). Sem spawner: nascem com hora marcada pelo
+## WorldBossSystem (aviso, bots da faixa, prêmio por participação). Teste: `--world_boss=<id>` (DevRunner) e a boss_probe.
+## id -> {map = zona da faixa, at = [x, z] do lugar de nascer (WorldBossSystem; refeito na onda 5 com a sonda
+## `world_boss_probe -- --spots --search`: alcançável a pé, >= 6 m de estrada, >= 40 m de portal, fora dos spawners;
+## livre em volta 13 m no Javali, 10 m nos outros, 8 m no Alce (a floresta não tem clareira maior), band = [de, até]}.
 const WORLD_BOSSES := {
-	"ancestral_boar": {"map": "city_aldara", "at": [-84.0, 24.0], "band": [1, 10]},
-	"ancient_elk": {"map": "field_forest", "at": [78.0, 18.0], "band": [10, 20]},
-	"ruins_basilisk": {"map": "field_ruins", "at": [-72.0, 42.0], "band": [20, 30]},
-	"war_rhino": {"map": "field_steppe", "at": [72.0, -54.0], "band": [30, 40]},
-	"iron_wolf_king": {"map": "field_kharzun", "at": [84.0, 42.0], "band": [40, 45]},
-	"porcelain_stag": {"map": "field_parade", "at": [30.0, 77.0], "band": [45, 50]},
+	"ancestral_boar": {"map": "city_aldara", "at": [-78.0, 6.0], "band": [1, 10]},
+	"ancient_elk": {"map": "field_forest", "at": [53.0, -10.0], "band": [10, 20]},
+	"ruins_basilisk": {"map": "field_ruins", "at": [-70.0, 59.0], "band": [20, 30]},
+	"war_rhino": {"map": "field_steppe", "at": [38.0, -46.0], "band": [30, 40]},
+	"iron_wolf_king": {"map": "field_kharzun", "at": [83.0, 44.0], "band": [40, 45]},
+	"porcelain_stag": {"map": "field_parade", "at": [62.0, 68.0], "band": [45, 50]},
 }
 ## Lacaios dos chefes de mundo (0 XP, sem saque).
 const WORLD_BOSS_ADDS := ["wb_boar_kin", "wb_crystal_deer", "wb_ruin_statue", "wb_platform_warrior", "wb_iron_wolf", "wb_porcelain_guest"]
@@ -1570,7 +1573,7 @@ static func _world_bosses() -> Array:
 			{"hp": 0.4, "say": "(os cervos de cristal cercam o velho alce, cabeças baixas)", "ward": 0.5, "summon": {"id": "wb_crystal_deer", "count": 2, "max": 4, "pick": "soft"}},
 			{"hp": 0.15, "say": "(a galhada inteira brilha, cegante)", "enrage": 1.3}]},
 		# ---- Basilisco das Ruínas (Bastião da Aurora, 20-30): olhar que petrifica (faixa larga, 2 s para sair) ----
-		{"id": "ruins_basilisk", "name": "Basilisco das Ruínas", "level": 30, "hp": 1200000, "atk": 125, "def": 34, "mdef": 30,
+		{"id": "ruins_basilisk", "name": "Basilisco das Ruínas", "level": 30, "hp": 1050000, "atk": 115, "def": 34, "mdef": 30,
 		 "move_speed": 4.4, "attack_range": 3.8, "attack_cooldown": 1.5, "attack_startup": 0.45, "xp": 9000, "aggro_range": 12.0, "leash_range": 40.0,
 		 "radius": 2.0, "scale": 3.0, "color": Color(0.55, 0.55, 0.5), "shape": "box", "is_boss": true, "berserk_after": 330, "loot_table": "lt_ruins_basilisk",
 		 "gold_min": 400, "gold_max": 650, "model": "mob_ruins_basilisk",
@@ -1638,4 +1641,23 @@ static func _world_boss_loot() -> Array:
 		_lt("lt_war_rhino", [{"item": "orc_steel", "chance": 1.0, "min": 6, "max": 9}, {"item": "troll_tusk", "chance": 1.0, "min": 3, "max": 5}, {"item": "elixir_might", "chance": 1.0}, {"item": "legend_coin", "chance": 0.3}]),
 		_lt("lt_iron_wolf_king", [{"item": "dire_pelt", "chance": 1.0, "min": 4, "max": 6}, {"item": "ghar_badge", "chance": 1.0, "min": 2, "max": 4}, {"item": "elixir_might", "chance": 1.0}, {"item": "legend_coin", "chance": 0.4}]),
 		_lt("lt_porcelain_stag", [{"item": "weeping_porcelain", "chance": 1.0, "min": 3, "max": 4}, {"item": "festim_ribbon", "chance": 1.0, "min": 5, "max": 7}, {"item": "elixir_might", "chance": 1.0}, {"item": "legend_coin", "chance": 0.5}]),
+	]
+
+# ======== Cadeias de eventos (GDD design/gdd/momentos-do-mundo.md §3.2; ChainSystem) ========
+## Acampamento Bandido da Campina (desfecho "caiu" da Caravana do Tobias): mandachuva + bandidos da faixa 1-10, com XP e saque
+## de verdade (é um lugar novo da zona por 15 min). Só nascem pela marca `campina_bandits` (nenhum spawner).
+static func _chain_monsters() -> Array:
+	return [
+		{"id": "camp_bandit", "name": "Bandido do Acampamento", "level": 8, "hp": 170, "atk": 21, "def": 5, "mdef": 3, "move_speed": 4.8, "attack_range": 1.7, "attack_cooldown": 1.0, "attack_startup": 0.25, "xp": 40, "aggro_range": 10.0, "leash_range": 22.0,
+		 "radius": 0.42, "scale": 0.95, "color": Color(0.6, 0.48, 0.3), "shape": "capsule", "loot_table": "lt_camp_bandit", "gold_min": 4, "gold_max": 10, "model": "mob_bandit_footpad",
+		 "skill_ids": ["mob_sling_stone"] as Array[String]},
+		{"id": "camp_bandit_boss", "name": "Mandachuva do Acampamento", "level": 10, "hp": 2400, "atk": 30, "def": 9, "mdef": 5, "move_speed": 4.6, "attack_range": 2.0, "attack_cooldown": 1.2, "attack_startup": 0.3, "xp": 420, "aggro_range": 11.0, "leash_range": 22.0,
+		 "radius": 0.55, "scale": 1.3, "color": Color(0.7, 0.3, 0.22), "shape": "capsule", "loot_table": "lt_camp_bandit_boss", "gold_min": 40, "gold_max": 80, "model": "mob_bandit",
+		 "skill_ids": ["mob_club_slam", "mob_sling_stone"] as Array[String]},
+	]
+
+static func _chain_loot() -> Array:
+	return [
+		_lt("lt_camp_bandit", [{"item": "bandit_badge", "chance": 0.4}, {"item": "potion_hp_s", "chance": 0.15}]),
+		_lt("lt_camp_bandit_boss", [{"item": "bandit_badge", "chance": 1.0, "min": 2, "max": 4}, {"item": "potion_hp_s", "chance": 1.0, "min": 2, "max": 3}, {"item": "elixir_might", "chance": 0.3}]),
 	]

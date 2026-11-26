@@ -1929,7 +1929,7 @@ static func _world_boss_skills() -> Array:
 		 "effects": {"boss_summon": {"id": "wb_crystal_deer", "count": 2, "max": 4, "pick": "soft"}}},
 		# assinatura: cristais brotam em anéis a partir dele (dois pulsos, o 2º desloca o lugar seguro); prende quem ficou
 		{"id": "mob_wb_elk_eruption", "name": "Erupção de Cristal", "clip": "cast_ground", "target": T_SELF, "kind": K_PHYS, "power": 1.3, "cooldown": 26.0, "radius": 0.0, "startup": 0.7, "active": 2.6, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(0.55, 0.9, 0.9), "vfx": "earth", "boss_signature": true,
-		 "effects": {"barrage": {"shape": "ring", "count": 3, "width": 2.5, "inner": 2.0, "spacing": 5.5, "delay": 1.8, "stagger": 0.6, "pulses": 2, "pulse_gap": 1.4, "pulse_shift": 2.75,
+		 "effects": {"barrage": {"shape": "ring", "count": 3, "width": 2.5, "inner": 2.0, "spacing": 5.5, "delay": 1.8, "stagger": 0.6, "pulses": 2, "pulse_gap": 1.4, "pulse_shift": 2.75, "warn_all": true,
 			"say": "(a galhada acende: o chão em volta do Alce racha em anéis de cristal)"}, "root": {"duration": 1.2}}},
 		# ---- Basilisco das Ruínas (30) ----
 		{"id": "mob_wb_bas_bite", "name": "Mordida Pétrea", "clip": "maul", "target": T_CONE, "kind": K_PHYS, "power": 1.5, "cooldown": 7.0, "radius": 5.0, "cone_angle_deg": 90, "startup": 0.55, "active": 0.15, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(0.55, 0.7, 0.4), "vfx": "poison",

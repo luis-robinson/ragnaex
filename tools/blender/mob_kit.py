@@ -595,6 +595,9 @@ def horse(cid="mob_horse"):
     for sx in (-1, 1):
         parts.append((ck.tube("strap%d" % sx, (sx * 0.16, -0.04, h + 0.24), (sx * 0.19, -0.04, h + 0.0), 0.012, 0.012, leather, 5), "body"))
         parts.append((ck.tube("stirrup%d" % sx, (sx * 0.19, -0.07, h - 0.01), (sx * 0.19, -0.01, h - 0.01), 0.022, 0.022, gold, 6), "body"))
+    # barda de ferro (nós barding_iron_head/chest/rump, que o jogo esconde até o jogador escolher): só acrescenta peças no fim
+    import mvp_mounts
+    parts += mvp_mounts.horse_barding(parts, h)
     finish(arm, parts)
     horse_actions(arm)
     return arm
@@ -3012,6 +3015,10 @@ def build_all(out_dir, only=None):
     import world_bosses
     importlib.reload(world_bosses)
     builders.update(world_bosses.BUILDERS)
+    # Montarias dos prêmios MVP (GDD mvp-premios; contrato wave5 §B): primas mansas e seladas dos Chefes de Mundo (mvp_mounts.py)
+    import mvp_mounts
+    importlib.reload(mvp_mounts)
+    builders.update(mvp_mounts.BUILDERS)
     for name, fn in builders.items():
         if only and name not in only:
             continue

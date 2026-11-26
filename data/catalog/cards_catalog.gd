@@ -100,7 +100,9 @@ const CORES := [
 ]
 
 ## Eco de chefe dá a carta do chefe original (com Balance.CARD_CHANCE_ECHO).
-const ECHOES := {"echo_ghoul_giant": "ghoul_giant", "echo_death_knight": "death_knight", "echo_frost_mage": "frost_mage"}
+## Acampamento Bandido (cadeia da Campina, momentos-do-mundo §3.2) também: bandido do acampamento dá a carta do bandido original.
+const ECHOES := {"echo_ghoul_giant": "ghoul_giant", "echo_death_knight": "death_knight", "echo_frost_mage": "frost_mage",
+	"camp_bandit": "bandit_footpad", "camp_bandit_boss": "bandit"}
 
 ## Família de cada monstro do Ato I (alvo de family_dmg / family_def). Chefes também.
 const FAMILY := {

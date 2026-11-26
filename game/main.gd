@@ -228,7 +228,7 @@ func _populate_bots(staged: bool = false) -> int:
 			var pos := Sim.random_walkable(md, md.spawn_point, 10.0)
 			if md.is_town:                                     # espalhados pelos pontos de encontro, não todos na praça
 				pos = Sim.random_walkable(md, BotBandSystem.spawn_spot(md, i), 2.0)
-			Sim.spawn_bot(cls, names[k % names.size()], mid, pos, lv)
+			Sim.mvp_bot_showcase(Sim.spawn_bot(cls, names[k % names.size()], mid, pos, lv))     # parte já monta o bicho de um MVP (vitrine)
 			k += 1
 			work += Time.get_ticks_msec() - tm
 			if staged and Time.get_ticks_msec() - slice >= LOAD_MAP_BUDGET_MS:
