@@ -60,6 +60,7 @@ var _rim_shown := Color(0, 0, 0, 0)
 var _rim_style_shown := 0
 var nameplate: Label3D
 var quest_mark: Label3D = null       # NPC: "!" quest nova, "?" entregar
+var service_icon: Sprite3D = null    # NPC de serviço (NpcServices): ícone sobre a cabeça; some quando há "!"/"?"
 var _mark_timer := 0.0
 var _mark_y := 0.0
 var hp_bar: Node3D
@@ -716,6 +717,16 @@ func _build_ui() -> void:
 		quest_mark.position.y = _mark_y
 		quest_mark.visible = false
 		add_child(quest_mark)
+		var tex := NpcServices.icon(NpcServices.service_of(entity.npc_data))
+		if tex != null:
+			service_icon = Sprite3D.new()
+			service_icon.texture = tex
+			service_icon.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			service_icon.no_depth_test = true
+			service_icon.render_priority = 1
+			service_icon.pixel_size = NpcServices.HEAD_SIZE / float(tex.get_width())
+			service_icon.position.y = top + NpcServices.HEAD_LIFT
+			add_child(service_icon)
 
 	if entity.kind != SimEntity.Kind.NPC or entity.guard:       # sentinela que luta mostra a vida
 		hp_bar = Node3D.new()
@@ -821,7 +832,7 @@ func _refresh_nameplate() -> void:
 			col = level_color(entity.level, Sim.player.level if Sim.player else entity.level) if not entity.monster_def.is_boss else Color(1, 0.8, 0.3)
 			txt = "%s %s" % [entity.name, entity.display_title()]
 		SimEntity.Kind.NPC:
-			col = Color(0.7, 1.0, 0.75)
+			col = NpcServices.NAME_COLOR if NpcServices.service_of(entity.npc_data) != "" else Color(0.7, 1.0, 0.75)
 			txt = "[%s]\n%s" % [_npc_role_label(), entity.name]
 		SimEntity.Kind.SUMMON:
 			col = Color(0.7, 0.95, 0.85)
@@ -868,6 +879,7 @@ func _npc_role_label() -> String:
 		"smith": return "Ferreiro"
 		"alchemy": return "Alquimista"
 		"crystal": return "Cristal"
+		"trainer": return "Mestre de Skills"
 		"merchant": return "Mercador"
 		"storage": return "Depósito"
 		"relic": return "Relicária"
@@ -1161,6 +1173,9 @@ func _update_quest_mark(delta: float) -> void:
 		quest_mark.text = UiKit.quest_mark_text(mark)
 		quest_mark.modulate = UiKit.quest_mark_color(mark)
 		quest_mark.visible = mark != ""
+		if service_icon:
+			service_icon.visible = nameplate.visible                     # nome escondido (HUD/matilha) leva o ícone junto
+			service_icon.offset.x = -service_icon.texture.get_width() * NpcServices.BESIDE_MARK if mark != "" else 0.0     # com "!"/"?": ao lado
 	quest_mark.position.y = _mark_y + sin(Time.get_ticks_msec() * 0.004) * 0.12
 
 static var prof_us := 0.0

@@ -76,7 +76,7 @@ const STAT_NAMES := {"def_pct": "%+d%% DEF", "hp_pct": "%+d%% HP máximo", "atk_
 	"block_reflect": "bloqueio devolve %d%% do golpe", "guard_crit": "bloquear dá %+d%% de crítico por 4 s",
 	"taunt_dmg_pct": "%+d%% de dano em quem tem você como alvo", "thorns": "devolve %d%% do dano corpo a corpo recebido",
 	"cc_resist_pct": "-%d%% duração de atordoar/prender/lentidão",
-	"mp_to_hp": "+HP máximo igual a %d%% do MP máximo", "summon_guard": "%d%% do dano recebido vai para a sua invocação mais perto",
+	"mp_to_hp": "+HP máximo igual a %d%% do MP máximo", "matk_to_hp": "+HP máximo igual a %d%% do MATK", "summon_guard": "%d%% do dano recebido vai para a sua invocação mais perto",
 	"summon_frenzy": "invocação abaixo de 50%% da vida causa %+d%% de dano", "leech_shield": "roubo de vida que passa do máximo vira barreira (até %d%% da vida)",
 	"ally_guard": "%d%% do dano dos aliados do grupo a até 8 m vai para você", "low_dr": "-%d%% de dano recebido abaixo de 50%% da vida",
 	"low_hp_atk": "até %+d%% de dano quanto menor a vida", "overheal_share": "%d%% da cura que passa do máximo vai para o aliado mais ferido",
@@ -127,7 +127,7 @@ const STAT_SHORT := {"def_pct": "%+d%% DEF", "hp_pct": "%+d%% HP", "atk_pct": "%
 	"crit_leech": "Crít cura %d%%", "low_leech": "%+d%% Roubo na beira", "mana_guard": "%d%% Mana-escudo", "hit_slow": "Lentidão %d%%",
 	"heal_taken_pct": "%+d%% Cura recebida", "def_atk_pct": "+%d%% DEF em ATK", "block_reflect": "Reflete %d%%", "guard_crit": "%+d Crít bloqueio",
 	"taunt_dmg_pct": "%+d%% Provocado", "thorns": "Espinhos %d%%", "cc_resist_pct": "-%d%% Controle",
-	"mp_to_hp": "MP->HP %d%%", "summon_guard": "%d%% Escudo de carne", "summon_frenzy": "%+d%% Invocação ferida", "leech_shield": "Barreira %d%%",
+	"mp_to_hp": "MP->HP %d%%", "matk_to_hp": "MATK->HP %d%%", "summon_guard": "%d%% Escudo de carne", "summon_frenzy": "%+d%% Invocação ferida", "leech_shield": "Barreira %d%%",
 	"ally_guard": "%d%% Protege aliados", "low_dr": "-%d%% Dano na beira", "low_hp_atk": "%+d%% Dano na beira", "overheal_share": "%d%% Cura transborda",
 	"attr_FOR": "%+d FOR", "attr_AGI": "%+d AGI", "attr_VIT": "%+d VIT", "attr_WILL": "%+d WILL", "attr_INT": "%+d INT"}
 ## família do passivo (cor do rótulo): defesa, ataque, magia, cura, mobilidade
@@ -138,7 +138,7 @@ const STAT_FAMILY := {"def_pct": "def", "hp_pct": "def", "evasion": "def", "atk_
 	"threat_pct": "def", "dr_pct": "def",
 	"crit_leech": "def", "low_leech": "def", "mana_guard": "def", "hit_slow": "def", "heal_taken_pct": "def", "cc_resist_pct": "def",
 	"def_atk_pct": "atk", "block_reflect": "atk", "guard_crit": "atk", "taunt_dmg_pct": "atk", "thorns": "atk",
-	"mp_to_hp": "def", "summon_guard": "def", "summon_frenzy": "atk", "leech_shield": "def", "ally_guard": "def", "low_dr": "def",
+	"mp_to_hp": "def", "matk_to_hp": "def", "summon_guard": "def", "summon_frenzy": "atk", "leech_shield": "def", "ally_guard": "def", "low_dr": "def",
 	"low_hp_atk": "atk", "overheal_share": "heal",
 	"attr_FOR": "atk", "attr_AGI": "move", "attr_VIT": "def", "attr_WILL": "heal", "attr_INT": "mag"}
 

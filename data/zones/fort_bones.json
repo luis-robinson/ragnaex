@@ -19695,5 +19695,15 @@
    "radius": 12.0
   }
  ],
+ "stage_tags": [
+  {
+   "tag": "trevas_bones",
+   "unless": "dw_bones_boss"
+  },
+  {
+   "tag": "aurora_bones",
+   "if": "dw_bones_boss"
+  }
+ ],
  "turn": 0.0
 }

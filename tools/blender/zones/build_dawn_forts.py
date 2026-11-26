@@ -17,6 +17,8 @@ import zone_lib
 importlib.reload(zone_lib)
 from zone_lib import Zone, cyl, box, disc, blob, cone, B, _obj
 import bmesh
+import dawn_dress
+importlib.reload(dawn_dress)
 
 FORT_C = (0.0, -30.0)
 FORT_R = 28.0
@@ -504,6 +506,7 @@ def build_ghoul(export=False):
                  colors=[(0.4, 0.46, 0.18), (0.48, 0.42, 0.2)])
     nature.clear_banks(obs, z.rivers, lakes_all, 7.5)
     nature.woodland_floor(z.ob, fr, nrnd, [((0, 0), 100, 18)], bark=[(0.34, 0.3, 0.24), (0.3, 0.27, 0.22)], avoid=obs)
+    dawn_dress.fort(z, fid, c, R, gate_pt)            # trevas/aurora (conquista, só visual; WP6)
     return z.finish(export, poi=c, ground=(0.33, 0.33, 0.2))
 
 
@@ -713,6 +716,7 @@ def build_bones(export=False):
     nature.fix_trees(obs, nrnd, dead=True, dead_cols=cols)
     nature.clear_banks(obs, z.rivers, [], 9.0)
     nature.woodland_floor(z.ob, lambda x, zz, m: z.free(x, zz, m, 0.0), nrnd, [((0, 0), 100, 12)], bark=[(0.34, 0.3, 0.28), (0.28, 0.26, 0.26)], avoid=obs)
+    dawn_dress.fort(z, fid, c, R, gate_pt)            # trevas/aurora (conquista, só visual; WP6)
     return z.finish(export, poi=c, ground=(0.4, 0.39, 0.36))
 
 
@@ -863,6 +867,7 @@ def build_frost(export=False):
     lakes_all = [(tuple(w["pos"]), w["r"]) for w in z.data["water"] if w["kind"] == "lake"]
     nature.fix_trees(obs, nrnd, pine_frac=1.0, pine_cols=pines)
     nature.clear_banks(obs, z.rivers, lakes_all, 6.0)
+    dawn_dress.fort(z, fid, c, R, gate_pt)            # trevas/aurora (conquista, só visual; WP6)
     return z.finish(export, poi=c, ground=(0.86, 0.9, 0.95))
 
 
@@ -1138,6 +1143,7 @@ def build_citadel(export=False):
     nature.fix_trees(obs, nrnd, dead=True, dead_cols=cols)
     nature.clear_banks(obs, z.rivers, [], 9.0)
     print("CIDADELA casas", houses)
+    dawn_dress.citadel(z, c, R, gate_pt, th)          # posto da Aurora depois do dw_lich (só visual; WP6)
     return z.finish(export, poi=c, ground=(0.3, 0.27, 0.31))
 
 

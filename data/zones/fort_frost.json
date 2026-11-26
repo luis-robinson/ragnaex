@@ -13560,5 +13560,15 @@
    "radius": 12.0
   }
  ],
+ "stage_tags": [
+  {
+   "tag": "trevas_frost",
+   "unless": "dw_frost_boss"
+  },
+  {
+   "tag": "aurora_frost",
+   "if": "dw_frost_boss"
+  }
+ ],
  "turn": 180.0
 }

@@ -24946,5 +24946,11 @@
    "radius": 12.0
   }
  ],
+ "stage_tags": [
+  {
+   "tag": "aurora_lich",
+   "if": "dw_lich"
+  }
+ ],
  "turn": 42.0
 }

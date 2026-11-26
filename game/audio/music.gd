@@ -13,7 +13,7 @@ const THEMES := ["aldara", "taverna", "campo", "elfos", "bastiao", "masmorra", "
 	"porto", "costa", "goblins", "horda", "kharzun", "kharzun_citadel",
 	"lumeria", "lumeria_morning", "perfume", "parade", "rift", "rift_raid", "espelhos", "adegas", "coro"]
 ## mapa -> tema; o resto sai de theme_for() (masmorras, fortalezas, interiores)
-const MAP_THEME := {"city_aldara": "aldara", "field_hollow": "campo", "field_crab_beach": "costa", "field_grove": "campo", "field_marsh": "campo", "field_oaths": "trevas", "dg_viveiro": "elfos", "in_tavern": "taverna", "field_forest": "campo", "elf_city": "elfos",
+const MAP_THEME := {"city_aldara": "aldara", "field_hollow": "campo", "field_crab_beach": "costa", "field_grove": "campo", "field_marsh": "campo", "field_oaths": "trevas", "dg_viveiro": "elfos", "dg_archive": "catacumbas", "in_tavern": "taverna", "field_forest": "campo", "elf_city": "elfos",
 	"field_ruins": "bastiao", "lich_citadel": "cidadela", "dg_catacumbas": "catacumbas", "dg_catacumbas_trono": "catacumbas",
 	"dg_gruta": "caverna", "dg_pedreira": "caverna", "dg_pedreira_coracao": "caverna", "dg_covil_dragao": "caverna",
 	# Ato II: Porto Esperança, Costa Partida e Grutas Goblin (tambores); a taverna do porto usa a do Ato I

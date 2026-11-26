@@ -32,6 +32,7 @@ var _dots_zoom := -1.0
 const DOTS_HZ := 10.0                 # antes: um draw_circle por ponto, todo quadro (~250 no mapa cheio)
 var _north: Label
 var _marks: Dictionary = {}           # id do NPC -> marcador de quest
+var _services: Dictionary = {}        # id do NPC -> serviço (NpcServices): ícone em pé, fora da malha _dots
 var _marks_timer := 0.0
 var hud: Node = null                  # dono da quest rastreada (hud.tracked_quest())
 var _guide: Dictionary = {}           # QuestSystem.guide_point da quest rastreada
@@ -159,9 +160,13 @@ func _mm_process(delta: float) -> void:
 	if _marks_timer <= 0.0:
 		_marks_timer = 0.25
 		_marks.clear()
+		_services.clear()
 		for e in Sim.map_entities(p.map_id):
 			if e.kind == SimEntity.Kind.NPC:
 				_marks[e.id] = QuestSystem.npc_marker(p, e.npc_data.get("id", ""))
+				var sv := NpcServices.service_of(e.npc_data)
+				if sv != "":
+					_services[e.id] = sv
 		var qid: String = hud.tracked_quest() if hud else ""
 		_guide = QuestSystem.guide_point(p, GameData.quests[qid]) if GameData.quests.has(qid) else {}
 	if big:                               # mapa inteiro, norte para cima, centrado no mapa
@@ -298,6 +303,7 @@ func _draw_dynamic_body() -> void:
 		if rel.length() > side * 0.5:
 			continue
 		quest_marks.append([rel, mark])
+	_draw_services(d, origin, p)
 	for qm in quest_marks:
 		_draw_quest_mark(d, qm[0], qm[1])
 	_draw_guide(d, origin)
@@ -345,8 +351,8 @@ func _rebuild_dots(p: SimEntity) -> void:
 				else:
 					_dot_poly(verts, cols, at, 2.6, 8, Color(0.45, 0.8, 1.0))
 			SimEntity.Kind.NPC:
-				if _marks.get(e.id, "") != "":
-					continue
+				if _marks.get(e.id, "") != "" or _services.has(e.id):
+					continue                 # quest e serviço têm marca própria, em pé (_draw_dynamic)
 				if e.npc_data.get("role", "") == "crystal":
 					var r := 5.0 if p.bind_map == p.map_id else 3.6
 					_dot_poly(verts, cols, at, r + 1.1, 4, Color(0.05, 0.15, 0.3), 0.7)
@@ -435,6 +441,26 @@ func _draw_guide(d: Node2D, origin: Vector2) -> void:
 
 ## Lugares do mapa: um ponto com a cor do tipo (dungeon em destaque).
 ## Símbolo sempre de pé: desfaz a rotação do mapa só para este desenho.
+## NPC de serviço (NpcServices): ícone em pé (não gira com o mapa); com "!"/"?" o ícone vai para o lado da marca.
+## Cristal em que você está vinculado sai maior.
+func _draw_services(d: Node2D, origin: Vector2, p: SimEntity) -> void:
+	var base := NpcServices.MAP_SIZE * (1.4 if big else 1.0)
+	for id in _services:
+		var e: SimEntity = Sim.get_entity(id)
+		if e == null or not e.is_alive() or e.map_id != p.map_id:
+			continue
+		var tex := NpcServices.icon(_services[id])
+		if tex == null:
+			continue
+		var s := base * (1.3 if _services[id] == "crystal" and p.bind_map == p.map_id else 1.0)
+		var rel := (Vector2(e.position.x, e.position.z) - origin) * zoom
+		if not big and rel.length() > side * 0.5 - s * 0.5:
+			continue
+		var side_x := -s * 0.85 if _marks.get(id, "") != "" else 0.0     # com marca de quest: à esquerda dela
+		d.draw_set_transform(rel, -_holder.rotation)
+		d.draw_texture_rect(tex, Rect2(Vector2(side_x - s * 0.5, -s * 0.5), Vector2(s, s)), false)
+	d.draw_set_transform(Vector2.ZERO)
+
 func _draw_quest_mark(d: Node2D, rel: Vector2, mark: String) -> void:
 	var font: Font = UiKit.mark_font()
 	var text := UiKit.quest_mark_text(mark)

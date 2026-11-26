@@ -20077,5 +20077,15 @@
    "cross": 83.5
   }
  ],
+ "stage_tags": [
+  {
+   "tag": "trevas_ghoul",
+   "unless": "dw_ghoul_boss"
+  },
+  {
+   "tag": "aurora_ghoul",
+   "if": "dw_ghoul_boss"
+  }
+ ],
  "turn": 270.0
 }

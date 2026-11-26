@@ -10830,21 +10830,6 @@
    "solid": true
   },
   {
-   "kind": "wall",
-   "pos": [
-    77.1,
-    6.0
-   ],
-   "size": [
-    4.5,
-    3.0,
-    2.0
-   ],
-   "rot": 90.0,
-   "visible": false,
-   "solid": true
-  },
-  {
    "kind": "dead_tree",
    "pos": [
     -23.96,
@@ -19134,6 +19119,20 @@
     100.7
    ],
    "label": "Bastião da Aurora"
+  },
+  {
+   "id": "to_dg_archive",
+   "pos": [
+    76.9,
+    6.0
+   ],
+   "radius": 2.0,
+   "target_map": "dg_archive",
+   "target_pos": [
+    0.0,
+    44.0
+   ],
+   "label": "Arquivo de Vel'Thar"
   }
  ],
  "spawners": [
@@ -20606,22 +20605,6 @@
     84.0,
     6.0
    ]
-  }
- ],
- "future_portals": [
-  {
-   "id": "to_dg_archive",
-   "pos": [
-    76.9,
-    6.0
-   ],
-   "target_map": "dg_archive",
-   "arrive": [
-    0.0,
-    44.0
-   ],
-   "label": "Arquivo de Vel'Thar",
-   "level": 27
   }
  ],
  "turn": 0.0

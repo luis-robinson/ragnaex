@@ -52,6 +52,8 @@ static func build() -> Array:
 	for did in DUNGEON_DEFS:
 		if did == VIVEIRO_ID and not viveiro_ready():      # Viveiro de Seiva: só com o JSON do Blender
 			continue
+		if did == ARCHIVE_ID and not archive_ready():      # Arquivo de Vel'Thar: só com o JSON do Blender (e o Campo na sim)
+			continue
 		out.append(_dungeon(did))
 	var doors := {}
 	for host in interior_hosts():
@@ -138,6 +140,12 @@ const DAWN_CONQUEST_VIS := [
 	{"tag": "chao_front_ghoul", "unless": "dw_ghoul_boss"}, {"tag": "ninho_putrido", "unless": "dw_ghoul_boss"}, {"tag": "limpo_ghoul", "if": "dw_ghoul_boss"},
 	{"tag": "chao_front_bones", "unless": "dw_bones_boss"}, {"tag": "limpo_bones", "if": "dw_bones_boss"},
 	{"tag": "chao_front_frost", "unless": "dw_frost_boss"}, {"tag": "limpo_frost", "if": "dw_frost_boss"},
+	# WP6 (dawn-band-refactor §6.2, dawn_dress.bastion): enfermaria de cada portão cheia até o forte do lado cair, vazia depois;
+	# obras no anel depois do Lich. Espelho do `stage_tags` do field_ruins.json (há check).
+	{"tag": "enf_cheia_ghoul", "unless": "dw_ghoul_boss"}, {"tag": "enf_vazia_ghoul", "if": "dw_ghoul_boss"},
+	{"tag": "enf_cheia_bones", "unless": "dw_bones_boss"}, {"tag": "enf_vazia_bones", "if": "dw_bones_boss"},
+	{"tag": "enf_cheia_frost", "unless": "dw_frost_boss"}, {"tag": "enf_vazia_frost", "if": "dw_frost_boss"},
+	{"tag": "obra_anel", "if": "dw_lich"},
 ]
 
 ## Guarnição: marcadores `dawn_g_<lado>_<papel>_<n>` do JSON viram NPCs lutadores (guard_<papel>) com o modelo deles,
@@ -380,6 +388,8 @@ static func _fort(fid: String) -> MapDef:
 		"ambient": fd["ambient"], "sun_energy": float(fd["sun"]), "bot_population": 0, "npcs": extra})
 	if fd.get("horde", false):           # acampamentos da Horda: estandartes trocam de cor na retomada
 		z["conquest_vis"] = horde_fort_vis(fd["quest"], fid == "fort_war")
+	else:                                # Ato I (WP6, dawn_dress.fort/citadel): lote das trevas / lote da Aurora pelo `stage_tags` do JSON
+		z["conquest_vis"] = (act3_zone_data(fid).get("stage_tags", []) as Array).duplicate(true)
 	if FORT_LIFE.has(fid):               # cativos que carregam antes; vida da Aurora depois da retomada
 		extra.append_array(living_npcs(FORT_LIFE[fid]["pre"], fid + "_", {"unless": fd["quest"]}))
 		extra.append_array(living_npcs(FORT_LIFE[fid]["post"], fid + "_", {"if": fd["quest"]}))
@@ -539,6 +549,8 @@ const GATHER := {
 	"field_grove": [["herb_blue", "herb_blue", [-40.0, 14.0], 10.0, 4], ["forest_mushroom", "mushroom", [-20.0, -40.0], 12.0, 5], ["herb_green", "herb", [10.0, 40.0], 12.0, 4]],
 	# Brejo das Teias (GDD brejo-das-teias §3.7): erva azul no Charco, âmbar na borda da Mata das Teias, cogumelo na beira da lagoa
 	# Campo dos Juramentos (GDD campo-dos-juramentos §3.7): cacos nas Ruas Afundadas, pedra-estrela no pé do Zigurate, erva azul a oeste
+	# Arquivo de Vel'Thar: a Página de Vorhag no Salão dos Registros (só serve à quest va4)
+	"dg_archive": [["vorhag_page", "relic", [37.5, 7.5], 3.0, 1]],
 	"field_oaths": [["ancient_relic", "relic", [54.0, -60.0], 10.0, 4], ["star_ore", "ore", [70.0, -14.0], 8.0, 3], ["herb_blue", "herb_blue", [-60.0, 24.0], 10.0, 4]],
 	"field_marsh": [["herb_blue", "herb_blue", [-60.0, -32.0], 10.0, 4], ["amber_sap", "star", [48.0, -36.0], 9.0, 3], ["forest_mushroom", "mushroom", [-30.0, 40.0], 10.0, 4]],
 	"field_hollow": [["herb_green", "herb", [-20.0, 4.0], 10.0, 5], ["herb_green", "herb", [4.0, 30.0], 10.0, 4], ["forest_mushroom", "mushroom", [-30.0, 50.0], 12.0, 5],
@@ -1568,7 +1580,46 @@ const LIVING_NPCS := {
 
 ## Acampamentos da Horda (fort_trolls/fire/war): cativos que carregam antes da retomada; a vida da Aurora depois.
 ## Mesmo formato de LIVING_NPCS; `pre` vale `unless` a quest do acampamento e `post` vale `if` (FORT_DEFS).
+## Fortes do Ato I (WP6, dawn-band-refactor §6): cativos trabalham nos "lugares do mal" do lote das trevas (Covil: carne ao
+## monte de carniça; Ossos: lustram a armadura negra; Torre: quebram gelo negro) e, retomado, sapador na bancada, cozinha no
+## fogo, ferido na enfermaria e 2 sentinelas (pontos do dawn_dress.fort, girados pelo `turn` do JSON). Cidadela: depois do
+## Lich, procissão de sacerdotisas ao trono e a carroça da Intendência. Teto: FORT_LIFE_MAX por estado (há check).
+const FORT_LIFE_MAX := 6
 const FORT_LIFE := {
+	"fort_ghoul": {
+		"pre": {"captive_a": ["Cativo Rui", Color(0.6, 0.55, 0.48), ["Carne pro monte. O Gigante conta os pedaços, juro que conta.", "Carrego de olho fechado. Se abrir, reconheço alguém."], ["Mais um saco...", "Não olha, não olha.", "Me tirem daqui!"], [-8.0, 4.0], [[-8.0, 4.0, 4], [-15.0, 8.0, 4], [-8.0, 4.0, 4], [-15.0, -2.0, 4]], {"carry": "carry_sack"}],
+			"captive_b": ["Cativa Celina", Color(0.66, 0.56, 0.5), ["Do monte do pátio pro monte do fundo. As larvas seguem o cheiro.", "A Irmã Vânia reza baixinho. Eu carrego e escuto."], ["Pesado...", "Ele está acordando?", "Socorro..."], [-22.0, 12.0], [[-22.0, 12.0, 4], [-35.0, 13.0, 4]], {"carry": "carry_sack"}]},
+		"post": {"sapper": ["Sapador Ulisses", Color(0.7, 0.6, 0.45), ["Desmonto o monte de carniça e queimo longe da água. Depois, bancada nova no lugar.", "Cal e fogo. É o que limpa um covil."], ["Cal aqui!", "Mais uma carrada pro fogo.", "Um monte a menos."], [-15.0, 8.0], [[-15.0, 8.0, 6], [-20.0, 4.0], [-28.0, 4.0], [-34.0, 12.0, 6], [-28.0, 4.0], [-20.0, 4.0]], {}],
+			"cook": ["Cozinheira Benta", Color(0.88, 0.76, 0.56), ["Sopa de feijão e pão quente. Cheiro bom, enfim, nesse pátio.", "Primeiro comem os que foram presos. Depois os soldados."], ["Sopa quente!", "Fila, fila!", "Tem pão!"], [-21.5, -8.5], 2.0, {}],
+			"wounded": ["Soldado Ferido Abel", Color(0.6, 0.6, 0.7), ["Mordida de lobo podre. A Irmã diz que a febre passa.", "Fingi de morto do lado do Breno. Agora a gente ri disso."], ["Ai, a perna...", "Já passa.", "Viva a Aurora!"], [-11.0, 14.0], 1.0, {}],
+			"watch_a": ["Sentinela Rocha", Color(0.62, 0.62, 0.72), ["Ronda do Covil. Nada se mexe no monte, nem larva.", "Os lobos podres ainda farejam a estrada do pântano."], ["Covil seguro!", "Olho no pântano!", "Ronda!"], [-8.0, 0.0], [[-8.0, 0.0], [-12.0, 12.0], [-20.0, 20.0], [-34.0, 20.0], [-48.0, 10.0], [-50.0, 0.0], [-48.0, -10.0], [-34.0, -20.0], [-20.0, -16.0], [-10.0, -10.0]], {"fighter": "guard_spearman"}],
+			"watch_b": ["Sentinela Ivone", Color(0.62, 0.62, 0.72), ["Do portão eu vejo a estrada do Bastião. Os reforços sobem por ela.", "Virote bento: o morto não levanta duas vezes."], ["Portão firme!", "Virote pronto!", "Ronda!"], [-6.0, 4.0], [[-6.0, 4.0], [-6.0, -4.0], [-14.0, -8.0], [-6.0, -4.0]], {"fighter": "guard_crossbow"}]},
+	},
+	"fort_bones": {
+		"pre": {"captive_a": ["Cativo Brás", Color(0.6, 0.55, 0.48), ["Lustro armadura negra. Vorhag quer ver a cara dele em cada peitoral.", "Se ficar fosca, o cavaleiro de osso me bate com a manopla."], ["Esfrega, esfrega...", "Brilha, maldita.", "Me tirem daqui!"], [-12.0, -15.5], [[-12.0, -15.5, 6], [-8.0, -15.5, 6]], {}],
+			"captive_b": ["Cativa Noêmia", Color(0.66, 0.56, 0.5), ["Óleo e pano. Óleo e pano. Até a mão esquecer que é mão.", "A Escriba Tereza conta os dias riscando a parede."], ["Óleo, pano...", "Ele está olhando.", "Por favor..."], [-2.0, -15.5], [[-2.0, -15.5, 6], [2.0, -15.5, 6]], {}]},
+		"post": {"sapper": ["Sapadora Marta", Color(0.7, 0.6, 0.45), ["Desmonto os cavaletes das armaduras negras. Ferro bom vai pra Armeira Glória.", "O osso vira cal. O ferro vira ferradura."], ["Mais uma peça!", "Ferro pra forja!", "Um cavalete a menos."], [-8.0, -15.0], [[-8.0, -15.0, 6], [-4.0, -20.0], [-4.0, -28.0], [-12.0, -34.0, 6], [-4.0, -28.0], [-4.0, -20.0]], {}],
+			"cook": ["Cozinheiro Tadeu", Color(0.88, 0.76, 0.56), ["Ensopado de cevada. Nessa fortaleza ninguém comia havia um século.", "Coma devagar. Ninguém vai tirar o prato de você."], ["Ensopado!", "Prato quente!", "Sobrou pra você."], [8.5, -21.5], 2.0, {}],
+			"wounded": ["Escudeira Ferida Lara", Color(0.6, 0.6, 0.7), ["Espada de cavaleiro morto corta frio. A ferida fica gelada.", "Sir Malcom me ensinou: escudo alto, pés firmes. Funcionou quase sempre."], ["Ai...", "Já tô de pé!", "Pela Aurora!"], [-16.0, -11.0], 1.0, {}],
+			"watch_a": ["Sentinela Prado", Color(0.62, 0.62, 0.72), ["Ronda dos Ossos. Cripta fechada, tumba lacrada.", "Se um osso estalar de noite, eu grito."], ["Ossos quietos!", "Olho na cripta!", "Ronda!"], [0.0, -8.0], [[0.0, -8.0], [-12.0, -12.0], [-20.0, -20.0], [-20.0, -34.0], [-10.0, -48.0], [0.0, -50.0], [10.0, -48.0], [20.0, -34.0], [16.0, -20.0], [10.0, -10.0]], {"fighter": "guard_spearman"}],
+			"watch_b": ["Sentinela Júlia", Color(0.62, 0.62, 0.72), ["Do portão vejo a estrada do norte. Nada sobe sem eu ver.", "Arqueiro de osso mira em quem fica parado. Eu não fico."], ["Portão firme!", "Nada à vista.", "Ronda!"], [-4.0, -6.0], [[-4.0, -6.0], [4.0, -6.0], [8.0, -14.0], [4.0, -6.0]], {"fighter": "guard_crossbow"}]},
+	},
+	"fort_frost": {
+		"pre": {"captive_a": ["Cativo Teodoro", Color(0.6, 0.55, 0.48), ["Quebro gelo negro e carrego pro portão. O Mago quer o pátio limpo pros rituais.", "O gelo canta quando quebra. Não gosto da música."], ["Gelo, mais gelo...", "Minhas mãos...", "Socorro!"], [10.0, 14.0], [[10.0, 14.0, 5], [4.0, 8.0], [-2.0, 14.0, 5], [4.0, 8.0]], {"carry": "carry_rock"}],
+			"captive_b": ["Cativa Rosa", Color(0.66, 0.56, 0.5), ["Pedra de gelo pra lá, pedra de gelo pra cá. O frio não sai do osso.", "O Mago Aurélio diz que o gelo derrete quando o mestre cair."], ["Frio, frio...", "Ele está vendo.", "Só mais uma."], [12.0, 22.0], [[12.0, 22.0, 5], [14.0, 35.0, 5]], {"carry": "carry_rock"}]},
+		"post": {"sapper": ["Sapador Edu", Color(0.7, 0.6, 0.45), ["Derreto o gelo negro com brasa e sal. Embaixo tinha pedra boa.", "O banco do sapador fica onde o gelo cantava. Agora só canta o martelo."], ["Brasa no gelo!", "Mais sal!", "Um bloco a menos."], [8.0, 15.0], [[8.0, 15.0, 6], [4.0, 20.0], [4.0, 28.0], [12.0, 34.0, 6], [4.0, 28.0], [4.0, 20.0]], {}],
+			"cook": ["Cozinheira Zuleica", Color(0.88, 0.76, 0.56), ["Caldo bem quente. Na Torre, é o melhor remédio.", "Esquenta as mãos no fogo antes de pegar a tigela."], ["Caldo quente!", "Venha, venha!", "Ninguém passa frio."], [-8.5, 21.5], 2.0, {}],
+			"wounded": ["Guarda Ferido Nuno", Color(0.6, 0.6, 0.7), ["Fiquei perto da torre quando o gelo cantou. Eu avisei os outros.", "Os dedos voltam a mexer. Devagar."], ["Frio...", "Tô melhorando.", "Viva a Aurora!"], [16.0, 11.0], 1.0, {}],
+			"watch_a": ["Sentinela Brito", Color(0.62, 0.62, 0.72), ["Ronda da Torre. Espectro que volta, encontra lança.", "O chão ainda estala de manhã. É só gelo velho."], ["Torre segura!", "Olho no gelo!", "Ronda!"], [0.0, 8.0], [[0.0, 8.0], [12.0, 12.0], [20.0, 20.0], [20.0, 34.0], [10.0, 48.0], [0.0, 50.0], [-10.0, 48.0], [-20.0, 34.0], [-16.0, 20.0], [-10.0, 10.0]], {"fighter": "guard_spearman"}],
+			"watch_b": ["Sentinela Olga", Color(0.62, 0.62, 0.72), ["Do portão vejo a estrada do sul. O Bastião manda brasa a cada dia.", "Virote não congela. Eu testei."], ["Portão firme!", "Virote pronto!", "Ronda!"], [4.0, 6.0], [[4.0, 6.0], [-4.0, 6.0], [-8.0, 14.0], [-4.0, 6.0]], {"fighter": "guard_crossbow"}]},
+	},
+	"lich_citadel": {
+		"pre": {},
+		"post": {"priestess_a": ["Sacerdotisa Aurenha", Color(0.97, 0.93, 0.78), ["Levamos luz ao trono vazio. Cada vela é um nome que ele roubou.", "A Alta Sacerdotisa Lyria pediu: devagar, sem pressa. A noite já não corre atrás."], ["Luz ao trono.", "Um nome, uma vela.", "Devagar..."], [-4.2, 1.6], [[-4.2, 1.6, 6], [4.2, -6.9], [12.9, -16.6, 6], [4.2, -6.9]], {"flow": true}],
+			"priestess_b": ["Sacerdotisa Celeste", Color(0.95, 0.9, 0.74), ["As almas presas saíram com o primeiro sol. Agora rezamos pelas que não acharam o caminho.", "Siga a procissão se quiser. Ninguém canta alto aqui."], ["Que a Luz guie.", "Silêncio no estrado.", "Pelos que ficaram."], [-4.0, 4.5], [[-4.0, 4.5, 6], [5.4, -5.9], [14.1, -15.6, 6], [5.4, -5.9]], {"flow": true}],
+			"priestess_c": ["Noviça Íris", Color(0.98, 0.95, 0.84), ["Carrego as flores. Brancas pelos mortos, douradas pela Aurora.", "Nunca tinha visto o trono. É só uma cadeira, no fim."], ["Flores ao trono.", "Com licença.", "Que bonito, as velas."], [-1.2, 4.3], [[-1.2, 4.3, 6], [6.5, -4.9], [15.2, -14.6, 6], [6.5, -4.9]], {"flow": true}],
+			"quartermaster": ["Carroceiro da Intendência Joca", Color(0.72, 0.6, 0.44), ["A Intendente Clara manda e eu puxo. Pão, pano e prego pra cidade nova.", "Da carroça ao estrado e de volta. A carroça conhece o caminho melhor que eu."], ["Carga da Intendência!", "Abram caminho!", "Pão pra cidade!"], [-1.5, -15.5], [[-1.5, -15.5, 8], [5.2, -8.8], [10.6, -14.7, 4], [5.2, -8.8]], {"carry": "cart"}]},
+	},
 	"fort_trolls": {
 		"pre": {"captive_a": ["Cativo Lauro", Color(0.6, 0.55, 0.48), ["Pedra pra cá, pedra pra lá. O Rei-da-Rocha quer um trono maior.", "Troll não dorme. Só fecha os olhos e escuta."], ["Mais pedra...", "Me tirem daqui!", "Calado, calado..."], [-16.0, 4.0], [[-16.0, 4.0], [-20.0, -2.0], [-28.0, -4.0], [-20.0, -2.0]], {"carry": "carry_rock"}],
 			"captive_b": ["Cativa Odete", Color(0.66, 0.56, 0.5), ["Eles nos fazem rolar as pedras até a boca da caverna. O grandão empilha.", "O fogo das tochas espanta os pequenos. Pena que eles apagam."], ["Ai, minhas mãos.", "Ele está olhando...", "Mais uma, só mais uma."], [-14.0, 6.0], [[-14.0, 6.0], [-8.0, 2.0], [-14.0, -2.0], [-8.0, 2.0]], {}]},
@@ -2022,6 +2073,8 @@ const DUNGEON_DEFS := {
 	"rift_heart": {"name": "O Coração do Jardim", "parent": "rift_garden", "levels": Vector2i(50, 50), "ground": Color(0.6, 0.6, 0.66), "ambient": Color(1.0, 0.88, 0.94), "sun": 0.75},
 	# Viveiro de Seiva (GDD viveiro-de-seiva): berçário élfico sob a raiz do Brejo; só entra com data/zones/dg_viveiro.json (viveiro_ready)
 	"dg_viveiro": {"name": "Viveiro de Seiva", "parent": "field_marsh", "levels": Vector2i(17, 19), "ground": Color(0.5, 0.44, 0.3), "ambient": Color(0.95, 0.84, 0.62), "sun": 0.65},
+	# Arquivo de Vel'Thar (GDD arquivo-de-velthar): salões de registro sob o zigurate do Campo; só entra com data/zones/dg_archive.json (archive_ready)
+	"dg_archive": {"name": "Arquivo de Vel'Thar", "parent": "field_oaths", "levels": Vector2i(27, 29), "ground": Color(0.56, 0.52, 0.44), "ambient": Color(0.92, 0.82, 0.62), "sun": 0.6},
 }
 ## Portões de progressão por id de portal (só o jogador; ver WorldSim.portal_block_reason). `bosses` = selo: save antigo não abre.
 const PORTAL_GATES := {
@@ -2061,6 +2114,8 @@ const PORTAL_GATES := {
 	# Salão do Duque (porta lateral do Palácio, casa que abre): o Duque reabre o salão em hx3_duke_hall
 	# Viveiro de Seiva (Brejo das Teias): só nível, sem quest (o Brejo e o Viveiro são opcionais)
 	"to_dg_viveiro": {"level": 17, "text": "A raiz se fecha como um punho. A seiva lá dentro queima quem ainda é fraco: volte no nível 17."},
+	# Arquivo de Vel'Thar (Campo dos Juramentos; decisão U1 = A): nível 27 + a conversa com a Senna (oj11)
+	"to_dg_archive": {"level": 27, "quest": "oj11_senna", "text": "A porta do zigurate tem nomes riscados até a soleira. Sem saber o que se lê lá dentro, ela não abre: fale com a Erudita Senna (nível 27)."},
 	"door_in_duke_hall": {"level": 48, "quest": "hx3_duke_hall", "text": "A porta lateral do Palácio está trancada. O Duque Leopoldo só reabre o salão quando as máscaras forem quebradas."},
 }
 const MERCHANT_SHOP := ["potion_hp_s", "potion_mp_s", "potion_hp_m", "potion_mp_m", "elixir_might", "elixir_stone", "cap_leather", "boots_leather"]
@@ -2351,6 +2406,13 @@ const VIVEIRO_ID := "dg_viveiro"
 
 static func viveiro_ready() -> bool:
 	return FileAccess.file_exists(ZONE_PATH % VIVEIRO_ID) and marsh_ready()
+
+## Arquivo de Vel'Thar (27-29, GDD design/gdd/arquivo-de-velthar.md): entra quando o Blender exportou o JSON dele E o Campo
+## dos Juramentos está na sim (o portal do Campo sai de future_portals na mesma leva). Antes disso nada do Arquivo aparece.
+const ARCHIVE_ID := "dg_archive"
+
+static func archive_ready() -> bool:
+	return FileAccess.file_exists(ZONE_PATH % ARCHIVE_ID) and oaths_ready()
 
 # ---------------------------------------------------------------------------
 ## Campo dos Juramentos (24-28, campo opcional atrás da Escavação da Vera, SE do Bastião; GDD design/gdd/campo-dos-juramentos.md):

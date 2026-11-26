@@ -66,6 +66,9 @@ static func spawn_escort(sim: WorldSim, leader: SimEntity, sp: Dictionary) -> vo
 		var p := MapGeometry.random_walkable(sim, m["def"], leader.position + escort_offset(i, int(es.get("count", 1))), 1.5)
 		var slot_def: MonsterDef = GameData.monsters.get(str(per_slot[i])) if i < per_slot.size() else null
 		var f := sim.spawn_monster(slot_def if slot_def else mdef, leader.map_id, p)
+		f.field_mob = is_field(f.monster_def)     # escolta do bando = monstro comum do mapa
+		f.recompute_stats()
+		f.heal_full()
 		f.leader_id = leader.id
 		f.escort_slot = i
 		out.append(f.id)
@@ -482,6 +485,10 @@ static func rally(sim: WorldSim, e: SimEntity, d: Dictionary) -> void:
 			"speed_pct": float(d.get("speed_pct", 0.0)), "mob_stat": true})
 		t.recompute_stats()
 		Events.post(&"buff_applied", t.id, bid, dur)
+
+## Monstro comum do mapa (spawner/escolta) ganha Balance.FIELD_MOB_* (vida, dano, XP): chefe, elite e boneco de treino não.
+static func is_field(mdef: MonsterDef) -> bool:
+	return not (mdef.is_boss or mdef.dummy or mdef.elite_of != "")
 
 ## Boneco de treino (MonsterDef.dummy): DUMMY_REGEN_DELAY s sem levar dano = recompõe a vida (DUMMY_REGEN_PCT da máxima
 ## por s), solta os debuffs e volta ao lugar (empurrão/puxão de skill o tira dali).

@@ -3136,8 +3136,16 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_marsh_content(gd, sim)
 	_reseed(sim, "_check_viveiro")
 	_check_viveiro(gd, sim)
+	_reseed(sim, "_check_archive")
+	_check_archive(gd, sim)
 	_reseed(sim, "_check_field_oaths")
 	_check_field_oaths(gd, sim)
+	_reseed(sim, "_check_summoner_legion")
+	_check_summoner_legion(gd, sim)
+	_reseed(sim, "_check_npc_services")
+	_check_npc_services(gd, sim)
+	_reseed(sim, "_check_field_mobs")
+	_check_field_mobs(gd, sim)
 	_reseed(sim, "_check_tree_spacing")
 	_check_tree_spacing()
 	_reseed(sim, "_check_web_fog")
@@ -4748,6 +4756,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_elf_living(gd, sim)
 	_check_dawn_rests(gd, sim)
 	_check_dawn_living(gd, sim)
+	_check_dawn_forts_life(gd, sim)
 	_check_act3_maps(gd, sim)
 	_check_act3_wp6_maps(gd, sim)
 	_check_act3_quests(gd, sim)
@@ -28292,6 +28301,113 @@ func _check_dawn_living(gd, _sim) -> void:
 	check(str(RoadEventSystem.rules(def.id, "relic").get("unless", "")) == "dw_lich" and def.road_events.size() >= 2, "Bastião vivo: Relíquia na Estrada com unless dw_lich (%d pontos)" % def.road_events.size())
 	check(AmbientLife.count_for("field_ruins") >= 6, "Bastião vivo: bichos de ambiente (%d)" % AmbientLife.count_for("field_ruins"))
 
+## Fortes vivos do Ato I (WP6, dawn-band-refactor §6): o lote das trevas e o da Aurora (`stage_tags` do JSON, dawn_dress.py)
+## viram `conquest_vis` e nunca aparecem juntos; cativos trabalham antes da retomada e a Aurora vive depois (FORT_LIFE),
+## com rotas em chão livre e seco. `--only=dawn_forts_life`
+const DAWN_FORT_IDS := ["fort_ghoul", "fort_bones", "fort_frost", "lich_citadel"]
+func _check_dawn_forts_life(gd, sim) -> void:
+	var ws := WorldSim.new()
+	ws.player = SimEntity.new()
+	for mid in DAWN_FORT_IDS + ["field_ruins"]:
+		var def: MapDef = gd.maps[mid]
+		var tags: Array = MapsCatalog.act3_zone_data(mid).get("stage_tags", [])
+		check(not tags.is_empty(), "%s: JSON tem stage_tags (dawn_dress)" % mid)
+		# toda tag do JSON tem regra igual no catálogo
+		var miss: Array = []
+		for t in tags:
+			if not def.conquest_vis.any(func(r): return str(r["tag"]) == str(t["tag"]) and str(r.get("if", "")) == str(t.get("if", "")) and str(r.get("unless", "")) == str(t.get("unless", ""))):
+				miss.append(t["tag"])
+		check(miss.is_empty(), "%s: toda stage_tag tem regra em conquest_vis (faltam %s)" % [mid, miss])
+		# a tag acha peça no GLB (e só as dela: nenhuma tag é pedaço do nome de outra)
+		var glb := "res://assets/models/%s.glb" % def.model
+		if ResourceLoader.exists(glb):
+			var root: Node = (load(glb) as PackedScene).instantiate()
+			var names: Array = root.find_children("*", "Node3D", true, false).map(func(n): return str(n.name))
+			for t in tags:
+				check(names.any(func(n): return n.contains(str(t["tag"]))), "%s: peça do GLB com a tag %s" % [mid, t["tag"]])
+				for u in tags:
+					if u != t:
+						check(not str(u["tag"]).contains(str(t["tag"])), "%s: tag %s não casa com %s" % [mid, t["tag"], u["tag"]])
+			root.free()
+	# os dois estados de cada forte são exclusivos em todo estado de quest (e as enfermarias do Bastião também)
+	var pairs := [["fort_ghoul", "trevas_ghoul", "aurora_ghoul"], ["fort_bones", "trevas_bones", "aurora_bones"], ["fort_frost", "trevas_frost", "aurora_frost"],
+		["field_ruins", "enf_cheia_ghoul", "enf_vazia_ghoul"], ["field_ruins", "enf_cheia_bones", "enf_vazia_bones"], ["field_ruins", "enf_cheia_frost", "enf_vazia_frost"]]
+	var quests := ["dw_ghoul_boss", "dw_bones_boss", "dw_frost_boss", "dw_lich"]
+	for mask in 1 << quests.size():
+		ws.player.quests_completed.clear()
+		for i in quests.size():
+			if mask & (1 << i):
+				ws.player.quests_completed.append(quests[i])
+		for pr in pairs:
+			var vis: Array = (gd.maps[pr[0]] as MapDef).conquest_vis
+			var on := [pr[1], pr[2]].map(func(tag): return vis.filter(func(r): return str(r["tag"]) == tag).all(func(r): return WorldState.active(ws, r)) and vis.any(func(r): return str(r["tag"]) == tag))
+			check(on.count(true) == 1, "%s: %s e %s exclusivos (quests %s)" % [pr[0], pr[1], pr[2], ws.player.quests_completed])
+		var lich: Array = (gd.maps["lich_citadel"] as MapDef).conquest_vis
+		check(lich.all(func(r): return WorldState.active(ws, r) == ws.player.quests_completed.has("dw_lich")), "Cidadela: lote da Aurora só depois do Lich (%s)" % [ws.player.quests_completed])
+	# FORT_LIFE: antes (unless) e depois (if) da retomada, dentro do teto, com carga/sentinelas e rotas andáveis
+	for fid in DAWN_FORT_IDS:
+		var def: MapDef = gd.maps[fid]
+		var q: String = MapsCatalog.FORT_DEFS[fid]["quest"]
+		var life: Dictionary = MapsCatalog.FORT_LIFE.get(fid, {})
+		check(not life.is_empty(), "%s: FORT_LIFE" % fid)
+		if life.is_empty():
+			continue
+		var by := {}
+		for n in def.npcs:
+			by[str(n["id"])] = n
+		var pre: Array = (life["pre"] as Dictionary).keys().map(func(k): return fid + "_" + k)
+		var post: Array = (life["post"] as Dictionary).keys().map(func(k): return fid + "_" + k)
+		check((pre + post).all(func(id): return by.has(id)), "%s: rotinas no mapa" % fid)
+		if not (pre + post).all(func(id): return by.has(id)):
+			continue
+		check(pre.all(func(id): return str(by[id].get("unless", "")) == q and not by[id].has("if")) and post.all(func(id): return str(by[id].get("if", "")) == q and not by[id].has("unless")),
+			"%s: cativos somem e a Aurora chega com %s" % [fid, q])
+		check(pre.size() <= MapsCatalog.FORT_LIFE_MAX and post.size() <= MapsCatalog.FORT_LIFE_MAX, "%s: rotinas dentro do teto (%d/%d <= %d)" % [fid, pre.size(), post.size(), MapsCatalog.FORT_LIFE_MAX])
+		if fid != "lich_citadel":
+			check(pre.size() >= 2 and pre.all(func(id): return by[id].has("route")), "%s: 2+ cativos trabalhando em rota (%d)" % [fid, pre.size()])
+			var watch: Array = post.filter(func(id): return by[id].has("fighter") and by[id].has("route"))
+			check(watch.size() == 2 and post.size() >= 5, "%s: retomado, sapador/cozinha/ferido + 2 sentinelas que rondam (%d, %d)" % [fid, post.size(), watch.size()])
+		else:
+			var th := Vector2(0.0, -30.0).rotated(deg_to_rad(float(MapsCatalog.act3_zone_data(fid).get("turn", 0.0))))
+			var proc: Array = []
+			for id in post:
+				if by[id].get("flow", false) and by[id].has("route") and (by[id]["route"] as Array).any(func(p): return Vector2(float(p[0]), float(p[1])).distance_to(th) <= 10.0):
+					proc.append(id)
+			check(proc.size() >= 3, "Cidadela: procissão de 3+ sacerdotisas até o trono (%d)" % proc.size())
+			check(post.any(func(id): return str(by[id].get("carry", "")) == "cart"), "Cidadela: carroça da Intendência")
+		for id in pre + post:
+			var cw := str(by[id].get("carry", ""))
+			if cw != "":
+				check(ResourceLoader.exists(CarryPose.model_path(cw)), "%s: carga %s existe" % [id, cw])
+		# rotas e casas em chão livre e seco
+		if not sim.maps.has(fid):
+			sim.load_map(def)
+		var bad: Array = []
+		for id in pre + post:
+			var n: Dictionary = by[id]
+			if not n.has("route"):
+				if not sim.is_walkable(n["pos"], def, 0.3):
+					bad.append("%s casa em sólido" % id)
+				continue
+			var pts: Array = n["route"]
+			for i in pts.size():
+				var a := Vector3(float(pts[i][0]), 0, float(pts[i][1]))
+				var b := Vector3(float(pts[(i + 1) % pts.size()][0]), 0, float(pts[(i + 1) % pts.size()][1]))
+				var why := _wet_or_solid(sim, def, a)
+				if why != "":
+					bad.append("%s ponto %d (%.1f, %.1f): %s" % [id, i, a.x, a.z, why])
+				var steps := int(a.distance_to(b) / 0.75)
+				for k in range(1, steps):
+					var p := a.lerp(b, float(k) / steps)
+					if not sim.is_walkable(p, def, 0.3) or _wet_or_solid(sim, def, p) != "":
+						bad.append("%s perna %d em (%.1f, %.1f)" % [id, i, p.x, p.z])
+						break
+		if not bad.is_empty():
+			print("FORT_LIFE_BAD ", "\nFORT_LIFE_BAD ".join(bad))
+		check(bad.is_empty(), "%s: rotinas em chão livre e seco (%s)" % [fid, "; ".join(bad.slice(0, 6))])
+	ws.player = null
+	ws.free()
+
 ## Seu Bento (decisão do usuário 2026-11-24): só aparece no Posto com o Rei caído E a carta entregue (m9_letter); até lá mora
 ## no Brejo (marsh_bento), que some quando ele volta. Lista em `if` = todas; lista em `unless` = só some com todas feitas.
 func _check_bento_home(gd, fdef: MapDef) -> void:
@@ -33461,6 +33577,196 @@ func _check_viveiro(gd, sim) -> void:
 		check(sim.is_walkable(go[0]["target_pos"], vm, 0.45), "Viveiro: chegada andável")
 	check(vm.portals.any(func(pt): return pt["target_map"] == MapsCatalog.MARSH_ID), "Viveiro: portal de volta ao Brejo")
 
+## Arquivo de Vel'Thar (dg_archive, 27-29; GDD design/gdd/arquivo-de-velthar.md): monstros, saque (Fragmento da Aurora garantido),
+## ninho de Livros de Nomes do Escrivão (lidos em Eco Nomeado nas fases, ward com eco vivo), Ler um Nome (canal R-C que solta um
+## eco com pick soft), Chamada (cobertura R-E nas 4 estantes), eco = metamorfose em 3 formas, portão nível 27 + oj11, quests
+## laterais. Com o JSON do Blender: mapa, spawners, portal do Campo, anel dos livros andável e estantes = boss_hint.cover.
+func _check_archive(gd, sim) -> void:
+	var ids: Array = MonstersCatalog.ARCHIVE_MOBS + [MonstersCatalog.ARCHIVE_BOSS] + MonstersCatalog.ARCHIVE_ADDS
+	for mid in ids:
+		var md: MonsterDef = gd.monsters.get(mid)
+		check(md != null, "Arquivo: monstro %s existe" % mid)
+		if md == null:
+			continue
+		check(md.level >= 27 and md.level <= 29, "Arquivo: %s na faixa 27-29 (%d)" % [mid, md.level])
+		check(ResourceLoader.exists("res://assets/models/%s.glb" % md.model), "Arquivo: modelo de %s (%s) existe" % [mid, md.model])
+		for sk in md.skill_ids:
+			check(gd.skills.has(sk), "Arquivo: skill %s de %s existe" % [sk, mid])
+		if mid in MonstersCatalog.ARCHIVE_ADDS:
+			check(md.xp == 0 and md.loot_table == "" and md.gold_max == 0, "Arquivo: %s é lacaio (0 XP, sem saque)" % mid)
+			check(md.color.b < md.color.r, "Arquivo: %s em sépia, não no azul dos mortos do Lich" % mid)
+			continue
+		check(gd.loot_tables.has(md.loot_table), "Arquivo: tabela %s existe" % md.loot_table)
+		if not gd.loot_tables.has(md.loot_table):
+			continue
+		var best := 0.0
+		for en in gd.loot_tables[md.loot_table].entries:
+			var it: ItemDef = gd.items.get(str(en["item"]))
+			check(it != null, "Arquivo: item %s do saque de %s existe" % [en["item"], mid])
+			if it == null:
+				continue
+			if it.type == ItemDef.Type.EQUIPMENT and not md.is_boss:
+				check(float(en["chance"]) <= 0.05, "Arquivo: equipamento raro %s em %s <= 0,05" % [it.id, mid])
+			if it.type == ItemDef.Type.MATERIAL:
+				best = maxf(best, float(en["chance"]))
+		if not md.is_boss:
+			check(best >= 0.3 and best <= 0.7, "Arquivo: %s dá material principal com 0,3-0,7 (%.2f)" % [mid, best])
+	var book: MonsterDef = gd.monsters.get("name_ledger")
+	check(book != null and book.egg and book.move_speed == 0.0 and book.xp == 0, "Arquivo: Livro de Nomes é parado, ovo e 0 XP")
+	for iid in ["vel_ink", "vorhag_page"]:
+		check(gd.items.has(iid), "Arquivo: item %s existe" % iid)
+	var echo: MonsterDef = gd.monsters.get("named_echo")
+	if echo:
+		check(echo.shift_forms.size() == 3 and echo.shift_forms.all(func(f): return gd.monsters.has(str(f["form"]))), "Arquivo: Eco Nomeado toma uma de 3 formas que existem")
+		check(gd.monsters.has("named_echo_archer") and gd.monsters["named_echo_archer"].ranged and gd.monsters["named_echo_archer"].kite, "Arquivo: Eco (Besteiro) atira e recua")
+	var boss: MonsterDef = gd.monsters.get(MonstersCatalog.ARCHIVE_BOSS)
+	if boss == null:
+		return
+	check(boss.is_boss and boss.berserk_after > 0.0 and boss.intro != "" and boss.last_words != "", "Arquivo: Escrivão é chefe com fúria e falas")
+	check(str(boss.eggs.get("id", "")) == "name_ledger" and int(boss.eggs.get("count", 0)) == 4 and str(boss.eggs.get("hatch", "")) == "named_echo",
+		"Arquivo: os 4 livros da Mesa são o ninho do Escrivão e viram Eco Nomeado (%s)" % [boss.eggs])
+	var hatches := boss.phases.filter(func(ph): return ph.has("hatch"))
+	var warded := boss.phases.filter(func(ph): return ph.has("ward") and ph.has("hatch"))
+	check(hatches.size() == 2 and warded.size() == 1 and boss.phases.any(func(ph): return ph.has("enrage")), "Arquivo: fases 70% lê, 40% lê + ward, 15% fúria")
+	check(warded.size() == 1 and (warded[0]["skills"] as Array).has("mob_roll_call"), "Arquivo: a Chamada entra com a fase de 40%")
+	check(boss.phases.any(func(ph): return (ph.get("skills", []) as Array).has("mob_page_turn") and float(ph["hp"]) >= 0.7), "Arquivo: Virar a Página entra aos 70%")
+	var rn: SkillDef = gd.skills.get("mob_read_name")
+	check(rn != null and rn.boss_signature and rn.effects.has("boss_channel"), "Arquivo: Ler um Nome é canal de assinatura")
+	if rn:
+		var sm: Dictionary = rn.effects["boss_channel"].get("on_done", {}).get("summon", {})
+		check(str(sm.get("id", "")) == "named_echo" and str(sm.get("pick", "")) == "soft", "Arquivo: leitura completa solta um Eco Nomeado atrás do curador/atirador (pick soft)")
+		check(rn.active >= 3.0 and rn.active <= 5.0 and rn.cooldown >= 20.0 and rn.cooldown <= 35.0, "Arquivo: canal 3-5 s, recarga 20-35 s")
+	var rc: SkillDef = gd.skills.get("mob_roll_call")
+	check(rc != null and rc.boss_signature and (rc.effects.get("avalanche", {}).get("mirrors", []) as Array).size() == 4, "Arquivo: Chamada = cobertura com 4 estantes")
+	check(str(boss.cover.get("model", "")) == "mob_archive_shelf" and int(boss.cover.get("max", 0)) >= 4, "Arquivo: estantes são cobertura do Escrivão (modelo próprio, 4)")
+	for sid in ["mob_read_name", "mob_roll_call"]:
+		check(Sfx.SIG_WARN.has(sid) and Sfx.SIG_EFFECT.has(sid), "Arquivo: som de aviso/impacto de %s" % sid)
+	var shard_n := 0
+	for en in gd.loot_tables[boss.loot_table].entries:
+		if str(en["item"]) == "dawn_shard" and float(en["chance"]) >= 1.0:
+			shard_n = int(en.get("min", 1))
+	check(shard_n >= 2, "Arquivo: Escrivão garante 2+ Fragmentos da Aurora (material de tier do Doran)")
+	# ninho e leitura na sim (palco = Ninho Profundo): 4 livros no anel, 70% lê 2 em ecos, 40% o resto + ward; canal: eco no curador
+	var ws := WorldSim.new()
+	ws.load_map(gd.maps[GameData.town_map_id()])
+	var m: Dictionary = ws.load_map(gd.maps["dg_ninho"])
+	m["spawners"].clear()
+	for e in m["entities"].duplicate():
+		ws.despawn(e)
+	var at: Vector3 = gd.maps["dg_ninho"].spawn_point + Vector3(0, 0, -20)
+	var b: SimEntity = ws.spawn_monster(boss, "dg_ninho", at)
+	MobSystem.ensure_eggs(ws, b)
+	var eggs := MobSystem.eggs_of(ws, b)
+	check(eggs.size() == 4 and eggs.all(func(t): return absf(t.position.distance_to(at) - 7.0) < 0.1), "Arquivo: 4 livros nascem a 7 m do Escrivão (%d)" % eggs.size())
+	ws.despawn(eggs[0])
+	var tank: SimEntity = ws.spawn_bot(gd.classes["paladin"], "Tanque", "dg_ninho", at + Vector3(2, 0, 0), 29)
+	tank.brain = null
+	var healer: SimEntity = ws.spawn_bot(gd.classes["bishop"], "Cura", "dg_ninho", at + Vector3(0, 0, 9), 29)
+	healer.brain = null
+	b.aggro_target = tank.id
+	b.hp = b.stats.max_hp * 0.69
+	MobSystem.update_boss(ws, b, 0.05)
+	check(MobSystem.eggs_of(ws, b).size() == 1 and MobSystem.adds_alive(ws, b) == 2, "Arquivo: 70% lê metade dos 3 livros inteiros (2 ecos, 1 livro fica)")
+	b.hp = b.stats.max_hp * 0.39
+	MobSystem.update_boss(ws, b, 0.05)
+	MobSystem.update_boss(ws, b, Balance.BOSS_WARD_CHECK + 0.05)
+	check(MobSystem.eggs_of(ws, b).is_empty() and b.ward > 0.0, "Arquivo: 40% lê o resto e o Escrivão fica com ward (%.2f)" % b.ward)
+	for o in m["entities"].duplicate():
+		if o.boss_id == b.id:
+			ws.despawn(o)
+	MobSystem.update_boss(ws, b, Balance.BOSS_WARD_CHECK + 0.05)
+	check(b.ward == 0.0, "Arquivo: sem eco vivo o ward cai")
+	if rn:
+		MobSystem.spawn_adds(ws, b, rn.effects["boss_channel"]["on_done"]["summon"])
+		var echoes: Array = m["entities"].filter(func(o): return o.boss_id == b.id and o.is_alive() and o.monster_def.id == "named_echo")
+		check(echoes.size() == 1 and echoes[0].aggro_target == healer.id, "Arquivo: o eco da leitura nasce atrás do curador (nomeado), não do tanque")
+		if echoes.size() == 1:
+			var ec: SimEntity = echoes[0]
+			for i in range(int((Balance.SHIFT_CAST_S + 0.5) / 0.05)):
+				ShiftSystem.update(ws, ec, 0.05)
+			check(ec.shift_base != null and ec.monster_def.id in ["named_echo_knight", "named_echo_archer", "named_echo_priest"], "Arquivo: o eco toma forma (%s)" % ec.monster_def.id)
+	# portão e música
+	var gate: Dictionary = MapsCatalog.PORTAL_GATES.get("to_dg_archive", {})
+	check(int(gate.get("level", 0)) == 27 and str(gate.get("quest", "")) == "oj11_senna", "Arquivo: portão nível 27 + oj11_senna (decisão U1 = A)")
+	check(Music.theme_for(MapsCatalog.ARCHIVE_ID) != "", "Arquivo: tem música")
+	check(MapsCatalog.DUNGEON_DEFS[MapsCatalog.ARCHIVE_ID]["parent"] == MapsCatalog.OATHS_ID and MapsCatalog.DUNGEON_DEFS[MapsCatalog.ARCHIVE_ID]["levels"] == Vector2i(27, 29), "Arquivo: masmorra 27-29 no Campo dos Juramentos")
+	# quests (do catálogo: sem o mapa elas não entram em gd.quests)
+	var qs: Array = QuestsCatalog.archive()
+	var qids := {}
+	for d in qs:
+		qids[d["id"]] = d
+	check(qids.keys() == Array(QuestsCatalog.ARCHIVE_QUESTS) and qs.size() == 4, "Arquivo: 4 quests laterais em ARCHIVE_QUESTS")
+	var npc_ok := {"ruins_scholar": true}
+	for nid in MapsCatalog.OATHS_NPCS:
+		npc_ok[nid] = true
+	for nid in MapsCatalog.PLACE_NPCS.get(MapsCatalog.OATHS_ID, {}):
+		npc_ok[nid] = true
+	var weight := 0
+	for d in qs:
+		var qid: String = d["id"]
+		weight += int(d.get("reward_xp", 0))
+		check(int(d["level_req"]) >= 27 and int(d["level_req"]) <= 29, "Arquivo: %s no nível 27-29" % qid)
+		check(npc_ok.has(d["giver_npc"]) and npc_ok.has(d.get("turnin_npc", d["giver_npc"])), "Arquivo: %s tem giver/turnin que existem" % qid)
+		for pq in [d.get("prereq_quest", "")] + Array(d.get("prereq_all", [])):
+			check(pq == "" or qids.has(pq) or pq in QuestsCatalog.OATHS_QUESTS, "Arquivo: pré-requisito %s de %s é do Campo/Arquivo" % [pq, qid])
+		var tid: String = d["target_id"]
+		match int(d["type"]):
+			QuestsCatalog.KILL:
+				check(tid in ids, "Arquivo: %s mata monstro do Arquivo" % qid)
+			QuestsCatalog.REACH:
+				check(tid == MapsCatalog.ARCHIVE_ID, "Arquivo: %s chega ao Arquivo" % qid)
+			QuestsCatalog.COLLECT:
+				check(gd.items.has(tid), "Arquivo: %s coleta item que existe" % qid)
+		check(str(d.get("dialog_progress", "")).length() > 40, "Arquivo: %s tem dica prática" % qid)
+	check(weight >= 6000 and weight <= 10000, "Arquivo: peso de XP ~8000 (%d)" % weight)
+	for qid in gd.quests:
+		if qids.has(qid):
+			continue
+		var q: QuestDef = gd.quests[qid]
+		check(not qids.has(q.prereq_quest) and not q.prereq_all.any(func(x): return qids.has(x)), "Arquivo é opcional: %s não pede quest do Arquivo" % qid)
+	if not MapsCatalog.archive_ready():
+		check(not gd.maps.has(MapsCatalog.ARCHIVE_ID) and not gd.quests.has("va1_zigurate"), "Arquivo: sem o JSON, nada do Arquivo entra na sim")
+		return
+	# ---- com o mapa ----
+	var am: MapDef = gd.maps.get(MapsCatalog.ARCHIVE_ID)
+	check(am != null and am.level_range == Vector2i(27, 29) and am.parent_map == MapsCatalog.OATHS_ID and am.bot_population == 0, "Arquivo: mapa 27-29 registrado (bots só com o grupo)")
+	if am == null:
+		return
+	for qid in QuestsCatalog.ARCHIVE_QUESTS:
+		check(gd.quests.has(qid), "Arquivo: quest %s carregou" % qid)
+	var spawned := {}
+	var boss_at := Vector3.INF
+	for sp in am.spawners:
+		spawned[sp["monster_id"]] = true
+		if sp["monster_id"] == MonstersCatalog.ARCHIVE_BOSS:
+			boss_at = sp["pos"]
+	for mid in MonstersCatalog.ARCHIVE_MOBS + [MonstersCatalog.ARCHIVE_BOSS]:
+		check(spawned.has(mid), "Arquivo: %s tem spawner" % mid)
+	if boss_at != Vector3.INF:
+		var n := int(boss.eggs["count"])
+		var bad := 0
+		for i in range(n):
+			var a := TAU * float(i) / float(n) + 0.3
+			if not sim.is_walkable(boss_at + Vector3(cos(a), 0, sin(a)) * float(boss.eggs["r"]), am, 0.6):
+				bad += 1
+		check(bad == 0, "Arquivo: anel dos livros da Mesa andável (%d fora)" % bad)
+		var raw: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://data/zones/%s.json" % MapsCatalog.ARCHIVE_ID))
+		var want: Array = raw.get("boss_hint", {}).get("cover", [])
+		var offs: Array = rc.effects["avalanche"]["mirrors"] if rc else []
+		var same := offs.size() == want.size() and offs.size() == 4
+		for i in range(mini(offs.size(), want.size())):
+			same = same and Vector2(float(offs[i][0]) + boss_at.x, float(offs[i][1]) + boss_at.z).distance_to(Vector2(float(want[i][0]), float(want[i][1]))) < 0.05
+		check(same, "Arquivo: estantes da Chamada = boss_hint.cover do JSON (%d)" % want.size())
+		for q in offs:
+			check(sim.is_walkable(boss_at + Vector3(float(q[0]), 0, float(q[1])), am, 1.0), "Arquivo: estante em %s cai em chão andável" % [q])
+	var go: Array = gd.maps[MapsCatalog.OATHS_ID].portals.filter(func(pt): return pt["target_map"] == MapsCatalog.ARCHIVE_ID)
+	check(go.size() == 1 and int((go[0] as Dictionary).get("gate", {}).get("level", 0)) == 27, "Campo: portal do Arquivo com portão 27")
+	if go.size() == 1:
+		check(sim.is_walkable(go[0]["target_pos"], am, 0.45), "Arquivo: chegada andável")
+	check(am.portals.any(func(pt): return pt["target_map"] == MapsCatalog.OATHS_ID), "Arquivo: portal de volta ao Campo")
+	var pages: Array = MapsCatalog.GATHER.get(MapsCatalog.ARCHIVE_ID, []).filter(func(g): return g[0] == "vorhag_page")
+	check(pages.size() == 1 and sim.is_walkable(Vector3(float(pages[0][2][0]), 0, float(pages[0][2][1])), am, 1.0), "Arquivo: Página de Vorhag em chão andável do Salão dos Registros")
+
 ## Campo dos Juramentos (field_oaths, 24-28, GDD design/gdd/campo-dos-juramentos.md): monstros, saque, itens, skills de Sir Edran e
 ## quests coerentes mesmo antes do mapa (as quests vêm de QuestsCatalog.oaths() direto); com o JSON do Campo e a garganta SE do
 ## Bastião: mapa, NPCs (Sir Malcom só com dw_bones_boss), portais nos dois lados (o do Bastião sobrevive ao _drop_dangling_portals),
@@ -33576,7 +33882,7 @@ func _check_field_oaths(gd, sim) -> void:
 		check(int(per_lv.get(lv, 0)) >= 2, "Campo: 2+ quests no nível %d (%d)" % [lv, int(per_lv.get(lv, 0))])
 	# opcional: nada fora do Campo depende dele (a linha principal q12_ruins/dw_* nunca pede oj*)
 	for qid in gd.quests:
-		if qids.has(qid):
+		if qids.has(qid) or qid in QuestsCatalog.ARCHIVE_QUESTS:      # o Arquivo de Vel'Thar é o ramo do Campo (pede oj11_senna)
 			continue
 		var q: QuestDef = gd.quests[qid]
 		check(not qids.has(q.prereq_quest) and not q.prereq_all.any(func(x): return qids.has(x)), "Campo é opcional: %s não pede quest do Campo" % qid)
@@ -33787,3 +34093,118 @@ func _check_marsh_content(gd, sim) -> void:
 		check(free >= total * 0.8, "Brejo: colheita de %s em (%.0f, %.0f) em chão livre (%d/%d)" % [g[0], gc.x, gc.z, free, total])
 	_check_zone_layout(gd, sim, mm)
 	_check_places(gd, sim, mm)
+
+## Vida da Fé (conjunto do Templário), Pacto Sombrio nas invocações (ao vivo, sem contar duas vezes) e Legião (morte perto levanta).
+func _check_summoner_legion(gd, sim) -> void:
+	# Vida da Fé: stat e conjunto puro do Templário no 3
+	var pal: SimEntity = sim.spawn_bot(gd.classes["paladin"], "Fe", "city_aldara", Vector3(6, 0, 8), 30)
+	pal.brain = null
+	var hp0: float = pal.stats.max_hp
+	pal.put_buff({"id": "fe_test", "remaining": 999.0, "matk_to_hp": 50})
+	pal.recompute_stats()
+	check(is_equal_approx(pal.stats.max_hp, hp0 + pal.stats.matk * 0.5), "Vida da Fé: +50%% do MATK em vida (%.0f -> %.0f, MATK %.0f)" % [hp0, pal.stats.max_hp, pal.stats.matk])
+	sim.despawn(pal)
+	var tsets := 0
+	for sid in gd.sets:
+		var sd = gd.sets[sid]
+		if str(sid).contains("templario") and sd.pair.is_empty() and sd.apex == "":
+			tsets += 1
+			check(is_equal_approx(float((sd.bonuses.get(3, {}) as Dictionary).get("matk_to_hp", 0.0)), 50.0), "conjunto %s: Vida da Fé 50%% no 3" % sid)
+	check(tsets > 0, "há conjuntos do Templário (%d)" % tsets)
+	# Pacto Sombrio: o esqueleto de pé ganha o buff e +25%; o novo nasce igual (sem contar duas vezes)
+	var nec: SimEntity = sim.spawn_bot(gd.classes["necromancer"], "Pacto", "city_aldara", Vector3(10, 0, 8), 20)
+	nec.brain = null
+	nec.legend_ready_at = 1e9
+	var sk_def = gd.monsters["skeleton_minion"]
+	var old: SimEntity = sim.spawn_summon(nec, sk_def, nec.position + Vector3(1, 0, 0), 25.0)
+	var a0: float = old.stats.patk
+	sim._apply_effects(nec, nec, {"buff": gd.skills["nec_dark_pact"].effects["buff"]}, 0.0)
+	check(old.buffs.any(func(b): return b.get("id") == "dark_pact"), "Pacto Sombrio: o esqueleto que já estava de pé ganha o pacto (visual)")
+	check(is_equal_approx(old.stats.patk, a0 * 1.25), "Pacto Sombrio: esqueleto de pé bate +25%% (%.1f -> %.1f)" % [a0, old.stats.patk])
+	var neu: SimEntity = sim.spawn_summon(nec, sk_def, nec.position + Vector3(-1, 0, 0), 25.0)
+	check(neu.buffs.any(func(b): return b.get("id") == "dark_pact") and is_equal_approx(neu.stats.patk, old.stats.patk),
+		"Pacto Sombrio: esqueleto novo nasce com o pacto e igual ao antigo (%.1f / %.1f)" % [neu.stats.patk, old.stats.patk])
+	sim.despawn(old)
+	sim.despawn(neu)
+	# Legião: inimigo morto por outro, perto, levanta; recarga segura; longe não; morto-vivo seu que morre também levanta
+	nec.stats.legend = {"kind": "raise_on_kill", "icd": 12.0, "time": 15.0}
+	nec.legend_ready_at = 0.0
+	var count_sk := func() -> int:
+		var n := 0
+		for o in sim.maps["city_aldara"]["entities"]:
+			if o.kind == SimEntity.Kind.SUMMON and o.owner_id == nec.id and o.is_alive():
+				n += 1
+		return n
+	var mob: SimEntity = sim.spawn_monster(gd.monsters["skeleton"], "city_aldara", nec.position + Vector3(4, 0, 0))
+	var n0: int = count_sk.call()
+	sim._kill(mob, null)
+	check(count_sk.call() == n0 + 1, "Legião: inimigo morto (por outro) a 4 m levanta um esqueleto")
+	var mob2: SimEntity = sim.spawn_monster(gd.monsters["skeleton"], "city_aldara", nec.position + Vector3(3, 0, 0))
+	sim._kill(mob2, null)
+	check(count_sk.call() == n0 + 1, "Legião: na recarga não levanta outro")
+	nec.legend_ready_at = 0.0
+	var far: SimEntity = sim.spawn_monster(gd.monsters["skeleton"], "city_aldara", nec.position + Vector3(Balance.LEGION_RAISE_RADIUS + 3.0, 0, 0))
+	sim._kill(far, null)
+	check(count_sk.call() == n0 + 1, "Legião: morte longe não levanta")
+	var mine: SimEntity = sim.spawn_summon(nec, sk_def, nec.position + Vector3(2, 0, 0), 25.0)
+	var n1: int = count_sk.call()
+	sim._kill(mine, null)
+	check(count_sk.call() == n1, "Legião: morto-vivo seu que cai perto levanta outro no lugar (%d -> %d)" % [n1, count_sk.call()])
+	for o in sim.maps["city_aldara"]["entities"].duplicate():
+		if o.kind == SimEntity.Kind.SUMMON and o.owner_id == nec.id:
+			sim.despawn(o)
+	for o in [mob, mob2, far]:
+		sim.despawn(o)
+	sim.despawn(nec)
+
+## NPC de serviço (vende, guarda, forja...): papel -> serviço, ícone pronto para cada um e lista igual à do make_icons.
+func _check_npc_services(gd, _sim) -> void:
+	var mk: Dictionary = load("res://tools/icons/make_icons.gd").get_script_constant_map()["SERVICE_ICONS"]
+	check(mk.keys().size() == NpcServices.SERVICES.size() and NpcServices.SERVICES.all(func(s): return mk.has(s)), "serviços: make_icons.SERVICE_ICONS = NpcServices.SERVICES")
+	for s in NpcServices.SERVICES:
+		check(NpcServices.icon(s) != null and NpcServices.LABELS.has(s), "serviço %s: ícone service_%s.png e nome" % [s, s])
+	check(NpcServices.service_of({"role": "merchant"}) == "merchant" and NpcServices.service_of({"role": "villager"}) == ""
+		and NpcServices.service_of({"role": "quest"}) == "" and NpcServices.service_of({"role": "guard"}) == "", "serviço: mercador sim; morador, quest e guarda não")
+	if not Balance.MOUNT_KEEPER_NPCS.is_empty():
+		check(NpcServices.service_of({"id": Balance.MOUNT_KEEPER_NPCS[0], "role": "quest"}) == "mount", "serviço: tratador de montarias = mount")
+	var n := 0
+	for mid in gd.maps:
+		for npc in gd.maps[mid].npcs:
+			if npc.get("role", "") in ["merchant", "storage", "smith", "alchemy"]:
+				n += 1
+				check(NpcServices.service_of(npc) != "", "%s/%s tem ícone de serviço" % [mid, npc.get("name", "")])
+	check(n > 20, "há NPCs de serviço nos mapas (%d)" % n)
+
+## Monstro comum do mapa (spawner/escolta): vida, dano e XP × Balance.FIELD_MOB_*; chefe, elite e monstro sem spawner ficam iguais.
+func _check_field_mobs(gd, sim) -> void:
+	var md: MonsterDef = gd.monsters["skeleton"]
+	var sp := {"alive": []}
+	var f: SimEntity = sim.spawn_monster(md, "city_aldara", Vector3(40, 0, 40), sp)
+	var loose: SimEntity = sim.spawn_monster(md, "city_aldara", Vector3(42, 0, 40))
+	check(f.field_mob and not loose.field_mob, "monstro de spawner é comum do mapa; sem spawner (investida, lacaio) não")
+	check(is_equal_approx(f.stats.max_hp, loose.stats.max_hp * Balance.FIELD_MOB_HP_MULT) and is_equal_approx(f.hp, f.stats.max_hp),
+		"comum do mapa: vida × %.2f e nasce cheio (%.0f / %.0f)" % [Balance.FIELD_MOB_HP_MULT, f.stats.max_hp, loose.stats.max_hp])
+	check(is_equal_approx(f.stats.patk, loose.stats.patk * Balance.FIELD_MOB_DMG_MULT) and is_equal_approx(f.stats.matk, loose.stats.matk * Balance.FIELD_MOB_DMG_MULT),
+		"comum do mapa: ATK/MATK × %.2f" % Balance.FIELD_MOB_DMG_MULT)
+	f.recompute_stats()
+	check(is_equal_approx(f.stats.max_hp, loose.stats.max_hp * Balance.FIELD_MOB_HP_MULT), "comum do mapa: o bônus sobrevive ao recompute")
+	var boss_md: MonsterDef = null
+	for id in gd.monsters:
+		if gd.monsters[id].is_boss:
+			boss_md = gd.monsters[id]
+			break
+	check(boss_md != null and not MobSystem.is_field(boss_md) and MobSystem.is_field(md), "chefe não é comum do mapa")
+	# XP do abate × FIELD_MOB_XP_MULT
+	var p: SimEntity = sim.spawn_bot(gd.classes["paladin"], "XpField", "city_aldara", Vector3(40, 0, 42), 24)
+	p.brain = null
+	var x0: int = p.xp
+	sim._kill(loose, p)
+	var gain_loose: int = p.xp - x0
+	x0 = p.xp
+	sim._kill(f, p)
+	var gain_field: int = p.xp - x0
+	check(gain_loose > 0 and absi(gain_field - roundi(gain_loose * Balance.FIELD_MOB_XP_MULT)) <= 1,
+		"comum do mapa: XP do abate × %.1f (%d / %d)" % [Balance.FIELD_MOB_XP_MULT, gain_field, gain_loose])
+	sim.despawn(f)
+	sim.despawn(loose)
+	sim.despawn(p)

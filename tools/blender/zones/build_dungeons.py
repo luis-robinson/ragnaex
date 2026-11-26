@@ -11,11 +11,12 @@ import bpy
 from mathutils import Vector
 import act2_dress
 import act3_dress
+import archive_dress
 import places
 import viveiro_dress
 from zone_lib import Zone, poly_dist, disc, mat
 
-DRESS = dict(act3_dress.DRESS, **viveiro_dress.DRESS)      # acabamento por masmorra: fn(z, rooms, edges)
+DRESS = dict(act3_dress.DRESS, **viveiro_dress.DRESS, **archive_dress.DRESS)      # acabamento por masmorra: fn(z, rooms, edges)
 SCALE = 1.25           # dungeons maiores para grupos: salões, distâncias e corredores (a chegada/saída não muda)
 ROOMS = [(-20 * SCALE, 22 * SCALE), (20 * SCALE, 2 * SCALE), (-14 * SCALE, -18 * SCALE)]
 BOSS_ROOM = (8 * SCALE, -40 * SCALE)
@@ -235,7 +236,7 @@ def build_graph(did, g, export):
         act2_dress.dragon_lair(z, rooms, L["edges"])
     if did == "dg_slayers":               # Salão dos Matadores: bonecos de treino, alvos, venenos, panos roxos, arena do Mestre
         act2_dress.slayers(z, rooms, L["edges"])
-    if did in DRESS:                      # Ato III (Adegas, Galeria dos Espelhos, Conservatório, Coração do Jardim) e o Viveiro de Seiva
+    if did in DRESS:                      # Ato III (Adegas, Galeria dos Espelhos, Conservatório, Coração do Jardim), Viveiro de Seiva e Arquivo de Vel'Thar
         DRESS[did](z, rooms, L["edges"])
     boss_pos = next(r["pos"] for r in L["rooms"].values() if "boss" in r)
     return z.finish(export, poi=boss_pos, ground=g["floor"])

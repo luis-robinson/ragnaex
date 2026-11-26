@@ -284,6 +284,9 @@ func _duels(trials: int) -> void:
 				var killed := 0
 				for k in chain:                           # caçada: CHAIN monstros seguidos, sem descanso (elite: 1)
 					var mob = Sim.spawn_monster(md, mid, Sim.random_walkable(GameData.maps[mid], sp["pos"], area))
+					mob.field_mob = MobSystem.is_field(md)     # como o spawner do mapa (Balance.FIELD_MOB_*)
+					mob.recompute_stats()
+					mob.heal_full()
 					bot.brain.hunt_target_id = mob.id
 					mob.aggro_target = bot.id
 					mob.aggro_timer = 5.0                 # como no boss_probe: sem isso, monstro de aggro curto nascido longe largava o bot (travou falso)

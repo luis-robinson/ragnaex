@@ -14,7 +14,7 @@ static func on_monster_killed(sim: WorldSim, mob: SimEntity, killer: SimEntity) 
 	if credit and credit.is_character():
 		# XP dividida com o grupo por perto (+bônus por membro); cada um ganha conforme o próprio nível
 		var sharers := PartySystem.kill_sharers(sim, credit, mob)
-		var each := mob.monster_def.xp * (1.0 + Balance.PARTY_XP_BONUS * (sharers.size() - 1)) / sharers.size()
+		var each := mob.monster_def.xp * (Balance.FIELD_MOB_XP_MULT if mob.field_mob else 1.0) * (1.0 + Balance.PARTY_XP_BONUS * (sharers.size() - 1)) / sharers.size()
 		for c in sharers:
 			var mult := clampf(1.0 + (mob.level - c.level) * 0.08, 0.3, 1.6)
 			ProgressionSystem.gain_xp(sim, c, int(each * mult * SiegeSystem.xp_mult(c, mob.map_id)))

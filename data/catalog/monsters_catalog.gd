@@ -484,6 +484,7 @@ static func build() -> Array:
 	L.append_array(_act3_wp6_bosses())
 	L.append_array(_marsh())
 	L.append_array(_viveiro())
+	L.append_array(_archive())
 	L.append_array(_oaths())
 	L.append_array(_dawn_rests())
 	L.append_array(_dawn_echoes(L))
@@ -1230,7 +1231,7 @@ static func build_loot() -> Array:
 		_lt("lt_vessaline", [{"item": "hostess_fan", "chance": 1.0}, {"item": "weeping_porcelain", "chance": 1.0, "min": 3, "max": 4}, {"item": "festim_ribbon", "chance": 1.0, "min": 5, "max": 8}, {"item": "elixir_might", "chance": 1.0}, {"item": "legend_coin", "chance": 0.6}]),
 		_lt("lt_sylvare_echo", [{"item": "empty_crown", "chance": 1.0}, {"item": "weeping_porcelain", "chance": 1.0, "min": 4, "max": 5}, {"item": "festim_ribbon", "chance": 1.0, "min": 6, "max": 9}, {"item": "elixir_stone", "chance": 1.0}, {"item": "legend_coin", "chance": 1.0, "min": 1, "max": 2}]),
 		_lt("lt_dragonling", [{"item": "dragon_scale", "chance": 1.0, "min": 2, "max": 4}, {"item": "golem_core", "chance": 1.0, "min": 1, "max": 2}, {"item": "amulet_golem", "chance": 0.5}, {"item": "elixir_might", "chance": 1.0, "min": 1, "max": 2}, {"item": "crown_spectral", "chance": 0.4}]),
-	] + _marsh_loot() + _viveiro_loot() + _oaths_loot() + _dawn_echo_loot()
+	] + _marsh_loot() + _viveiro_loot() + _archive_loot() + _oaths_loot() + _dawn_echo_loot()
 
 # ======== Brejo das Teias (field_marsh, 12-16, campo opcional ao sul da Floresta; GDD design/gdd/brejo-das-teias.md §3.3) ========
 ## Modelos novos pedidos ao Blender (BLENDER REQUEST C); até o GLB existir, o monstro usa o modelo de reserva recolorido.
@@ -1389,6 +1390,76 @@ static func _viveiro_loot() -> Array:
 		# material de tier do Gunnar: Seiva da Árvore-Mãe (Glória +6..+9, ItemSystem.enhance_cost) garantida
 		_lt("lt_sap_mother", [{"item": "mother_sap", "chance": 1.0, "min": 2, "max": 3}, {"item": "amber_sap", "chance": 1.0, "min": 3, "max": 5}, {"item": "elf_steel", "chance": 1.0, "min": 2, "max": 3},
 			{"item": "heartwood", "chance": 0.5}, {"item": "elixir_might", "chance": 0.5}, {"item": "legend_coin", "chance": 0.3}]),
+	]
+
+# ======== Arquivo de Vel'Thar (dg_archive, 27-29, mini-masmorra sob o zigurate do Campo; GDD design/gdd/arquivo-de-velthar.md) ========
+## Modelos novos do Blender (notas production/session-state/agent-archive-blender.md); até o GLB existir, reserva recolorida.
+## Ecos em sépia (mortos da cidade antiga), nunca azul (azul = mortos do Lich).
+const ARCHIVE_MODELS := {"archive_copyist": ["mob_blind_copyist", "mob_cultist"], "name_ledger": ["mob_name_ledger", "mob_dragon_egg"], "boss_azhar_scribe": ["mob_azhar_scribe", "mob_cultist"]}
+const ARCHIVE_MOBS := ["archive_copyist", "archive_warden", "ink_wraith", "name_ledger"]
+const ARCHIVE_BOSS := "boss_azhar_scribe"
+## Lacaios do Escrivão (0 XP, sem saque): o eco (base de metamorfose), as 3 formas e a Página Solta.
+const ARCHIVE_ADDS := ["named_echo", "named_echo_knight", "named_echo_archer", "named_echo_priest", "loose_page"]
+
+static func archive_model(id: String) -> String:
+	var m: Array = ARCHIVE_MODELS[id]
+	return str(m[0]) if ResourceLoader.exists("res://assets/models/%s.glb" % m[0]) else str(m[1])
+
+static func _archive() -> Array:
+	var sepia := Color(0.8, 0.64, 0.4)
+	return [
+		# atirador mágico: drena de longe e lê em voz alta perto dos livros
+		{"id": "archive_copyist", "name": "Copista Sem Olhos", "level": 27, "hp": 560, "atk": 22, "matk": 78, "def": 10, "mdef": 26, "move_speed": 4.3, "attack_range": 8.0, "attack_cooldown": 1.6, "attack_startup": 0.45, "xp": 165, "aggro_range": 10.0, "leash_range": 22.0, "ranged": true,
+		 "radius": 0.45, "scale": 1.0, "color": Color(0.62, 0.5, 0.34), "shape": "capsule", "loot_table": "lt_archive_copyist", "gold_min": 18, "gold_max": 38, "model": archive_model("archive_copyist"),
+		 "skill_ids": ["mob_soul_drain"] as Array[String]},
+		# escudo de frente (como o Guardião de Ossos): dê a volta e bata pelas costas
+		{"id": "archive_warden", "name": "Guardião do Registro", "level": 28, "hp": 1050, "atk": 88, "def": 32, "mdef": 14, "move_speed": 4.0, "attack_range": 1.9, "attack_cooldown": 1.3, "attack_startup": 0.35, "xp": 230, "aggro_range": 8.0, "leash_range": 22.0, "front_guard": 0.5,
+		 "radius": 0.5, "scale": 1.05, "color": Color(0.24, 0.22, 0.2), "shape": "capsule", "loot_table": "lt_archive_warden", "gold_min": 22, "gold_max": 46, "model": "mob_skel_guard",
+		 "skill_ids": ["mob_charge"] as Array[String]},
+		# borrão rápido e frágil, em trio
+		{"id": "ink_wraith", "name": "Borrão de Tinta", "level": 28, "hp": 520, "atk": 72, "def": 8, "mdef": 18, "move_speed": 5.6, "attack_range": 1.7, "attack_cooldown": 0.95, "attack_startup": 0.25, "xp": 200, "aggro_range": 9.0, "leash_range": 22.0,
+		 "radius": 0.45, "scale": 0.95, "color": Color(0.14, 0.12, 0.12), "shape": "cone", "loot_table": "lt_ink_wraith", "gold_min": 18, "gold_max": 38, "model": "mob_ghost"},
+		# livro num atril: parado, não revida, quebra (na Mesa é o "ovo" do Escrivão: lido nas fases vira Eco Nomeado)
+		{"id": "name_ledger", "name": "Livro de Nomes", "level": 28, "hp": 900, "atk": 1, "def": 16, "mdef": 16, "move_speed": 0.0, "attack_range": 0.0, "attack_cooldown": 60.0, "xp": 0, "aggro_range": 0.0, "leash_range": 40.0,
+		 "radius": 0.6, "scale": 1.0, "color": Color(0.7, 0.58, 0.4), "shape": "capsule", "loot_table": "lt_name_ledger", "gold_min": 0, "gold_max": 0, "model": archive_model("name_ledger"), "egg": true},
+		# chefe (A Mesa do Escrivão): lê nomes (canal "interrompa!"), os livros em volta acordam em ecos (70%: metade, 40%: o resto
+		# + ward + Chamada com as estantes), 15% fúria
+		{"id": "boss_azhar_scribe", "name": "O Escrivão de Azhar", "level": 29, "hp": 96000, "atk": 124, "matk": 96, "def": 30, "mdef": 30, "move_speed": 3.4, "attack_range": 3.0, "attack_cooldown": 1.4, "attack_startup": 0.45, "xp": 1500, "aggro_range": 11.0, "leash_range": 22.0,
+		 "radius": 0.9, "scale": 1.8, "color": Color(0.7, 0.56, 0.36), "shape": "capsule", "is_boss": true, "berserk_after": 160, "loot_table": "lt_azhar_scribe", "gold_min": 140, "gold_max": 280, "model": archive_model("boss_azhar_scribe"),
+		 "skill_ids": ["mob_quill_slash", "mob_read_name", "mob_ink_rain"] as Array[String], "coin_chance": 1.0, "coin_min": 2, "coin_max": 3,
+		 "intro": "Nome. Data. Causa. Próximo.", "last_words": "Esqueceram de... me escrever...",
+		 "eggs": {"id": "name_ledger", "count": 4, "r": 7.0, "hatch": "named_echo"},
+		 "cover": {"radius": 1.6, "time": 40.0, "max": 4, "model": "mob_archive_shelf", "fx": "boss_mirror_rise", "skills": []},
+		 "phases": [{"hp": 0.7, "say": "Os livros estão abertos. Respondam.", "skills": ["mob_page_turn"], "hatch": 0.5},
+			{"hp": 0.4, "say": "O Escrivão se cala atrás dos nomes enquanto os ecos o cercam!", "skills": ["mob_roll_call"], "ward": 0.5, "hatch": 1.0},
+			{"hp": 0.15, "say": "Todos os nomes! TODOS DE UMA VEZ!", "enrage": 1.3}]},
+		# Eco Nomeado: morto de Vel'Thar que responde ao nome; nasce, "toma forma" (ShiftSystem) e vai atrás de quem foi nomeado
+		{"id": "named_echo", "name": "Eco Nomeado", "level": 29, "hp": 1300, "atk": 70, "matk": 70, "def": 14, "mdef": 14, "move_speed": 4.4, "attack_range": 7.0, "attack_cooldown": 1.7, "attack_startup": 0.45, "xp": 0, "aggro_range": 14.0, "leash_range": 40.0, "ranged": true,
+		 "radius": 0.45, "scale": 1.0, "color": sepia, "shape": "cone", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_ghost",
+		 "shift_forms": [{"form": "named_echo_knight", "weight": 1}, {"form": "named_echo_archer", "weight": 1}, {"form": "named_echo_priest", "weight": 1}]},
+		{"id": "named_echo_knight", "name": "Cavaleiro", "level": 29, "hp": 1300, "atk": 82, "def": 26, "mdef": 12, "move_speed": 4.4, "attack_range": 1.9, "attack_cooldown": 1.3, "attack_startup": 0.35, "xp": 0, "aggro_range": 14.0, "leash_range": 40.0,
+		 "radius": 0.5, "scale": 1.0, "color": sepia, "shape": "capsule", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_skel_guard",
+		 "skill_ids": ["mob_charge"] as Array[String]},
+		{"id": "named_echo_archer", "name": "Besteiro", "level": 29, "hp": 1300, "atk": 64, "def": 12, "mdef": 12, "move_speed": 4.4, "attack_range": 9.0, "attack_cooldown": 1.5, "attack_startup": 0.4, "xp": 0, "aggro_range": 14.0, "leash_range": 40.0, "ranged": true, "kite": true,
+		 "radius": 0.45, "scale": 1.0, "color": sepia, "shape": "capsule", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_skel_archer",
+		 "skill_ids": ["mob_volley"] as Array[String]},
+		{"id": "named_echo_priest", "name": "Sacerdote", "level": 29, "hp": 1300, "atk": 24, "matk": 72, "def": 10, "mdef": 24, "move_speed": 4.3, "attack_range": 8.0, "attack_cooldown": 1.6, "attack_startup": 0.45, "xp": 0, "aggro_range": 14.0, "leash_range": 40.0, "ranged": true,
+		 "radius": 0.45, "scale": 1.0, "color": sepia, "shape": "capsule", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_cultist",
+		 "skill_ids": ["mob_soul_drain"] as Array[String]},
+		# Página Solta (Virar a Página): lacaio rápido e frágil, papel claro
+		{"id": "loose_page", "name": "Página Solta", "level": 29, "hp": 340, "atk": 46, "def": 6, "mdef": 14, "move_speed": 5.4, "attack_range": 1.6, "attack_cooldown": 1.0, "attack_startup": 0.25, "xp": 0, "aggro_range": 14.0, "leash_range": 40.0,
+		 "radius": 0.35, "scale": 0.6, "color": Color(0.92, 0.88, 0.76), "shape": "cone", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_ghost"},
+	]
+
+static func _archive_loot() -> Array:
+	return [
+		_lt("lt_archive_copyist", [{"item": "vel_ink", "chance": 0.45}, {"item": "ancient_relic", "chance": 0.35}, {"item": "potion_mp_m", "chance": 0.1}, {"item": "crown_spectral", "chance": 0.03}]),
+		_lt("lt_archive_warden", [{"item": "bone_shard", "chance": 0.5}, {"item": "vel_ink", "chance": 0.3}, {"item": "holy_silver", "chance": 0.12}, {"item": "ring_spectral", "chance": 0.04}]),
+		_lt("lt_ink_wraith", [{"item": "vel_ink", "chance": 0.4}, {"item": "ghost_essence", "chance": 0.45}, {"item": "potion_hp_m", "chance": 0.06}]),
+		_lt("lt_name_ledger", [{"item": "vel_ink", "chance": 0.6, "min": 1, "max": 2}]),
+		# material de tier do Doran: Fragmento da Aurora (lendário 25+ do +6 ao +9, ItemSystem.enhance_cost) garantido
+		_lt("lt_azhar_scribe", [{"item": "dawn_shard", "chance": 1.0, "min": 2, "max": 3}, {"item": "holy_silver", "chance": 1.0, "min": 3, "max": 5}, {"item": "vel_ink", "chance": 1.0, "min": 3, "max": 5},
+			{"item": "ghost_essence", "chance": 1.0, "min": 2, "max": 3}, {"item": "crown_spectral", "chance": 0.3}, {"item": "elixir_might", "chance": 0.5}, {"item": "legend_coin", "chance": 0.3}]),
 	]
 
 # ======== Restos da Noite e ecos dos chefes (faixa da Aurora 20-30, conquista B; GDD dawn-band-refactor-proposal §5 B, D5) ========

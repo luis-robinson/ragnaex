@@ -206,6 +206,9 @@ static func build() -> Array:
 		_mat("fallen_standard", "Estandarte da Aurora Caído", 120, "Pano dourado queimado nas bordas, ainda preso ao pedaço do mastro. Pesa mais do que devia.", Color(0.86, 0.7, 0.32)),
 		_mat("digger_orders", "Ordem de Escavação", 0, "Papel dobrado com uma lista de nomes de mortos. Embaixo: 'para o Escrivão'.", Color(0.78, 0.72, 0.58)),
 		_mat("bearer_banner_scrap", "Retalho do Estandarte", 0, "Um palmo de pano dourado que Sir Malcom cortou do estandarte de Edran. 'Para o Osric.'", Color(0.9, 0.76, 0.4)),
+		# Arquivo de Vel'Thar (27-29, GDD arquivo-de-velthar §3.7). Arte pintada (item_icons.tscn -- --only=<id>).
+		_mat("vel_ink", "Tinta de Vel'Thar", 28, "Preta, seca há séculos e ainda mancha os dedos. Os copistas escrevem com ela sem molhar a pena.", Color(0.16, 0.14, 0.16)),
+		_mat("vorhag_page", "Página de Vorhag", 0, "Folha do registro dos mortos da peste. Na linha 'família de Vorhag', outra tinta: 'chamar: Vorhag, cavaleiro, quando jurar'.", Color(0.86, 0.78, 0.6)),
 		{"id": "letter_sealed", "name": "Carta Lacrada", "type": QST, "price": 0, "icon_color": Color(0.9, 0.85, 0.6), "description": "Carta do Ancião para a Capitã da guarda."},
 		# ---------------- armas tier 0 (lv1) ----------------
 		_weapon("sword_rusty", "Espada Enferrujada", "sword", 0, 8, 0, {"FOR": 3, "VIT": 1}, Color(0.6, 0.6, 0.6)),

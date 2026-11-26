@@ -24753,5 +24753,35 @@
    ]
   }
  ],
+ "stage_tags": [
+  {
+   "tag": "enf_cheia_ghoul",
+   "unless": "dw_ghoul_boss"
+  },
+  {
+   "tag": "enf_vazia_ghoul",
+   "if": "dw_ghoul_boss"
+  },
+  {
+   "tag": "enf_cheia_bones",
+   "unless": "dw_bones_boss"
+  },
+  {
+   "tag": "enf_vazia_bones",
+   "if": "dw_bones_boss"
+  },
+  {
+   "tag": "enf_cheia_frost",
+   "unless": "dw_frost_boss"
+  },
+  {
+   "tag": "enf_vazia_frost",
+   "if": "dw_frost_boss"
+  },
+  {
+   "tag": "obra_anel",
+   "if": "dw_lich"
+  }
+ ],
  "turn": 0.0
 }

@@ -12,12 +12,12 @@ const STAT_KEYS := ["atk_pct", "matk_pct", "def_pct", "speed_pct", "heal_pct", "
 	"prey_crit", "falcon_pct", "block", "mp_on_kill", "mp_regen_combat", "trap_max",
 	"crit_dmg_pct", "dot_pct", "cc_resist_pct", "mp_cost_pct", "summon_time_pct",
 	"crit_leech", "low_leech", "mana_guard", "hit_slow", "heal_taken_pct", "def_atk_pct", "block_reflect", "guard_crit", "taunt_dmg_pct", "thorns", "phys_mend",
-	"mp_to_hp", "summon_guard", "summon_frenzy", "leech_shield", "ally_guard", "low_dr", "low_hp_atk", "overheal_share", "mana_guard_eff"]
+	"mp_to_hp", "summon_guard", "summon_frenzy", "leech_shield", "ally_guard", "low_dr", "low_hp_atk", "overheal_share", "mana_guard_eff", "matk_to_hp"]
 ## Chaves de buff que não são stat: id (renova, não acumula), duração e aura de ligar/desligar.
 const BUFF_META := ["id", "duration", "toggle", "end_cast", "end_power", "oath_lock",
 	"scale", "wound_hold", "keep_hp", "form_bound",
 	"riposte_arc", "riposte_gain", "riposte_gap", "momentum_fill", "mob_stat",
-	"duel_cap", "hit_gain", "hit_cap", "duel_per"]     # Duelo Supremo: contador do Duelo (RiposteSystem.duel_hit). onda B1: escala do boneco, feridas presas, % de vida mantida, some com a forma
+	"duel_cap", "hit_gain", "hit_cap", "duel_per", "minion_share"]     # Duelo Supremo: contador do Duelo (RiposteSystem.duel_hit). onda B1: escala do boneco, feridas presas, % de vida mantida, some com a forma
 ## Chaves de bônus de conjunto que não são stat (SetDef: atributos e bônus por skill).
 const SET_BONUS_META := ["attrs", "skill_dmg", "skill_cdr", "fusion"]
 
@@ -53,6 +53,7 @@ var guard_crit: float = 0.0      # +% de crítico por Balance.GUARD_CRIT_TIME s 
 var taunt_dmg_pct: float = 0.0   # % a mais de dano em monstro cujo alvo é você (Julgamento / Fúria do Urso)
 ## Notáveis de base (Balance.CORE_NOTABLES; regras em Combat.core_*, WorldSim._deal_damage/_heal)
 var mp_to_hp: float = 0.0        # +HP máximo = % do MP máximo (Mana em Carne)
+var matk_to_hp: float = 0.0      # +HP máximo = % do MATK (Vida da Fé, conjunto do Templário)
 var summon_guard: float = 0.0    # % do dano recebido que vai para a sua invocação mais perto (Escudo de Carne)
 var summon_frenzy: float = 0.0   # % a mais de dano da sua invocação abaixo de SUMMON_FRENZY_HP da vida (Fúria dos Mortos)
 var leech_shield: float = 0.0    # roubo de vida que passa do máximo vira barreira até % da vida máxima
@@ -364,6 +365,7 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 		s.guard_crit += float(b.get("guard_crit", 0))
 		s.taunt_dmg_pct += float(b.get("taunt_dmg_pct", 0))
 		s.mp_to_hp += float(b.get("mp_to_hp", 0))
+		s.matk_to_hp += float(b.get("matk_to_hp", 0))
 		s.summon_guard += float(b.get("summon_guard", 0))
 		s.summon_frenzy += float(b.get("summon_frenzy", 0))
 		s.leech_shield += float(b.get("leech_shield", 0))
@@ -404,6 +406,8 @@ static func compute(cls: ClassDef, level: int, equipment: Dictionary, buffs: Arr
 	s.overheal_share = minf(s.overheal_share, Balance.OVERHEAL_SHARE_CAP)
 	if s.mp_to_hp > 0.0:
 		s.max_hp += s.max_mp * minf(s.mp_to_hp, Balance.MP_TO_HP_CAP) / 100.0     # Mana em Carne (depois dos % de HP e MP)
+	if s.matk_to_hp > 0.0:
+		s.max_hp += s.matk * minf(s.matk_to_hp, Balance.MATK_TO_HP_CAP) / 100.0     # Vida da Fé (depois dos % de HP e MATK)
 	if s.def_atk_pct > 0.0:
 		s.patk += s.pdef * s.def_atk_pct / 100.0          # tanque: a DEF soma ao dano (a DEF fica igual) (depois dos % de DEF e de ATK)
 	if s.titan_pair:

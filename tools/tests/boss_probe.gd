@@ -89,6 +89,8 @@ const BOSSES := {"bandit_chief": "field_forest", "crab_king": "field_crab_beach"
 	"bog_mother": "field_marsh",
 	# Viveiro de Seiva (17-19): O Berço
 	"boss_sap_mother": "dg_viveiro",
+	# Arquivo de Vel'Thar (27-29): A Mesa do Escrivão
+	"boss_azhar_scribe": "dg_archive",
 	# Campo dos Juramentos (24-28): Colina do Estandarte
 	"fallen_bearer": "field_oaths"}
 ## Chefe sem spawner no mapa da sonda luta no lugar deste (arena provisória). Vazio: todos têm a sala deles.

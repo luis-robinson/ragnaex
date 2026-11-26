@@ -865,6 +865,7 @@ Monstros: aviso de golpe com a forma de verdade (círculo/cone/faixa enchendo at
 corpo afunda e some, bando (`Balance.PACK_AGGRO_RADIUS`: puxar um chama os iguais parados por perto), nome colorido pelo nível
 comparado ao jogador (cinza/verde/branco/amarelo/laranja/vermelho), chefes com loot próprio.
 Morte: −3% XP, respawn em Aldara com 50% HP/MP. Monstros dão XP × clamp(1 + 0.08×(lvMob − lvPlayer), 0.3, 1.6).
+**Monstro comum do mapa** (2026-11-25, decisão do usuário): monstro de spawner e escolta de bando (fora chefe, elite, investida/cerco, lacaio, boneco; `MobSystem.is_field`) tem vida × `Balance.FIELD_MOB_HP_MULT` (1,5), ATK/MATK × `FIELD_MOB_DMG_MULT` (1,25) e paga XP × `FIELD_MOB_XP_MULT` (1,5): luta mais longa e com mais perigo, mesmo ritmo de nível. `band_probe` 5-30 (8 lutas × 47 monstros): vida perdida por luta Guardião 18,6→21,0%, Templário 16,9→19,6%, Lâminas 16,3→20,8%, Fogo 39→46% (pior 68→78%); 0 mortes. Só vida (×2) alongava 60-90% sem perigo. Check `_check_field_mobs`.
 
 ## Mundo
 **Direção de layout (estilo Erenshor, câmera alta de sempre)** — regras em `CLAUDE.md` → "Layout de zonas":
@@ -1855,7 +1856,7 @@ Templário Penitência (5ª carga explode em fogo sagrado) · Clérigo de Batalh
 Urso Casca Viva (apanhou: Pele de Carvalho, 20 s) · Lobo Sangue da Matilha (sangramento) · Xamã Lua Cheia (básico lança Fogo Lunar) ·
 Caçador Marca (alvo recebe mais dano de todos) · Atirador Pólvora (tiro explode em área) · Lanceiro Ferida Aberta (feridas acumuladas: +dano seu e sangramento) · Lâminas Veneno Letal · Duelista Riposte (esquivou,
 contra-ataca) · Corsário Bala na Agulha (golpe às vezes dispara a pistola de graça; +1 Bravata) · Fogo Brasa Viva (básico lança Bola de Fogo) · Gelo Coração de Gelo (apanhou: Nova de Gelo, no máx. a cada 20 s) · Raio Arco
-Voltaico (básico salta para +1 alvo) · Invocador Legião (abate levanta esqueleto) · Ceifador Ceifa (abate cura) · Sombras Praga (básico lança Agonia).
+Voltaico (básico salta para +1 alvo) · Invocador Legião (inimigo ou morto-vivo seu que morre a até `Balance.LEGION_RAISE_RADIUS` m levanta esqueleto, não só o seu abate; 2026-11-25) · Ceifador Ceifa (abate cura) · Sombras Praga (básico lança Agonia).
 Atributos: toda peça lendária usa os dois atributos da build; escudos nomeados seguem a afinidade (Paladino VIT/FOR, Bispo VIT/WILL);
 o Elementalista Raio é INT/WILL (AGI não serve a mago) e o conjunto inicial do Paladino é VIT/FOR.
 **Armas com papel** (2026-11-17, `GearCatalog.WEAPON_ROLES`, números em `Balance.LEG_ROLE_NUMBERS` / `LEG_SWORD_ATK_MULT` /

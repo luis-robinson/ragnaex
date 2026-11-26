@@ -136,6 +136,8 @@ const SIG_WARN := {
 	"mob_varo_banquet": ["active", "sig_warn", "gulp"],            # o canal do Banquete começa (ele bebe do barril)
 	"mob_countess_gaze": ["startup", "sig_warn", "mirror_hum"],    # 3 s de preparo: os Espelhos de Pé sobem (vidro cantando)
 	"mob_ressoa_canon": ["active", "sig_warn", "canon"],           # as marcas do Cânone nas vítimas: a frase em três vozes
+	"mob_read_name": ["active", "sig_warn", "smoke_vanish"],       # Escrivão de Azhar: a leitura começa (interrompa!)
+	"mob_roll_call": ["startup", "sig_warn", "mirror_hum"],        # 3 s de preparo da Chamada: as estantes se erguem
 }
 ## Impacto/quebra das assinaturas (id do skill_effect, inclusive os que não são skill: BossSignatures.*_FX).
 const SIG_EFFECT := {
@@ -148,6 +150,7 @@ const SIG_EFFECT := {
 	"mob_vindima_press": "press_slam", "mob_prima_aria": "shrill_note",
 	"mob_vess_cortege": "cortege_march", "mob_echo_thirst": "thirst_drain",
 	"mob_varo_banquet": "toast_clink", "mob_countess_gaze": "mirror_flash", "mob_ressoa_canon": "shrill_note",
+	"mob_read_name": "smoke_vanish", "mob_roll_call": "mirror_flash",
 	BossSignatures.MIRROR_RISE_FX: "mirror_hum", BossSignatures.MIRROR_CRACK_FX: "mirror_crack",
 }
 const AURA_SOUND := {"agitator": "drum_beat", "agitator_boss": "drum_beat", "clan_wolf": "drum_beat", "festim": "festim_bell", "sede": "thirst_sigh", "sense_sight": "drum_beat"}

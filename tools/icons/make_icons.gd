@@ -105,6 +105,9 @@ const STATUS_ICONS := {"burn": ["fire", "flame"], "poison": ["poison", "drop"], 
 	"muralha_de_pe": ["holy", "armor"], "posto_de_pe": ["nature", "bow"]}      # moral do cerco por lugar (SiegeSystem.morale_buff)
 ## ações fixas da barra (action_<chave>.png): montaria (H) e volta à cidade (G). [tema, símbolo]
 ## montaria que não é o cavalo: action_mount_<Balance.MOUNT_KINDS> (ActionBar.mount_icon)
+## Serviço de NPC (ícone sobre a cabeça e no minimapa, NpcServices): papel -> [tema, símbolo]; arquivo service_<papel>.png
+const SERVICE_ICONS := {"merchant": ["holy", "coin"], "smith": ["fire", "anvil"], "alchemy": ["poison", "flask"], "storage": ["earth", "chest"],
+	"trainer": ["lunar", "book"], "relic": ["shadow", "gem"], "crystal": ["ice", "crystal"], "board": ["physical", "scroll"], "mount": ["earth", "horse"]}
 const ACTION_ICONS := {"mount": ["earth", "horse"], "mount_dire_wolf": ["earth", "wolf"], "recall": ["lunar", "portal"], "dash": ["wind", "dash"]}
 ## classe: [tema, símbolo, símbolo de trás (ou "")]
 const CLASS_ICONS := {
@@ -131,13 +134,16 @@ func _ready() -> void:
 		for sid in GLYPHS[g]:
 			glyph_of[sid] = g
 	for cid in CLASS_ICONS:
-		if not (only in ["action", "status"]) and not only.begins_with("status_") and not GameData.skills.has(only):      # --only=action/status/<skill_id>: só esses arquivos
+		if not (only in ["action", "status", "service"]) and not only.begins_with("status_") and not GameData.skills.has(only):      # --only=action/status/<skill_id>: só esses arquivos
 			_queue.append({"file": "class_" + cid, "cls": cid})
 	if only == "" or only == "status" or only.begins_with("status_"):     # --only=status_<chave>: só esse
 		for k in STATUS_ICONS:
 			if only.begins_with("status_") and only != "status_" + k:
 				continue
 			_queue.append({"file": "status_" + k, "status": k})
+	if only == "" or only == "service":
+		for k in SERVICE_ICONS:
+			_queue.append({"file": "service_" + k, "service": k})
 	if only == "" or only == "action":
 		for k in ACTION_ICONS:
 			_queue.append({"file": "action_" + k, "action": k})
@@ -201,8 +207,8 @@ func _paint() -> void:
 	if _cur.has("cls"):
 		_paint_class(_cur["cls"])
 		return
-	if _cur.has("status") or _cur.has("action"):
-		var st: Array = STATUS_ICONS[_cur["status"]] if _cur.has("status") else ACTION_ICONS[_cur["action"]]
+	if _cur.has("status") or _cur.has("action") or _cur.has("service"):
+		var st: Array = STATUS_ICONS[_cur["status"]] if _cur.has("status") else (SERVICE_ICONS[_cur["service"]] if _cur.has("service") else ACTION_ICONS[_cur["action"]])
 		_t = THEMES[st[0]]
 		_frame()
 		_glyph(st[1], Vector2(256, 256), _base_angle(st[1]), GLYPH_SIZE * 1.05 * float(GLYPH_WEIGHT.get(st[1], 1.0)))
@@ -1055,3 +1061,51 @@ func _g_portal() -> void:
 		_canvas.draw_circle(Vector2(0, 0.28), 0.09, Color(1, 1, 0.9))
 	_c(0.0, -0.7, 0.1, 4, 0.05)                                                # pedra-chave
 	_p([-0.92, 0.86, 0.92, 0.86, 0.84, 1.02, -0.84, 1.02], 3)                  # degrau
+
+# --- serviços de NPC (SERVICE_ICONS) ---
+func _g_coin() -> void:
+	_c(-0.36, -0.3, 0.5, 3)
+	_c(0.16, 0.16, 0.7)
+	_garc(_v([0.16, 0.16])[0], 0.48, 40, INK, 0.06)
+	_p([0.08, -0.2, 0.24, -0.2, 0.24, 0.52, 0.08, 0.52], 3, 0.0)
+
+func _g_anvil() -> void:
+	_p([-1.0, -0.42, -0.45, -0.58, 0.82, -0.58, 0.82, -0.18, 0.36, -0.06, 0.28, 0.34, 0.66, 0.58, 0.66, 0.8, -0.56, 0.8, -0.56, 0.58, -0.18, 0.34, -0.26, -0.06, -0.56, -0.2])
+	_p([-0.45, -0.58, 0.82, -0.58, 0.82, -0.44, -0.5, -0.44], 4, 0.0)
+
+func _g_flask() -> void:
+	_p([-0.17, -0.82, 0.17, -0.82, 0.17, -0.22, -0.17, -0.22], 2)
+	_c(0.0, 0.34, 0.64)
+	_c(0.0, 0.44, 0.48, 3, 0.0)
+	_p([-0.25, -1.02, 0.25, -1.02, 0.25, -0.8, -0.25, -0.8], Color(0.55, 0.36, 0.2))
+
+func _g_chest() -> void:
+	var lid: Array = [-0.88, -0.1]
+	for k in range(9):
+		var a := PI + PI * k / 8.0
+		lid.append(cos(a) * 0.88); lid.append(-0.1 + sin(a) * 0.5)
+	_p(lid, Color(0.62, 0.4, 0.2))
+	_p([-0.88, -0.1, 0.88, -0.1, 0.88, 0.78, -0.88, 0.78], Color(0.55, 0.34, 0.16))
+	_p([-0.88, -0.1, 0.88, -0.1, 0.88, 0.06, -0.88, 0.06], 2, 0.0)
+	_p([-0.18, -0.12, 0.18, -0.12, 0.18, 0.32, -0.18, 0.32], 2)
+
+func _g_book() -> void:
+	_p([-0.98, -0.62, -0.04, -0.46, -0.04, 0.78, -0.98, 0.6])
+	_p([0.98, -0.62, 0.04, -0.46, 0.04, 0.78, 0.98, 0.6])
+	for y in [-0.2, 0.1, 0.4]:
+		_l([-0.8, y - 0.1, -0.22, y], 3, 0.05)
+		_l([0.8, y - 0.1, 0.22, y], 3, 0.05)
+
+func _g_scroll() -> void:
+	_p([-0.56, -0.7, 0.56, -0.7, 0.56, 0.7, -0.56, 0.7])
+	_p([-0.74, -0.92, 0.74, -0.92, 0.74, -0.66, -0.74, -0.66], Color(0.55, 0.36, 0.2))
+	_p([-0.74, 0.66, 0.74, 0.66, 0.74, 0.92, -0.74, 0.92], Color(0.55, 0.36, 0.2))
+	for y in [-0.36, -0.06, 0.24]:
+		_l([-0.36, y, 0.36, y], 3, 0.06)
+
+func _g_gem() -> void:
+	_p([-0.86, -0.28, -0.46, -0.74, 0.46, -0.74, 0.86, -0.28, 0.0, 0.92])
+	_p([-0.46, -0.74, 0.0, -0.74, -0.3, -0.28, -0.86, -0.28], 4, 0.0)
+	_l([-0.86, -0.28, 0.86, -0.28], 3, 0.05)
+	_l([-0.3, -0.28, 0.0, 0.92], 3, 0.04)
+	_l([0.3, -0.28, 0.0, 0.92], 3, 0.04)

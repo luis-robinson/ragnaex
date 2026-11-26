@@ -376,6 +376,39 @@ static func viveiro() -> Array:
 		 "dialog_complete": "Então a seiva não fez o rei. Só deixou ele maior do que já era. Isso não absolve ninguém, mas explica muita coisa. Leve esta gota: o Gunnar sabe o que fazer com ela."},
 	]
 
+## Arquivo de Vel'Thar (27-29): mini-masmorra sob o zigurate do Campo dos Juramentos (GDD design/gdd/arquivo-de-velthar.md §3.8).
+## Laterais (nenhuma é prereq da linha principal; check). Pesos leves (decisão 2026-11-25: ~8.000 no total; o scale_xp da faixa
+## 20-30 reparte o mesmo bolo). Textos provisórios (passe do writer). va4 revela a promessa de Azhar (lore oculto do Campo).
+const ARCHIVE_QUESTS := ["va1_zigurate", "va2_ledgers", "va3_scribe", "va4_promise"]
+
+static func archive() -> Array:
+	return [
+		{"id": "va1_zigurate", "title": "Debaixo do Zigurate", "giver_npc": "ruins_scholar", "type": REACH, "target_id": "dg_archive", "count": 1, "level_req": 28, "prereq_quest": "oj11_senna",
+		 "reward_xp": 700, "reward_gold": 150, "reward_items": {"potion_hp_m": 3}, "map_hint": "Campo dos Juramentos: porta no pé do Zigurate (leste)",
+		 "description": "Desça pela porta do Zigurate do Campo dos Juramentos e descubra quem lê os nomes.",
+		 "dialog_offer": "Os arquivos de Vel'Thar ficavam debaixo dos zigurates: o registro de cada nascido e de cada morto. Se alguém ainda lê lá embaixo, quero saber o quê. E para quem. Desça. Leve gente.",
+		 "dialog_progress": "A porta fica no pé do zigurate, a leste do acampamento do Campo (nível 27). Leve grupo: lá dentro o tanque segura o Guardião de frente; o Copista drena de longe, feche com dash (Shift).",
+		 "dialog_complete": "Livros de nomes, copistas sem olhos... e alguém lendo. Conte ao Sir Malcom: os mortos dele também podem estar nessas páginas."},
+		{"id": "va2_ledgers", "title": "Livros de Nomes", "giver_npc": "oaths_malcom", "type": KILL, "target_id": "name_ledger", "count": 5, "level_req": 28, "prereq_quest": "va1_zigurate",
+		 "reward_xp": 1800, "reward_gold": 260, "reward_items": {"potion_mp_m": 2}, "map_hint": "Arquivo de Vel'Thar: Sala de Leitura e a Mesa do Escrivão",
+		 "description": "Rasgue 5 Livros de Nomes no Arquivo de Vel'Thar.",
+		 "dialog_offer": "Livros abertos em atris, com os nossos mortos escritos neles? Então rasgue. Nenhum cavaleiro meu vai ser lido em voz alta por coisa nenhuma. Cinco, para começar.",
+		 "dialog_progress": "Os livros não revidam: limpe os copistas da Sala de Leitura e bata nos livros com skills de área. Na Mesa, cada livro inteiro vira um eco quando o Escrivão chega a 70% e a 40%: rasgue os quatro antes de puxar.",
+		 "dialog_complete": "Cinco nomes que ninguém mais vai chamar. É pouco. É o que dá para hoje."},
+		{"id": "va3_scribe", "title": "O Escrivão de Azhar", "giver_npc": "oaths_malcom", "type": KILL, "target_id": "boss_azhar_scribe", "count": 1, "level_req": 29, "prereq_quest": "va1_zigurate", "prereq_all": ["va2_ledgers"] as Array[String],
+		 "reward_xp": 4200, "reward_gold": 600, "reward_gear_tier": 3, "reward_items": {"elixir_might": 1}, "map_hint": "Arquivo de Vel'Thar: A Mesa do Escrivão (fundo)",
+		 "description": "Derrube O Escrivão de Azhar na Mesa do Arquivo. Leve um grupo.",
+		 "dialog_offer": "Quem lê os nomes é um escrivão. Não é o Azhar: é quem trabalha para ele. Enquanto ele ler, os mortos respondem. Junte um grupo e tire a pena da mão dele.",
+		 "dialog_progress": "Grupo de 3 a 5. Tanque, segure-o no meio da sala: as estantes só cobrem se ele estiver no centro. Quando a barra dele disser 'interrompa!', todo mundo bate ou atordoa, senão um eco nasce atrás do curador. Com 40% vem a Chamada: esconda-se atrás de uma estante. Círculos de tinta no chão: saia deles.",
+		 "dialog_complete": "Ele parou de ler. O silêncio lá embaixo pesa mais que a voz. Fique com isto, e procure a Senna: ela quer ver o que você trouxe."},
+		{"id": "va4_promise", "title": "O Que Azhar Prometeu", "giver_npc": "ruins_scholar", "turnin_npc": "oaths_malcom", "type": COLLECT, "target_id": "vorhag_page", "count": 1, "level_req": 29, "prereq_quest": "va3_scribe",
+		 "reward_xp": 1300, "reward_gold": 200, "reward_items": {"dawn_shard": 1}, "map_hint": "Arquivo de Vel'Thar: Salão dos Registros (ala à direita da escada)",
+		 "description": "Ache no Salão dos Registros a página da família de Vorhag e leve-a ao Sir Malcom.",
+		 "dialog_offer": "O registro dos mortos da peste deve estar no Salão dos Registros. Se Vorhag desceu ao Arquivo antes de jurar, o nome da família dele está lá. Traga a página. O Malcom precisa ler com os próprios olhos.",
+		 "dialog_progress": "A página está no Salão dos Registros, a ala à direita da escada do Arquivo. Aperte F perto dela e leve-a ao Sir Malcom, no acampamento do Campo.",
+		 "dialog_complete": "'Chamar: Vorhag, cavaleiro, quando jurar.' Então foi isso. Azhar prometeu que os vivos ouviriam os seus mortos de novo, e cobrou um juramento. Vorhag jurou à noite para ouvir a família. O que voltou repetia o nome e a última palavra. Nada mais. Era meia verdade. E meia verdade foi o bastante para uma ordem inteira."},
+	]
+
 ## Mata dos Zumbidos (4-8): ramo lateral ao sul de Aldara, acampamento da Mateira Brena. Não trava nada da história
 ## (a Floresta continua abrindo por c5_report); a XP entra na faixa 1-10 pelo scale_xp como as outras.
 static func hollow() -> Array:
@@ -971,6 +1004,8 @@ static func build() -> Array:
 		L.append_array(viveiro())
 	if MapsCatalog.oaths_ready():          # Campo dos Juramentos: só com o mapa na sim (giver/turnin precisam existir)
 		L.append_array(oaths())
+	if MapsCatalog.archive_ready():        # Arquivo de Vel'Thar: só com a masmorra na sim (REACH e KILL apontam para ela)
+		L.append_array(archive())
 	L.append_array(dawn_rests())
 	L.append_array(act2())
 	L.append_array(act2_steppe())

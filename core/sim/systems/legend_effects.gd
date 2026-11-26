@@ -357,18 +357,10 @@ static func legend_weapon(sim: WorldSim, attacker: SimEntity, target: SimEntity,
 			and attacker.position.distance_to(target.position) <= Balance.LEG_THORNS_RANGE:
 		sim._deal_damage(target, attacker, maxi(1, int(amount * target.stats.thorns_pct / 100.0)), false, false, "thorns")
 
-## Arma lendária no abate: Legião levanta um esqueleto (com recarga), Ceifa cura.
+## Arma lendária no abate: Ceifa cura. (A Legião não depende do abate: legion_on_death.)
 static func legend_on_kill(sim: WorldSim, e: SimEntity, mob: SimEntity) -> void:
 	var le: Dictionary = e.stats.legend
 	match str(le.get("kind", "")):
-		"raise_on_kill":
-			if sim.time >= e.legend_ready_at and GameData.monsters.has("skeleton_minion"):
-				e.legend_ready_at = sim.time + float(le.get("icd", 12.0))
-				var sk := sim.spawn_summon(e, GameData.monsters["skeleton_minion"], mob.position, float(le.get("time", 15.0)), true)
-				var wp := PieceEffects.wake(e, "pet")          # Legião Desperta: o esqueleto bate mais
-				if sk != null and not wp.is_empty():
-					sk.buffs.append({"pet_atk_pct": float(wp["pct"]), "remaining": float(le.get("time", 15.0))})
-					sk.recompute_stats()
 		"heal_on_kill":
 			sim._heal(e, e, int(e.stats.max_hp * float(le["pct"]) / 100.0))
 			var wa := PieceEffects.wake(e, "ally")          # Ceifa Desperta: cura o aliado mais ferido também
@@ -376,3 +368,34 @@ static func legend_on_kill(sim: WorldSim, e: SimEntity, mob: SimEntity) -> void:
 				var ally := PieceEffects.most_hurt_other(sim, e, e, Balance.LEG50_ALLY_RANGE)
 				if ally != null:
 					sim._heal(e, ally, maxi(1, int(ally.stats.max_hp * float(wa["pct"]) / 100.0)))
+
+## Legião (arma do Invocador): inimigo dele ou morto-vivo dele que morre a até Balance.LEGION_RAISE_RADIUS m levanta um
+## esqueleto no lugar (recarga `icd` da arma; vale o abate de qualquer um, não só o dele).
+static func legion_on_death(sim: WorldSim, dead: SimEntity) -> void:
+	if dead.kind != SimEntity.Kind.MONSTER and dead.kind != SimEntity.Kind.SUMMON:
+		return
+	if not sim.maps.has(dead.map_id) or not GameData.monsters.has("skeleton_minion"):
+		return
+	var r2 := Balance.LEGION_RAISE_RADIUS * Balance.LEGION_RAISE_RADIUS
+	for c in sim.maps[dead.map_id]["entities"]:
+		if not c.is_character() or not c.is_alive() or c.stats == null:
+			continue
+		if c.position.distance_squared_to(dead.position) > r2:
+			continue
+		if str(c.stats.legend.get("kind", "")) != "raise_on_kill" or sim.time < c.legend_ready_at:
+			continue
+		if dead.kind == SimEntity.Kind.SUMMON:
+			if dead.owner_id != c.id:
+				continue
+		elif not c.is_hostile_to(dead):
+			continue
+		legion_raise(sim, c, dead.position)
+
+static func legion_raise(sim: WorldSim, e: SimEntity, at: Vector3) -> void:
+	var le: Dictionary = e.stats.legend
+	e.legend_ready_at = sim.time + float(le.get("icd", 12.0))
+	var sk := sim.spawn_summon(e, GameData.monsters["skeleton_minion"], at, float(le.get("time", 15.0)), true)
+	var wp := PieceEffects.wake(e, "pet")          # Legião Desperta: o esqueleto bate mais
+	if sk != null and not wp.is_empty():
+		sk.buffs.append({"pet_atk_pct": float(wp["pct"]), "remaining": float(le.get("time", 15.0))})
+		sk.recompute_stats()

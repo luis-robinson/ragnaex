@@ -1123,7 +1123,7 @@ static func set_skills(build: Dictionary, skills: Dictionary, level: int, tier: 
 ## cast_on_basic (acertar com ataque ou habilidade lança a skill; Balance.LEG_CAST_ICD), cast_when_hit (ao levar golpe lança a skill; icd = s entre usos),
 ## chain (básico pula para +N alvos), stun, frenzy (cada golpe acumula vel. de ataque), execute (dano extra em alvo
 ## abaixo de `below`), prey (dano extra em alvo retardado, preso ou atordoado), bleed/poison (dano no tempo do ATK), mark (alvo recebe mais dano de todos), splash (básico
-## explode em volta), riposte (esquivar contra-ataca), raise_on_kill (abate levanta um esqueleto), heal_on_kill,
+## explode em volta), riposte (esquivar contra-ataca), raise_on_kill (morte perto levanta um esqueleto), heal_on_kill,
 ## thorns (devolve corpo a corpo), ward (cura vira barreira), echo (golpe bate de novo; reserva),
 ## penance (cada golpe põe uma carga de Penitência no alvo; com `stacks` explode em fogo sagrado: `pct`% do ATK em `radius`),
 ## mend (parte do dano do golpe cura o aliado mais ferido por perto, você incluso), open_wound (cada golpe abre uma Ferida no alvo, até `max`: +`pct`% do seu dano nele por ferida; com todas

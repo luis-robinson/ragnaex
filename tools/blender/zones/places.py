@@ -299,13 +299,26 @@ DUNGEONS["dg_viveiro"] = {
         "packs": {"raizes>estufa": ("sap_spider", 2), "raizes>tanques": ("sap_sprout", 2), "tanques>berco": ("elf_tender", 1)},
     },
 }
-# Arquivo de Vel'Thar (Campo dos Juramentos, GDD campo-dos-juramentos 3.8; mini-masmorra 27-29 do WP8): entrada RESERVADA
-# no pé do zigurate do Campo (leste, boca para oeste). `arch: "ziggurat"` = o morro vira um zigurate de 3 degraus de pedra
-# clara (<= 8 m) e a boca, uma porta de pedra com selo (`_ziggurat`); `reserved` fecha a passagem e a grava em
-# data["future_portals"] (o build_dungeons pula a entrada). Quando o mapa existir: tirar `reserved`, `layout`/`boss`.
+# Arquivo de Vel'Thar (Campo dos Juramentos, GDD arquivo-de-velthar; mini-masmorra 27-29 do WP8): debaixo do zigurate do
+# Campo (leste, boca para oeste). Degraus do Zigurate -> Salão dos Registros (de lado; colheita da página de Vorhag) e ->
+# Sala de Leitura (3 atris com Livros de Nomes parados: spawners e data["boss_hint"]["ledgers"] saem de archive_dress) ->
+# A Mesa do Escrivão (miolo livre, sem estátua nem pilar; anel dos livros r 7 e 4 pontos de estante em boss_hint).
+# `arch: "ziggurat"` = o morro vira um zigurate de 3 degraus de pedra clara (<= 8 m) com a porta de pedra (`_ziggurat`).
 DUNGEONS["dg_archive"] = {
-    "zone": "field_oaths", "gate": (84.0, 6.0), "face": 180.0, "name": "Arquivo de Vel'Thar", "seed": 37, "reserved": True, "level": 27,
-    "arch": "ziggurat", "rock": (0.7, 0.66, 0.56), "floor": (0.56, 0.52, 0.44), "glow": (0.86, 0.7, 0.42), "rooms": [], "boss": "",
+    "zone": "field_oaths", "gate": (84.0, 6.0), "face": 180.0, "name": "Arquivo de Vel'Thar", "seed": 37, "level": 27,
+    "arch": "ziggurat", "rock": (0.7, 0.66, 0.56), "floor": (0.56, 0.52, 0.44), "glow": (0.86, 0.7, 0.42),
+    "top": (0.42, 0.38, 0.32),        # alto das paredes: pedra de reboco escura (o chão claro lê-se de cima)
+    "open_late": True,                # a passagem abre só no z.finish: o acabamento do Campo foi sorteado com a porta fechada
+    "layout": {
+        "rooms": {
+            "degraus": {"pos": (0, 20), "r": 11, "mobs": [("archive_warden", 2), ("archive_copyist", 2)], "mob_off": (0.0, -6.0), "floor": (0.55, 0.5, 0.42)},
+            "registros": {"pos": (30, 6), "r": 10, "mobs": [("ink_wraith", 3), ("archive_copyist", 1)], "floor": (0.5, 0.46, 0.4)},
+            "leitura": {"pos": (-26, -8), "r": 12, "mobs": [("archive_copyist", 2)], "floor": (0.58, 0.53, 0.44)},
+            "mesa": {"pos": (4, -36), "r": 16, "boss": "boss_azhar_scribe", "statue": False, "pillars": False, "floor": (0.6, 0.55, 0.46)},
+        },
+        "edges": [("chegada", "degraus"), ("degraus", "registros"), ("degraus", "leitura"), ("leitura", "mesa")],
+        "packs": {"degraus>registros": ("ink_wraith", 2), "degraus>leitura": ("archive_copyist", 2), "leitura>mesa": ("archive_warden", 1)},
+    },
 }
 DUNGEON_ARRIVE = (0.0, 44.0)   # chegada dentro de toda dungeon; a saída fica em DUNGEON_EXIT
 DUNGEON_EXIT = (0.0, 50.0)
@@ -462,6 +475,7 @@ def dungeon(s, p):
     rock = mat("rock_" + p["dungeon"], g["rock"])
     _ground(s, p["id"], tuple(c + d * (GATE_R + 3.0)), 5.5, (0.42, 0.38, 0.34))
     reserved = bool(g.get("reserved"))
+    late = bool(g.get("open_late")) and not reserved
     arch = g.get("arch", "root" if reserved else "")
     if arch == "ziggurat":
         _ziggurat(s, name, g, c, d, rock)
@@ -486,7 +500,14 @@ def dungeon(s, p):
         s.ob("lamp", q.x, q.y, (0.4, 2.8, 0.4))
     s.ob("hill", c.x, c.y, ((GATE_R + 0.6) * 2, 5.0, (GATE_R + 0.6) * 2), visible=False)
     portal = c + d * (GATE_R + 1.6)
-    if reserved:                      # mapa que ainda não existe: a passagem fica marcada e a boca, fechada
+    if late:                          # entrada que era reservada: até o z.finish a zona vê a boca fechada (o colisor da porta,
+        q = mouth + d * 1.0           # sem o raio de 5 m do portal), então o acabamento sorteia igual ao do mapa reservado; no
+        door = s.ob("wall", q.x, q.y, (4.5, 3.0, 2.0), _rot(d), visible=False)      # fim sai o colisor e entra o portal
+        pd = {"id": "to_" + p["dungeon"], "pos": [round(portal.x, 2), round(portal.y, 2)], "radius": 2.0,
+              "target_map": p["dungeon"], "target_pos": list(DUNGEON_ARRIVE), "label": g["name"]}
+        s.late = getattr(s, "late", [])
+        s.late.append(lambda: (s.data["obstacles"].remove(door), s.data["portals"].append(pd)))
+    elif reserved:                    # mapa que ainda não existe: a passagem fica marcada e a boca, fechada
         fp = {"id": "to_" + p["dungeon"], "pos": [round(portal.x, 2), round(portal.y, 2)], "target_map": p["dungeon"],
               "arrive": list(DUNGEON_ARRIVE), "label": g["name"]}
         if "level" in g:

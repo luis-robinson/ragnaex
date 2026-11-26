@@ -17,6 +17,8 @@ import zone_lib
 importlib.reload(zone_lib)
 from zone_lib import Zone, cyl, box, disc
 import horde
+import dawn_dress
+importlib.reload(dawn_dress)
 
 ZONE = "field_ruins"
 RING_R = 56.0
@@ -411,6 +413,7 @@ def build(export=False):
         if dd < 30.0:
             print("garganta sudeste: spawner %s %s a %.1f m da chegada" % (sp["monster_id"], sp["pos"], dd))
     siege(z)
+    dawn_dress.bastion(z, FRONTS, RING_R)          # enfermarias por portão e obras do anel (conquista, só visual; WP6)
     return z.finish(export, poi=DRAGON, ground=(0.55, 0.56, 0.46))
 
 

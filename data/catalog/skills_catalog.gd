@@ -211,6 +211,22 @@ static func build(classes: Dictionary) -> Array:
 		# Pulso do Berço (só a partir de 40%): dois anéis em volta dela, um depois do outro; o vão entre eles é seguro
 		{"id": "mob_sap_pulse", "name": "Pulso do Berço", "clip": "slam", "target": T_SELF, "kind": K_MAG, "power": 1.1, "cooldown": 16.0, "radius": 0.0, "startup": 0.7, "active": 0.1, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(0.95, 0.7, 0.25), "vfx": "nature",
 		 "effects": {"barrage": {"shape": "ring", "count": 2, "width": 2.0, "inner": 2.0, "spacing": 5.0, "delay": 1.6, "stagger": 0.6, "say": "O Berço pulsa!"}}},
+		# Arquivo de Vel'Thar (GDD arquivo-de-velthar §3.6): O Escrivão de Azhar (chefe 29) e a Página Solta
+		{"id": "mob_quill_slash", "name": "Pena de Ferro", "target": T_CONE, "kind": K_PHYS, "power": 1.5, "cooldown": 7.0, "radius": 3.6, "cone_angle_deg": 100, "startup": 0.6, "active": 0.15, "recovery": 0.5, "hit_stop_frames": 5, "icon_color": Color(0.55, 0.45, 0.3), "vfx": "blood"},
+		# Ler um Nome (assinatura R-C, verbo "interromper"): canal de 4 s; completo = um Eco Nomeado nasce já atrás de quem o chefe
+		# "nomeou" (pick soft: curador/atirador); quebrado (6% da vida ou atordoar) = atordoado + vulnerável
+		{"id": "mob_read_name", "name": "Ler um Nome", "clip": "cast_channel", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 26.0, "radius": 0.0, "startup": 0.5, "active": 4.0, "recovery": 0.4, "icon_color": Color(0.55, 0.35, 0.7), "vfx": "shadow", "boss_signature": true,
+		 "effects": {"boss_channel": {"say": "(a pena corre pela página) ...e na linha de baixo... um nome que vocês conhecem.", "warn": "INTERROMPAM A LEITURA!", "break_say": "A pena... caiu.", "break_radius": 2.5,
+			"on_done": {"radius": 2.0, "summon": {"id": "named_echo", "count": 1, "max": 3, "pick": "soft"}, "vfx": "mob_read_name", "say": "...presente."}}}},
+		{"id": "mob_ink_rain", "name": "Tinta Derramada", "clip": "cast_ground", "target": T_GROUND, "kind": K_MAG, "power": 1.1, "cooldown": 13.0, "range": 15.0, "radius": 2.4, "startup": 0.6, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.2, 0.18, 0.2), "mob_pick": "random", "vfx": "shadow",
+		 "effects": {"barrage": {"count": 4, "radius": 2.4, "delay": 1.5, "spread": 9.0}, "slow": {"pct": 30, "duration": 2}}},
+		# Virar a Página (a partir de 70%): solta Páginas Soltas no ritmo da recarga (lacaio 0 XP; kit de chefe de grupo)
+		{"id": "mob_page_turn", "name": "Virar a Página", "clip": "summon", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 30.0, "radius": 0.0, "startup": 0.8, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.9, 0.85, 0.7), "vfx": "summon",
+		 "effects": {"boss_summon": {"id": "loose_page", "count": 2, "max": 3}}},
+		# Chamada (a partir de 40%; R-E, verbo "usar cobertura"): sobem as 4 estantes nos pontos da Mesa (deslocamentos do
+		# boss_hint.cover do JSON); 3 s depois bate em quem tem o Escrivão à vista; a estante que protegeu tomba
+		{"id": "mob_roll_call", "name": "Chamada", "clip": "shout", "target": T_SELF, "kind": K_MAG, "power": 2.0, "cooldown": 30.0, "radius": 0.0, "startup": Balance.ACT3_GAZE_WARN, "active": 0.2, "recovery": 0.8, "hit_stop_frames": 6, "icon_color": Color(0.6, 0.4, 0.72), "vfx": "shadow", "boss_signature": true,
+		 "effects": {"avalanche": {"radius": 18.0, "stun": 1.0, "mirrors": [[7.07, 7.07], [-7.07, 7.07], [-7.07, -7.07], [7.07, -7.07]], "say": "Chamada! Respondam pelos nomes!"}}},
 		{"id": "mob_grapple_hook", "name": "Arpéu", "clip": "atk_throw", "target": T_TARGET, "kind": K_PHYS, "power": 0.8, "cooldown": 12.0, "range": 14.0, "radius": 0.0, "max_targets": 1, "startup": 0.5, "active": 0.1, "recovery": 0.45, "hit_stop_frames": 3, "icon_color": Color(0.7, 0.6, 0.5), "mob_pick": "far", "vfx": "physical",
 		 "effects": {"pull": {"gap": 0.6}, "stun": {"duration": 0.4}}},
 		{"id": "mob_tusk_rush", "name": "Disparada", "target": T_DIR, "kind": K_PHYS, "power": 1.4, "cooldown": 10.0, "range": 13, "radius": 1.2, "startup": 0.7, "active": 0.15, "recovery": 0.6, "hit_stop_frames": 4, "icon_color": Color(0.8, 0.55, 0.35), "mob_pick": "far", "vfx": "earth",
@@ -1424,7 +1440,7 @@ static func _more() -> Dictionary:
 	"necromancer": [
 		_s("nec_bone_spear", "Lança de Osso", 1, "", [], T_DIR, K_MAG, 1.2, 6, 2, "Projétil de osso.", {"range": 9.0, "radius": 0.4, "projectile_speed": 20.0}),
 		# Invocador (cajado)
-		_buff("nec_dark_pact", "Pacto Sombrio", 8, "invocador", ["scythe"], 16, 24, "+25% MATK por " + _keep_s() + " (invocações ficam mais fortes).", {"id": "dark_pact", "duration": Balance.BUFF_KEEP_S, "matk_pct": 25}),
+		_buff("nec_dark_pact", "Pacto Sombrio", 8, "invocador", ["scythe"], 16, 24, "+25% MATK por " + _keep_s() + "; seus mortos-vivos (os que já estão de pé também) batem +25% e ganham a sombra do pacto.", {"id": "dark_pact", "duration": Balance.BUFF_KEEP_S, "matk_pct": 25, "minion_share": true}),
 		_s("nec_corpse_explosion", "Explosão de Cadáver", 16, "invocador", ["scythe"], T_GROUND, K_MAG, 2.4, 22, 10, "Explosão de carne no cursor.", {"range": 8.0, "radius": 3.0}),
 		# Preenchimento (GDD skills-fill-2026-11-19): oferecer os próprios mortos-vivos ("sacrifice"); garra que puxa (geral)
 		_s("nec_dark_offering", "Oferenda Sombria", 21, "invocador", ["scythe"], T_GROUND, K_MAG, 1.5, 20, 12,

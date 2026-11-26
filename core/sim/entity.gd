@@ -141,6 +141,7 @@ var damage_by: Dictionary = {}       # attacker_id -> dano real; decide quem lev
 var taunt_left: float = 0.0          # s preso no alvo atual
 var phase: int = 0                   # fases de chefe já iniciadas
 var dmg_mult: float = 1.0            # fúria de chefe (enrage_mult × berserk)
+var field_mob := false               # monstro comum do mapa (spawner/escolta): vida/dano × Balance.FIELD_MOB_* (MobSystem.is_field)
 var enrage_mult: float = 1.0         # chefe: fúria da fase (MonsterDef.phases[].enrage)
 var fight_time: float = 0.0          # chefe: s em combate nesta luta (MonsterDef.berserk_after)
 var berserk := false                 # chefe: passou do tempo da luta e enlouqueceu
@@ -336,6 +337,10 @@ func face_towards(point: Vector3) -> void:
 func recompute_stats() -> void:
 	if monster_def:
 		stats = Stats.from_monster(monster_def)
+		if field_mob:
+			stats.max_hp *= Balance.FIELD_MOB_HP_MULT
+			stats.patk *= Balance.FIELD_MOB_DMG_MULT
+			stats.matk *= Balance.FIELD_MOB_DMG_MULT
 		stats.patk *= dmg_mult
 		stats.matk *= dmg_mult
 		for b in buffs:                      # aura/desânimo de facção (AuraSystem.mob_aura): só os marcados mexem no monstro

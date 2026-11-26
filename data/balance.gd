@@ -56,7 +56,7 @@ const BUILD_PASSIVES := {
 	"pestilento": [{"matk_pct": 3}, {"mp_pct": 4}],
 }
 const BUILD_SET_EXTRA := {
-	"templario": {3: {"crit": [3.0, 0.8]}},
+	"templario": {3: {"crit": [3.0, 0.8], "matk_to_hp": [50.0, 0.0]}},     # Vida da Fé: metade do MATK vira vida máxima (paga o INT da build)
 	"carniceiro": {3: {"lifesteal": [2.0, 0.5]}},
 	"executor": {3: {"hp_pct": [5.0, 1.5], "def_pct": [5.0, 1.5]}},
 	"punhos": {3: {"evasion": [6.0, 1.0], "crit": [3.0, 0.6]}},
@@ -898,6 +898,8 @@ const CORE_NOTABLES := {
 		["Espinhos", {"thorns": 10}], ["Pelagem", {"evasion": 2.0}]],
 }
 const CORE_RING_R := 1.15                 # raio do anel em volta do Início (unidades da teia; folga: _check_tree_spacing)
+const MATK_TO_HP_CAP := 50.0             # "matk_to_hp" (Vida da Fé, conjunto do Templário): +HP máximo = % do MATK (teto)
+const LEGION_RAISE_RADIUS := 8.0         # Legião (arma do Invocador): morte de inimigo ou de morto-vivo seu a até N m levanta um esqueleto
 const MP_TO_HP_CAP := 20.0                # "mp_to_hp" (Mana em Carne): +HP máximo = % do MP máximo (teto)
 const SUMMON_GUARD_CAP := 30.0            # "summon_guard" (Escudo de Carne): % do dano recebido que vai para a invocação mais perto
 const SUMMON_GUARD_RANGE := 12.0          # m até a invocação
@@ -975,6 +977,11 @@ const PARTY_PORTAL_FOLLOW := 60.0          # m: bots do grupo até esta distânc
 const PARTY_CATCHUP_TIME := 15.0           # s em outro mapa que o líder (preso, ficou para trás): o bot reaparece ao lado dele
 const ELITE_KILLS := 40                    # abates do mesmo monstro num mapa até surgir o Rei dele
 const ELITE_HP_MULT := 5.0
+## Monstro comum do mapa (spawner e escolta do bando; fora chefe, elite, investida/cerco, lacaio, boneco; MobSystem.is_field), 2026-11-25:
+## só vida alongava a luta sem perigo (band_probe: ×2 = +60-90% de tempo, +1-4 pontos de vida perdida); dano dá o perigo, XP paga o tempo.
+const FIELD_MOB_HP_MULT := 1.5
+const FIELD_MOB_DMG_MULT := 1.25
+const FIELD_MOB_XP_MULT := 1.5           # XP do abate acompanha a vida: o ritmo de nível fica o de antes
 const ELITE_ATK_MULT := 2.0
 const ELITE_DEF_MULT := 1.5
 const ELITE_SCALE := 1.6

@@ -127,6 +127,8 @@ BOSSES = {
     "boss_sylvare_echo": {"model": "mob_sylvare_echo", "scale": 1.25},
     # Viveiro de Seiva: modelo próprio (viveiro_mobs.py; = MonstersCatalog.viveiro_model com o GLB em assets/models)
     "boss_sap_mother": {"model": "mob_sap_mother", "scale": 2.0},
+    # Arquivo de Vel'Thar: modelo próprio (archive_mobs.py); escala = a do MonsterDef (GDD arquivo-de-velthar §3.10 pede 1,8)
+    "boss_azhar_scribe": {"model": "mob_azhar_scribe", "scale": 1.8},
 }
 
 # id -> nome (MapDef.name), chão (ground_color), clima, câmera. `boss` (masmorras) = chefe na foto: `id` (BOSSES),
@@ -288,6 +290,11 @@ ZONES = {
                    "boss": {"id": "boss_sap_mother", "clip": "atk_sweep", "frame": 4, "turn": 22, "foot": 2.0, "foot_col": (0.78, 1.0, 0.8),
                             "back": 1.6, "back_col": (0.7, 0.95, 0.85)},
                    "cam": {"at": (-7.5, 44.5), "h": 3.2, "az": -34, "dist": 17, "elev": 11, "pitch": 6, "fov": 46}},
+    # Arquivo de Vel'Thar (Campo dos Juramentos, 27-29): o Escrivão na Mesa (jogo (5, -45) -> Blender y 45), estantes ao fundo
+    "dg_archive": {"name": "Arquivo de Vel'Thar", "ground": (0.56, 0.52, 0.44), "mood": "dungeon", "ambient": (0.96, 0.86, 0.66),
+                   "hall": {"focus": (5, 47), "fill": 0.5},
+                   "boss": {"id": "boss_azhar_scribe", "clip": "cast_channel", "frame": 14, "turn": 18, "foot": 1.6, "foot_col": (0.98, 0.82, 0.55)},
+                   "cam": {"at": (5, 44.5), "h": 2.6, "az": -20, "dist": 18, "elev": 12, "pitch": 7, "fov": 46}},
 }
 
 

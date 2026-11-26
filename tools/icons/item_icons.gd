@@ -38,7 +38,7 @@ const SLOT_ART := {ItemDef.Slot.HEAD: "head", ItemDef.Slot.BODY: "body", ItemDef
 const MATERIAL_ART := [["goblet", "goblet"], ["frame", "frame"], ["baton", "baton"], ["_fan", "fan"], ["grapes", "grapes"], ["legend_coin", "legend_coin"], ["honey", "sap"], ["stinger", "tusk"], ["shell", "shell"], ["mushroom", "mushroom"], ["relic", "relic"], ["basket", "basket"],
 	["letter", "letter"], ["report", "letter"], ["orders", "letter"], ["oath_seal", "badge"], ["standard", "silk"], ["banner_scrap", "silk"], ["star_ore", "star"], ["goods", "basket"], ["gel", "gel"], ["pelt", "pelt"], ["hide", "pelt"], ["tusk", "tusk"], ["fang", "tusk"], ["herb", "herb"],
 	["ore", "ore"], ["silk", "silk"], ["bark", "bark"], ["badge", "badge"], ["bone", "bone"], ["dust", "dust"],
-	["essence", "essence"], ["core", "core"], ["scale", "scale"], ["feather", "feather"], ["steel", "ingot"], ["sap", "sap"], ["heartwood", "bark"], ["_log", "bark"], ["ribbon", "silk"], ["porcelain", "shell"], ["crown", "crown"], ["skin", "pelt"], ["bog_heart", "core"], ["ledger", "ledger"]]
+	["essence", "essence"], ["core", "core"], ["scale", "scale"], ["feather", "feather"], ["steel", "ingot"], ["sap", "sap"], ["heartwood", "bark"], ["_log", "bark"], ["ribbon", "silk"], ["porcelain", "shell"], ["crown", "crown"], ["skin", "pelt"], ["bog_heart", "core"], ["ledger", "ledger"], ["vel_ink", "gel"], ["_page", "letter"]]
 ## inclinação da arte (rad): armas na diagonal, como na mão
 const ANGLE := {"sword": 0.74, "sword2h": 0.74, "dagger": 0.74, "mace": 0.6, "mace2h": 0.5, "axe": 0.42, "axe2h": 0.4, "staff": 0.6,
 	"wand": 0.66, "scythe": 0.2, "scepter": 0.6, "rifle": 0.76, "spear": 0.74, "pistol": -0.2, "claw": 0.3, "bow": -0.74, "tusk": 0.3, "bone": 0.7, "herb": 0.18}

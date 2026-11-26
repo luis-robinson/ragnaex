@@ -229,6 +229,8 @@ func spawn_monster(mdef: MonsterDef, map_id: String, pos: Vector3, spawner = nul
 	e.basic_skill = GameData.basic_skill_for_monster(mdef)
 	_add_skills(e, mdef.skill_ids)
 	e.brain = MonsterBrain.new()
+	if spawner != null:
+		e.field_mob = MobSystem.is_field(mdef)     # monstro comum do mapa: Balance.FIELD_MOB_* (vida, dano, XP)
 	e.recompute_stats()
 	e.heal_full()
 	_register(e, map_id)
@@ -269,6 +271,7 @@ func spawn_summon(owner: SimEntity, mdef: MonsterDef, pos: Vector3, duration: fl
 		e.summon_patk = owner.stats.patk * Balance.PET_ATK_SHARE * k
 	else:
 		e.summon_patk = owner.stats.matk * Balance.SUMMON_MATK_SHARE * clampf(mdef.atk / Balance.SUMMON_ATK_REF, Balance.SUMMON_ATK_MIN, Balance.SUMMON_ATK_MAX) * pk     # monstro mais forte (rei esqueleto) bate mais
+		e.summon_patk *= SummonBuffs.snapshot_mult(owner)     # Pacto Sombrio fora da foto: ele entra como buff na invocação (vale ao vivo)
 	if elem_form != "":
 		e.summon_patk *= ElementalSystem.stage_mult(owner, "atk")     # estágio do elemental: depois do limite SUMMON_ATK_MAX
 	if owner_stats:
@@ -279,7 +282,10 @@ func spawn_summon(owner: SimEntity, mdef: MonsterDef, pos: Vector3, duration: fl
 	if elem_form != "":
 		ElementalSystem.prepare(owner, e, elem_form)
 	e.heal_full()
-	return _register(e, owner.map_id)
+	var made := _register(e, owner.map_id)
+	if made != null:
+		SummonBuffs.give(self, owner, made)     # nasce já com o Pacto Sombrio do dono (esqueleto da Legião também)
+	return made
 
 func _spawn_npc(n: Dictionary, map_id: String) -> SimEntity:
 	var e := SimEntity.new()
@@ -1700,6 +1706,8 @@ func _apply_effects(src: SimEntity, t: SimEntity, effects: Dictionary, power: fl
 		if b.get("keep_hp", false) and t.stats.max_hp > max0:
 			t.hp = minf(t.stats.max_hp, t.hp + t.stats.max_hp - max0)     # Colosso: a vida ganha entra cheia
 		Events.post(&"buff_applied", t.id, b.get("id", "buff"), b["remaining"])
+		if b.get("minion_share", false) and t.is_character():
+			SummonBuffs.share(self, t)          # Pacto Sombrio: passa para os mortos-vivos que já estão de pé
 	if effects.get("shield") != null:
 		var sh: Dictionary = effects["shield"]
 		t.shield_hp = maxf(t.shield_hp, t.stats.max_hp * float(sh.get("amount_pct_hp", 20)) / 100.0)
@@ -2176,6 +2184,7 @@ func _kill(e: SimEntity, killer: SimEntity) -> void:
 	NecroAscension.on_death(self, e)          # Marca da Cova (levanta) e fim da Forma de Lich; antes de limpar debuffs/forma
 	FusionEffects.on_kill(self, e, killer)     # Fusões: Ceifa Partilhada, Colheita da Praga (lê as maldições do morto)
 	PieceEffects.on_kill(self, e, killer)      # Lendários do 50: abate e Praga Desperta (antes de limpar os debuffs)
+	LegendEffects.legion_on_death(self, e)     # Legião: morte perto do Invocador levanta um esqueleto
 	e.mounted = false
 	e.cc_immune_left = 0.0
 	e.recall_left = 0.0

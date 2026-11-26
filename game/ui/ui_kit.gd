@@ -513,7 +513,7 @@ const BONUS_LABELS := {
 	"atk_pct": "Ataque +{v}%", "matk_pct": "Ataque mágico +{v}%", "def_pct": "Defesa +{v}%", "aspd_pct": "Velocidade de ataque +{v}%",
 	"crit": "Crítico +{v}%", "crit_dmg_pct": "Dano crítico +{v}%", "lifesteal": "Roubo de vida +{v}%", "dr_pct": "Dano recebido -{v}%",
 	"block": "Bloqueio +{v}% (com escudo)", "evasion": "Esquiva +{v}%", "threat_pct": "Ameaça +{v}%", "heal_pct": "Cura +{v}%",
-	"buff_pct": "Duração das bênçãos +{v}%", "radiance": "Radiância +{v}%", "pet_pct": "Companheiro e invocações +{v}%",
+	"buff_pct": "Duração das bênçãos +{v}%", "radiance": "Radiância +{v}%", "pet_pct": "Companheiro e invocações +{v}%", "matk_to_hp": "Vida da Fé: +{v}% do MATK em vida máxima",
 	"fire_pct": "Dano de fogo +{v}%", "frost_pct": "Dano de gelo +{v}%", "storm_pct": "Dano de raio +{v}%",
 	"backstab": "Dano pelas costas +{v}%", "cdr": "Recarga -{v}%", "speed_pct": "Velocidade de movimento +{v}%",
 	"dot_pct": "Dano no tempo +{v}%", "cc_resist_pct": "Atordoar/prender/lentidão em você -{v}% de duração",
@@ -541,7 +541,7 @@ static func legend_effect_text(le: Dictionary) -> String:
 		"poison": body = "%.0f%% de chance de envenenar o alvo (%.0f%% do ATK por segundo, 3 s)" % [float(le["chance"]), float(le["pct"])]
 		"mark": body = "o alvo atingido recebe +%.0f%% de dano de todos por 4 s" % float(le["pct"])
 		"riposte": body = "ao esquivar, contra-ataca com %.0f%% do ATK" % float(le["pct"])
-		"raise_on_kill": body = "abater levanta um esqueleto por %.0f s (a cada %.0f s no máximo)" % [float(le["time"]), float(le["icd"])]
+		"raise_on_kill": body = "inimigo ou morto-vivo seu que morre a até %.0f m levanta um esqueleto por %.0f s (a cada %.0f s no máximo)" % [Balance.LEGION_RAISE_RADIUS, float(le["time"]), float(le["icd"])]
 		"heal_on_kill": body = "abater cura %.1f%% da vida" % float(le["pct"])
 		"holy_edge": body = "%.0f%% de chance, a cada golpe, de causar +%.0f%% do ATK em dano sagrado (conta como ameaça)" % [float(le["chance"]), float(le["pct"])]
 		"bulwark": body = "golpear dá uma barreira de %.1f%% da vida máxima por %.0f s (no máximo a cada %.0f s; renova, não acumula)" % [float(le["pct"]), float(le["time"]), float(le["icd"])]

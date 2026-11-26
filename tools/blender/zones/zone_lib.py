@@ -703,6 +703,8 @@ class Zone:
         return tuple(rp(poi))
 
     def finish(self, export=False, poi=(0.0, 0.0), ground=(0.55, 0.74, 0.42)):
+        for fn in getattr(self, "late", []):      # passos adiados até aqui (places: entrada aberta depois do acabamento)
+            fn()
         poi = self.apply_turn(poi)
         self.markers(poi)
         self.preview(ground)
