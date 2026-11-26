@@ -329,6 +329,7 @@ func _spawn_player(cls: ClassDef, char_name: String, load_save: bool, look: Dict
 		Sim.apply_start_preset(p, preset)        # começo rápido (criação de personagem, MVP)
 	if not (load_save and data.size() > 0):
 		UnlockSystem.setup(p, start_req.knows_game if start_req else true)     # introdução dos sistemas (Criação)
+	Sim.roster_start()          # Bots com Memória: elenco do save (ou sorteado dos bots de agora), antes das vistas do mapa
 	return p
 
 ## O jogo começa: controle, sim rodando, HUD e boas-vindas.

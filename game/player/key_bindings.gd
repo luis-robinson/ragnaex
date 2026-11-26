@@ -43,6 +43,7 @@ const ACTIONS := [
 	["ui_skills", "Teia", "Janelas"],
 	["ui_quests", "Quests", "Janelas"],
 	["ui_party", "Grupo", "Janelas"],
+	["ui_guild", "Guilda", "Janelas"],
 	["ui_map", "Mapa", "Janelas"],
 ]
 ## Teclas que não se trocam (e não podem ser dadas a uma ação): menu, tela cheia, chat.

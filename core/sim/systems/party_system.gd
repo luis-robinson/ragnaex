@@ -153,6 +153,8 @@ static func party_leave(sim: WorldSim, e: SimEntity) -> void:
 	if p.is_empty():
 		return
 	party_say(sim, p, "%s saiu do grupo." % e.name)
+	if e == sim.player and sim.roster_on:
+		RosterSystem.on_player_left_party(sim, p["members"])     # "abandonou": saiu no meio da masmorra
 	p["members"].erase(e.id)
 	set_party(sim, e, -1)
 	if e == sim.player:

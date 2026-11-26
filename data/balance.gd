@@ -2461,3 +2461,61 @@ const CARD_GROUP_BONUS := {
 	"gravediggers": [{"gold_pct": 8.0}, {"xp_pct": 5.0}],
 	"oathsworn": [{"evasion": 1.5}, {"dr_pct": 3.0}],
 	"velthar_archive": [{"cdr": 3.0}, {"atk_pct": 3.0, "matk_pct": 3.0}]}
+
+# --- Bots com Memória: elenco, rival, guilda, socorro (design/gdd/bots-com-memoria.md; RosterSystem/GuildSystem) ---
+const ROSTER_SIZE := 10                  # bots do elenco por save (§9.1)
+const ROSTER_MAX := 12                   # teto do elenco (§5)
+const ROSTER_MEMORY_MAX := 8             # lembranças por bot (a mais velha sai)
+const ROSTER_UPDATE_S := 1.0             # s entre passadas do RosterSystem (relógio social)
+const ROSTER_LEVEL_SPREAD := 3           # elenco sorteado no nível do jogador ±3
+## Peso de cada lembrança na afinidade (-100..100). "corrida" = o rival perdeu a corrida de chefe para você (respeito).
+const BOT_MEMORY_WEIGHT := {"salvou": 15, "grupo": 10, "ajudou_pedido": 20, "abandonou": -15, "perdeu_saque": -5, "corrida": 10}
+const AFFINITY_MAX := 100
+const AFFINITY_TIERS := [[-30, "Hostil"], [0, "Frio"], [30, "Conhecido"], [60, "Amigo"], [101, "Leal"]]     # abaixo do número = rótulo
+const ROSTER_SAVE_HP := 0.25             # "salvou": curou (ou matou o algoz) com o bot abaixo de 25% da vida
+const ROSTER_SAVE_CD := 120.0            # s entre duas lembranças "salvou" do mesmo bot
+const ROSTER_GROUP_CD := 300.0           # s entre duas lembranças "grupo" do mesmo bot
+const ROSTER_LOOT_CD := 300.0            # s entre duas "perdeu_saque" do mesmo bot
+const ROSTER_GREET_RANGE := 8.0          # m: bot do elenco cumprimenta o jogador que chega perto
+const ROSTER_GREET_CD := 600.0           # s entre dois cumprimentos do mesmo bot
+const BOT_CAST_LINE_GAP := 60.0          # s: no máximo 1 fala a cada N s por bot do elenco (§3.1)
+const ROSTER_CHAT_GAP := 10.0            # s entre duas falas soltas de qualquer bot do elenco (o elenco todo; avisos importantes passam)
+const ROSTER_TALK := {"calmo": 0.6, "brincalhao": 1.0, "competitivo": 0.85, "timido": 0.4, "heroico": 0.8}     # chance de falar quando pode
+const ROSTER_AMBIENT_OWN := 0.35         # conversa solta do bot do elenco: chance de usar a fala da personalidade
+# Rival (§3.3, §9.2/9.5): outra classe por tabela fixa, nível do jogador ±1 o jogo todo
+const RIVAL_CLASS := {"paladin": "berserker", "berserker": "paladin", "bishop": "necromancer", "necromancer": "bishop",
+	"druid": "elementalist", "elementalist": "druid", "ranger": "assassin", "assassin": "ranger"}
+const RIVAL_STEP_MIN := 8.0              # min de jogo entre sorteios do desvio do rival (-1, 0, +1)
+const RIVAL_DEV_WEIGHTS := [1, 2, 3]     # pesos do desvio -1, 0, +1 (o rival tende a estar à frente)
+const RIVAL_BOSS_NEWS_CHANCE := 0.5      # ao subir de nível: chance de contar que matou um chefe que você ainda não matou
+const RIVAL_BOSS_BAND := 4               # chefe da notícia: nível do rival - N .. nível do rival
+const RIVAL_RACE_TIME := 1800.0          # s: prazo da corrida de chefe
+const RIVAL_RACE_RIVAL := Vector2(600.0, 1500.0)     # s até o rival matar o chefe (sorteio)
+const RIVAL_RACE_FAIL := 0.25            # chance do rival não conseguir no prazo (corrida acaba empatada)
+const RIVAL_TITLE := "Vencedor de %s"    # título por ganhar a corrida
+# Guilda (§3.4, §9.3/9.6)
+const GUILD_LEVEL := 15                  # convite da guilda do elenco
+const GUILD_SIZE_MIN := 4                # bots que formam a guilda (maior afinidade)
+const GUILD_SIZE_MAX := 6
+const GUILD_MEMBERS_MAX := 10            # bots na guilda do jogador (entram depois com afinidade alta)
+const GUILD_JOIN_AFFINITY := 40          # bot do elenco fora de guilda com isso entra na sua
+const GUILD_NPC_ROLES := ["guild", "board"]     # fundar a guilda: perto de um NPC desses (o quadro serve até haver o registrador)
+const GUILD_NPC_RANGE := 6.0
+const GUILD_NAME_LEN := Vector2i(3, 24)
+const GUILD_REPLY_CHANCE := 0.6          # jogador fala na guilda: chance de um membro responder
+const GUILD_REPLY_DELAY := Vector2(1.5, 4.0)
+const BOT_GUILD_COUNT := 4               # guildas de bots no mundo (adversárias da GvG)
+const BOT_GUILD_MEMBERS := Vector2i(6, 10)
+const BOT_GUILD_LEVEL_SPREAD := 3        # membros no nível do jogador ±3 quando a guilda nasce
+# Pedido de socorro (§3.5)
+const BOT_HELP_EVERY := 15.0             # min de jogo (média) entre pedidos
+const BOT_HELP_WINDOW := 120.0           # s que a marca fica no minimapa
+const BOT_HELP_ARRIVE_RANGE := 12.0      # m do bot = chegou
+const BOT_HELP_GOLD_PER_LV := 12         # prêmio: ouro × nível do jogador
+const BOT_HELP_POTION := "potion_hp_m"
+const BOT_HELP_POTIONS := 2
+const BOT_HELP_LOW_HP := 0.5             # "vida baixa" para escolher quem pede
+# Comemorar (§3.6)
+const BOT_CELEBRATE_MAX := 2             # bots do elenco que reagem a uma conquista
+const BOT_CELEBRATE_RANGE := 20.0        # m: bot de fora do elenco perto também comemora
+const BOT_CELEBRATE_STRANGER := 0.5

@@ -80,3 +80,11 @@ signal gathered(map_id: String, node_index: int, entity_id: int)     # ponto de 
 signal mount_changed(entity_id: int, mounted: bool)   # montou/desmontou (H, golpe ou dano)                # esquivou um golpe (Assassino)
 signal party_invited(from_id: int, to_id: int)
 signal party_changed(party_id: int)         # entrou/saiu/líder mudou/desfez (id do grupo afetado)
+# Bots com Memória (RosterSystem/GuildSystem; contrato production/session-state/wave3-contract.md). Chat da guilda = chat_message canal "guild"
+signal roster_changed()                      # algo do elenco mudou (afinidade, lembranças, nível, guilda, bot no mundo)
+signal roster_memory(rid: int, kind: String)     # lembrança nova (salvou, grupo, abandonou, ajudou_pedido, perdeu_saque, corrida)
+signal rival_news(rid: int, kind: String, text: String)     # level | boss | race_start | race_won | race_lost | race_expired
+signal guild_invite(guild_id: String, from_name: String)     # convite da guilda do elenco (nível GUILD_LEVEL)
+signal guild_changed(guild_id: String)       # guilda criada/entrou/saiu/membro mudou
+signal bot_help_request(req: Dictionary)     # pedido de socorro novo (marca no minimapa)
+signal bot_help_ended(req_id: int, outcome: String)     # helped | expired

@@ -179,6 +179,7 @@ var immortal_left: float = 0.0       # s em que nenhum golpe passa de 1 HP (tale
 var mastery: Dictionary = {}         # skill_id -> level 0..5
 var mastery_points: int = 0          # "pontos de skill": aprender, maestria e evoluções
 var build_id: String = ""            # bots: build escolhida (guia equipamento/skills)
+var roster_id: int = -1              # bot do elenco fixo do save (RosterSystem; -1 = bot descartável)
 var knows_game := true               # "Já conheço o jogo": tudo aberto (bots, testes, dev); false = introdução (UnlockSystem)
 var unlocked: Dictionary = {}        # sistema (Balance.UNLOCK_LEVELS) -> true: já abertos na introdução (salvo)
 var inventory: Dictionary = {}       # item_id -> count

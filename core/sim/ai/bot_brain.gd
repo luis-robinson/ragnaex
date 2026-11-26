@@ -1736,6 +1736,8 @@ func _steer(e: SimEntity, p: Vector3, dt: float) -> Vector2:
 # GRUPO
 ## Bot decide um convite (chamado pela sim 1-3 s depois do convite).
 func wants_party(e: SimEntity, from: SimEntity, sim) -> bool:
+	if from == sim.player and e.roster_id >= 0 and sim.roster_on and e.party_id < 0 and e.is_alive():
+		return RosterSystem.accepts_player(sim, e)      # elenco sempre aceita; afinidade negativa só fala seco (§9.4)
 	if e.party_id >= 0 or not e.is_alive() or absi(e.level - from.level) > Balance.PARTY_LEVEL_GAP:
 		return false
 	var yes := rng.randf() < (0.9 if from == sim.player else Balance.BOT_PARTY_ACCEPT)

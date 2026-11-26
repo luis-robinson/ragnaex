@@ -311,6 +311,9 @@ func after_start() -> void:
 	if DevArgs.flag("--boss_film"):     # --boss_film=<chefe>[,..] --out=<pasta>: cada skill do chefe lançada num grupo parado, 3 quadros por skill
 		_smoke_test = false
 		_boss_film(Array(DevArgs.value("--boss_film").split(",")), DevArgs.value("--out"))
+	if DevArgs.flag("--guild_shot"):    # --guild_shot=<pasta>: convite, fundar, janela O (abas), chat Guilda, socorro no minimapa, plaquinhas; sai
+		_smoke_test = false
+		_guild_shot(DevArgs.value("--guild_shot"))
 	if DevArgs.flag("--bot_leader_shot"):    # --bot_leader_shot=<png> [--bot_leader_wait=<s>]: bot líder completa o grupo e fala o plano; foto do chat + janela P
 		_smoke_test = false
 		_bot_leader_shot(DevArgs.value("--bot_leader_shot"))
@@ -1358,6 +1361,71 @@ func _cast_buff_at_start(sid: String) -> void:
 
 ## Investida élfica: leva o jogador à Floresta, solta uma leva e fotografa a marcha na estrada norte e a luta no portão.
 ## O jogador fica de pé no caminho (vida cheia o tempo todo) para a câmera seguir a ação.
+## --guild_shot=<pasta>: lado social (bots-com-memoria) com a fonte falsa GuildFake (formatos do wave3-contract):
+## convite, recusa com "Fundar guilda", aceitar, janela O em cada aba, chat na aba Guilda, pedido de socorro no
+## minimapa e plaquinhas "[LAN] Nome" / rival ⚔ nos bots perto. Imprime GUILD_SHOT.
+func _guild_shot(dir: String) -> void:
+	DirAccess.make_dir_recursive_absolute(dir)
+	var p := Sim.player
+	var hud = main.hud
+	await get_tree().create_timer(2.0).timeout
+	Sim.sync()
+	var fake := GuildFake.new()
+	GuildUi.src = fake
+	var near: Array = Sim.map_entities(p.map_id).filter(func(e): return e.kind == SimEntity.Kind.BOT and e.is_alive())
+	near.sort_custom(func(a, b): return a.position.distance_squared_to(p.position) < b.position.distance_squared_to(p.position))
+	near = near.slice(0, 10)
+	fake.bind_entities(near)
+	for i in mini(4, near.size()):          # quatro conhecidos em volta do jogador para as plaquinhas
+		var e: SimEntity = near[i]
+		e.brain = null
+		e.position = p.position + Vector3(-3.0 + 2.0 * i, 0, 2.5 - 1.5 * (i % 2))
+	var shot := func(n: String) -> void:
+		await get_tree().create_timer(0.5).timeout
+		get_viewport().get_texture().get_image().save_png(dir.path_join(n + ".png"))
+		print("GUILD_SHOT %s" % n)
+	hud.guild_hud.on_guild_invite("g_lanternas", "Rook")
+	await shot.call("a_convite")
+	hud.guild_hud.refuse_invite()
+	GuildUi.found_name = "Ordem do Ocaso"
+	hud.windows_script.refresh_window("guild")
+	await shot.call("b_fundar")
+	hud.windows_script.close("guild")
+	fake.offer["state"] = "pending"
+	hud.guild_hud.on_guild_invite("g_lanternas", "Rook")
+	hud.guild_hud.accept_invite()
+	for t in ["members", "known", "rival"]:
+		GuildUi.tab = t
+		GuildUi.selected_rid = 1
+		if hud.windows_script.is_open("guild"):
+			hud.windows_script.refresh_window("guild")
+		else:
+			hud.windows_script.toggle("guild")
+		await shot.call("c_aba_" + t)
+	hud.windows_script.close("guild")
+	for l in [["Rook", "Bora na Cripta hoje à noite?"], ["Lina", "Eu levo as poções."], [p.name, "Fechou, eu tanko."], ["Tork", "kkkk de novo o Conde"]]:
+		Events.chat_message.emit(l[0], l[1], "guild")
+	hud.set_chat_tab("guild")
+	await shot.call("d_chat_guilda")
+	hud.set_chat_tab("all")
+	var q := fake.add_request(7, "Rook", p.map_id, p.position + Vector3(22, 0, -14))
+	hud.guild_hud.on_help_request(q)
+	await shot.call("e_socorro")
+	var far := fake.add_request(8, "Vey", p.map_id, p.position + Vector3(160, 0, 90))
+	hud.guild_hud.on_help_request(far)
+	await shot.call("e_socorro_borda")
+	print("GUILD_SHOT marcas=%d" % hud.minimap.help_marks.size())
+	hud.guild_hud.on_help_ended(7, "helped")
+	fake.end_request(7)
+	print("GUILD_SHOT marcas_depois=%d" % hud.minimap.help_marks.size())
+	GuildUi.revision += 1
+	main.camera.distance = main.camera.min_distance
+	await shot.call("f_plaquinhas")
+	for e in near.slice(0, 4):
+		print("GUILD_SHOT placa %s" % GuildUi.plate_for(e))
+	GuildUi.src = null
+	get_tree().quit()
+
 ## --bot_leader_shot=<png>: o bot mais perto entra no grupo do jogador e vira líder (BotLeaderSystem); espera
 ## --bot_leader_wait s (padrão 30) recrutando/falando e fotografa o chat do grupo com a janela P aberta. Imprime BOT_LEADER_SHOT.
 func _bot_leader_shot(path: String) -> void:

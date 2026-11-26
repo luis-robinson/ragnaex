@@ -328,5 +328,7 @@ static func pickup(sim: WorldSim, e: SimEntity, l: Dictionary) -> void:
 		if e == sim.player:
 			var it: ItemDef = GameData.items.get(l["item"])
 			Events.post(&"notification", "+%d %s" % [int(l["count"]), it.name if it else l["item"]])
+			if it and it.is_legendary() and sim.roster_on:
+				RosterSystem.on_player_legendary(sim, it)            # perdeu_saque (quem do elenco no grupo usaria) + comemoração
 			if it and it.rarity >= 2 and e.party_id >= 0:             # raro ou melhor: o grupo comenta
 				BotChat.party_event(sim, e, "loot", {"item": it.name}, null, 0.6)

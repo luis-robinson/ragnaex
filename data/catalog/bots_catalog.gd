@@ -355,3 +355,151 @@ static func _address(line: String) -> Array:
 		body = body.substr(0, body.length() - 1)
 	out.append(body + ", {p}" + tail)
 	return out
+
+# ---------------------------------------------------------------------------
+# BOTS COM MEMÓRIA (design/gdd/bots-com-memoria.md; RosterSystem/GuildSystem)
+
+const PERSONALITIES := ["calmo", "brincalhao", "competitivo", "timido", "heroico"]
+const PERSONALITY_LABELS := {"calmo": "Calmo", "brincalhao": "Brincalhão", "competitivo": "Competitivo", "timido": "Tímido", "heroico": "Heroico"}
+const MEMORY_LABELS := {"salvou": "Você o salvou", "grupo": "Venceram um chefe juntos", "abandonou": "Você saiu do grupo na masmorra",
+	"ajudou_pedido": "Você veio no pedido de socorro", "perdeu_saque": "Você ficou com o lendário", "corrida": "Você venceu a corrida de chefe"}
+
+## Falas do elenco: evento -> personalidade -> frases ("*" = qualquer personalidade, usado quando a dela falta).
+## Marcas: {p} jogador, {me} o bot, {map}, {boss}, {lv}, {item}, {guild}.
+const ROSTER_LINES := {
+	"greet_hi": {
+		"*": ["{p}! bom te ver", "olha quem chegou, {p}!", "{p}, meu parceiro!"],
+		"brincalhao": ["{p}!!! achei que tinha largado o jogo kkk", "chegou o herói, {p}"],
+		"timido": ["oi {p} :)", "...oi {p}"],
+		"heroico": ["{p}! juntos ninguém segura a gente", "salve, {p}! pronto pra próxima?"],
+		"competitivo": ["{p}, tô de olho no seu nível hein", "e aí {p}, ainda na minha frente?"]},
+	"greet": {
+		"*": ["oi {p}", "e aí {p}", "opa, {p}"],
+		"calmo": ["bom te ver por aqui, {p}"],
+		"timido": ["oi..."]},
+	"greet_dry": {
+		"*": ["{p}.", "hm. {p}.", "ah, é você."],
+		"competitivo": ["nem vou falar nada, {p}"],
+		"brincalhao": ["olha, o {p}. que surpresa (não)"]},
+	"mem_salvou": {
+		"*": ["valeu {p}, essa foi por pouco!", "{p} me salvou, devo uma", "ufa, obrigado {p}"],
+		"heroico": ["{p}, te devo a vida. não esqueço", "valeu {p}! agora é minha vez de proteger"],
+		"timido": ["o-obrigado {p}...", "valeu... de verdade"],
+		"brincalhao": ["{p} salvando minha pele de novo kkkk", "quase virei estatística, valeu {p}"],
+		"competitivo": ["eu tinha controle... mas valeu, {p}"]},
+	"mem_grupo": {
+		"*": ["que luta! {boss} já era", "gg {p}! grupo bom demais", "boa, {p}! de novo qualquer hora"],
+		"competitivo": ["meu dano foi maior, mas gg {p}"],
+		"calmo": ["bem jogado, {p}. sem pressa, sem erro"],
+		"heroico": ["{boss} caiu! juntos somos fortes, {p}!"]},
+	"mem_abandonou": {
+		"*": ["sério, {p}? largou a gente no meio da masmorra", "valeu por nada, {p}", "{p} saiu do grupo... ok"],
+		"timido": ["...tá bom, {p}"],
+		"brincalhao": ["{p} deu rage quit kkk (não tem graça)"]},
+	"mem_ajudou_pedido": {
+		"*": ["{p} veio! valeu demais", "chegou na hora, {p}!", "eu sabia que podia contar com você, {p}"],
+		"heroico": ["{p}! sabia que viria. lado a lado!"],
+		"timido": ["v-você veio... obrigado {p}"]},
+	"mem_perdeu_saque": {
+		"*": ["esse lendário era meu sonho... parabéns {p}", "aff, de novo não veio pra mim", "ok {p}, esse fica com você"],
+		"competitivo": ["próximo é meu, {p}. anota"],
+		"calmo": ["tudo bem, tem mais de onde veio"]},
+	"mem_corrida": {
+		"*": ["você foi mais rápido, {p}. respeito", "ganhou essa, {p}. próxima é minha"],
+		"competitivo": ["...dessa vez, {p}. só dessa vez"]},
+	"ambient": {
+		"calmo": ["sem pressa hoje", "o vento aqui é bom", "devagar e sempre"],
+		"brincalhao": ["alguém viu minha dignidade? perdi no último boss kkk", "bora fazer party da zoeira", "lag de novo? culpa do druida"],
+		"competitivo": ["quem chega no próximo nível primeiro?", "meu dps tá absurdo hoje", "ninguém me alcança"],
+		"timido": ["...", "oi gente (baixinho)", "alguém quer duo? se não tiver problema..."],
+		"heroico": ["se alguém precisar de ajuda, me chama!", "nenhum monstro vai passar por mim", "pela Aurora!"]},
+	"celebrate_level": {
+		"*": ["gz {p}! nível {lv}!", "parabéns pelo {lv}, {p}!", "{lv}! tá voando, {p}"],
+		"competitivo": ["{lv}? tô logo atrás, {p}", "gz... vou te alcançar"],
+		"brincalhao": ["{lv}!!! festa na praça kkk", "upou! paga a rodada, {p}"],
+		"timido": ["gz {p} :)"]},
+	"celebrate_legend": {
+		"*": ["LENDÁRIO! gz {p}!", "olha o brilho disso, {p}!", "que drop, {p}!"],
+		"competitivo": ["sortudo... gz {p}"],
+		"brincalhao": ["me empresta? kkk gz {p}"]},
+	"celebrate_card": {
+		"*": ["carta nova! gz {p}", "{item}? boa, {p}!", "coleção crescendo, {p}"],
+		"timido": ["que carta bonita..."]},
+	"celebrate_boss": {
+		"*": ["{boss} caiu! gz {p}", "boa {p}! {boss} já era", "mandou bem no {boss}, {p}"],
+		"competitivo": ["{boss}? já matei faz tempo kkk gz", "boa, mas meu tempo foi melhor"],
+		"heroico": ["{boss} derrotado! viva {p}!"]},
+	"stranger_cheer": {
+		"*": ["gz!", "parabéns!", "gg", "boa!"]},
+	"help_low_hp": {
+		"*": ["socorro! tô quase morrendo em {map}!", "alguém?? vida no fim em {map}!", "help!! {map}, rápido"],
+		"timido": ["a-alguém pode vir em {map}? tô mal..."],
+		"heroico": ["segurando aqui em {map}, mas preciso de reforço!"]},
+	"help_surrounded": {
+		"*": ["cercado em {map}! ajuda!", "pull deu errado em {map}, alguém vem?", "muito bicho em {map}, socorro"],
+		"brincalhao": ["puxei metade de {map} kkkk me ajuda"],
+		"competitivo": ["preciso de... ajuda. em {map}. rápido."]},
+	"help_boss": {
+		"*": ["tô no {boss} em {map}, alguém vem?", "{boss} me pegou em {map}! ajuda!", "falta gente pro {boss} em {map}!"],
+		"heroico": ["enfrentando {boss} em {map}! quem vem comigo?"]},
+	"help_thanks": {
+		"*": ["{p} chegou! valeu, toma isso", "obrigado {p}! leva umas poções", "você veio! fica com isso, {p}"]},
+	"rival_level": {
+		"*": ["nível {lv}! tô na frente, {p}", "{lv}. sua vez, {p}"],
+		"competitivo": ["{lv}! cadê você, {p}?", "nível {lv}. vou deixar você pra trás"],
+		"brincalhao": ["{lv}!!! corre {p} kkk"],
+		"calmo": ["cheguei no {lv}. com calma, {p}"],
+		"timido": ["peguei o {lv}... sua vez, {p}?"],
+		"heroico": ["{lv}! vamos ver quem chega primeiro, {p}"]},
+	"rival_boss": {
+		"*": ["{me} matou {boss}. Sua vez.", "{boss} já era. Sua vez, {p}."],
+		"competitivo": ["{boss} caiu pra mim primeiro. de novo, {p}"],
+		"brincalhao": ["{boss} foi fácil kkk sua vez {p}"]},
+	"rival_race_start": {
+		"*": ["corrida no {boss}? fechado, {p}!", "{boss}, quem matar primeiro. valendo!"],
+		"competitivo": ["{boss}? já ganhei. valendo, {p}!"],
+		"timido": ["t-tá bom... {boss}. valendo"]},
+	"rival_race_won": {
+		"*": ["você ganhou a corrida do {boss}, {p}. respeito", "{boss} foi seu... dessa vez"]},
+	"rival_race_lost": {
+		"*": ["{boss} caiu! ganhei a corrida, {p}", "cheguei antes no {boss}. sua vez de treinar"],
+		"competitivo": ["{boss}: EU. corrida: MINHA. kkk"]},
+	"rival_race_expired": {
+		"*": ["{boss} venceu nós dois. empate, {p}", "tempo esgotado no {boss}. fica pra próxima"]},
+	"guild_invite": {
+		"*": ["{p}, a gente montou a guilda {guild}. quer entrar?", "fundamos a {guild}! falta você, {p}. topa?"],
+		"timido": ["{p}... a gente fez uma guilda, a {guild}. você... quer vir?"],
+		"heroico": ["{p}! a {guild} nasceu e tem um lugar pra você!"]},
+	"guild_welcome": {
+		"*": ["bem-vindo à {guild}, {p}!", "{p} entrou! agora sim", "a {guild} tá completa com você, {p}"],
+		"brincalhao": ["{p} na guilda! alguém faz o bolo kkk"]},
+	"guild_refused": {
+		"*": ["tudo bem, {p}. a porta fica aberta", "beleza, {p}. se mudar de ideia..."],
+		"competitivo": ["azar o seu, {p}"]},
+	"guild_founded": {
+		"*": ["{guild}? tô dentro, {p}!", "guilda nova! conta comigo, {p}"]},
+	"guild_join": {
+		"*": ["posso entrar na {guild}? valeu, {p}!", "{me} chegando na {guild}!"]},
+	"guild_leave_low": {
+		"*": ["não dá mais, {p}. tô saindo da {guild}", "cansei. saindo da guilda"],
+		"timido": ["...acho melhor eu sair da {guild}"]},
+	"guild_reply": {
+		"*": ["haha verdade", "concordo", "bora!", "kkkk", "falou tudo", "eu topo", "agora não dá, tô caçando"],
+		"heroico": ["conte comigo!"], "timido": ["s-sim"], "competitivo": ["eu faço melhor"]},
+	"party_dry": {
+		"*": ["tá. entro.", "ok, {p}. mas sem largar no meio", "hm. vamos lá"]},
+}
+
+## Nomes que a guilda do elenco escolhe (§9.6). A etiqueta sai das iniciais (GuildSystem.make_tag).
+const GUILD_NAMES := ["Coração de Aldara", "Os Sem Pressa", "Lâmina Partilhada", "Fogueira Eterna", "Ordem do Café",
+	"Vigília da Aurora", "Bando do Javali", "Os Teimosos", "Estrela do Vale", "Pacto da Taverna"]
+
+## Guildas de bots do mundo (adversárias da GvG, guerra-de-guildas.md §3.1): nome, etiqueta, personalidade, brasão.
+const BOT_GUILDS := [
+	{"name": "Lanternas de Aldara", "tag": "LAN", "personality": "defensiva", "crest": 0},
+	{"name": "Lobos de Ferro", "tag": "LDF", "personality": "agressiva", "crest": 1},
+	{"name": "Corvos do Brejo", "tag": "CDB", "personality": "astuta", "crest": 2},
+	{"name": "Escudo de Kharzun", "tag": "EDK", "personality": "equilibrada", "crest": 3},
+	{"name": "Filhos da Fenda", "tag": "FDF", "personality": "agressiva", "crest": 4},
+	{"name": "Guarda do Porto", "tag": "GDP", "personality": "defensiva", "crest": 5},
+]

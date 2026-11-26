@@ -100,6 +100,9 @@ static func ambient_line(sim, e: SimEntity, situation: bool = true) -> String:
 static func ambient(sim, e: SimEntity) -> void:
 	if in_player_party(sim, e):
 		return
+	if e.roster_id >= 0 and sim.roster_on:
+		RosterSystem.ambient(sim, e)            # elenco: ritmo próprio (BOT_CAST_LINE_GAP) e falas da personalidade
+		return
 	var line := ambient_line(sim, e)
 	if line != "":
 		Events.post(&"chat_message", e.name, line, "global")

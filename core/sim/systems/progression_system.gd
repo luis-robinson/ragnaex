@@ -223,9 +223,11 @@ static func gain_xp(sim: WorldSim, e: SimEntity, amount: int) -> void:
 			if has_ascension(e) and e.level <= Balance.ASC_MAX_LEVEL:
 				Events.post(&"notification", "+%d ponto(s) de ascensão (tecla K, aba Ascensão)" % Balance.ASC_POINTS_PER_LEVEL)
 			BotChat.party_event(sim, e, "player_levelup", {"lv": str(e.level)})
+			if sim.roster_on:
+				RosterSystem.celebrate(sim, "level", {"lv": str(e.level)})     # elenco comemora (§3.6)
 		elif BotChat.in_player_party(sim, e):
 			BotChat.party_event(sim, e, "self_levelup", {"lv": str(e.level)}, e, 0.6)
-		elif e.kind == SimEntity.Kind.BOT and sim.rng.randf() < 0.35:
+		elif e.kind == SimEntity.Kind.BOT and sim.rng.randf() < 0.35 and RosterSystem.can_speak(sim, e):
 			Events.post(&"chat_message", e.name, GameData.random_bot_line("levelup") % e.level, "global")
 		if e.kind == SimEntity.Kind.BOT and e.class_def:
 			bot_spend(sim, e)                  # bot gasta os pontos novos na teia

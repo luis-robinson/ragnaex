@@ -36,6 +36,11 @@ var parties: Dictionary = {}       # party_id -> {"id", "leader": entity_id, "me
 var invites: Dictionary = {}       # entity_id convidado -> {"from", "expires", "decide_at"}
 var _next_party_id: int = 1
 var party_seek: Dictionary = {}    # /party: entity_id -> {"queue": [ids de bots], "next_at", "until"}
+# Bots com Memória (RosterSystem/GuildSystem): só liga com roster_start (o jogo, ao entrar no mundo; testes ligam à mão)
+var roster_on := false
+var roster: Array = []             # elenco fixo do save: entradas (RosterSystem; formato no wave3-contract.md)
+var guilds: Dictionary = {}        # guild_id -> guilda (GuildSystem): a do elenco/jogador e as de bots do mundo
+var social: Dictionary = {}        # relógio social, rival, convite da guilda, pedido de socorro, títulos (RosterSystem)
 
 ## Semente fixa já na criação: WorldSim.new() fora da árvore (testes, sondas) nunca roda _ready,
 ## e um RandomNumberGenerator novo nasce com semente aleatória (sorteios mudavam de uma execução para outra).
@@ -125,6 +130,10 @@ func reset_world() -> void:
 	choir_returned.clear()
 	tick_count = 0
 	time = 0.0
+	roster_on = false
+	roster.clear()
+	guilds.clear()
+	social.clear()
 
 # ----------------------------------------------------------------------------
 # MAPAS
@@ -611,6 +620,8 @@ func tick(dt: float) -> void:
 	PortalSystem.process_map_changes(self)
 	PartySystem.party_catchup(self, dt)
 	BotChat.update(self)
+	if roster_on:
+		RosterSystem.tick(self, dt)          # elenco, rival, guilda, pedido de socorro (passada a cada ROSTER_UPDATE_S)
 	if not invites.is_empty():
 		PartySystem.update_invites(self)
 	tick_usec = tick_usec * 0.95 + float(Time.get_ticks_usec() - t_start) * 0.05     # média móvel (overlay/medição)
@@ -2122,6 +2133,8 @@ func _heal(src: SimEntity, target: SimEntity, amount: int, share := true) -> voi
 	if share and raw > target.stats.max_hp and src.is_character() and src.stats.overheal_share > 0.0:
 		_overheal_share(src, target, raw - target.stats.max_hp)       # Graça Transbordante
 	Events.post(&"healed", src.id, target.id, int(target.hp - before))
+	if target.roster_id >= 0 and roster_on:
+		RosterSystem.on_heal(self, src, target, before)      # "salvou": o jogador curou o bot do elenco abaixo de 25%
 	if src.is_character() and target.hp > before:
 		UltimateSystem.on_heal(self, src, target, target.hp - before)     # Carga Suprema: só a cura efetiva
 	if src != target and src.party_id >= 0 and src.party_id == target.party_id and target.hp - before >= target.stats.max_hp * 0.15:
@@ -2227,6 +2240,8 @@ func _kill(e: SimEntity, killer: SimEntity) -> void:
 	Events.post(&"entity_died", e.id, killer.id if killer else -1)
 	if e.kind == SimEntity.Kind.MONSTER:
 		AuraSystem.on_mob_death(self, e)
+		if roster_on:
+			RosterSystem.on_kill(self, e, killer)      # salvou (algoz), grupo/corrida/notícia do rival no chefe
 		LootSystem.on_monster_killed(self, e, killer)
 		ClassTalentSystem.on_kill(self, killer, e)
 		_mana_on_kill(killer)
@@ -2241,7 +2256,7 @@ func _kill(e: SimEntity, killer: SimEntity) -> void:
 	elif e.kind == SimEntity.Kind.BOT:
 		if BotChat.in_player_party(self, e):
 			BotChat.party_event(self, e, "bot_died", {}, e, 0.7)
-		elif rng.randf() < 0.5:
+		elif rng.randf() < 0.5 and RosterSystem.can_speak(self, e):
 			Events.post(&"chat_message", e.name, GameData.random_bot_line("death"), "global")
 
 var _elite_defs: Dictionary = {}
@@ -2986,3 +3001,60 @@ func card_unsocket(e: SimEntity, slot: String) -> String:
 	return CardSystem.unsocket(self, e, slot)
 func card_socket_error(e: SimEntity, slot: String, card_id: String) -> String:
 	return CardSystem.socket_error(self, e, slot, card_id)
+# Bots com Memória: elenco, rival, guilda, pedido de socorro (RosterSystem/GuildSystem; contrato wave3-contract.md)
+## Liga o elenco (o jogo chama ao entrar no mundo, com o jogador e os bots na sim): save, ou sorteio dos bots de agora.
+func roster_start() -> void:
+	RosterSystem.start(self)
+func roster_list() -> Array:
+	return RosterSystem.list(self) if roster_on else []
+func roster_entry(rid: int) -> Dictionary:
+	var r := RosterSystem.entry(self, rid)
+	return RosterSystem.public_entry(self, r) if not r.is_empty() else {}
+func roster_of(entity_id: int) -> Dictionary:
+	var e: SimEntity = entities.get(entity_id)
+	var r := RosterSystem.entry_of(self, e) if roster_on else {}
+	return RosterSystem.public_entry(self, r) if not r.is_empty() else {}
+func rival_info() -> Dictionary:
+	return RosterSystem.rival_info(self)
+func social_clock() -> float:
+	return float(social.get("clock", 0.0))
+func player_guild() -> Dictionary:
+	return GuildSystem.player_guild(self)
+func guild_info(guild_id: String) -> Dictionary:
+	return GuildSystem.info(self, guild_id)
+func guild_list() -> Array:
+	return GuildSystem.list(self) if roster_on else []
+func guild_tag_of(entity_id: int) -> String:
+	return GuildSystem.tag_of(self, entity_id)
+func guild_offer() -> Dictionary:
+	return (social.get("offer", {"state": "none", "guild_id": "", "from": ""}) as Dictionary).duplicate()
+func guild_found_error(guild_name: String) -> String:
+	return GuildSystem.found_error(self, guild_name)
+func help_requests() -> Array:
+	return RosterSystem.help_requests(self)
+func player_titles() -> Array[String]:
+	var out: Array[String] = []
+	for t in social.get("titles", []):
+		out.append(str(t))
+	return out
+func personality_label(id: String) -> String:
+	return str(BotsCatalog.PERSONALITY_LABELS.get(id, id))
+func memory_label(kind: String) -> String:
+	return str(BotsCatalog.MEMORY_LABELS.get(kind, kind))
+func affinity_label(value: int) -> String:
+	return RosterSystem.affinity_label(value)
+func guild_respond(accept: bool) -> void:
+	GuildSystem.respond(self, accept)
+func guild_found(guild_name: String) -> String:
+	return GuildSystem.found(self, guild_name)
+func guild_leave() -> void:
+	GuildSystem.leave(self)
+func guild_say(text: String) -> void:
+	GuildSystem.say(self, text)
+func rival_challenge(boss_id: String) -> String:
+	return RosterSystem.race_start(self, boss_id) if roster_on else "Indisponível agora."
+func rival_challenge_cancel() -> void:
+	RosterSystem.race_cancel(self)
+## Só revisão/fotos: elenco ligado, convite da guilda pendente e um pedido de socorro perto do jogador (nível `level` se > 0).
+func dev_social_demo(level: int) -> void:
+	RosterSystem.dev_demo(self, level)

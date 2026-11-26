@@ -266,6 +266,9 @@ func save_player(p: SimEntity) -> void:
 		"hunt_buffs": HuntPotionSystem.to_save(p),     # Poções de Caça: o tempo que sobra (campo opcional)
 		"cards": p.cards.duplicate(), "bestiary": p.bestiary.duplicate(),     # Cartas de Monstro (campos opcionais)
 	}
+	if p == Sim.player and Sim.roster_on:            # Bots com Memória (campos opcionais; save antigo sorteia o elenco)
+		data["roster"] = RosterSystem.to_save(Sim)
+		data["guild"] = GuildSystem.to_save(Sim)
 	# gravação atômica: escreve o .tmp inteiro, fecha e só então renomeia por cima do save (fechar no meio não trunca o save bom)
 	var tmp := tmp_of(slot)
 	var f := FileAccess.open(tmp, FileAccess.WRITE)
@@ -409,6 +412,8 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 	ElementalSystem.from_save(p, d)            # save antigo (< 5): experiência 0, forma = a do último elemental
 	HuntPotionSystem.from_save(p, d)           # Poções de Caça: save sem o campo = sem poção
 	CardSystem.from_save(p, d)                 # Cartas de Monstro: save sem os campos = vazio
+	if p == Sim.player:
+		RosterSystem.from_save(Sim, d)         # Bots com Memória: guarda o elenco para o Sim.roster_start (sem o campo = sorteia)
 	# teia de ascensão (save < 5: vazia). Nó que não existe mais: a teia volta ao início (os pontos são calculados)
 	p.asc_tree = {}
 	var atr: Dictionary = GameData.asc_trees.get(p.class_def.id, {})

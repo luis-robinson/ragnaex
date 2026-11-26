@@ -222,6 +222,12 @@
   (estado em `BotBrain.lead`): completa o grupo (papel que falta primeiro, um convite por vez, segura a saída na vila até encher), espera o jogador e conta o plano
   no canal do grupo (falas `BotsCatalog.LEADER_LINES`, ritmo `Balance.BOT_LEADER_*`; janela P mostra o plano, `Sim.party_plan`). Só no grupo do jogador. Check `_check_bot_leader`;
   filmar `-- --autostart=<c> --bot_leader_shot=<png> [--bot_leader_wait=<s>]`.
+- **Bots com Memória** (2026-11-26, GDD `design/gdd/bots-com-memoria.md`, contrato da UI `production/session-state/wave3-contract.md`): elenco fixo de `Balance.ROSTER_SIZE` bots por save
+  (`RosterSystem`, estado `Sim.roster`/`Sim.social`, `SimEntity.roster_id`; liga só com `Sim.roster_start()`, chamado em `main._spawn_player`; save antigo sorteia dos bots de agora), lembranças
+  (`salvou`, `grupo`, `abandonou`, `ajudou_pedido`, `perdeu_saque`, `corrida`; pesos `BOT_MEMORY_WEIGHT`), rival (`RIVAL_CLASS`, ±1 nível, notícias, corrida de chefe com título), pedido de socorro
+  (`BOT_HELP_*`, `Sim.help_requests`), comemoração e ritmo de fala (`BOT_CAST_LINE_GAP`, `ROSTER_CHAT_GAP`; `RosterSystem.can_speak`). Guildas em `GuildSystem` (`Sim.guilds`): a do elenco no
+  `GUILD_LEVEL` (nome de `BotsCatalog.GUILD_NAMES`), fundar no NPC `GUILD_NPC_ROLES`, guildas de bots `BotsCatalog.BOT_GUILDS` (GvG); chat = canal `"guild"`. Falas `BotsCatalog.ROSTER_LINES`.
+  Save: campos `roster`/`guild`. Check `_check_roster` (`--only=roster`); foto: `Sim.dev_social_demo(level)`.
 - **Grupo (party)**: regras na sim (`PartySystem`, via `Sim.party_*`, `kill_sharers`; aliado = `SimEntity.is_friend`), números em `Balance.PARTY_*`,
   bots em `BotBrain._follow/_gather_party/wants_party`; UI em `hud.gd` (quadros/convite/comandos de chat) e janela `party` (P).
   IA de grupo por papel da build (posição contra chefe, ameaça, cura no tanque, tirar lacaio; `Balance.BOT_*`, check `_check_bot_group`; tanque seguidor abre sozinho no chefe a até `BOT_TANK_PULL_BOSS` m do líder, `BotBrain._tank_pull`, check `_check_tank_pull`). Medir:

@@ -35,6 +35,15 @@ Paleta da Horda de act2_bosses/kharzun_mobs/zones.horde. Clipes: os do alce; `at
 empina e bate as duas patas da frente, `roar` = berro (estandarte sacode), `cast_ground` = cava o chão e bufa, `maul` = chifrada
 de lado. Tamanho nativo e sugestão de MonsterDef.scale: ver production/session-state/agent-world-boss-rinoceronte.md.
 
+`mob_iron_wolf_king` = Lobo-Rei de Ferro (faixa 40-45, Monte Kharzun). Rig de quadrúpede + `jaw` (filho da cabeça, X- abre),
+`tail2` (filho de `tail`: o rabo cheio dobra), `chain` (filho do corpo: a corrente solta da coleira partida balança) e `flare`
+(filho do corpo: as runas GRANDES das ombreiras e do lombo, que só mudam de ESCALA; em IW_FLARE_REST ficam dentro das chapas,
+aparecem no `roar` e acendem no `cast_ground`, o uivo que chama a matilha): 11 malhas `iw_<osso>`. Pelo cinza-azulado, juba
+branco-geada, armadura anã de ferro claro com rebites de latão (elmo-máscara com crista, ombreiras em três lâminas, lâminas no
+lombo, chapas na anca, braçadeiras, ponteiras nas garras, aro no rabo), costuras e runas `glow_*_rune` em brasa fraca, olhos
+`glow_*_eye` azul-gelo, espada anã e virotes cravados. `slam` = salta e desaba nas patas da frente, `maul` = patada, `pounce` =
+bote com mordida, `atk_charge` = investida mordendo. Tamanho e escala: production/session-state/agent-world-boss-lobo-rei.md.
+
     mob_kit.build_all(out, only=["mob_ancestral_boar"])      # ou ["mob_ancient_elk"], ["mob_ruins_basilisk"], ["mob_war_rhino"]
     blender -b --factory-startup --python tools/blender/world_bosses_preview.py -- --out=<pasta ABSOLUTA> [--export=<abs assets/models>] [--ground]
 """
@@ -2453,10 +2462,1361 @@ def _rhino_clips(arm, K):
     }, e)
 
 
+# ---------------------------------------------------------------------------
+# Lobo-Rei de Ferro
+# ---------------------------------------------------------------------------
+IW_SIZE = 0.56             # unidades de desenho -> nativo: ver production/session-state/agent-world-boss-lobo-rei.md
+IW_TUCK = 0.3
+# espinha: anca -> lombo -> meio -> peito fundo/cernelha alta -> base do pescoço -> pescoço
+IW_SPINE = [((0, 1.0, 1.42), 0.34), ((0, 0.55, 1.44), 0.38), ((0, 0.08, 1.46), 0.42), ((0, -0.42, 1.54), 0.54), ((0, -0.82, 1.66), 0.5), ((0, -1.14, 1.94), 0.4)]
+IW_WIDE = 1.06
+IW_HEAD = (0, -1.5, 2.0)             # a cabeça (e a mandíbula) cresce IW_HEAD_K em volta daqui
+IW_HEAD_K = 1.32
+IW_HEAD_SHIFT = (0, -0.06, 0.14)
+IW_CHAIN = (0.5, -1.0, 1.52)         # onde a corrente solta pende da coleira partida (osso chain)
+IW_FLARE = (0, -0.2, 1.45)           # pivô das runas grandes (osso flare): só mudam de ESCALA
+IW_FLARE_REST = 0.8                  # encolhidas ficam dentro das chapas; 1,0 = acesas por cima da armadura
+IW_CLIPS = ("idle", "run", "attack", "hit", "die", "atk_charge", "slam", "roar", "shout", "maul", "pounce", "brace", "cast_ground")
+IW_IMPACT = {"attack": 5, "atk_charge": 5, "slam": 8, "roar": 7, "shout": 7, "maul": 7, "pounce": 9, "brace": 6, "cast_ground": 10}
+IW_GLOW_EYE = 1.0          # olhos azul-gelo (degraus de 0,25: EntityView.mob_glow)
+IW_GLOW_RUNE = 0.5         # runas anãs em brasa: fracas
+IW_DIE_ROLL = -84          # tomba para -X: a corrente e a coleira partida ficam para cima
+
+IW_FUR = (0.19, 0.24, 0.39)          # pelo cinza-azulado
+IW_FUR_D = (0.12, 0.14, 0.25)
+IW_FUR_L = (0.56, 0.63, 0.78)
+IW_MANE = (0.97, 0.99, 1.0)          # juba branco-geada
+IW_MANE_D = (0.7, 0.8, 0.93)
+IW_IRON = (0.45, 0.46, 0.53)         # ferro anão em tom médio: entre o pelo azul-escuro e a juba branca
+IW_IRON_D = (0.31, 0.32, 0.4) 
+IW_STEEL = (0.82, 0.84, 0.88)
+IW_BRASS = (0.8, 0.68, 0.44)         # latão dos rebites e filetes: a marca da forja anã
+IW_FANG = (0.97, 0.94, 0.84)
+IW_BLACK = (0.13, 0.13, 0.17)
+IW_MOUTH = (0.74, 0.38, 0.44)
+IW_WOOD = (0.46, 0.34, 0.25)
+IW_EYE = (0.62, 0.9, 1.0)
+IW_EMBER = (1.0, 0.36, 0.08)
+
+# runas anãs angulosas: traços (u, v) em [-1, 1]
+IW_GLYPHS = {
+    "tyr": (((0, -1), (0, 1)), ((0, 1), (-0.7, 0.25)), ((0, 1), (0.7, 0.25))),
+    "fe": (((-0.3, -1), (-0.3, 1)), ((-0.3, 0.15), (0.6, 0.95)), ((-0.3, -0.5), (0.6, 0.3))),
+    "ur": (((-0.55, -1), (-0.55, 1)), ((-0.55, 1), (0.55, 0.3)), ((0.55, 0.3), (0.55, -1))),
+    "odal": (((0, 1), (0.65, 0.2)), ((0.65, 0.2), (-0.65, -1)), ((0, 1), (-0.65, 0.2)), ((-0.65, 0.2), (0.65, -1))),
+    "thorn": (((-0.3, -1), (-0.3, 1)), ((-0.3, 0.7), (0.5, 0.1)), ((0.5, 0.1), (-0.3, -0.5))),
+}
+
+
+def _iw_rune(name, p, n, up, size, glyph, r, material, cast=None, lift=0.02):
+    """Runa de traços (tubos) no plano tangente em p; com `cast` cada ponta assenta na superfície."""
+    n = V(n).normalized()
+    t1 = V(up) - n * V(up).dot(n)
+    t1 = t1.normalized() if t1.length > 1e-4 else _perp(n)[1]
+    t2 = n.cross(t1)
+    p = V(p)
+
+    def at(uv):
+        q = p + t2 * (uv[0] * size * 0.5) + t1 * (uv[1] * size * 0.5)
+        if cast is not None:
+            h, hn = cast(q + n * 0.4, -n)
+            if h is not None and (h - q).length < 0.5:
+                return h + hn * lift
+        return q + n * lift
+
+    out = []
+    for i, (a, b_) in enumerate(IW_GLYPHS[glyph]):
+        qa, qb = at(a), at(b_)
+        ext = (qb - qa).normalized() * (r * 0.6)
+        out.append(ck.tube("%s_%d" % (name, i), qa - ext, qb + ext, r, r, material, 4))
+    return out
+
+
+def iron_wolf_king(cid="mob_iron_wolf_king"):
+    K = IW_SIZE
+    S = lambda p: tuple(x * K for x in p)
+    hc = V(IW_HEAD)
+    hs = lambda p: hc + (V(p) - hc) * IW_HEAD_K + V(IW_HEAD_SHIFT)
+    bones = mk.pivots(body=S((0, 0.9, 1.4)), head=S((0, -1.05, 1.78)),
+                      leg_fr=S((0.42, -0.55, 1.4)), leg_fl=S((-0.42, -0.55, 1.4)),
+                      leg_br=S((0.4, 0.9, 1.4)), leg_bl=S((-0.4, 0.9, 1.4)))
+    t1, t2, jw = S((0, 1.2, 1.5)), S((0, 1.88, 1.58)), S(hs((0, -1.52, 1.8)))
+    cp, fp = S(IW_CHAIN), S(IW_FLARE)
+    arm = lp.make_armature("rig_" + cid, dict(bones, tail=(t1, (t1[0], t1[1] + 0.3, t1[2] + 0.04), "body"),
+                                              tail2=(t2, (t2[0], t2[1] + 0.3, t2[2] + 0.04), "tail"),
+                                              jaw=(jw, (jw[0], jw[1] - 0.3, jw[2]), "head"),
+                                              chain=(cp, (cp[0], cp[1], cp[2] + 0.3), "body"),
+                                              flare=(fp, (fp[0], fp[1], fp[2] + 0.3), "body")))
+    m = lambda n, col, rough=0.85, em=0.0: ck.mat("m_%s_%s" % (cid, n), col, rough, em)
+    fur, dark, light = m("fur", IW_FUR), m("dark", IW_FUR_D), m("light", IW_FUR_L)
+    mane, mane2 = m("mane", IW_MANE, 0.9), m("mane2", IW_MANE_D, 0.9)
+    iron, iron2, steel, brass = m("iron", IW_IRON, 0.45), m("iron2", IW_IRON_D, 0.45), m("steel", IW_STEEL, 0.4), m("brass", IW_BRASS, 0.45)
+    fang, black, mouth, wood = m("fang", IW_FANG, 0.5), m("black", IW_BLACK, 0.5), m("mouth", IW_MOUTH, 0.7), m("wood", IW_WOOD, 0.9)
+    eye = ck.mat("glow_%s_eye" % cid, IW_EYE, 0.3, IW_GLOW_EYE)
+    rune = ck.mat("glow_%s_rune" % cid, IW_EMBER, 0.4, IW_GLOW_RUNE)
+    parts, flat = [], set()
+    fluff = lambda name, a, b_, r_, mt: ck.tube(name, a, b_, r_, r_ * 0.34, mt, 5)      # mecha de juba: base grossa, ponta fina
+
+    def add(o, bone, faceted=False):
+        for x in (o if isinstance(o, (list, tuple)) else [o]):
+            parts.append((x, bone))
+            if faceted:
+                flat.add(x.name)
+
+    # ---------------- tronco ----------------
+    body = mk.skin_body("body", IW_SPINE, [(i, i + 1) for i in range(len(IW_SPINE) - 1)], fur)
+    for v in body.data.vertices:
+        v.co.x *= IW_WIDE
+    add(body, "body")
+    cast = _caster(body)
+
+    def axis_z(y):
+        pts = sorted((q[1], q[2]) for q, _r in IW_SPINE)
+        if y <= pts[0][0]:
+            return pts[0][1]
+        for (y0, z0), (y1, z1) in zip(pts, pts[1:]):
+            if y0 <= y <= y1:
+                return z0 + (z1 - z0) * (y - y0) / (y1 - y0)
+        return pts[-1][1]
+
+    def top(x, y, lift=0.0):
+        p, n = cast((x, y, 5), (0, 0, -1))
+        if p is None:
+            p, n = V((x, y, 2.0)), V((0, 0, 1))
+        return p + n * lift, n
+
+    def flank(sx, y, z, lift=0.0):
+        p, n = cast((sx * 3, y, z), (-sx, 0, 0))
+        if p is None:
+            p, n = V((sx * 0.5, y, z)), V((sx, 0, 0))
+        return p + n * lift, n
+
+    def surf(y, deg, lift=0.0):
+        """ponto do pelo na fatia y, a `deg` graus do alto (0 = lombo, 90 = flanco +X, 180 = barriga)"""
+        a = math.radians(deg)
+        d = V((math.sin(a), 0, math.cos(a)))
+        o = V((0, y, axis_z(y)))
+        p, n = cast(o + d * 3.0, -d)
+        if p is None:
+            p, n = o + d * 0.45, d
+        return p + n * lift, n
+
+    add(mk.blob("belly", 0.36, (0, 0.12, 1.2), light, (0.95, 2.3, 0.6)), "body")
+    add(mk.blob("chest", 0.44, (0, -0.86, 1.3), light, (1.0, 0.85, 0.95), 2), "body")
+
+    # ---------------- lâminas de ferro do lombo (quatro, sobrepostas) com costuras em brasa entre elas ----------------
+    LAMES = ((-0.62, -0.3), (-0.26, 0.06), (0.1, 0.42), (0.46, 0.76))
+    for i, (y0, y1) in enumerate(LAMES):
+        def lame_pick(c, n, y0=y0, y1=y1, i=i):
+            return y0 < c.y < y1 and n.z > 0.5 - 0.06 * i
+        add(_shell("lame%d" % i, body, lame_pick, 0.07 - 0.008 * i, iron if i % 2 == 0 else iron2, 0.02), "body")
+        ym = (y0 + y1) * 0.5
+        for sx in (-1, 1):
+            for j, y in enumerate((y0 + 0.07, y1 - 0.07)):
+                p, n = surf(y, sx * (38 - 3 * i), 0.085 - 0.008 * i)
+                add(_stud("lamerivet%d_%d_%d" % (i, sx, j), p, 0.04, brass), "body", True)
+    for i, y in enumerate((-0.28, 0.08, 0.44)):                # costuras: fio de brasa no vão entre duas lâminas
+        for sx in (-1, 1):
+            pts = [surf(y, sx * d, 0.03)[0] for d in (9, 22, 35, 48)]
+            add(_strap("seam%d_%d" % (i, sx), pts, 0.03, 0.022, rune, 4), "body")
+    for i, y in enumerate((-0.64, -0.28, 0.08, 0.44, 0.78)):   # crista de pelo branco saindo pelos vãos
+        p, n = top(0, y, -0.04)
+        ln = 0.42 - 0.05 * i
+        add(fluff("hackle%d" % i, p, p + V((0, 0.24, ln)), 0.15, mane), "body")
+
+    # ---------------- ombreiras em três lâminas (ferro anão, rebites de latão, cravo) ----------------
+    PAULD = (((0.44, -0.46, 1.86), 0.42, (0.95, 1.12, 0.52), iron), ((0.62, -0.46, 1.62), 0.4, (0.72, 1.06, 0.6), iron2), ((0.7, -0.45, 1.36), 0.34, (0.6, 0.98, 0.62), iron))
+    pcast = {}
+    for sx in (-1, 1):
+        for i, (c, r_, sq, mt) in enumerate(PAULD):
+            o = mk.blob("pauld%d_%d" % (sx, i), r_, (sx * c[0], c[1], c[2]), mt, sq, 2)
+            add(o, "body", True)
+            pcast[(sx, i)] = _caster(o)
+        # costura em brasa por baixo da borda de cada lâmina
+        for i in (1, 2):
+            c0, r0, s0, _m = PAULD[i - 1]
+            pts = []
+            for y in (-0.76, -0.61, -0.46, -0.31, -0.16):
+                zz = c0[2]
+                for _k in range(40):
+                    h, hn = pcast[(sx, i)]((sx * 3, y, zz), (-sx, 0, 0))
+                    if h is not None:
+                        d = V(((h.x - sx * c0[0]) / (r0 * s0[0]), (h.y - c0[1]) / (r0 * s0[1]), (h.z - c0[2]) / (r0 * s0[2])))
+                        if d.length > 1.06:
+                            pts.append(h + hn * 0.012)
+                            break
+                    zz -= 0.02
+            if len(pts) > 1:
+                add(_strap("pseam%d_%d" % (sx, i), pts, 0.028, 0.028, rune, 4), "body")
+        # rebites na borda da lâmina de cima e um cravo
+        for j, y in enumerate((-0.78, -0.46, -0.14)):
+            h, hn = pcast[(sx, 0)]((sx * (PAULD[0][0][0] + 0.26), y, 5), (0, 0, -1))
+            if h is not None:
+                add(_stud("pauldrivet%d_%d" % (sx, j), h + hn * 0.015, 0.045, brass), "body", True)
+        h, hn = pcast[(sx, 1)]((sx * 3, -0.46, 1.62), (-sx, 0, 0))
+        add(mk.cone("pauldspike%d" % sx, h - hn * 0.03, h + (hn * 0.5 + V((0, 0, 1.0))).normalized() * 0.26, 0.09, steel, 6), "body", True)
+        # runa pequena e fixa na lâmina de baixo
+        h, hn = pcast[(sx, 2)]((sx * 3, -0.45, 1.34), (-sx, 0, 0))
+        add(_iw_rune("pauldrune%d" % sx, h, hn, (0, 0, 1), 0.24, "thorn" if sx > 0 else "fe", 0.022, rune, pcast[(sx, 2)], 0.012), "body")
+        # runa GRANDE na lâmina de cima (osso flare: acende no uivo que chama a matilha)
+        h, hn = pcast[(sx, 0)]((sx * 0.42, -0.46, 5), (0, 0, -1))
+        add(_iw_rune("flarepauld%d" % sx, h, hn, (0, -1, 0), 0.5, "tyr" if sx > 0 else "odal", 0.05, rune, pcast[(sx, 0)], 0.03), "flare")
+    for i, (y, g) in enumerate(((-0.1, "ur"), (0.6, "fe"))):   # runas grandes no lombo (lâminas 1 e 3), uma de cada lado da crista
+        for sx in (-1, 1):
+            p, n = top(sx * 0.2, y, 0.1)
+            add(_iw_rune("flareback%d_%d" % (i, sx), p, n, (0, -1, 0), 0.3, g if sx > 0 else "thorn", 0.042, rune, None, 0.0), "flare")
+
+    # ---------------- coleira de ferro partida (falta um pedaço no alto do lado +X) e corrente solta ----------------
+    cy = -1.0
+    degs = list(range(64, 361 + 18, 22))
+    ring = [surf(cy, d, 0.07)[0] for d in degs]
+    for i in range(len(ring) - 1):
+        add(ck.tube("collar%d" % i, ring[i], ring[i + 1], 0.1, 0.1, iron2, 6), "body", True)
+    for i, d in enumerate((100, 150, 210, 260, 310, 350)):
+        p, n = surf(cy, d, 0.15)
+        add(_stud("collarstud%d" % i, p, 0.05, brass), "body", True)
+    for i, d in enumerate((degs[0], degs[-1])):                # pontas torcidas do aro partido
+        p, n = surf(cy, d, 0.07)
+        s = 1 if i == 0 else -1
+        add(mk.cone("collarbreak%d" % i, p, p + n * 0.16 + V((-s * 0.06, -0.05, 0.1)), 0.1, iron2, 5), "body", True)
+    ca = V(IW_CHAIN)
+    p, n = surf(cy, 112, 0.1)
+    add(_ring("chainloop", p + n * 0.03, (0, 1, 0), 0.09, 0.03, iron, 6, 4), "body", True)
+    add(ck.tube("chainstem", p, ca, 0.03, 0.03, iron, 4), "body", True)
+    for i in range(7):                                       # elos alternados, pendendo
+        c = ca + V((0.012 * i, 0, -0.06 - 0.125 * i))
+        add(_ring("link%d" % i, c, (1, 0, 0) if i % 2 else (0, 1, 0), 0.08, 0.026, iron if i % 2 else iron2, 5, 4), "chain", True)
+    ce = ca + V((0.085, 0, -0.06 - 0.125 * 7))
+    add(ck.box("shackle", (0.07, 0.2, 0.18), ce, iron2), "chain", True)       # grilhão arrancado na ponta
+    add(_stud("shacklerivet", ce + V((0.04, 0, 0.02)), 0.04, brass), "chain", True)
+    # corrente atravessada no flanco -X, da ombreira à última lâmina
+    a, b_ = V((-0.86, -0.3, 1.34)), top(-0.34, 0.62, 0.08)[0]
+    pts = []
+    for i in range(8):
+        t = i / 7
+        q = a.lerp(b_, t)
+        q.z -= 0.2 * math.sin(t * math.pi)
+        p, n = flank(-1, q.y, q.z, 0.07)
+        if p is not None and abs(p.x) > abs(q.x):
+            q = p
+        pts.append(q)
+    for i in range(7):
+        add(ck.tube("drape%d" % i, pts[i], pts[i + 1], 0.028, 0.028, iron2, 4), "body", True)
+        add(_stud("drapelink%d" % i, pts[i + 1], 0.05, iron, (1, 1, 0.7)), "body", True)
+
+    # ---------------- juba branco-geada: duas fileiras de mechas atrás da coleira, peitilho ----------------
+    add(mk.blob("ruff", 0.56, (0, -0.86, 1.76), mane, (1.1, 0.6, 1.06), 2), "body")
+    for i, d in enumerate(range(-140, 141, 20)):
+        p, n = surf(-0.92, d + 6 * math.sin(i * 1.9), -0.06)
+        tip = p + (n * 0.75 + V((0, 0.8, 0.2))).normalized() * (0.6 + 0.16 * math.sin(i * 2.3))
+        add(fluff("ruffa%d" % i, p, tip, 0.22, mane), "body")
+    for i, d in enumerate(range(-150, 151, 25)):
+        if abs(d) < 20:
+            continue
+        p, n = surf(-0.72, d, -0.05)
+        tip = p + (n * 0.6 + V((0, 0.9, 0.05))).normalized() * (0.5 + 0.12 * math.sin(i * 1.7))
+        add(fluff("ruffb%d" % i, p, tip, 0.2, mane2), "body")
+    for i, x in enumerate((-0.26, 0.0, 0.26)):               # peitilho
+        add(fluff("bib%d" % i, (x, -1.14, 1.56), (x * 1.3, -1.3 + abs(x) * 0.3, 0.92 + abs(x) * 0.4), 0.24, mane), "body")
+
+    # ---------------- troféus de guerra: espada anã cravada no lombo, dois virotes na garupa, cicatriz de garra ----------------
+    p, n = top(0.2, 0.26, -0.02)
+    sd = V((0.3, 0.25, 1.0)).normalized()
+    add(ck.blade("swordblade", p - sd * 0.1, p + sd * 0.3, 0.13, 0.035, steel, (0, 1, 0), 0.5), "body", True)
+    add(ck.box("swordguard", (0.07, 0.3, 0.06), p + sd * 0.3, brass), "body", True)
+    add(ck.tube("swordgrip", p + sd * 0.3, p + sd * 0.52, 0.035, 0.035, wood, 5), "body")
+    add(_stud("swordpommel", p + sd * 0.55, 0.055, brass), "body", True)
+    for i, (x, y, d) in enumerate(((-0.24, 0.9, (-0.5, 0.4, 1.0)), (-0.1, 1.08, (-0.2, 0.7, 1.0)))):
+        p, n = top(x, y, -0.02)
+        add(_stuck("bolt%d" % i, p, d, 0.34, 0.022, wood, brass), "body")
+    for i in range(3):                                       # três riscos de garra no flanco +X
+        pts = [surf(0.62 + 0.11 * i + 0.05 * j, 58 + 14 * j, -0.012)[0] for j in range(4)]
+        add(_strap("scar%d" % i, pts, 0.03, 0.02, mouth, 4), "body")
+
+    # ---------------- cabeça (osso head; cresce IW_HEAD_K no fim, junto com a mandíbula) ----------------
+    n_head = len(parts)
+    cran = mk.blob("cranium", 0.44, (0, -1.45, 2.02), fur, (1.05, 1.0, 0.9), 3)
+    add(cran, "head")
+    snout = mk.skin_body("snout", [((0, -1.72, 1.98), 0.25), ((0, -2.05, 1.94), 0.2), ((0, -2.44, 1.92), 0.17)], [(0, 1), (1, 2)], fur, sub=2)
+    _sq(snout, (0, -2.0, 2.0), (1.15, 1, 0.8))
+    add(snout, "head")
+    ccast, scast = _caster(cran), _caster(snout)
+
+    def htop(x, y, lift=0.0):
+        best = None
+        for c_ in (ccast, scast):
+            p, n = c_((x, y, 5), (0, 0, -1))
+            if p is not None and (best is None or p.z > best[0].z):
+                best = (p, n)
+        if best is None:
+            best = (V((x, y, 2.2)), V((0, 0, 1)))
+        return best[0] + best[1] * lift, best[1]
+
+    eyes = []
+    for sx in (-1, 1):
+        e, n = ccast((sx * 3, -1.74, 2.08), (-sx, 0, 0))
+        eyes.append((sx, e, n))
+
+    # elmo-máscara rebitado: calota no crânio (com furos nos olhos) e chapa no focinho
+    def helm_pick(c, n):
+        return n.z > -0.05 and c.y < -1.16 and all((c - e).length > 0.15 for _s, e, _n in eyes)
+
+    def muzzle_pick(c, n):
+        return n.z > 0.2 and -2.3 < c.y < -1.7
+
+    add(_shell("helm", cran, helm_pick, 0.055, iron), "head")
+    add(_shell("muzzle", snout, muzzle_pick, 0.045, iron2), "head")
+    for i, y in enumerate((-1.96, -2.24)):                    # cintas de latão por cima do focinho
+        pts = []
+        for d in (-80, -50, -20, 20, 50, 80):
+            a = math.radians(d)
+            dv = V((math.sin(a), 0, math.cos(a)))
+            p, n = scast(V((0, y, 1.96)) + dv * 2.0, -dv)
+            pts.append(p + n * 0.05)
+        add(_strap("muzzleband%d" % i, pts, 0.035, 0.035, brass, 5), "head")
+    for sx in (-1, 1):
+        for i, (x, y) in enumerate(((0.3, -1.32), (0.36, -1.62), (0.14, -1.86))):       # rebites do elmo
+            p, n = htop(sx * x, y, 0.06)
+            add(_stud("helmrivet%d_%d" % (sx, i), p, 0.04, brass), "head", True)
+        # guarda da bochecha
+        add(ck.blade("cheekguard%d" % sx, (sx * 0.47, -1.5, 2.1), (sx * 0.43, -1.84, 1.62), 0.34, 0.05, iron, (0, 1, 0.4), 0.4), "head", True)
+        add(_stud("cheekrivet%d" % sx, (sx * 0.5, -1.6, 1.96), 0.04, brass), "head", True)
+        # runa fixa na testa, de cada lado da crista
+        p, n = htop(sx * 0.2, -1.5, 0.0)
+        add(_iw_rune("helmrune%d" % sx, p, n, (0, -1, 0), 0.2, "ur" if sx > 0 else "tyr", 0.022, rune, None, 0.07), "head")
+    # crista de lâminas do focinho à nuca, com filete de latão
+    crest = ((-2.14, 0.1), (-1.9, 0.17), (-1.66, 0.32), (-1.42, 0.46), (-1.2, 0.38))
+    roots = []
+    for i, (y, hgt) in enumerate(crest):
+        p, n = htop(0, y, 0.0)
+        roots.append(p + V((0, 0, 0.03)))
+        add(ck.blade("crest%d" % i, p - V((0, 0, 0.04)), p + V((0, 0.16, hgt)), 0.27, 0.07, steel, (0, 1, 0), 0.38), "head", True)
+    add(_strap("crestridge", roots, 0.045, 0.045, brass, 5), "head")
+    # olhos azul-gelo, fundos sob a aba do elmo
+    for sx, e, n in eyes:
+        add(_stud("socket%d" % sx, e - n * 0.02, 0.1, black, (0.8, 1.1, 0.9), 2), "head")
+        add(_stud("eye%d" % sx, e + n * 0.035 + V((0, -0.01, 0)), 0.068, eye, (0.8, 1.15, 0.8), 2), "head")
+        add(_stud("brow%d" % sx, e + n * 0.03 + V((0, 0.0, 0.1)), 0.12, iron2, (0.7, 1.6, 0.4), 2), "head", True)
+    p, n = scast((0, -4, 1.97), (0, 1, 0))
+    add(_stud("nose", p + V((0, 0.02, 0.02)), 0.095, black, (1.2, 0.9, 0.85), 2), "head")
+    # orelhas saindo do elmo: a +X inteira, a -X rasgada em duas pontas
+    add(mk.cone("ear1", (0.27, -1.3, 2.3), (0.44, -1.2, 2.9), 0.16, fur, 6), "head")
+    add(mk.cone("ear1in", (0.275, -1.35, 2.34), (0.42, -1.25, 2.78), 0.09, dark, 5), "head")
+    add(mk.cone("ear-1a", (-0.27, -1.3, 2.3), (-0.38, -1.24, 2.7), 0.15, fur, 6), "head")
+    add(mk.cone("ear-1b", (-0.3, -1.22, 2.3), (-0.5, -1.1, 2.62), 0.1, fur, 5), "head")
+    for sx in (-1, 1):                                       # aro de latão na base da orelha
+        add(ck.tube("earband%d" % sx, (sx * 0.28, -1.3, 2.34), (sx * 0.3, -1.29, 2.42), 0.165, 0.15, brass, 6), "head")
+        for j in range(3):                                   # costeletas brancas
+            a = V((sx * 0.36, -1.36 + 0.06 * j, 1.92 - 0.1 * j))
+            add(fluff("cheek%d_%d" % (sx, j), a, a + V((sx * (0.4 - 0.07 * j), 0.28 + 0.05 * j, -0.06 - 0.18 * j)), 0.18, mane), "head")
+        # presas de cima e dentes de lado
+        add(mk.cone("fang%d" % sx, (sx * 0.15, -2.3, 1.84), (sx * 0.165, -2.34, 1.57), 0.062, fang, 6), "head")
+        for j, y in enumerate((-2.1, -1.94)):
+            add(mk.cone("tooth%d_%d" % (sx, j), (sx * 0.2, y, 1.82), (sx * 0.21, y - 0.01, 1.68), 0.04, fang, 4), "head", True)
+    add(mk.blob("palate", 0.17, (0, -2.02, 1.81), mouth, (1.1, 1.9, 0.25), 2), "head")
+    # mandíbula (osso jaw, X- abre)
+    jaw = mk.skin_body("jawbone", [((0, -1.55, 1.74), 0.19), ((0, -1.95, 1.71), 0.17), ((0, -2.27, 1.72), 0.13)], [(0, 1), (1, 2)], light, sub=1)
+    add(_sq(jaw, (0, -1.9, 1.72), (1.2, 1, 0.6)), "jaw")
+    add(mk.blob("tongue", 0.14, (0, -2.0, 1.8), mouth, (0.9, 1.9, 0.25), 2), "jaw")
+    for sx in (-1, 1):
+        add(mk.cone("jawfang%d" % sx, (sx * 0.1, -2.2, 1.76), (sx * 0.105, -2.22, 1.98), 0.048, fang, 5), "jaw")
+    add(_lock("chin", (0, -1.8, 1.66), (0, -1.62, 1.4), 0.11, mane2), "jaw")
+    for o, _b in parts[n_head:]:
+        for v in o.data.vertices:
+            v.co = hs(v.co)
+
+    # ---------------- pernas: dobra do jarrete, patas grandes, garras com ponteira de ferro ----------------
+    for bone_, sx, front in (("leg_fr", 1, True), ("leg_fl", -1, True), ("leg_br", 1, False), ("leg_bl", -1, False)):
+        if front:
+            x, py = sx * 0.43, -0.64
+            add(mk.blob("shoulder_" + bone_, 0.3, (x, -0.55, 1.3), fur, (0.75, 1.0, 1.3), 2), bone_)
+            add(ck.tube("upper_" + bone_, (x, -0.55, 1.25), (x, -0.47, 0.74), 0.21, 0.17, fur, 8), bone_)
+            add(_stud("elbow_" + bone_, (x, -0.47, 0.76), 0.175, fur, sub=2), bone_)
+            add(ck.tube("lower_" + bone_, (x, -0.47, 0.78), (x, -0.56, 0.15), 0.16, 0.13, fur, 8), bone_)
+            add(_lock("feather_" + bone_, (x, -0.38, 0.84), (x, -0.16, 0.62), 0.11, mane2), bone_)
+            # braçadeira de ferro com filetes de latão e um aro de brasa
+            add(ck.tube("bracer_" + bone_, (x, -0.495, 0.64), (x, -0.545, 0.3), 0.195, 0.165, iron, 8), bone_, True)
+            add(ck.tube("bracera_" + bone_, (x, -0.49, 0.67), (x, -0.497, 0.61), 0.21, 0.205, brass, 8), bone_)
+            add(ck.tube("bracerb_" + bone_, (x, -0.54, 0.33), (x, -0.547, 0.28), 0.18, 0.175, brass, 8), bone_)
+            add(ck.tube("bracerrune_" + bone_, (x, -0.515, 0.5), (x, -0.521, 0.455), 0.19, 0.186, rune, 8), bone_)
+        else:
+            x, py = sx * 0.41, 0.82
+            add(mk.blob("haunch_" + bone_, 0.36, (x - sx * 0.03, 0.86, 1.28), fur, (0.72, 1.1, 1.25), 2), bone_)
+            add(ck.tube("thigh_" + bone_, (x, 0.84, 1.2), (x, 0.62, 0.78), 0.22, 0.16, fur, 8), bone_)
+            add(_stud("knee_" + bone_, (x, 0.62, 0.79), 0.165, fur, sub=2), bone_)
+            add(ck.tube("shank_" + bone_, (x, 0.62, 0.8), (x, 1.0, 0.46), 0.15, 0.12, fur, 8), bone_)
+            add(_stud("hock_" + bone_, (x, 1.0, 0.46), 0.125, fur, sub=2), bone_)
+            add(ck.tube("meta_" + bone_, (x, 1.0, 0.48), (x, 0.9, 0.12), 0.12, 0.115, fur, 8), bone_)
+            # chapa da anca com rebites e uma runa fixa
+            pc = (x + sx * 0.1, 0.86, 1.36)
+            plate = mk.blob("hipplate_" + bone_, 0.3, pc, iron2, (0.52, 0.98, 0.92), 2)
+            add(plate, bone_, True)
+            hcast_ = _caster(plate)
+            h, hn = hcast_((sx * 3, 0.86, 1.36), (-sx, 0, 0))
+            add(_iw_rune("hiprune_" + bone_, h, hn, (0, 0, 1), 0.26, "odal" if sx > 0 else "ur", 0.022, rune, hcast_, 0.012), bone_)
+            for j, (dy, dz) in enumerate(((-0.2, 0.14), (0.2, 0.14), (-0.2, -0.14), (0.2, -0.14))):
+                h, hn = hcast_((sx * 3, 0.86 + dy, 1.36 + dz), (-sx, 0, 0))
+                add(_stud("hiprivet%d_%s" % (j, bone_), h + hn * 0.01, 0.036, brass), bone_, True)
+        add(mk.blob("paw_" + bone_, 0.19, (x, py, 0.112), dark, (1.0, 1.35, 0.58), 2), bone_)
+        for j, a in enumerate((-0.6, 0.0, 0.6)):             # garras: ponteira de ferro e ponta de aço
+            c = V((x + math.sin(a) * 0.15, py - 0.15 - math.cos(a) * 0.08, 0.1))
+            tip = c + V((math.sin(a) * 0.06, -0.17, -0.098))
+            add(ck.tube("clawcap%d_%s" % (j, bone_), c + V((0, 0.05, 0.01)), c.lerp(tip, 0.4), 0.06, 0.05, iron2, 5), bone_, True)
+            add(mk.cone("claw%d_%s" % (j, bone_), c.lerp(tip, 0.3), tip, 0.048, steel, 5), bone_, True)
+
+    # ---------------- rabo cheio, em dois ossos, com aro de ferro ----------------
+    tp1 = [((0, 1.18, 1.5), 0.2), ((0, 1.55, 1.58), 0.29), ((0, 1.95, 1.6), 0.36)]
+    tp2 = [((0, 1.84, 1.6), 0.35), ((0, 2.22, 1.54), 0.4), ((0, 2.6, 1.42), 0.32), ((0, 2.92, 1.28), 0.14)]
+    add(mk.skin_body("brush1", tp1, [(0, 1), (1, 2)], fur, sub=1), "tail")
+    add(mk.skin_body("brush2", tp2, [(0, 1), (1, 2), (2, 3)], fur, sub=1), "tail2")
+    for i, (y, zz, r_) in enumerate(((1.95, 1.6, 0.36), (2.25, 1.54, 0.4), (2.55, 1.44, 0.33))):        # tufos em volta
+        for j in range(5):
+            a = math.tau * (j + 0.5 * i) / 5
+            d = V((math.cos(a), 0, math.sin(a)))
+            b0 = V((0, y, zz)) + d * (r_ * 0.62)
+            add(fluff("brushlock%d_%d" % (i, j), b0, b0 + d * (r_ * 0.6) + V((0, 0.42, -0.05)), 0.17, dark if i < 2 else mane), "tail2")
+    add(fluff("brushtip", (0, 2.66, 1.38), (0, 3.16, 1.1), 0.27, mane), "tail2")
+    rc = V((0, 1.5, 1.57))
+    add(_ring("tailring", rc, (0, 1, 0.12), 0.33, 0.065, iron, 10, 5), "tail", True)
+    for j in range(4):
+        a = math.tau * (j + 0.5) / 4
+        add(_stud("tailstud%d" % j, rc + V((math.cos(a) * 0.39, 0, math.sin(a) * 0.39)), 0.045, brass), "tail", True)
+    add(_ring("taillink", rc + V((0, 0, -0.45)), (1, 0, 0), 0.08, 0.026, iron2, 6, 4), "tail", True)
+
+    objs = [o for o, _b in parts]
+    for o in objs:
+        if o.name not in flat:
+            ck._smooth(o.data)
+    _outward(objs)
+    for o in objs:
+        for v in o.data.vertices:
+            v.co *= K
+    by_bone = {}
+    for o, bone_ in parts:
+        by_bone.setdefault(bone_, []).append(o)
+    for bone_, objs_ in by_bone.items():
+        lp.attach(ck._join(objs_, "iw_" + bone_), arm, bone_)
+    _iw_clips(arm, K)
+    legs = ("leg_fr", "leg_fl", "leg_br", "leg_bl")
+    live = [c for c in IW_CLIPS if c != "die"]
+    _tail_ground(arm, live, ("tail", "tail2"))
+    _ground(arm, live, legs, IW_TUCK * K, heads=("head", "jaw"))
+    _ground(arm, ["die"], (), 0.0, DIE_SINK, head=False)
+    return arm
+
+
+def _iw_clips(arm, K):
+    """Mesmos eixos do javali (ver `_boar_clips`): corpo X+ = focinho desce, gira em volta da anca; cabeça X+ = abaixa, X- = ergue
+    (uivo), Z = vira; mandíbula X- = ABRE; rabo/rabo2 X+ = sobe, Z = abana. `chain` (corrente solta, filha do corpo): X = balança
+    para a frente/trás, Z = para os lados. `flare` (runas grandes) só muda de ESCALA: IW_FLARE_REST = escondidas dentro das chapas,
+    1,0 = acesas. Toda chave leva escala (`_eclip`)."""
+    z = (0, 0, 0)
+    r = lambda x=0.0, y=0.0, zz=0.0: (x, y, zz)
+    p = lambda up=0.0, fwd=0.0: (0, up * K, fwd * K)
+    jw = lambda seq: [(f, (-a, 0, 0), z) for f, a in seq]           # graus de boca ABERTA
+    ch = lambda seq: [(f, (a, 0, b_), z) for f, a, b_ in seq]       # corrente: (quadro, frente/trás, lado)
+    fl = lambda seq: [(f, z, z, (s, s, s)) for f, s in seq]         # runas grandes: (quadro, escala)
+    F0 = IW_FLARE_REST
+    tau = math.tau
+    sin, cos = math.sin, math.cos
+    legs = ("leg_fr", "leg_fl", "leg_br", "leg_bl")
+
+    def clip(name, keys, end, loop=False):
+        if "flare" not in keys:
+            keys["flare"] = fl([(1, F0), (end, F0)])
+        _eclip(arm, name, keys, end, loop)
+
+    def lin(seq, f):
+        if f <= seq[0][0]:
+            return seq[0][1]
+        for a, b_ in zip(seq, seq[1:]):
+            if a[0] <= f <= b_[0]:
+                return a[1] + (b_[1] - a[1]) * (f - a[0]) / float(b_[0] - a[0])
+        return seq[-1][1]
+
+    def planted(body, extra=None, drop=None):
+        """patas que seguem o corpo (bg.plant); drop = [(quadro, quanto)] estica as patas da FRENTE para baixo (corpo empinado no uivo)"""
+        k = {g: bg.plant(body, g, (extra or {}).get(g, ())) for g in legs}
+        if drop:
+            for g in ("leg_fr", "leg_fl"):
+                fr = sorted({q[0] for q in k[g]} | {q[0] for q in drop})
+                k[g] = [(f, bg._at(k[g], f, 1), tuple(a + b_ for a, b_ in zip(bg._at(k[g], f, 2), (0, lin(drop, f) * K, 0)))) for f in fr]
+        return k
+
+    def shake(f0, f1, amp, base=0.0):
+        return [(f, base + amp * (0.5 if i % 2 else -0.5), amp * (1 if i % 2 else -1)) for i, f in enumerate(range(f0, f1 + 1, 2))]
+
+    # ---- idle: respira, ofega de boca entreaberta, olha de um lado para o outro, abana o rabo devagar ----
+    n = 48
+    k = {b_: [] for b_ in ("body", "head", "jaw", "tail", "tail2", "leg_fr", "leg_fl", "chain")}
+    for f in list(range(1, n, 3)) + [n]:
+        a = (f - 1) / (n - 1) * tau
+        k["body"].append((f, r(1.5 * sin(a)), p(0.025 * (0.5 - 0.5 * cos(a)))))
+        k["head"].append((f, r(3 + 3 * sin(a + 0.6), 0, 7 * sin(a)), z))
+        k["jaw"].append((f, r(-4 - 3 * sin(2 * a)), z))
+        k["tail"].append((f, r(-6 + 4 * sin(a), 0, 12 * sin(2 * a)), z))
+        k["tail2"].append((f, r(-4, 0, 16 * sin(2 * a - 0.9)), z))
+        k["leg_fr"].append((f, r(-1.5 * sin(a)), z))
+        k["leg_fl"].append((f, r(-1.5 * sin(a)), z))
+        k["chain"].append((f, r(3 * sin(a + 1.0), 0, 4 * sin(2 * a)), z))
+    clip("idle", k, n, loop=True)
+
+    # ---- run: galope de lobo, corpo ondulando, rabo estendido, corrente para trás ----
+    n = 16
+    k = {b_: [] for b_ in ("body", "head", "jaw", "tail", "tail2", "chain") + legs}
+    for f in range(1, n + 1):
+        a = (f - 1) / (n - 1) * tau
+        k["body"].append((f, r(-6 * cos(a), 0, 2 * sin(a)), p(0.1 * (0.5 + 0.5 * sin(a)))))
+        k["head"].append((f, r(5 * cos(a) + 6, 0, -2 * sin(a)), z))
+        k["jaw"].append((f, r(-10 - 6 * sin(a)), z))
+        k["leg_fr"].append((f, r(-36 * sin(a) + 6 * cos(a)), z))
+        k["leg_fl"].append((f, r(-36 * sin(a - 0.45) + 6 * cos(a)), z))
+        k["leg_br"].append((f, r(34 * sin(a + 0.3) + 6 * cos(a)), z))
+        k["leg_bl"].append((f, r(34 * sin(a - 0.15) + 6 * cos(a)), z))
+        k["tail"].append((f, r(10 + 8 * sin(a - 1.2), 0, 5 * sin(a + 0.6)), z))
+        k["tail2"].append((f, r(6 + 10 * sin(a - 2.0), 0, 6 * sin(a)), z))
+        k["chain"].append((f, r(12 + 8 * sin(a - 1.0), 0, 6 * sin(a + 0.4)), z))
+    clip("run", k, n, loop=True)
+
+    # ---- attack (5): recolhe de boca aberta e fecha a mordida para a frente ----
+    e = 16
+    clip("attack", {
+        "body": [(1, z, z), (3, r(4), p(-0.04, -0.14)), (5, r(2), p(0.0, 0.34)), (8, r(1), p(0, 0.24)), (12, z, p(0, 0.06)), (e, z, z)],
+        "head": [(1, z, z), (3, r(-16, 0, 5), z), (4, r(-10), z), (5, r(12, 0, -3), z), (8, r(6), z), (12, r(1), z), (e, z, z)],
+        "jaw": jw([(1, 0), (3, 38), (4, 46), (5, 4), (7, 0), (e, 0)]),
+        "leg_fr": [(1, z, z), (3, r(10), z), (5, r(-24), z), (8, r(-16), z), (12, r(-4), z), (e, z, z)],
+        "leg_fl": [(1, z, z), (3, r(8), z), (5, r(-18), z), (8, r(-12), z), (12, r(-3), z), (e, z, z)],
+        "leg_br": [(1, z, z), (3, r(-12), z), (5, r(26), z), (8, r(18), z), (12, r(4), z), (e, z, z)],
+        "leg_bl": [(1, z, z), (3, r(-12), z), (5, r(22), z), (8, r(15), z), (12, r(3), z), (e, z, z)],
+        "tail": [(1, z, z), (3, r(14), z), (5, r(-10), z), (9, r(6, 0, 10), z), (e, z, z)],
+        "tail2": [(1, z, z), (3, r(10), z), (5, r(-14), z), (9, r(8, 0, 14), z), (e, z, z)],
+        "chain": ch([(1, 0, 0), (3, -8, 0), (5, 14, 3), (8, -6, -3), (11, 3, 2), (e, 0, 0)]),
+    }, e)
+
+    # ---- hit: tranco para trás, cabeça vira, ganido ----
+    body = [(1, z, z), (2, r(-5, 0, 4), p(0.01, -0.09)), (5, r(3, 0, -2), p(0, -0.04)), (7, r(-1), p(0, -0.012)), (10, z, z)]
+    k = planted(body, {"leg_fr": [(2, -10), (5, 4)], "leg_fl": [(2, -7), (5, 3)], "leg_br": [(2, 8), (5, -3)], "leg_bl": [(2, 6), (5, -3)]})
+    k.update({"body": body, "head": [(1, z, z), (2, r(-16, 0, 16), z), (5, r(8, 0, -7), z), (7, r(-2), z), (10, z, z)],
+              "jaw": jw([(1, 0), (2, 26), (5, 8), (10, 0)]),
+              "tail": [(1, z, z), (2, r(-20), z), (5, r(-10, 0, 8), z), (10, z, z)],
+              "tail2": [(1, z, z), (2, r(-24), z), (5, r(-14, 0, 12), z), (10, z, z)],
+              "chain": ch([(1, 0, 0), (2, -14, -8), (4, 9, 6), (6, -5, -4), (8, 2, 2), (10, 0, 0)])})
+    clip("hit", k, 10)
+
+    # ---- atk_charge (5): recua, dispara de boca aberta, crava a mordida e corre sacudindo a presa ----
+    e = 20
+    clip("atk_charge", {
+        "body": [(1, z, z), (3, r(6), p(-0.06, -0.22)), (5, r(-2), p(0.06, 0.52)), (7, r(3), p(0.02, 0.6)), (9, r(-3), p(0.05, 0.56)), (11, r(4), p(0.01, 0.44)),
+                 (14, r(1), p(0, 0.2)), (17, z, p(0, 0.04)), (e, z, z)],
+        "head": [(1, z, z), (3, r(-12), z), (4, r(-18), z), (5, r(8), z), (7, r(14, 0, 12), z), (9, r(10, 0, -14), z), (11, r(12, 0, 9), z), (14, r(4), z), (e, z, z)],
+        "jaw": jw([(1, 0), (3, 30), (4, 50), (5, 6), (7, 2), (9, 4), (11, 2), (e, 0)]),
+        "leg_fr": [(1, z, z), (3, r(16), z), (5, r(-48), z), (7, r(10), z), (9, r(-30), z), (11, r(6), z), (14, r(2), z), (e, z, z)],
+        "leg_fl": [(1, z, z), (3, r(12), z), (5, r(-40), z), (7, r(-20), z), (9, r(12), z), (11, r(-14), z), (14, z, z), (e, z, z)],
+        "leg_br": [(1, z, z), (3, r(-26), z), (5, r(42), z), (7, r(-10), z), (9, r(30), z), (11, r(-4), z), (14, r(-2), z), (e, z, z)],
+        "leg_bl": [(1, z, z), (3, r(-26), z), (5, r(36), z), (7, r(20), z), (9, r(-8), z), (11, r(14), z), (14, z, z), (e, z, z)],
+        "tail": [(1, z, z), (3, r(24), z), (5, r(30), z), (9, r(22, 0, 8), z), (12, r(10, 0, -8), z), (16, r(3), z), (e, z, z)],
+        "tail2": [(1, z, z), (3, r(14), z), (5, r(24), z), (9, r(20, 0, 12), z), (12, r(12, 0, -12), z), (16, r(4), z), (e, z, z)],
+        "chain": ch([(1, 0, 0), (3, -10, 0), (5, 22, 3), (8, 16, -4), (11, -8, 4), (14, 4, -2), (17, 0, 0), (e, 0, 0)]),
+    }, e)
+
+    # ---- slam (8): agacha, salta e desaba nas duas patas da frente; a garupa chega depois ----
+    e = 24
+    clip("slam", {
+        "body": [(1, z, z), (3, r(8), p(-0.1, -0.06)), (5, r(-24), p(0.34, 0.1)), (6, r(-16), p(0.46, 0.2)), (7, r(4), p(0.26, 0.28)), (8, r(14), p(-0.06, 0.32)),
+                 (10, r(9), p(-0.02, 0.3)), (12, r(11), p(-0.05, 0.28)), (15, r(4), p(-0.01, 0.16)), (20, r(-1), p(0, 0.03)), (e, z, z)],
+        "head": [(1, z, z), (3, r(10), z), (5, r(-20), z), (6, r(-10), z), (8, r(18), z), (10, r(4, 0, 5), z), (12, r(8, 0, -4), z), (16, r(2), z), (e, z, z)],
+        "jaw": jw([(1, 0), (3, 6), (5, 30), (6, 36), (8, 8), (10, 22), (12, 10), (e, 0)]),
+        "leg_fr": [(1, z, z), (3, r(10), z), (5, r(-50), z), (6, r(-58), z), (7, r(-34), z), (8, r(-22), z), (10, r(-13), z), (12, r(-13), z), (15, r(-4), z), (e, z, z)],
+        "leg_fl": [(1, z, z), (3, r(10), z), (5, r(-42), z), (6, r(-52), z), (7, r(-30), z), (8, r(-22), z), (10, r(-13), z), (12, r(-13), z), (15, r(-4), z), (e, z, z)],
+        "leg_br": [(1, z, z), (3, r(-16), z), (5, r(40), z), (6, r(44), z), (7, r(24), z), (8, r(4), z), (10, r(-9), z), (12, r(-11), z), (15, r(-4), z), (e, z, z)],
+        "leg_bl": [(1, z, z), (3, r(-16), z), (5, r(36), z), (6, r(40), z), (7, r(20), z), (8, r(2), z), (10, r(-9), z), (12, r(-11), z), (15, r(-4), z), (e, z, z)],
+        "tail": [(1, z, z), (3, r(-10), z), (5, r(30), z), (6, r(40), z), (8, r(-16), z), (12, r(8, 0, 10), z), (16, r(2, 0, -6), z), (e, z, z)],
+        "tail2": [(1, z, z), (3, r(-8), z), (5, r(18), z), (6, r(32), z), (8, r(-24), z), (10, r(-10), z), (12, r(10, 0, 12), z), (16, r(2, 0, -8), z), (e, z, z)],
+        "chain": ch([(1, 0, 0), (3, 4, 0), (5, -16, 0), (6, -10, 2), (8, 24, -3), (10, -12, 4), (12, 8, -3), (15, -4, 2), (20, 1, 0), (e, 0, 0)]),
+    }, e)
+
+    # ---- roar / shout (7): uivo, focinho para o céu; as runas grandes começam a aparecer ----
+    e = 24
+    body = [(1, z, z), (4, r(6), p(-0.05, -0.04)), (7, r(-8), p(-0.05, -0.03)), (9, r(-9, 0, 2), p(-0.05, -0.03)), (11, r(-8, 0, -2), p(-0.05, -0.03)),
+            (13, r(-9, 0, 2), p(-0.05, -0.03)), (16, r(-6), p(-0.03, -0.01)), (20, r(1), z), (e, z, z)]
+    k = planted(body, {"leg_fr": [(4, 0, 3), (7, -4, 8), (16, -4, 8), (20, 0, 2)], "leg_fl": [(4, 0, 3), (7, -4, 8), (16, -4, 8), (20, 0, 2)]},
+                drop=[(1, 0), (4, 0), (7, 0.12), (16, 0.1), (20, 0), (e, 0)])
+    k.update({"body": body,
+              "head": [(1, z, z), (4, r(20), z), (6, r(-28), z), (7, r(-58, 0, 4), z), (9, r(-62, 0, -4), z), (11, r(-60, 0, 5), z), (13, r(-62, 0, -4), z),
+                       (16, r(-46), z), (20, r(4), z), (e, z, z)],
+              "jaw": jw([(1, 0), (4, 0), (6, 20), (7, 30), (9, 34), (11, 28), (13, 34), (16, 24), (20, 4), (e, 0)]),
+              "tail": [(1, z, z), (4, r(-8), z), (7, r(30, 0, 8), z), (11, r(34, 0, -8), z), (13, r(32, 0, 6), z), (17, r(12), z), (e, z, z)],
+              "tail2": [(1, z, z), (4, r(-6), z), (7, r(18), z), (11, r(24, 0, -12), z), (13, r(22, 0, 10), z), (17, r(8), z), (e, z, z)],
+              "chain": ch([(1, 0, 0), (4, -4, 0)] + shake(7, 17, 8) + [(20, 2, -2), (e, 0, 0)]),
+              "flare": fl([(1, F0), (6, F0), (8, 0.9), (13, 0.9), (18, F0), (e, F0)])})
+    for name in ("roar", "shout"):
+        clip(name, {b_: list(v) for b_, v in k.items()}, e)
+
+    # ---- maul (7): ergue a pata da frente (+X) e rasga de lado, cruzando a frente ----
+    e = 18
+    body = [(1, z, z), (3, r(-4, -6), p(0.03, -0.05)), (5, r(-9, -12), p(0.05, -0.08)), (7, r(5, 12), p(-0.03, 0.14)), (9, r(6, 16), p(-0.04, 0.12)),
+            (12, r(1, 6), p(0, 0.04)), (e, z, z)]
+    k = planted(body, {"leg_fr": [(3, -30, 12), (5, -72, 30), (7, -40, -16), (9, -22, -20), (12, -6, -4)], "leg_fl": [(5, 4), (7, -8), (9, -6)],
+                       "leg_br": [(5, -6), (7, 12), (9, 8)], "leg_bl": [(5, -6), (7, 10), (9, 6)]})
+    k.update({"body": body,
+              "head": [(1, z, z), (3, r(-6, 0, -10), z), (5, r(-10, 0, -16), z), (7, r(10, 0, 14), z), (9, r(8, 0, 18), z), (12, r(2, 0, 5), z), (e, z, z)],
+              "jaw": jw([(1, 0), (5, 24), (7, 34), (9, 16), (e, 0)]),
+              "tail": [(1, z, z), (5, r(12, 0, -18), z), (7, r(-6, 0, 22), z), (11, r(6, 0, -8), z), (e, z, z)],
+              "tail2": [(1, z, z), (5, r(8, 0, -14), z), (7, r(0, 0, -6), z), (9, r(-6, 0, 24), z), (13, r(4, 0, -8), z), (e, z, z)],
+              "chain": ch([(1, 0, 0), (5, -6, 8), (7, 10, -14), (9, -4, 10), (12, 2, -5), (15, 0, 2), (e, 0, 0)])})
+    clip("maul", k, e)
+
+    # ---- pounce (9): agacha, salta esticado de boca aberta e fecha a mordida ao cair ----
+    e = 20
+    clip("pounce", {
+        "body": [(1, z, z), (3, r(6), p(-0.08, -0.1)), (5, r(10), p(-0.14, -0.18)), (7, r(-16), p(0.4, 0.3)), (8, r(-6), p(0.4, 0.5)), (9, r(10), p(0.02, 0.62)),
+                 (11, r(7), p(-0.03, 0.5)), (13, r(4), p(-0.02, 0.3)), (17, r(-1), p(0, 0.06)), (e, z, z)],
+        "head": [(1, z, z), (5, r(12), z), (7, r(-18), z), (8, r(-14), z), (9, r(14), z), (11, r(10, 0, 8), z), (13, r(6, 0, -6), z), (16, r(2), z), (e, z, z)],
+        "jaw": jw([(1, 0), (5, 4), (7, 44), (8, 50), (9, 4), (11, 2), (e, 0)]),
+        "leg_fr": [(1, z, z), (5, r(20), z), (7, r(-58), z), (8, r(-46), z), (9, r(-14), z), (11, r(-9), z), (13, r(-5), z), (e, z, z)],
+        "leg_fl": [(1, z, z), (5, r(20), z), (7, r(-50), z), (8, r(-40), z), (9, r(-14), z), (11, r(-9), z), (13, r(-5), z), (e, z, z)],
+        "leg_br": [(1, z, z), (5, r(-30), z), (7, r(48), z), (8, r(42), z), (9, r(-8), z), (11, r(-7), z), (13, r(-4), z), (e, z, z)],
+        "leg_bl": [(1, z, z), (5, r(-30), z), (7, r(42), z), (8, r(36), z), (9, r(-8), z), (11, r(-7), z), (13, r(-4), z), (e, z, z)],
+        "tail": [(1, z, z), (5, r(-12), z), (7, r(26), z), (9, r(-14), z), (13, r(6, 0, 8), z), (e, z, z)],
+        "tail2": [(1, z, z), (5, r(-10), z), (7, r(16), z), (8, r(24), z), (9, r(-20), z), (13, r(8, 0, 12), z), (e, z, z)],
+        "chain": ch([(1, 0, 0), (5, 6, 0), (7, -18, 0), (9, 22, 3), (11, -10, -3), (13, 6, 2), (17, -2, 0), (e, 0, 0)]),
+    }, e)
+
+    # ---- brace (6): crava as patas abertas, abaixa o corpo e a cabeça, rosna ----
+    e = 18
+    body = [(1, z, z), (3, r(-3), p(0.02)), (6, r(7), p(-0.14, 0.04)), (9, r(6), p(-0.12, 0.04)), (12, r(7), p(-0.14, 0.04)), (15, r(2), p(-0.03, 0.01)), (e, z, z)]
+    spread = [(6, 0, 10), (12, 0, 10)]
+    k = planted(body, {g: spread for g in legs})
+    k.update({"body": body, "head": [(1, z, z), (3, r(-8), z), (6, r(10), z), (9, r(8, 0, 4), z), (12, r(10, 0, -4), z), (15, r(4), z), (e, z, z)],
+              "jaw": jw([(1, 0), (6, 14), (9, 10), (12, 14), (e, 0)]),
+              "tail": [(1, z, z), (6, r(-16), z), (12, r(-14), z), (e, z, z)],
+              "tail2": [(1, z, z), (6, r(-14), z), (12, r(-12, 0, 6), z), (e, z, z)],
+              "chain": ch([(1, 0, 0), (3, 4, 0), (6, -8, 2), (9, -3, -2), (12, -6, 1), (15, -1, 0), (e, 0, 0)])})
+    clip("brace", k, e)
+
+    # ---- cast_ground (10): abaixa e inspira, joga o focinho para o céu e uiva longo chamando a matilha; as runas acendem ----
+    e = 24
+    body = [(1, z, z), (3, r(8), p(-0.1, 0.0)), (6, r(10), p(-0.14, 0.02)), (8, r(-5), p(-0.06, -0.03)), (10, r(-11), p(-0.07, -0.05)), (12, r(-10, 0, 2), p(-0.07, -0.05)),
+            (14, r(-11, 0, -2), p(-0.07, -0.05)), (16, r(-10, 0, 2), p(-0.07, -0.05)), (19, r(-4), p(-0.03, -0.02)), (e, z, z)]
+    front = [(8, -3, 4), (10, -5, 10), (16, -5, 10), (19, -2, 3)]
+    k = planted(body, {"leg_fr": front, "leg_fl": front, "leg_br": [(10, 0, 5), (16, 0, 5)], "leg_bl": [(10, 0, 5), (16, 0, 5)]},
+                drop=[(1, 0), (8, 0.04), (10, 0.16), (16, 0.15), (19, 0.04), (e, 0)])
+    k.update({"body": body,
+              "head": [(1, z, z), (3, r(20, 0, 6), z), (6, r(26, 0, -6), z), (8, r(-20), z), (10, r(-62), z), (12, r(-64, 0, 5), z), (14, r(-62, 0, -5), z),
+                       (16, r(-64, 0, 4), z), (19, r(-20), z), (e, z, z)],
+              "jaw": jw([(1, 0), (3, 6), (6, 10), (8, 20), (10, 34), (12, 30), (14, 36), (16, 30), (19, 10), (e, 0)]),
+              "tail": [(1, z, z), (3, r(-10), z), (6, r(-14), z), (8, r(20), z), (10, r(40), z), (13, r(42, 0, 8), z), (16, r(40, 0, -8), z), (20, r(10), z), (e, z, z)],
+              "tail2": [(1, z, z), (3, r(-8), z), (6, r(-12), z), (8, r(8), z), (10, r(22), z), (13, r(26, 0, 12), z), (16, r(24, 0, -12), z), (20, r(8), z), (e, z, z)],
+              "chain": ch([(1, 0, 0), (3, 4, 2), (6, 6, -2), (8, -8, 0)] + shake(10, 16, 9) + [(19, 2, -1), (e, 0, 0)]),
+              "flare": fl([(1, F0), (6, 0.86), (8, 0.94), (10, 1.04), (12, 0.98), (14, 1.04), (16, 0.98), (19, 0.9), (e, F0)])})
+    clip("cast_ground", k, e)
+
+    # ---- die: cambaleia com o golpe, os joelhos da frente cedem, tomba de lado e quica; as runas se apagam ----
+    s = 1.4
+    f = lambda x: int(round(1 + (x - 1) * s))
+    e = f(24)
+    roll = IW_DIE_ROLL
+    clip("die", {
+        "body": [(1, z, z), (f(4), r(-9), p(0.02, -0.05)), (f(9), r(9), p(-0.06, 0.02)), (f(14), r(3), p(-0.02)), (e, r(3), p(-0.02))],
+        "head": [(1, z, z), (f(4), r(-30, 0, 8), z), (f(9), r(22), z), (f(14), r(8, 0, 12), z), (f(17), r(0, 0, 7), z), (f(20), r(8, 0, 12), z), (e, r(8, 0, 12), z)],
+        "jaw": jw([(1, 0), (f(4), 36), (f(9), 8), (f(14), 24), (e, 18)]),
+        "leg_fr": [(1, z, z), (f(4), r(-16), z), (f(9), r(30), z), (f(14), r(-18), z), (f(17), r(-25), z), (e, r(-18), z)],
+        "leg_fl": [(1, z, z), (f(4), r(-12), z), (f(9), r(26), z), (f(14), r(-9), z), (f(17), r(-14), z), (e, r(-9), z)],
+        "leg_br": [(1, z, z), (f(4), r(8), z), (f(9), r(-16), z), (f(14), r(14), z), (f(17), r(21), z), (e, r(14), z)],
+        "leg_bl": [(1, z, z), (f(4), r(8), z), (f(9), r(-16), z), (f(14), r(23), z), (f(17), r(28), z), (e, r(23), z)],
+        "tail": [(1, z, z), (f(4), r(-18), z), (f(9), r(-22), z), (f(14), r(4, 0, 10), z), (f(17), r(8, 0, 16), z), (e, r(2, 0, 10), z)],
+        "tail2": [(1, z, z), (f(4), r(-14), z), (f(9), r(-24), z), (f(14), r(-6, 0, 14), z), (f(17), r(6, 0, 22), z), (e, r(-4, 0, 16), z)],
+        "chain": ch([(1, 0, 0), (f(4), -12, 0), (f(9), 14, 4), (f(14), -6, 20), (f(17), -3, 12), (f(20), -6, 24), (e, -6, 24)]),
+        "flare": fl([(1, F0), (f(4), 0.92), (f(9), F0), (f(14), 0.7), (e, 0.5)]),
+        "root": [(1, z, z), (f(9), z, z), (f(14), r(0, 0, roll), z), (f(17), r(0, 0, roll + 7), z), (f(20), r(0, 0, roll), z), (e, r(0, 0, roll), z)],
+    }, e)
+
+
+# ---------------------------------------------------------------------------
+# Gamo de Porcelana da Festa (faixa 45-50, Lumeria)
+# ---------------------------------------------------------------------------
+PS_SIZE = 0.56             # unidades de desenho -> nativo: lombo ~1,05, cabeça ~1,75, ponta dos chifres ~2,3
+PS_TUCK = 0.3
+PS_SPINE = [((0, 0.9, 1.5), 0.27), ((0, 0.5, 1.52), 0.34), ((0, 0.0, 1.5), 0.34), ((0, -0.48, 1.54), 0.4), ((0, -0.8, 1.6), 0.32)]
+PS_NECK = [((0, -0.72, 1.66), 0.27), ((0, -1.04, 2.08), 0.165), ((0, -1.0, 2.5), 0.125), ((0, -1.16, 2.86), 0.135)]
+PS_HEAD = (0, -1.3, 2.92)
+PS_AXIS_Z = 1.52           # eixo do tronco: os veios de ouro acesos (osso `seam`) entram/saem em volta dele
+PS_SEAM_IN = 0.8           # em repouso o veio aceso fica recolhido dentro da porcelana (escala radial)
+PS_FLARE = 1.3             # escala radial do osso `seam` com o veio todo para fora (1/PS_SEAM_IN + folga)
+PS_HANG = 0.9              # quanto as lanternas desfazem a inclinação de corpo + cabeça (1 = sempre a prumo)
+PS_CLIPS = ("idle", "run", "attack", "hit", "die", "atk_charge", "slam", "roar", "shout", "maul", "pounce", "brace", "cast_ground")
+PS_IMPACT = {"attack": 5, "atk_charge": 5, "slam": 8, "roar": 7, "shout": 7, "maul": 7, "pounce": 9, "brace": 6, "cast_ground": 10}
+PS_LANTERNS = ("lantern_a", "lantern_b", "lantern_c")
+PS_GLOW = 1.0              # lanternas, lágrima e veios acesos (degraus de 0,25: EntityView.mob_glow)
+PS_DIE_ROLL = -84
+PS_DIE_HEAD = (24, 80, 0)
+
+PS_PORC = (0.94, 0.92, 0.88)          # corpo: porcelana um tom abaixo do branco (o branco puro estoura no toon)
+PS_PORC_D = (0.8, 0.82, 0.86)         # sombra fria da louça (barriga, parte de dentro das pernas)
+PS_MASK = (0.99, 0.98, 0.96)
+PS_INK = (0.2, 0.34, 0.74)            # azul-cobalto da pintura
+PS_INK_L = (0.56, 0.7, 0.93)          # aguada azul
+PS_BLACK = (0.1, 0.08, 0.12)          # olhos da máscara (lumeria_kit.INK)
+PS_GOLD = (0.74, 0.5, 0.17)           # ouro velho (kintsugi, cascos)
+PS_GOLD_L = (0.92, 0.7, 0.28)          # ouro claro (guizos, filigrana)
+PS_ROSE = (0.9, 0.46, 0.56)           # seda da festa
+PS_ROSE_D = (0.68, 0.28, 0.42)
+PS_JADE = (0.56, 0.82, 0.74)
+PS_GLASS = (0.74, 0.88, 0.95)
+PS_LANT = (1.0, 0.7, 0.34)             # papel aceso (quente)
+PS_LANT2 = (1.0, 0.5, 0.56)          # lanterninhas rosadas
+PS_TEAR = (1.0, 0.45, 0.58)
+PS_SEAM = (1.0, 0.66, 0.2)
+
+
+def _ps_spiral(c, u, w, r0, r1, a0, a1, n):
+    """Pontos de uma voluta em volta de c no plano (u, w): raio r0 -> r1, ângulo a0 -> a1 (graus)."""
+    c, u, w = V(c), V(u).normalized(), V(w).normalized()
+    out = []
+    for i in range(n + 1):
+        t = i / n
+        a = math.radians(a0 + (a1 - a0) * t)
+        out.append(c + (u * math.cos(a) + w * math.sin(a)) * (r0 + (r1 - r0) * t))
+    return out
+
+
+def _ps_taper(name, pts, r0, r1, material, segs=5):
+    n = len(pts) - 1
+    return _horn(name, pts, [r0 + (r1 - r0) * i / n for i in range(n + 1)], material, segs)
+
+
+def _ps_lantern(name, hook, drop, s, paper, gold, silk, tassel=0.0, hoops=True, segs=8):
+    """Lanterna de papel (meia-altura s) pendurada de `hook` por um fio de `drop`: bojo facetado aceso, tampas de ouro e borla de seda."""
+    hook = V(hook)
+    c = hook - V((0, 0, drop + s))
+    zs = (-1.0, -0.62, 0.0, 0.62, 1.0)
+    rs = (0.5, 0.88, 1.0, 0.88, 0.5)
+    out = [_horn(name + "_paper", [c + V((0, 0, zz * s)) for zz in zs], [rr * s * 0.86 for rr in rs], paper, segs),
+           ck.tube(name + "_cap", c + V((0, 0, s * 0.94)), c + V((0, 0, s * 1.16)), s * 0.5, s * 0.3, gold, 6),
+           ck.tube(name + "_base", c - V((0, 0, s * 1.14)), c - V((0, 0, s * 0.94)), s * 0.34, s * 0.5, gold, 6),
+           ck.tube(name + "_string", hook, c + V((0, 0, s * 1.1)), 0.012, 0.012, gold, 3)]
+    for zz in ((-0.4, 0.4) if hoops else ()):      # aros finos do papel
+        out.append(ck.tube("%s_hoop%d" % (name, zz > 0), c + V((0, 0, zz * s - 0.012)), c + V((0, 0, zz * s + 0.012)), s * 0.84, s * 0.84, gold, 8))
+    if tassel > 0.0:
+        t0 = c - V((0, 0, s * 1.1))
+        out.append(ck.tube(name + "_tassel_k", t0, t0 - V((0, 0, tassel * 0.25)), 0.014, 0.014, gold, 3))
+        out.append(ck.tube(name + "_tassel", t0 - V((0, 0, tassel * 0.2)), t0 - V((0, 0, tassel)), s * 0.1, s * 0.3, silk, 5))
+    return out
+
+
+def porcelain_stag(cid="mob_porcelain_stag"):
+    """Gamo de Porcelana da Festa (Chefe de Mundo 45-50, Lumeria). Peças rígidas, uma malha por osso (`ps_<osso>`): rig de
+    quadrúpede + `tail`, `antler` (filho da cabeça), `lantern_a/b/c` (filhos de `antler`: as três lanternas grandes de papel,
+    balançam e acendem por escala) e `seam` (filho do corpo: os veios de kintsugi ACESOS, recolhidos dentro da louça em repouso;
+    escala radial PS_FLARE os põe para fora no `slam`, `hit`, `die`...). Louça branca com pintura azul-cobalto, veios de ouro,
+    máscara oval de festa com lágrima acesa (lumeria_kit.mask), chifres em lira com renda de ouro, fitas de seda e lanterninhas,
+    manta e arreio de seda com guizos, espelho no peito, joelhos em esfera e cascos dourados.
+    Clipes: PS_CLIPS (impactos em PS_IMPACT); `atk_charge` = investida com os chifres deitados, `slam` = empina e bate os cascos
+    (veios acendem), `roar`/`shout` = sacode a cabeça em silêncio (lanternas voam), `cast_ground` = reverência (lanternas acendem),
+    `maul` = varrida de chifres, `die` = tomba dura como estatueta. Nativo: 1,4 x 1,8 x 2,35 de altura; sugestão MonsterDef.scale 2,8-3,0."""
+    import lumeria_kit as lk
+    K = PS_SIZE
+    S = lambda p: tuple(x * K for x in p)
+    rnd = random.Random(77)
+    hc = V(PS_HEAD)
+    fd = V((0, -0.82, -0.57)).normalized()          # para onde aponta o focinho
+    fn = V((0, -0.57, 0.82)).normalized()           # normal do rosto (para cima e para a frente): a máscara olha a câmera alta
+    bones = mk.pivots(body=S((0, 0.8, 1.4)), head=S((0, -0.74, 1.68)),
+                      leg_fr=S((0.26, -0.5, 1.4)), leg_fl=S((-0.26, -0.5, 1.4)),
+                      leg_br=S((0.24, 0.78, 1.4)), leg_bl=S((-0.24, 0.78, 1.4)))
+    # chifres (lira inclinada para trás): haste por P, mesma dos dois lados
+    AP = lambda sx: [V((sx * 0.12, -1.2, 3.08)), V((sx * 0.46, -1.08, 3.38)), V((sx * 0.82, -0.92, 3.66)), V((sx * 0.96, -0.78, 3.98))]
+    HOOK = {}                                       # ponto de onde cada lanterna grande pende
+    for sx in (-1, 1):
+        P = AP(sx)
+        arm_pts = [P[2], P[2] + V((sx * 0.26, 0.0, 0.1))]
+        c = arm_pts[1] + V((0, 0, -0.14))
+        HOOK[sx] = _ps_spiral(c, (sx, 0, 0), (0, 0, 1), 0.14, 0.1, 90, -90, 6)[-1]
+    GA, GB = AP(-1)[3] + V((0, 0.0, 0.06)), AP(1)[3] + V((0, 0.0, 0.06))
+    gar = []
+    for i in range(9):
+        t = i / 8.0
+        sag = 4 * t * (1 - t)
+        gar.append(GA.lerp(GB, t) + V((0, 0.1 * sag, -0.34 * sag)))
+    HOOK[0] = gar[4].copy()
+    hd = V((0, -0.4, 0.2)).normalized() * 0.3       # mesma direção do osso `head`: os eixos das lanternas são os da cabeça
+    th, ah, sp = S((0, 0.98, 1.62)), S((0, -1.2, 3.1)), S((0, 0.0, PS_AXIS_Z))
+    extra = dict(tail=(th, (th[0], th[1] + 0.3, th[2] + 0.04), "body"),
+                 antler=(ah, (ah[0], ah[1], ah[2] + 0.3), "head"),
+                 seam=(sp, (sp[0], sp[1] + 0.3, sp[2]), "body"))
+    for bone_, key in (("lantern_a", 1), ("lantern_b", -1), ("lantern_c", 0)):
+        h = S(HOOK[key])
+        extra[bone_] = (h, (h[0] + hd.x, h[1] + hd.y, h[2] + hd.z), "antler")
+    arm = lp.make_armature("rig_" + cid, dict(bones, **extra))
+    m = lambda n, col, rough=0.85, em=0.0: ck.mat("m_%s_%s" % (cid, n), col, rough, em)
+    porc, porc2, maskm = m("porc", PS_PORC, 0.35), m("porc2", PS_PORC_D, 0.35), m("mask", PS_MASK, 0.3)
+    ink, ink2, black = m("ink", PS_INK, 0.5), m("ink2", PS_INK_L, 0.5), m("black", PS_BLACK, 0.6)
+    gold, gold2 = m("gold", PS_GOLD, 0.4), m("gold2", PS_GOLD_L, 0.35)
+    rose, rose2, jade = m("silk", PS_ROSE, 0.7), m("silk2", PS_ROSE_D, 0.7), m("jade", PS_JADE, 0.7)
+    glass = m("glass", PS_GLASS, 0.15, 0.4)
+    paper = ck.mat("glow_%s_lantern" % cid, PS_LANT, 0.5, PS_GLOW)
+    paper2 = ck.mat("glow_%s_lantern2" % cid, PS_LANT2, 0.5, PS_GLOW)
+    tear = ck.mat("glow_%s_tear" % cid, PS_TEAR, 0.3, PS_GLOW)
+    seamg = ck.mat("glow_%s_seam" % cid, PS_SEAM, 0.3, PS_GLOW)
+    M = {"porc": maskm, "gold": gold, "ink": black, "glow": tear, "glass": glass}
+    parts, flat = [], set()
+
+    def add(o, bone_, faceted=False):
+        for x in (o if isinstance(o, (list, tuple)) else [o]):
+            parts.append((x, bone_))
+            if faceted:
+                flat.add(x.name)
+
+    # ---------------- tronco esguio de louça ----------------
+    body = mk.skin_body("body", PS_SPINE, [(i, i + 1) for i in range(len(PS_SPINE) - 1)], porc)
+    add(body, "body")
+    cast = _caster(body)
+
+    def around(y, a_deg, lift=0.0):
+        """ponto do tronco na fatia y, no ângulo a (0 = flanco +X, 90 = lombo, 180 = flanco -X, 270 = barriga)"""
+        a = math.radians(a_deg)
+        ax = V((0, y, PS_AXIS_Z))
+        o = ax + V((math.cos(a), 0, math.sin(a))) * 3
+        p, n = cast(o, ax - o)
+        if p is None:
+            n = V((math.cos(a), 0, math.sin(a)))
+            p = ax + n * 0.34
+        return p + n * lift, n
+
+    def onto(q, n, lift=0.0):
+        p, n2 = cast(V(q) + V(n) * 0.3, -V(n))
+        return (p + n2 * lift, n2) if p is not None else (V(q), V(n))
+
+    def dot(name, p, n, r_, material):
+        return _stud(name, V(p) - V(n) * (r_ * 0.5), r_, material)
+
+    def rosette(name, y, a_deg, r_, petals=5, mat_=None, core=None):
+        """flor pintada: pétalas de tinta em volta de um miolo de ouro, rente à louça"""
+        p, n = around(y, a_deg)
+        _d, u, w = _perp(n)
+        out = []
+        for k_ in range(petals):
+            a = math.tau * k_ / petals + 0.3
+            q, qn = onto(p + (u * math.cos(a) + w * math.sin(a)) * r_, n)
+            out.append(dot("%s_p%d" % (name, k_), q, qn, r_ * 0.62, mat_ or ink))
+        out.append(dot(name + "_c", p + n * 0.012, n, r_ * 0.5, core or gold2))
+        return out
+
+    def crack(ctrl, seed):
+        r2 = random.Random(seed)
+        out = []
+        for i in range(len(ctrl) - 1):
+            (y0, a0), (y1, a1) = ctrl[i], ctrl[i + 1]
+            for j in range(2):
+                t = j / 2.0
+                first = i == 0 and j == 0
+                out.append((y0 + (y1 - y0) * t + (0 if first else r2.uniform(-0.035, 0.035)), a0 + (a1 - a0) * t + (0 if first else r2.uniform(-7, 7))))
+        out.append(ctrl[-1])
+        return out
+
+    add(mk.blob("belly", 0.3, (0, -0.05, 1.3), porc2, (0.88, 2.4, 0.5), 2), "body")
+    # garupa mergulhada em aguada azul, de borda recortada, com bolinhas brancas
+    add(_shell("glaze", body, lambda c, n: c.y > 0.62 + 0.07 * math.sin(math.atan2(c.z - PS_AXIS_Z, c.x) * 6.0), 0.012, ink2), "body")
+    for i, a_ in enumerate(range(-10, 200, 30)):                # filete escuro na borda da aguada
+        p, n = around(0.58 + 0.07 * math.sin(math.radians(a_) * 6.0), a_)
+        add(dot("glazerim%d" % i, p, n, 0.05, ink), "body", True)
+    # flores e ramos pintados (azul-cobalto, miolo de ouro)
+    for i, (y, a_, r_) in enumerate(((-0.62, 26, 0.11), (-0.62, 154, 0.11), (0.62, 40, 0.085), (0.62, 140, 0.085), (-0.56, 92, 0.085))):
+        add(rosette("rose%d" % i, y, a_, r_), "body", True)
+    for sx in (-1, 1):
+        A = lambda a_: 90 - sx * (90 - a_)                      # espelha o ângulo
+        vine = [around(y, A(a_), 0.004)[0] for y, a_ in ((-0.3, 16), (-0.16, 2), (0.0, 14), (0.14, 0), (0.28, 12), (0.42, -2), (0.52, 12))]
+        add(_strap("vine%d" % sx, vine, 0.034, 0.026, ink, 4), "body")
+        for i, (y, a_) in enumerate(((-0.16, -12), (0.0, 26), (0.14, -14), (0.28, 24), (0.42, -16))):
+            p, n = around(y, A(a_))
+            add(dot("leaf%d_%d" % (sx, i), p, n, 0.06, (ink2, ink)[i % 2]), "body", True)
+
+    # ---------------- kintsugi: veios de ouro (fixos) e o mesmo veio aceso por baixo (osso seam) ----------------
+    CRACKS = (([(-0.66, 14), (-0.52, 52), (-0.4, 78), (-0.34, 108), (-0.3, 140)], 3),
+              ([(-0.52, 52), (-0.4, 36), (-0.3, 22)], 4),
+              ([(0.5, 162), (0.6, 120), (0.7, 88), (0.84, 58)], 5),
+              ([(0.6, 120), (0.5, 104)], 6),
+              ([(-0.2, -22), (-0.04, -2), (0.12, -16), (0.3, 2), (0.44, -18)], 7),
+              ([(0.02, 196), (0.16, 178), (0.34, 190)], 8),
+              ([(0.92, 34), (0.8, 16), (0.7, 28)], 9))
+    seam_objs = []
+    for i, (ctrl, seed) in enumerate(CRACKS):
+        ya = crack(ctrl, seed)
+        add(_strap("crack%d" % i, [around(y, a_, 0.006)[0] for y, a_ in ya], 0.028, 0.016, gold, 4), "body")
+        if i in (0, 1, 2, 4):
+            seam_objs += _strap("seam%d" % i, [around(y, a_, 0.016)[0] for y, a_ in ya], 0.058, 0.044, seamg, 4)
+    for o in seam_objs:
+        for v in o.data.vertices:
+            v.co.x *= PS_SEAM_IN
+            v.co.z = PS_AXIS_Z + (v.co.z - PS_AXIS_Z) * PS_SEAM_IN
+    add(seam_objs, "seam", True)
+
+    # ---------------- manta de seda e arreio com guizos ----------------
+    def saddle(name, y0, y1, a0, lift, material, ny=6, na=6, wave=7.0):
+        """manta: grade rente ao lombo de y0 a y1, descendo até o ângulo a0 de cada lado (barra em ondas), borda metida na louça"""
+        b = bmesh.new()
+        rows = []
+        for i in range(ny + 1):
+            y = y0 + (y1 - y0) * i / ny
+            lo = a0 + wave * math.cos(i * math.pi)
+            rows.append([b.verts.new(around(y, lo + (180 - 2 * lo) * j / na, lift)[0]) for j in range(na + 1)])
+        for i in range(ny):
+            for j in range(na):
+                b.faces.new((rows[i][j], rows[i][j + 1], rows[i + 1][j + 1], rows[i + 1][j]))
+        edge = [rows[0][j] for j in range(na + 1)] + [rows[i][na] for i in range(1, ny + 1)] + [rows[ny][j] for j in range(na - 1, -1, -1)] + [rows[i][0] for i in range(ny - 1, 0, -1)]
+        inner = [b.verts.new(v.co + (V((0, v.co.y, PS_AXIS_Z)) - v.co).normalized() * (lift + 0.03)) for v in edge]
+        for i in range(len(edge)):
+            j = (i + 1) % len(edge)
+            b.faces.new((edge[i], edge[j], inner[j], inner[i]))
+        bmesh.ops.recalc_face_normals(b, faces=b.faces[:])
+        return ck.mesh_from(name, b, material)
+
+    add(saddle("drape_trim", -0.25, 0.45, 27, 0.02, gold2), "body")
+    add(saddle("drape", -0.2, 0.4, 34, 0.034, rose), "body")
+    for i, (y, a_) in enumerate(((-0.25, 20), (0.45, 20), (-0.25, 160), (0.45, 160))):
+        p, n = around(y, a_, 0.03)
+        add(ck.tube("drapetassel%d" % i, p - V((0, 0, 0.02)), p + n * 0.03 - V((0, 0, 0.24)), 0.02, 0.05, (jade, rose2)[i % 2], 5), "body")
+    for gi, (gy, mt) in enumerate(((-0.36, rose2), (0.56, rose2))):          # cilhas de seda
+        ring = [around(gy, a_, 0.012)[0] for a_ in range(0, 361, 36)]
+        add(_strap("girth%d" % gi, ring, 0.03, 0.03, mt, 4), "body")
+        for i, a_ in enumerate((35, 90, 145)):
+            p, n = around(gy, a_, 0.055)
+            add(_stud("girthbell%d_%d" % (gi, i), p, 0.048, gold2), "body", True)
+    # peitoral: faixa em volta do peito com três guizos grandes e um espelho redondo
+    breast = []
+    for t_ in range(-90, 91, 20):
+        a = math.radians(t_)
+        o = V((math.sin(a) * 3, -0.5 - math.cos(a) * 3, 1.38))
+        p, n = cast(o, V((0, -0.5, 1.38)) - o)
+        if p is not None:
+            breast.append((p + n * 0.014, n, t_))
+    add(_strap("breast", [b_[0] for b_ in breast], 0.036, 0.036, rose2, 5), "body")
+    for i, (p, n, t_) in enumerate(breast):
+        if t_ in (-30, 30, -70, 70):
+            q = p + n * 0.05 - V((0, 0, 0.07))
+            add(_stud("bell%d" % i, q, 0.06, gold2, sub=2), "body")
+    pc, nc = next((b_[0], b_[1]) for b_ in breast if b_[2] == -10 or b_[2] == 10)
+    pc = V((0, pc.y - 0.02, pc.z - 0.2))
+    add(ck.tube("mirror_chain", pc + V((0, 0.03, 0.2)), pc + V((0, 0, 0.1)), 0.014, 0.014, gold2, 4), "body")
+    add(lk.place([ck.ball("mirror_glass", 1.0, (0, -0.012, 0), glass, (0.15, 0.03, 0.15)), ck.tube("mirror_frame", (0, 0.0, 0), (0, 0.03, 0), 0.18, 0.18, gold2, 10)], pc, (0, -1, 0.15)), "body")
+
+    # ---------------- pescoço de cisne e cabeça pequena (osso head; o pivô fica na base do pescoço) ----------------
+    neck = mk.skin_body("neck", PS_NECK, [(0, 1), (1, 2), (2, 3)], porc, sub=1)
+    add(neck, "head")
+    ncast = _caster(neck)
+
+    def nside(sx, y, z_, lift=0.0):
+        p, n = ncast((sx * 3, y, z_), (-sx, 0, 0))
+        if p is None:
+            p, n = V((sx * 0.18, y, z_)), V((sx, 0, 0))
+        return p + n * lift, n
+
+    def nring(c_, d_, lift):
+        d_, u, w = _perp(d_)
+        out = []
+        for i in range(9):
+            a = math.tau * i / 8
+            o = V(c_) + (u * math.cos(a) + w * math.sin(a)) * 2
+            q, n = ncast(o, V(c_) - o)
+            out.append(q + n * lift if q is not None else V(c_))
+        return out
+
+    for i, (t0, t, mt) in enumerate(((0, 0.5, ink), (1, 0.55, gold))):       # colares pintados no pescoço
+        c_ = V(PS_NECK[t0][0]).lerp(V(PS_NECK[t0 + 1][0]), t)
+        add(_strap("neckband%d" % i, nring(c_, V(PS_NECK[t0 + 1][0]) - V(PS_NECK[t0][0]), 0.008), 0.024, 0.024, mt, 4), "head")
+    nck = [nside(1, y, z_, 0.006)[0] for y, z_ in ((-0.86, 1.98), (-0.98, 2.12), (-1.0, 2.3), (-1.04, 2.44), (-0.99, 2.6))]
+    add(_strap("neckcrack", nck, 0.024, 0.014, gold, 4), "head")
+    nck = [nside(-1, y, z_, 0.006)[0] for y, z_ in ((-1.02, 2.56), (-1.06, 2.7), (-1.12, 2.8))]
+    add(_strap("neckcrack2", nck, 0.024, 0.014, gold, 4), "head")
+    add(mk.blob("skull", 0.22, hc, porc, (0.95, 1.12, 0.95), 2), "head")
+    muzzle = mk.skin_body("muzzle", [(tuple(hc + fd * 0.06), 0.18), (tuple(hc + fd * 0.38), 0.13), (tuple(hc + fd * 0.64), 0.1)], [(0, 1), (1, 2)], porc, sub=1)
+    add(muzzle, "head")
+    tipd = max((v.co - hc).dot(fd) for v in muzzle.data.vertices)
+    add(_stud("nose", hc + fd * (tipd - 0.01) + fn * 0.02, 0.06, gold, (1.15, 0.8, 0.8), 2), "head")
+    for sx in (-1, 1):
+        e0 = hc + V((sx * 0.14, 0.1, 0.06))
+        e1 = e0 + V((sx * 0.4, 0.2, 0.1))
+        add(ck.blade("ear%d" % sx, e0, e1, 0.2, 0.045, porc, (0, 0.5, 1), 0.5), "head")
+        add(ck.blade("ear_in%d" % sx, e0 + V((sx * 0.04, -0.03, 0)), e0.lerp(e1, 0.84) + V((0, -0.03, 0)), 0.1, 0.045, ink2, (0, 0.5, 1), 0.5), "head")
+        add(_stud("eartip%d" % sx, e1, 0.03, gold2), "head", True)
+    # máscara de festa: oval de porcelana, olhos de tinta, lágrima acesa do lado +X, veio de ouro atravessando
+    MS = 0.3
+    mc = hc + fd * 0.2 + fn * 0.14
+    mask = lk.mask(ck, "mask", (0, 0, 0), MS, M, kind="oval", tears=(1,), wide=0.95, tall=1.4, tear_len=0.55)
+    wx, dy, sz = 0.82 * 0.95 * MS, 0.34 * MS, MS * 1.4
+    msurf = lambda x, z_, lift=0.0: V((x, -dy * math.sqrt(max(1.0 - (x / wx) ** 2 - (z_ / sz) ** 2, 0.0)) - lift, z_))
+    mk_pts = [msurf(x, z_, 0.004) for x, z_ in ((-0.6 * wx, 0.72 * sz), (-0.3 * wx, 0.5 * sz), (-0.36 * wx, 0.2 * sz), (-0.1 * wx, -0.06 * sz), (-0.22 * wx, -0.36 * sz), (0.02 * wx, -0.62 * sz), (-0.06 * wx, -0.9 * sz))]
+    mask += _strap("maskcrack", mk_pts, 0.012, 0.008, gold2, 4)
+    mask += _strap("maskcrack2", [msurf(x, z_, 0.004) for x, z_ in ((-0.36 * wx, 0.2 * sz), (-0.62 * wx, 0.06 * sz), (-0.8 * wx, -0.12 * sz))], 0.01, 0.007, gold2, 4)
+    for i, (x, z_) in enumerate(((-0.36, 0.6), (0.0, 0.72), (0.36, 0.6), (-0.6, 0.42), (0.6, 0.42))):       # diadema pintado na testa
+        mask.append(_stud("maskdot%d" % i, msurf(x * wx, z_ * sz, -0.004), 0.022 if x else 0.03, ink if x else tear, sub=1))
+    mask += _strap("masklip", [msurf(x * wx, -0.6 * sz, 0.002) for x in (-0.3, -0.1, 0.1, 0.3)], 0.011, 0.011, ink, 4)
+    add(lk.place(mask, mc, fn), "head")
+    for i, sx in enumerate((-1, 1)):                            # fitas que amarram a máscara, caindo atrás das orelhas
+        k0 = mc + V((sx * wx * 0.95, 0.06, 0.04))
+        add(lk.silk(ck, "masktie%d" % i, k0, k0 + V((sx * 0.14, 0.34, -0.42)), (0, 0.4, 1), 0.07, 0.1, rose, (sx * 0.04, 0.04, 0), 4, 0.016), "head")
+
+    # ---------------- chifres de renda (osso antler) ----------------
+    for sx in (-1, 1):
+        P = AP(sx)
+        add(ck.tube("pedicle%d" % sx, P[0] - V((sx * 0.04, 0.02, 0.14)), P[0].lerp(P[1], 0.2), 0.085, 0.075, porc, 7), "antler")
+        add(ck.tube("burr%d" % sx, P[0].lerp(P[1], 0.12), P[0].lerp(P[1], 0.26), 0.1, 0.09, gold, 7), "antler", True)
+        top = _ps_spiral(P[3] - V((sx * 0.22, 0, 0)), (sx, 0, 0), (0, 0, 1), 0.22, 0.07, 0, 310, 7)
+        add(_ps_taper("beam%d" % sx, P[:3] + top, 0.075, 0.022, porc, 6), "antler")
+        add(_stud("beamtip%d" % sx, top[-1], 0.042, gold2), "antler", True)
+        for i, t in enumerate((0.5, 1.5, 2.4)):                # anéis de ouro na haste (emendas de kintsugi)
+            s0 = int(t)
+            c_ = P[s0].lerp(P[s0 + 1], t - s0)
+            d_ = (P[s0 + 1] - P[s0]).normalized()
+            r_ = 0.075 - 0.012 * t
+            add(ck.tube("beamband%d_%d" % (sx, i), c_ - d_ * 0.025, c_ + d_ * 0.025, r_ + 0.012, r_ + 0.008, gold, 6), "antler", True)
+        # galho da testa: para a frente, fecha em voluta
+        a0 = P[0].lerp(P[1], 0.55)
+        m1 = a0 + V((sx * 0.1, -0.3, 0.08))
+        brow = [a0, a0.lerp(m1, 0.5) + V((0, 0, -0.02))] + _ps_spiral(m1 + V((0, 0, 0.16)), (0, -1, 0), (0, 0, 1), 0.16, 0.05, -90, 230, 6)
+        add(_ps_taper("brow%d" % sx, brow, 0.05, 0.016, porc, 5), "antler")
+        add(_stud("browtip%d" % sx, brow[-1], 0.03, gold2), "antler", True)
+        # braço de fora: gancho em voluta de onde pende a lanterna grande
+        a1 = P[2] + V((sx * 0.26, 0.0, 0.1))
+        hook = [P[2].lerp(P[1], 0.1), P[2].lerp(a1, 0.55) + V((0, 0, 0.03))] + _ps_spiral(a1 + V((0, 0, -0.14)), (sx, 0, 0), (0, 0, 1), 0.14, 0.1, 90, -90, 6)
+        add(_ps_taper("hook%d" % sx, hook, 0.045, 0.022, porc, 5), "antler")
+        add(_stud("hooktip%d" % sx, hook[-1], 0.034, gold2), "antler", True)
+        # galho de trás: sobe para trás e fecha em voluta
+        a2 = P[2].lerp(P[3], 0.5)
+        m2 = a2 + V((sx * 0.06, 0.3, 0.06))
+        back = [a2, a2.lerp(m2, 0.5) + V((0, 0, -0.02))] + _ps_spiral(m2 + V((0, 0, 0.14)), (0, 1, 0), (0, 0, 1), 0.14, 0.045, -90, 230, 6)
+        add(_ps_taper("back%d" % sx, back, 0.045, 0.015, porc, 5), "antler")
+        add(_stud("backtip%d" % sx, back[-1], 0.028, gold2), "antler", True)
+        # renda: arco de ouro por dentro da lira, com raios e contas
+        ctrl = V((sx * 0.2, -0.98, 3.74))
+        arc = [(P[1] * (1 - t) ** 2 + ctrl * (2 * t * (1 - t)) + top[3] * t ** 2) for t in (0.0, 0.2, 0.4, 0.6, 0.8, 1.0)]
+        add(_ps_taper("lace%d" % sx, arc, 0.024, 0.018, gold2, 4), "antler")
+        for i, (q, t) in enumerate(zip(arc[1:5], (1.25, 1.6, 2.0, 2.5))):
+            s0 = min(2, int(t))
+            b_ = P[s0].lerp(P[min(s0 + 1, 3)], t - s0)
+            add(ck.tube("spoke%d_%d" % (sx, i), q, b_, 0.015, 0.015, gold2, 3), "antler")
+            add(_stud("lacebead%d_%d" % (sx, i), q, 0.03, (gold2, maskm)[i % 2]), "antler", True)
+            if i < 3:                                          # recorte em arquinhos entre os raios
+                mid = q.lerp(arc[i + 2], 0.5) + (ctrl - b_).normalized() * 0.07
+                add(_ps_taper("scallop%d_%d" % (sx, i), [q, mid, arc[i + 2]], 0.014, 0.014, gold2, 3), "antler")
+        # laços de seda com duas pontas caídas
+        for i, (q, mt, ln) in enumerate(((top[2], rose, 0.62), (brow[4], jade, 0.4), (P[1].lerp(P[2], 0.5), jade, 0.46))):
+            add(_stud("knot%d_%d" % (sx, i), q, 0.05, mt, (1.2, 1.0, 0.8)), "antler", True)
+            for j, (dx, dy_, kk) in enumerate(((0.1, 0.08, 1.0), (-0.04, 0.14, 0.7))):
+                add(lk.silk(ck, "ribbon%d_%d_%d" % (sx, i, j), q, q + V((sx * dx, dy_, -ln * kk)), (1, 0.4 - j, 0), 0.07, 0.1, mt, (sx * 0.05, 0.03 * (1 - 2 * j), 0), 3, 0.016), "antler")
+        # lanterninha rosada, presa curta no galho de trás (não balança)
+        add(_ps_lantern("mini%d" % sx, back[3], 0.07, 0.09, paper2, gold2, rose2, 0.12, hoops=False, segs=6), "antler", True)
+        # lanterna grande de papel no gancho (osso próprio: balança e acende)
+        bone_ = "lantern_a" if sx > 0 else "lantern_b"
+        add(_ps_lantern("lant%d" % sx, HOOK[sx], 0.1, 0.19, paper, gold2, rose, 0.3), bone_, True)
+        for j in (0, 1):
+            q = HOOK[sx] - V((0, 0, 0.1 + 0.19 * 2.1))
+            add(lk.silk(ck, "lantrib%d_%d" % (sx, j), q, q + V(((j - 0.5) * 0.16, 0.05, -0.36 - j * 0.08)), (0.3, 1, 0), 0.05, 0.075, (jade, rose2)[j], ((j - 0.5) * 0.06, 0, 0), 3, 0.014), bone_)
+    # cordão entre os dois chifres com contas e guizos; a lanterna do meio pende dele
+    add(_vine("garland", gar, 0.013, gold2, 3), "antler")
+    for i in (1, 2, 3, 5, 6, 7):
+        if i != 2 and i != 6:
+            add(_stud("garbell%d" % i, gar[i] - V((0, 0, 0.05)), 0.042, gold2), "antler", True)
+        else:
+            add(_ps_lantern("garmini%d" % i, gar[i], 0.04, 0.08, paper2, gold2, rose2, 0.1, hoops=False, segs=6), "antler", True)
+    add(_ps_lantern("lantc", HOOK[0], 0.08, 0.22, paper, gold2, rose, 0.34), "lantern_c", True)
+    for j in (0, 1):
+        q = HOOK[0] - V((0, 0, 0.08 + 0.22 * 2.1))
+        add(lk.silk(ck, "lantcrib%d" % j, q, q + V(((j - 0.5) * 0.2, 0.06, -0.4 - j * 0.06)), (0.3, 1, 0), 0.055, 0.08, (rose2, jade)[j], ((j - 0.5) * 0.06, 0, 0), 3, 0.014), "lantern_c")
+
+    # ---------------- pernas finas de boneca, joelhos em esfera de ouro, cascos dourados ----------------
+    for bone_, sx, fr in (("leg_fr", 1, True), ("leg_fl", -1, True), ("leg_br", 1, False), ("leg_bl", -1, False)):
+        if fr:
+            x, y = sx * 0.27, -0.5
+            add(mk.blob("shoulder_" + bone_, 0.19, (x, y, 1.38), porc, (0.78, 1.0, 1.4), 2), bone_)
+            up0, knee, foot = V((x, y, 1.3)), V((x, y - 0.02, 0.74)), V((x, y, 0.16))
+            add(ck.tube("upper_" + bone_, up0, knee, 0.115, 0.07, porc, 8), bone_)
+        else:
+            x, y = sx * 0.25, 0.78
+            add(mk.blob("haunch_" + bone_, 0.22, (x - sx * 0.02, y - 0.04, 1.4), porc, (0.7, 1.05, 1.3), 2), bone_)
+            up0, knee, foot = V((x, y, 1.26)), V((x, y + 0.22, 0.8)), V((x, y + 0.1, 0.16))
+            add(ck.tube("upper_" + bone_, up0, knee, 0.13, 0.072, porc, 8), bone_)
+            add(dot("haunchdot_" + bone_, V((x + sx * 0.15, y - 0.04, 1.44)), V((sx, 0, 0)), 0.06, ink), bone_, True)
+        add(_stud("knee_" + bone_, knee, 0.082, gold, sub=2), bone_)
+        add(ck.tube("cannon_" + bone_, knee, foot, 0.062, 0.05, porc, 8), bone_)
+        d_ = (knee - up0).normalized()
+        for j, (t, mt) in enumerate(((0.36, ink),)):              # faixas pintadas na coxa
+            c_ = up0.lerp(knee, t)
+            r_ = 0.115 + (0.07 - 0.115) * t + 0.006
+            add(ck.tube("band%d_%s" % (j, bone_), c_ - d_ * 0.022, c_ + d_ * 0.022, r_ + 0.004, r_, mt, 8), bone_)
+        d_ = (foot - knee).normalized()
+        c_ = knee.lerp(foot, 0.7)
+        add(ck.tube("sock_" + bone_, c_, foot + V((0, 0, 0.02)), 0.058, 0.058, ink, 8), bone_)
+        add(ck.tube("sockrim_" + bone_, c_ - d_ * 0.03, c_ + d_ * 0.01, 0.064, 0.062, gold2, 8), bone_)
+        add(ck.tube("hoof_" + bone_, (foot.x, foot.y - 0.015, 0.18), (foot.x, foot.y - 0.03, 0.0), 0.062, 0.092, gold, 7), bone_, True)
+    lc = [V((-0.27 - 0.1, -0.52, 1.2)), V((-0.27 - 0.094, -0.47, 1.08)), V((-0.27 - 0.088, -0.54, 0.98)), V((-0.27 - 0.076, -0.5, 0.86))]
+    add(_strap("legcrack", lc, 0.018, 0.012, gold, 4), "leg_fl")
+
+    # ---------------- rabo curto arrebitado com laço ----------------
+    add(_ps_taper("scut", [V((0, 0.96, 1.6)), V((0, 1.12, 1.68)), V((0, 1.22, 1.82))], 0.085, 0.045, porc, 7), "tail")
+    add(_stud("scut_tip", V((0, 1.23, 1.84)), 0.05, gold2), "tail", True)
+    add(_stud("bow_knot", V((0, 1.06, 1.72)), 0.05, rose, (1.0, 0.8, 1.0)), "tail", True)
+    for sx in (-1, 1):
+        add(ck.blade("bow%d" % sx, V((0, 1.06, 1.72)), V((sx * 0.22, 1.1, 1.8)), 0.15, 0.03, rose, (0, 0.3, 1), 0.6), "tail")
+        add(lk.silk(ck, "bowtail%d" % sx, V((sx * 0.02, 1.08, 1.7)), V((sx * 0.12, 1.2, 1.34)), (1, 0, 0), 0.06, 0.085, rose2, (sx * 0.03, 0.03, 0), 3, 0.014), "tail")
+
+    objs = [o for o, _b in parts]
+    for o in objs:
+        if o.name not in flat:
+            ck._smooth(o.data)
+    _outward(objs)
+    for o in objs:
+        for v in o.data.vertices:
+            v.co *= K
+    by_bone = {}
+    for o, bone_ in parts:
+        by_bone.setdefault(bone_, []).append(o)
+    for bone_, objs_ in by_bone.items():
+        lp.attach(ck._join(objs_, "ps_" + bone_), arm, bone_)
+    _ps_clips(arm, K)
+    legs = ("leg_fr", "leg_fl", "leg_br", "leg_bl")
+    heads = ("head", "antler") + PS_LANTERNS
+    _ground(arm, [c for c in PS_CLIPS if c != "die"], legs, PS_TUCK * K, heads=heads)
+    _ground(arm, ["die"], (), 0.0, DIE_SINK, head=False, only=("body", "tail", "seam") + legs)
+    _ground(arm, ["die"], (), 0.0, DIE_SINK, heads=heads)
+    return arm
+
+
+def _ps_clips(arm, K):
+    """Mesmos eixos do javali/alce: corpo X+ = focinho desce (gira em volta da anca), loc (0, cima, frente); cabeça (pivô na
+    BASE do pescoço) X+ = abaixa os chifres para a frente, Z = vira, Y = rola; pernas X- = casco para a frente. Ossos próprios:
+    `lantern_a/b/c` (filhos de `antler`, com os eixos da cabeça): X = balança para a frente/trás, Y = para os lados, escala =
+    acende; `hang` desfaz neles a inclinação de corpo + cabeça (pendem a prumo) e soma o balanço. `seam` (filho do corpo): só
+    escala radial (s, 1, s): 1 = veio aceso recolhido na louça, PS_FLARE = todo para fora. Toda chave leva escala (`_eclip`)."""
+    z = (0, 0, 0)
+    r = lambda x=0.0, y=0.0, zz=0.0: (x, y, zz)
+    p = lambda up=0.0, fwd=0.0: (0, up * K, fwd * K)
+    sc = lambda seq: [(f, z, z, (s, s, s)) for f, s in seq]
+    sm = lambda seq: [(f, z, z, (1.0 + (PS_FLARE - 1.0) * s, 1.0, 1.0 + (PS_FLARE - 1.0) * s)) for f, s in seq]      # s = 0..1 de veio aceso
+    tau = math.tau
+    sin, cos = math.sin, math.cos
+    legs = ("leg_fr", "leg_fl", "leg_br", "leg_bl")
+
+    def planted(body, extra=None):
+        return {g: bg.plant(body, g, (extra or {}).get(g, ())) for g in legs}
+
+    def lin(seq, f, n):
+        """valor linear de [(quadro, v1..vn)] no quadro f"""
+        if not seq:
+            return (0.0,) * n if n > 1 else (1.0,)
+        if f <= seq[0][0]:
+            return seq[0][1:]
+        for a, b_ in zip(seq, seq[1:]):
+            if a[0] <= f <= b_[0]:
+                t = (f - a[0]) / float(b_[0] - a[0])
+                return tuple(a[i] + (b_[i] - a[i]) * t for i in range(1, n + 1))
+        return seq[-1][1:]
+
+    def hang(k, sw=(), fl=(), gain=(1.0, 1.0, 1.25)):
+        """chaves das três lanternas: a prumo (desfaz corpo + cabeça), mais balanço sw = [(quadro, frente, lado)] e brilho fl = [(quadro, escala)]"""
+        body, head = k["body"], k["head"]
+        frames = sorted({q[0] for q in body} | {q[0] for q in head} | {q[0] for q in sw} | {q[0] for q in fl})
+        for i, g in enumerate(PS_LANTERNS):
+            ks = []
+            for f in frames:
+                tilt = bg._at(body, f, 1)[0] + bg._at(head, f, 1)[0]
+                roll = bg._at(head, f, 1)[1]
+                fore, side = lin(sw, f, 2)
+                s = lin(fl, f, 1)[0] if fl else 1.0
+                ks.append((f, (-tilt * PS_HANG + fore * gain[i], -roll * PS_HANG + side * gain[i] * (1.0 if i < 2 else -0.8), 0.0), z, (s, s, s)))
+            k[g] = ks
+        return k
+
+    def swing(f0, f1, amp, step=2, fore=0.35):
+        """balanço que morre: vai e vem de lado a cada `step` quadros, de amp até zero"""
+        out, n = [], max(1, (f1 - f0) // step)
+        for i in range(n + 1):
+            a = amp * (1.0 - i / float(n)) * (1 if i % 2 == 0 else -1)
+            out.append((f0 + i * step, a * fore, a))
+        return out
+
+    # ---- idle: respira, a cabeça passeia devagar; as lanternas oscilam atrasadas e pulsam ----
+    n = 48
+    k = {b_: [] for b_ in ("body", "head", "tail", "leg_fr", "leg_fl", "antler", "seam")}
+    sw, fl = [], []
+    for f in list(range(1, n, 3)) + [n]:
+        a = (f - 1) / (n - 1) * tau
+        k["body"].append((f, r(1.0 * sin(a)), p(0.015 * (0.5 - 0.5 * cos(a)))))
+        k["head"].append((f, r(1.5 + 2.5 * sin(a + 0.6), 3 * sin(a), 5 * sin(a)), z))
+        k["tail"].append((f, r(4, 0, 14 * sin(2 * a)), z))
+        k["leg_fr"].append((f, r(-1.0 * sin(a)), z))
+        k["leg_fl"].append((f, r(-1.0 * sin(a)), z))
+        k["antler"].append((f, z, z, E_ONE))
+        k["seam"].append((f, z, z, E_ONE))
+        sw.append((f, 3 * sin(a - 0.9), 5 * sin(a - 1.2)))
+        fl.append((f, 1.0 + 0.05 * (0.5 - 0.5 * cos(2 * a))))
+    _eclip(arm, "idle", hang(k, sw, fl), n, loop=True)
+
+    # ---- run: galope leve e alto (salta mais do que corre), pescoço erguido; as lanternas ficam para trás ----
+    n = 16
+    k = {b_: [] for b_ in ("body", "head", "tail") + legs}
+    sw = []
+    for f in range(1, n + 1):
+        a = (f - 1) / (n - 1) * tau
+        k["body"].append((f, r(-5 * cos(a), 0, 1.5 * sin(a)), p(0.16 * (0.5 + 0.5 * sin(a)))))
+        k["head"].append((f, r(5 * cos(a) + 5, 0, -1.5 * sin(a)), z))
+        k["leg_fr"].append((f, r(-30 * sin(a) + 4 * cos(a)), z))
+        k["leg_fl"].append((f, r(-30 * sin(a - 0.4) + 4 * cos(a)), z))
+        k["leg_br"].append((f, r(27 * sin(a + 0.2) + 4 * cos(a)), z))
+        k["leg_bl"].append((f, r(27 * sin(a - 0.2) + 4 * cos(a)), z))
+        k["tail"].append((f, r(34 + 10 * sin(a - 1.2), 0, 5 * sin(a + 0.6)), z))
+        sw.append((f, -14 + 9 * sin(a - 1.0), 6 * sin(a + 0.4)))
+    _eclip(arm, "run", hang(k, sw), n, loop=True)
+
+    # ---- attack (5): estocada curta dos chifres para baixo e gancho para cima ----
+    e = 16
+    k = {
+        "body": [(1, z, z), (3, r(4), p(-0.02, -0.1)), (5, r(-5), p(0.03, 0.24)), (8, r(-3), p(0.02, 0.18)), (11, r(1), p(0, 0.05)), (e, z, z)],
+        "head": [(1, z, z), (3, r(40, 0, 8), z), (5, r(-12, 0, -12), z), (8, r(-7, 0, -5), z), (11, r(2, 0, 3), z), (e, z, z)],
+        "leg_fr": [(1, z, z), (3, r(6), z), (5, r(-18), z), (8, r(-11), z), (12, r(-3), z), (e, z, z)],
+        "leg_fl": [(1, z, z), (3, r(5), z), (5, r(-12), z), (8, r(-7), z), (12, r(-2), z), (e, z, z)],
+        "leg_br": [(1, z, z), (3, r(-10), z), (5, r(20), z), (8, r(14), z), (12, r(3), z), (e, z, z)],
+        "leg_bl": [(1, z, z), (3, r(-10), z), (5, r(17), z), (8, r(11), z), (12, r(2), z), (e, z, z)],
+        "tail": [(1, z, z), (3, r(14), z), (5, r(44), z), (9, r(20, 0, 12), z), (e, z, z)],
+        "seam": sm([(1, 0), (4, 0), (5, 0.5), (9, 0.15), (e, 0)]),
+    }
+    _eclip(arm, "attack", hang(k, [(1, 0, 0), (3, 10, 0), (5, -22, 6), (8, 12, -5), (11, -6, 3), (14, 2, -1), (e, 0, 0)]), e)
+
+    # ---- hit: a louça estala; tranco para trás, a cabeça vira, os veios piscam ----
+    body = [(1, z, z), (2, r(-5, 0, 4), p(0.01, -0.09)), (5, r(3, 0, -2), p(0, -0.04)), (7, r(-1), p(0, -0.015)), (10, z, z)]
+    k = planted(body, {"leg_fr": [(2, -9), (5, 4)], "leg_fl": [(2, -6), (5, 3)], "leg_br": [(2, 7), (5, -3)], "leg_bl": [(2, 5), (5, -3)]})
+    k.update({"body": body, "head": [(1, z, z), (2, r(-16, 6, 16), z), (5, r(7, -3, -8), z), (7, r(-2), z), (10, z, z)],
+              "tail": [(1, z, z), (2, r(34), z), (5, r(16, 0, 8), z), (10, z, z)],
+              "seam": sm([(1, 0), (2, 1.0), (5, 0.35), (8, 0.0), (10, 0)])})
+    _eclip(arm, "hit", hang(k, [(1, 0, 0), (2, 14, -12), (4, -9, 9), (6, 5, -5), (8, -2, 2), (10, 0, 0)]), 10)
+
+    # ---- atk_charge (5): recolhe um passo, deita os chifres como lanças e desliza comprido e baixo; termina erguendo a cabeça num floreio ----
+    e = 20
+    k = {
+        "body": [(1, z, z), (3, r(5), p(-0.02, -0.22)), (5, r(5), p(0.0, 0.56)), (8, r(3), p(0.03, 0.62)), (10, r(-8), p(0.05, 0.46)), (13, r(-3), p(0.01, 0.2)),
+                 (17, r(1), p(0, 0.03)), (e, z, z)],
+        "head": [(1, z, z), (3, r(34), z), (5, r(46), z), (8, r(43), z), (10, r(-16, 0, -10), z), (13, r(-8, 0, 6), z), (17, r(2), z), (e, z, z)],
+        "leg_fr": [(1, z, z), (3, r(12), z), (5, r(-34), z), (8, r(-26), z), (10, r(4), z), (13, r(5), z), (e, z, z)],
+        "leg_fl": [(1, z, z), (3, r(8), z), (5, r(-26), z), (8, r(-19), z), (10, r(7), z), (13, r(3), z), (e, z, z)],
+        "leg_br": [(1, z, z), (3, r(-20), z), (5, r(30), z), (8, r(23), z), (10, r(12), z), (13, r(-2), z), (e, z, z)],
+        "leg_bl": [(1, z, z), (3, r(-20), z), (5, r(25), z), (8, r(18), z), (10, r(10), z), (13, r(0), z), (e, z, z)],
+        "tail": [(1, z, z), (3, r(24), z), (5, r(54), z), (8, r(46, 0, 8), z), (10, r(16, 0, -10), z), (14, r(6), z), (e, z, z)],
+        "antler": sc([(1, 1), (3, 1.0), (5, 1.08), (8, 1.06), (11, 1.0), (e, 1)]),
+        "seam": sm([(1, 0), (3, 0.2), (5, 0.7), (8, 0.5), (11, 0.1), (e, 0)]),
+    }
+    _eclip(arm, "atk_charge", hang(k, [(1, 0, 0), (3, 14, 0), (5, -30, 4), (8, -24, -4), (10, 20, 6), (13, -12, -5), (16, 6, 3), (18, -2, 0), (e, 0, 0)]), e)
+
+    # ---- slam (8): empina alto, os cascos dourados batem no ar e descem juntos; no impacto os veios de ouro acendem inteiros ----
+    e = 24
+    k = {
+        "body": [(1, z, z), (3, r(5), p(-0.04)), (5, r(-44), p(0.03, -0.05)), (6, r(-50), p(0.04, -0.06)), (8, r(7), p(-0.03, 0.14)), (10, r(3), p(0.0, 0.12)),
+                 (12, r(6), p(-0.02, 0.09)), (15, r(2), p(0, 0.03)), (20, r(-1), z), (e, z, z)],
+        "head": [(1, z, z), (3, r(12), z), (5, r(16), z), (6, r(24), z), (8, r(20), z), (10, r(10, 0, 5), z), (12, r(12, 0, -5), z), (16, r(3), z), (e, z, z)],
+        "leg_fr": [(1, z, z), (3, r(6), z), (5, r(-64), z), (6, r(-36), z), (7, r(-30), z), (8, r(-7), z), (10, r(-3), z), (12, r(-6), z), (15, r(-2), z), (e, z, z)],
+        "leg_fl": [(1, z, z), (3, r(6), z), (5, r(-32), z), (6, r(-66), z), (7, r(-28), z), (8, r(-7), z), (10, r(-3), z), (12, r(-6), z), (15, r(-2), z), (e, z, z)],
+        "leg_br": [(1, z, z), (3, r(-5), z), (5, r(44), z), (6, r(50), z), (8, r(-7), z), (10, r(-3), z), (12, r(-6), z), (15, r(-2), z), (e, z, z)],
+        "leg_bl": [(1, z, z), (3, r(-5), z), (5, r(44), z), (6, r(50), z), (8, r(-7), z), (10, r(-3), z), (12, r(-6), z), (15, r(-2), z), (e, z, z)],
+        "tail": [(1, z, z), (4, r(40), z), (6, r(60), z), (8, r(-6), z), (12, r(10, 0, 10), z), (16, r(2, 0, -6), z), (e, z, z)],
+        "seam": sm([(1, 0), (5, 0.1), (7, 0.3), (8, 1.0), (10, 0.8), (12, 1.0), (16, 0.5), (21, 0.0), (e, 0)]),
+    }
+    _eclip(arm, "slam", hang(k, [(1, 0, 0), (5, 10, 0), (6, 4, 0), (8, -26, 5), (10, 16, -5), (12, -10, 4), (15, 6, -3), (18, -3, 1), (21, 1, 0), (e, 0, 0)],
+                             [(1, 1), (7, 1), (8, 1.15), (12, 1.05), (e, 1)]), e)
+
+    # ---- roar / shout (7): sem voz; recolhe e sacode a cabeça de lado num toque de guizos, as lanternas voam de um lado para o outro ----
+    e = 24
+    body = [(1, z, z), (4, r(5), p(-0.03, -0.04)), (7, r(-7), p(0.02, 0.02)), (9, r(-6, 0, 3), p(0.02, 0.02)), (11, r(-7, 0, -3), p(0.02, 0.02)),
+            (13, r(-6, 0, 3), p(0.02, 0.02)), (16, r(-4), p(0.01, 0.01)), (20, r(2), z), (e, z, z)]
+    k = planted(body, {"leg_fr": [(4, 0, 2), (7, 0, 6), (16, 0, 6), (20, 0, 2)], "leg_fl": [(4, 0, 2), (7, 0, 6), (16, 0, 6), (20, 0, 2)]})
+    k.update({"body": body,
+              "head": [(1, z, z), (4, r(24, 0, 0), z), (7, r(-22, 22, 10), z), (9, r(-18, -24, -10), z), (11, r(-22, 22, 10), z), (13, r(-18, -20, -8), z),
+                       (15, r(-16, 12, 4), z), (17, r(-10, -5), z), (20, r(3), z), (e, z, z)],
+              "tail": [(1, z, z), (4, r(-4), z), (7, r(46, 0, 12), z), (9, r(46, 0, -12), z), (11, r(46, 0, 12), z), (13, r(40, 0, -8), z), (17, r(14), z), (e, z, z)],
+              "antler": sc([(1, 1), (4, 0.97), (7, 1.08), (9, 1.04), (11, 1.08), (13, 1.04), (16, 1.02), (20, 1.0), (e, 1)]),
+              "seam": sm([(1, 0), (6, 0), (7, 0.4), (13, 0.3), (17, 0.0), (e, 0)])})
+    k = hang(k, [(1, 0, 0), (4, 8, 0), (7, -18, -34), (9, -6, 38), (11, -8, -38), (13, -4, 34), (15, 0, -24), (17, 0, 16), (19, 0, -9), (21, 0, 4), (e, 0, 0)],
+             [(1, 1), (6, 1), (7, 1.18), (9, 1.06), (11, 1.18), (13, 1.06), (15, 1.12), (18, 1), (e, 1)])
+    for name in ("roar", "shout"):
+        _eclip(arm, name, {b_: list(v) for b_, v in k.items()}, e)
+
+    # ---- maul (7): recolhe os chifres para um lado e varre cruzando a frente ----
+    e = 18
+    body = [(1, z, z), (3, r(4, -10), p(-0.02, -0.05)), (5, r(6, -16), p(-0.02, -0.08)), (7, r(2, 15), p(0.02, 0.18)), (9, r(1, 18), p(0.02, 0.16)),
+            (12, r(0, 7), p(0, 0.05)), (e, z, z)]
+    k = planted(body, {"leg_fr": [(5, 8), (7, -11), (9, -8), (12, -2)], "leg_fl": [(5, -5), (7, -6), (9, -5)], "leg_br": [(5, -6), (7, 9), (9, 6)],
+                       "leg_bl": [(5, -6), (7, 8), (9, 5)]})
+    k.update({"body": body,
+              "head": [(1, z, z), (3, r(18, 0, -20), z), (5, r(34, 0, -36), z), (7, r(26, 0, 34), z), (9, r(12, 0, 42), z), (12, r(0, 0, 10), z), (e, z, z)],
+              "tail": [(1, z, z), (5, r(12, 0, -18), z), (7, r(30, 0, 22), z), (11, r(8, 0, -8), z), (e, z, z)],
+              "seam": sm([(1, 0), (6, 0), (7, 0.5), (10, 0.15), (e, 0)])})
+    _eclip(arm, "maul", hang(k, [(1, 0, 0), (3, 0, 10), (5, 4, 18), (7, -8, -34), (9, 0, 24), (11, 0, -14), (13, 0, 8), (15, 0, -3), (e, 0, 0)]), e)
+
+    # ---- pounce (9): agacha, salta longe e cai nos cascos da frente ----
+    e = 20
+    k = {
+        "body": [(1, z, z), (3, r(4), p(-0.05, -0.06)), (5, r(7), p(-0.09, -0.12)), (7, r(-16), p(0.5, 0.3)), (8, r(-3), p(0.48, 0.5)), (9, r(9), p(0.0, 0.58)),
+                 (11, r(6), p(-0.04, 0.46)), (13, r(3), p(-0.02, 0.28)), (17, r(-1), p(0, 0.05)), (e, z, z)],
+        "head": [(1, z, z), (5, r(14), z), (7, r(-6), z), (9, r(34), z), (11, r(16), z), (14, r(4), z), (e, z, z)],
+        "leg_fr": [(1, z, z), (5, r(14), z), (7, r(-52), z), (8, r(-36), z), (9, r(-9), z), (11, r(-6), z), (13, r(-3), z), (e, z, z)],
+        "leg_fl": [(1, z, z), (5, r(14), z), (7, r(-42), z), (8, r(-28), z), (9, r(-9), z), (11, r(-6), z), (13, r(-3), z), (e, z, z)],
+        "leg_br": [(1, z, z), (5, r(-24), z), (7, r(46), z), (8, r(36), z), (9, r(-9), z), (11, r(-6), z), (13, r(-3), z), (e, z, z)],
+        "leg_bl": [(1, z, z), (5, r(-24), z), (7, r(38), z), (8, r(30), z), (9, r(-9), z), (11, r(-6), z), (13, r(-3), z), (e, z, z)],
+        "tail": [(1, z, z), (5, r(-8), z), (7, r(50), z), (9, r(10), z), (13, r(8, 0, 8), z), (e, z, z)],
+        "seam": sm([(1, 0), (8, 0), (9, 0.8), (12, 0.3), (16, 0.0), (e, 0)]),
+    }
+    _eclip(arm, "pounce", hang(k, [(1, 0, 0), (5, 6, 0), (7, -20, 0), (9, -28, 4), (11, 18, -4), (13, -10, 3), (16, 4, -1), (e, 0, 0)]), e)
+
+    # ---- brace (6): crava as patas abertas, abaixa o corpo e põe a renda dos chifres à frente como um biombo ----
+    e = 18
+    body = [(1, z, z), (3, r(-3), p(0.02)), (6, r(5), p(-0.1, 0.04)), (9, r(4), p(-0.085, 0.04)), (12, r(5), p(-0.1, 0.04)), (15, r(2), p(-0.02, 0.01)), (e, z, z)]
+    spread = [(6, 0, 8), (12, 0, 8)]
+    k = planted(body, {g: spread for g in legs})
+    k.update({"body": body, "head": [(1, z, z), (3, r(-8), z), (6, r(40), z), (9, r(36), z), (12, r(40), z), (15, r(8), z), (e, z, z)],
+              "tail": [(1, z, z), (6, r(-8), z), (12, r(-6), z), (e, z, z)],
+              "antler": sc([(1, 1), (6, 1.06), (9, 1.04), (12, 1.06), (e, 1)]),
+              "seam": sm([(1, 0), (5, 0.1), (6, 0.6), (9, 0.4), (12, 0.6), (15, 0.1), (e, 0)])})
+    _eclip(arm, "brace", hang(k, [(1, 0, 0), (3, -4, 0), (6, 12, 4), (9, -6, -3), (12, 4, 2), (15, -2, 0), (e, 0, 0)]), e)
+
+    # ---- cast_ground (10): reverência de baile: uma pata à frente, a outra atrás, a cabeça desce devagar e as lanternas acendem de uma vez ----
+    e = 24
+    body = [(1, z, z), (4, r(-4), p(0.02, -0.03)), (8, r(8), p(-0.03, 0.02)), (10, r(13), p(-0.05, 0.03)), (12, r(12), p(-0.045, 0.03)), (14, r(13), p(-0.05, 0.03)),
+            (18, r(4), p(-0.02, 0.01)), (e, z, z)]
+    k = planted(body, {"leg_fr": [(4, -8), (8, -30), (10, -36), (14, -36), (18, -14)], "leg_fl": [(4, 4), (8, 20), (10, 26), (14, 26), (18, 8)]})
+    k.update({"body": body,
+              "head": [(1, z, z), (4, r(-16), z), (8, r(24), z), (10, r(36), z), (12, r(33), z), (14, r(36), z), (18, r(16), z), (e, z, z)],
+              "tail": [(1, z, z), (4, r(10), z), (10, r(44), z), (14, r(40, 0, 10), z), (18, r(12), z), (e, z, z)],
+              "antler": sc([(1, 1), (8, 1.0), (10, 1.08), (12, 1.04), (14, 1.08), (18, 1.02), (e, 1)]),
+              "seam": sm([(1, 0), (8, 0.1), (10, 0.9), (12, 0.6), (14, 0.9), (18, 0.2), (e, 0)])})
+    _eclip(arm, "cast_ground", hang(k, [(1, 0, 0), (4, -6, 0), (8, 8, 0), (10, 0, 0), (14, 0, 0), (17, -8, 3), (20, 4, -2), (e, 0, 0)],
+                                    [(1, 1), (4, 1.0), (8, 0.82), (10, 1.55), (12, 1.3), (14, 1.5), (18, 1.15), (e, 1)]), e)
+
+    # ---- die: a louça estala (veios acesos), fica dura como estatueta e tomba de lado; as lanternas apagam ----
+    s = 1.4
+    f = lambda x: int(round(1 + (x - 1) * s))
+    e = f(24)
+    roll = PS_DIE_ROLL
+    hx, hy, hz = PS_DIE_HEAD
+    k = {
+        "body": [(1, z, z), (f(4), r(-9), p(0.02, -0.05)), (f(9), r(5), p(-0.04, 0.02)), (f(14), r(2), p(-0.02)), (e, r(2), p(-0.02))],
+        "head": [(1, z, z), (f(4), r(-24, 0, 8), z), (f(9), r(18), z), (f(14), r(hx, hy, hz), z), (f(17), r(hx - 8, hy, hz), z), (f(20), r(hx, hy, hz), z), (e, r(hx, hy, hz), z)],
+        "leg_fr": [(1, z, z), (f(4), r(-12), z), (f(9), r(10), z), (f(14), r(-12), z), (f(17), r(-17), z), (e, r(-12), z)],
+        "leg_fl": [(1, z, z), (f(4), r(-9), z), (f(9), r(8), z), (f(14), r(-5), z), (f(17), r(-9), z), (e, r(-5), z)],
+        "leg_br": [(1, z, z), (f(4), r(6), z), (f(9), r(-6), z), (f(14), r(9), z), (f(17), r(14), z), (e, r(9), z)],
+        "leg_bl": [(1, z, z), (f(4), r(6), z), (f(9), r(-6), z), (f(14), r(16), z), (f(17), r(20), z), (e, r(16), z)],
+        "tail": [(1, z, z), (f(4), r(30), z), (f(9), r(-10), z), (f(14), r(6, 0, 10), z), (f(17), r(10, 0, 18), z), (e, r(4, 0, 12), z)],
+        "root": [(1, z, z), (f(9), z, z), (f(14), r(0, 0, roll), z), (f(17), r(0, 0, roll + 6), z), (f(20), r(0, 0, roll), z), (e, r(0, 0, roll), z)],
+        "seam": sm([(1, 0), (f(4), 1.0), (f(9), 0.6), (f(14), 1.0), (f(18), 0.5), (e, 0.0)]),
+    }
+    k = hang(k, [(1, 0, 0), (f(4), 12, 0), (f(9), -10, 0), (f(14), 0, 0), (e, 0, 0)], [(1, 1), (f(4), 1.15), (f(9), 1.0), (f(14), 0.8), (f(18), 0.6), (e, 0.5)])
+    _eclip(arm, "die", k, e)
+# --- fim do Gamo de Porcelana ---
+
+
 BUILDERS = {
     "mob_ancestral_boar": ancestral_boar,
     "mob_ancient_elk": ancient_elk,
     "mob_ruins_basilisk": ruins_basilisk,
     "mob_war_rhino": war_rhino,
+    "mob_iron_wolf_king": iron_wolf_king,
+    "mob_porcelain_stag": porcelain_stag,
 }
 HUMANOIDS = set()                   # todos de peças rígidas (lp.export_glb)

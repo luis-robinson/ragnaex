@@ -25,6 +25,11 @@ var _cast_flash := 0.0           # >0 = mostrando "Interrompido" na barra
 # chat / notificações
 var chat_log: RichTextLabel
 var chat_input: LineEdit
+var guild_log: RichTextLabel         # aba Guilda do chat (só o canal "guild")
+var chat_tabs: HBoxContainer         # Geral | Guilda (aparece com guilda)
+var chat_tab := "all"                # "all" | "guild"
+var _guild_unread := 0
+var guild_hud: GuildHud              # convite da guilda, pedido de socorro (lado social)
 var notif_box: VBoxContainer
 var loot_box: VBoxContainer        # "pegou" com ícone, acima da barra de skills
 var _loot_rows: Dictionary = {}    # item_id -> {row, count, tween}
@@ -110,6 +115,9 @@ func _ready() -> void:
 	npc_ui = load("res://game/ui/npc_ui.gd").new()
 	npc_ui.hud = self
 	root.add_child(npc_ui)
+	guild_hud = GuildHud.new()
+	guild_hud.hud = self
+	root.add_child(guild_hud)
 	root.visible = false
 	Events.notification.connect(_notify)
 	Events.item_gained.connect(_on_item_gained)
@@ -403,6 +411,29 @@ func _build_chat() -> PanelContainer:
 	p.custom_minimum_size = Vector2(SIDE_W, BOTTOM_H)
 	var v := VBoxContainer.new()
 	p.add_child(v)
+	chat_tabs = HBoxContainer.new()
+	chat_tabs.add_theme_constant_override("separation", 3)
+	chat_tabs.visible = false
+	v.add_child(chat_tabs)
+	for t in [["all", "Geral"], ["guild", "Guilda"]]:
+		var b := Button.new()
+		b.name = "chat_" + t[0]
+		b.text = t[1]
+		b.toggle_mode = true
+		b.focus_mode = Control.FOCUS_NONE
+		b.add_theme_font_size_override("font_size", 11)
+		b.custom_minimum_size = Vector2(60, 20)
+		b.pressed.connect(set_chat_tab.bind(t[0]))
+		chat_tabs.add_child(b)
+	guild_log = RichTextLabel.new()
+	guild_log.bbcode_enabled = true
+	guild_log.scroll_following = true
+	guild_log.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	guild_log.add_theme_font_size_override("normal_font_size", 13)
+	guild_log.add_theme_font_size_override("bold_font_size", 13)
+	guild_log.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	guild_log.visible = false
+	v.add_child(guild_log)
 	chat_log = RichTextLabel.new()
 	chat_log.bbcode_enabled = true
 	chat_log.scroll_following = true
@@ -983,6 +1014,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("ui_book"): windows_script.toggle("book")
 	elif event.is_action_pressed("ui_quests"): windows_script.toggle("quests")
 	elif event.is_action_pressed("ui_party"): windows_script.toggle("party")
+	elif event.is_action_pressed("ui_guild"): windows_script.toggle("guild")
 	_update_blocking()
 
 ## Mapa em tela cheia (M): o minimapa em modo grande, norte para cima, mapa inteiro, portais com nome. M ou Esc fecha.
@@ -1211,9 +1243,43 @@ func _on_chat(sender: String, text: String, channel: String) -> void:
 	elif channel == "whisper":
 		col = "#ff9de2"
 		tag = "[Sussurro] "
+	elif channel == "guild":
+		col = GUILD_CHAT_COLOR
+		tag = "[Guilda] "
 	elif Sim.player and sender == Sim.player.name:
 		col = "#ffe9a8"
 	chat_log.append_text("[color=%s][b]%s%s:[/b][/color] %s\n" % [col, tag, sender, text.replace("[", "[lb]")])
+	if channel == "guild" and guild_log:
+		guild_log.append_text("[color=%s][b]%s:[/b][/color] %s\n" % [col, sender, text.replace("[", "[lb]")])
+		if chat_tab != "guild":
+			_guild_unread += 1
+			refresh_chat_tabs()
+
+const GUILD_CHAT_COLOR := "#8fe3c8"
+
+## Aba do chat: "all" (tudo) ou "guild" (só a guilda; o que se digita vai para Sim.guild_say).
+func set_chat_tab(t: String) -> void:
+	chat_tab = t if t == "guild" and GuildUi.in_guild() else "all"
+	if chat_tab == "guild":
+		_guild_unread = 0
+	refresh_chat_tabs()
+
+## Abas aparecem só com guilda; marca de não lidas na Guilda.
+func refresh_chat_tabs() -> void:
+	if chat_tabs == null:
+		return
+	var on := GuildUi.in_guild()
+	if not on and chat_tab == "guild":
+		chat_tab = "all"
+	chat_tabs.visible = on
+	guild_log.visible = chat_tab == "guild"
+	chat_log.visible = chat_tab != "guild"
+	chat_input.placeholder_text = "Enter para falar com a guilda..." if chat_tab == "guild" else "Enter para falar..."
+	for b in chat_tabs.get_children():
+		var bt := b as Button
+		bt.button_pressed = bt.name == "chat_" + chat_tab
+		if bt.name == "chat_guild":
+			bt.text = "Guilda" + (" (%d)" % _guild_unread if _guild_unread > 0 else "")
 
 func _on_chat_submit(text: String) -> void:
 	chat_input.text = ""
@@ -1222,6 +1288,9 @@ func _on_chat_submit(text: String) -> void:
 		return
 	if text.begins_with("/"):
 		_chat_command(text.strip_edges())
+		return
+	if chat_tab == "guild" and GuildUi.in_guild():
+		GuildUi.say(text)              # a sim ecoa a fala no canal "guild"
 		return
 	Events.chat_message.emit(Sim.player.name, text, "global")
 	# bots "respondem" de vez em quando
@@ -1529,6 +1598,11 @@ func _chat_command(text: String) -> void:
 					_notify("Você já lidera (ou não está em um grupo com um bot líder).")
 			elif t == null or not Sim.party_promote(p, t):
 				_notify("Não foi possível passar a liderança para \"%s\"." % arg)
+		"/gu", "/guilda":
+			if not GuildUi.in_guild():
+				_notify("Você não está em uma guilda.")
+			elif arg != "":
+				GuildUi.say(arg)
 		"/p", "/g", "/grupo":
 			if p.party_id < 0:
 				_notify("Você não está em um grupo.")
@@ -1536,7 +1610,7 @@ func _chat_command(text: String) -> void:
 				Events.chat_message.emit(p.name, arg, "party")
 				_party_reply(arg)
 		_:
-			_notify("Comandos: /party · /convidar nome · /sair · /expulsar nome · /lider nome · /p texto")
+			_notify("Comandos: /party · /convidar nome · /sair · /expulsar nome · /lider nome · /p texto · /gu texto (guilda)")
 
 ## Jogador ou bot online pelo nome (sem diferenciar maiúsculas).
 func find_character(char_name: String) -> SimEntity:

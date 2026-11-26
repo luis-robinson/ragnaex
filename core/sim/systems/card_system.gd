@@ -66,6 +66,8 @@ static func _drop_card(sim: WorldSim, c: SimEntity, mob: SimEntity, card_id: Str
 	if sim.player != null and sim.player.map_id == mob.map_id:          # aviso no chat do mapa
 		Events.post(&"chat_message", "Cartas", "%s achou a %s!" % [c.name, cd.name], "system")
 		Events.post(&"card_found", c.id, card_id)
+		if c == sim.player and sim.roster_on:
+			RosterSystem.celebrate(sim, "card", {"item": cd.name})     # elenco comemora a carta (§3.6)
 	if c.kind == SimEntity.Kind.BOT and sim.player != null and sim.player.map_id == c.map_id and not CardsCatalog.BOT_LINES.is_empty():
 		var line: String = CardsCatalog.BOT_LINES[sim.rng.randi() % CardsCatalog.BOT_LINES.size()]
 		Events.post(&"chat_message", c.name, line % cd.name, "global")

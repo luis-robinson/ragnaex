@@ -824,10 +824,10 @@ func _refresh_nameplate() -> void:
 	match entity.kind:
 		SimEntity.Kind.PLAYER:
 			col = Color(1, 0.95, 0.6)
-			txt = "%s\n%s" % [entity.name, _honor_prefix() + entity.display_title()]
+			txt = "%s\n%s" % [GuildUi.plate_for(entity), _honor_prefix() + entity.display_title()]
 		SimEntity.Kind.BOT:
 			col = Color(0.55, 1.0, 0.6) if _is_party_mate() else Color(0.75, 0.9, 1.0)
-			txt = "%s\n%s" % [entity.name, _honor_prefix() + entity.display_title()]
+			txt = "%s\n%s" % [GuildUi.plate_for(entity), _honor_prefix() + entity.display_title()]
 		SimEntity.Kind.MONSTER:
 			col = level_color(entity.level, Sim.player.level if Sim.player else entity.level) if not entity.monster_def.is_boss else Color(1, 0.8, 0.3)
 			txt = "%s %s" % [entity.name, entity.display_title()]
@@ -1232,6 +1232,7 @@ var _np_q := -1                      # missões concluídas (título de honra)
 var _np_lv := -1                     # o que a placa de nome mostra (refaz o texto só quando muda)
 var _np_ally := false
 var _np_plv := -1
+var _np_guild := -1                  # GuildUi.revision já mostrada (etiqueta de guilda / rival)
 
 ## Escala pedida pelos buffs da entidade (chave "scale" do buff; a maior vence; 1 = normal). Só desenho.
 static func buff_scale(e: SimEntity) -> float:
@@ -1414,8 +1415,9 @@ func _process_view(delta: float) -> void:
 	var ally := _is_party_mate()
 	var plv: int = Sim.player.level if Sim.player else 0
 	var nq: int = entity.quests_completed.size()          # missão nova pode dar título de honra
-	if entity.level != _np_lv or ally != _np_ally or plv != _np_plv or nq != _np_q:     # campos, não meta (3 buscas por boneco por quadro)
+	if entity.level != _np_lv or ally != _np_ally or plv != _np_plv or nq != _np_q or GuildUi.revision != _np_guild:     # campos, não meta (3 buscas por boneco por quadro)
 		_np_q = nq
+		_np_guild = GuildUi.revision
 		_np_plv = plv
 		_np_lv = entity.level
 		_np_ally = ally

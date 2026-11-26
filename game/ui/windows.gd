@@ -14,11 +14,11 @@ var _preview_model: Node3D = null       # prévia 3D da janela de personagem
 var _preview_yaw := 0.0
 var _preview_drag := 0.0
 
-const TITLES := {"inventory": "Bolsa", "character": "Personagem", "skills": "Teia de Skills", "quests": "Quests", "party": "Grupo", "book": "Skills", "bestiary": "Bestiário"}
+const TITLES := {"inventory": "Bolsa", "character": "Personagem", "skills": "Teia de Skills", "quests": "Quests", "party": "Grupo", "book": "Skills", "bestiary": "Bestiário", "guild": "Guilda"}
 ## Janela -> ação do InputMap que a abre (a tecla de agora sai de KeyBindings).
-const KEYS := {"inventory": "ui_inventory", "character": "ui_character", "skills": "ui_skills", "quests": "ui_quests", "party": "ui_party", "book": "ui_book"}
+const KEYS := {"inventory": "ui_inventory", "character": "ui_character", "skills": "ui_skills", "quests": "ui_quests", "party": "ui_party", "book": "ui_book", "guild": "ui_guild"}
 ## tamanho do conteúdo (a moldura soma título e bordas); base 1600×900
-const SIZES := {"inventory": Vector2(392, 470), "character": Vector2(566, 340), "skills": Vector2(1110, 720), "quests": Vector2(620, 600), "party": Vector2(430, 480), "book": Vector2(1010, 690), "bestiary": Vector2(520, 560)}
+const SIZES := {"inventory": Vector2(392, 470), "character": Vector2(566, 340), "skills": Vector2(1110, 720), "quests": Vector2(620, 600), "party": Vector2(430, 480), "book": Vector2(1010, 690), "bestiary": Vector2(520, 560), "guild": Vector2(580, 520)}
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -75,10 +75,17 @@ func toggle(name: String) -> void:
 	else:
 		if Sim.player and not UnlockSystem.window_open(Sim.player, name):
 			return                 # introdução: sistema ainda não liberado (a tecla não abre)
+		if name == "guild" and not GuildUi.available(Sim.player):
+			return                 # guilda: só a partir do nível dela ou com guilda/convite (GuildUi.available)
 		open_name = name
 		_picks_jump = true
 		_rebuild(name)
 		Sfx.ui("ui_open")
+
+## Redesenha a janela se estiver aberta (abas da Guilda, eventos do lado social).
+func refresh_window(name: String) -> void:
+	if wins.has(name):
+		_rebuild(name)
 
 func close(name: String) -> void:
 	if wins.has(name):
@@ -105,6 +112,7 @@ func _default_pos(name: String, size: Vector2) -> Vector2:
 		"character": return Vector2(28, top)
 		"quests": return Vector2(28, top)
 		"party": return Vector2(340, top)
+		"guild": return Vector2(340, top)
 		"inventory": return Vector2(vp.x - size.x - 28, vp.y - size.y - 230)
 	return ((vp - size) * 0.5).floor()
 
@@ -159,6 +167,7 @@ func _rebuild(name: String) -> void:
 		"party": _party(body)
 		"book": _book(body)
 		"bestiary": CardUi.bestiary(self, body)
+		"guild": GuildUi.build(self, body)
 	panel.reset_size()
 	if pos.x < 0:
 		pos = _pos.get(name, _default_pos(name, panel.size))

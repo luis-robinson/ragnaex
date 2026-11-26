@@ -2583,6 +2583,102 @@ func _ap_n(e: SimEntity, item_id: String) -> int:
 ## poção 1 para Z (InputMap, nome na barra/dicas), troca com a outra ação quando a tecla já é usada, teclas fixas recusadas,
 ## gravar só o que difere do padrão e ler de volta (arquivo próprio do teste, nunca o settings.cfg do jogador), restaurar,
 ## chat/janela aberta não deixa a tecla trocada agir, a aba Controles captura a próxima tecla.
+## Lado social na UI (GDD bots-com-memoria; contrato production/session-state/wave3-contract.md): janela O escondida
+## antes da guilda/nível, abas, convite chama guild_respond, etiqueta no nome, marca de socorro no minimapa.
+## Fonte falsa GuildFake (mesmos formatos do contrato). `--only=guild_ui`
+func _check_guild_ui(gd, sim) -> void:
+	var old_src: Object = GuildUi.src
+	var old_player: SimEntity = sim.player
+	var p := _unlock_player(gd, sim, "paladin", 1, true)
+	sim.player = p
+	GuildUi.src = RefCounted.new()            # sim sem o lado social: nada aparece
+	check(not GuildUi.available(p) and GuildUi.visible_tabs().size() == 1 and GuildUi.plate_for(p) == p.name, "guilda UI: sem a API a janela some e o nome fica limpo")
+	var fake := GuildFake.new()
+	GuildUi.src = fake
+	fake.offer = {"state": "none", "guild_id": "", "from": ""}
+	p.level = GuildUi.guild_level() - 1
+	var w = load("res://game/ui/windows.gd").new()
+	add_child(w)
+	w.toggle("guild")
+	check(not GuildUi.available(p) and not w.is_open("guild"), "guilda UI: janela O escondida antes do nível %d e sem guilda" % GuildUi.guild_level())
+	p.level = GuildUi.guild_level()
+	check(GuildUi.available(p), "guilda UI: janela aparece no nível da guilda")
+	p.level = 1
+	fake.offer["state"] = "pending"
+	check(GuildUi.available(p), "guilda UI: com convite pendente a janela aparece")
+	check(KeyBindings.ACTIONS.any(func(a): return a[0] == "ui_guild") and InputMap.has_action("ui_guild") and w.KEYS.get("guild") == "ui_guild", "guilda UI: ação ui_guild (O) na lista de teclas")
+	# abas: Membros, Conhecidos, Rival; Banco / Campo de Caça / Guerra só quando a sim tiver
+	var ids: Array = GuildUi.visible_tabs().map(func(t): return t[0])
+	check(ids == ["members", "known", "rival"], "guilda UI: abas Membros/Conhecidos/Rival (%s)" % [ids])
+	check(GuildUi.TABS.map(func(t): return t[0]).slice(3) == ["bank", "hunt", "war"], "guilda UI: vagas marcadas para Banco, Campo de Caça e Guerra")
+	for t in ["members", "known", "rival"]:
+		GuildUi.tab = t
+		GuildUi.selected_rid = 2
+		if w.is_open("guild"):
+			w.refresh_window("guild")
+		else:
+			w.toggle("guild")
+		var panel: Control = w.wins["guild"]["panel"] if w.wins.has("guild") else null
+		check(panel != null and panel.find_child("tab_" + t, true, false) != null and panel.find_child("tab_bank", true, false) == null, "guilda UI: janela abre na aba %s" % t)
+		if panel and t == "known":
+			check(panel.find_child("Memories", true, false) != null, "guilda UI: Conhecidos mostra as lembranças de quem foi escolhido")
+		if panel and t == "rival":
+			check(panel.find_child("RivalCard", true, false) != null, "guilda UI: aba Rival tem o card do rival")
+	# convite: Aceitar / Recusar chamam guild_respond
+	var gh := GuildHud.new()
+	add_child(gh)
+	gh.on_guild_invite("g_lanternas", "Rook")
+	var labels: Array = gh.invite_panel.find_children("*", "Label", true, false).map(func(l): return l.text) if gh.invite_panel else []
+	check(labels.has(GuildUi.invite_text("Lanternas de Aldara")) and GuildUi.invite_text("X") == "A guilda X te convidou", "guilda UI: caixa \"A guilda <nome> te convidou\"")
+	(gh.invite_panel.find_child("Refuse", true, false) as Button).pressed.emit()
+	check(fake.calls.back() == ["guild_respond", false] and gh.invite_panel == null, "guilda UI: Recusar chama guild_respond(false) e fecha")
+	fake.offer["state"] = "refused"
+	GuildUi.tab = "members"
+	GuildUi.found_name = "Ordem"
+	w.refresh_window("guild")
+	var fb: Button = w.wins["guild"]["panel"].find_child("FoundButton", true, false)
+	check(fb != null, "guilda UI: depois de recusar a janela oferece Fundar guilda")
+	if fb:
+		fb.pressed.emit()
+		check(fake.calls.back() == ["guild_found", "Ordem"], "guilda UI: Fundar chama guild_found(nome)")
+	gh.on_guild_invite("g_lanternas", "Rook")
+	(gh.invite_panel.find_child("Accept", true, false) as Button).pressed.emit()
+	check(fake.calls.back() == ["guild_respond", true] and GuildUi.in_guild(), "guilda UI: Aceitar chama guild_respond(true)")
+	# etiqueta no nome
+	check(GuildUi.plate_name("Rook", "LAN", false) == "[LAN] Rook" and GuildUi.plate_name("Sable", "LAN", true) == "[LAN] Sable " + GuildUi.RIVAL_MARK
+		and GuildUi.plate_name("Vey", "", false) == "Vey", "guilda UI: formato da etiqueta \"[LAN] Rook\" e marca do rival")
+	var b1: SimEntity = sim.spawn_bot(gd.classes["paladin"], "B1", "city_aldara", Vector3(8, 0, -6), 15)
+	var b2: SimEntity = sim.spawn_bot(gd.classes["berserker"], "B2", "city_aldara", Vector3(9, 0, -6), 15)
+	b1.brain = null
+	b2.brain = null
+	fake.bind_entities([b1, b2])
+	check(GuildUi.plate_for(b1) == "[LAN] Rook" and GuildUi.plate_for(p) == "[LAN] " + p.name and GuildUi.plate_for(b2).ends_with(GuildUi.RIVAL_MARK), "guilda UI: plaquinha do bot, do jogador e do rival (%s / %s)" % [GuildUi.plate_for(b1), GuildUi.plate_for(b2)])
+	# socorro: aviso de uma linha e marca no minimapa que entra e sai com o pedido
+	var q := fake.add_request(5, "Rook", p.map_id, p.position + Vector3(20, 0, 0))
+	fake.add_request(6, "Vey", "field_vale_far", Vector3.ZERO)
+	check(GuildUi.help_notice(q) == "Rook pede ajuda em " + GuildUi.map_name(p.map_id), "guilda UI: aviso \"Rook pede ajuda em <mapa>\"")
+	var mm := Minimap.new()
+	mm.refresh_help(GuildUi.help_requests(), p.map_id)
+	check(mm.help_marks.size() == 1 and mm.help_marks.has(5), "guilda UI: marca de socorro aparece só para o pedido do mapa")
+	fake.end_request(5)
+	mm.refresh_help(GuildUi.help_requests(), p.map_id)
+	check(mm.help_marks.is_empty(), "guilda UI: pedido atendido tira a marca")
+	mm.add_help(q)
+	check(mm.help_marks.size() == 1, "guilda UI: evento bot_help_request põe a marca na hora")
+	mm.drop_help(5)
+	check(mm.help_marks.is_empty(), "guilda UI: evento bot_help_ended tira a marca")
+	mm.free()
+	gh.free()
+	w.free()
+	sim.despawn(b1)
+	sim.despawn(b2)
+	sim.despawn(p)
+	sim.player = old_player
+	GuildUi.src = old_src
+	GuildUi.tab = "members"
+	GuildUi.found_name = ""
+	GuildUi.found_msg = ""
+
 func _check_key_bindings(_sim) -> void:
 	var old_path := KeyBindings.cfg_path
 	KeyBindings.cfg_path = "user://test_key_bindings.cfg"
@@ -3748,6 +3844,8 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_accessibility_settings(sim)
 	_reseed(sim, "_check_key_bindings")
 	_check_key_bindings(sim)
+	_reseed(sim, "_check_guild_ui")
+	_check_guild_ui(gd, sim)
 	_reseed(sim, "_check_auto_potion")
 	_check_auto_potion(gd, sim, save)
 	_reseed(sim, "_check_hunt_potions")
@@ -5203,6 +5301,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_bot_group(gd, sim)
 	_check_tank_pull(gd, sim)
 	_check_bot_leader(gd, sim)
+	_check_roster(gd, sim, save_ref)
 	_check_druid_attr_convert(gd)
 	_check_assassin_start_daggers(gd, sim)
 	_check_dash_nodes(gd, sim)
@@ -35131,3 +35230,285 @@ func _check_unlock_recommend(gd, sim) -> void:
 				var tp2: Array = ClassTalentSystem.recommend_picks(sim, e, bid)
 				check(not tp2.has(tp[0]) and tp2.size() == rows.size() - 1, "recomendado %s: não troca o talento que o jogador escolheu" % cid)
 		sim.despawn(e)
+
+## Bots com Memória (design/gdd/bots-com-memoria.md): elenco de 10 salvo, lembrança "salvou", rival ±1 em 2 h simuladas,
+## pedido de socorro (marca + prêmio), ritmo de fala do elenco em 30 min, guilda no 15 (recusar, fundar, aceitar),
+## afinidade negativa nunca recusa grupo, guildas de bots do mundo.
+func _check_roster(gd, sim, save) -> void:
+	var pl: SimEntity = sim.player
+	if pl.party_id >= 0:
+		sim.party_leave(pl)
+	var keep_lv: int = pl.level
+	var keep_pos: Vector3 = pl.position
+	var keep_gold: int = pl.gold
+	var keep_slot: int = save.slot
+	save.slot = TEST_SLOT
+	_roster_reset(sim, true)
+	pl.level = 10
+	sim.roster_start()
+	var want: String = Balance.RIVAL_CLASS[pl.class_def.id]
+	check(sim.roster.size() == Balance.ROSTER_SIZE, "roster: elenco de %d (%d)" % [Balance.ROSTER_SIZE, sim.roster.size()])
+	var rivals: Array = sim.roster.filter(func(r): return r["rival"])
+	check(rivals.size() == 1 and rivals[0]["class"] == want and int(rivals[0]["level"]) == pl.level + 1,
+		"roster: um rival só, classe da tabela (%s) e 1 nível acima" % want)
+	var names := {}
+	var bound := 0
+	for r in sim.roster:
+		names[r["name"]] = true
+		var e: SimEntity = RosterSystem.entity_of(sim, r)
+		if e and e.roster_id == r["rid"] and e.name == r["name"] and e.class_def.id == r["class"] and e.level == int(r["level"]):
+			bound += 1
+		check(r["personality"] in BotsCatalog.PERSONALITIES, "roster: personalidade válida (%s)" % r["personality"])
+	check(names.size() == sim.roster.size() and bound == sim.roster.size(), "roster: nomes únicos e cada um com o seu bot no mundo")
+	check(sim.rival_info().get("name", "") == rivals[0]["name"] and sim.roster_of(RosterSystem.entity_of(sim, rivals[0]).id).get("rival", false),
+		"roster: rival_info/roster_of leem o rival")
+	# --- salvou: curar abaixo de 25% cria a lembrança; acima não
+	var mem_ev: Array = []
+	var mem_l := func(rid: int, kind: String): mem_ev.append([rid, kind])
+	Events.roster_memory.connect(mem_l)
+	var friend: Dictionary = sim.roster.filter(func(r): return not r["rival"])[0]
+	var fe: SimEntity = RosterSystem.entity_of(sim, friend)
+	fe.hp = fe.stats.max_hp * 0.5
+	sim._heal(pl, fe, int(fe.stats.max_hp * 0.2))
+	check((friend["memories"] as Array).is_empty(), "roster: curar acima de 25% não é 'salvou'")
+	fe.hp = fe.stats.max_hp * 0.2
+	sim._heal(pl, fe, int(fe.stats.max_hp * 0.3))
+	check((friend["memories"] as Array).size() == 1 and friend["memories"][0]["kind"] == "salvou" and int(friend["affinity"]) == int(Balance.BOT_MEMORY_WEIGHT["salvou"]) \
+		and mem_ev.has([friend["rid"], "salvou"]), "roster: curar o bot do elenco abaixo de 25%% cria 'salvou' (+%d)" % Balance.BOT_MEMORY_WEIGHT["salvou"])
+	fe.hp = fe.stats.max_hp * 0.1
+	sim._heal(pl, fe, 10)
+	check((friend["memories"] as Array).size() == 1, "roster: 'salvou' tem recarga por bot")
+	for i in Balance.ROSTER_MEMORY_MAX + 3:
+		RosterSystem.remember(sim, friend, "grupo")
+	check((friend["memories"] as Array).size() == Balance.ROSTER_MEMORY_MAX and friend["memories"][0]["kind"] == "grupo" \
+		and int(friend["affinity"]) == mini(Balance.AFFINITY_MAX, Balance.ROSTER_MEMORY_MAX * int(Balance.BOT_MEMORY_WEIGHT["grupo"])),
+		"roster: no máx. %d lembranças (a mais velha sai) e afinidade = soma dos pesos" % Balance.ROSTER_MEMORY_MAX)
+	# --- save e carga mantêm nomes, níveis, personalidade, lembranças
+	save.save_player(pl)
+	var d: Dictionary = save.load_data(TEST_SLOT)
+	check(d.get("roster") is Dictionary and (d["roster"].get("bots", []) as Array).size() == Balance.ROSTER_SIZE and d.get("guild") is Dictionary,
+		"roster: save grava 'roster' e 'guild'")
+	var before := _roster_snap(sim)
+	_roster_reset(sim, true)
+	RosterSystem.from_save(sim, d)
+	sim.roster_start()
+	check(_roster_snap(sim) == before, "roster: carregar o save devolve nomes, classes, níveis, personalidades e lembranças")
+	check(sim.roster.all(func(r): return RosterSystem.entity_of(sim, r) != null), "roster: depois da carga cada um tem o seu bot de novo")
+	# --- save antigo (sem 'roster'): sorteia o elenco dos bots que estão no mundo, nomes mantidos
+	var alive_names := {}
+	for r in sim.roster:
+		alive_names[r["name"]] = true
+	_roster_reset(sim, false)
+	var old := d.duplicate()
+	old.erase("roster")
+	old.erase("guild")
+	RosterSystem.from_save(sim, old)
+	sim.roster_start()
+	var kept: int = sim.roster.filter(func(r): return alive_names.has(r["name"])).size()
+	check(sim.roster.size() == Balance.ROSTER_SIZE and kept == Balance.ROSTER_SIZE, "roster: save antigo sorteia o elenco dos bots de agora (%d/%d nomes mantidos)" % [kept, Balance.ROSTER_SIZE])
+	# --- afinidade negativa nunca recusa grupo (só fala seco)
+	var cold: Dictionary = sim.roster.filter(func(r): return not r["rival"])[1]
+	RosterSystem.remember(sim, cold, "abandonou")
+	RosterSystem.remember(sim, cold, "abandonou")
+	var ce: SimEntity = RosterSystem.entity_of(sim, cold)
+	var all_yes := true
+	for i in 20:
+		all_yes = all_yes and ce.brain.wants_party(ce, pl, sim)
+	check(int(cold["affinity"]) < 0 and all_yes, "roster: afinidade negativa (%d) nunca recusa o convite do jogador" % int(cold["affinity"]))
+	# --- pedido de socorro: marca (mapa, posição, prazo) e prêmio ao chegar
+	var helps: Array = []
+	var ends: Array = []
+	var h_l := func(req: Dictionary): helps.append(req)
+	var e_l := func(id: int, outcome: String): ends.append([id, outcome])
+	Events.bot_help_request.connect(h_l)
+	Events.bot_help_ended.connect(e_l)
+	var helper: Dictionary = sim.roster.filter(func(r): return not r["rival"])[2]
+	var he: SimEntity = RosterSystem.entity_of(sim, helper)
+	if he.map_id != pl.map_id:
+		sim._change_map(he, pl.map_id, pl.position + Vector3(30, 0, 0))
+	else:
+		he.position = pl.position + Vector3(30, 0, 0)
+	he.hp = he.stats.max_hp * 0.3
+	var req: Dictionary = RosterSystem.open_help(sim, int(helper["rid"]))
+	var open: Array = sim.help_requests()
+	check(not req.is_empty() and open.size() == 1 and open[0]["map"] == pl.map_id and (open[0]["pos"] as Vector3).distance_to(he.position) < 0.01 \
+		and open[0]["reason"] == "low_hp" and float(open[0]["left"]) > 0.0 and helps.size() == 1 and int(helps[0]["id"]) == int(req["id"]),
+		"roster: pedido de socorro tem marca (mapa, posição, motivo, prazo) e sinal")
+	var gold0: int = pl.gold
+	var pots0: int = pl.inventory.get(Balance.BOT_HELP_POTION, 0)
+	RosterSystem.update(sim, 1.0)
+	check(sim.help_requests().size() == 1, "roster: longe do bot o pedido segue aberto")
+	he.position = pl.position + Vector3(Balance.BOT_HELP_ARRIVE_RANGE * 0.5, 0, 0)
+	RosterSystem.update(sim, 1.0)
+	check(sim.help_requests().is_empty() and ends.has([int(req["id"]), "helped"]) and pl.gold == gold0 + Balance.BOT_HELP_GOLD_PER_LV * pl.level \
+		and int(pl.inventory.get(Balance.BOT_HELP_POTION, 0)) == pots0 + Balance.BOT_HELP_POTIONS and helper["memories"].back()["kind"] == "ajudou_pedido",
+		"roster: chegar ao bot dá ouro, poções e 'ajudou_pedido'")
+	var req2: Dictionary = RosterSystem.open_help(sim, int(helper["rid"]))
+	he.position = pl.position + Vector3(60, 0, 0)
+	sim.social["clock"] = float(sim.social["clock"]) + Balance.BOT_HELP_WINDOW + 1.0
+	RosterSystem.update(sim, 1.0)
+	check(sim.help_requests().is_empty() and ends.has([int(req2["id"]), "expired"]), "roster: pedido sem resposta expira (ignorar não tira nada)")
+	# --- ritmo de fala: 30 min simulados com o elenco tentando falar o tempo todo
+	sim.social["help"] = {}
+	sim.social["next_help"] = 1.0e12
+	var heard: Array = []
+	var chat_l := func(who: String, _t: String, _ch: String): heard.append(who)
+	Events.chat_message.connect(chat_l)
+	var rnames := {}
+	for r in sim.roster:
+		rnames[r["name"]] = true
+	for s in 1800:
+		for r in sim.roster:
+			var re: SimEntity = RosterSystem.entity_of(sim, r)
+			if re:
+				BotChat.ambient(sim, re)
+		if s % 60 == 0:
+			RosterSystem.celebrate(sim, "level", {"lv": "12"})
+		RosterSystem.tick(sim, 1.0)
+	Events.chat_message.disconnect(chat_l)
+	var per := {}
+	var total := 0
+	for who in heard:
+		if rnames.has(who):
+			total += 1
+			per[who] = int(per.get(who, 0)) + 1
+	var cap_all := int(1800.0 / Balance.ROSTER_CHAT_GAP) + 1
+	var cap_one := int(1800.0 / Balance.BOT_CAST_LINE_GAP) + 1
+	var worst := 0
+	for k in per:
+		worst = maxi(worst, int(per[k]))
+	check(total > 0 and total <= cap_all and worst <= cap_one, "roster: 30 min com o elenco forçando falas: %d falas (teto %d), no máx. %d por bot (teto %d)" % [total, cap_all, worst, cap_one])
+	sim.social["next_help"] = float(sim.social["clock"]) + 1.0e9
+	# --- guilda no 15: forma com os de maior afinidade, convite, recusa, fundar no NPC
+	var inv: Array = []
+	var inv_l := func(gid: String, from: String): inv.append([gid, from])
+	Events.guild_invite.connect(inv_l)
+	pl.level = Balance.GUILD_LEVEL - 1
+	RosterSystem.update(sim, 1.0)
+	check(sim.guild_offer()["state"] == "none" and inv.is_empty(), "roster: sem convite de guilda antes do %d" % Balance.GUILD_LEVEL)
+	pl.level = Balance.GUILD_LEVEL
+	RosterSystem.update(sim, 1.0)
+	var offer: Dictionary = sim.guild_offer()
+	var g: Dictionary = sim.guild_info(offer["guild_id"])
+	var top: Array = sim.roster.filter(func(r): return not r["rival"])
+	top.sort_custom(func(a, b): return int(a["affinity"]) > int(b["affinity"]) or (int(a["affinity"]) == int(b["affinity"]) and int(a["rid"]) < int(b["rid"])))
+	var n: int = (g.get("members", []) as Array).size()
+	check(offer["state"] == "pending" and inv.size() == 1 and n >= Balance.GUILD_SIZE_MIN and n <= Balance.GUILD_SIZE_MAX \
+		and g["name"] in BotsCatalog.GUILD_NAMES and g["tag"] != "" and not g["bot_guild"] and not g["player_member"],
+		"roster: no %d a guilda do elenco (%s, %d bots) nasce com nome dos bots e convida" % [Balance.GUILD_LEVEL, g.get("name", "?"), n])
+	var picked := (g["members"] as Array).map(func(m): return int(m["rid"]))
+	var tops := top.slice(0, n).map(func(r): return int(r["rid"]))
+	picked.sort()
+	tops.sort()
+	check(picked == tops and not picked.has(int(sim.rival_info()["rid"])), "roster: guilda = os %d de maior afinidade, sem o rival" % n)
+	sim.guild_respond(false)
+	check(sim.guild_offer()["state"] == "refused" and sim.player_guild().is_empty() and sim.guild_tag_of(pl.id) == "", "roster: recusar deixa o jogador sem guilda")
+	check(sim.guild_found_error("Ordem do Teste") != "", "roster: fundar longe do NPC de guilda é recusado")
+	var board: Dictionary = {}
+	for npc in sim.map_def(pl.map_id).npcs:
+		if str(npc.get("role", "")) in Balance.GUILD_NPC_ROLES:
+			board = npc
+			break
+	check(not board.is_empty(), "roster: a cidade do jogador tem NPC de guilda (%s)" % [Balance.GUILD_NPC_ROLES])
+	if not board.is_empty():
+		pl.position = board["pos"] + Vector3(1.0, 0, 0)
+		check(sim.guild_found_error("x") != "" and sim.guild_found_error(g["name"]) != "", "roster: nome curto ou repetido é recusado")
+		check(sim.guild_found_error("Ordem do Teste") == "" and sim.guild_found("Ordem do Teste") == "", "roster: quem recusou funda a guilda no NPC")
+		var mine: Dictionary = sim.player_guild()
+		var overlap: Array = (mine.get("members", []) as Array).filter(func(m): return picked.has(int(m["rid"])))
+		check(mine.get("name", "") == "Ordem do Teste" and mine["founded_by_player"] and mine["leader"] == pl.name and overlap.is_empty() \
+			and sim.guild_tag_of(pl.id) == GuildSystem.make_tag("Ordem do Teste"), "roster: guilda fundada tem o nome digitado, etiqueta e os bots livres")
+		sim.guild_leave()
+		check(sim.player_guild().is_empty() and sim.guild_found_error("Outra Guilda") == "", "roster: sair da guilda deixa fundar outra")
+	# aceitar: outra guilda do elenco, convite aceito, etiqueta no jogador e nos membros; membro com afinidade < 0 sai
+	for r in sim.roster:
+		r["guild"] = ""
+	for gid in sim.guilds.keys():
+		if not sim.guilds[gid]["bot_guild"]:
+			sim.guilds.erase(gid)
+	sim.social["offer"] = {"state": "none", "guild_id": "", "from": ""}
+	RosterSystem.update(sim, 1.0)
+	sim.guild_respond(true)
+	var pg: Dictionary = sim.player_guild()
+	var mate: Dictionary = RosterSystem.entry(sim, int(pg["members"][0]["rid"])) if not pg.is_empty() else {}
+	check(sim.guild_offer()["state"] == "accepted" and not pg.is_empty() and pg["player_member"] and sim.guild_tag_of(pl.id) == pg["tag"] \
+		and sim.guild_tag_of(RosterSystem.entity_of(sim, mate).id) == pg["tag"], "roster: aceitar o convite põe a etiqueta no jogador e nos membros")
+	for i in 8:
+		RosterSystem.remember(sim, mate, "abandonou")
+	check(int(mate["affinity"]) < 0 and mate["guild"] == "" and not (sim.player_guild()["members"] as Array).any(func(m): return int(m["rid"]) == int(mate["rid"])),
+		"roster: bot da guilda com afinidade < 0 sai")
+	Events.guild_invite.disconnect(inv_l)
+	# --- guildas de bots do mundo (GvG)
+	var bots_g: Array = sim.guild_list().filter(func(x): return x["bot_guild"])
+	check(bots_g.size() == Balance.BOT_GUILD_COUNT and bots_g.all(func(x): return (x["members"] as Array).size() >= Balance.BOT_GUILD_MEMBERS.x and x["tag"] != "" and x["personality"] != ""),
+		"roster: %d guildas de bots no mundo com membros, etiqueta e personalidade" % bots_g.size())
+	# --- rival: nunca a mais de 1 nível em 2 h simuladas (jogador sobe 1 nível a cada 4 min)
+	var rv: Dictionary = RosterSystem.rival_entry(sim)
+	var re2: SimEntity = RosterSystem.entity_of(sim, rv)
+	pl.level = 10
+	RosterSystem.update(sim, 1.0)
+	var far := 0
+	var ups := 0
+	var news: Array = []
+	var news_l := func(_rid: int, kind: String, _t: String): news.append(kind)
+	Events.rival_news.connect(news_l)
+	for s in 7200:
+		if s % 240 == 239 and pl.level < Balance.MAX_LEVEL:
+			pl.level += 1
+			ups += 1
+		RosterSystem.tick(sim, 1.0)
+		far = maxi(far, absi(re2.level - pl.level))
+	Events.rival_news.disconnect(news_l)
+	check(far <= 1 and ups >= 25 and news.has("level"), "roster: rival a no máx. %d nível do jogador em 2 h (%d níveis do jogador, %d notícias)" % [far, ups, news.size()])
+	# corrida de chefe: ganhar dá título e afinidade
+	var boss_id := ""
+	for mid in gd.monsters:
+		var md: MonsterDef = gd.monsters[mid]
+		if md.is_boss and not md.dummy and not md.decoy and md.elite_of == "":
+			boss_id = mid
+			break
+	check(sim.rival_challenge("slime") != "", "roster: corrida só contra chefe")
+	check(sim.rival_challenge(boss_id) == "" and sim.rival_info()["race"].get("boss", "") == boss_id, "roster: corrida de chefe começa (%s)" % boss_id)
+	var aff0: int = int(rv["affinity"])
+	var mob: SimEntity = sim.spawn_monster(gd.monsters[boss_id], pl.map_id, pl.position + Vector3(2, 0, 0))
+	if mob:
+		RosterSystem.on_kill(sim, mob, pl)
+		check(sim.player_titles().has(Balance.RIVAL_TITLE % rv["name"]) and int(rv["affinity"]) > aff0 and sim.rival_info()["race"].is_empty() \
+			and int(sim.rival_info()["wins"]) == 1, "roster: ganhar a corrida dá título e afinidade")
+		sim.despawn(mob)
+	sim.social["help"] = {}
+	sim.dev_social_demo(0)
+	check(sim.help_requests().size() == 1 and sim.help_requests()[0]["map"] == pl.map_id, "roster: dev_social_demo abre um pedido perto do jogador")
+	Events.roster_memory.disconnect(mem_l)
+	Events.bot_help_request.disconnect(h_l)
+	Events.bot_help_ended.disconnect(e_l)
+	_roster_reset(sim, true)
+	pl.level = keep_lv
+	pl.position = keep_pos
+	pl.gold = keep_gold
+	pl.recompute_stats()
+	save.delete_slot(TEST_SLOT)
+	save.slot = keep_slot
+
+## Desliga o elenco do teste; `despawn` = tira os bots do elenco do mundo.
+func _roster_reset(sim, despawn: bool) -> void:
+	for r in sim.roster:
+		var e: SimEntity = RosterSystem.entity_of(sim, r)
+		if e == null:
+			continue
+		if despawn:
+			sim.despawn(e)
+		else:
+			e.roster_id = -1
+	sim.roster.clear()
+	sim.guilds.clear()
+	sim.social.clear()
+	sim.roster_on = false
+
+func _roster_snap(sim) -> Array:
+	var out: Array = []
+	for r in sim.roster:
+		out.append([r["rid"], r["name"], r["class"], r["build"], int(r["level"]), r["personality"], r["rival"],
+			(r["memories"] as Array).map(func(m): return m["kind"])])
+	out.sort()
+	return out

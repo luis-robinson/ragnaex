@@ -34,6 +34,8 @@ var _north: Label
 var _marks: Dictionary = {}           # id do NPC -> marcador de quest
 var _services: Dictionary = {}        # id do NPC -> serviço (NpcServices): ícone em pé, fora da malha _dots
 var _marks_timer := 0.0
+var help_marks: Dictionary = {}       # id do pedido de socorro -> pedido (contrato 1.9), só os do mapa do jogador
+const C_HELP := Color(1.0, 0.42, 0.55)
 var hud: Node = null                  # dono da quest rastreada (hud.tracked_quest())
 var _guide: Dictionary = {}           # QuestSystem.guide_point da quest rastreada
 const C_GUIDE := Color(1.0, 0.85, 0.2)
@@ -167,6 +169,7 @@ func _mm_process(delta: float) -> void:
 				var sv := NpcServices.service_of(e.npc_data)
 				if sv != "":
 					_services[e.id] = sv
+		refresh_help(GuildUi.help_requests(), p.map_id)
 		var qid: String = hud.tracked_quest() if hud else ""
 		_guide = QuestSystem.guide_point(p, GameData.quests[qid]) if GameData.quests.has(qid) else {}
 	if big:                               # mapa inteiro, norte para cima, centrado no mapa
@@ -304,6 +307,7 @@ func _draw_dynamic_body() -> void:
 			continue
 		quest_marks.append([rel, mark])
 	_draw_services(d, origin, p)
+	_draw_help(d, origin)
 	for qm in quest_marks:
 		_draw_quest_mark(d, qm[0], qm[1])
 	_draw_guide(d, origin)
@@ -459,6 +463,43 @@ func _draw_services(d: Node2D, origin: Vector2, p: SimEntity) -> void:
 		var side_x := -s * 0.85 if _marks.get(id, "") != "" else 0.0     # com marca de quest: à esquerda dela
 		d.draw_set_transform(rel, -_holder.rotation)
 		d.draw_texture_rect(tex, Rect2(Vector2(side_x - s * 0.5, -s * 0.5), Vector2(s, s)), false)
+	d.draw_set_transform(Vector2.ZERO)
+
+## Pedidos de socorro abertos no mapa `map_id` (o pos segue o bot: relido a cada consulta).
+static func help_on_map(reqs: Array, map_id: String) -> Dictionary:
+	var out := {}
+	for q in reqs:
+		if str(q.get("state", "open")) == "open" and str(q.get("map", "")) == map_id:
+			out[int(q.get("id", -1))] = q
+	return out
+
+func refresh_help(reqs: Array, map_id: String) -> void:
+	help_marks = help_on_map(reqs, map_id)
+
+## Evento novo: entra na hora (sem esperar a consulta de 0,25 s).
+func add_help(req: Dictionary) -> void:
+	var p: SimEntity = Sim.player
+	if p and str(req.get("map", "")) == p.map_id:
+		help_marks[int(req.get("id", -1))] = req
+
+func drop_help(req_id: int) -> void:
+	help_marks.erase(req_id)
+
+## Marca de socorro: cruz rosa que pisca num anel; longe, fica na borda apontando o rumo.
+func _draw_help(d: Node2D, origin: Vector2) -> void:
+	var blink := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.012)
+	for id in help_marks:
+		var q: Dictionary = help_marks[id]
+		var pos: Vector3 = q.get("pos", Vector3.ZERO)
+		var rel := (Vector2(pos.x, pos.z) - origin) * zoom
+		if not big:
+			rel = rel.limit_length(side * 0.5 - 12.0)
+		d.draw_set_transform(rel, -_holder.rotation)
+		d.draw_circle(Vector2.ZERO, 7.5, Color(0.1, 0.03, 0.05, 0.75))
+		d.draw_arc(Vector2.ZERO, 8.0 + 4.0 * blink, 0.0, TAU, 24, Color(C_HELP, 0.95 - 0.7 * blink), 2.0, true)
+		var c := C_HELP.lerp(Color.WHITE, blink * 0.5)
+		d.draw_rect(Rect2(-1.6, -5.0, 3.2, 10.0), c)
+		d.draw_rect(Rect2(-5.0, -1.6, 10.0, 3.2), c)
 	d.draw_set_transform(Vector2.ZERO)
 
 func _draw_quest_mark(d: Node2D, rel: Vector2, mark: String) -> void:
